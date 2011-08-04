@@ -1,6 +1,6 @@
 # OLAM root directory.
 
-OLAM_ROOT=$(HOME)/olam
+OLAM_ROOT=..
 
 # Versions.
 
