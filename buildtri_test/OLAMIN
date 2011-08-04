@@ -1,0 +1,732 @@
+&OLAMIN
+
+ !--------------------------------------------------------------------------
+ ! Simulation title (64 chars)
+ !--------------------------------------------------------------------------
+
+   NL%EXPNME = 'OLAM test simulation'   
+
+ !--------------------------------------------------------------------------
+ ! Runtype: either MAKESFC, MAKEGRID, INITIAL, HISTORY, or PLOTONLY
+ !--------------------------------------------------------------------------
+
+ ! NL%RUNTYPE  = 'MAKESFC'
+ ! NL%RUNTYPE  = 'MAKEGRID'
+   NL%RUNTYPE  = 'INITIAL'
+ ! NL%RUNTYPE  = 'HISTORY'
+ ! NL%RUNTYPE  = 'PLOTONLY'
+ ! NL%RUNTYPE  = 'PARCOMBINE'
+
+ !--------------------------------------------------------------------------
+ ! Simulation ending time
+ !--------------------------------------------------------------------------
+
+   NL%TIMEUNIT = 'h'      ! Time units of TIMMAX: 's','m','h','d'
+   NL%TIMMAX   = 2.       ! Ending time of this model run
+ 
+ !--------------------------------------------------------------------------
+ ! Start of simulation or ISAN processing (when model time counter TIME8 = 0.)
+ !--------------------------------------------------------------------------
+
+   NL%ITIME1   = 0000     ! UTC
+   NL%IDATE1   = 1        ! Day
+   NL%IMONTH1  = 5        ! Month
+   NL%IYEAR1   = 1997     ! Year
+
+ !--------------------------------------------------------------------------
+ ! Grid specifications - Single-valued Parameters
+ !--------------------------------------------------------------------------
+
+   NL%MDOMAIN = 0        ! Model domain specification:
+                         !    0 = global spherical
+                         !    3 = 2D Cartesian channel with cyclic boundaries
+
+   NL%MESHTYPE = 1       ! Mesh type 1 = Delaunay (triangles)
+                         !           2 = Voronoi  (hexagons)
+
+   NL%NGRIDS  = 2        ! Number of grids to run
+
+   NL%NZP     = 53       ! Number of z grid points
+
+   NL%DTLONG  = 30.      ! Coarse grid long timestep
+
+   NL%DELTAX  = 1000.    ! Coarse grid horizontal spacing (used if MDOMAIN > 0)
+   NL%DELTAZ  = 100.     ! Vertical grid spacing at lowest level (if 0., use ZZ)
+   NL%DZRAT   = 1.05     ! Vertical grid stretch ratio (used if DELTAZ > 0.)
+   NL%DZMAX   = 2000.    ! Maximum delta Z (used only if DELTAZ > 0.)
+   NL%ZBASE   = 0.0      ! base Z level (used only if DELTAZ > 0.)
+
+   ! Vertical levels if DELTAZ = 0
+   NL%ZZ       = 0.0,
+     30.0,      60.0,      90.0,     120.0,     150.0,
+    180.0,     210.0,     240.0,     270.0,     300.0,
+    330.0,     360.0,     390.0,     420.0,     450.0,
+    480.0,     510.0,     540.0,     570.0,     600.0,
+    630.0,     660.0,     690.0,     720.0,     750.0,
+    780.0,     810.0,     840.0,     870.0,     900.0,
+    930.0,     960.0,     990.0,    1020.0,    1050.0, 
+   1080.0,    1110.0,    1140.0,    1170.0,    1200.0,
+   1230.0,    1260.0,    1290.0,    1320.0,    1350.0, 
+   1380.0,    1410.0,    1440.0,    1470.0,    1500.0,
+   1533.0,    1569.3,    1609.2,    1653.2,    1701.5,
+   1754.6,    1813.1,    1877.4,    1948.1,    2025.9,
+   2111.5,    2205.7,    2309.3
+
+   NL%NXP  = 20   ! Number of grid points spanning one side of any icosahedral 
+                  ! triangle when MDOMAIN = 0 or spanning X direction when 
+                  ! MDOMAIN = 3
+
+ !--------------------------------------------------------------------------
+ ! Grid refinement ("nested grid") definition
+ !--------------------------------------------------------------------------
+
+ ! One group of values must be provided for each "grid" number NG = 2:NGRIDS
+
+ ! NGRDLL(NG) = Number of geographic points that you use to define the extent
+ !              of grid NG
+ ! GRDRAD(NG) = Radius of influence for grid NG.  Any grid point closer than
+ !              this radius to any of the geographic points or to the line
+ !              segments that connect consecutive points in the sequence will
+ !              be included in the refined area.
+ ! GRDLAT(NG,:) = latitude/longitude of all geographic points in the
+ ! GRDLON(NG,:)   sequence for grid NG
+
+   ! Grid 2:
+   NL%NGRDLL(2)     =  2
+   NL%GRDRAD(2)     =  2000.e3
+   NL%GRDLAT(2,1:2) =  41.0,  36.0,
+   NL%GRDLON(2,1:2) = -83.0, -79.0,
+
+   ! Grid 3:
+   NL%NGRDLL(3)     =  1
+   NL%GRDRAD(3)     =  1500.e3
+   NL%GRDLAT(3,1:1) =  41.0,
+   NL%GRDLON(3,1:1) = -83.0,
+
+   ! Grid 4:
+   NL%NGRDLL(4)     =  1
+   NL%GRDRAD(4)     =  1000.e3
+   NL%GRDLAT(4,1:1) =  41.0,
+   NL%GRDLON(4,1:1) = -83.0,
+
+   ! Grid 5:
+   NL%NGRDLL(5)     =  1
+   NL%GRDRAD(5)     =  500.e3
+   NL%GRDLAT(5,1:1) =  41.0,
+   NL%GRDLON(5,1:1) = -83.0,
+
+ !--------------------------------------------------------------------------
+ ! Timestep ratios (One value for each Mesh Refinement Level (MRL))
+ !--------------------------------------------------------------------------
+
+   NL%NDTRAT   = 1,1,1,1,1       ! # long MRL timesteps per long MRL-1 timestep
+   NL%NACOUST  = 1,1,1,1,1       ! # acoustic timesteps per long timestep
+
+
+ !--------------------------------------------------------------------------
+ ! Variable initialization input
+ !--------------------------------------------------------------------------
+
+   NL%INITIAL  = 3   ! Initial fields:  1 = horizontally homogeneous
+                     !                  2 = 3D heterogeneous
+                     !                  3 = longitudinally homogeneous
+
+   ! input climate file:
+   NL%ZONCLIM  = '../etc/ZONAVG_CLIMATE'
+
+ !--------------------------------------------------------------------------
+ ! Nudging parameters (used only if initial=2)
+ !--------------------------------------------------------------------------
+
+   NL%NUDFLAG = 0        ! 4DDA nudging flag: 0 = no nudging
+                         !                    1 = nudge from isan files
+
+   NL%NUDNXP = 0         ! NXP value for defining nudging grid
+
+   NL%TNUDCENT = 21600.   ! 4DDA nudging time scale (s)
+
+ !--------------------------------------------------------------------------
+ ! Grid file path/name
+ !--------------------------------------------------------------------------
+
+   NL%GRIDFILE = 'sfcfiles/gridfile_1.h5'
+
+ !--------------------------------------------------------------------------
+ ! History file I/O
+ !--------------------------------------------------------------------------
+
+   NL%IOUTPUT   = 1             ! 0-no files, 1-write files
+
+   NL%HFILEPREF = 'hist/b'      ! History file output path/prefix
+   NL%ICLOBBER  = 1             ! 0 = stop if files exist, 1 = overwite files
+   NL%FRQSTATE  = 3600.         ! Time interval between history files
+
+   NL%HFILIN   = 'hist/b-H-2004-09-01-030000.h5'      ! History file intput
+
+ !--------------------------------------------------------------------------
+ ! Topography initialization
+ !--------------------------------------------------------------------------
+
+   NL%ITOPOFLG = 1    ! 1 = Read topo from standard TOPO_DATABASE file
+                      ! 2 = Define topo in subroutine topo_init
+
+   ! Surface topography database file path and name:
+   NL%TOPO_DATABASE = '/home/bob/olamdatah5/dem30s/TM'
+
+ !--------------------------------------------------------------------------
+ ! Model options / Numerical schemes
+ !--------------------------------------------------------------------------
+
+   NL%NADDSC    = 0       ! Number of additional scalar species
+
+   NL%ICORFLG   = 1       ! Coriolis flag/2D v-component: 0 = off, 1 = on
+
+   NL%DEBUG_FP  = .false. ! Detect floating point errors such as overflows,
+                          ! INFs, divide-by-zeros, and NANs (best if code is
+                          ! compiled with debug options too)
+
+   NL%INIT_NANS = .false. ! Initialize model variables to NANs to catch
+                          ! errors (useful if DEBUG_FP is set to .true.)
+
+ !--------------------------------------------------------------------------
+ ! Rayleigh friction parameters
+ !--------------------------------------------------------------------------
+
+   NL%RAYF_ZMIN   = 25000.  ! Damping for U, THIL - minimum height (m)
+   NL%RAYF_DISTIM = 0.0     ! Damping for U, THIL - model top disp time (s)
+   NL%RAYF_EXPON  = 1.0     ! Damping for U, THIL - exponent for profile
+   
+   NL%RAYFW_ZMIN   = 25000. ! Damping for W - minimum height (m)
+   NL%RAYFW_DISTIM = 0.0    ! Damping for W - model top disp time
+   NL%RAYFW_EXPON  = 1.0    ! Damping for W - exponent for profile
+
+ !--------------------------------------------------------------------------
+ ! Radiation parameters
+ !--------------------------------------------------------------------------
+ 
+   NL%ISWRTYP = 3   ! Shortwave radiation type:
+   NL%ILWRTYP = 3   ! Longwave  radiation type:
+                       !   0=none, 1=Chen, 2=Mahrer/Pielke, 3=Harrington
+   NL%RADFRQ  = 1800.  ! Time interval between radiation tendency updates (s)
+
+ !--------------------------------------------------------------------------
+ ! Cumulus parameterization parameters
+ !--------------------------------------------------------------------------
+  
+   NL%NQPARM = 2,2,2,2,2,2,2,2   ! Cumulus parameterization scheme for each MRL
+                                 ! 0=off, 1=Kuo, 2=Grell
+
+   NL%NQPARM_SH = 0,0,0,0,0,0,0,0  ! Shallow cumulus parameterization scheme 
+                                   ! for each MRL:  0=off, 1=Grell
+
+   NL%CONFRQ = 1200.   ! Time interval (s) between cumulus param updates
+
+   NL%WCLDBS = .002     ! Minimum vertical motion (m/s) needed at cloud base 
+                       ! to trigger convection in Kuo scheme
+ 
+ !--------------------------------------------------------------------------
+ ! Eddy diffusion coefficient parameters (one value for each MRL)
+ !--------------------------------------------------------------------------
+ 
+   NL%IDIFFK = 2,2,2,2,2          ! Turbulent parameterization scheme:
+                                  !  0 = off
+                                  !  2 = Smagorinsky-Lilly-Hill
+                                  !  7 = Taylor
+
+   NL%CSX    = .2,.2,.2,.2,.2     ! Horizontal length scale coefficient
+   NL%CSZ    = .2,.2,.2,.2,.2     ! Vertical length scale coefficient
+   NL%XKHKM  = 3.,3.,3.,3.,3.     ! Ratio of horiz K_h to K_m 
+   NL%ZKHKM  = 3.,3.,3.,3.,3.     ! Ratio of vert K_h to K_m
+   NL%AKMIN  = 0.,0.,0.,0.,0.     ! Ratio of minimum horizontal eddy
+                                  !  viscosity coefficient to typical value
+                                  !  from deformation K
+
+ !--------------------------------------------------------------------------
+ ! Microphysics
+ !--------------------------------------------------------------------------
+
+   NL%LEVEL   = 3  ! Moisture complexity level:
+                   !  0 = no moisture
+                   !  1 = vapor only
+                   !  2 = vapor and diagnosed cloud only
+                   !  3 = use bulk microphysics 
+ 
+                   ! Choices:
+                   !-----------!
+   NL%ICLOUD  = 4  ! 0,1,4,5,6,7 ! 0 = category off
+   NL%IDRIZ   = 4  ! 0,1,4,5,6,7 ! 1 for ICLOUD, IDRIZ = same as 4 but CPARM, 
+   NL%IRAIN   = 2  ! 0,1,2,5     !   DPARM are not used
+   NL%IPRIS   = 5  ! 0,5,6,7     ! 1 for IRAIN, ISNOW, IAGGR, IGRAUP, IHAIL 
+   NL%ISNOW   = 2  ! 0,1,2,5     !   = same as 2 but RPARM, SPARM, APARM, 
+   NL%IAGGR   = 2  ! 0,1,2,5     !     GPARM, HPARM not used
+   NL%IGRAUP  = 2  ! 0,1,2,5     ! 2 = diameter specified and concen diagnosed
+   NL%IHAIL   = 2  ! 0,1,2,5     ! 4 = concen specified and diameter diagnosed
+                                 ! 5,6,7 = concen prognosed and diameter diagnosed
+                           ! 5 = CCN, GCCN, IFN concen specified constant
+                           ! 6 = CCN, GCCN, IFN concen specified in vert profile
+                           ! 7 = CCN, GCCN, IFN prognosed (incomplete)
+                                
+   NL%ICCNLEV = 0,        ! CCN 0=no source or sink
+                          !     1=nucleation CCN sink, evaporation CCN source 
+
+   NL%CPARM   = 300.e6    ! Cloud concen (#/kg_air) if ICLOUD = 4,
+                          ! CCN concen (#/kg_air) if ICLOUD = 5
+
+   NL%DPARM   = 10.       ! Drizzle concen ([#/kg_air) if ICLOUD = 4,
+                          ! GCCN concen (#/kg_air) if ICLOUD = 5
+
+   NL%RPARM   = 1.0e-3    ! Rain droplet mean diameter (m) if IRAIN = 2
+   NL%PPARM   = 0.0       ! Not used
+   NL%SPARM   = 1.0e-3    ! Snow mean diameter (m) if ISNOW = 2
+   NL%APARM   = 1.0e-3    ! Aggregates mean diameter (m) if IAGGR = 2
+   NL%GPARM   = 1.0e-3    ! Graupel mean diameter (m) if IGRAUP = 2
+   NL%HPARM   = 3.0e-3    ! Hail mean diameter (m) if IHAIL = 2
+
+   NL%CNPARM  = .04e-6    ! Median radius of the CCN dist (m)
+   NL%GNPARM  = 3.0e-6    ! Median radius of the GCCN dist (m)
+
+ !--------------------------------------------------------------------------
+ ! Sounding specification
+ !--------------------------------------------------------------------------
+
+   NL%NSNDG   = 24      ! Number of sounding levels to be read below
+ 
+   NL%IPSFLG  = 1       ! Specifies what is in PS array:
+                        !    0 = pressure(mb) 
+                        !    1 = heights(m MSL)
+ 
+   NL%ITSFLG  = 0       ! Specifies what is in TS array:
+                        !    0 = temp(C)
+                        !    1 = temp(K)
+                        !    2 = pot. temp(K)
+
+   NL%IRTSFLG = 3       ! Specifies what is in RTS array:
+                        !    0 = dew pnt.(C)
+                        !    1 = dew pnt.(K) 
+                        !    2 = mix rat(g/kg) 
+                        !    3 = relative humidity in %
+                        !    4 = dew pnt depression(K)
+ 
+   NL%IUSFLG  = 0       ! Specifies what is in US and VS arrays:
+                        !    0 = u,v component(m/s) 
+                        !    1 = umoms-direction, vmoms-speed
+ 
+   NL%HS      = 0.0     ! Height (m MSL) of lowest sounding level
+                        ! Only used for IPSFLG=0 (if PS array is pressure)
+
+   NL%P_SFC   = 1010.0  ! Surface Pressure (mb)
+                        ! Only used for IPSFLG=1 (if PS array is height)
+
+ !--------------------------------------------------------------------------
+ ! Sounding:      PS      TS      RTS     US     VS
+ !--------------------------------------------------------------------------
+   NL%SOUNDING = 0.0,   25.0,   10.0,   0.0,   0.0,
+              1000.0,   16.0,   10.0,   0.0,   0.0,
+              2000.0,    7.0,   10.0,   0.0,   0.0,
+              3000.0,   -2.0,   10.0,   0.0,   0.0,
+              4000.0,  -11.0,   10.0,   0.0,   0.0,
+              5000.0,  -17.5,   10.0,   0.0,   0.0,
+              6000.0,  -24.0,   80.0,   0.0,   0.0,
+              7000.0,  -30.5,   50.0,   0.0,   0.0,
+              8000.0,  -37.0,   50.0,   0.0,   0.0,
+              9000.0,  -43.5,    5.0,   0.0,   0.0,
+             10000.0,  -50.0,    1.0,   0.0,   0.0,
+             11000.0,  -56.5,    1.0,   0.0,   0.0,
+             12000.0,  -56.5,    1.0,   0.0,   0.0,
+             14000.0,  -56.5,    1.0,   0.0,   0.0,
+             16000.0,  -56.5,    1.0,   0.0,   0.0,
+             18000.0,  -56.5,    1.0,   0.0,   0.0,
+             18500.0,  -56.5,    1.0,   0.0,   0.0,
+             20000.0,  -56.5,    1.0,   0.0,   0.0,
+             25000.0,  -56.5,    1.0,   0.0,   0.0,
+             30000.0,  -56.5,    1.0,   0.0,   0.0,
+             35000.0,  -56.5,    1.0,   0.0,   0.0,
+             40000.0,  -56.5,    1.0,   0.0,   0.0,
+             45000.0,  -56.5,    1.0,   0.0,   0.0,
+             50000.0,  -56.5,    1.0,   0.0,   0.0,
+
+ !--------------------------------------------------------------------------
+ !  Leaf Variables
+ !--------------------------------------------------------------------------
+
+   NL%ISFCL = 1   ! Main flag for LEAF3 surface model:
+                  !  0 = LEAF3 not used; surface drag coefficient and fluxes
+                  !      are set to zero in subroutine "noleaf" (where user 
+                  !      may modify them)
+                  !  1 = LEAF3 is used
+
+   NL%NZG = 21    ! Number of soil layers
+   NL%NZS = 1     ! Maximum number of snowcover layers
+
+ ! Depth (m) of bottom of soil model grid levels
+
+   NL%SLZ  = -5.00, -4.50, -4.00, -3.50, -3.00, -2.50, -2.00, -1.75, 
+             -1.50, -1.25, -1.00, -0.85, -0.70, -0.60, -0.50, -0.40, 
+             -0.30, -0.20, -0.15, -0.10, -0.05
+
+ ! Initial soil moisture (fraction of saturation)
+
+   NL%SLMSTR =  0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55,
+                0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 
+                0.55, 0.55, 0.55, 0.55, 0.55
+
+   NL%LANDUSEFILE = 'sfcfiles/landh'      ! path/prefix for landuse file. 
+   NL%SEAFILE     = 'sfcfiles/seah'       ! path/prefix for landuse file. 
+
+   NL%IVEGFLG    = 1   ! 2 = Use default value assigned in subroutine
+   NL%ISOILFLG   = 1   !     mksfc.f90
+   NL%NDVIFLG    = 1   ! 
+   NL%ISSTFLG    = 1   ! 1 = Read data from standard database file
+   NL%ISEAICEFLG = 1   !
+
+   NL%ISOILSTATEINIT = 0  ! 0 -- use slmstr
+                          ! 1 -- read from file
+
+   NL%ISOILDEPTHFLG  = 0 ! 0 -- use NZG, SLZ for each grid cell
+                         ! 1 -- read file to get soil depth for each grid cell
+
+ ! Surface database file paths and names
+
+   NL%VEG_DATABASE    = '/home/bob/olamdatah5/oge2/OGE2_'
+   NL%SOIL_DATABASE   = '/home/bob/olamdatah5/fao/FAO_'
+   NL%NDVI_DATABASE   = '/home/bob/olamdatah5/ndvi/NDVI'
+   NL%SST_DATABASE    = '/home/bob/olamdatah5/sst7100/SST'
+   NL%SEAICE_DATABASE = '/home/bob/olamdatah5/ice8100/ICE'
+   NL%SOILSTATE_DB    = './dp_etc/STW-'
+   NL%SOILDEPTH_DB    = '/home/bob/olamdatah5/SOIL_DEPTHS.h5'
+
+ ! Update flags for surface data
+
+   NL%IUPDNDVI   = 1  ! 0/1 = No/Yes update of NDVI values during run
+   NL%IUPDSST    = 1  ! 0/1 = No/Yes update of SST values during run
+   NL%IUPDSEAICE = 1  ! 0/1 = No/Yes update of SST values during run
+ 
+   NL%SEATMP   = 280.   ! Water surface temperature (K) if ISSTFLG = 2
+
+   NL%NVGCON   = 8      ! LEAF-3 class if IVEGFLG = 2 (choices listed below:)
+   
+   !  0  Ocean
+   !  1  Lakes, rivers, streams      ! 11  Tundra
+   !  2  Ice cap/glacier             ! 12  Evergreen shrub
+   !  3  Desert, bare soil           ! 13  Deciduous shrub
+   !  4  Evergreen needleleaf tree   ! 14  Mixed woodland
+   !  5  Deciduous needleleaf tree   ! 15  Crop/mixed farming, C3 grassland
+   !  6  Deciduous broadleaf tree    ! 16  Irrigated crop
+   !  7  Evergreen broadleaf tree    ! 17  Bog or marsh
+   !  8  Short grass                 ! 18  Wooded grassland 
+   !  9  Tall grass                  ! 19  Urban and built up
+   ! 10  Semi-desert                 ! 20  Wetland evergreen broadleaf tree
+
+   NL%NSLCON   = 4      ! Default soil type if ISOILFLG = 2 (choices below:)
+
+   !   1 -- sand             2 -- loamy sand      3 -- sandy loam
+   !   4 -- silt loam        5 -- loam            6 -- sandy clay loam
+   !   7 -- silty clay loam  8 -- clay loam       9 -- sandy clay
+   !  10 -- silty clay      11 -- clay           12 -- peat
+
+ !--------------------------------------------------------------------------
+ ! ED Model variables
+ !--------------------------------------------------------------------------
+
+ ! Specify the grid cells for which you want to run ED.  
+ !--------------------------------
+
+ ! You can pinpoint individual locations.
+   NL%N_SOI    =    0  ! number of sites of interest (SOIs).  This could be zero.
+   NL%SOI_LAT  =    -2.0,7.0  ! list of the latitudes of the SOIs (degrees north)
+   NL%SOI_LON  =   -60.0,31.0  ! list of the longitudes of the SOIs (degrees east)
+
+ ! You can also select rectangular regions
+   NL%N_ED_REGION   =  0  ! number of regions for which you want to run ED.  
+   NL%ED_REG_LATMIN  = -15.0, 10.0 ! list of minimum latitudes of the ED regions. 
+   NL%ED_REG_LATMAX  =  12.0, 20.0
+   NL%ED_REG_LONMIN  = -85.0, 50.0
+   NL%ED_REG_LONMAX  = -35.0, 60.0
+
+ ! Model options
+ ! ----------
+   NL%IED_INIT_MODE   = 2
+                         ! 0 signifies a start from near-bare ground.   
+                         ! 1 allows you to do a standard history restart.
+                         ! 2 allows you to do a history restart from ED1-type
+                         !   restart files.
+
+   NL%ISTOMA_SCHEME   = 1  ! This is the scheme used to compute stomatal 
+                         ! conductance and photosynthesis.  Set to 0 to do 
+                         ! the full, exact calculation each time.  Set to 1 
+                         ! to do the 'small perturbation' scheme.
+
+   NL%IPHEN_SCHEME    = 0  ! This specifies the phenology scheme.  0 is for the
+                         ! original ED scheme.  Other options coming soon.
+  
+   NL%N_PLANT_LIM     = 0  ! Determines whether (1) or not (0) plants can
+                         ! be limited by nitrogen
+
+   NL%N_DECOMP_LIM    = 0  ! Determines whether (1) or not (0) decomposition
+                         ! can be limited by nitrogen
+
+   NL%INCLUDE_FIRE    = 0  ! Determines whether (1) or not (0) simulation can have fires 
+
+   NL%IANTH_DISTURB   = 0  ! Flag specifying whether (1) or not (0) to include
+                         ! anthropogenic disturbances such as agriculture, 
+                         ! abandonment, and harvesting.
+
+ ! Commonly changed parameters
+ ! --------
+
+   NL%TREEFALL_DISTURBANCE_RATE  = 0.01  ! Treefall disturbance rate, 1/years
+
+   NL%RUNOFF_TIME     = 86400.0  ! In offline runs (and maybe online, too),
+                             ! the forest could get saturated and 
+                             ! develop a sfcwater pool of meters or 
+                             ! more.  In many cases, this is not realistic.
+                             ! This is the time scale in seconds for 
+                             ! this water to disappear.         
+
+ ! Offline model control
+ ! --------
+
+   NL%IED_OFFLINE     = 0  ! Run the ED model offline (1) or coupled to OLAM (0)
+
+   NL%METCYC1         = 1997 ! For an offline run, first year of met data
+
+   NL%METCYC2         = 1997 ! For an offline run, last year of met data
+
+ ! Model database files
+ ! --------
+
+ !   NL%ED_HFILIN = '/cluster/home/dmm31/output/4deg/ed/r2/r2-1997-01-29-000000-ED-RESTART.dat'
+   NL%ED_HFILIN = '/cluster/home/dmm31/ed_inputs/amazon_restart/lu.sa.05.restart.01.'
+
+   NL%ED_INPUTS_DIR   = '/cluster/home/dmm31/grandcombin/data/ed_inputs/'  
+                   ! Directory where chd, dgd, etc. data is kept.
+
+   NL%ED_OFFLINE_DB   = './ED_OFFLINE_HEADER' ! File containing information for an offline run
+
+ !--------------------------------------------------------------------------
+ ! Isentropic control 
+ !--------------------------------------------------------------------------
+ 
+ !  Input data file directories/prefixes
+
+   NL%ISDIRS  = 1     ! Number of directory and file prefixes listed in
+                      ! iapr (limit of maxisdirs directory/file prefixes)
+
+   NL%IAPR    = './dp_etc/dp-p',
+
+ !--------------------------------------------------------------------------
+ ! Plotting parameters
+ !--------------------------------------------------------------------------
+
+  NL%NPLT       = 3   ! Number of fields plotted at each time 
+                      ! (limit of maxnplt fields in max_dims.f90)
+
+  NL%NPLT_FILES = 1   ! Number of history files to plot from for
+                      ! RUNTYPE = 'PLOTONLY'. (limit of maxpltfiles defined
+                      ! in max_dims.f90)
+
+  NL%FRQPLT =  3600.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
+                            
+  NL%DTVEC = 1200.    ! Scaling time (seconds) for plotted velocity vectors
+
+  NL%HEADSPEED = 3.   ! Scaling speed for arrow head length in plotted
+                      ! velocity vectors
+
+  NL%STEMLENGTH = 3.e3 ! Geographic distance (m) of windbarb stem for size scaling
+
+  NL%VEC_MAXMRL = 6   ! The maximum mesh refinement level when plotting 
+                      ! velocity vectors with the "V" pltspec
+
+  NL%PLTTYPE = 0      ! 0 = NCAR graphics meta file
+                      ! 1 = postscript file
+                      ! 2 = pdf file (requires ncar graphics 4.4.0 or later)
+                      ! Postscript and pdf output best for plotonly run
+
+  NL%PLTNAME = 'gmeta'   ! Note: .ps or .pdf will be appended to pltname 
+                         ! for postscript or pdf output
+
+  NL%PLTORIENT = 0    ! 0 = portrait,  1 = landscape
+                      ! (only for postscript or pdf output)
+
+ !------------------------------------------------------------------------
+ ! List of history files to plot from for RUNTYPE = 'PLOTONLY'
+ !------------------------------------------------------------------------
+
+  NL%PLT_FILES = './hist/a-H-1996-07-31-000000.h5',
+
+ !-------------------------------------------------------------------------
+ ! Plotting Specifications
+ ! (limit of maxnplt fields set in max_dims.f90)
+ !-------------------------------------------------------------------------
+  NL%PLOTSPECS =
+ !-------------------------------------------------------------------------------
+ !        PROJECTN:              PLTSPEC2:
+ !-------------------------------------------------------------------------------
+ !  L = Lat/lon cylindrical     T,F,L,O = Tiles, Fillcnt, Linecnt, Overlay L on F
+ !  P = Polar stereographic     P       = Print value
+ !  O = Orthographic            I,J     = local Index, all indices
+ !  Z = Horizontal cartesian    B,U,V,v = Barb, U-normvec, V-normvec, v(totvec)
+ !  C = Cone                    G       = Grid cells
+ !  V = Vertical plane          g       = land/sea grid cells
+ !                              D       = Dual grid cells
+ !          |                   b,t     = grid border, border + ticks + labels
+ !          |                   n,i     = field name, field name + info block
+ !          |                   c       = colorbar
+ !          |                   M,m     = Map filled, map lined
+ !           \                  C       = Cone circle plotted
+ !            \                 p,s     = plot on const p sfc, plot near-sfc value
+ !             \                W       = Window dimensions as specified
+ !              \               e       = flag indicating "external" field
+ !               \              f       = frameoff (no frame call)
+ !                \             1,2,3,4 = panel number in frame window
+ !                 \            N       = No extras
+ !                  \           |                                      
+ !                   |          |                                      view azim
+ !                   |          |      plot center   coneang,  window   for 'C'
+ !                   |  color   |        lon/lat      height,  width     or 'V'
+ !FLDNAME            |  table   |        or x/y      or p-lev   (m)     projectn
+ !-------------------------------------------------------------------------------
+'TOPM'             ,'O' ,29 ,'GFmPJcitW'   ,-84.,40.     ,100.   ,2000.e3      ,0.
+'GLATW'            ,'O' ,12 ,'FGmPIticW'    ,-84.,40.   ,100.     ,2000.e3     ,0.
+'GLONW'            ,'O' ,12 ,'FGmPIticW'    ,-84.,40.   ,100.     ,2000.e3     ,0.
+'TOPM'             ,'O' ,29 ,'G'      ,0.,90.     ,100.   ,12000.e3      ,0.
+'TOPM'             ,'O' ,29 ,'GJ'      ,0.,90.     ,100.   ,12000.e3      ,0.
+'W_IRANK'          ,'O' ,77 ,'Tmcit'  ,0.,0.     ,100.   ,3000.e3      ,0.
+'W_IRANK'          ,'O' ,77 ,'TGmcit'  ,0.,-15.     ,100.   ,3000.e3      ,0.
+'W_IRANK'          ,'O' ,77 ,'TPmcit'  ,-75.,-15.     ,100.   ,3000.e3      ,0.
+'W_IRANK'          ,'O' ,77 ,'TPGmcit'  ,-75.,-15.     ,100.   ,3000.e3      ,0.
+'TOPM'             ,'O' ,29 ,'TPGJmcitW'  ,-75.,-15.     ,100.   ,8000.e3      ,0.
+'LEAF_CLASS'       ,'O' ,14 ,'TPGImcitW'  ,-75.,-15.     ,100.   ,8000.e3      ,0.
+'LEAF_CLASS'       ,'O' ,14 ,'TPGImcitW'  ,-75.,-15.     ,100.   ,3000.e3      ,0.
+'SFC_TEMPC'        ,'O' ,52 ,'TPGImcitW'  ,-75.,-15.     ,3000.  ,3000.e3      ,0.
+'CAN_TEMPC'        ,'O' ,17 ,'TPGImcitW'  ,-75.,-15.     ,30.    ,3000.e3      ,0.
+'AIRTEMPC'         ,'O' ,17 ,'TPGImcitsW' ,-75.,-15.     ,30.    ,3000.e3      ,0.
+'FCELL_ILSF'       ,'O' ,77 ,'TPGImcitW'  ,-75.,-15.     ,30.    ,3000.e3      ,0.
+'FCELL_IWLS'       ,'O' ,77 ,'TPGImcitW'  ,-75.,-15.     ,30.    ,3000.e3      ,0.
+'FCELL_IW'         ,'O' ,77 ,'TPGgImcitW' ,-75.,-15.     ,30.    ,3000.e3      ,0.
+'FCELL_KW'         ,'O' ,77 ,'TPGImcitW'  ,-75.,-15.     ,30.    ,3000.e3      ,0.
+
+/ 
+ ! End of OLAMIN namelist
+ ! Some example plotting specifications that you may use:
+
+
+'W_IRANK'          ,'O' ,77 ,'Tmcit'  ,175.,-15.     ,100.   ,3000.e3      ,0.
+'W_IRANK'          ,'O' ,77 ,'Tmcit'  ,55.,-15.     ,100.   ,3000.e3      ,0.
+'W_IRANK'          ,'O' ,77 ,'Tmcit'  ,-65.,90.     ,100.   ,3000.e3      ,0.
+'FCELL_AREA'       ,'O' ,24 ,'TPGImcitW'  ,-98.,20.     ,30.    ,3000.e3      ,0.
+'FCELL_ARFATM'     ,'O' ,10 ,'TPGImcitW'  ,-98.,20.     ,30.    ,3000.e3      ,0.
+'FCELL_ARFLS'      ,'O' ,10 ,'TPGImcitW'  ,-98.,20.     ,30.    ,3000.e3      ,0.
+'FCELL_SENS'       ,'O' ,8  ,'TPGImcitW'  ,-98.,20.     ,30.    ,3000.e3      ,0.
+'FCELL_LAT'        ,'O' ,8  ,'TPGImcitW'  ,-98.,20.     ,30.    ,3000.e3      ,0.
+'FCELL_AIRTEMPC'   ,'O' ,17 ,'TPGImcitW'  ,-98.,20.     ,30.    ,3000.e3      ,0.
+'UC'               ,'O' ,16 ,'TPGImcitsW' ,-98.,20.     ,30.    ,3000.e3      ,0.
+'ZONAL_WINDU'      ,'O' ,16 ,'TPGImcitsW' ,-98.,20.     ,30.    ,3000.e3      ,0.
+'RSHORT_DIFFUSE_LS','O' ,8  ,'TPGImcitW'  ,35.,20.     ,30.    ,4000.e3      ,0.
+
+'TOPM'             ,'O' ,29 ,'TPGcitJm'  , 90.,0.     ,100.   ,500.e3       ,0.
+'LEAF_CLASS'       ,'O' ,14 ,'TIPGmcit'  , 90.,0.     ,100.   ,500.e3       ,0.
+'SFC_TEMPC'        ,'O' ,52 ,'TmcitIPG'  , 90.,0.     ,3000.  ,2000.e3      ,0.
+'AIRTEMPC'         ,'O' ,17 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
+'AIRTEMPC'         ,'O' ,17 ,'TmcistIPG' , 90.,0.     ,30.    ,2000.e3      ,0.
+'FCELL_ILSF'       ,'O' ,77 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
+'FCELL_IWLS'       ,'O' ,77 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
+'FCELL_IW'         ,'O' ,77 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
+'FCELL_KW'         ,'O' ,77 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
+'FCELL_AREA'       ,'O' ,24 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
+'FCELL_ARFATM'     ,'O' ,10 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
+'FCELL_ARFLS'      ,'O' ,10 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
+'FCELL_AIRTEMPC'   ,'O' ,17 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
+'CAN_TEMPC'        ,'O' ,17 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
+'ZONAL_WINDU'      ,'O' ,16 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
+
+'SH_V'           ,'O' ,6 ,'TmcitIPG'  ,-90.,0.     ,3000.   ,2000.e3      ,0.
+'SH_V'           ,'O' ,6 ,'TmcitIPG'  ,90.,0.     ,3000.   ,2000.e3      ,0.
+'SFC_TEMPC'      ,'O' ,52 ,'TmcitIPG'  ,90.,0.     ,3000.   ,2000.e3      ,0.
+'AIRTEMPC'       ,'O' ,17 ,'TmcitIPG'  ,90.,90.     ,3000.   ,2000.e3      ,0.
+'SH_V'           ,'O' ,6 ,'TmcitIPG'  ,-90.,90.     ,3000.   ,2000.e3      ,0.
+'SH_V'           ,'O' ,6 ,'TmcitIPG'  ,90.,90.     ,3000.   ,2000.e3      ,0.
+'SFC_TEMPC'      ,'O' ,52 ,'TmcitIPG'  ,-90.,90.     ,3000.   ,2000.e3      ,0.
+'SFC_TEMPC'      ,'O' ,52 ,'TmcitIPG'  ,90.,90.     ,3000.   ,2000.e3      ,0.
+'AIRTEMPC'       ,'O' ,17 ,'TmcitIPG'  ,-90.,-90.     ,3000.   ,2000.e3      ,0.
+'AIRTEMPC'       ,'O' ,17 ,'TmcitIPG'  ,90.,-90.     ,3000.   ,2000.e3      ,0.
+'SH_V'           ,'O' ,6 ,'TmcitIPG'  ,-90.,-90.     ,3000.   ,2000.e3      ,0.
+'SH_V'           ,'O' ,6 ,'TmcitIPG'  ,90.,-90.     ,3000.   ,2000.e3      ,0.
+'SFC_TEMPC'      ,'O' ,52 ,'TmcitIPG'  ,-90.,-90.     ,3000.   ,2000.e3      ,0.
+'SFC_TEMPC'      ,'O' ,52 ,'TmcitIPG'  ,90.,-90.     ,3000.   ,2000.e3      ,0.
+'SH_V'           ,'C' ,6 ,'TmcitGP'  ,-36.0,83.3     ,90.   ,2000.e3      ,0.
+'SH_V'           ,'C' ,6 ,'TmcitiIP'  ,167.07,-86.36     ,90.   ,2000.e3      ,0.
+'SOIL_TEMPC'     ,'O' ,52 ,'TmcitIPG'  ,90.,-90.     ,11.   ,2000.e3      ,0.
+'SOIL_TEMPC'     ,'O' ,52 ,'TmcitIPG'  ,90.,90.     ,11.   ,2000.e3      ,0.
+'SFC_TEMPC'      ,'O' ,52 ,'TmcitI'     ,167.,60.     ,1500.   ,2000.e3      ,0.
+'THETA'          ,'O' ,45 ,'Tmcit'     ,167.,-60.     ,1500.   ,2000.e3      ,0.
+'UC'             ,'O' ,6 ,'Tmcit'      ,167.,-60.     ,1500.   ,2000.e3      ,0.
+'THIL'           ,'O' ,45 ,'TPGmcitI'  ,100.,0.     ,100.   ,2000.e3      ,0.
+'UC'             ,'O' ,6  ,'TPGmcitI'  ,100.,0.  ,   100.   ,2000.e3       ,0.
+'PRESS'          ,'O' ,41 ,'TPGmcitI'  ,100.,0.     ,100.   ,2000.e3      ,0.
+'TOPM'           ,'O' ,29 ,'TPGcitJm'  ,100.,0.   , 100.    ,500.e3      ,0.
+'IMGLOBE'        ,'O' ,77 ,'TPGmcitJ'  ,100.,0.     ,100.   ,2000.e3      ,0.
+'IUGLOBE'        ,'O' ,77 ,'TPGmcitJ'  ,100.,0.     ,100.   ,2000.e3      ,0.
+'IWGLOBE'        ,'O' ,77 ,'TPGmcitJ'  ,100.,0.     ,100.   ,2000.e3      ,0.
+'TOTPRR'         ,'O' ,20 ,'TmcitIPG'  ,0.,0.     ,3000.   ,2000.e3      ,0.
+'SPEED'          ,'O' ,6  ,'FGmcit'  ,-77.,34.     ,100.   ,2000.e3      ,0.
+'U_IRANK'        ,'O' ,77 ,'TPGmcitJ'  ,100.,0.     ,100.   ,2000.e3      ,0.
+'W_IRANK'        ,'O' ,77 ,'TPGmcitJ'  ,100.,0.     ,100.   ,2000.e3      ,0.
+'LEAF_CLASS'     ,'O' ,14 ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'SOIL_TEXT'      ,'O' ,14 ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'SENSFLUX'       ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'SENSFLUX_LS'    ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'LATFLUX'        ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'LATFLUX_LS'     ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'RSHORT'         ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'RSHORT_L'       ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'RLONG'          ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'RLONG_L'        ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'RLONGUP'        ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'RLONGUP_L'      ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'ALBEDT'         ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'ALBEDO_L'       ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
+'SFC_TEMPC       ,'O' ,52 ,'TIPGmcit' ,-77.,34.   ,100.     ,2000.e3     ,0.
+'SH_W'           ,'O' ,6  ,'FIGmcit'  ,-77.,34.   ,90.     ,2000.e3      ,0.
+'SH_V'           ,'O' ,6  ,'FGmcit'  ,-77.,30.   ,90.     ,2000.e3      ,0.
+'PRESS'          ,'C' ,11 ,'OGmcitW'  ,-77.,0.    ,90.    ,20000.e3     ,90.
+'THETA'          ,'C' ,1  ,'OGmcitW'  ,-77.,0.    ,90.    ,20000.e3     ,90.
+'SH_W'           ,'C' ,6  ,'OGmcitW'  ,-77.,0.    ,90.    ,20000.e3     ,90.
+'SH_V'           ,'C' ,6  ,'OGmcitW'  ,-77.,0.    ,90.    ,20000.e3     ,90.
+'PRESS'          ,'O' ,41 ,'TGmcitP'   ,-77.,30.   ,100.     ,2000.e3     ,0.
+'GLATW'          ,'O' ,12 ,'OFGmticf2'       ,-77.,30.   ,100.     ,2000.e3     ,0.
+'GLONW'          ,'O' ,12 ,'OFGmticf3'       ,-77.,30.   ,100.     ,2000.e3     ,0.
+'THETA'          ,'O' ,19 ,'OGmtic4'    ,-77.,30.   ,100.     ,2000.e3     ,0.
+'THETA'          ,'O' ,19 ,'FGtic'    ,-77.,30.   ,100.     ,2000.e3     ,0.
+'IWP'            ,'O' ,77 ,'TJGtic'    ,-77.,30.   ,100.     ,2000.e3     ,0.
+'SH_W'           ,'C' ,6  ,'FGticW'     ,-77.,30.   ,90.     ,2000.e3         ,0.
+'WC'             ,'C' ,51 ,'FGtic'        ,-77.,30.   ,90.     ,60.         ,0.
+'CONPRR'         ,'O' ,20 ,'FGtic'     ,-77.,30.   ,100.     ,2000.e3     ,0.
+'ACONPR'         ,'O' ,20 ,'FGtic'     ,-77.,30.   ,200.     ,2000.e3     ,0.
+'THETA'          ,'O' ,19 ,'TJPGWtnm'  ,-51.,30.  ,3300.     ,2000.e3     ,0.
+'W_INUD'         ,'O' ,6  ,'TGm'      ,-51.,30.   ,7000.   ,8000.e3     ,0.
+'WC'             ,'O' ,51 ,'FGticmJ'     ,-77.,30.   ,7000.   ,2000.e3     ,0.
+'UC'             ,'V' ,6  ,'TPGW'   , -20.e3,0.  ,   0.      ,120.e3    ,0.
+'ARW'            ,'Z' ,24 ,'TJPGW'   , -20.e3,0.   ,  370.      ,120.e3      ,0.
+'ARU'            ,'Z' ,24 ,'TJPGW'   , -20.e3,0.   ,  370.      ,120.e3      ,0.
+'VOLT'           ,'V' ,24 ,'TPGW'   , -20.e3,0.   ,   0.      ,120.e3      ,0.
+'WMC'            ,'V' ,49 ,'TPGW'   , -20.e3,0.  ,   0.      ,120.e3    ,0.
+'UMC'            ,'V' ,6  ,'TPGW'   , -20.e3,0.  ,   0.      ,120.e3    ,0.
+'RHO'            ,'V' ,10 ,'TPGW'   , -20.e3,0.  ,   0.      ,120.e3    ,0.
+'PRESS_P'        ,'V' ,26 ,'F'      ,0.,0.  ,   0.       ,2500.e3    ,0.
+'RHO_P'          ,'V' ,58 ,'F'      ,0.,0.  ,   0.       ,2500.e3    ,0.
+'0THETA_P'       ,'V' ,26 ,'F'      ,0.,0.  ,   0.       ,2500.e3    ,0.
+'WMT'            ,'C' ,22 ,'F'    ,-167.,0.01 ,90.     ,40          ,90.
+'UMT'            ,'O' ,22 ,'TV' ,-77.,0.   ,300.   ,4000.e3     ,0.
+'VMX'            ,'O' ,36 ,'FVGmJW' ,-77.,0.    ,300.   ,4000.e3     ,0.
+'VMY'            ,'O' ,36 ,'FVGmJW' ,-77.,0.    ,300.   ,4000.e3     ,0.
+'SH_TOTCOND'     ,'O' ,47 ,'FGm'    ,-77.,27.   ,7000.    ,2500.e3     ,0.
+'RSHORT'         ,'O' ,8  ,'FGm'    ,-77.,27.   , 300.    ,2500.e3     ,0.
+'RLONG'          ,'O' ,8  ,'FGm'    ,-77.,27.   , 300.    ,2500.e3     ,0.
+'RLONGUP'        ,'O' ,8  ,'FGm'    ,-77.,27.   , 300.    ,2500.e3     ,0.
+'TOPM'           ,'O' ,29 ,'TGm'    ,-73.,34.   , 100.    ,500.e3      ,0.
+'LEAF_CLASS'     ,'O' ,14 ,'TGm'    ,-73.,34.   , 100.    ,500.e3      ,0.
+'SOIL_TEXT'      ,'O' ,14 ,'TGm'    ,-73.,34.   , 100.    ,500.e3      ,0.
+'VEG_NDVIC'      ,'O' ,9  ,'TGm'    ,-73.,34.   , 100.    ,500.e3      ,0.
+'SEATC'          ,'O' ,2  ,'TGm'    ,-73.,34.   , 100.    ,500.e3      ,0.
+'DNU'            ,'O' ,50 ,'TPJUGm' ,-73.,34.   ,2000.    ,500.e3      ,0.
