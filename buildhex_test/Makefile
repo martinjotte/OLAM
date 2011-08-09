@@ -56,6 +56,9 @@ objects/Make.depend: $(SOURCE_FILES) sources.mk
 	rm -f objects/Make.depend.old
 	@echo "Copying source code to objects directory for compilation"
 	@cp -p $(SOURCE_FILES) objects/
+	@echo "Linking HDF5 fortran module to objects"
+	@rm -f objects/hdf5.mod
+	@ln -s $(HDF5_MOD) objects/hdf5.mod
 
 $(EXE): $(OBJECT_FILES)
 	@echo ""

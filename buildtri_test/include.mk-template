@@ -36,39 +36,42 @@
 
 
 #-----------------  LINUX Intel Fortran ifort/gcc ---------------
-F_COMP=ifort
+F_COMP=mpif90
 
 # If using MPI libraries:
 #MPI_PATH=/usr/local/mpich
 #PAR_INCS=-I$(MPI_PATH)/include
 #PAR_LIBS=-L$(MPI_PATH)/lib -lmpich -lpmpich
-#OLAM_MPI=yes
+OLAM_MPI=yes
 
 # OPTIMIZED:
-F_OPTS=-xHost -O3 -fno-alias -ip -traceback
+#F_OPTS=-xHost -O3 -fno-alias -ip -traceback
+#F_OPTS=-g -traceback
 
 # DEBUG:
-#F_OPTS=-g -fp-model precise -check bounds -traceback \
-#        -debug extended -check uninit -ftrapuv
+F_OPTS=-g -fp-model precise -check bounds -traceback \
+        -debug extended -check uninit -ftrapuv
 
 C_COMP=gcc
-C_OPTS=-O3 -DUNDERSCORE -DLITTLE
+C_OPTS=-DUNDERSCORE -DLITTLE
 
-NCARG_DIR=/usr/local/ncarg/lib
+NCARG_DIR=/opt/ncl/lib
 LIBNCARG=-L$(NCARG_DIR) -lncarg -lncarg_gks -lncarg_c \
-          -L/usr/X11/lib64 -lX11 -ldl -lpthread
+          -L/sw/lib/gcc4.6/lib -L/usr/X11/lib -lX11 -ldl -lpthread -lgfortran
 
-HDF5_LIBS=-L/usr/local/lib64 -lhdf5 -lz -lm
-HDF5_INCS=-I/usr/local/include
+HDF5_LIBS=-L/Users/pedropl/work/hdf5-O0/lib -lhdf5_fortran -lhdf5 -lz -lm
+HDF5_INCS=-I/Users/pedropl/work/hdf5-O0/include
+# full path and filename of hdf5.mod
+HDF5_MOD=/Users/pedropl/work/hdf5-O0/include/hdf5.mod
 
-NETCDF_LIBS=-L/usr/local/lib64 -lnetcdf
-NETCDF_INCS=-I/usr/local/include
+NETCDF_LIBS=-L/sw/lib -lnetcdf
+NETCDF_INCS=-I/sw/include
 
 LOADER=$(F_COMP)
-LOADER_OPTS=-static-intel $(F_OPTS)
+#LOADER_OPTS=-static-intel $(F_OPTS)
 
 # For Apple OSX: the stack size needs to be increased at link time
-# LOADER_OPTS=-static-intel $(F_OPTS) -Wl,-stack_size -Wl,0x10000000
+ LOADER_OPTS=$(F_OPTS) -Wl,-stack_size -Wl,0x10000000 -L/Developer/SDKs/MacOSX10.6.sdk/usr/lib
 
 # to allow ifort compiler to link with pg-compiled ncar graphics:
 # LIBS=-z muldefs -L/opt/pgi/linux86-64/5.2/lib -lpgftnrtl -lpgc

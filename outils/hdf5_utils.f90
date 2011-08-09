@@ -35,6 +35,8 @@ Module hdf5_utils
 Contains
 
 subroutine shdf5_open(locfn,access,idelete)
+
+use hdf5_f2f
         
 implicit none
 
@@ -110,6 +112,8 @@ end subroutine shdf5_open
 
 subroutine shdf5_info(dsetname,ndims,dims)
 
+use hdf5_f2f
+
 implicit none
 
 character(len=*) :: dsetname ! Dataset name
@@ -150,6 +154,8 @@ end subroutine shdf5_info
 
 subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
                                          ,ivars,rvars,cvars,dvars,lvars)
+
+use hdf5_f2f
     
 implicit none
 
@@ -246,6 +252,8 @@ end subroutine
 
 subroutine shdf5_irec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
                                          ,ivars,rvars,cvars,dvars,lvars)
+
+use hdf5_f2f
         
 implicit none
 
@@ -346,6 +354,8 @@ end subroutine
 !===============================================================================
 
 subroutine shdf5_close()
+
+use hdf5_f2f
         
 implicit none
 
@@ -362,6 +372,8 @@ end  subroutine
 
 subroutine shdf5_io(action,ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
                                               ,ivars,rvars,cvars,dvars,lvars)
+
+use hdf5_f2f
 
   implicit none
 

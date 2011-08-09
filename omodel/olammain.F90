@@ -38,6 +38,8 @@ use olam_mpi_atm, only: olam_mpi_init, olam_mpi_finalize
 use misc_coms,    only: tmpdir
 use max_dims,     only: pathlen
 
+use hdf5
+
 implicit none
 
 character(pathlen) :: name_name = 'OLAMIN'
@@ -46,6 +48,7 @@ character(30)      :: io6file
 integer :: numarg
 integer :: i,n
 integer :: bad = 0
+integer :: hdferr
 
 ! Determine if this run is parallel, and determine myrank and mgroupsize
 
@@ -82,6 +85,9 @@ endif
 write(io6,'(/,a,i6)') ' myrank     = ',myrank
 write(io6,'(  a,i6)') ' mgroupsize = ',mgroupsize
 write(io6,'(  a,i6)') ' iparallel  = ',iparallel
+
+! initialize HDF5 library
+call h5open_f(hdferr)
 
 numarg = command_argument_count()
 write(io6,*) 'numarg:', numarg
