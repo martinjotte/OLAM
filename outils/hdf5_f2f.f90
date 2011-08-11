@@ -231,7 +231,7 @@ Contains
     buf_integer = 0
 
     DO i = 1, size
-       IF(buf_logical(i) == .TRUE.) buf_integer(i) = -1
+       IF(buf_logical(i)) buf_integer(i) = -1
     ENDDO
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid)
@@ -329,7 +329,7 @@ Contains
     call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr)
 
     buf_integer = 0
-    IF(buf_logical == .TRUE.) buf_integer = -1
+    IF(buf_logical) buf_integer = -1
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid)
 
@@ -584,7 +584,7 @@ Contains
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid)
 
     buf_logical = .FALSE.
-    IF(buf_integer == -1) buf_integer = .TRUE.
+    IF(buf_integer == -1) buf_logical = .TRUE.
 
     return
 
