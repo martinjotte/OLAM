@@ -6,11 +6,11 @@ module hdf5_f2f
 
   INTEGER(HID_T) :: fileid
   integer(HID_T) :: mspcid
-  integer(HID_T) :: propid
+!!$  integer(HID_T) :: propid
   integer(HID_T) :: dsetid
   integer(HID_T) :: dspcid
   integer(HSIZE_T), dimension(7) :: dimsf
-  INTEGER :: ndimsf
+  INTEGER(HSIZE_T) :: ndimsf
 
   interface fh5_write
      module procedure fh5_write_integer_scalar,    &
@@ -122,13 +122,13 @@ Contains
        dimsf(i) = dims(i)
     end do
 
-    call h5screate_simple_f(ndims, dimsf, mspcid, hdferr, dimsf)
+    call h5screate_simple_f(ndims, dimsf, mspcid, hdferr)
 
-    call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
-
-    call h5pset_chunk_f(propid, ndims, dimsf, hdferr)
-    call h5pset_shuffle_f(propid, hdferr)
-    call h5pset_deflate_f(propid, 5, hdferr)
+!!$    call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
+!!$
+!!$    call h5pset_chunk_f(propid, ndims, dimsf, hdferr)
+!!$    call h5pset_shuffle_f(propid, hdferr)
+!!$    call h5pset_deflate_f(propid, 5, hdferr)
 
     return
 
@@ -143,7 +143,8 @@ Contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr, propid)
+!!$    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr, propid)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid)
 
@@ -160,7 +161,8 @@ Contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, mspcid, dsetid, hdferr, propid)
+!!$    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, mspcid, dsetid, hdferr, propid)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, mspcid, dsetid, hdferr)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid)
 
@@ -177,7 +179,8 @@ Contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, mspcid, dsetid, hdferr, propid)
+!!$    call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, mspcid, dsetid, hdferr, propid)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, mspcid, dsetid, hdferr)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr, mspcid)
 
@@ -194,7 +197,8 @@ Contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, mspcid, dsetid, hdferr, propid)
+!!$    call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, mspcid, dsetid, hdferr, propid)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, mspcid, dsetid, hdferr)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr, mspcid)
 
@@ -214,7 +218,8 @@ Contains
     INTEGER, allocatable :: buf_integer(:)
     INTEGER :: i, size
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr, propid)
+!!$    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr, propid)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr)
 
     ! converting logical to integer
     size = 1
@@ -246,7 +251,8 @@ Contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr, propid)
+!!$    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr, propid)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid)
 
@@ -263,7 +269,8 @@ Contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, mspcid, dsetid, hdferr, propid)
+!!$    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, mspcid, dsetid, hdferr, propid)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, mspcid, dsetid, hdferr)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid)
 
@@ -280,7 +287,8 @@ Contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, mspcid, dsetid, hdferr, propid)
+!!$    call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, mspcid, dsetid, hdferr, propid)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, mspcid, dsetid, hdferr)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr, mspcid)
 
@@ -297,7 +305,8 @@ Contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, mspcid, dsetid, hdferr, propid)
+!!$    call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, mspcid, dsetid, hdferr, propid)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, mspcid, dsetid, hdferr)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr, mspcid)
 
@@ -316,7 +325,8 @@ Contains
 
     integer :: buf_integer
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr, propid)
+!!$    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr, propid)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr)
 
     buf_integer = 0
     IF(buf_logical == .TRUE.) buf_integer = -1
@@ -334,7 +344,7 @@ Contains
     integer, intent(OUT) :: hdferr
 
     call h5sclose_f(mspcid, hdferr)
-    call h5pclose_f(propid, hdferr)
+!!$    call h5pclose_f(propid, hdferr)
     call h5dclose_f(dsetid, hdferr)
 
     return
