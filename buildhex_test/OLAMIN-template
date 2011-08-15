@@ -378,6 +378,10 @@
    NL%NDVIFLG    = 1   ! 
    NL%ISSTFLG    = 1   ! 1 = Read data from standard database file
    NL%ISEAICEFLG = 1   !
+                       ! ISSTFLG or ISEAICEFLG = 0 means that
+                       ! the respective database name below points to a
+                       ! .txt list of files, not the path and basename,
+                       ! in a new schema to avoid call systems
 
    NL%ISOILSTATEINIT = 0  ! 0 -- use slmstr
                           ! 1 -- read from file
@@ -511,6 +515,8 @@
 
    NL%ISDIRS  = 1     ! Number of directory and file prefixes listed in
                       ! iapr (limit of maxisdirs directory/file prefixes)
+                      !
+                      ! -1 means that IAPR points to a .txt list of files
 
    NL%IAPR    = './dp_etc/dp-p',
 

@@ -93,7 +93,7 @@ elseif (access(1:1) == 'W') then
          print*,'   Filename: ',trim(locfn)
          stop 'shdf5_open'
       else
-         call system('rm -f '//trim(locfn)//char(0))
+         ! PPL call system('rm -f '//trim(locfn)//char(0))
          iaccess=1
          call fh5f_create(trim(locfn)//char(0), iaccess, hdferr)
       endif

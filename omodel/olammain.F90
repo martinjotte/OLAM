@@ -72,9 +72,10 @@ if (iparallel == 1 .and. myrank > 0) then
 
 ! First, remove file in case it exists
 
-   call system('rm -f '//trim(io6file)//char(0))
+   ! PPL
+   ! call system('rm -f '//trim(io6file)//char(0))
 
-   open(io6,file=io6file,status='new',form='formatted')
+   open(io6,file=io6file,status='unknown',form='formatted')
 
 #ifdef __PGI
    ! Prevent Portland Group compiler from buffering io6
