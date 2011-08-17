@@ -104,14 +104,14 @@ Contains
    do im = 1,12  ! 'month' index
       read(29,*) line
       do iplev = 22,1,-1
-         read(29,'(72f7.2)') (zont12(ilat+1,iplev,im),ilat=1,72)
+         READ(29,*) (zont12(ilat+1,iplev,im),ilat=1,72)
       enddo
    enddo
 
    do im = 1,12
       read(29,*) line
       do iplev = 22,1,-1
-         read(29,'(72f7.2)') (zonu12(ilat+1,iplev,im),ilat=1,72)
+         READ(29,*) (zonu12(ilat+1,iplev,im),ilat=1,72)
       enddo
    enddo
 
