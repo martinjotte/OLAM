@@ -55,7 +55,6 @@ fnames_fg = ''
 ! new schema to avoid call systems
 IF (isdirs == -1) THEN
    isdirs = 1
-   suffix = ""
    nocall = .TRUE.
 ELSE
    suffix = "????-??-??-????"
@@ -74,9 +73,13 @@ do n = 1,isdirs
    endif
 
    nfg_tmp=-1
-   call OLAM_filelist(fnames_tmp, maxisfiles, &
-        TRIM(iapr(n))//TRIM(suffix), nfg_tmp, nocall)
-   
+   IF (nocall) THEN
+      CALL OLAM_filelist(fnames_tmp, maxisfiles, &
+           TRIM(iapr(n)), nfg_tmp, nocall)
+   ELSE
+      CALL OLAM_filelist(fnames_tmp, maxisfiles, &
+           TRIM(iapr(n))//TRIM(suffix), nfg_tmp, nocall)
+   ENDIF
    nf = nfgfiles + 1
    nfgfiles = nfgfiles + nfg_tmp
    
