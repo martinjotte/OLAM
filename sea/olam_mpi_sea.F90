@@ -32,6 +32,10 @@
 !===============================================================================
 subroutine olam_alloc_mpi_sea(mrls)
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use mem_sea,    only: jtab_ws_mpi
 use mem_para,   only: nsends_ws, nsends_wsf, nrecvs_ws, nrecvs_wsf,  &
                       send_ws, send_wsf, recv_ws, recv_wsf
@@ -44,7 +48,7 @@ integer, intent(in) :: mrls
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: nbytes_int
 integer :: nbytes_real
@@ -209,6 +213,10 @@ subroutine mpi_send_ws(sendgroup)
 ! Subroutine to perform a parallel MPI send of a "WS group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use misc_coms,  only: io6
 use mem_sea,    only: sea, itab_ws, jtab_ws_mpi
 use mem_para,   only: nrecvs_ws, nsends_ws, send_ws, recv_ws
@@ -219,7 +227,7 @@ character(1), intent(in) :: sendgroup
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
@@ -306,6 +314,10 @@ subroutine mpi_send_wsf(sendgroup,mrl)
 ! Subroutine to perform a parallel MPI send of a "WSF group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use misc_coms,  only: io6
 use mem_para,   only: nrecvs_wsf, nsends_wsf, send_wsf, recv_wsf
 use mem_sflux,  only: seaflux, jseaflux
@@ -317,7 +329,7 @@ integer,      intent(in) :: mrl
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
@@ -429,6 +441,10 @@ subroutine mpi_recv_ws(recvgroup)
 ! Subroutine to perform a parallel MPI receive of a "WS group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use misc_coms,  only: io6
 use mem_sea,    only: sea, itabg_ws
 use mem_para,   only: nsends_ws, nrecvs_ws, send_ws, recv_ws, myrank
@@ -439,7 +455,7 @@ character(1), intent(in) :: recvgroup
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
@@ -520,6 +536,10 @@ subroutine mpi_recv_wsf(recvgroup,mrl)
 ! Subroutine to perform a parallel MPI receive of a "WSF group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use misc_coms,  only: io6
 use mem_sea,    only: sea, itabg_ws
 use mem_para,   only: nsends_wsf, nrecvs_wsf, send_wsf, recv_wsf
@@ -532,7 +552,7 @@ integer,      intent(in) :: mrl
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar,jtmp

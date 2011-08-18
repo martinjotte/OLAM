@@ -36,12 +36,16 @@ Contains
 
 subroutine olam_mpi_init()
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
   use mem_para,  only: mgroupsize, myrank
   implicit none
 
 #ifdef OLAM_MPI
 
-  include 'mpif.h'
+!  include 'mpif.h'
   integer :: ierr
 
 ! Initialize MPI and determine process groupsize and myrank
@@ -112,6 +116,10 @@ end subroutine alloc_mpi_sndrcv_bufs
 
 subroutine olam_mpi_finalize()
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
   use mem_para, only: send_u, recv_u, send_uf, recv_uf,      &
                       send_v, recv_v, send_vf, recv_vf,      &
                       send_w, recv_w,                        &
@@ -122,7 +130,7 @@ subroutine olam_mpi_finalize()
 
 #ifdef OLAM_MPI
 
-  include 'mpif.h'
+!  include 'mpif.h'
   integer :: ierr
 
   call MPI_Finalize(ierr)
@@ -158,6 +166,10 @@ end subroutine olam_mpi_finalize
 
 subroutine olam_alloc_mpi(mza, mrls)
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
   use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, mloops_u, mloops_v, mloops_w
   use mem_para,   only: myrank, nrecvs_u, nrecvs_v, nrecvs_w,     &
                         nsends_u, nsends_v, nsends_w,             &
@@ -173,7 +185,7 @@ subroutine olam_alloc_mpi(mza, mrls)
 
 #ifdef OLAM_MPI
 
-  include 'mpif.h'
+!  include 'mpif.h'
 
   integer :: nbytes_int
   integer :: nbytes_real
@@ -474,6 +486,10 @@ subroutine mpi_send_u(sendgroup,uc0,rpos,rneg)
 ! Subroutine to perform a parallel MPI send of a "U group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use mem_basic,  only: umc,uc
 use mem_para,   only: send_u, recv_u, nsends_u, nrecvs_u
 use mem_ijtabs, only: itab_u, jtab_u, mrl_begs, istp, mloops_u
@@ -491,7 +507,7 @@ real, optional, intent(in) :: rneg(mza,mua)
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
@@ -585,6 +601,10 @@ subroutine mpi_send_v(sendgroup)
 ! Subroutine to perform a parallel MPI send of a "V group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use mem_basic,  only: vmc,vc
 use mem_para,   only: send_v, recv_v, nsends_v, nrecvs_v
 
@@ -598,7 +618,7 @@ character(1), intent(in) :: sendgroup
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
@@ -675,6 +695,10 @@ subroutine mpi_send_vf(hcnum_v,hcnum_w,hflux_t,umaru)
 ! Subroutine to perform a parallel MPI send of a "V group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use mem_para,   only: send_vf, recv_vf, nsends_v, nrecvs_v
 use mem_ijtabs, only: jtab_v, itab_v, mrl_begs, istp
 use mem_grid,   only: mza, mva
@@ -691,7 +715,7 @@ real(kind=8), intent(in) :: umaru  (mza,mva)
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
@@ -773,6 +797,10 @@ subroutine mpi_send_w(sendgroup,thil0,wmc0,scp0,wmarw)
 ! Subroutine to perform a parallel MPI send of a "W group" or "S group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use mem_basic,  only: wmc,wc,thil,rho,press
 use mem_turb,   only: hkm,vkm,vkm_sfc
 use var_tables, only: nvar_par, vtab_r, num_scalar, nptonv
@@ -794,7 +822,7 @@ real(kind=8), optional, intent(in) :: wmarw(mza,mwa)
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
@@ -956,6 +984,10 @@ subroutine mpi_recv_u(recvgroup,uc0,rpos,rneg)
 ! Subroutine to perform a parallel MPI receive of a "U group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use mem_basic,  only: umc,uc
 use mem_para,   only: send_u, recv_u, nsends_u, nrecvs_u, mgroupsize
 use mem_ijtabs, only: itabg_u, mrl_begs, istp, mloops_u
@@ -972,7 +1004,7 @@ real, optional, intent(inout) :: rneg(mza,mua)
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar,jtmp
@@ -1060,6 +1092,10 @@ subroutine mpi_recv_v(recvgroup)
 ! Subroutine to perform a parallel MPI receive of a "V group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use mem_basic,  only: vmc,vc
 use mem_para,   only: send_v, recv_v, nsends_v, nrecvs_v, mgroupsize
 use mem_ijtabs, only: itabg_v, mrl_begs, istp, mloops_v
@@ -1072,7 +1108,7 @@ character(1), intent(in) :: recvgroup
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar,jtmp
@@ -1143,6 +1179,10 @@ subroutine mpi_recv_vf(hcnum_v,hcnum_w,hflux_t,umaru)
 ! Subroutine to perform a parallel MPI receive of a "V group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use mem_para,   only: send_vf, recv_vf, nsends_v, nrecvs_v, mgroupsize
 use mem_ijtabs, only: mrl_begs, itabg_v, istp
 use mem_grid,   only: mza, mva
@@ -1159,7 +1199,7 @@ real(kind=8), intent(inout) :: umaru(mza,mva)
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar,jtmp
@@ -1236,6 +1276,10 @@ subroutine mpi_recv_w(recvgroup,thil0,wmc0,scp0,wmarw)
 ! Subroutine to perform a parallel MPI receive of a "W group" or "S group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use mem_basic,  only: wmc,wc,thil,rho,press
 use mem_turb,   only: hkm,vkm,vkm_sfc
 use var_tables, only: vtab_r, nvar_par, num_scalar, nptonv
@@ -1257,7 +1301,7 @@ real(kind=8), optional, intent(inout) :: wmarw(mza,mwa)
 
 #ifdef OLAM_MPI
 
-include 'mpif.h'
+!include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar,jtmp
@@ -1411,12 +1455,16 @@ end subroutine mpi_recv_w
 
 subroutine olam_stop(message)
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use mem_para,  only: myrank
 
 implicit none
 
 #ifdef OLAM_MPI
-include 'mpif.h'
+!include 'mpif.h'
 integer :: ierr
 #endif
 
