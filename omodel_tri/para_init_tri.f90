@@ -82,36 +82,38 @@ integer :: iw_myrank = 1 ! Counter for W points to be included on this rank
 
 ! Automatic arrays
 
-logical :: myrankflag_m(nma) ! Flag for M points existing on this rank
-logical :: myrankflag_u(nua) ! Flag for U points existing on this rank
-logical :: myrankflag_w(nwa) ! Flag for W points existing on this rank
+logical :: myrankflag_m(nma) ! (nma) Flag for M points existing on this rank
+logical :: myrankflag_u(nua) ! (nua) Flag for U points existing on this rank
+logical :: myrankflag_w(nwa) ! (nwa) Flag for W points existing on this rank
 
-logical :: seaflag(nws)
-logical :: landflag(nwl)
+logical :: seaflag(nws)  ! (nws)
+logical :: landflag(nwl) ! (nwl)
 
-integer :: lpm_temp(nma)
-integer :: lpu_temp(nua),lcu_temp(nua)
-integer :: lpw_temp(nwa),lsw_temp(nwa)
+integer, allocatable, dimension(:) :: lpm_temp ! (nma)
+integer, allocatable, dimension(:) :: lpu_temp,lcu_temp ! (nua)
+integer, allocatable, dimension(:) :: lpw_temp,lsw_temp ! (nwa)
 
-real :: topm_temp(nma), glatm_temp(nma), glonm_temp(nma), arm0_temp(nma)
+real, allocatable, dimension(:) :: topm_temp, glatm_temp, glonm_temp, arm0_temp ! (nma)
 
-real :: xem_temp(nma),yem_temp(nma),zem_temp(nma)
-real :: xeu_temp(nua),yeu_temp(nua),zeu_temp(nua)
-real :: xew_temp(nwa),yew_temp(nwa),zew_temp(nwa)
-real :: unx_temp(nua),uny_temp(nua),unz_temp(nua)
-real :: vnx_temp(nua),vny_temp(nua),vnz_temp(nua)
-real :: wnx_temp(nwa),wny_temp(nwa),wnz_temp(nwa)
+real, allocatable, dimension(:) :: xem_temp,yem_temp,zem_temp ! (nma)
+real, allocatable, dimension(:) :: xeu_temp,yeu_temp,zeu_temp ! (nua)
+real, allocatable, dimension(:) :: xew_temp,yew_temp,zew_temp ! (nwa)
+real, allocatable, dimension(:) :: unx_temp,uny_temp,unz_temp ! (nua)
+real, allocatable, dimension(:) :: vnx_temp,vny_temp,vnz_temp ! (nua)
+real, allocatable, dimension(:) :: wnx_temp,wny_temp,wnz_temp ! (nwa)
 
-real :: glatw_temp(nwa),glonw_temp(nwa),arw0_temp(nwa),topw_temp(nwa)
-real :: dnu_temp(nua),dniu_temp(nua)
-real :: dnv_temp(nua),dniv_temp(nua)
+real, allocatable, dimension(:) :: glatw_temp,glonw_temp,arw0_temp,topw_temp ! (nwa)
+real, allocatable, dimension(:) :: dnu_temp,dniu_temp ! (nua)
+real, allocatable, dimension(:) :: dnv_temp,dniv_temp ! (nua)
 
-real :: aru_temp(nza,nua),arw_temp(nza,nwa)
-real :: glatu_temp(nua),glonu_temp(nua)
+real, allocatable, dimension(:,:) :: aru_temp ! (nza,nua)
+real, allocatable, dimension(:,:) :: arw_temp ! (nza,nwa)
+real, allocatable, dimension(:) :: glatu_temp,glonu_temp ! (nua)
 
-real :: volui_temp(nza,nua),volwi_temp(nza,nwa)
+real, allocatable, dimension(:,:) :: volui_temp ! (nza,nua)
+real, allocatable, dimension(:,:) :: volwi_temp ! (nza,nwa)
 
-real(kind=8) :: volt_temp(nza,nwa),volti_temp(nza,nwa)
+real(kind=8), allocatable, dimension(:,:) :: volt_temp,volti_temp ! (nza,nwa)
 
 ! Temporary datatypes
 
@@ -151,89 +153,52 @@ myrankflag_m(:) = .false.
 myrankflag_u(:) = .false.
 myrankflag_w(:) = .false.
 
-! Copy grid coordinates to temporary arrays
+! Moving grid coordinates to temporary arrays
+CALL MOVE_ALLOC(lpm  , lpm_temp  )
+CALL MOVE_ALLOC(topm , topm_temp )
+CALL MOVE_ALLOC(xem  , xem_temp  )
+CALL MOVE_ALLOC(yem  , yem_temp  )
+CALL MOVE_ALLOC(zem  , zem_temp  )
+CALL MOVE_ALLOC(glatm, glatm_temp)
+CALL MOVE_ALLOC(glonm, glonm_temp)
+CALL MOVE_ALLOC(arm0 , arm0_temp )
 
-do im = 1,nma
-   lpm_temp(im)  = lpm(im)
+CALL MOVE_ALLOC(lpu  , lpu_temp  )
+CALL MOVE_ALLOC(lcu  , lcu_temp  )
+CALL MOVE_ALLOC(xeu  , xeu_temp  )
+CALL MOVE_ALLOC(yeu  , yeu_temp  )
+CALL MOVE_ALLOC(zeu  , zeu_temp  )
+CALL MOVE_ALLOC(unx  , unx_temp  )
+CALL MOVE_ALLOC(uny  , uny_temp  )
+CALL MOVE_ALLOC(unz  , unz_temp  )
+CALL MOVE_ALLOC(vnx  , vnx_temp  )
+CALL MOVE_ALLOC(vny  , vny_temp  )
+CALL MOVE_ALLOC(vnz  , vnz_temp  )
+CALL MOVE_ALLOC(dnu  , dnu_temp  )
+CALL MOVE_ALLOC(dniu , dniu_temp )
+CALL MOVE_ALLOC(dnv  , dnv_temp  )
+CALL MOVE_ALLOC(dniv , dniv_temp )
+CALL MOVE_ALLOC(glatu, glatu_temp)
+CALL MOVE_ALLOC(glonu, glonu_temp)
+CALL MOVE_ALLOC(aru  , aru_temp  )
+CALL MOVE_ALLOC(volui, volui_temp)
 
-   topm_temp(im) = topm(im)
-
-   xem_temp(im)  = xem(im)
-   yem_temp(im)  = yem(im)
-   zem_temp(im)  = zem(im)
-
-   glatm_temp(im) = glatm(im)
-   glonm_temp(im) = glonm(im)
-
-   arm0_temp(im) = arm0(im)
-enddo
-
-do iu = 1,nua
-   lpu_temp(iu) = lpu(iu)
-   lcu_temp(iu) = lcu(iu)
-
-   xeu_temp(iu) = xeu(iu)
-   yeu_temp(iu) = yeu(iu)
-   zeu_temp(iu) = zeu(iu)
-   
-   unx_temp(iu) = unx(iu)
-   uny_temp(iu) = uny(iu)
-   unz_temp(iu) = unz(iu)
-
-   vnx_temp(iu) = vnx(iu)
-   vny_temp(iu) = vny(iu)
-   vnz_temp(iu) = vnz(iu)
-
-   dnu_temp(iu)  = dnu(iu)
-   dniu_temp(iu) = dniu(iu)
-   
-   dnv_temp(iu)  = dnv(iu)
-   dniv_temp(iu) = dniv(iu)
-   
-   glatu_temp(iu) = glatu(iu)
-   glonu_temp(iu) = glonu(iu)
-
-   do k = 1,nza
-      aru_temp(k,iu) = aru(k,iu)
-      volui_temp(k,iu) = volui(k,iu)
-   enddo
-enddo
-
-do iw = 1,nwa
-   topw_temp(iw) = topw(iw)
-
-   lpw_temp(iw) = lpw(iw)
-   lsw_temp(iw) = lsw(iw)
-
-   xew_temp(iw) = xew(iw)
-   yew_temp(iw) = yew(iw)
-   zew_temp(iw) = zew(iw)
-
-   wnx_temp(iw) = wnx(iw)
-   wny_temp(iw) = wny(iw)
-   wnz_temp(iw) = wnz(iw)
-
-   glatw_temp(iw) = glatw(iw)
-   glonw_temp(iw) = glonw(iw)
-
-   arw0_temp(iw) = arw0(iw)
-   
-   do k = 1,nza
-      arw_temp(k,iw) = arw(k,iw)
-      volwi_temp(k,iw) = volwi(k,iw)
-      volt_temp(k,iw) = volt(k,iw)
-      volti_temp(k,iw) = volti(k,iw)
-   enddo
-enddo
-
-! Deallocate grid coordinate arrays
-
-deallocate (lpm, lpu, lcu, lpw, lsw)
-deallocate (xem, yem, zem, topm, glatm, glonm, arm0)
-deallocate (xeu, yeu, zeu, unx, uny, unz, vnx, vny, vnz, dnu, dniu, dnv, dniv)
-deallocate (aru, volui, glatu, glonu)
-deallocate (xew, yew, zew, wnx, wny, wnz, glatw, glonw, arw0, topw)
-deallocate (arw, volwi, volt, volti)
+CALL MOVE_ALLOC(topw , topw_temp )
+CALL MOVE_ALLOC(lpw  , lpw_temp  )
+CALL MOVE_ALLOC(lsw  , lsw_temp  )
+CALL MOVE_ALLOC(xew  , xew_temp  )
+CALL MOVE_ALLOC(yew  , yew_temp  )
+CALL MOVE_ALLOC(zew  , zew_temp  )
+CALL MOVE_ALLOC(wnx  , wnx_temp  )
+CALL MOVE_ALLOC(wny  , wny_temp  )
+CALL MOVE_ALLOC(wnz  , wnz_temp  )
+CALL MOVE_ALLOC(glatw, glatw_temp)
+CALL MOVE_ALLOC(glonw, glonw_temp)
+CALL MOVE_ALLOC(arw0 , arw0_temp )
+CALL MOVE_ALLOC(arw  , arw_temp  )
+CALL MOVE_ALLOC(volwi, volwi_temp)
+CALL MOVE_ALLOC(volt , volt_temp )
+CALL MOVE_ALLOC(volti, volti_temp)
 
 ! Loop over all U points, and for each whose assigned irank is equal to myrank,
 ! flag all U and W points in its computational stencil for inclusion on this
@@ -416,6 +381,15 @@ do im = 1,nma
    endif
 enddo
 
+deallocate (lpm_temp  )
+deallocate (topm_temp )
+deallocate (xem_temp  )
+deallocate (yem_temp  )
+deallocate (zem_temp  )
+deallocate (glatm_temp)
+deallocate (glonm_temp)
+deallocate (arm0_temp )
+
 ! Loop over all U points and select those that are in memory of this subdomain
 
 do iu = 1,nua
@@ -512,6 +486,26 @@ do iu = 1,nua
    endif
 enddo
 
+deallocate (lpu_temp  )
+deallocate (lcu_temp  )
+deallocate (xeu_temp  )
+deallocate (yeu_temp  )
+deallocate (zeu_temp  )
+deallocate (unx_temp  )
+deallocate (uny_temp  )
+deallocate (unz_temp  )
+deallocate (vnx_temp  )
+deallocate (vny_temp  )
+deallocate (vnz_temp  )
+deallocate (dnu_temp  )
+deallocate (dniu_temp )
+deallocate (dnv_temp  )
+deallocate (dniv_temp )
+deallocate (glatu_temp)
+deallocate (glonu_temp)
+deallocate (aru_temp  )
+deallocate (volui_temp)
+
 ! Loop over all W points and select those that are in memory of this subdomain
 
 do iw = 1,nwa
@@ -604,6 +598,23 @@ do iw = 1,nwa
       
    endif
 enddo
+
+deallocate (topw_temp )
+deallocate (lpw_temp  )
+deallocate (lsw_temp  )
+deallocate (xew_temp  )
+deallocate (yew_temp  )
+deallocate (zew_temp  )
+deallocate (wnx_temp  )
+deallocate (wny_temp  )
+deallocate (wnz_temp  )
+deallocate (glatw_temp)
+deallocate (glonw_temp)
+deallocate (arw0_temp )
+deallocate (arw_temp  )
+deallocate (volwi_temp)
+deallocate (volt_temp )
+deallocate (volti_temp)
 
 ! Turn back on some loop flags needed with respect to the local IW point
 
