@@ -59,6 +59,9 @@ objects/Make.depend: $(SOURCE_FILES) sources.mk
 	@echo "Linking HDF5 fortran module to objects"
 	@rm -f objects/hdf5.mod
 	@ln -s $(HDF5_MOD) objects/hdf5.mod
+	@echo "Linking MPI fortran module to objects"
+	@rm -f objects/mpi.mod
+	@ln -s $(MPI_MOD) objects/mpi.mod
 
 $(EXE): $(OBJECT_FILES)
 	@echo ""

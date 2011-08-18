@@ -44,6 +44,9 @@ F_COMP=mpif90
 #PAR_LIBS=-L$(MPI_PATH)/lib -lmpich -lpmpich
 OLAM_MPI=yes
 
+# full path and filename of hdf5.mod
+MPI_MOD=/home/pedropl/stuff/openmpi-pgi/lib/mpi.mod
+
 # OPTIMIZED:
 #F_OPTS=-xHost -O3 -fno-alias -ip -traceback
 #F_OPTS=-g -traceback
