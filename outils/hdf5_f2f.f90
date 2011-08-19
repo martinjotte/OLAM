@@ -415,6 +415,7 @@ Contains
 
     integer, intent(OUT) :: hdferr
 
+    call h5sclose_f(dspcid, hdferr)
     call h5dclose_f(dsetid, hdferr)
 
     return
@@ -630,6 +631,7 @@ Contains
 
     integer, intent(OUT) :: hdferr
 
+    call h5sclose_f(dspcid, hdferr)
     call h5dclose_f(dsetid, hdferr)
 
     return
