@@ -54,14 +54,10 @@ objects/Make.depend: $(SOURCE_FILES) sources.mk
 	@echo "Generating dependency information"
 	@./sfmakedepend.txt -I $(OUTILS) -f objects/Make.depend $(SOURCE_FILES)
 	rm -f objects/Make.depend.old
+	cat objects/Make.depend | sed s:objects/mpi.mod::g | sed s:objects/hdf5.mod::g > objects/Make.depend.new
+	mv objects/Make.depend.new objects/Make.depend
 	@echo "Copying source code to objects directory for compilation"
 	@cp -p $(SOURCE_FILES) objects/
-	@echo "Linking HDF5 fortran module to objects"
-	@rm -f objects/hdf5.mod
-	@ln -s $(HDF5_MOD) objects/hdf5.mod
-	@echo "Linking MPI fortran module to objects"
-	@rm -f objects/mpi.mod
-	@ln -s $(MPI_MOD) objects/mpi.mod
 
 $(EXE): $(OBJECT_FILES)
 	@echo ""

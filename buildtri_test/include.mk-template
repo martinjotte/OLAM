@@ -44,9 +44,6 @@ F_COMP=mpif90
 #PAR_LIBS=-L$(MPI_PATH)/lib -lmpich -lpmpich
 OLAM_MPI=yes
 
-# full path and filename of hdf5.mod
-MPI_MOD=/home/pedropl/stuff/openmpi-pgi/lib/mpi.mod
-
 # OPTIMIZED:
 #F_OPTS=-xHost -O3 -fno-alias -ip -traceback
 #F_OPTS=-g -traceback
@@ -64,8 +61,6 @@ LIBNCARG=-L$(NCARG_DIR) -lncarg -lncarg_gks -lncarg_c \
 
 HDF5_LIBS=-L/Users/pedropl/work/hdf5-O0/lib -lhdf5_fortran -lhdf5 -lz -lm
 HDF5_INCS=-I/Users/pedropl/work/hdf5-O0/include
-# full path and filename of hdf5.mod
-HDF5_MOD=/Users/pedropl/work/hdf5-O0/include/hdf5.mod
 
 NETCDF_LIBS=-L/sw/lib -lnetcdf
 NETCDF_INCS=-I/sw/include
