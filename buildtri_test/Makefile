@@ -81,7 +81,7 @@ FORCE:
 doc-html:
 	@echo ""
 	@echo "Building HTML documentation..."
-	doxygen -w html
+	doxygen
 	@echo ""
 	@echo Finished HTML documentation. Point your browser to ./html/index.html
 	@echo ""
