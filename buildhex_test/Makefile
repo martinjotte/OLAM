@@ -78,4 +78,19 @@ objects/olam_mpi_sea.o:  include.mk
 
 FORCE:
 
+doc-html:
+	@echo ""
+	@echo "Building HTML documentation..."
+	doxygen -w html
+	@echo ""
+	@echo Finished HTML documentation. Point your browser to ./html/index.html
+	@echo ""
+
+clean-doc-html:
+	@echo ""
+	@echo "Cleaning HTML documentation..."
+	rm -rf html
+	@echo ""
+
+
 sinclude objects/Make.depend
