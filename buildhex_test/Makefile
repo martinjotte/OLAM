@@ -28,6 +28,11 @@ MPI_DEF=$(F_DEFINE_FLAG)OLAM_MPI
 OLAM_SUFFIX=-mpi
 endif
 
+ifdef OLAM_HDF5_FORTRAN
+HDF5_FORTRAN_DEF=$(F_DEFINE_FLAG)OLAM_HDF5_FORTRAN
+endif
+
+
 # Define executable name
 
 BASE=olam
@@ -36,7 +41,7 @@ EXE=$(BASE)-$(OLAM_VERSION)$(OLAM_SUFFIX)
 # Rules
 
 %.o: %.F90
-	(cd objects; $(F_COMMAND) $(MPI_DEF) $(<F))
+	(cd objects; $(F_COMMAND) $(MPI_DEF) $(HDF5_FORTRAN_DEF) $(<F))
 
 %.o: %.f90
 	(cd objects; $(F_COMMAND) $(<F))

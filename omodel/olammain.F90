@@ -38,7 +38,9 @@ use olam_mpi_atm, only: olam_mpi_init, olam_mpi_finalize
 use misc_coms,    only: tmpdir
 use max_dims,     only: pathlen
 
+#ifdef OLAM_HDF5_FORTRAN
 use hdf5
+#endif
 
 implicit none
 
@@ -88,7 +90,9 @@ write(io6,'(  a,i6)') ' mgroupsize = ',mgroupsize
 write(io6,'(  a,i6)') ' iparallel  = ',iparallel
 
 ! initialize HDF5 library
+#ifdef OLAM_HDF5_FORTRAN
 call h5open_f(hdferr)
+#endif
 
 numarg = command_argument_count()
 write(io6,*) 'numarg:', numarg

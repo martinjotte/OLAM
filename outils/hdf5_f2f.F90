@@ -1,5 +1,7 @@
 module hdf5_f2f
 
+#ifdef OLAM_HDF5_FORTRAN
+
   use hdf5
 
   implicit none
@@ -638,4 +640,7 @@ Contains
 
   end subroutine fh5_close_read
 
+#endif
+
 end module hdf5_f2f
+

@@ -1,80 +1,82 @@
 # Activate appropriate parts below, comment out others:
 
-
 #-----------------  LINUX Portland Group pgf77/gcc ---------------
-#F_COMP=pgf90
-#
-## If using MPI libraries:
-##MPI_PATH=/usr/local/mpich
-##PAR_INCS=-I$(MPI_PATH)/include
-##PAR_LIBS=-L$(MPI_PATH)/lib -lmpich -lpmpich
-##OLAM_MPI=yes
-#
-## OPTIMIZED:
-#F_OPTS=-Mvect=cachesize:524288 -Munroll -Mnoframe -O2 -pc 64 \
-#       -Mfree  -Mbyteswapio
-#
-## DEBUG:
-##F_OPTS= -g  -pc 64 -Mfree  -Mbyteswapio -Mbounds
-#
-#C_COMP=gcc
-#C_OPTS=-O3 -DUNDERSCORE -DLITTLE
-#
-#NCARG_DIR=/usr/local/ncarg/lib
-#LIBNCARG=-L$(NCARG_DIR) -lncarg -lncarg_gks -lncarg_c \
-#          -L/usr/X11/lib64 -lX11 -ldl -lpthread
-#
-#HDF5_LIBS=-L/usr/local/lib64 -lhdf5 -lz -lm
-#HDF5_INCS=-I/usr/local/include
-#
-#NETCDF_LIBS=-L/usr/local/lib64 -lnetcdf
-#NETCDF_INCS=-I/usr/local/include
-#
-#LOADER=$(F_COMP)
-#LOADER_OPTS=-v -Wl,-static $(F_OPTS)
-#LIBS=
-
-
-#-----------------  LINUX Intel Fortran ifort/gcc ---------------
-F_COMP=mpif90
+F_COMP=pgf90
 
 # If using MPI libraries:
 #MPI_PATH=/usr/local/mpich
 #PAR_INCS=-I$(MPI_PATH)/include
 #PAR_LIBS=-L$(MPI_PATH)/lib -lmpich -lpmpich
-OLAM_MPI=yes
+#OLAM_MPI=yes
 
 # OPTIMIZED:
-#F_OPTS=-xHost -O3 -fno-alias -ip -traceback
-#F_OPTS=-g -traceback
+#F_OPTS=-Mvect=cachesize:524288 -Munroll -Mnoframe -O2 -pc 64 \
+#       -Mfree  -Mbyteswapio
 
 # DEBUG:
-F_OPTS=-g -fp-model precise -check bounds -traceback \
-        -debug extended -check uninit -ftrapuv
+F_OPTS=-O0 -g #  -pc 64 -Mfree  -Mbyteswapio -Mbounds
 
 C_COMP=gcc
-C_OPTS=-DUNDERSCORE -DLITTLE
+C_OPTS=-O0 -DUNDERSCORE -DLITTLE
 
 NCARG_DIR=/opt/ncl/lib
 LIBNCARG=-L$(NCARG_DIR) -lncarg -lncarg_gks -lncarg_c \
-          -L/sw/lib/gcc4.6/lib -L/usr/X11/lib -lX11 -ldl -lpthread -lgfortran
+          -lX11 -ldl -lpthread -lgfortran
 
-HDF5_LIBS=-L/Users/pedropl/work/hdf5-O0/lib -lhdf5_fortran -lhdf5 -lz -lm
-HDF5_INCS=-I/Users/pedropl/work/hdf5-O0/include
+HDF5_LIBS=-L/home/pedropl/stuff/hdf5-pgi-serial/lib -lhdf5_fortran -lhdf5 -lz -lm
+HDF5_INCS=-I/home/pedropl/stuff/hdf5-pgi-serial/include
+# If using HDF5 fortran interface, uncomment below
+# There are chances to need "-lhdf5_fortran" on HDF5_LIBS above
+OLAM_HDF5_FORTRAN=yes
 
-NETCDF_LIBS=-L/sw/lib -lnetcdf
-NETCDF_INCS=-I/sw/include
+NETCDF_LIBS=-lnetcdf
+NETCDF_INCS=
 
 LOADER=$(F_COMP)
-#LOADER_OPTS=-static-intel $(F_OPTS)
-
-# For Apple OSX: the stack size needs to be increased at link time
- LOADER_OPTS=$(F_OPTS) -Wl,-stack_size -Wl,0x10000000 -L/Developer/SDKs/MacOSX10.6.sdk/usr/lib
-
-# to allow ifort compiler to link with pg-compiled ncar graphics:
-# LIBS=-z muldefs -L/opt/pgi/linux86-64/5.2/lib -lpgftnrtl -lpgc
+LOADER_OPTS=$(F_OPTS)
+LIBS=
 
 
+#-----------------  LINUX Intel Fortran ifort/gcc ---------------
+#F_COMP=mpif90
+#
+## If using MPI libraries:
+##MPI_PATH=/usr/local/mpich
+##PAR_INCS=-I$(MPI_PATH)/include
+##PAR_LIBS=-L$(MPI_PATH)/lib -lmpich -lpmpich
+#OLAM_MPI=yes
+#
+## OPTIMIZED:
+##F_OPTS=-xHost -O3 -fno-alias -ip -traceback
+#F_OPTS=-g -O3 -xHost -traceback
+#
+## DEBUG:
+##F_OPTS=-g -fp-model precise -check bounds -traceback \
+##        -debug extended -check uninit -ftrapuv
+#
+#C_COMP=mpicc
+#C_OPTS=-DUNDERSCORE -DLITTLE
+#
+#NCARG_DIR=/opt/ncl/lib
+#LIBNCARG=-L$(NCARG_DIR) -lncarg -lncarg_gks -lncarg_c \
+#          -lX11 -ldl -lpthread -lgfortran
+#
+#HDF5_LIBS=-L/home/pedropl/stuff/hdf5-intel/lib -lhdf5_fortran -lhdf5 -lz -lm
+#HDF5_INCS=-I/home/pedropl/stuff/hdf5-intel/include
+#
+#NETCDF_LIBS=-lnetcdf
+#NETCDF_INCS=
+#
+#LOADER=$(F_COMP)
+#LOADER_OPTS=$(F_OPTS)
+#
+## For Apple OSX: the stack size needs to be increased at link time
+## LOADER_OPTS=$(F_OPTS) -Wl,-stack_size -Wl,0x10000000 -L/Developer/SDKs/MacOSX10.6.sdk/usr/lib
+#
+## to allow ifort compiler to link with pg-compiled ncar graphics:
+## LIBS=-z muldefs -L/opt/pgi/linux86-64/5.2/lib -lpgftnrtl -lpgc
+#
+#
 #----------------- IBM xlf/xlc ---------------------------------
 #F_COMP=xlf95_r       # without MPI
 #
