@@ -149,7 +149,7 @@ endif
 
 call oplot_init()
 
-! Generate or read from files the full-domain ATMOS, LAND, SEA, and FLUX grids
+! Generate the full-domain ATMOS, LAND, SEA, and FLUX grids.
 
 call gridinit()
 
@@ -164,6 +164,10 @@ endif
 
 call alloc_mpi_sndrcv_bufs()
 
+! reading only the needed to para_decomp from gridfile
+
+call gridfile_read_pd()
+
 ! If run is parallel, assign each grid cell (ATM and, if ISFCL = 1, LAND and SEA)
 ! to one of multiple subdomains. If not, the grid remains unchanged
 
@@ -176,6 +180,7 @@ write(io6,'(/,a,2i7)') 'olam_run after para_decomp',nwl,nws
 ! Set up itab data types and grid coordinate arrays for current node, and 
 ! reallocate memory for current node
 
+call gridfile_read_completo()
 call para_init() 
 
 write(io6,'(/,a)') 'olam_run after para_init'

@@ -34,13 +34,17 @@ Module mem_leaf
 
    use ed_structure_defs, only: site
    use max_dims,          only: maxremote
-   use mem_mksfc,         only: itab_mls_vars, itab_uls_vars, itab_wls_vars
+   USE mem_mksfc,         ONLY: itab_mls_vars, itab_uls_vars, itab_wls_vars, &
+                                itab_uls_pd_vars, itab_wls_pd_vars
 
 ! LAND SURFACE GRID TABLES
 
    type (itab_mls_vars), target, allocatable :: itab_ml(:)
    type (itab_uls_vars), target, allocatable :: itab_ul(:)
    type (itab_wls_vars), target, allocatable :: itab_wl(:)
+
+   type (itab_uls_pd_vars), target, allocatable :: itab_ul_pd(:)
+   type (itab_wls_pd_vars), target, allocatable :: itab_wl_pd(:)
 
 ! DERIVED TYPES TO HOLD GLOBAL GRID INDICES FOR A PARALLEL RUN
 
@@ -179,6 +183,16 @@ Module mem_leaf
 
    type (land_vars), target :: land
 
+   TYPE land_vars_pd ! for para_decomp
+
+      real, allocatable :: xem         (:) ! earth x coord of land M points
+      real, allocatable :: yem         (:) ! earth y coord of land M points
+      real, allocatable :: zem         (:) ! earth z coord of land M points
+
+   END TYPE land_vars_pd
+
+   TYPE(land_vars_pd), target :: land_pd
+
 ! The basic unit of the ED model is the site, which loosely corresponds to a
 ! grid cell.  Now, the entire ED memory structure resides on linked lists.  
 ! This is a pointer to the first site of the linked list. 
@@ -195,7 +209,7 @@ Contains
 
      integer, intent(in) :: mml, mul, mwl, nzg
 
-!    Allocate sea grid tables
+!    Allocate land grid tables
 
      allocate (itab_ml(mml))
      allocate (itab_ul(mul))
@@ -224,6 +238,25 @@ Contains
      allocate (land%glonm(mml)) ; land%glonm = rinit
 
    end subroutine alloc_land_grid
+
+!=========================================================================
+
+   SUBROUTINE alloc_land_grid_pd(mml, mul, mwl)
+     use misc_coms, only: rinit
+     implicit none
+
+     integer, intent(in) :: mml, mul, mwl
+
+!    Allocate land grid tables
+
+     allocate (itab_ul_pd(mul))
+     allocate (itab_wl_pd(mwl))
+
+     allocate (land_pd%xem  (mml)) ; land_pd%xem   = rinit
+     allocate (land_pd%yem  (mml)) ; land_pd%yem   = rinit
+     allocate (land_pd%zem  (mml)) ; land_pd%zem   = rinit
+
+   END SUBROUTINE alloc_land_grid_pd
 
 !=========================================================================
 

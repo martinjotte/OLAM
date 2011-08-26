@@ -48,7 +48,6 @@ Module mem_mksfc
      integer :: iuglobe =  1
   End type itab_uls_vars
 
-
   Type itab_wls_vars
      integer :: im(maxnlspoly)  =  1
      integer :: iu(maxnlspoly)  =  1
@@ -57,5 +56,16 @@ Module mem_mksfc
      integer :: npoly           =  0
      logical :: send(maxremote) = .false.
   End type itab_wls_vars
+
+  Type itab_uls_pd_vars
+     integer :: iw(2)   =  1
+     integer :: npoly           =  0
+  End type itab_uls_pd_vars
+
+
+  Type itab_wls_pd_vars
+     integer :: im(2)  =  1
+     integer :: npoly           =  0
+  End type itab_wls_pd_vars
 
 End Module mem_mksfc

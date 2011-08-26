@@ -230,6 +230,19 @@ Module mem_ijtabs
       integer, allocatable :: jend(:)
    End Type jtab_w_vars
 
+   Type itab_u_pd_vars             ! data structure for U pts (individual rank) on para_decomp
+      integer :: iw(6) = 1     ! neighbor W pts
+   End Type itab_u_pd_vars
+
+   Type itab_v_pd_vars             ! data structure for V pts (individual rank) on para_decomp
+      integer :: iw(4)=1       ! neighbor W pts of this V pt
+   End Type itab_v_pd_vars
+
+   Type itab_w_pd_vars             ! data structure for W pts (individual rank) on para_decomp
+      integer :: npoly = 0   ! number of M/V neighbors of this W pt
+      integer :: im(7)=1     ! neighbor M pts of this W pt
+   End Type itab_w_pd_vars
+
    type (itab_m_vars), allocatable :: itab_md(:)
    type (itab_u_vars), allocatable :: itab_ud(:)
    type (itab_w_vars), allocatable :: itab_wd(:)
@@ -238,6 +251,10 @@ Module mem_ijtabs
    type (itab_u_vars),  allocatable, target :: itab_u(:)
    type (itab_v_vars),  allocatable, target :: itab_v(:)
    type (itab_w_vars),  allocatable, target :: itab_w(:)
+
+   TYPE (itab_u_pd_vars), ALLOCATABLE, TARGET :: itab_u_pd(:)
+   TYPE (itab_v_pd_vars), ALLOCATABLE, TARGET :: itab_v_pd(:)
+   TYPE (itab_w_pd_vars), ALLOCATABLE, TARGET :: itab_w_pd(:)
 
    type (itab_m_vars), allocatable :: ltab_md(:)
    type (itab_u_vars), allocatable :: ltab_ud(:)
@@ -292,6 +309,25 @@ Contains
 
    return
    end subroutine alloc_itabs
+
+!===============================================================================
+
+   subroutine alloc_itabs_pd(meshtype,mua,mva,mwa)
+
+   implicit none
+
+  integer, intent(in) :: meshtype,mua,mva,mwa
+
+   if (meshtype == 1) then
+      allocate (itab_u_pd(mua))
+   elseif (meshtype == 2) then
+      allocate (itab_v_pd(mva))
+   endif
+   
+   allocate (itab_w_pd(mwa))
+
+   return
+   end subroutine alloc_itabs_pd
 
 !===============================================================================
 
