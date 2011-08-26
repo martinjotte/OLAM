@@ -88,7 +88,8 @@ SUBROUTINE OLAM_filelist(fnames,nfnam,file_prefix,nfile,nocall)
      ! arguments. Instead, we use the 'find' command to locate files and
      ! the '-prune' option to not recursively decend into sub-directories
 
-     command = 'find '//TRIM(dirname)//'/. "(" -type d -a ! -name . -prune ")" -o -name "'//TRIM(fname)//'" -print > '//TRIM(tmpname)
+     command = 'find '//TRIM(dirname)//'/. "(" -type d -a ! -name . -prune ")" &
+                -o -name "'//TRIM(fname)//'" -print > '//TRIM(tmpname)
      CALL system(command)
 
   ENDIF
