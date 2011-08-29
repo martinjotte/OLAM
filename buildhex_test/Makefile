@@ -28,6 +28,11 @@ MPI_DEF=$(F_DEFINE_FLAG)OLAM_MPI
 OLAM_SUFFIX=-mpi
 endif
 
+ifdef OLAM_HDF5_FORTRAN
+HDF5_FORTRAN_DEF=$(F_DEFINE_FLAG)OLAM_HDF5_FORTRAN
+endif
+
+
 # Define executable name
 
 BASE=olam
@@ -36,7 +41,7 @@ EXE=$(BASE)-$(OLAM_VERSION)$(OLAM_SUFFIX)
 # Rules
 
 %.o: %.F90
-	(cd objects; $(F_COMMAND) $(MPI_DEF) $(<F))
+	(cd objects; $(F_COMMAND) $(MPI_DEF) $(HDF5_FORTRAN_DEF) $(<F))
 
 %.o: %.f90
 	(cd objects; $(F_COMMAND) $(<F))
@@ -54,6 +59,8 @@ objects/Make.depend: $(SOURCE_FILES) sources.mk
 	@echo "Generating dependency information"
 	@./sfmakedepend.txt -I $(OUTILS) -f objects/Make.depend $(SOURCE_FILES)
 	rm -f objects/Make.depend.old
+	cat objects/Make.depend | sed s:objects/mpi.mod::g | sed s:objects/hdf5.mod::g > objects/Make.depend.new
+	mv objects/Make.depend.new objects/Make.depend
 	@echo "Copying source code to objects directory for compilation"
 	@cp -p $(SOURCE_FILES) objects/
 
@@ -75,5 +82,20 @@ objects/olam_mpi_land.o: include.mk
 objects/olam_mpi_sea.o:  include.mk
 
 FORCE:
+
+doc-html:
+	@echo ""
+	@echo "Building HTML documentation..."
+	doxygen
+	@echo ""
+	@echo Finished HTML documentation. Point your browser to ./html/index.html
+	@echo ""
+
+clean-doc-html:
+	@echo ""
+	@echo "Cleaning HTML documentation..."
+	rm -rf html
+	@echo ""
+
 
 sinclude objects/Make.depend

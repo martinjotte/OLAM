@@ -36,7 +36,7 @@ use mem_sea,     only: sea, itab_ws
 
 use sea_coms,    only: mms, mws, iupdseaice, iseaicecyclic, nseaicefiles, &
                        fnames_seaice, ctotdate_seaice, s1900_seaice,      &
-                       iseaicefile, seaice_database
+                       iseaicefile, seaice_database, iseaiceflg
 
 use misc_coms,   only: io6, iyear1, imonth1, idate1, itime1, timmax8,  &
                        time8, runtype, s1900_init, s1900_sim
@@ -74,6 +74,8 @@ real :: rio, rjo
 character(len=128) :: flnm
 character(len=10)  :: sdate
 
+logical :: nocall
+
 ! This subroutine is simpler than topm_database because it assumes that 
 ! each seaice_database file covers the entire geographic area of the model.
 ! If this ever changes, this subroutine must be modified.
@@ -91,9 +93,18 @@ if (iaction == 0) then
    iseaicecyclic = 0
    nseaicefiles  = 0
 
-   flnm = trim(seaice_database)//'??????????.h5'
+   ! new schema to avoid call systems
+   IF (iseaiceflg == 0) THEN
+      flnm = TRIM(seaice_database)
+      nocall = .TRUE.
+      iseaiceflg = 1
+   ELSE
+      flnm = TRIM(seaice_database)//'??????????.h5'
+      nocall = .FALSE.
+   ENDIF
+
    write(io6,*) 'Checking for seaice database files'
-   call OLAM_filelist(fnames_seaice, maxsstfiles, flnm, nseaicefiles)
+   CALL OLAM_filelist(fnames_seaice, maxsstfiles, flnm, nseaicefiles, nocall)
 
    if (nseaicefiles < 1) then
       write(io6,*) 'SEAICE database files '//flnm//' were not found.'

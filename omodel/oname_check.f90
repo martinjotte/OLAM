@@ -418,8 +418,8 @@ if (nl%isfcl == 1) then
    call ichk_bnds( nl%ivegflg,     "IVEGFLG",     1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%isoilflg,    "ISOILFLG",    1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%ndviflg,     "NDVIFLG",     1, 2, 0, nfatal, nwarn )
-   call ichk_bnds( nl%isstflg,     "ISSTFLG",     1, 2, 0, nfatal, nwarn )
-   call ichk_bnds( nl%iseaiceflg,  "ISEAICEFLG",  1, 2, 0, nfatal, nwarn )
+   call ichk_bnds( nl%isstflg,     "ISSTFLG",     0, 2, 0, nfatal, nwarn )
+   CALL ichk_bnds( nl%iseaiceflg,  "ISEAICEFLG",  0, 2, 0, nfatal, nwarn )
 
    call ichk_bnds( nl%isoilstateinit, "ISOILSTATEINIT", 0, 1, 0, nfatal,nwarn )
    call ichk_bnds( nl%isoildepthflg,  "ISOILDEPTHFLG",  0, 1, 0, nfatal,nwarn )
@@ -480,7 +480,7 @@ endif
 ! ISENTROPIC CONTROL 
 !--------------------------------------------------------------------------
 
-call ichk_bnds( nl%isdirs,   "ISANDIRS", 0, maxisdirs, 0, nfatal, nwarn, &
+CALL ichk_bnds( nl%isdirs,   "ISANDIRS", -1, maxisdirs, 0, nfatal, nwarn, &
      msgmax="Increase maxisdirs in maxdims.f90 if you need to read from more &
           & directories" )
 

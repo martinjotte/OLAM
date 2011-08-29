@@ -44,11 +44,22 @@ integer :: nfg_tmp,n
 integer :: iyear,imonth,idate,ihour
 
 character(pathlen) :: fnames_tmp(maxisfiles)
+character(15) :: suffix
+logical :: nocall
 
 ! Go through first guess files and make inventory
 
 nfgfiles = 0
 fnames_fg = ''
+
+! new schema to avoid call systems
+IF (isdirs == -1) THEN
+   isdirs = 1
+   nocall = .TRUE.
+ELSE
+   suffix = "????-??-??-????"
+   nocall = .FALSE.
+ENDIF
 
 do n = 1,isdirs 
    
@@ -62,9 +73,13 @@ do n = 1,isdirs
    endif
 
    nfg_tmp=-1
-   call OLAM_filelist(fnames_tmp, maxisfiles, &
-        trim(iapr(n))//"????-??-??-????", nfg_tmp)
-   
+   IF (nocall) THEN
+      CALL OLAM_filelist(fnames_tmp, maxisfiles, &
+           TRIM(iapr(n)), nfg_tmp, nocall)
+   ELSE
+      CALL OLAM_filelist(fnames_tmp, maxisfiles, &
+           TRIM(iapr(n))//TRIM(suffix), nfg_tmp, nocall)
+   ENDIF
    nf = nfgfiles + 1
    nfgfiles = nfgfiles + nfg_tmp
    

@@ -41,7 +41,7 @@
                          !    0 = global spherical
                          !    3 = 2D Cartesian channel with cyclic boundaries
 
-   NL%MESHTYPE = 2       ! Mesh type 1 = Delaunay (triangles)
+   NL%MESHTYPE = 1       ! Mesh type 1 = Delaunay (triangles)
                          !           2 = Voronoi  (hexagons)
 
    NL%NGRIDS  = 2        ! Number of grids to run
@@ -132,7 +132,7 @@
                      !                  3 = longitudinally homogeneous
 
    ! input climate file:
-   NL%ZONCLIM  = '../etc/ZONAVG_CLIMATE'
+   NL%ZONCLIM  = './data/etc/ZONAVG_CLIMATE'
 
  !--------------------------------------------------------------------------
  ! Nudging parameters (used only if initial=2)
@@ -170,8 +170,8 @@
    NL%ITOPOFLG = 1    ! 1 = Read topo from standard TOPO_DATABASE file
                       ! 2 = Define topo in subroutine topo_init
 
-   ! Surface topography database file path and name:
-   NL%TOPO_DATABASE = '/home/bob/olamdatah5/dem30s/TM'
+!  Surface topography database file path and name
+   NL%TOPO_DATABASE = './data/dem30s/TM'
 
  !--------------------------------------------------------------------------
  ! Model options / Numerical schemes
@@ -378,6 +378,10 @@
    NL%NDVIFLG    = 1   ! 
    NL%ISSTFLG    = 1   ! 1 = Read data from standard database file
    NL%ISEAICEFLG = 1   !
+                       ! ISSTFLG or ISEAICEFLG = 0 means that
+                       ! the respective database name below points to a
+                       ! .txt list of files, not the path and basename,
+                       ! in a new schema to avoid call systems
 
    NL%ISOILSTATEINIT = 0  ! 0 -- use slmstr
                           ! 1 -- read from file
@@ -387,19 +391,19 @@
 
  ! Surface database file paths and names
 
-   NL%VEG_DATABASE    = '/home/bob/olamdatah5/oge2/OGE2_'
-   NL%SOIL_DATABASE   = '/home/bob/olamdatah5/fao/FAO_'
-   NL%NDVI_DATABASE   = '/home/bob/olamdatah5/ndvi/NDVI'
-   NL%SST_DATABASE    = '/home/bob/olamdatah5/sst7100/SST'
-   NL%SEAICE_DATABASE = '/home/bob/olamdatah5/ice8100/ICE'
-   NL%SOILSTATE_DB    = './dp_etc/STW-'
-   NL%SOILDEPTH_DB    = '/home/bob/olamdatah5/SOIL_DEPTHS.h5'
+   NL%VEG_DATABASE    = './data/oge2/OGE2_'
+   NL%SOIL_DATABASE   = './data/fao/FAO_'
+   NL%NDVI_DATABASE   = './data/ndvi/NDVI'
+   NL%SST_DATABASE    = './data/sst7100/SST'
+   NL%SEAICE_DATABASE = './data/ice8100/ICE'
+   NL%SOILSTATE_DB    = './dp_etc/'
+   NL%SOILDEPTH_DB    = './data/soildepth/SOIL_DEPTHS.h5'
 
- ! Update flags for surface data
+! Update flags for surface data
 
-   NL%IUPDNDVI   = 1  ! 0/1 = No/Yes update of NDVI values during run
-   NL%IUPDSST    = 1  ! 0/1 = No/Yes update of SST values during run
-   NL%IUPDSEAICE = 1  ! 0/1 = No/Yes update of SST values during run
+   NL%IUPDNDVI   = 0  ! 0/1 = No/Yes update of NDVI values during run
+   NL%IUPDSST    = 0  ! 0/1 = No/Yes update of SST values during run
+   NL%IUPDSEAICE = 0  ! 0/1 = No/Yes update of SST values during run
  
    NL%SEATMP   = 280.   ! Water surface temperature (K) if ISSTFLG = 2
 
@@ -511,6 +515,8 @@
 
    NL%ISDIRS  = 1     ! Number of directory and file prefixes listed in
                       ! iapr (limit of maxisdirs directory/file prefixes)
+                      !
+                      ! -1 means that IAPR points to a .txt list of files
 
    NL%IAPR    = './dp_etc/dp-p',
 
@@ -552,7 +558,10 @@
  ! List of history files to plot from for RUNTYPE = 'PLOTONLY'
  !------------------------------------------------------------------------
 
-  NL%PLT_FILES = './hist/a-H-1996-07-31-000000.h5',
+  NL%PLT_FILES =
+    './hist/a-H-1997-05-01-000000.h5',
+    './hist/a-H-1997-05-01-010000.h5',
+    './hist/a-H-1997-05-01-020000.h5',
 
  !-------------------------------------------------------------------------
  ! Plotting Specifications

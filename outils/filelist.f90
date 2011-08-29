@@ -30,91 +30,106 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine OLAM_filelist(fnames,nfnam,file_prefix,nfile)
+SUBROUTINE OLAM_filelist(fnames,nfnam,file_prefix,nfile,nocall)
 
-use mem_para,  only: myrank
-use misc_coms, only: io6, tmpdir
-use max_dims,  only: pathlen
-implicit none
+  use mem_para,  only: myrank
+  use misc_coms, only: io6, tmpdir
+  use max_dims,  only: pathlen
+  implicit none
 
-integer, intent(in)  :: nfnam
-integer, intent(out) :: nfile
+  integer, intent(in)  :: nfnam
+  integer, intent(out) :: nfile
 
-character(len=*), intent(in)  :: file_prefix
-character(len=*), intent(out) :: fnames(nfnam)
+  character(len=*), intent(in)  :: file_prefix
+  character(len=*), intent(out) :: fnames(nfnam)
 
-character(len=256) :: command
-character(pathlen) :: file, cdir, dirname
-character(pathlen) :: tmpname, fname, dirtail
-character(len=10)  :: zrank
+  LOGICAL, intent(in) :: nocall
 
-integer :: iprelen,nc,nf,iun,lndir,slen,istat
-logical :: exists
-      
-write(io6,*) 'OLAM_filelist: Checking prefix: '//trim(file_prefix)
+  character(len=256) :: command
+  character(pathlen) :: file, cdir, dirname
+  character(pathlen) :: tmpname, fname, dirtail
+  character(len=10)  :: zrank
 
-nfile = 0
-iprelen = len_trim(file_prefix)
+  integer :: iprelen,nc,nf,iun,lndir,slen,istat
+  logical :: exists
 
-lndir = scan(file_prefix, '/', back=.true.)
-if (lndir > 0) then
-   dirname = file_prefix(1:lndir-1)
-   fname =   file_prefix(lndir+1:iprelen)
-   slen =    scan(dirname, '/', back=.true.) + 1
-   dirtail = dirname(slen:)
-else
-   dirname = "."
-   dirtail = "."
-   fname = file_prefix(1:iprelen)
-endif
+  IF (nocall) THEN
 
-! Determine a unique temporary filename
+     ! file_prefix is a list with all files, identical to the call system
+     ! with the find command. So tmpname is file_prefix in this case.
+     tmpname = file_prefix
 
-write(zrank,'(I0)') myrank
-tmpname = trim(tmpdir) // '/olam' // trim(zrank) // '.XXXXXXXX'
-call mktempname(tmpname)
- 
-! The 'ls' command only takes a limited number of file names as
-! arguments. Instead, we use the 'find' command to locate files and
-! the '-prune' option to not recursively decend into sub-directories
+  ELSE
 
-command = 'find '//trim(dirname)//'/. "(" -type d -a ! -name . -prune ")" -o -name "'//trim(fname)//'" -print > '//trim(tmpname)
-call system(command)
+     WRITE(io6,*) 'OLAM_filelist: Checking prefix: '//TRIM(file_prefix)
 
-! Open the directory list and read through the files
- 
-inquire(file=tmpname, exist=exists)
-if (.not. exists) then
-   write(*,*) 'OLAM_filelist: Error opening temporary OLAM_filelist'
-   stop 'OLAM_filelist: /tmp file error. Run again.'
-endif
+     nfile = 0
+     iprelen = LEN_TRIM(file_prefix)
 
-iun=98
-open(unit=iun,file=tmpname,status='old')
+     lndir = SCAN(file_prefix, '/', back=.TRUE.)
+     IF (lndir > 0) THEN
+        dirname = file_prefix(1:lndir-1)
+        fname =   file_prefix(lndir+1:iprelen)
+        slen =    SCAN(dirname, '/', back=.TRUE.) + 1
+        dirtail = dirname(slen:)
+     ELSE
+        dirname = "."
+        dirtail = "."
+        fname = file_prefix(1:iprelen)
+     ENDIF
 
-do nf=1,nfnam+1
-   read(iun,'(a)', iostat=istat) file
+     ! Determine a unique temporary filename
 
-   ! iostat /= 0 indicates end-of-file or error so exit loop
-   if (istat /= 0) exit
+     WRITE(zrank,'(I0)') myrank
+     tmpname = TRIM(tmpdir) // '/olam' // TRIM(zrank) // '.XXXXXXXX'
+     CALL mktempname(tmpname)
 
-   if (nf.gt.nfnam) then
-      write(*,*) 'OLAM_filelist: too many files of the form:'
-      write(*,*) trim(file_prefix)
-      stop 'Please increase the appropriate parameter in max_dims'
-   endif
+     ! The 'ls' command only takes a limited number of file names as
+     ! arguments. Instead, we use the 'find' command to locate files and
+     ! the '-prune' option to not recursively decend into sub-directories
 
-   fnames(nf) = file
-enddo
-      
-close(iun)
-nfile=nf-1
+     command = 'find '//TRIM(dirname)//'/. "(" -type d -a ! -name . -prune ")" &
+                -o -name "'//TRIM(fname)//'" -print > '//TRIM(tmpname)
+     CALL system(command)
 
-command = '/bin/rm -f '//tmpname
-call system(command)
+  ENDIF
 
-return 
-end subroutine OLAM_filelist
+  ! Open the directory list and read through the files
+
+  inquire(file=tmpname, exist=exists)
+  if (.not. exists) then
+     write(*,*) 'OLAM_filelist: Error opening temporary OLAM_filelist'
+     stop 'OLAM_filelist: /tmp file error. Run again.'
+  endif
+
+  iun=98
+  open(unit=iun,file=tmpname,status='old')
+
+  do nf=1,nfnam+1
+     read(iun,'(a)', iostat=istat) file
+
+     ! iostat /= 0 indicates end-of-file or error so exit loop
+     if (istat /= 0) exit
+
+     if (nf.gt.nfnam) then
+        write(*,*) 'OLAM_filelist: too many files of the form:'
+        write(*,*) trim(file_prefix)
+        stop 'Please increase the appropriate parameter in max_dims'
+     endif
+
+     fnames(nf) = file
+  enddo
+
+  close(iun)
+  nfile=nf-1
+
+  IF (.NOT. nocall) THEN
+     command = '/bin/rm -f '//tmpname
+     CALL system(command)
+  ENDIF
+
+  RETURN 
+END SUBROUTINE OLAM_filelist
 
 
 !===============================================================================

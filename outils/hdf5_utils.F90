@@ -35,6 +35,10 @@ Module hdf5_utils
 Contains
 
 subroutine shdf5_open(locfn,access,idelete)
+
+#ifdef OLAM_HDF5_FORTRAN
+use hdf5_f2f
+#endif
         
 implicit none
 
@@ -91,7 +95,7 @@ elseif (access(1:1) == 'W') then
          print*,'   Filename: ',trim(locfn)
          stop 'shdf5_open'
       else
-         call system('rm -f '//trim(locfn)//char(0))
+         ! PPL call system('rm -f '//trim(locfn)//char(0))
          iaccess=1
          call fh5f_create(trim(locfn)//char(0), iaccess, hdferr)
       endif
@@ -109,6 +113,10 @@ end subroutine shdf5_open
 !===============================================================================
 
 subroutine shdf5_info(dsetname,ndims,dims)
+
+#ifdef OLAM_HDF5_FORTRAN
+use hdf5_f2f
+#endif
 
 implicit none
 
@@ -150,6 +158,10 @@ end subroutine shdf5_info
 
 subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
                                          ,ivars,rvars,cvars,dvars,lvars)
+
+#ifdef OLAM_HDF5_FORTRAN
+use hdf5_f2f
+#endif
     
 implicit none
 
@@ -246,6 +258,10 @@ end subroutine
 
 subroutine shdf5_irec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
                                          ,ivars,rvars,cvars,dvars,lvars)
+
+#ifdef OLAM_HDF5_FORTRAN
+use hdf5_f2f
+#endif
         
 implicit none
 
@@ -346,6 +362,10 @@ end subroutine
 !===============================================================================
 
 subroutine shdf5_close()
+
+#ifdef OLAM_HDF5_FORTRAN
+use hdf5_f2f
+#endif
         
 implicit none
 
@@ -362,6 +382,10 @@ end  subroutine
 
 subroutine shdf5_io(action,ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
                                               ,ivars,rvars,cvars,dvars,lvars)
+
+#ifdef OLAM_HDF5_FORTRAN
+use hdf5_f2f
+#endif
 
   implicit none
 

@@ -32,6 +32,10 @@
 !===============================================================================
 subroutine olam_alloc_mpi_land(mrls)
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use mem_leaf,  only: jtab_wl_mpi
 use mem_para,  only: nsends_wl, nsends_wlf, nrecvs_wl, nrecvs_wlf,  &
                      send_wl, send_wlf, recv_wl, recv_wlf
@@ -43,8 +47,6 @@ implicit none
 integer, intent(in) :: mrls
 
 #ifdef OLAM_MPI
-
-include 'mpif.h'
 
 integer :: nbytes_int
 integer :: nbytes_real
@@ -209,6 +211,10 @@ subroutine mpi_send_wl(sendgroup)
 ! Subroutine to perform a parallel MPI send of a "WL group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use misc_coms,  only: io6
 use mem_leaf,   only: land, itab_wl, jtab_wl_mpi
 
@@ -219,8 +225,6 @@ implicit none
 character(1), intent(in) :: sendgroup
 
 #ifdef OLAM_MPI
-
-include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
@@ -307,6 +311,10 @@ subroutine mpi_send_wlf(sendgroup,mrl)
 ! Subroutine to perform a parallel MPI send of a "WLF group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use misc_coms,  only: io6
 use mem_para,   only: nrecvs_wlf, nsends_wlf, send_wlf, recv_wlf
 use mem_sflux,  only: landflux, jlandflux
@@ -317,8 +325,6 @@ character(1), intent(in) :: sendgroup
 integer,      intent(in) :: mrl
 
 #ifdef OLAM_MPI
-
-include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
@@ -432,6 +438,10 @@ subroutine mpi_recv_wl(recvgroup)
 ! Subroutine to perform a parallel MPI receive of a "WL group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use misc_coms, only: io6
 use mem_leaf,  only: land, itabg_wl
 use mem_para,  only: nsends_wl, nrecvs_wl, send_wl, recv_wl
@@ -441,8 +451,6 @@ implicit none
 character(1), intent(in) :: recvgroup
 
 #ifdef OLAM_MPI
-
-include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar,jtmp
@@ -523,6 +531,10 @@ subroutine mpi_recv_wlf(recvgroup,mrl)
 ! Subroutine to perform a parallel MPI receive of a "WLF group"
 ! of field variables
 
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
 use misc_coms, only: io6
 use mem_para,  only: nsends_wlf, nrecvs_wlf, send_wlf, recv_wlf
 use mem_sflux, only: landflux, landfluxg
@@ -533,8 +545,6 @@ character(1), intent(in) :: recvgroup
 integer,      intent(in) :: mrl
 
 #ifdef OLAM_MPI
-
-include 'mpif.h'
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar,jtmp

@@ -38,6 +38,10 @@ use olam_mpi_atm, only: olam_mpi_init, olam_mpi_finalize
 use misc_coms,    only: tmpdir
 use max_dims,     only: pathlen
 
+#ifdef OLAM_HDF5_FORTRAN
+use hdf5
+#endif
+
 implicit none
 
 character(pathlen) :: name_name = 'OLAMIN'
@@ -46,6 +50,7 @@ character(30)      :: io6file
 integer :: numarg
 integer :: i,n
 integer :: bad = 0
+integer :: hdferr
 
 ! Determine if this run is parallel, and determine myrank and mgroupsize
 
@@ -69,9 +74,10 @@ if (iparallel == 1 .and. myrank > 0) then
 
 ! First, remove file in case it exists
 
-   call system('rm -f '//trim(io6file)//char(0))
+   ! PPL
+   ! call system('rm -f '//trim(io6file)//char(0))
 
-   open(io6,file=io6file,status='new',form='formatted')
+   open(io6,file=io6file,status='unknown',form='formatted')
 
 #ifdef __PGI
    ! Prevent Portland Group compiler from buffering io6
@@ -82,6 +88,11 @@ endif
 write(io6,'(/,a,i6)') ' myrank     = ',myrank
 write(io6,'(  a,i6)') ' mgroupsize = ',mgroupsize
 write(io6,'(  a,i6)') ' iparallel  = ',iparallel
+
+! initialize HDF5 library
+#ifdef OLAM_HDF5_FORTRAN
+call h5open_f(hdferr)
+#endif
 
 numarg = command_argument_count()
 write(io6,*) 'numarg:', numarg

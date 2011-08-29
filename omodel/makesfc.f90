@@ -1609,8 +1609,8 @@ call shdf5_orec(ndims, idims, 'xems'  , rvara=sea%xem)
 call shdf5_orec(ndims, idims, 'yems'  , rvara=sea%yem)
 call shdf5_orec(ndims, idims, 'zems'  , rvara=sea%zem)
 call shdf5_orec(ndims, idims, 'zms'   , rvara=sea%zm)
-call shdf5_orec(ndims, idims, 'glatms', rvara=sea%glatw)
-call shdf5_orec(ndims, idims, 'glonms', rvara=sea%glonw)
+call shdf5_orec(ndims, idims, 'glatms', rvara=sea%glatm)
+call shdf5_orec(ndims, idims, 'glonms', rvara=sea%glonm)
 
 ndims = 2
 idims(1) = maxnlspoly
@@ -1852,8 +1852,8 @@ call shdf5_irec(ndims, idims, 'xems'  , rvara=sea%xem)
 call shdf5_irec(ndims, idims, 'yems'  , rvara=sea%yem)
 call shdf5_irec(ndims, idims, 'zems'  , rvara=sea%zem)
 call shdf5_irec(ndims, idims, 'zms'   , rvara=sea%zm)
-call shdf5_irec(ndims, idims, 'glatms', rvara=sea%glatw)
-call shdf5_irec(ndims, idims, 'glonms', rvara=sea%glonw)
+call shdf5_irec(ndims, idims, 'glatms', rvara=sea%glatm)
+call shdf5_irec(ndims, idims, 'glonms', rvara=sea%glonm)
 
 ndims = 2
 idims(1) = maxnlspoly
