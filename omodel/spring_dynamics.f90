@@ -68,7 +68,7 @@ real :: dist00,dist0,dist,expansion,frac_change,dx2,dy2,dz2
 
 ! Set value for niter based on ngr and ngrids
 
-if (ngr < ngrids) then
+if (ngr > 1 .and. ngr < ngrids) then
    niter = 200
 else
    niter = 2000

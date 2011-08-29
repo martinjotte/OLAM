@@ -126,8 +126,8 @@ do iv = 2,nva
 ! Re-assign loop values as if mdomain = 0.  This will need to change in
 ! limited-area domain.
 
-   call vloops('f',iv, 1, 4, 7, 8, 9,11,12,14,15,16)
-   call vloops('n',iv,18,20, 0, 0, 0, 0, 0, 0, 0, 0)
+   call vloops('f',iv, 1, 4, 7, 8, 9,11,12,13,14,15)
+   call vloops('n',iv,16,18,20, 0, 0, 0, 0, 0, 0, 0)
 
    itab_v(iv)%ivp       = itab_ud(iud)%iup
    itab_v(iv)%ivglobe   = itab_ud(iud)%iuglobe

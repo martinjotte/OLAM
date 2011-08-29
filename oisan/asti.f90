@@ -30,17 +30,20 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine isnstage(p_u,p_v,p_t,p_z,p_r  &
-                  , o_rho, o_theta, o_shv, o_uzonal, o_umerid)
+subroutine isnstage(p_u,p_v,p_t,p_z,p_r, &
+                    o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_uvc)
 
 use max_dims,   only: maxpr
-use isan_coms,  only: nprz, npry, nprx, nprz_rh, pcol_v,  &
-                      pcol_u, pcol_rt, pcol_z, pcol_temp, gdatdx, gdatdy,  &
+use isan_coms,  only: nprz, npry, nprx, nprz_rh, pcol_v, &
+                      pcol_u, pcol_rt, pcol_z, pcol_temp, gdatdx, gdatdy, &
                       npd, kzonoff, levpr, lzon_bot, pcol_p
-use mem_grid,   only: glatw, glonw, mza, mwa
-use mem_ijtabs, only: jtab_w
+use mem_grid,   only: glatw, glonw, mza, mwa, mva, &
+                      xeu, yeu, zeu, xev, yev, zev, &
+                      unx, uny, unz, vnx, vny, vnz
+use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w
 use mem_zonavg, only: zonp_vect, zont, zonz, zonr, zonu
-use misc_coms,  only: io6
+use consts_coms, only: eradi
+use misc_coms,  only: io6, meshtype
 
 implicit none
 
@@ -55,14 +58,17 @@ real,         intent(out) :: o_theta (mza,mwa)
 real,         intent(out) :: o_shv   (mza,mwa)
 real,         intent(out) :: o_uzonal(mza,mwa)
 real,         intent(out) :: o_umerid(mza,mwa)
+real,         intent(out) :: o_uvc   (mza,mva)
 
 character(3) :: csuff
 character(8) :: rot_type
 
 integer :: ngrd,lv,lf,k,levp,j,iw,ilat,iu,iv,iuv  &
    ,iw1,iw2,nlevs,kstrt
+
 real :: wt2,grx,gry,rlat,qlatu,qlonu,dummy,ug,vg  &
-   ,qlatv,qlonv,cosuv,qlatuv,qlonuv,sinuv,uvgx,uvgy,uvgz,uvgr,raxis
+   ,qlatv,qlonv,cosuv,qlatuv,qlonuv,sinuv,uvgx,uvgy,uvgz,uvgr,raxis,raxisi
+
 real :: r_interp(22)
 
 ! Determine index of lowest ZONAVG pressure level that is at least 1/2
@@ -106,11 +112,10 @@ call qsub('W',iw)
 ! at location of current W point
 
    do k = 1,nprz
-   
-      call gdtost(p_t(1,1,k),nprx+3,npry+2,grx,gry,pcol_temp(k+2))  ! temp
-      call gdtost(p_z(1,1,k),nprx+3,npry+2,grx,gry,pcol_z(k+2))     ! geop ht
-      call gdtost(p_u(1,1,k),nprx+3,npry+2,grx,gry,pcol_u(k+2))     ! uzonal
-      call gdtost(p_v(1,1,k),nprx+3,npry+2,grx,gry,pcol_v(k+2))     ! umerid
+      call gdtost(p_t(1,1,k),nprx+3,npry+2,grx,gry,pcol_temp(k+2)) ! temp
+      call gdtost(p_z(1,1,k),nprx+3,npry+2,grx,gry,pcol_z(k+2))    ! geop ht
+      call gdtost(p_u(1,1,k),nprx+3,npry+2,grx,gry,pcol_u(k+2))    ! uzonal
+      call gdtost(p_v(1,1,k),nprx+3,npry+2,grx,gry,pcol_v(k+2))    ! umerid
    enddo
 
    do k=1,nprz_rh
@@ -157,6 +162,89 @@ call qsub('W',iw)
 enddo
 call rsub('Wa',7)
 
+if (meshtype == 1) then
+
+! If triangular mesh, initialize U wind component
+
+   call psub()
+!----------------------------------------------------------------------
+   do j = 1,jtab_u(7)%jend(1); iu = jtab_u(7)%iu(j)
+      iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
+!----------------------------------------------------------------------
+   call qsub('U',iu)
+
+      if (iw1 < 2) iw1 = iw2
+      if (iw2 < 2) iw2 = iw1
+
+      raxis = sqrt(xeu(iu) ** 2 + yeu(iu) ** 2)  ! dist from earth axis
+
+! Average winds to U point and rotate at U point
+
+      if (raxis > 1.e3) then
+         raxisi = 1. / raxis
+
+         do k = 1,mza
+            ug = .5 * (o_uzonal(k,iw1) + o_uzonal(k,iw2))
+            vg = .5 * (o_umerid(k,iw1) + o_umerid(k,iw2))
+
+            uvgr = -vg * zeu(iu) * eradi  ! radially outward from axis
+
+            uvgx = (-ug * yeu(iu) + uvgr * xeu(iu)) * raxisi
+            uvgy = ( ug * xeu(iu) + uvgr * yeu(iu)) * raxisi 
+            uvgz =   vg * raxis * eradi 
+
+            o_uvc(k,iu) = uvgx * unx(iu) + uvgy * uny(iu) + uvgz * unz(iu)
+         enddo
+      else
+         o_uvc(:,iu) = 0.
+      endif
+
+   enddo
+   call rsub('Ua',7)
+
+else
+
+! If using hexagonal mesh, initialize V wind component
+
+   call psub()
+!----------------------------------------------------------------------
+   do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)
+      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+!----------------------------------------------------------------------
+   call qsub('V',iv)
+
+      if (iw1 < 2) iw1 = iw2
+      if (iw2 < 2) iw2 = iw1
+
+      raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
+
+! Average winds to V point and rotate at V point
+
+      if (raxis > 1.e3) then
+         raxisi = 1. / raxis
+
+         do k = 1,mza
+            ug = .5 * (o_uzonal(k,iw1) + o_uzonal(k,iw2))
+            vg = .5 * (o_umerid(k,iw1) + o_umerid(k,iw2))
+
+            uvgr = -vg * zev(iv) * eradi  ! radially outward from axis
+
+            uvgx = (-ug * yev(iv) + uvgr * xev(iv)) * raxisi 
+            uvgy = ( ug * xev(iv) + uvgr * yev(iv)) * raxisi 
+            uvgz =   vg * raxis * eradi 
+
+            o_uvc(k,iv) = uvgx * vnx(iv) + uvgy * vny(iv) + uvgz * vnz(iv)
+         enddo
+
+      else
+         o_uvc(:,iv) = 0.
+      endif
+
+   enddo
+   call rsub('Va',7)
+
+endif
+
 end subroutine isnstage
 
 !===============================================================================
@@ -195,11 +283,11 @@ real, external :: eslf
 
 ! Fill phony underground values for PPD levels 1100 mb and 1200 mb
 
-   pcol_u(1:2)  = pcol_u(3)
-   pcol_v(1:2)  = pcol_v(3)
-   pcol_rt(1:2) = pcol_rt(3)
-   pcol_temp(2) = pcol_temp(3) + 5.3  ! Uses approx std lapse rate
-   pcol_temp(1) = pcol_temp(2) + 4.9  ! Uses approx std lapse rate
+pcol_u(1:2)  = pcol_u(3)
+pcol_v(1:2)  = pcol_v(3)
+pcol_rt(1:2) = pcol_rt(3)
+pcol_temp(2) = pcol_temp(3) + 5.3  ! Uses approx std lapse rate
+pcol_temp(1) = pcol_temp(2) + 4.9  ! Uses approx std lapse rate
 
 do k = 1,npd
    pcol_pk(k) = pcol_p(k)**rocp

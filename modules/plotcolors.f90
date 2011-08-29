@@ -2282,8 +2282,8 @@ Contains
    call o_hls (iwk,227, 20., 49., 90.)
    call o_hls (iwk,228, 20., 40., 90.)
 
-!   call o_hls (iwk,239, 00., 60.,  0.)  ! Grays
-!   call o_hls (iwk,240, 00., 80.,  0.)  
+   call o_hls (iwk,229, 00., 60.,  0.)  ! Grays
+   call o_hls (iwk,230, 00., 80.,  0.)  
 
 ! Extras - for precip (frances) 
 

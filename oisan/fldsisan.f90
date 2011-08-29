@@ -30,52 +30,52 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine fldsisan(iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
+subroutine fldsisan(iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_uvc)
 
-use mem_nudge,   only: nudflag, nudnxp, mnudp,  &
-                       rho_obsp, theta_obsp, shw_obsp, uzonal_obsp,   &
-                       umerid_obsp, rho_obsf, theta_obsf, shw_obsf,   &
+use mem_nudge,   only: nudflag, nudnxp, mwnud, &
+                       rho_obsp, theta_obsp, shw_obsp, uzonal_obsp, &
+                       umerid_obsp, rho_obsf, theta_obsf, shw_obsf, &
                        uzonal_obsf, umerid_obsf
-use mem_basic,   only: umc, ump, uc, vmc, vmp, vc, thil, sh_w, sh_v, wmc, wc,  &
+use mem_basic,   only: umc, ump, uc, vmc, vmp, vc, thil, sh_w, sh_v, wmc, wc, &
                        theta, rho, press
-use mem_grid,    only: nza, mza, mua, mva, mwa, lcu, lcv, lpw, zm, zt, &
+use mem_grid,    only: mza, mua, mva, mwa, lcu, lcv, lpw, zm, zt, &
                        unx, uny, unz, vnx, vny, vnz, xeu, yeu, zeu, &
-                       xev, yev, zev, aru, arv, volt
-use misc_coms,   only: io6, deltax, deltaz, dzrat, dzmax, iparallel, runtype,  &
+                       xev, yev, zev, xew, yew, zew, aru, arv, volt
+use misc_coms,   only: io6, deltax, deltaz, dzrat, dzmax, iparallel, runtype, &
                        meshtype
 use mem_micro,   only: sh_c
 use micro_coms,  only: level
 use mem_ijtabs,  only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w
-use consts_coms, only: pc1, rdry, rvap,cpocv,erad
+use consts_coms, only: pc1, rdry, rvap, cpocv, erad, eradi
 use massflux,    only: diagnose_uc, diagnose_vc
 
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w,  &
-                        mpi_send_u, mpi_recv_u,  &
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
+                        mpi_send_u, mpi_recv_u, &
                         mpi_send_v, mpi_recv_v 
 
 implicit none
 
 integer, intent(in)  :: iaction
 
-integer :: j,iw,k,ka,iu,iv,iw1,iw2,iup,ivp,inudp,inudp1
-
-real :: rcloud,temp,rvls,uu,vv,angle
-real :: alph_p
-real :: volnudpi
-
-!real :: ug,vg,raxis,uvgr,uvgx,uvgy,uvgz
-
-! Automatic arrays
-
 real(kind=8), intent(in) :: o_rho   (mza,mwa)
 real,         intent(in) :: o_theta (mza,mwa)
 real,         intent(in) :: o_shv   (mza,mwa)
 real,         intent(in) :: o_uzonal(mza,mwa)
 real,         intent(in) :: o_umerid(mza,mwa)
+real,         intent(in) :: o_uvc   (mza,mva)
 
-real :: volnudp(mza,mnudp)
+integer :: j,iw,k,ka,iu,iv,iw1,iw2,iup,ivp,iwnud,iwnud1
+integer :: npoly,kb,jv
 
-real :: ug(mza),vg(mza),raxis(mza),uvgr(mza),uvgx(mza),uvgy(mza),uvgz(mza)
+real :: rcloud,temp,rvls,uu,vv,angle
+real :: alph_p,farv2,raxis,raxisi
+real :: volwnudi
+
+! Automatic arrays
+
+real :: volwnud(mza,mwnud)
+real :: ouzonal(mza),oumerid(mza)
+real :: vxe(mza),vye(mza),vze(mza)
 
 ! init_hurricane is reset in subroutine hurricane, if calls are uncommented below
 
@@ -108,14 +108,14 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
 ! alph_p is like alpha_press except that the (theta/thil) factor is excluded
 ! here (it's equal to 1)
 
-         alph_p = pc1 * (((1. - sh_w(k,iw)) * rdry + sh_v(k,iw) * rvap))  &
+         alph_p = pc1 * (((1. - sh_w(k,iw)) * rdry + sh_v(k,iw) * rvap)) &
                 ** cpocv
 
          press(k,iw) = alph_p * (rho(k,iw) * thil(k,iw)) ** cpocv
 
          wc(k,iw) = 0.
          wmc(k,iw) = 0.
-         
+
       enddo
    enddo
    call rsub('Wb',7)
@@ -140,32 +140,8 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
 !----------------------------------------------------------------------
       call qsub('U',iu)
 
-         if (iw1 < 2) write(io6,*) 'iu,iw1,iw2',iu,iw1,iw2
-         if (iw2 < 2) write(io6,*) 'iu,iw2,iw1',iu,iw2,iw1
-
-         if (iw1 < 2) iw1 = iw2
-         if (iw2 < 2) iw2 = iw1
-
-! Average winds to U point and rotate at U point
-
          do k = 1,mza
-            ug(k) = .5 * (o_uzonal(k,iw1) + o_uzonal(k,iw2))
-            vg(k) = .5 * (o_umerid(k,iw1) + o_umerid(k,iw2))
-
-            raxis(k) = sqrt(xeu(iu) ** 2 + yeu(iu) ** 2)  ! dist from earth axis
-
-            if (raxis(k) > 1.e3) then
-               uvgr(k) = -vg(k) * zeu(iu) / erad  ! radially outward from axis
-
-               uvgx(k) = (-ug(k) * yeu(iu) + uvgr(k) * xeu(iu)) / raxis(k) 
-               uvgy(k) = ( ug(k) * xeu(iu) + uvgr(k) * yeu(iu)) / raxis(k) 
-               uvgz(k) =   vg(k) * raxis(k) / erad 
-
-               uc(k,iu) = uvgx(k) * unx(iu) + uvgy(k) * uny(iu) + uvgz(k) * unz(iu)
-            else
-               uc(k,iu) = 0.
-            endif
-            
+            uc(k,iu) = o_uvc(k,iu)
             umc(k,iu) = uc(k,iu) * .5 * (rho(k,iw1) + rho(k,iw2))
          enddo
 
@@ -235,32 +211,8 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
 !----------------------------------------------------------------------
       call qsub('V',iv)
 
-         if (iw1 < 2) write(io6,*) 'iv,iw1,iw2',iv,iw1,iw2
-         if (iw2 < 2) write(io6,*) 'iv,iw2,iw1',iv,iw2,iw1
-
-         if (iw1 < 2) iw1 = iw2
-         if (iw2 < 2) iw2 = iw1
-
-! Average winds to V point and rotate at V point
-
          do k = 1,mza
-            ug(k) = .5 * (o_uzonal(k,iw1) + o_uzonal(k,iw2))
-            vg(k) = .5 * (o_umerid(k,iw1) + o_umerid(k,iw2))
-
-            raxis(k) = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
-
-            if (raxis(k) > 1.e3) then
-               uvgr(k) = -vg(k) * zev(iv) / erad  ! radially outward from axis
-
-               uvgx(k) = (-ug(k) * yev(iv) + uvgr(k) * xev(iv)) / raxis(k) 
-               uvgy(k) = ( ug(k) * xev(iv) + uvgr(k) * yev(iv)) / raxis(k) 
-               uvgz(k) =   vg(k) * raxis(k) / erad 
-
-               vc(k,iv) = uvgx(k) * vnx(iv) + uvgy(k) * vny(iv) + uvgz(k) * vnz(iv)
-            else
-               vc(k,iv) = 0.
-            endif
-
+            vc(k,iv) = o_uvc(k,iv)
             vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
          enddo
 
@@ -335,7 +287,7 @@ write(io6,*)' '
 
    do k = mza-1,2,-1
       write(io6, '(f10.2,1x,9(''-------''))') zm(k)
-      write(io6, '(10x,i5,f10.2,f11.2,f11.4,f12.2,f11.4)')  &
+      write(io6, '(10x,i5,f10.2,f11.2,f11.4,f12.2,f11.4)') &
           k,zt(k),press(k,iw),rho(k,iw),theta(k,iw),sh_w(k,iw)*1.e3
    enddo
 
@@ -350,18 +302,17 @@ if (nudflag < 1 .or. nudnxp < 1) return
 
 ! If we got here, nudging will be done in this model run, so fill nudging arrays.
 
-! Swap future data time into past data time if necessary.  (Only polygon nudging
-! has been implemented.)
+! Swap future data time into past data time if necessary.
 
 if (iaction == 1) then
 
-   do inudp = 2,mnudp
+   do iwnud = 2,mwnud
       do k = 2,mza-1
-            rho_obsp(k,inudp) =    rho_obsf(k,inudp)
-          theta_obsp(k,inudp) =  theta_obsf(k,inudp)
-            shw_obsp(k,inudp) =    shw_obsf(k,inudp)
-         uzonal_obsp(k,inudp) = uzonal_obsf(k,inudp)
-         umerid_obsp(k,inudp) = umerid_obsf(k,inudp)
+            rho_obsp(k,iwnud) =    rho_obsf(k,iwnud)
+          theta_obsp(k,iwnud) =  theta_obsf(k,iwnud)
+            shw_obsp(k,iwnud) =    shw_obsf(k,iwnud)
+         uzonal_obsp(k,iwnud) = uzonal_obsf(k,iwnud)
+         umerid_obsp(k,iwnud) = umerid_obsf(k,iwnud)
       enddo
    enddo
 
@@ -369,15 +320,15 @@ endif
 
 ! Zero out nudging polygon arrays and volume counter prior to summing
 
-do inudp = 2,mnudp
+do iwnud = 2,mwnud
    do k = 2,mza-1
-          volnudp(k,inudp) = 0.
+          volwnud(k,iwnud) = 0.
 
-         rho_obsf(k,inudp) = 0.
-       theta_obsf(k,inudp) = 0.
-         shw_obsf(k,inudp) = 0.
-      uzonal_obsf(k,inudp) = 0.
-      umerid_obsf(k,inudp) = 0.
+         rho_obsf(k,iwnud) = 0.
+       theta_obsf(k,iwnud) = 0.
+         shw_obsf(k,iwnud) = 0.
+      uzonal_obsf(k,iwnud) = 0.
+      umerid_obsf(k,iwnud) = 0.
    enddo
 enddo
 
@@ -386,36 +337,93 @@ enddo
 call psub()
 !----------------------------------------------------------------------
 do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)
-   inudp1 = itab_w(iw)%inudp(1)
+   iwnud1 = itab_w(iw)%iwnud(1)
 !---------------------------------------------------------------------
 call qsub('W',iw)
 
-   do k = lpw(iw),mza-1
-          volnudp(k,inudp1) =     volnudp(k,inudp1) + volt(k,iw) 
+! Reconstruct OUZONAL(k) and OUMERID(k) from O_UVC instead of using 
+! O_UZONAL(k,iw) and O_UMERID(k,iw) that were interpolated directly from obs
 
-         rho_obsf(k,inudp1) =    rho_obsf(k,inudp1) + o_rho   (k,iw)*volt(k,iw)
-       theta_obsf(k,inudp1) =  theta_obsf(k,inudp1) + o_theta (k,iw)*volt(k,iw)
-         shw_obsf(k,inudp1) =    shw_obsf(k,inudp1) + o_shv   (k,iw)*volt(k,iw)
-      uzonal_obsf(k,inudp1) = uzonal_obsf(k,inudp1) + o_uzonal(k,iw)*volt(k,iw)
-      umerid_obsf(k,inudp1) = umerid_obsf(k,inudp1) + o_umerid(k,iw)*volt(k,iw)
+   npoly = itab_w(iw)%npoly
+   kb = lpw(iw)
+   
+   vxe(:) = 0.
+   vye(:) = 0.
+   vze(:) = 0.
 
+   do jv = 1,npoly
+
+      if (meshtype == 1) then
+
+         iv = itab_w(iw)%iu(jv)
+
+         do k = kb,mza-1
+            vxe(k) = vxe(k) + itab_w(iw)%vxu(jv) * o_uvc(k,iv)
+            vye(k) = vye(k) + itab_w(iw)%vyu(jv) * o_uvc(k,iv)
+            vze(k) = vze(k) + itab_w(iw)%vzu(jv) * o_uvc(k,iv)
+         enddo
+
+      else
+
+         iv = itab_w(iw)%iv(jv)
+         farv2 = 2. * itab_w(iw)%farv(jv)
+
+         do k = kb,mza-1
+            vxe(k) = vxe(k) + farv2 * o_uvc(k,iv) * vnx(iv)
+            vye(k) = vye(k) + farv2 * o_uvc(k,iv) * vny(iv)
+            vze(k) = vze(k) + farv2 * o_uvc(k,iv) * vnz(iv)
+         enddo
+
+      endif
+
+   enddo
+
+   raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+
+! Evaluate zonal and meridional wind components from model
+
+   if (raxis > 1.e3) then
+      raxisi = 1. / raxis
+
+      do k = kb,mza-1
+         ouzonal(k) = (vye(k) * xew(iw) - vxe(k) * yew(iw)) * raxisi
+         oumerid(k) = vze(k) * raxis * eradi &
+            - (vxe(k) * xew(iw) + vye(k) * yew(iw)) * zew(iw) * raxisi * eradi
+      enddo
+
+   else
+      ouzonal(:) = 0.
+      oumerid(:) = 0.
+   endif
+
+! With observed values now interpolated to model T point, add these values to
+! sum at local nudging point
+
+   do k = kb,mza-1
+          volwnud(k,iwnud1) =     volwnud(k,iwnud1) + volt(k,iw) 
+
+         rho_obsf(k,iwnud1) =    rho_obsf(k,iwnud1) + o_rho  (k,iw) * volt(k,iw)
+       theta_obsf(k,iwnud1) =  theta_obsf(k,iwnud1) + o_theta(k,iw) * volt(k,iw)
+         shw_obsf(k,iwnud1) =    shw_obsf(k,iwnud1) + o_shv  (k,iw) * volt(k,iw)
+      uzonal_obsf(k,iwnud1) = uzonal_obsf(k,iwnud1) + ouzonal(k)    * volt(k,iw)
+      umerid_obsf(k,iwnud1) = umerid_obsf(k,iwnud1) + oumerid(k)    * volt(k,iw)
    enddo
 
 enddo
 call rsub('Wbb',7)
 
-! Compute average for each polygon nudge point
+! Normalize nudging point sums to get average values
 
-do inudp = 2,mnudp
+do iwnud = 2,mwnud
    do k = 2,mza-1
 
-                  volnudpi = 1. / max(1.,volnudp(k,inudp))
+                  volwnudi = 1. / max(1.,volwnud(k,iwnud))
 
-         rho_obsf(k,inudp) =    rho_obsf(k,inudp) * volnudpi
-       theta_obsf(k,inudp) =  theta_obsf(k,inudp) * volnudpi
-         shw_obsf(k,inudp) =    shw_obsf(k,inudp) * volnudpi
-      uzonal_obsf(k,inudp) = uzonal_obsf(k,inudp) * volnudpi
-      umerid_obsf(k,inudp) = umerid_obsf(k,inudp) * volnudpi
+         rho_obsf(k,iwnud) =    rho_obsf(k,iwnud) * volwnudi
+       theta_obsf(k,iwnud) =  theta_obsf(k,iwnud) * volwnudi
+         shw_obsf(k,iwnud) =    shw_obsf(k,iwnud) * volwnudi
+      uzonal_obsf(k,iwnud) = uzonal_obsf(k,iwnud) * volwnudi
+      umerid_obsf(k,iwnud) = umerid_obsf(k,iwnud) * volwnudi
 
    enddo
 enddo
@@ -427,45 +435,80 @@ end subroutine fldsisan
 
 subroutine obs_nudge(rhot)
 
-use mem_nudge,   only: tnudcent, mnudp,                                    &
-                       rho_sim, rho_obs, rho_obsp, rho_obsf,               &
-                       theta_sim, theta_obs, theta_obsp, theta_obsf,       &
-                       uzonal_sim, uzonal_obs, uzonal_obsp, uzonal_obsf,   &
-                       umerid_sim, umerid_obs, umerid_obsp, umerid_obsf,   &
+use mem_nudge,   only: tnudcent, mwnud,                                  &
+                       rho_sim, rho_obs, rho_obsp, rho_obsf,             &
+                       theta_sim, theta_obs, theta_obsp, theta_obsf,     &
+                       uzonal_sim, uzonal_obs, uzonal_obsp, uzonal_obsf, &
+                       umerid_sim, umerid_obs, umerid_obsp, umerid_obsf, &
                        shw_sim, shw_obs, shw_obsp, shw_obsf
-use mem_basic,   only: uc, rho, theta, sh_w
-use mem_grid,    only: mza, mwa, xeu, yeu, zeu, xew, yew, zew,  &
-                       unx, uny, unz, lpu, lpw, volt
-use misc_coms,   only: io6, time8, s1900_sim
-use mem_ijtabs,  only: istp, jtab_u, jtab_w, itab_u, itab_w, mrl_begl
+use mem_basic,   only: uc, vc, rho, theta, sh_w
+use mem_grid,    only: mza, mwa, lpu, lpv, lpw, &
+                       xeu, yeu, zeu, xev, yev, zev, xew, yew, zew, &
+                       unx, uny, unz, vnx, vny, vnz, volt, glatw, glonw
+use misc_coms,   only: io6, time8, s1900_sim, meshtype
+use mem_ijtabs,  only: istp, jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
+                       mrl_begl
 use consts_coms, only: erad, eradi
-use mem_tend,    only: umt, thilt, sh_wt
+use mem_tend,    only: umt, vmt, thilt, sh_wt
 use isan_coms,   only: ifgfile, s1900_fg
+
+!$ use omp_lib
 
 implicit none
 
-! Nudge selected model fields (rho, thil, sh_w, umc) to observed data
+! Nudge selected model fields (rho, thil, sh_w, umc, vmc) to observed data
 ! using polygon filtering
 
 real, intent(inout) :: rhot(mza,mwa)
 
-integer :: inudp,k,j,iu1,iu2,iu3,iw,inudp1,inudp2,inudp3,iw1,iw2,iu,mrl
+integer :: iwnud,k,j,jv,iv,iw,iwnud1,iwnud2,iwnud3,iw1,iw2,iu,mrl,npoly,kb
 
-real :: volnudp (mza,mnudp) ! automatic array
-real :: uzonalt (mza,mwa)   ! automatic array
-real :: umeridt (mza,mwa)   ! automatic array
+real :: volwnud (mza,mwnud)
+real :: umzonalt (mza,mwa)
+real :: ummeridt (mza,mwa)
+real :: vxe(mza),vye(mza),vze(mza)
+real :: uzonal(mza),umerid(mza)
 
-real :: volnudpi,tp,tf,tnudi
-real :: vxu1,vyu1,vzu1
-real :: vxu2,vyu2,vzu2
-real :: vxu3,vyu3,vzu3
-real :: vx,vy,vz,raxis,uzonal,umerid,ugt,vgt,uvgrt,uvgxt,uvgyt,uvgzt
-real :: fnudp1,fnudp2,fnudp3
+real :: volwnudi,tp,tf,tnudi
+real :: raxis,raxisi
+real :: umgt,vmgt,uvmgrt,uvmgxt,uvmgyt,uvmgzt,farv2
+real :: fnud1,fnud2,fnud3
 
-real :: umass,umassoraxis
+!----------------------------------------------------------------------
+! EXAMPLE - DEFINE OPTIONAL SPATIAL NUDGING MASK
 
-!sp
-real :: umtbef
+!integer, save :: icall = 0
+!real, save, allocatable :: wtnud(:)
+!real :: xw,yw,dist
+
+!if (icall /= 1) then
+!   icall = 1
+   
+!   allocate (wtnud(mwa))
+   
+! Horizontal loop over T points
+
+!   do iw = 2,mwa
+
+! Transform current IW point to polar stereographic coordinates using specified
+! pole point location (pole point lat/lon = 4th & 5th arguments of e_ps)
+   
+!      call e_ps(xew(iw),yew(iw),zew(iw),36.,-120.,xw,yw)
+
+!      dist = sqrt(xw ** 2 + yw ** 2)
+      
+!      if (dist > 4000.e3) then
+!         wtnud(iw) = 1.
+!      elseif (dist < 3600.e3) then
+!         wtnud(iw) = 0.
+!      else
+!         wtnud(iw) = (dist - 3600.e3) / 400.e3
+!      endif
+
+!   enddo
+
+!endif
+!----------------------------------------------------------------------
 
 ! Check whether it is time to nudge
 
@@ -478,67 +521,94 @@ tf = real ( (s1900_sim         - s1900_fg(ifgfile-1)) &
           / (s1900_fg(ifgfile) - s1900_fg(ifgfile-1)) )
 
 tp = 1. - tf
-tnudi = 1. / tnudcent
 
 ! Zero out polygon arrays for model fields and volume counter prior to summing
 
-do inudp = 2,mnudp
+!$omp parallel do private (k)
+do iwnud = 2,mwnud
    do k = 2,mza-1
-         rho_sim(k,inudp) = 0.
-       theta_sim(k,inudp) = 0.
-         shw_sim(k,inudp) = 0.
-      uzonal_sim(k,inudp) = 0.
-      umerid_sim(k,inudp) = 0.
+         rho_sim(k,iwnud) = 0.
+       theta_sim(k,iwnud) = 0.
+         shw_sim(k,iwnud) = 0.
+      uzonal_sim(k,iwnud) = 0.
+      umerid_sim(k,iwnud) = 0.
       
-      volnudp(k,inudp) = 0.
+      volwnud(k,iwnud) = 0.
    enddo
 enddo
+!$omp end parallel do
 
 ! Sum model values to polygon arrays
 
 call psub()
 !----------------------------------------------------------------------
 do j = 1,jtab_w(23)%jend(mrl); iw = jtab_w(23)%iw(j)
-
-    iu1 = itab_w(iw)%iu(1); iu2 = itab_w(iw)%iu(2); iu3 = itab_w(iw)%iu(3)
-
-   vxu1 = itab_w(iw)%vxu(1); vyu1 = itab_w(iw)%vyu(1); vzu1 = itab_w(iw)%vzu(1)
-   vxu2 = itab_w(iw)%vxu(2); vyu2 = itab_w(iw)%vyu(2); vzu2 = itab_w(iw)%vzu(2)
-   vxu3 = itab_w(iw)%vxu(3); vyu3 = itab_w(iw)%vyu(3); vzu3 = itab_w(iw)%vzu(3)
-
-   inudp1 = itab_w(iw)%inudp(1)
+   iwnud1 = itab_w(iw)%iwnud(1)
 !---------------------------------------------------------------------
 call qsub('W',iw)
 
-   do k = lpw(iw),mza-1
+   npoly = itab_w(iw)%npoly
+   kb = lpw(iw)
+
+   vxe(:) = 0.
+   vye(:) = 0.
+   vze(:) = 0.
+
+   do jv = 1,npoly
+
+      if (meshtype == 1) then
+      
+         iv = itab_w(iw)%iu(jv)
+
+         do k = kb,mza-1
+            vxe(k) = vxe(k) + itab_w(iw)%vxu(jv) * uc(k,iv)
+            vye(k) = vye(k) + itab_w(iw)%vyu(jv) * uc(k,iv)
+            vze(k) = vze(k) + itab_w(iw)%vzu(jv) * uc(k,iv)
+         enddo
+
+      else
+
+         iv = itab_w(iw)%iv(jv)
+         farv2 = 2. * itab_w(iw)%farv(jv)
+
+         do k = kb,mza-1
+            vxe(k) = vxe(k) + farv2 * vc(k,iv) * vnx(iv)
+            vye(k) = vye(k) + farv2 * vc(k,iv) * vny(iv)
+            vze(k) = vze(k) + farv2 * vc(k,iv) * vnz(iv)
+         enddo
+
+      endif
+
+   enddo
+
+   raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
 ! Evaluate zonal and meridional wind components from model
 
-      vx = vxu1 * uc(k,iu1) + vxu2 * uc(k,iu2) + vxu3 * uc(k,iu3)
-      vy = vyu1 * uc(k,iu1) + vyu2 * uc(k,iu2) + vyu3 * uc(k,iu3)
-      vz = vzu1 * uc(k,iu1) + vzu2 * uc(k,iu2) + vzu3 * uc(k,iu3)
+   if (raxis > 1.e3) then
+      raxisi = 1. / raxis
 
-      raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+      do k = kb,mza-1
+         uzonal(k) = (vye(k) * xew(iw) - vxe(k) * yew(iw)) * raxisi
+         umerid(k) = vze(k) * raxis * eradi &
+            - (vxe(k) * xew(iw) + vye(k) * yew(iw)) * zew(iw) * raxisi * eradi
+      enddo
 
-      if (raxis > 1.e3) then
-         uzonal = (vy * xew(iw) - vx * yew(iw)) / raxis
-         umerid = vz * raxis / erad  &
-             - (vx * xew(iw) + vy * yew(iw)) * zew(iw) / (raxis * erad) 
-      else
-         uzonal = 0.
-         umerid = 0.
-      endif
+   else
+      uzonal(:) = 0.
+      umerid(:) = 0.
+   endif
 
 ! Sum model fields and volume to polygon arrays
 
-         rho_sim(k,inudp1) =    rho_sim(k,inudp1) + rho  (k,iw) * volt(k,iw)
-       theta_sim(k,inudp1) =  theta_sim(k,inudp1) + theta(k,iw) * volt(k,iw)
-         shw_sim(k,inudp1) =    shw_sim(k,inudp1) + sh_w (k,iw) * volt(k,iw)
-      uzonal_sim(k,inudp1) = uzonal_sim(k,inudp1) + uzonal      * volt(k,iw)
-      umerid_sim(k,inudp1) = umerid_sim(k,inudp1) + umerid      * volt(k,iw)
+   do k = kb,mza-1
+         volwnud(k,iwnud1) =    volwnud(k,iwnud1) + volt(k,iw) 
 
-         volnudp(k,inudp1) =    volnudp(k,inudp1) + volt(k,iw) 
-
+         rho_sim(k,iwnud1) =    rho_sim(k,iwnud1) + rho  (k,iw) * volt(k,iw)
+       theta_sim(k,iwnud1) =  theta_sim(k,iwnud1) + theta(k,iw) * volt(k,iw)
+         shw_sim(k,iwnud1) =    shw_sim(k,iwnud1) + sh_w (k,iw) * volt(k,iw)
+      uzonal_sim(k,iwnud1) = uzonal_sim(k,iwnud1) + uzonal(k)   * volt(k,iw)
+      umerid_sim(k,iwnud1) = umerid_sim(k,iwnud1) + umerid(k)   * volt(k,iw)
    enddo
 
 enddo
@@ -546,7 +616,8 @@ call rsub('Wa',23)
 
 ! Horizontal loop over nudging polygons
 
-do inudp = 2,mnudp
+!$omp parallel do private(k,volwnudi)
+do iwnud = 2,mwnud
 
 ! Vertical loop over nudging polygons
 
@@ -554,140 +625,181 @@ do inudp = 2,mnudp
 
 ! Inverse volume of nudging cell
 
-                 volnudpi = 1. / max(1.,volnudp(k,inudp))
+                 volwnudi = 1. / max(1.,volwnud(k,iwnud))
 
-! Compute model average for each polygon nudge point
+! Normalize sum to obtain average model value for each polygon nudge point
 
-         rho_sim(k,inudp) =    rho_sim(k,inudp) * volnudpi
-       theta_sim(k,inudp) =  theta_sim(k,inudp) * volnudpi
-         shw_sim(k,inudp) =    shw_sim(k,inudp) * volnudpi
-      uzonal_sim(k,inudp) = uzonal_sim(k,inudp) * volnudpi
-      umerid_sim(k,inudp) = umerid_sim(k,inudp) * volnudpi
+         rho_sim(k,iwnud) =    rho_sim(k,iwnud) * volwnudi
+       theta_sim(k,iwnud) =  theta_sim(k,iwnud) * volwnudi
+         shw_sim(k,iwnud) =    shw_sim(k,iwnud) * volwnudi
+      uzonal_sim(k,iwnud) = uzonal_sim(k,iwnud) * volwnudi
+      umerid_sim(k,iwnud) = umerid_sim(k,iwnud) * volwnudi
 
 ! Interpolate observational fields in time
 
-         rho_obs(k,inudp) = tp *    rho_obsp(k,inudp) + tf *    rho_obsf(k,inudp)
-       theta_obs(k,inudp) = tp *  theta_obsp(k,inudp) + tf *  theta_obsf(k,inudp)
-         shw_obs(k,inudp) = tp *    shw_obsp(k,inudp) + tf *    shw_obsf(k,inudp)
-      uzonal_obs(k,inudp) = tp * uzonal_obsp(k,inudp) + tf * uzonal_obsf(k,inudp)
-      umerid_obs(k,inudp) = tp * umerid_obsp(k,inudp) + tf * umerid_obsf(k,inudp)
+         rho_obs(k,iwnud) = tp *    rho_obsp(k,iwnud) + tf *    rho_obsf(k,iwnud)
+       theta_obs(k,iwnud) = tp *  theta_obsp(k,iwnud) + tf *  theta_obsf(k,iwnud)
+         shw_obs(k,iwnud) = tp *    shw_obsp(k,iwnud) + tf *    shw_obsf(k,iwnud)
+      uzonal_obs(k,iwnud) = tp * uzonal_obsp(k,iwnud) + tf * uzonal_obsf(k,iwnud)
+      umerid_obs(k,iwnud) = tp * umerid_obsp(k,iwnud) + tf * umerid_obsf(k,iwnud)
 
    enddo
 enddo
+!$omp end parallel do
 
 ! Loop over all W columns, find 3 neighboring polygon points for each,
 ! and interpolate (obs - model) differences at each polygon point to the W point
 
 call psub()
 !----------------------------------------------------------------------
+!$omp parallel do private(iw,iwnud1,iwnud2,iwnud3,k,tnudi,fnud1,fnud2,fnud3)
 do j = 1,jtab_w(23)%jend(mrl); iw = jtab_w(23)%iw(j)
-   inudp1 = itab_w(iw)%inudp(1);  fnudp1 = itab_w(iw)%fnudp(1)
-   inudp2 = itab_w(iw)%inudp(2);  fnudp2 = itab_w(iw)%fnudp(2)
-   inudp3 = itab_w(iw)%inudp(3);  fnudp3 = itab_w(iw)%fnudp(3)
+   iwnud1 = itab_w(iw)%iwnud(1);  fnud1 = itab_w(iw)%fnud(1)
+   iwnud2 = itab_w(iw)%iwnud(2);  fnud2 = itab_w(iw)%fnud(2)
+   iwnud3 = itab_w(iw)%iwnud(3);  fnud3 = itab_w(iw)%fnud(3)
 !---------------------------------------------------------------------
 call qsub('W',iw)
 
+! Inverse of nudging time scale
+
+! Default case - no spatial nudging mask
+
+   tnudi = 1. / tnudcent
+
+! Use spatial nudging mask defined above in this subroutine
+
+!   tnudi = wtnud(iw) / tnudcent
+
    do k = lpw(iw),mza-1
 
-      rhot(k,iw) = rhot(k,iw)  + tnudi * (  &
-                    fnudp1 * (rho_obs(k,inudp1) - rho_sim(k,inudp1))  &
-                 +  fnudp2 * (rho_obs(k,inudp2) - rho_sim(k,inudp2))  &
-                 +  fnudp3 * (rho_obs(k,inudp3) - rho_sim(k,inudp3))  )
+       rhot(k,iw) = rhot(k,iw) + tnudi * ( &
+                    fnud1 * (rho_obs(k,iwnud1) - rho_sim(k,iwnud1)) &
+                  + fnud2 * (rho_obs(k,iwnud2) - rho_sim(k,iwnud2)) &
+                  + fnud3 * (rho_obs(k,iwnud3) - rho_sim(k,iwnud3)) )
 
-     thilt(k,iw) = thilt(k,iw) + tnudi * rho(k,iw) * (  &
-                    fnudp1 * (theta_obs(k,inudp1) - theta_sim(k,inudp1))  &
-                 +  fnudp2 * (theta_obs(k,inudp2) - theta_sim(k,inudp2))  &
-                 +  fnudp3 * (theta_obs(k,inudp3) - theta_sim(k,inudp3))  )
+      thilt(k,iw) = thilt(k,iw) + tnudi * rho(k,iw) * ( &
+                    fnud1 * (theta_obs(k,iwnud1) - theta_sim(k,iwnud1)) &
+                  + fnud2 * (theta_obs(k,iwnud2) - theta_sim(k,iwnud2)) &
+                  + fnud3 * (theta_obs(k,iwnud3) - theta_sim(k,iwnud3)) )
                  
-     sh_wt(k,iw) = sh_wt(k,iw) + tnudi * rho(k,iw) * (  &
-                    fnudp1 * (shw_obs(k,inudp1) - shw_sim(k,inudp1))  &
-                 +  fnudp2 * (shw_obs(k,inudp2) - shw_sim(k,inudp2))  &
-                 +  fnudp3 * (shw_obs(k,inudp3) - shw_sim(k,inudp3))  )
+      sh_wt(k,iw) = sh_wt(k,iw) + tnudi * rho(k,iw) * ( &
+                    fnud1 * (shw_obs(k,iwnud1) - shw_sim(k,iwnud1)) &
+                  + fnud2 * (shw_obs(k,iwnud2) - shw_sim(k,iwnud2)) &
+                  + fnud3 * (shw_obs(k,iwnud3) - shw_sim(k,iwnud3)) )
 
-   uzonalt(k,iw) = tnudi * (  &
-                    fnudp1 * (uzonal_obs(k,inudp1) - uzonal_sim(k,inudp1))  &
-                 +  fnudp2 * (uzonal_obs(k,inudp2) - uzonal_sim(k,inudp2))  &
-                 +  fnudp3 * (uzonal_obs(k,inudp3) - uzonal_sim(k,inudp3))  )
+   umzonalt(k,iw) = tnudi * rho(k,iw) * ( &
+                    fnud1 * (uzonal_obs(k,iwnud1) - uzonal_sim(k,iwnud1)) &
+                  + fnud2 * (uzonal_obs(k,iwnud2) - uzonal_sim(k,iwnud2)) &
+                  + fnud3 * (uzonal_obs(k,iwnud3) - uzonal_sim(k,iwnud3)) )
 
-   umeridt(k,iw) = tnudi * (  &
-                    fnudp1 * (umerid_obs(k,inudp1) - umerid_sim(k,inudp1))  &
-                 +  fnudp2 * (umerid_obs(k,inudp2) - umerid_sim(k,inudp2))  &
-                 +  fnudp3 * (umerid_obs(k,inudp3) - umerid_sim(k,inudp3))  )
-
-                
-!if (itab_w(iu)%iwglobe == 804 .or. itab_w(iu)%iwglobe == 805) then
-!   write(io6,*) 'nuda0 '
-!   write(io6,*) 'nuda1 ',k,iw
-!   write(io6,*) 'nuda2 ',inudp1,inudp2,inudp3
-!   write(io6,*) 'nuda3 ',tnudi,fnudp1,fnudp2,fnudp3
-!   write(io6,*) 'nuda4 ',umerid_obs(k,inudp1),umerid_obs(k,inudp2),  & 
-!                          umerid_obs(k,inudp3) 
-!   write(io6,*) 'nuda5 ',umerid_sim(k,inudp1),umerid_sim(k,inudp2),  &
-!                          umerid_sim(k,inudp3) 
-!endif
+   ummeridt(k,iw) = tnudi * rho(k,iw) * ( &
+                    fnud1 * (umerid_obs(k,iwnud1) - umerid_sim(k,iwnud1)) &
+                  + fnud2 * (umerid_obs(k,iwnud2) - umerid_sim(k,iwnud2)) &
+                  + fnud3 * (umerid_obs(k,iwnud3) - umerid_sim(k,iwnud3)) )
 
    enddo
 
 enddo
+!$omp end parallel do
 call rsub('Wb',23)
 
-! UMC, UC
+if (meshtype == 1) then
 
-call psub()
+! UMT
+
+   call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_u(13)%jend(mrl); iu = jtab_u(13)%iu(j)
-   iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
+   !$omp parallel do private(iu,iw1,iw2,k, &
+   !$omp                     raxis,raxisi,umgt,vmgt,uvmgrt,uvmgxt,uvmgyt,uvmgzt)
+   do j = 1,jtab_u(13)%jend(mrl); iu = jtab_u(13)%iu(j)
+      iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
-call qsub('U',iu)
+   call qsub('U',iu)
 
-   if (iw1 < 2) iw1 = iw2
-   if (iw2 < 2) iw2 = iw1
-
-! Average winds to U point and rotate at U point
-
-   do k = lpu(iu),mza-1
-   
-      ugt = .5 * (uzonalt(k,iw1) + uzonalt(k,iw2))
-      vgt = .5 * (umeridt(k,iw1) + umeridt(k,iw2))
+      if (iw1 < 2) iw1 = iw2
+      if (iw2 < 2) iw2 = iw1
 
       raxis = sqrt(xeu(iu) ** 2 + yeu(iu) ** 2)  ! dist from earth axis
 
       if (raxis > 1.e3) then
-         umass = rho(k,iw1) * volt(k,iw1) + rho(k,iw2) * volt(k,iw2)
-         umassoraxis = umass / raxis
-   
-         uvgrt = -vgt * zeu(iu) * eradi  ! radially outward from axis
 
-         uvgxt = (-ugt * yeu(iu) + uvgrt * xeu(iu)) * umassoraxis
-         uvgyt = ( ugt * xeu(iu) + uvgrt * yeu(iu)) * umassoraxis
-         uvgzt =   vgt * raxis * umass * eradi 
-      else
-         uvgxt = 0.
-         uvgyt = 0.
-         uvgzt = 0.
+         raxisi = 1. / raxis
+
+! Average momentum tendencies (times volume) to U point and rotate at U point
+
+         do k = lpu(iu),mza-1
+
+            umgt = .5 * (umzonalt(k,iw1) * volt(k,iw1) &
+                       + umzonalt(k,iw2) * volt(k,iw2))
+
+            vmgt = .5 * (ummeridt(k,iw1) * volt(k,iw1) &
+                       + ummeridt(k,iw2) * volt(k,iw2))
+
+            uvmgrt = -vmgt * zeu(iu) * eradi  ! radially outward from axis
+
+            uvmgxt = (-umgt * yeu(iu) + uvmgrt * xeu(iu)) * raxisi
+            uvmgyt = ( umgt * xeu(iu) + uvmgrt * yeu(iu)) * raxisi
+            uvmgzt =   vmgt * raxis * eradi 
+
+            umt(k,iu) = umt(k,iu) &
+                      + uvmgxt * unx(iu) + uvmgyt * uny(iu) + uvmgzt * unz(iu)
+
+
+         enddo
+
       endif
 
+   enddo
+   !$omp end parallel do
+   call rsub('U',13)
 
-      umtbef = umt(k,iu)
+else
 
-      umt(k,iu) = umt(k,iu)  &
-                + uvgxt * unx(iu) + uvgyt * uny(iu) + uvgzt * unz(iu)
-                
-!if (itab_u(iu)%iuglobe == 1206) then
-!   write(io6,*) 'nud0 '
-!   write(io6,*) 'nud1 ',k,iw1,iw2
-!   write(io6,*) 'nud2 ',ugt,vgt
-!   write(io6,*) 'nud3 ',uzonalt(k,iw1),uzonalt(k,iw2),  &
-!                        umeridt(k,iw1),umeridt(k,iw2)
-!   write(io6,*) 'nud4 ',umt(k,iu),umtbef
-!endif
+! VMT
 
+   call psub()
+!----------------------------------------------------------------------
+   !$omp parallel do private(iv,iw1,iw2,k, &
+   !$omp                     raxis,raxisi,umgt,vmgt,uvmgrt,uvmgxt,uvmgyt,uvmgzt)
+   do j = 1,jtab_v(13)%jend(mrl); iv = jtab_v(13)%iv(j)
+      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+!----------------------------------------------------------------------
+   call qsub('V',iv)
 
+      if (iw1 < 2) iw1 = iw2
+      if (iw2 < 2) iw2 = iw1
+
+      raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
+
+      if (raxis > 1.e3) then
+      
+         raxisi = 1. / raxis
+
+! Average momentum tendencies to V point and rotate at V point
+
+         do k = lpv(iv),mza-1
+            umgt = .5 * (umzonalt(k,iw1) + umzonalt(k,iw2))
+
+            vmgt = .5 * (ummeridt(k,iw1) + ummeridt(k,iw2))
+
+            uvmgrt = -vmgt * zev(iv) / erad  ! radially outward from axis
+
+            uvmgxt = (-umgt * yev(iv) + uvmgrt * xev(iv)) * raxisi 
+            uvmgyt = ( umgt * xev(iv) + uvmgrt * yev(iv)) * raxisi 
+            uvmgzt =   vmgt * raxis / erad 
+
+            vmt(k,iv) = vmt(k,iv) &
+                      + uvmgxt * vnx(iv) + uvmgyt * vny(iv) + uvmgzt * vnz(iv)
+
+         enddo
+
+      endif
 
    enddo
+   !$omp end parallel do
+   call rsub('V',13)
 
-enddo
-call rsub('U',13)
+endif
 
 return
 end subroutine obs_nudge

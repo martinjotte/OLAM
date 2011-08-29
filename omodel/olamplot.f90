@@ -1043,7 +1043,7 @@ integer, intent(in) :: iplt,itab
 integer :: ibox,jbox,ln
 real :: bsize,yinc
 real, dimension(4) :: xbox,ybox
-character(len=8)  :: number,numbr
+character(len=14)  :: number,numbr
 
 ! Scale local working window (0,1,0,1) 
 ! to plotter coordinates (op%hp1,op%hp2,op%vp1,op%vp2)

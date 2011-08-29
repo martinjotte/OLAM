@@ -30,41 +30,100 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine read_press_header()
+subroutine read_press_header(fform)
 
-use isan_coms, only: iyear, nprz, levpr, ivertcoord, secondlat, cntlon,  &
-                     cntlat, xnelon, xnelat, itinc, inproj, gdatdy,  &
-                     gdatdx, xswlat, xswlon, npry, nprx, ihh, idd, imm,  &
-                     iyy, isversion, marker, innpr, imonth, idate, ihour,  &
-                     ipoffset
-use misc_coms, only: io6
+use isan_coms,  only: iyear, nprz, levpr, ivertcoord, secondlat, cntlon, &
+                      cntlat, xnelon, xnelat, itinc, inproj, gdatdy, &
+                      gdatdx, xswlat, xswlon, npry, nprx, ihh, idd, imm, &
+                      iyy, isversion, marker, innpr, imonth, idate, ihour, &
+                      ipoffset
+use misc_coms,  only: io6
+use hdf5_utils, only: shdf5_open, shdf5_irec
 
 implicit none
 
+character(len=3), intent(inout) :: fform
+
+character(len=16) :: ext
+
+integer, external :: lastdot
 integer :: lv,n,iunit
+integer :: ndims, idims(2)
 
 ! Read the header of input pressure file.
 
-write(io6, *) ''
-write(io6, *) 'Reading RALPH data header '//trim(innpr)
-write(io6, *) ''
+write(io6,'(/,a,/)') 'Reading pressure gridded data header '//trim(innpr)
 
-open(11,file=innpr)
-read(11,*) marker,isversion
-if(marker.ne.999999) isversion=1
+! Set flag for type of file:
+!     "GDF" - text Ralph II file (none or .vfm extension)
+!     "HD5"  - HDF5 GDF file ("h5" or "hdf5")
+!                     2 or 3D field records (x,y) or (x,y,z/p)
+!                       (1,1)   - (SW lon,lat) --
+!                       (1,1,1) - (SW lon,lat,bottom z/p level)
+!                     range of header info
 
-if (isversion == 1) then
-   rewind 11
-   read(11,*) iyy,imm,idd,ihh,nprz,nprx,npry,xswlon,xswlat,gdatdx,gdatdy
-   read(11,*) (levpr(n),n=1,nprz)
-   inproj = 1
-   ihh = ihh * 100
-elseif (isversion == 2) then
-   write(io6,*) 'doing RALPH 2 format'
-   read(11,*) iyy,imm,idd,ihh,itinc,nprz,nprx,npry
-   read(11,*) inproj,gdatdx,gdatdy,xswlat,xswlon  &
-             ,xnelat,xnelon,cntlat,cntlon,secondlat
-   read(11,*) ivertcoord,(levpr(lv),lv=1,nprz)
+! Find file name extension
+
+ext = trim( innpr(lastdot(innpr)+1:) )
+write(io6,*) 'ffffff-ext:-',trim(ext),'----',lastdot(innpr)
+
+fform = "GDF"
+if (trim(ext) == 'h5' .or. trim(ext) == 'hdf5' .or. &
+    trim(ext) == 'H5' .or. trim(ext) == 'HDF5') &
+    fform = 'HD5'
+
+if (fform == 'GDF') then
+
+   open(11,file=innpr)
+   read(11,*) marker,isversion
+   if(marker.ne.999999) isversion=1
+
+   if (isversion == 1) then
+      rewind 11
+      read(11,*) iyy,imm,idd,ihh,nprz,nprx,npry,xswlon,xswlat,gdatdx,gdatdy
+      read(11,*) (levpr(n),n=1,nprz)
+      inproj = 1
+      ihh = ihh * 100
+   elseif (isversion == 2) then
+      write(io6,*) 'doing RALPH 2 format'
+      read(11,*) iyy,imm,idd,ihh,itinc,nprz,nprx,npry
+      read(11,*) inproj,gdatdx,gdatdy,xswlat,xswlon &
+                ,xnelat,xnelon,cntlat,cntlon,secondlat
+      read(11,*) ivertcoord,(levpr(lv),lv=1,nprz)
+   endif
+
+elseif (fform == 'HD5') then
+
+   call shdf5_open (trim(innpr), 'R')
+
+   ndims = 1
+   idims(1) = 1
+   idims(2) = 1
+
+   call shdf5_irec(ndims, idims, 'version',ivars=isversion)
+   call shdf5_irec(ndims, idims, 'year'   ,ivars=iyy)
+   call shdf5_irec(ndims, idims, 'month'  ,ivars=imm)
+   call shdf5_irec(ndims, idims, 'day'    ,ivars=idd)
+   call shdf5_irec(ndims, idims, 'hour'   ,ivars=ihh)
+   call shdf5_irec(ndims, idims, 'ftime'  ,ivars=itinc)
+   call shdf5_irec(ndims, idims, 'nx'     ,ivars=nprx)
+   call shdf5_irec(ndims, idims, 'ny'     ,ivars=npry)
+   call shdf5_irec(ndims, idims, 'nlev'   ,ivars=nprz)
+   call shdf5_irec(ndims, idims, 'iproj'  ,ivars=inproj)
+   call shdf5_irec(ndims, idims, 'vcoord' ,ivars=ivertcoord)
+   call shdf5_irec(ndims, idims, 'swlat'  ,rvars=xswlat)
+   call shdf5_irec(ndims, idims, 'swlon'  ,rvars=xswlon)
+   call shdf5_irec(ndims, idims, 'nelat'  ,rvars=xnelat)
+   call shdf5_irec(ndims, idims, 'nelon'  ,rvars=xnelon)
+   call shdf5_irec(ndims, idims, 'dx'     ,rvars=gdatdx)
+   call shdf5_irec(ndims, idims, 'dy'     ,rvars=gdatdy)
+   call shdf5_irec(ndims, idims, 'reflat1',rvars=cntlat)
+   call shdf5_irec(ndims, idims, 'reflat2',rvars=secondlat)
+
+   idims(1) = nprz
+
+   call shdf5_irec(ndims, idims, 'levels' ,ivara=levpr)
+
 endif
 
 write(io6,*) 'nprz1 ',nprz,nprx,npry
@@ -94,9 +153,9 @@ endif
 ! (-90. and 90. degrees) but that the longitudinal boundary is not repeated.
 ! If either is not the case, this check will stop execution.
 
-if (abs(nprx      * gdatdx - 360.) > .1 .or.   &
+if (abs(nprx      * gdatdx - 360.) > .1 .or. &
     abs ((npry-1) * gdatdy - 180.) > .1) then
-    
+
     write(io6,*) 'Gridded pressure level data must have global coverage'
     write(io6,*) 'nprx,npry = ',nprx,npry
     write(io6,*) 'gdatdx,gdatdy = ',gdatdx,gdatdy
@@ -113,14 +172,17 @@ end subroutine read_press_header
 
 !===============================================================================
 
-subroutine pressure_stage(p_u,p_v,p_t,p_z,p_r  &
-                         ,p_slp, p_sfp, p_sft, p_snow, p_sst)
+subroutine pressure_stage(fform,p_u,p_v,p_t,p_z,p_r, &
+                          p_slp, p_sfp, p_sft, p_snow, p_sst)
 
 use isan_coms,   only: pnpr, levpr, nprx, npry, nprz, nprz_rh
 use consts_coms, only: rocp, p00, eps_vap
 use misc_coms,   only: io6
+use hdf5_utils,  only: shdf5_close
 
 implicit none
+
+character(len=*), intent(in) :: fform
 
 real, intent(out) :: p_u(nprx+3,npry+2,nprz)
 real, intent(out) :: p_v(nprx+3,npry+2,nprz)
@@ -136,13 +198,14 @@ real, intent(out) :: p_sst (nprx+3,npry+2)
 
 real :: thmax,thmin,vapor_press
 integer :: i,j,k,lv,n,iunit
+
 real, external :: eslf
 
 iunit = 11
 
 write(io6, *) ''
 write(io6, *) '*****************************************************'
-write(io6, *) '     Access RALPH format pressure level data'
+write(io6, *) '     Access pressure level data'
 write(io6, *) '*****************************************************'
 
 do k = 1,nprz
@@ -151,14 +214,14 @@ enddo
 
 ! Call routine to fill pressure arrays from the chosen dataset.
 
-call get_press (iunit,p_u,p_v,p_t,p_z,p_r  &
-               ,p_slp, p_sfp, p_sft, p_snow, p_sst)
+call get_press (fform,iunit,p_u,p_v,p_t,p_z,p_r, &
+                p_slp, p_sfp, p_sft, p_snow, p_sst)
 
 !!!!!!!! Be careful !!!!!!!!!
-!  Check input humidity variable p_r.  Assume that if the maximum of the field 
-!  is greater than 1.1 (which allows for some machine roundoff), 
+!  Check input humidity variable p_r.  Assume that if the maximum of the field
+!  is greater than 1.1 (which allows for some machine roundoff),
 !  it is specific humidity (in g/kg) which needs to be converted to kg/kg,
-!  else it is R.H. which needs to be converted to specifit humidity
+!  else it is R.H. which needs to be converted to specific humidity
 
 if (maxval(p_r(1:nprx+3,1:npry+2,1:nprz_rh)) > 1.1) then
 
@@ -176,7 +239,7 @@ if (maxval(p_r(1:nprx+3,1:npry+2,1:nprz_rh)) > 1.1) then
          enddo
       enddo
    enddo
-    
+
 else
 
    ! Convert R.H. to specific humidity
@@ -187,12 +250,12 @@ else
    do k = 1,nprz
       do j = 1,npry+2
          do i = 1,nprx+3
-         
+
             ! Compute ambient vapor pressure based on R.H.
             ! and saturation vapor pressure (eslf)
 
             vapor_press = p_r(i,j,k) * eslf(p_t(i,j,k)-273.15)
-            
+
             ! Do not allow vapor pressure to exceed ambient pressure
 
             vapor_press = min(pnpr(k),vapor_press)
@@ -217,7 +280,11 @@ write(io6, *) ''
 write(io6, "(' Minimum THETA at ',I4,' mb: ',F9.3)") levpr(1), thmin
 write(io6, "(' Maximum THETA at ',I4,' mb: ',F9.3)") levpr(nprz), thmax
 
-close(iunit)
+if (fform == 'GDF') then
+   close(iunit)
+elseif (fform == 'HD5') then
+   call shdf5_close()
+endif
 
 write(io6,*) ''
 write(io6,*) 'nprz2 ',nprz
@@ -226,16 +293,18 @@ end subroutine pressure_stage
 
 !===============================================================================
 
-subroutine get_press (iunit,p_u,p_v,p_t,p_z,p_r  &
-                     ,p_slp, p_sfp, p_sft, p_snow, p_sst)
+subroutine get_press (fform,iunit,p_u,p_v,p_t,p_z,p_r, &
+                      p_slp, p_sfp, p_sft, p_snow, p_sst)
 
-use max_dims,  only: maxpr
-use isan_coms, only: nprz, npry, nprx, pnpr, iyear, imonth, idate,  &
-                     ihour, levpr, ipoffset, nprz_rh
-use misc_coms,   only: io6
+use max_dims,   only: maxpr
+use isan_coms,  only: nprz, npry, nprx, pnpr, iyear, imonth, idate, &
+                      ihour, levpr, ipoffset, nprz_rh
+use misc_coms,  only: io6
+use hdf5_utils, only: shdf5_irec
 
 implicit none
 
+character(len=*), intent(in) :: fform
 integer, intent(in) :: iunit
 
 real, intent(out) :: p_u(nprx+3,npry+2,nprz)
@@ -250,11 +319,13 @@ real, intent(out) :: p_sft (nprx+3,npry+2)
 real, intent(out) :: p_snow(nprx+3,npry+2)
 real, intent(out) :: p_sst (nprx+3,npry+2)
 
-real :: as(nprx,npry)  ! automatic array
+real :: as(nprx,npry)
+real :: as3(nprx,npry,nprz)
 
 integer :: i,j,k,nv,nvar,misstot,lv,n
 integer :: ithere(maxpr,5),isfthere(5)
 character(len=1) :: idat(5) = (/ 'T','R','U','V','H' /)
+integer :: ndims, idims(3)
 
 ! Initialize with missing data flag
 
@@ -265,98 +336,161 @@ isfthere = -999
 
 write(io6,*) ' '
 
-do lv = 1,nprz
+if (fform == 'GDF') then
+
+   do lv = 1,nprz
 
 ! Zonal wind component
 
-   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-   call prfill(nprx,npry,ipoffset,as,p_u(1,1,lv))
-   write(io6, '('' ==  Read UE on P lev '',i4,'' at UTC '',i6.4,2i3,i5)')  &
-      levpr(lv),ihour,idate,imonth,iyear
+      read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
+      call prfill(nprx,npry,ipoffset,as,p_u(1,1,lv))
+      write(io6, '('' ==  Read UE on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
+         levpr(lv),ihour,idate,imonth,iyear
 
 ! Meridional wind component
 
-   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-   call prfill(nprx,npry,ipoffset,as,p_v(1,1,lv))
-   write(io6, '('' ==  Read VE on P lev '',i4,'' at UTC '',i6.4,2i3,i5)')  &
-      levpr(lv),ihour,idate,imonth,iyear
+      read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
+      call prfill(nprx,npry,ipoffset,as,p_v(1,1,lv))
+      write(io6, '('' ==  Read VE on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
+         levpr(lv),ihour,idate,imonth,iyear
 
 ! Temperature
 
-   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-   call prfill(nprx,npry,ipoffset,as,p_t(1,1,lv))
-   write(io6, '('' ==  Read T on P lev '',i4,'' at UTC '',i6.4,2i3,i5)')  &
-      levpr(lv),ihour,idate,imonth,iyear
-   write(io6,*) 'prread1 ',as(5,5),nprx,npry,ipoffset,p_t(5,5,lv)
+      read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
+      call prfill(nprx,npry,ipoffset,as,p_t(1,1,lv))
+      write(io6, '('' ==  Read T on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
+         levpr(lv),ihour,idate,imonth,iyear
+      write(io6,*) 'prread1 ',as(5,5),nprx,npry,ipoffset,p_t(5,5,lv)
 
 ! Geopotential height
 
-   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-   call prfill(nprx,npry,ipoffset,as,p_z(1,1,lv))
-   write(io6, '('' ==  Read Z on P lev '',i4,'' at UTC '',i6.4,2i3,i5)')  &
-      levpr(lv),ihour,idate,imonth,iyear
+      read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
+      call prfill(nprx,npry,ipoffset,as,p_z(1,1,lv))
+      write(io6, '('' ==  Read Z on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
+         levpr(lv),ihour,idate,imonth,iyear
 
 ! Relative humidity (or specific humidity)
 
-   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-   call prfill(nprx,npry,ipoffset,as,p_r(1,1,lv))
-   write(io6, '('' ==  Read RH on P lev '',i4,'' at UTC '',i6.4,2i3,i5)')  &
-      levpr(lv),ihour,idate,imonth,iyear
+      read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
+      call prfill(nprx,npry,ipoffset,as,p_r(1,1,lv))
+      write(io6, '('' ==  Read RH on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
+         levpr(lv),ihour,idate,imonth,iyear
 
-enddo
+   enddo
 
 !  Read surface fields
 
-write(io6,*) ' '
+   write(io6,*) ' '
 
 ! SLP
 
-read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-call prfill(nprx,npry,ipoffset,as,p_slp(1,1))
-write(io6, '('' ==  Read SLP at sfc at UTC '',i6.4,2i3,i5)')  &
-   ihour,idate,imonth,iyear
+   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
+   call prfill(nprx,npry,ipoffset,as,p_slp(1,1))
+   write(io6, '('' ==  Read SLP at sfc at UTC '',i6.4,2i3,i5)') &
+      ihour,idate,imonth,iyear
 
 ! SFP
 
-read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-call prfill(nprx,npry,ipoffset,as,p_sfp(1,1))
-write(io6, '('' ==  Read SFP at sfc at UTC '',i6.4,2i3,i5)')  &
-   ihour,idate,imonth,iyear
+   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
+   call prfill(nprx,npry,ipoffset,as,p_sfp(1,1))
+   write(io6, '('' ==  Read SFP at sfc at UTC '',i6.4,2i3,i5)') &
+      ihour,idate,imonth,iyear
 
 ! SFT
 
-read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-call prfill(nprx,npry,ipoffset,as,p_sft(1,1))
-write(io6, '('' ==  Read SFT at sfc at UTC '',i6.4,2i3,i5)')  &
-   ihour,idate,imonth,iyear
+   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
+   call prfill(nprx,npry,ipoffset,as,p_sft(1,1))
+   write(io6, '('' ==  Read SFT at sfc at UTC '',i6.4,2i3,i5)') &
+      ihour,idate,imonth,iyear
 
 ! SNOW
 
-read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-call prfill(nprx,npry,ipoffset,as,p_snow(1,1))
-write(io6, '('' ==  Read SNOW at sfc at UTC '',i6.4,2i3,i5)')  &
-   ihour,idate,imonth,iyear
+   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
+   call prfill(nprx,npry,ipoffset,as,p_snow(1,1))
+   write(io6, '('' ==  Read SNOW at sfc at UTC '',i6.4,2i3,i5)') &
+      ihour,idate,imonth,iyear
 
 ! SST at surface
 
-read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-call prfill(nprx,npry,ipoffset,as,p_sst(1,1))
-write(io6, '('' ==  Read SST at sfc at UTC '',i6.4,2i3,i5)')  &
-   ihour,idate,imonth,iyear
+   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
+   call prfill(nprx,npry,ipoffset,as,p_sst(1,1))
+   write(io6, '('' ==  Read SST at sfc at UTC '',i6.4,2i3,i5)') &
+      ihour,idate,imonth,iyear
 
-write(io6,*) ''
+   write(io6,*) ''
 
-goto 71
+   goto 71
 
-70 CONTINUE
-write(io6,*) 'Premature end of file or error in pressure input file!'
-write(io6,*) 'We''ll close our eyes and pretend it didn''t happen!'
-71 continue
+   70 CONTINUE
+   write(io6,*) 'Premature end of file or error in pressure input file!'
+   write(io6,*) 'We''ll close our eyes and pretend it didn''t happen!'
+   71 continue
+
+elseif (fform == 'HD5') then
+
+! Read 3D met vars
+
+   ndims = 3
+   idims(1) = nprx
+   idims(2) = npry
+   idims(3) = nprz
+
+   call shdf5_irec(ndims, idims,'UP',rvara = as3)
+   call prfill3(nprx,npry,nprz,ipoffset,as3,p_u)
+
+   call shdf5_irec(ndims, idims,'VP',rvara = as3)
+   call prfill3(nprx,npry,nprz,ipoffset,as3,p_v)
+
+   call shdf5_irec(ndims, idims,'TEMP',rvara = as3)
+   call prfill3(nprx,npry,nprz,ipoffset,as3,p_t)
+
+   call shdf5_irec(ndims, idims,'GEO',rvara = as3)
+   call prfill3(nprx,npry,nprz,ipoffset,as3,p_z)
+
+   call shdf5_irec(ndims, idims,'RELHUM',rvara = as3)
+   call prfill3(nprx,npry,nprz,ipoffset,as3,p_r)
+
+!   if (ivertcoord == 3) call shdf5_irec('PRESS',rvara = p_p)
+
+   print*,'uu max-min:', maxval(p_u), minval(p_u)
+   print*,'vv max-min:', maxval(p_v), minval(p_v)
+   print*,'tt max-min:', maxval(p_t), minval(p_t)
+   print*,'zz max-min:', maxval(p_z), minval(p_z)
+   print*,'rr max-min:', maxval(p_r), minval(p_r)
+!   print*,'pp max-min:', maxval(p_p), minval(p_p)
+
+   ! 3D scalar vars
+
+!   if (num_scvars > 0) then
+!      do nv = 1, num_scvars
+!         call shdf5_irec(trim(in_scvars(nv)),rvara = p_scalar(1,1,1,nv))
+
+!         print*,trim(in_scvars(nv)),' max-min:', maxval(p_scalar(:,:,:,nv)), &
+!                      minval(p_scalar(:,:,:,nv))
+
+!      enddo
+!   endif
+
+! Read 2D met vars
+
+   ndims = 2
+   idims(1) = nprx
+   idims(2) = npry
+   idims(3) = 1
+
+   call shdf5_irec(ndims, idims, 'PRMSL'    ,rvara = p_slp)
+   call shdf5_irec(ndims, idims, 'PRSFC'    ,rvara = p_sfp)
+   call shdf5_irec(ndims, idims, 'TSFC'     ,rvara = p_sft)
+   call shdf5_irec(ndims, idims, 'SNOW_MASS',rvara = p_snow)
+   call shdf5_irec(ndims, idims, 'SST'      ,rvara = p_sst)
+
+endif
 
 ! Special for RH:
 ! Reanalysis typically only reports RH up to 100mb, but still reports the other
 ! fields up to higher levels. Check for the highest level that reports RH:
-do k=nprz, 1, -1
+
+do k = nprz,1,-1
    if (all(p_r(:,:,k) > -998.)) then
       nprz_rh = k
       exit
@@ -407,33 +541,6 @@ write(io6,*) '             SLP    SFP    SFT    SNOW   SST       '
 
 write(io6, '(t10,5(i7))') (isfthere(n),n=1,5)
 
-
-!!if (misstot > 0) then
-!!   ! Let's see if we can get creative and make up data for the missing fields
-!!
-!!   call press_miss(nprx+3,npry+2,nprz,p_u,p_v,p_t,p_z,p_r  &
-!!                  ,ithere,maxpr,levpr)
-!!
-!!  ! Check again for missing fields
-!!
-!!   misstot = 0
-!!   do nv = 1,5
-!!      do k = 1,nprz
-!!         if (ithere(k,nv) == 0) misstot = misstot + 1
-!!      enddo
-!!   enddo
-!!
-!!   write(io6,*) '------------------------------------------------'
-!!   write(io6,*) ' After missing parameters check: 0 = all missing'
-!!   write(io6,*) '------------------------------------------------'
-!!   write(io6, '(t20,5(a1,6x))') (idat(n),n=1,5)
-!!
-!!   do k = 1,nprz
-!!      write(io6, '(f10.1,t14,5(i7))',pnpr(k),(ithere(k,n),n=1,5)
-!!   enddo
-!!
-!!endif
-
 if (any(ithere(1:nprz,(/1,3,4,5/)) > 0) .or. any(ithere(1:nprz_rh,2) > 0)) then
    write(io6,*) ''
    write(io6,*) '-------------------------------------------------------'
@@ -441,7 +548,7 @@ if (any(ithere(1:nprz,(/1,3,4,5/)) > 0) .or. any(ithere(1:nprz_rh,2) > 0)) then
    write(io6,*) '          pressure-level data files'
    write(io6,*) '-------------------------------------------------------'
 endif
-   
+
 end subroutine get_press
 
 !===============================================================================
@@ -459,7 +566,7 @@ integer :: i,j,nprxo2,iin
 
 nprxo2 = nprx / 2
 
-! Copy pressure-level or surface data from xx to dn array, shifting by 1 row 
+! Copy pressure-level or surface data from xx to dn array, shifting by 1 row
 ! and column, and set any required missing values
 
 do j = 1,npry
@@ -484,292 +591,67 @@ enddo
 return
 end subroutine prfill
 
+!===============================================================================
 
-!!!===============================================================================
-!!
-!!subroutine press_miss (n1,n2,n3,un,vn,tn,zn,rn,ithere,maxpr,levpr)
-!!
-!!implicit none
-!!
-!!integer, intent(in) :: n1,n2,n3,maxpr,levpr(*)
-!!
-!!real, intent(inout), dimension(n1,n2,n3) ::  un,vn,tn,zn,rn
-!!
-!!integer, intent(inout) :: ithere(maxpr,5)
-!!
-!!real :: prs(n3),prsln(n3)
-!!integer :: it=1,ir=2,iu=3,iv=4,iz=5
-!!integer :: ierr,i,j,k
-!!
-!!do k = 1,n3
-!!   prs(k) = float(levpr(k))
-!!   prsln(k) = log(prs(k))
-!!enddo
-!!
-!!! first do moisture. since there are no physical relationships we can
-!!!   use to help us, we will simply interpolate to a missing level. If
-!!!   the top or bottom level is missing, we will fill it with the relative
-!!!   humidity above or below.
-!!
-!!call pr_miss_fill (n1,n2,n3,rn,ithere(1,ir),ithere(1,ir)  &
-!!     ,prsln,'rel hum',ierr)
-!!if (ierr == 1) return
-!!
-!!! do temperature in a similar manner, but only if there are levels
-!!!   where height is missing also
-!!
-!!call pr_miss_fill (n1,n2,n3,tn,ithere(1,it),ithere(1,iz)  &
-!!     ,prsln,'temp',ierr)
-!!if (ierr == 1) return
-!!
-!!
-!!! check height at each level. It can be computed hydrostatically
-!!!   from temp as long as temp is not missing at this level and temp and
-!!!   height is available on a level above or below.
-!!!   Make a downward sweep first, then an upward.
-!!
-!!
-!!do k = n3-1,1,-1
-!!   if (ithere(k,iz) == 0) then
-!!      ! check for temp, z, above
-!!      if (ithere(k+1,iz) == 1 .and. ithere(k+1,it) == 1 .and.  &
-!!         ithere(k,it) == 1) then
-!!         !ok, we can get this
-!!         call pr_hystatic_z (n1*n2,zn(1,1,k),zn(1,1,k+1)  &
-!!                            ,tn(1,1,k),tn(1,1,k+1),rn(1,1,k),rn(1,1,k+1)  &
-!!                            ,prs(k),prs(k+1))
-!!         ithere(k,iz) = 1
-!!         write(io6,*) '-->Computing hydrostatic pressure at level:',k
-!!      endif
-!!   endif
-!!enddo
-!!
-!!do k = 2,n3
-!!   if (ithere(k,iz) == 0) then
-!!      ! check for temp, z, below
-!!      if(ithere(k-1,iz) == 1 .and. ithere(k-1,it) == 1 .and.  &
-!!           ithere(k,it) == 1) then
-!!         ! ok, we can get this
-!!         call pr_hystatic_z (n1*n2,zn(1,1,k),zn(1,1,k-1)  &
-!!                            ,tn(1,1,k),tn(1,1,k-1),rn(1,1,k),rn(1,1,k-1)  &
-!!                            ,prs(k),prs(k-1))
-!!         write(io6,*) '-->Computing hydrostatic pressure at level:',k
-!!         ithere(k,iz) = 1 
-!!      endif
-!!   endif
-!!enddo
-!!
-!!! try temperature in a similar manner. It can also be computed
-!!!   from height as long as height is not missing at this level and temp and
-!!!   height is available on a level above or below.
-!!!   Note that vapor mixing ratio (used to compute virtual temperature)
-!!!   is somewhat difficult to compute from relative humidity if temperature
-!!!   is missing. Therefore, the vitual temperature factor at the
-!!!   non-missing level is assumed at the missing level.
-!!
-!!do k = n3-1,1,-1
-!!   if (ithere(k,it) == 0) then
-!!      ! check for temp, z, above
-!!      if (ithere(k+1,iz) == 1 .and. ithere(k+1,it) == 1 .and.  &
-!!         ithere(k,iz) == 1) then
-!!         ! ok, we can get this
-!!         call pr_hystatic_t (n1*n2,zn(1,1,k),zn(1,1,k+1)  &
-!!                           ,tn(1,1,k),tn(1,1,k+1),rn(1,1,k),rn(1,1,k+1)  &
-!!                           ,prs(k),prs(k+1))
-!!         ithere(k,it) = 1
-!!         write(io6,*) '-->Computing hydrostatic temperature at level:',k
-!!      endif
-!!   endif
-!!enddo
-!!
-!!do k = 2,n3
-!!   if (ithere(k,it) == 0) then
-!!      ! check for temp, z, below
-!!      if (ithere(k-1,iz) == 1 .and. ithere(k-1,it) == 1 .and.  &
-!!         ithere(k,iz) == 1) then
-!!         ! ok, we can get this
-!!         call pr_hystatic_t (n1*n2,zn(1,1,k),zn(1,1,k-1)  &
-!!                            ,tn(1,1,k),tn(1,1,k-1),rn(1,1,k),rn(1,1,k-1)  &
-!!                            ,prs(k),prs(k-1))
-!!         ithere(k,it) = 1
-!!         write(io6,*) '-->Computing hydrostatic temperature at level:',k
-!!      endif
-!!   endif
-!!enddo
-!!
-!!! For the u and v components, do a straight interpolation again like we
-!!!   did for rel humidity.
-!!
-!!call pr_miss_fill (n1,n2,n3,un,ithere(1,iu),ithere(1,iu),prsln,'u-comp',ierr)
-!!if (ierr == 1) return
-!!
-!!call pr_miss_fill (n1,n2,n3,vn,ithere(1,iv),ithere(1,iv),prsln,'v-comp',ierr)
-!!if (ierr == 1) return
-!!
-!!return
-!!end
-!!
-!!!===============================================================================
-!!
-!!subroutine pr_hystatic_z(np,z1,z2,t1,t2,r1,r2,p1,p2)
-!!
-!!use consts_coms, only: eps_virt, grav, rdry, grav2
-!!
-!!implicit none
-!!
-!!integer, intent(in) :: np
-!!
-!!real, intent(in) :: z2(np),t2(np),r1(np),r2(np),p1,p2
-!!real, intent(inout) :: z1(np),t1(np)
-!!
-!!integer :: n
-!!real :: tv1,rslf,tv2,vtfact
-!!
-!!do n = 1,np
-!!   if (z2(n) < 1.e20 .and. t1(n) < 1.e20 .and. t2(n) < 1.e20 .and.  &
-!!       r1(n) < 1.e20 .and. r2(n) < 1.e20 ) then
-!!
-!!      tv1 = t1(n) * (1. + eps_virt * rslf(p1*100.,t1(n)) * r1(n))
-!!      tv2 = t2(n) * (1. + eps_virt * rslf(p2*100.,t2(n)) * r2(n))
-!!      z1(n) = z2(n) - rdry * .5 * (tv1 + tv2)  &
-!!            * (log(p1 * 100.) - log(p2 * 100.)) / grav
-!!
-!!   else
-!!      z1(n) = 1.e30
-!!   endif
-!!enddo
-!!
-!!return
-!!
-!!entry pr_hystatic_t(np,z1,z2,t1,t2,r1,r2,p1,p2)
-!!
-!!do n = 1,np
-!!   if (t2(n) < 1.e20 .and. z1(n) < 1.e20 .and. z2(n) < 1.e20 .and.  &
-!!       r1(n) < 1.e20 .and. r2(n) < 1.e20 ) then
-!!
-!!      vtfact = (1. + eps_virt * rslf(p2*100.,t2(n)) * r2(n))
-!!
-!!      t1(n) = -t2(n) - (grav2 * (z1(n) - z2(n))  &
-!!            / (rdry * (log(p1 * 100.) - log(p2 * 100.))) ) / vtfact
-!!
-!!   else
-!!      t1(n) = 1.e30
-!!   endif
-!!enddo
-!!
-!!return
-!!end
-!!
-!!!===============================================================================
-!!
-!!subroutine pr_miss_fill (n1,n2,n3,a,ithere,ithere2,prsln,varname,ierr)
-!!
-!!! simple filling for missing pressure fields. Assuming there are no
-!!!   physical relationships we can
-!!!   use to help us, we will simply interpolate to a missing level. If
-!!!   the top or bottom level is missing, we will fill it with the next
-!!!   non-missing field above or below.
-!!
-!!implicit none
-!!
-!!integer, intent(in) :: n1,n2,n3
-!!real, intent(inout) :: a(n1,n2,n3)
-!!integer, intent(inout) :: ithere(n3)
-!!integer, intent(in) :: ithere2(n3)
-!!real, intent(in) :: prsln(n3)
-!!character(len=*), intent(in) :: varname
-!!
-!!integer, intent(out) :: ierr
-!!
-!!
-!!integer :: k,kk,ilev
-!!
-!!ierr = 0
-!!k = 1
-!!if (ithere(k) == 0 .and. ithere2(k) == 0) then
-!!   ! find first non-missing level above
-!!   ilev = 0
-!!   do kk = 2,n3
-!!      if (ithere(kk) == 1) then
-!!         ilev = kk
-!!         goto 10
-!!      endif
-!!   enddo
-!!   write(io6,*) 'All data missing; fixing stopped for:',varname
-!!   ierr = 1
-!!   return
-!!   10 continue
-!!   a(1:n1,1:n2,k) = a(1:n1,1:n2,ilev)
-!!   ithere(k) = 1
-!!   write(io6,*) '-->Filling:',varname,' at level:',k,' from level:',ilev
-!!endif
-!!
-!!k = n3
-!!if (ithere(k) == 0 .and. ithere2(k) == 0) then
-!!   ! find first non-missing level below
-!!   ilev = 0
-!!   do kk = n3-1,1,-1
-!!      if (ithere(kk) == 1) then
-!!         ilev = kk
-!!         goto 11
-!!      endif
-!!   enddo
-!!   write(io6,*) 'All data missing; fixing stopped for:',varname
-!!   ierr = 1
-!!   return
-!!   11 continue
-!!   a(1:n1,1:n2,k) = a(1:n1,1:n2,ilev)
-!!   ithere(k) = 1
-!!   write(io6,*) '-->Filling:',varname,' at level:',k,' from level:',ilev
-!!endif
-!!
-!!! Now interpolate to internal missing levels
-!!
-!!do k = 2,n3-1
-!!   if (ithere(k) == 0 .and. ithere2(k) == 0) then
-!!      ! find first non-missing level above
-!!      ilev = 0
-!!      do kk = k+1,n3
-!!         if (ithere(kk) == 1) then
-!!            ilev = kk
-!!            goto 12
-!!         endif
-!!      enddo
-!!      stop 'pr_miss_fill'
-!!      12 continue
-!!      call pr_interp (n1*n2,a(1,1,k-1),a(1,1,k),a(1,1,ilev)  &
-!!                     ,prsln(k-1),prsln(k),prsln(ilev))
-!!      ithere(k) = 1
-!!      write(io6,*) '-->Interpolating:',varname,' at level:',k  &
-!!            ,' from levels:',k-1,' and:',ilev
-!!
-!!   endif
-!!enddo
-!!
-!!return
-!!end
-!!
-!!!===============================================================================
-!!
-!!subroutine pr_interp(np,a1,a2,a3,pln1,pln2,pln3)
-!!
-!!implicit none
-!!
-!!integer, intent(in) :: np
-!!
-!!real, intent(in) :: a1(np),a3(np),pln1,pln2,pln3
-!!real, intent(out) :: a2(np)
-!!
-!!integer :: n
-!!
-!!do n = 1,np
-!!   if (a3(n) < 1.e20 .and. a1(n) < 1.e20) then
-!!      a2(n) = a1(n) +  (pln2 - pln1) * (a3(n) - a1(n)) / (pln3 - pln1)
-!!   else
-!!      a2(n) = 1.e30
-!!   endif
-!!enddo
-!!
-!!return
-!!end subroutine pr_interp
+subroutine prfill3 (nprx,npry,nprz,ipoffset,xx,dn)
+
+implicit none
+
+integer, intent(in) :: nprx,npry,nprz,ipoffset
+
+real, intent(in)  :: xx(nprx,npry,nprz)
+real, intent(out) :: dn(nprx+3,npry+2,nprz)
+
+integer :: i,j,k,nprxo2,iin
+
+nprxo2 = nprx / 2
+
+! Copy pressure-level or surface data from xx to dn array, shifting by 1 row
+! and column, and set any required missing values
+
+do k = 1,nprz
+   do j = 1,npry
+      do i = 1,nprx+3
+         iin = mod(i+nprx-ipoffset-1,nprx)+1
+         dn(i,j+1,k) = xx(iin,j,k)
+      enddo
+   enddo
+
+! Fill in N/S boundary points
+
+   do i = 1,nprxo2
+      dn(i,1,k)      = dn(i+nprxo2,3,k)
+      dn(i,npry+2,k) = dn(i+nprxo2,npry,k)
+   enddo
+
+   do i = nprxo2+1,nprx+3
+      dn(i,1,k)      = dn(i-nprxo2,3,k)
+      dn(i,npry+2,k) = dn(i-nprxo2,npry,k)
+   enddo
+enddo
+
+return
+end subroutine prfill3
+
+!===============================================================================
+
+integer function lastdot(str)
+implicit none
+character(len=*) :: str
+integer :: n,ln
+
+! returns last . character position from a string
+!     trailing blanks are ignored
+
+ln=len_trim(str)
+do n=ln,1,-1
+   if(str(n:n) == '.') then
+      lastdot = n
+      return
+   endif
+enddo
+lastdot = 0
+
+return
+end
 

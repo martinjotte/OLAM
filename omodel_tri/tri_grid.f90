@@ -81,7 +81,6 @@ use mem_grid,    only: nza, mma, mua, mwa, xeu, yeu, zeu, xem, yem, zem,  &
                        glonw, glatw, glonm, glatm, glatu, glonu
 use misc_coms,   only: io6, mdomain, grdlat, grdlon
 use consts_coms, only: erad, erad2, piu180
-use mem_nudge,   only: nudflag, xenudp, yenudp, zenudp, itab_nudp
 
 implicit none
 
@@ -90,8 +89,6 @@ integer :: im1,im2,im3
 integer :: iu1,iu2,iu3,iu4,iu5,iu6,iu7,iu8,iu9,iu10,iu11,iu12
 integer :: iw1,iw2,iw3,iw4,iw5,iw6
 integer :: itpn
-integer :: inudp,inudp1,inudp2,inudp3,jnudp,jjnudp
-integer :: j,jj,jmax,jnudpmax,jmaxneg,jminpos
 
 real :: expansion
 real :: raxis
@@ -100,12 +97,10 @@ real :: hper
 real :: xiw,yiw,ziw
 real :: xij(6),yij(6),zij(6)
 real :: xw1,xw2,xw3,xw4,xw5,xw6,yw1,yw2,yw3,yw4,yw5,yw6
-real :: scalprod,scalprod_max
 real :: vecjx,vecjy,vecjz
 real :: vecmx,vecmy,vecmz
 real :: vecmjx,vecmjy,vecmjz
 real :: xi,yi,xj(6),yj(6)
-real :: vecprodz,vecprodz_maxneg,vecprodz_minpos
 
 real :: ef,x12,y12,z12,x34,y34,z34
 real :: b11,b21,b31,b12,b22,b32,b13,b23,b33  &
@@ -845,102 +840,6 @@ do iw = 2,mwa
 !!!!!!!!!!! END SAMPLE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 enddo
-
-! If using data assimilation with polygon nudging points, assign nudging
-! point indices and coefficients to all W points
-
-if (nudflag > 0) then
-
-! Loop over all W points
-
-   do iw = 2,mwa
-
-! Get primary nudging point index for current W point and compute its
-! x,y components on a polar stereographic plane tangent at W point
-! (W point is at 0,0)
-
-      inudp = itab_w(iw)%inudp(1)
-
-      call e_ps(xenudp(inudp),yenudp(inudp),zenudp(inudp)  &
-               ,glatw(iw),glonw(iw),xi,yi)
-
-! Initialize vecprodz_minpos and vecprodz_maxneg
-
-      vecprodz_maxneg = -1.e15
-      vecprodz_minpos =  1.e15
-
-! Loop through nearest polygon neighbors (j, jnudp) of nudging point INUDP
-
-      do j = 1,6
-
-! Get nudging point index (jnudp) for current polygon neighbor of inudp.
-! Skip this j if jnudp < 2
-
-         jnudp = itab_nudp(inudp,j)
-
-         if (jnudp < 2) cycle
-
-! Compute x,y components of jnudp polygon center on a polar stereographic 
-! plane tangent at W point
-
-         call e_ps(xenudp(jnudp),yenudp(jnudp),zenudp(jnudp)  &
-            ,glatw(iw),glonw(iw),xj(j),yj(j))
-
-! Compute z component (in polar stereographic space) of vector product 
-! of the vector from inudp to iw and the vector from inudp to jnudp.
-
-         vecprodz = (0. - xi) * (yj(j) - yi) - (0. - yi) * (xj(j) - xi)
-         
-! Compute scalar product of the vector from inudp to iw and the vector from
-! inudp to jnudp in polar stereographic space.
-
-         scalprod = (0. - xi) * (xj(j) - xi) + (0. - yi) * (yj(j) - yi) 
-
-! Check whether scalar product is positive for current J point.  If so, 
-! J point is a candidate for the nudging triad for IW.
-
-         if (scalprod > 0.) then
-
-! Identify maximum negative vecprodz among all jnudp polygon neighbors of
-! inudp.  This jnudp will be second point of nudging triad for IW         
-
-            if (vecprodz < 0. .and. vecprodz > vecprodz_maxneg) then
-               vecprodz_maxneg = vecprodz
-               jmaxneg = j
-               itab_w(iw)%inudp(2) = jnudp
-            endif
-
-! Identify minimum positive vecprodz among all jnudp polygon neighbors of
-! inudp.  This jnudp will be third point of nudging triad for IW         
-
-            if (vecprodz >= 0. .and. vecprodz < vecprodz_minpos) then
-               vecprodz_minpos = vecprodz
-               jminpos = j
-               itab_w(iw)%inudp(3) = jnudp
-            endif
-         endif
-
-      enddo
-
-! Lastly, fill 3 nudging weight coefficients for this W point.
-! Weights are computed in 2_d polar stereographic space.
-
-! Invert matrix of coordinates
-
-      call matinv3x3(1.,xi,yi  &
-                    ,1.,xj(jmaxneg),yj(jmaxneg)  &
-                    ,1.,xj(jminpos),yj(jminpos)  &
-                 ,b11,b21,b31,b12,b22,b32,b13,b23,b33)
-
-! Assign coefficients
-
-      itab_w(iw)%fnudp(1) = b11
-      itab_w(iw)%fnudp(2) = b21
-      itab_w(iw)%fnudp(3) = b31
-
-   enddo
-
-endif
 
 return
 end subroutine grid_geometry_tri

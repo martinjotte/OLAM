@@ -42,8 +42,8 @@ use mem_grid,    only: mza, mua, mva, mwa, lcu, lcv, zt, dzt, zm, &
                        xeu, yeu, zeu, xev, yev, zev, unx, uny, vnx, vny, &
                        glatw, aru, arv
 use mem_zonavg,  only: zonz_vect, zonu_vect, zont_vect, zonr_vect,  &
-                       zonp_vect, zonz, zonu, zont, zonr
-use misc_coms,   only: io6, iparallel, meshtype
+                       zonp_vect, zonz, zonu, zont, zonr, zonavg_init
+use misc_coms,   only: io6, iparallel, meshtype,idate1,imonth1,iyear1
 use massflux,    only: diagnose_uc, diagnose_vc
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w,  &
@@ -55,7 +55,7 @@ implicit none
 integer :: j,iw,k,ka,iu,iv,iter,iw1,iw2,iup,ivp,llat  &
    ,im,iplev,ilat,im1,im2,ilatn,ilats
 real :: rcloud,temp,rvls,exner  &
-   ,ugx,ugy,raxis,pnorth,psouth,ug,ug1,ug2,wt1,pkhyd  &
+   ,ugx,ugy,raxis,raxisi,pnorth,psouth,ug,ug1,ug2,wt1,pkhyd  &
    ,alat,dyo2g,fcorn,fcors,pilo,pihi,thetavlo,thetavhi,rlat,wt2,cpo2g,rhovs
 character(len=1) :: line
 
@@ -64,7 +64,9 @@ real, dimension(mza,mwa) :: uzonal  ! automatic array
 
 real, external :: rhovsl
 
-call zonavg_init()  ! Read in 'ZONAVG_CLIMATE' data and fill zonavg arrarys
+! Fill zonavg arrays for initialization time
+
+call zonavg_init(idate1,imonth1,iyear1)
 
 call psub()
 !----------------------------------------------------------------------
@@ -172,27 +174,30 @@ if (meshtype == 1) then
 !----------------------------------------------------------------------
    call qsub('U',iu)
 
-      if (iw1 == 1) iw1 = iw2
-      if (iw2 == 1) iw2 = iw1
+      if (iw1 < 2) iw1 = iw2
+      if (iw2 < 2) iw2 = iw1
+
+      raxis = sqrt(xeu(iu) ** 2 + yeu(iu) ** 2)  ! dist from earth axis
 
 ! Average winds to U point and rotate at U point (assumed to be global simulation)
 
-      do k = 1,mza
-         ug = .5 * (uzonal(k,iw1) + uzonal(k,iw2))
+      if (raxis > 1.e3) then
+         raxisi = 1. / raxis
 
-         raxis = sqrt(xeu(iu) ** 2 + yeu(iu) ** 2)  ! dist from earth axis
+         do k = 1,mza
+            ug = .5 * (uzonal(k,iw1) + uzonal(k,iw2))
 
-         if (raxis > 1.e3) then
-            ugx = -ug * yeu(iu) / raxis 
-            ugy =  ug * xeu(iu) / raxis 
+            ugx = -ug * yeu(iu) * raxisi 
+            ugy =  ug * xeu(iu) * raxisi 
 
             uc(k,iu) = ugx * unx(iu) + ugy * uny(iu)
-         else
-            uc(k,iu) = 0.
-         endif
+         enddo
 
-         umc(k,iu) = uc(k,iu) * .5 * (rho(k,iw1) + rho(k,iw2))
-      enddo
+      else
+         uc(:,iu) = 0.
+      endif
+
+      umc(:,iu) = uc(:,iu) * .5 * (rho(:,iw1) + rho(:,iw2))
 
    enddo
    call rsub('Ub',8)
@@ -244,27 +249,30 @@ else
 !----------------------------------------------------------------------
    call qsub('V',iv)
 
-      if (iw1 == 1) iw1 = iw2
-      if (iw2 == 1) iw2 = iw1
+      if (iw1 < 2) iw1 = iw2
+      if (iw2 < 2) iw2 = iw1
+
+      raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
 
 ! Average winds to V point and rotate at V point (assumed to be global simulation)
 
-      do k = 1,mza
-         ug = .5 * (uzonal(k,iw1) + uzonal(k,iw2))
+      if (raxis > 1.e3) then
+         raxisi = 1. / raxis
 
-         raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
+         do k = 1,mza
+            ug = .5 * (uzonal(k,iw1) + uzonal(k,iw2))
 
-         if (raxis > 1.e3) then
-            ugx = -ug * yev(iv) / raxis 
-            ugy =  ug * xev(iv) / raxis 
+            ugx = -ug * yev(iv) * raxisi 
+            ugy =  ug * xev(iv) * raxisi
 
             vc(k,iv) = ugx * vnx(iv) + ugy * vny(iv)
-         else
-            vc(k,iv) = 0.
-         endif
+         enddo
+
+      else
+         vc(:,iv) = 0.
+      endif
          
-         vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
-      enddo
+      vmc(:,iv) = vc(:,iv) * .5 * (rho(:,iw1) + rho(:,iw2))
 
    enddo
    call rsub('Vb',8)
@@ -328,146 +336,7 @@ enddo
 write(io6, '(f10.2,1x,9(''-------''))') zm(1)
 write(io6,*) ' '
 
-deallocate(zont,zonu,zonz,zonr  &
-   ,zonp_vect,zont_vect,zonu_vect,zonz_vect,zonr_vect)
-
 return
 end subroutine fldslhi
-
-!===============================================================================
-
-subroutine zonavg_init()
-
-use misc_coms,   only: io6, idate1, imonth1, zonclim                    
-use consts_coms, only: pio180, cp, rocp, eps_virt, omega, grav2, dlat
-use mem_zonavg,  only: zonz, zonu, zont, zonr, zonp_vect,  &
-                       alloc_zonavg, fill_zonavg
-
-implicit none   
-
-integer :: iplev,ilat,ilatn,ilats
-real :: dyo2g,fcorn,fcors,pilo,pihi,thetavlo,thetavhi,cpo2g
-
-! Read in 'ZONAVG_CLIMATE' dataset
-
-call alloc_zonavg()
-call fill_zonavg(zonclim,idate1,imonth1)
-
-! In order to obtain zonally averaged water vapor mixing ratio, interpolate
-! Mclatchy soundings in time to mclat array and obtain coefficients for 
-! latitudinal spline interpolation
-
-call fill_zonr_mclat()
-
-! Compute zonal height field from hydrostatic and geostrophic balances
-
-zonz(37,1) = 113. ! Std hgt of 1000 mb sfc in tropics (from Mclatchy sounding)
-zonz(38,1) = 113. ! Std hgt of 1000 mb sfc in tropics (from Mclatchy sounding)
-
-! Use geostrophic balance eqn to get 1000 mb heights at all latitudes
-
-dyo2g = 2.5 * dlat / grav2  ! spacing (m) between zonavg values divided by 2g
-
-do ilatn = 39,74
-   ilats = 75 - ilatn 
-
-! Coriolis parameter at midpoint between zonavg values (north and south hemispheres)
-   
-   fcorn = 2. * omega * sin(2.5 * (ilatn-38) * pio180)
-   fcors = 2. * omega * sin(2.5 * (ilats-37) * pio180)
-
-! Compute and apply delta zp using midpoint average of two zonu values
-
-   zonz(ilatn,1) = zonz(ilatn-1,1)   &
-      - fcorn * dyo2g * (zonu(ilatn-1,1) + zonu(ilatn,1))
-   zonz(ilats,1) = zonz(ilats+1,1)  &
-      - fcorn * dyo2g * (zonu(ilats+1,1) + zonu(ilats,1))
-enddo
-
-! Use hydrostatic equation to get all heights above 1000 mb surface
-
-cpo2g = cp / grav2
-
-do ilat = 1,74
-   do iplev = 2,22
-      pilo = (1.e-5 * zonp_vect(iplev-1)) ** rocp
-      pihi = (1.e-5 * zonp_vect(iplev)) ** rocp
-      thetavlo = zont(ilat,iplev-1) * (1. + eps_virt * zonr(ilat,iplev-1))  &
-               / pilo
-      thetavhi = zont(ilat,iplev) * (1. + eps_virt * zonr(ilat,iplev))  &
-               / pihi
-      zonz(ilat,iplev) = zonz(ilat,iplev-1) + cpo2g * (pilo - pihi)  &
-         * (thetavlo + thetavhi)
-
-!write(io6,3302) ilat,iplev,zonp_vect(iplev),pihi,thetavhi,zont(ilat,iplev)  &
-!    ,zonr(ilat,iplev),zonz(ilat,iplev)
-!3302 format('zonz1 ',2i6,12e15.6)
-         
-   enddo
-enddo
-
-return
-end subroutine zonavg_init
-
-!===============================================================================
-
-subroutine fill_zonr_mclat()
-
-use misc_coms,   only: io6, imonth1, idate1, iyear1
-use mem_mclat,   only: slat, mclat, ypp_mclat, mcol, mclat_spline
-use mem_zonavg,  only: zonr_vect, zonp_vect, zonr
-use mem_radiate, only: jday
-
-implicit none   
-
-integer :: ilat,lv
-real :: alat
-integer, external :: julday
-
-! Subroutine fill_zonr_mclat fills the ZONR array with specific humidity values 
-! by means of interpolation from the McLatchy sounding.  The ZONR array is 2-D, 
-! defined at 22 vertical pressure levels and 74 latitudes (2.5 degree spacing),
-! and is required to supplement the zonu and zont arrays which are filled with
-! monthly climatological data from the U.K. Met office.  
-
-! Get current Julian day
-
-jday = julday(imonth1,idate1,iyear1)
-
-! Compute spline coefficients in preparation for interpolation
-
-call mclat_spline(jday)  
-
-! Loop over latitude columns of zonavg data
-
-do ilat = 1,74
-   alat = -93.75 + 2.5 * ilat
-
-! Loop over vertical levels in McLatchy sounding
-
-   do lv = 1,33
-
-! Spline-interpolate (by latitude) Mclatchy pressure, vapor density, and 
-! total density to current latitude
- 
-      call spline2(13,slat,mclat(1,lv,2),ypp_mclat(1,lv,2),alat,mcol(lv,2))
-      call spline2(13,slat,mclat(1,lv,4),ypp_mclat(1,lv,4),alat,mcol(lv,4))
-      call spline2(13,slat,mclat(1,lv,6),ypp_mclat(1,lv,6),alat,mcol(lv,6))
-
-! Compute specific humidity from quotient of vapor and total density
-
-      mcol(lv,4) = mcol(lv,4) / mcol(lv,6)
-   enddo
-
-! Vertically interpolate Mclatchy vapor specific humidity BY PRESSURE to zonavg 
-! data levels
-
-   call pintrp_ee(33,mcol(1,4),mcol(1,2),22,zonr_vect,zonp_vect)
-   zonr(ilat,1:22) = zonr_vect(1:22)
-enddo
-
-return
-end subroutine fill_zonr_mclat
-
 
 

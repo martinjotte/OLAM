@@ -177,8 +177,8 @@ Module mem_ijtabs
       real :: vxu_w(3) = 0.  ! proj coefs of U neighbors
       real :: vyu_w(3) = 0.  ! proj coefs of U neighbors
 
-      integer :: inudp(3) = 1  ! local nudpoly pts
-      real    :: fnudp(3) = 0. ! local nudpoly coeffs
+      integer :: iwnud(3) = 1  ! local nudpoly pts
+      real    :: fnud(3) = 0. ! local nudpoly coeffs
    End Type itab_w_vars
 
    Type itabg_m_vars            ! data structure for M pts (global)

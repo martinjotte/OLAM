@@ -33,11 +33,16 @@
 
 Module mem_nudge
 
-  integer, allocatable         ::   itab_nudp(:,:)
+  Type itab_wnudge          ! data structure for nudging points (individual rank)
+    integer :: npoly = 0    ! number of W neighbors of this WNUD pt
+    integer :: iwnud(6) = 1 ! array of WNUD neighbors of this WNUD pt
+  End Type itab_wnudge
 
-  real,    allocatable, target ::      xenudp(:)
-  real,    allocatable, target ::      yenudp(:)
-  real,    allocatable, target ::      zenudp(:)
+  type (itab_wnudge), allocatable :: itab_wnud(:)
+
+  real,    allocatable, target ::      xewnud(:)
+  real,    allocatable, target ::      yewnud(:)
+  real,    allocatable, target ::      zewnud(:)
 
   real,    allocatable, target ::    rho_obsp(:,:)
   real,    allocatable, target ::  theta_obsp(:,:)
@@ -66,35 +71,28 @@ Module mem_nudge
   integer :: nudflag
   integer :: nudnxp
   integer :: nnudfiles
-  integer :: nnudfl
-  integer :: nnudp
-  integer :: mnudp
+  integer :: nwnud, mwnud
 
   real    :: tnudcent
-  real    :: wt_nudge_uv
-  real    :: wt_nudge_th
-  real    :: wt_nudge_pi
-  real    :: wt_nudge_rt
-  real    :: wt_nudge_grid
 
 Contains
 
-  subroutine alloc_nudge1(lnudp)
+  subroutine alloc_nudge1(lwnud)
 
     use misc_coms, only: io6, rinit
     implicit none
 
-    integer, intent(in) :: lnudp
+    integer, intent(in) :: lwnud
 
 !   Allocate arrays based on options (if necessary)
 
-    write(io6,*) 'allocating nudge1 ', lnudp
+    write(io6,*) 'allocating nudge1 ', lwnud
 
-    allocate (itab_nudp(lnudp,6)) ; itab_nudp = 0
+    allocate (itab_wnud(lwnud))
 
-    allocate (xenudp(lnudp)) ; xenudp = rinit
-    allocate (yenudp(lnudp)) ; yenudp = rinit
-    allocate (zenudp(lnudp)) ; zenudp = rinit
+    allocate (xewnud(lwnud)) ; xewnud = rinit
+    allocate (yewnud(lwnud)) ; yewnud = rinit
+    allocate (zewnud(lwnud)) ; zewnud = rinit
 
   end subroutine alloc_nudge1
 
@@ -109,31 +107,31 @@ Contains
 
 !   Allocate arrays based on options (if necessary)
 
-    write(io6,*) 'allocating nudge2 ',mza,mnudp
+    write(io6,*) 'allocating nudge2 ',mza,mwnud
 
-    allocate (   rho_obsp(mza,mnudp)) ; rho_obsp    = rinit
-    allocate ( theta_obsp(mza,mnudp)) ; theta_obsp  = rinit
-    allocate (   shw_obsp(mza,mnudp)) ; shw_obsp    = rinit
-    allocate (uzonal_obsp(mza,mnudp)) ; uzonal_obsp = rinit
-    allocate (umerid_obsp(mza,mnudp)) ; umerid_obsp = rinit
+    allocate (   rho_obsp(mza,mwnud)) ; rho_obsp    = rinit
+    allocate ( theta_obsp(mza,mwnud)) ; theta_obsp  = rinit
+    allocate (   shw_obsp(mza,mwnud)) ; shw_obsp    = rinit
+    allocate (uzonal_obsp(mza,mwnud)) ; uzonal_obsp = rinit
+    allocate (umerid_obsp(mza,mwnud)) ; umerid_obsp = rinit
 
-    allocate (   rho_obsf(mza,mnudp)) ; rho_obsf    = rinit
-    allocate ( theta_obsf(mza,mnudp)) ; theta_obsf  = rinit
-    allocate (   shw_obsf(mza,mnudp)) ; shw_obsf    = rinit
-    allocate (uzonal_obsf(mza,mnudp)) ; uzonal_obsf = rinit
-    allocate (umerid_obsf(mza,mnudp)) ; umerid_obsf = rinit
+    allocate (   rho_obsf(mza,mwnud)) ; rho_obsf    = rinit
+    allocate ( theta_obsf(mza,mwnud)) ; theta_obsf  = rinit
+    allocate (   shw_obsf(mza,mwnud)) ; shw_obsf    = rinit
+    allocate (uzonal_obsf(mza,mwnud)) ; uzonal_obsf = rinit
+    allocate (umerid_obsf(mza,mwnud)) ; umerid_obsf = rinit
 
-    allocate (    rho_obs(mza,mnudp)) ; rho_obs     = rinit
-    allocate (  theta_obs(mza,mnudp)) ; theta_obs   = rinit
-    allocate (    shw_obs(mza,mnudp)) ; shw_obs     = rinit
-    allocate ( uzonal_obs(mza,mnudp)) ; uzonal_obs  = rinit
-    allocate ( umerid_obs(mza,mnudp)) ; umerid_obs  = rinit
+    allocate (    rho_obs(mza,mwnud)) ; rho_obs     = rinit
+    allocate (  theta_obs(mza,mwnud)) ; theta_obs   = rinit
+    allocate (    shw_obs(mza,mwnud)) ; shw_obs     = rinit
+    allocate ( uzonal_obs(mza,mwnud)) ; uzonal_obs  = rinit
+    allocate ( umerid_obs(mza,mwnud)) ; umerid_obs  = rinit
 
-    allocate (    rho_sim(mza,mnudp)) ; rho_sim     = rinit
-    allocate (  theta_sim(mza,mnudp)) ; theta_sim   = rinit
-    allocate (    shw_sim(mza,mnudp)) ; shw_sim     = rinit
-    allocate ( uzonal_sim(mza,mnudp)) ; uzonal_sim  = rinit
-    allocate ( umerid_sim(mza,mnudp)) ; umerid_sim  = rinit
+    allocate (    rho_sim(mza,mwnud)) ; rho_sim     = rinit
+    allocate (  theta_sim(mza,mwnud)) ; theta_sim   = rinit
+    allocate (    shw_sim(mza,mwnud)) ; shw_sim     = rinit
+    allocate ( uzonal_sim(mza,mwnud)) ; uzonal_sim  = rinit
+    allocate ( umerid_sim(mza,mwnud)) ; umerid_sim  = rinit
 
   end subroutine alloc_nudge2
 

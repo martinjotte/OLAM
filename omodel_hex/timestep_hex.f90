@@ -103,8 +103,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(6)
 
-!nud   if (initial == 2 .and. nudflag == 1)  &
-!nud   call obs_nudge(rhot)
+   if (initial == 2 .and. nudflag == 1)  &
+   call obs_nudge(rhot)
 
 ! call check_nans(10)
 
