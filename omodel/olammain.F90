@@ -72,17 +72,14 @@ if (iparallel == 1 .and. myrank > 0) then
    write (io6file,'(i10)') myrank
    io6file = 'o.io6_r'//trim(adjustl(io6file))
 
-! First, remove file in case it exists
-
-   ! PPL
-   ! call system('rm -f '//trim(io6file)//char(0))
-
-   open(io6,file=io6file,status='unknown',form='formatted')
+! Output file is replaced if it exists
+   open(unit=io6, file=io6file, status='replace', form='formatted')
 
 #ifdef __PGI
    ! Prevent Portland Group compiler from buffering io6
    call setvbuf3f(io6,1,1024)
 #endif
+
 endif
 
 write(io6,'(/,a,i6)') ' myrank     = ',myrank

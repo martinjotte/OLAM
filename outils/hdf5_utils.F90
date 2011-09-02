@@ -88,14 +88,16 @@ elseif (access(1:1) == 'W') then
          stop 'shdf5_open: no idelete'
       endif
       
-      if(idelete == 0) then
+      if (idelete == 0) then
          print*,'In shdf5_open:'
          print*,'   Attempt to open an existing file for writing, '
          print*,'      but overwrite is disabled. idelete=',idelete
          print*,'   Filename: ',trim(locfn)
          stop 'shdf5_open'
       else
-         ! PPL call system('rm -f '//trim(locfn)//char(0))
+         ! First delete existing file
+         open (unit=98, status='replace', file=locfn)
+         close(unit=98, status='delete')
          iaccess=1
          call fh5f_create(trim(locfn)//char(0), iaccess, hdferr)
       endif
