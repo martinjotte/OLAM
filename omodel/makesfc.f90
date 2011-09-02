@@ -418,7 +418,13 @@ subroutine makesfc()
   xemls(1:nma) = xem(1:nma)
   yemls(1:nma) = yem(1:nma)
   zemls(1:nma) = zem(1:nma)
-  zmls(1:nma)  = topm(1:nma)
+  zmls (1:nma) = topm(1:nma)
+
+  do imls = 1, nma
+     raxis = sqrt( xemls(imls)**2 + yemls(imls)**2 )
+     glatmls(imls) = atan2( zemls(imls), raxis      ) * piu180
+     glonmls(imls) = atan2( yemls(imls), xemls(imls)) * piu180
+  enddo
 
 ! Loop over all Delaunay U points
 
