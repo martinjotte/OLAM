@@ -131,7 +131,11 @@ write(io6,*) 'OLAM input namelist file: ',trim(name_name)
 
 call get_environment_variable("TMPDIR", cargv, length=i)
 if ( i > 0 ) then
-   tmpdir = cargv
+   if (cargv(i:i) == '/') then
+      tmpdir = cargv(1:i-1)
+   else
+      tmpdir = cargv
+   endif
 else
    tmpdir = "/tmp"
 endif

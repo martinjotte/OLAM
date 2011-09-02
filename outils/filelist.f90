@@ -49,9 +49,11 @@ SUBROUTINE OLAM_filelist(fnames,nfnam,file_prefix,nfile,nocall)
   character(pathlen) :: file, cdir, dirname
   character(pathlen) :: tmpname, fname, dirtail
   character(len=10)  :: zrank
+  character(len=30)  :: tmpfile
 
-  integer :: iprelen,nc,nf,iun,lndir,slen,istat
-  logical :: exists
+  integer, parameter :: iun=98
+  integer            :: iprelen,nc,nf,lndir,slen,istat
+  logical            :: exists
 
   IF (nocall) THEN
 
@@ -61,6 +63,7 @@ SUBROUTINE OLAM_filelist(fnames,nfnam,file_prefix,nfile,nocall)
 
   ELSE
 
+     WRITE(io6,*)
      WRITE(io6,*) 'OLAM_filelist: Checking prefix: '//TRIM(file_prefix)
 
      nfile = 0
@@ -81,8 +84,20 @@ SUBROUTINE OLAM_filelist(fnames,nfnam,file_prefix,nfile,nocall)
      ! Determine a unique temporary filename
 
      WRITE(zrank,'(I0)') myrank
-     tmpname = TRIM(tmpdir) // '/olam' // TRIM(zrank) // '.XXXXXXXX'
-     CALL mktempname(tmpname)
+     tmpfile = 'olam_' // trim(zrank) // '.XXXXXXXX'
+     CALL mktempname(tmpfile)
+     tmpname = trim(tmpdir) // '/' // trim(tmpfile)
+
+     ! Make sure we can write to the tmp directory
+
+     OPEN(unit=iun, file=tmpname, action='write', iostat=istat)
+     CLOSE(iun, status='delete')
+
+     IF (istat /= 0) THEN
+        WRITE(*,*)
+        WRITE(*,*) "Error writing to tmp directory " // trim(tmpdir)
+        STOP       "OLAM_filelist: Please set $TMPDIR to the temporary directory"
+     ENDIF
 
      ! The 'ls' command only takes a limited number of file names as
      ! arguments. Instead, we use the 'find' command to locate files and
@@ -96,39 +111,32 @@ SUBROUTINE OLAM_filelist(fnames,nfnam,file_prefix,nfile,nocall)
 
   ! Open the directory list and read through the files
 
-  inquire(file=tmpname, exist=exists)
-  if (.not. exists) then
-     write(*,*) 'OLAM_filelist: Error opening temporary OLAM_filelist'
-     stop 'OLAM_filelist: /tmp file error. Run again.'
-  endif
-
-  iun=98
-  open(unit=iun,file=tmpname,status='old')
-
-  do nf=1,nfnam+1
-     read(iun,'(a)', iostat=istat) file
-
-     ! iostat /= 0 indicates end-of-file or error so exit loop
-     if (istat /= 0) exit
-
-     if (nf.gt.nfnam) then
-        write(*,*) 'OLAM_filelist: too many files of the form:'
-        write(*,*) trim(file_prefix)
-        stop 'Please increase the appropriate parameter in max_dims'
-     endif
-
-     fnames(nf) = file
-  enddo
-
-  close(iun)
-  nfile=nf-1
-
-  IF (.NOT. nocall) THEN
-     command = '/bin/rm -f '//tmpname
-     CALL system(command)
+  INQUIRE(file=tmpname, exist=exists)
+  IF (.not. exists) THEN
+     WRITE(*,*) 'OLAM_filelist: Error opening temporary OLAM_filelist'
+     STOP 'OLAM_filelist: /tmp file error. Run again.'
   ENDIF
 
-  RETURN 
+  OPEN(unit=iun, file=tmpname, status='old')
+
+  DO nf=1, nfnam+1
+     READ(iun, '(a)', iostat=istat) file
+
+     ! iostat /= 0 indicates end-of-file or error so exit loop
+     IF (istat /= 0) exit
+
+     IF (nf > nfnam) THEN
+        WRITE(*,*) 'OLAM_filelist: too many files of the form:'
+        WRITE(*,*) trim(file_prefix)
+        STOP       'Please increase the appropriate parameter in max_dims'
+     ENDIF
+
+     fnames(nf) = file
+  ENDDO
+
+  CLOSE(iun, status='delete')
+  nfile=nf-1
+
 END SUBROUTINE OLAM_filelist
 
 
