@@ -1,6 +1,6 @@
 /*
 !===============================================================================
-! OLAM version 3.0_beta2
+! OLAM version 4.0
 
 ! Copyright (C) 2002-2006; All Rights Reserved; 
 ! Duke University, Durham, North Carolina, USA 
@@ -41,6 +41,10 @@
 
 #include "utils_sub_names.h"
 #define H5_USE_16_API
+
+/* Only use these routines if we are not using the HDF5 F90 interface */
+#ifndef OLAM_HDF5_FORTRAN
+
 #include "hdf5.h"
 
 hid_t fileid, dsetid, dspcid, mspcid, propid;
@@ -373,4 +377,4 @@ herr = H5Dclose(dsetid);
 return;
 }
 
-
+#endif /* OLAM_HDF5_FORTRAN */

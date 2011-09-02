@@ -30,6 +30,7 @@ endif
 
 ifdef OLAM_HDF5_FORTRAN
 HDF5_FORTRAN_DEF=$(F_DEFINE_FLAG)OLAM_HDF5_FORTRAN
+HDF5_C_DEF=-DOLAM_HDF5_FORTRAN
 endif
 
 
@@ -47,7 +48,7 @@ EXE=$(BASE)-$(OLAM_VERSION)$(OLAM_SUFFIX)
 	(cd objects; $(F_COMMAND) $(<F))
 
 %.o: %.c
-	$(C_COMMAND) $< -o $@
+	$(C_COMMAND) $(HDF5_C_DEF) $< -o $@
 
 # Define targets
 
