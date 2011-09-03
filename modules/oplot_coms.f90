@@ -33,6 +33,9 @@
 Module oplot_coms
 
 use max_dims, only: maxnplt, maxpltfiles, pathlen
+implicit none
+
+private :: maxnplt, maxpltfiles, pathlen
 
 Type oplot_vars
 

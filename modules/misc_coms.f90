@@ -34,6 +34,9 @@ Module misc_coms
 
 use max_dims,    only: maxsndg, maxgrds, maxngrdll, pathlen
 use consts_coms, only: r8
+implicit none
+
+private :: maxsndg, maxgrds, maxngrdll, pathlen, r8
 
 type simtime
    integer :: year

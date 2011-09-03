@@ -33,6 +33,9 @@
 Module mem_mksfc
   
   use max_dims, only: maxremote, maxnlspoly
+  implicit none
+
+  private :: maxremote, maxnlspoly
 
 ! DATA STRUCTURES TO HOLD THE MKSFC GRID INFORMATION FOR ALL LAND/SEA CELLS
 

@@ -33,6 +33,9 @@
 Module mem_ijtabs
 
    use max_dims, only: maxgrds, maxremote
+   implicit none
+   
+   private :: maxgrds, maxremote
 
    integer, parameter :: mloops_m =  4 ! max # non-para DO loops for M pts
    integer, parameter :: mloops_u = 25 ! max # non-para DO loops for U pts
@@ -54,7 +57,7 @@ Module mem_ijtabs
    integer, allocatable :: mrl_ends(:)  ! MRL at end of short timestep
    integer, allocatable :: mrl_endr(:)  ! MRL at end of RK step
    integer, allocatable :: mrl_endl(:)  ! MRL at end of long timestep
-   real, allocatable :: dtrk(:)         ! MRL RK timestep factor
+   real,    allocatable :: dtrk    (:)  ! MRL RK timestep factor
 
    integer, allocatable :: leafstep(:)  ! flag to run leaf on any sub-timestep
 
@@ -70,8 +73,7 @@ Module mem_ijtabs
       integer :: iu(7) = 1       ! array of U neighbors of this M pt (Delaunay)
       integer :: iv(7) = 1       ! array of V neighbors of this M pt (Voronoi)
       integer :: iw(7) = 1       ! array of W neighbors of this M pt (Del or Vor)
-
-      real :: fmw(7) = 0.        ! Interp coefs of W values to M point
+      real    :: fmw(7) = 0.     ! Interp coefs of W values to M point
    End Type itab_m_vars
 
    Type itab_u_vars             ! data structure for U pts (individual rank)
@@ -84,8 +86,7 @@ Module mem_ijtabs
       integer :: im(2) = 1     ! neighbor M pts of this U pt
       integer :: iu(12) = 1    ! neighbor U pts
       integer :: iw(6) = 1     ! neighbor W pts
-
-      real :: diru(4) = 0.   ! pos direction of U neighbors
+      real    :: diru(4) = 0.  ! pos direction of U neighbors
 
 ! Some of the following will change when V is routinely diagnosed on TRI grid
 

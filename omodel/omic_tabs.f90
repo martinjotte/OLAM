@@ -32,8 +32,9 @@
 !===============================================================================
 subroutine haznuc()
 
-use micro_coms, only: nthz, dthz, nrhhz, drhhz, frachz, cnparm
-use misc_coms,  only: io6, r8
+use micro_coms,  only: nthz, dthz, nrhhz, drhhz, frachz, cnparm
+use misc_coms,   only: io6
+use consts_coms, only: r8
 
 implicit none
 
@@ -81,8 +82,9 @@ end subroutine haznuc
 
 subroutine homfrzcl(dtl,mrl)
 
-use micro_coms, only: ntc, dtc, ndnc, ddnc, fracc, gnu
-use misc_coms,  only: io6, r8
+use micro_coms,  only: ntc, dtc, ndnc, ddnc, fracc, gnu
+use misc_coms,   only: io6
+use consts_coms, only: r8
 
 implicit none
 

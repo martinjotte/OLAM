@@ -35,6 +35,9 @@ Module mem_leaf
    use ed_structure_defs, only: site
    use max_dims,          only: maxremote
    use mem_mksfc,         only: itab_mls_vars, itab_uls_vars, itab_wls_vars
+   implicit none
+   
+   private :: site, maxremote, itab_mls_vars, itab_uls_vars, itab_wls_vars
 
 ! LAND SURFACE GRID TABLES
 

@@ -41,6 +41,9 @@ Module leaf_coms
 
 use max_dims,    only: nzgmax, maxndvifiles, pathlen
 use consts_coms, only: r8
+implicit none
+
+private :: nzgmax, maxndvifiles, pathlen, r8
  
 integer, parameter :: nstyp = 12    ! total # of soil textural classes
 integer, parameter :: nvtyp = 20    ! total # of leaf ("veg") classes

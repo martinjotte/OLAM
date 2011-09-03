@@ -32,7 +32,11 @@
 !===============================================================================
 
 Module mem_basic
+
   use consts_coms, only: r8
+  implicit none
+
+  private :: r8
 
   real, allocatable, target :: ump  (:,:) ! past U horiz momentum [kg/(m^2 s)]
   real, allocatable, target :: umc  (:,:) ! current U horiz momentum [kg/(m^2 s)]

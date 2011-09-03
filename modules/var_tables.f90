@@ -33,6 +33,9 @@
 
 Module var_tables
   use consts_coms, only: r8
+  implicit none
+  
+  private :: r8
 
   type var_tables_r
      integer,  pointer :: ivar0_p        => null()

@@ -41,6 +41,9 @@ Module sea_coms
 
    use max_dims,    only: maxsstfiles, pathlen
    use consts_coms, only: r8
+   implicit none
+
+   private :: maxsstfiles, pathlen, r8
 
    character(pathlen) :: seafile
 

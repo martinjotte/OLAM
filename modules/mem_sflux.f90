@@ -32,8 +32,11 @@
 !===============================================================================
 
 Module mem_sflux
+
   use max_dims,  only: maxremote
-  use misc_coms, only: rinit
+  implicit none
+
+  private :: maxremote
 
 ! Total number of sea and land flux cells
 

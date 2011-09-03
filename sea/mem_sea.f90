@@ -34,6 +34,9 @@ Module mem_sea
 
    use max_dims,  only: maxremote
    use mem_mksfc, only: itab_mls_vars, itab_uls_vars, itab_wls_vars
+   implicit none
+
+   private :: maxremote, itab_mls_vars, itab_uls_vars, itab_wls_vars
 
 ! SEA SURFACE GRID TABLES
 
