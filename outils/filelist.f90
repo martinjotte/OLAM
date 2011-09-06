@@ -134,7 +134,12 @@ SUBROUTINE OLAM_filelist(fnames,nfnam,file_prefix,nfile,nocall)
      fnames(nf) = file
   ENDDO
 
-  CLOSE(iun, status='delete')
+  if (nocall) then
+     close(iun)
+  else
+     close(iun, status='delete')
+  endif
+
   nfile=nf-1
 
 END SUBROUTINE OLAM_filelist
