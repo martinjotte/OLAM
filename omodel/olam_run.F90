@@ -32,7 +32,9 @@
 !===============================================================================
 subroutine olam_run(name_name)
 
+#ifdef IEEE_ARITHMETIC
 use, intrinsic :: ieee_arithmetic
+#endif
 
 use misc_coms,   only: io6, time8, iflag, runtype, hfilin, time_istp8, &
                        expnme, mdomain, ngrids, initial, iswrtyp, &
@@ -100,23 +102,32 @@ endif
 ! Set constants for initializing model arrays to zeros or, if supported, NANs
 ! depending on namelist variable init_nans
 
-if (ieee_support_nan(1.0) .and. init_nans) then
-   rinit = ieee_value(1.0, ieee_signaling_nan)
-else
-   rinit = 0.0
+rinit = 0.0
+rinit8 = 0.0_r8
+
+if (init_nans) then
+#ifdef IEEE_ARITHMETIC
+   if (ieee_support_nan(1.0)) then
+      rinit = ieee_value(1.0, ieee_signaling_nan)
+   endif
+#endif
 endif
 
-if (ieee_support_nan(1.0_r8) .and. init_nans) then
-   rinit8 = ieee_value(1.0_r8, ieee_signaling_nan)
-else
-   rinit8 = 0.0_r8
+if (init_nans) then
+#ifdef IEEE_ARITHMETIC
+   if (ieee_support_nan(1.0_r8)) then
+      rinit8 = ieee_value(1.0_r8, ieee_signaling_nan)
+   endif
+#endif
 endif
 
 ! If debugging, halt on illegal floating operations if supported
 
+#ifdef IEEE_ARITHMETIC
 if (ieee_support_halting(ieee_invalid) .and. debug_fp) then
    call ieee_set_halting_mode(ieee_usual, .true.)
 endif
+#endif
 
 ! Get abs seconds of simulation start and current simulation time
 

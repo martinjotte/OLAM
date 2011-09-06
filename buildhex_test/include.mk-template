@@ -2,6 +2,9 @@
 
 #-----------------  LINUX Portland Group pgf77/gcc ---------------
 F_COMP=pgf90
+# If the compiler supports (and the user wants to use)
+# the module IEEE_ARITHMETIC, uncomment below
+IEEE_ARITHMETIC=yes
 
 # If using MPI libraries:
 #MPI_PATH=/usr/local/mpich

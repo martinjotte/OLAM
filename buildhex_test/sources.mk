@@ -110,7 +110,7 @@ SOURCE_FILES= \
              $(OMODEL)/olam_grid.f90 \
              $(OMODEL)/olammain.F90 \
              $(OMODEL)/olamplot.f90 \
-             $(OMODEL)/olam_run.f90 \
+             $(OMODEL)/olam_run.F90 \
              $(OMODEL)/olhi.f90 \
              $(OMODEL)/omic_coll.f90 \
              $(OMODEL)/omic_driv.f90 \
