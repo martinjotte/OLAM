@@ -400,21 +400,14 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
    WRITE(io6,'(/,a)') 'gridinit calling gridfile_write'
    CALL gridfile_write()
 
-ELSE
+   if (isfcl == 1) then
+      write(io6,'(/,a)') 'gridinit before return to olam_run'
+      write(io6,'(a,i8)')   ' nwl       = ',nwl
+      write(io6,'(a,i8)')   ' nws       = ',nws
+      write(io6,'(a,i8)')   ' nlandflux = ',nlandflux
+      write(io6,'(a,i8)')   ' nseaflux  = ',nseaflux
+   endif
 
-! Read atmos grid for INITIAL/HISTORY/PLOTONLY/PARCOMBINE run
-
-   WRITE(io6,'(/,a)') 'gridinit calling gridfile_read'
-   CALL gridfile_read()
-
-ENDIF
-
-IF (isfcl == 1) THEN
-   WRITE(io6,'(/,a)') 'gridinit before return to olam_run'
-   WRITE(io6,'(a,i8)')   ' nwl       = ',nwl
-   WRITE(io6,'(a,i8)')   ' nws       = ',nws
-   WRITE(io6,'(a,i8)')   ' nlandflux = ',nlandflux
-   WRITE(io6,'(a,i8)')   ' nseaflux  = ',nseaflux
 ENDIF
 
 RETURN
@@ -1406,7 +1399,349 @@ END SUBROUTINE gridfile_write
 
 !===============================================================================
 
-SUBROUTINE gridfile_read()
+! This subroutine reads all the scalars values, and only a few arrays needed
+! by para_decomp (arrays ended with _pd)
+
+SUBROUTINE gridfile_read_pd()
+
+USE max_dims,   ONLY: maxngrdll
+USE misc_coms,  ONLY: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp,  &
+                      itopoflg,  &
+                      deltax, deltaz, dzmax, dzrat, zbase,  &
+                      ngrdll, grdrad, grdlat, grdlon, meshtype
+USE mem_ijtabs, ONLY: mloops_m, mloops_u, mloops_v, mloops_w, mrls,  &
+                      itab_u_pd, itab_v_pd, itab_w_pd, alloc_itabs_pd
+USE mem_grid,   ONLY: nza, nma, nua, nva, nwa,  &
+                      mza, mma, mua, mva, mwa, nsw_max,  &
+                      xem, yem, zem, &
+                      alloc_xyzem
+USE leaf_coms,  ONLY: isfcl
+USE mem_sflux,  ONLY: nseaflux, nlandflux, mseaflux, mlandflux,  &
+                      nsfpats, nlfpats, msfpats, mlfpats,  &
+                      seaflux_pd, landflux_pd
+
+USE hdf5_utils, ONLY: shdf5_irec, shdf5_open, shdf5_close
+USE mem_para,   ONLY: myrank
+
+! This subroutine checks for the existence of a gridfile, and if it exists, 
+! also checks for agreement of grid configuration between the file and the 
+! current model run.  If the file does not exist or does not match grid
+! configuration, the run is stopped.
+
+IMPLICIT NONE
+
+INTEGER :: im, iu, iv, iw
+
+INTEGER :: ierr
+
+INTEGER :: ngr, i
+INTEGER :: ndims, idims(2)
+
+INTEGER :: ngrids0, mdomain0, meshtype0, nxp0, nzp0, itopoflg0, isfcl0
+
+REAL    :: deltax0, deltaz0, dzrat0, dzmax0, zbase0
+
+LOGICAL :: exans
+
+INTEGER, ALLOCATABLE :: ngrdll0(:)
+REAL,    ALLOCATABLE :: grdrad0(:)
+REAL,    ALLOCATABLE :: grdlat0(:,:)
+REAL,    ALLOCATABLE :: grdlon0(:,:)
+
+! Scratch arrays for copying input
+
+LOGICAL, ALLOCATABLE :: lscr(:,:)
+INTEGER, ALLOCATABLE :: iscr1(:,:),iscr2(:,:),iscr3(:,:),iscr4(:,:)
+
+REAL, ALLOCATABLE :: rscr1(:,:),rscr2(:,:),rscr3(:,:),rscr4(:,:),rscr5(:,:),  &
+                     rscr6(:,:),rscr7(:,:),rscr8(:,:),rscr9(:,:),rscr10(:,:), &
+                     rscr11(:,:),rscr12(:,:),rscr13(:,:),rscr14(:,:), &
+                     rscr15(:,:),rscr16(:,:)
+
+! Check if grid file exists
+
+INQUIRE(file=gridfile, exist=exans)
+
+IF (exans) THEN
+
+! Grid file exists.  Open, read, and close file.
+
+   WRITE(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+   WRITE(io6,*) 'Opening grid file ', TRIM(gridfile)
+   WRITE(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+
+   CALL shdf5_open(TRIM(gridfile),'R')
+
+! Read the grid information that exists in namelist
+
+   ndims = 1
+   idims(1) = 1
+   idims(2) = 1
+
+   CALL shdf5_irec(ndims, idims, 'NZP'     , ivars=nzp0)
+   CALL shdf5_irec(ndims, idims, 'NXP'     , ivars=nxp0)
+   CALL shdf5_irec(ndims, idims, 'MDOMAIN' , ivars=mdomain0)
+   CALL shdf5_irec(ndims, idims, 'MESHTYPE', ivars=meshtype0)
+   CALL shdf5_irec(ndims, idims, 'NGRIDS'  , ivars=ngrids0)
+   CALL shdf5_irec(ndims, idims, 'ISFCL'   , ivars=isfcl0)
+   CALL shdf5_irec(ndims, idims, 'ITOPOFLG', ivars=itopoflg0)
+   CALL shdf5_irec(ndims, idims, 'DELTAX'  , rvars=deltax0)
+   CALL shdf5_irec(ndims, idims, 'DELTAZ'  , rvars=deltaz0)
+   CALL shdf5_irec(ndims, idims, 'DZRAT'   , rvars=dzrat0)
+   CALL shdf5_irec(ndims, idims, 'DZMAX'   , rvars=dzmax0)
+   CALL shdf5_irec(ndims, idims, 'ZBASE'   , rvars=zbase0)
+
+   ALLOCATE( ngrdll0 (ngrids0) )
+   ALLOCATE( grdrad0 (ngrids0) )
+   ALLOCATE( grdlat0 (ngrids0, maxngrdll) )
+   ALLOCATE( grdlon0 (ngrids0, maxngrdll) )
+
+   idims(1) = ngrids0
+
+   CALL shdf5_irec(ndims, idims, 'NGRDLL' , ivara=ngrdll0)
+   CALL shdf5_irec(ndims, idims, 'GRDRAD' , rvara=grdrad0)
+
+   ndims = 2
+   idims(1) = ngrids0
+   idims(2) = maxngrdll
+
+   CALL shdf5_irec(ndims, idims, 'GRDLAT', rvara=grdlat0)
+   CALL shdf5_irec(ndims, idims, 'GRDLON', rvara=grdlon0)
+
+! Check equality between grid file information and namelist variables
+
+   ierr = 0
+
+   IF (nzp0      /= nzp     ) ierr = 1 
+   IF (nxp0      /= nxp     ) ierr = 1 
+   IF (mdomain0  /= mdomain ) ierr = 1 
+   IF (meshtype0 /= meshtype) ierr = 1 
+   IF (ngrids0   /= ngrids  ) ierr = 1 
+   IF (isfcl0    /= isfcl   ) ierr = 1 
+   IF (itopoflg0 /= itopoflg) ierr = 1 
+
+   IF (ABS(deltax0 - deltax) > 1.e-3) ierr = 1 
+   IF (ABS(deltaz0 - deltaz) > 1.e-3) ierr = 1 
+   IF (ABS(dzrat0  - dzrat ) > 1.e-3) ierr = 1 
+   IF (ABS(dzmax0  - dzmax ) > 1.e-3) ierr = 1 
+   IF (ABS(zbase0  - zbase ) > 1.e-3) ierr = 1 
+
+   DO ngr = 1, MIN(ngrids0,ngrids)
+      IF (ABS(ngrdll0 (ngr) - ngrdll (ngr)) > 1.e1 ) ierr = 1
+      IF (ABS(grdrad0 (ngr) - grdrad (ngr)) > 1.e1 ) ierr = 1
+
+      DO i = 1,ngrdll0(ngr)
+         IF (ABS(grdlat0(ngr,i) - grdlat(ngr,i)) > 1.e-3) ierr = 1
+         IF (ABS(grdlon0(ngr,i) - grdlon(ngr,i)) > 1.e-3) ierr = 1
+      ENDDO
+   ENDDO
+
+   IF (ierr == 1) THEN
+
+      WRITE(io6,*) 'GRIDFILE mismatch with OLAMIN namelist: Stopping model run'
+      WRITE(io6,*) 'Values: gridfile, namelist'
+      WRITE(io6,*) '-----------------------------------------------'
+      WRITE(io6,*)              'nzp:      ',nzp0     ,nzp
+      WRITE(io6,*)              'nxp:      ',nxp0     ,nxp
+      WRITE(io6,*)              'mdomain:  ',mdomain0 ,mdomain
+      WRITE(io6,*)              'meshtype: ',meshtype0,meshtype
+      WRITE(io6,*)              'ngrids:   ',ngrids0  ,ngrids
+      WRITE(io6,*)              'isfcl:    ',isfcl0   ,isfcl
+      WRITE(io6,*)              'itopoflg: ',itopoflg0,itopoflg
+      WRITE(io6,*)              'deltax:   ',deltax0  ,deltax
+      WRITE(io6,*)              'deltaz:   ',deltaz0  ,deltaz
+      WRITE(io6,*)              'dzrat:    ',dzrat0   ,dzrat
+      WRITE(io6,*)              'dzmax:    ',dzmax0   ,dzmax
+      WRITE(io6,*)              'zbase:    ',zbase0   ,zbase
+      WRITE(io6,*) ' '
+      WRITE(io6, '(a,20i12)')   'ngrdll0:  ',ngrdll0 (1:ngrids)
+      WRITE(io6, '(a,20i12)')   'ngrdll:   ',ngrdll  (1:ngrids)
+      WRITE(io6,*) ' '
+      WRITE(io6, '(a,20f12.1)') 'grdrad0:  ',grdrad0 (1:ngrids)
+      WRITE(io6, '(a,20f12.1)') 'grdrad:   ',grdrad  (1:ngrids)
+      WRITE(io6,*) ' '
+
+      DO ngr = 1, MIN(ngrids0,ngrids)
+         WRITE(io6, '(a,i5)') 'ngr: ',ngr
+         WRITE(io6,*) ' '
+         WRITE(io6, '(a,20f10.3)') 'grdlat0: ',grdlat0(ngr,1:ngrdll(ngr))
+         WRITE(io6, '(a,20f10.3)') 'grdlat:  ',grdlat (ngr,1:ngrdll(ngr))
+         WRITE(io6,*) ' '
+         WRITE(io6, '(a,20f10.3)') 'grdlon0: ',grdlon0(ngr,1:ngrdll(ngr))
+         WRITE(io6, '(a,20f10.3)') 'grdlon:  ',grdlon (ngr,1:ngrdll(ngr))
+         WRITE(io6,*) ' '
+      ENDDO
+
+      WRITE(io6,*) '-----------------------------------------------'
+
+      STOP 'stop - gridfile mismatch'
+   
+   ENDIF
+
+! Read the grid dimensions
+
+   CALL shdf5_irec(ndims, idims, 'NZA'    , ivars=nza)
+   CALL shdf5_irec(ndims, idims, 'NMA'    , ivars=nma)
+   CALL shdf5_irec(ndims, idims, 'NUA'    , ivars=nua)
+   CALL shdf5_irec(ndims, idims, 'NVA'    , ivars=nva)
+   CALL shdf5_irec(ndims, idims, 'NWA'    , ivars=nwa)
+   CALL shdf5_irec(ndims, idims, 'NSW_MAX', ivars=nsw_max)
+   CALL shdf5_irec(ndims, idims, 'MRLS'   , ivars=mrls)
+
+! Copy grid dimensions
+
+   mza = nza
+   mma = nma
+   mva = nva
+   mua = nua
+   mwa = nwa
+
+! Allocate and read grid structure variables
+
+   CALL alloc_itabs_pd(meshtype,nua,nva,nwa)
+   CALL alloc_xyzem(nma)
+
+   idims(1) = nma
+
+   CALL shdf5_irec(ndims, idims, 'XEM'  , rvara=xem)
+   CALL shdf5_irec(ndims, idims, 'YEM'  , rvara=yem)
+   CALL shdf5_irec(ndims, idims, 'ZEM'  , rvara=zem)
+   
+   IF (meshtype == 1) THEN
+
+! Read ITAB_U ARRAYS
+
+      ALLOCATE (iscr3( 6,nua))
+
+      ndims = 2
+      idims(2) = nua
+
+      idims(1) = 6
+
+      CALL shdf5_irec(ndims,idims,'itab_u%iw'  ,ivara=iscr3)
+
+      DO iu = 1,nua
+         itab_u_pd(iu)%iw(1: 6) = iscr3(1: 6,iu)
+      ENDDO
+
+      DEALLOCATE (iscr3)
+
+   ENDIF
+
+   IF (meshtype == 2) THEN
+
+! Read ITAB_V ARRAYS
+
+      ALLOCATE (iscr3( 4,nva))
+
+      ndims = 2
+      idims(2) = nva
+      idims(1) = 4
+
+      CALL shdf5_irec(ndims,idims,'itab_v%iw'  ,ivara=iscr3)
+
+      DO iv = 1,nva
+         itab_v_pd(iv)%iw(1: 4) = iscr3(1: 4,iv)
+      ENDDO
+
+      DEALLOCATE (iscr3)
+
+   ENDIF
+
+! Read ITAB_W SCALARS
+
+   ndims = 1
+   idims(1) = nwa
+   idims(2) = 1
+
+   CALL shdf5_irec(ndims,idims,'itab_w%npoly'    ,ivara=itab_w_pd(:)%npoly)
+
+! Read ITAB_W ARRAYS
+
+   ALLOCATE (iscr1(7,nwa))
+
+   ndims = 2
+   idims(2) = nwa
+   idims(1) = 7
+
+   CALL shdf5_irec(ndims,idims,'itab_w%im'  ,ivara=iscr1)
+
+   DO iw = 1,nwa
+      itab_w_pd(iw)%im(1:7) = iscr1(1:7,iw)
+   ENDDO
+
+   DEALLOCATE(iscr1)
+
+! Check whether LAND/SEA models are used
+
+   IF (isfcl == 1) THEN
+
+! Read SEAFLUX VALUES
+
+      ndims = 1
+      idims(1) = 1
+      idims(2) = 1
+
+      CALL shdf5_irec(ndims, idims, 'NSEAFLUX',ivars=nseaflux)
+      CALL shdf5_irec(ndims, idims, 'NSFPATS' ,ivars=nsfpats)
+
+      mseaflux = nseaflux
+      msfpats = nsfpats
+
+      ALLOCATE (seaflux_pd(nseaflux))
+
+      idims(1) = nseaflux
+
+      CALL shdf5_irec(ndims,idims,'seaflux%iw'      ,ivara=seaflux_pd(:)%iw)
+      CALL shdf5_irec(ndims,idims,'seaflux%iws'     ,ivara=seaflux_pd(:)%iwls)
+
+! Read LANDFLUX VALUES
+
+      ndims = 1
+      idims(1) = 1
+      idims(2) = 1
+
+      CALL shdf5_irec(ndims, idims, 'NLANDFLUX',ivars=nlandflux)
+      CALL shdf5_irec(ndims, idims, 'NLFPATS'  ,ivars=nlfpats)
+
+      mlandflux = nlandflux
+      mlfpats = nlfpats
+
+      ALLOCATE (landflux_pd(nlandflux))
+
+      idims(1) = nlandflux
+
+      CALL shdf5_irec(ndims,idims,'landflux%iw'      ,ivara=landflux_pd(:)%iw)
+      CALL shdf5_irec(ndims,idims,'landflux%iwl'     ,ivara=landflux_pd(:)%iwls)
+
+   ENDIF
+
+! Close the GRIDFILE
+
+   CALL shdf5_close()
+
+ELSE
+
+! Grid file does not exist.
+
+   WRITE(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+   WRITE(io6,*) '!!!  Gridfile does not exist:'
+   WRITE(io6,*) '!!!  '//TRIM(gridfile)
+   WRITE(io6,*) '!!!  Stopping run'
+   WRITE(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+   
+   STOP 'stop - no gridfile'
+   
+ENDIF
+
+WRITE(io6,*) 'end of gridfile_read '
+
+RETURN
+END SUBROUTINE gridfile_read_pd
+
+!===============================================================================
+
+subroutine gridfile_read_completo()
 
 USE max_dims,   ONLY: maxngrdll
 USE misc_coms,  ONLY: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp, &
@@ -1617,7 +1952,7 @@ IF (exans) THEN
 
    CALL alloc_gridz()
    CALL alloc_itabs(meshtype,nma,nua,nva,nwa)
-   CALL alloc_xyzem(nma)
+!  ISTO JA ESTA SENDO CHAMADO NA gridfile_read_pd   CALL alloc_xyzem(nma)
    CALL alloc_xyzew(nwa)
    CALL alloc_grid1(meshtype)
    CALL alloc_grid2(meshtype)
@@ -2395,7 +2730,7 @@ ENDIF
 WRITE(io6,*) 'end of gridfile_read '
 
 RETURN
-END SUBROUTINE gridfile_read
+end subroutine gridfile_read_completo
 
 
 

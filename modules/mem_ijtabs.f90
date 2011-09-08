@@ -30,7 +30,7 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-Module mem_ijtabs
+module mem_ijtabs
 
    use max_dims, only: maxgrds, maxremote
    implicit none
@@ -61,7 +61,7 @@ Module mem_ijtabs
 
    integer, allocatable :: leafstep(:)  ! flag to run leaf on any sub-timestep
 
-   Type itab_m_vars             ! data structure for M pts (individual rank)
+   type itab_m_vars             ! data structure for M pts (individual rank)
       logical :: loop(nloops_m) = .false. ! flag to perform each DO loop at this M pt
 
       integer :: npoly = 0       ! number of V/W neighbors of this M pt
@@ -74,9 +74,9 @@ Module mem_ijtabs
       integer :: iv(7) = 1       ! array of V neighbors of this M pt (Voronoi)
       integer :: iw(7) = 1       ! array of W neighbors of this M pt (Del or Vor)
       real    :: fmw(7) = 0.     ! Interp coefs of W values to M point
-   End Type itab_m_vars
+   end type itab_m_vars
 
-   Type itab_u_vars             ! data structure for U pts (individual rank)
+   type itab_u_vars             ! data structure for U pts (individual rank)
       logical :: loop(nloops_u) = .false. ! flag to perform each DO loop at this M pt
 
       integer :: iup=1         ! U pt from which to copy this U pt's values
@@ -103,9 +103,9 @@ Module mem_ijtabs
       real :: vyw_u(2) = 0.  ! proj coefs
       real :: crossmm = 0.
       real :: crossww = 0.
-   End Type itab_u_vars
+   end type itab_u_vars
 
-   Type itab_v_vars             ! data structure for V pts (individual rank)
+   type itab_v_vars             ! data structure for V pts (individual rank)
       logical :: loop(nloops_v) = .false. ! flag to perform each DO loop at this V pt
 
       integer :: ivp=1         ! V pt from which to copy this V pt's values
@@ -126,9 +126,9 @@ Module mem_ijtabs
 
       real :: dxps(2)=0.       ! xps (eastward) displacement from neighbor W pts
       real :: dyps(2)=0.       ! yps (northward) displacement from neighbor W pts
-   End Type itab_v_vars
+   end type itab_v_vars
 
-   Type itab_w_vars             ! data structure for W pts (individual rank)
+   type itab_w_vars             ! data structure for W pts (individual rank)
       logical :: loop(nloops_w) = .false. ! flag to perform each DO loop at this W pt
 
       integer :: npoly = 0   ! number of M/V neighbors of this W pt
@@ -180,56 +180,69 @@ Module mem_ijtabs
 
       integer :: iwnud(3) = 1  ! local nudpoly pts
       real    :: fnud(3) = 0. ! local nudpoly coeffs
-   End Type itab_w_vars
+   end type itab_w_vars
 
-   Type itabg_m_vars            ! data structure for M pts (global)
+   type itabg_m_vars            ! data structure for M pts (global)
       integer :: im_myrank = -1 ! local (parallel subdomain) index of this M pt
       integer :: irank = -1     ! rank of parallel process at this M pt
-   End Type itabg_m_vars
+   end type itabg_m_vars
 
-   Type itabg_u_vars            ! data structure for U pts (global)
+   type itabg_u_vars            ! data structure for U pts (global)
       integer :: iu_myrank = -1 ! local (parallel subdomain) index of this U pt
       integer :: irank = -1     ! rank of parallel process at this U pt
-   End Type itabg_u_vars
+   end type itabg_u_vars
 
-   Type itabg_v_vars            ! data structure for V pts (global)
+   type itabg_v_vars            ! data structure for V pts (global)
       integer :: iv_myrank = -1 ! local (parallel subdomain) index of this V pt
       integer :: irank = -1     ! rank of parallel process at this V pt
-   End Type itabg_v_vars
+   end type itabg_v_vars
 
-   Type itabg_w_vars            ! data structure for W pts (global)
+   type itabg_w_vars            ! data structure for W pts (global)
       integer :: iw_myrank = -1 ! local (parallel subdomain) index of this W pt
       integer :: irank = -1     ! rank of parallel process at this W pt
-   End Type itabg_w_vars
+   end type itabg_w_vars
 
-   Type nest_ud_vars        ! temporary U-pt data structure for spawning nested grids
+   type nest_ud_vars        ! temporary U-pt data structure for spawning nested grids
       integer :: im=0, iu=0 ! new M/U pts attached to this U pt 
-   End Type nest_ud_vars
+   end type nest_ud_vars
    
-   Type nest_wd_vars        ! temporary W-pt data structure for spawning nested grids
+   type nest_wd_vars        ! temporary W-pt data structure for spawning nested grids
       integer :: iu(3) = 0  ! new U pts attached to this W pt
       integer :: iw(3) = 0  ! new W pts attached to this W pt
-   End Type nest_wd_vars
+   end type nest_wd_vars
 
-   Type jtab_m_vars
+   type jtab_m_vars
       integer, allocatable :: im(:)
       integer, allocatable :: jend(:)
-   End Type jtab_m_vars
+   end type jtab_m_vars
 
-   Type jtab_u_vars
+   type jtab_u_vars
       integer, allocatable :: iu(:)
       integer, allocatable :: jend(:)
-   End Type jtab_u_vars
+   end type jtab_u_vars
 
-   Type jtab_v_vars
+   type jtab_v_vars
       integer, allocatable :: iv(:)
       integer, allocatable :: jend(:)
-   End Type jtab_v_vars
+   end type jtab_v_vars
 
-   Type jtab_w_vars
+   type jtab_w_vars
       integer, allocatable :: iw(:)
       integer, allocatable :: jend(:)
-   End Type jtab_w_vars
+   end type jtab_w_vars
+
+   type itab_u_pd_vars             ! data structure for U pts (individual rank) on para_decomp
+      integer :: iw(6) = 1     ! neighbor W pts
+   end type itab_u_pd_vars
+
+   type itab_v_pd_vars             ! data structure for V pts (individual rank) on para_decomp
+      integer :: iw(4)=1       ! neighbor W pts of this V pt
+   end type itab_v_pd_vars
+
+   type itab_w_pd_vars             ! data structure for W pts (individual rank) on para_decomp
+      integer :: npoly = 0   ! number of M/V neighbors of this W pt
+      integer :: im(7)=1     ! neighbor M pts of this W pt
+   end type itab_w_pd_vars
 
    type (itab_m_vars), allocatable :: itab_md(:)
    type (itab_u_vars), allocatable :: itab_ud(:)
@@ -239,6 +252,10 @@ Module mem_ijtabs
    type (itab_u_vars),  allocatable, target :: itab_u(:)
    type (itab_v_vars),  allocatable, target :: itab_v(:)
    type (itab_w_vars),  allocatable, target :: itab_w(:)
+
+   type (itab_u_pd_vars), allocatable, target :: itab_u_pd(:)
+   type (itab_v_pd_vars), allocatable, target :: itab_v_pd(:)
+   type (itab_w_pd_vars), allocatable, target :: itab_w_pd(:)
 
    type (itab_m_vars), allocatable :: ltab_md(:)
    type (itab_u_vars), allocatable :: ltab_ud(:)
@@ -257,7 +274,7 @@ Module mem_ijtabs
    type (jtab_v_vars) :: jtab_v(nloops_v)
    type (jtab_w_vars) :: jtab_w(nloops_w)
 
-Contains
+contains
 
 !===============================================================================
 
@@ -293,6 +310,25 @@ Contains
 
    return
    end subroutine alloc_itabs
+
+!===============================================================================
+
+   subroutine alloc_itabs_pd(meshtype,mua,mva,mwa)
+
+   implicit none
+
+  integer, intent(in) :: meshtype,mua,mva,mwa
+
+   if (meshtype == 1) then
+      allocate (itab_u_pd(mua))
+   elseif (meshtype == 2) then
+      allocate (itab_v_pd(mva))
+   endif
+   
+   allocate (itab_w_pd(mwa))
+
+   return
+   end subroutine alloc_itabs_pd
 
 !===============================================================================
 
@@ -611,5 +647,5 @@ Contains
 
    end subroutine fill_jtabs
 
-End Module mem_ijtabs
+end module mem_ijtabs
 
