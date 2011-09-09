@@ -193,8 +193,6 @@ write(io6,'(/,a,2i7)') 'olam_run after para_decomp',nwl,nws
 ! Set up itab data types and grid coordinate arrays for current node, and 
 ! reallocate memory for current node
 
-call gridfile_read_completo()
-
 call para_init() 
 
 write(io6,'(/,a)') 'olam_run after para_init'

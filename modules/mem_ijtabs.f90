@@ -232,6 +232,9 @@ module mem_ijtabs
    end type jtab_w_vars
 
    type itab_u_pd_vars             ! data structure for U pts (individual rank) on para_decomp
+      integer :: iup=1         ! U pt from which to copy this U pt's values
+      integer :: im(2) = 1     ! neighbor M pts of this U pt
+      integer :: iu(12) = 1    ! neighbor U pts
       integer :: iw(6) = 1     ! neighbor W pts
    end type itab_u_pd_vars
 
@@ -240,8 +243,12 @@ module mem_ijtabs
    end type itab_v_pd_vars
 
    type itab_w_pd_vars             ! data structure for W pts (individual rank) on para_decomp
+      integer :: iwp=1       ! W pt from which to copy this W pt's values
       integer :: npoly = 0   ! number of M/V neighbors of this W pt
       integer :: im(7)=1     ! neighbor M pts of this W pt
+      integer :: iu(9)=1     ! neighbor U pts (9 Delaunay, 7 Voronoi)
+      integer :: iw(9)=1     ! neighbor W pts (9 Delaunay, 7 Voronoi)
+
    end type itab_w_pd_vars
 
    type (itab_m_vars), allocatable :: itab_md(:)

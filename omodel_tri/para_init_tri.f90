@@ -37,7 +37,8 @@ use misc_coms,  only: io6, meshtype
 use mem_ijtabs, only: itab_m,      itab_u,      itab_w,      &
                       itab_m_vars, itab_u_vars, itab_w_vars, &
                       itabg_m,     itabg_u,     itabg_w,     &
-                      alloc_itabs, mrls
+                      alloc_itabs, mrls,                     &
+                      itab_u_pd,   itab_w_pd
 
 use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
                       lpm, lpu, lcu, lpw, lsw, &
@@ -122,17 +123,6 @@ type (itab_w_vars), allocatable :: ltab_w(:)
 type(flux_vars), allocatable :: landflux_temp(:)
 type(flux_vars), allocatable ::  seaflux_temp(:)
 
-! Move data to temporary data structures, nullifying the old datatype
-
-call move_alloc(itab_m, ltab_m)
-call move_alloc(itab_u, ltab_u)
-call move_alloc(itab_w, ltab_w)
-
-if (isfcl == 1) then
-   call move_alloc(landflux, landflux_temp)
-   call move_alloc( seaflux,  seaflux_temp)
-endif
-
 ! Allocate send & recv counter arrays and initialize to zero
 
 allocate (nsends_u(mrls)) ; nsends_u(1:mrls) = 0
@@ -150,6 +140,143 @@ endif
 myrankflag_m(:) = .false.
 myrankflag_u(:) = .false.
 myrankflag_w(:) = .false.
+
+! Loop over all U points, and for each whose assigned irank is equal to myrank,
+! flag all U and W points in its computational stencil for inclusion on this
+! rank, excluding IUP and IWP.
+
+do iu = 2,nua
+
+   if (itabg_u(iu)%irank == myrank) then
+
+      myrankflag_u(iu) = .true.
+
+      myrankflag_u( itab_u_pd(iu)%iu(1:12) ) = .true.
+      myrankflag_w( itab_u_pd(iu)%iw(1:6)  ) = .true.
+
+   endif
+enddo
+
+! Loop over all W points, and for each whose assigned irank is equal to myrank,
+! flag all U and W points in its computational stencil for inclusion on this
+! rank, excluding IUP and IWP.
+
+do iw = 2,nwa
+
+   if (itabg_w(iw)%irank == myrank) then
+
+      myrankflag_w(iw) = .true.
+
+! The standard computational stencil of mem_ijtabs
+
+      myrankflag_w( itab_w_pd(iw)%iw(1:9) ) = .true.
+      myrankflag_u( itab_w_pd(iw)%iu(1:9) ) = .true.
+
+! Special for Zalesak monotonic advection (each W point needs the 9 
+! U points from each of the 3 bordering triangles available)
+
+      do j=1,3
+         iwn = itab_w_pd(iw)%iw(j)
+         myrankflag_u( itab_w_pd(iwn)%iu(1:9) ) = .true.
+      enddo
+
+   endif
+enddo
+
+! Loop over all U points, and for each that has been flagged for inclusion
+! on this rank, flag both its M points for inclusion on this rank.
+! Count U points also.
+
+do iu = 2,nua
+
+   if (myrankflag_u(iu)) then
+
+      myrankflag_m( itab_u_pd(iu)%im(1:2) ) = .true.
+      iu_myrank = iu_myrank + 1
+
+   endif
+enddo
+
+! Loop over all M and W points and count the ones that have been flagged
+! for inclusion on this rank.
+
+do im = 2,nma
+   if (myrankflag_m(im)) then
+      im_myrank = im_myrank + 1
+   endif
+enddo
+
+do iw = 2,nwa
+   if (myrankflag_w(iw)) then
+      iw_myrank = iw_myrank + 1
+   endif
+enddo
+
+! Set mma, mua, mwa values for this rank
+
+mma = im_myrank
+mua = iu_myrank
+mva = mua
+mwa = iw_myrank
+
+! Reset point counts to 1
+
+im_myrank = 1
+iu_myrank = 1
+iw_myrank = 1
+
+! Store new myrank M, U, W indices in itabg data structures
+
+do im = 1,nma
+   if (myrankflag_m(im)) then
+      im_myrank = im_myrank + 1
+      
+      itabg_m(im)%im_myrank = im_myrank      
+   endif
+enddo
+
+do iu = 1,nua
+   if (myrankflag_u(iu)) then
+      iu_myrank = iu_myrank + 1
+      
+      itabg_u(iu)%iu_myrank = iu_myrank
+      
+! Fill itabg_u(iu)%iu_myrank value for IUP point
+
+      iup = itab_u_pd(iu)%iup
+      itabg_u(iup)%iu_myrank = iu_myrank
+   endif
+enddo
+
+do iw = 1,nwa
+   if (myrankflag_w(iw)) then
+      iw_myrank = iw_myrank + 1
+
+      itabg_w(iw)%iw_myrank = iw_myrank      
+
+! Fill itabg_w(iw)%iw_myrank value for IWP point
+
+      iwp = itab_w_pd(iw)%iwp
+      itabg_w(iwp)%iw_myrank = iw_myrank
+   endif
+enddo
+
+
+call gridfile_read_completo()
+
+
+
+
+! Move data to temporary data structures, nullifying the old datatype
+
+call move_alloc(itab_m, ltab_m)
+call move_alloc(itab_u, ltab_u)
+call move_alloc(itab_w, ltab_w)
+
+if (isfcl == 1) then
+   call move_alloc(landflux, landflux_temp)
+   call move_alloc( seaflux,  seaflux_temp)
+endif
 
 ! Copy grid coordinates to temporary arrays
 
@@ -235,135 +362,13 @@ deallocate (aru, volui, glatu, glonu)
 deallocate (xew, yew, zew, wnx, wny, wnz, glatw, glonw, arw0, topw)
 deallocate (arw, volwi, volt, volti)
 
-! Loop over all U points, and for each whose assigned irank is equal to myrank,
-! flag all U and W points in its computational stencil for inclusion on this
-! rank, excluding IUP and IWP.
-
-do iu = 2,nua
-
-   if (itabg_u(iu)%irank == myrank) then
-
-      myrankflag_u(iu) = .true.
-
-      myrankflag_u( ltab_u(iu)%iu(1:12) ) = .true.
-      myrankflag_w( ltab_u(iu)%iw(1:6)  ) = .true.
-
-   endif
-enddo
-
-! Loop over all W points, and for each whose assigned irank is equal to myrank,
-! flag all U and W points in its computational stencil for inclusion on this
-! rank, excluding IUP and IWP.
-
-do iw = 2,nwa
-
-   if (itabg_w(iw)%irank == myrank) then
-
-      myrankflag_w(iw) = .true.
-
-! The standard computational stencil of mem_ijtabs
-
-      myrankflag_w( ltab_w(iw)%iw(1:9) ) = .true.
-      myrankflag_u( ltab_w(iw)%iu(1:9) ) = .true.
-
-! Special for Zalesak monotonic advection (each W point needs the 9 
-! U points from each of the 3 bordering triangles available)
-
-      do j=1,3
-         iwn = ltab_w(iw)%iw(j)
-         myrankflag_u( ltab_w(iwn)%iu(1:9) ) = .true.
-      enddo
-
-   endif
-enddo
-
-! Loop over all U points, and for each that has been flagged for inclusion
-! on this rank, flag both its M points for inclusion on this rank.
-! Count U points also.
-
-do iu = 2,nua
-
-   if (myrankflag_u(iu)) then
-
-      myrankflag_m( ltab_u(iu)%im(1:2) ) = .true.
-      iu_myrank = iu_myrank + 1
-
-   endif
-enddo
-
-! Loop over all M and W points and count the ones that have been flagged
-! for inclusion on this rank.
-
-do im = 2,nma
-   if (myrankflag_m(im)) then
-      im_myrank = im_myrank + 1
-   endif
-enddo
-
-do iw = 2,nwa
-   if (myrankflag_w(iw)) then
-      iw_myrank = iw_myrank + 1
-   endif
-enddo
-
-! Set mma, mua, mwa values for this rank
-
-mma = im_myrank
-mua = iu_myrank
-mva = mua
-mwa = iw_myrank
-
 ! Allocate itab data structures and main grid coordinate arrays
 
 call alloc_itabs(meshtype,mma,mua,mva,mwa)
-call alloc_xyzem(mma)
-call alloc_xyzew(mwa)
-call alloc_grid1(meshtype)
-call alloc_grid2(meshtype)
 
-! Reset point counts to 1
+!!!! ITAB_? POPULATION
 
-im_myrank = 1
-iu_myrank = 1
-iw_myrank = 1
-
-! Store new myrank M, U, W indices in itabg data structures
-
-do im = 1,nma
-   if (myrankflag_m(im)) then
-      im_myrank = im_myrank + 1
-      
-      itabg_m(im)%im_myrank = im_myrank      
-   endif
-enddo
-
-do iu = 1,nua
-   if (myrankflag_u(iu)) then
-      iu_myrank = iu_myrank + 1
-      
-      itabg_u(iu)%iu_myrank = iu_myrank
-      
-! Fill itabg_u(iu)%iu_myrank value for IUP point
-
-      iup = ltab_u(iu)%iup
-      itabg_u(iup)%iu_myrank = iu_myrank
-   endif
-enddo
-
-do iw = 1,nwa
-   if (myrankflag_w(iw)) then
-      iw_myrank = iw_myrank + 1
-
-      itabg_w(iw)%iw_myrank = iw_myrank      
-
-! Fill itabg_w(iw)%iw_myrank value for IWP point
-
-      iwp = ltab_w(iw)%iwp
-      itabg_w(iwp)%iw_myrank = iw_myrank
-   endif
-enddo
-
-! M point memory copy
+! put itab_m on place
 
 do im = 1,nma
    if (myrankflag_m(im)) then
@@ -398,25 +403,10 @@ do im = 1,nma
          if (myrankflag_u(iu)) itab_m(im_myrank)%iu(j) = itabg_u(iu)%iu_myrank
          if (myrankflag_w(iw)) itab_m(im_myrank)%iw(j) = itabg_w(iw)%iw_myrank
       enddo
-      
-! Copy M point grid values
-
-      lpm(im_myrank) = lpm_temp(im)
-
-      xem(im_myrank) = xem_temp(im)
-      yem(im_myrank) = yem_temp(im)
-      zem(im_myrank) = zem_temp(im)
-
-      topm(im_myrank) = topm_temp(im)
-
-      glatm(im_myrank) = glatm_temp(im)
-      glonm(im_myrank) = glonm_temp(im)
-
-      arm0(im_myrank) = arm0_temp(im)
    endif
 enddo
 
-! Loop over all U points and select those that are in memory of this subdomain
+! put itab_u on place
 
 do iu = 1,nua
    if (myrankflag_u(iu)) then
@@ -478,41 +468,10 @@ do iu = 1,nua
          iwn = ltab_u(iu)%iw(j)
          if (myrankflag_w(iwn)) itab_u(iu_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
       enddo
-
-! Copy U point grid values
-
-      lpu(iu_myrank) = lpu_temp(iu)
-      lcu(iu_myrank) = lcu_temp(iu)
-
-      xeu(iu_myrank) = xeu_temp(iu)
-      yeu(iu_myrank) = yeu_temp(iu)
-      zeu(iu_myrank) = zeu_temp(iu)
-
-      unx(iu_myrank) = unx_temp(iu)
-      uny(iu_myrank) = uny_temp(iu)
-      unz(iu_myrank) = unz_temp(iu)
-
-      vnx(iu_myrank) = vnx_temp(iu)
-      vny(iu_myrank) = vny_temp(iu)
-      vnz(iu_myrank) = vnz_temp(iu)
-
-      dnu(iu_myrank) = dnu_temp(iu)
-      dniu(iu_myrank) = dniu_temp(iu)
-      
-      dnv(iu_myrank) = dnv_temp(iu)
-      dniv(iu_myrank) = dniv_temp(iu)
-      
-      glatu(iu_myrank) = glatu_temp(iu)
-      glonu(iu_myrank) = glonu_temp(iu)
-
-      do k = 1,nza
-         aru  (k,iu_myrank) = aru_temp (k,iu)
-         volui(k,iu_myrank) = volui_temp(k,iu)
-      enddo
    endif
 enddo
 
-! Loop over all W points and select those that are in memory of this subdomain
+! put itab_w on place
 
 do iw = 1,nwa
    if (myrankflag_w(iw)) then
@@ -574,34 +533,7 @@ do iw = 1,nwa
          iwn = ltab_w(iw)%iw(j)
          if (myrankflag_w(iwn)) itab_w(iw_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
       enddo
-      
-! Copy W point grid values
 
-      lpw(iw_myrank) = lpw_temp(iw)
-      lsw(iw_myrank) = lsw_temp(iw)
-
-      topw(iw_myrank) = topw_temp(iw)
-
-      xew(iw_myrank) = xew_temp(iw)
-      yew(iw_myrank) = yew_temp(iw)
-      zew(iw_myrank) = zew_temp(iw)
-
-      wnx(iw_myrank) = wnx_temp(iw)
-      wny(iw_myrank) = wny_temp(iw)
-      wnz(iw_myrank) = wnz_temp(iw)
-
-      glatw(iw_myrank) = glatw_temp(iw)
-      glonw(iw_myrank) = glonw_temp(iw)
-
-      arw0(iw_myrank) = arw0_temp(iw)
-
-      do k = 1,nza
-         arw  (k,iw_myrank) = arw_temp  (k,iw)
-         volwi(k,iw_myrank) = volwi_temp(k,iw)
-         volt (k,iw_myrank) = volt_temp (k,iw)
-         volti(k,iw_myrank) = volti_temp(k,iw)
-      enddo
-      
    endif
 enddo
 
@@ -636,6 +568,188 @@ do iw = 1,nwa
      
    endif
 enddo
+
+! Loop over all U points and for each that is primary on a remote rank, 
+! access all U and W points in its stencil.
+
+do iu = 2,nua
+   if (itabg_u(iu)%irank /= myrank) then
+   
+! IU point is primary on remote rank.  
+
+! If IU point is in memory of myrank, its value must be received from 
+! remote rank.  Add that remote rank to receive table.
+
+      if (myrankflag_u(iu)) call recv_table_u(itabg_u(iu)%irank)
+
+! Add to send table any U or W point that is primary on myrank and is 
+! in the stencil of IU.  
+
+      iup  = itab_u_pd(iu)%iup 
+      if (itabg_u(iup)%irank == myrank) call send_table_u(iup,itabg_u(iu)%irank)
+
+      do j = 1,12
+         iun = itab_u_pd(iu)%iu(j) 
+         if (itabg_u(iun)%irank == myrank) call send_table_u(iun,itabg_u(iu)%irank)
+      enddo         
+
+      do j = 1,6
+         iwn = itab_u_pd(iu)%iw(j)
+         if (itabg_w(iwn)%irank == myrank) call send_table_w(iwn,itabg_u(iu)%irank)
+      enddo         
+
+   endif
+enddo
+
+! Loop over all W points and for each that is primary on a remote rank,
+! access all U and W points in its stencil.
+
+do iw = 2,nwa
+   if (itabg_w(iw)%irank /= myrank) then
+
+! IW point is primary on remote rank.  
+
+! If IW point is in memory of myrank, it must be received from remote rank.
+! Add that remote rank to receive table.
+
+      if (myrankflag_w(iw)) call recv_table_w(itabg_w(iw)%irank)
+
+! Add to send table any U or W point that is primary on myrank and is 
+! in the stencil of IW.  
+
+      iwp = itab_w_pd(iw)%iwp
+      if (itabg_w(iwp)%irank == myrank) call send_table_w(iwp,itabg_w(iw)%irank)
+
+      do j = 1,9
+         iun = itab_w_pd(iw)%iu(j) 
+         if (itabg_u(iun)%irank == myrank) call send_table_u(iun,itabg_w(iw)%irank)
+      enddo
+
+      do j = 1,9
+         iwn = itab_w_pd(iw)%iw(j) 
+         if (itabg_w(iwn)%irank == myrank) call send_table_w(iwn,itabg_w(iw)%irank)
+      enddo
+
+! Special for Zalesak monotonic advection:
+
+      do j = 1,3
+         iwn = itab_w_pd(iw)%iw(j) 
+         do k=1,9
+            iun = itab_w_pd(iwn)%iu(k)
+            if (itabg_u(iun)%irank == myrank) then
+               call send_table_u(iun,itabg_w(iw)%irank)
+            endif
+         enddo
+      enddo
+
+   endif
+enddo
+
+!!!! END OF ITAB_? POPULATION
+
+!!!! COPY OF ARRAYS
+
+call alloc_xyzem(mma)
+call alloc_xyzew(mwa)
+call alloc_grid1(meshtype, mma, mua, mva, mwa)
+call alloc_grid2(meshtype, mma, mua, mva, mwa)
+
+! M point memory copy
+
+do im = 1,nma
+   if (myrankflag_m(im)) then
+   
+      im_myrank = itabg_m(im)%im_myrank
+      
+      lpm(im_myrank) = lpm_temp(im)
+
+      xem(im_myrank) = xem_temp(im)
+      yem(im_myrank) = yem_temp(im)
+      zem(im_myrank) = zem_temp(im)
+
+      topm(im_myrank) = topm_temp(im)
+
+      glatm(im_myrank) = glatm_temp(im)
+      glonm(im_myrank) = glonm_temp(im)
+
+      arm0(im_myrank) = arm0_temp(im)
+   endif
+enddo
+
+! U point memory copy
+
+do iu = 1,nua
+   if (myrankflag_u(iu)) then
+   
+      iu_myrank = itabg_u(iu)%iu_myrank
+
+      lpu(iu_myrank) = lpu_temp(iu)
+      lcu(iu_myrank) = lcu_temp(iu)
+
+      xeu(iu_myrank) = xeu_temp(iu)
+      yeu(iu_myrank) = yeu_temp(iu)
+      zeu(iu_myrank) = zeu_temp(iu)
+
+      unx(iu_myrank) = unx_temp(iu)
+      uny(iu_myrank) = uny_temp(iu)
+      unz(iu_myrank) = unz_temp(iu)
+
+      vnx(iu_myrank) = vnx_temp(iu)
+      vny(iu_myrank) = vny_temp(iu)
+      vnz(iu_myrank) = vnz_temp(iu)
+
+      dnu(iu_myrank) = dnu_temp(iu)
+      dniu(iu_myrank) = dniu_temp(iu)
+      
+      dnv(iu_myrank) = dnv_temp(iu)
+      dniv(iu_myrank) = dniv_temp(iu)
+      
+      glatu(iu_myrank) = glatu_temp(iu)
+      glonu(iu_myrank) = glonu_temp(iu)
+
+      do k = 1,nza
+         aru  (k,iu_myrank) = aru_temp (k,iu)
+         volui(k,iu_myrank) = volui_temp(k,iu)
+      enddo
+   endif
+enddo
+
+! W point memory copy
+
+do iw = 1,nwa
+   if (myrankflag_w(iw)) then
+   
+      iw_myrank = itabg_w(iw)%iw_myrank
+
+      lpw(iw_myrank) = lpw_temp(iw)
+      lsw(iw_myrank) = lsw_temp(iw)
+
+      topw(iw_myrank) = topw_temp(iw)
+
+      xew(iw_myrank) = xew_temp(iw)
+      yew(iw_myrank) = yew_temp(iw)
+      zew(iw_myrank) = zew_temp(iw)
+
+      wnx(iw_myrank) = wnx_temp(iw)
+      wny(iw_myrank) = wny_temp(iw)
+      wnz(iw_myrank) = wnz_temp(iw)
+
+      glatw(iw_myrank) = glatw_temp(iw)
+      glonw(iw_myrank) = glonw_temp(iw)
+
+      arw0(iw_myrank) = arw0_temp(iw)
+
+      do k = 1,nza
+         arw  (k,iw_myrank) = arw_temp  (k,iw)
+         volwi(k,iw_myrank) = volwi_temp(k,iw)
+         volt (k,iw_myrank) = volt_temp (k,iw)
+         volti(k,iw_myrank) = volti_temp(k,iw)
+      enddo
+      
+   endif
+enddo
+
+!!!! END OF COPY
 
 ! Check whether LAND/SEA models are used
 
@@ -739,82 +853,6 @@ if (isfcl == 1) then
    call para_init_land(landflag, landflux_temp)
 
 endif
-
-! Loop over all U points and for each that is primary on a remote rank, 
-! access all U and W points in its stencil.
-
-do iu = 2,nua
-   if (itabg_u(iu)%irank /= myrank) then
-   
-! IU point is primary on remote rank.  
-
-! If IU point is in memory of myrank, its value must be received from 
-! remote rank.  Add that remote rank to receive table.
-
-      if (myrankflag_u(iu)) call recv_table_u(itabg_u(iu)%irank)
-
-! Add to send table any U or W point that is primary on myrank and is 
-! in the stencil of IU.  
-
-      iup  = ltab_u(iu)%iup 
-      if (itabg_u(iup)%irank == myrank) call send_table_u(iup,itabg_u(iu)%irank)
-
-      do j = 1,12
-         iun = ltab_u(iu)%iu(j) 
-         if (itabg_u(iun)%irank == myrank) call send_table_u(iun,itabg_u(iu)%irank)
-      enddo         
-
-      do j = 1,6
-         iwn = ltab_u(iu)%iw(j)
-         if (itabg_w(iwn)%irank == myrank) call send_table_w(iwn,itabg_u(iu)%irank)
-      enddo         
-
-   endif
-enddo
-
-! Loop over all W points and for each that is primary on a remote rank,
-! access all U and W points in its stencil.
-
-do iw = 2,nwa
-   if (itabg_w(iw)%irank /= myrank) then
-
-! IW point is primary on remote rank.  
-
-! If IW point is in memory of myrank, it must be received from remote rank.
-! Add that remote rank to receive table.
-
-      if (myrankflag_w(iw)) call recv_table_w(itabg_w(iw)%irank)
-
-! Add to send table any U or W point that is primary on myrank and is 
-! in the stencil of IW.  
-
-      iwp = ltab_w(iw)%iwp
-      if (itabg_w(iwp)%irank == myrank) call send_table_w(iwp,itabg_w(iw)%irank)
-
-      do j = 1,9
-         iun = ltab_w(iw)%iu(j) 
-         if (itabg_u(iun)%irank == myrank) call send_table_u(iun,itabg_w(iw)%irank)
-      enddo
-
-      do j = 1,9
-         iwn = ltab_w(iw)%iw(j) 
-         if (itabg_w(iwn)%irank == myrank) call send_table_w(iwn,itabg_w(iw)%irank)
-      enddo
-
-! Special for Zalesak monotonic advection:
-
-      do j = 1,3
-         iwn = ltab_w(iw)%iw(j) 
-         do k=1,9
-            iun = ltab_w(iwn)%iu(k)
-            if (itabg_u(iun)%irank == myrank) then
-               call send_table_u(iun,itabg_w(iw)%irank)
-            endif
-         enddo
-      enddo
-
-   endif
-enddo
 
 ! Deallocate temporary data structures and arrays
 
