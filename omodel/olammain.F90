@@ -143,6 +143,11 @@ write(io6,*) "Using ", trim(tmpdir), " as the temporary directory."
 
 call olam_run(name_name)
 
+! stop HDF5 library
+#ifdef OLAM_HDF5_FORTRAN
+call h5close_f(hdferr)
+#endif
+
 ! If this run is parallel, finalize MPI and close io6 file
 
 call olam_mpi_finalize()
