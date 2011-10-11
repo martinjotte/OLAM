@@ -34,27 +34,36 @@
    NL%IYEAR1   = 1997     ! Year
 
  !--------------------------------------------------------------------------
- ! Grid specifications - Single-valued Parameters
+ ! Vertical grid specifications
  !--------------------------------------------------------------------------
 
-   NL%MDOMAIN = 0        ! Model domain specification:
-                         !    0 = global spherical
-                         !    3 = 2D Cartesian channel with cyclic boundaries
+   NL%NZP    = 53       ! # of vertical levels (or max # if limited by ztop)
 
-   NL%MESHTYPE = 2       ! Mesh type 1 = Delaunay (triangles)
-                         !           2 = Voronoi  (hexagons)
+   NL%ZBASE  = 0.0      ! base Z level
+   NL%DZBASE = 50.0     ! base DZ
 
-   NL%NGRIDS  = 2        ! Number of grids to run
+   NL%ZTOP   = 35000.0  ! top Z level
+   NL%DZTOP  = 2000.0   ! top DZ
 
-   NL%NZP     = 53       ! Number of z grid points
+   NL%NZAUX = -1 ! Number of auxiliary (Z,DZ) values to use (max of 10)
+                 ! NZAUX = -1 is flag to use (DELTAZ, DZRAT, DZMAX, ZZ instead)
 
-   NL%DTLONG  = 30.      ! Coarse grid long timestep
+   NL%ZAUX(1)  = 500.0
+   NL%DZAUX(1) =  50.0
 
-   NL%DELTAX  = 1000.    ! Coarse grid horizontal spacing (used if MDOMAIN > 0)
+   NL%ZAUX(2)  = 20000.0
+   NL%DZAUX(2) =  2000.0
+
+   NL%ZAUX(3)  = 10000.0
+   NL%DZAUX(3) =  1000.0
+
+ !--------------------------------------------------------------------------
+ ! Vertical grid specifications to be discontinued (?)
+ !--------------------------------------------------------------------------
+
    NL%DELTAZ  = 100.     ! Vertical grid spacing at lowest level (if 0., use ZZ)
    NL%DZRAT   = 1.05     ! Vertical grid stretch ratio (used if DELTAZ > 0.)
    NL%DZMAX   = 2000.    ! Maximum delta Z (used only if DELTAZ > 0.)
-   NL%ZBASE   = 0.0      ! base Z level (used only if DELTAZ > 0.)
 
    ! Vertical levels if DELTAZ = 0
    NL%ZZ       = 0.0,
@@ -72,13 +81,28 @@
    1754.6,    1813.1,    1877.4,    1948.1,    2025.9,
    2111.5,    2205.7,    2309.3
 
-   NL%NXP  = 20   ! Number of grid points spanning one side of any icosahedral 
-                  ! triangle when MDOMAIN = 0 or spanning X direction when 
-                  ! MDOMAIN = 3
+ !--------------------------------------------------------------------------
+ ! Horizontal grid specifications
+ !--------------------------------------------------------------------------
+
+   NL%MDOMAIN = 0       ! Model domain specification:
+                        !    0 = global spherical
+                        !    3 = 2D Cartesian channel with cyclic boundaries
+
+   NL%MESHTYPE = 2      ! Mesh type 1 = Delaunay (triangles)
+                        !           2 = Voronoi  (hexagons)
+
+   NL%NXP  = 20         ! Number of grid points spanning one side of
+                        !  any icosahedral triangle when MDOMAIN = 0 
+                        ! or spanning X direction when MDOMAIN = 3
+
+   NL%DELTAX  = 1000.   ! Coarse grid horizontal spacing (used if MDOMAIN > 0)
 
  !--------------------------------------------------------------------------
- ! Grid refinement ("nested grid") definition
+ ! Horizontal grid refinement ("nested grid") definition
  !--------------------------------------------------------------------------
+
+   NL%NGRIDS  = 2       ! Number of grids to run
 
  ! One group of values must be provided for each "grid" number NG = 2:NGRIDS
 
@@ -115,9 +139,11 @@
    NL%GRDLAT(5,1:1) =  41.0,
    NL%GRDLON(5,1:1) = -83.0,
 
- !--------------------------------------------------------------------------
- ! Timestep ratios (One value for each Mesh Refinement Level (MRL))
- !--------------------------------------------------------------------------
+ !------------------------------------------------------------------------------
+ ! Timestep and timestep ratios (One ratio for each Mesh Refinement Level (MRL))
+ !------------------------------------------------------------------------------
+
+   NL%DTLONG  = 30.      ! Coarse grid long timestep
 
    NL%NDTRAT   = 1,1,1,1,1       ! # long MRL timesteps per long MRL-1 timestep
    NL%NACOUST  = 1,1,1,1,1       ! # acoustic timesteps per long timestep
@@ -132,7 +158,7 @@
                      !                  3 = longitudinally homogeneous
 
    ! input climate file:
-   NL%ZONCLIM  = './data/etc/ZONAVG_CLIMATE'
+   NL%ZONCLIM  = '../etc/ZONAVG_CLIMATE'
 
  !--------------------------------------------------------------------------
  ! Nudging parameters (used only if initial=2)
