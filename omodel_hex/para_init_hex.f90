@@ -52,8 +52,7 @@ use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
 use mem_para,   only: mgroupsize, myrank, &
                       send_u, recv_u, send_v, recv_v, send_w, recv_w, &
                       nsends_u, nsends_v, nsends_w, &
-                      nrecvs_u, nrecvs_v, nrecvs_w, &
-                      send_uf, recv_uf, send_vf, recv_vf
+                      nrecvs_u, nrecvs_v, nrecvs_w
 
 use mem_sflux,  only: nseaflux,  mseaflux,  seaflux,  seafluxg,  &
                       nlandflux, mlandflux, landflux, landfluxg, &
@@ -252,6 +251,24 @@ do iv = 2,nva
    endif
 enddo
 
+! Loop over all W points, and for each whose assigned irank is equal to myrank,
+! flag all V and W points in its computational stencil for inclusion on this
+! rank, excluding IVP and IWP.
+
+do iw = 2,nwa
+
+   if (itabg_w(iw)%irank == myrank) then
+
+      myrankflag_w(iw) = .true.
+
+! The standard computational stencil of mem_ijtabs
+
+      myrankflag_w( ltab_w(iw)%iw(1:7) ) = .true.
+      myrankflag_v( ltab_w(iw)%iv(1:7) ) = .true.
+
+   endif
+enddo
+
 ! Loop over all V points, and for each that has been flagged for inclusion
 ! on this rank, flag its M points for inclusion on this rank.
 ! Count V points also.
@@ -345,6 +362,7 @@ enddo
 ! M point memory copy
 
 do im = 1,nma
+
    if (myrankflag_m(im)) then
       npoly = ltab_m(im)%npoly
    
@@ -364,6 +382,10 @@ do im = 1,nma
       itab_m(im_myrank)%iw(1:npoly) = 1
       itab_m(im_myrank)%iv(1:npoly) = 1
 
+! Turn off M loop 3 (to be turned back on later at some points)
+
+      call mloops('n',im_myrank,-3,0,0,0)
+   
 ! Global indices of neighbors of IM
 ! Set indices of neighbors of IM that are present on this rank
 
@@ -418,7 +440,7 @@ do iv = 1,nva
 
       if (itab_v(iv_myrank)%irank /= myrank) then      
 
-! Turn off some loop flags for these points
+! Turn off some loop flags for these points (some will be turned back on later)
 
          call vloops('n',iv_myrank,-7,-8,-12,-15,-16,-18,  0, 0, 0, 0)
 
@@ -436,7 +458,6 @@ do iv = 1,nva
       itab_v(iv_myrank)%im(1:6)  = 1
       itab_v(iv_myrank)%iv(1:16) = 1
       itab_v(iv_myrank)%iw(1:4)  = 1
-
 
 ! Set indices of neighbors of IV that are present on this rank
 
@@ -580,6 +601,37 @@ do iw = 1,nwa
          volti(k,iw_myrank) = volti_temp(k,iw)
       enddo
       
+   endif
+enddo
+
+! Turn back on some loop flags needed with respect to the local IV point
+
+do iv = 1,nva
+   if (itabg_v(iv)%irank == myrank) then
+
+! Set mloop flag 3 for 6 M neighbors if IW is primary on this rank.
+
+      do j=1,7
+         imn = ltab_v(iv)%im(j)
+         call mloops('n',itabg_m(imn)%im_myrank,3,0,0,0)
+      enddo
+
+   endif
+enddo
+
+! Turn back on some loop flags needed with respect to the local IW point
+
+do iw = 1,nwa
+   if (itabg_w(iw)%irank == myrank) then
+
+! Set vloop flag 12 and 15 for the nearest V neighbors if IW is primary
+! on this rank.
+
+      do j=1,7
+         ivn = ltab_w(iw)%iv(j)
+         call vloops('n',itabg_v(ivn)%iv_myrank,12,15,0,0,0,0,0,0,0,0)
+      enddo
+
    endif
 enddo
 
@@ -762,7 +814,7 @@ end subroutine para_init
 
 subroutine recv_table_v(iremote)
 
-use mem_para,  only: nrecvs_v, recv_v, recv_vf
+use mem_para,  only: nrecvs_v, recv_v
 use misc_coms, only: io6
 
 implicit none
@@ -785,7 +837,6 @@ if (jrecv > nrecvs_v(1)) nrecvs_v(1) = jrecv
 ! Enter remote rank in recv-remote-rank table.
 
 recv_v(jrecv)%iremote = iremote
-recv_vf(jrecv)%iremote = iremote
 
 return
 end subroutine recv_table_v
@@ -826,7 +877,7 @@ end subroutine recv_table_w
 subroutine send_table_v(iv,iremote)
 
 use mem_ijtabs, only: itab_v, itabg_v, mloops_v
-use mem_para,   only: nsends_v, send_v, send_vf, mgroupsize
+use mem_para,   only: nsends_v, send_v, mgroupsize
 use misc_coms,  only: io6
 
 implicit none
@@ -854,7 +905,6 @@ iv_myrank = itabg_v(iv)%iv_myrank
 
 itab_v(iv_myrank)%loop(mloops_v+jsend) = .true.
 send_v(jsend)%iremote = iremote
-send_vf(jsend)%iremote = iremote
 
 return
 end subroutine send_table_v
