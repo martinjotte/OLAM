@@ -96,11 +96,17 @@ enddo
 
 do nf = 1,nfgfiles
 
+   lnf=len_trim(fnames_fg(nf))
+
 ! assume files have the form of dp-p2005-09-01-0000
 
-   lnf=len_trim(fnames_fg(nf))
    read (fnames_fg(nf)(lnf-14:lnf), '(i4,1x,i2,1x,i2,1x,i4)' ) &
         iyear, imonth, idate, ihour
+
+! assume files have the form of dp-p2005-09-01-000000-g1.h5
+
+!!   read (fnames_fg(nf)(lnf-22:lnf-8), '(i4,1x,i2,1x,i2,1x,i4)' ) &
+!!        iyear, imonth, idate, ihour
 
    call date_make_big (iyear,imonth,idate,ihour*100,ctotdate_fg(nf))
    call date_abs_secs2(iyear,imonth,idate,ihour*100,s1900_fg(nf))
