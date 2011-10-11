@@ -228,7 +228,7 @@ data fldlib(1:4, 68:100)/ &
 
 ! LAND_CELLS - 3D
 
-data fldlib(1:4,101:124)/ &
+data fldlib(1:4,101:123)/ &
  'SOIL_TEXT'     ,'L3G','SOIL TEXTURAL CLASS',' ( )'                        ,& ! 101
  'SOIL_ENERGY'   ,'L3G','SOIL ENERGY',' (J cm:S2:-3  )'                     ,& ! 102
  'SOIL_TEMPC'    ,'L3G','SOIL TEMP',' (C)'                                  ,& ! 103
@@ -243,26 +243,26 @@ data fldlib(1:4,101:124)/ &
 ! LAND_CELLS - 2D
 
  'NLEV_SFWAT'    ,'L2' ,'NUMBER OF SFCWATER LAYERS',' ( )'                  ,& ! 111
- 'LEAF_CLASS'    ,'L2' ,'LEAF CLASS',' ( )'                                 ,& ! 112
- 'VEG_NDVIC'     ,'L2' ,'VEGETATION NDVI',' ( )'                            ,& ! 113
- 'VEG_TEMPC'     ,'L2' ,'VEGETATION TEMP',' (C)'                            ,& ! 114
- 'VEG_WATER'     ,'L2' ,'VEGETATION SFC WATER ',' (kg m:S2:-2  )'           ,& ! 115
- 'STOM_RESIST'   ,'L2' ,'STOMATAL RESISTANCE',' (s m:S2:-1  )'              ,& ! 116
- 'GROUND_SHV'    ,'L2' ,'EQUIL VAP SPEC DENSITY OF SOIL',' (g kg:S2:-1  )'  ,& ! 117
- 'SOIL_DEPTH'    ,'L2' ,'SOIL DEPTH',' (m)'                                 ,& ! 118
+ 'VEG_NDVIC'     ,'L2' ,'VEGETATION NDVI',' ( )'                            ,& ! 112
+ 'VEG_TEMPC'     ,'L2' ,'VEGETATION TEMP',' (C)'                            ,& ! 113
+ 'VEG_WATER'     ,'L2' ,'VEGETATION SFC WATER ',' (kg m:S2:-2  )'           ,& ! 114
+ 'STOM_RESIST'   ,'L2' ,'STOMATAL RESISTANCE',' (s m:S2:-1  )'              ,& ! 115
+ 'GROUND_SHV'    ,'L2' ,'EQUIL VAP SPEC DENSITY OF SOIL',' (g kg:S2:-1  )'  ,& ! 116
+ 'SOIL_DEPTH'    ,'L2' ,'SOIL DEPTH',' (m)'                                 ,& ! 117
 
 ! SEA_CELLS - 2D
 
- 'SEATP'         ,'S2' ,'SEA SFC TEMP (PAST DATA)',' (K)'                   ,& ! 119
- 'SEATF'         ,'S2' ,'SEA SFC TEMP (FUTURE DATA)',' (K)'                 ,& ! 120
- 'SEATC'         ,'S2' ,'SEA SFC TEMP (CURRENT)',' (K)'                     ,& ! 121
- 'SEAICEP'       ,'S2' ,'SEAICE FRACTION (PAST DATA)',' ( )'                ,& ! 122
- 'SEAICEF'       ,'S2' ,'SEAICE FRACTION (FUTURE DATA)',' ( )'              ,& ! 123
- 'SEAICEC'       ,'S2' ,'SEAICE FRACTION (CURRENT)',' ( )'                   / ! 124
+ 'SEATP'         ,'S2' ,'SEA SFC TEMP (PAST DATA)',' (K)'                   ,& ! 118
+ 'SEATF'         ,'S2' ,'SEA SFC TEMP (FUTURE DATA)',' (K)'                 ,& ! 119
+ 'SEATC'         ,'S2' ,'SEA SFC TEMP (CURRENT)',' (K)'                     ,& ! 120
+ 'SEAICEP'       ,'S2' ,'SEAICE FRACTION (PAST DATA)',' ( )'                ,& ! 121
+ 'SEAICEF'       ,'S2' ,'SEAICE FRACTION (FUTURE DATA)',' ( )'              ,& ! 122
+ 'SEAICEC'       ,'S2' ,'SEAICE FRACTION (CURRENT)',' ( )'                   / ! 123
 
 ! LAND AND SEA CELLS - 2D
 
-data fldlib(1:4,125:140)/ &
+data fldlib(1:4,124:140)/ &
+ 'LEAF_CLASS'    ,'B2' ,'LEAF CLASS',' ( )'                                 ,& ! 124
  'AREA'          ,'B2' ,'LAND/SEA CELL AREA',' (m:S2:2  )'                  ,& ! 125
  'ROUGH'         ,'B2' ,'NET ROUGHNESS HEIGHT',' (m)'                       ,& ! 126
  'CAN_TEMPC'     ,'B2' ,'CANOPY AIR TEMP',' (C)'                            ,& ! 127
@@ -1459,61 +1459,65 @@ case(111) ! 'NLEV_SFWAT'
 
    fldval = real(land%nlev_sfcwater(i))
 
-case(112) ! 'LEAF_CLASS'
-
-   fldval = real(land%leaf_class(i))
-
-case(113) ! 'VEG_NDVIC'
+case(112) ! 'VEG_NDVIC'
 
    fldval = land%veg_ndvic(i)
 
-case(114) ! 'VEG_TEMPC'
+case(113) ! 'VEG_TEMPC'
 
    fldval = land%veg_temp(i) - 273.15
 
-case(115) ! 'VEG_WATER'
+case(114) ! 'VEG_WATER'
 
    fldval = land%veg_water(i)
 
-case(116) ! 'STOM_RESIST'
+case(115) ! 'STOM_RESIST'
 
    fldval = land%stom_resist(i)
 
-case(117) ! 'GROUND_SHV'
+case(116) ! 'GROUND_SHV'
 
    fldval = land%ground_shv(i) * 1.e3
 
-case(118) ! 'SOIL_DEPTH'
+case(117) ! 'SOIL_DEPTH'
 
    fldval = -slz(land%lsl(i))
 
 ! SEA_CELLS - 2D
 
-case(119) ! 'SEATP'
+case(118) ! 'SEATP'
 
    fldval = sea%seatp(i)   
 
-case(120) ! 'SEATF'
+case(119) ! 'SEATF'
 
    fldval = sea%seatf(i)
 
-case(121) ! 'SEATC'
+case(120) ! 'SEATC'
 
    fldval = sea%seatc(i)
 
-case(122) ! 'SEAICEP'
+case(121) ! 'SEAICEP'
 
    fldval = sea%seaicep(i)   
 
-case(123) ! 'SEAICEF'
+case(122) ! 'SEAICEF'
 
    fldval = sea%seaicef(i)
 
-case(124) ! 'SEAICEC'
+case(123) ! 'SEAICEC'
 
    fldval = sea%seaicec(i)
 
 ! LAND AND SEA CELLS - 2D
+
+case(124) ! 'LEAF_CLASS'
+
+   if (op%stagpt == 'S') then
+      fldval = real(sea%leaf_class(i))
+   elseif (op%stagpt == 'L') then
+      fldval = real(land%leaf_class(i))
+   endif
 
 case(125) ! 'AREA'
 

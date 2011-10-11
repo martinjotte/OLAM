@@ -807,6 +807,9 @@ if (op%stagpt == 'V' .or. op%stagpt == 'N') then
                if (pressv2 < plev) exit
             enddo
 
+            wtbot(iv) = (plev - pressv2) / (pressv1 - pressv2)
+            wttop(iv) = 1. - wtbot(iv)
+
          elseif (ktf(iw1) == 0) then
 
             do k = lpw(iw1),mza-2
@@ -815,6 +818,9 @@ if (op%stagpt == 'V' .or. op%stagpt == 'N') then
                pressv2 = press(k+1,iw1)
                if (pressv2 < plev) exit
             enddo
+
+            wtbot(iv) = (plev - pressv2) / (pressv1 - pressv2)
+            wttop(iv) = 1. - wtbot(iv)
 
          elseif (ktf(iw2) == 0) then
 
