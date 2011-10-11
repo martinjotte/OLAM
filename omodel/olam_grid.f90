@@ -3,16 +3,16 @@
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
+! including OLAM:
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Colorado State University Research Foundation ; ATMET, LLC
 
-   ! This software is free software; you can redistribute it and/or modify it 
+   ! This software is free software; you can redistribute it and/or modify it
    ! under the terms of the GNU General Public License as published by the Free
    ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
+   ! any later version.
 
    ! This software is distributed in the hope that it will be useful, but
    ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
@@ -21,19 +21,19 @@
  
    ! You should have received a copy of the GNU General Public License along
    ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+   ! (http://www.gnu.org/licenses/gpl.html)
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
+! OLAM was developed at Duke University and the University of Miami, Florida.
 ! For additional information, including published references, please contact
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 SUBROUTINE gridinit()
 
-USE misc_coms,   ONLY: io6, runtype, mdomain, ngrids, initial, &
-                       nxp, nzp, timmax8, alloc_misc, iparallel, meshtype, &
+USE misc_coms,   ONLY: io6, runtype, mdomain, ngrids, initial, nxp, nzp, &
+                       nzaux, timmax8, alloc_misc, iparallel, meshtype, &
                        iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim
 
 USE leaf_coms,   ONLY: nzg, nzs, isfcl, nwl
@@ -42,7 +42,7 @@ USE sea_coms,    ONLY: nws
 USE mem_ijtabs,  ONLY: istp, mrls, fill_jtabs, itab_md, itab_ud, itab_wd, itab_w
 USE oplot_coms,  ONLY: op
 USE mem_grid,    ONLY: nza, nma, nua, nva, nwa, &
-                       zm, zt, xem, yem, zem, xew, yew, zew, glatw, glonw,  &
+                       zm, zt, dzt, xem, yem, zem, xew, yew, zew, glatw, glonw, &
                        alloc_grid1, alloc_grid2
 USE mem_sflux,   ONLY: nlandflux, nseaflux
 USE mem_nudge,   ONLY: nudflag, nudnxp, nwnud, itab_wnud, alloc_nudge1, &
@@ -53,7 +53,7 @@ IMPLICIT NONE
 REAL, ALLOCATABLE :: quarter_kite(:,:)
 
 INTEGER :: npoly
-INTEGER :: j, jmaxneg, jminpos
+INTEGER :: j, jmaxneg, jminpos, k
 INTEGER :: imd,imd1,imd2,iud,iwd,iwnud,iwnudn,iw
 
 REAL :: scalprod, vecprodz, vecprodz_maxneg, vecprodz_minpos
@@ -79,19 +79,28 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
 
 ! Vertical grid coordinate setup
 
-   WRITE(io6,'(/,a)') 'gridinit calling gridset'
-   CALL gridset()
+   IF (nzaux < 0) THEN
+      WRITE(io6,'(/,a)') 'gridinit calling gridset'
+      CALL gridset()
+   ELSE
+      WRITE(io6,'(/,a)') 'gridinit calling gridset2'
+      CALL gridset2()
+   ENDIF
 
    WRITE(io6,'(a,f8.1)') ' Model top height = ',zm(nza-1)
+
+! Print out vertical grid structure 
+
+   CALL gridset_print()
 
 ! Horizontal grid setup
 
    IF (mdomain == 0) THEN
-   
+
 ! If doing 'MAKEGRID' run and using nudging on global domain, generate
 ! nudging grid here
 
-      if (runtype == 'MAKEGRID' .and. nudflag > 0) then   
+      if (runtype == 'MAKEGRID' .and. nudflag > 0) then
 
          write(io6,'(/,a)') 'gridinit calling icosahedron for nudging grid'
 
@@ -103,8 +112,8 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
 
          nwnud = nma
 
-! Allocate nudging grid structure arrays, copy temporary grid structure to 
-! these arrays, and deallocate temporary arrays 
+! Allocate nudging grid structure arrays, copy temporary grid structure to
+! these arrays, and deallocate temporary arrays
 
          call alloc_nudge1(nwnud)
 
@@ -112,10 +121,10 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
 
          do iwnud = 2,nwnud
             imd = iwnud
-         
+
 ! Set nudging grid W point npoly value and earth coordinates identical to
 ! triangle mesh MD points
-         
+
             itab_wnud(iwnud)%npoly = itab_md(imd)%npoly
 
             xewnud(iwnud) = xem(imd)
@@ -129,7 +138,7 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
 
                imd1 = itab_ud(iud)%im(1)
                imd2 = itab_ud(iud)%im(2)
-      
+
 ! Assign W neighbors of W points on nudging grid based on IMD
 
                if (imd1 == imd) then
@@ -144,7 +153,7 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
 ! Delaunay triangle mesh that was set up for nuding mesh is no longer required
 
          DEALLOCATE (itab_md, itab_ud, itab_wd)
-         DEALLOCATE (xem, yem, zem)      
+         DEALLOCATE (xem, yem, zem)
 
          WRITE(io6,'(/,a)') 'gridinit after nudging grid construction'
          WRITE(io6,'(a,i8)')    ' nwnud = ',nwnud
@@ -186,7 +195,7 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
 
    ENDIF
 
-! 'MAKESFC' run uses OLAM triangular atmos grid configuration 
+! 'MAKESFC' run uses OLAM triangular atmos grid configuration
 ! to generate land/sea cells
 
    IF (runtype == 'MAKESFC') THEN
@@ -233,7 +242,7 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
       CALL grid_geometry_hex(quarter_kite)
    ENDIF
 
-! Initialize dtlm, dtsm, ndtrat, and nacoust, 
+! Initialize dtlm, dtsm, ndtrat, and nacoust,
 ! and compute the timestep schedule for all grid operations.
 
    WRITE(io6,'(/,a)') 'gridinit calling modsched'
@@ -265,12 +274,12 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
 ! nudging indices and coefficients of W points
 
    IF (runtype == 'MAKEGRID' .AND. mdomain == 0 .AND. nudflag > 0) THEN
-   
-! Compute a mean distance between adjacent nudging points.  It is safe to assume 
+
+! Compute a mean distance between adjacent nudging points.  It is safe to assume
 ! that any ATM grid IW point will be closer than this distance to at least one
 ! nuding point
 
-      dist_wnud = 7100.e3 / REAL(nudnxp)   
+      dist_wnud = 7100.e3 / REAL(nudnxp)
 
 ! Loop over all W points
 
@@ -305,8 +314,8 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
 
          ENDDO
 
-! Now that primary nudging point has been found for current IW point, 
-! compute its x,y components on a polar stereographic plane tangent 
+! Now that primary nudging point has been found for current IW point,
+! compute its x,y components on a polar stereographic plane tangent
 ! at W point (W point is at 0,0)
 
          iwnud = itab_w(iw)%iwnud(1)
@@ -349,13 +358,13 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
 
             scalprod = -xi * (xin(j) - xi) - yi * (yin(j) - yi)
 
-! Check whether scalar product is positive for current J point.  If so, 
+! Check whether scalar product is positive for current J point.  If so,
 ! J point is a candidate for the nudging triad for IW.
 
             IF (scalprod > 0.) THEN
 
 ! Identify maximum negative vecprodz among all iwnudn polygon neighbors of
-! iwnud.  This iwnudn will be second point of nudging triad for IW         
+! iwnud.  This iwnudn will be second point of nudging triad for IW
 
                IF (vecprodz < 0. .AND. vecprodz > vecprodz_maxneg) THEN
                   vecprodz_maxneg = vecprodz
@@ -364,7 +373,7 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
                ENDIF
 
 ! Identify minimum positive vecprodz among all iwnudn polygon neighbors of
-! iwnud.  This iwnudn will be third point of nudging triad for IW         
+! iwnud.  This iwnudn will be third point of nudging triad for IW
 
                IF (vecprodz >= 0. .AND. vecprodz < vecprodz_minpos) THEN
                   vecprodz_minpos = vecprodz
@@ -406,8 +415,12 @@ ELSE
 
    WRITE(io6,'(/,a)') 'gridinit calling gridfile_read'
    CALL gridfile_read()
+   
+   CALL gridset_print()
 
 ENDIF
+
+! Print out land, sea, landflux, and seaflux grid sizes
 
 IF (isfcl == 1) THEN
    WRITE(io6,'(/,a)') 'gridinit before return to olam_run'
@@ -434,12 +447,9 @@ USE oname_coms,  ONLY: nl
 
 IMPLICIT NONE
 
-INTEGER :: ifm,icm,k,iinc,icnt,if1,jinc  &
-   ,jcnt,jf,kinc,kcnt,kf,nrat,i,j,kcy,kcw,kk,ng,npg
-INTEGER :: nidiag,ijcorner,numd
-REAL :: centx1,centy1,centx,centy,dzr,dsum,dzrcm,dzrfm,tsum,dzrati
-REAL :: dxmax
-REAL, ALLOCATABLE, DIMENSION(:) :: zmvec,ztvec
+INTEGER :: k
+REAL :: dzr,dzrati
+REAL, ALLOCATABLE :: zmvec(:),ztvec(:)
 
 nza = nzp
 mza = nzp
@@ -456,7 +466,7 @@ ELSE
    zmvec(1) = zbase
    zmvec(2) = zbase + deltaz
    DO k = 3,nzp+1
-      zmvec(k) = zmvec(k-1)  &
+      zmvec(k) = zmvec(k-1) &
                + MIN(dzrat * (zmvec(k-1) - zmvec(k-2)),MAX(deltaz,dzmax))
    ENDDO
 ENDIF
@@ -464,13 +474,11 @@ dzrati = (zmvec(2) - zmvec(1)) / (zmvec(3) - zmvec(2))
 zmvec(0) = zmvec(1) - (zmvec(2) - zmvec(1)) * dzrati
 zmvec(-1) = zmvec(0) - (zmvec(1) - zmvec(0)) * dzrati
 
-ztop = zmvec(nzp-1)
-
 ! compute zt values by geometric interpolation.
 
 DO k = 1,nza
-   dzrfm = SQRT(SQRT((zmvec(k+1) - zmvec(k)) / (zmvec(k-1) - zmvec(k-2))))
-   ztvec(k) = zmvec(k-1) + (zmvec(k) - zmvec(k-1)) / (1. + dzrfm)
+   dzr = SQRT(SQRT((zmvec(k+1) - zmvec(k)) / (zmvec(k-1) - zmvec(k-2))))
+   ztvec(k) = zmvec(k-1) + (zmvec(k) - zmvec(k-1)) / (1. + dzr)
 ENDDO
 ztvec(nza+1) = .5 * (zmvec(nza) + zmvec(nza+1))
 
@@ -505,6 +513,181 @@ END SUBROUTINE gridset
 
 !===============================================================================
 
+SUBROUTINE gridset2()
+
+USE mem_grid,    ONLY: nza, mza, &
+                       zm, zt, dzm, dzt, dzim, dzit, &
+                       zfacm, zfact, zfacim, zfacit, &
+                       alloc_gridz
+USE misc_coms,   ONLY: io6, nzp, nzaux, mdomain, &
+                       zbase, dzbase, ztop, dztop, zaux, dzaux
+USE consts_coms, ONLY: erad
+
+IMPLICIT NONE
+
+INTEGER :: izaux, kvec, nseries, iseries, k
+
+REAL :: zend, dzend, dzbeg, ztarg, dzr, rdzr
+
+REAL, ALLOCATABLE :: zmvec(:),ztvec(:)
+
+! This subroutine will compute number of vertical levels.
+! First, allocate zmvec and ztvec arrays to large size.
+
+ALLOCATE (zmvec(0:500),ztvec(500))
+
+! Fill starting values of zmvec and ztvec
+
+zmvec(0) = zbase - dzbase
+zmvec(1) = zbase
+zmvec(2) = zbase + dzbase
+
+ztvec(1) = zbase - dzbase * .5
+ztvec(2) = zbase + dzbase * .5
+
+kvec = 2
+
+! Loop through any (zaux,dzaux) values, plus one extra cycle for (ztop,dztop)
+
+DO izaux = 1,nzaux+1
+
+   IF (izaux < nzaux + 1) THEN
+      zend = zaux(izaux)
+      dzend = dzaux(izaux)
+   ELSE
+      zend = ztop
+      dzend = dztop
+   ENDIF
+
+   dzbeg = zmvec(kvec) - zmvec(kvec-1)
+
+! Target height for next series
+
+   ztarg = zend + .5 * dzend
+
+! Stretch ratio based on geometric series sum
+
+   dzr = (ztarg - zmvec(kvec)) / (ztarg - zmvec(kvec-1) - dzend)
+
+! NSERIES from stretch ratio
+
+   IF (abs(dzr - 1.) > 1.e-3) THEN
+      nseries = max(1,nint(log(dzend/dzbeg) / log(dzr)))
+   ELSE
+      nseries = max(1,nint((ztarg - zmvec(kvec)) / dzbeg))
+   ENDIF
+
+! Stretch ratio based on N
+
+   dzr = (dzend / dzbeg) ** (1./REAL(nseries))
+   rdzr = sqrt(dzr)
+
+! Loop over series and compute new levels
+
+   DO iseries = 1,nseries
+
+      if (kvec >= nzp - 1) GO TO 5
+
+      kvec = kvec + 1
+      dzbeg = dzbeg * dzr
+
+      zmvec(kvec) = zmvec(kvec-1) + dzbeg
+      ztvec(kvec) = zmvec(kvec-1) + (zmvec(kvec) - zmvec(kvec-1)) / (1. + rdzr)
+
+   ENDDO
+
+ENDDO
+
+5 CONTINUE
+
+! Fill NZA and MZA values
+
+nza = kvec + 1
+mza = nza
+
+IF (nza < 3) THEN
+   WRITE(io6,'(a)')      'OLAM requires that NZA >= 3.'
+   WRITE(io6,'(a,i5,a)') 'NZA = ',nza,' in subroutine gridset2.  Stopping model.'
+   STOP 'stop nza in gridset2'
+ENDIF
+
+! Fill top 2 ZMVEC and ZTVEC values
+
+zmvec(nza)   = zmvec(nza-1) * 2. - zmvec(nza-2)
+zmvec(nza+1) = zmvec(nza)   * 2. - zmvec(nza-1)
+
+ztvec(nza)   = .5 * (zmvec(nza-1) + zmvec(nza))
+ztvec(nza+1) = .5 * (zmvec(nza) + zmvec(nza+1))
+
+! Allocate main grid arrays
+
+CALL alloc_gridz()
+
+! Other vertical coordinate values
+
+DO k = 1,nza
+   zm(k) = zmvec(k)
+   zt(k) = ztvec(k)
+
+   dzm(k) = ztvec(k+1) - ztvec(k)
+   dzt(k) = zmvec(k) - zmvec(k-1)
+
+   dzim(k) = 1. / dzm(k)
+   dzit(k) = 1. / dzt(k)
+
+   IF (mdomain < 2) THEN
+      zfacm(k) = (erad + zm(k)) / erad
+      zfact(k) = (erad + zt(k)) / erad
+   ELSE
+      zfacm(k) = 1.
+      zfact(k) = 1.
+   ENDIF
+
+   zfacim(k) = 1. / zfacm(k)
+   zfacit(k) = 1. / zfact(k)
+ENDDO
+
+DEALLOCATE (zmvec,ztvec)
+
+RETURN
+END SUBROUTINE gridset2
+
+!===============================================================================
+
+SUBROUTINE gridset_print()
+
+USE misc_coms, ONLY: io6
+USE mem_grid,  ONLY: nza, zm, zt, dzt
+
+implicit none
+
+INTEGER :: k
+
+! Print vertical grid structure 
+
+WRITE(io6,'(/,a)') '================================================='
+WRITE(io6,'(a)'  ) '         OLAM VERTICAL GRID STRUCTURE'
+WRITE(io6,'(a)'  ) '================================================='
+WRITE(io6,'(a)'  ) '   k    zm(m)     k     zt(m)    dzm(m)    dzrat'
+WRITE(io6,'(a,/)') '================================================='
+
+DO k = nza-1,1,-1
+   IF (k == nza-1 .or. k == 1) THEN
+      WRITE(io6,11) k, zm(k), dzt(k+1)/dzt(k)
+   ELSE
+      WRITE(io6,12) k, zm(k), dzt(k+1)/dzt(k)
+   ENDIF
+   IF (k > 1) WRITE(io6,13) k,zt(k),dzt(k)
+ENDDO
+   
+11 format (i4,f10.2,1x,3('========='),f6.3)
+12 format (i4,f10.2,1x,3('---------'),f6.3)
+13 format (15x,i4,2f10.2)
+
+END
+
+!===============================================================================
+
 SUBROUTINE topo_init(nqa,topq,glatq,glonq,xeq,yeq,zeq)
 
 USE misc_coms,   ONLY: io6, deltax
@@ -525,7 +708,7 @@ REAL :: hfwid2
 
 REAL :: r, r0
 
-! Fill the TOPQ array with a default value of 0 or modify it as desired.  
+! Fill the TOPQ array with a default value of 0 or modify it as desired.
 ! If itopoflg is set to 1, these values will be overridden in the call to
 ! topo_database, which inputs a standard OLAM topography dataset.
 
@@ -548,7 +731,7 @@ DO iq = 2,nqa
 !   topq(iq) = 200. * mod(iq,4)
 
 ! SPECIAL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   topq(iq) = max(0.,hgt * hfwid2 / (hfwid2 + xeq(iq)**2) - 1.)  
+!   topq(iq) = max(0.,hgt * hfwid2 / (hfwid2 + xeq(iq)**2) - 1.)
 !   write(io6,*) 'topq ',iq,xeq(iq),topq(iq)
 ! TOPQ = 0 AT LARGE DISTANCE FROM HILL
 ! END SPECIAL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -556,13 +739,12 @@ DO iq = 2,nqa
 ! SPECIAL WM5 EXPT !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Find lat/lon of current M point
 
-!   r = sqrt((glonq(iq) * pio180 + 0.5 * pi1) ** 2  &
+!   r = sqrt((glonq(iq) * pio180 + 0.5 * pi1) ** 2 &
 !          + (glatq(iq) * pio180 - pi1 / 6.) ** 2)
 
 !   topq(iq) = max(0., 2000. * (1. - r / r0))
-   
+
 !   print*, 'topoinit ',iq,r,r0,topq(iq)
-   
 
 ! END SPECIAL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -576,26 +758,26 @@ END SUBROUTINE topo_init
 SUBROUTINE gridfile_write()
 
   USE max_dims,   ONLY: maxngrdll
-  USE misc_coms,  ONLY: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp,  &
-       iclobber, itopoflg,  &
-       deltax, deltaz, dzmax, dzrat, zbase,  &
-       ngrdll, grdrad, grdlat, grdlon, meshtype
-  USE mem_ijtabs, ONLY: mloops_m, mloops_u, mloops_v, mloops_w, mrls,  &
+  USE misc_coms,  ONLY: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp, &
+       iclobber, itopoflg, &
+       deltax, deltaz, dzmax, dzrat, zbase, dzbase, ztop, dztop, &
+       nzaux, zaux, dzaux, ngrdll, grdrad, grdlat, grdlon, meshtype
+  USE mem_ijtabs, ONLY: mloops_m, mloops_u, mloops_v, mloops_w, mrls, &
        itab_m, itab_u, itab_v, itab_w
-  USE mem_grid,   ONLY: nza, nma, nua, nva, nwa, nsw_max,  &
-       zm, zt, dzm, dzt, dzim, dzit,  &
+  USE mem_grid,   ONLY: nza, nma, nua, nva, nwa, nsw_max, &
+       zm, zt, dzm, dzt, dzim, dzit, &
        zfacm, zfact, zfacim, zfacit, &
-       lpm, lpu, lcu, lpv, lcv, lpw, lsw,  &
-       topm, topw, xem, yem, zem, xeu, yeu, zeu,  &
+       lpm, lpu, lcu, lpv, lcv, lpw, lsw, &
+       topm, topw, xem, yem, zem, xeu, yeu, zeu, &
        xev, yev, zev, xew, yew, zew, &
-       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz,  &
-       dnu, dniu, dnv, dniv, arw0, arm0,  &
+       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
+       dnu, dniu, dnv, dniv, arw0, arm0, &
        glatw, glonw, glatm, glonm, glatu, glonu, glatv, glonv, &
        aru, arv, volui, volvi, arw, volwi, volt, volti
   USE leaf_coms,  ONLY: isfcl
-  USE mem_sflux,  ONLY: nseaflux, nlandflux, seaflux, landflux,  &
-       nsfpats, nlfpats, nsfpatm, nlfpatm,  &
-       xemsfpat, yemsfpat, zemsfpat,  &
+  USE mem_sflux,  ONLY: nseaflux, nlandflux, seaflux, landflux, &
+       nsfpats, nlfpats, nsfpatm, nlfpatm, &
+       xemsfpat, yemsfpat, zemsfpat, &
        xemlfpat, yemlfpat, zemlfpat
 
   USE hdf5_utils, ONLY: shdf5_orec, shdf5_open, shdf5_close
@@ -642,6 +824,18 @@ SUBROUTINE gridfile_write()
   CALL shdf5_orec(ndims, idims, 'DZRAT'   , rvars=dzrat)
   CALL shdf5_orec(ndims, idims, 'DZMAX'   , rvars=dzmax)
   CALL shdf5_orec(ndims, idims, 'ZBASE'   , rvars=zbase)
+  CALL shdf5_orec(ndims, idims, 'DZBASE'  , rvars=dzbase)
+  CALL shdf5_orec(ndims, idims, 'ZTOP'    , rvars=ztop)
+  CALL shdf5_orec(ndims, idims, 'DZTOP'   , rvars=dztop)
+
+  CALL shdf5_orec(ndims, idims, 'NZAUX'   , ivars=nzaux)
+
+  IF (nzaux > 0) THEN
+     idims(1) = nzaux
+
+     CALL shdf5_orec(ndims, idims, 'ZAUX'    , rvara=zaux)
+     CALL shdf5_orec(ndims, idims, 'DZAUX'   , rvara=dzaux)
+  ENDIF
 
   idims(1) = ngrids
 
@@ -1410,8 +1604,8 @@ SUBROUTINE gridfile_read()
 
 USE max_dims,   ONLY: maxngrdll
 USE misc_coms,  ONLY: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp, &
-                      itopoflg, &
-                      deltax, deltaz, dzmax, dzrat, zbase, &
+                      itopoflg, deltax, deltaz, dzmax, dzrat, &
+                      zbase, dzbase, ztop, dztop, nzaux, zaux, dzaux, &
                       ngrdll, grdrad, grdlat, grdlon, meshtype
 USE mem_ijtabs, ONLY: mloops_m, mloops_u, mloops_v, mloops_w, mrls, &
                       itab_m, itab_u, itab_v, itab_w, alloc_itabs
@@ -1448,16 +1642,16 @@ USE mem_nudge,  ONLY: nudflag, nudnxp, nwnud, mwnud, itab_wnud, &
 
 IMPLICIT NONE
 
-INTEGER :: im, iu, iv, iw, iwnud
+INTEGER :: im, iu, iv, iw, iwnud, izaux
 
 INTEGER :: ierr
 
 INTEGER :: ngr, i
 INTEGER :: ndims, idims(2)
 
-INTEGER :: ngrids0, mdomain0, meshtype0, nxp0, nzp0, itopoflg0, isfcl0
+INTEGER :: ngrids0, mdomain0, meshtype0, nxp0, nzp0, itopoflg0, isfcl0, nzaux0
 
-REAL    :: deltax0, deltaz0, dzrat0, dzmax0, zbase0
+REAL    :: deltax0, deltaz0, dzrat0, dzmax0, zbase0, dzbase0, ztop0, dztop0
 
 LOGICAL :: exans
 
@@ -1465,6 +1659,8 @@ INTEGER, ALLOCATABLE :: ngrdll0(:)
 REAL,    ALLOCATABLE :: grdrad0(:)
 REAL,    ALLOCATABLE :: grdlat0(:,:)
 REAL,    ALLOCATABLE :: grdlon0(:,:)
+REAL,    ALLOCATABLE :: zaux0(:)
+REAL,    ALLOCATABLE :: dzaux0(:)
 
 ! Scratch arrays for copying input
 
@@ -1505,11 +1701,25 @@ IF (exans) THEN
    CALL shdf5_irec(ndims, idims, 'DZRAT'   , rvars=dzrat0)
    CALL shdf5_irec(ndims, idims, 'DZMAX'   , rvars=dzmax0)
    CALL shdf5_irec(ndims, idims, 'ZBASE'   , rvars=zbase0)
+   CALL shdf5_irec(ndims, idims, 'DZBASE'  , rvars=dzbase0)
+   CALL shdf5_irec(ndims, idims, 'ZTOP'    , rvars=ztop0)
+   CALL shdf5_irec(ndims, idims, 'DZTOP'   , rvars=dztop0)
+
+   CALL shdf5_irec(ndims, idims, 'NZAUX'   , ivars=nzaux0)
 
    ALLOCATE( ngrdll0 (ngrids0) )
    ALLOCATE( grdrad0 (ngrids0) )
    ALLOCATE( grdlat0 (ngrids0, maxngrdll) )
    ALLOCATE( grdlon0 (ngrids0, maxngrdll) )
+   ALLOCATE( zaux0   (nzaux0))
+   ALLOCATE( dzaux0  (nzaux0))
+
+   IF (nzaux > 0) THEN
+      idims(1) = nzaux
+
+      CALL shdf5_irec(ndims, idims, 'ZAUX'   , rvara=zaux0)
+      CALL shdf5_irec(ndims, idims, 'DZAUX'  , rvara=dzaux0)
+   ENDIF
 
    idims(1) = ngrids0
 
@@ -1534,14 +1744,18 @@ IF (exans) THEN
    IF (ngrids0   /= ngrids  ) ierr = 1 
    IF (isfcl0    /= isfcl   ) ierr = 1 
    IF (itopoflg0 /= itopoflg) ierr = 1 
+   IF (nzaux0    /= nzaux   ) ierr = 1 
 
    IF (ABS(deltax0 - deltax) > 1.e-3) ierr = 1 
    IF (ABS(deltaz0 - deltaz) > 1.e-3) ierr = 1 
    IF (ABS(dzrat0  - dzrat ) > 1.e-3) ierr = 1 
    IF (ABS(dzmax0  - dzmax ) > 1.e-3) ierr = 1 
    IF (ABS(zbase0  - zbase ) > 1.e-3) ierr = 1 
+   IF (ABS(dzbase0 - dzbase) > 1.e-3) ierr = 1 
+   IF (ABS(ztop0   - ztop  ) > 1.e-3) ierr = 1 
+   IF (ABS(dztop0  - dztop ) > 1.e-3) ierr = 1 
 
-   DO ngr = 1, MIN(ngrids0,ngrids)
+   DO ngr = 2, MIN(ngrids0,ngrids)
       IF (ABS(ngrdll0 (ngr) - ngrdll (ngr)) > 1.e1 ) ierr = 1
       IF (ABS(grdrad0 (ngr) - grdrad (ngr)) > 1.e1 ) ierr = 1
 
@@ -1549,6 +1763,11 @@ IF (exans) THEN
          IF (ABS(grdlat0(ngr,i) - grdlat(ngr,i)) > 1.e-3) ierr = 1
          IF (ABS(grdlon0(ngr,i) - grdlon(ngr,i)) > 1.e-3) ierr = 1
       ENDDO
+   ENDDO
+
+   DO izaux = 1, MIN(nzaux0,nzaux)
+      IF (ABS(zaux0 (izaux) - zaux (izaux)) > 1.e1 ) ierr = 1
+      IF (ABS(dzaux0(izaux) - dzaux(izaux)) > 1.e1 ) ierr = 1
    ENDDO
 
    IF (ierr == 1) THEN
@@ -1568,6 +1787,16 @@ IF (exans) THEN
       WRITE(io6,*)              'dzrat:    ',dzrat0   ,dzrat
       WRITE(io6,*)              'dzmax:    ',dzmax0   ,dzmax
       WRITE(io6,*)              'zbase:    ',zbase0   ,zbase
+      WRITE(io6,*)              'dzbase:   ',dzbase0  ,dzbase
+      WRITE(io6,*)              'ztop:     ',ztop0    ,ztop
+      WRITE(io6,*)              'dztop:    ',dztop0   ,dztop
+      WRITE(io6,*)              'nzaux:    ',nzaux0   ,nzaux
+      WRITE(io6,*) ' '
+      WRITE(io6, '(a,20f10.1)') 'zaux0:    ',zaux0 (1:nzaux)
+      WRITE(io6, '(a,20f10.1)') 'zaux:     ',zaux  (1:nzaux)
+      WRITE(io6,*) ' '
+      WRITE(io6, '(a,20f10.1)') 'dzaux0:   ',dzaux0 (1:nzaux)
+      WRITE(io6, '(a,20f10.1)') 'dzaux:    ',dzaux  (1:nzaux)
       WRITE(io6,*) ' '
       WRITE(io6, '(a,20i12)')   'ngrdll0:  ',ngrdll0 (1:ngrids)
       WRITE(io6, '(a,20i12)')   'ngrdll:   ',ngrdll  (1:ngrids)
@@ -1576,7 +1805,7 @@ IF (exans) THEN
       WRITE(io6, '(a,20f12.1)') 'grdrad:   ',grdrad  (1:ngrids)
       WRITE(io6,*) ' '
 
-      DO ngr = 1, MIN(ngrids0,ngrids)
+      DO ngr = 2, MIN(ngrids0,ngrids)
          WRITE(io6, '(a,i5)') 'ngr: ',ngr
          WRITE(io6,*) ' '
          WRITE(io6, '(a,20f10.3)') 'grdlat0: ',grdlat0(ngr,1:ngrdll(ngr))

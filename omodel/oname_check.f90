@@ -49,7 +49,7 @@ use misc_coms,   only: io6
 
 implicit none
 
-integer      :: nfatal, nwarn, ifm, ng, i, k, iplt, i_huge
+integer      :: nfatal, nwarn, ifm, ng, i, k, iplt, i_huge, izaux
 real         :: r_huge, r_min, r_max, r_tiny, dzxmin, zb_min, zb_max
 real(kind=8) :: d_huge
 
@@ -130,6 +130,31 @@ call ichk_bnds( nl%nxp,         "NXP",       1,   10000, 0, nfatal, nwarn )
 call rchk_bnds( nl%dtlong,   "DTLONG",  r_tiny,  r_huge, 0, nfatal, nwarn )
 call rchk_bnds( nl%deltax,   "DELTAX",  dzxmin,  r_huge, 0, nfatal, nwarn )
 call rchk_bnds( nl%deltaz,   "DELTAZ",      0.,  r_huge, 0, nfatal, nwarn )
+call rchk_bnds( nl%zbase,    "ZBASE",   zb_min,  zb_max, 0, nfatal, nwarn )
+call rchk_bnds( nl%dzbase,   "DZBASE",     0.0,  r_huge, 0, nfatal, nwarn )
+call rchk_bnds( nl%ztop,     "ZTOP",       0.0,  r_huge, 0, nfatal, nwarn )
+call rchk_bnds( nl%dztop,    "DZTOP",      0.0,  r_huge, 0, nfatal, nwarn )
+call ichk_bnds( nl%nzaux,    "NZAUX",       -1,      10, 0, nfatal, nwarn )
+
+do izaux=1, nl%nzaux
+   call rchk_bnds( nl%zaux(izaux),   "ZAUX",   0.0,  r_huge, 0, nfatal, nwarn )
+   call rchk_bnds( nl%dzaux(izaux),  "DZAUX",  0.0,  r_huge, 0, nfatal, nwarn )
+
+   if (nl%zaux(izaux) <= nl%zbase) then
+      write(io6,*) 'FATAL - zaux(',izaux,') must be larger than zbase.'
+      nfatal = nfatal + 1
+   endif
+
+   if (nl%zaux(izaux) >= nl%ztop) then
+      write(io6,*) 'FATAL - zaux(',izaux,') must be less than ztop.'
+      nfatal = nfatal + 1
+   endif
+
+   if (izaux > 1 .and. nl%zaux(izaux) <= nl%zaux(izaux-1) ) then
+      write(io6,*) 'FATAL - zaux(',izaux,') must be larger than zaux(',izaux-1,').'
+      nfatal = nfatal + 1
+   endif
+enddo
 
 if (nl%deltaz >= dzxmin) then
 
@@ -138,7 +163,6 @@ if (nl%deltaz >= dzxmin) then
         msgmax="Large DZRAT degrades 2nd-order accuracy in the vertical &
               & differencing")
    call rchk_bnds( nl%dzmax,  "DZMAX",  dzxmin,  r_huge, 0, nfatal, nwarn )
-   call rchk_bnds( nl%zbase,  "ZBASE",  zb_min,  zb_max, 0, nfatal, nwarn )
 
 else
 
