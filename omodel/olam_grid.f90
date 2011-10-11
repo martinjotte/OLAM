@@ -830,10 +830,12 @@ SUBROUTINE gridfile_write()
 
   CALL shdf5_orec(ndims, idims, 'NZAUX'   , ivars=nzaux)
 
-  idims(1) = nzaux
+  IF (nzaux > 0) THEN
+     idims(1) = nzaux
 
-  CALL shdf5_orec(ndims, idims, 'ZAUX'    , rvara=zaux)
-  CALL shdf5_orec(ndims, idims, 'DZAUX'   , rvara=dzaux)
+     CALL shdf5_orec(ndims, idims, 'ZAUX'    , rvara=zaux)
+     CALL shdf5_orec(ndims, idims, 'DZAUX'   , rvara=dzaux)
+  ENDIF
 
   idims(1) = ngrids
 
@@ -1712,10 +1714,12 @@ IF (exans) THEN
    ALLOCATE( zaux0   (nzaux0))
    ALLOCATE( dzaux0  (nzaux0))
 
-   idims(1) = nzaux
+   IF (nzaux > 0) THEN
+      idims(1) = nzaux
 
-   CALL shdf5_irec(ndims, idims, 'ZAUX'   , rvara=zaux0)
-   CALL shdf5_irec(ndims, idims, 'DZAUX'  , rvara=dzaux0)
+      CALL shdf5_irec(ndims, idims, 'ZAUX'   , rvara=zaux0)
+      CALL shdf5_irec(ndims, idims, 'DZAUX'  , rvara=dzaux0)
+   ENDIF
 
    idims(1) = ngrids0
 
