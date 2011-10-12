@@ -90,10 +90,12 @@ call shdf5_io(action, ndims, idims, 'nl%dztop',   rvars=dztop)
 
 call shdf5_io(action, ndims, idims, 'nl%nzaux',   ivars=nzaux)
 
-ndims = 1
-idims(1) = nzaux
-call shdf5_io(action, ndims, idims, 'nl%zaux',    rvara=zaux)
-call shdf5_io(action, ndims, idims, 'nl%dzaux',   rvara=dzaux)
+if (nzaux > 0) then
+   ndims = 1
+   idims(1) = nzaux
+   call shdf5_io(action, ndims, idims, 'nl%zaux',    rvara=zaux)
+   call shdf5_io(action, ndims, idims, 'nl%dzaux',   rvara=dzaux)
+endif
 
 ndims = 1
 idims(1) = ngrids
