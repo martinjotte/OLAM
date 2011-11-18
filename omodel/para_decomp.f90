@@ -150,6 +150,9 @@ do iw = 2,nwa
    enddo
 enddo
 
+! We don't need global xe? anymore. Deallocating it
+deallocate(xem, yem, zem)
+
 ! Allocate and fill grp%iw, grp%iwl, and grp%iws for group 1
 
 allocate (grp(1)%iw(nwa-1))

@@ -1799,7 +1799,7 @@ use mem_grid,   only: nza, nma, nua, nva, nwa, &
                       zfacm, zfact, zfacim, zfacit, &
                       lpm, lpu, lcu, lpv, lcv, lpw, lsw, &
                       topm, topw, xeu, yeu, zeu, &
-                      xev, yev, zev, xew, yew, zew, &
+                      xem, yem, zem, xev, yev, zev, xew, yew, zew, &
                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
                       dnu, dniu, dnv, dniv, arw0, arm0, &
                       glatw, glonw, glatm, glonm, glatu, glonu, glatv, glonv, &
@@ -1852,6 +1852,7 @@ real,    allocatable :: rscr(:,:)
 ! ESTAS ALOCACOES DEVEM SAIR DAQUI, POIS REPETE O QUE FOI FEITO ANTES NA PARA_INIT_TRI
 call alloc_gridz()
 call alloc_itabs(meshtype,nma,nua,nva,nwa)
+call alloc_xyzem(mma)
 call alloc_xyzew(mwa)
 call alloc_grid1(meshtype, mma, mua, mva, mwa)
 call alloc_grid2(meshtype, mma, mua, mva, mwa)
@@ -1892,6 +1893,11 @@ if (exans) then
    call shdf5_irec(ndims, idims, 'ARM0' , rvara=arm0, points=lgma)
    call shdf5_irec(ndims, idims, 'GLATM', rvara=glatm, points=lgma)
    call shdf5_irec(ndims, idims, 'GLONM', rvara=glonm, points=lgma)
+   call shdf5_irec(ndims, idims, 'XEM'  , rvara=xem, points=lgma)
+   call shdf5_irec(ndims, idims, 'YEM'  , rvara=yem, points=lgma)
+   call shdf5_irec(ndims, idims, 'ZEM'  , rvara=zem, points=lgma)
+   
+
 
    if (meshtype == 1) then
 

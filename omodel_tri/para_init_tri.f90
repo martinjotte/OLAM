@@ -41,9 +41,7 @@ use mem_ijtabs, only: itab_m,      itab_u,      itab_w,      &
                       itab_u_pd,   itab_w_pd,                &
                       lgma,        lgua,        lgwa
 
-use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
-                      xem, yem, zem, &
-                      alloc_xyzem
+use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa
 
 use mem_para,   only: mgroupsize, myrank, &
                       send_u, recv_u, send_v, recv_v, send_w, recv_w, &
@@ -86,11 +84,6 @@ logical :: myrankflag_w(nwa) ! Flag for W points existing on this rank
 
 logical :: seaflag(nws)
 logical :: landflag(nwl)
-
-! These arrays was used on para_decomp, so it should have the treatment
-! of global copy to a temporary one, deallocation of the original and copy-back
-! to a new local array
-real :: xem_temp(nma),yem_temp(nma),zem_temp(nma)
 
 ! Temporary datatypes
 
@@ -570,40 +563,6 @@ if (isfcl == 1) then
    call move_alloc( seaflux,  seaflux_temp)
 endif
 !!!!!!!!!! ISSO DEVE SER DELETADO
-
-! Copy grid coordinates to temporary arrays
-
-do im = 1,nma
-
-   xem_temp(im)  = xem(im)
-   yem_temp(im)  = yem(im)
-   zem_temp(im)  = zem(im)
-
-enddo
-
-! Deallocate grid coordinate arrays
-
-deallocate (xem, yem, zem)
-
-!!!! COPY OF ARRAYS
-
-call alloc_xyzem(mma)
-
-! M point memory copy
-
-do im = 1,nma
-   if (myrankflag_m(im)) then
-   
-      im_myrank = itabg_m(im)%im_myrank
-      
-      xem(im_myrank) = xem_temp(im)
-      yem(im_myrank) = yem_temp(im)
-      zem(im_myrank) = zem_temp(im)
-
-   endif
-enddo
-
-!!!! END OF COPY
 
 ! Check whether LAND/SEA models are used
 
