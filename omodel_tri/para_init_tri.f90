@@ -37,10 +37,9 @@ use misc_coms,  only: io6, meshtype
 use mem_ijtabs, only: itab_m,      itab_u,      itab_w,      &
                       itab_m_vars, itab_u_vars, itab_w_vars, &
                       itabg_m,     itabg_u,     itabg_w,     &
-                      alloc_itabs, mrls,                     &
+                      mrls,                                  &
                       itab_m_pd,   itab_u_pd,   itab_w_pd,   &
-                      lgma,        lgua,        lgwa &
-                      , alloc_itabs_temp
+                      lgma,        lgua,        lgwa 
 
 use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa
 
@@ -87,8 +86,6 @@ logical :: seaflag(nws)
 logical :: landflag(nwl)
 
 ! Temporary datatypes
-
-type (itab_w_vars), allocatable :: ltab_w(:)
 
 type(flux_vars), allocatable :: landflux_temp(:)
 type(flux_vars), allocatable ::  seaflux_temp(:)
@@ -257,19 +254,6 @@ enddo
 !!!!!!!!! ISSO DEVE SER DELETADO
 call gridfile_read()
 
-! Move data to temporary data structures, nullifying the old datatype
-
-call move_alloc(itab_w, ltab_w)
-!!!!!!!!! ISSO DEVE SER DELETADO
-
-
-
-
-
-! Allocate itab data structures and main grid coordinate arrays
-
-call alloc_itabs_temp(meshtype,mwa)
-
 !!!! ITAB_? POPULATION
 
 ! put itab_m on place
@@ -374,12 +358,8 @@ do iw = 1,nwa
 
 ! Look up global IWP index and subdomain IW index
    
-      iwp = ltab_w(iw)%iwp
+      iwp = itab_w_pd(iw)%iwp
       iw_myrank = itabg_w(iw)%iw_myrank
-
-! First, copy entire data type from global index to subdomain index
-
-      itab_w(iw_myrank) = ltab_w(iw)
 
 ! Next, redefine some individual itab_w members
 
@@ -416,17 +396,17 @@ do iw = 1,nwa
       if (myrankflag_w(iwp)) itab_w(iw_myrank)%iwp = itabg_w(iwp)%iw_myrank
 
       do j = 1,3
-         imn = ltab_w(iw)%im(j)
+         imn = itab_w_pd(iw)%im(j)
          if (myrankflag_m(imn)) itab_w(iw_myrank)%im(j) = itabg_m(imn)%im_myrank
       enddo
       
       do j = 1,9
-         iun = ltab_w(iw)%iu(j)
+         iun = itab_w_pd(iw)%iu(j)
          if (myrankflag_u(iun)) itab_w(iw_myrank)%iu(j) = itabg_u(iun)%iu_myrank
       enddo
       
       do j = 1,9
-         iwn = ltab_w(iw)%iw(j)
+         iwn = itab_w_pd(iw)%iw(j)
          if (myrankflag_w(iwn)) itab_w(iw_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
       enddo
 
@@ -442,7 +422,7 @@ do iw = 1,nwa
 ! on this rank.
 
       do j=1,3
-         iun = ltab_w(iw)%iu(j)
+         iun = itab_w_pd(iw)%iu(j)
          call uloops('n',itabg_u(iun)%iu_myrank,22,0,0,0,0,0,0,0,0,0)
       enddo
 
@@ -450,7 +430,7 @@ do iw = 1,nwa
 ! on this rank (all the U points of the 3 neighboring triangles)
 
       do j=1,9
-         iun = ltab_w(iw)%iu(j)
+         iun = itab_w_pd(iw)%iu(j)
          call uloops('n',itabg_u(iun)%iu_myrank,21,0,0,0,0,0,0,0,0,0)
       enddo
 
@@ -458,7 +438,7 @@ do iw = 1,nwa
 ! on this rank
 
       do j=1,3
-         iwn = ltab_w(iw)%iw(j)
+         iwn = itab_w_pd(iw)%iw(j)
          call wloops('n',itabg_w(iwn)%iw_myrank,28,0,0,0,0,0,0,0,0,0)
       enddo
      
@@ -658,7 +638,6 @@ endif
 
 ! Deallocate temporary data structures and arrays
 
-deallocate (ltab_w)
 deallocate (landflux_temp, seaflux_temp)
 
 ! Deallocate para_decomp _pd arrays

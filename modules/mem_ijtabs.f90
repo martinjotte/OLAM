@@ -334,19 +334,6 @@ contains
 
 !===============================================================================
 
-   subroutine alloc_itabs_temp(meshtype,mwa)
-
-   implicit none
-
-  integer, intent(in) :: meshtype,mwa
-   
-   allocate (itab_w(mwa))
-
-   return
- end subroutine alloc_itabs_temp
-
-!===============================================================================
-
    subroutine alloc_itabs_pd(meshtype,mma,mua,mva,mwa)
 
    implicit none
