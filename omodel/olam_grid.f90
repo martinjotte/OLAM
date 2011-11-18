@@ -1576,6 +1576,10 @@ if (exans) then
 
 ! Read the grid dimensions
 
+   ndims = 1
+   idims(1) = 1
+   idims(2) = 1
+
    call shdf5_irec(ndims, idims, 'NZA'    , ivars=nza)
    call shdf5_irec(ndims, idims, 'NMA'    , ivars=nma)
    call shdf5_irec(ndims, idims, 'NUA'    , ivars=nua)
@@ -1787,12 +1791,13 @@ use misc_coms,  only: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp, &
                       deltax, deltaz, dzmax, dzrat, zbase, &
                       ngrdll, grdrad, grdlat, grdlon, meshtype
 use mem_ijtabs, only: mloops_m, mloops_u, mloops_v, mloops_w, mrls, &
-                      itab_m, itab_u, itab_v, itab_w, alloc_itabs
+                      itab_m, itab_u, itab_v, itab_w, alloc_itabs,  &
+                      lgma, lgua, lgva, lgwa
 use mem_grid,   only: nza, nma, nua, nva, nwa, &
                       mza, mma, mua, mva, mwa, nsw_max, &
                       zm, zt, dzm, dzt, dzim, dzit, &
                       zfacm, zfact, zfacim, zfacit, &
-                      lpm, lpu, lcu, lpv, lcv, lpw, lsw, &
+                      lpm, lpu, lpu_teste, volui_teste, lcu, lpv, lcv, lpw, lsw, &
                       topm, topw, xem, yem, zem, xeu, yeu, zeu, &
                       xev, yev, zev, xew, yew, zew, &
                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
@@ -1813,6 +1818,8 @@ use mem_para,   only: myrank
 
 use mem_nudge,  only: nudflag, nudnxp, nwnud, mwnud, itab_wnud, &
                        xewnud, yewnud, zewnud, alloc_nudge1
+
+use mpi
 
 ! This subroutine checks for the existence of a gridfile, and if it exists, 
 ! also checks for agreement of grid configuration between the file and the 
@@ -1863,9 +1870,9 @@ if (exans) then
 
    call shdf5_open(trim(gridfile),'R')
 
-   ndims = 2
+   ndims = 1
    idims(1) = nza
-   idims(2) = maxngrdll
+   idims(2) = 1
 
    call shdf5_irec(ndims, idims, 'ZM'    , rvara=zm)
    call shdf5_irec(ndims, idims, 'ZT'    , rvara=zt)
@@ -1891,6 +1898,11 @@ if (exans) then
       idims(1) = nua
 
       call shdf5_irec(ndims, idims, 'LPU'  , ivara=lpu)
+
+!      idims(1) = mua
+!      call shdf5_irec(ndims, idims, 'LPU'  , ivara=lpu_teste, points=lgua)
+
+      idims(1) = nua
       call shdf5_irec(ndims, idims, 'LCU'  , ivara=lcu)
       call shdf5_irec(ndims, idims, 'XEU'  , rvara=xeu)
       call shdf5_irec(ndims, idims, 'YEU'  , rvara=yeu)
@@ -1946,6 +1958,9 @@ if (exans) then
       idims(2) = nua
 
       call shdf5_irec(ndims, idims, 'VOLUI', rvara=volui)
+
+      idims(2) = mua
+      call shdf5_irec(ndims, idims, 'VOLUI'  , rvara=volui_teste, points=lgua)
 
    else
 

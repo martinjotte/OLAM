@@ -281,6 +281,11 @@ module mem_ijtabs
    type (jtab_v_vars) :: jtab_v(nloops_v)
    type (jtab_w_vars) :: jtab_w(nloops_w)
 
+   integer, allocatable :: lgma(:) ! local global M indexes
+   integer, allocatable :: lgua(:) ! local global U indexes
+   integer, allocatable :: lgva(:) ! local global V indexes
+   integer, allocatable :: lgwa(:) ! local global W indexes
+
 contains
 
 !===============================================================================

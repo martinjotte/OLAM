@@ -38,10 +38,11 @@ use mem_ijtabs, only: itab_m,      itab_u,      itab_w,      &
                       itab_m_vars, itab_u_vars, itab_w_vars, &
                       itabg_m,     itabg_u,     itabg_w,     &
                       alloc_itabs, mrls,                     &
-                      itab_u_pd,   itab_w_pd
+                      itab_u_pd,   itab_w_pd,                &
+                      lgma,        lgua,        lgwa
 
 use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
-                      lpm, lpu, lcu, lpw, lsw, &
+                      lpm, lpu, lpu_teste, volui_teste, lcu, lpw, lsw, &
                       xem, yem, zem, xeu, yeu, zeu, &
                       xev, yev, zev, xew, yew, zew, &
                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
@@ -67,6 +68,8 @@ use leaf_coms,  only: nwl, isfcl
 use mem_sea,    only: itabg_ws
 
 use mem_leaf,   only: itabg_wl
+
+use mpi
 
 implicit none
 
@@ -122,6 +125,8 @@ type (itab_w_vars), allocatable :: ltab_w(:)
 
 type(flux_vars), allocatable :: landflux_temp(:)
 type(flux_vars), allocatable ::  seaflux_temp(:)
+
+integer :: ierr
 
 ! Allocate send & recv counter arrays and initialize to zero
 
@@ -261,106 +266,39 @@ do iw = 1,nwa
    endif
 enddo
 
+!!!! Filling arrays P?A
 
+allocate (lgma(1:mma))
+allocate (lgua(1:mua))
+allocate (lgwa(1:mwa))
+
+do im = 1, nma
+   if (myrankflag_m(im)) lgma(itabg_m(im)%im_myrank) = im
+enddo
+
+do iu = 1, nua
+   if (myrankflag_u(iu)) lgua(itabg_u(iu)%iu_myrank) = iu
+enddo
+
+do iw = 1, nwa
+   if (myrankflag_w(iw)) lgwa(itabg_w(iw)%iw_myrank) = iw
+enddo
+
+
+
+!!!!!!!!! ISSO DEVE SER DELETADO
 call gridfile_read_completo()
-
-
-
 
 ! Move data to temporary data structures, nullifying the old datatype
 
 call move_alloc(itab_m, ltab_m)
 call move_alloc(itab_u, ltab_u)
 call move_alloc(itab_w, ltab_w)
+!!!!!!!!! ISSO DEVE SER DELETADO
 
-if (isfcl == 1) then
-   call move_alloc(landflux, landflux_temp)
-   call move_alloc( seaflux,  seaflux_temp)
-endif
 
-! Copy grid coordinates to temporary arrays
 
-do im = 1,nma
-   lpm_temp(im)  = lpm(im)
 
-   topm_temp(im) = topm(im)
-
-   xem_temp(im)  = xem(im)
-   yem_temp(im)  = yem(im)
-   zem_temp(im)  = zem(im)
-
-   glatm_temp(im) = glatm(im)
-   glonm_temp(im) = glonm(im)
-
-   arm0_temp(im) = arm0(im)
-enddo
-
-do iu = 1,nua
-   lpu_temp(iu) = lpu(iu)
-   lcu_temp(iu) = lcu(iu)
-
-   xeu_temp(iu) = xeu(iu)
-   yeu_temp(iu) = yeu(iu)
-   zeu_temp(iu) = zeu(iu)
-   
-   unx_temp(iu) = unx(iu)
-   uny_temp(iu) = uny(iu)
-   unz_temp(iu) = unz(iu)
-
-   vnx_temp(iu) = vnx(iu)
-   vny_temp(iu) = vny(iu)
-   vnz_temp(iu) = vnz(iu)
-
-   dnu_temp(iu)  = dnu(iu)
-   dniu_temp(iu) = dniu(iu)
-   
-   dnv_temp(iu)  = dnv(iu)
-   dniv_temp(iu) = dniv(iu)
-   
-   glatu_temp(iu) = glatu(iu)
-   glonu_temp(iu) = glonu(iu)
-
-   do k = 1,nza
-      aru_temp(k,iu) = aru(k,iu)
-      volui_temp(k,iu) = volui(k,iu)
-   enddo
-enddo
-
-do iw = 1,nwa
-   topw_temp(iw) = topw(iw)
-
-   lpw_temp(iw) = lpw(iw)
-   lsw_temp(iw) = lsw(iw)
-
-   xew_temp(iw) = xew(iw)
-   yew_temp(iw) = yew(iw)
-   zew_temp(iw) = zew(iw)
-
-   wnx_temp(iw) = wnx(iw)
-   wny_temp(iw) = wny(iw)
-   wnz_temp(iw) = wnz(iw)
-
-   glatw_temp(iw) = glatw(iw)
-   glonw_temp(iw) = glonw(iw)
-
-   arw0_temp(iw) = arw0(iw)
-   
-   do k = 1,nza
-      arw_temp(k,iw) = arw(k,iw)
-      volwi_temp(k,iw) = volwi(k,iw)
-      volt_temp(k,iw) = volt(k,iw)
-      volti_temp(k,iw) = volti(k,iw)
-   enddo
-enddo
-
-! Deallocate grid coordinate arrays
-
-deallocate (lpm, lpu, lcu, lpw, lsw)
-deallocate (xem, yem, zem, topm, glatm, glonm, arm0)
-deallocate (xeu, yeu, zeu, unx, uny, unz, vnx, vny, vnz, dnu, dniu, dnv, dniv)
-deallocate (aru, volui, glatu, glonu)
-deallocate (xew, yew, zew, wnx, wny, wnz, glatw, glonw, arw0, topw)
-deallocate (arw, volwi, volt, volti)
 
 ! Allocate itab data structures and main grid coordinate arrays
 
@@ -647,6 +585,99 @@ enddo
 
 !!!! END OF ITAB_? POPULATION
 
+
+
+
+!!!!!!!!!! ISSO DEVE SER DELETADO
+if (isfcl == 1) then
+   call move_alloc(landflux, landflux_temp)
+   call move_alloc( seaflux,  seaflux_temp)
+endif
+
+! Copy grid coordinates to temporary arrays
+
+do im = 1,nma
+   lpm_temp(im)  = lpm(im)
+
+   topm_temp(im) = topm(im)
+
+   xem_temp(im)  = xem(im)
+   yem_temp(im)  = yem(im)
+   zem_temp(im)  = zem(im)
+
+   glatm_temp(im) = glatm(im)
+   glonm_temp(im) = glonm(im)
+
+   arm0_temp(im) = arm0(im)
+enddo
+
+do iu = 1,nua
+   lpu_temp(iu) = lpu(iu)
+   lcu_temp(iu) = lcu(iu)
+
+   xeu_temp(iu) = xeu(iu)
+   yeu_temp(iu) = yeu(iu)
+   zeu_temp(iu) = zeu(iu)
+   
+   unx_temp(iu) = unx(iu)
+   uny_temp(iu) = uny(iu)
+   unz_temp(iu) = unz(iu)
+
+   vnx_temp(iu) = vnx(iu)
+   vny_temp(iu) = vny(iu)
+   vnz_temp(iu) = vnz(iu)
+
+   dnu_temp(iu)  = dnu(iu)
+   dniu_temp(iu) = dniu(iu)
+   
+   dnv_temp(iu)  = dnv(iu)
+   dniv_temp(iu) = dniv(iu)
+   
+   glatu_temp(iu) = glatu(iu)
+   glonu_temp(iu) = glonu(iu)
+
+   do k = 1,nza
+      aru_temp(k,iu) = aru(k,iu)
+      volui_temp(k,iu) = volui(k,iu)
+   enddo
+enddo
+
+do iw = 1,nwa
+   topw_temp(iw) = topw(iw)
+
+   lpw_temp(iw) = lpw(iw)
+   lsw_temp(iw) = lsw(iw)
+
+   xew_temp(iw) = xew(iw)
+   yew_temp(iw) = yew(iw)
+   zew_temp(iw) = zew(iw)
+
+   wnx_temp(iw) = wnx(iw)
+   wny_temp(iw) = wny(iw)
+   wnz_temp(iw) = wnz(iw)
+
+   glatw_temp(iw) = glatw(iw)
+   glonw_temp(iw) = glonw(iw)
+
+   arw0_temp(iw) = arw0(iw)
+   
+   do k = 1,nza
+      arw_temp(k,iw) = arw(k,iw)
+      volwi_temp(k,iw) = volwi(k,iw)
+      volt_temp(k,iw) = volt(k,iw)
+      volti_temp(k,iw) = volti(k,iw)
+   enddo
+enddo
+
+! Deallocate grid coordinate arrays
+
+deallocate (lpm, lpu, lcu, lpw, lsw)
+deallocate (xem, yem, zem, topm, glatm, glonm, arm0)
+deallocate (xeu, yeu, zeu, unx, uny, unz, vnx, vny, vnz, dnu, dniu, dnv, dniv)
+deallocate (aru, volui, glatu, glonu)
+deallocate (xew, yew, zew, wnx, wny, wnz, glatw, glonw, arw0, topw)
+deallocate (arw, volwi, volt, volti)
+
 !!!! COPY OF ARRAYS
 
 call alloc_xyzem(mma)
@@ -750,6 +781,25 @@ do iw = 1,nwa
 enddo
 
 !!!! END OF COPY
+!!!!!!!!!! ISSO DEVE SER DELETADO
+
+!!$lpu = lpu_teste
+!!$do isf = 0, 3
+!!$   call MPI_Barrier(MPI_COMM_WORLD, ierr)
+!!$   if (myrank == isf) then
+!!$      do iu = 1, mua
+!!$         do k = 1, nza
+!!$            if(volui(k,iu) /= volui_teste(k,iu)) print*,'myrank',myrank,iu, k, volui(k,iu), volui_teste(k,iu)       
+!!$         enddo
+!!$      enddo
+!!$   end if
+!!$enddo
+!!$
+!!$call MPI_Barrier(MPI_COMM_WORLD, ierr)
+!!$call MPI_Finalize(ierr)
+!!$stop
+!!$
+volui = volui_teste
 
 ! Check whether LAND/SEA models are used
 
