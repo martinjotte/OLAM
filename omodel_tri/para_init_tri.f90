@@ -39,9 +39,12 @@ use mem_ijtabs, only: itab_m,      itab_u,      itab_w,      &
                       itabg_m,     itabg_u,     itabg_w,     &
                       mrls,                                  &
                       itab_m_pd,   itab_u_pd,   itab_w_pd,   &
-                      lgma,        lgua,        lgwa 
+                      alloc_itabs
 
-use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa
+use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
+                      alloc_gridz, alloc_xyzem, alloc_xyzew, &
+                      alloc_grid1, alloc_grid2
+
 
 use mem_para,   only: mgroupsize, myrank, &
                       send_u, recv_u, send_v, recv_v, send_w, recv_w, &
@@ -188,6 +191,16 @@ mua = iu_myrank
 mva = mua
 mwa = iw_myrank
 
+
+! Allocate grid structure variables
+
+call alloc_gridz()
+call alloc_itabs(meshtype,mma,mua,mva,mwa)
+call alloc_xyzem(mma)
+call alloc_xyzew(mwa)
+call alloc_grid1(meshtype, mma, mua, mva, mwa)
+call alloc_grid2(meshtype, mma, mua, mva, mwa)
+
 ! Reset point counts to 1
 
 im_myrank = 1
@@ -230,28 +243,23 @@ do iw = 1,nwa
    endif
 enddo
 
-!!!! Filling arrays P?A
-! lg?a to be replace with itab_?(:)%i?globe
 
-allocate (lgma(1:mma))
-allocate (lgua(1:mua))
-allocate (lgwa(1:mwa))
+! Defining global index of local points (will be used on gridfile_read)
 
 do im = 1, nma
-   if (myrankflag_m(im)) lgma(itabg_m(im)%im_myrank) = im
+   if (myrankflag_m(im)) itab_m(itabg_m(im)%im_myrank)%imglobe = im
 enddo
 
 do iu = 1, nua
-   if (myrankflag_u(iu)) lgua(itabg_u(iu)%iu_myrank) = iu
+   if (myrankflag_u(iu)) itab_u(itabg_u(iu)%iu_myrank)%iuglobe = iu
 enddo
 
 do iw = 1, nwa
-   if (myrankflag_w(iw)) lgwa(itabg_w(iw)%iw_myrank) = iw
+   if (myrankflag_w(iw)) itab_w(itabg_w(iw)%iw_myrank)%iwglobe = iw
 enddo
 
+! Reading the local grid structure
 
-
-!!!!!!!!! ISSO DEVE SER DELETADO
 call gridfile_read()
 
 !!!! ITAB_? POPULATION
@@ -263,10 +271,6 @@ do im = 1,nma
       npoly = itab_m_pd(im)%npoly
    
       im_myrank = itabg_m(im)%im_myrank
-
-! Next, redefine some individual itab_m members
-
-      itab_m(im_myrank)%imglobe = im
 
 ! Reset IM neighbor indices to 1
 
@@ -303,7 +307,6 @@ do iu = 1,nua
 ! Next, redefine some individual itab_u members
 
       itab_u(iu_myrank)%irank   = itabg_u(iu)%irank
-      itab_u(iu_myrank)%iuglobe = iu
 
 ! Check if this U point is primary on a remote rank
 
@@ -364,7 +367,6 @@ do iw = 1,nwa
 ! Next, redefine some individual itab_w members
 
       itab_w(iw_myrank)%irank   = itabg_w(iw)%irank
-      itab_w(iw_myrank)%iwglobe = iw
 
 ! Check if this W point is primary on a remote rank
 

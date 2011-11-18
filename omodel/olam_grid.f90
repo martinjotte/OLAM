@@ -1826,8 +1826,7 @@ use misc_coms,  only: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp, &
                       deltax, deltaz, dzmax, dzrat, zbase, &
                       ngrdll, grdrad, grdlat, grdlon, meshtype
 use mem_ijtabs, only: mloops_m, mloops_u, mloops_v, mloops_w, mrls, &
-                      itab_m, itab_u, itab_v, itab_w, alloc_itabs,  &
-                      lgma, lgua, lgva, lgwa
+                      itab_m, itab_u, itab_v, itab_w
 use mem_grid,   only: nza, &
                       mza, mma, mua, mva, mwa, nsw_max, &
                       zm, zt, dzm, dzt, dzim, dzit, &
@@ -1838,9 +1837,7 @@ use mem_grid,   only: nza, &
                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
                       dnu, dniu, dnv, dniv, arw0, arm0, &
                       glatw, glonw, glatm, glonm, glatu, glonu, glatv, glonv, &
-                      aru, arv, volui, volvi, arw, volwi, volt, volti, &
-                      alloc_gridz, alloc_xyzem, alloc_xyzew, &
-                      alloc_grid1, alloc_grid2
+                      aru, arv, volui, volvi, arw, volwi, volt, volti
 use leaf_coms,  only: isfcl
 use mem_sflux,  only: nseaflux, nlandflux, mseaflux, mlandflux, &
                       nsfpats, nlfpats, msfpats, mlfpats, nsfpatm, nlfpatm, &
@@ -1882,15 +1879,17 @@ logical, allocatable :: lscr(:,:)
 integer, allocatable :: iscr(:,:)
 real,    allocatable :: rscr(:,:)
 
-! Allocate and read grid structure variables
+! Pointers to the global index of the local point
 
-! ESTAS ALOCACOES DEVEM SAIR DAQUI, POIS REPETE O QUE FOI FEITO ANTES NA PARA_INIT_TRI
-call alloc_gridz()
-call alloc_itabs(meshtype,mma,mua,mva,mwa)
-call alloc_xyzem(mma)
-call alloc_xyzew(mwa)
-call alloc_grid1(meshtype, mma, mua, mva, mwa)
-call alloc_grid2(meshtype, mma, mua, mva, mwa)
+integer, pointer :: lgma(:)
+integer, pointer :: lgua(:)
+integer, pointer :: lgva(:)
+integer, pointer :: lgwa(:)
+
+lgma => itab_m%imglobe
+lgua => itab_u%iuglobe
+lgva => itab_v%ivglobe
+lgwa => itab_w%iwglobe
 
 ! Check if grid file exists
 
