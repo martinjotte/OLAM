@@ -4,13 +4,9 @@ module hdf5_f2f
 
   use hdf5
 
-  use mem_para, only: myrank
-  use mpi
-
   implicit none
 
   integer :: ierr
-
 
   INTEGER(HID_T) :: fileid
   integer(HID_T) :: mspcid
@@ -211,7 +207,7 @@ Contains
     logical, intent(IN) :: buf_logical(*)
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
-    
+
     INTEGER, allocatable :: buf_integer(:)
     INTEGER :: i, size
 
@@ -388,7 +384,7 @@ Contains
     integer :: hdferr
 
     CALL h5sget_simple_extent_ndims_f(dspcid, ndims, hdferr)
-    
+
     CALL h5sget_simple_extent_dims_f(dspcid, dimsc, maxdimsc, hdferr)
 
     do i = 1, ndims
@@ -421,7 +417,7 @@ Contains
     integer, intent(OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
     return
 
@@ -436,7 +432,7 @@ Contains
     integer, intent(OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
     return
 
@@ -450,7 +446,8 @@ Contains
     character, intent(INOUT) :: buf_character(*)
     integer, intent(OUT) :: hdferr
 
-    call h5dread_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr)
+    call h5dread_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
     return
 
@@ -464,7 +461,8 @@ Contains
     real(KIND=8), intent(INOUT) :: buf_real8(*)
     integer, intent(OUT) :: hdferr
 
-    CALL h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr)
+    CALL h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
     return
 
@@ -489,7 +487,8 @@ Contains
     ENDDO
     allocate (buf_integer(size))
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr)
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
     ! converting integer to logical
     DO i = 1, size
@@ -609,11 +608,15 @@ Contains
        dimsf(i) = dims(i)          
     enddo
 
+    ! opening the dataset from file
+
     call h5dopen_f(fileid, dname, dsetid, hdferr)
     if(dsetid < 0) then
        hdferr = int(dsetid)
        return
     end if
+
+    ! getting the dataspace of the dataset (dimension, size, element type etc)
 
     call h5dget_space_f(dsetid, dspcid, hdferr)
     if(dspcid < 0) then
@@ -621,11 +624,7 @@ Contains
        return
     end if
 
-!!$    call h5screate_simple_f(ndims, dimsf, mspcid, hdferr)
-!!$    if(mspcid < 0) then
-!!$       hdferr = int(mspcid)
-!!$       return
-!!$    end if
+    ! copying the dataspace to the memspace
 
     call h5scopy_f(dspcid, mspcid, hdferr)
     if(dspcid < 0) then
@@ -633,26 +632,37 @@ Contains
        return
     end if
 
+    ! if coords is present select the points on dataspace and memspace
+
     if (present(coords)) then
+
+       ! calculating the number of elements of the coordsf and coordsfmem
+       ! arrays
 
        num_elements = 1
        do i = 1, ndims
           num_elements = num_elements * dimsf(i)
        enddo
 
+       ! allocating the arrays, one for dataspace and one for memspace
+
        allocate(coordsf(1:ndims,1:num_elements))
        allocate(coordsfmem(1:ndims,1:num_elements))
 
        ! ensuring that all elements are declared
+       ! (a sort of fall-back)
+
        coordsf = -1
        coordsfmem = -1
 
        if (ndims == 1) then
 
-          ! with one dimension is simple
+          ! the first element points to the right position
 
           coordsf(1,1) = 1
           coordsfmem(1,1) = 1
+
+          ! with one dimension is simple
 
           do j = 2, dims(1)
 
@@ -664,6 +674,7 @@ Contains
        else if (ndims == 2) then
 
           ! the first element points to the right position
+
           coordsf(1:ndims,1:dims(1)) = 1
           coordsfmem(1:ndims,1:dims(1)) = 1
 
@@ -687,15 +698,19 @@ Contains
 
        endif
 
+       ! selecting elements of the dataspace, according to coords
+
        call h5sselect_elements_f(dspcid, H5S_SELECT_SET_F, ndims, &
             num_elements, coordsf, hdferr)
+
+       ! selecting elements of memspace (sequential)
+
        call h5sselect_elements_f(mspcid, H5S_SELECT_SET_F, ndims, &
             num_elements, coordsfmem, hdferr)
 
-       deallocate(coordsf)
+       deallocate(coordsf, coordsfmem)
 
     endif
-
 
     return
 
@@ -707,6 +722,7 @@ Contains
 
     integer, intent(OUT) :: hdferr
 
+    call h5sclose_f(mspcid, hdferr)
     call h5sclose_f(dspcid, hdferr)
     call h5dclose_f(dsetid, hdferr)
 

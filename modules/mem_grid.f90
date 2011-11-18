@@ -45,7 +45,7 @@ Module mem_grid
 
    integer, allocatable, dimension(:) ::  &
 
-      lpm,lpu,lpu_teste,lpv,lpw   &  ! Lowest prognosed M,U,V,W/T
+      lpm,lpu,lpv,lpw   &  ! Lowest prognosed M,U,V,W/T
      ,lcu,lcv           &  ! Lowest nonzero control volume for U,V
      ,lsw                  ! number of W/T levels in contact with surface
 
@@ -86,7 +86,7 @@ Module mem_grid
    real, allocatable, dimension(:,:) ::  &
 
       aru, arv, arw        &  ! Aperture area of U,V,W face
-     ,volui, volui_teste, volvi ,volwi     ! (1/Volume) of U,V,W cell
+     ,volui, volvi ,volwi     ! (1/Volume) of U,V,W cell
 
    real(kind=8), allocatable, dimension(:,:) ::  &
 
@@ -235,18 +235,10 @@ Contains
    if (meshtype == 1) then
 
       allocate (lpu(lua));  lpu(1:lua) = 0
-      if (allocated(lpu_teste)) then
-      else
-         allocate (lpu_teste(lua));  lpu_teste(1:lua) = 0
-      endif
       allocate (lcu(lua));  lcu(1:lua) = 0
 
       allocate (aru  (mza,lua));  aru  (1:mza,1:lua) = 0.
       allocate (volui(mza,lua));  volui(1:mza,1:lua) = 0.
-      if (allocated(volui_teste)) then
-      else
-         allocate (volui_teste(mza, lua));  volui_teste(1:mza,1:lua) = 0
-      endif
 
    elseif (meshtype == 2) then
 

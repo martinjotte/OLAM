@@ -1783,7 +1783,7 @@ end subroutine gridfile_read_pd
 
 !===============================================================================
 
-subroutine gridfile_read_completo()
+subroutine gridfile_read()
 
 use max_dims,   only: maxngrdll
 use misc_coms,  only: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp, &
@@ -1797,7 +1797,7 @@ use mem_grid,   only: nza, nma, nua, nva, nwa, &
                       mza, mma, mua, mva, mwa, nsw_max, &
                       zm, zt, dzm, dzt, dzim, dzit, &
                       zfacm, zfact, zfacim, zfacit, &
-                      lpm, lpu, lpu_teste, volui_teste, lcu, lpv, lcv, lpw, lsw, &
+                      lpm, lpu, lcu, lpv, lcv, lpw, lsw, &
                       topm, topw, xem, yem, zem, xeu, yeu, zeu, &
                       xev, yev, zev, xew, yew, zew, &
                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
@@ -1854,7 +1854,7 @@ call alloc_gridz()
 call alloc_itabs(meshtype,nma,nua,nva,nwa)
 call alloc_xyzew(nwa)
 call alloc_grid1(meshtype, nma, nua, nva, nwa)
-call alloc_grid2(meshtype, nma, nua, nva, nwa)
+call alloc_grid2(meshtype, mma, mua, mva, mwa)
 
 ! Check if grid file exists
 
@@ -1885,9 +1885,12 @@ if (exans) then
    call shdf5_irec(ndims, idims, 'ZFACIM', rvara=zfacim)
    call shdf5_irec(ndims, idims, 'ZFACIT', rvara=zfacit)
 
+   idims(1) = mma
+
+   call shdf5_irec(ndims, idims, 'LPM'  , ivara=lpm, points=lgma)
+
    idims(1) = nma
 
-   call shdf5_irec(ndims, idims, 'LPM'  , ivara=lpm)
    call shdf5_irec(ndims, idims, 'TOPM' , rvara=topm)
    call shdf5_irec(ndims, idims, 'ARM0' , rvara=arm0)
    call shdf5_irec(ndims, idims, 'GLATM', rvara=glatm)
@@ -1895,15 +1898,12 @@ if (exans) then
 
    if (meshtype == 1) then
 
-      idims(1) = nua
+      idims(1) = mua
 
-      call shdf5_irec(ndims, idims, 'LPU'  , ivara=lpu)
-
-!      idims(1) = mua
-!      call shdf5_irec(ndims, idims, 'LPU'  , ivara=lpu_teste, points=lgua)
+      call shdf5_irec(ndims, idims, 'LPU'  , ivara=lpu, points=lgua)
+      call shdf5_irec(ndims, idims, 'LCU'  , ivara=lcu, points=lgua)
 
       idims(1) = nua
-      call shdf5_irec(ndims, idims, 'LCU'  , ivara=lcu)
       call shdf5_irec(ndims, idims, 'XEU'  , rvara=xeu)
       call shdf5_irec(ndims, idims, 'YEU'  , rvara=yeu)
       call shdf5_irec(ndims, idims, 'ZEU'  , rvara=zeu)
@@ -1935,9 +1935,12 @@ if (exans) then
    call shdf5_irec(ndims, idims, 'VNY' , rvara=vny)
    call shdf5_irec(ndims, idims, 'VNZ' , rvara=vnz)
 
+   idims(1) = mwa
+
+   call shdf5_irec(ndims, idims, 'LPW'  , ivara=lpw, points=lgwa)
+
    idims(1) = nwa
 
-   call shdf5_irec(ndims, idims, 'LPW'  , ivara=lpw)
    call shdf5_irec(ndims, idims, 'LSW'  , ivara=lsw)
    call shdf5_irec(ndims, idims, 'XEW'  , rvara=xew)
    call shdf5_irec(ndims, idims, 'YEW'  , rvara=yew)
@@ -1955,12 +1958,9 @@ if (exans) then
 
    if (meshtype == 1) then
 
-      idims(2) = nua
-
-      call shdf5_irec(ndims, idims, 'VOLUI', rvara=volui)
-
       idims(2) = mua
-      call shdf5_irec(ndims, idims, 'VOLUI'  , rvara=volui_teste, points=lgua)
+
+      call shdf5_irec(ndims, idims, 'VOLUI', rvara=volui, points=lgua)
 
    else
 
@@ -1971,14 +1971,16 @@ if (exans) then
    
    endif
 
-   call shdf5_irec(ndims, idims, 'ARU'  , rvara=aru)
+   idims(2) = mua
 
-   idims(2) = nwa
+   call shdf5_irec(ndims, idims, 'ARU'  , rvara=aru, points=lgua)
 
-   call shdf5_irec(ndims, idims, 'ARW'  , rvara=arw)
-   call shdf5_irec(ndims, idims, 'VOLWI', rvara=volwi)
-   call shdf5_irec(ndims, idims, 'VOLT' , dvara=volt)
-   call shdf5_irec(ndims, idims, 'VOLTI', dvara=volti)
+   idims(2) = mwa
+
+   call shdf5_irec(ndims, idims, 'ARW'  , rvara=arw, points=lgwa)
+   call shdf5_irec(ndims, idims, 'VOLWI', rvara=volwi, points=lgwa)
+   call shdf5_irec(ndims, idims, 'VOLT' , dvara=volt, points=lgwa)
+   call shdf5_irec(ndims, idims, 'VOLTI', dvara=volti, points=lgwa)
    
 ! Read ITAB_M SCALARS
 
@@ -2650,7 +2652,7 @@ endif
 write(io6,*) 'end of gridfile_read '
 
 return
-end subroutine gridfile_read_completo
+end subroutine gridfile_read
 
 
 

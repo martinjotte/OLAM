@@ -42,14 +42,14 @@ use mem_ijtabs, only: itab_m,      itab_u,      itab_w,      &
                       lgma,        lgua,        lgwa
 
 use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
-                      lpm, lpu, lpu_teste, volui_teste, lcu, lpw, lsw, &
+                      lpm, lpu, lcu, lpw, lsw, &
                       xem, yem, zem, xeu, yeu, zeu, &
                       xev, yev, zev, xew, yew, zew, &
                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
                       dnu, dniu, dnv, dniv, arm0, arw0, topm, topw, &
                       glatm, glonm, glatu, glonu, glatv, glonv, glatw, glonw, &
                       aru, arv, arw, volui, volvi, volwi, volt, volti, &
-                      alloc_xyzem, alloc_xyzew, alloc_grid1, alloc_grid2
+                      alloc_xyzem, alloc_xyzew, alloc_grid1
 
 use mem_para,   only: mgroupsize, myrank, &
                       send_u, recv_u, send_v, recv_v, send_w, recv_w, &
@@ -93,9 +93,7 @@ logical :: myrankflag_w(nwa) ! Flag for W points existing on this rank
 logical :: seaflag(nws)
 logical :: landflag(nwl)
 
-integer :: lpm_temp(nma)
-integer :: lpu_temp(nua),lcu_temp(nua)
-integer :: lpw_temp(nwa),lsw_temp(nwa)
+integer :: lsw_temp(nwa)
 
 real :: topm_temp(nma), glatm_temp(nma), glonm_temp(nma), arm0_temp(nma)
 
@@ -110,12 +108,7 @@ real :: glatw_temp(nwa),glonw_temp(nwa),arw0_temp(nwa),topw_temp(nwa)
 real :: dnu_temp(nua),dniu_temp(nua)
 real :: dnv_temp(nua),dniv_temp(nua)
 
-real :: aru_temp(nza,nua),arw_temp(nza,nwa)
 real :: glatu_temp(nua),glonu_temp(nua)
-
-real :: volui_temp(nza,nua),volwi_temp(nza,nwa)
-
-real(kind=8) :: volt_temp(nza,nwa),volti_temp(nza,nwa)
 
 ! Temporary datatypes
 
@@ -267,6 +260,7 @@ do iw = 1,nwa
 enddo
 
 !!!! Filling arrays P?A
+! lg?a to be replace with itab_?(:)%i?globe
 
 allocate (lgma(1:mma))
 allocate (lgua(1:mua))
@@ -287,7 +281,7 @@ enddo
 
 
 !!!!!!!!! ISSO DEVE SER DELETADO
-call gridfile_read_completo()
+call gridfile_read()
 
 ! Move data to temporary data structures, nullifying the old datatype
 
@@ -597,7 +591,6 @@ endif
 ! Copy grid coordinates to temporary arrays
 
 do im = 1,nma
-   lpm_temp(im)  = lpm(im)
 
    topm_temp(im) = topm(im)
 
@@ -612,8 +605,6 @@ do im = 1,nma
 enddo
 
 do iu = 1,nua
-   lpu_temp(iu) = lpu(iu)
-   lcu_temp(iu) = lcu(iu)
 
    xeu_temp(iu) = xeu(iu)
    yeu_temp(iu) = yeu(iu)
@@ -636,16 +627,11 @@ do iu = 1,nua
    glatu_temp(iu) = glatu(iu)
    glonu_temp(iu) = glonu(iu)
 
-   do k = 1,nza
-      aru_temp(k,iu) = aru(k,iu)
-      volui_temp(k,iu) = volui(k,iu)
-   enddo
 enddo
 
 do iw = 1,nwa
    topw_temp(iw) = topw(iw)
 
-   lpw_temp(iw) = lpw(iw)
    lsw_temp(iw) = lsw(iw)
 
    xew_temp(iw) = xew(iw)
@@ -661,29 +647,21 @@ do iw = 1,nwa
 
    arw0_temp(iw) = arw0(iw)
    
-   do k = 1,nza
-      arw_temp(k,iw) = arw(k,iw)
-      volwi_temp(k,iw) = volwi(k,iw)
-      volt_temp(k,iw) = volt(k,iw)
-      volti_temp(k,iw) = volti(k,iw)
-   enddo
 enddo
 
 ! Deallocate grid coordinate arrays
 
-deallocate (lpm, lpu, lcu, lpw, lsw)
+deallocate (lsw)
 deallocate (xem, yem, zem, topm, glatm, glonm, arm0)
 deallocate (xeu, yeu, zeu, unx, uny, unz, vnx, vny, vnz, dnu, dniu, dnv, dniv)
-deallocate (aru, volui, glatu, glonu)
+deallocate (glatu, glonu)
 deallocate (xew, yew, zew, wnx, wny, wnz, glatw, glonw, arw0, topw)
-deallocate (arw, volwi, volt, volti)
 
 !!!! COPY OF ARRAYS
 
 call alloc_xyzem(mma)
 call alloc_xyzew(mwa)
 call alloc_grid1(meshtype, mma, mua, mva, mwa)
-call alloc_grid2(meshtype, mma, mua, mva, mwa)
 
 ! M point memory copy
 
@@ -692,8 +670,6 @@ do im = 1,nma
    
       im_myrank = itabg_m(im)%im_myrank
       
-      lpm(im_myrank) = lpm_temp(im)
-
       xem(im_myrank) = xem_temp(im)
       yem(im_myrank) = yem_temp(im)
       zem(im_myrank) = zem_temp(im)
@@ -713,9 +689,6 @@ do iu = 1,nua
    if (myrankflag_u(iu)) then
    
       iu_myrank = itabg_u(iu)%iu_myrank
-
-      lpu(iu_myrank) = lpu_temp(iu)
-      lcu(iu_myrank) = lcu_temp(iu)
 
       xeu(iu_myrank) = xeu_temp(iu)
       yeu(iu_myrank) = yeu_temp(iu)
@@ -738,10 +711,6 @@ do iu = 1,nua
       glatu(iu_myrank) = glatu_temp(iu)
       glonu(iu_myrank) = glonu_temp(iu)
 
-      do k = 1,nza
-         aru  (k,iu_myrank) = aru_temp (k,iu)
-         volui(k,iu_myrank) = volui_temp(k,iu)
-      enddo
    endif
 enddo
 
@@ -752,7 +721,6 @@ do iw = 1,nwa
    
       iw_myrank = itabg_w(iw)%iw_myrank
 
-      lpw(iw_myrank) = lpw_temp(iw)
       lsw(iw_myrank) = lsw_temp(iw)
 
       topw(iw_myrank) = topw_temp(iw)
@@ -769,37 +737,12 @@ do iw = 1,nwa
       glonw(iw_myrank) = glonw_temp(iw)
 
       arw0(iw_myrank) = arw0_temp(iw)
-
-      do k = 1,nza
-         arw  (k,iw_myrank) = arw_temp  (k,iw)
-         volwi(k,iw_myrank) = volwi_temp(k,iw)
-         volt (k,iw_myrank) = volt_temp (k,iw)
-         volti(k,iw_myrank) = volti_temp(k,iw)
-      enddo
       
    endif
 enddo
 
 !!!! END OF COPY
 !!!!!!!!!! ISSO DEVE SER DELETADO
-
-!!$lpu = lpu_teste
-!!$do isf = 0, 3
-!!$   call MPI_Barrier(MPI_COMM_WORLD, ierr)
-!!$   if (myrank == isf) then
-!!$      do iu = 1, mua
-!!$         do k = 1, nza
-!!$            if(volui(k,iu) /= volui_teste(k,iu)) print*,'myrank',myrank,iu, k, volui(k,iu), volui_teste(k,iu)       
-!!$         enddo
-!!$      enddo
-!!$   end if
-!!$enddo
-!!$
-!!$call MPI_Barrier(MPI_COMM_WORLD, ierr)
-!!$call MPI_Finalize(ierr)
-!!$stop
-!!$
-volui = volui_teste
 
 ! Check whether LAND/SEA models are used
 
