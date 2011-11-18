@@ -42,13 +42,12 @@ use mem_ijtabs, only: itab_m,      itab_u,      itab_w,      &
                       lgma,        lgua,        lgwa
 
 use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
-                      lpm, lpu, lcu, lpw, lsw, &
+                      lsw, &
                       xem, yem, zem, xeu, yeu, zeu, &
                       xev, yev, zev, xew, yew, zew, &
                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
                       dnu, dniu, dnv, dniv, arm0, arw0, topm, topw, &
                       glatm, glonm, glatu, glonu, glatv, glonv, glatw, glonw, &
-                      aru, arv, arw, volui, volvi, volwi, volt, volti, &
                       alloc_xyzem, alloc_xyzew, alloc_grid1
 
 use mem_para,   only: mgroupsize, myrank, &

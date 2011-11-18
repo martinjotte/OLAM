@@ -1912,10 +1912,13 @@ if (exans) then
 
    else
 
+      idims(1) = mva
+
+      call shdf5_irec(ndims, idims, 'LPV' , ivara=lpv, points=lgva)
+      call shdf5_irec(ndims, idims, 'LCV' , ivara=lcv, points=lgva)
+
       idims(1) = nva
 
-      call shdf5_irec(ndims, idims, 'LPV' , ivara=lpv)
-      call shdf5_irec(ndims, idims, 'LCV' , ivara=lcv)
       call shdf5_irec(ndims, idims, 'XEV' , rvara=xev)
       call shdf5_irec(ndims, idims, 'YEV' , rvara=yev)
       call shdf5_irec(ndims, idims, 'ZEV' , rvara=zev)
@@ -1964,10 +1967,10 @@ if (exans) then
 
    else
 
-      idims(2) = nva
+      idims(2) = mva
 
-      call shdf5_irec(ndims, idims, 'ARV'  , rvara=arv)
-      call shdf5_irec(ndims, idims, 'VOLVI', rvara=volvi)
+      call shdf5_irec(ndims, idims, 'ARV'  , rvara=arv, points=lgva)
+      call shdf5_irec(ndims, idims, 'VOLVI', rvara=volvi, points=lgva)
    
    endif
 
