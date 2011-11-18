@@ -68,18 +68,19 @@ subroutine copy_nl(copy_type)
 
 use max_dims,    only: maxgrds, nzgmax, maxisdirs
 use oname_coms,  only: nl
-use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat,  &
-                       nacoust, idiffk, zkhkm, xkhkm, csz, csx, akmin,   &
-                       dtlong, initial, zonclim, topo_database,   &
-                       gridfile, hfilin, ioutput, hfilepref, iclobber,   &
-                       frqstate, naddsc, icorflg, ilwrtyp, iswrtyp, radfrq,  &
-                       nqparm, confrq, wcldbs,  &
-                       nsndg, ipsflg, itsflg, irtsflg, iusflg,  &
-                       hs, p_sfc, us, vs, ts, ps, rts,  &
-                       itime1, idate1, imonth1, iyear1, ngrids, nzp,  &
-                       mdomain, meshtype, itopoflg, nxp,  &
-                       ngrdll, grdrad, grdlat, grdlon,  &
-                       dzrat, dzmax, deltax, deltaz, zbase,  &
+use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
+                       nacoust, idiffk, zkhkm, xkhkm, csz, csx, akmin, &
+                       dtlong, initial, zonclim, topo_database, &
+                       gridfile, hfilin, ioutput, hfilepref, iclobber, &
+                       frqstate, naddsc, icorflg, ilwrtyp, iswrtyp, radfrq, &
+                       nqparm, confrq, wcldbs, &
+                       nsndg, ipsflg, itsflg, irtsflg, iusflg, &
+                       hs, p_sfc, us, vs, ts, ps, rts, &
+                       itime1, idate1, imonth1, iyear1, ngrids, nzp, &
+                       mdomain, meshtype, itopoflg, nxp, &
+                       ngrdll, grdrad, grdlat, grdlon, &
+                       dzrat, dzmax, deltax, deltaz, zbase, &
+                       dzbase, ztop, dztop, nzaux, zaux, dzaux, &
                        current_time, nqparm_sh, debug_fp, init_nans
 
 use micro_coms,  only: level, icloud, idriz, irain, ipris, &
@@ -87,23 +88,23 @@ use micro_coms,  only: level, icloud, idriz, irain, ipris, &
                        cparm, dparm, rparm, pparm, sparm, &
                        aparm, gparm, hparm, cnparm, gnparm
 
-use leaf_coms,   only: nvgcon, nslcon, slmstr, isoilflg, ndviflg,  &
-                       isfcl, ivegflg, nzg, nzs, slz,  &
-                       veg_database, soil_database,  &
+use leaf_coms,   only: nvgcon, nslcon, slmstr, isoilflg, ndviflg, &
+                       isfcl, ivegflg, nzg, nzs, slz, &
+                       veg_database, soil_database, &
                        ndvi_database, iupdndvi, landusefile, &
                        isoilstateinit, isoildepthflg,soilstate_db,soildepth_db
 
-use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst,  &
+use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst, &
                        iseaiceflg, seaice_database, iupdseaice
 
-use mem_ed,      only: n_soi, soi_lat, soi_lon, n_ed_region, ed_reg_latmin,  &
+use mem_ed,      only: n_soi, soi_lat, soi_lon, n_ed_region, ed_reg_latmin, &
                        ed_reg_latmax, ed_reg_lonmin, ed_reg_lonmax
 use oplot_coms,  only: op
 use isan_coms,   only: iapr, isdirs
 use mem_nudge,   only: tnudcent, nudflag, nudnxp
-use mem_rayf,    only: rayf_zmin, rayf_distim, rayf_expon,  &
+use mem_rayf,    only: rayf_zmin, rayf_distim, rayf_expon, &
                        rayfw_zmin, rayfw_distim, rayfw_expon
-use ed_options,  only: ied_init_mode, istoma_scheme, iphen_scheme,  &
+use ed_options,  only: ied_init_mode, istoma_scheme, iphen_scheme, &
      ed_inputs_dir, n_plant_lim, n_decomp_lim, include_fire, ied_offline, &
      metcyc1, metcyc2, ed_offline_db,ianth_disturb, runoff_time, ed_hfilin
 
@@ -368,11 +369,18 @@ elseif (copy_type == 'NOT_HISTORY') then
       enddo
    enddo
 
-   dzrat     = nl%dzrat
-   dzmax     = nl%dzmax
-   deltax    = nl%deltax
-   deltaz    = nl%deltaz
-   zbase     = nl%zbase
+   dzrat  = nl%dzrat
+   dzmax  = nl%dzmax
+   deltax = nl%deltax
+   deltaz = nl%deltaz
+   zbase  = nl%zbase
+   dzbase = nl%dzbase
+   ztop   = nl%ztop
+   dztop  = nl%dztop
+   nzaux  = nl%nzaux
+   
+   zaux (1:nzaux) = nl%zaux (1:nzaux)
+   dzaux(1:nzaux) = nl%dzaux(1:nzaux)
 
    slz(1:nzgmax) = nl%slz(1:nzgmax)
 
@@ -381,7 +389,7 @@ elseif (copy_type == 'NOT_HISTORY') then
    current_time%year = iyear1
    current_time%month = imonth1
    current_time%date = idate1
-   current_time%time = int(itime1 * 0.01) * 3600.0   &
+   current_time%time = int(itime1 * 0.01) * 3600.0 &
         + (itime1 * 0.01 - int(itime1*0.01))*100.0*60.0
 endif
 

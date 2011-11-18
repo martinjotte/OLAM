@@ -587,10 +587,11 @@ dti = 1. / dt
 hdti = .5 * dti
 ka = lpw(iw)
    
-! Vertical loop over T levels - mass in T cells
+! Vertical loop over T levels - mass in T cells; inverse density
 
 do k = ka,mza-1
    tmass(k) = rho_old(k,iw) * volt(k,iw)
+   rhoi(k) = 1. / rho(k,iw)
 enddo
    
 ! Vertical loop over W levels - vertical courant number for scalars (full and unit)
@@ -610,10 +611,6 @@ if (action == 'L') then
 ! Vertical loop over T levels
 
    do k = ka,mza-1
-
-! inverse density
-
-      rhoi(k) = 1. / rho(k,iw)
 
 ! Set cnum coefficients (one-half courant number)
 
@@ -810,7 +807,7 @@ if (action == 'L') then
                       + dt * volti(k,iw) * adv(k))
 
       enddo
-      
+
       scp0(1:ka-1,iw,n) = scp0(ka,iw,n)
       
    enddo ! n
@@ -1015,7 +1012,7 @@ elseif (action == 'H') then
          if (sclr_type == 'S') then
 
             scp(k,iw) = scp0(k,iw,n) &
-                      + dt * (sct(k,iw) + adv(k) / (volt(k,iw) * rho(k,iw)))
+                      + rhoi(k) * dt * (sct(k,iw) + adv(k) * volti(k,iw))
 
 ! Update scp0 (which is a provisional updated THIL from long timestep 
 ! tendencies plus horizontal and EXPLICIT vertical advection)
@@ -1023,7 +1020,7 @@ elseif (action == 'H') then
          else
 
             scp0(k,iw,n) = scp0(k,iw,n) &
-                         + dt * (sct(k,iw) + adv(k) / (volt(k,iw) * rho(k,iw)))
+                         + rhoi(k) * dt * (sct(k,iw) + adv(k) * volti(k,iw))
                                 
          endif
 

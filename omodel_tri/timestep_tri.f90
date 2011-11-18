@@ -222,6 +222,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 enddo
 
+! call fields_ll()
+
 ! Call ED model if it is time to do vegetation dynamics
 
 if (mod(real(time8)+dtlm(1),frq_phenology) < dtlm(1)) call ed_vegetation_dynamics()  

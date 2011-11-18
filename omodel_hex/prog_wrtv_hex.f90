@@ -37,24 +37,24 @@ subroutine prog_wrtv(vmsc,wmsc,alpha_press,rhot)
 ! convergences in T cells, the Miura (2007) piecewise-linear advection algorithm,
 ! and the Walko and Avissar (2008a,b) time differencing method.
 
-use mem_ijtabs, only: jtab_v, jtab_w, itab_v, istp, itab_w,  &
+use mem_ijtabs, only: jtab_v, jtab_w, itab_v, istp, itab_w, jtab_m, itab_m, &
                       mrl_begl, mrl_begs, mrl_ends, mrl_endl
 use mem_basic,  only: rho, thil, theta, wc, press, wmc, vmp, vmc, vp, vc, &
                       sh_w, sh_v
-use mem_grid,   only: zt, zm, dzim, lpw, mza, mva, mwa, arv, lpv, lcv,  &
-                      volt, vnx, vny, vnz, volwi, dzm, dzt
+use mem_grid,   only: mza, mma, mva, mwa, lpm, lpv, lcv, lpw, &
+                      zt, zm, dzim, zfacit, dzm, dzt, dnv, dnu, arm0, arv, &
+                      vnx, vny, vnz, volt, volwi
 use mem_tend,   only: vmt
 use mem_turb,   only: vels
 use misc_coms,  only: io6, iparallel, time8, dtlm
 use consts_coms, only: cpocv, pc1, rdry, rvap
 use massflux,   only: diagnose_uc
 
-use olam_mpi_atm, only: mpi_send_vf, mpi_recv_vf,  &
-                        mpi_send_w, mpi_recv_w,  &
+use olam_mpi_atm, only: mpi_send_vf, mpi_recv_vf, &
+                        mpi_send_w, mpi_recv_w, &
                         mpi_send_v
 
 use oplot_coms,  only: op
-
 
 !$ use omp_lib
 
@@ -115,6 +115,12 @@ real :: gzps_vze(mza,mwa)
 
 real :: thil_s(mza,mwa)
 
+real :: vortp(mza,mma)
+
+integer :: iv1,iv2,iv3,iv4,im,npoly,jv,im1,im2,im3,im4,im5,im6
+real :: c0,c1,c2,vort_big1,vort_big2
+real :: arm0i,tvort
+
 ! Save copy of thil
 
 thil_s(:,:) = thil(:,:)
@@ -129,7 +135,7 @@ call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begs(istp)
 if (mrl > 0) then
-!$omp parallel do private(iv,k) 
+!$omp parallel do private(k) 
 do iv = 2,mva
 !----------------------------------------------------------------------
 call qsub('V',iv)
@@ -241,7 +247,6 @@ call qsub('W',iw)
    alpha_press(:,iw) = pc1 * (((1. - sh_w(:,iw)) * rdry + sh_v(:,iw) * rvap) &
                      * theta(:,iw) / thil(:,iw)) ** cpocv
 
-
 ! Long timestep tendencies for WM (turbulent mixing), 
 ! and preparation for horizontal turbulent fluxes of VM
 
@@ -260,13 +265,71 @@ call rsub('Wa',16)
 ! Parallel send/recv of vmxet, vmyet, vmzet
 !---------------------------------------------------------
 
+! Horizontal loop over M/P columns for BEGL; Diagnose vertical vorticity
+! in preparation for horizontal filter
+
+call psub()
+!----------------------------------------------------------------------
+mrl = mrl_begl(istp)
+if (mrl > 0) then
+!$omp parallel do private(im,npoly,kb,jv,iv,k,arm0i)
+do j = 1,jtab_m(3)%jend(mrl); im = jtab_m(3)%im(j)
+!----------------------------------------------------------------------
+call qsub('M',im)
+
+   npoly = itab_m(im)%npoly
+
+   kb = lpm(im)
+
+   vortp(:,im) = 0.
+
+! Loop over V neighbors to evaluate circulation around M (at time T)
+
+   do jv = 1,npoly
+      iv = itab_m(im)%iv(jv)
+
+      if (itab_v(iv)%im(2) == im) then
+
+         do k = kb,mza-1
+            vortp(k,im) = vortp(k,im) + vc(k,iv) * dnv(iv)
+         enddo
+
+      else
+
+         do k = kb,mza-1
+            vortp(k,im) = vortp(k,im) - vc(k,iv) * dnv(iv)
+         enddo
+
+      endif
+   enddo
+
+! Convert circulation to relative vertical vorticity at M 
+! (DNV lacks the zfact factor and ARM0 lacks the zfact**2 factor, so we
+! divide their quotient by zfact)
+
+   arm0i = 1. / arm0(im)
+
+   do k = kb,mza-1
+      vortp(k,im) = vortp(k,im) * arm0i * zfacit(k)
+   enddo
+
+enddo
+!$omp end parallel do 
+endif
+call rsub('M',3)
+
+tvort = 3600.
+c0 = .125 / tvort
+!c0 = 0.
+
 ! Horizontal loop over V columns for PROG_V_BEGL
 
 call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begl(istp)
 if (mrl > 0) then
-!$omp parallel do private(iv,iw1,iw2,kb,k) 
+!$omp parallel do private(iv,iw1,iw2,im1,im2,im3,im4,im5,im6,iv1,iv2,iv3,iv4, &
+!$omp                     kb,k,c1,c2,vort_big1,vort_big2) 
 do j = 1,jtab_v(12)%jend(mrl); iv = jtab_v(12)%iv(j)
 iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
@@ -287,6 +350,39 @@ call qsub('V',iv)
 
    enddo
 
+!------------------------------------------------------
+! SPECIAL - HORIZONTAL FILTER FOR VERTICAL VORTICITY
+
+   im1  = itab_v(iv)%im(1)
+   im2  = itab_v(iv)%im(2)
+   im3  = itab_v(iv)%im(3)
+   im4  = itab_v(iv)%im(4)
+   im5  = itab_v(iv)%im(5)
+   im6  = itab_v(iv)%im(6)
+
+   iv1  = itab_v(iv)%iv(1)
+   iv2  = itab_v(iv)%iv(2)
+   iv3  = itab_v(iv)%iv(3)
+   iv4  = itab_v(iv)%iv(4)
+   
+   c1 = -c0 * arm0(im1) * dnu(iv1) * dnu(iv2) / (dnu(iv1) * dnu(iv2) * dnv(iv) &
+      + dnu(iv) * dnu(iv2) * dnv(iv1) + dnu(iv) * dnu(iv1) * dnv(iv2))
+
+   c2 = c0 * arm0(im2) * dnu(iv3) * dnu(iv4) / (dnu(iv3) * dnu(iv4) * dnv(iv) &
+      + dnu(iv) * dnu(iv4) * dnv(iv3) + dnu(iv) * dnu(iv3) * dnv(iv4))
+
+! Vertical loop over V levels (for now, don't check for k >= lpm, etc.)
+
+   do k = kb,mza-1
+   
+      vort_big1 = .3333333 * (vortp(k,im2) + vortp(k,im3) + vortp(k,im4))
+      vort_big2 = .3333333 * (vortp(k,im1) + vortp(k,im5) + vortp(k,im6))
+   
+      vmt(k,iv) = vmt(k,iv) + (rho(k,iw1) + rho(k,iw2)) &
+         * ((vort_big1 - vortp(k,im1)) * c1 + (vort_big2 - vortp(k,im2)) * c2)
+
+   enddo
+              
 enddo
 endif
 call rsub('V',12)
@@ -763,7 +859,7 @@ do k = ka,mza-2
 ! Advective donor cell k level
 
    kd = kdepw(k,iw)
-   
+
 ! mean scalar values in vertical fluxes
 
    thilw(k) = thil_s(kd,iw) &
