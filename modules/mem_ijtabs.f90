@@ -231,18 +231,26 @@ module mem_ijtabs
       integer, allocatable :: jend(:)
    end type jtab_w_vars
 
-   type itab_u_pd_vars             ! data structure for U pts (individual rank) on para_decomp
+   type itab_m_pd_vars           ! data structure for M pts (individual rank) on para_(decomp,init)
+      integer :: npoly = 0       ! number of V/W neighbors of this M pt
+      integer :: itopm = 1       ! M point from which to copy this M pt's topo
+      integer :: iu(7) = 1       ! array of U neighbors of this M pt (Delaunay)
+      integer :: iv(7) = 1       ! array of V neighbors of this M pt (Voronoi)
+      integer :: iw(7) = 1       ! array of W neighbors of this M pt (Del or Vor)
+   end type itab_m_pd_vars
+
+   type itab_u_pd_vars         ! data structure for U pts (individual rank) on para_(decomp,init)
       integer :: iup=1         ! U pt from which to copy this U pt's values
       integer :: im(2) = 1     ! neighbor M pts of this U pt
       integer :: iu(12) = 1    ! neighbor U pts
       integer :: iw(6) = 1     ! neighbor W pts
    end type itab_u_pd_vars
 
-   type itab_v_pd_vars             ! data structure for V pts (individual rank) on para_decomp
+   type itab_v_pd_vars         ! data structure for V pts (individual rank) on para_(decomp,init)
       integer :: iw(4)=1       ! neighbor W pts of this V pt
    end type itab_v_pd_vars
 
-   type itab_w_pd_vars             ! data structure for W pts (individual rank) on para_decomp
+   type itab_w_pd_vars       ! data structure for W pts (individual rank) on para_(decomp,init)
       integer :: iwp=1       ! W pt from which to copy this W pt's values
       integer :: npoly = 0   ! number of M/V neighbors of this W pt
       integer :: im(7)=1     ! neighbor M pts of this W pt
@@ -260,6 +268,7 @@ module mem_ijtabs
    type (itab_v_vars),  allocatable, target :: itab_v(:)
    type (itab_w_vars),  allocatable, target :: itab_w(:)
 
+   type (itab_m_pd_vars), allocatable, target :: itab_m_pd(:)
    type (itab_u_pd_vars), allocatable, target :: itab_u_pd(:)
    type (itab_v_pd_vars), allocatable, target :: itab_v_pd(:)
    type (itab_w_pd_vars), allocatable, target :: itab_w_pd(:)
@@ -325,12 +334,32 @@ contains
 
 !===============================================================================
 
-   subroutine alloc_itabs_pd(meshtype,mua,mva,mwa)
+   subroutine alloc_itabs_temp(meshtype,mua,mva,mwa)
 
    implicit none
 
   integer, intent(in) :: meshtype,mua,mva,mwa
 
+   if (meshtype == 1) then
+      allocate (itab_u(mua))
+   elseif (meshtype == 2) then
+      allocate (itab_v(mva))
+   endif
+   
+   allocate (itab_w(mwa))
+
+   return
+ end subroutine alloc_itabs_temp
+
+!===============================================================================
+
+   subroutine alloc_itabs_pd(meshtype,mma,mua,mva,mwa)
+
+   implicit none
+
+  integer, intent(in) :: meshtype,mma,mua,mva,mwa
+
+  allocate (itab_m_pd(mma))
    if (meshtype == 1) then
       allocate (itab_u_pd(mua))
    elseif (meshtype == 2) then

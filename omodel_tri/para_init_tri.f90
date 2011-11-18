@@ -38,8 +38,9 @@ use mem_ijtabs, only: itab_m,      itab_u,      itab_w,      &
                       itab_m_vars, itab_u_vars, itab_w_vars, &
                       itabg_m,     itabg_u,     itabg_w,     &
                       alloc_itabs, mrls,                     &
-                      itab_u_pd,   itab_w_pd,                &
-                      lgma,        lgua,        lgwa
+                      itab_m_pd,   itab_u_pd,   itab_w_pd,   &
+                      lgma,        lgua,        lgwa &
+                      , alloc_itabs_temp
 
 use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa
 
@@ -87,7 +88,6 @@ logical :: landflag(nwl)
 
 ! Temporary datatypes
 
-type (itab_m_vars), allocatable :: ltab_m(:)
 type (itab_u_vars), allocatable :: ltab_u(:)
 type (itab_w_vars), allocatable :: ltab_w(:)
 
@@ -260,7 +260,6 @@ call gridfile_read()
 
 ! Move data to temporary data structures, nullifying the old datatype
 
-call move_alloc(itab_m, ltab_m)
 call move_alloc(itab_u, ltab_u)
 call move_alloc(itab_w, ltab_w)
 !!!!!!!!! ISSO DEVE SER DELETADO
@@ -271,7 +270,7 @@ call move_alloc(itab_w, ltab_w)
 
 ! Allocate itab data structures and main grid coordinate arrays
 
-call alloc_itabs(meshtype,mma,mua,mva,mwa)
+call alloc_itabs_temp(meshtype,mua,mva,mwa)
 
 !!!! ITAB_? POPULATION
 
@@ -279,13 +278,9 @@ call alloc_itabs(meshtype,mma,mua,mva,mwa)
 
 do im = 1,nma
    if (myrankflag_m(im)) then
-      npoly = ltab_m(im)%npoly
+      npoly = itab_m_pd(im)%npoly
    
       im_myrank = itabg_m(im)%im_myrank
-
-! First, copy entire data type from global index to subdomain index
-
-      itab_m(im_myrank) = ltab_m(im)
 
 ! Next, redefine some individual itab_m members
 
@@ -300,12 +295,12 @@ do im = 1,nma
 ! Global indices of neighbors of IM
 ! Set indices of neighbors of IM that are present on this rank
 
-      itopm = ltab_m(im)%itopm
+      itopm = itab_m_pd(im)%itopm
       if (myrankflag_m(itopm)) itab_m(im_myrank)%itopm = itabg_m(itopm)%im_myrank
 
       do j = 1,npoly
-         iu = ltab_m(im)%iu(j)
-         iw = ltab_m(im)%iw(j)
+         iu = itab_m_pd(im)%iu(j)
+         iw = itab_m_pd(im)%iw(j)
       
          if (myrankflag_u(iu)) itab_m(im_myrank)%iu(j) = itabg_u(iu)%iu_myrank
          if (myrankflag_w(iw)) itab_m(im_myrank)%iw(j) = itabg_w(iw)%iw_myrank
@@ -669,7 +664,7 @@ endif
 
 ! Deallocate temporary data structures and arrays
 
-deallocate (ltab_m,ltab_u,ltab_w)
+deallocate (ltab_u,ltab_w)
 deallocate (landflux_temp, seaflux_temp)
 
 return

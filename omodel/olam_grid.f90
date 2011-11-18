@@ -1410,7 +1410,7 @@ use misc_coms,  only: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp,  &
                       deltax, deltaz, dzmax, dzrat, zbase,  &
                       ngrdll, grdrad, grdlat, grdlon, meshtype
 use mem_ijtabs, only: mloops_m, mloops_u, mloops_v, mloops_w, mrls,  &
-                      itab_u_pd, itab_v_pd, itab_w_pd, alloc_itabs_pd
+                      itab_m_pd, itab_u_pd, itab_v_pd, itab_w_pd, alloc_itabs_pd
 use mem_grid,   only: nza, nma, nua, nva, nwa,  &
                       mza, mma, mua, mva, mwa, nsw_max,  &
                       xem, yem, zem, &
@@ -1598,7 +1598,7 @@ if (exans) then
 
 ! Allocate and read grid structure variables
 
-   call alloc_itabs_pd(meshtype,nua,nva,nwa)
+   call alloc_itabs_pd(meshtype,nma,nua,nva,nwa)
    call alloc_xyzem(nma)
 
    idims(1) = nma
@@ -1606,7 +1606,42 @@ if (exans) then
    call shdf5_irec(ndims, idims, 'XEM'  , rvara=xem)
    call shdf5_irec(ndims, idims, 'YEM'  , rvara=yem)
    call shdf5_irec(ndims, idims, 'ZEM'  , rvara=zem)
-   
+
+! Read ITAB_M SCALARS
+
+   ndims = 1
+   idims(1) = nma
+   idims(2) = 1
+
+   call shdf5_irec(ndims,idims,'itab_m%npoly'    ,ivara=itab_m_pd(:)%npoly)
+
+! Read ITAB_M ARRAYS
+
+   ndims = 2
+   idims(2) = nma
+   idims(1) = 7
+
+   allocate (iscr(7,nma))
+   if (meshtype == 1) then
+      call shdf5_irec(ndims,idims,'itab_m%iu',ivara=iscr)
+      do im = 1,nma
+         itab_m_pd(im)%iu(1:7) = iscr(1:7,im)
+      enddo
+   else
+      call shdf5_irec(ndims,idims,'itab_m%iv',ivara=iscr)
+      do im = 1,nma
+         itab_m_pd(im)%iv(1:7) = iscr(1:7,im)
+      enddo
+   endif
+   deallocate (iscr)
+
+   allocate (iscr(7,nma))
+   call shdf5_irec(ndims,idims,'itab_m%iw',ivara=iscr)
+   do im = 1,nma
+      itab_m_pd(im)%iw(1:7) = iscr(1:7,im)
+   enddo
+   deallocate (iscr)
+
    if (meshtype == 1) then
 
 ! Read ITAB_U ARRAYS
@@ -1851,7 +1886,7 @@ real,    allocatable :: rscr(:,:)
 
 ! ESTAS ALOCACOES DEVEM SAIR DAQUI, POIS REPETE O QUE FOI FEITO ANTES NA PARA_INIT_TRI
 call alloc_gridz()
-call alloc_itabs(meshtype,nma,nua,nva,nwa)
+call alloc_itabs(meshtype,mma,nua,nva,nwa)
 call alloc_xyzem(mma)
 call alloc_xyzew(mwa)
 call alloc_grid1(meshtype, mma, mua, mva, mwa)
@@ -1993,56 +2028,56 @@ if (exans) then
 ! Read ITAB_M SCALARS
 
    ndims = 1
-   idims(1) = nma
+   idims(1) = mma
    idims(2) = 1
 
-   call shdf5_irec(ndims,idims,'itab_m%npoly'    ,ivara=itab_m(:)%npoly)
-   call shdf5_irec(ndims,idims,'itab_m%itopm'    ,ivara=itab_m(:)%itopm)
-   call shdf5_irec(ndims,idims,'itab_m%imglobe'  ,ivara=itab_m(:)%imglobe)
-   call shdf5_irec(ndims,idims,'itab_m%mrlm'     ,ivara=itab_m(:)%mrlm)
-   call shdf5_irec(ndims,idims,'itab_m%mrlm_orig',ivara=itab_m(:)%mrlm_orig)
-   call shdf5_irec(ndims,idims,'itab_m%mrow'     ,ivara=itab_m(:)%mrow)
-   call shdf5_irec(ndims,idims,'itab_m%mrowh'    ,ivara=itab_m(:)%mrowh)
+   call shdf5_irec(ndims,idims,'itab_m%npoly'    ,ivara=itab_m(:)%npoly, points=lgma)
+   call shdf5_irec(ndims,idims,'itab_m%itopm'    ,ivara=itab_m(:)%itopm, points=lgma)
+   call shdf5_irec(ndims,idims,'itab_m%imglobe'  ,ivara=itab_m(:)%imglobe, points=lgma)
+   call shdf5_irec(ndims,idims,'itab_m%mrlm'     ,ivara=itab_m(:)%mrlm, points=lgma)
+   call shdf5_irec(ndims,idims,'itab_m%mrlm_orig',ivara=itab_m(:)%mrlm_orig, points=lgma)
+   call shdf5_irec(ndims,idims,'itab_m%mrow'     ,ivara=itab_m(:)%mrow, points=lgma)
+   call shdf5_irec(ndims,idims,'itab_m%mrowh'    ,ivara=itab_m(:)%mrowh, points=lgma)
 
 ! Read ITAB_M ARRAYS
 
    ndims = 2
    idims(1) = mloops_m
-   idims(2) = nma
+   idims(2) = mma
 
    allocate (lscr(mloops_m,nma))
-   call shdf5_irec(ndims,idims,'itab_m%loop',lvara=lscr)
-   do im = 1,nma
+   call shdf5_irec(ndims,idims,'itab_m%loop',lvara=lscr, points=lgma)
+   do im = 1,mma
       itab_m(im)%loop(1:mloops_m) = lscr(1:mloops_m,im)
    enddo
    deallocate (lscr)
 
    idims(1) = 7
 
-   allocate (iscr(7,nma))
+   allocate (iscr(7,mma))
    if (meshtype == 1) then
-      call shdf5_irec(ndims,idims,'itab_m%iu',ivara=iscr)
-      do im = 1,nma
+      call shdf5_irec(ndims,idims,'itab_m%iu',ivara=iscr, points=lgma)
+      do im = 1,mma
          itab_m(im)%iu(1:7) = iscr(1:7,im)
       enddo
    else
-      call shdf5_irec(ndims,idims,'itab_m%iv',ivara=iscr)
-      do im = 1,nma
+      call shdf5_irec(ndims,idims,'itab_m%iv',ivara=iscr, points=lgma)
+      do im = 1,mma
          itab_m(im)%iv(1:7) = iscr(1:7,im)
       enddo
    endif
    deallocate (iscr)
 
-   allocate (iscr(7,nma))
-   call shdf5_irec(ndims,idims,'itab_m%iw',ivara=iscr)
-   do im = 1,nma
+   allocate (iscr(7,mma))
+   call shdf5_irec(ndims,idims,'itab_m%iw',ivara=iscr, points=lgma)
+   do im = 1,mma
       itab_m(im)%iw(1:7) = iscr(1:7,im)
    enddo
    deallocate (iscr)
 
-   allocate (rscr(7,nma))
-   call shdf5_irec(ndims,idims,'itab_m%fmw',rvara=rscr)
-   do im = 1,nma
+   allocate (rscr(7,mma))
+   call shdf5_irec(ndims,idims,'itab_m%fmw',rvara=rscr, points=lgma)
+   do im = 1,mma
       itab_m(im)%fmw(1:7) = rscr(1:7,im)
    enddo
    deallocate (rscr)
