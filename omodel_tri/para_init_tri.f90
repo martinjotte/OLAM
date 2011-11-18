@@ -88,7 +88,6 @@ logical :: landflag(nwl)
 
 ! Temporary datatypes
 
-type (itab_u_vars), allocatable :: ltab_u(:)
 type (itab_w_vars), allocatable :: ltab_w(:)
 
 type(flux_vars), allocatable :: landflux_temp(:)
@@ -260,7 +259,6 @@ call gridfile_read()
 
 ! Move data to temporary data structures, nullifying the old datatype
 
-call move_alloc(itab_u, ltab_u)
 call move_alloc(itab_w, ltab_w)
 !!!!!!!!! ISSO DEVE SER DELETADO
 
@@ -270,7 +268,7 @@ call move_alloc(itab_w, ltab_w)
 
 ! Allocate itab data structures and main grid coordinate arrays
 
-call alloc_itabs_temp(meshtype,mua,mva,mwa)
+call alloc_itabs_temp(meshtype,mwa)
 
 !!!! ITAB_? POPULATION
 
@@ -315,12 +313,8 @@ do iu = 1,nua
    
 ! Look up global IUP index and subdomain IU index
 
-      iup = ltab_u(iu)%iup
+      iup = itab_u_pd(iu)%iup
       iu_myrank = itabg_u(iu)%iu_myrank
-
-! First, copy entire data type from global index to subdomain index
-
-      itab_u(iu_myrank) = ltab_u(iu)
 
 ! Next, redefine some individual itab_u members
 
@@ -337,7 +331,7 @@ do iu = 1,nua
 
 ! Turn off LBC copy (n/a for global domain) if IUP point is on remote node 
 
-         iup = ltab_u(iu)%iup
+         iup = itab_u_pd(iu)%iup
 
          if (.not. myrankflag_u(iup))  &
             call uloops('n',iu_myrank,-9,-18,0,0,0,0,0,0,0,0)
@@ -357,17 +351,17 @@ do iu = 1,nua
       if (myrankflag_u(iup)) itab_u(iu_myrank)%iup = itabg_u(iup)%iu_myrank
 
       do j = 1,2
-         imn = ltab_u(iu)%im(j)
+         imn = itab_u_pd(iu)%im(j)
          if (myrankflag_m(imn)) itab_u(iu_myrank)%im(j) = itabg_m(imn)%im_myrank
       enddo
 
       do j = 1,12
-         iun = ltab_u(iu)%iu(j)
+         iun = itab_u_pd(iu)%iu(j)
          if (myrankflag_u(iun)) itab_u(iu_myrank)%iu(j) = itabg_u(iun)%iu_myrank
       enddo
 
       do j = 1,6
-         iwn = ltab_u(iu)%iw(j)
+         iwn = itab_u_pd(iu)%iw(j)
          if (myrankflag_w(iwn)) itab_u(iu_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
       enddo
    endif
@@ -664,8 +658,12 @@ endif
 
 ! Deallocate temporary data structures and arrays
 
-deallocate (ltab_u,ltab_w)
+deallocate (ltab_w)
 deallocate (landflux_temp, seaflux_temp)
+
+! Deallocate para_decomp _pd arrays
+
+deallocate (itab_m_pd, itab_u_pd, itab_w_pd)
 
 return
 end subroutine para_init

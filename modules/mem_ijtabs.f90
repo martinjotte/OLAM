@@ -334,17 +334,11 @@ contains
 
 !===============================================================================
 
-   subroutine alloc_itabs_temp(meshtype,mua,mva,mwa)
+   subroutine alloc_itabs_temp(meshtype,mwa)
 
    implicit none
 
-  integer, intent(in) :: meshtype,mua,mva,mwa
-
-   if (meshtype == 1) then
-      allocate (itab_u(mua))
-   elseif (meshtype == 2) then
-      allocate (itab_v(mva))
-   endif
+  integer, intent(in) :: meshtype,mwa
    
    allocate (itab_w(mwa))
 

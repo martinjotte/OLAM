@@ -1828,7 +1828,7 @@ use misc_coms,  only: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp, &
 use mem_ijtabs, only: mloops_m, mloops_u, mloops_v, mloops_w, mrls, &
                       itab_m, itab_u, itab_v, itab_w, alloc_itabs,  &
                       lgma, lgua, lgva, lgwa
-use mem_grid,   only: nza, nma, nua, nva, nwa, &
+use mem_grid,   only: nza, nva, nwa, &
                       mza, mma, mua, mva, mwa, nsw_max, &
                       zm, zt, dzm, dzt, dzim, dzit, &
                       zfacm, zfact, zfacim, zfacit, &
@@ -1886,7 +1886,7 @@ real,    allocatable :: rscr(:,:)
 
 ! ESTAS ALOCACOES DEVEM SAIR DAQUI, POIS REPETE O QUE FOI FEITO ANTES NA PARA_INIT_TRI
 call alloc_gridz()
-call alloc_itabs(meshtype,mma,nua,nva,nwa)
+call alloc_itabs(meshtype,mma,mua,nva,nwa)
 call alloc_xyzem(mma)
 call alloc_xyzew(mwa)
 call alloc_grid1(meshtype, mma, mua, mva, mwa)
@@ -2045,7 +2045,7 @@ if (exans) then
    idims(1) = mloops_m
    idims(2) = mma
 
-   allocate (lscr(mloops_m,nma))
+   allocate (lscr(mloops_m,mma))
    call shdf5_irec(ndims,idims,'itab_m%loop',lvara=lscr, points=lgma)
    do im = 1,mma
       itab_m(im)%loop(1:mloops_m) = lscr(1:mloops_m,im)
@@ -2087,128 +2087,128 @@ if (exans) then
 ! Read ITAB_U SCALARS
 
       ndims = 1
-      idims(1) = nua
+      idims(1) = mua
       idims(2) = 1
 
-      call shdf5_irec(ndims,idims,'itab_u%iup'    ,ivara=itab_u(:)%iup)
-      call shdf5_irec(ndims,idims,'itab_u%mrlu'   ,ivara=itab_u(:)%mrlu)
-      call shdf5_irec(ndims,idims,'itab_u%iuglobe',ivara=itab_u(:)%iuglobe)
+      call shdf5_irec(ndims,idims,'itab_u%iup'    ,ivara=itab_u(:)%iup, points=lgua)
+      call shdf5_irec(ndims,idims,'itab_u%mrlu'   ,ivara=itab_u(:)%mrlu, points=lgua)
+      call shdf5_irec(ndims,idims,'itab_u%iuglobe',ivara=itab_u(:)%iuglobe, points=lgua)
 
-      call shdf5_irec(ndims,idims,'itab_u%gcf36'  ,rvara=itab_u(:)%gcf36)
-      call shdf5_irec(ndims,idims,'itab_u%gcf45'  ,rvara=itab_u(:)%gcf45)
+      call shdf5_irec(ndims,idims,'itab_u%gcf36'  ,rvara=itab_u(:)%gcf36, points=lgua)
+      call shdf5_irec(ndims,idims,'itab_u%gcf45'  ,rvara=itab_u(:)%gcf45, points=lgua)
 
-      call shdf5_irec(ndims,idims,'itab_u%pgc12'  ,rvara=itab_u(:)%pgc12)
-      call shdf5_irec(ndims,idims,'itab_u%pgc45'  ,rvara=itab_u(:)%pgc45)
-      call shdf5_irec(ndims,idims,'itab_u%pgc63'  ,rvara=itab_u(:)%pgc63)
-      call shdf5_irec(ndims,idims,'itab_u%pgc12b' ,rvara=itab_u(:)%pgc12b)
-      call shdf5_irec(ndims,idims,'itab_u%pgc45b' ,rvara=itab_u(:)%pgc45b)
-      call shdf5_irec(ndims,idims,'itab_u%pgc12c' ,rvara=itab_u(:)%pgc12c)
-      call shdf5_irec(ndims,idims,'itab_u%pgc63c' ,rvara=itab_u(:)%pgc63c)
-      call shdf5_irec(ndims,idims,'itab_u%pgc12d' ,rvara=itab_u(:)%pgc12d)
-      call shdf5_irec(ndims,idims,'itab_u%crossmm',rvara=itab_u(:)%crossmm)
-      call shdf5_irec(ndims,idims,'itab_u%crossww',rvara=itab_u(:)%crossww)
+      call shdf5_irec(ndims,idims,'itab_u%pgc12'  ,rvara=itab_u(:)%pgc12, points=lgua)
+      call shdf5_irec(ndims,idims,'itab_u%pgc45'  ,rvara=itab_u(:)%pgc45, points=lgua)
+      call shdf5_irec(ndims,idims,'itab_u%pgc63'  ,rvara=itab_u(:)%pgc63, points=lgua)
+      call shdf5_irec(ndims,idims,'itab_u%pgc12b' ,rvara=itab_u(:)%pgc12b, points=lgua)
+      call shdf5_irec(ndims,idims,'itab_u%pgc45b' ,rvara=itab_u(:)%pgc45b, points=lgua)
+      call shdf5_irec(ndims,idims,'itab_u%pgc12c' ,rvara=itab_u(:)%pgc12c, points=lgua)
+      call shdf5_irec(ndims,idims,'itab_u%pgc63c' ,rvara=itab_u(:)%pgc63c, points=lgua)
+      call shdf5_irec(ndims,idims,'itab_u%pgc12d' ,rvara=itab_u(:)%pgc12d, points=lgua)
+      call shdf5_irec(ndims,idims,'itab_u%crossmm',rvara=itab_u(:)%crossmm, points=lgua)
+      call shdf5_irec(ndims,idims,'itab_u%crossww',rvara=itab_u(:)%crossww, points=lgua)
 
 ! Read ITAB_U ARRAYS
 
       ndims = 2
       idims(1) = mloops_u
-      idims(2) = nua
+      idims(2) = mua
 
-      allocate (lscr(mloops_u,nua))
-      call shdf5_irec(ndims,idims,'itab_u%loop',lvara=lscr)
-      do iu = 1,nua
+      allocate (lscr(mloops_u,mua))
+      call shdf5_irec(ndims,idims,'itab_u%loop',lvara=lscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%loop(1:mloops_u) = lscr(1:mloops_u,iu)
       enddo
       deallocate (lscr)
 
       idims(1) = 2
 
-      allocate (iscr(2,nua))
-      call shdf5_irec(ndims,idims,'itab_u%im',ivara=iscr)
-      do iu = 1,nua
+      allocate (iscr(2,mua))
+      call shdf5_irec(ndims,idims,'itab_u%im',ivara=iscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%im(1:2) = iscr(1:2,iu)
       enddo
       deallocate (iscr)
 
-      allocate (rscr(2,nua))
-      call shdf5_irec(ndims,idims,'itab_u%vxw_u',rvara=rscr)
-      do iu = 1,nua
+      allocate (rscr(2,mua))
+      call shdf5_irec(ndims,idims,'itab_u%vxw_u',rvara=rscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%vxw_u(1:2) = rscr(1:2,iu)
       enddo
       deallocate (rscr)
 
-      allocate (rscr(2,nua))
-      call shdf5_irec(ndims,idims,'itab_u%vyw_u',rvara=rscr)
-      do iu = 1,nua
+      allocate (rscr(2,mua))
+      call shdf5_irec(ndims,idims,'itab_u%vyw_u',rvara=rscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%vyw_u(1:2) = rscr(1:2,iu)
       enddo
       deallocate (rscr)
 
       idims(1) = 4
 
-      allocate (rscr(4,nua))
-      call shdf5_irec(ndims,idims,'itab_u%diru',rvara=rscr)
-      do iu = 1,nua
+      allocate (rscr(4,mua))
+      call shdf5_irec(ndims,idims,'itab_u%diru',rvara=rscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%diru(1:4) = rscr(1:4,iu)
       enddo
       deallocate (rscr)
 
-      allocate (rscr(4,nua))
-      call shdf5_irec(ndims,idims,'itab_u%tuu',rvara=rscr)
-      do iu = 1,nua
+      allocate (rscr(4,mua))
+      call shdf5_irec(ndims,idims,'itab_u%tuu',rvara=rscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%tuu(1:4) = rscr(1:4,iu)
       enddo
       deallocate (rscr)
 
-      allocate (rscr(4,nua))
-      call shdf5_irec(ndims,idims,'itab_u%guw',rvara=rscr)
-      do iu = 1,nua
+      allocate (rscr(4,mua))
+      call shdf5_irec(ndims,idims,'itab_u%guw',rvara=rscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%guw(1:4) = rscr(1:4,iu)
       enddo
       deallocate (rscr)
 
-      allocate (rscr(4,nua))
-      call shdf5_irec(ndims,idims,'itab_u%vxu_u',rvara=rscr)
-      do iu = 1,nua
+      allocate (rscr(4,mua))
+      call shdf5_irec(ndims,idims,'itab_u%vxu_u',rvara=rscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%vxu_u(1:4) = rscr(1:4,iu)
       enddo
       deallocate (rscr)
 
-      allocate (rscr(4,nua))
-      call shdf5_irec(ndims,idims,'itab_u%vyu_u',rvara=rscr)
-      do iu = 1,nua
+      allocate (rscr(4,mua))
+      call shdf5_irec(ndims,idims,'itab_u%vyu_u',rvara=rscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%vyu_u(1:4) = rscr(1:4,iu)
       enddo
       deallocate (rscr)
 
       idims(1) = 6
 
-      allocate (iscr(6,nua))
-      call shdf5_irec(ndims,idims,'itab_u%iw',ivara=iscr)
-      do iu = 1,nua
+      allocate (iscr(6,mua))
+      call shdf5_irec(ndims,idims,'itab_u%iw',ivara=iscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%iw(1:6) = iscr(1:6,iu)
       enddo
       deallocate (iscr)
 
-      allocate (rscr(6,nua))
-      call shdf5_irec(ndims,idims,'itab_u%fuw',rvara=rscr)
-      do iu = 1,nua
+      allocate (rscr(6,mua))
+      call shdf5_irec(ndims,idims,'itab_u%fuw',rvara=rscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%fuw(1:6) = rscr(1:6,iu)
       enddo
       deallocate (rscr)
 
       idims(1) = 12
 
-      allocate (iscr(12,nua))
-      call shdf5_irec(ndims,idims,'itab_u%iu',ivara=iscr)
-      do iu = 1,nua
+      allocate (iscr(12,mua))
+      call shdf5_irec(ndims,idims,'itab_u%iu',ivara=iscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%iu(1:12) = iscr(1:12,iu)
       enddo
       deallocate (iscr)
 
-      allocate (rscr(12,nua))
-      call shdf5_irec(ndims,idims,'itab_u%fuu',rvara=rscr)
-      do iu = 1,nua
+      allocate (rscr(12,mua))
+      call shdf5_irec(ndims,idims,'itab_u%fuu',rvara=rscr, points=lgua)
+      do iu = 1,mua
          itab_u(iu)%fuu(1:12) = rscr(1:12,iu)
       enddo
       deallocate (rscr)
