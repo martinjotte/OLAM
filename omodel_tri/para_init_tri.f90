@@ -42,13 +42,8 @@ use mem_ijtabs, only: itab_m,      itab_u,      itab_w,      &
                       lgma,        lgua,        lgwa
 
 use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
-                      lsw, &
-                      xem, yem, zem, xeu, yeu, zeu, &
-                      xev, yev, zev, xew, yew, zew, &
-                      unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
-                      dnu, dniu, dnv, dniv, arm0, arw0, topm, topw, &
-                      glatm, glonm, glatu, glonu, glatv, glonv, glatw, glonw, &
-                      alloc_xyzem, alloc_xyzew, alloc_grid1
+                      xem, yem, zem, &
+                      alloc_xyzem
 
 use mem_para,   only: mgroupsize, myrank, &
                       send_u, recv_u, send_v, recv_v, send_w, recv_w, &
@@ -92,22 +87,10 @@ logical :: myrankflag_w(nwa) ! Flag for W points existing on this rank
 logical :: seaflag(nws)
 logical :: landflag(nwl)
 
-integer :: lsw_temp(nwa)
-
-real :: topm_temp(nma), glatm_temp(nma), glonm_temp(nma), arm0_temp(nma)
-
+! These arrays was used on para_decomp, so it should have the treatment
+! of global copy to a temporary one, deallocation of the original and copy-back
+! to a new local array
 real :: xem_temp(nma),yem_temp(nma),zem_temp(nma)
-real :: xeu_temp(nua),yeu_temp(nua),zeu_temp(nua)
-real :: xew_temp(nwa),yew_temp(nwa),zew_temp(nwa)
-real :: unx_temp(nua),uny_temp(nua),unz_temp(nua)
-real :: vnx_temp(nua),vny_temp(nua),vnz_temp(nua)
-real :: wnx_temp(nwa),wny_temp(nwa),wnz_temp(nwa)
-
-real :: glatw_temp(nwa),glonw_temp(nwa),arw0_temp(nwa),topw_temp(nwa)
-real :: dnu_temp(nua),dniu_temp(nua)
-real :: dnv_temp(nua),dniv_temp(nua)
-
-real :: glatu_temp(nua),glonu_temp(nua)
 
 ! Temporary datatypes
 
@@ -586,81 +569,25 @@ if (isfcl == 1) then
    call move_alloc(landflux, landflux_temp)
    call move_alloc( seaflux,  seaflux_temp)
 endif
+!!!!!!!!!! ISSO DEVE SER DELETADO
 
 ! Copy grid coordinates to temporary arrays
 
 do im = 1,nma
 
-   topm_temp(im) = topm(im)
-
    xem_temp(im)  = xem(im)
    yem_temp(im)  = yem(im)
    zem_temp(im)  = zem(im)
 
-   glatm_temp(im) = glatm(im)
-   glonm_temp(im) = glonm(im)
-
-   arm0_temp(im) = arm0(im)
-enddo
-
-do iu = 1,nua
-
-   xeu_temp(iu) = xeu(iu)
-   yeu_temp(iu) = yeu(iu)
-   zeu_temp(iu) = zeu(iu)
-   
-   unx_temp(iu) = unx(iu)
-   uny_temp(iu) = uny(iu)
-   unz_temp(iu) = unz(iu)
-
-   vnx_temp(iu) = vnx(iu)
-   vny_temp(iu) = vny(iu)
-   vnz_temp(iu) = vnz(iu)
-
-   dnu_temp(iu)  = dnu(iu)
-   dniu_temp(iu) = dniu(iu)
-   
-   dnv_temp(iu)  = dnv(iu)
-   dniv_temp(iu) = dniv(iu)
-   
-   glatu_temp(iu) = glatu(iu)
-   glonu_temp(iu) = glonu(iu)
-
-enddo
-
-do iw = 1,nwa
-   topw_temp(iw) = topw(iw)
-
-   lsw_temp(iw) = lsw(iw)
-
-   xew_temp(iw) = xew(iw)
-   yew_temp(iw) = yew(iw)
-   zew_temp(iw) = zew(iw)
-
-   wnx_temp(iw) = wnx(iw)
-   wny_temp(iw) = wny(iw)
-   wnz_temp(iw) = wnz(iw)
-
-   glatw_temp(iw) = glatw(iw)
-   glonw_temp(iw) = glonw(iw)
-
-   arw0_temp(iw) = arw0(iw)
-   
 enddo
 
 ! Deallocate grid coordinate arrays
 
-deallocate (lsw)
-deallocate (xem, yem, zem, topm, glatm, glonm, arm0)
-deallocate (xeu, yeu, zeu, unx, uny, unz, vnx, vny, vnz, dnu, dniu, dnv, dniv)
-deallocate (glatu, glonu)
-deallocate (xew, yew, zew, wnx, wny, wnz, glatw, glonw, arw0, topw)
+deallocate (xem, yem, zem)
 
 !!!! COPY OF ARRAYS
 
 call alloc_xyzem(mma)
-call alloc_xyzew(mwa)
-call alloc_grid1(meshtype, mma, mua, mva, mwa)
 
 ! M point memory copy
 
@@ -673,75 +600,10 @@ do im = 1,nma
       yem(im_myrank) = yem_temp(im)
       zem(im_myrank) = zem_temp(im)
 
-      topm(im_myrank) = topm_temp(im)
-
-      glatm(im_myrank) = glatm_temp(im)
-      glonm(im_myrank) = glonm_temp(im)
-
-      arm0(im_myrank) = arm0_temp(im)
-   endif
-enddo
-
-! U point memory copy
-
-do iu = 1,nua
-   if (myrankflag_u(iu)) then
-   
-      iu_myrank = itabg_u(iu)%iu_myrank
-
-      xeu(iu_myrank) = xeu_temp(iu)
-      yeu(iu_myrank) = yeu_temp(iu)
-      zeu(iu_myrank) = zeu_temp(iu)
-
-      unx(iu_myrank) = unx_temp(iu)
-      uny(iu_myrank) = uny_temp(iu)
-      unz(iu_myrank) = unz_temp(iu)
-
-      vnx(iu_myrank) = vnx_temp(iu)
-      vny(iu_myrank) = vny_temp(iu)
-      vnz(iu_myrank) = vnz_temp(iu)
-
-      dnu(iu_myrank) = dnu_temp(iu)
-      dniu(iu_myrank) = dniu_temp(iu)
-      
-      dnv(iu_myrank) = dnv_temp(iu)
-      dniv(iu_myrank) = dniv_temp(iu)
-      
-      glatu(iu_myrank) = glatu_temp(iu)
-      glonu(iu_myrank) = glonu_temp(iu)
-
-   endif
-enddo
-
-! W point memory copy
-
-do iw = 1,nwa
-   if (myrankflag_w(iw)) then
-   
-      iw_myrank = itabg_w(iw)%iw_myrank
-
-      lsw(iw_myrank) = lsw_temp(iw)
-
-      topw(iw_myrank) = topw_temp(iw)
-
-      xew(iw_myrank) = xew_temp(iw)
-      yew(iw_myrank) = yew_temp(iw)
-      zew(iw_myrank) = zew_temp(iw)
-
-      wnx(iw_myrank) = wnx_temp(iw)
-      wny(iw_myrank) = wny_temp(iw)
-      wnz(iw_myrank) = wnz_temp(iw)
-
-      glatw(iw_myrank) = glatw_temp(iw)
-      glonw(iw_myrank) = glonw_temp(iw)
-
-      arw0(iw_myrank) = arw0_temp(iw)
-      
    endif
 enddo
 
 !!!! END OF COPY
-!!!!!!!!!! ISSO DEVE SER DELETADO
 
 ! Check whether LAND/SEA models are used
 

@@ -1798,7 +1798,7 @@ use mem_grid,   only: nza, nma, nua, nva, nwa, &
                       zm, zt, dzm, dzt, dzim, dzit, &
                       zfacm, zfact, zfacim, zfacit, &
                       lpm, lpu, lcu, lpv, lcv, lpw, lsw, &
-                      topm, topw, xem, yem, zem, xeu, yeu, zeu, &
+                      topm, topw, xeu, yeu, zeu, &
                       xev, yev, zev, xew, yew, zew, &
                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
                       dnu, dniu, dnv, dniv, arw0, arm0, &
@@ -1852,8 +1852,8 @@ real,    allocatable :: rscr(:,:)
 ! ESTAS ALOCACOES DEVEM SAIR DAQUI, POIS REPETE O QUE FOI FEITO ANTES NA PARA_INIT_TRI
 call alloc_gridz()
 call alloc_itabs(meshtype,nma,nua,nva,nwa)
-call alloc_xyzew(nwa)
-call alloc_grid1(meshtype, nma, nua, nva, nwa)
+call alloc_xyzew(mwa)
+call alloc_grid1(meshtype, mma, mua, mva, mwa)
 call alloc_grid2(meshtype, mma, mua, mva, mwa)
 
 ! Check if grid file exists
@@ -1888,13 +1888,10 @@ if (exans) then
    idims(1) = mma
 
    call shdf5_irec(ndims, idims, 'LPM'  , ivara=lpm, points=lgma)
-
-   idims(1) = nma
-
-   call shdf5_irec(ndims, idims, 'TOPM' , rvara=topm)
-   call shdf5_irec(ndims, idims, 'ARM0' , rvara=arm0)
-   call shdf5_irec(ndims, idims, 'GLATM', rvara=glatm)
-   call shdf5_irec(ndims, idims, 'GLONM', rvara=glonm)
+   call shdf5_irec(ndims, idims, 'TOPM' , rvara=topm, points=lgma)
+   call shdf5_irec(ndims, idims, 'ARM0' , rvara=arm0, points=lgma)
+   call shdf5_irec(ndims, idims, 'GLATM', rvara=glatm, points=lgma)
+   call shdf5_irec(ndims, idims, 'GLONM', rvara=glonm, points=lgma)
 
    if (meshtype == 1) then
 
@@ -1902,13 +1899,21 @@ if (exans) then
 
       call shdf5_irec(ndims, idims, 'LPU'  , ivara=lpu, points=lgua)
       call shdf5_irec(ndims, idims, 'LCU'  , ivara=lcu, points=lgua)
-
-      idims(1) = nua
-      call shdf5_irec(ndims, idims, 'XEU'  , rvara=xeu)
-      call shdf5_irec(ndims, idims, 'YEU'  , rvara=yeu)
-      call shdf5_irec(ndims, idims, 'ZEU'  , rvara=zeu)
-      call shdf5_irec(ndims, idims, 'GLATU', rvara=glatu)
-      call shdf5_irec(ndims, idims, 'GLONU', rvara=glonu)
+      call shdf5_irec(ndims, idims, 'XEU'  , rvara=xeu, points=lgua)
+      call shdf5_irec(ndims, idims, 'YEU'  , rvara=yeu, points=lgua)
+      call shdf5_irec(ndims, idims, 'ZEU'  , rvara=zeu, points=lgua)
+      call shdf5_irec(ndims, idims, 'GLATU', rvara=glatu, points=lgua)
+      call shdf5_irec(ndims, idims, 'GLONU', rvara=glonu, points=lgua)
+      call shdf5_irec(ndims, idims, 'DNU' , rvara=dnu, points=lgua)
+      call shdf5_irec(ndims, idims, 'DNV' , rvara=dnv, points=lgua)
+      call shdf5_irec(ndims, idims, 'DNIU', rvara=dniu, points=lgua)
+      call shdf5_irec(ndims, idims, 'DNIV', rvara=dniv, points=lgua)
+      call shdf5_irec(ndims, idims, 'UNX' , rvara=unx, points=lgua)
+      call shdf5_irec(ndims, idims, 'UNY' , rvara=uny, points=lgua)
+      call shdf5_irec(ndims, idims, 'UNZ' , rvara=unz, points=lgua)
+      call shdf5_irec(ndims, idims, 'VNX' , rvara=vnx, points=lgua)
+      call shdf5_irec(ndims, idims, 'VNY' , rvara=vny, points=lgua)
+      call shdf5_irec(ndims, idims, 'VNZ' , rvara=vnz, points=lgua)
 
    else
 
@@ -1916,45 +1921,39 @@ if (exans) then
 
       call shdf5_irec(ndims, idims, 'LPV' , ivara=lpv, points=lgva)
       call shdf5_irec(ndims, idims, 'LCV' , ivara=lcv, points=lgva)
-
-      idims(1) = nva
-
-      call shdf5_irec(ndims, idims, 'XEV' , rvara=xev)
-      call shdf5_irec(ndims, idims, 'YEV' , rvara=yev)
-      call shdf5_irec(ndims, idims, 'ZEV' , rvara=zev)
-      call shdf5_irec(ndims, idims, 'GLATV', rvara=glatv)
-      call shdf5_irec(ndims, idims, 'GLONV', rvara=glonv)
+      call shdf5_irec(ndims, idims, 'XEV' , rvara=xev, points=lgva)
+      call shdf5_irec(ndims, idims, 'YEV' , rvara=yev, points=lgva)
+      call shdf5_irec(ndims, idims, 'ZEV' , rvara=zev, points=lgva)
+      call shdf5_irec(ndims, idims, 'GLATV', rvara=glatv, points=lgva)
+      call shdf5_irec(ndims, idims, 'GLONV', rvara=glonv, points=lgva)
+      call shdf5_irec(ndims, idims, 'DNU' , rvara=dnu, points=lgva)
+      call shdf5_irec(ndims, idims, 'DNV' , rvara=dnv, points=lgva)
+      call shdf5_irec(ndims, idims, 'DNIU', rvara=dniu, points=lgva)
+      call shdf5_irec(ndims, idims, 'DNIV', rvara=dniv, points=lgva)
+      call shdf5_irec(ndims, idims, 'UNX' , rvara=unx, points=lgva)
+      call shdf5_irec(ndims, idims, 'UNY' , rvara=uny, points=lgva)
+      call shdf5_irec(ndims, idims, 'UNZ' , rvara=unz, points=lgva)
+      call shdf5_irec(ndims, idims, 'VNX' , rvara=vnx, points=lgva)
+      call shdf5_irec(ndims, idims, 'VNY' , rvara=vny, points=lgva)
+      call shdf5_irec(ndims, idims, 'VNZ' , rvara=vnz, points=lgva)
 
    endif
 
-   call shdf5_irec(ndims, idims, 'DNU' , rvara=dnu)
-   call shdf5_irec(ndims, idims, 'DNV' , rvara=dnv)
-   call shdf5_irec(ndims, idims, 'DNIU', rvara=dniu)
-   call shdf5_irec(ndims, idims, 'DNIV', rvara=dniv)
-   call shdf5_irec(ndims, idims, 'UNX' , rvara=unx)
-   call shdf5_irec(ndims, idims, 'UNY' , rvara=uny)
-   call shdf5_irec(ndims, idims, 'UNZ' , rvara=unz)
-   call shdf5_irec(ndims, idims, 'VNX' , rvara=vnx)
-   call shdf5_irec(ndims, idims, 'VNY' , rvara=vny)
-   call shdf5_irec(ndims, idims, 'VNZ' , rvara=vnz)
 
    idims(1) = mwa
 
    call shdf5_irec(ndims, idims, 'LPW'  , ivara=lpw, points=lgwa)
-
-   idims(1) = nwa
-
-   call shdf5_irec(ndims, idims, 'LSW'  , ivara=lsw)
-   call shdf5_irec(ndims, idims, 'XEW'  , rvara=xew)
-   call shdf5_irec(ndims, idims, 'YEW'  , rvara=yew)
-   call shdf5_irec(ndims, idims, 'ZEW'  , rvara=zew)
-   call shdf5_irec(ndims, idims, 'TOPW' , rvara=topw)
-   call shdf5_irec(ndims, idims, 'ARW0' , rvara=arw0)
-   call shdf5_irec(ndims, idims, 'GLATW', rvara=glatw)
-   call shdf5_irec(ndims, idims, 'GLONW', rvara=glonw)
-   call shdf5_irec(ndims, idims, 'WNX'  , rvara=wnx)
-   call shdf5_irec(ndims, idims, 'WNY'  , rvara=wny)
-   call shdf5_irec(ndims, idims, 'WNZ'  , rvara=wnz)
+   call shdf5_irec(ndims, idims, 'LSW'  , ivara=lsw, points=lgwa)
+   call shdf5_irec(ndims, idims, 'XEW'  , rvara=xew, points=lgwa)
+   call shdf5_irec(ndims, idims, 'YEW'  , rvara=yew, points=lgwa)
+   call shdf5_irec(ndims, idims, 'ZEW'  , rvara=zew, points=lgwa)
+   call shdf5_irec(ndims, idims, 'WNX'  , rvara=wnx, points=lgwa)
+   call shdf5_irec(ndims, idims, 'WNY'  , rvara=wny, points=lgwa)
+   call shdf5_irec(ndims, idims, 'WNZ'  , rvara=wnz, points=lgwa)
+   call shdf5_irec(ndims, idims, 'ARW0' , rvara=arw0, points=lgwa)
+   call shdf5_irec(ndims, idims, 'TOPW' , rvara=topw, points=lgwa)
+   call shdf5_irec(ndims, idims, 'GLATW', rvara=glatw, points=lgwa)
+   call shdf5_irec(ndims, idims, 'GLONW', rvara=glonw, points=lgwa)
 
    ndims = 2
    idims(1) = nza
