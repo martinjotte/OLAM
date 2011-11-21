@@ -186,15 +186,15 @@ Module mem_leaf
 
    type (land_vars), target :: land
 
-   TYPE land_vars_pd ! for para_decomp
+   type land_vars_pd ! for para_decomp
 
       real, allocatable :: xem         (:) ! earth x coord of land M points
       real, allocatable :: yem         (:) ! earth y coord of land M points
       real, allocatable :: zem         (:) ! earth z coord of land M points
 
-   END TYPE land_vars_pd
+   end type land_vars_pd
 
-   TYPE(land_vars_pd), target :: land_pd
+   type(land_vars_pd), target :: land_pd
 
 ! The basic unit of the ED model is the site, which loosely corresponds to a
 ! grid cell.  Now, the entire ED memory structure resides on linked lists.  
@@ -244,7 +244,7 @@ Contains
 
 !=========================================================================
 
-   SUBROUTINE alloc_land_grid_pd(mml, mul, mwl)
+   subroutine alloc_land_grid_pd(mml, mul, mwl)
      use misc_coms, only: rinit
      implicit none
 
@@ -259,7 +259,7 @@ Contains
      allocate (land_pd%yem  (mml)) ; land_pd%yem   = rinit
      allocate (land_pd%zem  (mml)) ; land_pd%zem   = rinit
 
-   END SUBROUTINE alloc_land_grid_pd
+   end subroutine alloc_land_grid_pd
 
 !=========================================================================
 

@@ -172,7 +172,7 @@ Contains
 
 !=========================================================================
 
-   SUBROUTINE alloc_sea_grid_pd(mms,mus,mws)
+   subroutine alloc_sea_grid_pd(mms,mus,mws)
      use misc_coms, only: rinit
      implicit none
 
@@ -187,7 +187,7 @@ Contains
      allocate (sea_pd%yem       (mms)) ; sea_pd%yem        = rinit
      allocate (sea_pd%zem       (mms)) ; sea_pd%zem        = rinit
 
-   END SUBROUTINE alloc_sea_grid_pd
+   end subroutine alloc_sea_grid_pd
 
 !=========================================================================
 

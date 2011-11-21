@@ -60,8 +60,6 @@ use mem_para,    only: myrank
 use consts_coms, only: r8
 use olam_mpi_atm, only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, alloc_mpi_sndrcv_bufs
 
-use mem_leaf, only: land
-
 implicit none
 
 character(len=*), intent(in) :: name_name
@@ -264,22 +262,22 @@ write(io6,'(/,a)') 'olam_run calling olam_mem_alloc'
 
 call olam_mem_alloc()
 
-WRITE(io6,'(/,a)') 'olam_run calling olam_alloc_mpi'
+write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi'
 
-CALL olam_alloc_mpi(mza,mrls)
+call olam_alloc_mpi(mza,mrls)
 
-IF (isfcl == 1) THEN
-   WRITE(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_land'
+if (isfcl == 1) then
+   write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_land'
 
-   CALL olam_alloc_mpi_land(mrls)
+   call olam_alloc_mpi_land(mrls)
 
-   WRITE(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_sea'
+   write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_sea'
 
-   CALL olam_alloc_mpi_sea(mrls)
+   call olam_alloc_mpi_sea(mrls)
 
-   WRITE(io6,'(/,a)') 'olam_run after olam_alloc_mpi_sea'
+   write(io6,'(/,a)') 'olam_run after olam_alloc_mpi_sea'
 
-ENDIF
+endif
 
 ! Initialize primary atmospheric fields
 

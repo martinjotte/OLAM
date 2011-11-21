@@ -6,8 +6,6 @@ module hdf5_f2f
 
   implicit none
 
-  integer :: ierr
-
   INTEGER(HID_T) :: fileid
   integer(HID_T) :: mspcid
   integer(HID_T) :: dsetid
