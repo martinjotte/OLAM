@@ -49,7 +49,7 @@ use misc_coms,   only: io6
 
 implicit none
 
-integer      :: nfatal, nwarn, ifm, ng, i, k, iplt, i_huge, izaux
+integer      :: nfatal, nwarn, ifm, ng, i, k, iplt, i_huge, idz
 real         :: r_huge, r_min, r_max, r_tiny, dzxmin, zb_min, zb_max
 real(kind=8) :: d_huge
 
@@ -129,42 +129,21 @@ call ichk_bnds( nl%nzp,         "NZP",       3,   10000, 0, nfatal, nwarn, &
 call ichk_bnds( nl%nxp,         "NXP",       1,   10000, 0, nfatal, nwarn )
 call rchk_bnds( nl%dtlong,   "DTLONG",  r_tiny,  r_huge, 0, nfatal, nwarn )
 call rchk_bnds( nl%deltax,   "DELTAX",  dzxmin,  r_huge, 0, nfatal, nwarn )
-call rchk_bnds( nl%deltaz,   "DELTAZ",      0.,  r_huge, 0, nfatal, nwarn )
-call rchk_bnds( nl%zbase,    "ZBASE",   zb_min,  zb_max, 0, nfatal, nwarn )
-call rchk_bnds( nl%dzbase,   "DZBASE",     0.0,  r_huge, 0, nfatal, nwarn )
-call rchk_bnds( nl%ztop,     "ZTOP",       0.0,  r_huge, 0, nfatal, nwarn )
-call rchk_bnds( nl%dztop,    "DZTOP",      0.0,  r_huge, 0, nfatal, nwarn )
-call ichk_bnds( nl%nzaux,    "NZAUX",       -1,      10, 0, nfatal, nwarn )
+call ichk_bnds( nl%ndz,         "NDZ",       1,      10, 0, nfatal, nwarn )
 
-do izaux=1, nl%nzaux
-   call rchk_bnds( nl%zaux(izaux),   "ZAUX",   0.0,  r_huge, 0, nfatal, nwarn )
-   call rchk_bnds( nl%dzaux(izaux),  "DZAUX",  0.0,  r_huge, 0, nfatal, nwarn )
+do idz=1, nl%ndz
+   call rchk_bnds( nl%hdz(idz), "HDZ",   0.0,  r_huge, 0, nfatal, nwarn )
+   call rchk_bnds( nl%dz (idz),  "DZ",   0.0,  r_huge, 0, nfatal, nwarn )
 
-   if (nl%zaux(izaux) <= nl%zbase) then
-      write(io6,*) 'FATAL - zaux(',izaux,') must be larger than zbase.'
-      nfatal = nfatal + 1
-   endif
-
-   if (nl%zaux(izaux) >= nl%ztop) then
-      write(io6,*) 'FATAL - zaux(',izaux,') must be less than ztop.'
-      nfatal = nfatal + 1
-   endif
-
-   if (izaux > 1 .and. nl%zaux(izaux) <= nl%zaux(izaux-1) ) then
-      write(io6,*) 'FATAL - zaux(',izaux,') must be larger than zaux(',izaux-1,').'
-      nfatal = nfatal + 1
+   if (idz > 1) then
+      if (nl%hdz(idz) <= nl%hdz(idz-1) ) then
+         write(io6,*) 'FATAL - hdz(',idz,') must be larger than hdz(',idz-1,').'
+         nfatal = nfatal + 1
+      endif
    endif
 enddo
 
-if (nl%deltaz >= dzxmin) then
-
-   call rchk_bnds( nl%dzrat,  "DRZAT",     1.0,    10.0, 0, nfatal, nwarn )
-   call rchk_bnds( nl%dzrat,  "DRZAT",     0.0,     1.2, 1, nfatal, nwarn, &
-        msgmax="Large DZRAT degrades 2nd-order accuracy in the vertical &
-              & differencing")
-   call rchk_bnds( nl%dzmax,  "DZMAX",  dzxmin,  r_huge, 0, nfatal, nwarn )
-
-else
+if (nl%ndz == 1) then
 
    call rchk_bnds( nl%zz(1),     "ZZ",  zb_min,  zb_max, 0, nfatal, nwarn )
    do k=2,nl%nzp

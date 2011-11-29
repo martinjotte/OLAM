@@ -40,9 +40,8 @@ subroutine commio(action)
 use max_dims,   only: maxngrdll
 use misc_coms,  only: io6, itime1, idate1, imonth1, iyear1, nxp, ngrids, &
                       ngrdll, grdrad, grdlat, grdlon, nzp, &
-                      mdomain, meshtype, deltaz, deltax, dzrat, dzmax, &
-                      itopoflg, time8, zbase, dzbase, ztop, dztop, &
-                      nzaux, zaux, dzaux, current_time
+                      mdomain, meshtype, deltax, &
+                      itopoflg, time8, ndz, hdz, dz, current_time
 use leaf_coms,  only: nzg, nzs, slz, ivegflg, isfcl
 use hdf5_utils, only: shdf5_orec, shdf5_irec, shdf5_io
 
@@ -80,22 +79,12 @@ call shdf5_io(action, ndims, idims, 'nl%itopoflg',ivars=itopoflg)
 call shdf5_io(action, ndims, idims, 'nl%ivegflg', ivars=ivegflg)
 call shdf5_io(action, ndims, idims, 'nl%deltax',  rvars=deltax)
 
-call shdf5_io(action, ndims, idims, 'nl%deltaz',  rvars=deltaz)
-call shdf5_io(action, ndims, idims, 'nl%dzrat',   rvars=dzrat)
-call shdf5_io(action, ndims, idims, 'nl%dzmax',   rvars=dzmax)
-call shdf5_io(action, ndims, idims, 'nl%zbase',   rvars=zbase)
-call shdf5_io(action, ndims, idims, 'nl%dzbase',  rvars=dzbase)
-call shdf5_io(action, ndims, idims, 'nl%ztop',    rvars=ztop)
-call shdf5_io(action, ndims, idims, 'nl%dztop',   rvars=dztop)
+call shdf5_io(action, ndims, idims, 'nl%ndz',     ivars=ndz)
 
-call shdf5_io(action, ndims, idims, 'nl%nzaux',   ivars=nzaux)
-
-if (nzaux > 0) then
-   ndims = 1
-   idims(1) = nzaux
-   call shdf5_io(action, ndims, idims, 'nl%zaux',    rvara=zaux)
-   call shdf5_io(action, ndims, idims, 'nl%dzaux',   rvara=dzaux)
-endif
+ndims = 1
+idims(1) = ndz
+call shdf5_io(action, ndims, idims, 'nl%hdz',    rvara=hdz)
+call shdf5_io(action, ndims, idims, 'nl%dz',     rvara=dz)
 
 ndims = 1
 idims(1) = ngrids

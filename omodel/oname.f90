@@ -78,9 +78,7 @@ use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
                        hs, p_sfc, us, vs, ts, ps, rts, &
                        itime1, idate1, imonth1, iyear1, ngrids, nzp, &
                        mdomain, meshtype, itopoflg, nxp, &
-                       ngrdll, grdrad, grdlat, grdlon, &
-                       dzrat, dzmax, deltax, deltaz, zbase, &
-                       dzbase, ztop, dztop, nzaux, zaux, dzaux, &
+                       ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
                        current_time, nqparm_sh, debug_fp, init_nans
 
 use micro_coms,  only: level, icloud, idriz, irain, ipris, &
@@ -369,18 +367,11 @@ elseif (copy_type == 'NOT_HISTORY') then
       enddo
    enddo
 
-   dzrat  = nl%dzrat
-   dzmax  = nl%dzmax
    deltax = nl%deltax
-   deltaz = nl%deltaz
-   zbase  = nl%zbase
-   dzbase = nl%dzbase
-   ztop   = nl%ztop
-   dztop  = nl%dztop
-   nzaux  = nl%nzaux
+   ndz    = nl%ndz
    
-   zaux (1:nzaux) = nl%zaux (1:nzaux)
-   dzaux(1:nzaux) = nl%dzaux(1:nzaux)
+   hdz(1:ndz) = nl%hdz(1:ndz)
+   dz (1:ndz) = nl%dz (1:ndz)
 
    slz(1:nzgmax) = nl%slz(1:nzgmax)
 

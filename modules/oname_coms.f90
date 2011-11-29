@@ -79,18 +79,11 @@ Module oname_coms
 
       real :: dtlong = 0.0
       real :: deltax = 0.0
-      real :: deltaz = 0.0
-      real :: dzrat  = 1.0
-      real :: dzmax  = 2000.0
-      real :: zbase  = 0.0
-      real :: dzbase = 0.0
-      real :: ztop   = 0.0
-      real :: dztop  = 0.0
       
-      integer :: nzaux = 0
+      integer :: ndz = 0
       
-      real :: zaux(10) = 0.
-      real :: dzaux(10) = 0.
+      real :: hdz(10) = 0.
+      real :: dz (10) = 0.
 
       real :: zz(maxsndg) = 0.0
 

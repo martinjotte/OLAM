@@ -41,7 +41,7 @@ use mem_basic,   only: umc, ump, uc, vmc, vmp, vc, thil, sh_w, sh_v, wmc, wc, &
 use mem_grid,    only: mza, mua, mva, mwa, lcu, lcv, lpw, zm, zt, &
                        unx, uny, unz, vnx, vny, vnz, xeu, yeu, zeu, &
                        xev, yev, zev, xew, yew, zew, aru, arv, volt
-use misc_coms,   only: io6, deltax, deltaz, dzrat, dzmax, iparallel, runtype, &
+use misc_coms,   only: io6, deltax, iparallel, runtype, &
                        meshtype
 use mem_micro,   only: sh_c
 use micro_coms,  only: level

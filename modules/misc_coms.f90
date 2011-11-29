@@ -92,7 +92,7 @@ integer :: nzpp
 integer :: nscl
 integer :: nxp
 integer :: iparallel
-integer :: nzaux
+integer :: ndz
 
 integer :: idiffk   (maxgrds)
 integer :: ndtrat   (maxgrds)
@@ -108,17 +108,10 @@ real :: dtlong
 real :: topref
 real :: polelat
 real :: polelon
-real :: dzrat
-real :: dzmax
 real :: frqstate
 real :: deltax
-real :: deltaz
-real :: zbase
-real :: dzbase
-real :: ztop
-real :: dztop
-real :: zaux(10)
-real :: dzaux(10)
+real :: hdz(10)
+real :: dz(10)
 real :: p_sfc
 
 integer :: ngrdll(maxgrds)

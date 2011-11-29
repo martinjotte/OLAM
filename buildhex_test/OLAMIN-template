@@ -37,35 +37,15 @@
  ! Vertical grid specifications
  !--------------------------------------------------------------------------
 
-   NL%NZP    = 53       ! # of vertical levels (or max # if limited by ztop)
+   NL%NZP  = 100  ! # of vertical levels [or max # if limited by HDZ(NDZ)]
 
-   NL%ZBASE  = 0.0      ! base Z level
-   NL%DZBASE = 50.0     ! base DZ
+   NL%NDZ  = 4    ! # of (HDZ,DZ) pairs of values to use from list (min=2, max=10)
+                  ! Exception: NDZ = 1 is flag to use ZZ instead of (HDZ,DZ) pairs
 
-   NL%ZTOP   = 35000.0  ! top Z level
-   NL%DZTOP  = 2000.0   ! top DZ
+   NL%HDZ  =    0.,  1000., 15000., 35000.  ! Heights at which DZ is specified
+   NL%DZ   =  100.,   200.,  2000.,  2000.  ! Vertical grid spacing at each HDZ
 
-   NL%NZAUX = -1 ! Number of auxiliary (Z,DZ) values to use (max of 10)
-                 ! NZAUX = -1 is flag to use (DELTAZ, DZRAT, DZMAX, ZZ instead)
-
-   NL%ZAUX(1)  = 500.0
-   NL%DZAUX(1) =  50.0
-
-   NL%ZAUX(2)  = 20000.0
-   NL%DZAUX(2) =  2000.0
-
-   NL%ZAUX(3)  = 10000.0
-   NL%DZAUX(3) =  1000.0
-
- !--------------------------------------------------------------------------
- ! Vertical grid specifications to be discontinued (?)
- !--------------------------------------------------------------------------
-
-   NL%DELTAZ  = 100.     ! Vertical grid spacing at lowest level (if 0., use ZZ)
-   NL%DZRAT   = 1.05     ! Vertical grid stretch ratio (used if DELTAZ > 0.)
-   NL%DZMAX   = 2000.    ! Maximum delta Z (used only if DELTAZ > 0.)
-
-   ! Vertical levels if DELTAZ = 0
+   ! Vertical levels if NDZ = 1
    NL%ZZ       = 0.0,
      30.0,      60.0,      90.0,     120.0,     150.0,
     180.0,     210.0,     240.0,     270.0,     300.0,
@@ -196,7 +176,7 @@
    NL%ITOPOFLG = 1    ! 1 = Read topo from standard TOPO_DATABASE file
                       ! 2 = Define topo in subroutine topo_init
 
-!  Surface topography database file path and name
+ ! Surface topography database file path and name:
    NL%TOPO_DATABASE = './data/dem30s/TM'
 
  !--------------------------------------------------------------------------
@@ -417,19 +397,19 @@
 
  ! Surface database file paths and names
 
-   NL%VEG_DATABASE    = './data/oge2/OGE2_'
-   NL%SOIL_DATABASE   = './data/fao/FAO_'
-   NL%NDVI_DATABASE   = './data/ndvi/NDVI'
-   NL%SST_DATABASE    = './data/sst7100/SST'
-   NL%SEAICE_DATABASE = './data/ice8100/ICE'
-   NL%SOILSTATE_DB    = './dp_etc/'
-   NL%SOILDEPTH_DB    = './data/soildepth/SOIL_DEPTHS.h5'
+   NL%VEG_DATABASE    = '../../olamdatah5/oge2/OGE2_'
+   NL%SOIL_DATABASE   = '../../olamdatah5/fao/FAO_'
+   NL%NDVI_DATABASE   = '../../olamdatah5/ndvi/NDVI'
+   NL%SST_DATABASE    = '../../olamdatah5/sst7100/SST'
+   NL%SEAICE_DATABASE = '../../olamdatah5/ice8100/ICE'
+   NL%SOILSTATE_DB    = './dp_etc/STW-'
+   NL%SOILDEPTH_DB    = '../../olamdatah5/SOIL_DEPTHS.h5'
 
-! Update flags for surface data
+ ! Update flags for surface data
 
-   NL%IUPDNDVI   = 0  ! 0/1 = No/Yes update of NDVI values during run
-   NL%IUPDSST    = 0  ! 0/1 = No/Yes update of SST values during run
-   NL%IUPDSEAICE = 0  ! 0/1 = No/Yes update of SST values during run
+   NL%IUPDNDVI   = 1  ! 0/1 = No/Yes update of NDVI values during run
+   NL%IUPDSST    = 1  ! 0/1 = No/Yes update of SST values during run
+   NL%IUPDSEAICE = 1  ! 0/1 = No/Yes update of SST values during run
  
    NL%SEATMP   = 280.   ! Water surface temperature (K) if ISSTFLG = 2
 
@@ -621,147 +601,224 @@
  !                   |  color   |        lon/lat      height,  width     or 'V'
  !FLDNAME            |  table   |        or x/y      or p-lev   (m)     projectn
  !-------------------------------------------------------------------------------
-'TOPM'             ,'O' ,29 ,'GFmPJcitW'   ,-84.,40.     ,100.   ,2000.e3      ,0.
-'GLATW'            ,'O' ,12 ,'FGmPIticW'    ,-84.,40.   ,100.     ,2000.e3     ,0.
-'GLONW'            ,'O' ,12 ,'FGmPIticW'    ,-84.,40.   ,100.     ,2000.e3     ,0.
-'TOPM'             ,'O' ,29 ,'G'      ,0.,90.     ,100.   ,12000.e3      ,0.
-'TOPM'             ,'O' ,29 ,'GJ'      ,0.,90.     ,100.   ,12000.e3      ,0.
-'W_IRANK'          ,'O' ,77 ,'Tmcit'  ,0.,0.     ,100.   ,3000.e3      ,0.
-'W_IRANK'          ,'O' ,77 ,'TGmcit'  ,0.,-15.     ,100.   ,3000.e3      ,0.
-'W_IRANK'          ,'O' ,77 ,'TPmcit'  ,-75.,-15.     ,100.   ,3000.e3      ,0.
-'W_IRANK'          ,'O' ,77 ,'TPGmcit'  ,-75.,-15.     ,100.   ,3000.e3      ,0.
-'TOPM'             ,'O' ,29 ,'TPGJmcitW'  ,-75.,-15.     ,100.   ,8000.e3      ,0.
-'LEAF_CLASS'       ,'O' ,14 ,'TPGImcitW'  ,-75.,-15.     ,100.   ,8000.e3      ,0.
-'LEAF_CLASS'       ,'O' ,14 ,'TPGImcitW'  ,-75.,-15.     ,100.   ,3000.e3      ,0.
-'SFC_TEMPC'        ,'O' ,52 ,'TPGImcitW'  ,-75.,-15.     ,3000.  ,3000.e3      ,0.
-'CAN_TEMPC'        ,'O' ,17 ,'TPGImcitW'  ,-75.,-15.     ,30.    ,3000.e3      ,0.
-'AIRTEMPC'         ,'O' ,17 ,'TPGImcitsW' ,-75.,-15.     ,30.    ,3000.e3      ,0.
-'FCELL_ILSF'       ,'O' ,77 ,'TPGImcitW'  ,-75.,-15.     ,30.    ,3000.e3      ,0.
-'FCELL_IWLS'       ,'O' ,77 ,'TPGImcitW'  ,-75.,-15.     ,30.    ,3000.e3      ,0.
-'FCELL_IW'         ,'O' ,77 ,'TPGgImcitW' ,-75.,-15.     ,30.    ,3000.e3      ,0.
-'FCELL_KW'         ,'O' ,77 ,'TPGImcitW'  ,-75.,-15.     ,30.    ,3000.e3      ,0.
+'TOPM'             ,'O', 29,'GFmPJcitW',   -84., 40.,    100.,   2000.e3,     0.
+'GLATW'            ,'O', 12,'FGmPIticW',   -84., 40.,    100.,   2000.e3,     0.
+'GLONW'            ,'O', 12,'FGmPIticW',   -84., 40.,    100.,   2000.e3,     0.
+'TOPM'             ,'O', 29,'G',             0., 90.,    100.,  12000.e3,     0.
+'TOPM'             ,'O', 29,'GJ',            0., 90.,    100.,  12000.e3,     0.
+'W_IRANK'          ,'O', 77,'Tmcit',         0.,  0.,    100.,   3000.e3,     0.
+'W_IRANK'          ,'O', 77,'TGmcit',        0.,-15.,    100.,   3000.e3,     0.
+'W_IRANK'          ,'O', 77,'TPmcit',      -75.,-15.,    100.,   3000.e3,     0.
+'W_IRANK'          ,'O', 77,'TPGmcit',     -75.,-15.,    100.,   3000.e3,     0.
+'TOPM'             ,'O', 29,'TPGJmcitW',   -75.,-15.,    100.,   8000.e3,     0.
+'LEAF_CLASS'       ,'O', 14,'TPGImcitW',   -75.,-15.,    100.,   8000.e3,     0.
+'LEAF_CLASS'       ,'O', 14,'TPGImcitW',   -75.,-15.,    100.,   3000.e3,     0.
+'SFC_TEMPC'        ,'O', 52,'TPGImcitW',   -75.,-15.,   3000.,   3000.e3,     0.
+'CAN_TEMPC'        ,'O', 17,'TPGImcitW',   -75.,-15.,     30.,   3000.e3,     0.
+'AIRTEMPC'         ,'O', 17,'TPGImcitsW',  -75.,-15.,     30.,   3000.e3,     0.
+'FCELL_ILSF'       ,'O', 77,'TPGImcitW',   -75.,-15.,     30.,   3000.e3,     0.
+'FCELL_IWLS'       ,'O', 77,'TPGImcitW',   -75.,-15.,     30.,   3000.e3,     0.
+'FCELL_IW'         ,'O', 77,'TPGgImcitW',  -75.,-15.,     30.,   3000.e3,     0.
+'FCELL_KW'         ,'O', 77,'TPGImcitW',   -75.,-15.,     30.,   3000.e3,     0.
 
 / 
  ! End of OLAMIN namelist
  ! Some example plotting specifications that you may use:
+!-------------------------------------------------------------------------------
+'WC'                ,'O',108,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RHO'               ,'O', 18,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PRESS'             ,'O', 17,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'THIL'              ,'O', 20,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'THETA'             ,'O', 20,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'AIRTEMPK'          ,'O', 20,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'AIRTEMPC'          ,'O',100,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SH_W'              ,'O',  5,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SH_V'              ,'O',  5,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SH_C'              ,'O',  5,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SH_D'              ,'O',  5,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SH_R'              ,'O',  5,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SH_P'              ,'O',  5,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SH_S'              ,'O',  5,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SH_A'              ,'O',  5,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SH_G'              ,'O',  5,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SH_H'              ,'O',  5,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SH_CP'             ,'O',  5,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SH_TOTCOND'        ,'O',  5,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CON_C'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CON_D'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CON_R'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CON_P'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CON_S'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CON_A'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CON_G'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CON_H'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CON_CCN'           ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CON_GCCN'          ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CON_IFN'           ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'VKM'               ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FTHRD'             ,'O',300,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SPEEDV'            ,'O', 54,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'AZIMV'             ,'O',104,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ZONAL_WINDV'       ,'O',106,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'MERID_WINDV'       ,'O',106,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SPEEDW'            ,'O', 54,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'AZIMW'             ,'O',104,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ZONAL_WINDW'       ,'O',106,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'MERID_WINDW'       ,'O',106,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RVORTZM'           ,'O',127,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'TVORTZM'           ,'O',127,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'DIVERG'            ,'O',306,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ZPLEV'             ,'O', 28,'FmpcitW',     -85.,30.,     500.,    5000.e3,    0.
+'RSHORT_TOP'        ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RSHORTUP_TOP'      ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RLONGUP_TOP'       ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RSHORT'            ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RSHORTUP'          ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RLONG'             ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RLONGUP'           ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ALBEDT'            ,'O',  6,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'VKM_SFC'           ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SFLUX_W'           ,'O',201,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SENSFLUX'          ,'O',102,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'VAPFLUX'           ,'O',127,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'LATFLUX'           ,'O',102,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPRD'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPRR'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPRP'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPRS'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPRA'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPRG'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPRH'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPRTOT'           ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CONPRR'            ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'TOTPRR'            ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ACCPD'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ACCPR'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ACCPP'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ACCPS'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ACCPA'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ACCPG'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ACCPH'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ACCPTOT'           ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ACONPR'            ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ATOTPR'            ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SOIL_TEXT'         ,'O',  9,'TmcitW',      -85.,30.,     21.,     5000.e3,    0.
+'SOIL_ENERGY'       ,'O',105,'TmcitW',      -85.,30.,     21.,     5000.e3,    0.
+'SOIL_TEMPC'        ,'O',100,'TmcitW',      -85.,30.,     21.,     5000.e3,    0.
+'SOIL_FRACLIQ'      ,'O',  6,'TmcitW',      -85.,30.,     21.,     5000.e3,    0.
+'SOIL_WATER'        ,'O',  6,'TmcitW',      -85.,30.,     21.,     5000.e3,    0.
+'SFWAT_MASS'        ,'O',200,'TmcitW',      -85.,30.,     1.,      5000.e3,    0.
+'SFWAT_ENERGY'      ,'O',105,'TmcitW',      -85.,30.,     1.,      5000.e3,    0.
+'SFWAT_TEMPC'       ,'O',100,'TmcitW',      -85.,30.,     1.,      5000.e3,    0.
+'SFWAT_FRACLIQ'     ,'O',  6,'TmcitW',      -85.,30.,     1.,      5000.e3,    0.
+'SFWAT_DEPTH'       ,'O',201,'TmcitW',      -85.,30.,     1.,      5000.e3,    0.
+'NLEV_SFWAT'        ,'O',  9,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'VEG_NDVIC'         ,'O',  6,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'VEG_TEMPC'         ,'O',100,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'VEG_WATER'         ,'O',201,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'STOM_RESIST'       ,'O',200,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'GROUND_SHV'        ,'O',  5,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SOIL_DEPTH'        ,'O',  5,'TmcitW',      -85.,30.,     21.,     5000.e3,    0.
+'SEATP'             ,'O',  2,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SEATF'             ,'O',  2,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SEATC'             ,'O',  2,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SEAICEP'           ,'O',  6,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SEAICEF'           ,'O',  6,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SEAICEC'           ,'O',  6,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'LEAF_CLASS'        ,'O',  1,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'AREA'              ,'O',202,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ROUGH'             ,'O',201,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CAN_TEMPC'         ,'O',100,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'CAN_SHV'           ,'O',  5,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SFC_TEMPC'         ,'O',100,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SFC_SSH'           ,'O',  5,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SENSFLUX_LS'       ,'O',102,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'VAPFLUX_LS'        ,'O',127,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'LATFLUX_LS'        ,'O',102,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RSHORT_LS'         ,'O',413,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RSHORT_DIFFUSE_LS' ,'O',413,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RLONG_LS'          ,'O',413,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RLONGUP_LS'        ,'O',413,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RLONG_ALBEDO_LS'   ,'O',  6,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ALBEDO_BEAM_LS'    ,'O',  6,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ALBEDO_DIFFUSE_LS' ,'O',  6,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_ILSF'        ,'O',124,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_IWLS'        ,'O',124,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_IW'          ,'O',124,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_KW'          ,'O',124,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_AREA'        ,'O',202,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_ARFATM'      ,'O',  6,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_ARFLS'       ,'O',  6,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_SENS'        ,'O',102,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_VAP'         ,'O',127,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_LAT'         ,'O',102,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_AIRTEMPC'    ,'O',100,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_AIRTEMPK'    ,'O', 20,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'FCELL_CANTEMPC'    ,'O',100,'TmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'TOPM'              ,'O',401,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'TOPW'              ,'O',401,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'GLATM'             ,'O',103,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'GLONM'             ,'O',103,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'GLATW'             ,'O',103,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'GLONW'             ,'O',103,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'LPM'               ,'O',124,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'LPU'               ,'O',124,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'LCU'               ,'O',124,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'LPV'               ,'O',124,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'LCV'               ,'O',124,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'LPW'               ,'O',124,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'LSW'               ,'O',124,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RSHORT_AVG'        ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RSHORTUP_AVG'      ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RLONG_AVG'         ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RLONGUP_AVG'       ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RSHORT_TOP_AVG'    ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RSHORTUP_TOP_AVG'  ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'RLONGUP_TOP_AVG'   ,'O',413,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'SENSFLUX_AVG'      ,'O',102,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'LATFLUX_AVG'       ,'O',102,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'VAPFLUX_AVG'       ,'O',127,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ITAB_W_IW(1)'      ,'O',124,'TGmcit',      -85.,30.,     1000.,   5000.e3,    0.
+'WC'                ,'C',108,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'RHO'               ,'C',  7,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'PRESS'             ,'C',  8,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'THIL'              ,'C', 11,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'THETA'             ,'C', 11,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'AIRTEMPK'          ,'C',  4,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'AIRTEMPC'          ,'C',100,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SH_W'              ,'C',  5,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SH_V'              ,'C',  5,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SH_C'              ,'C',  5,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SH_D'              ,'C',  5,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SH_R'              ,'C',  5,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SH_P'              ,'C',  5,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SH_S'              ,'C',  5,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SH_A'              ,'C',  5,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SH_G'              ,'C',  5,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SH_H'              ,'C',  5,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SH_CP'             ,'C',  5,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SH_TOTCOND'        ,'C',  5,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'CON_C'             ,'C',200,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'CON_D'             ,'C',200,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'CON_R'             ,'C',200,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'CON_P'             ,'C',200,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'CON_S'             ,'C',200,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'CON_A'             ,'C',200,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'CON_G'             ,'C',200,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'CON_H'             ,'C',200,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'CON_CCN'           ,'C',200,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'CON_GCCN'          ,'C',200,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'CON_IFN'           ,'C',200,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'VKM'               ,'C',200,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'FTHRD'             ,'C',300,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SPEEDV'            ,'C', 54,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'AZIMV'             ,'C',104,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'ZONAL_WINDV'       ,'C',106,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'MERID_WINDV'       ,'C',106,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'SPEEDW'            ,'C', 54,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'AZIMW'             ,'C',104,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'ZONAL_WINDW'       ,'C',106,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'MERID_WINDW'       ,'C',106,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
+'DIVERG'            ,'C',306,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
 
 
-'W_IRANK'          ,'O' ,77 ,'Tmcit'  ,175.,-15.     ,100.   ,3000.e3      ,0.
-'W_IRANK'          ,'O' ,77 ,'Tmcit'  ,55.,-15.     ,100.   ,3000.e3      ,0.
-'W_IRANK'          ,'O' ,77 ,'Tmcit'  ,-65.,90.     ,100.   ,3000.e3      ,0.
-'FCELL_AREA'       ,'O' ,24 ,'TPGImcitW'  ,-98.,20.     ,30.    ,3000.e3      ,0.
-'FCELL_ARFATM'     ,'O' ,10 ,'TPGImcitW'  ,-98.,20.     ,30.    ,3000.e3      ,0.
-'FCELL_ARFLS'      ,'O' ,10 ,'TPGImcitW'  ,-98.,20.     ,30.    ,3000.e3      ,0.
-'FCELL_SENS'       ,'O' ,8  ,'TPGImcitW'  ,-98.,20.     ,30.    ,3000.e3      ,0.
-'FCELL_LAT'        ,'O' ,8  ,'TPGImcitW'  ,-98.,20.     ,30.    ,3000.e3      ,0.
-'FCELL_AIRTEMPC'   ,'O' ,17 ,'TPGImcitW'  ,-98.,20.     ,30.    ,3000.e3      ,0.
-'UC'               ,'O' ,16 ,'TPGImcitsW' ,-98.,20.     ,30.    ,3000.e3      ,0.
-'ZONAL_WINDU'      ,'O' ,16 ,'TPGImcitsW' ,-98.,20.     ,30.    ,3000.e3      ,0.
-'RSHORT_DIFFUSE_LS','O' ,8  ,'TPGImcitW'  ,35.,20.     ,30.    ,4000.e3      ,0.
-
-'TOPM'             ,'O' ,29 ,'TPGcitJm'  , 90.,0.     ,100.   ,500.e3       ,0.
-'LEAF_CLASS'       ,'O' ,14 ,'TIPGmcit'  , 90.,0.     ,100.   ,500.e3       ,0.
-'SFC_TEMPC'        ,'O' ,52 ,'TmcitIPG'  , 90.,0.     ,3000.  ,2000.e3      ,0.
-'AIRTEMPC'         ,'O' ,17 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
-'AIRTEMPC'         ,'O' ,17 ,'TmcistIPG' , 90.,0.     ,30.    ,2000.e3      ,0.
-'FCELL_ILSF'       ,'O' ,77 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
-'FCELL_IWLS'       ,'O' ,77 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
-'FCELL_IW'         ,'O' ,77 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
-'FCELL_KW'         ,'O' ,77 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
-'FCELL_AREA'       ,'O' ,24 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
-'FCELL_ARFATM'     ,'O' ,10 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
-'FCELL_ARFLS'      ,'O' ,10 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
-'FCELL_AIRTEMPC'   ,'O' ,17 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
-'CAN_TEMPC'        ,'O' ,17 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
-'ZONAL_WINDU'      ,'O' ,16 ,'TmcitIPG'  , 90.,0.     ,30.    ,2000.e3      ,0.
-
-'SH_V'           ,'O' ,6 ,'TmcitIPG'  ,-90.,0.     ,3000.   ,2000.e3      ,0.
-'SH_V'           ,'O' ,6 ,'TmcitIPG'  ,90.,0.     ,3000.   ,2000.e3      ,0.
-'SFC_TEMPC'      ,'O' ,52 ,'TmcitIPG'  ,90.,0.     ,3000.   ,2000.e3      ,0.
-'AIRTEMPC'       ,'O' ,17 ,'TmcitIPG'  ,90.,90.     ,3000.   ,2000.e3      ,0.
-'SH_V'           ,'O' ,6 ,'TmcitIPG'  ,-90.,90.     ,3000.   ,2000.e3      ,0.
-'SH_V'           ,'O' ,6 ,'TmcitIPG'  ,90.,90.     ,3000.   ,2000.e3      ,0.
-'SFC_TEMPC'      ,'O' ,52 ,'TmcitIPG'  ,-90.,90.     ,3000.   ,2000.e3      ,0.
-'SFC_TEMPC'      ,'O' ,52 ,'TmcitIPG'  ,90.,90.     ,3000.   ,2000.e3      ,0.
-'AIRTEMPC'       ,'O' ,17 ,'TmcitIPG'  ,-90.,-90.     ,3000.   ,2000.e3      ,0.
-'AIRTEMPC'       ,'O' ,17 ,'TmcitIPG'  ,90.,-90.     ,3000.   ,2000.e3      ,0.
-'SH_V'           ,'O' ,6 ,'TmcitIPG'  ,-90.,-90.     ,3000.   ,2000.e3      ,0.
-'SH_V'           ,'O' ,6 ,'TmcitIPG'  ,90.,-90.     ,3000.   ,2000.e3      ,0.
-'SFC_TEMPC'      ,'O' ,52 ,'TmcitIPG'  ,-90.,-90.     ,3000.   ,2000.e3      ,0.
-'SFC_TEMPC'      ,'O' ,52 ,'TmcitIPG'  ,90.,-90.     ,3000.   ,2000.e3      ,0.
-'SH_V'           ,'C' ,6 ,'TmcitGP'  ,-36.0,83.3     ,90.   ,2000.e3      ,0.
-'SH_V'           ,'C' ,6 ,'TmcitiIP'  ,167.07,-86.36     ,90.   ,2000.e3      ,0.
-'SOIL_TEMPC'     ,'O' ,52 ,'TmcitIPG'  ,90.,-90.     ,11.   ,2000.e3      ,0.
-'SOIL_TEMPC'     ,'O' ,52 ,'TmcitIPG'  ,90.,90.     ,11.   ,2000.e3      ,0.
-'SFC_TEMPC'      ,'O' ,52 ,'TmcitI'     ,167.,60.     ,1500.   ,2000.e3      ,0.
-'THETA'          ,'O' ,45 ,'Tmcit'     ,167.,-60.     ,1500.   ,2000.e3      ,0.
-'UC'             ,'O' ,6 ,'Tmcit'      ,167.,-60.     ,1500.   ,2000.e3      ,0.
-'THIL'           ,'O' ,45 ,'TPGmcitI'  ,100.,0.     ,100.   ,2000.e3      ,0.
-'UC'             ,'O' ,6  ,'TPGmcitI'  ,100.,0.  ,   100.   ,2000.e3       ,0.
-'PRESS'          ,'O' ,41 ,'TPGmcitI'  ,100.,0.     ,100.   ,2000.e3      ,0.
-'TOPM'           ,'O' ,29 ,'TPGcitJm'  ,100.,0.   , 100.    ,500.e3      ,0.
-'IMGLOBE'        ,'O' ,77 ,'TPGmcitJ'  ,100.,0.     ,100.   ,2000.e3      ,0.
-'IUGLOBE'        ,'O' ,77 ,'TPGmcitJ'  ,100.,0.     ,100.   ,2000.e3      ,0.
-'IWGLOBE'        ,'O' ,77 ,'TPGmcitJ'  ,100.,0.     ,100.   ,2000.e3      ,0.
-'TOTPRR'         ,'O' ,20 ,'TmcitIPG'  ,0.,0.     ,3000.   ,2000.e3      ,0.
-'SPEED'          ,'O' ,6  ,'FGmcit'  ,-77.,34.     ,100.   ,2000.e3      ,0.
-'U_IRANK'        ,'O' ,77 ,'TPGmcitJ'  ,100.,0.     ,100.   ,2000.e3      ,0.
-'W_IRANK'        ,'O' ,77 ,'TPGmcitJ'  ,100.,0.     ,100.   ,2000.e3      ,0.
-'LEAF_CLASS'     ,'O' ,14 ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'SOIL_TEXT'      ,'O' ,14 ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'SENSFLUX'       ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'SENSFLUX_LS'    ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'LATFLUX'        ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'LATFLUX_LS'     ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'RSHORT'         ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'RSHORT_L'       ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'RLONG'          ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'RLONG_L'        ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'RLONGUP'        ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'RLONGUP_L'      ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'ALBEDT'         ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'ALBEDO_L'       ,'O' ,8  ,'TIPGmcit' ,-77.,34.   , 100.    ,500.e3      ,0.
-'SFC_TEMPC       ,'O' ,52 ,'TIPGmcit' ,-77.,34.   ,100.     ,2000.e3     ,0.
-'SH_W'           ,'O' ,6  ,'FIGmcit'  ,-77.,34.   ,90.     ,2000.e3      ,0.
-'SH_V'           ,'O' ,6  ,'FGmcit'  ,-77.,30.   ,90.     ,2000.e3      ,0.
-'PRESS'          ,'C' ,11 ,'OGmcitW'  ,-77.,0.    ,90.    ,20000.e3     ,90.
-'THETA'          ,'C' ,1  ,'OGmcitW'  ,-77.,0.    ,90.    ,20000.e3     ,90.
-'SH_W'           ,'C' ,6  ,'OGmcitW'  ,-77.,0.    ,90.    ,20000.e3     ,90.
-'SH_V'           ,'C' ,6  ,'OGmcitW'  ,-77.,0.    ,90.    ,20000.e3     ,90.
-'PRESS'          ,'O' ,41 ,'TGmcitP'   ,-77.,30.   ,100.     ,2000.e3     ,0.
-'GLATW'          ,'O' ,12 ,'OFGmticf2'       ,-77.,30.   ,100.     ,2000.e3     ,0.
-'GLONW'          ,'O' ,12 ,'OFGmticf3'       ,-77.,30.   ,100.     ,2000.e3     ,0.
-'THETA'          ,'O' ,19 ,'OGmtic4'    ,-77.,30.   ,100.     ,2000.e3     ,0.
-'THETA'          ,'O' ,19 ,'FGtic'    ,-77.,30.   ,100.     ,2000.e3     ,0.
-'IWP'            ,'O' ,77 ,'TJGtic'    ,-77.,30.   ,100.     ,2000.e3     ,0.
-'SH_W'           ,'C' ,6  ,'FGticW'     ,-77.,30.   ,90.     ,2000.e3         ,0.
-'WC'             ,'C' ,51 ,'FGtic'        ,-77.,30.   ,90.     ,60.         ,0.
-'CONPRR'         ,'O' ,20 ,'FGtic'     ,-77.,30.   ,100.     ,2000.e3     ,0.
-'ACONPR'         ,'O' ,20 ,'FGtic'     ,-77.,30.   ,200.     ,2000.e3     ,0.
-'THETA'          ,'O' ,19 ,'TJPGWtnm'  ,-51.,30.  ,3300.     ,2000.e3     ,0.
-'W_INUD'         ,'O' ,6  ,'TGm'      ,-51.,30.   ,7000.   ,8000.e3     ,0.
-'WC'             ,'O' ,51 ,'FGticmJ'     ,-77.,30.   ,7000.   ,2000.e3     ,0.
-'UC'             ,'V' ,6  ,'TPGW'   , -20.e3,0.  ,   0.      ,120.e3    ,0.
-'ARW'            ,'Z' ,24 ,'TJPGW'   , -20.e3,0.   ,  370.      ,120.e3      ,0.
-'ARU'            ,'Z' ,24 ,'TJPGW'   , -20.e3,0.   ,  370.      ,120.e3      ,0.
-'VOLT'           ,'V' ,24 ,'TPGW'   , -20.e3,0.   ,   0.      ,120.e3      ,0.
-'WMC'            ,'V' ,49 ,'TPGW'   , -20.e3,0.  ,   0.      ,120.e3    ,0.
-'UMC'            ,'V' ,6  ,'TPGW'   , -20.e3,0.  ,   0.      ,120.e3    ,0.
-'RHO'            ,'V' ,10 ,'TPGW'   , -20.e3,0.  ,   0.      ,120.e3    ,0.
-'PRESS_P'        ,'V' ,26 ,'F'      ,0.,0.  ,   0.       ,2500.e3    ,0.
-'RHO_P'          ,'V' ,58 ,'F'      ,0.,0.  ,   0.       ,2500.e3    ,0.
-'0THETA_P'       ,'V' ,26 ,'F'      ,0.,0.  ,   0.       ,2500.e3    ,0.
-'WMT'            ,'C' ,22 ,'F'    ,-167.,0.01 ,90.     ,40          ,90.
-'UMT'            ,'O' ,22 ,'TV' ,-77.,0.   ,300.   ,4000.e3     ,0.
-'VMX'            ,'O' ,36 ,'FVGmJW' ,-77.,0.    ,300.   ,4000.e3     ,0.
-'VMY'            ,'O' ,36 ,'FVGmJW' ,-77.,0.    ,300.   ,4000.e3     ,0.
-'SH_TOTCOND'     ,'O' ,47 ,'FGm'    ,-77.,27.   ,7000.    ,2500.e3     ,0.
-'RSHORT'         ,'O' ,8  ,'FGm'    ,-77.,27.   , 300.    ,2500.e3     ,0.
-'RLONG'          ,'O' ,8  ,'FGm'    ,-77.,27.   , 300.    ,2500.e3     ,0.
-'RLONGUP'        ,'O' ,8  ,'FGm'    ,-77.,27.   , 300.    ,2500.e3     ,0.
-'TOPM'           ,'O' ,29 ,'TGm'    ,-73.,34.   , 100.    ,500.e3      ,0.
-'LEAF_CLASS'     ,'O' ,14 ,'TGm'    ,-73.,34.   , 100.    ,500.e3      ,0.
-'SOIL_TEXT'      ,'O' ,14 ,'TGm'    ,-73.,34.   , 100.    ,500.e3      ,0.
-'VEG_NDVIC'      ,'O' ,9  ,'TGm'    ,-73.,34.   , 100.    ,500.e3      ,0.
-'SEATC'          ,'O' ,2  ,'TGm'    ,-73.,34.   , 100.    ,500.e3      ,0.
-'DNU'            ,'O' ,50 ,'TPJUGm' ,-73.,34.   ,2000.    ,500.e3      ,0.
