@@ -33,7 +33,7 @@
 SUBROUTINE gridinit()
 
 USE misc_coms,   ONLY: io6, runtype, mdomain, ngrids, initial, nxp, nzp, &
-                       nzaux, timmax8, alloc_misc, iparallel, meshtype, &
+                       timmax8, alloc_misc, iparallel, meshtype, &
                        iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim
 
 USE leaf_coms,   ONLY: nzg, nzs, isfcl, nwl
@@ -53,7 +53,7 @@ IMPLICIT NONE
 REAL, ALLOCATABLE :: quarter_kite(:,:)
 
 INTEGER :: npoly
-INTEGER :: j, jmaxneg, jminpos, k
+INTEGER :: j, jmaxneg, jminpos
 INTEGER :: imd,imd1,imd2,iud,iwd,iwnud,iwnudn,iw
 
 REAL :: scalprod, vecprodz, vecprodz_maxneg, vecprodz_minpos
@@ -79,13 +79,8 @@ IF (runtype == 'MAKESFC' .OR. runtype == 'MAKEGRID') THEN
 
 ! Vertical grid coordinate setup
 
-   IF (nzaux < 0) THEN
-      WRITE(io6,'(/,a)') 'gridinit calling gridset'
-      CALL gridset()
-   ELSE
-      WRITE(io6,'(/,a)') 'gridinit calling gridset2'
-      CALL gridset2()
-   ENDIF
+   WRITE(io6,'(/,a)') 'gridinit calling gridset2'
+   CALL gridset2()
 
    WRITE(io6,'(a,f8.1)') ' Model top height = ',zm(nza-1)
 
@@ -435,189 +430,130 @@ END SUBROUTINE gridinit
 
 !===============================================================================
 
-SUBROUTINE gridset()
-
-USE mem_grid,    ONLY: nza, mza, &
-                       zm, zt, dzm, dzt, dzim, dzit, &
-                       zfacm, zfact, zfacim, zfacit, &
-                       alloc_gridz
-USE misc_coms,   ONLY: io6, nzp, deltaz, dzrat, dzmax, ztop, zbase, mdomain
-USE consts_coms, ONLY: erad
-USE oname_coms,  ONLY: nl
-
-IMPLICIT NONE
-
-INTEGER :: k
-REAL :: dzr,dzrati
-REAL, ALLOCATABLE :: zmvec(:),ztvec(:)
-
-nza = nzp
-mza = nzp
-
-CALL alloc_gridz()
-ALLOCATE (zmvec(-1:mza+1),ztvec(-1:mza+1))
-
-! calculate zm
-
-IF ( deltaz < SPACING(0.) ) THEN
-   zmvec(1:nzp) = nl%zz(1:nzp)
-   zmvec(nzp+1) = 2. * zmvec(nzp) - zmvec(nzp-1)
-ELSE
-   zmvec(1) = zbase
-   zmvec(2) = zbase + deltaz
-   DO k = 3,nzp+1
-      zmvec(k) = zmvec(k-1) &
-               + MIN(dzrat * (zmvec(k-1) - zmvec(k-2)),MAX(deltaz,dzmax))
-   ENDDO
-ENDIF
-dzrati = (zmvec(2) - zmvec(1)) / (zmvec(3) - zmvec(2))
-zmvec(0) = zmvec(1) - (zmvec(2) - zmvec(1)) * dzrati
-zmvec(-1) = zmvec(0) - (zmvec(1) - zmvec(0)) * dzrati
-
-! compute zt values by geometric interpolation.
-
-DO k = 1,nza
-   dzr = SQRT(SQRT((zmvec(k+1) - zmvec(k)) / (zmvec(k-1) - zmvec(k-2))))
-   ztvec(k) = zmvec(k-1) + (zmvec(k) - zmvec(k-1)) / (1. + dzr)
-ENDDO
-ztvec(nza+1) = .5 * (zmvec(nza) + zmvec(nza+1))
-
-! Other vertical coordinate values
-
-DO k = 1,nza
-   zm(k) = zmvec(k)
-   zt(k) = ztvec(k)
-
-   dzm(k) = ztvec(k+1) - ztvec(k)
-   dzt(k) = zmvec(k) - zmvec(k-1)
-
-   dzim(k) = 1. / dzm(k)
-   dzit(k) = 1. / dzt(k)
-
-   IF (mdomain < 2) THEN
-      zfacm(k) = (erad + zm(k)) / erad
-      zfact(k) = (erad + zt(k)) / erad
-   ELSE
-      zfacm(k) = 1.
-      zfact(k) = 1.
-   ENDIF
-
-   zfacim(k) = 1. / zfacm(k)
-   zfacit(k) = 1. / zfact(k)
-ENDDO
-
-DEALLOCATE (zmvec,ztvec)
-
-RETURN
-END SUBROUTINE gridset
-
-!===============================================================================
-
 SUBROUTINE gridset2()
 
 USE mem_grid,    ONLY: nza, mza, &
                        zm, zt, dzm, dzt, dzim, dzit, &
                        zfacm, zfact, zfacim, zfacit, &
                        alloc_gridz
-USE misc_coms,   ONLY: io6, nzp, nzaux, mdomain, &
-                       zbase, dzbase, ztop, dztop, zaux, dzaux
+USE misc_coms,   ONLY: io6, nzp, ndz, hdz, dz, mdomain
 USE consts_coms, ONLY: erad
+use oname_coms,  only: nl
 
 IMPLICIT NONE
 
-INTEGER :: izaux, kvec, nseries, iseries, k
+INTEGER :: idz, kvec, nseries, iseries, k
 
 REAL :: zend, dzend, dzbeg, ztarg, dzr, rdzr
 
 REAL, ALLOCATABLE :: zmvec(:),ztvec(:)
 
-! This subroutine will compute number of vertical levels.
-! First, allocate zmvec and ztvec arrays to large size.
+! Allocate zmvec and ztvec arrays to large size.
 
-ALLOCATE (zmvec(0:500),ztvec(500))
+ALLOCATE (zmvec(0:500),ztvec(0:500))
 
-! Fill starting values of zmvec and ztvec
+! If NDZ = 1, then use ZZ values from namelist
 
-zmvec(0) = zbase - dzbase
-zmvec(1) = zbase
-zmvec(2) = zbase + dzbase
+IF (ndz == 1) THEN
 
-ztvec(1) = zbase - dzbase * .5
-ztvec(2) = zbase + dzbase * .5
+   nza = nzp
+   mza = nzp
 
-kvec = 2
+   zmvec(0) = 2. * nl%zz(1) - nl%zz(2)
+   zmvec(1:nza) = nl%zz(1:nza)
+   zmvec(nza+1) = 2. * zmvec(nza) - zmvec(nza-1)
 
-! Loop through any (zaux,dzaux) values, plus one extra cycle for (ztop,dztop)
+! compute zt values by geometric interpolation.
 
-DO izaux = 1,nzaux+1
+   ztvec(1) = .5 * (zmvec(0) + zmvec(1))
+   DO k = 2,nza
+      dzr = SQRT(SQRT((zmvec(k+1) - zmvec(k)) / (zmvec(k-1) - zmvec(k-2))))
+      ztvec(k) = zmvec(k-1) + (zmvec(k) - zmvec(k-1)) / (1. + dzr)
+   ENDDO
+   ztvec(nza+1) = .5 * (zmvec(nza) + zmvec(nza+1))
 
-   IF (izaux < nzaux + 1) THEN
-      zend = zaux(izaux)
-      dzend = dzaux(izaux)
-   ELSE
-      zend = ztop
-      dzend = dztop
-   ENDIF
+ELSE
 
-   dzbeg = zmvec(kvec) - zmvec(kvec-1)
+! IF NDZ > 1, this subroutine will compute number of vertical levels.
+! Fill starting values of zmvec
+
+   zmvec(0) = hdz(1) - dz(1)
+   zmvec(1) = hdz(1)
+   zmvec(2) = hdz(1) + dz(1)
+
+   ztvec(1) = hdz(1) - dz(1) * .5
+   ztvec(2) = hdz(1) + dz(1) * .5
+
+   kvec = 2
+
+! Loop through (hdz,dz) values
+
+   DO idz = 2,ndz
+
+      zend = hdz(idz)
+      dzend = dz(idz)
+
+      dzbeg = zmvec(kvec) - zmvec(kvec-1)
 
 ! Target height for next series
 
-   ztarg = zend + .5 * dzend
+      ztarg = zend + .5 * dzend
 
 ! Stretch ratio based on geometric series sum
 
-   dzr = (ztarg - zmvec(kvec)) / (ztarg - zmvec(kvec-1) - dzend)
+      dzr = (ztarg - zmvec(kvec)) / (ztarg - zmvec(kvec-1) - dzend)
 
 ! NSERIES from stretch ratio
 
-   IF (abs(dzr - 1.) > 1.e-3) THEN
-      nseries = max(1,nint(log(dzend/dzbeg) / log(dzr)))
-   ELSE
-      nseries = max(1,nint((ztarg - zmvec(kvec)) / dzbeg))
-   ENDIF
+      IF (abs(dzr - 1.) > 1.e-3) THEN
+         nseries = max(1,nint(log(dzend/dzbeg) / log(dzr)))
+      ELSE
+         nseries = max(1,nint((ztarg - zmvec(kvec)) / dzbeg))
+      ENDIF
 
 ! Stretch ratio based on N
 
-   dzr = (dzend / dzbeg) ** (1./REAL(nseries))
-   rdzr = sqrt(dzr)
+      dzr = (dzend / dzbeg) ** (1./REAL(nseries))
+      rdzr = sqrt(dzr)
 
 ! Loop over series and compute new levels
 
-   DO iseries = 1,nseries
+      DO iseries = 1,nseries
 
-      if (kvec >= nzp - 1) GO TO 5
+         if (kvec >= nzp - 1) GO TO 5
 
-      kvec = kvec + 1
-      dzbeg = dzbeg * dzr
+         kvec = kvec + 1
+         dzbeg = dzbeg * dzr
 
-      zmvec(kvec) = zmvec(kvec-1) + dzbeg
-      ztvec(kvec) = zmvec(kvec-1) + (zmvec(kvec) - zmvec(kvec-1)) / (1. + rdzr)
+         zmvec(kvec) = zmvec(kvec-1) + dzbeg
+         ztvec(kvec) = zmvec(kvec-1) + (zmvec(kvec) - zmvec(kvec-1)) / (1. + rdzr)
+
+      ENDDO
 
    ENDDO
 
-ENDDO
-
-5 CONTINUE
+   5 CONTINUE
 
 ! Fill NZA and MZA values
 
-nza = kvec + 1
-mza = nza
+   nza = kvec + 1
+   mza = nza
 
-IF (nza < 3) THEN
-   WRITE(io6,'(a)')      'OLAM requires that NZA >= 3.'
-   WRITE(io6,'(a,i5,a)') 'NZA = ',nza,' in subroutine gridset2.  Stopping model.'
-   STOP 'stop nza in gridset2'
-ENDIF
+   IF (nza < 3) THEN
+      WRITE(io6,'(a)')      'OLAM requires that NZA >= 3.'
+      WRITE(io6,'(a,i5,a)') 'NZA = ',nza,' in subroutine gridset2.  Stopping model.'
+      STOP 'stop nza in gridset2'
+   ENDIF
 
 ! Fill top 2 ZMVEC and ZTVEC values
 
-zmvec(nza)   = zmvec(nza-1) * 2. - zmvec(nza-2)
-zmvec(nza+1) = zmvec(nza)   * 2. - zmvec(nza-1)
+   zmvec(nza)   = zmvec(nza-1) * 2. - zmvec(nza-2)
+   zmvec(nza+1) = zmvec(nza)   * 2. - zmvec(nza-1)
 
-ztvec(nza)   = .5 * (zmvec(nza-1) + zmvec(nza))
-ztvec(nza+1) = .5 * (zmvec(nza) + zmvec(nza+1))
+   ztvec(nza)   = .5 * (zmvec(nza-1) + zmvec(nza))
+   ztvec(nza+1) = .5 * (zmvec(nza) + zmvec(nza+1))
+
+ENDIF
 
 ! Allocate main grid arrays
 
@@ -684,7 +620,7 @@ ENDDO
 12 format (i4,f10.2,1x,3('---------'),f6.3)
 13 format (15x,i4,2f10.2)
 
-END
+END SUBROUTINE gridset_print
 
 !===============================================================================
 
@@ -760,8 +696,7 @@ SUBROUTINE gridfile_write()
   USE max_dims,   ONLY: maxngrdll
   USE misc_coms,  ONLY: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp, &
        iclobber, itopoflg, &
-       deltax, deltaz, dzmax, dzrat, zbase, dzbase, ztop, dztop, &
-       nzaux, zaux, dzaux, ngrdll, grdrad, grdlat, grdlon, meshtype
+       deltax, ndz, hdz, dz, ngrdll, grdrad, grdlat, grdlon, meshtype
   USE mem_ijtabs, ONLY: mloops_m, mloops_u, mloops_v, mloops_w, mrls, &
        itab_m, itab_u, itab_v, itab_w
   USE mem_grid,   ONLY: nza, nma, nua, nva, nwa, nsw_max, &
@@ -820,21 +755,14 @@ SUBROUTINE gridfile_write()
   CALL shdf5_orec(ndims, idims, 'ISFCL'   , ivars=isfcl)
   CALL shdf5_orec(ndims, idims, 'ITOPOFLG', ivars=itopoflg)
   CALL shdf5_orec(ndims, idims, 'DELTAX'  , rvars=deltax)
-  CALL shdf5_orec(ndims, idims, 'DELTAZ'  , rvars=deltaz)
-  CALL shdf5_orec(ndims, idims, 'DZRAT'   , rvars=dzrat)
-  CALL shdf5_orec(ndims, idims, 'DZMAX'   , rvars=dzmax)
-  CALL shdf5_orec(ndims, idims, 'ZBASE'   , rvars=zbase)
-  CALL shdf5_orec(ndims, idims, 'DZBASE'  , rvars=dzbase)
-  CALL shdf5_orec(ndims, idims, 'ZTOP'    , rvars=ztop)
-  CALL shdf5_orec(ndims, idims, 'DZTOP'   , rvars=dztop)
 
-  CALL shdf5_orec(ndims, idims, 'NZAUX'   , ivars=nzaux)
+  CALL shdf5_orec(ndims, idims, 'NDZ'     , ivars=ndz)
 
-  IF (nzaux > 0) THEN
-     idims(1) = nzaux
+  IF (ndz > 1) THEN
+     idims(1) = ndz
 
-     CALL shdf5_orec(ndims, idims, 'ZAUX'    , rvara=zaux)
-     CALL shdf5_orec(ndims, idims, 'DZAUX'   , rvara=dzaux)
+     CALL shdf5_orec(ndims, idims, 'HDZ'  , rvara=hdz)
+     CALL shdf5_orec(ndims, idims, 'DZ'   , rvara=dz)
   ENDIF
 
   idims(1) = ngrids
@@ -1604,8 +1532,7 @@ SUBROUTINE gridfile_read()
 
 USE max_dims,   ONLY: maxngrdll
 USE misc_coms,  ONLY: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp, &
-                      itopoflg, deltax, deltaz, dzmax, dzrat, &
-                      zbase, dzbase, ztop, dztop, nzaux, zaux, dzaux, &
+                      itopoflg, deltax, ndz, hdz, dz, &
                       ngrdll, grdrad, grdlat, grdlon, meshtype
 USE mem_ijtabs, ONLY: mloops_m, mloops_u, mloops_v, mloops_w, mrls, &
                       itab_m, itab_u, itab_v, itab_w, alloc_itabs
@@ -1642,16 +1569,16 @@ USE mem_nudge,  ONLY: nudflag, nudnxp, nwnud, mwnud, itab_wnud, &
 
 IMPLICIT NONE
 
-INTEGER :: im, iu, iv, iw, iwnud, izaux
+INTEGER :: im, iu, iv, iw, iwnud, idz
 
 INTEGER :: ierr
 
 INTEGER :: ngr, i
 INTEGER :: ndims, idims(2)
 
-INTEGER :: ngrids0, mdomain0, meshtype0, nxp0, nzp0, itopoflg0, isfcl0, nzaux0
+INTEGER :: ngrids0, mdomain0, meshtype0, nxp0, nzp0, itopoflg0, isfcl0, ndz0
 
-REAL    :: deltax0, deltaz0, dzrat0, dzmax0, zbase0, dzbase0, ztop0, dztop0
+REAL    :: deltax0
 
 LOGICAL :: exans
 
@@ -1659,8 +1586,8 @@ INTEGER, ALLOCATABLE :: ngrdll0(:)
 REAL,    ALLOCATABLE :: grdrad0(:)
 REAL,    ALLOCATABLE :: grdlat0(:,:)
 REAL,    ALLOCATABLE :: grdlon0(:,:)
-REAL,    ALLOCATABLE :: zaux0(:)
-REAL,    ALLOCATABLE :: dzaux0(:)
+REAL,    ALLOCATABLE :: hdz0(:)
+REAL,    ALLOCATABLE :: dz0(:)
 
 ! Scratch arrays for copying input
 
@@ -1697,28 +1624,21 @@ IF (exans) THEN
    CALL shdf5_irec(ndims, idims, 'ISFCL'   , ivars=isfcl0)
    CALL shdf5_irec(ndims, idims, 'ITOPOFLG', ivars=itopoflg0)
    CALL shdf5_irec(ndims, idims, 'DELTAX'  , rvars=deltax0)
-   CALL shdf5_irec(ndims, idims, 'DELTAZ'  , rvars=deltaz0)
-   CALL shdf5_irec(ndims, idims, 'DZRAT'   , rvars=dzrat0)
-   CALL shdf5_irec(ndims, idims, 'DZMAX'   , rvars=dzmax0)
-   CALL shdf5_irec(ndims, idims, 'ZBASE'   , rvars=zbase0)
-   CALL shdf5_irec(ndims, idims, 'DZBASE'  , rvars=dzbase0)
-   CALL shdf5_irec(ndims, idims, 'ZTOP'    , rvars=ztop0)
-   CALL shdf5_irec(ndims, idims, 'DZTOP'   , rvars=dztop0)
 
-   CALL shdf5_irec(ndims, idims, 'NZAUX'   , ivars=nzaux0)
+   CALL shdf5_irec(ndims, idims, 'NDZ'     , ivars=ndz0)
 
    ALLOCATE( ngrdll0 (ngrids0) )
    ALLOCATE( grdrad0 (ngrids0) )
    ALLOCATE( grdlat0 (ngrids0, maxngrdll) )
    ALLOCATE( grdlon0 (ngrids0, maxngrdll) )
-   ALLOCATE( zaux0   (nzaux0))
-   ALLOCATE( dzaux0  (nzaux0))
+   ALLOCATE( hdz0(ndz0))
+   ALLOCATE( dz0 (ndz0))
 
-   IF (nzaux > 0) THEN
-      idims(1) = nzaux
+   IF (ndz > 1) THEN
+      idims(1) = ndz
 
-      CALL shdf5_irec(ndims, idims, 'ZAUX'   , rvara=zaux0)
-      CALL shdf5_irec(ndims, idims, 'DZAUX'  , rvara=dzaux0)
+      CALL shdf5_irec(ndims, idims, 'HDZ' , rvara=hdz0)
+      CALL shdf5_irec(ndims, idims, 'DZ'  , rvara=dz0)
    ENDIF
 
    idims(1) = ngrids0
@@ -1744,16 +1664,9 @@ IF (exans) THEN
    IF (ngrids0   /= ngrids  ) ierr = 1 
    IF (isfcl0    /= isfcl   ) ierr = 1 
    IF (itopoflg0 /= itopoflg) ierr = 1 
-   IF (nzaux0    /= nzaux   ) ierr = 1 
+   IF (ndz0      /= ndz     ) ierr = 1 
 
    IF (ABS(deltax0 - deltax) > 1.e-3) ierr = 1 
-   IF (ABS(deltaz0 - deltaz) > 1.e-3) ierr = 1 
-   IF (ABS(dzrat0  - dzrat ) > 1.e-3) ierr = 1 
-   IF (ABS(dzmax0  - dzmax ) > 1.e-3) ierr = 1 
-   IF (ABS(zbase0  - zbase ) > 1.e-3) ierr = 1 
-   IF (ABS(dzbase0 - dzbase) > 1.e-3) ierr = 1 
-   IF (ABS(ztop0   - ztop  ) > 1.e-3) ierr = 1 
-   IF (ABS(dztop0  - dztop ) > 1.e-3) ierr = 1 
 
    DO ngr = 2, MIN(ngrids0,ngrids)
       IF (ABS(ngrdll0 (ngr) - ngrdll (ngr)) > 1.e1 ) ierr = 1
@@ -1765,9 +1678,9 @@ IF (exans) THEN
       ENDDO
    ENDDO
 
-   DO izaux = 1, MIN(nzaux0,nzaux)
-      IF (ABS(zaux0 (izaux) - zaux (izaux)) > 1.e1 ) ierr = 1
-      IF (ABS(dzaux0(izaux) - dzaux(izaux)) > 1.e1 ) ierr = 1
+   DO idz = 1, MIN(ndz0,ndz)
+      IF (ABS(hdz0(idz) - hdz(idz)) > 1.e1 ) ierr = 1
+      IF (ABS(dz0 (idz) - dz (idz)) > 1.e1 ) ierr = 1
    ENDDO
 
    IF (ierr == 1) THEN
@@ -1783,20 +1696,13 @@ IF (exans) THEN
       WRITE(io6,*)              'isfcl:    ',isfcl0   ,isfcl
       WRITE(io6,*)              'itopoflg: ',itopoflg0,itopoflg
       WRITE(io6,*)              'deltax:   ',deltax0  ,deltax
-      WRITE(io6,*)              'deltaz:   ',deltaz0  ,deltaz
-      WRITE(io6,*)              'dzrat:    ',dzrat0   ,dzrat
-      WRITE(io6,*)              'dzmax:    ',dzmax0   ,dzmax
-      WRITE(io6,*)              'zbase:    ',zbase0   ,zbase
-      WRITE(io6,*)              'dzbase:   ',dzbase0  ,dzbase
-      WRITE(io6,*)              'ztop:     ',ztop0    ,ztop
-      WRITE(io6,*)              'dztop:    ',dztop0   ,dztop
-      WRITE(io6,*)              'nzaux:    ',nzaux0   ,nzaux
+      WRITE(io6,*)              'ndz:      ',ndz0     ,ndz
       WRITE(io6,*) ' '
-      WRITE(io6, '(a,20f10.1)') 'zaux0:    ',zaux0 (1:nzaux)
-      WRITE(io6, '(a,20f10.1)') 'zaux:     ',zaux  (1:nzaux)
+      WRITE(io6, '(a,20f10.1)') 'hdz0:     ',hdz0 (1:ndz)
+      WRITE(io6, '(a,20f10.1)') 'hdz:      ',hdz  (1:ndz)
       WRITE(io6,*) ' '
-      WRITE(io6, '(a,20f10.1)') 'dzaux0:   ',dzaux0 (1:nzaux)
-      WRITE(io6, '(a,20f10.1)') 'dzaux:    ',dzaux  (1:nzaux)
+      WRITE(io6, '(a,20f10.1)') 'dz0:      ',dz0 (1:ndz)
+      WRITE(io6, '(a,20f10.1)') 'dz:       ',dz  (1:ndz)
       WRITE(io6,*) ' '
       WRITE(io6, '(a,20i12)')   'ngrdll0:  ',ngrdll0 (1:ngrids)
       WRITE(io6, '(a,20i12)')   'ngrdll:   ',ngrdll  (1:ngrids)
