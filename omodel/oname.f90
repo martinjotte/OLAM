@@ -277,6 +277,7 @@ if (copy_type == 'ALL_CASES') then
    op%plttype    = nl%plttype
    op%pltorient  = nl%pltorient
    op%vec_maxmrl = nl%vec_maxmrl
+   op%prtval_size= nl%prtval_size
 
    do i = 1,op%nplt
       op%fldname(i)   = nl%plotspecs(i)%fldname

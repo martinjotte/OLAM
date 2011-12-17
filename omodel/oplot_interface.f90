@@ -2152,15 +2152,28 @@ if (op%projectn(iplt) == 'L' .or.  &
    delxmin = sqrt(arwmin)
 
    if (op%projectn(iplt) == 'L') then
-      op%psiz = .05 * (delxmin / (6. * erad)) * (400. / (op%xmax - op%xmin))
-!      op%psiz = .20 * (delxmin / (6. * erad)) * (400. / (op%xmax - op%xmin))
+
+      if     (op%prtval_size == 'small' .or. op%prtval_size == 'SMALL') then
+         op%psiz = 0.04 * (delxmin / (6. * erad)) * (400. / (op%xmax - op%xmin))
+      elseif (op%prtval_size == 'large' .or. op%prtval_size == 'LARGE') then
+         op%psiz = 0.12 * (delxmin / (6. * erad)) * (400. / (op%xmax - op%xmin))
+      else
+         op%psiz = 0.08 * (delxmin / (6. * erad)) * (400. / (op%xmax - op%xmin))
+      endif
+
       op%vsprd = .3 * (delxmin / (6. * erad)) * 400.
    else
-   !   op%psiz = .20 * delxmin / (op%xmax - op%xmin)
-       op%psiz = .10 * delxmin / (op%xmax - op%xmin)
-   !   op%psiz = .04 * delxmin / (op%xmax - op%xmin)
-   !   op%psiz = .02 * delxmin / (op%xmax - op%xmin)
+
+      if     (op%prtval_size == 'small' .or. op%prtval_size == 'SMALL') then
+         op%psiz = 0.04 * delxmin / (op%xmax - op%xmin)
+      elseif (op%prtval_size == 'large' .or. op%prtval_size == 'LARGE') then
+         op%psiz = 0.12 * delxmin / (op%xmax - op%xmin)
+      else
+         op%psiz = 0.08 * delxmin / (op%xmax - op%xmin)
+      endif
+
       op%vsprd = .15 * delxmin
+
    endif
 
 else                           ! Vertical cross section
