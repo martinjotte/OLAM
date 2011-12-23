@@ -152,65 +152,65 @@ Contains
    
 !===============================================================================
 
-   subroutine alloc_grid1(meshtype)
+   subroutine alloc_grid1(meshtype, lma, lua, lva, lwa)
 
    use misc_coms, only: io6
 
    implicit none
    
-   integer, intent(in) :: meshtype
+   integer, intent(in) :: meshtype, lma, lua, lva, lwa
    
 ! Allocate and initialize arrays (xem, yem, zem are already allocated)
 
-   allocate (lsw(mwa));  lsw(1:mwa) = 0
+   allocate (lsw(lwa));  lsw(1:lwa) = 0
 
    if (meshtype == 1) then
 
-      allocate (xeu(mua));  xeu(1:mua) = 0.
-      allocate (yeu(mua));  yeu(1:mua) = 0.
-      allocate (zeu(mua));  zeu(1:mua) = 0.
+      allocate (xeu(lua));  xeu(1:lua) = 0.
+      allocate (yeu(lua));  yeu(1:lua) = 0.
+      allocate (zeu(lua));  zeu(1:lua) = 0.
 
-      allocate (glatu(mua));  glatu(1:mua) = 0.
-      allocate (glonu(mua));  glonu(1:mua) = 0.
+      allocate (glatu(lua));  glatu(1:lua) = 0.
+      allocate (glonu(lua));  glonu(1:lua) = 0.
 
    elseif (meshtype == 2) then
    
-      allocate (xev(mva));  xev(1:mva) = 0.
-      allocate (yev(mva));  yev(1:mva) = 0.
-      allocate (zev(mva));  zev(1:mva) = 0.
+      allocate (xev(lva));  xev(1:lva) = 0.
+      allocate (yev(lva));  yev(1:lva) = 0.
+      allocate (zev(lva));  zev(1:lva) = 0.
 
-      allocate (glatv(mva));  glatv(1:mva) = 0.
-      allocate (glonv(mva));  glonv(1:mva) = 0.
+      allocate (glatv(lva));  glatv(1:lva) = 0.
+      allocate (glonv(lva));  glonv(1:lva) = 0.
       
    endif
 
-   allocate (unx(mva));  unx(1:mva) = 0.
-   allocate (uny(mva));  uny(1:mva) = 0.
-   allocate (unz(mva));  unz(1:mva) = 0.
+   allocate (unx(lva));  unx(1:lva) = 0.
+   allocate (uny(lva));  uny(1:lva) = 0.
+   allocate (unz(lva));  unz(1:lva) = 0.
 
-   allocate (vnx(mva));  vnx(1:mva) = 0.
-   allocate (vny(mva));  vny(1:mva) = 0.
-   allocate (vnz(mva));  vnz(1:mva) = 0.
+   allocate (vnx(lva));  vnx(1:lva) = 0.
+   allocate (vny(lva));  vny(1:lva) = 0.
+   allocate (vnz(lva));  vnz(1:lva) = 0.
 
-   allocate (wnx(mwa));  wnx(1:mwa) = 0.
-   allocate (wny(mwa));  wny(1:mwa) = 0.
-   allocate (wnz(mwa));  wnz(1:mwa) = 0.
+   allocate (wnx(lwa));  wnx(1:lwa) = 0.
+   allocate (wny(lwa));  wny(1:lwa) = 0.
+   allocate (wnz(lwa));  wnz(1:lwa) = 0.
 
-   allocate (dnu  (mva));  dnu (1:mva) = 0.
-   allocate (dniu (mva));  dniu(1:mva) = 0.
+   allocate (dnu  (lva));  dnu (1:lva) = 0.
+   allocate (dniu (lva));  dniu(1:lva) = 0.
 
-   allocate (dnv  (mva));  dnv (1:mva) = 0.
-   allocate (dniv (mva));  dniv(1:mva) = 0.
+   allocate (dnv  (lva));  dnv (1:lva) = 0.
+   allocate (dniv (lva));  dniv(1:lva) = 0.
 
-   allocate  (arw0(mwa));   arw0(1:mwa) = 0.
-   allocate  (topw(mwa));   topw(1:mwa) = 0.
-   allocate (glatw(mwa));  glatw(1:mwa) = 0.
-   allocate (glonw(mwa));  glonw(1:mwa) = 0.
+   allocate  (arw0(lwa));   arw0(1:lwa) = 0.
+   allocate  (topw(lwa));   topw(1:lwa) = 0.
+   allocate (glatw(lwa));  glatw(1:lwa) = 0.
+   allocate (glonw(lwa));  glonw(1:lwa) = 0.
 
-   allocate  (arm0(mma));   arm0(1:mma) = 0.
-   allocate  (topm(mma));   topm(1:mma) = 0.
-   allocate (glatm(mma));  glatm(1:mma) = 0.
-   allocate (glonm(mma));  glonm(1:mma) = 0.
+   allocate  (arm0(lma));   arm0(1:lma) = 0.
+   allocate  (topm(lma));   topm(1:lma) = 0.
+   allocate (glatm(lma));  glatm(1:lma) = 0.
+   allocate (glonm(lma));  glonm(1:lma) = 0.
 
    write(io6,*) 'finishing alloc_grid1'
             
@@ -220,45 +220,45 @@ Contains
 
 !===============================================================================
 
-   subroutine alloc_grid2(meshtype)
+   subroutine alloc_grid2(meshtype, lma, lua, lva, lwa)
 
    use misc_coms, only: io6
 
    implicit none
 
-   integer, intent(in) :: meshtype
+   integer, intent(in) :: meshtype, lma, lua, lva, lwa
    
 ! Allocate  and initialize arrays
 
-   write(io6,*) 'alloc_grid2 ',mma,mua,mva,mwa,mza
+   write(io6,*) 'alloc_grid2 ',lma,lua,lva,lwa
 
    if (meshtype == 1) then
 
-      allocate (lpu(mua));  lpu(1:mua) = 0
-      allocate (lcu(mua));  lcu(1:mua) = 0
+      allocate (lpu(lua));  lpu(1:lua) = 0
+      allocate (lcu(lua));  lcu(1:lua) = 0
 
-      allocate (aru  (mza,mua));  aru  (1:mza,1:mua) = 0.
-      allocate (volui(mza,mua));  volui(1:mza,1:mua) = 0.
+      allocate (aru  (mza,lua));  aru  (1:mza,1:lua) = 0.
+      allocate (volui(mza,lua));  volui(1:mza,1:lua) = 0.
 
    elseif (meshtype == 2) then
 
-      allocate (lpv(mva));  lpv(1:mva) = 0
-      allocate (lcv(mva));  lcv(1:mva) = 0
+      allocate (lpv(lva));  lpv(1:lva) = 0
+      allocate (lcv(lva));  lcv(1:lva) = 0
 
-      allocate (aru  (mza,mva));  aru  (1:mza,1:mva) = 0.
-      allocate (arv  (mza,mva));  arv  (1:mza,1:mva) = 0.
-      allocate (volvi(mza,mva));  volvi(1:mza,1:mva) = 0.
+      allocate (aru  (mza,lva));  aru  (1:mza,1:lva) = 0.
+      allocate (arv  (mza,lva));  arv  (1:mza,1:lva) = 0.
+      allocate (volvi(mza,lva));  volvi(1:mza,1:lva) = 0.
 
    endif
 
-   allocate (lpm(mma));  lpm(1:mma) = 0  ! In vtables
-   allocate (lpw(mwa));  lpw(1:mwa) = 0  ! In vtables
+   allocate (lpm(lma));  lpm(1:lma) = 0  ! In vtables
+   allocate (lpw(lwa));  lpw(1:lwa) = 0  ! In vtables
 
-   allocate (arw  (mza,mwa));  arw  (1:mza,1:mwa) = 0.
+   allocate (arw  (mza,lwa));  arw  (1:mza,1:lwa) = 0.
 
-   allocate (volt (mza,mwa));  volt (1:mza,1:mwa) = 0.
-   allocate (volti(mza,mwa));  volti(1:mza,1:mwa) = 0.
-   allocate (volwi(mza,mwa));  volwi(1:mza,1:mwa) = 0.
+   allocate (volt (mza,lwa));  volt (1:mza,1:lwa) = 0.
+   allocate (volti(mza,lwa));  volti(1:mza,1:lwa) = 0.
+   allocate (volwi(mza,lwa));  volwi(1:mza,1:lwa) = 0.
             
    write(io6,*) 'finishing alloc_grid2'
             

@@ -98,6 +98,14 @@ Module mem_sflux
   type (flux_vars), allocatable, target :: seaflux(:)
   type (flux_vars), allocatable, target :: landflux(:)
 
+  type flux_pd_vars
+     integer :: iw      =  0
+     integer :: iwls    =  0
+  end type flux_pd_vars
+
+  type (flux_vars), allocatable, target :: seaflux_pd(:)
+  type (flux_vars), allocatable, target :: landflux_pd(:)
+
 !----------------------------------------------------------------------------
 
   Type seafluxg_vars

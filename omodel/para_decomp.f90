@@ -37,7 +37,7 @@ subroutine para_decomp()
 use mem_para,   only: mgroupsize, myrank
 use misc_coms,  only: io6, meshtype
 
-use mem_ijtabs, only: itab_u, itab_v, itab_w, itabg_m, itabg_u, itabg_v, itabg_w
+use mem_ijtabs, only: itab_u_pd, itab_v_pd, itab_w_pd, itabg_m, itabg_u, itabg_v, itabg_w
 use mem_grid,   only: nma, nua, nva, nwa, xem, yem, zem
 
 use leaf_coms,  only: nml, nul, nwl, isfcl
@@ -46,7 +46,7 @@ use mem_leaf,   only: itab_ul, itab_wl, itabg_ml, itabg_ul, itabg_wl, land
 use sea_coms,   only: nms, nus, nws
 use mem_sea,    only: itab_us, itab_ws, itabg_ms, itabg_us, itabg_ws, sea
 
-use mem_sflux,  only: nseaflux, nlandflux, seafluxg, landfluxg, landflux, seaflux
+use mem_sflux,  only: nseaflux, nlandflux, seafluxg, landfluxg, landflux_pd, seaflux_pd
 
 implicit none
 
@@ -141,14 +141,17 @@ do iw = 2,nwa
    yewm(iw) = -1.e9
    zewm(iw) = -1.e9
 
-   do j = 1,itab_w(iw)%npoly
-      im = itab_w(iw)%im(j)
+   do j = 1,itab_w_pd(iw)%npoly
+      im = itab_w_pd(iw)%im(j)
       
       if (xewm(iw) < xem(im)) xewm(iw) = xem(im)
       if (yewm(iw) < yem(im)) yewm(iw) = yem(im)
       if (zewm(iw) < zem(im)) zewm(iw) = zem(im)
    enddo
 enddo
+
+! We don't need global xe? anymore. Deallocating it
+deallocate(xem, yem, zem)
 
 ! Allocate and fill grp%iw, grp%iwl, and grp%iws for group 1
 
@@ -542,16 +545,16 @@ enddo
 ! put the sfc cell on that same node if it isn't already
 
 do i = 1, nlandflux
-   iw  = landflux(i)%iw
-   iwl = landflux(i)%iwls
+   iw  = landflux_pd(i)%iw
+   iwl = landflux_pd(i)%iwls
    niwl_atm(iwl) = niwl_atm(iwl) + 1
    j = niwl_atm(iwl)
    iwl_atm_ranks(iwl,j) = itabg_w(iw)%irank
 enddo
 
 do i = 1, nseaflux
-   iw  = seaflux(i)%iw
-   iws = seaflux(i)%iwls
+   iw  = seaflux_pd(i)%iw
+   iws = seaflux_pd(i)%iwls
    niws_atm(iws) = niws_atm(iws) + 1
    j = niws_atm(iws)
    iws_atm_ranks(iws,j) = itabg_w(iw)%irank
@@ -587,8 +590,8 @@ enddo
 if (meshtype == 1) then
 
    do iu = 2,nua
-      iw1 = itab_u(iu)%iw(1)
-      iw2 = itab_u(iu)%iw(2)
+      iw1 = itab_u_pd(iu)%iw(1)
+      iw2 = itab_u_pd(iu)%iw(2)
 
       itabg_u(iu)%irank = itabg_w(iw2)%irank
       ! itabg_u(iu)%irank = max(itabg_w(iw1)%irank,itabg_w(iw2)%irank)
@@ -597,8 +600,8 @@ if (meshtype == 1) then
    enddo
 
    do iu = 2,nua
-      iw1 = itab_u(iu)%iw(1)
-      iw2 = itab_u(iu)%iw(2)
+      iw1 = itab_u_pd(iu)%iw(1)
+      iw2 = itab_u_pd(iu)%iw(2)
 
       if (itabg_w(iw1)%irank == itabg_w(iw2)%irank) cycle
 
@@ -619,8 +622,8 @@ if (meshtype == 1) then
 else
 
    do iv = 2,nva
-      iw1 = itab_v(iv)%iw(1)
-      iw2 = itab_v(iv)%iw(2)
+      iw1 = itab_v_pd(iv)%iw(1)
+      iw2 = itab_v_pd(iv)%iw(2)
 
       itabg_v(iv)%irank = itabg_w(iw2)%irank
       ! itabg_v(iv)%irank = max(itabg_w(iw1)%irank,itabg_w(iw2)%irank)
@@ -629,8 +632,8 @@ else
    enddo
 
    do iv = 2,nva
-      iw1 = itab_v(iv)%iw(1)
-      iw2 = itab_v(iv)%iw(2)
+      iw1 = itab_v_pd(iv)%iw(1)
+      iw2 = itab_v_pd(iv)%iw(2)
 
       if (itabg_w(iw1)%irank == itabg_w(iw2)%irank) cycle
 
