@@ -44,6 +44,9 @@ Module mem_sea
    type (itab_uls_vars), allocatable, target :: itab_us(:)
    type (itab_wls_vars), allocatable, target :: itab_ws(:)
 
+   type (itab_uls_vars), allocatable, target :: itab_us_pd(:)
+   type (itab_wls_vars), allocatable, target :: itab_ws_pd(:)
+
 ! DERIVED TYPES TO HOLD GLOBAL GRID INDICES FOR A PARALLEL RUN
 
    Type itabg_ms_vars
@@ -124,6 +127,14 @@ Module mem_sea
 
    type (sea_vars), target :: sea
 
+   Type sea_pd_vars
+      real, allocatable :: xem           (:)  ! earth x coord of sea cell M points
+      real, allocatable :: yem           (:)  ! earth y coord of sea cell M points
+      real, allocatable :: zem           (:)  ! earth z coord of sea cell M points
+   End Type sea_pd_vars
+
+   type (sea_vars), target :: sea_pd
+
 Contains
 
 !=========================================================================
@@ -158,6 +169,25 @@ Contains
      allocate (sea%glonm     (mms)) ; sea%glonm      = rinit
 
    end subroutine alloc_sea_grid
+
+!=========================================================================
+
+   subroutine alloc_sea_grid_pd(mms,mus,mws)
+     use misc_coms, only: rinit
+     implicit none
+
+     integer, intent(in) :: mms, mus, mws
+
+!    Allocate sea grid tables
+
+     allocate (itab_us_pd(mus))
+     allocate (itab_ws_pd(mws))
+
+     allocate (sea_pd%xem       (mms)) ; sea_pd%xem        = rinit
+     allocate (sea_pd%yem       (mms)) ; sea_pd%yem        = rinit
+     allocate (sea_pd%zem       (mms)) ; sea_pd%zem        = rinit
+
+   end subroutine alloc_sea_grid_pd
 
 !=========================================================================
 

@@ -1276,6 +1276,7 @@ subroutine makesfc()
 ! soil textural class value defined in OLAMIN.
 ! User customization can be done here.
 
+     land%ntext_soil(1:nzg,1)     = 0
      land%ntext_soil(1:nzg,2:nwl) = nslcon
 
   else
