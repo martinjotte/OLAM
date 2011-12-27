@@ -294,11 +294,11 @@ mwa = iw_myrank
 
 ! Allocate itab data structures and main grid coordinate arrays
 
-call alloc_itabs(meshtype,mma,mua,mva,mwa)
+call alloc_itabs(meshtype, mma, mua, mva, mwa)
 call alloc_xyzem(mma)
 call alloc_xyzew(mwa)
-call alloc_grid1(meshtype)
-call alloc_grid2(meshtype)
+call alloc_grid1(meshtype, mma, mua, mva, mwa)
+call alloc_grid2(meshtype, mma, mua, mva, mwa)
 
 ! Reset point counts to 1
 
