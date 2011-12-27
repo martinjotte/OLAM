@@ -1360,7 +1360,7 @@ do jtmp = 1,nrecvs_w(mrl)
                rho(1,iw),mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
          endif
 
-      elseif (sendgroup == 'V') then
+      elseif (recvgroup == 'V') then
 
          if (present(vxe)) then
             call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
@@ -1392,7 +1392,7 @@ do jtmp = 1,nrecvs_w(mrl)
                vmzet(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
          endif
 
-      elseif (sendgroup == 'G') then
+      elseif (recvgroup == 'G') then
 
          if (present(gxps_thil)) then
             call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &

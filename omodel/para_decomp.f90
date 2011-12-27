@@ -53,7 +53,7 @@ implicit none
 integer :: im,iu,iv,iw
 integer :: im1,im2,im3,iw1,iw2
 integer :: igp,jgp
-integer :: i, j, ii, jj, iil, jjl, iis, jjs, npoly
+integer :: i, j, ii, jj, iil, jjl, iis, jjs, npoly, is
 
 integer :: iter,ibin
 integer :: ngroups
@@ -91,24 +91,16 @@ End type
 
 type (grp_var) :: grp(mgroupsize)
 
-integer :: iwl_atm_ranks(nwl,mgroupsize)
-integer :: niwl_atm(nwl)
-integer :: iwl
+integer, allocatable :: iwl_atm_ranks(:,:)
+integer, allocatable :: niwl_atm(:)
+integer              :: iwl
 
-integer :: iws_atm_ranks(nws,mgroupsize)
-integer :: niws_atm(nws)
-integer :: iws
+integer, allocatable :: iws_atm_ranks(:,:)
+integer, allocatable :: niws_atm(:)
+integer              :: iws
 
 integer :: nuv_per_node(0:mgroupsize-1)
 integer :: iwcr, iwor
-
-iwl_atm_ranks = -1
-niwl_atm = 0
-
-iws_atm_ranks = -1
-niws_atm = 0
-
-nuv_per_node = 0
 
 ! Allocate permanent itabg data structures
 
@@ -537,24 +529,33 @@ do igp = 1,ngroups
 
 enddo
 
-! Temporary:
-! If all of the atm cells above a land/sea cell are on the same node,
-! put the sfc cell on that same node if it isn't already
+! Trial code for reducing unnecessary communication:
+
+! If all of the atm cells above a land cell are on the same node,
+! put the land cell on that same node too if it isn't already
+
+allocate( iwl_atm_ranks( nwl, 20))
+allocate( niwl_atm( nwl ))
+
+iwl_atm_ranks = -1
+niwl_atm = 0
 
 do i = 1, nlandflux
    iw  = landflux(i)%iw
    iwl = landflux(i)%iwls
    niwl_atm(iwl) = niwl_atm(iwl) + 1
    j = niwl_atm(iwl)
-   iwl_atm_ranks(iwl,j) = itabg_w(iw)%irank
-enddo
+   is = size(iwl_atm_ranks,2)
 
-do i = 1, nseaflux
-   iw  = seaflux(i)%iw
-   iws = seaflux(i)%iwls
-   niws_atm(iws) = niws_atm(iws) + 1
-   j = niws_atm(iws)
-   iws_atm_ranks(iws,j) = itabg_w(iw)%irank
+   if (j > is) then
+      call move_alloc(iwl_atm_ranks, iws_atm_ranks)
+      allocate( iwl_atm_ranks( nwl, is+10))
+      iwl_atm_ranks(:,1:is) = iws_atm_ranks(:,1:is)
+      deallocate( iws_atm_ranks)
+      iwl_atm_ranks(:,is+1:) = -1
+   endif
+   
+   iwl_atm_ranks(iwl,j) = itabg_w(iw)%irank
 enddo
 
 do iwl = 1, nwl
@@ -568,6 +569,35 @@ do iwl = 1, nwl
    endif
 enddo
 
+deallocate( iwl_atm_ranks, niwl_atm)
+
+! If all of the atm cells above a sea cell are on the same node,
+! put the sea cell on that same node too if it isn't already
+
+allocate( iws_atm_ranks( nws, 20))
+allocate( niws_atm( nws ))
+
+iws_atm_ranks = -1
+niws_atm = 0
+
+do i = 1, nseaflux
+   iw  = seaflux(i)%iw
+   iws = seaflux(i)%iwls
+   niws_atm(iws) = niws_atm(iws) + 1
+   j = niws_atm(iws)
+   is = size(iws_atm_ranks,2)
+
+   if (j > is) then
+      call move_alloc(iws_atm_ranks, iwl_atm_ranks)
+      allocate( iws_atm_ranks( nws, is+10))
+      iws_atm_ranks(:,1:is) = iwl_atm_ranks(:,1:is)
+      deallocate( iwl_atm_ranks)
+      iws_atm_ranks(:,is+1:) = -1
+   endif
+
+   iws_atm_ranks(iws,j) = itabg_w(iw)%irank
+enddo
+
 do iws = 1, nws
    if (niws_atm(iws) > 0) then
       j = niws_atm(iws)
@@ -579,8 +609,16 @@ do iws = 1, nws
    endif
 enddo
 
+deallocate( iws_atm_ranks, niws_atm)
+
+! Old Way:
 ! Loop over all U/V points and assign its rank to the higher rank of its
 ! two IW neighbors
+!
+! New Way:
+! Loop over all U/V points and assign its rank to the IW neighbor that has
+! fewer U/V points in its stencil
+
 
 ! ATM cells
 

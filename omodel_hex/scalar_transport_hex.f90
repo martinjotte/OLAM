@@ -107,10 +107,7 @@ call qsub('W',iw)
 ! Vertical loop over W levels
 
    do k = kb,mza-2
-   
-!write(6,'(a,2i7,3e15.3)') 'sct1 ',k,iw,wmsc(k,iw),rho_old(k,iw),rho_old(k+1,iw)
-   
-      wsc(k,iw) = wmsc(k,iw) / (.5 * (rho_old(k,iw) + rho_old(k+1,iw)))
+      wsc(k,iw) = 2.0 * wmsc(k,iw) / (rho_old(k,iw) + rho_old(k+1,iw))
    enddo
    
    wsc(kb-1,iw) = wsc(kb,iw)
@@ -140,8 +137,10 @@ call qsub('V',iv)
 
 ! Vertical loop over T levels
 
+   vsc(2:kb-1,iv) = 0.0
+
    do k = kb,mza-1
-      vsc(k,iv) = vmsc(k,iv) / (.5 * (rho_old(k,iw1) + rho_old(k,iw2)))
+      vsc(k,iv) = 2.0 * vmsc(k,iv) / ( rho_old(k,iw1) + rho_old(k,iw2) )
    enddo
 
 enddo
@@ -176,8 +175,8 @@ do n = 1,num_scalar
 
 ! Point SCP and SCT to scalar table arrays
 
-   scp => scalar_tab(n)%var_p
-   sct => scalar_tab(n)%var_t
+   scp => scalar_tab(n)%var_p(:,:)
+   sct => scalar_tab(n)%var_t(:,:)
 
 ! Evaluate T3D gradient of scalar field
 

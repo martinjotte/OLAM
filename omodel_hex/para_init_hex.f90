@@ -68,14 +68,13 @@ use mem_leaf,   only: itabg_wl
 
 implicit none
 
-integer :: j,k,imn,iun,ivn,iwn
-integer :: im,iu,iv,iw
-integer :: itopm,iup,ivp,iwp
+integer :: j,k,imn,ivn,iwn
+integer :: im,iv,iw
+integer :: itopm,ivp,iwp
 integer :: isf,ilf,iws,iwl
 integer :: npoly
 
 integer :: im_myrank = 1 ! Counter for M points to be included on this rank
-integer :: iu_myrank = 1 ! Counter for U points to be included on this rank
 integer :: iv_myrank = 1 ! Counter for V points to be included on this rank
 integer :: iw_myrank = 1 ! Counter for W points to be included on this rank
 
@@ -277,15 +276,17 @@ do iv = 2,nva
 
    if (myrankflag_v(iv)) then
 
-      do j = 1,6
-         imn = ltab_v(iv)%im(j) 
-         myrankflag_m(imn) = .true.
-      enddo
-
+      myrankflag_m( ltab_v(iv)%im(1:6) ) = .true.
       iv_myrank = iv_myrank + 1
 
    endif
 enddo
+
+! Ignore the "dummy" 1st point in case it was activated
+
+myrankflag_m(1) = .false.
+myrankflag_v(1) = .false.
+myrankflag_w(1) = .false.
 
 ! Loop over all M and W points and count the ones that have been flagged
 ! for inclusion on this rank.
@@ -475,7 +476,7 @@ do iv = 1,nva
 
       do j = 1,4
          iwn = ltab_v(iv)%iw(j)
-         if (myrankflag_w(iwn)) itab_v(iv_myrank)%iw(j) = itabg_w(ivn)%iw_myrank
+         if (myrankflag_w(iwn)) itab_v(iv_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
       enddo
 
 ! Copy V point grid values
@@ -606,12 +607,12 @@ enddo
 
 ! Turn back on some loop flags needed with respect to the local IV point
 
-do iv = 1,nva
+do iv = 1, nva
    if (itabg_v(iv)%irank == myrank) then
 
 ! Set mloop flag 3 for 6 M neighbors if IW is primary on this rank.
 
-      do j=1,7
+      do j = 1, 6
          imn = ltab_v(iv)%im(j)
          call mloops('n',itabg_m(imn)%im_myrank,3,0,0,0)
       enddo
@@ -629,7 +630,9 @@ do iw = 1,nwa
 
       do j=1,7
          ivn = ltab_w(iw)%iv(j)
-         call vloops('n',itabg_v(ivn)%iv_myrank,12,15,0,0,0,0,0,0,0,0)
+         if (ivn > 1) then
+            call vloops('n',itabg_v(ivn)%iv_myrank,12,15,0,0,0,0,0,0,0,0)
+         endif
       enddo
 
    endif
@@ -758,7 +761,7 @@ do iv = 2,nva
       if (itabg_v(ivp)%irank == myrank) call send_table_v(ivp,itabg_v(iv)%irank)
 
       do j = 1,16
-         ivn = ltab_v(iu)%iv(j) 
+         ivn = ltab_v(iv)%iv(j) 
          if (itabg_v(ivn)%irank == myrank) call send_table_v(ivn,itabg_v(iv)%irank)
       enddo         
 

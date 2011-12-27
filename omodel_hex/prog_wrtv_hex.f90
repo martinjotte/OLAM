@@ -336,7 +336,8 @@ if (mrl > 0) then
 !----------------------------------------------------------------------
    !$omp parallel do private(iv,iw1,iw2,im1,im2,im3,im4,im5,im6,iv1,iv2,iv3,iv4, &
    !$omp                     kb,k,c1,c2,vort_big1,vort_big2) 
-   do j = 1,jtab_v(12)%jend(mrl); iv = jtab_v(12)%iv(j)
+   ! jtab_v(16): Loop over all primary v points
+   do j = 1,jtab_v(16)%jend(mrl); iv = jtab_v(16)%iv(j)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
    call qsub('V',iv)
@@ -388,10 +389,13 @@ if (mrl > 0) then
             * ((vort_big1 - vortp(k,im1)) * c1 + (vort_big2 - vortp(k,im2)) * c2)
 
       enddo
+
+! END - HORIZONTAL FILTER FOR VERTICAL VORTICITY
+!------------------------------------------------------
               
    enddo
    !$omp end parallel do 
-   call rsub('V',12)
+   call rsub('V',16)
 
 endif ! mrl = mrl_begl(istp) > 0
 
@@ -455,9 +459,11 @@ call rsub('Wa',19)
 
 if (iparallel == 1) then
    call mpi_send_w('P')
-   call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
 
    call mpi_recv_w('P')
+
+   call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
+
    call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
 endif
 
@@ -522,7 +528,7 @@ real, intent(inout) :: vmxet(mza,mwa)
 real, intent(inout) :: vmyet(mza,mwa)
 real, intent(inout) :: vmzet(mza,mwa)
 
-integer :: iv, iwn, k, kb, kbv, npoly, jv, kn, ivn
+integer :: iv, iwn, k, ka, kb, npoly, jv, kn, ivn
 
 real :: dirv,arw0i
 
@@ -632,21 +638,21 @@ vctr2c(mza-1) = 0.
 
 npoly = itab_w(iw)%npoly
 
-hdiff_vxe(1:mza) = 0.
-hdiff_vye(1:mza) = 0.
-hdiff_vze(1:mza) = 0.
+hdiff_vxe(:) = 0.
+hdiff_vye(:) = 0.
+hdiff_vze(:) = 0.
 
 ! Loop over V neighbors of this W cell
 
 do jv = 1,npoly
    iv  = itab_w(iw)%iv(jv)
    iwn = itab_w(iw)%iw(jv)
-
+   ka  = lpv(iv)
    qdniv = .25 * dniv(iv)
 
 ! Vertical loop over T levels
 
-   do k = kb,mza-1
+   do k = ka,mza-1
 
 ! Horizontal diffusive flux coefficient
 
@@ -1313,7 +1319,7 @@ do k = kb,mza-1
                    + vny(iv) * (vmyet(k,iw1) + vmyet(k,iw2)) &
                    + vnz(iv) * (vmzet(k,iw1) + vmzet(k,iw2))))
 
-   vc(k,iv) = vmc(k,iv) / (.5 * (rho(k,iw1) + rho(k,iw2)))
+   vc(k,iv) = 2.0 * vmc(k,iv) / (rho(k,iw1) + rho(k,iw2))
 
 enddo
 
@@ -1327,7 +1333,7 @@ end subroutine prog_v_begs
 subroutine vel_t3d(mrl,vs,ws,vxe,vye,vze)
 
 use mem_ijtabs, only: jtab_w, itab_v, itab_w
-use mem_grid,   only: mza, mva, mwa, lpw, vnx, vny, vnz, wnx, wny, wnz
+use mem_grid,   only: mza, mva, mwa, lpw, lpv, vnx, vny, vnz, wnx, wny, wnz
 use misc_coms,  only: io6
 
 !$ use omp_lib
@@ -1336,17 +1342,15 @@ implicit none
 
 integer, intent(in) :: mrl
 
-real, intent(in) :: vs(mza,mva)
-real, intent(in) :: ws(mza,mwa)
+real, intent(in)  :: vs(mza,mva)
+real, intent(in)  :: ws(mza,mwa)
 
 real, intent(out) :: vxe(mza,mwa)
 real, intent(out) :: vye(mza,mwa)
 real, intent(out) :: vze(mza,mwa)
 
-integer :: j,iw,npoly,kb,k,jv,iv
-real :: farv2
-
-real :: wst(mza)
+integer :: j,iw,npoly,ka,kb,k,jv,iv
+real    :: farv2, wst
 
 ! Horizontal loop over W columns
 
@@ -1366,24 +1370,26 @@ call qsub('W',iw)
 
 ! Diagnose 3D earth-velocity vector at T points; W contribution first
 
-      wst(k) = .5 * (ws(k-1,iw) + ws(k,iw))
+      wst = 0.5 * (ws(k-1,iw) + ws(k,iw))
 
-      vxe(k,iw) = wst(k) * wnx(iw)
-      vye(k,iw) = wst(k) * wny(iw)
-      vze(k,iw) = wst(k) * wnz(iw)
+      vxe(k,iw) = wst * wnx(iw)
+      vye(k,iw) = wst * wny(iw)
+      vze(k,iw) = wst * wnz(iw)
 
    enddo
 
 ! Loop over V neighbors of this W cell
 
    do jv = 1,npoly
-      iv  = itab_w(iw)%iv(jv)
+
+      iv = itab_w(iw)%iv(jv)
+      ka = lpv(iv)
 
       farv2 = 2. * itab_w(iw)%farv(jv)
 
 ! Vertical loop over T levels
 
-      do k = kb,mza-1
+      do k = ka,mza-1
 
 ! Diagnose 3D earth-velocity vector at T points; VC contribution
 
@@ -1392,8 +1398,16 @@ call qsub('W',iw)
          vze(k,iw) = vze(k,iw) + farv2 * vs(k,iv) * vnz(iv)
 
       enddo
-
+      
    enddo
+   
+   vxe(2:kb-1,iw) = 0.0
+   vye(2:kb-1,iw) = 0.0
+   vze(2:kb-1,iw) = 0.0
+
+   vxe(mza,iw) = vxe(mza-1,iw)
+   vye(mza,iw) = vye(mza-1,iw)
+   vze(mza,iw) = vze(mza-1,iw)
 
 enddo
 !$omp end parallel do

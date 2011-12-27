@@ -222,67 +222,6 @@ if (mod(real(time8)+dtlm(1),frq_phenology) < dtlm(1)) call ed_vegetation_dynamic
 return
 end subroutine timestep
 
-!==========================================================================
-
-!!subroutine check_nans(icall)
-!!
-!!use mem_basic,  only: sh_w,rho,thil,sh_v,wc,wmc,press,vmc,vc
-!!use mem_micro,  only: sh_c,sh_r
-!!use mem_grid,   only: mza,mwa,lpw,volti,mva
-!!use mem_tend,   only: thilt, vmt
-!!use micro_coms, only: level
-!!use misc_coms,  only: io6, iparallel
-!!use mem_ijtabs, only: itab_v, itab_w
-!!
-!!implicit none
-!!  
-!!integer :: i,k,iv
-!!integer, intent(in) :: icall
-!!
-!!!do iv = 1,mva
-!!!   if (itab_v(iv)%ivglobe == 1206) then
-!!!      write(io6,'(a,i6,5e15.7)') 'cns ',icall,vmc(2,iv),vc(2,iv),vmt(2,iv)
-!!!   endif
-!!!enddo
-!!
-!!return
-!!
-!!do i = 2,mwa
-!!   do k = lpw(i),mza
-!!      if (isnan(sh_w (k,i)) .or.  &
-!!          isnan(rho  (k,i)) .or.  &
-!!          isnan(thil (k,i)) .or.  &
-!!          isnan(thilt(k,i)) .or.  &
-!!          isnan(press(k,i)) .or.  &
-!!          isnan(wc   (k,i)) .or.  &
-!!          isnan(wmc  (k,i)) .or.  &
-!!          isnan(sh_v (k,i)) .or.  &
-!!          thil(k,i) < 100.0) then
-!!
-!!         write(io6,*) ''
-!!         write(io6,*) 'check_nans',k,i,icall
-!!         write(io6,*) 'sh_w,rho,thil',sh_w(k,i),rho(k,i),thil(k,i)
-!!         write(io6,*) 'thilt,press',thilt(k,i),press(k,i)
-!!         write(io6,*) 'wc, wmc, sh_v',wc(k,i),wmc(k,i),sh_v(k,i)
-!!         stop
-!!      endif
-!!
-!!!      if (level >= 3) then
-!!!         if (isnan(sh_c(k,i)) .or.  &
-!!!             isnan(sh_r(k,i))) then
-!!               
-!!!            write(io6,*) 'nan',k,i,icall
-!!!            write(io6,*) 'sh_c,sh_r',sh_c(k,i),sh_r(k,i)
-!!!            stop
-!!!         endif
-!!!      endif
-!!
-!!   enddo
-!!enddo
-!!
-!!return
-!!end subroutine check_nans
-
 !===============================================================================
 
 subroutine modsched()
@@ -495,7 +434,7 @@ use misc_coms,  only: io6
 
 implicit none
 
-real, intent(out) :: vart(mza,mwa)
+real, intent(inout) :: vart(mza,mwa)
 
 integer :: j,iw,k,mrl
 
@@ -586,7 +525,7 @@ do j = 1,jtab_w(27)%jend(mrl); iw = jtab_w(27)%iw(j)
 call qsub('W',iw)
    dtl = dtlm(itab_w(iw)%mrlw)
    do k = lpw(iw),mza-1
-      varp(k,iw) = (varp(k,iw) * rho_old(k,iw) + dtl * vart(k,iw)) / rho(k,iw) 
+      varp(k,iw) = (varp(k,iw) * rho_old(k,iw) + dtl * vart(k,iw)) / rho(k,iw)
    enddo
 enddo
 !$omp end parallel do
