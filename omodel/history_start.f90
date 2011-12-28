@@ -205,9 +205,12 @@ implicit none
 integer           :: nv, nvcnt, ndims, ndims_m, idims(3), idims_m(3)
 character(len=32) :: varn
 
+nvcnt = 0
+ndims = 0
+idims = 0
+
 ! Loop through all variables in the model vtables
 
-nvcnt = 0
 do nv = 1,num_var
 
 ! Skip to next variable if we don't want the current one
@@ -220,7 +223,7 @@ do nv = 1,num_var
 
 ! We want it...read it if it's in the history file
 
-   call shdf5_info(varn,ndims,idims)
+   call shdf5_info(varn, ndims, idims)
 
 ! Skip to next variable if the current one is not in the history file
 
@@ -697,43 +700,33 @@ subroutine hist_read_s()
 
 ! Parallel run reading serial history file
 
-use mem_grid,    only: nwa, nua, nva, nma, mwa, mua, mza
-use mem_ijtabs,  only: itabg_w, itabg_u, itabg_v, itabg_m, itab_w, itab_u
+use mem_grid,    only: nwa, nua, nva, nma, mwa, mua, mva, mma, mza
+use mem_ijtabs,  only: itabg_w, itab_w, itab_u, itab_v, itab_m
 use misc_coms,   only: io6, meshtype, runtype
 use var_tables,  only: num_var, vtab_r, get_vtab_dims
 use hdf5_utils,  only: shdf5_info, shdf5_irec
-use mem_sflux,   only: nlandflux, nseaflux, landfluxg, seafluxg, &
-                       mlandflux, mseaflux, landflux,  seaflux
-use mem_leaf,    only: itabg_wl, itab_wl
+use mem_sflux,   only: nlandflux, nseaflux, mlandflux, mseaflux, &
+                       landflux,  seaflux
+use mem_leaf,    only: itab_wl
 use leaf_coms,   only: nwl, mwl, nzg
-use mem_sea,     only: itabg_ws, itab_ws
+use mem_sea,     only: itab_ws
 use sea_coms,    only: nws, mws
 use mem_para,    only: myrank
 use consts_coms, only: r8
 implicit none
 
-integer :: nv, nvcnt, ndims, ndims_m, idims(3), idims_m(3)
-integer :: i, k, il, iw, isf, ilf
-character(len=32) :: varn
-character(len=2)  :: stagpt
-
+integer          :: nv, nvcnt, ndims, idims(3)
+integer          :: i, k, il, iw, isf, ilf
+character(32)    :: varn
+character (2)    :: stagpt
 integer, pointer :: ilocal(:)
 
-integer, allocatable :: iscr1(:)
-integer, allocatable :: iscr2(:,:)
-integer, allocatable :: iscr3(:,:,:)
-
-real, allocatable :: scr1(:)
-real, allocatable :: scr2(:,:)
-real, allocatable :: scr3(:,:,:)
-
-real(kind=r8), allocatable :: dscr1(:)
-real(kind=r8), allocatable :: dscr2(:,:)
-real(kind=r8), allocatable :: dscr3(:,:,:)
+nvcnt = 0
+ndims = 0
+idims = 0
 
 ! Loop through all variables in the model vtables
 
-nvcnt = 0
 do nv = 1,num_var
 
 ! Skip to next variable if we don't want the current one
@@ -743,11 +736,10 @@ do nv = 1,num_var
 
    varn    = trim(vtab_r(nv)%name)
    stagpt  = vtab_r(nv)%stagpt
-   call get_vtab_dims(nv, ndims_m, idims_m)
 
 ! We want it...read it if it's in the history file
 
-   call shdf5_info(varn,ndims,idims)
+   call shdf5_info(varn, ndims, idims)
 
 ! Skip to next variable if the current one is not in the history file
 
@@ -757,21 +749,29 @@ do nv = 1,num_var
    endif
 
    if     (stagpt == 'AW' .and. idims(ndims) == nwa) then
-      ilocal => itabg_w(:)%iw_myrank
+      ilocal => itab_w(:)%iwglobe
+      idims(ndims) = mwa
    elseif (stagpt == 'AU' .and. idims(ndims) == nua .and. meshtype == 1) then
-      ilocal => itabg_u(:)%iu_myrank
+      ilocal => itab_u(:)%iuglobe
+      idims(ndims) = mua
    elseif (stagpt == 'AU' .and. idims(ndims) == nva .and. meshtype == 2) then
-      ilocal => itabg_v(:)%iv_myrank
+      ilocal => itab_v(:)%ivglobe
+      idims(ndims) = mva
    elseif (stagpt == 'AM' .and. idims(ndims) == nma) then
-      ilocal => itabg_m(:)%im_myrank
+      ilocal => itab_m(:)%imglobe
+      idims(ndims) = mma
    elseif (stagpt == 'LW' .and. idims(ndims) == nwl) then
-      ilocal => itabg_wl(:)%iwl_myrank
+      ilocal => itab_wl(:)%iwglobe
+      idims(ndims) = mwl
    elseif (stagpt == 'SW' .and. idims(ndims) == nws) then
-      ilocal => itabg_ws(:)%iws_myrank
+      ilocal => itab_ws(:)%iwglobe
+      idims(ndims) = mws
    elseif (stagpt == 'LF' .and. idims(ndims) == nlandflux) then
-      ilocal => landfluxg(:)%ilf_myrank
+      ilocal => landflux(:)%ifglobe
+      idims(ndims) = mlandflux
    elseif (stagpt == 'SF' .and. idims(ndims) == nseaflux) then
-      ilocal => seafluxg(:)%isf_myrank
+      ilocal => seaflux(:)%ifglobe
+      idims(ndims) = mseaflux
    else
 
       ! TODO: Nudging values, const values
@@ -780,83 +780,18 @@ do nv = 1,num_var
       stop "invalid array size in history_start_s"
    endif
 
-   if (associated(vtab_r(nv)%ivar1_p)) then
-      allocate (iscr1(idims(1)))
-      call shdf5_irec(ndims, idims, trim(varn), ivara=iscr1)
-
-      do i = 1,idims(1)
-         il = ilocal(i)
-         if (il < 1) cycle
-         vtab_r(nv)%ivar1_p(il) = iscr1(i)
-      enddo
-      deallocate (iscr1)
-
+   if     (associated(vtab_r(nv)%ivar1_p)) then
+      call shdf5_irec(ndims, idims, varn, ivara=vtab_r(nv)%ivar1_p, points=ilocal)
    elseif (associated(vtab_r(nv)%ivar2_p)) then
-
-      allocate (iscr2(idims(1),idims(2)))
-      call shdf5_irec(ndims, idims, trim(varn), ivara=iscr2)
-
-      do i = 1,idims(2)
-         il = ilocal(i)
-         if (il < 1) cycle
-         do k = 1,idims(1)
-            vtab_r(nv)%ivar2_p(k,il) = iscr2(k,i)
-         enddo
-      enddo
-      deallocate (iscr2)
-
+      call shdf5_irec(ndims, idims, varn, ivara=vtab_r(nv)%ivar2_p, points=ilocal)
    elseif (associated(vtab_r(nv)%rvar1_p)) then
-
-      allocate (scr1(idims(1)))
-      call shdf5_irec(ndims, idims, trim(varn), rvara=scr1)
-
-      do i = 1,idims(1)
-         il = ilocal(i)
-         if (il < 1) cycle
-         vtab_r(nv)%rvar1_p(il) = scr1(i)
-      enddo
-      deallocate (scr1)
-
+      call shdf5_irec(ndims, idims, varn, rvara=vtab_r(nv)%rvar1_p, points=ilocal)
    elseif (associated(vtab_r(nv)%rvar2_p)) then
-
-      allocate (scr2(idims(1),idims(2)))
-      call shdf5_irec(ndims, idims, trim(varn), rvara=scr2)
-
-      do i = 1,idims(2)
-         il = ilocal(i)
-         if (il < 1) cycle
-         do k = 1,idims(1)
-            vtab_r(nv)%rvar2_p(k,il) = scr2(k,i)
-         enddo
-      enddo
-      deallocate (scr2)
-
+      call shdf5_irec(ndims, idims, varn, rvara=vtab_r(nv)%rvar2_p, points=ilocal)
    elseif (associated(vtab_r(nv)%dvar1_p)) then
-
-      allocate (dscr1(idims(1)))
-      call shdf5_irec(ndims, idims, trim(varn), dvara=dscr1)
-
-      do i = 1,idims(1)
-         il = ilocal(i)
-         if (il < 1) cycle
-         vtab_r(nv)%dvar1_p(il) = dscr1(i)
-      enddo
-      deallocate (dscr1)
-
-   elseif (associated(vtab_r(nv)%dvar2_p)) then
-
-      allocate (dscr2(idims(1),idims(2)))
-      call shdf5_irec(ndims, idims, trim(varn), dvara=dscr2)
-
-      do i = 1,idims(2)
-         il = ilocal(i)
-         if (il < 1) cycle
-         do k = 1,idims(1)
-            vtab_r(nv)%dvar2_p(k,il) = dscr2(k,i)
-         enddo
-      enddo
-      deallocate (dscr2)
-
+      call shdf5_irec(ndims, idims, varn, dvara=vtab_r(nv)%dvar1_p, points=ilocal)
+  elseif (associated(vtab_r(nv)%dvar2_p)) then
+      call shdf5_irec(ndims, idims, varn, dvara=vtab_r(nv)%dvar2_p, points=ilocal)
    endif
 
    ! THE FOLLOWING SECTION IS TO ZERO OUT BOUNDARY CELLS FOR FIELDS
