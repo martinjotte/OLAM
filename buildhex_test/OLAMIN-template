@@ -549,6 +549,9 @@
   NL%VEC_MAXMRL = 6   ! The maximum mesh refinement level when plotting 
                       ! velocity vectors with the "V" pltspec
 
+  NL%PRTVAL_SIZE = 'small' ! Relative size of font when printing values on the
+                           ! plot: 'small', 'medium', or 'large'
+
   NL%PLTTYPE = 0      ! 0 = NCAR graphics meta file
                       ! 1 = postscript file
                       ! 2 = pdf file (requires ncar graphics 4.4.0 or later)

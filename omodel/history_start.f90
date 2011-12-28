@@ -58,7 +58,9 @@ inquire(file=hfilin,  exist=exans)   ! serial restart file
 inquire(file=hfilinp, exist=exanz)   ! rank 0 restart file
 
 if (runtype == 'PARCOMBINE' .and. .not. exanz) then
+   write(io6,*)
    write(io6,*) "No parallel history file exists."
+   write(io6,*) "Looking for ", trim(hfilinp)
    write(io6,*) "Stopping PARCOMBINE run."
    stop
 endif
@@ -279,7 +281,7 @@ subroutine hist_read_p(myrank)
 ! Serial run reading parallel history files.
 ! Also used for parcombine and plotonly runs
 
-use misc_coms,   only: io6, runtype
+use misc_coms,   only: io6, runtype, meshtype
 use var_tables,  only: num_var, vtab_r, get_vtab_dims
 use hdf5_utils,  only: shdf5_info, shdf5_irec
 use mem_leaf,    only: land
@@ -293,9 +295,10 @@ integer :: i,k,ig
 character(len=32) :: varn
 
 ! GLOBAL INDICES AND RANKS:
-integer :: idgm(3),  idgu(3),  idgw(3)
+integer :: idgm(3),  idgu(3),  idgv(3), idgw(3)
 integer, target, allocatable :: imglobe(:), irankm(:)
 integer, target, allocatable :: iuglobe(:), iranku(:)
+integer, target, allocatable :: ivglobe(:), irankv(:)
 integer, target, allocatable :: iwglobe(:), irankw(:)
 
 ! LAND INDICES AND RANKS:
@@ -348,11 +351,24 @@ if (idgm(1) > 0) then
    irankm(:) = myrank
 endif
 
-call shdf5_info('IUGLOBE',ndims,idgu)
-if (idgu(1) > 0) then
-   ! Should work for U and V variables????
-   allocate (iuglobe(idgu(1)))
-   call shdf5_irec(ndims, idgu, 'IUGLOBE', ivara=iuglobe)
+if (meshtype == 1) then
+
+   call shdf5_info('IUGLOBE',ndims,idgu)
+   if (idgu(1) > 0) then
+      allocate (iuglobe(idgu(1)))
+      call shdf5_irec(ndims, idgu, 'IUGLOBE', ivara=iuglobe)
+   endif
+
+   idgv = 0
+else
+
+   call shdf5_info('IVGLOBE',ndims,idgv)
+   if (idgv(1) > 0) then
+      allocate (ivglobe(idgv(1)))
+      call shdf5_irec(ndims, idgv, 'IVGLOBE', ivara=ivglobe)
+   endif
+
+   idgu = 0
 endif
 
 call shdf5_info('IWGLOBE',ndims,idgw)
@@ -415,10 +431,22 @@ if (idsf(1) > 0) then
    call shdf5_irec(ndims, idsf, 'SEAFLUX%IFGLOBE', ivara=isfglobe)
 endif
 
-call shdf5_info('IRANKU',ndims,idims)
-if (idims(1) > 0) then
-   allocate (iranku(idims(1)))
-   call shdf5_irec(ndims, idims, 'IRANKU', ivara=iranku)
+if (meshtype == 1) then
+
+   call shdf5_info('IRANKU',ndims,idims)
+   if (idims(1) > 0) then
+      allocate (iranku(idims(1)))
+      call shdf5_irec(ndims, idims, 'IRANKU', ivara=iranku)
+   endif
+
+else
+
+   call shdf5_info('IRANKV',ndims,idims)
+   if (idims(1) > 0) then
+      allocate (irankv(idims(1)))
+      call shdf5_irec(ndims, idims, 'IRANKV', ivara=irankv)
+   endif
+
 endif
 
 call shdf5_info('IRANKW',ndims,idims)
@@ -491,10 +519,12 @@ do nv = 1,num_var
    if (    stagpt == 'AW' .and. idims(ndims) == idgw(1)) then
       iglobe => iwglobe
       irank  => irankw
-   elseif (stagpt == 'AU' .and. idims(ndims) == idgu(1)) then
-      ! Should work for U and V variables????
+   elseif (meshtype == 1 .and. stagpt == 'AU' .and. idims(ndims) == idgu(1)) then
       iglobe => iuglobe
       irank  => iranku
+   elseif (meshtype == 2 .and. stagpt == 'AU' .and. idims(ndims) == idgv(1)) then
+      iglobe => ivglobe
+      irank  => irankv
    elseif (stagpt == 'AM' .and. idims(ndims) == idgm(1)) then
       iglobe => imglobe
       irank  => irankm

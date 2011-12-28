@@ -64,7 +64,9 @@ Type oplot_vars
 
    character(pathlen) :: pltname
    character(pathlen) :: plt_files(maxpltfiles)
-   character(20)      :: fldname(maxnplt) ! Name of plotted field
+
+   character(20) :: fldname(maxnplt) ! Name of plotted field
+   character(10) :: prtval_size      ! Printed char size ['small', 'medium', large]
 
    integer :: icolortab(maxnplt) ! Color table number for plotting given field
 

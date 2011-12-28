@@ -284,8 +284,10 @@ Module oname_coms
       real    :: stemlength = 3.0e3
       integer :: plttype    = 0
       integer :: pltorient  = 0
-      character(pathlen) :: pltname = 'gmeta'
       integer :: vec_maxmrl = maxgrds
+
+      character(pathlen) :: pltname     = 'gmeta'
+      character(10)      :: prtval_size = 'medium'
 
 !!    THE LIST OF FILES TO PLOT FROM
 

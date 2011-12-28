@@ -37,9 +37,8 @@ use misc_coms,  only: io6, meshtype
 use mem_ijtabs, only: itab_m,      itab_u,      itab_w,      &
                       itab_m_vars, itab_u_vars, itab_w_vars, &
                       itabg_m,     itabg_u,     itabg_w,     &
-                      mrls,                                  &
                       itab_m_pd,   itab_u_pd,   itab_w_pd,   &
-                      alloc_itabs
+                      alloc_itabs, mrls
 
 use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
                       alloc_gridz, alloc_xyzem, alloc_xyzew, &
@@ -49,8 +48,7 @@ use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
 use mem_para,   only: mgroupsize, myrank, &
                       send_u, recv_u, send_v, recv_v, send_w, recv_w, &
                       nsends_u, nsends_v, nsends_w, &
-                      nrecvs_u, nrecvs_v, nrecvs_w, &
-                      send_uf, recv_uf, send_vf, recv_vf
+                      nrecvs_u, nrecvs_v, nrecvs_w
 
 use mem_sflux,  only: nseaflux,  mseaflux,  seaflux,  seafluxg,  &
                       nlandflux, mlandflux, landflux, landfluxg, &
@@ -63,8 +61,6 @@ use leaf_coms,  only: nwl, isfcl
 use mem_sea,    only: itabg_ws
 
 use mem_leaf,   only: itabg_wl
-
-use mpi
 
 implicit none
 
@@ -317,8 +313,6 @@ do iu = 1,nua
          call uloops('n',iu_myrank,-7,-8,-12,-13,-16,-21,-22,-23, 0, 0)
 
 ! Turn off LBC copy (n/a for global domain) if IUP point is on remote node 
-
-         iup = itab_u_pd(iu)%iup
 
          if (.not. myrankflag_u(iup))  &
             call uloops('n',iu_myrank,-9,-18,0,0,0,0,0,0,0,0)
@@ -607,7 +601,7 @@ if (isfcl == 1) then
    mlandflux = 1
 
    landflux(1)%ifglobe = 1
-   landflux(1)%iw   = 1
+   landflux(1)%iw = 1
    landflux(1)%iwls = 1
 
    do ilf = 2,nlandflux
@@ -653,7 +647,7 @@ end subroutine para_init
 
 subroutine recv_table_u(iremote)
 
-use mem_para,  only: nrecvs_u, recv_u, recv_uf
+use mem_para,  only: nrecvs_u, recv_u
 use misc_coms, only: io6
 
 implicit none
@@ -676,7 +670,6 @@ if (jrecv > nrecvs_u(1)) nrecvs_u(1) = jrecv
 ! Enter remote rank in recv-remote-rank table.
 
 recv_u(jrecv)%iremote = iremote
-recv_uf(jrecv)%iremote = iremote
 
 return
 end subroutine recv_table_u
@@ -717,7 +710,7 @@ end subroutine recv_table_w
 subroutine send_table_u(iu,iremote)
 
 use mem_ijtabs, only: itab_u, itabg_u, mloops_u
-use mem_para,   only: nsends_u, send_u, send_uf, mgroupsize
+use mem_para,   only: nsends_u, send_u, mgroupsize
 use misc_coms,  only: io6
 
 implicit none
@@ -745,7 +738,6 @@ iu_myrank = itabg_u(iu)%iu_myrank
 
 itab_u(iu_myrank)%loop(mloops_u+jsend) = .true.
 send_u(jsend)%iremote = iremote
-send_uf(jsend)%iremote = iremote
 
 return
 end subroutine send_table_u

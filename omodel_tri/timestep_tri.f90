@@ -233,67 +233,6 @@ end subroutine timestep
 
 !==========================================================================
 
-!!subroutine check_nans(icall)
-!!
-!!use mem_basic,  only: sh_w,rho,thil,sh_v,wc,wmc,press,umc,uc
-!!use mem_micro,  only: sh_c,sh_r
-!!use mem_grid,   only: mza,mwa,lpw,volti,mua
-!!use mem_tend,   only: thilt, umt
-!!use micro_coms, only: level
-!!use misc_coms,  only: io6, iparallel
-!!use mem_ijtabs, only: itab_u, itab_w
-!!
-!!implicit none
-!!  
-!!integer :: i,k,iu
-!!integer, intent(in) :: icall
-!!
-!!!do iu = 1,mua
-!!!   if (itab_u(iu)%iuglobe == 1206) then
-!!!      write(io6,'(a,i6,5e15.7)') 'cns ',icall,umc(2,iu),uc(2,iu),umt(2,iu)
-!!!   endif
-!!!enddo
-!!
-!!return
-!!
-!!do i = 2,mwa
-!!   do k = lpw(i),mza
-!!      if (isnan(sh_w (k,i)) .or.  &
-!!          isnan(rho  (k,i)) .or.  &
-!!          isnan(thil (k,i)) .or.  &
-!!          isnan(thilt(k,i)) .or.  &
-!!          isnan(press(k,i)) .or.  &
-!!          isnan(wc   (k,i)) .or.  &
-!!          isnan(wmc  (k,i)) .or.  &
-!!          isnan(sh_v (k,i)) .or.  &
-!!          thil(k,i) < 100.0) then
-!!
-!!         write(io6,*) ''
-!!         write(io6,*) 'check_nans',k,i,icall
-!!         write(io6,*) 'sh_w,rho,thil',sh_w(k,i),rho(k,i),thil(k,i)
-!!         write(io6,*) 'thilt,press',thilt(k,i),press(k,i)
-!!         write(io6,*) 'wc, wmc, sh_v',wc(k,i),wmc(k,i),sh_v(k,i)
-!!         stop
-!!      endif
-!!
-!!!      if (level >= 3) then
-!!!         if (isnan(sh_c(k,i)) .or.  &
-!!!             isnan(sh_r(k,i))) then
-!!               
-!!!            write(io6,*) 'nan',k,i,icall
-!!!            write(io6,*) 'sh_c,sh_r',sh_c(k,i),sh_r(k,i)
-!!!            stop
-!!!         endif
-!!!      endif
-!!
-!!   enddo
-!!enddo
-!!
-!!return
-!!end subroutine check_nans
-
-!===============================================================================
-
 subroutine modsched()
 
 use mem_ijtabs, only: nstp, mrls,  &
