@@ -231,31 +231,35 @@ Module mem_ijtabs
       integer, allocatable :: jend(:)
    End Type jtab_w_vars
 
-   Type itab_m_pd_vars           ! data structure for M pts (individual rank) on para_(decomp,init)
-      integer :: npoly = 0       ! number of V/W neighbors of this M pt
-      integer :: itopm = 1       ! M point from which to copy this M pt's topo
-      integer :: iu(7) = 1       ! array of U neighbors of this M pt (Delaunay)
-      integer :: iv(7) = 1       ! array of V neighbors of this M pt (Voronoi)
-      integer :: iw(7) = 1       ! array of W neighbors of this M pt (Del or Vor)
+   Type itab_m_pd_vars         ! data structure for M pts (individual rank) on para_(decomp,init)
+      integer :: npoly = 0     ! number of V/W neighbors of this M pt
+      integer :: itopm = 1     ! M point from which to copy this M pt's topo
+      integer :: iu(7) = 1     ! array of U neighbors of this M pt (Delaunay)
+      integer :: iv(7) = 1     ! array of V neighbors of this M pt (Voronoi)
+      integer :: iw(7) = 1     ! array of W neighbors of this M pt (Del or Vor)
    End Type itab_m_pd_vars
 
    Type itab_u_pd_vars         ! data structure for U pts (individual rank) on para_(decomp,init)
-      integer :: iup=1         ! U pt from which to copy this U pt's values
-      integer :: im(2) = 1     ! neighbor M pts of this U pt
+      integer :: iup    = 1    ! U pt from which to copy this U pt's values
+      integer :: im(2)  = 1    ! neighbor M pts of this U pt
       integer :: iu(12) = 1    ! neighbor U pts
-      integer :: iw(6) = 1     ! neighbor W pts
+      integer :: iw(6)  = 1    ! neighbor W pts
    End Type itab_u_pd_vars
 
    Type itab_v_pd_vars         ! data structure for V pts (individual rank) on para_(decomp,init)
-      integer :: iw(4)=1       ! neighbor W pts of this V pt
+      integer :: ivp    = 1    ! V pt from which to copy this V pt's values
+      integer :: im(6)  = 1    ! neighbor M pts of this V pt
+      integer :: iv(16) = 1    ! neighbor V pts
+      integer :: iw(4)  = 1    ! neighbor W pts of this V pt
    End Type itab_v_pd_vars
 
-   Type itab_w_pd_vars       ! data structure for W pts (individual rank) on para_(decomp,init)
-      integer :: iwp=1       ! W pt from which to copy this W pt's values
-      integer :: npoly = 0   ! number of M/V neighbors of this W pt
-      integer :: im(7)=1     ! neighbor M pts of this W pt
-      integer :: iu(9)=1     ! neighbor U pts (9 Delaunay, 7 Voronoi)
-      integer :: iw(9)=1     ! neighbor W pts (9 Delaunay, 7 Voronoi)
+   Type itab_w_pd_vars         ! data structure for W pts (individual rank) on para_(decomp,init)
+      integer :: iwp   = 1     ! W pt from which to copy this W pt's values
+      integer :: npoly = 0     ! number of M/V neighbors of this W pt
+      integer :: im(7) = 1     ! neighbor M pts of this W pt
+      integer :: iu(9) = 1     ! neighbor U pts (9 Delaunay, 7 Voronoi)
+      integer :: iv(7) = 1     ! neighbor V pts (Voronoi)
+      integer :: iw(9) = 1     ! neighbor W pts (9 Delaunay, 7 Voronoi)
    End Type itab_w_pd_vars
 
    type (itab_m_vars), allocatable :: itab_md(:)

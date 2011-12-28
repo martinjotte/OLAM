@@ -354,6 +354,9 @@ endif
 
 if (hdferr /= 0) then
    print*,'shdf5_irec: call fh5d_read: hdf5 error =',hdferr
+   print*,'Error reading ', trim(dsetname)
+   print*,'ndims = ', ndims
+   print*,'dims  = ', dims(1:ndims)
    stop
 endif
 

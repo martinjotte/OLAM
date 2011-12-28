@@ -37,9 +37,8 @@ use misc_coms,  only: io6, meshtype
 use mem_ijtabs, only: itab_m,      itab_u,      itab_w,      &
                       itab_m_vars, itab_u_vars, itab_w_vars, &
                       itabg_m,     itabg_u,     itabg_w,     &
-                      mrls,                                  &
                       itab_m_pd,   itab_u_pd,   itab_w_pd,   &
-                      alloc_itabs
+                      alloc_itabs, mrls
 
 use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
                       alloc_gridz, alloc_xyzem, alloc_xyzew, &
@@ -62,8 +61,6 @@ use leaf_coms,  only: nwl, isfcl
 use mem_sea,    only: itabg_ws
 
 use mem_leaf,   only: itabg_wl
-
-use mpi
 
 implicit none
 
