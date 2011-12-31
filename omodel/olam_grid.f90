@@ -731,7 +731,7 @@ subroutine gridfile_write()
 
   ! Write the gridfile information that exists in namelist
 
-  ndims = 1
+  ndims    = 1
   idims(1) = 1
   idims(2) = 1
 
@@ -743,22 +743,23 @@ subroutine gridfile_write()
   call shdf5_orec(ndims, idims, 'ISFCL'   , ivars=isfcl)
   call shdf5_orec(ndims, idims, 'ITOPOFLG', ivars=itopoflg)
   call shdf5_orec(ndims, idims, 'DELTAX'  , rvars=deltax)
-
   call shdf5_orec(ndims, idims, 'NDZ'     , ivars=ndz)
 
   if (ndz > 1) then
+     ndims    = 1
      idims(1) = ndz
 
      call shdf5_orec(ndims, idims, 'HDZ'  , rvara=hdz)
      call shdf5_orec(ndims, idims, 'DZ'   , rvara=dz)
   endif
 
+  ndims    = 1
   idims(1) = ngrids
 
   call shdf5_orec(ndims, idims, 'NGRDLL' , ivara=ngrdll)
   call shdf5_orec(ndims, idims, 'GRDRAD' , rvara=grdrad)
 
-  ndims = 2
+  ndims    = 2
   idims(1) = ngrids
   idims(2) = maxngrdll
 
@@ -767,7 +768,7 @@ subroutine gridfile_write()
 
   ! Write the grid dimensions
 
-  ndims = 1
+  ndims    = 1
   idims(1) = 1
 
   call shdf5_orec(ndims, idims, 'NZA'    , ivars=nza)
@@ -780,6 +781,7 @@ subroutine gridfile_write()
 
   ! Write grid structure variables
 
+  ndims    = 1
   idims(1) = nza
 
   call shdf5_orec(ndims, idims, 'ZM'    , rvara=zm)
@@ -793,6 +795,7 @@ subroutine gridfile_write()
   call shdf5_orec(ndims, idims, 'ZFACIM', rvara=zfacim)
   call shdf5_orec(ndims, idims, 'ZFACIT', rvara=zfacit)
 
+  ndims    = 1
   idims(1) = nma
 
   call shdf5_orec(ndims, idims, 'LPM'  , ivara=lpm)
@@ -806,6 +809,7 @@ subroutine gridfile_write()
 
   if (meshtype == 1) then
 
+     ndims    = 1
      idims(1) = nua
 
      call shdf5_orec(ndims, idims, 'LPU'  , ivara=lpu)
@@ -818,6 +822,7 @@ subroutine gridfile_write()
 
   else
 
+     ndims    = 1
      idims(1) = nva
 
      call shdf5_orec(ndims, idims, 'LPV'  , ivara=lpv)
@@ -841,6 +846,7 @@ subroutine gridfile_write()
   call shdf5_orec(ndims, idims, 'VNY' , rvara=vny)
   call shdf5_orec(ndims, idims, 'VNZ' , rvara=vnz)
 
+  ndims    = 1
   idims(1) = nwa
 
   call shdf5_orec(ndims, idims, 'LPW'  , ivara=lpw)
@@ -856,26 +862,29 @@ subroutine gridfile_write()
   call shdf5_orec(ndims, idims, 'WNY'  , rvara=wny)
   call shdf5_orec(ndims, idims, 'WNZ'  , rvara=wnz)
 
-  ndims = 2
-  idims(1) = nza
-
   if (meshtype == 1) then
 
+     ndims    = 2
+     idims(1) = nza
      idims(2) = nua
 
+     call shdf5_orec(ndims, idims, 'ARU'  , rvara=aru)
      call shdf5_orec(ndims, idims, 'VOLUI', rvara=volui)
 
   else
 
+     ndims    = 2
+     idims(1) = nza
      idims(2) = nva
 
      call shdf5_orec(ndims, idims, 'ARV'  , rvara=arv)
+     call shdf5_orec(ndims, idims, 'ARU'  , rvara=aru)
      call shdf5_orec(ndims, idims, 'VOLVI', rvara=volvi)
 
   endif
 
-  call shdf5_orec(ndims, idims, 'ARU'  , rvara=aru)
-
+  ndims    = 2
+  idims(1) = nza
   idims(2) = nwa
 
   call shdf5_orec(ndims, idims, 'ARW'  , rvara=arw)
@@ -885,9 +894,8 @@ subroutine gridfile_write()
 
   ! Write ITAB_M SCALARS
 
-  ndims = 1
+  ndims    = 1
   idims(1) = nma
-  idims(2) = 1
 
   call shdf5_orec(ndims,idims,'itab_m%npoly'    ,ivara=itab_m(:)%npoly)
   call shdf5_orec(ndims,idims,'itab_m%itopm'    ,ivara=itab_m(:)%itopm)
@@ -910,7 +918,9 @@ subroutine gridfile_write()
   call shdf5_orec(ndims,idims,'itab_m%loop',lvara=lscr)
   deallocate (lscr)
 
+  ndims    = 2
   idims(1) = 7
+  idims(2) = nma
 
   allocate (iscr(7,nma)) ; iscr = 0
   if (meshtype == 1) then
@@ -945,9 +955,8 @@ subroutine gridfile_write()
 
      ! Write ITAB_U SCALARS
 
-     ndims = 1
+     ndims    = 1
      idims(1) = nua
-     idims(2) = 1
 
      call shdf5_orec(ndims,idims,'itab_u%iup'    ,ivara=itab_u(:)%iup)
      call shdf5_orec(ndims,idims,'itab_u%mrlu'   ,ivara=itab_u(:)%mrlu)
@@ -969,7 +978,7 @@ subroutine gridfile_write()
 
      ! Write ITAB_U ARRAYS
 
-     ndims = 2
+     ndims    = 2
      idims(1) = mloops_u
      idims(2) = nua
 
@@ -1078,7 +1087,7 @@ subroutine gridfile_write()
 
      ! Write ITAB_V SCALARS
 
-     ndims = 1
+     ndims    = 1
      idims(1) = nva
      idims(2) = 1
 
@@ -1088,7 +1097,7 @@ subroutine gridfile_write()
 
      ! Write ITAB_V ARRAYS
 
-     ndims = 2
+     ndims    = 2
      idims(1) = mloops_v
      idims(2) = nva
 
@@ -1190,9 +1199,8 @@ subroutine gridfile_write()
 
   ! Write ITAB_W SCALARS
 
-  ndims = 1
+  ndims    = 1
   idims(1) = nwa
-  idims(2) = 1
 
   call shdf5_orec(ndims,idims,'itab_w%npoly'    ,ivara=itab_w(:)%npoly)
   call shdf5_orec(ndims,idims,'itab_w%iwp'      ,ivara=itab_w(:)%iwp)
@@ -1392,13 +1400,13 @@ subroutine gridfile_write()
 
      ! Write SEAFLUX VALUES
 
-     ndims = 1
+     ndims    = 1
      idims(1) = 1
-     idims(2) = 1
 
      call shdf5_orec(ndims, idims, 'NSEAFLUX',ivars=nseaflux)
      call shdf5_orec(ndims, idims, 'NSFPATS',ivars=nsfpats)
 
+     ndims    = 1
      idims(1) = nseaflux
 
      call shdf5_orec(ndims,idims,'seaflux%isfglobe',ivara=seaflux(:)%ifglobe)
@@ -1416,11 +1424,12 @@ subroutine gridfile_write()
 
      if (nsfpats > 0) then
 
+        ndims    = 1
         idims(1) = nsfpats
 
         call shdf5_orec(ndims,idims,'nsfpatm' ,ivara=nsfpatm)
 
-        ndims = 2
+        ndims    = 2
         idims(1) = 5
         idims(2) = nsfpats
 
@@ -1432,13 +1441,13 @@ subroutine gridfile_write()
 
      ! Write LANDFLUX VALUES
 
-     ndims = 1
+     ndims    = 1
      idims(1) = 1
-     idims(2) = 1
 
      call shdf5_orec(ndims, idims, 'NLANDFLUX',ivars=nlandflux)
      call shdf5_orec(ndims, idims, 'NLFPATS'  ,ivars=nlfpats)
 
+     ndims    = 1
      idims(1) = nlandflux
 
      call shdf5_orec(ndims,idims,'landflux%ilfglobe',ivara=landflux(:)%ifglobe)
@@ -1456,11 +1465,12 @@ subroutine gridfile_write()
 
      if (nlfpats > 0) then
 
+        ndims    = 1
         idims(1) = nlfpats
 
         call shdf5_orec(ndims,idims,'nlfpatm' ,ivara=nlfpatm)
 
-        ndims = 2
+        ndims    = 2
         idims(1) = 5
         idims(2) = nlfpats
 
@@ -1476,13 +1486,13 @@ subroutine gridfile_write()
 
   if (mdomain == 0 .and. nudflag > 0) then
 
-     ndims = 1
+     ndims    = 1
      idims(1) = 1
-     idims(2) = 1
 
      call shdf5_orec(ndims, idims, 'NUDNXP' , ivars=nudnxp)
      call shdf5_orec(ndims, idims, 'NWNUD'  , ivars=nwnud)
 
+     ndims    = 1
      idims(1) = nwnud
 
      call shdf5_orec(ndims, idims, 'XEWNUD'  , rvara=xewnud)
@@ -1497,7 +1507,7 @@ subroutine gridfile_write()
         iscr(1:6,iwnud) = itab_wnud(iwnud)%iwnud(1:6)
      enddo
 
-     ndims = 2
+     ndims    = 2
      idims(1) = 6
      idims(2) = nwnud
 
@@ -1621,12 +1631,13 @@ if (exans) then
       call shdf5_irec(ndims, idims, 'DZ'  , rvara=dz0)
    endif
 
+   ndims    = 1
    idims(1) = ngrids0
 
    call shdf5_irec(ndims, idims, 'NGRDLL' , ivara=ngrdll0)
    call shdf5_irec(ndims, idims, 'GRDRAD' , rvara=grdrad0)
 
-   ndims = 2
+   ndims    = 2
    idims(1) = ngrids0
    idims(2) = maxngrdll
 
@@ -1711,6 +1722,9 @@ if (exans) then
    deallocate (ngrdll0, grdrad0, grdlat0, grdlon0)
 
 ! Read the grid dimensions
+   
+   ndims    = 1
+   idims(1) = 1
 
    call shdf5_irec(ndims, idims, 'NZA'    , ivars=nza)
    call shdf5_irec(ndims, idims, 'NMA'    , ivars=nma)
@@ -1733,17 +1747,17 @@ if (exans) then
    call alloc_itabs_pd(meshtype,nma,nua,nva,nwa)
    call alloc_xyzem(nma)
 
+   ndims    = 1
    idims(1) = nma
 
-   call shdf5_irec(ndims, idims, 'XEM'  , rvara=xem)
-   call shdf5_irec(ndims, idims, 'YEM'  , rvara=yem)
-   call shdf5_irec(ndims, idims, 'ZEM'  , rvara=zem)
+   call shdf5_irec(ndims, idims, 'XEM', rvara=xem)
+   call shdf5_irec(ndims, idims, 'YEM', rvara=yem)
+   call shdf5_irec(ndims, idims, 'ZEM', rvara=zem)
 
 ! Read ITAB_M SCALARS
 
-   ndims = 1
+   ndims    = 1
    idims(1) = nma
-   idims(2) = 1
 
    call shdf5_irec(ndims,idims,'itab_m%npoly',ivara=itab_m_pd(:)%npoly)
    call shdf5_irec(ndims,idims,'itab_m%itopm',ivara=itab_m_pd(:)%itopm)
@@ -1826,7 +1840,6 @@ if (exans) then
 
       ndims    = 1
       idims(1) = nva
-      idims(2) = 1
       
       call shdf5_irec(ndims,idims,'itab_v%ivp',ivara=itab_v_pd(:)%ivp)
 
@@ -1926,9 +1939,8 @@ if (exans) then
 
 ! Read SEAFLUX VALUES
 
-      ndims = 1
+      ndims    = 1
       idims(1) = 1
-      idims(2) = 1
 
       call shdf5_irec(ndims, idims, 'NSEAFLUX',ivars=nseaflux)
       call shdf5_irec(ndims, idims, 'NSFPATS' ,ivars=nsfpats)
@@ -1938,6 +1950,7 @@ if (exans) then
 
       allocate (seaflux_pd(nseaflux))
 
+      ndims    = 1
       idims(1) = nseaflux
 
       call shdf5_irec(ndims,idims,'seaflux%iw'      ,ivara=seaflux_pd(:)%iw)
@@ -1945,9 +1958,8 @@ if (exans) then
 
 ! Read LANDFLUX VALUES
 
-      ndims = 1
+      ndims    = 1
       idims(1) = 1
-      idims(2) = 1
 
       call shdf5_irec(ndims, idims, 'NLANDFLUX',ivars=nlandflux)
       call shdf5_irec(ndims, idims, 'NLFPATS'  ,ivars=nlfpats)
@@ -1957,6 +1969,7 @@ if (exans) then
 
       allocate (landflux_pd(nlandflux))
 
+      ndims    = 1
       idims(1) = nlandflux
 
       call shdf5_irec(ndims,idims,'landflux%iw'      ,ivara=landflux_pd(:)%iw)
@@ -2073,9 +2086,8 @@ if (exans) then
 
    call shdf5_open(trim(gridfile),'R')
 
-   ndims = 1
+   ndims    = 1
    idims(1) = nza
-   idims(2) = 1
 
    call shdf5_irec(ndims, idims, 'ZM'    , rvara=zm)
    call shdf5_irec(ndims, idims, 'ZT'    , rvara=zt)
@@ -2088,6 +2100,7 @@ if (exans) then
    call shdf5_irec(ndims, idims, 'ZFACIM', rvara=zfacim)
    call shdf5_irec(ndims, idims, 'ZFACIT', rvara=zfacit)
 
+   ndims    = 1
    idims(1) = mma
 
    call shdf5_irec(ndims, idims, 'LPM'  , ivara=lpm, points=lgma)
@@ -2099,10 +2112,9 @@ if (exans) then
    call shdf5_irec(ndims, idims, 'YEM'  , rvara=yem, points=lgma)
    call shdf5_irec(ndims, idims, 'ZEM'  , rvara=zem, points=lgma)
    
-
-
    if (meshtype == 1) then
 
+      ndims    = 1
       idims(1) = mua
 
       call shdf5_irec(ndims, idims, 'LPU'  , ivara=lpu, points=lgua)
@@ -2125,6 +2137,7 @@ if (exans) then
 
    else
 
+      ndims    = 1
       idims(1) = mva
 
       call shdf5_irec(ndims, idims, 'LPV' , ivara=lpv, points=lgva)
@@ -2148,6 +2161,7 @@ if (exans) then
    endif
 
 
+   ndims    = 1
    idims(1) = mwa
 
    call shdf5_irec(ndims, idims, 'LPW'  , ivara=lpw, points=lgwa)
@@ -2163,17 +2177,18 @@ if (exans) then
    call shdf5_irec(ndims, idims, 'GLATW', rvara=glatw, points=lgwa)
    call shdf5_irec(ndims, idims, 'GLONW', rvara=glonw, points=lgwa)
 
-   ndims = 2
-   idims(1) = nza
-
    if (meshtype == 1) then
 
+      ndims    = 2
+      idims(1) = nza
       idims(2) = mua
 
       call shdf5_irec(ndims, idims, 'VOLUI', rvara=volui, points=lgua)
       call shdf5_irec(ndims, idims, 'ARU'  , rvara=aru,   points=lgua)
    else
 
+      ndims    = 2
+      idims(1) = nza
       idims(2) = mva
 
       call shdf5_irec(ndims, idims, 'ARV'  , rvara=arv,   points=lgva)
@@ -2182,9 +2197,8 @@ if (exans) then
    
    endif
 
-   idims(2) = mua
-
-
+   ndims    = 2
+   idims(1) = nza
    idims(2) = mwa
 
    call shdf5_irec(ndims, idims, 'ARW'  , rvara=arw, points=lgwa)
@@ -2194,9 +2208,8 @@ if (exans) then
    
 ! Read ITAB_M SCALARS
 
-   ndims = 1
+   ndims    = 1
    idims(1) = mma
-   idims(2) = 1
 
    call shdf5_irec(ndims,idims,'itab_m%npoly'    ,ivara=itab_m(:)%npoly, points=lgma)
    call shdf5_irec(ndims,idims,'itab_m%itopm'    ,ivara=itab_m(:)%itopm, points=lgma)
@@ -2386,9 +2399,8 @@ if (exans) then
 
 ! Read ITAB_V SCALARS
 
-      ndims = 1
+      ndims    = 1
       idims(1) = mva
-      idims(2) = 1
 
       call shdf5_irec(ndims,idims,'itab_v%ivp'      ,ivara=itab_v(:)%ivp, points=lgva)
       call shdf5_irec(ndims,idims,'itab_v%mrlv'     ,ivara=itab_v(:)%mrlv, points=lgva)
@@ -2396,7 +2408,7 @@ if (exans) then
 
 ! Read ITAB_V ARRAYS
 
-      ndims = 2
+      ndims    = 2
       idims(1) = mloops_v
       idims(2) = mva
 
@@ -2498,9 +2510,8 @@ if (exans) then
 
 ! Read ITAB_W SCALARS
 
-   ndims = 1
+   ndims    = 1
    idims(1) = mwa
-   idims(2) = 1
 
    call shdf5_irec(ndims,idims,'itab_w%npoly'    ,ivara=itab_w(:)%npoly, points=lgwa)
    call shdf5_irec(ndims,idims,'itab_w%iwp'      ,ivara=itab_w(:)%iwp, points=lgwa)
@@ -2523,7 +2534,7 @@ if (exans) then
 
 ! Read ITAB_W ARRAYS
 
-   ndims = 2
+   ndims    = 2
    idims(1) = mloops_w
    idims(2) = mwa
 
@@ -2700,9 +2711,8 @@ if (exans) then
 
 ! Read SEAFLUX VALUES
 
-      ndims = 1
+      ndims    = 1
       idims(1) = 1
-      idims(2) = 1
 
       call shdf5_irec(ndims, idims, 'NSEAFLUX',ivars=nseaflux)
       call shdf5_irec(ndims, idims, 'NSFPATS' ,ivars=nsfpats)
@@ -2718,6 +2728,7 @@ if (exans) then
       allocate (yemsfpat(5,nsfpats))
       allocate (zemsfpat(5,nsfpats))
 
+      ndims    = 1
       idims(1) = nseaflux
 
       call shdf5_irec(ndims,idims,'seaflux%isfglobe',ivara=seaflux(:)%ifglobe)
@@ -2735,11 +2746,12 @@ if (exans) then
 
       if (nsfpats > 0) then
 
-         idims(1) = nsfpats
+         ndims    = 1
+        idims(1) = nsfpats
 
          call shdf5_irec(ndims,idims,'nsfpatm' ,ivara=nsfpatm)
 
-         ndims = 2
+         ndims    = 2
          idims(1) = 5
          idims(2) = nsfpats
 
@@ -2751,9 +2763,8 @@ if (exans) then
 
 ! Read LANDFLUX VALUES
 
-      ndims = 1
+      ndims    = 1
       idims(1) = 1
-      idims(2) = 1
 
       call shdf5_irec(ndims, idims, 'NLANDFLUX',ivars=nlandflux)
       call shdf5_irec(ndims, idims, 'NLFPATS'  ,ivars=nlfpats)
@@ -2769,6 +2780,7 @@ if (exans) then
       allocate (yemlfpat(5,nlfpats))
       allocate (zemlfpat(5,nlfpats))
 
+      ndims    = 1
       idims(1) = nlandflux
 
       call shdf5_irec(ndims,idims,'landflux%ilfglobe',ivara=landflux(:)%ifglobe)
@@ -2786,11 +2798,12 @@ if (exans) then
 
       if (nlfpats > 0) then
 
+         ndims    = 1
          idims(1) = nlfpats
 
          call shdf5_irec(ndims,idims,'nlfpatm' ,ivara=nlfpatm)
 
-         ndims = 2
+         ndims    = 2
          idims(1) = 5
          idims(2) = nlfpats
 
@@ -2806,15 +2819,15 @@ if (exans) then
 
    if (mdomain == 0 .and. nudflag > 0) then
 
-      ndims = 1
+      ndims    = 1
       idims(1) = 1
-      idims(2) = 1
 
       call shdf5_irec(ndims, idims, 'NUDNXP' , ivars=nudnxp)
       call shdf5_irec(ndims, idims, 'NWNUD'  , ivars=nwnud)
 
       mwnud = nwnud
 
+      ndims    = 1
       idims(1) = nwnud
 
       call alloc_nudge1(nwnud)
@@ -2827,7 +2840,7 @@ if (exans) then
 
       allocate (iscr(6,nwnud))
 
-      ndims = 2
+      ndims    = 2
       idims(1) = 6
       idims(2) = nwnud
 
