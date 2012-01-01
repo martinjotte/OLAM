@@ -37,8 +37,8 @@ use, intrinsic :: ieee_arithmetic
 #endif
 
 use misc_coms,   only: io6, time8, iflag, runtype, hfilin, time_istp8, &
-                       expnme, mdomain, ngrids, initial, iswrtyp, &
-                       ilwrtyp, nzp, timmax8, alloc_misc, iparallel, &
+                       expnme, mdomain, ngrids, initial, iswrtyp, ilwrtyp, &
+                       meshtype, nzp, timmax8, alloc_misc, iparallel, &
                        iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
                        time_prevhist, rinit, rinit8, debug_fp, init_nans
 
@@ -47,7 +47,7 @@ use mem_leaf,    only: fill_jland
 use sea_coms,    only: nws, mws
 use mem_sea,     only: fill_jsea
 
-use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_u, itab_w
+use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_u, itab_v, itab_w
 use oplot_coms,  only: op
 use mem_grid,    only: nma, nua, nva, nwa, mma, mua, mva, mwa, mza, zm, zt
 use mem_basic,   only: alloc_basic, wc
@@ -65,7 +65,7 @@ implicit none
 character(len=*), intent(in) :: name_name
 
 integer :: i,ifm,nndtflg,ifileok,ierr,iplt_file
-integer :: mwa_prog, mua_prog
+integer :: mwa_prog, mua_prog, mva_prog
 real :: w1,w2,t1,t2,wtime_start
 real, external :: walltime
 
@@ -171,53 +171,66 @@ if (trim(runtype) == 'MAKESFC' .or. trim(runtype) == 'MAKEGRID') then
    go to 1000
 endif
 
-if (iparallel == 1) then
-
 ! Initial allocation of communication buffer arrays based on # of nodes
 
-   call alloc_mpi_sndrcv_bufs()
+call alloc_mpi_sndrcv_bufs()
+
+! reading only the needed to para_decomp from gridfile
+
+call gridfile_read_pd()
 
 ! If run is parallel, assign each grid cell (ATM and, if ISFCL = 1, LAND and SEA)
-! to one of multiple subdomains
+! to one of multiple subdomains. If not, the grid remains unchanged
 
-   write(io6,'(/,a)') 'olam_run calling para_decomp'
+write(io6,'(/,a)') 'olam_run calling para_decomp'
 
-   call para_decomp()
+call para_decomp()
 
-   write(io6,'(/,a,2i7)') 'olam_run after para_decomp',nwl,nws
+write(io6,'(/,a,2i7)') 'olam_run after para_decomp',nwl,nws
 
 ! Set up itab data types and grid coordinate arrays for current node, and 
 ! reallocate memory for current node
 
-   call para_init() 
+call para_init() 
 
-   write(io6,'(/,a)') 'olam_run after para_init'
-   write(io6,'(a,i8)')   ' mma = ',mma
-   write(io6,'(a,i8)')   ' mua = ',mua
-   write(io6,'(a,i8)')   ' mva = ',mva
-   write(io6,'(a,i8)')   ' mwa = ',mwa
+write(io6,'(/,a)') 'olam_run after para_init'
+write(io6,'(a,i8)')   ' mma = ',mma
+write(io6,'(a,i8)')   ' mua = ',mua
+write(io6,'(a,i8)')   ' mva = ',mva
+write(io6,'(a,i8)')   ' mwa = ',mwa
+write(io6,*)
 
-   mwa_prog = 0
-   do i=1,mwa
-      if (itab_w(i)%irank == myrank) mwa_prog = mwa_prog + 1
-   enddo
+mwa_prog = 0
+do i=1,mwa
+   if (itab_w(i)%irank == myrank) mwa_prog = mwa_prog + 1
+enddo
+write(io6,'(a,i8)') ' # of prognostic W points on this node = ', mwa_prog
+   
+if (meshtype == 1) then
    
    mua_prog = 0
    do i=1,mua
       if (itab_u(i)%irank == myrank) mua_prog = mua_prog + 1
    enddo
-   
-   write(io6,*)
    write(io6,'(a,i8)') ' # of prognostic U points on this node = ', mua_prog
-   write(io6,'(a,i8)') ' # of prognostic W points on this node = ', mwa_prog
    write(io6,*)
 
-   if (isfcl == 1) then
-      write(io6,'(a,i8)')   ' mwl = ',mwl
-      write(io6,'(a,i8)')   ' mws = ',mws
-      write(io6,'(a,i8)')   ' mlandflux = ',mlandflux
-      write(io6,'(a,i8)')   ' mseaflux  = ',mseaflux
-   endif
+else
+
+   mva_prog = 0
+   do i=1,mva
+      if (itab_v(i)%irank == myrank) mva_prog = mva_prog + 1
+   enddo
+   write(io6,'(a,i8)') ' # of prognostic V points on this node = ', mva_prog
+   write(io6,*)
+      
+endif
+
+if (isfcl == 1) then
+   write(io6,'(a,i8)')   ' mwl = ',mwl
+   write(io6,'(a,i8)')   ' mws = ',mws
+   write(io6,'(a,i8)')   ' mlandflux = ',mlandflux
+   write(io6,'(a,i8)')   ' mseaflux  = ',mseaflux
 endif
 
 ! Initialize dtlm, dtsm, ndtrat, and nacoust, 
@@ -261,25 +274,21 @@ write(io6,'(/,a)') 'olam_run calling olam_mem_alloc'
 
 call olam_mem_alloc()
 
-! If this is a parallel run, allocate memory for mpi
+write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi'
 
-if (iparallel == 1) then
-   write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi'
+call olam_alloc_mpi(mza,mrls)
 
-   call olam_alloc_mpi(mza,mrls)
+if (isfcl == 1) then
+   write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_land'
 
-   if (isfcl == 1) then
-      write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_land'
+   call olam_alloc_mpi_land(mrls)
 
-      call olam_alloc_mpi_land(mrls)
+   write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_sea'
 
-      write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_sea'
+   call olam_alloc_mpi_sea(mrls)
 
-      call olam_alloc_mpi_sea(mrls)
+   write(io6,'(/,a)') 'olam_run after olam_alloc_mpi_sea'
 
-      write(io6,'(/,a)') 'olam_run after olam_alloc_mpi_sea'
-
-   endif
 endif
 
 ! Initialize primary atmospheric fields

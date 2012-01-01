@@ -561,6 +561,14 @@ if (infotyp == 'UNITS') then
       endif
    enddo
 
+   if (fldname(1:6) == 'ITAB_V' .and. meshtype == 1) then
+      write(io6,*) 'Plot field ',trim(fldname),' not available for hexagonal mesh.'
+      go to 1000
+   elseif (fldname(1:6) == 'ITAB_U' .and. meshtype == 2) then
+      write(io6,*) 'Plot field ',trim(fldname),' not available for triangular mesh.'
+      go to 1000
+   endif
+
    op%stagpt = fldlib(2,icase)(1:1)
    op%dimens = fldlib(2,icase)(2:3)
    op%label  = fldlib(3,icase)

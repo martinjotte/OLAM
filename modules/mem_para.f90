@@ -71,14 +71,10 @@ Module mem_para
   type(nodebuffs), allocatable :: send_u(:)
   type(nodebuffs), allocatable :: send_v(:)
   type(nodebuffs), allocatable :: send_w(:)
-  type(nodebuffs), allocatable :: send_uf(:)
-  type(nodebuffs), allocatable :: send_vf(:)
 
   type(nodebuffs), allocatable :: recv_u(:)
   type(nodebuffs), allocatable :: recv_v(:)
   type(nodebuffs), allocatable :: recv_w(:)
-  type(nodebuffs), allocatable :: recv_uf(:)
-  type(nodebuffs), allocatable :: recv_vf(:)
 
 ! type(nodebuffs), allocatable :: send_ul(:)
   type(nodebuffs), allocatable :: send_wl(:)

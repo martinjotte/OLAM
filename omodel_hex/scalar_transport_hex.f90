@@ -35,10 +35,12 @@ subroutine scalar_transport(vmsc,wmsc,rho_old)
 use mem_ijtabs, only: istp, jtab_v, jtab_w, mrl_endl, itab_v, itab_w
 use mem_grid,   only: mza, mva, mwa, lpv, lpw, lsw, zt, zm, dzim, &
                       dniv, volt, arv, arw, dzim, volti
-use misc_coms,  only: io6, dtlm
+use misc_coms,  only: io6, dtlm, iparallel
 use var_tables, only: num_scalar, scalar_tab
 use mem_turb,   only: vkh, hkm, sxfer_rk
 use massflux,   only: tridiffo
+
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
 
 !$ use omp_lib
 
@@ -105,10 +107,7 @@ call qsub('W',iw)
 ! Vertical loop over W levels
 
    do k = kb,mza-2
-   
-!write(6,'(a,2i7,3e15.3)') 'sct1 ',k,iw,wmsc(k,iw),rho_old(k,iw),rho_old(k+1,iw)
-   
-      wsc(k,iw) = wmsc(k,iw) / (.5 * (rho_old(k,iw) + rho_old(k+1,iw)))
+      wsc(k,iw) = 2.0 * wmsc(k,iw) / (rho_old(k,iw) + rho_old(k+1,iw))
    enddo
    
    wsc(kb-1,iw) = wsc(kb,iw)
@@ -138,8 +137,10 @@ call qsub('V',iv)
 
 ! Vertical loop over T levels
 
+   vsc(2:kb-1,iv) = 0.0
+
    do k = kb,mza-1
-      vsc(k,iv) = vmsc(k,iv) / (.5 * (rho_old(k,iw1) + rho_old(k,iw2)))
+      vsc(k,iv) = 2.0 * vmsc(k,iv) / ( rho_old(k,iw1) + rho_old(k,iw2) )
    enddo
 
 enddo
@@ -153,9 +154,12 @@ if (mrl > 0) then
    call vel_t3d(mrl,vsc,wsc,vxe,vye,vze)
 endif
 
-!---------------------------------------------------------
-! Parallel send/recv of VXE, VYE, VZE
-!---------------------------------------------------------
+! MPI SEND/RECV of VXE, VYE, VZE
+
+if (iparallel == 1) then
+   call mpi_send_w('V',vxe=vxe,vye=vye,vze=vze)
+   call mpi_recv_w('V',vxe=vxe,vye=vye,vze=vze)
+endif
 
 ! Diagnose advective donor point location for all V and W faces
 
@@ -171,8 +175,8 @@ do n = 1,num_scalar
 
 ! Point SCP and SCT to scalar table arrays
 
-   scp => scalar_tab(n)%var_p
-   sct => scalar_tab(n)%var_t
+   scp => scalar_tab(n)%var_p(:,:)
+   sct => scalar_tab(n)%var_t(:,:)
 
 ! Evaluate T3D gradient of scalar field
 
@@ -181,9 +185,12 @@ do n = 1,num_scalar
       call grad_t3d(mrl,scp,gxps_scp,gyps_scp,gzps_scp)
    endif
 
-!---------------------------------------------------------
-! Parallel send/recv of T3D gradients (3 of them)
-!---------------------------------------------------------
+! MPI SEND/RECV of SCP gradient components
+
+   if (iparallel == 1) then
+      call mpi_send_w('G',gxps_scp=gxps_scp,gyps_scp=gyps_scp,gzps_scp=gzps_scp)
+      call mpi_recv_w('G',gxps_scp=gxps_scp,gyps_scp=gyps_scp,gzps_scp=gzps_scp)
+   endif
 
 ! Horizontal loop over W/T points
 

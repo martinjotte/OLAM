@@ -668,8 +668,8 @@ if (action == 'L') then
 ! Point SCP and SCT to scalar arrays
 
       if (sclr_type == 'S') then
-         scp => scalar_tab(n)%var_p
-         sct => scalar_tab(n)%var_t
+         scp => scalar_tab(n)%var_p(:,:)
+         sct => scalar_tab(n)%var_t(:,:)
       else
          scp => thil
          sct => thilt

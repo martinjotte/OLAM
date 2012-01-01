@@ -37,7 +37,7 @@ subroutine para_decomp()
 use mem_para,   only: mgroupsize, myrank
 use misc_coms,  only: io6, meshtype
 
-use mem_ijtabs, only: itab_u, itab_v, itab_w, itabg_m, itabg_u, itabg_v, itabg_w
+use mem_ijtabs, only: itab_u_pd, itab_v_pd, itab_w_pd, itabg_m, itabg_u, itabg_v, itabg_w
 use mem_grid,   only: nma, nua, nva, nwa, xem, yem, zem
 
 use leaf_coms,  only: nml, nul, nwl, isfcl
@@ -46,14 +46,14 @@ use mem_leaf,   only: itab_ul, itab_wl, itabg_ml, itabg_ul, itabg_wl, land
 use sea_coms,   only: nms, nus, nws
 use mem_sea,    only: itab_us, itab_ws, itabg_ms, itabg_us, itabg_ws, sea
 
-use mem_sflux,  only: nseaflux, nlandflux, seafluxg, landfluxg, landflux, seaflux
+use mem_sflux,  only: nseaflux, nlandflux, seafluxg, landfluxg, landflux_pd, seaflux_pd
 
 implicit none
 
 integer :: im,iu,iv,iw
 integer :: im1,im2,im3,iw1,iw2
 integer :: igp,jgp
-integer :: i, j, ii, jj, iil, jjl, iis, jjs, npoly
+integer :: i, j, ii, jj, iil, jjl, iis, jjs, npoly, is
 
 integer :: iter,ibin
 integer :: ngroups
@@ -91,24 +91,16 @@ End type
 
 type (grp_var) :: grp(mgroupsize)
 
-integer :: iwl_atm_ranks(nwl,mgroupsize)
-integer :: niwl_atm(nwl)
-integer :: iwl
+integer, allocatable :: iwl_atm_ranks(:,:)
+integer, allocatable :: niwl_atm(:)
+integer              :: iwl
 
-integer :: iws_atm_ranks(nws,mgroupsize)
-integer :: niws_atm(nws)
-integer :: iws
+integer, allocatable :: iws_atm_ranks(:,:)
+integer, allocatable :: niws_atm(:)
+integer              :: iws
 
 integer :: nuv_per_node(0:mgroupsize-1)
 integer :: iwcr, iwor
-
-iwl_atm_ranks = -1
-niwl_atm = 0
-
-iws_atm_ranks = -1
-niws_atm = 0
-
-nuv_per_node = 0
 
 ! Allocate permanent itabg data structures
 
@@ -141,14 +133,17 @@ do iw = 2,nwa
    yewm(iw) = -1.e9
    zewm(iw) = -1.e9
 
-   do j = 1,itab_w(iw)%npoly
-      im = itab_w(iw)%im(j)
+   do j = 1,itab_w_pd(iw)%npoly
+      im = itab_w_pd(iw)%im(j)
       
       if (xewm(iw) < xem(im)) xewm(iw) = xem(im)
       if (yewm(iw) < yem(im)) yewm(iw) = yem(im)
       if (zewm(iw) < zem(im)) zewm(iw) = zem(im)
    enddo
 enddo
+
+! We don't need global xe? anymore. Deallocating it
+deallocate(xem, yem, zem)
 
 ! Allocate and fill grp%iw, grp%iwl, and grp%iws for group 1
 
@@ -537,114 +532,166 @@ do igp = 1,ngroups
 
 enddo
 
-! Temporary:
-! If all of the atm cells above a land/sea cell are on the same node,
-! put the sfc cell on that same node if it isn't already
 
-do i = 1, nlandflux
-   iw  = landflux(i)%iw
-   iwl = landflux(i)%iwls
-   niwl_atm(iwl) = niwl_atm(iwl) + 1
-   j = niwl_atm(iwl)
-   iwl_atm_ranks(iwl,j) = itabg_w(iw)%irank
-enddo
+if (isfcl == 1 .and. mgroupsize > 1 ) then
 
-do i = 1, nseaflux
-   iw  = seaflux(i)%iw
-   iws = seaflux(i)%iwls
-   niws_atm(iws) = niws_atm(iws) + 1
-   j = niws_atm(iws)
-   iws_atm_ranks(iws,j) = itabg_w(iw)%irank
-enddo
+   ! Trial code for reducing unneacessary communication:
+   ! If all of the atm cells above a land cell are on the same node,
+   ! put the land cell on that same node too if it isn't already
 
-do iwl = 1, nwl
-   if (niwl_atm(iwl) > 0) then
+   allocate( iwl_atm_ranks( nwl, 20))
+   allocate( niwl_atm     ( nwl ))
+
+   iwl_atm_ranks = -1
+   niwl_atm      =  0
+   
+   do i = 1, nlandflux
+      iw  = landflux_pd(i)%iw
+      iwl = landflux_pd(i)%iwls
+      niwl_atm(iwl) = niwl_atm(iwl) + 1
       j = niwl_atm(iwl)
-      if ( all( iwl_atm_ranks(iwl,1:j) == iwl_atm_ranks(iwl,1) )) then
-         if (iwl_atm_ranks(iwl,1) /= itabg_wl(iwl)%irank) then
-            itabg_wl(iwl)%irank = iwl_atm_ranks(iwl,1)
+      is = size(iwl_atm_ranks,2)
+
+      if (j > is) then
+         call move_alloc(iwl_atm_ranks, iws_atm_ranks)
+         allocate( iwl_atm_ranks( nwl, is+10))
+         iwl_atm_ranks(:,1:is) = iws_atm_ranks(:,1:is)
+         deallocate( iws_atm_ranks)
+         iwl_atm_ranks(:,is+1:) = -1
+      endif
+
+      iwl_atm_ranks(iwl,j) = itabg_w(iw)%irank
+   enddo
+
+   do iwl = 1, nwl
+      if (niwl_atm(iwl) > 0) then
+         j = niwl_atm(iwl)
+         if ( all( iwl_atm_ranks(iwl,1:j) == iwl_atm_ranks(iwl,1) )) then
+            if (iwl_atm_ranks(iwl,1) /= itabg_wl(iwl)%irank) then
+               itabg_wl(iwl)%irank = iwl_atm_ranks(iwl,1)
+            endif
          endif
       endif
-   endif
-enddo
+   enddo
 
-do iws = 1, nws
-   if (niws_atm(iws) > 0) then
+   deallocate( iwl_atm_ranks, niwl_atm)
+
+   ! If all of the atm cells above a sea cell are on the same node,
+   ! put the sea cell on that same node too if it isn't already
+
+   allocate( iws_atm_ranks( nws, 20))
+   allocate( niws_atm     ( nws ))
+
+   iws_atm_ranks = -1
+   niws_atm      =  0
+
+   do i = 1, nseaflux
+      iw  = seaflux_pd(i)%iw
+      iws = seaflux_pd(i)%iwls
+      niws_atm(iws) = niws_atm(iws) + 1
       j = niws_atm(iws)
-      if ( all( iws_atm_ranks(iws,1:j) == iws_atm_ranks(iws,1) )) then
-         if (iws_atm_ranks(iws,1) /= itabg_ws(iws)%irank) then
-            itabg_ws(iws)%irank = iws_atm_ranks(iws,1)
+      is = size(iws_atm_ranks,2)
+
+      if (j > is) then
+         call move_alloc(iws_atm_ranks, iwl_atm_ranks)
+         allocate( iws_atm_ranks( nws, is+10))
+         iws_atm_ranks(:,1:is) = iwl_atm_ranks(:,1:is)
+         deallocate( iwl_atm_ranks)
+         iws_atm_ranks(:,is+1:) = -1
+      endif
+
+      iws_atm_ranks(iws,j) = itabg_w(iw)%irank
+   enddo
+
+   do iws = 1, nws
+      if (niws_atm(iws) > 0) then
+         j = niws_atm(iws)
+         if ( all( iws_atm_ranks(iws,1:j) == iws_atm_ranks(iws,1) )) then
+            if (iws_atm_ranks(iws,1) /= itabg_ws(iws)%irank) then
+               itabg_ws(iws)%irank = iws_atm_ranks(iws,1)
+            endif
          endif
       endif
-   endif
-enddo
+   enddo
 
-! Loop over all U/V points and assign its rank to the higher rank of its
+   deallocate( iws_atm_ranks, niws_atm)
+endif
+
+! Old way for assigning U/V rank:
+! Loop over each U/V point and assign its rank to the higher rank of its
 ! two IW neighbors
+!
+!if (meshtype == 1) then
+!   do iu = 2,nua
+!      iw1 = itab_u_pd(iu)%iw(1)
+!      iw2 = itab_u_pd(iu)%iw(2)
+!      itabg_u(iu)%irank = max(itabg_w(iw1)%irank, itabg_w(iw2)%irank)
+!   enddo
+!else
+!   do iv = 2,nva
+!      iw1 = itab_v_pd(iv)%iw(1)
+!      iw2 = itab_v_pd(iv)%iw(2)
+!      itabg_v(iv)%irank = max(itabg_w(iw1)%irank, itabg_w(iw2)%irank)
+!   enddo
+!endif
+!
+! New way for assigning U/V rank:
+! Loop over each U/V point and assign its rank to the IW neighbor that has
+! fewer U/V points in its stencil
 
-! ATM cells
+nuv_per_node(:) = 0
 
 if (meshtype == 1) then
 
-   do iu = 2,nua
-      iw1 = itab_u(iu)%iw(1)
-      iw2 = itab_u(iu)%iw(2)
-
-      itabg_u(iu)%irank = itabg_w(iw2)%irank
-      ! itabg_u(iu)%irank = max(itabg_w(iw1)%irank,itabg_w(iw2)%irank)
-
-      nuv_per_node( itabg_u(iu)%irank ) = nuv_per_node( itabg_u(iu)%irank ) + 1
+   ! If W neighbors have the same rank, set U to this rank too
+   do iu = 2, nua
+      iw1 = itab_u_pd(iu)%iw(1)
+      iw2 = itab_u_pd(iu)%iw(2)
+      if (itabg_w(iw1)%irank == itabg_w(iw2)%irank) then
+         itabg_u(iu)%irank = itabg_w(iw1)%irank
+         nuv_per_node(itabg_u(iu)%irank) = nuv_per_node(itabg_u(iu)%irank) + 1
+      endif
    enddo
 
+   ! If W neighbors are on different ranks, set U to the rank with fewer U points
    do iu = 2,nua
-      iw1 = itab_u(iu)%iw(1)
-      iw2 = itab_u(iu)%iw(2)
-
-      if (itabg_w(iw1)%irank == itabg_w(iw2)%irank) cycle
-
-      iwcr = itabg_u(iu)%irank
-      if (itabg_w(iw1)%irank /= iwcr) then
-         iwor = itabg_w(iw1)%irank
-      else
-         iwor = itabg_w(iw2)%irank
-      endif
-
-      if (nuv_per_node(iwor) < nuv_per_node(iwcr)-1) then
-         itabg_u(iu)%irank = iwor
-         nuv_per_node( iwor ) = nuv_per_node( iwor ) + 1
-         nuv_per_node( iwcr ) = nuv_per_node( iwcr ) - 1
+      iw1 = itab_u_pd(iu)%iw(1)
+      iw2 = itab_u_pd(iu)%iw(2)
+      if (itabg_w(iw1)%irank /= itabg_w(iw2)%irank) then
+         if (nuv_per_node(itabg_w(iw1)%irank) <= nuv_per_node(itabg_w(iw2)%irank)) then
+            itabg_u(iu)%irank = itabg_w(iw1)%irank
+            nuv_per_node(itabg_w(iw1)%irank) = nuv_per_node(itabg_w(iw1)%irank) + 1
+         else
+            itabg_u(iu)%irank = itabg_w(iw2)%irank
+            nuv_per_node(itabg_w(iw2)%irank) = nuv_per_node(itabg_w(iw2)%irank) + 1
+         endif
       endif
    enddo
 
 else
 
+   ! If W neighbors have the same rank, set V to this rank too
    do iv = 2,nva
-      iw1 = itab_v(iv)%iw(1)
-      iw2 = itab_v(iv)%iw(2)
-
-      itabg_v(iv)%irank = itabg_w(iw2)%irank
-      ! itabg_v(iv)%irank = max(itabg_w(iw1)%irank,itabg_w(iw2)%irank)
-      
-      nuv_per_node( itabg_v(iv)%irank ) = nuv_per_node( itabg_v(iv)%irank ) + 1
+      iw1 = itab_v_pd(iv)%iw(1)
+      iw2 = itab_v_pd(iv)%iw(2)
+      if (itabg_w(iw1)%irank == itabg_w(iw2)%irank) then
+         itabg_v(iv)%irank = itabg_w(iw1)%irank
+         nuv_per_node(itabg_v(iv)%irank) = nuv_per_node(itabg_v(iv)%irank) + 1
+      endif
    enddo
 
+   ! If W neighbors are on different ranks, set V to the rank with fewer V points
    do iv = 2,nva
-      iw1 = itab_v(iv)%iw(1)
-      iw2 = itab_v(iv)%iw(2)
-
-      if (itabg_w(iw1)%irank == itabg_w(iw2)%irank) cycle
-
-      iwcr = itabg_v(iv)%irank
-      if (itabg_w(iw1)%irank /= iwcr) then
-         iwor = itabg_w(iw1)%irank
-      else
-         iwor = itabg_w(iw2)%irank
-      endif
-  
-      if (nuv_per_node(iwor) < nuv_per_node(iwcr)-1) then
-         itabg_v(iv)%irank = iwor
-         nuv_per_node( iwor ) = nuv_per_node( iwor ) + 1
-         nuv_per_node( iwcr ) = nuv_per_node( iwcr ) - 1
+      iw1 = itab_v_pd(iv)%iw(1)
+      iw2 = itab_v_pd(iv)%iw(2)
+      if (itabg_w(iw1)%irank /= itabg_w(iw2)%irank) then
+         if (nuv_per_node(itabg_w(iw1)%irank) <= nuv_per_node(itabg_w(iw2)%irank)) then
+            itabg_v(iv)%irank = itabg_w(iw1)%irank
+            nuv_per_node(itabg_w(iw1)%irank) = nuv_per_node(itabg_w(iw1)%irank) + 1
+         else
+            itabg_v(iv)%irank = itabg_w(iw2)%irank
+            nuv_per_node(itabg_w(iw2)%irank) = nuv_per_node(itabg_w(iw2)%irank) + 1
+         endif
       endif
    enddo
    
