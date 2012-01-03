@@ -6,11 +6,12 @@ module hdf5_f2f
 
   implicit none
 
-  integer(HID_T) :: fileid
-  integer(HID_T) :: mspcid
-  integer(HID_T) :: dsetid
-  integer(HID_T) :: dspcid
-  integer(HSIZE_T), dimension(7) :: dimsf
+  integer(HID_T)   :: fileid
+  integer(HID_T)   :: mspcid
+  integer(HID_T)   :: propid
+  integer(HID_T)   :: dsetid
+  integer(HID_T)   :: dspcid
+  integer(HSIZE_T) :: dimsf(7)
   integer(HSIZE_T) :: ndimsf
 
   interface fh5_write
@@ -106,14 +107,14 @@ contains
 
   end subroutine fh5f_create
 
-  subroutine fh5_prepare_write(ndims, dims, hdferr)
+  subroutine fh5_prepare_write(ndims, dims, hdferr, icompress)
 
     implicit none
 
     integer, intent(IN) :: ndims
     integer, dimension(*), intent(IN) :: dims
     integer, intent(OUT) :: hdferr
-
+    integer, optional, intent(IN) :: icompress
     integer :: i
 
     dimsf = 1
@@ -125,6 +126,19 @@ contains
 
     call h5screate_simple_f(ndims, dimsf, mspcid, hdferr)
 
+    call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr) 	 
+
+    ! Activate HDF5 array compression for valid icompress
+    if (present(icompress)) then
+       if (icompress > 0 .and. icompress < 10) then
+          if (.not. (ndims == 1 .and. dimsf(1) == 1)) then
+             call h5pset_chunk_f(propid, ndims, dimsf, hdferr) 	 
+             call h5pset_shuffle_f(propid, hdferr) 	 
+             call h5pset_deflate_f(propid, icompress, hdferr) 	 
+          endif
+       endif
+    endif
+	 
     return
 
   end subroutine fh5_prepare_write
@@ -138,7 +152,7 @@ contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr, propid)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid)
 
@@ -155,7 +169,7 @@ contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, mspcid, dsetid, hdferr)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, mspcid, dsetid, hdferr, propid)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid)
 
@@ -172,7 +186,7 @@ contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, mspcid, dsetid, hdferr)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, mspcid, dsetid, hdferr, propid)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr, mspcid)
 
@@ -189,7 +203,7 @@ contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, mspcid, dsetid, hdferr)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, mspcid, dsetid, hdferr, propid)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr, mspcid)
 
@@ -209,7 +223,7 @@ contains
     integer, allocatable :: buf_integer(:)
     integer :: i, size
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr, propid)
 
     ! converting logical to integer
     size = 1
@@ -241,7 +255,7 @@ contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr, propid)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid)
 
@@ -258,7 +272,7 @@ contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, mspcid, dsetid, hdferr)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, mspcid, dsetid, hdferr, propid)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid)
 
@@ -275,7 +289,7 @@ contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, mspcid, dsetid, hdferr)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, mspcid, dsetid, hdferr, propid)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr, mspcid)
 
@@ -292,7 +306,7 @@ contains
     character(len=*), intent(IN) :: dname
     integer, intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, mspcid, dsetid, hdferr)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, mspcid, dsetid, hdferr, propid)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr, mspcid)
 
@@ -311,7 +325,7 @@ contains
 
     integer :: buf_integer
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr)
+    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, mspcid, dsetid, hdferr, propid)
 
     buf_integer = 0
     if(buf_logical) buf_integer = -1
@@ -329,6 +343,7 @@ contains
     integer, intent(OUT) :: hdferr
 
     call h5sclose_f(mspcid, hdferr)
+    call h5pclose_f(propid, hdferr)
     call h5dclose_f(dsetid, hdferr)
 
     return
@@ -588,18 +603,16 @@ contains
     integer, intent(IN) :: ndims
     integer, dimension(*), intent(IN) :: dims
     integer, intent(OUT) :: hdferr
-    integer(HSIZE_T), allocatable, dimension(:,:) :: coordsf
-    integer(HSIZE_T), allocatable, dimension(:,:) :: coordsfmem
+    integer, intent(IN), optional :: coords(:)
 
-    integer(HSIZE_T) :: num_elements, npoints1, npoints2
+    integer :: i, j, k, ndims_file
+    integer(HSIZE_T) :: dims_file(7), maxdims_file(7)
 
-    integer :: i, j, k, ndims1, ndims2
+    integer(HSIZE_T) :: offset1d(1), count1d(1)
+    integer(HSIZE_T) :: offset2d(2), count2d(2)
+    integer(HSIZE_T) :: offset3d(3), count3d(3)
 
-    integer, optional :: coords(*)
-
-    integer(HSIZE_T) :: dims1(7), dims2(7), maxdims1(7), maxdims2(7)
-
-    dimsf = 1
+    dimsf  = 1
     ndimsf = ndims
 
     do i = 1, ndims
@@ -622,92 +635,103 @@ contains
        return
     end if
 
-    ! copying the dataspace to the memspace
+    ! prepare the memspace to receive the data
 
-    call h5scopy_f(dspcid, mspcid, hdferr)
-    if(dspcid < 0) then
-       hdferr = int(dspcid)
-       return
-    end if
+    call h5screate_simple_f(ndims, dimsf, mspcid, hdferr)
 
     ! if coords is present select the points on dataspace and memspace
 
     if (present(coords)) then
 
-       ! calculating the number of elements of the coordsf and coordsfmem
-       ! arrays
+       ! report an error if coords not dimensioned correctly
 
-       num_elements = 1
-       do i = 1, ndims
-          num_elements = num_elements * dimsf(i)
-       enddo
-
-       ! allocating the arrays, one for dataspace and one for memspace
-
-       allocate(coordsf(1:ndims,1:num_elements))
-       allocate(coordsfmem(1:ndims,1:num_elements))
-
-       ! ensuring that all elements are declared
-       ! (a sort of fall-back)
-
-       coordsf = -1
-       coordsfmem = -1
-
-       if (ndims == 1) then
-
-          ! the first element points to the right position
-
-          coordsf(1,1) = 1
-          coordsfmem(1,1) = 1
-
-          ! with one dimension is simple
-
-          do j = 2, dims(1)
-
-             coordsf(1,j) = coords(j)
-             coordsfmem(1,j) = j
-
-          enddo
-
-       else if (ndims == 2) then
-
-          ! the first element points to the right position
-
-          coordsf(1:ndims,1:dims(1)) = 1
-          coordsfmem(1:ndims,1:dims(1)) = 1
-
-          ! with two dimension is different: we have to do some aritmethic work
-
-          do j = 2, dims(2)
-             do k = 1, dims(1)
-
-                coordsf(2,(j-1) * dims(1) + k) = coords(j)
-                coordsf(1,(j-1) * dims(1) + k) = k
-
-                coordsfmem(2,(j-1) * dims(1) + k) = j
-                coordsfmem(1,(j-1) * dims(1) + k) = k
-
-             end do
-          end do
-
-       else
-
-          stop 'ndims > 2 using partial I/O is not implemented'
-
+       if (size(coords) /= dims(ndims)) then
+          write(*,*) "Error in fh5_prepare_read:"
+          stop       "Invalid number of points selected."
        endif
 
-       ! selecting elements of the dataspace, according to coords
+       ! check the dataspace dimensions in the file
 
-       call h5sselect_elements_f(dspcid, H5S_SELECT_SET_F, ndims, &
-            num_elements, coordsf, hdferr)
+       call h5sget_simple_extent_ndims_f(dspcid, ndims_file, hdferr)
+       call h5sget_simple_extent_dims_f(dspcid, dims_file, maxdims_file, hdferr)
+       
+       ! if the number of points we want is less than that in the file,
+       ! select the points we want (else just read the entire dataspace)
 
-       ! selecting elements of memspace (sequential)
+       if (dims(ndims) < dims_file(ndims)) then
 
-       call h5sselect_elements_f(mspcid, H5S_SELECT_SET_F, ndims, &
-            num_elements, coordsfmem, hdferr)
+          if (ndims == 1) then
 
-       deallocate(coordsf, coordsfmem)
+             ! the first element points to the right position
+             ! select the first point
 
+             offset1d = 0
+             count1d  = 1
+
+             call h5sselect_hyperslab_f(dspcid, H5S_SELECT_SET_F, offset1d, &
+                  count1d, hdferr)
+
+             ! now add the rest of the points to the dataspace selection
+
+             do j = 2, dims(1)
+
+                offset1d = coords(j) - 1
+
+                call h5sselect_hyperslab_f(dspcid, H5S_SELECT_OR_F, offset1d, &
+                     count1d, hdferr)
+
+             enddo
+
+          else if (ndims == 2) then
+
+             ! the first element points to the right position
+             ! select a 1-d vector of points
+
+             offset2d = (/ 0, 0 /)
+             count2d  = (/ dims(1), 1 /)
+
+             call h5sselect_hyperslab_f(dspcid, H5S_SELECT_SET_F, offset2d, &
+                  count2d, hdferr)
+
+             ! now add the rest of the 1-d vectors to the dataspace selection
+
+             do j = 2, dims(2)
+
+                offset2d(2) = coords(j)-1
+
+                call h5sselect_hyperslab_f(dspcid, H5S_SELECT_OR_F, offset2d, &
+                     count2d, hdferr)
+
+             enddo
+
+          else if (ndims == 3) then
+
+             ! the first element points to the right position
+             ! select a 2-d array of points
+
+             offset3d = (/ 0, 0, 0 /)
+             count3d  = (/ dims(1), dims(2), 1 /)
+
+             call h5sselect_hyperslab_f(dspcid, H5S_SELECT_SET_F, offset3d, &
+                  count3d, hdferr)
+
+             ! now add the rest of the 2-d arrays to the dataspace selection
+
+             do j = 2, dims(3)
+
+                offset3d(3) = coords(j)-1
+
+                call h5sselect_hyperslab_f(dspcid, H5S_SELECT_OR_F, offset3d, &
+                     count3d, hdferr)
+
+             enddo
+
+          else
+
+             stop 'ndims > 3 using partial I/O is not implemented'
+
+          endif
+       endif
     endif
 
     return

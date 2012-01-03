@@ -1532,7 +1532,7 @@ end subroutine gridfile_write
 subroutine gridfile_read_pd()
 
 use max_dims,   only: maxngrdll
-use misc_coms,  only: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp, &
+use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp, &
                       itopoflg, deltax, ndz, hdz, dz, &
                       ngrdll, grdrad, grdlat, grdlon, meshtype
 use mem_ijtabs, only: mloops_m, mloops_u, mloops_v, mloops_w, mrls,  &
@@ -2005,7 +2005,7 @@ end subroutine gridfile_read_pd
 subroutine gridfile_read()
 
 use max_dims,   only: maxngrdll
-use misc_coms,  only: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp, &
+use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp, &
                       itopoflg, deltax, ndz, hdz, dz, &
                       ngrdll, grdrad, grdlat, grdlon, meshtype
 use mem_ijtabs, only: mloops_m, mloops_u, mloops_v, mloops_w, mrls, &

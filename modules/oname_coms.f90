@@ -113,9 +113,11 @@ Module oname_coms
 
 !!    GRID, HISTORY FILES
 
-      integer :: ioutput  = 1
-      integer :: iclobber = 0
-      real    :: frqstate = 3600.0
+      integer :: ioutput   = 1
+      integer :: iclobber  = 0
+      integer :: icompress = 0
+      integer :: iquiet    = 0
+      real    :: frqstate  = 3600.0
 
       character(pathlen) :: gridfile  = 'sfcfile/gridfile_0'
       character(pathlen) :: hfilin    = ''
