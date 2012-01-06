@@ -161,6 +161,8 @@ end subroutine shdf5_info
 subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
                                          ,ivars,rvars,cvars,dvars,lvars)
 
+use oname_coms, only: nl
+
 #ifdef OLAM_HDF5_FORTRAN
 use hdf5_f2f
 #endif
@@ -210,7 +212,7 @@ endif
 dimsh(1:ndims) = dims(1:ndims)
      
 ! Prepare memory and options for the write
-call fh5_prepare_write(ndims, dimsh, hdferr)
+call fh5_prepare_write(ndims, dimsh, hdferr, nl%icompress)
 if (hdferr /= 0) then
    print*,'shdf5_orec: can''t prepare requested field:',trim(dsetname)
    return
@@ -279,7 +281,7 @@ character,        optional :: cvara(*),cvars
 real(kind=8),     optional :: dvara(*),dvars
 logical,          optional :: lvara(*),lvars
 
-integer, intent(IN), optional :: points(*)   !  Array of points to be readed
+integer, intent(IN), optional :: points(:)   !  Array of points to be read
 
 integer:: h5_type   ! Local type designator
 
