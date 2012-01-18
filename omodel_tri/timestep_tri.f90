@@ -143,7 +143,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(10)
 
-   call zero_massflux(wmarwsc,rho_old,umarusc=umarusc)
+   call zero_massflux(wmarwsc, rho_old, umarusc)
 
 ! call check_nans(11)
 
@@ -151,7 +151,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(12)
 
-   call timeavg_massflux(wmarwsc,umarusc=umarusc)
+   call timeavg_massflux(wmarwsc, umarusc)
 
 ! call check_nans(13)
 

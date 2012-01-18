@@ -34,7 +34,7 @@ Module massflux
 
 Contains
 
-subroutine zero_massflux(wmarwsc,rho_old,umarusc,vmarvsc)
+subroutine zero_massflux(wmarwsc, rho_old, umarusc)
 
 use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, istp, mrl_begl
 use mem_grid,   only: mza, mua, mva, mwa, lpw
@@ -47,54 +47,28 @@ implicit none
 
 real(kind=8), intent(out) :: wmarwsc(mza,mwa)
 real(kind=8), intent(out) :: rho_old(mza,mwa)
-
-real(kind=8), optional, intent(out) :: umarusc(mza,mua)
-real(kind=8), optional, intent(out) :: vmarvsc(mza,mva)
+real(kind=8), intent(out) :: umarusc(mza,mua)
 
 integer :: j,k,iu,iv,iw,mrl
 
 ! Zero out long timestep mass flux components (used for scalar advective 
 ! transport) so they may be summed over small timesteps
 
-if (present(umarusc)) then
-
-   call psub()
+call psub()
 !----------------------------------------------------------------------
-   mrl = mrl_begl(istp)
-   if (mrl > 0) then
+mrl = mrl_begl(istp)
+if (mrl > 0) then
 !$omp parallel do private(iu,k)
-   do j = 1,jtab_u(14)%jend(mrl); iu = jtab_u(14)%iu(j)
+do j = 1,jtab_u(14)%jend(mrl); iu = jtab_u(14)%iu(j)
 !----------------------------------------------------------------------
    call qsub('U',iu)
-      do k = 1,mza-1          ! begin at level 2 even if below ground
-         umarusc(k,iu) = 0.   ! initialize horiz mass flux for scalar advection
-      enddo
+   do k = 1,mza-1          ! begin at level 2 even if below ground
+      umarusc(k,iu) = 0.   ! initialize horiz mass flux for scalar advection
    enddo
+enddo
 !$omp end parallel do
-   endif
-   call rsub('U',14)
-
 endif
-
-if (present(vmarvsc)) then
-
-   call psub()
-!----------------------------------------------------------------------
-   mrl = mrl_begl(istp)
-   if (mrl > 0) then
-!$omp parallel do private(iv,k)
-   do j = 1,jtab_v(14)%jend(mrl); iv = jtab_v(14)%iv(j)
-!----------------------------------------------------------------------
-   call qsub('V',iv)
-      do k = 1,mza-1          ! begin at level 2 even if below ground
-         vmarvsc(k,iv) = 0.   ! initialize horiz mass flux for scalar advection
-      enddo
-   enddo
-!$omp end parallel do
-   endif
-   call rsub('V',14)
-
-endif
+call rsub('U',14)
 
 call psub()
 !----------------------------------------------------------------------
@@ -121,7 +95,7 @@ end subroutine zero_massflux
 
 !===========================================================================
 
-subroutine timeavg_massflux(wmarwsc,umarusc,vmarvsc)
+subroutine timeavg_massflux(wmarwsc, umarusc)
 
 use mem_ijtabs, only: jtab_u, jtab_v, itab_u, itab_v, jtab_w, itab_w, &
                       istp, mrl_endl
@@ -133,56 +107,30 @@ use misc_coms,  only: io6, nacoust
 implicit none
 
 real(kind=8), intent(inout) :: wmarwsc(mza,mwa)
-
-real(kind=8), optional, intent(inout) :: umarusc(mza,mua)
-real(kind=8), optional, intent(inout) :: vmarvsc(mza,mva)
+real(kind=8), intent(inout) :: umarusc(mza,mua)
 
 integer :: j,k,iu,iv,iw,mrl,mrlu,mrlv,mrlw
 real :: acoi,acoi2
 
-if (present(umarusc)) then
-
-   call psub()
+call psub()
 !----------------------------------------------------------------------
-   mrl = mrl_endl(istp)
-   if (mrl > 0) then
+mrl = mrl_endl(istp)
+if (mrl > 0) then
 !$omp parallel do private(iu,mrlu,acoi,k)
-   do j = 1,jtab_u(20)%jend(mrl); iu = jtab_u(20)%iu(j)
+do j = 1,jtab_u(20)%jend(mrl); iu = jtab_u(20)%iu(j)
 !----------------------------------------------------------------------
-   call qsub('U',iu)
-      mrlu = itab_u(iu)%mrlu
-      acoi = 1. / float(nacoust(mrlu))
-      do k = lpu(iu),mza-1
-         umarusc(k,iu) = umarusc(k,iu) * acoi  ! upsum
-      enddo
+call qsub('U',iu)
+
+   mrlu = itab_u(iu)%mrlu
+   acoi = 1. / float(nacoust(mrlu))
+   do k = lpu(iu),mza-1
+      umarusc(k,iu) = umarusc(k,iu) * acoi  ! upsum
    enddo
+
+enddo
 !$omp end parallel do
-   endif
-   call rsub('U',20)
-
 endif
-
-if (present(vmarvsc)) then
-
-   call psub()
-!----------------------------------------------------------------------
-   mrl = mrl_endl(istp)
-   if (mrl > 0) then
-!$omp parallel do private(iv,mrlv,acoi,k)
-   do j = 1,jtab_v(20)%jend(mrl); iv = jtab_v(20)%iv(j)
-!----------------------------------------------------------------------
-   call qsub('V',iv)
-      mrlv = itab_v(iv)%mrlv
-      acoi = 1. / float(nacoust(mrlv))
-      do k = lpv(iv),mza-1
-         vmarvsc(k,iv) = vmarvsc(k,iv) * acoi
-      enddo
-   enddo
-!$omp end parallel do
-   endif
-   call rsub('V',20)
-
-endif
+call rsub('U',20)
 
 call psub()
 !----------------------------------------------------------------------
