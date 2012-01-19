@@ -177,16 +177,370 @@ do ig = 1,ngrp
                              ,ju(2,ig),jm(3,ig))
 
    else ! nwdivg(ig) = 4
-      
+
       call perim_fill_concave2(ngr,mrloo,kma,kua,kwa      &
                               ,jm(1,ig),ju(1,ig),jm(2,ig) &
                               ,ju(2,ig),jm(3,ig))
    endif
-      
+
 enddo
 
 return
 end subroutine perim_fill2
+
+!===========================================================================
+
+subroutine perim_fill3(nper,imper,iuper)
+
+use mem_ijtabs, only: itab_ud, itab_wd, ltab_ud, nest_ud, nest_wd
+use mem_grid,   only: xem, yem, zem
+use misc_coms,  only: io6
+
+implicit none
+
+integer, intent(in) :: nper, imper(nper), iuper(nper) 
+
+integer :: jm1, jm2, jm3, ju1, ju2, ju3, ku1, ku2, ku3
+
+integer :: im5,im12,im13,im17,im18,im19,im20,im24
+
+integer :: iu15,iu16,iu25,iu26,iu33,iu34,iu35,iu41,iu42,iu43
+integer :: iu44,iu45,iu48,iu49,iu50,iu51
+
+integer :: iw6,iw7,iw8,iw9,iw19,iw20,iw21,iw27,iw29,iw31
+
+integer :: iper
+
+do iper = 1,nper,3
+
+! Inventory of CM mesh points
+
+   jm1 = imper(iper)
+   jm2 = imper(iper+1)
+   jm3 = imper(iper+2)
+
+   ju1 = iuper(iper)
+   ju2 = iuper(iper+1)
+   ju3 = iuper(iper+2)
+
+   if (jm1 == ltab_ud(ju1)%im(1)) then
+      iu41 = ju1
+      iu42 = nest_ud(ju1)%iu
+      iw27 = ltab_ud(ju1)%iw(1)
+   else
+      iu41 = nest_ud(ju1)%iu
+      iu42 = ju1
+      iw27 = ltab_ud(ju1)%iw(2)
+   endif
+
+   if (jm2 == ltab_ud(ju2)%im(1)) then
+
+      iu49 = ltab_ud(ju2)%iu(1)
+      iu50 = ltab_ud(ju2)%iu(2)
+      iu34 = ltab_ud(ju2)%iu(3)
+      iu35 = ltab_ud(ju2)%iu(4)
+      iu48 = ltab_ud(ju2)%iu(5)
+      iu51 = ltab_ud(ju2)%iu(8)
+
+      iw6 = ltab_ud(ju2)%iw(5)
+      iw9 = ltab_ud(ju2)%iw(6)
+      iw29 = ltab_ud(ju2)%iw(1)
+      iw20 = ltab_ud(ju2)%iw(2)
+
+   else
+
+      iu49 = ltab_ud(ju2)%iu(4)
+      iu50 = ltab_ud(ju2)%iu(3)
+      iu34 = ltab_ud(ju2)%iu(2)
+      iu35 = ltab_ud(ju2)%iu(1)
+      iu48 = ltab_ud(ju2)%iu(12)
+      iu51 = ltab_ud(ju2)%iu(9)
+
+      iw6 = ltab_ud(ju2)%iw(4)
+      iw9 = ltab_ud(ju2)%iw(3)
+      iw29 = ltab_ud(ju2)%iw(2)
+      iw20 = ltab_ud(ju2)%iw(1)
+
+   endif
+
+   if (jm3 == ltab_ud(ju3)%im(1)) then
+      iu44 = ju3
+      iu45 = nest_ud(ju3)%iu
+      iw31 = ltab_ud(ju3)%iw(1)
+   else
+      iu44 = nest_ud(ju3)%iu
+      iu45 = ju3
+      iw31 = ltab_ud(ju3)%iw(2)
+   endif
+
+   im17 = nest_ud(ju1)%im
+   im18 = jm2
+   im19 = jm3
+   im20 = nest_ud(ju3)%im
+   iu43 = ju2
+
+   ku1 = nest_wd(iw6)%iu(1)
+   ku2 = nest_wd(iw6)%iu(2)
+   ku3 = nest_wd(iw6)%iu(3)
+
+   if (itab_ud(ku1)%im(1) > 1 .and. itab_ud(ku1)%im(2) > 1) then
+      iu25 = ku2
+      iu15 = ku3
+   elseif (itab_ud(ku2)%im(1) > 1 .and. itab_ud(ku2)%im(2) > 1) then
+      iu25 = ku3
+      iu15 = ku1
+   elseif (itab_ud(ku3)%im(1) > 1 .and. itab_ud(ku3)%im(2) > 1) then
+      iu25 = ku1
+      iu15 = ku2
+   endif
+
+   if (itab_ud(iu15)%iw(1) == iw6) then
+      iw7 = itab_ud(iu15)%iw(2)
+   else
+      iw7 = itab_ud(iu15)%iw(1)
+   endif
+
+   if (itab_ud(iu25)%iw(1) == iw6) then
+      iw19 = itab_ud(iu25)%iw(2)
+      im12 = itab_ud(iu25)%im(2) ! to reposition xyzem(12)
+   else
+      iw19 = itab_ud(iu25)%iw(1)
+      im12 = itab_ud(iu25)%im(1) ! to reposition xyzem(12)
+   endif
+
+   ku1 = nest_wd(iw9)%iu(1)
+   ku2 = nest_wd(iw9)%iu(2)
+   ku3 = nest_wd(iw9)%iu(3)
+
+   if (itab_ud(ku1)%im(1) > 1 .and. itab_ud(ku1)%im(2) > 1) then
+      iu16 = ku2
+      iu26 = ku3
+   elseif (itab_ud(ku2)%im(1) > 1 .and. itab_ud(ku2)%im(2) > 1) then
+      iu16 = ku3
+      iu26 = ku1
+   elseif (itab_ud(ku3)%im(1) > 1 .and. itab_ud(ku3)%im(2) > 1) then
+      iu16 = ku1
+      iu26 = ku2
+   endif
+
+   if (itab_ud(iu16)%iw(1) == iw9) then
+      iw8 = itab_ud(iu16)%iw(2)
+   else
+      iw8 = itab_ud(iu16)%iw(1)
+   endif
+
+   if (itab_ud(iu26)%iw(1) == iw9) then
+      iw21 = itab_ud(iu26)%iw(2)
+      im13 = itab_ud(iu26)%im(1) ! to reposition xyzem(13)
+   else
+      iw21 = itab_ud(iu26)%iw(1)
+      im13 = itab_ud(iu26)%im(2) ! to reposition xyzem(13)
+   endif
+
+   if (im18 == itab_ud(iu49)%im(1)) then
+      im24 = itab_ud(iu49)%im(2)
+   else
+      im24 = itab_ud(iu49)%im(1)
+   endif 
+
+! Fill neighbor indices:
+
+   if (itab_ud(iu15)%im(1) == 1) then
+      itab_ud(iu15)%im(1) = im18
+   else
+      itab_ud(iu15)%im(2) = im18
+   endif
+
+   if (itab_ud(iu16)%im(1) == 1) then
+      itab_ud(iu16)%im(1) = im18
+   else
+      itab_ud(iu16)%im(2) = im18
+   endif
+
+   if (itab_ud(iu25)%im(1) == 1) then
+      itab_ud(iu25)%im(1) = im18
+   else
+      itab_ud(iu25)%im(2) = im18
+   endif
+
+   if (itab_ud(iu26)%im(1) == 1) then
+      itab_ud(iu26)%im(1) = im18
+   else
+      itab_ud(iu26)%im(2) = im18
+   endif
+
+   if (itab_ud(iu34)%im(1) == im18) then 
+      itab_ud(iu34)%iw(1) = iw8
+      itab_ud(iu34)%iw(2) = iw7
+      im5 = itab_ud(iu34)%im(2)
+   else
+      itab_ud(iu34)%iw(1) = iw7
+      itab_ud(iu34)%iw(2) = iw8
+      im5 = itab_ud(iu34)%im(1)
+   endif
+
+   if (itab_ud(iu35)%im(1) == im19) then
+      itab_ud(iu35)%iw(2) = iw19
+      itab_ud(iu35)%iw(1) = iw21
+      itab_ud(iu35)%im(2) = im18
+   else
+      itab_ud(iu35)%iw(1) = iw19
+      itab_ud(iu35)%iw(2) = iw21
+      itab_ud(iu35)%im(1) = im18
+   endif
+
+   if (itab_ud(iu41)%im(2) == im17) then
+      itab_ud(iu41)%iw(1) = iw27
+   else
+      itab_ud(iu41)%iw(2) = iw27
+   endif
+
+   if (itab_ud(iu42)%im(1) == im17) then
+      itab_ud(iu42)%im(2) = im19
+      itab_ud(iu42)%iw(1) = iw20
+   else
+      itab_ud(iu42)%im(1) = im19
+      itab_ud(iu42)%iw(2) = iw20
+   endif
+
+   if (itab_ud(iu43)%im(2) == im19) then
+      itab_ud(iu43)%im(1) = im24
+   else
+      itab_ud(iu43)%im(2) = im24
+   endif
+
+   if (itab_ud(iu44)%im(1) == im19) then
+      itab_ud(iu44)%iw(1) = iw29
+   else
+      itab_ud(iu44)%iw(2) = iw29
+   endif
+
+   if (itab_ud(iu45)%im(1) == im20) then
+      itab_ud(iu45)%iw(1) = iw31
+   else
+      itab_ud(iu45)%iw(2) = iw31
+   endif
+
+   if (itab_ud(iu48)%iw(2) == iw27) then
+      itab_ud(iu48)%im(2) = im17
+   else
+      itab_ud(iu48)%im(1) = im17
+   endif
+
+   if (itab_ud(iu49)%im(2) == im24) then
+      itab_ud(iu49)%im(1) = im17
+      itab_ud(iu49)%iw(2) = iw20
+   else
+      itab_ud(iu49)%im(2) = im17
+      itab_ud(iu49)%iw(1) = iw20
+   endif
+
+   if (itab_ud(iu50)%im(1) == im24) then
+      itab_ud(iu50)%im(2) = im20
+   else
+      itab_ud(iu50)%im(1) = im20
+   endif
+
+   if (itab_ud(iu51)%iw(2) == iw31) then
+      itab_ud(iu51)%im(1) = im20
+   else
+      itab_ud(iu51)%im(2) = im20
+   endif
+
+   if (itab_wd(iw8)%iu(1) == iu16) then
+      itab_wd(iw8)%iu(3) = iu34
+   elseif (itab_wd(iw8)%iu(2) == iu16) then
+      itab_wd(iw8)%iu(1) = iu34
+   else
+      itab_wd(iw8)%iu(2) = iu34
+   endif
+
+   if (itab_wd(iw19)%iu(1) == iu25) then
+      iu33 = itab_wd(iw19)%iu(2)
+      itab_wd(iw19)%iu(3) = iu35
+   elseif (itab_wd(iw19)%iu(2) == iu25) then
+      iu33 = itab_wd(iw19)%iu(3)
+      itab_wd(iw19)%iu(1) = iu35
+   else
+      iu33 = itab_wd(iw19)%iu(1)
+      itab_wd(iw19)%iu(2) = iu35
+   endif
+
+! special case
+
+   if (itab_ud(iu33)%iw(2) == iw19) then
+      itab_ud(iu33)%im(2) = im19
+   else
+      itab_ud(iu33)%im(1) = im19
+   endif
+
+   if (itab_wd(iw20)%iu(1) == iu43) then
+      itab_wd(iw20)%iu(2) = iu42
+      itab_wd(iw20)%iu(3) = iu49
+   elseif (itab_wd(iw20)%iu(2) == iu43) then
+      itab_wd(iw20)%iu(3) = iu42
+      itab_wd(iw20)%iu(1) = iu49
+   else
+      itab_wd(iw20)%iu(1) = iu42
+      itab_wd(iw20)%iu(2) = iu49
+   endif
+
+   if (itab_wd(iw27)%iu(1) == iu48) then
+      itab_wd(iw27)%iu(2) = iu41
+   elseif (itab_wd(iw27)%iu(2) == iu48) then
+      itab_wd(iw27)%iu(3) = iu41
+   else
+      itab_wd(iw27)%iu(1) = iu41
+   endif
+
+   if (itab_wd(iw29)%iu(1) == iu50) then
+      itab_wd(iw29)%iu(2) = iu44
+      itab_wd(iw29)%iu(3) = iu43
+   elseif (itab_wd(iw29)%iu(2) == iu50) then
+      itab_wd(iw29)%iu(3) = iu44
+      itab_wd(iw29)%iu(1) = iu43
+   else
+      itab_wd(iw29)%iu(1) = iu44
+      itab_wd(iw29)%iu(2) = iu43
+   endif
+
+   if (itab_wd(iw31)%iu(1) == iu51) then
+      itab_wd(iw31)%iu(3) = iu45
+   elseif (itab_wd(iw31)%iu(2) == iu51) then
+      itab_wd(iw31)%iu(1) = iu45
+   else
+      itab_wd(iw31)%iu(2) = iu45
+   endif
+
+! NEW M locations
+
+   xem(im19) = .5 * (xem(im24) + xem(im5))
+   yem(im19) = .5 * (yem(im24) + yem(im5))
+   zem(im19) = .5 * (zem(im24) + zem(im5))
+
+   xem(im18) = .5 * (xem(im19) + xem(im5))
+   yem(im18) = .5 * (yem(im19) + yem(im5))
+   zem(im18) = .5 * (zem(im19) + zem(im5))
+
+   xem(im17) = .75 * xem(im17) + .25 * xem(im19)
+   yem(im17) = .75 * yem(im17) + .25 * yem(im19)
+   zem(im17) = .75 * zem(im17) + .25 * zem(im19)
+
+   xem(im20) = .75 * xem(im20) + .25 * xem(im19)
+   yem(im20) = .75 * yem(im20) + .25 * yem(im19)
+   zem(im20) = .75 * zem(im20) + .25 * zem(im19)
+
+   xem(im12) = .833 * xem(im12) + .167 * xem(im18)
+   yem(im12) = .833 * yem(im12) + .167 * yem(im18)
+   zem(im12) = .833 * zem(im12) + .167 * zem(im18)
+
+   xem(im13) = .833 * xem(im13) + .167 * xem(im18)
+   yem(im13) = .833 * yem(im13) + .167 * yem(im18)
+   zem(im13) = .833 * zem(im13) + .167 * zem(im18)
+
+enddo ! iper
+
+end subroutine perim_fill3
 
 !===========================================================================
 

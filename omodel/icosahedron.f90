@@ -350,7 +350,7 @@ call tri_neighbors()
 
 ! This is the place to do spring dynamics
 
-call spring_dynamics(1)
+call spring_dynamics(1,0)
 
 return
 end subroutine icosahedron

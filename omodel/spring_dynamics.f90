@@ -30,7 +30,7 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine spring_dynamics(ngr)
+subroutine spring_dynamics(ngr,nconcave)
 
 use mem_ijtabs,  only: itab_md, itab_ud, itab_wd
 use mem_grid,    only: nma, nua, xem, yem, zem, impent, mrows
@@ -41,7 +41,7 @@ use misc_coms,   only: io6, nxp, ngrids
 
 implicit none
 
-integer, intent(in) :: ngr
+integer, intent(in) :: ngr,nconcave
 
 integer :: niter
 real, parameter :: relax = .04, beta = 1.
@@ -52,24 +52,59 @@ real :: dxem(nma)
 real :: dyem(nma)
 real :: dzem(nma)
 
-integer :: iu,im1,im2,im,iter,ipent,iw1,iw2,mrow1,mrow2
+integer :: iu,im1,im2,im,iter,ipent,iw1,iw2,mrow1,mrow2,j,iw,npoly
 integer :: iu1,iu2,iu3,iu4
 integer :: im3,im4
+
+integer :: iskip
+real :: xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2
 
 real :: dist1,dist2,dist3,dist4
 real :: cosphi3, cosphi4
 real :: coslim3, coslim4, ratio
 
-real :: dist00,dist0,dist,expansion,frac_change,dx2,dy2,dz2
+real :: dist00,dist0,dist,expansion,frac_change
+real :: dx2,dy2,dz2
+
+! Array MOVEM is used to flag selected M points that will be allowed to move
+! in the spring dynamics procedure.  If MOVEM = 1, the point is allowed to move,
+! and if MOVEM = 0, the point remains stationary.  This selective movement is
+! optional for static mesh refinements, but it will be a requirement for 
+! dynamically adaptive refinements.  
+
+! Use of the MOVEM flag is currently commented out, and all M points in the
+! domain are currently subject to movement
+
+integer :: movem(nma)
 
 ! special
 !RETURN
 ! end special
 
+! Set MOVEM flag = 1 only for M points that have W neighbors with MROW values
+! of -3, -2, -1, or 1.
+
+movem(:) = 0
+
+if (ngr > 1) then
+   do im = 2,nma
+      npoly = itab_md(im)%npoly
+
+      do j = 1,npoly
+         iw = itab_md(im)%iw(j)
+
+         if (itab_wd(iw)%mrow == -3 .or. &
+             itab_wd(iw)%mrow == -2 .or. &
+             itab_wd(iw)%mrow == -1 .or. &
+             itab_wd(iw)%mrow == 1) movem(im) = 1
+      enddo
+   enddo      
+endif
+
 ! Set value for niter based on ngr and ngrids
 
 if (ngr > 1 .and. ngr < ngrids) then
-   niter = 200
+   niter = 2000
 else
    niter = 2000
 endif
@@ -108,23 +143,19 @@ do iter = 1,niter
       im1 = itab_ud(iu)%im(1)
       im2 = itab_ud(iu)%im(2)
 
+!MOVEM      if (ngr > 1 .and. movem(im1) == 0 .and. movem(im2) == 0) cycle
+
 ! Compute current distance between IM1 and IM2
 
       dist = sqrt((xem(im1) - xem(im2)) ** 2  &
                 + (yem(im1) - yem(im2)) ** 2  &
                 + (zem(im1) - zem(im2)) ** 2)
 
-! Compute fractional change to dist that gives dist0
-
-!-------------------------------------------------------------------------
-!  SPECIAL - VARIABLE EQUILIBRIUM SPRING DISTANCE
-!-------------------------------------------------------------------------
-
-! Distance for any MRL value
+! Compute target distance for any MRL value
 
       dist0 = dist00 * 2. ** real(1 - itab_ud(iu)%mrlu)
 
-! Reduced distance just outside MRL boundary
+! Modified distance in MRL border zone
 
       iw1 = itab_ud(iu)%iw(1)
       iw2 = itab_ud(iu)%iw(2)
@@ -132,33 +163,28 @@ do iter = 1,niter
       mrow1 = itab_wd(iw1)%mrow
       mrow2 = itab_wd(iw2)%mrow
 
-      if (mrow1 > 0 .and. mrow1 <= mrows .and.  &
-          mrow2 > 0 .and. mrow2 <= mrows) then
+      if (nconcave == 3 .and. mrow1 /= 0 .and. mrow2 /= 0) then
+
+         if     (mrow1 + mrow2 == -4) then
+            dist0 = dist0 *  7. / 6.  !* .90
+         elseif (mrow1 + mrow2 == -3) then
+            dist0 = dist0 *  8. / 6.  !* .90
+         elseif (mrow1 + mrow2 == -2) then
+            dist0 = dist0 *  9. / 6.  !* .90
+         elseif (mrow1 + mrow2 ==  0) then
+            dist0 = dist0 * 10. / 6.  !* .90
+         elseif (mrow1 + mrow2 ==  2) then
+            dist0 = dist0 * 11. / 12. ! * .90
+         endif
+
+      elseif (mrow1 > 0 .and. mrow1 <= mrows .and.  &
+              mrow2 > 0 .and. mrow2 <= mrows) then
 
          dist0 = dist0 * (.5 + .25/real(mrows) * (mrow1 + mrow2 - 1))      
 
-! TESTS...
-!         if     (mrow1 + mrow2 == 2) then
-!            dist0 = dist0 * .52      
-!         elseif (mrow1 + mrow2 == 3) then
-!            dist0 = dist0 * .55      
-!         elseif (mrow1 + mrow2 == 4) then
-!            dist0 = dist0 * .60      
-!         elseif (mrow1 + mrow2 == 5) then
-!            dist0 = dist0 * .66      
-!         elseif (mrow1 + mrow2 == 6) then
-!            dist0 = dist0 * .73      
-!         elseif (mrow1 + mrow2 == 7) then
-!            dist0 = dist0 * .81      
-!         elseif (mrow1 + mrow2 == 8) then
-!            dist0 = dist0 * .90      
-!         endif
-         
-      endif
-      
-!-------------------------------------------------------------------------
-!    SPECIAL-2 -----------------------------------------------------------
-!-------------------------------------------------------------------------
+      endif ! nconcave
+
+! Adjustment of dist0 based on opposite angles of triangles
 
       iu1 = itab_ud(iu)%iu(1)
       iu3 = itab_ud(iu)%iu(3)
@@ -211,21 +237,14 @@ do iter = 1,niter
       ratio = min(cosphi3,cosphi4) / .309
       
 ! Decrease dist0 if ratio < 1
+! (NOTE: could just use .309 limit regardless of npoly)
 
       if (ratio < 1.) then
          dist0 = dist0 * ratio
 !alt     dist0 = dist0 * (1. - ratio * frac)
       endif
 
-! NOTE: could just use .309 limit regardless of npoly
-
-!-------------------------------------------------------------------------
-!    END SPECIAL-2 -------------------------------------------------------
-!-------------------------------------------------------------------------
-      
-!-------------------------------------------------------------------------
-!  END SPECIAL
-!-------------------------------------------------------------------------
+! Fractional change to dist that would make it equal dist0
 
       frac_change = (dist0 - dist) / dist
 
@@ -253,6 +272,8 @@ do iter = 1,niter
 !$omp do private(expansion)
    do im = 2,nma
 
+!MOVEM      if (ngr > 1 .and. movem(im) == 0) cycle
+
 ! For now, prevent either polar M point from moving
 
 !      if (im == impent(1 )) cycle
@@ -279,7 +300,41 @@ do iter = 1,niter
 !$omp end do
 
 !$omp end parallel
-enddo
+
+! Section for plotting grid at intermediate stages of spring dynamics adjustment
+
+   CYCLE ! Bypass grid plotting
+
+   if (ngr > 1 .and. mod(iter,20) == 1) then
+
+! Plot grid lines
+
+      call o_reopnwk()
+      call plotback()
+
+      call oplot_set(1)
+ 
+      do iu = 2,nua
+         im1 = itab_ud(iu)%im(1)
+         im2 = itab_ud(iu)%im(2)
+
+         call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
+         call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
+
+         call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+
+         if (iskip == 1) cycle
+
+         call o_frstpt (xq1,yq1)
+         call o_vector (xq2,yq2)
+      enddo
+
+      call o_frame()
+      call o_clswk()
+
+   endif ! mod(iter,*)
+
+enddo ! iter
 
 return
 end subroutine spring_dynamics
