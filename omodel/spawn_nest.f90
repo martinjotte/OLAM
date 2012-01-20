@@ -42,7 +42,7 @@ use mem_ijtabs,  only: itab_md, itab_ud, itab_wd, ltab_md, ltab_ud, ltab_wd, &
 use mem_grid,    only: nma, nua, nwa, xem, yem, zem, impent, &
                        alloc_xyzem, nrows, mrows
 use misc_coms,   only: io6, ngrids, mdomain, nxp, ngrdll, grdrad, grdlat, grdlon
-use consts_coms, only: pio180, erad, pi1, pi2, piu180
+use consts_coms, only: pio180, erad, pi1, pi2
 use oname_coms,  only: nl
 
 implicit none
@@ -77,7 +77,7 @@ integer :: iper, jm2, ju2, jw2
 
 integer :: imbeg, ipent, nlista, nlistb, immmm, ndone, ilistb
 integer :: mlist(6)
-real :: reg, xeg, yeg, zeg, dist, distmin, rlat, rlon
+real :: reg, xeg, yeg, zeg, dist, distmin
 
 integer, allocatable :: npolyper(:) ! npoly at each perimeter M pt
 integer, allocatable :: nwdivper(:) ! # divided W pts at at each perimeter M pt

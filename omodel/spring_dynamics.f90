@@ -79,27 +79,25 @@ integer :: movem(nma)
 !RETURN
 ! end special
 
-if (nl%moveall(ngr) == 0 .and. ngr > 0 .and. nconcave == 3) then
+if (nl%moveall(ngr) == 0 .and. ngr > 1 .and. nconcave == 3) then
 
 ! Set MOVEM flag = 1 only for M points that have W neighbors with MROW values
 ! of -3, -2, -1, or 1.
 
    movem(:) = 0
 
-   if (ngr > 1) then
-      do im = 2,nma
-         npoly = itab_md(im)%npoly
+   do im = 2,nma
+      npoly = itab_md(im)%npoly
          
-         do j = 1,npoly
-            iw = itab_md(im)%iw(j)
+      do j = 1,npoly
+         iw = itab_md(im)%iw(j)
 
-            if (itab_wd(iw)%mrow == -3 .or. &
-                 itab_wd(iw)%mrow == -2 .or. &
-                 itab_wd(iw)%mrow == -1 .or. &
-                 itab_wd(iw)%mrow == 1) movem(im) = 1
-         enddo
+         if (itab_wd(iw)%mrow == -3 .or. &
+              itab_wd(iw)%mrow == -2 .or. &
+              itab_wd(iw)%mrow == -1 .or. &
+              itab_wd(iw)%mrow == 1) movem(im) = 1
       enddo
-   endif
+   enddo
 
 else
 
