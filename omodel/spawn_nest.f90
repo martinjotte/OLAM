@@ -42,7 +42,8 @@ use mem_ijtabs,  only: itab_md, itab_ud, itab_wd, ltab_md, ltab_ud, ltab_wd, &
 use mem_grid,    only: nma, nua, nwa, xem, yem, zem, impent, &
                        alloc_xyzem, nrows, mrows
 use misc_coms,   only: io6, ngrids, mdomain, nxp, ngrdll, grdrad, grdlat, grdlon
-use consts_coms, only: pio180, erad, pi1, pi2
+use consts_coms, only: pio180, erad, pi1, pi2, piu180
+use oname_coms,  only: nl
 
 implicit none
 
@@ -76,7 +77,7 @@ integer :: iper, jm2, ju2, jw2
 
 integer :: imbeg, ipent, nlista, nlistb, immmm, ndone, ilistb
 integer :: mlist(6)
-real :: reg, xeg, yeg, zeg, dist, distmin
+real :: reg, xeg, yeg, zeg, dist, distmin, rlat, rlon
 
 integer, allocatable :: npolyper(:) ! npoly at each perimeter M pt
 integer, allocatable :: nwdivper(:) ! # divided W pts at at each perimeter M pt
@@ -93,18 +94,7 @@ nwa0 = nwa
 
 do ngr = 2,ngrids  ! Loop over nested grids
 
-!-------------------------------------------------------------------------------
-! Set default number of coarse-grid transition rows (MROWS) across which the
-! transition from coarse-to-fine resolution is made.  Allowed values are 1:5, but
-! only if NCONCAVE is set to 2 below.  With NCONCAVE = 1 or 3, MROWS will be
-! reset to the value that each of those options requires.
-
-   mrows = 3
-
-! Set default value of NCONCAVE (allowed values are 1:3).
-! These could be made grid-dependent if desired.
-
-   nconcave = 3
+! Set value of NCONCAVE (allowed values are 1:3) for this grid from the namelist input
 
 ! NCONCAVE = 1 eliminates only sharp concavities and activates
 !    the Method B refined mesh algorithm
@@ -119,13 +109,37 @@ do ngr = 2,ngrids  ! Loop over nested grids
 !    rows across a gap that was originally 2 coarse grid rows wide, centered on
 !    the aforementioned refined mesh "boundary".
 
+   nconcave = nl%nconcave(ngr)
+
+! Set default number of coarse-grid transition rows (MROWS) across which the
+! transition from coarse-to-fine resolution is made.
+
 ! If NCONCAVE is set to 1, MROWS will (must) be set to 2
 
-   if (nconcave == 1) mrows = 2
+   if (nconcave == 1) then
+      
+      mrows = 2
+
+! If NCONCAVE is set to 2, allowed MROWS values are 1:5 and read in from
+! the namelist (nl%mrows defaults to 3 if not set in namelist)
+
+   elseif (nconcave == 2) then
+
+      mrows = nl%mrows(ngr)
 
 ! If NCONCAVE is set to 3, MROWS will (must) be set to 3
 
-   if (nconcave == 3) mrows = 3
+   elseif (nconcave == 3) then
+
+      mrows = 3
+
+   else
+
+      write(*,*) "Illegal value of nconcave in subroutine spawn_nest"
+      stop
+
+   endif
+
 !-------------------------------------------------------------------------------
 
 ! Allocate temporary tables
@@ -232,11 +246,11 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
 ! Get earth coordinates for [grdlat(ngr,1),grdlon(ngr,1)]
 
-         zeg = erad * sin(grdlat(ngr,1))
-         reg = erad * cos(grdlat(ngr,1))
-         xeg = reg  * cos(grdlon(ngr,1))
-         yeg = reg  * sin(grdlon(ngr,1))
-
+         zeg = erad * sin(grdlat(ngr,1)*pio180)
+         reg = erad * cos(grdlat(ngr,1)*pio180)
+         xeg = reg  * cos(grdlon(ngr,1)*pio180)
+         yeg = reg  * sin(grdlon(ngr,1)*pio180)
+         
 ! Initialize distance 
 
          distmin = 1.e12

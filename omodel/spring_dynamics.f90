@@ -36,6 +36,7 @@ use mem_ijtabs,  only: itab_md, itab_ud, itab_wd
 use mem_grid,    only: nma, nua, xem, yem, zem, impent, mrows
 use consts_coms, only: pi2, erad, erador5
 use misc_coms,   only: io6, nxp, ngrids
+use oname_coms,  only: nl
 
 !$ use omp_lib
 
@@ -67,13 +68,10 @@ real :: dist00,dist0,dist,expansion,frac_change
 real :: dx2,dy2,dz2
 
 ! Array MOVEM is used to flag selected M points that will be allowed to move
-! in the spring dynamics procedure.  If MOVEM = 1, the point is allowed to move,
-! and if MOVEM = 0, the point remains stationary.  This selective movement is
+! in the spring dynamics procedure.  If MOVEM = 1 the point is allowed to move,
+! and if MOVEM = 0 the point remains stationary.  This selective movement is
 ! optional for static mesh refinements, but it will be a requirement for 
 ! dynamically adaptive refinements.  
-
-! Use of the MOVEM flag is currently commented out, and all M points in the
-! domain are currently subject to movement
 
 integer :: movem(nma)
 
@@ -81,24 +79,34 @@ integer :: movem(nma)
 !RETURN
 ! end special
 
+if (nl%moveall(ngr) == 0 .and. ngr > 0 .and. nconcave == 3) then
+
 ! Set MOVEM flag = 1 only for M points that have W neighbors with MROW values
 ! of -3, -2, -1, or 1.
 
-movem(:) = 0
+   movem(:) = 0
 
-if (ngr > 1) then
-   do im = 2,nma
-      npoly = itab_md(im)%npoly
+   if (ngr > 1) then
+      do im = 2,nma
+         npoly = itab_md(im)%npoly
+         
+         do j = 1,npoly
+            iw = itab_md(im)%iw(j)
 
-      do j = 1,npoly
-         iw = itab_md(im)%iw(j)
-
-         if (itab_wd(iw)%mrow == -3 .or. &
-             itab_wd(iw)%mrow == -2 .or. &
-             itab_wd(iw)%mrow == -1 .or. &
-             itab_wd(iw)%mrow == 1) movem(im) = 1
+            if (itab_wd(iw)%mrow == -3 .or. &
+                 itab_wd(iw)%mrow == -2 .or. &
+                 itab_wd(iw)%mrow == -1 .or. &
+                 itab_wd(iw)%mrow == 1) movem(im) = 1
+         enddo
       enddo
-   enddo      
+   endif
+
+else
+
+! The default is to set MOVEM flag = 1 for all points
+
+   movem(:) = 1
+
 endif
 
 ! Set value for niter based on ngr and ngrids
@@ -143,7 +151,7 @@ do iter = 1,niter
       im1 = itab_ud(iu)%im(1)
       im2 = itab_ud(iu)%im(2)
 
-!MOVEM      if (ngr > 1 .and. movem(im1) == 0 .and. movem(im2) == 0) cycle
+      if (ngr > 1 .and. movem(im1) == 0 .and. movem(im2) == 0) cycle
 
 ! Compute current distance between IM1 and IM2
 
@@ -272,7 +280,7 @@ do iter = 1,niter
 !$omp do private(expansion)
    do im = 2,nma
 
-!MOVEM      if (ngr > 1 .and. movem(im) == 0) cycle
+      if (ngr > 1 .and. movem(im) == 0) cycle
 
 ! For now, prevent either polar M point from moving
 

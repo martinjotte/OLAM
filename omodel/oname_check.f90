@@ -120,9 +120,6 @@ call ichk_bnds( nl%iyear1,   "IYEAR1",       0,    9999, 0, nfatal, nwarn )
 call ichk_bnds( nl%mdomain, "MDOMAIN",       0,       4, 0, nfatal, nwarn )
 call ichk_bnds( nl%meshtype,"MESHTYPE",      1,       2, 0, nfatal, nwarn )
 
-call ichk_bnds( nl%ngrids,   "NGRIDS",       1, maxgrds, 0, nfatal, nwarn, &
-     msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
-
 call ichk_bnds( nl%nzp,         "NZP",       3,   10000, 0, nfatal, nwarn, &
      msgmin="At least 3 vertical levels are needed for OLAM." )
 
@@ -157,7 +154,14 @@ endif
 ! NESTED GRID DEFINITION
 !--------------------------------------------------------------------------
 
+call ichk_bnds( nl%ngrids,   "NGRIDS",       1, maxgrds, 0, nfatal, nwarn, &
+     msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
+
 do ng=2, nl%ngrids
+   call ichk_bnds(nl%nconcave(ng), "NCONCAVE", 1, 3, 0, nfatal, nwarn )
+   call ichk_bnds(nl%mrows(ng),    "MROWS",    1, 5, 2, nfatal, nwarn )
+   call ichk_bnds(nl%moveall(ng),  "MOVEALL",  0, 1, 0, nfatal, nwarn )
+
    call ichk_bnds(nl%ngrdll(ng),  "NGRDLL",    1, maxngrdll, 0, nfatal, nwarn )
    call rchk_bnds(nl%grdrad(ng),  "GRDRAD", dzxmin, erad*2., 0, nfatal, nwarn )
 enddo
