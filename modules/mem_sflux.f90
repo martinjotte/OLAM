@@ -862,8 +862,8 @@ endif
 
             if (abs(xtrap(1,jt) - xtrap(2,jt)) > 1.e0) then
 
-               call trap3(iw,k,kflag,npoly,npmax,   &
-                          xmean,ymean,xp,yp,              &
+               call trap3(iw,k,kflag,npoly,npmax,traparea(jt),  &
+                          xmean,ymean,xp,yp,                    &
                           xtrap(1,jt),xtrap(2,jt),xtrap(3,jt),  &
                           ytrap(1,jt),ytrap(2,jt),ytrap(3,jt),  &
                           ztrap(1,jt),ztrap(2,jt),ztrap(3,jt),  &
@@ -893,8 +893,8 @@ endif
 
             if (abs(xtrap(3,jt) - xtrap(4,jt)) > 1.e0) then
 
-               call trap3(iw,k,kflag,npoly,npmax,   &
-                          xmean,ymean,xp,yp,              &
+               call trap3(iw,k,kflag,npoly,npmax,traparea(jt),  &
+                          xmean,ymean,xp,yp,                    &
                           xtrap(3,jt),xtrap(4,jt),xtrap(1,jt),  &
                           ytrap(3,jt),ytrap(4,jt),ytrap(1,jt),  &
                           ztrap(3,jt),ztrap(4,jt),ztrap(1,jt),  &
@@ -1111,8 +1111,8 @@ endif
 
             if (abs(xtrap(1,jt) - xtrap(2,jt)) > 1.e0) then
 
-               call trap3(iw,k,kflag,npoly,npmax,   &
-                          xmean,ymean,xp,yp,              &
+               call trap3(iw,k,kflag,npoly,npmax,traparea(jt),  &
+                          xmean,ymean,xp,yp,                    &
                           xtrap(1,jt),xtrap(2,jt),xtrap(3,jt),  &
                           ytrap(1,jt),ytrap(2,jt),ytrap(3,jt),  &
                           ztrap(1,jt),ztrap(2,jt),ztrap(3,jt),  &
@@ -1142,8 +1142,8 @@ endif
 
             if (abs(xtrap(3,jt) - xtrap(4,jt)) > 1.e0) then
 
-               call trap3(iw,k,kflag,npoly,npmax,   &
-                          xmean,ymean,xp,yp,              &
+               call trap3(iw,k,kflag,npoly,npmax,traparea(jt),  &
+                          xmean,ymean,xp,yp,                    &
                           xtrap(3,jt),xtrap(4,jt),xtrap(1,jt),  &
                           ytrap(3,jt),ytrap(4,jt),ytrap(1,jt),  &
                           ztrap(3,jt),ztrap(4,jt),ztrap(1,jt),  &
@@ -1363,8 +1363,8 @@ end subroutine init_fluxcells
 
 !============================================================================
 
-subroutine trap3(iw,k,kflag,npoly,npmax,   &
-                 xmean,ymean,xp,yp,  &
+subroutine trap3(iw,k,kflag,npoly,npmax,traparea, &
+                 xmean,ymean,xp,yp,        &
                  xtrap1,xtrap2,xtrap3,     &
                  ytrap1,ytrap2,ytrap3,     &
                  ztrap1,ztrap2,ztrap3,     &
@@ -1383,7 +1383,7 @@ integer, optional, intent(inout) :: ilf,isf
 
 real, intent(inout) :: xmean,ymean
 real, intent(in) :: xp(npmax),yp(npmax)
-
+real, intent(in) :: traparea
 real, intent(in) :: xtrap1,xtrap2,xtrap3
 real, intent(in) :: ytrap1,ytrap2,ytrap3
 real, intent(in) :: ztrap1,ztrap2,ztrap3
@@ -1489,7 +1489,7 @@ enddo  ! jp
 
 ! Check current contribution to flux area
 
-if (flux_area > 1.e2) then
+if (flux_area > traparea * 1.e-4) then
 
 ! Convert xpat,ypat from ps to earth coordinates
 
