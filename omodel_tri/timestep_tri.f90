@@ -35,7 +35,7 @@ subroutine timestep()
 use misc_coms,  only: io6, time8, time_istp8, nqparm, initial, ilwrtyp,   &
                       iswrtyp, dtsm, nqparm_sh, dtlm, iparallel,   &
                       s1900_init, s1900_sim
-use mem_ijtabs, only: nstp, istp, mrls, leafstep, mrl_begl
+use mem_ijtabs, only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl
 use mem_nudge,  only: nudflag
 use mem_grid,   only: mza, mua, mwa
 use micro_coms, only: level
@@ -155,7 +155,10 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(13)
 
-   call scalar_transport(umarusc,wmarwsc,rho_old)
+   mrl = mrl_endl(istp)
+   if (mrl > 0) then
+      call scalar_transport(umarusc,wmarwsc,rho_old)
+   endif
 
 ! call check_nans(14)
 
