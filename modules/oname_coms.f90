@@ -292,6 +292,8 @@ Module oname_coms
       integer :: plttype    = 0
       integer :: pltorient  = 0
       integer :: vec_maxmrl = maxgrds
+      real    :: zplot_min = -1.0
+      real    :: zplot_max = -1.0
 
       character(pathlen) :: pltname     = 'gmeta'
       character(10)      :: prtval_size = 'medium'

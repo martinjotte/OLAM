@@ -581,6 +581,10 @@
   NL%PLTORIENT = 0    ! 0 = portrait,  1 = landscape
                       ! (only for postscript or pdf output)
 
+  NL%ZPLOT_MIN = -1.0   ! For vertical or cone plots, these specify the vertical
+  NL%ZPLOT_MAX = -1.0   ! extent of the plots (m); use -1.0 to indicate the
+                        ! default top and bottom of the model
+
  !------------------------------------------------------------------------
  ! List of history files to plot from for RUNTYPE = 'PLOTONLY'
  !------------------------------------------------------------------------

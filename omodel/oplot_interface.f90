@@ -2044,8 +2044,18 @@ if (op%windowin(iplt) == 'W') then
 ! Special treatment for vertical plot: ymin/ymax related to model Z coordinate
 
    if (op%projectn(iplt) == 'C' .or. op%projectn(iplt) == 'V') then
-      op%ymin = zm(1)
-      op%ymax = zm(nza-1)
+
+      if (abs(nl%zplot_min - 1.0) < 1.e-3) then
+         op%ymin = zm(1)
+      else
+         op%ymin = max(nl%zplot_min, zm(1))
+      endif
+
+      if (abs(nl%zplot_max - 1.0) < 1.e-3) then
+         op%ymax = zm(nza-1)
+      else
+         op%ymax = min(nl%zplot_max, zm(nza-1))
+      endif
 
 ! special for hurricane
 
