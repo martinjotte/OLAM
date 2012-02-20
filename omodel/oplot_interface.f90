@@ -2045,13 +2045,13 @@ if (op%windowin(iplt) == 'W') then
 
    if (op%projectn(iplt) == 'C' .or. op%projectn(iplt) == 'V') then
 
-      if (abs(nl%zplot_min - 1.0) < 1.e-3) then
+      if (abs(nl%zplot_min + 1.0) < 1.e-3) then
          op%ymin = zm(1)
       else
          op%ymin = max(nl%zplot_min, zm(1))
       endif
 
-      if (abs(nl%zplot_max - 1.0) < 1.e-3) then
+      if (abs(nl%zplot_max + 1.0) < 1.e-3) then
          op%ymax = zm(nza-1)
       else
          op%ymax = min(nl%zplot_max, zm(nza-1))
@@ -2098,8 +2098,18 @@ else
 
       op%xmin = -3.4 * erad * sin(op%coneang * pio180)
       op%xmax =  3.4 * erad * sin(op%coneang * pio180)
-      op%ymin = zm(1)
-      op%ymax = zm(nza-1)
+
+      if (abs(nl%zplot_min + 1.0) < 1.e-3) then
+         op%ymin = zm(1)
+      else
+         op%ymin = max(nl%zplot_min, zm(1))
+      endif
+
+      if (abs(nl%zplot_max + 1.0) < 1.e-3) then
+         op%ymax = zm(nza-1)
+      else
+         op%ymax = min(nl%zplot_max, zm(nza-1))
+      endif
 
       if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax  
 
@@ -2113,8 +2123,18 @@ else
       enddo
       op%xmin = 1.01 * op%xmin
       op%xmax = 1.01 * op%xmax
-      op%ymin = zm(1)
-      op%ymax = zm(nza-1)
+
+      if (abs(nl%zplot_min + 1.0) < 1.e-3) then
+         op%ymin = zm(1)
+      else
+         op%ymin = max(nl%zplot_min, zm(1))
+      endif
+
+      if (abs(nl%zplot_max + 1.0) < 1.e-3) then
+         op%ymax = zm(nza-1)
+      else
+         op%ymax = min(nl%zplot_max, zm(nza-1))
+      endif
 
       if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax  
 
