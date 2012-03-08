@@ -146,7 +146,6 @@ SOURCE_FILES= \
              $(OMODEL_TRI)/veltend_long_tri.f90 \
              $(OUTILS)/dateutils.f90 \
              $(OUTILS)/filelist.f90 \
-             $(OUTILS)/hdf5_f2c.c \
              $(OUTILS)/hdf5_f2f.F90 \
              $(OUTILS)/hdf5_utils.F90 \
              $(OUTILS)/interp_lib.f90 \

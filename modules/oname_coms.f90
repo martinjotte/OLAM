@@ -121,6 +121,7 @@ Module oname_coms
       integer :: ioutput   = 1
       integer :: iclobber  = 0
       integer :: icompress = 0
+      integer :: ipar_out  = 0
       integer :: iquiet    = 0
       real    :: frqstate  = 3600.0
 

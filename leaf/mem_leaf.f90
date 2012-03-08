@@ -344,14 +344,15 @@ Contains
    subroutine filltab_leaf()
 
      use var_tables, only: vtab_r, num_var, increment_vtable
-     use misc_coms,  only: iparallel, runtype
+     use misc_coms,  only: iparallel, ipar_out, runtype
 
      implicit none
 
-     if (iparallel==1 .or. runtype=='PLOTONLY' .or. runtype=='PARCOMBINE') then
+     if ( (runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or. &
+          (iparallel == 1 .and. ipar_out == 0) ) then
 
-        ! THESE ONLY NEED TO BE WRITTEN TO HISTORY FILE FOR PARALLEL RUNS,
-        ! AND READ FOR PLOTONLY OR PARCOMBINE RUNS.
+        ! THESE ONLY NEED TO BE WRITTEN TO HISTORY FILE FOR PARALLEL RUNS
+        ! WRITING TO MULTIPLE FILES, AND READ FOR PLOTONLY OR PARCOMBINE RUNS
 
         if (allocated(itab_ml)) then
 

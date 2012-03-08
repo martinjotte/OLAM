@@ -1583,8 +1583,7 @@ real,    allocatable :: dz0(:)
 
 logical, allocatable :: lscr(:,:)
 integer, allocatable :: iscr(:,:)
-
-real, allocatable :: rscr(:,:)
+real,    allocatable :: rscr(:,:)
 
 ! Check if grid file exists
 
@@ -1624,8 +1623,8 @@ if (exans) then
    allocate( hdz0(ndz0))
    allocate( dz0 (ndz0))
 
-   if (ndz > 1) then
-      idims(1) = ndz
+   if (ndz0 > 1) then
+      idims(1) = ndz0
 
       call shdf5_irec(ndims, idims, 'HDZ' , rvara=hdz0)
       call shdf5_irec(ndims, idims, 'DZ'  , rvara=dz0)

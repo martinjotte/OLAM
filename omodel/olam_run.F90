@@ -36,9 +36,9 @@ subroutine olam_run(name_name)
 use, intrinsic :: ieee_arithmetic
 #endif
 
-use misc_coms,   only: io6, time8, iflag, runtype, hfilin, time_istp8, &
-                       expnme, mdomain, ngrids, initial, iswrtyp, ilwrtyp, &
-                       meshtype, nzp, timmax8, alloc_misc, iparallel, &
+use misc_coms,   only: io6, time8, iflag, runtype, hfilin, time_istp8, nzp,    &
+                       expnme, mdomain, ngrids, initial, iswrtyp, ilwrtyp,     &
+                       meshtype, timmax8, alloc_misc, iparallel, ipar_out,     &
                        iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
                        time_prevhist, rinit, rinit8, debug_fp, init_nans
 
@@ -58,6 +58,7 @@ use mem_rayf,    only: rayf_init
 use mem_sflux,   only: init_fluxcells, fill_jflux, mseaflux, mlandflux
 use mem_para,    only: myrank
 use consts_coms, only: r8
+use oname_coms,  only: nl
 use olam_mpi_atm, only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, alloc_mpi_sndrcv_bufs
 
 implicit none
@@ -121,6 +122,16 @@ if (init_nans) then
 #endif
 endif
 
+! Should we enable parallel output?
+
+ipar_out = 0
+
+if (iparallel == 1 .and. nl%ipar_out == 1) then
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+   ipar_out = 1
+#endif
+endif
+
 ! If debugging, halt on illegal floating operations if supported
 
 #ifdef IEEE_ARITHMETIC
@@ -152,6 +163,7 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or.  &
    if (iparallel == 1) then
       write(io6,*) trim(runtype)//' will only be done on a single process.'
       iparallel = 0
+      ipar_out  = 0
       if (myrank > 0) go to 1000
    endif
 endif

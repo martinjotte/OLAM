@@ -1681,6 +1681,7 @@ call shdf5_open(flnm,'R')
 
 ndims = 1
 idims(1) = 1
+idims(2) = 1
 
 call shdf5_irec(ndims, idims, 'nml', ivars=nml)
 call shdf5_irec(ndims, idims, 'nul', ivars=nul)

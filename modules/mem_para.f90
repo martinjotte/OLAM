@@ -92,5 +92,37 @@ Module mem_para
   type(nodebuffs), allocatable :: recv_ws(:)
   type(nodebuffs), allocatable :: recv_wsf(:)
 
+  integer                      :: mua_primary = 0
+  integer, target, allocatable :: iua_globe_primary(:)
+  integer, target, allocatable :: iua_local_primary(:)
+  
+  integer                      :: mva_primary = 0
+  integer, target, allocatable :: iva_globe_primary(:)
+  integer, target, allocatable :: iva_local_primary(:)
+
+  integer                      :: mwa_primary = 0
+  integer, target, allocatable :: iwa_globe_primary(:)
+  integer, target, allocatable :: iwa_local_primary(:)
+
+  integer                      :: mma_primary = 0
+  integer, target, allocatable :: ima_globe_primary(:)
+  integer, target, allocatable :: ima_local_primary(:)
+
+  integer                      :: mwl_primary = 0
+  integer, target, allocatable :: iwl_globe_primary(:)
+  integer, target, allocatable :: iwl_local_primary(:)
+
+  integer                      :: mws_primary = 0
+  integer, target, allocatable :: iws_globe_primary(:)
+  integer, target, allocatable :: iws_local_primary(:)
+
+  integer                      :: mfl_primary = 0
+  integer, target, allocatable :: ifl_globe_primary(:)
+  integer, target, allocatable :: ifl_local_primary(:)
+
+  integer                      :: mfs_primary = 0
+  integer, target, allocatable :: ifs_globe_primary(:)
+  integer, target, allocatable :: ifs_local_primary(:)
+
 End Module mem_para
 

@@ -91,7 +91,8 @@ integer :: ngrid
 integer :: nzpp
 integer :: nscl
 integer :: nxp
-integer :: iparallel
+integer :: iparallel = 0
+integer :: ipar_out  = 0
 integer :: ndz
 
 integer :: idiffk   (maxgrds)

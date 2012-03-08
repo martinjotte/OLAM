@@ -354,21 +354,22 @@ Contains
 
    subroutine filltab_itabs()
 
-     use var_tables, only: vtab_r, num_var, increment_vtable
-     use misc_coms,  only: iparallel, runtype, meshtype
+   use var_tables, only: vtab_r, num_var, increment_vtable
+   use misc_coms,  only: iparallel, runtype, meshtype, ipar_out
 
-     implicit none
+   implicit none
 
-!  THESE ONLY NEED TO BE WRITTEN TO HISTORY FILE FOR PARALLEL RUNS,
-!  AND READ FOR PLOTONLY OR PARCOMBINE RUNS.
+! THESE ONLY NEED TO BE WRITTEN TO HISTORY FILES FOR PARALLEL RUNS WRITING
+! TO MULTIPLE FILES, AND READ FOR PLOTONLY OR PARCOMBINE RUNS
 
-   if (iparallel==1 .or. runtype=='PLOTONLY' .or. runtype=='PARCOMBINE') then
+   if ( (runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or. &
+        (iparallel == 1 .and. ipar_out == 0) ) then
 
       if (allocated(itab_u)) then
 
          call increment_vtable('IUGLOBE', 'AU', noread=.true.)
          vtab_r(num_var)%ivar1_p => itab_u%iuglobe
-            
+         
          call increment_vtable('IRANKU', 'AU', noread=.true.)
          vtab_r(num_var)%ivar1_p => itab_u%irank
             

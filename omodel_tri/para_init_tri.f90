@@ -45,9 +45,9 @@ use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
                       alloc_grid1, alloc_grid2
 
 
-use mem_para,   only: mgroupsize, myrank, &
+use mem_para,   only: mgroupsize, myrank,                             &
                       send_u, recv_u, send_v, recv_v, send_w, recv_w, &
-                      nsends_u, nsends_v, nsends_w, &
+                      nsends_u, nsends_v, nsends_w,                   &
                       nrecvs_u, nrecvs_v, nrecvs_w
 
 use mem_sflux,  only: nseaflux,  mseaflux,  seaflux,  seafluxg,  &
@@ -632,6 +632,8 @@ if (isfcl == 1) then
 
 endif
 
+call compute_primary_points()
+
 ! Deallocate temporary data structures and arrays
 
 deallocate (landflux_temp, seaflux_temp)
@@ -779,3 +781,257 @@ send_w(jsend)%iremote = iremote
 return
 end subroutine send_table_w
 
+!===============================================================================
+
+subroutine compute_primary_points()
+
+  use mem_grid,   only: mma, mua, mva, mwa
+  use mem_ijtabs, only: itab_u, itab_v, itab_w, itab_m, itabg_m
+  use misc_coms,  only: meshtype
+  use leaf_coms,  only: mwl
+  use mem_leaf,   only: itab_wl
+  use sea_coms,   only: mws
+  use mem_sea,    only: itab_ws
+  use mem_sflux,  only: mlandflux, mseaflux, landflux, seaflux
+  use mem_para,   only: mua_primary, iua_globe_primary, iua_local_primary, &
+                        mva_primary, iva_globe_primary, iva_local_primary, &
+                        mwa_primary, iwa_globe_primary, iwa_local_primary, &
+                        mma_primary, ima_globe_primary, ima_local_primary, &
+                        mwl_primary, iwl_globe_primary, iwl_local_primary, &
+                        mws_primary, iws_globe_primary, iws_local_primary, &
+                        mfl_primary, ifl_globe_primary, ifl_local_primary, &
+                        mfs_primary, ifs_globe_primary, ifs_local_primary, &
+                        myrank
+
+  implicit none
+
+  integer :: i, ia, istart
+
+  do i = 2, mwa
+     if (itab_w(i)%irank == myrank) mwa_primary = mwa_primary + 1
+  enddo
+
+  if (meshtype == 1) then
+
+     do i = 2, mua
+        if (itab_u(i)%irank == myrank) mua_primary = mua_primary + 1
+     enddo
+
+  else
+
+     do i = 2, mva
+        if (itab_v(i)%irank == myrank) mva_primary = mva_primary + 1
+     enddo
+
+  endif
+
+  do i = 2, mma
+     if (itabg_m( itab_m(i)%imglobe )%irank == myrank) mma_primary = mma_primary + 1
+  enddo
+
+  do i = 2, mwl
+     if (itab_wl(i)%irank == myrank) mwl_primary = mwl_primary + 1
+  enddo
+
+  do i = 2, mws
+     if (itab_ws(i)%irank == myrank) mws_primary = mws_primary + 1
+  enddo
+
+  do i = 2, mlandflux
+     if (landflux(i)%iwrank == myrank) mfl_primary = mfl_primary + 1
+  enddo
+
+  do i = 2, mseaflux
+     if (seaflux(i)%iwrank == myrank) mfs_primary = mfs_primary + 1
+  enddo
+
+  ! additional space for dummy 1st point included with rank 0 only
+
+  if (myrank == 0) then
+     mwa_primary = mwa_primary + 1 
+     mma_primary = mma_primary + 1
+     if (meshtype == 1) then
+        mua_primary = mua_primary + 1
+     else
+        mva_primary = mva_primary + 1
+     endif
+     mwl_primary = mwl_primary + 1
+     mws_primary = mws_primary + 1
+     mfl_primary = mfl_primary + 1
+     mfs_primary = mfs_primary + 1
+  endif
+
+  ! allocate space for primary global indices
+
+  allocate(iwa_globe_primary(mwa_primary))
+  allocate(iwa_local_primary(mwa_primary))
+
+  if (meshtype == 1) then
+     allocate(iua_globe_primary(mua_primary))
+     allocate(iua_local_primary(mua_primary))
+  else
+     allocate(iva_globe_primary(mva_primary))
+     allocate(iva_local_primary(mva_primary))
+  endif
+
+  allocate(ima_globe_primary(mma_primary))
+  allocate(ima_local_primary(mma_primary))
+
+  allocate(iwl_globe_primary(mwl_primary))
+  allocate(iwl_local_primary(mwl_primary))
+
+  allocate(iws_globe_primary(mws_primary))
+  allocate(iws_local_primary(mws_primary))
+
+  allocate(ifl_globe_primary(mfl_primary))
+  allocate(ifl_local_primary(mfl_primary))
+
+  allocate(ifs_globe_primary(mfs_primary))
+  allocate(ifs_local_primary(mfs_primary))
+
+  ! dummy 1st point included with rank 0 only
+
+  if (myrank == 0) then
+
+     iwa_globe_primary(1) = 1
+     iwa_local_primary(1) = 1
+
+     if (meshtype == 1) then
+
+        iua_globe_primary(1) = 1
+        iua_local_primary(1) = 1
+
+     else
+
+        iva_globe_primary(1) = 1
+        iva_local_primary(1) = 1
+
+     endif
+
+     ima_globe_primary(1) = 1
+     ima_local_primary(1) = 1
+
+     iwl_globe_primary(1) = 1
+     iwl_local_primary(1) = 1
+
+     iws_globe_primary(1) = 1
+     iws_local_primary(1) = 1
+
+     ifl_globe_primary(1) = 1
+     ifl_local_primary(1) = 1
+
+     ifs_globe_primary(1) = 1
+     ifs_local_primary(1) = 1
+  endif
+
+  ! set locations of global and local primary points
+
+  if (myrank == 0) then
+     istart = 1
+  else
+     istart = 0
+  endif
+
+  ia = istart
+
+  do i = 2, mwa
+     if (itab_w(i)%irank == myrank) then
+        ia = ia + 1
+        iwa_globe_primary(ia) = itab_w(i)%iwglobe
+        iwa_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mwa_primary) stop "error computing number of primary points"
+
+  if (meshtype == 1) then
+
+     ia = istart
+
+     do i = 2, mua
+        if (itab_u(i)%irank == myrank) then
+           ia = ia + 1
+           iua_globe_primary(ia) = itab_u(i)%iuglobe
+           iua_local_primary(ia) = i
+        endif
+     enddo
+
+     if (ia /= mua_primary) stop "error computing number of primary points"
+
+  else
+
+     ia = istart
+
+     do i = 2, mva
+        if (itab_v(i)%irank == myrank) then
+           ia = ia + 1
+           iva_globe_primary(ia) = itab_v(i)%ivglobe
+           iva_local_primary(ia) = i
+        endif
+     enddo
+
+     if (ia /= mva_primary) stop "error computing number of primary points"
+
+  endif
+
+  ia = istart
+
+  do i = 2, mma
+     if (itabg_m( itab_m(i)%imglobe )%irank == myrank) then
+        ia = ia + 1
+        ima_globe_primary(ia) = itab_m(i)%imglobe
+        ima_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mma_primary) stop "error computing number of primary points"
+
+  ia = istart
+
+  do i = 2, mwl
+     if (itab_wl(i)%irank == myrank) then
+        ia = ia + 1
+        iwl_globe_primary(ia) = itab_wl(i)%iwglobe
+        iwl_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mwl_primary) stop "error computing number of primary points"
+
+  ia = istart
+
+  do i = 2, mws
+     if (itab_ws(i)%irank == myrank) then
+        ia = ia + 1
+        iws_globe_primary(ia) = itab_ws(i)%iwglobe
+        iws_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mws_primary) stop "error computing number of primary points"
+
+  ia = istart
+
+  do i = 2, mlandflux
+     if (landflux(i)%iwrank == myrank) then
+        ia = ia + 1
+        ifl_globe_primary(ia) = landflux(i)%ifglobe
+        ifl_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mfl_primary) stop "error computing number of primary points"
+
+  ia = istart
+
+  do i = 2, mseaflux
+     if (seaflux(i)%iwrank == myrank) then
+        ia = ia + 1
+        ifs_globe_primary(ia) = seaflux(i)%ifglobe
+        ifs_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mfs_primary) stop "error computing number of primary points"
+
+end subroutine compute_primary_points
