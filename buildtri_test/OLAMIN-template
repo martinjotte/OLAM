@@ -184,6 +184,8 @@
    NL%ICLOBBER  = 1            ! 0 = stop if files exist, 1 = overwite files
    NL%ICOMPRESS = 3            ! 0 (no compres, fast) <-> 9 (max compres, slow)
    NL%FRQSTATE  = 3600.        ! Time interval between history files
+   NL%IPAR_OUT  = 1            ! 1 = parallel output to single file, if
+                               ! supported by system (but disables compression)
 
    NL%HFILIN   = 'hist/b-H-2004-09-01-030000.h5'      ! History file intput
 
