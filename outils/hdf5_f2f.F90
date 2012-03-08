@@ -110,6 +110,9 @@ contains
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (ipar_out == 1) then
+       write(io6,*)
+       write(io6,*) "Enabling parallel HDF5 output"
+       write(io6,*)
        call h5pcreate_f(H5P_FILE_ACCESS_F, access_id, hdferr)
    !   call h5pset_fapl_mpio_f(access_id, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
        call h5pset_fapl_mpiposix_f(access_id, MPI_COMM_WORLD, .false., hdferr)
