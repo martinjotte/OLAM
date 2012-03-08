@@ -17,7 +17,6 @@
 #include <math.h>
 #include <stdarg.h>
 #include <string.h>
-#include <hdf5.h>
 #define NR_END 1
 #define LATMIN -90
 #define LATMAX 90
@@ -87,18 +86,12 @@ void cdc_stw(int *iyear, int *imonth, int *idate, int *itime, char *locfn, float
   int ntime;
   char tmpvar_name[256];
   char mname[3];
-  hid_t fileid,dsetid,mspcid,propid;
-  hid_t fileid2,dsetid2,mspcid2,propid2;
   char syscmd[256];
   float var_out[1464];
   int ndims;
   int idims[1];
-  hsize_t dimsc[7] = {1,1,1,1,1,1,1};
-  hsize_t maxdims[7] = {1,1,1,1,1,1,1};
-  hsize_t chunk_size[7] = {0,0,0,0,0,0,0};
   int i;
   char var_name[20];
-  int hdferr;
   int timeo;
 
   /* Read in each variable */
