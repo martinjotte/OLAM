@@ -32,17 +32,28 @@
 !===============================================================================
 subroutine micro()
 
-use mem_ijtabs, only: jtab_w, istp, mrl_endl
-use micro_coms, only: level
-use misc_coms,  only: io6
+use mem_ijtabs,  only: jtab_w, istp, mrl_endl
+use micro_coms,  only: level
+use misc_coms,   only: io6
 
 !$ use omp_lib
 
 implicit none
 
-integer :: j,iw,mrl
+integer :: j,iw,mrl,k
 
 if (level /= 3) return
+
+!dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+! iw = 3
+! k = 2
+
+! call parcel_env(iw,k)
+
+! call micphys(iw)
+
+! RETURN
+!dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 
 call psub()
 !----------------------------------------------------------------------
@@ -69,7 +80,7 @@ subroutine micphys(iw)
 
 use micro_coms,  only: mza0, ncat, cfvt, jnmb, emb2, rxmin, neff, nhcat, emb1
 use consts_coms, only: pi4
-use misc_coms,   only: io6, dtlm
+use misc_coms,   only: io6, dtlm, time_istp8, timmax8
 use mem_ijtabs,  only: itab_w
 use mem_grid,    only: lpw,glatw,glonw
 
@@ -126,10 +137,6 @@ real :: colfac (mza0)
 real :: colfac2(mza0)
 real :: dsed_thil(mza0)
 
-real :: rxfer (mza0,ncat,ncat)
-real :: qrxfer(mza0,ncat,ncat)
-real :: enxfer(mza0,ncat,ncat)
-
 integer :: k1(11)
 integer :: k2(11)
 integer :: k3(11)
@@ -160,6 +167,69 @@ real :: con_ccnx (mza0)
 real :: con_gccnx(mza0)
 real :: con_ifnx (mza0)
 real :: totcond  (mza0)
+
+! New arrays (2/25/2012) to retain mass and number amounts of each
+! cloud and ice nucleation type (for plotting)
+
+real :: rnuc_vc        (mza0)
+real :: rnuc_vd        (mza0)
+real :: rnuc_cp_hom    (mza0)
+real :: rnuc_dp_hom    (mza0)
+real :: rnuc_cp_cont   (mza0)
+real :: rnuc_dp_cont   (mza0)
+real :: rnuc_vp_haze   (mza0)
+real :: rnuc_vp_depcond(mza0)
+
+real :: cnuc_vc        (mza0)
+real :: cnuc_vd        (mza0)
+real :: cnuc_cp_hom    (mza0)
+real :: cnuc_dp_hom    (mza0)
+real :: cnuc_cp_cont   (mza0)
+real :: cnuc_dp_cont   (mza0)
+real :: cnuc_vp_haze   (mza0)
+real :: cnuc_vp_depcond(mza0)
+
+! Replacement of rxfer and enxfer arrays (2/25/2012) to retain transfer
+! information (for plotting) from each separate collection pair interaction.
+
+! The new arrays have names 'r' for mass and heat transfer, and 'e' for number
+! transfer, followed by 4 digts.  The first 2 digits represent the 2 colliding
+! categories, the 3rd digit represents the donor category, and the 4th digit
+! represents the recipient category.  For example, the consequence of a
+! collision between rain and pristine ice is a mass transfer from rain to hail
+! that is denoted as 'r2327', which uses species numbers: 1=cloud, 2=rain, 
+! 3=pristine_ice, 4=snow, 5=aggregates, 6=graupel, 7=hail, 8=drizzle (=cloud2).
+
+real :: &
+  r1118(mza0,2),r8882(mza0,2),r1112(mza0,2),r1818(mza0,2),r1212(mza0,2), &
+  r8282(mza0,2),r3335(mza0,2),r4445(mza0,2),r3435(mza0,2),r3445(mza0,2), &
+  r3535(mza0,2),r3636(mza0,2),r3737(mza0,2),r4545(mza0,2),r4646(mza0,2), &
+  r4747(mza0,2),r5656(mza0,2),r5757(mza0,2),r6767(mza0,2),r1413(mza0,2), &
+  r1416(mza0,2),r1414(mza0,2),r1446(mza0,2),r1513(mza0,2),r1516(mza0,2), &
+  r1515(mza0,2),r1556(mza0,2),r1613(mza0,2),r1616(mza0,2),r8483(mza0,2), &
+  r8486(mza0,2),r8484(mza0,2),r8446(mza0,2),r8583(mza0,2),r8586(mza0,2), &
+  r8585(mza0,2),r8556(mza0,2),r8683(mza0,2),r8686(mza0,2),r1713(mza0,2), &
+  r1717(mza0,2),r8783(mza0,2),r8787(mza0,2),r2332(mza0,2),r2327(mza0,2), &
+  r2323(mza0,2),r2337(mza0,2),r2442(mza0,2),r2427(mza0,2),r2424(mza0,2), &
+  r2447(mza0,2),r2552(mza0,2),r2527(mza0,2),r2525(mza0,2),r2557(mza0,2), &
+  r2662(mza0,2),r2627(mza0,2),r2626(mza0,2),r2667(mza0,2),r2772(mza0,2), &
+  r2727(mza0,2),r0000(mza0,2)
+
+real :: &
+  e1111(mza0),e1118(mza0),e8888(mza0),e8882(mza0),e1112(mza0), &
+  e1811(mza0),e1211(mza0),e8288(mza0),e2222(mza0),e5555(mza0), &
+  e6666(mza0),e7777(mza0),e3333(mza0),e3335(mza0),e4444(mza0), &
+  e4445(mza0),e3433(mza0),e3444(mza0),e3435(mza0),e3445(mza0), &
+  e3533(mza0),e3633(mza0),e3733(mza0),e4544(mza0),e4644(mza0), &
+  e4744(mza0),e5655(mza0),e5755(mza0),e6766(mza0),e1413(mza0), &
+  e1411(mza0),e1446(mza0),e1513(mza0),e1511(mza0),e1556(mza0), &
+  e1613(mza0),e1611(mza0),e8483(mza0),e8488(mza0),e8446(mza0), &
+  e8583(mza0),e8588(mza0),e8556(mza0),e8683(mza0),e8688(mza0), &
+  e1713(mza0),e1711(mza0),e8783(mza0),e8788(mza0),e2322(mza0), &
+  e2327(mza0),e2333(mza0),e2337(mza0),e2422(mza0),e2427(mza0), &
+  e2444(mza0),e2447(mza0),e2522(mza0),e2527(mza0),e2555(mza0), &
+  e2557(mza0),e2622(mza0),e2627(mza0),e2666(mza0),e2667(mza0), &
+  e2722(mza0),e2727(mza0),e2777(mza0),e0000(mza0)
 
 real(kind=8) :: rhoa(mza0)
 real(kind=8) :: rhow(mza0)
@@ -221,10 +291,6 @@ colfac (:) = 0.
 colfac2(:) = 0.
 dsed_thil(:) = 0.
 
-rxfer (:,:,:) = 0.
-qrxfer(:,:,:) = 0.
-enxfer(:,:,:) = 0.
-
 k1(:) = 0
 k2(:) = 0
 k3(:) = 0
@@ -256,6 +322,53 @@ con_gccnx(:) = 0.
 con_ifnx (:) = 0.
 totcond  (:) = 0.
 
+ rnuc_vc        (:) = 0.
+ rnuc_vd        (:) = 0.
+ rnuc_cp_hom    (:) = 0.
+ rnuc_dp_hom    (:) = 0.
+ rnuc_cp_cont   (:) = 0.
+ rnuc_dp_cont   (:) = 0.
+ rnuc_vp_haze   (:) = 0.
+ rnuc_vp_depcond(:) = 0.
+
+ cnuc_vc        (:) = 0.
+ cnuc_vd        (:) = 0.
+ cnuc_cp_hom    (:) = 0.
+ cnuc_dp_hom    (:) = 0.
+ cnuc_cp_cont   (:) = 0.
+ cnuc_dp_cont   (:) = 0.
+ cnuc_vp_haze   (:) = 0.
+ cnuc_vp_depcond(:) = 0.
+
+ r1118(:,:) = 0.;r8882(:,:) = 0.;r1112(:,:) = 0.;r1818(:,:) = 0.;r1212(:,:) = 0.
+ r8282(:,:) = 0.;r3335(:,:) = 0.;r4445(:,:) = 0.;r3435(:,:) = 0.;r3445(:,:) = 0.
+ r3535(:,:) = 0.;r3636(:,:) = 0.;r3737(:,:) = 0.;r4545(:,:) = 0.;r4646(:,:) = 0.
+ r4747(:,:) = 0.;r5656(:,:) = 0.;r5757(:,:) = 0.;r6767(:,:) = 0.;r1413(:,:) = 0.
+ r1416(:,:) = 0.;r1414(:,:) = 0.;r1446(:,:) = 0.;r1513(:,:) = 0.;r1516(:,:) = 0.
+ r1515(:,:) = 0.;r1556(:,:) = 0.;r1613(:,:) = 0.;r1616(:,:) = 0.;r8483(:,:) = 0.
+ r8486(:,:) = 0.;r8484(:,:) = 0.;r8446(:,:) = 0.;r8583(:,:) = 0.;r8586(:,:) = 0.
+ r8585(:,:) = 0.;r8556(:,:) = 0.;r8683(:,:) = 0.;r8686(:,:) = 0.;r1713(:,:) = 0.
+ r1717(:,:) = 0.;r8783(:,:) = 0.;r8787(:,:) = 0.;r2332(:,:) = 0.;r2327(:,:) = 0.
+ r2323(:,:) = 0.;r2337(:,:) = 0.;r2442(:,:) = 0.;r2427(:,:) = 0.;r2424(:,:) = 0.
+ r2447(:,:) = 0.;r2552(:,:) = 0.;r2527(:,:) = 0.;r2525(:,:) = 0.;r2557(:,:) = 0.
+ r2662(:,:) = 0.;r2627(:,:) = 0.;r2626(:,:) = 0.;r2667(:,:) = 0.;r2772(:,:) = 0.
+ r2727(:,:) = 0.;r0000(:,:) = 0.
+
+ e1111(:) = 0.;e1118(:) = 0.;e8888(:) = 0.;e8882(:) = 0.;e1112(:) = 0.
+ e1811(:) = 0.;e1211(:) = 0.;e8288(:) = 0.;e2222(:) = 0.;e5555(:) = 0.
+ e6666(:) = 0.;e7777(:) = 0.;e3333(:) = 0.;e3335(:) = 0.;e4444(:) = 0.
+ e4445(:) = 0.;e3433(:) = 0.;e3444(:) = 0.;e3435(:) = 0.;e3445(:) = 0.
+ e3533(:) = 0.;e3633(:) = 0.;e3733(:) = 0.;e4544(:) = 0.;e4644(:) = 0.
+ e4744(:) = 0.;e5655(:) = 0.;e5755(:) = 0.;e6766(:) = 0.;e1413(:) = 0.
+ e1411(:) = 0.;e1446(:) = 0.;e1513(:) = 0.;e1511(:) = 0.;e1556(:) = 0.
+ e1613(:) = 0.;e1611(:) = 0.;e8483(:) = 0.;e8488(:) = 0.;e8446(:) = 0.
+ e8583(:) = 0.;e8588(:) = 0.;e8556(:) = 0.;e8683(:) = 0.;e8688(:) = 0.
+ e1713(:) = 0.;e1711(:) = 0.;e8783(:) = 0.;e8788(:) = 0.;e2322(:) = 0.
+ e2327(:) = 0.;e2333(:) = 0.;e2337(:) = 0.;e2422(:) = 0.;e2427(:) = 0.
+ e2444(:) = 0.;e2447(:) = 0.;e2522(:) = 0.;e2527(:) = 0.;e2555(:) = 0.
+ e2557(:) = 0.;e2622(:) = 0.;e2627(:) = 0.;e2666(:) = 0.;e2667(:) = 0.
+ e2722(:) = 0.;e2727(:) = 0.;e2777(:) = 0.;e0000(:) = 0.
+
 rhoa(:) = 0.
 rhow(:) = 0.
 
@@ -272,6 +385,7 @@ accpx(:) = 0.
 ! to microphysics column arrays
 
 call mic_copy(iw0,lpw0,thil0,press0,wc0,rhoa,rhow,rhoi, &
+   theta0,exner0,rhov,tair, &
    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 ! Loop over all vertical levels
@@ -317,7 +431,7 @@ do lcat = 1,ncat
 ! Find new k2(lcat)
 
    k = mza0
-   do while (k > lpw0 .and. rx(k,lcat) < rxmin(lcat))
+   do while (k >= lpw0 .and. rx(k,lcat) < rxmin(lcat))
       k = k - 1
    enddo
    k2(lcat) = k
@@ -325,8 +439,10 @@ do lcat = 1,ncat
 ! Find new k1(lcat)
 
    k = lpw0
+
    do while (k <= k2(lcat) .and. rx(k,lcat) < rxmin(lcat))
       k = k + 1
+
    enddo
    k1(lcat) = k
 
@@ -348,8 +464,7 @@ k1(11) = min(k1(9),k1(10))
 k2(11) = max(k2(9),k2(10))
 
 call thrmstr(iw0,lpw0,k1,k2, &
-   press0,thil0,rhow,rhoi,exner0,tair,theta0,rhov,rhovstr,tairstrc, &
-   rx,qx,sa)
+   press0,thil0,rhow,rhoi,exner0,tair,theta0,rhov,rhovstr,tairstrc,rx,qx,sa)
 
 call each_column(lpw0,iw0,k1,k2,dtl0,                          &
    jhcat,press0,tair,tairc,tairstrc,rhovstr,rhoa,rhov,rhoi,    &
@@ -573,63 +688,75 @@ j12 = max(k1(1),k1(2)); k12 = min(k2(1),k2(2))
 
 ! Self-collection of cloud and drizzle
 
-if (jnmb(8) >= 1 .and. k1(1) <= k2(1)) &
-   call col1188(1,8,1,k1(1),k2(1),     &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2,rxfer,qrxfer,enxfer)
+if (jnmb(8) == 0) then  ! If drizzle is NOT active
+
+   if (jnmb(2) >= 1 .and. k1(1) <= k2(1)) &
+   call col1188(1,2,1,k1(1),k2(1), &
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2, &
+      r1112,e1111,e1112)
+
+else                    ! If drizzle IS active
+
+   if (k1(1) <= k2(1)) &
+   call col1188(1,8,1,k1(1),k2(1), &
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2, &
+      r1118,e1111,e1118)
+
+endif
 
 if (jnmb(2) >= 1 .and. k1(8) <= k2(8)) &
-   call col1188(8,2,1,k1(8),k2(8),     &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2,rxfer,qrxfer,enxfer)
-
-! If drizzle is NOT active but rain is
-
-if (jnmb(8) == 0 .and. k1(1) <= k2(1)) &
-   call col1188(1,2,1,k1(1),k2(1),     &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2,rxfer,qrxfer,enxfer)
+   call col1188(8,2,1,k1(8),k2(8), &
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2, &
+      r8882,e8888,e8882)
 
 ! Collisions between different liquid species
 
 if (j18 <= k18) &
    call col1(1,8,8,1,j18,k18, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r1818,e1811)
 
 if (j12 <= k12) &
    call col1(1,2,2,1,j12,k12, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r1212,e1211)
 
 if (j82 <= k82) &
    call col1(8,2,2,1,j82,k82, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r8282,e8288)
    
 ! Self collection of rain, aggregates, graupel, and hail: number change only
 
 if (jnmb(2) == 5 .and. k1(2) <= k2(2)) &
-   call cols(2,1,k1(2),k2(2),jhcat,ict1,ict2,wct1,wct2,rx,cx,eff,colfac,enxfer)
+   call cols(2,1,k1(2),k2(2), &
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,eff,colfac,e2222)
 
 if (jnmb(5) == 5 .and. k1(5) <= k2(5)) &
-   call cols(5,4,k1(5),k2(5),jhcat,ict1,ict2,wct1,wct2,rx,cx,eff,colfac,enxfer)
+   call cols(5,4,k1(5),k2(5), &
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,eff,colfac,e5555)
 
 if (jnmb(6) == 5 .and. k1(6) <= k2(6)) &
-   call cols(6,5,k1(6),k2(6),jhcat,ict1,ict2,wct1,wct2,rx,cx,eff,colfac,enxfer)
+   call cols(6,5,k1(6),k2(6), &
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,eff,colfac,e6666)
 
 if (jnmb(7) == 5 .and. k1(7) <= k2(7)) &
-   call cols(7,7,k1(7),k2(7),jhcat,ict1,ict2,wct1,wct2,rx,cx,eff,colfac,enxfer)
+   call cols(7,7,k1(7),k2(7), &
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,eff,colfac,e7777)
 
 ! Self collection of pristine ice and of snow
 
 if (jnmb(5) >= 1 .and. k1(3) <= k2(3)) &
    call col3344(3,5,2,k1(3),k2(3),     &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2,r3335,e3333,e3335)
 
 if (jnmb(5) >= 1 .and. k1(4) <= k2(4)) &
    call col3344(4,5,3,k1(4),k2(4),     &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2,r4445,e4444,e4445)
 
 ! Collection between pristine ice and snow (k1,k2 now same for lcats 3 & 4)
 
 if (jnmb(5) >= 1 .and. k1(3) <= k2(3)) &
    call col3443(2,k1(3),k2(3),iw0,     &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
+      r3435,r3445,e3433,e3444,e3435,e3445)
 
 ! Other ice-ice collisions
 
@@ -645,39 +772,39 @@ j67 = max(k1(6),k1(7)); k67 = min(k2(6),k2(7))
 
 if (j35 <= k35) &
    call col1(3,5,5,2,j35,k35, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r3535,e3533)
 
 if (j36 <= k36) &
    call col1(3,6,6,5,j36,k36, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r3636,e3633)
 
 if (j37 <= k37) &
    call col1(3,7,7,6,j37,k37, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r3737,e3733)
 
 if (j45 <= k45) &
    call col1(4,5,5,3,j45,k45, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r4545,e4544)
 
 if (j46 <= k46) &
    call col1(4,6,6,5,j46,k46, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r4646,e4644)
 
 if (j47 <= k47) &
    call col1(4,7,7,6,j47,k47, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r4747,e4744)
 
 if (j56 <= k56) &
    call col1(5,6,6,5,j56,k56, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r5656,e5655)
 
 if (j57 <= k57) &
    call col1(5,7,7,6,j57,k57, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r5757,e5755)
 
 if (j67 <= k67) &
    call col1(6,7,7,5,j67,k67, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r6767,e6766)
 
 ! Ice-cloud and ice-drizzle collisions with graupel by-product
 
@@ -692,33 +819,33 @@ if (jnmb(6) >= 1) then
    
    if (j14 <= k14) &
       call col2(1,4,6,1,j14,k14, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac, &
-         rxfer,qrxfer,enxfer,dtl0)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac,dtl0, &
+         r1413,r1416,r1414,r1446,e1413,e1411,e1446)
 
    if (j15 <= k15) &
       call col2(1,5,6,1,j15,k15, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac, &
-         rxfer,qrxfer,enxfer,dtl0)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac,dtl0, &
+         r1513,r1516,r1515,r1556,e1513,e1511,e1556)
 
    if (j16 <= k16) &
       call col2(1,6,6,1,j16,k16, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac, &
-         rxfer,qrxfer,enxfer,dtl0)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac,dtl0, &
+         r1613,r1616,r0000,r0000,e1613,e1611,e0000)
 
    if (j84 <= k84) &
       call col2(8,4,6,1,j84,k84, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac, &
-         rxfer,qrxfer,enxfer,dtl0)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac,dtl0, &
+         r8483,r8486,r8484,r8446,e8483,e8488,e8446)
 
    if (j85 <= k85) &
       call col2(8,5,6,1,j85,k85, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac, &
-         rxfer,qrxfer,enxfer,dtl0)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac,dtl0, &
+         r8583,r8586,r8585,r8556,e8583,e8588,e8556)
 
    if (j86 <= k86) &
       call col2(8,6,6,1,j86,k86, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac, &
-         rxfer,qrxfer,enxfer,dtl0)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac,dtl0, &
+         r8683,r8686,r0000,r0000,e8683,e8688,e0000)
 
 endif
 
@@ -731,13 +858,13 @@ if (jnmb(7) >= 1) then
    
    if (j17 <= k17) &
       call col2(1,7,7,1,j17,k17, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac, &
-         rxfer,qrxfer,enxfer,dtl0)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac,dtl0, &
+         r1713,r1717,r0000,r0000,e1713,e1711,e0000)
 
    if (j87 <= k87) &
       call col2(8,7,7,1,j87,k87, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac, &
-         rxfer,qrxfer,enxfer,dtl0)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac,dtl0, &
+         r8783,r8787,r0000,r0000,e8783,e8788,e0000)
 
 ! Ice-rain collisions (hail byproduct)
 
@@ -749,74 +876,59 @@ if (jnmb(7) >= 1) then
 
    if (j23 <= k23) &
       call col3(3,7,1,j23,k23, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
+         r2332,r2327,r2323,r2337,e2322,e2327,e2333,e2337)
 
    if (j24 <= k24) &
       call col3(4,7,1,j24,k24, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
+         r2442,r2427,r2424,r2447,e2422,e2427,e2444,e2447)
 
    if (j25 <= k25) &
       call col3(5,7,1,j25,k25, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
+         r2552,r2527,r2525,r2557,e2522,e2527,e2555,e2557)
 
    if (j26 <= k26) &
       call col3(6,7,1,j26,k26, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
+         r2662,r2627,r2626,r2667,e2622,e2627,e2666,e2667)
 
    if (j27 <= k27) &
       call col3(7,7,1,j27,k27, &
-         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+         jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
+         r2772,r2727,r0000,r0000,e2722,e0000,e2777,e0000)
    
 endif
 
 ! Apply transfers of bulk mass, energy, and number from all collisions
 
-call colxfers(k1,k2,rx,cx,qr,rxfer,qrxfer,enxfer)
-
-! Do not change order of the following x02 calls
-
-if (jnmb(3) >= 1) &
-   call x02(iw0,3,k1,k2, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qx,qr,vap,rhoa,rhoi)
-
-if (jnmb(1) >= 1) &
-   call x02(iw0,1,k1,k2, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qx,qr,vap,rhoa,rhoi)
-
-if (jnmb(8) >= 1) &
-   call x02(iw0,8,k1,k2, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qx,qr,vap,rhoa,rhoi)
-
-if (jnmb(4) >= 1) &
-   call x02(iw0,4,k1,k2, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qx,qr,vap,rhoa,rhoi)
-
-if (jnmb(5) >= 1) &
-   call x02(iw0,5,k1,k2, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qx,qr,vap,rhoa,rhoi)
-
-if (jnmb(6) >= 1) &
-   call x02(iw0,6,k1,k2, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qx,qr,vap,rhoa,rhoi)
-
-if (jnmb(7) >= 1) &
-   call x02(iw0,7,k1,k2, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qx,qr,vap,rhoa,rhoi)
-
-if (jnmb(2) >= 1) &
-   call x02(iw0,2,k1,k2, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qx,qr,vap,rhoa,rhoi)
+ call colxfers(k1,k2,rx,cx,qr, &
+    r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
+    r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
+    r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
+    r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
+    r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
+    r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
+    r2727,r0000, &
+    e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
+    e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
+    e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
+    e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
+    e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
+    e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
+    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000)
 
 ! Nucleation of cloud droplets
 
 if (jnmb(1) >= 1) &
-   call cldnuc(iw0,lpw0,dtli0,rx,cx,con_ccnx,con_gccnx,rhov,rhoi,rhoa, &
-               tair,tairc,wc0,rhovslair)
+   call cldnuc(iw0,lpw0,dtli0,rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa, &
+               tair,tairc,wc0,rhovslair,rnuc_vc,rnuc_vd,cnuc_vc,cnuc_vd)
 
 ! Rediagnose k2(1) and k3(1) because of possible new cloud nucleation
 
 k = mza0
-do while (k > lpw0 .and. rx(k,1) < rxmin(1))
+do while (k >= lpw0 .and. rx(k,1) < rxmin(1))
    k = k - 1
 enddo
 k2(1) = k
@@ -833,7 +945,7 @@ k1(1) = k
 ! Rediagnose k2(8) and k3(8) because of possible new cloud nucleation
 
 k = mza0
-do while (k > lpw0 .and. rx(k,8) < rxmin(8))
+do while (k >= lpw0 .and. rx(k,8) < rxmin(8))
    k = k - 1
 enddo
 k2(8) = k
@@ -861,13 +973,17 @@ if (jnmb(8) >= 3 .and. k1(8) <= k2(8)) &
 
 if (jnmb(3) >= 1) &
    call icenuc(k1,k2,lpw0,mrl0,iw0, &
-      rx,cx,qr,emb,vap,tx,rhov,rhoa,press0,dynvisc,thrmcon, &
-      tair,tairc,rhovslair,rhovsiair,con_ccnx,con_ifnx,dtl0)
+      rx,cx,qr,qx,emb,vap,tx,rhov,rhoa,press0,dynvisc,thrmcon, &
+      tair,tairc,rhovslair,rhovsiair,con_ccnx,con_ifnx,dtl0, &
+      rnuc_cp_hom,rnuc_dp_hom,rnuc_cp_cont,rnuc_dp_cont, &
+      cnuc_cp_hom,cnuc_dp_hom,cnuc_cp_cont,cnuc_dp_cont, &
+      rnuc_vp_haze,rnuc_vp_depcond, &
+      cnuc_vp_haze,cnuc_vp_depcond)
 
 ! Rediagnose k2(3) and k3(3) because of possible new ice nucleation
 
 k = mza0
-do while (k > lpw0 .and. rx(k,3) < rxmin(3))
+do while (k >= lpw0 .and. rx(k,3) < rxmin(3))
    k = k - 1
 enddo
 k2(3) = k
@@ -881,21 +997,39 @@ do while (k <= k2(3) .and. rx(k,3) < rxmin(3))
 enddo
 k1(3) = k
 
-! Re-diagnose pristine ice and cloud droplet mean mass
+! Do not change order of the following x02 calls
 
-jflag = 1
+if (jnmb(3) >= 1) &
+   call x02(iw0,lpw0,3,k1,k2, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
-if (k2(3) >= k1(3)) &
-   call enemb(3,jflag,k1,k2, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+if (jnmb(1) >= 1) &
+   call x02(iw0,lpw0,1,k1,k2, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
-if (k2(1) >= k1(1)) &
-   call enemb(1,jflag,k1,k2, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+if (jnmb(8) >= 1) &
+   call x02(iw0,lpw0,8,k1,k2, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
-if (k2(8) >= k1(8)) &
-   call enemb(8,jflag,k1,k2, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+if (jnmb(4) >= 1) &
+   call x02(iw0,lpw0,4,k1,k2, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
+
+if (jnmb(5) >= 1) &
+   call x02(iw0,lpw0,5,k1,k2, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
+
+if (jnmb(6) >= 1) &
+   call x02(iw0,lpw0,6,k1,k2, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
+
+if (jnmb(7) >= 1) &
+   call x02(iw0,lpw0,7,k1,k2, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
+
+if (jnmb(2) >= 1) &
+   call x02(iw0,lpw0,2,k1,k2, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
 ! Zero out surface precip arrays (for leaf, will need to coordinate w/new leaf4)
 
@@ -922,13 +1056,13 @@ if (k1(3) <= k2(3)) &
       dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
       rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
 
-if (k1(4) <= k2(4))&
+if (k1(4) <= k2(4)) &
    call sedim(4,iw0,lpw0,k1,k2,.010, &
       dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
       rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
 
 if (k1(5) <= k2(5)) &
-   call sedim(5,iw0,lpw0,k1,k2,.010,  &
+   call sedim(5,iw0,lpw0,k1,k2,.010, &
       dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
       rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
 
@@ -954,9 +1088,30 @@ thil0(lpw0:mza0) = thil0(lpw0:mza0) + dsed_thil(lpw0:mza0)
 ! Copy hydrometeor bulk mass and number concentration and surface precipitation
 ! from microphysics column arrays to main model arrays
 
-call mic_copyback(iw0,lpw0,k1,k2,k3, &
-   pcpg0,qpcpg0,dpcpg0,dtli0,accpx,pcprx,thil0,theta0,rhoa,rhow,rhov,rhoi, &
-   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
+! call parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
+!    press0,thil0,theta0,tairc,rhovslair,rhovsiair,rhov,rhoi,rhoa,rhow, &
+!    rnuc_vc,rnuc_vd,rnuc_cp_hom,rnuc_dp_hom, &
+!    rnuc_cp_cont,rnuc_dp_cont,rnuc_vp_haze,rnuc_vp_depcond, &
+!    cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom, &
+!    cnuc_cp_cont,cnuc_dp_cont,cnuc_vp_haze,cnuc_vp_depcond, &
+!    r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
+!    r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
+!    r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
+!    r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
+!    r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
+!    r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
+!    r2727,r0000, &
+!    e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
+!    e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
+!    e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
+!    e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
+!    e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
+!    e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
+!    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000)
+
+ call mic_copyback(iw0,lpw0,k1,k2,k3, &
+    pcpg0,qpcpg0,dpcpg0,dtli0,accpx,pcprx,thil0,theta0,rhoa,rhow,rhov,rhoi, &
+    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
 return
 end subroutine micphys
@@ -964,16 +1119,18 @@ end subroutine micphys
 !===============================================================================
 
 subroutine mic_copy(iw0,lpw0,thil0,press0,wc0,rhoa,rhow,rhoi, &
+   theta0,exner0,rhov,tair, &
    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 use micro_coms, only: mza0, ncat, jnmb, rxmin
-use mem_basic,  only: thil, press, wc, rho, sh_w, sh_v
+use mem_basic,  only: thil, press, wc, rho, sh_w, sh_v, theta
 
 use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                       q2, q6, q7, con_ccn, con_gccn, con_ifn, &
                       con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h
 
-use misc_coms,  only: io6
+use misc_coms,  only: io6, time_istp8
+use consts_coms, only: p00i, rocp, cpi
 
 implicit none
 
@@ -984,6 +1141,10 @@ real, intent(out) :: thil0 (mza0)
 real, intent(out) :: press0(mza0)
 real, intent(out) :: wc0   (mza0)
 real, intent(out) :: rhoi  (mza0)
+real, intent(out) :: theta0(mza0)
+real, intent(out) :: exner0(mza0)
+real, intent(out) :: rhov  (mza0)
+real, intent(out) :: tair  (mza0)
 real, intent(out) :: con_ccnx (mza0)
 real, intent(out) :: con_gccnx(mza0)
 real, intent(out) :: con_ifnx (mza0)
@@ -1002,12 +1163,17 @@ integer :: k
 
 do k = lpw0,mza0
    thil0 (k) = thil (k,iw0)
+   theta0(k) = theta(k,iw0)
    press0(k) = press(k,iw0)
    wc0   (k) = wc   (k,iw0)
    rhoa  (k) = rho  (k,iw0)
    rhow  (k) = sh_w (k,iw0) * rho(k,iw0)
+   rhov  (k) = sh_v (k,iw0) * rho(k,iw0)
 
    rhoi  (k) = 1. / rhoa(k)
+
+   exner0(k) = (press0(k) * p00i) ** rocp  ! defined WITHOUT CP factor
+   tair  (k) = theta0(k) * exner0(k)
 enddo
 
 ! Cloud water
@@ -1536,7 +1702,7 @@ if (jnmb(8) >= 1) then
    accpd(iw0) = accpd(iw0) + accpx(8)
    pcprd(iw0) = pcprx(8)
 
-   do k = lpw0,k2(11)
+   do k = lpw0,k3(8)
       sh_d(k,iw0) = rx(k,8) * rhoi(k)
    enddo
 endif
@@ -1544,7 +1710,7 @@ endif
 ! Copy cloud water number concentration back to main array
 
 if (jnmb(1) >= 5) then
-   do k = lpw0,k2(11)
+   do k = lpw0,k3(1)
       con_c(k,iw0) = cx(k,1) * rhoi(k)
    enddo
 endif
@@ -1560,7 +1726,7 @@ endif
 ! Copy pristine ice number concentration back to main array
 
 if (jnmb(3) >= 5) then
-   do k = lpw0,k2(11)
+   do k = lpw0,k3(3)
       con_p(k,iw0) = cx(k,3) * rhoi(k)
    enddo
 endif
@@ -1600,7 +1766,7 @@ endif
 ! Copy drizzle number concentration back to main array
 
 if (jnmb(8) >= 5) then
-   do k = lpw0,k2(11)
+   do k = lpw0,k3(8)
       con_d(k,iw0) = cx(k,8) * rhoi(k)
    enddo
 endif
@@ -1631,4 +1797,3 @@ endif
 
 return
 end subroutine mic_copyback
-

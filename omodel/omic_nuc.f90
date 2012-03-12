@@ -31,16 +31,16 @@
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine cldnuc(iw0,lpw0,dtli0, &
-                  rx,cx,con_ccnx,con_gccnx,rhov,rhoi,rhoa, &
-                  tair,tairc,wc0,rhovslair)
+                  rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa, &
+                  tair,tairc,wc0,rhovslair,rnuc_vc,rnuc_vd,cnuc_vc,cnuc_vd)
 
 !BOB: Add i,j, or iw0 to arguments?
 
 use micro_coms,  only: jnmb, parm, emb0, emb1, cparm, mza0, ncat, &
-                       iccnlev, dparm, cnparm, gnparm
+                       iccnlev, dparm, cnparm, gnparm, rxmin
 use misc_coms,   only: io6
 use mem_grid,    only: zt
-use consts_coms, only: rvap, grav, alvl, cp
+use consts_coms, only: rvap, grav, alvl, cp, cliq, alli
 
 implicit none
 
@@ -51,6 +51,8 @@ real, intent(in) :: dtli0
 
 real, intent(inout) :: rx(mza0,ncat)
 real, intent(inout) :: cx(mza0,ncat)
+real, intent(inout) :: qr(mza0,ncat)
+real, intent(inout) :: qx(mza0,ncat)
 
 real, intent(inout) :: con_ccnx (mza0)
 real, intent(inout) :: con_gccnx(mza0)
@@ -62,13 +64,19 @@ real, intent(in) :: tairc    (mza0)
 real, intent(in) :: wc0      (mza0)
 real, intent(in) :: rhovslair(mza0)
 
+real, intent(inout) :: cnuc_vc(mza0)
+real, intent(inout) :: cnuc_vd(mza0)
+real, intent(inout) :: rnuc_vc(mza0)
+real, intent(inout) :: rnuc_vd(mza0)
+
 real(kind=8), intent(in) :: rhoa(mza0)
 
 integer :: k,jtemp,jw,jcon,iw,iconc
 
 real :: rnuc,cnuc,excessrhov,rhocnew,tab,concen_tab,cxadd, &
-   tairc_nuc,w_nuc,rjw,wtw2,wtw1,con_ccnk,con_gccnk,rjcon,wtcon2,wtcon1, &
-   con_ccn_nuc,con_gccn_nuc
+   tairc_nuc,w_nuc,rjw,wtw2,wtw1,con_ccnk,con_gccnk,rjcon,wtcon2,wtcon1
+
+real :: con_ccn_tab, con_gccn_tab, con_ccn_nuc, con_gccn_nuc, frac
 
 integer :: ic,rgb,jrg,ct,ctc,maxct,sps
 
@@ -1935,10 +1943,13 @@ if (jnmb(1) == 4) then
       cnuc = parm(1) * rhoa(k)   ! #_nucleated / m^3
       rnuc = cnuc * emb0(1)      ! kg_nucleated / m^3
 
-      rhocnew = min(rnuc,.5 * excessrhov)   ! x rhoa
-      rx(k,1) = rx(k,1) + rhocnew           ! x rhoa
-      rhov(k) = rhov(k) - rhocnew           ! x rhoa
-      cx(k,1) = min(cnuc,rx(k,1) / emb0(1)) ! x rhoa
+      rnuc_vc(k) = min(rnuc,.5 * excessrhov)   ! x rhoa
+      rx(k,1) = rx(k,1) + rnuc_vc(k)           ! x rhoa
+      rhov(k) = rhov(k) - rnuc_vc(k)           ! x rhoa
+
+      cnuc_vc(k) = min(cnuc,rx(k,1) / emb0(1)) ! x rhoa
+      cx(k,1) = cnuc_vc(k)
+      qr(k,1) = qr(k,1) + rnuc_vc(k) * (tairc(k) * cliq + alli) ! (x rhoa)
 
    enddo
 
@@ -1952,12 +1963,10 @@ elseif (jnmb(1) >= 5) then
 
    do k = lpw0,mza0
 
-! Compare ambient vapor density with saturation value; cycle if not supersaturated
-
-      relhumid = rhov(k) / (1.00001 * rhovslair(k))
-      if (relhumid <= 1.) cycle
+! Diagnose excess of vapor density over saturation; cycle if not > 0.
 
       excessrhov = rhov(k) - 1.00001 * rhovslair(k) ! x rhoa
+      if (excessrhov <= 0.) cycle                   ! x rhoa
 
       con_ccn_nuc = 0.
 
@@ -2051,6 +2060,8 @@ elseif (jnmb(1) >= 5) then
 ! Pseudo vertical velocity based on supersaturation and its assumed 
 ! production over 1 timestep
 
+         relhumid = rhov(k) / (1.00001 * rhovslair(k))
+
          supsat_rate = relhumid * dtli0
 
          w_pseudo = a1inv * supsat_rate
@@ -2101,7 +2112,7 @@ elseif (jnmb(1) >= 5) then
 
 ! Get number to nucleate
 
-         con_ccn_nuc = con_ccnk * tab * rhoa(k)   ! (#/m^3) (x rhoa)
+         con_ccn_tab = con_ccnk * tab * rhoa(k)   ! (#/m^3) (x rhoa)
 
 ! If you're NOT depleting aerosols, reduce nucleatable CCN concentration 
 ! by existing cloud concentration
@@ -2111,18 +2122,20 @@ elseif (jnmb(1) >= 5) then
 ! because you're depleting them in collisions.  (I think it is better to never
 ! deplete aerosols in nucleation, but to deplete them in collisions instead.)
 
-         if (iccnlev == 0) con_ccn_nuc = con_ccn_nuc - cx(k,1)
+         con_ccn_nuc = con_ccn_tab
+         if (iccnlev == 0) con_ccn_nuc = max(0.,con_ccn_tab - cx(k,1))
 
       endif ! con_ccnk > 0
 
-! Default for case where DRIZZLE number is NOT predicted
+! Vapor mass to nucleate to cloud droplets (subject to possible adjustment)
 
-      crat = 1.
-      grat = 0.
-      
+      vaprccn = con_ccn_nuc * emb0(1)
+
 ! If DRIZZLE number concentration is being predicted (which in the model
 ! also means that DRIZZLE nucleation from GCCN is active), excess vapor 
 ! must be shared between CLOUD and DRIZZLE nucleation.
+
+      vaprgccn = 0.
 
       if (jnmb(8) >= 5) then
 
@@ -2132,20 +2145,20 @@ elseif (jnmb(1) >= 5) then
 
 ! Constant in time and space GCCN concentration
 
-            con_gccn_nuc = dparm * rhoa(k)      ! dparm units are #/kg 
+            con_gccn_tab = dparm * rhoa(k)      ! dparm units are #/kg 
 
          elseif (jnmb(8) == 6) then
 
 ! Horizontally-homogeneous, time-constant vertical profile of GCCN
 ! (Example profile by Saleeby)
 
-            con_gccn_nuc = max(10.,dparm * (1. - zt(k) / 4000.)) * rhoa(k)
+            con_gccn_tab = max(10.,dparm * (1. - zt(k) / 4000.)) * rhoa(k)
 
          elseif (jnmb(8) == 7) then
 
 ! Prognostic CCN field
 
-            con_gccn_nuc = con_gccnx(k)   ! con_gccnx units are #/m^3
+            con_gccn_tab = con_gccnx(k)   ! con_gccnx units are #/m^3
 
          endif  
 
@@ -2157,100 +2170,80 @@ elseif (jnmb(1) >= 5) then
 ! because you're depleting them in collisions.  (I think it is better to never
 ! deplete aerosols in nucleation, but to deplete them in collisions instead.)
 
-         if (iccnlev == 0) con_gccn_nuc = con_gccn_nuc - cx(k,8)
+         con_gccn_nuc = con_gccn_tab
+         if (iccnlev == 0) con_gccn_nuc = max(0.,con_gccn_nuc - cx(k,8))
 
-! GCCN mean radius
+! Vapor mass to nucleate to cloud droplets (subject to possible adjustment)
 
-         rg2 = gnparm   ! default
-         rg2 = max(.96001e-6,min(5.4999e-6,rg2))
+         vaprgccn = con_gccn_nuc * emb0(8)
 
-! From Saleeby & Cotton 2004 Equation 10 for median radius approx.
-! Use avg solute density (1.967g/cm3) of NH42SO4=1.769,NaCl=2.165
+      endif
 
-!        if (iccnlev == 2) then
+! If nucleation to cloud and/or drizzle is limited by available vapor,
+! reduce nucleation accordingly
 
-! Diagnose GCCN radius, apply limits, and in case limits changed GCCN radius,
-! re-compute GCCN bulk density
+      if (vaprccn + vaprgccn > excessrhov) then
 
-!           rg2 = (0.02523 * rho_gccnx(k) / con_gccnx(k))**.3333
-!           rg2 = max(.96001e-6,min(5.4999e-6,rg2))
-!           rho_gccnx(k) = (rg2**3) * con_gccnx(k) / 0.02523
+         frac = excessrhov / (vaprccn + vaprgccn)
 
-!        endif
+         vaprccn  = vaprccn  * frac
+         vaprgccn = vaprgccn * frac
 
-         cvap = (4.0 * 3.14159 * rg1**2) * con_ccn_nuc
-         gvap = (4.0 * 3.14159 * rg2**2) * con_gccn_nuc
-         
-! Compute relative amounts of vapor that go to CCN and GCCN nucleation
-
-         if (gvap > 0. .or. cvap > 0.) then
-            grat = gvap / (gvap + cvap)
-            crat = 1.0 - grat
-         endif
-
-! If nucleatable GCCN concentration is positive, carry out nucleation
-
-         if (con_gccn_nuc > 0.) then
-
-! Fraction of excess vapor available for drizzle category
-
-            vaprgccn = excessrhov * grat ! (kg/m^3) (x rhoa)
-
-! Reduce nucleation number or vapor used for nucleation if necessary to
-! keep nucleated cloud droplets within specified size limits.  
-
-! (Bob: probably the emb1(8) limit should be a lot more stringent because
-! newly-nucleated droplets cannot grow to emb1(8) size within 1 timestep.)
-
-            if (con_gccn_nuc > vaprgccn / emb0(8)) &
-                con_gccn_nuc = vaprgccn / emb0(8)
-                
-            if (vaprgccn > con_gccn_nuc * emb1(8)) &
-                vaprgccn = con_gccn_nuc * emb1(8)
-
-! Update drizzle concentration and mass from nucleation
-
-            cx(k,8) = cx(k,8) + con_gccn_nuc ! (#/m^3)  x rhoa
-            rx(k,8) = rx(k,8) + vaprgccn     ! (kg/m^3) x rhoa
-
-! Update GCCN concentration if doing optional nucleation scavenging
-
-            if (iccnlev == 1) con_gccnx(k) = con_gccnx(k) - con_gccn_nuc ! (#/m^3)
-
-         endif ! (con_gccn_nuc > 0.)
-
-      endif ! (jnmb(8) >= 5)
-
-! If nucleatable CCN concentration is positive, carry out nucleation
-
-      if (con_ccn_nuc > 0.) then
-
-! Fraction of excess vapor available for cloud category
-
-         vaprccn = excessrhov * crat ! (kg/m^3) (x rhoa)
-
-! Reduce nucleation number or vapor used for nucleation if necessary to
-! keep nucleated cloud droplets within specified size limits.  
-
-! (Bob: probably the emb1(1) limit should be a lot more stringent because
-! newly-nucleated droplets cannot grow to emb1(1) size within 1 timestep.)
-
-         if (con_ccn_nuc > vaprccn / emb0(1)) &
-             con_ccn_nuc = vaprccn / emb0(1)
-                
-         if (vaprccn > con_ccn_nuc * emb1(1)) &
-             vaprccn = con_ccn_nuc * emb1(1)
+         con_ccn_nuc  = vaprccn  / emb0(1)
+         con_gccn_nuc = vaprgccn / emb0(8)
+      endif
 
 ! Update cloud concentration and mass from nucleation
 
-         cx(k,1) = cx(k,1) + con_ccn_nuc ! (#/m^3)  x rhoa
-         rx(k,1) = rx(k,1) + vaprccn     ! (kg/m^3) x rhoa
+      if (vaprccn > 0.) then
+
+         cnuc_vc(k) = con_ccn_nuc
+         rnuc_vc(k) = vaprccn
+
+         cx(k,1) = cx(k,1) + cnuc_vc(k) ! (#/m^3)  x rhoa
+         rx(k,1) = rx(k,1) + rnuc_vc(k) ! (kg/m^3) x rhoa
+         qr(k,1) = qr(k,1) + rnuc_vc(k) * (tairc(k) * cliq + alli) ! (x rhoa)
+
+         if (rx(k,1) >= rxmin(1)) qx(k,1) = qr(k,1) / rx(k,1)
 
 ! Update CCN concentration if doing optional nucleation scavenging
 
          if (iccnlev == 1) con_ccnx(k) = con_ccnx(k) - con_ccn_nuc ! (#/m^3)
 
-      endif ! (con_ccn_nuc > 0)
+      endif ! (vaprccn > 0)
+
+! Update drizzle concentration and mass from nucleation
+
+      if (jnmb(8) >= 5 .and. vaprgccn > 0.) then
+
+         cnuc_vd(k) = con_gccn_nuc
+         rnuc_vd(k) = vaprgccn
+
+         cx(k,8) = cx(k,8) + cnuc_vd(k) ! (#/m^3)  x rhoa
+         rx(k,8) = rx(k,8) + rnuc_vd(k) ! (kg/m^3) x rhoa
+         qr(k,8) = qr(k,8) + rnuc_vd(k) * (tairc(k) * cliq + alli) ! (x rhoa)
+
+         if (rx(k,8) >= rxmin(8)) qx(k,8) = qr(k,8) / rx(k,8)
+
+! Update GCCN concentration if doing optional nucleation scavenging
+
+         if (iccnlev == 1) con_gccnx(k) = con_gccnx(k) - con_gccn_nuc ! (#/m^3)
+
+      endif ! (jnmb(8) >= 5 .and. vaprgccn > 0.)
+
+! If nucleatable CCN concentration is positive, carry out nucleation
+
+!print*, ' '
+!write(6,'(a)') '         con_ccn_tab   con_ccn_nuc     cx(k,1)     vapr/con      emb0       rnuc_vc(k)    rx(k,1)    excessrhov'
+!write(6,'(a,9e13.3)') 'cldnuc4 ',con_ccn_tab,con_ccn_nuc,cx(k,1), &
+!   vaprccn/con_ccn_nuc,emb0(1),rnuc_vc(k),rx(k,1),excessrhov
+
+!if (con_gccn_nuc > 1.e-12) then
+!   write(6,'(a,9e13.3)') 'cldnuc5 ',con_gccn_tab,con_gccn_nuc,cx(k,8), &
+!      vaprgccn/con_gccn_nuc,emb0(8),rnuc_vd(k),rx(k,8),excessrhov
+!endif
+
+!print*, ' '
 
    enddo ! Loop over k
 
@@ -2262,15 +2255,17 @@ end subroutine cldnuc
 !===============================================================================
 
 subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
-   rx,cx,qr,emb,vap,tx,rhov,rhoa,press0,dynvisc,thrmcon, &
-   tair,tairc,rhovslair,rhovsiair,con_ccnx,con_ifnx,dtl0)
-
-!BOB: Add i,j, or iw0 to arguments?
+   rx,cx,qr,qx,emb,vap,tx,rhov,rhoa,press0,dynvisc,thrmcon, &
+   tair,tairc,rhovslair,rhovsiair,con_ccnx,con_ifnx,dtl0, &
+   rnuc_cp_hom,rnuc_dp_hom,rnuc_cp_cont,rnuc_dp_cont, &
+   cnuc_cp_hom,cnuc_dp_hom,cnuc_cp_cont,cnuc_dp_cont, &
+   rnuc_vp_haze,rnuc_vp_depcond, &
+   cnuc_vp_haze,cnuc_vp_depcond)
 
 use micro_coms,  only: mza0, ncat, dnfac, pwmasi, rxmin, ndnc, ddnc, dtc, &
                        fracc, drhhz, dthz, frachz, ipris, emb0, jnmb
                       
-use consts_coms, only: cice
+use consts_coms, only: cice, cliq, alli
 use misc_coms,   only: io6
 
 implicit none
@@ -2285,6 +2280,7 @@ integer, intent(in) :: iw0
 real, intent(inout) :: rx (mza0,ncat)
 real, intent(inout) :: cx (mza0,ncat)
 real, intent(inout) :: qr (mza0,ncat)
+real, intent(inout) :: qx (mza0,ncat)
 real, intent(in)    :: emb(mza0,ncat)
 real, intent(in)    :: vap(mza0,ncat)
 real, intent(in)    :: tx (mza0,ncat)
@@ -2300,6 +2296,20 @@ real, intent(in) :: rhovsiair(mza0)
 real, intent(in) :: con_ccnx (mza0)
 real, intent(in) :: con_ifnx (mza0)
 
+real, intent(inout) :: rnuc_cp_hom (mza0)
+real, intent(inout) :: rnuc_dp_hom (mza0)
+real, intent(inout) :: rnuc_cp_cont(mza0)
+real, intent(inout) :: rnuc_dp_cont(mza0)
+real, intent(inout) :: cnuc_cp_hom (mza0)
+real, intent(inout) :: cnuc_dp_hom (mza0)
+real, intent(inout) :: cnuc_cp_cont(mza0)
+real, intent(inout) :: cnuc_dp_cont(mza0)
+
+real, intent(inout) :: rnuc_vp_haze   (mza0)
+real, intent(inout) :: rnuc_vp_depcond(mza0)
+real, intent(inout) :: cnuc_vp_haze   (mza0)
+real, intent(inout) :: cnuc_vp_depcond(mza0)
+
 real(kind=8), intent(in) :: rhoa(mza0)
 
 real, intent(in) :: dtl0
@@ -2309,28 +2319,23 @@ integer :: k,idnc,itc,irhhz,ithz,nt,ns
 real :: dn1,dn8,fraccld,ridnc,wdnc2,tc,ritc,wtc2, &
         pbvi,ptvi,pdvi,ptotvi,fracifn,cldnuc,cldnucr,rhhz,haznuc, &
         rirhhz,wrhhz2,thz,rithz,wthz2,frachaz,ssi,diagni, &
-        vapnuc,vapnucr,availvap,relhum
+        vapnuc,vapnucr,availvap,emb0i3,fac,rnuc,cnuc,rnuc_new,cnuc_new
 
 ! Define ssi0 to be maximum supersaturation with respect to ice for
 ! determining total number of IFN that can nucleate in Meyers' formula
 
 real, parameter :: ssi0 = 0.40
 
+emb0i3 = 1. / emb0(3)
+
 ! implement paul's immersion freezing of rain here.  This would
 ! replace mike's homogeneous freezing of rain which was in h03.
 
-dn1 = 0.
-fraccld = 0.
-
 do k = k1(1),k2(1)
-
-! CLOUD DROPLET HOMOGENEOUS ICE NUCLEATION
-
-! define dn locally from emb
 
    dn1 = dnfac(1) * emb(k,1) ** pwmasi(1)
 
-   fraccld = 0. ! Here or above?
+! CLOUD DROPLET HOMOGENEOUS ICE NUCLEATION
 
    if (rx(k,1) > rxmin(1) .and. tairc(k) <= -30.01) then
 
@@ -2347,6 +2352,17 @@ do k = k1(1),k2(1)
               + (1.-wdnc2) *     wtc2  * fracc(idnc  ,itc+1,mrl0) &
               +     wdnc2  *     wtc2  * fracc(idnc+1,itc+1,mrl0)
 
+! Saleeby(2009): Need separate homogeneous freezing options for
+! 1-moment and 2-moment cloud and drizzle droplet treatments
+
+      if (jnmb(1) <  5) then
+         cnuc_cp_hom(k) = max(0.,fraccld * cx(k,1) - cx(k,3)) ! x rhoa
+      else
+         cnuc_cp_hom(k) = max(0.,fraccld * cx(k,1))           ! x rhoa
+      endif
+
+      rnuc_cp_hom(k) = cnuc_cp_hom(k) * emb(k,1) ! x rhoa
+
    endif
 
 !  Heterogeneous contact ice nucleation of cloud droplets by diffusio-
@@ -2357,27 +2373,35 @@ do k = k1(1),k2(1)
       ,pbvi,ptvi,pdvi,ptotvi,dn1,dtl0,rxmin(1))
 
 ! progIFN: Scale ptotvi returned from contnuc by prognosed IFN fraction
-
 !::later   ptotvi = ptotvi * fracifn
 
-! MIKE ADDED THIS COMMENTED ccinp(k)=ccinp(k)-ptotvi, but
-! probably do not want sink of ccinp here..gt.
+   cnuc_cp_cont(k) = ptotvi
+   rnuc_cp_cont(k) = ptotvi * emb(k,1)
 
-! Saleeby(2009): Need separate homogeneous freezing options for
-! 1-moment and 2-moment cloud and drizzle droplet treatments
+! If nucleated mass exceeds available mass in cloud category, scale it back
+! proportionately between the two nucleation mechanisms
 
-   if (jnmb(1) <  5) cldnuc = ptotvi + max(0.,fraccld * cx(k,1) - cx(k,3)) ! x rhoa
-   if (jnmb(1) >= 5) cldnuc = ptotvi + max(0.,fraccld * cx(k,1))           ! x rhoa
+   if (rnuc_cp_hom(k) + rnuc_cp_cont(k) > rx(k,1)) then
+      fac = rx(k,1) / (rnuc_cp_hom(k) + rnuc_cp_cont(k))
+      rnuc_cp_hom (k) = rnuc_cp_hom (k) * fac
+      rnuc_cp_cont(k) = rnuc_cp_cont(k) * fac
+   endif
 
-! Bob: The first line above was the original form; Steve added the second line.  
-!   What is the reason?
+   rnuc = rnuc_cp_hom(k) + rnuc_cp_cont(k)
+   cnuc = cnuc_cp_hom(k) + cnuc_cp_cont(k)
 
-   cldnucr = min(rx(k,1),ptotvi * emb(k,1) + fraccld * rx(k,1)) ! x rhoa
+   rx(k,3) = rx(k,3) + rnuc ! x rhoa
+   rx(k,1) = rx(k,1) - rnuc ! x rhoa
+   cx(k,3) = cx(k,3) + cnuc ! x rhoa
+   cx(k,1) = cx(k,1) - cnuc ! x rhoa
+   qr(k,3) = qr(k,3) + rnuc * cice * tairc(k) ! (x rhoa)
+   qr(k,1) = qr(k,1) - rnuc * qx(k,1)         ! (x rhoa)
 
-   rx(k,3) = rx(k,3) + cldnucr ! x rhoa
-   rx(k,1) = rx(k,1) - cldnucr ! x rhoa
-   cx(k,3) = cx(k,3) + cldnuc  ! x rhoa
-   cx(k,1) = cx(k,1) - cldnuc  ! x rhoa
+   if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
+   if (rx(k,1) >= rxmin(1)) qx(k,1) = qr(k,1) / rx(k,1)
+
+! (Changes in qr1 and qr3 have different magnitudes; energy difference will be
+! accounted for in next theta diagnosis from theta_il and ice/liquid contents.)
 
 enddo
 
@@ -2385,12 +2409,7 @@ enddo
 
 ! DRIZZLE DROPLET HOMOGENEOUS ICE NUCLEATION
 
-dn1 = 0.
-fraccld = 0.
-
 do k = k1(8),k2(8)
-
-! define dn locally from emb
 
    dn8 = dnfac(8) * emb(k,8) ** pwmasi(8)
 
@@ -2410,34 +2429,53 @@ do k = k1(8),k2(8)
               + (1.-wdnc2) *     wtc2  * fracc(idnc  ,itc+1,mrl0) &
               +     wdnc2  *     wtc2  * fracc(idnc+1,itc+1,mrl0)
 
+! Saleeby(2009): Need separate homogeneous freezing options for
+! 1-moment and 2-moment cloud and drizzle droplet treatments
+
+      if (jnmb(8) <  5) then
+         cnuc_dp_hom(k) = max(0.,fraccld * cx(k,8) - cx(k,3)) ! x rhoa
+      else
+         cnuc_dp_hom(k) = max(0.,fraccld * cx(k,8))           ! x rhoa
+      endif
+
+      rnuc_dp_hom(k) = cnuc_dp_hom(k) * emb(k,8) ! x rhoa
+
    endif
 
-!  Heterogeneous contact ice nucleation of cloud droplets by diffusio-
+!  Heterogeneous contact ice nucleation of drizzle by diffusio-
 !  phoresis, thermophoresis, and Brownian motion (transport of IN)
 
    call contnuc (rx(k,8),cx(k,8),tx(k,8),vap(k,8),press0(k), &
       dynvisc(k),thrmcon(k),tair(k),tairc(k), &
-      pbvi,ptvi,pdvi,ptotvi,dn1,dtl0,rxmin(8))
+      pbvi,ptvi,pdvi,ptotvi,dn8,dtl0,rxmin(8))
 
 ! progIFN: Scale ptotvi returned from contnuc by prognosed IFN fraction
-
 !::later   ptotvi = ptotvi * fracifn
 
-! MIKE ADDED THIS COMMENTED ccinp(k)=ccinp(k)-ptotvi, but
-! probably do not want sink of ccinp here.
+   cnuc_dp_cont(k) = ptotvi
+   rnuc_dp_cont(k) = ptotvi * emb(k,8)
 
-! Saleeby(2009): Need separate homogeneous freezing options for
-! 1-moment and 2-moment cloud and drizzle droplet treatments
+! If nucleated mass exceeds available mass in drizzle category, scale it back
+! proportionately between the two nucleation mechanisms
 
-   if (jnmb(8) <  5) cldnuc = ptotvi + max(0.,fraccld * cx(k,8) - cx(k,3)) ! x rhoa
-   if (jnmb(8) >= 5) cldnuc = ptotvi + max(0.,fraccld * cx(k,8))           ! x rhoa
+   if (rnuc_dp_hom(k) + rnuc_dp_cont(k) > rx(k,8)) then
+      fac = rx(k,8) / (rnuc_dp_hom(k) + rnuc_dp_cont(k))
+      rnuc_dp_hom (k) = rnuc_dp_hom (k) * fac
+      rnuc_dp_cont(k) = rnuc_dp_cont(k) * fac
+   endif
 
-   cldnucr = min(rx(k,8),ptotvi * emb(k,8) + fraccld * rx(k,8)) ! x rhoa
+   rnuc = rnuc_dp_hom(k) + rnuc_dp_cont(k)
+   cnuc = cnuc_dp_hom(k) + cnuc_dp_cont(k)
 
-   rx(k,3) = rx(k,3) + cldnucr ! x rhoa
-   rx(k,8) = rx(k,8) - cldnucr ! x rhoa
-   cx(k,3) = cx(k,3) + cldnuc  ! x rhoa
-   cx(k,8) = cx(k,8) - cldnuc  ! x rhoa
+   rx(k,3) = rx(k,3) + rnuc ! x rhoa
+   rx(k,8) = rx(k,8) - rnuc ! x rhoa
+   cx(k,3) = cx(k,3) + cnuc ! x rhoa
+   cx(k,8) = cx(k,8) - cnuc ! x rhoa
+   qr(k,3) = qr(k,3) + rnuc * cice * tairc(k)   ! (x rhoa)
+   qr(k,8) = qr(k,8) - rnuc * qx(k,8)           ! (x rhoa)
+
+   if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
+   if (rx(k,8) >= rxmin(8)) qx(k,8) = qr(k,8) / rx(k,8)
 
 enddo
 
@@ -2447,7 +2485,6 @@ enddo
 
 do k = lpw0,mza0
    rhhz = rhov(k) / rhovslair(k)  ! stays the same
-   haznuc = 0.
 
    if (rhhz > 0.82 .and. tairc(k) <= -35.01) then
 
@@ -2470,8 +2507,15 @@ do k = lpw0,mza0
 ! to reality. For 2-moment cloud droplet prediction I scale the
 ! haze nuclei to the CCN concentration. Need better option here.
 
-      if (jnmb(1) >= 5) haznuc = frachaz * con_ccnx(k)
-      if (jnmb(1) <  5) haznuc = frachaz * 300.e6
+! con_ccnx units are #/m^3; 300.e6 represents #/kg_air
+
+      if (jnmb(1) >= 5) then
+         cnuc_vp_haze(k) = frachaz * con_ccnx(k)      ! x rhoa
+      else
+         cnuc_vp_haze(k) = frachaz * 300.e6 * rhoa(k) ! x rhoa
+      endif
+
+      rnuc_vp_haze(k) = cnuc_vp_haze(k) * emb0(3) ! x rhoa
 
    endif
 
@@ -2500,35 +2544,55 @@ do k = lpw0,mza0
 
    endif
 
-! Diagnose maximum number of IFN to activate based on ipris (#/kg)
+! Diagnose maximum number of IFN to activate based on ipris
+! con_ifnx units are #/m^3; 1.e5 represents #/kg_air
 
    if (ipris == 5) then
-      diagni = fracifn * 1.e5
+      cnuc_vp_depcond(k) = fracifn * rhoa(k) * 1.e5
    elseif (ipris == 6) then
-      diagni = fracifn * rhoa(k) ** 5.4 * 1.e5
+      cnuc_vp_depcond(k) = fracifn * rhoa(k) ** 5.4 * 1.e5
    elseif (ipris == 7) then
-      diagni = fracifn * con_ifnx(k)  ! [Steve had this option for ipris >= 5]
+      cnuc_vp_depcond(k) = fracifn * con_ifnx(k) ! [Steve had this option for ipris >= 5]
    endif
 
-! orig Meyers formula: + diagni = exp(6.269 + 12.96 * ssi)
+! orig Meyers formula: diagni = exp(6.269 + 12.96 * ssi)
 
-!  Combine nucleation types, and limit amounts
-! vapnuc is #/kg_air and vapnucr is kg/kg_air
+! The sum of haze and depcond nucleation is not to be interpreted as a new
+! amount nucleated in a timestep, but rather as the minimum number of ice
+! crystals that should exist in the given environment.  Therefore, reduce 
+! cnuc_vp_haze and cnuc_vp_depcond, which are the new quantities to be
+! nucleated in the current timestep, if ice particles already exist.
+! Reduction is proportionate between the two nucleation mechanisms, and will
+! halt nucleation if sufficient ice concentration is already present. 
 
-! BEGIN MIKE'S SECTION FOR LIMITING NUMBER OF CRYSTALS NUCLEATED
-! BY NUMBER OF ICE CRYSTALS PRESENT ALREADY
+! In addition, limit haze and depcond nucleation if they are found to over-deplete
+! available water vapor, defined to be half the amount in excess of saturation with
+! respect to ice.
 
-   vapnuc = max(0.,(haznuc + diagni) * real(rhoa(k)) - cx(k,3))   ! X rhoa
-   vapnucr = vapnuc * emb0(3)
-   if (vapnucr > 0.) then
+   cnuc     = cnuc_vp_haze(k) + cnuc_vp_depcond(k)
+   cnuc_new = cnuc - cx(k,3)
+
+   if (cnuc_new > 1.e-3) then ! 1.e-3 represents 1 ice particle per 1000 m^3
+      rnuc_new = cnuc_new * emb0(3)
       availvap = .5 * (rhov(k) - rhovsiair(k))
-      if (vapnucr > availvap) then
-         vapnucr = min(vapnucr, max(0.,availvap))
-      endif
-   endif
-   vapnuc = vapnucr / emb0(3)
 
-!(Saleeby02-21-07) Note that we only want to subtract of the portion
+      if (rnuc_new > availvap) then
+         rnuc_new = max(0.,availvap)
+         cnuc_new = rnuc_new * emb0i3
+      endif
+
+      fac = cnuc_new / cnuc
+   else
+      fac = 0.
+   endif
+
+   cnuc_vp_haze   (k) = cnuc_vp_haze   (k) * fac
+   cnuc_vp_depcond(k) = cnuc_vp_depcond(k) * fac
+
+   rnuc_vp_haze   (k) = cnuc_vp_haze   (k) * emb0(3)
+   rnuc_vp_depcond(k) = cnuc_vp_depcond(k) * emb0(3)
+
+!(Saleeby02-21-07) Note that we only want to subtract the portion
 !of IFN that contribute to ice nucleation. Don't remove the IFN until
 !we implement a restorative option. At that point, alter "vapnuc" above.
 !   if((haznuc > 0.0 .or. diagni > 0.0) .and. jnmb(3) >= 5) then
@@ -2536,9 +2600,11 @@ do k = lpw0,mza0
 !    con_ifnx(k) = con_ifnx(k) - diagni
 !   endif
 
-   rx(k,3) = rx(k,3) + vapnucr
-   qr(k,3) = qr(k,3) + vapnucr * cice * tairc(k)
-   cx(k,3) = cx(k,3) + vapnuc
+   rx(k,3) = rx(k,3) +  rnuc_vp_haze(k) + rnuc_vp_depcond(k)
+   qr(k,3) = qr(k,3) + (rnuc_vp_haze(k) + rnuc_vp_depcond(k)) * cice * tairc(k)
+   cx(k,3) = cx(k,3) +  cnuc_vp_haze(k) + cnuc_vp_depcond(k)
+
+   if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
 
 enddo
 
@@ -2563,12 +2629,14 @@ real, intent(in) :: rx,cx,tx,vap,press,dynvisc,thrmcon,tair,tairc
 real, intent(in) :: dn1,dtl,rxmin1
 real, intent(out) :: pbvi,ptvi,pdvi,ptotvi
 
-real :: aka,raros,ana,akn,dfar,f1,f2,ft
-data aka,raros/5.39e-3,3.e-7/
+real :: ana,akn,dfar,f1,f2,ft
+
+real, parameter :: aka = 5.39e-3, raros = 3.e-7
 
 !  Heterogeneous contact ice nucleation of cloud droplets by diffusio-
 !  phoresis, thermophoresis, and Brownian motion (transport of IN)
 !
+!  aka   = thermal diffusivity of air 
 !  ana   = # IN per kg available for contact freezing (from Meyers et al. 1992
 !          where ana was interpreted as # per m^3)
 !  akn   = Knudsen number (Walko et al. 1995, Eq. 58)

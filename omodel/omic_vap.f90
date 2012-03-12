@@ -31,8 +31,7 @@
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine thrmstr(iw0,lpw0,k1,k2, &
-   press0,thil0,rhow,rhoi,exner0,tair,theta0,rhov,rhovstr,tairstrc, &
-   rx,qx,sa)
+   press0,thil0,rhow,rhoi,exner0,tair,theta0,rhov,rhovstr,tairstrc,rx,qx,sa)
 
 use micro_coms,  only: mza0, ncat
 use consts_coms, only: p00i, rocp, alvl, alvi, cpi4, cpi, cp253i
@@ -45,15 +44,15 @@ integer, intent(in) :: iw0,lpw0
 integer, intent(in) :: k1(11)
 integer, intent(in) :: k2(11)
 
-real, intent(in)  :: press0  (mza0)
-real, intent(in)  :: thil0   (mza0)
-real, intent(in)  :: rhoi    (mza0)
-real, intent(out) :: exner0  (mza0)
-real, intent(out) :: tair    (mza0)
-real, intent(out) :: theta0  (mza0)
-real, intent(out) :: rhov    (mza0)
-real, intent(out) :: rhovstr (mza0)
-real, intent(out) :: tairstrc(mza0)
+real, intent(in)    :: press0  (mza0)
+real, intent(in)    :: thil0   (mza0)
+real, intent(in)    :: rhoi    (mza0)
+real, intent(out)   :: exner0  (mza0)
+real, intent(out)   :: tair    (mza0)
+real, intent(inout) :: theta0  (mza0)
+real, intent(inout) :: rhov    (mza0)
+real, intent(out)   :: rhovstr (mza0)
+real, intent(out)   :: tairstrc(mza0)
 
 real(kind=8), intent(in) :: rhow(mza0)
 
@@ -72,13 +71,23 @@ real :: rhoice(mza0)
 real :: qhydm (mza0)
 real :: til   (mza0)
 
+! Loop over parts of column that are outside condensate range
+
+do k = lpw0,k1(11)-1
+   theta0(k) = thil0(k)
+   rhov(k) = rhow(k)
+enddo
+
+do k = k2(11)+1,mza0
+   theta0(k) = thil0(k)
+   rhov(k) = rhow(k)
+enddo
+   
 ! Loop over whole column
 
 do k = lpw0,mza0
    exner0(k) = (press0(k) * p00i) ** rocp  ! defined WITHOUT CP factor
-   theta0(k) = thil0(k)
    tair(k) = theta0(k) * exner0(k)
-   rhov(k) = rhow(k)
 enddo
 
 ! Loop over levels that may have any type of condensate
@@ -498,14 +507,14 @@ end subroutine vapflux
 subroutine psxfer(iw0,j1,j2,jhcat,vap,rx,cx,qx,qr)
 
 use micro_coms, only: rxmin, dnfac, pwmasi, gam, dps2, dps, gnu, gamn1, &
-                      pwmas, dpsmi, mza0, ncat, emb0, emb1
+                      pwmas, dpsmi, mza0, ncat, emb0, emb1, ddni_ngam
 use misc_coms,  only: io6
 
 implicit none
 
 integer, intent(in) :: iw0,j1,j2
 
-integer, intent(in) :: jhcat (mza0,ncat)
+integer, intent(in) :: jhcat(mza0,ncat)
 
 real, intent(in)    :: vap(mza0,ncat)
 real, intent(inout) :: rx (mza0,ncat)
@@ -520,7 +529,6 @@ real :: embx,dn,xlim,dvap,dqr,dnum
 
 real :: old_m,old_c,old_r,prelim_m,delta_c, delta_r
 
-
 do k = j1,j2
 
    if (vap(k,3) > 0.) then
@@ -529,7 +537,7 @@ do k = j1,j2
       embx = max(emb0(3),min(emb1(3),rx(k,3) / max(1.e-9,cx(k,3))))
 
       dn = dnfac(lhcat) * embx ** pwmasi(lhcat)
-      it = nint(dn * 1.e6)
+      it = nint(dn * ddni_ngam)
 
       xlim = gam(it,3) * dps2 * (dps / dn) ** (gnu(3) - 1.) &
          / (gamn1(3) * pwmas(lhcat) * dn ** 2)
@@ -551,7 +559,7 @@ do k = j1,j2
       embx = max(emb0(4),min(emb1(4),rx(k,4) / max(1.e-9,cx(k,4))))
 
       dn = dnfac(lhcat) * embx ** pwmasi(lhcat)
-      it = nint(dn * 1.e6)
+      it = nint(dn * ddni_ngam)
 
       xlim = gam(it,3) * dps2 * (dps / dn) ** (gnu(4) - 1.) &
          / (gamn1(4) * pwmas(lhcat) * dn ** 2)

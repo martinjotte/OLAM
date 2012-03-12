@@ -109,6 +109,8 @@ do k = lpw0,mza0
    thrmcon(k) = ck1 + (ck2 + ck3 * tair(k)) * tair(k)
    dynvisc(k) = .1718e-4 + .49e-7 * tairc(k)
    denfac(k) = sqrt(rhoi(k))
+   colfac(k)  = colf * denfac(k)
+   colfac2(k) = 2. * colfac(k)
 
    rhovslair(k) = rhovsl(tairc(k))
    rhovsiair(k) = rhovsi(tairc(k))
@@ -135,9 +137,6 @@ enddo
 do k = k1(11),k2(11)
    vapdif(k) = 2.14 * (tair(k) / 273.15) ** 1.94 / press0(k)
    rdynvsci(k) = sqrt(1. / dynvisc(k))
-
-   colfac(k)  = colf * denfac(k)
-   colfac2(k) = 2. * colfac(k)
 
    tref(k,1) = tairc(k) - min(25.,700. * (rhovslair(k) - rhov(k)) * rhoi(k))
 
@@ -172,6 +171,7 @@ do k = k1(9),k2(9)
    sm(k,1) = 1.
    sm(k,2) = 1.
    sm(k,8) = 1.
+
 enddo
 
 ! Loop over the range of levels with pre-existing ice
@@ -280,8 +280,8 @@ end subroutine enemb
 
 !===============================================================================
 
-subroutine x02(iw0,lcat,k1,k2, &
-   jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qx,qr,vap,rhoa,rhoi)
+subroutine x02(iw0,lpw0,lcat,k1,k2, &
+   jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
 use micro_coms,  only: mza0, ncat, rxmin, enmlttab, dnfac, pwmasi, gnu, shedtab
 use consts_coms, only: alli
@@ -290,6 +290,7 @@ use misc_coms,   only: io6
 implicit none
 
 integer, intent(in) :: iw0
+integer, intent(in) :: lpw0
 integer, intent(in) :: lcat
 
 integer, intent(inout) :: k1(11)
@@ -305,34 +306,36 @@ real, intent(out) :: wct2(mza0,ncat)
 
 real, intent(inout) :: rx  (mza0,ncat)
 real, intent(inout) :: cx  (mza0,ncat)
-real, intent(inout) :: qx  (mza0,ncat)
 real, intent(inout) :: qr  (mza0,ncat)
+real, intent(inout) :: qx  (mza0,ncat)
+real, intent(inout) :: tx  (mza0,ncat)
 real, intent(inout) :: emb (mza0,ncat)
 real, intent(in)    :: vap (mza0,ncat)
 real, intent(in)    :: rhoi(mza0)
 
 real(kind=8), intent(in) :: rhoa(mza0)
 
-integer :: k,jflag,lhcat,inc,idns
-real :: rinv,closs,rxinv,rmelt,fracliq,cmelt,tcoal,ricetor6,rshed,rmltshed, &
+integer :: k,lhcat,inc,idns
+real :: rinv,closs,rxinv,rmelt,fracliq,cmelt,ricetor6,rshed,rmltshed, &
         qrmltshed,fracmloss,dn
 
+integer, parameter :: jflag = 1
 real, parameter :: shedmass = 5.236e-7
 
-! Now, any category may have mass anywhere in the range k1(11),k2(11).  
-! Rediagnose k1(lcat) and k2(lcat).
+! Collection can change the vertical range over which a hydrometeor
+! category is present, so rediagnose k1(lcat) and k2(lcat).
 
 ! Find new k2(lcat)
 
-k = k2(11)
-do while (k > k1(11) .and. rx(k,lcat) < rxmin(lcat))
+k = mza0
+do while (k >= lpw0 .and. rx(k,lcat) < rxmin(lcat))
    k = k - 1
 enddo
 k2(lcat) = k
 
 ! Find new k1(lcat)
 
-k = k1(11)
+k = lpw0
 do while (k <= k2(lcat) .and. rx(k,lcat) < rxmin(lcat))
    k = k + 1
 enddo
@@ -344,17 +347,31 @@ if (k1(lcat) > k2(lcat)) return
 
 ! Diagnose bulk mean mass and/or number concentration for lcat
 
-if (lcat /= 1 .and. lcat /= 3 .and. lcat /= 8) then
+ call enemb(lcat,jflag,k1,k2,ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
-   jflag = 1
-   call enemb(lcat,jflag,k1,k2  &
-      ,ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+! CLOUD, RAIN, and DRIZZLE categories
 
-endif
+if (lcat == 1 .or. lcat == 2 .or. lcat == 8) then
+
+   do k = k1(lcat),k2(lcat)
+
+      if (rx(k,lcat) >= rxmin(lcat)) then
+
+         rxinv = 1. / rx(k,lcat)
+         qx(k,lcat) = qr(k,lcat) * rxinv
+
+! limit cloud, rain, drizzle temperature to range of about (-40C,40C)
+
+         qx(k,lcat) = max(.5 * alli,min(1.5 * alli,qx(k,lcat)))
+         qr(k,lcat) = qx(k,lcat) * rx(k,lcat)
+
+      endif
+
+   enddo
 
 ! PRISTINE ICE category
 
-if (lcat == 3) then
+elseif (lcat == 3) then
 
 ! Steve: Allow pristine ice to melt to cloud1 since we assume that smaller
 ! particles will melt first. Perhaps need a way in the future to treat
@@ -367,7 +384,7 @@ if (lcat == 3) then
          rinv = 1. / rx(k,lcat)
          qx(k,lcat) = qr(k,lcat) * rinv
 
-         call qtc(qx(k,lcat),tcoal,fracliq)
+         call qtc(qx(k,lcat),tx(k,lcat),fracliq)
 
 ! If PRISTINE ICE is melting, transfer liquid to cloud category
 
@@ -378,8 +395,9 @@ if (lcat == 3) then
 
             rx(k,lcat) = rx(k,lcat) - rmelt
             cx(k,lcat) = cx(k,lcat) - cmelt
-            qx(k,lcat) = 0. ! (not needed)
             qr(k,lcat) = 0.
+            qx(k,lcat) = 0.
+            tx(k,lcat) = 0.
 
             rx(k,1) = rx(k,1) + rmelt
             cx(k,1) = cx(k,1) + cmelt
@@ -401,7 +419,7 @@ elseif (lcat == 4 .or. lcat == 5) then
          rinv = 1. / rx(k,lcat)
          qx(k,lcat) = qr(k,lcat) * rinv
 
-         call qtc(qx(k,lcat),tcoal,fracliq)
+         call qtc(qx(k,lcat),tx(k,lcat),fracliq)
 
 ! If SNOW or AGGREGATES are melting, transfer liquid plus some ice 
 ! to GRAUPEL category
@@ -414,8 +432,9 @@ elseif (lcat == 4 .or. lcat == 5) then
 ! change this??? move to rain instead ??? look at melting decisions in col2
 
             rx(k,lcat) = rx(k,lcat) - rmelt - ricetor6
-            qx(k,lcat) = 0. ! (not needed)
             qr(k,lcat) = 0.
+            qx(k,lcat) = 0.
+            tx(k,lcat) = 0.
             
             rx(k,6) = rx(k,6) + rmelt + ricetor6
             qr(k,6) = qr(k,6) + rmelt * alli
@@ -446,7 +465,7 @@ elseif (lcat == 6) then
          rxinv = 1. / rx(k,lcat)
          qx(k,lcat) = qr(k,lcat) * rxinv
 
-         call qtc(qx(k,lcat),tcoal,fracliq)
+         call qtc(qx(k,lcat),tx(k,lcat),fracliq)
 
 ! If GRAUPEL is more than 95% melted, transfer all to RAIN category
 
@@ -457,9 +476,10 @@ elseif (lcat == 6) then
             cx(k,2) = cx(k,2) + cx(k,6)
 
             rx(k,6) = 0.
-            qr(k,6) = 0.
             cx(k,6) = 0.
-            qx(k,6) = 0. ! (not needed)
+            qr(k,6) = 0.
+            qx(k,6) = 0.
+            tx(k,6) = 0.
 
          endif
 
@@ -480,7 +500,7 @@ elseif (lcat == 7) then
 
 !c          qx(k,lcat) = max(-50.,qx(k,lcat))
 
-         call qtc(qx(k,lcat),tcoal,fracliq)
+         call qtc(qx(k,lcat),tx(k,lcat),fracliq)
 
 ! If HAIL is more than 95% melted, transfer all to RAIN category
 
@@ -491,9 +511,10 @@ elseif (lcat == 7) then
             cx(k,2) = cx(k,2) + cx(k,7)
 
             rx(k,7) = 0.
-            qr(k,7) = 0.
             cx(k,7) = 0.
-            qx(k,7) = 0. ! (not needed)
+            qr(k,7) = 0.
+            qx(k,7) = 0.
+            tx(k,7) = 0.
          
 ! Otherwise, if HAIL is more than 30% liquid, compute amount to be shed to rain
 
@@ -520,34 +541,14 @@ elseif (lcat == 7) then
 !               cx(k,2) = cx(k,2) + closs + rshed / shedmass
             cx(k,2) = cx(k,2) + rshed / shedmass
 
-! The following part not needed
-
             if (rx(k,7) > rxmin(7)) then
                qx(k,7) = qr(k,7) / rx(k,7)
+               call qtc(qx(k,lcat),tx(k,lcat),fracliq)
             else
                qx(k,7) = 0.
+               tx(k,7) = 0.
             endif
          endif
-
-      endif
-
-   enddo
-
-! RAIN category
-
-elseif (lcat == 2) then
-
-   do k = k1(lcat),k2(lcat)
-
-      if (rx(k,lcat) >= rxmin(lcat)) then
-
-         rxinv = 1. / rx(k,lcat)
-         qx(k,lcat) = qr(k,lcat) * rxinv
-
-! limit rain temperature to range of about (-40C,40C)
-
-         qx(k,lcat) = max(.5 * alli,min(1.5 * alli,qx(k,lcat)))
-         qr(k,lcat) = qx(k,lcat) * rx(k,lcat)
 
       endif
 
@@ -669,6 +670,18 @@ do k = k1(lcat),k2(lcat)
       rfall (kk) = rfall (kk) + rx(k,lcat) * pcpfillr(k,kkf,iemb,lhcat)
       qrfall(kk) = qrfall(kk) + qr(k,lcat) * pcpfillr(k,kkf,iemb,lhcat)
    
+!---------------------------------------------------------------------
+! special: Remove some pristine ice for experiment with cloud and
+! pristine ice only: Need to speed up "sedimentation" to prevent
+! over-abundant ice in upper atmosphere.
+
+!      if (lcat == 3) then
+!         cfall (kk) = cfall (kk) * .99
+!         rfall (kk) = rfall (kk) * .99
+!         qrfall(kk) = qrfall(kk) * .99
+!      endif
+!---------------------------------------------------------------------
+
    enddo
 
 enddo

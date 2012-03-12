@@ -456,20 +456,23 @@ end subroutine tabmelt
 
 subroutine mkcoltb_brute()
 
-use micro_coms, only: nhcat, lcat_lhcat, gnu, pwmas, emb0, cfmasi, pwmasi,  &
-                      emb1, ipairc, ipairr, nembc, cfvt, pwvt, cfmas,  &
-                      coltabc, coltabr, jnmb
+use micro_coms, only: nhcat, lcat_lhcat, jnmb, nembc, gnu, &
+                      pwmas, cfmasi, pwmasi, emb0, emb1, cfvt, pwvt, cfmas, &
+                      ipair, coltabc, coltabx, coltaby
 use misc_coms,  only: io6
 
 implicit none
 
 integer, parameter :: ndx=100,ndy=100
 
-integer :: ihx,ix,ihy,iy,iemby,iembx,idx,idy,ipc,iprxy,ipryx
+integer :: ihx,ix,ihy,iy,iemby,iembx,idx,idy
+integer :: ipc,ipc2,ipc3,ipx,ipy
 
-real :: gxm,dnminx,dnmaxx,dxlo,dxhi,gxn,gyn,gym  &
-       ,dnminy,dnmaxy,dny,dnx,bint,sum_num,sum_xmass,sum_ymass,vx,vy,dx,dy  &
-       ,fgamx,emx,dx1,dx2,fgamy,emy,dy1,dy2,dyhi,dylo
+real :: gxm,dnminx,dnmaxx,dxlo,dxhi,gxn,gyn,gym
+real :: dnminy,dnmaxy,dny,dnx,bint
+real :: sum_num,sum_num2,sum_num3,sum_xmass,sum_ymass
+real :: vx,vy,dx,dy
+real :: fgamx,emx,dx1,dx2,fgamy,emy,dy1,dy2,dyhi,dylo
 
 real, external :: gammln, efc
 
@@ -488,14 +491,17 @@ do ihx = 1,nhcat
 
    do ihy = 1,nhcat
 
-! Check if colliding pair (X,Y) is to be considered.  
+! Get number-concentration collection table number for this colliding pair (X,Y)
 
-      ipc   = ipairc(ihx,ihy)
-      iprxy = ipairr(ihx,ihy)
-      ipryx = ipairr(ihy,ihx)
-      
-! Bob (11/11/2009): We only need to check ipairc because 
-! ipairr(IHX,IHY) and ipairr(IHY,IHX) are now filled together.
+      ipc  = ipair(ihx,ihy,1)
+      ipc2 = ipair(ihx,ihy,2)
+      ipc3 = ipair(ihx,ihy,3)
+      ipx  = ipair(ihx,ihy,4)
+      ipy  = ipair(ihx,ihy,5)
+
+! If collection table number is zero, this interaction is not considered.
+! Bob (11/11/2009): We only need to check ipairc because ipairrx
+! and ipairry are now filled together.
 
       if (ipc == 0) cycle
 
@@ -517,9 +523,11 @@ do ihx = 1,nhcat
          do iembx = 1,nembc
             dnx = dnminx * (dnmaxx / dnminx) ** (real(iembx-1) / real(nembc-1))
 
-            sum_num = 0.    ! Initialize integral number sum to zero
-            sum_xmass = 0.  ! Initialize integral xmass sum to zero
-            sum_ymass = 0.  ! Initialize integral ymass sum to zero
+            sum_num = 0.   ! Initialize integral number sum to zero
+            sum_num2 = 0.  ! Initialize integral number sum to zero
+            sum_num3 = 0.  ! Initialize integral number sum to zero
+            sum_xmass = 0. ! Initialize integral xmass sum to zero
+            sum_ymass = 0. ! Initialize integral ymass sum to zero
             
 ! Loop over spectrum of Y diameters for current mean-mass Y value
 
@@ -609,39 +617,34 @@ do ihx = 1,nhcat
 ! BIN 17    126.0e-6    1047.e-12
 ! BIN 18    158.7e-6    2094.e-12
 
-                  if (ipc == 1 .and. jnmb(8) == 0) then
+                  if (ipc == 1) then
 
-! Case 1: Cloud-cloud where drizzle is NOT activated in this model run
-!         (sum_ymass is actually a number concentration here, not a mass.)
+! Cloud-cloud interaction table for use in model runs with drizzle NOT activated
 
-                     if (emx + emy > 400.e-12) then
+                      if (emx + emy > 400.e-12) then
 
                         sum_xmass = sum_xmass + bint * emx
-                        sum_ymass = sum_ymass + bint
+                        sum_num2  = sum_num2  + bint
 
                      endif
 
-                  elseif (ipc == 1 .and. jnmb(8) > 0) then
-
-! Case 2: Cloud-cloud where drizzle IS activated in this model run
-!         (sum_ymass is actually a number concentration here, not a mass.)
+! Cloud-cloud interaction table for use in model runs with drizzle ACTIVATED
 
                      if (emx + emy > 100.e-12) then
 
                         sum_xmass = sum_xmass + bint * emx
-                        sum_ymass = sum_ymass + bint
+                        sum_num3  = sum_num3  + bint
 
                      endif
 
                   elseif (ipc == 62) then
 
-! Case 3: Drizzle-drizzle
-!         (sum_ymass is actually a number concentration here, not a mass.)
+! Drizzle-drizzle interaction table
 
                      if (emx + emy > 1500.e-12) then
 
                         sum_xmass = sum_xmass + bint * emx
-                        sum_ymass = sum_ymass + bint
+                        sum_num2  = sum_num2  + bint
 
                      endif
 
@@ -663,20 +666,31 @@ do ihx = 1,nhcat
 !no log10   coltabc(iembx,iemby,ipc) = sum_num
             coltabc(iembx,iemby,ipc) = -log10(max(1.e-30,sum_num))
 
-            if (iprxy > 0) then
-!no log10      coltabr(iembx,iemby,iprxy) = sum_xmass
-               coltabr(iembx,iemby,iprxy) = -log10(max(1.e-30,sum_xmass))
+            if (ipc2 > 0) then
+!no log10      coltabc(iembx,iemby,ipc2) = sum_num2
+               coltabc(iembx,iemby,ipc2) = -log10(max(1.e-30,sum_num2))
             endif
 
-            if (ipryx > 0) then
-!no log10      coltabr(iemby,iembx,ipryx) = sum_ymass
-               coltabr(iemby,iembx,ipryx) = -log10(max(1.e-30,sum_ymass))
+            if (ipc3 > 0) then
+!no log10      coltabc(iembx,iemby,ipc3) = sum_num3
+               coltabc(iembx,iemby,ipc3) = -log10(max(1.e-30,sum_num3))
             endif
 
-         enddo
-      enddo
-   enddo
-enddo
+            if (ipx > 0) then
+!no log10      coltabx(iembx,iemby,ipx) = sum_xmass
+               coltabx(iembx,iemby,ipx) = -log10(max(1.e-30,sum_xmass))
+            endif
+
+           if (ipy > 0) then
+!no log10      coltaby(iemby,iembx,ipy) = sum_ymass
+               coltaby(iemby,iembx,ipy) = -log10(max(1.e-30,sum_ymass))
+            endif
+
+         enddo  ! iembx
+      enddo  ! iemby
+
+   enddo  ! ihy
+enddo  ! ihx
 
 return
 end subroutine mkcoltb_brute
@@ -687,7 +701,7 @@ real function efc(ihx,ihy,dx,dy)
 
 ! Evaluate hydrometeor collision efficiency
 
-use micro_coms, only: nhcat, ipairk, nefcx, nefcy, defcx, defcy, efctab
+use micro_coms, only: nhcat, ipair, nefcx, nefcy, defcx, defcy, efctab
 
 implicit none
 
@@ -701,7 +715,7 @@ integer :: iefcx,iefcy
 real :: dx0, dy0
 real :: hx,wtx1,wtx2,wty1,wty2
 
-knum = ipairk(ihx,ihy)
+knum = ipair(ihx,ihy,6)
 
 ! For most collision pairs, set collision effiency to 1.0 and return
 

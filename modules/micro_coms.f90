@@ -52,7 +52,7 @@ integer, parameter :: &
 
    ,nthz   = 26   & ! # of temp values spanning haze nucleation table
    ,nrhhz  = 10   & ! # of R.H. values spanning haze nucleation table
-   ,ngam   = 5000 & ! # of values in incomplete gamma function table
+   ,ngam   = 3000 & ! # of values in incomplete gamma function tables
    ,ninc   = 201  & ! # of liquid fraction values spanning shed and melt tables
    ,ndns   = 15   & ! # of diameter values spanning shed table
    ,ntc    = 21   & ! # of temperature values spanning homogeneous freezing table
@@ -60,8 +60,9 @@ integer, parameter :: &
 
    ,neff   = 7    & ! 2nd array dim for eff (# of types of coalescence efficiency) 
 
-   ,npairc = 106  & ! # of pairs of species in number collection table
-   ,npairr = 159  & ! # of pairs of species in mass collection table
+   ,npairc = 109  & ! # of pairs of species in number collection table
+   ,npairx = 102  & ! # of pairs of species in x mass collection table
+   ,npairy = 54   & ! # of pairs of species in y mass collection table
    ,nembc  = 20     ! # of diam values spanning main collection table (in 2 dims)
 
 real, parameter :: & 
@@ -69,6 +70,11 @@ real, parameter :: &
    ,ddnc  = 2.e-6  & ! characteristic diam increment in homogeneous nucleation table
    ,dthz  = 1.     & ! temperature increment in haze nucleation table
    ,drhhz = .02      ! R.H. increment in haze nucleation table
+
+! dn increment in incomplete gamma tables, and its inverse
+
+real, parameter :: ddn_ngam  = 5.e-6
+real, parameter :: ddni_ngam = 1. / ddn_ngam
 
 integer :: level  ! microphysics complexity level read from namelist
 integer :: icloud ! cloud control flag read from namelist
@@ -148,7 +154,8 @@ real :: dispemb0i(nhcat) ! inverse of dispemb0
 real :: dispemb1 (nhcat) ! maximum vertical displacement in sedim table for each category
 
 real :: coltabc(nembc,nembc,npairc) ! collection table for bulk number
-real :: coltabr(nembc,nembc,npairr) ! collection table for bulk density
+real :: coltabx(nembc,nembc,npairx) ! collection table for x bulk density
+real :: coltaby(nembc,nembc,npairy) ! collection table for y bulk density
 
 real :: frachz(nrhhz,nthz)       ! Haze nucleation table
 real :: fracc(ndnc,ntc,maxgrds0) ! Homogeneous freezing table
@@ -180,73 +187,116 @@ real, allocatable :: dzitf(:) ! inverse of dztf
 real, allocatable :: pcpfillc(:,:,:,:) ! sedim table for bulk number
 real, allocatable :: pcpfillr(:,:,:,:) ! sedim table for bulk density 
 
-! Collision pair indices in number collection tables
+real :: ipair(nhcat,nhcat,6)
 
-integer :: ipairc(nhcat,nhcat) = reshape( (/  &
-!IHX 1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16     IHY
-     1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, & !  1
-     2,  3,  0,  0,  0,  0,  0,  4,  0,  0,  0,  0,  0,  0,  0,  0, & !  2
-     0,  5,  6,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, & !  3
-     7,  8,  9, 10,  0,  0,  0, 11, 12, 13, 14, 15,  0,  0,  0,  0, & !  4
-    16, 17, 18, 19, 20,  0,  0, 21, 22, 23, 24, 25, 26, 27, 28, 29, & !  5
-    30, 31, 32, 33, 34, 35,  0, 36, 37, 38, 39, 40, 41, 42, 43, 44, & !  6
-    45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, & !  7
-    61,  0,  0,  0,  0,  0,  0, 62,  0,  0,  0,  0,  0,  0,  0,  0, & !  8
-     0, 63,  0,  0,  0,  0,  0,  0, 64,  0,  0,  0,  0,  0,  0,  0, & !  9
-     0, 65,  0,  0,  0,  0,  0,  0,  0, 66,  0,  0,  0,  0,  0,  0, & ! 10
-     0, 67,  0,  0,  0,  0,  0,  0,  0,  0, 68,  0,  0,  0,  0,  0, & ! 11
-     0, 69,  0,  0,  0,  0,  0,  0,  0,  0,  0, 70,  0,  0,  0,  0, & ! 12
-    71, 72, 73,  0,  0,  0,  0, 74, 75, 76, 77, 78, 79,  0,  0,  0, & ! 13
-    80, 81, 82,  0,  0,  0,  0, 83, 84, 85, 86, 87,  0, 88,  0,  0, & ! 14
-    89, 90, 91,  0,  0,  0,  0, 92, 93, 94, 95, 96,  0,  0, 97,  0, & ! 15
-    98, 99,100,  0,  0,  0,  0,101,102,103,104,105,  0,  0,  0,106  & ! 16
-    /), (/ nhcat,nhcat /) )
+!         ihx ihy    ipc ipc2 ipc3 iprx ipry ieff
 
-! Collision pair indices in mass collection tables [except that 3 largest
-! entries (157,158,159) are special number collection values for col1188]
-
-integer :: ipairr(nhcat,nhcat) = reshape( (/  &
-!IHX 1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16     IHY
-     1,157,  0,  2,  3,  4,  5,158,  0,  0,  0,  0,  6,  7,  8,  9, & !  1
-    10,  0, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, & !  2
-     0, 25, 26, 27,  0,  0,  0,  0,  0,  0,  0,  0, 28, 29, 30, 31, & !  3
-    32, 33, 34, 35,  0,  0,  0, 36, 37, 38, 39, 40,  0,  0,  0,  0, & !  4
-    41, 42, 43, 44,  0,  0,  0, 45, 46, 47, 48, 49, 50, 51, 52, 53, & !  5
-    54, 55, 56, 57, 58,  0,  0, 59, 60, 61, 62, 63, 64, 65, 66, 67, & !  6
-    68, 69, 70, 71, 72, 73,  0, 74, 75, 76, 77, 78, 79, 80, 81, 82, & !  7
-    83,159,  0, 84, 85, 86, 87, 88,  0,  0,  0,  0, 89, 90, 91, 92, & !  8
-     0, 93,  0, 94,  0,  0,  0,  0, 95,  0,  0,  0, 96, 97, 98, 99, & !  9
-     0,100,  0,101,  0,  0,  0,  0,  0,102,  0,  0,103,104,105,106, & ! 10
-     0,107,  0,108,  0,  0,  0,  0,  0,  0,109,  0,110,111,112,113, & ! 11
-     0,114,  0,115,  0,  0,  0,  0,  0,  0,  0,116,117,118,119,120, & ! 12
-   121,122,123,  0,  0,  0,  0,124,125,126,127,128,129,  0,  0,  0, & ! 13
-   130,131,132,  0,  0,  0,  0,133,134,135,136,137,  0,138,  0,  0, & ! 14
-   139,140,141,  0,  0,  0,  0,142,143,144,145,146,  0,  0,147,  0, & ! 15
-   148,149,150,  0,  0,  0,  0,151,152,153,154,155,  0,  0,  0,156  & ! 16
-   /), (/ nhcat,nhcat /) )
-
-! Selection of collision efficiency table (same form as ipairc).
-! [0 = null pair; 1-6 = eff table number; 10 = collision eff = 1]
-
-integer :: ipairk(nhcat,nhcat) = reshape( (/ &
-!IHX 1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16     IHY
-     1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, & !  1 cloud
-     1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, & !  2 rain
-     0,10,10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, & !  3 pris col
-     2,10,10,10, 0, 0, 0, 2,10,10,10,10, 0, 0, 0, 0, & !  4 snow col
-     4,10,10,10,10, 0, 0, 4,10,10,10,10,10,10,10,10, & !  5 aggreg
-     5,10,10,10,10,10, 0, 5,10,10,10,10,10,10,10,10, & !  6 graupel
-     6,10,10,10,10,10,10, 6,10,10,10,10,10,10,10,10, & !  7 hail
-     1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, & !  8 drizzle
-     0,10, 0, 0, 0, 0, 0, 0,10, 0, 0, 0, 0, 0, 0, 0, & !  9 pris hex
-     0,10, 0, 0, 0, 0, 0, 0, 0,10, 0, 0, 0, 0, 0, 0, & ! 10 pris den
-     0,10, 0, 0, 0, 0, 0, 0, 0, 0,10, 0, 0, 0, 0, 0, & ! 11 pris ndl
-     0,10, 0, 0, 0, 0, 0, 0, 0, 0, 0,10, 0, 0, 0, 0, & ! 12 pris ros
-     4,10,10, 0, 0, 0, 0, 4,10,10,10,10,10, 0, 0, 0, & ! 13 snow hex
-     3,10,10, 0, 0, 0, 0, 3,10,10,10,10, 0,10, 0, 0, & ! 14 snow den
-     2,10,10, 0, 0, 0, 0, 2,10,10,10,10, 0, 0,10, 0, & ! 15 snow ndl
-     3,10,10, 0, 0, 0, 0, 3,10,10,10,10, 0, 0, 0,10  & ! 16 snow ros
-     /), (/ nhcat,nhcat /) )
+data ipair( 1, 1,:) /   1,107,108,  1,  0,  1 /
+data ipair( 1, 2,:) /   2,  0,  0,  2,  0,  1 /
+data ipair( 2, 2,:) /   3,  0,  0,  0,  0,  1 /
+data ipair( 8, 2,:) /   4,  0,  0,  3,  0,  1 /
+data ipair( 2, 3,:) /   5,  0,  0,  4,  1, 10 /
+data ipair( 3, 3,:) /   6,  0,  0,  5,  0, 10 /
+data ipair( 1, 4,:) /   7,  0,  0,  6,  2,  2 /
+data ipair( 2, 4,:) /   8,  0,  0,  7,  3, 10 /
+data ipair( 3, 4,:) /   9,  0,  0,  8,  4, 10 /
+data ipair( 4, 4,:) /  10,  0,  0,  9,  0, 10 /
+data ipair( 8, 4,:) /  11,  0,  0, 10,  5,  2 /
+data ipair( 9, 4,:) /  12,  0,  0, 11,  6, 10 /
+data ipair(10, 4,:) /  13,  0,  0, 12,  7, 10 /
+data ipair(11, 4,:) /  14,  0,  0, 13,  8, 10 /
+data ipair(12, 4,:) /  15,  0,  0, 14,  9, 10 /
+data ipair( 1, 5,:) /  16,  0,  0, 15, 10,  4 /
+data ipair( 2, 5,:) /  17,  0,  0, 16, 11, 10 /
+data ipair( 3, 5,:) /  18,  0,  0, 17,  0, 10 /
+data ipair( 4, 5,:) /  19,  0,  0, 18,  0, 10 /
+data ipair( 5, 5,:) /  20,  0,  0,  0,  0, 10 /
+data ipair( 8, 5,:) /  21,  0,  0, 19, 12,  4 /
+data ipair( 9, 5,:) /  22,  0,  0, 20,  0, 10 /
+data ipair(10, 5,:) /  23,  0,  0, 21,  0, 10 /
+data ipair(11, 5,:) /  24,  0,  0, 22,  0, 10 /
+data ipair(12, 5,:) /  25,  0,  0, 23,  0, 10 /
+data ipair(13, 5,:) /  26,  0,  0, 24,  0, 10 /
+data ipair(14, 5,:) /  27,  0,  0, 25,  0, 10 /
+data ipair(15, 5,:) /  28,  0,  0, 26,  0, 10 /
+data ipair(16, 5,:) /  29,  0,  0, 27,  0, 10 /
+data ipair( 1, 6,:) /  30,  0,  0, 28, 13,  5 /
+data ipair( 2, 6,:) /  31,  0,  0, 29, 14, 10 /
+data ipair( 3, 6,:) /  32,  0,  0, 30,  0, 10 /
+data ipair( 4, 6,:) /  33,  0,  0, 31,  0, 10 /
+data ipair( 5, 6,:) /  34,  0,  0, 32,  0, 10 /
+data ipair( 6, 6,:) /  35,  0,  0,  0,  0, 10 /
+data ipair( 8, 6,:) /  36,  0,  0, 33, 15,  5 /
+data ipair( 9, 6,:) /  37,  0,  0, 34,  0, 10 /
+data ipair(10, 6,:) /  38,  0,  0, 35,  0, 10 /
+data ipair(11, 6,:) /  39,  0,  0, 36,  0, 10 /
+data ipair(12, 6,:) /  40,  0,  0, 37,  0, 10 /
+data ipair(13, 6,:) /  41,  0,  0, 38,  0, 10 /
+data ipair(14, 6,:) /  42,  0,  0, 39,  0, 10 /
+data ipair(15, 6,:) /  43,  0,  0, 40,  0, 10 /
+data ipair(16, 6,:) /  44,  0,  0, 41,  0, 10 /
+data ipair( 1, 7,:) /  45,  0,  0, 42, 16,  6 /
+data ipair( 2, 7,:) /  46,  0,  0, 43, 17, 10 /
+data ipair( 3, 7,:) /  47,  0,  0, 44,  0, 10 /
+data ipair( 4, 7,:) /  48,  0,  0, 45,  0, 10 /
+data ipair( 5, 7,:) /  49,  0,  0, 46,  0, 10 /
+data ipair( 6, 7,:) /  50,  0,  0, 47,  0, 10 /
+data ipair( 7, 7,:) /  51,  0,  0,  0,  0, 10 /
+data ipair( 8, 7,:) /  52,  0,  0, 48, 18,  6 /
+data ipair( 9, 7,:) /  53,  0,  0, 49,  0, 10 /
+data ipair(10, 7,:) /  54,  0,  0, 50,  0, 10 /
+data ipair(11, 7,:) /  55,  0,  0, 51,  0, 10 /
+data ipair(12, 7,:) /  56,  0,  0, 52,  0, 10 /
+data ipair(13, 7,:) /  57,  0,  0, 53,  0, 10 /
+data ipair(14, 7,:) /  58,  0,  0, 54,  0, 10 /
+data ipair(15, 7,:) /  59,  0,  0, 55,  0, 10 /
+data ipair(16, 7,:) /  60,  0,  0, 56,  0, 10 /
+data ipair( 1, 8,:) /  61,  0,  0, 57,  0,  1 /
+data ipair( 8, 8,:) /  62,109,  0, 58,  0,  1 /
+data ipair( 2, 9,:) /  63,  0,  0, 59, 19, 10 /
+data ipair( 9, 9,:) /  64,  0,  0, 60,  0, 10 /
+data ipair( 2,10,:) /  65,  0,  0, 61, 20, 10 /
+data ipair(10,10,:) /  66,  0,  0, 62,  0, 10 /
+data ipair( 2,11,:) /  67,  0,  0, 63, 21, 10 /
+data ipair(11,11,:) /  68,  0,  0, 64,  0, 10 /
+data ipair( 2,12,:) /  69,  0,  0, 65, 22, 10 /
+data ipair(12,12,:) /  70,  0,  0, 66,  0, 10 /
+data ipair( 1,13,:) /  71,  0,  0, 67, 23,  4 /
+data ipair( 2,13,:) /  72,  0,  0, 68, 24, 10 /
+data ipair( 3,13,:) /  73,  0,  0, 69, 25, 10 /
+data ipair( 8,13,:) /  74,  0,  0, 70, 26,  4 /
+data ipair( 9,13,:) /  75,  0,  0, 71, 27, 10 /
+data ipair(10,13,:) /  76,  0,  0, 72, 28, 10 /
+data ipair(11,13,:) /  77,  0,  0, 73, 29, 10 /
+data ipair(12,13,:) /  78,  0,  0, 74, 30, 10 /
+data ipair(13,13,:) /  79,  0,  0, 75,  0, 10 /
+data ipair( 1,14,:) /  80,  0,  0, 76, 31,  3 /
+data ipair( 2,14,:) /  81,  0,  0, 77, 32, 10 /
+data ipair( 3,14,:) /  82,  0,  0, 78, 33, 10 /
+data ipair( 8,14,:) /  83,  0,  0, 79, 34,  3 /
+data ipair( 9,14,:) /  84,  0,  0, 80, 35, 10 /
+data ipair(10,14,:) /  85,  0,  0, 81, 36, 10 /
+data ipair(11,14,:) /  86,  0,  0, 82, 37, 10 /
+data ipair(12,14,:) /  87,  0,  0, 83, 38, 10 /
+data ipair(14,14,:) /  88,  0,  0, 84,  0, 10 /
+data ipair( 1,15,:) /  89,  0,  0, 85, 39,  2 /
+data ipair( 2,15,:) /  90,  0,  0, 86, 40, 10 /
+data ipair( 3,15,:) /  91,  0,  0, 87, 41, 10 /
+data ipair( 8,15,:) /  92,  0,  0, 88, 42,  2 /
+data ipair( 9,15,:) /  93,  0,  0, 89, 43, 10 /
+data ipair(10,15,:) /  94,  0,  0, 90, 44, 10 /
+data ipair(11,15,:) /  95,  0,  0, 91, 45, 10 /
+data ipair(12,15,:) /  96,  0,  0, 92, 46, 10 /
+data ipair(15,15,:) /  97,  0,  0, 93,  0, 10 /
+data ipair( 1,16,:) /  98,  0,  0, 94, 47,  3 /
+data ipair( 2,16,:) /  99,  0,  0, 95, 48, 10 /
+data ipair( 3,16,:) / 100,  0,  0, 96, 49, 10 /
+data ipair( 8,16,:) / 101,  0,  0, 97, 50,  3 /
+data ipair( 9,16,:) / 102,  0,  0, 98, 51, 10 /
+data ipair(10,16,:) / 103,  0,  0, 99, 52, 10 /
+data ipair(11,16,:) / 104,  0,  0,100, 53, 10 /
+data ipair(12,16,:) / 105,  0,  0,101, 54, 10 /
+data ipair(16,16,:) / 106,  0,  0,102,  0, 10 /
 
 ! Define parameters for collision efficiency table diameters
 

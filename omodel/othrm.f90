@@ -147,11 +147,11 @@ end subroutine satadjst
 subroutine wetthrm3(iw)
 
 ! This routine calculates theta and sh_v for "level 3 microphysics"
-! given prognosed theta_il, cloud, rain, pristine ice, snow, aggregates,
-! graupel, hail, q6, and q7.
+! given prognosed theta_il, cloud, drizzle, rain, pristine ice, snow, 
+! aggregates, graupel, hail, q6, and q7.
 
 use mem_basic,   only: press, theta, thil, sh_v, sh_w
-use mem_micro,   only: sh_c, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7
+use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7
 use micro_coms,  only: jnmb
 use consts_coms, only: p00, rocp, alvl, alvi, cpi4, cp253i
 use mem_grid,    only: mza, lpw
@@ -222,6 +222,12 @@ if (jnmb(7) >= 1) then
       call qtc(q7(k,iw),tcoal,fracliq)
       totliq(k) = totliq(k) + sh_h(k,iw) * fracliq
       totice(k) = totice(k) + sh_h(k,iw) * (1. - fracliq)
+   enddo
+endif
+
+if (jnmb(8) >= 1) then
+   do k = lpw(iw),mza-1
+      totliq(k) = totliq(k) + sh_d(k,iw)
    enddo
 endif
 

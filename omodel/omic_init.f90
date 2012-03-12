@@ -48,10 +48,10 @@ use mem_grid,    only: mza, zm, dzt, dzit
 use mem_para,    only: myrank
 
 use micro_coms,  only: level, icloud, idriz, irain, ipris, isnow, iaggr, &
-                       igraup, ihail, jnmb, ncat, gnu, emb0, emb1, nhcat, &
-                       cfmas, pwmas, cfvt, pwvt, npairc, coltabc, nembc, &
-                       npairr, coltabr, alloc_sedimtab, &
-                       cparm, dparm, pparm
+                       igraup, ihail, jnmb, ncat, nhcat, nembc, gnu, emb0, &
+                       emb1, cfmas, pwmas, cfvt, pwvt, cparm, dparm, pparm, &
+                       npairx, npairy, npairc, coltabx, coltaby, coltabc, &
+                       alloc_sedimtab
 
 use hdf5_utils, only: shdf5_irec, shdf5_orec, shdf5_open, shdf5_close
 
@@ -185,7 +185,7 @@ call rsub('Wc',7)
 
 ! Check if collection table file exists
 
-coltabfile = './COLTABFILE1'
+coltabfile = './COLTABFILE2'
 
 inquire(file=coltabfile, exist=exans)
 
@@ -206,9 +206,13 @@ if (exans) then
 
    call shdf5_irec(ndims, idims, 'COLTABC', rvara=coltabc)
 
-   idims(3) = npairr
+   idims(3) = npairx
 
-   call shdf5_irec(ndims, idims, 'COLTABR', rvara=coltabr)
+   call shdf5_irec(ndims, idims, 'COLTABX', rvara=coltabx)
+
+   idims(3) = npairy
+
+   call shdf5_irec(ndims, idims, 'COLTABY', rvara=coltaby)
 
 ! Close the collection table file
 
@@ -235,9 +239,13 @@ else
 
       call shdf5_orec(ndims, idims, 'COLTABC', rvara=coltabc)
 
-      idims(3) = npairr
+      idims(3) = npairx
 
-      call shdf5_orec(ndims, idims, 'COLTABR', rvara=coltabr)
+      call shdf5_orec(ndims, idims, 'COLTABX', rvara=coltabx)
+
+      idims(3) = npairy
+
+      call shdf5_orec(ndims, idims, 'COLTABY', rvara=coltaby)
 
 ! Close the collection table file
 
@@ -263,7 +271,7 @@ use micro_coms,  only: icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail,
                        pwemb0, ch3, cdp1, pwvtmasi, jnmb, cfemb0, cfen0, &
                        dnfac, vtfac, frefac1, frefac2, sipfac, cfmasft, &
                        dict, dpsmi, gamm, gamn1, ngam, gam, gaminc, &
-                       gamsip13, gamsip24
+                       gamsip13, gamsip24, ddn_ngam
                       
 use consts_coms, only: alvl, alvi, alli
 use misc_coms,   only: io6
@@ -415,17 +423,16 @@ do lhcat = 1,nhcat
    if (lhcat <= 4) gamm(lhcat) = exp(glg)
    if (lhcat <= 4) gamn1(lhcat) = exp(glg1)
 
+enddo
+
+flngi = 1. / real(ngam)
+
+do igam = 1,ngam
+   dpsi = dps / (ddn_ngam * real(igam))
+
 ! gam1   :  the integral of the pristine distribution from dps to infty
 ! gam2   :  the integral of the snow dist. from 0 to dps
 ! gam3   :  values of the exponential exp(-dps/dn)
-
-enddo
-
-! Secondary ice production arrays
-
-flngi = 1. / float(ngam)
-do igam = 1,ngam
-   dpsi = dps * 1.e6 / float(igam)
 
    gam(igam,1) = gammq(gnu(3) + 1., dpsi)
    gam(igam,2) = gammp(gnu(4) + 1., dpsi)
@@ -434,13 +441,15 @@ do igam = 1,ngam
    GAMINC(igam,1) = GAMMQ(GNU(3),dpsi)
    GAMINC(igam,2) = GAMMP(GNU(4),dpsi)
 
-   embsip = emb1(1) * float(igam) * flngi
+! Secondary ice production arrays
+
+   embsip = emb1(1) * real(igam) * flngi
    dnsip = dnfac(1) * embsip ** pwmasi(1)
    gamsip13(1,igam) = gammp(gnu(1),13.e-6/dnsip)
    gamsip24(1,igam) = gammq(gnu(1),24.e-6/dnsip)
 
-   embsip = emb1(8) * float(igam) * flngi
-   dnsip = dnfac(16) * embsip ** pwmasi(16)
+   embsip = emb1(8) * real(igam) * flngi
+   dnsip = dnfac(8) * embsip ** pwmasi(8)
    gamsip13(2,igam)= gammp(gnu(8),13.e-6/dnsip)
    gamsip24(2,igam)= gammq(gnu(8),24.e-6/dnsip)
 enddo
