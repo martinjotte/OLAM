@@ -69,13 +69,13 @@ timefac_sst = 0.
 timefac_seaice = 0.
 
 if (iupdsst == 1 .and. nsstfiles > 1) then
-   timefac_sst = (s1900_sim             - s1900_sst(isstfile))  &
-               / (s1900_sst(isstfile+1) - s1900_sst(isstfile))
+   timefac_sst = (s1900_sim           - s1900_sst(isstfile-1))  &
+               / (s1900_sst(isstfile) - s1900_sst(isstfile-1))
 endif
 
 if (iupdseaice == 1 .and. nseaicefiles > 1) then
-   timefac_seaice = (s1900_sim                   - s1900_seaice(iseaicefile)) &
-                  / (s1900_seaice(iseaicefile+1) - s1900_seaice(iseaicefile))
+   timefac_seaice = (s1900_sim                 - s1900_seaice(iseaicefile-1)) &
+                  / (s1900_seaice(iseaicefile) - s1900_seaice(iseaicefile-1))
 endif
 
 if (runtype /= "INITIAL") return
