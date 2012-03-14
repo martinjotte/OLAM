@@ -82,6 +82,7 @@ call alloc_xyzem(nma)
 
 do im = 2,nma
    itab_md(im)%itopm = im
+   itab_md(im)%mrlm = 1
    call mdloops('f',im,1,0,1,0)
 enddo
 

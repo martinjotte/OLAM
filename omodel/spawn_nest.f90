@@ -49,7 +49,7 @@ implicit none
 
 integer :: iu,iw,iregion,im,iw1,iw2,im1,im2,im3, &
    iu1,iu2,iu3,ndiv,iu1o,iu2o,iu3o,iu1o_iw1,iu2o_iw1,iu3o_iw1, &
-   iu4,iu5,iu6,iw3,ngr,mrlo,mrloo,nwaa,j,npoly,nw
+   iu4,iu5,iu6,iw3,ngr,mrlo,mrloo,nwaa,j,npoly,nw,ngroo
    
 integer :: nma0,nua0,nwa0
 
@@ -633,18 +633,35 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
    itab_ud(1:nua) = ltab_ud(1:nua)
    itab_wd(1:nwa) = ltab_wd(1:nwa)
-  
-! Average coordinates to new M points
+
+! Loop over U points and check for those flagged fur subdivision
+
+   ngroo = 0
 
    do iu = 2,nua
       if (nest_ud(iu)%im > 1) then
          im  = nest_ud(iu)%im
          im1 = itab_ud(iu)%im(1)
          im2 = itab_ud(iu)%im(2)
+         
+! Save ngr value of parent grid for new grid being spawned
+
+         if (ngroo == 0) then
+            ngroo = itab_md(im1)%mrlm
+         endif
+
+! Average coordinates to new M points
 
          xem(im) = .5 * (xem(im1) + xem(im2))
          yem(im) = .5 * (yem(im1) + yem(im2))
          zem(im) = .5 * (zem(im1) + zem(im2))
+
+! Set itab_md()%mrlm = ngr at end and mid points of subdivided U edge
+
+         itab_md(im )%mrlm = ngr         
+         itab_md(im1)%mrlm = ngr         
+         itab_md(im2)%mrlm = ngr         
+
       endif
    enddo
 
@@ -841,9 +858,11 @@ do ngr = 2,ngrids  ! Loop over nested grids
    endif
 
 ! Fill itabs loop tables for newly spawned points (U pts already done above)
+! Set itab_md()%mrlm = ngroo at newly added boundary M points
 
    do im = nma+1,nma0
       itab_md(im)%itopm = im
+      itab_md(im)%mrlm = ngroo
       call mdloops('f',im,1,0,1,0)
    enddo
 
@@ -1740,13 +1759,14 @@ end subroutine perim_add2
 
 subroutine perim_mrow()
 
-use mem_ijtabs, only: itab_wd, itab_ud
+use mem_ijtabs, only: itab_wd, itab_ud, itab_md
 use mem_grid,   only: nwa
 use misc_coms,  only: io6
 
 implicit none
 
-integer :: iper, iu, iw, iw1, iw2, iw3, iter, irow, jrow, mrow, mrowh
+integer :: iper, iu, iw, iw1, iw2, iw3, im1, im2, im3
+integer :: iter, irow, jrow, mrow, mrowh, ngr
 
 integer :: mrow_temp(nwa),mrowh_temp(nwa)
 
@@ -1760,29 +1780,36 @@ do iw = 2,nwa
    mrow_temp(iw)   = 0
    mrowh_temp(iw)  = 0
 
-! Set values on nested grid border to +/- 1.
+! Set mrow values on nested grid border to +/- 1.
+! Set mrowh values on nested grid border to +/- (100 * ngr + 1)
 
    iw1 = itab_wd(iw)%iw(1)
    iw2 = itab_wd(iw)%iw(2)
    iw3 = itab_wd(iw)%iw(3)
+   
+   im1 = itab_wd(iw)%im(1)
+   im2 = itab_wd(iw)%im(2)
+   im3 = itab_wd(iw)%im(3)
+   
+   ngr = max(itab_md(im1)%mrlm, itab_md(im2)%mrlm, itab_md(im3)%mrlm)
    
    if     (itab_wd(iw)%mrlw < itab_wd(iw1)%mrlw .or. &
            itab_wd(iw)%mrlw < itab_wd(iw2)%mrlw .or. &
            itab_wd(iw)%mrlw < itab_wd(iw3)%mrlw) then
 
       itab_wd(iw)%mrow = 1
-      itab_wd(iw)%mrowh = 1
+      itab_wd(iw)%mrowh = 100 * ngr + 1
       mrow_temp(iw) = 1
-      mrowh_temp(iw) = 1
+      mrowh_temp(iw) = 100 * ngr + 1
 
    elseif (itab_wd(iw)%mrlw > itab_wd(iw1)%mrlw .or. &
            itab_wd(iw)%mrlw > itab_wd(iw2)%mrlw .or. &
            itab_wd(iw)%mrlw > itab_wd(iw3)%mrlw) then
 
       itab_wd(iw)%mrow = -1
-      itab_wd(iw)%mrowh = -1
+      itab_wd(iw)%mrowh = -100 * ngr - 1
       mrow_temp(iw) = -1
-      mrowh_temp(iw) = -1
+      mrowh_temp(iw) = -100 * ngr - 1
 
    endif
 

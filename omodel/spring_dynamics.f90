@@ -33,10 +33,11 @@
 subroutine spring_dynamics(ngr,nconcave)
 
 use mem_ijtabs,  only: itab_md, itab_ud, itab_wd
-use mem_grid,    only: nma, nua, xem, yem, zem, impent, mrows
+use mem_grid,    only: nma, nua, nwa, xem, yem, zem, impent, mrows
 use consts_coms, only: pi2, erad, erador5
 use misc_coms,   only: io6, nxp, ngrids
 use oname_coms,  only: nl
+use oplot_coms,  only: op
 
 !$ use omp_lib
 
@@ -53,9 +54,10 @@ real :: dxem(nma)
 real :: dyem(nma)
 real :: dzem(nma)
 
-integer :: iu,im1,im2,im,iter,ipent,iw1,iw2,mrow1,mrow2,j,iw,npoly
-integer :: iu1,iu2,iu3,iu4
-integer :: im3,im4
+integer :: iu,iu1,iu2,iu3,iu4
+integer :: im,im1,im2,im3,im4
+integer :: iw,iw1,iw2,j
+integer :: iter,ipent,mrow1,mrow2,npoly,ngrw
 
 integer :: iskip
 real :: xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2
@@ -66,6 +68,7 @@ real :: coslim3, coslim4, ratio
 
 real :: dist00,dist0,dist,expansion,frac_change
 real :: dx2,dy2,dz2
+character(10) :: string
 
 ! Array MOVEM is used to flag selected M points that will be allowed to move
 ! in the spring dynamics procedure.  If MOVEM = 1 the point is allowed to move,
@@ -79,25 +82,35 @@ integer :: movem(nma)
 !RETURN
 ! end special
 
-if (nl%moveall(ngr) == 0 .and. ngr > 1 .and. nconcave == 3) then
+! For the case where nconcave = 3 and moveall(ngr) = 0, reset all movem values
+! to 0, and then set those in border zone of NGR back to 1.  Specifically, 
+! border zone consists of those M points that are adjacent to M points with
+! MROW values of -3, -2, -1, or 1.  
 
-! Set MOVEM flag = 1 only for M points that have W neighbors with MROW values
-! of -3, -2, -1, or 1.
+if (ngr > 1 .and. nconcave == 3 .and. nl%moveall(ngr) == 0) then
 
    movem(:) = 0
 
    do im = 2,nma
       npoly = itab_md(im)%npoly
-         
+
       do j = 1,npoly
          iw = itab_md(im)%iw(j)
 
+         ngrw = abs(itab_wd(iw)%mrowh) / 100
+
+         if (ngrw /= ngr) cycle
+         
          if (itab_wd(iw)%mrow == -3 .or. &
-              itab_wd(iw)%mrow == -2 .or. &
-              itab_wd(iw)%mrow == -1 .or. &
-              itab_wd(iw)%mrow == 1) movem(im) = 1
+             itab_wd(iw)%mrow == -2 .or. &
+             itab_wd(iw)%mrow == -1 .or. &
+             itab_wd(iw)%mrow ==  1) then
+            movem(im) = 1
+            cycle
+         endif
+
       enddo
-   enddo
+   enddo      
 
 else
 
@@ -149,7 +162,7 @@ do iter = 1,niter
       im1 = itab_ud(iu)%im(1)
       im2 = itab_ud(iu)%im(2)
 
-      if (ngr > 1 .and. movem(im1) == 0 .and. movem(im2) == 0) cycle
+      if (movem(im1) == 0 .and. movem(im2) == 0) cycle
 
 ! Compute current distance between IM1 and IM2
 
@@ -247,7 +260,6 @@ do iter = 1,niter
 
       if (ratio < 1.) then
          dist0 = dist0 * ratio
-!alt     dist0 = dist0 * (1. - ratio * frac)
       endif
 
 ! Fractional change to dist that would make it equal dist0
@@ -278,7 +290,7 @@ do iter = 1,niter
 !$omp do private(expansion)
    do im = 2,nma
 
-      if (ngr > 1 .and. movem(im) == 0) cycle
+      if (movem(im) == 0) cycle
 
 ! For now, prevent either polar M point from moving
 
@@ -335,6 +347,27 @@ do iter = 1,niter
          call o_vector (xq2,yq2)
       enddo
 
+! print mrow values
+
+      do iw = 2, nwa
+         im1 = itab_wd(iw)%im(1)
+         im2 = itab_wd(iw)%im(2)
+         im3 = itab_wd(iw)%im(3)
+
+         call oplot_transform(1, (xem(im1)+xem(im2)+xem(im3))/3., &
+                                 (yem(im1)+yem(im2)+yem(im3))/3., &
+                                 (zem(im1)+zem(im2)+zem(im3))/3., &
+                                 xp1, yp1                         )
+
+         if ( xp1 < op%xmin .or.  &
+              xp1 > op%xmax .or.  &
+              yp1 < op%ymin .or.  &
+              yp1 > op%ymax ) cycle
+
+         write(string,'(I0)') itab_wd(iw)%mrow
+         call o_plchlq (xp1,yp1,trim(adjustl(string)),0.01,0.,0.)
+      enddo
+
       call o_frame()
       call o_clswk()
 
@@ -344,4 +377,3 @@ enddo ! iter
 
 return
 end subroutine spring_dynamics
-
