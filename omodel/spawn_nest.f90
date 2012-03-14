@@ -233,7 +233,7 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
          call ngr_area(ngr,minside,xem_temp(im),yem_temp(im),zem_temp(im))
 
-         if (minside == 1) then
+         if (minside > 0) then
             imbeg = im
             exit
          endif
@@ -246,11 +246,11 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
 ! Get earth coordinates for [grdlat(ngr,1),grdlon(ngr,1)]
 
-         zeg = erad * sin(grdlat(ngr,1)*pio180)
-         reg = erad * cos(grdlat(ngr,1)*pio180)
-         xeg = reg  * cos(grdlon(ngr,1)*pio180)
-         yeg = reg  * sin(grdlon(ngr,1)*pio180)
-         
+         zeg = erad * sin(grdlat(ngr,1) * pio180)
+         reg = erad * cos(grdlat(ngr,1) * pio180)
+         xeg = reg  * cos(grdlon(ngr,1) * pio180)
+         yeg = reg  * sin(grdlon(ngr,1) * pio180)
+
 ! Initialize distance 
 
          distmin = 1.e12
@@ -493,7 +493,7 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
    print*, ' '
    do j = 1,nper2
-      write(6,'(a,6i7)') 'perim ',j,imper(j),iuper(j),npolyper(j), &
+      write(6,'(a,8i7)') 'perim ',ngr,nper2,j,imper(j),iuper(j),npolyper(j), &
                                   nwdivper(j),nearpent(j)
    enddo
    print*, ' '
@@ -1895,7 +1895,7 @@ real, external :: linesegdist
 integer :: ipt, jpt
 real :: seglat, seglon ! lat/lon of segment midpoint
 real :: xs(2),ys(2)    ! PS coordinates of segment endpoints
-real :: xm1, ym1
+real :: xm1, ym1, dist
 !-------------------------------------------------------------------------------
 
 inside = 0
@@ -1925,7 +1925,13 @@ do ipt = 1,ngrdll(ngr)
 ! If (x,y,z) location is close enough to line segment, flag it for inclusion
 ! in refined grid interior
 
-   if (linesegdist(xm1,ym1,xs(1),ys(1),xs(2),ys(2)) < grdrad(ngr)) inside = 1
+   dist = linesegdist(xm1,ym1,xs(1),ys(1),xs(2),ys(2))
+
+   if (dist < grdrad(ngr)) then
+      inside = 1
+   elseif (dist < grdrad(ngr) * 1.1 ) then ! temporary fix: expand search radius when
+      inside = 2                           ! searching for ipent points
+   endif
 
 enddo
 
