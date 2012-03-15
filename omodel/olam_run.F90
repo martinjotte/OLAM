@@ -59,7 +59,8 @@ use mem_sflux,   only: init_fluxcells, fill_jflux, mseaflux, mlandflux
 use mem_para,    only: myrank
 use consts_coms, only: r8
 use oname_coms,  only: nl
-use olam_mpi_atm, only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, alloc_mpi_sndrcv_bufs
+use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, alloc_mpi_sndrcv_bufs
+use hcane_rz,    only: init_hurr_step, hurricane_init
 
 implicit none
 
@@ -94,7 +95,7 @@ if (runtype == 'HISTORY') then
    call history_start('COMMIO')
 elseif ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
    write(io6,'(/,a)') 'olam_run reading common values from plot file'
-   hfilin = trim(op%plt_files(1))
+   hfilin = op%plt_files(1)
    call history_start('COMMIO')
 else
    call copy_nl('NOT_HISTORY')
@@ -178,8 +179,8 @@ call gridinit()
 
 ! If RUNTYPE = 'MAKESFC' or 'MAKEGRID', run is finished; EXIT
 
-if (trim(runtype) == 'MAKESFC' .or. trim(runtype) == 'MAKEGRID') then
-   write(io6,*) trim(runtype)//' run complete'
+if (runtype == 'MAKESFC' .or. runtype == 'MAKEGRID') then
+   write(io6,*) trim(runtype) // ' run complete'
    go to 1000
 endif
 
@@ -319,10 +320,6 @@ elseif (initial == 3) then
    call fldslhi()           ! Longitudinally-homogeneous initialization
 endif
 
-!-------------------- SPECIAL - HURRICANE TRACKING ------------------
-! call hurricane_track()
-!-------------------------------------------------------------------
-
 ! A good place to initialize added scalars
 
 ! Initialize 3d microphysics fields (if level = 3) and other microphysics
@@ -331,6 +328,12 @@ endif
 write(io6,'(/,a)') 'olam_run calling micinit'
 
 call micinit()
+
+!-------------------------------------------------------------------------------
+if (runtype == "INITIAL") then
+   if (init_hurr_step > 0) call hurricane_init()
+endif
+!-------------------------------------------------------------------------------
 
 ! For parallel run, send and receive initialized scalars
 
@@ -399,7 +402,7 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
 
    do iplt_file = 1,op%nplt_files
 
-      hfilin = trim(op%plt_files(iplt_file))
+      hfilin = op%plt_files(iplt_file)
       call history_start('COMMIO')
       call history_start('HISTREAD')
 
@@ -411,13 +414,13 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
 
    enddo
 
-   write(io6,'(/,a)') trim(runtype)//' run complete'
+   write(io6,'(/,a)') trim(runtype) //' run complete'
    go to 1000
 endif
 
 ! REPLACE INITIAL FIELDS WITH HISTORY READ
 
-if (trim(runtype) == 'HISTORY') then
+if (runtype == 'HISTORY') then
    write(io6,*) 'olam_run calling history_start'
    call history_start('HISTREAD')
    write(io6,*) 'olam_run finished history_start'
@@ -427,7 +430,7 @@ write(io6,'(/,a)') 'olam_run calling plot_fields'
 
 call plot_fields(0)
 
-if (trim(runtype) /= 'HISTORY') then
+if (runtype /= 'HISTORY') then
    write(io6,'(/,a)') 'olam_run calling history_write'
    call history_write('STATE')
    write(io6,'(/,a)') 'olam_run finished history_write'
@@ -436,7 +439,7 @@ endif
 time_prevhist = time8
 w2 = walltime(wtime_start)
 call cpu_time(t2)
-write(io6,'(a,2f12.3)') '++++++++++ CPU - wall time: olam initialization: ',t2-t1,w2-w1
+write(io6,'(a,2f13.3)') '++++++++++ CPU - wall time: olam initialization: ',t2-t1,w2-w1
 
 write(io6,'(/,a)') 'olam_run completed initialization'
 
@@ -522,9 +525,9 @@ do while (time8 < timmax8)
 
    write (stepc1,'(i8)'   ) mstp
    write (stepc2,'(f13.1)') time8
-   write (stepc3,'(f9.2)' ) time8/86400.
-   write (stepc4,'(f8.2)' ) t2-t1
-   write (stepc5,'(f8.2)' ) wtime2-wtime1
+   write (stepc3,'(f10.3)') time8/86400.
+   write (stepc4,'(f9.3)' ) t2-t1
+   write (stepc5,'(f9.3)' ) wtime2-wtime1
 
    stepc1 = ' [nstep = '//trim(adjustl(stepc1))//']'
    stepc2 = '   [simtime = '//trim(adjustl(stepc2))//' sec'
@@ -540,7 +543,7 @@ do while (time8 < timmax8)
 enddo
 
 wtime_tot = walltime(wtime_start)
-write(io6, '(//,a,f10.0)') ' -----Total elapsed time: ',wtime_tot
+write(io6, '(//,a,f13.3)') ' -----Total elapsed time: ',wtime_tot
 
 return
 end subroutine model
@@ -662,10 +665,17 @@ use oplot_coms,  only: op
 use mem_nudge,   only: nudflag
 use isan_coms,   only: ifgfile, s1900_fg
 use consts_coms, only: r8
+use hcane_rz,    only: init_hurr_step, hurricane_track
 implicit none
 
-integer :: ierr,ifm,ifileok
-real(kind=r8) :: frqplt8
+integer  :: ierr, ifm, ifileok
+real(r8) :: frqplt8
+
+!-------------------- SPECIAL - HURRICANE TRACKING ------------------
+if (init_hurr_step == 1 .or. init_hurr_step == 2) then
+   if (mod(time8,real(3600.,r8)) < dtlm(1)) call hurricane_track()
+endif
+!-------------------------------------------------------------------
 
 frqplt8 = op%frqplt
 
@@ -707,12 +717,6 @@ if (initial == 2 .and. nudflag == 1) then
 
    endif
 endif
-
-!-------------------- SPECIAL - HURRICANE TRACKING ------------------
-!if (mod(time8,real(1800.,r8)) < dtlm(1)) then
-!   call hurricane_track()
-!endif
-!-------------------------------------------------------------------
 
 if (iflag == 1) stop 'IFLAG'
 

@@ -77,10 +77,6 @@ real :: volwnud(mza,mwnud)
 real :: ouzonal(mza),oumerid(mza)
 real :: vxe(mza),vye(mza),vze(mza)
 
-! init_hurricane is reset in subroutine hurricane, if calls are uncommented below
-
-integer :: init_hurricane = 0
-
 ! Check whether initializing model
 
 if (iaction == 0 .and. runtype == 'INITIAL') then
@@ -119,10 +115,6 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
       enddo
    enddo
    call rsub('Wb',7)
-
-!-------------------------------------------------------------------------------
-!  call hurricane_init('T',init_hurricane) ! returns init_hurricane = 0, 1, or 2
-!-------------------------------------------------------------------------------
 
    if (iparallel == 1) then
       call mpi_send_w('I')  ! Send W group
@@ -180,26 +172,6 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
    
       call diagnose_vc()
 
-!-------------------------------------------------------------------------------
-!  call hurricane_init('U',init_hurricane) ! returns init_hurricane = 0, 1, or 2
-
-! If initial wind has been altered by hurricane initialization, repeat
-! parallel send/receive of wind field and repeat VC diagnosis
-
-      if (init_hurricane > 0) then
-
-         if (iparallel == 1) then
-            call mpi_send_u('I')
-            call mpi_recv_u('I')
-         endif
-
-         ump(:,:) = umc(:,:)
-
-         call diagnose_vc()
-
-      endif
-!-------------------------------------------------------------------------------
-
    else
 
 ! If using hexagonal mesh, initialize VMC, VC
@@ -250,26 +222,6 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
 ! Diagnose UC
    
       call diagnose_uc()
-
-!-------------------------------------------------------------------------------
-!  call hurricane_init('V',init_hurricane) ! returns init_hurricane = 0, 1, or 2
-
-      if (init_hurricane > 0) then
-
-! If initial wind has been altered by hurricane initialization, repeat
-! parallel send/receive of wind field and UC diagnosis
-
-         if (iparallel == 1) then
-            call mpi_send_v('I')
-            call mpi_recv_v('I')
-         endif
-
-         vmp(:,:) = vmc(:,:)
-
-         call diagnose_uc()
-
-      endif
-!-------------------------------------------------------------------------------
 
    endif
 

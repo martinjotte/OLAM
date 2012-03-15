@@ -19,4 +19,5 @@ SEA=$(OLAM_ROOT)/sea
 ED=$(OLAM_ROOT)/ed
 OUTILS=$(OLAM_ROOT)/outils
 RADIATE=$(OLAM_ROOT)/radiate
-OSPECIAL=$(OLAM_ROOT)/special
+HURRICANE=$(OLAM_ROOT)/hurricane
+
