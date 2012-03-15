@@ -196,6 +196,7 @@ subroutine olam_alloc_mpi(mza, mrls)
   integer :: jtmp
 
   integer :: nupts, nvpts, nwpts
+  integer :: nv
   integer :: mrl
 
   integer              :: sbuf(mrls+1)
@@ -334,12 +335,18 @@ subroutine olam_alloc_mpi(mza, mrls)
 
 ! Determine number of bytes to send per IW column
 
-  nbytes_per_iw = nbytes_int                                     &
-       + mza * max(3 * nbytes_real8 + 2 * nbytes_real,  &
-       nvar_par * nbytes_real)
+  if (meshtype == 1) then
+     nv = nvar_par
+  else
+     ! Extra room for the 'G' communication group
+     nv = max(nvar_par, 15)
+  endif
+
+  nbytes_per_iw = nbytes_int +                                             &
+                  mza * max( 3*nbytes_real8 + 2*nbytes_real, nv*nbytes_real)
 
 ! Loop over all W sends for mrl = 1
-
+  
   do jsend = 1,nsends_w(1)
 
 ! Determine size of send_w buffer for mrl = 1
