@@ -46,8 +46,6 @@ contains
 
 
   subroutine fh5f_open(locfn, iaccess, hdferr)
-    use misc_coms, only: ipar_out
-
     implicit none
 
     character(*), intent(IN)  :: locfn
@@ -87,9 +85,9 @@ contains
 
 
   subroutine fh5f_create(locfn, iaccess, hdferr)
-    use misc_coms, only: ipar_out
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    use misc_coms, only: ipar_out, io6
     use mpi
 #endif
 
