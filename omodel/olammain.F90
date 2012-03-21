@@ -150,5 +150,8 @@ if (iparallel == 1) then
    close(io6)
 endif
 
-stop 'olam_end'
+write(io6,'(A)')
+write(io6,'(A)') "olam_end"
+
+stop
 end program main
