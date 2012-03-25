@@ -2333,11 +2333,13 @@ emb0i3 = 1. / emb0(3)
 
 do k = k1(1),k2(1)
 
+   if (rx(k,1) < rxmin(1)) cycle
+
    dn1 = dnfac(1) * emb(k,1) ** pwmasi(1)
 
 ! CLOUD DROPLET HOMOGENEOUS ICE NUCLEATION
 
-   if (rx(k,1) > rxmin(1) .and. tairc(k) <= -30.01) then
+   if (tairc(k) <= -30.01) then
 
       ridnc = max(1.,min(real(ndnc-1),dn1 / ddnc))
       idnc = int(ridnc)
@@ -2364,6 +2366,11 @@ do k = k1(1),k2(1)
       rnuc_cp_hom(k) = cnuc_cp_hom(k) * emb(k,1) ! x rhoa
 
    endif
+
+!--------------- PARCEL EXPTS: turn off hom nuc cld
+!   cnuc_cp_hom(k) = 0.
+!   rnuc_cp_hom(k) = 0.
+!---------------------------------------------------
 
 !  Heterogeneous contact ice nucleation of cloud droplets by diffusio-
 !  phoresis, thermophoresis, and Brownian motion (transport of IN)
@@ -2411,9 +2418,11 @@ enddo
 
 do k = k1(8),k2(8)
 
+   if (rx(k,8) < rxmin(8)) cycle
+
    dn8 = dnfac(8) * emb(k,8) ** pwmasi(8)
 
-   if (rx(k,8) > 1.e-10 .and. tairc(k) <= -30.01) then
+   if (tairc(k) <= -30.01) then
 
       ridnc = max(1.,min(real(ndnc-1),dn8 / ddnc))
       idnc = int(ridnc)
@@ -2441,6 +2450,11 @@ do k = k1(8),k2(8)
       rnuc_dp_hom(k) = cnuc_dp_hom(k) * emb(k,8) ! x rhoa
 
    endif
+
+!--------------- PARCEL EXPTS: turn off homo nuc drizzle
+!   cnuc_dp_hom(k) = 0.
+!   rnuc_dp_hom(k) = 0.
+!---------------------------------------------------
 
 !  Heterogeneous contact ice nucleation of drizzle by diffusio-
 !  phoresis, thermophoresis, and Brownian motion (transport of IN)
@@ -2518,6 +2532,11 @@ do k = lpw0,mza0
       rnuc_vp_haze(k) = cnuc_vp_haze(k) * emb0(3) ! x rhoa
 
    endif
+
+!--------------- PARCEL EXPTS: turn off hom nuc haze
+!   cnuc_vp_haze(k) = 0.
+!   rnuc_vp_haze(k) = 0.
+!---------------------------------------------------
 
 !  Heterogeneous nucleation by deposition condensation freezing
 !  with deposition nuclei.  In 4.3 and beyond, assume that it gives #/kg.

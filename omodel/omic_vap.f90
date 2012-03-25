@@ -476,13 +476,13 @@ do k = k1(lcat),k2(lcat)
 
    else
 
-! If we are doing nucleation scavenging, return ccn or gccn when partial
-! evaporation occurs
-
       if (vap(k,lcat) < 0.) then
          fracmass = min(1.,-vap(k,lcat) / rx(k,lcat))
          cxloss = cx(k,lcat) * enmlttab( int(200.*fracmass)+1, jhcat(k,lcat) )
          cx(k,lcat) = cx(k,lcat) - cxloss
+
+! If we are doing nucleation scavenging, return ccn or gccn when partial
+! evaporation occurs
 
          if (iccnlev == 1) then
             if (lcat == 1 .or. (lcat == 8 .and. jnmb(lcat) < 5)) &
@@ -504,98 +504,96 @@ end subroutine vapflux
 
 !===============================================================================
 
-subroutine psxfer(iw0,j1,j2,jhcat,vap,rx,cx,qx,qr)
+subroutine psxfer(iw0,k1,k2,vap,rpsxfer,epsxfer,rx,cx,qx,qr)
 
-use micro_coms, only: rxmin, dnfac, pwmasi, gam, dps2, dps, gnu, gamn1, &
-                      pwmas, dpsmi, mza0, ncat, emb0, emb1, ddni_ngam
+use micro_coms, only: mza0, ncat, emb0, emb1
 use misc_coms,  only: io6
 
 implicit none
 
-integer, intent(in) :: iw0,j1,j2
-
-integer, intent(in) :: jhcat(mza0,ncat)
+integer, intent(in) :: iw0,k1,k2
 
 real, intent(in)    :: vap(mza0,ncat)
+real, intent(inout) :: rpsxfer(mza0)
+real, intent(inout) :: epsxfer(mza0)
 real, intent(inout) :: rx (mza0,ncat)
 real, intent(inout) :: cx (mza0,ncat)
 real, intent(in)    :: qx (mza0,ncat)
 real, intent(inout) :: qr (mza0,ncat)
 
-integer :: k,lhcat,it
-real :: embx,dn,xlim,dvap,dqr,dnum
+integer :: k
+real :: f3, f4, dqr, embi
 
-! Variables for Carrio adjustment to number transfer between snow and pristine ice
+! The basic function of subroutine psxfer is to transfer bulk mixing ratio
+! and number between pristine ice and snow categories when vapor flux causes
+! particle sizes to approach specified category size limits.  Previously,
+! psxfer performed this transfer in both directions, from pristine ice to snow
+! in conditions of vapor deposition and from snow to pristine ice during
+! sublimation.  Now, the routine only performs transfers from pristine ice to
+! snow with vapor deposition.  The reverse process has been omitted, following 
+! the opinions of Walko and Cotton that the process is insignificant, and is
+! also conceptually inconsistent with the assumed properties of ice categories
+! in the bulk microphysics scheme.
 
-real :: old_m,old_c,old_r,prelim_m,delta_c, delta_r
+! This version of subroutine psxfer (24 March 2012), replaces older versions
+! that specifically assumed gamma distributions for pristine ice and snow
+! hydrometeor sizes.  Now, a size distribution is only assumed to exist
+! conceptually, but its form is unspecified.  Previous versions of psxfer
+! required repairs to prevent pristine ice and/or snow mean hydrometeor mass
+! from exceeding specified size limits.  The present version aims for a simple
+! but robust approach that avoids any need for such repairs.  It computes the
+! ratio of pristine ice mean particle mass to its upper limit of emb1(3), 
+! compares this ratio to specified high and low thresholds, and determines how
+! much mass to transfer from pristine ice to snow based on this comparison.
 
-do k = j1,j2
+! Define parameters for high and low mass-ratio thresholds for pristine ice
+! depositional growth.  Experimentation with other settings is encouraged.
+! Initial tests show fairly weak sensitivity of model results to their values.
+
+real, parameter :: f3lo = .1, f3hi = .8, df3i = 1. / (f3hi - f3lo)
+
+! Assume that the mean mass of the transferred particles is the larger of the
+! maximum allowed mean mass for pristine ice and the minimum allowed mean mass
+! for snow, so that this transfer does not risk pushing either category outside
+! its size limits.
+
+embi = 1. / max(emb1(3),emb0(4))
+
+! Loop over vertical model levels that may contain pristine ice
+
+do k = k1,k2
+
+! Check if vapor mass was deposited onto pristine ice (it was already added)
 
    if (vap(k,3) > 0.) then
 
-      lhcat = jhcat(k,3)
-      embx = max(emb0(3),min(emb1(3),rx(k,3) / max(1.e-9,cx(k,3))))
+! Compute ratio of mean particle mass of pristine ice to its maximum limit emb1(3)
 
-      dn = dnfac(lhcat) * embx ** pwmasi(lhcat)
-      it = nint(dn * ddni_ngam)
+      f3 = rx(k,3) / (max(1.e-9,cx(k,3)) * emb1(3))
 
-      xlim = gam(it,3) * dps2 * (dps / dn) ** (gnu(3) - 1.) &
-         / (gamn1(3) * pwmas(lhcat) * dn ** 2)
+! Compare f3 to f3lo and f3hi (parameters defined above) to compute amount
+! of mass, as a fraction of new vapor deposition mass, to transfer from
+! pristine ice to snow.
 
-      dvap = min(rx(k,3),vap(k,3) * (xlim + gam(it,1) / gamn1(3))) ! x rhoa
-      dqr = dvap * qx(k,3)                                         ! x rhoa
-      dnum = dvap * min(dpsmi(lhcat),1./embx)                      ! x rhoa
-
-      rx(k,3) = rx(k,3) - dvap
-      cx(k,3) = cx(k,3) - dnum
-      qr(k,3) = qr(k,3) - dqr
-      rx(k,4) = rx(k,4) + dvap
-      cx(k,4) = cx(k,4) + dnum
-      qr(k,4) = qr(k,4) + dqr
-
-   elseif (vap(k,4) < 0. .and. rx(k,4) >= 0.) then
-
-      lhcat = jhcat(k,4)
-      embx = max(emb0(4),min(emb1(4),rx(k,4) / max(1.e-9,cx(k,4))))
-
-      dn = dnfac(lhcat) * embx ** pwmasi(lhcat)
-      it = nint(dn * ddni_ngam)
-
-      xlim = gam(it,3) * dps2 * (dps / dn) ** (gnu(4) - 1.) &
-         / (gamn1(4) * pwmas(lhcat) * dn ** 2)
-
-      dvap = max(-rx(k,4),vap(k,4) * xlim)     ! x rhoa
-      dqr = dvap * qx(k,4)                     ! x rhoa
-      dnum = dvap * max(dpsmi(lhcat),1./embx)  ! x rhoa
-
-      rx(k,3) = rx(k,3) - dvap
-      cx(k,3) = cx(k,3) - dnum
-      qr(k,3) = qr(k,3) - dqr
-      rx(k,4) = rx(k,4) + dvap
-      cx(k,4) = cx(k,4) + dnum
-      qr(k,4) = qr(k,4) + dqr
-
-! Label/check this for rho factor
-
-      !Carrio 2003: Better xfer pristine to snow to prevent subroutine
-      !enemb from artificially creating pristine number concentration
-      !when a bounds problem appears with the pristine ice cutoff size.
-      !Compare preliminary calculation pristine mean mass with maximum.
-
-!      delta_r = 0.0
-      prelim_m = rx(k,3) / max(cx(k,3), 1.e-9)
-
-      if (prelim_m > emb1(3)) then
-          old_c = cx(k,3) + dnum
-!          old_m = (rx(k,3) + dvap) / (cx(k,3) + dnum)
-!          old_r = rx(k,3) + dvap
-          delta_r = rx(k,3) - old_c * emb1(3)
-          delta_c = delta_r / emb1(3) ! delta_c only adds to snow
-          rx(k,3) = rx(k,3) - delta_r
-          cx(k,3) = old_c
-          rx(k,4) = rx(k,4) + delta_r
-          cx(k,4) = cx(k,4) + delta_c
+      if (f3 < f3lo) then
+         cycle
+      elseif (f3 > f3hi) then
+         rpsxfer(k) = vap(k,3)
+      else
+         rpsxfer(k) = vap(k,3) * (f3 - f3lo) * df3i
       endif
+
+! rpsxfer(k) here is always positive
+
+      epsxfer(k) = rpsxfer(k) * embi ! x rhoa
+      dqr = rpsxfer(k) * qx(k,3)     ! x rhoa
+
+      rx(k,3) = rx(k,3) - rpsxfer(k)
+      cx(k,3) = cx(k,3) - epsxfer(k)
+      qr(k,3) = qr(k,3) - dqr
+      rx(k,4) = rx(k,4) + rpsxfer(k)
+      cx(k,4) = cx(k,4) + epsxfer(k)
+      qr(k,4) = qr(k,4) + dqr
 
    endif
 

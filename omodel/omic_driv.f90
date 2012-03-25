@@ -189,6 +189,11 @@ real :: cnuc_dp_cont   (mza0)
 real :: cnuc_vp_haze   (mza0)
 real :: cnuc_vp_depcond(mza0)
 
+! New transfer arrays for subroutine psxfer
+
+real :: rpsxfer(mza0)
+real :: epsxfer(mza0)
+
 ! Replacement of rxfer and enxfer arrays (2/25/2012) to retain transfer
 ! information (for plotting) from each separate collection pair interaction.
 
@@ -339,6 +344,9 @@ totcond  (:) = 0.
  cnuc_dp_cont   (:) = 0.
  cnuc_vp_haze   (:) = 0.
  cnuc_vp_depcond(:) = 0.
+
+ rpsxfer(:) = 0.
+ epsxfer(:) = 0.
 
  r1118(:,:) = 0.;r8882(:,:) = 0.;r1112(:,:) = 0.;r1818(:,:) = 0.;r1212(:,:) = 0.
  r8282(:,:) = 0.;r3335(:,:) = 0.;r4445(:,:) = 0.;r3435(:,:) = 0.;r3445(:,:) = 0.
@@ -627,12 +635,10 @@ if (k1(7) <= k2(7)) &
 
 ! Conversion between pristine ice and snow due to vapor flux
 
-if (jnmb(4) >= 1) then
-   k1(3) = min(k1(3),k1(4))
-   k2(3) = max(k2(3),k2(4))
-   k1(4) = k1(3)
-   k2(4) = k2(3)
-   if (k1(3) <= k2(3)) call psxfer(iw0,k1(3),k2(3),jhcat,vap,rx,cx,qx,qr)
+if (k1(3) <= k2(3) .and. jnmb(4) >= 1) then
+   call psxfer(iw0,k1(3),k2(3),vap,rpsxfer,epsxfer,rx,cx,qx,qr)
+   k1(4) = min(k1(3),k1(4))
+   k2(4) = max(k2(3),k2(4))
 endif
 
 ! Diagnose new air temperature following heat and vapor fluxes
@@ -1094,6 +1100,7 @@ thil0(lpw0:mza0) = thil0(lpw0:mza0) + dsed_thil(lpw0:mza0)
 !    rnuc_cp_cont,rnuc_dp_cont,rnuc_vp_haze,rnuc_vp_depcond, &
 !    cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom, &
 !    cnuc_cp_cont,cnuc_dp_cont,cnuc_vp_haze,cnuc_vp_depcond, &
+!    rpsxfer,epsxfer, &
 !    r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
 !    r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
 !    r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
