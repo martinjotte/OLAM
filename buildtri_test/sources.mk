@@ -172,6 +172,6 @@ SOURCE_FILES= \
              $(SEA)/seaice_database_read.f90 \
              $(SEA)/sea_init_atm.f90 \
              $(SEA)/sea_startup.f90 \
-             $(SEA)/sst_database_read.f90
+             $(SEA)/sst_database_read.f90 \
              $(HURRICANE)/hurricane_init.f90
 
