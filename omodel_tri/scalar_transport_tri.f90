@@ -248,7 +248,7 @@ integer :: iw1,iw2,iw3,iw4,iw5,iw6
 integer :: iuc,iud
 integer :: iwa,iwb,iwc,iwd
 
-integer :: k,kb,n
+integer :: k,kb,ku,n
 
 real :: tuu1,tuu2,tuu3,tuu4
 real :: guw1,guw2,guw3,guw4
@@ -259,6 +259,7 @@ real :: scq,scq_updn,crossmm,crossww,fww
 
 real :: dt,dt2,dto2
 real :: cnum_w
+real :: scp_max, scp_min
 
 ! Automatic arrays
 
@@ -347,6 +348,8 @@ do k = kb,mza-1
 
    vcnum_s(k) = dto2 * (wmarwsc(k-1,iwb) + wmarwsc(k,iwb)) &
               / (rho_old(k,iwb) * volt(k,iwb))
+
+   ku = merge ( max(k-1, kb), min(k+1,mza-1), vcnum_s(k) >= 0. )
 
 ! Horizontal transverse displacement in single timestep at T level in IWB column
 
@@ -457,9 +460,20 @@ do k = kb,mza-1
       scp_upwind(k) = scq + vterm(k) &
                     + c2(k) * htgrads(k) &
                     - c1(k) * htgrads_updn(k)
+      
+      ! make sure scalar value interpolated to U point is bounded
+
+      scp_max = max( scp(k, iwa), scp(k ,iwb), scp(k ,iwc), scp(k ,iwd), &
+                     scp(ku,iwa), scp(ku,iwb), scp(ku,iwc), scp(ku,iwd)  )
+      
+      scp_min = min( scp(k ,iwa), scp(k ,iwb), scp(k ,iwc), scp(k ,iwd), &
+                     scp(ku,iwa), scp(ku,iwb), scp(ku,iwc), scp(ku,iwd)  )
+
+      scp_upwind(k) = max( scp_upwind(k), scp_min)
+      scp_upwind(k) = min( scp_upwind(k), scp_max)
 
 ! SPECIAL---------------------------------------
-!      scp_upwind(k) = scp(k,iwb)
+!     scp_upwind(k) = scp(k,iwb)
 !-----------------------------------------------
 
 ! Low order flux
@@ -553,6 +567,7 @@ real :: adv(mza)
 real :: scp_upwind(mza)
 real :: scp_min(mza)
 real :: scp_max(mza)
+real :: scp_w_max, scp_w_min
 
 real :: ppos(mza)
 real :: pneg(mza)
@@ -780,12 +795,14 @@ if (action == 'L') then
          vflx_s(k) = wmarwsc(k,iw) * scp_w(k)
 
 ! Alternate form...
-
-!         if (wmarwsc(k,iw) > 0.) then
-!            vflx_s(k) = wmarwsc(k,iw) * scp_upwind(k)
-!         else
-!            vflx_s(k) = wmarwsc(k,iw) * scp_upwind(k+1)
-!         endif
+!
+!        if (wmarwsc(k,iw) > 0.) then
+!           vflx_s(k) = wmarwsc(k,iw) * scp_upwind(k)
+!        !  vflx_s(k) = wmarwsc(k,iw) * scp(k,iw)
+!        else
+!           vflx_s(k) = wmarwsc(k,iw) * scp_upwind(k+1)
+!        !  vflx_s(k) = wmarwsc(k,iw) * scp(k+1,iw)
+!        endif
 
       enddo
 
@@ -840,7 +857,6 @@ elseif (action == 'M') then
 !x         vflx_s(k) = wmarwsc(k,iw) * (zwt1(k) + vcnum_s(k) - vcnum1_s(k)) &
 !x                   * (scp(k,iw) - scp(k+1,iw))
 
-
          wt1(k) = zwt1(k) + vcnum_s(k) * (.5 + vcnum1_s(k) * (.5 - zwt1(k))) &
                 - .5 * (vcnum1_s(k) + 1.)
          
@@ -880,7 +896,7 @@ elseif (action == 'M') then
                  + max(0.,diru2 * hflx_s(k  ,iu2,n)) &
                  + max(0.,diru3 * hflx_s(k  ,iu3,n))
 
-         qpos(k) = (scp_max(k) - scp(k,iw)) * dti * volt(k,iw)
+         qpos(k) = (scp_max(k) - scp(k,iw)) * dti * volt(k,iw) * rho(k,iw)
 
          if (ppos(k) > 1.e-12) then
             rpos(k,iw,n) = min(1.0, qpos(k) / ppos(k))
@@ -894,8 +910,8 @@ elseif (action == 'M') then
                    - min(0.,diru2 * hflx_s(k  ,iu2,n)) &
                    - min(0.,diru3 * hflx_s(k  ,iu3,n))
 
-         qneg(k) = (scp(k,iw) - scp_min(k)) * dti * volt(k,iw)
-
+         qneg(k) = (scp(k,iw) - scp_min(k)) * dti * volt(k,iw) * rho(k,iw)
+         
          if (pneg(k) > 1.e-12) then
             rneg(k,iw,n) = min(1.0, qneg(k) / pneg(k))
          else

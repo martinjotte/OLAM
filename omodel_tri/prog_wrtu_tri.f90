@@ -418,11 +418,11 @@ call qsub('W',iw)
 
 ! Change in RHO from horizontal and EXPLICIT vertical advection
 
-      delex_rho(k,iw) = dts * (rhot(k,iw) + volti(k,iw) &
-         * (diru1 * umaru(k,iu1)        &
-         +  diru2 * umaru(k,iu2)        &
-         +  diru3 * umaru(k,iu3)        &
-         +  wmarw(k-1,iw) - wmarw(k,iw)))
+      delex_rho(k,iw) = dts * ( rhot(k,iw) + volti(k,iw) &
+                      * ( diru1 * umaru(k,iu1)           &
+                      +   diru2 * umaru(k,iu2)           &
+                      +   diru3 * umaru(k,iu3)           &
+                      +   wmarw(k-1,iw) - wmarw(k,iw) ) )
 
       rho(k,iw) = rho(k,iw) + delex_rho(k,iw)   
       
@@ -869,6 +869,8 @@ real :: hflx1(mza)
 real :: hflx2(mza)
 real :: hflx3(mza)
 
+real :: rho_w(mza)
+
 real(kind=8) :: del_wmarw(mza)
 real(kind=8) :: rhothil  (mza)
 real(kind=8) :: press_t  (mza)
@@ -1123,10 +1125,12 @@ if (action == 'M') then
               + max(0.,ahflx2(k  ,iw)) &
               + max(0.,ahflx3(k  ,iw))
 
-      qpos(k) = (wc_max(k) - wc(k,iw)) * dtsi * volt(k,iw)
+      rho_w(k) = 0.5 * (dzt(k) * rho_s(k,iw) + dzt(k+1) * rho_s(k+1,iw)) * dzim(k)
 
-      if (ppos(k) > 0.) then
-         rpos(k,iw) = min(1.,qpos(k) / ppos(k))
+      qpos(k) = (wc_max(k) - wc(k,iw)) * dtsi * rho_w(k) / volwi(k,iw)
+
+      if (ppos(k) > 1.e-12) then
+         rpos(k,iw) = min(1.0, qpos(k) / ppos(k))
       else
          rpos(k,iw) = 0.
       endif
@@ -1137,10 +1141,10 @@ if (action == 'M') then
                 - min(0.,ahflx2(k  ,iw)) &
                 - min(0.,ahflx3(k  ,iw))
 
-      qneg(k) = (wc(k,iw) - wc_min(k)) * dtsi * volt(k,iw)
+      qneg(k) = (wc(k,iw) - wc_min(k)) * dtsi * rho_w(k) / volwi(k,iw)
 
-      if (pneg(k) > 0.) then
-         rneg(k,iw) = min(1.,qneg(k) / pneg(k))
+      if (pneg(k) > 1.e-12) then
+         rneg(k,iw) = min(1.0, qneg(k) / pneg(k))
       else
          rneg(k,iw) = 0.
       endif
@@ -1620,8 +1624,6 @@ real :: pgc12,pgc45,pgc63,pgc12b,pgc45b,pgc12c,pgc63c,pgc12d
 real :: dts,dts2,raxis,uv01dr,uv01dx,uv01dy,uv01dz,ucref,uc2
 real :: fracx, rayfx, div1, div2, ump_eqdiv
 
-real :: rho_us,qposs
-
 !hs real :: pressloc
 
 ! Automatic arrays
@@ -1897,9 +1899,6 @@ if (action == 'M') then
       rho_u(k) = volui(k,iu)  &
                * (volt(k,iw2) * rho(k,iw1) + volt(k,iw1) * rho(k,iw2))
 
-      rho_us = volui(k,iu)  &
-             * (volt(k,iw2) * rho_s(k,iw1) + volt(k,iw1) * rho_s(k,iw2))
-
       ppos(k) = max(0., avflx(k-1,iu)) &
               + max(0.,-avflx(k  ,iu)) &
               + max(0.,ahflx1(k  ,iu)) &
@@ -1909,10 +1908,8 @@ if (action == 'M') then
 
       qpos(k) = (uc_max(k) * rho_u(k) - umc0(k,iu)) / (dts * volui(k,iu))
 
-      qposs = (uc_max(k) * rho_us - umc0(k,iu)) / (dts * volui(k,iu))
-
-      if (ppos(k) > 0.) then
-         rpos(k,iu) = min(1.,qpos(k) / ppos(k))
+      if (ppos(k) > 1.e-12) then
+         rpos(k,iu) = min(1.0, qpos(k) / ppos(k))
       else
          rpos(k,iu) = 0.
       endif
@@ -1926,8 +1923,8 @@ if (action == 'M') then
 
       qneg(k) = (umc0(k,iu) - uc_min(k) * rho_u(k)) / (dts * volui(k,iu))
 
-      if (pneg(k) > 0.) then
-         rneg(k,iu) = min(1.,qneg(k) / pneg(k))
+      if (pneg(k) > 1.e-12) then
+         rneg(k,iu) = min(1.0, qneg(k) / pneg(k))
       else
          rneg(k,iu) = 0.
       endif
@@ -2118,7 +2115,6 @@ do k = ka,mza-1
 
    umc(k,iu) = umc0(k,iu) &
       + dts * (pgf(k) + umt_rayf(k) + volui(k,iu) * (umt(k,iu) &
-
       + cb(k) * avflx (k-1,iu) &
       - ct(k) * avflx (k  ,iu) &
       + c1(k) * ahflx1(k  ,iu) &
@@ -2156,5 +2152,3 @@ uc(1:ka-1,iu) = uc(ka,iu)
 
 return
 end subroutine prog_u0
-
-
