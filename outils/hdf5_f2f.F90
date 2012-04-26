@@ -112,8 +112,8 @@ contains
        write(io6,*) "Enabling parallel HDF5 output"
        write(io6,*)
        call h5pcreate_f(H5P_FILE_ACCESS_F, access_id, hdferr)
-   !   call h5pset_fapl_mpio_f(access_id, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
-       call h5pset_fapl_mpiposix_f(access_id, MPI_COMM_WORLD, .false., hdferr)
+       call h5pset_fapl_mpio_f(access_id, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
+       ! call h5pset_fapl_mpiposix_f(access_id, MPI_COMM_WORLD, .true., hdferr)
     endif
 #endif
 

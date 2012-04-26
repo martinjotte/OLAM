@@ -104,34 +104,34 @@ endif
 ! Set constants for initializing model arrays to zeros or, if supported, NANs
 ! depending on namelist variable init_nans
 
-rinit = 0.0
+rinit  = 0.0
 rinit8 = 0.0_r8
 
-if (init_nans) then
 #ifdef IEEE_ARITHMETIC
+if (init_nans) then
    if (ieee_support_nan(1.0)) then
       rinit = ieee_value(1.0, ieee_signaling_nan)
    endif
-#endif
 endif
+#endif
 
-if (init_nans) then
 #ifdef IEEE_ARITHMETIC
+if (init_nans) then
    if (ieee_support_nan(1.0_r8)) then
       rinit8 = ieee_value(1.0_r8, ieee_signaling_nan)
    endif
-#endif
 endif
+#endif
 
 ! Should we enable parallel output?
 
 ipar_out = 0
 
-if (iparallel == 1 .and. nl%ipar_out == 1) then
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+if (iparallel == 1 .and. nl%ipar_out == 1) then
    ipar_out = 1
-#endif
 endif
+#endif
 
 ! If debugging, halt on illegal floating operations if supported
 
