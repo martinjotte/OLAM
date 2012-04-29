@@ -99,7 +99,7 @@ elseif (clrtab(itab)%ifmt(2) == 2) then
    write (number,'(f9.2)') value
 elseif (clrtab(itab)%ifmt(2) == 1) then
    write (number,'(f9.1)') value
-elseif (clrtab(itab)%ifmt(2) == 0 .or. clrtab(itab)%ifmt(2) == 10) then
+elseif (mod(clrtab(itab)%ifmt(2),10) == 0) then
    write (number,'(f7.0)') value
 elseif (clrtab(itab)%ifmt(2) == -1) then
    write (number,'(e9.1)') value
@@ -1108,9 +1108,7 @@ do ibox = 1,clrtab(itab)%nvals
       write (number,'(f6.2)') clrtab(itab)%vals(ibox)
    elseif (clrtab(itab)%ifmt(1) == 1) then
       write (number,'(f6.1)') clrtab(itab)%vals(ibox)
-   elseif (clrtab(itab)%ifmt(1) ==  0 .or.  &
-           clrtab(itab)%ifmt(1) == 10 .or.  &
-           clrtab(itab)%ifmt(1) == 20) then
+   elseif (mod(clrtab(itab)%ifmt(1),10) ==  0) then
       write (number,'(f7.0)') clrtab(itab)%vals(ibox)
    elseif (clrtab(itab)%ifmt(1) == -1) then
       write (number,'(e8.1)') clrtab(itab)%vals(ibox)

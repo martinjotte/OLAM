@@ -1475,8 +1475,14 @@ if (action == 'T') then
 ! Cyclic treatment of color palette (used with integer-type data)
 
    fldval1 = fldval
-   if (clrtab(itab)%ifmt(1) == 20)  &
+
+   if (clrtab(itab)%ifmt(1) == 20) &
       fldval1 = mod(fldval-1.,real(clrtab(itab)%nvals-2)) + 1.
+
+! Case for color table 130; used with itab_w_mrowh
+
+   if (clrtab(itab)%ifmt(1) == 30) &
+      fldval1 = mod(fldval,100.)
 
 ! Extract contour color from color table
 
