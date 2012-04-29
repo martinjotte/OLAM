@@ -39,7 +39,7 @@ use misc_coms,  only: io6
 
 implicit none
 
-integer :: n,j,iw,iwp,k
+integer :: n
 
 ! SCALARS - Lateral, top, and bottom boundary conditions.
 
@@ -47,9 +47,10 @@ integer :: n,j,iw,iwp,k
 
 do n = 1,num_scalar
 
-!      call cyclic(nzp,nxp,nyp,scalarp,'T')
+!  call cyclic(nzp,nxp,nyp,scalarp,'T')
+
    call latsett(scalar_tab(n)%var_p)
-   call topbott(scalar_tab(n)%var_p)
+   call topbots(scalar_tab(n)%var_p)
 
 enddo
 
@@ -60,7 +61,7 @@ call topbott(theta)
 
 if (level >= 1) then
    call latsett(sh_v)
-   call topbott(sh_v)
+   call topbots(sh_v)
 endif
 
 return
@@ -148,6 +149,9 @@ real, intent(inout) :: sclr(mza,mwa)
 integer :: iw,j,k,ka,mrl
 real :: dzmr
 
+! Top/bottom boundary conditions for temperature:
+! Constant-gradient top, zero-gradient bottom
+
 dzmr = dzm(mza-1) * dzim(mza-2)
 
 call psub()
@@ -176,3 +180,43 @@ call rsub('W',33)
 return
 end subroutine topbott
 
+!===============================================================================
+
+subroutine topbots(sclr)
+
+use mem_ijtabs, only: jtab_w, istp, mrl_endl
+use mem_grid,   only: mza, mwa, lpw
+
+!$ use omp_lib
+
+implicit none
+
+real, intent(inout) :: sclr(mza,mwa)
+
+integer :: iw,j,k,ka,mrl
+
+! Top/bottom boundary condition for scalars: zero-gradient
+
+call psub()
+!----------------------------------------------------------------------
+mrl = mrl_endl(istp)
+if (mrl > 0) then
+!$omp parallel do private (iw,ka,k)
+do j = 1,jtab_w(33)%jend(mrl); iw = jtab_w(33)%iw(j)
+!----------------------------------------------------------------------
+call qsub('W',iw)
+
+   sclr(mza,iw) = sclr(mza-1,iw)
+
+   ka = lpw(iw)
+   do k = ka-1,1,-1
+      sclr(k,iw) = sclr(ka,iw)
+   enddo
+   
+enddo
+!$omp end parallel do
+endif
+call rsub('W',33)
+
+return
+end subroutine topbots
