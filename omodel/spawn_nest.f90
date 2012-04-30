@@ -516,7 +516,7 @@ do ngr = 2,ngrids  ! Loop over nested grids
 ! and also of 3 adjacent U edges.  Doing this will cause remaining interior 
 ! subdivisions to exactly match memory requirement.
 
-      do iper = 1,nper2,3
+      do iper = 1,nper2-1,3
          jm2 = imper(iper+1)
          ju2 = iuper(iper+1)
 
