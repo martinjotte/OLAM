@@ -82,24 +82,14 @@
  ! Horizontal grid refinement ("nested grid") definition
  !--------------------------------------------------------------------------
 
-   ! Number of grids to run:
-   NL%NGRIDS  = 2       
+   ! Number of grids to generate:
+   NL%NGRIDS = 1
 
    ! Method to reduce grid concavities when generating each mesh
    ! 1 eliminates only sharp concavities (Method B)
    ! 2 eliminates both sharp and gentler concavities (original Method A)
    ! 3 activates the Method C refined mesh algorithm
-   ! The first value (for the base grid) is ignored
-   NL%NCONCAVE = 1,1,1,1,1,
-
-   ! Number of transition rows when creating finer mesh. Only used for 
-   ! grids with NCONCAVE = 2. The 1st value is ignored. Valid MROWS = 1:5
-   NL%MROWS = 3,3,3,3,3, 
-
-   ! 1 allows all model points to move when generating mesh
-   ! 0 allows only the transition rows to move generating mesh
-   ! The first value is ignored, and only used for grids with NCONCAVE=3
-   NL%MOVEALL = 1,1,1,1,1,
+   NL%NCONCAVE = 1
 
  ! One group of values must be provided for each "grid" number NG = 2:NGRIDS
 

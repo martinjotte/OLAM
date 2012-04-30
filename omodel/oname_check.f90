@@ -157,11 +157,9 @@ endif
 call ichk_bnds( nl%ngrids,   "NGRIDS",       1, maxgrds, 0, nfatal, nwarn, &
      msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
 
-do ng=2, nl%ngrids
-   call ichk_bnds(nl%nconcave(ng), "NCONCAVE", 1, 3, 0, nfatal, nwarn )
-   call ichk_bnds(nl%mrows(ng),    "MROWS",    1, 5, 2, nfatal, nwarn )
-   call ichk_bnds(nl%moveall(ng),  "MOVEALL",  0, 1, 0, nfatal, nwarn )
+call ichk_bnds(nl%nconcave, "NCONCAVE", 1, 3, 0, nfatal, nwarn )
 
+do ng=2, nl%ngrids
    call ichk_bnds(nl%ngrdll(ng),  "NGRDLL",    1, maxngrdll, 0, nfatal, nwarn )
    call rchk_bnds(nl%grdrad(ng),  "GRDRAD", dzxmin, erad*2., 0, nfatal, nwarn )
 enddo

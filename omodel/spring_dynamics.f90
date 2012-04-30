@@ -36,7 +36,6 @@ use mem_ijtabs,  only: itab_md, itab_ud, itab_wd
 use mem_grid,    only: nma, nua, nwa, xem, yem, zem, impent, mrows
 use consts_coms, only: pi2, erad, erador5
 use misc_coms,   only: io6, nxp, ngrids
-use oname_coms,  only: nl
 use oplot_coms,  only: op
 
 !$ use omp_lib
@@ -57,7 +56,7 @@ real :: dzem(nma)
 integer :: iu,iu1,iu2,iu3,iu4
 integer :: im,im1,im2,im3,im4
 integer :: iw,iw1,iw2,j
-integer :: iter,ipent,mrow1,mrow2,npoly,ngrw
+integer :: iter,ipent,mrow1,mrow2,npoly,ngrw,mrmax,mrmin
 
 integer :: iskip
 real :: xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2
@@ -78,6 +77,16 @@ character(10) :: string
 
 integer :: movem(nma)
 
+!--------------------------------------------------------------
+! SPECIAL CODE TO BE MODIFIED FOR DYNAMIC NESTS
+
+integer :: moveall(ngrids)
+
+moveall(:) = 1
+
+! END SPECIAL CODE
+!--------------------------------------------------------------
+
 ! special
 !RETURN
 ! end special
@@ -87,9 +96,10 @@ integer :: movem(nma)
 ! border zone consists of those M points that are adjacent to M points with
 ! MROW values of -3, -2, -1, or 1.  
 
-if (ngr > 1 .and. nconcave == 3 .and. nl%moveall(ngr) == 0) then
+if (ngr > 1 .and. nconcave == 3 .and. moveall(ngr) == 0) then
 
    movem(:) = 0
+   niter    = 750
 
    do im = 2,nma
       npoly = itab_md(im)%npoly
@@ -106,7 +116,7 @@ if (ngr > 1 .and. nconcave == 3 .and. nl%moveall(ngr) == 0) then
              itab_wd(iw)%mrow == -1 .or. &
              itab_wd(iw)%mrow ==  1) then
             movem(im) = 1
-            cycle
+            cycle ! once this point has been flagged, we can move on
          endif
 
       enddo
@@ -117,15 +127,8 @@ else
 ! The default is to set MOVEM flag = 1 for all points
 
    movem(:) = 1
+   niter    = 2000
 
-endif
-
-! Set value for niter based on ngr and ngrids
-
-if (ngr > 1 .and. ngr < ngrids) then
-   niter = 2000
-else
-   niter = 2000
 endif
 
 ! Compute mean length of U segments for global grid
@@ -156,7 +159,7 @@ do iter = 1,niter
 
 !$omp do private (im1,im2,dist,dist0,iw1,iw2,mrow1,mrow2,iu1,iu3,im3,im4, &
 !$omp             dist1,dist2,dist3,dist4,cosphi3,cosphi4, &
-!$omp             ratio,frac_change,dx2,dy2,dz2)
+!$omp             ratio,frac_change,dx2,dy2,dz2,mrmax,mrmin)
    do iu = 2,nua
 
       im1 = itab_ud(iu)%im(1)
@@ -182,18 +185,21 @@ do iter = 1,niter
       mrow1 = itab_wd(iw1)%mrow
       mrow2 = itab_wd(iw2)%mrow
 
-      if (nconcave == 3 .and. mrow1 /= 0 .and. mrow2 /= 0) then
+      mrmax = max(mrow1,mrow2)
+      mrmin = min(mrow1,mrow2)
 
-         if     (mrow1 + mrow2 == -4) then
+      if (nconcave == 3) then
+
+         if     (mrmax == -2 .and. mrmin == -2) then
             dist0 = dist0 *  7. / 6.  !* .90
-         elseif (mrow1 + mrow2 == -3) then
+         elseif (mrmax == -1 .and. mrmin == -2) then
             dist0 = dist0 *  8. / 6.  !* .90
-         elseif (mrow1 + mrow2 == -2) then
+         elseif (mrmax == -1 .and. mrmin == -1) then
             dist0 = dist0 *  9. / 6.  !* .90
-         elseif (mrow1 + mrow2 ==  0) then
+         elseif (mrmax == 1 .and. mrmin == -1) then
             dist0 = dist0 * 10. / 6.  !* .90
-         elseif (mrow1 + mrow2 ==  2) then
-            dist0 = dist0 * 11. / 12. ! * .90
+         elseif (mrmax == 1 .and. mrmin == 1) then
+            dist0 = dist0 * 11. / 12. !* .90
          endif
 
       elseif (mrow1 > 0 .and. mrow1 <= mrows .and.  &

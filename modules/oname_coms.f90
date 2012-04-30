@@ -88,17 +88,14 @@ Module oname_coms
 
 !!    NESTED GRID DEFINITION
 
-      integer :: ngrids = 0
+      integer :: ngrids   = 1
+      integer :: nconcave = 1
 
       integer :: ngrdll(maxgrds) = 0
       real    :: grdrad(maxgrds) = 0.0
 
       real    :: grdlat(maxgrds,maxngrdll) = 0.0
       real    :: grdlon(maxgrds,maxngrdll) = 0.0
-
-      integer :: nconcave(maxgrds) = 1
-      integer :: mrows   (maxgrds) = 3
-      integer :: moveall (maxgrds) = 1
 
 !!    TIMESTEP RATIOS
 

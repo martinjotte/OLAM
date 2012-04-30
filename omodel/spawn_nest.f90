@@ -109,7 +109,7 @@ do ngr = 2,ngrids  ! Loop over nested grids
 !    rows across a gap that was originally 2 coarse grid rows wide, centered on
 !    the aforementioned refined mesh "boundary".
 
-   nconcave = nl%nconcave(ngr)
+   nconcave = nl%nconcave
 
 ! Set default number of coarse-grid transition rows (MROWS) across which the
 ! transition from coarse-to-fine resolution is made.
@@ -120,12 +120,11 @@ do ngr = 2,ngrids  ! Loop over nested grids
       
       mrows = 2
 
-! If NCONCAVE is set to 2, allowed MROWS values are 1:5 and read in from
-! the namelist (nl%mrows defaults to 3 if not set in namelist)
+! If NCONCAVE is set to 2, allowed MROWS values are 1-5; set to 3 by default
 
    elseif (nconcave == 2) then
 
-      mrows = nl%mrows(ngr)
+      mrows = 3
 
 ! If NCONCAVE is set to 3, MROWS will (must) be set to 3
 
@@ -1776,9 +1775,11 @@ do iw = 2,nwa
 
 ! Initialize all mrow values to zero.
 
-   itab_wd(iw)%mrow = 0
-   mrow_temp(iw)   = 0
-   mrowh_temp(iw)  = 0
+   itab_wd(iw)%mrow  = 0
+   itab_wd(iw)%mrowh = 0
+
+   mrow_temp (iw)    = 0
+   mrowh_temp(iw)    = 0
 
 ! Set mrow values on nested grid border to +/- 1.
 ! Set mrowh values on nested grid border to +/- (100 * ngr + 1)
@@ -1791,7 +1792,7 @@ do iw = 2,nwa
    im2 = itab_wd(iw)%im(2)
    im3 = itab_wd(iw)%im(3)
    
-   ngr = max(itab_md(im1)%mrlm, itab_md(im2)%mrlm, itab_md(im3)%mrlm)
+   ngr = itab_wd(iw)%mrlw
    
    if     (itab_wd(iw)%mrlw < itab_wd(iw1)%mrlw .or. &
            itab_wd(iw)%mrlw < itab_wd(iw2)%mrlw .or. &
