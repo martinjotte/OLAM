@@ -1349,7 +1349,7 @@ real, intent(out) :: vxe(mza,mwa)
 real, intent(out) :: vye(mza,mwa)
 real, intent(out) :: vze(mza,mwa)
 
-integer :: j,iw,npoly,ka,kb,k,jv,iv
+integer :: j,iw,npoly,kb,k,jv,iv
 real    :: farv2, wst
 
 ! Horizontal loop over W columns
@@ -1366,7 +1366,7 @@ call qsub('W',iw)
 
 ! Vertical loop over T levels
 
-   do k = kb,mza-1
+   do k = kb, mza-1
 
 ! Diagnose 3D earth-velocity vector at T points; W contribution first
 
@@ -1380,16 +1380,15 @@ call qsub('W',iw)
 
 ! Loop over V neighbors of this W cell
 
-   do jv = 1,npoly
+   do jv = 1, npoly
 
       iv = itab_w(iw)%iv(jv)
-      ka = lpv(iv)
 
       farv2 = 2. * itab_w(iw)%farv(jv)
 
 ! Vertical loop over T levels
 
-      do k = ka,mza-1
+      do k = kb, mza-1
 
 ! Diagnose 3D earth-velocity vector at T points; VC contribution
 
@@ -1401,9 +1400,9 @@ call qsub('W',iw)
       
    enddo
    
-   vxe(2:kb-1,iw) = 0.0
-   vye(2:kb-1,iw) = 0.0
-   vze(2:kb-1,iw) = 0.0
+   vxe(2:kb-1,iw) = vxe(kb,iw)
+   vye(2:kb-1,iw) = vye(kb,iw)
+   vze(2:kb-1,iw) = vze(kb,iw)
 
    vxe(mza,iw) = vxe(mza-1,iw)
    vye(mza,iw) = vye(mza-1,iw)
