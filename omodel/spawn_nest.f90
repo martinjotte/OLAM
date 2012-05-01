@@ -516,7 +516,7 @@ do ngr = 2,ngrids  ! Loop over nested grids
 ! and also of 3 adjacent U edges.  Doing this will cause remaining interior 
 ! subdivisions to exactly match memory requirement.
 
-      do iper = 1,nper2-1,3
+      do iper = 1,nper2-2,3
          jm2 = imper(iper+1)
          ju2 = iuper(iper+1)
 
@@ -1930,8 +1930,8 @@ do ipt = 1,ngrdll(ngr)
 
    if (dist < grdrad(ngr)) then
       inside = 1
-   elseif (dist < grdrad(ngr) * 1.1 ) then ! temporary fix: expand search radius when
-      inside = 2                           ! searching for ipent points
+   elseif (inside == 0 .and. dist < grdrad(ngr) * 1.1 ) then
+      inside = 2  ! larger radius when searching for ipent points
    endif
 
 enddo
