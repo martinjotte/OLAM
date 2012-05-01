@@ -1543,7 +1543,7 @@ call qsub('W',iw)
 !go to 1
 ! Option for stability: expand volt if too small relative to any grid cell face
  
-      volt(k,iw) = max(volt(k,iw),real(arw(k,iw),8) * dzt(k))
+      volt(k,iw) = max( volt(k,iw), real(arw(k,iw),8) * dzt(k))
 
 ! Loop over faces of IW polygon
 
@@ -1552,9 +1552,21 @@ call qsub('W',iw)
          
          v_height = arv(k,iv) / dnu(iv)
          
-         volt(k,iw) = max(volt(k,iw), real(arw0(iw),8) * zfact(k) * v_height)
+         volt(k,iw) = max( volt(k,iw), real(arw0(iw),8) * zfact(k) * v_height)
 
       enddo
+      
+! Reset arw(k,iw) if we increased volt to avoid hollow box
+
+      if (volt(k,iw) > 1.e-9) then
+         arw(k,iw) = max( arw(k,iw), real( volt(k,iw) / dzt(k)))
+      endif
+
+! Make sure arw increases with height if we have adjusted it
+
+      if (k < nza-2) then
+         arw(k+1,iw) = max( arw(k+1,iw), arw(k,iw))
+      endif
 
 1 continue
 

@@ -1177,6 +1177,18 @@ call qsub('W',iw)
 
       enddo
 
+! Reset arw(k,iw) if we increased volt to avoid hollow box
+
+      if (volt(k,iw) > 1.e-9) then
+         arw(k,iw) = max( arw(k,iw), real( volt(k,iw) / dzt(k)))
+      endif
+
+! Make sure arw increases with height if we have adjusted it
+
+      if (k < nza-2) then
+         arw(k+1,iw) = max( arw(k+1,iw), arw(k,iw))
+      endif
+
 1 continue
 
 !xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
