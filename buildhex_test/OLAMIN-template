@@ -196,6 +196,9 @@
    NL%NADDSC    = 0       ! Number of additional scalar species
 
    NL%ICORFLG   = 1       ! Coriolis flag/2D v-component: 0 = off, 1 = on
+   
+   NL%ISCAL_MONOT = 1     ! Monotonic advection for scalars (including moisture)
+                          ! 0 = off, 1 = on
 
    NL%DEBUG_FP  = .false. ! Detect floating point errors such as overflows,
                           ! INFs, divide-by-zeros, and NANs (best if code is
