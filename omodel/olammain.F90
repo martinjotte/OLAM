@@ -146,12 +146,13 @@ call h5close_f(hdferr)
 ! If this run is parallel, finalize MPI and close io6 file
 
 call olam_mpi_finalize()
-if (iparallel == 1) then
-   close(io6)
-endif
 
 write(io6,'(A)')
 write(io6,'(A)') "olam_end"
+
+if (iparallel == 1) then
+   close(io6)
+endif
 
 stop
 end program main
