@@ -988,7 +988,7 @@ GO TO 15
   use misc_coms
   use mem_grid
   use consts_coms
-  use massflux,  only: diagnose_uc, diagnose_vc
+  use massflux,  only: diagnose_vc
 
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                           mpi_send_u, mpi_recv_u, &
@@ -1439,10 +1439,6 @@ GO TO 15
         call mpi_recv_v('I')
      endif
 
-! Re-diagnose U velocity component
-
-     call diagnose_uc()
-
   endif
 
   return
@@ -1477,7 +1473,7 @@ GO TO 15
   use misc_coms
   use mem_grid
   use consts_coms
-  use massflux,  only: diagnose_uc, diagnose_vc
+  use massflux,  only: diagnose_vc
 
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                           mpi_send_u, mpi_recv_u, &
@@ -1807,10 +1803,6 @@ GO TO 15
         call mpi_send_v('I')
         call mpi_recv_v('I')
      endif
-
-! Re-diagnose U velocity component
-
-     call diagnose_uc()
 
   endif
 

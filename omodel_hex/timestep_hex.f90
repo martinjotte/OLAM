@@ -41,7 +41,7 @@ use mem_grid,   only: mza, mva, mwa
 use micro_coms, only: level
 use leaf_coms,  only: isfcl
 use mem_para,   only: myrank
-use massflux,   only: zero_momsc, timeavg_momsc, diagnose_uc
+use massflux,   only: zero_momsc, timeavg_momsc
 
 use mem_basic  ! needed only when print statements below are uncommented
 use mem_tend   ! needed only when print statements below are uncommented
@@ -133,8 +133,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    if (iparallel == 1) then
       call mpi_recv_v('V')  ! Recv V group
    endif
-
-   call diagnose_uc()
 
 ! call check_nans(16)
 

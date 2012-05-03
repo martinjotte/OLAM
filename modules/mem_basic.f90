@@ -72,6 +72,7 @@ Contains
 
        allocate (ump(mza,mua)) ; ump = rinit
        allocate (umc(mza,mua)) ; umc = rinit
+       allocate (uc (mza,mua)) ; uc  = rinit
       
     elseif (meshtype == 2) then
    
@@ -84,7 +85,6 @@ Contains
     allocate (rho  (mza,mwa)) ; rho   = rinit8
     allocate (press(mza,mwa)) ; press = rinit8
 
-    allocate (uc   (mza,mua)) ; uc    = rinit
     allocate (vc   (mza,mva)) ; vc    = rinit
     allocate (wmc  (mza,mwa)) ; wmc   = rinit
     allocate (wc   (mza,mwa)) ; wc    = rinit
