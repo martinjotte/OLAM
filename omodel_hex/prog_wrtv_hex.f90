@@ -204,7 +204,7 @@ endif
 ! primary W points. Communication of velocities must have been completed
 
 if (mrl > 0) then
-   call donorpointv(0, mrl, vc, vxe, vye, vze, iwdepv, iwrecv, &
+   call donorpointv(0, mrl, vcf, vxe, vye, vze, iwdepv, iwrecv, &
                     dxps_v, dyps_v, dzps_v)
 endif
 
