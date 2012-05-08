@@ -143,12 +143,13 @@ Contains
   subroutine filltab_sflux()
 
     use var_tables, only: vtab_r, num_var, increment_vtable
-    use misc_coms,  only: iparallel, runtype
+    use misc_coms,  only: iparallel, runtype, ipar_out
     implicit none
 
     if (allocated(seaflux)) then
 
-       if (iparallel==1 .or. runtype=='PLOTONLY' .or. runtype=='PARCOMBINE') then
+       if ( (runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or. &
+            (iparallel == 1 .and. ipar_out == 0) ) then
 
           call increment_vtable('SEAFLUX%IFGLOBE', 'SF', noread=.true.)
           vtab_r(num_var)%ivar1_p => seaflux%ifglobe
@@ -168,7 +169,8 @@ Contains
 
     if (allocated(landflux)) then
 
-       if (iparallel==1 .or. runtype=='PLOTONLY' .or. runtype=='PARCOMBINE') then
+       if ( (runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or. &
+            (iparallel == 1 .and. ipar_out == 0) ) then
 
           call increment_vtable('LANDFLUX%IFGLOBE', 'LF', noread=.true.)
           vtab_r(num_var)%ivar1_p => landflux%ifglobe
