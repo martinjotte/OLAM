@@ -30,16 +30,16 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine turb_k_hex(mrl,vxe,vye,vze)
+subroutine turb_k(mrl)
 
 ! This is Smagorinsky-Lilly-Hill turbulence parameterization
 
 use mem_turb,   only: hkm, vkm, vkh
-use mem_ijtabs, only: istp, jtab_w, itab_w, mrl_endl
+use mem_ijtabs, only: istp, jtab_w, itab_w, mrl_begl
 use mem_grid,   only: mza, mwa, lpw, dzim
 use misc_coms,  only: io6, idiffk, csx, csz, zkhkm, akmin, meshtype
 
-use mem_basic,   only: rho, theta, sh_v
+use mem_basic,   only: rho, theta, sh_v, vxe, vye, vze
 use consts_coms, only: vonk, alvl, grav2, cp, rvap
 use mem_grid,    only: mza, lpw, arw0, dzm, dzim, zm, lpu, lpv,  &
                        unx, uny, unz, vnx, vny, vnz
@@ -49,10 +49,6 @@ use micro_coms,  only: level
 implicit none
 
 integer, intent(in) :: mrl
-
-real, intent(in) :: vxe(mza,mwa)
-real, intent(in) :: vye(mza,mwa)
-real, intent(in) :: vze(mza,mwa)
 
 integer :: j,iw,k,mrlw,ka
 
@@ -173,5 +169,5 @@ enddo
 call rsub('W',34)
 
 return
-end subroutine turb_k_hex
+end subroutine turb_k
 

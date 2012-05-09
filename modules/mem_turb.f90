@@ -44,19 +44,18 @@ Module mem_turb
   real, allocatable, target :: sflux_w (:)
   real, allocatable, target :: sflux_t (:)
   real, allocatable, target :: sflux_r (:)
-  real, allocatable, target :: vels    (:)
   real, allocatable, target :: ustar   (:)
 
 Contains
 
 !===============================================================================
 
-  subroutine alloc_turb(mza,mwa,nsw_max,idiffk)
+  subroutine alloc_turb(mza, mwa, nsw_max, idiffk)
 
     use misc_coms, only: rinit
     implicit none
 
-    integer, intent(in) :: mza,mwa,nsw_max,idiffk
+    integer, intent(in) :: mza, mwa, nsw_max, idiffk
 
 !   Allocate arrays based on options (if necessary)
 !   Initialize arrays to zero
@@ -82,7 +81,6 @@ Contains
     allocate (sflux_t(mwa)) ; sflux_t = rinit
     allocate (sflux_r(mwa)) ; sflux_r = rinit
     allocate (ustar  (mwa)) ; ustar   = rinit
-    allocate (vels   (mwa)) ; vels    = rinit
     allocate (sflux_w(mwa)) ; sflux_w = rinit
 
   end subroutine alloc_turb
@@ -102,7 +100,6 @@ Contains
     if (allocated(sflux_w)) deallocate (sflux_w)
     if (allocated(sflux_t)) deallocate (sflux_t)
     if (allocated(sflux_r)) deallocate (sflux_r)
-    if (allocated(vels))    deallocate (vels)
     if (allocated(ustar))   deallocate (ustar)
 
   end subroutine dealloc_turb
@@ -167,11 +164,6 @@ Contains
     if (allocated(sflux_r)) then
        call increment_vtable('SFLUX_R', 'AW')
        vtab_r(num_var)%rvar1_p => sflux_r
-    endif
-
-    if (allocated(vels)) then
-       call increment_vtable('VELS', 'AW')
-       vtab_r(num_var)%rvar1_p => vels
     endif
 
     if (allocated(ustar)) then

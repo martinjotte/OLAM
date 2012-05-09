@@ -52,6 +52,10 @@ Module mem_basic
   real, allocatable, target :: thil (:,:) ! ice-liquid pot temp [K]
   real, allocatable, target :: theta(:,:) ! pot temp [K]
 
+  real, allocatable, target :: vxe(:,:) ! earth-relative x velocity at T point [m/s]
+  real, allocatable, target :: vye(:,:) ! earth-relative y velocity at T point [m/s]
+  real, allocatable, target :: vze(:,:) ! earth-relative z velocity at T point [m/s]
+
   real(r8), allocatable, target :: press(:,:) ! air pressure [Pa]
   real(r8), allocatable, target :: rho  (:,:) ! total air density [kg/m^3]
 
@@ -93,6 +97,10 @@ Contains
     allocate (sh_w (mza,mwa)) ; sh_w  = rinit
     allocate (sh_v (mza,mwa)) ; sh_v  = rinit
 
+    allocate (vxe  (mza,mwa)) ; vxe   = rinit
+    allocate (vye  (mza,mwa)) ; vye   = rinit
+    allocate (vze  (mza,mwa)) ; vze   = rinit
+
   end subroutine alloc_basic
 
 !===============================================================================
@@ -115,6 +123,9 @@ Contains
     if (allocated(press)) deallocate (press)
     if (allocated(thil))  deallocate (thil)
     if (allocated(theta)) deallocate (theta)
+    if (allocated(vxe))   deallocate (vxe)
+    if (allocated(vye))   deallocate (vye)
+    if (allocated(vze))   deallocate (vze)
 
   end subroutine dealloc_basic
 

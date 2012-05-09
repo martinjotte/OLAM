@@ -489,8 +489,9 @@ if (ncall /= 10) then
    press_init(:,:) = press(:,:)
    rho_init  (:,:) = rho  (:,:)
    theta_init(:,:) = theta(:,:)
-   uc_init   (:,:) = uc   (:,:)
-   vc_init   (:,:) = vc   (:,:)
+
+   if (allocated(uc)) uc_init(:,:) = uc(:,:)
+   if (allocated(vc)) vc_init(:,:) = vc(:,:)
 !   addsc1_init(:,:) = addsc(1)%sclp(:,:)
 
 endif
@@ -614,10 +615,14 @@ select case(icase)
 
 case(1) ! 'UMC'
 
+   if (.not. allocated(umc)) go to 1000
+
    fldval = wtbot * umc(k  ,i) &
           + wttop * umc(k+1,i)
 
 case(2) ! 'VMC'
+
+   if (.not. allocated(vmc)) go to 1000
 
    fldval = wtbot * vmc(k  ,i) &
           + wttop * vmc(k+1,i)
@@ -631,20 +636,28 @@ case(3) ! 'WMC'
 
 case(4) ! 'UMP'
 
+   if (.not. allocated(ump)) go to 1000
+
    fldval = wtbot * ump(k  ,i) &
           + wttop * ump(k+1,i)
 
 case(5) ! 'VMP'
+
+   if (.not. allocated(vmp)) go to 1000
 
    fldval = wtbot * vmp(k  ,i) &
           + wttop * vmp(k+1,i)
 
 case(6) ! 'UC'
 
+   if (.not. allocated(uc)) go to 1000
+
    fldval = wtbot * uc(k  ,i) &
           + wttop * uc(k+1,i)
 
 case(7) ! 'VC'
+
+   if (.not. allocated(vc)) go to 1000
 
    fldval = wtbot * vc(k  ,i) &
           + wttop * vc(k+1,i)

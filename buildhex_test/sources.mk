@@ -135,6 +135,7 @@ SOURCE_FILES= \
              $(OMODEL)/tileslab.f90 \
              $(OMODEL)/topo_database_read.f90 \
              $(OMODEL)/triangle_utils.f90 \
+	     $(OMODEL)/vel_t3d.f90 \
              $(OMODEL_HEX)/turb_k_hex.f90 \
              $(OMODEL)/vectslab.f90 \
              $(OMODEL_HEX)/hex_grid.f90 \

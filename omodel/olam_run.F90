@@ -50,7 +50,7 @@ use mem_sea,     only: fill_jsea
 use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_u, itab_v, itab_w
 use oplot_coms,  only: op
 use mem_grid,    only: nma, nua, nva, nwa, mma, mua, mva, mwa, mza, zm, zt
-use mem_basic,   only: alloc_basic, wc
+use mem_basic,   only: alloc_basic, wc, vxe, vye, vze
 use micro_coms,  only: gnu
 use ed_options,  only: ied_offline
 use mem_nudge,   only: nudflag
@@ -66,7 +66,7 @@ implicit none
 
 character(len=*), intent(in) :: name_name
 
-integer :: i,ifm,nndtflg,ifileok,ierr,iplt_file
+integer :: i,ifm,nndtflg,ifileok,ierr,iplt_file,mrl
 integer :: mwa_prog, mua_prog, mva_prog
 real :: w1,w2,t1,t2,wtime_start
 real, external :: walltime
@@ -342,6 +342,20 @@ if (iparallel == 1) then
    call mpi_recv_w('S')  ! Recv scalars
 endif
 
+! Diagnose earth-relative velocities
+
+if (runtype == 'INITIAL') then
+   mrl = 1
+   call diagvel_t3d(mrl)
+
+   if (iparallel == 1) then
+      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
+      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+   endif
+endif
+
+! Start up radiation scheme
+
 if (iswrtyp == 3 .or. ilwrtyp == 3) then
    write(io6,'(/,a)') 'olam_run calling harr_radinit'
    call harr_radinit()
@@ -406,6 +420,15 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
       call history_start('COMMIO')
       call history_start('HISTREAD')
 
+      ! Earth-relative winds not saved in history file
+
+      mrl = 1
+      call diagvel_t3d(mrl)
+      if (iparallel == 1) then
+         call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
+         call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+      endif
+
       if (runtype == 'PLOTONLY') then
          call plot_fields(0)
       else
@@ -424,6 +447,15 @@ if (runtype == 'HISTORY') then
    write(io6,*) 'olam_run calling history_start'
    call history_start('HISTREAD')
    write(io6,*) 'olam_run finished history_start'
+
+   ! Earth-relative winds not saved in history filea
+
+   mrl = 1
+   call diagvel_t3d(mrl)
+   if (iparallel == 1) then
+      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
+      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+   endif
 endif
 
 write(io6,'(/,a)') 'olam_run calling plot_fields'

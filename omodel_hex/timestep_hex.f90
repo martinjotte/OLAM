@@ -35,7 +35,7 @@ subroutine timestep()
 use misc_coms,  only: io6, time8, time_istp8, nqparm, initial, ilwrtyp,   &
                       iswrtyp, dtsm, nqparm_sh, dtlm, iparallel,   &
                       s1900_init, s1900_sim
-use mem_ijtabs, only: nstp, istp, mrls, leafstep, mrl_endl
+use mem_ijtabs, only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,  only: nudflag
 use mem_grid,   only: mza, mva, mwa
 use micro_coms, only: level
@@ -43,12 +43,13 @@ use leaf_coms,  only: isfcl
 use mem_para,   only: myrank
 use massflux,   only: zero_momsc, timeavg_momsc
 
-use mem_basic  ! needed only when print statements below are uncommented
-use mem_tend   ! needed only when print statements below are uncommented
-use mem_leaf   ! needed only when print statements below are uncommented
+use mem_basic,  only: vxe, vye, vze
+!use mem_basic  ! needs vxe, vye, and vze, others when print statements below are uncommented
+!use mem_tend   ! needed only when print statements below are uncommented
+!use mem_leaf   ! needed only when print statements below are uncommented
 use ed_options, only: frq_phenology
 
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_recv_v
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 
 use oplot_coms,  only: op
 
@@ -56,7 +57,7 @@ use mem_timeavg, only: accum_timeavg
 
 implicit none
 
-integer :: is,mvl,isl4,jstp,iw
+integer :: is,mvl,isl4,jstp,iw,mrl
 real :: t1,w1
 
 ! automatic arrays
@@ -91,6 +92,26 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(2)
 
+   mrl = mrl_begl(istp)
+   if (mrl > 0) then
+      call surface_turb_flux(mrl)
+   endif
+
+! call check_nans(3)
+
+   mrl = mrl_begl(istp)
+   if (mrl > 0) then
+
+      call turb_k(mrl)  ! Compute K's
+
+      if (iparallel == 1) then
+         call mpi_send_w('K')  ! Send K's
+      endif
+
+   endif
+
+! call check_nans(5)
+
    if (any(nqparm   (1:mrls) > 0) .or.  &
        any(nqparm_sh(1:mrls) > 0)) then
 
@@ -100,7 +121,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
          call surface_cuparm_flux()
       endif
    endif
-
 ! call check_nans(6)
 
    if (initial == 2 .and. nudflag == 1)  &
@@ -110,9 +130,22 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call zero_momsc(vmsc,wmsc,rho_old)
 
+   mrl = mrl_begl(istp)
+   if (mrl > 0 .and. iparallel == 1) then
+      call mpi_recv_w('K')  ! Recv K's
+   endif
+
+   mrl = mrl_begl(istp)
+   if (mrl > 0) then
+      call thiltend_long(mrl,rhot)
+   endif
+
 ! call check_nans(11)
 
    call prog_wrtv(vmsc,wmsc,alpha_press,rhot)
+
+   ! MPI send of VMC, VC
+   if (iparallel == 1) call mpi_send_v('V')
 
 ! call check_nans(12)
 
@@ -126,13 +159,26 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(14)
 
-   call predtr(rho_old)
+   ! MPI recv of VMC, VC
+
+   if (iparallel == 1) then
+      call mpi_recv_v('V')
+   endif
+
+   mrl = mrl_ends(istp)
+   if (mrl > 0) then
+      call diagvel_t3d(mrl)
+   endif
+
+   ! MPI send of vxe, vye, vze
+
+   if (iparallel == 1) then
+      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
+   endif
 
 ! call check_nans(15)
 
-   if (iparallel == 1) then
-      call mpi_recv_v('V')  ! Recv V group
-   endif
+   call predtr(rho_old)
 
 ! call check_nans(16)
 
@@ -141,27 +187,27 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
 
 ! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
-if (mod(real(time8),op%frqplt) < dtlm(1) .and. istp == nstp+1000) then
-
-   allocate (op%extfld(mza,mwa))
-   op%extfld(:,:) = thil(:,:)
-   op%extfldname = 'THIL'
-   call plot_fields(1)
-   deallocate (op%extfld)
-
-   allocate (op%extfld(mza,mwa))
-   op%extfld(:,:) = theta(:,:)
-   op%extfldname = 'THETA'
-   call plot_fields(2)
-   deallocate (op%extfld)
-
-   allocate (op%extfld(mza,mwa))
-   op%extfld(:,:) = (sh_w(:,:) - sh_v(:,:)) * 1.e3
-   op%extfldname = 'SH_TOTCOND'
-   call plot_fields(3)
-   deallocate (op%extfld)
-
-endif
+!if (mod(real(time8),op%frqplt) < dtlm(1) .and. istp == nstp+1000) then
+!
+!   allocate (op%extfld(mza,mwa))
+!   op%extfld(:,:) = thil(:,:)
+!   op%extfldname = 'THIL'
+!   call plot_fields(1)
+!   deallocate (op%extfld)
+!
+!   allocate (op%extfld(mza,mwa))
+!   op%extfld(:,:) = theta(:,:)
+!   op%extfldname = 'THETA'
+!   call plot_fields(2)
+!   deallocate (op%extfld)
+!
+!   allocate (op%extfld(mza,mwa))
+!   op%extfld(:,:) = (sh_w(:,:) - sh_v(:,:)) * 1.e3
+!   op%extfldname = 'SH_TOTCOND'
+!   call plot_fields(3)
+!   deallocate (op%extfld)
+!
+!endif
 ! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
 
 ! call check_nans(17)
@@ -172,6 +218,12 @@ endif
       if (isfcl == 1) then
          call surface_precip_flux()
       endif
+   endif
+
+   ! MPI recv of vxe, vye, vze
+
+   if (iparallel == 1) then
+      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
    endif
 
 ! call check_nans(18)

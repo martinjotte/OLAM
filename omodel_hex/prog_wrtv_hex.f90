@@ -40,12 +40,11 @@ subroutine prog_wrtv(vmsc,wmsc,alpha_press,rhot)
 use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, istp, itab_w, jtab_m, itab_m, &
                         mrl_begl, mrl_begs, mrl_ends, mrl_endl
 use mem_basic,    only: rho, thil, theta, wc, press, wmc, vmp, vmc, vp, vc, &
-                        sh_w, sh_v
+                        sh_w, sh_v, vxe, vye, vze
 use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lcv, lpw, &
                         zt, zm, dzim, zfacit, dzm, dzt, dnv, dnu, arm0, arv, &
                         vnx, vny, vnz, volt, volwi
 use mem_tend,     only: vmt
-use mem_turb,     only: vels
 use misc_coms,    only: io6, iparallel, time8, dtlm
 use consts_coms,  only: cpocv, pc1, rdry, rvap
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v
@@ -83,9 +82,9 @@ real :: vmcf(mza,mva) ! Time-extrapolated VMC
 real :: vcf(mza,mva)  ! Time-extrapolated VC
 real :: wmcf(mza,mwa) ! Time-interpolated WMC
 
-real :: vxe(mza,mwa) ! XE velocity component at T point
-real :: vye(mza,mwa) ! YE velocity component at T point
-real :: vze(mza,mwa) ! ZE velocity component at T point
+real :: vxef(mza,mwa) ! Time-extrapolated XE velocity component at T point
+real :: vyef(mza,mwa) ! Time-extrapolated YE velocity component at T point
+real :: vzef(mza,mwa) ! Time-extrapolated ZE velocity component at T point
 
 real :: vmxet(mza,mwa) ! XE momentum tendency component at T point
 real :: vmyet(mza,mwa) ! YE momentum tendency component at T point
@@ -133,133 +132,11 @@ vmcf(:,1) = 0.
 vcf (:,1) = 0.
 wmcf(:,1) = 0.
 
-! Horizontal loop over V/N columns
-
-call psub()
-!----------------------------------------------------------------------
-mrl = mrl_begs(istp)
-if (mrl > 0) then
-!$omp parallel do private(k) 
-do iv = 2,mva
-!----------------------------------------------------------------------
-call qsub('V',iv)
-
-! Extrapolate VM and V to time T + 1/2; update VMP
-
-   do k = 1,mza-1
-      vmcf(k,iv) = (1.5 * vmc(k,iv) - 0.5 * vmp(k,iv))
-      vcf (k,iv) = (1.5 * vc (k,iv) - 0.5 * vp (k,iv))
-
-      vmsc(k,iv) = vmsc(k,iv) + vmcf(k,iv)
-      vmp (k,iv) = vmc(k,iv)
-   enddo
-
-enddo
-!$omp end parallel do 
-endif
-call rsub('Va',16)
-
-! Diagnose 3D velocity at T points for BEGS using half-future vcf and current wc
-
-mrl = mrl_begs(istp)
-if (mrl > 0) then
-   call vel_t3d(mrl, vcf, wc, vxe, vye, vze)
-endif
-
-! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
-! (Example of how to plot "external" field; one not available in module memory)
-!
-!if (mod(real(time8),op%frqplt) < dtlm(1) .and. istp == 900) then
-!
-!   allocate (op%extfld(mza,mwa))
-!   op%extfld(:,:) = vxe(:,:)
-!   op%extfldname = 'VXE'
-!   call plot_fields(11)
-!   deallocate (op%extfld)
-!
-!endif
-! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
-
-! MPI send of VXE, VYE, VZE
-
-if (iparallel == 1 .and. mrl > 0) then
-   call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
-endif
-
-! Diagnose advective donor point locations for all primary W faces
-! No parallel communication is necessary to compute this
-
-if (mrl > 0) then
-   call donorpointw(0, mrl, wc, vxe, vye, vze, kdepw, krecw, &
-                    dxps_w, dyps_w, dzps_w)
-endif
-
-! Finish MPI recv of VXE, VYE, VZE
-
-if (iparallel == 1 .and. mrl > 0) then
-   call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
-endif
-
-! Diagnose advective donor point locations for the V faces surrounding all
-! primary W points. Communication of velocities must have been completed
-
-if (mrl > 0) then
-   call donorpointv(0, mrl, vcf, vxe, vye, vze, iwdepv, iwrecv, &
-                    dxps_v, dyps_v, dzps_v)
-endif
-
-! Diagnose 3D velocity at T points for BEGS using current vc and wc
-
-mrl = mrl_begs(istp)
-if (mrl > 0) then
-   call vel_t3d(mrl,vc,wc,vxe,vye,vze)
-endif
-
-! MPI SEND/RECV of VXE, VYE, VZE
-
-if (iparallel == 1 .and. mrl > 0) then
-   call mpi_send_w('V',vxe=vxe,vye=vye,vze=vze)
-   call mpi_recv_w('V',vxe=vxe,vye=vye,vze=vze)
-endif
-
-! Check if this is long timestep (for any portion of domain)
+! First compute long timestep tendencies
+! Maybe move to a separate subroutine veltend_long_hex?
 
 mrl = mrl_begl(istp)
 if (mrl > 0) then
-
-! Compute turbulent mixing coefficients
-
-   call turb_k_hex(mrl,vxe,vye,vze)
-
-! MPI SEND of mixing coefficients
-! (vkm and vkm_sfc are sent but not needed for hexagons)
-
-   if (iparallel == 1) call mpi_send_w('K')
-
-! Diagnose near-surface wind for computing surface turbulent fluxes
-
-!----------------------------------------------------------------------
-   !$omp parallel do private(iw,ka) 
-   do j = 1,jtab_w(20)%jend(mrl); iw = jtab_w(20)%iw(j)
-!----------------------------------------------------------------------
-      ka = lpw(iw)
-
-      vels(iw) = sqrt(vxe(ka,iw) ** 2 + vye(ka,iw) ** 2 + vze(ka,iw) ** 2)
-
-   enddo
-   !$omp end parallel do 
-
-! Compute surface turbulent fluxes
-
-   call surface_turb_flux(mrl)
-
-! MPI RECV of turbulent mixing coefficients
-
-   if (iparallel == 1) call mpi_recv_w('K')
-
-! Compute THIL long timestep tendency
-
-   call thiltend_long(mrl,rhot)
 
 ! Horizontal loop over W columns for BEGL
 
@@ -291,6 +168,7 @@ if (mrl > 0) then
 ! MPI SEND of VMXET, VMYET, VMZET
 
    if (iparallel == 1) call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
+
 
 ! Horizontal loop over M/P columns for BEGL; Diagnose vertical vorticity
 ! in preparation for horizontal filter
@@ -418,6 +296,81 @@ if (mrl > 0) then
    call rsub('V',16)
 
 endif ! mrl = mrl_begl(istp) > 0
+
+! Horizontal loop over V/N columns
+
+call psub()
+!----------------------------------------------------------------------
+mrl = mrl_begs(istp)
+if (mrl > 0) then
+!$omp parallel do private(k) 
+do iv = 2,mva
+!----------------------------------------------------------------------
+call qsub('V',iv)
+
+! Extrapolate VM and V to time T + 1/2; update VMP
+
+   do k = 1,mza-1
+      vmcf(k,iv) = (1.5 * vmc(k,iv) - 0.5 * vmp(k,iv))
+      vcf (k,iv) = (1.5 * vc (k,iv) - 0.5 * vp (k,iv))
+
+      vmsc(k,iv) = vmsc(k,iv) + vmcf(k,iv)
+      vmp (k,iv) = vmc(k,iv)
+   enddo
+
+enddo
+!$omp end parallel do 
+endif
+call rsub('Va',16)
+
+! Diagnose 3D velocity at T points for BEGS using half-future vcf and current wc
+
+mrl = mrl_begs(istp)
+if (mrl > 0) then
+   call vel_t3d_hex(mrl, vcf, wc, vxef, vyef, vzef)
+endif
+
+! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
+! (Example of how to plot "external" field; one not available in module memory)
+!
+!if (mod(real(time8),op%frqplt) < dtlm(1) .and. istp == 900) then
+!
+!   allocate (op%extfld(mza,mwa))
+!   op%extfld(:,:) = vxe(:,:)
+!   op%extfldname = 'VXE'
+!   call plot_fields(11)
+!   deallocate (op%extfld)
+!
+!endif
+! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
+
+! MPI send of VXE, VYE, VZE
+
+if (iparallel == 1 .and. mrl > 0) then
+   call mpi_send_w('V', vxe=vxef, vye=vyef, vze=vzef)
+endif
+
+! Diagnose advective donor point locations for all primary W faces
+! No parallel communication is necessary to compute this
+
+if (mrl > 0) then
+   call donorpointw(0, mrl, wc, vxef, vyef, vzef, kdepw, krecw, &
+                    dxps_w, dyps_w, dzps_w)
+endif
+
+! Finish MPI recv of VXE, VYE, VZE
+
+if (iparallel == 1 .and. mrl > 0) then
+   call mpi_recv_w('V', vxe=vxef, vye=vyef, vze=vzef)
+endif
+
+! Diagnose advective donor point locations for the V faces surrounding all
+! primary W points. Communication of velocities must have been completed
+
+if (mrl > 0) then
+   call donorpointv(0, mrl, vcf, vxef, vyef, vzef, iwdepv, iwrecv, &
+                    dxps_v, dyps_v, dzps_v)
+endif
 
 ! [Now, we can reuse vmxet, vmyet, vmzet arrays]
 
@@ -553,13 +506,8 @@ call rsub('Wa',19)
 ! MPI SEND/RECV of WMC, PRESS, RHO, VMXET, VMYET, VMZET
 
 if (iparallel == 1) then
-   call mpi_send_w('P')
-
-   call mpi_recv_w('P')
-
-   call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
-
-   call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
+   call mpi_send_w('P', vmxet=vmxet, vmyet=vmyet, vmzet=vmzet)
+   call mpi_recv_w('P', vmxet=vmxet, vmyet=vmyet, vmzet=vmzet)
 endif
 
 ! Horizontal loop over V points to update VMC
@@ -579,10 +527,6 @@ enddo
 !$omp end parallel do 
 endif
 call rsub('Va',16)
-
-! MPI SEND of VMC, VC
-
-if (iparallel == 1) call mpi_send_v('V')
 
 return
 end subroutine prog_wrtv
@@ -1339,90 +1283,3 @@ vc(1:kb-1,iv) = vc(kb,iv)
 
 return
 end subroutine prog_v_begs
-
-!===============================================================================
-
-subroutine vel_t3d(mrl,vs,ws,vxe,vye,vze)
-
-use mem_ijtabs, only: jtab_w, itab_v, itab_w
-use mem_grid,   only: mza, mva, mwa, lpw, lpv, vnx, vny, vnz, wnx, wny, wnz
-use misc_coms,  only: io6
-
-!$ use omp_lib
-
-implicit none
-
-integer, intent(in) :: mrl
-
-real, intent(in)  :: vs(mza,mva)
-real, intent(in)  :: ws(mza,mwa)
-
-real, intent(out) :: vxe(mza,mwa)
-real, intent(out) :: vye(mza,mwa)
-real, intent(out) :: vze(mza,mwa)
-
-integer :: j,iw,npoly,kb,k,jv,iv
-real    :: farv2, wst
-
-! Horizontal loop over W columns
-
-call psub()
-!----------------------------------------------------------------------
-!$omp parallel do private(iw,npoly,kb,k,jv,iv,wst,farv2) 
-do j = 1,jtab_w(16)%jend(mrl); iw = jtab_w(16)%iw(j)
-!----------------------------------------------------------------------
-call qsub('W',iw)
-
-   npoly = itab_w(iw)%npoly
-   kb = lpw(iw)
-
-! Vertical loop over T levels
-
-   do k = kb, mza-1
-
-! Diagnose 3D earth-velocity vector at T points; W contribution first
-
-      wst = 0.5 * (ws(k-1,iw) + ws(k,iw))
-
-      vxe(k,iw) = wst * wnx(iw)
-      vye(k,iw) = wst * wny(iw)
-      vze(k,iw) = wst * wnz(iw)
-
-   enddo
-
-! Loop over V neighbors of this W cell
-
-   do jv = 1, npoly
-
-      iv = itab_w(iw)%iv(jv)
-
-      farv2 = 2. * itab_w(iw)%farv(jv)
-
-! Vertical loop over T levels
-
-      do k = kb, mza-1
-
-! Diagnose 3D earth-velocity vector at T points; VC contribution
-
-         vxe(k,iw) = vxe(k,iw) + farv2 * vs(k,iv) * vnx(iv)
-         vye(k,iw) = vye(k,iw) + farv2 * vs(k,iv) * vny(iv)
-         vze(k,iw) = vze(k,iw) + farv2 * vs(k,iv) * vnz(iv)
-
-      enddo
-      
-   enddo
-   
-   vxe(2:kb-1,iw) = vxe(kb,iw)
-   vye(2:kb-1,iw) = vye(kb,iw)
-   vze(2:kb-1,iw) = vze(kb,iw)
-
-   vxe(mza,iw) = vxe(mza-1,iw)
-   vye(mza,iw) = vye(mza-1,iw)
-   vze(mza,iw) = vze(mza-1,iw)
-
-enddo
-!$omp end parallel do
-call rsub('Wa',16)
-
-return
-end subroutine vel_t3d

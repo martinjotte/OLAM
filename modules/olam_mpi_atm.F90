@@ -343,7 +343,7 @@ subroutine olam_alloc_mpi(mza, mrls)
   endif
 
   nbytes_per_iw = nbytes_int +                                             &
-                  mza * max( 3*nbytes_real8 + 2*nbytes_real, nv*nbytes_real)
+                  mza * max( 3*nbytes_real8 + 4*nbytes_real, nv*nbytes_real)
 
 ! Loop over all W sends for mrl = 1
   
@@ -845,6 +845,21 @@ do jsend = 1,nsends_w(mrl)
          if (present(wmarw)) then
             call MPI_Pack(wmarw(1,iw),mza,MPI_REAL8, &
                  send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+         endif
+
+         if (present(vmxet)) then
+            call MPI_Pack(vmxet(1,iw),mza,MPI_REAL, &
+               send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+         endif
+
+         if (present(vmyet)) then
+            call MPI_Pack(vmyet(1,iw),mza,MPI_REAL, &
+               send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+         endif
+
+         if (present(vmzet)) then
+            call MPI_Pack(vmzet(1,iw),mza,MPI_REAL, &
+               send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
          endif
 
       elseif (sendgroup == 'T') then
@@ -1352,6 +1367,21 @@ do jtmp = 1,nrecvs_w(mrl)
          if (present(wmarw)) then
             call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
                  wmarw(1,iw),mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
+         endif
+
+         if (present(vmxet)) then
+            call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+               vmxet(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+         endif
+
+         if (present(vmyet)) then
+            call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+               vmyet(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+         endif
+
+         if (present(vmzet)) then
+            call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+               vmzet(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
          endif
 
       elseif (recvgroup == 'T') then

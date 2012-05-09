@@ -172,7 +172,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
 ! Diagnose 3D velocity at T points using velocities for scalar advection
 
-  call vel_t3d(mrl, vsc, wsc, vxesc, vyesc, vzesc)
+  call vel_t3d_hex(mrl, vsc, wsc, vxesc, vyesc, vzesc)
 
 ! MPI send of VXESC, VYESC, VZESC
 

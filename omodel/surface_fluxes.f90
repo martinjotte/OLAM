@@ -68,9 +68,8 @@ use mem_sea,     only: sea, itabg_ws, itab_ws
 use mem_leaf,    only: land, itabg_wl, itab_wl, first_site
 use consts_coms, only: p00i, rocp
 use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
-use mem_turb,    only: vkm_sfc, sflux_t, sflux_r, sxfer_tk, sxfer_rk, &
-                       vels, ustar
-use mem_basic,   only: press, rho, theta, sh_v
+use mem_turb,    only: vkm_sfc, sflux_t, sflux_r, sxfer_tk, sxfer_rk, ustar
+use mem_basic,   only: press, rho, theta, sh_v, vxe, vye, vze
 
 use ed_structure_defs
 
@@ -92,8 +91,9 @@ real :: exner
 real :: airtemp
 real :: vkmsfc
 real :: ustar0
+real :: vels
 
-type(site), pointer :: ed_site
+type(site),  pointer :: ed_site
 type(patch), pointer :: ed_patch
 
 if (isfcl == 0) then
@@ -147,7 +147,7 @@ call qsub('W',iw)
    ka = lpw(iw)
 
    vkm_sfc(iw) = 0.
-   ustar(iw) = 0.
+   ustar(iw)   = 0.
    sflux_t(iw) = 0.
    sflux_r(iw) = 0.
 
@@ -189,12 +189,13 @@ do j = 1,jseaflux(1)%jend(mrl)
 
 ! Calculate turbulent fluxes between atmosphere and "water canopy"
 
-   exner = (p00i * press(kw,iw)) ** rocp
+   vels    = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
+   exner   = (p00i * press(kw,iw)) ** rocp
    airtemp = theta(kw,iw) * exner
 
    call stars(zt(kw)-zm(kw-1),     &
               sea%rough(iws),      &
-              vels        (iw),    &
+              vels,                &
               rho      (kw,iw),    &
               airtemp,             &
               sh_v     (kw,iw),    &
@@ -263,22 +264,23 @@ do j = 1,jlandflux(1)%jend(mrl)
 !----------------------------------------------------------------------
    call qsub('LF1',iw)
 
+   vels    = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
+   exner   = (p00i * press(kw,iw)) ** rocp
+   airtemp = theta(kw,iw) * exner
+
 ! Store atmospheric properties in landflux cell
 
-   landflux(ilf)%vels = arf_land * vels(iw)
+   landflux(ilf)%vels = arf_land * vels
    landflux(ilf)%prss = arf_land * press(kw,iw)
    landflux(ilf)%rhos = arf_land * rho(kw,iw)
 
 ! Calculate turbulent fluxes between atmosphere and land canopy
 
-   exner = (p00i * press(kw,iw)) ** rocp
-   airtemp = theta(kw,iw) * exner
-
    if (land%ed_flag(iwl) == 0) then
 
       call stars(zt(kw)-zm(kw-1),      &
                  land%rough    (iwl),  &
-                 vels           (iw),  &
+                 vels,                 &
                  rho         (kw,iw),  &
                  airtemp,              &
                  sh_v        (kw,iw),  &
@@ -334,8 +336,8 @@ do j = 1,jlandflux(1)%jend(mrl)
       do while(associated(ed_patch))
 
          call stars(zt(kw)-zm(kw-1), &
-              ed_patch%rough  ,      &
-              vels           (iw),   &
+              ed_patch%rough,        &
+              vels,                  &
               rho         (kw,iw),   &
               airtemp,               &
               sh_v        (kw,iw),   &
@@ -857,6 +859,3 @@ call rsub('JLANDFLUX_pcp',2)
 
 return
 end subroutine surface_precip_flux
-
-
-
