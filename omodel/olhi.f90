@@ -44,7 +44,6 @@ use mem_grid,    only: mza, mua, mva, mwa, lcu, lcv, zt, dzt, zm, &
 use mem_zonavg,  only: zonz_vect, zonu_vect, zont_vect, zonr_vect,  &
                        zonp_vect, zonz, zonu, zont, zonr, zonavg_init
 use misc_coms,   only: io6, iparallel, meshtype,idate1,imonth1,iyear1
-use massflux,    only: diagnose_vc
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w,  &
                         mpi_send_u, mpi_recv_u,  &
@@ -234,10 +233,6 @@ if (meshtype == 1) then
 
    ump(:,:) = umc(:,:)
 
-! Diagnose VC
-
-   call diagnose_vc()
-
 else
 
 ! For hexagon grid, initialize VMC, VC
@@ -308,8 +303,6 @@ else
 ! Set VMP to VMC
 
    vmp(:,:) = vmc(:,:)
-
-! Diagnose UC
 
 endif
 

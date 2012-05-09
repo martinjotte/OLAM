@@ -321,7 +321,6 @@ use consts_coms, only: cvocp, p00k, rdry, rvap, p00, rocp, alvlocp,  &
 use mem_grid,    only: mza, mua, mva, lpu, lpv, lcu, lcv, &
                        unx, uny, unz, vnx, vny, vnz, xeu, yeu, zeu, &
                        xev, yev, zev, aru, arv, volt, volui, volvi, dzt
-use massflux,    only: diagnose_vc
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w,  &
                         mpi_send_u, mpi_recv_u,  &
@@ -562,10 +561,6 @@ if (meshtype == 1) then
 ! Set UMP to UMC
 
    ump(:,:) = umc(:,:)
-
-! Diagnose VC
-
-   call diagnose_vc()
 
 else
 
