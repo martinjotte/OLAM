@@ -41,10 +41,12 @@ Module mem_basic
   real, allocatable, target :: ump  (:,:) ! past U horiz momentum [kg/(m^2 s)]
   real, allocatable, target :: umc  (:,:) ! current U horiz momentum [kg/(m^2 s)]
   real, allocatable, target :: uc   (:,:) ! current U horiz velocity [m/s]
+
   real, allocatable, target :: vmp  (:,:) ! past V horiz momentum [kg/(m^2 s)]
   real, allocatable, target :: vmc  (:,:) ! current V horiz momentum [kg/(m^2 s)]
   real, allocatable, target :: vp   (:,:) ! past V horiz velocity [m/s]
   real, allocatable, target :: vc   (:,:) ! current V horiz velocity [m/s]
+
   real, allocatable, target :: wmc  (:,:) ! current vert momentum [kg/(m^2 s)]
   real, allocatable, target :: wc   (:,:) ! current vert velocity [m/s]
   real, allocatable, target :: sh_w (:,:) ! tot water spec dens [kg_wat/kg_air]
@@ -82,14 +84,13 @@ Contains
    
        allocate (vmp(mza,mva)) ; vmp = rinit
        allocate (vmc(mza,mva)) ; vmc = rinit
+       allocate (vc (mza,mva)) ; vc  = rinit
        allocate (vp (mza,mva)) ; vp  = rinit
 
     endif
    
     allocate (rho  (mza,mwa)) ; rho   = rinit8
     allocate (press(mza,mwa)) ; press = rinit8
-
-    allocate (vc   (mza,mva)) ; vc    = rinit
     allocate (wmc  (mza,mwa)) ; wmc   = rinit
     allocate (wc   (mza,mwa)) ; wc    = rinit
     allocate (thil (mza,mwa)) ; thil  = rinit

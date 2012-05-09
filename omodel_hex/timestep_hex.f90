@@ -220,15 +220,15 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       endif
    endif
 
+! call check_nans(18)
+
+   call trsets()  
+
    ! MPI recv of vxe, vye, vze
 
    if (iparallel == 1) then
       call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
    endif
-
-! call check_nans(18)
-
-   call trsets()  
 
 ! call check_nans(19)
 

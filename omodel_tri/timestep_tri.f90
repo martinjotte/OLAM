@@ -35,13 +35,13 @@ subroutine timestep()
 use misc_coms,  only: io6, time8, time_istp8, nqparm, initial, ilwrtyp,   &
                       iswrtyp, dtsm, nqparm_sh, dtlm, iparallel,   &
                       s1900_init, s1900_sim
-use mem_ijtabs, only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl
+use mem_ijtabs, only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,  only: nudflag
 use mem_grid,   only: mza, mua, mwa
 use micro_coms, only: level
 use leaf_coms,  only: isfcl
 use mem_para,   only: myrank
-use massflux,   only: zero_massflux, timeavg_massflux, diagnose_vc
+use massflux,   only: zero_massflux, timeavg_massflux
 
 use mem_basic  ! needed only when print statements below are uncommented
 use mem_tend   ! needed only when print statements below are uncommented
@@ -93,18 +93,20 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    mrl = mrl_begl(istp)
    if (mrl > 0) then
-      call comp_vels(mrl)
       call surface_turb_flux(mrl)
    endif
 
 ! call check_nans(3)
 
-   call turb_k()  ! Compute K's
+   mrl = mrl_begl(istp)
+   if (mrl > 0) then
 
-! call check_nans(4)
+      call turb_k(mrl)  ! Compute K's
 
-   if (iparallel == 1) then
-      call mpi_send_w('K')  ! Send K's
+      if (iparallel == 1) then
+         call mpi_send_w('K')  ! Send K's
+      endif
+
    endif
 
 ! call check_nans(5)
@@ -121,7 +123,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(6)
 
-   if (iparallel == 1) then
+   mrl = mrl_begl(istp)
+   if (mrl > 0 .and. iparallel == 1) then
       call mpi_recv_w('K')  ! Recv K's
    endif
 
@@ -166,8 +169,15 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call mpi_recv_u('U')  ! Recv U group (sent from prog_u)
    endif
 
-   call diagnose_vc()
-   
+   mrl = mrl_ends(istp)
+   if (mrl > 0) then
+      call diagvel_t3d(mrl)
+   endif
+
+   if (iparallel == 1) then
+      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
+   endif
+
 ! call check_nans(16)
 
    if (level /= 3) then
@@ -187,6 +197,10 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 ! call check_nans(18)
 
    call trsets()  
+
+   if (iparallel == 1) then
+      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+   endif
 
 ! call check_nans(19)
 
@@ -468,62 +482,6 @@ call rsub('W',11)
 
 return
 end subroutine tnd0
-
-!==========================================================================
-
-subroutine comp_vels(mrl)
-
-use mem_ijtabs,  only: itab_w, jtab_w
-use misc_coms,   only: io6
-use mem_grid,    only: lpw, unx, uny, unz, vnx, vny, vnz
-use mem_turb,    only: vels
-use mem_basic,   only: uc, vc
-
-implicit none
-
-integer, intent(in) :: mrl
-
-integer :: j,jv,iw,iv,ka,npoly
-
-real :: vx,vy,vz
-
-call psub()
-!----------------------------------------------------------------------
-do j = 1,jtab_w(20)%jend(mrl); iw = jtab_w(20)%iw(j)
-!----------------------------------------------------------------------
-call qsub('W',iw)
-
-! Evaluate VELS wind speed for LEAF and SEA surface fluxes
-
-   npoly = itab_w(iw)%npoly
-
-   ka = lpw(iw)
-
-   vx = 0.
-   vy = 0.
-   vz = 0.
-   
-   do jv = 1,npoly
-
-      iv = itab_w(iw)%iu(jv)
-
-      vx = vx + uc(ka,iv) * unx(iv) + vc(ka,iv) * vnx(iv)
-      vy = vy + uc(ka,iv) * uny(iv) + vc(ka,iv) * vny(iv)
-      vz = vz + uc(ka,iv) * unz(iv) + vc(ka,iv) * vnz(iv)
-                  
-   enddo
-                        
-   vx = vx / real(npoly)
-   vy = vy / real(npoly)
-   vz = vz / real(npoly)
-
-   vels(iw) = sqrt(vx ** 2 + vy ** 2 + vz ** 2)
-
-enddo
-call rsub('W',20)
-   
-return
-end subroutine comp_vels
 
 !==========================================================================
 

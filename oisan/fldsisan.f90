@@ -47,7 +47,6 @@ use mem_micro,   only: sh_c
 use micro_coms,  only: level
 use mem_ijtabs,  only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w
 use consts_coms, only: pc1, rdry, rvap, cpocv, erad, eradi
-use massflux,    only: diagnose_vc
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                         mpi_send_u, mpi_recv_u, &
@@ -167,10 +166,6 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
 ! Set UMP to UMC
 
       ump(:,:) = umc(:,:)
-
-! Diagnose VC
-   
-      call diagnose_vc()
 
    else
 
