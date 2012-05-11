@@ -57,7 +57,7 @@ enddo
 ! THETA and SH_V
 
 call latsett(theta)
-call topbott(theta)
+call topbots(theta)
 
 if (level >= 1) then
    call latsett(sh_v)
@@ -132,53 +132,6 @@ call rsub('W',32)
 
 return
 end subroutine latsett
-
-!===============================================================================
-
-subroutine topbott(sclr)
-
-use mem_ijtabs, only: jtab_w, istp, mrl_endl
-use mem_grid,   only: mza, mwa, lpw, dzm, dzim
-
-!$ use omp_lib
-
-implicit none
-
-real, intent(inout) :: sclr(mza,mwa)
-
-integer :: iw,j,k,ka,mrl
-real :: dzmr
-
-! Top/bottom boundary conditions for temperature:
-! Constant-gradient top, zero-gradient bottom
-
-dzmr = dzm(mza-1) * dzim(mza-2)
-
-call psub()
-!----------------------------------------------------------------------
-mrl = mrl_endl(istp)
-
-if (mrl > 0) then
-!$omp parallel do private (iw,ka,k)
-do j = 1,jtab_w(33)%jend(mrl); iw = jtab_w(33)%iw(j)
-!----------------------------------------------------------------------
-call qsub('W',iw)
-
-   sclr(mza,iw) = max(0.,  &
-      sclr(mza-1,iw) + dzmr * (sclr(mza-1,iw) - sclr(mza-2,iw)))
-
-   ka = lpw(iw)
-   do k = ka-1,1,-1
-      sclr(k,iw) = sclr(ka,iw)
-   enddo
-   
-enddo
-!$omp end parallel do
-endif
-call rsub('W',33)
-
-return
-end subroutine topbott
 
 !===============================================================================
 
