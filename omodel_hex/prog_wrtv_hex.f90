@@ -315,7 +315,8 @@ call qsub('V',iv)
       vcf (k,iv) = (1.5 * vc (k,iv) - 0.5 * vp (k,iv))
 
       vmsc(k,iv) = vmsc(k,iv) + vmcf(k,iv)
-      vmp (k,iv) = vmc(k,iv)
+      vmp (k,iv) = vmc (k,iv)
+      vp  (k,iv) = vc  (k,iv)
    enddo
 
 enddo
@@ -329,20 +330,6 @@ mrl = mrl_begs(istp)
 if (mrl > 0) then
    call vel_t3d_hex(mrl, vcf, wc, vxef, vyef, vzef)
 endif
-
-! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
-! (Example of how to plot "external" field; one not available in module memory)
-!
-!if (mod(real(time8),op%frqplt) < dtlm(1) .and. istp == 900) then
-!
-!   allocate (op%extfld(mza,mwa))
-!   op%extfld(:,:) = vxe(:,:)
-!   op%extfldname = 'VXE'
-!   call plot_fields(11)
-!   deallocate (op%extfld)
-!
-!endif
-! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
 
 ! MPI send of VXE, VYE, VZE
 
@@ -371,6 +358,20 @@ if (mrl > 0) then
    call donorpointv(0, mrl, vcf, vxef, vyef, vzef, iwdepv, iwrecv, &
                     dxps_v, dyps_v, dzps_v)
 endif
+
+! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
+! (Example of how to plot "external" field; one not available in module memory)
+!
+!if (mod(real(time8),op%frqplt) < dtlm(1) .and. istp == 900) then
+!
+!   allocate (op%extfld(mza,mwa))
+!   op%extfld(:,:) = vxe(:,:)
+!   op%extfldname = 'VXE'
+!   call plot_fields(11)
+!   deallocate (op%extfld)
+!
+!endif
+! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
 
 ! [Now, we can reuse vmxet, vmyet, vmzet arrays]
 

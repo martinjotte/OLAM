@@ -36,8 +36,8 @@ use mem_nudge,   only: nudflag, nudnxp, mwnud, &
                        rho_obsp, theta_obsp, shw_obsp, uzonal_obsp, &
                        umerid_obsp, rho_obsf, theta_obsf, shw_obsf, &
                        uzonal_obsf, umerid_obsf
-use mem_basic,   only: umc, ump, uc, vmc, vmp, vc, thil, sh_w, sh_v, wmc, wc, &
-                       theta, rho, press
+use mem_basic,   only: umc, ump, uc, vmc, vmp, vc, vp, thil, sh_w, sh_v, &
+                       wmc, wc, theta, rho, press
 use mem_grid,    only: mza, mua, mva, mwa, lcu, lcv, lpw, zm, zt, &
                        unx, uny, unz, vnx, vny, vnz, xeu, yeu, zeu, &
                        xev, yev, zev, xew, yew, zew, aru, arv, volt
@@ -210,9 +210,10 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
          call mpi_recv_v('I')
       endif
 
-! Set VMP to VMC
+! Set VMP and VP
 
       vmp(:,:) = vmc(:,:)
+      vp (:,:) = vc (:,:)
 
    endif
 

@@ -33,7 +33,7 @@
 subroutine fldslhi()
 
 use mem_basic,   only: theta, thil, rho, press, sh_w, sh_v,  &
-                       wc, wmc, uc, umc, ump, vc, vmc, vmp
+                       wc, wmc, uc, umc, ump, vc, vp, vmc, vmp
 use mem_micro,   only: sh_c
 use micro_coms,  only: level
 use mem_ijtabs,  only: jtab_w, jtab_u, itab_u, jtab_v, itab_v
@@ -300,9 +300,10 @@ else
       call mpi_recv_v('I')  ! Recv V group
    endif
 
-! Set VMP to VMC
+! Set VMP and VP
 
    vmp(:,:) = vmc(:,:)
+   vp (:,:) = vc (:,:)
 
 endif
 

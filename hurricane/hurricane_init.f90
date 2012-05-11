@@ -1420,6 +1420,8 @@ GO TO 15
               * (vnx(iv) * vnxtan + vny(iv) * vnytan + vnz(iv) * vnztan)
 
            vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
+           
+           vp (k,iv) = vc (k,iv)
            vmp(k,iv) = vmc(k,iv)
 
         enddo
@@ -1781,7 +1783,10 @@ GO TO 15
               * (vnx(iv) * vnxrad + vny(iv) * vnyrad + vnz(iv) * vnzrad)
 
            vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
+           
+           vp (k,iv) = vc (k,iv)
            vmp(k,iv) = vmc(k,iv)
+
         enddo
 
      enddo
