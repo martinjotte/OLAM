@@ -741,11 +741,11 @@ do k = 1,nlev_new
 ! Replace sfcwater energy limiter from earlier code versions with energy
 ! check and message.  If message ever gets printed, investigate reasons.
 
-   if (sfcwater_energy(k) > 6.e5 .or. sfcwater_energy(k) < -2.e5) then
-      raxis = sqrt(xewl ** 2 + yewl ** 2)
+   if (sfcwater_energy(k) > 6.e5 .or. sfcwater_energy(k) < -2.5e5) then
 
-      glatwl = atan2(zewl,raxis)   * piu180
-      glonwl = atan2(yewl,xewl) * piu180
+      raxis  = sqrt(xewl**2 + yewl**2)
+      glatwl = atan2(zewl,raxis) * piu180
+      glonwl = atan2(yewl,xewl)  * piu180
 
       write(io6,*) ' '
       write(io6,*) 'Sfcwater energy is outside allowable range. '
