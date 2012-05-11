@@ -36,7 +36,7 @@ use misc_coms,   only: io6, runtype, mdomain, ngrids, initial, nxp, nzp, &
                        timmax8, alloc_misc, iparallel, meshtype, &
                        iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim
 
-use leaf_coms,   only: nzg, nzs, isfcl, nwl
+use leaf_coms,   only: isfcl, nwl
 use sea_coms,    only: nws
 
 use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_md, itab_ud, itab_wd, itab_w
@@ -83,10 +83,6 @@ if (runtype == 'MAKESFC' .or. runtype == 'MAKEGRID') then
    call gridset2()
 
    write(io6,'(a,f8.1)') ' Model top height = ',zm(nza-1)
-
-! Print out vertical grid structure 
-
-   call gridset_print()
 
 ! Horizontal grid setup
 
@@ -203,21 +199,9 @@ if (runtype == 'MAKESFC' .or. runtype == 'MAKEGRID') then
 
    if (meshtype == 1) then
       call delaunay()
-
-      write(io6,'(/,a)') 'gridinit after delaunay'
-      write(io6,'(a,i8)')    ' nma = ',nma
-      write(io6,'(a,i8)')    ' nua = ',nua
-      write(io6,'(a,i8)')    ' nva = ',nva
-      write(io6,'(a,i8)')    ' nwa = ',nwa
    else
       call voronoi()
       call pcvt()
-
-      write(io6,'(/,a)') 'gridinit after voronoi and pcvt'
-      write(io6,'(a,i8)')    ' nma = ',nma
-      write(io6,'(a,i8)')    ' nua = ',nua
-      write(io6,'(a,i8)')    ' nva = ',nva
-      write(io6,'(a,i8)')    ' nwa = ',nwa
    endif
 
 ! Allocate remaining GRID FOOTPRINT arrays for full domain
@@ -404,14 +388,6 @@ if (runtype == 'MAKESFC' .or. runtype == 'MAKEGRID') then
    write(io6,'(/,a)') 'gridinit calling gridfile_write'
    call gridfile_write()
 
-   if (isfcl == 1) then
-      write(io6,'(/,a)') 'gridinit before return to olam_run'
-      write(io6,'(a,i8)')   ' nwl       = ',nwl
-      write(io6,'(a,i8)')   ' nws       = ',nws
-      write(io6,'(a,i8)')   ' nlandflux = ',nlandflux
-      write(io6,'(a,i8)')   ' nseaflux  = ',nseaflux
-   endif
-
 endif
 
 return
@@ -582,13 +558,16 @@ end subroutine gridset2
 subroutine gridset_print()
 
 use misc_coms, only: io6
-use mem_grid,  only: nza, zm, zt, dzt
+use mem_grid,  only: nza, zm, zt, dzt, nma, nua, nva, nwa
+use leaf_coms, only: nwl, isfcl
+use sea_coms,  only: nws
+use mem_sflux, only: nlandflux, nseaflux
 
 implicit none
 
 integer :: k
 
-! Print vertical grid structure 
+! Print grid structure 
 
 write(io6,'(/,a)') '================================================='
 write(io6,'(a)'  ) '         OLAM VERTICAL GRID STRUCTURE'
@@ -608,6 +587,21 @@ enddo
 11 format (i4,f10.2,1x,3('========='),f6.3)
 12 format (i4,f10.2,1x,3('---------'),f6.3)
 13 format (15x,i4,2f10.2)
+
+write(io6,'(/,a)' ) 'Global grid indices:'
+write(io6,'(a,i8)') '  nma = ',nma
+write(io6,'(a,i8)') '  nua = ',nua
+write(io6,'(a,i8)') '  nva = ',nva
+write(io6,'(a,i8)') '  nwa = ',nwa
+write(io6,'(a,i8)') '  nza = ',nza
+
+if (isfcl == 1) then
+   write(io6,'(/,a)' ) 'Global land/sea/fluxcell indices:'
+   write(io6,'(a,i8)') '  nwl       = ',nwl
+   write(io6,'(a,i8)') '  nws       = ',nws
+   write(io6,'(a,i8)') '  nlandflux = ',nlandflux
+   write(io6,'(a,i8)') '  nseaflux  = ',nseaflux
+endif
 
 end subroutine gridset_print
 
@@ -2875,6 +2869,3 @@ write(io6,*) 'end of gridfile_read '
 
 return
 end subroutine gridfile_read
-
-
-

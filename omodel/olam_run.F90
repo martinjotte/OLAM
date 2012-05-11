@@ -180,6 +180,8 @@ call gridinit()
 ! If RUNTYPE = 'MAKESFC' or 'MAKEGRID', run is finished; EXIT
 
 if (runtype == 'MAKESFC' .or. runtype == 'MAKEGRID') then
+   call gridset_print()
+   write(io6,*)
    write(io6,*) trim(runtype) // ' run complete'
    go to 1000
 endif
@@ -207,16 +209,14 @@ write(io6,'(/,a,2i7)') 'olam_run after para_decomp',nwl,nws
 call para_init() 
 
 write(io6,'(/,a)') 'olam_run after para_init'
-write(io6,'(a,i8)')   ' mma = ',mma
-write(io6,'(a,i8)')   ' mua = ',mua
-write(io6,'(a,i8)')   ' mva = ',mva
-write(io6,'(a,i8)')   ' mwa = ',mwa
-write(io6,*)
+
+call gridset_print()
 
 mwa_prog = 0
 do i=1,mwa
    if (itab_w(i)%irank == myrank) mwa_prog = mwa_prog + 1
 enddo
+write(io6,*)
 write(io6,'(a,i8)') ' # of prognostic W points on this node = ', mwa_prog
    
 if (meshtype == 1) then
@@ -235,9 +235,14 @@ else
       if (itab_v(i)%irank == myrank) mva_prog = mva_prog + 1
    enddo
    write(io6,'(a,i8)') ' # of prognostic V points on this node = ', mva_prog
-   write(io6,*)
       
 endif
+
+write(io6,'(/,a)' ) 'Local model indices:'
+write(io6,'(a,i8)') ' mma = ',mma
+write(io6,'(a,i8)') ' mua = ',mua
+write(io6,'(a,i8)') ' mva = ',mva
+write(io6,'(a,i8)') ' mwa = ',mwa
 
 if (isfcl == 1) then
    write(io6,'(a,i8)')   ' mwl = ',mwl
