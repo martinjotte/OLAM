@@ -34,7 +34,7 @@ subroutine oplot_lib(k,i,infotyp,fldname0,wtbot,wttop,fldval,notavail)
 
 use mem_ijtabs,  only: itab_w, itab_u, itab_v, itab_m, itabg_u, itabg_w
 use mem_basic,   only: umc, vmc, wmc, ump, vmp, uc, vc, wc, rho, press, &
-                       thil, theta, sh_w, sh_v
+                       thil, theta, sh_w, sh_v, vxe, vye, vze
 use mem_cuparm,  only: conprr, aconpr
 
 use mem_grid,    only: mza, mua, mva, mwa, lpm, lpu, lcu, lpv, lcv, lpw, lsw, &
@@ -85,11 +85,13 @@ integer, intent(out) :: notavail  ! 0 - variable is available
                                   ! 3 - variable is not available in this run
 
 integer :: klev,nls,iv,iw,kw
-real :: vx,vy,vz,raxis,u,v,vxe,vye,vze,ucint,vcint,farv2,rpolyi
+real :: raxis,u,v,ucint,vcint,farv2,rpolyi
+real :: vx, vy, vz, vxc, vyc, vzc
 real :: tempk,fracliq
 real :: contrib
-
+real :: tuu1, tuu2, tuu3, tuu4
 integer :: iw1,iw2,iwl,iws
+integer :: iu, iu1, iu2, iu3, iu4
 integer :: npoly,j
 integer :: lenstr, ic, ifield
 integer, save :: indp, icase
@@ -866,18 +868,27 @@ case(39) ! 'FTHRD'
 
 case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERID_WINDV_P'
 
-   ucc = wtbot * uc(k  ,i) &
-       + wttop * uc(k+1,i)
+   if (meshtype == 1) then
+      iw1 = itab_u(i)%iw(1)
+      iw2 = itab_u(i)%iw(2)
+   else
+      iw1 = itab_v(i)%iw(1)
+      iw2 = itab_v(i)%iw(2)
+   endif
 
-   vcc = wtbot * vc(k  ,i) &
-       + wttop * vc(k+1,i)
+   vx = wtbot * 0.5 * (vxe(k  ,iw1) + vxe(k  ,iw2)) &
+      + wttop * 0.5 * (vxe(k+1,iw1) + vxe(k+1,iw2))
 
-   vx = unx(i) * ucc + vnx(i) * vcc
-   vy = uny(i) * ucc + vny(i) * vcc
-   vz = unz(i) * ucc + vnz(i) * vcc
+   vy = wtbot * 0.5 * (vye(k  ,iw1) + vye(k  ,iw2)) &
+      + wttop * 0.5 * (vye(k+1,iw1) + vye(k+1,iw2))
+
+   vz = wtbot * 0.5 * (vze(k  ,iw1) + vze(k  ,iw2)) &
+      + wttop * 0.5 * (vze(k+1,iw1) + vze(k+1,iw2))
 
    if (trim(fldname) == 'SPEEDV') then
-      fldval = sqrt(vx ** 2 + vy ** 2 + vz ** 2)
+
+      fldval = sqrt(vx** 2 + vy** 2 + vz** 2)
+
    else
 
       u = 0.
@@ -965,47 +976,19 @@ case(46:49) ! 'SPEEDW','AZIMW','ZONAL_WINDW','MERID_WINDW'
    npoly = itab_w(i)%npoly
    rpolyi = 1. / real(npoly)
 
-   vxe = 0.
-   vye = 0.
-   vze = 0.
-
-   do j = 1,npoly
-
-      if (meshtype == 1) then
-
-         iv = itab_w(i)%iu(j)
-         
-         ucint = wtbot * uc(k,iv) + wttop * uc(k+1,iv) 
-         vcint = wtbot * vc(k,iv) + wttop * vc(k+1,iv) 
-
-         vxe = vxe + rpolyi * (unx(iv) * ucint + vnx(iv) * vcint)
-         vye = vye + rpolyi * (uny(iv) * ucint + vny(iv) * vcint)
-         vze = vze + rpolyi * (unz(iv) * ucint + vnz(iv) * vcint)
-
-      else
-
-         iv = itab_w(i)%iv(j)
-         farv2 = 2. * itab_w(i)%farv(j)
-
-         vcint = wtbot * vc(k,iv) + wttop * vc(k+1,iv) 
-         
-         vxe = vxe + farv2 * vnx(iv) * vcint
-         vye = vye + farv2 * vny(iv) * vcint
-         vze = vze + farv2 * vnz(iv) * vcint
-
-      endif
-
-   enddo
+   vx = vxe(k,i)
+   vy = vye(k,i)
+   vz = vze(k,i)
 
    if (trim(fldname) == 'SPEEDW') then
-      fldval = sqrt(vxe ** 2 + vye ** 2 + vze ** 2)
+      fldval = sqrt(vx** 2 + vy** 2 + vz** 2)
    else
       raxis = sqrt(xew(i) ** 2 + yew(i) ** 2)  ! dist from earth axis
 
       if (raxis > 1.e3) then
-         u = (vye * xew(i) - vxe * yew(i)) / raxis
-         v = vze * raxis / erad &
-           - (vxe * xew(i) + vye * yew(i)) * zew(i) / (raxis * erad) 
+         u = (vy * xew(i) - vx * yew(i)) / raxis
+         v = vz * raxis / erad &
+           - (vx * xew(i) + vy * yew(i)) * zew(i) / (raxis * erad) 
       else
          u = 0.
          v = 0.
@@ -1027,30 +1010,69 @@ case(50:52) ! 'RVORTZM','RVORTZM_P','TVORTZM'
    do j = 1,itab_m(i)%npoly
 
       if (meshtype == 1) then
-         iv = itab_m(i)%iu(j)
+
+         iu = itab_m(i)%iu(j)
+
+         iu1 = itab_u(iu)%iu(1)
+         iu2 = itab_u(iu)%iu(2)
+         iu3 = itab_u(iu)%iu(3)
+         iu4 = itab_u(iu)%iu(4)
 
          iw1 = itab_u(iv)%iw(1)
          iw2 = itab_u(iv)%iw(2)
+
+         tuu1 = itab_u(iu)%tuu(1)
+         tuu2 = itab_u(iu)%tuu(2)
+         tuu3 = itab_u(iu)%tuu(3)
+         tuu4 = itab_u(iu)%tuu(4)
+
+         ucc = wtbot * uc(k  ,iu) &
+             + wttop * uc(k+1,iu)
+
+         vcc = wtbot * (uc(k  ,iu1) * tuu1  &
+                      + uc(k  ,iu2) * tuu2  &
+                      + uc(k  ,iu3) * tuu3  &
+                      + uc(k  ,iu4) * tuu4) &
+             + wttop * (uc(k+1,iu1) * tuu1  &
+                      + uc(k+1,iu2) * tuu2  &
+                      + uc(k+1,iu3) * tuu3  &
+                      + uc(k+1,iu4) * tuu4)
       else
+
          iv = itab_m(i)%iv(j)
+
+         vcc = wtbot * vc(k  ,iv) &
+             + wttop * vc(k+1,iv)
+
       endif
+      
+      if (fldname == 'RVORTZM_P') then
 
-      ucc = wtbot * uc(k  ,iv) &
-          + wttop * uc(k+1,iv)
+         if (meshtype == 1) then
 
-      vcc = wtbot * vc(k  ,iv) &
-          + wttop * vc(k+1,iv)
+            ucc_init = wtbot * uc_init(k  ,iu) &
+                     + wttop * uc_init(k+1,iu)
 
-      if (trim(fldname) == 'RVORTZM_P') then
+            vcc_init = wtbot * (uc_init(k  ,iu1) * tuu1  &
+                              + uc_init(k  ,iu2) * tuu2  &
+                              + uc_init(k  ,iu3) * tuu3  &
+                              + uc_init(k  ,iu4) * tuu4) &
+                     + wttop * (uc_init(k+1,iu1) * tuu1  &
+                              + uc_init(k+1,iu2) * tuu2  &
+                              + uc_init(k+1,iu3) * tuu3  &
+                              + uc_init(k+1,iu4) * tuu4)
+            
+            ucc = ucc - ucc_init
+            vcc = vcc - vcc_init
 
-         ucc_init = wtbot * uc_init(k  ,iv) &
-                  + wttop * uc_init(k+1,iv)
+         else
 
-         vcc_init = wtbot * vc_init(k  ,iv) &
-                  + wttop * vc_init(k+1,iv)
+            vcc_init = wtbot * vc_init(k  ,iv) &
+                     + wttop * vc_init(k+1,iv)
 
-         ucc = ucc - ucc_init
-         vcc = vcc - vcc_init
+            vcc = vcc - vcc_init
+
+         endif
 
       endif
 
