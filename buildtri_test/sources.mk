@@ -137,7 +137,7 @@ SOURCE_FILES= \
              $(OMODEL)/triangle_utils.f90 \
              $(OMODEL)/turb_k.f90 \
              $(OMODEL)/vectslab.f90 \
-	     $(OMODEL)/vel_t3d.f90 \
+             $(OMODEL)/vel_t3d.f90 \
              $(OMODEL_HEX)/hex_grid.f90 \
              $(OMODEL_TRI)/para_init_tri.f90 \
              $(OMODEL_TRI)/prog_wrtu_tri.f90 \

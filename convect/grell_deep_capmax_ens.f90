@@ -39,7 +39,8 @@ subroutine cuparth(iw,dtime)
                       unx, uny, unz, vnx, vny, vnz, xew, yew, zew
   use grell_coms, only: iact_gr
   use consts_coms, only: grav, p00, rocp, cp, rdry, erad
-  use mem_basic, only: umc, vmc, wmc, uc, vc, wc, theta, press, rho, sh_v
+  use mem_basic, only: umc, vmc, wmc, wc, theta, press, rho, sh_v, &
+                       vxe, vye, vze
   use grell_deep_coms, only: ensdim
   use misc_coms,  only: io6, meshtype
 
@@ -58,12 +59,10 @@ subroutine cuparth(iw,dtime)
   real :: z1
   real :: psur
   real :: polyi
-  real :: vx, vy, vz
   real :: raxis
 
   integer :: k
   integer :: kr
-  integer :: kv
 
   real :: exner
   real :: cpdTdt
@@ -138,10 +137,6 @@ subroutine cuparth(iw,dtime)
 
 ! Zero out EARTH components of wind and flux array
 
-     vx = 0.
-     vy = 0.
-     vz = 0.
-     
      flux(1:7) = 0.
 
 ! Loop over V neighbors of W
@@ -152,18 +147,10 @@ subroutine cuparth(iw,dtime)
    
         if (meshtype == 1) then
            iv = itab_w(iw)%iu(jv)
-           kv = max(kr,lpu(iv))
         else
            iv = itab_w(iw)%iv(jv)
-           kv = max(kr,lpv(iv))
         endif
            
-! Sum EARTH wind components
-
-        vx = vx + uc(kv,iv) * unx(iv) + vc(kv,iv) * vnx(iv)
-        vy = vy + uc(kv,iv) * uny(iv) + vc(kv,iv) * vny(iv)
-        vz = vz + uc(kv,iv) * unz(iv) + vc(kv,iv) * vnz(iv)
-                 
 ! If p(k) is at least 150 mb less than surface pressure and is also 
 ! greater than 300 mb, add this k-layer contribution to flux(jv)
 
@@ -179,24 +166,18 @@ subroutine cuparth(iw,dtime)
 
      enddo
      
-! Get average EARTH wind components     
-                        
-     vx = vx / real(npoly)
-     vy = vy / real(npoly)
-     vz = vz / real(npoly)
-
 ! Compute zonal and meridional wind components
 
      raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
      if (raxis > 1.e3) then
-        us(k) = (vy * xew(iw) - vx * yew(iw)) / raxis
+        us(k) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) / raxis
 
-        vs(k) = vz * raxis / erad  &
-              - (vx * xew(iw) + vy * yew(iw)) * zew(iw) / (raxis * erad) 
+        vs(k) = vze(k,iw) * raxis / erad  &
+              - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) * zew(iw) / (raxis * erad) 
      else
-        us(k) = vx
-        vs(k) = vy
+        us(k) = vxe(k,iw)
+        vs(k) = vye(k,iw)
      endif
 
   enddo
