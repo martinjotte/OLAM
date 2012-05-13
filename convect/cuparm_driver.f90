@@ -34,6 +34,9 @@ subroutine cuparm_driver(rhot)
 
 use mem_grid,    only: mwa, mza, lpw
 use grell_coms,  only: alloc_grell, iact_gr
+
+use module_cu_kfeta, only: kf_lutab, cuparm_kfeta 
+
 use misc_coms,   only: io6, time_istp8, nqparm, nqparm_sh, confrq, dtlong,  &
                        initial, itime1
 use mem_ijtabs,  only: itab_w, jtab_w, mrl_begl, istp, mrls
@@ -49,12 +52,21 @@ use mem_micro,   only: sh_c
 implicit none
 
 real, intent(inout) :: rhot(mza,mwa)
-real, parameter :: cptime = 7200.0
+!real, parameter :: cptime = 7200.0
+real, parameter :: cptime = 0.0
+
+real, save, allocatable :: w0avg(:,:)
 
 integer :: j
 integer :: iw
 integer :: k
 integer :: mrl, mrlw
+
+integer, save :: init_kf = 0
+
+! Time-weighting coefficients for w average
+
+real, parameter :: wtnew = .05, wtold = 1. - wtnew
 
 ! Memory allocation for Grell cumulus transport
 
@@ -62,6 +74,31 @@ if ( any(nqparm(1:mrls) == 2) ) then
    if (.not. allocated(iact_gr)) then
       call alloc_grell(mwa)
    endif
+endif
+
+! Initialization for KF_eta cumulus parameterization
+
+if ( any(nqparm(1:mrls) == 3) ) then
+   if (init_kf == 0) then
+      init_kf = 1
+
+      allocate (w0avg(mza,mwa))
+ 
+      W0AVG   (:,:) = 0.
+
+      CALL KF_LUTAB()
+   endif
+
+!$omp parallel do private(iw,mrlw)
+   do j = 1,jtab_w(15)%jend(1); iw = jtab_w(15)%iw(j) ! jend(1) for mrl = 1
+      do k = lpw(iw),mza-1
+         w0avg(k,iw) = w0avg(k,iw) * wtold + .5 * (wc(k,iw) + wc(k+1,iw)) * wtnew
+      enddo
+   enddo
+!$omp end parallel do
+
+
+
 endif
 
 ! If model run has been initialized from observational data, avoid cumulus
@@ -112,6 +149,12 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
 ! Grell deep convection
 
          call cuparth(iw,dtlong)
+
+      elseif (nqparm(mrlw) == 3) then
+   
+! Kain-Fritsch deep convection
+
+         call cuparm_kfeta(iw,dtlong,w0avg)
 
       endif
    
