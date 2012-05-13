@@ -32,7 +32,7 @@ CONTAINS
                           unx, uny, unz, vnx, vny, vnz, arw0
    use misc_coms,   only: io6, meshtype
    use mem_cuparm,  only: thsrc, rtsrc, conprr
-   use mem_basic,   only: thil, press, rho, uc, vc, wc, sh_v
+   use mem_basic,   only: thil, press, rho, vxe, vye, vze, sh_v
    use mem_ijtabs,  only: itab_w, jtab_w
    use consts_coms, only: p00i, rocp, erad
 
@@ -54,7 +54,7 @@ CONTAINS
    real :: cubot(mwa),cutop(mwa)  ! bottom & top K level of cumulus (for radiation)
    real :: raincv(mwa)            ! time-step cumulus scheme precipitation (mm)
 
-   real :: wtold, wtnew, dxsq, dx, dt, vx, vy, vz, polyi, raxis
+   real :: wtold, wtnew, dxsq, dx, dt, polyi, raxis
 
    LOGICAL :: F_QR, F_QI, F_QS, warm_rain
 
@@ -103,51 +103,17 @@ CONTAINS
       p1d    (kt) = press(k,iw)
       dz1d   (kt) = dzm  (k)
 
-! Zero out EARTH components of wind
-
-      vx = 0.
-      vy = 0.
-      vz = 0.
-     
-! Loop over V neighbors of W
-
-      do jv = 1,npoly
-
-! Avoid underground levels for IU or IV point   
-   
-         if (meshtype == 1) then
-            iv = itab_w(iw)%iu(jv)
-            kv = max(k,lpu(iv))
-         else
-            iv = itab_w(iw)%iv(jv)
-            kv = max(k,lpv(iv))
-         endif
-           
-! Sum EARTH wind components
-
-         vx = vx + uc(kv,iv) * unx(iv) + vc(kv,iv) * vnx(iv)
-         vy = vy + uc(kv,iv) * uny(iv) + vc(kv,iv) * vny(iv)
-         vz = vz + uc(kv,iv) * unz(iv) + vc(kv,iv) * vnz(iv)
-                 
-      enddo
-     
-! Get average EARTH wind components     
-                        
-      vx = vx * polyi
-      vy = vy * polyi
-      vz = vz * polyi
-
 ! Compute zonal and meridional wind components
 
       raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
       if (raxis > 1.e3) then
-         u1d(kt) = (vy * xew(iw) - vx * yew(iw)) / raxis
-         v1d(kt) = vz * raxis / erad  &
-                - (vx * xew(iw) + vy * yew(iw)) * zew(iw) / (raxis * erad) 
+         u1d(kt) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) / raxis
+         v1d(kt) = vze(k,iw) * raxis / erad  &
+                - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) * zew(iw) / (raxis * erad) 
       else
-         u1d(kt) = vx
-         v1d(kt) = vy
+         u1d(kt) = vxe(k,iw)
+         v1d(kt) = vye(k,iw)
       endif
 
    enddo
