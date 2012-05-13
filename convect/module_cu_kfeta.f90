@@ -2005,7 +2005,7 @@ iter:     DO NCOUNT=1,10
 !      WRITE(io6,*)'at NTSD =',NTSD,',No. of KF points activated =',
 !     *            NCCNT
 1000  FORMAT(' ',10A8)
-1005  FORMAT(' ',F6.0,2X,F6.4,2X,F7.3,1X,F6.4,2X,4(F6.3,2X),2(F7.3,1X))
+1005  FORMAT(' ',F6.0,2X,F7.4,2X,F7.3,1X,F7.4,2X,4(F6.3,2X),2(F7.3,1X))
 1010  FORMAT(' ',' VERTICAL VELOCITY IS NEGATIVE AT ',F4.0,' MB')
 1015   FORMAT(' ','ALL REMAINING MASS DETRAINS BELOW ',F4.0,' MB')
 1025   FORMAT(5X,' KLCL=',I2,' ZLCL=',F7.1,'M',                         &
@@ -2015,7 +2015,7 @@ iter:     DO NCOUNT=1,10
 1030   FORMAT(' ',' P0(LET) = ',F6.1,' P0(LTOP) = ',F6.1,' VMFLCL =',   &
       E12.3,' PLCL =',F6.1,' WLCL =',F6.3,' CLDHGT =',                  &
       F8.1)
-1035  FORMAT(1X,'PEF(WS)=',F4.2,'(CB)=',F4.2,'LC,LET=',2I3,'WKL='       &
+1035  FORMAT(1X,'PEF(WS)=',F5.2,'(CB)=',F5.2,'LC,LET=',2I3,'WKL='       &
       ,F6.3,'VWS=',F5.2)
 !1055  FORMAT('*** DEGREE OF STABILIZATION =',F5.3,                  &
 !      ', NO MORE MASS FLUX IS ALLOWED!')
@@ -2024,7 +2024,7 @@ iter:     DO NCOUNT=1,10
  1070 FORMAT (16A8) 
  1075 FORMAT (F8.2,3(F8.2),2(F8.3),F8.2,2F8.3,F8.2,6F8.3) 
  1080 FORMAT(2X,'LFS,LDB,LDT =',3I3,' TIMEC, TADVEC, NSTEP=',           &
-              2(1X,F5.0),I3,'NCOUNT, FABE, AINC=',I2,1X,F5.3,F6.2) 
+              2(1X,F5.0),I3,'NCOUNT, FABE, AINC=',I2,1X,F6.3,F6.2) 
  1085 FORMAT (A3,16A7,2A8) 
  1090 FORMAT (I3,F7.2,F7.0,10F7.2,4F7.3,2F8.3) 
  1095 FORMAT(' ','  PPT PRODUCTION RATE= ',F10.0,' TOTAL EVAP+PPT= ',F10.0)
