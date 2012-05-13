@@ -56,7 +56,7 @@ real, parameter :: hcentlat = 20.6, hcentlon = -66.3
 integer, parameter :: nz = 60, nr = 28 ! Number of vertical, radial points in vortex profiles
 integer :: nzz
 
-real :: hlat, hlon
+real :: hlat0, hlon0, hlat, hlon
 
 real :: circ_avg(nr)
 
@@ -67,22 +67,19 @@ real :: radius_ax(nr) = (/ &
 
 ! Axisymmmetric vortex profile arrays
 
-  real ::  thil_ax1(nz,nr),  thil_ax2(nz,nr),  thil_ax12(nz,nr)
-  real :: theta_ax1(nz,nr), theta_ax2(nz,nr), theta_ax12(nz,nr)
-  real ::   shw_ax1(nz,nr),   shw_ax2(nz,nr),   shw_ax12(nz,nr)
-  real ::   shv_ax1(nz,nr),   shv_ax2(nz,nr),   shv_ax12(nz,nr)
-  real ::  vtan_ax1(nz,nr),  vtan_ax2(nz,nr),  vtan_ax12(nz,nr)
-  real ::  vrad_ax1(nz,nr),  vrad_ax2(nz,nr),  vrad_ax12(nz,nr)
-  real ::     w_ax1(nz,nr),     w_ax2(nz,nr),     w_ax12(nz,nr)
-  real ::   shc_ax1(nz,nr),   shc_ax2(nz,nr),   shc_ax12(nz,nr)
-  real ::   shd_ax1(nz,nr),   shd_ax2(nz,nr),   shd_ax12(nz,nr)
-  real ::   shr_ax1(nz,nr),   shr_ax2(nz,nr),   shr_ax12(nz,nr)
-  real ::   shp_ax1(nz,nr),   shp_ax2(nz,nr),   shp_ax12(nz,nr)
-  real ::   shs_ax1(nz,nr),   shs_ax2(nz,nr),   shs_ax12(nz,nr)
-  real ::   sha_ax1(nz,nr),   sha_ax2(nz,nr),   sha_ax12(nz,nr)
-  real ::   shg_ax1(nz,nr),   shg_ax2(nz,nr),   shg_ax12(nz,nr)
-  real ::   shh_ax1(nz,nr),   shh_ax2(nz,nr),   shh_ax12(nz,nr)
+  real ::  thil_ax1(nz,nr)
+  real :: theta_ax1(nz,nr)
+  real ::   shw_ax1(nz,nr)
+  real ::   shv_ax1(nz,nr)
+  real ::  vtan_ax1(nz,nr)
+  real ::  vrad_ax1(nz,nr)
+  real ::     w_ax1(nz,nr)
 
+! Relocation fields for I/O
+
+  integer, parameter :: nfld = 28   ! number of fields transferred
+  integer, parameter :: nwi = 300000 ! Horizontal # of W points filled 
+                                    ! by interpolation
 Contains
 
 !===============================================================================
@@ -90,8 +87,7 @@ Contains
   subroutine hurricane_init()
 
   use mem_grid,  only: mza, zt
-  use mem_basic, only: ump, umc, vmp, vmc
-  use misc_coms, only: iparallel, meshtype
+  use misc_coms, only: iparallel, meshtype, runtype
 
   implicit none
 
@@ -105,46 +101,55 @@ Contains
   if (newcall /= 1) then
      newcall = 1
 
-     hlat = hcentlat
-     hlon = hcentlon
-
      do k = 2,mza-1
         nzz = k
         if (zt(k) > 25000.) exit
      enddo
   endif
 
+  if (runtype /= 'INITIAL') return
+
   if (init_hurr_step == 1) then
 
 ! Diagnose vortex as it exists in initial (CFSR) data prior to adding pert.
 
+     hlat = hcentlat
+     hlon = hcentlon
+
      call vortex_center_diagnose()
 
-     call vortex_diagnose(1)
+     hlat0 = hlat
+     hlon0 = hlon
+
+     call vortex_diagnose()
 
 ! Add first-guess perturbation for first initialization cycle
 
      call hurricane_init1B()
 
-     call vortex_diagnose(2)
+     call vortex_diagnose()
 
   elseif (init_hurr_step == 2) then
 
 ! Add perturbations for second and subsequent initialization cycles
 
-     call vortex_center_diagnose()
+     call hurricane_init2C()
 
-     call hurricane_init2B()
+     hlat = hlat0
+     hlon = hlon0
 
-     call vortex_diagnose(2)
+     call vortex_diagnose()
 
   elseif (init_hurr_step == 3) then
 
-! Add perturbations for actual simulation
+! Initialize for actual simulation
 
-     call vortex_center_diagnose()
+     call hurricane_init2C()
 
-     call hurricane_init2B()
+     hlat = hlat0
+     hlon = hlon0
+
+     call vortex_diagnose()
 
   endif
 
@@ -152,17 +157,25 @@ Contains
 
 !==================================================================================
 
-  subroutine hurricane_track()
+  subroutine hurricane_track(itype)
 
   use misc_coms, only: meshtype
 
   implicit none
 
+  integer, intent(in) :: itype
+
 ! Get updated hurricane center location
 
   call vortex_center_diagnose()
 
-  call vortex_diagnose(2)
+  if (itype == 2) then
+     call vortex_diagnose()
+     call vortex_reloc3d()  ! sometimes this is only done for itype = 3
+  elseif (itype == 3) then
+     call vortex_diagnose()
+     call vortex_reloc3d()
+  endif
 
   end subroutine hurricane_track
 
@@ -344,14 +357,14 @@ Contains
 
 ! Also need to check for lpw(iw) > 2
 
-  print*, 'vortex_center_diagnose END ',hlat,hlon
+  print*, 'vortex_center_diagnose END ',hlat,hlon,press_min(2)
 
   return
   end subroutine vortex_center_diagnose
 
 !==================================================================================
 
-  subroutine vortex_diagnose(ifield)
+  subroutine vortex_diagnose()
 
   use mem_ijtabs
   use mem_basic
@@ -361,8 +374,6 @@ Contains
   use max_dims,   only: pathlen
 
   implicit none
-
-  integer, intent(in) :: ifield
 
   integer :: iw,i,j,k,ngr,iu,iv,iw1,iw2
   integer :: irad,ir
@@ -374,185 +385,18 @@ Contains
 
   real :: circ(nr)
 
-  character(pathlen) :: fname
-  logical :: exans
-
-  fname = 'frances_diagnosis_1sept00z'
-
-  11 format(/,15x  ,a,28f6.0,/)
-  12 format(i3,f8.0,a,28f6.1)
-  13 format(/,4x   ,a,28f6.1)
-
   call o_reopnwk()
 
-  if (ifield == 1) then
+  call vortex_diagnose0h(thil_ax1, theta_ax1, shw_ax1, shv_ax1, vtan_ax1, &
+                         vrad_ax1,     w_ax1)
 
-     call vortex_diagnose0(thil_ax1, theta_ax1, shw_ax1, shv_ax1, vtan_ax1, &
-                           vrad_ax1,     w_ax1, shc_ax1, shd_ax1,  shr_ax1, &
-                            shp_ax1,   shs_ax1, sha_ax1, shg_ax1,  shh_ax1)
-
-     inquire(file=trim(fname),exist=exans)
-
-     if (.not. exans) then
-
-        open(32,file=trim(fname),status='new',form='unformatted')
-        write(32) thil_ax1, theta_ax1, shw_ax1, shv_ax1, vtan_ax1, &
-                  vrad_ax1,     w_ax1, shc_ax1, shd_ax1,  shr_ax1, &
-                   shp_ax1,   shs_ax1, sha_ax1, shg_ax1,  shh_ax1
-        close(32)
-     endif
-
-  elseif (ifield == 2) then
-
-     call vortex_diagnose0(thil_ax2, theta_ax2, shw_ax2, shv_ax2, vtan_ax2, &
-                           vrad_ax2,     w_ax2, shc_ax2, shd_ax2,  shr_ax2, &
-                            shp_ax2,   shs_ax2, sha_ax2, shg_ax2,  shh_ax2)
-
-     open(32,file=trim(fname),status='old',form='unformatted')
-     read(32) thil_ax1, theta_ax1, shw_ax1, shv_ax1, vtan_ax1, &
-              vrad_ax1,     w_ax1, shc_ax1, shd_ax1,  shr_ax1, &
-               shp_ax1,   shs_ax1, sha_ax1, shg_ax1,  shh_ax1
-     close(32)
-
-      thil_ax12(:,:) =  thil_ax2(:,:) -  thil_ax1(:,:)
-     theta_ax12(:,:) = theta_ax2(:,:) - theta_ax1(:,:)
-       shw_ax12(:,:) =   shw_ax2(:,:) -   shw_ax1(:,:)
-       shv_ax12(:,:) =   shv_ax2(:,:) -   shv_ax1(:,:)
-      vtan_ax12(:,:) =  vtan_ax2(:,:) -  vtan_ax1(:,:)
-      vrad_ax12(:,:) =  vrad_ax2(:,:) -  vrad_ax1(:,:)
-         w_ax12(:,:) =     w_ax2(:,:) -     w_ax1(:,:)
-       shc_ax12(:,:) =   shc_ax2(:,:) -   shc_ax1(:,:)
-       shd_ax12(:,:) =   shd_ax2(:,:) -   shd_ax1(:,:)
-       shr_ax12(:,:) =   shr_ax2(:,:) -   shr_ax1(:,:)
-       shp_ax12(:,:) =   shp_ax2(:,:) -   shp_ax1(:,:)
-       shs_ax12(:,:) =   shs_ax2(:,:) -   shs_ax1(:,:)
-       sha_ax12(:,:) =   sha_ax2(:,:) -   sha_ax1(:,:)
-       shg_ax12(:,:) =   shg_ax2(:,:) -   shg_ax1(:,:)
-       shh_ax12(:,:) =   shh_ax2(:,:) -   shh_ax1(:,:)
-
-      thil_ax12(nzz,:) = 0.
-     theta_ax12(nzz,:) = 0.
-       shw_ax12(nzz,:) = 0.
-       shv_ax12(nzz,:) = 0.
-      vtan_ax12(nzz,:) = 0.
-      vrad_ax12(nzz,:) = 0.
-         w_ax12(nzz,:) = 0.
-       shc_ax12(nzz,:) = 0.
-       shd_ax12(nzz,:) = 0.
-       shr_ax12(nzz,:) = 0.
-       shp_ax12(nzz,:) = 0.
-       shs_ax12(nzz,:) = 0.
-       sha_ax12(nzz,:) = 0.
-       shg_ax12(nzz,:) = 0.
-       shh_ax12(nzz,:) = 0.
-
-      thil_ax12(:,nr) = 0.
-     theta_ax12(:,nr) = 0.
-       shw_ax12(:,nr) = 0.
-       shv_ax12(:,nr) = 0.
-      vtan_ax12(:,nr) = 0.
-      vrad_ax12(:,nr) = 0.
-         w_ax12(:,nr) = 0.
-       shc_ax12(:,nr) = 0.
-       shd_ax12(:,nr) = 0.
-       shr_ax12(:,nr) = 0.
-       shp_ax12(:,nr) = 0.
-       shs_ax12(:,nr) = 0.
-       sha_ax12(:,nr) = 0.
-       shg_ax12(:,nr) = 0.
-       shh_ax12(:,nr) = 0.
-
-!---------------------------------------------------------------------
-GO TO 15
-!---------------------------------------------------------------------
-
-     if (ipert == 0) then
-        open(31,file='frances_cyc1_pert0',status='new',form='formatted')
-     elseif (ipert == 1) then
-        open(31,file='frances_cyc1_pert1',status='new',form='formatted')
-     elseif (ipert == 2) then
-        open(31,file='frances_cyc1_pert2',status='new',form='formatted')
-     elseif (ipert == 3) then
-        open(31,file='frances_cyc1_pert3',status='new',form='formatted')
-     elseif (ipert == 4) then
-        open(31,file='frances_cyc1_pert4',status='new',form='formatted')
-     elseif (ipert == 5) then
-        open(31,file='frances_cyc1_pert5',status='new',form='formatted')
-     endif
-
-     ipert = ipert + 1
-
-     write(31) thil_ax12, theta_ax12, shw_ax12, shv_ax12, vtan_ax12, &
-               vrad_ax12,     w_ax12, shc_ax12, shd_ax12,  shr_ax12, &
-                shp_ax12,   shs_ax12, sha_ax12, shg_ax12,  shh_ax12
-
-     close(31)
-
-!------------------------------------------------------------------------
-15 CONTINUE
-!------------------------------------------------------------------------
-
-!     call plotback; call cplot(nz,nr, thil_ax1 , 58,'thil1'  ); call o_frame
-!     call plotback; call cplot(nz,nr, thil_ax2 , 58,'thil2'  ); call o_frame
-!     call plotback; call cplot(nz,nr, thil_ax12,130,'thil12' ); call o_frame
-
-!     call plotback; call cplot(nz,nr,theta_ax1 , 58,'theta1' ); call o_frame
-     call plotback; call cplot(nz,nr,theta_ax2 , 58,'theta2' ); call o_frame
-!     call plotback; call cplot(nz,nr,theta_ax12,130,'theta12'); call o_frame
-
-!     call plotback; call cplot(nz,nr,  shw_ax1 ,  5,'shw1'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shw_ax2 ,  5,'shw2'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shw_ax12,108,'shw12'  ); call o_frame
-
-!     call plotback; call cplot(nz,nr,  shv_ax1 ,  5,'shv1'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shv_ax2 ,  5,'shv2'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shv_ax12,108,'shv12'  ); call o_frame
-
-!     call plotback; call cplot(nz,nr, vtan_ax1 ,159,'vtan1'  ); call o_frame
-     call plotback; call cplot(nz,nr, vtan_ax2 ,159,'vtan2'  ); call o_frame
-!     call plotback; call cplot(nz,nr, vtan_ax12,159,'vtan12' ); call o_frame
-
-!     call plotback; call cplot(nz,nr, vrad_ax1 ,109,'vrad1'  ); call o_frame
-!     call plotback; call cplot(nz,nr, vrad_ax2 ,109,'vrad2'  ); call o_frame
-!     call plotback; call cplot(nz,nr, vrad_ax12,109,'vrad12' ); call o_frame
-
-!     call plotback; call cplot(nz,nr,    w_ax1 ,108,'w1'     ); call o_frame
-!     call plotback; call cplot(nz,nr,    w_ax2 ,108,'w2'     ); call o_frame
-!     call plotback; call cplot(nz,nr,    w_ax12,108,'w12'    ); call o_frame
-
-!     call plotback; call cplot(nz,nr,  shc_ax1 ,  3,'shc1'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shc_ax2 ,  5,'shc2'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shc_ax12,108,'shc12'  ); call o_frame
-
-!     call plotback; call cplot(nz,nr,  shd_ax1 ,  3,'shd1'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shd_ax2 ,  3,'shd2'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shd_ax12,108,'shd12'  ); call o_frame
-
-!     call plotback; call cplot(nz,nr,  shr_ax1 ,  3,'shr1'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shr_ax2 ,  3,'shr2'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shr_ax12,108,'shr12'  ); call o_frame
-
-!     call plotback; call cplot(nz,nr,  shp_ax1 ,  3,'shp1'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shp_ax2 ,  5,'shp2'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shp_ax12,108,'shp12'  ); call o_frame
-
-!     call plotback; call cplot(nz,nr,  shs_ax1 ,  3,'shs1'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shs_ax2 ,  3,'shs2'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shs_ax12,108,'shs12'  ); call o_frame
-
-!     call plotback; call cplot(nz,nr,  sha_ax1 ,  3,'sha1'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  sha_ax2 ,  3,'sha2'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  sha_ax12,108,'sha12'  ); call o_frame
-
-!     call plotback; call cplot(nz,nr,  shg_ax1 ,  3,'shg1'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shg_ax2 ,  3,'shg2'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shg_ax12,108,'shg12'  ); call o_frame
-
-!     call plotback; call cplot(nz,nr,  shh_ax1 ,  3,'shh1'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shh_ax2 ,  3,'shh2'   ); call o_frame
-!     call plotback; call cplot(nz,nr,  shh_ax12,108,'shh12'  ); call o_frame
-
-  endif
+!  call plotback; call cplot(nz,nr, thil_ax1 , 58,'thil1'  ); call o_frame
+  call plotback; call cplot(nz,nr,theta_ax1 , 58,'theta1' ); call o_frame
+!  call plotback; call cplot(nz,nr,  shw_ax1 ,  5,'shw1'   ); call o_frame
+!  call plotback; call cplot(nz,nr,  shv_ax1 ,  5,'shv1'   ); call o_frame
+  call plotback; call cplot(nz,nr, vtan_ax1 ,159,'vtan1'  ); call o_frame
+!  call plotback; call cplot(nz,nr, vrad_ax1 ,109,'vrad1'  ); call o_frame
+!  call plotback; call cplot(nz,nr,    w_ax1 ,108,'w1'     ); call o_frame
 
   call o_clswk()
 
@@ -562,8 +406,7 @@ GO TO 15
 !==================================================================================
 
   subroutine vortex_diagnose0(thil_ax, theta_ax, shw_ax, shv_ax, vtan_ax, &
-                              vrad_ax,     w_ax, shc_ax, shd_ax,  shr_ax, &
-                               shp_ax,   shs_ax, sha_ax, shg_ax,  shh_ax)
+                              vrad_ax,     w_ax)
 
   use mem_ijtabs
   use mem_basic
@@ -581,14 +424,6 @@ GO TO 15
   real, intent(out) ::  vtan_ax(nz,nr) ! tangential wind (m/s)
   real, intent(out) ::  vrad_ax(nz,nr) ! radial wind (m/s)
   real, intent(out) ::     w_ax(nz,nr) ! vertical wind (m/s)
-  real, intent(out) ::   shc_ax(nz,nr) ! cloud water water specific density (kg/kg)
-  real, intent(out) ::   shd_ax(nz,nr) ! drizzle water specific density (kg/kg)
-  real, intent(out) ::   shr_ax(nz,nr) ! rain water specific density (kg/kg)
-  real, intent(out) ::   shp_ax(nz,nr) ! pristine ice water specific density (kg/kg)
-  real, intent(out) ::   shs_ax(nz,nr) ! snow water specific density (kg/kg)
-  real, intent(out) ::   sha_ax(nz,nr) ! aggregates water specific density (kg/kg)
-  real, intent(out) ::   shg_ax(nz,nr) ! graupel water specific density (kg/kg)
-  real, intent(out) ::   shh_ax(nz,nr) ! hail water specific density (kg/kg)
 
   integer :: iw,i,j,k,ngr,iu,iv,iw1,iw2
   real :: zeh,reh,xeh,yeh
@@ -627,14 +462,6 @@ GO TO 15
    vtan_ax(:,:) = 0.
    vrad_ax(:,:) = 0.
       w_ax(:,:) = 0.
-    shc_ax(:,:) = 0.
-    shd_ax(:,:) = 0.
-    shr_ax(:,:) = 0.
-    shp_ax(:,:) = 0.
-    shs_ax(:,:) = 0.
-    sha_ax(:,:) = 0.
-    shg_ax(:,:) = 0.
-    shh_ax(:,:) = 0.
 
   weight_t(:,:) = 0.
 
@@ -686,30 +513,6 @@ GO TO 15
             w_ax(k,irad)   =     w_ax(k,irad)   + wrad1 *    wc(k,iw)
             w_ax(k,irad+1) =     w_ax(k,irad+1) + wrad2 *    wc(k,iw)
 
-          shc_ax(k,irad)   =   shc_ax(k,irad)   + wrad1 *  sh_c(k,iw)
-          shc_ax(k,irad+1) =   shc_ax(k,irad+1) + wrad2 *  sh_c(k,iw)
-
-!          shd_ax(k,irad)   =   shd_ax(k,irad)   + wrad1 *  sh_d(k,iw)
-!          shd_ax(k,irad+1) =   shd_ax(k,irad+1) + wrad2 *  sh_d(k,iw)
-
-!          shr_ax(k,irad)   =   shr_ax(k,irad)   + wrad1 *  sh_r(k,iw)
-!          shr_ax(k,irad+1) =   shr_ax(k,irad+1) + wrad2 *  sh_r(k,iw)
-
-          shp_ax(k,irad)   =   shp_ax(k,irad)   + wrad1 *  sh_p(k,iw)
-          shp_ax(k,irad+1) =   shp_ax(k,irad+1) + wrad2 *  sh_p(k,iw)
-
-!          shs_ax(k,irad)   =   shs_ax(k,irad)   + wrad1 *  sh_s(k,iw)
-!          shs_ax(k,irad+1) =   shs_ax(k,irad+1) + wrad2 *  sh_s(k,iw)
-
-!          sha_ax(k,irad)   =   sha_ax(k,irad)   + wrad1 *  sh_a(k,iw)
-!          sha_ax(k,irad+1) =   sha_ax(k,irad+1) + wrad2 *  sh_a(k,iw)
-
-!          shg_ax(k,irad)   =   shg_ax(k,irad)   + wrad1 *  sh_g(k,iw)
-!          shg_ax(k,irad+1) =   shg_ax(k,irad+1) + wrad2 *  sh_g(k,iw)
-
-!          shh_ax(k,irad)   =   shh_ax(k,irad)   + wrad1 *  sh_h(k,iw)
-!          shh_ax(k,irad+1) =   shh_ax(k,irad+1) + wrad2 *  sh_h(k,iw)
-
      enddo
 
   enddo
@@ -729,14 +532,6 @@ GO TO 15
              shw_ax(k,irad) =   shw_ax(k,irad+1)
              shv_ax(k,irad) =   shv_ax(k,irad+1)
                w_ax(k,irad) =     w_ax(k,irad+1)
-             shc_ax(k,irad) =   shc_ax(k,irad+1)
-!             shd_ax(k,irad) =   shd_ax(k,irad+1)
-!             shr_ax(k,irad) =   shr_ax(k,irad+1)
-!             shp_ax(k,irad) =   shp_ax(k,irad+1)
-!             shs_ax(k,irad) =   shs_ax(k,irad+1)
-!             sha_ax(k,irad) =   sha_ax(k,irad+1)
-!             shg_ax(k,irad) =   shg_ax(k,irad+1)
-!             shh_ax(k,irad) =   shh_ax(k,irad+1)
 
         else
 
@@ -745,14 +540,6 @@ GO TO 15
              shw_ax(k,irad) =   shw_ax(k,irad) / weight_t(k,irad)
              shv_ax(k,irad) =   shv_ax(k,irad) / weight_t(k,irad)
                w_ax(k,irad) =     w_ax(k,irad) / weight_t(k,irad)
-             shc_ax(k,irad) =   shc_ax(k,irad) / weight_t(k,irad)
-!             shd_ax(k,irad) =   shd_ax(k,irad) / weight_t(k,irad)
-!             shr_ax(k,irad) =   shr_ax(k,irad) / weight_t(k,irad)
-             shp_ax(k,irad) =   shp_ax(k,irad) / weight_t(k,irad)
-!             shs_ax(k,irad) =   shs_ax(k,irad) / weight_t(k,irad)
-!             sha_ax(k,irad) =   sha_ax(k,irad) / weight_t(k,irad)
-!             shg_ax(k,irad) =   shg_ax(k,irad) / weight_t(k,irad)
-!             shh_ax(k,irad) =   shh_ax(k,irad) / weight_t(k,irad)
 
         endif
 
@@ -886,7 +673,7 @@ GO TO 15
 
         wrad2 = (rad - radius_ax(irad)) / (radius_ax(irad+1) - radius_ax(irad))
         wrad1 = 1. - wrad2
-   
+
 ! Unit normal vector components from hurricane center to current IV point
 
         vnxrad = (xev(iv) - xeh) / rad
@@ -963,6 +750,195 @@ GO TO 15
   return
   end subroutine vortex_diagnose0
 
+!==================================================================================
+
+  subroutine vortex_diagnose0h(thil_ax, theta_ax, shw_ax, shv_ax, vtan_ax, &
+                               vrad_ax,     w_ax)
+
+  use mem_ijtabs
+  use mem_basic
+  use mem_micro
+  use misc_coms
+  use mem_grid
+  use consts_coms
+
+  implicit none
+
+  real, intent(out) ::  thil_ax(nz,nr) ! ice-liquid potential temperature (K)
+  real, intent(out) :: theta_ax(nz,nr) ! potential temperature (K)
+  real, intent(out) ::   shw_ax(nz,nr) ! total water specific density (kg/kg)
+  real, intent(out) ::   shv_ax(nz,nr) ! vapor specific density (kg/kg)
+  real, intent(out) ::  vtan_ax(nz,nr) ! tangential wind (m/s)
+  real, intent(out) ::  vrad_ax(nz,nr) ! radial wind (m/s)
+  real, intent(out) ::     w_ax(nz,nr) ! vertical wind (m/s)
+
+  integer :: iw,i,j,k,ngr,iu,iv,iw1,iw2
+  real :: zeh,reh,xeh,yeh
+  real :: wnxh,wnyh,wnzh
+  real :: wnxrad,wnyrad,wnzrad,wnxtan,wnytan,wnztan
+
+  real :: rad,rrad,wrad1,wrad2
+  real :: vtan_ax0,vrad_ax0
+
+  integer :: irad,ir
+
+  real :: weight_t(nz,nr)   ! weight array for T points
+
+! Find "earth" coordinates of hurricane center
+
+  zeh = erad * sin(hlat * pio180)
+  reh = erad * cos(hlat * pio180)  ! distance from earth axis
+  xeh = reh  * cos(hlon * pio180)
+  yeh = reh  * sin(hlon * pio180)
+
+! Components of unit vector outward normal to earth surface at hurricane center
+
+  wnxh = xeh / erad
+  wnyh = yeh / erad
+  wnzh = zeh / erad
+
+! Initialize axixymmetric arrays to zero prior to summation
+
+   thil_ax(:,:) = 0.
+  theta_ax(:,:) = 0.
+    shw_ax(:,:) = 0.
+    shv_ax(:,:) = 0.
+   vtan_ax(:,:) = 0.
+   vrad_ax(:,:) = 0.
+      w_ax(:,:) = 0.
+
+  weight_t(:,:) = 0.
+
+! Loop over all W points
+
+  call psub()
+!----------------------------------------------------------------------
+  do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)  ! jend(1) = hardwired for mrl 1
+!----------------------------------------------------------------------
+  call qsub('W',iw)
+
+! Distance of this IW point from eye center
+
+     rad = sqrt((xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2)
+   
+! Skip hurricane assimilation for all points outside specified radius
+
+     if (rad >= radius_ax(nr) - 1.) cycle
+
+! Determine interpolation point in radial dimension
+
+     irad = 1
+     do while (rad > radius_ax(irad+1))
+        irad = irad + 1
+     enddo
+
+     wrad2 = (rad - radius_ax(irad)) / (radius_ax(irad+1) - radius_ax(irad))
+     wrad1 = 1. - wrad2
+
+! Unit normal vector components from hurricane center to current IW point
+
+     wnxrad = (xew(iw) - xeh) / rad
+     wnyrad = (yew(iw) - yeh) / rad
+     wnzrad = (zew(iw) - zeh) / rad
+
+! Unit vector components in direction of tangential vortex wind
+
+     wnxtan = wnyh * wnzrad - wnzh * wnyrad
+     wnytan = wnzh * wnxrad - wnxh * wnzrad
+     wnztan = wnxh * wnyrad - wnyh * wnxrad
+
+! Vertical loop over T levels
+
+     do k = lpw(iw),nzz
+
+        weight_t(k,irad)   = weight_t(k,irad)   + wrad1
+        weight_t(k,irad+1) = weight_t(k,irad+1) + wrad2
+
+! Diagnose axisymmetric component of model's own vortex
+
+         thil_ax(k,irad)   =  thil_ax(k,irad)   + wrad1 *  thil(k,iw)
+         thil_ax(k,irad+1) =  thil_ax(k,irad+1) + wrad2 *  thil(k,iw)
+
+        theta_ax(k,irad)   = theta_ax(k,irad)   + wrad1 * theta(k,iw)
+        theta_ax(k,irad+1) = theta_ax(k,irad+1) + wrad2 * theta(k,iw)
+
+          shw_ax(k,irad)   =   shw_ax(k,irad)   + wrad1 *  sh_w(k,iw)
+          shw_ax(k,irad+1) =   shw_ax(k,irad+1) + wrad2 *  sh_w(k,iw)
+
+          shv_ax(k,irad)   =   shv_ax(k,irad)   + wrad1 *  sh_v(k,iw)
+          shv_ax(k,irad+1) =   shv_ax(k,irad+1) + wrad2 *  sh_v(k,iw)
+
+            w_ax(k,irad)   =     w_ax(k,irad)   + wrad1 *    wc(k,iw)
+            w_ax(k,irad+1) =     w_ax(k,irad+1) + wrad2 *    wc(k,iw)
+
+! Diagnose axisymmetric component of model's own vortex
+
+        vtan_ax0 = vxe(k,iw) * wnxtan + vye(k,iw) * wnytan + vze(k,iw) * wnztan
+        vrad_ax0 = vxe(k,iw) * wnxrad + vye(k,iw) * wnyrad + vze(k,iw) * wnzrad
+
+        vtan_ax(k,irad)   = vtan_ax(k,irad)   + wrad1 * vtan_ax0
+        vtan_ax(k,irad+1) = vtan_ax(k,irad+1) + wrad2 * vtan_ax0
+
+        vrad_ax(k,irad)   = vrad_ax(k,irad)   + wrad1 * vrad_ax0
+        vrad_ax(k,irad+1) = vrad_ax(k,irad+1) + wrad2 * vrad_ax0
+
+     enddo
+
+  enddo
+
+! Convert sums to averages
+
+  do irad = nr,1,-1
+
+     do k = 2,nzz
+
+        if (weight_t(k,irad) < 1.e-6) then
+
+           if (irad == nr) stop 'stop irad T'
+
+            thil_ax(k,irad) =  thil_ax(k,irad+1)
+           theta_ax(k,irad) = theta_ax(k,irad+1)
+             shw_ax(k,irad) =   shw_ax(k,irad+1)
+             shv_ax(k,irad) =   shv_ax(k,irad+1)
+               w_ax(k,irad) =     w_ax(k,irad+1)
+
+           if (irad > 1) then
+
+              vtan_ax(k,irad) = vtan_ax(k,irad+1) &
+                              * radius_ax(irad) / radius_ax(irad+1)
+
+              vrad_ax(k,irad) = vrad_ax(k,irad+1) &
+                              * radius_ax(irad) / radius_ax(irad+1)
+
+           endif
+
+        else
+
+            thil_ax(k,irad) =  thil_ax(k,irad) / weight_t(k,irad)
+           theta_ax(k,irad) = theta_ax(k,irad) / weight_t(k,irad)
+             shw_ax(k,irad) =   shw_ax(k,irad) / weight_t(k,irad)
+             shv_ax(k,irad) =   shv_ax(k,irad) / weight_t(k,irad)
+               w_ax(k,irad) =     w_ax(k,irad) / weight_t(k,irad)
+
+           if (irad > 1) then
+
+              vtan_ax(k,irad) = vtan_ax(k,irad) / weight_t(k,irad)
+              vrad_ax(k,irad) = vrad_ax(k,irad) / weight_t(k,irad)
+
+           endif
+
+        endif
+
+     enddo
+
+  enddo
+
+  vtan_ax(:,1) = 0.
+  vrad_ax(:,1) = 0.
+
+  return
+  end subroutine vortex_diagnose0h
+
 !==============================================================================
 
   subroutine hurricane_init1B()
@@ -988,7 +964,6 @@ GO TO 15
   use misc_coms
   use mem_grid
   use consts_coms
-
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                           mpi_send_u, mpi_recv_u, &
                           mpi_send_v, mpi_recv_v 
@@ -1014,7 +989,8 @@ GO TO 15
   real,    parameter :: zexpon_delv = 1.5
   integer, parameter :: ir_eyw = 7     ! radial index in axisymmetric profiles
   integer, parameter :: ir_env = 17    ! radial index in axisymmetric profiles
-!  real,    parameter :: rexpon_delc = 1.0
+
+! real,    parameter :: rexpon_delc = 1.0
   real,    parameter :: rexpon_delc = 0.5
 
   real :: vpert_rad, vpert_vert
@@ -1028,7 +1004,7 @@ GO TO 15
   real ::   theta_totw(nz,nr)
   real ::     vtan_tot(nz,nr)
 
-  integer :: irad
+  integer :: irad, mrl
   real :: theta_tot0, theta_tot1, theta_pert0, dbdz, dri
   real :: b(nz)
 
@@ -1046,14 +1022,6 @@ GO TO 15
   wnxh = xeh / erad
   wnyh = yeh / erad
   wnzh = zeh / erad
-
-! Read diagnosed hurricane initial tangential wind from file
-
-  open(32,file='frances_diagnosis_1sept00z',status='old',form='unformatted')
-  read(32) thil_ax1, theta_ax1, shw_ax1, shv_ax1, vtan_ax1 !, &
-!          vrad_ax1,     w_ax1, shc_ax1, shd_ax1,  shr_ax1, &
-!           shp_ax1,   shs_ax1, sha_ax1, shg_ax1,  shh_ax1
-  close(32)
 
   circ_avg(:) = 0.
 
@@ -1205,16 +1173,6 @@ GO TO 15
          thil(k,iw) =  thil(k,iw) + theta_pert0
         theta(k,iw) = theta(k,iw) + theta_pert0
 
-!if (iw == 9485) then
-!   print*, ' '
-!   print*, 'x1 ',nzz,k,thil(k,iw),theta_pert0
-!   print*, 'x2 ',theta(k,iw),sh_w(k,iw),sh_v(k,iw)
-!   print*, 'x3 ',theta_tot0,theta_tot1,wrad1,wrad2
-!   print*, 'x4 ',irad,theta_totw(k,irad),theta_totw(k-1,irad)
-!   print*, 'x5 ',theta_totw(k,irad+1),theta_totw(k-1,irad+1)
-!   print*, 'x6 ',theta_ax1(k,irad),theta_ax1(k,irad+1)
-!endif
-
      enddo
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1332,7 +1290,6 @@ GO TO 15
               * (unx(iu) * unxtan + uny(iu) * unytan + unz(iu) * unztan)
 
            umc(k,iu) = uc(k,iu) * .5 * (rho(k,iw1) + rho(k,iw2))
-           ump(k,iu) = umc(k,iu)
 
         enddo
 
@@ -1345,6 +1302,10 @@ GO TO 15
         call mpi_send_u('I')
         call mpi_recv_u('I')
      endif
+
+! Set UMP to UMC
+
+      ump(:,:) = umc(:,:)
 
   else  ! If meshtype = 2, initialize VC field
 
@@ -1420,9 +1381,6 @@ GO TO 15
               * (vnx(iv) * vnxtan + vny(iv) * vnytan + vnz(iv) * vnztan)
 
            vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
-           
-           vp (k,iv) = vc (k,iv)
-           vmp(k,iv) = vmc(k,iv)
 
         enddo
 
@@ -1436,99 +1394,105 @@ GO TO 15
         call mpi_recv_v('I')
      endif
 
+! Set VMP and VP
+
+     vmp(:,:) = vmc(:,:)
+     vp (:,:) = vc (:,:)
+
+  endif
+
+! Re-diagnose earth-relative velocities
+
+  mrl = 1
+  call diagvel_t3d(mrl)
+
+  if (iparallel == 1) then
+     call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
+     call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
   endif
 
   return
   end subroutine hurricane_init1B
 
-!=======================================================================================
+!==================================================================================
 
-  subroutine hurricane_init2B()
+  subroutine vortex_reloc3d()
 
-! This subroutine adds perturbation fields to a model initial state that act to
-! capture the full intensity of a tropical cyclone that is poorly resolved in
-! the standard analysis used for the initial fields (e.g., the GFS analysis).
-
-! The added perturbation fields currently consist of potential temperature, 
-! water vapor specific density, and cyclonic winds.  Additional fields may be added
-! in the future, including microphysics condensate species and radial-vertical
-! circulation.
-
-! The added perturbation fields currently are axisymmetric, defined as a function
-! of radius and height only.  They can be made asymmetric with some code 
-! development, for example by including azimuthal wavenumbers.
-
-! The perturbation fields that are added in this subroutine are generated 
-! by a dynamic initialization cycle, performed by previous integrations of OLAM.
-! The cycle should be repeated whenever major changes are made to the model
-! configuration, such as a change in grid resolution, or for a new vortex
-! initialization time and location.
-
-  use mem_ijtabs
-  use mem_basic
-  use mem_micro
-  use misc_coms
-  use mem_grid
-  use consts_coms
-
-  use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
-                          mpi_send_u, mpi_recv_u, &
-                          mpi_send_v, mpi_recv_v 
+  use mem_basic,   only: vc, wc, thil, theta, sh_w, sh_v, rho, press, &
+                         vxe, vye, vze
+  use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
+                         q2, q6, q7, &
+                         con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h
+  use mem_ijtabs,  only: itab_m, itab_w, jtab_w
+  use misc_coms,   only: io6
+  use mem_grid,    only: mza, mma, mwa, lpw, xem, yem, zem, xew, yew, zew
+  use consts_coms, only: erad,piu180,pio180
+  use max_dims,   only: pathlen
 
   implicit none
 
-  integer :: iw,i,j,k,ngr,iu,iv,iw1,iw2,kbc,iter
-  real :: pkhyd,exner,deltheta
   real :: zeh,reh,xeh,yeh
   real :: wnxh,wnyh,wnzh
-  real :: unxrad,unyrad,unzrad,unxtan,unytan,unztan
-  real :: vnxrad,vnyrad,vnzrad,vnxtan,vnytan,vnztan
+  real :: wnxrad,wnyrad,wnzrad,wnxtan,wnytan,wnztan
+  real :: vtan,vrad
+  real :: reloc_field(mza,nwi,nfld)
 
-  real :: rad,rrad,wrad1,wrad2
+! PS index transfer
 
-  real :: thil_ax, theta_ax, shw_ax, shv_ax, vtan_ax
-  real :: vrad_ax,     w_ax, shc_ax, shd_ax,  shr_ax
-  real ::  shp_ax,   shs_ax, sha_ax, shg_ax,  shh_ax
+  integer, parameter :: nips = 200, njps = 200 ! size of PS arrays
 
-  integer :: irad,iz,ir
+  integer :: nwps(nips,njps)   ! # of iw indices in each ips,jps cell
+  integer :: iwps(nips,njps,30) ! iw indices in each ips,jps cell (max of 10)
 
-  character*10 :: cstr
-  integer :: istr
-  real :: rstr
+  integer :: iwiflag(mwa), iwout(mwa)
 
-  real :: rad_pert(nr)
+  integer :: im,iw,i,j,k,jnext,iwnext,ips,jps,npoly,ipt,jpt,lpt
+  integer :: ifld, nout, iwi
 
-!  11 format(/,a,28f6.0,/)
-!  12 format(i3,f8.0,a,28f6.1)
+  integer, save :: ipert = 0
 
-  11 format(/,15x  ,a,28f6.0,/)
-  12 format(i3,f8.0,a,28f6.1)
+  real :: rad, rpolyi
 
-!  11 format(/,3x,f8.0,a,30f6.0)
-!  12 format(/,i3,f8.0,a,30f6.1)
+  real :: x(3),y(3),z(3)
+  real :: xw(7),yw(7)
 
-! Find "earth" coordinates of hurricane center
+  real :: a(mza,nfld),b(mza,nfld),c(mza,nfld)
+  real :: field(mza,7,nfld),field_avg(mza,nfld)
 
-  zeh = erad * sin(hlat * pio180)
-  reh = erad * cos(hlat * pio180)  ! distance from earth axis
-  xeh = reh  * cos(hlon * pio180)
-  yeh = reh  * sin(hlon * pio180)
+  real :: v0x,v0y,v1x,v1y,v2x,v2y,dot00,dot01,dot02,dot11,dot12,denomi,u,v
+  real :: xwi,ywi
 
-! Components of unit vector outward normal to earth surface at hurricane center
+  character(pathlen) :: fname
+  logical :: exans
 
-  wnxh = xeh / erad
-  wnyh = yeh / erad
-  wnzh = zeh / erad
+  ipert = ipert + 1
 
-! Thermodynamic fields
+     if (ipert == 1) then
+        fname = 'frances_out1e'
+     elseif (ipert == 2) then
+        fname = 'frances_out2e'
+     elseif (ipert == 3) then
+        fname = 'frances_out3e'
+     elseif (ipert == 4) then
+        fname = 'frances_out4e'
+     elseif (ipert == 5) then
+        fname = 'frances_out5e'
+     elseif (ipert == 6) then
+        fname = 'frances_out6e'
+     endif
 
-  open(31,file='frances_cyc1_pert3',status='old',form='formatted')
+  nwps(:,:) = 0
 
-  read(31) thil_ax12, theta_ax12, shw_ax12, shv_ax12, vtan_ax12, &
-           vrad_ax12,     w_ax12, shc_ax12, shd_ax12,  shr_ax12, &
-            shp_ax12,   shs_ax12, sha_ax12, shg_ax12,  shh_ax12
+! Find "earth" coordinates of hurricane center initial location
 
-  close(31)
+  zeh = erad * sin(hlat0 * pio180)
+  reh = erad * cos(hlat0 * pio180)  ! distance from earth axis
+  xeh = reh  * cos(hlon0 * pio180)
+  yeh = reh  * sin(hlon0 * pio180)
+
+print*, 'hlat0,hlon0 ',hlat0,hlon0,xeh,yeh,zeh
+
+! Loop over all W points
 
   call psub()
 !----------------------------------------------------------------------
@@ -1536,64 +1500,468 @@ GO TO 15
 !----------------------------------------------------------------------
   call qsub('W',iw)
 
-! Distance of this IW point from eye center
+! Distance of this IW point from initial eye center
 
      rad = sqrt((xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2)
    
 ! Skip hurricane assimilation for all points outside specified radius
 
-     if (rad >= radius_ax(nr) - 1.) cycle
+     if (rad >= 450.e3) cycle
 
-! Determine interpolation point in radial dimension
+! Transform current W point to PS coordinates tangent at hurricane center
 
-     irad = 1
-     do while (rad > radius_ax(irad+1))
-        irad = irad + 1
-     enddo
+     call e_ps(xew(iw),yew(iw),zew(iw),hlat0,hlon0,xw(1),yw(1))
 
-     wrad2 = (rad - radius_ax(irad)) / (radius_ax(irad+1) - radius_ax(irad))
-     wrad1 = 1. - wrad2
+! Get ips,jps indices on PS grid (assumed to be 5 km mesh that is 1000 km wide)
+
+     ips = nint((xw(1) + 500.e3) / 5.e3)
+     jps = nint((yw(1) + 500.e3) / 5.e3)
+
+     nwps(ips,jps) = nwps(ips,jps) + 1
+
+     if (nwps(ips,jps) > 30) then
+        print*, 'nwps at ',ips,',',jps,' exceeds 30'
+        stop 'stop nwps '
+     endif
+
+! Store iw index in ips,jps element of iwps array to mark its location
+
+     iwps(ips,jps,nwps(ips,jps)) = iw
+
+! write(6,'(a,5i7,3f10.1)') 'nwps1 ',j,iw,ips,jps,nwps(ips,jps),rad,xw(1)/1000.,yw(1)/1000.
+
+  enddo
+
+  nout = 0
+
+! Find "earth" coordinates of hurricane center current location
+
+  zeh = erad * sin(hlat * pio180)
+  reh = erad * cos(hlat * pio180)  ! distance from earth axis
+  xeh = reh  * cos(hlon * pio180)
+  yeh = reh  * sin(hlon * pio180)
+
+print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
+
+! Components of unit vector outward normal to earth surface at hurricane center
+
+  wnxh = xeh / erad
+  wnyh = yeh / erad
+  wnzh = zeh / erad
+
+  iwiflag(:) = 0
+
+! Loop over M points for interpolating W points
+
+  do im = 2,mma
+
+! Distance of this IM point from current eye center
+
+     rad = sqrt((xem(im)-xeh)**2 + (yem(im)-yeh)**2 + (zem(im)-zeh)**2)
    
+! Skip hurricane assimilation for all points outside specified radius
+
+     if (rad >= 420.e3) cycle
+
+! Transform M point to PS coordinates tangent at current hurricane center
+
+     call e_ps(xem(im),yem(im),zem(im),hlat,hlon,x(1),y(1))
+
+     npoly = itab_m(im)%npoly
+     rpolyi = 1. / real(npoly)
+
+! Initialize field average and iwiflag
+
+     field_avg(1:mza,1:nfld) = 0.
+
+! Loop over all W points that surround current M point
+
+     do j = 1,npoly
+
+! Current W point index
+
+        iw = itab_m(im)%iw(j)
+
+!---------------------------------------------------------------
+! Diagnose tangential and radial velocity components at T points
+!---------------------------------------------------------------
+
+! Unit normal vector components from hurricane center to current IW point
+
+        wnxrad = (xew(iw) - xeh) / rad
+        wnyrad = (yew(iw) - yeh) / rad
+        wnzrad = (zew(iw) - zeh) / rad
+
+! Unit vector components in direction of tangential vortex wind
+
+        wnxtan = wnyh * wnzrad - wnzh * wnyrad
+        wnytan = wnzh * wnxrad - wnxh * wnzrad
+        wnztan = wnxh * wnyrad - wnyh * wnxrad
+
+! Transform W point to PS coordinates tangent at current hurricane center
+
+        call e_ps(xew(iw),yew(iw),zew(iw),hlat,hlon,xw(j),yw(j))
+
 ! Vertical loop over T levels
 
-     do k = lpw(iw),nzz
+        do k = 2,mza-1
+           vtan = vxe(k,iw) * wnxtan + vye(k,iw) * wnytan + vze(k,iw) * wnztan
+           vrad = vxe(k,iw) * wnxrad + vye(k,iw) * wnyrad + vze(k,iw) * wnzrad
 
-! Interpolate perturbation table values to current grid cell
+           field(k,j, 1) =  vtan
+           field(k,j, 2) =  vrad
+           field(k,j, 3) =    wc(k,iw)
+           field(k,j, 4) =  thil(k,iw)
+           field(k,j, 5) = theta(k,iw)
+           field(k,j, 6) =  sh_w(k,iw)
+           field(k,j, 7) =  sh_v(k,iw)
+           if (allocated(sh_c))  field(k,j, 8) =  sh_c(k,iw)
+           if (allocated(sh_d))  field(k,j, 9) =  sh_d(k,iw)
+           if (allocated(sh_r))  field(k,j,10) =  sh_r(k,iw)
+           if (allocated(sh_p))  field(k,j,11) =  sh_p(k,iw)
+           if (allocated(sh_s))  field(k,j,12) =  sh_s(k,iw)
+           if (allocated(sh_a))  field(k,j,13) =  sh_a(k,iw)
+           if (allocated(sh_g))  field(k,j,14) =  sh_g(k,iw)
+           if (allocated(sh_h))  field(k,j,15) =  sh_h(k,iw)
+           if (allocated(con_c)) field(k,j,16) = con_c(k,iw)
+           if (allocated(con_d)) field(k,j,17) = con_d(k,iw)
+           if (allocated(con_r)) field(k,j,18) = con_r(k,iw)
+           if (allocated(con_p)) field(k,j,19) = con_p(k,iw)
+           if (allocated(con_s)) field(k,j,20) = con_s(k,iw)
+           if (allocated(con_a)) field(k,j,21) = con_a(k,iw)
+           if (allocated(con_g)) field(k,j,22) = con_g(k,iw)
+           if (allocated(con_h)) field(k,j,23) = con_h(k,iw)
+           if (allocated(q2))    field(k,j,24) =    q2(k,iw)
+           if (allocated(q6))    field(k,j,25) =    q6(k,iw)
+           if (allocated(q7))    field(k,j,26) =    q7(k,iw)
+           field(k,j,27) =   rho(k,iw)
+           field(k,j,28) = press(k,iw)
 
-         thil_ax = wrad1 *  thil_ax12(k,irad) + wrad2 *  thil_ax12(k,irad+1)
-        theta_ax = wrad1 * theta_ax12(k,irad) + wrad2 * theta_ax12(k,irad+1)
-          shw_ax = wrad1 *   shw_ax12(k,irad) + wrad2 *   shw_ax12(k,irad+1)
-          shv_ax = wrad1 *   shv_ax12(k,irad) + wrad2 *   shv_ax12(k,irad+1)
-            w_ax = wrad1 *     w_ax12(k,irad) + wrad2 *     w_ax12(k,irad+1)
-          shc_ax = wrad1 *   shc_ax12(k,irad) + wrad2 *   shc_ax12(k,irad+1)
-          shd_ax = wrad1 *   shd_ax12(k,irad) + wrad2 *   shd_ax12(k,irad+1)
-          shr_ax = wrad1 *   shr_ax12(k,irad) + wrad2 *   shr_ax12(k,irad+1)
-          shp_ax = wrad1 *   shp_ax12(k,irad) + wrad2 *   shp_ax12(k,irad+1)
-          shs_ax = wrad1 *   shs_ax12(k,irad) + wrad2 *   shs_ax12(k,irad+1)
-          sha_ax = wrad1 *   sha_ax12(k,irad) + wrad2 *   sha_ax12(k,irad+1)
-          shg_ax = wrad1 *   shg_ax12(k,irad) + wrad2 *   shg_ax12(k,irad+1)
-          shh_ax = wrad1 *   shh_ax12(k,irad) + wrad2 *   shh_ax12(k,irad+1)
+           field_avg(k,1:nfld) = field_avg(k,1:nfld) + field(k,j,1:nfld) * rpolyi
+        enddo
 
-!---------------------------------------------------------------------
-!        if (thil_ax > 0.) thil_ax = thil_ax * 1.2
-!---------------------------------------------------------------------
+     enddo
 
-! Add theta and shw perturbations to model fields
+! Loop over all W points that surround current M point and fill field values
 
-         thil(k,iw) =  thil(k,iw) +  thil_ax
-        theta(k,iw) = theta(k,iw) + theta_ax
-         sh_w(k,iw) =  sh_w(k,iw) +   shw_ax
-         sh_v(k,iw) =  sh_v(k,iw) +   shv_ax
-           wc(k,iw) =    wc(k,iw) +     w_ax
-         sh_c(k,iw) =  sh_c(k,iw) +   shc_ax
-         sh_d(k,iw) =  sh_d(k,iw) +   shd_ax
-         sh_r(k,iw) =  sh_r(k,iw) +   shr_ax
-         sh_p(k,iw) =  sh_p(k,iw) +   shp_ax
-         sh_s(k,iw) =  sh_s(k,iw) +   shs_ax
-         sh_a(k,iw) =  sh_a(k,iw) +   sha_ax
-         sh_g(k,iw) =  sh_g(k,iw) +   shg_ax
-         sh_h(k,iw) =  sh_h(k,iw) +   shh_ax
+     do j = 1,npoly
+        jnext = j + 1
+        if (j == npoly) jnext = 1
 
+        iw     = itab_m(im)%iw(j)
+        iwnext = itab_m(im)%iw(jnext)
+
+        x(2) = xw(j)
+        y(2) = yw(j)
+
+        x(3) = xw(jnext)
+        y(3) = yw(jnext)
+
+! Loop over vertical levels
+
+        do k = 2,mza-1
+
+! Loop over fields
+
+           do ifld = 1,nfld
+
+              z(1) = field_avg(k,ifld)
+              z(2) = field(k,j,ifld)
+              z(3) = field(k,jnext,ifld)
+
+! Evaluate interpolation coefficients for current trio of points
+
+              call matrix_3x3(1.  , x(1), y(1), &
+                              1.  , x(2), y(2), &
+                              1.  , x(3), y(3), &
+                              z(1), z(2), z(3), &
+                              a(k,ifld), b(k,ifld), c(k,ifld))
+
+           enddo
+
+        enddo
+
+! Set up some triangle-check coefficients
+
+        v0x = x(2) - x(1)
+        v0y = y(2) - y(1)
+
+        v1x = x(3) - x(1)
+        v1y = y(3) - y(1)
+
+        dot00 = v0x * v0x + v0y * v0y
+        dot01 = v0x * v1x + v0y * v1y
+        dot11 = v1x * v1x + v1y * v1y
+
+        denomi = 1. / (dot00 * dot11 - dot01 * dot01)
+
+! Get ips,jps indices on PS grid (assumed to be 5 km mesh that is 1000 km wide)
+! for current M point relative to current hurricane location
+
+        ips = nint((x(1) + 500.e3) / 5.e3)
+        jps = nint((y(1) + 500.e3) / 5.e3)
+
+! From the ips,jps indices, look up nearby W points in iwps table that
+! have similar PS coordinates relative to initial hurricane location
+
+        do jpt = jps-1,jps+1
+           do ipt = ips-1,ips+1
+              do lpt = 1,nwps(ipt,jpt)
+
+                 iwi = iwps(ipt,jpt,lpt)
+
+! If this point has already been interpolated, cycle
+
+                 if (iwiflag(iwi) > 0) cycle
+
+! Transform IWI point to PS coordinates tangent at initial hurricane center
+
+                 call e_ps(xew(iwi),yew(iwi),zew(iwi),hlat0,hlon0,xwi,ywi)
+
+! Set up remaining triangle_check coefficients
+
+                 v2x = xwi - x(1)
+                 v2y = ywi - y(1)
+
+                 dot02 = v0x * v2x + v0y * v2y
+                 dot12 = v1x * v2x + v1y * v2y
+
+                 u = (dot11 * dot02 - dot01 * dot12) * denomi
+                 v = (dot00 * dot12 - dot01 * dot02) * denomi
+
+! Check if current qx,qy point is inside or very near current triangle
+
+                 if (u > -.01 .and. v > -.01 .and. u + v < 1.01) then
+
+! Point is inside or very near triangle; loop over vertical levels
+
+                    iwiflag(iwi) = 1
+                    nout = nout + 1
+
+                    iwout(nout) = iwi
+
+                    do k = 2,mza-1
+
+! Interpolate to output field point
+
+                       reloc_field(k,nout,1:nfld) = a(k,1:nfld)       &
+                                                  + b(k,1:nfld) * xwi &
+                                                  + c(k,1:nfld) * ywi
+
+
+!  if (k == 2) then
+!     write(6,'(a,2i7,8f10.1)') 'fo1 ',nout,iwi,reloc_field(k,nout,1), &
+!                                a(k,1),b(k,1),c(k,1),xwi/1000.,ywi/1000.
+!  endif
+
+
+
+                    enddo  ! k
+
+                 endif  ! q point inside triangle
+
+              enddo  ! lpt
+
+           enddo   ! ipt
+
+        enddo  ! jpt
+
+     enddo   ! j
+
+9    continue
+
+  enddo   ! im
+
+! Write output fields to file
+
+  inquire(file=trim(fname),exist=exans)
+
+  if (.not. exans) then
+     open(32,file=trim(fname),status='new',form='unformatted')
+     write(32) hlat0,hlon0,nout,iwout,reloc_field
+     close(32)
+  endif
+
+  return
+  end subroutine vortex_reloc3d
+
+!=======================================================================================
+
+  subroutine hurricane_init2C()
+
+! This subroutine replaces a model initial state with a poorly-resolved
+! tropical cyclone from a GFS or other analysis with a cyclone that was
+! simulated in a previous model run and was relocated to the position 
+! inferred in the initial GFS fields.
+
+!! The perturbation fields that are added in this subroutine are generated 
+!! by a dynamic initialization cycle, performed by previous integrations of OLAM.
+!! The cycle should be repeated whenever major changes are made to the model
+!! configuration, such as a change in grid resolution, or for a new vortex
+!! initialization time and location.
+
+  use mem_basic,   only: vc, vp, vmc, vmp, wc, wmc, thil, theta, sh_w, sh_v, &
+                         rho, press, vxe, vye, vze
+  use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
+                         q2, q6, q7, &
+                         con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h
+  use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtab_w
+  use misc_coms,   only: io6, iparallel
+  use mem_grid,    only: mza, mma, mwa, lpw, xev, yev, zev, xew, yew, zew, &
+                         vnx, vny, vnz, zt, dzt
+  use consts_coms, only: erad, piu180, pio180, gravo2, rvap, rdry, cvocp, p00k
+  use max_dims,    only: pathlen
+  use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
+                          mpi_send_u, mpi_recv_u, &
+                          mpi_send_v, mpi_recv_v 
+
+  implicit none
+
+  integer :: iwout(mwa)
+  integer :: nout, iout
+
+  integer :: iw,i,j,k,ngr,iu,iv,iw1,iw2,kbc,iter
+  real :: pkhyd,exner,deltheta
+  real :: zeh,reh,xeh,yeh
+  real :: wnxh,wnyh,wnzh
+  real :: unxrad,unyrad,unzrad,unxtan,unytan,unztan
+  real :: vnxrad,vnyrad,vnzrad,vnxtan,vnytan,vnztan
+  real :: wt1, wt2, wt2c, vtan0, vrad0
+
+  real :: rad
+
+  character(10) :: cstr
+  integer :: istr, mrl
+  real :: rstr
+
+  real :: reloc_field(mza,nwi,nfld)
+
+  real :: vtan(mza,mwa),vrad(mza,mwa)
+
+  character(pathlen) :: fname
+  logical :: exans
+
+  fname = 'frances_out6e'
+
+! Read relocated vortex data
+
+  inquire(file=trim(fname),exist=exans)
+
+  print*, 'exans ',exans
+
+  if (.not. exans) then
+     print*, 'file ',trim(fname),' does not exit '
+     stop 'stop hfile '
+  else
+     open(32,file=trim(fname),status='old',form='unformatted')
+     read(32) hlat0,hlon0,nout,iwout,reloc_field
+     close(32)
+  endif
+
+  print*, 'Init2c - hlat0,hlon0 = ',hlat0,hlon0
+
+! Find "earth" coordinates of hurricane center
+
+  zeh = erad * sin(hlat0 * pio180)
+  reh = erad * cos(hlat0 * pio180)  ! distance from earth axis
+  xeh = reh  * cos(hlon0 * pio180)
+  yeh = reh  * sin(hlon0 * pio180)
+
+! Components of unit vector outward normal to earth surface at hurricane center
+
+  wnxh = xeh / erad
+  wnyh = yeh / erad
+  wnzh = zeh / erad
+
+! Horizontal loop over all active W points in file data 
+
+  do iout = 1,nout
+
+     iw = iwout(iout)
+
+! Distance of this IW point from initial eye center
+
+     rad = sqrt((xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2)
+
+! Skip hurricane assimilation for all points outside specified radius
+
+     if (rad > 400.e3) cycle
+
+! Define radial weight coefficients
+
+     if (rad < 300.e3) then
+        wt1 = 1.
+     elseif (rad > 400.e3) then
+        wt1 = 0.
+     else
+        wt1 = (400.e3 - rad) / 100.e3
+     endif
+
+! Vertical loop over T levels
+
+     do k = 2,mza-1
+
+! Apply height weight coefficient
+
+        if (zt(k) < 13000.) then
+           wt2 = wt1
+        elseif (zt(k) > 16000.) then
+           wt2 = 0.
+        else
+           wt2 = wt1 * (16000. - zt(k)) / 3000.
+        endif
+
+        wt2c = 1. - wt2
+
+! Copy file data to OLAM grid, with weighting
+
+         vtan(k,iw) =                      reloc_field(k,iout, 1)
+         vrad(k,iw) =                      reloc_field(k,iout, 2)
+           wc(k,iw) =    wc(k,iw) * wt2c + reloc_field(k,iout, 3) * wt2 ! applies at W level
+         thil(k,iw) =  thil(k,iw) * wt2c + reloc_field(k,iout, 4) * wt2
+        theta(k,iw) = theta(k,iw) * wt2c + reloc_field(k,iout, 5) * wt2
+         sh_w(k,iw) =  sh_w(k,iw) * wt2c + reloc_field(k,iout, 6) * wt2
+         sh_v(k,iw) =  sh_v(k,iw) * wt2c + reloc_field(k,iout, 7) * wt2
+        if (allocated(sh_c)) &
+         sh_c(k,iw) =  sh_c(k,iw) * wt2c + reloc_field(k,iout, 8) * wt2
+        if (allocated(sh_d)) &
+         sh_d(k,iw) =  sh_d(k,iw) * wt2c + reloc_field(k,iout, 9) * wt2
+        if (allocated(sh_r)) &
+         sh_r(k,iw) =  sh_r(k,iw) * wt2c + reloc_field(k,iout,10) * wt2
+        if (allocated(sh_p)) &
+         sh_p(k,iw) =  sh_p(k,iw) * wt2c + reloc_field(k,iout,11) * wt2
+        if (allocated(sh_s)) &
+         sh_s(k,iw) =  sh_s(k,iw) * wt2c + reloc_field(k,iout,12) * wt2
+        if (allocated(sh_a)) &
+         sh_a(k,iw) =  sh_a(k,iw) * wt2c + reloc_field(k,iout,13) * wt2
+        if (allocated(sh_g)) &
+         sh_g(k,iw) =  sh_g(k,iw) * wt2c + reloc_field(k,iout,14) * wt2
+        if (allocated(sh_h)) &
+         sh_h(k,iw) =  sh_h(k,iw) * wt2c + reloc_field(k,iout,15) * wt2
+        if (allocated(con_c)) &
+        con_c(k,iw) = con_c(k,iw) * wt2c + reloc_field(k,iout,16) * wt2
+        if (allocated(con_d)) &
+        con_d(k,iw) = con_d(k,iw) * wt2c + reloc_field(k,iout,17) * wt2
+        if (allocated(con_r)) &
+        con_r(k,iw) = con_r(k,iw) * wt2c + reloc_field(k,iout,18) * wt2
+        if (allocated(con_p)) &
+        con_p(k,iw) = con_p(k,iw) * wt2c + reloc_field(k,iout,19) * wt2
+        if (allocated(con_s)) &
+        con_s(k,iw) = con_s(k,iw) * wt2c + reloc_field(k,iout,20) * wt2
+        if (allocated(con_a)) &
+        con_a(k,iw) = con_a(k,iw) * wt2c + reloc_field(k,iout,21) * wt2
+        if (allocated(con_g)) &
+        con_g(k,iw) = con_g(k,iw) * wt2c + reloc_field(k,iout,22) * wt2
+        if (allocated(con_h)) &
+        con_h(k,iw) = con_h(k,iw) * wt2c + reloc_field(k,iout,23) * wt2
+        if (allocated(q2)) &
+           q2(k,iw) =    q2(k,iw) * wt2c + reloc_field(k,iout,24) * wt2
+        if (allocated(q6)) &
+           q6(k,iw) =    q6(k,iw) * wt2c + reloc_field(k,iout,25) * wt2
+        if (allocated(q7)) &
+           q7(k,iw) =    q7(k,iw) * wt2c + reloc_field(k,iout,26) * wt2
+          rho(k,iw) =   rho(k,iw) * wt2c + reloc_field(k,iout,27) * wt2
+        press(k,iw) = press(k,iw) * wt2c + reloc_field(k,iout,28) * wt2
      enddo
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1630,7 +1998,6 @@ GO TO 15
      enddo
 
   enddo
-  call rsub('W_frances_a',7)
 
 ! If using MPI, perform parallel send/recv
 
@@ -1639,170 +2006,103 @@ GO TO 15
      call mpi_recv_w('I')  ! Recv W group
   endif
 
-! If meshtype = 1, initialize UC field
+! Initialize VC field
 
-  if (meshtype == 1) then
-
-     call psub()
+  call psub()
 !----------------------------------------------------------------------
-     do j = 1,jtab_u(7)%jend(1); iu = jtab_u(7)%iu(j)  ! jend(1) = hardwired for mrl 1
-        iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
-!----------------------------------------------------------------------
-     call qsub('U',iu)
-
-! Distance of this point from eye center
-
-        rad = sqrt((xeu(iu)-xeh)**2 + (yeu(iu)-yeh)**2 + (zeu(iu)-zeh)**2)
-
-! Skip hurricane assimilation for all points outside specified radius
-
-        if (rad >= radius_ax(nr) - 1.) cycle
-
-! Determine interpolation point in radial dimension
-
-        irad = 1
-        do while (rad > radius_ax(irad+1))
-           irad = irad + 1
-        enddo
-
-        wrad2 = (rad - radius_ax(irad)) / (radius_ax(irad+1) - radius_ax(irad))
-        wrad1 = 1. - wrad2
-   
-! Unit normal vector components from hurricane center to current IU point
-
-        unxrad = (xeu(iu) - xeh) / rad
-        unyrad = (yeu(iu) - yeh) / rad
-        unzrad = (zeu(iu) - zeh) / rad
-
-! Unit vector components in direction of tangential vortex wind
-
-        unxtan = wnyh * unzrad - wnzh * unyrad
-        unytan = wnzh * unxrad - wnxh * unzrad
-        unztan = wnxh * unyrad - wnyh * unxrad
-
-! Vertical loop over T levels
-
-        do k = lpu(iu),nzz
-
-! Interpolate perturbation table values to current grid cell
-
-           vtan_ax = wrad1 * vtan_ax12(k,irad  )  &
-                   + wrad2 * vtan_ax12(k,irad+1)
-
-           vrad_ax = wrad1 * vrad_ax12(k,irad  )  &
-                   + wrad2 * vrad_ax12(k,irad+1)
-
-!---------------------------------------------------------------------
-!           if (vtan_pert0 > 0.) vtan_pert0 = vtan_pert0 * 1.6
-!---------------------------------------------------------------------
-
-! Add enhanced vortex to winds interpolated from NCEP reanalysis
-
-           uc(k,iu) = uc(k,iu) &
-              + vtan_ax &
-              * (unx(iu) * unxtan + uny(iu) * unytan + unz(iu) * unztan) &
-              + vrad_ax &
-              * (unx(iu) * unxrad + uny(iu) * unyrad + unz(iu) * unzrad)
-
-           umc(k,iu) = uc(k,iu) * .5 * (rho(k,iw1) + rho(k,iw2))
-           ump(k,iu) = umc(k,iu)
-
-        enddo
-
-     enddo
-     call rsub('U_frances_a',7)
-
-! If using MPI, perform parallel send/recv
-
-     if (iparallel == 1) then
-        call mpi_send_u('I')
-        call mpi_recv_u('I')
-     endif
-
-  else  ! If meshtype = 2, initialize VC field
-
-     call psub()
-!----------------------------------------------------------------------
-     do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)  ! jend(1) = hardwired for mrl 1
-        iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+  do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)  ! jend(1) = hardwired for mrl 1
+     iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
      call qsub('V',iv)
  
 ! Distance of this point from eye center
 
-        rad = sqrt((xev(iv)-xeh)**2 + (yev(iv)-yeh)**2 + (zev(iv)-zeh)**2)
+     rad = sqrt((xev(iv)-xeh)**2 + (yev(iv)-yeh)**2 + (zev(iv)-zeh)**2)
 
 ! Skip hurricane assimilation for all points outside specified radius
 
-        if (rad >= radius_ax(nr) - 1.) cycle
+     if (rad > 400.e3) cycle
 
-! Determine interpolation point in radial dimension
-
-        irad = 1
-        do while (rad > radius_ax(irad+1))
-           irad = irad + 1
-        enddo
-
-        wrad2 = (rad - radius_ax(irad)) / (radius_ax(irad+1) - radius_ax(irad))
-        wrad1 = 1. - wrad2
-   
 ! Unit normal vector components from hurricane center to current IV point
 
-        vnxrad = (xev(iv) - xeh) / rad
-        vnyrad = (yev(iv) - yeh) / rad
-        vnzrad = (zev(iv) - zeh) / rad
+     vnxrad = (xev(iv) - xeh) / rad
+     vnyrad = (yev(iv) - yeh) / rad
+     vnzrad = (zev(iv) - zeh) / rad
 
 ! Unit vector components in direction of tangential vortex wind
 
-        vnxtan = wnyh * vnzrad - wnzh * vnyrad
-        vnytan = wnzh * vnxrad - wnxh * vnzrad
-        vnztan = wnxh * vnyrad - wnyh * vnxrad
+     vnxtan = wnyh * vnzrad - wnzh * vnyrad
+     vnytan = wnzh * vnxrad - wnxh * vnzrad
+     vnztan = wnxh * vnyrad - wnyh * vnxrad
+
+! Define radial weight coefficients
+
+     if (rad < 300.e3) then
+        wt1 = 1.
+     elseif (rad > 400.e3) then
+        wt1 = 0.
+     else
+        wt1 = (400.e3 - rad) / 100.e3
+     endif
 
 ! Vertical loop over T levels
 
-        do k = lpv(iv),nzz
+     do k = 2,mza-1
 
-! Interpolate perturbation table values to current grid cell
+! Apply height weight coefficient
 
-           vtan_ax = wrad1 * vtan_ax12(k,irad  ) &
-                   + wrad2 * vtan_ax12(k,irad+1)
+        if (zt(k) < 13000.) then
+           wt2 = wt1
+        elseif (zt(k) > 16000.) then
+           wt2 = 0.
+        else
+           wt2 = wt1 * (16000. - zt(k)) / 3000.
+        endif
 
-           vrad_ax = wrad1 * vrad_ax12(k,irad  ) &
-                   + wrad2 * vrad_ax12(k,irad+1)
+        wt2c = 1. - wt2
 
-!---------------------------------------------------------------------
-!           if (vtan_pert0 > 0.) vtan_pert0 = vtan_pert0 * 1.2
-!---------------------------------------------------------------------
+! Average radial and tangential velocity components to V point
 
-! Add enhanced vortex to winds interpolated from NCEP reanalysis
+        vtan0 = .5 * (vtan(k,iw1) + vtan(k,iw2))
+        vrad0 = .5 * (vrad(k,iw1) + vrad(k,iw2))
 
-           vc(k,iv) = vc(k,iv) &
-              + vtan_ax &
-              * (vnx(iv) * vnxtan + vny(iv) * vnytan + vnz(iv) * vnztan) &
-              + vrad_ax &
-              * (vnx(iv) * vnxrad + vny(iv) * vnyrad + vnz(iv) * vnzrad)
+        vc(k,iv) = vc(k,iv) * wt2c &
+                 + vtan0 * wt2 &
+                 * (vnx(iv) * vnxtan + vny(iv) * vnytan + vnz(iv) * vnztan) &
+                 + vrad0 &
+                 * (vnx(iv) * vnxrad + vny(iv) * vnyrad + vnz(iv) * vnzrad)
 
-           vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
-           
-           vp (k,iv) = vc (k,iv)
-           vmp(k,iv) = vmc(k,iv)
-
-        enddo
+        vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
 
      enddo
-     call rsub('V_frances_a',7)
+
+  enddo
+  call rsub('V_frances_a',7)
 
 ! If using MPI, perform parallel send/recv
 
-     if (iparallel == 1) then
-        call mpi_send_v('I')
-        call mpi_recv_v('I')
-     endif
+  if (iparallel == 1) then
+     call mpi_send_v('I')
+     call mpi_recv_v('I')
+  endif
 
+! Set VMP and VP
+
+  vmp(:,:) = vmc(:,:)
+  vp (:,:) = vc (:,:)
+
+! Re-diagnose earth-relative velocities
+
+  mrl = 1
+  call diagvel_t3d(mrl)
+
+  if (iparallel == 1) then
+     call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
+     call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
   endif
 
   return
-  end subroutine hurricane_init2B
+  end subroutine hurricane_init2C
 
 !==============================================================================
 
@@ -1824,7 +2124,7 @@ GO TO 15
   real :: hcpn(4),vcpn(4),fldvals(4),dst(6),ind(8)
   integer :: iasf(18)
 
-  integer :: k,km,i,ival,icolor,ibox,ln
+  integer :: k,km,i,ival,icolor,ibox,ln,nnn
   real :: bsize,yinc
 
   data iasf / 18*1 /
@@ -1912,6 +2212,7 @@ GO TO 15
      write (number,'(f7.1)') clrtab(itab)%vals(ibox)
 
      numbr = adjustl(number)
+
      if(numbr(len_trim(numbr):len_trim(numbr)) == '.') then
         ln = len_trim(numbr) - 1
      else
@@ -1947,4 +2248,3 @@ GO TO 15
   end subroutine cplot
 
 end module hcane_rz
-

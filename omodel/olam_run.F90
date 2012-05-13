@@ -75,7 +75,7 @@ wtime_start = walltime(0.)
 w1 = walltime(wtime_start)
 call cpu_time(t1)
 
-istp = 1
+istp  = 1
 time8 = 0.0_r8
 iflag = 0
 
@@ -325,6 +325,18 @@ elseif (initial == 3) then
    call fldslhi()           ! Longitudinally-homogeneous initialization
 endif
 
+! Diagnose earth-relative velocities
+
+if (runtype == 'INITIAL') then
+   mrl = 1
+   call diagvel_t3d(mrl)
+
+   if (iparallel == 1) then
+      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
+      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+   endif
+endif
+
 ! A good place to initialize added scalars
 
 ! Initialize 3d microphysics fields (if level = 3) and other microphysics
@@ -345,18 +357,6 @@ endif
 if (iparallel == 1) then
    call mpi_send_w('S')  ! Send scalars
    call mpi_recv_w('S')  ! Recv scalars
-endif
-
-! Diagnose earth-relative velocities
-
-if (runtype == 'INITIAL') then
-   mrl = 1
-   call diagvel_t3d(mrl)
-
-   if (iparallel == 1) then
-      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
-      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
-   endif
 endif
 
 ! Start up radiation scheme
@@ -453,7 +453,7 @@ if (runtype == 'HISTORY') then
    call history_start('HISTREAD')
    write(io6,*) 'olam_run finished history_start'
 
-   ! Earth-relative winds not saved in history filea
+   ! Earth-relative winds not saved in history file
 
    mrl = 1
    call diagvel_t3d(mrl)
@@ -706,15 +706,22 @@ use hcane_rz,    only: init_hurr_step, hurricane_track
 implicit none
 
 integer  :: ierr, ifm, ifileok
-real(r8) :: frqplt8
+real(r8) :: frqplt8, time8p
+
+time8p  = time8 + 0.001_r8
+frqplt8 = op%frqplt
 
 !-------------------- SPECIAL - HURRICANE TRACKING ------------------
 if (init_hurr_step == 1 .or. init_hurr_step == 2) then
-   if (mod(time8,real(3600.,r8)) < dtlm(1)) call hurricane_track()
+    if (time8p > timmax8) then
+       call hurricane_track(3)
+    elseif (mod( time8p, 3600.0_r8) < dtlm(1)) then
+       call hurricane_track(2)
+    else
+       call hurricane_track(1)
+    endif
 endif
 !-------------------------------------------------------------------
-
-frqplt8 = op%frqplt
 
 if (mod(time8,frqplt8) < dtlm(1) .or. iflag == 1) then
    call plot_fields(0)
@@ -727,25 +734,25 @@ if (mod(time8,real(frqstate,r8)) < dtlm(1)  .or.  &
 endif
 
 if (isfcl == 1 .and. iupdsst == 1) then
-   if (s1900_sim >= s1900_sst(isstfile) .and. time8+.001 < timmax8) then
+   if (s1900_sim >= s1900_sst(isstfile) .and. time8p < timmax8) then
       call sst_database_read(1)
    endif
 endif
 
 if (isfcl == 1 .and. iupdseaice == 1) then
-   if (s1900_sim >= s1900_seaice(iseaicefile) .and. time8+.001 < timmax8) then
+   if (s1900_sim >= s1900_seaice(iseaicefile) .and. time8p < timmax8) then
       call seaice_database_read(1)
    endif
 endif
 
 if (isfcl == 1 .and. iupdndvi == 1) then
-   if (s1900_sim >= s1900_ndvi(indvifile) .and. time8+.001 < timmax8) then
+   if (s1900_sim >= s1900_ndvi(indvifile) .and. time8p < timmax8) then
       call ndvi_database_read(1)
    endif
 endif
 
 if (initial == 2 .and. nudflag == 1) then
-   if (s1900_sim >= s1900_fg(ifgfile) .and. time8+.001 < timmax8) then
+   if (s1900_sim >= s1900_fg(ifgfile) .and. time8p < timmax8) then
 
       write(io6,*) ' '
       write(io6,*) 'olam_output ',time8,s1900_sim,s1900_fg(ifgfile),timmax8
