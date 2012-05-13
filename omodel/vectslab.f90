@@ -307,9 +307,9 @@ do iv = 2,mva
             if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xb)
             if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xc)
 
-            call frstpt(xa,ya)
-            call vector(xb,yb)
-            call vector(xc,yc)
+            call o_frstpt(xa,ya)
+            call o_vector(xb,yb)
+            call o_vector(xc,yc)
 
             pc = pc - pi
             xt = xt - ba
@@ -338,8 +338,8 @@ do iv = 2,mva
             if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xa)
             if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xb)
 
-            call frstpt(xa,ya)
-            call vector(xb,yb)
+            call o_frstpt(xa,ya)
+            call o_vector(xb,yb)
 
             pc = pc - pi
             xt = xt - bb
@@ -368,8 +368,8 @@ do iv = 2,mva
             if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xa)
             if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xb)
 
-            call frstpt(xa,ya)
-            call vector(xb,yb)
+            call o_frstpt(xa,ya)
+            call o_vector(xb,yb)
 
          endif
 

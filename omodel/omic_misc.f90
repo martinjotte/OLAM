@@ -670,19 +670,7 @@ do k = k1(lcat),k2(lcat)
       rfall (kk) = rfall (kk) + rx(k,lcat) * pcpfillr(k,kkf,iemb,lhcat)
       qrfall(kk) = qrfall(kk) + qr(k,lcat) * pcpfillr(k,kkf,iemb,lhcat)
    
-!---------------------------------------------------------------------
-! special: Remove some pristine ice for experiment with cloud and
-! pristine ice only: Need to speed up "sedimentation" to prevent
-! over-abundant ice in upper atmosphere.
-
-!      if (lcat == 3) then
-!         cfall (kk) = cfall (kk) * .99
-!         rfall (kk) = rfall (kk) * .99
-!         qrfall(kk) = qrfall(kk) * .99
-!      endif
-!---------------------------------------------------------------------
-
-   enddo
+  enddo
 
 enddo
 
