@@ -2,7 +2,6 @@
 
 SOURCE_FILES= \
              $(CONVECT)/cuparm_driver.f90 \
-             $(CONVECT)/grell_coms.f90 \
              $(CONVECT)/grell_deep_capmax_ens.f90 \
              $(CONVECT)/grell_deep_coms.f90 \
              $(CONVECT)/grell_downdraft.f90 \

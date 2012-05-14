@@ -32,79 +32,55 @@
 !===============================================================================
 subroutine cuparm_driver(rhot)
 
-use mem_grid,    only: mwa, mza, lpw
-use grell_coms,  only: alloc_grell, iact_gr
-
+use mem_grid,        only: mwa, mza, lpw
 use module_cu_kfeta, only: kf_lutab, cuparm_kfeta 
-
-use misc_coms,   only: io6, time_istp8, nqparm, nqparm_sh, confrq, dtlong,  &
-                       initial, itime1
-use mem_ijtabs,  only: itab_w, jtab_w, mrl_begl, istp, mrls
-use mem_cuparm,  only: thsrc, rtsrc, thsrcsh, rtsrcsh, aconpr, conprr
-use mem_tend,    only: thilt, sh_wt
-
-use mem_basic,   only: wc, theta, press, rho, sh_v
-use consts_coms, only: tkmin, r8
-use mem_micro,   only: sh_c
+use misc_coms,       only: io6, time_istp8, nqparm, nqparm_sh, confrq, &
+                           dtlong, initial, itime1
+use mem_ijtabs,      only: itab_w, jtab_w, mrl_begl, istp, mrls
+use mem_cuparm,      only: thsrc, rtsrc, thsrcsh, rtsrcsh, aconpr, conprr, &
+                           w0avg
+use mem_tend,        only: thilt, sh_wt
+use mem_basic,       only: wc, rho
+use consts_coms,     only: r8
 
 !$ use omp_lib
 
 implicit none
 
 real, intent(inout) :: rhot(mza,mwa)
-!real, parameter :: cptime = 7200.0
-real, parameter :: cptime = 0.0
-
-real, save, allocatable :: w0avg(:,:)
-
-integer :: j
-integer :: iw
-integer :: k
-integer :: mrl, mrlw
-
-integer, save :: init_kf = 0
+real(r8), parameter :: cptime = 0.0
+integer             :: j, iw, k, mrl, mrlw
+integer, save       :: init_kf = 0
 
 ! Time-weighting coefficients for w average
 
-real, parameter :: wtnew = .05, wtold = 1. - wtnew
+real, parameter :: wtnew = 0.05
+real, parameter :: wtold = 1.00 - wtnew
 
-! Memory allocation for Grell cumulus transport
-
-if ( any(nqparm(1:mrls) == 2) ) then
-   if (.not. allocated(iact_gr)) then
-      call alloc_grell(mwa)
-   endif
-endif
-
-! Initialization for KF_eta cumulus parameterization
+! For KF_eta parameterization, initialize scheme if needed
+! and compute running mean vertical velocity
 
 if ( any(nqparm(1:mrls) == 3) ) then
+
    if (init_kf == 0) then
       init_kf = 1
-
-      allocate (w0avg(mza,mwa))
- 
-      W0AVG   (:,:) = 0.
-
-      CALL KF_LUTAB()
+      call kf_lutab()
    endif
 
-!$omp parallel do private(iw,mrlw)
+   !$omp parallel do private(iw,mrlw)
    do j = 1,jtab_w(15)%jend(1); iw = jtab_w(15)%iw(j) ! jend(1) for mrl = 1
       do k = lpw(iw),mza-1
          w0avg(k,iw) = w0avg(k,iw) * wtold + .5 * (wc(k,iw) + wc(k+1,iw)) * wtnew
       enddo
    enddo
-!$omp end parallel do
-
-
+   !$omp end parallel do
 
 endif
 
 ! If model run has been initialized from observational data, avoid cumulus
 ! parameterization during an initial period to allow gravity waves to settle.
 
-if ((initial == 2) .and. (time_istp8 < real(cptime,r8))) return
+if ((initial == 2) .and. (time_istp8 < cptime)) return
 
 ! Check whether it is time to update cumulus parameterization tendencies
 
@@ -206,16 +182,29 @@ call qsub('W',iw)
 
    aconpr(iw) = aconpr(iw) + conprr(iw) * dtlong
 
-   do k = lpw(iw),mza-1
-      thilt(k,iw) = thilt(k,iw)  &
-                  + (thsrc(k,iw) + thsrcsh(k,iw)) * rho(k,iw)
+   if ( any(nqparm(1:mrls) > 0) ) then
 
-      sh_wt(k,iw) = sh_wt(k,iw)  &
-                  + (rtsrc(k,iw) + rtsrcsh(k,iw)) * rho(k,iw)
+      do k = lpw(iw),mza-1
+         thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * rho(k,iw)
 
-      rhot (k,iw) = rhot (k,iw)  &
-                  + (rtsrc(k,iw) + rtsrcsh(k,iw)) * rho(k,iw)
-   enddo
+         sh_wt(k,iw) = sh_wt(k,iw) + rtsrc(k,iw) * rho(k,iw)
+
+         rhot (k,iw) = rhot (k,iw) + rtsrc(k,iw) * rho(k,iw)
+      enddo
+
+   endif
+
+   if ( any(nqparm_sh(1:mrls) > 0) ) then
+      
+      do k = lpw(iw),mza-1
+         thilt(k,iw) = thilt(k,iw) + thsrcsh(k,iw) * rho(k,iw)
+
+         sh_wt(k,iw) = sh_wt(k,iw) + rtsrcsh(k,iw) * rho(k,iw)
+
+         rhot (k,iw) = rhot (k,iw) + rtsrcsh(k,iw) * rho(k,iw)
+      enddo
+
+   endif
 
 enddo
 !$omp end parallel do

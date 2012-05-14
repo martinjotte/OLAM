@@ -40,29 +40,50 @@ Module mem_cuparm
    real, allocatable, target :: aconpr   (:)
    real, allocatable, target :: conprr   (:)
 
+   ! Extra memory for KF_eta
+   real, allocatable, target :: w0avg(:,:)
+
+   ! Extra memory for Grell
+   integer, allocatable, target :: iact_gr(:)
+
 Contains
 
 !===============================================================================
 
-  subroutine alloc_cuparm(mza,mwa,nqparm,nqparm_sh)
-    use misc_coms, only: rinit
+  subroutine alloc_cuparm(mza, mwa, mrls, nqparm, nqparm_sh)
+
+    use misc_coms,       only: rinit
     implicit none
 
-    integer, intent(in) :: mza,mwa
-    integer, intent(in) :: nqparm,nqparm_sh ! these are max values over all MRLs
+    integer, intent(in) :: mza, mwa, mrls
+    integer, intent(in) :: nqparm(:), nqparm_sh(:)
    
-!   Allocate all cuparm arrays if either deep or shallow cuparm is activated
-!   on any MRL
-      
-    if (nqparm > 0 .or. nqparm_sh > 0 ) then
-       allocate (thsrc(mza,mwa)) ; thsrc = rinit
-       allocate (rtsrc(mza,mwa)) ; rtsrc = rinit
+    ! Base tendency arrays for all deep convective schemes
 
-       allocate (aconpr(mwa)) ; aconpr = rinit
-       allocate (conprr(mwa)) ; conprr = rinit
+    if ( any(nqparm(1:mrls) > 0) ) then      
+       allocate (thsrc(mza,mwa)) ; thsrc  = rinit
+       allocate (rtsrc(mza,mwa)) ; rtsrc  = rinit
+       allocate (aconpr   (mwa)) ; aconpr = 0.0
+       allocate (conprr   (mwa)) ; conprr = rinit
+    endif
 
+    ! Base tendency arrays for all shallow convective schemes
+
+    if ( any(nqparm_sh(1:mrls) > 0) ) then
        allocate (thsrcsh(mza,mwa)) ; thsrcsh = rinit
        allocate (rtsrcsh(mza,mwa)) ; rtsrcsh = rinit
+    endif
+
+    ! Extra memory and initialization of Grell scheme
+
+    if ( any(nqparm(1:mrls) == 2) ) then
+       allocate (iact_gr(mwa)) ; iact_gr(:) = 0
+    endif
+
+    ! Extra memory and initialization of KF_eta scheme
+
+    if ( any(nqparm(1:mrls) == 3) ) then
+       allocate (w0avg(mza,mwa)) ; w0avg = 0.0
     endif
 
   end subroutine alloc_cuparm
@@ -78,12 +99,15 @@ Contains
     if (allocated(rtsrcsh)) deallocate (rtsrcsh)
     if (allocated(aconpr))  deallocate (aconpr)
     if (allocated(conprr))  deallocate (conprr)
+    if (allocated(w0avg))   deallocate (w0avg)
+    if (allocated(iact_gr)) deallocate (iact_gr)
 
   end subroutine dealloc_cuparm
 
 !===============================================================================
 
   subroutine filltab_cuparm()
+
     use var_tables, only: vtab_r, num_var, increment_vtable
     implicit none
 
@@ -115,6 +139,16 @@ Contains
      if (allocated(conprr)) then
         call increment_vtable('CONPRR', 'AW')
         vtab_r(num_var)%rvar1_p => conprr
+     endif
+
+     if (allocated(w0avg)) then
+        call increment_vtable('W0AVG', 'AW')
+        vtab_r(num_var)%rvar2_p => w0avg
+     endif
+
+     if (allocated(iact_gr)) then
+        call increment_vtable('IACTGR', 'AW')
+        vtab_r(num_var)%ivar1_p => iact_gr
      endif
 
    end subroutine filltab_cuparm

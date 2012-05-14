@@ -63,7 +63,7 @@ call filltab_itabs()  ! Already allocated
 call alloc_basic(meshtype,mza,mua,mva,mwa)
 call filltab_basic()
 
-call alloc_cuparm(mza,mwa,maxval(nqparm(1:mrls)),maxval(nqparm_sh(1:mrls)))
+call alloc_cuparm(mza, mwa, mrls, nqparm, nqparm_sh)
 call filltab_cuparm() 
 
 call alloc_micro(mza,mwa,level,ncat, &

@@ -33,11 +33,10 @@
 subroutine cuparth(iw,dtime)
 
   use mem_tend,    only: thilt, sh_wt
-  use mem_cuparm,  only: thsrc, rtsrc, conprr
+  use mem_cuparm,  only: thsrc, rtsrc, conprr, iact_gr
   use mem_ijtabs, only: itab_w
   use mem_grid, only: mza, zm, lpw, lpu, lpv, aru, arv, zt,  &
                       unx, uny, unz, vnx, vny, vnz, xew, yew, zew
-  use grell_coms, only: iact_gr
   use consts_coms, only: grav, p00, rocp, cp, rdry, erad
   use mem_basic, only: umc, vmc, wmc, wc, theta, press, rho, sh_v, &
                        vxe, vye, vze

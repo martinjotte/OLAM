@@ -33,12 +33,11 @@
 subroutine cuparth_shal(iw, dtime)
 
   use mem_tend,    only: thilt, sh_wt
-  use mem_cuparm,  only: thsrcsh, rtsrcsh
+  use mem_cuparm,  only: thsrcsh, rtsrcsh, iact_gr
   use mem_grid, only: mwa, mza, lpw, zm, zt, arw0
   use consts_coms, only: grav, rdry, p00, rocp, tkmin
   use mem_basic, only: theta, press, rho, sh_v
   use mem_micro,  only: sh_c
-  use grell_coms, only: iact_gr
   use mem_turb, only: tkep
   use misc_coms, only: io6, nqparm_sh
 

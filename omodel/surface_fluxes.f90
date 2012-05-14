@@ -634,7 +634,7 @@ use mem_sflux,   only: jlandflux, landflux
 use mem_cuparm,  only: conprr
 use mem_leaf,    only: land, itabg_wl, itab_wl
 use mem_ijtabs,  only: istp, mrl_begl, itabg_w
-use consts_coms, only: p00i, rocp, cliq, alli
+use consts_coms, only: p00i, rocp, cliq, alli, t00
 use mem_basic,   only: press, theta, rho, sh_v
 use leaf_coms,   only: mwl, dt_leaf, mrl_leaf
 use misc_coms,   only: io6, iparallel
@@ -693,7 +693,7 @@ if (mrl > 0 .and. mrl <= mrl_leaf) then
 
 ! Compute air temperature in C
 
-   airtempc = theta(kw,iw) * (p00i * press(kw,iw)) ** rocp - 273.15
+   airtempc = theta(kw,iw) * (p00i * press(kw,iw)) ** rocp - t00
 
 ! Estimate wet bulb temp using computation from subroutine each_column in micphys
 ! Assume that convective precip reaches surface at this wet bulb temp
