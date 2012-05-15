@@ -57,7 +57,7 @@ contains
     integer        :: nulo
 
     ! turn off default error handling
-    !call h5eset_auto_f(1,nulo)
+    call h5eset_auto_f(0, nulo)
 
     access_id = H5P_DEFAULT_F
     if(iaccess == 1) flags = H5F_ACC_RDONLY_F
