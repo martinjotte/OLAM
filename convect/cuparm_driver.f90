@@ -42,6 +42,7 @@ use mem_cuparm,      only: thsrc, rtsrc, thsrcsh, rtsrcsh, aconpr, conprr, &
 use mem_tend,        only: thilt, sh_wt
 use mem_basic,       only: wc, rho
 use consts_coms,     only: r8
+use emanuel_coms,    only: alloc_eman
 
 !$ use omp_lib
 
@@ -51,6 +52,10 @@ real, intent(inout) :: rhot(mza,mwa)
 real(r8), parameter :: cptime = 0.0
 integer             :: j, iw, k, mrl, mrlw
 integer, save       :: init_kf = 0
+integer, save       :: init_em = 0
+
+real :: dthmax, ftcon
+integer :: iwqmax, kqmax
 
 ! Time-weighting coefficients for w average
 
@@ -77,6 +82,13 @@ if ( any(nqparm(1:mrls) == 3) ) then
 
 endif
 
+if ( any(nqparm(1:mrls) == 4) ) then
+   if (init_em == 0) then
+      init_em = 1
+      call alloc_eman(mza,1)
+   endif
+endif
+
 ! If model run has been initialized from observational data, avoid cumulus
 ! parameterization during an initial period to allow gravity waves to settle.
 
@@ -95,9 +107,9 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
 ! Initialize indices for search for maximum heating rate
 ! (commented out because incorrect in parallel operation)
 
-!    dthmax = 0.
-!    iwqmax = 0
-!    kqmax = 0
+   dthmax = 0.
+   iwqmax = 0
+   kqmax  = 0
 
 ! Loop over all IW grid cells where cumulus parameterization may be done
 
@@ -132,6 +144,12 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
 
          call cuparm_kfeta(iw,dtlong,w0avg)
 
+      elseif (nqparm(mrlw) == 4) then
+   
+! Emanuel convective parameterization
+
+         call cuparm_emanuel(iw,dtlong)
+
       endif
    
       if (nqparm_sh(mrlw) == 1) then
@@ -145,14 +163,14 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
 ! Update indices for maximum heating rate
 ! (commented out because incorrect in parallel operation)
 
-!   do k = lpw(iw),mza-1
-!      ftcon = thsrc(k,iw) / rho(k,iw)
-!      if (ftcon > dthmax) then
-!         dthmax = ftcon
-!         iwqmax = iw
-!         kqmax = k
-!      endif
-!   enddo
+   do k = lpw(iw),mza-1
+      ftcon = thsrc(k,iw) / rho(k,iw)
+      if (ftcon > dthmax) then
+         dthmax = ftcon
+         iwqmax = iw
+         kqmax = k
+      endif
+   enddo
 
    enddo
 !$omp end parallel do
@@ -161,11 +179,12 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
 ! Print maximum heating rate
 ! (commented out because incorrect in parallel operation)
 
-!   write(io6, '(A,I0,A,I0,A,F0.3,A)') " MAX CONVECTIVE HEATING RATE AT IW=",  &
-!        iwqmax, " K=", kqmax, " IS ", dthmax*86400., " K/DAY"
+   write(io6, '(A,I0,A,I0,A,F0.3,A)') " MAX CONVECTIVE HEATING RATE AT IW=",  &
+        iwqmax, " K=", kqmax, " IS ", dthmax*86400., " K/DAY"
 
 
 endif
+
 
 ! Add current value of convective tendencies to thilt and sh_wt arrays
 ! every long timestep (whether cumulus parameterization is updated 

@@ -13,6 +13,9 @@ SOURCE_FILES= \
              $(CONVECT)/kuo_coms.f90 \
              $(CONVECT)/mem_cuparm.f90 \
              $(CONVECT)/module_cu_kfeta.f90 \
+             $(CONVECT)/emanuel_coms.f90 \
+             $(CONVECT)/emanuel43c.f90 \
+             $(CONVECT)/emanuel_driver.f90 \
              $(ED)/allometry.f90 \
              $(ED)/c34constants.f90 \
              $(ED)/canopy_radiation_coms.f90 \

@@ -46,6 +46,13 @@ Module mem_cuparm
    ! Extra memory for Grell
    integer, allocatable, target :: iact_gr(:)
 
+   ! Extra memory for Emanuel
+   real, allocatable, target :: cbmf(:)
+   real, allocatable :: wprime (:)
+   real, allocatable :: tprime (:)
+   real, allocatable :: qprime (:)
+   real, allocatable :: qsubg(:,:)
+
 Contains
 
 !===============================================================================
@@ -74,16 +81,22 @@ Contains
        allocate (rtsrcsh(mza,mwa)) ; rtsrcsh = rinit
     endif
 
-    ! Extra memory and initialization of Grell scheme
+    ! Extra memory for Grell scheme
 
     if ( any(nqparm(1:mrls) == 2) ) then
        allocate (iact_gr(mwa)) ; iact_gr(:) = 0
     endif
 
-    ! Extra memory and initialization of KF_eta scheme
+    ! Extra memory for KF_eta scheme
 
     if ( any(nqparm(1:mrls) == 3) ) then
        allocate (w0avg(mza,mwa)) ; w0avg = 0.0
+    endif
+
+    ! Extra memory for Emanuel scheme
+    
+    if ( any(nqparm(1:mrls) == 4) ) then
+       allocate(cbmf(mwa)) ; cbmf = 0.0
     endif
 
   end subroutine alloc_cuparm
@@ -101,6 +114,7 @@ Contains
     if (allocated(conprr))  deallocate (conprr)
     if (allocated(w0avg))   deallocate (w0avg)
     if (allocated(iact_gr)) deallocate (iact_gr)
+    if (allocated(cbmf))    deallocate (cbmf)
 
   end subroutine dealloc_cuparm
 
@@ -149,6 +163,11 @@ Contains
      if (allocated(iact_gr)) then
         call increment_vtable('IACTGR', 'AW')
         vtab_r(num_var)%ivar1_p => iact_gr
+     endif
+
+     if (allocated(cbmf)) then
+        call increment_vtable('CBMF', 'AW')
+        vtab_r(num_var)%rvar1_p => cbmf
      endif
 
    end subroutine filltab_cuparm

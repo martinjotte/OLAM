@@ -279,7 +279,7 @@ call rchk_bnds( nl%radfrq,   "RADFRQ", nl%dtlong, r_huge, 2, nfatal, nwarn )
 !--------------------------------------------------------------------------
 
 do ng=1, nl%ngrids
-   call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 3, 0, nfatal, nwarn )
+   call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 4, 0, nfatal, nwarn )
    call ichk_bnds( nl%nqparm_sh(ng), "NQPARM_SH", 0, 1, 0, nfatal, nwarn )
 enddo
 call rchk_bnds( nl%confrq, "CONFRQ", nl%dtlong, r_huge, 2, nfatal, nwarn )
