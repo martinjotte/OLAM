@@ -1,31 +1,20 @@
 subroutine cuparm_emanuel(iw, dtlong)
 
-!iu1, iu2, iu3, thtend, qtend, pcprate, &
-!                          u1tend, u2tend, u3tend)
-
   use mem_grid,    only: mwa, mza, lpu, lpw, volt, mua, zm, zt
   use mem_tend,    only: thilt, sh_wt
   use mem_basic,   only: theta, press, rho, sh_v, vxe, vye, vze
   use consts_coms, only: p00i, t00, rocp, grav
   use misc_coms,   only: confrq
   use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf
-
-!!, mza_ut, &
-!!                         mza_st, cbmf, qcsubg, nqparm, confrq, condelay, &
-!!                         eman_mixu, eman_mixscal
   implicit none
 
   integer, intent(in)  :: iw
   real,    intent(in)  :: dtlong
-  
-!!
-!!  real,    intent(out) :: thtend(mza), qtend(mza), pcprate
-!!  real,    intent(out) :: u1tend(mza_ut), u2tend(mza_ut), u3tend(mza_ut)
 
   real, dimension(mza) :: tc, qc, qsc, vx, vy, vz, pc, pfc, qcldc, exner
-  real, dimension(mza) :: tt, qt, vxt, vyt, vzt, qcldw
+  real, dimension(mza) :: tt, qt, vxt, vyt, vzt, gz
 
-  integer :: k, n, ka, k2, kc, ka1, ka2, ka3, koff, na, nd, nl
+  integer :: k, ka, kc, nd, na, nl
   real, external :: rhovsl, rhovsil
 
   ! temporary for scalars
@@ -42,25 +31,25 @@ subroutine cuparm_emanuel(iw, dtlong)
   na = nd + 1
   nl = nd - 1
 
-  do k=ka,mza-1
+  do k = ka, mza-1
+     kc = k - ka + 1 ! relative to surface
 
-     ! Height on convective grid (relative to surface)
-     kc = k - ka + 1
-     
-     ! zc(kc)  = zt(k) - zm(ka-1)
-     ! ztc(kc) = zt(k) - zt(ka)
+     gz(kc) = grav * (zt(k) - zt(ka)) ! geopotential height relative to 1st level
      
      exner(k) = (p00i * press(k,iw)) ** rocp
 
      tc(kc)  = theta(k,iw) * exner(k)
      qc(kc)  = sh_v(k,iw)
-!    qsc(kc) = rhovsl(tc(kc)-t00) / rho(k,iw)
-     qsc(kc) = rhovsil(tc(kc)-t00) / rho(k,iw)
      pc(kc)  = press(k,iw)*0.01
 
      vx(kc) = vxe(k,iw)
      vy(kc) = vye(k,iw)
      vz(kc) = vze(k,iw)
+  enddo
+
+  do k = ka, mza-1
+     kc = k - ka + 1
+     qsc(kc) = rhovsil(tc(kc)-t00) / rho(k,iw)
   enddo
 
   ! pressure at full (W) layers - compute hydrostatically
@@ -85,8 +74,8 @@ subroutine cuparm_emanuel(iw, dtlong)
 !!  enddo
   
   call convect(                                                  &
-       tc,  qc,   qsc,    vx,  vy, vz,       scalc,  pc,     pfc, &
-       nd,  na,   nl,     ntra, dtlong,   iflag,  tt, qt, vxt, &
+       tc,  qc,   qsc,    vx,  vy, vz,       scalc,  pc,  pfc, gz, &
+       nd,  nl,     ntra, dtlong,   iflag,  tt, qt, vxt, &
        vyt, vzt, scalt,   pcprate, wprime, tprime, qprime, cbmf(iw), qcldc, &
        kcbase, kctop)
 
@@ -99,7 +88,7 @@ subroutine cuparm_emanuel(iw, dtlong)
 
      conprr(iw) = pcprate
 
-     do k=ka,mza-1
+     do k = ka, mza-1
         kc = k - ka + 1
         thsrc(k,iw) = tt(kc) / exner(k)
         rtsrc(k,iw) = qt(kc)

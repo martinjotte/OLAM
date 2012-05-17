@@ -6,8 +6,8 @@
 !**************************************************************************
 
 SUBROUTINE CONVECT (                                       &
-     T,   Q,    QS,     U1,    U2,    U3,     TRA,  P,     PH,    &
-     ND,  NA,   NL,     NTRA, DELT,   IFLAG,  FT,   FQ,    FU1,  FU2,  &
+     T,   Q,    QS,     U1,    U2,    U3,     TRA,  P,     PH,    gz,  &
+     ND,  NL,     NTRA, DELT,   IFLAG,  FT,   FQ,    FU1,  FU2,  &
      FU3,  FTRA, PRECIP, WD,   TPRIME, QPRIME, CBMF, QCONDC, icb, inb)
   
 !-----------------------------------------------------------------------------
@@ -133,9 +133,9 @@ SUBROUTINE CONVECT (                                       &
   use emanuel_coms
   implicit none
 
-  integer, intent(in) :: nd, na, nl, ntra
+  integer, intent(in) :: nd, nl, ntra
   real,    intent(in) :: t(nd), q(nd), qs(nd), u1(nd), u2(nd), u3(nd)
-  real,    intent(in) :: tra(nd,ntra), p(nd), ph(nd+1), delt
+  real,    intent(in) :: tra(nd,ntra), p(nd), ph(nd+1), gz(nd), delt
 
   integer, intent(out) :: iflag, icb, inb
   real,    intent(out) :: ft(nd), fq(nd), fu1(nd), fu2(nd), fu3(nd)
@@ -143,12 +143,12 @@ SUBROUTINE CONVECT (                                       &
   real,    intent(out) :: wd, tprime, qprime, cbmf, precip
   
   real :: ad, afac, ahmax, ahmin, alt, altem, am, amde, amp1, anum, asij, &
-       awat, b6, bf2, bsum, by, byp, c6, cape, capem, cbmfold, chi, coeff, &
+       awat, b6, bf2, bsum, by, byp, c6, cape, capem, chi, coeff, &
        cpinv, cwat, damps, dbo, dbosum, defrac, dei, delm, delp, delt0, &
        delti, denom, dhdp, dpinv, dtma, dtmin, dtpbl, elacrit, ents, epmax, &
        fac, fqold, frac, ftold, ftraold, fu1old, fu2old, fu3old, plcl, qp1, &
-       qsm, qstm, qti, rat, rdcp, revap, rh, scrit, sigt, sjmax, sjmin, smid, &
-       smin, stemp, tca, traav, tvaplcl, tvpplcl, tvx, tvy, u1av, u2av, u3av, &
+       qsm, qstm, qti, rat, revap, rh, scrit, sigt, sjmax, sjmin, smid, &
+       smin, stemp, tca, traav, tvaplcl, tvpplcl, u1av, u2av, u3av, &
        wdtrain
   
   integer :: i, ihmin, inb1, j, jtt, k, nk
@@ -253,10 +253,6 @@ SUBROUTINE CONVECT (                                       &
      ENDDO
   ENDDO
 
-  DO I=1,NL+1
-     RDCP  = (RD*(1.-Q(I))+Q(I)*RV) / (CPD*(1.-Q(I))+Q(I)*CPV)
-  ENDDO
-
   PRECIP=0.0
   WD=0.0
   TPRIME=0.0
@@ -265,7 +261,7 @@ SUBROUTINE CONVECT (                                       &
 
 !  *** CALCULATE ARRAYS OF GEOPOTENTIAL, HEAT CAPACITY AND STATIC ENERGY
 
-  GZ(1)=0.0
+!  GZ(1)=0.0
   CPN(1)=CPD*(1.-Q(1))+Q(1)*CPV
   H(1)=T(1)*CPN(1)
   LV(1)=LV0-CPVMCL*(T(1)-273.15)
@@ -275,9 +271,9 @@ SUBROUTINE CONVECT (                                       &
   IHMIN=NL
 
   DO I=2,NL+1
-     TVX=T(I)*(1.+Q(I)*EPSI-Q(I))
-     TVY=T(I-1)*(1.+Q(I-1)*EPSI-Q(I-1))
-     GZ(I)=GZ(I-1)+0.5*RD*(TVX+TVY)*(P(I-1)-P(I))/PH(I)
+!     TVX=T(I)*(1.+Q(I)*EPSI-Q(I))
+!     TVY=T(I-1)*(1.+Q(I-1)*EPSI-Q(I-1))
+!     GZ(I)=GZ(I-1)+0.5*RD*(TVX+TVY)*(P(I-1)-P(I))/PH(I)
      CPN(I)=CPD*(1.-Q(I))+CPV*Q(I)
      H(I)=T(I)*CPN(I)+GZ(I)
      LV(I)=LV0-CPVMCL*(T(I)-273.15)
