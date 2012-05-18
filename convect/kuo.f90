@@ -34,12 +34,10 @@ subroutine cuparm_kuo(iw)
 
 use mem_tend,    only: thilt, sh_wt
 use mem_cuparm,  only: thsrc, rtsrc, conprr
-use mem_basic,   only: uc, vc, wc, theta, press, rho, sh_v
-use mem_grid,    only: mza, mwa, lpu, lpv, lpw, zm, zt, volt,  &
-                       unx, uny, unz, vnx, vny, vnz
+use mem_basic,   only: wc, theta, press, rho, sh_v, vxe, vye, vze
+use mem_grid,    only: mza, mwa, lpu, lpv, lpw, zm, zt, volt
 use misc_coms,   only: io6, initial, time_istp8, confrq, dtlong, itime1, &
-                       meshtype, wcldbs
-use mem_ijtabs,  only: itab_w, istp
+                       wcldbs
 use kuo_coms,    only: icprtfl, icpltfl, wconmin, contim, igo, cprecip
 use consts_coms, only: p00i, rocp, cp, grav, alvl
 
@@ -53,7 +51,7 @@ real, dimension(mza) :: zzcon, zcon, uecon, vecon, wecon, wcon, thtcon, hzcon
 real, dimension(mza) :: prcon, dncon, rvcon, picon, tmpcon, ftcon, frcon
 
 integer :: k,iv,ka,k2,kc,kv,npoly,j
-integer :: icpcnt=0,iprtfrq,iwqmax,kqmax
+integer :: iwqmax,kqmax
 real    :: dthmax,piocp,polyi
 
 !        FLAG TO CONTROL PRINTOUT
@@ -68,13 +66,7 @@ real    :: dthmax,piocp,polyi
 ! Set flags/counter for print/plot options
 
 icprtfl = 0
-iprtfrq = 8
 icpltfl = 0
-icpcnt = icpcnt + 1
-
-if (mod(icpcnt-iprtfrq+1,iprtfrq) == 0) then
-   icprtfl = 1
-endif
 
 ! Do modified Kuo convective cumulus parameterization
 
@@ -88,17 +80,6 @@ k2 = mza + 1 - ka
 ! Zero out surface convective precipitation rate 
 
 conprr(iw) = 0.
-
-! Zero out 3 EARTH wind components
-
-uecon(1:mza) = 0.
-vecon(1:mza) = 0.
-wecon(1:mza) = 0.
-
-! Number of polygon edges for current IW
-
-npoly = itab_w(iw)%npoly
-polyi = 1. / real(npoly)
 
 ! Vertical loop over prognostic T levels
 
@@ -129,31 +110,9 @@ do k = ka,mza-1
    tmpcon(kc) = thtcon(kc) * piocp
    hzcon(kc)  = cp * tmpcon(kc) + grav * zcon(kc) + alvl * rvcon(kc)
 
-! Loop over U/V neighbors of W
-! Avoid underground levels for IV point   
-
-   do j = 1,npoly
-   
-      if (meshtype == 1) then
-         iv = itab_w(iw)%iu(j)
-         kv = max(k,lpu(iv))
-      else
-         iv = itab_w(iw)%iv(j)
-         kv = max(k,lpv(iv))
-      endif
-
-! Sum over V neighbors the 3 EARTH components of horizontal wind   
-   
-      uecon(kc) = uecon(kc) + uc(kv,iv) * unx(iv) + vc(kv,iv) * vnx(iv)
-      vecon(kc) = vecon(kc) + uc(kv,iv) * uny(iv) + vc(kv,iv) * vny(iv)
-      wecon(kc) = wecon(kc) + uc(kv,iv) * unz(iv) + vc(kv,iv) * vnz(iv)
-   enddo
-
-! Get average EARTH wind components
-
-   uecon(kc) = uecon(kc) * polyi
-   vecon(kc) = vecon(kc) * polyi
-   wecon(kc) = wecon(kc) * polyi
+   uecon(kc)  = vxe(k,iw)
+   vecon(kc)  = vye(k,iw)
+   wecon(kc)  = vze(k,iw)
 
 enddo
 
@@ -188,21 +147,13 @@ if (igo /= 0) then
 
    call cp2mod(k2,ftcon,frcon,zzcon,dncon,picon)
 
-! Bob: multiply ftcon and frcon by rho(k,iw) so that 
-!      thsrc units are [kg_air K / (m^3 s)] and
-!      rtsrc units are [kg_wat / (m^3 s)].
-
    do k = ka,mza-1
       kc = k - ka + 2 
-      thsrc(k,iw) = ftcon(kc) * rho(k,iw)
-      rtsrc(k,iw) = frcon(kc) * rho(k,iw)
+      thsrc(k,iw) = ftcon(kc)
+      rtsrc(k,iw) = frcon(kc)
    enddo
 
    conprr(iw) = cprecip
-
-   if (icprtfl > 0) then
-      write(io6, '(A,I0,A,F0.3)') ' CONVECTION AT IW=',iw,' TIME=',time_istp8
-   endif
 
 endif
 
