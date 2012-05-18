@@ -2090,9 +2090,14 @@ iter:     DO NCOUNT=1,10
       tth=(thes-bth)*rdthk
       pp   =tth-aint(tth)
       ithtb=int(tth)+1
-       IF(IPTB.GE.220 .OR. IPTB.LE.1 .OR. ITHTB.GE.250 .OR. ITHTB.LE.1)THEN
+
+      IF(IPTB.GE.220 .OR. IPTB.LT.1 .OR. ITHTB.GE.250 .OR. ITHTB.LT.1)THEN
          write(io6,*)'**** OUT OF BOUNDS *********'
-       ENDIF
+         iptb  = min(iptb,219)
+         iptb  = max(iptb,1  )
+         ithtb = min(ithtb,249)
+         ithtb = max(ithtb,1  )
+      ENDIF
 !
       t00=ttab(ithtb  ,iptb  )
       t10=ttab(ithtb+1,iptb  )
@@ -2374,6 +2379,11 @@ iter:     DO NCOUNT=1,10
       tth=(thes-bth)*rdthk
       pp   =tth-aint(tth)
       ithtb=int(tth)+1
+
+      iptb  = min(iptb,219)
+      iptb  = max(iptb,1  )
+      ithtb = min(ithtb,249)
+      ithtb = max(ithtb,1  )
 
       t00=ttab(ithtb  ,iptb  )
       t10=ttab(ithtb+1,iptb  )
