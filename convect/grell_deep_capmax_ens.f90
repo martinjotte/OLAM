@@ -1042,7 +1042,7 @@ subroutine cup_forcing_ens_16(k2, aa0, aa1, xaa0, mbdt, dtime, ierr,  &
               exit check_pcrit
            endif
         enddo
-        if(p_cup(ktop) > pcrit(1)) kclim = 1
+        if(p_cup(ktop) >= pcrit(1)) kclim = 1
         exit check_pcrit
      enddo check_pcrit
      
