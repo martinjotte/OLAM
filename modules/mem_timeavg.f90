@@ -49,8 +49,9 @@ Contains
 
 subroutine alloc_timeavg(mza,mwa)
 
-  use misc_coms, only: io6
-   
+  use misc_coms, only: ilwrtyp, iswrtyp
+  use leaf_coms, only: isfcl
+
   implicit none
 
   integer, intent(in) :: mza
@@ -59,15 +60,23 @@ subroutine alloc_timeavg(mza,mwa)
 ! Allocate arrays for time-averaged quantities
 ! Initialize arrays to zero
 
-  allocate (rshort_avg      (mwa)) ; rshort_avg       = 0.
-  allocate (rshortup_avg    (mwa)) ; rshortup_avg     = 0.
-  allocate (rlong_avg       (mwa)) ; rlong_avg        = 0.
-  allocate (rlongup_avg     (mwa)) ; rlongup_avg      = 0.
-  allocate (rshort_top_avg  (mwa)) ; rshort_top_avg   = 0.
-  allocate (rshortup_top_avg(mwa)) ; rshortup_top_avg = 0.
-  allocate (rlongup_top_avg (mwa)) ; rlongup_top_avg  = 0.
-  allocate (sflux_t_avg     (mwa)) ; sflux_t_avg      = 0.
-  allocate (sflux_r_avg     (mwa)) ; sflux_r_avg      = 0.
+  if (iswrtyp > 0) then
+     allocate (rshort_avg      (mwa)) ; rshort_avg       = 0.
+     allocate (rshortup_avg    (mwa)) ; rshortup_avg     = 0.
+     allocate (rshort_top_avg  (mwa)) ; rshort_top_avg   = 0.
+     allocate (rshortup_top_avg(mwa)) ; rshortup_top_avg = 0.
+  endif
+
+  if (ilwrtyp > 0) then
+     allocate (rlong_avg       (mwa)) ; rlong_avg        = 0.
+     allocate (rlongup_avg     (mwa)) ; rlongup_avg      = 0.
+     allocate (rlongup_top_avg (mwa)) ; rlongup_top_avg  = 0.
+  endif
+
+  if (isfcl > 0) then
+     allocate (sflux_t_avg     (mwa)) ; sflux_t_avg      = 0.
+     allocate (sflux_r_avg     (mwa)) ; sflux_r_avg      = 0.
+  endif
   
 end subroutine alloc_timeavg
 
@@ -147,14 +156,15 @@ end subroutine filltab_timeavg
 
 subroutine accum_timeavg()
 
-  use misc_coms,   only: io6, time_istp8, dtlm, time_prevhist
+  use misc_coms,   only: io6, time_istp8, dtlm, time_prevhist, &
+                         ilwrtyp, iswrtyp
 
   use mem_ijtabs,  only: istp, itab_w, jtab_w, mrl_begl
 
   use mem_radiate, only: albedt, rshort, rlong, rlongup, &
                          rshort_top, rshortup_top, rlongup_top
 
-  use leaf_coms,   only: mrl_leaf, dt_leaf
+  use leaf_coms,   only: mrl_leaf, dt_leaf, isfcl
 
   use mem_turb,    only: sflux_t, sflux_r
 
@@ -170,7 +180,7 @@ subroutine accum_timeavg()
   call psub()
 !----------------------------------------------------------------------
   mrl = mrl_begl(istp)
-  if (mrl > 0) then
+  if (mrl > 0 .and. isfcl > 0) then
 
      if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
 
@@ -215,7 +225,7 @@ subroutine accum_timeavg()
   call psub()
 !----------------------------------------------------------------------
   mrl = mrl_begl(istp)
-  if (mrl > 0) then
+  if (mrl > 0 .and. ilwrtyp + iswrtyp > 0) then
 !$omp parallel do private(iw,dt_avg,wt_new,wt_old)
      do j = 1,jtab_w(12)%jend(mrl); iw = jtab_w(12)%iw(j)
 !----------------------------------------------------------------------
@@ -240,32 +250,34 @@ subroutine accum_timeavg()
 
 ! Modify averages 
 
-        rshort_avg(iw) = wt_old * rshort_avg(iw) &
-             + wt_new * rshort(iw)
+        if (iswrtyp > 0) then
 
-        rshortup_avg(iw) = wt_old * rshortup_avg(iw) &
-             + wt_new * rshort(iw) * albedt(iw)
+           rshort_avg(iw) = wt_old * rshort_avg(iw) &
+                + wt_new * rshort(iw)
 
-        rlong_avg(iw) = wt_old * rlong_avg(iw) &
-             + wt_new * rlong(iw)
+           rshortup_avg(iw) = wt_old * rshortup_avg(iw) &
+                + wt_new * rshort(iw) * albedt(iw)
 
-        rlongup_avg(iw) = wt_old * rlongup_avg(iw) &
-             + wt_new * rlongup(iw)
+           rshort_top_avg(iw) = wt_old * rshort_top_avg(iw) &
+                + wt_new * rshort_top(iw)
 
-        rshort_top_avg(iw) = wt_old * rshort_top_avg(iw) &
-             + wt_new * rshort_top(iw)
+           rshortup_top_avg(iw) = wt_old * rshortup_top_avg(iw) &
+                + wt_new * rshortup_top(iw)
 
-!       if (mod(iw,1000) == 1) then
-!          print*, ' '
-!          print*, 'mta1 ',iw,dt_avg,wt_old,wt_new
-!          print*, 'mta2 ',rshort_top(iw),rshort_top_avg(iw)
-!       endif
+        endif
 
-        rshortup_top_avg(iw) = wt_old * rshortup_top_avg(iw) &
-             + wt_new * rshortup_top(iw)
+        if (ilwrtyp > 0) then
 
-        rlongup_top_avg(iw) = wt_old * rlongup_top_avg(iw) &
-             + wt_new * rlongup_top(iw)
+           rlong_avg(iw) = wt_old * rlong_avg(iw) &
+                + wt_new * rlong(iw)
+
+           rlongup_avg(iw) = wt_old * rlongup_avg(iw) &
+                + wt_new * rlongup(iw)
+
+           rlongup_top_avg(iw) = wt_old * rlongup_top_avg(iw) &
+                + wt_new * rlongup_top(iw)
+           
+        endif
 
      enddo
 !$omp end parallel do

@@ -636,7 +636,9 @@ call compute_primary_points()
 
 ! Deallocate temporary data structures and arrays
 
-deallocate (landflux_temp, seaflux_temp)
+if (isfcl == 1) then
+   deallocate (landflux_temp, seaflux_temp)
+endif
 
 ! Deallocate para_decomp _pd arrays
 
