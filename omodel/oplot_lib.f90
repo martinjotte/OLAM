@@ -1018,8 +1018,8 @@ case(50:52) ! 'RVORTZM','RVORTZM_P','TVORTZM'
          iu3 = itab_u(iu)%iu(3)
          iu4 = itab_u(iu)%iu(4)
 
-         iw1 = itab_u(iv)%iw(1)
-         iw2 = itab_u(iv)%iw(2)
+         iw1 = itab_u(iu)%iw(1)
+         iw2 = itab_u(iu)%iw(2)
 
          tuu1 = itab_u(iu)%tuu(1)
          tuu2 = itab_u(iu)%tuu(2)
@@ -1080,14 +1080,14 @@ case(50:52) ! 'RVORTZM','RVORTZM_P','TVORTZM'
 
       if (meshtype == 1) then
 
-         contrib = ucc * (unx(iv) * (xew(iw2) - xew(iw1))  &
-                       +  uny(iv) * (yew(iw2) - yew(iw1))  &
-                       +  unz(iv) * (zew(iw2) - zew(iw1))) &
-                 + vcc * (vnx(iv) * (xew(iw2) - xew(iw1))  &
-                       +  vny(iv) * (yew(iw2) - yew(iw1))  &
-                       +  vnz(iv) * (zew(iw2) - zew(iw1)))
+         contrib = ucc * (unx(iu) * (xew(iw2) - xew(iw1))  &
+                       +  uny(iu) * (yew(iw2) - yew(iw1))  &
+                       +  unz(iu) * (zew(iw2) - zew(iw1))) &
+                 + vcc * (vnx(iu) * (xew(iw2) - xew(iw1))  &
+                       +  vny(iu) * (yew(iw2) - yew(iw1))  &
+                       +  vnz(iu) * (zew(iw2) - zew(iw1)))
 
-         if (i == itab_u(iv)%im(1)) then
+         if (i == itab_u(iu)%im(1)) then
             fldval = fldval + contrib
          else
             fldval = fldval - contrib
