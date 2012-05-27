@@ -555,7 +555,7 @@ contains
     enddo
     !$omp end parallel do
 
-    !$omp parallel do private(iw,kb,dtl,k,kd,dr,cfl_wout)
+    !$omp parallel do private(iw,kb,dtl,k,kd,kr,cfl_wout)
     do j = 1,jtab_w(26)%jend(mrl); iw = jtab_w(26)%iw(j)
        kb = lpw(iw)
 
@@ -911,7 +911,7 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv, &
 !----------------------------------------------------------------------------
   !$omp parallel do private(iv,iw1,iw2,kb,k,dto2,dxps1,dyps1,dxps2,dyps2, &
   !$omp                     cosv1,sinv1,cosv2,sinv2,wnx_v,wny_v,wnz_v, &
-  !$omp                     vxeface,vyeface,vzeface,ufacev,wface) 
+  !$omp                     vxeface,vyeface,vzeface,ufacev,wfacev)
   do j = 1,jtab_v(12)%jend(mrl); iv = jtab_v(12)%iv(j)
   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------------
