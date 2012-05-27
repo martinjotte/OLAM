@@ -96,13 +96,13 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
   real, pointer :: sct(:,:)
 
 ! Variables for Thuburn scheme
-
+  
+  real                 :: scp_vin_min(mza), scp_vin_max(mza)
+  real                 :: cfl_vout, cfl_wout
   real,    allocatable :: scp_local_min(:,:)
   real,    allocatable :: scp_local_max(:,:)
   real,    allocatable :: cfl_out_sum(:,:)
-  real                 :: cfl_vout, cfl_wout
   real,    allocatable :: cfl_vin(:,:), cfl_win(:,:)
-  real,    allocatable :: scp_vin_min(:), scp_vin_max(:)
   real,    allocatable :: c_scp_in_max_sum(:,:)
   real,    allocatable :: c_scp_in_min_sum(:,:)
   real,    allocatable :: scp_out_min(:,:)
@@ -122,7 +122,6 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
      allocate( scp_local_min(mza,mwa), scp_local_max(mza,mwa))
      allocate( cfl_out_sum(mza,mwa))
      allocate( cfl_vin(mza,mva))
-     allocate( scp_vin_min(mza), scp_vin_max(mza))
      allocate( c_scp_in_max_sum(mza,mwa), c_scp_in_min_sum(mza,mwa))
      allocate( scp_out_min(mza,mwa), scp_out_max(mza,mwa))
      allocate( cfl_win(mza,mwa))
@@ -201,8 +200,64 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 ! Diagnose CFL numbers at V and W interfaces for Thuburn flux limiter
 
   if (nl%iscal_monot == 1) then
-     call prepare_thuburn_cfls()
-  endif
+
+     cfl_out_sum(:,:) = 0.0
+ !   cfl_in_sum (:,:) = 0.0
+
+     !$omp parallel do private(iv,k,kbv,iwr,iwd,cfl_vout)
+     do j = 1, jtab_v(12)%jend(mrl); iv = jtab_v(12)%iv(j)
+        kbv = lpv(iv)
+      
+        do k = kbv, mza-1
+           iwr = iwrecv(k,iv)
+           iwd = iwdepv(k,iv)
+
+           kdepv(k,iv) = merge( min(k+1,mza-1), max(k-1,kbv), dzps_v(k,iv) >= 0.0)
+
+           cfl_vin(k,iv) = abs(vmsc(k,iv)) * arv(k,iv) * dtlm(itab_w(iwr)%mrlw) &
+                           * volti(k,iwr) / rho_old(k,iwr) 
+
+           cfl_vout      = abs(vmsc(k,iv)) * arv(k,iv) * dtlm(itab_w(iwd)%mrlw) &
+                           * volti(k,iwd) / rho_old(k,iwd) 
+
+         ! Not needed for scalars  
+         ! cfl_in_sum (k,iwr) = cfl_in_sum (k,iwr) + cfl_in (k,iv)
+
+           cfl_out_sum(k,iwd) = cfl_out_sum(k,iwd) + cfl_vout
+        enddo
+     enddo
+     !$omp end parallel do
+
+     !$omp parallel do private(iw,kb,dtl,k,kd,kr,cfl_wout)
+     do j = 1,jtab_w(26)%jend(mrl); iw = jtab_w(26)%iw(j)
+        kb = lpw(iw)
+
+        ! note: use dtsm for short time step
+        dtl = dtlm(itab_w(iw)%mrlw)
+      
+        do k = kb, mza-2
+           kd = kdepw(k,iw)
+           kr = krecw(k,iw)
+
+           cfl_win(k,iw) = abs(wmsc(k,iw)) * arw(k,iw) * dtl * volti(kr,iw) &
+                           / rho_old(kr,iw)
+
+           cfl_wout      = abs(wmsc(k,iw)) * arw(k,iw) * dtl * volti(kd,iw) &
+                           / rho_old(kd,iw)
+
+         ! Not needed for scalars
+         ! cfl_in_sum (kr,iw) = cfl_in_sum (kr,iw) + cfl_win(k,iw)
+
+           cfl_out_sum(kd,iw) = cfl_out_sum(kd,iw) + cfl_wout
+        enddo
+
+        cfl_win(mza-1,iw) = 0.0
+        cfl_out_sum(kb:mza-1,iw) = max( cfl_out_sum(kb:mza-1,iw), 1.e-6)
+
+     enddo
+     !$omp end parallel do
+
+  endif ! monotonic
 
 ! LOOP OVER SCALARS HERE
 
@@ -250,8 +305,66 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 ! flux limiter (can be done before gradient communication is finished)
 
      if (nl%iscal_monot == 1) then
-        call compute_thuburn_w_bounds()
-     endif
+
+        scp_local_min(:,:) = scp(:,:)
+        scp_local_max(:,:) = scp(:,:)
+
+        c_scp_in_max_sum(:,:) = 0.0
+        c_scp_in_min_sum(:,:) = 0.0
+
+        scp_in_max(:,:) = scp(:,:)
+        scp_in_min(:,:) = scp(:,:)
+
+! Expand inflow bounds at each W level based on the transverse cells 
+! in the upstream neighborhood of each W level. 
+! Loop over all immediate V neighbors of each primary W/T columns:
+
+        !$omp parallel do private(iv,k,iwd,iwr)
+        do j = 1,jtab_v(12)%jend(mrl); iv = jtab_v(12)%iv(j)
+           do k = lpv(iv), mza-1
+              iwd = iwdepv(k,iv)
+              iwr = iwrecv(k,iv)
+              scp_in_max(k,iwr) = max(scp_in_max(k,iwr), scp(k,iwd))
+              scp_in_min(k,iwr) = min(scp_in_min(k,iwr), scp(k,iwd))
+           enddo
+        enddo
+        !$omp end parallel do
+
+! Loop over all primary W/T columns:
+
+        !$omp parallel do private(iw,k,kr,kd)
+        do j = 1, jtab_w(26)%jend(mrl); iw = jtab_w(26)%iw(j)
+
+! Make sure the upwinded scalar value at each W level is properly bounded
+
+           do k = lpw(iw), mza-1
+              kr = krecw(k,iw)
+              kd = kdepw(k,iw)
+              scp_upw(k,iw) = min( scp_upw(k,iw), max( scp_in_max(kd,iw), scp(kr,iw)))
+              scp_upw(k,iw) = max( scp_upw(k,iw), min( scp_in_min(kd,iw), scp(kr,iw)))
+           enddo
+
+! Compute the W contribution to the max/min allowed values in each grid box, and
+! the sum of the max and min inputs to each grid box
+
+           do k = lpw(iw), mza-1
+              kr = krecw(k,iw)
+              kd = kdepw(k,iw)
+
+              scp_local_min(kr,iw) = min( scp_local_min(kr,iw), scp_in_min(kd,iw))
+              scp_local_max(kr,iw) = max( scp_local_max(kr,iw), scp_in_max(kd,iw))
+
+              c_scp_in_max_sum(kr,iw) = c_scp_in_max_sum(kr,iw) + cfl_win(k,iw) * &
+                                        max( scp_in_max(kd,iw), scp_upw(k,iw))
+
+              c_scp_in_min_sum(kr,iw) = c_scp_in_min_sum(kr,iw) + cfl_win(k,iw) * &
+                                        min( scp_in_min(kd,iw), scp_upw(k,iw))
+           enddo
+
+        enddo
+        !$omp end parallel do
+        
+     endif ! monotonic
 
 ! MPI recv of SCP gradient components
 
@@ -281,17 +394,75 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
      enddo
      !$omp end parallel do
 
-     if (nl%iscal_monot == 1) then
-
 ! Compute bounds on the scalar values at each V interface 
 ! for the Thuburn flux limiter
 
-        call compute_thuburn_v_bounds()
+     if (nl%iscal_monot == 1) then
+
+        ! Loop over all immediate V neighbors of each primary W/T columns
+
+        !$omp parallel do private(iv,k,kd,kbv,iwd,iwr,iw3,iw4,scp_vin_min,scp_vin_max)
+        do j = 1,jtab_v(12)%jend(mrl); iv = jtab_v(12)%iv(j)
+
+           kbv = lpv(iv)
+           iw3 = itab_v(iv)%iw(3)
+           iw4 = itab_v(iv)%iw(4)
+
+           ! Compute inflow bounds at each V interface. Here we include the 
+           ! immediate upwind cell and vertically upstream-diagonal neighbor
+
+           do k = kbv, mza-1
+              iwd = iwdepv(k,iv)
+              kd  =  kdepv(k,iv)
+              scp_vin_min(k) = min( scp(k,iwd), scp(kd,iwd))
+              scp_vin_max(k) = max( scp(k,iwd), scp(kd,iwd))
+           enddo
+
+           ! Include contribution of lateral neighbor iw3 to inflow bounds
+      
+           do k = max(lpw(iw3),kbv), mza-1
+              scp_vin_min(k) = min( scp_vin_min(k), scp(k,iw3))
+              scp_vin_max(k) = max( scp_vin_max(k), scp(k,iw3))
+           enddo
+
+           ! Include contribution of lateral neighbor iw4 to inflow bounds
+      
+           do k = max(lpw(iw4),kbv), mza-1
+              scp_vin_min(k) = min( scp_vin_min(k), scp(k,iw4))
+              scp_vin_max(k) = max( scp_vin_max(k), scp(k,iw4))
+           enddo
+
+           ! Make sure the upwinded scalar value at each V interface is properly bounded
+
+           do k = kbv, mza-1
+              iwr = iwrecv(k,iv)
+              scp_upv(k,iv) = min(scp_upv(k,iv), max(scp_vin_max(k), scp(k,iwr)))
+              scp_upv(k,iv) = max(scp_upv(k,iv), min(scp_vin_min(k), scp(k,iwr)))
+           enddo
+
+           ! Compute the V contribution to the max/min allowed values in each grid box
+           ! and the sum of the max and min inputs to each grid box
+
+           do k = kbv, mza-1
+              iwr = iwrecv(k,iv)
+
+              scp_local_min(k,iwr) = min(scp_local_min(k,iwr), scp_vin_min(k))
+              scp_local_max(k,iwr) = max(scp_local_max(k,iwr), scp_vin_max(k))
+         
+              c_scp_in_max_sum(k,iwr) = c_scp_in_max_sum(k,iwr) + cfl_vin(k,iv) * &
+                                        max( scp_vin_max(k), scp_upv(k,iv))
+
+              c_scp_in_min_sum(k,iwr) = c_scp_in_min_sum(k,iwr) + cfl_vin(k,iv) * &
+                                        min( scp_vin_min(k), scp_upv(k,iv))
+           enddo
+
+        enddo
+        !$omp end parallel do
 
 !  Thuburn limiter: compute scalar out min,max for each cell
 !  Horizontal loop over all primary W/T columns
 
-        !$omp parallel do private(iw,kb,k)
+        !$omp parallel do private(iw,k)
         do j = 1,jtab_w(26)%jend(mrl); iw = jtab_w(26)%iw(j)
 
            ! Vertical loop over T levels
@@ -511,215 +682,12 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
      deallocate( scp_local_min, scp_local_max)
      deallocate( cfl_out_sum)
      deallocate( cfl_vin)
-     deallocate( scp_vin_min, scp_vin_max)
      deallocate( c_scp_in_max_sum, c_scp_in_min_sum)
      deallocate( scp_out_min, scp_out_max)
      deallocate( cfl_win)
      deallocate( scp_in_min, scp_in_max)
      deallocate( kdepv)
   endif
-
-contains
-
-
-!=========================================================================
-
-
-  subroutine prepare_thuburn_cfls()
-    implicit none
-    
-    cfl_out_sum(:,:) = 0.0
- !  cfl_in_sum (:,:) = 0.0
-
-    !$omp parallel do private(iv,k,kbv,iwr,iwd,cfl_vout)
-    do j = 1, jtab_v(12)%jend(mrl); iv = jtab_v(12)%iv(j)
-       kbv = lpv(iv)
-      
-       do k = kbv, mza-1
-          iwr = iwrecv(k,iv)
-          iwd = iwdepv(k,iv)
-
-          kdepv(k,iv) = merge( min(k+1,mza-1), max(k-1,kbv), dzps_v(k,iv) >= 0.0)
-
-          cfl_vin(k,iv) = abs(vmsc(k,iv)) * arv(k,iv) * dtlm(itab_w(iwr)%mrlw) &
-                          * volti(k,iwr) / rho_old(k,iwr) 
-
-          cfl_vout      = abs(vmsc(k,iv)) * arv(k,iv) * dtlm(itab_w(iwd)%mrlw) &
-                          * volti(k,iwd) / rho_old(k,iwd) 
-
-        ! Not needed for scalars  
-        ! cfl_in_sum (k,iwr) = cfl_in_sum (k,iwr) + cfl_in (k,iv)
-
-          cfl_out_sum(k,iwd) = cfl_out_sum(k,iwd) + cfl_vout
-       enddo
-    enddo
-    !$omp end parallel do
-
-    !$omp parallel do private(iw,kb,dtl,k,kd,kr,cfl_wout)
-    do j = 1,jtab_w(26)%jend(mrl); iw = jtab_w(26)%iw(j)
-       kb = lpw(iw)
-
-       ! use dtsm for short time step
-       dtl = dtlm(itab_w(iw)%mrlw)
-      
-       do k = kb, mza-2
-          kd = kdepw(k,iw)
-          kr = krecw(k,iw)
-
-          cfl_win(k,iw) = abs(wmsc(k,iw)) * arw(k,iw) * dtl * volti(kr,iw) &
-                          / rho_old(kr,iw)
-
-          cfl_wout      = abs(wmsc(k,iw)) * arw(k,iw) * dtl * volti(kd,iw) &
-                          / rho_old(kd,iw)
-
-        ! Not needed for scalars
-        ! cfl_in_sum (kr,iw) = cfl_in_sum (kr,iw) + cfl_win(k,iw)
-
-          cfl_out_sum(kd,iw) = cfl_out_sum(kd,iw) + cfl_wout
-       enddo
-
-       cfl_win(mza-1,iw) = 0.0
-       cfl_out_sum(kb:mza-1,iw) = max( cfl_out_sum(kb:mza-1,iw), 1.e-6)
-
-    enddo
-    !$omp end parallel do
-
-  end subroutine prepare_thuburn_cfls
-
-
-!=========================================================================
-
-
-  subroutine compute_thuburn_w_bounds()
-    implicit none
-
-    scp_local_min(:,:) = scp(:,:)
-    scp_local_max(:,:) = scp(:,:)
-
-    c_scp_in_max_sum(:,:) = 0.0
-    c_scp_in_min_sum(:,:) = 0.0
-
-    scp_in_max(:,:) = scp(:,:)
-    scp_in_min(:,:) = scp(:,:)
-
-! Expand inflow bounds at each W level based on the transverse cells 
-! in the upstream neighborhood of each W level. 
-! Loop over all immediate V neighbors of each primary W/T columns:
-
-    !$omp parallel do private(iv,k,iwd,iwr)
-    do j = 1,jtab_v(12)%jend(mrl); iv = jtab_v(12)%iv(j)
-       do k = lpv(iv), mza-1
-          iwd = iwdepv(k,iv)
-          iwr = iwrecv(k,iv)
-          scp_in_max(k,iwr) = max(scp_in_max(k,iwr), scp(k,iwd))
-          scp_in_min(k,iwr) = min(scp_in_min(k,iwr), scp(k,iwd))
-       enddo
-    enddo
-    !$omp end parallel do
-
-! Loop over all primary W/T columns:
-
-    !$omp parallel do private(iw,k,kr,kd)
-    do j = 1, jtab_w(26)%jend(mrl); iw = jtab_w(26)%iw(j)
-
-! Make sure the upwinded scalar value at each W level is properly bounded
-
-       do k = lpw(iw), mza-1
-          kr = krecw(k,iw)
-          kd = kdepw(k,iw)
-          scp_upw(k,iw) = min( scp_upw(k,iw), max( scp_in_max(kd,iw), scp(kr,iw)))
-          scp_upw(k,iw) = max( scp_upw(k,iw), min( scp_in_min(kd,iw), scp(kr,iw)))
-       enddo
-
-! Compute the W contribution to the max/min allowed values in each grid box, and
-! the sum of the max and min inputs to each grid box
-
-       do k = lpw(iw), mza-1
-          kr = krecw(k,iw)
-          kd = kdepw(k,iw)
-
-          scp_local_min(kr,iw) = min( scp_local_min(kr,iw), scp_in_min(kd,iw))
-          scp_local_max(kr,iw) = max( scp_local_max(kr,iw), scp_in_max(kd,iw))
-
-          c_scp_in_max_sum(kr,iw) = c_scp_in_max_sum(kr,iw) + cfl_win(k,iw) * &
-                                    max( scp_in_max(kd,iw), scp_upw(k,iw))
-
-          c_scp_in_min_sum(kr,iw) = c_scp_in_min_sum(kr,iw) + cfl_win(k,iw) * &
-                                    min( scp_in_min(kd,iw), scp_upw(k,iw))
-       enddo
-
-    enddo
-    !$omp end parallel do
-
-  end subroutine compute_thuburn_w_bounds
-
-
-!=========================================================================
-
-
-  subroutine compute_thuburn_v_bounds()
-    implicit none
-
-! Loop over all immediate V neighbors of each primary W/T columns
-
-   !$omp parallel do private(iv,iwd,iwr,iw3,iw4,k,kbv) 
-   do j = 1,jtab_v(12)%jend(mrl); iv = jtab_v(12)%iv(j)
-
-      kbv = lpv(iv)
-      iw3 = itab_v(iv)%iw(3)
-      iw4 = itab_v(iv)%iw(4)
-
-      ! Compute inflow bounds at each V interface. Here we include the 
-      ! immediate upwind cell and vertically upstream-diagonal neighbor
-
-      do k = kbv, mza-1
-         iwd = iwdepv(k,iv)
-         kd  =  kdepv(k,iv)
-         scp_vin_min(k) = min( scp(k,iwd), scp(kd,iwd))
-         scp_vin_max(k) = max( scp(k,iwd), scp(kd,iwd))
-      enddo
-
-      ! Include contribution of lateral neighbor iw3 to inflow bounds
-      
-      do k = max(lpw(iw3),kbv), mza-1
-         scp_vin_min(k) = min( scp_vin_min(k), scp(k,iw3))
-         scp_vin_max(k) = max( scp_vin_max(k), scp(k,iw3))
-      enddo
-
-      ! Include contribution of lateral neighbor iw4 to inflow bounds
-      
-      do k = max(lpw(iw4),kbv), mza-1
-         scp_vin_min(k) = min( scp_vin_min(k), scp(k,iw4))
-         scp_vin_max(k) = max( scp_vin_max(k), scp(k,iw4))
-      enddo
-
-      ! Make sure the upwinded scalar value at each V interface is properly bounded
-
-      do k = kbv, mza-1
-         iwr = iwrecv(k,iv)
-         scp_upv(k,iv) = min(scp_upv(k,iv), max(scp_vin_max(k), scp(k,iwr)))
-         scp_upv(k,iv) = max(scp_upv(k,iv), min(scp_vin_min(k), scp(k,iwr)))
-      enddo
-
-      ! Compute the V contribution to the max/min allowed values in each grid box
-      ! and the sum of the max and min inputs to each grid box
-
-      do k = kbv, mza-1
-         iwr = iwrecv(k,iv)
-
-         scp_local_min(k,iwr) = min(scp_local_min(k,iwr), scp_vin_min(k))
-         scp_local_max(k,iwr) = max(scp_local_max(k,iwr), scp_vin_max(k))
-         
-         c_scp_in_max_sum(k,iwr) = c_scp_in_max_sum(k,iwr) + cfl_vin(k,iv) * &
-                                   max( scp_vin_max(k), scp_upv(k,iv))
-
-         c_scp_in_min_sum(k,iwr) = c_scp_in_min_sum(k,iwr) + cfl_vin(k,iv) * &
-                                   min( scp_vin_min(k), scp_upv(k,iv))
-      enddo
-
-   enddo
-   !$omp end parallel do
-  end subroutine compute_thuburn_v_bounds
 
 end subroutine scalar_transport
 
