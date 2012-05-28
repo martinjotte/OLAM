@@ -164,7 +164,7 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
 ! (commented out because incorrect in parallel operation)
 
    do k = lpw(iw),mza-1
-      ftcon = thsrc(k,iw) / rho(k,iw)
+      ftcon = thsrc(k,iw)
       if (ftcon > dthmax) then
          dthmax = ftcon
          iwqmax = iw
