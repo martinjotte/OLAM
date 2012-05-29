@@ -245,7 +245,6 @@ Contains
       allocate (lpv(lva));  lpv(1:lva) = 0
       allocate (lcv(lva));  lcv(1:lva) = 0
 
-      allocate (aru  (mza,lva));  aru  (1:mza,1:lva) = 0.
       allocate (arv  (mza,lva));  arv  (1:mza,1:lva) = 0.
       allocate (volvi(mza,lva));  volvi(1:mza,1:lva) = 0.
 

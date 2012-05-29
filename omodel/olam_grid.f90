@@ -872,7 +872,6 @@ subroutine gridfile_write()
      idims(2) = nva
 
      call shdf5_orec(ndims, idims, 'ARV'  , rvara=arv)
-     call shdf5_orec(ndims, idims, 'ARU'  , rvara=aru)
      call shdf5_orec(ndims, idims, 'VOLVI', rvara=volvi)
 
   endif
@@ -2185,7 +2184,6 @@ if (exans) then
       idims(2) = mva
 
       call shdf5_irec(ndims, idims, 'ARV'  , rvara=arv,   points=lgva)
-      call shdf5_irec(ndims, idims, 'ARU'  , rvara=aru,   points=lgva)
       call shdf5_irec(ndims, idims, 'VOLVI', rvara=volvi, points=lgva)
    
    endif

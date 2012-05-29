@@ -1150,18 +1150,22 @@ case(53) ! 'DIVERG'
 
 case(54) ! 'UMASSFLUX'
 
+   if (meshtype == 2) goto 1000
    fldval = umc(k,i) * aru(k,i)
 
 case(55) ! 'VMASSFLUX'
 
+   if (meshtype == 1) goto 1000
    fldval = vmc(k,i) * arv(k,i)
 
 case(56) ! 'UC_P'
 
+   if (meshtype == 2) goto 1000
    fldval = uc(k,i) - uc_init(k,i)
 
 case(57) ! 'VC_P'
 
+   if (meshtype == 1) goto 1000
    fldval = vc(k,i) - vc_init(k,i)
 
 case(58) ! 'PRESS_P'
@@ -1187,10 +1191,12 @@ case(61) ! 'AIRTEMPK_P'
 
 case(62) ! 'UMT'
 
+   if (meshtype == 2) goto 1000
    fldval = umt(k,i) * volui(k,i)
 
 case(63) ! 'VMT'
 
+   if (meshtype == 1) goto 1000
    fldval = vmt(k,i) * volvi(k,i)
 
 case(64) ! 'WMT'
@@ -1836,6 +1842,7 @@ case(153) ! 'FCELL_CANTEMPC'
 ! GRID GEOMETRY - 3D
 
 case(154) ! 'ARU'
+   if (.not. allocated(aru)) go to 1000
    fldval = aru(k,i)
 case(155) ! 'ARV'
    if (.not. allocated(arv)) go to 1000

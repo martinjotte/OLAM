@@ -1132,7 +1132,7 @@ use misc_coms,   only: io6, mdomain, itopoflg
 use consts_coms, only: erad
 use mem_grid,    only: nsw_max, nza, nma, nva, nwa, lpm, lpv, lcv, lpw, lsw,  &
                        topm, topw, zm, dzt, zt, zfacm, zfact, dnu, dniu, dnv, &
-                       arm0, arw0, aru, arv, arw, volt, volti, volvi, volwi,  &
+                       arm0, arw0, arv, arw, volt, volti, volvi, volwi,  &
                        xew, yew, zew, glatw, glonw, glatm, glonm
 use leaf_coms,   only: isfcl,nml
 use sea_coms,    only: nms
@@ -1706,7 +1706,7 @@ call qsub('W',iw)
 enddo
 call rsub('W',3)
 
-! VOLVI, LCV, and ARU
+! VOLVI, LCV
 
 volvi(1:nza,1:nva) = 1.e-9
 
@@ -1730,8 +1730,6 @@ call qsub('V',iv)
 
    do k = nza-1,2,-1
    
-      aru(k,iv) = arv(k,iv) * dnv(iv) * dniu(iv)
-      
       volvi(k,iv) = 1. / (farw1 * volt(k,iw1) + farw2 * volt(k,iw2))
       
       if (volvi(k,iv) < 1.e8) then
@@ -1742,9 +1740,6 @@ call qsub('V',iv)
 
    volvi(1  ,iv) = 1.e9
    volvi(nza,iv) = 1.e9
-
-   aru(1  ,iv) = 0.
-   aru(nza,iv) = 0.
 
 enddo
 call rsub('V',4)
