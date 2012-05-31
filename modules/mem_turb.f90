@@ -45,6 +45,9 @@ Module mem_turb
   real, allocatable, target :: sflux_t (:)
   real, allocatable, target :: sflux_r (:)
   real, allocatable, target :: ustar   (:)
+  real, allocatable, target :: pblh    (:)
+
+  integer, allocatable      :: kpblh   (:)
 
 Contains
 
@@ -82,6 +85,9 @@ Contains
     allocate (sflux_r(mwa)) ; sflux_r = rinit
     allocate (ustar  (mwa)) ; ustar   = rinit
     allocate (sflux_w(mwa)) ; sflux_w = rinit
+    allocate (pblh   (mwa)) ; pblh    = rinit
+
+    allocate (kpblh  (mwa)) ; kpblh   = 1
 
   end subroutine alloc_turb
   
@@ -101,6 +107,8 @@ Contains
     if (allocated(sflux_t)) deallocate (sflux_t)
     if (allocated(sflux_r)) deallocate (sflux_r)
     if (allocated(ustar))   deallocate (ustar)
+    if (allocated(pblh))    deallocate (pblh)
+    if (allocated(kpblh))   deallocate (kpblh)
 
   end subroutine dealloc_turb
 
@@ -169,6 +177,11 @@ Contains
     if (allocated(ustar)) then
        call increment_vtable('USTAR', 'AW')
        vtab_r(num_var)%rvar1_p => ustar
+    endif
+
+    if (allocated(pblh)) then
+       call increment_vtable('PBLH', 'AW')
+       vtab_r(num_var)%rvar1_p => pblh
     endif
 
   end subroutine filltab_turb

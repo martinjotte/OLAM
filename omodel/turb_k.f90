@@ -34,13 +34,13 @@ subroutine turb_k(mrl)
 
 ! This is Smagorinsky-Lilly-Hill turbulence parameterization
 
-use mem_turb,   only: hkm, vkm, vkh
+use mem_turb,   only: hkm, vkm, vkh, pblh, kpblh, sflux_t, sflux_r, ustar
 use mem_ijtabs, only: istp, jtab_w, itab_w, mrl_begl
-use mem_grid,   only: mza, mwa, lpw, dzim
+use mem_grid,   only: mza, mwa, lpw, dzim, zt, zm
 use misc_coms,  only: io6, idiffk, csx, csz, zkhkm, akmin, meshtype
 
 use mem_basic,   only: rho, theta, sh_v, vxe, vye, vze
-use consts_coms, only: vonk, alvl, grav2, cp, rvap
+use consts_coms, only: vonk, alvl, grav, grav2, cp, rvap
 use mem_grid,    only: mza, lpw, arw0, dzm, dzim, zm, lpu, lpv,  &
                        unx, uny, unz, vnx, vny, vnz
 use micro_coms,  only: level
@@ -52,7 +52,7 @@ integer, intent(in) :: mrl
 
 integer :: j,iw,k,mrlw,ka
 
-real :: richnum,ambda,ambda2,hill_term,richnum_term
+real :: richnum,ambda,ambda2,hill_term,richnum_term,sbf
 real :: scalen_asympt,scalen_vert,scalen_horiz,bkmin
 
 real :: thetav(mza)
@@ -162,6 +162,57 @@ call qsub('W',iw)
 !!!!!!!!!!!! NEW !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!      
       hkm(k,iw) = max(vkm(k-1,iw),vkm(k,iw),bkmin * real(rho(k,iw)))
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   enddo
+
+! Compute surface buoyancy flux
+
+   sbf = grav / thetav(ka)  &      
+        * (sflux_t(iw) * (1. + .61 * sh_v(ka,iw))  &
+        +  sflux_r(iw) * .61 * theta(ka,iw))
+
+! Diagnose PBL height
+
+   if (sbf < 0.0) then
+      
+! Stable case (from Zilitinkevich 1972)      
+
+      pblh(iw) = 2.4e3 * ustar(iw) ** 1.5
+      
+   else
+      
+! Unstable case - using gradient Richardon number...
+
+! Initialize boundary layer height (minimum value is 1/2 deltaz)
+
+      pblh(iw) = zt(ka) - zm(ka-1)
+   
+! Vertical loop over W levels
+
+      do k = ka, mza-2
+      
+!  Compute Richardson number and Lilly Richardson-number term
+
+         richnum      = max(rmin,min(rmax,bvfreq2(k) / max(strain2(k),1.e-7)))
+         richnum_term = min(10.,sqrt(max(0.,(1.-zkhkm(mrlw)*richnum))))
+
+! Find the lowest level where richnum_term < 1.e-5 (the lowest neutral or 
+! stable layer).  Take zt(k) to be top of unstable layer.
+
+         if (richnum_term <= 1.e-5) then
+            pblh(iw) = zt(k) - zm(ka-1)
+            exit
+         endif
+
+      enddo
+      
+   endif
+
+! Find the highest model level zt(k) that is at or below boundary layer
+! height h.
+
+   kpblh(iw) = ka
+   do while (zm(kpblh(iw)) < zm(ka-1) + pblh(iw))
+      kpblh(iw) = kpblh(iw) + 1
    enddo
 
 enddo
