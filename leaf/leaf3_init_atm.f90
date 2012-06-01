@@ -50,6 +50,7 @@ use consts_coms,  only: p00i, rocp, cliq, cice, alli,  &
 use ed_options,   only: ied_offline
 use mem_para,     only: myrank
 use leaf3_canopy, only: vegndvi
+use mem_turb,     only: frac_urb, frac_land
 
 implicit none
 
@@ -88,6 +89,33 @@ if (iupdndvi == 1 .and. nndvifiles > 1) then
    timefac_ndvi = (s1900_sim               - s1900_ndvi(indvifile))  &
                 / (s1900_ndvi(indvifile+1) - s1900_ndvi(indvifile))
 endif
+
+! Populate urban and land fraction arrays if used
+
+if (allocated(frac_urb )) frac_urb (:) = 0.0
+if (allocated(frac_land)) frac_land(:) = 0.0
+
+do j = 1,jlandflux(1)%jend(1)
+   ilf = jlandflux(1)%ilandflux(j)
+
+   iw  = landflux(ilf)%iw   ! global index
+   iwl = landflux(ilf)%iwls ! global index
+
+   if (iparallel == 1) then
+      iw  = itabg_w (iw )%iw_myrank  ! local index
+      iwl = itabg_wl(iwl)%iwl_myrank ! local index
+   endif
+   
+   if (allocated(frac_urb)) then
+      if (any(land%leaf_class(iwl) == (/ 19, 21 /))) then
+         frac_urb(iw) = frac_urb(iw) + landflux(ilf)%arf_atm
+      endif
+   endif
+   
+   if (allocated(frac_land)) then
+      frac_land(iw) = frac_land(iw) + landflux(ilf)%arf_atm
+   endif
+enddo
 
 if (runtype /= "INITIAL") return
 

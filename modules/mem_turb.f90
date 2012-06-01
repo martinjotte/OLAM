@@ -47,7 +47,9 @@ Module mem_turb
   real, allocatable, target :: ustar   (:)
   real, allocatable, target :: pblh    (:)
 
-  integer, allocatable      :: kpblh   (:)
+  integer, allocatable      :: kpblh    (:)
+  real,    allocatable      :: frac_land(:)
+  real,    allocatable      :: frac_urb (:)
 
 Contains
 
@@ -87,7 +89,9 @@ Contains
     allocate (sflux_w(mwa)) ; sflux_w = rinit
     allocate (pblh   (mwa)) ; pblh    = rinit
 
-    allocate (kpblh  (mwa)) ; kpblh   = 1
+    allocate (kpblh    (mwa)) ; kpblh     = 1
+    allocate (frac_urb (mwa)) ; frac_urb  = 0.0 
+    allocate (frac_land(mwa)) ; frac_land = 0.0
 
   end subroutine alloc_turb
   
