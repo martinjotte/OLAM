@@ -250,3 +250,45 @@ return
 end subroutine wetthrm3
 
 
+!===============================================================================
+
+
+subroutine thermo_save()
+
+use mem_ijtabs, only: jtab_w, istp, mrl_endl
+use mem_basic,  only: theta, theta_old, sh_v, sh_v_old
+
+!$ use omp_lib
+
+implicit none
+
+integer iw,j,mrl,k
+
+if ((.not. allocated(theta_old)) .and. (.not. allocated(sh_v_old))) return
+
+! Horizontal loop over all T points (primary and boundary)
+
+call psub()
+!-------------------------------------------------------------------------
+mrl = mrl_endl(istp)
+if (mrl > 0) then
+!$omp parallel do private (iw)
+do j = 1,jtab_w(14)%jend(mrl); iw = jtab_w(14)%iw(j)
+!-------------------------------------------------------------------------
+call qsub('W',iw)
+
+   if (allocated(theta_old)) then
+         theta_old(:,iw) = theta(:,iw)
+   endif
+
+   if (allocated(sh_v_old)) then
+         sh_v_old(:,iw) = sh_v(:,iw)
+   endif
+
+enddo
+!$omp end parallel do
+endif
+call rsub('W',14)
+
+return
+end subroutine thermo_save

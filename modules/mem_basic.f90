@@ -61,15 +61,18 @@ Module mem_basic
   real(r8), allocatable, target :: press(:,:) ! air pressure [Pa]
   real(r8), allocatable, target :: rho  (:,:) ! total air density [kg/m^3]
 
+  real, allocatable, target :: theta_old(:,:) ! previous pot temp [K]
+  real, allocatable, target :: sh_v_old (:,:) ! previous spec hum [kg_vap/kg_air]
+
 Contains
 
 !===============================================================================
 
-  subroutine alloc_basic(meshtype,mza,mua,mva,mwa)
-    use misc_coms, only: rinit, rinit8
+  subroutine alloc_basic(meshtype,mza,mua,mva,mwa,mrls)
+    use misc_coms, only: rinit, rinit8, nqparm
     implicit none
 
-    integer, intent(in) :: meshtype,mza,mua,mva,mwa
+    integer, intent(in) :: meshtype,mza,mua,mva,mwa,mrls
 
 !   Allocate basic memory needed for 'INITIAL' or 'HISTORY' runs
 !   and initialize allocated arrays to zero
@@ -102,6 +105,14 @@ Contains
     allocate (vye  (mza,mwa)) ; vye   = rinit
     allocate (vze  (mza,mwa)) ; vze   = rinit
 
+!   Currently, only the Grell convective scheme needs this information
+!   from the previous timestep
+
+    if ( any(nqparm(1:mrls) == 2) ) then
+       allocate (theta_old(mza,mwa)) ; theta_old = -999.9
+       allocate (sh_v_old (mza,mwa)) ; sh_v_old  = -999.9
+    endif
+
   end subroutine alloc_basic
 
 !===============================================================================
@@ -127,6 +138,9 @@ Contains
     if (allocated(vxe))   deallocate (vxe)
     if (allocated(vye))   deallocate (vye)
     if (allocated(vze))   deallocate (vze)
+    
+    if (allocated(theta_old)) deallocate (theta_old)
+    if (allocated(sh_v_old))  deallocate (sh_v_old)
 
   end subroutine dealloc_basic
 
@@ -209,6 +223,16 @@ Contains
     if (allocated(press)) then
        call increment_vtable('PRESS', 'AW')
        vtab_r(num_var)%dvar2_p => press
+    endif
+
+    if (allocated(sh_v_old)) then
+       call increment_vtable('SH_V_OLD', 'AW')
+       vtab_r(num_var)%rvar2_p => sh_v_old
+    endif
+
+    if (allocated(theta_old)) then
+       call increment_vtable('THETA_OLD', 'AW')
+       vtab_r(num_var)%rvar2_p => theta_old
     endif
 
   end subroutine filltab_basic

@@ -60,7 +60,7 @@ integer :: ng,nv,ntpts
 
 call filltab_itabs()  ! Already allocated
 
-call alloc_basic(meshtype,mza,mua,mva,mwa)
+call alloc_basic(meshtype,mza,mua,mva,mwa,mrls)
 call filltab_basic()
 
 call alloc_cuparm(mza, mwa, mrls, nqparm, nqparm_sh)
