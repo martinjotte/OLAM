@@ -151,8 +151,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call timeavg_momsc(vmsc,wmsc)
 
-   call thermo_save()
-
 ! call check_nans(13)
    
    if (mrl_endl(istp) > 0) then

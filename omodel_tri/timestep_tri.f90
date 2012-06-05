@@ -155,8 +155,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 ! call check_nans(12)
 
    call timeavg_massflux(wmarwsc, umarusc)
- 
-   call thermo_save()
 
 ! call check_nans(13)
 

@@ -50,8 +50,7 @@ use mem_sea,     only: fill_jsea
 use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_u, itab_v, itab_w
 use oplot_coms,  only: op
 use mem_grid,    only: nma, nua, nva, nwa, mma, mua, mva, mwa, mza, zm, zt
-use mem_basic,   only: alloc_basic, wc, vxe, vye, vze, theta, theta_old,   &
-                       sh_v, sh_v_old
+use mem_basic,   only: alloc_basic, wc, vxe, vye, vze
 use micro_coms,  only: gnu
 use ed_options,  only: ied_offline
 use mem_nudge,   only: nudflag
@@ -461,20 +460,6 @@ if (runtype == 'HISTORY') then
    if (iparallel == 1) then
       call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
       call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
-   endif
-endif
-
-! INITIALIZE THETA_OLD AND SH_V_OLD IF THEY HAVE NOT BEEN READ FROM HISTORY
-
-if (allocated(theta_old)) then
-   if (maxval(theta_old) < -900.0) then
-      theta_old(:,:) = theta(:,:)
-   endif
-endif
-
-if (allocated(sh_v_old)) then
-   if (maxval(sh_v_old) < -900.0) then
-      sh_v_old(:,:) = sh_v(:,:)
    endif
 endif
 
