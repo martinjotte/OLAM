@@ -32,7 +32,7 @@ CONTAINS
                           unx, uny, unz, vnx, vny, vnz, arw0
    use misc_coms,   only: io6, meshtype
    use mem_cuparm,  only: thsrc, rtsrc, conprr
-   use mem_basic,   only: thil, press, rho, vxe, vye, vze, sh_v
+   use mem_basic,   only: theta, press, rho, vxe, vye, vze, sh_v
    use mem_ijtabs,  only: itab_w, jtab_w
    use consts_coms, only: p00i, rocp, erad
 
@@ -41,7 +41,7 @@ CONTAINS
    integer, intent(in) :: iw
    real, intent(in)    :: dtlong, w0avg(mza,mwa)
 
-   integer :: kte, npoly, k, jv, iv, kv, kt
+   integer :: kte, k, jv, iv, kv, kt
    INTEGER :: trigger = 1
 
    real :: dqdt(mza),dqidt(mza),dqcdt(mza),dqrdt(mza)
@@ -54,23 +54,19 @@ CONTAINS
    real :: cubot(mwa),cutop(mwa)  ! bottom & top K level of cumulus (for radiation)
    real :: raincv(mwa)            ! time-step cumulus scheme precipitation (mm)
 
-   real :: wtold, wtnew, dxsq, dx, dt, polyi, raxis
+   real :: wtold, wtnew, dxsq, dx, dt, raxis
 
    LOGICAL :: F_QR, F_QI, F_QS, warm_rain
 
-   dxsq = arw0(iw)
-   dx   = sqrt(dxsq)
-   dt   = dtlong
+   dxsq  = arw0(iw)
+   dx    = sqrt(dxsq)
+   dt    = dtlong
+   raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
    F_QR = .FALSE.
    F_QI = .FALSE.
    F_QS = .FALSE.
    warm_rain = .FALSE.
-
-! Number of polygon edges for current IW
-
-   npoly = itab_w(iw)%npoly
-   polyi = 1. / real(npoly)
 
 ! Initialize 1D arrays
 
@@ -96,7 +92,7 @@ CONTAINS
 
       exner(k) = (p00i * press(k,iw)) ** rocp
 
-      t1d    (kt) = thil (k,iw) * exner(k)
+      t1d    (kt) = theta(k,iw) * exner(k)
       w0avg1d(kt) = w0avg(k,iw)
       rho1d  (kt) = rho  (k,iw)
       qv1d   (kt) = sh_v (k,iw)
@@ -104,8 +100,6 @@ CONTAINS
       dz1d   (kt) = dzm  (k)
 
 ! Compute zonal and meridional wind components
-
-      raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
       if (raxis > 1.e3) then
          u1d(kt) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) / raxis
