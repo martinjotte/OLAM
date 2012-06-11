@@ -73,7 +73,7 @@ call filltab_micro()
 call alloc_radiate(mza,mwa,ilwrtyp,iswrtyp)
 call filltab_radiate()
 
-call alloc_turb(mza,mwa,nsw_max,idiffk(1))
+call alloc_turb(mza,mwa,nsw_max,idiffk(1),mrls)
 call filltab_turb()
 
 call alloc_timeavg(mza,mwa)

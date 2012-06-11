@@ -71,7 +71,7 @@ subroutine thiltend_long0(iw,rhot)
 use mem_ijtabs,  only: itab_w
 use misc_coms,   only: io6, dtlm, meshtype
 use mem_basic,   only: rho, thil
-use mem_turb,    only: vkh, hkm, sxfer_tk, sxfer_rk
+use mem_turb,    only: vkh, hkm, sxfer_tk, sxfer_rk, fthpbl
 use mem_tend,    only: thilt
 use mem_grid,    only: mza, mwa, lpw, lsw, arw, dzim, volt, volti, &
                        aru, arv, dniu, dniv
@@ -114,6 +114,10 @@ do k = ka,mza-2
    vctr8(k) = akodz(k) * (thil(k,iw) - thil(k+1,iw))
 enddo
 
+if (allocated(fthpbl)) then
+   fthpbl(:,iw) = 0.0
+endif
+
 ! Vertical loop over T levels that are adjacent to surface
 
 do ks = 1,lsw(iw)
@@ -122,6 +126,10 @@ do ks = 1,lsw(iw)
 ! Apply surface heat xfer [kg_a K] directly to thilt [kg_a K / s]
 
    thilt(k,iw) = thilt(k,iw) + dtli * volti(k,iw) * sxfer_tk(ks,iw)
+
+   if (allocated(fthpbl)) then
+      fthpbl(k,iw) = dtli * volti(k,iw) * sxfer_tk(ks,iw) / rho(k,iw)
+   endif
 
 ! Apply surface vapor xfer [kg_vap] directly to rhot [kg_air / s]
 
@@ -220,6 +228,10 @@ do k = ka,mza-1
 
    thilt(k,iw) = thilt(k,iw) &
                + volti(k,iw) * (vctr9(k-1) - vctr9(k) + vctr1(k))
+
+   if (allocated(fthpbl)) then
+      fthpbl(k,iw) = fthpbl(k,iw) + volti(k,iw) * (vctr9(k-1) - vctr9(k)) / rho(k,iw)
+   endif
 
 enddo
 

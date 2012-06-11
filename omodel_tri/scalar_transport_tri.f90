@@ -497,7 +497,7 @@ use mem_ijtabs, only: itab_w
 use mem_basic,  only: rho, thil
 use mem_tend,   only: thilt
 use misc_coms,  only: io6, dtlm, dtsm
-use mem_turb,   only: vkh, hkm, sxfer_rk
+use mem_turb,   only: vkh, hkm, sxfer_rk, fqtpbl
 use mem_grid,   only: mza, mua, mwa, lpw, lsw,  &
                       dniu, volt, aru, arw, volwi, dzim, volti
 use massflux,   only: tridiffo
@@ -763,6 +763,16 @@ if (action == 'L') then
                +  vctr9(k-1) - vctr9(k))
 
          enddo
+
+! Grell scheme needs PBL moisture tendency stored
+
+         if (allocated(fqtpbl) .and. scalar_tab(n)%name == 'SH_W') then
+            
+            do k = kb,mza-1
+               fqtpbl(k,iw) = volti(k,iw) * (vfluxadv(k-1) - vfluxadv(k))
+            enddo
+
+         endif
 
       endif ! (sclr_type == 'S')
 

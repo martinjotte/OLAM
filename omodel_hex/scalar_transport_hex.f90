@@ -37,7 +37,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
                           dniv, volt, arv, arw, dzim, volti
   use misc_coms,    only: io6, dtlm, iparallel
   use var_tables,   only: num_scalar, scalar_tab
-  use mem_turb,     only: vkh, hkm, sxfer_rk
+  use mem_turb,     only: vkh, hkm, sxfer_rk, fqtpbl
   use massflux,     only: tridiffo
   use mem_basic,    only: rho
   use mem_para,     only: myrank
@@ -607,6 +607,8 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
         if (scalar_tab(n)%name == 'SH_W') then
 
+           if (allocated(fqtpbl)) fqtpbl(:,iw) = 0.0
+
 ! Vertical loop over T levels that are adjacent to surface
 
            do ks = 1,lsw(iw)
@@ -615,6 +617,10 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 ! Apply surface vapor xfer [kg_vap] directly to SCT [kg_vap / (m^3 s)]
 
               sct(k,iw) = sct(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
+
+              if (allocated(fqtpbl)) then
+                 fqtpbl(k,iw)  = dtli * volti(k,iw) * sxfer_rk(ks,iw) / rho(k,iw)
+              endif
 
 ! Change in SCP from surface xfer
 
@@ -670,6 +676,16 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
                  + hfluxdif(k) + vfluxdif(k-1) - vfluxdif(k))
 
         enddo
+
+! Grell scheme needs PBL moisture tendency stored
+
+        if (allocated(fqtpbl) .and. scalar_tab(n)%name == 'SH_W') then
+           
+           do k = kb,mza-1
+              fqtpbl(k,iw) = fqtpbl(k,iw) + volti(k,iw) * (vfluxdif(k-1) - vfluxdif(k)) / rho(k,iw)
+           enddo
+
+        endif
 
      enddo
      !$omp end parallel do

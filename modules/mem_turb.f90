@@ -51,16 +51,19 @@ Module mem_turb
   real,    allocatable      :: frac_land(:)
   real,    allocatable      :: frac_urb (:)
 
+  real, allocatable, target :: fthpbl(:,:)
+  real, allocatable, target :: fqtpbl(:,:)
+
 Contains
 
 !===============================================================================
 
-  subroutine alloc_turb(mza, mwa, nsw_max, idiffk)
+  subroutine alloc_turb(mza, mwa, nsw_max, idiffk, mrls)
 
-    use misc_coms, only: rinit
+    use misc_coms, only: rinit, nqparm
     implicit none
 
-    integer, intent(in) :: mza, mwa, nsw_max, idiffk
+    integer, intent(in) :: mza, mwa, nsw_max, idiffk, mrls
 
 !   Allocate arrays based on options (if necessary)
 !   Initialize arrays to zero
@@ -93,6 +96,11 @@ Contains
     allocate (frac_urb (mwa)) ; frac_urb  = 0.0 
     allocate (frac_land(mwa)) ; frac_land = 0.0
 
+    if ( any(nqparm(1:mrls) == 2) ) then
+       allocate (fthpbl(mza,mwa)) ; fthpbl = 0.0
+       allocate (fqtpbl(mza,mwa)) ; fqtpbl = 0.0
+    endif
+
   end subroutine alloc_turb
   
   !===============================================================================
@@ -113,6 +121,8 @@ Contains
     if (allocated(ustar))   deallocate (ustar)
     if (allocated(pblh))    deallocate (pblh)
     if (allocated(kpblh))   deallocate (kpblh)
+    if (allocated(fthpbl))  deallocate (fthpbl)
+    if (allocated(fqtpbl))  deallocate (fqtpbl)
 
   end subroutine dealloc_turb
 
@@ -186,6 +196,16 @@ Contains
     if (allocated(pblh)) then
        call increment_vtable('PBLH', 'AW')
        vtab_r(num_var)%rvar1_p => pblh
+    endif
+
+    if (allocated(fthpbl)) then
+       call increment_vtable('FTHPBL', 'AW')
+       vtab_r(num_var)%rvar2_p => fthpbl
+    endif
+
+    if (allocated(fqtpbl)) then
+       call increment_vtable('FQTPBL', 'AW')
+       vtab_r(num_var)%rvar2_p => fqtpbl
     endif
 
   end subroutine filltab_turb
