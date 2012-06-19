@@ -54,7 +54,8 @@ integer :: iyears, imonths, idates, ihours
 
 real, allocatable :: dato(:,:)
 
-integer :: nio, njo, nperdeg
+integer :: nio, njo
+integer :: nx, ny
 integer :: io1, io2, jo1, jo2
 integer :: nf
 integer :: iws
@@ -63,9 +64,10 @@ integer :: slen
 integer :: ndims, idims(2)
 
 real :: wio1, wio2, wjo1, wjo2
-real :: offpix
+real :: xoffpix, yoffpix
 real :: glat, glon
 real :: rio, rjo
+real :: xperdeg, yperdeg
 
 character(len=128) :: flnm
 character(len=10)  :: sdate
@@ -234,33 +236,57 @@ allocate(dato(nio,njo))
 call shdf5_irec(ndims,idims,'sst',rvara=dato)
 call shdf5_close()
 
-offpix = 0.
-nperdeg = nio/360
-if (mod(nio,nperdeg) == 2) offpix = .5
+! If data size is even, assume that it is offset 1/2 delta lat-lon from
+! the lower left point, and that we have added an extra cyclic row and
+! column around the border. This is the format of the climatalogical
+! and Reynolds SSTs
+
+! If data size is odd, assume that it is "unstaggered" like grib datasets,
+! so that the SW point is at (-180, -90) and the NW point is at (+180, +90)
+! with no extra rows/columns
+
+if (mod(nio,2) == 0) then
+   xoffpix = 0.5
+   nx = nio - 2
+else
+   xoffpix = 0.0
+   nx = nio - 1
+endif
+
+if (mod(njo,2) == 0) then
+   yoffpix = 0.5
+   ny = njo - 2
+else
+   yoffpix = 0.0
+   ny = njo - 1
+endif
+
+xperdeg = real(nx) / 360.0
+yperdeg = real(ny) / 180.0
 
 ! Fill sst array
 
 do iws = 2,mws
    
-   glat = asin(sea%zew(iws) / erad) * piu180
-   glon = atan2(sea%yew(iws), sea%xew(iws)) * piu180
+   glat = sea%glatw(iws)
+   glon = sea%glonw(iws)
 
    glon = max(-179.999,min(179.999,glon))
 
-   rio = 1. + (glon + 180.) * nperdeg + offpix
-   rjo = 1. + (glat +  90.) * nperdeg + offpix
+   rio = 1. + (glon + 180.) * xperdeg + xoffpix
+   rjo = 1. + (glat +  90.) * yperdeg + yoffpix
 
    io1 = int(rio)
    jo1 = int(rjo)
          
-   wio2 = rio - float(io1)
-   wjo2 = rjo - float(jo1)
+   wio2 = rio - real(io1)
+   wjo2 = rjo - real(jo1)
            
    wio1 = 1. - wio2
    wjo1 = 1. - wjo2
 
-   io2 = io1 + 1
-   jo2 = jo1 + 1
+   io2 = min(nio, io1 + 1)
+   jo2 = min(njo, jo1 + 1)
 
    sea%seatf(iws) = t00  &
         + wio1 * (wjo1 * dato(io1,jo1) + wjo2 * dato(io1,jo2))  &
