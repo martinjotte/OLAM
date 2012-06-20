@@ -302,8 +302,8 @@ else
 
 ! Set VMP and VP
 
-   vmp(:,:) = vmc(:,:)
-   vp (:,:) = vc (:,:)
+   if (allocated(vmp)) vmp(:,:) = vmc(:,:)
+   if (allocated(vp )) vp (:,:) = vc (:,:)
 
 endif
 
@@ -330,5 +330,3 @@ write(io6,*) ' '
 
 return
 end subroutine fldslhi
-
-

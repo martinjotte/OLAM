@@ -61,6 +61,13 @@ Module mem_basic
   real(r8), allocatable, target :: press(:,:) ! air pressure [Pa]
   real(r8), allocatable, target :: rho  (:,:) ! total air density [kg/m^3]
 
+  ! If false, use current earth-cartesian velocities to compute the w, v, and t
+  ! donor point locations, which saves some computation, memory, and communication.
+  ! If true, compute half-forward earth-cartesian velocities, which is more
+  ! exact for the time differencing scheme:
+
+  integer, parameter :: strict_wvt_donorpoint = .false.
+
 Contains
 
 !===============================================================================
@@ -85,7 +92,11 @@ Contains
        allocate (vmp(mza,mva)) ; vmp = rinit
        allocate (vmc(mza,mva)) ; vmc = rinit
        allocate (vc (mza,mva)) ; vc  = rinit
-       allocate (vp (mza,mva)) ; vp  = rinit
+
+       if (strict_wvt_donorpoint) then
+          ! needed for half-forward earth-cartesian velocities:
+          allocate (vp (mza,mva)) ; vp  = rinit
+       endif
 
     endif
    

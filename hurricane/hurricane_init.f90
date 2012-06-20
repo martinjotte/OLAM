@@ -1396,8 +1396,8 @@ Contains
 
 ! Set VMP and VP
 
-     vmp(:,:) = vmc(:,:)
-     vp (:,:) = vc (:,:)
+     if (allocated(vmp)) vmp(:,:) = vmc(:,:)
+     if (allocated(vp )) vp (:,:) = vc (:,:)
 
   endif
 
@@ -2088,8 +2088,8 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! Set VMP and VP
 
-  vmp(:,:) = vmc(:,:)
-  vp (:,:) = vc (:,:)
+  if (allocated(vmp)) vmp(:,:) = vmc(:,:)
+  if (allocated(vp))  vp (:,:) = vc (:,:)
 
 ! Re-diagnose earth-relative velocities
 

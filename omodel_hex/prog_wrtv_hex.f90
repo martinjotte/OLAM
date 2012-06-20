@@ -40,7 +40,7 @@ subroutine prog_wrtv(vmsc,wmsc,alpha_press,rhot)
 use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, istp, itab_w, jtab_m, itab_m, &
                         mrl_begl, mrl_begs, mrl_ends, mrl_endl
 use mem_basic,    only: rho, thil, theta, wc, press, wmc, vmp, vmc, vp, vc, &
-                        sh_w, sh_v, vxe, vye, vze
+                        sh_w, sh_v, vxe, vye, vze, strict_wvt_donorpoint
 use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lcv, lpw, &
                         zt, zm, dzim, zfacit, dzm, dzt, dnv, dnu, arm0, arv, &
                         vnx, vny, vnz, volt, volwi
@@ -79,12 +79,12 @@ real :: dyps_w(mza,mwa) ! Y component in PS projection of displacement for W fac
 real :: dzps_w(mza,mwa) ! Z component in PS projection of displacement for W face
 
 real :: vmcf(mza,mva) ! Time-extrapolated VMC
-real :: vcf(mza,mva)  ! Time-extrapolated VC
 real :: wmcf(mza,mwa) ! Time-interpolated WMC
 
-real :: vxef(mza,mwa) ! Time-extrapolated XE velocity component at T point
-real :: vyef(mza,mwa) ! Time-extrapolated YE velocity component at T point
-real :: vzef(mza,mwa) ! Time-extrapolated ZE velocity component at T point
+real, allocatable :: vcf (:,:) ! Time-extrapolated VC
+real, allocatable :: vxef(:,:) ! Time-extrapolated XE velocity component at T point
+real, allocatable :: vyef(:,:) ! Time-extrapolated YE velocity component at T point
+real, allocatable :: vzef(:,:) ! Time-extrapolated ZE velocity component at T point
 
 real :: vmxet(mza,mwa) ! XE momentum tendency component at T point
 real :: vmyet(mza,mwa) ! YE momentum tendency component at T point
@@ -124,12 +124,21 @@ integer :: iv1,iv2,iv3,iv4,im,npoly,jv,im1,im2,im3,im4,im5,im6,iwd
 real :: c0,c1,c2,vort_big1,vort_big2
 real :: arm0i,tvort
 
+
+! Half-forward velocities for computing donor points:
+
+if (strict_wvt_donorpoint) then
+   allocate(vcf (mza,mva)) ; vcf  = 0.0
+   allocate(vxef(mza,mwa)) ; vxef = 0.0
+   allocate(vyef(mza,mwa)) ; vyef = 0.0
+   allocate(vzef(mza,mwa)) ; vzef = 0.0
+endif
+
 ! Save copy of thil
 
 thil_s(:,:) = thil(:,:)
 
 vmcf(:,1) = 0.
-vcf (:,1) = 0.
 wmcf(:,1) = 0.
 
 ! First compute long timestep tendencies
@@ -308,56 +317,81 @@ do iv = 2,mva
 !----------------------------------------------------------------------
 call qsub('V',iv)
 
-! Extrapolate VM and V to time T + 1/2; update VMP
+! Extrapolate VM to time T + 1/2; update VMP
 
    do k = 1,mza-1
       vmcf(k,iv) = (1.5 * vmc(k,iv) - 0.5 * vmp(k,iv))
-      vcf (k,iv) = (1.5 * vc (k,iv) - 0.5 * vp (k,iv))
-
       vmsc(k,iv) = vmsc(k,iv) + vmcf(k,iv)
       vmp (k,iv) = vmc (k,iv)
-      vp  (k,iv) = vc  (k,iv)
    enddo
+
+! Extrapolate V to time T + 1/2; update VP
+
+   if (strict_wvt_donorpoint) then
+      do k = 1,mza-1
+         vcf (k,iv) = (1.5 * vc (k,iv) - 0.5 * vp (k,iv))
+         vp  (k,iv) = vc  (k,iv)
+      enddo
+   endif
 
 enddo
 !$omp end parallel do 
 endif
 call rsub('Va',16)
 
-! Diagnose 3D velocity at T points for BEGS using half-future vcf and current wc
+if (strict_wvt_donorpoint) then
 
-mrl = mrl_begs(istp)
-if (mrl > 0) then
-   call vel_t3d_hex(mrl, vcf, wc, vxef, vyef, vzef)
-endif
+! Compute donor point locations using half-forward velocities.
 
-! MPI send of VXE, VYE, VZE
+   mrl = mrl_begs(istp)
 
-if (iparallel == 1 .and. mrl > 0) then
-   call mpi_send_w('V', vxe=vxef, vye=vyef, vze=vzef)
-endif
+   if (mrl > 0) then
 
-! Diagnose advective donor point locations for all primary W faces
-! No parallel communication is necessary to compute this
+      ! Diagnose 3D velocity at T points for BEGS using half-future vcf
+      ! and current wc
 
-if (mrl > 0) then
-   call donorpointw(0, mrl, wc, vxef, vyef, vzef, kdepw, krecw, &
-                    dxps_w, dyps_w, dzps_w)
-endif
+      call vel_t3d_hex(mrl, vcf, wc, vxef, vyef, vzef)
 
-! Finish MPI recv of VXE, VYE, VZE
+      ! MPI send of VXE, VYE, VZE
 
-if (iparallel == 1 .and. mrl > 0) then
-   call mpi_recv_w('V', vxe=vxef, vye=vyef, vze=vzef)
-endif
+      if (iparallel == 1) then
+         call mpi_send_w('V', vxe=vxef, vye=vyef, vze=vzef)
+      endif
 
-! Diagnose advective donor point locations for the V faces surrounding all
-! primary W points. Communication of velocities must have been completed
+      ! Diagnose advective donor point locations for all primary W faces
+      ! No parallel communication is necessary to compute this
 
-if (mrl > 0) then
-   call donorpointv(0, mrl, vcf, vxef, vyef, vzef, iwdepv, iwrecv, &
-                    dxps_v, dyps_v, dzps_v)
-endif
+      call donorpointw(0, mrl, wc, vxef, vyef, vzef, kdepw, krecw, &
+                       dxps_w, dyps_w, dzps_w)
+
+      ! Finish MPI recv of VXE, VYE, VZE
+
+      if (iparallel == 1) then
+         call mpi_recv_w('V', vxe=vxef, vye=vyef, vze=vzef)
+      endif
+
+      ! Diagnose advective donor point locations for the V faces surrounding all
+      ! primary W points. Communication of velocities must have been completed
+
+      call donorpointv(0, mrl, vcf, vxef, vyef, vzef, iwdepv, iwrecv, &
+                       dxps_v, dyps_v, dzps_v)
+   endif
+
+else
+
+! Compute donor point locations using current velocities.
+   
+   mrl = mrl_begs(istp)
+
+   if (mrl > 0) then
+      call donorpointw(0, mrl, wc, vxe, vye, vze, kdepw, krecw, &
+                       dxps_w, dyps_w, dzps_w)
+
+      call donorpointv(0, mrl, vc, vxe, vye, vze, iwdepv, iwrecv, &
+                       dxps_v, dyps_v, dzps_v)
+   endif
+
+endif  ! strict_wvt_donorpoint
 
 ! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
 ! (Example of how to plot "external" field; one not available in module memory)
@@ -528,6 +562,13 @@ enddo
 !$omp end parallel do 
 endif
 call rsub('Va',16)
+
+if (strict_wvt_donorpoint) then
+   deallocate( vcf)
+   deallocate(vxef)
+   deallocate(vyef)
+   deallocate(vzef)
+endif
 
 return
 end subroutine prog_wrtv
