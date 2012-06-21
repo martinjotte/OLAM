@@ -43,6 +43,8 @@ use mem_sflux,   only: mseaflux, mlandflux, filltab_sflux
 use mem_grid,    only: mza, nsw_max, mma, mua, mva, mwa
 use mem_nudge,   only: nudflag, alloc_nudge2, filltab_nudge
 use mem_ijtabs,  only: mrls, filltab_itabs
+use oname_coms,  only: nl
+use mem_thuburn, only: alloc_thuburn
 
 use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
                        nqparm, nqparm_sh, dtsm, meshtype
@@ -102,6 +104,10 @@ write(io6,*) 'start tendency alloc'
 
 call alloc_tend(mza,mua,mva,mwa,naddsc)
 call filltab_tend(naddsc) 
+
+! Extra memory for Thuburn's monotonic advection
+
+call alloc_thuburn(meshtype, nl%iscal_monot, mza, mva, mwa)
 
 write(io6,*) 'end alloc'
 

@@ -83,6 +83,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_rayf.f90 \
              $(MODEL_MODS)/mem_sflux.f90 \
              $(MODEL_MODS)/mem_tend.f90 \
+             $(MODEL_MODS)/mem_thuburn.f90 \
              $(MODEL_MODS)/mem_timeavg.f90 \
              $(MODEL_MODS)/mem_turb.f90 \
              $(MODEL_MODS)/mem_zonavg.f90 \
