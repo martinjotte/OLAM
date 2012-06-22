@@ -79,7 +79,6 @@ real :: dyps_w(mza,mwa) ! Y component in PS projection of displacement for W fac
 real :: dzps_w(mza,mwa) ! Z component in PS projection of displacement for W face
 
 real :: vmcf(mza,mva) ! Time-extrapolated VMC
-real :: wmcf(mza,mwa) ! Time-interpolated WMC
 
 real, allocatable :: vcf (:,:) ! Time-extrapolated VC
 real, allocatable :: vxef(:,:) ! Time-extrapolated XE velocity component at T point
@@ -139,7 +138,6 @@ endif
 thil_s(:,:) = thil(:,:)
 
 vmcf(:,1) = 0.
-wmcf(:,1) = 0.
 
 ! First compute long timestep tendencies
 ! Maybe move to a separate subroutine veltend_long_hex?
