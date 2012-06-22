@@ -413,7 +413,7 @@ subroutine tend0(rhot)
 use mem_ijtabs, only: jtab_w, jtab_v, istp, mrl_begl
 use var_tables, only: scalar_tab, num_scalar
 use mem_grid,   only: mza, mwa, mva, lcv, lpw
-use mem_tend,   only: wmt, vmt, thilt
+use mem_tend,   only: wmt, vmt, thilt, vmxet, vmyet, vmzet
 use misc_coms,  only: io6
 
 !$ use omp_lib
@@ -436,7 +436,7 @@ if (mrl > 0) then
    call tnd0(rhot)
 endif
 
-! SET W MOMENTUM TENDENCY TO ZERO
+! SET W AND EARTH-CARTESIAN MOMENTUM TENDENCIES TO ZERO
 
 call psub()
 !----------------------------------------------------------------------
@@ -447,7 +447,10 @@ do j = 1,jtab_w(14)%jend(mrl); iw = jtab_w(14)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
    do k = lpw(iw),mza-1
-      wmt(k,iw) = 0.
+      wmt  (k,iw) = 0.0
+      vmxet(k,iw) = 0.0
+      vmyet(k,iw) = 0.0
+      vmzet(k,iw) = 0.0
    enddo
 enddo
 !$omp end parallel do
