@@ -44,7 +44,7 @@ use mem_basic,    only: rho, thil, theta, wc, press, wmc, vmp, vmc, vp, vc, &
 use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lcv, lpw, &
                         zt, zm, dzim, zfacit, dzm, dzt, dnv, dnu, arm0, arv, &
                         vnx, vny, vnz, volt, volwi
-use mem_tend,     only: vmt
+use mem_tend,     only: vmt, vmxet, vmyet, vmzet
 use misc_coms,    only: io6, iparallel, time8, dtlm
 use consts_coms,  only: cpocv, pc1, rdry, rvap
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v
@@ -84,10 +84,6 @@ real, allocatable :: vcf (:,:) ! Time-extrapolated VC
 real, allocatable :: vxef(:,:) ! Time-extrapolated XE velocity component at T point
 real, allocatable :: vyef(:,:) ! Time-extrapolated YE velocity component at T point
 real, allocatable :: vzef(:,:) ! Time-extrapolated ZE velocity component at T point
-
-real :: vmxet(mza,mwa) ! XE momentum tendency component at T point
-real :: vmyet(mza,mwa) ! YE momentum tendency component at T point
-real :: vmzet(mza,mwa) ! ZE momentum tendency component at T point
 
 real :: gxps_thil(mza,mwa) ! X component in PS projection of THIL gradient 
 real :: gyps_thil(mza,mwa) ! Y component in PS projection of THIL gradient 
@@ -159,14 +155,7 @@ if (mrl > 0) then
       alpha_press(:,iw) = pc1 * (((1. - sh_w(:,iw)) * rdry + sh_v(:,iw) * rvap) &
                         * theta(:,iw) / thil(:,iw)) ** cpocv
 
-! Long timestep tendencies for WM (turbulent mixing), 
-! and preparation for horizontal turbulent fluxes of VM
-
-      vmxet(:,iw) = 0.
-      vmyet(:,iw) = 0.
-      vmzet(:,iw) = 0.
-
-      call prog_wrt_begl(iw,vxe,vye,vze,vmxet,vmyet,vmzet)
+      call prog_wrt_begl(iw)
    
    enddo
    !$omp end parallel do
@@ -573,16 +562,16 @@ end subroutine prog_wrtv
 
 !=========================================================================
 
-subroutine prog_wrt_begl(iw,vxe,vye,vze,vmxet,vmyet,vmzet)
+subroutine prog_wrt_begl(iw)
 
 ! This version includes turbulent fluxes of VXE, VYE, VZE 
 ! through both V and W faces
 
 ! All diffusive tendencies are evaluated at T points
 
-use mem_tend,    only: thilt, wmt
+use mem_tend,    only: thilt, wmt, vmxet, vmyet, vmzet
 use mem_ijtabs,  only: istp, itab_w, mrl_begl, mrl_begr, mrl_begs, mrl_endr
-use mem_basic,   only: wmc, rho, thil, wc, vc, theta, press
+use mem_basic,   only: wmc, rho, thil, wc, vc, theta, press, vxe, vye, vze
 use misc_coms,   only: io6, initial, dn01d, th01d, &
                        deltax, nxp, mdomain, time8, dtlm
 use consts_coms, only: gravo2, grav
@@ -598,14 +587,6 @@ use mem_rayf,    only: rayfw_distim, rayf_cofw, rayf_distim, rayf_cof
 implicit none
 
 integer, intent(in) :: iw
-
-real, intent(in) :: vxe(mza,mwa)
-real, intent(in) :: vye(mza,mwa)
-real, intent(in) :: vze(mza,mwa)
-
-real, intent(inout) :: vmxet(mza,mwa)
-real, intent(inout) :: vmyet(mza,mwa)
-real, intent(inout) :: vmzet(mza,mwa)
 
 integer :: iv, iwn, k, ka, kb, npoly, jv
 
