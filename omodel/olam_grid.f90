@@ -462,7 +462,7 @@ else
 
 ! Target height for next series
 
-      ztarg = zend + .5 * dzend
+      ztarg = zend + .4 * dzend
 
 ! Stretch ratio based on geometric series sum
 
