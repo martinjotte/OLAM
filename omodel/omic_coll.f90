@@ -1025,7 +1025,7 @@ if (jnmb(1) >= 1) then
       if (enloss(k,1) > cx(k,1)) then
          fac = cx(k,1) / max(1.e-20,enloss(k,1))
 
-         enloss(k,1) = enloss(k,1) * fac
+         enloss(k,1) = cx(k,1)
 
          e1118(k) = e1118(k) * fac
          e1112(k) = e1112(k) * fac
@@ -1077,7 +1077,7 @@ if (jnmb(2) >= 1) then
       if (enloss(k,2) > cx(k,2)) then
          fac = cx(k,2) / max(1.e-20,enloss(k,2))
 
-         enloss(k,2) = enloss(k,2) * fac
+         enloss(k,2) = cx(k,2)
 
          e2327(k) = e2327(k) * fac
          e2427(k) = e2427(k) * fac
@@ -1122,7 +1122,7 @@ if (jnmb(3) >= 1) then
       if (enloss(k,3) > cx(k,3)) then
          fac = cx(k,3) / max(1.e-20,enloss(k,3))
 
-         enloss(k,3) = enloss(k,3) * fac
+         enloss(k,3) = cx(k,3)
 
          e3335(k) = e3335(k) * fac
          e3435(k) = e3435(k) * fac
@@ -1169,7 +1169,7 @@ if (jnmb(4) >= 1) then
       if (enloss(k,4) > cx(k,4)) then
          fac = cx(k,4) / max(1.e-20,enloss(k,4))
 
-         enloss(k,4) = enloss(k,4) * fac
+         enloss(k,4) = cx(k,4)
 
          e4445(k) = e4445(k) * fac
          e3445(k) = e3445(k) * fac
@@ -1210,7 +1210,7 @@ if (jnmb(5) >= 1) then
       if (enloss(k,5) > cx(k,5)) then
          fac = cx(k,5) / max(1.e-20,enloss(k,5))
 
-         enloss(k,5) = enloss(k,5) * fac
+         enloss(k,5) = cx(k,5)
 
          e2557(k) = e2557(k) * fac
       endif
@@ -1243,7 +1243,7 @@ if (jnmb(6) >= 1) then
       if (enloss(k,6) > cx(k,6)) then
          fac = cx(k,6) / max(1.e-20,enloss(k,6))
 
-         enloss(k,6) = enloss(k,6) * fac
+         enloss(k,6) = cx(k,6)
 
          e2667(k) = e2667(k) * fac
       endif
@@ -1274,7 +1274,7 @@ if (jnmb(7) >= 1) then
       if (enloss(k,7) > cx(k,7)) then
          fac = cx(k,7) / max(1.e-20,enloss(k,7))
 
-         enloss(k,7) = enloss(k,7) * fac
+         enloss(k,7) = cx(k,7)
 
 ! no enxfer adjustments needed
       endif
@@ -1325,7 +1325,7 @@ if (jnmb(8) >= 1) then
       if (enloss(k,8) > cx(k,8)) then
          fac = cx(k,8) / max(1.e-20,enloss(k,8))
 
-         enloss(k,8) = enloss(k,8) * fac
+         enloss(k,8) = cx(k,8)
 
          e8882(k) = e8882(k) * fac
          e8483(k) = e8483(k) * fac
