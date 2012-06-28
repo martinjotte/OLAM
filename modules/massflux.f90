@@ -183,9 +183,7 @@ if (mrl > 0) then
 do j = 1,jtab_v(14)%jend(mrl); iv = jtab_v(14)%iv(j)
 !----------------------------------------------------------------------
 call qsub('V',iv)
-   do k = 1,mza-1
-      vmsc(k,iv) = 0.
-   enddo
+   vmsc(:,iv) = 0.0
 enddo
 !$omp end parallel do
 endif
@@ -199,11 +197,11 @@ if (mrl > 0) then
 do j = 1,jtab_w(18)%jend(mrl); iw = jtab_w(18)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
+   wmsc(:,iw) = 0.0
    do k = 1,lpw(iw)-2
       rho_old(k,iw) = 0.0
    enddo
    do k = lpw(iw)-1,mza-1
-      wmsc(k,iw) = 0.
       rho_old(k,iw) = rho(k,iw) ! Save DTL density for use with scalar updates
    enddo
 enddo
@@ -263,6 +261,7 @@ call qsub('W',iw)
    do k = lpw(iw),mza-2
       wmsc(k,iw) = wmsc(k,iw) * acoi2
    enddo
+   wmsc(mza-1,iw) = 0.0
 enddo
 !$omp end parallel do
 endif
