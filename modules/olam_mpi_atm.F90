@@ -696,7 +696,7 @@ character(1), intent(in) :: sendgroup
 
 real, optional, intent(in) :: thil0(mza,mwa,1)
 real, optional, intent(in) :: wmc0(mza,mwa)
-real, optional, intent(in) :: scp0(mza,mwa,num_scalar)
+real, optional, intent(in) :: scp0(mza,mwa,num_scalar-1)
 real, optional, intent(in) :: vxe(mza,mwa)
 real, optional, intent(in) :: vye(mza,mwa)
 real, optional, intent(in) :: vze(mza,mwa)
@@ -797,7 +797,7 @@ do jsend = 1,nsends_w(mrl)
 
          elseif (present(scp0)) then
 
-            do ivar = 1,num_scalar
+            do ivar = 1, num_scalar-1
 
                call MPI_Pack(scp0(1,iw,ivar),mza,MPI_REAL, &
                   send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
@@ -1224,7 +1224,7 @@ character(1), intent(in) :: recvgroup
 
 real, optional, intent(inout) :: thil0(mza,mwa,1)
 real, optional, intent(inout) :: wmc0(mza,mwa)
-real, optional, intent(inout) :: scp0(mza,mwa,num_scalar)
+real, optional, intent(inout) :: scp0(mza,mwa,num_scalar-1)
 real, optional, intent(inout) :: vxe(mza,mwa)
 real, optional, intent(inout) :: vye(mza,mwa)
 real, optional, intent(inout) :: vze(mza,mwa)
@@ -1319,7 +1319,7 @@ do jtmp = 1,nrecvs_w(mrl)
 
          elseif (present(scp0)) then
          
-            do ivar = 1,num_scalar
+            do ivar = 1, num_scalar-1
 
                call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
                   scp0(1,iw,ivar),mza,MPI_REAL,MPI_COMM_WORLD,ierr)

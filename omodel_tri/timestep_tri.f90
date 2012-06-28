@@ -401,13 +401,13 @@ integer :: n,mrl,j,k,iw,iu
 ! SET SCALAR TENDENCIES TO ZERO
 
 mrl = mrl_begl(istp)
-
 if (mrl > 0) then
-   do n = 1,num_scalar
+
+   do n = 1, num_scalar
       call tnd0(scalar_tab(n)%var_t)
    enddo
-   call tnd0(thilt)
    call tnd0(rhot)
+
 endif
 
 ! SET W AND EARTH-CARTESIAN MOMENTUM TENDENCIES TO ZERO

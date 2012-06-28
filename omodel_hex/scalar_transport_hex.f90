@@ -256,8 +256,9 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
   endif ! monotonic
 
 ! LOOP OVER SCALARS HERE
+! (skip n=1 which is THIL and computed elsewhere)
 
-  do n = 1, num_scalar
+  do n = 2, num_scalar
 
 ! Point SCP and SCT to scalar table arrays
 

@@ -427,13 +427,13 @@ integer :: n,mrl,j,k,iw,iv
 ! SET SCALAR TENDENCIES TO ZERO
 
 mrl = mrl_begl(istp)
-
 if (mrl > 0) then
+
    do n = 1,num_scalar
       call tnd0(scalar_tab(n)%var_t)
    enddo
-   call tnd0(thilt)
    call tnd0(rhot)
+
 endif
 
 ! SET W AND EARTH-CARTESIAN MOMENTUM TENDENCIES TO ZERO
@@ -540,9 +540,13 @@ integer :: n,mrl
 
 mrl = mrl_endl(istp)
 if (mrl > 0) then
-do n = 1,num_scalar
-   call o_update(n,scalar_tab(n)%var_p,scalar_tab(n)%var_t,rho_old)
-enddo
+
+   ! Skip n=1 which is THIL and computed elsewhere
+
+   do n = 2, num_scalar
+      call o_update(n,scalar_tab(n)%var_p,scalar_tab(n)%var_t,rho_old)
+   enddo
+
 endif
 
 return

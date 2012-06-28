@@ -92,7 +92,7 @@ contains
     real :: vctr8a(mza),vctr8b(mza),vctr8c(mza)
     real :: vctr9a(mza),vctr9b(mza),vctr9c(mza)
 
-    real :: rhs(mza,max(3,num_scalar+1)), soln(mza,max(3,num_scalar+1))
+    real :: rhs(mza,max(3,num_scalar)), soln(mza,max(3,num_scalar))
     real :: del_scp(mza,2)
     real :: vctr2(mza,3)
 
@@ -360,19 +360,14 @@ contains
 
     ! Vertical loop over W levels: fill tri-diagonal matrix coefficients and r.h.s.
 
-    do k = ka,mza-2
+    do k = ka, mza-2
        akodz(k) = arw(k,iw) * vkh(k) * dzim(k)
        vctr5(k) = -akodz(k) * dtomass(k)
        vctr7(k) = -akodz(k) * dtomass(k+1)
        vctr6(k) = 1. - vctr5(k) - vctr7(k)
-       rhs(k,1) =  akodz(k) * (thil(k,iw) - thil(k+1,iw))
-    enddo
 
-    ! Fill r.h.s vectors from humidity and other scalars
-
-    do n = 1, num_scalar
-       do k = ka, mza - 2
-          rhs(k,n+1) = akodz(k) * (scalar_tab(n)%var_p(k,iw) - scalar_tab(n)%var_p(k+1,iw))
+       do n = 1, num_scalar
+          rhs(k,n) =  akodz(k) * (scalar_tab(n)%var_p(k,iw) - scalar_tab(n)%var_p(k+1,iw))
        enddo
     enddo
 
@@ -395,19 +390,15 @@ contains
     ! Solve tri-diagonal matrix equation
 
     if (ka <= mza-2) then
-       call tridv( vctr5, vctr6, vctr7, rhs, soln, ka, mza-2, mza, num_scalar+1 )
+       call tridv( vctr5, vctr6, vctr7, rhs, soln, ka, mza-2, mza, num_scalar )
     endif
 
     ! Set bottom and top vertical internal turbulent fluxes to zero
 
-    soln( ka-1, 1:num_scalar+1) = 0.0
-    soln(mza-1, 1:num_scalar+1) = 0.0
+    soln( ka-1, 1:num_scalar) = 0.0
+    soln(mza-1, 1:num_scalar) = 0.0
 
     ! Vertical loop over T levels
-
-    do k = ka, mza-1
-       thilt(k,iw) = thilt(k,iw) + volti(k,iw) * (soln(k-1,1) - soln(k,1))
-    enddo
 
     do n = 1, num_scalar
        do k = ka, mza-1
@@ -416,6 +407,7 @@ contains
        enddo
     enddo
 
+    ! special for Grell scheme inputs:
     do k = ka, mza-1
        if (allocated(fthpbl)) then
           fthpbl(k,iw) = fthpbl(k,iw) + dtli * volti(k,iw) * (soln(k-1,1) - soln(k,1))

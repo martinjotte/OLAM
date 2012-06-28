@@ -197,6 +197,8 @@ Contains
 
 ! Fill pointers to scalar arrays into scalar tables
 
+   if (allocated(thilt))    call vtables_scalar (thil,thilt,'THIL')
+
    if (allocated(sh_wt))    call vtables_scalar (sh_w,sh_wt,'SH_W')
    if (allocated(sh_ct))    call vtables_scalar (sh_c,sh_ct,'SH_C')
    if (allocated(sh_rt))    call vtables_scalar (sh_r,sh_rt,'SH_R')
@@ -205,6 +207,7 @@ Contains
    if (allocated(sh_at))    call vtables_scalar (sh_a,sh_at,'SH_A')
    if (allocated(sh_gt))    call vtables_scalar (sh_g,sh_gt,'SH_G')
    if (allocated(sh_ht))    call vtables_scalar (sh_h,sh_ht,'SH_H')
+
    if (allocated(con_ct))   call vtables_scalar (con_c,con_ct,'CON_C')
    if (allocated(con_rt))   call vtables_scalar (con_r,con_rt,'CON_R')
    if (allocated(con_pt))   call vtables_scalar (con_p,con_pt,'CON_P')
@@ -212,6 +215,7 @@ Contains
    if (allocated(con_at))   call vtables_scalar (con_a,con_at,'CON_A')
    if (allocated(con_gt))   call vtables_scalar (con_g,con_gt,'CON_G')
    if (allocated(con_ht))   call vtables_scalar (con_h,con_ht,'CON_H')
+
    if (allocated(con_ccnt)) call vtables_scalar (con_ccn,con_ccnt,'CON_CCN')
    if (allocated(con_ifnt)) call vtables_scalar (con_ifn,con_ifnt,'CON_IFN')
 

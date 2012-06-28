@@ -45,7 +45,7 @@ integer :: n
 
 ! Prognostic scalars other than thil
 
-do n = 1,num_scalar
+do n = 2, num_scalar
 
 !  call cyclic(nzp,nxp,nyp,scalarp,'T')
 
