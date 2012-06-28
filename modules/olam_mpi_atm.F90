@@ -825,11 +825,11 @@ do jsend = 1,nsends_w(mrl)
          call MPI_Pack(hkm(1,iw),mza,MPI_REAL, &
             send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(vkm(1,iw),mza,MPI_REAL, &
-            send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+!        call MPI_Pack(vkm(1,iw),mza,MPI_REAL, &
+!           send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(vkm_sfc(iw),1,MPI_REAL, &
-            send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+!        call MPI_Pack(vkm_sfc(iw),1,MPI_REAL, &
+!           send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
       elseif (sendgroup == 'P') then
 
@@ -1347,11 +1347,11 @@ do jtmp = 1,nrecvs_w(mrl)
          call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
             hkm(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
-         call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
-            vkm(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+!        call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+!           vkm(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
-         call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
-            vkm_sfc(iw),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+!         call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+!           vkm_sfc(iw),1,MPI_REAL,MPI_COMM_WORLD,ierr)
 
       elseif (recvgroup == 'P') then
             
