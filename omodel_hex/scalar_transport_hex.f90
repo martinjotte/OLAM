@@ -538,12 +538,6 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
         dtl = dtlm(itab_w(iw)%mrlw)
         dtli = 1. / dtl
    
-! Vertical loop over T levels 
-
-        do k = kb,mza-1
-           dtomass(k) = dtl / (rho_old(k,iw)  * volt(k,iw))
-        enddo
-
 ! Loop over neighbor V points of this W cell
 
         npoly = itab_w(iw)%npoly
@@ -583,70 +577,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
            vfluxadv(k) = wmsc(k,iw) * arw(k,iw) * scp_upw(k,iw)
 
-! Prepare for vertical diffusion - Fill tri-diagonal matrix coefficients
-
-           akodz(k) = arw(k,iw) * vkh(k,iw) * dzim(k)
-           vctr5(k) = - akodz(k) * dtomass(k)
-           vctr7(k) = - akodz(k) * dtomass(k+1)
-           vctr6(k) = 1. - vctr5(k) - vctr7(k)
-           vctr8(k) = akodz(k) * (scp(k,iw) - scp(k+1,iw))
         enddo
-
-! Special case for total water SH_W: Apply surface vapor flux
-
-        if (scalar_tab(n)%name == 'SH_W') then
-
-           if (allocated(fqtpbl)) fqtpbl(:,iw) = 0.0
-
-! Vertical loop over T levels that are adjacent to surface
-
-           do ks = 1,lsw(iw)
-              k = kb + ks - 1
-
-! Apply surface vapor xfer [kg_vap] directly to SCT [kg_vap / (m^3 s)]
-
-              sct(k,iw) = sct(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
-
-              if (allocated(fqtpbl)) then
-                 fqtpbl(k,iw)  = dtli * volti(k,iw) * sxfer_rk(ks,iw) / rho(k,iw)
-              endif
-
-! Change in SCP from surface xfer
-
-              del_scp(k) = sxfer_rk(ks,iw) / (rho_old(k,iw) * volt(k,iw))
-
-! Zero out sxfer_rk(ks,iw) now that it has been transferred to the atm
-
-              sxfer_rk(ks,iw) = 0.  
-
-           enddo
-
-! Lowest T level that is not adjacent to surface
-
-           del_scp(kb+lsw(iw)) = 0.
-
-! Vertical loop over W levels that are adjacent to surface
-
-           do ks = 1,lsw(iw)
-              k = kb + ks - 1
-
-! Change in vctr8 from surface vapor xfer
-
-              vctr8(k) = vctr8(k) + akodz(k) * (del_scp(k) - del_scp(k+1))
-           enddo
-
-        endif
-
-! Solve tri-diagonal matrix equation
-
-        if (kb < mza-2) then
-           call tridiffo(mza,kb,mza-2,vctr5,vctr6,vctr7,vctr8,vfluxdif)
-        endif
-
-! Set bottom and top vertical internal turbulent fluxes to zero
-
-        vfluxdif(kb-1)  = 0.
-        vfluxdif(mza-1) = 0.
 
 ! Set bottom & top vertical advective fluxes to zero
 
@@ -661,20 +592,10 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 ! advection and diffusion
 
            sct(k,iw) = sct(k,iw) + volti(k,iw) &
-                * (hfluxadv(k) + vfluxadv(k-1) - vfluxadv(k) &
-                 + hfluxdif(k) + vfluxdif(k-1) - vfluxdif(k))
+                     * (hfluxadv(k) + vfluxadv(k-1) - vfluxadv(k) &
+                        + hfluxdif(k))
 
         enddo
-
-! Grell scheme needs PBL moisture tendency stored
-
-        if (allocated(fqtpbl) .and. scalar_tab(n)%name == 'SH_W') then
-           
-           do k = kb,mza-1
-              fqtpbl(k,iw) = fqtpbl(k,iw) + volti(k,iw) * (vfluxdif(k-1) - vfluxdif(k)) / rho(k,iw)
-           enddo
-
-        endif
 
      enddo
      !$omp end parallel do

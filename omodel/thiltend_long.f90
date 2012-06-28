@@ -98,77 +98,6 @@ dtl = dtlm(itab_w(iw)%mrlw)
 dtli = 1. / dtl
 ka = lpw(iw)
 
-! Vertical loop over T levels 
-
-do k = ka,mza-1
-   dtomass(k) = dtl / (rho(k,iw) * volt(k,iw)) 
-enddo
-
-! Vertical loop over W levels: fill tri-diagonal matrix coefficients and r.h.s.
-
-do k = ka,mza-2
-   akodz(k) = arw(k,iw) * vkh(k,iw) * dzim(k)
-   vctr5(k) = - akodz(k) * dtomass(k)
-   vctr7(k) = - akodz(k) * dtomass(k+1)
-   vctr6(k) = 1. - vctr5(k) - vctr7(k)
-   vctr8(k) = akodz(k) * (thil(k,iw) - thil(k+1,iw))
-enddo
-
-if (allocated(fthpbl)) then
-   fthpbl(:,iw) = 0.0
-endif
-
-! Vertical loop over T levels that are adjacent to surface
-
-do ks = 1,lsw(iw)
-   k = ka + ks - 1
-
-! Apply surface heat xfer [kg_a K] directly to thilt [kg_a K / s]
-
-   thilt(k,iw) = thilt(k,iw) + dtli * volti(k,iw) * sxfer_tk(ks,iw)
-
-   if (allocated(fthpbl)) then
-      fthpbl(k,iw) = dtli * volti(k,iw) * sxfer_tk(ks,iw) / rho(k,iw)
-   endif
-
-! Apply surface vapor xfer [kg_vap] directly to rhot [kg_air / s]
-
-   rhot(k,iw) = rhot(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
-
-! Change in thil from surface heat xfer
-
-   del_thil(k) = sxfer_tk(ks,iw) / (rho(k,iw) * volt(k,iw))
-
-! Zero out sxfer_tk(ks,iw) now that it has been transferred to the atm
-
-   sxfer_tk(ks,iw) = 0.  
-enddo
-
-! Lowest T level that is not adjacent to surface
-
-del_thil(ka+lsw(iw)) = 0.
-
-! Vertical loop over W levels that are adjacent to surface
-
-do ks = 1,lsw(iw)
-   k = ka + ks - 1
-
-! Change in vctr8 from surface heat xfer
-
-   vctr8(k) = vctr8(k) + akodz(k) * (del_thil(k) - del_thil(k+1))
-enddo
-
-! Solve tri-diagonal matrix
-
-if (ka < mza-2) then
-   call tridiffo(mza,ka,mza-2,vctr5,vctr6,vctr7,vctr8,vctr9)
-endif
-
-! Set bottom and top internal turbulent fluxes to zero
-
-vctr9(ka-1) = 0.
-vctr9(mza-1) = 0.
-
 ! Sum horizontal diffusive fluxes 
 
 ! Number of edges of this IW polygon
@@ -226,12 +155,7 @@ do k = ka,mza-1
 
 ! Update thil tendency from vertical and horizontal turbulent fluxes
 
-   thilt(k,iw) = thilt(k,iw) &
-               + volti(k,iw) * (vctr9(k-1) - vctr9(k) + vctr1(k))
-
-   if (allocated(fthpbl)) then
-      fthpbl(k,iw) = fthpbl(k,iw) + volti(k,iw) * (vctr9(k-1) - vctr9(k)) / rho(k,iw)
-   endif
+   thilt(k,iw) = thilt(k,iw) + volti(k,iw) * vctr1(k)
 
 enddo
 

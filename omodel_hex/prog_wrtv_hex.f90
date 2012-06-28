@@ -564,24 +564,19 @@ end subroutine prog_wrtv
 
 subroutine prog_wrt_begl(iw)
 
-! This version includes turbulent fluxes of VXE, VYE, VZE 
-! through both V and W faces
+! This version includes turbulent fluxes of VXE, VYE, VZE through V faces
+! Vertical mixing is computed in subroutine pbl_driver
 
 ! All diffusive tendencies are evaluated at T points
 
 use mem_tend,    only: thilt, wmt, vmxet, vmyet, vmzet
 use mem_ijtabs,  only: istp, itab_w, mrl_begl, mrl_begr, mrl_begs, mrl_endr
-use mem_basic,   only: wmc, rho, thil, wc, vc, theta, press, vxe, vye, vze
+use mem_basic,   only: wmc, rho, thil, wc, vc, theta, vxe, vye, vze
 use misc_coms,   only: io6, initial, dn01d, th01d, &
                        deltax, nxp, mdomain, time8, dtlm
-use consts_coms, only: gravo2, grav
-use mem_grid,    only: mza, mva, mwa, lpv, lpw, lsw, arv, arw, arw0, &
-                       dnu, dniv, dzim, dzt, dzit, volt, volti, volwi, &
-                       xew, zm, unx, uny, vnx, vny, wnx, wny, wnz, &
-                       glatw, glonw, topw
-use mem_turb,    only: hkm, vkm, sflux_w, vkm_sfc
-use mem_rayf,    only: rayfw_distim, rayf_cofw, rayf_distim, rayf_cof
-use massflux,    only: tridiffo
+use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, dniv, volt, volti, &
+                       xew, vnx, vny, wnx, wny, wnz
+use mem_turb,    only: hkm
 use mem_rayf,    only: rayfw_distim, rayf_cofw, rayf_distim, rayf_cof
 
 implicit none
@@ -589,109 +584,16 @@ implicit none
 integer, intent(in) :: iw
 
 integer :: iv, iwn, k, ka, kb, npoly, jv
-
-real :: arw0i
-
-real :: fracx, rayfx
-
-real :: arvkodx, qdniv
-
-real :: dtl, dtl2, dtli, hdtli
+real    :: fracx, rayfx
+real    :: arvkodx, qdniv
 
 ! Automatic arrays:
-
-real :: akodz(mza),tmass(mza),dtomass(mza)
-real :: vctr2a(mza),vctr2b(mza),vctr2c(mza)
-real :: vctr3(mza),vctr5(mza),vctr6(mza),vctr7(mza)
-real :: vctr8a(mza),vctr8b(mza),vctr8c(mza)
-real :: vctr9a(mza),vctr9b(mza),vctr9c(mza)
 
 real :: hdiff_vxe(mza)
 real :: hdiff_vye(mza)
 real :: hdiff_vze(mza)
 
 kb = lpw(iw)
-
-arw0i = 1. / arw0(iw)
-
-! Initial computations for this column
-
-dtl = dtlm(itab_w(iw)%mrlw)
-dtl2 = dtl * 2.
-dtli = 1. / dtl
-hdtli = .5 * dtli
-   
-! Vertical loop over W levels
-
-do k = kb,mza-2
-   akodz(k) = arw(k,iw) * vkm(k,iw) * dzim(k)
-enddo
-
-akodz(kb-1) = 0.
-akodz(mza-1) = 0.
-
-vctr3(1:mza) = 0.
-
-! Vertical loop over T levels 
-
-do k = kb,mza-1
-
-! Mass in t control volume; and its inverse times dtl
-
-   tmass(k)  = rho(k,iw) * volt(k,iw)
-   dtomass(k) = dtl / tmass(k)
-
-! Distribution of surface flux over multiple levels in steep topography
-
-   if (k <= lpw(iw) + lsw(iw) - 1) then
-      vctr3(k) = (arw(k,iw) - arw(k-1,iw)) * vkm_sfc(iw) * dzim(k-1) * 2.
-   endif
-
-! Fill tri-diagonal matrix coefficients
-
-   vctr5(k) = -dtomass(k) * akodz(k-1)
-   vctr7(k) = -dtomass(k) * akodz(k)
-   vctr6(k) = 1. - vctr5(k) - vctr7(k) + dtomass(k) * vctr3(k)
-
-! Fill r.h.s. vectors
-
-   vctr8a(k) = vxe(k,iw)
-   vctr8b(k) = vye(k,iw)
-   vctr8c(k) = vze(k,iw)
-
-enddo
-
-! Solve tri-diagonal matrix for each component
-
-if (kb <= mza-1) then
-   call tridiffo(mza,kb,mza-1,vctr5,vctr6,vctr7,vctr8a,vctr9a)
-   call tridiffo(mza,kb,mza-1,vctr5,vctr6,vctr7,vctr8b,vctr9b)
-   call tridiffo(mza,kb,mza-1,vctr5,vctr6,vctr7,vctr8c,vctr9c)
-endif
-
-! Now, vctr9 contains velocity(t+1) values
-
-! Vertical loop over W levels
-
-do k = kb,mza-2
-
-! Compute internal vertical turbulent fluxes
-
-   vctr2a(k) = akodz(k) * (vctr9a(k) - vctr9a(k+1))
-   vctr2b(k) = akodz(k) * (vctr9b(k) - vctr9b(k+1))
-   vctr2c(k) = akodz(k) * (vctr9c(k) - vctr9c(k+1))
-   
-enddo
-
-! Set bottom and top internal fluxes to zero
-
-vctr2a(kb-1) = 0.
-vctr2b(kb-1) = 0.
-vctr2c(kb-1) = 0.
-
-vctr2a(mza-1) = 0.
-vctr2b(mza-1) = 0.
-vctr2c(mza-1) = 0.
 
 ! Number of edges of this IW polygon
 
@@ -731,12 +633,9 @@ enddo
 
 do k = kb,mza-1
 
-   vmxet(k,iw) = volti(k,iw) &
-               * (vctr2a(k-1) - vctr2a(k) - vctr3(k) * vctr9a(k) + hdiff_vxe(k))
-   vmyet(k,iw) = volti(k,iw) &
-               * (vctr2b(k-1) - vctr2b(k) - vctr3(k) * vctr9b(k) + hdiff_vye(k))
-   vmzet(k,iw) = volti(k,iw) &
-               * (vctr2c(k-1) - vctr2c(k) - vctr3(k) * vctr9c(k) + hdiff_vze(k))
+   vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) * hdiff_vxe(k)
+   vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) * hdiff_vye(k)
+   vmzet(k,iw) = vmzet(k,iw) + volti(k,iw) * hdiff_vze(k)
 
 enddo
 

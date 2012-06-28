@@ -102,7 +102,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    mrl = mrl_begl(istp)
    if (mrl > 0) then
 
-      call turb_k(mrl)  ! Compute K's
+      call pbl_driver(rhot, mrl)
 
       if (iparallel == 1) then
          call mpi_send_w('K')  ! Send K's

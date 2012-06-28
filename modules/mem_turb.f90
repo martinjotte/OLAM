@@ -35,6 +35,7 @@ Module mem_turb
   real, allocatable, target :: tkep    (:,:)
   real, allocatable, target :: epsp    (:,:)
   real, allocatable, target :: hkm     (:,:)
+  real, allocatable, target :: hkh     (:,:)
   real, allocatable, target :: vkm     (:,:)
   real, allocatable, target :: vkh     (:,:)
   real, allocatable, target :: sxfer_tk(:,:)
@@ -68,19 +69,10 @@ Contains
 !   Allocate arrays based on options (if necessary)
 !   Initialize arrays to zero
 
-!   CHECK FOR IDIFFK BASED ON GRID 1 FOR NOW
-
-    if (idiffk == 1 .or. idiffk == 4 .or. idiffk == 5 .or. idiffk == 6) then
-       allocate (tkep(mza,mwa)) ; tkep = rinit
-    endif
-
-    if (idiffk == 6) then
-       allocate (epsp(mza,mwa)) ; epsp = rinit
-    endif
-
     allocate (hkm(mza,mwa)) ; hkm = rinit
-    allocate (vkm(mza,mwa)) ; vkm = rinit
-    allocate (vkh(mza,mwa)) ; vkh = rinit
+!   allocate (hkh(mza,mwa)) ; hkh = rinit
+!   allocate (vkm(mza,mwa)) ; vkm = rinit
+!   allocate (vkh(mza,mwa)) ; vkh = rinit
 
     allocate (sxfer_tk(nsw_max,mwa)) ; sxfer_tk = rinit
     allocate (sxfer_rk(nsw_max,mwa)) ; sxfer_rk = rinit
@@ -112,6 +104,7 @@ Contains
     if (allocated(tkep))    deallocate (tkep)
     if (allocated(epsp))    deallocate (epsp)
     if (allocated(hkm))     deallocate (hkm)
+    if (allocated(hkh))     deallocate (hkh)
     if (allocated(vkm))     deallocate (vkm)
     if (allocated(vkh))     deallocate (vkh)
     if (allocated(vkm_sfc)) deallocate (vkm_sfc)
@@ -146,6 +139,11 @@ Contains
     if (allocated(hkm)) then
        call increment_vtable('HKM', 'AW')
        vtab_r(num_var)%rvar2_p => hkm
+    endif
+
+    if (allocated(hkh)) then
+       call increment_vtable('HKH', 'AW')
+       vtab_r(num_var)%rvar2_p => hkh
     endif
 
     if (allocated(vkm)) then
