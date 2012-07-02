@@ -403,7 +403,7 @@ contains
     do n = 1, num_scalar
        do k = ka, mza-1
           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                    + volti(k,iw) * (soln(k-1,n+1) - soln(k,n+1))
+                                    + volti(k,iw) * (soln(k-1,n) - soln(k,n))
        enddo
     enddo
 
