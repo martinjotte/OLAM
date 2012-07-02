@@ -265,7 +265,7 @@ do jsend = 1,nsends_wl(1)
 
       if (sendgroup == 'A' .or. sendgroup == 'T') then
 
-         call MPI_Pack(land%rough(iwl),1,MPI_INTEGER,  &
+         call MPI_Pack(land%rough(iwl),1,MPI_REAL,  &
             send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
          call MPI_Pack(land%can_temp(iwl),1,MPI_REAL,  &
@@ -276,16 +276,16 @@ do jsend = 1,nsends_wl(1)
 
       elseif (sendgroup == 'R') then
 
-         call MPI_Pack(land%rlongup(iwl),1,MPI_INTEGER,  &
+         call MPI_Pack(land%rlongup(iwl),1,MPI_REAL,  &
             send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(land%rlong_albedo(iwl),1,MPI_INTEGER,  &
+         call MPI_Pack(land%rlong_albedo(iwl),1,MPI_REAL,  &
             send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(land%albedo_beam(iwl),1,MPI_INTEGER,  &
+         call MPI_Pack(land%albedo_beam(iwl),1,MPI_REAL,  &
             send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(land%albedo_diffuse(iwl),1,MPI_INTEGER,  &
+         call MPI_Pack(land%albedo_diffuse(iwl),1,MPI_REAL,  &
             send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
       endif
