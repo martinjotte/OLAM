@@ -645,11 +645,10 @@ do k = kb,mza-2
 
 ! Update WM tendency from turbulent fluxes
 
-   wmt(k,iw) = wmt(k,iw) + .5 &
-             * (wnx(iw) * (vmxet(k,iw) + vmxet(k+1,iw)) &
-             *  wny(iw) * (vmyet(k,iw) + vmyet(k+1,iw)) &
-             *  wnz(iw) * (vmzet(k,iw) + vmzet(k+1,iw)))
-
+   wmt(k,iw) = wmt(k,iw) +                                     &
+               0.5 * ( wnx(iw) * (vmxet(k,iw) + vmxet(k+1,iw)) &
+                     + wny(iw) * (vmyet(k,iw) + vmyet(k+1,iw)) &
+                     + wnz(iw) * (vmzet(k,iw) + vmzet(k+1,iw)) )
 enddo
 
 ! RAYLEIGH FRICTION ON WM
