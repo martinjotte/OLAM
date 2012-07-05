@@ -49,9 +49,9 @@ use mem_para,   only: mgroupsize, myrank,                             &
                       nsends_u, nsends_v, nsends_w,                   &
                       nrecvs_u, nrecvs_v, nrecvs_w
 
-use mem_sflux,  only: nseaflux,  mseaflux,  seaflux,  seafluxg,  &
-                      nlandflux, mlandflux, landflux, landfluxg, &
-                      flux_vars
+use mem_sflux,  only: nseaflux,  mseaflux,  seaflux,  seafluxg,  seaflux_pd,  &
+                      nlandflux, mlandflux, landflux, landfluxg, landflux_pd, &
+                      lflux_vars, sflux_vars
 
 use sea_coms,   only: nws
 
@@ -84,8 +84,8 @@ logical :: landflag(nwl)
 
 ! Temporary datatypes
 
-type(flux_vars), allocatable :: landflux_temp(:)
-type(flux_vars), allocatable ::  seaflux_temp(:)
+type(lflux_vars), allocatable :: landflux_temp(:)
+type(sflux_vars), allocatable ::  seaflux_temp(:)
 
 integer :: ierr
 
@@ -629,6 +629,10 @@ endif
  ! Deallocate para_decomp _pd arrays
 
 deallocate (itab_m_pd, itab_v_pd, itab_w_pd)
+
+if (isfcl == 1) then
+   deallocate (landflux_pd, seaflux_pd)
+endif
 
 return
 end subroutine para_init

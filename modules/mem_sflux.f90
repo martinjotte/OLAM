@@ -59,7 +59,7 @@ Module mem_sflux
 
 ! Land and sea flux variables
 
-  Type flux_vars
+  Type lflux_vars
      logical :: sendf(maxremote) = .false.
      
      integer :: ifglobe =  1
@@ -93,18 +93,67 @@ Module mem_sflux
      real :: rlong   = 0.0
      real :: rshort  = 0.0
      real :: rshort_diffuse = 0.0
-  End Type flux_vars
+  End Type lflux_vars
 
-  type (flux_vars), allocatable, target :: seaflux(:)
-  type (flux_vars), allocatable, target :: landflux(:)
+  Type sflux_vars
+     logical :: sendf(maxremote) = .false.
+     
+     integer :: ifglobe =  1
+     integer :: iwrank  = -1
+     integer :: iw      =  0
+     integer :: kw      =  0
+     integer :: iwls    =  0
+     integer :: jpats   =  0  ! number of plot patches in this flux cell
+     integer :: ipat    =  1  ! index of first plot patch in this flux cell
+
+     real :: dtf     = 0.0
+     real :: area    = 0.0
+     real :: xef     = 0.0
+     real :: yef     = 0.0
+     real :: zef     = 0.0
+     real :: arf_atm = 0.0
+     real :: arf_sfc = 0.0
+     real :: rhos    = 0.0
+     real :: airtemp = 0.0
+     real :: airshv  = 0.0
+     real :: pcpg    = 0.0
+     real :: qpcpg   = 0.0
+     real :: dpcpg   = 0.0
+     real :: rlong   = 0.0
+     real :: rshort  = 0.0
+     real :: rshort_diffuse = 0.0
+
+     real ::     sfluxt = 0.0
+     real :: sea_sfluxt = 0.0
+     real :: ice_sfluxt = 0.0
+
+     real ::     sfluxr = 0.0
+     real :: sea_sfluxr = 0.0
+     real :: ice_sfluxr = 0.0
+
+     real ::     ustar = 0.0
+     real :: sea_ustar = 0.0
+     real :: ice_ustar = 0.0
+
+     real ::     sxfer_t = 0.0
+     real :: sea_sxfer_t = 0.0
+     real :: ice_sxfer_t = 0.0
+
+     real ::     sxfer_r = 0.0
+     real :: sea_sxfer_r = 0.0
+     real :: ice_sxfer_r = 0.0
+  End Type sflux_vars
+
+  type (sflux_vars), allocatable, target :: seaflux(:)
+  type (lflux_vars), allocatable, target :: landflux(:)
 
   type flux_pd_vars
      integer :: iw      =  0
      integer :: iwls    =  0
   end type flux_pd_vars
 
-  type (flux_vars), allocatable, target :: seaflux_pd(:)
-  type (flux_vars), allocatable, target :: landflux_pd(:)
+  type (flux_pd_vars), allocatable, target :: seaflux_pd(:)
+  type (flux_pd_vars), allocatable, target :: landflux_pd(:)
 
 !----------------------------------------------------------------------------
 
@@ -162,8 +211,20 @@ Contains
        call increment_vtable('SEAFLUX%SFLUXT', 'SF')
        vtab_r(num_var)%rvar1_p => seaflux%sfluxt
 
+       call increment_vtable('SEAFLUX%SEA_SFLUXT', 'SF')
+       vtab_r(num_var)%rvar1_p => seaflux%sea_sfluxt
+
+       call increment_vtable('SEAFLUX%ICE_SFLUXT', 'SF')
+       vtab_r(num_var)%rvar1_p => seaflux%ice_sfluxt
+
        call increment_vtable('SEAFLUX%SFLUXR', 'SF')
        vtab_r(num_var)%rvar1_p => seaflux%sfluxr
+
+       call increment_vtable('SEAFLUX%SEA_SFLUXR', 'SF')
+       vtab_r(num_var)%rvar1_p => seaflux%sea_sfluxr
+
+       call increment_vtable('SEAFLUX%ICE_SFLUXR', 'SF')
+       vtab_r(num_var)%rvar1_p => seaflux%ice_sfluxr
 
     endif
 
@@ -492,8 +553,8 @@ real :: dists, distn, wts, wtn
 integer, allocatable :: iscrpat(:)
 real,    allocatable :: scrpat(:,:)
 
-type(flux_vars), allocatable :: landflux_temp(:)
-type(flux_vars), allocatable :: seaflux_temp (:)
+type(lflux_vars), allocatable :: landflux_temp(:)
+type(sflux_vars), allocatable :: seaflux_temp (:)
 
 real :: arf_atm_test(nwa)
 real :: arf_sea_test(nws)

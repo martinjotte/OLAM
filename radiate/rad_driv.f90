@@ -37,7 +37,7 @@ use mem_ijtabs,  only: jtab_w, itabg_w, mrl_begl, istp
 use mem_leaf,    only: land, itabg_wl, itab_wl, first_site
 use mem_sea,     only: sea, itabg_ws, itab_ws
 use leaf_coms,   only: nzg, nzs, mwl
-use sea_coms,    only: mws
+use sea_coms,    only: mws, nzi
 use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,    &
                        rlongup, rlong_albedo, albedt, albedt_beam,  &
                        albedt_diffuse, fthrd, rshort, rlong, fthrd_lw,  &
@@ -139,7 +139,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
 
 ! If running leaf3, loop over all SEA cells.
 
-!$omp parallel do private (sea_cosz,water_albedo)
+!$omp parallel do private (sea_cosz)
    do iws = 2,mws
 
 ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
@@ -162,35 +162,45 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
                +  sea%yew(iws) * suny  &
                +  sea%zew(iws) * sunz) * eradi
 
-      water_albedo = .999
+      ! Water albedo from Atwater and Bell (1981).
 
-      if (nint(sea%seaicec(iws)) == 0) then 
+      if (sea_cosz > .03) then
+         sea%sea_albedo(iws) = min(max(-.0139 + .0467 * tan(acos(sea_cosz)),.03),.999)
+      else
+         sea%sea_albedo(iws) = 0.999
+      endif
 
-! Water albedo from Atwater and Bell (1981).
+      sea%sea_rlongup(iws) = stefan * sea%seatc(iws) ** 4
 
-         if (sea_cosz > .03) water_albedo =  &
-              min(max(-.0139 + .0467 * tan(acos(sea_cosz)),.03),.999)
+      if (sea%nlev_seaice(iws) > 0) then
+
+         ! Get seaice albedo and upward longwave
+
+         call sfcrad_seaice_1( sea%ice_rlongup(iws),       &
+                               sea%ice_albedo(iws),        &
+                               sea%nlev_seaice(iws),       &
+                               sea%icecan_temp(iws),       &
+                               sea%seaice_tempk(1:nzi,iws) )
+
+         ! Average ice and water components based on seaice fraction
+
+         sea%rlongup(iws) = (1.0 - sea%seaicec(iws)) * sea%sea_rlongup(iws) + &
+                                   sea%seaicec(iws)  * sea%ice_rlongup(iws)
+
+         sea%albedo_beam(iws) = (1.0 - sea%seaicec(iws)) * sea%sea_albedo(iws) + &
+                                       sea%seaicec(iws)  * sea%ice_albedo(iws)
 
       else
-         ! In the Los Alamos sea ice model, visible albedo is 0.78 and 
-         ! NIR albedo is 0.36 for temperatures below -1C.  Here, we assume
-         ! equal parts visible and NIR, yielding an albedo of 0.57.  This
-         ! albedo decreases to 0.5 as the temperature increases to 0C.
+         
+         sea%ice_rlongup(iws) = 0.0
+         sea%ice_albedo (iws) = 0.0
 
-         if(sea%seatc(iws) < 272.15)then
-            water_albedo = 0.72  ! Dave modification
-!            water_albedo = 0.57
-         else
-            water_albedo = 0.57 - 0.07 * (min(273.15,sea%seatc(iws)) - 272.15) 
-         endif
+         sea%rlongup    (iws) = sea%sea_rlongup(iws)
+         sea%albedo_beam(iws) = sea%ice_albedo(iws)
 
       endif
 
-      sea%rlongup(iws) = stefan * sea%seatc(iws) ** 4
-
-      sea%rlong_albedo(iws) = 0.  ! [water longwave albedo assumed to be zero]
-      
-      sea%albedo_beam(iws)    = water_albedo 
+      sea%rlong_albedo(iws)   = 0.0  ! [water longwave albedo assumed to be zero]
       sea%albedo_diffuse(iws) = sea%albedo_beam(iws)
 
    enddo
@@ -488,6 +498,29 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
 
    enddo
 !$omp end parallel do
+
+! Loop over all SEA cells to compute radiative fluxes for all 
+! seaice components, given that rshort and rlong are now updated.
+
+   !$omp parallel do
+   do iws = 2, mws
+
+      ! If current IWS sea cell is not prognosed on this rank, skip to next cell
+
+      if (iparallel == 1) then
+         if (itab_ws(iws)%irank /= myrank) cycle
+      endif
+
+      call sfcrad_seaice_2( sea%ice_net_rshort(iws), &
+                            sea%ice_net_rlong (iws), &
+                            sea%nlev_seaice   (iws), &
+                            sea%rshort        (iws), &
+                            sea%rlong         (iws), &
+                            sea%ice_rlongup   (iws), &
+                            sea%ice_albedo    (iws)  )
+
+   enddo
+   !$omp end parallel do
 
 ! Do parallel recv of atm radiative fluxes to land
 

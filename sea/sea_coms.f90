@@ -73,6 +73,13 @@ Module sea_coms
 
    real :: seatmp     ! default sea sfc temp [K]
    real :: dt_sea     ! sea timestep [s]
+
+   integer, parameter :: nzi    = 3      ! max number of seaice layers
+   real,    parameter :: emi    = 1.0    ! emissivity of ice
+   real,    parameter :: emw    = 1.0    ! emissivity of water
+   real,    parameter :: t00sea = 271.38 ! Freezing temperature of sea water [K]
+
+   
    
 End Module sea_coms
 

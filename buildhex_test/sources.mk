@@ -174,6 +174,7 @@ SOURCE_FILES= \
              $(SEA)/para_init_sea.f90 \
              $(SEA)/sea_coms.f90 \
              $(SEA)/sea.f90 \
+             $(SEA)/seaice.f90 \
              $(SEA)/seaice_database_read.f90 \
              $(SEA)/sea_init_atm.f90 \
              $(SEA)/sea_startup.f90 \

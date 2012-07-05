@@ -98,8 +98,8 @@ enddo
 
 ! Determine number of bytes to send per IWS column
 
-nbytes_per_iws = 1 * nbytes_int   &
-               + 4 * nbytes_real
+nbytes_per_iws = 2 * nbytes_int   &
+               + 7 * nbytes_real
 
 ! Loop over all WS sends
 
@@ -125,8 +125,8 @@ enddo
 
 ! Determine number of bytes to send per SEAFLUX cell
 
-nbytes_per_iwsf = 1 * nbytes_int   &
-                + 4 * nbytes_real
+nbytes_per_iwsf =  1 * nbytes_int   &
+                + 10 * nbytes_real
 
 ! Loop over all WSF sends for mrl = 1
 
@@ -259,32 +259,47 @@ do jsend = 1,nsends_ws(1)
 !----------------------------------------------------------------
       call qsub('WS',iws)
 
-      call MPI_Pack(iwsglobe,1,MPI_INTEGER,  &
+      call MPI_Pack(iwsglobe, 1, MPI_INTEGER,  &
          send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
       if (sendgroup == 'A' .or. sendgroup == 'T') then
 
-         call MPI_Pack(sea%rough(iws),1,MPI_INTEGER,  &
+         call MPI_Pack(sea%nlev_seaice(iws), 1, MPI_INTEGER,  &
             send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(sea%can_temp(iws),1,MPI_REAL,  &
+         call MPI_Pack(sea%seaicec(iws), 1, MPI_REAL,  &
             send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(sea%can_shv(iws),1,MPI_REAL,  &
+         call MPI_Pack(sea%sea_rough(iws), 1, MPI_REAL,  &
+            send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+         call MPI_Pack(sea%ice_rough(iws), 1, MPI_REAL,  &
+            send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+         call MPI_Pack(sea%seacan_temp(iws), 1, MPI_REAL,  &
+            send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+         call MPI_Pack(sea%icecan_temp(iws), 1, MPI_REAL,  &
+            send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+         call MPI_Pack(sea%seacan_shv(iws), 1, MPI_REAL,  &
+            send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+         call MPI_Pack(sea%icecan_shv(iws), 1, MPI_REAL,  &
             send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
       elseif (sendgroup == 'R') then
 
-         call MPI_Pack(sea%rlongup(iws),1,MPI_INTEGER,  &
+         call MPI_Pack(sea%rlongup(iws), 1, MPI_REAL,  &
             send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(sea%rlong_albedo(iws),1,MPI_INTEGER,  &
+         call MPI_Pack(sea%rlong_albedo(iws), 1, MPI_REAL,  &
             send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(sea%albedo_beam(iws),1,MPI_INTEGER,  &
+         call MPI_Pack(sea%albedo_beam(iws), 1, MPI_REAL,  &
             send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(sea%albedo_diffuse(iws),1,MPI_INTEGER,  &
+         call MPI_Pack(sea%albedo_diffuse(iws), 1, MPI_REAL,  &
             send_ws(jsend)%buff,send_ws(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
       endif
@@ -332,7 +347,7 @@ integer :: j
 integer :: isf
 integer :: isfglobe
 
-real :: rscr(4)
+real :: rscr(10)
 
 if (mrl < 1) return
 
@@ -377,12 +392,20 @@ do jsend = 1,nsends_wsf(mrl)
 
       elseif (sendgroup == 'T') then ! for turbulent fluxes
 
-         rscr(1) = seaflux(isf)%rhos
-         rscr(2) = seaflux(isf)%sxfer_t
-         rscr(3) = seaflux(isf)%sxfer_r
-         rscr(4) = seaflux(isf)%ustar
+         rscr(1)  = seaflux(isf)%rhos
+         rscr(2)  = seaflux(isf)%sxfer_t
+         rscr(3)  = seaflux(isf)%sxfer_r
+         rscr(4)  = seaflux(isf)%ustar
 
-         call MPI_Pack(rscr,4,MPI_REAL,  &
+         rscr(5)  = seaflux(isf)%sea_sxfer_t
+         rscr(6)  = seaflux(isf)%sea_sxfer_r
+         rscr(7)  = seaflux(isf)%sea_ustar
+
+         rscr(8)  = seaflux(isf)%ice_sxfer_t
+         rscr(9)  = seaflux(isf)%ice_sxfer_r
+         rscr(10) = seaflux(isf)%ice_ustar
+
+         call MPI_Pack(rscr,10,MPI_REAL,  &
             send_wsf(jsend)%buff,send_wsf(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
       elseif (sendgroup == 'C') then ! for cuparm fluxes
@@ -483,13 +506,28 @@ do jtmp = 1,nrecvs_ws(1)
       if (recvgroup == 'A' .or. recvgroup == 'T') then
 
          call MPI_Unpack(recv_ws(jrecv)%buff,recv_ws(jrecv)%nbytes,ipos,  &
-            sea%rough(iws),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+            sea%nlev_seaice(iws),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
 
          call MPI_Unpack(recv_ws(jrecv)%buff,recv_ws(jrecv)%nbytes,ipos,  &
-            sea%can_temp(iws),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+            sea%seaicec(iws),1,MPI_REAL,MPI_COMM_WORLD,ierr)
 
          call MPI_Unpack(recv_ws(jrecv)%buff,recv_ws(jrecv)%nbytes,ipos,  &
-            sea%can_shv(iws),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+            sea%sea_rough(iws),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+         call MPI_Unpack(recv_ws(jrecv)%buff,recv_ws(jrecv)%nbytes,ipos,  &
+            sea%ice_rough(iws),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+         call MPI_Unpack(recv_ws(jrecv)%buff,recv_ws(jrecv)%nbytes,ipos,  &
+            sea%seacan_temp(iws),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+         call MPI_Unpack(recv_ws(jrecv)%buff,recv_ws(jrecv)%nbytes,ipos,  &
+            sea%icecan_temp(iws),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+         call MPI_Unpack(recv_ws(jrecv)%buff,recv_ws(jrecv)%nbytes,ipos,  &
+            sea%seacan_shv(iws),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+         call MPI_Unpack(recv_ws(jrecv)%buff,recv_ws(jrecv)%nbytes,ipos,  &
+            sea%icecan_shv(iws),1,MPI_REAL,MPI_COMM_WORLD,ierr)
 
       elseif (recvgroup == 'R') then
 
@@ -550,7 +588,7 @@ integer :: nwsfpts
 integer :: j
 integer :: isf
 integer :: isfglobe
-real    :: rscr(4)
+real    :: rscr(10)
 
 if (mrl < 1) return
 
@@ -590,12 +628,20 @@ do jtmp = 1,nrecvs_wsf(mrl)
       elseif (recvgroup == 'T') then ! for turbulent fluxes
 
          call MPI_Unpack(recv_wsf(jrecv)%buff,recv_wsf(jrecv)%nbytes,ipos,  &
-            rscr,4,MPI_REAL,MPI_COMM_WORLD,ierr)
+            rscr,10,MPI_REAL,MPI_COMM_WORLD,ierr)
 
          seaflux(isf)%rhos    = rscr(1)
          seaflux(isf)%sxfer_t = rscr(2)
          seaflux(isf)%sxfer_r = rscr(3)
          seaflux(isf)%ustar   = rscr(4)
+
+         seaflux(isf)%sea_sxfer_t = rscr(5)
+         seaflux(isf)%sea_sxfer_r = rscr(6)
+         seaflux(isf)%sea_ustar   = rscr(7)
+
+         seaflux(isf)%ice_sxfer_t = rscr(8)
+         seaflux(isf)%ice_sxfer_r = rscr(9)
+         seaflux(isf)%ice_ustar   = rscr(10)
 
       elseif (recvgroup == 'C') then ! for cuparm fluxes
 

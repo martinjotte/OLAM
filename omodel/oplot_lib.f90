@@ -1603,7 +1603,15 @@ case(128) ! 'CAN_SHV'
 case(129) ! 'SFC_TEMPC'
 
    if (op%stagpt == 'S') then
-      fldval = sea%seatc(i) - 273.15
+      nls = sea%nlev_seaice(i)
+      
+      if (nls > 0) then
+         fldval = (1.0 - sea%seaicec(i)) * (sea%seatc(i) - 273.15) &
+                +        sea%seaicec(i)  * (sea%seaice_tempk(nls,i) - 273.15)
+      else
+         fldval = sea%seatc(i) - 273.15
+      endif
+
    elseif (op%stagpt == 'L') then
       nls = land%nlev_sfcwater(i)
 

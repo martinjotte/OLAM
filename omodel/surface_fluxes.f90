@@ -89,8 +89,8 @@ real :: arf_sea_dtf
 real :: arf_land_dtf
 real :: exner
 real :: airtemp
-real :: vkmsfc
-real :: ustar0
+real :: vkmsfc, vkmsfcs, vkmsfci
+real :: ustar0, ustars,  ustari
 real :: vels
 
 type(site),  pointer :: ed_site
@@ -193,18 +193,62 @@ do j = 1,jseaflux(1)%jend(mrl)
    exner   = (p00i * press(kw,iw)) ** rocp
    airtemp = theta(kw,iw) * exner
 
-   call stars(zt(kw)-zm(kw-1),     &
-              sea%rough(iws),      &
-              vels,                &
-              rho      (kw,iw),    &
-              airtemp,             &
-              sh_v     (kw,iw),    &
-              sea%can_temp(iws),   &
-              sea%can_shv(iws),    &
-              vkmsfc,              &
-              seaflux(isf)%sfluxt, &
-              seaflux(isf)%sfluxr, &
-              ustar0               )
+! Sea (open water) component always computed
+
+   call stars(zt(kw)-zm(kw-1),      &
+              sea%sea_rough(iws),   &
+              vels,                 &
+              rho      (kw,iw),     &
+              airtemp,              &
+              sh_v     (kw,iw),     &
+              sea%seacan_temp(iws), &
+              sea%seacan_shv (iws), &
+              vkmsfcs,              &
+              seaflux(isf)%sea_sfluxt, &
+              seaflux(isf)%sea_sfluxr, & 
+              ustars                )
+
+! Include fractional seaice component if seaice layers exist
+
+   if (sea%nlev_seaice(iws) > 0) then
+
+      call stars(zt(kw)-zm(kw-1),     &
+                sea%ice_rough(iws),   &
+                vels,                 &
+                rho      (kw,iw),     &
+                airtemp,              &
+                sh_v     (kw,iw),     &
+                sea%icecan_temp(iws), &
+                sea%icecan_shv (iws), &
+                vkmsfci,              &
+                seaflux(isf)%ice_sfluxt, &
+                seaflux(isf)%ice_sfluxr, &
+                ustari                )
+
+      
+
+      vkmsfc = (1.0 - sea%seaicec(iws)) * vkmsfcs + sea%seaicec(iws) * vkmsfci
+      ustar0 = (1.0 - sea%seaicec(iws)) * ustars  + sea%seaicec(iws) * ustari
+
+      seaflux(isf)%sfluxt = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_sfluxt + &
+                                   sea%seaicec(iws)  * seaflux(isf)%ice_sfluxt
+
+      seaflux(isf)%sfluxr = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_sfluxr + &
+                                   sea%seaicec(iws)  * seaflux(isf)%ice_sfluxr
+
+   else
+      
+      vkmsfc = vkmsfcs
+      ustar0 = ustars
+      seaflux(isf)%sfluxt = seaflux(isf)%sea_sfluxt
+      seaflux(isf)%sfluxr = seaflux(isf)%sea_sfluxr
+
+      vkmsfci = 0.0
+      ustari  = 0.0
+      seaflux(isf)%ice_sfluxt = 0.0
+      seaflux(isf)%ice_sfluxr = 0.0
+      
+   endif
 
 ! Add flux contributions to IW atmospheric column
 
@@ -217,11 +261,19 @@ do j = 1,jseaflux(1)%jend(mrl)
 
 ! Store flux and ATM density contributions to SEA cell in SEAFLUX cell
 
+   seaflux(isf)%rhos    = arf_sea     * rho(kw,iw)
    seaflux(isf)%sxfer_t = arf_sea_dtf * seaflux(isf)%sfluxt
    seaflux(isf)%sxfer_r = arf_sea_dtf * seaflux(isf)%sfluxr
    seaflux(isf)%ustar   = arf_sea     * ustar0
-   seaflux(isf)%rhos    = arf_sea     * rho(kw,iw)
-      
+
+   seaflux(isf)%sea_sxfer_t = arf_sea_dtf * seaflux(isf)%sea_sfluxt
+   seaflux(isf)%sea_sxfer_r = arf_sea_dtf * seaflux(isf)%sea_sfluxr
+   seaflux(isf)%sea_ustar   = arf_sea     * ustars
+
+   seaflux(isf)%ice_sxfer_t = arf_sea_dtf * seaflux(isf)%ice_sfluxt
+   seaflux(isf)%ice_sxfer_r = arf_sea_dtf * seaflux(isf)%ice_sfluxr
+   seaflux(isf)%ice_ustar   = arf_sea     * ustari
+ 
 enddo
 
 ! Do parallel send of TURBULENT fluxes and ATM properties for SEA cells
@@ -416,8 +468,10 @@ do iws = 2,mws
 
    if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
-   sea%ustar(iws) = 0.
-   sea%rhos(iws)  = 0.
+   sea%rhos     (iws) = 0.
+   sea%ustar    (iws) = 0.
+   sea%sea_ustar(iws) = 0.
+   sea%ice_ustar(iws) = 0.
 enddo
 
 ! Loop over ALL LAND cells
@@ -464,10 +518,19 @@ do j = 1,jseaflux(2)%jend(mrl)
 !----------------------------------------------------------------------
    call qsub('SF',isf)
 
-   sea%sxfer_t(iws) = sea%sxfer_t(iws) + seaflux(isf)%sxfer_t
-   sea%sxfer_r(iws) = sea%sxfer_r(iws) + seaflux(isf)%sxfer_r
    sea%rhos(iws)    = sea%rhos(iws)    + seaflux(isf)%rhos
-   sea%ustar(iws)   = sea%ustar(iws)   + seaflux(isf)%ustar
+
+   sea%ustar(iws)     = sea%ustar(iws)     + seaflux(isf)%ustar
+   sea%sea_ustar(iws) = sea%sea_ustar(iws) + seaflux(isf)%sea_ustar
+   sea%ice_ustar(iws) = sea%ice_ustar(iws) + seaflux(isf)%ice_ustar
+
+   sea%sxfer_t(iws)     = sea%sxfer_t(iws)     + seaflux(isf)%sxfer_t
+   sea%sea_sxfer_t(iws) = sea%sea_sxfer_t(iws) + seaflux(isf)%sea_sxfer_t
+   sea%ice_sxfer_t(iws) = sea%ice_sxfer_t(iws) + seaflux(isf)%ice_sxfer_t
+
+   sea%sxfer_r(iws)     = sea%sxfer_r(iws)     + seaflux(isf)%sxfer_r
+   sea%sea_sxfer_r(iws) = sea%sea_sxfer_r(iws) + seaflux(isf)%sea_sxfer_r
+   sea%ice_sxfer_r(iws) = sea%ice_sxfer_r(iws) + seaflux(isf)%ice_sxfer_r
 
 enddo
 call rsub('JSEAFLUX',2)

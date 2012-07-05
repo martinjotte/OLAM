@@ -81,6 +81,7 @@ Module mem_sea
 
    Type sea_vars
       integer, allocatable :: leaf_class (:) ! sea cell leaf class
+      integer, allocatable :: nlev_seaice(:) ! number of seaice layers in current cell
 
       real, allocatable :: area          (:) ! sea cell surface area [m^2]
       real, allocatable :: xew           (:) ! earth x coord of sea cell W points
@@ -97,11 +98,22 @@ Module mem_sea
       real, allocatable :: glonm         (:)  ! longitude of sea cell M points
 
       real, allocatable :: rhos          (:) ! air density [kg/m^3]
+
       real, allocatable :: ustar         (:) ! friction velocity [m/s]
+      real, allocatable :: sea_ustar     (:) ! friction velocity [m/s]
+      real, allocatable :: ice_ustar     (:) ! friction velocity [m/s]
+
       real, allocatable :: sxfer_t       (:) ! can_air-to-atm heat xfer [kg_air K/m^2]
+      real, allocatable :: sea_sxfer_t   (:) ! can_air-to-atm heat xfer [kg_air K/m^2]
+      real, allocatable :: ice_sxfer_t   (:) ! can_air-to-atm heat xfer [kg_air K/m^2]
+
       real, allocatable :: sxfer_r       (:) ! can_air-to-atm vapor xfer [kg_vap/m^2]
+      real, allocatable :: sea_sxfer_r   (:) ! can_air-to-atm vapor xfer [kg_vap/m^2]
+      real, allocatable :: ice_sxfer_r   (:) ! can_air-to-atm vapor xfer [kg_vap/m^2]
+
       real, allocatable :: sxfer_tsav    (:) ! saved previous value of sxfer_t
       real, allocatable :: sxfer_rsav    (:) ! saved previous value of sxter_r
+
       real, allocatable :: can_depth     (:) ! "canopy" depth for heat & vap capacity [m]
       real, allocatable :: seatp         (:) ! past sea temperature (obs time) [K]
       real, allocatable :: seatf         (:) ! future sea temperature (obs time) [K]
@@ -109,20 +121,47 @@ Module mem_sea
       real, allocatable :: seaicep       (:) ! past seaice fraction (obs time) [0-1]
       real, allocatable :: seaicef       (:) ! future seaice fraction (obs time) [0-1]
       real, allocatable :: seaicec       (:) ! seaice fraction [0-1]
+
       real, allocatable :: can_temp      (:) ! "canopy" air temperature [K]
+      real, allocatable :: seacan_temp   (:) ! "canopy" air temperature [K]
+      real, allocatable :: icecan_temp   (:) ! "canopy" air temperature [K]
+
       real, allocatable :: can_shv       (:) ! "canopy" vapor spec hum [kg_vap/kg_air]
+      real, allocatable :: seacan_shv    (:) ! "canopy" vapor spec hum [kg_vap/kg_air]
+      real, allocatable :: icecan_shv    (:) ! "canopy" vapor spec hum [kg_vap/kg_air]
+
       real, allocatable :: surface_ssh   (:) ! sea surface sat spec hum [kg_vap/kg_air]
+      real, allocatable :: sea_sfc_ssh   (:) ! sea surface sat spec hum [kg_vap/kg_air]
+      real, allocatable :: ice_sfc_ssh   (:) ! sea surface sat spec hum [kg_vap/kg_air]
+
       real, allocatable :: rough         (:) ! water surface roughness height [m]
+      real, allocatable :: sea_rough     (:) ! water surface roughness height [m]
+      real, allocatable :: ice_rough     (:) ! water surface roughness height [m]
+
+      real, allocatable :: albedo_beam   (:) ! water s/w beam albedo [0-1]
+      real, allocatable :: albedo_diffuse(:) ! water s/w diffuse albedo [0-1]
+      real, allocatable :: sea_albedo    (:) ! water s/w albedo [0-1]
+      real, allocatable :: ice_albedo    (:) ! seaice s/w albedo [0-1]
+
       real, allocatable :: rshort        (:) ! downward can-top s/w flux [W/m^2]
       real, allocatable :: rshort_diffuse(:) ! downward diffuse can-top s/w flux [W/m2]
       real, allocatable :: rlong         (:) ! downward can-top l/w flux [W/m^2]
+      real, allocatable :: rlong_albedo  (:) ! surface l/w lbedo [0-1]
+
       real, allocatable :: rlongup       (:) ! upward can-top l/w flux [W/m^2]
-      real, allocatable :: rlong_albedo  (:) ! water l/w albedo [0-1]
-      real, allocatable :: albedo_beam   (:) ! water s/w beam albedo [0-1]
-      real, allocatable :: albedo_diffuse(:) ! water s/w diffuse albedo [0-1]
+      real, allocatable :: sea_rlongup   (:) ! upward can-top l/w flux [W/m^2]
+      real, allocatable :: ice_rlongup   (:) ! upward can-top l/w flux [W/m^2]
+      
+      real, allocatable :: ice_net_rlong (:)
+      real, allocatable :: ice_net_rshort(:)
+
+      real, allocatable :: seaice_energy(:,:)
+      real, allocatable :: seaice_tempk (:,:)
+
       real, allocatable :: pcpg          (:) ! new pcp amount this timestep [kg/m^2]
       real, allocatable :: qpcpg         (:) ! new pcp energy this timestep [J/m^2]
       real, allocatable :: dpcpg         (:) ! new pcp depth this timestep [m]
+
    End Type sea_vars
 
    type (sea_vars), target :: sea
@@ -192,19 +231,34 @@ Contains
 !=========================================================================
 
    subroutine alloc_sea(mws)
+
      use misc_coms, only: rinit
+     use sea_coms,  only: nzi
      implicit none
 
      integer, intent(in) :: mws
 
 !    Allocate and initialize sea arrays
 
+     allocate (sea%nlev_seaice   (mws)) ; sea%nlev_seaice    = 0
+
      allocate (sea%rhos          (mws)) ; sea%rhos           = rinit
+
      allocate (sea%ustar         (mws)) ; sea%ustar          = rinit
+     allocate (sea%sea_ustar     (mws)) ; sea%sea_ustar      = rinit
+     allocate (sea%ice_ustar     (mws)) ; sea%ice_ustar      = rinit
+
      allocate (sea%sxfer_t       (mws)) ; sea%sxfer_t        = rinit
+     allocate (sea%sea_sxfer_t   (mws)) ; sea%sea_sxfer_t    = rinit
+     allocate (sea%ice_sxfer_t   (mws)) ; sea%ice_sxfer_t    = rinit
+
      allocate (sea%sxfer_r       (mws)) ; sea%sxfer_r        = rinit
+     allocate (sea%sea_sxfer_r   (mws)) ; sea%sea_sxfer_r    = rinit
+     allocate (sea%ice_sxfer_r   (mws)) ; sea%ice_sxfer_r    = rinit
+
      allocate (sea%sxfer_tsav    (mws)) ; sea%sxfer_tsav     = rinit
      allocate (sea%sxfer_rsav    (mws)) ; sea%sxfer_rsav     = rinit
+
      allocate (sea%can_depth     (mws)) ; sea%can_depth      = rinit
      allocate (sea%seatp         (mws)) ; sea%seatp          = rinit
      allocate (sea%seatf         (mws)) ; sea%seatf          = rinit
@@ -212,20 +266,46 @@ Contains
      allocate (sea%seaicep       (mws)) ; sea%seaicep        = rinit
      allocate (sea%seaicef       (mws)) ; sea%seaicef        = rinit
      allocate (sea%seaicec       (mws)) ; sea%seaicec        = rinit
+
      allocate (sea%can_temp      (mws)) ; sea%can_temp       = rinit
+     allocate (sea%seacan_temp   (mws)) ; sea%seacan_temp    = rinit
+     allocate (sea%icecan_temp   (mws)) ; sea%icecan_temp    = rinit
+
      allocate (sea%can_shv       (mws)) ; sea%can_shv        = rinit
+     allocate (sea%seacan_shv    (mws)) ; sea%seacan_shv     = rinit
+     allocate (sea%icecan_shv    (mws)) ; sea%icecan_shv     = rinit
+
      allocate (sea%surface_ssh   (mws)) ; sea%surface_ssh    = rinit
+     allocate (sea%sea_sfc_ssh   (mws)) ; sea%sea_sfc_ssh    = rinit
+     allocate (sea%ice_sfc_ssh   (mws)) ; sea%ice_sfc_ssh    = rinit
+
      allocate (sea%rough         (mws)) ; sea%rough          = rinit
+     allocate (sea%sea_rough     (mws)) ; sea%sea_rough      = rinit
+     allocate (sea%ice_rough     (mws)) ; sea%ice_rough      = rinit
+
+     allocate (sea%albedo_beam   (mws)) ; sea%albedo_beam    = rinit
+     allocate (sea%albedo_diffuse(mws)) ; sea%albedo_diffuse = rinit
+     allocate (sea%sea_albedo    (mws)) ; sea%sea_albedo     = rinit
+     allocate (sea%ice_albedo    (mws)) ; sea%ice_albedo     = rinit
+
      allocate (sea%rshort        (mws)) ; sea%rshort         = rinit
      allocate (sea%rshort_diffuse(mws)) ; sea%rshort_diffuse = rinit
      allocate (sea%rlong         (mws)) ; sea%rlong          = rinit
-     allocate (sea%rlongup       (mws)) ; sea%rlongup        = rinit
      allocate (sea%rlong_albedo  (mws)) ; sea%rlong_albedo   = rinit
-     allocate (sea%albedo_beam   (mws)) ; sea%albedo_beam    = rinit
-     allocate (sea%albedo_diffuse(mws)) ; sea%albedo_diffuse = rinit
+
+     allocate (sea%rlongup       (mws)) ; sea%rlongup        = rinit
+     allocate (sea%sea_rlongup   (mws)) ; sea%sea_rlongup    = rinit
+     allocate (sea%ice_rlongup   (mws)) ; sea%ice_rlongup    = rinit
+
+     allocate (sea%ice_net_rlong (mws)) ; sea%ice_net_rlong  = rinit
+     allocate (sea%ice_net_rshort(mws)) ; sea%ice_net_rshort = rinit
+
      allocate (sea%pcpg          (mws)) ; sea%pcpg           = rinit
      allocate (sea%qpcpg         (mws)) ; sea%qpcpg          = rinit
      allocate (sea%dpcpg         (mws)) ; sea%dpcpg          = rinit
+
+     allocate (sea%seaice_energy(nzi,mws)) ; sea%seaice_energy = rinit
+     allocate (sea%seaice_tempk (nzi,mws)) ; sea%seaice_tempk  = rinit
 
    end subroutine alloc_sea
 
@@ -271,14 +351,39 @@ Contains
 
      endif
 
+     if (allocated(sea%nlev_seaice)) then
+        call increment_vtable('SEA%NLEV_SEAICE', 'SW')
+        vtab_r(num_var)%ivar1_p => sea%nlev_seaice
+     endif
+
      if (allocated(sea%sxfer_t)) then
         call increment_vtable('SEA%SXFER_T', 'SW')
         vtab_r(num_var)%rvar1_p => sea%sxfer_t
      endif
 
+     if (allocated(sea%sea_sxfer_t)) then
+        call increment_vtable('SEA%SEA_SXFER_T', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%sea_sxfer_t
+     endif
+
+     if (allocated(sea%ice_sxfer_t)) then
+        call increment_vtable('SEA%ICE_SXFER_T', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%ice_sxfer_t
+     endif
+
      if (allocated(sea%sxfer_r)) then
         call increment_vtable('SEA%SXFER_R', 'SW')
         vtab_r(num_var)%rvar1_p => sea%sxfer_r
+     endif
+
+     if (allocated(sea%sea_sxfer_r)) then
+        call increment_vtable('SEA%SEA_SXFER_R', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%sea_sxfer_r
+     endif
+
+     if (allocated(sea%ice_sxfer_r)) then
+        call increment_vtable('SEA%ICE_SXFER_R', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%ice_sxfer_r
      endif
 
      if (allocated(sea%can_depth)) then
@@ -301,9 +406,29 @@ Contains
         vtab_r(num_var)%rvar1_p => sea%can_temp
      endif
 
+     if (allocated(sea%seacan_temp)) then
+        call increment_vtable('SEA%SEACAN_TEMP', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%seacan_temp
+     endif
+
+     if (allocated(sea%icecan_temp)) then
+        call increment_vtable('SEA%ICECAN_TEMP', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%icecan_temp
+     endif
+
      if (allocated(sea%can_shv)) then
         call increment_vtable('SEA%CAN_SHV', 'SW')
         vtab_r(num_var)%rvar1_p => sea%can_shv
+     endif
+
+     if (allocated(sea%seacan_shv)) then
+        call increment_vtable('SEA%SEACAN_SHV', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%seacan_shv
+     endif
+
+     if (allocated(sea%icecan_shv)) then
+        call increment_vtable('SEA%ICECAN_SHV', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%icecan_shv
      endif
 
      if (allocated(sea%surface_ssh)) then
@@ -311,9 +436,29 @@ Contains
         vtab_r(num_var)%rvar1_p => sea%surface_ssh
      endif
 
+     if (allocated(sea%sea_sfc_ssh)) then
+        call increment_vtable('SEA%SEA_SFC_SSH', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%sea_sfc_ssh
+     endif
+
+     if (allocated(sea%ice_sfc_ssh)) then
+        call increment_vtable('SEA%ICE_SFC_SSH', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%ice_sfc_ssh
+     endif
+
      if (allocated(sea%rough)) then
         call increment_vtable('SEA%ROUGH', 'SW')
         vtab_r(num_var)%rvar1_p => sea%rough
+     endif
+
+     if (allocated(sea%sea_rough)) then
+        call increment_vtable('SEA%SEA_ROUGH', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%sea_rough
+     endif
+
+     if (allocated(sea%ice_rough)) then
+        call increment_vtable('SEA%ICE_ROUGH', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%ice_rough
      endif
 
      if (allocated(sea%rshort)) then
@@ -336,6 +481,16 @@ Contains
         vtab_r(num_var)%rvar1_p => sea%rlongup
      endif
 
+     if (allocated(sea%sea_rlongup)) then
+        call increment_vtable('SEA%SEA_RLONGUP', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%sea_rlongup
+     endif
+
+     if (allocated(sea%ice_rlongup)) then
+        call increment_vtable('SEA%ICE_RLONGUP', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%ice_rlongup
+     endif
+
      if (allocated(sea%rlong_albedo)) then
         call increment_vtable('SEA%RLONG_ALBEDO', 'SW')
         vtab_r(num_var)%rvar1_p => sea%rlong_albedo
@@ -351,6 +506,36 @@ Contains
         vtab_r(num_var)%rvar1_p => sea%albedo_diffuse
      endif
 
+     if (allocated(sea%sea_albedo)) then
+        call increment_vtable('SEA%SEA_ALBEDO', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%sea_albedo
+     endif
+
+      if (allocated(sea%ice_albedo)) then
+        call increment_vtable('SEA%ICE_ALBEDO', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%ice_albedo
+     endif
+
+      if (allocated(sea%ice_net_rlong)) then
+        call increment_vtable('SEA%ICE_NET_RLONG', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%ice_net_rlong
+     endif
+
+      if (allocated(sea%ice_net_rshort)) then
+        call increment_vtable('SEA%ICE_NET_RSHORT', 'SW')
+        vtab_r(num_var)%rvar1_p => sea%ice_net_rshort
+     endif
+
+     if (allocated(sea%seaice_energy)) then
+        call increment_vtable('SEA%SEAICE_ENERGY', 'SW')
+        vtab_r(num_var)%rvar2_p => sea%seaice_energy
+     endif
+    
+     if (allocated(sea%seaice_tempk)) then
+        call increment_vtable('SEA%SEAICE_TEMPK', 'SW')
+        vtab_r(num_var)%rvar2_p => sea%seaice_tempk
+     endif
+    
      if (allocated(sea%pcpg)) then
         call increment_vtable('SEA%PCPG', 'SW')
         vtab_r(num_var)%rvar1_p => sea%pcpg
