@@ -16,6 +16,8 @@ SOURCE_FILES= \
              $(CONVECT)/emanuel_coms.f90 \
              $(CONVECT)/emanuel43c.f90 \
              $(CONVECT)/emanuel_driver.f90 \
+             $(CONVECT)/pbl_driver.f90 \
+             $(CONVECT)/smagorinsky.f90 \
              $(ED)/allometry.f90 \
              $(ED)/c34constants.f90 \
              $(ED)/canopy_radiation_coms.f90 \
@@ -139,7 +141,6 @@ SOURCE_FILES= \
              $(OMODEL)/tileslab.f90 \
              $(OMODEL)/topo_database_read.f90 \
              $(OMODEL)/triangle_utils.f90 \
-             $(OMODEL)/turb_k.f90 \
              $(OMODEL)/vectslab.f90 \
              $(OMODEL)/vel_t3d.f90 \
              $(OMODEL_HEX)/hex_grid.f90 \

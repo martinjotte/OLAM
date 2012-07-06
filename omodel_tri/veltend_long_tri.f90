@@ -32,9 +32,11 @@
 !===============================================================================
 subroutine veltend_long()
 
-use mem_ijtabs, only: jtab_u, jtab_w, istp, mrl_begl
-use mem_grid,   only: mza
-use misc_coms,  only: io6
+use mem_ijtabs,   only: jtab_u, jtab_w, istp, mrl_begl, itab_u
+use mem_grid,     only: mza, lpu, lpw, unx, uny, unz, vnx, vny, wnx, wny, wnz
+use misc_coms,    only: io6, iparallel
+use mem_tend,     only: vmxet, vmyet, vmzet, wmt, umt
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v
 
 !$ use omp_lib
 
@@ -43,15 +45,20 @@ implicit none
 integer :: j
 integer :: k
 integer :: iu
-integer :: iw
+integer :: iw, iw1, iw2
 integer :: mrl
+
+mrl = mrl_begl(istp)
+if (mrl == 0) return
+
+! MPI SEND of VMXET, VMYET, VMZET
+
+if (iparallel == 1) call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
 
 ! Horizontal loop over U points
 
 call psub()
 !----------------------------------------------------------------------
-mrl = mrl_begl(istp)
-if (mrl > 0) then
 !$omp parallel do private (iu)
 do j = 1,jtab_u(12)%jend(mrl); iu = jtab_u(12)%iu(j)
 !----------------------------------------------------------------------
@@ -61,26 +68,65 @@ call qsub('U',iu)
 
 enddo
 !$omp end parallel do
-endif
 call rsub('U',12)
 
 ! Horizontal loop over W points
 
 call psub()
 !----------------------------------------------------------------------
-mrl = mrl_begl(istp)
-if (mrl > 0) then
-!$omp parallel do private (iw)
+!$omp parallel do private (iw,k)
 do j = 1,jtab_w(16)%jend(mrl); iw = jtab_w(16)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
    call veltend_long_w(iw)
 
+   ! Update WM tendency from long-timestep earth-cartesian tendencies
+   ! Can be computed before communication of tendencies is completed
+
+   do k = lpw(iw), mza-2
+
+      wmt(k,iw) = wmt(k,iw)                                        &
+                + 0.5 * ( wnx(iw) * (vmxet(k,iw) + vmxet(k+1,iw) ) &
+                        + wny(iw) * (vmyet(k,iw) + vmyet(k+1,iw) ) &
+                        + wnz(iw) * (vmzet(k,iw) + vmzet(k+1,iw) ) )
+   enddo
+
 enddo
 !$omp end parallel do
-endif
 call rsub('W',16)
+
+! MPI RECV of VMXET, VMYET, VMZET
+
+if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
+
+! Update UM tendency from long-timestep earth-cartesian tendencies
+
+! Horizontal loop over U points
+
+call psub()
+!----------------------------------------------------------------------
+!$omp parallel do private (iu,iw1,iw2,k)
+do j = 1,jtab_u(12)%jend(mrl); iu = jtab_u(12)%iu(j)
+!----------------------------------------------------------------------
+   call qsub('U',iu)
+
+   iw1 = itab_u(iu)%iw(1)
+   iw2 = itab_u(iu)%iw(2)
+
+   do k = lpu(iu), mza-1
+         
+! Update UM tendency from turbulent fluxes
+
+      umt(k,iu) = umt(k,iu)                                        &
+                + 0.5 * ( unx(iu) * (vmxet(k,iw1) + vmxet(k,iw2) ) &
+                        + uny(iu) * (vmyet(k,iw1) + vmyet(k,iw2) ) &
+                        + unz(iu) * (vmzet(k,iw1) + vmzet(k,iw2) ) )
+   enddo
+
+enddo
+!$omp end parallel do
+call rsub('U',12)
 
 return
 end subroutine veltend_long
@@ -93,7 +139,7 @@ use mem_tend,    only: umt
 use mem_ijtabs,  only: itab_u
 use mem_basic,   only: rho, uc, wc
 use misc_coms,   only: io6, dtlm, icorflg
-use mem_turb,    only: vkm_sfc, hkm, vkm
+use mem_turb,    only: hkm
 use consts_coms, only: omega2
 use mem_grid,    only: mza, aru, arw, volt, dniu, dzim, unx, uny, lpu, arw0
 use massflux,    only: tridiffo
@@ -119,12 +165,11 @@ real :: dtl
 real :: vproj1,vproj2,vproj3,vproj4
 real :: vx1,vx2,vy1,vy2
 real :: qdniu1,qdniu2,qdniu3,qdniu4
-real :: umass,dtoumass
+real :: umass
 real :: wt1,wt2                     ! velocity weights for Coriolis force
 
 ! Automatic arrays:
 
-real, dimension(mza) :: akodz,vctr2,vctr3,vctr5,vctr6,vctr7,vctr8,vctr9
 real, dimension(mza) :: umt_cor
 
 iu1  = itab_u(iu)%iu(1);  iu2  = itab_u(iu)%iu(2);  iu3  = itab_u(iu)%iu(3)
@@ -154,18 +199,6 @@ dtl = dtlm(itab_u(iu)%mrlu)
 
 ka = lpu(iu)
 
-! Vertical loop over W levels
-
-do k = ka,mza-2
-
-   akodz(k) = dzim(k)  & 
-      * (arw(k,iw1) * vkm(k,iw1) + arw(k,iw2) * vkm(k,iw2))
-         
-enddo
-
-akodz(ka-1) = 0.
-akodz(mza-1) = 0.
-
 ! Vertical loop over T levels
 
 do k = ka,mza-1
@@ -173,7 +206,6 @@ do k = ka,mza-1
 ! Mass in U control volume; and its inverse times dtl
 
    umass = rho(k,iw1) * volt(k,iw1) + rho(k,iw2) * volt(k,iw2)
-   dtoumass = dtl / umass
 
 ! Coriolis force
 
@@ -202,50 +234,7 @@ do k = ka,mza-1
       umt_cor(k) = 0.
    endif
 
-! Distribution of surface flux over multiple levels in steep topography
-! [consider using lsw(iw1) and lsw(iw2) for following IF statement]
-
-   if (arw(k,iw1) > 1.01 * arw(k-1,iw1) .or.  &
-       arw(k,iw2) > 1.01 * arw(k-1,iw2)) then
-
-      vctr3(k) = ((arw(k,iw1) - arw(k-1,iw1)) * vkm_sfc(iw1)  &
-               +  (arw(k,iw2) - arw(k-1,iw2)) * vkm_sfc(iw2)) * dzim(k-1) * 2.
-   else
-      vctr3(k) = 0.
-   endif
-
-! Fill tri-diagonal matrix coefficients
-
-   vctr5(k) = -dtoumass * akodz(k-1)
-   vctr7(k) = -dtoumass * akodz(k)
-   vctr6(k) = 1. - vctr5(k) - vctr7(k) + dtoumass * vctr3(k)
-      
-! Fill r.h.s.      
-      
-   vctr8(k) = uc(k,iu)
-
 enddo
-
-if (ka < mza-1) then
-   call tridiffo(mza,ka,mza-1,vctr5,vctr6,vctr7,vctr8,vctr9)
-endif
-
-! Now, vctr9 contains uc(t+1) values
-
-! Vertical loop over W levels
-
-do k = ka,mza-2
-
-! Compute internal vertical turbulent fluxes
-
-   vctr2(k) = akodz(k) * (vctr9(k) - vctr9(k+1))
-   
-enddo
-
-! Set bottom and top internal fluxes to zero
-
-vctr2(ka-1) = 0.
-vctr2(mza-1) = 0.
 
 ! Coefficients for horizontal turbulent fluxes: quarter dniu since summing over
 ! two K values and since horizontal gradient of u is effectively over 2 deltax
@@ -281,10 +270,6 @@ do k = ka,mza-1
 
    umt(k,iu) = umt(k,iu)                        &
 
-      + vctr2(k-1) - vctr2(k)                   &  ! vert internal turb fluxes
-      
-      - vctr3(k) * vctr9(k)                     &  ! surface turb flux
-
       + aru(k,iu1) * (hkm(k,iw1) + hkm(k,iw3))  &
           * qdniu1 * (vproj1 - uc(k,iu))        &
 
@@ -312,7 +297,7 @@ use mem_tend,    only: wmt
 use mem_ijtabs,  only: itab_w
 use mem_basic,   only: uc,wc,rho
 use misc_coms,   only: io6,icorflg, dtlm
-use mem_turb,    only: hkm, vkm, sflux_w
+use mem_turb,    only: hkm
 use consts_coms, only: omega2
 use mem_grid,    only: mza, lpw, aru, arw, dniu, dzit, volt, volwi, wnx, wny
 use massflux,    only: tridiffo
@@ -338,7 +323,6 @@ real :: arukodx1,arukodx2,arukodx3
 
 ! Automatic arrays:
 
-real, dimension(mza) :: akodz,vctr2,vctr5,vctr6,vctr7,vctr8,vctr9
 real, dimension(mza) :: wmt_cor
 
 iu1 = itab_w(iw)%iu(1); iu2 = itab_w(iw)%iu(2); iu3 = itab_w(iw)%iu(3)
@@ -361,9 +345,6 @@ ka = lpw(iw)
 ! Vertical loop over T levels
 
 do k = ka,mza-1
-   akodz(k) = .5 * (arw(k-1,iw) * vkm(k-1,iw) + arw(k,iw) * vkm(k,iw))  &
-      * dzit(k)                                               ! applies at T pts
-   vctr2(k) = dtl2 * volwi(k,iw) / (rho(k,iw) + rho(k+1,iw))  ! applies at W pts
 
 ! Coriolis force
 
@@ -379,37 +360,6 @@ do k = ka,mza-1
    endif
 
 enddo
-
-akodz(mza-1) = .5 * arw(mza-2,iw) * (vkm(mza-2,iw) + vkm(mza-1,iw))  &
-      * dzit(mza-1)  ! Use arw(mza-2) since arw(mza-1) is closed.
-
-do k = ka+1,mza-2
-   vctr5(k) = -akodz(k) * vctr2(k-1)
-   vctr7(k) = -akodz(k) * vctr2(k)
-   vctr6(k) = 1. - vctr5(k) - vctr7(k)
-   vctr8(k) = akodz(k) * (wc(k-1,iw) - wc(k,iw))
-enddo
-vctr5(mza-1) = -akodz(mza-1) * vctr2(mza-2)
-vctr6(mza-1) = 1. - vctr5(mza-1)
-vctr7(mza-1) = 0.
-vctr8(mza-1) = akodz(mza-1) * wc(mza-2,iw)  !  w = 0 bc at top
-
-sflux = 0.  ! set to zero now but consider new formulation in future:
-            ! sflux = sflux_w(iw) * arw(mza-2,iw)
-
-if (ka < mza - 1) then
-   vctr8(ka+1) = vctr8(ka+1) - sflux * vctr5(ka+1)  ! Dirichlet bc at bottom
-endif
-
-! Solve tri-diagonal matrix for vertical diffusive flux
-
-if (ka+1 < mza-1) then
-   call tridiffo(mza,ka+1,mza-1,vctr5,vctr6,vctr7,vctr8,vctr9)
-endif
-
-! Copy bottom flux to vctr9
-
-vctr9(ka) = sflux
 
 ! Vertical loop over W levels
 
@@ -446,8 +396,6 @@ do k = ka,mza-2
 ! Update WM tendency from turbulent fluxes and Coriolis force
 
    wmt(k,iw) = wmt(k,iw)                &
-      
-      + vctr9(k) - vctr9(k+1)           &
 
       + arukodx1 * (vproj1 - wc(k,iw))  &
       + arukodx2 * (vproj2 - wc(k,iw))  &
