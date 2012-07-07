@@ -1095,17 +1095,18 @@ dts = dtsm(itab_v(iv)%mrlv)
 
 kb = lpv(iv)
 
-! RAYLEIGH FRICTION ON VMC
-
 vmt_rayf(:) = 0.
 
 if (rayf_distim > 1.e-6) then
 
+! FOR HORIZONTAL HOMOGENEOUS CASE, APPLY
+! RAYLEIGH FRICTION DIRECTLY TO VMC
+
+   if (initial == 1) then      ! HHI case
+
 ! Vertical loop over V points
 
-   do k = kb,mza-1
-
-      if (initial == 1) then      ! HHI case
+      do k = kb, mza-1
 
 ! Must rotate reference wind to local VC orientation
 
@@ -1137,9 +1138,16 @@ if (rayf_distim > 1.e-6) then
 
          vmt_rayf(k) = max(rayf_cof(k),rayfx) * dn01d(k) * (vcref - vc(k,iv))
 
-      else                     ! LHI/VARI case
+      enddo
 
-! HORIZONTAL DIVERGENCE DAMPING
+   else                     ! LHI/VARI case
+
+! FOR RUNS VARYING LATITUDINALLY AND/OR LONGITUDINALLY,
+! PERFORM HORIZONTAL DIVERGENCE DAMPING
+
+! Vertical loop over V points
+
+      do k = kb, mza-1
 
 ! Divergence in IW1 excluding IV
 
