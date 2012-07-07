@@ -1184,9 +1184,9 @@ if (rayf_distim > 1.e-6) then
          ! Need implementation for LHI/VARI (use vartp for merid. variation?)
          ! Ok to do this in veltend_long???
 
-      endif
+      enddo
 
-   enddo
+   endif ! (initial == 1)
 
 endif ! (rayf_distim > 1.e-6)
 
