@@ -544,6 +544,7 @@ real :: traparea(npmax+nqmax+npmax*nqmax) ! trapezoid area
 integer :: itmax
 integer :: iter
 real :: trapareamax
+real :: delarw
 
 real :: aatmin, aatmax, astmin, astmax, altmin, altmax
 real :: dists, distn, wts, wtn
@@ -915,11 +916,20 @@ endif
                 ztrap(2,jt) >= zm(k) .and.  &
                 ztrap(3,jt) >= zm(k)) go to 11
 
-! Skip this set if all 3 vertex elevations are below bottom of T level
+! If all 3 vertex elevations are below bottom of T level, add its area
+! and volume to the atmospheric cell, but skip flux cell calculation
 
             if (ztrap(1,jt) < zm(k-1) .and.  &
                 ztrap(2,jt) < zm(k-1) .and.  &
-                ztrap(3,jt) < zm(k-1)) go to 11
+                ztrap(3,jt) < zm(k-1)) then
+
+               delarw = abs( 0.5 * (xtrap(2,jt) - xtrap(1,jt)) * (ytrap(3,jt) - ytrap(1,jt)) )
+               arw (k,iw) = arw(k,iw)  + delarw
+               volt(k,iw) = volt(k,iw) + delarw * dzt(k)
+
+               go to 11
+
+            endif
 
 ! Do this set if points 1 and 2 do not coincide
 
@@ -946,11 +956,20 @@ endif
                 ztrap(3,jt) >= zm(k) .and.  &
                 ztrap(4,jt) >= zm(k)) go to 12
 
-! Skip this set if all 3 vertex elevations are below bottom of T level
+! If all 3 vertex elevations are below bottom of T level, add its area
+! and volume to the atmospheric cell, but skip flux cell calculation
 
             if (ztrap(1,jt) < zm(k-1) .and.  &
                 ztrap(3,jt) < zm(k-1) .and.  &
-                ztrap(4,jt) < zm(k-1)) go to 12
+                ztrap(4,jt) < zm(k-1)) then
+
+               delarw = abs( 0.5 * (xtrap(4,jt) - xtrap(3,jt)) * (ytrap(1,jt) - ytrap(3,jt)) )
+               arw (k,iw) = arw(k,iw)  + delarw
+               volt(k,iw) = volt(k,iw) + delarw * dzt(k)
+
+               go to 12
+
+            endif
 
 ! Do this set if points 3 and 4 do not coincide
 
@@ -1164,11 +1183,20 @@ endif
                 ztrap(2,jt) >= zm(k) .and.  &
                 ztrap(3,jt) >= zm(k)) go to 13
 
-! Skip this set if all 3 vertex elevations are below bottom of T level
+! If all 3 vertex elevations are below bottom of T level, add its area
+! and volume to the atmospheric cell, but skip flux cell calculation
 
             if (ztrap(1,jt) < zm(k-1) .and.  &
                 ztrap(2,jt) < zm(k-1) .and.  &
-                ztrap(3,jt) < zm(k-1)) go to 13
+                ztrap(3,jt) < zm(k-1))  then
+
+               delarw = abs( 0.5 * (xtrap(2,jt) - xtrap(1,jt)) * (ytrap(3,jt) - ytrap(1,jt)) )
+               arw (k,iw) = arw(k,iw)  + delarw
+               volt(k,iw) = volt(k,iw) + delarw * dzt(k)
+
+               go to 13
+
+            endif
 
 ! Do this set if points 1 and 2 do not coincide
 
@@ -1195,11 +1223,20 @@ endif
                 ztrap(3,jt) >= zm(k) .and.  &
                 ztrap(4,jt) >= zm(k)) go to 14
 
-! Skip this set if all 3 vertex elevations are below bottom of T level
+! If all 3 vertex elevations are below bottom of T level, add its area
+! and volume to the atmospheric cell, but skip flux cell calculation
 
             if (ztrap(1,jt) < zm(k-1) .and.  &
                 ztrap(3,jt) < zm(k-1) .and.  &
-                ztrap(4,jt) < zm(k-1)) go to 14
+                ztrap(4,jt) < zm(k-1)) then
+
+               delarw = abs( 0.5 * (xtrap(4,jt) - xtrap(3,jt)) * (ytrap(1,jt) - ytrap(3,jt)) )
+               arw (k,iw) = arw(k,iw)  + delarw
+               volt(k,iw) = volt(k,iw) + delarw * dzt(k)
+
+               go to 14
+
+            endif
 
 ! Do this set if points 3 and 4 do not coincide
 
@@ -1464,6 +1501,8 @@ real :: dt13,dt32,dt14,dt43,dx13,dx32,dx14,dx43,dy13,dy32,dy14,dy43
 real :: faci1,faci2,facj1,facj2
 real :: top1,top2,top3,top4,topp
 real :: flux_area
+real :: atms_area
+real(8) :: atms_volt
 
 ! Compute intersection of current surface triangle (half-trapezoid) with 
 ! current atmospheric model level.  This results in one polygonal patch 
@@ -1491,7 +1530,9 @@ del_arw = abs(.5 * (xtrap2 - xtrap1) * (ytrap3 - ytrap1)) / real(nsub*nsub)
 
 ! [NEED TO REPLACE ABOVE AREA WITH SPHERICAL AREA ?]
 
-flux_area = 0.
+flux_area = 0.0
+atms_area = 0.0
+atms_volt = 0.0_8
 
 do jsub = 1,nsub
 
@@ -1531,8 +1572,8 @@ do jsub = 1,nsub
          endif
 
          if (topp < zm(k)) then
-            arw (k,iw) = arw (k,iw) + del_arw
-            volt(k,iw) = volt(k,iw) + del_arw * (zm(k) - max(topp,zm(k-1)))
+            atms_area = atms_area + del_arw
+            atms_volt = atms_volt + del_arw * (zm(k) - max(topp,zm(k-1)))
 
             if (topp >= zm(k-1)) then
                flux_area = flux_area + del_arw
@@ -1549,6 +1590,9 @@ do jsub = 1,nsub
    enddo  ! ip
 
 enddo  ! jp
+
+arw (k,iw) = arw (k,iw) + atms_area
+volt(k,iw) = volt(k,iw) + atms_volt
 
 ! Check current contribution to flux area
 
