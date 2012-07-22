@@ -74,6 +74,7 @@ real :: dl (nrad) ! air density of all radiation levels (kg/m^3)
 real :: pl (nrad) ! pressure (Pa)
 real :: o3l(nrad) ! stores the calculated ozone profile (g/m^3)
 real :: vp (nrad) ! vapor pressure (Pa)
+real :: exl(nrad) ! exner function to convert between Theta and T
 
 real :: u(nrad,3) ! path-length for gases (H_2O, CO_2, O_3)  (Pa)
 
@@ -103,6 +104,7 @@ integer k,ib,ig,kk,ik,krad,mcat
 real rmix
 real dzl9,rvk0,rvk1
 real :: flx_diff
+real :: exner
 
 ! Copy surface and vertical-column values from model to radiation memory space
 ! In this loop, (k-koff) ranges from 2 to mza + 1 - lpw(iw)
@@ -110,8 +112,9 @@ real :: flx_diff
 do k = ka,mza-1
    krad = k - koff
 
-   tairk(k) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
-   rhov(k) = max(0.,sh_v(k,iw)) * rho(k,iw)
+   exner    = (press(k,iw) * p00i) ** rocp
+   tairk(k) = theta(k,iw) * exner
+   rhov(k)  = max(0.,sh_v(k,iw)) * rho(k,iw)
 
    dl(krad)  = rho  (k,iw)
    pl(krad)  = press(k,iw)
@@ -119,6 +122,7 @@ do k = ka,mza-1
    rl(krad)  = rhov (k)
    zml(krad) = zm   (k)
    ztl(krad) = zt   (k)
+   exl(krad) = exner
 enddo
  
 ! Fill surface values
@@ -192,7 +196,7 @@ if (iswrtyp == 3 .and. cosz(iw) > 0.03) then
       krad = k - koff
       fthrd(k,iw) = fthrd(k,iw)  &
          + (flxds(krad) - flxds(krad-1) + flxus(krad-1) - flxus(krad))  &
-         / (dl(krad) * dzl(krad) * cp)
+         / (dl(krad) * dzl(krad) * cp * exl(krad))
    enddo
 
 endif
@@ -214,10 +218,10 @@ if (ilwrtyp == 3) then
       krad = k - koff
       fthrd(k,iw) = fthrd(k,iw)  &
          + (flxdl(krad) - flxdl(krad-1) + flxul(krad-1) - flxul(krad))  &
-         / (dl(krad) * dzl(krad) * cp)
+         / (dl(krad) * dzl(krad) * cp * exl(krad))
       fthrd_lw(k,iw) = fthrd_lw(k,iw)  &
          + (flxdl(krad) - flxdl(krad-1) + flxul(krad-1) - flxul(krad))  &
-         / (dl(krad) * dzl(krad) * cp)
+         / (dl(krad) * dzl(krad) * cp * exl(krad))
    enddo
 
 endif
