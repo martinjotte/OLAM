@@ -315,7 +315,7 @@ do iv = 1,nva
 ! Turn off LBC copy (n/a for global domain) if IVP point is on remote node
 
          if (.not. myrankflag_v(ivp))  &
-            call vloops('n',iv_myrank,-9,-18,0,0,0,0,0,0,0)
+            call vloops('n',iv_myrank,-9,-18,0,0,0,0,0,0,0,0)
 
       endif
 

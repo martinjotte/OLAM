@@ -420,7 +420,7 @@ use misc_coms,  only: io6
 
 implicit none
 
-real, intent(in) :: rhot
+real, intent(inout) :: rhot(mza,mwa)
 
 integer :: n,mrl,j,k,iw,iv
 
