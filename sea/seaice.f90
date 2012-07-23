@@ -147,7 +147,7 @@ subroutine prep_seaice( sst, seaice, seacan_temp, icecan_temp,        &
                            rshort,      &
                            rlong,       &
                            ice_rlongup, &
-                           ice_albedo,  )
+                           ice_albedo   )
 
   endif
 
