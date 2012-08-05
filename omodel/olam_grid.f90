@@ -2060,8 +2060,13 @@ integer, pointer :: lgva(:)
 integer, pointer :: lgwa(:)
 
 lgma => itab_m%imglobe
-lgua => itab_u%iuglobe
-lgva => itab_v%ivglobe
+if (meshtype == 1) then
+   lgua => itab_u%iuglobe
+   lgva => null()
+else
+   lgva => itab_v%ivglobe
+   lgua => null()
+endif
 lgwa => itab_w%iwglobe
 
 ! Check if grid file exists

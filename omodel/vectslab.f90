@@ -381,3 +381,297 @@ enddo
 
 return
 end subroutine vectslab_horiz_v
+
+!===============================================================================
+
+subroutine vectslab_horiz_w(iplt)
+
+use oplot_coms,  only: op
+use mem_grid,    only: mza, mwa, zm, lpw, xew, yew, zew, wnx, wny, wnz
+use mem_ijtabs,  only: itab_m, itab_u, itab_v, itab_w
+use mem_basic,   only: vxe, vye, vze
+use misc_coms,   only: io6, mdomain
+use consts_coms, only: erad
+
+implicit none
+
+integer, intent(in) :: iplt
+
+integer :: iw,notavail
+
+real :: fldval,uavg,vavg,pointx  &
+   ,pointy,tailx,taily,stemangle,headangle1,headangle2   &
+   ,headlen,head1x  &
+   ,head1y,head2x,head2y,ptx,pty,tlx,tly,h1x,h1y,h2x,h2y  &
+   ,fac,headlent  &
+   ,tailxe,tailye,tailze,stemlen
+real :: stemx,stemy,stemz,snx,sny,snz,rnx,rny,rnz
+real :: head1xe,head1ye,head1ze,head2xe,head2ye,head2ze
+real :: vx,vy,vz,vert_vel
+
+integer :: ktf(mwa),kw(mwa)
+real :: wtbot(mwa),wttop(mwa)
+
+! Wind barbs
+
+real, parameter :: pf = .3  ! full tick length as a fraction of shaft length
+real, parameter :: pi = .15 ! distance between ticks as a fraction of shaft length
+real, parameter :: ba = 50. ! value for which triangle is drawn
+real, parameter :: bb = 10. ! value for which tick is drawn - half tick for half of bb
+
+real :: speed, pc, xt, xea, yea, zea, xeb, yeb, zeb, xec, yec, zec
+real :: xa, ya, xb, yb, xc, yc
+
+! Find cell K indices on the given plot surface
+
+op%stagpt = 'T'
+call horizplot_k(iplt,mwa,ktf,kw,wtbot,wttop)
+
+do iw = 2,mwa
+
+! Skip this point if it is underground
+
+   if (ktf(iw) /= 0) cycle
+
+! Skip this point if we want to plot vectors only on a coarser mesh level
+
+   if (itab_w(iw)%mrlw_orig > op%vec_maxmrl) cycle
+
+! Transform IV coordinates
+
+   call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),pointx,pointy)
+
+! Jump out of loop if vector head is outside plot window. 
+
+   if (pointx < op%xmin .or. pointx > op%xmax .or.  &
+       pointy < op%ymin .or. pointy > op%ymax) cycle
+
+! 3D earth-coordinate wind components
+
+   vx = wtbot(iw) * vxe(kw(iw),iw) + wttop(iw) * vxe(kw(iw)+1,iw)
+   vy = wtbot(iw) * vye(kw(iw),iw) + wttop(iw) * vye(kw(iw)+1,iw)
+   vz = wtbot(iw) * vze(kw(iw),iw) + wttop(iw) * vze(kw(iw)+1,iw)
+
+! Projection onto local vertical vector
+
+   vert_vel = vx * wnx(iw) + vy * wny(iw) + vz * wnz(iw)
+
+! Subtract local vertical wind vector to give horizontal wind
+
+   vx = vx - vert_vel * wnx(iw)
+   vy = vy - vert_vel * wny(iw)
+   vz = vz - vert_vel * wnz(iw)
+
+   speed = sqrt(vx**2 + vy**2 + vz**2)
+
+   if (speed < 1.e-9) cycle
+
+! 3D vector displacement (in time interval op%dtvec)...
+
+   if (op%vectbarb(iplt) == 'w') then
+
+! Plot total horizontal vector at W point
+
+      stemx = vx * op%dtvec
+      stemy = vy * op%dtvec
+      stemz = vz * op%dtvec
+
+   else    ! case for op%vectbarb(iplt) == 'B'
+
+! Plot wind barb at V point
+
+      stemx = vx * op%stemlength / speed
+      stemy = vy * op%stemlength / speed
+      stemz = vz * op%stemlength / speed
+
+   endif
+
+! Vector length and unit components
+
+   stemlen = sqrt(stemx**2 + stemy**2 + stemz**2)
+
+   snx = stemx / stemlen
+   sny = stemy / stemlen
+   snz = stemz / stemlen
+
+! "Right" unit components
+
+   if (mdomain <= 1) then  ! Spherical geometry case
+      rnx = (sny * zew(iw) - snz * yew(iw)) / erad
+      rny = (snz * xew(iw) - snx * zew(iw)) / erad
+      rnz = (snx * yew(iw) - sny * xew(iw)) / erad
+   else                    ! Cartesian case
+      rnx = sny
+      rny = - snx
+      rnz = 0.
+   endif
+
+! Earth coordinates of tail
+
+   tailxe = xew(iw) - stemx
+   tailye = yew(iw) - stemy
+   tailze = zew(iw) - stemz
+
+   if (op%vectbarb(iplt) /= 'B') then
+
+! Earth coordinates of left and right head tips
+
+      headlen = op%headspeed * op%dtvec
+
+      head1xe = xew(iw) + rnx * .42 * headlen - snx * .91 * headlen
+      head1ye = yew(iw) + rny * .42 * headlen - sny * .91 * headlen
+      head1ze = zew(iw) + rnz * .42 * headlen - snz * .91 * headlen
+
+      head2xe = xew(iw) - rnx * .42 * headlen - snx * .91 * headlen
+      head2ye = yew(iw) - rny * .42 * headlen - sny * .91 * headlen
+      head2ze = zew(iw) - rnz * .42 * headlen - snz * .91 * headlen
+
+! Transform other tail and coordinates
+
+      call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
+      call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+      call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+
+! Avoid wrap-around
+
+      if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,tailx)
+      if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head1x)
+      if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head2x)
+
+! Jump out of loop if tail or sides of head are outside plot window. 
+
+      if (tailx  < op%xmin .or. tailx  > op%xmax .or.  &
+          taily  < op%ymin .or. taily  > op%ymax .or.  &
+          head1x < op%xmin .or. head1x > op%xmax .or.  &
+          head1y < op%ymin .or. head1y > op%ymax .or.  &
+          head2x < op%xmin .or. head2x > op%xmax .or.  &
+          head2y < op%ymin .or. head2y > op%ymax) cycle
+
+! Compute re-scaling factor from transformation- STILL NEED THIS??????????
+
+      fac = 1.0
+
+! Draw vector
+
+      call o_frstpt(pointx+fac*(tailx-pointx),pointy+fac*(taily-pointy))
+      call o_vector(pointx,pointy)
+      call o_frstpt(pointx+fac*(head1x-pointx),pointy+fac*(head1y-pointy))
+      call o_vector(pointx,pointy)
+      call o_vector(pointx+fac*(head2x-pointx),pointy+fac*(head2y-pointy))
+
+   else    ! case for op%vectbarb(iplt) == 'B'
+
+! Transform stem tail
+
+      call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
+
+! Draw stem
+
+      call o_frstpt(tailx,taily)
+      call o_vector(pointx,pointy)
+
+      pc = 1.
+      xt = speed + .25 * bb
+
+! Draw triangles (if any)
+
+      do while (xt >= ba)
+
+         xea = xew(iw) + (tailxe - xew(iw)) * pc
+         yea = yew(iw) + (tailye - yew(iw)) * pc
+         zea = zew(iw) + (tailze - zew(iw)) * pc
+
+         xeb = xea - rnx * pf * op%stemlength
+         yeb = yea - rny * pf * op%stemlength
+         zeb = zea - rnz * pf * op%stemlength
+
+         pc = pc - pi
+
+         xec = xew(iw) + (tailxe - xew(iw)) * pc
+         yec = yew(iw) + (tailye - yew(iw)) * pc
+         zec = zew(iw) + (tailze - zew(iw)) * pc
+
+! Transform triangle coordinates
+
+         call oplot_transform(iplt,xea,yea,zea,xa,ya)
+         call oplot_transform(iplt,xeb,yeb,zeb,xb,yb)
+         call oplot_transform(iplt,xec,yec,zec,xc,yc)
+
+! Avoid wrap-around
+
+         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xa)
+         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xb)
+         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xc)
+
+         call o_frstpt(xa,ya)
+         call o_vector(xb,yb)
+         call o_vector(xc,yc)
+
+         pc = pc - pi
+         xt = xt - ba
+
+      enddo
+
+! Draw barbs (if any)
+
+      do while (xt >= bb)
+
+         xea = xew(iw) + (tailxe - xew(iw)) * pc
+         yea = yew(iw) + (tailye - yew(iw)) * pc
+         zea = zew(iw) + (tailze - zew(iw)) * pc
+
+         xeb = xea - rnx * pf * op%stemlength
+         yeb = yea - rny * pf * op%stemlength
+         zeb = zea - rnz * pf * op%stemlength
+
+! Transform triangle coordinates
+
+         call oplot_transform(iplt,xea,yea,zea,xa,ya)
+         call oplot_transform(iplt,xeb,yeb,zeb,xb,yb)
+
+! Avoid wrap-around
+
+         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xa)
+         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xb)
+
+         call o_frstpt(xa,ya)
+         call o_vector(xb,yb)
+
+         pc = pc - pi
+         xt = xt - bb
+
+      enddo
+
+! Draw half barb (if any)
+
+      if (xt >= .5*bb) then
+
+         xea = xew(iw) + (tailxe - xew(iw)) * pc
+         yea = yew(iw) + (tailye - yew(iw)) * pc
+         zea = zew(iw) + (tailze - zew(iw)) * pc
+
+         xeb = xea - rnx * .5 * pf * op%stemlength
+         yeb = yea - rny * .5 * pf * op%stemlength
+         zeb = zea - rnz * .5 * pf * op%stemlength
+
+! Transform triangle coordinates
+
+         call oplot_transform(iplt,xea,yea,zea,xa,ya)
+         call oplot_transform(iplt,xeb,yeb,zeb,xb,yb)
+
+! Avoid wrap-around
+
+         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xa)
+         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xb)
+
+         call o_frstpt(xa,ya)
+         call o_vector(xb,yb)
+
+      endif
+
+   endif
+
+enddo
+
+return
+end subroutine vectslab_horiz_w

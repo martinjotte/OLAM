@@ -311,4 +311,6 @@ Module oname_coms
 
    type (oname_vars), save :: nl
 
+   character(40) :: cmdlne_runtype = ''
+
 End Module oname_coms

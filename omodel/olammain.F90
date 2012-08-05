@@ -38,6 +38,7 @@ use olam_mpi_atm, only: olam_mpi_init, olam_mpi_finalize
 use misc_coms,    only: tmpdir
 use max_dims,     only: pathlen
 use hdf5,         only: h5open_f, h5close_f
+use oname_coms,   only: cmdlne_runtype
 
 implicit none
 
@@ -100,6 +101,10 @@ do while (i <= numarg)
    if (cargv(1:1) == '-') then
       if (cargv(2:2) == 'f') then
          call get_command_argument(i+1,name_name)
+         if (len_trim(name_name) < 1) bad = bad + 1
+         i = i + 2
+      elseif (cargv(2:2) == 'r') then
+         call get_command_argument(i+1,cmdlne_runtype)
          if (len_trim(name_name) < 1) bad = bad + 1
          i = i + 2
       else

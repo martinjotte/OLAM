@@ -634,8 +634,10 @@ if (op%projectn(iplt) == 'L' .or.  &
 
    if (op%vectbarb(iplt) == 'U' .or. &
        op%vectbarb(iplt) == 'V' .or. &
-       op%vectbarb(iplt) == 'v' .or. &
-       op%vectbarb(iplt) == 'B') call vectslab_horiz_v(iplt)
+       op%vectbarb(iplt) == 'v') call vectslab_horiz_v(iplt)
+
+   if (op%vectbarb(iplt) == 'w' .or. &
+       op%vectbarb(iplt) == 'B') call vectslab_horiz_w(iplt)
 
 elseif (op%projectn(iplt) == 'C') then  ! etc for 'V'?
 

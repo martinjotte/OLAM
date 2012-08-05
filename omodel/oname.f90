@@ -67,7 +67,7 @@ end subroutine read_nl
 subroutine copy_nl(copy_type)
 
 use max_dims,    only: maxgrds, nzgmax, maxisdirs
-use oname_coms,  only: nl
+use oname_coms,  only: nl, cmdlne_runtype
 use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
                        nacoust, idiffk, zkhkm, xkhkm, csz, csx, akmin, &
                        dtlong, initial, zonclim, topo_database, &
@@ -121,7 +121,12 @@ if (copy_type == 'ALL_CASES') then
 ! This allows model options to be changed if it is a history start.
 
    expnme   = nl%expnme
-   runtype  = nl%runtype
+
+   if (len_trim(cmdlne_runtype) > 1) then
+      runtype = cmdlne_runtype
+   else
+      runtype  = nl%runtype
+   endif
    timeunit = nl%timeunit
    timmax8  = nl%timmax
 
@@ -299,6 +304,7 @@ if (copy_type == 'ALL_CASES') then
       if (index(nl%plotspecs(i)%pltspec2,'U') > 0) op%vectbarb(i) = 'U'
       if (index(nl%plotspecs(i)%pltspec2,'V') > 0) op%vectbarb(i) = 'V'
       if (index(nl%plotspecs(i)%pltspec2,'v') > 0) op%vectbarb(i) = 'v'
+      if (index(nl%plotspecs(i)%pltspec2,'w') > 0) op%vectbarb(i) = 'w'
 
       if (index(nl%plotspecs(i)%pltspec2,'G') > 0) op%pltgrid(i) = 'G'
       if (index(nl%plotspecs(i)%pltspec2,'g') > 0) op%pltgrid_landsea(i) = 'g'

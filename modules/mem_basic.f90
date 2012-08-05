@@ -66,7 +66,7 @@ Module mem_basic
   ! If true, compute half-forward earth-cartesian velocities, which is more
   ! exact for the time differencing scheme:
 
-  integer, parameter :: strict_wvt_donorpoint = .false.
+  logical, parameter :: strict_wvt_donorpoint = .false.
 
 Contains
 
