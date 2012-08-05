@@ -74,8 +74,8 @@ Contains
 !   allocate (vkm(mza,mwa)) ; vkm = rinit
 !   allocate (vkh(mza,mwa)) ; vkh = rinit
 
-    allocate (sxfer_tk(nsw_max,mwa)) ; sxfer_tk = rinit
-    allocate (sxfer_rk(nsw_max,mwa)) ; sxfer_rk = rinit
+    allocate (sxfer_tk(nsw_max,mwa)) ; sxfer_tk = 0.0
+    allocate (sxfer_rk(nsw_max,mwa)) ; sxfer_rk = 0.0
 
     allocate (vkm_sfc(mwa)) ; vkm_sfc = rinit
     allocate (sflux_t(mwa)) ; sflux_t = rinit

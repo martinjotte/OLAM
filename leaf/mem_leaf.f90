@@ -276,8 +276,8 @@ Contains
      allocate (land%vels               (mwl)) ; land%vels            = rinit
      allocate (land%prss               (mwl)) ; land%prss            = rinit
      allocate (land%ustar              (mwl)) ; land%ustar           = rinit
-     allocate (land%sxfer_t            (mwl)) ; land%sxfer_t         = rinit
-     allocate (land%sxfer_r            (mwl)) ; land%sxfer_r         = rinit
+     allocate (land%sxfer_t            (mwl)) ; land%sxfer_t         = 0.0
+     allocate (land%sxfer_r            (mwl)) ; land%sxfer_r         = 0.0
      allocate (land%sxfer_tsav         (mwl)) ; land%sxfer_tsav      = rinit
      allocate (land%sxfer_rsav         (mwl)) ; land%sxfer_rsav      = rinit
      allocate (land%can_depth          (mwl)) ; land%can_depth       = rinit
@@ -313,9 +313,9 @@ Contains
      allocate (land%rlong_v            (mwl)) ; land%rlong_v         = rinit
      allocate (land%snowfac            (mwl)) ; land%snowfac         = rinit
      allocate (land%vf                 (mwl)) ; land%vf              = rinit
-     allocate (land%pcpg               (mwl)) ; land%pcpg            = rinit
-     allocate (land%qpcpg              (mwl)) ; land%qpcpg           = rinit
-     allocate (land%dpcpg              (mwl)) ; land%dpcpg           = rinit
+     allocate (land%pcpg               (mwl)) ; land%pcpg            = 0.0
+     allocate (land%qpcpg              (mwl)) ; land%qpcpg           = 0.0
+     allocate (land%dpcpg              (mwl)) ; land%dpcpg           = 0.0
      allocate (land%ed_flag            (mwl)) ; land%ed_flag         = 0
      allocate (land%cosz               (mwl)) ; land%cosz            = rinit
      allocate (land%gpp                (mwl)) ; land%gpp             = rinit

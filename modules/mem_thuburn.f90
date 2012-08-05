@@ -72,7 +72,7 @@ Contains
        allocate( scp_in_min      (mza,mwa)) ; scp_in_min       = rinit
        allocate( scp_in_max      (mza,mwa)) ; scp_in_max       = rinit
        allocate( tfact           (mza,mwa)) ; tfact            = rinit
-       allocate( kdepv           (mza,mva)) ; kdepv            = rinit
+       allocate( kdepv           (mza,mva)) ; kdepv            = 0
 
     endif
 

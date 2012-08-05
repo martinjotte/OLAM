@@ -420,7 +420,7 @@ subroutine makesfc()
   zemls(1:nma) = zem(1:nma)
   zmls (1:nma) = topm(1:nma)
 
-  do imls = 1, nma
+  do imls = 2, nma
      raxis = sqrt( xemls(imls)**2 + yemls(imls)**2 )
      glatmls(imls) = atan2( zemls(imls), raxis      ) * piu180
      glonmls(imls) = atan2( yemls(imls), xemls(imls)) * piu180

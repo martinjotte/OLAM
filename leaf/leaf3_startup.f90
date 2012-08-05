@@ -88,6 +88,7 @@ if (ndviflg == 2) then
 
    do iwl = 2,mwl
       land%veg_ndvip(iwl) = .5
+      land%veg_ndvif(iwl) = .5
       land%veg_ndvic(iwl) = .5
    enddo
 

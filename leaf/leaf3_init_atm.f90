@@ -227,7 +227,9 @@ do iwl = 2,mwl
 
 ! Default initialization of sfcwater_mass, soil_tempc, and soil_water
 
-   land%sfcwater_mass(1:nzs,iwl) = 0.
+   land%sfcwater_mass  (1:nzs,iwl) = 0.
+   land%sfcwater_energy(1:nzs,iwl) = 0.
+   land%sfcwater_depth (1:nzs,iwl) = 0.
 
    soil_tempc(1:nzg,iwl) = land%can_temp(iwl) - 273.15
    fracliq(1:nzg,iwl) = 1.0

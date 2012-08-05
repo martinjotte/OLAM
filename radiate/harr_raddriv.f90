@@ -133,7 +133,11 @@ pl (1) = pl(2) + (zml(1) - ztl(2)) / (ztl(2) - ztl(3)) * (pl(2) - pl(3))
 
 call rad_mclat(iw,nrad,koff,glatw(iw),dl,pl,rl,tl,o3l,zml,ztl,dzl)
 
-tl(1) = sqrt(sqrt((rlongup(iw) + rlong_previous * rlong_albedo(iw))/ stefan))
+if (time8 < 1.e-3) then
+   tl(1) = tl(2)
+else
+   tl(1) = sqrt(sqrt((rlongup(iw) + rlong_previous * rlong_albedo(iw))/ stefan))
+endif
 dl(1) = dl(2)
 rl(1) = rl(2)
 
@@ -149,7 +153,7 @@ call cloudprep_rad(iw,ka,mcat,jhcat,tairk,rhov,rx,cx,emb)
 
 ! Fill hydrometeor optical property arrays [tp, omgp, gp]
 
-call cloud_opt(iw,ka,nrad,koff,mcat,jhcat,cx,emb,tp,omgp,gp,real(time8))
+call cloud_opt(iw,ka,nrad,koff,mcat,jhcat,cx,emb,tp,omgp,gp)
 
 ! Get the path lengths for the various gases...
 
@@ -563,7 +567,7 @@ end subroutine cloudprep_rad
 
 !===============================================================================
 
-subroutine cloud_opt(iw,ka,nrad,koff,mcat,jhcat,cx,emb,tp,omgp,gp,time)
+subroutine cloud_opt(iw,ka,nrad,koff,mcat,jhcat,cx,emb,tp,omgp,gp)
 
 use mem_harr, only: mb, nb, ocoef, bcoef, gcoef, nsolb
 
@@ -609,8 +613,6 @@ integer, intent(in) :: ka
 integer, intent(in) :: nrad
 integer, intent(in) :: koff
 integer, intent(in) :: mcat
-
-real, intent(in) :: time
 
 integer, intent(in) :: jhcat(mza,ncat)
 

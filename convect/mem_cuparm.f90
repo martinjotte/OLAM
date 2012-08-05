@@ -71,7 +71,7 @@ Contains
        allocate (thsrc(mza,mwa)) ; thsrc  = rinit
        allocate (rtsrc(mza,mwa)) ; rtsrc  = rinit
        allocate (aconpr   (mwa)) ; aconpr = 0.0
-       allocate (conprr   (mwa)) ; conprr = rinit
+       allocate (conprr   (mwa)) ; conprr = 0.0
     endif
 
     ! Base tendency arrays for all shallow convective schemes

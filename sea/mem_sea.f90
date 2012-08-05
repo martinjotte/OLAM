@@ -248,13 +248,13 @@ Contains
      allocate (sea%sea_ustar     (mws)) ; sea%sea_ustar      = rinit
      allocate (sea%ice_ustar     (mws)) ; sea%ice_ustar      = rinit
 
-     allocate (sea%sxfer_t       (mws)) ; sea%sxfer_t        = rinit
-     allocate (sea%sea_sxfer_t   (mws)) ; sea%sea_sxfer_t    = rinit
-     allocate (sea%ice_sxfer_t   (mws)) ; sea%ice_sxfer_t    = rinit
+     allocate (sea%sxfer_t       (mws)) ; sea%sxfer_t        = 0.0
+     allocate (sea%sea_sxfer_t   (mws)) ; sea%sea_sxfer_t    = 0.0
+     allocate (sea%ice_sxfer_t   (mws)) ; sea%ice_sxfer_t    = 0.0
 
-     allocate (sea%sxfer_r       (mws)) ; sea%sxfer_r        = rinit
-     allocate (sea%sea_sxfer_r   (mws)) ; sea%sea_sxfer_r    = rinit
-     allocate (sea%ice_sxfer_r   (mws)) ; sea%ice_sxfer_r    = rinit
+     allocate (sea%sxfer_r       (mws)) ; sea%sxfer_r        = 0.0
+     allocate (sea%sea_sxfer_r   (mws)) ; sea%sea_sxfer_r    = 0.0
+     allocate (sea%ice_sxfer_r   (mws)) ; sea%ice_sxfer_r    = 0.0
 
      allocate (sea%sxfer_tsav    (mws)) ; sea%sxfer_tsav     = rinit
      allocate (sea%sxfer_rsav    (mws)) ; sea%sxfer_rsav     = rinit

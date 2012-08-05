@@ -225,8 +225,6 @@ do j = 1,jseaflux(1)%jend(mrl)
                 seaflux(isf)%ice_sfluxr, &
                 ustari                )
 
-      
-
       vkmsfc = (1.0 - sea%seaicec(iws)) * vkmsfcs + sea%seaicec(iws) * vkmsfci
       ustar0 = (1.0 - sea%seaicec(iws)) * ustars  + sea%seaicec(iws) * ustari
 
