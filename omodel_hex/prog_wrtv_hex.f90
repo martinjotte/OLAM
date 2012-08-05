@@ -41,7 +41,7 @@ use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, istp, itab_w, jtab_m, itab_m, &
                         mrl_begl, mrl_begs, mrl_ends, mrl_endl
 use mem_basic,    only: rho, thil, theta, wc, press, wmc, vmp, vmc, vp, vc, &
                         sh_w, sh_v, vxe, vye, vze, strict_wvt_donorpoint
-use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lcv, lpw, &
+use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, &
                         zt, zm, dzim, zfacit, dzm, dzt, dnv, dnu, arm0, arv, &
                         vnx, vny, vnz, volt, volwi
 use mem_tend,     only: vmt, vmxet, vmyet, vmzet
@@ -1062,7 +1062,7 @@ use mem_basic,   only: vp, vc, press, vmp, vmc, rho
 use misc_coms,   only: io6, dtsm, initial, mdomain, u01d, v01d, dn01d, &
                        deltax, nxp
 use consts_coms, only: erad, eradi
-use mem_grid,    only: lpv, lcv, lpw, volt, volvi, xev, yev, zev, &
+use mem_grid,    only: lpv, lpw, volt, volvi, xev, yev, zev, &
                        unx, uny, vnx, vny, vnz, mza, mva, mwa, dniv, arw0, dnu
 use mem_rayf,    only: rayf_distim, rayf_cof
 

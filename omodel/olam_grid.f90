@@ -684,7 +684,7 @@ subroutine gridfile_write()
   use mem_grid,   only: nza, nma, nua, nva, nwa, nsw_max, &
        zm, zt, dzm, dzt, dzim, dzit, &
        zfacm, zfact, zfacim, zfacit, &
-       lpm, lpu, lcu, lpv, lcv, lpw, lsw, &
+       lpm, lpu, lcu, lpv, lpw, lsw, &
        topm, topw, xem, yem, zem, xeu, yeu, zeu, &
        xev, yev, zev, xew, yew, zew, &
        unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
@@ -820,7 +820,6 @@ subroutine gridfile_write()
      idims(1) = nva
 
      call shdf5_orec(ndims, idims, 'LPV'  , ivara=lpv)
-     call shdf5_orec(ndims, idims, 'LCV'  , ivara=lcv)
      call shdf5_orec(ndims, idims, 'XEV'  , rvara=xev)
      call shdf5_orec(ndims, idims, 'YEV'  , rvara=yev)
      call shdf5_orec(ndims, idims, 'ZEV'  , rvara=zev)
@@ -2006,7 +2005,7 @@ use mem_grid,   only: nza, &
                       mza, mma, mua, mva, mwa, nsw_max, &
                       zm, zt, dzm, dzt, dzim, dzit, &
                       zfacm, zfact, zfacim, zfacit, &
-                      lpm, lpu, lcu, lpv, lcv, lpw, lsw, &
+                      lpm, lpu, lcu, lpv, lpw, lsw, &
                       topm, topw, xeu, yeu, zeu, &
                       xem, yem, zem, xev, yev, zev, xew, yew, zew, &
                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
@@ -2138,7 +2137,6 @@ if (exans) then
       idims(1) = mva
 
       call shdf5_irec(ndims, idims, 'LPV' , ivara=lpv, points=lgva)
-      call shdf5_irec(ndims, idims, 'LCV' , ivara=lcv, points=lgva)
       call shdf5_irec(ndims, idims, 'XEV' , rvara=xev, points=lgva)
       call shdf5_irec(ndims, idims, 'YEV' , rvara=yev, points=lgva)
       call shdf5_irec(ndims, idims, 'ZEV' , rvara=zev, points=lgva)

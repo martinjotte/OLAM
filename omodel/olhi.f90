@@ -38,7 +38,7 @@ use mem_micro,   only: sh_c
 use micro_coms,  only: level
 use mem_ijtabs,  only: jtab_w, jtab_u, itab_u, jtab_v, itab_v
 use consts_coms, only: p00, rocp, cvocp, p00k, rdry, rvap, alvlocp, gravo2
-use mem_grid,    only: mza, mua, mva, mwa, lcu, lcv, zt, dzt, zm, &
+use mem_grid,    only: mza, mua, mva, mwa, lcu, lpv, zt, dzt, zm, &
                        xeu, yeu, zeu, xev, yev, zev, unx, uny, vnx, vny, &
                        glatw, aru, arv
 use mem_zonavg,  only: zonz_vect, zonu_vect, zont_vect, zonr_vect,  &
@@ -285,9 +285,9 @@ else
 !x         endif
 !x      enddo
 
-! For below-ground points, set VC to LCV value.
+! For below-ground points, set VC to LPV value.
 
-      ka = lcv(iv)
+      ka = lpv(iv)
       vc(1:ka-1,iv) = vc(ka,iv)
 
    enddo

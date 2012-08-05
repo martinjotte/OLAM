@@ -37,7 +37,7 @@ use mem_basic,   only: umc, vmc, wmc, ump, vmp, uc, vc, wc, rho, press, &
                        thil, theta, sh_w, sh_v, vxe, vye, vze
 use mem_cuparm,  only: conprr, aconpr
 
-use mem_grid,    only: mza, mua, mva, mwa, lpm, lpu, lcu, lpv, lcv, lpw, lsw, &
+use mem_grid,    only: mza, mua, mva, mwa, lpm, lpu, lcu, lpv, lpw, lsw, &
                        zm, zt, dnu, dnv, arw0, arm0, aru, arv, arw, volt, &
                        volti, volui, volvi, volwi, xem, yem, zem, &
                        xeu, yeu, zeu, xev, yev, zev, xew, yew, zew, &
@@ -1906,8 +1906,8 @@ case(174) ! 'LPV'
    if (.not. allocated(lpv)) go to 1000
    fldval = real(lpv(i))
 case(175) ! 'LCV'
-   if (.not. allocated(lcv)) go to 1000
-   fldval = real(lcv(i))
+   if (.not. allocated(lpv)) go to 1000
+   fldval = real(lpv(i))
 case(176) ! 'LPW'
    fldval = real(lpw(i))
 case(177) ! 'LSW'

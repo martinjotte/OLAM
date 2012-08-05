@@ -412,7 +412,7 @@ subroutine tend0(rhot)
 
 use mem_ijtabs, only: jtab_w, jtab_v, istp, mrl_begl
 use var_tables, only: scalar_tab, num_scalar
-use mem_grid,   only: mza, mwa, mva, lcv, lpw
+use mem_grid,   only: mza, mwa, mva, lpv, lpw
 use mem_tend,   only: wmt, vmt, thilt, vmxet, vmyet, vmzet
 use misc_coms,  only: io6
 
@@ -467,7 +467,7 @@ if (mrl > 0) then
 do j = 1,jtab_v(11)%jend(mrl); iv = jtab_v(11)%iv(j)
 !----------------------------------------------------------------------
 call qsub('V',iv)
-   do k = lcv(iv),mza-1
+   do k = lpv(iv),mza-1
       vmt(k,iv) = 0.
    enddo
 enddo

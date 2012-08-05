@@ -1130,7 +1130,7 @@ subroutine ctrlvols_hex(quarter_kite)
 use mem_ijtabs,  only: jtab_m, jtab_v, jtab_w, itab_m, itab_v, itab_w
 use misc_coms,   only: io6, mdomain, itopoflg
 use consts_coms, only: erad
-use mem_grid,    only: nsw_max, nza, nma, nva, nwa, lpm, lpv, lcv, lpw, lsw,  &
+use mem_grid,    only: nsw_max, nza, nma, nva, nwa, lpm, lpv, lpw, lsw,  &
                        topm, topw, zm, dzt, zt, zfacm, zfact, dnu, dniu, dnv, &
                        arm0, arw0, arv, arw, volt, volti, volvi, volwi,  &
                        xew, yew, zew, glatw, glonw, glatm, glonm
@@ -1766,11 +1766,9 @@ call qsub('W',iw)
 enddo
 call rsub('W',3)
 
-! Expand ARV with height for spherical geometry; Compute VOLVI and LCV
+! Expand ARV with height for spherical geometry; Compute VOLVI
 
 volvi(1:nza,1:nva) = 1.e-9
-
-lcv(1:nva) = nza
 
 call psub()
 !----------------------------------------------------------------------
@@ -1788,14 +1786,8 @@ call qsub('V',iv)
       enddo
    endif
 
-   do k = nza-1,2,-1
-   
+   do k = 2, nza-1
       volvi(k,iv) = 1. / (farw1 * volt(k,iw1) + farw2 * volt(k,iw2))
-      
-      if (volvi(k,iv) < 1.e8) then
-         lcv(iv) = k
-      endif
-      
    enddo
 
    volvi(1  ,iv) = 1.e9

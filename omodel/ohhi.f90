@@ -318,7 +318,7 @@ use misc_coms,   only: io6, mdomain, th01d, pr01d, dn01d, rt01d, u01d, v01d,  &
                        iparallel, meshtype
 use consts_coms, only: cvocp, p00k, rdry, rvap, p00, rocp, alvlocp,  &
                        gravo2, erad
-use mem_grid,    only: mza, mua, mva, lpu, lpv, lcu, lcv, &
+use mem_grid,    only: mza, mua, mva, lpu, lpv, lcu, &
                        unx, uny, unz, vnx, vny, vnz, xeu, yeu, zeu, &
                        xev, yev, zev, aru, arv, volt, volui, volvi, dzt
 
@@ -638,9 +638,9 @@ else
 !x         endif
 !x      enddo
 
-! For below-ground points, set VC to LCV value.
+! For below-ground points, set VC to LPV value.
 
-      ka = lcv(iv)
+      ka = lpv(iv)
       vc(1:ka-1,iv) = vc(ka,iv)
 
    enddo

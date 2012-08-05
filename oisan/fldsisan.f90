@@ -38,7 +38,7 @@ use mem_nudge,   only: nudflag, nudnxp, mwnud, &
                        uzonal_obsf, umerid_obsf
 use mem_basic,   only: umc, ump, uc, vmc, vmp, vc, vp, thil, sh_w, sh_v, &
                        wmc, wc, theta, rho, press
-use mem_grid,    only: mza, mua, mva, mwa, lcu, lcv, lpw, zm, zt, &
+use mem_grid,    only: mza, mua, mva, mwa, lcu, lpv, lpw, zm, zt, &
                        unx, uny, unz, vnx, vny, vnz, xeu, yeu, zeu, &
                        xev, yev, zev, xew, yew, zew, aru, arv, volt
 use misc_coms,   only: io6, deltax, iparallel, runtype, &
@@ -195,9 +195,9 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
 !----------------------------------------------------------------------
       call qsub('V',iv)
 
-! For below-ground points, set VC to LCV value.
+! For below-ground points, set VC to LPV value.
 
-         ka = lcv(iv)
+         ka = lpv(iv)
          vc(1:ka-1,iv) = vc(ka,iv)
 
       enddo
