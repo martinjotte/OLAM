@@ -219,7 +219,7 @@ end subroutine
 
 subroutine shdf5_irec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
                                          ,ivars,rvars,cvars,dvars,lvars  &
-                                         ,points)
+                                         ,points,start,counts)
   use hdf5_f2f
   implicit none
 
@@ -236,6 +236,8 @@ subroutine shdf5_irec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
 
 ! Optional arrays to determine cells for partial/parallel IO
   integer,      intent(IN),  optional :: points(:)
+  integer,      intent(IN),  optional :: start (:)
+  integer,      intent(IN),  optional :: counts(:)
 
 ! Local variables
   integer :: hdferr  ! Error flag
@@ -249,7 +251,8 @@ subroutine shdf5_irec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
     
 ! Prepare file and memory space for the read
 
-  call fh5_prepare_read(dsetname, ndims, dims, hdferr, coords=points)
+  call fh5_prepare_read(dsetname, ndims, dims, hdferr, coords=points, &
+                        start=start, counts=counts)
   if (hdferr < 0) then
      print*,'shdf5_irec: can''t prepare requested field:',trim(dsetname)
      return

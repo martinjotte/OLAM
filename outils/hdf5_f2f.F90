@@ -100,6 +100,7 @@ contains
     integer(HID_T) :: access_id
     integer(HID_T) :: create_id
     integer        :: flags
+    integer        :: info, ierr
 
     create_id = H5P_DEFAULT_F
     access_id = H5P_DEFAULT_F
@@ -111,9 +112,22 @@ contains
        write(io6,*)
        write(io6,*) "Enabling parallel HDF5 output"
        write(io6,*)
+       
+       info = MPI_INFO_NULL
+
+#if defined(__HOS_AIX__) || defined(__TOS_AIX__) || defined(_AIX)
+       ! This improved performance with IBM's native GPFS driver
+       call MPI_Info_create(info, ierr)
+       call MPI_Info_set(info, "IBM_largeblock_io", "true", ierr)
+#endif
+
        call h5pcreate_f(H5P_FILE_ACCESS_F, access_id, hdferr)
-       call h5pset_fapl_mpio_f(access_id, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
-       ! call h5pset_fapl_mpiposix_f(access_id, MPI_COMM_WORLD, .true., hdferr)
+       call h5pset_fapl_mpio_f(access_id, MPI_COMM_WORLD, info, hdferr)
+
+#if defined(__HOS_AIX__) || defined(__TOS_AIX__) || defined(_AIX)
+       call MPI_Info_free(info, ierr)
+#endif
+
     endif
 #endif
 
@@ -134,7 +148,11 @@ contains
 
   subroutine fh5_prepare_write(ndims, dims, hdferr, icompress, &
                                mcoords, fcoords, ifsize)
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     use misc_coms, only: ipar_out
+#endif
+
     implicit none
 
     integer, intent(IN)           :: ndims
@@ -143,11 +161,10 @@ contains
     integer, intent(IN), optional :: icompress
     integer, intent(IN), optional :: mcoords(:), fcoords(:), ifsize
 
+    logical          :: docompress
     integer          :: i, j, iop
     integer(HSIZE_T) :: dims_file(ndims)
-    integer(HSIZE_T) :: offset1d(1), count1d(1)
-    integer(HSIZE_T) :: offset2d(2), count2d(2)
-    integer(HSIZE_T) :: offset3d(3), count3d(3)
+    integer(HSIZE_T) :: offset(ndims), countf(ndims)
 
     ! Output dimensions
 
@@ -163,7 +180,8 @@ contains
        dims_file(i) = dims(i)
     end do
    
-    ! For distributed output, global data size will be different!
+    ! For distributed output, global data (file) size will be different then
+    ! the local array size
 
     if (present(fcoords) .and. present(ifsize)) then
        dims_file(ndims) = ifsize
@@ -176,7 +194,19 @@ contains
     ! If no parallel IO, activate HDF5 compression for valid icompress
 
     if (present(icompress)) then
-       if (icompress > 0 .and. icompress < 10 .and. ipar_out /= 1) then
+
+       if (icompress > 0 .and. icompress < 10) then
+          docompress = .true.
+       else
+          docompress = .false.
+       endif
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+       ! Compression does not work with parallel output
+       if (ipar_out == 1) docompress = .false.
+#endif
+
+       if (docompress) then
           if (.not. (ndims == 1 .and. dimsf(1) == 1)) then
              call h5pset_chunk_f(propid, ndims, dimsf, hdferr)
              call h5pset_shuffle_f(propid, hdferr)
@@ -204,8 +234,8 @@ contains
 
     call h5screate_simple_f(ndims, dimsf, mspcid, hdferr)
 
-    ! If we are only writing a subset of the data, pick the points
-    ! that we will output
+    ! If we are only writing a subset of the local data,
+    ! select the points that we will output
 
     if (present(mcoords)) then
 
@@ -213,79 +243,41 @@ contains
 
           call h5sselect_none_f(mspcid, hdferr)
 
-       elseif (ndims == 1) then
-
-          offset1d = mcoords(1) - 1
-          count1d  = 1
-          iop      = H5S_SELECT_SET_F
-
-          do j = 2, size(mcoords)
-             if (mcoords(j) /= mcoords(j-1) + 1) then
-                call h5sselect_hyperslab_f(mspcid, iop, offset1d, &
-                     count1d, hdferr)
-                offset1d = mcoords(j) - 1
-                count1d  = 1
-                iop      = H5S_SELECT_OR_F
-             else
-                count1d  = count1d + 1
-             endif
-          enddo
-
-          call h5sselect_hyperslab_f(mspcid, iop, offset1d, count1d, hdferr)
-
-       elseif (ndims == 2) then
-
-          offset2d = (/ 0, mcoords(1)-1 /)
-          count2d  = (/ dims(1), 1 /)
-          iop      = H5S_SELECT_SET_F
-          
-          do j = 2, size(mcoords)
-             if (mcoords(j) /= mcoords(j-1) + 1) then
-                call h5sselect_hyperslab_f(mspcid, iop, offset2d, &
-                     count2d, hdferr)
-                offset2d(2) = mcoords(j) - 1
-                count2d(2)  = 1
-                iop         = H5S_SELECT_OR_F
-             else
-                count2d(2)  = count2d(2) + 1
-             endif
-          enddo
-          
-          call h5sselect_hyperslab_f(mspcid, iop, offset2d, count2d, hdferr)
-
-       elseif (ndims == 3) then
-
-          offset3d = (/ 0, 0, mcoords(1)-1 /)
-          count3d  = (/ dims(1), dims(2), 1 /)
-          iop      = H5S_SELECT_SET_F
-
-          do j = 2, size(mcoords)
-             if (mcoords(j) /= mcoords(j-1) + 1) then
-                call h5sselect_hyperslab_f(mspcid, iop, offset3d, &
-                     count3d, hdferr)
-                offset3d(3) = mcoords(j) - 1
-                count3d(3)  = 1
-                iop         = H5S_SELECT_OR_F
-             else
-                count3d(3)  = count3d(3) + 1
-             endif
-          enddo
-          
-          call h5sselect_hyperslab_f(mspcid, iop, offset3d, count3d, hdferr)
-
        else
+          
+          if (ndims > 1) then
+             offset(1:ndims-1) = 0
+             countf(1:ndims-1) = dims(1:ndims-1)
+          endif
+          
+          offset(ndims) = mcoords(1) - 1
+          countf(ndims) = 1
+          iop           = H5S_SELECT_SET_F
 
-          stop 'ndims > 3 using parallel I/O is not implemented'
+          ! Select a contiguous group of points as one slab for efficiency
+
+          do j = 2, size(mcoords)
+             if (mcoords(j) /= mcoords(j-1) + 1) then
+                call h5sselect_hyperslab_f(mspcid, iop, offset, countf, hdferr)
+                offset(ndims) = mcoords(j) - 1
+                countf(ndims) = 1
+                iop           = H5S_SELECT_OR_F
+             else
+                countf(ndims) = countf(ndims) + 1
+             endif
+          enddo
+
+          call h5sselect_hyperslab_f(mspcid, iop, offset, countf, hdferr)
           
        endif
              
     endif
 
-    ! Create the local data space for the data
+    ! Create the dataspace for the data
 
     call h5screate_simple_f(ndims, dims_file, dspcid, hdferr)
 
-    ! For parallel output, pick the points in the output file that
+    ! For parallel output, select the points in the output file that
     ! we will be writing to
 
     if (present(fcoords) .and. present(ifsize)) then
@@ -294,70 +286,32 @@ contains
 
           call h5sselect_none_f(dspcid, hdferr)
 
-       elseif (ndims == 1) then
-
-          offset1d = fcoords(1) - 1
-          count1d  = 1
-          iop      = H5S_SELECT_SET_F
-
-          do j = 2, size(fcoords)
-             if (fcoords(j) /= fcoords(j-1) + 1) then
-                call h5sselect_hyperslab_f(dspcid, iop, offset1d, &
-                     count1d, hdferr)
-                offset1d = fcoords(j) - 1
-                count1d  = 1
-                iop      = H5S_SELECT_OR_F
-             else
-                count1d  = count1d + 1
-             endif
-          enddo
-
-          call h5sselect_hyperslab_f(dspcid, iop, offset1d, count1d, hdferr)
-
-       elseif (ndims == 2) then
-
-          offset2d = (/ 0, fcoords(1)-1/)
-          count2d  = (/ dims(1), 1 /)
-          iop      = H5S_SELECT_SET_F
-          
-          do j = 2, size(fcoords)
-             if (fcoords(j) /= fcoords(j-1) + 1) then
-                call h5sselect_hyperslab_f(dspcid, iop, offset2d, &
-                     count2d, hdferr)
-                offset2d(2) = fcoords(j) - 1
-                count2d(2)  = 1
-                iop         = H5S_SELECT_OR_F
-             else
-                count2d(2)  = count2d(2) + 1
-             endif
-          enddo
-          
-          call h5sselect_hyperslab_f(dspcid, iop, offset2d, count2d, hdferr)
-
-       elseif (ndims == 3) then
-
-          offset3d = (/ 0, 0, fcoords(1)-1 /)
-          count3d  = (/ dims(1), dims(2), 1 /)
-          iop      = H5S_SELECT_SET_F
-
-          do j = 2, size(fcoords)
-             if (fcoords(j) /= fcoords(j-1) + 1) then
-                call h5sselect_hyperslab_f(dspcid, iop, offset3d, &
-                     count3d, hdferr)
-                offset3d(3) = fcoords(j) - 1
-                count3d(3)  = 1
-                iop         = H5S_SELECT_OR_F
-             else
-                count3d(3)  = count3d(3) + 1
-             endif
-          enddo
-          
-          call h5sselect_hyperslab_f(dspcid, iop, offset3d, count3d, hdferr)
-
        else
 
-          stop 'ndims > 3 using parallel I/O is not implemented'
+          if (ndims > 1) then
+             offset(1:ndims-1) = 0
+             countf(1:ndims-1) = dims(1:ndims-1)
+          endif
           
+          offset(ndims) = fcoords(1) - 1
+          countf(ndims) = 1
+          iop           = H5S_SELECT_SET_F
+
+          ! Select a contiguous group of points as one slab for efficiency
+
+          do j = 2, size(fcoords)
+             if (fcoords(j) /= fcoords(j-1) + 1) then
+                call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
+                offset(ndims) = fcoords(j) - 1
+                countf(ndims) = 1
+                iop           = H5S_SELECT_OR_F
+             else
+                countf(ndims) = countf(ndims) + 1
+             endif
+          enddo
+          
+          call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
+
        endif
              
     endif
@@ -384,7 +338,6 @@ contains
 
 
   subroutine fh5_write_real_array(buf_real, dname, hdferr)
-    use mem_basic, only: uc
     implicit none
  
     real,         intent(IN)  :: buf_real(*)
@@ -799,7 +752,8 @@ contains
 
 
 
-  subroutine fh5_prepare_read(dname, ndims, dims, hdferr, coords)
+  subroutine fh5_prepare_read(dname, ndims, dims, hdferr, coords, &
+                              start, counts)
     implicit none
 
     character(*),      intent(IN)  :: dname
@@ -807,11 +761,11 @@ contains
     integer,           intent(IN)  :: dims(:)
     integer,           intent(OUT) :: hdferr
     integer, optional, intent(IN)  :: coords(:)
+    integer, optional, intent(IN)  :: start(:)
+    integer, optional, intent(IN)  :: counts(:)
     integer                        :: i, j, k, ndims_file, iop
     integer(HSIZE_T)               :: dims_file(7), maxdims_file(7)
-    integer(HSIZE_T)               :: offset1d(1), count1d(1)
-    integer(HSIZE_T)               :: offset2d(2), count2d(2)
-    integer(HSIZE_T)               :: offset3d(3), count3d(3)
+    integer(HSIZE_T)               :: offset(ndims), countf(ndims)
 
     dimsf  = 1
     ndimsf = ndims
@@ -840,7 +794,8 @@ contains
 
     call h5screate_simple_f(ndims, dimsf, mspcid, hdferr)
 
-    ! if coords is present select the points on dataspace
+    ! If coords is present as an argument, use it to select the points
+    ! in the file "dataspace" that we want to read
 
     if (present(coords)) then
 
@@ -855,81 +810,67 @@ contains
 
        call h5sget_simple_extent_ndims_f(dspcid, ndims_file, hdferr)
        call h5sget_simple_extent_dims_f(dspcid, dims_file, maxdims_file, hdferr)
-       
-       ! if the number of points we want is less than that in the file,
-       ! select the points we want (else just read the entire dataspace)
 
-       if (dims(ndims) < dims_file(ndims)) then
+       if (size(coords) == 0) then
 
-          if (ndims == 1) then
+          call h5sselect_none_f(dspcid, hdferr)
 
-             offset1d = coords(1) - 1
-             count1d  = 1
-             iop      = H5S_SELECT_SET_F
+       else if (dims(ndims) < dims_file(ndims)) then
 
-             do j = 2, size(coords)
-                if (coords(j) /= coords(j-1) + 1) then
-                   call h5sselect_hyperslab_f(dspcid, iop, offset1d, &
-                        count1d, hdferr)
-                   offset1d = coords(j) - 1
-                   count1d  = 1
-                   iop      = H5S_SELECT_OR_F
-                else
-                   count1d  = count1d + 1
-                endif
-             enddo
+          ! If the number of points we want is less than that in the file,
+          ! select the points we want (else we read the entire dataspace)
 
-             call h5sselect_hyperslab_f(dspcid, iop, offset1d, count1d, hdferr)
-
-          else if (ndims == 2) then
-
-             offset2d = (/ 0, coords(1)-1/)
-             count2d  = (/ dims(1), 1 /)
-             iop      = H5S_SELECT_SET_F
-             
-             do j = 2, size(coords)
-                if (coords(j) /= coords(j-1) + 1) then
-                   call h5sselect_hyperslab_f(dspcid, iop, offset2d, &
-                        count2d, hdferr)
-                   offset2d(2) = coords(j) - 1
-                   count2d(2)  = 1
-                   iop         = H5S_SELECT_OR_F
-                else
-                   count2d(2)  = count2d(2) + 1
-                endif
-             enddo
-
-             call h5sselect_hyperslab_f(dspcid, iop, offset2d, count2d, hdferr)
-
-          else if (ndims == 3) then
-
-             offset3d = (/ 0, 0, coords(1)-1 /)
-             count3d  = (/ dims(1), dims(2), 1 /)
-             iop      = H5S_SELECT_SET_F
-
-             do j = 2, size(coords)
-                if (coords(j) /= coords(j-1) + 1) then
-                   call h5sselect_hyperslab_f(dspcid, iop, offset3d, &
-                        count3d, hdferr)
-                   offset3d(3) = coords(j) - 1
-                   count3d(3)  = 1
-                   iop         = H5S_SELECT_OR_F
-                else
-                   count3d(3)  = count3d(3) + 1
-                endif
-             enddo
-             
-             call h5sselect_hyperslab_f(dspcid, iop, offset3d, count3d, hdferr)
-
-          else
-
-             stop 'ndims > 3 using partial I/O is not implemented'
-
+          if (ndims > 1) then
+             offset(1:ndims-1) = 0
+             countf(1:ndims-1) = dims(1:ndims-1)
           endif
+          
+          offset(ndims) = coords(1) - 1
+          countf(ndims) = 1
+          iop           = H5S_SELECT_SET_F
+
+          ! Select a contiguous group of points as one slab for efficiency
+
+          do j = 2, size(coords)
+             if (coords(j) /= coords(j-1) + 1) then
+                call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
+                offset(ndims) = coords(j) - 1
+                countf(ndims) = 1
+                iop           = H5S_SELECT_OR_F
+             else
+                countf(ndims) = countf(ndims) + 1
+             endif
+          enddo
+
+          call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
+
        endif
+
+    else if (present(start) .and. present(counts)) then
+
+       ! If start and count are present, select the slab to read
+       ! based on the start point (offset in file) and 
+       ! the count (number to read in each dimension)
+          
+       if (size(start) >= ndims .and. size(counts) >= ndims) then
+          
+          offset(1:ndims) = start (1:ndims) - 1
+          countf(1:ndims) = counts(1:ndims)
+
+          if ( all(offset >= 0) .and. all(countf >= 1) ) then
+             call h5sselect_hyperslab_f(dspcid, H5S_SELECT_SET_F, offset, countf, hdferr)
+          else
+             write(*,*) "Error in fh5_prepare_read:"
+             write(*,*) "Invalid start and count values"
+          endif
+
+       else
+          write(*,*) "Error in fh5_prepare_read:"
+          write(*,*) "Invalid start and count dimensions"
+       endif
+
     endif
 
-    return
   end subroutine fh5_prepare_read
 
 
@@ -943,7 +884,6 @@ contains
     call h5sclose_f(dspcid, hdferr)
     call h5dclose_f(dsetid, hdferr)
 
-    return
   end subroutine fh5_close_read
 
 
