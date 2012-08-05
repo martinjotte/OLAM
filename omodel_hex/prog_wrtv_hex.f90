@@ -585,7 +585,7 @@ integer, intent(in) :: iw
 
 integer :: iv, iwn, k, ka, kb, npoly, jv
 real    :: fracx, rayfx
-real    :: arvkodx, qdniv
+real    :: arvkodx, hdniv
 
 ! Automatic arrays:
 
@@ -609,15 +609,15 @@ do jv = 1,npoly
    iv  = itab_w(iw)%iv(jv)
    iwn = itab_w(iw)%iw(jv)
    ka  = lpv(iv)
-   qdniv = .25 * dniv(iv)
+   hdniv = .5 * dniv(iv)
 
 ! Vertical loop over T levels
 
-   do k = ka,mza-1
+   do k = ka, mza-1
 
 ! Horizontal diffusive flux coefficient
 
-      arvkodx = qdniv * arv(k,iv) * (hkm(k,iwn) + hkm(k,iw))
+      arvkodx = hdniv * arv(k,iv) * (hkm(k,iwn) + hkm(k,iw))
 
 ! Compute and sum horizontal diffusive flux across this V neighbor
 

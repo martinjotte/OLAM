@@ -73,8 +73,8 @@ use misc_coms,   only: io6, dtlm, meshtype
 use mem_basic,   only: rho, thil
 use mem_turb,    only: vkh, hkm, sxfer_tk, sxfer_rk, fthpbl
 use mem_tend,    only: thilt
-use mem_grid,    only: mza, mwa, lpw, lsw, arw, dzim, volt, volti, &
-                       aru, arv, dniu, dniv
+use mem_grid,    only: mza, mwa, arw, dzim, volt, volti, &
+                       aru, arv, dniu, dniv, lpu, lpv
 use massflux,    only: tridiffo
 
 implicit none
@@ -94,9 +94,8 @@ real :: hdniu, hdniv, hflux
 real, dimension(mza) :: akodz,dtomass,vctr1,vctr5  &
                        ,vctr6,vctr7,vctr8,vctr9,del_thil
 
-dtl = dtlm(itab_w(iw)%mrlw)
+dtl  = dtlm(itab_w(iw)%mrlw)
 dtli = 1. / dtl
-ka = lpw(iw)
 
 ! Sum horizontal diffusive fluxes 
 
@@ -109,13 +108,14 @@ if (meshtype == 1) then
 
 ! If mesh is triangular, loop over U neighbors of this W cell
 
-   do j = 1,npoly
+   do j = 1, npoly
       iu  = itab_w(iw)%iu(j)
       iwn = itab_w(iw)%iw(j)
+      ka  = lpu(iu)
 
       hdniu = .5 * dniu(iu)  ! use this 1/dx form now - it seems better than A/V
 
-      do k = ka,mza-1
+      do k = ka, mza-1
 
 ! Horizontal turbulent flux across ARU
 
@@ -130,13 +130,14 @@ else
 
 ! If mesh is hexagonal, loop over V neighbors of this W cell
 
-   do j = 1,npoly
+   do j = 1, npoly
       iv  = itab_w(iw)%iv(j)
       iwn = itab_w(iw)%iw(j)
+      ka  = lpv(iv)
 
       hdniv = .5 * dniv(iv)  ! use this 1/dx form now - it seems better than A/V
 
-      do k = ka,mza-1
+      do k = ka, mza-1
 
 ! Horizontal turbulent flux across ARV
 
