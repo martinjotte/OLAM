@@ -1168,7 +1168,7 @@ real :: facj1,facj2,faci1,faci2
 real :: del_arw,v_height
 
 real :: fuv(16)
-
+real(8) :: facw
 real :: az,bz,cz,xq(3),yq(3),zq(3),fracz
 
 !!!!!!!!!!!!! end special
@@ -1405,8 +1405,8 @@ else  ! isfcl = 1
 ! Adjust topography information that was read from LANDFILE and SEAFILE,
 ! if necessary, to prevent values less than lowest model level zm(1)
 
-   land%zm(1:nml) = max(land%zm(1:nml), zm(1))
-   sea%zm (1:nms) = max( sea%zm(1:nms), zm(1))
+   land%zm(2:nml) = max(land%zm(2:nml), zm(1))
+   sea%zm (2:nms) = max( sea%zm(2:nms), zm(1))
 
 !Fill TOPM and TOPW from surface file topography.
 ! Determine and initialize flux cells for entire model domain.
@@ -1425,6 +1425,7 @@ call psub()
 !----------------------------------------------------------------------
 do j = 1,jtab_v(1)%jend(1); iv = jtab_v(1)%iv(j)
    im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2)
+   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
 call qsub('V',iv)
 
@@ -1449,8 +1450,14 @@ call qsub('V',iv)
       do k = nza,2,-1
          km = k - 1
 
-         if (zm(k) <= hmin) then
+         if (volt(k,iw1) < 1.e-9 .or. volt(k,iw2) < 1.e-9) then
 
+            ! close V if either T neighbor is completely closed
+            arv(k,iv) = 0.
+
+         elseif (zm(k) <= hmin) then
+
+            ! close V if below terrain height
             arv(k,iv) = 0.
 
          elseif (zm(km) >= hmax) then
@@ -1487,14 +1494,6 @@ call qsub('V',iv)
 
    endif ! j,iv
 
-! Expand ARV with height for spherical geometry
-
-   if (mdomain < 2) then
-      do k = 2,nza
-         arv(k,iv) = arv(k,iv) * zfact(k)
-      enddo
-   endif
-
 enddo
 call rsub('V',1)
 
@@ -1515,7 +1514,7 @@ call qsub('V',iv)
 enddo
 call rsub('V',3)
 
-! Expand ARW and VOLT with height for spherical geometry, and compute VOLTI
+! Topographic adjustments to ARW and VOLT...
 
 call psub()
 !----------------------------------------------------------------------
@@ -1531,10 +1530,9 @@ call qsub('W',iw)
 
    do k = 2,nza
 
-      if (volt(k,iw) > 1.e-9) then
-         arw (k,iw) = arw (k,iw) * zfacm(k)**2
-         volt(k,iw) = volt(k,iw) * zfact(k)**2
-      else
+! Close top area of T cell if volume is zero
+
+      if (volt(k,iw) < 1.e-9) then
          arw (k,iw) = 0.
          volt(k,iw) = 1.e-9
       endif
@@ -1543,18 +1541,26 @@ call qsub('W',iw)
 !go to 1
 ! Option for stability: expand volt if too small relative to any grid cell face
  
-      volt(k,iw) = max( volt(k,iw), real(arw(k,iw),8) * dzt(k))
+      volt(k,iw) = max(volt(k,iw), 0.5_8 * real(dzt(k) * (arw(k,iw) + arw(k-1,iw)), 8))
 
 ! Loop over faces of IW polygon
 
+      facw = 0.0_8
+
       do jv = 1,npoly
          iv = itab_w(iw)%iv(jv)
-         
-         v_height = arv(k,iv) / dnu(iv)
-         
-         volt(k,iw) = max( volt(k,iw), real(arw0(iw),8) * zfact(k) * v_height)
 
+         ! new way: each V face contributes to open up its fraction farv 
+         ! of the current polygon:
+         facw = facw + itab_w(iw)%farv(jv) * arv(k,iv) / (dnu(iv) * dzt(k))
+         
+         ! old way: each V face contributes to open up the entire polygon
+         ! v_height = arv(k,iv) / dnu(iv)
+         ! volt(k,iw) = max( volt(k,iw), real(arw0(iw),8) * v_height)
       enddo
+
+      facw = max( min(facw,1.0_8), 0.0_8)
+      volt(k,iw) = max( volt(k,iw), facw * real(arw0(iw),8) * real(dzt(k),8) )
       
 ! Reset arw(k,iw) if we increased volt to avoid hollow box
 
@@ -1571,8 +1577,6 @@ call qsub('W',iw)
 1 continue
 
 !xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-      volti(k,iw) = 1. / volt(k,iw)
 
    enddo  ! k
 
@@ -1654,11 +1658,8 @@ call qsub('W',iw)
    do k = 2,nza
 
       if (k < lpw(iw)) then
-
          arw (k,iw) = 0.
          volt(k,iw) = 1.e-9
-         volti(k,iw) = 1.e9
-
       endif
 
    enddo  ! k
@@ -1680,7 +1681,7 @@ call qsub('W',iw)
 
 ! Increase LSW if K-1 W level intersects topography in this cell
 
-      if (arw(k,iw) > 0. .and. arw(k,iw) < .999 * arw0(iw) * zfacm(k)**2) then
+      if (arw(k,iw) > 0. .and. arw(k,iw) < .999 * arw0(iw)) then
          lsw(iw) = lsw(iw) + 1
       endif
 
@@ -1690,59 +1691,8 @@ call qsub('W',iw)
 
    if (lsw(iw) > nsw_max) nsw_max = lsw(iw)
 
-! VOLWI from VOLT
-
-   do k = 2,nza
-      kp = min(k+1,nza)
-      volwi(k,iw) = 2. / (volt(k,iw) + volt(kp,iw)) 
-   enddo
-
-! modify volwi for lpw and lpw-1 levels
-
-   ka = lpw(iw)
-   volwi(ka,iw)   = 1. / (volt(ka,iw) + .5 * volt(ka+1,iw))
-   volwi(ka-1,iw) = 1. / (.5 * volt(ka,iw))
-
 enddo
 call rsub('W',3)
-
-! VOLVI, LCV
-
-volvi(1:nza,1:nva) = 1.e-9
-
-lcv(1:nva) = nza
-
-call psub()
-!----------------------------------------------------------------------
-do j = 1,jtab_v(4)%jend(1); iv = jtab_v(4)%iv(j)
-iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-iv1  = itab_v(iv)%iv(1);  iv2  = itab_v(iv)%iv(2);  iv3  = itab_v(iv)%iv(3)
-iv4  = itab_v(iv)%iv(4);  iv5  = itab_v(iv)%iv(5);  iv8  = itab_v(iv)%iv(8)
-iv9  = itab_v(iv)%iv(9);  iv12 = itab_v(iv)%iv(12); iv13 = itab_v(iv)%iv(13)
-iv14 = itab_v(iv)%iv(14); iv15 = itab_v(iv)%iv(15); iv16 = itab_v(iv)%iv(16)
-!----------------------------------------------------------------------
-call qsub('V',iv)
-
-   farw1 = itab_v(iv)%farw(1)
-   farw2 = itab_v(iv)%farw(2)
-
-   fuv(1:16) = itab_v(iv)%fuv(1:16)
-
-   do k = nza-1,2,-1
-   
-      volvi(k,iv) = 1. / (farw1 * volt(k,iw1) + farw2 * volt(k,iw2))
-      
-      if (volvi(k,iv) < 1.e8) then
-         lcv(iv) = k
-      endif
-      
-   enddo
-
-   volvi(1  ,iv) = 1.e9
-   volvi(nza,iv) = 1.e9
-
-enddo
-call rsub('V',4)
 
 ! In case ARW has been reset to 0 anywhere (because it was nearly zero), 
 ! transfer the seaflux and landflux cell values to KW = LPW(IW).
@@ -1766,6 +1716,93 @@ if (isfcl == 1) then
    enddo
 
 endif
+
+! Expand ARW and VOLT with height for spherical geometry, and compute VOLTI
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_w(3)%jend(1); iw = jtab_w(3)%iw(j)
+!----------------------------------------------------------------------
+call qsub('W',iw)
+
+! Loop over vertical levels
+
+   do k = 2,nza
+         
+      if (volt(k,iw) > 1.e-9) then
+         if (mdomain < 2) then
+            arw (k,iw) = arw (k,iw) * zfacm(k)**2
+            volt(k,iw) = volt(k,iw) * zfact(k)**2
+         endif
+      else
+         arw (k,iw) = 0.
+         volt(k,iw) = 1.e-9
+      endif
+
+      volti(k,iw) = 1. / volt(k,iw)
+
+   enddo  ! k
+
+! VOLWI from VOLT
+
+   do k = 2,nza
+      kp = min(k+1,nza)
+      volwi(k,iw) = 2. / (volt(k,iw) + volt(kp,iw)) 
+   enddo
+
+! modify volwi for lpw and lpw-1 levels
+
+   ka = lpw(iw)
+   volwi(ka,iw)   = 1. / (volt(ka,iw) + .5 * volt(ka+1,iw))
+   volwi(ka-1,iw) = 1. / (.5 * volt(ka,iw))
+
+! Set arw = 0 for bottom (k = 1), wall-on-top (k = nza-1), 
+! and top (k = nza) levels
+
+   arw(1,iw) = 0.   
+   arw(nza-1,iw) = 0.   
+   arw(nza,iw) = 0.   
+
+enddo
+call rsub('W',3)
+
+! Expand ARV with height for spherical geometry; Compute VOLVI and LCV
+
+volvi(1:nza,1:nva) = 1.e-9
+
+lcv(1:nva) = nza
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_v(4)%jend(1); iv = jtab_v(4)%iv(j)
+iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+!----------------------------------------------------------------------
+call qsub('V',iv)
+
+   farw1 = itab_v(iv)%farw(1)
+   farw2 = itab_v(iv)%farw(2)
+
+   if (mdomain < 2) then
+      do k = 2,nza
+         arv(k,iv) = arv(k,iv) * zfact(k)
+      enddo
+   endif
+
+   do k = nza-1,2,-1
+   
+      volvi(k,iv) = 1. / (farw1 * volt(k,iw1) + farw2 * volt(k,iw2))
+      
+      if (volvi(k,iv) < 1.e8) then
+         lcv(iv) = k
+      endif
+      
+   enddo
+
+   volvi(1  ,iv) = 1.e9
+   volvi(nza,iv) = 1.e9
+
+enddo
+call rsub('V',4)
 
 return
 end subroutine ctrlvols_hex
