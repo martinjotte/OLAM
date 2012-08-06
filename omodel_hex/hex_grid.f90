@@ -1419,7 +1419,7 @@ endif
 
 ! ARV
 
-write(io6,*) 'Defining contol volume areas'
+write(io6,*) 'Defining control volume areas'
 
 call psub()
 !----------------------------------------------------------------------
@@ -1450,7 +1450,7 @@ call qsub('V',iv)
       do k = nza,2,-1
          km = k - 1
 
-         if (volt(k,iw1) < 1.e-9 .or. volt(k,iw2) < 1.e-9) then
+         if (volt(k,iw1) <= 1.e-9 .or. volt(k,iw2) <= 1.e-9) then
 
             ! close V if either T neighbor is completely closed
             arv(k,iv) = 0.

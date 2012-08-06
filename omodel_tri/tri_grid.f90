@@ -1009,8 +1009,8 @@ else  ! isfcl = 1
 ! Adjust topography information that was read from LANDFILE and SEAFILE,
 ! if necessary, to prevent values less than lowest model level zm(1)
 
-   land%zm(1:nml) = max(land%zm(1:nml), zm(1))
-   sea%zm (1:nms) = max( sea%zm(1:nms), zm(1))
+   land%zm(2:nml) = max(land%zm(2:nml), zm(1))
+   sea%zm (2:nms) = max( sea%zm(2:nms), zm(1))
 
 !Fill TOPM and TOPW from surface file topography.
 ! Determine and initialize flux cells for entire model domain.
@@ -1025,12 +1025,13 @@ endif
 
 do ipass = 1,npass
 
-   write(io6,*) 'Defining contol volume areas: ipass = ',ipass
+   write(io6,*) 'Defining control volume areas: ipass = ',ipass
 
    call psub()
 !----------------------------------------------------------------------
    do j = 1,jtab_u(1)%jend(1); iu = jtab_u(1)%iu(j)
       im1 = itab_u(iu)%im(1); im2 = itab_u(iu)%im(2)
+      iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
    call qsub('U',iu)
 
@@ -1055,8 +1056,13 @@ do ipass = 1,npass
 
          do k = nza,2,-1
             km = k - 1
+            
+            if (volt(k,iw1) <= 1.e-9 .or. volt(k,iw2) <= 1.e-9) then
 
-            if (zm(k) <= hmin) then
+               ! close U if either T neighbor is completely closed
+               aru(k,iu) = 0.
+
+            elseif (zm(k) <= hmin) then
 
                aru(k,iu) = 0.
 
@@ -1108,12 +1114,6 @@ do ipass = 1,npass
 
       endif
 
-! Expand ARU with height in case of spherical geometry
-
-      do k = 2,nza
-         aru(k,iu) = aru(k,iu) * zfact(k)
-      enddo
-
    enddo
    call rsub('U',1)
 
@@ -1136,7 +1136,7 @@ call qsub('U',iu)
 enddo
 call rsub('U',3)
 
-! Expand ARW and VOLT with height for spherical geometry, and compute VOLTI
+! Topographic adjustments to ARW and VOLT...
 
 call psub()
 !----------------------------------------------------------------------
@@ -1152,10 +1152,9 @@ call qsub('W',iw)
 
    do k = 2,nza
 
-      if (volt(k,iw) > 1.e-9) then
-         arw (k,iw) = arw (k,iw) * zfacm(k)**2
-         volt(k,iw) = volt(k,iw) * zfact(k)**2
-      else
+! Close top area of T cell if volume is zero
+
+      if (volt(k,iw) < 1.e-9) then
          arw (k,iw) = 0.
          volt(k,iw) = 1.e-9
       endif
@@ -1164,7 +1163,7 @@ call qsub('W',iw)
 !go to 1
 ! Option for stability: expand volt if too small relative to any grid cell face
  
-      volt(k,iw) = max(volt(k,iw),real(arw(k,iw),8) * dzt(k))
+      volt(k,iw) = max(volt(k,iw), 0.5_8 * real(dzt(k) * (arw(k,iw) + arw(k-1,iw)), 8))
 
 ! Loop over faces of IW polygon
 
@@ -1173,7 +1172,7 @@ call qsub('W',iw)
          
          u_height = aru(k,iu) / dnv(iu)
          
-         volt(k,iw) = max(volt(k,iw), real(arw0(iw),8) * zfact(k) * u_height)
+         volt(k,iw) = max(volt(k,iw), real(arw0(iw),8) * u_height)
 
       enddo
 
@@ -1190,10 +1189,7 @@ call qsub('W',iw)
       endif
 
 1 continue
-
 !xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-      volti(k,iw) = 1. / volt(k,iw)
 
    enddo  ! k
 
@@ -1241,7 +1237,6 @@ call qsub('W',iw)
       if (lpw(iw) > k) then
          arw  (k,iw) = 0.     ! close area if all surrounding U's are closed
          volt (k,iw) = 1.e-9  ! close volume if all surrounding U's are closed
-         volti(k,iw) = 1.e9   ! close volume if all surrounding U's are closed
       endif
 
       if (k < nza-1 .and. lpw(iw) <= k .and. arw(k,iw) == 0.) then
@@ -1252,7 +1247,7 @@ call qsub('W',iw)
 
 ! Increase LSW if K-1 W level intersects topography in this cell
 
-      if (arw(k,iw) > 0. .and. arw(k,iw) < .999 * arw0(iw) * zfacm(k)**2) then
+      if (arw(k,iw) > 0. .and. arw(k,iw) < .999 * arw0(iw)) then
          lsw(iw) = lsw(iw) + 1
       endif
 
@@ -1264,52 +1259,6 @@ call qsub('W',iw)
 
 enddo
 call rsub('W',6)
-
-! VOLUI from VOLT
-
-lcu(1:nua) = nza
-
-call psub()
-!----------------------------------------------------------------------
-do j = 1,jtab_u(4)%jend(1); iu = jtab_u(4)%iu(j)
-   iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
-!----------------------------------------------------------------------
-call qsub('U',iu)
-
-   do k = nza,2,-1
-      volui(k,iu) = 1. / (volt(k,iw1) + volt(k,iw2))      
-
-      if (volt(k,iw1) + volt(k,iw2) > 1.e-8) then
-         lcu(iu) = k
-      endif
-   enddo
-
-   volui(1,iu) = 1.e9
-
-enddo
-call rsub('U',4)
-
-! VOLWI from VOLT
-
-call psub()
-!----------------------------------------------------------------------
-do j = 1,jtab_w(5)%jend(1); iw = jtab_w(5)%iw(j)
-!----------------------------------------------------------------------
-call qsub('W',iw)
-
-   do k = 2,nza
-      kp = min(k+1,nza)
-      volwi(k,iw) = 2. / (volt(k,iw) + volt(kp,iw)) 
-   enddo
-
-! modify volwi for lpw and lpw-1 levels
-
-   ka = lpw(iw)
-   volwi(ka,iw)   = 1. / (volt(ka,iw) + .5 * volt(ka+1,iw))
-   volwi(ka-1,iw) = 1. / (.5 * volt(ka,iw))
-
-enddo
-call rsub('W',5)
 
 ! In case ARW has been reset to 0 anywhere (because it was nearly zero), 
 ! transfer the seaflux and landflux cell values to KW = LPW(IW).
@@ -1333,6 +1282,87 @@ if (isfcl == 1) then
    enddo
 
 endif
+
+! Expand ARW and VOLT with height for spherical geometry, and compute VOLTI
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_w(5)%jend(1); iw = jtab_w(5)%iw(j)
+!----------------------------------------------------------------------
+call qsub('W',iw)
+
+! Loop over vertical levels
+
+   do k = 2,nza
+         
+      if (volt(k,iw) > 1.e-9) then
+         if (mdomain < 2) then
+            arw (k,iw) = arw (k,iw) * zfacm(k)**2
+            volt(k,iw) = volt(k,iw) * zfact(k)**2
+         endif
+      else
+         arw (k,iw) = 0.
+         volt(k,iw) = 1.e-9
+      endif
+
+      volti(k,iw) = 1. / volt(k,iw)
+
+   enddo  ! k
+
+! VOLWI from VOLT
+
+   do k = 2,nza
+      kp = min(k+1,nza)
+      volwi(k,iw) = 2. / (volt(k,iw) + volt(kp,iw)) 
+   enddo
+
+! modify volwi for lpw and lpw-1 levels
+
+   ka = lpw(iw)
+   volwi(ka,iw)   = 1. / (volt(ka,iw) + .5 * volt(ka+1,iw))
+   volwi(ka-1,iw) = 1. / (.5 * volt(ka,iw))
+
+! Set arw = 0 for bottom (k = 1), wall-on-top (k = nza-1), 
+! and top (k = nza) levels
+
+   arw(1,iw) = 0.   
+   arw(nza-1,iw) = 0.   
+   arw(nza,iw) = 0.   
+
+enddo
+call rsub('W',5)
+
+! Expand ARU with height for spherical geometry; Compute VOLUI
+
+volui(1:nza,1:nua) = 1.e-9
+lcu(1:nua) = nza
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_u(4)%jend(1); iu = jtab_u(4)%iu(j)
+   iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
+!----------------------------------------------------------------------
+call qsub('U',iu)
+
+   if (mdomain < 2) then
+      do k = 2,nza
+         aru(k,iu) = aru(k,iu) * zfact(k)
+      enddo
+   endif
+
+   do k = nza,2,-1
+      volui(k,iu) = 1. / (volt(k,iw1) + volt(k,iw2))      
+
+      if (volt(k,iw1) + volt(k,iw2) > 1.e-8) then
+         lcu(iu) = k
+      endif
+   enddo
+
+   volui(1  ,iu) = 1.e9
+   volui(nza,iu) = 1.e9
+
+enddo
+call rsub('U',4)
 
 return
 end subroutine ctrlvols_tri
