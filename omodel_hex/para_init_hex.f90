@@ -215,9 +215,9 @@ do iv = 1,nva
       itabg_v(iv)%iv_myrank = iv_myrank
       
 ! Fill itabg_v(iv)%iv_myrank value for IVP point
-
-      ivp = itab_v_pd(iv)%ivp
-      itabg_v(ivp)%iv_myrank = iv_myrank
+!
+!     ivp = itab_v_pd(iv)%ivp
+!     itabg_v(ivp)%iv_myrank = iv_myrank
    endif
 enddo
 
@@ -228,9 +228,9 @@ do iw = 1,nwa
       itabg_w(iw)%iw_myrank = iw_myrank      
 
 ! Fill itabg_w(iw)%iw_myrank value for IWP point
-
-      iwp = itab_w_pd(iw)%iwp
-      itabg_w(iwp)%iw_myrank = iw_myrank
+!
+!     iwp = itab_w_pd(iw)%iwp
+!     itabg_w(iwp)%iw_myrank = iw_myrank
    endif
 enddo
 
