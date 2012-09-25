@@ -36,7 +36,8 @@ Contains
 
 subroutine zero_massflux(wmarwsc, rho_old, umarusc)
 
-use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, istp, mrl_begl
+use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, istp, mrl_begl, &
+                      jtu_wstn, jtw_wstn
 use mem_grid,   only: mza, mua, mva, mwa, lpw
 use mem_basic,  only: rho
 use misc_coms,  only: io6
@@ -59,7 +60,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iu,k)
-do j = 1,jtab_u(14)%jend(mrl); iu = jtab_u(14)%iu(j)
+do j = 1,jtab_u(jtu_wstn)%jend(mrl); iu = jtab_u(jtu_wstn)%iu(j)
 !----------------------------------------------------------------------
    call qsub('U',iu)
    do k = 1,mza-1          ! begin at level 2 even if below ground
@@ -75,7 +76,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k)
-do j = 1,jtab_w(18)%jend(mrl); iw = jtab_w(18)%iw(j)
+do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
    do k = 1,lpw(iw)-2
@@ -98,7 +99,7 @@ end subroutine zero_massflux
 subroutine timeavg_massflux(wmarwsc, umarusc)
 
 use mem_ijtabs, only: jtab_u, jtab_v, itab_u, itab_v, jtab_w, itab_w, &
-                      istp, mrl_endl
+                      istp, mrl_endl, jtu_prog, jtw_prog
 use mem_grid,   only: mza, mua, mva, mwa, lpu, lpv, lpw
 use misc_coms,  only: io6, nacoust
 
@@ -117,7 +118,7 @@ call psub()
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iu,mrlu,acoi,k)
-do j = 1,jtab_u(20)%jend(mrl); iu = jtab_u(20)%iu(j)
+do j = 1,jtab_u(jtu_prog)%jend(mrl); iu = jtab_u(jtu_prog)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
 
@@ -137,7 +138,7 @@ call psub()
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,mrlw,acoi2,k)
-do j = 1,jtab_w(25)%jend(mrl); iw = jtab_w(25)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
    mrlw = itab_w(iw)%mrlw
@@ -157,7 +158,7 @@ end subroutine timeavg_massflux
 
 subroutine zero_momsc(vmsc,wmsc,rho_old)
 
-use mem_ijtabs, only: jtab_v, jtab_w, istp, mrl_begl
+use mem_ijtabs, only: jtab_v, jtab_w, istp, mrl_begl, jtv_wstn, jtw_wstn
 use mem_grid,   only: mza, mva, mwa, lpw
 use mem_basic,  only: rho
 use misc_coms,  only: io6
@@ -180,7 +181,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iv,k)
-do j = 1,jtab_v(14)%jend(mrl); iv = jtab_v(14)%iv(j)
+do j = 1,jtab_v(jtv_wstn)%jend(mrl); iv = jtab_v(jtv_wstn)%iv(j)
 !----------------------------------------------------------------------
 call qsub('V',iv)
    vmsc(:,iv) = 0.0
@@ -194,7 +195,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k)
-do j = 1,jtab_w(18)%jend(mrl); iw = jtab_w(18)%iw(j)
+do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
    wmsc(:,iw) = 0.0
@@ -216,7 +217,8 @@ end subroutine zero_momsc
 
 subroutine timeavg_momsc(vmsc,wmsc)
 
-use mem_ijtabs, only: jtab_v, itab_v, jtab_w, itab_w, istp, mrl_endl
+use mem_ijtabs, only: jtab_v, itab_v, jtab_w, itab_w, istp, mrl_endl, &
+                      jtv_prog, jtw_prog
 use mem_grid,   only: mza, mva, mwa, lpv, lpw
 use misc_coms,  only: io6, nacoust
 
@@ -235,7 +237,7 @@ call psub()
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iv,mrlv,acoi,k)
-do j = 1,jtab_v(20)%jend(mrl); iv = jtab_v(20)%iv(j)
+do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 !----------------------------------------------------------------------
 call qsub('V',iv)
    mrlv = itab_v(iv)%mrlv
@@ -253,7 +255,7 @@ call psub()
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,mrlw,acoi2,k)
-do j = 1,jtab_w(25)%jend(mrl); iw = jtab_w(25)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
    mrlw = itab_w(iw)%mrlw
@@ -274,9 +276,9 @@ end subroutine timeavg_momsc
 
 subroutine diagnose_ucm()
 
-use mem_basic,  only: uc,rho,vmc
-use mem_ijtabs, only: mrl_ends,istp,jtab_v,itab_v
-use mem_grid,   only: mza,lpv,aru,arv
+use mem_basic,  only: uc, rho, vmc
+use mem_ijtabs, only: mrl_ends, istp, jtab_v, itab_v, jtv_prog
+use mem_grid,   only: mza, lpv, aru, arv
 use misc_coms,  only: io6
 
 !$ use omp_lib
@@ -292,7 +294,7 @@ mrl = mrl_ends(istp)
 if (mrl > 0) then
 !$omp parallel do private(iv,iv1,iv2,iv3,iv4,iv5,iv8,iv9, &
 !$omp                     iv12,iv13,iv14,iv15,iv16,iw1,iw2,kb,k)
-do j = 1,jtab_v(16)%jend(mrl); iv = jtab_v(16)%iv(j)
+do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
    iv1  = itab_v(iv)%iv(1) ; iv2  = itab_v(iv)%iv(2) ; iv3  = itab_v(iv)%iv(3)
    iv4  = itab_v(iv)%iv(4) ; iv5  = itab_v(iv)%iv(5) ; iv8  = itab_v(iv)%iv(8)
    iv9  = itab_v(iv)%iv(9) ; iv12 = itab_v(iv)%iv(12); iv13 = itab_v(iv)%iv(13)
@@ -335,9 +337,9 @@ end subroutine diagnose_ucm
 
 subroutine diagnose_uc()
 
-use mem_basic,  only: uc,vc
-use mem_ijtabs, only: mrl_ends,istp,jtab_v,itab_v
-use mem_grid,   only: mza,lpv,dnu,dniv
+use mem_basic,  only: uc, vc
+use mem_ijtabs, only: mrl_ends, istp, jtab_v, itab_v, jtv_prog
+use mem_grid,   only: mza, lpv, dnu, dniv
 use misc_coms,  only: io6
 
 !$ use omp_lib
@@ -353,7 +355,7 @@ mrl = mrl_ends(istp)
 if (mrl > 0) then
 !$omp parallel do private(iv,iv1,iv2,iv3,iv4,iv5,iv8,iv9, &
 !$omp                     iv12,iv13,iv14,iv15,iv16,kb,k)
-do j = 1,jtab_v(16)%jend(mrl); iv = jtab_v(16)%iv(j)
+do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
    iv1  = itab_v(iv)%iv(1) ; iv2  = itab_v(iv)%iv(2) ; iv3  = itab_v(iv)%iv(3)
    iv4  = itab_v(iv)%iv(4) ; iv5  = itab_v(iv)%iv(5) ; iv8  = itab_v(iv)%iv(8)
    iv9  = itab_v(iv)%iv(9) ; iv12 = itab_v(iv)%iv(12); iv13 = itab_v(iv)%iv(13)
@@ -394,9 +396,9 @@ end subroutine diagnose_uc
 
 subroutine diagnose_vc()
 
-use mem_basic,  only: uc,vc
-use mem_ijtabs, only: mrl_ends,istp,jtab_u,itab_u
-use mem_grid,   only: mza,lpu,   dnu,dniv
+use mem_basic,  only: uc, vc
+use mem_ijtabs, only: mrl_ends, istp, jtab_u, itab_u, jtu_wadj
+use mem_grid,   only: mza, lpu, dnu, dniv
 use misc_coms,  only: io6
 
 !$ use omp_lib
@@ -413,7 +415,7 @@ call psub()
 mrl = mrl_ends(istp)
 if (mrl > 0) then
 !$omp parallel do private(iu,iu1,iu2,iu3,iu4,tuu1,tuu2,tuu3,tuu4,kb,k)
-do j = 1,jtab_u(22)%jend(mrl); iu = jtab_u(22)%iu(j)
+do j = 1,jtab_u(jtu_wadj)%jend(mrl); iu = jtab_u(jtu_wadj)%iu(j)
 
    iu1 = itab_u(iu)%iu(1)
    iu2 = itab_u(iu)%iu(2)

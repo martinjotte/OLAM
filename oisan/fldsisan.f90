@@ -45,12 +45,15 @@ use misc_coms,   only: io6, deltax, iparallel, runtype, &
                        meshtype
 use mem_micro,   only: sh_c
 use micro_coms,  only: level
-use mem_ijtabs,  only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w
+use mem_ijtabs,  only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
+                       jtu_init, jtv_init, jtw_init
 use consts_coms, only: pc1, rdry, rvap, cpocv, erad, eradi
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                         mpi_send_u, mpi_recv_u, &
                         mpi_send_v, mpi_recv_v 
+
+use obnd,         only: lbcopy_u, lbcopy_v, lbcopy_w
 
 implicit none
 
@@ -85,7 +88,7 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)
+   do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
    call qsub('W',iw)
       do k = 1,mza
@@ -115,6 +118,10 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
    enddo
    call rsub('Wb',7)
 
+! LBC copy
+
+   call lbcopy_w(1, a1=wc, a2=thil, a3=wmc, a4=theta, d1=press, d2=rho)
+
    if (iparallel == 1) then
       call mpi_send_w('I')  ! Send W group
       call mpi_recv_w('I')  ! Recv W group
@@ -126,7 +133,7 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
 
       call psub()
 !----------------------------------------------------------------------
-      do j = 1,jtab_u(7)%jend(1); iu = jtab_u(7)%iu(j)
+      do j = 1,jtab_u(jtu_init)%jend(1); iu = jtab_u(jtu_init)%iu(j)
          iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
       call qsub('U',iu)
@@ -136,25 +143,18 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
             umc(k,iu) = uc(k,iu) * .5 * (rho(k,iw1) + rho(k,iw2))
          enddo
 
-      enddo
-   
-      call rsub('Ub',7)
-
-! Horizontal loop over U points
-
-      call psub()
-!----------------------------------------------------------------------
-      do iu = 2,mua
-!----------------------------------------------------------------------
-      call qsub('U',iu) !QQQQQ
-
 ! For below-ground points, set UC to LCU value.
 
          ka = lcu(iu)
          uc(1:ka-1,iu) = uc(ka,iu)
 
       enddo
-      call rsub('Uc',0)
+   
+      call rsub('Ub',7)
+
+! LBC copy of UMC, UC
+
+      call lbcopy_u(1, umc=umc, uc=uc)
 
 ! MPI parallel send/recv of U group
 
@@ -173,7 +173,7 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
 
       call psub()
 !----------------------------------------------------------------------
-      do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)
+      do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
          iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
       call qsub('V',iv)
@@ -183,26 +183,19 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
             vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
          enddo
 
-      enddo
-   
-      call rsub('Vb',7)
-
-! Horizontal loop over V points
-
-      call psub()
-!----------------------------------------------------------------------
-      do iv = 2,mva
-!----------------------------------------------------------------------
-      call qsub('V',iv)
-
 ! For below-ground points, set VC to LPV value.
 
          ka = lpv(iv)
          vc(1:ka-1,iv) = vc(ka,iv)
 
       enddo
-      call rsub('Vc',0)
    
+      call rsub('Vb',7)
+
+! LBC copy of VMC, VC
+
+      call lbcopy_v(1, vmc=vmc, vc=vc)
+
 ! MPI parallel send/recv of V group
 
       if (iparallel == 1) then
@@ -280,7 +273,7 @@ enddo
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)
+do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    iwnud1 = itab_w(iw)%iwnud(1)
 !---------------------------------------------------------------------
 call qsub('W',iw)
@@ -391,7 +384,7 @@ use mem_grid,    only: mza, mwa, lpu, lpv, lpw, &
                        unx, uny, unz, vnx, vny, vnz, volt, glatw, glonw
 use misc_coms,   only: io6, time8, s1900_sim, meshtype
 use mem_ijtabs,  only: istp, jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
-                       mrl_begl
+                       mrl_begl, jtu_prog, jtv_prog, jtw_prog
 use consts_coms, only: erad, eradi
 use mem_tend,    only: umt, vmt, thilt, sh_wt
 use isan_coms,   only: ifgfile, s1900_fg
@@ -486,7 +479,7 @@ enddo
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(23)%jend(mrl); iw = jtab_w(23)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    iwnud1 = itab_w(iw)%iwnud(1)
 !---------------------------------------------------------------------
 call qsub('W',iw)
@@ -597,7 +590,7 @@ enddo
 call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private(iw,iwnud1,iwnud2,iwnud3,k,tnudi,fnud1,fnud2,fnud3)
-do j = 1,jtab_w(23)%jend(mrl); iw = jtab_w(23)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    iwnud1 = itab_w(iw)%iwnud(1);  fnud1 = itab_w(iw)%fnud(1)
    iwnud2 = itab_w(iw)%iwnud(2);  fnud2 = itab_w(iw)%fnud(2)
    iwnud3 = itab_w(iw)%iwnud(3);  fnud3 = itab_w(iw)%fnud(3)
@@ -655,7 +648,7 @@ if (meshtype == 1) then
 !----------------------------------------------------------------------
    !$omp parallel do private(iu,iw1,iw2,k, &
    !$omp                     raxis,raxisi,umgt,vmgt,uvmgrt,uvmgxt,uvmgyt,uvmgzt)
-   do j = 1,jtab_u(13)%jend(mrl); iu = jtab_u(13)%iu(j)
+   do j = 1,jtab_u(jtu_prog)%jend(mrl); iu = jtab_u(jtu_prog)%iu(j)
       iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
    call qsub('U',iu)
@@ -705,7 +698,7 @@ else
 !----------------------------------------------------------------------
    !$omp parallel do private(iv,iw1,iw2,k, &
    !$omp                     raxis,raxisi,umgt,vmgt,uvmgrt,uvmgxt,uvmgyt,uvmgzt)
-   do j = 1,jtab_v(13)%jend(mrl); iv = jtab_v(13)%iv(j)
+   do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
       iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
    call qsub('V',iv)

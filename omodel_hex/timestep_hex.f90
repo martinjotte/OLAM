@@ -42,16 +42,16 @@ use micro_coms, only: level
 use leaf_coms,  only: isfcl
 use mem_para,   only: myrank
 use massflux,   only: zero_momsc, timeavg_momsc
+use mem_turb,   only: hkm
 
-use mem_basic,  only: vxe, vye, vze
-!use mem_basic  ! needs vxe, vye, and vze, others when print statements below are uncommented
-!use mem_tend   ! needed only when print statements below are uncommented
-!use mem_leaf   ! needed only when print statements below are uncommented
-use ed_options, only: frq_phenology
+use mem_basic,  only: vmc, vc, vxe, vye, vze, thil, rho
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 
+use obnd,         only: trsets, lbcopy_v, lbcopy_w
+
 use oplot_coms,  only: op
+use oname_coms,  only: nl
 
 use mem_timeavg, only: accum_timeavg
 
@@ -75,8 +75,18 @@ real :: rhot       (mza,mwa) ! grid-cell total mass tendency [kg/s]
 
 time_istp8 = time8
 
-if (time8 < 1.e-3) then
+if (time_istp8 < 1.e-3) then
 !   call bubble()
+
+! For shallow water test cases, compute error norms at initial time
+! if run is not parallel
+
+!   if (iparallel == 0) then
+      if (nl%test_case == 2 .or. nl%test_case == 5) then
+         call diagn_global_swtc()
+      endif
+!   endif
+
 endif
 
 do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
@@ -104,6 +114,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
       call pbl_driver(rhot, mrl)
 
+      call lbcopy_w(1, a1=hkm)
+
       if (iparallel == 1) then
          call mpi_send_w('K')  ! Send K's
       endif
@@ -121,6 +133,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
          call surface_cuparm_flux()
       endif
    endif
+
 ! call check_nans(6)
 
    if (initial == 2 .and. nudflag == 1)  &
@@ -144,7 +157,12 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call prog_wrtv(vmsc,wmsc,alpha_press,rhot)
 
-   ! MPI send of VMC, VC
+! LBC copy of VMC, VC
+
+   call lbcopy_v(1, vmc=vmc, vc=vc)
+
+! MPI send of VMC, VC
+
    if (iparallel == 1) call mpi_send_v('V')
 
 ! call check_nans(12)
@@ -159,7 +177,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(14)
 
-   ! MPI recv of VMC, VC
+! MPI recv of VMC, VC
 
    if (iparallel == 1) then
       call mpi_recv_v('V')
@@ -170,7 +188,9 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call diagvel_t3d(mrl)
    endif
 
-   ! MPI send of vxe, vye, vze
+   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
+
+! MPI send of vxe, vye, vze
 
    if (iparallel == 1) then
       call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
@@ -232,6 +252,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(19)
 
+   call lbcopy_w(mrl, a1=thil, d1=rho)
+
    if (iparallel == 1) then
       call mpi_send_w('T')  ! Send W group
       call mpi_recv_w('T')  ! Recv W group
@@ -267,9 +289,13 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 enddo
 
-! Call ED model if it is time to do vegetation dynamics
+! For shallow water test cases, compute error norms if run is not parallel
 
-if (mod(real(time8)+dtlm(1),frq_phenology) < dtlm(1)) call ed_vegetation_dynamics()  
+!if (iparallel == 0) then
+   if (nl%test_case == 2 .or. nl%test_case == 5) then
+      call diagn_global_swtc()
+   endif
+!endif
 
 return
 end subroutine timestep
@@ -410,7 +436,7 @@ end subroutine modsched
 
 subroutine tend0(rhot)
 
-use mem_ijtabs, only: jtab_w, jtab_v, istp, mrl_begl
+use mem_ijtabs, only: jtab_w, jtab_v, istp, mrl_begl, jtv_wstn, jtw_wstn
 use var_tables, only: scalar_tab, num_scalar
 use mem_grid,   only: mza, mwa, mva, lpv, lpw
 use mem_tend,   only: wmt, vmt, thilt, vmxet, vmyet, vmzet
@@ -427,13 +453,13 @@ integer :: n,mrl,j,k,iw,iv
 ! SET SCALAR TENDENCIES TO ZERO
 
 mrl = mrl_begl(istp)
-if (mrl > 0) then
 
+if (mrl > 0) then
    do n = 1,num_scalar
       call tnd0(scalar_tab(n)%var_t)
    enddo
-   call tnd0(rhot)
 
+   call tnd0(rhot)
 endif
 
 ! SET W AND EARTH-CARTESIAN MOMENTUM TENDENCIES TO ZERO
@@ -443,7 +469,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k)
-do j = 1,jtab_w(14)%jend(mrl); iw = jtab_w(14)%iw(j)
+do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
    do k = lpw(iw),mza-1
@@ -464,7 +490,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iv,k)
-do j = 1,jtab_v(11)%jend(mrl); iv = jtab_v(11)%iv(j)
+do j = 1,jtab_v(jtv_wstn)%jend(mrl); iv = jtab_v(jtv_wstn)%iv(j)
 !----------------------------------------------------------------------
 call qsub('V',iv)
    do k = lpv(iv),mza-1
@@ -482,7 +508,7 @@ end subroutine tend0
 
 subroutine tnd0(vart)
 
-use mem_ijtabs, only: jtab_w, istp, mrl_begl
+use mem_ijtabs, only: jtab_w, istp, mrl_begl, jtw_wstn
 use mem_grid,   only: mza, mwa, lpw
 use misc_coms,  only: io6
 !$ use omp_lib
@@ -498,12 +524,14 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k)
-do j = 1,jtab_w(11)%jend(mrl); iw = jtab_w(11)%iw(j)
+do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
+
 call qsub('W',iw)
    do k = lpw(iw)-1,mza
       vart(k,iw) = 0.
    enddo
+
 enddo
 !$omp end parallel do
 endif
@@ -517,7 +545,7 @@ end subroutine tnd0
 subroutine predtr(rho_old)
 
 use var_tables, only: num_scalar, scalar_tab
-use mem_ijtabs, only: istp, jtab_w, mrl_endl
+use mem_ijtabs, only: istp, mrl_endl
 use mem_grid,   only: mza, mwa
 use misc_coms,  only: io6
 
@@ -556,7 +584,7 @@ end subroutine predtr
 
 subroutine o_update(n,varp,vart,rho_old)
 
-use mem_ijtabs, only: jtab_w, istp, itab_w, mrl_endl
+use mem_ijtabs, only: jtab_w, istp, itab_w, mrl_endl, jtw_prog
 use mem_basic,  only: rho
 use misc_coms,  only: io6, dtlm
 use mem_grid,   only: mza, mwa, lpw
@@ -579,7 +607,7 @@ call psub()
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k,dtl)
-do j = 1,jtab_w(27)%jend(mrl); iw = jtab_w(27)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
    dtl = dtlm(itab_w(iw)%mrlw)
@@ -631,3 +659,5 @@ integer :: iw,i,j,k
 
 return
 end subroutine bubble
+
+

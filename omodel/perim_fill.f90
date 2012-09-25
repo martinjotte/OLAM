@@ -637,12 +637,6 @@ if (itab_wd(iw1)%mrlw /= mrloo) go to 5
 itab_wd(iw2)%mrlw      = itab_wd(iw1)%mrlw
 itab_wd(iw2)%mrlw_orig = itab_wd(iw1)%mrlw_orig
          
-! Fill loop indices for new U points
-
-itab_ud(iu4)%iup = iu4
-call udloops('f',iu4, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu4,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
 return
 
 5 continue
@@ -901,24 +895,6 @@ itab_wd(iw4)%mrlw_orig = itab_wd(iw3)%mrlw_orig
 itab_wd(iw6)%mrlw      = itab_wd(iw5)%mrlw
 itab_wd(iw6)%mrlw_orig = itab_wd(iw5)%mrlw_orig
          
-! Fill loop indices for new U points
-
-itab_ud(iu6)%iup = iu6
-call udloops('f',iu6, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu6,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu8)%iup = iu8
-call udloops('f',iu8, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu8,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu10)%iup = iu10
-call udloops('f',iu10, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu10,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(kua+4)%iup = kua+4
-call udloops('f',kua+4, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',kua+4,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
 ! Set JM and JU group indices in preparation for next row
 
 jmo1 = im6
@@ -1133,20 +1109,6 @@ itab_wd(iw2)%mrlw_orig = itab_wd(iw1)%mrlw_orig
 itab_wd(iw4)%mrlw      = itab_wd(iw3)%mrlw
 itab_wd(iw4)%mrlw_orig = itab_wd(iw3)%mrlw_orig
          
-! Fill loop indices for new U points
-
-itab_ud(iu4)%iup = iu4
-call udloops('f',iu4, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu4,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu6)%iup = iu6
-call udloops('f',iu6, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu6,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(kua+3)%iup = kua+3
-call udloops('f',kua+3, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',kua+3,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
 ! Set JM and JU group indices in preparation for next row
 
 jmo1 = im4
@@ -1355,20 +1317,6 @@ itab_wd(iw2)%mrlw_orig = itab_wd(iw1)%mrlw_orig
 itab_wd(iw4)%mrlw      = itab_wd(iw3)%mrlw
 itab_wd(iw4)%mrlw_orig = itab_wd(iw3)%mrlw_orig
          
-! Fill loop indices for new U points
-
-itab_ud(iu4)%iup = iu4
-call udloops('f',iu4, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu4,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu6)%iup = iu6
-call udloops('f',iu6, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu6,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(kua+3)%iup = kua+3
-call udloops('f',kua+3, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',kua+3,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
 ! Set JM and JU group indices in preparation for next row
 
 jmo1 = im4
@@ -1598,16 +1546,6 @@ itab_wd(iw2)%mrlw_orig = itab_wd(iw1)%mrlw_orig
 itab_wd(iw3)%mrlw      = itab_wd(iw1)%mrlw
 itab_wd(iw3)%mrlw_orig = itab_wd(iw1)%mrlw_orig
          
-! Fill loop indices for new U points
-
-itab_ud(iu6)%iup = iu6
-call udloops('f',iu6, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu6,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu8)%iup = iu8
-call udloops('f',iu8, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu8,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
 return
 
 5 continue
@@ -2086,48 +2024,6 @@ itab_wd(iw13)%mrlw_orig = itab_wd(jw7)%mrlw_orig
 itab_wd(iw15)%mrlw      = itab_wd(jw7)%mrlw
 itab_wd(iw15)%mrlw_orig = itab_wd(jw7)%mrlw_orig
          
-! Fill loop indices for new U points
-
-itab_ud(iu10)%iup = iu10
-call udloops('f',iu10, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu10,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu12)%iup = iu12
-call udloops('f',iu12, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu12,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu14)%iup = iu14
-call udloops('f',iu14, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu14,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu16)%iup = iu16
-call udloops('f',iu16, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu16,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu18)%iup = iu18
-call udloops('f',iu18, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu18,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu20)%iup = iu20
-call udloops('f',iu20, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu20,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu23)%iup = iu23
-call udloops('f',iu23, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu23,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu24)%iup = iu24
-call udloops('f',iu24, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu24,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu28)%iup = iu28
-call udloops('f',iu28, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu28,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu29)%iup = iu29
-call udloops('f',iu29, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu29,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
 return
 
 5 continue
@@ -2531,54 +2427,6 @@ itab_wd(iw5)%mrlw_orig = itab_wd(jw4)%mrlw_orig
 itab_wd(iw10)%mrlw      = itab_wd(jw6)%mrlw
 itab_wd(iw10)%mrlw_orig = itab_wd(jw6)%mrlw_orig
 
-! Fill loop indices for new U points
-
-itab_ud(iu6)%iup = iu6
-call udloops('f',iu6, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu6,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu9)%iup = iu9
-call udloops('f',iu9, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu9,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu11)%iup = iu11
-call udloops('f',iu11, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu11,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu14)%iup = iu14
-call udloops('f',iu14, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu14,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-itab_ud(iu19)%iup = iu19
-call udloops('f',iu19, 1, 4, 7, 8,11,12,13,14,16,20)
-call udloops('n',iu19,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-!print*, ' '
-
-!write(io6,'(a,30i6)') 'jms ',jm1,jm2,jm3,jm4,jm5,jm6,jm7,jm8,jm9
-
-!write(io6,'(a,30i6)') 'jus ',ju1,ju2,ju3,ju4,ju5,ju6,ju7,ju8, &
-!                             ju9,ju10,ju11,ju12,ju13,ju14,ju15,ju16
-
-!write(io6,'(a,30i6)') 'g1 ',im7,im10,im8,im11
-
-!write(io6,'(a,30i6)') 'g2 ',itab_ud(iu17)%im(1), &
-!                            itab_ud(iu17)%im(2), &
-!                            itab_ud(iu19)%im(1), &
-!                            itab_ud(iu19)%im(2)
-
-!write(io6,'(a,12f10.0)') 'g3 ',xem(itab_ud(iu17)%im(1)), &
-!                               xem(itab_ud(iu17)%im(2)), &
-!                               xem(itab_ud(iu19)%im(1)), &
-!                               xem(itab_ud(iu19)%im(2)), &
-!                               yem(itab_ud(iu17)%im(1)), &
-!                               yem(itab_ud(iu17)%im(2)), &
-!                               yem(itab_ud(iu19)%im(1)), &
-!                               yem(itab_ud(iu19)%im(2)), &
-!                               zem(itab_ud(iu17)%im(1)), &
-!                               zem(itab_ud(iu17)%im(2)), &
-!                               zem(itab_ud(iu19)%im(1)), &
-!                               zem(itab_ud(iu19)%im(2))
 return
 
 5 continue
@@ -2590,4 +2438,3 @@ write(io6,*) 'stopping model'
 stop 'stop - Nested grid out of bounds'
 
 end subroutine perim_fill_convex2
-

@@ -46,11 +46,13 @@ use massflux,   only: zero_massflux, timeavg_massflux
 use mem_basic  ! needed only when print statements below are uncommented
 use mem_tend   ! needed only when print statements below are uncommented
 use mem_leaf   ! needed only when print statements below are uncommented
-use ed_options, only: frq_phenology
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_recv_u
 
 use mem_timeavg, only: accum_timeavg
+
+use obnd,        only: trsets, lbcopy_w
+use oname_coms,  only: nl
 
 implicit none
 
@@ -74,6 +76,16 @@ time_istp8 = time8
 
 if (time8 < 1.e-3) then
 !   call bubble()
+
+! For shallow water test cases, compute error norms at initial time
+! if run is not parallel
+
+   if (iparallel == 0) then
+      if (nl%test_case == 2 .or. nl%test_case == 5) then
+         call diagn_global_swtc()
+      endif
+   endif
+
 endif
 
 do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
@@ -102,6 +114,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    if (mrl > 0) then
 
       call pbl_driver(rhot, mrl)
+
+      call lbcopy_w(1, a1=hkm)
 
       if (iparallel == 1) then
          call mpi_send_w('K')  ! Send K's
@@ -174,6 +188,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call diagvel_t3d(mrl)
    endif
 
+   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
+
    if (iparallel == 1) then
       call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
    endif
@@ -203,6 +219,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
 
 ! call check_nans(19)
+
+   call lbcopy_w(mrl, a1=thil, d1=rho)
 
    if (iparallel == 1) then
       call mpi_send_w('T')  ! Send W group
@@ -239,11 +257,15 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 enddo
 
+! For shallow water test cases, compute error norms if run is not parallel
+
+if (iparallel == 0) then
+   if (nl%test_case == 2 .or. nl%test_case == 5) then
+      call diagn_global_swtc()
+   endif
+endif
+
 ! call fields_ll()
-
-! Call ED model if it is time to do vegetation dynamics
-
-if (mod(real(time8)+dtlm(1),frq_phenology) < dtlm(1)) call ed_vegetation_dynamics()  
 
 return
 end subroutine timestep
@@ -384,7 +406,7 @@ end subroutine modsched
 
 subroutine tend0(rhot)
 
-use mem_ijtabs, only: jtab_w, jtab_u, istp, mrl_begl
+use mem_ijtabs, only: jtab_w, jtab_u, istp, mrl_begl, jtu_wstn, jtw_wstn
 use var_tables, only: scalar_tab, num_scalar
 use mem_grid,   only: mza, mwa, mua, lcu, lpw
 use mem_tend,   only: wmt, umt, thilt, vmxet, vmyet, vmzet
@@ -417,7 +439,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k)
-do j = 1,jtab_w(14)%jend(mrl); iw = jtab_w(14)%iw(j)
+do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
    do k = lpw(iw),mza-1
@@ -438,7 +460,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iu,k)
-do j = 1,jtab_u(11)%jend(mrl); iu = jtab_u(11)%iu(j)
+do j = 1,jtab_u(jtu_wstn)%jend(mrl); iu = jtab_u(jtu_wstn)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
    do k = lcu(iu),mza-1
@@ -456,7 +478,7 @@ end subroutine tend0
 
 subroutine tnd0(vart)
 
-use mem_ijtabs, only: jtab_w, istp, mrl_begl
+use mem_ijtabs, only: jtab_w, istp, mrl_begl, jtw_wstn
 use mem_grid,   only: mza, mwa, lpw
 use misc_coms,  only: io6
 !$ use omp_lib
@@ -472,7 +494,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k)
-do j = 1,jtab_w(11)%jend(mrl); iw = jtab_w(11)%iw(j)
+do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
    do k = lpw(iw)-1,mza

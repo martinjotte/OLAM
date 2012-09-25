@@ -32,7 +32,7 @@
 !===============================================================================
 subroutine thiltend_long(mrl,rhot)
 
-use mem_ijtabs, only: istp, jtab_w, mrl_begl
+use mem_ijtabs, only: istp, jtab_w, mrl_begl, jtw_prog
 use mem_grid,   only: mza, mwa
 use misc_coms,  only: io6
 
@@ -51,7 +51,7 @@ integer :: j,iw
 call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private (iw)
-do j = 1,jtab_w(17)%jend(mrl); iw = jtab_w(17)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 

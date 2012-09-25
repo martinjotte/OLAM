@@ -68,8 +68,8 @@ Contains
     ! Base tendency arrays for all deep convective schemes
 
     if ( any(nqparm(1:mrls) > 0) ) then      
-       allocate (thsrc(mza,mwa)) ; thsrc  = rinit
-       allocate (rtsrc(mza,mwa)) ; rtsrc  = rinit
+       allocate (thsrc(mza,mwa)) ; thsrc  = 0.0
+       allocate (rtsrc(mza,mwa)) ; rtsrc  = 0.0
        allocate (aconpr   (mwa)) ; aconpr = 0.0
        allocate (conprr   (mwa)) ; conprr = 0.0
     endif
@@ -77,8 +77,8 @@ Contains
     ! Base tendency arrays for all shallow convective schemes
 
     if ( any(nqparm_sh(1:mrls) > 0) ) then
-       allocate (thsrcsh(mza,mwa)) ; thsrcsh = rinit
-       allocate (rtsrcsh(mza,mwa)) ; rtsrcsh = rinit
+       allocate (thsrcsh(mza,mwa)) ; thsrcsh = 0.0
+       allocate (rtsrcsh(mza,mwa)) ; rtsrcsh = 0.0
     endif
 
     ! Extra memory for Grell scheme

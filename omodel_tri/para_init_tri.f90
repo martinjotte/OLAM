@@ -38,7 +38,9 @@ use mem_ijtabs, only: itab_m,      itab_u,      itab_w,      &
                       itab_m_vars, itab_u_vars, itab_w_vars, &
                       itabg_m,     itabg_u,     itabg_w,     &
                       itab_m_pd,   itab_u_pd,   itab_w_pd,   &
-                      alloc_itabs, mrls
+                      alloc_itabs, mrls, &
+                      jtu_init, jtu_prog, jtu_wadj, jtu_wstn, jtu_lbcp, &
+                      jtm_vadj, jtw_prog, jtw_wadj, jtw_wstn, jtw_lbcp
 
 use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
                       alloc_gridz, alloc_xyzem, alloc_xyzew, &
@@ -65,7 +67,7 @@ implicit none
 
 integer :: j,k,imn,iun,ivn,iwn
 integer :: im,iu,iv,iw
-integer :: itopm,iup,ivp,iwp
+integer :: imp,iup,ivp,iwp
 integer :: isf,ilf,iws,iwl
 integer :: npoly
 
@@ -269,15 +271,15 @@ do im = 1,nma
 
 ! Reset IM neighbor indices to 1
 
-      itab_m(im_myrank)%itopm = 1
+      itab_m(im_myrank)%imp = 1
       itab_m(im_myrank)%iw(1:npoly) = 1
       itab_m(im_myrank)%iu(1:npoly) = 1
 
 ! Global indices of neighbors of IM
 ! Set indices of neighbors of IM that are present on this rank
 
-      itopm = itab_m_pd(im)%itopm
-      if (myrankflag_m(itopm)) itab_m(im_myrank)%itopm = itabg_m(itopm)%im_myrank
+      imp = itab_m_pd(im)%imp
+      if (myrankflag_m(imp)) itab_m(im_myrank)%imp = itabg_m(imp)%im_myrank
 
       do j = 1,npoly
          iu = itab_m_pd(im)%iu(j)
@@ -309,12 +311,12 @@ do iu = 1,nua
 
 ! Turn off some loop flags for these points (some will be turned back on later)
 
-         call uloops('n',iu_myrank,-7,-8,-12,-13,-16,-21,-22,-23, 0, 0)
+         call uloopf('n',iu_myrank, -jtu_init, -jtu_prog, -jtu_wadj, -jtu_wstn, 0, 0)
 
 ! Turn off LBC copy (n/a for global domain) if IUP point is on remote node 
 
          if (.not. myrankflag_u(iup))  &
-            call uloops('n',iu_myrank,-9,-18,0,0,0,0,0,0,0,0)
+            call uloopf('n',iu_myrank, -jtu_lbcp, 0, 0, 0, 0, 0)
 
       endif
 
@@ -368,13 +370,12 @@ do iw = 1,nwa
 ! Turn off some loop flags for these points (some will be turned back on later)
 ! Loop flags 18 and 21 will be over all IW points (primary and border) on each node
 
-         call wloops('n',iw_myrank,-12,-13,-15,-16,-17,-19,-20,-21,-26,-27)
-         call wloops('n',iw_myrank,-28,-29,-30,-34,  0,  0,  0,  0,  0,  0)
+         call wloopf('n',iw_myrank, -jtw_prog, -jtw_wadj, -jtw_wstn, 0, 0, 0)
 
 ! Turn off LBC copy (n/a for global domain) if IWP point is on remote node
 
          if (.not. myrankflag_w(iwp))  &
-            call wloops('n',iw_myrank,-22,-24,-31,-32,-35,0,0,0,0,0)
+            call wloopf('n',iw_myrank, -jtw_lbcp, 0, 0, 0, 0, 0)
 
       endif
 
@@ -418,7 +419,7 @@ do iw = 1,nwa
 
       do j=1,3
          iun = itab_w_pd(iw)%iu(j)
-         call uloops('n',itabg_u(iun)%iu_myrank,22,0,0,0,0,0,0,0,0,0)
+         call uloopf('n',itabg_u(iun)%iu_myrank, jtu_wadj, 0, 0, 0, 0, 0)
       enddo
 
 ! Set uloop flag 21 for the 9 nearest U neighbors if IW is primary
@@ -426,7 +427,7 @@ do iw = 1,nwa
 
       do j=1,9
          iun = itab_w_pd(iw)%iu(j)
-         call uloops('n',itabg_u(iun)%iu_myrank,21,0,0,0,0,0,0,0,0,0)
+         call uloopf('n',itabg_u(iun)%iu_myrank, jtu_wstn, 0, 0, 0, 0, 0)
       enddo
 
 ! Set wloop flag 28 for the 3 nearest W neighbors if IW is primary
@@ -434,7 +435,7 @@ do iw = 1,nwa
 
       do j=1,3
          iwn = itab_w_pd(iw)%iw(j)
-         call wloops('n',itabg_w(iwn)%iw_myrank,28,0,0,0,0,0,0,0,0,0)
+         call wloopf('n',itabg_w(iwn)%iw_myrank, jtw_wadj, 0, 0, 0, 0, 0)
       enddo
      
    endif

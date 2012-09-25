@@ -36,7 +36,7 @@ use mem_grid,        only: mwa, mza, lpw
 use module_cu_kfeta, only: kf_lutab, cuparm_kfeta 
 use misc_coms,       only: io6, time_istp8, nqparm, nqparm_sh, confrq, &
                            dtlong, initial, itime1
-use mem_ijtabs,      only: itab_w, jtab_w, mrl_begl, istp, mrls
+use mem_ijtabs,      only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog
 use mem_cuparm,      only: thsrc, rtsrc, thsrcsh, rtsrcsh, aconpr, conprr, &
                            w0avg
 use mem_tend,        only: thilt, sh_wt
@@ -73,7 +73,7 @@ if ( any(nqparm(1:mrls) == 3) ) then
    endif
 
    !$omp parallel do private(iw,mrlw)
-   do j = 1,jtab_w(15)%jend(1); iw = jtab_w(15)%iw(j) ! jend(1) for mrl = 1
+   do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
       do k = lpw(iw),mza-1
          w0avg(k,iw) = w0avg(k,iw) * wtold + .5 * (wc(k,iw) + wc(k+1,iw)) * wtnew
       enddo
@@ -116,7 +116,7 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
    call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private(iw,mrlw) 
-   do j = 1,jtab_w(15)%jend(1); iw = jtab_w(15)%iw(j) ! jend(1) for mrl = 1
+   do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
 !----------------------------------------------------------------------
    call qsub('W',iw)
 
@@ -195,7 +195,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k) 
-do j = 1,jtab_w(15)%jend(mrl); iw = jtab_w(15)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 

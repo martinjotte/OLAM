@@ -32,13 +32,12 @@
 !===============================================================================
 Module mem_leaf
 
-   use ed_structure_defs, only: site
    use max_dims,          only: maxremote
    use mem_mksfc,         only: itab_mls_vars, itab_uls_vars, itab_wls_vars, &
                                 itab_uls_pd_vars, itab_wls_pd_vars
    implicit none
    
-   private :: site, maxremote, itab_mls_vars, itab_uls_vars, itab_wls_vars
+   private :: maxremote, itab_mls_vars, itab_uls_vars, itab_wls_vars
 
 ! LAND SURFACE GRID TABLES
 
@@ -140,8 +139,13 @@ Module mem_leaf
       real, allocatable :: ustar       (:) ! friction velocity [m/s]
       real, allocatable :: sxfer_t     (:) ! canair-to-atm heat xfer this step [kg_air K/m^2]
       real, allocatable :: sxfer_r     (:) ! canair-to-atm vapor xfer this step [kg_vap/m^2]
+      real, allocatable :: sxfer_c     (:) ! canair-to-atm CO2 xfer this step [ppm/m^2]
       real, allocatable :: sxfer_tsav  (:) ! saved previous value of sxfer_t
       real, allocatable :: sxfer_rsav  (:) ! saved previous value of sxter_r
+      real, allocatable :: sxfer_csav  (:) ! saved previous value of sxter_c
+      real, allocatable :: ed_zeta(:)
+      real, allocatable :: ed_rib(:)
+      real, allocatable :: ed_ggbare(:)
       real, allocatable :: can_depth   (:) ! canopy depth for heat & vap capacity [m]
       real, allocatable :: hcapveg     (:) ! veg heat capacity [J/(m^2 K)]
       real, allocatable :: can_temp    (:) ! canopy air temp [K]
@@ -172,6 +176,8 @@ Module mem_leaf
       ! ED model variables:
 
       integer, allocatable :: ed_flag  (:) ! if ED is being run in this cell (0 or 1)
+      integer, allocatable :: ed_ifm   (:) ! if ED is being run in this cell (0 or 1)
+      integer, allocatable :: ed_ipy   (:) ! if ED is being run in this cell (0 or 1)
       real, allocatable :: gpp         (:) ! Gross primary productivity (umol/m2/s)
       real, allocatable :: rh          (:) ! Heterotrophic respiration (umol/m2/s)
       real, allocatable :: nep         (:) ! Net ecosystem productivity (umol/m2/s)
@@ -195,12 +201,6 @@ Module mem_leaf
    end type land_vars_pd
 
    type(land_vars_pd), target :: land_pd
-
-! The basic unit of the ED model is the site, which loosely corresponds to a
-! grid cell.  Now, the entire ED memory structure resides on linked lists.  
-! This is a pointer to the first site of the linked list. 
-
-   type (site), pointer :: first_site => null()
 
 Contains
 
@@ -278,8 +278,13 @@ Contains
      allocate (land%ustar              (mwl)) ; land%ustar           = rinit
      allocate (land%sxfer_t            (mwl)) ; land%sxfer_t         = 0.0
      allocate (land%sxfer_r            (mwl)) ; land%sxfer_r         = 0.0
-     allocate (land%sxfer_tsav         (mwl)) ; land%sxfer_tsav      = rinit
-     allocate (land%sxfer_rsav         (mwl)) ; land%sxfer_rsav      = rinit
+     allocate (land%sxfer_c            (mwl)) ; land%sxfer_c         = 0.0
+     allocate (land%ed_zeta            (mwl)) ; land%ed_zeta         = 0.0
+     allocate (land%ed_rib             (mwl)) ; land%ed_rib          = 0.0
+     allocate (land%ed_ggbare          (mwl)) ; land%ed_ggbare       = 0.0
+     allocate (land%sxfer_tsav         (mwl)) ; land%sxfer_tsav      = 0.0
+     allocate (land%sxfer_rsav         (mwl)) ; land%sxfer_rsav      = 0.0
+     allocate (land%sxfer_csav         (mwl)) ; land%sxfer_csav      = 0.0
      allocate (land%can_depth          (mwl)) ; land%can_depth       = rinit
      allocate (land%hcapveg            (mwl)) ; land%hcapveg         = rinit
      allocate (land%can_temp           (mwl)) ; land%can_temp        = rinit
@@ -317,6 +322,8 @@ Contains
      allocate (land%qpcpg              (mwl)) ; land%qpcpg           = 0.0
      allocate (land%dpcpg              (mwl)) ; land%dpcpg           = 0.0
      allocate (land%ed_flag            (mwl)) ; land%ed_flag         = 0
+     allocate (land%ed_ifm             (mwl)) ; land%ed_ifm          = 0
+     allocate (land%ed_ipy             (mwl)) ; land%ed_ipy          = 0
      allocate (land%cosz               (mwl)) ; land%cosz            = rinit
      allocate (land%gpp                (mwl)) ; land%gpp             = rinit
      allocate (land%agb                (mwl)) ; land%agb             = rinit
@@ -396,6 +403,26 @@ Contains
      if (allocated(land%sxfer_r)) then
         call increment_vtable('LAND%SXFER_R', 'LW')
         vtab_r(num_var)%rvar1_p => land%sxfer_r
+     endif
+
+     if (allocated(land%sxfer_c)) then
+        call increment_vtable('LAND%SXFER_C', 'LW')
+        vtab_r(num_var)%rvar1_p => land%sxfer_c
+     endif
+
+     if (allocated(land%ed_zeta)) then
+        call increment_vtable('LAND%ED_ZETA', 'LW')
+        vtab_r(num_var)%rvar1_p => land%ed_zeta
+     endif
+
+     if (allocated(land%ed_rib)) then
+        call increment_vtable('LAND%ED_RIB', 'LW')
+        vtab_r(num_var)%rvar1_p => land%ed_rib
+     endif
+
+     if (allocated(land%ed_ggbare)) then
+        call increment_vtable('LAND%ED_GGBARE', 'LW')
+        vtab_r(num_var)%rvar1_p => land%ed_ggbare
      endif
 
      if (allocated(land%can_depth)) then

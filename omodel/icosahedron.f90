@@ -32,10 +32,18 @@
 !===============================================================================
 subroutine icosahedron(nxp0)
 
-use mem_ijtabs,  only: mrls, itab_md, itab_ud, itab_wd, alloc_itabsd
+use mem_ijtabs, only: mrls, itab_md, itab_ud, itab_wd, alloc_itabsd, &
+                      jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
+                      jtm_init, jtu_init, jtv_init, jtw_init, &
+                      jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
+                      jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
+                      jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
+                      jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
+                      jtm_vadj, jtu_wall, jtv_wall, jtw_vadj
+
 use mem_grid,    only: nza, nma, nua, nwa, xem, yem, zem, &
                        alloc_xyzem, impent
-use misc_coms,   only: io6
+use misc_coms,   only: io6, meshtype
 use consts_coms, only: pi2, erad, erador5
 
 implicit none
@@ -81,22 +89,27 @@ call alloc_itabsd(nma,nua,nwa)
 call alloc_xyzem(nma)
 
 do im = 2,nma
-   itab_md(im)%itopm = im
+   itab_md(im)%imp = im
    itab_md(im)%mrlm = 1
-   call mdloops('f',im,1,0,1,0)
+   if (meshtype == 1) then
+      call mdloopf('f',im, jtm_grid, jtm_vadj, 0, 0, 0, 0)
+   else
+      call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
+   endif
 enddo
 
 do iu = 2,nua
    itab_ud(iu)%iup = iu
-   call udloops('f',iu, 1, 4, 7, 8,11,12,13,14,16,20)
-   call udloops('n',iu,21,22,23, 0, 0, 0, 0, 0, 0, 0)
+   call udloopf('f',iu, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
 enddo
 
 do iw = 2,nwa
    itab_wd(iw)%iwp = iw
-   call wdloops('f',iw, 1, 3, 5, 6, 7, 8,11,12,13,14)
-   call wdloops('n',iw,15,16,17,18,19,20,21,23,25,26)
-   call wdloops('n',iw,27,28,29,30,33,34, 0, 0, 0, 0)
+   if (meshtype == 1) then
+      call wdloopf('f',iw, jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
+   else
+      call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
+   endif
 enddo
 
 ! Fill big diamond corner coordinates

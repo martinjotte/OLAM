@@ -47,7 +47,6 @@ use mem_ijtabs,   only: itabg_w
 use consts_coms,  only: p00i, rocp, cliq, cice, alli,  &
                         cliq1000, cice1000, alli1000
 
-use ed_options,   only: ied_offline
 use mem_para,     only: myrank
 use leaf3_canopy, only: vegndvi
 use mem_turb,     only: frac_urb, frac_land
@@ -364,9 +363,6 @@ do iwl = 2,mwl
                 land%surface_ssh          (iwl)  )
 
 enddo
-
-if (ied_offline == 1) call update_offline_met()
-call ed_init_atm()
 
 ! Do parallel send/recv of LEAF fields
 

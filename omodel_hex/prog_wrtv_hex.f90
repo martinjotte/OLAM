@@ -38,7 +38,8 @@ subroutine prog_wrtv(vmsc,wmsc,alpha_press,rhot)
 ! and the Walko and Avissar (2008a,b) time differencing method.
 
 use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, istp, itab_w, jtab_m, itab_m, &
-                        mrl_begl, mrl_begs, mrl_ends, mrl_endl
+                        mrl_begl, mrl_begs, mrl_ends, mrl_endl, &
+                        jtm_vadj, jtv_prog, jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp
 use mem_basic,    only: rho, thil, theta, wc, press, wmc, vmp, vmc, vp, vc, &
                         sh_w, sh_v, vxe, vye, vze, strict_wvt_donorpoint
 use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, &
@@ -47,8 +48,9 @@ use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, &
 use mem_tend,     only: vmt, vmxet, vmyet, vmzet
 use misc_coms,    only: io6, iparallel, time8, dtlm
 use consts_coms,  only: cpocv, pc1, rdry, rvap
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
 use oplot_coms,   only: op
+use obnd,         only: lbcopy_w
 
 !$ use omp_lib
 
@@ -61,7 +63,7 @@ real, intent(inout) :: alpha_press(mza,mwa)
 real, intent(in)    :: rhot       (mza,mwa)
 
 integer :: j, iv, k, ka, kb, mrl, kbv, kd
-integer :: iw, iw1, iw2
+integer :: iw, iw1, iw2, iwp, ivp
 
 ! automatic arrays
 
@@ -119,6 +121,27 @@ integer :: iv1,iv2,iv3,iv4,im,npoly,jv,im1,im2,im3,im4,im5,im6,iwd
 real :: c0,c1,c2,vort_big1,vort_big2
 real :: arm0i,tvort
 
+real, save, allocatable :: vc03d(:,:), dn03d(:,:)
+integer, save :: ncall = 0
+integer :: iv0
+
+if (ncall /= 1) then
+
+   ncall = 1
+
+   allocate(vc03d(mza,mva),dn03d(mza,mva))
+
+   do iv0 = 2,mva
+      iw1 = itab_v(iv0)%iw(1)
+      iw2 = itab_v(iv0)%iw(2)
+
+      do k = lpv(iv0),mza-1
+         vc03d(k,iv0) = vc(k,iv0)
+         dn03d(k,iv0) = .5 * (rho(k,iw1) + rho(k,iw2))
+      enddo
+   enddo
+
+endif
 
 ! Half-forward velocities for computing donor points:
 
@@ -146,7 +169,7 @@ if (mrl > 0) then
    call psub()
 !----------------------------------------------------------------------
    !$omp parallel do private(iw) 
-   do j = 1,jtab_w(16)%jend(mrl); iw = jtab_w(16)%iw(j)
+   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
    call qsub('W',iw)
 
@@ -161,6 +184,8 @@ if (mrl > 0) then
    !$omp end parallel do
    call rsub('Wa',16)
 
+   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
+
 ! MPI SEND of VMXET, VMYET, VMZET
 
    if (iparallel == 1) call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
@@ -172,7 +197,7 @@ if (mrl > 0) then
    call psub()
 !----------------------------------------------------------------------
    !$omp parallel do private(im,npoly,kb,jv,iv,k,arm0i)
-   do j = 1,jtab_m(3)%jend(mrl); im = jtab_m(3)%im(j)
+   do j = 1,jtab_m(jtm_vadj)%jend(mrl); im = jtab_m(jtm_vadj)%im(j)
 !----------------------------------------------------------------------
    call qsub('M',im)
 
@@ -230,8 +255,7 @@ if (mrl > 0) then
 !----------------------------------------------------------------------
    !$omp parallel do private(iv,iw1,iw2,im1,im2,im3,im4,im5,im6,iv1,iv2,iv3,iv4, &
    !$omp                     kb,k,c1,c2,vort_big1,vort_big2) 
-   ! jtab_v(16): Loop over all primary v points
-   do j = 1,jtab_v(16)%jend(mrl); iv = jtab_v(16)%iv(j)
+   do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
    call qsub('V',iv)
@@ -339,6 +363,8 @@ if (strict_wvt_donorpoint) then
 
       call vel_t3d_hex(mrl, vcf, wc, vxef, vyef, vzef)
 
+      call lbcopy_w(mrl, a1=vxef, a2=vyef, a3=vzef)
+
       ! MPI send of VXE, VYE, VZE
 
       if (iparallel == 1) then
@@ -406,6 +432,11 @@ if (mrl > 0) then
    call grad_t3d(mrl,vye,gxps_vye,gyps_vye,gzps_vye)
    call grad_t3d(mrl,vze,gxps_vze,gyps_vze,gzps_vze)
 
+   call lbcopy_w(mrl, a1 =gxps_thil, a2 =gyps_thil, a3 =gzps_thil, &
+                      a4 =gxps_vxe,  a5 =gyps_vxe,  a6 =gzps_vxe,  &
+                      a7 =gxps_vye,  a8 =gyps_vye,  a9 =gzps_vye,  &
+                      a10=gxps_vze,  a11=gyps_vze,  a12=gzps_vze   )
+
 ! MPI SEND/RECV of THIL, VXE, VYE, and VZE gradient components (12 in all)
 
    if (iparallel == 1) then
@@ -421,7 +452,7 @@ if (mrl > 0) then
 !  Horizontal loop over all primary W columns
 
    !$omp parallel do private(iw,k,kd) 
-   do j = 1,jtab_w(19)%jend(mrl); iw = jtab_w(19)%iw(j)
+   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
       
       do k = lpw(iw), mza-1
 
@@ -467,7 +498,7 @@ if (mrl > 0) then
    call psub()
 !----------------------------------------------------------------------
    !$omp parallel do private(iv,iwd,kbv,k) 
-   do j = 1,jtab_v(12)%jend(mrl); iv = jtab_v(12)%iv(j)
+   do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 !----------------------------------------------------------------------
    call qsub('V',iv)
 
@@ -511,7 +542,7 @@ call psub()
 mrl = mrl_begs(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw) 
-do j = 1,jtab_w(19)%jend(mrl); iw = jtab_w(19)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -524,6 +555,13 @@ enddo
 !$omp end parallel do 
 endif
 call rsub('Wa',19)
+
+! Copy LBC
+
+ call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, a4=wmc, &
+                    a5=wc,    a6=thil,  d1=press, d2=rho)
+
+! (Should WC and THIL also be included in lbcopy_w and mpi_send_w?)
 
 ! MPI SEND/RECV of WMC, PRESS, RHO, VMXET, VMYET, VMZET
 
@@ -539,11 +577,11 @@ call psub()
 mrl = mrl_ends(istp)
 if (mrl > 0) then
 !$omp parallel do private(iv) 
-do j = 1,jtab_v(16)%jend(mrl); iv = jtab_v(16)%iv(j)
+do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 !----------------------------------------------------------------------
 call qsub('V',iv)
 
-   call prog_v_begs(iv,vmxet,vmyet,vmzet)
+   call prog_v_begs(iv,vmxet,vmyet,vmzet,vc03d,dn03d)
 
 enddo
 !$omp end parallel do 
@@ -556,6 +594,29 @@ if (strict_wvt_donorpoint) then
    deallocate(vyef)
    deallocate(vzef)
 endif
+
+! LATERAL BOUNDARY CONDITION ONLY FOR LIMITED-AREA-DOMAIN MODEL CONFIGURATION
+! Copy LBC for VMC, VC
+
+call psub()
+!----------------------------------------------------------------------
+mrl = mrl_ends(istp)
+if (mrl > 0) then
+!$omp parallel do private(iv,ivp,k) 
+do j = 1,jtab_v(jtv_lbcp)%jend(mrl); iv = jtab_v(jtv_lbcp)%iv(j)
+   ivp = itab_v(iv)%ivp
+!----------------------------------------------------------------------
+call qsub('V',iv)
+
+   do k = 1,mza-1
+      vmc(k,iv) = vmc(k,ivp)
+      vc(k,iv)  = vc(k,ivp)
+   enddo
+
+enddo
+!$omp end parallel do 
+endif
+call rsub('V',18)
 
 return
 end subroutine prog_wrtv
@@ -664,6 +725,9 @@ endif
 
 ! RAYLEIGH FRICTION ON THIL
 
+! bypass Rayleigh friction on thil for dcmip test cases
+!go to 55
+
 if (rayf_distim > 1.e-6) then
    if (initial == 1) then   ! HHI case
       fracx = abs(xew(iw)) / (real(nxp-1) * .866 * deltax) ! ENDS OF CYC DOMAIN
@@ -680,6 +744,8 @@ if (rayf_distim > 1.e-6) then
 
 endif ! (rayf_distim > 1.e-6)
 
+55 continue
+
 return
 end subroutine prog_wrt_begl
 
@@ -695,11 +761,12 @@ use mem_ijtabs,  only: itab_w
 use mem_basic,   only: wmc, rho, thil, wc, vc, theta, press
 use misc_coms,   only: io6, dtsm, initial, dn01d, th01d, &
                        deltax, nxp, mdomain, time8
-use consts_coms, only: cpocv, gravo2, grav, omega2
+use consts_coms, only: cpocv, gravo2, grav, omega2, pi1, pio180
 use mem_grid,    only: mza, mva, mwa, lpv, lpw, &
                        arv, arw, volt, volti, volwi, dzm, dzim, dzt, xew, zm, &
                        unx, uny, vnx, vny, wnx, wny, wnz, glatw, glonw
 use massflux,    only: tridiffo
+use oname_coms,  only: nl
 
 implicit none
 
@@ -738,6 +805,7 @@ real :: dts, dtso2, dts2, dts8
 real :: c6, c7, c8, c9, c10
 real :: dirv
 real :: del_rhothil
+real :: rad0_swtc, rad_swtc, topo_swtc
 
 ! Vertical implicit scheme weighting parameters
 
@@ -1033,6 +1101,26 @@ do k = ka,mza-1
 
 enddo
 
+! For shallow water test cases 2 & 5, rho & press are
+! interpreted as water depth & height
+
+if (nl%test_case == 2 .or. nl%test_case == 5) then
+   topo_swtc = 0.
+
+   if (nl%test_case == 5) then
+      rad0_swtc = pi1 / 9.
+
+      rad_swtc = sqrt((glonw(iw) * pio180 + 0.5 * pi1)**2 &
+               + (glatw(iw) * pio180 - pi1 / 6.) ** 2)
+
+      topo_swtc = max(0., 2000. * (1. - rad_swtc / rad0_swtc))
+   endif
+   
+   do k = ka,mza-1
+      press(k,iw) = rho(k,iw) + topo_swtc + fp * delex_rho(k)
+   enddo
+endif
+
 ! Vertical loop over W points
 
 do k = ka,mza-2
@@ -1054,17 +1142,18 @@ end subroutine prog_wrt_begs
 
 !============================================================================
 
-subroutine prog_v_begs(iv,vmxet,vmyet,vmzet)
+subroutine prog_v_begs(iv,vmxet,vmyet,vmzet,vc03d,dn03d)
 
 use mem_tend,    only: vmt
 use mem_ijtabs,  only: itab_v, itab_w
 use mem_basic,   only: vp, vc, press, vmp, vmc, rho
 use misc_coms,   only: io6, dtsm, initial, mdomain, u01d, v01d, dn01d, &
                        deltax, nxp
-use consts_coms, only: erad, eradi
+use consts_coms, only: erad, eradi, gravo2
 use mem_grid,    only: lpv, lpw, volt, volvi, xev, yev, zev, &
                        unx, uny, vnx, vny, vnz, mza, mva, mwa, dniv, arw0, dnu
 use mem_rayf,    only: rayf_distim, rayf_cof
+use oname_coms,  only: nl
 
 implicit none
 
@@ -1073,6 +1162,8 @@ integer, intent(in) :: iv
 real, intent(in) :: vmxet(mza,mwa)
 real, intent(in) :: vmyet(mza,mwa)
 real, intent(in) :: vmzet(mza,mwa)
+
+real, intent(in) :: vc03d(mza,mva),dn03d(mza,mva)
 
 integer :: jv,ivn,k,kb,npoly
 
@@ -1083,9 +1174,10 @@ real :: sum1,sum2,vmp_eqdiv
 real :: dts,raxis,uv01dr,uv01dx,uv01dy,uv01dz,vcref
 real :: fracx, rayfx
 
-! Automatic array
+! Automatic arrays
 
 real :: vmt_rayf(mza)
+real :: pgf     (mza)
 
 ! Extract neighbor indices and coefficients for this point in the U stencil
 
@@ -1107,6 +1199,9 @@ if (rayf_distim > 1.e-6) then
 ! Vertical loop over V points
 
       do k = kb, mza-1
+
+! DCMIP change
+!go to 50
 
 ! Must rotate reference wind to local VC orientation
 
@@ -1137,6 +1232,10 @@ if (rayf_distim > 1.e-6) then
 ! END SPECIAL
 
          vmt_rayf(k) = max(rayf_cof(k),rayfx) * dn01d(k) * (vcref - vc(k,iv))
+
+50 continue
+
+         vmt_rayf(k) = rayf_cof(k) * dn03d(k,iv) * (vc03d(k,iv) - vc(k,iv))
 
       enddo
 
@@ -1193,11 +1292,25 @@ endif ! (rayf_distim > 1.e-6)
 ! Vertical loop over V points
 
 do k = kb,mza-1
+   pgf(k) = dniv(iv) * (press(k,iw1) - press(k,iw2))
+enddo
+
+! For shallow water test cases 2 & 5, rho & press are
+! interpreted as water depth & height
+
+if (nl%test_case == 2 .or. nl%test_case == 5) then
+   do k = kb,mza-1
+      pgf(k) = pgf(k) * gravo2 * (rho(k,iw1) + rho(k,iw2))
+   enddo
+endif
+
+! Vertical loop over V points
+
+do k = kb,mza-1
 
 ! Update VM from long timestep tendencies, advection, and pressure gradient force
 
-   vmc(k,iv) = vmc(k,iv) + dts * (vmt(k,iv) + vmt_rayf(k) &
-             + dniv(iv) * (press(k,iw1) - press(k,iw2)) &
+   vmc(k,iv) = vmc(k,iv) + dts * (vmt(k,iv) + vmt_rayf(k) + pgf(k) &
              + .5 * (vnx(iv) * (vmxet(k,iw1) + vmxet(k,iw2)) &
                    + vny(iv) * (vmyet(k,iw1) + vmyet(k,iw2)) &
                    + vnz(iv) * (vmzet(k,iw1) + vmzet(k,iw2))))

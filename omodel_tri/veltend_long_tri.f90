@@ -32,11 +32,13 @@
 !===============================================================================
 subroutine veltend_long()
 
-use mem_ijtabs,   only: jtab_u, jtab_w, istp, mrl_begl, itab_u
+use mem_ijtabs,   only: jtab_u, jtab_w, istp, mrl_begl, itab_u, &
+                        jtu_prog, jtw_prog
 use mem_grid,     only: mza, lpu, lpw, unx, uny, unz, vnx, vny, wnx, wny, wnz
 use misc_coms,    only: io6, iparallel
 use mem_tend,     only: vmxet, vmyet, vmzet, wmt, umt
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v
+use obnd,         only: lbcopy_w
 
 !$ use omp_lib
 
@@ -51,6 +53,8 @@ integer :: mrl
 mrl = mrl_begl(istp)
 if (mrl == 0) return
 
+ call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
+
 ! MPI SEND of VMXET, VMYET, VMZET
 
 if (iparallel == 1) call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
@@ -60,7 +64,7 @@ if (iparallel == 1) call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
 call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private (iu)
-do j = 1,jtab_u(12)%jend(mrl); iu = jtab_u(12)%iu(j)
+do j = 1,jtab_u(jtu_prog)%jend(mrl); iu = jtab_u(jtu_prog)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
 
@@ -75,7 +79,7 @@ call rsub('U',12)
 call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private (iw,k)
-do j = 1,jtab_w(16)%jend(mrl); iw = jtab_w(16)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -107,7 +111,7 @@ if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
 call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private (iu,iw1,iw2,k)
-do j = 1,jtab_u(12)%jend(mrl); iu = jtab_u(12)%iu(j)
+do j = 1,jtab_u(jtu_prog)%jend(mrl); iu = jtab_u(jtu_prog)%iu(j)
 !----------------------------------------------------------------------
    call qsub('U',iu)
 

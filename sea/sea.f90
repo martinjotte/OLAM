@@ -161,9 +161,11 @@ subroutine seacells()
 
    sea%sxfer_tsav(iws) = sea%sxfer_t(iws)
    sea%sxfer_rsav(iws) = sea%sxfer_r(iws)
+   sea%sxfer_csav(iws) = sea%sxfer_c(iws)
 
    sea%sxfer_t(iws) = 0.
    sea%sxfer_r(iws) = 0.
+   sea%sxfer_c(iws) = 0.
 
    sea%sea_sxfer_t(iws) = 0.
    sea%sea_sxfer_r(iws) = 0.

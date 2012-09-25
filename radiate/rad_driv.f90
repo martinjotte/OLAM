@@ -33,8 +33,8 @@
 subroutine radiate()
 
 use mem_tend,    only: thilt
-use mem_ijtabs,  only: jtab_w, itabg_w, mrl_begl, istp
-use mem_leaf,    only: land, itabg_wl, itab_wl, first_site
+use mem_ijtabs,  only: jtab_w, itabg_w, mrl_begl, istp, jtw_prog
+use mem_leaf,    only: land, itabg_wl, itab_wl
 use mem_sea,     only: sea, itabg_ws, itab_ws
 use leaf_coms,   only: nzg, nzs, mwl
 use sea_coms,    only: mws, nzi
@@ -52,8 +52,6 @@ use mem_sflux,   only: mseaflux, seaflux, jseaflux,  &
                        mlandflux, landflux, jlandflux
 use mem_grid,    only: wnx, wny, wnz
 use mem_para,    only: myrank
-
-use ed_structure_defs
 
 !$ use omp_lib
 
@@ -77,9 +75,6 @@ real :: arf_land
 real :: arf_sea
 real :: flux
 real :: sea_cosz
-
-type(site), pointer :: ed_site
-type(patch), pointer :: ed_patch
 
 integer, external :: julday
 integer :: jday
@@ -105,7 +100,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
    call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private(iw,k)
-   do j = 1,jtab_w(12)%jend(1); iw = jtab_w(12)%iw(j)! jend(1) = hardw for mrl = 1
+   do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)! jend(1) = hardw for mrl = 1
 !----------------------------------------------------------------------
    call qsub('W',iw)
 
@@ -264,35 +259,9 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
    enddo
 !$omp end parallel do
 
-! Set the pointer for the first ED site
+! Do radiation for all ED grid cells.
 
-   ed_site => first_site
-
-   do while(associated(ed_site))
-
-! Loop over subgrid-scale patches
-
-      ed_patch => ed_site%oldest_patch
-      do while(associated(ed_patch))
-
-! Get the unnormalized radiative transfer information
-
-         call sfcrad_ed(land%cosz(ed_site%iland), ed_patch,   &
-              ed_patch%cohort_count)
-
-         ed_patch => ed_patch%younger
-      enddo
-
-! Copy results over to iwl (iland)
-
-      call ed2land_radiation(ed_site)
-
-! At this point, we know the beam and diffuse albedo, but since they
-! are in general different, we do not know the net albedo.
-
-      ed_site => ed_site%next_site
-
-   enddo
+   call ed_rad_wrapper(1)
 
 ! Do parallel recv of SEA albedos and rlongup
 
@@ -374,7 +343,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
    call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private (iw,ka,koff,nrad)
-   do j = 1,jtab_w(12)%jend(1); iw = jtab_w(12)%iw(j) ! jend(1) = hardw for  mrl=1
+   do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) = hardw for  mrl=1
 !----------------------------------------------------------------------
    call qsub('W',iw)
 
@@ -589,24 +558,9 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
    enddo
 !$omp end parallel do
 
-! Set the pointer for the first ED site
+! Do radiation for all ED grid cells.
 
-   ed_site => first_site
-
-   do while(associated(ed_site))
-
-! Loop over subgrid-scale patches
-
-      ed_patch => ed_site%oldest_patch
-
-      do while(associated(ed_patch))
-         call scale_ed_radiation(ed_patch)
-         ed_patch => ed_patch%younger
-      enddo
-      
-      ed_site => ed_site%next_site
-
-   enddo
+   call ed_rad_wrapper(2)
 
 endif
 
@@ -617,7 +571,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k)
-do j = 1,jtab_w(12)%jend(mrl); iw = jtab_w(12)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -629,6 +583,10 @@ enddo
 !$omp end parallel do
 endif
 call rsub('Wc',12)
+
+! Update ED output variables
+
+call ed_rad_wrapper(3)
 
 return
 end subroutine radiate

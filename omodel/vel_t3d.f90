@@ -25,7 +25,7 @@ end subroutine diagvel_t3d
 
 subroutine vel_t3d_hex(mrl, vs, ws, vxe, vye, vze)
 
-use mem_ijtabs, only: jtab_w, itab_v, itab_w
+use mem_ijtabs, only: jtab_w, itab_v, itab_w, jtw_prog
 use mem_grid,   only: mza, mva, mwa, lpw, lpv, vnx, vny, vnz, wnx, wny, wnz
 use misc_coms,  only: io6
 
@@ -52,7 +52,7 @@ if (mrl == 0) return
 call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private(iw,npoly,kb,k,jv,iv,wst,farv2) 
-do j = 1,jtab_w(16)%jend(mrl); iw = jtab_w(16)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -116,7 +116,7 @@ end subroutine vel_t3d_hex
 
 subroutine vel_t3d_tri(mrl, us, ws, vxe, vye, vze)
 
-use mem_ijtabs, only: jtab_w, itab_u, itab_w
+use mem_ijtabs, only: jtab_w, itab_u, itab_w, jtw_prog
 use mem_grid,   only: mza, mua, mwa, lpw
 use misc_coms,  only: io6
 
@@ -146,7 +146,7 @@ if (mrl == 0) return
 
 !$omp parallel do private (iw,iu1,iu2,iu3,k,wm,vxu1,vxu2,vxu3,vxw,  &
 !$omp                      vyu1,vyu2,vyu3,vyw,vzu1,vzu2,vzu3,vzw,kb )
-do j = 1,jtab_w(16)%jend(mrl); iw = jtab_w(16)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
    iu1 = itab_w(iw)%iu(1)
    iu2 = itab_w(iw)%iu(2)

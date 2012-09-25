@@ -58,8 +58,6 @@ call alloc_leafcol()
 
 call sfcdata()
 
-call load_ed_ecosystem_params()
-
 !-------------------------------------------------------------------------------
 ! STEP 3: Allocate main LEAF arrays
 !-------------------------------------------------------------------------------
@@ -68,15 +66,10 @@ call alloc_leaf(mwl, nzg, nzs)
 call filltab_leaf()
 
 !-------------------------------------------------------------------------------
-! STEP 4: Read soil depth info and initialize ED sites
+! STEP 4: Read soil depth info
 !-------------------------------------------------------------------------------
 
 if (isoildepthflg == 1) call leaf_soil_depth_read()
-call initialize_ed_sites()
-
-! Here, specify what land-grid variables to write out
-
-call filltab_ED()
 
 !-------------------------------------------------------------------------------
 ! STEP 5: Fill ndvi values

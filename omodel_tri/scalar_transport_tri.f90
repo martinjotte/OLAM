@@ -32,11 +32,13 @@
 !===============================================================================
 subroutine scalar_transport(umarusc,wmarwsc,rho_old)
 
-use mem_ijtabs,   only: istp, itab_u, jtab_u, jtab_w, mrl_endl
+use mem_ijtabs,   only: istp, itab_u, jtab_u, jtab_w, mrl_endl, &
+                        jtu_wadj, jtu_wstn, jtw_prog, jtw_wadj
 use mem_grid,     only: mza, mua, mwa, zt, zm, dzim, lpu, volt
 use misc_coms,    only: io6, dtlm, iparallel
 use var_tables,   only: scalar_tab, num_scalar
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
+use obnd,         only: lbcopy_w
 
 !$ use omp_lib
 
@@ -79,9 +81,8 @@ call psub()
 !----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
-! JTAB_U(22): ITAB_W(IW)%IU(1:3)
 !$omp parallel do private (iu)
-do j = 1,jtab_u(22)%jend(mrl); iu = jtab_u(22)%iu(j)
+do j = 1,jtab_u(jtu_wadj)%jend(mrl); iu = jtab_u(jtu_wadj)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
 
@@ -99,7 +100,7 @@ call psub()
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private (iw)
-do j = 1,jtab_w(26)%jend(mrl); iw = jtab_w(26)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -110,6 +111,12 @@ enddo
 !$omp end parallel do
 endif
 call rsub('Wa',26)
+
+! LBC copy
+
+do ns = 1,num_scalar-1
+   call lbcopy_w(1, a1=scp0(:,:,ns))
+enddo
 
 ! Parallel send/recv of scalars after updates from low-order advective flux
 
@@ -122,9 +129,8 @@ call psub()
 !----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
-! JTAB_U(21): ITAB_W(IW)%IU(1:9)
 !$omp parallel do private (iu,iw1,iw2,dt2,kb,k,hcnum_s,hcnum1_s,n,ns,scp)
-do j = 1,jtab_u(21)%jend(mrl); iu = jtab_u(21)%iu(j)
+do j = 1,jtab_u(jtu_wstn)%jend(mrl); iu = jtab_u(jtu_wstn)%iu(j)
 iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
 call qsub('U',iu)
@@ -185,9 +191,8 @@ call psub()
 !----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
-! JTAB_W(28): IW, ITAB_W(IW)%IW(1:3)
 !$omp parallel do private (iw)
-do j = 1,jtab_w(28)%jend(mrl); iw = jtab_w(28)%iw(j)
+do j = 1,jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -206,7 +211,7 @@ call psub()
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private (iw)
-do j = 1,jtab_w(26)%jend(mrl); iw = jtab_w(26)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 

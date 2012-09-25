@@ -32,7 +32,7 @@
 !===============================================================================
 subroutine micro()
 
-use mem_ijtabs,  only: jtab_w, istp, mrl_endl
+use mem_ijtabs,  only: jtab_w, istp, mrl_endl, jtw_prog
 use micro_coms,  only: level
 use misc_coms,   only: io6
 
@@ -60,7 +60,7 @@ call psub()
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private (iw)
-do j = 1,jtab_w(30)%jend(mrl); iw = jtab_w(30)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 

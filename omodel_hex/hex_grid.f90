@@ -33,7 +33,7 @@
 subroutine voronoi()
 
 use mem_ijtabs,  only: itab_md, itab_ud, itab_wd, itab_m, itab_v, itab_w,  &
-                       mrls, alloc_itabs
+                       mrls, alloc_itabs, mloops
 
 use mem_grid,    only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa,  &
                        xem, yem, zem, xew, yew, zew,  &
@@ -123,19 +123,15 @@ enddo
 do iv = 2,nva
    iud = iv
 
-! Re-assign loop values as if mdomain = 0.  This will need to change in
-! limited-area domain.
+   itab_v(iv)%loop(:)  = itab_ud(iud)%loop(:)
 
-   call vloops('f',iv, 1, 4, 7, 8, 9,11,12,13,14,15)
-   call vloops('n',iv,16,18,20, 0, 0, 0, 0, 0, 0, 0)
+   itab_v(iv)%ivp      = itab_ud(iud)%iup
+   itab_v(iv)%ivglobe  = itab_ud(iud)%iuglobe
+   itab_v(iv)%mrlv     = itab_ud(iud)%mrlu
 
-   itab_v(iv)%ivp       = itab_ud(iud)%iup
-   itab_v(iv)%ivglobe   = itab_ud(iud)%iuglobe
-   itab_v(iv)%mrlv      = itab_ud(iud)%mrlu
-
-   itab_v(iv)%im(1:6)   = itab_ud(iud)%iw(1:6)
-   itab_v(iv)%iv(1:12)  = itab_ud(iud)%iu(1:12)
-   itab_v(iv)%iw(1:2)   = itab_ud(iud)%im(1:2)
+   itab_v(iv)%im(1:6)  = itab_ud(iud)%iw(1:6)
+   itab_v(iv)%iv(1:12) = itab_ud(iud)%iu(1:12)
+   itab_v(iv)%iw(1:2)  = itab_ud(iud)%im(1:2)
 
 ! Extract information from IMD1 neighbor
 
@@ -148,24 +144,24 @@ do iv = 2,nva
 
       iud1 = itab_md(imd)%iu(j)
       iud2 = itab_md(imd)%iu(j1)
-   
+
 ! IW(3) and IW(4) neighbors of IV   
-   
+
       if (iud2 == iv) then
          iw1 = itab_ud(iud1)%im(1)
          iw2 = itab_ud(iud1)%im(2)
-            
+
          if (iw1 == imd) then
             itab_v(iv)%iw(3) = iw2
          else
             itab_v(iv)%iw(3) = iw1
          endif
       endif
-               
+
       if (iud1 == iv) then
          iw1 = itab_ud(iud2)%im(1)
          iw2 = itab_ud(iud2)%im(2)
-            
+
          if (iw1 == imd) then
             itab_v(iv)%iw(4) = iw2
          else
@@ -174,11 +170,11 @@ do iv = 2,nva
       endif
 
 ! IV(13) and IV(15) neighbors of IV
-           
+
       if (npoly >= 6 .and. iud2 == itab_v(iv)%iv(5)) then
          itab_v(iv)%iv(13) = iud1
       endif
-            
+
       if (npoly == 7 .and. iud1 == itab_v(iv)%iv(9)) then
          itab_v(iv)%iv(15) = iud2
       endif
@@ -189,20 +185,20 @@ do iv = 2,nva
 
    imd = itab_ud(iud)%im(2)
    npoly = itab_md(imd)%npoly
-   
+
    do j = 1,npoly
       j1 = j + 1
       if (j == npoly) j1 = 1
 
       iud1 = itab_md(imd)%iu(j)
       iud2 = itab_md(imd)%iu(j1)
-   
+
 ! IV(14) and IV(16) neighbors of IV
-               
+
       if (npoly >= 6 .and. iud1 == itab_v(iv)%iv(8)) then
          itab_v(iv)%iv(14) = iud2
       endif
-            
+
       if (npoly == 7 .and. iud2 == itab_v(iv)%iv(12)) then
          itab_v(iv)%iv(16) = iud1
       endif
@@ -216,15 +212,15 @@ enddo
 do iw = 2,nwa
    imd = iw
 
-! Re-assign loop values as if mdomain = 0.  This will need to change in
-! limited-area domain.
+   itab_w(iw)%loop(1:mloops) = itab_md(imd)%loop(1:mloops)
 
-   call wloops('f',iw, 1, 3, 5, 6, 7, 8,11,12,13,14)
-   call wloops('n',iw,15,16,17,18,19,20,23,25,26,27)
-   call wloops('n',iw,28,29,30,33,34, 0, 0, 0, 0, 0)
- 
+   if (mdomain == 0) then
+      itab_w(iw)%iwp = iw
+   else
+      itab_w(iw)%iwp = itab_md(imd)%imp ! Could this be used always?
+   endif
+
    itab_w(iw)%npoly   = itab_md(imd)%npoly
-   itab_w(iw)%iwp     = iw  ! assumes mdomain = 0
    itab_w(iw)%iwglobe = iw
 
    npoly = itab_w(iw)%npoly
@@ -238,9 +234,9 @@ do iw = 2,nwa
 
       iw1 = itab_v(iv)%iw(1)
       iw2 = itab_v(iv)%iw(2)
-      
+
 ! Set mrlw to max of itab_wd neighbors
-      
+
       if (itab_w(iw)%mrlw < itab_wd(iwd)%mrlw) then
           itab_w(iw)%mrlw = itab_wd(iwd)%mrlw
       endif
@@ -265,13 +261,15 @@ enddo
 do im = 2,nma
    iwd = im
 
-! Re-assign loop values as if mdomain = 0.  This will need to change in
-! limited-area domain.
+   itab_m(im)%loop(1:mloops) = itab_wd(iwd)%loop(1:mloops)
 
-   call mloops('f',im,1,3,0,0)
+   if (mdomain == 0) then
+      itab_m(im)%imp = im
+   else
+      itab_m(im)%imp = itab_wd(iwd)%iwp ! Could this be used always?
+   endif
 
    itab_m(im)%npoly     = 3
-   itab_m(im)%itopm     = im  ! Assumes mdomain = 0.
    itab_m(im)%imglobe   = itab_wd(iwd)%iwglobe
    itab_m(im)%mrlm_orig = itab_wd(iwd)%mrlw_orig
    itab_m(im)%mrow      = itab_wd(iwd)%mrow
@@ -284,9 +282,9 @@ do im = 2,nma
 
    do j = 1,itab_m(im)%npoly
       iw = itab_m(im)%iw(j)
-      
+
 ! Set mrlm to max of itab_w neighbors
-      
+
       if (itab_m(im)%mrlm < itab_w(iw)%mrlw) then
           itab_m(im)%mrlm = itab_w(iw)%mrlw
       endif
@@ -304,7 +302,7 @@ end subroutine voronoi
 subroutine pcvt()
 
 ! Iterative procedure for defining centroidal voronoi cells
-   
+
 use mem_ijtabs,  only: itab_m, itab_w
 use mem_grid,    only: nma, nwa, xem, yem, zem, xew, yew, zew
 use consts_coms, only: erad, piu180
@@ -378,17 +376,23 @@ do iter = 1,niter
          call e_ps(xew(iw2),yew(iw2),zew(iw2),glatbc,glonbc,x2,y2)
          call e_ps(xew(iw3),yew(iw3),zew(iw3),glatbc,glonbc,x3,y3)
 
-      else
-
 ! For Cartesian domain, use given planar X,Y coordinates
 
-         x1 = xew(iw1)
-         x2 = xew(iw2)
-         x3 = xew(iw3)
+      else
 
-         y1 = yew(iw1)
-         y2 = yew(iw2)
-         y3 = yew(iw3)
+! First, compute barycenter of 3 W points
+
+         xebc = (xew(iw1) + xew(iw2) + xew(iw3)) / 3.
+         yebc = (yew(iw1) + yew(iw2) + yew(iw3)) / 3.
+         zebc = (zew(iw1) + zew(iw2) + zew(iw3)) / 3.
+
+         x1 = xew(iw1) - xebc
+         x2 = xew(iw2) - xebc
+         x3 = xew(iw3) - xebc
+
+         y1 = yew(iw1) - yebc
+         y2 = yew(iw2) - yebc
+         y3 = yew(iw3) - yebc
 
       endif
 
@@ -397,7 +401,7 @@ do iter = 1,niter
       dx12 = x2 - x1
       dx13 = x3 - x1
       dx23 = x3 - x2
-      
+
       s1 = x1**2 + y1**2
       s2 = x2**2 + y2**2
       s3 = x3**2 + y3**2
@@ -415,9 +419,14 @@ do iter = 1,niter
          xcc = (s3 - s1 - ycc * 2. * (y3 - y1)) / (2. * dx13)
       endif
 
-! Transform circumcenter from PS to earth coordinates
+! For global domain, transform circumcenter from PS to earth coordinates
 
-      call ps_e(xem(im),yem(im),zem(im),glatbc,glonbc,xcc,ycc)
+      if (mdomain <= 1) then
+         call ps_e(xem(im),yem(im),zem(im),glatbc,glonbc,xcc,ycc)
+      else
+         xem(im) = xcc + xebc
+         yem(im) = ycc + yebc
+      endif
 
    enddo
 
@@ -443,7 +452,12 @@ do iter = 1,niter
 
 ! Determine local PS coordinates of current M point
 
-         call e_ps(xem(im),yem(im),zem(im),glatw,glonw,xm(jm),ym(jm))
+         if (mdomain <= 1) then
+            call e_ps(xem(im),yem(im),zem(im),glatw,glonw,xm(jm),ym(jm))
+         else
+            xm(jm) = xem(im) - xew(iw)
+            ym(jm) = yem(im) - yew(iw)
+         endif
       enddo
 
 ! Compute Voronoi cell area for current W point
@@ -475,7 +489,13 @@ do iter = 1,niter
 
 ! Transform local PS coordinates of centroid to Earth coordinates
 
-      call ps_e(xec,yec,zec,glatw,glonw,xc,yc)
+      if (mdomain <= 1) then
+         call ps_e(xec,yec,zec,glatw,glonw,xc,yc)
+      else
+         xec = xc + xew(iw)
+         yec = yc + yew(iw)
+         zec = 0.
+      endif
 
 ! Move current W point (fractionally) to centroid location
 
@@ -507,8 +527,10 @@ use mem_grid,    only: nza, nma, nva, nwa, xev, yev, zev, xem, yem, zem, &
                        xew, yew, zew, unx, uny, unz, wnx, wny, wnz,      &
                        vnx, vny, vnz, glonw, glatw, dnu, dniu, dnv, dniv, arw0, &
                        arm0, glonm, glatm, glatv, glonv
-use misc_coms,   only: io6, mdomain, grdlat, grdlon
+use misc_coms,   only: io6, mdomain, grdlat, grdlon, nxp
 use consts_coms, only: erad, erad2, piu180, eradsq,pio2
+
+use oplot_coms,  only: op
 
 implicit none
 
@@ -555,6 +577,13 @@ real :: xm1,xm2,xv,xw,ym1,ym2,yv,yw,frac,accum_kite,alpha
 real :: xw1,xw2,yw1,yw2
 real :: gx1,gx2,gy1,gy2
 
+real :: xem1, xem2, yem1, yem2, zem1, zem2
+
+real :: xq1, yq1, xq2, yq2, psiz
+integer :: iskip
+
+character(10) :: string
+
 ef = 1.01  ! radial expansion factor (from earth center) for defining 
            ! auxiliary point for computing unit normal to U face
 
@@ -569,8 +598,8 @@ do im = 2,nma
       glatm(im) = atan2(zem(im),raxis)   * piu180
       glonm(im) = atan2(yem(im),xem(im)) * piu180
    else
-      glatm(im) = grdlat(1,1)  ! want it this way?
-      glonm(im) = grdlon(1,1)  ! want it this way?
+      glatm(im) = 0.  ! want it this way?
+      glonm(im) = 0.  ! want it this way?
    endif
 
 ! Fill global index (replaced later if this run is parallel)
@@ -585,7 +614,7 @@ do im = 2,nma
 
    do j = 1,npoly
       iw = itab_m(im)%iw(j)
-      
+
       itab_m(im)%mrlm = max(itab_m(im)%mrlm, itab_w(iw)%mrlw)
    enddo
 
@@ -636,22 +665,42 @@ do iv = 2,nva
       glatv(iv) = atan2(zev(iv),raxis)   * piu180
       glonv(iv) = atan2(yev(iv),xev(iv)) * piu180
    else
-      glatv(iv) = grdlat(1,1)  ! want it this way?
-      glonv(iv) = grdlon(1,1)  ! want it this way?
+      glatv(iv) = 0. ! want it this way?
+      glonv(iv) = 0. ! want it this way?
    endif
 
 ! Normal distance across U face
 ! Unit vector components of U face
 !x Convert normal distance across U face to geodesic arc length
 
-   dnu(iv) = sqrt( (xem(im1) - xem(im2))**2 &
-                 + (yem(im1) - yem(im2))**2 &
-                 + (zem(im1) - zem(im2))**2 )
-   
-   unx(iv) = (xem(im2) - xem(im1)) / dnu(iv)
-   uny(iv) = (yem(im2) - yem(im1)) / dnu(iv)
-   unz(iv) = (zem(im2) - zem(im1)) / dnu(iv)
-                 
+   if (im1 < 2) then
+      xem1 = xev(iv)
+      yem1 = yev(iv)
+      zem1 = zev(iv)
+   else
+      xem1 = xem(im1)
+      yem1 = yem(im1)
+      zem1 = zem(im1)
+   endif
+
+   if (im2 < 2) then
+      xem2 = xev(iv)
+      yem2 = yev(iv)
+      zem2 = zev(iv)
+   else
+      xem2 = xem(im2)
+      yem2 = yem(im2)
+      zem2 = zem(im2)
+   endif
+
+   dnu(iv) = sqrt( (xem1 - xem2)**2 &
+                 + (yem1 - yem2)**2 &
+                 + (zem1 - zem2)**2 )
+
+   unx(iv) = (xem2 - xem1) / dnu(iv)
+   uny(iv) = (yem2 - yem1) / dnu(iv)
+   unz(iv) = (zem2 - zem1) / dnu(iv)
+
 !x   dnu(iv) = erad2 * asin(dnu(iv) / erad2)
    dniu(iv) = 1. / dnu(iv)
 
@@ -662,11 +711,11 @@ do iv = 2,nva
    dnv(iv) = sqrt( (xew(iw1) - xew(iw2))**2 &
                  + (yew(iw1) - yew(iw2))**2 &
                  + (zew(iw1) - zew(iw2))**2 )
-                 
+
    vnx(iv) = (xew(iw2) - xew(iw1)) / dnv(iv)
    vny(iv) = (yew(iw2) - yew(iw1)) / dnv(iv)
    vnz(iv) = (zew(iw2) - zew(iw1)) / dnv(iv)
-                 
+
 !x   dnv(iv) = erad2 * asin(dnv(iv) / erad2)
    dniv(iv) = 1. / dnv(iv)
 
@@ -675,23 +724,23 @@ do iv = 2,nva
    if (iw1 < 2 .or. iw2 < 2) cycle
 
    itab_v(iv)%mrlv = max(itab_w(iw1)%mrlw,itab_w(iw2)%mrlw)
-   
+
 ! Compute IM1 and IM2 values of quarter kite area,
 ! and add to ARM0 and ARW0 arrays   
 
-   dvm1 = sqrt((xev(iv) - xem(im1))**2 &
-        +      (yev(iv) - yem(im1))**2 &
-        +      (zev(iv) - zem(im1))**2)
+   dvm1 = sqrt((xev(iv) - xem1)**2 &
+        +      (yev(iv) - yem1)**2 &
+        +      (zev(iv) - zem1)**2)
 
-   dvm2 = sqrt((xev(iv) - xem(im2))**2 &
-        +      (yev(iv) - yem(im2))**2 &
-        +      (zev(iv) - zem(im2))**2)
+   dvm2 = sqrt((xev(iv) - xem2)**2 &
+        +      (yev(iv) - yem2)**2 &
+        +      (zev(iv) - zem2)**2)
 
 ! Fractional distance along V edge where intersection with U edge is located
 
    frac = dvm1 * dniu(iv)
 
-   if (frac < .001 .or. frac > .999) then
+   if (im1 > 1 .and. im2 > 1 .and. (frac < .001 .or. frac > .999)) then
       print*, 'Non-intersecting U-V edges detected in grid geometry'
       print*, 'FRAC  = ',frac
       print*, 'IV    = ',iv
@@ -699,13 +748,13 @@ do iv = 2,nva
       print*, 'GLONV = ',glonv(iv)
 
       print*, 'dnu(iv),dniu(iv) ',dnu(iv),dniu(iv)
-         
+
       stop 'STOP U-V edges'
    endif
 
    quarter_kite(1,iv) = .25 * dvm1 * dnv(iv)
    quarter_kite(2,iv) = .25 * dvm2 * dnv(iv)
-   
+
    arm0(im1) = arm0(im1) + 2. * quarter_kite(1,iv)
    arm0(im2) = arm0(im2) + 2. * quarter_kite(2,iv)
 
@@ -736,8 +785,8 @@ do iw = 2,nwa
       glatw(iw) = atan2(zew(iw),raxis)   * piu180
       glonw(iw) = atan2(yew(iw),xew(iw)) * piu180
    else
-      glatw(iw) = grdlat(1,1)  ! want it this way?
-      glonw(iw) = grdlon(1,1)  ! want it this way?
+      glatw(iw) = 0. ! want it this way?
+      glonw(iw) = 0. ! want it this way?
    endif
 
 ! Number of polygon edges/vertices
@@ -787,9 +836,18 @@ do iw = 2,nwa
 ! Evaluate x,y coordinates of IW1 and IW2 points on polar stereographic plane
 ! tangent at IW
 
-      call e_ps(xew(iw1),yew(iw1),zew(iw1),glatw(iw),glonw(iw),xw1,yw1)
-      call e_ps(xew(iw2),yew(iw2),zew(iw2),glatw(iw),glonw(iw),xw2,yw2)
-      call e_ps(xev(iv),yev(iv),zev(iv),glatw(iw),glonw(iw),xv,yv)
+      if (mdomain <= 1) then
+         call e_ps(xew(iw1),yew(iw1),zew(iw1),glatw(iw),glonw(iw),xw1,yw1)
+         call e_ps(xew(iw2),yew(iw2),zew(iw2),glatw(iw),glonw(iw),xw2,yw2)
+         call e_ps(xev(iv),yev(iv),zev(iv),glatw(iw),glonw(iw),xv,yv)
+      else
+         xw1 = xew(iw1) - xew(iw)
+         yw1 = yew(iw1) - yew(iw)
+         xw2 = xew(iw2) - xew(iw)
+         yw2 = yew(iw2) - yew(iw)
+         xv  = xev(iv)  - xew(iw)
+         yv  = yev(iv)  - yew(iw)
+      endif
 
 ! Coefficients for eastward and northward components of gradient
 
@@ -834,6 +892,16 @@ do iw = 2,nwa
 
 enddo
 
+!----------------------------------------
+! Plot grid lines
+
+call o_reopnwk()
+call plotback()
+call oplot_set(1)
+psiz = .04 / real(nxp)
+
+!----------------------------------------
+
 ! Loop over all V points
 
 do iv = 2,nva
@@ -865,7 +933,7 @@ do iv = 2,nva
    iv14 = itab_v(iv)%iv(14)
    iv15 = itab_v(iv)%iv(15)
    iv16 = itab_v(iv)%iv(16)
-   
+
 ! OR:  ivv(1:16) = itab_v(iv)%iv(1:16)   
 
    iw1 = itab_v(iv)%iw(1)
@@ -900,7 +968,7 @@ do iv = 2,nva
    endif
 
    if (iv13 > 1) then
-   
+
       if (itab_v(iv13)%iw(1) == iw1) then
          accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv1) &
                     + quarter_kite(2,iv1) + quarter_kite(1,iv5) &
@@ -974,7 +1042,7 @@ do iv = 2,nva
    endif
 
    if (iv14 > 1) then
-   
+
       if (itab_v(iv14)%iw(1) == iw2) then
          accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv2) &
                     + quarter_kite(2,iv2) + quarter_kite(1,iv8) &
@@ -1011,7 +1079,7 @@ do iv = 2,nva
    endif
 
    if (iv16 > 1) then
-   
+
       if (itab_v(iv16)%iw(1) == iw2) then
          accum_kite = quarter_kite(2,iv)   + quarter_kite(1,iv4)  &
                     + quarter_kite(2,iv4)  + quarter_kite(1,iv12) &
@@ -1078,7 +1146,71 @@ do iv = 2,nva
 
    itab_v(iv)%fvw(1:4) = .5 * itab_v(iv)%fvw(1:4)
 
+!----------------------------------------
+! Plot grid lines
+
+   call oplot_transform(1,xem(im1),yem(im1),zem(im1),xm1,ym1)
+   call oplot_transform(1,xem(im2),yem(im2),zem(im2),xm2,ym2)
+   call oplot_transform(1,xev(iv),yev(iv),zev(iv),xv,yv)
+   call oplot_transform(1,xew(iw2),yew(iw2),zew(iw2),xw2,yw2)
+   call oplot_transform(1,xew(iw1),yew(iw1),zew(iw1),xw1,yw1)
+
+   if (im1 < 2) then
+      xm1 = xv
+      ym1 = yv
+   elseif (im2 < 2) then
+      xm2 = xv
+      ym2 = yv
+   endif
+
+   call trunc_segment(xm1,xm2,ym1,ym2,xq1,xq2,yq1,yq2,iskip)
+
+   if (iskip == 1) cycle
+
+   call o_frstpt (xq1,yq1)
+   call o_vector (xq2,yq2)
+
+   if ( xm1 < op%xmin .or.  &
+        xm1 > op%xmax .or.  &
+        ym1 < op%ymin .or.  &
+        ym1 > op%ymax ) go to 111
+
+
+   if (im1 >= 2) then
+      write(string,'(I0)') im1
+      call o_plchlq (xm1,ym1,trim(adjustl(string)),psiz,0.,0.)
+   endif
+
+   if (im2 >= 2) then
+      write(string,'(I0)') im2
+      call o_plchlq (xm2,ym2,trim(adjustl(string)),psiz,0.,0.)
+   endif
+
+   write(string,'(I0)') iv
+   call o_plchlq (xv,yv,trim(adjustl(string)),psiz,0.,0.)
+
+   write(string,'(I0)') iw1
+   call o_plchlq (xw1,yw1,trim(adjustl(string)),psiz,0.,0.)
+
+   write(string,'(I0)') iw2
+   call o_plchlq (xw2,yw2,trim(adjustl(string)),psiz,0.,0.)
+
+   write(string,'(I0)') itab_v(iv)%ivp
+   call o_plchlq (xv,yv+100.,trim(adjustl(string)),.5*psiz,0.,0.)
+
+   write(string,'(I0)') itab_w(iw1)%iwp
+   call o_plchlq (xw1,yw1+100.,trim(adjustl(string)),.5*psiz,0.,0.)
+
+   write(string,'(I0)') itab_w(iw2)%iwp
+   call o_plchlq (xw2,yw2+100.,trim(adjustl(string)),.5*psiz,0.,0.)
+
+   111 continue
+!---------------------------------------------------------------------
+
 enddo  ! IV
+
+call o_frame()
+call o_clswk()
 
 ! Loop over all M points
 
@@ -1127,13 +1259,15 @@ end subroutine grid_geometry_hex
 
 subroutine ctrlvols_hex(quarter_kite)
 
-use mem_ijtabs,  only: jtab_m, jtab_v, jtab_w, itab_m, itab_v, itab_w
+use mem_ijtabs,  only: jtab_m, jtab_v, jtab_w, itab_m, itab_v, itab_w, &
+                       jtm_grid, jtv_grid, jtv_wall, jtv_lbcp, &
+                       jtw_grid, jtw_lbcp
 use misc_coms,   only: io6, mdomain, itopoflg
 use consts_coms, only: erad
 use mem_grid,    only: nsw_max, nza, nma, nva, nwa, lpm, lpv, lpw, lsw,  &
                        topm, topw, zm, dzt, zt, zfacm, zfact, dnu, dniu, dnv, &
                        arm0, arw0, arv, arw, volt, volti, volvi, volwi,  &
-                       xew, yew, zew, glatw, glonw, glatm, glonm
+                       xem, yem, zem, xew, yew, zew, glatw, glonw, glatm, glonm
 use leaf_coms,   only: isfcl,nml
 use sea_coms,    only: nms
 use mem_sflux,   only: init_fluxcells,nseaflux,nlandflux,seaflux,landflux
@@ -1244,7 +1378,12 @@ if (isfcl == 0) then
 ! Evaluate x,y coordinates of W point on polar stereographic plane
 ! tangent at IM
 
-         call e_ps(xew(iw),yew(iw),zew(iw),glatm(im),glonm(im),xq(jw),yq(jw))
+         if (mdomain <= 1) then
+            call e_ps(xew(iw),yew(iw),zew(iw),glatm(im),glonm(im),xq(jw),yq(jw))
+         else
+            xq(jw) = xew(iw) - xem(im)
+            yq(jw) = yew(iw) - yem(im)
+         endif
 
 ! Store topography height of W point in zq array
 
@@ -1264,14 +1403,14 @@ if (isfcl == 0) then
 ! Find height of M point (located at x=0,y=0)
 
       topm(im) = az
-      
+
    enddo
 
 ! Fill ARW and VOLT from topography using quadrature method
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_w(1)%jend(1); iw = jtab_w(1)%iw(j)
+   do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
    call qsub('W',iw)
 
@@ -1283,26 +1422,26 @@ if (isfcl == 0) then
 ! Number of vertices of IW polygon
 
       npoly = itab_w(iw)%npoly
-   
+
       t1 = topw(iw)
 
 ! Loop over polygon edges
 
       do jv = 1,npoly
-   
+
 ! Polygon vertices adjacent to jv
-   
+
          jm1 = jv - 1
          jm2 = jv
          if (jv == 1) jm1 = npoly
 
          im1 = itab_w(iw)%im(jm1)
          im2 = itab_w(iw)%im(jm2)
-         
+
          iv = itab_w(iw)%iv(jv)
 
          iwn = itab_w(iw)%iw(jv)
-         
+
 ! Topography at V point (t2)
 
          t2 = .5 * (topw(iw) + topw(iwn))
@@ -1310,8 +1449,8 @@ if (isfcl == 0) then
 ! Loop over both right-triangle halves of jv sector
 
          do ihalf = 1,2
-         
-! Quarter-kite and topography of 3rd point 
+
+! Quarter-kite and topography of 3rd point
 
             if (ihalf == 1) then
                t3 = topm(im1)
@@ -1330,7 +1469,7 @@ if (isfcl == 0) then
                   qk = quarter_kite(1,iv)
                endif
             endif
-      
+
 ! Loop over model levels
 
             do k = 2,nza-1
@@ -1343,7 +1482,7 @@ if (isfcl == 0) then
                   volt(k,iw) = volt(k,iw) + qk * dzt(k)
 
                else
- 
+
 ! Interpolate 3 topography heights to np*np sub-triangles in this sector
 
                   dt13 = t3 - t1
@@ -1391,13 +1530,13 @@ if (isfcl == 0) then
                endif  ! t1,t2,t3 vs zm
 
             enddo  ! k
-            
+
          enddo  ! ihalf
-      
+
       enddo  ! jv (sector)
-  
+
    enddo  ! j
- 
+
 else  ! isfcl = 1
 
 ! LEAF and SEA are being used.  
@@ -1417,13 +1556,28 @@ else  ! isfcl = 1
 
 endif
 
+! Lateral boundary copy of ARW, VOLT
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+   iwp = itab_w(iw)%iwp
+!----------------------------------------------------------------------
+call qsub('W',iw)
+
+   arw (:,iw) = arw (:,iwp)
+   volt(:,iw) = volt(:,iwp)
+
+enddo
+call rsub('W',jtw_lbcp)
+
 ! ARV
 
 write(io6,*) 'Defining control volume areas'
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_v(1)%jend(1); iv = jtab_v(1)%iv(j)
+do j = 1,jtab_v(jtv_grid)%jend(1); iv = jtab_v(jtv_grid)%iv(j)
    im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
@@ -1467,7 +1621,7 @@ call qsub('V',iv)
          elseif (zm(k) < hmax .and. zm(km) < hmin) then
 
             arv(k,iv) = dnu(iv) * .5 * (zm(k) - hmin)**2 / (hmax - hmin)
-                              
+
          elseif (zm(k) <  hmax .and. zm(km) >=  hmin) then
 
             arv(k,iv) = dnu(iv) * dzt(k)  &
@@ -1476,7 +1630,7 @@ call qsub('V',iv)
          elseif (zm(k) >= hmax .and. zm(km) < hmin) then
 
             arv(k,iv) = dnu(iv) * (zm(k) - .5 * (hmax + hmin))
-               
+
          elseif (zm(k) >= hmax .and. zm(km) >=  hmin) then
 
             arv(k,iv) = dnu(iv)  &
@@ -1486,15 +1640,15 @@ call qsub('V',iv)
 
             write(io6,*) 'arv option not reached ',k,i,j,  &
                zm(k),zm(km),hmax,hmin
-            stop 'stop arv defn'   
+            stop 'stop arv defn'
 
          endif
 
       enddo ! k
 
-   endif ! j,iv
+   endif
 
-enddo
+enddo ! j,iv
 call rsub('V',1)
 
 ! Set ARV to zero at non-topo walls
@@ -1502,23 +1656,37 @@ call rsub('V',1)
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_v(3)%jend(1); iv = jtab_v(3)%iv(j)
+do j = 1,jtab_v(jtv_wall)%jend(1); iv = jtab_v(jtv_wall)%iv(j)
 !----------------------------------------------------------------------
 call qsub('V',iv)
 
    do k = 2,nza
       arv(k,iv) = 0.
    enddo
-   lpv(iv) = nza 
-      
+   lpv(iv) = nza
+
 enddo
 call rsub('V',3)
+
+! Lateral boundary copy of ARV
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_v(jtv_lbcp)%jend(1); iv = jtab_v(jtv_lbcp)%iv(j)
+   ivp = itab_v(iv)%ivp
+!----------------------------------------------------------------------
+call qsub('V',iv)
+
+   arv(:,iv) = arv(:,ivp)
+
+enddo
+call rsub('V',jtv_lbcp)
 
 ! Topographic adjustments to ARW and VOLT...
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(3)%jend(1); iw = jtab_w(3)%iw(j)
+do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -1540,7 +1708,7 @@ call qsub('W',iw)
 !xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 !go to 1
 ! Option for stability: expand volt if too small relative to any grid cell face
- 
+
       volt(k,iw) = max(volt(k,iw), 0.5_8 * real(dzt(k) * (arw(k,iw) + arw(k-1,iw)), 8))
 
 ! Loop over faces of IW polygon
@@ -1553,7 +1721,7 @@ call qsub('W',iw)
          ! new way: each V face contributes to open up its fraction farv 
          ! of the current polygon:
          facw = facw + itab_w(iw)%farv(jv) * arv(k,iv) / (dnu(iv) * dzt(k))
-         
+
          ! old way: each V face contributes to open up the entire polygon
          ! v_height = arv(k,iv) / dnu(iv)
          ! volt(k,iw) = max( volt(k,iw), real(arw0(iw),8) * v_height)
@@ -1561,7 +1729,7 @@ call qsub('W',iw)
 
       facw = max( min(facw,1.0_8), 0.0_8)
       volt(k,iw) = max( volt(k,iw), facw * real(arw0(iw),8) * real(dzt(k),8) )
-      
+
 ! Reset arw(k,iw) if we increased volt to avoid hollow box
 
       if (volt(k,iw) > 1.e-9) then
@@ -1583,14 +1751,29 @@ call qsub('W',iw)
 ! Set arw = 0 for bottom (k = 1), wall-on-top (k = nza-1), 
 ! and top (k = nza) levels
 
-   arw(1,iw) = 0.   
-   arw(nza-1,iw) = 0.   
-   arw(nza,iw) = 0.   
+   arw(1,iw) = 0.
+   arw(nza-1,iw) = 0.
+   arw(nza,iw) = 0. 
 
 enddo
 call rsub('W',3)
 
-! LPM, LPW, LPV and possible closures of ARW, VOLT, and ARV
+! Lateral boundary copy of ARW, VOLT
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+   iwp = itab_w(iw)%iwp
+!----------------------------------------------------------------------
+call qsub('W',iw)
+
+   arw (:,iw) = arw (:,iwp)
+   volt(:,iw) = volt(:,iwp)
+
+enddo
+call rsub('W',jtw_lbcp)
+
+! LPM, LPW, LPV
 
 lpm(2:nma) = nza-1
 lpv(2:nva) = nza-1
@@ -1598,34 +1781,34 @@ lpw(2:nwa) = nza-1
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_m(1)%jend(1); im = jtab_m(1)%im(j)
+do j = 1,jtab_m(jtm_grid)%jend(1); im = jtab_m(jtm_grid)%im(j)
 !----------------------------------------------------------------------
 call qsub('M',im)
 
-   iv1 = itab_m(im)%iv(1)      
-   iv2 = itab_m(im)%iv(2)      
-   iv3 = itab_m(im)%iv(3)      
+   iv1 = itab_m(im)%iv(1)
+   iv2 = itab_m(im)%iv(2)
+   iv3 = itab_m(im)%iv(3)
 
-   iw1 = itab_m(im)%iw(1)      
-   iw2 = itab_m(im)%iw(2)      
-   iw3 = itab_m(im)%iw(3)      
+   iw1 = itab_m(im)%iw(1)
+   iw2 = itab_m(im)%iw(2)
+   iw3 = itab_m(im)%iw(3)
 
 ! Loop over vertical levels from top to bottom
 
    do k = nza-1,2,-1
-   
+
       if (topm(im) >= zm(k)) exit
 
       if (arv(k,iv1) < .005 * dnu(iv1) * dzt(k)) exit
       if (arv(k,iv2) < .005 * dnu(iv2) * dzt(k)) exit
       if (arv(k,iv2) < .005 * dnu(iv2) * dzt(k)) exit
-      
+
       if (k < nza-1) then
          if (arw(k,iw1) < .001 * arw0(iw1)) exit
          if (arw(k,iw2) < .001 * arw0(iw2)) exit
          if (arw(k,iw3) < .001 * arw0(iw3)) exit
       endif
-          
+
       lpm(im) = k
 
       lpv(iv1) = min(lpv(iv1),k)
@@ -1647,14 +1830,14 @@ nsw_max = 1
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(3)%jend(1); iw = jtab_w(3)%iw(j)
+do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
 ! Number of vertices of IW polygon
 
    npoly = itab_w(iw)%npoly
-   
+
    do k = 2,nza
 
       if (k < lpw(iw)) then
@@ -1721,14 +1904,14 @@ endif
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(3)%jend(1); iw = jtab_w(3)%iw(j)
+do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
 ! Loop over vertical levels
 
    do k = 2,nza
-         
+
       if (volt(k,iw) > 1.e-9) then
          if (mdomain < 2) then
             arw (k,iw) = arw (k,iw) * zfacm(k)**2
@@ -1766,13 +1949,31 @@ call qsub('W',iw)
 enddo
 call rsub('W',3)
 
+! Lateral boundary copy of ARW, VOLT, VOLTI, VOLWI, LSW
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+   iwp = itab_w(iw)%iwp
+!----------------------------------------------------------------------
+call qsub('W',iw)
+
+   arw  (:,iw) = arw  (:,iwp)
+   volt (:,iw) = volt (:,iwp)
+   volti(:,iw) = volti(:,iwp)
+   volwi(:,iw) = volwi(:,iwp)
+   lsw    (iw) = lsw    (iwp)
+
+enddo
+call rsub('W',jtw_lbcp)
+
 ! Expand ARV with height for spherical geometry; Compute VOLVI
 
 volvi(1:nza,1:nva) = 1.e-9
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_v(4)%jend(1); iv = jtab_v(4)%iv(j)
+do j = 1,jtab_v(jtv_grid)%jend(1); iv = jtab_v(jtv_grid)%iv(j)
 iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
 call qsub('V',iv)
@@ -1795,6 +1996,21 @@ call qsub('V',iv)
 
 enddo
 call rsub('V',4)
+
+! Lateral boundary copy of ARV, VOLVI
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_v(jtv_lbcp)%jend(1); iv = jtab_v(jtv_lbcp)%iv(j)
+   ivp = itab_v(iv)%ivp
+!----------------------------------------------------------------------
+call qsub('V',iv)
+
+   arv  (:,iv) = arv  (:,ivp)
+   volvi(:,iv) = volvi(:,ivp)
+
+enddo
+call rsub('V',jtv_lbcp)
 
 return
 end subroutine ctrlvols_hex

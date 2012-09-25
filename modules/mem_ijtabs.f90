@@ -37,16 +37,21 @@ Module mem_ijtabs
    
    private :: maxgrds, maxremote
 
-   integer, parameter :: mloops_m =  4 ! max # non-para DO loops for M pts
-   integer, parameter :: mloops_u = 25 ! max # non-para DO loops for U pts
-   integer, parameter :: mloops_v = 25 ! max # non-para DO loops for V pts
-   integer, parameter :: mloops_w = 35 ! max # non-para DO loops for W pts
+   integer, parameter :: mloops = 7 ! max # non-para DO loops for M,U,V,W pts
 
-   integer, parameter :: nloops_m = mloops_m             ! (no para loops for M)
-   integer, parameter :: nloops_u = mloops_u + maxremote ! # U DO loops incl para
-   integer, parameter :: nloops_v = mloops_v + maxremote ! # V DO loops incl para
-   integer, parameter :: nloops_w = mloops_w + maxremote ! # W DO loops incl para
+   integer, parameter :: nloops_m = mloops             ! (no para loops for M)
+   integer, parameter :: nloops_u = mloops + maxremote ! # U DO loops incl para
+   integer, parameter :: nloops_v = mloops + maxremote ! # V DO loops incl para
+   integer, parameter :: nloops_w = mloops + maxremote ! # W DO loops incl para
    
+   integer, parameter :: jtm_grid = 1, jtu_grid = 1, jtv_grid = 1, jtw_grid = 1
+   integer, parameter :: jtm_init = 2, jtu_init = 2, jtv_init = 2, jtw_init = 2
+   integer, parameter :: jtm_prog = 3, jtu_prog = 3, jtv_prog = 3, jtw_prog = 3
+   integer, parameter :: jtm_wadj = 4, jtu_wadj = 4, jtv_wadj = 4, jtw_wadj = 4
+   integer, parameter :: jtm_wstn = 5, jtu_wstn = 5, jtv_wstn = 5, jtw_wstn = 5
+   integer, parameter :: jtm_lbcp = 6, jtu_lbcp = 6, jtv_lbcp = 6, jtw_lbcp = 6
+   integer, parameter :: jtm_vadj = 7, jtu_wall = 7, jtv_wall = 7, jtw_vadj = 7
+
    integer :: nstp  ! # of finest grid acoustic timesteps in coarse grid dtlong
    integer :: istp  ! Current timestep counter from 1 to nstp
    integer :: mrls  ! Number of active mesh refinement levels (MRLs)
@@ -65,11 +70,13 @@ Module mem_ijtabs
       logical :: loop(nloops_m) = .false. ! flag to perform each DO loop at this M pt
 
       integer :: npoly = 0       ! number of V/W neighbors of this M pt
-      integer :: itopm = 1       ! M point from which to copy this M pt's topo
+      integer :: imp = 1         ! M point from which to copy this M pt's values
       integer :: imglobe = 1     ! global index of this M pt (in parallel case)
       integer :: mrlm = 0        ! mesh refinement level of this M pt
       integer :: mrlm_orig = 0   ! original MRL of this M pt (hex only)
-      integer :: mrow=0, mrowh=0 ! Full and half row number outside nest
+      integer :: mrow = 0        ! Full row number outside nest
+      integer :: mrowh = 0       ! Half row number outside nest
+      integer :: im(7) = 1       ! array of M neighbors of this M pt (Del or Vor)
       integer :: iu(7) = 1       ! array of U neighbors of this M pt (Delaunay)
       integer :: iv(7) = 1       ! array of V neighbors of this M pt (Voronoi)
       integer :: iw(7) = 1       ! array of W neighbors of this M pt (Del or Vor)
@@ -79,7 +86,7 @@ Module mem_ijtabs
    Type itab_u_vars             ! data structure for U pts (individual rank)
       logical :: loop(nloops_u) = .false. ! flag to perform each DO loop at this M pt
 
-      integer :: iup=1         ! U pt from which to copy this U pt's values
+      integer :: iup = 1       ! U pt from which to copy this U pt's values
       integer :: irank = -1    ! rank of parallel process at this U pt
       integer :: iuglobe = 1   ! global index of this U pt (in parallel case)
       integer :: mrlu = 0      ! mesh refinement level of this U pt
@@ -108,62 +115,62 @@ Module mem_ijtabs
    Type itab_v_vars             ! data structure for V pts (individual rank)
       logical :: loop(nloops_v) = .false. ! flag to perform each DO loop at this V pt
 
-      integer :: ivp=1         ! V pt from which to copy this V pt's values
+      integer :: ivp = 1       ! V pt from which to copy this V pt's values
       integer :: irank = -1    ! rank of parallel process at this V pt
       integer :: ivglobe = 1   ! global index of this V pt (in parallel case)
-      integer :: mrlv=0        ! mesh refinement level of this V pt
-      integer :: im(6)=1       ! neighbor M pts of this V pt
-      integer :: iv(16)=1      ! neighbor V pts
-      integer :: iw(4)=1       ! neighbor W pts of this V pt
+      integer :: mrlv = 0      ! mesh refinement level of this V pt
+      integer :: im(6) = 1     ! neighbor M pts of this V pt
+      integer :: iv(16) = 1    ! neighbor V pts
+      integer :: iw(4) = 1     ! neighbor W pts of this V pt
 
-      real :: fvv(12)=0.       ! Proj of V5-12 onto V    [HADV + HDIFF]
-      real :: fvw (4)=0.       ! Proj of W1-4 onto V     [HADV + HDIFF]
-      real :: fuv(16)=0.       ! Interp of V1-16 onto U  [CORF]
-      real :: farw(2)=0.       ! Interp of ARW to V control volume [VADV + VDIFF]
+      real :: fvv(12) = 0.     ! Proj of V5-12 onto V    [HADV + HDIFF]
+      real :: fvw (4) = 0.     ! Proj of W1-4 onto V     [HADV + HDIFF]
+      real :: fuv(16) = 0.     ! Interp of V1-16 onto U  [CORF]
+      real :: farw(2) = 0.     ! Interp of ARW to V control volume [VADV + VDIFF]
 
-      real :: cosv(2)=0.       ! cosine of angle between V and zonal dir (Voronoi)
-      real :: sinv(2)=0.       ! sine of angle between V and zonal dir (Voronoi)
+      real :: cosv(2) = 0.     ! cosine of angle between V and zonal dir (Voronoi)
+      real :: sinv(2) = 0.     ! sine of angle between V and zonal dir (Voronoi)
 
-      real :: dxps(2)=0.       ! xps (eastward) displacement from neighbor W pts
-      real :: dyps(2)=0.       ! yps (northward) displacement from neighbor W pts
+      real :: dxps(2) = 0.     ! xps (eastward) displacement from neighbor W pts
+      real :: dyps(2) = 0.     ! yps (northward) displacement from neighbor W pts
    End Type itab_v_vars
 
    Type itab_w_vars             ! data structure for W pts (individual rank)
       logical :: loop(nloops_w) = .false. ! flag to perform each DO loop at this W pt
 
-      integer :: npoly = 0   ! number of M/V neighbors of this W pt
-      integer :: iwp=1       ! W pt from which to copy this W pt's values
-      integer :: irank = -1  ! rank of parallel process at this W pt
-      integer :: iwglobe = 1 ! global index of this W pt (in parallel run)
-      integer :: mrlw=0      ! mesh refinement level of this W pt
-      integer :: mrlw_orig=0 ! mesh refinement level of this W pt
-      integer :: mrow=0      ! Full row number outside nest (Delaunay)
-      integer :: mrowh=0     ! Half row number outside nest (Delaunay)
-      integer :: im(7)=1     ! neighbor M pts of this W pt
-      integer :: iu(9)=1     ! neighbor U pts (9 Delaunay, 7 Voronoi)
-      integer :: iv(7)=1     ! neighbor V pts (Voronoi)
-      integer :: iw(9)=1     ! neighbor W pts (9 Delaunay, 7 Voronoi)
+      integer :: npoly = 0     ! number of M/V neighbors of this W pt
+      integer :: iwp = 1       ! W pt from which to copy this W pt's values
+      integer :: irank = -1    ! rank of parallel process at this W pt
+      integer :: iwglobe = 1   ! global index of this W pt (in parallel run)
+      integer :: mrlw = 0      ! mesh refinement level of this W pt
+      integer :: mrlw_orig = 0 ! mesh refinement level of this W pt
+      integer :: mrow = 0      ! Full row number outside nest (Delaunay)
+      integer :: mrowh = 0     ! Half row number outside nest (Delaunay)
+      integer :: im(7) = 1     ! neighbor M pts of this W pt
+      integer :: iu(9) = 1     ! neighbor U pts (9 Delaunay, 7 Voronoi)
+      integer :: iv(7) = 1     ! neighbor V pts (Voronoi)
+      integer :: iw(9) = 1     ! neighbor W pts (9 Delaunay, 7 Voronoi)
 
-      real :: diru(3)=0.     ! pos direction of U neighbors (Delaunay)
-      real :: dirv(7)=0.     ! pos direction of V neighbors (Voronoi)
-      real :: fwv (7)=0.     ! Proj of V1-7 onto W [HADV + HDIFF]
-      real :: fww (7)=0.     ! Proj of W1-7 onto W [HADV + HDIFF]
-      
-      real :: farm(7)=0.     ! Fraction of arw0 in each M point sector 
-      real :: farv(7)=0.     ! Fraction of arw0 in each V point sector 
+      real :: diru(3) = 0.     ! pos direction of U neighbors (Delaunay)
+      real :: dirv(7) = 0.     ! pos direction of V neighbors (Voronoi)
+      real :: fwv (7) = 0.     ! Proj of V1-7 onto W [HADV + HDIFF]
+      real :: fww (7) = 0.     ! Proj of W1-7 onto W [HADV + HDIFF]
 
-      real :: gxps1(7)=0.    ! gradient weight xe component for point 1
-      real :: gyps1(7)=0.    ! gradient weight ye component for point 1
+      real :: farm(7) = 0.     ! Fraction of arw0 in each M point sector 
+      real :: farv(7) = 0.     ! Fraction of arw0 in each V point sector 
 
-      real :: gxps2(7)=0.    ! gradient weight xe component for point 2
-      real :: gyps2(7)=0.    ! gradient weight ye component for point 2
+      real :: gxps1(7) = 0.    ! gradient weight xe component for point 1
+      real :: gyps1(7) = 0.    ! gradient weight ye component for point 1
 
-      real :: unx_w=0.       ! xe component of eastward unit normal vector
-      real :: uny_w=0.       ! ye component of eastward unit normal vector
+      real :: gxps2(7) = 0.    ! gradient weight xe component for point 2
+      real :: gyps2(7) = 0.    ! gradient weight ye component for point 2
 
-      real :: vnx_w=0.       ! xe component of northward unit normal vector
-      real :: vny_w=0.       ! ye component of northward unit normal vector
-      real :: vnz_w=0.       ! ze component of northward unit normal vector
+      real :: unx_w = 0.       ! xe component of eastward unit normal vector
+      real :: uny_w = 0.       ! ye component of eastward unit normal vector
+
+      real :: vnx_w = 0.       ! xe component of northward unit normal vector
+      real :: vny_w = 0.       ! ye component of northward unit normal vector
+      real :: vnz_w = 0.       ! ze component of northward unit normal vector
 
 ! Delaunay section - will change some
 
@@ -231,35 +238,35 @@ Module mem_ijtabs
       integer, allocatable :: jend(:)
    End Type jtab_w_vars
 
-   Type itab_m_pd_vars         ! data structure for M pts (individual rank) on para_(decomp,init)
-      integer :: npoly = 0     ! number of V/W neighbors of this M pt
-      integer :: itopm = 1     ! M point from which to copy this M pt's topo
-      integer :: iu(7) = 1     ! array of U neighbors of this M pt (Delaunay)
-      integer :: iv(7) = 1     ! array of V neighbors of this M pt (Voronoi)
-      integer :: iw(7) = 1     ! array of W neighbors of this M pt (Del or Vor)
+   Type itab_m_pd_vars      ! data structure for M pts (individual rank) on para_(decomp,init)
+      integer :: npoly = 0  ! number of V/W neighbors of this M pt
+      integer :: imp = 1    ! M point from which to copy this M pt's value
+      integer :: iu(7) = 1  ! array of U neighbors of this M pt (Delaunay)
+      integer :: iv(7) = 1  ! array of V neighbors of this M pt (Voronoi)
+      integer :: iw(7) = 1  ! array of W neighbors of this M pt (Del or Vor)
    End Type itab_m_pd_vars
 
-   Type itab_u_pd_vars         ! data structure for U pts (individual rank) on para_(decomp,init)
-      integer :: iup    = 1    ! U pt from which to copy this U pt's values
-      integer :: im(2)  = 1    ! neighbor M pts of this U pt
-      integer :: iu(12) = 1    ! neighbor U pts
-      integer :: iw(6)  = 1    ! neighbor W pts
+   Type itab_u_pd_vars      ! data structure for U pts (individual rank) on para_(decomp,init)
+      integer :: iup    = 1 ! U pt from which to copy this U pt's values
+      integer :: im(2)  = 1 ! neighbor M pts of this U pt
+      integer :: iu(12) = 1 ! neighbor U pts
+      integer :: iw(6)  = 1 ! neighbor W pts
    End Type itab_u_pd_vars
 
-   Type itab_v_pd_vars         ! data structure for V pts (individual rank) on para_(decomp,init)
-      integer :: ivp    = 1    ! V pt from which to copy this V pt's values
-      integer :: im(6)  = 1    ! neighbor M pts of this V pt
-      integer :: iv(16) = 1    ! neighbor V pts
-      integer :: iw(4)  = 1    ! neighbor W pts of this V pt
+   Type itab_v_pd_vars      ! data structure for V pts (individual rank) on para_(decomp,init)
+      integer :: ivp    = 1 ! V pt from which to copy this V pt's values
+      integer :: im(6)  = 1 ! neighbor M pts of this V pt
+      integer :: iv(16) = 1 ! neighbor V pts
+      integer :: iw(4)  = 1 ! neighbor W pts of this V pt
    End Type itab_v_pd_vars
 
-   Type itab_w_pd_vars         ! data structure for W pts (individual rank) on para_(decomp,init)
-      integer :: iwp   = 1     ! W pt from which to copy this W pt's values
-      integer :: npoly = 0     ! number of M/V neighbors of this W pt
-      integer :: im(7) = 1     ! neighbor M pts of this W pt
-      integer :: iu(9) = 1     ! neighbor U pts (9 Delaunay, 7 Voronoi)
-      integer :: iv(7) = 1     ! neighbor V pts (Voronoi)
-      integer :: iw(9) = 1     ! neighbor W pts (9 Delaunay, 7 Voronoi)
+   Type itab_w_pd_vars      ! data structure for W pts (individual rank) on para_(decomp,init)
+      integer :: iwp   = 1  ! W pt from which to copy this W pt's values
+      integer :: npoly = 0  ! number of M/V neighbors of this W pt
+      integer :: im(7) = 1  ! neighbor M pts of this W pt
+      integer :: iu(9) = 1  ! neighbor U pts (9 Delaunay, 7 Voronoi)
+      integer :: iv(7) = 1  ! neighbor V pts (Voronoi)
+      integer :: iw(9) = 1  ! neighbor W pts (9 Delaunay, 7 Voronoi)
    End Type itab_w_pd_vars
 
    type (itab_m_vars), allocatable :: itab_md(:)
@@ -547,22 +554,9 @@ Contains
 ! Compute JTAB_M%IM
 ! ///////////////////////////////////////////////////////////////////////////
 
-! MRL-independent loops
-
-   do im = 2,mma
-      do iloop = 1,2
-         if (itab_m(im)%loop(iloop)) then
-            jtab_m(iloop)%jend(1) = jtab_m(iloop)%jend(1) + 1
-            jtab_m(iloop)%im(jtab_m(iloop)%jend(1)) = im
-         endif
-      enddo
-   enddo
-   
-! MRL-dependent loops
-
    do mrl = mrls,1,-1
       do im = 2,mma
-         do iloop = 3,nloops_m
+         do iloop = 1,nloops_m
             if (itab_m(im)%loop(iloop) .and. itab_m(im)%mrlm == mrl) then
                jtab_m(iloop)%jend(1:mrl) = jtab_m(iloop)%jend(1:mrl) + 1
                jtab_m(iloop)%im(jtab_m(iloop)%jend(1)) = im
@@ -578,20 +572,9 @@ Contains
 ! MRL-independent loops
 
    if (allocated(itab_u)) then 
-      do iu = 2,mua
-         do iloop = 1,10
-            if (itab_u(iu)%loop(iloop)) then
-               jtab_u(iloop)%jend(1) = jtab_u(iloop)%jend(1) + 1
-               jtab_u(iloop)%iu(jtab_u(iloop)%jend(1)) = iu
-            endif
-         enddo      
-      enddo
-
-! MRL-dependent loops
-
       do mrl = mrls,1,-1
          do iu = 2,mua
-            do iloop = 11,nloops_u
+            do iloop = 1,nloops_u
                if (itab_u(iu)%loop(iloop) .and. itab_u(iu)%mrlu == mrl) then
                   jtab_u(iloop)%jend(1:mrl) = jtab_u(iloop)%jend(1:mrl) + 1
                   jtab_u(iloop)%iu(jtab_u(iloop)%jend(1)) = iu
@@ -608,20 +591,9 @@ Contains
 ! MRL-independent loops
 
    if (allocated(itab_v)) then 
-      do iv = 2,mva
-         do iloop = 1,10
-            if (itab_v(iv)%loop(iloop)) then
-               jtab_v(iloop)%jend(1) = jtab_v(iloop)%jend(1) + 1
-               jtab_v(iloop)%iv(jtab_v(iloop)%jend(1)) = iv
-            endif
-         enddo      
-      enddo
-
-! MRL-dependent loops
-
       do mrl = mrls,1,-1
          do iv = 2,mva
-            do iloop = 11,nloops_v
+            do iloop = 1,nloops_v
                if (itab_v(iv)%loop(iloop) .and. itab_v(iv)%mrlv == mrl) then
                   jtab_v(iloop)%jend(1:mrl) = jtab_v(iloop)%jend(1:mrl) + 1
                   jtab_v(iloop)%iv(jtab_v(iloop)%jend(1)) = iv
@@ -630,41 +602,21 @@ Contains
          enddo
       enddo
    endif
-   
+
 ! ///////////////////////////////////////////////////////////////////////////
 ! Compute JTAB_W%IW
 ! ///////////////////////////////////////////////////////////////////////////
 
-! MRL-independent loops
-
-   do iw = 2,mwa
-      do iloop = 1,10
-         if (itab_w(iw)%loop(iloop)) then
-            jtab_w(iloop)%jend(1) = jtab_w(iloop)%jend(1) + 1
-            jtab_w(iloop)%iw(jtab_w(iloop)%jend(1)) = iw
-         endif
-      enddo      
-   enddo
-
-! MRL-dependent loops
-
    do mrl = mrls,1,-1
       do iw = 2,mwa
-         do iloop = 11,nloops_w
-
+         do iloop = 1,nloops_w
             if (itab_w(iw)%loop(iloop) .and. itab_w(iw)%mrlw == mrl) then
                jtab_w(iloop)%jend(1:mrl) = jtab_w(iloop)%jend(1:mrl) + 1
                jtab_w(iloop)%iw(jtab_w(iloop)%jend(1)) = iw
             endif
-
          enddo
       enddo
    enddo
-
-! NOTE:  For cumulus parameterization (W loop 15), MRL dependence of the
-! parameterization computations is selected in the parameterization itself.
-! Here, loop 15 MRL dependence is as for other loops in order to copy
-! THSRC and RTSRC to tendency arrays at the proper time for each MRL.
 
    end subroutine fill_jtabs
 

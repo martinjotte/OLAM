@@ -159,7 +159,7 @@ subroutine accum_timeavg()
   use misc_coms,   only: io6, time_istp8, dtlm, time_prevhist, &
                          ilwrtyp, iswrtyp
 
-  use mem_ijtabs,  only: istp, itab_w, jtab_w, mrl_begl
+  use mem_ijtabs,  only: istp, itab_w, jtab_w, mrl_begl, jtw_prog
 
   use mem_radiate, only: albedt, rshort, rlong, rlongup, &
                          rshort_top, rshortup_top, rlongup_top
@@ -185,7 +185,7 @@ subroutine accum_timeavg()
      if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
 
 !$omp parallel do private(iw,dt_avg,wt_new,wt_old)
-     do j = 1,jtab_w(20)%jend(mrl); iw = jtab_w(20)%iw(j)
+     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
         call qsub('W',iw)
 
@@ -227,7 +227,7 @@ subroutine accum_timeavg()
   mrl = mrl_begl(istp)
   if (mrl > 0 .and. ilwrtyp + iswrtyp > 0) then
 !$omp parallel do private(iw,dt_avg,wt_new,wt_old)
-     do j = 1,jtab_w(12)%jend(mrl); iw = jtab_w(12)%iw(j)
+     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
         call qsub('W',iw)
 

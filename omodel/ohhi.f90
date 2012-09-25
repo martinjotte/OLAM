@@ -209,9 +209,6 @@ do ksndg = 2,nsndg
       * (ts(ksndg) * (1. + eps_virt * rts(ksndg))   &
       + ts(ksndg-1) * (1. + eps_virt * rts(ksndg-1)))  &
       * (log(ps(ksndg)) - log(ps(ksndg-1))) / grav
-
-!   write(io6,*) 'hs_1 ',ksndg,hs(ksndg-1),hs(ksndg),ts(ksndg),ps(ksndg)  &
-!                        ,ts(ksndg-1),ps(ksndg-1),rts(ksndg),rts(ksndg-1)
 enddo
 
 do ksndg = 1,nsndg
@@ -313,18 +310,23 @@ use mem_basic,   only: theta, thil, press, rho, wc, wmc, uc, ump, umc,  &
                        vc, vp, vmp, vmc, sh_w, sh_v
 use mem_micro,   only: sh_c
 use micro_coms,  only: level
-use mem_ijtabs,  only: jtab_w, jtab_u, jtab_v, itab_w, itab_u, itab_v
+use mem_ijtabs,  only: jtab_w, jtab_u, jtab_v, itab_w, itab_u, itab_v, &
+                       jtu_init, jtv_init, jtw_init, &
+                       jtu_wall, jtv_wall
 use misc_coms,   only: io6, mdomain, th01d, pr01d, dn01d, rt01d, u01d, v01d,  &
                        iparallel, meshtype
 use consts_coms, only: cvocp, p00k, rdry, rvap, p00, rocp, alvlocp,  &
                        gravo2, erad
 use mem_grid,    only: mza, mua, mva, lpu, lpv, lcu, &
                        unx, uny, unz, vnx, vny, vnz, xeu, yeu, zeu, &
-                       xev, yev, zev, aru, arv, volt, volui, volvi, dzt
+                       xev, yev, zev, aru, arv, volt, volui, volvi, dzt, &
+                       xew, yew, zew
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w,  &
                         mpi_send_u, mpi_recv_u,  &
                         mpi_send_v, mpi_recv_v 
+
+use obnd,         only: lbcopy_u, lbcopy_v, lbcopy_w
 
 implicit none   
 
@@ -337,7 +339,7 @@ real, external :: rhovsl
  
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(8)%jend(1); iw = jtab_w(8)%iw(j)
+do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -350,20 +352,6 @@ call qsub('W',iw)
       rho(k,iw)   = dn01d(k)
       wc(k,iw)    = 0.
       wmc(k,iw)   = 0.
-      
-!!!!!!!!!!!!!! special (geostrophic pressure) - remove later
-!!!      press(k,iw) = pr01d(k) - 9292. * (1. - cos(glatw(iw) * pio180))
-!!!!!!!!!!!!!! End special      
-
-
-!!!!!!!!!!!!!! special (explosion) - remove later
-
-!         if (sqrt(xw(iw)**2 + yw(iw)**2) < 5.e6) then
-!             press(k,iw) = pr01d(k) + 1.e3
-!         endif
-!         write(io6,123)iw,k,itab_w(iw)%mrlw,xw(iw),yw(iw),press(k,iw)
-!         123 format('ohhi123 ',3i5,3e15.5)
-!!!!!!!!!!!!!! End special      
       
       if (level == 0) then
          sh_w(k,iw) = 0.
@@ -378,9 +366,9 @@ call qsub('W',iw)
    enddo
 
    do iter = 1,100
-   
+
       do k = 1,mza
-      
+
          if (level == 0) then
             rho(k,iw) = press(k,iw) ** cvocp * p00k / (rdry * theta(k,iw))
          elseif (level == 1) then
@@ -410,19 +398,11 @@ call qsub('W',iw)
                 - gravo2 * (rho(k-1,iw) * dzt(k-1) + rho(k,iw) * dzt(k)))
          endif
          
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! print section !!!!!!!!!!!!!!!!!!!!!!!!!!
-!   if (j == 10) then
-!      write(io6,385) iter,iw,k,press(k,iw),rho(k,iw),sh_w(k,iw)  &
-!                            ,sh_v(k,iw),sh_c(k,iw),theta(k,iw),thil(k,iw)
-!385   format('fldshhi-5 ',3i4,8e15.7)
-!   endif
-
-
-!!!!!!!!!! End print section !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       enddo
    enddo
 
 enddo
+call rsub('Wa',8)
 
 ! Set reference state to 3d fields at IW = 2.
 
@@ -430,36 +410,11 @@ pr01d(1:mza) = press(1:mza,2)
 dn01d(1:mza) = rho(1:mza,2)
 th01d(1:mza) = theta(1:mza,2)
 
-call rsub('Wa',8)
+! LBC copy
 
-! Copy WMC, etc to open lateral boundary points
+ call lbcopy_w(1, a1=wc, a2=thil, a3=wmc, a4=theta, d1=press, d2=rho)
 
-call psub()
-!----------------------------------------------------------------------
-do j = 1,jtab_w(9)%jend(1); iw = jtab_w(9)%iw(j)
-   iwp = itab_w(iw)%iwp
-!---------------------------------------------------------------------
-call qsub('W',iw)
-
-   do k = 1,mza
-      wmc(k,iw)   = wmc(k,iwp) 
-      wc(k,iw)    = wc(k,iwp) 
-      rho(k,iw)   = rho(k,iwp) 
-      press(k,iw) = press(k,iwp)
-      thil(k,iw)  = thil(k,iwp)
-      theta(k,iw) = theta(k,iwp)
-      sh_w(k,iw)  = sh_w(k,iwp)
-      sh_v(k,iw)  = sh_v(k,iwp)
-   enddo
-
-   if (level > 1) then
-      do k = 1,mza
-         sh_c(k,iw) = sh_c(k,iwp)
-      enddo
-   endif
-
-enddo
-call rsub('Wa',9)
+! Should WMC and THETA also be included in mpi_send_w('I')?
 
 if (iparallel == 1) then
    call mpi_send_w('I')  ! Send W group
@@ -472,7 +427,7 @@ if (meshtype == 1) then
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_u(8)%jend(1); iu = jtab_u(8)%iu(j)
+   do j = 1,jtab_u(jtu_init)%jend(1); iu = jtab_u(jtu_init)%iu(j)
       iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
    call qsub('U',iu)
@@ -512,51 +467,38 @@ if (meshtype == 1) then
 
       enddo      
 
-   enddo
-   call rsub('Ua',8)
-
-! Copy UMC, UC to inner and outer lateral boundary points
-
-   call psub()
-!----------------------------------------------------------------------
-   do j = 1,jtab_u(9)%jend(1); iu = jtab_u(9)%iu(j)
-      iup = itab_u(iu)%iup
-!----------------------------------------------------------------------
-   call qsub('U',iu)
-      do k = 1,mza-1
-         umc(k,iu) = umc(k,iup)
-         uc(k,iu)  = uc(k,iup)
-      enddo
-   enddo
-   call rsub('Ua',9)!RRR
-
-! Set UMC = 0 wherever ARU = 0.
-
-   call psub()!PPPPPPPP
-!----------------------------------------------------------------------
-   do iu = 2,mua
-!----------------------------------------------------------------------
-   call qsub('U',iu) !QQQQQ
-!x      do k = 1,mza-1
-!x         if (aru(k,iu) < 1.e-9) then
-!x            umc(k,iu) = 0.
-!x         endif
-!x      enddo
-
 ! For below-ground points, set UC to LCU value.
 
       ka = lcu(iu)
       uc(1:ka-1,iu) = uc(ka,iu)
 
    enddo
+   call rsub('Ua',8)
+
+! Set UMC, UC = 0 at channel (non-topo) walls
+
+   call psub()
+!----------------------------------------------------------------------
+   do j = 1,jtab_u(jtu_wall)%jend(1); iu = jtab_u(jtu_wall)%iu(j)
+!----------------------------------------------------------------------
+   call qsub('U',iu)
+
+      umc(:,iu) = 0.
+      uc (:,iu) = 0.
+
+   enddo
    call rsub('Ua',0)
+
+! LBC copy of UMC, UC
+
+ call lbcopy_u(1, umc=umc, uc=uc)
 
 ! MPI parallel send/recv of U group
 
-      if (iparallel == 1) then
-         call mpi_send_u('I')
-         call mpi_recv_u('I')
-      endif
+   if (iparallel == 1) then
+      call mpi_send_u('I')
+      call mpi_recv_u('I')
+   endif
 
 ! Set UMP to UMC
 
@@ -568,7 +510,7 @@ else
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_v(8)%jend(1); iv = jtab_v(8)%iv(j)
+   do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
       iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
    call qsub('V',iv)
@@ -607,44 +549,31 @@ else
 
       enddo      
 
-   enddo
-   call rsub('Va',8)
-
-! Copy VMC, VC to inner and outer lateral boundary points
-
-   call psub()
-!----------------------------------------------------------------------
-   do j = 1,jtab_v(9)%jend(1); iv = jtab_v(9)%iv(j)
-      ivp = itab_v(iv)%ivp
-!----------------------------------------------------------------------
-   call qsub('V',iv)
-      do k = 1,mza-1
-         vmc(k,iv) = vmc(k,ivp)
-         vc(k,iv)  = vc(k,ivp)
-      enddo
-   enddo
-   call rsub('Va',9)
-
-! Set VMC = 0 wherever ARV = 0.
-
-   call psub()
-!----------------------------------------------------------------------
-   do iv = 2,mva
-!----------------------------------------------------------------------
-   call qsub('V',iv)
-!x      do k = 1,mza-1
-!x         if (arv(k,iv) < 1.e-9) then
-!x            vmc(k,iv) = 0.
-!x         endif
-!x      enddo
-
 ! For below-ground points, set VC to LPV value.
 
       ka = lpv(iv)
       vc(1:ka-1,iv) = vc(ka,iv)
 
    enddo
-   call rsub('Va',0)
+   call rsub('Va',8)
+
+! Set VMC, VC = 0 at channel (non-topo) walls
+
+   call psub()
+!----------------------------------------------------------------------
+   do j = 1,jtab_v(jtv_wall)%jend(1); iv = jtab_v(jtv_wall)%iv(j)
+!----------------------------------------------------------------------
+   call qsub('V',iv)
+
+      vmc(:,iv) = 0.
+      vc (:,iv) = 0.
+
+   enddo
+   call rsub('Ua',0)
+
+! LBC copy of VMC, VC
+
+ call lbcopy_v(1, vmc=vmc, vc=vc)
 
 ! MPI parallel send/recv of V group
 

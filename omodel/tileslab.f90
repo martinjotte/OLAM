@@ -217,7 +217,7 @@ subroutine tileslab_horiz_tw(iplt,action)
 use oplot_coms, only: op, xepc, yepc, zepc
 use mem_grid,   only: mza, mwa, zm, zt, xew, yew, zew, xem, yem, zem, lpw
 use mem_ijtabs, only: itab_w
-use misc_coms,  only: io6
+use misc_coms,  only: io6, meshtype
 
 implicit none
 
@@ -255,6 +255,13 @@ endif
 
 do iw = 2,mwa
 
+   npoly = itab_w(iw)%npoly
+
+! For hexagon grid (in limited-area domain), do not tile plot
+! incomplete boundary cells
+
+   if (meshtype == 2 .and. action == 'T' .and. npoly < 5) cycle
+
 ! Skip this point if it is underground
 
    if (ktf(iw) /= 0) cycle
@@ -262,8 +269,6 @@ do iw = 2,mwa
 ! Get tile plot coordinates.  
 
    call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
-
-   npoly = itab_w(iw)%npoly
 
    do j = 1,npoly
 
@@ -394,8 +399,19 @@ do iv = 2,mva
 
    if (ktf(iw1) /= 0 .and. ktf(iw2) /= 0) cycle
 
-   call oplot_transform(iplt,xem(im1),yem(im1),zem(im1),htpn(1),vtpn(1))
-   call oplot_transform(iplt,xem(im2),yem(im2),zem(im2),htpn(3),vtpn(3))
+   if (im1 > 1) then
+      call oplot_transform(iplt,xem(im1),yem(im1),zem(im1),htpn(1),vtpn(1))
+   else
+      htpn(1) = hpt
+      vtpn(1) = vpt
+   endif
+
+   if (im2 > 1) then
+      call oplot_transform(iplt,xem(im2),yem(im2),zem(im2),htpn(3),vtpn(3))
+   else
+      htpn(3) = hpt
+      vtpn(3) = vpt
+   endif
 
    if (iw2 > 1) then
       call oplot_transform(iplt,xew(iw2),yew(iw2),zew(iw2),htpn(2),vtpn(2))

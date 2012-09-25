@@ -71,6 +71,9 @@ use sea_coms,    only: mws
 use mem_timeavg, only: rshort_avg, rshortup_avg, rlong_avg, rlongup_avg, &
                        rshort_top_avg, rshortup_top_avg, rlongup_top_avg, &
                        sflux_t_avg, sflux_r_avg
+use oname_coms,  only: nl
+
+use mem_swtc5_refsoln_cubic
 
 implicit none
 
@@ -98,6 +101,8 @@ integer, save :: indp, icase
 
 real :: ucc,vcc
 real :: ucc_init, vcc_init, vx_init, vy_init, vz_init, u_init, v_init
+
+real :: zanal_swtc5, zanal0_swtc5
 
 ! Stored initial values for perturbation calculations
 
@@ -678,6 +683,10 @@ case(10) ! 'PRESS'
 
    fldval = press(k,i) * .01
 
+   if (nl%test_case == 2 .or. nl%test_case == 5) then
+      fldval = press(k,i)
+   endif
+
 case(11) ! 'THIL'
 
    fldval = wtbot * thil(k  ,i) &
@@ -1107,10 +1116,14 @@ case(50:52) ! 'RVORTZM','RVORTZM_P','TVORTZM'
 
    fldval = fldval / arm0(i)
 
+! For shallow water test case 2, subtract initial vorticity to get perturbation
+
+   if (trim(fldname) == 'RVORTZM' .and. nl%test_case == 2) then
+      fldval = fldval - omega2 * zem(i) / (12. * erad)
+   endif
+
    if (trim(fldname) == 'TVORTZM') then
-
       fldval = fldval + omega2 * zem(i) / erad  ! add earth vorticity at M point
-
    endif
 
 case(53) ! 'DIVERG'
@@ -1176,6 +1189,15 @@ case(59) ! 'RHO_P'
 
    fldval = wtbot * (rho(k  ,i) - rho_init(k  ,i)) &
           + wttop * (rho(k+1,i) - rho_init(k+1,i))
+
+! For shallow water test case 5, define RHO_P from reference fields
+
+   if (nl%test_case == 5) then
+      call npr_bicubics(zanal00_swtc5,glatw(i),glonw(i),zanal0_swtc5)
+      call npr_bicubics(zanal15_swtc5,glatw(i),glonw(i),zanal_swtc5)
+
+      fldval = (rho(k,i) - rho_init(k,i)) - (zanal_swtc5 - zanal0_swtc5)
+   endif
 
 case(60) ! 'THETA_P'
 

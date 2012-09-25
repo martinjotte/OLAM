@@ -38,7 +38,7 @@ subroutine pbl_driver(rhot, mrl)
   use mem_tend,   only: thilt, sh_wt
   use mem_basic,  only: wc, rho
   use mem_turb,   only: hkm, vkm, vkh, sxfer_tk, sxfer_rk
-  use mem_ijtabs, only: jtab_w, itab_w
+  use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
 
   use smagorinsky
 
@@ -56,8 +56,7 @@ subroutine pbl_driver(rhot, mrl)
   call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private(iw,mrlw,ka,k,ks) 
-  do j = 1,jtab_w(34)%jend(mrl); iw = jtab_w(34)%iw(j)
-! do j = 1,jtab_w(15)%jend(1); iw = jtab_w(15)%iw(j) ! jend(1) for mrl = 1
+  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
      call qsub('W',iw)
 
@@ -76,7 +75,7 @@ subroutine pbl_driver(rhot, mrl)
 
      if (idiffk(mrlw) == 2) then
    
-        ! Smagorinski scheme
+        ! Smagorinsky scheme
 
         call turb_k(iw, mrlw, rhot)
 

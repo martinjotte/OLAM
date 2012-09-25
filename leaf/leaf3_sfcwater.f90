@@ -769,11 +769,12 @@ subroutine remove_runoff(iwl, ksn, sfcwater_fracliq, sfcwater_mass,   &
      sfcwater_tempk, sfcwater_energy, sfcwater_depth, runoff, qrunoff)
 
   use leaf_coms, only: nzs, dt_leaf
-  use ed_options, only: runoff_time
   use consts_coms, only: alli, cliq
   use misc_coms, only: io6
 
   implicit none
+
+  real, parameter :: runoff_time = 86400.
 
   integer, intent(in) :: iwl
   integer, intent(in) :: ksn

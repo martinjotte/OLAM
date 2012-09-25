@@ -46,14 +46,13 @@ subroutine canopy(iwl, nlev_sfcwater, ntext_soil, leaf_class, ktrans,   &
                   wshed, qwshed, transp, stom_resist,                   &
                   hxfergc, wxfergc, hxfersc, wxfersc, hxferca,          &
                   hxfervc, wxfervc, rdi, rb, time8,                     &
-                  lsl, ed_transp, ed_patch)
+                  lsl, ed_transp)
 
 use leaf_coms,   only: nzg, soil_rough, dt_leaf,  &
                        slpots, slmsts, slbs, kroot, rcmin, soilcp, dslz
 
 use consts_coms, only: cp, vonk, eps_vap, alvl, cliq, cice, alli, rvap
 
-use ed_structure_defs
 use misc_coms, only: io6
 use mem_leaf,  only: itab_wl
 
@@ -114,7 +113,6 @@ real, intent(out) :: rb      ! veg-to-can_air resistance [s/m]
 real(kind=8), intent(in) :: time8   ! model time [s]
 
 real, dimension(nzg) :: ed_transp ! transpired water from each soil level; ED2 cells only [kg/m^2]
-type(patch), target, optional :: ed_patch
 
 ! Local parameters
 
@@ -221,7 +219,7 @@ qwshed = 0.
 
 ! Check whether this land cell has exposed vegetation
 
-if ((.not.present(ed_patch)) .and. (vf < .001)) then
+if (vf < .001) then
 
 ! If the TAI is very small or if snow mostly covers the vegetation, 
 ! then BYPASS THE VEGETATION COMPUTATIONS.
@@ -472,10 +470,6 @@ else
 
    endif
 
-! Here, LEAF3 and ED2 branch off.
-
-   if(.not.present(ed_patch))then
-
 ! TAI and LAI reduced by ground snowcover (for low vegetation)
 
    stai = veg_tai * (1. - snowfac)
@@ -702,19 +696,6 @@ else
    hxfervc = (b2 * veg_temp - b4) / b1
    can_temp = can_temp + f1 + hxfervc / canhcap
    veg_water = veg_water - wxfervc
-
-   else
-
-      ktrans = 0 
-      transp = 0.
-      ed_transp(:) = 0.
-
-      call ed_canopy_update(ed_patch, vels, rhos, prss, pcpg, qpcpg,   &
-           wshed, qwshed, canair, canhcap, dt_leaf, hxfergc, hxferca,  &
-           wxfergc, hxfersc, wxfersc, sxfer_r, ed_transp, ntext_soil,  &
-           soil_water, soil_fracliq, lsl)
-
-   endif
 
 endif
 

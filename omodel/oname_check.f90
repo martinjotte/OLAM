@@ -117,7 +117,7 @@ call ichk_bnds( nl%iyear1,   "IYEAR1",       0,    9999, 0, nfatal, nwarn )
 ! GRID SPECIFICATIONS
 !--------------------------------------------------------------------------
 
-call ichk_bnds( nl%mdomain, "MDOMAIN",       0,       4, 0, nfatal, nwarn )
+call ichk_bnds( nl%mdomain, "MDOMAIN",       0,       5, 0, nfatal, nwarn )
 call ichk_bnds( nl%meshtype,"MESHTYPE",      1,       2, 0, nfatal, nwarn )
 
 call ichk_bnds( nl%nzp,         "NZP",       3,   10000, 0, nfatal, nwarn, &
@@ -565,13 +565,14 @@ enddo
 ! TODO - add checks for the plotting variables
 
 !------------------------------------------------------------------------
-! OTHER CONSTANCY CHECKS
+! OTHER CONSISTANCY CHECKS
 !------------------------------------------------------------------------
 
-! TEMPORARY!! ONLY ALLOW MDOMAIN VALUES OF 0, 3, and 4
+! TEMPORARY!! ONLY ALLOW MDOMAIN VALUES OF 0, 3, 4, and 5
 
-if (nl%mdomain /= 0 .and. nl%mdomain /= 3 .and. nl%mdomain /= 4) then
-   write(io6,*) ' FATAL - MDOMAIN temporarily restricted to values of 0, 3, or 4.'
+if (nl%mdomain /= 0 .and. nl%mdomain /= 3 .and. &
+    nl%mdomain /= 4 .and. nl%mdomain /= 5) then
+   write(io6,*) ' FATAL - MDOMAIN temporarily restricted to values of 0, 3, 4, or 5.'
    nfatal = nfatal + 1
 endif
 
@@ -588,7 +589,7 @@ endif
 ! IF THIS IS A GLOBAL SIMULATION, PRINT MESSAGE THAT DELTAX WILL BE
 ! REDEFINED BY NXP.
 
-if (nl%mdomain == 0 .and. nfatal ==0) then
+if (nl%mdomain == 0 .and. nfatal == 0) then
 
    write(io6,*) ' '
    write(io6,*) 'Since MDOMAIN is set to 0, this is configured as a global&
@@ -600,10 +601,10 @@ if (nl%mdomain == 0 .and. nfatal ==0) then
 
 endif
 
-! RUN WITH LONGITUDINALLY HOMOGENEOUS INITIALIZATION MUST BE GLOBAL
+! RUN WITH 3D-VARIABLE OR LONGITUDINALLY HOMOGENEOUS INITIALIZATION MUST BE GLOBAL
 
-if (nl%initial == 3 .and. nl%mdomain /= 0) then
-   write(io6,*) ' FATAL  - mdomain must be 0 if INITIAL = 3.'
+if ((nl%initial == 2 .or. nl%initial == 3) .and. nl%mdomain /= 0) then
+   write(io6,*) ' FATAL  - mdomain must be 0 if INITIAL = 2 or 3.'
    nfatal = nfatal + 1
 endif
   

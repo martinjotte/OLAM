@@ -160,7 +160,7 @@ subroutine olam_alloc_mpi(mza, mrls)
   use mpi
 #endif
 
-  use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, mloops_u, mloops_v, mloops_w
+  use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, mloops
   use mem_para,   only: myrank, nrecvs_u, nrecvs_v, nrecvs_w, &
                         nsends_u, nsends_v, nsends_w, &
                         recv_u, recv_v, recv_w, &
@@ -263,7 +263,7 @@ subroutine olam_alloc_mpi(mza, mrls)
 ! Determine size of send_u buffer for mrl = 1
 
         send_u(jsend)%nbytes = nbytes_int   &
-             + nbytes_per_iu * jtab_u(mloops_u+jsend)%jend(1)
+             + nbytes_per_iu * jtab_u(mloops+jsend)%jend(1)
 
 ! Allocate buffer
 
@@ -274,12 +274,12 @@ subroutine olam_alloc_mpi(mza, mrls)
         sbuf(1) = send_u(jsend)%nbytes
 
         do mrl = 2,mrls
-           sbuf(mrl+1) = jtab_u(mloops_u+jsend)%jend(mrl)
+           sbuf(mrl+1) = jtab_u(mloops+jsend)%jend(mrl)
 
 ! If at least 1 U point needs to be sent to current remote rank for 
 ! current mrl, increase nsends_u(mrl) by 1.
 
-           if (jtab_u(mloops_u+jsend)%jend(mrl) > 0) &
+           if (jtab_u(mloops+jsend)%jend(mrl) > 0) &
                 nsends_u(mrl) = nsends_u(mrl) + 1
 
         enddo
@@ -306,7 +306,7 @@ subroutine olam_alloc_mpi(mza, mrls)
 ! Determine size of send_v buffer for mrl = 1
 
         send_v(jsend)%nbytes = nbytes_int   &
-             + nbytes_per_iv * jtab_v(mloops_v+jsend)%jend(1)
+             + nbytes_per_iv * jtab_v(mloops+jsend)%jend(1)
 
 ! Allocate buffer
 
@@ -316,12 +316,12 @@ subroutine olam_alloc_mpi(mza, mrls)
         sbuf(1) = send_v(jsend)%nbytes
 
         do mrl = 2,mrls
-           sbuf(mrl+1) = jtab_v(mloops_v+jsend)%jend(mrl)
+           sbuf(mrl+1) = jtab_v(mloops+jsend)%jend(mrl)
 
 ! If at least 1 V point needs to be sent to current remote rank for 
 ! current mrl, increase nsends_v(mrl) by 1.
 
-           if (jtab_v(mloops_v+jsend)%jend(mrl) > 0) &
+           if (jtab_v(mloops+jsend)%jend(mrl) > 0) &
                 nsends_v(mrl) = nsends_v(mrl) + 1
 
         enddo
@@ -352,7 +352,7 @@ subroutine olam_alloc_mpi(mza, mrls)
 ! Determine size of send_w buffer for mrl = 1
 
      send_w(jsend)%nbytes = nbytes_int                               &
-          + nbytes_per_iw * jtab_w(mloops_w+jsend)%jend(1)
+          + nbytes_per_iw * jtab_w(mloops+jsend)%jend(1)
 
 ! Allocate buffer
 
@@ -363,12 +363,12 @@ subroutine olam_alloc_mpi(mza, mrls)
      wsbuf(1) = send_w(jsend)%nbytes
 
      do mrl = 2,mrls
-        wsbuf(mrl) = jtab_w(mloops_w+jsend)%jend(mrl)
+        wsbuf(mrl) = jtab_w(mloops+jsend)%jend(mrl)
 
 ! If at least 1 W point needs to be sent to current remote rank for 
 ! current mrl, increase nsends_w(mrl) by 1.
 
-        if (jtab_w(mloops_w+jsend)%jend(mrl) > 0) nsends_w(mrl) = nsends_w(mrl) + 1
+        if (jtab_w(mloops+jsend)%jend(mrl) > 0) nsends_w(mrl) = nsends_w(mrl) + 1
 
      enddo
 
@@ -472,7 +472,7 @@ subroutine mpi_send_u(sendgroup,uc0,rpos,rneg)
 
 use mem_basic,  only: umc,uc
 use mem_para,   only: send_u, recv_u, nsends_u, nrecvs_u
-use mem_ijtabs, only: itab_u, jtab_u, mrl_begs, istp, mloops_u
+use mem_ijtabs, only: itab_u, jtab_u, mrl_begs, istp, mloops
 
 use mem_grid,   only: mza, mua
 use misc_coms,  only: io6
@@ -521,13 +521,13 @@ do jsend = 1,nsends_u(mrl)
 
    ipos = 0
 
-   call MPI_Pack(jtab_u(mloops_u+jsend)%jend(mrl),1,MPI_INTEGER,  &
+   call MPI_Pack(jtab_u(mloops+jsend)%jend(mrl),1,MPI_INTEGER,  &
       send_u(jsend)%buff,send_u(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
    call psub()
 !----------------------------------------------------------------
-   do j = 1,jtab_u(mloops_u+jsend)%jend(mrl)
-      iu = jtab_u(mloops_u+jsend)%iu(j)
+   do j = 1,jtab_u(mloops+jsend)%jend(mrl)
+      iu = jtab_u(mloops+jsend)%iu(j)
       iuglobe = itab_u(iu)%iuglobe
 !----------------------------------------------------------------
       call qsub('U',iu)
@@ -559,7 +559,7 @@ do jsend = 1,nsends_u(mrl)
       endif
 
    enddo
-   call rsub('Usend',mloops_u+jsend)
+   call rsub('Usend',mloops+jsend)
 
    call MPI_Isend(send_u(jsend)%buff,ipos,MPI_PACKED,          &
                   send_u(jsend)%iremote,itag1,MPI_COMM_WORLD,  &
@@ -586,7 +586,7 @@ subroutine mpi_send_v(sendgroup)
 use mem_basic,  only: vmc,vc
 use mem_para,   only: send_v, recv_v, nsends_v, nrecvs_v
 
-use mem_ijtabs, only: itab_v, jtab_v, mrl_begs, istp, mloops_v
+use mem_ijtabs, only: itab_v, jtab_v, mrl_begs, istp, mloops
 use mem_grid,   only: mza
 use misc_coms,  only: io6
 
@@ -630,13 +630,13 @@ do jsend = 1,nsends_v(mrl)
 
    ipos = 0
 
-   call MPI_Pack(jtab_v(mloops_v+jsend)%jend(mrl),1,MPI_INTEGER,  &
+   call MPI_Pack(jtab_v(mloops+jsend)%jend(mrl),1,MPI_INTEGER,  &
       send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
    call psub()
 !----------------------------------------------------------------
-   do j = 1,jtab_v(mloops_v+jsend)%jend(mrl)
-      iv = jtab_v(mloops_v+jsend)%iv(j)
+   do j = 1,jtab_v(mloops+jsend)%jend(mrl)
+      iv = jtab_v(mloops+jsend)%iv(j)
       ivglobe = itab_v(iv)%ivglobe
 !----------------------------------------------------------------
       call qsub('V',iv)
@@ -651,7 +651,7 @@ do jsend = 1,nsends_v(mrl)
          send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
    enddo
-   call rsub('Vsend',mloops_v+jsend)
+   call rsub('Vsend',mloops+jsend)
 
    call MPI_Isend(send_v(jsend)%buff,ipos,MPI_PACKED,          &
                   send_v(jsend)%iremote,itag1,MPI_COMM_WORLD,  &
@@ -684,7 +684,7 @@ subroutine mpi_send_w(sendgroup,thil0,wmc0,scp0,wmarw, &
 use mem_basic,  only: wmc,wc,thil,rho,press
 use mem_turb,   only: hkm,vkm,vkm_sfc
 use var_tables, only: nvar_par, vtab_r, num_scalar, nptonv
-use mem_ijtabs, only: jtab_w, itab_w, mrl_begs, mrl_begl, istp, mloops_w
+use mem_ijtabs, only: jtab_w, itab_w, mrl_begs, mrl_begl, istp, mloops
 use mem_grid,   only: mza, mwa
 use misc_coms,  only: io6
 use micro_coms, only: level
@@ -759,13 +759,13 @@ do jsend = 1,nsends_w(mrl)
 
    ipos = 0
 
-   call MPI_Pack(jtab_w(mloops_w+jsend)%jend(mrl),1,MPI_INTEGER, &
+   call MPI_Pack(jtab_w(mloops+jsend)%jend(mrl),1,MPI_INTEGER, &
       send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
    call psub()
 !----------------------------------------------------------------
-   do j = 1,jtab_w(mloops_w+jsend)%jend(mrl)
-      iw = jtab_w(mloops_w+jsend)%iw(j)
+   do j = 1,jtab_w(mloops+jsend)%jend(mrl)
+      iw = jtab_w(mloops+jsend)%iw(j)
       iwglobe = itab_w(iw)%iwglobe
 !----------------------------------------------------------------
       call qsub('W',iw)
@@ -987,7 +987,7 @@ do jsend = 1,nsends_w(mrl)
       endif
 
    enddo
-   call rsub('Wsend',mloops_w+jsend)
+   call rsub('Wsend',mloops+jsend)
 
    call MPI_Isend(send_w(jsend)%buff,ipos,MPI_PACKED,         &
                   send_w(jsend)%iremote,itag3,MPI_COMM_WORLD, &
@@ -1013,7 +1013,7 @@ subroutine mpi_recv_u(recvgroup,uc0,rpos,rneg)
 
 use mem_basic,  only: umc,uc
 use mem_para,   only: send_u, recv_u, nsends_u, nrecvs_u, mgroupsize
-use mem_ijtabs, only: itabg_u, mrl_begs, istp, mloops_u
+use mem_ijtabs, only: itabg_u, mrl_begs, istp, mloops
 use mem_grid,   only: mza, mua
 use misc_coms,  only: io6
 
@@ -1093,7 +1093,7 @@ do jtmp = 1,nrecvs_u(mrl)
       endif
 
    enddo
-   call rsub('Urecv',mloops_u+jrecv)
+   call rsub('Urecv',mloops+jrecv)
 
 enddo
 
@@ -1119,7 +1119,7 @@ subroutine mpi_recv_v(recvgroup)
 
 use mem_basic,  only: vmc,vc
 use mem_para,   only: send_v, recv_v, nsends_v, nrecvs_v, mgroupsize
-use mem_ijtabs, only: itabg_v, mrl_begs, istp, mloops_v
+use mem_ijtabs, only: itabg_v, mrl_begs, istp, mloops
 use mem_grid,   only: mza
 use misc_coms,  only: io6
 
@@ -1178,7 +1178,7 @@ do jtmp = 1,nrecvs_v(mrl)
          vc(1,iv),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
    enddo
-   call rsub('Vrecv',mloops_v+jrecv)
+   call rsub('Vrecv',mloops+jrecv)
 
 enddo
 
@@ -1213,7 +1213,7 @@ use mem_basic,  only: wmc,wc,thil,rho,press
 use mem_turb,   only: hkm,vkm,vkm_sfc
 use var_tables, only: vtab_r, nvar_par, num_scalar, nptonv
 use mem_para,   only: nrecvs_w, nsends_w, recv_w, send_w, mgroupsize
-use mem_ijtabs, only: itabg_w, mrl_begs, mrl_begl, istp, mloops_w
+use mem_ijtabs, only: itabg_w, mrl_begs, mrl_begl, istp, mloops
 use mem_grid,   only: mza, mwa
 use misc_coms,  only: io6
 use micro_coms, only: level
@@ -1509,7 +1509,7 @@ do jtmp = 1,nrecvs_w(mrl)
       endif
 
    enddo
-   call rsub('Wrecv',mloops_w+jrecv)
+   call rsub('Wrecv',mloops+jrecv)
 
 enddo
 

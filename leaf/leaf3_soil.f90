@@ -41,7 +41,7 @@ subroutine soil(iwl, leaf_class, nlev_sfcwater, ntext_soil, ktrans,      &
                 hxferg, wxfer, qwxfer,                                   &
                 psi, lsl, head, head0, head1, wfree1, qwfree1, dwfree1,  &
                 sfcwater_mass, energy_per_m2, sfcwater_depth,            &
-                ed_transp, ed_patch                                      )
+                ed_transp                                                )
 
 use leaf_coms, only: nzg, nzs, dslz, dslzi, slzt, dslzo2, dt_leaf,  &
                      slcons1, soilcp, slbs, slpots, slmsts, kroot, slcpd,  &
@@ -51,8 +51,6 @@ use consts_coms, only: cliq1000, cice1000, alli1000, alvi
 use misc_coms,   only: io6, time8
 use massflux,    only: tridiffo
 use leaf3_plot,  only: leaf_plot
-
-use ed_structure_defs
 
 implicit none
 
@@ -89,8 +87,6 @@ real, intent(out) :: wxfer  (nzg+1) ! soil water xfer [m]
 real, intent(out) :: qwxfer (nzg+1) ! soil energy xfer from water xfer [J/m^2] 
 real, intent(out) :: psi    (nzg)   ! soil water potential [m]
 real, intent(out) :: head   (nzg)   ! total hydraulic head [m]
-
-type(patch), target, optional :: ed_patch
 
 integer, intent(in) :: lsl
 
@@ -139,7 +135,7 @@ integer, parameter :: iwl_print = 0
 ! Remove transpiration water from ktrans soil layer
 ! Units of wloss are [vol_water/vol_tot], of transp are [kg/m^2].
 
-if ((.not. present(ed_patch)) .and. ktrans > 0) then
+if (ktrans > 0) then
 
    wloss = transp * dslzi(ktrans) * 1.e-3
 
@@ -148,17 +144,6 @@ if ((.not. present(ed_patch)) .and. ktrans > 0) then
    qwloss = wloss * (cliq1000 * (soil_tempk(ktrans) - 273.15) + alli1000)
 
    soil_energy(ktrans) = soil_energy(ktrans) - qwloss
-
-elseif (present(ed_patch)) then
-
-   do k = lsl, nzg
-      wloss = ed_transp(k) * dslzi(k) * 1.e-3
-      qwloss = wloss * (cliq1000 * (soil_tempk(k) - 273.15) + alli1000)
-      soil_water(k) = soil_water(k) - wloss
-      soil_energy(k) = soil_energy(k) - qwloss
-      ed_patch%omean_latflux =   &
-           ed_patch%omean_latflux + qwloss * dslz(k) / dt_leaf
-   enddo
 
 endif
 
@@ -450,12 +435,6 @@ do k = 1,nzg
    soil_energy(k) = soil_energy(k) + dslzi(k) * (qwxfer(k) - qwxfer(k+1))
 
 enddo
-
-! Compute soil respiration if ED is being run
-
-if (present(ed_patch)) then
-   call soil_respiration(ed_patch)
-endif
 
 return
 end subroutine soil

@@ -52,7 +52,6 @@ use oplot_coms,  only: op
 use mem_grid,    only: nma, nua, nva, nwa, mma, mua, mva, mwa, mza, zm, zt
 use mem_basic,   only: alloc_basic, wc, vxe, vye, vze
 use micro_coms,  only: gnu
-use ed_options,  only: ied_offline
 use mem_nudge,   only: nudflag
 use mem_rayf,    only: rayf_init
 use mem_sflux,   only: init_fluxcells, fill_jflux, mseaflux, mlandflux
@@ -60,7 +59,10 @@ use mem_para,    only: myrank
 use consts_coms, only: r8
 use oname_coms,  only: nl
 use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, alloc_mpi_sndrcv_bufs
+use ed_misc_coms,only: ed2_active, ed2_namelist
 use hcane_rz,    only: init_hurr_step, hurricane_init
+use obnd,        only: trsets, lbcopy_w
+use mem_swtc5_refsoln_cubic
 
 implicit none
 
@@ -325,11 +327,22 @@ elseif (initial == 3) then
    call fldslhi()           ! Longitudinally-homogeneous initialization
 endif
 
-! Diagnose earth-relative velocities
+!------------------------------------------------------------
+! Call fill_swtc5 to read in and initialize reference
+! solution for time = 0 and time = 15d.
+
+if (nl%test_case == 2 .or. nl%test_case == 5) then
+   call swtc_init()
+endif
+!------------------------------------------------------------
+
+! Diagnose earth-coordinate velocities
 
 if (runtype == 'INITIAL') then
    mrl = 1
    call diagvel_t3d(mrl)
+
+   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
    if (iparallel == 1) then
       call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
@@ -351,6 +364,8 @@ if (runtype == "INITIAL") then
    if (init_hurr_step > 0) call hurricane_init()
 endif
 !-------------------------------------------------------------------------------
+
+ call trsets()  
 
 ! For parallel run, send and receive initialized scalars
 
@@ -380,17 +395,22 @@ if (isfcl == 1) then
    write(io6,'(/,a)') 'olam_run calling sea_startup'
    call sea_startup()
 
-! Initialize meteorological drivers for an offline ED run.
+! Start up ED2
 
-   if(ied_offline == 1)then
-      call init_offline_met()
-      call read_offline_met_init()
+   if(ed2_active == 1)then
+      call ed_1st_master(0,1,0,0,trim(ed2_namelist))
+      call ed_driver(1)
    endif
 
 ! Initialize leaf fields that depend on atmosphere
 
    write(io6,'(/,a)') 'olam_run calling leaf3_init_atm'
    call leaf3_init_atm()
+
+   if(ed2_active == 1)then
+      write(io6,'(/,a)') 'olam_run calling ed_driver 2'
+      call ed_driver(2)
+   endif
 
    write(io6,'(/,a)') 'olam_run calling sea_init_atm'
    call sea_init_atm()
@@ -412,6 +432,13 @@ call rayf_init(mza,zm,zt)
 
 !!x    call tkeinit(nza,nwa)
 
+! For shallow water test case 5, read in and initialize reference
+! solution for time = 0 and time = 15d.
+
+if (nl%test_case == 5) then
+   call fill_swtc5()
+endif
+
 ! If this is 'PLOTONLY' run, loop through input history files, plot 
 ! specified fields, and exit
 
@@ -425,10 +452,13 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
       call history_start('COMMIO')
       call history_start('HISTREAD')
 
-      ! Earth-relative winds not saved in history file
+      ! Earth-coordinate winds not saved in history file
 
       mrl = 1
       call diagvel_t3d(mrl)
+
+      call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
+
       if (iparallel == 1) then
          call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
          call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
@@ -436,6 +466,13 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
 
       if (runtype == 'PLOTONLY') then
          call plot_fields(0)
+
+! For shallow water test cases, compute error norms
+
+         if (nl%test_case == 2 .or. nl%test_case == 5) then
+            call diagn_global_swtc()
+         endif
+
       else
          call history_write('STATE')
       endif
@@ -453,10 +490,13 @@ if (runtype == 'HISTORY') then
    call history_start('HISTREAD')
    write(io6,*) 'olam_run finished history_start'
 
-   ! Earth-relative winds not saved in history file
+   ! Earth-coordinate winds not saved in history file
 
    mrl = 1
    call diagvel_t3d(mrl)
+
+   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
+
    if (iparallel == 1) then
       call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
       call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
@@ -485,15 +525,9 @@ if (time8 >= timmax8) go to 1000
 
 ! Call the model time integration driver
 
-if(ied_offline == 0)then
-   write(io6,'(/,a)') 'olam_run calling model'
-   call model()
-   write(io6,'(/,a)') 'subroutine model returned to olam_run'
-else
-   write(io6,'(/,a)') 'olam_run calling ed_offline_model'
-   call ed_offline_model()
-   write(io6,'(/,a)') 'subroutine ed_offline_model returned to olam_run'
-endif
+write(io6,'(/,a)') 'olam_run calling model'
+call model()
+write(io6,'(/,a)') 'subroutine model returned to olam_run'
 
 ! OLAM finished, clean up some last things...
 
@@ -584,110 +618,6 @@ write(io6, '(//,a,f13.3)') ' -----Total elapsed time: ',wtime_tot
 
 return
 end subroutine model
-
-!===========================================================================
-
-subroutine ed_offline_model()
-
-  use misc_coms,   only: io6, time8, timmax8, dtlm, simtime, current_time, &
-                         frqstate, s1900_init, s1900_sim
-  use ed_options,  only: frq_phenology
-  use consts_coms, only: r8
-  implicit none
-
-  real :: wtime_start
-  real, external :: walltime
-  integer :: mstp
-  type(simtime) :: begtime
-  real :: t1
-  real :: wtime1
-  real :: wtime2
-  real :: t2
-  character(len=40) :: stepc1
-  character(len=40) :: stepc2
-  character(len=40) :: stepc3
-  character(len=40) :: stepc4
-  character(len=40) :: stepc5
-  real :: wtime_tot
-
-  write(io6,*) 'starting subroutine ED_OFFLINE_MODEL'
-
-  wtime_start = walltime(0.)
-
-! Start the timesteps
-  mstp = 0
-  if (time8 < epsilon(time8)) call write_ed_output()
-
-  do while (time8 < timmax8)
-
-     begtime = current_time
-
-     if(current_time%time < dtlm(1))  &
-     
-       write(io6,*)'Simulating:',  &
-          current_time%month,'/',current_time%date,'/',current_time%year
-
-! CPU timing information
-
-     call cpu_time(t1)
-     wtime1 = walltime(wtime_start)
-
-     ! Get radiative fluxes
-     call radiate_offline()
-
-     ! Get sensible and latent heat fluxes, and ustar.
-     call sfluxes_offline()
-
-     ! Update the land surface
-     call leaf3()
-
-     mstp = mstp + 1
-     time8 = time8 + dtlm(1)
-     s1900_sim = s1900_init + time8
-
-     call update_model_time(current_time, dtlm(1))
-
-     if(mod(time8,real(frq_phenology,r8)) < dtlm(1))call ed_vegetation_dynamics()
-
-     if(current_time%date == 1 .and. current_time%time < dtlm(1))then
-        ! Read new met driver files only if this is the first timestep 
-        ! on the first day of a month.
-        call read_offline_met()
-     endif
-
-     ! Update the meterological drivers.
-     call update_offline_met()
-
-!     wtime2 = walltime(wtime_start)
-!     call cpu_time(t2)
-
-!     write (stepc1,'(i8)'   ) mstp
-!     write (stepc2,'(F13.1)') time8
-!     write (stepc3,'(F9.2)' ) time8/86400.
-!     write (stepc4,'(F8.2)' ) t2-t1
-!     write (stepc5,'(F8.2)' ) wtime2-wtime1
-
-!     stepc1 = ' [nstep = '//trim(adjustl(stepc1))//']'
-!     stepc2 = '   [simtime = '
-!     stepc3 = ' = '//trim(adjustl(stepc3))//' days]'
-!     stepc4 = '   [cpu,wall(sec) = '//trim(adjustl(stepc4))
-!     stepc5 = ' , '//trim(adjustl(stepc5))//']'
-   
-!     write(io6, ('(a)'))  &
-!          trim(stepc1)//trim(stepc2)//trim(stepc3)//trim(stepc4)//trim(stepc5)
-
-     if (mod(current_time%time,frqstate) < dtlm(1))then
-        call write_ed_output()
-     endif
-
-  enddo
-
-  wtime_tot = walltime(wtime_start)
-  write(io6, '(//,a,f10.0)') ' -----Total elapsed time: ',wtime_tot
-
-
-  return
-end subroutine ed_offline_model
 
 !===========================================================================
 

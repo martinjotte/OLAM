@@ -43,7 +43,7 @@ use mem_micro,   only: sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
 
 use misc_coms,   only: io6, dtlm
 use consts_coms, only: p00, rocp
-use mem_ijtabs,  only: jtab_w, mrls
+use mem_ijtabs,  only: jtab_w, mrls, jtw_init
 use mem_grid,    only: mza, zm, dzt, dzit
 use mem_para,    only: myrank
 
@@ -86,7 +86,7 @@ enddo
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)
+do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 

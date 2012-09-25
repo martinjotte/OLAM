@@ -968,6 +968,8 @@ Contains
                           mpi_send_u, mpi_recv_u, &
                           mpi_send_v, mpi_recv_v 
 
+  use obnd,         only: lbcopy_u, lbcopy_v, lbcopy_w
+
 ! Define initial perturbation using analytical functions
 
   implicit none
@@ -1207,6 +1209,10 @@ Contains
   enddo
   call rsub('W_frances_a',7)
 
+  call lbcopy_w(1, a1=thil, a2=theta, d1=press, d2=rho)
+
+! Should THETA also be included in mpi_send_w('I')?
+
 ! If using MPI, perform parallel send/recv
 
   if (iparallel == 1) then
@@ -1295,6 +1301,10 @@ Contains
 
      enddo
      call rsub('U_frances_a',7)
+
+! LBC copy of UMC, UC
+
+     call lbcopy_u(1, umc=umc, uc=uc)
 
 ! If using MPI, perform parallel send/recv
 
@@ -1387,6 +1397,10 @@ Contains
      enddo
      call rsub('V_frances_a',7)
 
+! LBC copy of VMC, VC
+
+     call lbcopy_v(1, vmc=vmc, vc=vc)
+
 ! If using MPI, perform parallel send/recv
 
      if (iparallel == 1) then
@@ -1405,6 +1419,8 @@ Contains
 
   mrl = 1
   call diagvel_t3d(mrl)
+
+  call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
   if (iparallel == 1) then
      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
@@ -1814,6 +1830,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                           mpi_send_u, mpi_recv_u, &
                           mpi_send_v, mpi_recv_v 
+  use obnd,         only: lbcopy_u, lbcopy_v, lbcopy_w
 
   implicit none
 
@@ -1999,6 +2016,8 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
   enddo
 
+  call lbcopy_w(1, a1=wc, a2=thil, a3=wmc, a4=theta, d1=press, d2=rho)
+
 ! If using MPI, perform parallel send/recv
 
   if (iparallel == 1) then
@@ -2079,6 +2098,10 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   enddo
   call rsub('V_frances_a',7)
 
+! LBC copy of VMC, VC
+
+  call lbcopy_v(1, vmc=vmc, vc=vc)
+
 ! If using MPI, perform parallel send/recv
 
   if (iparallel == 1) then
@@ -2095,6 +2118,8 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
   mrl = 1
   call diagvel_t3d(mrl)
+
+  call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
   if (iparallel == 1) then
      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)

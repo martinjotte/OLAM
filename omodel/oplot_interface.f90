@@ -1231,6 +1231,8 @@ if (op%projectn(iplt) == 'L'  .or.  &
          im2 = itab_v(iv)%im(2)
       endif
 
+      if (im1 < 2 .or. im2 < 2) cycle
+
       call oplot_transform(iplt,xem(im1),yem(im1),zem(im1),xp1,yp1)
       call oplot_transform(iplt,xem(im2),yem(im2),zem(im2),xp2,yp2)
 
@@ -1997,7 +1999,7 @@ end subroutine oplot_panel
 
 subroutine oplot_set(iplt)
 
-use misc_coms,   only: io6, mdomain
+use misc_coms,   only: io6, mdomain, deltax
 use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_grid,    only: xem, yem, xew, yew, zew, zm, mma, mwa, arw0, nza, mza
@@ -2152,14 +2154,24 @@ else
          op%ymin = min(op%ymin,yem(im))
          op%ymax = max(op%ymax,yem(im))
       enddo
+
+      if (allocated(xew)) then
+         do iw = 2,mwa
+            op%xmin = min(op%xmin,xew(iw))
+            op%xmax = max(op%xmax,xew(iw))
+            op%ymin = min(op%ymin,yew(iw))
+            op%ymax = max(op%ymax,yew(iw))
+         enddo
+      endif
+
       dist = max(op%xmax - op%xmin,op%ymax - op%ymin)
       xmid = .5 * (op%xmin + op%xmax)
       ymid = .5 * (op%ymin + op%ymax)
 
-      op%xmin = xmid - .505 * dist
-      op%xmax = xmid + .505 * dist
-      op%ymin = ymid - .505 * dist
-      op%ymax = ymid + .505 * dist
+      op%xmin = xmid - .52 * dist
+      op%xmax = xmid + .52 * dist
+      op%ymin = ymid - .52 * dist
+      op%ymax = ymid + .52 * dist
 
    endif
 
@@ -2172,16 +2184,22 @@ if (op%projectn(iplt) == 'L' .or.  &
 
 ! Find deltax of finest grid cell IN CURRENT PLOT WINDOW
 
-   arwmin = 1.e13
-   do iw = 2,mwa
-      call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),xpt,ypt)
+   if (allocated(arw0)) then
 
-      if (xpt < op%xmin .or. xpt > op%xmax .or.  &
-          ypt < op%ymin .or. ypt > op%ymax) cycle
+      arwmin = 1.e13
+      do iw = 2,mwa
+         call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),xpt,ypt)
 
-      arwmin = min(arwmin,arw0(iw))
-   enddo
-   delxmin = sqrt(arwmin)
+         if (xpt < op%xmin .or. xpt > op%xmax .or.  &
+             ypt < op%ymin .or. ypt > op%ymax) cycle
+
+         arwmin = min(arwmin,arw0(iw))
+      enddo
+      delxmin = sqrt(arwmin)
+
+   else
+      delxmin = deltax
+   endif
 
    if (op%projectn(iplt) == 'L') then
 

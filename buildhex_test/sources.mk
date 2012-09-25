@@ -18,43 +18,112 @@ SOURCE_FILES= \
              $(CONVECT)/emanuel_driver.f90 \
              $(CONVECT)/pbl_driver.f90 \
              $(CONVECT)/smagorinsky.f90 \
-             $(ED)/allometry.f90 \
-             $(ED)/c34constants.f90 \
-             $(ED)/canopy_radiation_coms.f90 \
-             $(ED)/decomposition_coms.f90 \
-             $(ED)/decomposition.f90 \
-             $(ED)/disturbance_coms.f90 \
-             $(ED)/disturbance.f90 \
-             $(ED)/ed_canopy_update.f90 \
-             $(ED)/ed_database.f90 \
-             $(ED)/ed_history.f90 \
-             $(ED)/ed_init_state_vars.f90 \
-             $(ED)/edio.f90 \
-             $(ED)/ed_offline_met.f90 \
-             $(ED)/ed_options.f90 \
-             $(ED)/ed_params.f90 \
-             $(ED)/ed_startup.f90 \
-             $(ED)/ed_structure_defs.f90 \
-             $(ED)/fire.f90 \
-             $(ED)/fis_fus_utils.f90 \
-             $(ED)/forestry.f90 \
-             $(ED)/fusion_fission_coms.f90 \
-             $(ED)/growth_balive.f90 \
-             $(ED)/landuse_init.f90 \
-             $(ED)/lphys_full.f90 \
-             $(ED)/lphys_interface.f90 \
-             $(ED)/mem_ed.f90 \
-             $(ED)/mortality.f90 \
-             $(ED)/offline_coms.f90 \
-             $(ED)/pft_coms.f90 \
-             $(ED)/phenology_coms.f90 \
-             $(ED)/phenology.f90 \
-             $(ED)/radiate_offline.f90 \
-             $(ED)/reproduction.f90 \
-             $(ED)/sfcrad_ed.f90 \
-             $(ED)/sfluxes_offline.f90 \
-             $(ED)/structural_growth.f90 \
-             $(ED)/vegetation_dynamics.f90 \
+             $(ED2DRIV)/ed_1st.f90 \
+             $(ED2DRIV)/ed_driver.f90 \
+             $(ED2DRIV)/ed_met_driver.f90 \
+             $(ED2DRIV)/ed_model.f90 \
+             $(ED2DRIV)/ed_wrappers.f90 \
+             $(ED2DRIV)/copy_olam_to_ed.f90 \
+             $(ED2DYN)/canopy_struct_dynamics.f90 \
+             $(ED2DYN)/disturbance.f90 \
+             $(ED2DYN)/euler_driver.f90 \
+             $(ED2DYN)/events.f90 \
+             $(ED2DYN)/farq_leuning.f90 \
+             $(ED2DYN)/fire.f90 \
+             $(ED2DYN)/forestry.f90 \
+             $(ED2DYN)/growth_balive.f90 \
+             $(ED2DYN)/heun_driver.f90 \
+             $(ED2DYN)/lsm_hyd.f90 \
+             $(ED2DYN)/mortality.f90 \
+             $(ED2DYN)/phenology_aux.f90 \
+             $(ED2DYN)/phenology_driv.f90 \
+             $(ED2DYN)/photosyn_driv.f90 \
+             $(ED2DYN)/radiate_driver.f90 \
+             $(ED2DYN)/reproduction.f90 \
+             $(ED2DYN)/rk4_derivs.F90 \
+             $(ED2DYN)/rk4_driver.F90 \
+             $(ED2DYN)/rk4_integ_utils.f90 \
+             $(ED2DYN)/rk4_misc.f90 \
+             $(ED2DYN)/rk4_stepper.f90 \
+             $(ED2DYN)/soil_respiration.f90 \
+             $(ED2DYN)/structural_growth.f90 \
+             $(ED2DYN)/twostream_rad.f90 \
+             $(ED2DYN)/vegetation_dynamics.f90 \
+             $(ED2INIT)/ed_init.f90 \
+             $(ED2INIT)/ed_init_atm.F90 \
+             $(ED2INIT)/ed_nbg_init.f90 \
+             $(ED2INIT)/ed_params.f90 \
+             $(ED2INIT)/ed_type_init.f90 \
+             $(ED2INIT)/init_hydro_sites.f90 \
+             $(ED2INIT)/landuse_init.f90 \
+             $(ED2INIT)/phenology_startup.f90 \
+             $(ED2IO)/an_header.f90 \
+             $(ED2IO)/average_utils.f90 \
+             $(ED2IO)/ed_init_full_history.F90 \
+             $(ED2IO)/ed_load_namelist.f90 \
+             $(ED2IO)/ed_opspec.F90 \
+             $(ED2IO)/ed_print.f90 \
+             $(ED2IO)/ed_read_ed10_20_history.f90 \
+             $(ED2IO)/ed_read_ed21_history.F90 \
+             $(ED2IO)/ed_xml_config.f90 \
+             $(ED2IO)/edio.f90 \
+             $(ED2IO)/h5_output.F90 \
+             $(ED2IO)/leaf_database.f90 \
+             $(ED2MEM)/c34constants.f90 \
+             $(ED2MEM)/canopy_air_coms.f90 \
+             $(ED2MEM)/canopy_layer_coms.f90 \
+             $(ED2MEM)/canopy_radiation_coms.f90 \
+             $(ED2MEM)/decomp_coms.f90 \
+             $(ED2MEM)/disturb_coms.f90 \
+             $(ED2MEM)/ed_consts_coms.F90 \
+             $(ED2MEM)/ed_max_dims.F90 \
+             $(ED2MEM)/ed_mem_alloc.f90 \
+             $(ED2MEM)/ed_mem_grid_dim_defs.f90 \
+             $(ED2MEM)/ed_misc_coms.f90 \
+             $(ED2MEM)/ed_state_vars.f90 \
+             $(ED2MEM)/ed_var_tables.f90 \
+             $(ED2MEM)/ed_work_vars.f90 \
+             $(ED2MEM)/ename_coms.f90 \
+             $(ED2MEM)/fusion_fission_coms.f90 \
+             $(ED2MEM)/grid_coms.f90 \
+             $(ED2MEM)/ed_hdf5_coms.F90 \
+             $(ED2MEM)/hydrology_coms.f90 \
+             $(ED2MEM)/hydrology_constants.f90 \
+             $(ED2MEM)/mem_polygons.f90 \
+             $(ED2MEM)/met_driver_coms.f90 \
+             $(ED2MEM)/optimiz_coms.f90 \
+             $(ED2MEM)/pft_coms.f90 \
+             $(ED2MEM)/phenology_coms.f90 \
+             $(ED2MEM)/physiology_coms.f90 \
+             $(ED2MEM)/rk4_coms.f90 \
+             $(ED2MEM)/soil_coms.F90 \
+             $(ED2MPI)/ed_mpass_init.f90 \
+             $(ED2MPI)/ed_node_coms.f90 \
+             $(ED2MPI)/ed_para_coms.f90 \
+             $(ED2MPI)/ed_para_init.F90 \
+             $(ED2UTILS)/allometry.f90 \
+             $(ED2UTILS)/budget_utils.f90 \
+             $(ED2UTILS)/charutils.f90 \
+             $(ED2UTILS)/ed_dateutils.f90 \
+             $(ED2UTILS)/ed_filelist.F90 \
+             $(ED2UTILS)/ed_grid.f90 \
+             $(ED2UTILS)/sp_therm_lib.f90 \
+             $(ED2UTILS)/fatal_error.f90 \
+             $(ED2UTILS)/fuse_fiss_utils.f90 \
+             $(ED2UTILS)/great_circle.f90 \
+             $(ED2UTILS)/ed_hdf5_utils.F90 \
+             $(ED2UTILS)/invmondays.f90 \
+             $(ED2UTILS)/lapse.f90 \
+             $(ED2UTILS)/libxml2f90.f90_pp.f90 \
+             $(ED2UTILS)/numutils.f90 \
+             $(ED2UTILS)/radiate_utils.f90 \
+             $(ED2UTILS)/rsys.F90 \
+             $(ED2UTILS)/stable_cohorts.f90 \
+             $(ED2UTILS)/ed_therm_lib.f90 \
+             $(ED2UTILS)/dp_therm_lib.f90 \
+             $(ED2UTILS)/update_derived_props.f90 \
+             $(ED2UTILS)/utils_c.c \
+             $(ED2UTILS)/utils_f.f90 \
              $(LEAF)/leaf3.f90 \
              $(LEAF)/leaf3_canopy.f90 \
              $(LEAF)/leaf3_init_atm.f90 \
@@ -88,6 +157,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_thuburn.f90 \
              $(MODEL_MODS)/mem_timeavg.f90 \
              $(MODEL_MODS)/mem_turb.f90 \
+             $(MODEL_MODS)/mem_wm5_refsoln_cubic.f90 \
              $(MODEL_MODS)/mem_zonavg.f90 \
              $(MODEL_MODS)/micro_coms.f90 \
              $(MODEL_MODS)/misc_coms.f90 \
@@ -104,13 +174,14 @@ SOURCE_FILES= \
              $(OISAN)/isan_driver.f90 \
              $(OMODEL)/alloc.f90 \
              $(OMODEL)/cartesian.f90 \
+             $(OMODEL)/cart_hex.f90 \
              $(OMODEL)/contslab.f90 \
              $(OMODEL)/fill_itabs.f90 \
              $(OMODEL)/history_start.f90 \
              $(OMODEL)/history_write.f90 \
              $(OMODEL)/icosahedron.f90 \
              $(OMODEL)/makesfc.f90 \
-             $(OMODEL)/obnd.f90 \
+             $(OMODEL)/obnd.F90 \
              $(OMODEL)/ocio.f90 \
              $(OMODEL)/ohhi.f90 \
              $(OMODEL)/olam_grid.f90 \
@@ -141,14 +212,15 @@ SOURCE_FILES= \
              $(OMODEL)/tileslab.f90 \
              $(OMODEL)/topo_database_read.f90 \
              $(OMODEL)/triangle_utils.f90 \
-             $(OMODEL)/vel_t3d.f90 \
              $(OMODEL)/vectslab.f90 \
+             $(OMODEL)/vel_t3d.f90 \
              $(OMODEL_HEX)/hex_grid.f90 \
              $(OMODEL_HEX)/para_init_hex.f90 \
              $(OMODEL_HEX)/prog_wrtv_hex.f90 \
              $(OMODEL_HEX)/scalar_transport_hex.f90 \
              $(OMODEL_HEX)/timestep_hex.f90 \
              $(OMODEL_TRI)/tri_grid.f90 \
+             $(OUTILS)/check_nans.F90 \
              $(OUTILS)/dateutils.f90 \
              $(OUTILS)/filelist.f90 \
              $(OUTILS)/hdf5_f2f.F90 \
@@ -157,7 +229,6 @@ SOURCE_FILES= \
              $(OUTILS)/map_proj.f90 \
              $(OUTILS)/read_cdc.c \
              $(OUTILS)/therm_lib.f90 \
-             $(OUTILS)/check_nans.F90 \
              $(RADIATE)/ccmp_raddriv.f90 \
              $(RADIATE)/cc_rad.f90 \
              $(RADIATE)/harr_raddriv.f90 \
@@ -179,4 +250,7 @@ SOURCE_FILES= \
              $(SEA)/sea_init_atm.f90 \
              $(SEA)/sea_startup.f90 \
              $(SEA)/sst_database_read.f90 \
-             $(HURRICANE)/hurricane_init.f90
+             $(HURRICANE)/hurricane_init.f90 \
+             $(TEST_CASES)/mem_swtc5_refsoln_cubic.f90 \
+             $(TEST_CASES)/swtc_init.f90 \
+             $(TEST_CASES)/diagn_global_swtc.f90

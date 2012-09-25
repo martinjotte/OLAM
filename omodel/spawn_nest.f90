@@ -36,12 +36,21 @@ subroutine spawn_nest()
 ! Later will make modified version to add nested grid region(s) during a
 !   simulation.
 
-use mem_ijtabs,  only: itab_md, itab_ud, itab_wd, ltab_md, ltab_ud, ltab_wd, &
-                       nest_ud, nest_wd, nloops_m, nloops_u, nloops_w, mrls, &
-                       alloc_itabsd
+use mem_ijtabs, only: itab_md, itab_ud, itab_wd, ltab_md, ltab_ud, ltab_wd, &
+                      nest_ud, nest_wd, nloops_m, nloops_u, nloops_w, mrls, &
+                      alloc_itabsd, &
+                      jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
+                      jtm_init, jtu_init, jtv_init, jtw_init, &
+                      jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
+                      jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
+                      jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
+                      jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
+                      jtm_vadj, jtu_wall, jtv_wall, jtw_vadj
+
 use mem_grid,    only: nma, nua, nwa, xem, yem, zem, impent, &
                        alloc_xyzem, nrows, mrows
-use misc_coms,   only: io6, ngrids, mdomain, nxp, ngrdll, grdrad, grdlat, grdlon
+use misc_coms,   only: io6, ngrids, mdomain, nxp, meshtype, &
+                       ngrdll, grdrad, grdlat, grdlon
 use consts_coms, only: pio180, erad, pi1, pi2
 use oname_coms,  only: nl
 
@@ -624,7 +633,7 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
    do im = 1,nma
       itab_md(im)%loop(1:nloops_m) = ltab_md(im)%loop(1:nloops_m)
-      itab_md(im)%itopm = ltab_md(im)%itopm
+      itab_md(im)%imp = ltab_md(im)%imp
       xem(im) = xem_temp(im)
       yem(im) = yem_temp(im)
       zem(im) = zem_temp(im)
@@ -704,30 +713,9 @@ do ngr = 2,ngrids  ! Loop over nested grids
          iu2 = nest_wd(iw)%iu(2)
          iu3 = nest_wd(iw)%iu(3)
 
-         itab_ud(iu1)%iup = iu1
-         itab_ud(iu2)%iup = iu2
-         itab_ud(iu3)%iup = iu3
-         
-         call udloops('f',iu1, 1, 4, 7, 8,11,12,13,14,16,20)
-         call udloops('n',iu1,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-         call udloops('f',iu2, 1, 4, 7, 8,11,12,13,14,16,20)
-         call udloops('n',iu2,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
-         call udloops('f',iu3, 1, 4, 7, 8,11,12,13,14,16,20)
-         call udloops('n',iu3,21,22,23, 0, 0, 0, 0, 0, 0, 0)
-
          iu4 = nest_ud(iu1o)%iu       
          iu5 = nest_ud(iu2o)%iu       
          iu6 = nest_ud(iu3o)%iu
-
-         itab_ud(iu4)%loop(1:nloops_u) = itab_ud(iu1o)%loop(1:nloops_u)
-         itab_ud(iu5)%loop(1:nloops_u) = itab_ud(iu2o)%loop(1:nloops_u)
-         itab_ud(iu6)%loop(1:nloops_u) = itab_ud(iu3o)%loop(1:nloops_u)
-
-         itab_ud(iu4)%iup = iu4
-         itab_ud(iu5)%iup = iu5
-         itab_ud(iu6)%iup = iu6
 
          iw1 = nest_wd(iw)%iw(1)        
          iw2 = nest_wd(iw)%iw(2)        
@@ -856,20 +844,31 @@ do ngr = 2,ngrids  ! Loop over nested grids
       call perim_fill3(nper2,imper,iuper)
    endif
 
-! Fill itabs loop tables for newly spawned points (U pts already done above)
+! Fill itabs loop tables for newly spawned points
 ! Set itab_md()%mrlm = ngroo at newly added boundary M points
 
    do im = nma+1,nma0
-      itab_md(im)%itopm = im
+      itab_md(im)%imp = im
       itab_md(im)%mrlm = ngroo
-      call mdloops('f',im,1,0,1,0)
+      if (meshtype == 1) then
+         call mdloopf('f',im, jtm_grid, jtm_vadj, 0, 0, 0, 0)
+      else
+         call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
+      endif
+   enddo
+
+   do iu = nua+1,nua0
+      itab_ud(iu)%iup = iu
+      call udloopf('f',iu, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
    enddo
 
    do iw = nwa+1,nwa0
       itab_wd(iw)%iwp = iw
-      call wdloops('f',iw, 1, 3, 5, 6, 7, 8,11,12,13,14)
-      call wdloops('n',iw,15,16,17,18,19,20,21,23,25,26)
-      call wdloops('n',iw,27,28,29,30,33,34, 0, 0 ,0 ,0)
+      if (meshtype == 1) then
+         call wdloopf('f',iw, jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
+      else
+         call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
+      endif
    enddo
 
 ! Copy new counter values

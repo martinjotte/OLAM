@@ -38,7 +38,10 @@ use mem_ijtabs, only: itab_m,      itab_v,      itab_w,      &
                       itab_m_vars, itab_v_vars, itab_w_vars, &
                       itabg_m,     itabg_v,     itabg_w,     &
                       itab_m_pd,   itab_v_pd,   itab_w_pd,   &
-                      alloc_itabs, mrls
+                      alloc_itabs, mrls, &
+                      jtm_vadj, &
+                      jtv_init, jtv_prog, jtv_wadj, jtv_wstn, jtv_lbcp, &
+                      jtw_init, jtw_prog, jtw_wadj, jtw_wstn, jtw_lbcp
 
 use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
                       alloc_gridz, alloc_xyzem, alloc_xyzew, &
@@ -64,10 +67,11 @@ use mem_leaf,   only: itabg_wl
 implicit none
 
 integer :: j,k,imn,ivn,iwn
-integer :: im,iv,iw
-integer :: itopm,ivp,iwp
+integer :: im,iv,iw,iw1,iw2
+integer :: imp,ivp,iwp
 integer :: isf,ilf,iws,iwl
 integer :: npoly
+integer :: vadj_flag, wadj_flag
 
 integer :: im_myrank = 1 ! Counter for M points to be included on this rank
 integer :: iv_myrank = 1 ! Counter for V points to be included on this rank
@@ -108,15 +112,15 @@ myrankflag_v(:) = .false.
 myrankflag_w(:) = .false.
 
 ! Loop over all V points, and for each whose assigned irank is equal to myrank,
-! flag all V and W points in its computational stencil for inclusion on this
-! rank, excluding IVP and IWP.
+! flag all M, V, and W points in its computational stencil for inclusion on this
+! rank, excluding IVP.
 
 do iv = 2,nva
-
    if (itabg_v(iv)%irank == myrank) then
 
       myrankflag_v(iv) = .true.
 
+      myrankflag_m( itab_v_pd(iv)%im(1:6)  ) = .true.
       myrankflag_v( itab_v_pd(iv)%iv(1:16) ) = .true.
       myrankflag_w( itab_v_pd(iv)%iw(1:4)  ) = .true.
 
@@ -124,32 +128,31 @@ do iv = 2,nva
 enddo
 
 ! Loop over all W points, and for each whose assigned irank is equal to myrank,
-! flag all V and W points in its computational stencil for inclusion on this
-! rank, excluding IVP and IWP.
+! flag all M, V, and W points in its computational stencil for inclusion on this
+! rank, excluding IWP.
 
 do iw = 2,nwa
-
    if (itabg_w(iw)%irank == myrank) then
 
       myrankflag_w(iw) = .true.
 
 ! The standard computational stencil of mem_ijtabs
 
-      myrankflag_w( itab_w_pd(iw)%iw(1:7) ) = .true.
+      myrankflag_m( itab_w_pd(iw)%im(1:7) ) = .true.
       myrankflag_v( itab_w_pd(iw)%iv(1:7) ) = .true.
+      myrankflag_w( itab_w_pd(iw)%iw(1:7) ) = .true.
 
    endif
 enddo
 
 ! Loop over all V points, and for each that has been flagged for inclusion
-! on this rank, flag its M points for inclusion on this rank.
+! on this rank, flag its 2 primary M points for inclusion on this rank.
 ! Count V points also.
 
 do iv = 2,nva
-
    if (myrankflag_v(iv)) then
 
-      myrankflag_m( itab_v_pd(iv)%im(1:6) ) = .true.
+      myrankflag_m( itab_v_pd(iv)%im(1:2) ) = .true.
       iv_myrank = iv_myrank + 1
 
    endif
@@ -213,11 +216,6 @@ do iv = 1,nva
       iv_myrank = iv_myrank + 1
       
       itabg_v(iv)%iv_myrank = iv_myrank
-      
-! Fill itabg_v(iv)%iv_myrank value for IVP point
-!
-!     ivp = itab_v_pd(iv)%ivp
-!     itabg_v(ivp)%iv_myrank = iv_myrank
    endif
 enddo
 
@@ -226,11 +224,6 @@ do iw = 1,nwa
       iw_myrank = iw_myrank + 1
 
       itabg_w(iw)%iw_myrank = iw_myrank      
-
-! Fill itabg_w(iw)%iw_myrank value for IWP point
-!
-!     iwp = itab_w_pd(iw)%iwp
-!     itabg_w(iwp)%iw_myrank = iw_myrank
    endif
 enddo
 
@@ -248,196 +241,214 @@ do iw = 1, nwa
    if (myrankflag_w(iw)) itab_w(itabg_w(iw)%iw_myrank)%iwglobe = iw
 enddo
 
-! Reading the local grid structure
+! Read the grid structure for all points in local parallel subdomain
+! for this rank (or for all points in domain if run is sequential)
 
 call gridfile_read()
 
-!!!! ITAB_? POPULATION
+! itab_m, itab_v, and itab_w data structures that exist in local subdomain
+! memory were filled in subroutine gridfile_read, but with member values
+! for the full domain.  Those member values that depend on local subdomain
+! are reset next.
 
-! put itab_m in place
+! Loop over all M points in global domain
 
 do im = 1,nma
+   if (myrankflag_m(im)) then ! M point is in memory on local subdomain
 
-   if (myrankflag_m(im)) then
-      npoly = itab_m_pd(im)%npoly
-   
-      im_myrank = itabg_m(im)%im_myrank
+      im_myrank = itabg_m(im)%im_myrank ! Local index of M point
 
-! Reset IM neighbor indices to 1
-
-      itab_m(im_myrank)%itopm = 1
-      itab_m(im_myrank)%iw(1:npoly) = 1
-      itab_m(im_myrank)%iv(1:npoly) = 1
-
-! Turn off M loop 3 (to be turned back on later at some points)
-
-      call mloops('n',im_myrank,-3,0,0,0)
-   
-! Global indices of neighbors of IM
 ! Set indices of neighbors of IM that are present on this rank
 
-      itopm = itab_m_pd(im)%itopm
-      if (myrankflag_m(itopm)) itab_m(im_myrank)%itopm = itabg_m(itopm)%im_myrank
+      npoly = itab_m_pd(im)%npoly
+      vadj_flag = 0
 
       do j = 1,npoly
-         iv = itab_m_pd(im)%iv(j)
-         iw = itab_m_pd(im)%iw(j)
+         ivn = itab_m_pd(im)%iv(j) ! Global index
+         iwn = itab_m_pd(im)%iw(j) ! Global index
       
-         if (myrankflag_v(iv)) itab_m(im_myrank)%iv(j) = itabg_v(iv)%iv_myrank
-         if (myrankflag_w(iw)) itab_m(im_myrank)%iw(j) = itabg_w(iw)%iw_myrank
+! If IVN point is primary on local parallel subdomain, vadj_flag = .true.
+
+         if (itabg_v(ivn)%irank == myrank) vadj_flag = 1
+
+! If IVN point is in memory on local parallel subdomain, assign its local
+! index to IM stencil; otherwise set index to 1
+
+         if (myrankflag_v(ivn)) then
+            itab_m(im_myrank)%iv(j) = itabg_v(ivn)%iv_myrank
+         else
+            itab_m(im_myrank)%iv(j) = 1
+         endif
+
+! If IWN point is in memory on local parallel subdomain, assign its local
+! index to IM stencil; otherwise set index to 1
+
+         if (myrankflag_w(iwn)) then
+            itab_m(im_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
+         else
+            itab_m(im_myrank)%iw(j) = 1
+         endif
       enddo
-      
+
+! Turn off jtm_vadj loop flag if no adjacent V's prognosed on this subdomain
+
+      if (vadj_flag == 0) call mloopf('n',im_myrank, -jtm_vadj, 0, 0, 0, 0, 0)
+
+! If IMP point is primary on local parallel subdomain, assign its local
+! index to IM stencil; otherwise set index to 1
+
+      imp = itab_m_pd(im)%imp ! Global index
+
+      if (itabg_m(imp)%irank == myrank) then
+         itab_m(im_myrank)%imp = itabg_m(imp)%im_myrank ! Local index
+      else
+         itab_m(im_myrank)%imp = 1
+      endif
+
    endif
 enddo
 
-! put itab_v in place
+! Loop over all V points in global domain
 
 do iv = 1,nva
-   if (myrankflag_v(iv)) then
+   if (myrankflag_v(iv)) then ! V point is in memory on local subdomain
 
-! Look up global IVP index and subdomain IV index
-
-      ivp = itab_v_pd(iv)%ivp
-      iv_myrank = itabg_v(iv)%iv_myrank
-
-! Next, redefine some individual itab_v members
+      iv_myrank = itabg_v(iv)%iv_myrank ! Local index of V point
 
       itab_v(iv_myrank)%irank = itabg_v(iv)%irank
 
-! Check if this V point is primary on a remote rank
-
-      if (itab_v(iv_myrank)%irank /= myrank) then      
-
-! Turn off some loop flags for these points (some will be turned back on later)
-
-         call vloops('n',iv_myrank,-7,-8,-12,-15,-16,-18,  0, 0, 0, 0)
-
-! Turn off LBC copy (n/a for global domain) if IVP point is on remote node
-
-         if (.not. myrankflag_v(ivp))  &
-            call vloops('n',iv_myrank,-9,-18,0,0,0,0,0,0,0,0)
-
-      endif
-
-! Reset IV neighbor indices to 1
-
-      itab_v(iv_myrank)%ivp = 1
-
-      itab_v(iv_myrank)%im(1:6)  = 1
-      itab_v(iv_myrank)%iv(1:16) = 1
-      itab_v(iv_myrank)%iw(1:4)  = 1
-
-! Set indices of neighbors of IV that are present on this rank
-
-      if (myrankflag_v(ivp)) itab_v(iv_myrank)%ivp = itabg_v(ivp)%iv_myrank
+! Set local indices of M points in V stencil
 
       do j = 1,6
-         imn = itab_v_pd(iv)%im(j)
-         if (myrankflag_m(imn)) itab_v(iv_myrank)%im(j) = itabg_m(imn)%im_myrank
+         imn = itab_v_pd(iv)%im(j) ! Global index
+
+         if (myrankflag_m(imn)) then
+            itab_v(iv_myrank)%im(j) = itabg_m(imn)%im_myrank
+         else
+            itab_v(iv_myrank)%im(j) = 1
+         endif
       enddo
+
+! Set local indices of V points in V stencil
 
       do j = 1,16
-         ivn = itab_v_pd(iv)%iv(j)
-         if (myrankflag_v(ivn)) itab_v(iv_myrank)%iv(j) = itabg_v(ivn)%iv_myrank
+         ivn = itab_v_pd(iv)%iv(j) ! Global index
+
+         if (myrankflag_v(ivn)) then
+            itab_v(iv_myrank)%iv(j) = itabg_v(ivn)%iv_myrank
+         else
+            itab_v(iv_myrank)%iv(j) = 1
+         endif
       enddo
 
+! Set local indices of W points in V stencil
+
       do j = 1,4
-         iwn = itab_v_pd(iv)%iw(j)
-         if (myrankflag_w(iwn)) itab_v(iv_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
+         iwn = itab_v_pd(iv)%iw(j) ! Global index
+
+         if (myrankflag_w(iwn)) then
+            itab_v(iv_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
+         else
+            itab_v(iv_myrank)%iw(j)  = 1
+         endif
       enddo
+
+! If IV point is not primary on local parallel subdomain,
+! turn off jtv_init and jtv_prog flags
+
+      if (itabg_v(iv)%irank /= myrank) then
+         call vloopf('n',iv_myrank, -jtv_init, -jtv_prog, 0, 0, 0, 0)
+      endif
+
+! If adjacent W points are both not primary on local parallel subdomain,
+! turn off jtv_wadj and jtv_wstn flags
+
+      iw1 = itab_v_pd(iv)%iw(1) ! Global index
+      iw2 = itab_v_pd(iv)%iw(2) ! Global index
+
+      if (itabg_w(iw1)%irank /= myrank .and. itabg_w(iw2)%irank /= myrank) then
+         call vloopf('n',iv_myrank, -jtv_wadj, -jtv_wstn, 0, 0, 0, 0)
+      endif
+
+! If IVP point is primary on local parallel subdomain, assign its local
+! index to IM stencil; otherwise set index to 1 and turn off lbcp flag
+
+      ivp = itab_v_pd(iv)%ivp ! Global index
+
+      if (itabg_v(ivp)%irank == myrank) then
+         itab_v(iv_myrank)%ivp = itabg_v(ivp)%iv_myrank
+      else
+         itab_v(iv_myrank)%ivp = 1
+         call vloopf('f',iv_myrank, -jtv_lbcp, 0, 0, 0, 0, 0)
+      endif
 
    endif
 enddo
 
-! put itab_w in place
+! Loop over all W points in global domain
 
 do iw = 1,nwa
-   if (myrankflag_w(iw)) then
+   if (myrankflag_w(iw)) then ! W point is in memory on local subdomain
 
-! Look up global IWP index and subdomain IW index
-   
-      iwp = itab_w_pd(iw)%iwp
-      iw_myrank = itabg_w(iw)%iw_myrank
-
-! Next, redefine some individual itab_w members
+      iw_myrank = itabg_w(iw)%iw_myrank ! Local index of W point
 
       itab_w(iw_myrank)%irank = itabg_w(iw)%irank
 
-! Check if this W point is primary on a remote rank
+! Set local indices of M, V, W points in W stencil
 
-      if (itab_w(iw_myrank)%irank /= myrank) then      
+      wadj_flag = 0
 
-! Turn off some loop flags for these points
+      do j = 1,7
+         imn = itab_w_pd(iw)%im(j) ! Global index
+         ivn = itab_w_pd(iw)%iv(j) ! Global index
+         iwn = itab_w_pd(iw)%iw(j) ! Global index
 
-         call wloops('n',iw_myrank,-12,-13,-15,-16,-17,-19,-20,-23,-26,-27)
-         call wloops('n',iw_myrank,-29,-30,-34,  0,  0,  0,  0,  0,  0,  0)
+         if (myrankflag_m(imn)) then
+            itab_w(iw_myrank)%im(j) = itabg_m(imn)%im_myrank
+         else
+            itab_w(iw_myrank)%im(j) = 1
+         endif
 
-! Turn off LBC copy if IWP point is on remote node
+         if (myrankflag_v(ivn)) then
+            itab_w(iw_myrank)%iv(j) = itabg_v(ivn)%iv_myrank
+         else
+            itab_w(iw_myrank)%iv(j) = 1
+         endif
+ 
+         if (myrankflag_w(iwn)) then
+            itab_w(iw_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
+         else
+            itab_w(iw_myrank)%iw(j) = 1
+         endif
 
-         if (.not. myrankflag_w(iwp))  &
-            call wloops('n',iw_myrank,-9,-22,-24,-31,-35,0,0,0,0,0)
+         if (itabg_w(iwn)%irank == myrank) wadj_flag = 1
+      enddo
 
+! If IW point is not primary on local parallel subdomain,
+! turn off jtw_init and jtw_prog flags
+
+      if (itabg_w(iw)%irank /= myrank) then
+         call wloopf('n',iw_myrank, -jtw_init, -jtw_prog, 0, 0, 0, 0)
       endif
 
-! Reset IW neighbor indices to 1
+! If none of the adjacent W points is primary on local parallel subdomain,
+! turn off jtw_wadj and jtw_wstn flags
 
-      itab_w(iw_myrank)%iwp = 1
+      if (wadj_flag == 0) then
+         call wloopf('n',iw_myrank, -jtw_wadj, -jtw_wstn, 0, 0, 0, 0)
+      endif
 
-      itab_w(iw_myrank)%im(1:7) = 1
-      itab_w(iw_myrank)%iv(1:7) = 1
-      itab_w(iw_myrank)%iw(1:7) = 1
+! If IWP point is primary on local parallel subdomain, assign its local
+! index to IM stencil; otherwise set index to 1 and turn off lbcp flag
 
-! Set indices of neighbors of IW that are present on this rank
+      iwp = itab_w_pd(iw)%iwp ! Global index
 
-      if (myrankflag_w(iwp)) itab_w(iw_myrank)%iwp = itabg_w(iwp)%iw_myrank
-
-      do j = 1,7
-         imn = itab_w_pd(iw)%im(j)
-         if (myrankflag_m(imn)) itab_w(iw_myrank)%im(j) = itabg_m(imn)%im_myrank
-      enddo
-      
-      do j = 1,7
-         ivn = itab_w_pd(iw)%iv(j)
-         if (myrankflag_v(ivn)) itab_w(iw_myrank)%iv(j) = itabg_v(ivn)%iv_myrank
-      enddo
-      
-      do j = 1,7
-         iwn = itab_w_pd(iw)%iw(j)
-         if (myrankflag_w(iwn)) itab_w(iw_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
-      enddo
-      
-   endif
-enddo
-
-! Turn back on some loop flags needed with respect to the local IV point
-
-do iv = 1, nva
-   if (itabg_v(iv)%irank == myrank) then
-
-! Set mloop flag 3 for 6 M neighbors if IW is primary on this rank.
-
-      do j = 1, 6
-         imn = itab_v_pd(iv)%im(j)
-         call mloops('n',itabg_m(imn)%im_myrank,3,0,0,0)
-      enddo
-
-   endif
-enddo
-
-! Turn back on some loop flags needed with respect to the local IW point
-
-do iw = 1,nwa
-   if (itabg_w(iw)%irank == myrank) then
-
-! Set vloop flag 12 and 15 for the nearest V neighbors if IW is primary
-! on this rank.
-
-      do j=1,7
-         ivn = itab_w_pd(iw)%iv(j)
-         if (ivn > 1) then
-            call vloops('n',itabg_v(ivn)%iv_myrank,12,15,0,0,0,0,0,0,0,0)
-         endif
-      enddo
+      if (itabg_w(iwp)%irank == myrank) then
+         itab_w(iw_myrank)%iwp = itabg_w(iwp)%iw_myrank
+      else
+         itab_w(iw_myrank)%iwp = 1
+         call wloopf('f',iw_myrank, -jtw_lbcp, 0, 0, 0, 0, 0)
+      endif
 
    endif
 enddo
@@ -458,16 +469,16 @@ do iv = 2,nva
 ! Add to send table any V or W point that is primary on myrank and is 
 ! in the stencil of IU.  
 
-      ivp  = itab_v_pd(iv)%ivp 
+      ivp  = itab_v_pd(iv)%ivp
       if (itabg_v(ivp)%irank == myrank) call send_table_v(ivp,itabg_v(iv)%irank)
 
       do j = 1,16
-         ivn = itab_v_pd(iv)%iv(j) 
+         ivn = itab_v_pd(iv)%iv(j)
          if (itabg_v(ivn)%irank == myrank) call send_table_v(ivn,itabg_v(iv)%irank)
       enddo         
 
       do j = 1,4
-         iwn = itab_v_pd(iv)%iw(j) 
+         iwn = itab_v_pd(iv)%iw(j)
          if (itabg_w(iwn)%irank == myrank) call send_table_w(iwn,itabg_v(iv)%irank)
       enddo         
 
@@ -505,8 +516,6 @@ do iw = 2,nwa
 
    endif
 enddo
-
-!!!! END OF ITAB_? POPULATION
 
 !!!!!!!!!! ISSO DEVE SER DELETADO
 if (isfcl == 1) then
@@ -703,7 +712,7 @@ end subroutine recv_table_w
 
 subroutine send_table_v(iv,iremote)
 
-use mem_ijtabs, only: itab_v, itabg_v, mloops_v
+use mem_ijtabs, only: itab_v, itabg_v, mloops
 use mem_para,   only: nsends_v, send_v, mgroupsize
 use misc_coms,  only: io6
 
@@ -730,7 +739,7 @@ if (jsend > nsends_v(1)) nsends_v(1) = jsend
 
 iv_myrank = itabg_v(iv)%iv_myrank
 
-itab_v(iv_myrank)%loop(mloops_v+jsend) = .true.
+itab_v(iv_myrank)%loop(mloops+jsend) = .true.
 send_v(jsend)%iremote = iremote
 
 return
@@ -740,7 +749,7 @@ end subroutine send_table_v
 
 subroutine send_table_w(iw,iremote)
 
-use mem_ijtabs, only: itab_w, itabg_w, mloops_w
+use mem_ijtabs, only: itab_w, itabg_w, mloops
 use mem_para,   only: nsends_w, send_w
 use misc_coms,  only: io6
 
@@ -767,7 +776,7 @@ if (jsend > nsends_w(1)) nsends_w = jsend
 
 iw_myrank = itabg_w(iw)%iw_myrank
 
-itab_w(iw_myrank)%loop(mloops_w+jsend) = .true.
+itab_w(iw_myrank)%loop(mloops+jsend) = .true.
 send_w(jsend)%iremote = iremote
 
 return

@@ -347,7 +347,7 @@ integer :: j
 integer :: isf
 integer :: isfglobe
 
-real :: rscr(10)
+real :: rscr(14)
 
 if (mrl < 1) return
 
@@ -405,7 +405,12 @@ do jsend = 1,nsends_wsf(mrl)
          rscr(9)  = seaflux(isf)%ice_sxfer_r
          rscr(10) = seaflux(isf)%ice_ustar
 
-         call MPI_Pack(rscr,10,MPI_REAL,  &
+         rscr(11) = seaflux(isf)%sxfer_c
+         rscr(12) = seaflux(isf)%ed_zeta
+         rscr(13) = seaflux(isf)%ed_rib
+         rscr(14) = seaflux(isf)%ed_ggbare
+
+         call MPI_Pack(rscr,14,MPI_REAL,  &
             send_wsf(jsend)%buff,send_wsf(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
       elseif (sendgroup == 'C') then ! for cuparm fluxes
@@ -588,7 +593,7 @@ integer :: nwsfpts
 integer :: j
 integer :: isf
 integer :: isfglobe
-real    :: rscr(10)
+real    :: rscr(14)
 
 if (mrl < 1) return
 
@@ -628,7 +633,7 @@ do jtmp = 1,nrecvs_wsf(mrl)
       elseif (recvgroup == 'T') then ! for turbulent fluxes
 
          call MPI_Unpack(recv_wsf(jrecv)%buff,recv_wsf(jrecv)%nbytes,ipos,  &
-            rscr,10,MPI_REAL,MPI_COMM_WORLD,ierr)
+            rscr,14,MPI_REAL,MPI_COMM_WORLD,ierr)
 
          seaflux(isf)%rhos    = rscr(1)
          seaflux(isf)%sxfer_t = rscr(2)
@@ -642,6 +647,11 @@ do jtmp = 1,nrecvs_wsf(mrl)
          seaflux(isf)%ice_sxfer_t = rscr(8)
          seaflux(isf)%ice_sxfer_r = rscr(9)
          seaflux(isf)%ice_ustar   = rscr(10)
+
+         seaflux(isf)%sxfer_c = rscr(11)
+         seaflux(isf)%ed_zeta = rscr(12)
+         seaflux(isf)%ed_rib = rscr(13)
+         seaflux(isf)%ed_ggbare = rscr(14)
 
       elseif (recvgroup == 'C') then ! for cuparm fluxes
 

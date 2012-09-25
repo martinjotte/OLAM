@@ -371,20 +371,19 @@ do iu = 2,nua
          do while (iunow /= iu0)
 
             iu0 = iu
-!!                  npoly = npoly + 1
+            npoly = npoly + 1  ! MOVED HERE 8/24/2012
 
             if (itab_ud(iunow)%im(1) == im) then
 
                if (itab_ud(iunow)%iw(2) > 1) then
 
-                  npoly = npoly + 1
-
-                  itab_md(im)%iu(npoly) = iunow  ! NEW
+                  itab_md(im)%iu(npoly) = iunow
 
                   itab_md(im)%iw(npoly) = itab_ud(iunow)%iw(2)
                   iunow = itab_ud(iunow)%iu(3)
 
                else
+                  itab_md(im)%iu(npoly) = iunow  ! NEW 8/24/2012
 
                   iunow = iu0  ! this section added for walls
                endif
@@ -392,14 +391,13 @@ do iu = 2,nua
 
                if (itab_ud(iunow)%iw(1) > 1) then
 
-                  npoly = npoly + 1
-
-                  itab_md(im)%iu(npoly) = iunow  ! NEW
+                  itab_md(im)%iu(npoly) = iunow
 
                   itab_md(im)%iw(npoly) = itab_ud(iunow)%iw(1)
                   iunow = itab_ud(iunow)%iu(2)
 
                else
+                  itab_md(im)%iu(npoly) = iunow  ! NEW 8/24/2012
 
                   iunow = iu0  ! this section added for walls
                endif

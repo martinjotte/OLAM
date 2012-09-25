@@ -60,18 +60,18 @@ subroutine surface_turb_flux(mrl)
 
 use leaf_coms,   only: mwl, dt_leaf, isfcl
 use sea_coms,    only: mws, dt_sea
-use mem_ijtabs,  only: itab_w, itabg_w, jtab_w
+use mem_ijtabs,  only: itab_w, itabg_w, jtab_w, jtw_prog, jtw_wstn
 use misc_coms,   only: io6, iparallel
 use mem_para,    only: myrank
 use mem_grid,    only: mza, mwa, lsw, lpw, zt, zm
 use mem_sea,     only: sea, itabg_ws, itab_ws
-use mem_leaf,    only: land, itabg_wl, itab_wl, first_site
+use mem_leaf,    only: land, itabg_wl, itab_wl
 use consts_coms, only: p00i, rocp
 use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
 use mem_turb,    only: vkm_sfc, sflux_t, sflux_r, sxfer_tk, sxfer_rk, ustar
 use mem_basic,   only: press, rho, theta, sh_v, vxe, vye, vze
 
-use ed_structure_defs
+use ed_state_vars, only: edgrid_g
 
 implicit none
 
@@ -93,8 +93,8 @@ real :: vkmsfc, vkmsfcs, vkmsfci
 real :: ustar0, ustars,  ustari
 real :: vels
 
-type(site),  pointer :: ed_site
-type(patch), pointer :: ed_patch
+integer :: my_ifm, my_ipy
+real :: my_co2, ed_zeta, ed_rib, ed_ggbare
 
 if (isfcl == 0) then
 
@@ -103,7 +103,7 @@ if (isfcl == 0) then
 
    call psub()
 !-----------------------------------------------------------------------------
-   do j = 1,jtab_w(13)%jend(mrl); iw = jtab_w(13)%iw(j)
+   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !-----------------------------------------------------------------------------
    call qsub('W',iw)
 
@@ -140,7 +140,7 @@ endif
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(20)%jend(mrl); iw = jtab_w(20)%iw(j)
+do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -262,6 +262,7 @@ do j = 1,jseaflux(1)%jend(mrl)
    seaflux(isf)%rhos    = arf_sea     * rho(kw,iw)
    seaflux(isf)%sxfer_t = arf_sea_dtf * seaflux(isf)%sfluxt
    seaflux(isf)%sxfer_r = arf_sea_dtf * seaflux(isf)%sfluxr
+   seaflux(isf)%sxfer_c = 0.
    seaflux(isf)%ustar   = arf_sea     * ustar0
 
    seaflux(isf)%sea_sxfer_t = arf_sea_dtf * seaflux(isf)%sea_sfluxt
@@ -341,106 +342,51 @@ do j = 1,jlandflux(1)%jend(mrl)
                  landflux(ilf)%sfluxr, &
                  ustar0                )
 
-! Add flux contributions to IW atmospheric column
-
-      vkm_sfc(iw) = vkm_sfc(iw)  &
-         + arf_atm * vkmsfc
-
-      ustar  (iw) = ustar  (iw)  &
-         + arf_atm * ustar0
-
-      sflux_t(iw) = sflux_t(iw)  &
-         + arf_atm * landflux(ilf)%sfluxt / exner ! for Taylor PBL
-
-      sflux_r(iw) = sflux_r(iw)  &
-         + arf_atm * landflux(ilf)%sfluxr         ! for Taylor PBL
-
-      sxfer_tk(ks,iw) = sxfer_tk(ks,iw)  &
-         + area_dtf * landflux(ilf)%sfluxt / exner
-
-      sxfer_rk(ks,iw) = sxfer_rk(ks,iw)  &
-         + area_dtf * landflux(ilf)%sfluxr
-
-! Store flux contributions to land cell in landflux cell
-
-      landflux(ilf)%sxfer_t = arf_land_dtf * landflux(ilf)%sfluxt
-      landflux(ilf)%sxfer_r = arf_land_dtf * landflux(ilf)%sfluxr
-      landflux(ilf)%ustar   = arf_land     * ustar0
+      landflux(ilf)%sfluxc = 0.
+      ed_zeta = 0.
+      ed_rib = 0.
+      ed_ggbare = 0.
 
    else
 
-! Zero landflux values prior to summation over ED patches
+      my_ifm = land%ed_ifm(iwl)
+      my_ipy = land%ed_ipy(iwl)
+      my_co2 = edgrid_g(my_ifm)%met(my_ipy)%atm_co2
 
-      landflux(ilf)%sxfer_t = 0.
-      landflux(ilf)%sxfer_r = 0.
-      landflux(ilf)%ustar   = 0.
+      call ed_stars_wrapper(iwl, zt(kw)-zm(kw-1),      &
+           vels,                 &
+           rho         (kw,iw),  &
+           airtemp,              &
+           sh_v        (kw,iw),  &
+           my_co2,               &
+           vkmsfc,               &
+           landflux(ilf)%sfluxt, &
+           landflux(ilf)%sfluxr, &
+           landflux(ilf)%sfluxc, &
+           ustar0, &
+           ed_zeta, ed_rib, ed_ggbare)
 
-! Find the site
-
-      ed_site => first_site
-      find_site: do while(associated(ed_site))
-         if(ed_site%iland == iwl)exit find_site
-         ed_site => ed_site%next_site
-      enddo find_site
-      ed_patch => ed_site%oldest_patch
-      do while(associated(ed_patch))
-
-         call stars(zt(kw)-zm(kw-1), &
-              ed_patch%rough,        &
-              vels,                  &
-              rho         (kw,iw),   &
-              airtemp,               &
-              sh_v        (kw,iw),   &
-              ed_patch%can_temp,     &
-              ed_patch%can_shv ,     &
-              vkmsfc,                &
-              landflux(ilf)%sfluxt,  &
-              landflux(ilf)%sfluxr,  &
-              ustar0                 )
+   endif
 
 ! Add flux contributions to IW atmospheric column
 
-         vkm_sfc(iw) = vkm_sfc(iw) + arf_atm * vkmsfc * ed_patch%area
-         ustar  (iw) = ustar  (iw) + arf_atm * ustar0 * ed_patch%area
+   vkm_sfc(iw)     = vkm_sfc(iw)     + arf_atm  * vkmsfc
+   ustar  (iw)     = ustar  (iw)     + arf_atm  * ustar0
+   sflux_t(iw)     = sflux_t(iw)     + arf_atm  * landflux(ilf)%sfluxt / exner
+   sflux_r(iw)     = sflux_r(iw)     + arf_atm  * landflux(ilf)%sfluxr
+   sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dtf * landflux(ilf)%sfluxt / exner
+   sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dtf * landflux(ilf)%sfluxr
 
-! sflux_t(iw) and sflux_r(iw) are for Taylor PBL
+! Store flux contributions to land cell in landflux cell
 
-         sflux_t(iw) = sflux_t(iw)  &
-            + arf_atm * landflux(ilf)%sfluxt * ed_patch%area / exner
-
-         sflux_r(iw) = sflux_r(iw)  &
-            + arf_atm * landflux(ilf)%sfluxr * ed_patch%area
-
-         sxfer_tk(ks,iw) = sxfer_tk(ks,iw)  &
-            + area_dtf * landflux(ilf)%sfluxt * ed_patch%area / exner
-
-         sxfer_rk(ks,iw) = sxfer_rk(ks,iw)  &
-            + area_dtf * landflux(ilf)%sfluxr * ed_patch%area
-
-!----------------------------------------------------------------------------------
-! Conceptually, we need the following here: 3 arrays over all patches in current 
-! IWL land cell for each flux cell.
-
-     !    landflux(ilf)%sxfer_t(ed_patch) = arf_land_dtf * landflux(ilf)%sfluxt
-     !    landflux(ilf)%sxfer_r(ed_patch) = arf_land_dtf * landflux(ilf)%sfluxr
-     !    landflux(ilf)%ustar(ed_patch)   = arf_land     * ustar0
-!----------------------------------------------------------------------------------
-
-! Add flux contributions to landflux cell
-
-         landflux(ilf)%sxfer_t = landflux(ilf)%sxfer_t  &
-            + arf_land_dtf * landflux(ilf)%sfluxt * ed_patch%area
-
-         landflux(ilf)%sxfer_r = landflux(ilf)%sxfer_r  &
-            + arf_land_dtf * landflux(ilf)%sfluxr * ed_patch%area
-
-         landflux(ilf)%ustar   = landflux(ilf)%ustar    &
-            + arf_land * ustar0 * ed_patch%area
-
-         ed_patch => ed_patch%younger
-      enddo
-
-   endif
+   landflux(ilf)%sxfer_t = arf_land_dtf * landflux(ilf)%sfluxt
+   landflux(ilf)%sxfer_r = arf_land_dtf * landflux(ilf)%sfluxr
+   landflux(ilf)%ustar   = arf_land     * ustar0
+   landflux(ilf)%sxfer_c = arf_land_dtf * landflux(ilf)%sfluxc
+   landflux(ilf)%ustar   = arf_land     * ustar0
+   landflux(ilf)%ed_zeta = arf_land     * ed_zeta
+   landflux(ilf)%ed_rib  = arf_land     * ed_rib
+   landflux(ilf)%ed_ggbare = arf_land   * ed_ggbare
 
 enddo
 
@@ -484,16 +430,9 @@ do iwl = 2,mwl
    land%rhos (iwl) = 0.
    land%prss (iwl) = 0.
    land%vels (iwl) = 0.
-enddo
-
-ed_site => first_site
-do while(associated(ed_site))
-   ed_patch => ed_site%oldest_patch
-   do while(associated(ed_patch))
-      ed_patch%ustar = 0.
-      ed_patch => ed_patch%younger
-   enddo
-   ed_site => ed_site%next_site
+   land%ed_zeta(iwl) = 0.
+   land%ed_rib(iwl) = 0.
+   land%ed_ggbare(iwl) = 0.
 enddo
 
 ! Sum fluxes for SEA cells
@@ -530,6 +469,8 @@ do j = 1,jseaflux(2)%jend(mrl)
    sea%sea_sxfer_r(iws) = sea%sea_sxfer_r(iws) + seaflux(isf)%sea_sxfer_r
    sea%ice_sxfer_r(iws) = sea%ice_sxfer_r(iws) + seaflux(isf)%ice_sxfer_r
 
+   sea%sxfer_c(iws) = sea%sxfer_c(iws) + seaflux(isf)%sxfer_c
+
 enddo
 call rsub('JSEAFLUX',2)
 
@@ -554,37 +495,16 @@ do j = 1,jlandflux(2)%jend(mrl)
 !----------------------------------------------------------------------
    call qsub('LF',iw)
 
-   land%rhos   (iwl) = land%rhos   (iwl) + landflux(ilf)%rhos
-   land%vels   (iwl) = land%vels   (iwl) + landflux(ilf)%vels
-   land%prss   (iwl) = land%prss   (iwl) + landflux(ilf)%prss
-   land%sxfer_t(iwl) = land%sxfer_t(iwl) + landflux(ilf)%sxfer_t
-   land%sxfer_r(iwl) = land%sxfer_r(iwl) + landflux(ilf)%sxfer_r
-   land%ustar  (iwl) = land%ustar  (iwl) + landflux(ilf)%ustar
-
-   if (land%ed_flag(iwl) /= 0) then
-
-! Find the site
-
-      ed_site => first_site
-      find_site2: do while(associated(ed_site))
-         if(ed_site%iland == iwl)exit find_site2
-         ed_site => ed_site%next_site
-      enddo find_site2
-      ed_patch => ed_site%oldest_patch
-      do while(associated(ed_patch))
-
-!----------------------------------------------------------------------------------
-! Conceptually, we need the following here: 3 arrays over all patches in current 
-! IWL land cell for each flux cell.
-
-  !       ed_patch%sxfer_t = ed_patch%sxfer_t + landflux(ilf)%sxfer_t(ed_patch) 
-  !       ed_patch%sxfer_r = ed_patch%sxfer_r + landflux(ilf)%sxfer_r(ed_patch)
-  !       ed_patch%ustar   = ed_patch%ustar   + landflux(ilf)%ustar(ed_patch)
-!----------------------------------------------------------------------------------
-
-      enddo
-
-   endif
+   land%rhos     (iwl) = land%rhos     (iwl) + landflux(ilf)%rhos
+   land%vels     (iwl) = land%vels     (iwl) + landflux(ilf)%vels
+   land%prss     (iwl) = land%prss     (iwl) + landflux(ilf)%prss
+   land%sxfer_t  (iwl) = land%sxfer_t  (iwl) + landflux(ilf)%sxfer_t
+   land%sxfer_r  (iwl) = land%sxfer_r  (iwl) + landflux(ilf)%sxfer_r
+   land%sxfer_c  (iwl) = land%sxfer_c  (iwl) + landflux(ilf)%sxfer_c
+   land%ustar    (iwl) = land%ustar    (iwl) + landflux(ilf)%ustar
+   land%ed_zeta  (iwl) = land%ed_zeta  (iwl) + landflux(ilf)%ed_zeta
+   land%ed_rib   (iwl) = land%ed_rib   (iwl) + landflux(ilf)%ed_rib
+   land%ed_ggbare(iwl) = land%ed_ggbare(iwl) + landflux(ilf)%ed_ggbare
 
 enddo
 call rsub('JLANDFLUX',2)
@@ -644,7 +564,7 @@ real :: cm
 real :: ch
 real :: fm
 real :: fh
-real :: ri     ! bulk richardson numer, eq. 3.45 in Garratt
+real :: ri     ! bulk richardson number, eq. 3.45 in Garratt
 real :: tstar  ! 
 real :: rstar  !
 real :: vtscr  ! ustar0 times density
@@ -785,10 +705,10 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0 .and. mrl <= mrl_leaf) then
 
-   mrl = 1  ! special mrl set for leaf
+mrl = 1  ! special mrl set for leaf
 
-   do j = 1,jlandflux(2)%jend(mrl)
-      ilf = jlandflux(2)%ilandflux(j)
+do j = 1,jlandflux(2)%jend(mrl)
+   ilf = jlandflux(2)%ilandflux(j)
 !----------------------------------------------------------------------
    call qsub('LF',iw)
 
@@ -805,6 +725,8 @@ if (mrl > 0 .and. mrl <= mrl_leaf) then
    land%dpcpg(iwl) = land%dpcpg(iwl) + landflux(ilf)%dpcpg
 
 enddo
+
+call copy_cuparm_to_ed()
 endif
 call rsub('JLANDFLUX_cuparm',2)
 
@@ -910,6 +832,8 @@ call qsub('LF',iw)
    land%dpcpg(iwl) = land%dpcpg(iwl) + landflux(ilf)%dpcpg
 
 enddo
+
+call copy_micro_to_ed()
 endif
 call rsub('JLANDFLUX_pcp',2)
 

@@ -160,8 +160,8 @@ do iu = 2,mua
       glatu(iu) = atan2(zeu(iu),raxis)   * piu180
       glonu(iu) = atan2(yeu(iu),xeu(iu)) * piu180
    else
-      glatu(iu) = grdlat(1,1)  ! want it this way?
-      glonu(iu) = grdlon(1,1)  ! want it this way?
+      glatu(iu) = 0. ! want it this way?
+      glonu(iu) = 0. ! want it this way?
    endif
 
 ! Length of U side
@@ -265,8 +265,8 @@ do iw = 2,mwa
       glatw(iw) = atan2(zew(iw),raxis)   * piu180
       glonw(iw) = atan2(yew(iw),xew(iw)) * piu180
    else
-      glatw(iw) = grdlat(1,1)  ! want it this way?
-      glonw(iw) = grdlon(1,1)  ! want it this way?
+      glatw(iw) = 0. ! want it this way?
+      glonw(iw) = 0. ! want it this way?
    endif
 
 ! IW triangle area at sea level
@@ -290,8 +290,8 @@ do im = 2,mma
       glatm(im) = atan2(zem(im),raxis)   * piu180
       glonm(im) = atan2(yem(im),xem(im)) * piu180
    else
-      glatm(im) = grdlat(1,1)  ! want it this way?
-      glonm(im) = grdlon(1,1)  ! want it this way?
+      glatm(im) = 0. ! want it this way?
+      glonm(im) = 0. ! want it this way?
    endif
 
 ! Fill global index (replaced later if this run is parallel)
@@ -848,7 +848,9 @@ end subroutine grid_geometry_tri
 
 subroutine ctrlvols_tri()
 
-use mem_ijtabs,  only: jtab_m, jtab_u, jtab_w, itab_u, itab_w
+use mem_ijtabs,  only: jtab_m, jtab_u, jtab_w, itab_u, itab_w, &
+                       jtm_grid, jtu_grid, jtu_lbcp, jtu_wall, &
+                       jtw_grid, jtw_lbcp
 use misc_coms,   only: io6, mdomain, itopoflg
 use consts_coms, only: erad
 use mem_grid,    only: nsw_max, nza, nma, nua, nwa, lpu, lcu, lpw, lsw,  &
@@ -918,7 +920,7 @@ if (isfcl == 0) then
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_w(1)%jend(1); iw = jtab_w(1)%iw(j)
+   do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
    im1 = itab_w(iw)%im(1); im2 = itab_w(iw)%im(2); im3 = itab_w(iw)%im(3)
 !----------------------------------------------------------------------
    call qsub('W',iw)
@@ -1021,6 +1023,21 @@ else  ! isfcl = 1
 
 endif
 
+! Lateral boundary copy of ARW, VOLT
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+   iwp = itab_w(iw)%iwp
+!----------------------------------------------------------------------
+call qsub('W',iw)
+
+   arw (:,iw) = arw (:,iwp)
+   volt(:,iw) = volt(:,iwp)
+
+enddo
+call rsub('W',jtw_lbcp)
+
 ! ARU, LPU, and TOPM adjustment
 
 do ipass = 1,npass
@@ -1029,7 +1046,7 @@ do ipass = 1,npass
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_u(1)%jend(1); iu = jtab_u(1)%iu(j)
+   do j = 1,jtab_u(jtu_grid)%jend(1); iu = jtab_u(jtu_grid)%iu(j)
       im1 = itab_u(iu)%im(1); im2 = itab_u(iu)%im(2)
       iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
@@ -1124,7 +1141,7 @@ enddo  ! end ipass loop
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_u(3)%jend(1); iu = jtab_u(3)%iu(j)
+do j = 1,jtab_u(jtu_wall)%jend(1); iu = jtab_u(jtu_wall)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
 
@@ -1136,11 +1153,26 @@ call qsub('U',iu)
 enddo
 call rsub('U',3)
 
+! Lateral boundary copy of ARU, LPU
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_u(jtu_lbcp)%jend(1); iu = jtab_u(jtu_lbcp)%iu(j)
+   iup = itab_u(iu)%iup
+!----------------------------------------------------------------------
+call qsub('U',iu)
+
+   aru(:,iu) = aru(:,iup)
+   lpu  (iu) = lpu  (iup)
+
+enddo
+call rsub('U',jtu_lbcp)
+
 ! Topographic adjustments to ARW and VOLT...
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(3)%jend(1); iw = jtab_w(3)%iw(j)
+do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -1209,7 +1241,7 @@ nsw_max = 1
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(6)%jend(1); iw = jtab_w(6)%iw(j)
+do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -1287,7 +1319,7 @@ endif
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(5)%jend(1); iw = jtab_w(5)%iw(j)
+do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -1332,14 +1364,32 @@ call qsub('W',iw)
 enddo
 call rsub('W',5)
 
-! Expand ARU with height for spherical geometry; Compute VOLUI
+! Lateral boundary copy of ARW, VOLT, VOLTI, VOLWI, LSW
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+   iwp = itab_w(iw)%iwp
+!----------------------------------------------------------------------
+call qsub('W',iw)
+
+   arw  (:,iw) = arw  (:,iwp)
+   volt (:,iw) = volt (:,iwp)
+   volti(:,iw) = volti(:,iwp)
+   volwi(:,iw) = volwi(:,iwp)
+   lsw    (iw) = lsw    (iwp)
+
+enddo
+call rsub('W',jtw_lbcp)
+
+! Expand ARU with height for spherical geometry; Compute VOLUI, LCU
 
 volui(1:nza,1:nua) = 1.e-9
 lcu(1:nua) = nza
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_u(4)%jend(1); iu = jtab_u(4)%iu(j)
+do j = 1,jtab_u(jtu_grid)%jend(1); iu = jtab_u(jtu_grid)%iu(j)
    iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
 call qsub('U',iu)
@@ -1363,6 +1413,22 @@ call qsub('U',iu)
 
 enddo
 call rsub('U',4)
+
+! Lateral boundary copy of ARU, VOLUI, LCU
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_u(jtu_lbcp)%jend(1); iu = jtab_u(jtu_lbcp)%iu(j)
+   iup = itab_u(iu)%iup
+!----------------------------------------------------------------------
+call qsub('U',iu)
+
+   aru  (:,iu) = aru  (:,iup)
+   volui(:,iu) = volui(:,iup)
+   lcu    (iu) = lcu    (iup)
+
+enddo
+call rsub('U',jtu_lbcp)
 
 return
 end subroutine ctrlvols_tri

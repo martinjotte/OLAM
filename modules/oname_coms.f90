@@ -34,7 +34,6 @@ Module oname_coms
 
    use max_dims,    only: nzgmax, maxsndg, maxgrds, maxisdirs, maxnplt,  &
                           maxpltfiles, maxngrdll, pathlen
-   use mem_ed,      only: max_soi, max_ed_regions
    use consts_coms, only: r8
         
    Type oname_plot
@@ -251,31 +250,9 @@ Module oname_coms
       character(pathlen) :: soildepth_db    = ''
 
 !!    ED MODEL VARIABLES
-      character(pathlen) :: ed_hfilin     = ''
-      character(pathlen) :: ed_inputs_dir = ''
-      character(pathlen) :: ed_offline_db = ''
 
-      integer :: n_soi         = 0
-      integer :: n_ed_region   = 0
-      integer :: ied_init_mode = 0
-      integer :: istoma_scheme = 0
-      integer :: iphen_scheme  = 0
-      integer :: n_plant_lim   = 0
-      integer :: n_decomp_lim  = 0
-      integer :: include_fire  = 0
-      integer :: ied_offline   = 0
-      integer :: metcyc1       = 0
-      integer :: metcyc2       = 0
-      integer :: ianth_disturb = 0
-
-      real :: treefall_disturbance_rate = 0.0
-      real :: runoff_time = 0.0
-      real :: soi_lat(max_soi)
-      real :: soi_lon(max_soi)
-      real :: ed_reg_latmin(max_ed_regions)
-      real :: ed_reg_latmax(max_ed_regions)
-      real :: ed_reg_lonmin(max_ed_regions)
-      real :: ed_reg_lonmax(max_ed_regions)
+      character(pathlen) :: ed2_namelist    = ''
+      integer :: ed2_active = 0
 
 !!    ISENTROPIC CONTROL
 
@@ -306,6 +283,10 @@ Module oname_coms
 !!    THE ARRAYS OF FIELDS TO PLOT
 
       type(oname_plot) :: plotspecs(maxnplt)
+
+!!    NCAR DCMIP 2012 PARAMETERS
+
+      integer :: test_case
 
    End Type oname_vars
 

@@ -166,6 +166,12 @@ if (runtype == 'MAKESFC' .or. runtype == 'MAKEGRID') then
       write(io6,'(/,a)') 'gridinit calling cartesian_3d'
       call cartesian_3d()    ! 3D cartesian channel domain; calls 2 allocs
 
+   elseif (mdomain == 5) then
+
+      write(io6,'(/,a)') 'gridinit calling cart_hex'
+      call cart_hex()        ! 3D hexagonal domain with hexagon cells and
+                             ! periodic lateral boundaries; calls 2 allocs
+
    endif
 
    write(io6,'(/,a)') 'gridinit after icosahedron or cartesian'
@@ -631,6 +637,8 @@ real :: r, r0
 ! If itopoflg is set to 1, these values will be overridden in the call to
 ! topo_database, which inputs a standard OLAM topography dataset.
 
+topq(:) = 0.
+
 hfwid = 10000.
 
 r0 = pi1 / 9.
@@ -679,7 +687,7 @@ subroutine gridfile_write()
   use max_dims,   only: maxngrdll
   use misc_coms,  only: io6, ngrids, gridfile, mdomain, meshtype, nzp, nxp, &
        iclobber, itopoflg, deltax, ndz, hdz, dz, ngrdll, grdrad, grdlat, grdlon
-  use mem_ijtabs, only: mloops_m, mloops_u, mloops_v, mloops_w, mrls, &
+  use mem_ijtabs, only: mloops, mrls, &
        itab_m, itab_u, itab_v, itab_w
   use mem_grid,   only: nza, nma, nua, nva, nwa, nsw_max, &
        zm, zt, dzm, dzt, dzim, dzit, &
@@ -890,7 +898,7 @@ subroutine gridfile_write()
   idims(1) = nma
 
   call shdf5_orec(ndims,idims,'itab_m%npoly'    ,ivara=itab_m(:)%npoly)
-  call shdf5_orec(ndims,idims,'itab_m%itopm'    ,ivara=itab_m(:)%itopm)
+  call shdf5_orec(ndims,idims,'itab_m%imp'      ,ivara=itab_m(:)%imp)
   call shdf5_orec(ndims,idims,'itab_m%imglobe'  ,ivara=itab_m(:)%imglobe)
   call shdf5_orec(ndims,idims,'itab_m%mrlm'     ,ivara=itab_m(:)%mrlm)
   call shdf5_orec(ndims,idims,'itab_m%mrlm_orig',ivara=itab_m(:)%mrlm_orig)
@@ -900,12 +908,12 @@ subroutine gridfile_write()
   ! Write ITAB_M ARRAYS
 
   ndims = 2
-  idims(1) = mloops_m
+  idims(1) = mloops
   idims(2) = nma
 
-  allocate (lscr(mloops_m,nma)) ; lscr = .false.
+  allocate (lscr(mloops,nma)) ; lscr = .false.
   do im = 1,nma
-     lscr(1:mloops_m,im) = itab_m(im)%loop(1:mloops_m)
+     lscr(1:mloops,im) = itab_m(im)%loop(1:mloops)
   enddo
   call shdf5_orec(ndims,idims,'itab_m%loop',lvara=lscr)
   deallocate (lscr)
@@ -971,12 +979,12 @@ subroutine gridfile_write()
      ! Write ITAB_U ARRAYS
 
      ndims    = 2
-     idims(1) = mloops_u
+     idims(1) = mloops
      idims(2) = nua
 
-     allocate (lscr(mloops_u,nua))
+     allocate (lscr(mloops,nua))
      do iu = 1,nua
-        lscr(1:mloops_u,iu) = itab_u(iu)%loop(1:mloops_u)
+        lscr(1:mloops,iu) = itab_u(iu)%loop(1:mloops)
      enddo
      call shdf5_orec(ndims,idims,'itab_u%loop',lvara=lscr)
      deallocate (lscr)
@@ -1090,12 +1098,12 @@ subroutine gridfile_write()
      ! Write ITAB_V ARRAYS
 
      ndims    = 2
-     idims(1) = mloops_v
+     idims(1) = mloops
      idims(2) = nva
 
-     allocate (lscr(mloops_v,nva))
+     allocate (lscr(mloops,nva))
      do iv = 1,nva
-        lscr(1:mloops_v,iv) = itab_v(iv)%loop(1:mloops_v)
+        lscr(1:mloops,iv) = itab_v(iv)%loop(1:mloops)
      enddo
      call shdf5_orec(ndims,idims,'itab_v%loop',lvara=lscr)
      deallocate(lscr)
@@ -1216,12 +1224,12 @@ subroutine gridfile_write()
   ! Write ITAB_W ARRAYS
 
   ndims = 2
-  idims(1) = mloops_w
+  idims(1) = mloops
   idims(2) = nwa
 
-  allocate (lscr(mloops_w,nwa))
+  allocate (lscr(mloops,nwa))
   do iw = 1,nwa
-     lscr(1:mloops_w,iw) = itab_w(iw)%loop(1:mloops_w)
+     lscr(1:mloops,iw) = itab_w(iw)%loop(1:mloops)
   enddo
   call shdf5_orec(ndims,idims,'itab_w%loop',lvara=lscr)
   deallocate(lscr)
@@ -1527,7 +1535,7 @@ use max_dims,   only: maxngrdll
 use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp, &
                       itopoflg, deltax, ndz, hdz, dz, &
                       ngrdll, grdrad, grdlat, grdlon, meshtype
-use mem_ijtabs, only: mloops_m, mloops_u, mloops_v, mloops_w, mrls,  &
+use mem_ijtabs, only: mloops, mrls,  &
                       itab_m_pd, itab_u_pd, itab_v_pd, itab_w_pd, alloc_itabs_pd
 use mem_grid,   only: nza, nma, nua, nva, nwa, &
                       mza, mma, mua, mva, mwa, nsw_max, &
@@ -1751,7 +1759,7 @@ if (exans) then
    idims(1) = nma
 
    call shdf5_irec(ndims,idims,'itab_m%npoly',ivara=itab_m_pd(:)%npoly)
-   call shdf5_irec(ndims,idims,'itab_m%itopm',ivara=itab_m_pd(:)%itopm)
+   call shdf5_irec(ndims,idims,'itab_m%imp'  ,ivara=itab_m_pd(:)%imp)
 
 ! Read ITAB_M ARRAYS
 
@@ -1999,7 +2007,7 @@ use max_dims,   only: maxngrdll
 use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp, &
                       itopoflg, deltax, ndz, hdz, dz, &
                       ngrdll, grdrad, grdlat, grdlon, meshtype
-use mem_ijtabs, only: mloops_m, mloops_u, mloops_v, mloops_w, mrls, &
+use mem_ijtabs, only: mloops, mrls, &
                       itab_m, itab_u, itab_v, itab_w
 use mem_grid,   only: nza, &
                       mza, mma, mua, mva, mwa, nsw_max, &
@@ -2155,7 +2163,6 @@ if (exans) then
 
    endif
 
-
    ndims    = 1
    idims(1) = mwa
 
@@ -2206,7 +2213,7 @@ if (exans) then
    idims(1) = mma
 
    call shdf5_irec(ndims,idims,'itab_m%npoly'    ,ivara=itab_m(:)%npoly, points=lgma)
-   call shdf5_irec(ndims,idims,'itab_m%itopm'    ,ivara=itab_m(:)%itopm, points=lgma)
+   call shdf5_irec(ndims,idims,'itab_m%imp'      ,ivara=itab_m(:)%imp, points=lgma)
    call shdf5_irec(ndims,idims,'itab_m%imglobe'  ,ivara=itab_m(:)%imglobe, points=lgma)
    call shdf5_irec(ndims,idims,'itab_m%mrlm'     ,ivara=itab_m(:)%mrlm, points=lgma)
    call shdf5_irec(ndims,idims,'itab_m%mrlm_orig',ivara=itab_m(:)%mrlm_orig, points=lgma)
@@ -2216,13 +2223,13 @@ if (exans) then
 ! Read ITAB_M ARRAYS
 
    ndims = 2
-   idims(1) = mloops_m
+   idims(1) = mloops
    idims(2) = mma
 
-   allocate (lscr(mloops_m,mma))
+   allocate (lscr(mloops,mma))
    call shdf5_irec(ndims,idims,'itab_m%loop',lvara=lscr, points=lgma)
    do im = 1,mma
-      itab_m(im)%loop(1:mloops_m) = lscr(1:mloops_m,im)
+      itab_m(im)%loop(1:mloops) = lscr(1:mloops,im)
    enddo
    deallocate (lscr)
 
@@ -2285,13 +2292,13 @@ if (exans) then
 ! Read ITAB_U ARRAYS
 
       ndims = 2
-      idims(1) = mloops_u
+      idims(1) = mloops
       idims(2) = mua
 
-      allocate (lscr(mloops_u,mua))
+      allocate (lscr(mloops,mua))
       call shdf5_irec(ndims,idims,'itab_u%loop',lvara=lscr, points=lgua)
       do iu = 1,mua
-         itab_u(iu)%loop(1:mloops_u) = lscr(1:mloops_u,iu)
+         itab_u(iu)%loop(1:mloops) = lscr(1:mloops,iu)
       enddo
       deallocate (lscr)
 
@@ -2403,13 +2410,13 @@ if (exans) then
 ! Read ITAB_V ARRAYS
 
       ndims    = 2
-      idims(1) = mloops_v
+      idims(1) = mloops
       idims(2) = mva
 
-      allocate (lscr(mloops_v,mva))
+      allocate (lscr(mloops,mva))
       call shdf5_irec(ndims,idims,'itab_v%loop',lvara=lscr, points=lgva)
       do iv = 1,mva
-         itab_v(iv)%loop(1:mloops_v) = lscr(1:mloops_v,iv)
+         itab_v(iv)%loop(1:mloops) = lscr(1:mloops,iv)
       enddo
       deallocate (lscr)
 
@@ -2529,13 +2536,13 @@ if (exans) then
 ! Read ITAB_W ARRAYS
 
    ndims    = 2
-   idims(1) = mloops_w
+   idims(1) = mloops
    idims(2) = mwa
 
-   allocate (lscr(mloops_w,mwa))
+   allocate (lscr(mloops,mwa))
    call shdf5_irec(ndims,idims,'itab_w%loop',lvara=lscr, points=lgwa)
    do iw = 1,mwa
-      itab_w(iw)%loop(1:mloops_w) = lscr(1:mloops_w,iw)
+      itab_w(iw)%loop(1:mloops) = lscr(1:mloops,iw)
    enddo
    deallocate (lscr)
 

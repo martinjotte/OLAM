@@ -93,8 +93,8 @@ Contains
    if (allocated(vye))     allocate (vmyet(lza,lwa))
    if (allocated(vze))     allocate (vmzet(lza,lwa))
 
-   if (allocated(thil))    allocate (thilt(lza,lwa))
-   if (allocated(sh_w))    allocate (sh_wt(lza,lwa))
+   if (allocated(thil))    allocate (thilt(lza,lwa)) ; thilt = 0.
+   if (allocated(sh_w))    allocate (sh_wt(lza,lwa)) ; sh_wt = 0.
    if (allocated(sh_c))    allocate (sh_ct(lza,lwa))
    if (allocated(sh_r))    allocate (sh_rt(lza,lwa))
    if (allocated(sh_p))    allocate (sh_pt(lza,lwa))

@@ -34,11 +34,9 @@ subroutine leaf3()
 
 use leaf_coms, only: nzg, nzs, mwl, iupdndvi, s1900_ndvi, indvifile, nndvifiles
 
-use mem_leaf,  only: land, first_site, itab_wl
+use mem_leaf,  only: land, itab_wl
 use misc_coms, only: io6, time8, s1900_sim, iparallel
 
-use ed_structure_defs, only: patch,site
-use ed_options,        only: ied_offline
 use leaf3_landcell,    only: landcell
 use mem_para,          only: myrank
 
@@ -51,9 +49,6 @@ implicit none
 integer :: iwl
 real :: timefac_ndvi  ! fraction of elapsed time from past to future NDVI obs
 
-type(patch), pointer :: ed_patch
-type(site),  pointer :: ed_site
-
 ! Time interpolation factor for updating NDVI
 
 timefac_ndvi = 0.
@@ -65,8 +60,6 @@ endif
 
 ! Loop over ALL LAND CELLS
 
-ed_site => first_site
-
 !$omp parallel do
 do iwl = 2,mwl
 
@@ -74,7 +67,7 @@ do iwl = 2,mwl
 
    if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
-   if (land%ed_flag(iwl) == 0 .and. ied_offline == 0) then 
+   if (land%ed_flag(iwl) == 0) then 
 
 ! Update LAND CELL
 
@@ -109,62 +102,9 @@ do iwl = 2,mwl
 
    elseif(land%ed_flag(iwl) == 1)then
 
-! in this case, ED is being run.  Therefore, we want to loop over patches 
-! and send the patch variables.
+      ! Time to call ED.
+      call ed_biophys_wrapper()
 
-      ed_site%omean_precip = ed_site%omean_precip + land%pcpg(ed_site%iland)
-      ed_site%omean_qprecip = ed_site%omean_qprecip + land%qpcpg(ed_site%iland)
-
-      ed_patch => ed_site%oldest_patch
-      
-      do while(associated(ed_patch))
-
-         ed_site%omean_netrad = ed_site%omean_netrad +   &
-              ed_patch%area * (  &
-              (1.0 - ed_patch%albedo_beam) *   &
-              (land%rshort(ed_site%iland) -   &
-              land%rshort_diffuse(ed_site%iland)) +  &
-              (1.0 - ed_patch%albedo_diffuse) *   &
-              land%rshort_diffuse(ed_site%iland) ) +   &
-              land%rlong(ed_site%iland) *  &
-              (1.0 - ed_patch%rlong_albedo) -   &
-              ed_patch%rlongup
-
-         call landcell(iwl                                                      , &
-            ed_patch%nlev_sfcwater             , land%leaf_class           (iwl), &
-            ed_patch%ntext_soil     (1:nzg)    , ed_patch%soil_water     (1:nzg), &
-            ed_patch%soil_energy    (1:nzg), &
-            ed_patch%sfcwater_mass  (1:nzs), &
-            ed_patch%sfcwater_energy(1:nzs)    , ed_patch%sfcwater_depth (1:nzs), &
-            ed_patch%rshort_s       (1:nzs)    , land%rshort_v           (iwl)  , &
-            ed_patch%rshort_g                  , land%rshort             (iwl)  , &
-            land%rlong_v            (iwl)      , ed_patch%rlong_s               , &
-            ed_patch%rlong_g                   , ed_patch%veg_height            , &
-            ed_patch%veg_rough                 , ed_patch%lai                   , &
-            land%veg_lai            (iwl)      , land%veg_fracarea       (iwl)  , &
-            land%hcapveg            (iwl)      , ed_patch%can_depth             , &
-            land%rhos               (iwl)      , land%vels               (iwl)  , &
-            land%prss               (iwl)      , land%pcpg               (iwl)  , &
-            land%qpcpg              (iwl)      , land%dpcpg              (iwl)  , &
-            ed_patch%sxfer_t                   , ed_patch%sxfer_r               , &
-            ed_patch%ustar                     , ed_patch%snowfac               , &
-            land%vf                 (iwl)      , ed_patch%surface_ssh           , &
-            ed_patch%ground_shv                , land%veg_water          (iwl)  , &
-            land%veg_temp           (iwl)      , ed_patch%can_temp              , &
-            ed_patch%can_shv                   , land%stom_resist        (iwl)  , &
-            land%veg_ndvip          (iwl)      , land%veg_ndvif          (iwl)  , &
-            land%veg_ndvic          (iwl)      , land%veg_albedo         (iwl)  , &
-            ed_patch%rough                     , land%lsl                (iwl)  , &
-            land%head0              (iwl)      , land%head1              (iwl)  , &
-            land%xew                (iwl)      , land%yew                  (iwl), &
-            land%zew                (iwl)                                       , &
-            timefac_ndvi                       , time8                          , &
-            ed_patch                                                              )
-
-         ed_patch => ed_patch%younger
-         
-      enddo
-      
    endif
 
 ! Zero out LAND%SXFER_T(iwl) and LAND%SXFER_R(iwl) now that they have 
@@ -172,19 +112,15 @@ do iwl = 2,mwl
 
    land%sxfer_tsav(iwl) = land%sxfer_t(iwl)
    land%sxfer_rsav(iwl) = land%sxfer_r(iwl)
+   land%sxfer_csav(iwl) = land%sxfer_c(iwl)
 
    land%sxfer_t(iwl) = 0.
    land%sxfer_r(iwl) = 0.
+   land%sxfer_c(iwl) = 0.
 
-   if (land%ed_flag(iwl) == 1) then
-      ed_patch => ed_site%oldest_patch
-      do while(associated(ed_patch))
-         ed_patch%sxfer_t = 0.0
-         ed_patch%sxfer_r = 0.0
-         ed_patch => ed_patch%younger
-      enddo
-      ed_site => ed_site%next_site
-   endif
+   land%ed_zeta(iwl) = 0.
+   land%ed_rib(iwl) = 0.
+   land%ed_ggbare(iwl) = 0.
 
 enddo
 !$omp end parallel do

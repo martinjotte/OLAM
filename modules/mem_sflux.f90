@@ -79,6 +79,7 @@ Module mem_sflux
      real :: arf_sfc = 0.0
      real :: sfluxt  = 0.0
      real :: sfluxr  = 0.0
+     real :: sfluxc  = 0.0
      real :: ustar   = 0.0
      real :: rhos    = 0.0
      real :: prss    = 0.0
@@ -87,6 +88,10 @@ Module mem_sflux
      real :: airshv  = 0.0
      real :: sxfer_t = 0.0
      real :: sxfer_r = 0.0
+     real :: sxfer_c = 0.0
+     real :: ed_zeta = 0.0
+     real :: ed_rib  = 0.0
+     real :: ed_ggbare = 0.0
      real :: pcpg    = 0.0
      real :: qpcpg   = 0.0
      real :: dpcpg   = 0.0
@@ -131,6 +136,8 @@ Module mem_sflux
      real :: sea_sfluxr = 0.0
      real :: ice_sfluxr = 0.0
 
+     real ::     sfluxc = 0.0
+
      real ::     ustar = 0.0
      real :: sea_ustar = 0.0
      real :: ice_ustar = 0.0
@@ -142,6 +149,12 @@ Module mem_sflux
      real ::     sxfer_r = 0.0
      real :: sea_sxfer_r = 0.0
      real :: ice_sxfer_r = 0.0
+
+     real ::     sxfer_c = 0.0
+     real ::     ed_zeta = 0.0
+     real ::      ed_rib = 0.0
+     real ::   ed_ggbare = 0.0
+
   End Type sflux_vars
 
   type (sflux_vars), allocatable, target :: seaflux(:)
@@ -226,6 +239,9 @@ Contains
        call increment_vtable('SEAFLUX%ICE_SFLUXR', 'SF')
        vtab_r(num_var)%rvar1_p => seaflux%ice_sfluxr
 
+       call increment_vtable('SEAFLUX%SFLUXC', 'SF')
+       vtab_r(num_var)%rvar1_p => seaflux%sfluxc
+
     endif
 
     if (allocated(landflux)) then
@@ -246,6 +262,9 @@ Contains
 
        call increment_vtable('LANDFLUX%SFLUXR', 'LF')
        vtab_r(num_var)%rvar1_p => landflux%sfluxr
+
+       call increment_vtable('LANDFLUX%SFLUXC', 'LF')
+       vtab_r(num_var)%rvar1_p => landflux%sfluxc
 
     endif
 

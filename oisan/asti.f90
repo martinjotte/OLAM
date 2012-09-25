@@ -40,7 +40,8 @@ use isan_coms,  only: nprz, npry, nprx, nprz_rh, pcol_v, &
 use mem_grid,   only: glatw, glonw, mza, mwa, mva, &
                       xeu, yeu, zeu, xev, yev, zev, &
                       unx, uny, unz, vnx, vny, vnz
-use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w
+use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
+                      jtu_init, jtv_init, jtw_init
 use mem_zonavg, only: zonp_vect, zont, zonz, zonr, zonu
 use consts_coms, only: eradi
 use misc_coms,  only: io6, meshtype
@@ -99,7 +100,7 @@ enddo
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)
+do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -168,7 +169,7 @@ if (meshtype == 1) then
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_u(7)%jend(1); iu = jtab_u(7)%iu(j)
+   do j = 1,jtab_u(jtu_init)%jend(1); iu = jtab_u(jtu_init)%iu(j)
       iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
    call qsub('U',iu)
@@ -208,7 +209,7 @@ else
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)
+   do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
       iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
    call qsub('V',iv)
