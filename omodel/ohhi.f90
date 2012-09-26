@@ -404,11 +404,13 @@ call qsub('W',iw)
 enddo
 call rsub('Wa',8)
 
-! Set reference state to 3d fields at IW = 2.
+! Set reference state to 3d fields at 1st iw point
 
-pr01d(1:mza) = press(1:mza,2)
-dn01d(1:mza) = rho(1:mza,2)
-th01d(1:mza) = theta(1:mza,2)
+iw = jtab_w(jtw_init)%iw(1)
+
+pr01d(1:mza) = press(1:mza,iw)
+dn01d(1:mza) = rho  (1:mza,iw)
+th01d(1:mza) = theta(1:mza,iw)
 
 ! LBC copy
 
