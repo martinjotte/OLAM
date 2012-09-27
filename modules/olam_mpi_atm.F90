@@ -461,7 +461,7 @@ end subroutine olam_alloc_mpi
 
 !===============================================================================
 
-subroutine mpi_send_u(sendgroup,uc0,rpos,rneg)
+subroutine mpi_send_u(sendgroup,domrl,uc0,rpos,rneg)
 
 ! Subroutine to perform a parallel MPI send of a "U group"
 ! of field variables
@@ -481,9 +481,10 @@ implicit none
 
 character(1), intent(in) :: sendgroup
 
-real, optional, intent(in) :: uc0 (mza,mua)
-real, optional, intent(in) :: rpos(mza,mua)
-real, optional, intent(in) :: rneg(mza,mua)
+integer, optional, intent(in) :: domrl
+real,    optional, intent(in) :: uc0 (mza,mua)
+real,    optional, intent(in) :: rpos(mza,mua)
+real,    optional, intent(in) :: rneg(mza,mua)
 
 #ifdef OLAM_MPI
 
@@ -497,7 +498,9 @@ integer :: iuglobe
 
 ! Set MRL and return if mrl < 1 for this step
 
-if (sendgroup == 'I') then
+if (present(domrl)) then
+   mrl = domrl
+else if (sendgroup == 'I') then
    mrl = 1
 else
    mrl = mrl_begs(istp)
@@ -574,7 +577,7 @@ end subroutine mpi_send_u
 
 !===============================================================================
 
-subroutine mpi_send_v(sendgroup)
+subroutine mpi_send_v(sendgroup,domrl,rarray1)
 
 ! Subroutine to perform a parallel MPI send of a "V group"
 ! of field variables
@@ -587,12 +590,15 @@ use mem_basic,  only: vmc,vc
 use mem_para,   only: send_v, recv_v, nsends_v, nrecvs_v
 
 use mem_ijtabs, only: itab_v, jtab_v, mrl_begs, istp, mloops
-use mem_grid,   only: mza
+use mem_grid,   only: mza, mva
 use misc_coms,  only: io6
 
 implicit none
 
 character(1), intent(in) :: sendgroup
+
+integer, optional, intent(in) :: domrl
+real,    optional, intent(in) :: rarray1(mza,mva)
 
 #ifdef OLAM_MPI
 
@@ -606,7 +612,9 @@ integer :: ivglobe
 
 ! Set MRL and return if mrl < 1 for this step
 
-if (sendgroup == 'I') then
+if (present(domrl)) then
+   mrl = domrl
+else if (sendgroup == 'I') then
    mrl = 1
 else
    mrl = mrl_begs(istp)
@@ -644,11 +652,20 @@ do jsend = 1,nsends_v(mrl)
       call MPI_Pack(ivglobe,1,MPI_INTEGER,  &
          send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-      call MPI_Pack(vmc(1,iv),mza,MPI_REAL,  &
-         send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+      if (present(rarray1)) then
 
-      call MPI_Pack(vc(1,iv),mza,MPI_REAL,  &
-         send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+         call MPI_Pack(rarray1(1,iv),mza,MPI_REAL,  &
+              send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+      else
+         
+         call MPI_Pack(vmc(1,iv),mza,MPI_REAL,  &
+              send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+         call MPI_Pack(vc(1,iv),mza,MPI_REAL,  &
+              send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+         
+      endif
 
    enddo
    call rsub('Vsend',mloops+jsend)
@@ -666,7 +683,7 @@ end subroutine mpi_send_v
 
 !=============================================================================
 
-subroutine mpi_send_w(sendgroup,thil0,wmc0,scp0,wmarw, &
+subroutine mpi_send_w(sendgroup,domrl,thil0,wmc0,scp0,wmarw, &
                       vxe,vye,vze,vmxet,vmyet,vmzet, &
                       gxps_thil,gyps_thil,gzps_thil, &
                       gxps_vxe ,gyps_vxe ,gzps_vxe, &
@@ -693,6 +710,8 @@ use mem_para,   only: nrecvs_w, nsends_w, recv_w, send_w
 implicit none
 
 character(1), intent(in) :: sendgroup
+
+integer, optional, intent(in) :: domrl
 
 real, optional, intent(in) :: thil0(mza,mwa,1)
 real, optional, intent(in) :: wmc0(mza,mwa)
@@ -733,7 +752,9 @@ integer :: iwglobe
 
 ! Set MRL and return if mrl < 1 for this step
 
-if (sendgroup == 'I') then
+if (present(domrl)) then
+   mrl = domrl
+else if (sendgroup == 'I') then
    mrl = 1
 elseif (sendgroup == 'S') then
    mrl = mrl_begl(istp)
@@ -1002,7 +1023,7 @@ end subroutine mpi_send_w
 
 !=============================================================================
 
-subroutine mpi_recv_u(recvgroup,uc0,rpos,rneg)
+subroutine mpi_recv_u(recvgroup,domrl,uc0,rpos,rneg)
 
 ! Subroutine to perform a parallel MPI receive of a "U group"
 ! of field variables
@@ -1021,6 +1042,7 @@ implicit none
 
 character(1), intent(in) :: recvgroup
 
+integer, optional, intent(in) :: domrl
 real, optional, intent(inout) :: uc0 (mza,mua)
 real, optional, intent(inout) :: rpos(mza,mua)
 real, optional, intent(inout) :: rneg(mza,mua)
@@ -1037,7 +1059,9 @@ integer :: iuglobe
 
 ! Set MRL and return if mrl < 1 for this step
 
-if (recvgroup == 'I') then
+if (present(domrl)) then
+   mrl = domrl
+else if (recvgroup == 'I') then
    mrl = 1
 else
    mrl = mrl_begs(istp)
@@ -1108,7 +1132,7 @@ end subroutine mpi_recv_u
 
 !=============================================================================
 
-subroutine mpi_recv_v(recvgroup)
+subroutine mpi_recv_v(recvgroup,domrl,rarray1)
 
 ! Subroutine to perform a parallel MPI receive of a "V group"
 ! of field variables
@@ -1120,12 +1144,15 @@ subroutine mpi_recv_v(recvgroup)
 use mem_basic,  only: vmc,vc
 use mem_para,   only: send_v, recv_v, nsends_v, nrecvs_v, mgroupsize
 use mem_ijtabs, only: itabg_v, mrl_begs, istp, mloops
-use mem_grid,   only: mza
+use mem_grid,   only: mza, mva
 use misc_coms,  only: io6
 
 implicit none
 
 character(1), intent(in) :: recvgroup
+
+integer, optional, intent(in) :: domrl
+real, optional, intent(inout) :: rarray1(mza,mva)
 
 #ifdef OLAM_MPI
 
@@ -1139,7 +1166,9 @@ integer :: ivglobe
 
 ! Set MRL and return if mrl < 1 for this step
 
-if (recvgroup == 'I') then
+if (present(domrl)) then
+   mrl = domrl
+else if (recvgroup == 'I') then
    mrl = 1
 else
    mrl = mrl_begs(istp)
@@ -1171,11 +1200,21 @@ do jtmp = 1,nrecvs_v(mrl)
 !----------------------------------------------------------------
       call qsub('V',iv)
 
-      call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos,  &
-         vmc(1,iv),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+      if (present(rarray1)) then
 
-      call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos,  &
-         vc(1,iv),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+         call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos,  &
+              rarray1(1,iv),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+      else
+
+         call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos,  &
+              vmc(1,iv),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+         call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos,  &
+              vc(1,iv),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+      endif
+
 
    enddo
    call rsub('Vrecv',mloops+jrecv)
@@ -1194,7 +1233,7 @@ end subroutine mpi_recv_v
 
 !=============================================================================
 
-subroutine mpi_recv_w(recvgroup,thil0,wmc0,scp0,wmarw, &
+subroutine mpi_recv_w(recvgroup,domrl,thil0,wmc0,scp0,wmarw, &
                       vxe,vye,vze,vmxet,vmyet,vmzet, &
                       gxps_thil,gyps_thil,gzps_thil, &
                       gxps_vxe ,gyps_vxe ,gzps_vxe, &
@@ -1221,6 +1260,8 @@ use micro_coms, only: level
 implicit none
 
 character(1), intent(in) :: recvgroup
+
+integer, optional, intent(in) :: domrl
 
 real, optional, intent(inout) :: thil0(mza,mwa,1)
 real, optional, intent(inout) :: wmc0(mza,mwa)
@@ -1261,7 +1302,9 @@ integer :: iwglobe
 
 ! Set MRL and return if mrl < 1 for this step
 
-if (recvgroup == 'I') then
+if (present(domrl)) then
+   mrl = domrl
+else if (recvgroup == 'I') then
    mrl = 1
 elseif (recvgroup == 'S') then
    mrl = mrl_begl(istp)
