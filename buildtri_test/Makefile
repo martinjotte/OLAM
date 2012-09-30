@@ -1,5 +1,6 @@
 .SUFFIXES:
 .SUFFIXES: .F90 .f90 .c .o
+.PHONY: all clean
 
 # Include definitions
 
@@ -13,7 +14,6 @@ OBJECT_FILES = $(addsuffix .o, \
 # Compiler commands
 
 INCLUDES   = -I$(OUTILS) $(PAR_INCS) $(HDF5_INCS) $(NETCDF_INCS)
-F_COMMAND  = $(F_COMP) -c $(F_OPTS) $(INCLUDES)
 C_COMMAND  = $(C_COMP) -c $(C_OPTS) $(INCLUDES)
 
 # F_DEFINE_FLAG is needed for the IBM XLF compiler, because the 
@@ -22,6 +22,9 @@ C_COMMAND  = $(C_COMP) -c $(C_OPTS) $(INCLUDES)
 ifndef F_DEFINE_FLAG
 F_DEFINE_FLAG=-D
 endif
+
+# For ED2
+HDF5_FORTRAN_DEF=$(F_DEFINE_FLAG)USE_HDF5
 
 ifdef OLAM_MPI
 MPI_DEF=$(F_DEFINE_FLAG)OLAM_MPI
@@ -33,7 +36,7 @@ IEEE_ARITHMETIC_DEF=$(F_DEFINE_FLAG)IEEE_ARITHMETIC
 endif
 
 ifdef OLAM_PARALLEL_HDF5
-HDF5_FORTRAN_DEF=$(F_DEFINE_FLAG)OLAM_PARALLEL_HDF5
+HDF5_FORTRAN_DEF+=$(F_DEFINE_FLAG)OLAM_PARALLEL_HDF5
 endif
 
 # Define executable name
@@ -54,18 +57,25 @@ EXE=$(BASE)-$(OLAM_VERSION)$(OLAM_SUFFIX)
 
 # Define targets
 
-all: objects/Make.depend
+all: objects/FLIST objects/Make.depend objects/Make.targets
 	$(MAKE) $(EXE)
 
 objects/Make.depend: $(SOURCE_FILES) sources.mk
-	mkdir -p objects
+	@echo ""
 	@echo "Generating dependency information"
+	@mkdir -p objects
 	@./sfmakedepend.txt -I $(OUTILS) -f objects/Make.depend $(SOURCE_FILES)
-	rm -f objects/Make.depend.old
-	cat objects/Make.depend | sed s:objects/mpi.mod::g | sed s:objects/hdf5.mod::g > objects/Make.depend.new
-	mv objects/Make.depend.new objects/Make.depend
-	@echo "Copying source code to objects directory for compilation"
-	@cp -p $(SOURCE_FILES) objects/
+	@sed -i -e 's:objects/mpi.mod::g' -e 's:objects/hdf5.mod::g' objects/Make.depend
+
+objects/Make.targets: $(SOURCE_FILES) sources.mk
+	@echo ""
+	@echo "Generating target dependency list"
+	@mkdir -p objects
+	@rm -f objects/Make.targets
+	@for sfile in $(SOURCE_FILES); do \
+	    echo -e objects/$$(basename $$sfile): $$sfile >> objects/Make.targets ; \
+	    echo -e '\t'cp -p $$sfile  objects/$$(basename $$sfile) >> objects/Make.targets ; \
+	done
 
 $(EXE): $(OBJECT_FILES)
 	@echo ""
@@ -75,16 +85,16 @@ $(EXE): $(OBJECT_FILES)
 	@echo Finished building === $(EXE)
 	@echo ""
 
+objects/FLIST: FORCE
+	@for sfile in $(SOURCE_FILES); do \
+	    if [ ! -f $$sfile ]; then echo -e '\nError: Source file "'$$sfile'" not found\n'; fi \
+	done
+	@touch objects/FLIST
+
 clean:
 	@echo ""
 	rm -f objects/* $(EXE)
 	@echo ""
-
-objects/olam_mpi_atm.o:  include.mk
-objects/olam_mpi_land.o: include.mk
-objects/olam_mpi_sea.o:  include.mk
-
-FORCE:
 
 doc-html:
 	@echo ""
@@ -100,5 +110,19 @@ clean-doc-html:
 	rm -rf html
 	@echo ""
 
+FORCE:
+
+# Default fortan compiler command:
+objects/%.o: F_COMMAND = $(F_COMP) -c $(F_OPTS) $(INCLUDES)
+
+# For objects that take long to compile, use different fortran flags:
+objects/ed_state_vars.o:        F_COMMAND = $(F_COMP) -c $(SLOW_FFLAGS) $(INCLUDES)
+objects/ed_init_full_history.o: F_COMMAND = $(F_COMP) -c $(SLOW_FFLAGS) $(INCLUDES)
+objects/edio.o:                 F_COMMAND = $(F_COMP) -c $(SLOW_FFLAGS) $(INCLUDES)
+
+# Should we rebuild all of the .F90 files if include.mk or Makefile have changed?
+$(addsuffix .o, $(addprefix objects/, $(notdir $(basename \
+	$(filter %.F90,$(SOURCE_FILES)))))): include.mk Makefile
 
 sinclude objects/Make.depend
+sinclude objects/Make.targets

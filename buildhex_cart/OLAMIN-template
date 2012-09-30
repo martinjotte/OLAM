@@ -18,7 +18,7 @@
 
  ! NL%RUNTYPE  = 'MAKESFC'
  ! NL%RUNTYPE  = 'MAKEGRID'
-   NL%RUNTYPE  = 'INITIAL'
+  NL%RUNTYPE  = 'INITIAL'
  ! NL%RUNTYPE  = 'HISTORY'
  ! NL%RUNTYPE  = 'PLOTONLY'
  ! NL%RUNTYPE  = 'PARCOMBINE'
@@ -27,8 +27,8 @@
  ! Simulation ending time
  !--------------------------------------------------------------------------
 
-   NL%TIMEUNIT = 'h'      ! Time units of TIMMAX: 's','m','h','d'
-   NL%TIMMAX   = 2.       ! Ending time of this model run
+   NL%TIMEUNIT = 's'      ! Time units of TIMMAX: 's','m','h','d'
+   NL%TIMMAX   = 1800.       ! Ending time of this model run
  
  !--------------------------------------------------------------------------
  ! Start of simulation or ISAN processing (when model time counter TIME8 = 0.)
@@ -36,20 +36,20 @@
 
    NL%ITIME1   = 0000     ! UTC
    NL%IDATE1   = 1        ! Day
-   NL%IMONTH1  = 5        ! Month
-   NL%IYEAR1   = 1997     ! Year
+   NL%IMONTH1  = 9        ! Month
+   NL%IYEAR1   = 2004     ! Year
 
  !--------------------------------------------------------------------------
  ! Vertical grid specifications
  !--------------------------------------------------------------------------
 
-   NL%NZP  = 100  ! # of vertical levels [or max # if limited by HDZ(NDZ)]
+   NL%NZP  = 3  ! # of vertical levels [or max # if limited by HDZ(NDZ)]
 
    NL%NDZ  = 4    ! # of (HDZ,DZ) pairs of values to use from list (min=2, max=10)
                   ! Exception: NDZ = 1 is flag to use ZZ instead of (HDZ,DZ) pairs
 
-   NL%HDZ  =    0.,  1000., 15000., 35000.  ! Heights at which DZ is specified
-   NL%DZ   =  100.,   200.,  2000.,  2000.  ! Vertical grid spacing at each HDZ
+   NL%HDZ  =    0.,  2000., 15000., 35000.  ! Heights at which DZ is specified
+   NL%DZ   =  300.,   200.,  1500.,  1500.  ! Vertical grid spacing at each HDZ
 
    ! Vertical levels if NDZ = 1
    NL%ZZ       = 0.0,
@@ -71,18 +71,19 @@
  ! Horizontal grid specifications
  !--------------------------------------------------------------------------
 
-   NL%MDOMAIN = 0       ! Model domain specification:
+   NL%MDOMAIN = 5       ! Model domain specification:
                         !    0 = global spherical
                         !    3 = 2D Cartesian channel with cyclic boundaries
+                        !    5 = Horizontally-periodic cartesian domain
 
    NL%MESHTYPE = 2      ! Mesh type 1 = Delaunay (triangles)
                         !           2 = Voronoi  (hexagons)
 
-   NL%NXP  = 20         ! Number of grid points spanning one side of
+   NL%NXP  = 15         ! Number of grid points spanning one side of
                         !  any icosahedral triangle when MDOMAIN = 0 
                         ! or spanning X direction when MDOMAIN = 3
 
-   NL%DELTAX  = 1000.   ! Coarse grid horizontal spacing (used if MDOMAIN > 0)
+   NL%DELTAX  = 100.   ! Coarse grid horizontal spacing (used if MDOMAIN > 0)
 
  !--------------------------------------------------------------------------
  ! Horizontal grid refinement ("nested grid") definition
@@ -110,43 +111,55 @@
 
    ! Grid 2:
    NL%NGRDLL(2)     =  2
-   NL%GRDRAD(2)     =  2000.e3
-   NL%GRDLAT(2,1:2) =  41.0,  36.0,
-   NL%GRDLON(2,1:2) = -83.0, -79.0,
+   NL%GRDRAD(2)     =  2500.e3
+   NL%GRDLAT(2,1:2) =  20.0,  27.0,
+   NL%GRDLON(2,1:2) = -66.0, -81.0,
 
    ! Grid 3:
-   NL%NGRDLL(3)     =  1
-   NL%GRDRAD(3)     =  1500.e3
-   NL%GRDLAT(3,1:1) =  41.0,
-   NL%GRDLON(3,1:1) = -83.0,
+   NL%NGRDLL(3)     =  2
+   NL%GRDRAD(3)     =  2000.e3
+   NL%GRDLAT(3,1:2) =  20.0,  27.0,
+   NL%GRDLON(3,1:2) = -66.0, -81.0,
 
    ! Grid 4:
-   NL%NGRDLL(4)     =  1
-   NL%GRDRAD(4)     =  1000.e3
-   NL%GRDLAT(4,1:1) =  41.0,
-   NL%GRDLON(4,1:1) = -83.0,
+   NL%NGRDLL(4)     =  2
+   NL%GRDRAD(4)     =  1200.e3
+   NL%GRDLAT(4,1:2) =  20.0,  27.0,
+   NL%GRDLON(4,1:2) = -66.0, -81.0,
 
    ! Grid 5:
-   NL%NGRDLL(5)     =  1
-   NL%GRDRAD(5)     =  500.e3
-   NL%GRDLAT(5,1:1) =  41.0,
-   NL%GRDLON(5,1:1) = -83.0,
+   NL%NGRDLL(5)     =  2
+   NL%GRDRAD(5)     =  900.e3
+   NL%GRDLAT(5,1:2) =  20.0,  27.0,
+   NL%GRDLON(5,1:2) = -66.0, -81.0,
+
+   ! Grid 6:
+   NL%NGRDLL(6)     =  2
+   NL%GRDRAD(6)     =  600.e3
+   NL%GRDLAT(6,1:2) =  20.0,  27.0,
+   NL%GRDLON(6,1:2) = -66.0, -81.0,
+
+   ! Grid 7:
+   NL%NGRDLL(7)     =  2
+   NL%GRDRAD(7)     =  500.e3
+   NL%GRDLAT(7,1:2) =  20.0,  27.0,
+   NL%GRDLON(7,1:2) = -66.0, -81.0,
 
  !------------------------------------------------------------------------------
  ! Timestep and timestep ratios (One ratio for each Mesh Refinement Level (MRL))
  !------------------------------------------------------------------------------
 
-   NL%DTLONG  = 30.      ! Coarse grid long timestep
+   NL%DTLONG  = .1      ! Coarse grid long timestep
 
-   NL%NDTRAT   = 1,1,1,1,1       ! # long MRL timesteps per long MRL-1 timestep
-   NL%NACOUST  = 1,1,1,1,1       ! # acoustic timesteps per long timestep
+   NL%NDTRAT   = 1,1,1,1,1,1,1   ! # long MRL timesteps per long MRL-1 timestep
+   NL%NACOUST  = 1,1,1,1,1,1,1   ! # acoustic timesteps per long timestep
 
 
  !--------------------------------------------------------------------------
  ! Variable initialization input
  !--------------------------------------------------------------------------
 
-   NL%INITIAL  = 3   ! Initial fields:  1 = horizontally homogeneous
+   NL%INITIAL  = 1   ! Initial fields:  1 = horizontally homogeneous
                      !                  2 = 3D heterogeneous
                      !                  3 = longitudinally homogeneous
 
@@ -174,26 +187,26 @@
  ! History file I/O
  !--------------------------------------------------------------------------
 
-   NL%IOUTPUT   = 1            ! 0-no files, 1-write files
+   NL%IOUTPUT   = 0             ! 0-no files, 1-write files
 
-   NL%HFILEPREF = 'hist/b'     ! History file output path/prefix
-   NL%ICLOBBER  = 1            ! 0 = stop if files exist, 1 = overwite files
+   NL%HFILEPREF = 'hist/b'      ! History file output path/prefix
+   NL%ICLOBBER  = 1             ! 0 = stop if files exist, 1 = overwite files
    NL%ICOMPRESS = 3            ! 0 (no compres, fast) <-> 9 (max compres, slow)
-   NL%FRQSTATE  = 3600.        ! Time interval between history files
+   NL%FRQSTATE  = 3600.         ! Time interval between history files
    NL%IPAR_OUT  = 1            ! 1 = parallel output to single file, if
                                ! supported by system (but disables compression)
 
-   NL%HFILIN   = 'hist/b-H-2004-09-01-030000.h5'      ! History file intput
+   NL%HFILIN   = 'hist/b-H-2004-09-03-170000.h5'      ! History file intput
 
  !--------------------------------------------------------------------------
  ! Topography initialization
  !--------------------------------------------------------------------------
 
-   NL%ITOPOFLG = 1    ! 1 = Read topo from standard TOPO_DATABASE file
+   NL%ITOPOFLG = 2    ! 1 = Read topo from standard TOPO_DATABASE file
                       ! 2 = Define topo in subroutine topo_init
 
- ! Surface topography database file path and name:
-   NL%TOPO_DATABASE = './data/dem30s/TM'
+   ! Surface topography database file path and name:
+   NL%TOPO_DATABASE = '../../olamdatah5/dem30s/TM'
 
  !--------------------------------------------------------------------------
  ! Model options / Numerical schemes
@@ -229,16 +242,16 @@
  ! Radiation parameters
  !--------------------------------------------------------------------------
  
-   NL%ISWRTYP = 3   ! Shortwave radiation type:
-   NL%ILWRTYP = 3   ! Longwave  radiation type:
+   NL%ISWRTYP = 0   ! Shortwave radiation type:
+   NL%ILWRTYP = 0   ! Longwave  radiation type:
                        !   0=none, 1=Chen, 2=Mahrer/Pielke, 3=Harrington
-   NL%RADFRQ  = 1800.  ! Time interval between radiation tendency updates (s)
+   NL%RADFRQ  = 900.  ! Time interval between radiation tendency updates (s)
 
  !--------------------------------------------------------------------------
  ! Cumulus parameterization parameters
  !--------------------------------------------------------------------------
   
-   NL%NQPARM = 2,2,2,2,2,2,2,2   ! Cumulus parameterization scheme for each MRL
+   NL%NQPARM = 0,0,0,0,0,0,0,0   ! Cumulus parameterization scheme for each MRL
                                  ! 0=off, 1=Kuo, 2=Grell, 3=KF_eta, 4=Emanuel
 
    NL%NQPARM_SH = 0,0,0,0,0,0,0,0  ! Shallow cumulus parameterization scheme 
@@ -246,31 +259,31 @@
 
    NL%CONFRQ = 1200.   ! Time interval (s) between cumulus param updates
 
-   NL%WCLDBS = .002    ! Minimum vertical motion (m/s) needed at cloud base 
+   NL%WCLDBS = .002     ! Minimum vertical motion (m/s) needed at cloud base 
                        ! to trigger convection in Kuo scheme
  
  !--------------------------------------------------------------------------
  ! Eddy diffusion coefficient parameters (one value for each MRL)
  !--------------------------------------------------------------------------
  
-   NL%IDIFFK = 2,2,2,2,2          ! Turbulent parameterization scheme:
+   NL%IDIFFK = 0,0,0,0,0,0,0      ! Turbulent parameterization scheme:
                                   !  0 = off
                                   !  2 = Smagorinsky-Lilly-Hill
                                   !  7 = Taylor
 
-   NL%CSX    = .2,.2,.2,.2,.2     ! Horizontal length scale coefficient
-   NL%CSZ    = .2,.2,.2,.2,.2     ! Vertical length scale coefficient
-   NL%XKHKM  = 3.,3.,3.,3.,3.     ! Ratio of horiz K_h to K_m 
-   NL%ZKHKM  = 3.,3.,3.,3.,3.     ! Ratio of vert K_h to K_m
-   NL%AKMIN  = 0.,0.,0.,0.,0.     ! Ratio of minimum horizontal eddy
-                                  !  viscosity coefficient to typical value
-                                  !  from deformation K
+   NL%CSX    = .2,.2,.2,.2,.2,.2,.2  ! Horizontal length scale coefficient
+   NL%CSZ    = .2,.2,.2,.2,.2,.2,.2  ! Vertical length scale coefficient
+   NL%XKHKM  = 3.,3.,3.,3.,3.,3.,3.  ! Ratio of horiz K_h to K_m 
+   NL%ZKHKM  = 3.,3.,3.,3.,3.,3.,3.  ! Ratio of vert K_h to K_m
+   NL%AKMIN  = 0.,0.,0.,0.,0.,0.,0. ! Ratio of minimum horizontal eddy
+                                     !  viscosity coefficient to typical value
+                                     !  from deformation K
 
  !--------------------------------------------------------------------------
  ! Microphysics
  !--------------------------------------------------------------------------
 
-   NL%LEVEL   = 3  ! Moisture complexity level:
+   NL%LEVEL   = 1  ! Moisture complexity level:
                    !  0 = no moisture
                    !  1 = vapor only
                    !  2 = vapor and diagnosed cloud only
@@ -278,14 +291,14 @@
  
                    ! Choices:
                    !-----------!
-   NL%ICLOUD  = 4  ! 0,1,4,5,6,7 ! 0 = category off
-   NL%IDRIZ   = 4  ! 0,1,4,5,6,7 ! 1 for ICLOUD, IDRIZ = same as 4 but CPARM, 
-   NL%IRAIN   = 2  ! 0,1,2,5     !   DPARM are not used
+   NL%ICLOUD  = 0  ! 0,1,4,5,6,7 ! 0 = category off
+   NL%IDRIZ   = 0  ! 0,1,4,5,6,7 ! 1 for ICLOUD, IDRIZ = same as 4 but CPARM, 
+   NL%IRAIN   = 0  ! 0,1,2,5     !   DPARM are not used
    NL%IPRIS   = 5  ! 0,5,6,7     ! 1 for IRAIN, ISNOW, IAGGR, IGRAUP, IHAIL 
-   NL%ISNOW   = 2  ! 0,1,2,5     !   = same as 2 but RPARM, SPARM, APARM, 
-   NL%IAGGR   = 2  ! 0,1,2,5     !     GPARM, HPARM not used
-   NL%IGRAUP  = 2  ! 0,1,2,5     ! 2 = diameter specified and concen diagnosed
-   NL%IHAIL   = 2  ! 0,1,2,5     ! 4 = concen specified and diameter diagnosed
+   NL%ISNOW   = 5  ! 0,1,2,5     !   = same as 2 but RPARM, SPARM, APARM, 
+   NL%IAGGR   = 5  ! 0,1,2,5     !     GPARM, HPARM not used
+   NL%IGRAUP  = 0  ! 0,1,2,5     ! 2 = diameter specified and concen diagnosed
+   NL%IHAIL   = 0  ! 0,1,2,5     ! 4 = concen specified and diameter diagnosed
                                  ! 5,6,7 = concen prognosed and diameter diagnosed
                            ! 5 = CCN, GCCN, IFN concen specified constant
                            ! 6 = CCN, GCCN, IFN concen specified in vert profile
@@ -294,17 +307,18 @@
    NL%ICCNLEV = 0,        ! CCN 0=no source or sink
                           !     1=nucleation CCN sink, evaporation CCN source 
 
-   NL%CPARM   = 300.e6    ! Cloud concen (#/kg_air) if ICLOUD = 4,
+   NL%CPARM   = 1000.e6   ! Cloud concen (#/kg_air) if ICLOUD = 4,
                           ! CCN concen (#/kg_air) if ICLOUD = 5
 
-   NL%DPARM   = 10.       ! Drizzle concen ([#/kg_air) if ICLOUD = 4,
-                          ! GCCN concen (#/kg_air) if ICLOUD = 5
+   NL%DPARM   = 10.       ! Drizzle concen ([#/kg_air) if IDRIZ = 4,
+                          ! GCCN concen (#/kg_air) if IDRIZ = 5
 
    NL%RPARM   = 1.0e-3    ! Rain droplet mean diameter (m) if IRAIN = 2
    NL%PPARM   = 0.0       ! Not used
    NL%SPARM   = 1.0e-3    ! Snow mean diameter (m) if ISNOW = 2
    NL%APARM   = 1.0e-3    ! Aggregates mean diameter (m) if IAGGR = 2
    NL%GPARM   = 1.0e-3    ! Graupel mean diameter (m) if IGRAUP = 2
+
    NL%HPARM   = 3.0e-3    ! Hail mean diameter (m) if IHAIL = 2
 
    NL%CNPARM  = .04e-6    ! Median radius of the CCN dist (m)
@@ -339,42 +353,43 @@
    NL%HS      = 0.0     ! Height (m MSL) of lowest sounding level
                         ! Only used for IPSFLG=0 (if PS array is pressure)
 
-   NL%P_SFC   = 1010.0  ! Surface Pressure (mb)
+   NL%P_SFC   = 1000.0  ! Surface Pressure (mb)
                         ! Only used for IPSFLG=1 (if PS array is height)
 
  !--------------------------------------------------------------------------
  ! Sounding:      PS      TS      RTS     US     VS
  !--------------------------------------------------------------------------
-   NL%SOUNDING = 0.0,   25.0,   10.0,   0.0,   0.0,
-              1000.0,   16.0,   10.0,   0.0,   0.0,
-              2000.0,    7.0,   10.0,   0.0,   0.0,
-              3000.0,   -2.0,   10.0,   0.0,   0.0,
-              4000.0,  -11.0,   10.0,   0.0,   0.0,
-              5000.0,  -17.5,   10.0,   0.0,   0.0,
-              6000.0,  -24.0,   80.0,   0.0,   0.0,
-              7000.0,  -30.5,   50.0,   0.0,   0.0,
-              8000.0,  -37.0,   50.0,   0.0,   0.0,
-              9000.0,  -43.5,    5.0,   0.0,   0.0,
-             10000.0,  -50.0,    1.0,   0.0,   0.0,
-             11000.0,  -56.5,    1.0,   0.0,   0.0,
-             12000.0,  -56.5,    1.0,   0.0,   0.0,
-             14000.0,  -56.5,    1.0,   0.0,   0.0,
-             16000.0,  -56.5,    1.0,   0.0,   0.0,
-             18000.0,  -56.5,    1.0,   0.0,   0.0,
-             18500.0,  -56.5,    1.0,   0.0,   0.0,
-             20000.0,  -56.5,    1.0,   0.0,   0.0,
-             25000.0,  -56.5,    1.0,   0.0,   0.0,
-             30000.0,  -56.5,    1.0,   0.0,   0.0,
-             35000.0,  -56.5,    1.0,   0.0,   0.0,
-             40000.0,  -56.5,    1.0,   0.0,   0.0,
-             45000.0,  -56.5,    1.0,   0.0,   0.0,
-             50000.0,  -56.5,    1.0,   0.0,   0.0,
+   NL%SOUNDING = 
+                 0.0,   15.0,   80.0,   10.0,   -3.0,
+              1000.0,    8.5,   80.0,   10.0,   -3.0,
+              2000.0,    7.0,   10.0,   10.0,   -3.0,
+              3000.0,   -2.0,   10.0,   10.0,   -3.0,
+              4000.0,  -11.0,   10.0,   10.0,   -3.0,
+              5000.0,  -17.5,   10.0,   10.0,   -3.0,
+              6000.0,  -24.0,   80.0,   10.0,   -3.0,
+              7000.0,  -30.5,   50.0,   10.0,   -3.0,
+              8000.0,  -37.0,   50.0,   10.0,   -3.0,
+              9000.0,  -43.5,    5.0,   10.0,   -3.0,
+             10000.0,  -50.0,    1.0,   10.0,   -3.0,
+             11000.0,  -56.5,    1.0,   10.0,   -3.0,
+             12000.0,  -56.5,    1.0,   10.0,   -3.0,
+             14000.0,  -56.5,    1.0,   10.0,   -3.0,
+             16000.0,  -56.5,    1.0,   10.0,   -3.0,
+             18000.0,  -56.5,    1.0,   10.0,   -3.0,
+             18500.0,  -56.5,    1.0,   10.0,   -3.0,
+             20000.0,  -56.5,    1.0,   10.0,   -3.0,
+             25000.0,  -56.5,    1.0,   10.0,   -3.0,
+             30000.0,  -56.5,    1.0,   10.0,   -3.0,
+             35000.0,  -56.5,    1.0,   10.0,   -3.0,
+             40000.0,  -56.5,    1.0,   10.0,   -3.0,
+             45000.0,  -56.5,    1.0,   10.0,   -3.0,
+             50000.0,  -56.5,    1.0,   10.0,   -3.0,
 
  !--------------------------------------------------------------------------
  !  Leaf Variables
  !--------------------------------------------------------------------------
 
-   NL%ISFCL = 1   ! Main flag for LEAF3 surface model:
+   NL%ISFCL = 0   ! Main flag for LEAF3 surface model:
                   !  0 = LEAF3 not used; surface drag coefficient and fluxes
                   !      are set to zero in subroutine "noleaf" (where user 
                   !      may modify them)
@@ -419,8 +434,8 @@
    NL%VEG_DATABASE    = '../../olamdatah5/oge2/OGE2_'
    NL%SOIL_DATABASE   = '../../olamdatah5/fao/FAO_'
    NL%NDVI_DATABASE   = '../../olamdatah5/ndvi/NDVI'
-   NL%SST_DATABASE    = '../../olamdatah5/sst7100/SST'
-   NL%SEAICE_DATABASE = '../../olamdatah5/ice8100/ICE'
+   NL%SST_DATABASE    = '../../frances_datasets/sst/SST'
+   NL%SEAICE_DATABASE = '../../frances_datasets/ice/ICE'
    NL%SOILSTATE_DB    = './dp_etc/STW-'
    NL%SOILDEPTH_DB    = '../../olamdatah5/SOIL_DEPTHS.h5'
 
@@ -446,7 +461,7 @@
    !  9  Tall grass                  ! 19  Urban and built up
    ! 10  Semi-desert                 ! 20  Wetland evergreen broadleaf tree
 
-   NL%NSLCON   = 4      ! Default soil type if ISOILFLG = 2 (choices below:)
+   NL%NSLCON   = 8      ! Default soil type if ISOILFLG = 2 (choices below:)
 
    !   1 -- sand             2 -- loamy sand      3 -- sandy loam
    !   4 -- silt loam        5 -- loam            6 -- sandy clay loam
@@ -470,37 +485,38 @@
  
  !  Input data file directories/prefixes
 
-   NL%ISDIRS  = 1     ! Number of directory and file prefixes listed in
+   NL%ISDIRS  = -1     ! Number of directory and file prefixes listed in
                       ! iapr (limit of maxisdirs directory/file prefixes)
                       !
                       ! -1 means that IAPR points to a .txt list of files
 
-   NL%IAPR    = './dp_etc/dp-p',
+ !  NL%IAPR    = './dp_etc/dp-p',
+   NL%IAPR    = '/home/rwalko/frances_cfsr/dp_list'
 
  !--------------------------------------------------------------------------
  ! Plotting parameters
  !--------------------------------------------------------------------------
 
-  NL%NPLT       = 3   ! Number of fields plotted at each time 
+  NL%NPLT       = 5   ! Number of fields plotted at each time 
                       ! (limit of maxnplt fields in max_dims.f90)
 
   NL%NPLT_FILES = 1   ! Number of history files to plot from for
                       ! RUNTYPE = 'PLOTONLY'. (limit of maxpltfiles defined
                       ! in max_dims.f90)
 
-  NL%FRQPLT =  3600.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
+  NL%FRQPLT =  2.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
                             
-  NL%DTVEC = 1200.    ! Scaling time (seconds) for plotted velocity vectors
+  NL%DTVEC = 3.    ! Scaling time (seconds) for plotted velocity vectors
 
   NL%HEADSPEED = 3.   ! Scaling speed for arrow head length in plotted
                       ! velocity vectors
 
-  NL%STEMLENGTH = 3.e3 ! Geographic distance (m) of windbarb stem for size scaling
+  NL%STEMLENGTH = 10.e3 ! Geographic distance (m) of windbarb stem for size scaling
 
-  NL%VEC_MAXMRL = 6   ! The maximum mesh refinement level when plotting 
+  NL%VEC_MAXMRL = 8   ! The maximum mesh refinement level when plotting 
                       ! velocity vectors with the "V" pltspec
 
-  NL%PRTVAL_SIZE = 'small' ! Relative size of font when printing values on the
+  NL%PRTVAL_SIZE = 'medium' ! Relative size of font when printing values on the
                            ! plot: 'small', 'medium', or 'large'
 
   NL%PLTTYPE = 0      ! 0 = NCAR graphics meta file
@@ -523,9 +539,7 @@
  !------------------------------------------------------------------------
 
   NL%PLT_FILES =
-    './hist/a-H-1997-05-01-000000.h5',
-    './hist/a-H-1997-05-01-010000.h5',
-    './hist/a-H-1997-05-01-020000.h5',
+    './hist/b-H-2004-09-01-000000.h5',
 
  !-------------------------------------------------------------------------
  ! Plotting Specifications
@@ -559,30 +573,67 @@
  !                   |  color   |        lon/lat      height,  width     or 'V'
  !FLDNAME            |  table   |        or x/y      or p-lev   (m)     projectn
  !-------------------------------------------------------------------------------
-'TOPM'             ,'O', 29,'GFmPJcitW',   -84., 40.,    100.,   2000.e3,     0.
-'GLATW'            ,'O', 12,'FGmPIticW',   -84., 40.,    100.,   2000.e3,     0.
-'GLONW'            ,'O', 12,'FGmPIticW',   -84., 40.,    100.,   2000.e3,     0.
-'TOPM'             ,'O', 29,'G',             0., 90.,    100.,  12000.e3,     0.
-'TOPM'             ,'O', 29,'GJ',            0., 90.,    100.,  12000.e3,     0.
-'W_IRANK'          ,'O', 77,'Tmcit',         0.,  0.,    100.,   3000.e3,     0.
-'W_IRANK'          ,'O', 77,'TGmcit',        0.,-15.,    100.,   3000.e3,     0.
-'W_IRANK'          ,'O', 77,'TPmcit',      -75.,-15.,    100.,   3000.e3,     0.
-'W_IRANK'          ,'O', 77,'TPGmcit',     -75.,-15.,    100.,   3000.e3,     0.
-'TOPM'             ,'O', 29,'TPGJmcitW',   -75.,-15.,    100.,   8000.e3,     0.
-'LEAF_CLASS'       ,'O', 14,'TPGImcitW',   -75.,-15.,    100.,   8000.e3,     0.
-'LEAF_CLASS'       ,'O', 14,'TPGImcitW',   -75.,-15.,    100.,   3000.e3,     0.
-'SFC_TEMPC'        ,'O', 52,'TPGImcitW',   -75.,-15.,   3000.,   3000.e3,     0.
-'CAN_TEMPC'        ,'O', 17,'TPGImcitW',   -75.,-15.,     30.,   3000.e3,     0.
-'AIRTEMPC'         ,'O', 17,'TPGImcitsW',  -75.,-15.,     30.,   3000.e3,     0.
-'FCELL_ILSF'       ,'O', 77,'TPGImcitW',   -75.,-15.,     30.,   3000.e3,     0.
-'FCELL_IWLS'       ,'O', 77,'TPGImcitW',   -75.,-15.,     30.,   3000.e3,     0.
-'FCELL_IW'         ,'O', 77,'TPGgImcitW',  -75.,-15.,     30.,   3000.e3,     0.
-'FCELL_KW'         ,'O', 77,'TPGImcitW',   -75.,-15.,     30.,   3000.e3,     0.
+'RHO'              ,'Z', 18,'TPVGJDcit',   0.,0.,     30.,   1500.e3,     0.,
+'PRESS'            ,'Z', 17,'TPVGJDcit',   0.,0.,     30.,   1500.e3,     0.,
+'SH_W'             ,'Z',  5,'FPGwcit',      0.,0.,       30.,   1500.e3,     0.,
+'THIL'             ,'Z',  4,'Fmcit',      0.,0.,       30.,   1500.e3,     0.,
+'VC'               ,'Z',111,'TPJGvcit',      0.,0.,       30.,   1500.e3,     0.,
+'VMC'              ,'Z',111,'TPGVcit',      0.,0.,       30.,   1500.e3,     0.,
+'SPEEDV'           ,'Z', 54,'Fmcit',      0.,0.,       30.,   1500.e3,     0.,
+'SH_TOTCOND'       ,'Z',404,'Fmcit',      0.,0.,      900.,   1500.e3,     0.,
+'RVORTZM'          ,'Z',158,'Fmcit',      0.,0.,       30.,   1500.e3,     0.,
+
+'SPEEDV'           ,'O', 59,'FmcitW',     -70.,22.,     30.,   1000.e3,     0.,
+
+'SH_W'             ,'O',  5,'FGmcitW',    -74.,23.,    900.,   8000.e3,     0.,
+'SH_W'             ,'O',  5,'FGmcitW',    -74.,23.,    900.,   4000.e3,     0.,
+'SH_W'             ,'O',  5,'FGmcitW',    -74.,23.,    900.,   2000.e3,     0.,
+'SH_W'             ,'O',  5,'FGmcitW',    -80.,26.,    900.,    500.e3,     0.,
+'SH_W'             ,'O',  5,'FGmcitW',    -80.,26.,    900.,    300.e3,     0.,
+
+'SH_W'             ,'O',  5,'FmcitW',    -74.,23.,    900.,   2000.e3,     0.,
+
+'PRESS'            ,'O', 17,'FmcitW',    -74.,23.,     30.,   2000.e3,     0.,
+'SPEEDV'           ,'O', 54,'FmcitW',    -74.,23.,     30.,   2000.e3,     0.,
+'RVORTZM'          ,'O',158,'FmcitW',    -74.,23.,     30.,   2000.e3,     0.,
+'SH_W'             ,'O',  5,'FmcitW',    -74.,23.,    900.,   2000.e3,     0.,
+'SH_TOTCOND'       ,'O',404,'FmcitW',    -74.,23.,    900.,   2000.e3,     0.,
+
+'PRESS'            ,'O', 17,'FGImcitW',    -75.4,23.6,     30.,   200.e3,     0.,
+'SPEEDV'           ,'O', 54,'FGImcitW',    -75.4,23.6,     30.,   200.e3,     0.,
+'RVORTZM'          ,'O',158,'FGImcitW',    -75.4,23.6,     30.,   200.e3,     0.,
+'SH_W'             ,'O',  5,'FGImcitW',    -75.4,23.6,    900.,   200.e3,     0.,
+'SH_TOTCOND'       ,'O',  5,'FGImcitW',    -75.4,23.6,    900.,   200.e3,     0.,
+'SH_W'             ,'C',  5,'FGImcitW',    -75.4,23.6,     90.,   200.e3,   270.,
+'SH_TOTCOND'       ,'C',  5,'FGImcitW',    -75.4,23.6,     90.,   200.e3,   270.,
+'WC'               ,'C',109,'FGImcitW',    -75.4,23.6,     90.,   200.e3,   270.,
+'THIL'             ,'C', 58,'FGImcitW',    -75.4,23.6,     90.,   200.e3,   270.,
+'THETA'            ,'C', 58,'FGImcitW',    -75.4,23.6,     90.,   200.e3,   270.,
+
+'TOPM'             ,'O' ,29 ,'GFmPJcitW'   ,-84.,40.     ,100.   ,2000.e3      ,0.
+'GLATW'            ,'O' ,12 ,'FGmPIticW'    ,-84.,40.   ,100.     ,2000.e3     ,0.
+'GLONW'            ,'O' ,12 ,'FGmPIticW'    ,-84.,40.   ,100.     ,2000.e3     ,0.
+'TOPM'             ,'O' ,29 ,'G'      ,0.,90.     ,100.   ,12000.e3      ,0.
+'TOPM'             ,'O' ,29 ,'GJ'      ,0.,90.     ,100.   ,12000.e3      ,0.
+'W_IRANK'          ,'O' ,77 ,'Tmcit'  ,0.,0.     ,100.   ,3000.e3      ,0.
+'W_IRANK'          ,'O' ,77 ,'TGmcit'  ,0.,-15.     ,100.   ,3000.e3      ,0.
+'W_IRANK'          ,'O' ,77 ,'TPmcit'  ,-75.,-15.     ,100.   ,3000.e3      ,0.
+'W_IRANK'          ,'O' ,77 ,'TPGmcit'  ,-75.,-15.     ,100.   ,3000.e3      ,0.
+'TOPM'             ,'O' ,29 ,'TPGJmcitW'  ,-75.,-15.     ,100.   ,8000.e3      ,0.
+'LEAF_CLASS'       ,'O' ,14 ,'TPGImcitW'  ,-75.,-15.     ,100.   ,8000.e3      ,0.
+'LEAF_CLASS'       ,'O' ,14 ,'TPGImcitW'  ,-75.,-15.     ,100.   ,3000.e3      ,0.
+'SFC_TEMPC'        ,'O' ,52 ,'TPGImcitW'  ,-75.,-15.     ,3000.  ,3000.e3      ,0.
+'CAN_TEMPC'        ,'O' ,17 ,'TPGImcitW'  ,-75.,-15.     ,30.    ,3000.e3      ,0.
+'AIRTEMPC'         ,'O' ,17 ,'TPGImcitsW' ,-75.,-15.     ,30.    ,3000.e3      ,0.
+'FCELL_ILSF'       ,'O' ,77 ,'TPGImcitW'  ,-75.,-15.     ,30.    ,3000.e3      ,0.
+'FCELL_IWLS'       ,'O' ,77 ,'TPGImcitW'  ,-75.,-15.     ,30.    ,3000.e3      ,0.
+'FCELL_IW'         ,'O' ,77 ,'TPGgImcitW' ,-75.,-15.     ,30.    ,3000.e3      ,0.
+'FCELL_KW'         ,'O' ,77 ,'TPGImcitW'  ,-75.,-15.     ,30.    ,3000.e3      ,0.
 
 / 
  ! End of OLAMIN namelist
  ! Some example plotting specifications that you may use:
-!-------------------------------------------------------------------------------
+
 'WC'                ,'O',108,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
 'RHO'               ,'O', 18,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
 'PRESS'             ,'O', 17,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.

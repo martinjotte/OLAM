@@ -20,6 +20,9 @@ IEEE_ARITHMETIC=yes
 # DEBUG:
 F_OPTS=-O0 -g #  -pc 64 -Mfree  -Mbyteswapio -Mbounds
 
+# FORTRAN FLAGS FOR BIG FILES WHICH WOULD HAVE EXCESSIVE COMPILATION TIME
+SLOW_FFLAGS=-O1 -g
+
 C_COMP=gcc
 C_OPTS=-O0 -DUNDERSCORE -DLITTLE
 
@@ -61,6 +64,9 @@ LIBS=
 ## DEBUG:
 ##F_OPTS=-g -fp-model precise -check bounds -traceback \
 ##        -debug extended -check uninit -ftrapuv
+#
+## FORTRAN FLAGS FOR BIG FILES WHICH WOULD HAVE EXCESSIVE COMPILATION TIME
+#SLOW_FFLAGS=-O1 -g -no-ip -traceback
 #
 #C_COMP=mpicc
 #C_OPTS=-DUNDERSCORE -DLITTLE
@@ -107,6 +113,9 @@ LIBS=
 ##F_OPTS=-O2 -g -C -qflttrap -qfullpath -qsuffix=cpp=F90:f=f90 \
 ##       -q64 -qwarn64 -qfloat=fenv -qinitauto=7fbfffff -qsigtrap \
 ##       -qarch=auto -qtune=auto -qcache=auto -qstrict
+#
+## FORTRAN FLAGS FOR BIG FILES WHICH WOULD HAVE EXCESSIVE COMPILATION TIME
+#SLOW_FFLAGS=-O1 -g
 #
 #F_DEFINE_FLAG=-WF,-D
 #C_COMP=xlc_r
