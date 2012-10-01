@@ -180,7 +180,7 @@ SOURCE_FILES= \
              $(OMODEL)/history_write.f90 \
              $(OMODEL)/icosahedron.f90 \
              $(OMODEL)/makesfc.f90 \
-             $(OMODEL)/obnd.F90 \
+             $(OMODEL)/obnd.f90 \
              $(OMODEL)/ocio.f90 \
              $(OMODEL)/ohhi.f90 \
              $(OMODEL)/olam_grid.f90 \
