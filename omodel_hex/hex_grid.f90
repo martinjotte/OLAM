@@ -530,8 +530,6 @@ use mem_grid,    only: nza, nma, nva, nwa, xev, yev, zev, xem, yem, zem, &
 use misc_coms,   only: io6, mdomain, grdlat, grdlon, nxp
 use consts_coms, only: erad, erad2, piu180, eradsq,pio2
 
-use oplot_coms,  only: op
-
 implicit none
 
 real, intent(out) :: quarter_kite(2,nva)
@@ -892,16 +890,6 @@ do iw = 2,nwa
 
 enddo
 
-!----------------------------------------
-! Plot grid lines
-
-call o_reopnwk()
-call plotback()
-call oplot_set(1)
-psiz = .04 / real(nxp)
-
-!----------------------------------------
-
 ! Loop over all V points
 
 do iv = 2,nva
@@ -1146,71 +1134,7 @@ do iv = 2,nva
 
    itab_v(iv)%fvw(1:4) = .5 * itab_v(iv)%fvw(1:4)
 
-!----------------------------------------
-! Plot grid lines
-
-   call oplot_transform(1,xem(im1),yem(im1),zem(im1),xm1,ym1)
-   call oplot_transform(1,xem(im2),yem(im2),zem(im2),xm2,ym2)
-   call oplot_transform(1,xev(iv),yev(iv),zev(iv),xv,yv)
-   call oplot_transform(1,xew(iw2),yew(iw2),zew(iw2),xw2,yw2)
-   call oplot_transform(1,xew(iw1),yew(iw1),zew(iw1),xw1,yw1)
-
-   if (im1 < 2) then
-      xm1 = xv
-      ym1 = yv
-   elseif (im2 < 2) then
-      xm2 = xv
-      ym2 = yv
-   endif
-
-   call trunc_segment(xm1,xm2,ym1,ym2,xq1,xq2,yq1,yq2,iskip)
-
-   if (iskip == 1) cycle
-
-   call o_frstpt (xq1,yq1)
-   call o_vector (xq2,yq2)
-
-   if ( xm1 < op%xmin .or.  &
-        xm1 > op%xmax .or.  &
-        ym1 < op%ymin .or.  &
-        ym1 > op%ymax ) go to 111
-
-
-   if (im1 >= 2) then
-      write(string,'(I0)') im1
-      call o_plchlq (xm1,ym1,trim(adjustl(string)),psiz,0.,0.)
-   endif
-
-   if (im2 >= 2) then
-      write(string,'(I0)') im2
-      call o_plchlq (xm2,ym2,trim(adjustl(string)),psiz,0.,0.)
-   endif
-
-   write(string,'(I0)') iv
-   call o_plchlq (xv,yv,trim(adjustl(string)),psiz,0.,0.)
-
-   write(string,'(I0)') iw1
-   call o_plchlq (xw1,yw1,trim(adjustl(string)),psiz,0.,0.)
-
-   write(string,'(I0)') iw2
-   call o_plchlq (xw2,yw2,trim(adjustl(string)),psiz,0.,0.)
-
-   write(string,'(I0)') itab_v(iv)%ivp
-   call o_plchlq (xv,yv+100.,trim(adjustl(string)),.5*psiz,0.,0.)
-
-   write(string,'(I0)') itab_w(iw1)%iwp
-   call o_plchlq (xw1,yw1+100.,trim(adjustl(string)),.5*psiz,0.,0.)
-
-   write(string,'(I0)') itab_w(iw2)%iwp
-   call o_plchlq (xw2,yw2+100.,trim(adjustl(string)),.5*psiz,0.,0.)
-
-   111 continue
-!---------------------------------------------------------------------
-
 enddo  ! IV
-
-call o_frame()
-call o_clswk()
 
 ! Loop over all M points
 

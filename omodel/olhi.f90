@@ -169,6 +169,9 @@ call rsub('Wb',8)
 if (iparallel == 1) then
    call mpi_send_w('I')  ! Send W group
    call mpi_recv_w('I')  ! Recv W group
+
+   call mpi_send_w('V', vxe=uzonal)
+   call mpi_recv_w('V', vxe=uzonal)
 endif
 
 if (meshtype == 1) then
@@ -181,9 +184,6 @@ if (meshtype == 1) then
       iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
    call qsub('U',iu)
-
-      if (iw1 < 2) iw1 = iw2
-      if (iw2 < 2) iw2 = iw1
 
       raxis = sqrt(xeu(iu) ** 2 + yeu(iu) ** 2)  ! dist from earth axis
 
@@ -241,9 +241,6 @@ else
 !----------------------------------------------------------------------
    call qsub('V',iv)
 
-      if (iw1 < 2) iw1 = iw2
-      if (iw2 < 2) iw2 = iw1
-
       raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
 
 ! Average winds to V point and rotate at V point (assumed to be global simulation)
@@ -292,9 +289,9 @@ else
 
 endif
 
-! print out initial state column from column 2
+! print out initial state from 1st jtw_init column
 
-iw = 2
+iw = jtab_w(jtw_init)%iw(1)
 
 write(io6,*) ' '
 write(io6,*) '========================================================================='

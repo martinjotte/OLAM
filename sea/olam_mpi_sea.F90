@@ -126,7 +126,7 @@ enddo
 ! Determine number of bytes to send per SEAFLUX cell
 
 nbytes_per_iwsf =  1 * nbytes_int   &
-                + 10 * nbytes_real
+                + 14 * nbytes_real
 
 ! Loop over all WSF sends for mrl = 1
 

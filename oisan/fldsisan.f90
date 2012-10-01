@@ -210,9 +210,9 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
 
    endif
 
-! Print out initial state column from column 2
+! Print out initial state from 1st jtw_init column
 
-   iw = 2
+   iw = jtab_w(jtw_init)%iw(1)
 
 write(io6,*)' '
 write(io6,*)'========================================================================'
@@ -653,9 +653,6 @@ if (meshtype == 1) then
 !----------------------------------------------------------------------
    call qsub('U',iu)
 
-      if (iw1 < 2) iw1 = iw2
-      if (iw2 < 2) iw2 = iw1
-
       raxis = sqrt(xeu(iu) ** 2 + yeu(iu) ** 2)  ! dist from earth axis
 
       if (raxis > 1.e3) then
@@ -702,9 +699,6 @@ else
       iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
    call qsub('V',iv)
-
-      if (iw1 < 2) iw1 = iw2
-      if (iw2 < 2) iw2 = iw1
 
       raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
 

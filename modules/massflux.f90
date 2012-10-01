@@ -173,42 +173,49 @@ real(kind=8), intent(out) :: rho_old(mza,mwa)
 
 integer :: j,k,iv,iw,mrl
 
+mrl = mrl_begl(istp)
+
 ! Zero out long timestep mass flux components (used for scalar advective 
 ! transport) so they may be summed over small timesteps
 
-call psub()
-!----------------------------------------------------------------------
-mrl = mrl_begl(istp)
 if (mrl > 0) then
-!$omp parallel do private(iv,k)
-do j = 1,jtab_v(jtv_wstn)%jend(mrl); iv = jtab_v(jtv_wstn)%iv(j)
-!----------------------------------------------------------------------
-call qsub('V',iv)
-   vmsc(:,iv) = 0.0
-enddo
-!$omp end parallel do
-endif
-call rsub('V',14)
 
-call psub()
+   call psub()
 !----------------------------------------------------------------------
-mrl = mrl_begl(istp)
-if (mrl > 0) then
-!$omp parallel do private(iw,k)
-do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
+   !$omp parallel
+   do iv = 2, mva
 !----------------------------------------------------------------------
-call qsub('W',iw)
-   wmsc(:,iw) = 0.0
-   do k = 1,lpw(iw)-2
-      rho_old(k,iw) = 0.0
+   call qsub('V',iv)
+
+      vmsc(:,iv) = 0.0
+
    enddo
-   do k = lpw(iw)-1,mza-1
-      rho_old(k,iw) = rho(k,iw) ! Save DTL density for use with scalar updates
+   !$omp end parallel do
+   call rsub('V',14)
+
+   call psub()
+!----------------------------------------------------------------------
+   !$omp parallel do private(k)
+   do iw = 2, mwa
+!----------------------------------------------------------------------
+   call qsub('W',iw)
+
+      wmsc(:,iw) = 0.0
+
+      ! Save DT_LONG density for use with scalar updates
+
+      do k = 1, lpw(iw)-2
+         rho_old(k,iw) = 0.0
+      enddo
+      do k = lpw(iw)-1, mza-1
+         rho_old(k,iw) = rho(k,iw)
+      enddo
+
    enddo
-enddo
-!$omp end parallel do
+   !$omp end parallel do
+   call rsub('W',18)
+
 endif
-call rsub('W',18)
 
 return
 end subroutine zero_momsc
@@ -230,44 +237,52 @@ real, intent(inout) :: vmsc(mza,mva)
 real, intent(inout) :: wmsc(mza,mwa)
 
 integer :: j,k,iv,iw,mrl,mrlv,mrlw
-real :: acoi,acoi2
+real :: acoi
 
-call psub()
-!----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
-!$omp parallel do private(iv,mrlv,acoi,k)
-do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-!----------------------------------------------------------------------
-call qsub('V',iv)
-   mrlv = itab_v(iv)%mrlv
-   acoi = 1. / float(nacoust(mrlv))
-   do k = lpv(iv),mza-1
-      vmsc(k,iv) = vmsc(k,iv) * acoi
-   enddo
-enddo
-!$omp end parallel do
-endif
-call rsub('V',20)
 
-call psub()
+   call psub()
 !----------------------------------------------------------------------
-mrl = mrl_endl(istp)
-if (mrl > 0) then
-!$omp parallel do private(iw,mrlw,acoi2,k)
-do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+   !$omp parallel do private(mrlv,acoi,k)
+   do iv = 2, mva
 !----------------------------------------------------------------------
-call qsub('W',iw)
-   mrlw = itab_w(iw)%mrlw
-   acoi2 = 1. / float(nacoust(mrlw))
-   do k = lpw(iw),mza-2
-      wmsc(k,iw) = wmsc(k,iw) * acoi2
+   call qsub('V',iv)
+
+      mrlv = itab_v(iv)%mrlv
+      acoi = 1.0 / real(nacoust(mrlv))
+
+      do k = lpv(iv), mza-1
+         vmsc(k,iv) = vmsc(k,iv) * acoi
+      enddo
+
    enddo
-   wmsc(mza-1,iw) = 0.0
-enddo
-!$omp end parallel do
+   !$omp end parallel do
+   call rsub('V',20)
+
+   call psub()
+!----------------------------------------------------------------------
+   !$omp parallel do private(mrlw,acoi,k)
+   do iw = 2, mwa
+!----------------------------------------------------------------------
+   call qsub('W',iw)
+
+      mrlw = itab_w(iw)%mrlw
+      acoi = 1.0 / real(nacoust(mrlw))
+
+      wmsc(lpw(iw)-1,iw) = 0.0
+
+      do k = lpw(iw), mza-2
+         wmsc(k,iw) = wmsc(k,iw) * acoi
+      enddo
+
+      wmsc(mza-1,iw) = 0.0
+
+   enddo
+   !$omp end parallel do
+   call rsub('W',25)
+
 endif
-call rsub('W',25)
 
 return
 end subroutine timeavg_momsc

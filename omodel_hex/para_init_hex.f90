@@ -266,10 +266,23 @@ do im = 1,nma
       do j = 1,npoly
          ivn = itab_m_pd(im)%iv(j) ! Global index
          iwn = itab_m_pd(im)%iw(j) ! Global index
-      
-! If IVN point is primary on local parallel subdomain, vadj_flag = .true.
 
-         if (itabg_v(ivn)%irank == myrank) vadj_flag = 1
+         ! Get the other im neighbor in this direction
+
+         if ( itab_v_pd(ivn)%im(1) == im ) then
+            imn = itab_v_pd(ivn)%im(2)
+         else
+            imn = itab_v_pd(ivn)%im(1)
+         endif
+
+         ! If any of the 3 iv points that border the nearest im neighbor are 
+         ! primary on local parallel subdomain, vadj_flag = .true.
+
+         if (any( itabg_v( itab_m_pd(imn)%iv(1:3) )%irank == myrank )) vadj_flag = 1
+      
+!!! If IVN point is primary on local parallel subdomain, vadj_flag = .true.
+!!
+!!         if (itabg_v(ivn)%irank == myrank) vadj_flag = 1
 
 ! If IVN point is in memory on local parallel subdomain, assign its local
 ! index to IM stencil; otherwise set index to 1
@@ -379,7 +392,7 @@ do iv = 1,nva
          itab_v(iv_myrank)%ivp = itabg_v(ivp)%iv_myrank
       else
          itab_v(iv_myrank)%ivp = 1
-         call vloopf('f',iv_myrank, -jtv_lbcp, 0, 0, 0, 0, 0)
+         call vloopf('n',iv_myrank, -jtv_lbcp, 0, 0, 0, 0, 0)
       endif
 
    endif
@@ -447,7 +460,7 @@ do iw = 1,nwa
          itab_w(iw_myrank)%iwp = itabg_w(iwp)%iw_myrank
       else
          itab_w(iw_myrank)%iwp = 1
-         call wloopf('f',iw_myrank, -jtw_lbcp, 0, 0, 0, 0, 0)
+         call wloopf('n',iw_myrank, -jtw_lbcp, 0, 0, 0, 0, 0)
       endif
 
    endif

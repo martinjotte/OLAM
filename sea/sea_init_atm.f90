@@ -56,7 +56,7 @@ subroutine sea_init_atm()
   real :: arf_sea
   real :: dum1, dum2
 
-  real, external :: rhovsl
+  real, external :: rhovsl, rhovsil
 
 ! This subroutine fills the primary LEAF3 arrays which depend on current
 ! atmospheric conditions.
@@ -201,6 +201,9 @@ subroutine sea_init_atm()
                       sea%ice_sxfer_r        (iws)  )
 
      if (sea%nlev_seaice(iws) > 0) then
+
+        sea%ice_sfc_ssh(iws) = rhovsil(sea%seaice_tempk(sea%nlev_seaice(iws),iws)) &
+                             / sea%rhos(iws)
 
         sea%rough      (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_rough  (iws) + &
                                       sea%seaicec(iws)  * sea%ice_rough  (iws)

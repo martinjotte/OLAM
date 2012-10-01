@@ -43,8 +43,10 @@ use mem_grid,   only: glatw, glonw, mza, mwa, mva, &
 use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
                       jtu_init, jtv_init, jtw_init
 use mem_zonavg, only: zonp_vect, zont, zonz, zonr, zonu
-use consts_coms, only: eradi
-use misc_coms,  only: io6, meshtype
+use consts_coms,only: eradi
+use misc_coms,  only: io6, meshtype, iparallel
+
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
 
 implicit none
 
@@ -162,6 +164,11 @@ call qsub('W',iw)
 
 enddo
 call rsub('Wa',7)
+
+if (iparallel == 1) then
+   call mpi_send_w('V', vxe=o_uzonal, vye=o_umerid)
+   call mpi_recv_w('V', vxe=o_uzonal, vye=o_umerid)
+endif
 
 if (meshtype == 1) then
 

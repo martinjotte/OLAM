@@ -192,7 +192,7 @@ Contains
           allocate (con_ifn(mza,mwa)) ; con_ifn = rinit
        endif
 
-!       allocate (pcpgr (mwa)) ; pcpgr  = rinit
+       allocate (pcpgr (mwa)) ; pcpgr  = rinit
        allocate (qpcpgr(mwa)) ; qpcpgr = rinit
        allocate (dpcpgr(mwa)) ; dpcpgr = rinit
 
@@ -203,7 +203,9 @@ Contains
         nl%test_case == 51 .or. &
         nl%test_case == 52) then
 
-       allocate (pcpgr (mwa)) ; pcpgr  = rinit
+       if (.not. allocated(pcpgr)) then
+          allocate (pcpgr (mwa)) ; pcpgr  = rinit
+       endif
 
     endif
 

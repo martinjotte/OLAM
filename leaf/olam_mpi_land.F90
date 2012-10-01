@@ -125,8 +125,8 @@ enddo
 
 ! Determine number of bytes to send per LANDFLUX cell
 
-nbytes_per_iwlf = 1 * nbytes_int   &
-                + 6 * nbytes_real
+nbytes_per_iwlf =  1 * nbytes_int   &
+                + 10 * nbytes_real
 
 ! Loop over all WLF sends for mrl = 1
 
