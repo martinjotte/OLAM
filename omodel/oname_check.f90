@@ -257,14 +257,21 @@ if (nl%rayf_distim > r_tiny) &
      call rchk_bnds( nl%rayf_distim, "RAYF_DISTIM", nl%dtlong, r_huge, 2, &
                      nfatal, nwarn )
 call rchk_bnds( nl%rayf_expon, "RAYF_EXPON", 0.0,   5.0, 2, nfatal, nwarn )
-call rchk_bnds( nl%rayf_zmin,   "RAYF_ZMIN", 0.0, r_huge, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayf_zmin,  "RAYF_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
 
 call rchk_bnds( nl%rayfw_distim, "RAYFW_DISTIM", 0.0, r_huge, 2, nfatal, nwarn )
 if (nl%rayfw_distim > r_tiny) &
      call rchk_bnds( nl%rayfw_distim, "RAYFW_DISTIM", nl%dtlong, r_huge, 2, &
      nfatal, nwarn )
 call rchk_bnds( nl%rayfw_expon, "RAYFW_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
-call rchk_bnds( nl%rayfw_zmin,   "RAYFW_ZMIN", 0.0, r_huge, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayfw_zmin,  "RAYFW_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
+
+call rchk_bnds( nl%rayfdiv_distim, "RAYFDIV_DISTIM", 0.0, r_huge, 2, nfatal, nwarn )
+if (nl%rayfdiv_distim > r_tiny) &
+     call rchk_bnds( nl%rayfdiv_distim, "RAYFDIV_DISTIM", nl%dtlong, r_huge, 2, &
+     nfatal, nwarn )
+call rchk_bnds( nl%rayfdiv_expon, "RAYFDIV_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayfdiv_zmin,  "RAYFDIV_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! RADIATION PARAMETERIZATION PARAMETERS

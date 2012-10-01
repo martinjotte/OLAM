@@ -428,7 +428,7 @@ endif
 ! Initialize Rayleigh friction profile
 
 write(io6,'(/,a)') 'olam_run calling rayf_init'
-call rayf_init(mza,zm,zt)
+call rayf_init(mua,mva,mwa,mza)
 
 !!x    call tkeinit(nza,nwa)
 
@@ -490,7 +490,7 @@ if (runtype == 'HISTORY') then
    call history_start('HISTREAD')
    write(io6,*) 'olam_run finished history_start'
 
-   ! Earth-coordinate winds not saved in history file
+   ! Earth cartesian velocities not saved in history file
 
    mrl = 1
    call diagvel_t3d(mrl)

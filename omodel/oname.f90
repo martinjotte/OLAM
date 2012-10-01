@@ -98,8 +98,9 @@ use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst, &
 use oplot_coms,  only: op
 use isan_coms,   only: iapr, isdirs
 use mem_nudge,   only: tnudcent, nudflag, nudnxp
-use mem_rayf,    only: rayf_zmin, rayf_distim, rayf_expon, &
-                       rayfw_zmin, rayfw_distim, rayfw_expon
+use mem_rayf,    only: rayf_zmin,    rayf_distim,   rayf_expon,    &
+                       rayfw_zmin,   rayfw_distim,   rayfw_expon,  &
+                       rayfdiv_zmin, rayfdiv_distim, rayfdiv_expon
 use ed_misc_coms, only: ed2_active, ed2_namelist
 
 implicit none
@@ -187,6 +188,9 @@ if (copy_type == 'ALL_CASES') then
    rayfw_zmin    = nl%rayfw_zmin
    rayfw_distim  = nl%rayfw_distim
    rayfw_expon   = nl%rayfw_expon
+   rayfdiv_zmin  = nl%rayfdiv_zmin
+   rayfdiv_distim= nl%rayfdiv_distim
+   rayfdiv_expon = nl%rayfdiv_expon
    ilwrtyp       = nl%ilwrtyp
    iswrtyp       = nl%iswrtyp
    radfrq        = nl%radfrq

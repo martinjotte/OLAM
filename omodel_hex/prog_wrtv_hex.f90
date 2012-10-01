@@ -121,28 +121,6 @@ integer :: iv1,iv2,iv3,iv4,im,npoly,jv,im1,im2,im3,im4,im5,im6,iwd
 real :: c0,c1,c2,vort_big1,vort_big2
 real :: arm0i,tvort
 
-real, save, allocatable :: vc03d(:,:), dn03d(:,:)
-integer, save :: ncall = 0
-integer :: iv0
-
-if (ncall /= 1) then
-
-   ncall = 1
-
-   allocate(vc03d(mza,mva),dn03d(mza,mva))
-
-   do iv0 = 2,mva
-      iw1 = itab_v(iv0)%iw(1)
-      iw2 = itab_v(iv0)%iw(2)
-
-      do k = lpv(iv0),mza-1
-         vc03d(k,iv0) = vc(k,iv0)
-         dn03d(k,iv0) = .5 * (rho(k,iw1) + rho(k,iw2))
-      enddo
-   enddo
-
-endif
-
 ! Half-forward velocities for computing donor points:
 
 if (strict_wvt_donorpoint) then
@@ -175,8 +153,10 @@ if (mrl > 0) then
 
 ! Evaluate alpha coefficient for pressure
 
-      alpha_press(:,iw) = pc1 * (((1. - sh_w(:,iw)) * rdry + sh_v(:,iw) * rvap) &
-                        * theta(:,iw) / thil(:,iw)) ** cpocv
+      do k = lpw(iw), mza-1
+         alpha_press(k,iw) = pc1 * (((1. - sh_w(k,iw)) * rdry + sh_v(k,iw) * rvap) &
+                           * theta(k,iw) / thil(k,iw)) ** cpocv
+      enddo
 
       call prog_wrt_begl(iw)
    
@@ -581,7 +561,7 @@ do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 !----------------------------------------------------------------------
 call qsub('V',iv)
 
-   call prog_v_begs(iv,vmxet,vmyet,vmzet,vc03d,dn03d)
+   call prog_v_begs(iv,vmxet,vmyet,vmzet)
 
 enddo
 !$omp end parallel do 
@@ -638,7 +618,7 @@ use misc_coms,   only: io6, initial, dn01d, th01d, &
 use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, dniv, volt, volti, &
                        xew, vnx, vny, wnx, wny, wnz
 use mem_turb,    only: hkm
-use mem_rayf,    only: rayfw_distim, rayf_cofw, rayf_distim, rayf_cof
+use mem_rayf,    only: rayf_cof, rayf_cofw, dorayf, dorayfw, krayf_bot, krayfw_bot
 
 implicit none
 
@@ -714,37 +694,49 @@ enddo
 
 ! RAYLEIGH FRICTION ON WM
 
-if (rayfw_distim > 1.e-6) then
-   fracx = abs(xew(iw)) / (real(nxp-1) * .866 * deltax) ! ENDS OF CYC DOMAIN
-   rayfx = .2 * (-2. + 3. * fracx) * rayf_cofw(mza-2)
-   rayfx = 0.   ! Default: no extra RAYF
-   do k = kb,mza-2
-      wmt(k,iw) = wmt(k,iw) - max(rayf_cofw(k),rayfx) * wmc(k,iw)
+if (dorayfw) then
+
+!! SPECIAL - EXTRA RAYF AT ENDS OF CYCLIC DOMAIN
+!! fracx = abs(xew(iw)) / (real(nxp-1) * .866 * deltax) ! ENDS OF CYC DOMAIN
+!! rayfx = .2 * (-2. + 3. * fracx) * rayf_cofw(mza-2)
+!! rayfx = 0.   ! Default: no extra RAYF
+!! do k = kb, mza-2
+!!    wmt(k,iw) = wmt(k,iw) - max(rayf_cofw(k),rayfx) * wmc(k,iw)
+!! enddo
+!! END SPECIAL
+
+   do k = krayfw_bot, mza-2
+      wmt(k,iw) = wmt(k,iw) - rayf_cofw(k) * wmc(k,iw)
    enddo
-endif
+
+endif ! (dorayfw)
 
 ! RAYLEIGH FRICTION ON THIL
 
-! bypass Rayleigh friction on thil for dcmip test cases
-!go to 55
+if (dorayf) then
 
-if (rayf_distim > 1.e-6) then
    if (initial == 1) then   ! HHI case
-      fracx = abs(xew(iw)) / (real(nxp-1) * .866 * deltax) ! ENDS OF CYC DOMAIN
-      rayfx = .2 * (-2. + 3. * fracx) * rayf_cof(mza-1)
-      rayfx = 0.   ! Default: no extra RAYF
-      do k = kb,mza-1
-! Form based on theta alone
-         thilt(k,iw) = thilt(k,iw) + max(rayf_cof(k),rayfx)  & 
-            * dn01d(k) * (th01d(k) - theta(k,iw))
+
+!! SPECIAL - EXTRA RAYF AT ENDS OF CYCLIC DOMAIN
+!!    fracx = abs(xew(iw)) / (real(nxp-1) * .866 * deltax) ! ENDS OF CYC DOMAIN
+!!    rayfx = .2 * (-2. + 3. * fracx) * rayf_cof(mza-1)
+!!    rayfx = 0.   ! Default: no extra RAYF
+!!    do k = kb, mza-1
+!!       thilt(k,iw) = thilt(k,iw) + max(rayf_cof(k),rayfx)  & 
+!!                   * dn01d(k) * (th01d(k) - theta(k,iw))
+!!    enddo
+!! END SPECIAL
+
+      do k = krayf_bot, mza-1
+         thilt(k,iw) = thilt(k,iw) + &
+                       rayf_cof(k) * dn01d(k) * (th01d(k) - theta(k,iw))
       enddo
+
    else                     ! LHI/VARI case
 ! Need implementation for LHI/VARI (use vartp for merid. variation?)
    endif
 
-endif ! (rayf_distim > 1.e-6)
-
-55 continue
+endif ! (dorayf)
 
 return
 end subroutine prog_wrt_begl
@@ -803,7 +795,7 @@ integer :: npoly
 
 real :: dts, dtso2, dts2, dts8
 real :: c6, c7, c8, c9, c10
-real :: dirv
+real :: dirv, vmarv
 real :: del_rhothil
 real :: rad0_swtc, rad_swtc, topo_swtc
 
@@ -817,7 +809,6 @@ real, parameter :: pc2 = fp * cpocv
 
 ! Automatic arrays
 
-real :: vmarv        (mza)
 real :: wmarw        (mza)
 real :: del_wmarw    (mza)
 real :: delex_wm     (mza)
@@ -902,30 +893,28 @@ npoly = itab_w(iw)%npoly
 ! Loop over V neighbors of this W cell
 
 do jv = 1,npoly
-   iv  = itab_w(iw)%iv(jv)
-   iwn = itab_w(iw)%iw(jv)
-   
-   kbv = lpv(iv)
 
+   iv   = itab_w(iw)%iv(jv)
+   kbv  = lpv(iv)
    dirv = itab_w(iw)%dirv(jv)
 
 ! Loop over T levels
 
    do k = kbv,mza-1
 
-      vmarv(k) = dirv * vmcf(k,iv) * arv(k,iv)
+      vmarv = dirv * vmcf(k,iv) * arv(k,iv)
 
 ! Sum horizontal advection fluxes over V faces      
 
-      hflux_rho(k)  = hflux_rho(k)  + vmarv(k)
+      hflux_rho(k)  = hflux_rho(k)  + vmarv
 
-      hflux_thil(k) = hflux_thil(k) + vmarv(k) * thil_upv(k,iv)
+      hflux_thil(k) = hflux_thil(k) + vmarv * thil_upv(k,iv)
 
-      hflux_vxe(k)  = hflux_vxe(k)  + vmarv(k) * vxe_upv(k,iv)
+      hflux_vxe(k)  = hflux_vxe(k)  + vmarv * vxe_upv(k,iv)
 
-      hflux_vye(k)  = hflux_vye(k)  + vmarv(k) * vye_upv(k,iv)
+      hflux_vye(k)  = hflux_vye(k)  + vmarv * vye_upv(k,iv)
 
-      hflux_vze(k)  = hflux_vze(k)  + vmarv(k) * vze_upv(k,iv)
+      hflux_vze(k)  = hflux_vze(k)  + vmarv * vze_upv(k,iv)
 
    enddo
 
@@ -1142,7 +1131,7 @@ end subroutine prog_wrt_begs
 
 !============================================================================
 
-subroutine prog_v_begs(iv,vmxet,vmyet,vmzet,vc03d,dn03d)
+subroutine prog_v_begs(iv,vmxet,vmyet,vmzet)
 
 use mem_tend,    only: vmt
 use mem_ijtabs,  only: itab_v, itab_w
@@ -1152,7 +1141,8 @@ use misc_coms,   only: io6, dtsm, initial, mdomain, u01d, v01d, dn01d, &
 use consts_coms, only: erad, eradi, gravo2
 use mem_grid,    only: lpv, lpw, volt, volvi, xev, yev, zev, &
                        unx, uny, vnx, vny, vnz, mza, mva, mwa, dniv, arw0, dnu
-use mem_rayf,    only: rayf_distim, rayf_cof
+use mem_rayf,    only: dorayf, rayf_cof, vc03d, dn03d, krayf_bot, &
+                       dorayfdiv, krayfdiv_bot, rayf_cofdiv
 use oname_coms,  only: nl
 
 implicit none
@@ -1162,8 +1152,6 @@ integer, intent(in) :: iv
 real, intent(in) :: vmxet(mza,mwa)
 real, intent(in) :: vmyet(mza,mwa)
 real, intent(in) :: vmzet(mza,mwa)
-
-real, intent(in) :: vc03d(mza,mva),dn03d(mza,mva)
 
 integer :: jv,ivn,k,kb,npoly
 
@@ -1189,105 +1177,77 @@ kb = lpv(iv)
 
 vmt_rayf(:) = 0.
 
-if (rayf_distim > 1.e-6) then
+if (dorayf) then
 
 ! FOR HORIZONTAL HOMOGENEOUS CASE, APPLY
 ! RAYLEIGH FRICTION DIRECTLY TO VMC
 
    if (initial == 1) then      ! HHI case
 
+!! SPECIAL - EXTRA RAYF AT ENDS OF CYCLIC DOMAIN
+!!    fracx = abs(xev(iv)) / (real(nxp-1) * .866 * deltax)
+!!    rayfx = .2 * (-2. + 3. * fracx) * rayf_cof(mza-1)
+!!    rayfx = 0.   ! Default: no extra RAYF
+!!    do k = kb, mza-1
+!!        vmt_rayf(k) = max(rayf_cof(k),rayfx) * dn03d(k) *  (vc03d(k,iv) - vc(k,iv))
+!!     enddo
+!! END SPECIAL
+
 ! Vertical loop over V points
-
-      do k = kb, mza-1
-
-! DCMIP change
-!go to 50
-
-! Must rotate reference wind to local VC orientation
-
-         if (mdomain <= 1) then  ! Model uses "earth" coordinates
-            raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
-            
-            if (raxis > 1.e3) then
-               uv01dr = -v01d(k) * zev(iv) / erad  ! radially outward from axis
-
-               uv01dx = (-u01d(k) * yev(iv) + uv01dr * xev(iv)) / raxis 
-               uv01dy = ( u01d(k) * xev(iv) + uv01dr * yev(iv)) / raxis 
-               uv01dz =   v01d(k) * raxis / erad 
-
-               vcref = uv01dx * vnx(iv) + uv01dy * vny(iv) + uv01dz * vnz(iv)
-            else
-               vcref = 0.
-            endif
-         else
-            vcref = u01d(k) * vnx(iv) + v01d(k) * vny(iv)
-         endif
-
-! SPECIAL - EXTRA RAYF AT ENDS OF CYCLIC DOMAIN
-
-         fracx = abs(xev(iv)) / (real(nxp-1) * .866 * deltax)
-         rayfx = .2 * (-2. + 3. * fracx) * rayf_cof(mza-1)
-         rayfx = 0.   ! Default: no extra RAYF
-         
-! END SPECIAL
-
-         vmt_rayf(k) = max(rayf_cof(k),rayfx) * dn01d(k) * (vcref - vc(k,iv))
-
-50 continue
-
+      
+      do k = krayf_bot, mza-1
          vmt_rayf(k) = rayf_cof(k) * dn03d(k,iv) * (vc03d(k,iv) - vc(k,iv))
-
       enddo
 
    else                     ! LHI/VARI case
+   endif
+
+endif ! (dorayf)
+   
+if (dorayfdiv) then
 
 ! FOR RUNS VARYING LATITUDINALLY AND/OR LONGITUDINALLY,
 ! PERFORM HORIZONTAL DIVERGENCE DAMPING
 
 ! Vertical loop over V points
 
-      do k = kb, mza-1
+   do k = krayfdiv_bot, mza-1
 
 ! Divergence in IW1 excluding IV
 
-         npoly = itab_w(iw1)%npoly
-         sum1 = 0.
+      npoly = itab_w(iw1)%npoly
+      sum1 = 0.
    
-         do jv = 1,npoly
-            ivn = itab_w(iw1)%iv(jv)
+      do jv = 1,npoly
+         ivn = itab_w(iw1)%iv(jv)
       
-            if (ivn /= iv) &
-               sum1 = sum1 - itab_w(iw1)%dirv(jv) * vmp(k,ivn) * dnu(ivn)
-         enddo
+         if (ivn /= iv) &
+              sum1 = sum1 - itab_w(iw1)%dirv(jv) * vmp(k,ivn) * dnu(ivn)
+      enddo
 
 ! Divergence in IW2 excluding IV
 
-         npoly = itab_w(iw2)%npoly
-         sum2 = 0.
+      npoly = itab_w(iw2)%npoly
+      sum2 = 0.
    
-         do jv = 1,npoly
-            ivn = itab_w(iw2)%iv(jv)
+      do jv = 1,npoly
+         ivn = itab_w(iw2)%iv(jv)
       
-            if (ivn /= iv) &
-               sum2 = sum2 - itab_w(iw2)%dirv(jv) * vmp(k,ivn) * dnu(ivn)
-         enddo
+         if (ivn /= iv) &
+              sum2 = sum2 - itab_w(iw2)%dirv(jv) * vmp(k,ivn) * dnu(ivn)
+      enddo
 
 ! VMP value that would equalize horizontal divergence in IW1 and IW2 cells
 ! (assuming no blockage by topography)
 
-         vmp_eqdiv = (arw0(iw1) * sum2 - arw0(iw2) * sum1) &
-                   / (dnu(iv) * (arw0(iw1) + arw0(iw2)))
+      vmp_eqdiv = (arw0(iw1) * sum2 - arw0(iw2) * sum1) &
+           / (dnu(iv) * (arw0(iw1) + arw0(iw2)))
 
-         vmt_rayf(k) = rayf_cof(k) * (vmp_eqdiv - vmp(k,iv))
+      vmt_rayf(k) = vmt_rayf(k) + rayf_cofdiv(k) * (vmp_eqdiv - vmp(k,iv))
 
-         ! Need implementation for LHI/VARI (use vartp for merid. variation?)
-         ! Ok to do this in veltend_long???
+   enddo
 
-      enddo
-
-   endif ! (initial == 1)
-
-endif ! (rayf_distim > 1.e-6)
+endif ! (dorayfdiv)
 
 ! Vertical loop over V points
 
