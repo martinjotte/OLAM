@@ -157,7 +157,6 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_thuburn.f90 \
              $(MODEL_MODS)/mem_timeavg.f90 \
              $(MODEL_MODS)/mem_turb.f90 \
-             $(MODEL_MODS)/mem_wm5_refsoln_cubic.f90 \
              $(MODEL_MODS)/mem_zonavg.f90 \
              $(MODEL_MODS)/micro_coms.f90 \
              $(MODEL_MODS)/misc_coms.f90 \
@@ -183,7 +182,7 @@ SOURCE_FILES= \
              $(OMODEL)/makesfc.f90 \
              $(OMODEL)/obnd.f90 \
              $(OMODEL)/ocio.f90 \
-             ./ohhi.f90 \
+             $(OMODEL)/ohhi.f90 \
              $(OMODEL)/olam_grid.f90 \
              $(OMODEL)/olammain.F90 \
              $(OMODEL)/olamplot.f90 \
@@ -216,7 +215,7 @@ SOURCE_FILES= \
              $(OMODEL)/vel_t3d.f90 \
              $(OMODEL_HEX)/hex_grid.f90 \
              $(OMODEL_HEX)/para_init_hex.f90 \
-             ./prog_wrtv_hex.f90 \
+             $(OMODEL_HEX)/prog_wrtv_hex.f90 \
              $(OMODEL_HEX)/scalar_transport_hex.f90 \
              $(OMODEL_HEX)/timestep_hex.f90 \
              $(OMODEL_TRI)/tri_grid.f90 \

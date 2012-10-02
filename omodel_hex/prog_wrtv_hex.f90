@@ -751,12 +751,12 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,     &
 use mem_tend,    only: thilt, wmt
 use mem_ijtabs,  only: itab_w
 use mem_basic,   only: wmc, rho, thil, wc, vc, theta, press
-use misc_coms,   only: io6, dtsm, initial, dn01d, th01d, &
-                       deltax, nxp, mdomain, time8
+use misc_coms,   only: io6, dtsm, initial, dn01d, th01d, deltax, nxp,  &
+                       mdomain, time8, icorflg
 use consts_coms, only: cpocv, gravo2, grav, omega2, pi1, pio180
-use mem_grid,    only: mza, mva, mwa, lpv, lpw, &
-                       arv, arw, volt, volti, volwi, dzm, dzim, dzt, xew, zm, &
-                       unx, uny, vnx, vny, wnx, wny, wnz, glatw, glonw
+use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, arw, volt, volti, &
+                       volwi, dzm, dzim, dzt, xew, zm, unx, uny, vnx,  &
+                       vny, wnx, wny, wnz, glatw, glonw
 use massflux,    only: tridiffo
 use oname_coms,  only: nl
 
@@ -816,6 +816,9 @@ real :: delex_rhothil(mza)
 real :: del_wm       (mza)
 real :: fwdel_wm     (mza)
 real :: hadv_wm      (mza)
+
+real :: vmx_cor(mza)
+real :: vmy_cor(mza)
 
 real :: hflux_rho(mza)
 real :: hflux_thil(mza)
@@ -920,6 +923,20 @@ do jv = 1,npoly
 
 enddo
 
+! Coriolis force
+
+if (icorflg == 1) then
+   do k = ka, mza-1
+      vmx_cor(k) =  omega2 * vye(k,iw) * rho(k,iw)
+      vmy_cor(k) = -omega2 * vxe(k,iw) * rho(k,iw)
+   enddo
+else
+   do k = ka, mza-1
+      vmx_cor(k) = 0.0
+      vmy_cor(k) = 0.0
+   enddo
+endif
+
 ! Loop over T levels
 
 do k = ka,mza-1
@@ -934,9 +951,9 @@ do k = ka,mza-1
       + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
 
    vmxet(k,iw) = volti(k,iw) * (hflux_vxe(k) + vflux_vxe(k-1) - vflux_vxe(k)) &
-               + omega2 * vye(k,iw) * rho(k,iw)
+               + vmx_cor(k)
    vmyet(k,iw) = volti(k,iw) * (hflux_vye(k) + vflux_vye(k-1) - vflux_vye(k)) &
-               - omega2 * vxe(k,iw) * rho(k,iw)
+               + vmy_cor(k)
    vmzet(k,iw) = volti(k,iw) * (hflux_vze(k) + vflux_vze(k-1) - vflux_vze(k))
 
 ! RHOTHIL(t) and PRESS(t)
