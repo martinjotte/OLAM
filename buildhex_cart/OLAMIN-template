@@ -238,6 +238,10 @@
    NL%RAYFW_DISTIM = 0.0    ! Damping for W - model top disp time
    NL%RAYFW_EXPON  = 1.0    ! Damping for W - exponent for profile
 
+   NL%RAYFDIV_ZMIN   = 25000. ! Damping for horiz. div. - minimum height (m)
+   NL%RAYFDIV_DISTIM = 0.0    ! Damping for horiz. div. - model top disp time
+   NL%RAYFDIV_EXPON  = 1.0    ! Damping for horiz. div. - exponent for profile
+
  !--------------------------------------------------------------------------
  ! Radiation parameters
  !--------------------------------------------------------------------------
