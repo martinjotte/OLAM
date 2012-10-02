@@ -80,7 +80,7 @@ Module mem_ijtabs
       integer :: iu(7) = 1       ! array of U neighbors of this M pt (Delaunay)
       integer :: iv(7) = 1       ! array of V neighbors of this M pt (Voronoi)
       integer :: iw(7) = 1       ! array of W neighbors of this M pt (Del or Vor)
-      real    :: fmw(7) = 0.     ! Interp coefs of W values to M point
+    ! real    :: fmw(7) = 0.     ! Interp coefs of W values to M point
    End Type itab_m_vars
 
    Type itab_u_vars             ! data structure for U pts (individual rank)
@@ -123,9 +123,9 @@ Module mem_ijtabs
       integer :: iv(16) = 1    ! neighbor V pts
       integer :: iw(4) = 1     ! neighbor W pts of this V pt
 
-      real :: fvv(12) = 0.     ! Proj of V5-12 onto V    [HADV + HDIFF]
-      real :: fvw (4) = 0.     ! Proj of W1-4 onto V     [HADV + HDIFF]
-      real :: fuv(16) = 0.     ! Interp of V1-16 onto U  [CORF]
+    ! real :: fvv(12) = 0.     ! Proj of V5-12 onto V    [HADV + HDIFF]
+    ! real :: fvw (4) = 0.     ! Proj of W1-4 onto V     [HADV + HDIFF]
+    ! real :: fuv(16) = 0.     ! Interp of V1-16 onto U  [CORF]
       real :: farw(2) = 0.     ! Interp of ARW to V control volume [VADV + VDIFF]
 
       real :: cosv(2) = 0.     ! cosine of angle between V and zonal dir (Voronoi)

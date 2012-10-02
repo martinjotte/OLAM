@@ -1994,7 +1994,8 @@ case(201) ! 'ITAB_M_IV'
 case(202) ! 'ITAB_M_IW'
    fldval = itab_m(i)%iw(indp)
 case(203) ! 'ITAB_M_FMW'
-   fldval = itab_m(i)%fmw(indp)
+   go to 1000 ! currently not used
+   ! fldval = itab_m(i)%fmw(indp)
 
 ! ITAB_U MEMBERS
 
@@ -2070,11 +2071,14 @@ case(235) ! 'ITAB_V_IV'
 case(236) ! 'ITAB_V_IW'
    fldval = itab_v(i)%iw(indp)
 case(237) ! 'ITAB_V_FVV'
-   fldval = itab_v(i)%fvv(indp)
+   go to 1000 ! currently not used
+   ! fldval = itab_v(i)%fvv(indp)
 case(238) ! 'ITAB_V_FVW'
-   fldval = itab_v(i)%fvw(indp)
+   go to 1000 ! currently not used
+   ! fldval = itab_v(i)%fvw(indp)
 case(239) ! 'ITAB_V_FUV'
-   fldval = itab_v(i)%fuv(indp)
+   go to 1000 ! currently not used
+   ! fldval = itab_v(i)%fuv(indp)
 case(240) ! 'ITAB_V_FARW'
    fldval = itab_v(i)%farw(indp)
 

@@ -288,125 +288,43 @@ return
 end subroutine timeavg_momsc
 
 !===============================================================================
-
-subroutine diagnose_ucm()
-
-use mem_basic,  only: uc, rho, vmc
-use mem_ijtabs, only: mrl_ends, istp, jtab_v, itab_v, jtv_prog
-use mem_grid,   only: mza, lpv, aru, arv
-use misc_coms,  only: io6
-
-!$ use omp_lib
-
-implicit none
-
-integer :: iv1,iv2,iv3,iv4,iv5,iv8,iv9,iv12,iv13,iv14,iv15,iv16
-integer :: mrl,kb,k,iv,j,iw1,iw2
-
-call psub()
-!------------------------------------------------------------------------------
-mrl = mrl_ends(istp)
-if (mrl > 0) then
-!$omp parallel do private(iv,iv1,iv2,iv3,iv4,iv5,iv8,iv9, &
-!$omp                     iv12,iv13,iv14,iv15,iv16,iw1,iw2,kb,k)
-do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-   iv1  = itab_v(iv)%iv(1) ; iv2  = itab_v(iv)%iv(2) ; iv3  = itab_v(iv)%iv(3)
-   iv4  = itab_v(iv)%iv(4) ; iv5  = itab_v(iv)%iv(5) ; iv8  = itab_v(iv)%iv(8)
-   iv9  = itab_v(iv)%iv(9) ; iv12 = itab_v(iv)%iv(12); iv13 = itab_v(iv)%iv(13)
-   iv14 = itab_v(iv)%iv(14); iv15 = itab_v(iv)%iv(15); iv16 = itab_v(iv)%iv(16)
-   iw1  = itab_v(iv)%iw(1) ; iw2  = itab_v(iv)%iw(2)
-!------------------------------------------------------------------------------
-call qsub('V',iv)
-
-   kb = lpv(iv)
-
-! Loop over T levels
-
-   do k = kb,mza-1
-
-      uc(k,iv) = (itab_v(iv)%fuv(1)  * vmc(k,iv1)  * arv(k,iv1)   &
-               +  itab_v(iv)%fuv(2)  * vmc(k,iv2)  * arv(k,iv2)   &
-               +  itab_v(iv)%fuv(3)  * vmc(k,iv3)  * arv(k,iv3)   &
-               +  itab_v(iv)%fuv(4)  * vmc(k,iv4)  * arv(k,iv4)   &
-               +  itab_v(iv)%fuv(5)  * vmc(k,iv5)  * arv(k,iv5)   &
-               +  itab_v(iv)%fuv(8)  * vmc(k,iv8)  * arv(k,iv8)   &
-               +  itab_v(iv)%fuv(9)  * vmc(k,iv9)  * arv(k,iv9)   &
-               +  itab_v(iv)%fuv(12) * vmc(k,iv12) * arv(k,iv12)  &
-               +  itab_v(iv)%fuv(13) * vmc(k,iv13) * arv(k,iv13)  &
-               +  itab_v(iv)%fuv(14) * vmc(k,iv14) * arv(k,iv14)  &
-               +  itab_v(iv)%fuv(15) * vmc(k,iv15) * arv(k,iv15)  &
-               +  itab_v(iv)%fuv(16) * vmc(k,iv16) * arv(k,iv16)) &
-               / (aru(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2)))
-
-   enddo
-
-enddo
-!$omp end parallel do
-endif
-call rsub('Vb',16)
-
-return
-end subroutine diagnose_ucm
-
+!
+!subroutine diagnose_ucm()
+!
+!use mem_basic,  only: uc, rho, vmc
+!use mem_ijtabs, only: mrl_ends, istp, jtab_v, itab_v, jtv_prog
+!use mem_grid,   only: mza, lpv, aru, arv
+!use misc_coms,  only: io6
+!
+!!$ use omp_lib
+!
+!implicit none
+!
+!! CURRENTLY NOT NEEDED WITH THE PEROT METHOD
+!! TODO: If needed, compute uc from earth-cartesian velocities for hexagons
+!
+!return
+!end subroutine diagnose_ucm
+!
 !===============================================================================
-
-subroutine diagnose_uc()
-
-use mem_basic,  only: uc, vc
-use mem_ijtabs, only: mrl_ends, istp, jtab_v, itab_v, jtv_prog
-use mem_grid,   only: mza, lpv, dnu, dniv
-use misc_coms,  only: io6
-
-!$ use omp_lib
-
-implicit none
-
-integer :: iv1,iv2,iv3,iv4,iv5,iv8,iv9,iv12,iv13,iv14,iv15,iv16
-integer :: mrl,kb,k,iv,j
-
-call psub()
-!------------------------------------------------------------------------------
-mrl = mrl_ends(istp)
-if (mrl > 0) then
-!$omp parallel do private(iv,iv1,iv2,iv3,iv4,iv5,iv8,iv9, &
-!$omp                     iv12,iv13,iv14,iv15,iv16,kb,k)
-do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-   iv1  = itab_v(iv)%iv(1) ; iv2  = itab_v(iv)%iv(2) ; iv3  = itab_v(iv)%iv(3)
-   iv4  = itab_v(iv)%iv(4) ; iv5  = itab_v(iv)%iv(5) ; iv8  = itab_v(iv)%iv(8)
-   iv9  = itab_v(iv)%iv(9) ; iv12 = itab_v(iv)%iv(12); iv13 = itab_v(iv)%iv(13)
-   iv14 = itab_v(iv)%iv(14); iv15 = itab_v(iv)%iv(15); iv16 = itab_v(iv)%iv(16)
-!------------------------------------------------------------------------------
-call qsub('V',iv)
-
-   kb = lpv(iv)
-
-! Loop over T levels
-
-   do k = kb,mza-1
-
-      uc(k,iv) = (itab_v(iv)%fuv(1)  * vc(k,iv1) * dnu(iv1)   &
-               +  itab_v(iv)%fuv(2)  * vc(k,iv2) * dnu(iv2)   &
-               +  itab_v(iv)%fuv(3)  * vc(k,iv3) * dnu(iv3)   &
-               +  itab_v(iv)%fuv(4)  * vc(k,iv4) * dnu(iv4)   &
-               +  itab_v(iv)%fuv(5)  * vc(k,iv5) * dnu(iv5)   &
-               +  itab_v(iv)%fuv(8)  * vc(k,iv8) * dnu(iv8)   &
-               +  itab_v(iv)%fuv(9)  * vc(k,iv9) * dnu(iv9)   &
-               +  itab_v(iv)%fuv(12) * vc(k,iv12) * dnu(iv12) &
-               +  itab_v(iv)%fuv(13) * vc(k,iv13) * dnu(iv13) &
-               +  itab_v(iv)%fuv(14) * vc(k,iv14) * dnu(iv14) &
-               +  itab_v(iv)%fuv(15) * vc(k,iv15) * dnu(iv15) &
-               +  itab_v(iv)%fuv(16) * vc(k,iv16) * dnu(iv16)) * dniv(iv)
-
-   enddo
-
-enddo
-!$omp end parallel do
-endif
-call rsub('Vb',16)
-
-return
-end subroutine diagnose_uc
-
+!
+!subroutine diagnose_uc()
+!
+!use mem_basic,  only: uc, vc
+!use mem_ijtabs, only: mrl_ends, istp, jtab_v, itab_v, jtv_prog
+!use mem_grid,   only: mza, lpv, dnu, dniv
+!use misc_coms,  only: io6
+!
+!!$ use omp_lib
+!
+!implicit none
+!
+!! CURRENTLY NOT NEEDED WITH THE PEROT METHOD
+!! TODO: If needed, compute uc from earth-cartesian velocities for hexagons
+!
+!return
+!end subroutine diagnose_uc
+!
 !===============================================================================
 
 subroutine diagnose_vc()

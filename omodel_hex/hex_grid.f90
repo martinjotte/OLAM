@@ -527,7 +527,7 @@ use mem_grid,    only: nza, nma, nva, nwa, xev, yev, zev, xem, yem, zem, &
                        xew, yew, zew, unx, uny, unz, wnx, wny, wnz,      &
                        vnx, vny, vnz, glonw, glatw, dnu, dniu, dnv, dniv, arw0, &
                        arm0, glonm, glatm, glatv, glonv
-use misc_coms,   only: io6, mdomain, grdlat, grdlon, nxp
+use misc_coms,   only: io6, mdomain, grdlat, grdlon, nxp, rinit
 use consts_coms, only: erad, erad2, piu180, eradsq,pio2
 
 implicit none
@@ -568,7 +568,7 @@ real :: dwm1,dwm2,dwv,dvm1,dvm2,swm1,swm2,swv,svm1,svm2,angw1,angw2,angm1,angm2
 integer :: jm,jv,j1,j2
 
 integer :: iv_w
-integer :: npoly1,npoly2,npolym,jw_m,iw_m
+integer :: npoly1,npoly2,npolym,jw_m,iw_m,np
 
 real :: xm1,xm2,xv,xw,ym1,ym2,yv,yw,frac,accum_kite,alpha
 
@@ -578,7 +578,8 @@ real :: gx1,gx2,gy1,gy2
 real :: xem1, xem2, yem1, yem2, zem1, zem2
 
 real :: xq1, yq1, xq2, yq2, psiz
-integer :: iskip
+integer :: iskip, iwp, ivp
+logical :: dops
 
 character(10) :: string
 
@@ -761,7 +762,20 @@ do iv = 2,nva
 
 enddo
 
-! Loop over all W points
+do iw = 1, nwa
+   itab_w(iw)%gxps1(:) = rinit
+   itab_w(iw)%gxps2(:) = rinit
+   itab_w(iw)%gyps1(:) = rinit
+   itab_w(iw)%gyps2(:) = rinit
+enddo
+
+do iv = 1, nva      
+   itab_v(iv)%cosv(:) = rinit
+   itab_v(iv)%sinv(:) = rinit
+   itab_v(iv)%dxps(:) = rinit
+   itab_v(iv)%dyps(:) = rinit
+   itab_v(iv)%farw(:) = rinit
+enddo
 
 do iw = 2,nwa
 
@@ -831,6 +845,32 @@ do iw = 2,nwa
 ! NEW SECTION JULY 2011
 !----------------------------------------
 
+      ! Special - skip gradient calculation if we are at the periodic
+      ! domain border and iw1 and iw2 do not share a common vertex
+
+      if ( mdomain <= 1 .or. iw == itab_w(iw)%iwp ) then
+
+         dops = .true.
+
+      else
+
+         dops = .false.
+         npoly1 = itab_w(iw1)%npoly
+         npoly2 = itab_w(iw2)%npoly
+      
+         do np = 1, npoly1
+            im1 = itab_w(iw1)%im(np)
+            if (im1 == 1) cycle
+            if (any( itab_w(iw2)%im(1:npoly2) == itab_w(iw1)%im(np) )) then
+               dops = .true.
+               exit
+            endif
+         enddo
+
+      endif
+
+      if (dops) then
+
 ! Evaluate x,y coordinates of IW1 and IW2 points on polar stereographic plane
 ! tangent at IW
 
@@ -875,6 +915,8 @@ do iw = 2,nwa
          itab_v(iv)%dyps(2) = yv
       endif
 
+      endif
+
       itab_w(iw)%unx_w = -sin(glonw(iw))
       itab_w(iw)%uny_w = cos(glonw(iw))
 
@@ -894,195 +936,13 @@ enddo
 
 do iv = 2,nva
 
-! Indices of neighboring M-points
+! Let's not do this section on the boundary cells
 
-   im1 = itab_v(iv)%im(1)
-   im2 = itab_v(iv)%im(2)
-   im3 = itab_v(iv)%im(3)
-   im4 = itab_v(iv)%im(4)
-   im5 = itab_v(iv)%im(5)
-   im6 = itab_v(iv)%im(6)
-
-! V neighbor indices
-
-   iv1  = itab_v(iv)%iv(1)
-   iv2  = itab_v(iv)%iv(2)
-   iv3  = itab_v(iv)%iv(3)
-   iv4  = itab_v(iv)%iv(4)
-   iv5  = itab_v(iv)%iv(5)
-   iv6  = itab_v(iv)%iv(6)
-   iv7  = itab_v(iv)%iv(7)
-   iv8  = itab_v(iv)%iv(8)
-   iv9  = itab_v(iv)%iv(9)
-   iv10 = itab_v(iv)%iv(10)
-   iv11 = itab_v(iv)%iv(11)
-   iv12 = itab_v(iv)%iv(12)
-   iv13 = itab_v(iv)%iv(13)
-   iv14 = itab_v(iv)%iv(14)
-   iv15 = itab_v(iv)%iv(15)
-   iv16 = itab_v(iv)%iv(16)
-
-! OR:  ivv(1:16) = itab_v(iv)%iv(1:16)   
+   ivp = itab_v(iv)%ivp
+   if (mdomain > 1 .and. iv /= ivp) cycle
 
    iw1 = itab_v(iv)%iw(1)
    iw2 = itab_v(iv)%iw(2)
-
-! Number of V neighbors of IW1 and IW2
-
-   npoly1 = itab_w(iw1)%npoly
-   npoly2 = itab_w(iw2)%npoly
-
-! FUV interpolation coefficients
-
-!---------------------------------------------------------------------
-! Progressing clockwise from IV in IW1
-
-   if (itab_v(iv1)%iw(1) == iw1) then
-      accum_kite = quarter_kite(1,iv) + quarter_kite(2,iv1)
-      itab_v(iv)%fuv(1) = -(.5 - accum_kite / arw0(iw1))
-   else
-      accum_kite = quarter_kite(1,iv) + quarter_kite(1,iv1)
-      itab_v(iv)%fuv(1) = (.5 - accum_kite / arw0(iw1))
-   endif
-
-   if (itab_v(iv5)%iw(1) == iw1) then
-      accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv1) &
-                 + quarter_kite(2,iv1) + quarter_kite(2,iv5)
-      itab_v(iv)%fuv(5) = -(.5 - accum_kite / arw0(iw1))
-   else
-      accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv1) &
-                 + quarter_kite(2,iv1) + quarter_kite(1,iv5)
-      itab_v(iv)%fuv(5) =  (.5 - accum_kite / arw0(iw1))
-   endif
-
-   if (iv13 > 1) then
-
-      if (itab_v(iv13)%iw(1) == iw1) then
-         accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv1) &
-                    + quarter_kite(2,iv1) + quarter_kite(1,iv5) &
-                    + quarter_kite(2,iv5) + quarter_kite(2,iv13)
-         itab_v(iv)%fuv(13) = -(.5 - accum_kite / arw0(iw1))
-      else
-         accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv1) &
-                    + quarter_kite(2,iv1) + quarter_kite(1,iv5) &
-                    + quarter_kite(2,iv5) + quarter_kite(1,iv13)
-         itab_v(iv)%fuv(13) =  (.5 - accum_kite / arw0(iw1))
-      endif
-
-   endif
-
-!---------------------------------------------------------------------
-! Progressing counterclockwise from IV in IW1
-
-   if (itab_v(iv3)%iw(1) == iw1) then
-      accum_kite = quarter_kite(2,iv) + quarter_kite(1,iv3)
-      itab_v(iv)%fuv(3) = (.5 - accum_kite / arw0(iw1))
-   else
-      accum_kite = quarter_kite(2,iv) + quarter_kite(2,iv3)
-      itab_v(iv)%fuv(3) = -(.5 - accum_kite / arw0(iw1))
-   endif
-
-   if (itab_v(iv9)%iw(1) == iw1) then
-      accum_kite = quarter_kite(2,iv)  + quarter_kite(1,iv3) &
-                 + quarter_kite(2,iv3) + quarter_kite(1,iv9)
-      itab_v(iv)%fuv(9) = (.5 - accum_kite / arw0(iw1))
-   else
-      accum_kite = quarter_kite(2,iv)  + quarter_kite(1,iv3) &
-                 + quarter_kite(2,iv3) + quarter_kite(2,iv9)
-      itab_v(iv)%fuv(9) =  -(.5 - accum_kite / arw0(iw1))
-   endif
-
-   if (iv15 > 1) then
-   
-      if (itab_v(iv15)%iw(1) == iw1) then
-         accum_kite = quarter_kite(2,iv)  + quarter_kite(1,iv3) &
-                    + quarter_kite(2,iv3) + quarter_kite(1,iv9) &
-                    + quarter_kite(2,iv9) + quarter_kite(1,iv15)
-         itab_v(iv)%fuv(15) = (.5 - accum_kite / arw0(iw1))
-      else
-         accum_kite = quarter_kite(2,iv)  + quarter_kite(1,iv3) &
-                    + quarter_kite(2,iv3) + quarter_kite(1,iv9) &
-                    + quarter_kite(2,iv9) + quarter_kite(2,iv15)
-         itab_v(iv)%fuv(15) =  -(.5 - accum_kite / arw0(iw1))
-      endif
-
-   endif
-
-!---------------------------------------------------------------------
-! Progressing counterclockwise from IV in IW2
-
-   if (itab_v(iv2)%iw(1) == iw2) then
-      accum_kite = quarter_kite(1,iv) + quarter_kite(1,iv2)
-      itab_v(iv)%fuv(2) = -(.5 - accum_kite / arw0(iw2))
-   else
-      accum_kite = quarter_kite(1,iv) + quarter_kite(2,iv2)
-      itab_v(iv)%fuv(2) = (.5 - accum_kite / arw0(iw2))
-   endif
-
-   if (itab_v(iv8)%iw(1) == iw2) then
-      accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv2) &
-                 + quarter_kite(2,iv2) + quarter_kite(1,iv8)
-      itab_v(iv)%fuv(8) = -(.5 - accum_kite / arw0(iw2))
-   else
-      accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv2) &
-                 + quarter_kite(2,iv2) + quarter_kite(2,iv8)
-      itab_v(iv)%fuv(8) =  (.5 - accum_kite / arw0(iw2))
-   endif
-
-   if (iv14 > 1) then
-
-      if (itab_v(iv14)%iw(1) == iw2) then
-         accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv2) &
-                    + quarter_kite(2,iv2) + quarter_kite(1,iv8) &
-                    + quarter_kite(2,iv8) + quarter_kite(1,iv14)
-         itab_v(iv)%fuv(14) = -(.5 - accum_kite / arw0(iw2))
-      else
-         accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv2) &
-                    + quarter_kite(2,iv2) + quarter_kite(1,iv8) &
-                    + quarter_kite(2,iv8) + quarter_kite(2,iv14)
-         itab_v(iv)%fuv(14) =  (.5 - accum_kite / arw0(iw2))
-      endif
-
-   endif
-
-!---------------------------------------------------------------------
-! Progressing clockwise from IV in IW2
-
-   if (itab_v(iv4)%iw(1) == iw2) then
-      accum_kite = quarter_kite(2,iv) + quarter_kite(2,iv4)
-      itab_v(iv)%fuv(4) = (.5 - accum_kite / arw0(iw2))
-   else
-      accum_kite = quarter_kite(2,iv) + quarter_kite(1,iv4)
-      itab_v(iv)%fuv(4) = -(.5 - accum_kite / arw0(iw2))
-   endif
-
-   if (itab_v(iv12)%iw(1) == iw2) then
-      accum_kite = quarter_kite(2,iv)  + quarter_kite(1,iv4) &
-                 + quarter_kite(2,iv4) + quarter_kite(2,iv12)
-      itab_v(iv)%fuv(12) = (.5 - accum_kite / arw0(iw2))
-   else
-      accum_kite = quarter_kite(2,iv)  + quarter_kite(1,iv4) &
-                 + quarter_kite(2,iv4) + quarter_kite(1,iv12)
-      itab_v(iv)%fuv(12) = -(.5 - accum_kite / arw0(iw2))
-   endif
-
-   if (iv16 > 1) then
-
-      if (itab_v(iv16)%iw(1) == iw2) then
-         accum_kite = quarter_kite(2,iv)   + quarter_kite(1,iv4)  &
-                    + quarter_kite(2,iv4)  + quarter_kite(1,iv12) &
-                    + quarter_kite(2,iv12) + quarter_kite(2,iv16)
-         itab_v(iv)%fuv(16) = (.5 - accum_kite / arw0(iw2))
-      else
-         accum_kite = quarter_kite(2,iv)   + quarter_kite(1,iv4)  &
-                    + quarter_kite(2,iv4)  + quarter_kite(1,iv12) &
-                    + quarter_kite(2,iv12) + quarter_kite(1,iv16)
-         itab_v(iv)%fuv(16) = -(.5 - accum_kite / arw0(iw2))
-      endif
-
-   endif
-
-!---------------------------------------------------------------------
 
 ! FARW(1) and FARW(2) interpolation coefficients for ARW and VOLV
 ! (taking V control volume to be full DNU(IV) * DNV(IV) rectangle)
@@ -1090,91 +950,310 @@ do iv = 2,nva
    itab_v(iv)%farw(1) = 2. * (quarter_kite(1,iv) + quarter_kite(2,iv)) / arw0(iw1)
    itab_v(iv)%farw(2) = 2. * (quarter_kite(1,iv) + quarter_kite(2,iv)) / arw0(iw2)
 
-! Skip this V point if iw1 < 2 or iw2 < 2
-
-   if (iw1 < 2 .or. iw2 < 2) cycle
-
    itab_v(iv)%mrlv = max(itab_w(iw1)%mrlw,itab_w(iw2)%mrlw)
-
-! Project neighbor V & W unit vectors onto V unit vector
-
-   call matrix_3x3(vnx(iv5),vnx(iv6),xem(im3)/erad  &
-                  ,vny(iv5),vny(iv6),yem(im3)/erad  &
-                  ,vnz(iv5),vnz(iv6),zem(im3)/erad  &
-                  ,vnx(iv),vny(iv),vnz(iv)     &
-                  ,itab_v(iv)%fvv(5)           &
-                  ,itab_v(iv)%fvv(6)           &
-                  ,itab_v(iv)%fvw(1)           )
-
-   call matrix_3x3(vnx(iv7),vnx(iv8),xem(im4)/erad  &
-                  ,vny(iv7),vny(iv8),yem(im4)/erad  &
-                  ,vnz(iv7),vnz(iv8),zem(im4)/erad  &
-                  ,vnx(iv),vny(iv),vnz(iv)     &
-                  ,itab_v(iv)%fvv(7)           &
-                  ,itab_v(iv)%fvv(8)           &
-                  ,itab_v(iv)%fvw(2)           )
-
-   call matrix_3x3(vnx(iv9),vnx(iv10),xem(im5)/erad  &
-                  ,vny(iv9),vny(iv10),yem(im5)/erad  &
-                  ,vnz(iv9),vnz(iv10),zem(im5)/erad  &
-                  ,vnx(iv),vny(iv),vnz(iv)      &
-                  ,itab_v(iv)%fvv(9)            &
-                  ,itab_v(iv)%fvv(10)           &
-                  ,itab_v(iv)%fvw(3)            )
-
-   call matrix_3x3(vnx(iv11),vnx(iv12),xem(im6)/erad  &
-                  ,vny(iv11),vny(iv12),yem(im6)/erad  &
-                  ,vnz(iv11),vnz(iv12),zem(im6)/erad  &
-                  ,vnx(iv),vny(iv),vnz(iv)       &
-                  ,itab_v(iv)%fvv(11)            &
-                  ,itab_v(iv)%fvv(12)            &
-                  ,itab_v(iv)%fvw(4)             )
-
-! Divide fvw1-4 by 2 for use with two W points
-
-   itab_v(iv)%fvw(1:4) = .5 * itab_v(iv)%fvw(1:4)
 
 enddo  ! IV
 
-! Loop over all M points
+! Now copy back border iv cell values that we skipped
 
-do im = 2,nma
+if (mdomain > 1) then
 
-   iv1 = itab_m(im)%iv(1)
-   iv2 = itab_m(im)%iv(2)
-   iv3 = itab_m(im)%iv(3)
+   do iv = 2, nva
+      ivp = itab_v(iv)%ivp
+      if (iv /= ivp) then
 
-   iw1 = itab_m(im)%iw(1)
-   iw2 = itab_m(im)%iw(2)
-   iw3 = itab_m(im)%iw(3)
+         itab_v(iv)%cosv(:) = itab_v(ivp)%cosv(:)
+         itab_v(iv)%sinv(:) = itab_v(ivp)%sinv(:)
 
-! ITAB_M(IM)%FMW coefficient for interpolating from IW to IM [not currently used]
+         itab_v(iv)%dxps(:) = itab_v(ivp)%dxps(:)
+         itab_v(iv)%dyps(:) = itab_v(ivp)%dyps(:)
 
-   if (itab_v(iv1)%im(1) == im) then
-      itab_m(im)%fmw(2) = itab_m(im)%fmw(2) + quarter_kite(1,iv1) / arm0(im)
-      itab_m(im)%fmw(3) = itab_m(im)%fmw(3) + quarter_kite(1,iv1) / arm0(im)
-   else
-      itab_m(im)%fmw(2) = itab_m(im)%fmw(2) + quarter_kite(2,iv1) / arm0(im)
-      itab_m(im)%fmw(3) = itab_m(im)%fmw(3) + quarter_kite(2,iv1) / arm0(im)
-   endif
+         itab_v(iv)%farw(:) = itab_v(ivp)%farw(:)
+         itab_v(iv)%mrlv    = itab_v(ivp)%mrlv
+      endif
+   enddo
 
-   if (itab_v(iv2)%im(1) == im) then
-      itab_m(im)%fmw(3) = itab_m(im)%fmw(3) + quarter_kite(1,iv2) / arm0(im)
-      itab_m(im)%fmw(1) = itab_m(im)%fmw(1) + quarter_kite(1,iv2) / arm0(im)
-   else
-      itab_m(im)%fmw(3) = itab_m(im)%fmw(3) + quarter_kite(2,iv2) / arm0(im)
-      itab_m(im)%fmw(1) = itab_m(im)%fmw(1) + quarter_kite(2,iv2) / arm0(im)
-   endif
+endif
 
-   if (itab_v(iv3)%im(1) == im) then
-      itab_m(im)%fmw(1) = itab_m(im)%fmw(1) + quarter_kite(1,iv3) / arm0(im)
-      itab_m(im)%fmw(2) = itab_m(im)%fmw(2) + quarter_kite(1,iv3) / arm0(im)
-   else
-      itab_m(im)%fmw(1) = itab_m(im)%fmw(1) + quarter_kite(2,iv3) / arm0(im)
-      itab_m(im)%fmw(2) = itab_m(im)%fmw(2) + quarter_kite(2,iv3) / arm0(im)
-   endif
-
-enddo
+!! THE FOLLOWING COEFFICIENTS ARE UNUSED WITH PEROT'S METHOD FOR HEXAGONS
+!!
+!!! Loop over all V points
+!!
+!!do iv = 2,nva
+!!
+!!! Indices of neighboring M-points
+!!
+!!   im1 = itab_v(iv)%im(1)
+!!   im2 = itab_v(iv)%im(2)
+!!   im3 = itab_v(iv)%im(3)
+!!   im4 = itab_v(iv)%im(4)
+!!   im5 = itab_v(iv)%im(5)
+!!   im6 = itab_v(iv)%im(6)
+!!
+!!! V neighbor indices
+!!
+!!   iv1  = itab_v(iv)%iv(1)
+!!   iv2  = itab_v(iv)%iv(2)
+!!   iv3  = itab_v(iv)%iv(3)
+!!   iv4  = itab_v(iv)%iv(4)
+!!   iv5  = itab_v(iv)%iv(5)
+!!   iv6  = itab_v(iv)%iv(6)
+!!   iv7  = itab_v(iv)%iv(7)
+!!   iv8  = itab_v(iv)%iv(8)
+!!   iv9  = itab_v(iv)%iv(9)
+!!   iv10 = itab_v(iv)%iv(10)
+!!   iv11 = itab_v(iv)%iv(11)
+!!   iv12 = itab_v(iv)%iv(12)
+!!   iv13 = itab_v(iv)%iv(13)
+!!   iv14 = itab_v(iv)%iv(14)
+!!   iv15 = itab_v(iv)%iv(15)
+!!   iv16 = itab_v(iv)%iv(16)
+!!
+!!! OR:  ivv(1:16) = itab_v(iv)%iv(1:16)   
+!!
+!!   iw1 = itab_v(iv)%iw(1)
+!!   iw2 = itab_v(iv)%iw(2)
+!!
+!!! Number of V neighbors of IW1 and IW2
+!!
+!!   npoly1 = itab_w(iw1)%npoly
+!!   npoly2 = itab_w(iw2)%npoly
+!!
+!!! FUV interpolation coefficients
+!!
+!!!---------------------------------------------------------------------
+!!! Progressing clockwise from IV in IW1
+!!
+!!   if (itab_v(iv1)%iw(1) == iw1) then
+!!      accum_kite = quarter_kite(1,iv) + quarter_kite(2,iv1)
+!!      itab_v(iv)%fuv(1) = -(.5 - accum_kite / arw0(iw1))
+!!   else
+!!      accum_kite = quarter_kite(1,iv) + quarter_kite(1,iv1)
+!!      itab_v(iv)%fuv(1) = (.5 - accum_kite / arw0(iw1))
+!!   endif
+!!
+!!   if (itab_v(iv5)%iw(1) == iw1) then
+!!      accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv1) &
+!!                 + quarter_kite(2,iv1) + quarter_kite(2,iv5)
+!!      itab_v(iv)%fuv(5) = -(.5 - accum_kite / arw0(iw1))
+!!   else
+!!      accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv1) &
+!!                 + quarter_kite(2,iv1) + quarter_kite(1,iv5)
+!!      itab_v(iv)%fuv(5) =  (.5 - accum_kite / arw0(iw1))
+!!   endif
+!!
+!!   if (iv13 > 1) then
+!!
+!!      if (itab_v(iv13)%iw(1) == iw1) then
+!!         accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv1) &
+!!                    + quarter_kite(2,iv1) + quarter_kite(1,iv5) &
+!!                    + quarter_kite(2,iv5) + quarter_kite(2,iv13)
+!!         itab_v(iv)%fuv(13) = -(.5 - accum_kite / arw0(iw1))
+!!      else
+!!         accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv1) &
+!!                    + quarter_kite(2,iv1) + quarter_kite(1,iv5) &
+!!                    + quarter_kite(2,iv5) + quarter_kite(1,iv13)
+!!         itab_v(iv)%fuv(13) =  (.5 - accum_kite / arw0(iw1))
+!!      endif
+!!
+!!   endif
+!!
+!!!---------------------------------------------------------------------
+!!! Progressing counterclockwise from IV in IW1
+!!
+!!   if (itab_v(iv3)%iw(1) == iw1) then
+!!      accum_kite = quarter_kite(2,iv) + quarter_kite(1,iv3)
+!!      itab_v(iv)%fuv(3) = (.5 - accum_kite / arw0(iw1))
+!!   else
+!!      accum_kite = quarter_kite(2,iv) + quarter_kite(2,iv3)
+!!      itab_v(iv)%fuv(3) = -(.5 - accum_kite / arw0(iw1))
+!!   endif
+!!
+!!   if (itab_v(iv9)%iw(1) == iw1) then
+!!      accum_kite = quarter_kite(2,iv)  + quarter_kite(1,iv3) &
+!!                 + quarter_kite(2,iv3) + quarter_kite(1,iv9)
+!!      itab_v(iv)%fuv(9) = (.5 - accum_kite / arw0(iw1))
+!!   else
+!!      accum_kite = quarter_kite(2,iv)  + quarter_kite(1,iv3) &
+!!                 + quarter_kite(2,iv3) + quarter_kite(2,iv9)
+!!      itab_v(iv)%fuv(9) =  -(.5 - accum_kite / arw0(iw1))
+!!   endif
+!!
+!!   if (iv15 > 1) then
+!!   
+!!      if (itab_v(iv15)%iw(1) == iw1) then
+!!         accum_kite = quarter_kite(2,iv)  + quarter_kite(1,iv3) &
+!!                    + quarter_kite(2,iv3) + quarter_kite(1,iv9) &
+!!                    + quarter_kite(2,iv9) + quarter_kite(1,iv15)
+!!         itab_v(iv)%fuv(15) = (.5 - accum_kite / arw0(iw1))
+!!      else
+!!         accum_kite = quarter_kite(2,iv)  + quarter_kite(1,iv3) &
+!!                    + quarter_kite(2,iv3) + quarter_kite(1,iv9) &
+!!                    + quarter_kite(2,iv9) + quarter_kite(2,iv15)
+!!         itab_v(iv)%fuv(15) =  -(.5 - accum_kite / arw0(iw1))
+!!      endif
+!!
+!!   endif
+!!
+!!!---------------------------------------------------------------------
+!!! Progressing counterclockwise from IV in IW2
+!!
+!!   if (itab_v(iv2)%iw(1) == iw2) then
+!!      accum_kite = quarter_kite(1,iv) + quarter_kite(1,iv2)
+!!      itab_v(iv)%fuv(2) = -(.5 - accum_kite / arw0(iw2))
+!!   else
+!!      accum_kite = quarter_kite(1,iv) + quarter_kite(2,iv2)
+!!      itab_v(iv)%fuv(2) = (.5 - accum_kite / arw0(iw2))
+!!   endif
+!!
+!!   if (itab_v(iv8)%iw(1) == iw2) then
+!!      accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv2) &
+!!                 + quarter_kite(2,iv2) + quarter_kite(1,iv8)
+!!      itab_v(iv)%fuv(8) = -(.5 - accum_kite / arw0(iw2))
+!!   else
+!!      accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv2) &
+!!                 + quarter_kite(2,iv2) + quarter_kite(2,iv8)
+!!      itab_v(iv)%fuv(8) =  (.5 - accum_kite / arw0(iw2))
+!!   endif
+!!
+!!   if (iv14 > 1) then
+!!
+!!      if (itab_v(iv14)%iw(1) == iw2) then
+!!         accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv2) &
+!!                    + quarter_kite(2,iv2) + quarter_kite(1,iv8) &
+!!                    + quarter_kite(2,iv8) + quarter_kite(1,iv14)
+!!         itab_v(iv)%fuv(14) = -(.5 - accum_kite / arw0(iw2))
+!!      else
+!!         accum_kite = quarter_kite(1,iv)  + quarter_kite(1,iv2) &
+!!                    + quarter_kite(2,iv2) + quarter_kite(1,iv8) &
+!!                    + quarter_kite(2,iv8) + quarter_kite(2,iv14)
+!!         itab_v(iv)%fuv(14) =  (.5 - accum_kite / arw0(iw2))
+!!      endif
+!!
+!!   endif
+!!
+!!!---------------------------------------------------------------------
+!!! Progressing clockwise from IV in IW2
+!!
+!!   if (itab_v(iv4)%iw(1) == iw2) then
+!!      accum_kite = quarter_kite(2,iv) + quarter_kite(2,iv4)
+!!      itab_v(iv)%fuv(4) = (.5 - accum_kite / arw0(iw2))
+!!   else
+!!      accum_kite = quarter_kite(2,iv) + quarter_kite(1,iv4)
+!!      itab_v(iv)%fuv(4) = -(.5 - accum_kite / arw0(iw2))
+!!   endif
+!!
+!!   if (itab_v(iv12)%iw(1) == iw2) then
+!!      accum_kite = quarter_kite(2,iv)  + quarter_kite(1,iv4) &
+!!                 + quarter_kite(2,iv4) + quarter_kite(2,iv12)
+!!      itab_v(iv)%fuv(12) = (.5 - accum_kite / arw0(iw2))
+!!   else
+!!      accum_kite = quarter_kite(2,iv)  + quarter_kite(1,iv4) &
+!!                 + quarter_kite(2,iv4) + quarter_kite(1,iv12)
+!!      itab_v(iv)%fuv(12) = -(.5 - accum_kite / arw0(iw2))
+!!   endif
+!!
+!!   if (iv16 > 1) then
+!!
+!!      if (itab_v(iv16)%iw(1) == iw2) then
+!!         accum_kite = quarter_kite(2,iv)   + quarter_kite(1,iv4)  &
+!!                    + quarter_kite(2,iv4)  + quarter_kite(1,iv12) &
+!!                    + quarter_kite(2,iv12) + quarter_kite(2,iv16)
+!!         itab_v(iv)%fuv(16) = (.5 - accum_kite / arw0(iw2))
+!!      else
+!!         accum_kite = quarter_kite(2,iv)   + quarter_kite(1,iv4)  &
+!!                    + quarter_kite(2,iv4)  + quarter_kite(1,iv12) &
+!!                    + quarter_kite(2,iv12) + quarter_kite(1,iv16)
+!!         itab_v(iv)%fuv(16) = -(.5 - accum_kite / arw0(iw2))
+!!      endif
+!!
+!!   endif
+!!
+!!!---------------------------------------------------------------------
+!!
+!!! Skip this V point if iw1 < 2 or iw2 < 2
+!!
+!!   if (iw1 < 2 .or. iw2 < 2) cycle
+!!
+!!! Project neighbor V & W unit vectors onto V unit vector
+!!
+!!   call matrix_3x3(vnx(iv5),vnx(iv6),xem(im3)/erad  &
+!!                  ,vny(iv5),vny(iv6),yem(im3)/erad  &
+!!                  ,vnz(iv5),vnz(iv6),zem(im3)/erad  &
+!!                  ,vnx(iv),vny(iv),vnz(iv)     &
+!!                  ,itab_v(iv)%fvv(5)           &
+!!                  ,itab_v(iv)%fvv(6)           &
+!!                  ,itab_v(iv)%fvw(1)           )
+!!
+!!   call matrix_3x3(vnx(iv7),vnx(iv8),xem(im4)/erad  &
+!!                  ,vny(iv7),vny(iv8),yem(im4)/erad  &
+!!                  ,vnz(iv7),vnz(iv8),zem(im4)/erad  &
+!!                  ,vnx(iv),vny(iv),vnz(iv)     &
+!!                  ,itab_v(iv)%fvv(7)           &
+!!                  ,itab_v(iv)%fvv(8)           &
+!!                  ,itab_v(iv)%fvw(2)           )
+!!
+!!   call matrix_3x3(vnx(iv9),vnx(iv10),xem(im5)/erad  &
+!!                  ,vny(iv9),vny(iv10),yem(im5)/erad  &
+!!                  ,vnz(iv9),vnz(iv10),zem(im5)/erad  &
+!!                  ,vnx(iv),vny(iv),vnz(iv)      &
+!!                  ,itab_v(iv)%fvv(9)            &
+!!                  ,itab_v(iv)%fvv(10)           &
+!!                  ,itab_v(iv)%fvw(3)            )
+!!
+!!   call matrix_3x3(vnx(iv11),vnx(iv12),xem(im6)/erad  &
+!!                  ,vny(iv11),vny(iv12),yem(im6)/erad  &
+!!                  ,vnz(iv11),vnz(iv12),zem(im6)/erad  &
+!!                  ,vnx(iv),vny(iv),vnz(iv)       &
+!!                  ,itab_v(iv)%fvv(11)            &
+!!                  ,itab_v(iv)%fvv(12)            &
+!!                  ,itab_v(iv)%fvw(4)             )
+!!
+!!! Divide fvw1-4 by 2 for use with two W points
+!!
+!!   itab_v(iv)%fvw(1:4) = .5 * itab_v(iv)%fvw(1:4)
+!!
+!!enddo  ! IV
+!!
+!!! Loop over all M points
+!!
+!!do im = 2,nma
+!!
+!!   iv1 = itab_m(im)%iv(1)
+!!   iv2 = itab_m(im)%iv(2)
+!!   iv3 = itab_m(im)%iv(3)
+!!
+!!   iw1 = itab_m(im)%iw(1)
+!!   iw2 = itab_m(im)%iw(2)
+!!   iw3 = itab_m(im)%iw(3)
+!!
+!!! ITAB_M(IM)%FMW coefficient for interpolating from IW to IM [not currently used]
+!!
+!!   if (itab_v(iv1)%im(1) == im) then
+!!      itab_m(im)%fmw(2) = itab_m(im)%fmw(2) + quarter_kite(1,iv1) / arm0(im)
+!!      itab_m(im)%fmw(3) = itab_m(im)%fmw(3) + quarter_kite(1,iv1) / arm0(im)
+!!   else
+!!      itab_m(im)%fmw(2) = itab_m(im)%fmw(2) + quarter_kite(2,iv1) / arm0(im)
+!!      itab_m(im)%fmw(3) = itab_m(im)%fmw(3) + quarter_kite(2,iv1) / arm0(im)
+!!   endif
+!!
+!!   if (itab_v(iv2)%im(1) == im) then
+!!      itab_m(im)%fmw(3) = itab_m(im)%fmw(3) + quarter_kite(1,iv2) / arm0(im)
+!!      itab_m(im)%fmw(1) = itab_m(im)%fmw(1) + quarter_kite(1,iv2) / arm0(im)
+!!   else
+!!      itab_m(im)%fmw(3) = itab_m(im)%fmw(3) + quarter_kite(2,iv2) / arm0(im)
+!!      itab_m(im)%fmw(1) = itab_m(im)%fmw(1) + quarter_kite(2,iv2) / arm0(im)
+!!   endif
+!!
+!!   if (itab_v(iv3)%im(1) == im) then
+!!      itab_m(im)%fmw(1) = itab_m(im)%fmw(1) + quarter_kite(1,iv3) / arm0(im)
+!!      itab_m(im)%fmw(2) = itab_m(im)%fmw(2) + quarter_kite(1,iv3) / arm0(im)
+!!   else
+!!      itab_m(im)%fmw(1) = itab_m(im)%fmw(1) + quarter_kite(2,iv3) / arm0(im)
+!!      itab_m(im)%fmw(2) = itab_m(im)%fmw(2) + quarter_kite(2,iv3) / arm0(im)
+!!   endif
+!!
+!!enddo
 
 return
 end subroutine grid_geometry_hex

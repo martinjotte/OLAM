@@ -943,13 +943,12 @@ subroutine gridfile_write()
   call shdf5_orec(ndims,idims,'itab_m%iw',ivara=iscr)
   deallocate (iscr)
 
-  allocate (rscr(7,nma)) ; rscr = 0.0
-  do im = 1,nma
-     rscr(1:7,im) = itab_m(im)%fmw(1:7)
-  enddo
-  call shdf5_orec(ndims,idims,'itab_m%fmw',rvara=rscr)
-  deallocate (rscr)
-
+!!  allocate (rscr(7,nma)) ; rscr = 0.0
+!!  do im = 1,nma
+!!     rscr(1:7,im) = itab_m(im)%fmw(1:7)
+!!  enddo
+!!  call shdf5_orec(ndims,idims,'itab_m%fmw',rvara=rscr)
+!!  deallocate (rscr)
 
   if (meshtype == 1) then
 
@@ -1154,12 +1153,12 @@ subroutine gridfile_write()
      call shdf5_orec(ndims,idims,'itab_v%iw',ivara=iscr)
      deallocate(iscr)
 
-     allocate (rscr(4,nva))
-     do iv = 1,nva
-        rscr(1:4,iv) = itab_v(iv)%fvw(1:4)
-     enddo
-     call shdf5_orec(ndims,idims,'itab_v%fvw',rvara=rscr)
-     deallocate(rscr)
+!!     allocate (rscr(4,nva))
+!!     do iv = 1,nva
+!!        rscr(1:4,iv) = itab_v(iv)%fvw(1:4)
+!!     enddo
+!!     call shdf5_orec(ndims,idims,'itab_v%fvw',rvara=rscr)
+!!     deallocate(rscr)
 
      idims(1) = 6
 
@@ -1170,14 +1169,14 @@ subroutine gridfile_write()
      call shdf5_orec(ndims,idims,'itab_v%im',ivara=iscr)
      deallocate(iscr)
 
-     idims(1) = 12
-
-     allocate (rscr(12,nva))
-     do iv = 1,nva
-        rscr(1:12,iv) = itab_v(iv)%fvv(1:12)
-     enddo
-     call shdf5_orec(ndims,idims,'itab_v%fvv',rvara=rscr)
-     deallocate(rscr)
+!!     idims(1) = 12
+!!
+!!     allocate (rscr(12,nva))
+!!     do iv = 1,nva
+!!        rscr(1:12,iv) = itab_v(iv)%fvv(1:12)
+!!     enddo
+!!     call shdf5_orec(ndims,idims,'itab_v%fvv',rvara=rscr)
+!!     deallocate(rscr)
 
      idims(1) = 16
 
@@ -1188,12 +1187,12 @@ subroutine gridfile_write()
      call shdf5_orec(ndims,idims,'itab_v%iv',ivara=iscr)
      deallocate(iscr)
 
-     allocate (rscr(16,nva))
-     do iv = 1,nva
-        rscr(1:16,iv) = itab_v(iv)%fuv(1:16)
-     enddo
-     call shdf5_orec(ndims,idims,'itab_v%fuv',rvara=rscr)
-     deallocate(rscr)
+!!     allocate (rscr(16,nva))
+!!     do iv = 1,nva
+!!        rscr(1:16,iv) = itab_v(iv)%fuv(1:16)
+!!     enddo
+!!     call shdf5_orec(ndims,idims,'itab_v%fuv',rvara=rscr)
+!!     deallocate(rscr)
 
   endif
 
@@ -2256,12 +2255,12 @@ if (exans) then
    enddo
    deallocate (iscr)
 
-   allocate (rscr(7,mma))
-   call shdf5_irec(ndims,idims,'itab_m%fmw',rvara=rscr, points=lgma)
-   do im = 1,mma
-      itab_m(im)%fmw(1:7) = rscr(1:7,im)
-   enddo
-   deallocate (rscr)
+!!   allocate (rscr(7,mma))
+!!   call shdf5_irec(ndims,idims,'itab_m%fmw',rvara=rscr, points=lgma)
+!!   do im = 1,mma
+!!      itab_m(im)%fmw(1:7) = rscr(1:7,im)
+!!   enddo
+!!   deallocate (rscr)
 
    if (meshtype == 1) then
 
@@ -2466,12 +2465,12 @@ if (exans) then
       enddo
       deallocate (iscr)
 
-      allocate (rscr(4,mva))
-      call shdf5_irec(ndims,idims,'itab_v%fvw',rvara=rscr, points=lgva)
-      do iv = 1,mva
-         itab_v(iv)%fvw (1:4) = rscr(1:4,iv)
-      enddo
-      deallocate (rscr)
+!!      allocate (rscr(4,mva))
+!!      call shdf5_irec(ndims,idims,'itab_v%fvw',rvara=rscr, points=lgva)
+!!      do iv = 1,mva
+!!         itab_v(iv)%fvw (1:4) = rscr(1:4,iv)
+!!      enddo
+!!      deallocate (rscr)
 
       idims(1) = 6
 
@@ -2482,14 +2481,14 @@ if (exans) then
       enddo
       deallocate (iscr)
 
-      idims(1) = 12
-
-      allocate (rscr(12,mva))
-      call shdf5_irec(ndims,idims,'itab_v%fvv',rvara=rscr, points=lgva)
-      do iv = 1,mva
-         itab_v(iv)%fvv(1:12) = rscr(1:12,iv)
-      enddo
-      deallocate (rscr)
+!!      idims(1) = 12
+!!
+!!      allocate (rscr(12,mva))
+!!      call shdf5_irec(ndims,idims,'itab_v%fvv',rvara=rscr, points=lgva)
+!!      do iv = 1,mva
+!!         itab_v(iv)%fvv(1:12) = rscr(1:12,iv)
+!!      enddo
+!!      deallocate (rscr)
 
       idims(1) = 16
 
@@ -2500,12 +2499,12 @@ if (exans) then
       enddo
       deallocate (iscr)
 
-      allocate (rscr(16,mva))
-      call shdf5_irec(ndims,idims,'itab_v%fuv',rvara=rscr, points=lgva)
-      do iv = 1,mva
-         itab_v(iv)%fuv(1:16) = rscr(1:16,iv)
-      enddo
-      deallocate (rscr)
+!!      allocate (rscr(16,mva))
+!!      call shdf5_irec(ndims,idims,'itab_v%fuv',rvara=rscr, points=lgva)
+!!      do iv = 1,mva
+!!         itab_v(iv)%fuv(1:16) = rscr(1:16,iv)
+!!      enddo
+!!      deallocate (rscr)
 
    endif
 
