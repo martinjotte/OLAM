@@ -32,32 +32,28 @@
 !===============================================================================
 subroutine timestep()
 
-use misc_coms,  only: io6, time8, time_istp8, nqparm, initial, ilwrtyp,   &
-                      iswrtyp, dtsm, nqparm_sh, dtlm, iparallel,   &
+use misc_coms,   only: io6, time8, time_istp8, nqparm, initial, ilwrtyp, &
+                      iswrtyp, dtsm, nqparm_sh, dtlm, iparallel,         &
                       s1900_init, s1900_sim
-use mem_ijtabs, only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
-use mem_nudge,  only: nudflag
-use mem_grid,   only: mza, mva, mwa
-use micro_coms, only: level
-use leaf_coms,  only: isfcl
-use mem_para,   only: myrank
-use massflux,   only: zero_momsc, timeavg_momsc
-use mem_turb,   only: hkm
-
-use mem_basic,  only: vmc, vc, vxe, vye, vze, thil, rho
-
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
-
-use obnd,         only: trsets, lbcopy_v, lbcopy_w
-
+use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
+use mem_nudge,   only: nudflag
+use mem_grid,    only: mza, mva, mwa
+use micro_coms,  only: level
+use leaf_coms,   only: isfcl
+use mem_para,    only: myrank
+use massflux,    only: zero_momsc, timeavg_momsc
+use mem_turb,    only: hkm
+use mem_basic,   only: vmc, vc, vxe, vye, vze, thil, rho
+use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
+use var_tables,  only: nvar_par, vtab_r, nptonv
+use obnd,        only: trsets, lbcopy_v, lbcopy_w
 use oplot_coms,  only: op
 use oname_coms,  only: nl
-
 use mem_timeavg, only: accum_timeavg
 
 implicit none
 
-integer :: is,mvl,isl4,jstp,iw,mrl
+integer :: is,mvl,isl4,jstp,iw,mrl,n
 real :: t1,w1
 
 ! automatic arrays
@@ -252,6 +248,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(19)
 
+   mrl = mrl_ends(istp)
    call lbcopy_w(mrl, a1=thil, d1=rho)
 
    if (iparallel == 1) then
@@ -260,6 +257,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
 
 ! call check_nans(20)
+
+   mrl = mrl_endl(istp)
+   do n = 1, nvar_par
+      call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
+   enddo
 
    if (iparallel == 1) then
       call mpi_send_w('S')  ! Send scalars

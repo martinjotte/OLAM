@@ -62,6 +62,7 @@ use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, alloc_mpi_sndrcv_
 use ed_misc_coms,only: ed2_active, ed2_namelist
 use hcane_rz,    only: init_hurr_step, hurricane_init
 use obnd,        only: trsets, lbcopy_w
+use var_tables,  only: nvar_par, vtab_r, nptonv
 use mem_swtc5_refsoln_cubic
 
 implicit none
@@ -365,13 +366,19 @@ if (runtype == "INITIAL") then
 endif
 !-------------------------------------------------------------------------------
 
- call trsets()  
+call trsets()  
 
 ! For parallel run, send and receive initialized scalars
 
+mrl = 1
+
+do i = 1, nvar_par
+   call lbcopy_w(mrl, a1=vtab_r(nptonv(i))%rvar2_p)
+enddo
+
 if (iparallel == 1) then
-   call mpi_send_w('S')  ! Send scalars
-   call mpi_recv_w('S')  ! Recv scalars
+   call mpi_send_w('S', domrl=mrl)  ! Send scalars
+   call mpi_recv_w('S', domrl=mrl)  ! Recv scalars
 endif
 
 ! Start up radiation scheme

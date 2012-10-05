@@ -701,7 +701,7 @@ subroutine mpi_send_w(sendgroup,domrl,thil0,wmc0,scp0,wmarw, &
 use mem_basic,  only: wmc,wc,thil,rho,press
 use mem_turb,   only: hkm,vkm,vkm_sfc
 use var_tables, only: nvar_par, vtab_r, num_scalar, nptonv
-use mem_ijtabs, only: jtab_w, itab_w, mrl_begs, mrl_begl, istp, mloops
+use mem_ijtabs, only: jtab_w, itab_w, mrl_begs, mrl_begl, mrl_endl, istp, mloops
 use mem_grid,   only: mza, mwa
 use misc_coms,  only: io6
 use micro_coms, only: level
@@ -757,7 +757,7 @@ if (present(domrl)) then
 else if (sendgroup == 'I') then
    mrl = 1
 elseif (sendgroup == 'S') then
-   mrl = mrl_begl(istp)
+   mrl = mrl_endl(istp)
 else
    mrl = mrl_begs(istp)
 endif
@@ -1252,7 +1252,7 @@ use mem_basic,  only: wmc,wc,thil,rho,press
 use mem_turb,   only: hkm,vkm,vkm_sfc
 use var_tables, only: vtab_r, nvar_par, num_scalar, nptonv
 use mem_para,   only: nrecvs_w, nsends_w, recv_w, send_w, mgroupsize
-use mem_ijtabs, only: itabg_w, mrl_begs, mrl_begl, istp, mloops
+use mem_ijtabs, only: itabg_w, mrl_begs, mrl_begl, mrl_endl, istp, mloops
 use mem_grid,   only: mza, mwa
 use misc_coms,  only: io6
 use micro_coms, only: level
@@ -1307,7 +1307,7 @@ if (present(domrl)) then
 else if (recvgroup == 'I') then
    mrl = 1
 elseif (recvgroup == 'S') then
-   mrl = mrl_begl(istp)
+   mrl = mrl_endl(istp)
 else
    mrl = mrl_begs(istp)
 endif
