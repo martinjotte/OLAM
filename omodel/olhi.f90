@@ -32,13 +32,13 @@
 !===============================================================================
 subroutine fldslhi()
 
-use mem_basic,   only: theta, thil, rho, press, sh_w, sh_v,  &
+use mem_basic,   only: theta, thil, tair, rho, press, sh_w, sh_v,  &
                        wc, wmc, uc, umc, ump, vc, vp, vmc, vmp
 use mem_micro,   only: sh_c
 use micro_coms,  only: level
 use mem_ijtabs,  only: jtab_w, jtab_u, itab_u, jtab_v, itab_v, &
                        jtu_init, jtv_init, jtw_init
-use consts_coms, only: p00, rocp, cvocp, p00k, rdry, rvap, alvlocp, gravo2
+use consts_coms, only: p00, p00i, rocp, cvocp, p00k, rdry, rvap, alvlocp, gravo2
 use mem_grid,    only: mza, mua, mva, mwa, lcu, lpv, zt, dzt, zm, &
                        xeu, yeu, zeu, xev, yev, zev, unx, uny, vnx, vny, &
                        glatw, aru, arv
@@ -124,7 +124,7 @@ call qsub('W',iw)
             rho(k,iw) = press(k,iw) ** cvocp * p00k  &
                / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
          else
-            exner = (press(k,iw) / p00) ** rocp   ! Defined WITHOUT CP factor
+            exner = (press(k,iw) * p00i) ** rocp   ! Defined WITHOUT CP factor
             temp = exner * theta(k,iw)
             rhovs = rhovsl(temp-273.15)
             sh_c(k,iw) = max(0.,sh_w(k,iw)-rhovs/real(rho(k,iw)))
@@ -157,14 +157,16 @@ call qsub('W',iw)
       
    enddo
 
+   do k = 1, mza
+      tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
+   enddo
+
 enddo
 call rsub('Wb',8)
 
-! LBC copy
+! LBC copy (THETA and TAIR will be copied later with the scalars)
 
- call lbcopy_w(1, a1=wc, a2=thil, a3=wmc, a4=theta, d1=press, d2=rho)
-
-! Should WMC and THETA also be included in mpi_send_w('I')?
+ call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
 
 if (iparallel == 1) then
    call mpi_send_w('I')  ! Send W group

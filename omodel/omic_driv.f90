@@ -1117,7 +1117,7 @@ thil0(lpw0:mza0) = thil0(lpw0:mza0) + dsed_thil(lpw0:mza0)
 !    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000)
 
  call mic_copyback(iw0,lpw0,k1,k2,k3, &
-    pcpg0,qpcpg0,dpcpg0,dtli0,accpx,pcprx,thil0,theta0,rhoa,rhow,rhov,rhoi, &
+    pcpg0,qpcpg0,dpcpg0,dtli0,accpx,pcprx,thil0,theta0,tair,rhoa,rhow,rhov,rhoi, &
     con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
 return
@@ -1564,11 +1564,11 @@ end subroutine mic_copy
 !===============================================================================
 
 subroutine mic_copyback(iw0,lpw0,k1,k2,k3, &
-   pcpg0,qpcpg0,dpcpg0,dtli0,accpx,pcprx,thil0,theta0,rhoa,rhow,rhov,rhoi, &
+   pcpg0,qpcpg0,dpcpg0,dtli0,accpx,pcprx,thil0,theta0,tair0,rhoa,rhow,rhov,rhoi, &
    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
 use micro_coms, only: mza0, ncat, jnmb
-use mem_basic,  only: thil, theta, rho, sh_w, sh_v
+use mem_basic,  only: thil, theta, tair, rho, sh_w, sh_v
 use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                       q2, q6, q7, pcpgr, qpcpgr, dpcpgr, &
                       con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
@@ -1597,6 +1597,7 @@ real, intent(in) :: pcprx(ncat)
 
 real, intent(in)  :: thil0(mza0)
 real, intent(in)  :: theta0(mza0)
+real, intent(in)  :: tair0(mza0)
 real, intent(in)  :: rhov(mza0)
 real, intent(out) :: rhoi(mza0)
 
@@ -1622,6 +1623,7 @@ dpcpgr(iw0) = dpcpg0 * dtli0
 do k = lpw0,mza0
    thil(k,iw0)  = thil0(k)
    theta(k,iw0) = theta0(k)
+   tair(k,iw0)  = tair0(k)
    rho(k,iw0)   = rhoa(k)
    rhoi(k)      = 1. / rhoa(k)
    sh_w(k,iw0)  = rhow(k) * rhoi(k)

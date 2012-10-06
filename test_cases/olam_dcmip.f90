@@ -1,6 +1,7 @@
 subroutine olam_dcmip_init()
 
-use mem_basic,  only: vc, vmc, vp, vmp, wc, wmc, rho, thil, theta, press, sh_w, sh_v
+use mem_basic,  only: vc, vmc, vp, vmp, wc, wmc, rho, thil, theta, tair, &
+                      press, sh_w, sh_v
 use mem_ijtabs, only: itab_v, itab_w, jtab_v, jtab_w, mrl_begl
 use mem_grid,   only: mza, mva, mwa, zt, dzt, xev, yev, zev, vnx, vny, vnz, lpw, &
                       glatw, glonw, lpv, zm, glatv, glonv 
@@ -270,6 +271,7 @@ do iw = 2,mwa  ! do for all points in subdomain
 
       rho(k,iw) = rhot0
       press(k,iw) = p
+      tair (k,iw) = t
       theta(k,iw) = t * (p00 / p) ** rocp
       thil(k,iw) = theta(k,iw)
       sh_w(k,iw) = q
@@ -317,6 +319,10 @@ go to 100
          endif
          
       enddo
+   enddo
+
+   do k = 1, mza
+      tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
    enddo
 
 100 continue
@@ -782,6 +788,10 @@ do iw = 2,mwa  ! do for all points in subdomain
       sh_w(k,iw) = qcol(k)
       u3d(k,iw) = ucol(k)
       v3d(k,iw) = vcol(k)
+
+      ! Should we update T, THETA here too??
+      ! tair (k,iw) = tcol(k)
+      ! theta(k,iw) = tcol(k) / exner
 
    enddo
 

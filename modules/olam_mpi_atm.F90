@@ -838,6 +838,9 @@ do jsend = 1,nsends_w(mrl)
          call MPI_Pack(wc(1,iw),mza,MPI_REAL, &
             send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
+         call MPI_Pack(wmc(1,iw),mza,MPI_REAL, &
+            send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
          call MPI_Pack(thil(1,iw),mza,MPI_REAL, &
             send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
@@ -1381,6 +1384,9 @@ do jtmp = 1,nrecvs_w(mrl)
 
          call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
             wc(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+         call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+            wmc(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
          call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos,  &
             thil(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)

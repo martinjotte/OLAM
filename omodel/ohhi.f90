@@ -306,7 +306,7 @@ end subroutine refs1d
 
 subroutine fldshhi()
    
-use mem_basic,   only: theta, thil, press, rho, wc, wmc, uc, ump, umc,  &
+use mem_basic,   only: theta, thil, tair, press, rho, wc, wmc, uc, ump, umc,  &
                        vc, vp, vmp, vmc, sh_w, sh_v
 use mem_micro,   only: sh_c
 use micro_coms,  only: level
@@ -315,7 +315,7 @@ use mem_ijtabs,  only: jtab_w, jtab_u, jtab_v, itab_w, itab_u, itab_v, &
                        jtu_wall, jtv_wall
 use misc_coms,   only: io6, mdomain, th01d, pr01d, dn01d, rt01d, u01d, v01d,  &
                        iparallel, meshtype
-use consts_coms, only: cvocp, p00k, rdry, rvap, p00, rocp, alvlocp,  &
+use consts_coms, only: cvocp, p00k, rdry, rvap, p00, p00i, rocp, alvlocp,  &
                        gravo2, erad
 use mem_grid,    only: mza, mua, mva, lpu, lpv, lcu, &
                        unx, uny, unz, vnx, vny, vnz, xeu, yeu, zeu, &
@@ -375,7 +375,7 @@ call qsub('W',iw)
             rho(k,iw) = press(k,iw) ** cvocp * p00k  &
                / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
          else
-            exner = (press(k,iw) / p00) ** rocp   ! Defined WITHOUT CP factor
+            exner = (press(k,iw) * p00i) ** rocp   ! Defined WITHOUT CP factor
             temp = exner * theta(k,iw)
             rhovs = rhovsl(temp-273.15)
             sh_c(k,iw) = max(0.,sh_w(k,iw)-rhovs/real(rho(k,iw)))
@@ -401,6 +401,10 @@ call qsub('W',iw)
       enddo
    enddo
 
+   do k = 1,mza
+      tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
+   enddo
+
 enddo
 call rsub('Wa',8)
 
@@ -412,11 +416,9 @@ pr01d(1:mza) = press(1:mza,iw)
 dn01d(1:mza) = rho  (1:mza,iw)
 th01d(1:mza) = theta(1:mza,iw)
 
-! LBC copy
+! LBC copy (THETA and TAIR will be copied later with the scalars)
 
- call lbcopy_w(1, a1=wc, a2=thil, a3=wmc, a4=theta, d1=press, d2=rho)
-
-! Should WMC and THETA also be included in mpi_send_w('I')?
+ call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
 
 if (iparallel == 1) then
    call mpi_send_w('I')  ! Send W group

@@ -37,7 +37,7 @@ use mem_nudge,   only: nudflag, nudnxp, mwnud, &
                        umerid_obsp, rho_obsf, theta_obsf, shw_obsf, &
                        uzonal_obsf, umerid_obsf
 use mem_basic,   only: umc, ump, uc, vmc, vmp, vc, vp, thil, sh_w, sh_v, &
-                       wmc, wc, theta, rho, press
+                       wmc, wc, theta, tair, rho, press
 use mem_grid,    only: mza, mua, mva, mwa, lcu, lpv, lpw, zm, zt, &
                        unx, uny, unz, vnx, vny, vnz, xeu, yeu, zeu, &
                        xev, yev, zev, xew, yew, zew, aru, arv, volt
@@ -47,7 +47,7 @@ use mem_micro,   only: sh_c
 use micro_coms,  only: level
 use mem_ijtabs,  only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
                        jtu_init, jtv_init, jtw_init
-use consts_coms, only: pc1, rdry, rvap, cpocv, erad, eradi
+use consts_coms, only: pc1, rdry, rvap, cpocv, rocp, p00i, erad, eradi
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                         mpi_send_u, mpi_recv_u, &
@@ -111,6 +111,8 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
 
          press(k,iw) = alph_p * (rho(k,iw) * thil(k,iw)) ** cpocv
 
+         tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
+
          wc(k,iw) = 0.
          wmc(k,iw) = 0.
 
@@ -118,9 +120,9 @@ if (iaction == 0 .and. runtype == 'INITIAL') then
    enddo
    call rsub('Wb',7)
 
-! LBC copy
+! LBC copy (THETA and TAIR will be copied later with the scalars)
 
-   call lbcopy_w(1, a1=wc, a2=thil, a3=wmc, a4=theta, d1=press, d2=rho)
+   call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
 
    if (iparallel == 1) then
       call mpi_send_w('I')  ! Send W group

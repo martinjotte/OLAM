@@ -53,10 +53,11 @@ Module mem_basic
   real, allocatable, target :: sh_v (:,:) ! spec hum [kg_vap/kg_air]
   real, allocatable, target :: thil (:,:) ! ice-liquid pot temp [K]
   real, allocatable, target :: theta(:,:) ! pot temp [K]
+  real, allocatable, target :: tair (:,:)  ! temperature [K]
 
-  real, allocatable, target :: vxe(:,:) ! earth-relative x velocity at T point [m/s]
-  real, allocatable, target :: vye(:,:) ! earth-relative y velocity at T point [m/s]
-  real, allocatable, target :: vze(:,:) ! earth-relative z velocity at T point [m/s]
+  real, allocatable, target :: vxe  (:,:) ! earth-relative x velocity at T point [m/s]
+  real, allocatable, target :: vye  (:,:) ! earth-relative y velocity at T point [m/s]
+  real, allocatable, target :: vze  (:,:) ! earth-relative z velocity at T point [m/s]
 
   real(r8), allocatable, target :: press(:,:) ! air pressure [Pa]
   real(r8), allocatable, target :: rho  (:,:) ! total air density [kg/m^3]
@@ -106,6 +107,7 @@ Contains
     allocate (wc   (mza,mwa)) ; wc    = rinit
     allocate (thil (mza,mwa)) ; thil  = rinit
     allocate (theta(mza,mwa)) ; theta = rinit
+    allocate (tair (mza,mwa)) ; tair  = rinit
     allocate (sh_w (mza,mwa)) ; sh_w  = rinit
     allocate (sh_v (mza,mwa)) ; sh_v  = rinit
 
@@ -135,6 +137,7 @@ Contains
     if (allocated(press)) deallocate (press)
     if (allocated(thil))  deallocate (thil)
     if (allocated(theta)) deallocate (theta)
+    if (allocated(tair))  deallocate (tair)
     if (allocated(vxe))   deallocate (vxe)
     if (allocated(vye))   deallocate (vye)
     if (allocated(vze))   deallocate (vze)
@@ -210,6 +213,11 @@ Contains
     if (allocated(theta)) then
        call increment_vtable('THETA', 'AW', mpt1=.true.)
        vtab_r(num_var)%rvar2_p => theta
+    endif
+
+    if (allocated(tair)) then
+       call increment_vtable('TAIR', 'AW', mpt1=.true.)
+       vtab_r(num_var)%rvar2_p => tair
     endif
 
     if (allocated(rho)) then

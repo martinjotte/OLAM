@@ -1204,14 +1204,18 @@ Contains
         enddo
      enddo
 
-!!     write(6,'(a,i8,2f10.0)') 'press ',iw,press(2,iw),rad
+! Vertical loop over T levels
+
+     do k = lpw(iw), nzz
+        tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
+     enddo
 
   enddo
   call rsub('W_frances_a',7)
 
-  call lbcopy_w(1, a1=thil, a2=theta, d1=press, d2=rho)
+! LBC copy (THETA and TAIR will be copied later with the scalars)
 
-! Should THETA also be included in mpi_send_w('I')?
+  call lbcopy_w(1, a1=thil, d1=press, d2=rho)
 
 ! If using MPI, perform parallel send/recv
 
@@ -1816,8 +1820,8 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 !! configuration, such as a change in grid resolution, or for a new vortex
 !! initialization time and location.
 
-  use mem_basic,   only: vc, vp, vmc, vmp, wc, wmc, thil, theta, sh_w, sh_v, &
-                         rho, press, vxe, vye, vze
+  use mem_basic,   only: vc, vp, vmc, vmp, wc, wmc, thil, theta, tair, &
+                         sh_w, sh_v, rho, press, vxe, vye, vze
   use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                          q2, q6, q7, &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h
@@ -1825,7 +1829,8 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   use misc_coms,   only: io6, iparallel
   use mem_grid,    only: mza, mma, mwa, lpw, xev, yev, zev, xew, yew, zew, &
                          vnx, vny, vnz, zt, dzt
-  use consts_coms, only: erad, piu180, pio180, gravo2, rvap, rdry, cvocp, p00k
+  use consts_coms, only: erad, piu180, pio180, gravo2, rvap, rdry, &
+                         cvocp, rocp, p00k, p00i
   use max_dims,    only: pathlen
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                           mpi_send_u, mpi_recv_u, &
@@ -2012,11 +2017,14 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
      do k = lpw(iw),nzz
         wmc(k,iw) = wc(k,iw) * .5 * (rho(k,iw) + rho(k+1,iw))
+        tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
      enddo
 
   enddo
 
-  call lbcopy_w(1, a1=wc, a2=thil, a3=wmc, a4=theta, d1=press, d2=rho)
+! LBC copy (THETA and TAIR will be copied later with the scalars)
+
+  call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
 
 ! If using MPI, perform parallel send/recv
 
