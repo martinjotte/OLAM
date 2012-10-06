@@ -2,8 +2,8 @@ subroutine cuparm_emanuel(iw, dtlong)
 
   use mem_grid,    only: mwa, mza, lpu, lpw, volt, mua, zm, zt
   use mem_tend,    only: thilt, sh_wt
-  use mem_basic,   only: theta, press, rho, sh_v, vxe, vye, vze
-  use consts_coms, only: p00i, t00, rocp, grav
+  use mem_basic,   only: theta, tair, press, rho, sh_v, vxe, vye, vze
+  use consts_coms, only: t00, grav
   use misc_coms,   only: confrq
   use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf
   implicit none
@@ -11,7 +11,7 @@ subroutine cuparm_emanuel(iw, dtlong)
   integer, intent(in)  :: iw
   real,    intent(in)  :: dtlong
 
-  real, dimension(mza) :: tc, qc, qsc, vx, vy, vz, pc, pfc, qcldc, exner
+  real, dimension(mza) :: tc, qc, qsc, vx, vy, vz, pc, pfc, qcldc
   real, dimension(mza) :: tt, qt, vxt, vyt, vzt, gz
 
   integer :: k, ka, kc, nd, na, nl
@@ -36,9 +36,7 @@ subroutine cuparm_emanuel(iw, dtlong)
 
      gz(kc) = grav * (zt(k) - zt(ka)) ! geopotential height relative to 1st level
      
-     exner(k) = (p00i * press(k,iw)) ** rocp
-
-     tc(kc)  = theta(k,iw) * exner(k)
+     tc(kc)  = tair(k,iw)
      qc(kc)  = sh_v(k,iw)
      pc(kc)  = press(k,iw)*0.01
 
@@ -90,7 +88,7 @@ subroutine cuparm_emanuel(iw, dtlong)
 
      do k = ka, mza-1
         kc = k - ka + 1
-        thsrc(k,iw) = tt(kc) / exner(k)
+        thsrc(k,iw) = tt(kc) * theta(k,iw) / tair(k,iw)
         rtsrc(k,iw) = qt(kc)
      enddo
 

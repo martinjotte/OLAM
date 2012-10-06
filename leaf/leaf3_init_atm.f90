@@ -40,13 +40,10 @@ use leaf_coms,   only: mwl, nzg, nzs,  &
                        nndvifiles, dt_leaf, isoilstateinit
                       
 use mem_sflux,    only: mlandflux, landflux, jlandflux
-use mem_basic,    only: press, rho, theta, sh_v
+use mem_basic,    only: rho, tair, sh_v
 use misc_coms,    only: io6, time8, s1900_sim, iparallel, runtype
 use mem_ijtabs,   only: itabg_w
-                       
-use consts_coms,  only: p00i, rocp, cliq, cice, alli,  &
-                        cliq1000, cice1000, alli1000
-
+use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000
 use mem_para,     only: myrank
 use leaf3_canopy, only: vegndvi
 use mem_turb,     only: frac_urb, frac_land
@@ -135,10 +132,8 @@ do j = 1,jlandflux(1)%jend(1)
    kw       = landflux(ilf)%kw
    arf_land = landflux(ilf)%arf_sfc
 
-   airtemp = theta(kw,iw) * (p00i * press(kw,iw)) ** rocp
-
-   landflux(ilf)%rhos    = arf_land * rho(kw,iw)
-   landflux(ilf)%airtemp = arf_land * airtemp
+   landflux(ilf)%rhos    = arf_land * rho (kw,iw)
+   landflux(ilf)%airtemp = arf_land * tair(kw,iw)
    landflux(ilf)%airshv  = arf_land * sh_v(kw,iw)
 enddo
 

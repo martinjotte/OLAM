@@ -32,7 +32,7 @@ CONTAINS
                           unx, uny, unz, vnx, vny, vnz, arw0
    use misc_coms,   only: io6, meshtype
    use mem_cuparm,  only: thsrc, rtsrc, conprr
-   use mem_basic,   only: theta, press, rho, vxe, vye, vze, sh_v
+   use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v
    use mem_ijtabs,  only: itab_w, jtab_w
    use consts_coms, only: p00i, rocp, erad
 
@@ -48,8 +48,6 @@ CONTAINS
    real :: dqsdt(mza),dtdt(mza)
    real :: u1d(mza),v1d(mza),t1d(mza),dz1d(mza)
    real :: qv1d(mza),p1d(mza),rho1d(mza),w0avg1d(mza)
-
-   real :: exner(mza)
 
    real :: cubot(mwa),cutop(mwa)  ! bottom & top K level of cumulus (for radiation)
    real :: raincv(mwa)            ! time-step cumulus scheme precipitation (mm)
@@ -90,9 +88,7 @@ CONTAINS
    do k = lpw(iw),mza-1
       kt = k + 1 - lpw(iw)
 
-      exner(k) = (p00i * press(k,iw)) ** rocp
-
-      t1d    (kt) = theta(k,iw) * exner(k)
+      t1d    (kt) = tair (k,iw)
       w0avg1d(kt) = w0avg(k,iw)
       rho1d  (kt) = rho  (k,iw)
       qv1d   (kt) = sh_v (k,iw)
@@ -124,7 +120,7 @@ CONTAINS
    do k = lpw(iw),mza-1
       kt = k + 1 - lpw(iw)
 
-      thsrc(k,iw) = DTDT(Kt) / exner(k)
+      thsrc(k,iw) = DTDT(Kt) * theta(k,iw) / tair(k,iw)
       rtsrc(k,iw) = DQDT(Kt)
    enddo
 

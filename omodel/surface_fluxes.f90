@@ -66,10 +66,9 @@ use mem_para,    only: myrank
 use mem_grid,    only: mza, mwa, lsw, lpw, zt, zm
 use mem_sea,     only: sea, itabg_ws, itab_ws
 use mem_leaf,    only: land, itabg_wl, itab_wl
-use consts_coms, only: p00i, rocp
 use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
 use mem_turb,    only: vkm_sfc, sflux_t, sflux_r, sxfer_tk, sxfer_rk, ustar
-use mem_basic,   only: press, rho, theta, sh_v, vxe, vye, vze
+use mem_basic,   only: press, rho, theta, tair, sh_v, vxe, vye, vze
 
 use ed_state_vars, only: edgrid_g
 
@@ -87,8 +86,7 @@ real :: arf_sea
 real :: arf_land
 real :: arf_sea_dtf
 real :: arf_land_dtf
-real :: exner
-real :: airtemp
+real :: exneri
 real :: vkmsfc, vkmsfcs, vkmsfci
 real :: ustar0, ustars,  ustari
 real :: vels
@@ -189,9 +187,8 @@ do j = 1,jseaflux(1)%jend(mrl)
 
 ! Calculate turbulent fluxes between atmosphere and "water canopy"
 
-   vels    = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
-   exner   = (p00i * press(kw,iw)) ** rocp
-   airtemp = theta(kw,iw) * exner
+   vels   = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
+   exneri = theta(kw,iw) / tair(kw,iw)
 
 ! Sea (open water) component always computed
 
@@ -199,7 +196,7 @@ do j = 1,jseaflux(1)%jend(mrl)
               sea%sea_rough(iws),   &
               vels,                 &
               rho      (kw,iw),     &
-              airtemp,              &
+              tair     (kw,iw),     &
               sh_v     (kw,iw),     &
               sea%seacan_temp(iws), &
               sea%seacan_shv (iws), &
@@ -216,7 +213,7 @@ do j = 1,jseaflux(1)%jend(mrl)
                 sea%ice_rough(iws),   &
                 vels,                 &
                 rho      (kw,iw),     &
-                airtemp,              &
+                tair     (kw,iw),     &
                 sh_v     (kw,iw),     &
                 sea%icecan_temp(iws), &
                 sea%icecan_shv (iws), &
@@ -250,11 +247,11 @@ do j = 1,jseaflux(1)%jend(mrl)
 
 ! Add flux contributions to IW atmospheric column
 
-   vkm_sfc(iw) = vkm_sfc(iw) + arf_atm * vkmsfc
-   ustar  (iw) = ustar  (iw) + arf_atm * ustar0
-   sflux_t(iw) = sflux_t(iw) + arf_atm * seaflux(isf)%sfluxt / exner ! for Taylor PBL
-   sflux_r(iw) = sflux_r(iw) + arf_atm * seaflux(isf)%sfluxr         ! for Taylor PBL
-   sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dtf * seaflux(isf)%sfluxt / exner
+   vkm_sfc    (iw) = vkm_sfc(iw)     + arf_atm  * vkmsfc
+   ustar      (iw) = ustar  (iw)     + arf_atm  * ustar0
+   sflux_t    (iw) = sflux_t(iw)     + arf_atm  * seaflux(isf)%sfluxt * exneri
+   sflux_r    (iw) = sflux_r(iw)     + arf_atm  * seaflux(isf)%sfluxr
+   sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dtf * seaflux(isf)%sfluxt * exneri
    sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dtf * seaflux(isf)%sfluxr
 
 ! Store flux and ATM density contributions to SEA cell in SEAFLUX cell
@@ -315,9 +312,8 @@ do j = 1,jlandflux(1)%jend(mrl)
 !----------------------------------------------------------------------
    call qsub('LF1',iw)
 
-   vels    = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
-   exner   = (p00i * press(kw,iw)) ** rocp
-   airtemp = theta(kw,iw) * exner
+   vels   = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
+   exneri = theta(kw,iw) / tair(kw,iw)
 
 ! Store atmospheric properties in landflux cell
 
@@ -333,7 +329,7 @@ do j = 1,jlandflux(1)%jend(mrl)
                  land%rough    (iwl),  &
                  vels,                 &
                  rho         (kw,iw),  &
-                 airtemp,              &
+                 tair        (kw,iw),  &
                  sh_v        (kw,iw),  &
                  land%can_temp (iwl),  &
                  land%can_shv  (iwl),  &
@@ -356,7 +352,7 @@ do j = 1,jlandflux(1)%jend(mrl)
       call ed_stars_wrapper(iwl, zt(kw)-zm(kw-1),      &
            vels,                 &
            rho         (kw,iw),  &
-           airtemp,              &
+           tair        (kw,iw),  &
            sh_v        (kw,iw),  &
            my_co2,               &
            vkmsfc,               &
@@ -372,9 +368,9 @@ do j = 1,jlandflux(1)%jend(mrl)
 
    vkm_sfc(iw)     = vkm_sfc(iw)     + arf_atm  * vkmsfc
    ustar  (iw)     = ustar  (iw)     + arf_atm  * ustar0
-   sflux_t(iw)     = sflux_t(iw)     + arf_atm  * landflux(ilf)%sfluxt / exner
+   sflux_t(iw)     = sflux_t(iw)     + arf_atm  * landflux(ilf)%sfluxt * exneri
    sflux_r(iw)     = sflux_r(iw)     + arf_atm  * landflux(ilf)%sfluxr
-   sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dtf * landflux(ilf)%sfluxt / exner
+   sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dtf * landflux(ilf)%sfluxt * exneri
    sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dtf * landflux(ilf)%sfluxr
 
 ! Store flux contributions to land cell in landflux cell
@@ -615,8 +611,8 @@ use mem_sflux,   only: jlandflux, landflux
 use mem_cuparm,  only: conprr
 use mem_leaf,    only: land, itabg_wl, itab_wl
 use mem_ijtabs,  only: istp, mrl_begl, itabg_w
-use consts_coms, only: p00i, rocp, cliq, alli, t00
-use mem_basic,   only: press, theta, rho, sh_v
+use consts_coms, only: cliq, alli, t00
+use mem_basic,   only: tair, rho, sh_v
 use leaf_coms,   only: mwl, dt_leaf, mrl_leaf
 use misc_coms,   only: io6, iparallel
 use mem_para,    only: myrank
@@ -674,7 +670,7 @@ if (mrl > 0 .and. mrl <= mrl_leaf) then
 
 ! Compute air temperature in C
 
-   airtempc = theta(kw,iw) * (p00i * press(kw,iw)) ** rocp - t00
+   airtempc = tair(kw,iw) - t00
 
 ! Estimate wet bulb temp using computation from subroutine each_column in micphys
 ! Assume that convective precip reaches surface at this wet bulb temp

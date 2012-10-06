@@ -34,7 +34,7 @@ subroutine oplot_lib(k,i,infotyp,fldname0,wtbot,wttop,fldval,notavail)
 
 use mem_ijtabs,  only: itab_w, itab_u, itab_v, itab_m, itabg_u, itabg_w
 use mem_basic,   only: umc, vmc, wmc, ump, vmp, uc, vc, wc, rho, press, &
-                       thil, theta, sh_w, sh_v, vxe, vye, vze
+                       thil, theta, tair, sh_w, sh_v, vxe, vye, vze
 use mem_cuparm,  only: conprr, aconpr
 
 use mem_grid,    only: mza, mua, mva, mwa, lpm, lpu, lcu, lpv, lpw, lsw, &
@@ -64,7 +64,7 @@ use mem_nudge,   only: rho_obs, theta_obs, shw_obs, uzonal_obs, umerid_obs, &
 
 use misc_coms,   only: io6, pr01d, dn01d, th01d, time8, iparallel, meshtype, naddsc
 use oplot_coms,  only: op
-use consts_coms, only: p00, rocp, erad, piu180, cp, alvl, grav, omega2
+use consts_coms, only: p00i, rocp, erad, piu180, cp, alvl, grav, omega2
 use leaf_coms,   only: slcpd, nzg, slmsts, slz, mwl, dt_leaf
 use mem_sflux,   only: landflux, seaflux
 use sea_coms,    only: mws
@@ -699,13 +699,13 @@ case(12) ! 'THETA'
 
 case(13) ! 'AIRTEMPK'
 
-   fldval = wtbot * theta(k  ,i) * (press(k  ,i) / p00) ** rocp &
-          + wttop * theta(k+1,i) * (press(k+1,i) / p00) ** rocp
+   fldval = wtbot * tair(k  ,i) &
+          + wttop * tair(k+1,i)
 
 case(14) ! 'AIRTEMPC'
 
-   fldval = wtbot * theta(k  ,i) * (press(k  ,i) / p00) ** rocp &
-          + wttop * theta(k+1,i) * (press(k+1,i) / p00) ** rocp - 273.15
+   fldval = wtbot * tair(k  ,i) &
+          + wttop * tair(k+1,i) - 273.15
 
 case(15) ! 'SH_W'
 
@@ -1206,10 +1206,10 @@ case(60) ! 'THETA_P'
 
 case(61) ! 'AIRTEMPK_P'
 
-   fldval = wtbot * theta(k  ,i) * (press(k  ,i) / p00) ** rocp &
-          + wttop * theta(k+1,i) * (press(k+1,i) / p00) ** rocp &
-          - wtbot * theta_init(k  ,i) * (press_init(k  ,i) / p00) ** rocp &
-          - wttop * theta_init(k+1,i) * (press_init(k+1,i) / p00) ** rocp
+   fldval = wtbot * tair(k  ,i) &
+          + wttop * tair(k+1,i) &
+          - wtbot * theta_init(k  ,i) * (press_init(k  ,i) * p00i) ** rocp &
+          - wttop * theta_init(k+1,i) * (press_init(k+1,i) * p00i) ** rocp
 
 case(62) ! 'UMT'
 
@@ -1823,14 +1823,14 @@ case(151) ! 'FCELL_AIRTEMPC'
       if (iparallel == 1) then
          iw = itabg_w(iw)%iw_myrank
       endif
-      fldval = theta(kw,iw) * (press(kw,iw) / p00) ** rocp - 273.15
+      fldval = tair(kw,iw) - 273.15
    elseif (op%stagpt == 'L') then
       kw = landflux(i)%kw
       iw = landflux(i)%iw
       if (iparallel == 1) then
          iw = itabg_w(iw)%iw_myrank
       endif
-      fldval = theta(kw,iw) * (press(kw,iw) / p00) ** rocp - 273.15
+      fldval = tair(kw,iw) - 273.15
    endif
 
 case(152) ! 'FCELL_AIRTEMPK'
@@ -1841,14 +1841,14 @@ case(152) ! 'FCELL_AIRTEMPK'
       if (iparallel == 1) then
          iw = itabg_w(iw)%iw_myrank
       endif
-      fldval = theta(kw,iw) * (press(kw,iw) / p00) ** rocp
+      fldval = tair(kw,iw)
    elseif (op%stagpt == 'L') then
       kw = landflux(i)%kw
       iw = landflux(i)%iw
       if (iparallel == 1) then
          iw = itabg_w(iw)%iw_myrank
       endif
-      fldval = theta(kw,iw) * (press(kw,iw) / p00) ** rocp
+      fldval = tair(kw,iw)
    endif
 
 case(153) ! 'FCELL_CANTEMPC'

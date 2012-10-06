@@ -36,7 +36,7 @@ use mem_harr, only: mg, mb
 
 use mem_grid, only: mza, zm, zt, glatw, glonw
 
-use mem_basic, only: rho, press, theta, sh_v
+use mem_basic, only: rho, press, theta, tair, sh_v
 
 use misc_coms, only: io6, iswrtyp, ilwrtyp, time8
 
@@ -62,7 +62,6 @@ real, intent(in) :: rlong_previous
 
 integer :: jhcat(mza,ncat)  ! hydrom category table with ice habits
 
-real :: tairk(mza) ! air temperature [K]
 real :: rhov (mza) ! vapor density [kg_vap/m^3]
 real :: rx   (mza,ncat)  ! hydrom bulk spec dens [kg_hyd/kg_air]
 real :: cx   (mza,ncat)  ! hydrom bulk number [num_hyd/kg_air]
@@ -112,17 +111,15 @@ real :: exner
 do k = ka,mza-1
    krad = k - koff
 
-   exner    = (press(k,iw) * p00i) ** rocp
-   tairk(k) = theta(k,iw) * exner
    rhov(k)  = max(0.,sh_v(k,iw)) * rho(k,iw)
 
    dl(krad)  = rho  (k,iw)
    pl(krad)  = press(k,iw)
-   tl(krad)  = tairk(k)
+   tl(krad)  = tair (k,iw)
    rl(krad)  = rhov (k)
    zml(krad) = zm   (k)
    ztl(krad) = zt   (k)
-   exl(krad) = exner
+   exl(krad) = tair(k,iw) / theta(k,iw)
 enddo
  
 ! Fill surface values
@@ -149,7 +146,7 @@ fd(:,:) = 0.0
 
 ! Fill arrays rx, cx, and emb with hydrometeor properties
 
-call cloudprep_rad(iw,ka,mcat,jhcat,tairk,rhov,rx,cx,emb)
+call cloudprep_rad(iw,ka,mcat,jhcat,rhov,rx,cx,emb)
 
 ! Fill hydrometeor optical property arrays [tp, omgp, gp]
 
@@ -254,7 +251,7 @@ end subroutine harr_raddriv
 
 !===============================================================================
 
-subroutine cloudprep_rad(iw,ka,mcat,jhcat,tairk,rhov,rx,cx,emb)
+subroutine cloudprep_rad(iw,ka,mcat,jhcat,rhov,rx,cx,emb)
 
 ! This subroutine was developed from parts of subroutine MIC_COPY in
 ! omic_driv.f90 and subroutines EACH_COLUMN and ENEMB in omic_misc.f90.
@@ -268,6 +265,8 @@ use micro_coms, only: ncat, jnmb, rxmin, jhabtab, level,  &
 use mem_micro,  only: sh_c, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, sh_d,  &
                       con_c, con_r, con_p, con_s, con_a, con_g, con_h, con_d
 
+use mem_basic,  only: tair
+
 use mem_grid,   only: mza
 
 implicit none
@@ -278,7 +277,6 @@ integer, intent(in) :: ka
 integer, intent(out) :: mcat  ! # of active hydrom categories (0,1, or 7)
 integer, intent(out) :: jhcat(mza,ncat)  ! hydrom category table with ice habits
 
-real, intent(in) :: tairk(mza) ! air temperature [K]
 real, intent(in) :: rhov(mza)  ! water vapor density [kg_vap/m^3]
 
 real, intent(out) :: rx (mza,ncat)  ! hydrom bulk spec dens [kg_hyd/kg_air]
@@ -503,7 +501,7 @@ if (level == 3) then
 ! and EACH_COLUMN in omic_misc.f90
 
    do k = ka,mza-1
-      tairc = tairk(k) - 273.15
+      tairc = tair(k,iw) - 273.15
       rhovslair = rhovsl(tairc)
       relhum = min(1.,rhov(k) / rhovslair)
 

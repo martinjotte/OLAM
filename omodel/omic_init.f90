@@ -32,7 +32,7 @@
 !===============================================================================
 subroutine micinit()
 
-use mem_basic,   only: theta, press, rho
+use mem_basic,   only: tair, press, rho
 
 use mem_micro,   only: sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        accpd, accpr, accpp, accps, accpa, accpg, accph, &
@@ -42,7 +42,6 @@ use mem_micro,   only: sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        pcpgr, qpcpgr, dpcpgr
 
 use misc_coms,   only: io6, dtlm
-use consts_coms, only: p00, rocp
 use mem_ijtabs,  only: jtab_w, mrls, jtw_init
 use mem_grid,    only: mza, zm, dzt, dzit
 use mem_para,    only: myrank
@@ -56,8 +55,6 @@ use micro_coms,  only: level, icloud, idriz, irain, ipris, isnow, iaggr, &
 use hdf5_utils, only: shdf5_irec, shdf5_orec, shdf5_open, shdf5_close
 
 implicit none
-
-real :: tair(mza)  ! automatic array
 
 integer :: j,iw,k,lcat,lhcat,mrl,ndims,idims(3)
 
@@ -90,8 +87,6 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
-   tair(1:mza) = theta(1:mza,iw) * (press(1:mza,iw) / p00) ** rocp
-
    if (idriz >= 1)  then
       sh_d(1:mza,iw) = 0.
       accpd(iw) = 0.
@@ -102,7 +97,7 @@ call qsub('W',iw)
       sh_r(1:mza,iw) = 0.
       accpr(iw) = 0.
       pcprr(iw) = 0.
-      q2(1:mza,iw) = tair(1:mza) - 193.15
+      q2(1:mza,iw) = tair(1:mza,iw) - 193.15
    endif
    
    if (ipris >= 1)  then
@@ -127,14 +122,14 @@ call qsub('W',iw)
       sh_g(1:mza,iw) = 0.
       accpg(iw) = 0.
       pcprg(iw) = 0.
-      q6(1:mza,iw) = .5 * min(0.,tair(1:mza) - 273.15)
+      q6(1:mza,iw) = .5 * min(0.,tair(1:mza,iw) - 273.15)
    endif
 
    if (ihail >= 1)  then
       sh_h(1:mza,iw) = 0.
       accph(iw) = 0.
       pcprh(iw) = 0.
-      q7(1:mza,iw) = .5 * min(0.,tair(1:mza) - 273.15)
+      q7(1:mza,iw) = .5 * min(0.,tair(1:mza,iw) - 273.15)
    endif
 
    if (jnmb(1) == 5) con_c(1:mza,iw) = 0.

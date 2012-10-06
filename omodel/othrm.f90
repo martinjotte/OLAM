@@ -176,7 +176,6 @@ real :: qhydm   (mza)  ! automatic array
 
 do k = lpw(iw),mza-1
    exner(k) = (press(k,iw) / p00) ** rocp  ! exner WITHOUT CP factor
-   airtempk(k) = theta(k,iw) * exner(k)    ! air temperature
    til(k) = thil(k,iw) * exner(k)          ! ice-liquid temperature T_il
    totliq(k) = 0.                          ! total liquid spec. density
    totice(k) = 0.                          ! total ice mixing ratio
@@ -240,7 +239,7 @@ do k = lpw(iw),mza-1
 enddo
 
 do k = lpw(iw),mza-1
-   if (airtempk(k) > 253.) then
+   if (tair(k,iw) > 253.) then
       tairstr = .5 * (til(k)  &
          + sqrt(til(k) * (til(k) + cpi4 * qhydm(k))))
    else
