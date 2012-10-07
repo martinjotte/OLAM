@@ -73,9 +73,9 @@ objects/Make.targets: $(SOURCE_FILES) sources.mk
 	@mkdir -p objects
 	@rm -f objects/Make.targets
 	@for sfile in $(SOURCE_FILES); do \
-	    echo -e objects/$$(basename $$sfile): $$sfile >> objects/Make.targets ; \
-	    echo -e '\t'cp -p $$sfile  objects/$$(basename $$sfile) >> objects/Make.targets ; \
-	done
+	    dfile=objects/$$(basename $$sfile); \
+	    echo $$dfile: $$sfile $$'\n\tcp' -p $$sfile $$dfile; \
+	done > objects/Make.targets
 
 $(EXE): $(OBJECT_FILES)
 	@echo ""
@@ -87,7 +87,9 @@ $(EXE): $(OBJECT_FILES)
 
 objects/FLIST: FORCE
 	@for sfile in $(SOURCE_FILES); do \
-	    if [ ! -f $$sfile ]; then echo -e '\nError: Source file "'$$sfile'" not found\n'; fi \
+	    if [ ! -f $$sfile ]; then \
+	         echo $$'\nError: Source file "'$$sfile$$'" not found.\n'; \
+	    fi \
 	done
 	@touch objects/FLIST
 
