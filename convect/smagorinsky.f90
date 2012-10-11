@@ -60,6 +60,7 @@ contains
     use micro_coms,  only: level
     use mem_tend,    only: vmxet, vmyet, vmzet, thilt, sh_wt
     use var_tables,  only: num_scalar, scalar_tab
+    use tridiag,     only: tridv
 
  !$ use omp_lib
 
@@ -419,71 +420,5 @@ contains
     enddo
     
   end subroutine turb_k
-
-
-  subroutine tridv ( l, d, u, b, x, ka, kz, nz, nsp )
-
-!   Solves tridiagonal system by Thomas algorithm. 
-!   The associated tri-diagonal system is stored in 3 arrays
-!   D : diagonal
-!   L : sub-diagonal
-!   U : super-diagonal
-!   B : right hand side function
-!   X : return solution from tridiagonal solver
-
-!     [ D(1) U(1) 0    0    0 ...       0     ]
-!     [ L(2) D(2) U(2) 0    0 ...       .     ]
-!     [ 0    L(3) D(3) U(3) 0 ...       .     ]
-!     [ .       .     .     .           .     ] X(i) = B(i)
-!     [ .             .     .     .     0     ]
-!     [ .                   .     .     .     ]
-!     [ 0                           L(n) D(n) ]
-
-!-----------------------------------------------------------------------
-
-    implicit none
-      
-! Arguments:
-    
-    integer, intent(in)  :: ka, kz, nz
-    integer, intent(in)  :: nsp
-
-    real,    intent(in)  :: l(nz)      ! subdiagonal
-    real,    intent(in)  :: d(nz)      ! diagonal
-    real,    intent(in)  :: u(nz)      ! superdiagonal
-    real,    intent(in)  :: b(nz,nsp)  ! r.h. side
-    real,    intent(out) :: x(nz,nsp)  ! solution
-
-! Local Variables:
-
-    real    ::  gam(kz)
-    real    ::  bet
-    integer ::  v, k
-
-! Decomposition and forward substitution:
-
-    bet = 1.0 / d( ka )
-    do v = 1, nsp
-       x( ka,v ) = bet * b(ka,v)
-    enddo
-
-    do k = ka+1, kz
-       gam(k) = bet * u( k-1 )
-       bet = 1.0 / ( d( k ) - l( k ) * gam( k ) )
-       do v = 1, nsp
-          x( k,v ) = bet * ( b( k,v ) - l( k ) * x( k-1,v ) )
-       enddo
-    enddo
-
-! Back-substitution:
-
-    do v = 1, nsp
-       do k = kz - 1, ka, -1
-          x( k,v ) = x( k,v ) - gam( k+1 ) * x( k+1,v )
-       enddo
-    enddo
-     
-  end subroutine tridv
-
 
 end module smagorinsky

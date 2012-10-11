@@ -507,7 +507,6 @@ use misc_coms,  only: io6, dtlm, dtsm
 use mem_turb,   only: hkm, sxfer_rk, fqtpbl
 use mem_grid,   only: mza, mua, mwa, lpw, lsw,  &
                       dniu, volt, aru, arw, volwi, dzim, volti
-use massflux,   only: tridiffo
 use mem_para,   only: myrank
 
 implicit none

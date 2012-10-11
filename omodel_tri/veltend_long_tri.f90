@@ -146,7 +146,6 @@ use misc_coms,   only: io6, dtlm, icorflg
 use mem_turb,    only: hkm
 use consts_coms, only: omega2
 use mem_grid,    only: mza, aru, arw, volt, dniu, dzim, unx, uny, lpu, arw0
-use massflux,    only: tridiffo
 
 implicit none
 
@@ -304,7 +303,6 @@ use misc_coms,   only: io6,icorflg, dtlm
 use mem_turb,    only: hkm
 use consts_coms, only: omega2
 use mem_grid,    only: mza, lpw, aru, arw, dniu, dzit, volt, volwi, wnx, wny
-use massflux,    only: tridiffo
 
 implicit none
 

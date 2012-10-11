@@ -757,7 +757,7 @@ use consts_coms, only: cpocv, gravo2, grav, omega2, pi1, pio180
 use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, arw, volt, volti, &
                        volwi, dzm, dzim, dzt, xew, zm, unx, uny, vnx,  &
                        vny, wnx, wny, wnz, glatw, glonw
-use massflux,    only: tridiffo
+use tridiag,     only: tridiffo
 use oname_coms,  only: nl
 
 implicit none

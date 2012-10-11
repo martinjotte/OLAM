@@ -39,7 +39,6 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
   use misc_coms,    only: io6, dtlm, iparallel
   use var_tables,   only: num_scalar, scalar_tab
   use mem_turb,     only: vkh, hkm, sxfer_rk, fqtpbl
-  use massflux,     only: tridiffo
   use mem_basic,    only: rho
   use mem_para,     only: myrank
   use oname_coms,   only: nl

@@ -229,6 +229,7 @@ SOURCE_FILES= \
              $(OUTILS)/map_proj.f90 \
              $(OUTILS)/read_cdc.f90 \
              $(OUTILS)/therm_lib.f90 \
+             $(OUTILS)/tridiag_lib.f90 \
              $(RADIATE)/ccmp_raddriv.f90 \
              $(RADIATE)/cc_rad.f90 \
              $(RADIATE)/harr_raddriv.f90 \

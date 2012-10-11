@@ -49,7 +49,7 @@ use leaf_coms, only: nzg, nzs, dslz, dslzi, slzt, dslzo2, dt_leaf,  &
 
 use consts_coms, only: cliq1000, cice1000, alli1000, alvi
 use misc_coms,   only: io6, time8
-use massflux,    only: tridiffo
+use tridiag,     only: tridiffo
 use leaf3_plot,  only: leaf_plot
 
 implicit none
