@@ -999,6 +999,83 @@ if (mdomain > 1) then
 
 endif
 
+!---------------------------------------------------
+! Plot grid lines
+
+if (.false.) then
+
+   call o_reopnwk()
+   call plotback()
+   call oplot_set(1)
+   psiz = .035 / real(nxp) ! not good with nested grids
+   vsprd = .10 * sqrt(arw0(nwa))
+
+   do iv = 2, nva
+
+      im1 = itab_v(iv)%im(1)
+      im2 = itab_v(iv)%im(2)
+
+      iw1 = itab_v(iv)%iw(1)
+      iw2 = itab_v(iv)%iw(2)
+
+      call oplot_transform(1,xem(im1),yem(im1),zem(im1),xm1,ym1)
+      call oplot_transform(1,xem(im2),yem(im2),zem(im2),xm2,ym2)
+      call oplot_transform(1,xev(iv),yev(iv),zev(iv),xv,yv)
+      call oplot_transform(1,xew(iw2),yew(iw2),zew(iw2),xw2,yw2)
+      call oplot_transform(1,xew(iw1),yew(iw1),zew(iw1),xw1,yw1)
+
+      call trunc_segment(xm1,xm2,ym1,ym2,xq1,xq2,yq1,yq2,iskip)
+
+      if (iskip == 1) cycle
+
+      call o_frstpt (xq1,yq1)
+      call o_vector (xq2,yq2)
+
+      if ( xm1 < op%xmin .or.  &
+           xm1 > op%xmax .or.  &
+           ym1 < op%ymin .or.  &
+           ym1 > op%ymax ) cycle
+
+      write(string,'(I0)') im1
+      call o_plchlq (xm1,ym1,trim(adjustl(string)),psiz,0.,0.)
+
+      write(string,'(I0)') im2
+      call o_plchlq (xm2,ym2,trim(adjustl(string)),psiz,0.,0.)
+
+      write(string,'(I0)') iv
+      call o_plchlq (xv,yv,trim(adjustl(string)),psiz,0.,0.)
+
+      write(string,'(I0)') iw1
+      call o_plchlq (xw1,yw1,trim(adjustl(string)),psiz,0.,0.)
+
+      write(string,'(I0)') iw2
+      call o_plchlq (xw2,yw2,trim(adjustl(string)),psiz,0.,0.)
+
+      write(string,'(I0)') itab_m(im1)%imp
+      call o_plchlq (xm1,ym1+vsprd,trim(adjustl(string)),.5*psiz,0.,0.)
+
+      write(string,'(I0)') itab_m(im2)%imp
+      call o_plchlq (xm2,ym2+vsprd,trim(adjustl(string)),.5*psiz,0.,0.)
+
+      write(string,'(I0)') itab_v(iv)%ivp
+      call o_plchlq (xv,yv+vsprd,trim(adjustl(string)),.5*psiz,0.,0.)
+
+      write(string,'(I0)') itab_w(iw1)%iwp
+      call o_plchlq (xw1,yw1+vsprd,trim(adjustl(string)),.5*psiz,0.,0.)
+
+      write(string,'(I0)') itab_w(iw2)%iwp
+      call o_plchlq (xw2,yw2+vsprd,trim(adjustl(string)),.5*psiz,0.,0.)
+
+   enddo  ! IV
+
+   call o_frame()
+   call o_clswk()
+
+endif
+
+! End plot grid lines
+!---------------------------------------------------
+
 !! THE FOLLOWING COEFFICIENTS ARE UNUSED WITH PEROT'S METHOD FOR HEXAGONS
 !!
 !!! Loop over all V points
