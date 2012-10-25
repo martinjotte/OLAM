@@ -146,6 +146,38 @@ end subroutine topbots
 
 !===============================================================================
 
+subroutine lbcopy_m(mrl, a1)
+
+use mem_ijtabs, only: jtab_m, itab_m, jtm_lbcp
+use mem_grid,   only: mza, mma
+use misc_coms,  only: io6
+
+implicit none
+
+integer, intent(in) :: mrl
+
+real, optional, intent(inout) :: a1(mza,mma)
+
+integer :: j,im,imp
+
+! Lateral boundary copy (usually cyclic)
+
+!----------------------------------------------------------------------
+if (mrl > 0) then
+do j = 1,jtab_m(jtm_lbcp)%jend(mrl); im = jtab_m(jtm_lbcp)%im(j)
+   imp = itab_m(im)%imp
+!----------------------------------------------------------------------
+
+   if (present(a1)) a1(:,im) = a1(:,imp) 
+
+enddo
+endif
+
+return
+end subroutine lbcopy_m
+
+!===============================================================================
+
 subroutine lbcopy_u(mrl, umc, uc)
 
 use mem_ijtabs, only: jtab_u, itab_u, jtu_lbcp

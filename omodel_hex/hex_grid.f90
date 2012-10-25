@@ -94,6 +94,8 @@ do iwd = 2,nwad
 
 ! Indices of 3 M points surrounding WD point
 
+   if (any(itab_wd(iwd)%im(1:3) < 2)) cycle
+
    iw1 = itab_wd(iwd)%im(1)
    iw2 = itab_wd(iwd)%im(2)
    iw3 = itab_wd(iwd)%im(3)
@@ -132,6 +134,23 @@ do iv = 2,nva
    itab_v(iv)%im(1:6)  = itab_ud(iud)%iw(1:6)
    itab_v(iv)%iv(1:12) = itab_ud(iud)%iu(1:12)
    itab_v(iv)%iw(1:2)  = itab_ud(iud)%im(1:2)
+
+! For periodic Cartesian hex domain, compute coordinates for outer M points
+
+   im1 = itab_v(iv)%im(1)
+   im2 = itab_v(iv)%im(2)
+   iw1 = itab_v(iv)%iw(1)
+   iw2 = itab_v(iv)%iw(2)
+
+   if (itab_wd(im1)%npoly < 3) then ! itab_m(im1)%npoly not filled yet
+      xem(im1) = xew(iw1) + xew(iw2) - xem(im2) 
+      yem(im1) = yew(iw1) + yew(iw2) - yem(im2) 
+      zem(im1) = 0. 
+   elseif (itab_wd(im2)%npoly < 3) then ! itab_m(im2)%npoly not filled yet
+      xem(im2) = xew(iw1) + xew(iw2) - xem(im1) 
+      yem(im2) = yew(iw1) + yew(iw2) - yem(im1) 
+      zem(im2) = 0. 
+   endif
 
 ! Extract information from IMD1 neighbor
 
@@ -266,10 +285,10 @@ do im = 2,nma
    if (mdomain == 0) then
       itab_m(im)%imp = im
    else
-      itab_m(im)%imp = itab_wd(iwd)%iwp ! Could this be used always?
+      itab_m(im)%imp = itab_wd(iwd)%iwp
    endif
 
-   itab_m(im)%npoly     = 3
+   itab_m(im)%npoly     = itab_wd(iwd)%npoly
    itab_m(im)%imglobe   = itab_wd(iwd)%iwglobe
    itab_m(im)%mrlm_orig = itab_wd(iwd)%mrlw_orig
    itab_m(im)%mrow      = itab_wd(iwd)%mrow
@@ -335,6 +354,8 @@ do iter = 1,niter
    do im = 2,nma
 
 ! Indices of 3 W points surrounding M point
+
+      if (any(itab_m(im)%iw(1:3) < 2)) cycle
 
       iw1 = itab_m(im)%iw(1)
       iw2 = itab_m(im)%iw(2)
@@ -577,7 +598,7 @@ real :: gx1,gx2,gy1,gy2
 
 real :: xem1, xem2, yem1, yem2, zem1, zem2
 
-real :: xq1, yq1, xq2, yq2, psiz
+real :: xq1, yq1, xq2, yq2, psiz, vsprd
 integer :: iskip, iwp, ivp
 logical :: dops
 
@@ -672,33 +693,13 @@ do iv = 2,nva
 ! Unit vector components of U face
 !x Convert normal distance across U face to geodesic arc length
 
-   if (im1 < 2) then
-      xem1 = xev(iv)
-      yem1 = yev(iv)
-      zem1 = zev(iv)
-   else
-      xem1 = xem(im1)
-      yem1 = yem(im1)
-      zem1 = zem(im1)
-   endif
+   dnu(iv) = sqrt( (xem(im1) - xem(im2))**2 &
+                 + (yem(im1) - yem(im2))**2 &
+                 + (zem(im1) - zem(im2))**2 )
 
-   if (im2 < 2) then
-      xem2 = xev(iv)
-      yem2 = yev(iv)
-      zem2 = zev(iv)
-   else
-      xem2 = xem(im2)
-      yem2 = yem(im2)
-      zem2 = zem(im2)
-   endif
-
-   dnu(iv) = sqrt( (xem1 - xem2)**2 &
-                 + (yem1 - yem2)**2 &
-                 + (zem1 - zem2)**2 )
-
-   unx(iv) = (xem2 - xem1) / dnu(iv)
-   uny(iv) = (yem2 - yem1) / dnu(iv)
-   unz(iv) = (zem2 - zem1) / dnu(iv)
+   unx(iv) = (xem(im2) - xem(im1)) / dnu(iv)
+   uny(iv) = (yem(im2) - yem(im1)) / dnu(iv)
+   unz(iv) = (zem(im2) - zem(im1)) / dnu(iv)
 
 !x   dnu(iv) = erad2 * asin(dnu(iv) / erad2)
    dniu(iv) = 1. / dnu(iv)
@@ -727,13 +728,13 @@ do iv = 2,nva
 ! Compute IM1 and IM2 values of quarter kite area,
 ! and add to ARM0 and ARW0 arrays   
 
-   dvm1 = sqrt((xev(iv) - xem1)**2 &
-        +      (yev(iv) - yem1)**2 &
-        +      (zev(iv) - zem1)**2)
+   dvm1 = sqrt((xev(iv) - xem(im1))**2 &
+        +      (yev(iv) - yem(im1))**2 &
+        +      (zev(iv) - zem(im1))**2)
 
-   dvm2 = sqrt((xev(iv) - xem2)**2 &
-        +      (yev(iv) - yem2)**2 &
-        +      (zev(iv) - zem2)**2)
+   dvm2 = sqrt((xev(iv) - xem(im2))**2 &
+        +      (yev(iv) - yem(im2))**2 &
+        +      (zev(iv) - zem(im2))**2)
 
 ! Fractional distance along V edge where intersection with U edge is located
 

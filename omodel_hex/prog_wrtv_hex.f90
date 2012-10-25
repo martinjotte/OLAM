@@ -50,7 +50,7 @@ use misc_coms,    only: io6, iparallel, time8, dtlm
 use consts_coms,  only: cpocv, pc1, rdry, rvap
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
 use oplot_coms,   only: op
-use obnd,         only: lbcopy_w
+use obnd,         only: lbcopy_m, lbcopy_w
 
 !$ use omp_lib
 
@@ -220,6 +220,10 @@ if (mrl > 0) then
    enddo
    !$omp end parallel do 
    call rsub('M',3)
+
+! Copy LBC
+
+   call lbcopy_m(mrl, a1=vortp)
 
    tvort = 3600.
    c0 = .125 / tvort

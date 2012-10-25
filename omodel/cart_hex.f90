@@ -57,12 +57,12 @@ real :: xu, yu, xw1, yw1, xw2, yw2
 
 character(10) :: string
 
-real :: jm1(nxp+1,nxp+1,3)
-real :: ju1(nxp+1,nxp+1,3)
-real :: ju2(nxp+1,nxp+1,3)
-real :: ju3(nxp+1,nxp+1,3)
-real :: jw1(nxp+1,nxp+1,3)
-real :: jw2(nxp+1,nxp+1,3)
+real :: jm1(  nxp+1,  nxp+1,3)
+real :: ju1(  nxp+1,  nxp+1,3)
+real :: ju2(  nxp+1,  nxp+1,3)
+real :: ju3(  nxp+1,  nxp+1,3)
+real :: jw1(0:nxp+1,  nxp+1,3)
+real :: jw2(  nxp+1,0:nxp+1,3)
 
 ! Define triangles, edges, and vertices for 3D cartesian hexagonal domain.
 ! Radius of prognostic region of domain is nxp, and one boundary row
@@ -97,16 +97,22 @@ do ir = 1,3           ! rhombus counter
          nwa = nwa + 2
 
       enddo
+
+      jw1(0,j,ir) = nwa + 1
+
+      nwa = nwa + 1
+
    enddo
 
    do i = 1,nxp+1
 
       jm1(i,nxp+1,ir) = nma + 1
-
       ju1(i,nxp+1,ir) = nua + 1
+      jw2(i,    0,ir) = nwa + 1
 
       nma = nma + 1
       nua = nua + 1
+      nwa = nwa + 1
 
    enddo
 enddo
@@ -212,6 +218,8 @@ do ir = 1,3
 
          iw1 = jw1(i,j,ir)
          iw2 = jw2(i,j,ir)
+         iw3 = jw2(i,j-1,ir)
+         iw4 = jw1(i-1,j,ir)
 
          im3 = jm1(i,j+1,ir)
          iu5 = ju1(i,j+1,ir)
@@ -224,18 +232,6 @@ do ir = 1,3
             im2 = jm1(j  ,nxp+1,irp)
             im4 = jm1(j+1,nxp+1,irp)
             iu4 = ju1(j  ,nxp+1,irp)
-         endif
-
-         if (j >= 2) then
-            iw3 = jw2(i,j-1,ir)
-         else
-            iw3 = 1
-         endif
-
-         if (i >= 2) then
-            iw4 = jw1(i-1,j,ir)
-         else
-            iw4 = 1
          endif
 
          if (ir == 1) then
@@ -302,6 +298,14 @@ do ir = 1,3
             itab_ud(iu3)%iup = ju1(2,2,irp)
             call udloopf('f',iu3, jtu_lbcp, 0, 0, 0, 0, 0)
 
+            itab_wd(iw3)%iwp = jw2(2,1,irm)
+            itab_wd(iw3)%iu(1) = iu1
+            call wdloopf('f',iw3, jtw_lbcp, 0, 0, 0, 0, 0)
+
+            itab_wd(iw4)%iwp = jw1(2,2,irp)
+            itab_wd(iw4)%iu(1) = iu3
+            call wdloopf('f',iw4, jtw_lbcp, 0, 0, 0, 0, 0)
+
          elseif (i == 1) then
 
             itab_md(im1)%imp = jm1(j+1,2,irp)
@@ -319,6 +323,10 @@ do ir = 1,3
 
             itab_ud(iu3)%iup = ju1(j+1,2,irp)
             call udloopf('f',iu3, jtu_lbcp, 0, 0, 0, 0, 0)
+
+            itab_wd(iw4)%iwp = jw1(j+1,2,irp)
+            itab_wd(iw4)%iu(1) = iu3
+            call wdloopf('f',iw4, jtw_lbcp, 0, 0, 0, 0, 0)
 
          elseif (j == 1) then
 
@@ -344,6 +352,14 @@ do ir = 1,3
                itab_ud(iu3)%iup = ju2(1,i-1,irm)
                call udloopf('f',iu3, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
             endif
+
+            if (i == nxp+1) then
+               itab_wd(iw3)%iwp = jw2(nxp+1,1,irp)
+            else
+               itab_wd(iw3)%iwp = jw2(2,i,irm)
+            endif
+            itab_wd(iw3)%iu(1) = iu1
+            call wdloopf('f',iw3, jtw_lbcp, 0, 0, 0, 0, 0)
 
          endif
 
@@ -418,7 +434,7 @@ mwa = nwa
 
 call oplot_set(1)
 
-psiz = .04 / real(nxp)
+psiz = .035 / real(nxp)
 
 do iu = 2,nua
    im1 = itab_ud(iu)%im(1)
