@@ -37,7 +37,7 @@ subroutine para_decomp()
 use mem_para,   only: mgroupsize, myrank
 use misc_coms,  only: io6, meshtype
 
-use mem_ijtabs, only: itab_u_pd, itab_v_pd, itab_w_pd, itabg_m, itabg_u, itabg_v, itabg_w
+use mem_ijtabs, only: itab_u_pd, itab_v_pd, itab_w_pd, itab_m_pd, itabg_m, itabg_u, itabg_v, itabg_w
 use mem_grid,   only: nma, nua, nva, nwa, xem, yem, zem
 
 use leaf_coms,  only: nml, nul, nwl, isfcl
@@ -696,6 +696,18 @@ else
    enddo
    
 endif
+
+
+! Set rank of M point based on rank of 1st U or V point in stencil
+! Optimize later....
+
+do im = 2, nma
+   if (meshtype == 1) then
+      itabg_m(im)%irank = itabg_u( itab_m_pd(im)%iu(1) )%irank
+   else
+      itabg_m(im)%irank = itabg_v( itab_m_pd(im)%iv(1) )%irank
+   endif
+enddo
 
 if (isfcl == 1) then
 

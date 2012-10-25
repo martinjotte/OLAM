@@ -308,8 +308,31 @@ do im = 2,nma
           itab_m(im)%mrlm = itab_w(iw)%mrlw
       endif
    enddo
-
 enddo
+
+! Special: for a cartesian domain, do a lateral boundary copy of MRL
+
+if (mdomain /= 0) then
+
+   do im = 2, nma
+      if (itab_m(im)%imp /= im) then
+         itab_m(im)%mrlm = itab_m( itab_m(im)%imp )%mrlm
+      endif
+   enddo
+
+   do iw = 2, nwa
+      if (itab_w(iw)%iwp /= iw) then
+         itab_w(iw)%mrlw = itab_w( itab_w(iw)%iwp )%mrlw
+      endif
+   enddo
+
+   do iv = 2, nva
+      if (itab_v(iv)%ivp /= iv) then
+         itab_v(iv)%mrlv = itab_v( itab_v(iv)%ivp )%mrlv
+      endif
+   enddo
+
+endif
 
 deallocate(itab_md,itab_ud,itab_wd)
 
