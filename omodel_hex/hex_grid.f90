@@ -573,6 +573,7 @@ use mem_grid,    only: nza, nma, nva, nwa, xev, yev, zev, xem, yem, zem, &
                        arm0, glonm, glatm, glatv, glonv
 use misc_coms,   only: io6, mdomain, grdlat, grdlon, nxp, rinit
 use consts_coms, only: erad, erad2, piu180, eradsq,pio2
+use oplot_coms,  only: op
 
 implicit none
 
