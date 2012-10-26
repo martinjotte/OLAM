@@ -70,6 +70,7 @@ subroutine alloc_mpi_sndrcv_bufs()
                        send_u, recv_u, &
                        send_v, recv_v, &
                        send_w, recv_w, &
+                       send_m, recv_m, &
                        send_wl, send_wlf, send_ws, send_wsf, &
                        recv_wl, recv_wlf, recv_ws, recv_wsf
 
@@ -89,6 +90,9 @@ subroutine alloc_mpi_sndrcv_bufs()
 
      allocate(send_v (mgroupsize))
      allocate(recv_v (mgroupsize))
+
+     allocate(send_m (mgroupsize))
+     allocate(recv_m (mgroupsize))
 
   endif
 
@@ -118,6 +122,7 @@ subroutine olam_mpi_finalize()
   use mem_para, only: send_u, recv_u, &
                       send_v, recv_v, &
                       send_w, recv_w, &
+                      send_m, recv_m, &
                       send_wl, send_wlf, send_ws, send_wsf, &
                       recv_wl, recv_wlf, recv_ws, recv_wsf
 
@@ -134,6 +139,9 @@ subroutine olam_mpi_finalize()
 
   if (allocated(send_v))  deallocate(send_v)
   if (allocated(recv_v))  deallocate(recv_v)
+
+  if (allocated(send_m))  deallocate(send_m)
+  if (allocated(recv_m))  deallocate(recv_m)
 
   if (allocated(send_w))  deallocate(send_w)
   if (allocated(recv_w))  deallocate(recv_w)
@@ -160,11 +168,12 @@ subroutine olam_alloc_mpi(mza, mrls)
   use mpi
 #endif
 
-  use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, mloops
-  use mem_para,   only: myrank, nrecvs_u, nrecvs_v, nrecvs_w, &
-                        nsends_u, nsends_v, nsends_w, &
-                        recv_u, recv_v, recv_w, &
-                        send_u, send_v, send_w
+  use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, jtab_m, mloops
+  use mem_para,   only: myrank,                                 &
+                        nrecvs_u, nrecvs_v, nrecvs_w, nrecvs_m, &
+                        nsends_u, nsends_v, nsends_w, nsends_m, &
+                        recv_u,   recv_v,   recv_w,   recv_m,   &
+                        send_u,   send_v,   send_w,   send_m
   use misc_coms,  only: io6, meshtype
   use var_tables, only: nvar_par
 
@@ -180,15 +189,13 @@ subroutine olam_alloc_mpi(mza, mrls)
   integer :: nbytes_real8
 
   integer :: nbytes_per_iu
-  integer :: nbytes_per_iuf
-
   integer :: nbytes_per_iv
-  integer :: nbytes_per_ivf
-
   integer :: nbytes_per_iw
+  integer :: nbytes_per_im
 
   integer :: itag10  =  10
   integer :: itag110 = 110
+  integer :: itag210 = 210
 
   integer :: ierr
   integer :: jsend
@@ -199,11 +206,14 @@ subroutine olam_alloc_mpi(mza, mrls)
   integer :: nv
   integer :: mrl
 
-  integer              :: sbuf(mrls+1)
+  integer              :: sbuf(mrls)
   integer, allocatable :: rbuf(:,:)
 
   integer              :: wsbuf(mrls)
   integer, allocatable :: wrbuf(:,:)
+
+  integer              :: msbuf(mrls)
+  integer, allocatable :: mrbuf(:,:)
 
 ! Allocate send buffers
 
@@ -215,10 +225,10 @@ subroutine olam_alloc_mpi(mza, mrls)
 
 ! Post U receives
 
-     allocate(rbuf(mrls+1,nrecvs_u(1)))
+     allocate(rbuf(mrls,nrecvs_u(1)))
 
      do jrecv = 1,nrecvs_u(1)
-        call MPI_IRecv(rbuf(1,jrecv), mrls+1, MPI_INTEGER, recv_u(jrecv)%iremote, &
+        call MPI_IRecv(rbuf(1,jrecv), mrls, MPI_INTEGER, recv_u(jrecv)%iremote, &
              itag10, MPI_COMM_WORLD, recv_u(jrecv)%irequest, ierr)
      enddo
 
@@ -226,11 +236,20 @@ subroutine olam_alloc_mpi(mza, mrls)
 
 ! Post V receives
 
-     allocate(rbuf(mrls+1,nrecvs_v(1)))
+     allocate(rbuf(mrls,nrecvs_v(1)))
 
      do jrecv = 1,nrecvs_v(1)
-        call MPI_IRecv(rbuf(1,jrecv), mrls+1, MPI_INTEGER, recv_v(jrecv)%iremote, &
+        call MPI_IRecv(rbuf(1,jrecv), mrls, MPI_INTEGER, recv_v(jrecv)%iremote, &
              itag10, MPI_COMM_WORLD, recv_v(jrecv)%irequest, ierr)
+     enddo
+
+! Post M receives
+
+     allocate(mrbuf(mrls,nrecvs_m(1)))
+
+     do jrecv = 1,nrecvs_m(1)
+        call MPI_IRecv(mrbuf(1,jrecv), mrls, MPI_INTEGER, recv_m(jrecv)%iremote, &
+             itag210, MPI_COMM_WORLD, recv_m(jrecv)%irequest, ierr)
      enddo
 
   endif
@@ -253,9 +272,6 @@ subroutine olam_alloc_mpi(mza, mrls)
      nbytes_per_iu = nbytes_int  &
           + mza * 2 * nbytes_real
 
-     nbytes_per_iuf = nbytes_int  &
-          + mza * 3 * nbytes_real
-
 ! Loop over all U sends for mrl = 1
 
      do jsend = 1,nsends_u(1)
@@ -274,7 +290,7 @@ subroutine olam_alloc_mpi(mza, mrls)
         sbuf(1) = send_u(jsend)%nbytes
 
         do mrl = 2,mrls
-           sbuf(mrl+1) = jtab_u(mloops+jsend)%jend(mrl)
+           sbuf(mrl) = jtab_u(mloops+jsend)%jend(mrl)
 
 ! If at least 1 U point needs to be sent to current remote rank for 
 ! current mrl, increase nsends_u(mrl) by 1.
@@ -284,7 +300,7 @@ subroutine olam_alloc_mpi(mza, mrls)
 
         enddo
 
-        call MPI_Send(sbuf, mrls+1, MPI_INTEGER, send_u(jsend)%iremote, itag10, &
+        call MPI_Send(sbuf, mrls, MPI_INTEGER, send_u(jsend)%iremote, itag10, &
              MPI_COMM_WORLD, ierr)
 
      enddo
@@ -295,9 +311,6 @@ subroutine olam_alloc_mpi(mza, mrls)
 
      nbytes_per_iv = nbytes_int  &
           + mza * 2 * nbytes_real
-
-     nbytes_per_ivf = nbytes_int  &
-          + mza * (4 * nbytes_real + nbytes_real8)
 
 ! Loop over all V sends for mrl = 1
 
@@ -311,12 +324,13 @@ subroutine olam_alloc_mpi(mza, mrls)
 ! Allocate buffer
 
         allocate(send_v(jsend)%buff(send_v(jsend)%nbytes))
+
 ! Send buffer sizes to receive ranks
 
         sbuf(1) = send_v(jsend)%nbytes
 
         do mrl = 2,mrls
-           sbuf(mrl+1) = jtab_v(mloops+jsend)%jend(mrl)
+           sbuf(mrl) = jtab_v(mloops+jsend)%jend(mrl)
 
 ! If at least 1 V point needs to be sent to current remote rank for 
 ! current mrl, increase nsends_v(mrl) by 1.
@@ -326,7 +340,45 @@ subroutine olam_alloc_mpi(mza, mrls)
 
         enddo
 
-        call MPI_Send(sbuf, mrls+1, MPI_INTEGER, send_v(jsend)%iremote, itag10, &
+        call MPI_Send(sbuf, mrls, MPI_INTEGER, send_v(jsend)%iremote, itag10, &
+             MPI_COMM_WORLD,ierr)
+
+     enddo
+
+ ! If hexagonal grid, also determine number of bytes to send per IM column
+
+     nbytes_per_im = nbytes_int  &
+          + mza * 2 * nbytes_real
+
+! Loop over all V sends for mrl = 1
+
+     do jsend = 1, nsends_m(1)
+
+! Determine size of send_m buffer for mrl = 1
+
+        send_m(jsend)%nbytes = nbytes_int   &
+             + nbytes_per_im * jtab_m(mloops+jsend)%jend(1)
+
+! Allocate buffer
+
+        allocate(send_m(jsend)%buff(send_m(jsend)%nbytes))
+
+! Send buffer sizes to receive ranks
+
+        msbuf(1) = send_m(jsend)%nbytes
+
+        do mrl = 2,mrls
+           msbuf(mrl) = jtab_v(mloops+jsend)%jend(mrl)
+
+! If at least 1 M point needs to be sent to current remote rank for 
+! current mrl, increase nsends_m(mrl) by 1.
+
+           if (jtab_m(mloops+jsend)%jend(mrl) > 0) &
+                nsends_m(mrl) = nsends_m(mrl) + 1
+
+        enddo
+
+        call MPI_Send(msbuf, mrls, MPI_INTEGER, send_m(jsend)%iremote, itag210, &
              MPI_COMM_WORLD,ierr)
 
      enddo
@@ -347,7 +399,7 @@ subroutine olam_alloc_mpi(mza, mrls)
 
 ! Loop over all W sends for mrl = 1
   
-  do jsend = 1,nsends_w(1)
+  do jsend = 1, nsends_w(1)
 
 ! Determine size of send_w buffer for mrl = 1
 
@@ -397,8 +449,8 @@ subroutine olam_alloc_mpi(mza, mrls)
 ! Loop over all mrl values greater than 1. If at least 1 U point needs to be 
 ! received from current remote rank for each mrl, increase nrecvs_u(mrl) by 1.
 
-        do mrl = 2,mrls
-           if (rbuf(mrl+1,jrecv) > 0) nrecvs_u(mrl) = nrecvs_u(mrl) + 1
+        do mrl = 2, mrls
+           if (rbuf(mrl,jrecv) > 0) nrecvs_u(mrl) = nrecvs_u(mrl) + 1
         enddo
 
      enddo
@@ -407,7 +459,7 @@ subroutine olam_alloc_mpi(mza, mrls)
 
 ! If hexagonal grid, loop over all V receives for mrl = 1
 
-     do jtmp = 1,nrecvs_v(1)
+     do jtmp = 1, nrecvs_v(1)
 
 ! Get recv_v buffer sizes from any node
 
@@ -423,8 +475,32 @@ subroutine olam_alloc_mpi(mza, mrls)
 ! Loop over all mrl values greater than 1. If at least 1 V point needs to be 
 ! received from current remote rank for each mrl, increase nrecvs_v(mrl) by 1.
 
-        do mrl = 2,mrls
-           if (rbuf(mrl+1,jrecv) > 0) nrecvs_v(mrl) = nrecvs_v(mrl) + 1
+        do mrl = 2, mrls
+           if (rbuf(mrl,jrecv) > 0) nrecvs_v(mrl) = nrecvs_v(mrl) + 1
+        enddo
+
+     enddo
+
+! If hexagonal grid, also loop over all M receives for mrl = 1
+
+     do jtmp = 1, nrecvs_m(1)
+
+! Get recv_m buffer sizes from any node
+
+        call MPI_Waitany(nrecvs_m(1), recv_m(1:nrecvs_m(1))%irequest, jrecv, &
+             MPI_STATUS_IGNORE, ierr)
+
+        recv_m(jrecv)%nbytes = mrbuf(1,jrecv)
+
+! Allocate recv_m buffers
+
+        allocate(recv_m(jrecv)%buff(recv_m(jrecv)%nbytes))
+
+! Loop over all mrl values greater than 1. If at least 1 M point needs to be 
+! received from current remote rank for each mrl, increase nrecvs_m(mrl) by 1.
+
+        do mrl = 2, mrls
+           if (mrbuf(mrl,jrecv) > 0) nrecvs_m(mrl) = nrecvs_m(mrl) + 1
         enddo
 
      enddo
@@ -680,6 +756,89 @@ enddo
 
 return
 end subroutine mpi_send_v
+
+!=============================================================================
+
+subroutine mpi_send_m(mrl, rarray1, rarray2)
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+  
+  use misc_coms,  only: io6
+  use mem_para,   only: nrecvs_m, nsends_m, recv_m, send_m
+  use mem_ijtabs, only: jtab_m, itab_m, mloops
+  use mem_grid,   only: mza, mma
+
+  implicit none
+
+  integer,        intent(in) :: mrl
+  real, optional, intent(in) :: rarray1(mza,mma)
+  real, optional, intent(in) :: rarray2(mza,mma)
+
+#ifdef OLAM_MPI
+
+  integer :: ierr, ipos
+  integer :: jrecv, jsend, ivar
+  integer :: itag2 = 2
+  integer :: j
+  integer :: im
+  integer :: imglobe
+
+  if (mrl < 1) return
+
+! Before we send anything, post the receives
+
+  do jrecv = 1, nrecvs_m(mrl)
+
+     call MPI_Irecv(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,MPI_PACKED, &
+                    recv_m(jrecv)%iremote,itag2,MPI_COMM_WORLD,         &
+                    recv_m(jrecv)%irequest,ierr                         )
+  enddo
+
+! Now we can actually go on to sending the stuff
+
+  do jsend = 1, nsends_m(mrl)
+
+     ipos = 0
+
+     call MPI_Pack(jtab_m(mloops+jsend)%jend(mrl),1,MPI_INTEGER,  &
+          send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+!----------------------------------------------------------------
+     do j = 1,jtab_m(mloops+jsend)%jend(mrl)
+        im = jtab_m(mloops+jsend)%im(j)
+        imglobe = itab_m(im)%imglobe
+!----------------------------------------------------------------
+        
+        call MPI_Pack(imglobe,1,MPI_INTEGER,  &
+             send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+        if (present(rarray1)) then
+
+           call MPI_Pack(rarray1(1,im),mza,MPI_REAL,  &
+                send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+        endif
+
+        if (present(rarray2)) then
+
+           call MPI_Pack(rarray2(1,im),mza,MPI_REAL,  &
+                send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+        endif
+
+     enddo
+
+     call MPI_Isend(send_m(jsend)%buff,ipos,MPI_PACKED,          &
+                    send_m(jsend)%iremote,itag2,MPI_COMM_WORLD,  &
+                    send_m(jsend)%irequest,ierr                  )
+     
+  enddo
+
+#endif
+
+end subroutine mpi_send_m
 
 !=============================================================================
 
@@ -1233,6 +1392,80 @@ call MPI_Waitall(nsends_v(mrl), send_v(1:nsends_v(mrl))%irequest, &
 
 return
 end subroutine mpi_recv_v
+
+!=============================================================================
+
+subroutine mpi_recv_m(mrl, rarray1, rarray2)
+
+! Subroutine to perform a parallel MPI receive of a "M group"
+! of field variables
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
+  use mem_para,   only: send_m, recv_m, nsends_m, nrecvs_m
+  use mem_ijtabs, only: itabg_m
+  use mem_grid,   only: mza, mma
+  use misc_coms,  only: io6
+
+  implicit none
+
+  integer,        intent(in)    :: mrl
+  real, optional, intent(inout) :: rarray1(mza,mma)
+  real, optional, intent(inout) :: rarray2(mza,mma)
+
+#ifdef OLAM_MPI
+
+  integer :: ierr,ipos
+  integer :: jrecv,jsend,ivar,jtmp
+  integer :: nmpts
+  integer :: j
+  integer :: im
+  integer :: imglobe
+
+  if (mrl < 1) return
+
+!  Now, let's wait on our receives
+
+  do jtmp = 1, nrecvs_m(mrl)
+
+     call MPI_Waitany(nrecvs_m(mrl), recv_m(1:nrecvs_m(mrl))%irequest, jrecv, &
+                      MPI_STATUS_IGNORE, ierr)
+
+     !  We got all our stuff.  Now unpack it into appropriate space.
+     
+     ipos = 0
+
+     call MPI_Unpack(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,ipos,  &
+                     nmpts,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+
+!----------------------------------------------------------------
+     do j = 1, nmpts
+        call MPI_Unpack(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,ipos,  &
+                        imglobe,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+        im = itabg_m(imglobe)%im_myrank
+!----------------------------------------------------------------
+
+        if (present(rarray1)) then
+
+           call MPI_Unpack(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,ipos, &
+                           rarray1(1,im),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+        endif
+
+     enddo
+
+  enddo
+
+! Make sure all of our sends are finished and de-allocated
+
+  call MPI_Waitall(nsends_m(mrl), send_m(1:nsends_m(mrl))%irequest, &
+       MPI_STATUSES_IGNORE, ierr)
+
+#endif
+
+end subroutine mpi_recv_m
 
 !=============================================================================
 

@@ -49,8 +49,8 @@ use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
 
 use mem_para,   only: mgroupsize, myrank,                             &
                       send_u, recv_u, send_v, recv_v, send_w, recv_w, &
-                      nsends_u, nsends_v, nsends_w,                   &
-                      nrecvs_u, nrecvs_v, nrecvs_w
+                      nsends_u, nsends_v, nsends_w, nsends_m,         &
+                      nrecvs_u, nrecvs_v, nrecvs_w, nrecvs_m
 
 use mem_sflux,  only: nseaflux,  mseaflux,  seaflux,  seafluxg,  seaflux_pd,  &
                       nlandflux, mlandflux, landflux, landfluxg, landflux_pd, &
@@ -73,9 +73,9 @@ integer :: isf,ilf,iws,iwl
 integer :: npoly
 integer :: vadj_flag, wadj_flag
 
-integer :: im_myrank = 1 ! Counter for M points to be included on this rank
-integer :: iv_myrank = 1 ! Counter for V points to be included on this rank
-integer :: iw_myrank = 1 ! Counter for W points to be included on this rank
+integer :: im_myrank ! Counter for M points to be included on this rank
+integer :: iv_myrank ! Counter for V points to be included on this rank
+integer :: iw_myrank ! Counter for W points to be included on this rank
 
 ! Automatic arrays
 
@@ -97,8 +97,11 @@ integer :: ierr
 
 allocate (nsends_v(mrls)) ; nsends_v(1:mrls) = 0
 allocate (nsends_w(mrls)) ; nsends_w(1:mrls) = 0
+allocate (nsends_m(mrls)) ; nsends_m(1:mrls) = 0
+
 allocate (nrecvs_v(mrls)) ; nrecvs_v(1:mrls) = 0
 allocate (nrecvs_w(mrls)) ; nrecvs_w(1:mrls) = 0
+allocate (nrecvs_m(mrls)) ; nrecvs_m(1:mrls) = 0
 
 ! Initialize myrank flag arrays to .false.
 
@@ -145,18 +148,20 @@ do iw = 2,nwa
    endif
 enddo
 
-! Loop over all V points, and for each that has been flagged for inclusion
-! on this rank, flag its 2 primary M points for inclusion on this rank.
-! Count V points also.
-
-do iv = 2,nva
-   if (myrankflag_v(iv)) then
-
-      myrankflag_m( itab_v_pd(iv)%im(1:2) ) = .true.
-      iv_myrank = iv_myrank + 1
-
-   endif
-enddo
+!! IS THIS NECESSARY ANYMORE??
+!! Loop over all V points, and for each that has been flagged for inclusion
+!! on this rank, flag its 2 primary M points for inclusion on this rank.
+!!
+!! Count V points also.
+!!
+!!do iv = 2,nva
+!!   if (myrankflag_v(iv)) then
+!!
+!!     myrankflag_m( itab_v_pd(iv)%im(1:2) ) = .true.
+!!      iv_myrank = iv_myrank + 1
+!!
+!!   endif
+!!enddo
 
 ! Ignore the "dummy" 1st point in case it was activated
 
@@ -167,9 +172,19 @@ myrankflag_w(1) = .false.
 ! Loop over all M and W points and count the ones that have been flagged
 ! for inclusion on this rank.
 
+im_myrank = 1
+iv_myrank = 1
+iw_myrank = 1
+
 do im = 2,nma
    if (myrankflag_m(im)) then
       im_myrank = im_myrank + 1
+   endif
+enddo
+
+do iv = 2,nva
+   if (myrankflag_v(iv)) then
+      iv_myrank = iv_myrank + 1
    endif
 enddo
 
@@ -261,7 +276,6 @@ do im = 1,nma
 ! Set indices of neighbors of IM that are present on this rank
 
       npoly = itab_m_pd(im)%npoly
-      vadj_flag = 0
 
       do j = 1,npoly
          ivn = itab_m_pd(im)%iv(j) ! Global index
@@ -274,15 +288,6 @@ do im = 1,nma
          else
             imn = itab_v_pd(ivn)%im(1)
          endif
-
-         ! If any of the 3 iv points that border the nearest im neighbor are 
-         ! primary on local parallel subdomain, vadj_flag = .true.
-
-         if (any( itabg_v( itab_m_pd(imn)%iv(1:3) )%irank == myrank )) vadj_flag = 1
-      
-!!! If IVN point is primary on local parallel subdomain, vadj_flag = .true.
-!!
-!!         if (itabg_v(ivn)%irank == myrank) vadj_flag = 1
 
 ! If IVN point is in memory on local parallel subdomain, assign its local
 ! index to IM stencil; otherwise set index to 1
@@ -303,9 +308,11 @@ do im = 1,nma
          endif
       enddo
 
-! Turn off jtm_vadj loop flag if no adjacent V's prognosed on this subdomain
+! Turn off jtm_vadj loop flag if M point is not primary on this subdomain
 
-      if (vadj_flag == 0) call mloopf('n',im_myrank, -jtm_vadj, 0, 0, 0, 0, 0)
+      if (itabg_m(im)%irank /= myrank) then
+         call mloopf('n', im_myrank, -jtm_vadj, 0, 0, 0, 0, 0)
+      endif
 
 ! If IMP point is primary on local parallel subdomain, assign its local
 ! index to IM stencil; otherwise set index to 1
@@ -467,7 +474,7 @@ do iw = 1,nwa
 enddo
 
 ! Loop over all V points and for each that is primary on a remote rank, 
-! access all V and W points in its stencil.
+! access all V, W and M points in its stencil.
 
 do iv = 2,nva
    if (itabg_v(iv)%irank /= myrank) then
@@ -480,20 +487,27 @@ do iv = 2,nva
       if (myrankflag_v(iv)) call recv_table_v(itabg_v(iv)%irank)
 
 ! Add to send table any V or W point that is primary on myrank and is 
-! in the stencil of IU.  
+! in the stencil of IV.
 
       ivp  = itab_v_pd(iv)%ivp
       if (itabg_v(ivp)%irank == myrank) call send_table_v(ivp,itabg_v(iv)%irank)
 
+      ! reduce this later!!!!
       do j = 1,16
          ivn = itab_v_pd(iv)%iv(j)
          if (itabg_v(ivn)%irank == myrank) call send_table_v(ivn,itabg_v(iv)%irank)
-      enddo         
+      enddo
 
       do j = 1,4
          iwn = itab_v_pd(iv)%iw(j)
          if (itabg_w(iwn)%irank == myrank) call send_table_w(iwn,itabg_v(iv)%irank)
-      enddo         
+      enddo
+
+      ! needed for vorticity diffusion
+      do j = 1,6
+         imn = itab_v_pd(iv)%im(j)
+         if (itabg_m(imn)%irank == myrank) call send_table_m(imn,itabg_v(iv)%irank)
+      enddo
 
    endif
 enddo
@@ -518,14 +532,41 @@ do iw = 2,nwa
       if (itabg_w(iwp)%irank == myrank) call send_table_w(iwp,itabg_w(iw)%irank)
 
       do j = 1,7
-         ivn = itab_w_pd(iw)%iv(j) 
+         ivn = itab_w_pd(iw)%iv(j)
          if (itabg_v(ivn)%irank == myrank) call send_table_v(ivn,itabg_w(iw)%irank)
-      enddo         
+      enddo
 
       do j = 1,7
-         iwn = itab_w_pd(iw)%iw(j) 
+         iwn = itab_w_pd(iw)%iw(j)
          if (itabg_w(iwn)%irank == myrank) call send_table_w(iwn,itabg_w(iw)%irank)
-      enddo         
+      enddo
+
+      do j = 1,7
+         imn = itab_w_pd(iw)%im(j)
+         if (itabg_m(imn)%irank == myrank) call send_table_m(imn,itabg_w(iw)%irank)
+      enddo
+
+   endif
+enddo
+
+! Loop over all M points and for each that is primary on a remote rank,
+! access all points in its stencil.
+
+do im = 2, nma
+   if (itabg_m(im)%irank /= myrank) then
+
+! IM point is primary on remote rank.  
+
+! If IM point is in memory of myrank, it must be received from remote rank.
+! Add that remote rank to receive table.
+
+      if (myrankflag_m(im)) call recv_table_m(itabg_m(im)%irank)
+
+! Add to send table any V or M point that is primary on myrank and is 
+! in the stencil of IM.  
+
+      imp = itab_m_pd(im)%imp
+      if (itabg_m(imp)%irank == myrank) call send_table_m(imp,itabg_m(im)%irank)
 
    endif
 enddo
@@ -723,6 +764,36 @@ end subroutine recv_table_w
 
 !===============================================================================
 
+subroutine recv_table_m(iremote)
+
+use mem_para,  only: nrecvs_m, recv_m
+use misc_coms, only: io6
+
+implicit none
+
+integer, intent(in) :: iremote
+
+integer :: jrecv
+
+! Check whether iremote is already in table of ranks to receive from
+
+do jrecv = 1, nrecvs_m(1)
+   if (recv_m(jrecv)%iremote == iremote) exit
+enddo
+
+! If jrecv exceeds nrecvs_v(1), jrecv represents a rank not yet entered in the
+! table, so increase nrecvs_v(1).
+
+if (jrecv > nrecvs_m(1)) nrecvs_m(1) = jrecv
+
+! Enter remote rank in recv-remote-rank table.
+
+recv_m(jrecv)%iremote = iremote
+
+end subroutine recv_table_m
+
+!===============================================================================
+
 subroutine send_table_v(iv,iremote)
 
 use mem_ijtabs, only: itab_v, itabg_v, mloops
@@ -794,6 +865,42 @@ send_w(jsend)%iremote = iremote
 
 return
 end subroutine send_table_w
+
+!===============================================================================
+
+subroutine send_table_m(im,iremote)
+
+use mem_ijtabs, only: itab_m, itabg_m, mloops
+use mem_para,   only: nsends_m, send_m, mgroupsize
+use misc_coms,  only: io6
+
+implicit none
+
+integer, intent(in) :: im
+integer, intent(in) :: iremote
+
+integer :: jsend
+integer :: im_myrank
+
+! Check whether iremote_m is already in table of ranks to send to
+
+do jsend = 1, nsends_m(1)
+   if (send_m(jsend)%iremote == iremote) exit
+enddo
+
+! If jsend exceeds nsends_m, jsend represents a rank not yet entered in the
+! table, so increase nsends_m.
+
+if (jsend > nsends_m(1)) nsends_m(1) = jsend
+
+! Enter point in send-point table, and enter remote rank in send-remote-rank table.
+
+im_myrank = itabg_m(im)%im_myrank
+
+itab_m(im_myrank)%loop(mloops+jsend) = .true.
+send_m(jsend)%iremote = iremote
+
+end subroutine send_table_m
 
 !===============================================================================
 

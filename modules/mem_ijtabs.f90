@@ -39,7 +39,7 @@ Module mem_ijtabs
 
    integer, parameter :: mloops = 7 ! max # non-para DO loops for M,U,V,W pts
 
-   integer, parameter :: nloops_m = mloops             ! (no para loops for M)
+   integer, parameter :: nloops_m = mloops + maxremote ! # M DO loops incl para
    integer, parameter :: nloops_u = mloops + maxremote ! # U DO loops incl para
    integer, parameter :: nloops_v = mloops + maxremote ! # V DO loops incl para
    integer, parameter :: nloops_w = mloops + maxremote ! # W DO loops incl para

@@ -46,9 +46,9 @@ use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, &
                         zt, zm, dzim, zfacit, dzm, dzt, dnv, dnu, arm0, arv, &
                         vnx, vny, vnz, volt, volwi
 use mem_tend,     only: vmt, vmxet, vmyet, vmzet
-use misc_coms,    only: io6, iparallel, time8, dtlm
+use misc_coms,    only: io6, iparallel, time8, dtlm, rinit
 use consts_coms,  only: cpocv, pc1, rdry, rvap
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
 use oplot_coms,   only: op
 use obnd,         only: lbcopy_m, lbcopy_w
 
@@ -118,8 +118,15 @@ real :: vye_upw (mza,mwa) ! Upstreamed VYE  at each W level
 real :: vze_upw (mza,mwa) ! Upstreamed VZE  at each W level
 
 integer :: iv1,iv2,iv3,iv4,im,npoly,jv,im1,im2,im3,im4,im5,im6,iwd
-real :: c0,c1,c2,vort_big1,vort_big2
-real :: arm0i,tvort
+real :: c1,c2,vort_big1,vort_big2
+real :: arm0i
+
+! Parameters for vorticity diffusion
+
+real, parameter :: tvort = 3600.
+real, parameter :: c0 = .125 / tvort
+
+vortp = rinit
 
 ! Half-forward velocities for computing donor points:
 
@@ -164,9 +171,9 @@ if (mrl > 0) then
    !$omp end parallel do
    call rsub('Wa',16)
 
-   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
+! MPI SEND and LBC copy of VMXET, VMYET, VMZET
 
-! MPI SEND of VMXET, VMYET, VMZET
+   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
 
    if (iparallel == 1) call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
 
@@ -221,83 +228,11 @@ if (mrl > 0) then
    !$omp end parallel do 
    call rsub('M',3)
 
-! Copy LBC
+! Parallel Send and LBC copy of vortp
 
    call lbcopy_m(mrl, a1=vortp)
 
-   tvort = 3600.
-   c0 = .125 / tvort
-   !c0 = 0.
-
-! MPI RECV of VMXET, VMYET, VMZET
-
-   if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
-
-! Horizontal loop over V columns for PROG_V_BEGL
-
-   call psub()
-!----------------------------------------------------------------------
-   !$omp parallel do private(iv,iw1,iw2,im1,im2,im3,im4,im5,im6,iv1,iv2,iv3,iv4, &
-   !$omp                     kb,k,c1,c2,vort_big1,vort_big2) 
-   do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-!----------------------------------------------------------------------
-   call qsub('V',iv)
-
-      kb = lpv(iv)
-
-! Vertical loop over T levels
-
-      do k = kb,mza-1
-
-! Update VM tendency from turbulent fluxes
-
-         vmt(k,iv) = vmt(k,iv) + .5 &
-                   * (vnx(iv) * (vmxet(k,iw1) + vmxet(k,iw2)) &
-                   +  vny(iv) * (vmyet(k,iw1) + vmyet(k,iw2)) &
-                   +  vnz(iv) * (vmzet(k,iw1) + vmzet(k,iw2)))
-
-      enddo
-
-!------------------------------------------------------
-! SPECIAL - HORIZONTAL FILTER FOR VERTICAL VORTICITY
-
-      im1  = itab_v(iv)%im(1)
-      im2  = itab_v(iv)%im(2)
-      im3  = itab_v(iv)%im(3)
-      im4  = itab_v(iv)%im(4)
-      im5  = itab_v(iv)%im(5)
-      im6  = itab_v(iv)%im(6)
-
-      iv1  = itab_v(iv)%iv(1)
-      iv2  = itab_v(iv)%iv(2)
-      iv3  = itab_v(iv)%iv(3)
-      iv4  = itab_v(iv)%iv(4)
-   
-      c1 = -c0 * arm0(im1) * dnu(iv1) * dnu(iv2) / (dnu(iv1) * dnu(iv2) * dnv(iv) &
-         + dnu(iv) * dnu(iv2) * dnv(iv1) + dnu(iv) * dnu(iv1) * dnv(iv2))
-
-      c2 = c0 * arm0(im2) * dnu(iv3) * dnu(iv4) / (dnu(iv3) * dnu(iv4) * dnv(iv) &
-         + dnu(iv) * dnu(iv4) * dnv(iv3) + dnu(iv) * dnu(iv3) * dnv(iv4))
-
-! Vertical loop over V levels (for now, don't check for k >= lpm, etc.)
-
-      do k = kb,mza-1
-   
-         vort_big1 = .3333333 * (vortp(k,im2) + vortp(k,im3) + vortp(k,im4))
-         vort_big2 = .3333333 * (vortp(k,im1) + vortp(k,im5) + vortp(k,im6))
-   
-         vmt(k,iv) = vmt(k,iv) + (rho(k,iw1) + rho(k,iw2)) &
-            * ((vort_big1 - vortp(k,im1)) * c1 + (vort_big2 - vortp(k,im2)) * c2)
-
-      enddo
-
-! END - HORIZONTAL FILTER FOR VERTICAL VORTICITY
-!------------------------------------------------------
-              
-   enddo
-   !$omp end parallel do 
-   call rsub('V',16)
+   if (iparallel == 1) call mpi_send_m(mrl, rarray1=vortp)
 
 endif ! mrl = mrl_begl(istp) > 0
 
@@ -389,6 +324,82 @@ else
    endif
 
 endif  ! strict_wvt_donorpoint
+
+mrl = mrl_begl(istp)
+if (mrl > 0) then
+
+! MPI RECV of VORTP, VMXET, VMYET, VMZET
+
+   if (iparallel == 1) call mpi_recv_m(mrl, rarray1=vortp)
+   if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
+
+   ! Horizontal loop over V columns for PROG_V_BEGL
+
+   call psub()
+!----------------------------------------------------------------------
+   !$omp parallel do private(iv,iw1,iw2,im1,im2,im3,im4,im5,im6,iv1,iv2,iv3,iv4, &
+   !$omp                     kb,k,c1,c2,vort_big1,vort_big2) 
+   do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
+   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+!----------------------------------------------------------------------
+   call qsub('V',iv)
+
+      kb = lpv(iv)
+
+! Vertical loop over T levels
+
+      do k = kb,mza-1
+
+! Update VM tendency from turbulent fluxes
+
+         vmt(k,iv) = vmt(k,iv) + .5 &
+                   * (vnx(iv) * (vmxet(k,iw1) + vmxet(k,iw2)) &
+                   +  vny(iv) * (vmyet(k,iw1) + vmyet(k,iw2)) &
+                   +  vnz(iv) * (vmzet(k,iw1) + vmzet(k,iw2)))
+
+      enddo
+
+!------------------------------------------------------
+! SPECIAL - HORIZONTAL FILTER FOR VERTICAL VORTICITY
+
+      im1  = itab_v(iv)%im(1)
+      im2  = itab_v(iv)%im(2)
+      im3  = itab_v(iv)%im(3)
+      im4  = itab_v(iv)%im(4)
+      im5  = itab_v(iv)%im(5)
+      im6  = itab_v(iv)%im(6)
+
+      iv1  = itab_v(iv)%iv(1)
+      iv2  = itab_v(iv)%iv(2)
+      iv3  = itab_v(iv)%iv(3)
+      iv4  = itab_v(iv)%iv(4)
+   
+      c1 = -c0 * arm0(im1) * dnu(iv1) * dnu(iv2) / (dnu(iv1) * dnu(iv2) * dnv(iv) &
+         + dnu(iv) * dnu(iv2) * dnv(iv1) + dnu(iv) * dnu(iv1) * dnv(iv2))
+
+      c2 = c0 * arm0(im2) * dnu(iv3) * dnu(iv4) / (dnu(iv3) * dnu(iv4) * dnv(iv) &
+         + dnu(iv) * dnu(iv4) * dnv(iv3) + dnu(iv) * dnu(iv3) * dnv(iv4))
+
+! Vertical loop over V levels (for now, don't check for k >= lpm, etc.)
+
+      do k = kb,mza-1
+   
+         vort_big1 = .3333333 * (vortp(k,im2) + vortp(k,im3) + vortp(k,im4))
+         vort_big2 = .3333333 * (vortp(k,im1) + vortp(k,im5) + vortp(k,im6))
+   
+         vmt(k,iv) = vmt(k,iv) + (rho(k,iw1) + rho(k,iw2)) &
+            * ((vort_big1 - vortp(k,im1)) * c1 + (vort_big2 - vortp(k,im2)) * c2)
+
+      enddo
+
+! END - HORIZONTAL FILTER FOR VERTICAL VORTICITY
+!------------------------------------------------------
+              
+   enddo
+   !$omp end parallel do 
+   call rsub('V',16)
+
+endif ! mrl = mrl_begl(istp) > 0
 
 ! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
 ! (Example of how to plot "external" field; one not available in module memory)
