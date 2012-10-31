@@ -343,12 +343,12 @@ if (runtype == 'INITIAL') then
    mrl = 1
    call diagvel_t3d(mrl)
 
-   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
-
    if (iparallel == 1) then
       call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
       call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
    endif
+
+   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 endif
 
 ! A good place to initialize added scalars
@@ -372,14 +372,14 @@ call trsets()
 
 mrl = 1
 
-do i = 1, nvar_par
-   call lbcopy_w(mrl, a1=vtab_r(nptonv(i))%rvar2_p)
-enddo
-
 if (iparallel == 1) then
    call mpi_send_w('S', domrl=mrl)  ! Send scalars
    call mpi_recv_w('S', domrl=mrl)  ! Recv scalars
 endif
+
+do i = 1, nvar_par
+   call lbcopy_w(mrl, a1=vtab_r(nptonv(i))%rvar2_p)
+enddo
 
 ! Start up radiation scheme
 
@@ -464,12 +464,12 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
       mrl = 1
       call diagvel_t3d(mrl)
 
-      call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
-
       if (iparallel == 1) then
          call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
          call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
       endif
+
+      call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
       if (runtype == 'PLOTONLY') then
          call plot_fields(0)
@@ -502,12 +502,12 @@ if (runtype == 'HISTORY') then
    mrl = 1
    call diagvel_t3d(mrl)
 
-   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
-
    if (iparallel == 1) then
       call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
       call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
    endif
+
+   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 endif
 
 write(io6,'(/,a)') 'olam_run calling plot_fields'

@@ -171,12 +171,9 @@ if (mrl > 0) then
    !$omp end parallel do
    call rsub('Wa',16)
 
-! MPI SEND and LBC copy of VMXET, VMYET, VMZET
-
-   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
+! MPI SEND of VMXET, VMYET, VMZET
 
    if (iparallel == 1) call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
-
 
 ! Horizontal loop over M/P columns for BEGL; Diagnose vertical vorticity
 ! in preparation for horizontal filter
@@ -228,9 +225,7 @@ if (mrl > 0) then
    !$omp end parallel do 
    call rsub('M',3)
 
-! Parallel Send and LBC copy of vortp
-
-   call lbcopy_m(mrl, a1=vortp)
+! Parallel send of vortp
 
    if (iparallel == 1) call mpi_send_m(mrl, rarray1=vortp)
 
@@ -282,8 +277,6 @@ if (strict_wvt_donorpoint) then
 
       call vel_t3d_hex(mrl, vcf, wc, vxef, vyef, vzef)
 
-      call lbcopy_w(mrl, a1=vxef, a2=vyef, a3=vzef)
-
       ! MPI send of VXE, VYE, VZE
 
       if (iparallel == 1) then
@@ -296,11 +289,11 @@ if (strict_wvt_donorpoint) then
       call donorpointw(0, mrl, wc, vxef, vyef, vzef, kdepw, krecw, &
                        dxps_w, dyps_w, dzps_w)
 
-      ! Finish MPI recv of VXE, VYE, VZE
+      ! Finish MPI recv of VXE, VYE, VZE and do a LBC copy
 
-      if (iparallel == 1) then
-         call mpi_recv_w('V', vxe=vxef, vye=vyef, vze=vzef)
-      endif
+      if (iparallel == 1) call mpi_recv_w('V', vxe=vxef, vye=vyef, vze=vzef)
+
+      call lbcopy_w(mrl, a1=vxef, a2=vyef, a3=vzef)
 
       ! Diagnose advective donor point locations for the V faces surrounding all
       ! primary W points. Communication of velocities must have been completed
@@ -331,9 +324,12 @@ if (mrl > 0) then
 ! MPI RECV of VORTP, VMXET, VMYET, VMZET
 
    if (iparallel == 1) call mpi_recv_m(mrl, rarray1=vortp)
-   if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
+   call lbcopy_m(mrl, a1=vortp)
 
-   ! Horizontal loop over V columns for PROG_V_BEGL
+   if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
+   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
+
+! Horizontal loop over V columns for PROG_V_BEGL
 
    call psub()
 !----------------------------------------------------------------------
@@ -427,11 +423,6 @@ if (mrl > 0) then
    call grad_t3d(mrl,vye,gxps_vye,gyps_vye,gzps_vye)
    call grad_t3d(mrl,vze,gxps_vze,gyps_vze,gzps_vze)
 
-   call lbcopy_w(mrl, a1 =gxps_thil, a2 =gyps_thil, a3 =gzps_thil, &
-                      a4 =gxps_vxe,  a5 =gyps_vxe,  a6 =gzps_vxe,  &
-                      a7 =gxps_vye,  a8 =gyps_vye,  a9 =gzps_vye,  &
-                      a10=gxps_vze,  a11=gyps_vze,  a12=gzps_vze   )
-
 ! MPI SEND/RECV of THIL, VXE, VYE, and VZE gradient components (12 in all)
 
    if (iparallel == 1) then
@@ -487,6 +478,11 @@ if (mrl > 0) then
          gxps_vze =gxps_vze ,gyps_vze =gyps_vze ,gzps_vze =gzps_vze   )
 
    endif
+
+   call lbcopy_w(mrl, a1 =gxps_thil, a2 =gyps_thil, a3 =gzps_thil, &
+                      a4 =gxps_vxe,  a5 =gyps_vxe,  a6 =gzps_vxe,  &
+                      a7 =gxps_vye,  a8 =gyps_vye,  a9 =gzps_vye,  &
+                      a10=gxps_vze,  a11=gyps_vze,  a12=gzps_vze   )
 
 !  Horizontal loop over V
 
@@ -551,19 +547,15 @@ enddo
 endif
 call rsub('Wa',19)
 
-! Copy LBC
-
- call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, a4=wmc, &
-                    a5=wc,    a6=thil,  d1=press, d2=rho)
-
-! (Should WC and THIL also be included in lbcopy_w and mpi_send_w?)
-
-! MPI SEND/RECV of WMC, PRESS, RHO, VMXET, VMYET, VMZET
+! MPI SEND/RECV of WMC, PRESS, RHO, VMXET, VMYET, VMZET and LBC copy
 
 if (iparallel == 1) then
    call mpi_send_w('P', vmxet=vmxet, vmyet=vmyet, vmzet=vmzet)
    call mpi_recv_w('P', vmxet=vmxet, vmyet=vmyet, vmzet=vmzet)
 endif
+
+call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, a4=wmc, &
+                   a5=wc,    a6=thil,  d1=press, d2=rho)
 
 ! Horizontal loop over V points to update VMC
 

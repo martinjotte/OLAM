@@ -108,16 +108,16 @@ call qsub('W',iw)
 enddo
 call rsub('Wa',8)
 
-! LBC copy
-
- call lbcopy_w(1, d1=press, d2=rho)
-
 ! Should WMC and THETA also be included in mpi_send_w('I')?
 
 if (iparallel == 1) then
    call mpi_send_w('I')  ! Send W group
    call mpi_recv_w('I')  ! Recv W group
 endif
+
+! LBC copy
+
+ call lbcopy_w(1, d1=press, d2=rho)
 
 if (meshtype == 1) then
 

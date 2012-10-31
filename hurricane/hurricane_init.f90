@@ -1213,16 +1213,16 @@ Contains
   enddo
   call rsub('W_frances_a',7)
 
-! LBC copy (THETA and TAIR will be copied later with the scalars)
-
-  call lbcopy_w(1, a1=thil, d1=press, d2=rho)
-
 ! If using MPI, perform parallel send/recv
 
   if (iparallel == 1) then
      call mpi_send_w('I')  ! Send W group
      call mpi_recv_w('I')  ! Recv W group
   endif
+
+! LBC copy (THETA and TAIR will be copied later with the scalars)
+
+  call lbcopy_w(1, a1=thil, d1=press, d2=rho)
 
 ! If meshtype = 1, initialize UC field
 
@@ -1306,16 +1306,16 @@ Contains
      enddo
      call rsub('U_frances_a',7)
 
-! LBC copy of UMC, UC
-
-     call lbcopy_u(1, umc=umc, uc=uc)
-
 ! If using MPI, perform parallel send/recv
 
      if (iparallel == 1) then
         call mpi_send_u('I')
         call mpi_recv_u('I')
      endif
+
+! LBC copy of UMC, UC
+
+     call lbcopy_u(1, a1=umc, a2=uc)
 
 ! Set UMP to UMC
 
@@ -1401,16 +1401,16 @@ Contains
      enddo
      call rsub('V_frances_a',7)
 
-! LBC copy of VMC, VC
-
-     call lbcopy_v(1, vmc=vmc, vc=vc)
-
 ! If using MPI, perform parallel send/recv
 
      if (iparallel == 1) then
         call mpi_send_v('I')
         call mpi_recv_v('I')
      endif
+
+! LBC copy of VMC, VC
+
+     call lbcopy_v(1, vmc=vmc, vc=vc)
 
 ! Set VMP and VP
 
@@ -1424,12 +1424,12 @@ Contains
   mrl = 1
   call diagvel_t3d(mrl)
 
-  call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
-
   if (iparallel == 1) then
      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
   endif
+
+  call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
   return
   end subroutine hurricane_init1B
@@ -2022,16 +2022,16 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
   enddo
 
-! LBC copy (THETA and TAIR will be copied later with the scalars)
-
-  call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
-
 ! If using MPI, perform parallel send/recv
 
   if (iparallel == 1) then
      call mpi_send_w('I')  ! Send W group
      call mpi_recv_w('I')  ! Recv W group
   endif
+
+! LBC copy (THETA and TAIR will be copied later with the scalars)
+
+  call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
 
 ! Initialize VC field
 
@@ -2106,16 +2106,16 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   enddo
   call rsub('V_frances_a',7)
 
-! LBC copy of VMC, VC
-
-  call lbcopy_v(1, vmc=vmc, vc=vc)
-
 ! If using MPI, perform parallel send/recv
 
   if (iparallel == 1) then
      call mpi_send_v('I')
      call mpi_recv_v('I')
   endif
+
+! LBC copy of VMC, VC
+
+  call lbcopy_v(1, vmc=vmc, vc=vc)
 
 ! Set VMP and VP
 
@@ -2127,12 +2127,12 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   mrl = 1
   call diagvel_t3d(mrl)
 
-  call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
-
   if (iparallel == 1) then
      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
   endif
+
+  call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
   return
   end subroutine hurricane_init2C

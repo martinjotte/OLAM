@@ -153,8 +153,6 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
   call vel_t3d_hex(mrl, vsc, wsc, vxesc, vyesc, vzesc)
 
-  call lbcopy_w(mrl, a1=vxesc, a2=vyesc, a3=vzesc)
-
 ! MPI send of VXESC, VYESC, VZESC
 
   if (iparallel == 1) then
@@ -167,11 +165,13 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
   call donorpointw(1, mrl, wsc, vxesc, vyesc, vzesc, kdepw, krecw, &
                    dxps_w, dyps_w, dzps_w)
 
-! Complete MPI recv of VXESC, VYESC, VZESC
+! Complete MPI recv of VXESC, VYESC, VZESC and do LBC copy
 
   if (iparallel == 1) then
      call mpi_recv_w('V', vxe=vxesc, vye=vyesc, vze=vzesc)
   endif
+
+  call lbcopy_w(mrl, a1=vxesc, a2=vyesc, a3=vzesc)
 
 ! Diagnose advective donor point locations for the V faces surrounding all
 ! primary W points. Communication of velocities must have been completed
@@ -271,8 +271,6 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 ! Evaluate T3D gradient of scalar field
 
      call grad_t3d(mrl, scp, gxps_scp, gyps_scp, gzps_scp)
-
-     call lbcopy_w(mrl, a1=gxps_scp, a2=gyps_scp, a3=gzps_scp)
 
 ! MPI send of SCP gradient components
 
@@ -381,6 +379,8 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
                              gzps_scp=gzps_scp)
      endif
 
+     call lbcopy_w(mrl, a1=gxps_scp, a2=gyps_scp, a3=gzps_scp)
+
 ! Horizontal loop over all V points surrounding primary W/T columns
 ! to compute upwinded scalar value at the V points
 
@@ -485,8 +485,6 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
         enddo
         !$omp end parallel do
 
-        call lbcopy_w(mrl, a1=scp_out_min, a2=scp_out_max)
-
         ! MPI send of scalar max/min outflow values
 
         if (iparallel == 1) then
@@ -515,6 +513,8 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
         if (iparallel == 1) then
            call mpi_recv_w('G', gxps_scp=scp_out_min, gyps_scp=scp_out_max)
         endif
+
+        call lbcopy_w(mrl, a1=scp_out_min, a2=scp_out_max)
 
 ! Limit the horizontal fluxes based on the computed scalar outgoing max/min
 ! Horizontal loop over all V points bordering primary W/T columns

@@ -166,8 +166,6 @@ call rsub('Wb',8)
 
 ! LBC copy (THETA and TAIR will be copied later with the scalars)
 
- call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
-
 if (iparallel == 1) then
    call mpi_send_w('I')  ! Send W group
    call mpi_recv_w('I')  ! Recv W group
@@ -175,6 +173,8 @@ if (iparallel == 1) then
    call mpi_send_w('V', vxe=uzonal)
    call mpi_recv_w('V', vxe=uzonal)
 endif
+
+call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
 
 if (meshtype == 1) then
 
@@ -217,16 +217,16 @@ if (meshtype == 1) then
    enddo
    call rsub('Ub',8)
 
-! LBC copy of UMC, UC
-
- call lbcopy_u(1, umc=umc, uc=uc)
-
 ! MPI parallel send/recv of U group
 
    if (iparallel == 1) then
       call mpi_send_u('I')
       call mpi_recv_u('I')
    endif
+
+! LBC copy of UMC, UC
+
+   call lbcopy_u(1, a1=umc, a2=uc)
 
 ! Set UMP to UMC
 
@@ -273,16 +273,16 @@ else
    enddo
    call rsub('Vb',8)
 
-! LBC copy of VMC, VC
-
- call lbcopy_v(1, vmc=vmc, vc=vc)
-
 ! MPI parallel send/recv of V group
 
    if (iparallel == 1) then
       call mpi_send_v('I')  ! Send V group
       call mpi_recv_v('I')  ! Recv V group
    endif
+
+! LBC copy of VMC, VC
+
+   call lbcopy_v(1, vmc=vmc, vc=vc)
 
 ! Set VMP and VP
 

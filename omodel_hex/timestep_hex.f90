@@ -110,8 +110,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
       call pbl_driver(rhot, mrl)
 
-      call lbcopy_w(1, a1=hkm)
-
       if (iparallel == 1) then
          call mpi_send_w('K')  ! Send K's
       endif
@@ -139,9 +137,12 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call zero_momsc(vmsc,wmsc,rho_old)
 
+! MPI Recv and LBC copy of K's
+
    mrl = mrl_begl(istp)
-   if (mrl > 0 .and. iparallel == 1) then
-      call mpi_recv_w('K')  ! Recv K's
+   if (mrl > 0) then
+      if (iparallel == 1) call mpi_recv_w('K')
+      call lbcopy_w(mrl, a1=hkm)
    endif
 
    mrl = mrl_begl(istp)
@@ -152,10 +153,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 ! call check_nans(11)
 
    call prog_wrtv(vmsc,wmsc,alpha_press,rhot)
-
-! LBC copy of VMC, VC
-
-   call lbcopy_v(1, vmc=vmc, vc=vc)
 
 ! MPI send of VMC, VC
 
@@ -173,18 +170,18 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(14)
 
-! MPI recv of VMC, VC
+! MPI recv and LBC copy of VMC, VC
 
    if (iparallel == 1) then
       call mpi_recv_v('V')
    endif
 
+   call lbcopy_v(1, vmc=vmc, vc=vc)
+
    mrl = mrl_ends(istp)
    if (mrl > 0) then
       call diagvel_t3d(mrl)
    endif
-
-   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
 ! MPI send of vxe, vye, vze
 
@@ -240,33 +237,37 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call trsets()  
 
-   ! MPI recv of vxe, vye, vze
+   ! MPI recv and LBC copy of vxe, vye, vze
 
    if (iparallel == 1) then
       call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
    endif
 
+   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
+
 ! call check_nans(19)
 
    mrl = mrl_ends(istp)
-   call lbcopy_w(mrl, a1=thil, d1=rho)
 
    if (iparallel == 1) then
       call mpi_send_w('T')  ! Send W group
       call mpi_recv_w('T')  ! Recv W group
    endif
 
+   call lbcopy_w(mrl, a1=thil, d1=rho)
+
 ! call check_nans(20)
 
    mrl = mrl_endl(istp)
-   do n = 1, nvar_par
-      call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
-   enddo
 
    if (iparallel == 1) then
       call mpi_send_w('S')  ! Send scalars
       call mpi_recv_w('S')  ! Recv scalars
    endif
+
+   do n = 1, nvar_par
+      call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
+   enddo
 
 ! call check_nans(21)
 

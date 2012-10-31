@@ -1359,6 +1359,7 @@ do jtmp = 1,nrecvs_v(mrl)
          ivglobe,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
 
       iv = itabg_v(ivglobe)%iv_myrank
+      if (iv < 2) iv = itabg_v(ivglobe)%iv_myrank_ivp
 !----------------------------------------------------------------
       call qsub('V',iv)
 
@@ -1445,6 +1446,7 @@ subroutine mpi_recv_m(mrl, rarray1, rarray2)
         call MPI_Unpack(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,ipos,  &
                         imglobe,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
         im = itabg_m(imglobe)%im_myrank
+        if (im < 2) im = itabg_m(imglobe)%im_myrank_imp
 !----------------------------------------------------------------
 
         if (present(rarray1)) then
@@ -1571,6 +1573,7 @@ do jtmp = 1,nrecvs_w(mrl)
          iwglobe,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
 
       iw = itabg_w(iwglobe)%iw_myrank
+      if (iw < 2) iw = itabg_w(iwglobe)%iw_myrank_iwp
 !----------------------------------------------------------------
       call qsub('W',iw)
 

@@ -39,7 +39,7 @@ use mem_ijtabs, only: itab_m,      itab_v,      itab_w,      &
                       itabg_m,     itabg_v,     itabg_w,     &
                       itab_m_pd,   itab_v_pd,   itab_w_pd,   &
                       alloc_itabs, mrls, &
-                      jtm_vadj, &
+                      jtm_vadj, jtm_lbcp, &
                       jtv_init, jtv_prog, jtv_wadj, jtv_wstn, jtv_lbcp, &
                       jtw_init, jtw_prog, jtw_wadj, jtw_wstn, jtw_lbcp
 
@@ -314,15 +314,16 @@ do im = 1,nma
          call mloopf('n', im_myrank, -jtm_vadj, 0, 0, 0, 0, 0)
       endif
 
-! If IMP point is primary on local parallel subdomain, assign its local
-! index to IM stencil; otherwise set index to 1
+! If IMP point exists on local parallel subdomain, assign its local
+! index to IM stencil; otherwise set index to 1 and turn off lbcp flag
 
       imp = itab_m_pd(im)%imp ! Global index
 
-      if (itabg_m(imp)%irank == myrank) then
+      if (myrankflag_m(imp)) then
          itab_m(im_myrank)%imp = itabg_m(imp)%im_myrank ! Local index
       else
          itab_m(im_myrank)%imp = 1
+         call mloopf('n', im_myrank, -jtm_lbcp, 0, 0, 0, 0, 0)
       endif
 
    endif
@@ -389,13 +390,13 @@ do iv = 1,nva
       if (itabg_w(iw1)%irank /= myrank .and. itabg_w(iw2)%irank /= myrank) then
          call vloopf('n',iv_myrank, -jtv_wadj, -jtv_wstn, 0, 0, 0, 0)
       endif
-
-! If IVP point is primary on local parallel subdomain, assign its local
-! index to IM stencil; otherwise set index to 1 and turn off lbcp flag
+      
+! If IVP point exists on local parallel subdomain, assign its local
+! index to IV stencil; otherwise set index to 1 and turn off lbcp flag
 
       ivp = itab_v_pd(iv)%ivp ! Global index
 
-      if (itabg_v(ivp)%irank == myrank) then
+      if (myrankflag_v(ivp)) then
          itab_v(iv_myrank)%ivp = itabg_v(ivp)%iv_myrank
       else
          itab_v(iv_myrank)%ivp = 1
@@ -458,12 +459,12 @@ do iw = 1,nwa
          call wloopf('n',iw_myrank, -jtw_wadj, -jtw_wstn, 0, 0, 0, 0)
       endif
 
-! If IWP point is primary on local parallel subdomain, assign its local
-! index to IM stencil; otherwise set index to 1 and turn off lbcp flag
+! If IWP point exists on local parallel subdomain, assign its local
+! index to IW stencil; otherwise set index to 1 and turn off lbcp flag
 
       iwp = itab_w_pd(iw)%iwp ! Global index
 
-      if (itabg_w(iwp)%irank == myrank) then
+      if (myrankflag_w(iwp)) then
          itab_w(iw_myrank)%iwp = itabg_w(iwp)%iw_myrank
       else
          itab_w(iw_myrank)%iwp = 1
@@ -495,27 +496,40 @@ do iv = 2,nva
       ! reduce this later!!!!
       do j = 1,16
          ivn = itab_v_pd(iv)%iv(j)
+         ivn = itab_v_pd(ivn)%ivp
          if (itabg_v(ivn)%irank == myrank) call send_table_v(ivn,itabg_v(iv)%irank)
       enddo
 
       do j = 1,4
          iwn = itab_v_pd(iv)%iw(j)
+         iwn = itab_w_pd(iwn)%iwp
          if (itabg_w(iwn)%irank == myrank) call send_table_w(iwn,itabg_v(iv)%irank)
       enddo
 
       ! needed for vorticity diffusion
       do j = 1,6
          imn = itab_v_pd(iv)%im(j)
+         imn = itab_m_pd(imn)%imp
          if (itabg_m(imn)%irank == myrank) call send_table_m(imn,itabg_v(iv)%irank)
       enddo
 
    endif
+
+! If IV point in in memory of myrank but its IVP is not, add the remote rank
+! of the IVP point to the receive table
+
+   ivp = itab_v_pd(iv)%ivp
+   if (itabg_v(ivp)%irank /= myrank) then
+      if (myrankflag_v(iv)) call recv_table_v(itabg_v(ivp)%irank)
+   endif
+
 enddo
 
 ! Loop over all W points and for each that is primary on a remote rank,
 ! access all V and W points in its stencil.
 
 do iw = 2,nwa
+
    if (itabg_w(iw)%irank /= myrank) then
 
 ! IW point is primary on remote rank.  
@@ -533,20 +547,32 @@ do iw = 2,nwa
 
       do j = 1,7
          ivn = itab_w_pd(iw)%iv(j)
+         ivn = itab_v_pd(ivn)%ivp
          if (itabg_v(ivn)%irank == myrank) call send_table_v(ivn,itabg_w(iw)%irank)
       enddo
 
       do j = 1,7
          iwn = itab_w_pd(iw)%iw(j)
+         iwn = itab_w_pd(iwn)%iwp
          if (itabg_w(iwn)%irank == myrank) call send_table_w(iwn,itabg_w(iw)%irank)
       enddo
 
       do j = 1,7
          imn = itab_w_pd(iw)%im(j)
+         imn = itab_m_pd(imn)%imp
          if (itabg_m(imn)%irank == myrank) call send_table_m(imn,itabg_w(iw)%irank)
       enddo
 
    endif
+
+! If IW point in in memory of myrank but its IWP is not, add the remote rank
+! of the IWP point to the receive table
+
+   iwp = itab_w_pd(iw)%iwp
+   if (itabg_w(iwp)%irank /= myrank) then
+      if (myrankflag_w(iw)) call recv_table_w(itabg_w(iwp)%irank)
+   endif
+
 enddo
 
 ! Loop over all M points and for each that is primary on a remote rank,
@@ -568,6 +594,67 @@ do im = 2, nma
       imp = itab_m_pd(im)%imp
       if (itabg_m(imp)%irank == myrank) call send_table_m(imp,itabg_m(im)%irank)
 
+   endif
+
+! If IM point in in memory of myrank but its IMP is not, add the remote rank
+! of the IMP point to the receive table
+
+   imp = itab_m_pd(im)%imp
+   if (itabg_m(imp)%irank /= myrank) then
+      if (myrankflag_m(im)) call recv_table_m(itabg_m(imp)%irank)
+   endif
+
+
+enddo
+
+do iw = 2, nwa
+   if (myrankflag_w(iw)) then
+      iwp = itab_w_pd(iw)%iwp
+      if (.not. myrankflag_w(iwp)) then
+         if (itabg_w(iwp)%iw_myrank_iwp == -1) then
+            ! never been set, we will MPI copy to this point
+            itabg_w(iwp)%iw_myrank_iwp = itabg_w(iw)%iw_myrank
+         else
+            ! We are already MPI copying this point, so do an LBC copy instead
+            iw_myrank  = itabg_w(iw)%iw_myrank
+            itab_w(iw_myrank)%iwp = itabg_w(iwp)%iw_myrank_iwp
+            call wloopf('n', iw_myrank, jtw_lbcp, 0, 0, 0, 0, 0)
+         endif
+      endif
+   endif
+enddo
+
+do iv = 2, nva
+   if (myrankflag_v(iv)) then
+      ivp = itab_v_pd(iv)%ivp
+      if (.not. myrankflag_v(ivp)) then
+         if (itabg_v(ivp)%iv_myrank_ivp == -1) then
+            ! never been set, we will MPI copy to this point
+            itabg_v(ivp)%iv_myrank_ivp = itabg_v(iv)%iv_myrank
+         else
+            ! We are already MPI copying this point, so do an LBC copy instead
+            iv_myrank  = itabg_v(iv)%iv_myrank
+            itab_v(iv_myrank)%ivp = itabg_v(ivp)%iv_myrank_ivp
+            call vloopf('n', iv_myrank, jtv_lbcp, 0, 0, 0, 0, 0)
+         endif
+      endif
+   endif
+enddo
+
+do im = 2, nma
+   if (myrankflag_m(im)) then
+      imp = itab_m_pd(im)%imp
+      if (.not. myrankflag_m(imp)) then
+         if (itabg_m(imp)%im_myrank_imp == -1) then
+            ! never been set, we will MPI copy to this point
+            itabg_m(imp)%im_myrank_imp = itabg_m(im)%im_myrank
+         else
+            ! We are already MPI copying this point, so do an LBC copy instead
+            im_myrank  = itabg_m(im)%im_myrank
+            itab_m(im_myrank)%imp = itabg_m(imp)%im_myrank_imp
+            call mloopf('n', im_myrank, jtm_lbcp, 0, 0, 0, 0, 0)
+         endif
+      endif
    endif
 enddo
 
@@ -871,7 +958,7 @@ end subroutine send_table_w
 subroutine send_table_m(im,iremote)
 
 use mem_ijtabs, only: itab_m, itabg_m, mloops
-use mem_para,   only: nsends_m, send_m, mgroupsize
+use mem_para,   only: nsends_m, send_m
 use misc_coms,  only: io6
 
 implicit none

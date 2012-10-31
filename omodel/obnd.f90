@@ -178,7 +178,7 @@ end subroutine lbcopy_m
 
 !===============================================================================
 
-subroutine lbcopy_u(mrl, umc, uc)
+subroutine lbcopy_u(mrl, a1, a2)
 
 use mem_ijtabs, only: jtab_u, itab_u, jtu_lbcp
 use mem_grid,   only: mza, mua
@@ -188,8 +188,8 @@ implicit none
 
 integer, intent(in) :: mrl
 
-real, optional, intent(inout) :: umc(mza,mua)
-real, optional, intent(inout) :: uc (mza,mua)
+real, optional, intent(inout) :: a1(mza,mua)
+real, optional, intent(inout) :: a2(mza,mua)
 
 integer :: j,iu,iup
 
@@ -201,8 +201,8 @@ do j = 1,jtab_u(jtu_lbcp)%jend(mrl); iu = jtab_u(jtu_lbcp)%iu(j)
    iup = itab_u(iu)%iup
 !----------------------------------------------------------------------
 
-   if (present(umc)) umc(:,iu) = umc(:,iup) 
-   if (present(uc))  uc (:,iu) = uc (:,iup) 
+   if (present(a1)) a1(:,iu) = a1(:,iup) 
+   if (present(a2)) a2(:,iu) = a2(:,iup) 
 
 enddo
 endif
