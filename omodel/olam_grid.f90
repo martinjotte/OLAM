@@ -1178,11 +1178,18 @@ subroutine gridfile_write()
 !!     call shdf5_orec(ndims,idims,'itab_v%fvv',rvara=rscr)
 !!     deallocate(rscr)
 
-     idims(1) = 16
+!!     idims(1) = 16
+!!
+!!     allocate (iscr(16,nva))
+!!     do iv = 1,nva
+!!        iscr(1:16,iv) = itab_v(iv)%iv(1:16)
+!!     enddo
 
-     allocate (iscr(16,nva))
+     idims(1) = 4
+     
+     allocate (iscr(4,nva))
      do iv = 1,nva
-        iscr(1:16,iv) = itab_v(iv)%iv(1:16)
+        iscr(1:4,iv) = itab_v(iv)%iv(1:4)
      enddo
      call shdf5_orec(ndims,idims,'itab_v%iv',ivara=iscr)
      deallocate(iscr)
@@ -1855,12 +1862,15 @@ if (exans) then
       enddo
       deallocate (iscr)
 
-      idims(1) = 16
+      idims(1) = 4
+   !! idims(1) = 16
 
-      allocate (iscr(16,nva))
+   !! allocate (iscr(16,nva))
+      allocate (iscr(4,nva))
       call shdf5_irec(ndims,idims,'itab_v%iv',ivara=iscr)
       do iv = 1,nva
-         itab_v_pd(iv)%iv(1:16) = iscr(1:16,iv)
+   !!    itab_v_pd(iv)%iv(1:16) = iscr(1:16,iv)
+         itab_v_pd(iv)%iv(1:4) = iscr(1:4,iv)
       enddo
       deallocate (iscr)
 
@@ -2490,12 +2500,15 @@ if (exans) then
 !!      enddo
 !!      deallocate (rscr)
 
-      idims(1) = 16
+!!    idims(1) = 16
+      idims(1) = 4
 
-      allocate (iscr(16,mva))
+!!    allocate (iscr(16,mva))
+      allocate (iscr(4,mva))
       call shdf5_irec(ndims,idims,'itab_v%iv',ivara=iscr, points=lgva)
       do iv = 1,mva
-         itab_v(iv)%iv(1:16) = iscr(1:16,iv)
+!!       itab_v(iv)%iv(1:16) = iscr(1:16,iv)
+         itab_v(iv)%iv(1:4) = iscr(1:4,iv)
       enddo
       deallocate (iscr)
 

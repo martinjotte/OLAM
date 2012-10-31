@@ -132,8 +132,10 @@ do iv = 2,nva
    itab_v(iv)%mrlv     = itab_ud(iud)%mrlu
 
    itab_v(iv)%im(1:6)  = itab_ud(iud)%iw(1:6)
-   itab_v(iv)%iv(1:12) = itab_ud(iud)%iu(1:12)
    itab_v(iv)%iw(1:2)  = itab_ud(iud)%im(1:2)
+
+   itab_v(iv)%iv(1:4)  = itab_ud(iud)%iu(1:4)
+ ! itab_v(iv)%iv(1:12) = itab_ud(iud)%iu(1:12)
 
 ! For periodic Cartesian hex domain, compute coordinates for outer M points
 
@@ -188,41 +190,41 @@ do iv = 2,nva
          endif
       endif
 
-! IV(13) and IV(15) neighbors of IV
-
-      if (npoly >= 6 .and. iud2 == itab_v(iv)%iv(5)) then
-         itab_v(iv)%iv(13) = iud1
-      endif
-
-      if (npoly == 7 .and. iud1 == itab_v(iv)%iv(9)) then
-         itab_v(iv)%iv(15) = iud2
-      endif
-
-   enddo           
-
-! Extract information from IMD2 neighbor
-
-   imd = itab_ud(iud)%im(2)
-   npoly = itab_md(imd)%npoly
-
-   do j = 1,npoly
-      j1 = j + 1
-      if (j == npoly) j1 = 1
-
-      iud1 = itab_md(imd)%iu(j)
-      iud2 = itab_md(imd)%iu(j1)
-
-! IV(14) and IV(16) neighbors of IV
-
-      if (npoly >= 6 .and. iud1 == itab_v(iv)%iv(8)) then
-         itab_v(iv)%iv(14) = iud2
-      endif
-
-      if (npoly == 7 .and. iud2 == itab_v(iv)%iv(12)) then
-         itab_v(iv)%iv(16) = iud1
-      endif
+!!! IV(13) and IV(15) neighbors of IV
+!!
+!!      if (npoly >= 6 .and. iud2 == itab_v(iv)%iv(5)) then
+!!         itab_v(iv)%iv(13) = iud1
+!!      endif
+!!
+!!      if (npoly == 7 .and. iud1 == itab_v(iv)%iv(9)) then
+!!         itab_v(iv)%iv(15) = iud2
+!!      endif
 
    enddo           
+
+!!! Extract information from IMD2 neighbor
+!!
+!!   imd = itab_ud(iud)%im(2)
+!!   npoly = itab_md(imd)%npoly
+!!
+!!   do j = 1,npoly
+!!      j1 = j + 1
+!!      if (j == npoly) j1 = 1
+!!
+!!      iud1 = itab_md(imd)%iu(j)
+!!      iud2 = itab_md(imd)%iu(j1)
+!!
+!!! IV(14) and IV(16) neighbors of IV
+!!
+!!      if (npoly >= 6 .and. iud1 == itab_v(iv)%iv(8)) then
+!!         itab_v(iv)%iv(14) = iud2
+!!      endif
+!!
+!!      if (npoly == 7 .and. iud2 == itab_v(iv)%iv(12)) then
+!!         itab_v(iv)%iv(16) = iud1
+!!      endif
+!!
+!!   enddo           
 
 enddo
 

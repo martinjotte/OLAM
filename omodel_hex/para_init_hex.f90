@@ -123,9 +123,9 @@ do iv = 2,nva
 
       myrankflag_v(iv) = .true.
 
-      myrankflag_m( itab_v_pd(iv)%im(1:6)  ) = .true.
-      myrankflag_v( itab_v_pd(iv)%iv(1:16) ) = .true.
-      myrankflag_w( itab_v_pd(iv)%iw(1:4)  ) = .true.
+      myrankflag_m( itab_v_pd(iv)%im(1:6) ) = .true.
+      myrankflag_v( itab_v_pd(iv)%iv(1:4) ) = .true.
+      myrankflag_w( itab_v_pd(iv)%iw(1:4) ) = .true.
 
    endif
 enddo
@@ -352,7 +352,7 @@ do iv = 1,nva
 
 ! Set local indices of V points in V stencil
 
-      do j = 1,16
+      do j = 1,4
          ivn = itab_v_pd(iv)%iv(j) ! Global index
 
          if (myrankflag_v(ivn)) then
@@ -493,8 +493,7 @@ do iv = 2,nva
       ivp  = itab_v_pd(iv)%ivp
       if (itabg_v(ivp)%irank == myrank) call send_table_v(ivp,itabg_v(iv)%irank)
 
-      ! reduce this later!!!!
-      do j = 1,16
+      do j = 1,4
          ivn = itab_v_pd(iv)%iv(j)
          ivn = itab_v_pd(ivn)%ivp
          if (itabg_v(ivn)%irank == myrank) call send_table_v(ivn,itabg_v(iv)%irank)
@@ -506,7 +505,6 @@ do iv = 2,nva
          if (itabg_w(iwn)%irank == myrank) call send_table_w(iwn,itabg_v(iv)%irank)
       enddo
 
-      ! needed for vorticity diffusion
       do j = 1,6
          imn = itab_v_pd(iv)%im(j)
          imn = itab_m_pd(imn)%imp

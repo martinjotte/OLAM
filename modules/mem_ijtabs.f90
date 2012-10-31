@@ -120,12 +120,14 @@ Module mem_ijtabs
       integer :: ivglobe = 1   ! global index of this V pt (in parallel case)
       integer :: mrlv = 0      ! mesh refinement level of this V pt
       integer :: im(6) = 1     ! neighbor M pts of this V pt
-      integer :: iv(16) = 1    ! neighbor V pts
       integer :: iw(4) = 1     ! neighbor W pts of this V pt
+      integer :: iv(4) = 1     ! neighbor V pts
 
+    ! integer :: iv(16) = 1    ! neighbor V pts
     ! real :: fvv(12) = 0.     ! Proj of V5-12 onto V    [HADV + HDIFF]
     ! real :: fvw (4) = 0.     ! Proj of W1-4 onto V     [HADV + HDIFF]
     ! real :: fuv(16) = 0.     ! Interp of V1-16 onto U  [CORF]
+
       real :: farw(2) = 0.     ! Interp of ARW to V control volume [VADV + VDIFF]
 
       real :: cosv(2) = 0.     ! cosine of angle between V and zonal dir (Voronoi)
@@ -259,7 +261,8 @@ Module mem_ijtabs
    Type itab_v_pd_vars      ! data structure for V pts (individual rank) on para_(decomp,init)
       integer :: ivp    = 1 ! V pt from which to copy this V pt's values
       integer :: im(6)  = 1 ! neighbor M pts of this V pt
-      integer :: iv(16) = 1 ! neighbor V pts
+    ! integer :: iv(16) = 1 ! neighbor V pts
+      integer :: iv(4)  = 1 ! neighbor V pts
       integer :: iw(4)  = 1 ! neighbor W pts of this V pt
    End Type itab_v_pd_vars
 
