@@ -47,16 +47,16 @@ use mem_basic  ! needed only when print statements below are uncommented
 use mem_tend   ! needed only when print statements below are uncommented
 use mem_leaf   ! needed only when print statements below are uncommented
 
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_recv_u
-
+use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_recv_u
+use mem_turb,    only: hkm
 use mem_timeavg, only: accum_timeavg
-
-use obnd,        only: trsets, lbcopy_w
+use var_tables,  only: nvar_par, vtab_r, nptonv
+use obnd,        only: trsets, lbcopy_w, lbcopy_u
 use oname_coms,  only: nl
 
 implicit none
 
-integer :: is,mvl,isl4,jstp,mrl
+integer :: is,mvl,isl4,jstp,mrl,n
 real :: t1,w1
 
 ! automatic arrays
@@ -115,8 +115,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
       call pbl_driver(rhot, mrl)
 
-      call lbcopy_w(1, a1=hkm)
-
       if (iparallel == 1) then
          call mpi_send_w('K')  ! Send K's
       endif
@@ -136,10 +134,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
 
 ! call check_nans(6)
-
+   
    mrl = mrl_begl(istp)
-   if (mrl > 0 .and. iparallel == 1) then
-      call mpi_recv_w('K')  ! Recv K's
+   if (mrl > 0) then
+      if (iparallel == 1) call mpi_recv_w('K')
+      call lbcopy_w(mrl, a1=hkm)
    endif
 
 ! call check_nans(7)
@@ -182,13 +181,12 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    if (iparallel == 1) then
       call mpi_recv_u('U')  ! Recv U group (sent from prog_u)
    endif
+   call lbcopy_u(mrl, a1=umc, a2=uc)
 
    mrl = mrl_ends(istp)
    if (mrl > 0) then
       call diagvel_t3d(mrl)
    endif
-
-   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
    if (iparallel == 1) then
       call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
@@ -218,14 +216,16 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
    endif
 
-! call check_nans(19)
+   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
-   call lbcopy_w(mrl, a1=thil, d1=rho)
+! call check_nans(19)
 
    if (iparallel == 1) then
       call mpi_send_w('T')  ! Send W group
       call mpi_recv_w('T')  ! Recv W group
    endif
+
+   call lbcopy_w(mrl, a1=thil, d1=rho)
 
 ! call check_nans(20)
 
@@ -233,6 +233,10 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call mpi_send_w('S')  ! Send scalars
       call mpi_recv_w('S')  ! Recv scalars
    endif
+
+   do n = 1, nvar_par
+      call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
+   enddo
 
 ! call check_nans(21)
 

@@ -717,7 +717,7 @@ end subroutine recv_table_w
 
 subroutine send_table_u(iu,iremote)
 
-use mem_ijtabs, only: itab_u, itabg_u, mloops_u
+use mem_ijtabs, only: itab_u, itabg_u, mloops
 use mem_para,   only: nsends_u, send_u, mgroupsize
 use misc_coms,  only: io6
 
@@ -744,7 +744,7 @@ if (jsend > nsends_u(1)) nsends_u(1) = jsend
 
 iu_myrank = itabg_u(iu)%iu_myrank
 
-itab_u(iu_myrank)%loop(mloops_u+jsend) = .true.
+itab_u(iu_myrank)%loop(mloops+jsend) = .true.
 send_u(jsend)%iremote = iremote
 
 return
@@ -754,7 +754,7 @@ end subroutine send_table_u
 
 subroutine send_table_w(iw,iremote)
 
-use mem_ijtabs, only: itab_w, itabg_w, mloops_w
+use mem_ijtabs, only: itab_w, itabg_w, mloops
 use mem_para,   only: nsends_w, send_w
 use misc_coms,  only: io6
 
@@ -781,7 +781,7 @@ if (jsend > nsends_w(1)) nsends_w = jsend
 
 iw_myrank = itabg_w(iw)%iw_myrank
 
-itab_w(iw_myrank)%loop(mloops_w+jsend) = .true.
+itab_w(iw_myrank)%loop(mloops+jsend) = .true.
 send_w(jsend)%iremote = iremote
 
 return

@@ -435,14 +435,14 @@ enddo
 endif
 call rsub('Wa',19)
 
- call lbcopy_w(mrl, a1=thil0)
-
 ! Parallel send/recv of thil after updates from low-order advective flux
 
 if (iparallel == 1) then
    call mpi_send_w('L',thil0=thil0)
    call mpi_recv_w('L',thil0=thil0)
 endif
+
+call lbcopy_w(mrl, a1=thil0)
 
 call psub()
 !----------------------------------------------------------------------
@@ -641,14 +641,14 @@ enddo
 endif
 call rsub('W',19)
 
- call lbcopy_w(mrl, a1=wmc0)
-
 ! Parallel send/recv of WC0 after updates from low-order advective flux
 
 if (iparallel == 1) then
    call mpi_send_w('L', wmc0=wc0)
    call mpi_recv_w('L', wmc0=wc0)
 endif
+
+call lbcopy_w(mrl, a1=wmc0)
 
 ! Horizontal loop over W/T points
 
@@ -713,14 +713,14 @@ enddo
 endif
 call rsub('W',22)
 
- call lbcopy_w(mrl, a1=wmc, d1=press, d2=rho)
-
 ! Parallel send/recv of P group (wmc, press, rho)
 
 if (iparallel == 1) then
    call mpi_send_w('P')
    call mpi_recv_w('P')
 endif
+
+call lbcopy_w(mrl, a1=wmc, d1=press, d2=rho)
 
 ! NOW THAT WE HAVE COMMUNICATED WMC, COMPUTE THE VERTICAL MASS FLUX
 ! AT (t+fw), AND SUM UP THE CONTRIBUTION FOR SCALAR TRANSPORT
@@ -760,7 +760,7 @@ use mem_ijtabs,  only: itab_w, itab_u
 use mem_basic,   only: wmc, rho, thil, wc, uc, theta, press
 use misc_coms,   only: io6, initial, dn01d, th01d, &
                        deltax, nxp, mdomain, time8, dtsm
-use consts_coms, only: cpocv, gravo2, grav
+use consts_coms, only: cpocv, gravo2, grav, pio180, pi1
 use mem_grid,    only: mza, mua, mwa, lpw, arw, volt, volti, volwi, dzt, &
                        dzim, xew, zm, glatw, glonw
 use mem_rayf,    only: rayfw_distim, rayf_cofw, rayf_distim, rayf_cof
@@ -814,6 +814,7 @@ real :: fracx, rayfx
 real, parameter :: ak = 1. / (40. * 86400.) ! HS expt only
 real, parameter :: as = 1. / (4.  * 86400.) ! HS expt only
 
+real :: topo_swtc, rad_swtc, rad0_swtc
 real :: cnum_w
 real :: hcnsclr
 
@@ -1427,7 +1428,7 @@ if (nl%test_case == 2 .or. nl%test_case == 5) then
    endif
    
    do k = ka,mza-1
-      press(k,iw) = rho(k,iw) + topo_swtc + fp * delex_rho(k)
+      press(k,iw) = rho(k,iw) + topo_swtc + fp * delex_rho(k,iw)
    enddo
 endif
 
@@ -1509,14 +1510,14 @@ enddo
 endif
 call rsub('Ua',16)
 
- call lbcopy_u(mrl, a1=uc0)
-
 ! Parallel send/recv of UC0 after updates from low-order advective flux
 
 if (iparallel == 1) then
    call mpi_send_u('L',uc0=uc0)
    call mpi_recv_u('L',uc0=uc0)
 endif
+
+call lbcopy_u(mrl, a1=uc0)
 
 ! Update MAX & MIN UC values for flux limiter
 
@@ -1537,12 +1538,12 @@ enddo
 endif
 call rsub('Ub',16)
 
- call lbcopy_u(mrl, a1=rpos, a2=rneg)
-
 if (iparallel == 1) then
    call mpi_send_u('R',rpos=rpos,rneg=rneg)  ! Send rpos, rneg (for flux limiter)
    call mpi_recv_u('R',rpos=rpos,rneg=rneg)  ! Receive rpos, rneg (for flux limiter)
 endif
+
+call lbcopy_u(mrl, a1=rpos, a2=rneg)
 
 ! Horizontal loop over U points to update UMC
 
@@ -1595,8 +1596,6 @@ enddo
 endif
 call rsub('U',18)
 
- call lbcopy_u(mrl, a1=umc, a2=uc)
-
 if (iparallel == 1) then
    call mpi_send_u('U')  ! Send U group
 endif
@@ -1614,7 +1613,7 @@ use mem_ijtabs,  only: itab_u
 use mem_basic,   only: uc, wc, press, ump, umc, rho
 use misc_coms,   only: io6, dtsm, initial, mdomain, u01d, v01d, dn01d, &
                        deltax, nxp
-use consts_coms, only: erad
+use consts_coms, only: erad, gravo2
 use mem_grid,    only: lpu, lcu, volt, aru, volui, xeu, yeu, zeu,  &
                        unx, uny, unz, mza, mua, mwa, dnu, dniu, dnv, arw0, zt
 use mem_rayf,    only: rayf_distim, rayf_cof

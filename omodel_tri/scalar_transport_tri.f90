@@ -112,18 +112,18 @@ enddo
 endif
 call rsub('Wa',26)
 
-! LBC copy
-
-do ns = 1,num_scalar-1
-   call lbcopy_w(1, a1=scp0(:,:,ns))
-enddo
-
 ! Parallel send/recv of scalars after updates from low-order advective flux
 
 if (iparallel == 1) then
    call mpi_send_w('L',scp0=scp0)
    call mpi_recv_w('L',scp0=scp0)
 endif
+
+! LBC copy
+
+do ns = 1,num_scalar-1
+   call lbcopy_w(1, a1=scp0(:,:,ns))
+enddo
 
 call psub()
 !----------------------------------------------------------------------

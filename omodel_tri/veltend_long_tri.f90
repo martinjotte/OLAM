@@ -53,8 +53,6 @@ integer :: mrl
 mrl = mrl_begl(istp)
 if (mrl == 0) return
 
- call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
-
 ! MPI SEND of VMXET, VMYET, VMZET
 
 if (iparallel == 1) call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
@@ -100,9 +98,11 @@ enddo
 !$omp end parallel do
 call rsub('W',16)
 
-! MPI RECV of VMXET, VMYET, VMZET
+! MPI RECV and LBC copy of VMXET, VMYET, VMZET
 
 if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
+
+call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
 
 ! Update UM tendency from long-timestep earth-cartesian tendencies
 
