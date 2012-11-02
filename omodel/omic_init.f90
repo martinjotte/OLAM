@@ -41,7 +41,7 @@ use mem_micro,   only: sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        con_ccn, con_gccn, con_ifn, q2, q6, q7, &
                        pcpgr, qpcpgr, dpcpgr
 
-use misc_coms,   only: io6, dtlm
+use misc_coms,   only: io6, dtlm, runtype
 use mem_ijtabs,  only: jtab_w, mrls, jtw_init
 use mem_grid,    only: mza, zm, dzt, dzit
 use mem_para,    only: myrank
@@ -81,102 +81,106 @@ enddo
 
 ! Initialize 3D and 2D microphysics fields
 
-call psub()
-!----------------------------------------------------------------------
-do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
-!----------------------------------------------------------------------
-call qsub('W',iw)
+if (runtype == 'INITIAL') then
 
-   if (idriz >= 1)  then
-      sh_d(1:mza,iw) = 0.
-      accpd(iw) = 0.
-      pcprd(iw) = 0.
-   endif
+   call psub()
+!----------------------------------------------------------------------
+   do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+!----------------------------------------------------------------------
+   call qsub('W',iw)
 
-   if (irain >= 1)  then
-      sh_r(1:mza,iw) = 0.
-      accpr(iw) = 0.
-      pcprr(iw) = 0.
-      q2(1:mza,iw) = tair(1:mza,iw) - 193.15
-   endif
+      if (idriz >= 1)  then
+         sh_d(1:mza,iw) = 0.
+         accpd(iw) = 0.
+         pcprd(iw) = 0.
+      endif
+
+      if (irain >= 1)  then
+         sh_r(1:mza,iw) = 0.
+         accpr(iw) = 0.
+         pcprr(iw) = 0.
+         q2(1:mza,iw) = tair(1:mza,iw) - 193.15
+      endif
    
-   if (ipris >= 1)  then
-      sh_p(1:mza,iw) = 0.
-      accpp(iw) = 0.
-      pcprp(iw) = 0.
-   endif
+      if (ipris >= 1)  then
+         sh_p(1:mza,iw) = 0.
+         accpp(iw) = 0.
+         pcprp(iw) = 0.
+      endif
 
-   if (isnow >= 1)  then
-      sh_s(1:mza,iw) = 0.
-      accps(iw) = 0.
-      pcprs(iw) = 0.
-   endif
+      if (isnow >= 1)  then
+         sh_s(1:mza,iw) = 0.
+         accps(iw) = 0.
+         pcprs(iw) = 0.
+      endif
 
-   if (iaggr >= 1)  then
-      sh_a(1:mza,iw) = 0.
-      accpa(iw) = 0.
-      pcpra(iw) = 0.
-   endif
+      if (iaggr >= 1)  then
+         sh_a(1:mza,iw) = 0.
+         accpa(iw) = 0.
+         pcpra(iw) = 0.
+      endif
 
-   if (igraup >= 1) then
-      sh_g(1:mza,iw) = 0.
-      accpg(iw) = 0.
-      pcprg(iw) = 0.
-      q6(1:mza,iw) = .5 * min(0.,tair(1:mza,iw) - 273.15)
-   endif
+      if (igraup >= 1) then
+         sh_g(1:mza,iw) = 0.
+         accpg(iw) = 0.
+         pcprg(iw) = 0.
+         q6(1:mza,iw) = .5 * min(0.,tair(1:mza,iw) - 273.15)
+      endif
 
-   if (ihail >= 1)  then
-      sh_h(1:mza,iw) = 0.
-      accph(iw) = 0.
-      pcprh(iw) = 0.
-      q7(1:mza,iw) = .5 * min(0.,tair(1:mza,iw) - 273.15)
-   endif
+      if (ihail >= 1)  then
+         sh_h(1:mza,iw) = 0.
+         accph(iw) = 0.
+         pcprh(iw) = 0.
+         q7(1:mza,iw) = .5 * min(0.,tair(1:mza,iw) - 273.15)
+      endif
 
-   if (jnmb(1) == 5) con_c(1:mza,iw) = 0.
-   if (jnmb(2) == 5) con_r(1:mza,iw) = 0.
-   if (jnmb(3) == 5) con_p(1:mza,iw) = 0.
-   if (jnmb(4) == 5) con_s(1:mza,iw) = 0.
-   if (jnmb(5) == 5) con_a(1:mza,iw) = 0.
-   if (jnmb(6) == 5) con_g(1:mza,iw) = 0.
-   if (jnmb(7) == 5) con_h(1:mza,iw) = 0.
-   if (jnmb(8) == 5) con_d(1:mza,iw) = 0.
+      if (jnmb(1) == 5) con_c(1:mza,iw) = 0.
+      if (jnmb(2) == 5) con_r(1:mza,iw) = 0.
+      if (jnmb(3) == 5) con_p(1:mza,iw) = 0.
+      if (jnmb(4) == 5) con_s(1:mza,iw) = 0.
+      if (jnmb(5) == 5) con_a(1:mza,iw) = 0.
+      if (jnmb(6) == 5) con_g(1:mza,iw) = 0.
+      if (jnmb(7) == 5) con_h(1:mza,iw) = 0.
+      if (jnmb(8) == 5) con_d(1:mza,iw) = 0.
 
 ! Initialize CCN field if activated
-
-   if (icloud  == 7) then
-      con_ccn(1:mza,iw) = cparm  ! Default specification
+      
+      if (icloud  == 7) then
+         con_ccn(1:mza,iw) = cparm  ! Default specification
 
 ! Steve's example (changed to #/kg)
 
-!     con_ccn(k,iw) = max(100.e6,cparm * (1. - zt(k) / 4000.))
+!        con_ccn(k,iw) = max(100.e6,cparm * (1. - zt(k) / 4000.))
 
-   endif
+      endif
 
 ! Initialize GCCN field if activated
 
-   if (idriz == 7) then
-      con_gccn(1:mza,iw) = dparm  ! Default specification
+      if (idriz == 7) then
+         con_gccn(1:mza,iw) = dparm  ! Default specification
 
 ! Steve's example (changed to #/kg)
 
-!     con_gccn(k,iw) = max(10.,dparm * (1. - zt(k) / 4000.))
+!        con_gccn(k,iw) = max(10.,dparm * (1. - zt(k) / 4000.))
 
-   endif
+      endif
 
 ! Initialize IFN field if activated
 
-   if (ipris == 7) then
-      con_ifn (1:mza,iw) = pparm * rho(1:mza,iw) ** 5.4  ! Default specification
-   endif
+      if (ipris == 7) then
+         con_ifn (1:mza,iw) = pparm * rho(1:mza,iw) ** 5.4  ! Default specification
+      endif
 
 ! Initialize accumulated precipitation for surface model
 
-   pcpgr(iw)  = 0.
-   qpcpgr(iw) = 0.
-   dpcpgr(iw) = 0.
+      pcpgr(iw)  = 0.
+      qpcpgr(iw) = 0.
+      dpcpgr(iw) = 0.
 
-enddo
-call rsub('Wc',7)
+   enddo
+   call rsub('Wc',7)
+
+endif ! runtype == 'INITIAL'
 
 ! Check if collection table file exists
 

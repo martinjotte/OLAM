@@ -33,7 +33,7 @@
 
 subroutine read_nl(file)
 
-use oname_coms, only: nl
+use oname_coms, only: nl, cmdlne_runtype
 use misc_coms,  only: io6
 
 implicit none
@@ -60,6 +60,12 @@ open(10, status='OLD', file=file)
 read(10, nml=OLAMIN)
 close(10)
 
+! OVERWRITE NAMELIST OPTIONS WITH COMMAND LINE VALUES (CURRENTLY ONLY RUNTYPE)
+
+if (len_trim(cmdlne_runtype) > 1) then
+   nl%runtype = cmdlne_runtype
+endif
+
 end subroutine read_nl
 
 !===============================================================================
@@ -67,7 +73,7 @@ end subroutine read_nl
 subroutine copy_nl(copy_type)
 
 use max_dims,    only: maxgrds, nzgmax, maxisdirs
-use oname_coms,  only: nl, cmdlne_runtype
+use oname_coms,  only: nl
 use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
                        nacoust, idiffk, zkhkm, xkhkm, csz, csx, akmin, &
                        dtlong, initial, zonclim, topo_database, &
@@ -116,12 +122,7 @@ if (copy_type == 'ALL_CASES') then
 ! This allows model options to be changed if it is a history start.
 
    expnme   = nl%expnme
-
-   if (len_trim(cmdlne_runtype) > 1) then
-      runtype = cmdlne_runtype
-   else
-      runtype  = nl%runtype
-   endif
+   runtype  = nl%runtype
    timeunit = nl%timeunit
    timmax8  = nl%timmax
 

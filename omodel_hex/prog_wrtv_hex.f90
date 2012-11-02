@@ -555,7 +555,7 @@ if (iparallel == 1) then
 endif
 
 call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, a4=wmc, &
-                   a5=wc,    a6=thil,  d1=press, d2=rho)
+                   a5=thil,  d1=press, d2=rho)
 
 ! Horizontal loop over V points to update VMC
 
@@ -581,29 +581,6 @@ if (strict_wvt_donorpoint) then
    deallocate(vyef)
    deallocate(vzef)
 endif
-
-! LATERAL BOUNDARY CONDITION ONLY FOR LIMITED-AREA-DOMAIN MODEL CONFIGURATION
-! Copy LBC for VMC, VC
-
-call psub()
-!----------------------------------------------------------------------
-mrl = mrl_ends(istp)
-if (mrl > 0) then
-!$omp parallel do private(iv,ivp,k) 
-do j = 1,jtab_v(jtv_lbcp)%jend(mrl); iv = jtab_v(jtv_lbcp)%iv(j)
-   ivp = itab_v(iv)%ivp
-!----------------------------------------------------------------------
-call qsub('V',iv)
-
-   do k = 1,mza-1
-      vmc(k,iv) = vmc(k,ivp)
-      vc(k,iv)  = vc(k,ivp)
-   enddo
-
-enddo
-!$omp end parallel do 
-endif
-call rsub('V',18)
 
 return
 end subroutine prog_wrtv
