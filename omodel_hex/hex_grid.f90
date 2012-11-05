@@ -810,22 +810,28 @@ do iw = 2,nwa
 
    itab_w(iw)%iwglobe = iw
 
-! Outward unit vector components at W point
-
-   wnx(iw) = xew(iw) / erad
-   wny(iw) = yew(iw) / erad
-   wnz(iw) = zew(iw) / erad
-
-! Fill latitude and longitude of W point
+! Fill outward unit vector components and latitude and longitude of W point
 
    if (mdomain <= 1) then
+
       raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)
 
       glatw(iw) = atan2(zew(iw),raxis)   * piu180
       glonw(iw) = atan2(yew(iw),xew(iw)) * piu180
+      
+      wnx(iw) = xew(iw) / erad
+      wny(iw) = yew(iw) / erad
+      wnz(iw) = zew(iw) / erad
+
    else
+
       glatw(iw) = 0. ! want it this way?
       glonw(iw) = 0. ! want it this way?
+
+      wnx(iw) = 0.0
+      wny(iw) = 0.0
+      wnz(iw) = 1.0
+
    endif
 
 ! Number of polygon edges/vertices
