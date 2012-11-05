@@ -254,5 +254,5 @@ SOURCE_FILES= \
              $(HURRICANE)/hurricane_init.f90 \
              $(TEST_CASES)/mem_swtc5_refsoln_cubic.f90 \
              $(TEST_CASES)/swtc_init.f90 \
-             $(TEST_CASES)/diagn_global_swtc.f90
+             $(TEST_CASES)/diagn_global_swtc.F90
 

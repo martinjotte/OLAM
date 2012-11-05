@@ -254,12 +254,12 @@ SOURCE_FILES= \
              $(HURRICANE)/hurricane_init.f90 \
              $(TEST_CASES)/mem_swtc5_refsoln_cubic.f90 \
              $(TEST_CASES)/swtc_init.f90 \
-             $(TEST_CASES)/diagn_global_swtc.f90 \
+             $(TEST_CASES)/diagn_global_swtc.F90 \
              $(TEST_CASES)/olam_dcmip.f90 \
              $(TEST_CASES)/dcmip_initial_conditions_test_1_2_3_v5.f90 \
              $(TEST_CASES)/dcmip_initial_conditions_test_4_v2_1.f90 \
              $(TEST_CASES)/dcmip_initial_conditions_test_5_v1.f90 \
              $(TEST_CASES)/simple_physics_v5_1.f90 \
              $(TEST_CASES)/test2xdeep.f90 \
-             $(TEST_CASES)/diagn_global_dcmip.f90 \
+             $(TEST_CASES)/diagn_global_dcmip.F90 \
              $(TEST_CASES)/test41alt.f90
