@@ -43,7 +43,26 @@ Module mem_ijtabs
    integer, parameter :: nloops_u = mloops + maxremote ! # U DO loops incl para
    integer, parameter :: nloops_v = mloops + maxremote ! # V DO loops incl para
    integer, parameter :: nloops_w = mloops + maxremote ! # W DO loops incl para
-   
+
+   ! M, U, V, and W loop indices. The last 4 letters of these indices have the
+   ! following meanings:
+   !
+   ! *_grid is for setting up grid parameters in the ctrlvols subroutines
+   ! *_init is for initialization of ATM fields (in ohhi, olhi, fldsisan, 
+   !        hurricane_init, omic_init)
+   ! *_prog is for points where primary quantities such at UMC, VMC, THIL are
+   !        prognosed
+   ! *_wadj is for U, V, or W points that are adjacent to W points where primary
+   !        quantities are prognosed
+   ! *_wstn is for all U, V, or W points in the stencil of a W point where
+   !        primary quantities are prognosed
+   ! *_lbcp is for lateral boundary points whose values are copied from an
+   !        interior prognostic point
+   ! *_vadj is for M points that are adjacent to a prognostic V point, while
+   !        jtw_vadj is the representatio of jtm_vadj in the pre-hex-grid stage
+   !        of model grid initialization)
+   ! *_wall is for U points along the wall of an x-z channel domain (mdomain = 3)
+
    integer, parameter :: jtm_grid = 1, jtu_grid = 1, jtv_grid = 1, jtw_grid = 1
    integer, parameter :: jtm_init = 2, jtu_init = 2, jtv_init = 2, jtw_init = 2
    integer, parameter :: jtm_prog = 3, jtu_prog = 3, jtv_prog = 3, jtw_prog = 3
