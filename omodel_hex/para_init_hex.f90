@@ -71,7 +71,7 @@ integer :: im,iv,iw,iw1,iw2
 integer :: imp,ivp,iwp
 integer :: isf,ilf,iws,iwl
 integer :: npoly
-integer :: vadj_flag, wadj_flag
+integer :: wadj_flag
 
 integer :: im_myrank ! Counter for M points to be included on this rank
 integer :: iv_myrank ! Counter for V points to be included on this rank
@@ -418,6 +418,7 @@ do iw = 1,nwa
 ! Set local indices of M, V, W points in W stencil
 
       wadj_flag = 0
+      if (itabg_w(iw)%irank == myrank) wadj_flag = 1
 
       do j = 1,7
          imn = itab_w_pd(iw)%im(j) ! Global index
