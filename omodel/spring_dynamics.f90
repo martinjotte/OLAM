@@ -45,7 +45,7 @@ implicit none
 integer, intent(in) :: ngr,nconcave
 
 integer :: niter
-real, parameter :: relax = .04, beta = 1.
+real, parameter :: relax = .04, beta = 1.2
 
 ! Automatic arrays
 
