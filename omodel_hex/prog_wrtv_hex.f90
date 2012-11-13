@@ -786,7 +786,7 @@ real :: rad0_swtc, rad_swtc, topo_swtc
 ! Vertical implicit scheme weighting parameters
 
 real, parameter :: fw = .55  ! wmc
-real, parameter :: fr = .55  ! rho
+real, parameter :: fr = .75  ! rho
 real, parameter :: fp = .75  ! press
 
 real, parameter :: pc2 = fp * cpocv
@@ -982,7 +982,7 @@ delex_wm(ka) = delex_wm(ka) + dts * volwi(ka,iw) * .25 * hadv_wm(ka-1)
 
 c6  = dts * .5 * fw
 c7  = dts * .25 * fw
-c8  = dts * fp * cpocv
+c8  = dts * pc2
 c9  = dts * (-.5) * fr * grav
 c10 = dts * fw
 
