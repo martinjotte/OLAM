@@ -39,7 +39,7 @@ use misc_coms,   only: io6, iparallel, meshtype
 use consts_coms, only: gravo2, erad, pio180, pi2, omega, pi1
 use mem_grid,    only: mza, mua, mva, unx, uny, unz, vnx, vny, vnz, &
                        xem, yem, zem, xew, yew, zew, volt, volui, &
-                       glatu, glonu, glatw, glonw
+                       glatu, glonu, glatw, glonw, xev, yev, zev
                        
 use oname_coms,  only: nl
 
@@ -202,11 +202,15 @@ else
 !      xseg = .5 * (xem(im1) + xem(im2))
 !      yseg = .5 * (yem(im1) + yem(im2))
 !      zseg = .5 * (zem(im1) + zem(im2))
-         
-      xseg = .5 * (xew(iw1) + xew(iw2))
-      yseg = .5 * (yew(iw1) + yew(iw2))
-      zseg = .5 * (zew(iw1) + zew(iw2))
-         
+
+!      xseg = .5 * (xew(iw1) + xew(iw2))
+!      yseg = .5 * (yew(iw1) + yew(iw2))
+!      zseg = .5 * (zew(iw1) + zew(iw2))
+
+      xseg = xev(iv)
+      yseg = yev(iv)
+      zseg = zev(iv)
+
       raxis = sqrt(xseg ** 2 + yseg ** 2)
          
       if (raxis > 1.e3) then

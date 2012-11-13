@@ -11,8 +11,13 @@ use consts_coms
 use mem_grid
 use oplot_coms,  only: op
 use oname_coms,  only: nl
+use mem_para,    only: mgroupsize, myrank
 
 use mem_swtc5_refsoln_cubic
+
+#ifdef OLAM_MPI
+use mpi
+#endif
 
 implicit none
 
@@ -32,6 +37,9 @@ real, save :: scalelab = .014
 real, save :: timebeg,timeend,timedif,timeinc
 
 real :: zanal0_swtc5,zanal_swtc5
+
+integer :: nsends, ierror
+real, allocatable :: sendbuf(:), recvbuf(:,:)
 
 ncall = ncall + 1
 
@@ -157,6 +165,37 @@ do iw = 2,mwa
    endif
 
 enddo
+
+#ifdef OLAM_MPI
+if (iparallel == 1) then
+
+   nsends = 6
+
+   allocate( sendbuf( nsends) )
+   allocate( recvbuf( nsends, mgroupsize) )
+
+   sendbuf(1) = sum_abshdif
+   sendbuf(2) = sum_hdif2
+   sendbuf(3) = abshdif_max
+   sendbuf(4) = sum_abshtr
+   sendbuf(5) = sum_htr2
+   sendbuf(6) = abshtr_max
+
+   call mpi_allgather( sendbuf, nsends, mpi_real, &
+                       recvbuf, nsends, mpi_real, MPI_COMM_WORLD, ierror )
+
+   sum_abshdif = sum   ( recvbuf(1,1:mgroupsize) )
+   sum_hdif2   = sum   ( recvbuf(2,1:mgroupsize) )
+   abshdif_max = maxval( recvbuf(3,1:mgroupsize) )
+   sum_abshtr  = sum   ( recvbuf(4,1:mgroupsize) )
+   sum_htr2    = sum   ( recvbuf(5,1:mgroupsize) )
+   abshtr_max  = maxval( recvbuf(6,1:mgroupsize) )
+
+   deallocate( sendbuf )
+   deallocate( recvbuf )
+
+endif
+#endif
 
 ! First 3 normalized global errors (Williamson et al 1992 Eqs. 82-84)
 

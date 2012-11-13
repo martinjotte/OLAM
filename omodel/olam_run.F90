@@ -616,7 +616,7 @@ do while (time8 < timmax8)
    write(io6,'(a)')  &
       trim(stepc1)//trim(stepc2)//trim(stepc3)//trim(stepc4)//trim(stepc5)
 
-   call olam_output
+   call olam_output()
    
 enddo
 
@@ -639,7 +639,9 @@ use oplot_coms,  only: op
 use mem_nudge,   only: nudflag
 use isan_coms,   only: ifgfile, s1900_fg
 use consts_coms, only: r8
+use oname_coms,  only: nl
 use hcane_rz,    only: init_hurr_step, hurricane_track
+
 implicit none
 
 integer  :: ierr, ifm, ifileok
@@ -668,6 +670,12 @@ if (mod(time8,real(frqstate,r8)) < dtlm(1)  .or.  &
    time8  >=  timmax8 - .01*dtlm(1) .or. iflag == 1) then
    call history_write('INST')
    time_prevhist = time8
+endif
+
+! For idealized test cases, compute error norms
+
+if (nl%test_case == 2 .or. nl%test_case == 5) then
+   call diagn_global_swtc()
 endif
 
 if (isfcl == 1 .and. iupdsst == 1) then

@@ -292,14 +292,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 enddo
 
-! For shallow water test cases, compute error norms if run is not parallel
-
-!if (iparallel == 0) then
-   if (nl%test_case == 2 .or. nl%test_case == 5) then
-      call diagn_global_swtc()
-   endif
-!endif
-
 return
 end subroutine timestep
 
