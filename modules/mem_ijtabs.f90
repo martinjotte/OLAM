@@ -193,6 +193,9 @@ Module mem_ijtabs
       real :: vny_w = 0.       ! ye component of northward unit normal vector
       real :: vnz_w = 0.       ! ze component of northward unit normal vector
 
+      real :: ecvec_v(7) = 0.  ! factor converting earth cart. velocity to V
+      real :: ecvec_w    = 0.  ! factor converting earth cart. velocity to W
+
 ! Delaunay section - will change some
 
       real :: fwu(9) = 0.  ! proj coefs of U neighbors

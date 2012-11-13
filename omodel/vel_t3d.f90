@@ -51,7 +51,7 @@ if (mrl == 0) return
 
 call psub()
 !----------------------------------------------------------------------
-!$omp parallel do private(iw,npoly,kb,k,jv,iv,wst,farv2) 
+!$omp parallel do private(iw,npoly,kb,k,jv,iv,wst) 
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
@@ -65,7 +65,7 @@ call qsub('W',iw)
 
 ! Diagnose 3D earth-velocity vector at T points; W contribution first
 
-      wst = 0.5 * (ws(k-1,iw) + ws(k,iw))
+      wst = itab_w(iw)%ecvec_w * (ws(k-1,iw) + ws(k,iw))
 
       vxe(k,iw) = wst * wnx(iw)
       vye(k,iw) = wst * wny(iw)
@@ -79,25 +79,23 @@ call qsub('W',iw)
 
       iv = itab_w(iw)%iv(jv)
 
-      farv2 = 2. * itab_w(iw)%farv(jv)
-
 ! Vertical loop over T levels
 
       do k = kb, mza-1
 
 ! Diagnose 3D earth-velocity vector at T points; VC contribution
 
-         vxe(k,iw) = vxe(k,iw) + farv2 * vs(k,iv) * vnx(iv)
-         vye(k,iw) = vye(k,iw) + farv2 * vs(k,iv) * vny(iv)
-         vze(k,iw) = vze(k,iw) + farv2 * vs(k,iv) * vnz(iv)
+         vxe(k,iw) = vxe(k,iw) + itab_w(iw)%ecvec_v(jv) * vs(k,iv) * vnx(iv)
+         vye(k,iw) = vye(k,iw) + itab_w(iw)%ecvec_v(jv) * vs(k,iv) * vny(iv)
+         vze(k,iw) = vze(k,iw) + itab_w(iw)%ecvec_v(jv) * vs(k,iv) * vnz(iv)
 
       enddo
       
    enddo
    
-   vxe(2:kb-1,iw) = vxe(kb,iw)
-   vye(2:kb-1,iw) = vye(kb,iw)
-   vze(2:kb-1,iw) = vze(kb,iw)
+   vxe(1:kb-1,iw) = vxe(kb,iw)
+   vye(1:kb-1,iw) = vye(kb,iw)
+   vze(1:kb-1,iw) = vze(kb,iw)
 
    vxe(mza,iw) = vxe(mza-1,iw)
    vye(mza,iw) = vye(mza-1,iw)
@@ -183,9 +181,9 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
    enddo
 
-   vxe(2:kb-1,iw) = vxe(kb,iw)
-   vye(2:kb-1,iw) = vye(kb,iw)
-   vze(2:kb-1,iw) = vze(kb,iw)
+   vxe(1:kb-1,iw) = vxe(kb,iw)
+   vye(1:kb-1,iw) = vye(kb,iw)
+   vze(1:kb-1,iw) = vze(kb,iw)
 
    vxe(mza,iw) = vxe(mza-1,iw)
    vye(mza,iw) = vye(mza-1,iw)
