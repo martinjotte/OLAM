@@ -219,11 +219,13 @@ SOURCE_FILES= \
              $(OMODEL_HEX)/scalar_transport_hex.f90 \
              $(OMODEL_HEX)/timestep_hex.f90 \
              $(OMODEL_TRI)/tri_grid.f90 \
+             $(OUTILS)/blas.f90 \
              $(OUTILS)/check_nans.F90 \
              $(OUTILS)/dateutils.f90 \
              $(OUTILS)/filelist.f90 \
              $(OUTILS)/hdf5_f2f.F90 \
              $(OUTILS)/hdf5_utils.f90 \
+             $(OUTILS)/lapack.f90 \
              $(OUTILS)/interp_lib.f90 \
              $(OUTILS)/map_proj.f90 \
              $(OUTILS)/read_cdc.f90 \

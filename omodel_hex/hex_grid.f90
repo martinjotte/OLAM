@@ -630,13 +630,12 @@ logical :: dops
 
 character(10) :: string
 
-integer, parameter :: nmax  = 60000
-real,    parameter :: const = 1.5
-integer :: niter
-real :: farv2(7), sumf, fw, farvy(7)
-real :: bsumxx, bsumyy, bsumzz
-real :: bsumxy, bsumxz, bsumyz
-integer :: cr, c1, c2
+integer, parameter :: lwork = 200
+real               :: work(lwork)
+integer            :: nc
+integer            :: info
+real               :: b(8), fo(8)
+real, allocatable  :: a(:,:)
 
 ef = 1.01  ! radial expansion factor (from earth center) for defining 
            ! auxiliary point for computing unit normal to U face
@@ -1029,92 +1028,60 @@ if (mdomain < 1) then
    do iw = 2, nwa
       
       npoly = itab_w(iw)%npoly
-      fw    = 1.0
-      farvy = 0.0
+      nc    = npoly + 1
+      
+      fo(1:npoly) = 2.0 * itab_w(iw)%farv(1:npoly)
+      fo(nc)      = 1.0 
 
-      farv2(1:npoly) = 2.0 * itab_w(iw)%farv(1:npoly)
+      if (allocated(a)) then
+         if (size(a,2) /= nc) deallocate(a)
+      endif
 
-      bsumxx = wnx(iw) * wnx(iw) * wnx(iw) * wnx(iw)
-      bsumyy = wny(iw) * wny(iw) * wny(iw) * wny(iw)
-      bsumzz = wnz(iw) * wnz(iw) * wnz(iw) * wnz(iw)
+      if (.not. allocated(a)) allocate(a(6,nc))
 
-      bsumxy = wnx(iw) * wnx(iw) * wny(iw) * wny(iw)
-      bsumxz = wnx(iw) * wnx(iw) * wnz(iw) * wnz(iw)
-      bsumyz = wny(iw) * wny(iw) * wnz(iw) * wnz(iw)
+      a(1,1:npoly) = vnx(itab_w(iw)%iv(1:npoly)) * vnx(itab_w(iw)%iv(1:npoly))
+      a(2,1:npoly) = vny(itab_w(iw)%iv(1:npoly)) * vny(itab_w(iw)%iv(1:npoly))
+      a(3,1:npoly) = vnz(itab_w(iw)%iv(1:npoly)) * vnz(itab_w(iw)%iv(1:npoly))
+      a(4,1:npoly) = vnx(itab_w(iw)%iv(1:npoly)) * vny(itab_w(iw)%iv(1:npoly))
+      a(5,1:npoly) = vnx(itab_w(iw)%iv(1:npoly)) * vnz(itab_w(iw)%iv(1:npoly))
+      a(6,1:npoly) = vny(itab_w(iw)%iv(1:npoly)) * vnz(itab_w(iw)%iv(1:npoly))
 
-      do j = 1, npoly
-         iv = itab_w(iw)%iv(j)
-         bsumxx = bsumxx + vnx(iv) * vnx(iv) * vnx(iv) * vnx(iv)
-         bsumyy = bsumyy + vny(iv) * vny(iv) * vny(iv) * vny(iv)
-         bsumzz = bsumzz + vnz(iv) * vnz(iv) * vnz(iv) * vnz(iv)
+      a(1,nc) = wnx(iw) * wnx(iw)
+      a(2,nc) = wny(iw) * wny(iw)
+      a(3,nc) = wnz(iw) * wnz(iw)
+      a(4,nc) = wnx(iw) * wny(iw)
+      a(5,nc) = wnx(iw) * wnz(iw)
+      a(6,nc) = wny(iw) * wnz(iw)
 
-         bsumxy = bsumxy + vnx(iv) * vnx(iv) * vny(iv) * vny(iv)
-         bsumxz = bsumxz + vnx(iv) * vnx(iv) * vnz(iv) * vnz(iv)
-         bsumyz = bsumyz + vny(iv) * vny(iv) * vnz(iv) * vnz(iv)
-      enddo
+      b(1) = 1.0 - sum( fo(1:nc) * a(1,:) )
+      b(2) = 1.0 - sum( fo(1:nc) * a(2,:) )
+      b(3) = 1.0 - sum( fo(1:nc) * a(3,:) )
+      b(4) = 0.0 - sum( fo(1:nc) * a(4,:) )
+      b(5) = 0.0 - sum( fo(1:nc) * a(5,:) )
+      b(6) = 0.0 - sum( fo(1:nc) * a(6,:) )
 
-      bsumxx = const / bsumxx
-      bsumyy = const / bsumyy
-      bsumzz = const / bsumzz
+      call sgels( 'N', 6, nc, 1, a, 6, b, 8, work, lwork, info )
 
-      bsumxy = const / bsumxy
-      bsumxz = const / bsumxz
-      bsumyz = const / bsumyz
-
-      j = 0
-      do niter = 1, nmax
-         j = j + 1
-
-         if (j == 1) then
-
-            call relax_xz()
-            call relax_xy()
-            call relax_yz()
-
-            call relax_xx()
-            call relax_yy()
-            call relax_zz()
-
-         else if (j == 2) then
-
-            call relax_xy()
-            call relax_yz()
-            call relax_xz()
-        
-            call relax_yy()
-            call relax_zz()
-            call relax_xx()
-
-         else
-
-            call relax_yz()
-            call relax_xz()
-            call relax_xy()
-
-            call relax_zz()
-            call relax_xx()
-            call relax_yy()
-            j = 0
-
-         endif
-
-         if (mod(niter,100) == 0) then
-            if (maxval( abs( (/sum( farv2(1:npoly) * vnx(itab_w(iw)%iv(1:npoly))**2) + fw*wnx(iw)**2 - 1.0, &
-                               sum( farv2(1:npoly) * vny(itab_w(iw)%iv(1:npoly))**2) + fw*wny(iw)**2 - 1.0, &
-                               sum( farv2(1:npoly) * vnz(itab_w(iw)%iv(1:npoly))**2) + fw*wnz(iw)**2 - 1.0, &
-                               sum( farv2(1:npoly) * vnx(itab_w(iw)%iv(1:npoly))*vny(itab_w(iw)%iv(1:npoly))) + fw*wnx(iw)*wny(iw), &
-                               sum( farv2(1:npoly) * vnx(itab_w(iw)%iv(1:npoly))*vnz(itab_w(iw)%iv(1:npoly))) + fw*wnx(iw)*wnz(iw), &
-                               sum( farv2(1:npoly) * vny(itab_w(iw)%iv(1:npoly))*vnz(itab_w(iw)%iv(1:npoly))) + fw*wny(iw)*wnz(iw) /))) < 4.e-6) then
-               exit
-            endif
-         endif
-
-      enddo
+      if (info == 0) then
          
-      itab_w(iw)%ecvec_v(1:npoly) = farv2(1:npoly)
-      itab_w(iw)%ecvec_w          = 0.5 * fw
+         b(1:nc) = b(1:nc) + fo(1:nc)
+         itab_w(iw)%ecvec_v(1:npoly) = b(1:npoly)
+         itab_w(iw)%ecvec_w          = 0.5 * b(nc)
+
+      else
+
+         write(*,*) "Problem optimizing vector coefficients for iw = ", iw
+         write(*,*) "Using default coefficients."
+         
+         itab_w(iw)%ecvec_v(1:npoly) = fo(1:npoly)
+         itab_w(iw)%ecvec_w          = 0.5
+
+      endif
 
    enddo
+
+   if (allocated(a)) deallocate(a)
+
 endif
 
 !---------------------------------------------------
@@ -1473,174 +1440,6 @@ endif
 !!   endif
 !!
 !!enddo
-
-
-contains
-
-  subroutine relax_xx()
-    implicit none
-
-    real    :: asum
-    real    :: res
-    integer :: jv
-    integer :: iv
-
-    asum = wnx(iw) * wnx(iw) * fw
-
-    do jv = 1, npoly
-       iv = itab_w(iw)%iv(jv)
-       asum = asum + vnx(iv) * vnx(iv) * farv2(jv)
-    enddo
-
-    res = (asum - 1.0) * bsumxx
-
-    fw = fw - res * wnx(iw) * wnx(iw)
-    fw = min(fw, 1.0)
-
-    do jv = 1, npoly
-       iv = itab_w(iw)%iv(jv)
-       farv2(jv) = farv2(jv) - res * vnx(iv) * vnx(iv)
-    enddo
-
-  end subroutine relax_xx
-
-
-  subroutine relax_yy()
-    implicit none
-
-    real    :: asum
-    real    :: res
-    integer :: jv
-    integer :: iv
-
-    asum = wny(iw) * wny(iw) * fw
-
-    do jv = 1, npoly
-       iv = itab_w(iw)%iv(jv)
-       asum = asum + vny(iv) * vny(iv) * farv2(jv)
-    enddo
-
-   res = (asum - 1.0) * bsumyy
-
-    fw = fw - res * wny(iw) * wny(iw)
-    fw = min(fw, 1.0)
-
-    do jv = 1, npoly
-       iv = itab_w(iw)%iv(jv)
-       farv2(jv) = farv2(jv) - res * vny(iv) * vny(iv)
-    enddo
-
-  end subroutine relax_yy
-
-
-  subroutine relax_zz()
-    implicit none
-
-    real    :: asum
-    real    :: res
-    integer :: jv
-    integer :: iv
-
-    asum = wnz(iw) * wnz(iw) * fw
-
-    do jv = 1, npoly
-       iv = itab_w(iw)%iv(jv)
-       asum = asum + vnz(iv) * vnz(iv) * farv2(jv)
-    enddo
-
-   res = (asum - 1.0) * bsumzz
-
-    fw = fw - res * wnz(iw) * wnz(iw)
-    fw = min(fw, 1.0)
-
-    do jv = 1, npoly
-       iv = itab_w(iw)%iv(jv)
-       farv2(jv) = farv2(jv) - res * vnz(iv)*vnz(iv)
-    enddo
-
-  end subroutine relax_zz
-
-
-  subroutine relax_xy()
-    implicit none
-
-    real    :: asum
-    real    :: res
-    integer :: jv
-    integer :: iv
-
-    asum = wnx(iw) * wny(iw) * fw
-
-    do jv = 1, npoly
-       iv = itab_w(iw)%iv(jv)
-       asum = asum + vnx(iv) * vny(iv) * farv2(jv)
-    enddo
-
-   res = asum * bsumxy
-
-    fw = fw - res * wnx(iw) * wny(iw)
-    fw = min(fw, 1.0)
-
-    do jv = 1, npoly
-       iv = itab_w(iw)%iv(jv)
-       farv2(jv) = farv2(jv) - res * vnx(iv) * vny(iv)
-    enddo
-
-  end subroutine relax_xy
-
-
-  subroutine relax_xz()
-    implicit none
-
-    real    :: asum
-    real    :: res
-    integer :: jv
-    integer :: iv
-
-    asum = wnx(iw) * wnz(iw) * fw
-
-    do jv = 1, npoly
-       iv = itab_w(iw)%iv(jv)
-       asum = asum + vnx(iv) * vnz(iv) * farv2(jv)
-    enddo
-
-   res = asum * bsumxz
-
-    fw = fw - res * wnx(iw) * wnz(iw)
-    fw = min(fw, 1.0)
-
-    do jv = 1, npoly
-       iv = itab_w(iw)%iv(jv)
-       farv2(jv) = farv2(jv) - res * vnx(iv) * vnz(iv)
-    enddo
-
-  end subroutine relax_xz
-
-
-  subroutine relax_yz()
-    implicit none
-
-    real :: asum
-    real :: res
-
-    asum = wny(iw) * wnz(iw) * fw
-
-    do jv = 1, npoly
-       iv = itab_w(iw)%iv(jv)
-       asum = asum + vny(iv) * vnz(iv) * farv2(jv)
-    enddo
-
-   res = asum * bsumyz
-
-    fw = fw - res * wny(iw) * wnz(iw)
-    fw = min(fw, 1.0)
-
-    do jv = 1, npoly
-       iv = itab_w(iw)%iv(jv)
-       farv2(jv) = farv2(jv) - res * vny(iv) * vnz(iv)
-    enddo
-
-  end subroutine relax_yz
 
 end subroutine grid_geometry_hex
 
