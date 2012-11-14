@@ -229,6 +229,11 @@ if (mrl > 0) then
 
    if (iparallel == 1) call mpi_send_m(mrl, rarray1=vortp)
 
+! MPI RECV of VMXET, VMYET, VMZET
+
+   if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
+   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
+
 endif ! mrl = mrl_begl(istp) > 0
 
 ! Horizontal loop over V/N columns
@@ -321,13 +326,10 @@ endif  ! strict_wvt_donorpoint
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 
-! MPI RECV of VORTP, VMXET, VMYET, VMZET
+! MPI RECV and LBC of VORTP
 
    if (iparallel == 1) call mpi_recv_m(mrl, rarray1=vortp)
    call lbcopy_m(mrl, a1=vortp)
-
-   if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
-   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
 
 ! Horizontal loop over V columns for PROG_V_BEGL
 
