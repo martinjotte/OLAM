@@ -1558,8 +1558,8 @@ use mem_ijtabs, only: mloops, mrls,  &
                       itab_m_pd, itab_u_pd, itab_v_pd, itab_w_pd, alloc_itabs_pd
 use mem_grid,   only: nza, nma, nua, nva, nwa, &
                       mza, mma, mua, mva, mwa, nsw_max, &
-                      xem, yem, zem, &
-                      alloc_xyzem
+                      xem, yem, zem, xew, yew, zew, &
+                      alloc_xyzem, alloc_xyzew
 use leaf_coms,  only: isfcl
 use mem_sflux,  only: nseaflux, nlandflux, mseaflux, mlandflux,  &
                       nsfpats, nlfpats, msfpats, mlfpats,  &
@@ -1763,14 +1763,30 @@ if (exans) then
 ! Allocate and read grid structure variables
 
    call alloc_itabs_pd(meshtype,nma,nua,nva,nwa)
-   call alloc_xyzem(nma)
 
-   ndims    = 1
-   idims(1) = nma
+   if (meshtype == 1) then
 
-   call shdf5_irec(ndims, idims, 'XEM', rvara=xem)
-   call shdf5_irec(ndims, idims, 'YEM', rvara=yem)
-   call shdf5_irec(ndims, idims, 'ZEM', rvara=zem)
+      call alloc_xyzem(nma)
+
+      ndims    = 1
+      idims(1) = nma
+
+      call shdf5_irec(ndims, idims, 'XEM', rvara=xem)
+      call shdf5_irec(ndims, idims, 'YEM', rvara=yem)
+      call shdf5_irec(ndims, idims, 'ZEM', rvara=zem)
+      
+   else
+
+      call alloc_xyzew(nwa)
+
+      ndims    = 1
+      idims(1) = nwa
+
+      call shdf5_irec(ndims, idims, 'XEW', rvara=xew)
+      call shdf5_irec(ndims, idims, 'YEW', rvara=yew)
+      call shdf5_irec(ndims, idims, 'ZEW', rvara=zew)
+
+   endif
 
 ! Read ITAB_M SCALARS
 
