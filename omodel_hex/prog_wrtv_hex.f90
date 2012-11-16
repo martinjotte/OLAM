@@ -51,7 +51,7 @@ use consts_coms,  only: cpocv, pc1, rdry, rvap
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
 use oplot_coms,   only: op
 use obnd,         only: lbcopy_m, lbcopy_w
-
+use mem_rayf,     only: dorayfdiv, krayfdiv_bot
 !$ use omp_lib
 
 implicit none
@@ -106,6 +106,7 @@ real :: gzps_vze(mza,mwa) ! Z component in PS projection of VZE gradient
 real :: thil_s(mza,mwa)
 
 real :: vortp(mza,mma)
+real :: div2d(mza,mwa)
 
 real :: thil_upv(mza,mva) ! Upstreamed THIL at each V interface
 real :: vxe_upv (mza,mva) ! Upstreamed VXE  at each V interface
@@ -415,19 +416,48 @@ endif ! mrl = mrl_begl(istp) > 0
 
 ! [Now, we can reuse vmxet, vmyet, vmzet arrays]
 
-! Evaluate T3D gradients of THIL, VXE, VYE, and VZE for BEGS
-
 mrl = mrl_begs(istp)
 if (mrl > 0) then
+
+! Compute horizontal divergence if we are damping it at the model top
+
+   if (dorayfdiv) then
+      
+      !$omp parallel do private(iw,jv,iv,k) 
+      do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+         
+         div2d(:,iw) = 0.0
+         do jv = 1, itab_w(iw)%npoly
+            iv = itab_w(iw)%iv(jv)
+
+            do k = krayfdiv_bot, mza-1
+               div2d(k,iw) = div2d(k,iw) - itab_w(iw)%dirv(jv) * vmp(k,iv) * dnu(iv)
+            enddo
+         enddo
+      enddo
+
+      if (iparallel == 1) then
+         call mpi_send_w('G', gxps_scp=div2d)
+      endif
+
+   endif ! dorayfdiv
+
+! Evaluate T3D gradients of THIL, VXE, VYE, and VZE for BEGS
 
    call grad_t3d(mrl,thil,gxps_thil,gyps_thil,gzps_thil)
    call grad_t3d(mrl,vxe,gxps_vxe,gyps_vxe,gzps_vxe)
    call grad_t3d(mrl,vye,gxps_vye,gyps_vye,gzps_vye)
    call grad_t3d(mrl,vze,gxps_vze,gyps_vze,gzps_vze)
 
-! MPI SEND/RECV of THIL, VXE, VYE, and VZE gradient components (12 in all)
+! Finish MPI RECV of DIV2D, and MPI SEND of THIL, VXE, VYE, and VZE 
+! gradient components (12 in all)
 
    if (iparallel == 1) then
+
+      if (dorayfdiv) then
+         call mpi_recv_w('G', gxps_scp=div2d)
+         call lbcopy_w(mrl, a1=div2d)
+      endif
 
       call mpi_send_w('G', &
          gxps_thil=gxps_thil,gyps_thil=gyps_thil,gzps_thil=gzps_thil, &
@@ -570,7 +600,7 @@ do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 !----------------------------------------------------------------------
 call qsub('V',iv)
 
-   call prog_v_begs(iv,vmxet,vmyet,vmzet)
+   call prog_v_begs(iv,vmxet,vmyet,vmzet,div2d)
 
 enddo
 !$omp end parallel do 
@@ -1134,7 +1164,7 @@ end subroutine prog_wrt_begs
 
 !============================================================================
 
-subroutine prog_v_begs(iv,vmxet,vmyet,vmzet)
+subroutine prog_v_begs(iv,vmxet,vmyet,vmzet,div2d)
 
 use mem_tend,    only: vmt
 use mem_ijtabs,  only: itab_v, itab_w
@@ -1155,6 +1185,7 @@ integer, intent(in) :: iv
 real, intent(in) :: vmxet(mza,mwa)
 real, intent(in) :: vmyet(mza,mwa)
 real, intent(in) :: vmzet(mza,mwa)
+real, intent(in) :: div2d(mza,mwa)
 
 integer :: jv,ivn,k,kb,npoly
 
@@ -1218,27 +1249,11 @@ if (dorayfdiv) then
 
 ! Divergence in IW1 excluding IV
 
-      npoly = itab_w(iw1)%npoly
-      sum1 = 0.
-   
-      do jv = 1,npoly
-         ivn = itab_w(iw1)%iv(jv)
-      
-         if (ivn /= iv) &
-              sum1 = sum1 - itab_w(iw1)%dirv(jv) * vmp(k,ivn) * dnu(ivn)
-      enddo
+      sum1 = div2d(k,iw1) - vmp(k,iv) * dnu(iv)
 
 ! Divergence in IW2 excluding IV
 
-      npoly = itab_w(iw2)%npoly
-      sum2 = 0.
-   
-      do jv = 1,npoly
-         ivn = itab_w(iw2)%iv(jv)
-      
-         if (ivn /= iv) &
-              sum2 = sum2 - itab_w(iw2)%dirv(jv) * vmp(k,ivn) * dnu(ivn)
-      enddo
+      sum2 = div2d(k,iw2) + vmp(k,iv) * dnu(iv)
 
 ! VMP value that would equalize horizontal divergence in IW1 and IW2 cells
 ! (assuming no blockage by topography)
