@@ -1015,6 +1015,20 @@ if (mdomain > 1) then
 
 endif
 
+! Scale eastward and northward gradient components by farm
+
+do iw = 2, nwa
+   do j = 1, itab_w(iw)%npoly
+
+      itab_w(iw)%gxps1(j) = itab_w(iw)%gxps1(j) * itab_w(iw)%farm(j)
+      itab_w(iw)%gyps1(j) = itab_w(iw)%gyps1(j) * itab_w(iw)%farm(j)
+
+      itab_w(iw)%gxps2(j) = itab_w(iw)%gxps2(j) * itab_w(iw)%farm(j)
+      itab_w(iw)%gyps2(j) = itab_w(iw)%gyps2(j) * itab_w(iw)%farm(j)
+
+   enddo
+enddo
+
 ! Coefficients for converting earth-cartesian velocity to V and W
 
 do iw = 2, nwa

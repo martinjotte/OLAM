@@ -611,7 +611,6 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
            sct(k,iw) = sct(k,iw) + volti(k,iw) &
                      * (hfluxadv(k) + vfluxadv(k-1) - vfluxadv(k) &
                         + hfluxdif(k))
-
         enddo
 
      enddo
@@ -628,7 +627,7 @@ end subroutine scalar_transport
 subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
 
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
-  use mem_grid,   only: mza, mwa, lpw, zt, zm, dzim, vnx, vny, vnz, wnx, wny, wnz
+  use mem_grid,   only: mza, mwa, lpw, lpv, zt, zm, dzim
   use misc_coms,  only: io6
   use max_dims,   only: maxgrds
 
@@ -642,19 +641,16 @@ subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
   real,    intent(out) :: gyps(mza,mwa)
   real,    intent(out) :: gzps(mza,mwa)
 
-  integer :: j,iw,npoly,kb,jw1,jw2,iw1,iw2,kb1,kb2,k,kbot,kbv
-
-  real :: farm,wti
-  real :: gxps1,gyps1,gxps2,gyps2
-
-  real :: wt(mza), gwz(mza)
+  integer :: j, iw, npoly, kb, jw1, jw2, iw1, iw2, iv1, iv2, k
+  real    :: gxps1, gyps1, gxps2, gyps2
+  real    :: gwz(mza)
 
 ! Horizontal loop over W columns for BEGS
 
   call psub()
 !----------------------------------------------------------------------
-  !$omp parallel do private(iw,npoly,kb,jw1,jw2,iw1,iw2,kb1,kb2,k,kbot,&
-  !$omp                     kbv,wt,farm,gxps1,gyps1,gxps2,gyps2,gwz,wti)
+  !$omp parallel do private(iw,npoly,kb,jw1,jw2,iw1,iw2,iv1, &
+  !$omp                     iv2,gxps1,gyps1,gxps2,gyps2,k,gwz)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
   call qsub('W',iw)
@@ -664,10 +660,6 @@ subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
    
      gxps(:,iw) = 0.
      gyps(:,iw) = 0.
-   
-     wt(:) = 0.
-
-     kbot = mza-1
 
 ! Loop over W neighbors of this W cell
 
@@ -677,11 +669,9 @@ subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
 
         iw1 = itab_w(iw)%iw(jw1)
         iw2 = itab_w(iw)%iw(jw2)
-      
-        kb1 = lpw(iw1)
-        kb2 = lpw(iw2)
-      
-        farm = itab_w(iw)%farm(jw1)
+
+        iv1 = itab_w(iw)%iv(jw1)
+        iv2 = itab_w(iw)%iv(jw2)
 
         gxps1 = itab_w(iw)%gxps1(jw1)
         gyps1 = itab_w(iw)%gyps1(jw1)
@@ -689,49 +679,22 @@ subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
         gxps2 = itab_w(iw)%gxps2(jw1)
         gyps2 = itab_w(iw)%gyps2(jw1)
 
-        kbv  = max(kb,kb1,kb2)
-        kbot = min(kbv,kbot)
+! Vertical loop over T levels
+! Zero-gradient lateral B.C. below lpv(iv1)
+
+        do k = lpv(iv1), mza-1
+           gxps(k,iw) = gxps(k,iw) + gxps1 * (scp(k,iw1) - scp(k,iw))
+           gyps(k,iw) = gyps(k,iw) + gyps1 * (scp(k,iw1) - scp(k,iw))
+        enddo
 
 ! Vertical loop over T levels
+! Zero-gradient lateral B.C. below lpv(iv2)
 
-        do k = kbv, mza-1
-
-!!      do k = kb,mza-1
-!!      
-!! Gradient calculation when all 3 W points are above ground
-!!
-!!         if (k >= kb1 .and. k >= kb2) then
-
-           gxps(k,iw) = gxps(k,iw) + farm * (gxps1 * (scp(k,iw1) - scp(k,iw)) &
-                                           + gxps2 * (scp(k,iw2) - scp(k,iw)))
-
-           gyps(k,iw) = gyps(k,iw) + farm * (gyps1 * (scp(k,iw1) - scp(k,iw)) &
-                                           + gyps2 * (scp(k,iw2) - scp(k,iw)))
-
-           wt(k) = wt(k) + farm
-            
-!!         elseif (k >= kb1) then
-!!
-!! Gradient calculation when IW2 point is below ground
-!!
-!!         elseif (k >= kb2) then
-!!
-!! Gradient calculation when IW1 point is below ground
-!!
-!!         endif
-         
+        do k = lpv(iv2), mza-1
+           gxps(k,iw) = gxps(k,iw) + gxps2 * (scp(k,iw2) - scp(k,iw))
+           gyps(k,iw) = gyps(k,iw) + gyps2 * (scp(k,iw2) - scp(k,iw))
         enddo
-      
-     enddo
 
-! Vertical loop over T levels to normalize horizontal gradients.
-! Below kbot, flow is dominated by terrain and 1st-order upstream
-! is probably sufficient (gxps=0 and gyps=0 below kbot)
-
-     do k = kbot, mza-1
-        wti = 1.0 / wt(k)
-        gxps(k,iw) = gxps(k,iw) * wti
-        gyps(k,iw) = gyps(k,iw) * wti
      enddo
 
 ! Vertical loop over W levels
@@ -739,16 +702,21 @@ subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
      do k = kb, mza-2
         gwz(k) = dzim(k) * (scp(k+1,iw) - scp(k,iw))
      enddo
-   
+
+! Constant gradient top and bottom:
      gwz(kb-1)  = gwz(kb)
      gwz(mza-1) = gwz(mza-2)
 
+! Zero-gradient top and bottom:
+!    gwz(kb-1)  = 0.0
+!    gwz(mza-1) = 0.0
+
 ! Vertical loop over T levels
-     
+ 
      do k = kb, mza-1
         gzps(k,iw) = 0.5 * (gwz(k-1) + gwz(k))
      enddo
-   
+
   enddo
   !$omp end parallel do
   call rsub('Wa',16)
@@ -941,7 +909,7 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw, &
 
      kb = lpw(iw)
 
-     dto2 = dtm(itab_w(iw)%mrlw)
+     dto2 = 0.5 * dtm(itab_w(iw)%mrlw)
 
      unx_w = itab_w(iw)%unx_w
      uny_w = itab_w(iw)%uny_w
