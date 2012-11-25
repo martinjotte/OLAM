@@ -11,19 +11,11 @@
 
 #include <stdio.h>
 #include <math.h>
-#ifdef CRAY
 #include <stdlib.h>
-#endif
-#ifdef IBM
-#include <malloc.h>
-#else
-#include <malloc.h>
-#endif
 
 /*#include <unistd.h>*/
 
 #ifdef SGI
-#include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #endif
