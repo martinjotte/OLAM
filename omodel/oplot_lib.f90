@@ -62,7 +62,8 @@ use mem_turb,    only: vkm, vkm_sfc, sflux_w, sflux_t, sflux_r
 use mem_nudge,   only: rho_obs, theta_obs, shw_obs, uzonal_obs, umerid_obs, &
                        rho_sim, theta_sim, shw_sim, uzonal_sim, umerid_sim
 
-use misc_coms,   only: io6, pr01d, dn01d, th01d, time8, iparallel, meshtype, naddsc
+use misc_coms,   only: io6, pr01d, dn01d, th01d, time8, iparallel, meshtype, &
+                       naddsc, mdomain
 use oplot_coms,  only: op
 use consts_coms, only: p00i, rocp, erad, piu180, cp, alvl, grav, omega2
 use leaf_coms,   only: slcpd, nzg, slmsts, slz, mwl, dt_leaf
@@ -114,7 +115,7 @@ real,         save, allocatable :: uc_init(:,:)
 real,         save, allocatable :: vc_init(:,:)
 real,         save, allocatable :: addsc1_init(:,:)
 
-integer, parameter :: nfields = 296
+integer, parameter :: nfields = 299
 character(len=40) :: fldlib(4,nfields)
 character(len=40), save :: fldname
 
@@ -460,7 +461,7 @@ data fldlib(1:4,269:278)/ &
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,279:293)/ &
+data fldlib(1:4,279:296)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 279
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 280
  'SHW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 281
@@ -475,14 +476,18 @@ data fldlib(1:4,279:293)/ &
  'THETA_OBS_SIM' ,'T3' ,'NUDGING DIF THETA',' (K)'                          ,& ! 290
  'SHW_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 291
  'UZONAL_OBS_SIM','T3' ,'NUDGING DIF ZONAL WIND',' (m s:S2:-1  )'           ,& ! 292
- 'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'            / ! 293
+ 'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'           ,& ! 293
+ 'VXE'           ,'T3' ,'EARTH CARTESIAN X WIND',' (m s:S2:-1  )'           ,& ! 294
+ 'VYE'           ,'T3' ,'EARTH CARTESIAN Y WIND',' (m s:S2:-1  )'           ,& ! 295
+ 'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'            / ! 296
+
 
 ! External fields
 
-data fldlib(1:4,294:296)/ &
- 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 294
- 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 295
- 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 296
+data fldlib(1:4,297:299)/ &
+ 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 297
+ 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 298
+ 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 299
 
 if (ncall /= 10) then
    ncall = 10
@@ -911,9 +916,12 @@ case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERI
             u = (vy * xeu(i) - vx * yeu(i)) / raxis
             v = vz * raxis / erad &
               - (vx * xeu(i) + vy * yeu(i)) * zeu(i) / (raxis * erad) 
+         else
+            u = 0.0
+            v = 0.0
          endif
 
-      else
+      elseif (mdomain < 2) then
 
          raxis = sqrt(xev(i) ** 2 + yev(i) ** 2)  ! dist from earth axis
 
@@ -921,7 +929,15 @@ case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERI
             u = (vy * xev(i) - vx * yev(i)) / raxis
             v = vz * raxis / erad &
               - (vx * xev(i) + vy * yev(i)) * zev(i) / (raxis * erad)
+         else
+            u = 0.0
+            v = 0.0
          endif
+
+      else
+         
+         u = vx
+         v = vy
 
       endif
 
@@ -956,9 +972,12 @@ case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERI
                u_init = (vy_init * xeu(i) - vx_init * yeu(i)) / raxis
                v_init = vz_init * raxis / erad &
                   - (vx_init * xeu(i) + vy_init * yeu(i)) * zeu(i) / (raxis * erad) 
+            else
+               u_init = 0.0
+               v_init = 0.0
             endif
 
-         else
+         elseif (mdomain < 2) then
 
             raxis = sqrt(xev(i) ** 2 + yev(i) ** 2)  ! dist from earth axis
 
@@ -966,7 +985,15 @@ case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERI
                u_init = (vy_init * xev(i) - vx_init * yev(i)) / raxis
                v_init = vz_init * raxis / erad &
                   - (vx_init * xev(i) + vy_init * yev(i)) * zev(i) / (raxis * erad) 
+            else
+               u_init = 0.0
+               v_init = 0.0
             endif
+
+         else
+
+            u_init = vx_init
+            v_init = vy_init
 
          endif
 
@@ -985,22 +1012,35 @@ case(46:49) ! 'SPEEDW','AZIMW','ZONAL_WINDW','MERID_WINDW'
    npoly = itab_w(i)%npoly
    rpolyi = 1. / real(npoly)
 
-   vx = vxe(k,i)
-   vy = vye(k,i)
-   vz = vze(k,i)
+   vx = wtbot * vxe(k  ,i) &
+      + wttop * vxe(k+1,i)
+
+   vy = wtbot * vye(k  ,i) &
+      + wttop * vye(k+1,i)
+
+   vz = wtbot * vze(k  ,i) &
+      + wttop * vze(k+1,i)
 
    if (trim(fldname) == 'SPEEDW') then
       fldval = sqrt(vx** 2 + vy** 2 + vz** 2)
    else
-      raxis = sqrt(xew(i) ** 2 + yew(i) ** 2)  ! dist from earth axis
+      
+      if (mdomain < 2) then
 
-      if (raxis > 1.e3) then
-         u = (vy * xew(i) - vx * yew(i)) / raxis
-         v = vz * raxis / erad &
-           - (vx * xew(i) + vy * yew(i)) * zew(i) / (raxis * erad) 
+         raxis = sqrt(xew(i) ** 2 + yew(i) ** 2)  ! dist from earth axis
+
+         if (raxis > 1.e3) then
+            u = (vy * xew(i) - vx * yew(i)) / raxis
+            v = vz * raxis / erad &
+              - (vx * xew(i) + vy * yew(i)) * zew(i) / (raxis * erad) 
+         else
+            u = 0.
+            v = 0.
+         endif
+
       else
-         u = 0.
-         v = 0.
+         u = vx
+         v = vy
       endif
 
       if (trim(fldname) == 'AZIMW') then
@@ -1132,6 +1172,8 @@ case(53) ! 'DIVERG'
 
    npoly = itab_w(i)%npoly
 
+   if (itab_w(i)%iwp == i) then
+
    do j = 1,npoly
 
       if (meshtype == 1) then
@@ -1160,6 +1202,7 @@ case(53) ! 'DIVERG'
       endif
 
    enddo
+   endif
 
 case(54) ! 'UMASSFLUX'
 
