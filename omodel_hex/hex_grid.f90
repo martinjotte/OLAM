@@ -1018,6 +1018,10 @@ endif
 ! Scale eastward and northward gradient components by farm
 
 do iw = 2, nwa
+
+   ! The gradient components are not computed at the lateral boundaries
+   if (iw /= itab_w(iw)%iwp) cycle
+
    do j = 1, itab_w(iw)%npoly
 
       itab_w(iw)%gxps1(j) = itab_w(iw)%gxps1(j) * itab_w(iw)%farm(j)
@@ -1037,7 +1041,7 @@ do iw = 2, nwa
    itab_w(iw)%ecvec_w          = 0.5
 enddo
 
-if (mdomain < 1) then
+if (mdomain < 2) then
 
    do iw = 2, nwa
       
@@ -1070,14 +1074,14 @@ if (mdomain < 1) then
       b(1) = 1.0 - sum( fo(1:nc) * a(1,:) )
       b(2) = 1.0 - sum( fo(1:nc) * a(2,:) )
       b(3) = 1.0 - sum( fo(1:nc) * a(3,:) )
-      b(4) = 0.0 - sum( fo(1:nc) * a(4,:) )
-      b(5) = 0.0 - sum( fo(1:nc) * a(5,:) )
-      b(6) = 0.0 - sum( fo(1:nc) * a(6,:) )
+      b(4) =     - sum( fo(1:nc) * a(4,:) )
+      b(5) =     - sum( fo(1:nc) * a(5,:) )
+      b(6) =     - sum( fo(1:nc) * a(6,:) )
 
       call sgels( 'N', 6, nc, 1, a, 6, b, 8, work, lwork, info )
 
       if (info == 0) then
-         
+
          b(1:nc) = b(1:nc) + fo(1:nc)
          itab_w(iw)%ecvec_v(1:npoly) = b(1:npoly)
          itab_w(iw)%ecvec_w          = 0.5 * b(nc)
@@ -1092,6 +1096,53 @@ if (mdomain < 1) then
 
       endif
 
+   enddo
+
+   if (allocated(a)) deallocate(a)
+
+elseif (mdomain == 5) then
+
+   do iw = 2, nwa
+      
+      ! skip this calculation at lateral-boundary points
+      if (itab_w(iw)%iwp /= iw) cycle
+
+      npoly = itab_w(iw)%npoly
+      
+      fo(1:npoly) = 2.0 * itab_w(iw)%farv(1:npoly)
+
+      if (allocated(a)) then
+         if (size(a,2) /= npoly) deallocate(a)
+      endif
+
+      if (.not. allocated(a)) allocate(a(3,npoly))
+
+      a(1,1:npoly) = vnx(itab_w(iw)%iv(1:npoly)) * vnx(itab_w(iw)%iv(1:npoly))
+      a(2,1:npoly) = vny(itab_w(iw)%iv(1:npoly)) * vny(itab_w(iw)%iv(1:npoly))
+      a(3,1:npoly) = vnx(itab_w(iw)%iv(1:npoly)) * vny(itab_w(iw)%iv(1:npoly))
+
+      b(1) = 1.0 - sum( fo(1:npoly) * a(1,:) )
+      b(2) = 1.0 - sum( fo(1:npoly) * a(2,:) )
+      b(3) =     - sum( fo(1:npoly) * a(3,:) )
+
+      call sgels( 'N', 3, npoly, 1, a, 3, b, 8, work, lwork, info )
+
+      if (info == 0) then
+
+         b(1:npoly) = b(1:npoly) + fo(1:npoly)
+         itab_w(iw)%ecvec_v(1:npoly) = b(1:npoly)
+         itab_w(iw)%ecvec_w          = 0.5
+
+      else
+
+         write(*,*) "Problem optimizing vector coefficients for iw = ", iw
+         write(*,*) "Using default coefficients."
+         
+         itab_w(iw)%ecvec_v(1:npoly) = fo(1:npoly)
+         itab_w(iw)%ecvec_w          = 0.5
+
+      endif
+ 
    enddo
 
    if (allocated(a)) deallocate(a)

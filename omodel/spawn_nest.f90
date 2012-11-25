@@ -156,12 +156,14 @@ do ngr = 2,ngrids  ! Loop over nested grids
    allocate (xem_temp(nma), yem_temp(nma), zem_temp(nma))
    allocate (iurow_pent(nua))
 
+   iurow_pent(1:nua) = 0
+
    allocate (jm(nrows+1,npts), ju(nrows,npts))
    allocate (imper(npts), iuper(npts), igsize(npts), nearpent(npts), nwdivg(npts))
 
    allocate (npolyper(npts), nwdivper(npts))
 
-   call pent_urows(iurow_pent)
+   if (mdomain < 2) call pent_urows(iurow_pent)
 
 ! Copy ITAB information and M-point coordinates to temporary tables
 
@@ -229,23 +231,27 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
 ! For NCONCAVE = 3, use the following procedure
 
-! Search over 12 original ipent points and determine if any lies inside current
-! NGR refinement area
+! If using global grid (MDOMAIN < 2), search over 12 original ipent points
+! and determine if any lies inside current NGR refinement area
 
       imbeg = 0
 
-      do ipent = 1,12
-         im = impent(ipent)
+      if (mdomain < 2) then
+
+         do ipent = 1,12
+            im = impent(ipent)
 
 ! Check whether IM point is inside NGR refinement area
 
-         call ngr_area(ngr,minside,xem_temp(im),yem_temp(im),zem_temp(im))
+            call ngr_area(ngr,minside,xem_temp(im),yem_temp(im),zem_temp(im))
 
-         if (minside > 0) then
-            imbeg = im
-            exit
-         endif
-      enddo
+            if (minside > 0) then
+               imbeg = im
+               exit
+            endif
+         enddo
+
+      endif
 
 ! If imbeg is still zero, then no ipent points are inside NGR refinement area.
 ! Thus, find closest M point to first specified NGR center point.
@@ -254,10 +260,16 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
 ! Get earth coordinates for [grdlat(ngr,1),grdlon(ngr,1)]
 
-         zeg = erad * sin(grdlat(ngr,1) * pio180)
-         reg = erad * cos(grdlat(ngr,1) * pio180)
-         xeg = reg  * cos(grdlon(ngr,1) * pio180)
-         yeg = reg  * sin(grdlon(ngr,1) * pio180)
+         if (mdomain < 2) then
+            zeg = erad * sin(grdlat(ngr,1) * pio180)
+            reg = erad * cos(grdlat(ngr,1) * pio180)
+            xeg = reg  * cos(grdlon(ngr,1) * pio180)
+            yeg = reg  * sin(grdlon(ngr,1) * pio180)
+         else
+            zeg = 0.
+            xeg = 1.e5 * grdlon(ngr,1)
+            yeg = 1.e5 * grdlat(ngr,1)
+         endif
 
 ! Initialize distance 
 
@@ -935,17 +947,20 @@ do iw = 2,nwa
    if (mrls < itab_wd(iw)%mrlw) mrls = itab_wd(iw)%mrlw
 enddo
 
-! Push all M point coordinates out to earth radius if not already there
+! For global grids, push all M point coordinates out to earth radius
+! if not already there
 
-do im = 2,nma
-   expansion = erad / sqrt(xem(im) ** 2  &
-                         + yem(im) ** 2  &
-                         + zem(im) ** 2  )
+if (mdomain < 2) then
+   do im = 2,nma
+      expansion = erad / sqrt(xem(im) ** 2  &
+                            + yem(im) ** 2  &
+                            + zem(im) ** 2  )
 
-   xem(im) = xem(im) * expansion
-   yem(im) = yem(im) * expansion
-   zem(im) = zem(im) * expansion
-enddo
+      xem(im) = xem(im) * expansion
+      yem(im) = yem(im) * expansion
+      zem(im) = zem(im) * expansion
+   enddo
+endif
 
 return
 end subroutine spawn_nest
@@ -960,7 +975,7 @@ use misc_coms,  only: io6
 
 implicit none
 
-integer, intent(out) :: iurow_pent(nua)
+integer, intent(inout) :: iurow_pent(nua)
 
 integer :: ipent,im,j,iw,irow,jrow,iw1,iw2,iw3,iwrow,iu
 
@@ -1876,7 +1891,7 @@ subroutine ngr_area(ngr,inside,x,y,z)
 ! Subroutine ngr_area checks whether a point located at coordinates (x,y,z) 
 ! is within specified region for NGR refinement
 
-use misc_coms, only: io6, ngrdll, grdrad, grdlat, grdlon
+use misc_coms, only: io6, ngrdll, grdrad, grdlat, grdlon, mdomain
 
 implicit none
 
@@ -1904,23 +1919,41 @@ do ipt = 1,ngrdll(ngr)
    jpt = min(ipt+1,ngrdll(ngr)) ! jpt used in case one wants to define
                                 ! only a single endpoint
 
+! If using spherical earth geometry (earth-Cartesian coordinates)...
+
+   if (mdomain < 2) then
+
 ! Transform segment endpoints to PS space using mean lat/lon of each segment
 
 ! (If multiple segments are used, none should be excessively long in order
 ! to avoid large PS transformation discontinuities at segment endpoints.)
 
-   seglat = .5 * (grdlat(ngr,ipt) + grdlat(ngr,jpt))
-   seglon = .5 * (grdlon(ngr,ipt) + grdlon(ngr,jpt))
+      seglat = .5 * (grdlat(ngr,ipt) + grdlat(ngr,jpt))
+      seglon = .5 * (grdlon(ngr,ipt) + grdlon(ngr,jpt))
 
-   call ll_xy (grdlat(ngr,ipt),grdlon(ngr,ipt), &
-      seglat,seglon,xs(1),ys(1))
+      call ll_xy (grdlat(ngr,ipt),grdlon(ngr,ipt), &
+         seglat,seglon,xs(1),ys(1))
 
-   call ll_xy (grdlat(ngr,jpt),grdlon(ngr,jpt), &
-      seglat,seglon,xs(2),ys(2))
+      call ll_xy (grdlat(ngr,jpt),grdlon(ngr,jpt), &
+         seglat,seglon,xs(2),ys(2))
 
 ! Transform (x,y,z) location to PS space using mean lat/lon of each segment
 
-   call e_ps(x,y,z,seglat,seglon,xm1,ym1)
+      call e_ps(x,y,z,seglat,seglon,xm1,ym1)
+
+! If using Cartesian geometry, use direct mapping in Cartesian plane
+
+   else
+
+      xs(1) = 1.e5 * grdlon(ngr,ipt)
+      ys(1) = 1.e5 * grdlat(ngr,ipt)
+      xs(2) = 1.e5 * grdlon(ngr,jpt)
+      ys(2) = 1.e5 * grdlat(ngr,jpt)
+
+      xm1 = x
+      ym1 = y
+
+   endif
 
 ! If (x,y,z) location is close enough to line segment, flag it for inclusion
 ! in refined grid interior
@@ -2156,7 +2189,3 @@ do j = 1,npoly
 enddo ! j,iw
 
 end subroutine fill_rad3
-
-
-
-

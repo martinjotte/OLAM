@@ -159,15 +159,21 @@ call ichk_bnds( nl%ngrids,   "NGRIDS",       1, maxgrds, 0, nfatal, nwarn, &
 
 call ichk_bnds(nl%nconcave, "NCONCAVE", 1, 3, 0, nfatal, nwarn )
 
-! nconcave = 3 requires nxp to be divisible by 3
+! mdomain = 5 requires nconcave = 3
 
-if (nl%nconcave == 3 .and. mod(nl%nxp,3) /= 0) then
+if (nl%mdomain == 5 .and. nl%nconcave /= 3) then
+   write(io6,*) ' WARNING - Setting NCONCAVE = 3 for a Cartesian domain'
+   nl%nconcave = 3
+endif
+
+! nconcave = 3 requires nxp to be divisible by 3 for a global mesh
+
+if (nl%mdomain < 2 .and. nl%nconcave == 3 .and. mod(nl%nxp,3) /= 0) then
    write(io6,*) 'FATAL - NXP must be divisible by 3 for NCONCAVE = 3'
    nfatal = nfatal + 1
 endif
 
-
-do ng=2, nl%ngrids
+do ng = 2, nl%ngrids
    call ichk_bnds(nl%ngrdll(ng),  "NGRDLL",    1, maxngrdll, 0, nfatal, nwarn )
    call rchk_bnds(nl%grdrad(ng),  "GRDRAD", dzxmin, erad*2., 0, nfatal, nwarn )
 enddo
@@ -175,7 +181,7 @@ enddo
 if (nl%mdomain < 2) then
 
    do i = 1,nl%ngrdll(ng)
-      do ng=2, nl%ngrids
+      do ng = 2, nl%ngrids
          call rchk_bnds( nl%grdlat(ng,i), "GRDLAT",  -90.,  90., 0, nfatal, nwarn )
          call rchk_bnds( nl%grdlon(ng,i), "GRDLON", -180., 180., 0, nfatal, nwarn )
       enddo

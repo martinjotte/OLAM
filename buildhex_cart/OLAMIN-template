@@ -96,7 +96,7 @@
    ! 1 eliminates only sharp concavities (Method B)
    ! 2 eliminates both sharp and gentler concavities (original Method A)
    ! 3 activates the Method C refined mesh algorithm
-   NL%NCONCAVE = 1
+   NL%NCONCAVE = 3
 
  ! One group of values must be provided for each "grid" number NG = 2:NGRIDS
 

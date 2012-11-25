@@ -35,7 +35,7 @@ subroutine spring_dynamics(ngr,nconcave)
 use mem_ijtabs,  only: itab_md, itab_ud, itab_wd
 use mem_grid,    only: nma, nua, nwa, xem, yem, zem, impent, mrows
 use consts_coms, only: pi2, erad, erador5
-use misc_coms,   only: io6, nxp, ngrids
+use misc_coms,   only: io6, nxp, ngrids, mdomain, deltax
 use oplot_coms,  only: op
 
 !$ use omp_lib
@@ -82,7 +82,11 @@ integer :: movem(nma)
 
 integer :: moveall(ngrids)
 
-moveall(:) = 1
+if (mdomain == 5) then
+   moveall(:) = 0
+else
+   moveall(:) = 1
+endif
 
 ! END SPECIAL CODE
 !--------------------------------------------------------------
@@ -131,9 +135,14 @@ else
 
 endif
 
-! Compute mean length of U segments for global grid
 
-dist00 = beta * pi2 * erad / (5. * real(nxp))
+! Compute mean length of U segments
+
+if (mdomain < 2) then
+   dist00 = beta * pi2 * erad / (5. * real(nxp))
+else
+   dist00 = deltax * sqrt(2.0) / sqrt(sqrt(3.0))
+endif
 
 ! Main iteration loop 
 
@@ -314,11 +323,13 @@ do iter = 1,niter
 
 ! Push M point coordinates out to earth radius
 
-      expansion = erad / sqrt(xem(im) ** 2 + yem(im) ** 2 + zem(im) ** 2)
+      if (mdomain < 2) then
+         expansion = erad / sqrt(xem(im) ** 2 + yem(im) ** 2 + zem(im) ** 2)
 
-      xem(im) = xem(im) * expansion
-      yem(im) = yem(im) * expansion
-      zem(im) = zem(im) * expansion
+         xem(im) = xem(im) * expansion
+         yem(im) = yem(im) * expansion
+         zem(im) = zem(im) * expansion
+      endif
 
    enddo
 !$omp end do
