@@ -295,21 +295,22 @@ write(io6,'(/,a)') 'olam_run calling olam_mem_alloc'
 
 call olam_mem_alloc()
 
-write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi'
+if (iparallel == 1) then
+   write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi'
 
-call olam_alloc_mpi(mza,mrls)
+   call olam_alloc_mpi(mza,mrls)
 
-if (isfcl == 1) then
-   write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_land'
+   if (isfcl == 1) then
+      write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_land'
 
-   call olam_alloc_mpi_land(mrls)
+      call olam_alloc_mpi_land(mrls)
 
-   write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_sea'
+      write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_sea'
 
-   call olam_alloc_mpi_sea(mrls)
+      call olam_alloc_mpi_sea(mrls)
 
-   write(io6,'(/,a)') 'olam_run after olam_alloc_mpi_sea'
-
+      write(io6,'(/,a)') 'olam_run after olam_alloc_mpi_sea'
+   endif
 endif
 
 ! Initialize primary atmospheric fields

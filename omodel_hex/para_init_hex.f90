@@ -486,12 +486,15 @@ do iv = 2,nva
 ! If IV point is in memory of myrank, its value must be received from 
 ! remote rank.  Add that remote rank to receive table.
 
-      if (myrankflag_v(iv)) call recv_table_v(itabg_v(iv)%irank)
+      ivp  = itab_v_pd(iv)%ivp
+
+      if (myrankflag_v(iv)) then
+         if (itabg_v(ivp)%irank /= myrank) call recv_table_v(itabg_v(ivp)%irank)
+      endif
 
 ! Add to send table any V or W point that is primary on myrank and is 
 ! in the stencil of IV.
 
-      ivp  = itab_v_pd(iv)%ivp
       if (itabg_v(ivp)%irank == myrank) call send_table_v(ivp,itabg_v(iv)%irank)
 
       do j = 1,4
@@ -536,12 +539,15 @@ do iw = 2,nwa
 ! If IW point is in memory of myrank, it must be received from remote rank.
 ! Add that remote rank to receive table.
 
-      if (myrankflag_w(iw)) call recv_table_w(itabg_w(iw)%irank)
+      iwp = itab_w_pd(iw)%iwp
+
+      if (myrankflag_w(iw)) then
+         if (itabg_w(iwp)%irank /= myrank) call recv_table_w(itabg_w(iwp)%irank)
+      endif
 
 ! Add to send table any V or W point that is primary on myrank and is 
 ! in the stencil of IW.  
 
-      iwp = itab_w_pd(iw)%iwp
       if (itabg_w(iwp)%irank == myrank) call send_table_w(iwp,itabg_w(iw)%irank)
 
       do j = 1,7
@@ -585,12 +591,15 @@ do im = 2, nma
 ! If IM point is in memory of myrank, it must be received from remote rank.
 ! Add that remote rank to receive table.
 
-      if (myrankflag_m(im)) call recv_table_m(itabg_m(im)%irank)
+      imp = itab_m_pd(im)%imp
+
+      if (myrankflag_m(im)) then
+         if (itabg_m(iwp)%irank /= myrank) call recv_table_m(itabg_m(imp)%irank)
+      endif
 
 ! Add to send table any V or M point that is primary on myrank and is 
 ! in the stencil of IM.  
 
-      imp = itab_m_pd(im)%imp
       if (itabg_m(imp)%irank == myrank) call send_table_m(imp,itabg_m(im)%irank)
 
    endif
