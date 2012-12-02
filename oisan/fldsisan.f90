@@ -237,7 +237,7 @@ endif
 
 ! Return if nudging flag is not activated
 
-if (nudflag < 1 .or. nudnxp < 1) return
+if (nudflag < 1) return
 
 ! If we got here, nudging will be done in this model run, so fill nudging arrays.
 
@@ -416,37 +416,37 @@ real :: fnud1,fnud2,fnud3
 !----------------------------------------------------------------------
 ! EXAMPLE - DEFINE OPTIONAL SPATIAL NUDGING MASK
 
-!integer, save :: icall = 0
-!real, save, allocatable :: wtnud(:)
-!real :: xw,yw,dist
+integer, save :: icall = 0
+real, save, allocatable :: wtnud(:)
+real :: xw,yw,dist
 
-!if (icall /= 1) then
-!   icall = 1
+if (icall /= 1) then
+   icall = 1
    
-!   allocate (wtnud(mwa))
+   allocate (wtnud(mwa))
    
 ! Horizontal loop over T points
 
-!   do iw = 2,mwa
+   do iw = 2,mwa
 
 ! Transform current IW point to polar stereographic coordinates using specified
 ! pole point location (pole point lat/lon = 4th & 5th arguments of e_ps)
    
-!      call e_ps(xew(iw),yew(iw),zew(iw),36.,-120.,xw,yw)
+      call e_ps(xew(iw),yew(iw),zew(iw),37.,-117.,xw,yw)
 
-!      dist = sqrt(xw ** 2 + yw ** 2)
+      dist = sqrt(xw ** 2 + yw ** 2)
       
-!      if (dist > 4000.e3) then
-!         wtnud(iw) = 1.
-!      elseif (dist < 3600.e3) then
-!         wtnud(iw) = 0.
-!      else
-!         wtnud(iw) = (dist - 3600.e3) / 400.e3
-!      endif
+      if (dist > 5000.e3) then
+         wtnud(iw) = 1.
+      elseif (dist < 3600.e3) then
+         wtnud(iw) = 0.
+      else
+         wtnud(iw) = ((dist - 3600.e3) / 1400.e3) ** 2
+      endif
 
-!   enddo
+   enddo
 
-!endif
+endif
 !----------------------------------------------------------------------
 
 ! Check whether it is time to nudge
@@ -603,11 +603,11 @@ call qsub('W',iw)
 
 ! Default case - no spatial nudging mask
 
-   tnudi = 1. / tnudcent
+!   tnudi = 1. / tnudcent
 
 ! Use spatial nudging mask defined above in this subroutine
 
-!   tnudi = wtnud(iw) / tnudcent
+   tnudi = wtnud(iw) / tnudcent
 
    do k = lpw(iw),mza-1
 

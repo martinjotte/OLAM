@@ -54,7 +54,7 @@ real, allocatable :: quarter_kite(:,:)
 
 integer :: npoly
 integer :: j, jmaxneg, jminpos
-integer :: imd,imd1,imd2,iud,iwd,iwnud,iwnudn,iw
+integer :: imd,imd1,imd2,iud,iwd,iwnud,iwnudn,iw,iwn
 
 real :: scalprod, vecprodz, vecprodz_maxneg, vecprodz_minpos
 real :: b11,b21,b31,b12,b22,b32,b13,b23,b33
@@ -88,10 +88,10 @@ if (runtype == 'MAKESFC' .or. runtype == 'MAKEGRID') then
 
    if (mdomain == 0) then
 
-! If doing 'MAKEGRID' run and using nudging on global domain, generate
-! nudging grid here
+! If doing 'MAKEGRID' run and using nudging on global domain with independent
+! nudging grid, generate nudging grid here
 
-      if (runtype == 'MAKEGRID' .and. nudflag > 0) then
+      if (runtype == 'MAKEGRID' .and. nudflag > 0 .and. nudnxp > 0) then
 
          write(io6,'(/,a)') 'gridinit calling icosahedron for nudging grid'
 
@@ -255,10 +255,11 @@ if (runtype == 'MAKESFC' .or. runtype == 'MAKEGRID') then
       deallocate (quarter_kite)
    endif
 
-! If doing 'MAKEGRID' run and using nudging on global grid, compute
-! nudging indices and coefficients of W points
+! If doing 'MAKEGRID' run and using nudging on global grid with independent
+! nudging grid, compute nudging indices and coefficients of W points
 
-   if (runtype == 'MAKEGRID' .and. mdomain == 0 .and. nudflag > 0) then
+   if (runtype == 'MAKEGRID' .and. mdomain == 0 .and. &
+      nudflag > 0 .and. nudnxp > 0) then
 
 ! Compute a mean distance between adjacent nudging points.  It is safe to assume
 ! that any ATM grid IW point will be closer than this distance to at least one
@@ -386,6 +387,52 @@ if (runtype == 'MAKESFC' .or. runtype == 'MAKEGRID') then
          itab_w(iw)%fnud(3) = b31
 
       enddo
+
+! If doing 'MAKEGRID' run and using nudging on NATIVE global grid, allocate
+! nudging grid and assign nudging indices and coefficients of W points
+
+   elseif (runtype == 'MAKEGRID' .and. mdomain == 0 .and. &
+      nudflag > 0 .and. nudnxp == 0) then
+
+! Set dimensions of nudging grid arrays
+
+      nwnud = nwa
+
+! Allocate nudging grid structure arrays and copy grid structure to
+! these arrays
+
+      call alloc_nudge1(nwnud)
+
+! Loop over nudging grid W points, and copy properties to nudging grid
+
+      do iw = 2,nwnud
+
+         itab_wnud(iw)%npoly = itab_w(iw)%npoly
+
+         xewnud(iw) = xew(iw)
+         yewnud(iw) = yew(iw)
+         zewnud(iw) = zew(iw)
+
+! Loop over IW neighbors of IW
+
+         do j = 1,itab_w(iw)%npoly
+            iwn = itab_w(iw)%iw(j)
+
+            itab_wnud(iw)%iwnud(j) = iwn
+         enddo
+
+         itab_w(iw)%iwnud(1) = iw
+         itab_w(iw)%iwnud(2) = iw
+         itab_w(iw)%iwnud(3) = iw
+
+         itab_w(iw)%fnud(1) = 1.
+         itab_w(iw)%fnud(2) = 0.
+         itab_w(iw)%fnud(3) = 0.
+
+      enddo
+
+      write(io6,'(/,a)') 'gridinit after NATIVE nudging grid construction'
+      write(io6,'(a,i8)')    ' nwnud = ',nwnud
 
    endif
 
@@ -2880,28 +2927,49 @@ if (exans) then
       call shdf5_irec(ndims, idims, 'NUDNXP' , ivars=nudnxp)
       call shdf5_irec(ndims, idims, 'NWNUD'  , ivars=nwnud)
 
-      mwnud = nwnud
+!---------------------------------------------------------------------------
+! Trial modification for MPI parallelism, for the special case where nudging
+! is point-by-point on the native grid (i.e., there is no spectral nudging).
+! The spectral nudging case still requires MPI parallelization. (1 Dec 2012)
+!---------------------------------------------------------------------------
+
+      if (nudnxp == 0) then ! Case for point-by-point nudging on native grid
+         mwnud = mwa
+      else                  ! Case for spectral nudging; needs to change for MPI
+         mwnud = nwnud
+      endif
 
       ndims    = 1
-      idims(1) = nwnud
+      idims(1) = mwnud
 
-      call alloc_nudge1(nwnud)
+      call alloc_nudge1(mwnud)
 
-      call shdf5_irec(ndims, idims, 'XEWNUD'  , rvara=xewnud)
-      call shdf5_irec(ndims, idims, 'YEWNUD'  , rvara=yewnud)
-      call shdf5_irec(ndims, idims, 'ZEWNUD'  , rvara=zewnud)
+      if (nudnxp == 0) then
+         call shdf5_irec(ndims, idims, 'XEWNUD'  , rvara=xewnud, points=lgwa)
+         call shdf5_irec(ndims, idims, 'YEWNUD'  , rvara=yewnud, points=lgwa)
+         call shdf5_irec(ndims, idims, 'ZEWNUD'  , rvara=zewnud, points=lgwa)
+         call shdf5_irec(ndims, idims, 'itab_wnud%npoly' , &
+                         ivara=itab_wnud(:)%npoly, points=lgwa)
+      else 
+         call shdf5_irec(ndims, idims, 'XEWNUD'  , rvara=xewnud)
+         call shdf5_irec(ndims, idims, 'YEWNUD'  , rvara=yewnud)
+         call shdf5_irec(ndims, idims, 'ZEWNUD'  , rvara=zewnud)
+        call shdf5_irec(ndims,idims,'itab_wnud%npoly' ,ivara=itab_wnud(:)%npoly)
+      endif
 
-      call shdf5_irec(ndims,idims,'itab_wnud%npoly' ,ivara=itab_wnud(:)%npoly)
-
-      allocate (iscr(6,nwnud))
+      allocate (iscr(6,mwnud))
 
       ndims    = 2
       idims(1) = 6
-      idims(2) = nwnud
+      idims(2) = mwnud
 
-      call shdf5_irec(ndims,idims,'itab_wnud%iwnud',ivara=iscr)
+      if (nudnxp == 0) then
+         call shdf5_irec(ndims,idims,'itab_wnud%iwnud',ivara=iscr, points=lgwa)
+      else 
+         call shdf5_irec(ndims,idims,'itab_wnud%iwnud',ivara=iscr)
+      endif
 
-      do iwnud = 1,nwnud
+      do iwnud = 1,mwnud
          itab_wnud(iwnud)%iwnud(1:6) = iscr(1:6,iwnud)
       enddo
 
