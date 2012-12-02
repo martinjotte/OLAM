@@ -34,14 +34,14 @@ subroutine contslab_horiz_mp(iplt)
 
 use oplot_coms, only: op
 use mem_grid,   only: mza, mma, mwa, zm, zt, lpw, xem, yem, zem, xew, yew, zew
-use mem_ijtabs, only: itab_w
+use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
 use misc_coms,  only: io6
 
 implicit none
 
 integer, intent(in) :: iplt
 
-integer :: npoly,j,kt,k,iw,im,notavail
+integer :: npoly,j,kt,k,iw,jw,im,notavail
 integer :: iflag180
 integer :: ipwx1,ipwx2,ipwy1,ipwy2
 
@@ -63,7 +63,8 @@ endif
 
 ! Loop over W points for contouring M points
 
-do iw = 2,mwa
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Skip this W point if it is underground
 
@@ -175,7 +176,7 @@ use oplot_coms, only: op
 use mem_grid,   only: mma, mva, mwa, zm, zt, lpu, lpv, lpw, &
                       xem, yem, zem, xeu, yeu, zeu, &
                       xev, yev, zev, xew, yew, zew
-use mem_ijtabs, only: itab_m, itab_w, itab_u, itab_v
+use mem_ijtabs, only: itab_m, itab_w, itab_u, itab_v, jtab_m, jtm_vadj
 use misc_coms,  only: io6, iparallel, meshtype
 use mem_para,   only: myrank
 
@@ -183,7 +184,7 @@ implicit none
 
 integer, intent(in) :: iplt
 
-integer :: npoly,j,jn,jnn,kt,k,im,notavail,iw,iv,iw1,iw2,iv1,iv2
+integer :: npoly,j,jm,jn,jnn,kt,k,im,notavail,iw,iv,iw1,iw2,iv1,iv2
 integer :: iflag180
 integer :: ipwx1,ipwx2,ipwy1,ipwy2
 
@@ -209,7 +210,8 @@ endif
 ! FIRST LOOP is over M points for contouring V points
 !------------------------------------------------------
 
-do im = 2,mma
+do jm = 1, jtab_m(jtm_vadj)%jend(1)
+   im = jtab_m(jtm_vadj)%im(jm)
 
 ! Get plot coordinates of current M point.
 
@@ -504,14 +506,14 @@ subroutine contslab_horiz_tw(iplt)
 use oplot_coms, only: op
 use mem_grid,   only: mva, mma, mwa, zm, zt, lpw, xem, yem, zem, &
                       xeu, yeu, zeu, xev, yev, zev, xew, yew, zew
-use mem_ijtabs, only: itab_m
+use mem_ijtabs, only: itab_m, jtab_m, jtm_vadj
 use misc_coms,  only: io6, meshtype
 
 implicit none
 
 integer, intent(in) :: iplt
 
-integer :: npoly,j,jn,jnn,kt,k,im,iv,iw,iw1,iw2,notavail
+integer :: npoly,j,jm,jn,jnn,kt,k,im,iv,iw,iw1,iw2,notavail
 integer :: iflag180
 integer :: ipwx1,ipwx2,ipwy1,ipwy2
 
@@ -535,7 +537,8 @@ endif
 
 ! Loop over M points for contouring W points
 
-do im = 2,mma
+do jm = 1, jtab_m(jtm_vadj)%jend(1)
+   im = jtab_m(jtm_vadj)%im(jm)
 
 ! Get plot coordinates of current M point.
 
@@ -733,7 +736,7 @@ subroutine contslab_vert_t(iplt)
 
 use oplot_coms,  only: op
 use mem_grid,    only: mva, mza, lpw, zt
-use mem_ijtabs,  only: itab_u, itab_v
+use mem_ijtabs,  only: itab_u, itab_v, jtab_v, jtv_prog
 use misc_coms,   only: io6, meshtype
 use consts_coms, only: erad, pio180
 
@@ -741,7 +744,7 @@ implicit none
 
 integer, intent(in) :: iplt
 
-integer :: k,iv,iw1,iw2,iv1,iv2,iok,notavail
+integer :: k,jv,iv,iw1,iw2,iv1,iv2,iok,notavail
 real :: hpt,hpt1,hpt2
 real :: hcpn(4),hcpn1(4),hcpn2(4),vcpn(4),fldvals(4)
 real :: topo1,topo2,radcone
@@ -751,7 +754,8 @@ real :: wtbot = 1., wttop = 0.
 
 call plot_underground_w(iplt,(/0/))
 
-do iv = 2,mva  ! Loop is over V for contouring T points
+do jv = 1, jtab_v(jtv_prog)%jend(1)
+   iv = jtab_v(jtv_prog)%iv(jv)
 
    if (meshtype == 1) then
       iw1 = itab_u(iv)%iw(1)
@@ -868,13 +872,14 @@ subroutine contslab_vert_v(iplt)
 use oplot_coms, only: op
 use mem_grid,   only: mwa, mza, lpw, zt
 use misc_coms,  only: io6
-use consts_coms, only: erad, pio180
+use mem_ijtabs, only: jtab_w, jtw_prog
+use consts_coms,only: erad, pio180
 
 implicit none
 
 integer, intent(in) :: iplt
 
-integer :: k,iw,iv1,iv2,iok,notavail
+integer :: k,jw,iw,iv1,iv2,iok,notavail
 real :: hpt
 real :: hcpn(4),vcpn(4),fldvals(4)
 real :: topo1,topo2
@@ -884,7 +889,8 @@ real :: wtbot = 1., wttop = 0.
 
 call plot_underground_w(iplt,(/0/))
 
-do iw = 2,mwa  ! Loop is over W for contouring U/V points
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Get horizontal plot coordinates for IW point
 
@@ -963,7 +969,7 @@ subroutine contslab_vert_w(iplt)
 
 use oplot_coms, only: op
 use mem_grid,   only: mva, mza, lpw, zm
-use mem_ijtabs, only: itab_u, itab_v
+use mem_ijtabs, only: itab_u, itab_v, jtab_v, jtv_prog
 use misc_coms,  only: io6, meshtype
 use consts_coms, only: erad, pio180
 
@@ -971,7 +977,7 @@ implicit none
 
 integer, intent(in) :: iplt
 
-integer :: k,iv,iw1,iw2,iv1,iv2,iok,notavail
+integer :: k,jv,iv,iw1,iw2,iv1,iv2,iok,notavail
 real :: hpt,hpt1,hpt2
 real, dimension(4) :: hcpn,hcpn1,hcpn2,vcpn,fldvals
 real :: topo1,topo2,radcone
@@ -981,7 +987,8 @@ real :: wtbot = 1., wttop = 0.
 
 call plot_underground_w(iplt,(/0/))
 
-do iv = 2,mva  ! Loop is over V for contouring W points
+do jv = 1, jtab_v(jtv_prog)%jend(1)
+   iv = jtab_v(jtv_prog)%iv(jv)
 
    if (meshtype == 1) then
       iw1 = itab_u(iv)%iw(1)

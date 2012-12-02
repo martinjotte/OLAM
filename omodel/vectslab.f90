@@ -35,7 +35,7 @@ subroutine vectslab_horiz_v(iplt)
 use oplot_coms,  only: op
 use mem_grid,    only: mza, mva, mwa, zm, lpw, unx, uny, unz, vnx, vny, vnz, &
                        xeu, yeu, zeu, xev, yev, zev
-use mem_ijtabs,  only: itab_m, itab_u, itab_v, itab_w
+use mem_ijtabs,  only: itab_m, itab_u, itab_v, itab_w, jtab_v, jtv_prog
 use misc_coms,   only: io6, mdomain, meshtype
 use consts_coms, only: erad
 
@@ -43,7 +43,7 @@ implicit none
 
 integer, intent(in) :: iplt
 
-integer :: iv,iw1,iw2,notavail,im1,im2,iw1_v1,iw2_v1
+integer :: jv,iv,iw1,iw2,notavail,im1,im2,iw1_v1,iw2_v1
 
 real :: fldval_u,fldval_v,uavg,vavg,pointx  &
    ,pointy,tailx,taily,stemangle,headangle1,headangle2   &
@@ -73,7 +73,8 @@ real :: xa, ya, xb, yb, xc, yc
 op%stagpt = 'V'
 call horizplot_k(iplt,mva,ktf,kv,wtbot,wttop)
 
-do iv = 2,mva
+do jv = 1, jtab_v(jtv_prog)%jend(1)
+   iv = jtab_v(jtv_prog)%iv(jv)
 
    if (meshtype == 1) then
 
@@ -388,7 +389,7 @@ subroutine vectslab_horiz_w(iplt)
 
 use oplot_coms,  only: op
 use mem_grid,    only: mza, mwa, zm, lpw, xew, yew, zew, wnx, wny, wnz
-use mem_ijtabs,  only: itab_m, itab_u, itab_v, itab_w
+use mem_ijtabs,  only: itab_m, itab_u, itab_v, itab_w, jtab_w, jtw_prog
 use mem_basic,   only: vxe, vye, vze
 use misc_coms,   only: io6, mdomain
 use consts_coms, only: erad
@@ -397,7 +398,7 @@ implicit none
 
 integer, intent(in) :: iplt
 
-integer :: iw,notavail
+integer :: jw,iw,notavail
 
 real :: fldval,uavg,vavg,pointx  &
    ,pointy,tailx,taily,stemangle,headangle1,headangle2   &
@@ -427,7 +428,8 @@ real :: xa, ya, xb, yb, xc, yc
 op%stagpt = 'T'
 call horizplot_k(iplt,mwa,ktf,kw,wtbot,wttop)
 
-do iw = 2,mwa
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Skip this point if it is underground
 

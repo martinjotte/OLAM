@@ -35,7 +35,7 @@ subroutine tileslab_horiz_mp(iplt,action)
 use oplot_coms, only: op
 use mem_grid,   only: mza, mma, mwa, lpw, zm, zt, xem, yem, zem, &
                       xeu, yeu, zeu, xev, yev, zev, xew, yew, zew
-use mem_ijtabs, only: itab_m, itab_u
+use mem_ijtabs, only: itab_m, itab_u, jtab_m, jtm_vadj
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -46,7 +46,7 @@ character(1), intent(in) :: action
 integer :: kt, k
 integer :: ici
 integer :: ng
-integer :: j, jn, jnn, im, iw, npoly, iv1, iv2, im1, im2
+integer :: j, jm, jn, jnn, im, iw, npoly, iv1, iv2, im1, im2
 integer :: notavail, navail
 
 real :: hpt, vpt
@@ -69,7 +69,8 @@ if (action == 'T' .and. op%dimens == '3') then
    call plot_underground_w(iplt,ktf)
 endif
 
-do im = 2,mma
+do jm = 1, jtab_m(jtm_vadj)%jend(1)
+   im = jtab_m(jtm_vadj)%im(jm)
 
 ! Check for points to be skipped over
 
@@ -216,7 +217,7 @@ subroutine tileslab_horiz_tw(iplt,action)
 
 use oplot_coms, only: op, xepc, yepc, zepc
 use mem_grid,   only: mza, mwa, zm, zt, xew, yew, zew, xem, yem, zem, lpw
-use mem_ijtabs, only: itab_w
+use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -224,7 +225,7 @@ implicit none
 integer,      intent(in) :: iplt
 character(1), intent(in) :: action
 
-integer :: npoly, j, im
+integer :: npoly, j, jw, im
 integer :: kt, k
 integer :: iw
 integer :: iv1,iv2
@@ -253,7 +254,8 @@ if (action == 'T' .and. op%dimens == '3') then
    call plot_underground_w(iplt,ktf)
 endif
 
-do iw = 2,mwa
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
 
    npoly = itab_w(iw)%npoly
 
@@ -332,7 +334,7 @@ subroutine tileslab_horiz_vn(iplt,action)
 use oplot_coms, only: op
 use mem_grid,   only: mza, mva, mwa, zm, xeu, yeu, zeu, xev, yev, zev, &
                       xem, yem, zem, xew, yew, zew, lpw
-use mem_ijtabs, only: itab_u, itab_v
+use mem_ijtabs, only: itab_u, itab_v, jtab_v, jtv_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -341,7 +343,7 @@ integer,      intent(in) :: iplt
 character(1), intent(in) :: action
 
 integer :: kt, k
-integer :: iv
+integer :: iv, jv
 integer :: iw1, iw2
 integer :: itpn
 integer :: ici
@@ -371,7 +373,8 @@ if (action == 'T' .and. op%dimens == '3') then
    call plot_underground_w(iplt,ktf)
 endif
 
-do iv = 2,mva
+do jv = 1, jtab_v(jtv_prog)%jend(1)
+   iv = jtab_v(jtv_prog)%iv(jv)
 
 ! Transform tile plot X and Y coordinates.  
 
@@ -873,6 +876,7 @@ subroutine tileslab_vert_t(iplt,action)
 
 use oplot_coms, only: op
 use mem_grid,   only: mwa, mza, zm, zt, lpw
+use mem_ijtabs, only: jtab_w, jtw_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -881,7 +885,7 @@ integer,      intent(in) :: iplt
 character(1), intent(in) :: action
 
 integer :: k
-integer :: iw
+integer :: iw, jw
 integer :: iv1,iv2
 integer :: iok
 integer :: notavail
@@ -895,7 +899,8 @@ real :: wtbot = 1., wttop = 0.
 
 ! Loop over W points
 
-do iw = 2,mwa
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Get horizontal plot coordinates for this W point
 
@@ -964,7 +969,7 @@ subroutine tileslab_vert_v(iplt,action)
 
 use oplot_coms, only: op
 use mem_grid,   only: mwa, mza, zm, zt, lpw
-use mem_ijtabs, only: itab_u, itab_v
+use mem_ijtabs, only: itab_u, itab_v, jtab_w, jtw_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -973,7 +978,7 @@ integer,      intent(in) :: iplt
 character(1), intent(in) :: action
 
 integer :: k
-integer :: iw
+integer :: iw,jw
 integer :: ng
 integer :: im1,im2
 integer :: iw1,iw2
@@ -997,7 +1002,8 @@ call plot_underground_w(iplt,(/0/))
 
 ! Loop over W points
 
-do iw = 2,mwa
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Get horizontal plot coordinates for IW point
 
@@ -1080,6 +1086,7 @@ subroutine tileslab_vert_w(iplt,action)
 
 use oplot_coms, only: op
 use mem_grid,   only: mwa, mza, zm, zt, lpw
+use mem_ijtabs, only: jtab_w, jtw_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -1088,7 +1095,7 @@ integer,      intent(in) :: iplt
 character(1), intent(in) :: action
 
 integer :: k
-integer :: iw
+integer :: iw, jw
 integer :: ng
 integer :: iv1,iv2
 integer :: iok
@@ -1103,7 +1110,8 @@ real :: wtbot = 1., wttop = 0.
 
 ! Loop over W points
 
-do iw = 2,mwa
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Get horizontal plot coordinates for this W point
 
