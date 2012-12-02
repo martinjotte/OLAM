@@ -1457,7 +1457,7 @@ data clrtab(136)%vals(1:22)/ &
 ! Table 137 (vertical velocity)
 
 data clrtab(137)%nvals/22/
-data clrtab(137)%ifmt(1:2)/-2,5/
+data clrtab(137)%ifmt(1:2)/3,5/
 data clrtab(137)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -1570,7 +1570,7 @@ data clrtab(145)%vals(1:19)/ &
 ! Table 146 (vertical velocity)
 
 data clrtab(146)%nvals/22/
-data clrtab(146)%ifmt(1:2)/-2,5/
+data clrtab(146)%ifmt(1:2)/3,5/
 data clrtab(146)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &

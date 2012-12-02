@@ -36,7 +36,7 @@ use mem_basic,   only: press, rho, uc, ump, umc, vc, vp, vmp, vmc
 use mem_ijtabs,  only: jtab_w, jtab_u, jtab_v, itab_w, itab_u, itab_v, &
                        jtu_init, jtv_init, jtw_init
 use misc_coms,   only: io6, iparallel, meshtype
-use consts_coms, only: gravo2, erad, pio180, pi2, omega, pi1
+use consts_coms, only: gravo2, gravi, erad, pio180, pi2, omega, pi1
 use mem_grid,    only: mza, mua, mva, unx, uny, unz, vnx, vny, vnz, &
                        xem, yem, zem, xew, yew, zew, volt, volui, &
                        glatu, glonu, glatw, glonw, xev, yev, zev
@@ -81,7 +81,7 @@ call qsub('W',iw)
       press(2,iw) = 29400. - (erad * omega * u0_swtc + .5 * u0_swtc ** 2) &
          * (sin(glatw(iw) * pio180)) ** 2
    
-      press(2,iw) = press(2,iw) / 9.8
+      press(2,iw) = press(2,iw) * gravi
    
       rho(2,iw) = press(2,iw)   
 
@@ -99,7 +99,7 @@ call qsub('W',iw)
       press(2,iw) = 58408. - (erad * omega * u0_swtc + .5 * u0_swtc ** 2) &
          * (sin(glatw(iw) * pio180)) ** 2
    
-      press(2,iw) = press(2,iw) / 9.8
+      press(2,iw) = press(2,iw) * gravi
    
       rho(2,iw) = press(2,iw) - topo_swtc
 
