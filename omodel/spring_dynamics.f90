@@ -49,9 +49,14 @@ real, parameter :: relax = .04, beta = 1.2
 
 ! Automatic arrays
 
-real :: dxem(nma)
-real :: dyem(nma)
-real :: dzem(nma)
+real :: dist (nua)
+real :: dist0(nua)
+
+real :: dx(nua)
+real :: dy(nua)
+real :: dz(nua)
+
+real :: dirs(nma,7)
 
 integer :: iu,iu1,iu2,iu3,iu4
 integer :: im,im1,im2,im3,im4
@@ -61,12 +66,10 @@ integer :: iter,ipent,mrow1,mrow2,npoly,ngrw,mrmax,mrmin
 integer :: iskip
 real :: xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2
 
-real :: dist1,dist2,dist3,dist4
 real :: cosphi3, cosphi4
 real :: coslim3, coslim4, ratio
 
-real :: dist00,dist0,dist,expansion,frac_change
-real :: dx2,dy2,dz2
+real :: dist00,distm,expansion,frac_change
 character(10) :: string
 
 ! Array MOVEM is used to flag selected M points that will be allowed to move
@@ -76,11 +79,12 @@ character(10) :: string
 ! dynamically adaptive refinements.  
 
 integer :: movem(nma)
+integer :: moveall(ngrids)
+
+write(io6,*) "In spring dynamics...."
 
 !--------------------------------------------------------------
 ! SPECIAL CODE TO BE MODIFIED FOR DYNAMIC NESTS
-
-integer :: moveall(ngrids)
 
 if (mdomain == 5) then
    moveall(:) = 0
@@ -135,8 +139,7 @@ else
 
 endif
 
-
-! Compute mean length of U segments
+! Compute mean length of coarse mesh U segments
 
 if (mdomain < 2) then
    dist00 = beta * pi2 * erad / (5. * real(nxp))
@@ -144,49 +147,25 @@ else
    dist00 = deltax * sqrt(2.0) / sqrt(sqrt(3.0))
 endif
 
-! Main iteration loop 
-
-do iter = 1,niter
-
-! Loop over all M points
-
-!$omp parallel
-
-!$omp do
-   do im = 2,nma
-
-! Initialize displacement sums to zero
-
-      dxem(im) = 0.
-      dyem(im) = 0.
-      dzem(im) = 0.
-
-   enddo
-!$omp end do
-
+! Compute target length of each triangle U segment
 ! Loop over all U points
 
-!$omp do private (im1,im2,dist,dist0,iw1,iw2,mrow1,mrow2,iu1,iu3,im3,im4, &
-!$omp             dist1,dist2,dist3,dist4,cosphi3,cosphi4, &
-!$omp             ratio,frac_change,dx2,dy2,dz2,mrmax,mrmin)
-   do iu = 2,nua
+!$omp parallel
+!$omp do private (im1,im2,iw1,iw2,mrow1,mrow2,mrmax,mrmin)
+do iu = 2, nua
 
-      im1 = itab_ud(iu)%im(1)
-      im2 = itab_ud(iu)%im(2)
+   im1 = itab_ud(iu)%im(1)
+   im2 = itab_ud(iu)%im(2)
 
-      if (movem(im1) == 0 .and. movem(im2) == 0) cycle
-
-! Compute current distance between IM1 and IM2
-
-      dist = sqrt((xem(im1) - xem(im2)) ** 2  &
-                + (yem(im1) - yem(im2)) ** 2  &
-                + (zem(im1) - zem(im2)) ** 2)
+   if (movem(im1) == 0 .and. movem(im2) == 0) cycle
 
 ! Compute target distance for any MRL value
 
-      dist0 = dist00 * 2. ** real(1 - itab_ud(iu)%mrlu)
+   dist0(iu) = dist00 * 2.0 ** (1 - itab_ud(iu)%mrlu)
 
 ! Modified distance in MRL border zone
+
+   if (ngr > 1) then
 
       iw1 = itab_ud(iu)%iw(1)
       iw2 = itab_ud(iu)%iw(2)
@@ -194,36 +173,68 @@ do iter = 1,niter
       mrow1 = itab_wd(iw1)%mrow
       mrow2 = itab_wd(iw2)%mrow
 
-      mrmax = max(mrow1,mrow2)
-      mrmin = min(mrow1,mrow2)
-
       if (nconcave == 3) then
-
+      
+         mrmax = max(mrow1,mrow2)
+         mrmin = min(mrow1,mrow2)
+      
          if     (mrmax == -2 .and. mrmin == -2) then
-            dist0 = dist0 *  7. / 6.  !* .90
+            dist0(iu) = dist0(iu) *  7. / 6.  !* .90
          elseif (mrmax == -1 .and. mrmin == -2) then
-            dist0 = dist0 *  8. / 6.  !* .90
+            dist0(iu) = dist0(iu) *  8. / 6.  !* .90
          elseif (mrmax == -1 .and. mrmin == -1) then
-            dist0 = dist0 *  9. / 6.  !* .90
+            dist0(iu) = dist0(iu) *  9. / 6.  !* .90
          elseif (mrmax == 1 .and. mrmin == -1) then
-            dist0 = dist0 * 10. / 6.  !* .90
+            dist0(iu) = dist0(iu) * 10. / 6.  !* .90
          elseif (mrmax == 1 .and. mrmin == 1) then
-            dist0 = dist0 * 11. / 12. !* .90
+            dist0(iu) = dist0(iu) * 11. / 12. !* .90
          endif
 
       elseif (mrow1 > 0 .and. mrow1 <= mrows .and.  &
               mrow2 > 0 .and. mrow2 <= mrows) then
 
-         dist0 = dist0 * (.5 + .25/real(mrows) * (mrow1 + mrow2 - 1))      
+         dist0(iu) = dist0(iu) * (.5 + .25/real(mrows) * (mrow1 + mrow2 - 1))      
 
       endif ! nconcave
 
-! Adjustment of dist0 based on opposite angles of triangles
+   endif ! ngr
+
+enddo
+!$omp end do
+
+!$omp do private (npoly,j,iu)
+do im = 2, nma
+
+   if (movem(im) == 0) cycle
+
+   npoly = itab_md(im)%npoly
+   do j = 1, npoly
+
+      iu = itab_md(im)%iu(j)
+      if (itab_ud(iu)%im(2) == im) then
+         dirs(im,j) =  relax
+      else
+         dirs(im,j) = -relax
+      endif
+
+   enddo
+enddo
+!$omp end do
+
+! Main iteration loop 
+do iter = 1, niter
+
+! Compute length of each U segment once per iteration
+! Loop over all U points
+
+   !$omp do private (iu1,iu3,im1,im2,im3,im4)
+   do iu = 2, nua
 
       iu1 = itab_ud(iu)%iu(1)
       iu3 = itab_ud(iu)%iu(3)
 
-! Determine im3 and im4 points for current IU
+      im1 = itab_ud(iu)%im(1)
+      im2 = itab_ud(iu)%im(2)
 
       if (itab_ud(iu1)%im(1) == im1) then
          im3 = itab_ud(iu1)%im(2)
@@ -237,34 +248,37 @@ do iter = 1,niter
          im4 = itab_ud(iu3)%im(1)
       endif
 
-! Compute current IU1 length (distance between IM1 and IM3)
+      if ( movem(im1) == 0 .and. movem(im2) == 0 .and. &
+           movem(im3) == 0 .and. movem(im4) == 0 ) cycle
 
-      dist1 = sqrt((xem(im1) - xem(im3)) ** 2  &
-                 + (yem(im1) - yem(im3)) ** 2  &
-                 + (zem(im1) - zem(im3)) ** 2)
+      dist(iu) = sqrt( (xem(im1) - xem(im2)) ** 2 &
+                     + (yem(im1) - yem(im2)) ** 2 &
+                     + (zem(im1) - zem(im2)) ** 2 )
+   enddo
+   !$omp end do
+   
+! Loop over all U points
 
-! Compute current IU2 length (distance between IM2 and IM3)
+   !$omp do private (im1,im2,iu1,iu2,iu3,iu4,cosphi3,cosphi4, &
+   !$omp             ratio,distm,frac_change)
+   do iu = 2, nua
 
-      dist2 = sqrt((xem(im2) - xem(im3)) ** 2  &
-                 + (yem(im2) - yem(im3)) ** 2  &
-                 + (zem(im2) - zem(im3)) ** 2)
+      im1 = itab_ud(iu)%im(1)
+      im2 = itab_ud(iu)%im(2)
 
-! Compute current IU3 length (distance between IM1 and IM4)
+      if (movem(im1) == 0 .and. movem(im2) == 0) cycle
 
-      dist3 = sqrt((xem(im1) - xem(im4)) ** 2  &
-                 + (yem(im1) - yem(im4)) ** 2  &
-                 + (zem(im1) - zem(im4)) ** 2)
+! Adjustment of dist0 based on opposite angles of triangles
 
-! Compute current IU4 length (distance between IM2 and IM4)
-
-      dist4 = sqrt((xem(im2) - xem(im4)) ** 2  &
-                 + (yem(im2) - yem(im4)) ** 2  &
-                 + (zem(im2) - zem(im4)) ** 2)
+      iu1 = itab_ud(iu)%iu(1)
+      iu2 = itab_ud(iu)%iu(2)
+      iu3 = itab_ud(iu)%iu(3)
+      iu4 = itab_ud(iu)%iu(4)
 
 ! Compute cosine of angles at IM3 and IM4
 
-      cosphi3 = (dist1**2 + dist2**2 - dist**2) / (2. * dist1 * dist2) 
-      cosphi4 = (dist3**2 + dist4**2 - dist**2) / (2. * dist3 * dist4) 
+      cosphi3 = (dist(iu1)**2 + dist(iu2)**2 - dist(iu)**2) / (2. * dist(iu1) * dist(iu2))
+      cosphi4 = (dist(iu3)**2 + dist(iu4)**2 - dist(iu)**2) / (2. * dist(iu3) * dist(iu4))
 
 ! Ratio of smaller cosine to limiting value of cos(72 deg)
 
@@ -274,123 +288,115 @@ do iter = 1,niter
 ! (NOTE: could just use .309 limit regardless of npoly)
 
       if (ratio < 1.) then
-         dist0 = dist0 * ratio
+         distm = dist0(iu) * ratio
+      else
+         distm = dist0(iu)
       endif
 
 ! Fractional change to dist that would make it equal dist0
 
-      frac_change = (dist0 - dist) / dist
+      frac_change = (distm - dist(iu)) / dist(iu)
 
 ! Compute components of displacement that gives dist0
 
-      dx2 = (xem(im2) - xem(im1)) * frac_change
-      dy2 = (yem(im2) - yem(im1)) * frac_change
-      dz2 = (zem(im2) - zem(im1)) * frac_change
-
-! Add components of displacement to displacement of both M points
-
-      dxem(im1) = dxem(im1) - dx2
-      dyem(im1) = dyem(im1) - dy2
-      dzem(im1) = dzem(im1) - dz2
-
-      dxem(im2) = dxem(im2) + dx2
-      dyem(im2) = dyem(im2) + dy2
-      dzem(im2) = dzem(im2) + dz2
+      dx(iu) = (xem(im2) - xem(im1)) * frac_change
+      dy(iu) = (yem(im2) - yem(im1)) * frac_change
+      dz(iu) = (zem(im2) - zem(im1)) * frac_change
 
    enddo
-!$omp end do
-
+   !$omp end do
+   
 ! Loop over all M points
 
-!$omp do private(expansion)
-   do im = 2,nma
-
+   !$omp do private(npoly,j,iu,expansion)
+   do im = 2, nma
+      
       if (movem(im) == 0) cycle
 
-! For now, prevent either polar M point from moving
-
+! For preventing either polar M point from moving:
 !      if (im == impent(1 )) cycle
 !      if (im == impent(12)) cycle
 
 ! For preventing all pentagonal points from moving:
 !     if (any(im == impent(1:12)) cycle
 
-! Apply fraction of displacement to coordinates of M points
+! Apply the displacement components to each M point
 
-      xem(im) = xem(im) + relax * dxem(im)
-      yem(im) = yem(im) + relax * dyem(im)
-      zem(im) = zem(im) + relax * dzem(im)
+      npoly = itab_md(im)%npoly
+      do j = 1, npoly
+         iu = itab_md(im)%iu(j)
+         xem(im) = xem(im) + dirs(im,j) * dx(iu)
+         yem(im) = yem(im) + dirs(im,j) * dy(iu)
+         zem(im) = zem(im) + dirs(im,j) * dz(iu)
+      enddo
 
 ! Push M point coordinates out to earth radius
-
+      
       if (mdomain < 2) then
          expansion = erad / sqrt(xem(im) ** 2 + yem(im) ** 2 + zem(im) ** 2)
-
          xem(im) = xem(im) * expansion
          yem(im) = yem(im) * expansion
          zem(im) = zem(im) * expansion
       endif
 
    enddo
-!$omp end do
-
-!$omp end parallel
+   !$omp end do
 
 ! Section for plotting grid at intermediate stages of spring dynamics adjustment
 
-   CYCLE ! Bypass grid plotting
-
-   if (ngr > 1 .and. mod(iter,20) == 1) then
-
-! Plot grid lines
-
-      call o_reopnwk()
-      call plotback()
-
-      call oplot_set(1)
- 
-      do iu = 2,nua
-         im1 = itab_ud(iu)%im(1)
-         im2 = itab_ud(iu)%im(2)
-
-         call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
-         call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
-
-         call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
-
-         if (iskip == 1) cycle
-
-         call o_frstpt (xq1,yq1)
-         call o_vector (xq2,yq2)
-      enddo
-
-! print mrow values
-
-      do iw = 2, nwa
-         im1 = itab_wd(iw)%im(1)
-         im2 = itab_wd(iw)%im(2)
-         im3 = itab_wd(iw)%im(3)
-
-         call oplot_transform(1, (xem(im1)+xem(im2)+xem(im3))/3., &
-                                 (yem(im1)+yem(im2)+yem(im3))/3., &
-                                 (zem(im1)+zem(im2)+zem(im3))/3., &
-                                 xp1, yp1                         )
-
-         if ( xp1 < op%xmin .or.  &
-              xp1 > op%xmax .or.  &
-              yp1 < op%ymin .or.  &
-              yp1 > op%ymax ) cycle
-
-         write(string,'(I0)') itab_wd(iw)%mrow
-         call o_plchlq (xp1,yp1,trim(adjustl(string)),0.01,0.,0.)
-      enddo
-
-      call o_frame()
-      call o_clswk()
-
-   endif ! mod(iter,*)
+!plt   if (ngr > 1 .and. mod(iter,20) == 1) then
+!plt
+!plt! Plot grid lines
+!plt
+!plt      call o_reopnwk()
+!plt      call plotback()
+!plt
+!plt      call oplot_set(1)
+!plt 
+!plt      do iu = 2,nua
+!plt         im1 = itab_ud(iu)%im(1)
+!plt         im2 = itab_ud(iu)%im(2)
+!plt
+!plt         call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
+!plt         call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
+!plt
+!plt         call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+!plt
+!plt         if (iskip == 1) cycle
+!plt
+!plt         call o_frstpt (xq1,yq1)
+!plt         call o_vector (xq2,yq2)
+!plt      enddo
+!plt
+!plt! print mrow values
+!plt
+!plt      do iw = 2, nwa
+!plt         im1 = itab_wd(iw)%im(1)
+!plt         im2 = itab_wd(iw)%im(2)
+!plt         im3 = itab_wd(iw)%im(3)
+!plt
+!plt         call oplot_transform(1, (xem(im1)+xem(im2)+xem(im3))/3., &
+!plt                                 (yem(im1)+yem(im2)+yem(im3))/3., &
+!plt                                 (zem(im1)+zem(im2)+zem(im3))/3., &
+!plt                                 xp1, yp1                         )
+!plt
+!plt         if ( xp1 < op%xmin .or.  &
+!plt              xp1 > op%xmax .or.  &
+!plt              yp1 < op%ymin .or.  &
+!plt              yp1 > op%ymax ) cycle
+!plt
+!plt         write(string,'(I0)') itab_wd(iw)%mrow
+!plt         call o_plchlq (xp1,yp1,trim(adjustl(string)),0.01,0.,0.)
+!plt      enddo
+!plt
+!plt      call o_frame()
+!plt      call o_clswk()
+!plt
+!plt   endif ! mod(iter,*)
 
 enddo ! iter
+
+!$omp end parallel
 
 return
 end subroutine spring_dynamics

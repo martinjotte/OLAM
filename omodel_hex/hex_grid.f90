@@ -642,6 +642,9 @@ ef = 1.01  ! radial expansion factor (from earth center) for defining
 
 ! Loop over all M points
 
+!$omp parallel
+
+!$omp do private(raxis,npoly,j,iw)
 do im = 2,nma
 
 ! Latitude and longitude at M points
@@ -672,9 +675,11 @@ do im = 2,nma
    enddo
 
 enddo
+!$omp end do
 
 ! Loop over all V points
 
+!$omp do private(im1,im2,iw1,iw2,expansion,raxis,dvm1,dvm2,frac)
 do iv = 2,nva
 
 ! Fill global index (replaced later if this run is parallel)
@@ -788,29 +793,26 @@ do iv = 2,nva
    quarter_kite(1,iv) = .25 * dvm1 * dnv(iv)
    quarter_kite(2,iv) = .25 * dvm2 * dnv(iv)
 
+enddo
+!$omp end do
+!$omp end parallel
+
+do iv = 2, nva
+   im1 = itab_v(iv)%im(1)
+   im2 = itab_v(iv)%im(2)
+
+   iw1 = itab_v(iv)%iw(1)
+   iw2 = itab_v(iv)%iw(2)
+
    arm0(im1) = arm0(im1) + 2. * quarter_kite(1,iv)
    arm0(im2) = arm0(im2) + 2. * quarter_kite(2,iv)
 
    arw0(iw1) = arw0(iw1) + quarter_kite(1,iv) + quarter_kite(2,iv)
    arw0(iw2) = arw0(iw2) + quarter_kite(1,iv) + quarter_kite(2,iv)
-
 enddo
 
-do iw = 1, nwa
-   itab_w(iw)%gxps1(:) = rinit
-   itab_w(iw)%gxps2(:) = rinit
-   itab_w(iw)%gyps1(:) = rinit
-   itab_w(iw)%gyps2(:) = rinit
-enddo
-
-do iv = 1, nva      
-   itab_v(iv)%cosv(:) = rinit
-   itab_v(iv)%sinv(:) = rinit
-   itab_v(iv)%dxps(:) = rinit
-   itab_v(iv)%dyps(:) = rinit
-   itab_v(iv)%farw(:) = rinit
-enddo
-
+!$omp parallel
+!$omp do private(raxis)
 do iw = 2,nwa
 
 ! Fill global index (replaced later if this run is parallel)
@@ -840,6 +842,12 @@ do iw = 2,nwa
       wnz(iw) = 1.0
 
    endif
+enddo
+!$omp end do
+
+!$omp do private(npoly,j2,j1,iv,iw1,iw2,dops,npoly1,npoly2,np,&
+!$omp            im1,xw1,xw2,yw1,yw2,xv,yv,alpha)
+do iw = 2,nwa
 
 ! Number of polygon edges/vertices
 
@@ -971,9 +979,11 @@ do iw = 2,nwa
    enddo
 
 enddo
+!$omp end do
 
 ! Loop over all V points
 
+!$omp do private(ivp,iw1,iw2)
 do iv = 2,nva
 
 ! Let's not do this section on the boundary cells
@@ -993,11 +1003,13 @@ do iv = 2,nva
    itab_v(iv)%mrlv = max(itab_w(iw1)%mrlw,itab_w(iw2)%mrlw)
 
 enddo  ! IV
+!$omp end do
 
 ! Now copy back border iv cell values that we skipped
 
 if (mdomain > 1) then
 
+   !$omp do private(ivp)
    do iv = 2, nva
       ivp = itab_v(iv)%ivp
       if (iv /= ivp) then
@@ -1012,11 +1024,13 @@ if (mdomain > 1) then
          itab_v(iv)%mrlv    = itab_v(ivp)%mrlv
       endif
    enddo
+   !$omp end do
 
 endif
 
 ! Scale eastward and northward gradient components by farm
 
+!$omp do private(j)
 do iw = 2, nwa
 
    ! The gradient components are not computed at the lateral boundaries
@@ -1032,17 +1046,13 @@ do iw = 2, nwa
 
    enddo
 enddo
+!$omp end do
 
 ! Coefficients for converting earth-cartesian velocity to V and W
 
-do iw = 2, nwa
-   npoly = itab_w(iw)%npoly
-   itab_w(iw)%ecvec_v(1:npoly) = 2.0 * itab_w(iw)%farv(1:npoly)
-   itab_w(iw)%ecvec_w          = 0.5
-enddo
-
 if (mdomain < 2) then
 
+   !$omp do private(npoly,nc,fo,a,b,work,info)
    do iw = 2, nwa
       
       npoly = itab_w(iw)%npoly
@@ -1097,11 +1107,13 @@ if (mdomain < 2) then
       endif
 
    enddo
-
+   !omp end do
+   
    if (allocated(a)) deallocate(a)
 
 elseif (mdomain == 5) then
 
+   !$omp do private(npoly,fo,a,b,work,info)
    do iw = 2, nwa
       
       ! skip this calculation at lateral-boundary points
@@ -1144,10 +1156,23 @@ elseif (mdomain == 5) then
       endif
  
    enddo
+   !$omp end do
 
    if (allocated(a)) deallocate(a)
 
+else
+
+   !$omp do private(npoly)
+   do iw = 2, nwa
+      npoly = itab_w(iw)%npoly
+      itab_w(iw)%ecvec_v(1:npoly) = 2.0 * itab_w(iw)%farv(1:npoly)
+      itab_w(iw)%ecvec_w          = 0.5
+   enddo
+   !$omp end do
+
 endif
+
+!$omp end parallel
 
 !---------------------------------------------------
 ! Plot grid lines
@@ -1581,12 +1606,17 @@ if (isfcl == 0) then
 
    endif
 
+   !$omp parallel
+
 ! Prevent TOPW lower than lowest model level zm(1)
 
+   !$omp workshare
    topw(2:nwa) = max(topw(2:nwa),zm(1))
+   !$omp end workshare
 
 ! Loop over all Hex W points
 
+   !$omp do private(k,fracz)
    do iw = 2,nwa
 
 ! Loop over KM levels
@@ -1616,11 +1646,13 @@ if (isfcl == 0) then
       enddo
 
    enddo
+   !$omp end do
 
 ! Fill TOPM by bi-linearly interpolating TOPW values
 
 ! Loop over all Hex M points
 
+   !$omp do private(jw,iw,xq,yq,zq,az,bz,cz)
    do im = 2,nma
 
 ! Loop over all neighbor W points of this IM
@@ -1658,11 +1690,15 @@ if (isfcl == 0) then
       topm(im) = az
 
    enddo
+   !$omp end do
 
 ! Fill ARW and VOLT from topography using quadrature method
 
    call psub()
 !----------------------------------------------------------------------
+   !$omp do private(iw,npoly,t1,jv,jm1,jm2,im1,im2,iv,iwn,t2,ihalf,t3,    &
+   !$omp            qk,k,dt13,dt32,del_arw,jp,facj1,facj2,ip,faci1,faci2, &   
+   !$omp            top1,top2,top3,top4,ipair,topp)
    do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
    call qsub('W',iw)
@@ -1789,6 +1825,9 @@ if (isfcl == 0) then
       enddo  ! jv (sector)
 
    enddo  ! j
+   !$omp end do
+
+   !$omp end parallel
 
 else  ! isfcl = 1
 
@@ -1830,6 +1869,7 @@ write(io6,*) 'Defining control volume areas'
 
 call psub()
 !----------------------------------------------------------------------
+!$omp parallel do private(iv,im1,im2,iw1,iw2,k,hmin,hmax,km)
 do j = 1,jtab_v(jtv_grid)%jend(1); iv = jtab_v(jtv_grid)%iv(j)
    im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
@@ -1902,6 +1942,7 @@ call qsub('V',iv)
    endif
 
 enddo ! j,iv
+!$omp end parallel do
 call rsub('V',1)
 
 ! Set ARV to zero at non-topo walls
@@ -1939,6 +1980,7 @@ call rsub('V',jtv_lbcp)
 
 call psub()
 !----------------------------------------------------------------------
+!$omp parallel do private(iw,npoly,k,facw,jv,iv)
 do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
@@ -2009,6 +2051,7 @@ call qsub('W',iw)
    arw(nza,iw) = 0. 
 
 enddo
+!$omp end parallel do
 call rsub('W',3)
 
 ! Lateral boundary copy of ARW, VOLT
