@@ -481,7 +481,6 @@ data fldlib(1:4,279:296)/ &
  'VYE'           ,'T3' ,'EARTH CARTESIAN Y WIND',' (m s:S2:-1  )'           ,& ! 295
  'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'            / ! 296
 
-
 ! External fields
 
 data fldlib(1:4,297:299)/ &
@@ -2344,6 +2343,27 @@ case(293) ! 'UMERID_OBS_SIM'
    fldval = umerid_obs(k,itab_w(i)%iwnud(1)) &
           - umerid_sim(k,itab_w(i)%iwnud(1))
 
+case(294) ! 'VXE'
+
+   if (.not. allocated(vxe)) go to 1000
+
+   fldval = wtbot * vxe(k  ,i) &
+          + wttop * vxe(k+1,i)
+
+case(295) ! 'VYE'
+
+   if (.not. allocated(vye)) go to 1000
+
+   fldval = wtbot * vye(k  ,i) &
+          + wttop * vye(k+1,i)
+
+case(296) ! 'VZE'
+
+   if (.not. allocated(vze)) go to 1000
+
+   fldval = wtbot * vze(k  ,i) &
+          + wttop * vze(k+1,i)
+
 case default
 
 ! Optional plot of external field
@@ -2373,4 +2393,3 @@ notavail = 3
 
 return
 end subroutine oplot_lib
-

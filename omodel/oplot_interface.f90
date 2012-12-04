@@ -978,7 +978,7 @@ subroutine plot_underground_w(iplt,ktzone)
 
 use oplot_coms, only: op
 use mem_grid,   only: mza, mwa, zm, zt, lpw, xem, yem, zem, xew, yew, zew
-use mem_ijtabs, only: itab_w
+use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
 use misc_coms,  only: io6
 
 implicit none
@@ -988,7 +988,7 @@ integer, intent(in) :: ktzone(mwa)
 
 real :: xpt,ypt
 integer :: k
-integer :: npoly,j,iw,im,iok,iv1,iv2
+integer :: npoly,j,iw,jw,im,iok,iv1,iv2
 real :: htpn(7),vtpn(7)
 real :: topo1,topo2
 
@@ -1000,7 +1000,8 @@ if (op%projectn(iplt) == 'L' .or.  &
     op%projectn(iplt) == 'O' .or.  &
     op%projectn(iplt) == 'Z') then  ! Horizontal cross section
 
-   do iw = 2,mwa
+   do jw = 1,jtab_w(jtw_prog)%jend(1)
+      iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Skip this iw point if it is not underground
 
@@ -1112,7 +1113,7 @@ subroutine plot_underground_m(iplt,kt)
 
 use oplot_coms, only: op
 use mem_grid,   only: mma, mza, zm, zt, lpw, xem, yem, zem, xew, yew, zew
-use mem_ijtabs, only: itab_m
+use mem_ijtabs, only: itab_m, jtab_m, jtm_vadj
 use misc_coms,  only: io6
 use mem_basic,  only: press
 
@@ -1121,7 +1122,7 @@ implicit none
 integer, intent(in) :: iplt,kt
 
 real :: xpt,ypt,plev
-integer :: npoly,j,iw,k,im,iok,iv1,iv2
+integer :: npoly,j,iw,k,im,jm,iok,iv1,iv2
 real :: htpn(7),vtpn(7)
 integer :: kw(7)
 
@@ -1132,7 +1133,8 @@ if (op%projectn(iplt) == 'L' .or.  &
     op%projectn(iplt) == 'O' .or.  &
     op%projectn(iplt) == 'Z') then  ! Horizontal cross section
 
-   do im = 2,mma
+   do jm = 1, jtab_m(jtm_vadj)%jend(1)
+      im = jtab_m(jtm_vadj)%im(jm)
 
 !     Get tile plot coordinates
 
@@ -1193,7 +1195,7 @@ subroutine plot_grid(iplt)
 
 use oplot_coms, only: op
 use mem_grid, only: mwa, mva, mza, xem, yem, zem, xew, yew, zew, zm
-use mem_ijtabs, only: itab_w, itab_u, itab_v
+use mem_ijtabs, only: itab_w, itab_u, itab_v, jtab_v, jtv_wadj, jtab_w, jtw_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -1201,7 +1203,7 @@ implicit none
 integer, intent(in) :: iplt
 
 integer :: iflag180,iskip
-integer :: j,iw,k,im1,im2,iok,iv1,iv2,iv
+integer :: j,iw,jw,k,im1,im2,iok,iv1,iv2,iv,jv
 
 real :: htpn(4),vtpn(4)
 real :: xp1,xp2,yp1,yp2
@@ -1219,7 +1221,8 @@ if (op%projectn(iplt) == 'L'  .or.  &
     op%projectn(iplt) == 'O'  .or.  &
     op%projectn(iplt) == 'Z') then   ! Horizontal cross section
 
-   do iv = 2,mva
+   do jv = 1, jtab_v(jtv_wadj)%jend(1)
+      iv = jtab_v(jtv_wadj)%iv(jv)
 
 ! Get tile plot coordinates.
 
@@ -1280,7 +1283,8 @@ if (op%projectn(iplt) == 'L'  .or.  &
 
 else  ! Vertical cross section
 
-   do iw = 2,mwa
+   do jw = 1, jtab_w(jtw_prog)%jend(1)
+      iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Get horizontal plot coordinates for cells in this column
 
@@ -1359,7 +1363,7 @@ subroutine plot_dualgrid(iplt)
 use oplot_coms,  only: op
 use mem_grid,    only: mwa, mva, mza, xem, yem, zem, xew, yew, zew, zm,  &
                      wnx, wny, wnz
-use mem_ijtabs,  only: itab_w, itab_u, itab_v
+use mem_ijtabs,  only: itab_w, itab_u, itab_v, jtab_v, jtv_wadj
 use misc_coms,   only: io6, meshtype
 use consts_coms, only: erad
 
@@ -1368,7 +1372,7 @@ implicit none
 integer, intent(in) :: iplt
 
 integer :: iflag180,iskip
-integer :: iok,iv1,iv2,iv,iw1,iw2
+integer :: iok,iv1,iv2,iv,jv,iw1,iw2
 
 real :: xpt,ypt
 real :: xp1,xp2,yp1,yp2
@@ -1386,7 +1390,8 @@ if (op%projectn(iplt) == 'L'  .or.  &
     op%projectn(iplt) == 'O'  .or.  &
     op%projectn(iplt) == 'Z') then   ! Horizontal cross section
 
-   do iv = 2,mva
+   do jv = 1, jtab_v(jtv_wadj)%jend(1)
+      iv = jtab_v(jtv_wadj)%iv(jv)
 
 ! Get tile plot coordinates.
 
