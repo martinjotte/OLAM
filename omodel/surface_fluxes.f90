@@ -174,6 +174,7 @@ do j = 1,jseaflux(1)%jend(mrl)
    endif
 
    kw          = seaflux(isf)%kw
+   arf_kw      = seaflux(isf)%arf_kw
    arf_atm     = seaflux(isf)%arf_atm    ! area ratio of flux cell to atm cell
    arf_sea     = seaflux(isf)%arf_sfc    ! area ratio of flux cell to sea cell
    arf_sea_dtf = seaflux(isf)%arf_sfc  & ! area ratio of flux cell to sea cell
@@ -300,6 +301,7 @@ do j = 1,jlandflux(1)%jend(mrl)
    endif
 
    kw           = landflux(ilf)%kw
+   arf_kw       = landflux(ilf)%arf_kw
    arf_atm      = landflux(ilf)%arf_atm    ! flux cell to atm cell area ratio
    arf_land     = landflux(ilf)%arf_sfc    ! flux cell to land cell area ratio
    arf_land_dtf = landflux(ilf)%arf_sfc  & ! flux cell to land cell area ratio
