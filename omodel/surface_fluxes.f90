@@ -81,6 +81,7 @@ integer :: ks,kw,ka,k
 integer :: isf,ilf
 
 real :: area_dtf
+real :: arf_kw
 real :: arf_atm
 real :: arf_sea
 real :: arf_land
