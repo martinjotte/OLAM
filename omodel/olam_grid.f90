@@ -1487,6 +1487,7 @@ subroutine gridfile_write()
      call shdf5_orec(ndims,idims,'seaflux%zef'     ,rvara=seaflux(:)%zef)
      call shdf5_orec(ndims,idims,'seaflux%arf_atm' ,rvara=seaflux(:)%arf_atm)
      call shdf5_orec(ndims,idims,'seaflux%arf_sea' ,rvara=seaflux(:)%arf_sfc)
+     call shdf5_orec(ndims,idims,'seaflux%arf_kw'  ,rvara=seaflux(:)%arf_kw)
 
      if (nsfpats > 0) then
 
@@ -1528,6 +1529,7 @@ subroutine gridfile_write()
      call shdf5_orec(ndims,idims,'landflux%zef'     ,rvara=landflux(:)%zef)
      call shdf5_orec(ndims,idims,'landflux%arf_atm' ,rvara=landflux(:)%arf_atm)
      call shdf5_orec(ndims,idims,'landflux%arf_land',rvara=landflux(:)%arf_sfc)
+     call shdf5_orec(ndims,idims,'landflux%arf_kw'  ,rvara=landflux(:)%arf_kw)
 
      if (nlfpats > 0) then
 
@@ -2845,6 +2847,7 @@ if (exans) then
       call shdf5_irec(ndims,idims,'seaflux%zef'     ,rvara=seaflux(:)%zef)
       call shdf5_irec(ndims,idims,'seaflux%arf_atm' ,rvara=seaflux(:)%arf_atm)
       call shdf5_irec(ndims,idims,'seaflux%arf_sea' ,rvara=seaflux(:)%arf_sfc)
+      call shdf5_irec(ndims,idims,'seaflux%arf_kw'  ,rvara=seaflux(:)%arf_kw)
 
       if (nsfpats > 0) then
 
@@ -2897,6 +2900,7 @@ if (exans) then
       call shdf5_irec(ndims,idims,'landflux%zef'     ,rvara=landflux(:)%zef)
       call shdf5_irec(ndims,idims,'landflux%arf_atm' ,rvara=landflux(:)%arf_atm)
       call shdf5_irec(ndims,idims,'landflux%arf_land',rvara=landflux(:)%arf_sfc)
+      call shdf5_irec(ndims,idims,'landflux%arf_kw'  ,rvara=landflux(:)%arf_kw)
 
       if (nlfpats > 0) then
 

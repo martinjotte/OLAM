@@ -41,7 +41,7 @@ Module mem_turb
   real, allocatable, target :: sxfer_tk(:,:)
   real, allocatable, target :: sxfer_rk(:,:)
 
-  real, allocatable, target :: vkm_sfc (:)
+  real, allocatable, target :: vkm_sfc (:,:)
   real, allocatable, target :: sflux_w (:)
   real, allocatable, target :: sflux_t (:)
   real, allocatable, target :: sflux_r (:)
@@ -77,7 +77,8 @@ Contains
     allocate (sxfer_tk(nsw_max,mwa)) ; sxfer_tk = 0.0
     allocate (sxfer_rk(nsw_max,mwa)) ; sxfer_rk = 0.0
 
-    allocate (vkm_sfc(mwa)) ; vkm_sfc = rinit
+    allocate (vkm_sfc(nsw_max,mwa)) ; vkm_sfc = rinit
+
     allocate (sflux_t(mwa)) ; sflux_t = rinit
     allocate (sflux_r(mwa)) ; sflux_r = rinit
     allocate (ustar  (mwa)) ; ustar   = rinit
@@ -168,7 +169,7 @@ Contains
 
     if (allocated(vkm_sfc)) then
        call increment_vtable('VKM_SFC', 'AW')
-       vtab_r(num_var)%rvar1_p => vkm_sfc
+       vtab_r(num_var)%rvar2_p => vkm_sfc
     endif
 
     if (allocated(sflux_w)) then

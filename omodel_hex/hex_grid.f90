@@ -1560,13 +1560,14 @@ integer :: j,jw,iw,iwp,iter,iv,ivp,im1,im2,k,km,i,im  &
    ,im11,im21,im12,im22,iu1,iu2,iw1,iw2,iw3,kp  &
    ,iu1a,iu1b,iu2a,iu2b  &
    ,iuo1a,iuo1b,iuo2a,iuo2b  &
-   ,im3,iu3,ka
+   ,im3,iu3,ka,ks
 integer :: isf,ilf,kw
 
 integer, parameter :: npass = 2
 integer :: ipass
 
 real :: hmin,hmax,sum1,sumk,w1,w2,t1,t2,t3,hm,qk,dt13,dt32,t13,t32,farw1,farw2
+real, allocatable :: area_kw_sum(:,:)
 
 !!!!!!!!!!!!! special quadrature parameters
 
@@ -2175,8 +2176,11 @@ call rsub('W',3)
 
 ! In case ARW has been reset to 0 anywhere (because it was nearly zero), 
 ! transfer the seaflux and landflux cell values to KW = LPW(IW).
+! Also compute fractional flux cell areas per vertical level
 
 if (isfcl == 1) then
+
+   allocate(area_kw_sum(nsw_max,nwa))
 
    do isf = 2,nseaflux
       iw = seaflux(isf)%iw
@@ -2184,6 +2188,9 @@ if (isfcl == 1) then
 
       if (kw < lpw(iw)) seaflux(isf)%kw = lpw(iw)
       if (kw > lpw(iw) + lsw(iw) - 1) seaflux(isf)%kw = lpw(iw) + lsw(iw) - 1
+
+      ks = seaflux(isf)%kw - lpw(iw) + 1
+      area_kw_sum(ks,iw) = area_kw_sum(ks,iw) + seaflux(isf)%area
    enddo
 
    do ilf = 2,nlandflux
@@ -2192,7 +2199,27 @@ if (isfcl == 1) then
 
       if (kw < lpw(iw)) landflux(ilf)%kw = lpw(iw)
       if (kw > lpw(iw) + lsw(iw) - 1) landflux(ilf)%kw = lpw(iw) + lsw(iw) - 1
+
+      ks = landflux(ilf)%kw - lpw(iw) + 1
+      area_kw_sum(ks,iw) = area_kw_sum(ks,iw) + landflux(ilf)%area
    enddo
+
+   do isf = 2, nseaflux
+      kw = seaflux(isf)%kw
+      iw = seaflux(isf)%iw
+      ks = kw - lpw(iw) + 1
+      write(*,*) isf, ks, iw, ks, seaflux(isf)%area, area_kw_sum(ks,iw)
+      seaflux(isf)%arf_kw = seaflux(isf)%area / area_kw_sum(ks,iw)
+   enddo
+
+   do ilf = 2, nlandflux
+      kw = landflux(ilf)%kw
+      iw = landflux(ilf)%iw
+      ks = kw - lpw(iw) + 1
+      landflux(ilf)%arf_kw = landflux(ilf)%area / area_kw_sum(ks,iw)
+   enddo
+
+   deallocate(area_kw_sum)
 
 endif
 
@@ -2310,4 +2337,3 @@ call rsub('V',jtv_lbcp)
 
 return
 end subroutine ctrlvols_hex
-

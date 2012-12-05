@@ -1343,7 +1343,7 @@ case(75) ! 'ALBEDT'
 
 case(76) ! 'VKM_SFC'
 
-   fldval = vkm_sfc(i)
+   fldval = vkm_sfc(1,i)
 
 case(77) ! 'SFLUX_W'
 

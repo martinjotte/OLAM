@@ -105,12 +105,12 @@ if (isfcl == 0) then
 !-----------------------------------------------------------------------------
    call qsub('W',iw)
 
-      vkm_sfc(iw) = 0.
       sflux_t(iw) = 0.
       sflux_r(iw) = 0.
       ustar  (iw) = .1  ! Minimum value
 
       do ks = 1,lsw(iw)
+         vkm_sfc (ks,iw) = 0.
          sxfer_tk(ks,iw) = 0.
          sxfer_rk(ks,iw) = 0.
       enddo
@@ -144,7 +144,7 @@ call qsub('W',iw)
 
    ka = lpw(iw)
 
-   vkm_sfc(iw) = 0.
+   vkm_sfc(:,iw) = 0.
    ustar(iw)   = 0.
    sflux_t(iw) = 0.
    sflux_r(iw) = 0.
@@ -247,7 +247,7 @@ do j = 1,jseaflux(1)%jend(mrl)
 
 ! Add flux contributions to IW atmospheric column
 
-   vkm_sfc    (iw) = vkm_sfc(iw)     + arf_atm  * vkmsfc
+   vkm_sfc (ks,iw) = vkm_sfc(ks,iw)  + arf_kw   * vkmsfc
    ustar      (iw) = ustar  (iw)     + arf_atm  * ustar0
    sflux_t    (iw) = sflux_t(iw)     + arf_atm  * seaflux(isf)%sfluxt * exneri
    sflux_r    (iw) = sflux_r(iw)     + arf_atm  * seaflux(isf)%sfluxr
@@ -269,7 +269,7 @@ do j = 1,jseaflux(1)%jend(mrl)
    seaflux(isf)%ice_sxfer_t = arf_sea_dtf * seaflux(isf)%ice_sfluxt
    seaflux(isf)%ice_sxfer_r = arf_sea_dtf * seaflux(isf)%ice_sfluxr
    seaflux(isf)%ice_ustar   = arf_sea     * ustari
- 
+
 enddo
 
 ! Do parallel send of TURBULENT fluxes and ATM properties for SEA cells
@@ -366,7 +366,7 @@ do j = 1,jlandflux(1)%jend(mrl)
 
 ! Add flux contributions to IW atmospheric column
 
-   vkm_sfc(iw)     = vkm_sfc(iw)     + arf_atm  * vkmsfc
+   vkm_sfc(ks,iw)  = vkm_sfc(ks,iw)  + arf_kw   * vkmsfc
    ustar  (iw)     = ustar  (iw)     + arf_atm  * ustar0
    sflux_t(iw)     = sflux_t(iw)     + arf_atm  * landflux(ilf)%sfluxt * exneri
    sflux_r(iw)     = sflux_r(iw)     + arf_atm  * landflux(ilf)%sfluxr

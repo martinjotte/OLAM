@@ -77,6 +77,7 @@ Module mem_sflux
      real :: zef     = 0.0
      real :: arf_atm = 0.0
      real :: arf_sfc = 0.0
+     real :: arf_kw  = 0.0
      real :: sfluxt  = 0.0
      real :: sfluxr  = 0.0
      real :: sfluxc  = 0.0
@@ -118,6 +119,7 @@ Module mem_sflux
      real :: zef     = 0.0
      real :: arf_atm = 0.0
      real :: arf_sfc = 0.0
+     real :: arf_kw  = 0.0
      real :: rhos    = 0.0
      real :: airtemp = 0.0
      real :: airshv  = 0.0

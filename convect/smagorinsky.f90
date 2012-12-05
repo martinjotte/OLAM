@@ -263,7 +263,8 @@ contains
     vctr3(1:mza) = 0.
 
     do k = ka, ka + lsw(iw) - 1
-       vctr3(k) = (arw(k,iw) - arw(k-1,iw)) * vkm_sfc(iw) * dzim(k-1) * 2.0
+       ks = k - ka + 1
+       vctr3(k) = (arw(k,iw) - arw(k-1,iw)) * vkm_sfc(ks,iw) * dzim(k-1) * 2.0
     enddo
 
     ! Vertical loop over T levels
