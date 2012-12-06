@@ -39,9 +39,8 @@ subroutine soil(iwl, leaf_class, nlev_sfcwater, ntext_soil, ktrans,      &
                 hxfergc, wxfergc, rshort_g, rlong_g, transp,             &
                 soil_water, soil_energy,                                 &
                 hxferg, wxfer, qwxfer,                                   &
-                psi, lsl, head, head0, head1, wfree1, qwfree1, dwfree1,  &
-                sfcwater_mass, energy_per_m2, sfcwater_depth,            &
-                ed_transp                                                )
+                psi, head, head0, head1, wfree1, qwfree1, dwfree1,       &
+                sfcwater_mass, energy_per_m2, sfcwater_depth             )
 
 use leaf_coms, only: nzg, nzs, dslz, dslzi, slzt, dslzo2, dt_leaf,  &
                      slcons1, soilcp, slbs, slpots, slmsts, kroot, slcpd,  &
@@ -88,8 +87,6 @@ real, intent(out) :: qwxfer (nzg+1) ! soil energy xfer from water xfer [J/m^2]
 real, intent(out) :: psi    (nzg)   ! soil water potential [m]
 real, intent(out) :: head   (nzg)   ! total hydraulic head [m]
 
-integer, intent(in) :: lsl
-
 ! Local variables
 
 real :: soil_wat_avail(nzg) ! liq water in soil layer available for transport [m]
@@ -128,8 +125,6 @@ real :: soilcond  ! soil thermal conductivity [W/(K m)]
 real, parameter :: water_frac_ph0 = .99
 real, parameter :: water_def_ph0 = 1. - water_frac_ph0
    
-real, dimension(nzg) :: ed_transp
-
 integer, parameter :: iwl_print = 0
 
 ! Remove transpiration water from ktrans soil layer

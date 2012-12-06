@@ -93,7 +93,8 @@ real :: ustar0, ustars,  ustari
 real :: vels
 
 integer :: my_ifm, my_ipy
-real :: my_co2, ed_zeta, ed_rib, ed_ggbare
+real :: my_co2, ed_zeta, ed_rib
+real :: ggbare, ggbares, ggbarei
 
 if (isfcl == 0) then
 
@@ -205,7 +206,8 @@ do j = 1,jseaflux(1)%jend(mrl)
               vkmsfcs,              &
               seaflux(isf)%sea_sfluxt, &
               seaflux(isf)%sea_sfluxr, & 
-              ustars                )
+              ustars,               &
+              ggbares               )
 
 ! Include fractional seaice component if seaice layers exist
 
@@ -222,10 +224,12 @@ do j = 1,jseaflux(1)%jend(mrl)
                 vkmsfci,              &
                 seaflux(isf)%ice_sfluxt, &
                 seaflux(isf)%ice_sfluxr, &
-                ustari                )
+                ustari,               &
+                ggbarei               )
 
       vkmsfc = (1.0 - sea%seaicec(iws)) * vkmsfcs + sea%seaicec(iws) * vkmsfci
       ustar0 = (1.0 - sea%seaicec(iws)) * ustars  + sea%seaicec(iws) * ustari
+      ggbare = (1.0 - sea%seaicec(iws)) * ggbares + sea%seaicec(iws) * ggbarei
 
       seaflux(isf)%sfluxt = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_sfluxt + &
                                    sea%seaicec(iws)  * seaflux(isf)%ice_sfluxt
@@ -237,11 +241,13 @@ do j = 1,jseaflux(1)%jend(mrl)
       
       vkmsfc = vkmsfcs
       ustar0 = ustars
+      ggbare = ggbares
       seaflux(isf)%sfluxt = seaflux(isf)%sea_sfluxt
       seaflux(isf)%sfluxr = seaflux(isf)%sea_sfluxr
 
       vkmsfci = 0.0
       ustari  = 0.0
+      ggbarei = 0.0
       seaflux(isf)%ice_sfluxt = 0.0
       seaflux(isf)%ice_sfluxr = 0.0
       
@@ -339,12 +345,12 @@ do j = 1,jlandflux(1)%jend(mrl)
                  vkmsfc,               &
                  landflux(ilf)%sfluxt, &
                  landflux(ilf)%sfluxr, &
-                 ustar0                )
+                 ustar0,               &
+                 ggbare                )
 
       landflux(ilf)%sfluxc = 0.
       ed_zeta = 0.
       ed_rib = 0.
-      ed_ggbare = 0.
 
    else
 
@@ -363,7 +369,7 @@ do j = 1,jlandflux(1)%jend(mrl)
            landflux(ilf)%sfluxr, &
            landflux(ilf)%sfluxc, &
            ustar0, &
-           ed_zeta, ed_rib, ed_ggbare)
+           ed_zeta, ed_rib, ggbare)
 
    endif
 
@@ -385,7 +391,7 @@ do j = 1,jlandflux(1)%jend(mrl)
    landflux(ilf)%ustar   = arf_land     * ustar0
    landflux(ilf)%ed_zeta = arf_land     * ed_zeta
    landflux(ilf)%ed_rib  = arf_land     * ed_rib
-   landflux(ilf)%ed_ggbare = arf_land   * ed_ggbare
+   landflux(ilf)%ed_ggbare = arf_land   * ggbare
 
 enddo
 
@@ -513,8 +519,8 @@ end subroutine surface_turb_flux
 
 !===============================================================================
 
-subroutine stars(zts, rough, vels, rhos, airtemp, sh_vs,        &
-                 cantemp, can_shv, vkmsfc, sfluxt, sfluxr, ustar0)
+subroutine stars(zts, rough, vels, rhos, airtemp, sh_vs, cantemp, &
+                 can_shv, vkmsfc, sfluxt, sfluxr, ustar0, ggbare  )
 
 ! Subroutine stars computes surface heat and vapor fluxes and momentum drag
 ! coefficient from Louis (1981) equations
@@ -542,6 +548,7 @@ real, intent(out) :: vkmsfc   ! surface drag coefficient for this flux cell
 real, intent(out) :: sfluxt   ! surface sensible heat flux for this flux cell
 real, intent(out) :: sfluxr   ! surface vapor flux for this flux cell
 real, intent(out) :: ustar0   ! surface friction velocity for this flux cell
+real, intent(out) :: ggbare   ! bare ground conductance m/s
 
 ! Local parameters
 
@@ -602,6 +609,12 @@ vtscr = ustar0 * rhos
 vkmsfc = vtscr * ustar0 * zts / vels0
 sfluxt = - vtscr * tstar
 sfluxr = - vtscr * rstar
+
+! Compute the bare ground conductance.  This equation is similar to the original,
+! except that we don't assume the ratio between the gradient and the characteristic
+! scale to be 0.2; instead we use the actual ratio that is computed here.
+
+ggbare  = c3 * ustar0
 
 return
 end subroutine stars

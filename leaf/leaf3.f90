@@ -94,11 +94,11 @@ do iwl = 2,mwl
       land%can_shv              (iwl), land%stom_resist          (iwl), &
       land%veg_ndvip            (iwl), land%veg_ndvif            (iwl), &
       land%veg_ndvic            (iwl), land%veg_albedo           (iwl), &
-      land%rough                (iwl), land%lsl                  (iwl), &
+      land%rough                (iwl), land%ed_ggbare            (iwl), &
       land%head0                (iwl), land%head1                (iwl), &
       land%xew                  (iwl), land%yew                  (iwl), &
-      land%zew                  (iwl)                                 , &
-      timefac_ndvi                   , time8                            )
+      land%zew                  (iwl), timefac_ndvi                   , &
+      time8                                                             )
 
    elseif(land%ed_flag(iwl) == 1)then
 
@@ -117,10 +117,6 @@ do iwl = 2,mwl
    land%sxfer_t(iwl) = 0.
    land%sxfer_r(iwl) = 0.
    land%sxfer_c(iwl) = 0.
-
-   land%ed_zeta(iwl) = 0.
-   land%ed_rib(iwl) = 0.
-   land%ed_ggbare(iwl) = 0.
 
 enddo
 !$omp end parallel do

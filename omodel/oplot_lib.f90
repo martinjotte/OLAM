@@ -1594,7 +1594,7 @@ case(116) ! 'GROUND_SHV'
 
 case(117) ! 'SOIL_DEPTH'
 
-   fldval = -slz(land%lsl(i))
+   fldval = -slz(1)
 
 ! SEA_CELLS - 2D
 

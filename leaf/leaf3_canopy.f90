@@ -45,8 +45,7 @@ subroutine canopy(iwl, nlev_sfcwater, ntext_soil, leaf_class, ktrans,   &
                   veg_water, veg_temp, can_temp, can_shv,               &
                   wshed, qwshed, transp, stom_resist,                   &
                   hxfergc, wxfergc, hxfersc, wxfersc, hxferca,          &
-                  hxfervc, wxfervc, rdi, rb, time8,                     &
-                  lsl, ed_transp)
+                  hxfervc, wxfervc, rdi, rb, time8, ggbare              )                    
 
 use leaf_coms,   only: nzg, soil_rough, dt_leaf,  &
                        slpots, slmsts, slbs, kroot, rcmin, soilcp, dslz
@@ -62,7 +61,6 @@ integer, intent(in)  :: iwl           ! index of current land cell
 integer, intent(in)  :: nlev_sfcwater   ! # active levels of surface water
 integer, intent(in)  :: ntext_soil(nzg) ! soil textural class
 integer, intent(in)  :: leaf_class      ! leaf class (vegetation class)
-integer, intent(in)  :: lsl
 integer, intent(out) :: ktrans          ! k index of soil layer supplying transp
 
 real, intent(in) :: soil_water(nzg)   ! soil water content [vol_water/vol_tot]
@@ -91,6 +89,7 @@ real, intent(in) :: snowfac     ! fractional veg burial by snowcover
 real, intent(in) :: vf          ! fractional coverage of non-buried part of veg
 real, intent(in) :: surface_ssh ! surface sat spec hum [kg_vap/kg_air]
 real, intent(in) :: ground_shv  ! soil vapor spec hum [kg_vap/kg_air]
+real, intent(in) :: ggbare      ! bare surface aerodynamic conductance [m/s]
 
 real, intent(inout) :: veg_water   ! veg sfc water content [kg/m^2]
 real, intent(inout) :: veg_temp    ! veg temp [K]
@@ -111,8 +110,6 @@ real, intent(out) :: wxfervc ! veg-to-can_air vapor xfer this step [kg_vap/m^2]
 real, intent(out) :: rdi     ! (soil or surface water)-to-can_air conductance [m/s]
 real, intent(out) :: rb      ! veg-to-can_air resistance [s/m]
 real(kind=8), intent(in) :: time8   ! model time [s]
-
-real, dimension(nzg) :: ed_transp ! transpired water from each soil level; ED2 cells only [kg/m^2]
 
 ! Local parameters
 
@@ -226,7 +223,8 @@ if (vf < .001) then
 
 ! Aerodynamic conductance for bare soil or snow based on Garratt.
 
-   rdi = .2 * ustar
+!  rdi = .2 * ustar
+   rdi = ggbare
 
 ! Set transpiration to zero
 
@@ -393,7 +391,9 @@ else
    aux    = exp(exar * (1. - (zdisp + zoveg) / zveg))
    rasveg = factv * zveg / (exar * (zveg - zdisp)) * (exp(exar) - aux)
    wtveg  = max(0.,min(1., 1.1 * veg_tai / covr))
-   rdi    = ustar / (5. * (1. - wtveg) + ustar * rasveg * wtveg)
+
+!  rdi    = ustar / (5. * (1. - wtveg) + ustar * rasveg * wtveg)
+   rdi    = ggbare / ((1. - wtveg) + ggbare * rasveg * wtveg)
    
 ! Check if any surface water layers currently exist
 

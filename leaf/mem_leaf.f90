@@ -143,9 +143,9 @@ Module mem_leaf
       real, allocatable :: sxfer_tsav  (:) ! saved previous value of sxfer_t
       real, allocatable :: sxfer_rsav  (:) ! saved previous value of sxter_r
       real, allocatable :: sxfer_csav  (:) ! saved previous value of sxter_c
-      real, allocatable :: ed_zeta(:)
-      real, allocatable :: ed_rib(:)
-      real, allocatable :: ed_ggbare(:)
+      real, allocatable :: ed_zeta     (:)
+      real, allocatable :: ed_rib      (:)
+      real, allocatable :: ed_ggbare   (:) ! bare surface conductance [m/s]
       real, allocatable :: can_depth   (:) ! canopy depth for heat & vap capacity [m]
       real, allocatable :: hcapveg     (:) ! veg heat capacity [J/(m^2 K)]
       real, allocatable :: can_temp    (:) ! canopy air temp [K]
@@ -171,7 +171,6 @@ Module mem_leaf
       real, allocatable :: qpcpg       (:) ! new pcp energy this leaf timestep [J/m^2]
       real, allocatable :: dpcpg       (:) ! new pcp depth this leaf timestep [m]
       real, allocatable :: cosz        (:) ! cosine of the solar zenith angle of the land cell
-      integer, allocatable :: lsl      (:) ! Lowest soil layer for a given iland cell.
 
       ! ED model variables:
 
@@ -338,7 +337,6 @@ Contains
      allocate (land%soil_energy    (nzg,mwl)) ; land%soil_energy     = rinit
      allocate (land%head0              (mwl)) ; land%head0           = rinit
      allocate (land%head1              (mwl)) ; land%head1           = rinit
-     allocate (land%lsl                (mwl)) ; land%lsl             = 0
      allocate (land%sfcwater_mass  (nzs,mwl)) ; land%sfcwater_mass   = rinit
      allocate (land%sfcwater_energy(nzs,mwl)) ; land%sfcwater_energy = rinit
      allocate (land%sfcwater_depth (nzs,mwl)) ; land%sfcwater_depth  = rinit
@@ -593,11 +591,6 @@ Contains
      if (allocated(land%dpcpg)) then
         call increment_vtable('LAND%DPCPG', 'LW')
         vtab_r(num_var)%rvar1_p => land%dpcpg
-     endif
-
-     if (allocated(land%lsl)) then
-        call increment_vtable('LAND%LSL', 'LW')
-        vtab_r(num_var)%ivar1_p => land%lsl
      endif
 
      if (allocated(land%head0)) then
