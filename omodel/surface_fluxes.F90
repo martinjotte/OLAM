@@ -70,8 +70,6 @@ use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
 use mem_turb,    only: vkm_sfc, sflux_t, sflux_r, sxfer_tk, sxfer_rk, ustar
 use mem_basic,   only: press, rho, theta, tair, sh_v, vxe, vye, vze
 
-use ed_state_vars, only: edgrid_g
-
 implicit none
 
 integer, intent(in) :: mrl
@@ -92,7 +90,6 @@ real :: vkmsfc, vkmsfcs, vkmsfci
 real :: ustar0, ustars,  ustari
 real :: vels
 
-integer :: my_ifm, my_ipy
 real :: my_co2, ed_zeta, ed_rib
 real :: ggbare, ggbares, ggbarei
 
@@ -354,9 +351,10 @@ do j = 1,jlandflux(1)%jend(mrl)
 
    else
 
-      my_ifm = land%ed_ifm(iwl)
-      my_ipy = land%ed_ipy(iwl)
-      my_co2 = edgrid_g(my_ifm)%met(my_ipy)%atm_co2
+#ifdef USE_ED2
+
+      ! Someday we may track CO2 in OLAM...
+      call get_ed2_atm_co2(iwl,my_co2)
 
       call ed_stars_wrapper(iwl, zt(kw)-zm(kw-1),      &
            vels,                 &
@@ -370,6 +368,7 @@ do j = 1,jlandflux(1)%jend(mrl)
            landflux(ilf)%sfluxc, &
            ustar0, &
            ed_zeta, ed_rib, ggbare)
+#endif
 
    endif
 
@@ -738,7 +737,10 @@ do j = 1,jlandflux(2)%jend(mrl)
 
 enddo
 
+#ifdef USE_ED2
 call copy_cuparm_to_ed()
+#endif
+
 endif
 call rsub('JLANDFLUX_cuparm',2)
 
@@ -845,7 +847,10 @@ call qsub('LF',iw)
 
 enddo
 
+#ifdef USE_ED2
 call copy_micro_to_ed()
+#endif
+
 endif
 call rsub('JLANDFLUX_pcp',2)
 

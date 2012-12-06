@@ -102,8 +102,10 @@ do iwl = 2,mwl
 
    elseif(land%ed_flag(iwl) == 1)then
 
+#ifdef USE_ED2
       ! Time to call ED.
       call ed_biophys_wrapper()
+#endif
 
    endif
 

@@ -405,20 +405,24 @@ if (isfcl == 1) then
 
 ! Start up ED2
 
+#ifdef USE_ED2
    if(ed2_active == 1)then
       call ed_1st_master(0,1,0,0,trim(ed2_namelist))
       call ed_driver(1)
    endif
+#endif
 
 ! Initialize leaf fields that depend on atmosphere
 
    write(io6,'(/,a)') 'olam_run calling leaf3_init_atm'
    call leaf3_init_atm()
 
+#ifdef USE_ED2
    if(ed2_active == 1)then
       write(io6,'(/,a)') 'olam_run calling ed_driver 2'
       call ed_driver(2)
    endif
+#endif
 
    write(io6,'(/,a)') 'olam_run calling sea_init_atm'
    call sea_init_atm()

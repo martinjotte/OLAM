@@ -8,6 +8,15 @@ F_COMP=pgf90
 IEEE_ARITHMETIC=yes
 
 # If using MPI libraries:
+OLAM_MPI=yes
+
+# If parallel hdf5 is supported, uncomment the next line
+OLAM_PARALLEL_HDF5=yes
+
+# If you use the ED2 model, uncomment the next line
+USE_ED2=yes
+
+# If using MPI libraries:
 #OLAM_MPI=yes
 #MPI_PATH=/usr/local/mpich
 #PAR_INCS=-I$(MPI_PATH)/include
@@ -30,11 +39,8 @@ NCARG_DIR=/opt/ncl/lib
 LIBNCARG=-L$(NCARG_DIR) -lncarg -lncarg_gks -lncarg_c \
           -lX11 -ldl -lpthread -lgfortran
 
-HDF5_LIBS=-L/home/pedropl/stuff/hdf5-pgi-serial/lib -lhdf5_fortran -lhdf5 -lz -lm
-HDF5_INCS=-I/home/pedropl/stuff/hdf5-pgi-serial/include
-
-# If parallel hdf5 is supported, uncomment the next line
-#OLAM_PARALLEL_HDF5=yes
+HDF5_LIBS=-L/usr/local/hdf5/lib -lhdf5_fortran -lhdf5 -lz -lm
+HDF5_INCS=-I/usr/local/hdf5/include
 
 NETCDF_LIBS=-lnetcdf
 NETCDF_INCS=
@@ -53,6 +59,13 @@ LIBS=
 #
 ## If using MPI libraries:
 #OLAM_MPI=yes
+#
+## If parallel hdf5 is supported, uncomment the next line
+#OLAM_PARALLEL_HDF5=yes
+#
+## If you use the ED2 model, uncomment the next line
+#USE_ED2=yes
+#
 #MPI_PATH=/usr/local/mpich
 #PAR_INCS=-I$(MPI_PATH)/include
 #PAR_LIBS=-L$(MPI_PATH)/lib -lmpich -lpmpich
@@ -78,8 +91,6 @@ LIBS=
 #HDF5_LIBS=-L/home/pedropl/stuff/hdf5-intel/lib -lhdf5_fortran -lhdf5 -lz -lm
 #HDF5_INCS=-I/home/pedropl/stuff/hdf5-intel/include
 #
-## If parallel hdf5 is supported, uncomment the next line
-#OLAM_PARALLEL_HDF5=yes
 #
 #NETCDF_LIBS=-lnetcdf
 #NETCDF_INCS=
@@ -98,9 +109,24 @@ LIBS=
 #F_COMP=xlf95_r       # without MPI
 #
 ## F_COMP=mpxlf95_r   # with MPI
-## OLAM_MPI=yes       # with MPI
 #
+## If the compiler supports (and the user wants to use)
+## the module IEEE_ARITHMETIC, uncomment below
+#IEEE_ARITHMETIC=yes
+#
+## If using MPI libraries:
+#OLAM_MPI=yes
+#
+## If parallel hdf5 is supported, uncomment the next line
+#OLAM_PARALLEL_HDF5=yes
+#
+## If you use the ED2 model, uncomment the next line
+#USE_ED2=yes
+#
+## IBM compilers use a non-standard flag for pre-processing symbols,
+## so uncomment the next line:
 #F_DEFINE_FLAG=-WF,-D
+#
 #C_COMP=xlc_r
 #C_OPTS=-O3 -qarch=auto -qtune=auto -qcache=auto -q64
 #

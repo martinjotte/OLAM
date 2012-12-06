@@ -913,3 +913,27 @@ sfluxc = - vtscr * cstar
 return
 end subroutine stars_co2
 
+!===============================================================================
+
+subroutine get_ed2_atm_co2(iwl,co2)
+  
+  use mem_leaf,      only: land
+  use ed_state_vars, only: edgrid_g
+  
+  integer, intent(in)  :: iwl
+  real,    intent(out) :: co2
+
+  integer :: my_ifm, my_ipy
+
+  my_ifm = land%ed_ifm(iwl)
+  my_ipy = land%ed_ipy(iwl)
+  co2 = edgrid_g(my_ifm)%met(my_ipy)%atm_co2
+
+return
+end subroutine get_ed2_atm_co2
+
+  
+
+
+
+  
