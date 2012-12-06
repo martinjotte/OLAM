@@ -52,6 +52,7 @@ use mem_sflux,   only: mseaflux, seaflux, jseaflux,  &
                        mlandflux, landflux, jlandflux
 use mem_grid,    only: wnx, wny, wnz
 use mem_para,    only: myrank
+use ed_misc_coms,only: ed2_active
 
 !$ use omp_lib
 
@@ -261,7 +262,11 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
 
 ! Do radiation for all ED grid cells.
 
-   call ed_rad_wrapper(1)
+#ifdef USE_ED2
+   if (ed2_active == 1) then
+      call ed_rad_wrapper(1)
+   endif
+#endif
 
 ! Do parallel recv of SEA albedos and rlongup
 
@@ -560,7 +565,11 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
 
 ! Do radiation for all ED grid cells.
 
-   call ed_rad_wrapper(2)
+#ifdef USE_ED2
+   if (ed2_active == 1) then
+      call ed_rad_wrapper(2)
+   endif
+#endif
 
 endif
 
@@ -586,7 +595,11 @@ call rsub('Wc',12)
 
 ! Update ED output variables
 
-call ed_rad_wrapper(3)
+#ifdef USE_ED2
+if (ed2_active == 1) then
+   call ed_rad_wrapper(3)
+endif
+#endif
 
 return
 end subroutine radiate

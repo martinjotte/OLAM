@@ -20,7 +20,7 @@ SOURCE_FILES= \
              $(CONVECT)/smagorinsky.f90 \
              $(ED2MEM)/ed_max_dims.F90 \
              $(ED2MEM)/ed_misc_coms.f90 \
-             $(ED2MEM)/leaf3.F90 \
+             $(LEAF)/leaf3.F90 \
              $(LEAF)/leaf3_canopy.f90 \
              $(LEAF)/leaf3_init_atm.f90 \
              $(LEAF)/leaf3_landcell.f90 \

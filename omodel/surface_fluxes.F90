@@ -631,6 +631,7 @@ use mem_basic,   only: tair, rho, sh_v
 use leaf_coms,   only: mwl, dt_leaf, mrl_leaf
 use misc_coms,   only: io6, iparallel
 use mem_para,    only: myrank
+use ed_misc_coms,only: ed2_active
 
 implicit none
 
@@ -738,7 +739,9 @@ do j = 1,jlandflux(2)%jend(mrl)
 enddo
 
 #ifdef USE_ED2
-call copy_cuparm_to_ed()
+if (ed2_active == 1) then
+   call copy_cuparm_to_ed()
+endif
 #endif
 
 endif
@@ -753,13 +756,14 @@ end subroutine surface_cuparm_flux
 
 subroutine surface_precip_flux()
 
-use mem_sflux,  only: jlandflux, landflux
-use mem_micro,  only: pcpgr, qpcpgr, dpcpgr
-use mem_leaf,   only: land, itabg_wl, itab_wl
-use mem_ijtabs, only: istp, mrl_endl, itabg_w
-use leaf_coms,  only: mwl, mrl_leaf
-use misc_coms,  only: io6, iparallel
-use mem_para,   only: myrank
+use mem_sflux,   only: jlandflux, landflux
+use mem_micro,   only: pcpgr, qpcpgr, dpcpgr
+use mem_leaf,    only: land, itabg_wl, itab_wl
+use mem_ijtabs,  only: istp, mrl_endl, itabg_w
+use leaf_coms,   only: mwl, mrl_leaf
+use misc_coms,   only: io6, iparallel
+use mem_para,    only: myrank
+use ed_misc_coms,only: ed2_active
 
 implicit none
 
@@ -848,7 +852,9 @@ call qsub('LF',iw)
 enddo
 
 #ifdef USE_ED2
-call copy_micro_to_ed()
+if (ed2_active == 1) then
+   call copy_micro_to_ed()
+endif
 #endif
 
 endif
