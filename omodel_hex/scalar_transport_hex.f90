@@ -574,17 +574,10 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
               hfluxadv(k) = hfluxadv(k) &
                           + dirv * vmsc(k,iv) * arv(k,iv) * scp_upv(k,iv)
-
-
-              hfluxdif(k) = 0.
-
-              if (arv(k,iv) > 0.) then
-
-                 hfluxdif(k) = hfluxdif(k) &
-                             + hdniv * arv(k,iv) * (hkm(k,iwn) + hkm(k,iw)) &
-                             * (scp(k,iwn) - scp(k,iw))
-              endif
-      
+              
+              hfluxdif(k) = hfluxdif(k) &
+                          + hdniv * arv(k,iv) * (hkm(k,iwn) + hkm(k,iw)) &
+                          * (scp(k,iwn) - scp(k,iw))
            enddo
         enddo
 
