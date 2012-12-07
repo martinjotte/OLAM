@@ -507,8 +507,9 @@ subroutine tileslab_horiz_s(iplt,action)
 use oplot_coms, only: op
 use mem_sea,    only: sea, itab_ws
 use sea_coms,   only: mws
-use misc_coms,  only: io6
+use misc_coms,  only: io6, iparallel
 use max_dims,   only: maxnlspoly
+use mem_para,   only: myrank
 
 implicit none
 
@@ -531,6 +532,9 @@ real :: htpn(maxnlspoly), vtpn(maxnlspoly)
 real :: wtbot = 1., wttop = 0.
 
 do iws = 2,mws
+
+   ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
+   if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
    nspoly = itab_ws(iws)%npoly
 
@@ -595,8 +599,9 @@ subroutine tileslab_horiz_l(iplt,action)
 use oplot_coms, only: op
 use mem_leaf,   only: land, itab_wl
 use leaf_coms,  only: mwl, nzg, nzs
-use misc_coms,  only: io6
+use misc_coms,  only: io6, iparallel
 use max_dims,   only: maxnlspoly
+use mem_para,   only: myrank
 
 implicit none
 
@@ -629,6 +634,9 @@ else
 endif
 
 do iwl = 2,mwl
+
+   ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
+   if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
    nlpoly = itab_wl(iwl)%npoly
 
