@@ -266,14 +266,17 @@ do j = 1,jseaflux(1)%jend(mrl)
    seaflux(isf)%sxfer_r = arf_sea_dtf * seaflux(isf)%sfluxr
    seaflux(isf)%sxfer_c = 0.
    seaflux(isf)%ustar   = arf_sea     * ustar0
+   seaflux(isf)%ed_ggbare = arf_sea   * ggbare
 
    seaflux(isf)%sea_sxfer_t = arf_sea_dtf * seaflux(isf)%sea_sfluxt
    seaflux(isf)%sea_sxfer_r = arf_sea_dtf * seaflux(isf)%sea_sfluxr
    seaflux(isf)%sea_ustar   = arf_sea     * ustars
+   seaflux(isf)%sea_ggbare  = arf_sea     * ggbares
 
    seaflux(isf)%ice_sxfer_t = arf_sea_dtf * seaflux(isf)%ice_sfluxt
    seaflux(isf)%ice_sxfer_r = arf_sea_dtf * seaflux(isf)%ice_sfluxr
    seaflux(isf)%ice_ustar   = arf_sea     * ustari
+   seaflux(isf)%ice_ggbare  = arf_sea     * ggbarei
 
 enddo
 
@@ -416,10 +419,14 @@ do iws = 2,mws
 
    if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
-   sea%rhos     (iws) = 0.
-   sea%ustar    (iws) = 0.
-   sea%sea_ustar(iws) = 0.
-   sea%ice_ustar(iws) = 0.
+   sea%rhos      (iws) = 0.
+   sea%ustar     (iws) = 0.
+   sea%sea_ustar (iws) = 0.
+   sea%ice_ustar (iws) = 0.
+   sea%ed_ggbare (iws) = 0.
+   sea%sea_ggbare(iws) = 0.
+   sea%ice_ggbare(iws) = 0.
+
 enddo
 
 ! Loop over ALL LAND cells
@@ -474,6 +481,10 @@ do j = 1,jseaflux(2)%jend(mrl)
    sea%ice_sxfer_r(iws) = sea%ice_sxfer_r(iws) + seaflux(isf)%ice_sxfer_r
 
    sea%sxfer_c(iws) = sea%sxfer_c(iws) + seaflux(isf)%sxfer_c
+
+   sea%ed_ggbare (iws) = sea%ed_ggbare (iws) + seaflux(isf)%ed_ggbare
+   sea%sea_ggbare(iws) = sea%sea_ggbare(iws) + seaflux(isf)%sea_ggbare
+   sea%ice_ggbare(iws) = sea%ice_ggbare(iws) + seaflux(isf)%ice_ggbare
 
 enddo
 call rsub('JSEAFLUX',2)

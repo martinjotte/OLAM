@@ -155,7 +155,10 @@ Module mem_sflux
      real ::     sxfer_c = 0.0
      real ::     ed_zeta = 0.0
      real ::      ed_rib = 0.0
+
      real ::   ed_ggbare = 0.0
+     real ::  sea_ggbare = 0.0
+     real ::  ice_ggbare = 0.0
 
   End Type sflux_vars
 

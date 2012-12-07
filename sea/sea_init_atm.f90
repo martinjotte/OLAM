@@ -197,6 +197,8 @@ subroutine sea_init_atm()
                       sea%icecan_shv         (iws), &
                       sea%sea_ustar          (iws), &
                       sea%ice_ustar          (iws), &
+                      sea%sea_ggbare         (iws), &
+                      sea%ice_ggbare         (iws), &
                       sea%ice_sxfer_t        (iws), &
                       sea%ice_sxfer_r        (iws)  )
 

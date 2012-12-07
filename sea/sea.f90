@@ -85,6 +85,7 @@ subroutine seacells()
      call seacell(iws                 ,  &
                   sea%rhos       (iws),  &
                   sea%sea_ustar  (iws),  &
+                  sea%sea_ggbare (iws),  &
                   sea%sea_sxfer_t(iws),  &
                   sea%sea_sxfer_r(iws),  &
                   sea%can_depth  (iws),  &
@@ -114,9 +115,10 @@ subroutine seacells()
                       sea%icecan_shv         (iws), &
                       sea%sea_ustar          (iws), &
                       sea%ice_ustar          (iws), &
+                      sea%sea_ggbare         (iws), &
+                      sea%ice_ggbare         (iws), &
                       sea%ice_sxfer_t        (iws), &
                       sea%ice_sxfer_r        (iws)  )
-                      
 
 ! If ice exists, compute seaice canopy fluxes
 
@@ -129,6 +131,7 @@ subroutine seacells()
                     sea%ice_net_rlong      (iws), &
                     sea%rhos               (iws), &
                     sea%ice_ustar          (iws), &
+                    sea%ice_ggbare         (iws), &
                     sea%can_depth          (iws), &
                     sea%icecan_temp        (iws), &
                     sea%icecan_shv         (iws), &
@@ -181,8 +184,8 @@ end subroutine seacells
 
 !===============================================================================
 
-subroutine seacell( iws, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
-                    seatc, can_temp, can_shv, surface_ssh, rough   )
+subroutine seacell( iws, rhos, ustar, ggbare, sxfer_t, sxfer_r, can_depth, &
+                    seatc, can_temp, can_shv, surface_ssh, rough           )
 
   use sea_coms,    only: dt_sea
   use consts_coms, only: cp, grav
@@ -193,6 +196,7 @@ subroutine seacell( iws, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
   integer, intent(in)    :: iws         ! current sea cell index
   real,    intent(in)    :: rhos        ! air density [kg/m^3]
   real,    intent(in)    :: ustar       ! friction velocity [m/s]
+  real,    intent(in)    :: ggbare      ! sfc. aerodynamic conductance [m/s]
   real,    intent(in)    :: sxfer_t     ! can_air to atm heat xfer this step [kg_air K/m^2]
   real,    intent(in)    :: sxfer_r     ! can_air to atm vapor xfer this step (kg_vap/m^2]
   real,    intent(in)    :: can_depth   ! "canopy" depth for heat and vap capacity [m]
@@ -204,7 +208,8 @@ subroutine seacell( iws, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
   
 ! Local parameter
 
-  real, parameter :: z0fac_water = .016 / grav  ! factor for sea roughness height
+  real, parameter :: z0fac_water = .016 / grav  ! factor for Charnok roughness height
+  real, parameter :: ozo = 1.59e-5              ! base roughness height in HWRF
 
 ! Local variables
 
@@ -213,6 +218,7 @@ subroutine seacell( iws, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
   real :: hxferca ! heat xfer from can_air to atm this step [J/m^2]
   real :: wxfergc ! vapor xfer from sea surface to can_air this step [kg_vap/m^2]
 
+  real :: zn1, zn2, zw
   real, external :: rhovsil  ! function to compute saturation vapor density
 
 ! Evaluate surface saturation specific humidity
@@ -221,9 +227,13 @@ subroutine seacell( iws, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
 
 ! Update temperature and vapor specific humidity of "canopy" from
 ! divergence of xfers with water surface and atmosphere.  rdi = ustar/5
-! is the viscous sublayer conductivity derived from Garratt (1992).
+! is the viscous sublayer conductivity derived from Garratt (1992), or
+! we can use the bare surface aerodynamic conductance ggbare computed
+! from the surface layer similarity relationships
 
-  rdi = .2 * ustar
+! rdi = .2 * ustar
+  rdi = ggbare
+
   hxfergc = dt_sea * cp * rhos * rdi * (seatc - can_temp)
   wxfergc = dt_sea *      rhos * rdi * (surface_ssh - can_shv)
 
@@ -234,8 +244,19 @@ subroutine seacell( iws, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
 
 ! Evaluate sea roughness height
 
+! Charnok (1955):
 ! rough = max(z0fac_water * ustar ** 2,.0001)  ! Charnok (1955)
-  rough = 10. * exp(-10. / ustar ** .333333) ! Davis et al. (2008)
-  rough = max(.125e-6, min(2.85e-3,rough))   ! Davis et al. (2008)
+
+! Davis et al. (2008) originally used in HWRF
+! rough = 10. * exp(-10. / ustar ** .333333)
+! rough = max(.125e-6, min(2.85e-3,rough))
+
+! 2012 HWRF scheme; interpolates between the Charnok scheme at low wind
+! and the Davis et al. curve fit at high wind speeds
+  zw    = min( (ustar/1.06)**0.3, 1.0)
+  zn1   = 0.011 * ustar * ustar /grav + ozo
+  zn2   = 10. * exp(-9.5 * ustar**(-.3333333)) + 1.65e-6 / ustar
+  rough = (1.0-zw) * zn1 + zw * zn2
+  rough = min( rough, 2.85e-3)
 
 end subroutine seacell

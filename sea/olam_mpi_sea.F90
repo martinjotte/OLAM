@@ -126,7 +126,7 @@ enddo
 ! Determine number of bytes to send per SEAFLUX cell
 
 nbytes_per_iwsf =  1 * nbytes_int   &
-                + 14 * nbytes_real
+                + 16 * nbytes_real
 
 ! Loop over all WSF sends for mrl = 1
 
@@ -347,7 +347,7 @@ integer :: j
 integer :: isf
 integer :: isfglobe
 
-real :: rscr(14)
+real :: rscr(16)
 
 if (mrl < 1) return
 
@@ -408,9 +408,12 @@ do jsend = 1,nsends_wsf(mrl)
          rscr(11) = seaflux(isf)%sxfer_c
          rscr(12) = seaflux(isf)%ed_zeta
          rscr(13) = seaflux(isf)%ed_rib
-         rscr(14) = seaflux(isf)%ed_ggbare
 
-         call MPI_Pack(rscr,14,MPI_REAL,  &
+         rscr(14) = seaflux(isf)%ed_ggbare
+         rscr(15) = seaflux(isf)%sea_ggbare
+         rscr(16) = seaflux(isf)%ice_ggbare
+
+         call MPI_Pack(rscr,16,MPI_REAL,  &
             send_wsf(jsend)%buff,send_wsf(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
       elseif (sendgroup == 'C') then ! for cuparm fluxes
@@ -593,7 +596,7 @@ integer :: nwsfpts
 integer :: j
 integer :: isf
 integer :: isfglobe
-real    :: rscr(14)
+real    :: rscr(16)
 
 if (mrl < 1) return
 
@@ -633,7 +636,7 @@ do jtmp = 1,nrecvs_wsf(mrl)
       elseif (recvgroup == 'T') then ! for turbulent fluxes
 
          call MPI_Unpack(recv_wsf(jrecv)%buff,recv_wsf(jrecv)%nbytes,ipos,  &
-            rscr,14,MPI_REAL,MPI_COMM_WORLD,ierr)
+            rscr,16,MPI_REAL,MPI_COMM_WORLD,ierr)
 
          seaflux(isf)%rhos    = rscr(1)
          seaflux(isf)%sxfer_t = rscr(2)
@@ -650,8 +653,11 @@ do jtmp = 1,nrecvs_wsf(mrl)
 
          seaflux(isf)%sxfer_c = rscr(11)
          seaflux(isf)%ed_zeta = rscr(12)
-         seaflux(isf)%ed_rib = rscr(13)
-         seaflux(isf)%ed_ggbare = rscr(14)
+         seaflux(isf)%ed_rib  = rscr(13)
+
+         seaflux(isf)%ed_ggbare  = rscr(14)
+         seaflux(isf)%sea_ggbare = rscr(15)
+         seaflux(isf)%ice_ggbare = rscr(16)
 
       elseif (recvgroup == 'C') then ! for cuparm fluxes
 
