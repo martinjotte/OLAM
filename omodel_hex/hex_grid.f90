@@ -2208,7 +2208,6 @@ if (isfcl == 1) then
       kw = seaflux(isf)%kw
       iw = seaflux(isf)%iw
       ks = kw - lpw(iw) + 1
-      write(*,*) isf, ks, iw, ks, seaflux(isf)%area, area_kw_sum(ks,iw)
       seaflux(isf)%arf_kw = seaflux(isf)%area / area_kw_sum(ks,iw)
    enddo
 
