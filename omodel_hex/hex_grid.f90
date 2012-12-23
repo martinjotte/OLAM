@@ -2181,6 +2181,7 @@ call rsub('W',3)
 if (isfcl == 1) then
 
    allocate(area_kw_sum(nsw_max,nwa))
+   area_kw_sum(:,:) = 0.0
 
    do isf = 2,nseaflux
       iw = seaflux(isf)%iw
