@@ -213,8 +213,11 @@ contains
        low(ks)   = - dtom(k) * akodz(k-1)
        upp(ks)   = - dtom(k) * akodz(k  )
        dia(ks)   = 1.0 - low(ks) - upp(ks)
-       
-       do n = 1, num_scalar
+    enddo
+
+    do n = 1, num_scalar
+       do k = kbot, ktop
+          ks = k - kbot + 1
           rhs(ks,n) = scalar_tab(n)%var_p(k,iw)
        enddo
     enddo
