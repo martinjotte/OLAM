@@ -395,7 +395,7 @@ subroutine olam_alloc_mpi(mza, mrls)
   endif
 
   nbytes_per_iw = nbytes_int +                                             &
-                  mza * max( 3*nbytes_real8 + 4*nbytes_real, nv*nbytes_real)
+                  mza * max( 3*nbytes_real8 + 5*nbytes_real, nv*nbytes_real)
 
 ! Loop over all W sends for mrl = 1
   
@@ -1017,6 +1017,9 @@ do jsend = 1,nsends_w(mrl)
       elseif (sendgroup == 'P') then
 
          call MPI_Pack(wmc(1,iw),mza,MPI_REAL, &
+            send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+         call MPI_Pack(wc(1,iw),mza,MPI_REAL, &
             send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
          call MPI_Pack(press(1,iw),mza,MPI_REAL8, &
@@ -1642,6 +1645,9 @@ do jtmp = 1,nrecvs_w(mrl)
             
          call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
             wmc(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+         call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+            wc(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
          call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
             press(1,iw),mza,MPI_REAL8,MPI_COMM_WORLD,ierr)

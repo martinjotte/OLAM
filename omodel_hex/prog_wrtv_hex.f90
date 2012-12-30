@@ -154,7 +154,7 @@ if (mrl > 0) then
 
    call psub()
 !----------------------------------------------------------------------
-   !$omp parallel do private(iw) 
+   !$omp parallel do private(iw,k) 
    do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
    call qsub('W',iw)
@@ -435,6 +435,7 @@ if (mrl > 0) then
             enddo
          enddo
       enddo
+      !$omp end parallel do
 
       if (iparallel == 1) then
          call mpi_send_w('G', gxps_scp=div2d)
@@ -587,7 +588,7 @@ if (iparallel == 1) then
 endif
 
 call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, a4=wmc, &
-                   a5=thil,  d1=press, d2=rho)
+                   a5=thil,  a6=wc,    d1=press, d2=rho)
 
 ! Horizontal loop over V points to update VMC
 
