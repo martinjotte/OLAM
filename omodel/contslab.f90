@@ -750,6 +750,12 @@ real :: hcpn(4),hcpn1(4),hcpn2(4),vcpn(4),fldvals(4)
 real :: topo1,topo2,radcone
 real :: wtbot = 1., wttop = 0.
 
+! FOR HEXAGONS, REDIRECT TO NEW SUBROUTINE
+IF (MESHTYPE == 2) THEN
+   CALL CONTSLAB_VERT_TW(IPLT)
+   RETURN
+ENDIF
+
 ! First plot underground T cells with underground color
 
 call plot_underground_w(iplt,(/0/))
@@ -761,8 +767,8 @@ do jv = 1, jtab_v(jtv_prog)%jend(1)
       iw1 = itab_u(iv)%iw(1)
       iw2 = itab_u(iv)%iw(2)
    else
-       iw1 = itab_v(iv)%iw(1)
-       iw2 = itab_v(iv)%iw(2)
+      iw1 = itab_v(iv)%iw(1)
+      iw2 = itab_v(iv)%iw(2)
    endif
 
 ! Jump to end of loop if either iw1 or iw2 is less than 1
@@ -983,6 +989,12 @@ real, dimension(4) :: hcpn,hcpn1,hcpn2,vcpn,fldvals
 real :: topo1,topo2,radcone
 real :: wtbot = 1., wttop = 0.
 
+! FOR HEXAGONS, REDIRECT TO NEW SUBROUTINE
+IF (MESHTYPE == 2) THEN
+   CALL CONTSLAB_VERT_TW(IPLT)
+   RETURN
+ENDIF
+
 ! First plot underground T cells with underground color
 
 call plot_underground_w(iplt,(/0/))
@@ -1094,3 +1106,229 @@ enddo
 return
 end subroutine contslab_vert_w
 
+!===============================================================================
+
+subroutine contslab_vert_tw(iplt)
+
+use oplot_coms, only: op
+use mem_grid,   only: mwa, mza, lpw, zm, zt, &
+                      xem, yem, zem, xev, yev, zev, xew, yew, zew
+use mem_ijtabs, only: itab_w
+use misc_coms,  only: io6, mdomain, meshtype
+use consts_coms, only: erad, pio180
+
+implicit none
+
+integer, intent(in) :: iplt
+
+integer :: k,k1,k2,iw,iw1,iw2,iw3,iv2,im1,im2,jv1,jv2,jv3
+integer :: npoly,iok,notavail,itri
+real :: radcone
+real :: wtbot = 1., wttop = 0.
+real :: hcpn(4), vcpn(4), fldvals(4)
+real :: valw(2), valw1(2), valw2(2), valw3(2), valm1(2), valm2(2), valv2(2)
+real :: wta1, wta2, wta3, wtb1, wtb2, wtb3
+
+! First plot underground T cells with underground color
+
+call plot_underground_w(iplt,(/0/))
+
+do iw = 2,mwa  ! Loop is over W for contouring W points
+
+   npoly = itab_w(iw)%npoly
+
+! Loop over U/V neighbors of W, and for each, get indices for
+! M endpoints and opposite W neighbor
+
+   do jv2 = 1,npoly
+
+      jv1 = jv2 - 1
+      if (jv2 == 1) jv1 = npoly
+
+      jv3 = jv2 + 1
+      if (jv2 == npoly) jv3 = 1
+
+      if (meshtype == 1) then  ! However, assuming hex mesh for now...
+         iv2 = itab_w(iw)%iu(jv2)
+
+         im1 = itab_w(iw)%im(jv3)
+         im2 = itab_w(iw)%im(jv1)
+      else
+         iv2 = itab_w(iw)%iv(jv2)
+
+         im1 = itab_w(iw)%im(jv1) ! check these
+         im2 = itab_w(iw)%im(jv2) ! check these
+      endif
+
+      iw1 = itab_w(iw)%iw(jv1)
+      iw2 = itab_w(iw)%iw(jv2)
+      iw3 = itab_w(iw)%iw(jv3)
+
+! Loop over both triangles in current JV sector
+
+      do itri = 1,2
+
+! Check for intersection of cone surface and current triangle
+
+         if (itri == 1) then
+            call coneplot_tri(iplt,iw,xew(iw),yew(iw),zew(iw), &
+               xem(im1),yem(im1),zem(im1),xev(iv2),yev(iv2),zev(iv2), &
+               wta1,wta2,wta3,wtb1,wtb2,wtb3,iok,hcpn)
+         else
+            call coneplot_tri(iplt,iw,xew(iw),yew(iw),zew(iw), &
+               xev(iv2),yev(iv2),zev(iv2),xem(im2),yem(im2),zem(im2), &
+               wta1,wta2,wta3,wtb1,wtb2,wtb3,iok,hcpn)
+         endif
+                             
+! Jump to end of loop if cone surface does not intersect triangle
+
+         if (iok /= 1) cycle
+
+! Skip triangle if it crosses +/- 180 degree point along cone circle
+! (In future, maybe re-program to truncate cells)
+
+         if (mdomain < 2 .and. op%projectn(iplt) == 'C') then
+            radcone = erad * sin(op%coneang * pio180)
+
+            if (abs(hcpn(2) - hcpn(1)) > 3. * radcone) cycle
+         endif
+
+! Skip this triangle if either cell side is outside plot window. 
+
+         if (hcpn(1) < op%xmin .or. hcpn(1) > op%xmax .or.  &
+             hcpn(2) < op%xmin .or. hcpn(2) > op%xmax) cycle         
+
+         do k = lpw(iw),mza   ! Loop is over T levels
+
+! Use k = mza level only for contouring field values defined at T points
+! (in which case the top half of the mza-1 cell is contoured)
+
+            if (k == mza .and. op%stagpt == 'W') cycle
+
+! Define vertical plot coordinates depending on whether field values
+! are defined at T or W points
+
+            if (op%stagpt == 'T') then
+               vcpn(1:2) = zt(k-1)
+               vcpn(3:4) = zt(k)
+               if (k == lpw(iw)) vcpn(1:2) = zm(k-1)
+               if (k == mza)     vcpn(3:4) = zm(k-1)
+            else
+               vcpn(1:2) = zm(k-1)
+               vcpn(3:4) = zm(k)
+            endif
+
+! Fill field values at two adjacent vertical levels at each of three IW pts
+
+            if (k < mza) then
+               call oplot_lib(k,iw,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                              valw(2),notavail)
+               if (notavail > 0) cycle 
+
+               call oplot_lib(k,iw2,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                             valw2(2),notavail)
+               if (notavail > 0) cycle
+            endif
+
+            if (k > lpw(iw) .or. op%stagpt == 'W') then
+               call oplot_lib(k-1,iw,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                              valw(1),notavail)
+               if (notavail > 0) cycle 
+
+               call oplot_lib(k-1,iw2,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                             valw2(1),notavail)
+               if (notavail > 0) cycle
+            else
+               valw (1) = valw (2)
+               valw2(1) = valw2(2) 
+            endif
+
+! W values interpolated to V2
+
+            valv2(1) = .5 * (valw(1) + valw2(1))
+            valv2(2) = .5 * (valw(2) + valw2(2))
+
+            if (itri == 1) then
+
+               if (k < mza) then
+                  call oplot_lib(k,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                                 valw1(2),notavail)
+                  if (notavail > 0) cycle 
+               endif
+
+               if (k > lpw(iw) .or. op%stagpt == 'W') then
+                  call oplot_lib(k-1,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                                 valw1(1),notavail)
+                  if (notavail > 0) cycle 
+               else
+                  valw1(1) = valw1(2) 
+               endif
+
+               if (k == mza) then
+                  valw (2) = valw (1)
+                  valw1(2) = valw1(1)
+                  valw2(2) = valw2(1)
+               endif
+
+! W values interpolated to M1: For now, take simple average
+
+               valm1(1) = .3333333 * (valw(1) + valw1(1) + valw2(1))
+               valm1(2) = .3333333 * (valw(2) + valw1(2) + valw2(2))
+
+! W values interpolated to A and B points for plotting
+
+               fldvals(1) = wta1 * valw(1) + wta2 * valm1(1) + wta3 * valv2(1)
+               fldvals(2) = wtb1 * valw(1) + wtb2 * valm1(1) + wtb3 * valv2(1)
+               fldvals(3) = wtb1 * valw(2) + wtb2 * valm1(2) + wtb3 * valv2(2)
+               fldvals(4) = wta1 * valw(2) + wta2 * valm1(2) + wta3 * valv2(2)
+
+           else
+
+               if (k < mza) then
+                  call oplot_lib(k,iw3,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                                 valw3(2),notavail)
+                  if (notavail > 0) cycle 
+               endif
+
+               if (k > lpw(iw) .or. op%stagpt == 'W') then
+                  call oplot_lib(k-1,iw3,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                                 valw3(1),notavail)
+                  if (notavail > 0) cycle
+               else
+                  valw3(1) = valw3(2) 
+               endif
+
+               if (k == mza) then
+                  valw (2) = valw (1)
+                  valw2(2) = valw2(1)
+                  valw3(2) = valw3(1)
+               endif
+
+! W values interpolated to M2: For now, take simple average
+
+               valm2(1) = .3333333 * (valw(1) + valw2(1) + valw3(1))
+               valm2(2) = .3333333 * (valw(2) + valw2(2) + valw3(2))
+
+! W values interpolated to A and B points for plotting
+
+               fldvals(1) = wta1 * valw(1) + wta2 * valv2(1) + wta3 * valm2(1)
+               fldvals(2) = wtb1 * valw(1) + wtb2 * valv2(1) + wtb3 * valm2(1)
+               fldvals(3) = wtb1 * valw(2) + wtb2 * valv2(2) + wtb3 * valm2(2)
+               fldvals(4) = wta1 * valw(2) + wta2 * valv2(2) + wta3 * valm2(2)
+
+            endif ! itri
+
+! Contour plot cell around current M point
+
+            call contpolyg(op%icolortab(iplt),op%ifill,4,hcpn,vcpn,fldvals)
+
+         enddo ! K
+
+      enddo ! ITRI
+
+   enddo ! JV
+
+enddo ! IW
+
+return
+end subroutine contslab_vert_tw

@@ -1205,6 +1205,8 @@ integer, intent(in) :: iplt
 integer :: iflag180,iskip
 integer :: j,iw,jw,k,im1,im2,iok,iv1,iv2,iv,jv
 
+real :: wta1,wta2,wta3,wtb1,wtb2,wtb3
+
 real :: htpn(4),vtpn(4)
 real :: xp1,xp2,yp1,yp2
 real :: xq1,xq2,yq1,yq2
@@ -1283,71 +1285,115 @@ if (op%projectn(iplt) == 'L'  .or.  &
 
 else  ! Vertical cross section
 
-   do jw = 1, jtab_w(jtw_prog)%jend(1)
-      iw = jtab_w(jtw_prog)%iw(jw)
+! First, draw vertical lines
+
+   do jv = 1,jtab_v(jtv_wadj)%jend(1)
+      iv = jtab_v(jtv_wadj)%iv(jv)
+
+      if (meshtype == 1) then
+         im1 = itab_u(iv)%im(1)
+         im2 = itab_u(iv)%im(2)
+      else
+         im1 = itab_v(iv)%im(1)
+         im2 = itab_v(iv)%im(2)
+      endif
+
+      if (im1 < 2 .or. im2 < 2) cycle
+
+      call coneplot_tri(iplt,iv,xem(im1),yem(im1),zem(im1), &
+         xem(im2),yem(im2),zem(im2),xem(im2),yem(im2),zem(im2), &
+         wta1,wta2,wta3,wtb1,wtb2,wtb3,iok,htpn)
+
+!q   do jw = 1, jtab_w(jtw_prog)%jend(1)
+!q      iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Get horizontal plot coordinates for cells in this column
 
-      if (op%projectn(iplt) == 'C') then
-         call coneplot_w(iw,iv1,iv2,topo1,topo2,iok,htpn)
-      elseif (op%projectn(iplt) == 'V') then
-         call xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn) ! need to fix for hex??
-      endif
+!q      if (op%projectn(iplt) == 'C') then
+!q         call coneplot_w(iw,iv1,iv2,topo1,topo2,iok,htpn)
+!q      elseif (op%projectn(iplt) == 'V') then
+!q         call xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn) ! need to fix for hex??
+!q      endif
 
 ! Jump out of loop if this W point does not intersect plot cone or plane
 
       if (iok /= 1) go to 9
+
+      call trunc_segment(htpn(1),htpn(1),op%ymin,op%ymax,xq1,xq2,yq1,yq2,iskip)
+
+      if (iskip == 0) then
+         call o_frstpt (xq1,yq1)
+         call o_vector (xq2,yq2)
+      endif
+
+      call trunc_segment(htpn(2),htpn(2),op%ymin,op%ymax,xq1,xq2,yq1,yq2,iskip)
+
+      if (iskip == 0) then
+         call o_frstpt (xq1,yq1)
+         call o_vector (xq2,yq2)
+      endif
 
 ! Jump out of loop if either cell side is outside plot window. 
 
 !t      if (htpn(1) < op%xmin .or. htpn(1) > op%xmax .or.  &
 !t          htpn(2) < op%xmin .or. htpn(2) > op%xmax) go to 9
 
-      do k = 2,mza-1
+!q      do k = 2,mza-1
 
 ! Get T-cell vertical coordinates
 
-         vtpn(1) = zm(k-1)
-         vtpn(2) = vtpn(1)
-         vtpn(3) = zm(k)
-         vtpn(4) = vtpn(3)
+!q         vtpn(1:2) = zm(k-1)
+!q         vtpn(3:4) = zm(k)
 
 ! Plot 4 sides of (k,iw) grid box...
 
 ! Truncate segment if it crosses plot window boundary or skip if both endpoints
 ! are outside plot window
 
-         call trunc_segment(htpn(1),htpn(2),vtpn(1),vtpn(2),xq1,xq2,yq1,yq2,iskip)
+!q         call trunc_segment(htpn(1),htpn(2),vtpn(1),vtpn(2),xq1,xq2,yq1,yq2,iskip)
 
-         if (iskip == 0) then
-            call o_frstpt (xq1,yq1)
-            call o_vector (xq2,yq2)
-         endif
+!q         if (iskip == 0) then
+!q            call o_frstpt (xq1,yq1)
+!q            call o_vector (xq2,yq2)
+!q         endif
 
-         call trunc_segment(htpn(2),htpn(3),vtpn(2),vtpn(3),xq1,xq2,yq1,yq2,iskip)
+!q         call trunc_segment(htpn(2),htpn(3),vtpn(2),vtpn(3),xq1,xq2,yq1,yq2,iskip)
 
-         if (iskip == 0) then
-            call o_frstpt (xq1,yq1)
-            call o_vector (xq2,yq2)
-         endif
+!q         if (iskip == 0) then
+!q            call o_frstpt (xq1,yq1)
+!q            call o_vector (xq2,yq2)
+!q         endif
 
-         call trunc_segment(htpn(3),htpn(4),vtpn(3),vtpn(4),xq1,xq2,yq1,yq2,iskip)
+!q         call trunc_segment(htpn(3),htpn(4),vtpn(3),vtpn(4),xq1,xq2,yq1,yq2,iskip)
 
-         if (iskip == 0) then
-            call o_frstpt (xq1,yq1)
-            call o_vector (xq2,yq2)
-         endif
+!q         if (iskip == 0) then
+!q            call o_frstpt (xq1,yq1)
+!q            call o_vector (xq2,yq2)
+!q         endif
 
-         call trunc_segment(htpn(4),htpn(1),vtpn(4),vtpn(1),xq1,xq2,yq1,yq2,iskip)
+!q         call trunc_segment(htpn(4),htpn(1),vtpn(4),vtpn(1),xq1,xq2,yq1,yq2,iskip)
 
-         if (iskip == 0) then
-            call o_frstpt (xq1,yq1)
-            call o_vector (xq2,yq2)
-         endif
+!q         if (iskip == 0) then
+!q            call o_frstpt (xq1,yq1)
+!q            call o_vector (xq2,yq2)
+!q         endif
 
-      enddo
+!q      enddo
 
 9  continue
+
+   enddo
+
+! Second, draw horizontal lines
+
+   do k = 1,mza-1
+
+      call trunc_segment(op%xmin,op%xmax,zm(k),zm(k),xq1,xq2,yq1,yq2,iskip)
+
+      if (iskip == 0) then
+         call o_frstpt (xq1,yq1)
+         call o_vector (xq2,yq2)
+      endif
 
    enddo
 
@@ -2103,10 +2149,17 @@ else
       op%ymin = - 1.1 * erad
       op%ymax =   1.1 * erad
 
-   elseif (op%projectn(iplt) == 'C') then
+   elseif (op%projectn(iplt) == 'V' .or. &
+          (op%projectn(iplt) == 'C' .and. mdomain >= 2)) then
 
-      op%xmin = -3.4 * erad * sin(op%coneang * pio180)
-      op%xmax =  3.4 * erad * sin(op%coneang * pio180)
+      op%xmin =  1.e9
+      op%xmax = -1.e9
+      do im = 2,mma
+         op%xmin = min(op%xmin,xem(im),yem(im))
+         op%xmax = max(op%xmax,xem(im),yem(im))
+      enddo
+      op%xmin = 1.01 * op%xmin
+      op%xmax = 1.01 * op%xmax
 
       if (abs(nl%zplot_min + 1.0) < 1.e-3) then
          op%ymin = zm(1)
@@ -2122,16 +2175,10 @@ else
 
       if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax  
 
-   elseif (op%projectn(iplt) == 'V') then
+   elseif (op%projectn(iplt) == 'C') then
 
-      op%xmin =  1.e9
-      op%xmax = -1.e9
-      do im = 2,mma
-         op%xmin = min(op%xmin,xem(im),yem(im))
-         op%xmax = max(op%xmax,xem(im),yem(im))
-      enddo
-      op%xmin = 1.01 * op%xmin
-      op%xmax = 1.01 * op%xmax
+      op%xmin = -3.4 * erad * sin(op%coneang * pio180)
+      op%xmax =  3.4 * erad * sin(op%coneang * pio180)
 
       if (abs(nl%zplot_min + 1.0) < 1.e-3) then
          op%ymin = zm(1)

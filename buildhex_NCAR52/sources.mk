@@ -72,6 +72,7 @@ SOURCE_FILES= \
              $(OMODEL)/alloc.f90 \
              $(OMODEL)/cartesian.f90 \
              $(OMODEL)/cart_hex.f90 \
+             $(OMODEL)/coneplot.f90 \
              $(OMODEL)/contslab.f90 \
              $(OMODEL)/fill_itabs.f90 \
              $(OMODEL)/history_start.f90 \

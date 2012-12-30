@@ -559,19 +559,31 @@ do iplt = 1, nl%nplt
    if ((nl%plotspecs(iplt)%projectn == 'V'  .or.   &
         nl%plotspecs(iplt)%projectn == 'Z') .and.  &
         nl%mdomain < 2) then
-        
+
         write(io6,*) 'When MDOMAIN < 2, may not use V or Z plot projection'
         nfatal = nfatal + 1
    endif
-   
+
    if ((nl%plotspecs(iplt)%projectn == 'L'  .or.   &
         nl%plotspecs(iplt)%projectn == 'P'  .or.   &
-        nl%plotspecs(iplt)%projectn == 'O'  .or.   &
-        nl%plotspecs(iplt)%projectn == 'C') .and.  &
+        nl%plotspecs(iplt)%projectn == 'O') .and.  &
         nl%mdomain > 1) then
-        
-        write(io6,*) 'When mdomain > 1, may not use L, P, O, or C plot projection'
+
+        write(io6,*) 'When mdomain > 1, may not use L, P, or O plot projection'
         nfatal = nfatal + 1
+   endif
+
+   if (nl%plotspecs(iplt)%projectn == 'C' .and.  &
+       index(nl%plotspecs(i)%pltspec2,'T') > 0 .and. &
+       nl%mdomain > 1) then
+
+        write(io6,*) 'When mdomain > 1, may not use C plot projection for tileplot'
+        nfatal = nfatal + 1
+
+! Planning to relax this condition eventually.
+! At present (12/20/2012), also may not use C plot projection for contouring at V 
+! point, but this is not checked for.
+
    endif
 enddo    
 
