@@ -41,7 +41,7 @@ use mem_tend,    only: alloc_tend, filltab_tend
 use mem_turb,    only: alloc_turb, filltab_turb
 use mem_sflux,   only: mseaflux, mlandflux, filltab_sflux
 use mem_grid,    only: mza, nsw_max, mma, mua, mva, mwa
-use mem_nudge,   only: nudflag, alloc_nudge2, filltab_nudge
+use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge
 use mem_ijtabs,  only: mrls, filltab_itabs
 use oname_coms,  only: nl
 use mem_thuburn, only: alloc_thuburn
@@ -84,6 +84,11 @@ call filltab_timeavg()
 call filltab_sflux()  ! Already allocated
 
 if (initial == 2 .and. nudflag > 0) then
+
+! If doing point-by-point (non-spectral) nudging, define mwnud here
+
+  if (nudnxp == 0) mwnud = mwa
+
   call alloc_nudge2(mza)
   call filltab_nudge()
 endif

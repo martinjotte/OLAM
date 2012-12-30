@@ -67,6 +67,7 @@ SOURCE_FILES= \
              $(OISAN)/fldsisan.f90 \
              $(OISAN)/isan_coms.f90 \
              $(OISAN)/isan_driver.f90 \
+             $(OISAN)/nudge.f90 \
              $(OMODEL)/alloc.f90 \
              $(OMODEL)/cartesian.f90 \
              $(OMODEL)/cart_hex.f90 \
