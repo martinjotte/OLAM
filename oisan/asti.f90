@@ -333,8 +333,8 @@ pcol_z(2) = pcol_z(3) + .5 * (pcol_thv(3) + pcol_thv(2))   &
 pcol_z(1) = pcol_z(2) + .5 * (pcol_thv(2) + pcol_thv(1))   &
           * (pcol_pi(2) - pcol_pi(1)) / grav
 
-cpo2g = cp / grav2
-
+!!cpo2g = cp / grav2
+!!
 !!do levp = lzon_bot,22
 !!   k = levp + kzonoff
 !!   pcol_z(k) = pcol_z(k-1) + cpo2g * (pcol_pi(k-1) - pcol_pi(k))   &

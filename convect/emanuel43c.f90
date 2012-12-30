@@ -140,7 +140,8 @@ SUBROUTINE CONVECT (                                       &
   integer, intent(out) :: iflag, icb, inb
   real,    intent(out) :: ft(nd), fq(nd), fu1(nd), fu2(nd), fu3(nd)
   real,    intent(out) :: qcondc(nd), ftra(nd,ntra)
-  real,    intent(out) :: wd, tprime, qprime, cbmf, precip
+  real,    intent(out) :: wd, tprime, qprime, precip
+  real,    intent(inout) :: cbmf
   
   real :: ad, afac, ahmax, ahmin, alt, altem, am, amde, amp1, anum, asij, &
        awat, b6, bf2, bsum, by, byp, c6, cape, capem, chi, coeff, &

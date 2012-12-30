@@ -589,8 +589,8 @@ implicit none
 
 integer, intent(in) :: n
 
-real, intent(out) :: varp(mza,mwa)
-real, intent(in) :: vart(mza,mwa)
+real, intent(inout) :: varp(mza,mwa)
+real, intent(in)    :: vart(mza,mwa)
 
 real(kind=8), intent(in) :: rho_old(mza,mwa)
 

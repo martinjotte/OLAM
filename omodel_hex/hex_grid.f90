@@ -1556,7 +1556,7 @@ implicit none
 
 real, intent(in) :: quarter_kite(2,nva)
 
-integer :: j,jw,iw,iwp,iter,iv,ivp,im1,im2,k,km,i,im  &
+integer :: j,jw,iw,iwp,iter,iv,ivp,im1,im2,k,km,im  &
    ,im11,im21,im12,im22,iu1,iu2,iw1,iw2,iw3,kp  &
    ,iu1a,iu1b,iu2a,iu2b  &
    ,iuo1a,iuo1b,iuo2a,iuo2b  &
@@ -1932,7 +1932,7 @@ call qsub('V',iv)
 
          else
 
-            write(io6,*) 'arv option not reached ',k,i,j,  &
+            write(io6,*) 'arv option not reached ',k,iv,j,  &
                zm(k),zm(km),hmax,hmin
             stop 'stop arv defn'
 

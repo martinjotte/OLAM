@@ -809,7 +809,7 @@ integer :: jv, iv, iwn
 integer :: k, ka, kbv
 integer :: npoly
 
-real :: dts, dtso2, dts2, dts8
+real :: dts
 real :: c6, c7, c8, c9, c10
 real :: dirv, vmarv
 real :: del_rhothil
@@ -859,9 +859,6 @@ real :: b31(mza),b32(mza),b33(mza),b34(mza)
 ka = lpw(iw)
 
 dts = dtsm(itab_w(iw)%mrlw)
-dtso2 = .5 * dts
-dts2 = 2. * dts
-dts8 = 8. * dts
 
 ! Set bottom & top vertical advective mass and heat fluxes to zero
 
