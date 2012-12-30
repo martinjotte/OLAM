@@ -63,6 +63,7 @@ use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, alloc_mpi_sndrcv_
 use ed_misc_coms,only: ed2_active, ed2_namelist
 use hcane_rz,    only: init_hurr_step, hurricane_init
 use obnd,        only: trsets, lbcopy_w
+use var_tables,  only: nvar_par, vtab_r, nptonv
 use mem_swtc5_refsoln_cubic
 
 implicit none
@@ -344,21 +345,22 @@ write(io6,'(/,a)') 'olam_run calling olam_mem_alloc'
 
 call olam_mem_alloc()
 
-write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi'
+if (iparallel == 1) then
+   write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi'
 
-call olam_alloc_mpi(mza,mrls)
+   call olam_alloc_mpi(mza,mrls)
 
-if (isfcl == 1) then
-   write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_land'
+   if (isfcl == 1) then
+      write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_land'
 
-   call olam_alloc_mpi_land(mrls)
+      call olam_alloc_mpi_land(mrls)
 
-   write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_sea'
+      write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_sea'
 
-   call olam_alloc_mpi_sea(mrls)
+      call olam_alloc_mpi_sea(mrls)
 
-   write(io6,'(/,a)') 'olam_run after olam_alloc_mpi_sea'
-
+      write(io6,'(/,a)') 'olam_run after olam_alloc_mpi_sea'
+   endif
 endif
 
 ! Initialize primary atmospheric fields
@@ -399,12 +401,12 @@ if (runtype == 'INITIAL') then
    mrl = 1
    call diagvel_t3d(mrl)
 
-   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
-
    if (iparallel == 1) then
       call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
       call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
    endif
+
+   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 endif
 
 ! A good place to initialize added scalars
@@ -422,14 +424,20 @@ if (runtype == "INITIAL") then
 endif
 !-------------------------------------------------------------------------------
 
- call trsets()  
+call trsets()  
 
 ! For parallel run, send and receive initialized scalars
 
+mrl = 1
+
 if (iparallel == 1) then
-   call mpi_send_w('S')  ! Send scalars
-   call mpi_recv_w('S')  ! Recv scalars
+   call mpi_send_w('S', domrl=mrl)  ! Send scalars
+   call mpi_recv_w('S', domrl=mrl)  ! Recv scalars
 endif
+
+do i = 1, nvar_par
+   call lbcopy_w(mrl, a1=vtab_r(nptonv(i))%rvar2_p)
+enddo
 
 ! Start up radiation scheme
 
@@ -454,20 +462,24 @@ if (isfcl == 1) then
 
 ! Start up ED2
 
-   if(ed2_active == 1)then
+#ifdef USE_ED2
+   if (ed2_active == 1) then
       call ed_1st_master(0,1,0,0,trim(ed2_namelist))
       call ed_driver(1)
    endif
+#endif
 
 ! Initialize leaf fields that depend on atmosphere
 
    write(io6,'(/,a)') 'olam_run calling leaf3_init_atm'
    call leaf3_init_atm()
 
-   if(ed2_active == 1)then
+#ifdef USE_ED2
+   if (ed2_active == 1) then
       write(io6,'(/,a)') 'olam_run calling ed_driver 2'
       call ed_driver(2)
    endif
+#endif
 
    write(io6,'(/,a)') 'olam_run calling sea_init_atm'
    call sea_init_atm()
@@ -485,9 +497,11 @@ endif
 ! Initialize Rayleigh friction profile
 
 write(io6,'(/,a)') 'olam_run calling rayf_init'
-call rayf_init(mza,zm,zt)
+call rayf_init(mua,mva,mwa,mza)
 
-!!x    call tkeinit(nza,nwa)
+! Initialize PBL quantities
+
+call pbl_init()
 
 ! For shallow water test case 5, read in and initialize reference
 ! solution for time = 0 and time = 15d.
@@ -514,12 +528,12 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
       mrl = 1
       call diagvel_t3d(mrl)
 
-      call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
-
       if (iparallel == 1) then
          call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
          call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
       endif
+
+      call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
       if (runtype == 'PLOTONLY') then
          call plot_fields(0)
@@ -547,17 +561,17 @@ if (runtype == 'HISTORY') then
    call history_start('HISTREAD')
    write(io6,*) 'olam_run finished history_start'
 
-   ! Earth-coordinate winds not saved in history file
+   ! Earth cartesian velocities not saved in history file
 
    mrl = 1
    call diagvel_t3d(mrl)
-
-   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
    if (iparallel == 1) then
       call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
       call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
    endif
+
+   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 endif
 
 write(io6,'(/,a)') 'olam_run calling plot_fields'
@@ -666,7 +680,7 @@ do while (time8 < timmax8)
    write(io6,'(a)')  &
       trim(stepc1)//trim(stepc2)//trim(stepc3)//trim(stepc4)//trim(stepc5)
 
-   call olam_output
+   call olam_output()
    
 enddo
 
@@ -689,7 +703,9 @@ use oplot_coms,  only: op
 use mem_nudge,   only: nudflag
 use isan_coms,   only: ifgfile, s1900_fg
 use consts_coms, only: r8
+use oname_coms,  only: nl
 use hcane_rz,    only: init_hurr_step, hurricane_track
+
 implicit none
 
 integer  :: ierr, ifm, ifileok
@@ -718,6 +734,12 @@ if (mod(time8,real(frqstate,r8)) < dtlm(1)  .or.  &
    time8  >=  timmax8 - .01*dtlm(1) .or. iflag == 1) then
    call history_write('INST')
    time_prevhist = time8
+endif
+
+! For idealized test cases, compute error norms
+
+if (nl%test_case == 2 .or. nl%test_case == 5) then
+   call diagn_global_swtc()
 endif
 
 if (isfcl == 1 .and. iupdsst == 1) then
