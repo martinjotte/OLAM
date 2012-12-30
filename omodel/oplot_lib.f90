@@ -58,7 +58,7 @@ use mem_radiate, only: fthrd, rshort, rlong, rlongup, albedt, &
                        rshort_top, rshortup_top, rlongup_top
 use mem_addsc,   only: addsc
 use mem_tend,    only: umt, vmt, wmt
-use mem_turb,    only: vkm, vkm_sfc, sflux_w, sflux_t, sflux_r
+use mem_turb,    only: vkm, vkm_sfc, sflux_w, sflux_t, sflux_r, pblh, hkm
 use mem_nudge,   only: rho_obs, theta_obs, shw_obs, uzonal_obs, umerid_obs, &
                        rho_sim, theta_sim, shw_sim, uzonal_sim, umerid_sim
 
@@ -115,7 +115,7 @@ real,         save, allocatable :: uc_init(:,:)
 real,         save, allocatable :: vc_init(:,:)
 real,         save, allocatable :: addsc1_init(:,:)
 
-integer, parameter :: nfields = 299
+integer, parameter :: nfields = 301
 character(len=40) :: fldlib(4,nfields)
 character(len=40), save :: fldname
 
@@ -461,7 +461,7 @@ data fldlib(1:4,269:278)/ &
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,279:296)/ &
+data fldlib(1:4,279:298)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 279
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 280
  'SHW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 281
@@ -479,14 +479,16 @@ data fldlib(1:4,279:296)/ &
  'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'           ,& ! 293
  'VXE'           ,'T3' ,'EARTH CARTESIAN X WIND',' (m s:S2:-1  )'           ,& ! 294
  'VYE'           ,'T3' ,'EARTH CARTESIAN Y WIND',' (m s:S2:-1  )'           ,& ! 295
- 'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'            / ! 296
+ 'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'           ,& ! 296
+ 'PBLH'          ,'T2' ,'PBL HEIGHT',' (m)'                                 ,& ! 297
+ 'HKM'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'             / ! 298
 
 ! External fields
 
-data fldlib(1:4,297:299)/ &
- 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 297
- 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 298
- 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 299
+data fldlib(1:4,299:301)/ &
+ 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 299
+ 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 300
+ 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 301
 
 if (ncall /= 10) then
    ncall = 10
@@ -2363,6 +2365,19 @@ case(296) ! 'VZE'
 
    fldval = wtbot * vze(k  ,i) &
           + wttop * vze(k+1,i)
+
+case(297) ! 'PBLH'
+
+   if (.not. allocated(pblh)) go to 1000
+
+   fldval = pblh(i)
+
+case(298) ! 'HKM'
+
+   if (.not. allocated(hkm)) go to 1000
+
+   fldval = wtbot * hkm(k  ,i) / rho(k  ,i) &
+          + wttop * hkm(k+1,i) / rho(k+1,i)
 
 case default
 

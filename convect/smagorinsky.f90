@@ -45,19 +45,15 @@ contains
 !!
 !!!!!
 
-  subroutine turb_k(iw, mrlw, rhot)
+  subroutine turb_k(iw, mrlw, rhot, thetav, vkh, vkm)
 
-    use mem_turb,    only: hkm, pblh, kpblh, sflux_t, sflux_r, ustar, vkm_sfc, &
-                           sxfer_tk, sxfer_rk, fthpbl, fqtpbl
+    use mem_turb,    only: hkm, vkm_sfc, sxfer_tk, sxfer_rk, fthpbl, fqtpbl
     use mem_ijtabs,  only: istp, jtab_w, itab_w, mrl_begl
     use mem_grid,    only: mza, mwa, lpw, dzim, zt, zm, volt, arw, lsw, volti
-    use misc_coms,   only: io6, idiffk, csx, csz, zkhkm, akmin, meshtype, &
-                           dtlm
+    use misc_coms,   only: io6, idiffk, csx, csz, zkhkm, akmin, dtlm
     use mem_basic,   only: rho, thil, theta, sh_v, vxe, vye, vze, sh_w
-    use consts_coms, only: vonk, alvl, grav, grav2, cp, rvap
-    use mem_grid,    only: mza, lpw, arw0, dzm, dzim, zm, lpu, lpv,  &
-                           unx, uny, unz, vnx, vny, vnz
-    use micro_coms,  only: level
+    use consts_coms, only: vonk, grav2
+    use mem_grid,    only: mza, lpw, arw0, dzm, dzim, zm
     use mem_tend,    only: vmxet, vmyet, vmzet, thilt, sh_wt
     use var_tables,  only: num_scalar, scalar_tab
     use tridiag,     only: tridv
@@ -67,6 +63,9 @@ contains
     implicit none
 
     integer, intent(in)    :: iw, mrlw
+    real,    intent(in)    :: thetav(mza)
+    real,    intent(inout) :: vkh(mza)
+    real,    intent(inout) :: vkm(mza)
     real,    intent(inout) :: rhot(mza,mwa)
 
     integer :: j,k,ka,n,ks
@@ -74,16 +73,11 @@ contains
     real :: richnum,ambda,ambda2,hill_term,richnum_term,sbf
     real :: scalen_asympt,scalen_vert,scalen_horiz,bkmin
 
-    real :: thetav(mza)
     real :: strain2(mza)
     real :: bvfreq2(mza)
     real :: vkz2(mza)
     real :: dzim2 (mza)
-    real :: vkh(mza)
-    real :: vkm(mza)
-
     real :: dtl, dtl2, dtli
-
     real :: s1, s2
 
     ! Automatic arrays:
@@ -116,12 +110,6 @@ contains
 
     scalen_horiz = csx(mrlw) * sqrt(arw0(iw))  ! change this later?
     scalen_asympt = csx(mrlw) * 300.
-
-    ! Loop over T levels
-
-    do k = ka,mza-1
-       thetav(k) = theta(k,iw) * (1. + .61 * sh_v(k,iw))
-    enddo
 
     ! Loop over W levels
 
@@ -183,61 +171,6 @@ contains
 
     do k = ka,mza-1
        hkm(k,iw) = max(vkm(k-1), vkm(k), bkmin * real(rho(k,iw)))
-    enddo
-
-!!!!!
-!!
-!! DIAGNOSE PBL HEIGHT, WHICH IS OFTEN NEEDED BY OTHER PARAMETERIZATIONS
-!!
-!!!!!
-
-    ! Compute surface buoyancy flux
-
-    sbf = grav / thetav(ka)  &      
-         * (sflux_t(iw) * (1. + .61 * sh_v(ka,iw))  &
-         +  sflux_r(iw) * .61 * theta(ka,iw))
-
-    if (sbf < 0.0) then
-       
-       ! Stable case (from Zilitinkevich 1972)      
-
-       pblh(iw) = 2.4e3 * ustar(iw) ** 1.5
-      
-    else
-      
-       ! Unstable case - using gradient Richardon number...
-
-       ! Initialize boundary layer height (minimum value is 1/2 deltaz)
-
-       pblh(iw) = zt(ka) - zm(ka-1)
-   
-       ! Vertical loop over W levels
-
-       do k = ka, mza-2
-      
-          !  Compute Richardson number and Lilly Richardson-number term
-
-          richnum      = max(rmin,min(rmax,bvfreq2(k) / max(strain2(k),1.e-7)))
-          richnum_term = min(10.,sqrt(max(0.,(1.-zkhkm(mrlw)*richnum))))
-
-          ! Find the lowest level where richnum_term < 1.e-5 (the lowest neutral
-          ! or stable layer).  Take zt(k) to be top of unstable layer.
-
-          if (richnum_term <= 1.e-5) then
-             pblh(iw) = zt(k) - zm(ka-1)
-             exit
-          endif
-
-       enddo
-      
-    endif
-
-    ! Find the highest model level zt(k) that is at or below
-    ! boundary layer height pblh
-
-    kpblh(iw) = ka
-    do while (zm(kpblh(iw)) < zm(ka-1) + pblh(iw))
-       kpblh(iw) = kpblh(iw) + 1
     enddo
 
 !!!!!

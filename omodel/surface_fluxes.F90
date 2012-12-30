@@ -67,8 +67,10 @@ use mem_grid,    only: mza, mwa, lsw, lpw, zt, zm
 use mem_sea,     only: sea, itabg_ws, itab_ws
 use mem_leaf,    only: land, itabg_wl, itab_wl
 use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
-use mem_turb,    only: vkm_sfc, sflux_t, sflux_r, sxfer_tk, sxfer_rk, ustar
+use mem_turb,    only: vkm_sfc, sflux_t, sflux_r, sxfer_tk, sxfer_rk, &
+                       ustar, wstar, wtv0, pblh
 use mem_basic,   only: press, rho, theta, tair, sh_v, vxe, vye, vze
+use consts_coms, only: grav
 
 implicit none
 
@@ -107,6 +109,9 @@ if (isfcl == 0) then
       sflux_t(iw) = 0.
       sflux_r(iw) = 0.
       ustar  (iw) = .1  ! Minimum value
+
+      wstar  (iw) = 0.
+      wtv0   (iw) = 0.
 
       do ks = 1,lsw(iw)
          vkm_sfc (ks,iw) = 0.
@@ -523,6 +528,23 @@ do j = 1,jlandflux(2)%jend(mrl)
 
 enddo
 call rsub('JLANDFLUX',2)
+
+! Compute some derived surface quantities
+
+do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+   ka = lpw(iw)
+   
+   wtv0(iw) = sflux_t(iw) * (1. + .61 * sh_v(ka,iw)) &
+            + sflux_r(iw) * .61 * theta(ka,iw)
+
+   if (wtv0(iw) > 0.0) then
+      wstar(iw) = (grav * pblh(iw) * wtv0(iw) / theta(ka,iw)) ** 0.33333333
+   else
+      wstar(iw) = 0.0
+   endif
+
+enddo
 
 return
 end subroutine surface_turb_flux

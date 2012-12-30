@@ -32,16 +32,21 @@
 !===============================================================================
 
 subroutine pbl_driver(rhot, mrl)
+
+  use mem_grid,       only: mwa, mza, lpw, lsw
+  use misc_coms,      only: io6, idiffk
+  use mem_tend,       only: thilt, sh_wt
+  use mem_basic,      only: vxe, vye, vze, thil, theta, tair, sh_w, sh_v, rho
+  use mem_turb,       only: hkm, sxfer_tk, sxfer_rk, ustar, wstar, wtv0, &
+                            frac_urb, frac_land, frac_sfc, pblh, kpblh
+  use consts_coms,    only: grav, vonk
+  use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
+  use mem_radiate,    only: fthrd
+  use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx, acm2
+  use smagorinsky,    only: turb_k
+
+  use mem_grid, only: zm
   
-  use mem_grid,   only: mwa, mza, lpw, lsw
-  use misc_coms,  only: io6, idiffk
-  use mem_tend,   only: thilt, sh_wt
-  use mem_basic,  only: wc, rho
-  use mem_turb,   only: hkm, vkm, vkh, sxfer_tk, sxfer_rk
-  use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
-
-  use smagorinsky
-
 !$use omp_lib
 
   implicit none
@@ -50,7 +55,13 @@ subroutine pbl_driver(rhot, mrl)
   integer, intent(in) :: mrl
   integer :: j, k, ka, iw, mrlw, ks
 
-  
+  real    :: qc    (mza)
+  real    :: thetav(mza)
+  real    :: thilv (mza)
+  real    :: vkh   (mza)
+  real    :: vkm   (mza)
+  real    :: moli
+
 ! Loop over all W/T points where PBL parameterization may be done
 
   call psub()
@@ -71,13 +82,45 @@ subroutine pbl_driver(rhot, mrl)
 !       vkh(k,iw) = 0.
      enddo
 
+     ! Diagnose PBL height regardless of scheme
+
+     do k = ka, mza-1
+        qc    (k) = max( sh_w(k,iw) - sh_v(k,iw), 0.0 )
+        thetav(k) = theta(k,iw) * (1. + .61 * sh_v(k,iw) - qc(k))
+        thilv (k) = thil (k,iw) * (1. + .61 * sh_v(k,iw) - qc(k))
+     enddo
+
+     call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), ka, mza-2, lsw(iw),     &
+                       frac_sfc(:,iw), thilv, vxe(:,iw), vye(:,iw), vze(:,iw), &
+                       kpblh(iw), pblh(iw) )
+
      ! Select PBL scheme based on MRL of current IW column
 
-     if (idiffk(mrlw) == 2) then
+     if (idiffk(mrlw) == 1) then
+
+        ! ACM2 non-local convective tranport scheme
+
+        moli = - grav * vonk * wtv0(iw) / ustar(iw)**3 / thetav(ka)
+
+        call acm2_eddyx( iw, moli, ustar(iw), pblh(iw), kpblh(iw), ka, mza-1, &
+                         vkh, vxe(:,iw), vye(:,iw), vze(:,iw), sh_w(:,iw),    &
+                         sh_v(:,iw), qc, thil(:,iw), theta(:,iw), thetav,     &
+                         tair(:,iw), fthrd(:,iw), rho(:,iw)                   )
+
+        call acm2( iw, rhot, moli, ustar(iw), pblh(iw), kpblh(iw), thetav, vkh )
+
+        ! get horizontal diffusion coefficient from vkh
+        
+        hkm(ka,iw) = vkh(ka)
+        do k = ka, mza-1
+           hkm(k,iw) = 0.5 * (vkh(k-1) + vkh(k))
+        enddo
+
+     else if (idiffk(mrlw) == 2) then
    
         ! Smagorinsky scheme
 
-        call turb_k(iw, mrlw, rhot)
+        call turb_k(iw, mrlw, rhot, thetav, vkh, vkm)
 
      endif
 
@@ -91,3 +134,90 @@ subroutine pbl_driver(rhot, mrl)
   enddo
 
 end subroutine pbl_driver
+
+!===============================================================================
+
+subroutine pbl_init()
+  
+  use mem_sflux,  only: landflux, jlandflux
+  use mem_grid,   only: lsw, lpw, mza, mwa, arw
+  use mem_ijtabs, only: itab_w, jtab_w, jtw_prog, itabg_w
+  use mem_turb,   only: frac_urb, frac_land, frac_sfc, ustar, wstar, wtv0, &
+                        pblh, kpblh
+  use mem_leaf,   only: land, itabg_wl
+  use mem_basic,  only: vxe, vye, vze, thil, sh_v
+  use misc_coms,  only: io6, iparallel
+  use module_bl_acm2, only: acm2_pblhgt
+
+  implicit none
+
+  integer :: j, ilf, iw, iwl, k
+  real    :: thilv(mza)
+
+! Populate urban and land fraction arrays if used
+  
+  if (allocated(frac_urb )) frac_urb (:) = 0.0
+  if (allocated(frac_land)) frac_land(:) = 0.0
+
+  do j = 1,jlandflux(1)%jend(1)
+     ilf = jlandflux(1)%ilandflux(j)
+
+     iw  = landflux(ilf)%iw   ! global index
+     iwl = landflux(ilf)%iwls ! global index
+
+     if (iparallel == 1) then
+        iw  = itabg_w (iw )%iw_myrank  ! local index
+        iwl = itabg_wl(iwl)%iwl_myrank ! local index
+     endif
+   
+     if (allocated(frac_urb)) then
+        if (any(land%leaf_class(iwl) == (/ 19, 21 /))) then
+           frac_urb(iw) = frac_urb(iw) + landflux(ilf)%arf_atm
+        endif
+     endif
+       
+     if (allocated(frac_land)) then
+        frac_land(iw) = frac_land(iw) + landflux(ilf)%arf_atm
+     endif
+  enddo
+
+! Store the fraction of the total surface that intersects with each layer
+
+  do iw = 2, mwa
+     if (lsw(iw) == 1) then
+        frac_sfc(1,iw) = 1.0
+     else
+        do k = 1, lsw(iw)
+           frac_sfc(k,iw) = (arw(lpw(iw)+k-1,iw) - arw(lpw(iw)+k-2,iw)) &
+                          / arw(lpw(iw)+lsw(iw)-1,iw)
+        enddo
+     endif
+  enddo
+
+! Initialize PBL height and some PBL quantities
+    
+  do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+
+     ustar(iw) = 0.2
+     wstar(iw) = 0.0
+     wtv0 (iw) = 0.0
+
+     do k = lpw(iw), mza-1
+        thilv (k) = thil(k,iw) * (1. + .61 * sh_v(k,iw))
+     enddo
+
+     call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), lpw(iw), mza-2, lsw(iw), &
+                       frac_sfc(:,iw), thilv, vxe(:,iw), vye(:,iw), vze(:,iw),  &
+                       kpblh(iw), pblh(iw)                                      )
+
+  enddo
+
+end subroutine pbl_init
+
+
+
+
+
+
+
+

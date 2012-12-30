@@ -442,7 +442,9 @@ endif
 write(io6,'(/,a)') 'olam_run calling rayf_init'
 call rayf_init(mua,mva,mwa,mza)
 
-!!x    call tkeinit(nza,nwa)
+! Initialize PBL quantities
+
+call pbl_init()
 
 ! For shallow water test case 5, read in and initialize reference
 ! solution for time = 0 and time = 15d.

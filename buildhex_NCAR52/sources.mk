@@ -16,6 +16,7 @@ SOURCE_FILES= \
              $(CONVECT)/emanuel_coms.f90 \
              $(CONVECT)/emanuel43c.f90 \
              $(CONVECT)/emanuel_driver.f90 \
+             $(CONVECT)/module_bl_acm2.f90 \
              $(CONVECT)/pbl_driver.f90 \
              $(CONVECT)/smagorinsky.f90 \
              $(ED2MEM)/ed_max_dims.F90 \

@@ -46,11 +46,15 @@ Module mem_turb
   real, allocatable, target :: sflux_t (:)
   real, allocatable, target :: sflux_r (:)
   real, allocatable, target :: ustar   (:)
+  real, allocatable, target :: wstar   (:)
+  real, allocatable, target :: wtv0    (:)
   real, allocatable, target :: pblh    (:)
 
-  integer, allocatable      :: kpblh    (:)
-  real,    allocatable      :: frac_land(:)
-  real,    allocatable      :: frac_urb (:)
+  integer, allocatable, target :: kpblh(:)
+
+  real,    allocatable      :: frac_land (:)
+  real,    allocatable      :: frac_urb  (:)
+  real,    allocatable      :: frac_sfc(:,:)
 
   real, allocatable, target :: fthpbl(:,:)
   real, allocatable, target :: fqtpbl(:,:)
@@ -77,14 +81,17 @@ Contains
     allocate (sxfer_tk(nsw_max,mwa)) ; sxfer_tk = 0.0
     allocate (sxfer_rk(nsw_max,mwa)) ; sxfer_rk = 0.0
 
-    allocate (vkm_sfc(nsw_max,mwa)) ; vkm_sfc = rinit
+    allocate (vkm_sfc (nsw_max,mwa)) ; vkm_sfc  = rinit
+    allocate (frac_sfc(nsw_max,mwa)) ; frac_sfc = rinit
 
-    allocate (sflux_t(mwa)) ; sflux_t = rinit
-    allocate (sflux_r(mwa)) ; sflux_r = rinit
-    allocate (ustar  (mwa)) ; ustar   = rinit
-    allocate (sflux_w(mwa)) ; sflux_w = rinit
-    allocate (pblh   (mwa)) ; pblh    = rinit
+    allocate (sflux_t  (mwa)) ; sflux_t   = rinit
+    allocate (sflux_r  (mwa)) ; sflux_r   = rinit
+!   allocate (sflux_w  (mwa)) ; sflux_w   = rinit
 
+    allocate (ustar    (mwa)) ; ustar     = rinit
+    allocate (wstar    (mwa)) ; wstar     = rinit
+    allocate (wtv0     (mwa)) ; wtv0      = rinit
+    allocate (pblh     (mwa)) ; pblh      = rinit
     allocate (kpblh    (mwa)) ; kpblh     = 1
     allocate (frac_urb (mwa)) ; frac_urb  = 0.0 
     allocate (frac_land(mwa)) ; frac_land = 0.0
@@ -113,6 +120,8 @@ Contains
     if (allocated(sflux_t)) deallocate (sflux_t)
     if (allocated(sflux_r)) deallocate (sflux_r)
     if (allocated(ustar))   deallocate (ustar)
+    if (allocated(wstar))   deallocate (wstar)
+    if (allocated(wtv0))    deallocate (wtv0)
     if (allocated(pblh))    deallocate (pblh)
     if (allocated(kpblh))   deallocate (kpblh)
     if (allocated(fthpbl))  deallocate (fthpbl)
@@ -120,7 +129,7 @@ Contains
 
   end subroutine dealloc_turb
 
-  !===============================================================================
+!===============================================================================
 
   subroutine filltab_turb()
 
@@ -195,6 +204,11 @@ Contains
     if (allocated(pblh)) then
        call increment_vtable('PBLH', 'AW')
        vtab_r(num_var)%rvar1_p => pblh
+    endif
+    
+    if (allocated(kpblh)) then
+       call increment_vtable('KPBLH', 'AW')
+       vtab_r(num_var)%ivar1_p => kpblh
     endif
 
     if (allocated(fthpbl)) then

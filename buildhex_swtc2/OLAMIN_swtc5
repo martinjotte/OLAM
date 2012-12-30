@@ -283,8 +283,8 @@
  
    NL%IDIFFK = 0,0,0,0,0,0,0,0    ! Turbulent parameterization scheme:
                                   !  0 = off
+                                  !  1 = ACM2 non-local PBL
                                   !  2 = Smagorinsky-Lilly-Hill
-                                  !  7 = Taylor
 
    NL%CSX    = .2,.2,.2,.2,.2,.2,.2,.2,.2  ! Horizontal length scale coefficient
    NL%CSZ    = .2,.2,.2,.2,.2,.2,.2,.2,.2  ! Vertical length scale coefficient
