@@ -30,8 +30,8 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine harr_swrad(nrad,iw,albedt_beam,albedt_diffuse,cosz,time,   &
-                      u,pl,tl,dzl,vp,tp,omgp,gp,fu,fd,flxus,flxds,ngass,  &
+subroutine harr_swrad(nrad,iw,albedt_beam,albedt_diffuse,cosz,           &
+                      u,pl,tl,dzl,vp,tp,omgp,gp,fu,fd,flxus,flxds,ngass, &
                       flx_diff)
 
 ! Bob's interface subroutine
@@ -48,7 +48,6 @@ integer, intent(in) :: ngass(mg)
 real, intent(in) :: albedt_beam
 real, intent(in) :: albedt_diffuse
 real, intent(in) :: cosz
-real, intent(in) :: time
 real, intent(in) :: u   (nrad,3)
 real, intent(in) :: pl  (nrad)
 real, intent(in) :: tl  (nrad)
@@ -68,15 +67,15 @@ call swrad(nrad,ng,nb,nsolb,npsb,     &
    u,pl,tl,dzl,vp,                    &
    xp,alpha,beta,wght,prf,trf,ralcs,  &
    solar1,ngass,                      &
-   albedt_beam,albedt_diffuse,cosz,                       &
-   tp,omgp,gp,fu,fd,flxus,flxds,ulim,iw,time,flx_diff)
+   albedt_beam,albedt_diffuse,cosz,   &
+   tp,omgp,gp,fu,fd,flxus,flxds,ulim,iw,flx_diff)
 
 return
 end subroutine harr_swrad
 
 !===============================================================================
 
-subroutine harr_lwrad(nrad,u,pl,tl,dzl,vp,tp,omgp,gp,fu,fd,flxul,flxdl,ngast)
+subroutine harr_lwrad(nrad,u,pl,tl,vp,tp,omgp,gp,fu,fd,flxul,flxdl,ngast)
 
 ! Bob's interface subroutine
 
@@ -91,7 +90,6 @@ integer, intent(in) :: ngast(mg)
 real, intent(in) :: u   (nrad,3)
 real, intent(in) :: pl  (nrad)
 real, intent(in) :: tl  (nrad)
-real, intent(in) :: dzl (nrad)
 real, intent(in) :: vp  (nrad)
 real, intent(in) :: tp  (nrad,mb)
 real, intent(in) :: omgp(nrad,mb)
@@ -103,7 +101,7 @@ real, intent(inout) :: flxul(nrad)
 real, intent(inout) :: flxdl(nrad)
 
 call lwrad(nrad,ng,nb,nsolb,npsb,nuum,   &
-   u,pl,tl,dzl,vp,                       &
+   u,pl,tl,vp,                           &
    xp,alpha,beta,wght,prf,trf,ralcs,     &
    a0,a1,a2,a3,                          &
    ngast,                                &
@@ -120,11 +118,10 @@ subroutine swrad(nz,ng,nb,ns,npsb,               &
            xp,alpha,beta,wght,prf,trf,ral,       &
            solar,ngas,                           &
            alb_b,alb_d,amu0,                             &
-           tp,omgp,asym,fu,fd,flxsu,flxsd,ulim,i,time,flx_diff)
+           tp,omgp,asym,fu,fd,flxsu,flxsd,ulim,i,flx_diff)
 
 implicit none
 integer :: nz,ng,nb,ns,i
-real :: time
 real, intent(out) :: flx_diff
 
 !
@@ -188,6 +185,7 @@ do ib=1,ns
    do iz=1,nz
       tcr(iz) = ral(ib)*pl(iz)*dz(iz)/  &
            tl(iz)
+
       fu(iz,2) = 0.
       fu(iz,3) = 0.
       fu(iz,4) = 0.
@@ -195,6 +193,7 @@ do ib=1,ns
       fd(iz,3) = 0.
       fd(iz,4) = 0.
    enddo
+
    vdflx(:) = 0.
 
 !        determine if, and how many overlaps...also check
@@ -230,7 +229,7 @@ do ib=1,ns
           call flxsw(nz,tg,tp(1,ib),tcr,omgp(1,ib),  &
                   alb_b,alb_d,solar(ib),amu0,t,r,tc,  &
                   sigu,sigd,re,vd,td,vu,  &
-                  fu(1,6),fd(1,6),asym(1,ib),i,time,vdflx(6))
+                  fu(1,6),fd(1,6),asym(1,ib),i,vdflx(6))
 
 !               add pseudo-band fluxes to the total flux
 
@@ -255,7 +254,7 @@ do ib=1,ns
           call flxsw(nz,tg,tp(1,ib),tcr,omgp(1,ib),  &
                   alb_b,alb_d,solar(ib),amu0,t,r,tc,  &
                   sigu,sigd,re,vd,td,vu,  &
-                  fu(1,1),fd(1,1),asym(1,ib),i,time,vdflx(1))
+                  fu(1,1),fd(1,1),asym(1,ib),i,vdflx(1))
 
 !           do the 1st gas
 
@@ -272,7 +271,7 @@ do ib=1,ns
           call flxsw(nz,tg,tp(1,ib),tcr,omgp(1,ib),  &
                   alb_b,alb_d,solar(ib),amu0,t,r,tc,  &
                   sigu,sigd,re,vd,td,vu,  &
-                  fu(1,6),fd(1,6),asym(1,ib),i,time,vdflx(1))
+                  fu(1,6),fd(1,6),asym(1,ib),i,vdflx(1))
 
           fact = wght(ig1,ik1,ib)
           do iz=1,nz
@@ -297,7 +296,7 @@ do ib=1,ns
           call flxsw(nz,tg,tp(1,ib),tcr,omgp(1,ib),  &
                   alb_b,alb_d,solar(ib),amu0,t,r,tc,  &
                   sigu,sigd,re,vd,td,vu,  &
-                  fu(1,6),fd(1,6),asym(1,ib),i,time,vdflx(6))
+                  fu(1,6),fd(1,6),asym(1,ib),i,vdflx(6))
 
           fact = wght(ig2,ik2,ib)
           do iz=1,nz
@@ -358,7 +357,7 @@ do ib=1,ns
           call flxsw(nz,tg,tp(1,ib),tcr,omgp(1,ib),  &
                   alb_b,alb_d,solar(ib),amu0,t,r,tc,  &
                   sigu,sigd,re,vd,td,vu,  &
-                  fu(1,1),fd(1,1),asym(1,ib),i,time,vdflx(1))
+                  fu(1,1),fd(1,1),asym(1,ib),i,vdflx(1))
 
 !           do the 1st gas
 
@@ -375,7 +374,7 @@ do ib=1,ns
           call flxsw(nz,tg,tp(1,ib),tcr,omgp(1,ib),  &
                   alb_b,alb_d,solar(ib),amu0,t,r,tc,  &
                   sigu,sigd,re,vd,td,vu,  &
-                  fu(1,6),fd(1,6),asym(1,ib),i,time,vdflx(6))
+                  fu(1,6),fd(1,6),asym(1,ib),i,vdflx(6))
 
           fact = wght(ig1,ik1,ib)
           do iz=1,nz
@@ -399,7 +398,7 @@ do ib=1,ns
           call flxsw(nz,tg,tp(1,ib),tcr,omgp(1,ib),  &
                   alb_b,alb_d,solar(ib),amu0,t,r,tc,  &
                   sigu,sigd,re,vd,td,vu,  &
-                  fu(1,6),fd(1,6),asym(1,ib),i,time,vdflx(6))
+                  fu(1,6),fd(1,6),asym(1,ib),i,vdflx(6))
 
           fact = wght(ig2,ik2,ib)
           do iz=1,nz
@@ -425,7 +424,7 @@ do ib=1,ns
           call flxsw(nz,tg,tp(1,ib),tcr,omgp(1,ib),  &
                   alb_b,alb_d,solar(ib),amu0,t,r,tc,  &
                   sigu,sigd,re,vd,td,vu,  &
-                  fu(1,6),fd(1,6),asym(1,ib),i,time,vdflx(6))
+                  fu(1,6),fd(1,6),asym(1,ib),i,vdflx(6))
 
 !               sum the pseudo-band fluxes to get total flux
 
@@ -500,7 +499,7 @@ end subroutine swrad
 ! New lwrad (March 8, 1996)
 
 subroutine lwrad(nz,ng,nb,ns,npsb,nuum,            &
-           u,pl,tl,dz,vp,                          &
+           u,pl,tl,vp,                             &
            xp,alpha,beta,wght,prf,trf,ral,         &
            a0,a1,a2,a3,                            &
            ngas,                                   &
@@ -519,7 +518,7 @@ integer :: nz,ng,nb,ns
 !
 !     input
 
-real    u(nz,mg),pl(nz),tl(nz),dz(nz),vp(nz)
+real    u(nz,mg),pl(nz),tl(nz),vp(nz)
 real    ulim(mg,mb)
 integer npsb(mg,mb),na(mg),nuum(mb),ngas(mg)
 
@@ -956,12 +955,12 @@ end subroutine lwrad
 subroutine flxsw(nz,tg,tp,tcr,omgp,  &
               alb_b,alb_d,slr,amu0,t,r,tc,  &
               sigu,sigd,re,vd,td,vu,  &
-              fu,fd,asym,i,time,vdflx)
+              fu,fd,asym,i,vdflx)
 
 implicit none
 integer :: nz,i
 real :: tg(nz),tp(nz),tcr(nz),omgp(nz),  &
-     alb_b,alb_d,slr,amu0,asym(nz),time
+     alb_b,alb_d,slr,amu0,asym(nz)
 
 !     local variables
 

@@ -384,9 +384,9 @@ enddo
 
 ! Start up radiation scheme
 
-if (iswrtyp == 3 .or. ilwrtyp == 3) then
-   write(io6,'(/,a)') 'olam_run calling harr_radinit'
-   call harr_radinit()
+if (iswrtyp > 0 .or. ilwrtyp > 0) then
+   write(io6,'(/,a)') 'olam_run calling radinit'
+   call radinit()
 endif
 
 ! Check if LEAF3 will be used

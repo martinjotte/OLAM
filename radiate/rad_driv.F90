@@ -718,3 +718,56 @@ endif
 
 return
 end subroutine sunloc
+
+!============================================================================
+
+subroutine radinit()
+
+use mem_radiate, only: maxadd_rad, nadd_rad, zmrad
+use mem_grid,    only: mza, zm
+use misc_coms,   only: io6, iswrtyp, ilwrtyp
+
+implicit none
+
+real :: deltaz
+
+! Compute NADD_RAD, the number of radiation levels to be added above the top
+! model prognostic level.  (Added levels will be filled elsewhere with data 
+! from Mclatchy soundings.)
+
+if (zm(mza-1) > 25000.) then
+   
+   ! If model top is above 25 km (roughly 30 mb tropics), add a single layer 
+   ! that extends from the model top to the top-of-atmosphere
+
+   nadd_rad = 1
+   zmrad = zm(mza-1)
+
+else
+
+   ! If grid top < 25 km, add one or more radiation levels.
+   ! Set the top level at 30 km (rougly 15 mb tropics).
+
+   ! Estimate a reasonable value for the height increment between added levels.
+   ! Make it approximately the increment between the two highest model levels,
+   ! but no less than allowed by maxadd_rad, the maximum number of added levels.
+   
+   zmrad = 30.e3
+
+   deltaz = max( zm(mza-1) - zm(mza-2), (zmrad - zm(mza-1)) / real(maxadd_rad) )
+
+   nadd_rad = nint( (zmrad - zm(mza-1)) / deltaz )
+   nadd_rad = max(nadd_rad,1)
+   nadd_rad = min(nadd_rad,maxadd_rad)
+
+   ! Also add an extra layer that extends to the top-of-atmosphere
+
+   nadd_rad = nadd_rad + 1
+
+endif
+
+! Initialize constants for Harrington s/w and l/w radiation computations
+
+if (iswrtyp == 3 .or. ilwrtyp == 3) call harr_radinit()
+
+end subroutine radinit

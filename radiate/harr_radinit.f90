@@ -30,66 +30,27 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine harr_radinit()  ! Bob's interface subroutine
 
-use mem_harr, only: ng,nb,nsolb,npsb,nuum,prf,alpha,trf,beta  &
-                    ,xp,wght,wlenlo,wlenhi,solar0,ralcs,a0,a1,a2,a3  &
-                    ,ulim,npartob,npartg,ncog,ncb  &
-                    ,ocoef,bcoef,gcoef,solara,solarb
+subroutine harr_radinit()
 
-use mem_radiate, only: maxadd_rad, nadd_rad, zmrad
-use micro_coms,  only: gnu
-use mem_grid,    only: mza, zm
-use misc_coms,   only: io6
+  use mem_harr,   only: ng,nb,nsolb,npsb,nuum,prf,alpha,trf,beta,       &
+                        xp,wght,wlenlo,wlenhi,solar0,ralcs,a0,a1,a2,a3, &
+                        ulim,npartob,npartg,ncog,ncb,                   &
+                        ocoef,bcoef,gcoef,solara,solarb
+  use micro_coms, only: gnu
 
-implicit none
-
-real :: deltaz
+  implicit none
 
 !------------------------------------------------------------------------------
-! This subroutine initializes some constants for the Harrington radiation
-! scheme.  It is called only once, by the master process or by each 
-! compute node process, at the time of model initialization.
+! This subroutine initializes some constants for the Harrington s/w and l/w
+! radiation schemes.  It is called only once, by the master process or by
+! each compute node process, at the time of model initialization.
 !------------------------------------------------------------------------------
 
-! Initialize constants for Harrington s/w and l/w radiation computations
+  call harr_radinit1(ng,nb,nsolb,npsb,nuum,prf,alpha,trf,beta,  &
+       xp,wght,wlenlo,wlenhi,solar0,ralcs,a0,a1,a2,a3,  &
+       ulim,npartob,npartg,ncog,ncb,ocoef,bcoef,gcoef,gnu)
 
-call harr_radinit1(ng,nb,nsolb,npsb,nuum,prf,alpha,trf,beta  &
-   ,xp,wght,wlenlo,wlenhi,solar0,ralcs,a0,a1,a2,a3  &
-   ,ulim,npartob,npartg,ncog,ncb  &
-   ,ocoef,bcoef,gcoef,gnu)
-
-! Compute NADD_RAD, the number of radiation levels to be added above the top
-! model prognostic level.  (Added levels will be filled elsewhere with data 
-! from Mclatchy soundings.)
-
-if (zm(mza-1) > 25000.) then
-   
-   ! If model top is above 25 km (roughly 30 mb tropics), do not add any levels.
-
-   nadd_rad = 0
-   zmrad = zm(mza-1)
-
-else
-
-   ! If grid top < 25 km, add one or more radiation levels.
-   ! Set the top level at 30 km (rougly 15 mb tropics).
-
-   ! Estimate a reasonable value for the height increment between added levels.
-   ! Make it approximately the increment between the two highest model levels,
-   ! but no less than allowed by maxadd_rad, the maximum number of added levels.
-   
-   zmrad = 30.e3
-
-   deltaz = max( zm(mza-1) - zm(mza-2), (zmrad - zm(mza-1)) / real(maxadd_rad) )
-
-   nadd_rad = nint( (zmrad - zm(mza-1)) / deltaz )
-   nadd_rad = max(nadd_rad,1)
-   nadd_rad = min(nadd_rad,maxadd_rad)
-
-endif
-
-return
 end subroutine harr_radinit
 
 !===============================================================================
@@ -100,7 +61,6 @@ subroutine harr_radinit1(ng,nb,ns,npsb,nuum,prf,alpha,trf,beta,xp,  &
     
 implicit none
 
-!
 !     read input parameters for the radiative transfer scheme
 !     Original: J Verlinde March 1993
 !
