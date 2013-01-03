@@ -232,7 +232,7 @@
  
    NL%ISWRTYP = 3   ! Shortwave radiation type:
    NL%ILWRTYP = 3   ! Longwave  radiation type:
-                       !   0=none, 1=Chen, 2=Mahrer/Pielke, 3=Harrington
+                    !   0=none, 3=Harrington
    NL%RADFRQ  = 1800.  ! Time interval between radiation tendency updates (s)
 
  !--------------------------------------------------------------------------

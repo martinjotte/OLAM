@@ -360,14 +360,6 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
 
       koff = ka - 2
    
-! Do Mahrer-Pielke and/or Chen-Cotton radiation if specified
-
-      if (ilwrtyp == 1 .or. ilwrtyp == 2 .or.  &
-          iswrtyp == 1 .or. iswrtyp == 2) then  
-
-         call ccmp_raddriv(iw,ka,koff)
-      endif
-
 ! Do Harrington radiation if specified
 
       if (ilwrtyp == 3 .or. iswrtyp == 3) then
@@ -698,9 +690,9 @@ sunx = cos(declin * pio180) * cos(sun_longitude * pio180)
 suny = cos(declin * pio180) * sin(sun_longitude * pio180)
 sunz = sin(declin * pio180)
 
-! Check whether Harrington or Fu-Liou shortwave or longwave radiation is used
+! Check whether shortwave or longwave radiation is used
 
-if (iswrtyp >= 3 .or. ilwrtyp >= 3) then
+if (iswrtyp + ilwrtyp > 0) then
 
 ! Adjust solar fluxes at top of atmosphere for current Earth-Sun distance
 ! for Harrington shortwave radiation
