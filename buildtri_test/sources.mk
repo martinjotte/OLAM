@@ -129,17 +129,13 @@ SOURCE_FILES= \
              $(OUTILS)/read_cdc.c \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \
-             $(RADIATE)/ccmp_raddriv.f90 \
-             $(RADIATE)/cc_rad.f90 \
              $(RADIATE)/harr_raddriv.f90 \
              $(RADIATE)/harr_rad.f90 \
              $(RADIATE)/harr_radinit.f90 \
              $(RADIATE)/mem_harr.f90 \
              $(RADIATE)/mem_radiate.f90 \
-             $(RADIATE)/mp_rad.f90 \
              $(RADIATE)/rad_driv.F90 \
              $(RADIATE)/rad_mclat.f90 \
-             $(RADIATE)/rad_stable.f90 \
              $(SEA)/mem_sea.f90 \
              $(SEA)/olam_mpi_sea.F90 \
              $(SEA)/para_init_sea.f90 \
