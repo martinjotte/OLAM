@@ -39,7 +39,7 @@ subroutine pbl_driver(rhot, mrl)
   use mem_basic,      only: vxe, vye, vze, thil, theta, tair, sh_w, sh_v, rho
   use mem_turb,       only: hkm, sxfer_tk, sxfer_rk, ustar, wstar, wtv0, &
                             frac_urb, frac_land, frac_sfc, pblh, kpblh
-  use consts_coms,    only: grav, vonk
+  use consts_coms,    only: grav, vonk, eps_virt
   use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
   use mem_radiate,    only: fthrd
   use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx, acm2
@@ -86,8 +86,8 @@ subroutine pbl_driver(rhot, mrl)
 
      do k = ka, mza-1
         qc    (k) = max( sh_w(k,iw) - sh_v(k,iw), 0.0 )
-        thetav(k) = theta(k,iw) * (1. + .61 * sh_v(k,iw) - qc(k))
-        thilv (k) = thil (k,iw) * (1. + .61 * sh_v(k,iw) - qc(k))
+        thetav(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw) - qc(k))
+        thilv (k) = thil (k,iw) * (1.0 + eps_virt * sh_v(k,iw) - qc(k))
      enddo
 
      call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), ka, mza-2, lsw(iw),     &
@@ -138,17 +138,19 @@ end subroutine pbl_driver
 !===============================================================================
 
 subroutine pbl_init()
-  
-  use mem_sflux,  only: landflux, jlandflux
-  use mem_grid,   only: lsw, lpw, mza, mwa, arw
-  use mem_ijtabs, only: itab_w, jtab_w, jtw_prog, itabg_w
-  use mem_turb,   only: frac_urb, frac_land, frac_sfc, ustar, wstar, wtv0, &
-                        pblh, kpblh
-  use mem_leaf,   only: land, itabg_wl
-  use mem_basic,  only: vxe, vye, vze, thil, sh_v
-  use misc_coms,  only: io6, iparallel
-  use module_bl_acm2, only: acm2_pblhgt
 
+  use mem_sflux,     only: landflux, jlandflux
+  use mem_grid,      only: lsw, lpw, mza, mwa, arw
+  use mem_ijtabs,    only: itab_w, jtab_w, jtw_prog, itabg_w
+  use mem_turb,      only: frac_urb, frac_land, frac_sfc, ustar, wstar, wtv0, &
+                           pblh, kpblh
+  use mem_leaf,      only: land, itabg_wl
+  use mem_basic,     only: vxe, vye, vze, thil, sh_v
+  use misc_coms,     only: io6, iparallel
+  use module_bl_acm2,only: acm2_pblhgt
+  use leaf_coms,     only: isfcl
+  use consts_coms,   only: eps_virt
+  
   implicit none
 
   integer :: j, ilf, iw, iwl, k
@@ -159,27 +161,29 @@ subroutine pbl_init()
   if (allocated(frac_urb )) frac_urb (:) = 0.0
   if (allocated(frac_land)) frac_land(:) = 0.0
 
-  do j = 1,jlandflux(1)%jend(1)
-     ilf = jlandflux(1)%ilandflux(j)
+  if (isfcl > 0) then
+     do j = 1,jlandflux(1)%jend(1)
+        ilf = jlandflux(1)%ilandflux(j)
 
-     iw  = landflux(ilf)%iw   ! global index
-     iwl = landflux(ilf)%iwls ! global index
+        iw  = landflux(ilf)%iw   ! global index
+        iwl = landflux(ilf)%iwls ! global index
 
-     if (iparallel == 1) then
-        iw  = itabg_w (iw )%iw_myrank  ! local index
-        iwl = itabg_wl(iwl)%iwl_myrank ! local index
-     endif
-   
-     if (allocated(frac_urb)) then
-        if (any(land%leaf_class(iwl) == (/ 19, 21 /))) then
-           frac_urb(iw) = frac_urb(iw) + landflux(ilf)%arf_atm
+        if (iparallel == 1) then
+           iw  = itabg_w (iw )%iw_myrank  ! local index
+           iwl = itabg_wl(iwl)%iwl_myrank ! local index
         endif
-     endif
+   
+        if (allocated(frac_urb)) then
+           if (any(land%leaf_class(iwl) == (/ 19, 21 /))) then
+              frac_urb(iw) = frac_urb(iw) + landflux(ilf)%arf_atm
+           endif
+        endif
        
-     if (allocated(frac_land)) then
-        frac_land(iw) = frac_land(iw) + landflux(ilf)%arf_atm
-     endif
-  enddo
+        if (allocated(frac_land)) then
+           frac_land(iw) = frac_land(iw) + landflux(ilf)%arf_atm
+        endif
+     enddo
+  endif
 
 ! Store the fraction of the total surface that intersects with each layer
 
@@ -203,13 +207,12 @@ subroutine pbl_init()
      wtv0 (iw) = 0.0
 
      do k = lpw(iw), mza-1
-        thilv (k) = thil(k,iw) * (1. + .61 * sh_v(k,iw))
+        thilv (k) = thil(k,iw) * (1.0 + eps_virt * sh_v(k,iw))
      enddo
 
      call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), lpw(iw), mza-2, lsw(iw), &
                        frac_sfc(:,iw), thilv, vxe(:,iw), vye(:,iw), vze(:,iw),  &
                        kpblh(iw), pblh(iw)                                      )
-
   enddo
 
 end subroutine pbl_init
