@@ -57,6 +57,7 @@ real, parameter :: eradsq   = erad * erad
 real, parameter :: erador5  = erad * .4472135955 ! second factor is sqrt(.2)
 real, parameter :: eradi    = 1. / erad           
 real, parameter :: vonk     = 0.40               ! von Karman constant
+real, parameter :: nu       = 1.568e-5           ! kinematic viscosity of air [m^2/s]
 real, parameter :: tkmin    = 5.e-4              ! minimum allowed TKE
 real, parameter :: alvl     = 2.50e6             ! latent heat of evaporation [J/kg]
 real, parameter :: alvi     = 2.834e6            ! latent heat of sublimation [J/kg]
