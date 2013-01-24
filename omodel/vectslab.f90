@@ -35,7 +35,8 @@ subroutine vectslab_horiz_v(iplt)
 use oplot_coms,  only: op
 use mem_grid,    only: mza, mva, mwa, zm, lpw, unx, uny, unz, vnx, vny, vnz, &
                        xeu, yeu, zeu, xev, yev, zev
-use mem_ijtabs,  only: itab_m, itab_u, itab_v, itab_w, jtab_v, jtv_prog
+use mem_ijtabs,  only: itab_m, itab_u, itab_v, itab_w, jtab_u, jtab_v, &
+                       jtu_prog, jtv_prog
 use misc_coms,   only: io6, mdomain, meshtype
 use consts_coms, only: erad
 
@@ -43,7 +44,7 @@ implicit none
 
 integer, intent(in) :: iplt
 
-integer :: jv,iv,iw1,iw2,notavail,im1,im2,iw1_v1,iw2_v1
+integer :: jv,iv,iw1,iw2,notavail,im1,im2,iw1_v1,iw2_v1,jvmax
 
 real :: fldval_u,fldval_v,uavg,vavg,pointx  &
    ,pointy,tailx,taily,stemangle,headangle1,headangle2   &
@@ -73,10 +74,17 @@ real :: xa, ya, xb, yb, xc, yc
 op%stagpt = 'V'
 call horizplot_k(iplt,mva,ktf,kv,wtbot,wttop)
 
-do jv = 1, jtab_v(jtv_prog)%jend(1)
-   iv = jtab_v(jtv_prog)%iv(jv)
+if (meshtype == 1) then
+   jvmax = jtab_u(jtu_prog)%jend(1)
+else
+   jvmax = jtab_v(jtv_prog)%jend(1)
+endif
+
+do jv = 1, jvmax
 
    if (meshtype == 1) then
+
+      iv  = jtab_u(jtu_prog)%iu(jv)
 
       im1 = itab_u(iv)%im(1)
       im2 = itab_u(iv)%im(2)
@@ -103,6 +111,8 @@ do jv = 1, jtab_v(jtv_prog)%jend(1)
           itab_w(iw1)%iu(1) /= iv) cycle
 
    else
+
+      iv  = jtab_v(jtv_prog)%iv(jv)
 
       im1 = itab_v(iv)%im(1)
       im2 = itab_v(iv)%im(2)

@@ -334,7 +334,7 @@ subroutine tileslab_horiz_vn(iplt,action)
 use oplot_coms, only: op
 use mem_grid,   only: mza, mva, mwa, zm, xeu, yeu, zeu, xev, yev, zev, &
                       xem, yem, zem, xew, yew, zew, lpw
-use mem_ijtabs, only: itab_u, itab_v, jtab_v, jtv_prog
+use mem_ijtabs, only: itab_u, itab_v, jtab_u, jtab_v, jtu_prog, jtv_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -343,7 +343,7 @@ integer,      intent(in) :: iplt
 character(1), intent(in) :: action
 
 integer :: kt, k
-integer :: iv, jv
+integer :: iv, jv, jvmax
 integer :: iw1, iw2
 integer :: itpn
 integer :: ici
@@ -373,13 +373,19 @@ if (action == 'T' .and. op%dimens == '3') then
    call plot_underground_w(iplt,ktf)
 endif
 
-do jv = 1, jtab_v(jtv_prog)%jend(1)
-   iv = jtab_v(jtv_prog)%iv(jv)
+if (meshtype == 1) then
+   jvmax = jtab_u(jtu_prog)%jend(1)
+else
+   jvmax = jtab_v(jtv_prog)%jend(1)
+endif
+
+do jv = 1, jvmax
 
 ! Transform tile plot X and Y coordinates.  
 
    if (meshtype == 1) then
-   
+
+      iv  = jtab_u(jtu_prog)%iu(jv)
       call oplot_transform(iplt,xeu(iv),yeu(iv),zeu(iv),hpt,vpt)
 
       im1 = itab_u(iv)%im(1)
@@ -389,6 +395,7 @@ do jv = 1, jtab_v(jtv_prog)%jend(1)
 
    else
 
+      iv  = jtab_v(jtv_prog)%iv(jv)
       call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hpt,vpt)
 
       im1 = itab_v(iv)%im(1)

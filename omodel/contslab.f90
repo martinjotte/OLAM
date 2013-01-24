@@ -176,7 +176,8 @@ use oplot_coms, only: op
 use mem_grid,   only: mma, mva, mwa, zm, zt, lpu, lpv, lpw, &
                       xem, yem, zem, xeu, yeu, zeu, &
                       xev, yev, zev, xew, yew, zew
-use mem_ijtabs, only: itab_m, itab_w, itab_u, itab_v, jtab_m, jtm_vadj
+use mem_ijtabs, only: itab_m, itab_w, itab_u, itab_v, jtab_m, jtm_vadj, &
+                      jtab_w, jtw_prog
 use misc_coms,  only: io6, iparallel, meshtype
 use mem_para,   only: myrank
 
@@ -184,7 +185,7 @@ implicit none
 
 integer, intent(in) :: iplt
 
-integer :: npoly,j,jm,jn,jnn,kt,k,im,notavail,iw,iv,iw1,iw2,iv1,iv2
+integer :: npoly,j,jm,jn,jnn,kt,k,im,notavail,iw,iv,iw1,iw2,iv1,iv2,jw
 integer :: iflag180
 integer :: ipwx1,ipwx2,ipwy1,ipwy2
 
@@ -383,7 +384,8 @@ enddo
 ! SECOND LOOP is over W points for contouring V points
 !------------------------------------------------------
 
-do iw = 2,mwa
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
 
    if (ktf(iw) /= 0) cycle
 
@@ -736,7 +738,7 @@ subroutine contslab_vert_t(iplt)
 
 use oplot_coms,  only: op
 use mem_grid,    only: mva, mza, lpw, zt
-use mem_ijtabs,  only: itab_u, itab_v, jtab_v, jtv_prog
+use mem_ijtabs,  only: itab_u, jtab_u, jtu_prog
 use misc_coms,   only: io6, meshtype
 use consts_coms, only: erad, pio180
 
@@ -751,6 +753,7 @@ real :: topo1,topo2,radcone
 real :: wtbot = 1., wttop = 0.
 
 ! FOR HEXAGONS, REDIRECT TO NEW SUBROUTINE
+
 IF (MESHTYPE == 2) THEN
    CALL CONTSLAB_VERT_TW(IPLT)
    RETURN
@@ -760,16 +763,16 @@ ENDIF
 
 call plot_underground_w(iplt,(/0/))
 
-do jv = 1, jtab_v(jtv_prog)%jend(1)
-   iv = jtab_v(jtv_prog)%iv(jv)
+do jv = 1, jtab_u(jtu_prog)%jend(1)
+   iv = jtab_u(jtu_prog)%iu(jv)
 
-   if (meshtype == 1) then
+!  if (meshtype == 1) then
       iw1 = itab_u(iv)%iw(1)
       iw2 = itab_u(iv)%iw(2)
-   else
-      iw1 = itab_v(iv)%iw(1)
-      iw2 = itab_v(iv)%iw(2)
-   endif
+!  else
+!     iw1 = itab_v(iv)%iw(1)
+!     iw2 = itab_v(iv)%iw(2)
+!  endif
 
 ! Jump to end of loop if either iw1 or iw2 is less than 1
 
@@ -975,7 +978,7 @@ subroutine contslab_vert_w(iplt)
 
 use oplot_coms, only: op
 use mem_grid,   only: mva, mza, lpw, zm
-use mem_ijtabs, only: itab_u, itab_v, jtab_v, jtv_prog
+use mem_ijtabs, only: itab_u, jtab_u, jtu_prog
 use misc_coms,  only: io6, meshtype
 use consts_coms, only: erad, pio180
 
@@ -990,6 +993,7 @@ real :: topo1,topo2,radcone
 real :: wtbot = 1., wttop = 0.
 
 ! FOR HEXAGONS, REDIRECT TO NEW SUBROUTINE
+
 IF (MESHTYPE == 2) THEN
    CALL CONTSLAB_VERT_TW(IPLT)
    RETURN
@@ -999,16 +1003,16 @@ ENDIF
 
 call plot_underground_w(iplt,(/0/))
 
-do jv = 1, jtab_v(jtv_prog)%jend(1)
-   iv = jtab_v(jtv_prog)%iv(jv)
+do jv = 1, jtab_u(jtu_prog)%jend(1)
+   iv = jtab_u(jtu_prog)%iu(jv)
 
-   if (meshtype == 1) then
+!  if (meshtype == 1) then
       iw1 = itab_u(iv)%iw(1)
       iw2 = itab_u(iv)%iw(2)
-   else
-      iw1 = itab_v(iv)%iw(1)
-      iw2 = itab_v(iv)%iw(2)
-   endif
+!  else
+!     iw1 = itab_v(iv)%iw(1)
+!     iw2 = itab_v(iv)%iw(2)
+!  endif
 
 ! Jump to end of loop if either iw1 or iw2 is less than 1
 
@@ -1113,7 +1117,7 @@ subroutine contslab_vert_tw(iplt)
 use oplot_coms, only: op
 use mem_grid,   only: mwa, mza, lpw, zm, zt, &
                       xem, yem, zem, xev, yev, zev, xew, yew, zew
-use mem_ijtabs, only: itab_w
+use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
 use misc_coms,  only: io6, mdomain, meshtype
 use consts_coms, only: erad, pio180
 
@@ -1121,7 +1125,7 @@ implicit none
 
 integer, intent(in) :: iplt
 
-integer :: k,k1,k2,iw,iw1,iw2,iw3,iv2,im1,im2,jv1,jv2,jv3
+integer :: k,k1,k2,iw,iw1,iw2,iw3,iv2,im1,im2,jv1,jv2,jv3,jw
 integer :: npoly,iok,notavail,itri
 real :: radcone
 real :: wtbot = 1., wttop = 0.
@@ -1133,7 +1137,11 @@ real :: wta1, wta2, wta3, wtb1, wtb2, wtb3
 
 call plot_underground_w(iplt,(/0/))
 
-do iw = 2,mwa  ! Loop is over W for contouring W points
+! Loop is over W for contouring W points
+! Limit to primary W point or else we will go out of bounds for a parallel run
+
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
 
    npoly = itab_w(iw)%npoly
 

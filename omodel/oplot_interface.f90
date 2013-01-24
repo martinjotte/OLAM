@@ -1195,14 +1195,15 @@ subroutine plot_grid(iplt)
 
 use oplot_coms, only: op
 use mem_grid, only: mwa, mva, mza, xem, yem, zem, xew, yew, zew, zm
-use mem_ijtabs, only: itab_w, itab_u, itab_v, jtab_v, jtv_wadj, jtab_w, jtw_prog
+use mem_ijtabs, only: itab_w, itab_u, itab_v, jtab_u, jtab_v, jtab_w, &
+                      jtv_wadj, jtu_wadj, jtw_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
 
 integer, intent(in) :: iplt
 
-integer :: iflag180,iskip
+integer :: iflag180,iskip,jvmax
 integer :: j,iw,jw,k,im1,im2,iok,iv1,iv2,iv,jv
 
 real :: wta1,wta2,wta3,wtb1,wtb2,wtb3
@@ -1218,20 +1219,27 @@ call o_sflush()
 call o_gsplci(10)
 call o_gstxci(10)
 
+if (meshtype == 1) then
+   jvmax = jtab_u(jtu_wadj)%jend(1)
+else
+   jvmax = jtab_v(jtv_wadj)%jend(1)
+endif
+
 if (op%projectn(iplt) == 'L'  .or.  &
     op%projectn(iplt) == 'P'  .or.  &
     op%projectn(iplt) == 'O'  .or.  &
     op%projectn(iplt) == 'Z') then   ! Horizontal cross section
 
-   do jv = 1, jtab_v(jtv_wadj)%jend(1)
-      iv = jtab_v(jtv_wadj)%iv(jv)
+   do jv = 1, jvmax
 
 ! Get tile plot coordinates.
 
       if (meshtype == 1) then
+         iv  = jtab_u(jtu_wadj)%iu(jv)
          im1 = itab_u(iv)%im(1)
          im2 = itab_u(iv)%im(2)
       else
+         iv  = jtab_v(jtv_wadj)%iv(jv)
          im1 = itab_v(iv)%im(1)
          im2 = itab_v(iv)%im(2)
       endif
@@ -1287,13 +1295,14 @@ else  ! Vertical cross section
 
 ! First, draw vertical lines
 
-   do jv = 1,jtab_v(jtv_wadj)%jend(1)
-      iv = jtab_v(jtv_wadj)%iv(jv)
+   do jv = 1, jvmax
 
       if (meshtype == 1) then
+         iv  = jtab_u(jtu_wadj)%iu(jv)
          im1 = itab_u(iv)%im(1)
          im2 = itab_u(iv)%im(2)
       else
+         iv  = jtab_v(jtv_wadj)%iv(jv)
          im1 = itab_v(iv)%im(1)
          im2 = itab_v(iv)%im(2)
       endif
@@ -1409,7 +1418,7 @@ subroutine plot_dualgrid(iplt)
 use oplot_coms,  only: op
 use mem_grid,    only: mwa, mva, mza, xem, yem, zem, xew, yew, zew, zm,  &
                      wnx, wny, wnz
-use mem_ijtabs,  only: itab_w, itab_u, itab_v, jtab_v, jtv_wadj
+use mem_ijtabs,  only: itab_w, itab_u, itab_v, jtab_v, jtv_wadj, jtab_u, jtu_wadj
 use misc_coms,   only: io6, meshtype
 use consts_coms, only: erad
 
@@ -1417,7 +1426,7 @@ implicit none
 
 integer, intent(in) :: iplt
 
-integer :: iflag180,iskip
+integer :: iflag180,iskip,jvmax
 integer :: iok,iv1,iv2,iv,jv,iw1,iw2
 
 real :: xpt,ypt
@@ -1431,20 +1440,27 @@ call o_gsplci(6)
 call o_gstxci(6)
 call o_sflush()
 
+if (meshtype == 1) then
+   jvmax = jtab_u(jtu_wadj)%jend(1)
+else
+   jvmax = jtab_v(jtv_wadj)%jend(1)
+endif
+
 if (op%projectn(iplt) == 'L'  .or.  &
     op%projectn(iplt) == 'P'  .or.  &
     op%projectn(iplt) == 'O'  .or.  &
     op%projectn(iplt) == 'Z') then   ! Horizontal cross section
 
-   do jv = 1, jtab_v(jtv_wadj)%jend(1)
-      iv = jtab_v(jtv_wadj)%iv(jv)
+   do jv = 1, jvmax
 
 ! Get tile plot coordinates.
 
       if (meshtype == 1) then
+         iv  = jtab_u(jtu_wadj)%iu(jv)
          iw1 = itab_u(iv)%iw(1)
          iw2 = itab_u(iv)%iw(2)
       else
+         iv = jtab_v(jtv_wadj)%iv(jv)
          iw1 = itab_v(iv)%iw(1)
          iw2 = itab_v(iv)%iw(2)
       endif
