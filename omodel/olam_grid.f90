@@ -1228,10 +1228,6 @@ subroutine gridfile_write()
   call shdf5_orec(ndims,idims,'itab_w%vny_w' ,rvara=itab_w(:)%vny_w)
   call shdf5_orec(ndims,idims,'itab_w%vnz_w' ,rvara=itab_w(:)%vnz_w)
 
-  if (meshtype == 2) then
-     call shdf5_orec(ndims,idims,'itab_w%ecvec_w' ,rvara=itab_w(:)%ecvec_w)
-  endif
-
   ! Write ITAB_W ARRAYS
 
   ndims = 2
@@ -1384,10 +1380,22 @@ subroutine gridfile_write()
 
   if (meshtype == 2) then
      allocate (rscr(7,nwa))
+
      do iw = 1,nwa
-        rscr(1:7,iw) = itab_w(iw)%ecvec_v(1:7)
+        rscr(1:7,iw) = itab_w(iw)%ecvec_vx(1:7)
      enddo
-     call shdf5_orec(ndims,idims,'itab_w%ecvec_v',rvara=rscr)
+     call shdf5_orec(ndims,idims,'itab_w%ecvec_vx',rvara=rscr)
+
+     do iw = 1,nwa
+        rscr(1:7,iw) = itab_w(iw)%ecvec_vy(1:7)
+     enddo
+     call shdf5_orec(ndims,idims,'itab_w%ecvec_vy',rvara=rscr)
+
+     do iw = 1,nwa
+        rscr(1:7,iw) = itab_w(iw)%ecvec_vz(1:7)
+     enddo
+     call shdf5_orec(ndims,idims,'itab_w%ecvec_vz',rvara=rscr)
+
      deallocate(rscr)
   endif
 
@@ -2577,10 +2585,6 @@ if (exans) then
    call shdf5_irec(ndims,idims,'itab_w%vny_w' ,rvara=itab_w(:)%vny_w, points=lgwa)
    call shdf5_irec(ndims,idims,'itab_w%vnz_w' ,rvara=itab_w(:)%vnz_w, points=lgwa)
 
-   if (meshtype == 2) then
-      call shdf5_irec(ndims,idims,'itab_w%ecvec_w',rvara=itab_w(:)%ecvec_w, points=lgwa)
-   endif
-
 ! Read ITAB_W ARRAYS
 
    ndims    = 2
@@ -2733,10 +2737,22 @@ if (exans) then
    
    if (meshtype == 2) then
       allocate (rscr(7,mwa))
-      call shdf5_irec(ndims,idims,'itab_w%ecvec_v',rvara=rscr, points=lgwa)
+
+      call shdf5_irec(ndims,idims,'itab_w%ecvec_vx',rvara=rscr, points=lgwa)
       do iw = 1,mwa
-         itab_w(iw)%ecvec_v(1:7) = rscr(1:7,iw)
+         itab_w(iw)%ecvec_vx(1:7) = rscr(1:7,iw)
       enddo
+      
+      call shdf5_irec(ndims,idims,'itab_w%ecvec_vy',rvara=rscr, points=lgwa)
+      do iw = 1,mwa
+         itab_w(iw)%ecvec_vy(1:7) = rscr(1:7,iw)
+      enddo
+
+      call shdf5_irec(ndims,idims,'itab_w%ecvec_vz',rvara=rscr, points=lgwa)
+      do iw = 1,mwa
+         itab_w(iw)%ecvec_vz(1:7) = rscr(1:7,iw)
+      enddo
+
       deallocate (rscr)
    endif
 

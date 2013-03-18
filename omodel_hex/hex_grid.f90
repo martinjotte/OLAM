@@ -632,9 +632,9 @@ character(10) :: string
 
 integer, parameter :: lwork = 200
 real               :: work(lwork)
-integer            :: nc
 integer            :: info
-real               :: b(8), fo(8)
+real               :: vdotw, vmag, fact
+real               :: b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7), vrot_x(7), vrot_y(7)
 real, allocatable  :: a(:,:)
 
 ef = 1.01  ! radial expansion factor (from earth center) for defining 
@@ -1050,77 +1050,15 @@ enddo
 
 ! Coefficients for converting earth-cartesian velocity to V and W
 
-if (mdomain < 2) then
+if (mdomain < 2 .or. mdomain == 5) then
 
-   !$omp do private(npoly,nc,fo,a,b,work,info)
+   !$omp do private(npoly, fo, a, b, work, info, j, iv, vdotw, vmag, fact, &
+   !$omp            vnx_ps, vny_ps, vnz_ps, vrot_x, vrot_y)
    do iw = 2, nwa
       
       npoly = itab_w(iw)%npoly
-      nc    = npoly + 1
-      
-      fo(1:npoly) = 2.0 * itab_w(iw)%farv(1:npoly)
-      fo(nc)      = 1.0 
 
-      if (allocated(a)) then
-         if (size(a,2) /= nc) deallocate(a)
-      endif
-
-      if (.not. allocated(a)) allocate(a(6,nc))
-
-      a(1,1:npoly) = vnx(itab_w(iw)%iv(1:npoly)) * vnx(itab_w(iw)%iv(1:npoly))
-      a(2,1:npoly) = vny(itab_w(iw)%iv(1:npoly)) * vny(itab_w(iw)%iv(1:npoly))
-      a(3,1:npoly) = vnz(itab_w(iw)%iv(1:npoly)) * vnz(itab_w(iw)%iv(1:npoly))
-      a(4,1:npoly) = vnx(itab_w(iw)%iv(1:npoly)) * vny(itab_w(iw)%iv(1:npoly))
-      a(5,1:npoly) = vnx(itab_w(iw)%iv(1:npoly)) * vnz(itab_w(iw)%iv(1:npoly))
-      a(6,1:npoly) = vny(itab_w(iw)%iv(1:npoly)) * vnz(itab_w(iw)%iv(1:npoly))
-
-      a(1,nc) = wnx(iw) * wnx(iw)
-      a(2,nc) = wny(iw) * wny(iw)
-      a(3,nc) = wnz(iw) * wnz(iw)
-      a(4,nc) = wnx(iw) * wny(iw)
-      a(5,nc) = wnx(iw) * wnz(iw)
-      a(6,nc) = wny(iw) * wnz(iw)
-
-      b(1) = 1.0 - sum( fo(1:nc) * a(1,:) )
-      b(2) = 1.0 - sum( fo(1:nc) * a(2,:) )
-      b(3) = 1.0 - sum( fo(1:nc) * a(3,:) )
-      b(4) =     - sum( fo(1:nc) * a(4,:) )
-      b(5) =     - sum( fo(1:nc) * a(5,:) )
-      b(6) =     - sum( fo(1:nc) * a(6,:) )
-
-      call sgels( 'N', 6, nc, 1, a, 6, b, 8, work, lwork, info )
-
-      if (info == 0) then
-
-         b(1:nc) = b(1:nc) + fo(1:nc)
-         itab_w(iw)%ecvec_v(1:npoly) = b(1:npoly)
-         itab_w(iw)%ecvec_w          = 0.5 * b(nc)
-
-      else
-
-         write(*,*) "Problem optimizing vector coefficients for iw = ", iw
-         write(*,*) "Using default coefficients."
-         
-         itab_w(iw)%ecvec_v(1:npoly) = fo(1:npoly)
-         itab_w(iw)%ecvec_w          = 0.5
-
-      endif
-
-   enddo
-   !omp end do
-   
-   if (allocated(a)) deallocate(a)
-
-elseif (mdomain == 5) then
-
-   !$omp do private(npoly,fo,a,b,work,info)
-   do iw = 2, nwa
-      
-      ! skip this calculation at lateral-boundary points
-      if (itab_w(iw)%iwp /= iw) cycle
-
-      npoly = itab_w(iw)%npoly
-      
+      ! Default coefficients from Perot
       fo(1:npoly) = 2.0 * itab_w(iw)%farv(1:npoly)
 
       if (allocated(a)) then
@@ -1129,35 +1067,95 @@ elseif (mdomain == 5) then
 
       if (.not. allocated(a)) allocate(a(3,npoly))
 
-      a(1,1:npoly) = vnx(itab_w(iw)%iv(1:npoly)) * vnx(itab_w(iw)%iv(1:npoly))
-      a(2,1:npoly) = vny(itab_w(iw)%iv(1:npoly)) * vny(itab_w(iw)%iv(1:npoly))
-      a(3,1:npoly) = vnx(itab_w(iw)%iv(1:npoly)) * vny(itab_w(iw)%iv(1:npoly))
+      if (mdomain < 2) then
+
+         do j = 1, npoly
+            iv = itab_w(iw)%iv(j)
+
+            ! Compute the components of the V unit normals perpendicular to W 
+
+            vdotw = vnx(iv)*wnx(iw) + vny(iv)*wny(iw) + vnz(iv)*wnz(iw)
+
+            vnx_ps(j) = vnx(iv) - vdotw * wnx(iw)
+            vny_ps(j) = vny(iv) - vdotw * wny(iw)
+            vnz_ps(j) = vnz(iv) - vdotw * wnz(iw)
+
+            ! Normalize these new vectors to unit length
+
+            vmag = sqrt( vnx_ps(j)**2 + vny_ps(j)**2 + vnz_ps(j)**2 )
+
+            vnx_ps(j) = vnx_ps(j) / vmag
+            vny_ps(j) = vny_ps(j) / vmag
+            vnz_ps(j) = vnz_ps(j) / vmag
+
+            ! Rotate these new unit normals to a coordinate system with Z aligned with W
+
+            if (wnz(iw) >= 0.0) then
+            
+               fact = ( wny(iw)*vnx_ps(j) - wnx(iw)*vny_ps(j) ) / ( 1.0 + wnz(iw) )
+
+               vrot_x(j) = vnx_ps(j)*wnz(iw) - vnz_ps(j)*wnx(iw) + wny(iw)*fact
+               vrot_y(j) = vny_ps(j)*wnz(iw) - vnz_ps(j)*wny(iw) - wnx(iw)*fact
+
+            else
+
+               fact = ( wny(iw)*vnx_ps(j) - wnx(iw)*vny_ps(j) ) / ( 1.0 - wnz(iw) )
+
+               vrot_x(j) = -vnx_ps(j)*wnz(iw) + vnz_ps(j)*wnx(iw) + wny(iw)*fact
+               vrot_y(j) = -vny_ps(j)*wnz(iw) + vnz_ps(j)*wny(iw) - wnx(iw)*fact
+
+            endif
+
+         enddo
+
+      else
+
+         do j = 1, npoly
+            iv = itab_w(iw)%iv(j)
+
+            vnx_ps(j) = vnx(iv)
+            vny_ps(j) = vny(iv)
+            vnz_ps(j) = 0.0
+
+            vrot_x(j) = vnx_ps(j)
+            vrot_y(j) = vny_ps(j)
+         enddo
+
+      endif
+
+      a(1,1:npoly) = vrot_x(1:npoly) * vrot_x(1:npoly)
+      a(2,1:npoly) = vrot_y(1:npoly) * vrot_y(1:npoly)
+      a(3,1:npoly) = vrot_x(1:npoly) * vrot_y(1:npoly)
 
       b(1) = 1.0 - sum( fo(1:npoly) * a(1,:) )
       b(2) = 1.0 - sum( fo(1:npoly) * a(2,:) )
       b(3) =     - sum( fo(1:npoly) * a(3,:) )
 
-      call sgels( 'N', 3, npoly, 1, a, 3, b, 8, work, lwork, info )
+      call sgels( 'N', 3, npoly, 1, a, 3, b, 7, work, lwork, info )
 
-      if (info == 0) then
+      ! Vector b is now the correction to the coefficients fo
+      b(1:npoly) = b(1:npoly) + fo(1:npoly)
 
-         b(1:npoly) = b(1:npoly) + fo(1:npoly)
-         itab_w(iw)%ecvec_v(1:npoly) = b(1:npoly)
-         itab_w(iw)%ecvec_w          = 0.5
+      if (info == 0 .and. all(b(1:npoly) > 0.05) .and. all(b(1:npoly) < 0.7)) then
+
+         itab_w(iw)%ecvec_vx(1:npoly) = b(1:npoly) * vnx_ps(1:npoly)
+         itab_w(iw)%ecvec_vy(1:npoly) = b(1:npoly) * vny_ps(1:npoly)
+         itab_w(iw)%ecvec_vz(1:npoly) = b(1:npoly) * vnz_ps(1:npoly)
 
       else
-
+      
          write(*,*) "Problem optimizing vector coefficients for iw = ", iw
          write(*,*) "Using default coefficients."
-         
-         itab_w(iw)%ecvec_v(1:npoly) = fo(1:npoly)
-         itab_w(iw)%ecvec_w          = 0.5
+
+         itab_w(iw)%ecvec_vx(1:npoly) = fo(1:npoly) * vnx_ps(1:npoly)
+         itab_w(iw)%ecvec_vy(1:npoly) = fo(1:npoly) * vny_ps(1:npoly)
+         itab_w(iw)%ecvec_vz(1:npoly) = fo(1:npoly) * vnz_ps(1:npoly)
 
       endif
- 
-   enddo
-   !$omp end do
 
+   enddo
+   !omp end do
+   
    if (allocated(a)) deallocate(a)
 
 else
@@ -1165,8 +1163,12 @@ else
    !$omp do private(npoly)
    do iw = 2, nwa
       npoly = itab_w(iw)%npoly
-      itab_w(iw)%ecvec_v(1:npoly) = 2.0 * itab_w(iw)%farv(1:npoly)
-      itab_w(iw)%ecvec_w          = 0.5
+      itab_w(iw)%ecvec_vx(1:npoly) = 2.0 * itab_w(iw)%farv(1:npoly) &
+                                   * vnx(itab_w(iw)%iv(1:npoly))
+      itab_w(iw)%ecvec_vy(1:npoly) = 2.0 * itab_w(iw)%farv(1:npoly) &
+                                   * vny(itab_w(iw)%iv(1:npoly))
+      itab_w(iw)%ecvec_vz(1:npoly) = 2.0 * itab_w(iw)%farv(1:npoly) &
+                                   * vnz(itab_w(iw)%iv(1:npoly))
    enddo
    !$omp end do
 

@@ -65,7 +65,7 @@ call qsub('W',iw)
 
 ! Diagnose 3D earth-velocity vector at T points; W contribution first
 
-      wst = itab_w(iw)%ecvec_w * (ws(k-1,iw) + ws(k,iw))
+      wst = 0.5 * (ws(k-1,iw) + ws(k,iw))
 
       vxe(k,iw) = wst * wnx(iw)
       vye(k,iw) = wst * wny(iw)
@@ -85,9 +85,9 @@ call qsub('W',iw)
 
 ! Diagnose 3D earth-velocity vector at T points; VC contribution
 
-         vxe(k,iw) = vxe(k,iw) + itab_w(iw)%ecvec_v(jv) * vs(k,iv) * vnx(iv)
-         vye(k,iw) = vye(k,iw) + itab_w(iw)%ecvec_v(jv) * vs(k,iv) * vny(iv)
-         vze(k,iw) = vze(k,iw) + itab_w(iw)%ecvec_v(jv) * vs(k,iv) * vnz(iv)
+         vxe(k,iw) = vxe(k,iw) + itab_w(iw)%ecvec_vx(jv) * vs(k,iv)
+         vye(k,iw) = vye(k,iw) + itab_w(iw)%ecvec_vy(jv) * vs(k,iv)
+         vze(k,iw) = vze(k,iw) + itab_w(iw)%ecvec_vz(jv) * vs(k,iv)
 
       enddo
       
