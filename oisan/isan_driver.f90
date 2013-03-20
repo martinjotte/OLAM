@@ -81,10 +81,6 @@ if (iaction == 0) then
       stop 'stop: initial isan file'
    endif
 
-! Return if not initializing model but only setting ifgfile value
-
-   if (runtype /= 'INITIAL') return
-
 elseif (iaction == 1) then
 
 ! Processing next isan file (only called with iaction = 1 if nudflag = 1)
@@ -190,8 +186,8 @@ endif
 
 ! If nudging, prepare observational nudging fields
 
-if (nudflag > 0 .and. runtype == 'INITIAL') then
-   call nudge_prep(iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
+if (nudflag > 0) then
+   call nudge_prep(iaction, o_rho, o_theta, o_shv, o_uvc)
 endif
 
 return

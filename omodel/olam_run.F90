@@ -669,11 +669,11 @@ if (init_hurr_step == 1 .or. init_hurr_step == 2) then
 endif
 !-------------------------------------------------------------------
 
-if (mod(time8,frqplt8) < dtlm(1) .or. iflag == 1) then
+if (mod(time8p,frqplt8) < dtlm(1) .or. iflag == 1) then
    call plot_fields(0)
 endif
 
-if (mod(time8,real(frqstate,r8)) < dtlm(1)  .or.  &
+if (mod(time8p,real(frqstate,r8)) < dtlm(1)  .or.  &
    time8  >=  timmax8 - .01*dtlm(1) .or. iflag == 1) then
    call history_write('INST')
    time_prevhist = time8

@@ -164,11 +164,20 @@ wtb1 = 0.
 wtb2 = 0.
 wtb3 = 0.
 
-! Return with iok = 0 if IW column is not intersected by plot slab
+! Return with iok = 0 if triangle column is not intersected by plot slab
+! or touches slab at only 1 vertex
 
 iok = 0
 
 if (min(s1,s2,s3) > slabloc .or. max(s1,s2,s3) < slabloc) return
+
+if (s1 >= slabloc .and. s2 > slabloc .and. s3 > slabloc) return
+if (s2 >= slabloc .and. s3 > slabloc .and. s1 > slabloc) return
+if (s3 >= slabloc .and. s1 > slabloc .and. s2 > slabloc) return
+
+if (s1 <= slabloc .and. s2 < slabloc .and. s3 < slabloc) return
+if (s2 <= slabloc .and. s3 < slabloc .and. s1 < slabloc) return
+if (s3 <= slabloc .and. s1 < slabloc .and. s2 < slabloc) return
 
 iok = 1  ! Since we got here, IW column is intersected by plot cone or slab
 
@@ -209,7 +218,7 @@ if (s1 <= slabloc .and. s2 >= slabloc) then
 
    endif
 
-elseif (s1 > slabloc .and. s2 < slabloc) then
+elseif (s1 >= slabloc .and. s2 <= slabloc) then
 
 ! Interval 1:2 touches cone at 1 point
 
@@ -255,7 +264,7 @@ if (s2 <= slabloc .and. s3 >= slabloc) then
 
    endif
 
-elseif (s2 > slabloc .and. s3 < slabloc) then
+elseif (s2 >= slabloc .and. s3 <= slabloc) then
 
 ! Interval 2:3 touches cone at 1 point
 
@@ -301,7 +310,7 @@ if (s3 <= slabloc .and. s1 >= slabloc) then
 
    endif
 
-elseif (s3 > slabloc .and. s1 < slabloc) then
+elseif (s3 >= slabloc .and. s1 <= slabloc) then
 
 ! Interval 3:1 touches cone at 1 point
 

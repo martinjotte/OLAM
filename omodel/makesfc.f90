@@ -1281,7 +1281,7 @@ subroutine makesfc()
 
   else
 
-! If soilflg == 2, read soil textural class from database
+! If soilflg == 1, read soil textural class from database
 
      call leaf_database_read(nwl, &
           land%glatw,             &

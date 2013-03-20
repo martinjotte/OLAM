@@ -303,7 +303,7 @@ call rchk_bnds( nl%wcldbs, "WCLDBS", -10., 10., 2, nfatal, nwarn )
 !--------------------------------------------------------------------------
 
 do ng=1, nl%ngrids
-   call ichk_bnds( nl%idiffk(ng), "IDIFFK", 0,     7, 0, nfatal, nwarn )
+   call ichk_bnds( nl%idiffk(ng), "IDIFFK", 0,     3, 0, nfatal, nwarn )
    call rchk_bnds( nl%csx(ng),    "CSX",    0.,  10., 0, nfatal, nwarn )
    call rchk_bnds( nl%csz(ng),    "CSZ",    0.,  10., 0, nfatal, nwarn )
    call rchk_bnds( nl%zkhkm(ng),  "ZKHKM",  0., 100., 0, nfatal, nwarn )
@@ -574,7 +574,7 @@ do iplt = 1, nl%nplt
    endif
 
    if (nl%plotspecs(iplt)%projectn == 'C' .and.  &
-       index(nl%plotspecs(i)%pltspec2,'T') > 0 .and. &
+       index(nl%plotspecs(iplt)%pltspec2,'T') > 0 .and. &
        nl%mdomain > 1) then
 
         write(io6,*) 'When mdomain > 1, may not use C plot projection for tileplot'

@@ -1074,9 +1074,10 @@ implicit none
 
 integer, intent(in) :: iplt,itab
 
-integer :: ibox,jbox,ln
-real :: bsize,yinc
-real, dimension(4) :: xbox,ybox
+integer :: ibox, jbox, ln, ifmt, logabsval
+real :: bsize, yinc, absval
+real :: xbox(4), ybox(4)
+
 character(len=14)  :: number,numbr
 
 ! Scale local working window (0,1,0,1) 
@@ -1101,10 +1102,12 @@ yinc = (op%fy2 - op%fy1) / float(clrtab(itab)%nvals)
 
 do ibox = 1,clrtab(itab)%nvals
 
+   ifmt = clrtab(itab)%ifmt(1)
+
 ! Skip bottom and top boxes if plotting integer values at center of box
 
-   if (ibox == 1                  .and. clrtab(itab)%ifmt(1) >= 10) cycle
-   if (ibox == clrtab(itab)%nvals .and. clrtab(itab)%ifmt(1) >= 10) cycle
+   if (ibox == 1                  .and. ifmt >= 10) cycle
+   if (ibox == clrtab(itab)%nvals .and. ifmt >= 10) cycle
 
 ! Copy colorbar left and right x coords
 
@@ -1132,31 +1135,55 @@ do ibox = 1,clrtab(itab)%nvals
 
 ! Select print format of colorbar boxes
 
-   if     (clrtab(itab)%ifmt(1) == 5) then
-      write (number,'(f8.5)') clrtab(itab)%vals(ibox)
-   elseif (clrtab(itab)%ifmt(1) == 4) then
-      write (number,'(f7.4)') clrtab(itab)%vals(ibox)
-   elseif (clrtab(itab)%ifmt(1) == 3) then
-      write (number,'(f6.3)') clrtab(itab)%vals(ibox)
-   elseif (clrtab(itab)%ifmt(1) == 2) then
-      write (number,'(f6.2)') clrtab(itab)%vals(ibox)
-   elseif (clrtab(itab)%ifmt(1) == 1) then
-      write (number,'(f6.1)') clrtab(itab)%vals(ibox)
-   elseif (clrtab(itab)%ifmt(1) ==  0 .or.  &
-           clrtab(itab)%ifmt(1) == 10 .or.  &
-           clrtab(itab)%ifmt(1) == 20) then
+! Define adaptable format if ifmt is in the range (1:9)
+
+   if (ifmt > 0 .and. ifmt < 10) then
+
+      absval = abs(clrtab(itab)%vals(ibox))
+
+      if (absval > 1.e-20) then
+         logabsval = int(log10(absval))
+      else
+         logabsval = -20
+      endif
+
+      if (logabsval < -15) then
+         ! no change to ifmt; value assumed to be zero
+      elseif (logabsval + ifmt < 0) then
+         ifmt = -2
+      elseif (logabsval < 6) then
+         ifmt = max(0,min(ifmt,5 - logabsval))
+      else
+         ifmt = -2
+      endif
+
+   endif
+
+   if     (ifmt == 5) then
+      write (number,'(f9.5)') clrtab(itab)%vals(ibox)
+   elseif (ifmt == 4) then
+      write (number,'(f8.4)') clrtab(itab)%vals(ibox)
+   elseif (ifmt == 3) then
+      write (number,'(f7.3)') clrtab(itab)%vals(ibox)
+   elseif (ifmt == 2) then
+      write (number,'(f7.2)') clrtab(itab)%vals(ibox)
+   elseif (ifmt == 1) then
+      write (number,'(f7.1)') clrtab(itab)%vals(ibox)
+   elseif (ifmt ==  0 .or.  &
+           ifmt == 10 .or.  &
+           ifmt == 20) then
       write (number,'(f7.0)') clrtab(itab)%vals(ibox)
-   elseif (clrtab(itab)%ifmt(1) == -1) then
+   elseif (ifmt == -1) then
       write (number,'(e8.1)') clrtab(itab)%vals(ibox)
-   elseif (clrtab(itab)%ifmt(1) == -2) then
+   elseif (ifmt == -2) then
       write (number,'(e9.2)') clrtab(itab)%vals(ibox)
-   elseif (clrtab(itab)%ifmt(1) == -3) then
+   elseif (ifmt == -3) then
       write (number,'(e10.3)') clrtab(itab)%vals(ibox)
-   elseif (clrtab(itab)%ifmt(1) == -4) then
+   elseif (ifmt == -4) then
       write (number,'(e11.4)') clrtab(itab)%vals(ibox)
-   elseif (clrtab(itab)%ifmt(1) == -5) then
+   elseif (ifmt == -5) then
       write (number,'(e12.5)') clrtab(itab)%vals(ibox)
-   elseif (clrtab(itab)%ifmt(1) == -6) then
+   elseif (ifmt == -6) then
       write (number,'(e13.6)') clrtab(itab)%vals(ibox)
    else
       write (number,'(e14.7)') clrtab(itab)%vals(ibox)
@@ -1171,7 +1198,7 @@ do ibox = 1,clrtab(itab)%nvals
 
 ! Print value of current colorbar box
 
-   if (clrtab(itab)%ifmt(1) >= 10) then     ! integer value at box center
+   if (ifmt >= 10) then     ! integer value at box center
       call o_plchhq (op%cblx,.5*(ybox(1)+ybox(3)),numbr(1:ln),bsize,0.,-1.)
    elseif (ibox < clrtab(itab)%nvals) then  ! real value at box top
       call o_plchhq (op%cblx,ybox(3),numbr(1:ln),bsize,0.,-1.)

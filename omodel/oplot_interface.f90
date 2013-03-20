@@ -674,7 +674,7 @@ real :: plev,pressp1,pressp2,count2,pressv1,pressv2
 
 if (op%pltlev(iplt) == 'p') plev = op%slabloc(iplt) * 100.  ! convert from mb to Pa
 
-do iw = 1,mwa
+do iw = 2, mwa
 
    if (op%dimens == '2') then
 

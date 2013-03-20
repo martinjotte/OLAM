@@ -143,52 +143,52 @@ Contains
     implicit none
 
     if (allocated(rho_obsp)) then
-         call increment_vtable('RHO_OBSP', 'AN')
+         call increment_vtable('RHO_OBSP', 'AN', noread=.true.)
          vtab_r(num_var)%rvar2_p => rho_obsp
       endif
 
     if (allocated(theta_obsp)) then
-         call increment_vtable('THETA_OBSP', 'AN')
+         call increment_vtable('THETA_OBSP', 'AN', noread=.true.)
          vtab_r(num_var)%rvar2_p => theta_obsp
       endif
 
     if (allocated(shw_obsp)) then
-         call increment_vtable('SHW_OBSP', 'AN')
+         call increment_vtable('SHW_OBSP', 'AN', noread=.true.)
          vtab_r(num_var)%rvar2_p => shw_obsp
       endif
 
     if (allocated(uzonal_obsp)) then
-         call increment_vtable('UZONAL_OBSP', 'AN')
+         call increment_vtable('UZONAL_OBSP', 'AN', noread=.true.)
          vtab_r(num_var)%rvar2_p => uzonal_obsp
       endif
 
     if (allocated(umerid_obsp)) then
-         call increment_vtable('UMERID_OBSP', 'AN')
+         call increment_vtable('UMERID_OBSP', 'AN', noread=.true.)
          vtab_r(num_var)%rvar2_p => umerid_obsp
       endif
 
     if (allocated(rho_obsf)) then
-         call increment_vtable('RHO_OBSF', 'AN')
+         call increment_vtable('RHO_OBSF', 'AN', noread=.true.)
          vtab_r(num_var)%rvar2_p => rho_obsf
       endif
 
     if (allocated(theta_obsf)) then
-         call increment_vtable('THETA_OBSF', 'AN')
+         call increment_vtable('THETA_OBSF', 'AN', noread=.true.)
          vtab_r(num_var)%rvar2_p => theta_obsf
       endif
 
     if (allocated(shw_obsf)) then
-         call increment_vtable('SHW_OBSF', 'AN')
+         call increment_vtable('SHW_OBSF', 'AN', noread=.true.)
          vtab_r(num_var)%rvar2_p => shw_obsf
       endif
 
     if (allocated(uzonal_obsf)) then
-         call increment_vtable('UZONAL_OBSF', 'AN')
+         call increment_vtable('UZONAL_OBSF', 'AN', noread=.true.)
          vtab_r(num_var)%rvar2_p => uzonal_obsf
       endif
 
     if (allocated(umerid_obsf)) then
-         call increment_vtable('UMERID_OBSF', 'AN')
+         call increment_vtable('UMERID_OBSF', 'AN', noread=.true.)
          vtab_r(num_var)%rvar2_p => umerid_obsf
       endif
 
