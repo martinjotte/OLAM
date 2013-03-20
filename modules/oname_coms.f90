@@ -228,6 +228,7 @@ Module oname_coms
 
       integer :: isoilstateinit = 0
       integer :: isoildepthflg  = 0
+      integer :: iwatertabflg   = 0
 
       integer :: iupdndvi   = 0
       integer :: iupdsst    = 0
@@ -253,6 +254,7 @@ Module oname_coms
 
       character(pathlen) :: soilstate_db    = ''
       character(pathlen) :: soildepth_db    = ''
+      character(pathlen) :: watertab_db     = ''
 
 !!    ED MODEL VARIABLES
 

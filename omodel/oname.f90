@@ -96,7 +96,8 @@ use leaf_coms,   only: nvgcon, nslcon, slmstr, isoilflg, ndviflg, &
                        isfcl, ivegflg, nzg, nzs, slz, &
                        veg_database, soil_database, &
                        ndvi_database, iupdndvi, landusefile, &
-                       isoilstateinit, isoildepthflg,soilstate_db,soildepth_db
+                       isoilstateinit, isoildepthflg, iwatertabflg, &
+                       soilstate_db, soildepth_db, watertab_db
 
 use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst, &
                        iseaiceflg, seaice_database, iupdseaice
@@ -159,6 +160,7 @@ if (copy_type == 'ALL_CASES') then
 
    soilstate_db = nl%soilstate_db
    soildepth_db = nl%soildepth_db
+   watertab_db  = nl%watertab_db
 
    ed2_active = nl%ed2_active
    ed2_namelist = nl%ed2_namelist
@@ -231,6 +233,7 @@ if (copy_type == 'ALL_CASES') then
    isoilflg      = nl%isoilflg
    isoilstateinit = nl%isoilstateinit
    isoildepthflg = nl%isoildepthflg
+   iwatertabflg  = nl%iwatertabflg
    ndviflg       = nl%ndviflg
    isdirs        = nl%isdirs
 

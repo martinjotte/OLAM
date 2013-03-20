@@ -413,18 +413,22 @@
    NL%ISOILSTATEINIT = 0  ! 0 -- use slmstr
                           ! 1 -- read from file
 
-   NL%ISOILDEPTHFLG  = 0 ! 0 -- use NZG, SLZ for each grid cell
-                         ! 1 -- read file to get soil depth for each grid cell
+   NL%ISOILDEPTHFLG  = 0  ! 0 -- use NZG, SLZ for each grid cell
+                          ! 1 -- read file to get soil depth for each grid cell
+
+   NL%IWATERTABFLG   = 0  ! 0 -- use default for each landuse class
+                          ! 1 -- read from file
 
  ! Surface database file paths and names
 
-   NL%VEG_DATABASE    = './data/oge2/OGE2_'
-   NL%SOIL_DATABASE   = './data/fao/FAO_'
-   NL%NDVI_DATABASE   = './data/ndvi/NDVI'
-   NL%SST_DATABASE    = './data/sst7100/SST'
-   NL%SEAICE_DATABASE = './data/ice8100/ICE'
-   NL%SOILSTATE_DB    = './dp_etc/'
-   NL%SOILDEPTH_DB    = './data/soildepth/SOIL_DEPTHS.h5'
+   NL%VEG_DATABASE    = '../../olamdatah5/oge2/OGE2_'
+   NL%SOIL_DATABASE   = '../../olamdatah5/fao/FAO_'
+   NL%NDVI_DATABASE   = '../../olamdatah5/ndvi/NDVI'
+   NL%SST_DATABASE    = '../../olamdatah5/sst7100/SST'
+   NL%SEAICE_DATABASE = '../../olamdatah5/ice8100/ICE'
+   NL%SOILSTATE_DB    = './dp_etc/STW-'
+   NL%SOILDEPTH_DB    = '../../olamdatah5/SOIL_DEPTHS.h5'
+   NL%WATERTAB_DB     = '../../olamdatah5/wtd/WTD'
 
  ! Update flags for surface data
 

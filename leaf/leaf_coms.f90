@@ -62,6 +62,7 @@ character(pathlen) :: soil_database
 character(pathlen) :: ndvi_database
 character(pathlen) :: soilstate_db
 character(pathlen) :: soildepth_db
+character(pathlen) :: watertab_db
 
 integer            :: nndvifiles, indvifile
 character(pathlen) :: fnames_ndvi  (maxndvifiles)
@@ -76,6 +77,7 @@ integer :: iupdndvi
 
 integer :: isoilstateinit
 integer :: isoildepthflg
+integer :: iwatertabflg
 
 integer :: nzg      ! # of soil layers
 integer :: nzs      ! maximum # of snowcover layers
