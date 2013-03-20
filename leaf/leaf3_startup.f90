@@ -58,8 +58,6 @@ call alloc_leafcol()
 
 call sfcdata()
 
-call load_ed_ecosystem_params()
-
 !-------------------------------------------------------------------------------
 ! STEP 3: Allocate main LEAF arrays
 !-------------------------------------------------------------------------------
@@ -68,15 +66,10 @@ call alloc_leaf(mwl, nzg, nzs)
 call filltab_leaf()
 
 !-------------------------------------------------------------------------------
-! STEP 4: Read soil depth info and initialize ED sites
+! STEP 4: Read soil depth info
 !-------------------------------------------------------------------------------
 
-if (isoildepthflg == 1) call leaf_soil_depth_read()
-call initialize_ed_sites()
-
-! Here, specify what land-grid variables to write out
-
-call filltab_ED()
+!if (isoildepthflg == 1) call leaf_soil_depth_read()
 
 !-------------------------------------------------------------------------------
 ! STEP 5: Fill ndvi values
@@ -88,6 +81,7 @@ if (ndviflg == 2) then
 
    do iwl = 2,mwl
       land%veg_ndvip(iwl) = .5
+      land%veg_ndvif(iwl) = .5
       land%veg_ndvic(iwl) = .5
    enddo
 
@@ -289,93 +283,93 @@ end subroutine sfcdata
 
 !=======================================================================
 
-subroutine leaf_soil_depth_read()
-
-  use leaf_coms,   only: mwl, nzg, slz, soildepth_db
-  use mem_leaf,    only: land
-  use consts_coms, only: piu180, erad
-  use misc_coms,   only: io6
-  use hdf5_utils,  only: shdf5_open, shdf5_close, shdf5_irec, shdf5_info
-
-  implicit none
-
-  integer :: nio, njo, nperdeg
-  integer :: io1, io2, jo1, jo2
-  integer :: iwl
-  integer :: layer_index
-  integer :: k, ndims, idims(2)
-  integer :: nlon, nlat
-  real    :: wio1, wio2, wjo1, wjo2
-  real    :: rio, rjo
-  real    :: glat, glon
-  real    :: soild
-  real    :: offpix
-  logical :: l1
-
-  real, allocatable :: soil_depth(:,:)
-
-  inquire(file=soildepth_db, exist=l1)
-  if(.not.l1)then
-     write(io6,*) 'You have ISOILDEPTHFLG = 1, which means you read a file'
-     write(io6,*) 'containing soil depths.  However, the '
-     write(io6,*) 'file you specified for SOILDEPTH_DB,'
-     write(io6,*)
-     write(io6,*) trim(soildepth_db)
-     write(io6,*)
-     write(io6,*) 'does not exist.'
-     stop
-  endif
-
-  write(io6,*) 'Reading soil depth database '//trim(soildepth_db)
-  call shdf5_open(soildepth_db,'R')
-
-  call shdf5_info('soildepth',ndims,idims)
-  nlon = idims(1)
-  nlat = idims(2)
-  
-  allocate(soil_depth(nlon,nlat))
-
-  call shdf5_irec(ndims,idims,'soildepth',rvara=soil_depth)
-  call shdf5_close()
-
-  offpix = 0.
-  nperdeg = nlon/360
-  if (mod(nlon,nperdeg) == 2) offpix = .5
-
-  ! Loop over land sites
-
-  do iwl = 2, mwl
-     glon = max(-179.999,min(179.999,land%glonw(iwl)))
-  
-     rio = 1. + (glon            + 180.) * nperdeg + offpix
-     rjo = 1. + (land%glatw(iwl) +  90.) * nperdeg + offpix
-
-     io1 = int(rio)
-     jo1 = int(rjo)
-         
-     wio2 = rio - float(io1)
-     wjo2 = rjo - float(jo1)
-           
-     wio1 = 1. - wio2
-     wjo1 = 1. - wjo2
-
-     io2 = io1 + 1
-     jo2 = jo1 + 1
-
-     soild = &
-          wio1 * (wjo1 * soil_depth(io1,jo1) + wjo2 * soil_depth(io1,jo2)) + &
-          wio2 * (wjo1 * soil_depth(io2,jo1) + wjo2 * soil_depth(io2,jo2))
-
-     ! We require at least TWO soil layers
-     layer_index = nzg - 1
-     do k = nzg-2,1,-1
-        if (slz(k+1) > -soild) layer_index = k
-     enddo
-
-     land%lsl(iwl) = layer_index
-  enddo
-
-  deallocate(soil_depth)
-
-  return
-end subroutine leaf_soil_depth_read
+!subroutine leaf_soil_depth_read()
+!
+!  use leaf_coms,   only: mwl, nzg, slz, soildepth_db
+!  use mem_leaf,    only: land
+!  use consts_coms, only: piu180, erad
+!  use misc_coms,   only: io6
+!  use hdf5_utils,  only: shdf5_open, shdf5_close, shdf5_irec, shdf5_info
+!
+!  implicit none
+!
+!  integer :: nio, njo, nperdeg
+!  integer :: io1, io2, jo1, jo2
+!  integer :: iwl
+!  integer :: layer_index
+!  integer :: k, ndims, idims(2)
+!  integer :: nlon, nlat
+!  real    :: wio1, wio2, wjo1, wjo2
+!  real    :: rio, rjo
+!  real    :: glat, glon
+!  real    :: soild
+!  real    :: offpix
+!  logical :: l1
+!
+!  real, allocatable :: soil_depth(:,:)
+!
+!  inquire(file=soildepth_db, exist=l1)
+!  if(.not.l1)then
+!     write(io6,*) 'You have ISOILDEPTHFLG = 1, which means you read a file'
+!     write(io6,*) 'containing soil depths.  However, the '
+!     write(io6,*) 'file you specified for SOILDEPTH_DB,'
+!     write(io6,*)
+!     write(io6,*) trim(soildepth_db)
+!     write(io6,*)
+!     write(io6,*) 'does not exist.'
+!     stop
+!  endif
+!
+!  write(io6,*) 'Reading soil depth database '//trim(soildepth_db)
+!  call shdf5_open(soildepth_db,'R')
+!
+!  call shdf5_info('soildepth',ndims,idims)
+!  nlon = idims(1)
+!  nlat = idims(2)
+!  
+!  allocate(soil_depth(nlon,nlat))
+!
+!  call shdf5_irec(ndims,idims,'soildepth',rvara=soil_depth)
+!  call shdf5_close()
+!
+!  offpix = 0.
+!  nperdeg = nlon/360
+!  if (mod(nlon,nperdeg) == 2) offpix = .5
+!
+!  ! Loop over land sites
+!
+!  do iwl = 2, mwl
+!     glon = max(-179.999,min(179.999,land%glonw(iwl)))
+!  
+!     rio = 1. + (glon            + 180.) * nperdeg + offpix
+!     rjo = 1. + (land%glatw(iwl) +  90.) * nperdeg + offpix
+!
+!     io1 = int(rio)
+!     jo1 = int(rjo)
+!         
+!     wio2 = rio - float(io1)
+!     wjo2 = rjo - float(jo1)
+!           
+!     wio1 = 1. - wio2
+!     wjo1 = 1. - wjo2
+!
+!     io2 = io1 + 1
+!     jo2 = jo1 + 1
+!
+!     soild = &
+!          wio1 * (wjo1 * soil_depth(io1,jo1) + wjo2 * soil_depth(io1,jo2)) + &
+!          wio2 * (wjo1 * soil_depth(io2,jo1) + wjo2 * soil_depth(io2,jo2))
+!
+!     ! We require at least TWO soil layers
+!     layer_index = nzg - 1
+!     do k = nzg-2,1,-1
+!        if (slz(k+1) > -soild) layer_index = k
+!     enddo
+!
+!     land%lsl(iwl) = layer_index
+!  enddo
+!
+!  deallocate(soil_depth)
+!
+!  return
+!end subroutine leaf_soil_depth_read

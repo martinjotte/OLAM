@@ -45,13 +45,11 @@ subroutine landcell(iwl, nlev_sfcwater, leaf_class, ntext_soil,             &
                     sxfer_t, sxfer_r, ustar, snowfac, vf,                   &
                     surface_ssh, ground_shv, veg_water, veg_temp,           &
                     can_temp, can_shv, stom_resist, veg_ndvip, veg_ndvif,   &
-                    veg_ndvic, veg_albedo, rough, lsl, head0, head1,        &
-                    xewl, yewl, zewl, timefac_ndvi, time8,                  &
-                    ed_patch)
+                    veg_ndvic, veg_albedo, rough, ggaer, head0, head1,      &
+                    xewl, yewl, zewl, timefac_ndvi, time8                   )
                               
 use leaf_coms,         only: nzg, nzs, soil_rough, snow_rough, slcpd, dt_leaf
 use misc_coms,         only: io6
-use ed_structure_defs, only: patch
 use leaf3_canopy,      only: canopy, vegndvi
 use leaf3_sfcwater,    only: sfcwater, sfcwater_adjust, remove_runoff
 use leaf3_soil,        only: soil
@@ -113,12 +111,9 @@ real, intent(inout) :: head1        ! UBC total hydraulic head [m]
 real, intent(in   ) :: xewl         ! Earth X-coordinate of land cell 'center' [m]
 real, intent(in   ) :: yewl         ! Earth Y-coordinate of land cell 'center' [m]
 real, intent(in   ) :: zewl         ! Earth Z-coordinate of land cell 'center' [m]
-
-integer, intent(in) :: lsl          ! Lowest soil layer
+real, intent(in   ) :: ggaer        ! surface aerodynamic conductance [m/s]
 
 real(kind=8), intent(in) :: time8   ! model time [s]
-
-type(patch), target, optional :: ed_patch
 
 ! Local arrays
 
@@ -145,7 +140,6 @@ integer :: nlsw1 ! maximum of (1,nlev_sfcwater)
 integer :: ktrans ! vertical index of soil layer supplying transpiration
 
 real :: transp  ! transpiration xfer this LEAF timestep [kg/m^2]
-real, dimension(nzg) :: ed_transp ! transpired water from each soil level; ED2 cells only [kg/m^2]
 real :: hxfergc ! heat xfer from ground (soil) to can_air this step [J/m^2]
 real :: wxfergc ! vapor xfer from ground (soil) to can_air this step [kg_vap/m^2]
 real :: hxfersc ! heat xfer from sfcwater to can_air this step [J/m^2]
@@ -172,8 +166,6 @@ real :: runoff
 real :: qrunoff
 !=================================================================
 
-if(.not.present(ed_patch))then
-
 ! Diagnose soil temperature and liquid fraction
 
 do k = 1,nzg
@@ -196,16 +188,6 @@ call vegndvi(iwl,                      &
              veg_tai,      veg_lai,      &
              veg_fracarea, veg_albedo,   &
              veg_rough                   ) 
-
-else
-   soil_tempk(lsl:nzg) = ed_patch%soil_tempk(lsl:nzg)
-   soil_fracliq(lsl:nzg) = ed_patch%soil_fracliq(lsl:nzg)
-   sfcwater_tempk(lsl:nlev_sfcwater) =   &
-        ed_patch%sfcwater_tempk(lsl:nlev_sfcwater)
-   sfcwater_fracliq(lsl:nlev_sfcwater) =   &
-        ed_patch%sfcwater_fracliq(lsl:nlev_sfcwater)
-   veg_fracarea = 1.0
-endif
 
 ! Compute roughness length based on vegetation and snow.
 
@@ -245,8 +227,7 @@ call canopy(iwl,                                          &
             hxferca,               hxfervc,               &
             wxfervc,               rdi,                   &
             rb,                    time8,                 &
-            lsl,                   ed_transp,             &
-            ed_patch               )
+            ggaer                                         )
 
 ! CALL SFCWATER:
 !  1. Compute soil and sfcwater heat conductivities
@@ -283,13 +264,12 @@ call soil(iwl,                            &
           soil_water,     soil_energy,    &
           hxferg,         wxfer,          &
           qwxfer,         psi,            &
-          lsl,                            &
           head,           head0,          &
           head1,          wfree1,         &
           qwfree1,        dwfree1,        &
           sfcwater_mass,  energy_per_m2,  &
-          sfcwater_depth,                 &
-          ed_transp,       ed_patch       )
+          sfcwater_depth                  )
+
 
 if (iwl == iwl_print)  then
 
@@ -386,31 +366,6 @@ call grndvap(iwl,                                       &
              can_shv,                ground_shv,        &
              surface_ssh                                )
              
-if (present(ed_patch)) then
-
-   do k = lsl,nzg
-      call qwtk(soil_energy(k),soil_water(k)*1.e3,  &
-           slcpd(ntext_soil(k)),soil_tempk(k),soil_fracliq(k))
-   enddo
-   
-   ! Diagnose surface water temperature and liquid fraction
-   
-   do k = 1,nlev_sfcwater
-      call qtk(sfcwater_energy(k),sfcwater_tempk(k),sfcwater_fracliq(k))
-   enddo
-   
-   do k = lsl,nzg
-      ed_patch%soil_tempk(k) = soil_tempk(k)
-      ed_patch%soil_fracliq(k) = soil_fracliq(k)
-   enddo
-   
-   do k = 1,nlev_sfcwater
-      ed_patch%sfcwater_tempk(k) = sfcwater_tempk(k)
-      ed_patch%sfcwater_fracliq(k) = sfcwater_fracliq(k)
-   enddo
-
-endif
-
 !-----------------------------------------------------------------------------
 ! TEMPORARY UNTIL FULL LEAF-HYDRO MODEL IS COMPLETED WITH STREAM/RIVER RUNOFF:
 ! Simple representation of runoff
@@ -421,11 +376,6 @@ call remove_runoff(iwl,            nlev_sfcwater,    &
                    sfcwater_depth,   runoff,           &
                    qrunoff                             )
 !-----------------------------------------------------------------------------
-
-if(present(ed_patch))then
-   ed_patch%omean_runoff = ed_patch%omean_runoff + runoff / dt_leaf
-   ed_patch%omean_qrunoff = ed_patch%omean_qrunoff + qrunoff / dt_leaf
-endif
 
 ! Call land patch plot routine for selected iwl values.
 ! Use '(iwl == 0)' to turn off this plot call.
@@ -508,10 +458,6 @@ if (iwl == 0)  &
 pcpg  = 0.
 qpcpg = 0.
 dpcpg = 0.
-
-if(present(ed_patch))then
-   if(associated(ed_patch%younger))return
-endif
 
 return
 end subroutine landcell

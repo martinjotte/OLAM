@@ -59,7 +59,7 @@ Module mem_sflux
 
 ! Land and sea flux variables
 
-  Type flux_vars
+  Type lflux_vars
      logical :: sendf(maxremote) = .false.
      
      integer :: ifglobe =  1
@@ -75,10 +75,15 @@ Module mem_sflux
      real :: xef     = 0.0
      real :: yef     = 0.0
      real :: zef     = 0.0
+     real :: glatf   = 0.0
+     real :: glonf   = 0.0
      real :: arf_atm = 0.0
      real :: arf_sfc = 0.0
+     real :: arf_kw  = 0.0
      real :: sfluxt  = 0.0
      real :: sfluxr  = 0.0
+     real :: sfluxc  = 0.0
+     real :: ustar0  = 0.0
      real :: ustar   = 0.0
      real :: rhos    = 0.0
      real :: prss    = 0.0
@@ -87,24 +92,97 @@ Module mem_sflux
      real :: airshv  = 0.0
      real :: sxfer_t = 0.0
      real :: sxfer_r = 0.0
+     real :: sxfer_c = 0.0
+     real :: ed_zeta = 0.0
+     real :: ed_rib  = 0.0
+     real :: ggaer0  = 0.0
+     real :: ggaer   = 0.0
      real :: pcpg    = 0.0
      real :: qpcpg   = 0.0
      real :: dpcpg   = 0.0
      real :: rlong   = 0.0
      real :: rshort  = 0.0
      real :: rshort_diffuse = 0.0
-  End Type flux_vars
+  End Type lflux_vars
 
-  type (flux_vars), allocatable, target :: seaflux(:)
-  type (flux_vars), allocatable, target :: landflux(:)
+  Type sflux_vars
+     logical :: sendf(maxremote) = .false.
+     
+     integer :: ifglobe =  1
+     integer :: iwrank  = -1
+     integer :: iw      =  0
+     integer :: kw      =  0
+     integer :: iwls    =  0
+     integer :: jpats   =  0  ! number of plot patches in this flux cell
+     integer :: ipat    =  1  ! index of first plot patch in this flux cell
+
+     real :: dtf     = 0.0
+     real :: area    = 0.0
+     real :: xef     = 0.0
+     real :: yef     = 0.0
+     real :: zef     = 0.0
+     real :: glatf   = 0.0
+     real :: glonf   = 0.0
+     real :: arf_atm = 0.0
+     real :: arf_sfc = 0.0
+     real :: arf_kw  = 0.0
+     real :: rhos    = 0.0
+     real :: airtemp = 0.0
+     real :: airshv  = 0.0
+     real :: pcpg    = 0.0
+     real :: qpcpg   = 0.0
+     real :: dpcpg   = 0.0
+     real :: rlong   = 0.0
+     real :: rshort  = 0.0
+     real :: rshort_diffuse = 0.0
+
+     real ::     sfluxt = 0.0
+     real :: sea_sfluxt = 0.0
+     real :: ice_sfluxt = 0.0
+
+     real ::     sfluxr = 0.0
+     real :: sea_sfluxr = 0.0
+     real :: ice_sfluxr = 0.0
+
+     real ::     sfluxc = 0.0
+
+     real ::     ustar0 = 0.0
+     real ::     ustar  = 0.0
+     real :: sea_ustar0 = 0.0
+     real :: sea_ustar  = 0.0
+     real :: ice_ustar0 = 0.0
+     real :: ice_ustar  = 0.0
+
+     real ::     sxfer_t = 0.0
+     real :: sea_sxfer_t = 0.0
+     real :: ice_sxfer_t = 0.0
+
+     real ::     sxfer_r = 0.0
+     real :: sea_sxfer_r = 0.0
+     real :: ice_sxfer_r = 0.0
+
+     real ::     sxfer_c = 0.0
+     real ::     ed_zeta = 0.0
+     real ::      ed_rib = 0.0
+
+     real ::      ggaer0 = 0.0
+     real ::      ggaer  = 0.0
+     real ::  sea_ggaer0 = 0.0
+     real ::  sea_ggaer  = 0.0
+     real ::  ice_ggaer0 = 0.0
+     real ::  ice_ggaer  = 0.0
+  End Type sflux_vars
+
+  type (sflux_vars), allocatable, target :: seaflux(:)
+  type (lflux_vars), allocatable, target :: landflux(:)
 
   type flux_pd_vars
      integer :: iw      =  0
      integer :: iwls    =  0
   end type flux_pd_vars
 
-  type (flux_vars), allocatable, target :: seaflux_pd(:)
-  type (flux_vars), allocatable, target :: landflux_pd(:)
+  type (flux_pd_vars), allocatable, target :: seaflux_pd(:)
+  type (flux_pd_vars), allocatable, target :: landflux_pd(:)
 
 !----------------------------------------------------------------------------
 
@@ -143,12 +221,13 @@ Contains
   subroutine filltab_sflux()
 
     use var_tables, only: vtab_r, num_var, increment_vtable
-    use misc_coms,  only: iparallel, runtype
+    use misc_coms,  only: iparallel, runtype, ipar_out
     implicit none
 
     if (allocated(seaflux)) then
 
-       if (iparallel==1 .or. runtype=='PLOTONLY' .or. runtype=='PARCOMBINE') then
+       if ( (runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or. &
+            (iparallel == 1 .and. ipar_out == 0) ) then
 
           call increment_vtable('SEAFLUX%IFGLOBE', 'SF', noread=.true.)
           vtab_r(num_var)%ivar1_p => seaflux%ifglobe
@@ -161,14 +240,30 @@ Contains
        call increment_vtable('SEAFLUX%SFLUXT', 'SF')
        vtab_r(num_var)%rvar1_p => seaflux%sfluxt
 
+       call increment_vtable('SEAFLUX%SEA_SFLUXT', 'SF')
+       vtab_r(num_var)%rvar1_p => seaflux%sea_sfluxt
+
+       call increment_vtable('SEAFLUX%ICE_SFLUXT', 'SF')
+       vtab_r(num_var)%rvar1_p => seaflux%ice_sfluxt
+
        call increment_vtable('SEAFLUX%SFLUXR', 'SF')
        vtab_r(num_var)%rvar1_p => seaflux%sfluxr
+
+       call increment_vtable('SEAFLUX%SEA_SFLUXR', 'SF')
+       vtab_r(num_var)%rvar1_p => seaflux%sea_sfluxr
+
+       call increment_vtable('SEAFLUX%ICE_SFLUXR', 'SF')
+       vtab_r(num_var)%rvar1_p => seaflux%ice_sfluxr
+
+       call increment_vtable('SEAFLUX%SFLUXC', 'SF')
+       vtab_r(num_var)%rvar1_p => seaflux%sfluxc
 
     endif
 
     if (allocated(landflux)) then
 
-       if (iparallel==1 .or. runtype=='PLOTONLY' .or. runtype=='PARCOMBINE') then
+       if ( (runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or. &
+            (iparallel == 1 .and. ipar_out == 0) ) then
 
           call increment_vtable('LANDFLUX%IFGLOBE', 'LF', noread=.true.)
           vtab_r(num_var)%ivar1_p => landflux%ifglobe
@@ -183,6 +278,9 @@ Contains
 
        call increment_vtable('LANDFLUX%SFLUXR', 'LF')
        vtab_r(num_var)%rvar1_p => landflux%sfluxr
+
+       call increment_vtable('LANDFLUX%SFLUXC', 'LF')
+       vtab_r(num_var)%rvar1_p => landflux%sfluxc
 
     endif
 
@@ -438,6 +536,7 @@ use mem_ijtabs, only: itab_w, mrls
 use leaf_coms,  only: nwl, dt_leaf
 use sea_coms,   only: nws
 use misc_coms,  only: io6, rinit
+use consts_coms,only: piu180
 
 implicit none
 
@@ -481,6 +580,8 @@ real :: traparea(npmax+nqmax+npmax*nqmax) ! trapezoid area
 integer :: itmax
 integer :: iter
 real :: trapareamax
+real :: delarw
+real :: raxis
 
 real :: aatmin, aatmax, astmin, astmax, altmin, altmax
 real :: dists, distn, wts, wtn
@@ -490,8 +591,8 @@ real :: dists, distn, wts, wtn
 integer, allocatable :: iscrpat(:)
 real,    allocatable :: scrpat(:,:)
 
-type(flux_vars), allocatable :: landflux_temp(:)
-type(flux_vars), allocatable :: seaflux_temp (:)
+type(lflux_vars), allocatable :: landflux_temp(:)
+type(sflux_vars), allocatable :: seaflux_temp (:)
 
 real :: arf_atm_test(nwa)
 real :: arf_sea_test(nws)
@@ -852,18 +953,27 @@ endif
                 ztrap(2,jt) >= zm(k) .and.  &
                 ztrap(3,jt) >= zm(k)) go to 11
 
-! Skip this set if all 3 vertex elevations are below bottom of T level
+! If all 3 vertex elevations are below bottom of T level, add its area
+! and volume to the atmospheric cell, but skip flux cell calculation
 
             if (ztrap(1,jt) < zm(k-1) .and.  &
                 ztrap(2,jt) < zm(k-1) .and.  &
-                ztrap(3,jt) < zm(k-1)) go to 11
+                ztrap(3,jt) < zm(k-1)) then
+
+               delarw = abs( 0.5 * (xtrap(2,jt) - xtrap(1,jt)) * (ytrap(3,jt) - ytrap(1,jt)) )
+               arw (k,iw) = arw(k,iw)  + delarw
+               volt(k,iw) = volt(k,iw) + delarw * dzt(k)
+
+               go to 11
+
+            endif
 
 ! Do this set if points 1 and 2 do not coincide
 
             if (abs(xtrap(1,jt) - xtrap(2,jt)) > 1.e0) then
 
-               call trap3(iw,k,kflag,npoly,npmax,   &
-                          xmean,ymean,xp,yp,              &
+               call trap3(iw,k,kflag,npoly,npmax,traparea(jt),  &
+                          xmean,ymean,xp,yp,                    &
                           xtrap(1,jt),xtrap(2,jt),xtrap(3,jt),  &
                           ytrap(1,jt),ytrap(2,jt),ytrap(3,jt),  &
                           ztrap(1,jt),ztrap(2,jt),ztrap(3,jt),  &
@@ -883,18 +993,27 @@ endif
                 ztrap(3,jt) >= zm(k) .and.  &
                 ztrap(4,jt) >= zm(k)) go to 12
 
-! Skip this set if all 3 vertex elevations are below bottom of T level
+! If all 3 vertex elevations are below bottom of T level, add its area
+! and volume to the atmospheric cell, but skip flux cell calculation
 
             if (ztrap(1,jt) < zm(k-1) .and.  &
                 ztrap(3,jt) < zm(k-1) .and.  &
-                ztrap(4,jt) < zm(k-1)) go to 12
+                ztrap(4,jt) < zm(k-1)) then
+
+               delarw = abs( 0.5 * (xtrap(4,jt) - xtrap(3,jt)) * (ytrap(1,jt) - ytrap(3,jt)) )
+               arw (k,iw) = arw(k,iw)  + delarw
+               volt(k,iw) = volt(k,iw) + delarw * dzt(k)
+
+               go to 12
+
+            endif
 
 ! Do this set if points 3 and 4 do not coincide
 
             if (abs(xtrap(3,jt) - xtrap(4,jt)) > 1.e0) then
 
-               call trap3(iw,k,kflag,npoly,npmax,   &
-                          xmean,ymean,xp,yp,              &
+               call trap3(iw,k,kflag,npoly,npmax,traparea(jt),  &
+                          xmean,ymean,xp,yp,                    &
                           xtrap(3,jt),xtrap(4,jt),xtrap(1,jt),  &
                           ytrap(3,jt),ytrap(4,jt),ytrap(1,jt),  &
                           ztrap(3,jt),ztrap(4,jt),ztrap(1,jt),  &
@@ -917,8 +1036,13 @@ endif
                    xmean/landflux(ilf)%area,  &
                    ymean/landflux(ilf)%area   )
 
-         landflux(ilf)%arf_atm  = landflux(ilf)%area / arw0(iw)
+         landflux(ilf)%arf_atm = landflux(ilf)%area / arw0(iw)
          landflux(ilf)%arf_sfc = landflux(ilf)%area / land%area(iwl)
+
+         raxis = sqrt( landflux(ilf)%xef**2 + landflux(ilf)%yef**2 )
+
+         landflux(ilf)%glatf = atan2(landflux(ilf)%zef,raxis) * piu180
+         landflux(ilf)%glonf = atan2(landflux(ilf)%yef,landflux(ilf)%xef) * piu180
 
       enddo ! k loop
 
@@ -1101,18 +1225,27 @@ endif
                 ztrap(2,jt) >= zm(k) .and.  &
                 ztrap(3,jt) >= zm(k)) go to 13
 
-! Skip this set if all 3 vertex elevations are below bottom of T level
+! If all 3 vertex elevations are below bottom of T level, add its area
+! and volume to the atmospheric cell, but skip flux cell calculation
 
             if (ztrap(1,jt) < zm(k-1) .and.  &
                 ztrap(2,jt) < zm(k-1) .and.  &
-                ztrap(3,jt) < zm(k-1)) go to 13
+                ztrap(3,jt) < zm(k-1))  then
+
+               delarw = abs( 0.5 * (xtrap(2,jt) - xtrap(1,jt)) * (ytrap(3,jt) - ytrap(1,jt)) )
+               arw (k,iw) = arw(k,iw)  + delarw
+               volt(k,iw) = volt(k,iw) + delarw * dzt(k)
+
+               go to 13
+
+            endif
 
 ! Do this set if points 1 and 2 do not coincide
 
             if (abs(xtrap(1,jt) - xtrap(2,jt)) > 1.e0) then
 
-               call trap3(iw,k,kflag,npoly,npmax,   &
-                          xmean,ymean,xp,yp,              &
+               call trap3(iw,k,kflag,npoly,npmax,traparea(jt),  &
+                          xmean,ymean,xp,yp,                    &
                           xtrap(1,jt),xtrap(2,jt),xtrap(3,jt),  &
                           ytrap(1,jt),ytrap(2,jt),ytrap(3,jt),  &
                           ztrap(1,jt),ztrap(2,jt),ztrap(3,jt),  &
@@ -1132,18 +1265,27 @@ endif
                 ztrap(3,jt) >= zm(k) .and.  &
                 ztrap(4,jt) >= zm(k)) go to 14
 
-! Skip this set if all 3 vertex elevations are below bottom of T level
+! If all 3 vertex elevations are below bottom of T level, add its area
+! and volume to the atmospheric cell, but skip flux cell calculation
 
             if (ztrap(1,jt) < zm(k-1) .and.  &
                 ztrap(3,jt) < zm(k-1) .and.  &
-                ztrap(4,jt) < zm(k-1)) go to 14
+                ztrap(4,jt) < zm(k-1)) then
+
+               delarw = abs( 0.5 * (xtrap(4,jt) - xtrap(3,jt)) * (ytrap(1,jt) - ytrap(3,jt)) )
+               arw (k,iw) = arw(k,iw)  + delarw
+               volt(k,iw) = volt(k,iw) + delarw * dzt(k)
+
+               go to 14
+
+            endif
 
 ! Do this set if points 3 and 4 do not coincide
 
             if (abs(xtrap(3,jt) - xtrap(4,jt)) > 1.e0) then
 
-               call trap3(iw,k,kflag,npoly,npmax,   &
-                          xmean,ymean,xp,yp,              &
+               call trap3(iw,k,kflag,npoly,npmax,traparea(jt),  &
+                          xmean,ymean,xp,yp,                    &
                           xtrap(3,jt),xtrap(4,jt),xtrap(1,jt),  &
                           ytrap(3,jt),ytrap(4,jt),ytrap(1,jt),  &
                           ztrap(3,jt),ztrap(4,jt),ztrap(1,jt),  &
@@ -1168,6 +1310,11 @@ endif
 
          seaflux(isf)%arf_atm = seaflux(isf)%area / arw0(iw)
          seaflux(isf)%arf_sfc = seaflux(isf)%area / sea%area(iws)
+
+         raxis = sqrt( seaflux(isf)%xef**2 + seaflux(isf)%yef**2 )
+
+         seaflux(isf)%glatf = atan2(seaflux(isf)%zef,raxis) * piu180
+         seaflux(isf)%glonf = atan2(seaflux(isf)%yef,seaflux(isf)%xef) * piu180
 
       enddo ! k loop
 
@@ -1363,8 +1510,8 @@ end subroutine init_fluxcells
 
 !============================================================================
 
-subroutine trap3(iw,k,kflag,npoly,npmax,   &
-                 xmean,ymean,xp,yp,  &
+subroutine trap3(iw,k,kflag,npoly,npmax,traparea, &
+                 xmean,ymean,xp,yp,        &
                  xtrap1,xtrap2,xtrap3,     &
                  ytrap1,ytrap2,ytrap3,     &
                  ztrap1,ztrap2,ztrap3,     &
@@ -1383,7 +1530,7 @@ integer, optional, intent(inout) :: ilf,isf
 
 real, intent(inout) :: xmean,ymean
 real, intent(in) :: xp(npmax),yp(npmax)
-
+real, intent(in) :: traparea
 real, intent(in) :: xtrap1,xtrap2,xtrap3
 real, intent(in) :: ytrap1,ytrap2,ytrap3
 real, intent(in) :: ztrap1,ztrap2,ztrap3
@@ -1401,6 +1548,8 @@ real :: dt13,dt32,dt14,dt43,dx13,dx32,dx14,dx43,dy13,dy32,dy14,dy43
 real :: faci1,faci2,facj1,facj2
 real :: top1,top2,top3,top4,topp
 real :: flux_area
+real :: atms_area
+real(8) :: atms_volt
 
 ! Compute intersection of current surface triangle (half-trapezoid) with 
 ! current atmospheric model level.  This results in one polygonal patch 
@@ -1428,7 +1577,9 @@ del_arw = abs(.5 * (xtrap2 - xtrap1) * (ytrap3 - ytrap1)) / real(nsub*nsub)
 
 ! [NEED TO REPLACE ABOVE AREA WITH SPHERICAL AREA ?]
 
-flux_area = 0.
+flux_area = 0.0
+atms_area = 0.0
+atms_volt = 0.0_8
 
 do jsub = 1,nsub
 
@@ -1468,8 +1619,8 @@ do jsub = 1,nsub
          endif
 
          if (topp < zm(k)) then
-            arw (k,iw) = arw (k,iw) + del_arw
-            volt(k,iw) = volt(k,iw) + del_arw * (zm(k) - max(topp,zm(k-1)))
+            atms_area = atms_area + del_arw
+            atms_volt = atms_volt + del_arw * (zm(k) - max(topp,zm(k-1)))
 
             if (topp >= zm(k-1)) then
                flux_area = flux_area + del_arw
@@ -1487,9 +1638,12 @@ do jsub = 1,nsub
 
 enddo  ! jp
 
+arw (k,iw) = arw (k,iw) + atms_area
+volt(k,iw) = volt(k,iw) + atms_volt
+
 ! Check current contribution to flux area
 
-if (flux_area > 1.e2) then
+if (flux_area > traparea * 1.e-4) then
 
 ! Convert xpat,ypat from ps to earth coordinates
 

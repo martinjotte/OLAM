@@ -38,20 +38,23 @@ use mem_ijtabs, only: itab_m,      itab_v,      itab_w,      &
                       itab_m_vars, itab_v_vars, itab_w_vars, &
                       itabg_m,     itabg_v,     itabg_w,     &
                       itab_m_pd,   itab_v_pd,   itab_w_pd,   &
-                      alloc_itabs, mrls
+                      alloc_itabs, mrls, &
+                      jtm_vadj, jtm_lbcp, &
+                      jtv_init, jtv_prog, jtv_wadj, jtv_wstn, jtv_lbcp, &
+                      jtw_init, jtw_prog, jtw_wadj, jtw_wstn, jtw_lbcp
 
 use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
                       alloc_gridz, alloc_xyzem, alloc_xyzew, &
                       alloc_grid1, alloc_grid2
 
-use mem_para,   only: mgroupsize, myrank, &
+use mem_para,   only: mgroupsize, myrank,                             &
                       send_u, recv_u, send_v, recv_v, send_w, recv_w, &
-                      nsends_u, nsends_v, nsends_w, &
-                      nrecvs_u, nrecvs_v, nrecvs_w
+                      nsends_u, nsends_v, nsends_w, nsends_m,         &
+                      nrecvs_u, nrecvs_v, nrecvs_w, nrecvs_m
 
-use mem_sflux,  only: nseaflux,  mseaflux,  seaflux,  seafluxg,  &
-                      nlandflux, mlandflux, landflux, landfluxg, &
-                      flux_vars
+use mem_sflux,  only: nseaflux,  mseaflux,  seaflux,  seafluxg,  seaflux_pd,  &
+                      nlandflux, mlandflux, landflux, landfluxg, landflux_pd, &
+                      lflux_vars, sflux_vars
 
 use sea_coms,   only: nws
 
@@ -64,14 +67,15 @@ use mem_leaf,   only: itabg_wl
 implicit none
 
 integer :: j,k,imn,ivn,iwn
-integer :: im,iv,iw
-integer :: itopm,ivp,iwp
+integer :: im,iv,iw,iw1,iw2
+integer :: imp,ivp,iwp
 integer :: isf,ilf,iws,iwl
 integer :: npoly
+integer :: wadj_flag
 
-integer :: im_myrank = 1 ! Counter for M points to be included on this rank
-integer :: iv_myrank = 1 ! Counter for V points to be included on this rank
-integer :: iw_myrank = 1 ! Counter for W points to be included on this rank
+integer :: im_myrank ! Counter for M points to be included on this rank
+integer :: iv_myrank ! Counter for V points to be included on this rank
+integer :: iw_myrank ! Counter for W points to be included on this rank
 
 ! Automatic arrays
 
@@ -84,8 +88,8 @@ logical :: landflag(nwl)
 
 ! Temporary datatypes
 
-type(flux_vars), allocatable :: landflux_temp(:)
-type(flux_vars), allocatable ::  seaflux_temp(:)
+type(lflux_vars), allocatable :: landflux_temp(:)
+type(sflux_vars), allocatable ::  seaflux_temp(:)
 
 integer :: ierr
 
@@ -93,8 +97,11 @@ integer :: ierr
 
 allocate (nsends_v(mrls)) ; nsends_v(1:mrls) = 0
 allocate (nsends_w(mrls)) ; nsends_w(1:mrls) = 0
+allocate (nsends_m(mrls)) ; nsends_m(1:mrls) = 0
+
 allocate (nrecvs_v(mrls)) ; nrecvs_v(1:mrls) = 0
 allocate (nrecvs_w(mrls)) ; nrecvs_w(1:mrls) = 0
+allocate (nrecvs_m(mrls)) ; nrecvs_m(1:mrls) = 0
 
 ! Initialize myrank flag arrays to .false.
 
@@ -108,52 +115,53 @@ myrankflag_v(:) = .false.
 myrankflag_w(:) = .false.
 
 ! Loop over all V points, and for each whose assigned irank is equal to myrank,
-! flag all V and W points in its computational stencil for inclusion on this
-! rank, excluding IVP and IWP.
+! flag all M, V, and W points in its computational stencil for inclusion on this
+! rank, excluding IVP.
 
 do iv = 2,nva
-
    if (itabg_v(iv)%irank == myrank) then
 
       myrankflag_v(iv) = .true.
 
-      myrankflag_v( itab_v_pd(iv)%iv(1:16) ) = .true.
-      myrankflag_w( itab_v_pd(iv)%iw(1:4)  ) = .true.
+      myrankflag_m( itab_v_pd(iv)%im(1:6) ) = .true.
+      myrankflag_v( itab_v_pd(iv)%iv(1:4) ) = .true.
+      myrankflag_w( itab_v_pd(iv)%iw(1:4) ) = .true.
 
    endif
 enddo
 
 ! Loop over all W points, and for each whose assigned irank is equal to myrank,
-! flag all V and W points in its computational stencil for inclusion on this
-! rank, excluding IVP and IWP.
+! flag all M, V, and W points in its computational stencil for inclusion on this
+! rank, excluding IWP.
 
 do iw = 2,nwa
-
    if (itabg_w(iw)%irank == myrank) then
 
       myrankflag_w(iw) = .true.
 
 ! The standard computational stencil of mem_ijtabs
 
-      myrankflag_w( itab_w_pd(iw)%iw(1:7) ) = .true.
+      myrankflag_m( itab_w_pd(iw)%im(1:7) ) = .true.
       myrankflag_v( itab_w_pd(iw)%iv(1:7) ) = .true.
+      myrankflag_w( itab_w_pd(iw)%iw(1:7) ) = .true.
 
    endif
 enddo
 
-! Loop over all V points, and for each that has been flagged for inclusion
-! on this rank, flag its M points for inclusion on this rank.
-! Count V points also.
-
-do iv = 2,nva
-
-   if (myrankflag_v(iv)) then
-
-      myrankflag_m( itab_v_pd(iv)%im(1:6) ) = .true.
-      iv_myrank = iv_myrank + 1
-
-   endif
-enddo
+!! IS THIS NECESSARY ANYMORE??
+!! Loop over all V points, and for each that has been flagged for inclusion
+!! on this rank, flag its 2 primary M points for inclusion on this rank.
+!!
+!! Count V points also.
+!!
+!!do iv = 2,nva
+!!   if (myrankflag_v(iv)) then
+!!
+!!     myrankflag_m( itab_v_pd(iv)%im(1:2) ) = .true.
+!!      iv_myrank = iv_myrank + 1
+!!
+!!   endif
+!!enddo
 
 ! Ignore the "dummy" 1st point in case it was activated
 
@@ -164,9 +172,19 @@ myrankflag_w(1) = .false.
 ! Loop over all M and W points and count the ones that have been flagged
 ! for inclusion on this rank.
 
+im_myrank = 1
+iv_myrank = 1
+iw_myrank = 1
+
 do im = 2,nma
    if (myrankflag_m(im)) then
       im_myrank = im_myrank + 1
+   endif
+enddo
+
+do iv = 2,nva
+   if (myrankflag_v(iv)) then
+      iv_myrank = iv_myrank + 1
    endif
 enddo
 
@@ -213,11 +231,6 @@ do iv = 1,nva
       iv_myrank = iv_myrank + 1
       
       itabg_v(iv)%iv_myrank = iv_myrank
-      
-! Fill itabg_v(iv)%iv_myrank value for IVP point
-
-      ivp = itab_v_pd(iv)%ivp
-      itabg_v(ivp)%iv_myrank = iv_myrank
    endif
 enddo
 
@@ -226,11 +239,6 @@ do iw = 1,nwa
       iw_myrank = iw_myrank + 1
 
       itabg_w(iw)%iw_myrank = iw_myrank      
-
-! Fill itabg_w(iw)%iw_myrank value for IWP point
-
-      iwp = itab_w_pd(iw)%iwp
-      itabg_w(iwp)%iw_myrank = iw_myrank
    endif
 enddo
 
@@ -248,202 +256,227 @@ do iw = 1, nwa
    if (myrankflag_w(iw)) itab_w(itabg_w(iw)%iw_myrank)%iwglobe = iw
 enddo
 
-! Reading the local grid structure
+! Read the grid structure for all points in local parallel subdomain
+! for this rank (or for all points in domain if run is sequential)
 
 call gridfile_read()
 
-!!!! ITAB_? POPULATION
+! itab_m, itab_v, and itab_w data structures that exist in local subdomain
+! memory were filled in subroutine gridfile_read, but with member values
+! for the full domain.  Those member values that depend on local subdomain
+! are reset next.
 
-! put itab_m in place
+! Loop over all M points in global domain
 
 do im = 1,nma
+   if (myrankflag_m(im)) then ! M point is in memory on local subdomain
 
-   if (myrankflag_m(im)) then
-      npoly = itab_m_pd(im)%npoly
-   
-      im_myrank = itabg_m(im)%im_myrank
+      im_myrank = itabg_m(im)%im_myrank ! Local index of M point
 
-! Reset IM neighbor indices to 1
-
-      itab_m(im_myrank)%itopm = 1
-      itab_m(im_myrank)%iw(1:npoly) = 1
-      itab_m(im_myrank)%iv(1:npoly) = 1
-
-! Turn off M loop 3 (to be turned back on later at some points)
-
-      call mloops('n',im_myrank,-3,0,0,0)
-   
-! Global indices of neighbors of IM
 ! Set indices of neighbors of IM that are present on this rank
 
-      itopm = itab_m_pd(im)%itopm
-      if (myrankflag_m(itopm)) itab_m(im_myrank)%itopm = itabg_m(itopm)%im_myrank
+      npoly = itab_m_pd(im)%npoly
 
       do j = 1,npoly
-         iv = itab_m_pd(im)%iv(j)
-         iw = itab_m_pd(im)%iw(j)
-      
-         if (myrankflag_v(iv)) itab_m(im_myrank)%iv(j) = itabg_v(iv)%iv_myrank
-         if (myrankflag_w(iw)) itab_m(im_myrank)%iw(j) = itabg_w(iw)%iw_myrank
+         ivn = itab_m_pd(im)%iv(j) ! Global index
+         iwn = itab_m_pd(im)%iw(j) ! Global index
+
+         ! Get the other im neighbor in this direction
+
+         if ( itab_v_pd(ivn)%im(1) == im ) then
+            imn = itab_v_pd(ivn)%im(2)
+         else
+            imn = itab_v_pd(ivn)%im(1)
+         endif
+
+! If IVN point is in memory on local parallel subdomain, assign its local
+! index to IM stencil; otherwise set index to 1
+
+         if (myrankflag_v(ivn)) then
+            itab_m(im_myrank)%iv(j) = itabg_v(ivn)%iv_myrank
+         else
+            itab_m(im_myrank)%iv(j) = 1
+         endif
+
+! If IWN point is in memory on local parallel subdomain, assign its local
+! index to IM stencil; otherwise set index to 1
+
+         if (myrankflag_w(iwn)) then
+            itab_m(im_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
+         else
+            itab_m(im_myrank)%iw(j) = 1
+         endif
       enddo
-      
+
+! Turn off jtm_vadj loop flag if M point is not primary on this subdomain
+
+      if (itabg_m(im)%irank /= myrank) then
+         call mloopf('n', im_myrank, -jtm_vadj, 0, 0, 0, 0, 0)
+      endif
+
+! If IMP point exists on local parallel subdomain, assign its local
+! index to IM stencil; otherwise set index to 1 and turn off lbcp flag
+
+      imp = itab_m_pd(im)%imp ! Global index
+
+      if (myrankflag_m(imp)) then
+         itab_m(im_myrank)%imp = itabg_m(imp)%im_myrank ! Local index
+      else
+         itab_m(im_myrank)%imp = 1
+         call mloopf('n', im_myrank, -jtm_lbcp, 0, 0, 0, 0, 0)
+      endif
+
    endif
 enddo
 
-! put itab_v in place
+! Loop over all V points in global domain
 
 do iv = 1,nva
-   if (myrankflag_v(iv)) then
+   if (myrankflag_v(iv)) then ! V point is in memory on local subdomain
 
-! Look up global IVP index and subdomain IV index
-
-      ivp = itab_v_pd(iv)%ivp
-      iv_myrank = itabg_v(iv)%iv_myrank
-
-! Next, redefine some individual itab_v members
+      iv_myrank = itabg_v(iv)%iv_myrank ! Local index of V point
 
       itab_v(iv_myrank)%irank = itabg_v(iv)%irank
 
-! Check if this V point is primary on a remote rank
-
-      if (itab_v(iv_myrank)%irank /= myrank) then      
-
-! Turn off some loop flags for these points (some will be turned back on later)
-
-         call vloops('n',iv_myrank,-7,-8,-12,-15,-16,-18,  0, 0, 0, 0)
-
-! Turn off LBC copy (n/a for global domain) if IVP point is on remote node
-
-         if (.not. myrankflag_v(ivp))  &
-            call vloops('n',iv_myrank,-9,-18,0,0,0,0,0,0,0)
-
-      endif
-
-! Reset IV neighbor indices to 1
-
-      itab_v(iv_myrank)%ivp = 1
-
-      itab_v(iv_myrank)%im(1:6)  = 1
-      itab_v(iv_myrank)%iv(1:16) = 1
-      itab_v(iv_myrank)%iw(1:4)  = 1
-
-! Set indices of neighbors of IV that are present on this rank
-
-      if (myrankflag_v(ivp)) itab_v(iv_myrank)%ivp = itabg_v(ivp)%iv_myrank
+! Set local indices of M points in V stencil
 
       do j = 1,6
-         imn = itab_v_pd(iv)%im(j)
-         if (myrankflag_m(imn)) itab_v(iv_myrank)%im(j) = itabg_m(imn)%im_myrank
+         imn = itab_v_pd(iv)%im(j) ! Global index
+
+         if (myrankflag_m(imn)) then
+            itab_v(iv_myrank)%im(j) = itabg_m(imn)%im_myrank
+         else
+            itab_v(iv_myrank)%im(j) = 1
+         endif
       enddo
 
-      do j = 1,16
-         ivn = itab_v_pd(iv)%iv(j)
-         if (myrankflag_v(ivn)) itab_v(iv_myrank)%iv(j) = itabg_v(ivn)%iv_myrank
-      enddo
+! Set local indices of V points in V stencil
 
       do j = 1,4
-         iwn = itab_v_pd(iv)%iw(j)
-         if (myrankflag_w(iwn)) itab_v(iv_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
+         ivn = itab_v_pd(iv)%iv(j) ! Global index
+
+         if (myrankflag_v(ivn)) then
+            itab_v(iv_myrank)%iv(j) = itabg_v(ivn)%iv_myrank
+         else
+            itab_v(iv_myrank)%iv(j) = 1
+         endif
       enddo
+
+! Set local indices of W points in V stencil
+
+      do j = 1,4
+         iwn = itab_v_pd(iv)%iw(j) ! Global index
+
+         if (myrankflag_w(iwn)) then
+            itab_v(iv_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
+         else
+            itab_v(iv_myrank)%iw(j)  = 1
+         endif
+      enddo
+
+! If IV point is not primary on local parallel subdomain,
+! turn off jtv_init and jtv_prog flags
+
+      if (itabg_v(iv)%irank /= myrank) then
+         call vloopf('n',iv_myrank, -jtv_init, -jtv_prog, 0, 0, 0, 0)
+      endif
+
+! If adjacent W points are both not primary on local parallel subdomain,
+! turn off jtv_wadj and jtv_wstn flags
+
+      iw1 = itab_v_pd(iv)%iw(1) ! Global index
+      iw2 = itab_v_pd(iv)%iw(2) ! Global index
+
+      if (itabg_w(iw1)%irank /= myrank .and. itabg_w(iw2)%irank /= myrank) then
+         call vloopf('n',iv_myrank, -jtv_wadj, -jtv_wstn, 0, 0, 0, 0)
+      endif
+      
+! If IVP point exists on local parallel subdomain, assign its local
+! index to IV stencil; otherwise set index to 1 and turn off lbcp flag
+
+      ivp = itab_v_pd(iv)%ivp ! Global index
+
+      if (myrankflag_v(ivp)) then
+         itab_v(iv_myrank)%ivp = itabg_v(ivp)%iv_myrank
+      else
+         itab_v(iv_myrank)%ivp = 1
+         call vloopf('n',iv_myrank, -jtv_lbcp, 0, 0, 0, 0, 0)
+      endif
 
    endif
 enddo
 
-! put itab_w in place
+! Loop over all W points in global domain
 
 do iw = 1,nwa
-   if (myrankflag_w(iw)) then
+   if (myrankflag_w(iw)) then ! W point is in memory on local subdomain
 
-! Look up global IWP index and subdomain IW index
-   
-      iwp = itab_w_pd(iw)%iwp
-      iw_myrank = itabg_w(iw)%iw_myrank
-
-! Next, redefine some individual itab_w members
+      iw_myrank = itabg_w(iw)%iw_myrank ! Local index of W point
 
       itab_w(iw_myrank)%irank = itabg_w(iw)%irank
 
-! Check if this W point is primary on a remote rank
+! Set local indices of M, V, W points in W stencil
 
-      if (itab_w(iw_myrank)%irank /= myrank) then      
+      wadj_flag = 0
+      if (itabg_w(iw)%irank == myrank) wadj_flag = 1
 
-! Turn off some loop flags for these points
+      do j = 1,7
+         imn = itab_w_pd(iw)%im(j) ! Global index
+         ivn = itab_w_pd(iw)%iv(j) ! Global index
+         iwn = itab_w_pd(iw)%iw(j) ! Global index
 
-         call wloops('n',iw_myrank,-12,-13,-15,-16,-17,-19,-20,-23,-26,-27)
-         call wloops('n',iw_myrank,-29,-30,-34,  0,  0,  0,  0,  0,  0,  0)
+         if (myrankflag_m(imn)) then
+            itab_w(iw_myrank)%im(j) = itabg_m(imn)%im_myrank
+         else
+            itab_w(iw_myrank)%im(j) = 1
+         endif
 
-! Turn off LBC copy if IWP point is on remote node
+         if (myrankflag_v(ivn)) then
+            itab_w(iw_myrank)%iv(j) = itabg_v(ivn)%iv_myrank
+         else
+            itab_w(iw_myrank)%iv(j) = 1
+         endif
+ 
+         if (myrankflag_w(iwn)) then
+            itab_w(iw_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
+         else
+            itab_w(iw_myrank)%iw(j) = 1
+         endif
 
-         if (.not. myrankflag_w(iwp))  &
-            call wloops('n',iw_myrank,-9,-22,-24,-31,-35,0,0,0,0,0)
+         if (itabg_w(iwn)%irank == myrank) wadj_flag = 1
+      enddo
 
+! If IW point is not primary on local parallel subdomain,
+! turn off jtw_init and jtw_prog flags
+
+      if (itabg_w(iw)%irank /= myrank) then
+         call wloopf('n',iw_myrank, -jtw_init, -jtw_prog, 0, 0, 0, 0)
       endif
 
-! Reset IW neighbor indices to 1
+! If none of the adjacent W points is primary on local parallel subdomain,
+! turn off jtw_wadj and jtw_wstn flags
 
-      itab_w(iw_myrank)%iwp = 1
+      if (wadj_flag == 0) then
+         call wloopf('n',iw_myrank, -jtw_wadj, -jtw_wstn, 0, 0, 0, 0)
+      endif
 
-      itab_w(iw_myrank)%im(1:7) = 1
-      itab_w(iw_myrank)%iv(1:7) = 1
-      itab_w(iw_myrank)%iw(1:7) = 1
+! If IWP point exists on local parallel subdomain, assign its local
+! index to IW stencil; otherwise set index to 1 and turn off lbcp flag
 
-! Set indices of neighbors of IW that are present on this rank
+      iwp = itab_w_pd(iw)%iwp ! Global index
 
-      if (myrankflag_w(iwp)) itab_w(iw_myrank)%iwp = itabg_w(iwp)%iw_myrank
-
-      do j = 1,7
-         imn = itab_w_pd(iw)%im(j)
-         if (myrankflag_m(imn)) itab_w(iw_myrank)%im(j) = itabg_m(imn)%im_myrank
-      enddo
-      
-      do j = 1,7
-         ivn = itab_w_pd(iw)%iv(j)
-         if (myrankflag_v(ivn)) itab_w(iw_myrank)%iv(j) = itabg_v(ivn)%iv_myrank
-      enddo
-      
-      do j = 1,7
-         iwn = itab_w_pd(iw)%iw(j)
-         if (myrankflag_w(iwn)) itab_w(iw_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
-      enddo
-      
-   endif
-enddo
-
-! Turn back on some loop flags needed with respect to the local IV point
-
-do iv = 1, nva
-   if (itabg_v(iv)%irank == myrank) then
-
-! Set mloop flag 3 for 6 M neighbors if IW is primary on this rank.
-
-      do j = 1, 6
-         imn = itab_v_pd(iv)%im(j)
-         call mloops('n',itabg_m(imn)%im_myrank,3,0,0,0)
-      enddo
-
-   endif
-enddo
-
-! Turn back on some loop flags needed with respect to the local IW point
-
-do iw = 1,nwa
-   if (itabg_w(iw)%irank == myrank) then
-
-! Set vloop flag 12 and 15 for the nearest V neighbors if IW is primary
-! on this rank.
-
-      do j=1,7
-         ivn = itab_w_pd(iw)%iv(j)
-         if (ivn > 1) then
-            call vloops('n',itabg_v(ivn)%iv_myrank,12,15,0,0,0,0,0,0,0,0)
-         endif
-      enddo
+      if (myrankflag_w(iwp)) then
+         itab_w(iw_myrank)%iwp = itabg_w(iwp)%iw_myrank
+      else
+         itab_w(iw_myrank)%iwp = 1
+         call wloopf('n',iw_myrank, -jtw_lbcp, 0, 0, 0, 0, 0)
+      endif
 
    endif
 enddo
 
 ! Loop over all V points and for each that is primary on a remote rank, 
-! access all V and W points in its stencil.
+! access all V, W and M points in its stencil.
 
 do iv = 2,nva
    if (itabg_v(iv)%irank /= myrank) then
@@ -453,31 +486,52 @@ do iv = 2,nva
 ! If IV point is in memory of myrank, its value must be received from 
 ! remote rank.  Add that remote rank to receive table.
 
-      if (myrankflag_v(iv)) call recv_table_v(itabg_v(iv)%irank)
+      ivp  = itab_v_pd(iv)%ivp
+
+      if (myrankflag_v(iv)) then
+         if (itabg_v(ivp)%irank /= myrank) call recv_table_v(itabg_v(ivp)%irank)
+      endif
 
 ! Add to send table any V or W point that is primary on myrank and is 
-! in the stencil of IU.  
+! in the stencil of IV.
 
-      ivp  = itab_v_pd(iv)%ivp 
       if (itabg_v(ivp)%irank == myrank) call send_table_v(ivp,itabg_v(iv)%irank)
 
-      do j = 1,16
-         ivn = itab_v_pd(iv)%iv(j) 
+      do j = 1,4
+         ivn = itab_v_pd(iv)%iv(j)
+         ivn = itab_v_pd(ivn)%ivp
          if (itabg_v(ivn)%irank == myrank) call send_table_v(ivn,itabg_v(iv)%irank)
-      enddo         
+      enddo
 
       do j = 1,4
-         iwn = itab_v_pd(iv)%iw(j) 
+         iwn = itab_v_pd(iv)%iw(j)
+         iwn = itab_w_pd(iwn)%iwp
          if (itabg_w(iwn)%irank == myrank) call send_table_w(iwn,itabg_v(iv)%irank)
-      enddo         
+      enddo
+
+      do j = 1,6
+         imn = itab_v_pd(iv)%im(j)
+         imn = itab_m_pd(imn)%imp
+         if (itabg_m(imn)%irank == myrank) call send_table_m(imn,itabg_v(iv)%irank)
+      enddo
 
    endif
+
+! If IV point in in memory of myrank but its IVP is not, add the remote rank
+! of the IVP point to the receive table
+
+   ivp = itab_v_pd(iv)%ivp
+   if (itabg_v(ivp)%irank /= myrank) then
+      if (myrankflag_v(iv)) call recv_table_v(itabg_v(ivp)%irank)
+   endif
+
 enddo
 
 ! Loop over all W points and for each that is primary on a remote rank,
 ! access all V and W points in its stencil.
 
 do iw = 2,nwa
+
    if (itabg_w(iw)%irank /= myrank) then
 
 ! IW point is primary on remote rank.  
@@ -485,28 +539,132 @@ do iw = 2,nwa
 ! If IW point is in memory of myrank, it must be received from remote rank.
 ! Add that remote rank to receive table.
 
-      if (myrankflag_w(iw)) call recv_table_w(itabg_w(iw)%irank)
+      iwp = itab_w_pd(iw)%iwp
+
+      if (myrankflag_w(iw)) then
+         if (itabg_w(iwp)%irank /= myrank) call recv_table_w(itabg_w(iwp)%irank)
+      endif
 
 ! Add to send table any V or W point that is primary on myrank and is 
 ! in the stencil of IW.  
 
-      iwp = itab_w_pd(iw)%iwp
       if (itabg_w(iwp)%irank == myrank) call send_table_w(iwp,itabg_w(iw)%irank)
 
       do j = 1,7
-         ivn = itab_w_pd(iw)%iv(j) 
+         ivn = itab_w_pd(iw)%iv(j)
+         ivn = itab_v_pd(ivn)%ivp
          if (itabg_v(ivn)%irank == myrank) call send_table_v(ivn,itabg_w(iw)%irank)
-      enddo         
+      enddo
 
       do j = 1,7
-         iwn = itab_w_pd(iw)%iw(j) 
+         iwn = itab_w_pd(iw)%iw(j)
+         iwn = itab_w_pd(iwn)%iwp
          if (itabg_w(iwn)%irank == myrank) call send_table_w(iwn,itabg_w(iw)%irank)
-      enddo         
+      enddo
 
+      do j = 1,7
+         imn = itab_w_pd(iw)%im(j)
+         imn = itab_m_pd(imn)%imp
+         if (itabg_m(imn)%irank == myrank) call send_table_m(imn,itabg_w(iw)%irank)
+      enddo
+
+   endif
+
+! If IW point in in memory of myrank but its IWP is not, add the remote rank
+! of the IWP point to the receive table
+
+   iwp = itab_w_pd(iw)%iwp
+   if (itabg_w(iwp)%irank /= myrank) then
+      if (myrankflag_w(iw)) call recv_table_w(itabg_w(iwp)%irank)
+   endif
+
+enddo
+
+! Loop over all M points and for each that is primary on a remote rank,
+! access all points in its stencil.
+
+do im = 2, nma
+   if (itabg_m(im)%irank /= myrank) then
+
+! IM point is primary on remote rank.  
+
+! If IM point is in memory of myrank, it must be received from remote rank.
+! Add that remote rank to receive table.
+
+      imp = itab_m_pd(im)%imp
+
+      if (myrankflag_m(im)) then
+         if (itabg_m(iwp)%irank /= myrank) call recv_table_m(itabg_m(imp)%irank)
+      endif
+
+! Add to send table any V or M point that is primary on myrank and is 
+! in the stencil of IM.  
+
+      if (itabg_m(imp)%irank == myrank) call send_table_m(imp,itabg_m(im)%irank)
+
+   endif
+
+! If IM point in in memory of myrank but its IMP is not, add the remote rank
+! of the IMP point to the receive table
+
+   imp = itab_m_pd(im)%imp
+   if (itabg_m(imp)%irank /= myrank) then
+      if (myrankflag_m(im)) call recv_table_m(itabg_m(imp)%irank)
+   endif
+
+
+enddo
+
+do iw = 2, nwa
+   if (myrankflag_w(iw)) then
+      iwp = itab_w_pd(iw)%iwp
+      if (.not. myrankflag_w(iwp)) then
+         if (itabg_w(iwp)%iw_myrank_iwp == -1) then
+            ! never been set, we will MPI copy to this point
+            itabg_w(iwp)%iw_myrank_iwp = itabg_w(iw)%iw_myrank
+         else
+            ! We are already MPI copying this point, so do an LBC copy instead
+            iw_myrank  = itabg_w(iw)%iw_myrank
+            itab_w(iw_myrank)%iwp = itabg_w(iwp)%iw_myrank_iwp
+            call wloopf('n', iw_myrank, jtw_lbcp, 0, 0, 0, 0, 0)
+         endif
+      endif
    endif
 enddo
 
-!!!! END OF ITAB_? POPULATION
+do iv = 2, nva
+   if (myrankflag_v(iv)) then
+      ivp = itab_v_pd(iv)%ivp
+      if (.not. myrankflag_v(ivp)) then
+         if (itabg_v(ivp)%iv_myrank_ivp == -1) then
+            ! never been set, we will MPI copy to this point
+            itabg_v(ivp)%iv_myrank_ivp = itabg_v(iv)%iv_myrank
+         else
+            ! We are already MPI copying this point, so do an LBC copy instead
+            iv_myrank  = itabg_v(iv)%iv_myrank
+            itab_v(iv_myrank)%ivp = itabg_v(ivp)%iv_myrank_ivp
+            call vloopf('n', iv_myrank, jtv_lbcp, 0, 0, 0, 0, 0)
+         endif
+      endif
+   endif
+enddo
+
+do im = 2, nma
+   if (myrankflag_m(im)) then
+      imp = itab_m_pd(im)%imp
+      if (.not. myrankflag_m(imp)) then
+         if (itabg_m(imp)%im_myrank_imp == -1) then
+            ! never been set, we will MPI copy to this point
+            itabg_m(imp)%im_myrank_imp = itabg_m(im)%im_myrank
+         else
+            ! We are already MPI copying this point, so do an LBC copy instead
+            im_myrank  = itabg_m(im)%im_myrank
+            itab_m(im_myrank)%imp = itabg_m(imp)%im_myrank_imp
+            call mloopf('n', im_myrank, jtm_lbcp, 0, 0, 0, 0, 0)
+         endif
+      endif
+   endif
+enddo
 
 !!!!!!!!!! ISSO DEVE SER DELETADO
 if (isfcl == 1) then
@@ -618,14 +776,21 @@ if (isfcl == 1) then
 
 endif
 
+call compute_primary_points()
 
 ! Deallocate temporary data structures and arrays
 
-deallocate (landflux_temp, seaflux_temp)
+if (isfcl == 1) then
+   deallocate (landflux_temp, seaflux_temp)
+endif
 
  ! Deallocate para_decomp _pd arrays
 
 deallocate (itab_m_pd, itab_v_pd, itab_w_pd)
+
+if (isfcl == 1) then
+   deallocate (landflux_pd, seaflux_pd)
+endif
 
 return
 end subroutine para_init
@@ -694,9 +859,39 @@ end subroutine recv_table_w
 
 !===============================================================================
 
+subroutine recv_table_m(iremote)
+
+use mem_para,  only: nrecvs_m, recv_m
+use misc_coms, only: io6
+
+implicit none
+
+integer, intent(in) :: iremote
+
+integer :: jrecv
+
+! Check whether iremote is already in table of ranks to receive from
+
+do jrecv = 1, nrecvs_m(1)
+   if (recv_m(jrecv)%iremote == iremote) exit
+enddo
+
+! If jrecv exceeds nrecvs_v(1), jrecv represents a rank not yet entered in the
+! table, so increase nrecvs_v(1).
+
+if (jrecv > nrecvs_m(1)) nrecvs_m(1) = jrecv
+
+! Enter remote rank in recv-remote-rank table.
+
+recv_m(jrecv)%iremote = iremote
+
+end subroutine recv_table_m
+
+!===============================================================================
+
 subroutine send_table_v(iv,iremote)
 
-use mem_ijtabs, only: itab_v, itabg_v, mloops_v
+use mem_ijtabs, only: itab_v, itabg_v, mloops
 use mem_para,   only: nsends_v, send_v, mgroupsize
 use misc_coms,  only: io6
 
@@ -723,7 +918,7 @@ if (jsend > nsends_v(1)) nsends_v(1) = jsend
 
 iv_myrank = itabg_v(iv)%iv_myrank
 
-itab_v(iv_myrank)%loop(mloops_v+jsend) = .true.
+itab_v(iv_myrank)%loop(mloops+jsend) = .true.
 send_v(jsend)%iremote = iremote
 
 return
@@ -733,7 +928,7 @@ end subroutine send_table_v
 
 subroutine send_table_w(iw,iremote)
 
-use mem_ijtabs, only: itab_w, itabg_w, mloops_w
+use mem_ijtabs, only: itab_w, itabg_w, mloops
 use mem_para,   only: nsends_w, send_w
 use misc_coms,  only: io6
 
@@ -760,8 +955,420 @@ if (jsend > nsends_w(1)) nsends_w = jsend
 
 iw_myrank = itabg_w(iw)%iw_myrank
 
-itab_w(iw_myrank)%loop(mloops_w+jsend) = .true.
+itab_w(iw_myrank)%loop(mloops+jsend) = .true.
 send_w(jsend)%iremote = iremote
 
 return
 end subroutine send_table_w
+
+!===============================================================================
+
+subroutine send_table_m(im,iremote)
+
+use mem_ijtabs, only: itab_m, itabg_m, mloops
+use mem_para,   only: nsends_m, send_m
+use misc_coms,  only: io6
+
+implicit none
+
+integer, intent(in) :: im
+integer, intent(in) :: iremote
+
+integer :: jsend
+integer :: im_myrank
+
+! Check whether iremote_m is already in table of ranks to send to
+
+do jsend = 1, nsends_m(1)
+   if (send_m(jsend)%iremote == iremote) exit
+enddo
+
+! If jsend exceeds nsends_m, jsend represents a rank not yet entered in the
+! table, so increase nsends_m.
+
+if (jsend > nsends_m(1)) nsends_m(1) = jsend
+
+! Enter point in send-point table, and enter remote rank in send-remote-rank table.
+
+im_myrank = itabg_m(im)%im_myrank
+
+itab_m(im_myrank)%loop(mloops+jsend) = .true.
+send_m(jsend)%iremote = iremote
+
+end subroutine send_table_m
+
+!===============================================================================
+
+subroutine compute_primary_points()
+
+  use mem_grid,   only: mma, mua, mva, mwa
+  use mem_ijtabs, only: itab_u, itab_v, itab_w, itab_m, itabg_m
+  use misc_coms,  only: meshtype, io6
+  use leaf_coms,  only: mwl
+  use mem_leaf,   only: itab_wl
+  use sea_coms,   only: mws
+  use mem_sea,    only: itab_ws
+  use mem_sflux,  only: mlandflux, mseaflux, landflux, seaflux
+  use mem_para,   only: mua_primary, iua_globe_primary, iua_local_primary, &
+                        mva_primary, iva_globe_primary, iva_local_primary, &
+                        mwa_primary, iwa_globe_primary, iwa_local_primary, &
+                        mma_primary, ima_globe_primary, ima_local_primary, &
+                        mwl_primary, iwl_globe_primary, iwl_local_primary, &
+                        mws_primary, iws_globe_primary, iws_local_primary, &
+                        mfl_primary, ifl_globe_primary, ifl_local_primary, &
+                        mfs_primary, ifs_globe_primary, ifs_local_primary, &
+                        myrank
+
+  implicit none
+
+  integer :: i, ia, istart
+
+  do i = 2, mwa
+     if (itab_w(i)%irank == myrank) mwa_primary = mwa_primary + 1
+  enddo
+
+  if (meshtype == 1) then
+
+     do i = 2, mua
+        if (itab_u(i)%irank == myrank) mua_primary = mua_primary + 1
+     enddo
+
+  else
+
+     do i = 2, mva
+        if (itab_v(i)%irank == myrank) mva_primary = mva_primary + 1
+     enddo
+
+  endif
+
+  do i = 2, mma
+     if (itabg_m( itab_m(i)%imglobe )%irank == myrank) mma_primary = mma_primary + 1
+  enddo
+
+  do i = 2, mwl
+     if (itab_wl(i)%irank == myrank) mwl_primary = mwl_primary + 1
+  enddo
+
+  do i = 2, mws
+     if (itab_ws(i)%irank == myrank) mws_primary = mws_primary + 1
+  enddo
+
+  do i = 2, mlandflux
+     if (landflux(i)%iwrank == myrank) mfl_primary = mfl_primary + 1
+  enddo
+
+  do i = 2, mseaflux
+     if (seaflux(i)%iwrank == myrank) mfs_primary = mfs_primary + 1
+  enddo
+
+  ! additional space for dummy 1st point included with rank 0 only
+
+  if (myrank == 0) then
+     mwa_primary = mwa_primary + 1 
+     mma_primary = mma_primary + 1
+     if (meshtype == 1) then
+        mua_primary = mua_primary + 1
+     else
+        mva_primary = mva_primary + 1
+     endif
+     mwl_primary = mwl_primary + 1
+     mws_primary = mws_primary + 1
+     mfl_primary = mfl_primary + 1
+     mfs_primary = mfs_primary + 1
+  endif
+
+  ! allocate space for primary global indices
+
+  allocate(iwa_globe_primary(mwa_primary))
+  allocate(iwa_local_primary(mwa_primary))
+
+  if (meshtype == 1) then
+     allocate(iua_globe_primary(mua_primary))
+     allocate(iua_local_primary(mua_primary))
+  else
+     allocate(iva_globe_primary(mva_primary))
+     allocate(iva_local_primary(mva_primary))
+  endif
+
+  allocate(ima_globe_primary(mma_primary))
+  allocate(ima_local_primary(mma_primary))
+
+  allocate(iwl_globe_primary(mwl_primary))
+  allocate(iwl_local_primary(mwl_primary))
+
+  allocate(iws_globe_primary(mws_primary))
+  allocate(iws_local_primary(mws_primary))
+
+  allocate(ifl_globe_primary(mfl_primary))
+  allocate(ifl_local_primary(mfl_primary))
+
+  allocate(ifs_globe_primary(mfs_primary))
+  allocate(ifs_local_primary(mfs_primary))
+
+  ! dummy 1st point included with rank 0 only
+
+  if (myrank == 0) then
+
+     iwa_globe_primary(1) = 1
+     iwa_local_primary(1) = 1
+
+     if (meshtype == 1) then
+
+        iua_globe_primary(1) = 1
+        iua_local_primary(1) = 1
+
+     else
+
+        iva_globe_primary(1) = 1
+        iva_local_primary(1) = 1
+
+     endif
+
+     ima_globe_primary(1) = 1
+     ima_local_primary(1) = 1
+
+     iwl_globe_primary(1) = 1
+     iwl_local_primary(1) = 1
+
+     iws_globe_primary(1) = 1
+     iws_local_primary(1) = 1
+
+     ifl_globe_primary(1) = 1
+     ifl_local_primary(1) = 1
+
+     ifs_globe_primary(1) = 1
+     ifs_local_primary(1) = 1
+  endif
+
+  ! set locations of global and local primary points
+
+  if (myrank == 0) then
+     istart = 1
+  else
+     istart = 0
+  endif
+
+  ia = istart
+
+  do i = 2, mwa
+     if (itab_w(i)%irank == myrank) then
+        ia = ia + 1
+        iwa_globe_primary(ia) = itab_w(i)%iwglobe
+        iwa_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mwa_primary) stop "error computing number of primary points"
+
+  if (meshtype == 1) then
+
+     ia = istart
+
+     do i = 2, mua
+        if (itab_u(i)%irank == myrank) then
+           ia = ia + 1
+           iua_globe_primary(ia) = itab_u(i)%iuglobe
+           iua_local_primary(ia) = i
+        endif
+     enddo
+
+     if (ia /= mua_primary) stop "error computing number of primary points"
+
+  else
+
+     ia = istart
+
+     do i = 2, mva
+        if (itab_v(i)%irank == myrank) then
+           ia = ia + 1
+           iva_globe_primary(ia) = itab_v(i)%ivglobe
+           iva_local_primary(ia) = i
+        endif
+     enddo
+
+     if (ia /= mva_primary) stop "error computing number of primary points"
+
+  endif
+
+  ia = istart
+
+  do i = 2, mma
+     if (itabg_m( itab_m(i)%imglobe )%irank == myrank) then
+        ia = ia + 1
+        ima_globe_primary(ia) = itab_m(i)%imglobe
+        ima_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mma_primary) stop "error computing number of primary points"
+
+  ia = istart
+
+  do i = 2, mwl
+     if (itab_wl(i)%irank == myrank) then
+        ia = ia + 1
+        iwl_globe_primary(ia) = itab_wl(i)%iwglobe
+        iwl_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mwl_primary) stop "error computing number of primary points"
+
+  ia = istart
+
+  do i = 2, mws
+     if (itab_ws(i)%irank == myrank) then
+        ia = ia + 1
+        iws_globe_primary(ia) = itab_ws(i)%iwglobe
+        iws_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mws_primary) stop "error computing number of primary points"
+
+  ia = istart
+
+  do i = 2, mlandflux
+     if (landflux(i)%iwrank == myrank) then
+        ia = ia + 1
+        ifl_globe_primary(ia) = landflux(i)%ifglobe
+        ifl_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mfl_primary) stop "error computing number of primary points"
+
+  ia = istart
+
+  do i = 2, mseaflux
+     if (seaflux(i)%iwrank == myrank) then
+        ia = ia + 1
+        ifs_globe_primary(ia) = seaflux(i)%ifglobe
+        ifs_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mfs_primary) stop "error computing number of primary points"
+
+
+!!!! temporary checks !!!!!!!!!!!!!!!
+if (meshtype == 1) then
+   do i = 2, mua_primary
+      if (iua_globe_primary(i) < iua_globe_primary(i-1)) then
+         write(io6,*) 'error: UA is out of order!!!!'
+         stop
+      endif
+   enddo
+else
+   do i = 2, mva_primary
+      if (iva_globe_primary(i) < iva_globe_primary(i-1)) then
+         write(io6,*) 'error: VA is out of order!!!!'
+         stop
+      endif
+   enddo
+endif
+
+do i = 2, mwa_primary
+   if (iwa_globe_primary(i) < iwa_globe_primary(i-1)) then
+      write(io6,*) 'error: WA is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mma_primary
+   if (ima_globe_primary(i) < ima_globe_primary(i-1)) then
+      write(io6,*) 'error: MA is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mwl_primary
+   if (iwl_globe_primary(i) < iwl_globe_primary(i-1)) then
+      write(io6,*) 'error: WL is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mws_primary
+   if (iws_globe_primary(i) < iws_globe_primary(i-1)) then
+      write(io6,*) 'error: WS is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mfl_primary
+   if (ifl_globe_primary(i) < ifl_globe_primary(i-1)) then
+      write(io6,*) 'error: FL is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mfs_primary
+   if (ifs_globe_primary(i) < ifs_globe_primary(i-1)) then
+      write(io6,*) 'error: FS is out of order!!!!'
+      stop
+   endif
+enddo
+
+!!!!!!! temporary checks 2
+
+if (meshtype == 1) then
+   do i = 2, mua
+      if (itab_u(i)%iuglobe < itab_u(i-1)%iuglobe) then
+         write(io6,*) 'error: UAGLOBE is out of order!!!!'
+         stop
+      endif
+   enddo
+else
+   do i = 2, mva
+      if (itab_v(i)%ivglobe < itab_v(i-1)%ivglobe) then
+         write(io6,*) 'error: VAGLOBE is out of order!!!!'
+         stop
+      endif
+   enddo
+endif
+
+do i = 2, mwa
+   if (itab_w(i)%iwglobe < itab_w(i-1)%iwglobe) then
+      write(io6,*) 'error: WAGLOBE is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mma
+   if (itab_m(i)%imglobe < itab_m(i-1)%imglobe) then
+      write(io6,*) 'error: MAGLOBE is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mwl
+   if (itab_wl(i)%iwglobe < itab_wl(i-1)%iwglobe) then
+      write(io6,*) 'error: WLGLOBE is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mws
+   if (itab_ws(i)%iwglobe < itab_ws(i-1)%iwglobe) then
+      write(io6,*) 'error: WSGLOBE is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mlandflux
+   if (landflux(i)%ifglobe < landflux(i-1)%ifglobe) then
+      write(io6,*) 'error: FLGLOBE is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mseaflux
+   if (seaflux(i)%ifglobe < seaflux(i-1)%ifglobe) then
+      write(io6,*) 'error: FLGLOBE is out of order!!!!'
+      stop
+   endif
+enddo
+
+end subroutine compute_primary_points
+  

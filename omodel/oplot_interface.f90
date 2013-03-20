@@ -634,8 +634,10 @@ if (op%projectn(iplt) == 'L' .or.  &
 
    if (op%vectbarb(iplt) == 'U' .or. &
        op%vectbarb(iplt) == 'V' .or. &
-       op%vectbarb(iplt) == 'v' .or. &
-       op%vectbarb(iplt) == 'B') call vectslab_horiz_v(iplt)
+       op%vectbarb(iplt) == 'v') call vectslab_horiz_v(iplt)
+
+   if (op%vectbarb(iplt) == 'w' .or. &
+       op%vectbarb(iplt) == 'B') call vectslab_horiz_w(iplt)
 
 elseif (op%projectn(iplt) == 'C') then  ! etc for 'V'?
 
@@ -976,7 +978,7 @@ subroutine plot_underground_w(iplt,ktzone)
 
 use oplot_coms, only: op
 use mem_grid,   only: mza, mwa, zm, zt, lpw, xem, yem, zem, xew, yew, zew
-use mem_ijtabs, only: itab_w
+use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
 use misc_coms,  only: io6
 
 implicit none
@@ -986,7 +988,7 @@ integer, intent(in) :: ktzone(mwa)
 
 real :: xpt,ypt
 integer :: k
-integer :: npoly,j,iw,im,iok,iv1,iv2
+integer :: npoly,j,iw,jw,im,iok,iv1,iv2
 real :: htpn(7),vtpn(7)
 real :: topo1,topo2
 
@@ -998,7 +1000,8 @@ if (op%projectn(iplt) == 'L' .or.  &
     op%projectn(iplt) == 'O' .or.  &
     op%projectn(iplt) == 'Z') then  ! Horizontal cross section
 
-   do iw = 2,mwa
+   do jw = 1,jtab_w(jtw_prog)%jend(1)
+      iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Skip this iw point if it is not underground
 
@@ -1110,7 +1113,7 @@ subroutine plot_underground_m(iplt,kt)
 
 use oplot_coms, only: op
 use mem_grid,   only: mma, mza, zm, zt, lpw, xem, yem, zem, xew, yew, zew
-use mem_ijtabs, only: itab_m
+use mem_ijtabs, only: itab_m, jtab_m, jtm_vadj
 use misc_coms,  only: io6
 use mem_basic,  only: press
 
@@ -1119,7 +1122,7 @@ implicit none
 integer, intent(in) :: iplt,kt
 
 real :: xpt,ypt,plev
-integer :: npoly,j,iw,k,im,iok,iv1,iv2
+integer :: npoly,j,iw,k,im,jm,iok,iv1,iv2
 real :: htpn(7),vtpn(7)
 integer :: kw(7)
 
@@ -1130,7 +1133,8 @@ if (op%projectn(iplt) == 'L' .or.  &
     op%projectn(iplt) == 'O' .or.  &
     op%projectn(iplt) == 'Z') then  ! Horizontal cross section
 
-   do im = 2,mma
+   do jm = 1, jtab_m(jtm_vadj)%jend(1)
+      im = jtab_m(jtm_vadj)%im(jm)
 
 !     Get tile plot coordinates
 
@@ -1191,15 +1195,18 @@ subroutine plot_grid(iplt)
 
 use oplot_coms, only: op
 use mem_grid, only: mwa, mva, mza, xem, yem, zem, xew, yew, zew, zm
-use mem_ijtabs, only: itab_w, itab_u, itab_v
+use mem_ijtabs, only: itab_w, itab_u, itab_v, jtab_u, jtab_v, jtab_w, &
+                      jtv_wadj, jtu_wadj, jtw_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
 
 integer, intent(in) :: iplt
 
-integer :: iflag180,iskip
-integer :: j,iw,k,im1,im2,iok,iv1,iv2,iv
+integer :: iflag180,iskip,jvmax
+integer :: j,iw,jw,k,im1,im2,iok,iv1,iv2,iv,jv
+
+real :: wta1,wta2,wta3,wtb1,wtb2,wtb3
 
 real :: htpn(4),vtpn(4)
 real :: xp1,xp2,yp1,yp2
@@ -1212,22 +1219,32 @@ call o_sflush()
 call o_gsplci(10)
 call o_gstxci(10)
 
+if (meshtype == 1) then
+   jvmax = jtab_u(jtu_wadj)%jend(1)
+else
+   jvmax = jtab_v(jtv_wadj)%jend(1)
+endif
+
 if (op%projectn(iplt) == 'L'  .or.  &
     op%projectn(iplt) == 'P'  .or.  &
     op%projectn(iplt) == 'O'  .or.  &
     op%projectn(iplt) == 'Z') then   ! Horizontal cross section
 
-   do iv = 2,mva
+   do jv = 1, jvmax
 
 ! Get tile plot coordinates.
 
       if (meshtype == 1) then
+         iv  = jtab_u(jtu_wadj)%iu(jv)
          im1 = itab_u(iv)%im(1)
          im2 = itab_u(iv)%im(2)
       else
+         iv  = jtab_v(jtv_wadj)%iv(jv)
          im1 = itab_v(iv)%im(1)
          im2 = itab_v(iv)%im(2)
       endif
+
+      if (im1 < 2 .or. im2 < 2) cycle
 
       call oplot_transform(iplt,xem(im1),yem(im1),zem(im1),xp1,yp1)
       call oplot_transform(iplt,xem(im2),yem(im2),zem(im2),xp2,yp2)
@@ -1276,70 +1293,116 @@ if (op%projectn(iplt) == 'L'  .or.  &
 
 else  ! Vertical cross section
 
-   do iw = 2,mwa
+! First, draw vertical lines
+
+   do jv = 1, jvmax
+
+      if (meshtype == 1) then
+         iv  = jtab_u(jtu_wadj)%iu(jv)
+         im1 = itab_u(iv)%im(1)
+         im2 = itab_u(iv)%im(2)
+      else
+         iv  = jtab_v(jtv_wadj)%iv(jv)
+         im1 = itab_v(iv)%im(1)
+         im2 = itab_v(iv)%im(2)
+      endif
+
+      if (im1 < 2 .or. im2 < 2) cycle
+
+      call coneplot_tri(iplt,iv,xem(im1),yem(im1),zem(im1), &
+         xem(im2),yem(im2),zem(im2),xem(im2),yem(im2),zem(im2), &
+         wta1,wta2,wta3,wtb1,wtb2,wtb3,iok,htpn)
+
+!q   do jw = 1, jtab_w(jtw_prog)%jend(1)
+!q      iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Get horizontal plot coordinates for cells in this column
 
-      if (op%projectn(iplt) == 'C') then
-         call coneplot_w(iw,iv1,iv2,topo1,topo2,iok,htpn)
-      elseif (op%projectn(iplt) == 'V') then
-         call xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn) ! need to fix for hex??
-      endif
+!q      if (op%projectn(iplt) == 'C') then
+!q         call coneplot_w(iw,iv1,iv2,topo1,topo2,iok,htpn)
+!q      elseif (op%projectn(iplt) == 'V') then
+!q         call xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn) ! need to fix for hex??
+!q      endif
 
 ! Jump out of loop if this W point does not intersect plot cone or plane
 
       if (iok /= 1) go to 9
+
+      call trunc_segment(htpn(1),htpn(1),op%ymin,op%ymax,xq1,xq2,yq1,yq2,iskip)
+
+      if (iskip == 0) then
+         call o_frstpt (xq1,yq1)
+         call o_vector (xq2,yq2)
+      endif
+
+      call trunc_segment(htpn(2),htpn(2),op%ymin,op%ymax,xq1,xq2,yq1,yq2,iskip)
+
+      if (iskip == 0) then
+         call o_frstpt (xq1,yq1)
+         call o_vector (xq2,yq2)
+      endif
 
 ! Jump out of loop if either cell side is outside plot window. 
 
 !t      if (htpn(1) < op%xmin .or. htpn(1) > op%xmax .or.  &
 !t          htpn(2) < op%xmin .or. htpn(2) > op%xmax) go to 9
 
-      do k = 2,mza-1
+!q      do k = 2,mza-1
 
 ! Get T-cell vertical coordinates
 
-         vtpn(1) = zm(k-1)
-         vtpn(2) = vtpn(1)
-         vtpn(3) = zm(k)
-         vtpn(4) = vtpn(3)
+!q         vtpn(1:2) = zm(k-1)
+!q         vtpn(3:4) = zm(k)
 
 ! Plot 4 sides of (k,iw) grid box...
 
 ! Truncate segment if it crosses plot window boundary or skip if both endpoints
 ! are outside plot window
 
-         call trunc_segment(htpn(1),htpn(2),vtpn(1),vtpn(2),xq1,xq2,yq1,yq2,iskip)
+!q         call trunc_segment(htpn(1),htpn(2),vtpn(1),vtpn(2),xq1,xq2,yq1,yq2,iskip)
 
-         if (iskip == 0) then
-            call o_frstpt (xq1,yq1)
-            call o_vector (xq2,yq2)
-         endif
+!q         if (iskip == 0) then
+!q            call o_frstpt (xq1,yq1)
+!q            call o_vector (xq2,yq2)
+!q         endif
 
-         call trunc_segment(htpn(2),htpn(3),vtpn(2),vtpn(3),xq1,xq2,yq1,yq2,iskip)
+!q         call trunc_segment(htpn(2),htpn(3),vtpn(2),vtpn(3),xq1,xq2,yq1,yq2,iskip)
 
-         if (iskip == 0) then
-            call o_frstpt (xq1,yq1)
-            call o_vector (xq2,yq2)
-         endif
+!q         if (iskip == 0) then
+!q            call o_frstpt (xq1,yq1)
+!q            call o_vector (xq2,yq2)
+!q         endif
 
-         call trunc_segment(htpn(3),htpn(4),vtpn(3),vtpn(4),xq1,xq2,yq1,yq2,iskip)
+!q         call trunc_segment(htpn(3),htpn(4),vtpn(3),vtpn(4),xq1,xq2,yq1,yq2,iskip)
 
-         if (iskip == 0) then
-            call o_frstpt (xq1,yq1)
-            call o_vector (xq2,yq2)
-         endif
+!q         if (iskip == 0) then
+!q            call o_frstpt (xq1,yq1)
+!q            call o_vector (xq2,yq2)
+!q         endif
 
-         call trunc_segment(htpn(4),htpn(1),vtpn(4),vtpn(1),xq1,xq2,yq1,yq2,iskip)
+!q         call trunc_segment(htpn(4),htpn(1),vtpn(4),vtpn(1),xq1,xq2,yq1,yq2,iskip)
 
-         if (iskip == 0) then
-            call o_frstpt (xq1,yq1)
-            call o_vector (xq2,yq2)
-         endif
+!q         if (iskip == 0) then
+!q            call o_frstpt (xq1,yq1)
+!q            call o_vector (xq2,yq2)
+!q         endif
 
-      enddo
+!q      enddo
 
 9  continue
+
+   enddo
+
+! Second, draw horizontal lines
+
+   do k = 1,mza-1
+
+      call trunc_segment(op%xmin,op%xmax,zm(k),zm(k),xq1,xq2,yq1,yq2,iskip)
+
+      if (iskip == 0) then
+         call o_frstpt (xq1,yq1)
+         call o_vector (xq2,yq2)
+      endif
 
    enddo
 
@@ -1355,7 +1418,7 @@ subroutine plot_dualgrid(iplt)
 use oplot_coms,  only: op
 use mem_grid,    only: mwa, mva, mza, xem, yem, zem, xew, yew, zew, zm,  &
                      wnx, wny, wnz
-use mem_ijtabs,  only: itab_w, itab_u, itab_v
+use mem_ijtabs,  only: itab_w, itab_u, itab_v, jtab_v, jtv_wadj, jtab_u, jtu_wadj
 use misc_coms,   only: io6, meshtype
 use consts_coms, only: erad
 
@@ -1363,8 +1426,8 @@ implicit none
 
 integer, intent(in) :: iplt
 
-integer :: iflag180,iskip
-integer :: iok,iv1,iv2,iv,iw1,iw2
+integer :: iflag180,iskip,jvmax
+integer :: iok,iv1,iv2,iv,jv,iw1,iw2
 
 real :: xpt,ypt
 real :: xp1,xp2,yp1,yp2
@@ -1377,19 +1440,27 @@ call o_gsplci(6)
 call o_gstxci(6)
 call o_sflush()
 
+if (meshtype == 1) then
+   jvmax = jtab_u(jtu_wadj)%jend(1)
+else
+   jvmax = jtab_v(jtv_wadj)%jend(1)
+endif
+
 if (op%projectn(iplt) == 'L'  .or.  &
     op%projectn(iplt) == 'P'  .or.  &
     op%projectn(iplt) == 'O'  .or.  &
     op%projectn(iplt) == 'Z') then   ! Horizontal cross section
 
-   do iv = 2,mva
+   do jv = 1, jvmax
 
 ! Get tile plot coordinates.
 
       if (meshtype == 1) then
+         iv  = jtab_u(jtu_wadj)%iu(jv)
          iw1 = itab_u(iv)%iw(1)
          iw2 = itab_u(iv)%iw(2)
       else
+         iv = jtab_v(jtv_wadj)%iv(jv)
          iw1 = itab_v(iv)%iw(1)
          iw2 = itab_v(iv)%iw(2)
       endif
@@ -1995,7 +2066,7 @@ end subroutine oplot_panel
 
 subroutine oplot_set(iplt)
 
-use misc_coms,   only: io6, mdomain
+use misc_coms,   only: io6, mdomain, deltax
 use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_grid,    only: xem, yem, xew, yew, zew, zm, mma, mwa, arw0, nza, mza
@@ -2044,8 +2115,18 @@ if (op%windowin(iplt) == 'W') then
 ! Special treatment for vertical plot: ymin/ymax related to model Z coordinate
 
    if (op%projectn(iplt) == 'C' .or. op%projectn(iplt) == 'V') then
-      op%ymin = zm(1)
-      op%ymax = zm(nza-1)
+
+      if (abs(nl%zplot_min + 1.0) < 1.e-3) then
+         op%ymin = zm(1)
+      else
+         op%ymin = max(nl%zplot_min, zm(1))
+      endif
+
+      if (abs(nl%zplot_max + 1.0) < 1.e-3) then
+         op%ymax = zm(nza-1)
+      else
+         op%ymax = min(nl%zplot_max, zm(nza-1))
+      endif
 
 ! special for hurricane
 
@@ -2084,16 +2165,8 @@ else
       op%ymin = - 1.1 * erad
       op%ymax =   1.1 * erad
 
-   elseif (op%projectn(iplt) == 'C') then
-
-      op%xmin = -3.4 * erad * sin(op%coneang * pio180)
-      op%xmax =  3.4 * erad * sin(op%coneang * pio180)
-      op%ymin = zm(1)
-      op%ymax = zm(nza-1)
-
-      if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax  
-
-   elseif (op%projectn(iplt) == 'V') then
+   elseif (op%projectn(iplt) == 'V' .or. &
+          (op%projectn(iplt) == 'C' .and. mdomain >= 2)) then
 
       op%xmin =  1.e9
       op%xmax = -1.e9
@@ -2103,8 +2176,37 @@ else
       enddo
       op%xmin = 1.01 * op%xmin
       op%xmax = 1.01 * op%xmax
-      op%ymin = zm(1)
-      op%ymax = zm(nza-1)
+
+      if (abs(nl%zplot_min + 1.0) < 1.e-3) then
+         op%ymin = zm(1)
+      else
+         op%ymin = max(nl%zplot_min, zm(1))
+      endif
+
+      if (abs(nl%zplot_max + 1.0) < 1.e-3) then
+         op%ymax = zm(nza-1)
+      else
+         op%ymax = min(nl%zplot_max, zm(nza-1))
+      endif
+
+      if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax  
+
+   elseif (op%projectn(iplt) == 'C') then
+
+      op%xmin = -3.4 * erad * sin(op%coneang * pio180)
+      op%xmax =  3.4 * erad * sin(op%coneang * pio180)
+
+      if (abs(nl%zplot_min + 1.0) < 1.e-3) then
+         op%ymin = zm(1)
+      else
+         op%ymin = max(nl%zplot_min, zm(1))
+      endif
+
+      if (abs(nl%zplot_max + 1.0) < 1.e-3) then
+         op%ymax = zm(nza-1)
+      else
+         op%ymax = min(nl%zplot_max, zm(nza-1))
+      endif
 
       if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax  
 
@@ -2120,14 +2222,24 @@ else
          op%ymin = min(op%ymin,yem(im))
          op%ymax = max(op%ymax,yem(im))
       enddo
+
+      if (allocated(xew)) then
+         do iw = 2,mwa
+            op%xmin = min(op%xmin,xew(iw))
+            op%xmax = max(op%xmax,xew(iw))
+            op%ymin = min(op%ymin,yew(iw))
+            op%ymax = max(op%ymax,yew(iw))
+         enddo
+      endif
+
       dist = max(op%xmax - op%xmin,op%ymax - op%ymin)
       xmid = .5 * (op%xmin + op%xmax)
       ymid = .5 * (op%ymin + op%ymax)
 
-      op%xmin = xmid - .505 * dist
-      op%xmax = xmid + .505 * dist
-      op%ymin = ymid - .505 * dist
-      op%ymax = ymid + .505 * dist
+      op%xmin = xmid - .52 * dist
+      op%xmax = xmid + .52 * dist
+      op%ymin = ymid - .52 * dist
+      op%ymax = ymid + .52 * dist
 
    endif
 
@@ -2140,16 +2252,22 @@ if (op%projectn(iplt) == 'L' .or.  &
 
 ! Find deltax of finest grid cell IN CURRENT PLOT WINDOW
 
-   arwmin = 1.e13
-   do iw = 2,mwa
-      call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),xpt,ypt)
+   if (allocated(arw0)) then
 
-      if (xpt < op%xmin .or. xpt > op%xmax .or.  &
-          ypt < op%ymin .or. ypt > op%ymax) cycle
+      arwmin = 1.e13
+      do iw = 2,mwa
+         call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),xpt,ypt)
 
-      arwmin = min(arwmin,arw0(iw))
-   enddo
-   delxmin = sqrt(arwmin)
+         if (xpt < op%xmin .or. xpt > op%xmax .or.  &
+             ypt < op%ymin .or. ypt > op%ymax) cycle
+
+         arwmin = min(arwmin,arw0(iw))
+      enddo
+      delxmin = sqrt(arwmin)
+
+   else
+      delxmin = deltax
+   endif
 
    if (op%projectn(iplt) == 'L') then
 

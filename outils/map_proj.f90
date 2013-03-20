@@ -32,6 +32,8 @@
 !===============================================================================
 subroutine ll_xy (qlat,qlon,polelat,polelon,x,y)
 
+use consts_coms, only: erad, erad2, pio180
+
 implicit none
 
 real, intent(in) :: qlat
@@ -41,10 +43,6 @@ real, intent(in) :: polelon
 
 real, intent(out) :: x
 real, intent(out) :: y
-
-real, parameter :: erad = 6.367e6
-real, parameter :: erad2 = 1.2734e7
-real, parameter :: pi180 = 3.14159265 / 180.
 
 real :: sinplat
 real :: cosplat
@@ -73,15 +71,15 @@ real :: t
 ! Evaluate sine and cosine of latitude and longitude of pole point p and
 ! input point q.
 
-sinplat = sin(polelat * pi180)
-cosplat = cos(polelat * pi180)
-sinplon = sin(polelon * pi180)
-cosplon = cos(polelon * pi180)
+sinplat = sin(polelat * pio180)
+cosplat = cos(polelat * pio180)
+sinplon = sin(polelon * pio180)
+cosplon = cos(polelon * pio180)
 
-sinqlat = sin(qlat * pi180)
-cosqlat = cos(qlat * pi180)
-sinqlon = sin(qlon * pi180)
-cosqlon = cos(qlon * pi180)
+sinqlat = sin(qlat * pio180)
+cosqlat = cos(qlat * pio180)
+sinqlon = sin(qlon * pio180)
+cosqlon = cos(qlon * pio180)
 
 ! Compute (x3,y3,z3) coordinates where the origin is the center of the earth,
 ! the z axis is the north pole, the x axis is the equator and prime
@@ -126,6 +124,9 @@ end subroutine ll_xy
 !============================================================================
 
 subroutine xy_ll (qlat,qlon,polelat,polelon,x,y)
+
+use consts_coms, only: erad, erad2, pio180
+
 implicit none
 
 real, intent(out) :: qlat
@@ -135,10 +136,6 @@ real, intent(in) :: polelat
 real, intent(in) :: polelon
 real, intent(in) :: x
 real, intent(in) :: y
-
-real, parameter :: erad = 6.367e6
-real, parameter :: erad2 = 1.2734e7
-real, parameter :: pi180 = 3.14159265 / 180.
 
 real :: sinplat
 real :: cosplat
@@ -165,10 +162,10 @@ real :: r3q
 
 ! Evaluate sine and cosine of latitude and longitude of pole point p.
 
-sinplat = sin(polelat * pi180)
-cosplat = cos(polelat * pi180)
-sinplon = sin(polelon * pi180)
-cosplon = cos(polelon * pi180)
+sinplat = sin(polelat * pio180)
+cosplat = cos(polelat * pio180)
+sinplon = sin(polelon * pio180)
+cosplon = cos(polelon * pio180)
 
 ! Compute (x3,y3,z3) coordinates of the pole point where the origin is the
 ! center of the earth, the z axis is the north pole, the x axis is the
@@ -212,9 +209,9 @@ z3q = z3p + yq * cosplat + zq * sinplat
 
 ! Compute the latitude and longitude of Q:
 
-qlon = atan2(y3q,x3q) / pi180
+qlon = atan2(y3q,x3q) / pio180
 r3q = sqrt(x3q ** 2 + y3q ** 2)
-qlat = atan2(z3q,r3q) / pi180
+qlat = atan2(z3q,r3q) / pio180
 
 return
 end subroutine xy_ll

@@ -291,20 +291,31 @@ integer function julday(imonth,iday,iyear)
 
 implicit none
 
-integer :: imonth,iday,iyear
+integer, intent(in) :: imonth,iday,iyear
+integer             :: nfeb
+logical             :: isleap
+
+isleap = ( (mod(iyear,400) == 0) .or. &
+           (mod(iyear,100) /= 0 .and. mod(iyear,4) == 0) )
+
+if (isleap) then
+   nfeb = 29
+else
+   nfeb = 28
+endif
 
 ! compute the julian day from a normal date
 
 julday= iday  &
-      + min(1,max(0,imonth-1))*31  &
-      + min(1,max(0,imonth-2))*(28+(1-min(1,mod(iyear,4))))  &
-      + min(1,max(0,imonth-3))*31  &
-      + min(1,max(0,imonth-4))*30  &
-      + min(1,max(0,imonth-5))*31  &
-      + min(1,max(0,imonth-6))*30  &
-      + min(1,max(0,imonth-7))*31  &
-      + min(1,max(0,imonth-8))*31  &
-      + min(1,max(0,imonth-9))*30  &
+      + min(1,max(0,imonth-1))*31   &
+      + min(1,max(0,imonth-2))*nfeb &
+      + min(1,max(0,imonth-3))*31   &
+      + min(1,max(0,imonth-4))*30   &
+      + min(1,max(0,imonth-5))*31   &
+      + min(1,max(0,imonth-6))*30   &
+      + min(1,max(0,imonth-7))*31   &
+      + min(1,max(0,imonth-8))*31   &
+      + min(1,max(0,imonth-9))*30   &
       + min(1,max(0,imonth-10))*31  &
       + min(1,max(0,imonth-11))*30  &
       + min(1,max(0,imonth-12))*31

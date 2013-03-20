@@ -205,13 +205,14 @@ implicit none
 integer           :: nv, nvcnt, ndims, ndims_m, idims(3), idims_m(3)
 character(len=32) :: varn
 
-nvcnt = 0
-ndims = 0
-idims = 0
+nvcnt =  0
 
 ! Loop through all variables in the model vtables
 
-do nv = 1,num_var
+do nv = 1, num_var
+
+   ndims = -1
+   idims =  0
 
 ! Skip to next variable if we don't want the current one
 
@@ -227,8 +228,10 @@ do nv = 1,num_var
 
 ! Skip to next variable if the current one is not in the history file
 
-   if (ndims == 0 .and. idims(1) == 0) then
-      write(io6,*) 'Variable '//trim(varn)//' is not in the history file.'
+   if (ndims < 0) then
+      write(io6,*)
+      write(io6,*) 'Variable '//trim(varn)//' is not in the history file, skipping'
+      write(io6,*)
       cycle
    endif
 
@@ -346,7 +349,7 @@ real(kind=r8), allocatable :: dscr3(:,:,:)
 ! Get dimensions, allocate, and read indices and processor ranks:
 
 call shdf5_info('IMGLOBE',ndims,idgm)
-if (idgm(1) > 0) then
+if (ndims == 1 .and. idgm(1) > 0) then
    allocate (imglobe(idgm(1)))
    call shdf5_irec(ndims, idgm, 'IMGLOBE', ivara=imglobe)
    ! we don't have a IRANKM variable, so create a temporary one
@@ -357,7 +360,7 @@ endif
 if (meshtype == 1) then
 
    call shdf5_info('IUGLOBE',ndims,idgu)
-   if (idgu(1) > 0) then
+   if (ndims == 1 .and. idgu(1) > 0) then
       allocate (iuglobe(idgu(1)))
       call shdf5_irec(ndims, idgu, 'IUGLOBE', ivara=iuglobe)
    endif
@@ -366,7 +369,7 @@ if (meshtype == 1) then
 else
 
    call shdf5_info('IVGLOBE',ndims,idgv)
-   if (idgv(1) > 0) then
+   if (ndims == 1 .and. idgv(1) > 0) then
       allocate (ivglobe(idgv(1)))
       call shdf5_irec(ndims, idgv, 'IVGLOBE', ivara=ivglobe)
    endif
@@ -375,13 +378,13 @@ else
 endif
 
 call shdf5_info('IWGLOBE',ndims,idgw)
-if (idgw(1) > 0) then
+if (ndims == 1 .and. idgw(1) > 0) then
    allocate (iwglobe(idgw(1)))
    call shdf5_irec(ndims, idgw, 'IWGLOBE', ivara=iwglobe)
 endif
 
 call shdf5_info('IMGLOBE_L',ndims,idlm)
-if (idlm(1) > 0) then
+if (ndims == 1 .and. idlm(1) > 0) then
    allocate (ilmglobe(idlm(1)))
    call shdf5_irec(ndims, idlm, 'IMGLOBE_L', ivara=ilmglobe)
    ! we don't have a IRANKM_L variable, so create a temporary one
@@ -390,19 +393,19 @@ if (idlm(1) > 0) then
 endif
 
 call shdf5_info('IUGLOBE_L',ndims,idlu)
-if (idlu(1) > 0) then
+if (ndims == 1 .and. idlu(1) > 0) then
    allocate (iluglobe(idlu(1)))
    call shdf5_irec(ndims, idlu, 'IUGLOBE_L', ivara=iluglobe)
 endif
 
 call shdf5_info('IWGLOBE_L',ndims,idlw)
-if (idlw(1) > 0) then
+if (ndims == 1 .and. idlw(1) > 0) then
    allocate (ilwglobe(idlw(1)))
    call shdf5_irec(ndims, idlw, 'IWGLOBE_L', ivara=ilwglobe)
 endif
 
 call shdf5_info('IMGLOBE_S',ndims,idsm)
-if (idsm(1) > 0) then
+if (ndims == 1 .and. idsm(1) > 0) then
    allocate (ismglobe(idsm(1)))
    call shdf5_irec(ndims, idsm, 'IMGLOBE_S', ivara=ismglobe)
    ! we don't have a IRANKM_S variable, so create a temporary one
@@ -411,25 +414,25 @@ if (idsm(1) > 0) then
 endif
 
 call shdf5_info('IUGLOBE_S',ndims,idsu)
-if (idsu(1) > 0) then
+if (ndims == 1 .and. idsu(1) > 0) then
    allocate (isuglobe(idsu(1)))
    call shdf5_irec(ndims, idsu, 'IUGLOBE_S', ivara=isuglobe)
 endif
 
 call shdf5_info('IWGLOBE_S',ndims,idsw)
-if (idsw(1) > 0) then
+if (ndims == 1 .and. idsw(1) > 0) then
    allocate (iswglobe(idsw(1)))
    call shdf5_irec(ndims, idsw, 'IWGLOBE_S', ivara=iswglobe)
 endif
 
 call shdf5_info('LANDFLUX%IFGLOBE',ndims,idlf)
-if (idlf(1) > 0) then
+if (ndims == 1 .and. idlf(1) > 0) then
    allocate (ilfglobe(idlf(1)))
    call shdf5_irec(ndims, idlf, 'LANDFLUX%IFGLOBE', ivara=ilfglobe)
 endif
 
 call shdf5_info('SEAFLUX%IFGLOBE',ndims,idsf)
-if (idsf(1) > 0) then
+if (ndims == 1 .and. idsf(1) > 0) then
    allocate (isfglobe(idsf(1)))
    call shdf5_irec(ndims, idsf, 'SEAFLUX%IFGLOBE', ivara=isfglobe)
 endif
@@ -437,7 +440,7 @@ endif
 if (meshtype == 1) then
 
    call shdf5_info('IRANKU',ndims,idims)
-   if (idims(1) > 0) then
+   if (ndims == 1 .and. idims(1) > 0) then
       allocate (iranku(idims(1)))
       call shdf5_irec(ndims, idims, 'IRANKU', ivara=iranku)
    endif
@@ -445,7 +448,7 @@ if (meshtype == 1) then
 else
 
    call shdf5_info('IRANKV',ndims,idims)
-   if (idims(1) > 0) then
+   if (ndims == 1 .and. idims(1) > 0) then
       allocate (irankv(idims(1)))
       call shdf5_irec(ndims, idims, 'IRANKV', ivara=irankv)
    endif
@@ -453,43 +456,43 @@ else
 endif
 
 call shdf5_info('IRANKW',ndims,idims)
-if (idims(1) > 0) then
+if (ndims == 1 .and. idims(1) > 0) then
    allocate (irankw(idims(1)))
    call shdf5_irec(ndims, idims, 'IRANKW', ivara=irankw)
 endif
 
 call shdf5_info('IRANKU_L',ndims,idims)
-if (idims(1) > 0) then
+if (ndims == 1 .and. idims(1) > 0) then
    allocate (ilranku(idims(1)))
    call shdf5_irec(ndims, idims, 'IRANKU_L', ivara=ilranku)
 endif
 
 call shdf5_info('IRANKW_L',ndims,idims)
-if (idims(1) > 0) then
+if (ndims == 1 .and. idims(1) > 0) then
    allocate (ilrankw(idims(1)))
    call shdf5_irec(ndims, idims, 'IRANKW_L', ivara=ilrankw)
 endif
 
 call shdf5_info('IRANKU_S',ndims,idims)
-if (idims(1) > 0) then
+if (ndims == 1 .and. idims(1) > 0) then
    allocate (isranku(idims(1)))
    call shdf5_irec(ndims, idims, 'IRANKU_S', ivara=isranku)
 endif
 
 call shdf5_info('IRANKW_S',ndims,idims)
-if (idims(1) > 0) then
+if (ndims == 1 .and. idims(1) > 0) then
    allocate (isrankw(idims(1)))
    call shdf5_irec(ndims, idims, 'IRANKW_S', ivara=isrankw)
 endif
 
 call shdf5_info('LANDFLUX%IWRANK',ndims,idims)
-if (idims(1) > 0) then
+if (ndims == 1 .and. idims(1) > 0) then
    allocate (ilfrank(idims(1)))
    call shdf5_irec(ndims, idims, 'LANDFLUX%IWRANK', ivara=ilfrank)
 endif
 
 call shdf5_info('SEAFLUX%IWRANK',ndims,idims)
-if (idims(1) > 0) then
+if (ndims == 1 .and. idims(1) > 0) then
    allocate (isfrank(idims(1)))
    call shdf5_irec(ndims, idims, 'SEAFLUX%IWRANK', ivara=isfrank)
 endif
@@ -497,7 +500,10 @@ endif
 ! Loop through all variables in the model vtables
 
 nvcnt = 0
-do nv = 1,num_var
+do nv = 1, num_var
+
+   ndims = -1
+   idims =  0
 
 ! Skip to next variable if we don't want the current one
 
@@ -510,12 +516,14 @@ do nv = 1,num_var
 
 ! We want it...read it if it's in the history file
 
-   call shdf5_info(varn,ndims,idims)
+   call shdf5_info(varn, ndims, idims)
 
 ! Skip to next variable if the current one is not in the history file
 
-   if (ndims == 0 .and. idims(1) == 0) then
-      write(io6,*) 'Variable '//trim(varn)//' is not in the history file.'
+   if (ndims < 0) then
+      write(io6,*)
+      write(io6,*) 'Variable '//trim(varn)//' is not in the history file, skipping'
+      write(io6,*)
       cycle
    endif
 
@@ -721,13 +729,14 @@ character(32)    :: varn
 character (2)    :: stagpt
 integer, pointer :: ilocal(:)
 
-nvcnt = 0
-ndims = 0
-idims = 0
+nvcnt =  0
 
 ! Loop through all variables in the model vtables
 
-do nv = 1,num_var
+do nv = 1, num_var
+
+   ndims = -1
+   idims =  0
 
 ! Skip to next variable if we don't want the current one
 
@@ -743,8 +752,10 @@ do nv = 1,num_var
 
 ! Skip to next variable if the current one is not in the history file
 
-   if (ndims == 0 .and. idims(1) == 0) then
-      write(io6,*) 'Variable '//trim(varn)//' is not in the history file.'
+   if (ndims < 0) then
+      write(io6,*)
+      write(io6,*) 'Variable '//trim(varn)//' is not in the history file, skipping'
+      write(io6,*)
       cycle
    endif
 
@@ -792,80 +803,6 @@ do nv = 1,num_var
       call shdf5_irec(ndims, idims, varn, dvara=vtab_r(nv)%dvar1_p, points=ilocal)
   elseif (associated(vtab_r(nv)%dvar2_p)) then
       call shdf5_irec(ndims, idims, varn, dvara=vtab_r(nv)%dvar2_p, points=ilocal)
-   endif
-
-   ! THE FOLLOWING SECTION IS TO ZERO OUT BOUNDARY CELLS FOR FIELDS
-   ! THAT ARE TYPICALLY ONLY COMPUTED ON "PRIMARY" POINTS. WHILE NOT
-   ! STRICTLY NECESSARY, IT WILL ENSURE THAT THE OUTPUT IS THE SAME
-   ! FOR A HISTORY RUN READING EITHER A PARALLEL OR SEQUENTIAL OUTPUT
-
-   if (any( varn == (/'FTHRD   ', 'FTHRD_LW'/) )) then
-      do i = 2,mwa
-         if (itab_w(i)%irank /= myrank) then
-            vtab_r(nv)%rvar2_p(1:mza,i) = 0.0
-         endif
-      enddo
-   endif
-   
-   if (any( varn == (/'RSHORT ', 'RLONG  ', 'RLONGUP', 'ALBEDT ',  &
-                      'COSZ   ', 'SFLUX_T', 'SFLUX_R', 'USTAR  '/) )) then
-      do i = 2,mwa
-         if (itab_w(i)%irank /= myrank) then
-            vtab_r(nv)%rvar1_p(i) = 0.0
-         endif
-      enddo
-   endif
-
-   if (any( varn == (/'LANDFLUX%SFLUXR', 'LANDFLUX%SFLUXT'/) )) then
-      do i = 2,mlandflux
-         iw = landflux(i)%iw
-         if (itabg_w(iw)%irank /= myrank) then
-            vtab_r(nv)%rvar1_p(i) = 0.0
-         endif
-      enddo
-   endif
-
-   if (any( varn == (/'SEAFLUX%SFLUXR', 'SEAFLUX%SFLUXT'/) )) then
-      do i = 2,mseaflux
-         iw = seaflux(i)%iw
-         if (itabg_w(iw)%irank /= myrank) then
-            vtab_r(nv)%rvar1_p(i) = 0.0
-         endif
-      enddo
-   endif
-
-   if (any( varn == (/'SEA%SEATC         ', 'SEA%SEAICEC       ',  &
-                      'SEA%CAN_DEPTH     ', 'SEA%RLONG         ',  &
-                      'SEA%SURFACE_SSH   ', 'SEA%RSHORT_DIFFUSE',  &
-                      'SEA%RSHORT        '/) )) then
-      do i = 2,mws
-         if (itab_ws(i)%irank /= myrank) then
-            vtab_r(nv)%rvar1_p(i) = 0.0
-         endif
-      enddo
-   endif
-
-   if (any( varn == (/'LAND%CAN_DEPTH   ', 'LAND%GROUND_SHV  ',  &
-                      'LAND%RLONG       ', 'LAND%RLONG_G     ',  &
-                      'LAND%STOM_RESIST ', 'LAND%SURFACE_SSH ',  &
-                      'LAND%VEG_ALBEDO  ', 'LAND%VEG_FRACAREA',  &
-                      'LAND%VEG_HEIGHT  ', 'LAND%VEG_LAI     ',  &
-                      'LAND%VEG_TAI     ', 'LAND%VEG_TEMP    ',  &
-                      'LAND%HCAPVEG     ', 'LAND%RLONG_V     ',  &
-                      'LAND%VEG_ROUGH   ', 'LAND%VF          '/) )) then
-      do i = 2,mwl
-         if (itab_wl(i)%irank /= myrank) then
-            vtab_r(nv)%rvar1_p(i) = 0.0
-         endif
-      enddo
-   endif
-
-   if (any( varn == (/'LAND%SOIL_ENERGY', 'LAND%SOIL_WATER '/) )) then
-      do i = 2,mwl
-         if (itab_wl(i)%irank /= myrank) then
-            vtab_r(nv)%rvar2_p(1:nzg,i) = 0.0
-         endif
-      enddo
    endif
 
    nvcnt = nvcnt + 1

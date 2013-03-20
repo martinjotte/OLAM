@@ -134,7 +134,8 @@ subroutine isan_singletime(iaction,fform)
 
 use isan_coms, only: nprx, npry, nprz
 use mem_grid,  only: mza, mwa, mva
-use misc_coms, only: io6
+use misc_coms, only: io6, runtype
+use mem_nudge, only: nudflag
 
 implicit none
 
@@ -158,9 +159,9 @@ real :: p_sst (nprx+3,npry+2)
 real(kind=8) :: o_rho   (mza,mwa)
 real         :: o_theta (mza,mwa)
 real         :: o_shv   (mza,mwa)
-real         :: o_umzonal(mza,mwa)
-real         :: o_ummerid(mza,mwa)
-real         :: o_uvc    (mza,mva) ! uc or vc wind component
+real         :: o_uzonal(mza,mwa)
+real         :: o_umerid(mza,mwa)
+real         :: o_uvc   (mza,mva) ! uc or vc wind component
 
 ! Fill surface arrays with 'missing' values in case they are not present
 
@@ -179,11 +180,19 @@ call pressure_stage(fform,p_u, p_v, p_t, p_z, p_r, &
 ! combined data to OLAM grid
 
 call isnstage(p_u,p_v,p_t,p_z,p_r, &
-              o_rho, o_theta, o_shv, o_umzonal, o_ummerid, o_uvc)
+              o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_uvc)
 
-! Fill model initial fields and/or nudging obs values
+! If initializing model, fill main model fields
 
-call fldsisan(iaction, o_rho, o_theta, o_shv, o_umzonal, o_ummerid, o_uvc)
+if (iaction == 0 .and. runtype == 'INITIAL') then
+   call fldsisan(o_rho, o_theta, o_shv, o_uvc)
+endif
+
+! If nudging, prepare observational nudging fields
+
+if (nudflag > 0 .and. runtype == 'INITIAL') then
+   call nudge_prep(iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
+endif
 
 return
 end subroutine isan_singletime

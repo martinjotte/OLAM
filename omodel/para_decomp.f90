@@ -37,8 +37,8 @@ subroutine para_decomp()
 use mem_para,   only: mgroupsize, myrank
 use misc_coms,  only: io6, meshtype
 
-use mem_ijtabs, only: itab_u_pd, itab_v_pd, itab_w_pd, itabg_m, itabg_u, itabg_v, itabg_w
-use mem_grid,   only: nma, nua, nva, nwa, xem, yem, zem
+use mem_ijtabs, only: itab_u_pd, itab_v_pd, itab_w_pd, itab_m_pd, itabg_m, itabg_u, itabg_v, itabg_w
+use mem_grid,   only: nma, nua, nva, nwa, xem, yem, zem, xew, yew, zew
 
 use leaf_coms,  only: nml, nul, nwl, isfcl
 use mem_leaf,   only: itab_ul, itab_wl, itabg_ml, itabg_ul, itabg_wl, land
@@ -128,22 +128,38 @@ endif
 
 ! Define temp variables for W
 
-do iw = 2,nwa
-   xewm(iw) = -1.e9
-   yewm(iw) = -1.e9
-   zewm(iw) = -1.e9
+if (meshtype == 1) then
 
-   do j = 1,itab_w_pd(iw)%npoly
-      im = itab_w_pd(iw)%im(j)
+   do iw = 2,nwa
+      xewm(iw) = -1.e9
+      yewm(iw) = -1.e9
+      zewm(iw) = -1.e9
+
+      do j = 1,itab_w_pd(iw)%npoly
+         im = itab_w_pd(iw)%im(j)
       
-      if (xewm(iw) < xem(im)) xewm(iw) = xem(im)
-      if (yewm(iw) < yem(im)) yewm(iw) = yem(im)
-      if (zewm(iw) < zem(im)) zewm(iw) = zem(im)
+         if (xewm(iw) < xem(im)) xewm(iw) = xem(im)
+         if (yewm(iw) < yem(im)) yewm(iw) = yem(im)
+         if (zewm(iw) < zem(im)) zewm(iw) = zem(im)
+      enddo
    enddo
-enddo
 
-! We don't need global xe? anymore. Deallocating it
-deallocate(xem, yem, zem)
+   ! We don't need global [xyz]em anymore
+   deallocate(xem, yem, zem)
+
+else
+
+   do iw = 2,nwa
+      xewm(iw) = xew(iw)
+      yewm(iw) = yew(iw)
+      zewm(iw) = zew(iw)
+   enddo
+
+   ! We don't need global [xyz]ew anymore
+   deallocate(xew, yew, zew)
+
+endif
+
 
 ! Allocate and fill grp%iw, grp%iwl, and grp%iws for group 1
 
@@ -696,6 +712,18 @@ else
    enddo
    
 endif
+
+
+! Set rank of M point based on rank of 1st U or V point in stencil
+! Optimize later....
+
+do im = 2, nma
+   if (meshtype == 1) then
+      itabg_m(im)%irank = itabg_u( itab_m_pd(im)%iu(1) )%irank
+   else
+      itabg_m(im)%irank = itabg_v( itab_m_pd(im)%iv(1) )%irank
+   endif
+enddo
 
 if (isfcl == 1) then
 

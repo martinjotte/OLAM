@@ -7,6 +7,12 @@
    NL%EXPNME = 'OLAM test simulation'   
 
  !--------------------------------------------------------------------------
+ ! FLAG FOR STANDARD TEST CASE SIMULATIONS (SHALLOW WATER & NCAR DCMIP 2012)
+ !--------------------------------------------------------------------------
+
+   NL%TEST_CASE = 0
+
+ !--------------------------------------------------------------------------
  ! Runtype: either MAKESFC, MAKEGRID, INITIAL, HISTORY, or PLOTONLY
  !--------------------------------------------------------------------------
 
@@ -82,7 +88,14 @@
  ! Horizontal grid refinement ("nested grid") definition
  !--------------------------------------------------------------------------
 
-   NL%NGRIDS  = 2       ! Number of grids to run
+   ! Number of grids to generate:
+   NL%NGRIDS = 1
+
+   ! Method to reduce grid concavities when generating each mesh
+   ! 1 eliminates only sharp concavities (Method B)
+   ! 2 eliminates both sharp and gentler concavities (original Method A)
+   ! 3 activates the Method C refined mesh algorithm
+   NL%NCONCAVE = 1
 
  ! One group of values must be provided for each "grid" number NG = 2:NGRIDS
 
@@ -161,11 +174,14 @@
  ! History file I/O
  !--------------------------------------------------------------------------
 
-   NL%IOUTPUT   = 1             ! 0-no files, 1-write files
+   NL%IOUTPUT   = 1            ! 0-no files, 1-write files
 
-   NL%HFILEPREF = 'hist/b'      ! History file output path/prefix
-   NL%ICLOBBER  = 1             ! 0 = stop if files exist, 1 = overwite files
-   NL%FRQSTATE  = 3600.         ! Time interval between history files
+   NL%HFILEPREF = 'hist/b'     ! History file output path/prefix
+   NL%ICLOBBER  = 1            ! 0 = stop if files exist, 1 = overwite files
+   NL%ICOMPRESS = 3            ! 0 (no compres, fast) <-> 9 (max compres, slow)
+   NL%FRQSTATE  = 3600.        ! Time interval between history files
+   NL%IPAR_OUT  = 1            ! 1 = parallel output to single file, if
+                               ! supported by system (but disables compression)
 
    NL%HFILIN   = 'hist/b-H-2004-09-01-030000.h5'      ! History file intput
 
@@ -206,38 +222,42 @@
    NL%RAYFW_DISTIM = 0.0    ! Damping for W - model top disp time
    NL%RAYFW_EXPON  = 1.0    ! Damping for W - exponent for profile
 
+   NL%RAYFDIV_ZMIN   = 25000. ! Damping for horiz. div. - minimum height (m)
+   NL%RAYFDIV_DISTIM = 0.0    ! Damping for horiz. div. - model top disp time
+   NL%RAYFDIV_EXPON  = 1.0    ! Damping for horiz. div. - exponent for profile
+
  !--------------------------------------------------------------------------
  ! Radiation parameters
  !--------------------------------------------------------------------------
  
    NL%ISWRTYP = 3   ! Shortwave radiation type:
    NL%ILWRTYP = 3   ! Longwave  radiation type:
-                       !   0=none, 1=Chen, 2=Mahrer/Pielke, 3=Harrington
+                    !   0=none, 3=Harrington
    NL%RADFRQ  = 1800.  ! Time interval between radiation tendency updates (s)
 
  !--------------------------------------------------------------------------
  ! Cumulus parameterization parameters
  !--------------------------------------------------------------------------
-  
+
    NL%NQPARM = 2,2,2,2,2,2,2,2   ! Cumulus parameterization scheme for each MRL
-                                 ! 0=off, 1=Kuo, 2=Grell
+                                 ! 0=off, 1=Kuo, 2=Grell, 3=KF_eta, 4=Emanuel
 
    NL%NQPARM_SH = 0,0,0,0,0,0,0,0  ! Shallow cumulus parameterization scheme 
                                    ! for each MRL:  0=off, 1=Grell
 
    NL%CONFRQ = 1200.   ! Time interval (s) between cumulus param updates
 
-   NL%WCLDBS = .002     ! Minimum vertical motion (m/s) needed at cloud base 
+   NL%WCLDBS = .002    ! Minimum vertical motion (m/s) needed at cloud base 
                        ! to trigger convection in Kuo scheme
  
  !--------------------------------------------------------------------------
  ! Eddy diffusion coefficient parameters (one value for each MRL)
  !--------------------------------------------------------------------------
  
-   NL%IDIFFK = 2,2,2,2,2          ! Turbulent parameterization scheme:
+   NL%IDIFFK = 2,2,2,2,2,2        ! Turbulent parameterization scheme:
                                   !  0 = off
+                                  !  1 = ACM2 non-local PBL
                                   !  2 = Smagorinsky-Lilly-Hill
-                                  !  7 = Taylor
 
    NL%CSX    = .2,.2,.2,.2,.2     ! Horizontal length scale coefficient
    NL%CSZ    = .2,.2,.2,.2,.2     ! Vertical length scale coefficient
@@ -438,80 +458,12 @@
  ! ED Model variables
  !--------------------------------------------------------------------------
 
- ! Specify the grid cells for which you want to run ED.  
- !--------------------------------
+  !  Set this flag to 1 if ED2 will be active in any grid cell.
+  !  Set this flag to 0 if ED2 will not be active
+  NL%ED2_ACTIVE = 0  
 
- ! You can pinpoint individual locations.
-   NL%N_SOI    =    0  ! number of sites of interest (SOIs).  This could be zero.
-   NL%SOI_LAT  =    -2.0,7.0  ! list of the latitudes of the SOIs (degrees north)
-   NL%SOI_LON  =   -60.0,31.0  ! list of the longitudes of the SOIs (degrees east)
-
- ! You can also select rectangular regions
-   NL%N_ED_REGION   =  0  ! number of regions for which you want to run ED.  
-   NL%ED_REG_LATMIN  = -15.0, 10.0 ! list of minimum latitudes of the ED regions. 
-   NL%ED_REG_LATMAX  =  12.0, 20.0
-   NL%ED_REG_LONMIN  = -85.0, 50.0
-   NL%ED_REG_LONMAX  = -35.0, 60.0
-
- ! Model options
- ! ----------
-   NL%IED_INIT_MODE   = 2
-                         ! 0 signifies a start from near-bare ground.   
-                         ! 1 allows you to do a standard history restart.
-                         ! 2 allows you to do a history restart from ED1-type
-                         !   restart files.
-
-   NL%ISTOMA_SCHEME   = 1  ! This is the scheme used to compute stomatal 
-                         ! conductance and photosynthesis.  Set to 0 to do 
-                         ! the full, exact calculation each time.  Set to 1 
-                         ! to do the 'small perturbation' scheme.
-
-   NL%IPHEN_SCHEME    = 0  ! This specifies the phenology scheme.  0 is for the
-                         ! original ED scheme.  Other options coming soon.
-  
-   NL%N_PLANT_LIM     = 0  ! Determines whether (1) or not (0) plants can
-                         ! be limited by nitrogen
-
-   NL%N_DECOMP_LIM    = 0  ! Determines whether (1) or not (0) decomposition
-                         ! can be limited by nitrogen
-
-   NL%INCLUDE_FIRE    = 0  ! Determines whether (1) or not (0) simulation can have fires 
-
-   NL%IANTH_DISTURB   = 0  ! Flag specifying whether (1) or not (0) to include
-                         ! anthropogenic disturbances such as agriculture, 
-                         ! abandonment, and harvesting.
-
- ! Commonly changed parameters
- ! --------
-
-   NL%TREEFALL_DISTURBANCE_RATE  = 0.01  ! Treefall disturbance rate, 1/years
-
-   NL%RUNOFF_TIME     = 86400.0  ! In offline runs (and maybe online, too),
-                             ! the forest could get saturated and 
-                             ! develop a sfcwater pool of meters or 
-                             ! more.  In many cases, this is not realistic.
-                             ! This is the time scale in seconds for 
-                             ! this water to disappear.         
-
- ! Offline model control
- ! --------
-
-   NL%IED_OFFLINE     = 0  ! Run the ED model offline (1) or coupled to OLAM (0)
-
-   NL%METCYC1         = 1997 ! For an offline run, first year of met data
-
-   NL%METCYC2         = 1997 ! For an offline run, last year of met data
-
- ! Model database files
- ! --------
-
- !   NL%ED_HFILIN = '/cluster/home/dmm31/output/4deg/ed/r2/r2-1997-01-29-000000-ED-RESTART.dat'
-   NL%ED_HFILIN = '/cluster/home/dmm31/ed_inputs/amazon_restart/lu.sa.05.restart.01.'
-
-   NL%ED_INPUTS_DIR   = '/cluster/home/dmm31/grandcombin/data/ed_inputs/'  
-                   ! Directory where chd, dgd, etc. data is kept.
-
-   NL%ED_OFFLINE_DB   = './ED_OFFLINE_HEADER' ! File containing information for an offline run
+  !  Name of the ED2 namelist file.  This is relevant only if ED2_ACTIVE=1.
+  NL%ED2_NAMELIST = 'ED2IN'
 
  !--------------------------------------------------------------------------
  ! Isentropic control 
@@ -563,6 +515,10 @@
   NL%PLTORIENT = 0    ! 0 = portrait,  1 = landscape
                       ! (only for postscript or pdf output)
 
+  NL%ZPLOT_MIN = -1.0   ! For vertical or cone plots, these specify the vertical
+  NL%ZPLOT_MAX = -1.0   ! extent of the plots (m); use -1.0 to indicate the
+                        ! default top and bottom of the model
+
  !------------------------------------------------------------------------
  ! List of history files to plot from for RUNTYPE = 'PLOTONLY'
  !------------------------------------------------------------------------
@@ -583,7 +539,7 @@
  !  L = Lat/lon cylindrical     T,F,L,O = Tiles, Fillcnt, Linecnt, Overlay L on F
  !  P = Polar stereographic     P       = Print value
  !  O = Orthographic            I,J     = local Index, all indices
- !  Z = Horizontal cartesian    B,U,V,v = Barb, U-normvec, V-normvec, v(totvec)
+ !  Z = Horizontal cartesian    B,U,V,v,w = Barb, U-normvec, V-normvec, v,w(totvec)
  !  C = Cone                    G       = Grid cells
  !  V = Vertical plane          g       = land/sea grid cells
  !                              D       = Dual grid cells

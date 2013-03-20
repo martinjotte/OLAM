@@ -32,7 +32,7 @@
 !===============================================================================
 subroutine micinit()
 
-use mem_basic,   only: theta, press, rho
+use mem_basic,   only: tair, press, rho
 
 use mem_micro,   only: sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        accpd, accpr, accpp, accps, accpa, accpg, accph, &
@@ -41,23 +41,20 @@ use mem_micro,   only: sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        con_ccn, con_gccn, con_ifn, q2, q6, q7, &
                        pcpgr, qpcpgr, dpcpgr
 
-use misc_coms,   only: io6, dtlm
-use consts_coms, only: p00, rocp
-use mem_ijtabs,  only: jtab_w, mrls
+use misc_coms,   only: io6, dtlm, runtype
+use mem_ijtabs,  only: jtab_w, mrls, jtw_init
 use mem_grid,    only: mza, zm, dzt, dzit
 use mem_para,    only: myrank
 
 use micro_coms,  only: level, icloud, idriz, irain, ipris, isnow, iaggr, &
-                       igraup, ihail, jnmb, ncat, gnu, emb0, emb1, nhcat, &
-                       cfmas, pwmas, cfvt, pwvt, npairc, coltabc, nembc, &
-                       npairr, coltabr, alloc_sedimtab, &
-                       cparm, dparm, pparm
+                       igraup, ihail, jnmb, ncat, nhcat, nembc, gnu, emb0, &
+                       emb1, cfmas, pwmas, cfvt, pwvt, cparm, dparm, pparm, &
+                       npairx, npairy, npairc, coltabx, coltaby, coltabc, &
+                       alloc_sedimtab
 
 use hdf5_utils, only: shdf5_irec, shdf5_orec, shdf5_open, shdf5_close
 
 implicit none
-
-real :: tair(mza)  ! automatic array
 
 integer :: j,iw,k,lcat,lhcat,mrl,ndims,idims(3)
 
@@ -84,108 +81,110 @@ enddo
 
 ! Initialize 3D and 2D microphysics fields
 
-call psub()
+if (runtype == 'INITIAL') then
+
+   call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)
+   do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !----------------------------------------------------------------------
-call qsub('W',iw)
+   call qsub('W',iw)
 
-   tair(1:mza) = theta(1:mza,iw) * (press(1:mza,iw) / p00) ** rocp
+      if (idriz >= 1)  then
+         sh_d(1:mza,iw) = 0.
+         accpd(iw) = 0.
+         pcprd(iw) = 0.
+      endif
 
-   if (idriz >= 1)  then
-      sh_d(1:mza,iw) = 0.
-      accpd(iw) = 0.
-      pcprd(iw) = 0.
-   endif
-
-   if (irain >= 1)  then
-      sh_r(1:mza,iw) = 0.
-      accpr(iw) = 0.
-      pcprr(iw) = 0.
-      q2(1:mza,iw) = tair(1:mza) - 193.15
-   endif
+      if (irain >= 1)  then
+         sh_r(1:mza,iw) = 0.
+         accpr(iw) = 0.
+         pcprr(iw) = 0.
+         q2(1:mza,iw) = tair(1:mza,iw) - 193.15
+      endif
    
-   if (ipris >= 1)  then
-      sh_p(1:mza,iw) = 0.
-      accpp(iw) = 0.
-      pcprp(iw) = 0.
-   endif
+      if (ipris >= 1)  then
+         sh_p(1:mza,iw) = 0.
+         accpp(iw) = 0.
+         pcprp(iw) = 0.
+      endif
 
-   if (isnow >= 1)  then
-      sh_s(1:mza,iw) = 0.
-      accps(iw) = 0.
-      pcprs(iw) = 0.
-   endif
+      if (isnow >= 1)  then
+         sh_s(1:mza,iw) = 0.
+         accps(iw) = 0.
+         pcprs(iw) = 0.
+      endif
 
-   if (iaggr >= 1)  then
-      sh_a(1:mza,iw) = 0.
-      accpa(iw) = 0.
-      pcpra(iw) = 0.
-   endif
+      if (iaggr >= 1)  then
+         sh_a(1:mza,iw) = 0.
+         accpa(iw) = 0.
+         pcpra(iw) = 0.
+      endif
 
-   if (igraup >= 1) then
-      sh_g(1:mza,iw) = 0.
-      accpg(iw) = 0.
-      pcprg(iw) = 0.
-      q6(1:mza,iw) = .5 * min(0.,tair(1:mza) - 273.15)
-   endif
+      if (igraup >= 1) then
+         sh_g(1:mza,iw) = 0.
+         accpg(iw) = 0.
+         pcprg(iw) = 0.
+         q6(1:mza,iw) = .5 * min(0.,tair(1:mza,iw) - 273.15)
+      endif
 
-   if (ihail >= 1)  then
-      sh_h(1:mza,iw) = 0.
-      accph(iw) = 0.
-      pcprh(iw) = 0.
-      q7(1:mza,iw) = .5 * min(0.,tair(1:mza) - 273.15)
-   endif
+      if (ihail >= 1)  then
+         sh_h(1:mza,iw) = 0.
+         accph(iw) = 0.
+         pcprh(iw) = 0.
+         q7(1:mza,iw) = .5 * min(0.,tair(1:mza,iw) - 273.15)
+      endif
 
-   if (jnmb(1) == 5) con_c(1:mza,iw) = 0.
-   if (jnmb(2) == 5) con_r(1:mza,iw) = 0.
-   if (jnmb(3) == 5) con_p(1:mza,iw) = 0.
-   if (jnmb(4) == 5) con_s(1:mza,iw) = 0.
-   if (jnmb(5) == 5) con_a(1:mza,iw) = 0.
-   if (jnmb(6) == 5) con_g(1:mza,iw) = 0.
-   if (jnmb(7) == 5) con_h(1:mza,iw) = 0.
-   if (jnmb(8) == 5) con_d(1:mza,iw) = 0.
+      if (jnmb(1) == 5) con_c(1:mza,iw) = 0.
+      if (jnmb(2) == 5) con_r(1:mza,iw) = 0.
+      if (jnmb(3) == 5) con_p(1:mza,iw) = 0.
+      if (jnmb(4) == 5) con_s(1:mza,iw) = 0.
+      if (jnmb(5) == 5) con_a(1:mza,iw) = 0.
+      if (jnmb(6) == 5) con_g(1:mza,iw) = 0.
+      if (jnmb(7) == 5) con_h(1:mza,iw) = 0.
+      if (jnmb(8) == 5) con_d(1:mza,iw) = 0.
 
 ! Initialize CCN field if activated
-
-   if (icloud  == 7) then
-      con_ccn(1:mza,iw) = cparm  ! Default specification
+      
+      if (icloud  == 7) then
+         con_ccn(1:mza,iw) = cparm  ! Default specification
 
 ! Steve's example (changed to #/kg)
 
-!     con_ccn(k,iw) = max(100.e6,cparm * (1. - zt(k) / 4000.))
+!        con_ccn(k,iw) = max(100.e6,cparm * (1. - zt(k) / 4000.))
 
-   endif
+      endif
 
 ! Initialize GCCN field if activated
 
-   if (idriz == 7) then
-      con_gccn(1:mza,iw) = dparm  ! Default specification
+      if (idriz == 7) then
+         con_gccn(1:mza,iw) = dparm  ! Default specification
 
 ! Steve's example (changed to #/kg)
 
-!     con_gccn(k,iw) = max(10.,dparm * (1. - zt(k) / 4000.))
+!        con_gccn(k,iw) = max(10.,dparm * (1. - zt(k) / 4000.))
 
-   endif
+      endif
 
 ! Initialize IFN field if activated
 
-   if (ipris == 7) then
-      con_ifn (1:mza,iw) = pparm * rho(1:mza,iw) ** 5.4  ! Default specification
-   endif
+      if (ipris == 7) then
+         con_ifn (1:mza,iw) = pparm * rho(1:mza,iw) ** 5.4  ! Default specification
+      endif
 
 ! Initialize accumulated precipitation for surface model
 
-   pcpgr(iw)  = 0.
-   qpcpgr(iw) = 0.
-   dpcpgr(iw) = 0.
+      pcpgr(iw)  = 0.
+      qpcpgr(iw) = 0.
+      dpcpgr(iw) = 0.
 
-enddo
-call rsub('Wc',7)
+   enddo
+   call rsub('Wc',7)
+
+endif ! runtype == 'INITIAL'
 
 ! Check if collection table file exists
 
-coltabfile = './COLTABFILE1'
+coltabfile = './COLTABFILE2'
 
 inquire(file=coltabfile, exist=exans)
 
@@ -206,9 +205,13 @@ if (exans) then
 
    call shdf5_irec(ndims, idims, 'COLTABC', rvara=coltabc)
 
-   idims(3) = npairr
+   idims(3) = npairx
 
-   call shdf5_irec(ndims, idims, 'COLTABR', rvara=coltabr)
+   call shdf5_irec(ndims, idims, 'COLTABX', rvara=coltabx)
+
+   idims(3) = npairy
+
+   call shdf5_irec(ndims, idims, 'COLTABY', rvara=coltaby)
 
 ! Close the collection table file
 
@@ -235,9 +238,13 @@ else
 
       call shdf5_orec(ndims, idims, 'COLTABC', rvara=coltabc)
 
-      idims(3) = npairr
+      idims(3) = npairx
 
-      call shdf5_orec(ndims, idims, 'COLTABR', rvara=coltabr)
+      call shdf5_orec(ndims, idims, 'COLTABX', rvara=coltabx)
+
+      idims(3) = npairy
+
+      call shdf5_orec(ndims, idims, 'COLTABY', rvara=coltaby)
 
 ! Close the collection table file
 
@@ -263,7 +270,7 @@ use micro_coms,  only: icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail,
                        pwemb0, ch3, cdp1, pwvtmasi, jnmb, cfemb0, cfen0, &
                        dnfac, vtfac, frefac1, frefac2, sipfac, cfmasft, &
                        dict, dpsmi, gamm, gamn1, ngam, gam, gaminc, &
-                       gamsip13, gamsip24
+                       gamsip13, gamsip24, ddn_ngam
                       
 use consts_coms, only: alvl, alvi, alli
 use misc_coms,   only: io6
@@ -415,17 +422,16 @@ do lhcat = 1,nhcat
    if (lhcat <= 4) gamm(lhcat) = exp(glg)
    if (lhcat <= 4) gamn1(lhcat) = exp(glg1)
 
+enddo
+
+flngi = 1. / real(ngam)
+
+do igam = 1,ngam
+   dpsi = dps / (ddn_ngam * real(igam))
+
 ! gam1   :  the integral of the pristine distribution from dps to infty
 ! gam2   :  the integral of the snow dist. from 0 to dps
 ! gam3   :  values of the exponential exp(-dps/dn)
-
-enddo
-
-! Secondary ice production arrays
-
-flngi = 1. / float(ngam)
-do igam = 1,ngam
-   dpsi = dps * 1.e6 / float(igam)
 
    gam(igam,1) = gammq(gnu(3) + 1., dpsi)
    gam(igam,2) = gammp(gnu(4) + 1., dpsi)
@@ -434,13 +440,15 @@ do igam = 1,ngam
    GAMINC(igam,1) = GAMMQ(GNU(3),dpsi)
    GAMINC(igam,2) = GAMMP(GNU(4),dpsi)
 
-   embsip = emb1(1) * float(igam) * flngi
+! Secondary ice production arrays
+
+   embsip = emb1(1) * real(igam) * flngi
    dnsip = dnfac(1) * embsip ** pwmasi(1)
    gamsip13(1,igam) = gammp(gnu(1),13.e-6/dnsip)
    gamsip24(1,igam) = gammq(gnu(1),24.e-6/dnsip)
 
-   embsip = emb1(8) * float(igam) * flngi
-   dnsip = dnfac(16) * embsip ** pwmasi(16)
+   embsip = emb1(8) * real(igam) * flngi
+   dnsip = dnfac(8) * embsip ** pwmasi(8)
    gamsip13(2,igam)= gammp(gnu(8),13.e-6/dnsip)
    gamsip24(2,igam)= gammq(gnu(8),24.e-6/dnsip)
 enddo

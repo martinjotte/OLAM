@@ -52,12 +52,12 @@ use mem_leaf,   only: itab_ml, itab_ul, itab_wl,       &
 
 use mem_mksfc,  only: itab_mls_vars, itab_uls_vars, itab_wls_vars
                         
-use mem_sflux,  only: landflux, nlandflux, jlandflux, flux_vars
+use mem_sflux,  only: landflux, nlandflux, jlandflux, lflux_vars
 
 implicit none
 
-logical,         intent(in) :: landflag(nwl)
-type(flux_vars), intent(in) :: landflux_temp(nlandflux)
+logical,          intent(in) :: landflag(nwl)
+type(lflux_vars), intent(in) :: landflux_temp(nlandflux)
 
 integer :: jml
 integer :: iw,iml,iul,iwl

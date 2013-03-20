@@ -63,6 +63,9 @@ real(r8) :: rinit8 = 0.0_r8
 logical :: debug_fp  = .false.
 logical :: init_nans = .false.
 
+logical       :: do_chem   = .false.
+character(30) :: chem_mech = ""
+
 integer :: io6
 integer :: initial
 integer :: ngrids
@@ -91,7 +94,8 @@ integer :: ngrid
 integer :: nzpp
 integer :: nscl
 integer :: nxp
-integer :: iparallel
+integer :: iparallel = 0
+integer :: ipar_out  = 0
 integer :: ndz
 
 integer :: idiffk   (maxgrds)

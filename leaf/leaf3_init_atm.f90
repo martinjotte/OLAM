@@ -39,15 +39,11 @@ use leaf_coms,   only: mwl, nzg, nzs,  &
                        soil_rough, iupdndvi, s1900_ndvi, indvifile,  &
                        nndvifiles, dt_leaf, isoilstateinit
                       
-use mem_sflux,    only: mlandflux, landflux, jlandflux
-use mem_basic,    only: press, rho, theta, sh_v
+use mem_sflux,    only: landflux, jlandflux
+use mem_basic,    only: rho, tair, sh_v
 use misc_coms,    only: io6, time8, s1900_sim, iparallel, runtype
 use mem_ijtabs,   only: itabg_w
-                       
-use consts_coms,  only: p00i, rocp, cliq, cice, alli,  &
-                        cliq1000, cice1000, alli1000
-
-use ed_options,   only: ied_offline
+use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000
 use mem_para,     only: myrank
 use leaf3_canopy, only: vegndvi
 
@@ -108,10 +104,8 @@ do j = 1,jlandflux(1)%jend(1)
    kw       = landflux(ilf)%kw
    arf_land = landflux(ilf)%arf_sfc
 
-   airtemp = theta(kw,iw) * (p00i * press(kw,iw)) ** rocp
-
-   landflux(ilf)%rhos    = arf_land * rho(kw,iw)
-   landflux(ilf)%airtemp = arf_land * airtemp
+   landflux(ilf)%rhos    = arf_land * rho (kw,iw)
+   landflux(ilf)%airtemp = arf_land * tair(kw,iw)
    landflux(ilf)%airshv  = arf_land * sh_v(kw,iw)
 enddo
 
@@ -199,7 +193,9 @@ do iwl = 2,mwl
 
 ! Default initialization of sfcwater_mass, soil_tempc, and soil_water
 
-   land%sfcwater_mass(1:nzs,iwl) = 0.
+   land%sfcwater_mass  (1:nzs,iwl) = 0.
+   land%sfcwater_energy(1:nzs,iwl) = 0.
+   land%sfcwater_depth (1:nzs,iwl) = 0.
 
    soil_tempc(1:nzg,iwl) = land%can_temp(iwl) - 273.15
    fracliq(1:nzg,iwl) = 1.0
@@ -334,9 +330,6 @@ do iwl = 2,mwl
                 land%surface_ssh          (iwl)  )
 
 enddo
-
-if (ied_offline == 1) call update_offline_met()
-call ed_init_atm()
 
 ! Do parallel send/recv of LEAF fields
 

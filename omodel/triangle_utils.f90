@@ -48,53 +48,60 @@ integer :: j,iunow,iu0,npoly,im
 ! Loop over W points
 
 do iw = 2,nwa
-   itab_wd(iw)%npoly = 3
+   itab_wd(iw)%npoly = 0
 
    iu1 = itab_wd(iw)%iu(1)
    iu2 = itab_wd(iw)%iu(2)
    iu3 = itab_wd(iw)%iu(3)
 
-! Fill M points for current W point
+   if (iu1 > 1) itab_wd(iw)%npoly = itab_wd(iw)%npoly + 1
+   if (iu2 > 1) itab_wd(iw)%npoly = itab_wd(iw)%npoly + 1
+   if (iu3 > 1) itab_wd(iw)%npoly = itab_wd(iw)%npoly + 1
 
-   if (iw == itab_ud(iu2)%iw(1)) then          ! New sequence???
-      itab_wd(iw)%im(1)   = itab_ud(iu2)%im(1) ! [1 = 2]
-      itab_wd(iw)%im(3)   = itab_ud(iu2)%im(2) ! [2 = 1]
-   else
-      itab_wd(iw)%im(1)   = itab_ud(iu2)%im(2) ! [1 = 1]
-      itab_wd(iw)%im(3)   = itab_ud(iu2)%im(1) ! [2 = 2]
+! Fill M and inner W neighbors for current W point
+
+   if (iu1 > 1) then
+      if (iw == itab_ud(iu1)%iw(1)) then
+         itab_wd(iw)%im(3) = itab_ud(iu1)%im(1)
+         itab_wd(iw)%im(2) = itab_ud(iu1)%im(2)
+         itab_wd(iw)%iw(1) = itab_ud(iu1)%iw(2)
+         itab_wd(iw)%diru(1) = -1.
+      elseif (iw == itab_ud(iu1)%iw(2)) then
+         itab_wd(iw)%im(3) = itab_ud(iu1)%im(2)
+         itab_wd(iw)%im(2) = itab_ud(iu1)%im(1)
+         itab_wd(iw)%iw(1) = itab_ud(iu1)%iw(1)
+         itab_wd(iw)%diru(1) = 1.
+      endif
    endif
 
-   if (iw == itab_ud(iu1)%iw(1)) then
-      itab_wd(iw)%im(2)   = itab_ud(iu1)%im(2) ! [3 = 2]
-   else
-      itab_wd(iw)%im(2)   = itab_ud(iu1)%im(1) ! [3 = 1]
+   if (iu2 > 1) then
+      if     (iw == itab_ud(iu2)%iw(1)) then
+         itab_wd(iw)%im(1) = itab_ud(iu2)%im(1)
+         itab_wd(iw)%im(3) = itab_ud(iu2)%im(2)
+         itab_wd(iw)%iw(2) = itab_ud(iu2)%iw(2)
+         itab_wd(iw)%diru(2) = -1.
+      elseif (iw == itab_ud(iu2)%iw(2)) then
+         itab_wd(iw)%im(1) = itab_ud(iu2)%im(2)
+         itab_wd(iw)%im(3) = itab_ud(iu2)%im(1)
+         itab_wd(iw)%iw(2) = itab_ud(iu2)%iw(1)
+         itab_wd(iw)%diru(2) = 1.
+      endif
    endif
 
-! Fill inner W points and U directions for current W point
-
-   if (iw == itab_ud(iu1)%iw(1)) then
-      itab_wd(iw)%iw(1)   = itab_ud(iu1)%iw(2)
-      itab_wd(iw)%diru(1) = -1.
-   else
-      itab_wd(iw)%iw(1)   = itab_ud(iu1)%iw(1)
-      itab_wd(iw)%diru(1) = 1.
+   if (iu3 > 1) then
+      if     (iw == itab_ud(iu3)%iw(1)) then
+         itab_wd(iw)%im(2) = itab_ud(iu3)%im(1)
+         itab_wd(iw)%im(1) = itab_ud(iu3)%im(2)
+         itab_wd(iw)%iw(3) = itab_ud(iu3)%iw(2)
+         itab_wd(iw)%diru(3) = -1.
+      elseif (iw == itab_ud(iu3)%iw(2)) then
+         itab_wd(iw)%im(2) = itab_ud(iu3)%im(2)
+         itab_wd(iw)%im(1) = itab_ud(iu3)%im(1)
+         itab_wd(iw)%iw(3) = itab_ud(iu3)%iw(1)
+         itab_wd(iw)%diru(3) = 1.
+      endif
    endif
 
-   if (iw == itab_ud(iu2)%iw(1)) then
-      itab_wd(iw)%iw(2)   = itab_ud(iu2)%iw(2)
-      itab_wd(iw)%diru(2) = -1.
-   else
-      itab_wd(iw)%iw(2)   = itab_ud(iu2)%iw(1)
-      itab_wd(iw)%diru(2) = 1.
-   endif
-
-   if (iw == itab_ud(iu3)%iw(1)) then
-      itab_wd(iw)%iw(3)   = itab_ud(iu3)%iw(2)
-      itab_wd(iw)%diru(3) = -1.
-   else
-      itab_wd(iw)%iw(3)   = itab_ud(iu3)%iw(1)
-      itab_wd(iw)%diru(3) = 1.
-   endif
 enddo
 
 ! Fill outer U and W points for current W point
@@ -360,49 +367,39 @@ do iu = 2,nua
       iw1 = itab_ud(iu)%iw(1)
       iw2 = itab_ud(iu)%iw(2)
 
-      if (itab_md(im)%npoly == 0   .or.  &
-         (iw1 == 1 .and. j == 1) .or.  &  ! This and next line added for walls
-         (iw2 == 1 .and. j == 2)) then
+      if (itab_md(im)%npoly == 0 .or. &
+         (itab_wd(iw1)%npoly < 3 .and. j == 1) .or. &  ! This and next line added for walls;
+         (itab_wd(iw2)%npoly < 3 .and. j == 2)) then   ! npoly check allows WD at cart_hex boundaries
 
          iunow = iu
          iu0 = 0
          npoly = 0
 
-         do while (iunow /= iu0)
+         do while (iunow /= iu0 .and. iunow > 1)
 
             iu0 = iu
-!!                  npoly = npoly + 1
+            npoly = npoly + 1  ! MOVED HERE 8/24/2012
+
+            itab_md(im)%iu(npoly) = iunow
 
             if (itab_ud(iunow)%im(1) == im) then
 
                if (itab_ud(iunow)%iw(2) > 1) then
-
-                  npoly = npoly + 1
-
-                  itab_md(im)%iu(npoly) = iunow  ! NEW
-
                   itab_md(im)%iw(npoly) = itab_ud(iunow)%iw(2)
                   iunow = itab_ud(iunow)%iu(3)
-
                else
-
                   iunow = iu0  ! this section added for walls
                endif
+
             else
 
                if (itab_ud(iunow)%iw(1) > 1) then
-
-                  npoly = npoly + 1
-
-                  itab_md(im)%iu(npoly) = iunow  ! NEW
-
                   itab_md(im)%iw(npoly) = itab_ud(iunow)%iw(1)
                   iunow = itab_ud(iunow)%iu(2)
-
                else
-
                   iunow = iu0  ! this section added for walls
                endif
+
             endif
 
             itab_md(im)%npoly = npoly
@@ -410,11 +407,6 @@ do iu = 2,nua
             if (npoly > 10) stop 'stop tri_neighbors npoly'
 
          enddo
-
-! Define extra (wrap-around) iu value for itab_md            
-
-! next line probably no longer needed, so commented out
-!         if (npoly > 0) itab_md(im)%iu(npoly+1) = iunow
 
       endif
 

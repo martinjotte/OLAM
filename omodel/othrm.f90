@@ -32,7 +32,7 @@
 !===============================================================================
 subroutine thermo()
 
-use mem_ijtabs, only: jtab_w, istp, mrl_endl
+use mem_ijtabs, only: jtab_w, istp, mrl_endl, jtw_prog
 use micro_coms, only: level
 use misc_coms,  only: io6
 
@@ -49,7 +49,7 @@ call psub()
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private (iw)
-do j = 1,jtab_w(29)%jend(mrl); iw = jtab_w(29)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !-------------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -78,10 +78,11 @@ subroutine drythrm(iw)
 ! This routine calculates theta and rv for the case where no condensate is
 ! allowed.
 
-use mem_basic,  only: theta, thil, sh_v, sh_w
+use mem_basic,  only: theta, thil, tair, sh_v, sh_w, press
 use micro_coms, only: level
 use mem_grid,   only: lpw, mza
 use misc_coms,  only: io6
+use consts_coms,only: p00i, rocp
 
 implicit none
 
@@ -91,6 +92,7 @@ integer k
 
 do k = lpw(iw),mza-1
    theta(k,iw) = thil(k,iw)
+   tair (k,iw) = thil(k,iw) * (press(k,iw) * p00i) ** rocp
 enddo
 
 if (level == 1) then
@@ -109,9 +111,9 @@ subroutine satadjst(iw)
 ! This routine diagnoses theta, sh_v, and sh_c using a saturation adjustment
 ! for the case when sh_c is the only allowed condensate
 
-use mem_basic,   only: thil, theta, rho, sh_w, sh_v, press
+use mem_basic,   only: thil, theta, tair, rho, sh_w, sh_v, press
 use mem_micro,   only: sh_c
-use consts_coms, only: p00, cp, alvl, rocp
+use consts_coms, only: p00i, cp, alvl, rocp
 use mem_grid,    only: lpw, mza
 use misc_coms,   only: io6
 
@@ -124,7 +126,7 @@ real :: temp,rlvs,rt,rc,t_il,rvls,exner,rhovs
 real, external :: rhovsl
 
 do k = lpw(iw),mza-1
-   exner = (press(k,iw) / p00) ** rocp  ! Defined WITHOUT CP factor
+   exner = (press(k,iw) * p00i) ** rocp  ! Defined WITHOUT CP factor
    t_il = thil(k,iw) * exner
    temp = t_il
 
@@ -137,6 +139,7 @@ do k = lpw(iw),mza-1
    enddo
 
    theta(k,iw) = temp / exner
+   tair (k,iw) = temp
 enddo
 
 return
@@ -147,11 +150,11 @@ end subroutine satadjst
 subroutine wetthrm3(iw)
 
 ! This routine calculates theta and sh_v for "level 3 microphysics"
-! given prognosed theta_il, cloud, rain, pristine ice, snow, aggregates,
-! graupel, hail, q6, and q7.
+! given prognosed theta_il, cloud, drizzle, rain, pristine ice, snow, 
+! aggregates, graupel, hail, q6, and q7.
 
-use mem_basic,   only: press, theta, thil, sh_v, sh_w
-use mem_micro,   only: sh_c, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7
+use mem_basic,   only: press, theta, thil, tair, sh_v, sh_w
+use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7
 use micro_coms,  only: jnmb
 use consts_coms, only: p00, rocp, alvl, alvi, cpi4, cp253i
 use mem_grid,    only: mza, lpw
@@ -173,7 +176,6 @@ real :: qhydm   (mza)  ! automatic array
 
 do k = lpw(iw),mza-1
    exner(k) = (press(k,iw) / p00) ** rocp  ! exner WITHOUT CP factor
-   airtempk(k) = theta(k,iw) * exner(k)    ! air temperature
    til(k) = thil(k,iw) * exner(k)          ! ice-liquid temperature T_il
    totliq(k) = 0.                          ! total liquid spec. density
    totice(k) = 0.                          ! total ice mixing ratio
@@ -225,19 +227,26 @@ if (jnmb(7) >= 1) then
    enddo
 endif
 
+if (jnmb(8) >= 1) then
+   do k = lpw(iw),mza-1
+      totliq(k) = totliq(k) + sh_d(k,iw)
+   enddo
+endif
+
 do k = lpw(iw),mza-1
    qhydm(k) = alvl * totliq(k) + alvi * totice(k)
    sh_v(k,iw) = sh_w(k,iw) - totliq(k) - totice(k)
 enddo
 
 do k = lpw(iw),mza-1
-   if (airtempk(k) > 253.) then
+   if (tair(k,iw) > 253.) then
       tairstr = .5 * (til(k)  &
          + sqrt(til(k) * (til(k) + cpi4 * qhydm(k))))
    else
       tairstr = til(k) * (1. + qhydm(k) * cp253i)
    endif
    theta(k,iw) = tairstr / exner(k)
+   tair (k,iw) = tairstr
 enddo
 
 return

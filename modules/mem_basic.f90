@@ -41,19 +41,33 @@ Module mem_basic
   real, allocatable, target :: ump  (:,:) ! past U horiz momentum [kg/(m^2 s)]
   real, allocatable, target :: umc  (:,:) ! current U horiz momentum [kg/(m^2 s)]
   real, allocatable, target :: uc   (:,:) ! current U horiz velocity [m/s]
+
   real, allocatable, target :: vmp  (:,:) ! past V horiz momentum [kg/(m^2 s)]
   real, allocatable, target :: vmc  (:,:) ! current V horiz momentum [kg/(m^2 s)]
   real, allocatable, target :: vp   (:,:) ! past V horiz velocity [m/s]
   real, allocatable, target :: vc   (:,:) ! current V horiz velocity [m/s]
+
   real, allocatable, target :: wmc  (:,:) ! current vert momentum [kg/(m^2 s)]
   real, allocatable, target :: wc   (:,:) ! current vert velocity [m/s]
   real, allocatable, target :: sh_w (:,:) ! tot water spec dens [kg_wat/kg_air]
   real, allocatable, target :: sh_v (:,:) ! spec hum [kg_vap/kg_air]
   real, allocatable, target :: thil (:,:) ! ice-liquid pot temp [K]
   real, allocatable, target :: theta(:,:) ! pot temp [K]
+  real, allocatable, target :: tair (:,:)  ! temperature [K]
+
+  real, allocatable, target :: vxe  (:,:) ! earth-relative x velocity at T point [m/s]
+  real, allocatable, target :: vye  (:,:) ! earth-relative y velocity at T point [m/s]
+  real, allocatable, target :: vze  (:,:) ! earth-relative z velocity at T point [m/s]
 
   real(r8), allocatable, target :: press(:,:) ! air pressure [Pa]
   real(r8), allocatable, target :: rho  (:,:) ! total air density [kg/m^3]
+
+  ! If false, use current earth-cartesian velocities to compute the w, v, and t
+  ! donor point locations, which saves some computation, memory, and communication.
+  ! If true, compute half-forward earth-cartesian velocities, which is more
+  ! exact for the time differencing scheme:
+
+  logical, parameter :: strict_wvt_donorpoint = .false.
 
 Contains
 
@@ -72,26 +86,34 @@ Contains
 
        allocate (ump(mza,mua)) ; ump = rinit
        allocate (umc(mza,mua)) ; umc = rinit
+       allocate (uc (mza,mua)) ; uc  = rinit
       
     elseif (meshtype == 2) then
    
        allocate (vmp(mza,mva)) ; vmp = rinit
        allocate (vmc(mza,mva)) ; vmc = rinit
-       allocate (vp (mza,mva)) ; vp  = rinit
+       allocate (vc (mza,mva)) ; vc  = rinit
+
+       if (strict_wvt_donorpoint) then
+          ! needed for half-forward earth-cartesian velocities:
+          allocate (vp (mza,mva)) ; vp  = rinit
+       endif
 
     endif
    
     allocate (rho  (mza,mwa)) ; rho   = rinit8
     allocate (press(mza,mwa)) ; press = rinit8
-
-    allocate (uc   (mza,mua)) ; uc    = rinit
-    allocate (vc   (mza,mva)) ; vc    = rinit
     allocate (wmc  (mza,mwa)) ; wmc   = rinit
     allocate (wc   (mza,mwa)) ; wc    = rinit
     allocate (thil (mza,mwa)) ; thil  = rinit
     allocate (theta(mza,mwa)) ; theta = rinit
+    allocate (tair (mza,mwa)) ; tair  = rinit
     allocate (sh_w (mza,mwa)) ; sh_w  = rinit
     allocate (sh_v (mza,mwa)) ; sh_v  = rinit
+
+    allocate (vxe  (mza,mwa)) ; vxe   = rinit
+    allocate (vye  (mza,mwa)) ; vye   = rinit
+    allocate (vze  (mza,mwa)) ; vze   = rinit
 
   end subroutine alloc_basic
 
@@ -115,6 +137,10 @@ Contains
     if (allocated(press)) deallocate (press)
     if (allocated(thil))  deallocate (thil)
     if (allocated(theta)) deallocate (theta)
+    if (allocated(tair))  deallocate (tair)
+    if (allocated(vxe))   deallocate (vxe)
+    if (allocated(vye))   deallocate (vye)
+    if (allocated(vze))   deallocate (vze)
 
   end subroutine dealloc_basic
 
@@ -187,6 +213,11 @@ Contains
     if (allocated(theta)) then
        call increment_vtable('THETA', 'AW', mpt1=.true.)
        vtab_r(num_var)%rvar2_p => theta
+    endif
+
+    if (allocated(tair)) then
+       call increment_vtable('TAIR', 'AW', mpt1=.true.)
+       vtab_r(num_var)%rvar2_p => tair
     endif
 
     if (allocated(rho)) then

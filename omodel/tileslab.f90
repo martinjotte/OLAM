@@ -35,7 +35,7 @@ subroutine tileslab_horiz_mp(iplt,action)
 use oplot_coms, only: op
 use mem_grid,   only: mza, mma, mwa, lpw, zm, zt, xem, yem, zem, &
                       xeu, yeu, zeu, xev, yev, zev, xew, yew, zew
-use mem_ijtabs, only: itab_m, itab_u
+use mem_ijtabs, only: itab_m, itab_u, jtab_m, jtm_vadj
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -46,7 +46,7 @@ character(1), intent(in) :: action
 integer :: kt, k
 integer :: ici
 integer :: ng
-integer :: j, jn, jnn, im, iw, npoly, iv1, iv2, im1, im2
+integer :: j, jm, jn, jnn, im, iw, npoly, iv1, iv2, im1, im2
 integer :: notavail, navail
 
 real :: hpt, vpt
@@ -69,7 +69,8 @@ if (action == 'T' .and. op%dimens == '3') then
    call plot_underground_w(iplt,ktf)
 endif
 
-do im = 2,mma
+do jm = 1, jtab_m(jtm_vadj)%jend(1)
+   im = jtab_m(jtm_vadj)%im(jm)
 
 ! Check for points to be skipped over
 
@@ -216,15 +217,15 @@ subroutine tileslab_horiz_tw(iplt,action)
 
 use oplot_coms, only: op, xepc, yepc, zepc
 use mem_grid,   only: mza, mwa, zm, zt, xew, yew, zew, xem, yem, zem, lpw
-use mem_ijtabs, only: itab_w
-use misc_coms,  only: io6
+use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
+use misc_coms,  only: io6, meshtype
 
 implicit none
 
 integer,      intent(in) :: iplt
 character(1), intent(in) :: action
 
-integer :: npoly, j, im
+integer :: npoly, j, jw, im
 integer :: kt, k
 integer :: iw
 integer :: iv1,iv2
@@ -253,7 +254,15 @@ if (action == 'T' .and. op%dimens == '3') then
    call plot_underground_w(iplt,ktf)
 endif
 
-do iw = 2,mwa
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
+
+   npoly = itab_w(iw)%npoly
+
+! For hexagon grid (in limited-area domain), do not tile plot
+! incomplete boundary cells
+
+   if (meshtype == 2 .and. action == 'T' .and. npoly < 5) cycle
 
 ! Skip this point if it is underground
 
@@ -262,8 +271,6 @@ do iw = 2,mwa
 ! Get tile plot coordinates.  
 
    call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
-
-   npoly = itab_w(iw)%npoly
 
    do j = 1,npoly
 
@@ -327,7 +334,7 @@ subroutine tileslab_horiz_vn(iplt,action)
 use oplot_coms, only: op
 use mem_grid,   only: mza, mva, mwa, zm, xeu, yeu, zeu, xev, yev, zev, &
                       xem, yem, zem, xew, yew, zew, lpw
-use mem_ijtabs, only: itab_u, itab_v
+use mem_ijtabs, only: itab_u, itab_v, jtab_u, jtab_v, jtu_prog, jtv_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -336,7 +343,7 @@ integer,      intent(in) :: iplt
 character(1), intent(in) :: action
 
 integer :: kt, k
-integer :: iv
+integer :: iv, jv, jvmax
 integer :: iw1, iw2
 integer :: itpn
 integer :: ici
@@ -366,12 +373,19 @@ if (action == 'T' .and. op%dimens == '3') then
    call plot_underground_w(iplt,ktf)
 endif
 
-do iv = 2,mva
+if (meshtype == 1) then
+   jvmax = jtab_u(jtu_prog)%jend(1)
+else
+   jvmax = jtab_v(jtv_prog)%jend(1)
+endif
+
+do jv = 1, jvmax
 
 ! Transform tile plot X and Y coordinates.  
 
    if (meshtype == 1) then
-   
+
+      iv  = jtab_u(jtu_prog)%iu(jv)
       call oplot_transform(iplt,xeu(iv),yeu(iv),zeu(iv),hpt,vpt)
 
       im1 = itab_u(iv)%im(1)
@@ -381,6 +395,7 @@ do iv = 2,mva
 
    else
 
+      iv  = jtab_v(jtv_prog)%iv(jv)
       call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hpt,vpt)
 
       im1 = itab_v(iv)%im(1)
@@ -394,8 +409,19 @@ do iv = 2,mva
 
    if (ktf(iw1) /= 0 .and. ktf(iw2) /= 0) cycle
 
-   call oplot_transform(iplt,xem(im1),yem(im1),zem(im1),htpn(1),vtpn(1))
-   call oplot_transform(iplt,xem(im2),yem(im2),zem(im2),htpn(3),vtpn(3))
+   if (im1 > 1) then
+      call oplot_transform(iplt,xem(im1),yem(im1),zem(im1),htpn(1),vtpn(1))
+   else
+      htpn(1) = hpt
+      vtpn(1) = vpt
+   endif
+
+   if (im2 > 1) then
+      call oplot_transform(iplt,xem(im2),yem(im2),zem(im2),htpn(3),vtpn(3))
+   else
+      htpn(3) = hpt
+      vtpn(3) = vpt
+   endif
 
    if (iw2 > 1) then
       call oplot_transform(iplt,xew(iw2),yew(iw2),zew(iw2),htpn(2),vtpn(2))
@@ -488,8 +514,9 @@ subroutine tileslab_horiz_s(iplt,action)
 use oplot_coms, only: op
 use mem_sea,    only: sea, itab_ws
 use sea_coms,   only: mws
-use misc_coms,  only: io6
+use misc_coms,  only: io6, iparallel
 use max_dims,   only: maxnlspoly
+use mem_para,   only: myrank
 
 implicit none
 
@@ -512,6 +539,9 @@ real :: htpn(maxnlspoly), vtpn(maxnlspoly)
 real :: wtbot = 1., wttop = 0.
 
 do iws = 2,mws
+
+   ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
+   if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
    nspoly = itab_ws(iws)%npoly
 
@@ -576,8 +606,9 @@ subroutine tileslab_horiz_l(iplt,action)
 use oplot_coms, only: op
 use mem_leaf,   only: land, itab_wl
 use leaf_coms,  only: mwl, nzg, nzs
-use misc_coms,  only: io6
+use misc_coms,  only: io6, iparallel
 use max_dims,   only: maxnlspoly
+use mem_para,   only: myrank
 
 implicit none
 
@@ -610,6 +641,9 @@ else
 endif
 
 do iwl = 2,mwl
+
+   ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
+   if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
    nlpoly = itab_wl(iwl)%npoly
 
@@ -857,6 +891,7 @@ subroutine tileslab_vert_t(iplt,action)
 
 use oplot_coms, only: op
 use mem_grid,   only: mwa, mza, zm, zt, lpw
+use mem_ijtabs, only: jtab_w, jtw_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -865,7 +900,7 @@ integer,      intent(in) :: iplt
 character(1), intent(in) :: action
 
 integer :: k
-integer :: iw
+integer :: iw, jw
 integer :: iv1,iv2
 integer :: iok
 integer :: notavail
@@ -879,7 +914,8 @@ real :: wtbot = 1., wttop = 0.
 
 ! Loop over W points
 
-do iw = 2,mwa
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Get horizontal plot coordinates for this W point
 
@@ -948,7 +984,7 @@ subroutine tileslab_vert_v(iplt,action)
 
 use oplot_coms, only: op
 use mem_grid,   only: mwa, mza, zm, zt, lpw
-use mem_ijtabs, only: itab_u, itab_v
+use mem_ijtabs, only: itab_u, itab_v, jtab_w, jtw_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -957,7 +993,7 @@ integer,      intent(in) :: iplt
 character(1), intent(in) :: action
 
 integer :: k
-integer :: iw
+integer :: iw,jw
 integer :: ng
 integer :: im1,im2
 integer :: iw1,iw2
@@ -981,7 +1017,8 @@ call plot_underground_w(iplt,(/0/))
 
 ! Loop over W points
 
-do iw = 2,mwa
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Get horizontal plot coordinates for IW point
 
@@ -1064,6 +1101,7 @@ subroutine tileslab_vert_w(iplt,action)
 
 use oplot_coms, only: op
 use mem_grid,   only: mwa, mza, zm, zt, lpw
+use mem_ijtabs, only: jtab_w, jtw_prog
 use misc_coms,  only: io6, meshtype
 
 implicit none
@@ -1072,7 +1110,7 @@ integer,      intent(in) :: iplt
 character(1), intent(in) :: action
 
 integer :: k
-integer :: iw
+integer :: iw, jw
 integer :: ng
 integer :: iv1,iv2
 integer :: iok
@@ -1087,7 +1125,8 @@ real :: wtbot = 1., wttop = 0.
 
 ! Loop over W points
 
-do iw = 2,mwa
+do jw = 1, jtab_w(jtw_prog)%jend(1)
+   iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Get horizontal plot coordinates for this W point
 
@@ -1475,8 +1514,14 @@ if (action == 'T') then
 ! Cyclic treatment of color palette (used with integer-type data)
 
    fldval1 = fldval
-   if (clrtab(itab)%ifmt(1) == 20)  &
+
+   if (clrtab(itab)%ifmt(1) == 20) &
       fldval1 = mod(fldval-1.,real(clrtab(itab)%nvals-2)) + 1.
+
+! Case for color table 130; used with itab_w_mrowh
+
+   if (clrtab(itab)%ifmt(1) == 30) &
+      fldval1 = mod(fldval,100.)
 
 ! Extract contour color from color table
 
@@ -1503,316 +1548,6 @@ endif
 
 return
 end subroutine celltile
-
-!===============================================================================
-
-subroutine coneplot_w(iw,iv1,iv2,topo1,topo2,iok,htpn)
-
-use oplot_coms,  only: op, xepc, yepc, zepc
-use mem_grid,    only: xem, yem, zem, topm
-use mem_ijtabs,  only: itab_w
-use consts_coms, only: pio180, erad, piu180, pi2
-use misc_coms,   only: io6, meshtype
-
-implicit none
-
-integer, intent(in) :: iw
-integer, intent(out) :: iv1,iv2
-integer, intent(out) :: iok
-real, intent(out) :: htpn(4)
-real, intent(out) :: topo1,topo2
-
-integer :: npoly,j,jm1,jm2,jm3,jmin,jv,im,im1,im2,iv
-
-real :: unxec3,unyec3,unzec3
-real :: xcent,ycent,zcent
-real :: xwincent,ywincent,zwincent
-real :: radcone
-real :: raxis
-real :: vecx,vecy,vecz
-real :: vecleftx,veclefty,vecleftz
-real :: valx,valy
-real :: angm(7),angm1,angm2
-real :: angmin,angmax
-real :: ang0
-real :: wt1,wt2
-real :: xrad1,yrad1,zrad1
-real :: xrad2,yrad2,zrad2
-real :: ange1,ange2
-real :: sinplat,cosplat
-real :: sinvaz,cosvaz
-real :: sinconang,cosconang
-real :: sinconlat,cosconlat
-real :: sinconlon,cosconlon
-
-real :: xem1,xem2,yem1,yem2,zem1,zem2
-real :: topm1,topm2
-
-sinplat = sin(op%plat3 * pio180)
-cosplat = cos(op%plat3 * pio180)
-
-! cone is viewed from INSIDE, so cone axis is in opposite direction from viewazim 
-
-sinvaz = -sin(op%viewazim * pio180)
-cosvaz = -cos(op%viewazim * pio180)
-
-sinconang = sin(op%coneang * pio180)
-cosconang = cos(op%coneang * pio180)
-
-! Use formulas (5-5) and (5-6) of USGS Map Projections Manual to get lat/lon
-! of plot-cone axis given lat/lon of plot center, plot-cone angle, and view azimuth
-! (Avoid special case of where cone center is +/- 90 deg longitude from plot center)
-
-op%conelat = asin(sinplat * cosconang + cosplat * sinconang * cosvaz)
-
-if (abs(cosplat * cosconang - sinplat * sinconang * cosvaz) > 1.e-6) then
-
-   op%conelon = op%plon3 * pio180                                   &
-              + atan2(sinconang * sinvaz,                           &
-               (cosplat * cosconang - sinplat * sinconang * cosvaz))
-
-elseif (op%viewazim < 180.) then
-   op%conelon = (op%plon3 - 90.) * pio180
-else
-   op%conelon = (op%plon3 + 90.) * pio180
-endif
-
-sinconlat = sin(op%conelat)
-cosconlat = cos(op%conelat)
-
-sinconlon = sin(op%conelon)
-cosconlon = cos(op%conelon)
-
-! Earth components of unit vector outward along cone axis
-
-unxec3 = cosconlat * cosconlon
-unyec3 = cosconlat * sinconlon
-unzec3 = sinconlat
-
-! Intersection of cone and earth is a circle - find earth coords of circle center
-
-xcent = unxec3 * erad * cosconang 
-ycent = unyec3 * erad * cosconang 
-zcent = unzec3 * erad * cosconang 
-
-! Cone radius
-
-radcone = erad * sinconang
-
-! Earth coordinates of plot window center
-
-zwincent = erad * sinplat
-raxis = erad * cosplat
-xwincent = raxis * cos(op%plon3 * pio180) 
-ywincent = raxis * sin(op%plon3 * pio180) 
-
-! Initialize ANGMIN and ANGMAX
-
-angmin = 400.
-angmax = -400.
-
-npoly = itab_w(iw)%npoly
-
-! Loop over neighbor M points for this IW cell
-
-do j = 1,npoly
-   im = itab_w(iw)%im(j)
-
-! Compute angle of M point with plot cone center using dot products 
-! (Adequate precision may require cross product for cone angles 
-! close to 0 or 180)
-
-   angm(j) = piu180  &
-            * acos((xem(im)*unxec3 + yem(im)*unyec3 + zem(im)*unzec3) / erad)
-
-   if (angmin > angm(j)) then
-      angmin = angm(j)
-      jmin = j
-   endif
-
-   if (angmax < angm(j)) then
-      angmax = angm(j)
-   endif
-
-enddo
-
-! Return with iok = 0 if IW column is not intersected by plot slab
-
-iok = 0
-
-if (angmin > op%coneang .or. angmax < op%coneang) return
-
-iok = 1  ! Since we got here, IW column is intersected by plot cone
-
-! Fill arrays of values at M points in cyclic order around IW column, beginning
-! with M point that is closest to cone axis
-
-do j = 1,npoly
-   jm1 = j + jmin - 1
-   jm2 = jm1 + 1
-   jm3 = jm2 + 1
-
-   if (jm1 > npoly) jm1 = jm1 - npoly
-   if (jm2 > npoly) jm2 = jm2 - npoly
-   if (jm3 > npoly) jm3 = jm3 - npoly
-   
-   im1 = itab_w(iw)%im(jm1)
-   im2 = itab_w(iw)%im(jm2)
-
-   if (meshtype == 1) then
-      jv = jm3
-      iv  = itab_w(iw)%iu(jv)
-   else
-      jv = jm2
-      iv  = itab_w(iw)%iv(jv)
-   endif
-      
-   xem1 = xem(im1)
-   yem1 = yem(im1)
-   zem1 = zem(im1)
-
-   xem2 = xem(im2)
-   yem2 = yem(im2)
-   zem2 = zem(im2)
-   
-   topm1 = topm(im1)
-   topm2 = topm(im2)
-   
-   angm1 = angm(jm1)
-   angm2 = angm(jm2)
-
-! Find two points of intersection between current IW polygon and cone
-
-   if (angm1 <= op%coneang .and. angm2 >= op%coneang) then
-
-! This interval touches cone
-
-      if (angm1 == angm2) then
-
-! This interval is tangent to cone      
-
-         if (jm1 == 1 .or. jm2 == 1) then
-
-! This interval is on minimum side of polygon
-
-            xepc(1) = xem1
-            yepc(1) = yem1
-            zepc(1) = zem1
-            topo1   = topm1
-            iv1     = iv
-
-            xepc(2) = xem2
-            yepc(2) = yem2
-            zepc(2) = zem2
-            topo2   = topm2
-            iv2     = iv
-
-         else
-
-! This interval is on maximum side of polygon
-
-            xepc(1) = xem2
-            yepc(1) = yem2
-            zepc(1) = zem2
-            topo1   = topm2
-            iv1     = iv
-
-            xepc(2) = xem1
-            yepc(2) = yem1
-            zepc(2) = zem1
-            topo2   = topm1
-            iv2     = iv
-
-         endif
-
-         exit
-
-      else
-         
-! This interval touches cone at 1 point
-
-         wt2 = (op%coneang - angm1) / (angm2 - angm1)
-         wt1 = 1. - wt2
-
-         xepc(2) = wt1 * xem1  + wt2 * xem2
-         yepc(2) = wt1 * yem1  + wt2 * yem2
-         zepc(2) = wt1 * zem1  + wt2 * zem2
-         topo2   = wt1 * topm1 + wt2 * topm2
-         iv2     = iv
-
-      endif
-      
-   elseif (angm1 > op%coneang .and. angm2 <= op%coneang) then
-
-! This interval touches cone at 1 point
-
-         wt2 = (op%coneang - angm2) / (angm1 - angm2)
-         wt1 = 1. - wt2
-
-         xepc(1) = wt1 * xem2  + wt2 * xem1
-         yepc(1) = wt1 * yem2  + wt2 * yem1
-         zepc(1) = wt1 * zem2  + wt2 * zem1
-         topo1   = wt1 * topm2 + wt2 * topm1
-         iv1     = iv
-
-   endif
-
-enddo
-
-! Transform horizontal point coordinates
-
-! Components of vector from circle center to plot window center
-
-vecx = xwincent - xcent
-vecy = ywincent - ycent
-vecz = zwincent - zcent
-
-! Components of vector 90 degrees to the left (in azimuth) from preceding vector
-
-vecleftx = unyec3 * vecz - unzec3 * vecy
-veclefty = unzec3 * vecx - unxec3 * vecz
-vecleftz = unxec3 * vecy - unyec3 * vecx
-
-! Compute dot product between vector from circle center to plot center
-! and vector from circle center to current point
-
-valx = vecx * (xepc(1) - xcent)  &
-     + vecy * (yepc(1) - ycent)  &
-     + vecz * (zepc(1) - zcent)
-
-! Repeat with 90-left vector
-
-valy = vecleftx * (xepc(1) - xcent)  &
-     + veclefty * (yepc(1) - ycent)  &
-     + vecleftz * (zepc(1) - zcent)
-
-ange1 = atan2(-valy,valx)  ! Angle increases clockwise
-
-! Repeat dot product for second point
-
-valx = vecx * (xepc(2) - xcent)  &
-     + vecy * (yepc(2) - ycent)  &
-     + vecz * (zepc(2) - zcent)
-
-valy = vecleftx * (xepc(2) - xcent)  &
-     + veclefty * (yepc(2) - ycent)  &
-     + vecleftz * (zepc(2) - zcent)
-
-ange2 = atan2(-valy,valx)  ! Angle increases clockwise
-
-! Avoid wrap_around
-
-if (ange2 < ange1) ange2 = ange2 + pi2
-
-! Scale angles to htpn coordinates (in meters along cone circle)
-
-htpn(1) = ange1 * radcone 
-htpn(2) = ange2 * radcone
-htpn(3) = htpn(2)
-htpn(4) = htpn(1)
-
-return
-end subroutine coneplot_w
 
 !===============================================================================
 

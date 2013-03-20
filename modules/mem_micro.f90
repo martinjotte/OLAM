@@ -87,6 +87,8 @@ Contains
        icloud,idriz,irain,ipris,isnow,iaggr,igraup,ihail)
 
     use misc_coms, only: rinit
+    use oname_coms, only: nl
+
     implicit none
 
     integer, intent(in) :: mza,mwa,level,ncat
@@ -193,6 +195,17 @@ Contains
        allocate (pcpgr (mwa)) ; pcpgr  = rinit
        allocate (qpcpgr(mwa)) ; qpcpgr = rinit
        allocate (dpcpgr(mwa)) ; dpcpgr = rinit
+
+    endif
+
+    if (nl%test_case == 42 .or. &
+        nl%test_case == 43 .or. &
+        nl%test_case == 51 .or. &
+        nl%test_case == 52) then
+
+       if (.not. allocated(pcpgr)) then
+          allocate (pcpgr (mwa)) ; pcpgr  = rinit
+       endif
 
     endif
 

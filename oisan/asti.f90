@@ -40,10 +40,13 @@ use isan_coms,  only: nprz, npry, nprx, nprz_rh, pcol_v, &
 use mem_grid,   only: glatw, glonw, mza, mwa, mva, &
                       xeu, yeu, zeu, xev, yev, zev, &
                       unx, uny, unz, vnx, vny, vnz
-use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w
+use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
+                      jtu_init, jtv_init, jtw_init
 use mem_zonavg, only: zonp_vect, zont, zonz, zonr, zonu
-use consts_coms, only: eradi
-use misc_coms,  only: io6, meshtype
+use consts_coms,only: eradi
+use misc_coms,  only: io6, meshtype, iparallel
+
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
 
 implicit none
 
@@ -99,7 +102,7 @@ enddo
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)
+do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -162,13 +165,18 @@ call qsub('W',iw)
 enddo
 call rsub('Wa',7)
 
+if (iparallel == 1) then
+   call mpi_send_w('V', vxe=o_uzonal, vye=o_umerid)
+   call mpi_recv_w('V', vxe=o_uzonal, vye=o_umerid)
+endif
+
 if (meshtype == 1) then
 
 ! If triangular mesh, initialize U wind component
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_u(7)%jend(1); iu = jtab_u(7)%iu(j)
+   do j = 1,jtab_u(jtu_init)%jend(1); iu = jtab_u(jtu_init)%iu(j)
       iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
    call qsub('U',iu)
@@ -208,7 +216,7 @@ else
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)
+   do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
       iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
    call qsub('V',iv)
@@ -325,8 +333,8 @@ pcol_z(2) = pcol_z(3) + .5 * (pcol_thv(3) + pcol_thv(2))   &
 pcol_z(1) = pcol_z(2) + .5 * (pcol_thv(2) + pcol_thv(1))   &
           * (pcol_pi(2) - pcol_pi(1)) / grav
 
-cpo2g = cp / grav2
-
+!!cpo2g = cp / grav2
+!!
 !!do levp = lzon_bot,22
 !!   k = levp + kzonoff
 !!   pcol_z(k) = pcol_z(k-1) + cpo2g * (pcol_pi(k-1) - pcol_pi(k))   &

@@ -35,26 +35,28 @@ subroutine timestep()
 use misc_coms,  only: io6, time8, time_istp8, nqparm, initial, ilwrtyp,   &
                       iswrtyp, dtsm, nqparm_sh, dtlm, iparallel,   &
                       s1900_init, s1900_sim
-use mem_ijtabs, only: nstp, istp, mrls, leafstep, mrl_begl
+use mem_ijtabs, only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,  only: nudflag
 use mem_grid,   only: mza, mua, mwa
 use micro_coms, only: level
 use leaf_coms,  only: isfcl
 use mem_para,   only: myrank
-use massflux,   only: zero_massflux, timeavg_massflux, diagnose_vc
+use massflux,   only: zero_massflux, timeavg_massflux
 
 use mem_basic  ! needed only when print statements below are uncommented
 use mem_tend   ! needed only when print statements below are uncommented
 use mem_leaf   ! needed only when print statements below are uncommented
-use ed_options, only: frq_phenology
 
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_recv_u
-
+use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_recv_u
+use mem_turb,    only: hkm
 use mem_timeavg, only: accum_timeavg
+use var_tables,  only: nvar_par, vtab_r, nptonv
+use obnd,        only: trsets, lbcopy_w, lbcopy_u
+use oname_coms,  only: nl
 
 implicit none
 
-integer :: is,mvl,isl4,jstp,mrl
+integer :: is,mvl,isl4,jstp,mrl,n
 real :: t1,w1
 
 ! automatic arrays
@@ -74,6 +76,16 @@ time_istp8 = time8
 
 if (time8 < 1.e-3) then
 !   call bubble()
+
+! For shallow water test cases, compute error norms at initial time
+! if run is not parallel
+
+   if (iparallel == 0) then
+      if (nl%test_case == 2 .or. nl%test_case == 5) then
+         call diagn_global_swtc()
+      endif
+   endif
+
 endif
 
 do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
@@ -93,18 +105,20 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    mrl = mrl_begl(istp)
    if (mrl > 0) then
-      call comp_vels(mrl)
       call surface_turb_flux(mrl)
    endif
 
 ! call check_nans(3)
 
-   call turb_k()  ! Compute K's
+   mrl = mrl_begl(istp)
+   if (mrl > 0) then
 
-! call check_nans(4)
+      call pbl_driver(rhot, mrl)
 
-   if (iparallel == 1) then
-      call mpi_send_w('K')  ! Send K's
+      if (iparallel == 1) then
+         call mpi_send_w('K')  ! Send K's
+      endif
+
    endif
 
 ! call check_nans(5)
@@ -120,9 +134,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
 
 ! call check_nans(6)
-
-   if (iparallel == 1) then
-      call mpi_recv_w('K')  ! Recv K's
+   
+   mrl = mrl_begl(istp)
+   if (mrl > 0) then
+      if (iparallel == 1) call mpi_recv_w('K')
+      call lbcopy_w(mrl, a1=hkm)
    endif
 
 ! call check_nans(7)
@@ -143,7 +159,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(10)
 
-   call zero_massflux(wmarwsc,rho_old,umarusc=umarusc)
+   call zero_massflux(wmarwsc, rho_old, umarusc)
 
 ! call check_nans(11)
 
@@ -151,20 +167,31 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(12)
 
-   call timeavg_massflux(wmarwsc,umarusc=umarusc)
+   call timeavg_massflux(wmarwsc, umarusc)
 
 ! call check_nans(13)
 
-   call scalar_transport(umarusc,wmarwsc,rho_old)
+   mrl = mrl_endl(istp)
+   if (mrl > 0) then
+      call scalar_transport(umarusc,wmarwsc,rho_old)
+   endif
 
 ! call check_nans(14)
 
    if (iparallel == 1) then
       call mpi_recv_u('U')  ! Recv U group (sent from prog_u)
    endif
+   call lbcopy_u(mrl, a1=umc, a2=uc)
 
-   call diagnose_vc()
-   
+   mrl = mrl_ends(istp)
+   if (mrl > 0) then
+      call diagvel_t3d(mrl)
+   endif
+
+   if (iparallel == 1) then
+      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
+   endif
+
 ! call check_nans(16)
 
    if (level /= 3) then
@@ -185,6 +212,12 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call trsets()  
 
+   if (iparallel == 1) then
+      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+   endif
+
+   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
+
 ! call check_nans(19)
 
    if (iparallel == 1) then
@@ -192,12 +225,18 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call mpi_recv_w('T')  ! Recv W group
    endif
 
+   call lbcopy_w(mrl, a1=thil, d1=rho)
+
 ! call check_nans(20)
 
    if (iparallel == 1) then
       call mpi_send_w('S')  ! Send scalars
       call mpi_recv_w('S')  ! Recv scalars
    endif
+
+   do n = 1, nvar_par
+      call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
+   enddo
 
 ! call check_nans(21)
 
@@ -222,11 +261,15 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 enddo
 
+! For shallow water test cases, compute error norms if run is not parallel
+
+if (iparallel == 0) then
+   if (nl%test_case == 2 .or. nl%test_case == 5) then
+      call diagn_global_swtc()
+   endif
+endif
+
 ! call fields_ll()
-
-! Call ED model if it is time to do vegetation dynamics
-
-if (mod(real(time8)+dtlm(1),frq_phenology) < dtlm(1)) call ed_vegetation_dynamics()  
 
 return
 end subroutine timestep
@@ -367,10 +410,10 @@ end subroutine modsched
 
 subroutine tend0(rhot)
 
-use mem_ijtabs, only: jtab_w, jtab_u, istp, mrl_begl
+use mem_ijtabs, only: jtab_w, jtab_u, istp, mrl_begl, jtu_wstn, jtw_wstn
 use var_tables, only: scalar_tab, num_scalar
 use mem_grid,   only: mza, mwa, mua, lcu, lpw
-use mem_tend,   only: wmt, umt, thilt
+use mem_tend,   only: wmt, umt, thilt, vmxet, vmyet, vmzet
 use misc_coms,  only: io6
 
 !$ use omp_lib
@@ -384,27 +427,30 @@ integer :: n,mrl,j,k,iw,iu
 ! SET SCALAR TENDENCIES TO ZERO
 
 mrl = mrl_begl(istp)
-
 if (mrl > 0) then
-   do n = 1,num_scalar
+
+   do n = 1, num_scalar
       call tnd0(scalar_tab(n)%var_t)
    enddo
-   call tnd0(thilt)
    call tnd0(rhot)
+
 endif
 
-! SET W MOMENTUM TENDENCY TO ZERO
+! SET W AND EARTH-CARTESIAN MOMENTUM TENDENCIES TO ZERO
 
 call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k)
-do j = 1,jtab_w(14)%jend(mrl); iw = jtab_w(14)%iw(j)
+do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
    do k = lpw(iw),mza-1
-      wmt(k,iw) = 0.
+      wmt  (k,iw) = 0.0
+      vmxet(k,iw) = 0.0
+      vmyet(k,iw) = 0.0
+      vmzet(k,iw) = 0.0
    enddo
 enddo
 !$omp end parallel do
@@ -418,7 +464,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iu,k)
-do j = 1,jtab_u(11)%jend(mrl); iu = jtab_u(11)%iu(j)
+do j = 1,jtab_u(jtu_wstn)%jend(mrl); iu = jtab_u(jtu_wstn)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
    do k = lcu(iu),mza-1
@@ -436,7 +482,7 @@ end subroutine tend0
 
 subroutine tnd0(vart)
 
-use mem_ijtabs, only: jtab_w, istp, mrl_begl
+use mem_ijtabs, only: jtab_w, istp, mrl_begl, jtw_wstn
 use mem_grid,   only: mza, mwa, lpw
 use misc_coms,  only: io6
 !$ use omp_lib
@@ -452,7 +498,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k)
-do j = 1,jtab_w(11)%jend(mrl); iw = jtab_w(11)%iw(j)
+do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
    do k = lpw(iw)-1,mza
@@ -465,62 +511,6 @@ call rsub('W',11)
 
 return
 end subroutine tnd0
-
-!==========================================================================
-
-subroutine comp_vels(mrl)
-
-use mem_ijtabs,  only: itab_w, jtab_w
-use misc_coms,   only: io6
-use mem_grid,    only: lpw, unx, uny, unz, vnx, vny, vnz
-use mem_turb,    only: vels
-use mem_basic,   only: uc, vc
-
-implicit none
-
-integer, intent(in) :: mrl
-
-integer :: j,jv,iw,iv,ka,npoly
-
-real :: vx,vy,vz
-
-call psub()
-!----------------------------------------------------------------------
-do j = 1,jtab_w(20)%jend(mrl); iw = jtab_w(20)%iw(j)
-!----------------------------------------------------------------------
-call qsub('W',iw)
-
-! Evaluate VELS wind speed for LEAF and SEA surface fluxes
-
-   npoly = itab_w(iw)%npoly
-
-   ka = lpw(iw)
-
-   vx = 0.
-   vy = 0.
-   vz = 0.
-   
-   do jv = 1,npoly
-
-      iv = itab_w(iw)%iu(jv)
-
-      vx = vx + uc(ka,iv) * unx(iv) + vc(ka,iv) * vnx(iv)
-      vy = vy + uc(ka,iv) * uny(iv) + vc(ka,iv) * vny(iv)
-      vz = vz + uc(ka,iv) * unz(iv) + vc(ka,iv) * vnz(iv)
-                  
-   enddo
-                        
-   vx = vx / real(npoly)
-   vy = vy / real(npoly)
-   vz = vz / real(npoly)
-
-   vels(iw) = sqrt(vx ** 2 + vy ** 2 + vz ** 2)
-
-enddo
-call rsub('W',20)
-   
-return
-end subroutine comp_vels
 
 !==========================================================================
 

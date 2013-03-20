@@ -160,8 +160,8 @@ do iu = 2,mua
       glatu(iu) = atan2(zeu(iu),raxis)   * piu180
       glonu(iu) = atan2(yeu(iu),xeu(iu)) * piu180
    else
-      glatu(iu) = grdlat(1,1)  ! want it this way?
-      glonu(iu) = grdlon(1,1)  ! want it this way?
+      glatu(iu) = 0. ! want it this way?
+      glonu(iu) = 0. ! want it this way?
    endif
 
 ! Length of U side
@@ -265,8 +265,8 @@ do iw = 2,mwa
       glatw(iw) = atan2(zew(iw),raxis)   * piu180
       glonw(iw) = atan2(yew(iw),xew(iw)) * piu180
    else
-      glatw(iw) = grdlat(1,1)  ! want it this way?
-      glonw(iw) = grdlon(1,1)  ! want it this way?
+      glatw(iw) = 0. ! want it this way?
+      glonw(iw) = 0. ! want it this way?
    endif
 
 ! IW triangle area at sea level
@@ -290,8 +290,8 @@ do im = 2,mma
       glatm(im) = atan2(zem(im),raxis)   * piu180
       glonm(im) = atan2(yem(im),xem(im)) * piu180
    else
-      glatm(im) = grdlat(1,1)  ! want it this way?
-      glonm(im) = grdlon(1,1)  ! want it this way?
+      glatm(im) = 0. ! want it this way?
+      glonm(im) = 0. ! want it this way?
    endif
 
 ! Fill global index (replaced later if this run is parallel)
@@ -848,7 +848,9 @@ end subroutine grid_geometry_tri
 
 subroutine ctrlvols_tri()
 
-use mem_ijtabs,  only: jtab_m, jtab_u, jtab_w, itab_u, itab_w
+use mem_ijtabs,  only: jtab_m, jtab_u, jtab_w, itab_u, itab_w, &
+                       jtm_grid, jtu_grid, jtu_lbcp, jtu_wall, &
+                       jtw_grid, jtw_lbcp
 use misc_coms,   only: io6, mdomain, itopoflg
 use consts_coms, only: erad
 use mem_grid,    only: nsw_max, nza, nma, nua, nwa, lpu, lcu, lpw, lsw,  &
@@ -867,7 +869,7 @@ integer :: j,iw,iwp,iter,iu,iup,im1,im2,k,km,i,im  &
    ,im11,im21,im12,im22,iu1,iu2,iw1,iw2,kp  &
    ,iu1a,iu1b,iu2a,iu2b  &
    ,iuo1a,iuo1b,iuo2a,iuo2b  &
-   ,im3,iu3,ka
+   ,im3,iu3,ka,ks
 integer :: isf,ilf,kw
 
 integer, parameter :: npass = 2
@@ -875,6 +877,7 @@ integer :: ipass
 
 real :: hmin,hmax,arwo4,sum1,sumk  &
    ,arwo3,w1,w2,t1,t2,t3,hm,dt13,dt32,t13,t32
+real, allocatable :: area_kw_sum(:,:)
 
 !!!!!!!!!!!!! special quadrature parameters
 
@@ -918,7 +921,7 @@ if (isfcl == 0) then
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_w(1)%jend(1); iw = jtab_w(1)%iw(j)
+   do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
    im1 = itab_w(iw)%im(1); im2 = itab_w(iw)%im(2); im3 = itab_w(iw)%im(3)
 !----------------------------------------------------------------------
    call qsub('W',iw)
@@ -1009,8 +1012,8 @@ else  ! isfcl = 1
 ! Adjust topography information that was read from LANDFILE and SEAFILE,
 ! if necessary, to prevent values less than lowest model level zm(1)
 
-   land%zm(1:nml) = max(land%zm(1:nml), zm(1))
-   sea%zm (1:nms) = max( sea%zm(1:nms), zm(1))
+   land%zm(2:nml) = max(land%zm(2:nml), zm(1))
+   sea%zm (2:nms) = max( sea%zm(2:nms), zm(1))
 
 !Fill TOPM and TOPW from surface file topography.
 ! Determine and initialize flux cells for entire model domain.
@@ -1021,16 +1024,32 @@ else  ! isfcl = 1
 
 endif
 
+! Lateral boundary copy of ARW, VOLT
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+   iwp = itab_w(iw)%iwp
+!----------------------------------------------------------------------
+call qsub('W',iw)
+
+   arw (:,iw) = arw (:,iwp)
+   volt(:,iw) = volt(:,iwp)
+
+enddo
+call rsub('W',jtw_lbcp)
+
 ! ARU, LPU, and TOPM adjustment
 
 do ipass = 1,npass
 
-   write(io6,*) 'Defining contol volume areas: ipass = ',ipass
+   write(io6,*) 'Defining control volume areas: ipass = ',ipass
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_u(1)%jend(1); iu = jtab_u(1)%iu(j)
+   do j = 1,jtab_u(jtu_grid)%jend(1); iu = jtab_u(jtu_grid)%iu(j)
       im1 = itab_u(iu)%im(1); im2 = itab_u(iu)%im(2)
+      iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
    call qsub('U',iu)
 
@@ -1055,8 +1074,13 @@ do ipass = 1,npass
 
          do k = nza,2,-1
             km = k - 1
+            
+            if (volt(k,iw1) <= 1.e-9 .or. volt(k,iw2) <= 1.e-9) then
 
-            if (zm(k) <= hmin) then
+               ! close U if either T neighbor is completely closed
+               aru(k,iu) = 0.
+
+            elseif (zm(k) <= hmin) then
 
                aru(k,iu) = 0.
 
@@ -1108,12 +1132,6 @@ do ipass = 1,npass
 
       endif
 
-! Expand ARU with height in case of spherical geometry
-
-      do k = 2,nza
-         aru(k,iu) = aru(k,iu) * zfact(k)
-      enddo
-
    enddo
    call rsub('U',1)
 
@@ -1124,7 +1142,7 @@ enddo  ! end ipass loop
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_u(3)%jend(1); iu = jtab_u(3)%iu(j)
+do j = 1,jtab_u(jtu_wall)%jend(1); iu = jtab_u(jtu_wall)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
 
@@ -1136,11 +1154,26 @@ call qsub('U',iu)
 enddo
 call rsub('U',3)
 
-! Expand ARW and VOLT with height for spherical geometry, and compute VOLTI
+! Lateral boundary copy of ARU, LPU
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(3)%jend(1); iw = jtab_w(3)%iw(j)
+do j = 1,jtab_u(jtu_lbcp)%jend(1); iu = jtab_u(jtu_lbcp)%iu(j)
+   iup = itab_u(iu)%iup
+!----------------------------------------------------------------------
+call qsub('U',iu)
+
+   aru(:,iu) = aru(:,iup)
+   lpu  (iu) = lpu  (iup)
+
+enddo
+call rsub('U',jtu_lbcp)
+
+! Topographic adjustments to ARW and VOLT...
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -1152,10 +1185,9 @@ call qsub('W',iw)
 
    do k = 2,nza
 
-      if (volt(k,iw) > 1.e-9) then
-         arw (k,iw) = arw (k,iw) * zfacm(k)**2
-         volt(k,iw) = volt(k,iw) * zfact(k)**2
-      else
+! Close top area of T cell if volume is zero
+
+      if (volt(k,iw) < 1.e-9) then
          arw (k,iw) = 0.
          volt(k,iw) = 1.e-9
       endif
@@ -1164,7 +1196,7 @@ call qsub('W',iw)
 !go to 1
 ! Option for stability: expand volt if too small relative to any grid cell face
  
-      volt(k,iw) = max(volt(k,iw),real(arw(k,iw),8) * dzt(k))
+      volt(k,iw) = max(volt(k,iw), 0.5_8 * real(dzt(k) * (arw(k,iw) + arw(k-1,iw)), 8))
 
 ! Loop over faces of IW polygon
 
@@ -1173,15 +1205,24 @@ call qsub('W',iw)
          
          u_height = aru(k,iu) / dnv(iu)
          
-         volt(k,iw) = max(volt(k,iw), real(arw0(iw),8) * zfact(k) * u_height)
+         volt(k,iw) = max(volt(k,iw), real(arw0(iw),8) * u_height)
 
       enddo
 
+! Reset arw(k,iw) if we increased volt to avoid hollow box
+
+      if (volt(k,iw) > 1.e-9) then
+         arw(k,iw) = max( arw(k,iw), real( volt(k,iw) / dzt(k)))
+      endif
+
+! Make sure arw increases with height if we have adjusted it
+
+      if (k < nza-2) then
+         arw(k+1,iw) = max( arw(k+1,iw), arw(k,iw))
+      endif
+
 1 continue
-
 !xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-      volti(k,iw) = 1. / volt(k,iw)
 
    enddo  ! k
 
@@ -1201,7 +1242,7 @@ nsw_max = 1
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(6)%jend(1); iw = jtab_w(6)%iw(j)
+do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -1229,7 +1270,6 @@ call qsub('W',iw)
       if (lpw(iw) > k) then
          arw  (k,iw) = 0.     ! close area if all surrounding U's are closed
          volt (k,iw) = 1.e-9  ! close volume if all surrounding U's are closed
-         volti(k,iw) = 1.e9   ! close volume if all surrounding U's are closed
       endif
 
       if (k < nza-1 .and. lpw(iw) <= k .and. arw(k,iw) == 0.) then
@@ -1240,7 +1280,7 @@ call qsub('W',iw)
 
 ! Increase LSW if K-1 W level intersects topography in this cell
 
-      if (arw(k,iw) > 0. .and. arw(k,iw) < .999 * arw0(iw) * zfacm(k)**2) then
+      if (arw(k,iw) > 0. .and. arw(k,iw) < .999 * arw0(iw)) then
          lsw(iw) = lsw(iw) + 1
       endif
 
@@ -1253,37 +1293,82 @@ call qsub('W',iw)
 enddo
 call rsub('W',6)
 
-! VOLUI from VOLT
+! In case ARW has been reset to 0 anywhere (because it was nearly zero), 
+! transfer the seaflux and landflux cell values to KW = LPW(IW).
+! Also compute fractional flux cell areas per vertical level
 
-lcu(1:nua) = nza
+if (isfcl == 1) then
 
-call psub()
-!----------------------------------------------------------------------
-do j = 1,jtab_u(4)%jend(1); iu = jtab_u(4)%iu(j)
-   iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
-!----------------------------------------------------------------------
-call qsub('U',iu)
+   allocate(area_kw_sum(nsw_max,nwa))
+   area_kw_sum(:,:) = 0.0
 
-   do k = nza,2,-1
-      volui(k,iu) = 1. / (volt(k,iw1) + volt(k,iw2))      
+    do isf = 2,nseaflux
+      iw = seaflux(isf)%iw
+      kw = seaflux(isf)%kw
 
-      if (volt(k,iw1) + volt(k,iw2) > 1.e-8) then
-         lcu(iu) = k
-      endif
+      if (kw < lpw(iw)) seaflux(isf)%kw = lpw(iw)
+      if (kw > lpw(iw) + lsw(iw) - 1) seaflux(isf)%kw = lpw(iw) + lsw(iw) - 1
+ 
+      ks = seaflux(isf)%kw - lpw(iw) + 1
+      area_kw_sum(ks,iw) = area_kw_sum(ks,iw) + seaflux(isf)%area
+  enddo
+
+   do ilf = 2,nlandflux
+      iw = landflux(ilf)%iw
+      kw = landflux(ilf)%kw
+
+      if (kw < lpw(iw)) landflux(ilf)%kw = lpw(iw)
+      if (kw > lpw(iw) + lsw(iw) - 1) landflux(ilf)%kw = lpw(iw) + lsw(iw) - 1
+
+      ks = landflux(ilf)%kw - lpw(iw) + 1
+      area_kw_sum(ks,iw) = area_kw_sum(ks,iw) + landflux(ilf)%area
    enddo
 
-   volui(1,iu) = 1.e9
+   do isf = 2, nseaflux
+      kw = seaflux(isf)%kw
+      iw = seaflux(isf)%iw
+      ks = kw - lpw(iw) + 1
+      seaflux(isf)%arf_kw = seaflux(isf)%area / area_kw_sum(ks,iw)
+   enddo
 
-enddo
-call rsub('U',4)
+   do ilf = 2, nlandflux
+      kw = landflux(ilf)%kw
+      iw = landflux(ilf)%iw
+      ks = kw - lpw(iw) + 1
+      landflux(ilf)%arf_kw = landflux(ilf)%area / area_kw_sum(ks,iw)
+   enddo
+   
+   deallocate(area_kw_sum)
 
-! VOLWI from VOLT
+endif
+
+! Expand ARW and VOLT with height for spherical geometry, and compute VOLTI
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(5)%jend(1); iw = jtab_w(5)%iw(j)
+do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
+
+! Loop over vertical levels
+
+   do k = 2,nza
+         
+      if (volt(k,iw) > 1.e-9) then
+         if (mdomain < 2) then
+            arw (k,iw) = arw (k,iw) * zfacm(k)**2
+            volt(k,iw) = volt(k,iw) * zfact(k)**2
+         endif
+      else
+         arw (k,iw) = 0.
+         volt(k,iw) = 1.e-9
+      endif
+
+      volti(k,iw) = 1. / volt(k,iw)
+
+   enddo  ! k
+
+! VOLWI from VOLT
 
    do k = 2,nza
       kp = min(k+1,nza)
@@ -1296,33 +1381,81 @@ call qsub('W',iw)
    volwi(ka,iw)   = 1. / (volt(ka,iw) + .5 * volt(ka+1,iw))
    volwi(ka-1,iw) = 1. / (.5 * volt(ka,iw))
 
+! Set arw = 0 for bottom (k = 1), wall-on-top (k = nza-1), 
+! and top (k = nza) levels
+
+   arw(1,iw) = 0.   
+   arw(nza-1,iw) = 0.   
+   arw(nza,iw) = 0.   
+
 enddo
 call rsub('W',5)
 
-! In case ARW has been reset to 0 anywhere (because it was nearly zero), 
-! transfer the seaflux and landflux cell values to KW = LPW(IW).
+! Lateral boundary copy of ARW, VOLT, VOLTI, VOLWI, LSW
 
-if (isfcl == 1) then
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+   iwp = itab_w(iw)%iwp
+!----------------------------------------------------------------------
+call qsub('W',iw)
 
-   do isf = 2,nseaflux
-      iw = seaflux(isf)%iw
-      kw = seaflux(isf)%kw
+   arw  (:,iw) = arw  (:,iwp)
+   volt (:,iw) = volt (:,iwp)
+   volti(:,iw) = volti(:,iwp)
+   volwi(:,iw) = volwi(:,iwp)
+   lsw    (iw) = lsw    (iwp)
 
-      if (kw < lpw(iw)) seaflux(isf)%kw = lpw(iw)
-      if (kw > lpw(iw) + lsw(iw) - 1) seaflux(isf)%kw = lpw(iw) + lsw(iw) - 1
+enddo
+call rsub('W',jtw_lbcp)
+
+! Expand ARU with height for spherical geometry; Compute VOLUI, LCU
+
+volui(1:nza,1:nua) = 1.e-9
+lcu(1:nua) = nza
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_u(jtu_grid)%jend(1); iu = jtab_u(jtu_grid)%iu(j)
+   iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
+!----------------------------------------------------------------------
+call qsub('U',iu)
+
+   if (mdomain < 2) then
+      do k = 2,nza
+         aru(k,iu) = aru(k,iu) * zfact(k)
+      enddo
+   endif
+
+   do k = nza,2,-1
+      volui(k,iu) = 1. / (volt(k,iw1) + volt(k,iw2))      
+
+      if (volt(k,iw1) + volt(k,iw2) > 1.e-8) then
+         lcu(iu) = k
+      endif
    enddo
 
-   do ilf = 2,nlandflux
-      iw = landflux(ilf)%iw
-      kw = landflux(ilf)%kw
+   volui(1  ,iu) = 1.e9
+   volui(nza,iu) = 1.e9
 
-      if (kw < lpw(iw)) landflux(ilf)%kw = lpw(iw)
-      if (kw > lpw(iw) + lsw(iw) - 1) landflux(ilf)%kw = lpw(iw) + lsw(iw) - 1
-   enddo
+enddo
+call rsub('U',4)
 
-endif
+! Lateral boundary copy of ARU, VOLUI, LCU
+
+call psub()
+!----------------------------------------------------------------------
+do j = 1,jtab_u(jtu_lbcp)%jend(1); iu = jtab_u(jtu_lbcp)%iu(j)
+   iup = itab_u(iu)%iup
+!----------------------------------------------------------------------
+call qsub('U',iu)
+
+   aru  (:,iu) = aru  (:,iup)
+   volui(:,iu) = volui(:,iup)
+   lcu    (iu) = lcu    (iup)
+
+enddo
+call rsub('U',jtu_lbcp)
 
 return
 end subroutine ctrlvols_tri
-
-

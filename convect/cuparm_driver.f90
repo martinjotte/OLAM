@@ -32,42 +32,67 @@
 !===============================================================================
 subroutine cuparm_driver(rhot)
 
-use mem_grid,    only: mwa, mza, lpw
-use grell_coms,  only: alloc_grell, iact_gr
-use misc_coms,   only: io6, time_istp8, nqparm, nqparm_sh, confrq, dtlong,  &
-                       initial, itime1
-use mem_ijtabs,  only: itab_w, jtab_w, mrl_begl, istp, mrls
-use mem_cuparm,  only: thsrc, rtsrc, thsrcsh, rtsrcsh, aconpr, conprr
-use mem_tend,    only: thilt, sh_wt
-
-use mem_basic,   only: wc, theta, press, rho, sh_v
-use consts_coms, only: tkmin, r8
-use mem_micro,   only: sh_c
+use mem_grid,        only: mwa, mza, lpw
+use module_cu_kfeta, only: kf_lutab, cuparm_kfeta 
+use misc_coms,       only: io6, time_istp8, nqparm, nqparm_sh, confrq, &
+                           dtlong, initial, itime1
+use mem_ijtabs,      only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog
+use mem_cuparm,      only: thsrc, rtsrc, thsrcsh, rtsrcsh, aconpr, conprr, &
+                           w0avg
+use mem_tend,        only: thilt, sh_wt
+use mem_basic,       only: wc, rho
+use consts_coms,     only: r8
+use emanuel_coms,    only: alloc_eman
 
 !$ use omp_lib
 
 implicit none
 
 real, intent(inout) :: rhot(mza,mwa)
-real, parameter :: cptime = 7200.0
+real(r8), parameter :: cptime = 0.0
+integer             :: j, iw, k, mrl, mrlw
+integer, save       :: init_kf = 0
+integer, save       :: init_em = 0
 
-integer :: j
-integer :: iw
-integer :: k
-integer :: mrl, mrlw
+real :: dthmax, ftcon
+integer :: iwqmax, kqmax
 
-! Memory allocation for Grell cumulus transport
+! Time-weighting coefficients for w average
 
-if ( any(nqparm(1:mrls) == 2) ) then
-   if (.not. allocated(iact_gr)) then
-      call alloc_grell(mwa)
+real, parameter :: wtnew = 0.05
+real, parameter :: wtold = 1.00 - wtnew
+
+! For KF_eta parameterization, initialize scheme if needed
+! and compute running mean vertical velocity
+
+if ( any(nqparm(1:mrls) == 3) ) then
+
+   if (init_kf == 0) then
+      init_kf = 1
+      call kf_lutab()
+   endif
+
+   !$omp parallel do private(iw,mrlw)
+   do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
+      do k = lpw(iw),mza-1
+         w0avg(k,iw) = w0avg(k,iw) * wtold + .5 * (wc(k,iw) + wc(k+1,iw)) * wtnew
+      enddo
+   enddo
+   !$omp end parallel do
+
+endif
+
+if ( any(nqparm(1:mrls) == 4) ) then
+   if (init_em == 0) then
+      init_em = 1
+      call alloc_eman(mza,1)
    endif
 endif
 
 ! If model run has been initialized from observational data, avoid cumulus
 ! parameterization during an initial period to allow gravity waves to settle.
 
-if ((initial == 2) .and. (time_istp8 < real(cptime,r8))) return
+if ((initial == 2) .and. (time_istp8 < cptime)) return
 
 ! Check whether it is time to update cumulus parameterization tendencies
 
@@ -82,16 +107,16 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
 ! Initialize indices for search for maximum heating rate
 ! (commented out because incorrect in parallel operation)
 
-!    dthmax = 0.
-!    iwqmax = 0
-!    kqmax = 0
+   dthmax = 0.
+   iwqmax = 0
+   kqmax  = 0
 
 ! Loop over all IW grid cells where cumulus parameterization may be done
 
    call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private(iw,mrlw) 
-   do j = 1,jtab_w(15)%jend(1); iw = jtab_w(15)%iw(j) ! jend(1) for mrl = 1
+   do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
 !----------------------------------------------------------------------
    call qsub('W',iw)
 
@@ -113,6 +138,18 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
 
          call cuparth(iw,dtlong)
 
+      elseif (nqparm(mrlw) == 3) then
+   
+! Kain-Fritsch deep convection
+
+         call cuparm_kfeta(iw,dtlong,w0avg)
+
+      elseif (nqparm(mrlw) == 4) then
+   
+! Emanuel convective parameterization
+
+         call cuparm_emanuel(iw,dtlong)
+
       endif
    
       if (nqparm_sh(mrlw) == 1) then
@@ -126,14 +163,14 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
 ! Update indices for maximum heating rate
 ! (commented out because incorrect in parallel operation)
 
-!   do k = lpw(iw),mza-1
-!      ftcon = thsrc(k,iw) / rho(k,iw)
-!      if (ftcon > dthmax) then
-!         dthmax = ftcon
-!         iwqmax = iw
-!         kqmax = k
-!      endif
-!   enddo
+   do k = lpw(iw),mza-1
+      ftcon = thsrc(k,iw)
+      if (ftcon > dthmax) then
+         dthmax = ftcon
+         iwqmax = iw
+         kqmax = k
+      endif
+   enddo
 
    enddo
 !$omp end parallel do
@@ -142,11 +179,12 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
 ! Print maximum heating rate
 ! (commented out because incorrect in parallel operation)
 
-!   write(io6, '(A,I0,A,I0,A,F0.3,A)') " MAX CONVECTIVE HEATING RATE AT IW=",  &
-!        iwqmax, " K=", kqmax, " IS ", dthmax*86400., " K/DAY"
+   write(io6, '(A,I0,A,I0,A,F0.3,A)') " MAX CONVECTIVE HEATING RATE AT IW=",  &
+        iwqmax, " K=", kqmax, " IS ", dthmax*86400., " K/DAY"
 
 
 endif
+
 
 ! Add current value of convective tendencies to thilt and sh_wt arrays
 ! every long timestep (whether cumulus parameterization is updated 
@@ -157,22 +195,35 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k) 
-do j = 1,jtab_w(15)%jend(mrl); iw = jtab_w(15)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
    aconpr(iw) = aconpr(iw) + conprr(iw) * dtlong
 
-   do k = lpw(iw),mza-1
-      thilt(k,iw) = thilt(k,iw)  &
-                  + (thsrc(k,iw) + thsrcsh(k,iw)) * rho(k,iw)
+   if ( any(nqparm(1:mrls) > 0) ) then
 
-      sh_wt(k,iw) = sh_wt(k,iw)  &
-                  + (rtsrc(k,iw) + rtsrcsh(k,iw)) * rho(k,iw)
+      do k = lpw(iw),mza-1
+         thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * rho(k,iw)
 
-      rhot (k,iw) = rhot (k,iw)  &
-                  + (rtsrc(k,iw) + rtsrcsh(k,iw)) * rho(k,iw)
-   enddo
+         sh_wt(k,iw) = sh_wt(k,iw) + rtsrc(k,iw) * rho(k,iw)
+
+         rhot (k,iw) = rhot (k,iw) + rtsrc(k,iw) * rho(k,iw)
+      enddo
+
+   endif
+
+   if ( any(nqparm_sh(1:mrls) > 0) ) then
+      
+      do k = lpw(iw),mza-1
+         thilt(k,iw) = thilt(k,iw) + thsrcsh(k,iw) * rho(k,iw)
+
+         sh_wt(k,iw) = sh_wt(k,iw) + rtsrcsh(k,iw) * rho(k,iw)
+
+         rhot (k,iw) = rhot (k,iw) + rtsrcsh(k,iw) * rho(k,iw)
+      enddo
+
+   endif
 
 enddo
 !$omp end parallel do

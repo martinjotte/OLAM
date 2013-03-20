@@ -32,11 +32,13 @@
 !===============================================================================
 subroutine scalar_transport(umarusc,wmarwsc,rho_old)
 
-use mem_ijtabs,   only: istp, itab_u, jtab_u, jtab_w, mrl_endl
+use mem_ijtabs,   only: istp, itab_u, jtab_u, jtab_w, mrl_endl, &
+                        jtu_wadj, jtu_wstn, jtw_prog, jtw_wadj
 use mem_grid,     only: mza, mua, mwa, zt, zm, dzim, lpu, volt
 use misc_coms,    only: io6, dtlm, iparallel
 use var_tables,   only: scalar_tab, num_scalar
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
+use obnd,         only: lbcopy_w
 
 !$ use omp_lib
 
@@ -46,7 +48,7 @@ real(kind=8), intent(in) :: umarusc(mza,mua)
 real(kind=8), intent(in) :: wmarwsc(mza,mwa)
 real(kind=8), intent(in) :: rho_old(mza,mwa)
 
-integer :: j,iw,iw1,iw2,k,mrl,n,kb,iu
+integer :: j,iw,iw1,iw2,k,mrl,n,kb,iu,ns
 
 real :: dt2
 
@@ -58,11 +60,11 @@ real :: zwt2(mza)
 real :: hcnum_s(mza)
 real :: hcnum1_s(mza)
 
-real :: hflx_s(mza,mua,num_scalar)
+real :: hflx_s(mza,mua,num_scalar-1)
 
-real :: rpos(mza,mwa,num_scalar)
-real :: rneg(mza,mwa,num_scalar)
-real :: scp0(mza,mwa,num_scalar)
+real :: rpos(mza,mwa,num_scalar-1)
+real :: rneg(mza,mwa,num_scalar-1)
+real :: scp0(mza,mwa,num_scalar-1)
 
 real, pointer :: scp(:,:)
 
@@ -79,13 +81,12 @@ call psub()
 !----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
-! JTAB_U(22): ITAB_W(IW)%IU(1:3)
 !$omp parallel do private (iu)
-do j = 1,jtab_u(22)%jend(mrl); iu = jtab_u(22)%iu(j)
+do j = 1,jtab_u(jtu_wadj)%jend(mrl); iu = jtab_u(jtu_wadj)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
 
-   call hflux_s('S',num_scalar,iu,umarusc,wmarwsc,rho_old,hflx_s)
+   call hflux_s('S',num_scalar-1,iu,umarusc,wmarwsc,rho_old,hflx_s)
 
 enddo
 !$omp end parallel do
@@ -99,11 +100,11 @@ call psub()
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private (iw)
-do j = 1,jtab_w(26)%jend(mrl); iw = jtab_w(26)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
-   call scalar_transport0('L','S',num_scalar,iw,umarusc,wmarwsc, &
+   call scalar_transport0('L','S',num_scalar-1,iw,umarusc,wmarwsc, &
                           zwt1,zwt2,rho_old,hflx_s,rpos,rneg,scp0)
 
 enddo
@@ -118,13 +119,18 @@ if (iparallel == 1) then
    call mpi_recv_w('L',scp0=scp0)
 endif
 
+! LBC copy
+
+do ns = 1,num_scalar-1
+   call lbcopy_w(1, a1=scp0(:,:,ns))
+enddo
+
 call psub()
 !----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
-! JTAB_U(21): ITAB_W(IW)%IU(1:9)
-!$omp parallel do private (iu,iw1,iw2,dt2,kb,k,hcnum_s,hcnum1_s,n,scp)
-do j = 1,jtab_u(21)%jend(mrl); iu = jtab_u(21)%iu(j)
+!$omp parallel do private (iu,iw1,iw2,dt2,kb,k,hcnum_s,hcnum1_s,n,ns,scp)
+do j = 1,jtab_u(jtu_wstn)%jend(mrl); iu = jtab_u(jtu_wstn)%iu(j)
 iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
 call qsub('U',iu)
@@ -151,11 +157,12 @@ call qsub('U',iu)
       
 ! Loop over prognostic scalars
 
-   do n = 1,num_scalar
+   do ns = 2, num_scalar
+      n = ns - 1
 
 ! Point SCP to scalar array
 
-      scp => scalar_tab(n)%var_p
+      scp => scalar_tab(ns)%var_p
 
 ! Loop over T levels
 
@@ -184,13 +191,12 @@ call psub()
 !----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
-! JTAB_W(28): IW, ITAB_W(IW)%IW(1:3)
 !$omp parallel do private (iw)
-do j = 1,jtab_w(28)%jend(mrl); iw = jtab_w(28)%iw(j)
+do j = 1,jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
-   call scalar_transport0('M','S',num_scalar,iw,umarusc,wmarwsc, &
+   call scalar_transport0('M','S',num_scalar-1,iw,umarusc,wmarwsc, &
                           zwt1,zwt2,rho_old,hflx_s,rpos,rneg,scp0)
 
 enddo
@@ -205,11 +211,11 @@ call psub()
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private (iw)
-do j = 1,jtab_w(26)%jend(mrl); iw = jtab_w(26)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
-   call scalar_transport0('H','S',num_scalar,iw,umarusc,wmarwsc, &
+   call scalar_transport0('H','S',num_scalar-1,iw,umarusc,wmarwsc, &
                           zwt1,zwt2,rho_old,hflx_s,rpos,rneg,scp0)
 
 enddo
@@ -248,7 +254,7 @@ integer :: iw1,iw2,iw3,iw4,iw5,iw6
 integer :: iuc,iud
 integer :: iwa,iwb,iwc,iwd
 
-integer :: k,kb,n
+integer :: k,kb,ku,n,ns
 
 real :: tuu1,tuu2,tuu3,tuu4
 real :: guw1,guw2,guw3,guw4
@@ -259,6 +265,7 @@ real :: scq,scq_updn,crossmm,crossww,fww
 
 real :: dt,dt2,dto2
 real :: cnum_w
+real :: scp_max, scp_min
 
 ! Automatic arrays
 
@@ -348,6 +355,8 @@ do k = kb,mza-1
    vcnum_s(k) = dto2 * (wmarwsc(k-1,iwb) + wmarwsc(k,iwb)) &
               / (rho_old(k,iwb) * volt(k,iwb))
 
+   ku = merge ( max(k-1, kb), min(k+1,mza-1), vcnum_s(k) >= 0. )
+
 ! Horizontal transverse displacement in single timestep at T level in IWB column
 
    htdisp(k) = dt2 * (tuuc * umarusc(k,iuc) / dnv(iuc)   &
@@ -360,11 +369,12 @@ do k = kb,mza-1
 ! Loop over all scalars
 
    do n = 1,num_sclr
+      ns = n + 1
 
 ! Point SCP to scalar array
 
       if (sclr_type == 'S') then
-         scp => scalar_tab(n)%var_p
+         scp => scalar_tab(ns)%var_p
       else
          scp => thil
       endif
@@ -457,9 +467,20 @@ do k = kb,mza-1
       scp_upwind(k) = scq + vterm(k) &
                     + c2(k) * htgrads(k) &
                     - c1(k) * htgrads_updn(k)
+      
+      ! make sure scalar value interpolated to U point is bounded
+
+      scp_max = max( scp(k, iwa), scp(k ,iwb), scp(k ,iwc), scp(k ,iwd), &
+                     scp(ku,iwa), scp(ku,iwb), scp(ku,iwc), scp(ku,iwd)  )
+      
+      scp_min = min( scp(k ,iwa), scp(k ,iwb), scp(k ,iwc), scp(k ,iwd), &
+                     scp(ku,iwa), scp(ku,iwb), scp(ku,iwc), scp(ku,iwd)  )
+
+      scp_upwind(k) = max( scp_upwind(k), scp_min)
+      scp_upwind(k) = min( scp_upwind(k), scp_max)
 
 ! SPECIAL---------------------------------------
-!      scp_upwind(k) = scp(k,iwb)
+!     scp_upwind(k) = scp(k,iwb)
 !-----------------------------------------------
 
 ! Low order flux
@@ -483,10 +504,9 @@ use mem_ijtabs, only: itab_w
 use mem_basic,  only: rho, thil
 use mem_tend,   only: thilt
 use misc_coms,  only: io6, dtlm, dtsm
-use mem_turb,   only: vkh, hkm, sxfer_rk
+use mem_turb,   only: hkm, sxfer_rk, fqtpbl
 use mem_grid,   only: mza, mua, mwa, lpw, lsw,  &
                       dniu, volt, aru, arw, volwi, dzim, volti
-use massflux,   only: tridiffo
 use mem_para,   only: myrank
 
 implicit none
@@ -513,19 +533,12 @@ real, intent(inout) :: scp0(mza,mwa,num_sclr)
 real, pointer :: scp(:,:)
 real, pointer :: sct(:,:)
 
-integer :: n,k,ka,ks,iu1,iu2,iu3,iw1,iw2,iw3,km,kp
+integer :: n,k,ka,ks,iu1,iu2,iu3,iw1,iw2,iw3,km,kp,ns
 
 real :: dt,dt2,dti,hdti,hdniu1,hdniu2,hdniu3,diru1,diru2,diru3
 
 ! Automatic arrays:
 
-real :: akodz   (mza)
-real :: dtomass (mza)
-real :: vctr5   (mza)
-real :: vctr6   (mza)
-real :: vctr7   (mza)
-real :: vctr8   (mza)
-real :: vctr9   (mza)
 real :: vflx_s  (mza)
 real :: tmass   (mza)
 real :: akodn1  (mza)
@@ -553,6 +566,7 @@ real :: adv(mza)
 real :: scp_upwind(mza)
 real :: scp_min(mza)
 real :: scp_max(mza)
+real :: scp_w_max, scp_w_min
 
 real :: ppos(mza)
 real :: pneg(mza)
@@ -635,10 +649,6 @@ if (action == 'L') then
 
       do k = ka,mza-1
 
-! delta_t over mass
-
-         dtomass(k) = dt / tmass(k)
-
 ! Scalar horizontal turbulent flux coefficients
 
          akodn1(k) = aru(k,iu1) * (hkm(k,iw1) + hkm(k,iw)) * hdniu1
@@ -647,29 +657,18 @@ if (action == 'L') then
 
       enddo
 
-! Vertical loop over W levels
-
-      do k = ka,mza-2
-
-! Prepare for vertical diffusion - Fill tri-diagonal matrix coefficients
-
-         akodz(k) = arw(k,iw) * vkh(k,iw) * dzim(k)
-         vctr5(k) = - akodz(k) * dtomass(k)
-         vctr7(k) = - akodz(k) * dtomass(k+1)
-         vctr6(k) = 1. - vctr5(k) - vctr7(k)
-      enddo
-
    endif ! (sclr_type == 'S')
    
 ! Loop over scalars
 
    do n = 1,num_sclr
+      ns = n + 1
 
 ! Point SCP and SCT to scalar arrays
 
       if (sclr_type == 'S') then
-         scp => scalar_tab(n)%var_p(:,:)
-         sct => scalar_tab(n)%var_t(:,:)
+         scp => scalar_tab(ns)%var_p(:,:)
+         sct => scalar_tab(ns)%var_t(:,:)
       else
          scp => thil
          sct => thilt
@@ -677,75 +676,16 @@ if (action == 'L') then
 
       if (sclr_type == 'S') then
 
-! Vertical loop over W levels: 
-! Fill r.h.s. for tri-diagonal matrix eqn for vertical diffusion
-
-         do k = ka,mza-2
-            vctr8(k) = akodz(k) * (scp(k,iw) - scp(k+1,iw))
-         enddo
-
-! Special case for total water sh_w:  apply surface vapor flux
-
-         if (scalar_tab(n)%name == 'SH_W') then
-
-! Vertical loop over T levels that are adjacent to surface
-
-            do ks = 1,lsw(iw)
-               k = ka + ks - 1
-
-! Apply surface vapor xfer [kg_vap] directly to SCT [kg_vap / (m^3 s)]
-
-               sct(k,iw) = sct(k,iw) + dti * volti(k,iw) * sxfer_rk(ks,iw)
-
-! Change in SCP from surface xfer
-
-               del_scp(k) = sxfer_rk(ks,iw) / (rho_old(k,iw) * volt(k,iw))
-
-! Zero out sxfer_rk(ks,iw) now that it has been transferred to the atm
-
-               sxfer_rk(ks,iw) = 0.  
-
-            enddo
-
-! Lowest T level that is not adjacent to surface
-
-            del_scp(ka+lsw(iw)) = 0.
-
-! Vertical loop over W levels that are adjacent to surface
-
-            do ks = 1,lsw(iw)
-               k = ka + ks - 1
-
-! Change in vctr8 from surface vapor xfer
-
-               vctr8(k) = vctr8(k) + akodz(k) * (del_scp(k) - del_scp(k+1))
-            enddo
-
-         endif
-
-! Solve tri-diagonal matrix equation
-
-         if (ka <= mza-2) then
-            call tridiffo(mza,ka,mza-2,vctr5,vctr6,vctr7,vctr8,vctr9)
-         endif
-
-! Set bottom and top vertical internal turbulent fluxes to zero
-
-         vctr9(ka-1) = 0.
-         vctr9(mza-1) = 0.
-      
 ! Vertical loop over T levels
 
-         do k = ka,mza-1
+         do k = ka, mza-1
 
-! Add contributions to scalar tendency from horizontal and vertical diffusion
+! Add contributions to scalar tendency from horizontal diffusion
 
-            sct(k,iw) = sct(k,iw) + volti(k,iw) &
-
-               * (akodn1(k) * (scp(k,iw1) - scp(k,iw)) &
-               +  akodn2(k) * (scp(k,iw2) - scp(k,iw)) &
-               +  akodn3(k) * (scp(k,iw3) - scp(k,iw)) &
-               +  vctr9(k-1) - vctr9(k))
+            sct(k,iw) = sct(k,iw) + volti(k,iw)         &
+               * ( akodn1(k) * (scp(k,iw1) - scp(k,iw)) & 
+               +   akodn2(k) * (scp(k,iw2) - scp(k,iw)) &
+               +   akodn3(k) * (scp(k,iw3) - scp(k,iw)) )
 
          enddo
 
@@ -780,12 +720,14 @@ if (action == 'L') then
          vflx_s(k) = wmarwsc(k,iw) * scp_w(k)
 
 ! Alternate form...
-
-!         if (wmarwsc(k,iw) > 0.) then
-!            vflx_s(k) = wmarwsc(k,iw) * scp_upwind(k)
-!         else
-!            vflx_s(k) = wmarwsc(k,iw) * scp_upwind(k+1)
-!         endif
+!
+!        if (wmarwsc(k,iw) > 0.) then
+!           vflx_s(k) = wmarwsc(k,iw) * scp_upwind(k)
+!        !  vflx_s(k) = wmarwsc(k,iw) * scp(k,iw)
+!        else
+!           vflx_s(k) = wmarwsc(k,iw) * scp_upwind(k+1)
+!        !  vflx_s(k) = wmarwsc(k,iw) * scp(k+1,iw)
+!        endif
 
       enddo
 
@@ -817,11 +759,12 @@ elseif (action == 'M') then
 ! Loop over scalars
 
    do n = 1,num_sclr
+      ns = n + 1
 
 ! Point SCP to scalar arrays
 
       if (sclr_type == 'S') then
-         scp => scalar_tab(n)%var_p
+         scp => scalar_tab(ns)%var_p
       else
          scp => thil
       endif
@@ -839,7 +782,6 @@ elseif (action == 'M') then
 
 !x         vflx_s(k) = wmarwsc(k,iw) * (zwt1(k) + vcnum_s(k) - vcnum1_s(k)) &
 !x                   * (scp(k,iw) - scp(k+1,iw))
-
 
          wt1(k) = zwt1(k) + vcnum_s(k) * (.5 + vcnum1_s(k) * (.5 - zwt1(k))) &
                 - .5 * (vcnum1_s(k) + 1.)
@@ -880,7 +822,7 @@ elseif (action == 'M') then
                  + max(0.,diru2 * hflx_s(k  ,iu2,n)) &
                  + max(0.,diru3 * hflx_s(k  ,iu3,n))
 
-         qpos(k) = (scp_max(k) - scp(k,iw)) * dti * volt(k,iw)
+         qpos(k) = (scp_max(k) - scp(k,iw)) * dti * volt(k,iw) * rho(k,iw)
 
          if (ppos(k) > 1.e-12) then
             rpos(k,iw,n) = min(1.0, qpos(k) / ppos(k))
@@ -894,8 +836,8 @@ elseif (action == 'M') then
                    - min(0.,diru2 * hflx_s(k  ,iu2,n)) &
                    - min(0.,diru3 * hflx_s(k  ,iu3,n))
 
-         qneg(k) = (scp(k,iw) - scp_min(k)) * dti * volt(k,iw)
-
+         qneg(k) = (scp(k,iw) - scp_min(k)) * dti * volt(k,iw) * rho(k,iw)
+         
          if (pneg(k) > 1.e-12) then
             rneg(k,iw,n) = min(1.0, qneg(k) / pneg(k))
          else
@@ -917,12 +859,13 @@ elseif (action == 'H') then
 ! Loop over scalars
 
    do n = 1,num_sclr
+      ns = n + 1
 
 ! Point SCP and SCT to scalar arrays
 
       if (sclr_type == 'S') then
-         scp => scalar_tab(n)%var_p
-         sct => scalar_tab(n)%var_t
+         scp => scalar_tab(ns)%var_p
+         sct => scalar_tab(ns)%var_t
       else
          scp => thil
          sct => thilt

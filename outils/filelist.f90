@@ -119,19 +119,25 @@ SUBROUTINE OLAM_filelist(fnames,nfnam,file_prefix,nfile,nocall)
 
   OPEN(unit=iun, file=tmpname, status='old')
 
-  DO nf=1, nfnam+1
+  nfile = 0
+  DO nf = 1, nfnam+10
      READ(iun, '(a)', iostat=istat) file
 
      ! iostat /= 0 indicates end-of-file or error so exit loop
      IF (istat /= 0) exit
 
-     IF (nf > nfnam) THEN
+     ! Skip over any blank lines in filelist
+     IF (len_trim(file) < 1) cycle
+
+     nfile = nfile + 1
+
+     IF (nfile > nfnam) THEN
         WRITE(*,*) 'OLAM_filelist: too many files of the form:'
         WRITE(*,*) trim(file_prefix)
         STOP       'Please increase the appropriate parameter in max_dims'
      ENDIF
 
-     fnames(nf) = file
+     fnames(nfile) = file
   ENDDO
 
   if (nocall) then
@@ -139,8 +145,6 @@ SUBROUTINE OLAM_filelist(fnames,nfnam,file_prefix,nfile,nocall)
   else
      close(iun, status='delete')
   endif
-
-  nfile=nf-1
 
 END SUBROUTINE OLAM_filelist
 

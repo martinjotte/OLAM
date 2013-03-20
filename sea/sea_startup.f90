@@ -92,6 +92,7 @@ if (iseaiceflg == 2) then
 ! Default initialization of SEAICE
 
    do iws = 2,mws
+      sea%seaicep(iws) = 0.
       sea%seaicef(iws) = 0.
    enddo
 

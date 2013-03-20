@@ -741,11 +741,11 @@ do k = 1,nlev_new
 ! Replace sfcwater energy limiter from earlier code versions with energy
 ! check and message.  If message ever gets printed, investigate reasons.
 
-   if (sfcwater_energy(k) > 6.e5 .or. sfcwater_energy(k) < -2.e5) then
-      raxis = sqrt(xewl ** 2 + yewl ** 2)
+   if (sfcwater_energy(k) > 6.e5 .or. sfcwater_energy(k) < -2.5e5) then
 
-      glatwl = atan2(zewl,raxis)   * piu180
-      glonwl = atan2(yewl,xewl) * piu180
+      raxis  = sqrt(xewl**2 + yewl**2)
+      glatwl = atan2(zewl,raxis) * piu180
+      glonwl = atan2(yewl,xewl)  * piu180
 
       write(io6,*) ' '
       write(io6,*) 'Sfcwater energy is outside allowable range. '
@@ -769,11 +769,12 @@ subroutine remove_runoff(iwl, ksn, sfcwater_fracliq, sfcwater_mass,   &
      sfcwater_tempk, sfcwater_energy, sfcwater_depth, runoff, qrunoff)
 
   use leaf_coms, only: nzs, dt_leaf
-  use ed_options, only: runoff_time
   use consts_coms, only: alli, cliq
   use misc_coms, only: io6
 
   implicit none
+
+  real, parameter :: runoff_time = 86400.
 
   integer, intent(in) :: iwl
   integer, intent(in) :: ksn

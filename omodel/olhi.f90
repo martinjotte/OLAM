@@ -32,24 +32,26 @@
 !===============================================================================
 subroutine fldslhi()
 
-use mem_basic,   only: theta, thil, rho, press, sh_w, sh_v,  &
-                       wc, wmc, uc, umc, ump, vc, vmc, vmp
+use mem_basic,   only: theta, thil, tair, rho, press, sh_w, sh_v,  &
+                       wc, wmc, uc, umc, ump, vc, vp, vmc, vmp
 use mem_micro,   only: sh_c
 use micro_coms,  only: level
-use mem_ijtabs,  only: jtab_w, jtab_u, itab_u, jtab_v, itab_v
-use consts_coms, only: p00, rocp, cvocp, p00k, rdry, rvap, alvlocp, gravo2
-use mem_grid,    only: mza, mua, mva, mwa, lcu, lcv, zt, dzt, zm, &
+use mem_ijtabs,  only: jtab_w, jtab_u, itab_u, jtab_v, itab_v, &
+                       jtu_init, jtv_init, jtw_init
+use consts_coms, only: p00, p00i, rocp, cvocp, p00k, rdry, rvap, alvlocp, gravo2
+use mem_grid,    only: mza, mua, mva, mwa, lcu, lpv, zt, dzt, zm, &
                        xeu, yeu, zeu, xev, yev, zev, unx, uny, vnx, vny, &
                        glatw, aru, arv
 use mem_zonavg,  only: zonz_vect, zonu_vect, zont_vect, zonr_vect,  &
                        zonp_vect, zonz, zonu, zont, zonr, zonavg_init
 use misc_coms,   only: io6, iparallel, meshtype,idate1,imonth1,iyear1
-use massflux,    only: diagnose_uc, diagnose_vc
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w,  &
                         mpi_send_u, mpi_recv_u,  &
                         mpi_send_v, mpi_recv_v 
     
+use obnd,         only: lbcopy_u, lbcopy_v, lbcopy_w
+
 implicit none   
 
 integer :: j,iw,k,ka,iu,iv,iter,iw1,iw2,iup,ivp,llat  &
@@ -70,7 +72,7 @@ call zonavg_init(idate1,imonth1,iyear1)
 
 call psub()
 !----------------------------------------------------------------------
-do j = 1,jtab_w(8)%jend(1); iw = jtab_w(8)%iw(j)
+do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -122,7 +124,7 @@ call qsub('W',iw)
             rho(k,iw) = press(k,iw) ** cvocp * p00k  &
                / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
          else
-            exner = (press(k,iw) / p00) ** rocp   ! Defined WITHOUT CP factor
+            exner = (press(k,iw) * p00i) ** rocp   ! Defined WITHOUT CP factor
             temp = exner * theta(k,iw)
             rhovs = rhovsl(temp-273.15)
             sh_c(k,iw) = max(0.,sh_w(k,iw)-rhovs/real(rho(k,iw)))
@@ -155,13 +157,24 @@ call qsub('W',iw)
       
    enddo
 
+   do k = 1, mza
+      tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
+   enddo
+
 enddo
 call rsub('Wb',8)
+
+! LBC copy (THETA and TAIR will be copied later with the scalars)
 
 if (iparallel == 1) then
    call mpi_send_w('I')  ! Send W group
    call mpi_recv_w('I')  ! Recv W group
+
+   call mpi_send_w('V', vxe=uzonal)
+   call mpi_recv_w('V', vxe=uzonal)
 endif
+
+call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
 
 if (meshtype == 1) then
 
@@ -169,13 +182,10 @@ if (meshtype == 1) then
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_u(8)%jend(1); iu = jtab_u(8)%iu(j)
+   do j = 1,jtab_u(jtu_init)%jend(1); iu = jtab_u(jtu_init)%iu(j)
       iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
    call qsub('U',iu)
-
-      if (iw1 < 2) iw1 = iw2
-      if (iw2 < 2) iw2 = iw1
 
       raxis = sqrt(xeu(iu) ** 2 + yeu(iu) ** 2)  ! dist from earth axis
 
@@ -199,44 +209,28 @@ if (meshtype == 1) then
 
       umc(:,iu) = uc(:,iu) * .5 * (rho(:,iw1) + rho(:,iw2))
 
-   enddo
-   call rsub('Ub',8)
-
-! Set UMC = 0 wherever ARU = 0.
-
-   call psub()
-!----------------------------------------------------------------------
-   do iu = 2,mua
-!----------------------------------------------------------------------
-   call qsub('U',iu)
-!x      do k = 1,mza-1
-!x         if (aru(k,iu) < 1.e-9) then
-!x            umc(k,iu) = 0.
-!x         endif
-!x      enddo
-
 ! For below-ground points, set UC to LCU value.
 
       ka = lcu(iu)
       uc(1:ka-1,iu) = uc(ka,iu)
 
    enddo
-   call rsub('Ub',0)
+   call rsub('Ub',8)
 
 ! MPI parallel send/recv of U group
 
-      if (iparallel == 1) then
-         call mpi_send_u('I')
-         call mpi_recv_u('I')
-      endif
+   if (iparallel == 1) then
+      call mpi_send_u('I')
+      call mpi_recv_u('I')
+   endif
+
+! LBC copy of UMC, UC
+
+   call lbcopy_u(1, a1=umc, a2=uc)
 
 ! Set UMP to UMC
 
    ump(:,:) = umc(:,:)
-
-! Diagnose VC
-
-   call diagnose_vc()
 
 else
 
@@ -244,13 +238,10 @@ else
 
    call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_v(8)%jend(1); iv = jtab_v(8)%iv(j)
+   do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
       iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
    call qsub('V',iv)
-
-      if (iw1 < 2) iw1 = iw2
-      if (iw2 < 2) iw2 = iw1
 
       raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
 
@@ -274,29 +265,13 @@ else
          
       vmc(:,iv) = vc(:,iv) * .5 * (rho(:,iw1) + rho(:,iw2))
 
-   enddo
-   call rsub('Vb',8)
+! For below-ground points, set VC to LPV value.
 
-! Set VMC = 0 wherever ARV = 0.
-
-   call psub()
-!----------------------------------------------------------------------
-   do iv = 2,mva
-!----------------------------------------------------------------------
-   call qsub('V',iv)
-!x      do k = 1,mza-1
-!x         if (arv(k,iv) < 1.e-9) then
-!x            vmc(k,iv) = 0.
-!x         endif
-!x      enddo
-
-! For below-ground points, set VC to LCV value.
-
-      ka = lcv(iv)
+      ka = lpv(iv)
       vc(1:ka-1,iv) = vc(ka,iv)
 
    enddo
-   call rsub('Vb',0)
+   call rsub('Vb',8)
 
 ! MPI parallel send/recv of V group
 
@@ -305,19 +280,20 @@ else
       call mpi_recv_v('I')  ! Recv V group
    endif
 
-! Set VMP to VMC
+! LBC copy of VMC, VC
 
-   vmp(:,:) = vmc(:,:)
+   call lbcopy_v(1, vmc=vmc, vc=vc)
 
-! Diagnose UC
+! Set VMP and VP
 
-   call diagnose_uc()
+   if (allocated(vmp)) vmp(:,:) = vmc(:,:)
+   if (allocated(vp )) vp (:,:) = vc (:,:)
 
 endif
 
-! print out initial state column from column 2
+! print out initial state from 1st jtw_init column
 
-iw = 2
+iw = jtab_w(jtw_init)%iw(1)
 
 write(io6,*) ' '
 write(io6,*) '========================================================================='
@@ -338,5 +314,3 @@ write(io6,*) ' '
 
 return
 end subroutine fldslhi
-
-

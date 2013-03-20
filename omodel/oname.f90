@@ -33,7 +33,7 @@
 
 subroutine read_nl(file)
 
-use oname_coms, only: nl
+use oname_coms, only: nl, cmdlne_runtype
 use misc_coms,  only: io6
 
 implicit none
@@ -59,6 +59,12 @@ open(10, status='OLD', file=file)
 
 read(10, nml=OLAMIN)
 close(10)
+
+! OVERWRITE NAMELIST OPTIONS WITH COMMAND LINE VALUES (CURRENTLY ONLY RUNTYPE)
+
+if (len_trim(cmdlne_runtype) > 1) then
+   nl%runtype = cmdlne_runtype
+endif
 
 end subroutine read_nl
 
@@ -95,18 +101,13 @@ use leaf_coms,   only: nvgcon, nslcon, slmstr, isoilflg, ndviflg, &
 use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst, &
                        iseaiceflg, seaice_database, iupdseaice
 
-use mem_ed,      only: n_soi, soi_lat, soi_lon, n_ed_region, ed_reg_latmin, &
-                       ed_reg_latmax, ed_reg_lonmin, ed_reg_lonmax
 use oplot_coms,  only: op
 use isan_coms,   only: iapr, isdirs
 use mem_nudge,   only: tnudcent, nudflag, nudnxp
-use mem_rayf,    only: rayf_zmin, rayf_distim, rayf_expon, &
-                       rayfw_zmin, rayfw_distim, rayfw_expon
-use ed_options,  only: ied_init_mode, istoma_scheme, iphen_scheme, &
-     ed_inputs_dir, n_plant_lim, n_decomp_lim, include_fire, ied_offline, &
-     metcyc1, metcyc2, ed_offline_db,ianth_disturb, runoff_time, ed_hfilin
-
-use disturbance_coms, only: treefall_disturbance_rate
+use mem_rayf,    only: rayf_zmin,    rayf_distim,   rayf_expon,    &
+                       rayfw_zmin,   rayfw_distim,   rayfw_expon,  &
+                       rayfdiv_zmin, rayfdiv_distim, rayfdiv_expon
+use ed_misc_coms, only: ed2_active, ed2_namelist
 
 implicit none
 
@@ -159,29 +160,8 @@ if (copy_type == 'ALL_CASES') then
    soilstate_db = nl%soilstate_db
    soildepth_db = nl%soildepth_db
 
-   n_soi         = nl%n_soi
-   soi_lat       = nl%soi_lat
-   soi_lon       = nl%soi_lon
-   n_ed_region   = nl%n_ed_region
-   ed_reg_latmin = nl%ed_reg_latmin
-   ed_reg_latmax = nl%ed_reg_latmax
-   ed_reg_lonmin = nl%ed_reg_lonmin
-   ed_reg_lonmax = nl%ed_reg_lonmax
-   ed_offline_db = trim(nl%ed_offline_db)
-   ied_init_mode = nl%ied_init_mode
-   metcyc1       = nl%metcyc1
-   metcyc2       = nl%metcyc2
-   ied_offline   = nl%ied_offline
-   istoma_scheme = nl%istoma_scheme
-   ianth_disturb = nl%ianth_disturb
-   iphen_scheme  = nl%iphen_scheme
-   ed_inputs_dir = trim(nl%ed_inputs_dir)
-   ed_hfilin = trim(nl%ed_hfilin)
-   n_plant_lim   = nl%n_plant_lim
-   n_decomp_lim  = nl%n_decomp_lim
-   include_fire  = nl%include_fire
-   treefall_disturbance_rate = nl%treefall_disturbance_rate
-   runoff_time   = nl%runoff_time
+   ed2_active = nl%ed2_active
+   ed2_namelist = nl%ed2_namelist
 
    dtlong        = nl%dtlong
    initial       = nl%initial
@@ -209,6 +189,9 @@ if (copy_type == 'ALL_CASES') then
    rayfw_zmin    = nl%rayfw_zmin
    rayfw_distim  = nl%rayfw_distim
    rayfw_expon   = nl%rayfw_expon
+   rayfdiv_zmin  = nl%rayfdiv_zmin
+   rayfdiv_distim= nl%rayfdiv_distim
+   rayfdiv_expon = nl%rayfdiv_expon
    ilwrtyp       = nl%ilwrtyp
    iswrtyp       = nl%iswrtyp
    radfrq        = nl%radfrq
@@ -299,6 +282,7 @@ if (copy_type == 'ALL_CASES') then
       if (index(nl%plotspecs(i)%pltspec2,'U') > 0) op%vectbarb(i) = 'U'
       if (index(nl%plotspecs(i)%pltspec2,'V') > 0) op%vectbarb(i) = 'V'
       if (index(nl%plotspecs(i)%pltspec2,'v') > 0) op%vectbarb(i) = 'v'
+      if (index(nl%plotspecs(i)%pltspec2,'w') > 0) op%vectbarb(i) = 'w'
 
       if (index(nl%plotspecs(i)%pltspec2,'G') > 0) op%pltgrid(i) = 'G'
       if (index(nl%plotspecs(i)%pltspec2,'g') > 0) op%pltgrid_landsea(i) = 'g'

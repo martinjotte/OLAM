@@ -304,16 +304,35 @@ endif
 ! Draw all contour lines of value less than z1
 
 do while (contlev < z1 .and. ival <= clrtab(itab)%nvals)
-
-   xp1 = x3 + (x1-x3) * (contlev-z3) / (z1-z3)
-   yp1 = y3 + (y1-y3) * (contlev-z3) / (z1-z3)
+   
+   if ( abs(z1-z3) > 1.e-25 ) then
+      xp1 = x3 + (x1-x3) * (contlev-z3) / (z1-z3)
+      yp1 = y3 + (y1-y3) * (contlev-z3) / (z1-z3)
+   else
+      xp1 = x3
+      yp1 = y3
+   endif
 
    if (contlev < z2) then
-      xp2 = x3 + (x2-x3) * (contlev-z3) / (z2-z3)
-      yp2 = y3 + (y2-y3) * (contlev-z3) / (z2-z3)
+
+      if ( abs(z2-z3) > 1.e-25 ) then
+         xp2 = x3 + (x2-x3) * (contlev-z3) / (z2-z3)
+         yp2 = y3 + (y2-y3) * (contlev-z3) / (z2-z3)
+      else
+         xp2 = x3
+         yp2 = y3
+      endif
+
    else
-      xp2 = x2 + (x1-x2) * (contlev-z2) / (z1-z2)
-      yp2 = y2 + (y1-y2) * (contlev-z2) / (z1-z2)
+
+      if ( abs(z1-z2) > 1.e-25 ) then
+         xp2 = x2 + (x1-x2) * (contlev-z2) / (z1-z2)
+         yp2 = y2 + (y1-y2) * (contlev-z2) / (z1-z2)
+      else
+         xp2 = x2
+         yp2 = y2
+      endif
+
    endif
 
 ! Truncate segment if it crosses plot window boundary or skip if both endpoints
@@ -408,13 +427,23 @@ do while (contlev < z1)
       yo2 = ycpn(2)
    endif
     
-   xcpn(1) = x3 + (x1-x3) * (contlev-z3) / (z1-z3)
-   ycpn(1) = y3 + (y1-y3) * (contlev-z3) / (z1-z3)
+   if ( abs(z1-z3) > 1.e-25 ) then
+      xcpn(1) = x3 + (x1-x3) * (contlev-z3) / (z1-z3)
+      ycpn(1) = y3 + (y1-y3) * (contlev-z3) / (z1-z3)
+   else
+      xcpn(1) = x3
+      ycpn(1) = y3
+   endif
 
    if (contlev < z2) then
 
-      xcpn(2) = x3 + (x2-x3) * (contlev-z3) / (z2-z3)
-      ycpn(2) = y3 + (y2-y3) * (contlev-z3) / (z2-z3)
+      if ( abs(z2-z3) > 1.e-25 ) then
+         xcpn(2) = x3 + (x2-x3) * (contlev-z3) / (z2-z3)
+         ycpn(2) = y3 + (y2-y3) * (contlev-z3) / (z2-z3)
+      else
+         xcpn(2) = x3
+         ycpn(2) = y3
+      endif
 
       if (iflag == 0) then  ! lowest contour color: z3 is a node
          xcpn(3) = x3   
@@ -452,8 +481,13 @@ do while (contlev < z1)
          
    else   
       
-      xcpn(2) = x2 + (x1-x2) * (contlev-z2) / (z1-z2)
-      ycpn(2) = y2 + (y1-y2) * (contlev-z2) / (z1-z2)
+      if ( abs(z1-z2) > 1.e-25 ) then
+         xcpn(2) = x2 + (x1-x2) * (contlev-z2) / (z1-z2)
+         ycpn(2) = y2 + (y1-y2) * (contlev-z2) / (z1-z2)
+      else
+         xcpn(2) = x2
+         ycpn(2) = y2
+      endif
       
       if (iflag == 0) then  ! lowest contour color: z3 is a node
          xcpn(3) = x2

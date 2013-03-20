@@ -38,10 +38,12 @@ Module mem_para
   integer, allocatable :: nsends_u(:)  ! dimensioned to mrls
   integer, allocatable :: nsends_v(:)  ! dimensioned to mrls
   integer, allocatable :: nsends_w(:)  ! dimensioned to mrls
+  integer, allocatable :: nsends_m(:)  ! dimensioned to mrls
 
   integer, allocatable :: nrecvs_u(:)  ! dimensioned to mrls
   integer, allocatable :: nrecvs_v(:)  ! dimensioned to mrls
   integer, allocatable :: nrecvs_w(:)  ! dimensioned to mrls
+  integer, allocatable :: nrecvs_m(:)  ! dimensioned to mrls
 
 ! LAND and SEA sends/receives are scalars
 
@@ -71,10 +73,12 @@ Module mem_para
   type(nodebuffs), allocatable :: send_u(:)
   type(nodebuffs), allocatable :: send_v(:)
   type(nodebuffs), allocatable :: send_w(:)
+  type(nodebuffs), allocatable :: send_m(:)
 
   type(nodebuffs), allocatable :: recv_u(:)
   type(nodebuffs), allocatable :: recv_v(:)
   type(nodebuffs), allocatable :: recv_w(:)
+  type(nodebuffs), allocatable :: recv_m(:)
 
 ! type(nodebuffs), allocatable :: send_ul(:)
   type(nodebuffs), allocatable :: send_wl(:)
@@ -91,6 +95,38 @@ Module mem_para
 ! type(nodebuffs), allocatable :: recv_us(:)
   type(nodebuffs), allocatable :: recv_ws(:)
   type(nodebuffs), allocatable :: recv_wsf(:)
+
+  integer                      :: mua_primary = 0
+  integer, target, allocatable :: iua_globe_primary(:)
+  integer, target, allocatable :: iua_local_primary(:)
+  
+  integer                      :: mva_primary = 0
+  integer, target, allocatable :: iva_globe_primary(:)
+  integer, target, allocatable :: iva_local_primary(:)
+
+  integer                      :: mwa_primary = 0
+  integer, target, allocatable :: iwa_globe_primary(:)
+  integer, target, allocatable :: iwa_local_primary(:)
+
+  integer                      :: mma_primary = 0
+  integer, target, allocatable :: ima_globe_primary(:)
+  integer, target, allocatable :: ima_local_primary(:)
+
+  integer                      :: mwl_primary = 0
+  integer, target, allocatable :: iwl_globe_primary(:)
+  integer, target, allocatable :: iwl_local_primary(:)
+
+  integer                      :: mws_primary = 0
+  integer, target, allocatable :: iws_globe_primary(:)
+  integer, target, allocatable :: iws_local_primary(:)
+
+  integer                      :: mfl_primary = 0
+  integer, target, allocatable :: ifl_globe_primary(:)
+  integer, target, allocatable :: ifl_local_primary(:)
+
+  integer                      :: mfs_primary = 0
+  integer, target, allocatable :: ifs_globe_primary(:)
+  integer, target, allocatable :: ifs_local_primary(:)
 
 End Module mem_para
 

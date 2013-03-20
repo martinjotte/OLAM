@@ -1,0 +1,32 @@
+buildhex_NCAR52A/hex_grid.f90:       do j = 1,jtab_v(1)%jend(1)    ! ARV
+buildhex_NCAR52A/hex_grid.f90:       do j = 1,jtab_v(3)%jend(1)    ! Set ARV to zero at non-topo walls
+buildhex_NCAR52A/hex_grid.f90:       do j = 1,jtab_v(4)%jend(1)    ! Expand ARV with height for spherical geometry; Compute VOLVI
+
+oisan/asti.f90:                      do j = 1,jtab_v(7)%jend(1)    ! gdtost
+oisan/fldsisan.f90:                  do j = 1,jtab_v(7)%jend(1)    ! initialize vmc, vc
+hurricane/hurricane_init.f90:        do j = 1,jtab_v(7)%jend(1)    ! initialize vmc, vc
+hurricane/hurricane_init.f90:        do j = 1,jtab_v(7)%jend(1)    ! initialize vmc, vc
+hurricane/hurricane_init.f90:        do j = 1,jtab_v(7)%jend(1)    ! initialize vmc, vc
+omodel/olhi.f90:                     do j = 1,jtab_v(8)%jend(1)    ! initialize vmc, vc
+omodel/ohhi.f90:                     do j = 1,jtab_v(8)%jend(1)    ! initialize vmc, vc
+omodel/ohhi.f90:                     do j = 1,jtab_v(9)%jend(1)    ! LBC copy of vmc, vc
+
+buildhex_NCAR52A/timestep_hex.f90:   do j = 1,jtab_v(11)%jend(mrl) ! tend0: vmt
+buildhex_NCAR52A/prog_wrtv_hex.f90:  do j = 1,jtab_v(12)%jend(mrl) ! upv values for thil, vxe, vye, vze
+omodel_hex/scalar_transport_hex.f90: do j = 1,jtab_v(12)%jend(mrl) ! diagnose vsc
+omodel_hex/scalar_transport_hex.f90: do j = 1,jtab_v(12)%jend(mrl) ! diagnose courant number
+omodel_hex/scalar_transport_hex.f90: do j = 1,jtab_v(12)%jend(mrl) ! bounds for thuburn limiter
+omodel_hex/scalar_transport_hex.f90: do j = 1,jtab_v(12)%jend(mrl) ! scp_upv
+omodel_hex/scalar_transport_hex.f90: do j = 1,jtab_v(12)%jend(mrl) ! limit fluxes
+omodel_hex/scalar_transport_hex.f90: do j = 1,jtab_v(12)%jend(mrl) ! donorpointv: dxps_v, dyps_v, dzps_v
+oisan/fldsisan.f90:                  do j = 1,jtab_v(13)%jend(mrl) ! vmt from nudging
+modules/massflux.f90:                do j = 1,jtab_v(14)%jend(mrl) ! vmsc = 0
+buildhex_NCAR52A/prog_wrtv_hex.f90:  do j = 1,jtab_v(16)%jend(mrl) ! vmt from turbulence & vorticity filter
+buildhex_NCAR52A/prog_wrtv_hex.f90:  do j = 1,jtab_v(16)%jend(mrl) ! prog_v_begs
+modules/massflux.f90:                do j = 1,jtab_v(16)%jend(mrl) ! diagnose uc from vmc
+modules/massflux.f90:                do j = 1,jtab_v(16)%jend(mrl) ! diagnose uc from vc
+modules/massflux.f90:                do j = 1,jtab_v(20)%jend(mrl) ! timeavg vmsc
+
+
+
+

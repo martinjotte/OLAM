@@ -36,7 +36,7 @@ use mem_harr, only: mg, mb
 
 use mem_grid, only: mza, zm, zt, glatw, glonw
 
-use mem_basic, only: rho, press, theta, sh_v
+use mem_basic, only: rho, press, theta, tair, sh_v
 
 use misc_coms, only: io6, iswrtyp, ilwrtyp, time8
 
@@ -56,13 +56,12 @@ integer, intent(in) :: iw
 integer, intent(in) :: ka
 integer, intent(in) :: nrad
 integer, intent(in) :: koff
-real, intent(in) :: rlong_previous
+real,    intent(in) :: rlong_previous
 
 ! Local arrays
 
 integer :: jhcat(mza,ncat)  ! hydrom category table with ice habits
 
-real :: tairk(mza) ! air temperature [K]
 real :: rhov (mza) ! vapor density [kg_vap/m^3]
 real :: rx   (mza,ncat)  ! hydrom bulk spec dens [kg_hyd/kg_air]
 real :: cx   (mza,ncat)  ! hydrom bulk number [num_hyd/kg_air]
@@ -74,6 +73,8 @@ real :: dl (nrad) ! air density of all radiation levels (kg/m^3)
 real :: pl (nrad) ! pressure (Pa)
 real :: o3l(nrad) ! stores the calculated ozone profile (g/m^3)
 real :: vp (nrad) ! vapor pressure (Pa)
+real :: exl(nrad) ! exner function to convert between Theta and T
+real :: dpl(nrad) ! atm. pressure change across each level (Pa)
 
 real :: u(nrad,3) ! path-length for gases (H_2O, CO_2, O_3)  (Pa)
 
@@ -95,30 +96,27 @@ real :: fd   (nrad,6) ! downwelling fluxes for pseudo-bands (W/m^2)
 ! Set activation flags for gases of importance:  
 ! Flag = 1: gas active;    Flag = 0: gas not active
 
-integer, save :: ngass(mg)=(/1, 1, 1/)  ! Flags for (H2O, CO2, O3) for shortwave
-integer, save :: ngast(mg)=(/1, 1, 1/)  ! Flags for (H2O, CO2, O3) for longwave
+integer, parameter :: ngass(mg)=(/1, 1, 1/)  ! Flags for (H2O, CO2, O3) for shortwave
+integer, parameter :: ngast(mg)=(/1, 1, 1/)  ! Flags for (H2O, CO2, O3) for longwave
 
-integer k,ib,ig,kk,ik,krad,mcat
-
-real rmix
-real dzl9,rvk0,rvk1
-real :: flx_diff
+integer :: k,ib,ig,kk,ik,krad,mcat
+real    :: flx_diff
 
 ! Copy surface and vertical-column values from model to radiation memory space
 ! In this loop, (k-koff) ranges from 2 to mza + 1 - lpw(iw)
 
-do k = ka,mza-1
+do k = ka, mza-1
    krad = k - koff
 
-   tairk(k) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
-   rhov(k) = max(0.,sh_v(k,iw)) * rho(k,iw)
+   rhov(k)    = max(1.e-20, sh_v(k,iw)) * rho(k,iw)
 
-   dl(krad)  = rho  (k,iw)
-   pl(krad)  = press(k,iw)
-   tl(krad)  = tairk(k)
-   rl(krad)  = rhov (k)
-   zml(krad) = zm   (k)
-   ztl(krad) = zt   (k)
+   dl  (krad)  = rho  (k,iw)
+   pl  (krad)  = press(k,iw)
+   tl  (krad)  = tair (k,iw)
+   rl  (krad)  = rhov (k)
+   zml (krad) = zm   (k)
+   ztl (krad) = zt   (k)
+   exl (krad) = tair(k,iw) / theta(k,iw)
 enddo
  
 ! Fill surface values
@@ -126,12 +124,19 @@ enddo
 zml(1) = zm(1+koff)
 ztl(1) = zt(1+koff)
 pl (1) = pl(2) + (zml(1) - ztl(2)) / (ztl(2) - ztl(3)) * (pl(2) - pl(3))
+dl (1) = dl(2)
+rl (1) = rl(2)
+exl(1) = exl(2)
 
-call rad_mclat(iw,nrad,koff,glatw(iw),dl,pl,rl,tl,o3l,zml,ztl,dzl)
+if (time8 < 1.e-3) then
+   tl(1) = tl(2)
+else
+   tl(1) = sqrt(sqrt((rlongup(iw) + rlong_previous * rlong_albedo(iw))/ stefan))
+endif
 
-tl(1) = sqrt(sqrt((rlongup(iw) + rlong_previous * rlong_albedo(iw))/ stefan))
-dl(1) = dl(2)
-rl(1) = rl(2)
+! Fill o3 and any extra layers added above model top
+
+call rad_mclat(iw,nrad,koff,glatw(iw),dl,pl,rl,tl,o3l,zml,ztl,dzl,dpl)
 
 ! zero out scratch arrays
 
@@ -141,35 +146,34 @@ fd(:,:) = 0.0
 
 ! Fill arrays rx, cx, and emb with hydrometeor properties
 
-call cloudprep_rad(iw,ka,mcat,jhcat,tairk,rhov,rx,cx,emb)
+call cloudprep_rad(iw,ka,mcat,jhcat,rhov,rx,cx,emb)
 
 ! Fill hydrometeor optical property arrays [tp, omgp, gp]
 
-call cloud_opt(iw,ka,nrad,koff,mcat,jhcat,cx,emb,tp,omgp,gp,real(time8))
+call cloud_opt(iw,ka,nrad,koff,mcat,jhcat,cx,emb,tp,omgp,gp)
 
 ! Get the path lengths for the various gases...
 
-call path_lengths(nrad,u,rl,dzl,dl,o3l,vp,pl)
+call path_lengths(nrad,u,rl,dzl,dl,o3l,vp,pl,dpl,tl)
 
-do k = 1,nrad
-   if (rl(k) <   0. .or.  &
-       dl(k) <   0. .or.  &
-       pl(k) <   0. .or.  &
-      o3l(k) <   0. .or.  &
-       tl(k) < 100.) then
-      write(io6,*) 'Temperature too low or negative value of'
-      write(io6,*) 'density, vapor, pressure, or ozone'
-      write(io6,*) 'before calling Harrington radiation'
-      write(io6,*) 'at k,iw = ',k,iw,' lat/lon = ',glatw(iw),glonw(iw)
-      write(io6,*) 'stopping model'
-      write(io6,*) 'rad: k, rl(k), dl(k), pl(k), o3l(k), tl(k)'
-      do kk=1,nrad
-         write(io6,'(i3,5g15.6)') kk, rl(kk), dl(kk), pl(kk), o3l(kk), tl(kk)
-      enddo
-      stop 'stop: radiation call'
-   endif
-
-enddo
+!do k = 1,nrad
+!   if (rl(k) <   0. .or.  &
+!       dl(k) <   0. .or.  &
+!       pl(k) <   0. .or.  &
+!      o3l(k) <   0. .or.  &
+!       tl(k) < 100.) then
+!      write(io6,*) 'Temperature too low or negative value of'
+!      write(io6,*) 'density, vapor, pressure, or ozone'
+!      write(io6,*) 'before calling Harrington radiation'
+!      write(io6,*) 'at k,iw = ',k,iw,' lat/lon = ',glatw(iw),glonw(iw)
+!      write(io6,*) 'stopping model'
+!      write(io6,*) 'rad: k, rl(k), dl(k), pl(k), o3l(k), tl(k)'
+!      do kk=1,nrad
+!         write(io6,'(i3,5g15.6)') kk, rl(kk), dl(kk), pl(kk), o3l(kk), tl(kk)
+!      enddo
+!      stop 'stop: radiation call'
+!   endif
+!enddo
 
 ! Harrington shortwave scheme (valid only if cosz > .03)
 
@@ -179,7 +183,7 @@ if (iswrtyp == 3 .and. cosz(iw) > 0.03) then
    flxds(:) = 0.0
 
    call harr_swrad(nrad,iw,albedt_beam(iw),albedt_diffuse(iw),cosz(iw),  &
-        real(time8),u,pl,tl,dzl,vp,tp,omgp,gp,fu,fd,flxus,flxds,ngass,flx_diff)
+        u,pl,tl,dzl,vp,tp,omgp,gp,fu,fd,flxus,flxds,ngass,flx_diff)
 
    rshort(iw) = flxds(1)
    rshort_diffuse(iw) = flx_diff
@@ -192,7 +196,7 @@ if (iswrtyp == 3 .and. cosz(iw) > 0.03) then
       krad = k - koff
       fthrd(k,iw) = fthrd(k,iw)  &
          + (flxds(krad) - flxds(krad-1) + flxus(krad-1) - flxus(krad))  &
-         / (dl(krad) * dzl(krad) * cp)
+         / (dl(krad) * dzl(krad) * cp * exl(krad))
    enddo
 
 endif
@@ -204,7 +208,7 @@ if (ilwrtyp == 3) then
    flxul(:) = 0.0
    flxdl(:) = 0.0
 
-   call harr_lwrad(nrad,u,pl,tl,dzl,vp,tp,omgp,gp,fu,fd,flxul,flxdl,ngast)
+   call harr_lwrad(nrad,u,pl,tl,vp,tp,omgp,gp,fu,fd,flxul,flxdl,ngast)
 
    rlong(iw) = flxdl(1)
    rlongup(iw) = flxul(1)
@@ -214,10 +218,11 @@ if (ilwrtyp == 3) then
       krad = k - koff
       fthrd(k,iw) = fthrd(k,iw)  &
          + (flxdl(krad) - flxdl(krad-1) + flxul(krad-1) - flxul(krad))  &
-         / (dl(krad) * dzl(krad) * cp)
+         / (dl(krad) * dzl(krad) * cp * exl(krad))
       fthrd_lw(k,iw) = fthrd_lw(k,iw)  &
          + (flxdl(krad) - flxdl(krad-1) + flxul(krad-1) - flxul(krad))  &
-         / (dl(krad) * dzl(krad) * cp)
+         / (dl(krad) * dzl(krad) * cp * exl(krad))
+
    enddo
 
 endif
@@ -246,7 +251,7 @@ end subroutine harr_raddriv
 
 !===============================================================================
 
-subroutine cloudprep_rad(iw,ka,mcat,jhcat,tairk,rhov,rx,cx,emb)
+subroutine cloudprep_rad(iw,ka,mcat,jhcat,rhov,rx,cx,emb)
 
 ! This subroutine was developed from parts of subroutine MIC_COPY in
 ! omic_driv.f90 and subroutines EACH_COLUMN and ENEMB in omic_misc.f90.
@@ -260,6 +265,8 @@ use micro_coms, only: ncat, jnmb, rxmin, jhabtab, level,  &
 use mem_micro,  only: sh_c, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, sh_d,  &
                       con_c, con_r, con_p, con_s, con_a, con_g, con_h, con_d
 
+use mem_basic,  only: tair
+
 use mem_grid,   only: mza
 
 implicit none
@@ -270,7 +277,6 @@ integer, intent(in) :: ka
 integer, intent(out) :: mcat  ! # of active hydrom categories (0,1, or 7)
 integer, intent(out) :: jhcat(mza,ncat)  ! hydrom category table with ice habits
 
-real, intent(in) :: tairk(mza) ! air temperature [K]
 real, intent(in) :: rhov(mza)  ! water vapor density [kg_vap/m^3]
 
 real, intent(out) :: rx (mza,ncat)  ! hydrom bulk spec dens [kg_hyd/kg_air]
@@ -495,7 +501,7 @@ if (level == 3) then
 ! and EACH_COLUMN in omic_misc.f90
 
    do k = ka,mza-1
-      tairc = tairk(k) - 273.15
+      tairc = tair(k,iw) - 273.15
       rhovslair = rhovsl(tairc)
       relhum = min(1.,rhov(k) / rhovslair)
 
@@ -559,7 +565,7 @@ end subroutine cloudprep_rad
 
 !===============================================================================
 
-subroutine cloud_opt(iw,ka,nrad,koff,mcat,jhcat,cx,emb,tp,omgp,gp,time)
+subroutine cloud_opt(iw,ka,nrad,koff,mcat,jhcat,cx,emb,tp,omgp,gp)
 
 use mem_harr, only: mb, nb, ocoef, bcoef, gcoef, nsolb
 
@@ -605,8 +611,6 @@ integer, intent(in) :: ka
 integer, intent(in) :: nrad
 integer, intent(in) :: koff
 integer, intent(in) :: mcat
-
-real, intent(in) :: time
 
 integer, intent(in) :: jhcat(mza,ncat)
 
@@ -760,45 +764,42 @@ end subroutine cloud_opt
 
 !===============================================================================
 
-subroutine path_lengths(nrad,u,rl,dzl,dl,o3l,vp,pl)
+subroutine path_lengths(nrad,u,rl,dzl,dl,o3l,vp,pl,dpl,tl)
 
 ! Get the path lengths for the various gases...
 
-use consts_coms, only: grav, eps_virt
+use consts_coms, only: rvap
 
 implicit none
 
-integer :: nrad
+integer, intent(in)  :: nrad
+real,    intent(out) ::   u(nrad,3)
+real,    intent(out) ::  vp(nrad)
+real,    intent(in)  ::  rl(nrad)
+real,    intent(in)  :: dzl(nrad)
+real,    intent(in)  ::  dl(nrad)
+real,    intent(in)  :: o3l(nrad)
+real,    intent(in)  ::  pl(nrad)
+real,    intent(in)  :: dpl(nrad)
+real,    intent(in)  ::  tl(nrad)
 
-real, intent(out) :: u  (nrad,3)
-real, intent(out) :: vp (nrad)
-
-real, intent(in)  :: rl (nrad)
-real, intent(in)  :: dzl(nrad)
-real, intent(in)  :: dl (nrad)
-real, intent(in)  :: o3l(nrad)
-real, intent(in)  :: pl (nrad)
-
-real, parameter :: eps_rad = 1.e-15
-
-real :: rvk0,rvk1,dzl9,rmix
+real    :: rmix
 integer :: k
+
 real, parameter :: co2_mixing_ratio = 360.0e-6 * 44.011 / 28.966 ! [kg/kg]
 
-u(1,1) = .5 * (rl(2) + rl(1)) * grav * dzl(1)
-u(1,2) = .5 * (dl(2) + dl(1)) * co2_mixing_ratio * grav * dzl(1)
-u(1,3) = o3l(1) * grav * dzl(1)
-
 do k = 2,nrad
-   dzl9   = grav * dzl(k)
-   rmix = rl(k) / dl(k)
-   vp(k)  = pl(k) * rmix / (eps_virt + rmix)
-   u(k,1) = 0.5 * dzl9 * (rl(k) + rl(k-1))
-   u(k,2) = 0.5 * dzl9 * (dl(k) + dl(k-1)) * co2_mixing_ratio
-   u(k,3) = 0.5 * dzl9 * (o3l(k) + o3l(k-1))
+
+   vp(k)  = rl(k) * rvap * tl(k)
+
+   u(k,1) = rl(k) / dl(k)    * dpl(k)
+   u(k,2) = co2_mixing_ratio * dpl(k)
+   u(k,3) = o3l(k) / dl(k)   * dpl(k)
+
 enddo
 
 vp(1) = vp(2)
+u(1,1:3) = u(2,1:3)
 
 return
 end subroutine path_lengths

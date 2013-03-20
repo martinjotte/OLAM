@@ -32,29 +32,34 @@
 !===============================================================================
 Module mem_tend
 
-   real, allocatable :: umt     (:,:) ! U-mom density tend [kg/(m^2 s^2)]
-   real, allocatable :: vmt     (:,:) ! V-mom density tend [kg/(m^2 s^2)]
-   real, allocatable :: wmt     (:,:) ! W-mom density tend [kg/(m^2 s^2)]
-   real, allocatable :: sh_wt   (:,:) ! water mass tend [kg_wat/(m^3 s)]
-   real, target, allocatable :: thilt(:,:) ! (rho * thil) tend [kg_air K / (m^3 s)]
-   real, allocatable :: sh_ct   (:,:) ! cloud mass tend [kg_cld/(m^3 s)]
-   real, allocatable :: sh_rt   (:,:) ! rain mass tend [kg_rain/(m^3 s)]
-   real, allocatable :: sh_pt   (:,:) ! pristine ice mass tend [kg_pris/(m^3 s)]
-   real, allocatable :: sh_st   (:,:) ! snow mass tend [kg_snow/(m^3 s)]
-   real, allocatable :: sh_at   (:,:) ! aggregates mass tend [kg_agg/(m^3 s)]
-   real, allocatable :: sh_gt   (:,:) ! graupel mass tend [kg_grp/(m^3 s)]
-   real, allocatable :: sh_ht   (:,:) ! hail mass tend [kg_hail/(m^3 s)]
-   real, allocatable :: con_ct  (:,:) ! cloud number tend [#/(m^3 s)]]
-   real, allocatable :: con_rt  (:,:) ! rain number tend [#/(m^3 s)]]
-   real, allocatable :: con_pt  (:,:) ! pristine ice number tend [#/(m^3 s)]]
-   real, allocatable :: con_st  (:,:) ! snow number tend [#/(m^3 s)]]
-   real, allocatable :: con_at  (:,:) ! aggregates number tend [#/(m^3 s)]]
-   real, allocatable :: con_gt  (:,:) ! graupel number tend [#/(m^3 s)]]
-   real, allocatable :: con_ht  (:,:) ! hail number tend [#/(m^3 s)]]
-   real, allocatable :: con_ccnt(:,:) ! ccn number tend [#/(m^3 s)]
-   real, allocatable :: con_ifnt(:,:) ! ifn number tend [#/(m^3 s)]
-   real, allocatable :: tket    (:,:) ! subgrid-scale turb KE [m^2/s^2]
-   real, allocatable :: epst    (:,:) ! 
+   real, allocatable :: umt  (:,:) ! U-mom density tend [kg/(m^2 s^2)]
+   real, allocatable :: vmt  (:,:) ! V-mom density tend [kg/(m^2 s^2)]
+   real, allocatable :: wmt  (:,:) ! W-mom density tend [kg/(m^2 s^2)]
+
+   real, allocatable :: vmxet(:,:) ! Earth-cartesian x momentum tend [kg/(m^2 s^2)]
+   real, allocatable :: vmyet(:,:) ! Earth-cartesian y momentum tend [kg/(m^2 s^2)]
+   real, allocatable :: vmzet(:,:) ! Earth-cartesian z momentum tend [kg/(m^2 s^2)]
+
+   real, target, allocatable :: thilt   (:,:) ! (rho * thil) tend [kg_air K / (m^3 s)]
+   real, target, allocatable :: sh_wt   (:,:) ! water mass tend [kg_wat/(m^3 s)]
+   real, target, allocatable :: sh_ct   (:,:) ! cloud mass tend [kg_cld/(m^3 s)]
+   real, target, allocatable :: sh_rt   (:,:) ! rain mass tend [kg_rain/(m^3 s)]
+   real, target, allocatable :: sh_pt   (:,:) ! pristine ice mass tend [kg_pris/(m^3 s)]
+   real, target, allocatable :: sh_st   (:,:) ! snow mass tend [kg_snow/(m^3 s)]
+   real, target, allocatable :: sh_at   (:,:) ! aggregates mass tend [kg_agg/(m^3 s)]
+   real, target, allocatable :: sh_gt   (:,:) ! graupel mass tend [kg_grp/(m^3 s)]
+   real, target, allocatable :: sh_ht   (:,:) ! hail mass tend [kg_hail/(m^3 s)]
+   real, target, allocatable :: con_ct  (:,:) ! cloud number tend [#/(m^3 s)]]
+   real, target, allocatable :: con_rt  (:,:) ! rain number tend [#/(m^3 s)]]
+   real, target, allocatable :: con_pt  (:,:) ! pristine ice number tend [#/(m^3 s)]]
+   real, target, allocatable :: con_st  (:,:) ! snow number tend [#/(m^3 s)]]
+   real, target, allocatable :: con_at  (:,:) ! aggregates number tend [#/(m^3 s)]]
+   real, target, allocatable :: con_gt  (:,:) ! graupel number tend [#/(m^3 s)]]
+   real, target, allocatable :: con_ht  (:,:) ! hail number tend [#/(m^3 s)]]
+   real, target, allocatable :: con_ccnt(:,:) ! ccn number tend [#/(m^3 s)]
+   real, target, allocatable :: con_ifnt(:,:) ! ifn number tend [#/(m^3 s)]
+   real, target, allocatable :: tket    (:,:) ! subgrid-scale turb KE [m^2/s^2]
+   real, target, allocatable :: epst    (:,:) ! 
    
 Contains
 
@@ -63,7 +68,7 @@ Contains
    subroutine alloc_tend(lza,lua,lva,lwa,naddsc)
 
    use mem_turb,   only: tkep, epsp
-   use mem_basic,  only: umc, vmc, wmc, thil, sh_w
+   use mem_basic,  only: umc, vmc, wmc, thil, sh_w, vxe, vye, vze
    use mem_addsc,  only: addsc
    use mem_micro,  only: sh_c, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,  &
                          con_c, con_r, con_p, con_s, con_a, con_g, con_h,  &
@@ -76,7 +81,7 @@ Contains
 
    integer :: iaddsc
 
-write(io6,*) 'enter alloc_tend'
+   write(io6,*) 'enter alloc_tend'
 
 ! Find the maximum number of grid points needed for any grid.
 
@@ -84,8 +89,12 @@ write(io6,*) 'enter alloc_tend'
    if (allocated(vmc))     allocate (vmt(lza,lva))
    if (allocated(wmc))     allocate (wmt(lza,lwa))
 
-   if (allocated(thil))    allocate (thilt(lza,lwa))
-   if (allocated(sh_w))    allocate (sh_wt(lza,lwa))
+   if (allocated(vxe))     allocate (vmxet(lza,lwa))
+   if (allocated(vye))     allocate (vmyet(lza,lwa))
+   if (allocated(vze))     allocate (vmzet(lza,lwa))
+
+   if (allocated(thil))    allocate (thilt(lza,lwa)) ; thilt = 0.
+   if (allocated(sh_w))    allocate (sh_wt(lza,lwa)) ; sh_wt = 0.
    if (allocated(sh_c))    allocate (sh_ct(lza,lwa))
    if (allocated(sh_r))    allocate (sh_rt(lza,lwa))
    if (allocated(sh_p))    allocate (sh_pt(lza,lwa))
@@ -132,6 +141,11 @@ write(io6,*) 'enter alloc_tend'
    if (allocated(umt))      deallocate (umt)
    if (allocated(vmt))      deallocate (vmt)
    if (allocated(wmt))      deallocate (wmt)
+
+   if (allocated(vmxet))    deallocate (vmxet)
+   if (allocated(vmyet))    deallocate (vmyet)
+   if (allocated(vmzet))    deallocate (vmzet)
+
    if (allocated(thilt))    deallocate (thilt)
    if (allocated(sh_wt))    deallocate (sh_wt)
    if (allocated(sh_ct))    deallocate (sh_ct)
@@ -165,14 +179,15 @@ write(io6,*) 'enter alloc_tend'
                
    subroutine filltab_tend(naddsc)
 
-   use mem_turb,   only: tkep, epsp
+   use mem_turb,   only: tkep, epsp, sxfer_tk, sxfer_rk
    use mem_basic,  only: thil, sh_w
    use mem_addsc,  only: addsc
    use mem_micro,  only: sh_c, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,  &
                          con_c, con_r, con_p, con_s, con_a, con_g, con_h,  &
                          con_ccn, con_ifn
    use var_tables, only: vtables_scalar
-   use misc_coms,  only: io6
+   use misc_coms,  only: io6, do_chem
+   use cgrid_defn, only: cgrid_scalar_tabs
 
    implicit none
 
@@ -183,7 +198,9 @@ write(io6,*) 'enter alloc_tend'
 
 ! Fill pointers to scalar arrays into scalar tables
 
-   if (allocated(sh_wt))    call vtables_scalar (sh_w,sh_wt,'SH_W')
+   if (allocated(thilt))    call vtables_scalar (thil,thilt,'THIL',sxfer=sxfer_tk)
+
+   if (allocated(sh_wt))    call vtables_scalar (sh_w,sh_wt,'SH_W',sxfer=sxfer_rk)
    if (allocated(sh_ct))    call vtables_scalar (sh_c,sh_ct,'SH_C')
    if (allocated(sh_rt))    call vtables_scalar (sh_r,sh_rt,'SH_R')
    if (allocated(sh_pt))    call vtables_scalar (sh_p,sh_pt,'SH_P')
@@ -191,6 +208,7 @@ write(io6,*) 'enter alloc_tend'
    if (allocated(sh_at))    call vtables_scalar (sh_a,sh_at,'SH_A')
    if (allocated(sh_gt))    call vtables_scalar (sh_g,sh_gt,'SH_G')
    if (allocated(sh_ht))    call vtables_scalar (sh_h,sh_ht,'SH_H')
+
    if (allocated(con_ct))   call vtables_scalar (con_c,con_ct,'CON_C')
    if (allocated(con_rt))   call vtables_scalar (con_r,con_rt,'CON_R')
    if (allocated(con_pt))   call vtables_scalar (con_p,con_pt,'CON_P')
@@ -198,12 +216,15 @@ write(io6,*) 'enter alloc_tend'
    if (allocated(con_at))   call vtables_scalar (con_a,con_at,'CON_A')
    if (allocated(con_gt))   call vtables_scalar (con_g,con_gt,'CON_G')
    if (allocated(con_ht))   call vtables_scalar (con_h,con_ht,'CON_H')
+
    if (allocated(con_ccnt)) call vtables_scalar (con_ccn,con_ccnt,'CON_CCN')
    if (allocated(con_ifnt)) call vtables_scalar (con_ifn,con_ifnt,'CON_IFN')
 
    if (allocated(tket))     call vtables_scalar (tkep,tket,'TKEP')
    if (allocated(epst))     call vtables_scalar (epsp,epst,'EPSP')
-        
+
+   if (do_chem) call cgrid_scalar_tabs()
+
    do iaddsc = 1,naddsc
       write(sname,'(a4,i3.3)') 'SCLP',iaddsc
       

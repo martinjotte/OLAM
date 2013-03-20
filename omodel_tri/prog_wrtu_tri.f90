@@ -33,7 +33,8 @@
 subroutine prog_wrtu(umarusc,wmarwsc,alpha_press,rhot)
 
 use mem_ijtabs, only: jtab_u, jtab_w, itab_u, istp, itab_w,  &
-                      mrl_begs, mrl_ends, mrl_begl, mrl_endl
+                      mrl_begs, mrl_ends, mrl_begl, mrl_endl, &
+                      jtu_wstn, jtw_prog, jtw_wstn, jtw_lbcp
 use mem_basic,  only: rho, thil, wc, press, wmc, ump, umc, uc, theta, sh_w, sh_v
 use mem_grid,   only: zt, zm, dzim, lpw, mza, mua, mwa, aru, arw, lpu, lcu,  &
                       volui, volt, unx, volwi, dzm, dzt, glatw, glonw
@@ -114,9 +115,8 @@ call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begs(istp)
 if (mrl > 0) then
-! JTAB_W(18): IW, ITAB_W(IW)%IW(1:9)
 !$omp parallel do private(iw,kb)
-do j = 1,jtab_w(18)%jend(mrl); iw = jtab_w(18)%iw(j)
+do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -139,9 +139,8 @@ call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begs(istp)
 if (mrl > 0) then
-! JTAB_U(21): IU, ITAB_W(IW)%IU(1:9)
 !$omp parallel do private(iu)
-do j = 1,jtab_u(21)%jend(mrl); iu = jtab_u(21)%iu(j)
+do j = 1,jtab_u(jtu_wstn)%jend(mrl); iu = jtab_u(jtu_wstn)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
 
@@ -161,7 +160,7 @@ call psub()
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,ka,k)
-do j = 1,jtab_w(17)%jend(mrl); iw = jtab_w(17)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -199,8 +198,7 @@ call psub()
 mrl = mrl_begs(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,kb,k)
-! JTAB_W(18): IW, ITAB_W(IW)%IW(1:9)
-do j = 1,jtab_w(18)%jend(mrl); iw = jtab_w(18)%iw(j)
+do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -225,7 +223,7 @@ call psub()
 mrl = mrl_begs(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,iwp,k)
-do j = 1,jtab_w(24)%jend(mrl); iw = jtab_w(24)%iw(j)
+do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
    iwp = itab_w(iw)%iwp
 !----------------------------------------------------------------------
 call qsub('W',iw)
@@ -323,11 +321,13 @@ end subroutine hcnum
 
 subroutine progex_rt(umaru,wmarw,rho_s,rhot,delex_rho,thil0,hcnum_u)
 
-use mem_ijtabs,   only: istp, itab_u, itab_w, jtab_u, jtab_w, mrl_begs, itabg_w
+use mem_ijtabs,   only: istp, itab_u, itab_w, jtab_u, jtab_w, mrl_begs, itabg_w, &
+                        jtu_wadj, jtu_wstn, jtw_prog, jtw_wadj
 use mem_grid,     only: mza, mua, mwa, zt, zm, dzim, lpu, lpw, volt, volti
 use mem_basic,    only: rho, thil, umc
 use misc_coms,    only: io6, dtsm, iparallel, rinit, rinit8
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
+use obnd,         only: lbcopy_w
 
 !$ use omp_lib
 
@@ -382,9 +382,8 @@ call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begs(istp)
 if (mrl > 0) then
-! JTAB_U(22): ITAB_W(IW)%IU(1:3)
 !$omp parallel do private(iu)
-do j = 1,jtab_u(22)%jend(mrl); iu = jtab_u(22)%iu(j)
+do j = 1,jtab_u(jtu_wadj)%jend(mrl); iu = jtab_u(jtu_wadj)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
 
@@ -402,7 +401,7 @@ call psub()
 mrl = mrl_begs(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,iu1,iu2,iu3,diru1,diru2,diru3,dts,kb,k)
-do j = 1,jtab_w(19)%jend(mrl); iw = jtab_w(19)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 iu1 = itab_w(iw)%iu(1); iu2 = itab_w(iw)%iu(2); iu3 = itab_w(iw)%iu(3)
 diru1 = itab_w(iw)%diru(1); diru2 = itab_w(iw)%diru(2); diru3 = itab_w(iw)%diru(3)
 !----------------------------------------------------------------------
@@ -418,11 +417,11 @@ call qsub('W',iw)
 
 ! Change in RHO from horizontal and EXPLICIT vertical advection
 
-      delex_rho(k,iw) = dts * (rhot(k,iw) + volti(k,iw) &
-         * (diru1 * umaru(k,iu1)        &
-         +  diru2 * umaru(k,iu2)        &
-         +  diru3 * umaru(k,iu3)        &
-         +  wmarw(k-1,iw) - wmarw(k,iw)))
+      delex_rho(k,iw) = dts * ( rhot(k,iw) + volti(k,iw) &
+                      * ( diru1 * umaru(k,iu1)           &
+                      +   diru2 * umaru(k,iu2)           &
+                      +   diru3 * umaru(k,iu3)           &
+                      +   wmarw(k-1,iw) - wmarw(k,iw) ) )
 
       rho(k,iw) = rho(k,iw) + delex_rho(k,iw)   
       
@@ -443,13 +442,14 @@ if (iparallel == 1) then
    call mpi_recv_w('L',thil0=thil0)
 endif
 
+call lbcopy_w(mrl, a1=thil0)
+
 call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begs(istp)
 if (mrl > 0) then
-! JTAB_U(21): ITAB_W(IW)%IU(1:9)
 !$omp parallel do private(iu,iw1,iw2,kb,k,hcnum_s,hcnum1_s)
-do j = 1,jtab_u(21)%jend(mrl); iu = jtab_u(21)%iu(j)
+do j = 1,jtab_u(jtu_wstn)%jend(mrl); iu = jtab_u(jtu_wstn)%iu(j)
 iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
 !----------------------------------------------------------------------
 call qsub('U',iu)
@@ -488,9 +488,8 @@ call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begs(istp)
 if (mrl > 0) then
-! JTAB_W(28): IW, ITAB_W(IW)%IW(1:3)
 !$omp parallel do private(iw)
-do j = 1,jtab_w(28)%jend(mrl); iw = jtab_w(28)%iw(j)
+do j = 1,jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -509,7 +508,7 @@ call psub()
 mrl = mrl_begs(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,kb,k)
-do j = 1,jtab_w(19)%jend(mrl); iw = jtab_w(19)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -537,14 +536,16 @@ end subroutine progex_rt
 subroutine prog_wrt(umaru,wmarw,wmarwsc,hcnum_w,rho_s,alpha_press &
    ,delex_rho,delex_rhothil)
 
-use mem_ijtabs, only: jtab_u, jtab_w, itab_u, istp, itab_w,  &
-                      mrl_begs, mrl_ends, mrl_endl
+use mem_ijtabs, only: jtab_u, jtab_w, itab_u, istp, itab_w, &
+                      mrl_begs, mrl_ends, mrl_endl, &
+                      jtw_prog, jtw_wadj, jtw_wstn, jtw_lbcp
 use mem_basic,  only: rho, thil, wc, press, wmc, ump, umc, uc
 use mem_grid,   only: zt, zm, dzim, lpw, mza, mua, mwa, aru, lpu, lcu,  &
                       volui, volt, unx, volwi, dzm, dzt, arw
 use misc_coms,  only: io6, iparallel, rinit
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
+use obnd,         only: lbcopy_w
 
 !$ use omp_lib
 
@@ -603,7 +604,7 @@ call psub()
 mrl = mrl_begs(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw)
-do j = 1,jtab_w(19)%jend(mrl); iw = jtab_w(19)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -623,7 +624,7 @@ call psub()
 mrl = mrl_begs(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,kb,k)
-do j = 1,jtab_w(19)%jend(mrl); iw = jtab_w(19)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -647,15 +648,16 @@ if (iparallel == 1) then
    call mpi_recv_w('L', wmc0=wc0)
 endif
 
+call lbcopy_w(mrl, a1=wmc0)
+
 ! Horizontal loop over W/T points
 
 call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begs(istp)
 if (mrl > 0) then
-! JTAB_W(28): IW, ITAB_W(IW)%IW(1:3)
 !$omp parallel do private(iw)
-do j = 1,jtab_w(28)%jend(mrl); iw = jtab_w(28)%iw(j)
+do j = 1,jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -675,7 +677,7 @@ call psub()
 mrl = mrl_begs(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw)
-do j = 1,jtab_w(19)%jend(mrl); iw = jtab_w(19)%iw(j)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
@@ -696,7 +698,7 @@ call psub()
 mrl = mrl_begs(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,iwp,k)
-do j = 1,jtab_w(22)%jend(mrl); iw = jtab_w(22)%iw(j)
+do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
    iwp = itab_w(iw)%iwp
 !----------------------------------------------------------------------
 call qsub('W',iw)
@@ -718,6 +720,8 @@ if (iparallel == 1) then
    call mpi_recv_w('P')
 endif
 
+call lbcopy_w(mrl, a1=wmc, d1=press, d2=rho)
+
 ! NOW THAT WE HAVE COMMUNICATED WMC, COMPUTE THE VERTICAL MASS FLUX
 ! AT (t+fw), AND SUM UP THE CONTRIBUTION FOR SCALAR TRANSPORT
 
@@ -726,7 +730,7 @@ call psub()
 mrl = mrl_begs(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,kb,k)
-do j = 1,jtab_w(18)%jend(mrl); iw = jtab_w(18)%iw(j)
+do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
    
@@ -756,11 +760,12 @@ use mem_ijtabs,  only: itab_w, itab_u
 use mem_basic,   only: wmc, rho, thil, wc, uc, theta, press
 use misc_coms,   only: io6, initial, dn01d, th01d, &
                        deltax, nxp, mdomain, time8, dtsm
-use consts_coms, only: cpocv, gravo2, grav
+use consts_coms, only: cpocv, gravo2, grav, pio180, pi1
 use mem_grid,    only: mza, mua, mwa, lpw, arw, volt, volti, volwi, dzt, &
                        dzim, xew, zm, glatw, glonw
 use mem_rayf,    only: rayfw_distim, rayf_cofw, rayf_distim, rayf_cof
-use massflux,    only: tridiffo
+use tridiag,     only: tridiffo
+use oname_coms,  only: nl
 
 implicit none
 
@@ -809,6 +814,7 @@ real :: fracx, rayfx
 real, parameter :: ak = 1. / (40. * 86400.) ! HS expt only
 real, parameter :: as = 1. / (4.  * 86400.) ! HS expt only
 
+real :: topo_swtc, rad_swtc, rad0_swtc
 real :: cnum_w
 real :: hcnsclr
 
@@ -868,6 +874,8 @@ real :: hmflx3(mza)
 real :: hflx1(mza)
 real :: hflx2(mza)
 real :: hflx3(mza)
+
+real :: rho_w(mza)
 
 real(kind=8) :: del_wmarw(mza)
 real(kind=8) :: rhothil  (mza)
@@ -1123,10 +1131,12 @@ if (action == 'M') then
               + max(0.,ahflx2(k  ,iw)) &
               + max(0.,ahflx3(k  ,iw))
 
-      qpos(k) = (wc_max(k) - wc(k,iw)) * dtsi * volt(k,iw)
+      rho_w(k) = 0.5 * (dzt(k) * rho_s(k,iw) + dzt(k+1) * rho_s(k+1,iw)) * dzim(k)
 
-      if (ppos(k) > 0.) then
-         rpos(k,iw) = min(1.,qpos(k) / ppos(k))
+      qpos(k) = (wc_max(k) - wc(k,iw)) * dtsi * rho_w(k) / volwi(k,iw)
+
+      if (ppos(k) > 1.e-12) then
+         rpos(k,iw) = min(1.0, qpos(k) / ppos(k))
       else
          rpos(k,iw) = 0.
       endif
@@ -1137,10 +1147,10 @@ if (action == 'M') then
                 - min(0.,ahflx2(k  ,iw)) &
                 - min(0.,ahflx3(k  ,iw))
 
-      qneg(k) = (wc(k,iw) - wc_min(k)) * dtsi * volt(k,iw)
+      qneg(k) = (wc(k,iw) - wc_min(k)) * dtsi * rho_w(k) / volwi(k,iw)
 
-      if (pneg(k) > 0.) then
-         rneg(k,iw) = min(1.,qneg(k) / pneg(k))
+      if (pneg(k) > 1.e-12) then
+         rneg(k,iw) = min(1.0, qneg(k) / pneg(k))
       else
          rneg(k,iw) = 0.
       endif
@@ -1402,6 +1412,26 @@ do k = kb,mza-1
 
 enddo
 
+! For shallow water test cases 2 & 5, rho & press are
+! interpreted as water depth & height
+
+if (nl%test_case == 2 .or. nl%test_case == 5) then
+   topo_swtc = 0.
+
+   if (nl%test_case == 5) then
+      rad0_swtc = pi1 / 9.
+
+      rad_swtc = sqrt((glonw(iw) * pio180 + 0.5 * pi1)**2 &
+               + (glatw(iw) * pio180 - pi1 / 6.) ** 2)
+
+      topo_swtc = max(0., 2000. * (1. - rad_swtc / rad0_swtc))
+   endif
+   
+   do k = ka,mza-1
+      press(k,iw) = rho(k,iw) + topo_swtc + fp * delex_rho(k,iw)
+   enddo
+endif
+
 return
 end subroutine prog_wrt0
 
@@ -1409,14 +1439,16 @@ end subroutine prog_wrt0
 
 subroutine prog_u(umaru,wmarw,hcnum_u,rho_s,zwt1,zwt2)
 
-use mem_ijtabs, only: jtab_u, jtab_w, itab_u, istp, itab_w,  &
-                      mrl_begs, mrl_ends, mrl_endl
+use mem_ijtabs, only: jtab_u, jtab_w, itab_u, istp, itab_w, &
+                      mrl_begs, mrl_ends, mrl_endl, &
+                      jtu_prog, jtu_lbcp
 use mem_basic,  only: rho, wc, press, wmc, ump, umc, uc
 use mem_grid,   only: zt, zm, dzim, lpw, mza, mua, mwa, aru, lpu, lcu,  &
                       volui, volt, unx, volwi, dzm, dzt
 use misc_coms,  only: io6, iparallel, rinit
 
 use olam_mpi_atm, only: mpi_send_u, mpi_recv_u
+use obnd,         only: lbcopy_u
 
 !$ use omp_lib
 
@@ -1466,7 +1498,7 @@ call psub()
 mrl = mrl_ends(istp)
 if (mrl > 0) then
 !$omp parallel do private(iu)
-do j = 1,jtab_u(16)%jend(mrl); iu = jtab_u(16)%iu(j)
+do j = 1,jtab_u(jtu_prog)%jend(mrl); iu = jtab_u(jtu_prog)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
 
@@ -1485,6 +1517,8 @@ if (iparallel == 1) then
    call mpi_recv_u('L',uc0=uc0)
 endif
 
+call lbcopy_u(mrl, a1=uc0)
+
 ! Update MAX & MIN UC values for flux limiter
 
 call psub()
@@ -1492,7 +1526,7 @@ call psub()
 mrl = mrl_ends(istp)
 if (mrl > 0) then
 !$omp parallel do private(iu)
-do j = 1,jtab_u(16)%jend(mrl); iu = jtab_u(16)%iu(j)
+do j = 1,jtab_u(jtu_prog)%jend(mrl); iu = jtab_u(jtu_prog)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
 
@@ -1509,6 +1543,8 @@ if (iparallel == 1) then
    call mpi_recv_u('R',rpos=rpos,rneg=rneg)  ! Receive rpos, rneg (for flux limiter)
 endif
 
+call lbcopy_u(mrl, a1=rpos, a2=rneg)
+
 ! Horizontal loop over U points to update UMC
 
 call psub()
@@ -1520,7 +1556,7 @@ if (mrl > 0) then
 !   call uwcomp(0,0,0,0.,0.,0.)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !$omp parallel do private(iu)
-do j = 1,jtab_u(16)%jend(mrl); iu = jtab_u(16)%iu(j)
+do j = 1,jtab_u(jtu_prog)%jend(mrl); iu = jtab_u(jtu_prog)%iu(j)
 !----------------------------------------------------------------------
 call qsub('U',iu)
 
@@ -1545,7 +1581,7 @@ call psub()
 mrl = mrl_ends(istp)
 if (mrl > 0) then
 !$omp parallel do private(iu,iup,k) 
-do j = 1,jtab_u(18)%jend(mrl); iu = jtab_u(18)%iu(j)
+do j = 1,jtab_u(jtu_lbcp)%jend(mrl); iu = jtab_u(jtu_lbcp)%iu(j)
    iup = itab_u(iu)%iup
 !----------------------------------------------------------------------
 call qsub('U',iu)
@@ -1577,10 +1613,11 @@ use mem_ijtabs,  only: itab_u
 use mem_basic,   only: uc, wc, press, ump, umc, rho
 use misc_coms,   only: io6, dtsm, initial, mdomain, u01d, v01d, dn01d, &
                        deltax, nxp
-use consts_coms, only: erad
+use consts_coms, only: erad, gravo2
 use mem_grid,    only: lpu, lcu, volt, aru, volui, xeu, yeu, zeu,  &
                        unx, uny, unz, mza, mua, mwa, dnu, dniu, dnv, arw0, zt
 use mem_rayf,    only: rayf_distim, rayf_cof
+use oname_coms,  only: nl
 
 implicit none
 
@@ -1619,8 +1656,6 @@ real :: pgc12,pgc45,pgc63,pgc12b,pgc45b,pgc12c,pgc63c,pgc12d
 
 real :: dts,dts2,raxis,uv01dr,uv01dx,uv01dy,uv01dz,ucref,uc2
 real :: fracx, rayfx, div1, div2, ump_eqdiv
-
-real :: rho_us,qposs
 
 !hs real :: pressloc
 
@@ -1897,9 +1932,6 @@ if (action == 'M') then
       rho_u(k) = volui(k,iu)  &
                * (volt(k,iw2) * rho(k,iw1) + volt(k,iw1) * rho(k,iw2))
 
-      rho_us = volui(k,iu)  &
-             * (volt(k,iw2) * rho_s(k,iw1) + volt(k,iw1) * rho_s(k,iw2))
-
       ppos(k) = max(0., avflx(k-1,iu)) &
               + max(0.,-avflx(k  ,iu)) &
               + max(0.,ahflx1(k  ,iu)) &
@@ -1909,10 +1941,8 @@ if (action == 'M') then
 
       qpos(k) = (uc_max(k) * rho_u(k) - umc0(k,iu)) / (dts * volui(k,iu))
 
-      qposs = (uc_max(k) * rho_us - umc0(k,iu)) / (dts * volui(k,iu))
-
-      if (ppos(k) > 0.) then
-         rpos(k,iu) = min(1.,qpos(k) / ppos(k))
+      if (ppos(k) > 1.e-12) then
+         rpos(k,iu) = min(1.0, qpos(k) / ppos(k))
       else
          rpos(k,iu) = 0.
       endif
@@ -1926,8 +1956,8 @@ if (action == 'M') then
 
       qneg(k) = (umc0(k,iu) - uc_min(k) * rho_u(k)) / (dts * volui(k,iu))
 
-      if (pneg(k) > 0.) then
-         rneg(k,iu) = min(1.,qneg(k) / pneg(k))
+      if (pneg(k) > 1.e-12) then
+         rneg(k,iu) = min(1.0, qneg(k) / pneg(k))
       else
          rneg(k,iu) = 0.
       endif
@@ -2063,6 +2093,15 @@ do k = kb,mza-1
 
 enddo
 
+! For shallow water test cases 2 & 5, rho & press are
+! interpreted as water depth & height
+
+if (nl%test_case == 2 .or. nl%test_case == 5) then
+   do k = kb,mza-1
+      pgf(k) = pgf(k) * gravo2 * (rho(k,iw1) + rho(k,iw2))
+   enddo
+endif
+
 ! Vertical loop over U points
 
 do k = ka,mza-1
@@ -2118,7 +2157,6 @@ do k = ka,mza-1
 
    umc(k,iu) = umc0(k,iu) &
       + dts * (pgf(k) + umt_rayf(k) + volui(k,iu) * (umt(k,iu) &
-
       + cb(k) * avflx (k-1,iu) &
       - ct(k) * avflx (k  ,iu) &
       + c1(k) * ahflx1(k  ,iu) &
@@ -2156,5 +2194,3 @@ uc(1:ka-1,iu) = uc(ka,iu)
 
 return
 end subroutine prog_u0
-
-

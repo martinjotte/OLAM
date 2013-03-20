@@ -37,10 +37,8 @@ use mem_para,     only: myrank, mgroupsize
 use olam_mpi_atm, only: olam_mpi_init, olam_mpi_finalize
 use misc_coms,    only: tmpdir
 use max_dims,     only: pathlen
-
-#ifdef OLAM_HDF5_FORTRAN
-use hdf5
-#endif
+use hdf5,         only: h5open_f, h5close_f
+use oname_coms,   only: cmdlne_runtype
 
 implicit none
 
@@ -87,14 +85,13 @@ write(io6,'(  a,i6)') ' mgroupsize = ',mgroupsize
 write(io6,'(  a,i6)') ' iparallel  = ',iparallel
 
 ! initialize HDF5 library
-#ifdef OLAM_HDF5_FORTRAN
+
 call h5open_f(hdferr)
-#endif
+
+! Parse the command line arguments
 
 numarg = command_argument_count()
 write(io6,*) 'numarg:', numarg
-
-! Parse the command line arguments
 
 i = 1
 do while (i <= numarg)
@@ -104,6 +101,10 @@ do while (i <= numarg)
    if (cargv(1:1) == '-') then
       if (cargv(2:2) == 'f') then
          call get_command_argument(i+1,name_name)
+         if (len_trim(name_name) < 1) bad = bad + 1
+         i = i + 2
+      elseif (cargv(2:2) == 'r') then
+         call get_command_argument(i+1,cmdlne_runtype)
          if (len_trim(name_name) < 1) bad = bad + 1
          i = i + 2
       else
@@ -144,16 +145,19 @@ write(io6,*) "Using ", trim(tmpdir), " as the temporary directory."
 call olam_run(name_name)
 
 ! stop HDF5 library
-#ifdef OLAM_HDF5_FORTRAN
+
 call h5close_f(hdferr)
-#endif
 
 ! If this run is parallel, finalize MPI and close io6 file
 
 call olam_mpi_finalize()
+
+write(io6,'(A)')
+write(io6,'(A)') "olam_end"
+
 if (iparallel == 1) then
    close(io6)
 endif
 
-stop 'olam_end'
+stop
 end program main

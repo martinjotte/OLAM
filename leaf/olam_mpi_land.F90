@@ -125,8 +125,8 @@ enddo
 
 ! Determine number of bytes to send per LANDFLUX cell
 
-nbytes_per_iwlf = 1 * nbytes_int   &
-                + 6 * nbytes_real
+nbytes_per_iwlf =  1 * nbytes_int   &
+                + 10 * nbytes_real
 
 ! Loop over all WLF sends for mrl = 1
 
@@ -265,7 +265,7 @@ do jsend = 1,nsends_wl(1)
 
       if (sendgroup == 'A' .or. sendgroup == 'T') then
 
-         call MPI_Pack(land%rough(iwl),1,MPI_INTEGER,  &
+         call MPI_Pack(land%rough(iwl),1,MPI_REAL,  &
             send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
          call MPI_Pack(land%can_temp(iwl),1,MPI_REAL,  &
@@ -276,16 +276,16 @@ do jsend = 1,nsends_wl(1)
 
       elseif (sendgroup == 'R') then
 
-         call MPI_Pack(land%rlongup(iwl),1,MPI_INTEGER,  &
+         call MPI_Pack(land%rlongup(iwl),1,MPI_REAL,  &
             send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(land%rlong_albedo(iwl),1,MPI_INTEGER,  &
+         call MPI_Pack(land%rlong_albedo(iwl),1,MPI_REAL,  &
             send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(land%albedo_beam(iwl),1,MPI_INTEGER,  &
+         call MPI_Pack(land%albedo_beam(iwl),1,MPI_REAL,  &
             send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         call MPI_Pack(land%albedo_diffuse(iwl),1,MPI_INTEGER,  &
+         call MPI_Pack(land%albedo_diffuse(iwl),1,MPI_REAL,  &
             send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
       endif
@@ -333,7 +333,7 @@ integer :: j
 integer :: ilf
 integer :: ilfglobe
 
-real :: rscr(6)
+real :: rscr(10)
 
 if (mrl < 1) return
 
@@ -378,14 +378,18 @@ do jsend = 1,nsends_wlf(mrl)
 
       elseif (sendgroup == 'T') then ! for turbulent fluxes
       
-         rscr(1) = landflux(ilf)%vels
-         rscr(2) = landflux(ilf)%prss
-         rscr(3) = landflux(ilf)%rhos
-         rscr(4) = landflux(ilf)%sxfer_t
-         rscr(5) = landflux(ilf)%sxfer_r
-         rscr(6) = landflux(ilf)%ustar
+         rscr(1)  = landflux(ilf)%vels
+         rscr(2)  = landflux(ilf)%prss
+         rscr(3)  = landflux(ilf)%rhos
+         rscr(4)  = landflux(ilf)%sxfer_t
+         rscr(5)  = landflux(ilf)%sxfer_r
+         rscr(6)  = landflux(ilf)%ustar
+         rscr(7)  = landflux(ilf)%sxfer_c
+         rscr(8)  = landflux(ilf)%ed_zeta
+         rscr(9)  = landflux(ilf)%ed_rib
+         rscr(10) = landflux(ilf)%ggaer
 
-         call MPI_Pack(rscr,6,MPI_REAL,  &
+         call MPI_Pack(rscr,10,MPI_REAL,  &
             send_wlf(jsend)%buff,send_wlf(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
       elseif (sendgroup == 'C') then ! for cuparm fluxes
@@ -552,7 +556,7 @@ integer :: nwlfpts
 integer :: j
 integer :: ilf
 integer :: ilfglobe
-real    :: rscr(6)
+real    :: rscr(10)
 
 if (mrl < 1) return
 
@@ -592,7 +596,7 @@ do jtmp = 1,nrecvs_wlf(mrl)
       elseif (recvgroup == 'T') then ! for turbulent fluxes
 
          call MPI_Unpack(recv_wlf(jrecv)%buff,recv_wlf(jrecv)%nbytes,ipos,  &
-            rscr,6,MPI_REAL,MPI_COMM_WORLD,ierr)
+            rscr,10,MPI_REAL,MPI_COMM_WORLD,ierr)
             
          landflux(ilf)%vels    = rscr(1)
          landflux(ilf)%prss    = rscr(2)
@@ -600,6 +604,10 @@ do jtmp = 1,nrecvs_wlf(mrl)
          landflux(ilf)%sxfer_t = rscr(4)
          landflux(ilf)%sxfer_r = rscr(5)
          landflux(ilf)%ustar   = rscr(6)
+         landflux(ilf)%sxfer_c = rscr(7)
+         landflux(ilf)%ed_zeta = rscr(8)
+         landflux(ilf)%ed_rib  = rscr(9)
+         landflux(ilf)%ggaer   = rscr(10)
 
       elseif (recvgroup == 'C') then ! for cuparm fluxes
 

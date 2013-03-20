@@ -52,12 +52,12 @@ use mem_sea,    only: itab_ms, itab_us, itab_ws,             &
 
 use mem_mksfc,  only: itab_mls_vars, itab_uls_vars, itab_wls_vars
 
-use mem_sflux,  only: seaflux, nseaflux, jseaflux, flux_vars
+use mem_sflux,  only: seaflux, nseaflux, jseaflux, sflux_vars
 
 implicit none
 
-logical,         intent(in) :: seaflag(nws)
-type(flux_vars), intent(in) :: seaflux_temp(nseaflux)
+logical,          intent(in) :: seaflag(nws)
+type(sflux_vars), intent(in) :: seaflux_temp(nseaflux)
 
 integer :: j,jms,jsend
 integer :: iw,ims,ius,iws

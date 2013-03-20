@@ -150,9 +150,9 @@ end subroutine effxy
 !===============================================================================
 
 subroutine cols(mx,meff,j1,j2, &
-   jhcat,ict1,ict2,wct1,wct2,rx,cx,eff,colfac,enxfer)
+   jhcat,ict1,ict2,wct1,wct2,rx,cx,eff,colfac,exxxx)
 
-use micro_coms, only: mza0, ncat, rxmin, ipairc, coltabc, neff
+use micro_coms, only: mza0, ncat, rxmin, ipair, coltabc, neff
 use misc_coms,  only: io6
 
 implicit none
@@ -174,7 +174,7 @@ real, intent(in) :: eff (mza0,neff)
 
 real, intent(in) :: colfac(mza0)
 
-real, intent(inout) :: enxfer(mza0,ncat,ncat)
+real, intent(inout) :: exxxx(mza0)
 
 integer :: ipc,k
 
@@ -184,7 +184,7 @@ do k = j1,j2
 
    if (rx(k,mx) < rxmin(mx)) cycle
 
-   ipc = ipairc(jhcat(k,mx),jhcat(k,mx))
+   ipc = ipair(jhcat(k,mx),jhcat(k,mx),1)
 
 ! Interpolate from coltabc
 
@@ -194,7 +194,7 @@ do k = j1,j2
 
    colc = colfac(k) * eff(k,meff) * (cx(k,mx) ** 2) * (10. ** (-tabc))
 
-   enxfer(k,mx,mx) = enxfer(k,mx,mx) + min(0.5 * cx(k,mx),colc)
+   exxxx(k) = min(0.5 * cx(k,mx),colc)
 
 enddo
 
@@ -204,10 +204,10 @@ end subroutine cols
 !===============================================================================
 
 subroutine col1188(mx,mz,meff,j1,j2, &
-   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxxxz,exxxx,exxxz)
 
-use micro_coms, only: mza0, ncat, rxmin, ipairr, ipairc, jnmb, neff,  &
-                      coltabc, coltabr
+use micro_coms, only: mza0, ncat, rxmin, ipair, jnmb, neff, &
+                      coltabc, coltabx
 use misc_coms,  only: io6
 
 implicit none
@@ -231,36 +231,34 @@ real, intent(in) :: eff (mza0,neff)
 
 real, intent(in) :: colfac(mza0)
 
-real, intent(inout) :: rxfer (mza0,ncat,ncat)
-real, intent(inout) :: qrxfer(mza0,ncat,ncat)
-real, intent(inout) :: enxfer(mza0,ncat,ncat)
+real, intent(inout) :: rxxxz(mza0,2)
+real, intent(inout) :: exxxx(mza0)
+real, intent(inout) :: exxxz(mza0)
 
-integer :: k,ipr,ipc,ipz
+integer :: k,ipc,ipc2,ipx
 
-real :: c1,tabc,tabrx,tabcz,colc,colrx,colcz
+real :: c1,tabc,tabc2,tabx
 
 do k = j1,j2
 
    if (rx(k,mx) < rxmin(mx)) cycle
    
-   ipc = ipairc(jhcat(k,mx),jhcat(k,mx))
-   ipr = ipairr(jhcat(k,mx),jhcat(k,mx))
-   ipz = ipairr(jhcat(k,mz),jhcat(k,mx)) ! X to Z number xfer from coltabr
+   ipc  = ipair(jhcat(k,mx),jhcat(k,mx),1)
+   ipc2 = ipair(jhcat(k,mx),jhcat(k,mx),2)
+   ipx  = ipair(jhcat(k,mx),jhcat(k,mx),4)
 
    c1 = eff(k,meff) * colfac(k) * cx(k,mx) ** 2
 
-! Interpolate from coltabr
+! Interpolate from coltabx
 
-   tabrx =      wct1(k,mx) * wct1(k,mx) * coltabr(ict1(k,mx),ict1(k,mx),ipr) &
-         + 2. * wct1(k,mx) * wct2(k,mx) * coltabr(ict1(k,mx),ict2(k,mx),ipr) &
-         +      wct2(k,mx) * wct2(k,mx) * coltabr(ict2(k,mx),ict2(k,mx),ipr)
-
-   colrx = min(rx(k,mx),c1 * 10. ** (-tabrx))
+   tabx =      wct1(k,mx) * wct1(k,mx) * coltabx(ict1(k,mx),ict1(k,mx),ipx) &
+        + 2. * wct1(k,mx) * wct2(k,mx) * coltabx(ict1(k,mx),ict2(k,mx),ipx) &
+        +      wct2(k,mx) * wct2(k,mx) * coltabx(ict2(k,mx),ict2(k,mx),ipx)
 
 ! Hydrometeor mass transfer
 
-   rxfer(k,mx,mz) = rxfer(k,mx,mz) + colrx
-   qrxfer(k,mx,mz) = qrxfer(k,mx,mz) + colrx * qx(k,mx)
+   rxxxz(k,1) = min(rx(k,mx),c1 * 10. ** (-tabx))
+   rxxxz(k,2) = rxxxz(k,1) * qx(k,mx)
 
    if (jnmb(mz) < 5) cycle
 
@@ -270,23 +268,19 @@ do k = j1,j2
         + 2. * wct1(k,mx) * wct2(k,mx) * coltabc(ict1(k,mx),ict2(k,mx),ipc) &
         +      wct2(k,mx) * wct2(k,mx) * coltabc(ict2(k,mx),ict2(k,mx),ipc)
 
-   colc = min(0.5 * cx(k,mx),c1 * 10. ** (-tabc))
-
 ! Hydrometeor number loss
 
-   enxfer(k,mx,mx) = enxfer(k,mx,mx) + colc
+   exxxx(k) = min(0.5 * cx(k,mx),c1 * 10. ** (-tabc))
 
-! Interpolate number from special section of coltabr
+! Interpolate number from special section of coltabc
 
-   tabcz =      wct1(k,mx) * wct1(k,mx) * coltabr(ict1(k,mx),ict1(k,mx),ipz) &
-         + 2. * wct1(k,mx) * wct2(k,mx) * coltabr(ict1(k,mx),ict2(k,mx),ipz) &
-         +      wct2(k,mx) * wct2(k,mx) * coltabr(ict2(k,mx),ict2(k,mx),ipz)
-
-   colcz = min(0.5 * cx(k,mx),c1 * 10. ** (-tabcz))
+   tabc2 =      wct1(k,mx) * wct1(k,mx) * coltabc(ict1(k,mx),ict1(k,mx),ipc2) &
+         + 2. * wct1(k,mx) * wct2(k,mx) * coltabc(ict1(k,mx),ict2(k,mx),ipc2) &
+         +      wct2(k,mx) * wct2(k,mx) * coltabc(ict2(k,mx),ict2(k,mx),ipc2)
 
 ! Hydrometeor number transfer
 
-   enxfer(k,mx,mz) = enxfer(k,mx,mz) + colcz
+   exxxz(k) = min(0.5 * cx(k,mx),c1 * 10. ** (-tabc2))
 
 enddo
 
@@ -296,10 +290,10 @@ end subroutine col1188
 !===============================================================================
 
 subroutine col3344(mx,mz,meff,j1,j2, &
-   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2,rxfer,qrxfer,enxfer)
+   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2,rxxxz,exxxx,exxxz)
 
-use micro_coms, only: mza0, ncat, rxmin, ipairr, ipairc, jnmb, neff,  &
-                      coltabc, coltabr
+use micro_coms, only: mza0, ncat, rxmin, ipair, jnmb, neff,  &
+                      coltabc, coltabx
 use misc_coms,  only: io6
 
 implicit none
@@ -323,33 +317,33 @@ real, intent(in) :: eff (mza0,neff)
 
 real, intent(in) :: colfac2(mza0)
 
-real, intent(inout) :: rxfer (mza0,ncat,ncat)
-real, intent(inout) :: qrxfer(mza0,ncat,ncat)
-real, intent(inout) :: enxfer(mza0,ncat,ncat)
+real, intent(inout) :: rxxxz(mza0,2)
+real, intent(inout) :: exxxx(mza0)
+real, intent(inout) :: exxxz(mza0)
 
-integer :: k,ipr,ipc
+integer :: k,ipc,ipx
 
-real :: c1,tabc,tabrx,colc,colrx
+real :: c1,tabc,tabx,colc,colx
 
 do k = j1,j2
 
    if (rx(k,mx) < rxmin(mx)) cycle
    
-   ipc = ipairc(jhcat(k,mx),jhcat(k,mx))
-   ipr = ipairr(jhcat(k,mx),jhcat(k,mx))
+   ipc = ipair(jhcat(k,mx),jhcat(k,mx),1)
+   ipx = ipair(jhcat(k,mx),jhcat(k,mx),4)
 
    c1 = eff(k,meff) * colfac2(k) * cx(k,mx) ** 2
 
-! Interpolate from coltabr
+! Interpolate from coltabx
 
-   tabrx =      wct1(k,mx) * wct1(k,mx) * coltabr(ict1(k,mx),ict1(k,mx),ipr) &
-         + 2. * wct1(k,mx) * wct2(k,mx) * coltabr(ict1(k,mx),ict2(k,mx),ipr) &
-         +      wct2(k,mx) * wct2(k,mx) * coltabr(ict2(k,mx),ict2(k,mx),ipr)
+   tabx =      wct1(k,mx) * wct1(k,mx) * coltabx(ict1(k,mx),ict1(k,mx),ipx) &
+        + 2. * wct1(k,mx) * wct2(k,mx) * coltabx(ict1(k,mx),ict2(k,mx),ipx) &
+        +      wct2(k,mx) * wct2(k,mx) * coltabx(ict2(k,mx),ict2(k,mx),ipx)
 
-   colrx = min(rx(k,mx),c1 * 10. ** (-tabrx))
+   colx = min(rx(k,mx),c1 * 10. ** (-tabx))
 
-   rxfer(k,mx,mz) = rxfer(k,mx,mz) + colrx
-   qrxfer(k,mx,mz) = qrxfer(k,mx,mz) + colrx * qx(k,mx)
+   rxxxz(k,1) = colx
+   rxxxz(k,2) = colx * qx(k,mx)
 
    if (jnmb(mz) < 5) cycle
 
@@ -361,8 +355,8 @@ do k = j1,j2
 
    colc = min(0.5 * cx(k,mx),c1 * 10. ** (-tabc))
 
-   enxfer(k,mx,mz) = enxfer(k,mx,mz) + colc
-   enxfer(k,mx,mx) = enxfer(k,mx,mx) + colc
+   exxxx(k) = colc
+   exxxz(k) = colc
 
 enddo
 
@@ -372,9 +366,11 @@ end subroutine col3344
 !===============================================================================
 
 subroutine col3443(meff,j1,j2,iw0, &
-   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
+   rxyxz,rxyyz,exyxx,exyyy,exyxz,exyyz)
 
-use micro_coms, only: mza0, ncat, rxmin, neff, ipairc, ipairr, coltabc, coltabr
+use micro_coms, only: mza0, ncat, rxmin, neff, ipair, &
+                      coltabc, coltabx, coltaby
 use misc_coms,  only: io6
 
 implicit none
@@ -398,13 +394,16 @@ real, intent(in) :: eff (mza0,neff)
 
 real, intent(in) :: colfac(mza0)
 
-real, intent(inout) :: rxfer (mza0,ncat,ncat)
-real, intent(inout) :: qrxfer(mza0,ncat,ncat)
-real, intent(inout) :: enxfer(mza0,ncat,ncat)
+real, intent(inout) :: rxyxz(mza0,2)
+real, intent(inout) :: rxyyz(mza0,2)
+real, intent(inout) :: exyxx(mza0)
+real, intent(inout) :: exyyy(mza0)
+real, intent(inout) :: exyxz(mza0)
+real, intent(inout) :: exyyz(mza0)
 
-integer :: k,jhcatx,jhcaty,iprxy,ipryx,ipc
+integer :: k,jhcatx,jhcaty,ipx,ipy,ipc
 
-real :: c1,tabc,tabrx,tabry,colc,colrx,colry
+real :: c1,tabc,tabx,taby,colc,colx,coly
 
 do k = j1,j2
 
@@ -413,35 +412,35 @@ do k = j1,j2
    jhcatx = jhcat(k,3)
    jhcaty = jhcat(k,4)
 
-   ipc   = ipairc(jhcatx,jhcaty)
-   iprxy = ipairr(jhcatx,jhcaty)
-   ipryx = ipairr(jhcaty,jhcatx)
+   ipc = ipair(jhcatx,jhcaty,1)
+   ipx = ipair(jhcatx,jhcaty,4)
+   ipy = ipair(jhcatx,jhcaty,5)
 
    c1 = eff(k,meff) * colfac(k) * cx(k,3) * cx(k,4)
 
-! Interpolate from coltabr
+! Interpolate from coltabx
 
-   tabrx = wct1(k,3) * wct1(k,4) * coltabr (ict1(k,3),ict1(k,4),iprxy) &
-         + wct2(k,3) * wct1(k,4) * coltabr (ict2(k,3),ict1(k,4),iprxy) &
-         + wct1(k,3) * wct2(k,4) * coltabr (ict1(k,3),ict2(k,4),iprxy) &
-         + wct2(k,3) * wct2(k,4) * coltabr (ict2(k,3),ict2(k,4),iprxy)
+   tabx = wct1(k,3) * wct1(k,4) * coltabx (ict1(k,3),ict1(k,4),ipx) &
+        + wct2(k,3) * wct1(k,4) * coltabx (ict2(k,3),ict1(k,4),ipx) &
+        + wct1(k,3) * wct2(k,4) * coltabx (ict1(k,3),ict2(k,4),ipx) &
+        + wct2(k,3) * wct2(k,4) * coltabx (ict2(k,3),ict2(k,4),ipx)
 
-   colrx = min(rx(k,3),c1 * 10. ** (-tabrx))
+   colx = min(rx(k,3),c1 * 10. ** (-tabx))
 
-! Interpolate from coltabr
+! Interpolate from coltaby
 
-   tabry = wct1(k,4) * wct1(k,3) * coltabr (ict1(k,4),ict1(k,3),ipryx) &
-         + wct2(k,4) * wct1(k,3) * coltabr (ict2(k,4),ict1(k,3),ipryx) &
-         + wct1(k,4) * wct2(k,3) * coltabr (ict1(k,4),ict2(k,3),ipryx) &
-         + wct2(k,4) * wct2(k,3) * coltabr (ict2(k,4),ict2(k,3),ipryx)
+   taby = wct1(k,4) * wct1(k,3) * coltaby (ict1(k,4),ict1(k,3),ipy) &
+        + wct2(k,4) * wct1(k,3) * coltaby (ict2(k,4),ict1(k,3),ipy) &
+        + wct1(k,4) * wct2(k,3) * coltaby (ict1(k,4),ict2(k,3),ipy) &
+        + wct2(k,4) * wct2(k,3) * coltaby (ict2(k,4),ict2(k,3),ipy)
 
-   colry = min(rx(k,4),c1 * 10. ** (-tabry))
+   coly = min(rx(k,4),c1 * 10. ** (-taby))
 
-   rxfer(k,3,5) = rxfer(k,3,5) + colrx
-   qrxfer(k,3,5) = qrxfer(k,3,5) + colrx * qx(k,3)
+   rxyxz(k,1) = colx
+   rxyxz(k,2) = colx * qx(k,3)
 
-   rxfer(k,4,5) = rxfer(k,4,5) + colry
-   qrxfer(k,4,5) = qrxfer(k,4,5) + colry * qx(k,4)
+   rxyyz(k,1) = coly
+   rxyyz(k,2) = coly * qx(k,4)
 
 ! Interpolate from coltabc
 
@@ -453,11 +452,11 @@ do k = j1,j2
    colc = c1 * 10. ** (-tabc)
 
    if (cx(k,3) > cx(k,4)) then
-      enxfer(k,4,5) = enxfer(k,4,5) + min(cx(k,4),colc)
-      enxfer(k,3,3) = enxfer(k,3,3) + min(cx(k,3),colc)
+      exyyz(k) = min(cx(k,4),colc)
+      exyxx(k) = min(cx(k,3),colc)
    else
-      enxfer(k,3,5) = enxfer(k,3,5) + min(cx(k,3),colc)
-      enxfer(k,4,4) = enxfer(k,4,4) + min(cx(k,4),colc)
+      exyxz(k) = min(cx(k,3),colc)
+      exyyy(k) = min(cx(k,4),colc)
    endif
 
 ! also loss for aerosol
@@ -470,10 +469,10 @@ end subroutine col3443
 !===============================================================================
 
 subroutine col1(mx,my,mz,meff,j1,j2, &
-   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxyxz,exyxx)
 
-use micro_coms, only: mza0, ncat, neff, rxmin, ipairr, ipairc, jnmb, &
-                      coltabc, coltabr
+use micro_coms, only: mza0, ncat, neff, rxmin, ipair, jnmb, &
+                      coltabc, coltabx
 use misc_coms,  only: io6
 
 implicit none
@@ -497,35 +496,33 @@ real, intent(in) :: qx  (mza0,ncat)
 real, intent(in) :: eff (mza0,neff)
 
 real, intent(in) :: colfac(mza0)
+real, intent(inout) :: rxyxz(mza0,2)
+real, intent(inout) :: exyxx(mza0)
 
-real, intent(inout) :: rxfer (mza0,ncat,ncat)
-real, intent(inout) :: qrxfer(mza0,ncat,ncat)
-real, intent(inout) :: enxfer(mza0,ncat,ncat)
+integer :: k,ipx,ipc
 
-integer :: k,iprxy,ipc
-
-real :: c1,tabc,tabrx,colc,colrx
+real :: c1,tabc,tabx,colc,colx
 
 do k = j1,j2
 
    if (rx(k,mx) < rxmin(mx) .or. rx(k,my) < rxmin(my)) cycle
 
-   ipc   = ipairc(jhcat(k,mx),jhcat(k,my))
-   iprxy = ipairr(jhcat(k,mx),jhcat(k,my))
+   ipc = ipair(jhcat(k,mx),jhcat(k,my),1)
+   ipx = ipair(jhcat(k,mx),jhcat(k,my),4)
 
    c1 = eff(k,meff) * colfac(k) * cx(k,mx) * cx(k,my)
 
-! Interpolate from coltabr
+! Interpolate from coltabx
 
-   tabrx = wct1(k,mx) * wct1(k,my) * coltabr (ict1(k,mx),ict1(k,my),iprxy) &
-         + wct2(k,mx) * wct1(k,my) * coltabr (ict2(k,mx),ict1(k,my),iprxy) &
-         + wct1(k,mx) * wct2(k,my) * coltabr (ict1(k,mx),ict2(k,my),iprxy) &
-         + wct2(k,mx) * wct2(k,my) * coltabr (ict2(k,mx),ict2(k,my),iprxy)
+   tabx = wct1(k,mx) * wct1(k,my) * coltabx (ict1(k,mx),ict1(k,my),ipx) &
+        + wct2(k,mx) * wct1(k,my) * coltabx (ict2(k,mx),ict1(k,my),ipx) &
+        + wct1(k,mx) * wct2(k,my) * coltabx (ict1(k,mx),ict2(k,my),ipx) &
+        + wct2(k,mx) * wct2(k,my) * coltabx (ict2(k,mx),ict2(k,my),ipx)
 
-   colrx = min(rx(k,mx),c1 * 10. ** (-tabrx))
+   colx = min(rx(k,mx),c1 * 10. ** (-tabx))
 
-   rxfer(k,mx,mz) = rxfer(k,mx,mz) + colrx
-   qrxfer(k,mx,mz) = qrxfer(k,mx,mz) + colrx * qx(k,mx)
+   rxyxz(k,1) = colx
+   rxyxz(k,2) = colx * qx(k,mx)
 
    if (jnmb(mx) < 5) cycle
 
@@ -538,7 +535,7 @@ do k = j1,j2
 
    colc = c1 * 10. ** (-tabc)
 
-   enxfer(k,mx,mx) = enxfer(k,mx,mx) + min(colc,cx(k,mx))
+   exyxx(k) = min(colc,cx(k,mx))
 
 ! also loss for aerosol
 
@@ -550,11 +547,12 @@ end subroutine col1
 !===============================================================================
 
 subroutine col2(mx,my,mz,meff,j1,j2, &
-   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac, &
-   rxfer,qrxfer,enxfer,dtl0)
+   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,emb,eff,colfac,dtl0, &
+   rxyx3,rxyxz,rxyxy,rxyyz,exyx3,exyxx,exyyz)
 
-use micro_coms, only: mza0, ncat, rxmin, ipairr, ipairc, coltabr, coltabc, &
-                      sipfac, pwmasi, emb1, gamsip13, gamsip24, emb0, neff, jnmb
+use micro_coms, only: mza0, ncat, rxmin, ipair, coltabx, coltaby, coltabc, &
+                      sipfac, pwmasi, emb1, gamsip13, gamsip24, emb0, neff, &
+                      jnmb, ngam
 use misc_coms,  only: io6
 
 implicit none
@@ -580,15 +578,19 @@ real, intent(in) :: eff (mza0,neff)
 
 real, intent(in) :: colfac(mza0)
 
-real, intent(inout) :: rxfer (mza0,ncat,ncat)
-real, intent(inout) :: qrxfer(mza0,ncat,ncat)
-real, intent(inout) :: enxfer(mza0,ncat,ncat)
+real, intent(inout) :: rxyx3(mza0,2)
+real, intent(inout) :: rxyxz(mza0,2)
+real, intent(inout) :: rxyxy(mza0,2)
+real, intent(inout) :: rxyyz(mza0,2)
+real, intent(inout) :: exyx3(mza0)
+real, intent(inout) :: exyxx(mza0)
+real, intent(inout) :: exyyz(mza0)
 
 real, intent(in) :: dtl0
 
-integer :: k,jhcatx,jhcaty,iprxy,ipryx,ipc,it
+integer :: k,jhcatx,jhcaty,ipx,ipy,ipc,it,lx
 
-real :: c1,c2,tabc,tabrx,tabry,colc,colrx,colry,colc0,colqrx,colqry, &
+real :: c1,c2,tabc,tabx,taby,colc,colx,coly,colc0,colqrx,colqry, &
         rcoal,qrcoal,qcoal,fracliq,tcoal,coalliq,coalice, &
         area,cn13,cn24,sip,rsip,qrsip,rfinlz,xtoz
 
@@ -599,6 +601,9 @@ real :: beta(16)
 data alpha /00.,00.,00.,1.0,1.0,1.0,1.0,00.,00.,00.,00.,00.,1.0,1.0,1.0,1.0/
 data beta  /00.,00.,00.,1.5,1.1,0.0,0.0,00.,00.,00.,00.,00.,1.2,1.1,1.1,1.3/
 
+lx = 1
+if (mx == 8) lx = 2
+
 do k = j1,j2
 
    if (rx(k,mx) < rxmin(mx) .or. rx(k,my) < rxmin(my)) cycle
@@ -606,30 +611,30 @@ do k = j1,j2
    jhcatx = jhcat(k,mx)
    jhcaty = jhcat(k,my)
 
-   ipc   = ipairc(jhcatx,jhcaty)
-   iprxy = ipairr(jhcatx,jhcaty)
-   ipryx = ipairr(jhcaty,jhcatx)
+   ipc = ipair(jhcatx,jhcaty,1)
+   ipx = ipair(jhcatx,jhcaty,4)
+   ipy = ipair(jhcatx,jhcaty,5)
 
    c2 = colfac(k) * cx(k,mx) * cx(k,my)
    c1 = eff(k,meff) * c2
 
-! Interpolate from coltabr
+! Interpolate from coltabx
 
-   tabrx = wct1(k,mx) * wct1(k,my) * coltabr (ict1(k,mx),ict1(k,my),iprxy) &
-         + wct2(k,mx) * wct1(k,my) * coltabr (ict2(k,mx),ict1(k,my),iprxy) &
-         + wct1(k,mx) * wct2(k,my) * coltabr (ict1(k,mx),ict2(k,my),iprxy) &
-         + wct2(k,mx) * wct2(k,my) * coltabr (ict2(k,mx),ict2(k,my),iprxy)
+   tabx = wct1(k,mx) * wct1(k,my) * coltabx (ict1(k,mx),ict1(k,my),ipx) &
+        + wct2(k,mx) * wct1(k,my) * coltabx (ict2(k,mx),ict1(k,my),ipx) &
+        + wct1(k,mx) * wct2(k,my) * coltabx (ict1(k,mx),ict2(k,my),ipx) &
+        + wct2(k,mx) * wct2(k,my) * coltabx (ict2(k,mx),ict2(k,my),ipx)
 
-   colrx = min(rx(k,mx),c1 * 10. ** (-tabrx))
+   colx = min(rx(k,mx),c1 * 10. ** (-tabx))
 
-! Interpolate from coltabr
+! Interpolate from coltaby
 
-   tabry = wct1(k,my) * wct1(k,mx) * coltabr (ict1(k,my),ict1(k,mx),ipryx) &
-         + wct2(k,my) * wct1(k,mx) * coltabr (ict2(k,my),ict1(k,mx),ipryx) &
-         + wct1(k,my) * wct2(k,mx) * coltabr (ict1(k,my),ict2(k,mx),ipryx) &
-         + wct2(k,my) * wct2(k,mx) * coltabr (ict2(k,my),ict2(k,mx),ipryx)
+   taby = wct1(k,my) * wct1(k,mx) * coltaby (ict1(k,my),ict1(k,mx),ipy) &
+        + wct2(k,my) * wct1(k,mx) * coltaby (ict2(k,my),ict1(k,mx),ipy) &
+        + wct1(k,my) * wct2(k,mx) * coltaby (ict1(k,my),ict2(k,mx),ipy) &
+        + wct2(k,my) * wct2(k,mx) * coltaby (ict2(k,my),ict2(k,mx),ipy)
 
-   colry = min(rx(k,my),c1 * 10. ** (-tabry))
+   coly = min(rx(k,my),c1 * 10. ** (-taby))
 
 ! Interpolate from coltabc
 
@@ -641,10 +646,10 @@ do k = j1,j2
    colc0 = c2 * 10. ** (-tabc)
    colc = colc0 * eff(k,meff)
 
-   colqrx = colrx * qx(k,mx)
-   colqry = colry * qx(k,my)
+   colqrx = colx * qx(k,mx)
+   colqry = coly * qx(k,my)
 
-   rcoal = colrx + colry
+   rcoal = colx + coly
    qrcoal = colqrx + colqry
    qcoal = qrcoal / (1.e-20 + rcoal)
 
@@ -669,15 +674,10 @@ do k = j1,j2
       (jnmb(mx) >= 5 .or. jnmb(my) >= 5)) then  ! Steve, why this condition?
 
       area = cx(k,my) * sipfac(jhcaty) * emb(k,my) ** (2.*pwmasi(jhcaty)) ! remd rhoa
-      it = nint(emb(k,mx) / emb1(mx) * 5000.)
+      it = max(1,nint(emb(k,mx) / emb1(mx) * ngam))
 
-      if (mx == 1) then
-         cn13 = colc * gamsip13(1,it) / (area * dtl0)
-         cn24 = min(cx(k,mx),colc0) * gamsip24(1,it)
-      elseif (mx == 8) then
-         cn13 = colc * gamsip13(2,it) / (area * dtl0)
-         cn24 = min(cx(k,mx),colc0) * gamsip24(2,it)
-      endif
+      cn13 = colc * gamsip13(lx,it) / (area * dtl0)
+      cn24 = min(cx(k,mx),colc0) * gamsip24(lx,it)
 
       sip = 9.1e-10 * cn24 * cn13 ** .93           ! has units of #/m^3
       if (tcoal < -5.) then
@@ -692,9 +692,9 @@ do k = j1,j2
       rcoal = rcoal - rsip
       qrcoal = qrcoal - qrsip
 
-      enxfer(k,mx,3) = enxfer(k,mx,3) + sip
-      rxfer (k,mx,3) = rxfer (k,mx,3) + rsip
-      qrxfer(k,mx,3) = qrxfer(k,mx,3) + qrsip
+      exyx3(k) = sip
+      rxyx3(k,1) = rsip
+      rxyx3(k,2) = qrsip
 
    endif
 
@@ -703,23 +703,26 @@ do k = j1,j2
 ! liquid being above 0C, need (ALPHA + BETA) to be at least 1.1
 ! or 1.2, or need ALPHA itself to be at least 1.0.
 
-   rfinlz = min(rcoal,alpha(jhcaty) * coalliq + beta(jhcaty) * colrx)
+   rfinlz = min(rcoal,alpha(jhcaty) * coalliq + beta(jhcaty) * colx)
 
-   xtoz = min(colrx,rfinlz)
+   xtoz = min(colx,rfinlz)
 
-   rxfer(k,mx,mz) = rxfer(k,mx,mz) + xtoz
-   rxfer(k,mx,my) = rxfer(k,mx,my) + colrx - xtoz
-   if (my /= mz) rxfer(k,my,mz) = rxfer(k,my,mz) + rfinlz - xtoz
+   if (my /= mz) then
+      rxyxz(k,1) = xtoz
+      rxyxy(k,1) = colx - xtoz
+      rxyyz(k,1) = rfinlz - xtoz
 
-   qrxfer(k,mx,mz) = qrxfer(k,mx,mz) + qx(k,mx) * xtoz
-   qrxfer(k,mx,my) = qrxfer(k,mx,my) + qx(k,mx) * (colrx - xtoz)
-   if (my /= mz) qrxfer(k,my,mz) = qrxfer(k,my,mz) + qx(k,my) * (rfinlz - xtoz)
+      rxyxz(k,2) = qx(k,mx) * xtoz
+      rxyxy(k,2) = qx(k,mx) * (colx - xtoz)
+      rxyyz(k,2) = qx(k,my) * (rfinlz - xtoz)
 
-   enxfer(k,mx,mx) = enxfer(k,mx,mx) + min(colc,cx(k,mx))
-   if (my /= mz) enxfer(k,my,mz) = enxfer(k,my,mz)  &
-      + (rfinlz - xtoz) * min(colc,cx(k,my)) / max(1.e-20,colry)
-      
-! BUT NEED TO CHANGE THE ABOVE FOR 177 COLLECTION BECAUSE X = Y
+      exyyz(k) = (rfinlz - xtoz) * min(colc,cx(k,my)) / max(1.e-20,coly)
+   else
+      rxyxz(k,1) = colx
+      rxyxz(k,2) = qx(k,mx) * colx
+   endif
+
+   exyxx(k) = min(colc,cx(k,mx))
 
 ! also include loss of aerosol
 
@@ -731,10 +734,11 @@ end subroutine col2
 !===============================================================================
 
 subroutine col3(my,mz,meff,j1,j2, &
-   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxfer,qrxfer,enxfer)
+   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
+   r2yy2,r2y2z,r2y2y,r2yyz,e2y22,e2y2z,e2yyy,e2yyz)
 
-use micro_coms, only: mza0, ncat, rxmin, ipairr, ipairc, jnmb, neff, &
-                      coltabr, coltabc
+use micro_coms, only: mza0, ncat, rxmin, ipair, jnmb, neff, &
+                      coltabx, coltaby, coltabc
 use misc_coms,  only: io6
 
 implicit none
@@ -758,13 +762,18 @@ real, intent(in) :: eff (mza0,neff)
 
 real, intent(in) :: colfac(mza0)
 
-real, intent(inout) :: rxfer (mza0,ncat,ncat)
-real, intent(inout) :: qrxfer(mza0,ncat,ncat)
-real, intent(inout) :: enxfer(mza0,ncat,ncat)
+real, intent(inout) :: r2yy2(mza0,2)
+real, intent(inout) :: r2y2z(mza0,2)
+real, intent(inout) :: r2y2y(mza0,2)
+real, intent(inout) :: r2yyz(mza0,2)
+real, intent(inout) :: e2y22(mza0)
+real, intent(inout) :: e2y2z(mza0)
+real, intent(inout) :: e2yyy(mza0)
+real, intent(inout) :: e2yyz(mza0)
 
-integer :: k,iprxy,ipryx,ipc,jhcaty
+integer :: k,ipx,ipy,ipc,jhcaty
 
-real :: c1,tabc,tabrx,tabry,colc,colrx,colry,colcx,colcy,colqrx,colqry, &
+real :: c1,tabc,tabx,taby,colc,colx,coly,colcx,colcy,colqrx,colqry, &
         coalnum,rcoal,qrcoal,qcoal,fracliq,coalliq,coalice, &
         xtoz,rfinlz,tcoal,cfinlz
 
@@ -781,29 +790,29 @@ do k = j1,j2
 
    jhcaty = jhcat(k,my)
 
-   ipc   = ipairc(jhcat(k,2),jhcaty)
-   iprxy = ipairr(jhcat(k,2),jhcaty)
-   ipryx = ipairr(jhcaty,jhcat(k,2))
+   ipc = ipair(jhcat(k,2),jhcaty,1)
+   ipx = ipair(jhcat(k,2),jhcaty,4)
+   ipy = ipair(jhcat(k,2),jhcaty,5)
 
    c1 = eff(k,meff) * colfac(k) * cx(k,2) * cx(k,my)
 
-! Interpolate from coltabr
+! Interpolate from coltabx
 
-   tabrx = wct1(k,2) * wct1(k,my) * coltabr(ict1(k,2),ict1(k,my),iprxy) &
-         + wct2(k,2) * wct1(k,my) * coltabr(ict2(k,2),ict1(k,my),iprxy) &
-         + wct1(k,2) * wct2(k,my) * coltabr(ict1(k,2),ict2(k,my),iprxy) &
-         + wct2(k,2) * wct2(k,my) * coltabr(ict2(k,2),ict2(k,my),iprxy)
+   tabx = wct1(k,2) * wct1(k,my) * coltabx(ict1(k,2),ict1(k,my),ipx) &
+        + wct2(k,2) * wct1(k,my) * coltabx(ict2(k,2),ict1(k,my),ipx) &
+        + wct1(k,2) * wct2(k,my) * coltabx(ict1(k,2),ict2(k,my),ipx) &
+        + wct2(k,2) * wct2(k,my) * coltabx(ict2(k,2),ict2(k,my),ipx)
 
-   colrx = min(rx(k,2),c1 * 10. ** (-tabrx))
+   colx = min(rx(k,2),c1 * 10. ** (-tabx))
 
-! Interpolate from coltabr
+! Interpolate from coltaby
 
-   tabry = wct1(k,my) * wct1(k,2) * coltabr(ict1(k,my),ict1(k,2),ipryx) &
-         + wct2(k,my) * wct1(k,2) * coltabr(ict2(k,my),ict1(k,2),ipryx) &
-         + wct1(k,my) * wct2(k,2) * coltabr(ict1(k,my),ict2(k,2),ipryx) &
-         + wct2(k,my) * wct2(k,2) * coltabr(ict2(k,my),ict2(k,2),ipryx)
+   taby = wct1(k,my) * wct1(k,2) * coltaby(ict1(k,my),ict1(k,2),ipy) &
+        + wct2(k,my) * wct1(k,2) * coltaby(ict2(k,my),ict1(k,2),ipy) &
+        + wct1(k,my) * wct2(k,2) * coltaby(ict1(k,my),ict2(k,2),ipy) &
+        + wct2(k,my) * wct2(k,2) * coltaby(ict2(k,my),ict2(k,2),ipy)
 
-   colry = min(rx(k,my),c1 * 10. ** (-tabry))
+   coly = min(rx(k,my),c1 * 10. ** (-taby))
 
    if (jnmb(2) == 5) then
 
@@ -823,10 +832,10 @@ do k = j1,j2
 
    endif
 
-   colqrx = colrx * qx(k,2)
-   colqry = colry * qx(k,my)
+   colqrx = colx * qx(k,2)
+   colqry = coly * qx(k,my)
 
-   rcoal  = colrx + colry
+   rcoal  = colx + coly
    qrcoal = colqrx + colqry
    qcoal  = qrcoal / (1.e-20 + rcoal)
 
@@ -837,52 +846,53 @@ do k = j1,j2
 
    if (fracliq >= .99) then
 
-      rxfer(k,my,2) = rxfer(k,my,2) + colry
-      qrxfer(k,my,2) = qrxfer(k,my,2) + colqry
+      r2yy2(k,1) = coly
+      r2yy2(k,2) = colqry
 
-      if (jnmb(2) == 5) enxfer(k,my,my) = enxfer(k,my,my) + colcy
+      if (jnmb(2) == 5) e2yyy(k) = colcy
 
    else
 
-      rfinlz = min(rcoal, alpha(jhcaty) * coalliq + beta(jhcaty) * colrx)
+      rfinlz = min(rcoal, alpha(jhcaty) * coalliq + beta(jhcaty) * colx)
 
-      xtoz = min(colrx,rfinlz)
+      xtoz = min(colx,rfinlz)
 
-      rxfer(k,2,mz) = rxfer(k,2,mz) + xtoz
-      rxfer(k,2,my) = rxfer(k,2,my) + colrx - xtoz
-
-      if (my /= mz) rxfer(k,my,mz) = rxfer(k,my,mz) + rfinlz - xtoz
+      if (my /= mz) then
+         r2y2z(k,1) = xtoz
+         r2y2y(k,1) = colx - xtoz
+         r2yyz(k,1) = rfinlz - xtoz
 
 ! NEED TO USE QCOAL TO TRANSFER Q?
 
-      qrxfer(k,2,mz) = qrxfer(k,2,mz) + qx(k,2) * xtoz
-      qrxfer(k,2,my) = qrxfer(k,2,my) + qx(k,2) * (colrx - xtoz)
-
-      if (my /= mz) &
-         qrxfer(k,my,mz) = qrxfer(k,my,mz) + qx(k,my) * (rfinlz - xtoz)
+         r2y2z(k,2) = qx(k,2) * xtoz
+         r2y2y(k,2) = qx(k,2) * (colx - xtoz)
+         r2yyz(k,2) = qx(k,my) * (rfinlz - xtoz)
+      else
+         r2y2z(k,1) = colx
+         r2y2z(k,2) = qx(k,2) * colx
+      endif
 
       if (jnmb(2) == 5) then
 
          if (my == mz) then
 
-            enxfer(k,2,2) = enxfer(k,2,2) + colcx
+            e2y22(k) = colcx
 
          elseif (colcy >= colcx) then
 
             cfinlz = coalnum * rfinlz / (rcoal + 1.e-20)
 
-            enxfer(k,2,mz) = enxfer(k,2,mz) + cfinlz
-            enxfer(k,2,2) = enxfer(k,2,2) + colcx - cfinlz
-            enxfer(k,my,my) = enxfer(k,my,my) + colcy
+            e2y2z(k) = cfinlz
+            e2y22(k) = colcx - cfinlz
+            e2yyy(k) = colcy
 
          else
 
             cfinlz = coalnum * rfinlz / (rcoal + 1.e-20)
 
-            enxfer(k,my,mz) = enxfer(k,my,mz) + cfinlz
-            enxfer(k,2,2) = enxfer(k,2,2) + colcx
-            enxfer(k,my,my) = enxfer(k,my,my) + colcy - cfinlz
-
+            e2yyz(k) = cfinlz
+            e2y22(k) = colcx
+            e2yyy(k) = colcy - cfinlz
          endif
 
       endif
@@ -898,7 +908,21 @@ end subroutine col3
 
 !===============================================================================
 
-subroutine colxfers(k1,k2,rx,cx,qr,rxfer,qrxfer,enxfer)
+subroutine colxfers(k1,k2,rx,cx,qr, &
+   r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
+   r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
+   r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
+   r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
+   r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
+   r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
+   r2727,r0000, &
+   e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
+   e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
+   e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
+   e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
+   e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
+   e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
+   e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000)
 
 use micro_coms, only: mza0, ncat, jnmb
 use misc_coms,  only: io6
@@ -908,19 +932,47 @@ implicit none
 integer, intent(in) :: k1(11)
 integer, intent(in) :: k2(11)
 
-real, intent(inout) :: rx    (mza0,ncat)
-real, intent(inout) :: cx    (mza0,ncat)
-real, intent(inout) :: qr    (mza0,ncat)
-real, intent(inout) :: rxfer (mza0,ncat,ncat)
-real, intent(inout) :: qrxfer(mza0,ncat,ncat)
-real, intent(inout) :: enxfer(mza0,ncat,ncat)
+real, intent(inout) :: rx(mza0,ncat)
+real, intent(inout) :: cx(mza0,ncat)
+real, intent(inout) :: qr(mza0,ncat)
+
+real, intent(inout) :: &
+  r1118(mza0,2),r8882(mza0,2),r1112(mza0,2),r1818(mza0,2),r1212(mza0,2), &
+  r8282(mza0,2),r3335(mza0,2),r4445(mza0,2),r3435(mza0,2),r3445(mza0,2), &
+  r3535(mza0,2),r3636(mza0,2),r3737(mza0,2),r4545(mza0,2),r4646(mza0,2), &
+  r4747(mza0,2),r5656(mza0,2),r5757(mza0,2),r6767(mza0,2),r1413(mza0,2), &
+  r1416(mza0,2),r1414(mza0,2),r1446(mza0,2),r1513(mza0,2),r1516(mza0,2), &
+  r1515(mza0,2),r1556(mza0,2),r1613(mza0,2),r1616(mza0,2),r8483(mza0,2), &
+  r8486(mza0,2),r8484(mza0,2),r8446(mza0,2),r8583(mza0,2),r8586(mza0,2), &
+  r8585(mza0,2),r8556(mza0,2),r8683(mza0,2),r8686(mza0,2),r1713(mza0,2), &
+  r1717(mza0,2),r8783(mza0,2),r8787(mza0,2),r2332(mza0,2),r2327(mza0,2), &
+  r2323(mza0,2),r2337(mza0,2),r2442(mza0,2),r2427(mza0,2),r2424(mza0,2), &
+  r2447(mza0,2),r2552(mza0,2),r2527(mza0,2),r2525(mza0,2),r2557(mza0,2), &
+  r2662(mza0,2),r2627(mza0,2),r2626(mza0,2),r2667(mza0,2),r2772(mza0,2), &
+  r2727(mza0,2),r0000(mza0,2)
+
+real, intent(inout) :: &
+  e1111(mza0),e1118(mza0),e8888(mza0),e8882(mza0),e1112(mza0), &
+  e1811(mza0),e1211(mza0),e8288(mza0),e2222(mza0),e5555(mza0), &
+  e6666(mza0),e7777(mza0),e3333(mza0),e3335(mza0),e4444(mza0), &
+  e4445(mza0),e3433(mza0),e3444(mza0),e3435(mza0),e3445(mza0), &
+  e3533(mza0),e3633(mza0),e3733(mza0),e4544(mza0),e4644(mza0), &
+  e4744(mza0),e5655(mza0),e5755(mza0),e6766(mza0),e1413(mza0), &
+  e1411(mza0),e1446(mza0),e1513(mza0),e1511(mza0),e1556(mza0), &
+  e1613(mza0),e1611(mza0),e8483(mza0),e8488(mza0),e8446(mza0), &
+  e8583(mza0),e8588(mza0),e8556(mza0),e8683(mza0),e8688(mza0), &
+  e1713(mza0),e1711(mza0),e8783(mza0),e8788(mza0),e2322(mza0), &
+  e2327(mza0),e2333(mza0),e2337(mza0),e2422(mza0),e2427(mza0), &
+  e2444(mza0),e2447(mza0),e2522(mza0),e2527(mza0),e2555(mza0), &
+  e2557(mza0),e2622(mza0),e2627(mza0),e2666(mza0),e2667(mza0), &
+  e2722(mza0),e2727(mza0),e2777(mza0),e0000(mza0)
 
 integer :: lcat,jcat,kd1,kd2,k
+real :: fac
 
-! Automatic arrays
-
-real :: rloss (mza0)
-real :: enloss(mza0)
+real ::  rloss(mza0,ncat)
+real :: qrloss(mza0,ncat)
+real :: enloss(mza0,ncat)
 
 ! Limit rxfer and enxfer values so no hydrometeor category gets over-depleted.
 ! Limit the losses to each category without accounting for potential 
@@ -928,105 +980,580 @@ real :: enloss(mza0)
 
 ! All enxfer and rxfer values are nonnegative.
 
-! rxfer(i,j) and qrxfer(i,j) are zero for i = j.
+! CLOUD loss adjustments (kg/m^3 and #/m^3)
 
-! Loop over donor categories
+if (jnmb(1) >= 1) then
 
-do lcat = 1,ncat
+   do k = k1(1),k2(1)
+      rloss(k,1) = r1118(k,1) + r1112(k,1) + r1818(k,1) + r1212(k,1) &
+                 + r1413(k,1) + r1416(k,1) + r1414(k,1) + r1513(k,1) &
+                 + r1516(k,1) + r1515(k,1) + r1613(k,1) + r1616(k,1) &
+                 + r1713(k,1) + r1717(k,1)
 
-   if (jnmb(lcat) >= 1) then
+      qrloss(k,1) = r1118(k,2) + r1112(k,2) + r1818(k,2) + r1212(k,2) &
+                  + r1413(k,2) + r1416(k,2) + r1414(k,2) + r1513(k,2) &
+                  + r1516(k,2) + r1515(k,2) + r1613(k,2) + r1616(k,2) &
+                  + r1713(k,2) + r1717(k,2)
 
-      kd1 = k1(lcat)
-      kd2 = k2(lcat)
+      if (rloss(k,1) > rx(k,1)) then
+         fac = rx(k,1) / max(1.e-20,rloss(k,1))
 
-      do k = kd1,kd2
-         rloss(k) = 0.
-         enloss(k) = 0.
-      enddo
+          rloss(k,1) =  rloss(k,1) * fac
+         qrloss(k,1) = qrloss(k,1) * fac
 
-! Loop over recipient categories
+         r1118(k,:) = r1118(k,:) * fac
+         r1112(k,:) = r1112(k,:) * fac
+         r1818(k,:) = r1818(k,:) * fac
+         r1212(k,:) = r1212(k,:) * fac
+         r1413(k,:) = r1413(k,:) * fac
+         r1416(k,:) = r1416(k,:) * fac
+         r1414(k,:) = r1414(k,:) * fac
+         r1513(k,:) = r1513(k,:) * fac
+         r1516(k,:) = r1516(k,:) * fac
+         r1515(k,:) = r1515(k,:) * fac
+         r1613(k,:) = r1613(k,:) * fac
+         r1616(k,:) = r1616(k,:) * fac
+         r1713(k,:) = r1713(k,:) * fac
+         r1717(k,:) = r1717(k,:) * fac
+      endif
 
-      do jcat = 1,ncat
+      enloss(k,1) = e1111(k) + e1118(k) + e1112(k) + e1811(k) &
+                  + e1211(k) + e1413(k) + e1411(k) + e1446(k) &
+                  + e1513(k) + e1511(k) + e1556(k) + e1613(k) &
+                  + e1611(k) + e1713(k) + e1711(k)
 
-         if (jnmb(jcat) >= 1) then
+      if (enloss(k,1) > cx(k,1)) then
+         fac = cx(k,1) / max(1.e-20,enloss(k,1))
 
-! Sum losses from donor category
+         enloss(k,1) = cx(k,1)
 
-            do k = kd1,kd2
-               rloss (k) = rloss (k) + rxfer (k,lcat,jcat) ! kg/m^3
-               enloss(k) = enloss(k) + enxfer(k,lcat,jcat) ! #/m^3
-            enddo
+         e1118(k) = e1118(k) * fac
+         e1112(k) = e1112(k) * fac
+         e1413(k) = e1413(k) * fac
+         e1446(k) = e1446(k) * fac
+         e1513(k) = e1513(k) * fac
+         e1556(k) = e1556(k) * fac
+         e1613(k) = e1613(k) * fac
+         e1713(k) = e1713(k) * fac
+      endif
+   enddo
 
-         endif
+endif
 
-      enddo
+! RAIN loss adjustments (kg/m^3 and #/m^3)
 
-! Convert rloss and enloss to scaling factors that will reduce, if necessary,
-! rxfer and enxfer values in order to prevent over-depletion of donor category.
+if (jnmb(2) >= 1) then
 
-      do k = kd1,kd2
-         rloss(k) = min(1.,rx(k,lcat) / max(1.e-20,rloss(k)))
-         enloss(k) = min(1.,cx(k,lcat) / max(1.e-10,enloss(k)))
-      enddo
+   do k = k1(2),k2(2)
+      rloss(k,2) = r2327(k,1) + r2323(k,1) + r2427(k,1) + r2424(k,1) &
+                 + r2527(k,1) + r2525(k,1) + r2627(k,1) + r2626(k,1) &
+                 + r2727(k,1)
 
-! Apply possible reduction to rxfer, qrxfer, and enxfer arrays.
+      qrloss(k,2) = r2327(k,2) + r2323(k,2) + r2427(k,2) + r2424(k,2) &
+                  + r2527(k,2) + r2525(k,2) + r2627(k,2) + r2626(k,2) &
+                  + r2727(k,2)
 
-! Loop over recipient categories
+      if (rloss(k,2) > rx(k,2)) then
+         fac = rx(k,2) / max(1.e-20,rloss(k,2))
 
-      do jcat = 1,ncat
+          rloss(k,2) =  rloss(k,2) * fac
+         qrloss(k,2) = qrloss(k,2) * fac
 
-         if (jnmb(jcat) >= 1) then
+         r2327(k,:) = r2327(k,:) * fac
+         r2323(k,:) = r2323(k,:) * fac
+         r2427(k,:) = r2427(k,:) * fac
+         r2424(k,:) = r2424(k,:) * fac
+         r2527(k,:) = r2527(k,:) * fac
+         r2525(k,:) = r2525(k,:) * fac
+         r2627(k,:) = r2627(k,:) * fac
+         r2626(k,:) = r2626(k,:) * fac
+         r2727(k,:) = r2727(k,:) * fac
+      endif
 
-            do k = kd1,kd2
-               rxfer (k,lcat,jcat) = rxfer (k,lcat,jcat) * rloss (k)
-               qrxfer(k,lcat,jcat) = qrxfer(k,lcat,jcat) * rloss (k)
-               enxfer(k,lcat,jcat) = enxfer(k,lcat,jcat) * enloss(k)
-            enddo
+      enloss(k,2) = e2222(k) + e2322(k) + e2327(k) + e2422(k) &
+                  + e2427(k) + e2522(k) + e2527(k) + e2622(k) &
+                  + e2627(k) + e2722(k) + e2727(k)
 
-         endif
+      if (enloss(k,2) > cx(k,2)) then
+         fac = cx(k,2) / max(1.e-20,enloss(k,2))
 
-      enddo
+         enloss(k,2) = cx(k,2)
 
-   endif
+         e2327(k) = e2327(k) * fac
+         e2427(k) = e2427(k) * fac
+         e2527(k) = e2527(k) * fac
+         e2627(k) = e2627(k) * fac
+         e2727(k) = e2727(k) * fac
+      endif
+   enddo
 
-enddo
+endif
+
+! PRISTINE ICE loss adjustments (kg/m^3 and #/m^3)
+
+if (jnmb(3) >= 1) then
+
+   do k = k1(3),k2(3)
+      rloss(k,3) = r3335(k,1) + r3435(k,1) + r3535(k,1) + r3636(k,1) &
+                 + r3737(k,1) + r2332(k,1) + r2337(k,1)
+
+      qrloss(k,3) = r3335(k,2) + r3435(k,2) + r3535(k,2) + r3636(k,2) &
+                  + r3737(k,2) + r2332(k,2) + r2337(k,2)
+
+      if (rloss(k,3) > rx(k,3)) then
+         fac = rx(k,3) / max(1.e-20,rloss(k,3))
+
+          rloss(k,3) =  rloss(k,3) * fac
+         qrloss(k,3) = qrloss(k,3) * fac
+
+         r3335(k,:) = r3335(k,:) * fac
+         r3435(k,:) = r3435(k,:) * fac
+         r3535(k,:) = r3535(k,:) * fac
+         r3636(k,:) = r3636(k,:) * fac
+         r3737(k,:) = r3737(k,:) * fac
+         r2332(k,:) = r2332(k,:) * fac
+         r2337(k,:) = r2337(k,:) * fac
+      endif
+
+      enloss(k,3) = e3333(k) + e3335(k) + e3433(k) + e3435(k) &
+                  + e3533(k) + e3633(k) + e3733(k) + e2333(k) &
+                  + e2337(k)
+
+      if (enloss(k,3) > cx(k,3)) then
+         fac = cx(k,3) / max(1.e-20,enloss(k,3))
+
+         enloss(k,3) = cx(k,3)
+
+         e3335(k) = e3335(k) * fac
+         e3435(k) = e3435(k) * fac
+         e2337(k) = e2337(k) * fac
+      endif
+   enddo
+
+endif
+
+! SNOW loss adjustments (kg/m^3 and #/m^3)
+
+if (jnmb(4) >= 1) then
+
+   do k = k1(4),k2(4)
+      rloss(k,4) = r4445(k,1) + r3445(k,1) + r4545(k,1) + r4646(k,1) &
+                 + r4747(k,1) + r1446(k,1) + r8446(k,1) + r2442(k,1) &
+                 + r2447(k,1)
+
+      qrloss(k,4) = r4445(k,2) + r3445(k,2) + r4545(k,2) + r4646(k,2) &
+                  + r4747(k,2) + r1446(k,2) + r8446(k,2) + r2442(k,2) &
+                  + r2447(k,2)
+
+      if (rloss(k,4) > rx(k,4)) then
+         fac = rx(k,4) / max(1.e-20,rloss(k,4))
+
+          rloss(k,4) =  rloss(k,4) * fac
+         qrloss(k,4) = qrloss(k,4) * fac
+
+         r4445(k,:) = r4445(k,:) * fac
+         r3445(k,:) = r3445(k,:) * fac
+         r4545(k,:) = r4545(k,:) * fac
+         r4646(k,:) = r4646(k,:) * fac
+         r4747(k,:) = r4747(k,:) * fac
+         r1446(k,:) = r1446(k,:) * fac
+         r8446(k,:) = r8446(k,:) * fac
+         r2442(k,:) = r2442(k,:) * fac
+         r2447(k,:) = r2447(k,:) * fac
+      endif
+
+      enloss(k,4) = e4444(k) + e4445(k) + e3444(k) + e3445(k) &
+                  + e4544(k) + e4644(k) + e4744(k) + e2444(k) &
+                  + e2447(k)
+
+      if (enloss(k,4) > cx(k,4)) then
+         fac = cx(k,4) / max(1.e-20,enloss(k,4))
+
+         enloss(k,4) = cx(k,4)
+
+         e4445(k) = e4445(k) * fac
+         e3445(k) = e3445(k) * fac
+         e2447(k) = e2447(k) * fac
+      endif
+   enddo
+
+endif
+
+! AGGREGATES loss adjustments (kg/m^3 and #/m^3)
+
+if (jnmb(5) >= 1) then
+
+   do k = k1(5),k2(5)
+      rloss(k,5) = r5656(k,1) + r5757(k,1) + r1556(k,1) + r8556(k,1) &
+                 + r2552(k,1) + r2557(k,1)
+
+      qrloss(k,5) = r5656(k,2) + r5757(k,2) + r1556(k,2) + r8556(k,2) &
+                  + r2552(k,2) + r5757(k,2)
+
+      if (rloss(k,5) > rx(k,5)) then
+         fac = rx(k,5) / max(1.e-20,rloss(k,5))
+
+          rloss(k,5) =  rloss(k,5) * fac
+         qrloss(k,5) = qrloss(k,5) * fac
+
+         r5656(k,:) = r5656(k,:) * fac
+         r5757(k,:) = r5757(k,:) * fac
+         r1556(k,:) = r1556(k,:) * fac
+         r8556(k,:) = r8556(k,:) * fac
+         r2552(k,:) = r2552(k,:) * fac
+         r2557(k,:) = r2557(k,:) * fac
+      endif
+
+      enloss(k,5) = e5555(k) + e5655(k) + e5755(k) + e2555(k) &
+                  + e2557(k)
+
+      if (enloss(k,5) > cx(k,5)) then
+         fac = cx(k,5) / max(1.e-20,enloss(k,5))
+
+         enloss(k,5) = cx(k,5)
+
+         e2557(k) = e2557(k) * fac
+      endif
+   enddo
+
+endif
+
+! GRAUPEL loss adjustments (kg/m^3 and #/m^3)
+
+if (jnmb(6) >= 1) then
+
+   do k = k1(6),k2(6)
+      rloss(k,6) = r6767(k,1) + r2662(k,1) + r2667(k,1)
+
+      qrloss(k,6) = r6767(k,2) + r2662(k,2) + r2667(k,2)
+
+      if (rloss(k,6) > rx(k,6)) then
+         fac = rx(k,6) / max(1.e-20,rloss(k,6))
+
+          rloss(k,6) =  rloss(k,6) * fac
+         qrloss(k,6) = qrloss(k,6) * fac
+
+         r6767(k,:) = r6767(k,:) * fac
+         r2662(k,:) = r2662(k,:) * fac
+         r2667(k,:) = r2667(k,:) * fac
+      endif
+
+      enloss(k,6) = e6666(k) + e6766(k) + e2666(k) + e2667(k)
+
+      if (enloss(k,6) > cx(k,6)) then
+         fac = cx(k,6) / max(1.e-20,enloss(k,6))
+
+         enloss(k,6) = cx(k,6)
+
+         e2667(k) = e2667(k) * fac
+      endif
+   enddo
+
+endif
+
+! HAIL loss adjustments (kg/m^3 and #/m^3)
+
+if (jnmb(7) >= 1) then
+
+   do k = k1(7),k2(7)
+      rloss(k,7) = r2772(k,1)
+
+      qrloss(k,7) = r2772(k,2)
+
+      if (rloss(k,7) > rx(k,7)) then
+         fac = rx(k,7) / max(1.e-20,rloss(k,7))
+
+          rloss(k,7) =  rloss(k,7) * fac
+         qrloss(k,7) = qrloss(k,7) * fac
+
+         r2772(k,:) = r2772(k,:) * fac
+      endif
+
+      enloss(k,7) = e7777(k) + e2777(k)
+
+      if (enloss(k,7) > cx(k,7)) then
+         fac = cx(k,7) / max(1.e-20,enloss(k,7))
+
+         enloss(k,7) = cx(k,7)
+
+! no enxfer adjustments needed
+      endif
+   enddo
+
+endif
+
+! DRIZZLE loss adjustments (kg/m^3 and #/m^3)
+
+if (jnmb(8) >= 1) then
+
+   do k = k1(8),k2(8)
+      rloss(k,8) = r8882(k,1) + r8282(k,1) + r8483(k,1) + r8486(k,1) &
+                 + r8484(k,1) + r8583(k,1) + r8586(k,1) + r8585(k,1) &
+                 + r8683(k,1) + r8686(k,1) + r8783(k,1) + r8787(k,1)
+
+      qrloss(k,8) = r8882(k,2) + r8282(k,2) + r8483(k,2) + r8486(k,2) &
+                  + r8484(k,2) + r8583(k,2) + r8586(k,2) + r8585(k,2) &
+                  + r8683(k,2) + r8686(k,2) + r8783(k,2) + r8787(k,2)
+
+      if (rloss(k,8) > rx(k,8)) then
+         fac = rx(k,8) / max(1.e-20,rloss(k,8))
+
+          rloss(k,8) =  rloss(k,8) * fac
+         qrloss(k,8) = qrloss(k,8) * fac
+
+         r8882(k,:) = r8882(k,:) * fac
+         r8282(k,:) = r8282(k,:) * fac
+         r8483(k,:) = r8483(k,:) * fac
+         r8486(k,:) = r8486(k,:) * fac
+         r8484(k,:) = r8484(k,:) * fac
+         r8583(k,:) = r8583(k,:) * fac
+         r8586(k,:) = r8586(k,:) * fac
+         r8585(k,:) = r8585(k,:) * fac
+         r8683(k,:) = r8683(k,:) * fac
+         r8686(k,:) = r8686(k,:) * fac
+         r8783(k,:) = r8783(k,:) * fac
+         r8787(k,:) = r8787(k,:) * fac
+      endif
+
+      enloss(k,8) = e8888(k) + e8882(k) + e8288(k) + e8483(k) &
+                  + e8488(k) + e8446(k) + e8583(k) + e8588(k) &
+                  + e8556(k) + e8683(k) + e8688(k) + e8783(k) &
+                  + e8788(k)
+
+ ! NEW
+
+      if (enloss(k,8) > cx(k,8)) then
+         fac = cx(k,8) / max(1.e-20,enloss(k,8))
+
+         enloss(k,8) = cx(k,8)
+
+         e8882(k) = e8882(k) * fac
+         e8483(k) = e8483(k) * fac
+         e8446(k) = e8446(k) * fac
+         e8583(k) = e8583(k) * fac
+         e8556(k) = e8556(k) * fac
+         e8683(k) = e8683(k) * fac
+         e8783(k) = e8783(k) * fac
+      endif
+   enddo
+
+endif
 
 ! Transfer bulk density, energy, and number between hydrometeor categories 
 ! as a result of hydrometeor collisions.
 
-! Loop over donor categories
+! CLOUD as donor
 
-do lcat = 1,ncat
+if (jnmb(1) >= 1) then
 
-   if (jnmb(lcat) >= 1) then
+   do k = k1(1),k2(1)
 
-      kd1 = k1(lcat)
-      kd2 = k2(lcat)
+      rx(k,1) = rx(k,1) -  rloss(k,1)
+      qr(k,1) = qr(k,1) - qrloss(k,1)
+      cx(k,1) = cx(k,1) - enloss(k,1)
 
-! Loop over recipient categories
+      rx(k,2) = rx(k,2) + r1112(k,1) + r1212(k,1)
+      rx(k,3) = rx(k,3) + r1413(k,1) + r1513(k,1) + r1613(k,1) + r1713(k,1)
+      rx(k,4) = rx(k,4) + r1414(k,1)
+      rx(k,5) = rx(k,5) + r1515(k,1)
+      rx(k,6) = rx(k,6) + r1416(k,1) + r1516(k,1) + r1616(k,1)
+      rx(k,7) = rx(k,7) + r1717(k,1)
+      rx(k,8) = rx(k,8) + r1118(k,1) + r1818(k,1)
 
-      do jcat = 1,ncat
+      qr(k,2) = qr(k,2) + r1112(k,2) + r1212(k,2)
+      qr(k,3) = qr(k,3) + r1413(k,2) + r1513(k,2) + r1613(k,2) + r1713(k,2)
+      qr(k,4) = qr(k,4) + r1414(k,2)
+      qr(k,5) = qr(k,5) + r1515(k,2)
+      qr(k,6) = qr(k,6) + r1416(k,2) + r1516(k,2) + r1616(k,2)
+      qr(k,7) = qr(k,7) + r1717(k,2)
+      qr(k,8) = qr(k,8) + r1118(k,2) + r1818(k,2)
 
-         if (jnmb(jcat) >= 1) then
+      cx(k,2) = cx(k,2) + e1112(k)
+      cx(k,3) = cx(k,3) + e1413(k) + e1513(k) + e1613(k) + e1713(k)
+      cx(k,6) = cx(k,6) + e1112(k)
+      cx(k,8) = cx(k,8) + e1446(k) + e1556(k)
 
-            do k = kd1,kd2
-               rx(k,lcat) = rx(k,lcat) - rxfer(k,lcat,jcat)
-               rx(k,jcat) = rx(k,jcat) + rxfer(k,lcat,jcat)
+   enddo
 
-               qr(k,lcat) = qr(k,lcat) - qrxfer(k,lcat,jcat)
-               qr(k,jcat) = qr(k,jcat) + qrxfer(k,lcat,jcat)
+endif
 
-               cx(k,lcat) = cx(k,lcat) - enxfer(k,lcat,jcat)
-               cx(k,jcat) = cx(k,jcat) + enxfer(k,lcat,jcat)
-            enddo
+! RAIN as donor
 
-         endif
+if (jnmb(2) >= 1) then
 
-      enddo
+   do k = k1(2),k2(2)
 
-   endif
+      rx(k,2) = rx(k,2) -  rloss(k,2)
+      qr(k,2) = qr(k,2) - qrloss(k,2)
+      cx(k,2) = cx(k,2) - enloss(k,2)
 
-enddo
+      rx(k,3) = rx(k,3) + r2323(k,1)
+      rx(k,4) = rx(k,4) + r2424(k,1)
+      rx(k,5) = rx(k,5) + r2525(k,1)
+      rx(k,6) = rx(k,6) + r2626(k,1) 
+      rx(k,7) = rx(k,7) + r2327(k,1) + r2427(k,1) + r2527(k,1) &
+                        + r2627(k,1) + r2727(k,1)
+
+      qr(k,3) = qr(k,3) + r2323(k,2)
+      qr(k,4) = qr(k,4) + r2424(k,2)
+      qr(k,5) = qr(k,5) + r2525(k,2)
+      qr(k,6) = qr(k,6) + r2626(k,2) 
+      qr(k,7) = qr(k,7) + r2327(k,2) + r2427(k,2) + r2527(k,2) &
+                        + r2627(k,2) + r2727(k,2)
+
+      cx(k,7) = cx(k,7) + e2327(k) + e2427(k) + e2527(k) &
+                        + e2627(k) + e2727(k)
+
+   enddo
+
+endif
+
+! PRISTINE ICE as donor
+
+if (jnmb(3) >= 1) then
+
+   do k = k1(3),k2(3)
+
+      rx(k,3) = rx(k,3) -  rloss(k,3)
+      qr(k,3) = qr(k,3) - qrloss(k,3)
+      cx(k,3) = cx(k,3) - enloss(k,3)
+
+      rx(k,2) = rx(k,2) + r2332(k,1)
+      rx(k,5) = rx(k,5) + r3335(k,1) + r3435(k,1) + r3535(k,1)
+      rx(k,6) = rx(k,6) + r3636(k,1) 
+      rx(k,7) = rx(k,7) + r3737(k,1) + r2337(k,1)
+
+      qr(k,2) = qr(k,2) + r2332(k,2)
+      qr(k,5) = qr(k,5) + r3335(k,2) + r3435(k,2) + r3535(k,2)
+      qr(k,6) = qr(k,6) + r3636(k,2) 
+      qr(k,7) = qr(k,7) + r3737(k,2) + r2337(k,2)
+
+      cx(k,5) = cx(k,5) + e3335(k) + e3435(k) 
+      cx(k,7) = cx(k,7) + e2333(k)
+   enddo
+
+endif
+
+! SNOW as donor
+
+if (jnmb(4) >= 1) then
+
+   do k = k1(4),k2(4)
+
+      rx(k,4) = rx(k,4) -  rloss(k,4)
+      qr(k,4) = qr(k,4) - qrloss(k,4)
+      cx(k,4) = cx(k,4) - enloss(k,4)
+
+      rx(k,2) = rx(k,2) + r2442(k,1) 
+      rx(k,5) = rx(k,5) + r4445(k,1) + r3445(k,1) + r4545(k,1)
+      rx(k,6) = rx(k,6) + r4646(k,1) + r1446(k,1) + r8446(k,1)
+      rx(k,7) = rx(k,7) + r4747(k,1) + r2447(k,1)
+
+      qr(k,2) = qr(k,2) + r2442(k,2)
+      qr(k,5) = qr(k,5) + r4445(k,2) + r3445(k,2) + r4545(k,2)
+      qr(k,6) = qr(k,6) + r4646(k,2) + r1446(k,2) + r8446(k,2)
+      qr(k,7) = qr(k,7) + r4747(k,2) + r2447(k,2)
+
+      cx(k,5) = cx(k,5) + e4445(k) + e3445(k)
+      cx(k,7) = cx(k,7) + e2447(k)
+   enddo
+
+endif
+
+! AGGREGATES as donor
+
+if (jnmb(5) >= 1) then
+
+   do k = k1(5),k2(5)
+
+      rx(k,5) = rx(k,5) -  rloss(k,5)
+      qr(k,5) = qr(k,5) - qrloss(k,5)
+      cx(k,5) = cx(k,5) - enloss(k,5)
+
+      rx(k,2) = rx(k,2) + r2552(k,1) 
+      rx(k,6) = rx(k,6) + r5656(k,1) + r1556(k,1) + r8556(k,1) 
+      rx(k,7) = rx(k,7) + r5757(k,1) + r2557(k,1)
+
+      qr(k,2) = qr(k,2) + r2552(k,2) 
+      qr(k,6) = qr(k,6) + r5656(k,2) + r1556(k,2) + r8556(k,2) 
+      qr(k,7) = qr(k,7) + r5757(k,2) + r2557(k,2)
+
+      cx(k,7) = cx(k,7) + e2557(k)
+   enddo
+
+endif
+
+! GRAUPEL as donor
+
+if (jnmb(6) >= 1) then
+
+   do k = k1(6),k2(6)
+
+      rx(k,6) = rx(k,6) -  rloss(k,6)
+      qr(k,6) = qr(k,6) - qrloss(k,6)
+      cx(k,6) = cx(k,6) - enloss(k,6)
+
+      rx(k,2) = rx(k,2) + r2662(k,1)
+      rx(k,7) = rx(k,7) + r6767(k,1) + r2667(k,1)
+
+      qr(k,2) = qr(k,2) + r2662(k,2)
+      qr(k,7) = qr(k,7) + r6767(k,2) + r2667(k,2)
+
+      cx(k,7) = cx(k,7) + e2667(k)
+   enddo
+
+endif
+
+! HAIL as donor
+
+if (jnmb(7) >= 1) then
+
+   do k = k1(7),k2(7)
+
+      rx(k,7) = rx(k,7) -  rloss(k,7)
+      qr(k,7) = qr(k,7) - qrloss(k,7)
+      cx(k,7) = cx(k,7) - enloss(k,7)
+
+      rx(k,2) = rx(k,2) + r2772(k,1)
+
+      qr(k,2) = qr(k,2) + r2772(k,2)
+
+! no cx recipients
+   enddo
+
+endif
+
+! DRIZZLE as donor
+
+if (jnmb(8) >= 1) then
+
+   do k = k1(8),k2(8)
+
+      rx(k,8) = rx(k,8) -  rloss(k,8)
+      qr(k,8) = qr(k,8) - qrloss(k,8)
+      cx(k,8) = cx(k,8) - enloss(k,8)
+
+      rx(k,2) = rx(k,2) + r8882(k,1) + r8282(k,1)
+      rx(k,3) = rx(k,3) + r8483(k,1) + r8583(k,1) + r8683(k,1) + r8783(k,2)
+      rx(k,4) = rx(k,4) + r8484(k,1)
+      rx(k,5) = rx(k,5) + r8585(k,1) 
+      rx(k,6) = rx(k,6) + r8486(k,1) + r8586(k,1) + r8686(k,1) 
+      rx(k,7) = rx(k,7) + r8787(k,1)
+
+      qr(k,2) = qr(k,2) + r8882(k,2) + r8282(k,2)
+      qr(k,3) = qr(k,3) + r8483(k,2) + r8583(k,2) + r8683(k,2) + r8783(k,2)
+      qr(k,4) = qr(k,4) + r8484(k,2)
+      qr(k,5) = qr(k,5) + r8585(k,2) 
+      qr(k,6) = qr(k,6) + r8486(k,2) + r8586(k,2) + r8686(k,2)
+      qr(k,7) = qr(k,7) + r8787(k,2)
+
+      cx(k,2) = cx(k,2) + e8882(k)
+      cx(k,3) = cx(k,3) + e8483(k) + e8583(k) + e8683(k) + e8783(k)
+      cx(k,6) = cx(k,6) + e8446(k) + e8556(k)
+
+   enddo
+
+endif
 
 return
 end subroutine colxfers

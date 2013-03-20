@@ -117,11 +117,8 @@ call ichk_bnds( nl%iyear1,   "IYEAR1",       0,    9999, 0, nfatal, nwarn )
 ! GRID SPECIFICATIONS
 !--------------------------------------------------------------------------
 
-call ichk_bnds( nl%mdomain, "MDOMAIN",       0,       4, 0, nfatal, nwarn )
+call ichk_bnds( nl%mdomain, "MDOMAIN",       0,       5, 0, nfatal, nwarn )
 call ichk_bnds( nl%meshtype,"MESHTYPE",      1,       2, 0, nfatal, nwarn )
-
-call ichk_bnds( nl%ngrids,   "NGRIDS",       1, maxgrds, 0, nfatal, nwarn, &
-     msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
 
 call ichk_bnds( nl%nzp,         "NZP",       3,   10000, 0, nfatal, nwarn, &
      msgmin="At least 3 vertical levels are needed for OLAM." )
@@ -157,7 +154,26 @@ endif
 ! NESTED GRID DEFINITION
 !--------------------------------------------------------------------------
 
-do ng=2, nl%ngrids
+call ichk_bnds( nl%ngrids,   "NGRIDS",       1, maxgrds, 0, nfatal, nwarn, &
+     msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
+
+call ichk_bnds(nl%nconcave, "NCONCAVE", 1, 3, 0, nfatal, nwarn )
+
+! mdomain = 5 requires nconcave = 3
+
+if (nl%mdomain == 5 .and. nl%nconcave /= 3) then
+   write(io6,*) ' WARNING - Setting NCONCAVE = 3 for a Cartesian domain'
+   nl%nconcave = 3
+endif
+
+! nconcave = 3 requires nxp to be divisible by 3 for a global mesh
+
+if (nl%mdomain < 2 .and. nl%nconcave == 3 .and. mod(nl%nxp,3) /= 0) then
+   write(io6,*) 'FATAL - NXP must be divisible by 3 for NCONCAVE = 3'
+   nfatal = nfatal + 1
+endif
+
+do ng = 2, nl%ngrids
    call ichk_bnds(nl%ngrdll(ng),  "NGRDLL",    1, maxngrdll, 0, nfatal, nwarn )
    call rchk_bnds(nl%grdrad(ng),  "GRDRAD", dzxmin, erad*2., 0, nfatal, nwarn )
 enddo
@@ -165,7 +181,7 @@ enddo
 if (nl%mdomain < 2) then
 
    do i = 1,nl%ngrdll(ng)
-      do ng=2, nl%ngrids
+      do ng = 2, nl%ngrids
          call rchk_bnds( nl%grdlat(ng,i), "GRDLAT",  -90.,  90., 0, nfatal, nwarn )
          call rchk_bnds( nl%grdlon(ng,i), "GRDLON", -180., 180., 0, nfatal, nwarn )
       enddo
@@ -213,9 +229,13 @@ endif
 ! HISTORY FILE OUTPUT
 !--------------------------------------------------------------------------
 
-call ichk_bnds( nl%ioutput,   "IOUTPUT", 0,  1, 2, nfatal, nwarn )
-call ichk_bnds( nl%iclobber, "ICLOBBER", 0,  1, 2, nfatal, nwarn )
-call rchk_bnds( nl%frqstate, "FRQSTATE", nl%dtlong,  r_huge, 2, nfatal, nwarn )
+call ichk_bnds( nl%ioutput  , "IOUTPUT  ", 0, 1, 2, nfatal, nwarn )
+call ichk_bnds( nl%iclobber , "ICLOBBER ", 0, 1, 2, nfatal, nwarn )
+call ichk_bnds( nl%icompress, "ICOMPRESS", 0, 9, 2, nfatal, nwarn )
+call ichk_bnds( nl%ipar_out,  "IPAR_OUT ", 0, 1, 2, nfatal, nwarn )
+call ichk_bnds( nl%iquiet   , "IQUIET   ", 0, 1, 1, nfatal, nwarn )
+
+call rchk_bnds( nl%frqstate, "FRQSTATE", nl%dtlong, r_huge, 2, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! Topography
@@ -230,6 +250,10 @@ call ichk_bnds( nl%itopoflg, "ITOPOFLG", 1,  2, 0, nfatal, nwarn )
 call ichk_bnds( nl%naddsc,   "NADDSC", 0, 1000, 0, nfatal, nwarn )
 call ichk_bnds( nl%icorflg, "ICORFLG", 0,    1, 0, nfatal, nwarn )
 
+call ichk_bnds( nl%ithil_monot, "ITHIL_MONOT", 0, 1, 0, nfatal, nwarn )
+call ichk_bnds( nl%iwind_monot, "IWIND_MONOT", 0, 1, 0, nfatal, nwarn )
+call ichk_bnds( nl%iscal_monot, "ISCAL_MONOT", 0, 1, 0, nfatal, nwarn )
+
 !--------------------------------------------------------------------------
 ! RAYLEIGH FRICTION PARAMETERS
 !--------------------------------------------------------------------------
@@ -239,14 +263,21 @@ if (nl%rayf_distim > r_tiny) &
      call rchk_bnds( nl%rayf_distim, "RAYF_DISTIM", nl%dtlong, r_huge, 2, &
                      nfatal, nwarn )
 call rchk_bnds( nl%rayf_expon, "RAYF_EXPON", 0.0,   5.0, 2, nfatal, nwarn )
-call rchk_bnds( nl%rayf_zmin,   "RAYF_ZMIN", 0.0, r_huge, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayf_zmin,  "RAYF_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
 
 call rchk_bnds( nl%rayfw_distim, "RAYFW_DISTIM", 0.0, r_huge, 2, nfatal, nwarn )
 if (nl%rayfw_distim > r_tiny) &
      call rchk_bnds( nl%rayfw_distim, "RAYFW_DISTIM", nl%dtlong, r_huge, 2, &
      nfatal, nwarn )
 call rchk_bnds( nl%rayfw_expon, "RAYFW_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
-call rchk_bnds( nl%rayfw_zmin,   "RAYFW_ZMIN", 0.0, r_huge, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayfw_zmin,  "RAYFW_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
+
+call rchk_bnds( nl%rayfdiv_distim, "RAYFDIV_DISTIM", 0.0, r_huge, 2, nfatal, nwarn )
+if (nl%rayfdiv_distim > r_tiny) &
+     call rchk_bnds( nl%rayfdiv_distim, "RAYFDIV_DISTIM", nl%dtlong, r_huge, 2, &
+     nfatal, nwarn )
+call rchk_bnds( nl%rayfdiv_expon, "RAYFDIV_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayfdiv_zmin,  "RAYFDIV_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! RADIATION PARAMETERIZATION PARAMETERS
@@ -261,7 +292,7 @@ call rchk_bnds( nl%radfrq,   "RADFRQ", nl%dtlong, r_huge, 2, nfatal, nwarn )
 !--------------------------------------------------------------------------
 
 do ng=1, nl%ngrids
-   call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 2, 0, nfatal, nwarn )
+   call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 4, 0, nfatal, nwarn )
    call ichk_bnds( nl%nqparm_sh(ng), "NQPARM_SH", 0, 1, 0, nfatal, nwarn )
 enddo
 call rchk_bnds( nl%confrq, "CONFRQ", nl%dtlong, r_huge, 2, nfatal, nwarn )
@@ -528,32 +559,45 @@ do iplt = 1, nl%nplt
    if ((nl%plotspecs(iplt)%projectn == 'V'  .or.   &
         nl%plotspecs(iplt)%projectn == 'Z') .and.  &
         nl%mdomain < 2) then
-        
+
         write(io6,*) 'When MDOMAIN < 2, may not use V or Z plot projection'
         nfatal = nfatal + 1
    endif
-   
+
    if ((nl%plotspecs(iplt)%projectn == 'L'  .or.   &
         nl%plotspecs(iplt)%projectn == 'P'  .or.   &
-        nl%plotspecs(iplt)%projectn == 'O'  .or.   &
-        nl%plotspecs(iplt)%projectn == 'C') .and.  &
+        nl%plotspecs(iplt)%projectn == 'O') .and.  &
         nl%mdomain > 1) then
-        
-        write(io6,*) 'When mdomain > 1, may not use L, P, O, or C plot projection'
+
+        write(io6,*) 'When mdomain > 1, may not use L, P, or O plot projection'
         nfatal = nfatal + 1
+   endif
+
+   if (nl%plotspecs(iplt)%projectn == 'C' .and.  &
+       index(nl%plotspecs(i)%pltspec2,'T') > 0 .and. &
+       nl%mdomain > 1) then
+
+        write(io6,*) 'When mdomain > 1, may not use C plot projection for tileplot'
+        nfatal = nfatal + 1
+
+! Planning to relax this condition eventually.
+! At present (12/20/2012), also may not use C plot projection for contouring at V 
+! point, but this is not checked for.
+
    endif
 enddo    
 
 ! TODO - add checks for the plotting variables
 
 !------------------------------------------------------------------------
-! OTHER CONSTANCY CHECKS
+! OTHER CONSISTANCY CHECKS
 !------------------------------------------------------------------------
 
-! TEMPORARY!! ONLY ALLOW MDOMAIN VALUES OF 0, 3, and 4
+! TEMPORARY!! ONLY ALLOW MDOMAIN VALUES OF 0, 3, 4, and 5
 
-if (nl%mdomain /= 0 .and. nl%mdomain /= 3 .and. nl%mdomain /= 4) then
-   write(io6,*) ' FATAL - MDOMAIN temporarily restricted to values of 0, 3, or 4.'
+if (nl%mdomain /= 0 .and. nl%mdomain /= 3 .and. &
+    nl%mdomain /= 4 .and. nl%mdomain /= 5) then
+   write(io6,*) ' FATAL - MDOMAIN temporarily restricted to values of 0, 3, 4, or 5.'
    nfatal = nfatal + 1
 endif
 
@@ -570,7 +614,7 @@ endif
 ! IF THIS IS A GLOBAL SIMULATION, PRINT MESSAGE THAT DELTAX WILL BE
 ! REDEFINED BY NXP.
 
-if (nl%mdomain == 0 .and. nfatal ==0) then
+if (nl%mdomain == 0 .and. nfatal == 0) then
 
    write(io6,*) ' '
    write(io6,*) 'Since MDOMAIN is set to 0, this is configured as a global&
@@ -582,10 +626,10 @@ if (nl%mdomain == 0 .and. nfatal ==0) then
 
 endif
 
-! RUN WITH LONGITUDINALLY HOMOGENEOUS INITIALIZATION MUST BE GLOBAL
+! RUN WITH 3D-VARIABLE OR LONGITUDINALLY HOMOGENEOUS INITIALIZATION MUST BE GLOBAL
 
-if (nl%initial == 3 .and. nl%mdomain /= 0) then
-   write(io6,*) ' FATAL  - mdomain must be 0 if INITIAL = 3.'
+if ((nl%initial == 2 .or. nl%initial == 3) .and. nl%mdomain /= 0) then
+   write(io6,*) ' FATAL  - mdomain must be 0 if INITIAL = 2 or 3.'
    nfatal = nfatal + 1
 endif
   

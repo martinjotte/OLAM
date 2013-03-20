@@ -34,10 +34,10 @@ subroutine oplot_lib(k,i,infotyp,fldname0,wtbot,wttop,fldval,notavail)
 
 use mem_ijtabs,  only: itab_w, itab_u, itab_v, itab_m, itabg_u, itabg_w
 use mem_basic,   only: umc, vmc, wmc, ump, vmp, uc, vc, wc, rho, press, &
-                       thil, theta, sh_w, sh_v
+                       thil, theta, tair, sh_w, sh_v, vxe, vye, vze
 use mem_cuparm,  only: conprr, aconpr
 
-use mem_grid,    only: mza, mua, mva, mwa, lpm, lpu, lcu, lpv, lcv, lpw, lsw, &
+use mem_grid,    only: mza, mua, mva, mwa, lpm, lpu, lcu, lpv, lpw, lsw, &
                        zm, zt, dnu, dnv, arw0, arm0, aru, arv, arw, volt, &
                        volti, volui, volvi, volwi, xem, yem, zem, &
                        xeu, yeu, zeu, xev, yev, zev, xew, yew, zew, &
@@ -58,19 +58,23 @@ use mem_radiate, only: fthrd, rshort, rlong, rlongup, albedt, &
                        rshort_top, rshortup_top, rlongup_top
 use mem_addsc,   only: addsc
 use mem_tend,    only: umt, vmt, wmt
-use mem_turb,    only: vkm, vkm_sfc, sflux_w, sflux_t, sflux_r
+use mem_turb,    only: vkm, vkm_sfc, sflux_w, sflux_t, sflux_r, pblh, hkm
 use mem_nudge,   only: rho_obs, theta_obs, shw_obs, uzonal_obs, umerid_obs, &
                        rho_sim, theta_sim, shw_sim, uzonal_sim, umerid_sim
 
-use misc_coms,   only: io6, pr01d, dn01d, th01d, time8, iparallel, meshtype, naddsc
+use misc_coms,   only: io6, pr01d, dn01d, th01d, time8, iparallel, meshtype, &
+                       naddsc, mdomain
 use oplot_coms,  only: op
-use consts_coms, only: p00, rocp, erad, piu180, cp, alvl, grav, omega2
+use consts_coms, only: p00i, rocp, erad, piu180, cp, alvl, grav, omega2
 use leaf_coms,   only: slcpd, nzg, slmsts, slz, mwl, dt_leaf
 use mem_sflux,   only: landflux, seaflux
 use sea_coms,    only: mws
 use mem_timeavg, only: rshort_avg, rshortup_avg, rlong_avg, rlongup_avg, &
                        rshort_top_avg, rshortup_top_avg, rlongup_top_avg, &
                        sflux_t_avg, sflux_r_avg
+use oname_coms,  only: nl
+
+use mem_swtc5_refsoln_cubic
 
 implicit none
 
@@ -85,17 +89,21 @@ integer, intent(out) :: notavail  ! 0 - variable is available
                                   ! 3 - variable is not available in this run
 
 integer :: klev,nls,iv,iw,kw
-real :: vx,vy,vz,raxis,u,v,vxe,vye,vze,ucint,vcint,farv2,rpolyi
+real :: raxis,u,v,ucint,vcint,farv2,rpolyi
+real :: vx, vy, vz, vxc, vyc, vzc
 real :: tempk,fracliq
 real :: contrib
-
+real :: tuu1, tuu2, tuu3, tuu4
 integer :: iw1,iw2,iwl,iws
+integer :: iu, iu1, iu2, iu3, iu4
 integer :: npoly,j
 integer :: lenstr, ic, ifield
 integer, save :: indp, icase
 
 real :: ucc,vcc
 real :: ucc_init, vcc_init, vx_init, vy_init, vz_init, u_init, v_init
+
+real :: zanal_swtc5, zanal0_swtc5
 
 ! Stored initial values for perturbation calculations
 
@@ -107,7 +115,7 @@ real,         save, allocatable :: uc_init(:,:)
 real,         save, allocatable :: vc_init(:,:)
 real,         save, allocatable :: addsc1_init(:,:)
 
-integer, parameter :: nfields = 296
+integer, parameter :: nfields = 303
 character(len=40) :: fldlib(4,nfields)
 character(len=40), save :: fldname
 
@@ -453,7 +461,7 @@ data fldlib(1:4,269:278)/ &
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,279:293)/ &
+data fldlib(1:4,279:300)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 279
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 280
  'SHW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 281
@@ -468,14 +476,21 @@ data fldlib(1:4,279:293)/ &
  'THETA_OBS_SIM' ,'T3' ,'NUDGING DIF THETA',' (K)'                          ,& ! 290
  'SHW_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 291
  'UZONAL_OBS_SIM','T3' ,'NUDGING DIF ZONAL WIND',' (m s:S2:-1  )'           ,& ! 292
- 'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'            / ! 293
+ 'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'           ,& ! 293
+ 'VXE'           ,'T3' ,'EARTH CARTESIAN X WIND',' (m s:S2:-1  )'           ,& ! 294
+ 'VYE'           ,'T3' ,'EARTH CARTESIAN Y WIND',' (m s:S2:-1  )'           ,& ! 295
+ 'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'           ,& ! 296
+ 'PBLH'          ,'T2' ,'PBL HEIGHT',' (m)'                                 ,& ! 297
+ 'HKM'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 298
+ 'FCELL_GLAT'    ,'F2' ,'FLUXCELL LATITUDE', ' (deg)'                       ,& ! 299
+ 'FCELL_GLON'    ,'F2' ,'FLUXCELL LONGITUDE',' (deg)'                        / ! 300
 
 ! External fields
 
-data fldlib(1:4,294:296)/ &
- 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 294
- 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 295
- 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 296
+data fldlib(1:4,301:303)/ &
+ 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 301
+ 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 302
+ 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 303
 
 if (ncall /= 10) then
    ncall = 10
@@ -489,8 +504,9 @@ if (ncall /= 10) then
    press_init(:,:) = press(:,:)
    rho_init  (:,:) = rho  (:,:)
    theta_init(:,:) = theta(:,:)
-   uc_init   (:,:) = uc   (:,:)
-   vc_init   (:,:) = vc   (:,:)
+
+   if (allocated(uc)) uc_init(:,:) = uc(:,:)
+   if (allocated(vc)) vc_init(:,:) = vc(:,:)
 !   addsc1_init(:,:) = addsc(1)%sclp(:,:)
 
 endif
@@ -614,10 +630,14 @@ select case(icase)
 
 case(1) ! 'UMC'
 
+   if (.not. allocated(umc)) go to 1000
+
    fldval = wtbot * umc(k  ,i) &
           + wttop * umc(k+1,i)
 
 case(2) ! 'VMC'
+
+   if (.not. allocated(vmc)) go to 1000
 
    fldval = wtbot * vmc(k  ,i) &
           + wttop * vmc(k+1,i)
@@ -631,20 +651,28 @@ case(3) ! 'WMC'
 
 case(4) ! 'UMP'
 
+   if (.not. allocated(ump)) go to 1000
+
    fldval = wtbot * ump(k  ,i) &
           + wttop * ump(k+1,i)
 
 case(5) ! 'VMP'
+
+   if (.not. allocated(vmp)) go to 1000
 
    fldval = wtbot * vmp(k  ,i) &
           + wttop * vmp(k+1,i)
 
 case(6) ! 'UC'
 
+   if (.not. allocated(uc)) go to 1000
+
    fldval = wtbot * uc(k  ,i) &
           + wttop * uc(k+1,i)
 
 case(7) ! 'VC'
+
+   if (.not. allocated(vc)) go to 1000
 
    fldval = wtbot * vc(k  ,i) &
           + wttop * vc(k+1,i)
@@ -663,6 +691,10 @@ case(10) ! 'PRESS'
 
    fldval = press(k,i) * .01
 
+   if (nl%test_case == 2 .or. nl%test_case == 5) then
+      fldval = press(k,i)
+   endif
+
 case(11) ! 'THIL'
 
    fldval = wtbot * thil(k  ,i) &
@@ -675,13 +707,13 @@ case(12) ! 'THETA'
 
 case(13) ! 'AIRTEMPK'
 
-   fldval = wtbot * theta(k  ,i) * (press(k  ,i) / p00) ** rocp &
-          + wttop * theta(k+1,i) * (press(k+1,i) / p00) ** rocp
+   fldval = wtbot * tair(k  ,i) &
+          + wttop * tair(k+1,i)
 
 case(14) ! 'AIRTEMPC'
 
-   fldval = wtbot * theta(k  ,i) * (press(k  ,i) / p00) ** rocp &
-          + wttop * theta(k+1,i) * (press(k+1,i) / p00) ** rocp - 273.15
+   fldval = wtbot * tair(k  ,i) &
+          + wttop * tair(k+1,i) - 273.15
 
 case(15) ! 'SH_W'
 
@@ -853,18 +885,27 @@ case(39) ! 'FTHRD'
 
 case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERID_WINDV_P'
 
-   ucc = wtbot * uc(k  ,i) &
-       + wttop * uc(k+1,i)
+   if (meshtype == 1) then
+      iw1 = itab_u(i)%iw(1)
+      iw2 = itab_u(i)%iw(2)
+   else
+      iw1 = itab_v(i)%iw(1)
+      iw2 = itab_v(i)%iw(2)
+   endif
 
-   vcc = wtbot * vc(k  ,i) &
-       + wttop * vc(k+1,i)
+   vx = wtbot * 0.5 * (vxe(k  ,iw1) + vxe(k  ,iw2)) &
+      + wttop * 0.5 * (vxe(k+1,iw1) + vxe(k+1,iw2))
 
-   vx = unx(i) * ucc + vnx(i) * vcc
-   vy = uny(i) * ucc + vny(i) * vcc
-   vz = unz(i) * ucc + vnz(i) * vcc
+   vy = wtbot * 0.5 * (vye(k  ,iw1) + vye(k  ,iw2)) &
+      + wttop * 0.5 * (vye(k+1,iw1) + vye(k+1,iw2))
+
+   vz = wtbot * 0.5 * (vze(k  ,iw1) + vze(k  ,iw2)) &
+      + wttop * 0.5 * (vze(k+1,iw1) + vze(k+1,iw2))
 
    if (trim(fldname) == 'SPEEDV') then
-      fldval = sqrt(vx ** 2 + vy ** 2 + vz ** 2)
+
+      fldval = sqrt(vx** 2 + vy** 2 + vz** 2)
+
    else
 
       u = 0.
@@ -878,9 +919,12 @@ case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERI
             u = (vy * xeu(i) - vx * yeu(i)) / raxis
             v = vz * raxis / erad &
               - (vx * xeu(i) + vy * yeu(i)) * zeu(i) / (raxis * erad) 
+         else
+            u = 0.0
+            v = 0.0
          endif
 
-      else
+      elseif (mdomain < 2) then
 
          raxis = sqrt(xev(i) ** 2 + yev(i) ** 2)  ! dist from earth axis
 
@@ -888,7 +932,15 @@ case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERI
             u = (vy * xev(i) - vx * yev(i)) / raxis
             v = vz * raxis / erad &
               - (vx * xev(i) + vy * yev(i)) * zev(i) / (raxis * erad)
+         else
+            u = 0.0
+            v = 0.0
          endif
+
+      else
+         
+         u = vx
+         v = vy
 
       endif
 
@@ -923,9 +975,12 @@ case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERI
                u_init = (vy_init * xeu(i) - vx_init * yeu(i)) / raxis
                v_init = vz_init * raxis / erad &
                   - (vx_init * xeu(i) + vy_init * yeu(i)) * zeu(i) / (raxis * erad) 
+            else
+               u_init = 0.0
+               v_init = 0.0
             endif
 
-         else
+         elseif (mdomain < 2) then
 
             raxis = sqrt(xev(i) ** 2 + yev(i) ** 2)  ! dist from earth axis
 
@@ -933,7 +988,15 @@ case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERI
                u_init = (vy_init * xev(i) - vx_init * yev(i)) / raxis
                v_init = vz_init * raxis / erad &
                   - (vx_init * xev(i) + vy_init * yev(i)) * zev(i) / (raxis * erad) 
+            else
+               u_init = 0.0
+               v_init = 0.0
             endif
+
+         else
+
+            u_init = vx_init
+            v_init = vy_init
 
          endif
 
@@ -952,50 +1015,35 @@ case(46:49) ! 'SPEEDW','AZIMW','ZONAL_WINDW','MERID_WINDW'
    npoly = itab_w(i)%npoly
    rpolyi = 1. / real(npoly)
 
-   vxe = 0.
-   vye = 0.
-   vze = 0.
+   vx = wtbot * vxe(k  ,i) &
+      + wttop * vxe(k+1,i)
 
-   do j = 1,npoly
+   vy = wtbot * vye(k  ,i) &
+      + wttop * vye(k+1,i)
 
-      if (meshtype == 1) then
-
-         iv = itab_w(i)%iu(j)
-         
-         ucint = wtbot * uc(k,iv) + wttop * uc(k+1,iv) 
-         vcint = wtbot * vc(k,iv) + wttop * vc(k+1,iv) 
-
-         vxe = vxe + rpolyi * (unx(iv) * ucint + vnx(iv) * vcint)
-         vye = vye + rpolyi * (uny(iv) * ucint + vny(iv) * vcint)
-         vze = vze + rpolyi * (unz(iv) * ucint + vnz(iv) * vcint)
-
-      else
-
-         iv = itab_w(i)%iv(j)
-         farv2 = 2. * itab_w(i)%farv(j)
-
-         vcint = wtbot * vc(k,iv) + wttop * vc(k+1,iv) 
-         
-         vxe = vxe + farv2 * vnx(iv) * vcint
-         vye = vye + farv2 * vny(iv) * vcint
-         vze = vze + farv2 * vnz(iv) * vcint
-
-      endif
-
-   enddo
+   vz = wtbot * vze(k  ,i) &
+      + wttop * vze(k+1,i)
 
    if (trim(fldname) == 'SPEEDW') then
-      fldval = sqrt(vxe ** 2 + vye ** 2 + vze ** 2)
+      fldval = sqrt(vx** 2 + vy** 2 + vz** 2)
    else
-      raxis = sqrt(xew(i) ** 2 + yew(i) ** 2)  ! dist from earth axis
+      
+      if (mdomain < 2) then
 
-      if (raxis > 1.e3) then
-         u = (vye * xew(i) - vxe * yew(i)) / raxis
-         v = vze * raxis / erad &
-           - (vxe * xew(i) + vye * yew(i)) * zew(i) / (raxis * erad) 
+         raxis = sqrt(xew(i) ** 2 + yew(i) ** 2)  ! dist from earth axis
+
+         if (raxis > 1.e3) then
+            u = (vy * xew(i) - vx * yew(i)) / raxis
+            v = vz * raxis / erad &
+              - (vx * xew(i) + vy * yew(i)) * zew(i) / (raxis * erad) 
+         else
+            u = 0.
+            v = 0.
+         endif
+
       else
-         u = 0.
-         v = 0.
+         u = vx
+         v = vy
       endif
 
       if (trim(fldname) == 'AZIMW') then
@@ -1014,30 +1062,69 @@ case(50:52) ! 'RVORTZM','RVORTZM_P','TVORTZM'
    do j = 1,itab_m(i)%npoly
 
       if (meshtype == 1) then
-         iv = itab_m(i)%iu(j)
 
-         iw1 = itab_u(iv)%iw(1)
-         iw2 = itab_u(iv)%iw(2)
+         iu = itab_m(i)%iu(j)
+
+         iu1 = itab_u(iu)%iu(1)
+         iu2 = itab_u(iu)%iu(2)
+         iu3 = itab_u(iu)%iu(3)
+         iu4 = itab_u(iu)%iu(4)
+
+         iw1 = itab_u(iu)%iw(1)
+         iw2 = itab_u(iu)%iw(2)
+
+         tuu1 = itab_u(iu)%tuu(1)
+         tuu2 = itab_u(iu)%tuu(2)
+         tuu3 = itab_u(iu)%tuu(3)
+         tuu4 = itab_u(iu)%tuu(4)
+
+         ucc = wtbot * uc(k  ,iu) &
+             + wttop * uc(k+1,iu)
+
+         vcc = wtbot * (uc(k  ,iu1) * tuu1  &
+                      + uc(k  ,iu2) * tuu2  &
+                      + uc(k  ,iu3) * tuu3  &
+                      + uc(k  ,iu4) * tuu4) &
+             + wttop * (uc(k+1,iu1) * tuu1  &
+                      + uc(k+1,iu2) * tuu2  &
+                      + uc(k+1,iu3) * tuu3  &
+                      + uc(k+1,iu4) * tuu4)
       else
+
          iv = itab_m(i)%iv(j)
+
+         vcc = wtbot * vc(k  ,iv) &
+             + wttop * vc(k+1,iv)
+
       endif
+      
+      if (fldname == 'RVORTZM_P') then
 
-      ucc = wtbot * uc(k  ,iv) &
-          + wttop * uc(k+1,iv)
+         if (meshtype == 1) then
 
-      vcc = wtbot * vc(k  ,iv) &
-          + wttop * vc(k+1,iv)
+            ucc_init = wtbot * uc_init(k  ,iu) &
+                     + wttop * uc_init(k+1,iu)
 
-      if (trim(fldname) == 'RVORTZM_P') then
+            vcc_init = wtbot * (uc_init(k  ,iu1) * tuu1  &
+                              + uc_init(k  ,iu2) * tuu2  &
+                              + uc_init(k  ,iu3) * tuu3  &
+                              + uc_init(k  ,iu4) * tuu4) &
+                     + wttop * (uc_init(k+1,iu1) * tuu1  &
+                              + uc_init(k+1,iu2) * tuu2  &
+                              + uc_init(k+1,iu3) * tuu3  &
+                              + uc_init(k+1,iu4) * tuu4)
+            
+            ucc = ucc - ucc_init
+            vcc = vcc - vcc_init
 
-         ucc_init = wtbot * uc_init(k  ,iv) &
-                  + wttop * uc_init(k+1,iv)
+         else
 
-         vcc_init = wtbot * vc_init(k  ,iv) &
-                  + wttop * vc_init(k+1,iv)
+            vcc_init = wtbot * vc_init(k  ,iv) &
+                     + wttop * vc_init(k+1,iv)
 
-         ucc = ucc - ucc_init
-         vcc = vcc - vcc_init
+            vcc = vcc - vcc_init
+
+         endif
 
       endif
 
@@ -1045,14 +1132,14 @@ case(50:52) ! 'RVORTZM','RVORTZM_P','TVORTZM'
 
       if (meshtype == 1) then
 
-         contrib = ucc * (unx(iv) * (xew(iw2) - xew(iw1))  &
-                       +  uny(iv) * (yew(iw2) - yew(iw1))  &
-                       +  unz(iv) * (zew(iw2) - zew(iw1))) &
-                 + vcc * (vnx(iv) * (xew(iw2) - xew(iw1))  &
-                       +  vny(iv) * (yew(iw2) - yew(iw1))  &
-                       +  vnz(iv) * (zew(iw2) - zew(iw1)))
+         contrib = ucc * (unx(iu) * (xew(iw2) - xew(iw1))  &
+                       +  uny(iu) * (yew(iw2) - yew(iw1))  &
+                       +  unz(iu) * (zew(iw2) - zew(iw1))) &
+                 + vcc * (vnx(iu) * (xew(iw2) - xew(iw1))  &
+                       +  vny(iu) * (yew(iw2) - yew(iw1))  &
+                       +  vnz(iu) * (zew(iw2) - zew(iw1)))
 
-         if (i == itab_u(iv)%im(1)) then
+         if (i == itab_u(iu)%im(1)) then
             fldval = fldval + contrib
          else
             fldval = fldval - contrib
@@ -1072,10 +1159,14 @@ case(50:52) ! 'RVORTZM','RVORTZM_P','TVORTZM'
 
    fldval = fldval / arm0(i)
 
+! For shallow water test case 2, subtract initial vorticity to get perturbation
+
+   if (trim(fldname) == 'RVORTZM' .and. nl%test_case == 2) then
+      fldval = fldval - omega2 * zem(i) / (12. * erad)
+   endif
+
    if (trim(fldname) == 'TVORTZM') then
-
       fldval = fldval + omega2 * zem(i) / erad  ! add earth vorticity at M point
-
    endif
 
 case(53) ! 'DIVERG'
@@ -1083,6 +1174,8 @@ case(53) ! 'DIVERG'
    fldval = 0.
 
    npoly = itab_w(i)%npoly
+
+   if (itab_w(i)%iwp == i) then
 
    do j = 1,npoly
 
@@ -1112,21 +1205,26 @@ case(53) ! 'DIVERG'
       endif
 
    enddo
+   endif
 
 case(54) ! 'UMASSFLUX'
 
+   if (meshtype == 2) goto 1000
    fldval = umc(k,i) * aru(k,i)
 
 case(55) ! 'VMASSFLUX'
 
+   if (meshtype == 1) goto 1000
    fldval = vmc(k,i) * arv(k,i)
 
 case(56) ! 'UC_P'
 
+   if (meshtype == 2) goto 1000
    fldval = uc(k,i) - uc_init(k,i)
 
 case(57) ! 'VC_P'
 
+   if (meshtype == 1) goto 1000
    fldval = vc(k,i) - vc_init(k,i)
 
 case(58) ! 'PRESS_P'
@@ -1138,6 +1236,15 @@ case(59) ! 'RHO_P'
    fldval = wtbot * (rho(k  ,i) - rho_init(k  ,i)) &
           + wttop * (rho(k+1,i) - rho_init(k+1,i))
 
+! For shallow water test case 5, define RHO_P from reference fields
+
+   if (nl%test_case == 5) then
+      call npr_bicubics(zanal00_swtc5,glatw(i),glonw(i),zanal0_swtc5)
+      call npr_bicubics(zanal15_swtc5,glatw(i),glonw(i),zanal_swtc5)
+
+      fldval = (rho(k,i) - rho_init(k,i)) - (zanal_swtc5 - zanal0_swtc5)
+   endif
+
 case(60) ! 'THETA_P'
 
    fldval = wtbot * (theta(k  ,i) - theta_init(k  ,i)) &
@@ -1145,17 +1252,19 @@ case(60) ! 'THETA_P'
 
 case(61) ! 'AIRTEMPK_P'
 
-   fldval = wtbot * theta(k  ,i) * (press(k  ,i) / p00) ** rocp &
-          + wttop * theta(k+1,i) * (press(k+1,i) / p00) ** rocp &
-          - wtbot * theta_init(k  ,i) * (press_init(k  ,i) / p00) ** rocp &
-          - wttop * theta_init(k+1,i) * (press_init(k+1,i) / p00) ** rocp
+   fldval = wtbot * tair(k  ,i) &
+          + wttop * tair(k+1,i) &
+          - wtbot * theta_init(k  ,i) * (press_init(k  ,i) * p00i) ** rocp &
+          - wttop * theta_init(k+1,i) * (press_init(k+1,i) * p00i) ** rocp
 
 case(62) ! 'UMT'
 
+   if (meshtype == 2) goto 1000
    fldval = umt(k,i) * volui(k,i)
 
 case(63) ! 'VMT'
 
+   if (meshtype == 1) goto 1000
    fldval = vmt(k,i) * volvi(k,i)
 
 case(64) ! 'WMT'
@@ -1238,7 +1347,7 @@ case(75) ! 'ALBEDT'
 
 case(76) ! 'VKM_SFC'
 
-   fldval = vkm_sfc(i)
+   fldval = vkm_sfc(1,i)
 
 case(77) ! 'SFLUX_W'
 
@@ -1489,7 +1598,7 @@ case(116) ! 'GROUND_SHV'
 
 case(117) ! 'SOIL_DEPTH'
 
-   fldval = -slz(land%lsl(i))
+   fldval = -slz(1)
 
 ! SEA_CELLS - 2D
 
@@ -1562,7 +1671,15 @@ case(128) ! 'CAN_SHV'
 case(129) ! 'SFC_TEMPC'
 
    if (op%stagpt == 'S') then
-      fldval = sea%seatc(i) - 273.15
+      nls = sea%nlev_seaice(i)
+      
+      if (nls > 0) then
+         fldval = (1.0 - sea%seaicec(i)) * (sea%seatc(i) - 273.15) &
+                +        sea%seaicec(i)  * (sea%seaice_tempk(nls,i) - 273.15)
+      else
+         fldval = sea%seatc(i) - 273.15
+      endif
+
    elseif (op%stagpt == 'L') then
       nls = land%nlev_sfcwater(i)
 
@@ -1752,14 +1869,14 @@ case(151) ! 'FCELL_AIRTEMPC'
       if (iparallel == 1) then
          iw = itabg_w(iw)%iw_myrank
       endif
-      fldval = theta(kw,iw) * (press(kw,iw) / p00) ** rocp - 273.15
+      fldval = tair(kw,iw) - 273.15
    elseif (op%stagpt == 'L') then
       kw = landflux(i)%kw
       iw = landflux(i)%iw
       if (iparallel == 1) then
          iw = itabg_w(iw)%iw_myrank
       endif
-      fldval = theta(kw,iw) * (press(kw,iw) / p00) ** rocp - 273.15
+      fldval = tair(kw,iw) - 273.15
    endif
 
 case(152) ! 'FCELL_AIRTEMPK'
@@ -1770,14 +1887,14 @@ case(152) ! 'FCELL_AIRTEMPK'
       if (iparallel == 1) then
          iw = itabg_w(iw)%iw_myrank
       endif
-      fldval = theta(kw,iw) * (press(kw,iw) / p00) ** rocp
+      fldval = tair(kw,iw)
    elseif (op%stagpt == 'L') then
       kw = landflux(i)%kw
       iw = landflux(i)%iw
       if (iparallel == 1) then
          iw = itabg_w(iw)%iw_myrank
       endif
-      fldval = theta(kw,iw) * (press(kw,iw) / p00) ** rocp
+      fldval = tair(kw,iw)
    endif
 
 case(153) ! 'FCELL_CANTEMPC'
@@ -1801,6 +1918,7 @@ case(153) ! 'FCELL_CANTEMPC'
 ! GRID GEOMETRY - 3D
 
 case(154) ! 'ARU'
+   if (.not. allocated(aru)) go to 1000
    fldval = aru(k,i)
 case(155) ! 'ARV'
    if (.not. allocated(arv)) go to 1000
@@ -1856,8 +1974,8 @@ case(174) ! 'LPV'
    if (.not. allocated(lpv)) go to 1000
    fldval = real(lpv(i))
 case(175) ! 'LCV'
-   if (.not. allocated(lcv)) go to 1000
-   fldval = real(lcv(i))
+   if (.not. allocated(lpv)) go to 1000
+   fldval = real(lpv(i))
 case(176) ! 'LPW'
    fldval = real(lpw(i))
 case(177) ! 'LSW'
@@ -1922,7 +2040,8 @@ case(201) ! 'ITAB_M_IV'
 case(202) ! 'ITAB_M_IW'
    fldval = itab_m(i)%iw(indp)
 case(203) ! 'ITAB_M_FMW'
-   fldval = itab_m(i)%fmw(indp)
+   go to 1000 ! currently not used
+   ! fldval = itab_m(i)%fmw(indp)
 
 ! ITAB_U MEMBERS
 
@@ -1998,11 +2117,14 @@ case(235) ! 'ITAB_V_IV'
 case(236) ! 'ITAB_V_IW'
    fldval = itab_v(i)%iw(indp)
 case(237) ! 'ITAB_V_FVV'
-   fldval = itab_v(i)%fvv(indp)
+   go to 1000 ! currently not used
+   ! fldval = itab_v(i)%fvv(indp)
 case(238) ! 'ITAB_V_FVW'
-   fldval = itab_v(i)%fvw(indp)
+   go to 1000 ! currently not used
+   ! fldval = itab_v(i)%fvw(indp)
 case(239) ! 'ITAB_V_FUV'
-   fldval = itab_v(i)%fuv(indp)
+   go to 1000 ! currently not used
+   ! fldval = itab_v(i)%fuv(indp)
 case(240) ! 'ITAB_V_FARW'
    fldval = itab_v(i)%farw(indp)
 
@@ -2225,6 +2347,56 @@ case(293) ! 'UMERID_OBS_SIM'
    fldval = umerid_obs(k,itab_w(i)%iwnud(1)) &
           - umerid_sim(k,itab_w(i)%iwnud(1))
 
+case(294) ! 'VXE'
+
+   if (.not. allocated(vxe)) go to 1000
+
+   fldval = wtbot * vxe(k  ,i) &
+          + wttop * vxe(k+1,i)
+
+case(295) ! 'VYE'
+
+   if (.not. allocated(vye)) go to 1000
+
+   fldval = wtbot * vye(k  ,i) &
+          + wttop * vye(k+1,i)
+
+case(296) ! 'VZE'
+
+   if (.not. allocated(vze)) go to 1000
+
+   fldval = wtbot * vze(k  ,i) &
+          + wttop * vze(k+1,i)
+
+case(297) ! 'PBLH'
+
+   if (.not. allocated(pblh)) go to 1000
+
+   fldval = pblh(i)
+
+case(298) ! 'HKM'
+
+   if (.not. allocated(hkm)) go to 1000
+
+   fldval = wtbot * hkm(k  ,i) / rho(k  ,i) &
+          + wttop * hkm(k+1,i) / rho(k+1,i)
+
+case(299) ! 'FCELL_GLAT'
+
+   if (op%stagpt == 'S') then
+      fldval = real(seaflux(i)%glatf)
+   elseif (op%stagpt == 'L') then
+      fldval = real(landflux(i)%glatf)
+   endif
+
+case(300) ! FCELL_GLON'
+
+   if (op%stagpt == 'S') then
+      fldval = real(seaflux(i)%glonf)
+   elseif (op%stagpt == 'L') then
+      fldval = real(landflux(i)%glonf)
+   endif
+
 case default
 
 ! Optional plot of external field
@@ -2254,4 +2426,3 @@ notavail = 3
 
 return
 end subroutine oplot_lib
-

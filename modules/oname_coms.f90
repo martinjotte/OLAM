@@ -34,7 +34,6 @@ Module oname_coms
 
    use max_dims,    only: nzgmax, maxsndg, maxgrds, maxisdirs, maxnplt,  &
                           maxpltfiles, maxngrdll, pathlen
-   use mem_ed,      only: max_soi, max_ed_regions
    use consts_coms, only: r8
         
    Type oname_plot
@@ -73,7 +72,6 @@ Module oname_coms
 
       integer :: mdomain  = 0
       integer :: meshtype = 0
-      integer :: ngrids   = 0
       integer :: nzp      = 0
       integer :: nxp      = 0
 
@@ -89,12 +87,15 @@ Module oname_coms
 
 !!    NESTED GRID DEFINITION
 
+      integer :: ngrids   = 1
+      integer :: nconcave = 1
+
       integer :: ngrdll(maxgrds) = 0
       real    :: grdrad(maxgrds) = 0.0
 
       real    :: grdlat(maxgrds,maxngrdll) = 0.0
       real    :: grdlon(maxgrds,maxngrdll) = 0.0
-     
+
 !!    TIMESTEP RATIOS
 
       integer :: ndtrat (maxgrds) = 1
@@ -113,9 +114,12 @@ Module oname_coms
 
 !!    GRID, HISTORY FILES
 
-      integer :: ioutput  = 1
-      integer :: iclobber = 0
-      real    :: frqstate = 3600.0
+      integer :: ioutput   = 1
+      integer :: iclobber  = 0
+      integer :: icompress = 0
+      integer :: ipar_out  = 0
+      integer :: iquiet    = 0
+      real    :: frqstate  = 3600.0
 
       character(pathlen) :: gridfile  = 'sfcfile/gridfile_0'
       character(pathlen) :: hfilin    = ''
@@ -128,19 +132,27 @@ Module oname_coms
 
 !!    MODEL/NUMERICAL OPTIONS
 
-      integer :: naddsc    = 0
-      integer :: icorflg   = 1
-      logical :: debug_fp  = .false.
-      logical :: init_nans = .false.
+      integer :: naddsc      = 0
+      integer :: icorflg     = 1
+      integer :: ithil_monot = 0
+      integer :: iwind_monot = 0
+      integer :: iscal_monot = 0
+      logical :: debug_fp    = .false.
+      logical :: init_nans   = .false.
 
 !!    RALEIGH FRICTION PARAMETERS
 
       real :: rayf_zmin    = 30000.0
       real :: rayf_distim  = 0.0
       real :: rayf_expon   = 1.0
+
       real :: rayfw_zmin   = 30000.0
       real :: rayfw_distim = 0.0
       real :: rayfw_expon  = 1.0
+      
+      real :: rayfdiv_zmin   = 30000.0
+      real :: rayfdiv_distim = 0.0
+      real :: rayfdiv_expon  = 1.0
 
 !!    RADIATION PARAMETERIZATION PARAMETERS
 
@@ -243,31 +255,9 @@ Module oname_coms
       character(pathlen) :: soildepth_db    = ''
 
 !!    ED MODEL VARIABLES
-      character(pathlen) :: ed_hfilin     = ''
-      character(pathlen) :: ed_inputs_dir = ''
-      character(pathlen) :: ed_offline_db = ''
 
-      integer :: n_soi         = 0
-      integer :: n_ed_region   = 0
-      integer :: ied_init_mode = 0
-      integer :: istoma_scheme = 0
-      integer :: iphen_scheme  = 0
-      integer :: n_plant_lim   = 0
-      integer :: n_decomp_lim  = 0
-      integer :: include_fire  = 0
-      integer :: ied_offline   = 0
-      integer :: metcyc1       = 0
-      integer :: metcyc2       = 0
-      integer :: ianth_disturb = 0
-
-      real :: treefall_disturbance_rate = 0.0
-      real :: runoff_time = 0.0
-      real :: soi_lat(max_soi)
-      real :: soi_lon(max_soi)
-      real :: ed_reg_latmin(max_ed_regions)
-      real :: ed_reg_latmax(max_ed_regions)
-      real :: ed_reg_lonmin(max_ed_regions)
-      real :: ed_reg_lonmax(max_ed_regions)
+      character(pathlen) :: ed2_namelist    = ''
+      integer :: ed2_active = 0
 
 !!    ISENTROPIC CONTROL
 
@@ -285,6 +275,8 @@ Module oname_coms
       integer :: plttype    = 0
       integer :: pltorient  = 0
       integer :: vec_maxmrl = maxgrds
+      real    :: zplot_min = -1.0
+      real    :: zplot_max = -1.0
 
       character(pathlen) :: pltname     = 'gmeta'
       character(10)      :: prtval_size = 'medium'
@@ -297,8 +289,14 @@ Module oname_coms
 
       type(oname_plot) :: plotspecs(maxnplt)
 
+!!    NCAR DCMIP 2012 PARAMETERS
+
+      integer :: test_case
+
    End Type oname_vars
 
    type (oname_vars), save :: nl
+
+   character(40) :: cmdlne_runtype = ''
 
 End Module oname_coms

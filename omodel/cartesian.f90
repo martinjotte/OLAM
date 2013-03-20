@@ -32,7 +32,15 @@
 !===============================================================================
 subroutine cartesian_2d()
 
-use mem_ijtabs, only: itab_md, itab_ud, itab_wd, mrls, alloc_itabsd
+use mem_ijtabs, only: itab_md, itab_ud, itab_wd, mrls, alloc_itabsd, &
+                      jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
+                      jtm_init, jtu_init, jtv_init, jtw_init, &
+                      jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
+                      jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
+                      jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
+                      jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
+                      jtm_vadj, jtu_wall, jtv_wall, jtw_vadj
+                      
 use mem_grid,   only: nma, nua, nwa, xem, yem, zem, alloc_xyzem
 use misc_coms,  only: io6, nxp, mdomain, deltax
 
@@ -42,23 +50,23 @@ integer :: i,im,iu,iw,im1,im2,im3,im4,iu1,iu2,iu3,iu4,iu5,iw0,iw1,iw2,iw3
 real :: unit_dist,diamond_centx
 
 ! Define triangles, edges, and vertices for 2D cartesian channel domain
-! THIS CASE APPLIES FOR MDOMAIN = 2 (open x bnds) or 3 (cyclic x bnds)
+! THIS CASE APPLIES FOR MDOMAIN = 3 (cyclic x bnds)
 
 mrls = 1  ! Default value
 
 ! Use nxp to count triangles
 
-nma =     nxp + nxp + 2 + 1 ! ADDING 1 for reference point (index = 1)
-nua = 3 * nxp + nxp + 1 + 1 ! ADDING 1 for reference point (index = 1)
-nwa = 2 * nxp           + 1 ! ADDING 1 for reference point (index = 1)
+nma = 2 * nxp + 2 + 1 ! ADDING 1 for reference point (index = 1)
+nua = 4 * nxp + 1 + 1 ! ADDING 1 for reference point (index = 1)
+nwa = 2 * nxp     + 1 ! ADDING 1 for reference point (index = 1)
 
 call alloc_itabsd(nma,nua,nwa)
 
 call alloc_xyzem(nma)
 
 do im = 2,nma
-   itab_md(im)%itopm = im
-   call mdloops('f',im,1,0,1,0)
+   itab_md(im)%imp = im
+   call mdloopf('f',im, jtm_grid, jtm_vadj, 0, 0, 0, 0)
 enddo
 
 do i = 1,nxp
@@ -90,27 +98,14 @@ do i = 1,nxp
    itab_ud(iu1)%iw(2) = iw1
 
    if (i == 1) then
-      if (mdomain == 2) then
-         itab_ud(iu1)%iup = iu1+4
-         call udloops('f',iu1,1,5,7,8,11,14,15, 0,0,0)
-      elseif (mdomain == 3) then
-         itab_ud(iu1)%iup = 4*nxp-6
-         call udloops('f',iu1,1,5,7,8,11,16,17,29,0,0)
-      endif
+      itab_ud(iu1)%iup = 4*nxp-6
+      call udloopf('f',iu1, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
-      if (mdomain == 2) then
-         itab_ud(iu1)%iup = iu1
-         call udloops('f',iu1, 1, 4, 5, 7, 8,11,12,13,14,15)
-         call udloops('n',iu1,16,20, 0, 0, 0, 0, 0, 0, 0, 0)
-      elseif (mdomain == 3) then
-         itab_ud(iu1)%iup = 6
-         call udloops('f',iu1, 1, 4, 5, 7, 8,11,12,14,15,16)
-         call udloops('n',iu1,18,20, 0, 0, 0, 0, 0, 0, 0, 0)
-      endif
+      itab_ud(iu1)%iup = 6
+      call udloopf('f',iu1, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu1)%iup = iu1
-      call udloops('f',iu1, 1, 4, 5, 7, 8,11,12,14,15,16)
-      call udloops('n',iu1,20, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+      call udloopf('f',iu1, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
    endif
 
 ! IU2
@@ -121,7 +116,7 @@ do i = 1,nxp
    itab_ud(iu2)%iw(2) = iw1
    itab_ud(iu2)%iup = iu2
 
-   call udloops('f',iu2,3,11,14,15,0,0,0,0,0,0)
+   call udloopf('f',iu2, jtu_wall, jtu_wadj, jtu_wstn, 0, 0, 0)
 
 ! IU3
 
@@ -131,27 +126,14 @@ do i = 1,nxp
    itab_ud(iu3)%iw(2) = iw2
 
    if (i == 1) then
-      if (mdomain == 2) then
-         itab_ud(iu3)%iup = iu3+4
-         call udloops('f',iu3, 1, 4, 5, 7, 8,11,13,14,15,17)
-         call udloops('n',iu3,20, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-      elseif (mdomain == 3) then
-         itab_ud(iu3)%iup = 4*nxp-4
-         call udloops('f',iu3, 1, 4, 5, 7, 8,11,14,15,18, 0)
-      endif
+      itab_ud(iu3)%iup = 4*nxp-4
+      call udloopf('f',iu3, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
-      if (mdomain == 2) then
-         itab_ud(iu3)%iup = iu3-4
-         call udloops('f',iu3, 1, 4, 5, 7, 8,11,13,14,15,19)
-         call udloops('n',iu3,20, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-      elseif (mdomain == 3) then
-         itab_ud(iu3)%iup = 8
-         call udloops('f',iu3, 1, 4, 5, 7, 8,11,14,15,18, 0)
-      endif
+      itab_ud(iu3)%iup = 8
+      call udloopf('f',iu3, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu3)%iup = iu3
-      call udloops('f',iu3, 1, 4, 5, 7, 8,11,12,14,15,16)
-      call udloops('n',iu3,20, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+      call udloopf('f',iu3, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
    endif
 
 ! IU4
@@ -162,7 +144,7 @@ do i = 1,nxp
    itab_ud(iu4)%iw(2) = 1
    itab_ud(iu4)%iup = iu4
 
-   call udloops('f',iu4, 3,11,14,15, 0, 0, 0, 0, 0, 0)
+   call udloopf('f',iu4, jtu_wall, jtu_wadj, jtu_wstn, 0, 0, 0)
 
 ! IU5
 
@@ -172,13 +154,8 @@ do i = 1,nxp
       itab_ud(iu5)%iw(1) = iw2
       itab_ud(iu5)%iw(2) = iw3
 
-      if (mdomain == 2) then
-         itab_ud(iu5)%iup = iu5-4
-         call udloops('f',iu5, 1, 5, 7, 8,11,14,15,18, 0, 0)
-      elseif (mdomain == 3) then
-         itab_ud(iu5)%iup = 10
-         call udloops('f',iu5, 1, 5, 7, 8,11,14,15,18, 0, 0)
-      endif
+      itab_ud(iu5)%iup = 10
+      call udloopf('f',iu5, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    endif
 
 ! IW1
@@ -190,31 +167,14 @@ do i = 1,nxp
    itab_wd(iw1)%mrlw_orig = 1
 
    if (i == 1) then
-      if (mdomain == 2) then
-         itab_wd(iw1)%iwp = iw2
-         call wdloops('f',iw1, 1, 3, 5, 6, 7, 8,11,14,18,21)
-         call wdloops('n',iw1,22,23,32,33, 0, 0, 0, 0, 0, 0)
-      elseif (mdomain == 3) then
-         itab_wd(iw1)%iwp = 2*nxp-2
-         call wdloops('f',iw1, 1, 3, 5, 6, 7, 8,11,14,18,21)
-         call wdloops('n',iw1,22,24,31,33,35, 0, 0, 0, 0, 0)
-      endif
+      itab_wd(iw1)%iwp = 2*nxp-2
+      call wdloopf('f',iw1, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    elseif (i == nxp) then
-      if (mdomain == 2) then
-         itab_wd(iw1)%iwp = iw1
-         call wdloops('f',iw1, 1, 3, 5, 6, 7, 8,11,12,13,14)
-         call wdloops('n',iw1,15,16,17,18,19,20,21,25,26,27)
-         call wdloops('n',iw1,28,29,30,33,34, 0, 0, 0, 0, 0)
-      elseif (mdomain == 3) then
-         itab_wd(iw1)%iwp = 4
-         call wdloops('f',iw1, 1, 3, 5, 6, 7, 8,11,14,18,21)
-         call wdloops('n',iw1,22,24,31,33,35, 0, 0, 0, 0, 0)
-      endif
+      itab_wd(iw1)%iwp = 4
+      call wdloopf('f',iw1, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    else
       itab_wd(iw1)%iwp = iw1
-      call wdloops('f',iw1, 1, 3, 5, 6, 7, 8,11,12,13,14)
-      call wdloops('n',iw1,16,17,18,19,21,25,26,27,28,29)
-      call wdloops('n',iw1,30,33,34, 0, 0, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw1, jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
    endif
 
 ! IW2
@@ -225,31 +185,14 @@ do i = 1,nxp
    itab_wd(iw2)%mrlw = 1
    itab_wd(iw2)%mrlw_orig = 1
    if (i == 1) then
-      if (mdomain == 2) then
-         itab_wd(iw2)%iwp = iw2
-         call wdloops('f',iw2, 1, 3, 5, 6, 7, 8,11,12,13,14)
-         call wdloops('n',iw2,15,16,17,18,19,20,21,25,26,27)
-         call wdloops('n',iw2,28,29,30,33,34, 0, 0, 0, 0, 0)
-      elseif (mdomain == 3) then
-         itab_wd(iw2)%iwp = 2*nxp-1
-         call wdloops('f',iw2, 1, 3, 5, 6, 7, 8,11,14,18,21)
-         call wdloops('n',iw2,22,24,31,33,35, 0, 0, 0, 0, 0)
-      endif
+      itab_wd(iw2)%iwp = 2*nxp-1
+      call wdloopf('f',iw2, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    elseif (i == nxp) then
-      if (mdomain == 2) then
-         itab_wd(iw2)%iwp = iw1
-         call wdloops('f',iw2, 1, 3, 5, 6, 7, 8,11,14,18,19)
-         call wdloops('n',iw2,21,24,31,35, 0, 0, 0, 0, 0, 0)
-      elseif (mdomain == 3) then
-         itab_wd(iw2)%iwp = 5
-         call wdloops('f',iw2, 1, 3, 5, 6, 7, 8,11,14,18,21)
-         call wdloops('n',iw2,22,24,31,33,35, 0, 0, 0, 0, 0)
-      endif
+      itab_wd(iw2)%iwp = 5
+      call wdloopf('f',iw2, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    else
       itab_wd(iw2)%iwp = iw2
-      call wdloops('f',iw2, 1, 3, 5, 6, 7, 8,11,12,13,14)
-      call wdloops('n',iw2,16,17,18,19,21,25,26,27,28,29)
-      call wdloops('n',iw2,30,33,34, 0, 0, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw2, jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
    endif
 
    unit_dist = .5 * sqrt(3.) * deltax ! This is 1/2 of triangle face width
@@ -278,8 +221,13 @@ end subroutine cartesian_2d
 
 subroutine cartesian_3d()
 
-use mem_ijtabs, only: itab_md, itab_ud, itab_wd, mrls, alloc_itabsd
+use mem_ijtabs, only: itab_md, itab_ud, itab_wd, mrls, alloc_itabsd, &
+                      jtm_grid, jtu_grid, jtw_grid, &
+                      jtu_init, jtu_prog, jtu_wadj, jtu_wstn, jtu_lbcp, &
+                      jtw_init, jtw_prog, jtw_wadj, jtw_wstn, jtw_lbcp
+
 use mem_grid,   only: nma, nua, nwa, xem, yem, zem, alloc_xyzem
+
 use misc_coms,  only: io6, nxp, mdomain, deltax
 
 implicit none
@@ -309,8 +257,8 @@ call alloc_itabsd(nma,nua,nwa)
 call alloc_xyzem(nma)
 
 do im = 2,nma
-   itab_md(im)%itopm = im
-   call mdloops('f',im,1,0,1,0)
+   itab_md(im)%imp = im
+   call mdloopf('f',im, jtm_grid, 0, 0, 0, 0, 0)
 enddo
 
 do i = 1,nxp
@@ -389,13 +337,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu1)%iup = iu3+iucyc
-      call udloops('f',iu1, 1, 5, 7, 8,11,14,15,18, 0, 0)
+      call udloopf('f',iu1, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_ud(iu1)%iup = iu3-iucyc
-      call udloops('f',iu1, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu1, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu1)%iup = iu3
-      call udloops('f',iu1, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu1, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    endif
 
 ! IU2
@@ -407,15 +355,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu2)%iup = iu2+iucyc
-      call udloops('f',iu2, 1, 5, 7, 8,11,14,15,18, 0, 0)
+      call udloopf('f',iu2, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_ud(iu2)%iup = iu2-iucyc
-      call udloops('f',iu2, 1, 4, 5, 7, 8,11,12,14,15,16)
-      call udloops('n',iu2,18,20, 0, 0, 0, 0, 0, 0, 0, 0)
+      call udloopf('f',iu2, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu2)%iup = iu2
-      call udloops('f',iu2, 1, 4, 5, 7, 8,11,12,14,15,16)
-      call udloops('n',iu2,20, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+      call udloopf('f',iu2, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
    endif
 
 ! IU3
@@ -427,15 +373,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu3)%iup = iu3+iucyc
-      call udloops('f',iu3, 1, 5, 7, 8,11,14,15,18, 0, 0)
+      call udloopf('f',iu3, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_ud(iu3)%iup = iu3-iucyc
-      call udloops('f',iu3, 1, 4, 5, 7, 8,11,12,14,15,16)
-      call udloops('n',iu3,18,20, 0, 0, 0, 0, 0, 0, 0, 0)
+      call udloopf('f',iu3, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu3)%iup = iu3
-      call udloops('f',iu3, 1, 4, 5, 7, 8,11,12,14,15,16)
-      call udloops('n',iu3,20, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+      call udloopf('f',iu3, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
    endif
 
 ! IU4
@@ -447,13 +391,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu4)%iup = iu2+iucyc
-      call udloops('f',iu4, 1, 5, 7, 8,11,14,15,18, 0, 0)
+      call udloopf('f',iu4, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_ud(iu4)%iup = iu2-iucyc
-      call udloops('f',iu4, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu4, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu4)%iup = iu2
-      call udloops('f',iu4, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu4, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    endif
 
 ! IU5
@@ -465,13 +409,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu5)%iup = iu6+iucyc
-      call udloops('f',iu5, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu5, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_ud(iu5)%iup = iu6-iucyc
-      call udloops('f',iu5, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu5, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu5)%iup = iu6
-      call udloops('f',iu5, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu5, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    endif
 
 ! IU6
@@ -483,14 +427,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu6)%iup = iu6+iucyc
-      call udloops('f',iu6, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu6, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_ud(iu6)%iup = iu6-iucyc
-      call udloops('f',iu6, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu6, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu6)%iup = iu6
-      call udloops('f',iu6, 1, 4, 5, 7, 8,11,12,14,15,16)
-      call udloops('n',iu6,20, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+      call udloopf('f',iu6, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
    endif
 
 ! IU7
@@ -502,14 +445,14 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu7)%iup = iu6+iucyc
-      call udloops('f',iu7, 1, 4, 5, 7, 8,11,14,15,18, 0)
-   elseif (i == nxp) then
+      call udloopf('f',iu7, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
+    elseif (i == nxp) then
       itab_ud(iu7)%iup = iu6-iucyc
-      call udloops('f',iu7, 1, 4, 5, 7, 8,11,14,15,18, 0)
-   else
+      call udloopf('f',iu7, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
+    else
       itab_ud(iu7)%iup = iu6
-      call udloops('f',iu7, 1, 4, 5, 7, 8,11,14,15,18, 0)
-   endif
+      call udloopf('f',iu7, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
+    endif
 
 ! IU8
 
@@ -520,13 +463,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu8)%iup = iu10+iucyc
-      call udloops('f',iu8, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu8, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_ud(iu8)%iup = iu10-iucyc
-      call udloops('f',iu8, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu8, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu8)%iup = iu10
-      call udloops('f',iu8, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu8, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    endif
 
 ! IU9
@@ -538,14 +481,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu9)%iup = iu9+iucyc
-      call udloops('f',iu9, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu9, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_ud(iu9)%iup = iu9-iucyc
-      call udloops('f',iu9, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu9, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu9)%iup = iu9
-      call udloops('f',iu9, 1, 4, 5, 7, 8,11,12,14,15,16)
-      call udloops('n',iu9,20, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+      call udloopf('f',iu9, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
    endif 
 
 ! IU10
@@ -557,14 +499,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu10)%iup = iu10+iucyc
-      call udloops('f',iu10, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu10, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_ud(iu10)%iup = iu10-iucyc
-      call udloops('f',iu10, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu10, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu10)%iup = iu10
-      call udloops('f',iu10, 1, 4, 5, 7, 8,11,12,14,15,16)
-      call udloops('n',iu10,20, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+      call udloopf('f',iu10, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
    endif
 
 ! IU11
@@ -576,13 +517,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu11)%iup = iu9+iucyc
-      call udloops('f',iu11, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu11, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_ud(iu11)%iup = iu9-iucyc
-      call udloops('f',iu11, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu11, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu11)%iup = iu9
-      call udloops('f',iu11, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu11, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    endif
 
 ! IU12
@@ -594,14 +535,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu12)%iup = iu12+iucyc
-      call udloops('f',iu12, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu12, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_ud(iu12)%iup = iu12-iucyc
-      call udloops('f',iu12, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu12, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu12)%iup = iu12
-      call udloops('f',iu12, 1, 4, 5, 7, 8,11,12,14,15,16)
-      call udloops('n',iu12,20, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+      call udloopf('f',iu12, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
    endif
 
 ! IU13
@@ -613,13 +553,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_ud(iu13)%iup = iu12+iucyc
-      call udloops('f',iu13, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu13, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_ud(iu13)%iup = iu12-iucyc
-      call udloops('f',iu13, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu13, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    else
       itab_ud(iu13)%iup = iu12
-      call udloops('f',iu13, 1, 4, 5, 7, 8,11,14,15,18, 0)
+      call udloopf('f',iu13, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    endif
 
 ! IU14
@@ -631,7 +571,7 @@ do i = 1,nxp
       itab_ud(iu14)%iw(2) = iw13
 
       itab_ud(iu14)%iup = iu16-iucyc
-      call udloops('f',iu14, 1, 5, 7, 8,11,14,15,18, 0, 0)
+      call udloopf('f',iu14, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    endif
 
 ! IU15
@@ -643,7 +583,7 @@ do i = 1,nxp
       itab_ud(iu15)%iw(2) = iw14
 
       itab_ud(iu15)%iup = iu15-iucyc
-      call udloops('f',iu15, 1, 5, 7, 8,11,14,15,18, 0, 0)
+      call udloopf('f',iu15, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    endif
 
 ! IU16
@@ -655,7 +595,7 @@ do i = 1,nxp
       itab_ud(iu16)%iw(2) = iw15
 
       itab_ud(iu16)%iup = iu13-iucyc
-      call udloops('f',iu16, 1, 5, 7, 8,11,14,15,18, 0, 0)
+      call udloopf('f',iu16, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    endif
 
 ! IU17
@@ -667,7 +607,7 @@ do i = 1,nxp
       itab_ud(iu17)%iw(2) = iw16
 
       itab_ud(iu17)%iup = iu15-iucyc
-      call udloops('f',iu17, 1, 5, 7, 8,11,14,15,18, 0, 0)
+      call udloopf('f',iu17, jtu_lbcp, jtu_wadj, jtu_wstn, 0, 0, 0)
    endif
 
 ! IW5
@@ -680,16 +620,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_wd(iw5)%iwp = iw7+iwcyc
-      call wdloops('f',iw5, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw5,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw5, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_wd(iw5)%iwp = iw7-iwcyc
-      call wdloops('f',iw5, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw5,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw5, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    else
       itab_wd(iw5)%iwp = iw7
-      call wdloops('f',iw5, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw5,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw5, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    endif
 
 ! IW6
@@ -702,17 +639,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_wd(iw6)%iwp = iw6+iwcyc
-      call wdloops('f',iw6, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw6,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw6, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_wd(iw6)%iwp = iw6-iwcyc
-      call wdloops('f',iw6, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw6,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw6, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    else
       itab_wd(iw6)%iwp = iw6
-      call wdloops('f',iw6, 1, 3, 5, 6, 7, 8,11,12,13,14)
-      call wdloops('n',iw6,16,17,18,19,21,25,26,27,28,29)
-      call wdloops('n',iw6,30,33,34, 0, 0, 0, 0 ,0 ,0 ,0)
+      call wdloopf('f',iw6, jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
    endif
 
 ! IW7
@@ -725,17 +658,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_wd(iw7)%iwp = iw7+iwcyc
-      call wdloops('f',iw7, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw7,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw7, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_wd(iw7)%iwp = iw7-iwcyc
-      call wdloops('f',iw7, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw7,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw7, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    else
       itab_wd(iw7)%iwp = iw7
-      call wdloops('f',iw7, 1, 3, 5, 6, 7, 8,11,12,13,14)
-      call wdloops('n',iw7,16,17,18,19,21,25,26,27,28,29)
-      call wdloops('n',iw7,30,33,34, 0, 0, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw7, jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
    endif
 
 ! IW8
@@ -748,16 +677,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_wd(iw8)%iwp = iw6+iwcyc
-      call wdloops('f',iw8, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw8,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw8, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_wd(iw8)%iwp = iw6-iwcyc
-      call wdloops('f',iw8, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw8,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw8, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    else
       itab_wd(iw8)%iwp = iw6
-      call wdloops('f',iw8, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw8,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw8, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    endif
 
 ! IW9
@@ -770,16 +696,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_wd(iw9)%iwp = iw11+iwcyc
-      call wdloops('f',iw9, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw9,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw9, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_wd(iw9)%iwp = iw11-iwcyc
-      call wdloops('f',iw9, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw9,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw9, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    else
       itab_wd(iw9)%iwp = iw11
-      call wdloops('f',iw9, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw9,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw9, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    endif
 
 ! IW10
@@ -792,17 +715,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_wd(iw10)%iwp = iw10+iwcyc
-      call wdloops('f',iw10, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw10,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw10, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_wd(iw10)%iwp = iw10-iwcyc
-      call wdloops('f',iw10, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw10,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw10, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    else
       itab_wd(iw10)%iwp = iw10
-      call wdloops('f',iw10, 1, 3, 5, 6, 7, 8,11,12,13,14)
-      call wdloops('n',iw10,16,17,18,19,21,25,26,27,28,29)
-      call wdloops('n',iw10,30,33,34, 0, 0, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw10, jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
    endif
 
 ! IW11
@@ -815,17 +734,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_wd(iw11)%iwp = iw11+iwcyc
-      call wdloops('f',iw11, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw11,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw11, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_wd(iw11)%iwp = iw11-iwcyc
-      call wdloops('f',iw11, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw11,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw11, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    else
       itab_wd(iw11)%iwp = iw11
-      call wdloops('f',iw11, 1, 3, 5, 6, 7, 8,11,12,13,14)
-      call wdloops('n',iw11,16,17,18,19,21,25,26,27,28,29)
-      call wdloops('n',iw11,30,33,34, 0, 0, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw11, jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
    endif
 
 ! IW12
@@ -838,16 +753,13 @@ do i = 1,nxp
 
    if (i == 1) then
       itab_wd(iw12)%iwp = iw10+iwcyc
-      call wdloops('f',iw12, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw12,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw12, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    elseif (i == nxp) then
       itab_wd(iw12)%iwp = iw10-iwcyc
-      call wdloops('f',iw12, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw12,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw12, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    else
       itab_wd(iw12)%iwp = iw10
-      call wdloops('f',iw12, 1, 3, 5, 6, 7, 8,11,14,18,21)
-      call wdloops('n',iw12,22,24,31,33,35, 0, 0, 0, 0, 0)
+      call wdloopf('f',iw12, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
    endif
 
    unit_dist = .5 * sqrt(3.) * deltax ! This is 1/2 of triangle face width
