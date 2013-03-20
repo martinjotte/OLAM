@@ -49,7 +49,7 @@ contains
 
     use mem_turb,    only: hkm, vkm_sfc, sxfer_tk, sxfer_rk, fthpbl, fqtpbl
     use mem_ijtabs,  only: istp, jtab_w, itab_w, mrl_begl
-    use mem_grid,    only: mza, mwa, lpw, dzim, zt, zm, volt, arw, lsw, volti
+    use mem_grid,    only: mza, mwa, lpv, lpw, dzim, zt, zm, volt, arw, lsw, volti
     use misc_coms,   only: io6, idiffk, csx, csz, zkhkm, akmin, dtlm
     use mem_basic,   only: rho, thil, theta, sh_v, vxe, vye, vze, sh_w
     use consts_coms, only: vonk, grav2
@@ -68,19 +68,18 @@ contains
     real,    intent(inout) :: vkm(mza)
     real,    intent(inout) :: rhot(mza,mwa)
 
-    integer :: j,k,ka,n,ks
+    integer :: j, npoly, jw1, jw2, iw1, iw2, iv1, iv2, n, k, ka, ks
 
     real :: richnum,ambda,ambda2,hill_term,richnum_term,sbf
     real :: scalen_asympt,scalen_vert,scalen_horiz,bkmin
 
-    real :: strain2(mza)
+    real :: strain2(mza), strain2h(mza)
     real :: bvfreq2(mza)
     real :: vkz2(mza)
     real :: dzim2 (mza)
     real :: dtl, dtl2, dtli
     real :: s1, s2
-
-    ! Automatic arrays:
+    real :: gxps1, gyps1, gxps2, gyps2
 
     real :: akodz(mza), dtomass(mza)
     real :: vctr3(mza),vctr5(mza),vctr6(mza),vctr7(mza)
@@ -90,6 +89,9 @@ contains
     real :: rhs(mza,max(3,num_scalar)), soln(mza,max(3,num_scalar))
     real :: del_scp(mza,2)
     real :: vctr2(mza,3)
+
+    real :: gxps_vxe(mza), gxps_vye(mza), gxps_vze(mza)
+    real :: gyps_vxe(mza), gyps_vye(mza), gyps_vze(mza)
 
     real, parameter :: rchmax =    3.   ! Test with new asympt vert scale length
     real, parameter :: rmin   = -100.
@@ -102,8 +104,10 @@ contains
 !!
 !!!!!
 
-    do k = 2,mza-2
+    do k = 2,mza-1
        dzim2(k) = dzim(k) * dzim(k)
+
+       strain2h(k) = 0.
     enddo
 
     ka = lpw(iw)
@@ -111,15 +115,92 @@ contains
     scalen_horiz = csx(mrlw) * sqrt(arw0(iw))  ! change this later?
     scalen_asympt = csx(mrlw) * 300.
 
+    if (idiffk(mrlw) == 3) then
+
+    ! Compute horizontal gradients of vxe, vye, vze for full 3D strain rate
+
+       npoly = itab_w(iw)%npoly
+   
+       gxps_vxe(:) = 0.
+       gyps_vxe(:) = 0.
+
+       gxps_vye(:) = 0.
+       gyps_vye(:) = 0.
+
+       gxps_vze(:) = 0.
+       gyps_vze(:) = 0.
+
+! Loop over W neighbors of this W cell
+
+       do jw1 = 1, npoly
+
+          jw2 = mod(jw1,npoly) + 1
+
+          iw1 = itab_w(iw)%iw(jw1)
+          iw2 = itab_w(iw)%iw(jw2)
+
+          iv1 = itab_w(iw)%iv(jw1)
+          iv2 = itab_w(iw)%iv(jw2)
+
+          gxps1 = itab_w(iw)%gxps1(jw1)
+          gyps1 = itab_w(iw)%gyps1(jw1)
+
+          gxps2 = itab_w(iw)%gxps2(jw1)
+          gyps2 = itab_w(iw)%gyps2(jw1)
+
+! Vertical loop over T levels
+! Zero-gradient lateral B.C. below lpv(iv1)
+
+          do k = lpv(iv1), mza-1
+             gxps_vxe(k) = gxps_vxe(k) + gxps1 * (vxe(k,iw1) - vxe(k,iw))
+             gyps_vxe(k) = gyps_vxe(k) + gyps1 * (vxe(k,iw1) - vxe(k,iw))
+
+             gxps_vye(k) = gxps_vye(k) + gxps1 * (vye(k,iw1) - vye(k,iw))
+             gyps_vye(k) = gyps_vye(k) + gyps1 * (vye(k,iw1) - vye(k,iw))
+
+             gxps_vze(k) = gxps_vze(k) + gxps1 * (vze(k,iw1) - vze(k,iw))
+             gyps_vze(k) = gyps_vze(k) + gyps1 * (vze(k,iw1) - vze(k,iw))
+          enddo
+
+! Vertical loop over T levels
+! Zero-gradient lateral B.C. below lpv(iv2)
+
+          do k = lpv(iv2), mza-1
+             gxps_vxe(k) = gxps_vxe(k) + gxps2 * (vxe(k,iw2) - vxe(k,iw))
+             gyps_vxe(k) = gyps_vxe(k) + gyps2 * (vxe(k,iw2) - vxe(k,iw))
+
+             gxps_vye(k) = gxps_vye(k) + gxps2 * (vye(k,iw2) - vye(k,iw))
+             gyps_vye(k) = gyps_vye(k) + gyps2 * (vye(k,iw2) - vye(k,iw))
+
+             gxps_vze(k) = gxps_vze(k) + gxps2 * (vze(k,iw2) - vze(k,iw))
+             gyps_vze(k) = gyps_vze(k) + gyps2 * (vze(k,iw2) - vze(k,iw))
+          enddo
+
+       enddo
+
+    ! Loop over T levels: horizontal gradient contributions to 3D strain rate
+
+       do k = ka,mza-1
+          strain2h(k) = gxps_vxe(k)**2 + gyps_vxe(k)**2 &
+                      + gxps_vye(k)**2 + gyps_vye(k)**2 &
+                      + gxps_vze(k)**2 + gyps_vze(k)**2
+       enddo
+
+    endif ! (idiffk(mrlw) == 3)
+
     ! Loop over W levels
 
     do k = ka,mza-2
 
-       ! Vertical strain rate squared (based on dV/dz only)
+    ! Vertical strain rate squared (based on dV/dz only)
 
        strain2(k) = dzim2(k) * ((vxe(k+1,iw) - vxe(k,iw))**2  &
-                             + (vye(k+1,iw) - vye(k,iw))**2  &
-                             + (vze(k+1,iw) - vze(k,iw))**2)
+                             +  (vye(k+1,iw) - vye(k,iw))**2  &
+                             +  (vze(k+1,iw) - vze(k,iw))**2)
+
+       ! Add horizontal-gradient contribution to strain rate squared
+
+       strain2(k) = strain2(k) + .5 * (strain2h(k) + strain2h(k+1))
 
        bvfreq2(k) = grav2 * dzim(k)  &
                   * (thetav(k+1) - thetav(k)) / (thetav(k+1) + thetav(k))

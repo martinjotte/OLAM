@@ -66,7 +66,7 @@ subroutine pbl_driver(rhot, mrl)
 
   call psub()
 !----------------------------------------------------------------------
-!$omp parallel do private(iw,mrlw,ka,k,ks) 
+!$omp parallel do private(iw,mrlw,ka,k,ks,qc,thetav,thilv,moli,vkh,vkm) 
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
      call qsub('W',iw)
@@ -116,7 +116,7 @@ subroutine pbl_driver(rhot, mrl)
            hkm(k,iw) = 0.5 * (vkh(k-1) + vkh(k))
         enddo
 
-     else if (idiffk(mrlw) == 2) then
+     else if (idiffk(mrlw) == 2 .or. idiffk(mrlw) == 3) then
    
         ! Smagorinsky scheme
 
@@ -132,6 +132,7 @@ subroutine pbl_driver(rhot, mrl)
      enddo
    
   enddo
+!$omp end parallel do
 
 end subroutine pbl_driver
 
