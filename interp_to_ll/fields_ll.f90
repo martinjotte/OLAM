@@ -24,7 +24,8 @@ subroutine fields_ll()
 !--------------------------------------------------------------------------------
 
 use mem_ijtabs,  only: itab_w, itab_u, itab_v
-use mem_basic,   only: uc, vc, wc, rho, press, theta, sh_w, sh_v
+use mem_basic,   only: uc, vc, wc, rho, press, theta, sh_w, sh_v, &
+                       vxe, vye, vze
 
 use mem_grid,    only: mza, mua, mva, mwa, lpu, lpv, lpw, &
                        xem, yem, zem, xeu, yeu, zeu, &
@@ -32,7 +33,7 @@ use mem_grid,    only: mza, mua, mva, mwa, lpu, lpv, lpw, &
                        topw, glatm, glonm, glatw, glonw, zm, zt, &
                        unx, uny, unz, vnx, vny, vnz, dzt
 
-use misc_coms,   only: io6, meshtype
+use misc_coms,   only: io6, meshtype, current_time, hfilepref, iclobber
 
 use mem_micro,   only: accpd, accpr, accpp, accps, accpa, accpg, accph
 
@@ -44,7 +45,9 @@ use mem_timeavg, only: rshort_avg, rshortup_avg, rlong_avg, rlongup_avg, &
                        rshort_top_avg, rshortup_top_avg, rlongup_top_avg, &
                        sflux_t_avg, sflux_r_avg
 
-use hdf5_utils,  only: shdf5_orec
+use hdf5_utils,  only: shdf5_open, shdf5_orec, shdf5_close
+
+use max_dims,    only: pathlen
 
 implicit none
 
@@ -55,13 +58,13 @@ implicit none
 ! LATITUDE-LONGITUDE GRID CROSS THE 180 DEGREE MERIDIAN.
 !--------------------------------------------------------------------------------
 
-integer, parameter :: nlon = 51   ! number of longitude values
-integer, parameter :: nlat = 51   ! number of latitude values
+integer, parameter :: nlon = 641   ! number of longitude values
+integer, parameter :: nlat = 641   ! number of latitude values
 
-real, parameter :: beglon = -130. ! minimum (westernmost) longitude (deg)
-real, parameter :: endlon = -80.  ! maximum (easternmost) longitude (deg)
-real, parameter :: beglat = 10.   ! minimum (southernmost) latitude (deg)
-real, parameter :: endlat = 60.   ! maximum (northernmost) latitude (deg)
+real, parameter :: beglon = -100. ! minimum (westernmost) longitude (deg)
+real, parameter :: endlon = -20.  ! maximum (easternmost) longitude (deg)
+real, parameter :: beglat = -55.   ! minimum (southernmost) latitude (deg)
+real, parameter :: endlat = 25.   ! maximum (northernmost) latitude (deg)
 
 !--------------------------------------------------------------------------------
 ! THE FOLLOWING ARRAYS WILL CONTAIN THE FIELDS THAT ARE DEFINED ON THE 
@@ -126,8 +129,10 @@ real :: scr2_ll(nlon,nlat), scr3_ll(nlon,nlat,mza-2)
 
 real :: uzonal(mza,mua), umerid(mza,mua)
 
-real :: vxe(mza),vye(mza),vze(mza)
 real :: alat1,alat2
+
+! SEIGEL 2013 - Added for ll interp writeout
+character(pathlen) :: hnamel
 
 ! Initialize latitude-longitude arrays to zero prior to interpolation.
 ! For certain applications, zero should be replaced with "missing value".
@@ -200,39 +205,8 @@ do iw = 2,mwa
    npoly = itab_w(iw)%npoly
    kb = lpw(iw)
 
-   vxe(:) = 0.
-   vye(:) = 0.
-   vze(:) = 0.
-
    uzonal(:,iw) = 0.
    umerid(:,iw) = 0.
-
-   do jv = 1,npoly
-
-      if (meshtype == 1) then
-      
-         iv = itab_w(iw)%iu(jv)
-
-         do k = kb,mza-1
-            vxe(k) = vxe(k) + itab_w(iw)%vxu(jv) * uc(k,iv)
-            vye(k) = vye(k) + itab_w(iw)%vyu(jv) * uc(k,iv)
-            vze(k) = vze(k) + itab_w(iw)%vzu(jv) * uc(k,iv)
-         enddo
-
-      else
-
-         iv = itab_w(iw)%iv(jv)
-         farv2 = 2. * itab_w(iw)%farv(jv)
-
-         do k = kb,mza-1
-            vxe(k) = vxe(k) + farv2 * vc(k,iv) * vnx(iv)
-            vye(k) = vye(k) + farv2 * vc(k,iv) * vny(iv)
-            vze(k) = vze(k) + farv2 * vc(k,iv) * vnz(iv)
-         enddo
-
-      endif
-
-   enddo
 
    raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
@@ -242,9 +216,9 @@ do iw = 2,mwa
       raxisi = 1. / raxis
 
       do k = kb,mza-1
-         scr2a(k,iw) = (vye(k) * xew(iw) - vxe(k) * yew(iw)) * raxisi
-         scr2b(k,iw) = vze(k) * raxis * eradi &
-            - (vxe(k) * xew(iw) + vye(k) * yew(iw)) * zew(iw) * raxisi * eradi
+         scr2a(k,iw) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
+         scr2b(k,iw) = vze(k,iw) * raxis * eradi &
+            - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) * zew(iw) * raxisi * eradi
       enddo
 
    endif
@@ -378,6 +352,11 @@ call interp_htw_ll(nlon,nlat,1,1,alon,alat,rlongup_top_avg,rlongup_top_avg_ll)
 
 ! HDF5 write
 
+  ! SEIGEL 2013 - add write for LL interpolation  
+  write(io6,*) 'GOT HERE'
+  call makefnam(hnamel, hfilepref, current_time, 'LL', '$', 'h5')
+  call shdf5_open(hnamel,'W',iclobber) 
+
   ndims = 1
   idims(2) = 1
   idims(3) = 1
@@ -427,6 +406,9 @@ call interp_htw_ll(nlon,nlat,1,1,alon,alat,rlongup_top_avg,rlongup_top_avg_ll)
   CALL shdf5_orec(ndims, idims, 'T_LL', rvara=t_ll)
   CALL shdf5_orec(ndims, idims, 'R_LL', rvara=r_ll)
   CALL shdf5_orec(ndims, idims, 'P_LL', rvara=p_ll)
+
+  ! SEIGEL 2013 - close interpolation write
+  call shdf5_close()
 
 !------------------------------------------------------------
 ! Plot test
