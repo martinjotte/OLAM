@@ -283,7 +283,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
 ! If running leaf3, loop over all SEAFLUX cells to get mean surface radiative
 ! properties for each IW grid cell.
 
-!$omp parallel do private (isf,iw,iws,arf_atm)
+! No OMP parallelization of following J/ISF loop unless conflicts are prevented
    do j = 1,jseaflux(1)%jend(1)
       isf = jseaflux(1)%iseaflux(j)
       iw  = seaflux(isf)%iw        ! global index
@@ -304,7 +304,6 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
       albedt_diffuse(iw) = albedt_diffuse(iw) + arf_atm * sea%albedo_diffuse(iws)
 
    enddo
-!$omp end parallel do
 
 ! Do parallel recv of LAND albedos and rlongup
 
@@ -315,7 +314,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
 ! If running leaf3, loop over all LANDFLUX cells to get mean surface radiative
 ! properties for each IW grid cell.
 
-!$omp parallel do private (ilf,iw,iwl,arf_atm)
+! No OMP parallelization of following J/ILF loop unless conflicts are prevented
    do j = 1,jlandflux(1)%jend(1)
       ilf = jlandflux(1)%ilandflux(j)
       iw  = landflux(ilf)%iw         ! global index
@@ -341,7 +340,6 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
                          + arf_atm * land%albedo_diffuse(iwl)
 
    enddo
-!$omp end parallel do
 
 ! Loop over all radiative IW grid columns
 
@@ -446,7 +444,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
 ! If running leaf3, loop over SEAFLUX cells to transfer downward surface
 ! shortwave and longwave fluxes from IW atmospheric column to sea cells
 
-!$omp parallel do private (isf,iws)
+! No OMP parallelization of following J/ISF loop unless conflicts are prevented
    do j = 1,jseaflux(2)%jend(1)
       isf = jseaflux(2)%iseaflux(j)
       iws = seaflux(isf)%iwls       ! global index
@@ -463,7 +461,6 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
                               + seaflux(isf)%rshort_diffuse
 
    enddo
-!$omp end parallel do
 
 ! Loop over all SEA cells to compute radiative fluxes for all 
 ! seaice components, given that rshort and rlong are now updated.
@@ -498,7 +495,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
 ! If running leaf3, loop over LANDFLUX cells to transfer downward surface
 ! shortwave and longwave fluxes from IW atmospheric column to land cells
 
-!$omp parallel do private (ilf,iwl,arf_land)
+! No OMP parallelization of following J/ILF loop unless conflicts are prevented
    do j = 1,jlandflux(2)%jend(1)
       ilf = jlandflux(2)%ilandflux(j)
       iwl = landflux(ilf)%iwls       ! global index
@@ -516,7 +513,6 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
       land%rshort_diffuse(iwl) = land%rshort_diffuse(iwl)  &
                                + landflux(ilf)%rshort_diffuse
    enddo
-!$omp end parallel do
 
 ! If running leaf3, loop over all LAND cells to compute radiative fluxes 
 ! for all cell components, given that rshort and rlong are now updated.
@@ -715,9 +711,12 @@ end subroutine sunloc
 
 subroutine radinit()
 
-use mem_radiate, only: maxadd_rad, nadd_rad, zmrad
-use mem_grid,    only: mza, zm
-use misc_coms,   only: io6, iswrtyp, ilwrtyp
+use mem_radiate,   only: maxadd_rad, nadd_rad, zmrad
+use mem_grid,      only: mza, zm
+use misc_coms,     only: io6, iswrtyp, ilwrtyp
+use consts_coms,   only: cp
+! use rrtmg_sw_init, only: rrtmg_sw_ini
+! use rrtmg_lw_init, only: rrtmg_lw_ini
 
 implicit none
 
@@ -727,39 +726,34 @@ real :: deltaz
 ! model prognostic level.  (Added levels will be filled elsewhere with data 
 ! from Mclatchy soundings.)
 
-if (zm(mza-1) > 25000.) then
+! (3/13/2013) Following recent recommendations that at least one level should
+! always be added, we choose here to always add at least 5 levels AND to always 
+! carry the radiation up to at least 45 km.
+
+! Estimate a reasonable value for the height increment between added levels.
+! Make it approximately the increment between the two highest model levels,
+! but no less than allowed by maxadd_rad, the maximum number of added levels.
    
-   ! If model top is above 25 km (roughly 30 mb tropics), add a single layer 
-   ! that extends from the model top to the top-of-atmosphere
-
-   nadd_rad = 1
-   zmrad = zm(mza-1)
-
-else
-
-   ! If grid top < 25 km, add one or more radiation levels.
-   ! Set the top level at 30 km (rougly 15 mb tropics).
-
-   ! Estimate a reasonable value for the height increment between added levels.
-   ! Make it approximately the increment between the two highest model levels,
-   ! but no less than allowed by maxadd_rad, the maximum number of added levels.
-   
-   zmrad = 30.e3
+   zmrad = 45.e3
 
    deltaz = max( zm(mza-1) - zm(mza-2), (zmrad - zm(mza-1)) / real(maxadd_rad) )
+
+   zmrad = max(zmrad, zm(mza-1) + 5. * deltaz)
 
    nadd_rad = nint( (zmrad - zm(mza-1)) / deltaz )
    nadd_rad = max(nadd_rad,1)
    nadd_rad = min(nadd_rad,maxadd_rad)
 
-   ! Also add an extra layer that extends to the top-of-atmosphere
-
-   nadd_rad = nadd_rad + 1
-
-endif
-
 ! Initialize constants for Harrington s/w and l/w radiation computations
 
 if (iswrtyp == 3 .or. ilwrtyp == 3) call harr_radinit()
+
+! Initialize RRTMG s/w scheme
+!
+!if (iswrtyp == 2) call rrtmg_sw_ini(cp)
+!
+! Initialize RRTMG l/w scheme
+!
+!if (ilwrtyp == 2) call rrtmg_lw_ini(cp)
 
 end subroutine radinit

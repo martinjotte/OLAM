@@ -287,6 +287,13 @@ call ichk_bnds( nl%iswrtyp, "ISWRTYP", 0,  3, 0, nfatal, nwarn )
 call ichk_bnds( nl%ilwrtyp, "ILWRTYP", 0,  3, 0, nfatal, nwarn )
 call rchk_bnds( nl%radfrq,   "RADFRQ", nl%dtlong, r_huge, 2, nfatal, nwarn )
 
+! Currently, radiation types of 1 and 2 are invalid
+if ( nl%iswrtyp==1 .or. nl%ilwrtyp==1 .or. &
+     nl%iswrtyp==2 .or. nl%ilwrtyp==2 ) then
+   write(io6,*) 'FATAL - Radiation types 1 or 2 are invalid'
+   nfatal = nfatal + 1
+endif
+
 !--------------------------------------------------------------------------
 ! CUMULUS PARAMETERIZATION PARAMETERS
 !--------------------------------------------------------------------------
