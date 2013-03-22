@@ -97,7 +97,8 @@ real, parameter :: cpog     = cp / grav
 real, parameter :: gocp     = grav / cp
 real, parameter :: gordry   = grav / rdry
 real, parameter :: rdryog   = rdry / grav
-real, parameter :: eps_vap  = rdry / rvap          
+real, parameter :: eps_vap  = rdry / rvap
+real, parameter :: eps_vapi = rvap / rdry
 real, parameter :: eps_virt = (rvap - rdry) / rdry 
 real, parameter :: p00k     = 26.870941          ! = p00 ** rocp  
 real, parameter :: p00ki    = 1. / p00k           

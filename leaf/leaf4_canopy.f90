@@ -722,7 +722,7 @@ Contains
 
 ! veg_water fractional coverage
 
-    sigmaw = min(1.,(veg_water / (.2 * stai)) ** .66667)
+    sigmaw = min(1.,(veg_water / (.2 * stai)) ** .66666666)
 
     a1 = dt_leaf * 2. * stai / rb                  ! veg vap xfer coef (dew formation)
     a2 = cp * rhos * a1                            ! veg heat xfer coef
