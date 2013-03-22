@@ -47,15 +47,16 @@ contains
 
   subroutine turb_k(iw, mrlw, rhot, thetav, vkh, vkm)
 
-    use mem_turb,    only: hkm, vkm_sfc, sxfer_tk, sxfer_rk, fthpbl, fqtpbl
+    use mem_turb,    only: hkm, vkm_sfc, sxfer_rk, fthpbl, fqtpbl
     use mem_ijtabs,  only: istp, jtab_w, itab_w, mrl_begl
     use mem_grid,    only: mza, mwa, lpv, lpw, dzim, zt, zm, volt, arw, lsw, volti
     use misc_coms,   only: io6, idiffk, csx, csz, zkhkm, akmin, dtlm
     use mem_basic,   only: rho, thil, theta, sh_v, vxe, vye, vze, sh_w
     use consts_coms, only: vonk, grav2
     use mem_grid,    only: mza, lpw, arw0, dzm, dzim, zm
-    use mem_tend,    only: vmxet, vmyet, vmzet, thilt, sh_wt
-    use var_tables,  only: num_scalar, scalar_tab
+    use mem_tend,    only: vmxet, vmyet, vmzet
+    use var_tables,  only: num_scalar, scalar_tab, sxfer_map, num_sxfer, &
+                           emis_map, num_emis
     use tridiag,     only: tridv
 
  !$ use omp_lib
@@ -68,7 +69,7 @@ contains
     real,    intent(inout) :: vkm(mza)
     real,    intent(inout) :: rhot(mza,mwa)
 
-    integer :: j, npoly, jw1, jw2, iw1, iw2, iv1, iv2, n, k, ka, ks
+    integer :: j, npoly, jw1, jw2, iw1, iw2, iv1, iv2, n, ns, k, ka, ks, kmax
 
     real :: richnum,ambda,ambda2,hill_term,richnum_term,sbf
     real :: scalen_asympt,scalen_vert,scalen_horiz,bkmin
@@ -87,7 +88,7 @@ contains
     real :: vctr9a(mza),vctr9b(mza),vctr9c(mza)
 
     real :: rhs(mza,max(3,num_scalar)), soln(mza,max(3,num_scalar))
-    real :: del_scp(mza,2)
+    real :: del_scp(mza)
     real :: vctr2(mza,3)
 
     real :: gxps_vxe(mza), gxps_vye(mza), gxps_vze(mza)
@@ -337,38 +338,6 @@ contains
 
 !!!!!
 !!
-!! APPLY SURFACE HEAT AND MOISTURE FLUXES DIRECTLY TO TENDENCY ARRAYS
-!!
-!!!!!
-    
-    ! Vertical loop over T levels that are adjacent to surface
-
-    do ks = 1,lsw(iw)
-       k = ka + ks - 1
-
-       ! Apply surface heat xfer [kg_a K] directly to thilt [kg_a K / s]
-
-       thilt(k,iw) = thilt(k,iw) + dtli * volti(k,iw) * sxfer_tk(ks,iw)
-
-       ! Apply surface vapor xfer [kg_vap] directly to sh_wt [kg_vap / (m^3 s)]
-
-       sh_wt(k,iw) = sh_wt(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
-
-       ! Apply surface vapor xfer [kg_vap] directly to rhot [kg_air / s]
-
-       rhot(k,iw) = rhot(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
-
-       if (allocated(fthpbl)) then
-          fthpbl(k,iw) = dtli * volti(k,iw) * sxfer_tk(ks,iw) / rho(k,iw)
-       endif
-       
-       if (allocated(fqtpbl)) then
-          fqtpbl(k,iw)  = dtli * volti(k,iw) * sxfer_rk(ks,iw) / rho(k,iw)
-       endif
-    enddo
-
-!!!!!
-!!
 !! COMPUTE TEMPERATURE AND SCALAR TENDENCIES DUE TO VERTICAL MIXING
 !! THE SOLVER COMPUTES THE FUTURE FLUXES, NOT THE FUTURE SCALAR VALUES
 !!
@@ -387,21 +356,52 @@ contains
        enddo
     enddo
 
-    ! Include the changes in the future fluxes due to surface heat and vapor transfer
+    ! APPLY SURFACE HEAT AND MOISTURE FLUXES DIRECTLY TO TENDENCY ARRAYS, AND
+    ! INCLUDE THE CHANGES IN THE FUTURE FLUXES DUE TO SURFACE TRANSFER
 
-    do ks = 1,lsw(iw)
-       k = ka + ks - 1
-       del_scp(k,1) = sxfer_tk(ks,iw) / (rho(k,iw) * volt(k,iw))
-       del_scp(k,2) = sxfer_rk(ks,iw) / (rho(k,iw) * volt(k,iw))
-    enddo
+    do ns = 1, num_sxfer
+       n = sxfer_map(ns)
 
-    del_scp(ka+lsw(iw),:) = 0.0
+       do ks = 1, lsw(iw)
+          k = ka + ks - 1
+
+          scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                    + dtli * volti(k,iw) * scalar_tab(n)%sxfer(ks,iw)
+
+          del_scp(k) = scalar_tab(n)%sxfer(ks,iw) / (rho(k,iw) * volt(k,iw))
+       enddo
+
+       del_scp(ka+lsw(iw)) = 0.0
     
-    do ks = 1,lsw(iw)
-       k = ka + ks - 1
-       rhs(k,1) = rhs(k,1) + akodz(k) * (del_scp(k,1) - del_scp(k+1,1)) ! temperature
-       rhs(k,2) = rhs(k,2) + akodz(k) * (del_scp(k,2) - del_scp(k+1,2)) ! water vapor
+       do ks = 1, lsw(iw)
+          k = ka + ks - 1
+          rhs(k,n) = rhs(k,n) + akodz(k) * (del_scp(k) - del_scp(k+1))
+       enddo
     enddo
+
+    ! APPLY EMISSIONS DIRECTLY TO THE TENDENCY ARRAYS, AND
+    ! INCLUDE THE CHANGES IN THE FUTURE FLUXES DUE TO EMISSIONS
+    ! (emis units are concentration / sec )
+
+    if (num_emis > 0) then
+
+       do ns = 1, num_emis
+          n = emis_map(ns)
+
+          do k = ka, mza-2
+             scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                       + rho(k,iw) * scalar_tab(n)%emis(k,iw)
+
+             del_scp(k) = scalar_tab(n)%emis(k,iw) * dtl
+          enddo
+          
+          del_scp(mza-1) = 0.0
+    
+          do k = ka, mza-2
+             rhs(k,n) = rhs(k,n) + akodz(k) * (del_scp(k) - del_scp(k+1))
+          enddo
+       enddo
+    endif
 
     ! Solve tri-diagonal matrix equation
 
@@ -423,17 +423,13 @@ contains
        enddo
     enddo
 
-    ! special for Grell scheme inputs:
-    do k = ka, mza-1
-       if (allocated(fthpbl)) then
-          fthpbl(k,iw) = fthpbl(k,iw) + dtli * volti(k,iw) * (soln(k-1,1) - soln(k,1))
-       endif
-       
-       if (allocated(fqtpbl)) then
-          fqtpbl(k,iw) = fqtpbl(k,iw) + dtli * volti(k,iw) * (soln(k-1,2) - soln(k,2))
-       endif
+    ! Apply surface vapor xfer [kg_vap] directly to rhot [kg_air / s]
+
+    do ks = 1, lsw(iw)
+       k = ka + ks - 1
+       rhot(k,iw) = rhot(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
     enddo
-    
+
   end subroutine turb_k
 
 end module smagorinsky

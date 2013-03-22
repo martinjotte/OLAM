@@ -70,16 +70,22 @@ Module var_tables
 
   type scalar_table
 
-     real, pointer :: var_p(:,:)
-     real, pointer :: var_t(:,:)
+     real, pointer :: var_p(:,:) => null()
+     real, pointer :: var_t(:,:) => null()
+     real, pointer :: sxfer(:,:) => null()
+     real, pointer :: emis (:,:) => null()
 
      character (len=32) :: name
 
   end type scalar_table
 
   type(scalar_table), allocatable :: scalar_tab(:)
+  integer,            allocatable :: sxfer_map (:)
+  integer,            allocatable :: emis_map  (:)
 
   integer :: num_scalar = 0
+  integer :: num_sxfer  = 0
+  integer :: num_emis   = 0
 
 !-------------------------------------------------------------------
 
@@ -248,33 +254,89 @@ Contains
 
 !===============================================================================
 
-  subroutine vtables_scalar(varp,vart,name)
+  subroutine vtables_scalar(varp,vart,name,sxfer,emis)
+    use misc_coms, only: io6
     implicit none
 
-    real, target,     intent(in) :: varp(:,:)
-    real, target,     intent(in) :: vart(:,:)
-    character(len=*), intent(in) :: name
+    real, target,           intent(in) :: varp (:,:)
+    real, target,           intent(in) :: vart (:,:)
+    character(len=*),       intent(in) :: name
+
+    real, target, optional, intent(in) :: sxfer(:,:)
+    real, target, optional, intent(in) :: emis (:,:)
 
     integer                         :: ntsize
-    integer, parameter              :: ialloc = 20
+    integer,            parameter   :: ialloc = 20
+
     type(scalar_table), allocatable :: scalar_copy(:)
+    integer,            allocatable ::  sxfer_copy(:)
+    integer,            allocatable ::   emis_copy(:)
 
     ! Initial allocation of tables if this is the first call
+
     if (.not. allocated(scalar_tab)) allocate(scalar_tab(ialloc))
+
+    if (present(sxfer)) then
+       if (.not. allocated(sxfer_map)) allocate(sxfer_map(ialloc))
+    endif
+
+    if (present(emis)) then
+       if (.not. allocated(emis_map)) allocate(emis_map(ialloc))
+    endif
 
     num_scalar = num_scalar + 1
     ntsize = size(scalar_tab)
 
     ! Increase scalar table size if necessary
-    if (nvar_par > ntsize) then
+    if (num_scalar > ntsize) then
        allocate(scalar_copy(ntsize+ialloc))
        scalar_copy(1:ntsize) = scalar_tab
        call move_alloc(scalar_copy, scalar_tab) 
     endif
 
-    scalar_tab(num_scalar)%name = name
+    scalar_tab(num_scalar)%name  =  name
     scalar_tab(num_scalar)%var_p => varp
     scalar_tab(num_scalar)%var_t => vart
+
+    ! If this species has surface transfer, include it in the table
+    
+    if (present(sxfer)) then
+
+       num_sxfer = num_sxfer + 1
+       ntsize = size(sxfer_map)
+
+       ! Increase sxfer table size if necessary
+       if (num_sxfer > ntsize) then
+          allocate(sxfer_copy(ntsize+ialloc))
+          sxfer_copy(1:ntsize) = sxfer_map
+          call move_alloc(sxfer_copy, sxfer_map) 
+       endif
+
+       scalar_tab(num_scalar)%sxfer => sxfer
+       sxfer_map(num_sxfer) = num_scalar
+       
+    endif
+
+    ! If this species has emissions, include it in the table
+    
+    if (present(emis)) then
+
+       num_emis = num_emis + 1
+       ntsize = size(emis_map)
+
+       ! Increase emis table size if necessary
+       if (num_emis > ntsize) then
+          allocate(emis_copy(ntsize+ialloc))
+          emis_copy(1:ntsize) = emis_map
+          call move_alloc(emis_copy, emis_map) 
+       endif
+
+       scalar_tab(num_scalar)%emis => emis
+       emis_map(num_emis) = num_scalar
+       
+       write(io6,*) "Emissions:", scalar_tab(num_scalar)%name, num_emis, num_scalar
+
+    endif
 
   end subroutine vtables_scalar
 

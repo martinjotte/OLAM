@@ -19,9 +19,6 @@ module module_bl_acm2
   implicit none
 
   real, parameter :: ric    = 0.25  ! critical richardson number
-  real, parameter :: crankp = 1.0   ! crank-nic parameter
-  real, parameter :: crankq = 1.0 - crankp 
-
   real, parameter :: mvonk  =      - vonk
   real, parameter :: vonk72 = 0.72 * vonk
 
@@ -37,13 +34,14 @@ contains
   subroutine acm2( iw, rhot, moli, ustar, pblh, kpblh, thetav, zkh )
 
     use mem_grid,   only: arw, volt, volti, lpw, lsw, nsw_max, mwa, zfacm
-    use mem_turb,   only: vkm_sfc, sxfer_tk, sxfer_rk, frac_sfc
+    use mem_turb,   only: vkm_sfc, frac_sfc, sxfer_rk
     use mem_basic,  only: vxe, vye, vze, rho, sh_w
-    use mem_tend,   only: vmxet, vmyet, vmzet, thilt, sh_wt
+    use mem_tend,   only: vmxet, vmyet, vmzet
     use mem_ijtabs, only: itab_w
     use misc_coms,  only: dtlm, io6
     use tridiag,    only: tridv, acm_matrix
-    use var_tables, only: num_scalar, scalar_tab
+    use var_tables, only: num_scalar, scalar_tab, sxfer_map, num_sxfer, &
+                          emis_map, num_emis
 
     implicit none
 
@@ -74,7 +72,7 @@ contains
 
     real :: fact(nsw_max)
 
-    integer :: k, ks, n, ksm, ksp, kk, ksmax
+    integer :: k, ks, n, ns, ksm, ksp, kk, ksmax, kmax
     real :: hovl, mbar, fnl
     real :: dtl, dtli
     
@@ -137,36 +135,27 @@ contains
 
     do k = kbot, ktop
        dtom(k)  = dtl * volti(k,iw) / rho(k,iw)
-       low(k)   = -crankp * dtom(k) * akodz(k-1)
-       upp(k)   = -crankp * dtom(k) * akodz(k  )
+       low(k)   = -dtom(k) * akodz(k-1)
+       upp(k)   = -dtom(k) * akodz(k  )
        dia(k)   = 1.0 - low(k) - upp(k)
-       rhs(k,1) = vxe(k,iw) &
-                + dtom(k) * crankq * (aflux(k-1,1) - aflux(k,1))
-       rhs(k,2) = vye(k,iw) &
-                + dtom(k) * crankq * (aflux(k-1,2) - aflux(k,2))
-       rhs(k,3) = vze(k,iw) &
-                + dtom(k) * crankq * (aflux(k-1,3) - aflux(k,3))
+       rhs(k,1) = vxe(k,iw) 
+       rhs(k,2) = vye(k,iw)
+       rhs(k,3) = vze(k,iw)
     enddo
 
     ! Surface drag
     
     do k = kbot, kbot + nsfc - 1
        ks = k - kbot + 1
-
        fact(ks) = 2.0 * vkm_sfc(ks,iw) * dzim(k-1) * (arw(k,iw) - arw(k-1,iw))
-
-       dia(k)   = dia(k)   + dtom(k) * crankp * fact(ks)
-
-       rhs(k,1) = rhs(k,1) - dtom(k) * crankq * fact(ks) * vxe(k,iw)
-       rhs(k,2) = rhs(k,2) - dtom(k) * crankq * fact(ks) * vye(k,iw)
-       rhs(k,3) = rhs(k,3) - dtom(k) * crankq * fact(ks) * vze(k,iw)
+       dia(k)   = dia(k)   + dtom(k) * fact(ks)
     enddo
 
     ! tridv - low, diag, upper, rhs, soln
                
     call tridv( low, dia, upp, rhs, soln, kbot, ktop, mza, 3)
 
-    ! Now, soln contains velocity(t+1) values
+    ! Now, soln contains future(t+1) values
 
     ! Compute internal vertical turbulent fluxes
 
@@ -222,13 +211,30 @@ contains
        enddo
     enddo
 
-    ! Include surface fluxes
+    ! Include surface exchange
     
-    do k = kbot, kbot + nsfc - 1
-       ks = k - kbot + 1
-       rhs(ks,1) = rhs(ks,1) + sxfer_tk(ks,iw) * volti(k,iw) / rho(k,iw)
-       rhs(ks,2) = rhs(ks,2) + sxfer_rk(ks,iw) * volti(k,iw) / rho(k,iw)
-    enddo
+    if (num_sxfer > 0) then
+       kmax = min(kbot + nsfc - 1, ktop)
+       do ns = 1, num_sxfer
+          n = sxfer_map(ns)
+          do k = kbot, kmax
+             ks = k - kbot + 1
+             rhs(ks,n) = rhs(ks,n) + scalar_tab(n)%sxfer(ks,iw) * volti(k,iw) / rho(k,iw)
+          enddo
+       enddo
+    endif
+
+    ! Include emissions (emis units are concentration / sec )
+
+    if (num_emis > 0) then
+       do ns = 1, num_emis
+          n = emis_map(ns)
+          do k = kbot, ktop
+             ks = k - kbot + 1
+             rhs(ks,n) = rhs(ks,n) + scalar_tab(n)%emis(k,iw) * dtl
+          enddo
+       enddo
+    endif
 
     ! IF CONVECTIVE, INCLUDE NONLOCAL TERMS
        
@@ -269,7 +275,7 @@ contains
 
     endif
 
-    ! Now, soln contains velocity(t+1) values
+    ! Now, soln contains future(t+1) values
 
     ! Compute internal vertical turbulent fluxes due to Kh
 
@@ -314,21 +320,36 @@ contains
        enddo
     enddo
 
-    ! Include tendencies due to surface drag
+    ! Include tendencies due to surface exchange
+
+    if (num_sxfer > 0) then
+       kmax = min(kbot + nsfc - 1, ktop)
+       do ns = 1, num_sxfer
+          n = sxfer_map(ns)
+          do k = kbot, kmax
+             ks = k - kbot + 1
+             scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                       + dtli * volti(k,iw) * scalar_tab(n)%sxfer(ks,iw)
+          enddo
+       enddo
+    endif
+
+    ! Include tendencies due to emissions (emis units are concentration / sec )
+
+    if (num_emis > 0) then
+       do ns = 1, num_emis
+          n = emis_map(ns)
+          do k = kbot, ktop
+             scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                       + rho(k,iw) * scalar_tab(n)%emis(k,iw)
+          enddo
+       enddo
+    endif
+
+    ! Apply surface vapor xfer [kg_vap] directly to rhot [kg_air / (m^3 s)]
 
     do k = kbot, kbot + nsfc - 1
        ks = k - kbot + 1
-
-       ! Apply surface heat xfer [kg_a K] directly to thilt [kg_a K / s]
-
-       thilt(k,iw) = thilt(k,iw) + dtli * volti(k,iw) * sxfer_tk(ks,iw)
-
-       ! Apply surface vapor xfer [kg_vap] directly to sh_wt [kg_vap / (m^3 s)]
-
-       sh_wt(k,iw) = sh_wt(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
-
-       ! Apply surface vapor xfer [kg_vap] directly to rhot [kg_air / s]
-
        rhot(k,iw) = rhot(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
     enddo
 

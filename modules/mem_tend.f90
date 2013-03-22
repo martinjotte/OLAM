@@ -179,14 +179,13 @@ Contains
                
    subroutine filltab_tend(naddsc)
 
-   use mem_turb,   only: tkep, epsp
+   use mem_turb,   only: tkep, epsp, sxfer_tk, sxfer_rk
    use mem_basic,  only: thil, sh_w
    use mem_addsc,  only: addsc
    use mem_micro,  only: sh_c, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,  &
                          con_c, con_r, con_p, con_s, con_a, con_g, con_h,  &
                          con_ccn, con_ifn
    use var_tables, only: vtables_scalar
-   use misc_coms,  only: io6
 
    implicit none
 
@@ -197,9 +196,9 @@ Contains
 
 ! Fill pointers to scalar arrays into scalar tables
 
-   if (allocated(thilt))    call vtables_scalar (thil,thilt,'THIL')
+   if (allocated(thilt))    call vtables_scalar (thil,thilt,'THIL',sxfer=sxfer_tk)
 
-   if (allocated(sh_wt))    call vtables_scalar (sh_w,sh_wt,'SH_W')
+   if (allocated(sh_wt))    call vtables_scalar (sh_w,sh_wt,'SH_W',sxfer=sxfer_rk)
    if (allocated(sh_ct))    call vtables_scalar (sh_c,sh_ct,'SH_C')
    if (allocated(sh_rt))    call vtables_scalar (sh_r,sh_rt,'SH_R')
    if (allocated(sh_pt))    call vtables_scalar (sh_p,sh_pt,'SH_P')
@@ -221,7 +220,7 @@ Contains
 
    if (allocated(tket))     call vtables_scalar (tkep,tket,'TKEP')
    if (allocated(epst))     call vtables_scalar (epsp,epst,'EPSP')
-        
+
    do iaddsc = 1,naddsc
       write(sname,'(a4,i3.3)') 'SCLP',iaddsc
       
