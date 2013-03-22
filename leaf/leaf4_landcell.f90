@@ -30,15 +30,14 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-Module leaf3_landcell
+Module leaf4_landcell
 
 Contains
 
 subroutine landcell(iwl, nlev_sfcwater, leaf_class, ntext_soil,             &
                     soil_water, soil_energy,                                &
                     sfcwater_mass, sfcwater_energy, sfcwater_depth,         &
-                    rshort_s,  rshort_v, rshort_g, rshort,                  &
-                    rlong_v, rlong_s, rlong_g,                              &
+                    rshort_v, rshort_g, rshort, rlong_v, rlong_s, rlong_g,  &
                     veg_height, veg_rough, veg_tai, veg_lai, veg_fracarea,  &
                     hcapveg, can_depth,                                     &
                     rhos, vels, prss, pcpg, qpcpg, dpcpg,                   &
@@ -46,14 +45,15 @@ subroutine landcell(iwl, nlev_sfcwater, leaf_class, ntext_soil,             &
                     surface_ssh, ground_shv, veg_water, veg_temp,           &
                     can_temp, can_shv, stom_resist, veg_ndvip, veg_ndvif,   &
                     veg_ndvic, veg_albedo, rough, ggbare, head0, head1,     &
-                    xewl, yewl, zewl, timefac_ndvi, time8                   )
+                    glatw, glonw, timefac_ndvi                              )
                               
-use leaf_coms,         only: nzg, nzs, soil_rough, snow_rough, slcpd, dt_leaf
+use leaf_coms,         only: nzg, nzs, soil_rough, snow_rough, slcpd, dt_leaf, slmsts
 use misc_coms,         only: io6
-use leaf3_canopy,      only: canopy, vegndvi
-use leaf3_sfcwater,    only: sfcwater, sfcwater_adjust, remove_runoff
-use leaf3_soil,        only: soil
-use leaf3_plot,        only: leaf_plot
+use leaf4_canopy,      only: canopy, vegndvi
+use leaf4_sfcwater,    only: sfcwater, sfcwater_soil_comb, sfcwater_adjust, &
+                             remove_runoff
+use leaf4_soil,        only: soil
+use leaf4_plot,        only: leaf_plot
 
 implicit none
 
@@ -67,7 +67,6 @@ real, intent(inout) :: soil_energy    (nzg) ! soil energy [J/m^3]
 real, intent(inout) :: sfcwater_mass  (nzs) ! surface water mass [kg/m^2]
 real, intent(inout) :: sfcwater_energy(nzs) ! surface water energy [J/kg]
 real, intent(inout) :: sfcwater_depth (nzs) ! surface water depth [m]
-real, intent(inout) :: rshort_s       (nzs) ! s/w net rad flux to sfc water [W/m^2]
 
 real, intent(in   ) :: rshort_v     ! s/w net rad flux to veg [W/m^2]
 real, intent(in   ) :: rshort_g     ! s/w net rad flux to soil [W/m^2]
@@ -108,55 +107,38 @@ real, intent(inout) :: veg_albedo   ! veg albedo
 real, intent(inout) :: rough        ! net land cell roughness height [m]
 real, intent(inout) :: head0        ! LBC total hydraulic head [m]
 real, intent(inout) :: head1        ! UBC total hydraulic head [m]
-real, intent(in   ) :: xewl         ! Earth X-coordinate of land cell 'center' [m]
-real, intent(in   ) :: yewl         ! Earth Y-coordinate of land cell 'center' [m]
-real, intent(in   ) :: zewl         ! Earth Z-coordinate of land cell 'center' [m]
+real, intent(in   ) :: glatw        ! Latitude of land cell 'center' [deg]
+real, intent(in   ) :: glonw        ! Longitude of land cell 'center' [deg]
 real, intent(in   ) :: ggbare       ! bare surface aerodynamic conductance [m/s]
-
-real(kind=8), intent(in) :: time8   ! model time [s]
 
 ! Local arrays
 
 real :: soil_tempk      (nzg) ! soil temperature [K]
 real :: soil_fracliq    (nzg) ! fraction of soil moisture in liquid phase
-real :: soil_rfactor    (nzg) ! soil thermal resistivity [K m^2/W]
 real :: sfcwater_tempk  (nzs) ! surface water temperature [K]
 real :: sfcwater_fracliq(nzs) ! fraction of sfc water in liquid phase
 real :: energy_per_m2   (nzs) ! sfcwater energy [J/m^2]
 
-real :: hxferg        (nzg+1) ! heat xfer between soil layers [J/m^2]
-
-real :: wxfer       (nzg+1) ! soil water xfer [m]
-real :: qwxfer      (nzg+1) ! soil energy xfer from water xfer [J/m^2] 
 real :: psi         (nzg)   ! soil water potential [m]
 real :: head        (nzg)   ! total hydraulic head (including pressure) [m]
 
 ! Local variables
 
-integer :: linit, lframe
+!integer :: linit, lframe
 integer :: k     ! vertical index over soil layers
 integer :: nlsw1 ! maximum of (1,nlev_sfcwater)
+integer :: icomb ! implicit heat balance flag [0=no, 1=yes]
 
 integer :: ktrans ! vertical index of soil layer supplying transpiration
 
 real :: transp  ! transpiration xfer this LEAF timestep [kg/m^2]
-real :: hxfergc ! heat xfer from ground (soil) to can_air this step [J/m^2]
-real :: wxfergc ! vapor xfer from ground (soil) to can_air this step [kg_vap/m^2]
-real :: hxfersc ! heat xfer from sfcwater to can_air this step [J/m^2]
-real :: wxfersc ! vapor xfer from sfcwater to can_air this step [kg_vap/m^2]
-real :: wshed   ! water shed from veg this timestep [kg/m^2]
-real :: qwshed  ! water energy shed from veg this timestep [J/m^2]
-real :: hxferca ! can_air-to-atm heat xfer this step [J/m^2]
-real :: hxfervc ! veg-to-can_air heat xfer this step [J/m^2]
-real :: wxfervc ! veg-to-can_air vapor xfer this step [kg_vap/m^2]
-real :: rdi     ! (soil or surface water)-to-can_air conductance [m/s]
-real :: rb      ! veg-to-can_air resistance [s/m]
-
 real :: wfree1  ! sfcwater bottom layer free water mass [kg/m^2]
 real :: qwfree1 ! sfcwater bottom layer free water energy [J/m^2]
 real :: dwfree1 ! sfcwater bottom layer free water depth [m]
 
 integer, parameter :: iwl_print = 0
+real, parameter :: snowmin_expl = 10. ! min sfcwater mass for explicit heat
+                                      ! xfer [kg/m^2]
 
 real, external :: rhovsil ! function to compute sat spec hum over liquid or ice
 
@@ -166,22 +148,65 @@ real :: runoff
 real :: qrunoff
 !=================================================================
 
+! Initialize variables for this land cell
+
+icomb = 1  ! Default initialization
+nlsw1 = max(nlev_sfcwater,1)
+
 ! Diagnose soil temperature and liquid fraction
 
 do k = 1,nzg
-   call qwtk(soil_energy(k),soil_water(k)*1.e3,  &
+   call qwtk(soil_energy(k),soil_water(k)*1.e3, &
       slcpd(ntext_soil(k)),soil_tempk(k),soil_fracliq(k))
 enddo
 
-! Diagnose surface water temperature and liquid fraction
+! Loop over all possible sfcwater (a.k.a. snowcover) layers
 
-do k = 1,nlev_sfcwater
-   call qtk(sfcwater_energy(k),sfcwater_tempk(k),sfcwater_fracliq(k))
+do k = 1,nzs
+
+! Check (temporary) for consistency between nlev_sfcwater and 
+! sfcwater_mass.  If inconsistency found, print message and stop.
+
+   if (sfcwater_mass(k) > 1.e-12 .and. k > nlev_sfcwater) then
+      write(io6,*) 'sfcwater mass is present in layer above nlev_sfcwater'
+      write(io6,*) 'iwl,k,glatw,glonw = ',iwl,k,glatw,glonw
+      write(io6,*) 'nlev_sfcwater,sfcwater_mass(k) = ',nlev_sfcwater,sfcwater_mass(k)
+      stop 'stop1 leaf4_landcell'
+   endif
+
+   if (sfcwater_mass(k) < 1.e-6 .and. k <= nlev_sfcwater) then
+      write(io6,*) 'sfcwater mass is absent in layer at or below nlev_sfcwater'
+      write(io6,*) 'iwl,k,glatw,glonw =',iwl,k,glatw,glonw
+      write(io6,*) 'nlev_sfcwater,sfcwater_mass(k) = ',nlev_sfcwater,sfcwater_mass(k)
+      stop 'stop2 leaf4_landcell'
+   endif
+
+   if (k <= nlev_sfcwater) then
+
+! Diagnose sfcwater temperature, liquid fraction, and energy per m^2
+
+      call qtk(sfcwater_energy(k),sfcwater_tempk(k),sfcwater_fracliq(k))
+
+      energy_per_m2(k) = sfcwater_energy(k) * sfcwater_mass(k)
+
+   else
+
+! Assign default values above active sfcwater layers
+
+      sfcwater_mass  (k) = 0.
+      sfcwater_energy(k) = 0.
+      sfcwater_depth (k) = 0.
+
+      sfcwater_tempk  (k) = 273.15
+      sfcwater_fracliq(k) = 0.
+      energy_per_m2   (k) = 0.
+
+   endif
 enddo
 
 ! Update vegetation TAI, LAI, fractional area, albedo, and roughness
 
-call vegndvi(iwl,                      &
+call vegndvi(iwl,                        &
              leaf_class,   timefac_ndvi, &
              veg_height,   veg_ndvip,    &
              veg_ndvif,    veg_ndvic,    &
@@ -193,41 +218,38 @@ call vegndvi(iwl,                      &
 
 rough = max(soil_rough,veg_rough) * (1. - snowfac) + snow_rough
 
-
 ! Evaluate turbulent exchanges of heat and moisture between vegetation and canopy air
 ! and also between soil or snow surface and canopy air.  Evaluate transfer of
 ! precipitation moisture and heat to vegetation and shed from vegetation to surface.
 ! Update vegetation and canopy air temperatures resulting from these 
 ! plus radiative fluxes.
 
-nlsw1 = max(nlev_sfcwater,1)
-
-call canopy(iwl,                                          &
-            nlev_sfcwater,         ntext_soil,            &
-            leaf_class,            ktrans,                &
-            soil_water,            soil_fracliq,          &
-            soil_tempk    (nzg),   sfcwater_mass (nlsw1), &
-            sfcwater_tempk(nlsw1), veg_height,            &
-            veg_rough,             veg_tai,               &
-            veg_lai,               hcapveg,               &
-            can_depth,             rhos,                  &
-            vels,                  prss,                  &
-            pcpg,                  qpcpg,                 &
-            rshort,                rshort_v,              &
-            rlong_v,               sxfer_t,               &
-            sxfer_r,               ustar,                 &
-            snowfac,               vf,                    &
-            surface_ssh,           ground_shv,            &
-            veg_water,             veg_temp,              &
-            can_temp,              can_shv,               &
-            wshed,                 qwshed,                &
-            transp,                stom_resist,           &
-            hxfergc,               wxfergc,               &
-            hxfersc,               wxfersc,               &
-            hxferca,               hxfervc,               &
-            wxfervc,               rdi,                   &
-            rb,                    time8,                 &
-            ggbare                                        )
+call canopy(iwl,                   nlsw1,                   &
+            icomb,                 leaf_class,              &
+            ktrans,                ntext_soil,              &
+            soil_water,            soil_energy,             &
+            soil_tempk,            soil_fracliq,            &
+            sfcwater_mass (nlsw1), sfcwater_energy (nlsw1), &
+            sfcwater_depth(nlsw1), energy_per_m2   (nlsw1), &
+            sfcwater_tempk(nlsw1), sfcwater_fracliq(nlsw1), &
+            veg_height,            veg_rough,               &
+            veg_tai,               veg_lai,                 &
+            hcapveg,               can_depth,               &
+            rhos,                  vels,                    &
+            prss,                  ustar,                   &
+            pcpg,                  qpcpg,                   &
+            dpcpg,                 rshort,                  &
+            rshort_v,              rshort_g,                &
+            rlong_v,               rlong_s,                 &
+            rlong_g,                                        &
+            sxfer_t,               sxfer_r,                 &
+            snowfac,               vf,                      &
+            surface_ssh,           ground_shv,              &
+            veg_water,             veg_temp,                &
+            can_temp,              can_shv,                 & 
+            transp,                stom_resist,             &
+            ggbare,                snowmin_expl,            &
+            glatw,                 glonw                    )
 
 ! CALL SFCWATER:
 !  1. Compute soil and sfcwater heat conductivities
@@ -236,145 +258,60 @@ call canopy(iwl,                                          &
 !  4. Update sfcwater layer energies due to heat flux and solar radiation
 !  5. Evaluate melting and percolation of liquid through sfcwater layers
 
-call sfcwater(iwl,                                &
-              nlev_sfcwater,    ntext_soil,       &
-              soil_rfactor,     soil_water,       &
-              soil_energy,      sfcwater_mass,    &
-              sfcwater_energy,  sfcwater_depth,   &
-              soil_tempk,       soil_fracliq ,    &
-              sfcwater_tempk,   sfcwater_fracliq, &
-              energy_per_m2,                      &
-              rshort_s,         hxfersc,          &
-              wxfersc,          rlong_g,          &
-              rlong_s,          pcpg,             &
-              qpcpg,            dpcpg,            &
-              wshed,            qwshed,           &
-              head1,                              &
-              vf,               wfree1,           &
-              qwfree1,          dwfree1,          &
-              time8                               )
-
-call soil(iwl,                            &
-          leaf_class,     nlev_sfcwater,  &
-          ntext_soil,     ktrans,         &
-          soil_tempk,     soil_fracliq,   &
-          soil_rfactor,   hxfergc,        &
-          wxfergc,        rshort_g,       &
-          rlong_g,        transp,         &
-          soil_water,     soil_energy,    &
-          hxferg,         wxfer,          &
-          qwxfer,         psi,            &
-          head,           head0,          &
-          head1,          wfree1,         &
-          qwfree1,        dwfree1,        &
-          sfcwater_mass,  energy_per_m2,  &
-          sfcwater_depth                  )
+call sfcwater(iwl,              icomb,           &
+              nlev_sfcwater,    ntext_soil,      &
+              soil_water,       soil_energy,     &
+              soil_tempk,       soil_fracliq,    &
+              sfcwater_mass,    sfcwater_energy, &
+              sfcwater_depth,   sfcwater_tempk,  &
+              sfcwater_fracliq, energy_per_m2,   &
+              head1,            vf,              &
+              wfree1,           qwfree1,         &
+              dwfree1,          snowmin_expl     )
 
 
-if (iwl == iwl_print)  then
-
-   call leaf_plot(iwl,                                 &
-                  nlev_sfcwater,                       &
-                  time8,                               &
-                  linit            = 1,                &
-                  lframe           = 1,                &
-                  ntext_soil       = ntext_soil,       &
-                  leaf_class       = leaf_class,       &   
-                  ktrans           = ktrans,           &
-                  soil_water       = soil_water,       &   
-                  soil_energy      = soil_energy,      &
-                  soil_rfactor     = soil_rfactor,     &   
-                  soil_tempk       = soil_tempk,       &
-                  soil_fracliq     = soil_fracliq,     &   
-                  hxferg           = hxferg,           &
-                  wxfer            = wxfer,            &  
-                  qwxfer           = qwxfer,           &
-                  psi              = psi,              &   
-                  sfcwater_mass    = sfcwater_mass,    & 
-                  sfcwater_energy  = sfcwater_energy,  &
-                  sfcwater_depth   = sfcwater_depth,   & 
-                  sfcwater_tempk   = sfcwater_tempk,   &
-                  sfcwater_fracliq = sfcwater_fracliq, & 
-                  rshort_s         = rshort_s,         &
-                  rshort_v         = rshort_v,         & 
-                  rshort_g         = rshort_g,         &
-                  rshort           = rshort,           & 
-                  rlong_v          = rlong_v,          &
-                  rlong_s          = rlong_s,          &
-                  rlong_g          = rlong_g,          &
-                  veg_height       = veg_height,       &  
-                  veg_rough        = veg_rough,        &
-                  veg_tai          = veg_tai,          & 
-                  veg_lai          = veg_lai,          &
-                  hcapveg          = hcapveg,          & 
-                  can_depth        = can_depth,        &
-                  rhos             = rhos,             &  
-                  vels             = vels,             &
-                  prss             = prss,             &
-                  pcpg             = pcpg,             &
-                  qpcpg            = qpcpg,            &
-                  dpcpg            = dpcpg,            &
-                  sxfer_t          = sxfer_t,          &
-                  sxfer_r          = sxfer_r,          &
-                  ustar            = ustar,            &
-                  snowfac          = snowfac,          &
-                  vf               = vf,               &
-                  surface_ssh      = surface_ssh,      &
-                  ground_shv       = ground_shv,       &
-                  veg_water        = veg_water,        &
-                  veg_temp         = veg_temp,         &
-                  can_temp         = can_temp,         &
-                  can_shv          = can_shv,          &
-                  wshed            = wshed,            &
-                  qwshed           = qwshed,           &
-                  transp           = transp,           &
-                  stom_resist      = stom_resist,      &
-                  hxfergc          = hxfergc,          &
-                  wxfergc          = wxfergc,          &
-                  hxfersc          = hxfersc,          &
-                  wxfersc          = wxfersc,          &
-                  veg_fracarea     = veg_fracarea,     &
-                  hxferca          = hxferca,          &
-                  hxfervc          = hxfervc,          &
-                  wxfervc          = wxfervc,          & 
-                  rdi              = rdi,              &
-                  rb               = rb,               &
-                  head0            = head0,            &
-                  head1            = head1,            &
-                  head             = head              )
-                  
-endif
+call soil(iwl,               nlev_sfcwater,      &
+          ktrans,            ntext_soil,         &
+          soil_water,        soil_energy,        &
+          soil_tempk,        soil_fracliq,       &
+          sfcwater_mass(1),  sfcwater_energy(1), &
+          sfcwater_depth(1), energy_per_m2(1),   &
+          psi,               head,               &
+          head0,             head1,              &
+          wfree1,            qwfree1,            &
+          dwfree1,           transp,             &
+          glatw,             glonw               )
 
 ! Inventory sfcwater layer(s) and adjust thicknesses if more than one
 
-call sfcwater_adjust(iwl,                                &
-                     nlev_sfcwater,    sfcwater_mass,    &
-                     sfcwater_energy,  sfcwater_depth,   &
-                     energy_per_m2,    rshort_s,         &
-                     xewl, yewl, zewl,                   &
-                     time8                               )
+if (nzs > 1) then
+   call sfcwater_adjust(iwl,                                &
+                        nlev_sfcwater,    sfcwater_mass,    &
+                        sfcwater_energy,  sfcwater_depth,   &
+                        energy_per_m2,                      &
+                        glatw,            glonw             )
+endif
 
 ! Compute surface and ground vap mxrat for next timestep; put into surface_ssh 
 ! and ground_ssv.
 
 nlsw1 = max(nlev_sfcwater,1)
 
-call grndvap(iwl,                                       &
-             nlev_sfcwater,          ntext_soil  (nzg), &
-             soil_water     (nzg),   soil_energy (nzg), &
-             sfcwater_energy(nlsw1), rhos,              &
-             can_shv,                ground_shv,        &
-             surface_ssh                                )
+call grndvap(iwl,              nlev_sfcwater,          &
+             ntext_soil (nzg), soil_water     (nzg),   &
+             soil_energy(nzg), sfcwater_energy(nlsw1), &
+             rhos,             can_shv,                &
+             surface_ssh,      ground_shv              )
              
 !-----------------------------------------------------------------------------
 ! TEMPORARY UNTIL FULL LEAF-HYDRO MODEL IS COMPLETED WITH STREAM/RIVER RUNOFF:
 ! Simple representation of runoff
 
-call remove_runoff(iwl,            nlev_sfcwater,    &
-                   sfcwater_fracliq, sfcwater_mass,    &
-                   sfcwater_tempk,   sfcwater_energy,  &
-                   sfcwater_depth,   runoff,           &
-                   qrunoff                             )
+!s call remove_runoff(iwl,            nlev_sfcwater,    &
+!s                    sfcwater_fracliq, sfcwater_mass,    &
+!s                    sfcwater_tempk,   sfcwater_energy,  &
+!s                    sfcwater_depth,   runoff,           &
+!s                    qrunoff                             )
 !-----------------------------------------------------------------------------
 
 ! Call land patch plot routine for selected iwl values.
@@ -383,7 +320,6 @@ call remove_runoff(iwl,            nlev_sfcwater,    &
 if (iwl == 0)  &
    call leaf_plot(iwl,                                 &
                   nlev_sfcwater,                       &
-                  time8,                               &
                   linit            = 1,                &
                   lframe           = 1,                &
                   ntext_soil       = ntext_soil,       &
@@ -391,19 +327,14 @@ if (iwl == 0)  &
                   ktrans           = ktrans,           &
                   soil_water       = soil_water,       &   
                   soil_energy      = soil_energy,      &
-                  soil_rfactor     = soil_rfactor,     &   
                   soil_tempk       = soil_tempk,       &
                   soil_fracliq     = soil_fracliq,     &   
-                  hxferg           = hxferg,           &
-                  wxfer            = wxfer,            &  
-                  qwxfer           = qwxfer,           &
                   psi              = psi,              &   
                   sfcwater_mass    = sfcwater_mass,    & 
                   sfcwater_energy  = sfcwater_energy,  &
                   sfcwater_depth   = sfcwater_depth,   & 
                   sfcwater_tempk   = sfcwater_tempk,   &
                   sfcwater_fracliq = sfcwater_fracliq, & 
-                  rshort_s         = rshort_s,         &
                   rshort_v         = rshort_v,         & 
                   rshort_g         = rshort_g,         &
                   rshort           = rshort,           & 
@@ -433,20 +364,9 @@ if (iwl == 0)  &
                   veg_temp         = veg_temp,         &
                   can_temp         = can_temp,         &
                   can_shv          = can_shv,          &
-                  wshed            = wshed,            &
-                  qwshed           = qwshed,           &
                   transp           = transp,           &
                   stom_resist      = stom_resist,      &
-                  hxfergc          = hxfergc,          &
-                  wxfergc          = wxfergc,          &
-                  hxfersc          = hxfersc,          &
-                  wxfersc          = wxfersc,          &
                   veg_fracarea     = veg_fracarea,     &
-                  hxferca          = hxferca,          &
-                  hxfervc          = hxfervc,          &
-                  wxfervc          = wxfervc,          & 
-                  rdi              = rdi,              &
-                  rb               = rb,               &
                   head0            = head0,            &
                   head1            = head1,            &
                   head             = head              )
@@ -462,4 +382,4 @@ dpcpg = 0.
 return
 end subroutine landcell
 
-End Module leaf3_landcell
+End Module leaf4_landcell

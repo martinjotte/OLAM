@@ -31,13 +31,20 @@
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine leaf3_init_atm()
+call leaf4_init_atm()
+end subroutine leaf3_init_atm
+
+!===============================================================================
+
+subroutine leaf4_init_atm()
 
 use mem_leaf,    only: land, itabg_wl, itab_wl
 
-use leaf_coms,   only: mwl, nzg, nzs,  &
-                       veg_ht, soilcp, slmstr, slmsts, slcpd,  &
-                       soil_rough, iupdndvi, s1900_ndvi, indvifile,  &
-                       nndvifiles, dt_leaf, isoilstateinit
+use leaf_coms,   only: mwl, nzg, nzs, &
+                       veg_ht, soilcp, slmstr, slmsts, slcpd, soil_rough, &
+                       iupdndvi, s1900_ndvi, indvifile, nndvifiles, &
+                       dt_leaf, isoilstateinit, iwatertabflg, watertab_db, &
+                       water_frac_ph0, water_def_ph0, slpott, slpots, slbs, slzt
                       
 use mem_sflux,    only: landflux, jlandflux
 use mem_basic,    only: rho, tair, sh_v
@@ -45,7 +52,8 @@ use misc_coms,    only: io6, time8, s1900_sim, iparallel, runtype
 use mem_ijtabs,   only: itabg_w
 use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000
 use mem_para,     only: myrank
-use leaf3_canopy, only: vegndvi
+use leaf4_canopy, only: vegndvi
+use leaf_db,      only: leaf_database_read
 
 implicit none
 
@@ -56,7 +64,6 @@ integer :: kw
 integer :: ilf
 integer :: iwl
 integer :: leaf_class
-integer :: nlsw
 integer :: nlsw1 ! maximum of (1,nlev_sfcwater)
 integer :: mrl
 integer :: j
@@ -65,15 +72,19 @@ real :: airtemp
 real :: timefac_ndvi
 real :: arf_land
 real :: wq, wq_added
+real :: headp_phi  ! Inverse of derivative of hydraulic pressure head
+                   ! wrt soil water
+real :: psi
 
 ! automatic arrays
 
 real :: soil_tempc(nzg,mwl)  ! initial soil temperature (C)
 real :: fracliq(nzg,mwl)     ! initial soil liquid fraction (0-1)
+real :: wtd(mwl)             ! watertable depth from database
 
 real, external :: rhovsl
 
-! This subroutine fills the primary LEAF3 arrays that depend on current
+! This subroutine fills the primary LEAF4 arrays that depend on current
 ! atmospheric conditions.
 
 ! Time interpolation factor for updating NDVI
@@ -86,6 +97,20 @@ if (iupdndvi == 1 .and. nndvifiles > 1) then
 endif
 
 if (runtype /= "INITIAL") return
+
+! If iwatertabflg = 1, read water table depth from database; put into wtd array
+
+   if (iwatertabflg == 1) then
+
+      call leaf_database_read(mwl, &
+           land%glatw,             &
+           land%glonw,             &
+           watertab_db,            &
+           watertab_db,            &
+           'wtd',                  &
+           datp=wtd                )
+
+   endif
 
 ! Loop over all LANDFLUX cells that are EVALUATED on this rank, and transfer
 ! atmospheric properties to each, with weighting according to arf_land
@@ -170,9 +195,9 @@ do iwl = 2,mwl
    land%stom_resist(iwl) = 1.e6
    land%veg_temp   (iwl) = land%can_temp(iwl)
    land%veg_water  (iwl) = 0.
-   
+
 ! For now, choose heat/vapor capacities for stability based on timestep   
-   
+
    land%can_depth(iwl) = 20. * max(1.,.025 * dt_leaf)
    land%hcapveg  (iwl) = 3.e4 * max(1.,.025 * dt_leaf)
 
@@ -191,6 +216,42 @@ do iwl = 2,mwl
                 land%veg_albedo  (iwl), &
                 land%veg_rough   (iwl)  )
 
+! Initialize hydraulic head at bottom of soil grid...
+
+   if (leaf_class == 17 .or. leaf_class == 20) then
+
+! For bog, marsh, wetland areas, use head0 = +10 cm; this takes precedence
+! over using watertable database
+ 
+      land%head0(iwl) = 0.1
+
+   elseif (iwatertabflg == 1 .and. wtd(iwl) > -1.e-6) then
+
+! If area is not bog, marsh, or wetland, and if iwatertabflg = 1, use
+! head0 = -watertable depth from database, unless it is "missing" (negative)
+
+      land%head0(iwl) = -wtd(iwl)
+
+   elseif (leaf_class == 3) then
+
+! If iwatertabflg /= 1 (or wtd is "missing") and landuse class is desert
+
+      land%head0(iwl) = -100.0  ! Desert
+
+   elseif (leaf_class == 10) then
+
+! If iwatertabflg /= 1 (or wtd is "missing") and landuse class is semi-desert
+
+      land%head0(iwl) = -30.0  ! Semi-desert
+
+   else
+
+! If iwatertabflg /= 1 (or wtd is "missing") and landuse class is none of the above
+
+      land%head0(iwl) = -10.0
+
+   endif
+
 ! Default initialization of sfcwater_mass, soil_tempc, and soil_water
 
    land%sfcwater_mass  (1:nzs,iwl) = 0.
@@ -200,12 +261,47 @@ do iwl = 2,mwl
    soil_tempc(1:nzg,iwl) = land%can_temp(iwl) - 273.15
    fracliq(1:nzg,iwl) = 1.0
 
+! Loop over soil layers
+
    do k = 1,nzg
       ntext = land%ntext_soil(k,iwl)
-      land%soil_water(k,iwl) = max(soilcp(ntext),slmstr(k) * slmsts(ntext))
-   enddo
 
-   land%head0(iwl) = -5.0
+! If initial head exceeds slpott, estimate soil_water based on total
+! head (molecular plus hydraulic)       
+
+      if (land%head0(iwl) - slzt(k) > slpott(ntext)) then
+      
+         headp_phi = (water_def_ph0 * slmsts(ntext)) / (10. - slpott(ntext))
+
+! First estimate using slpott in place of psi
+
+         land%soil_water(k,iwl) = water_frac_ph0 * slmsts(ntext) &
+            + (land%head0(iwl) - slzt(k) - slpott(ntext)) * headp_phi 
+
+! Evaluate molecular water potential from soil water estimate
+
+         psi = slpots(ntext) &
+             * (slmsts(ntext) / land%soil_water(k,iwl)) ** slbs(ntext)
+
+! Correction using psi
+
+         land%soil_water(k,iwl) = water_frac_ph0 * slmsts(ntext) &
+            + (land%head0(iwl) - slzt(k) - psi) * headp_phi
+            
+      else
+
+! If initial head does not exceed slpott, estimate soil_water based on
+! molecular head alone       
+
+         land%soil_water(k,iwl) = max(soilcp(ntext),slmsts(ntext) &
+            * (slpots(ntext) / (land%head0(iwl) - slzt(k))) ** (1./slbs(ntext)))
+
+      endif
+
+!! Old_method: Default soil moisture initialization from namelist slmstr(k)
+!!     land%soil_water(k,iwl) = max(soilcp(ntext),slmstr(k) * slmsts(ntext))
+      
+   enddo
 
 enddo
 
@@ -315,19 +411,18 @@ do iwl = 2,mwl
 
 ! Initialize ground (soil) and surface vapor specific humidity
 
-   nlsw  = land%nlev_sfcwater(iwl)
-   nlsw1 = max(nlsw,1)
+   nlsw1 = max(1,land%nlev_sfcwater(iwl))
    
    call grndvap(iwl,                             &
-                nlsw,                            &
-                land%ntext_soil(nzg,iwl)            , &
-                land%soil_water(nzg,iwl)            , &
-                land%soil_energy(nzg,iwl)           , &
-                land%sfcwater_energy(nlsw1,iwl)     , &
+                land%nlev_sfcwater        (iwl), &
+                land%ntext_soil       (nzg,iwl), &
+                land%soil_water       (nzg,iwl), &
+                land%soil_energy      (nzg,iwl), &
+                land%sfcwater_energy(nlsw1,iwl), &
                 land%rhos                 (iwl), &
                 land%can_shv              (iwl), &
-                land%ground_shv           (iwl), &
-                land%surface_ssh          (iwl)  )
+                land%surface_ssh          (iwl), &
+                land%ground_shv           (iwl)  )
 
 enddo
 
@@ -339,7 +434,7 @@ if (iparallel == 1) then
 endif
 
 return
-end subroutine leaf3_init_atm
+end subroutine leaf4_init_atm
 
 !=====================================================================
 

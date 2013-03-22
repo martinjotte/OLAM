@@ -56,6 +56,10 @@ real, parameter :: fpar_max   = .950   ! Maximum fpar
 real, parameter :: soil_rough = .05    ! soil roughness height
 real, parameter :: snow_rough = .01    ! snowcover roughness height
 
+real, parameter :: water_frac_ph0 = .99  ! water fraction at onset of hydraulic
+                                         ! pressure head
+real, parameter :: water_def_ph0 = 1. - water_frac_ph0
+   
 character(pathlen) :: landusefile
 character(pathlen) :: veg_database
 character(pathlen) :: soil_database
@@ -103,6 +107,7 @@ real :: slbs     (nstyp) ! b exponent [dimensionless]
 real :: slcons   (nstyp) ! sat soil hydraulic conductivity [m/s]
 real :: slmsts   (nstyp) ! sat volumetric moist content (porosity) [m^3_wat/m^3_tot]
 real :: slpots   (nstyp) ! sat moisture potential [m]
+real :: slpott   (nstyp) ! moisture potential [m] at threshold of added hydraul head
 real :: soilcp   (nstyp) ! minimum soil moisture [m^3_wat/m^3_tot]
 real :: emisg    (nstyp) ! soil infrared emissivity
 real :: slcons0  (nstyp) ! surface value for slcons [m/s]

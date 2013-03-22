@@ -31,6 +31,12 @@
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine leaf3_startup()
+call leaf4_startup()
+end subroutine leaf3_startup
+
+!===============================================================================
+
+subroutine leaf4_startup()
 
 use leaf_coms, only: nzg, nzs, landusefile, mml, mul, mwl, &
                      alloc_leafcol, isoildepthflg, ndviflg
@@ -41,7 +47,7 @@ implicit none
 
 integer :: iwl
 
-! Subroutine LEAF3_STARTUP allocates and initializes some leaf3 arrays.
+! Subroutine LEAF4_STARTUP allocates and initializes some leaf4 arrays.
 
 ! THIS SUBROUTINE DOES NOT INITIALIZE soil/veg/canopy temperature and moisture
 ! values, which depend on atmospheric conditions.
@@ -99,7 +105,7 @@ elseif (runtype /= 'PLOTONLY' .and. runtype /= 'PARCOMBINE') then
 endif
 
 return
-end subroutine leaf3_startup
+end subroutine leaf4_startup
 
 !==========================================================================
 
@@ -113,7 +119,8 @@ use leaf_coms, only: slz, nstyp, nvtyp, nzg, refdepth, slcons0, fhydraul,  &
                      veg_ht, dead_frac, rcmin, glai_max, dfpardsr,         &
                      fpar_max, fpar_min, sr_min, root, kroot,              &
                      dt_leaf, dslz, dslzo2, dslzi,                         &
-                     dslzidt, slzt, dslzt, dslzti, dslztidt
+                     dslzidt, slzt, dslzt, dslzti, dslztidt,               &
+                     water_frac_ph0, slpott
 use misc_coms, only: io6
 
 implicit none
@@ -251,6 +258,7 @@ do nnn = 1,nstyp
    soilcond1(nnn) = soilparms2(6,nnn)
    soilcond2(nnn) = soilparms2(7,nnn)
 
+   slpott(nnn) = slpots(nnn) * (1./water_frac_ph0) ** slbs(nnn)
    emisg (nnn) = .98
    soilcp(nnn) = 0.1 - 0.07 * xsand(nnn)
 enddo
