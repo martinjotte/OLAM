@@ -85,7 +85,7 @@ subroutine seacells()
      call seacell(iws                 ,  &
                   sea%rhos       (iws),  &
                   sea%sea_ustar  (iws),  &
-                  sea%sea_ggbare (iws),  &
+                  sea%sea_ggaer  (iws),  &
                   sea%sea_sxfer_t(iws),  &
                   sea%sea_sxfer_r(iws),  &
                   sea%can_depth  (iws),  &
@@ -115,8 +115,8 @@ subroutine seacells()
                       sea%icecan_shv         (iws), &
                       sea%sea_ustar          (iws), &
                       sea%ice_ustar          (iws), &
-                      sea%sea_ggbare         (iws), &
-                      sea%ice_ggbare         (iws), &
+                      sea%sea_ggaer          (iws), &
+                      sea%ice_ggaer          (iws), &
                       sea%ice_sxfer_t        (iws), &
                       sea%ice_sxfer_r        (iws)  )
 
@@ -131,7 +131,7 @@ subroutine seacells()
                     sea%ice_net_rlong      (iws), &
                     sea%rhos               (iws), &
                     sea%ice_ustar          (iws), &
-                    sea%ice_ggbare         (iws), &
+                    sea%ice_ggaer          (iws), &
                     sea%can_depth          (iws), &
                     sea%icecan_temp        (iws), &
                     sea%icecan_shv         (iws), &
@@ -184,7 +184,7 @@ end subroutine seacells
 
 !===============================================================================
 
-subroutine seacell( iws, rhos, ustar, ggbare, sxfer_t, sxfer_r, can_depth, &
+subroutine seacell( iws, rhos, ustar, ggaer, sxfer_t, sxfer_r, can_depth, &
                     seatc, can_temp, can_shv, surface_ssh, rough           )
 
   use sea_coms,    only: dt_sea
@@ -196,7 +196,7 @@ subroutine seacell( iws, rhos, ustar, ggbare, sxfer_t, sxfer_r, can_depth, &
   integer, intent(in)    :: iws         ! current sea cell index
   real,    intent(in)    :: rhos        ! air density [kg/m^3]
   real,    intent(in)    :: ustar       ! friction velocity [m/s]
-  real,    intent(in)    :: ggbare      ! sfc. aerodynamic conductance [m/s]
+  real,    intent(in)    :: ggaer       ! sfc. aerodynamic conductance [m/s]
   real,    intent(in)    :: sxfer_t     ! can_air to atm heat xfer this step [kg_air K/m^2]
   real,    intent(in)    :: sxfer_r     ! can_air to atm vapor xfer this step (kg_vap/m^2]
   real,    intent(in)    :: can_depth   ! "canopy" depth for heat and vap capacity [m]
@@ -228,11 +228,11 @@ subroutine seacell( iws, rhos, ustar, ggbare, sxfer_t, sxfer_r, can_depth, &
 ! Update temperature and vapor specific humidity of "canopy" from
 ! divergence of xfers with water surface and atmosphere.  rdi = ustar/5
 ! is the viscous sublayer conductivity derived from Garratt (1992), or
-! we can use the bare surface aerodynamic conductance ggbare computed
+! we can use the bare surface aerodynamic conductance ggaer computed
 ! from the surface layer similarity relationships
 
-! rdi = .2 * ustar
-  rdi = ggbare
+  rdi = .2 * ustar
+! rdi = ggaer
 
   hxfergc = dt_sea * cp * rhos * rdi * (seatc - can_temp)
   wxfergc = dt_sea *      rhos * rdi * (surface_ssh - can_shv)

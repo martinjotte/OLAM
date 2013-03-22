@@ -165,9 +165,9 @@ Module mem_sea
       real, allocatable :: qpcpg         (:) ! new pcp energy this timestep [J/m^2]
       real, allocatable :: dpcpg         (:) ! new pcp depth this timestep [m]
 
-      real, allocatable ::  ed_ggbare    (:) ! surface aerodynamic conductance [m/s]
-      real, allocatable :: sea_ggbare    (:) ! surface aerodynamic conductance [m/s]
-      real, allocatable :: ice_ggbare    (:) ! surface aerodynamic conductance [m/s]
+      real, allocatable ::     ggaer     (:) ! surface aerodynamic conductance [m/s]
+      real, allocatable :: sea_ggaer     (:) ! surface aerodynamic conductance over water [m/s]
+      real, allocatable :: ice_ggaer     (:) ! surface aerodynamic conductance over ice [m/s]
 
    End Type sea_vars
 
@@ -317,9 +317,9 @@ Contains
      allocate (sea%seaice_energy(nzi,mws)) ; sea%seaice_energy = rinit
      allocate (sea%seaice_tempk (nzi,mws)) ; sea%seaice_tempk  = rinit
 
-     allocate (sea%ed_ggbare      (mws)) ; sea%ed_ggbare       = rinit
-     allocate (sea%sea_ggbare     (mws)) ; sea%sea_ggbare      = rinit
-     allocate (sea%ice_ggbare     (mws)) ; sea%ice_ggbare      = rinit
+     allocate (sea%ggaer         (mws)) ; sea%ggaer          = rinit
+     allocate (sea%sea_ggaer     (mws)) ; sea%sea_ggaer      = rinit
+     allocate (sea%ice_ggaer     (mws)) ; sea%ice_ggaer      = rinit
 
    end subroutine alloc_sea
 

@@ -165,7 +165,7 @@ integration_buff%initp%cstar = dble(- land%sxfer_c(iwl) / (land%ustar(iwl) *   &
       land%rhos(iwl) * land%area(iwl) * dtlsm))
 integration_buff%initp%zeta = dble(land%ed_zeta(iwl))
 integration_buff%initp%ribulk = dble(land%ed_rib(iwl))
-integration_buff%initp%ggbare = dble(land%ed_ggbare(iwl))
+integration_buff%initp%ggbare = dble(land%ggaer(iwl))
 !===========
 ! END OVERRIDE FOR OLAM-ED COUPLING
 !===========

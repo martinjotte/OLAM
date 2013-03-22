@@ -89,11 +89,8 @@ real :: arf_sea_dtf
 real :: arf_land_dtf
 real :: exneri
 real :: vkmsfc, vkmsfcs, vkmsfci
-real :: ustar0, ustars,  ustari
 real :: vels
-
 real :: my_co2, ed_zeta, ed_rib
-real :: ggbare, ggbares, ggbarei
 
 if (isfcl == 0) then
 
@@ -197,41 +194,46 @@ do j = 1,jseaflux(1)%jend(mrl)
 
 ! Sea (open water) component always computed
 
-   call stars(zt(kw)-zm(kw-1),      &
-              sea%sea_rough(iws),   &
-              vels,                 &
-              rho      (kw,iw),     &
-              tair     (kw,iw),     &
-              sh_v     (kw,iw),     &
-              sea%seacan_temp(iws), &
-              sea%seacan_shv (iws), &
-              vkmsfcs,              &
+   call stars(zt(kw)-zm(kw-1),         &
+              sea%sea_rough(iws),      &
+              vels,                    &
+              rho      (kw,iw),        &
+              tair     (kw,iw),        &
+              sh_v     (kw,iw),        &
+              sea%seacan_temp(iws),    &
+              sea%seacan_shv (iws),    &
+              vkmsfcs,                 &
               seaflux(isf)%sea_sfluxt, &
               seaflux(isf)%sea_sfluxr, & 
-              ustars,               &
-              ggbares               )
+              seaflux(isf)%sea_ustar0, &
+              seaflux(isf)%sea_ggaer0  )
 
 ! Include fractional seaice component if seaice layers exist
 
    if (sea%nlev_seaice(iws) > 0) then
 
-      call stars(zt(kw)-zm(kw-1),     &
-                sea%ice_rough(iws),   &
-                vels,                 &
-                rho      (kw,iw),     &
-                tair     (kw,iw),     &
-                sh_v     (kw,iw),     &
-                sea%icecan_temp(iws), &
-                sea%icecan_shv (iws), &
-                vkmsfci,              &
+      call stars(zt(kw)-zm(kw-1),        &
+                sea%ice_rough(iws),      &
+                vels,                    &
+                rho      (kw,iw),        &
+                tair     (kw,iw),        &
+                sh_v     (kw,iw),        &
+                sea%icecan_temp(iws),    &
+                sea%icecan_shv (iws),    &
+                vkmsfci,                 &
                 seaflux(isf)%ice_sfluxt, &
                 seaflux(isf)%ice_sfluxr, &
-                ustari,               &
-                ggbarei               )
+                seaflux(isf)%ice_ustar0, &
+                seaflux(isf)%ice_ggaer0  )
 
-      vkmsfc = (1.0 - sea%seaicec(iws)) * vkmsfcs + sea%seaicec(iws) * vkmsfci
-      ustar0 = (1.0 - sea%seaicec(iws)) * ustars  + sea%seaicec(iws) * ustari
-      ggbare = (1.0 - sea%seaicec(iws)) * ggbares + sea%seaicec(iws) * ggbarei
+      vkmsfc              = (1.0 - sea%seaicec(iws)) * vkmsfcs + &
+                                   sea%seaicec(iws)  * vkmsfci
+
+      seaflux(isf)%ustar0 = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_ustar0 + &
+                                   sea%seaicec(iws)  * seaflux(isf)%ice_ustar0
+
+      seaflux(isf)%ggaer0 = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_ggaer0 + &
+                                   sea%seaicec(iws)  * seaflux(isf)%ice_ggaer0
 
       seaflux(isf)%sfluxt = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_sfluxt + &
                                    sea%seaicec(iws)  * seaflux(isf)%ice_sfluxt
@@ -241,15 +243,15 @@ do j = 1,jseaflux(1)%jend(mrl)
 
    else
       
-      vkmsfc = vkmsfcs
-      ustar0 = ustars
-      ggbare = ggbares
+      vkmsfc              = vkmsfcs
+      seaflux(isf)%ustar0 = seaflux(isf)%sea_ustar0
+      seaflux(isf)%ggaer0 = seaflux(isf)%sea_ggaer0
       seaflux(isf)%sfluxt = seaflux(isf)%sea_sfluxt
       seaflux(isf)%sfluxr = seaflux(isf)%sea_sfluxr
 
-      vkmsfci = 0.0
-      ustari  = 0.0
-      ggbarei = 0.0
+      vkmsfci                 = 0.0
+      seaflux(isf)%ice_ustar0 = 0.0
+      seaflux(isf)%ice_ggaer0 = 0.0
       seaflux(isf)%ice_sfluxt = 0.0
       seaflux(isf)%ice_sfluxr = 0.0
       
@@ -258,7 +260,7 @@ do j = 1,jseaflux(1)%jend(mrl)
 ! Add flux contributions to IW atmospheric column
 
    vkm_sfc (ks,iw) = vkm_sfc(ks,iw)  + arf_kw   * vkmsfc
-   ustar      (iw) = ustar  (iw)     + arf_atm  * ustar0
+   ustar      (iw) = ustar  (iw)     + arf_atm  * seaflux(isf)%ustar0
    sflux_t    (iw) = sflux_t(iw)     + arf_atm  * seaflux(isf)%sfluxt * exneri
    sflux_r    (iw) = sflux_r(iw)     + arf_atm  * seaflux(isf)%sfluxr
    sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dtf * seaflux(isf)%sfluxt * exneri
@@ -266,22 +268,22 @@ do j = 1,jseaflux(1)%jend(mrl)
 
 ! Store flux and ATM density contributions to SEA cell in SEAFLUX cell
 
-   seaflux(isf)%rhos    = arf_sea     * rho(kw,iw)
-   seaflux(isf)%sxfer_t = arf_sea_dtf * seaflux(isf)%sfluxt
-   seaflux(isf)%sxfer_r = arf_sea_dtf * seaflux(isf)%sfluxr
-   seaflux(isf)%sxfer_c = 0.
-   seaflux(isf)%ustar   = arf_sea     * ustar0
-   seaflux(isf)%ed_ggbare = arf_sea   * ggbare
+   seaflux(isf)%rhos        = arf_sea     * rho(kw,iw)
+   seaflux(isf)%sxfer_t     = arf_sea_dtf * seaflux(isf)%sfluxt
+   seaflux(isf)%sxfer_r     = arf_sea_dtf * seaflux(isf)%sfluxr
+   seaflux(isf)%sxfer_c     = 0.
+   seaflux(isf)%ustar       = arf_sea     * seaflux(isf)%ustar0
+   seaflux(isf)%ggaer       = arf_sea     * seaflux(isf)%ggaer0
 
    seaflux(isf)%sea_sxfer_t = arf_sea_dtf * seaflux(isf)%sea_sfluxt
    seaflux(isf)%sea_sxfer_r = arf_sea_dtf * seaflux(isf)%sea_sfluxr
-   seaflux(isf)%sea_ustar   = arf_sea     * ustars
-   seaflux(isf)%sea_ggbare  = arf_sea     * ggbares
+   seaflux(isf)%sea_ustar   = arf_sea     * seaflux(isf)%sea_ustar0
+   seaflux(isf)%sea_ggaer   = arf_sea     * seaflux(isf)%sea_ggaer0
 
    seaflux(isf)%ice_sxfer_t = arf_sea_dtf * seaflux(isf)%ice_sfluxt
    seaflux(isf)%ice_sxfer_r = arf_sea_dtf * seaflux(isf)%ice_sfluxr
-   seaflux(isf)%ice_ustar   = arf_sea     * ustari
-   seaflux(isf)%ice_ggbare  = arf_sea     * ggbarei
+   seaflux(isf)%ice_ustar   = arf_sea     * seaflux(isf)%ice_ustar0
+   seaflux(isf)%ice_ggaer   = arf_sea     * seaflux(isf)%ice_ggaer0
 
 enddo
 
@@ -350,12 +352,12 @@ do j = 1,jlandflux(1)%jend(mrl)
                  vkmsfc,               &
                  landflux(ilf)%sfluxt, &
                  landflux(ilf)%sfluxr, &
-                 ustar0,               &
-                 ggbare                )
+                 landflux(ilf)%ustar0, &
+                 landflux(ilf)%ggaer0  )
 
       landflux(ilf)%sfluxc = 0.
       ed_zeta = 0.
-      ed_rib = 0.
+      ed_rib  = 0.
 
    else
 
@@ -374,8 +376,9 @@ do j = 1,jlandflux(1)%jend(mrl)
            landflux(ilf)%sfluxt, &
            landflux(ilf)%sfluxr, &
            landflux(ilf)%sfluxc, &
-           ustar0, &
-           ed_zeta, ed_rib, ggbare)
+           landflux(ilf)%ustar0, &
+           ed_zeta, ed_rib,      &
+           landflux(ilf)%ggaer0  )
 #endif
 
    endif
@@ -383,7 +386,7 @@ do j = 1,jlandflux(1)%jend(mrl)
 ! Add flux contributions to IW atmospheric column
 
    vkm_sfc(ks,iw)  = vkm_sfc(ks,iw)  + arf_kw   * vkmsfc
-   ustar  (iw)     = ustar  (iw)     + arf_atm  * ustar0
+   ustar  (iw)     = ustar  (iw)     + arf_atm  * landflux(ilf)%ustar0
    sflux_t(iw)     = sflux_t(iw)     + arf_atm  * landflux(ilf)%sfluxt * exneri
    sflux_r(iw)     = sflux_r(iw)     + arf_atm  * landflux(ilf)%sfluxr
    sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dtf * landflux(ilf)%sfluxt * exneri
@@ -393,12 +396,11 @@ do j = 1,jlandflux(1)%jend(mrl)
 
    landflux(ilf)%sxfer_t = arf_land_dtf * landflux(ilf)%sfluxt
    landflux(ilf)%sxfer_r = arf_land_dtf * landflux(ilf)%sfluxr
-   landflux(ilf)%ustar   = arf_land     * ustar0
    landflux(ilf)%sxfer_c = arf_land_dtf * landflux(ilf)%sfluxc
-   landflux(ilf)%ustar   = arf_land     * ustar0
+   landflux(ilf)%ustar   = arf_land     * landflux(ilf)%ustar0
+   landflux(ilf)%ggaer   = arf_land     * landflux(ilf)%ggaer0
    landflux(ilf)%ed_zeta = arf_land     * ed_zeta
    landflux(ilf)%ed_rib  = arf_land     * ed_rib
-   landflux(ilf)%ed_ggbare = arf_land   * ggbare
 
 enddo
 
@@ -424,13 +426,13 @@ do iws = 2,mws
 
    if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
-   sea%rhos      (iws) = 0.
-   sea%ustar     (iws) = 0.
-   sea%sea_ustar (iws) = 0.
-   sea%ice_ustar (iws) = 0.
-   sea%ed_ggbare (iws) = 0.
-   sea%sea_ggbare(iws) = 0.
-   sea%ice_ggbare(iws) = 0.
+   sea%rhos     (iws) = 0.
+   sea%ustar    (iws) = 0.
+   sea%sea_ustar(iws) = 0.
+   sea%ice_ustar(iws) = 0.
+   sea%ggaer    (iws) = 0.
+   sea%sea_ggaer(iws) = 0.
+   sea%ice_ggaer(iws) = 0.
 
 enddo
 
@@ -442,13 +444,13 @@ do iwl = 2,mwl
 
    if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
-   land%ustar(iwl) = 0.
-   land%rhos (iwl) = 0.
-   land%prss (iwl) = 0.
-   land%vels (iwl) = 0.
+   land%ustar  (iwl) = 0.
+   land%rhos   (iwl) = 0.
+   land%prss   (iwl) = 0.
+   land%vels   (iwl) = 0.
+   land%ggaer  (iwl) = 0.
    land%ed_zeta(iwl) = 0.
-   land%ed_rib(iwl) = 0.
-   land%ed_ggbare(iwl) = 0.
+   land%ed_rib (iwl) = 0.
 enddo
 
 ! Sum fluxes for SEA cells
@@ -471,25 +473,25 @@ do j = 1,jseaflux(2)%jend(mrl)
 !----------------------------------------------------------------------
    call qsub('SF',isf)
 
-   sea%rhos(iws)    = sea%rhos(iws)    + seaflux(isf)%rhos
+   sea%rhos(iws)        = sea%rhos(iws)        + seaflux(isf)%rhos
 
-   sea%ustar(iws)     = sea%ustar(iws)     + seaflux(isf)%ustar
-   sea%sea_ustar(iws) = sea%sea_ustar(iws) + seaflux(isf)%sea_ustar
-   sea%ice_ustar(iws) = sea%ice_ustar(iws) + seaflux(isf)%ice_ustar
+   sea%ustar    (iws)   = sea%ustar    (iws)   + seaflux(isf)%ustar
+   sea%sea_ustar(iws)   = sea%sea_ustar(iws)   + seaflux(isf)%sea_ustar
+   sea%ice_ustar(iws)   = sea%ice_ustar(iws)   + seaflux(isf)%ice_ustar
 
-   sea%sxfer_t(iws)     = sea%sxfer_t(iws)     + seaflux(isf)%sxfer_t
+   sea%sxfer_t    (iws) = sea%sxfer_t    (iws) + seaflux(isf)%sxfer_t
    sea%sea_sxfer_t(iws) = sea%sea_sxfer_t(iws) + seaflux(isf)%sea_sxfer_t
    sea%ice_sxfer_t(iws) = sea%ice_sxfer_t(iws) + seaflux(isf)%ice_sxfer_t
 
-   sea%sxfer_r(iws)     = sea%sxfer_r(iws)     + seaflux(isf)%sxfer_r
+   sea%sxfer_r    (iws) = sea%sxfer_r    (iws) + seaflux(isf)%sxfer_r
    sea%sea_sxfer_r(iws) = sea%sea_sxfer_r(iws) + seaflux(isf)%sea_sxfer_r
    sea%ice_sxfer_r(iws) = sea%ice_sxfer_r(iws) + seaflux(isf)%ice_sxfer_r
 
-   sea%sxfer_c(iws) = sea%sxfer_c(iws) + seaflux(isf)%sxfer_c
+   sea%sxfer_c(iws)     = sea%sxfer_c(iws)     + seaflux(isf)%sxfer_c
 
-   sea%ed_ggbare (iws) = sea%ed_ggbare (iws) + seaflux(isf)%ed_ggbare
-   sea%sea_ggbare(iws) = sea%sea_ggbare(iws) + seaflux(isf)%sea_ggbare
-   sea%ice_ggbare(iws) = sea%ice_ggbare(iws) + seaflux(isf)%ice_ggbare
+   sea%ggaer    (iws)   = sea%ggaer    (iws)   + seaflux(isf)%ggaer
+   sea%sea_ggaer(iws)   = sea%sea_ggaer(iws)   + seaflux(isf)%sea_ggaer
+   sea%ice_ggaer(iws)   = sea%ice_ggaer(iws)   + seaflux(isf)%ice_ggaer
 
 enddo
 call rsub('JSEAFLUX',2)
@@ -522,9 +524,9 @@ do j = 1,jlandflux(2)%jend(mrl)
    land%sxfer_r  (iwl) = land%sxfer_r  (iwl) + landflux(ilf)%sxfer_r
    land%sxfer_c  (iwl) = land%sxfer_c  (iwl) + landflux(ilf)%sxfer_c
    land%ustar    (iwl) = land%ustar    (iwl) + landflux(ilf)%ustar
+   land%ggaer    (iwl) = land%ggaer    (iwl) + landflux(ilf)%ggaer
    land%ed_zeta  (iwl) = land%ed_zeta  (iwl) + landflux(ilf)%ed_zeta
    land%ed_rib   (iwl) = land%ed_rib   (iwl) + landflux(ilf)%ed_rib
-   land%ed_ggbare(iwl) = land%ed_ggbare(iwl) + landflux(ilf)%ed_ggbare
 
 enddo
 call rsub('JLANDFLUX',2)
@@ -552,7 +554,7 @@ end subroutine surface_turb_flux
 !===============================================================================
 
 subroutine stars(zts, rough, vels, rhos, airtemp, sh_vs, cantemp, &
-                 can_shv, vkmsfc, sfluxt, sfluxr, ustar0, ggbare  )
+                 can_shv, vkmsfc, sfluxt, sfluxr, ustar0, ggaero  )
 
 ! Subroutine stars computes surface heat and vapor fluxes and momentum drag
 ! coefficient from Louis (1981) equations
@@ -580,7 +582,7 @@ real, intent(out) :: vkmsfc   ! surface drag coefficient for this flux cell
 real, intent(out) :: sfluxt   ! surface sensible heat flux for this flux cell
 real, intent(out) :: sfluxr   ! surface vapor flux for this flux cell
 real, intent(out) :: ustar0   ! surface friction velocity for this flux cell
-real, intent(out) :: ggbare   ! bare ground conductance m/s
+real, intent(out) :: ggaero   ! bare ground conductance m/s
 
 ! Local parameters
 
@@ -642,11 +644,10 @@ vkmsfc = vtscr * ustar0 * zts / vels0
 sfluxt = - vtscr * tstar
 sfluxr = - vtscr * rstar
 
-! Compute the bare ground conductance.  This equation is similar to the original,
-! except that we don't assume the ratio between the gradient and the characteristic
-! scale to be 0.2; instead we use the actual ratio that is computed here.
+! Store the aerodynamic conductance between the surface canopy and
+! the lowest model level
 
-ggbare  = c3 * ustar0
+ggaero  = c3 * ustar0
 
 return
 end subroutine stars

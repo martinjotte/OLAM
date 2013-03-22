@@ -447,6 +447,7 @@ implicit none
 
 real, intent(in)  :: q
 real, intent(out) :: tempk, fracliq
+real, parameter   :: const = t00 - alli * cliqi
 
 !     Input:
 !        q        internal energy [J/kg]
@@ -459,7 +460,7 @@ if (q <= 0.) then
    tempk = q * cicei + t00
 elseif (q >= alli) then
    fracliq = 1.
-   tempk = q * cliqi + 193.36
+   tempk = q * cliqi + const
 else
    fracliq = q * allii
    tempk = t00
@@ -477,6 +478,7 @@ implicit none
 
 real, intent(in)  :: q
 real, intent(out) :: tempc, fracliq
+real, parameter   :: const = - alli * cliqi
 
 !     Input:
 !        q        internal energy [J/kg]
@@ -489,7 +491,7 @@ if (q <= 0.) then
    tempc = q * cicei
 elseif (q >= alli) then
    fracliq = 1.
-   tempc = q * cliqi - 80.
+   tempc = q * cliqi + const
 else
    fracliq = q * allii
    tempc = 0.
@@ -531,4 +533,70 @@ endif
 
 return
 end subroutine qwtk
+
+!===============================================================================
+
+subroutine qtk_sea(q,tempk,fracliq)
+use consts_coms, only: alli, allii, cicei, cliqi
+use sea_coms,    only: t00sea
+implicit none
+
+real, intent(in)  :: q
+real, intent(out) :: tempk, fracliq
+real, parameter   :: const = t00sea - alli * cliqi
+
+!     Input:
+!        q        internal energy [J/kg]
+!     Outputs:
+!       tempk    temperature [K]
+!       fracliq  liquid fraction [dimensionless]
+
+if (q <= 0.) then
+   fracliq = 0.
+   tempk = q * cicei + t00sea
+elseif (q >= alli) then
+   fracliq = 1.
+   tempk = q * cliqi + const
+else
+   fracliq = q * allii
+   tempk = t00sea
+endif
+
+return
+end subroutine qtk_sea
+
+!===============================================================================
+
+subroutine qtc_sea(q,tempc,fracliq)
+
+use consts_coms, only: t00, alli, allii, cicei, cliqi
+use sea_coms,    only: t00sea
+implicit none
+
+real, intent(in)  :: q
+real, intent(out) :: tempc, fracliq
+real, parameter   :: tdiff = t00sea - t00
+real, parameter   :: const = tdiff - alli * cliqi
+
+!     Input:
+!        q        internal energy [J/kg]
+!     Outputs:
+!        tempc    temperature [C]
+!        fracliq  liquid fraction [dimensionless]
+
+if (q <= 0.) then
+   fracliq = 0.
+   tempc = q * cicei + tdiff
+elseif (q >= alli) then
+   fracliq = 1.
+   tempc = q * cliqi + const
+else
+   fracliq = q * allii
+   tempc = tdiff
+endif
+
+return
+end subroutine qtc_sea
+
+!===============================================================================
 

@@ -145,7 +145,7 @@ Module mem_leaf
       real, allocatable :: sxfer_csav  (:) ! saved previous value of sxter_c
       real, allocatable :: ed_zeta     (:)
       real, allocatable :: ed_rib      (:)
-      real, allocatable :: ed_ggbare   (:) ! bare surface conductance [m/s]
+      real, allocatable :: ggaer       (:) ! canopy-atmosphere aerodynamic conductance [m/s]
       real, allocatable :: can_depth   (:) ! canopy depth for heat & vap capacity [m]
       real, allocatable :: hcapveg     (:) ! veg heat capacity [J/(m^2 K)]
       real, allocatable :: can_temp    (:) ! canopy air temp [K]
@@ -280,7 +280,7 @@ Contains
      allocate (land%sxfer_c            (mwl)) ; land%sxfer_c         = 0.0
      allocate (land%ed_zeta            (mwl)) ; land%ed_zeta         = 0.0
      allocate (land%ed_rib             (mwl)) ; land%ed_rib          = 0.0
-     allocate (land%ed_ggbare          (mwl)) ; land%ed_ggbare       = 0.0
+     allocate (land%ggaer              (mwl)) ; land%ggaer           = 0.0
      allocate (land%sxfer_tsav         (mwl)) ; land%sxfer_tsav      = 0.0
      allocate (land%sxfer_rsav         (mwl)) ; land%sxfer_rsav      = 0.0
      allocate (land%sxfer_csav         (mwl)) ; land%sxfer_csav      = 0.0
@@ -418,9 +418,9 @@ Contains
         vtab_r(num_var)%rvar1_p => land%ed_rib
      endif
 
-     if (allocated(land%ed_ggbare)) then
-        call increment_vtable('LAND%ED_GGBARE', 'LW')
-        vtab_r(num_var)%rvar1_p => land%ed_ggbare
+     if (allocated(land%ggaer)) then
+        call increment_vtable('LAND%ED_GGAER', 'LW')
+        vtab_r(num_var)%rvar1_p => land%ggaer
      endif
 
      if (allocated(land%can_depth)) then

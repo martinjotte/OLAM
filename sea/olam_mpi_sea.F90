@@ -409,9 +409,9 @@ do jsend = 1,nsends_wsf(mrl)
          rscr(12) = seaflux(isf)%ed_zeta
          rscr(13) = seaflux(isf)%ed_rib
 
-         rscr(14) = seaflux(isf)%ed_ggbare
-         rscr(15) = seaflux(isf)%sea_ggbare
-         rscr(16) = seaflux(isf)%ice_ggbare
+         rscr(14) = seaflux(isf)%ggaer
+         rscr(15) = seaflux(isf)%sea_ggaer
+         rscr(16) = seaflux(isf)%ice_ggaer
 
          call MPI_Pack(rscr,16,MPI_REAL,  &
             send_wsf(jsend)%buff,send_wsf(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
@@ -655,9 +655,9 @@ do jtmp = 1,nrecvs_wsf(mrl)
          seaflux(isf)%ed_zeta = rscr(12)
          seaflux(isf)%ed_rib  = rscr(13)
 
-         seaflux(isf)%ed_ggbare  = rscr(14)
-         seaflux(isf)%sea_ggbare = rscr(15)
-         seaflux(isf)%ice_ggbare = rscr(16)
+         seaflux(isf)%ggaer     = rscr(14)
+         seaflux(isf)%sea_ggaer = rscr(15)
+         seaflux(isf)%ice_ggaer = rscr(16)
 
       elseif (recvgroup == 'C') then ! for cuparm fluxes
 

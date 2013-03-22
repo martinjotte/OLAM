@@ -100,7 +100,7 @@ do iwl = 2,mwl
       land%can_shv              (iwl), land%stom_resist          (iwl), &
       land%veg_ndvip            (iwl), land%veg_ndvif            (iwl), &
       land%veg_ndvic            (iwl), land%veg_albedo           (iwl), &
-      land%rough                (iwl), land%ed_ggbare            (iwl), &
+      land%rough                (iwl), land%ggaer                (iwl), &
       land%head0                (iwl), land%head1                (iwl), &
       land%glatw                (iwl), land%glonw                (iwl), &
       timefac_ndvi                                                      )

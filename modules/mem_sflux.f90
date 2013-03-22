@@ -75,12 +75,15 @@ Module mem_sflux
      real :: xef     = 0.0
      real :: yef     = 0.0
      real :: zef     = 0.0
+     real :: glatf   = 0.0
+     real :: glonf   = 0.0
      real :: arf_atm = 0.0
      real :: arf_sfc = 0.0
      real :: arf_kw  = 0.0
      real :: sfluxt  = 0.0
      real :: sfluxr  = 0.0
      real :: sfluxc  = 0.0
+     real :: ustar0  = 0.0
      real :: ustar   = 0.0
      real :: rhos    = 0.0
      real :: prss    = 0.0
@@ -92,7 +95,8 @@ Module mem_sflux
      real :: sxfer_c = 0.0
      real :: ed_zeta = 0.0
      real :: ed_rib  = 0.0
-     real :: ed_ggbare = 0.0
+     real :: ggaer0  = 0.0
+     real :: ggaer   = 0.0
      real :: pcpg    = 0.0
      real :: qpcpg   = 0.0
      real :: dpcpg   = 0.0
@@ -117,6 +121,8 @@ Module mem_sflux
      real :: xef     = 0.0
      real :: yef     = 0.0
      real :: zef     = 0.0
+     real :: glatf   = 0.0
+     real :: glonf   = 0.0
      real :: arf_atm = 0.0
      real :: arf_sfc = 0.0
      real :: arf_kw  = 0.0
@@ -140,9 +146,12 @@ Module mem_sflux
 
      real ::     sfluxc = 0.0
 
-     real ::     ustar = 0.0
-     real :: sea_ustar = 0.0
-     real :: ice_ustar = 0.0
+     real ::     ustar0 = 0.0
+     real ::     ustar  = 0.0
+     real :: sea_ustar0 = 0.0
+     real :: sea_ustar  = 0.0
+     real :: ice_ustar0 = 0.0
+     real :: ice_ustar  = 0.0
 
      real ::     sxfer_t = 0.0
      real :: sea_sxfer_t = 0.0
@@ -156,10 +165,12 @@ Module mem_sflux
      real ::     ed_zeta = 0.0
      real ::      ed_rib = 0.0
 
-     real ::   ed_ggbare = 0.0
-     real ::  sea_ggbare = 0.0
-     real ::  ice_ggbare = 0.0
-
+     real ::      ggaer0 = 0.0
+     real ::      ggaer  = 0.0
+     real ::  sea_ggaer0 = 0.0
+     real ::  sea_ggaer  = 0.0
+     real ::  ice_ggaer0 = 0.0
+     real ::  ice_ggaer  = 0.0
   End Type sflux_vars
 
   type (sflux_vars), allocatable, target :: seaflux(:)
@@ -525,6 +536,7 @@ use mem_ijtabs, only: itab_w, mrls
 use leaf_coms,  only: nwl, dt_leaf
 use sea_coms,   only: nws
 use misc_coms,  only: io6, rinit
+use consts_coms,only: piu180
 
 implicit none
 
@@ -569,6 +581,7 @@ integer :: itmax
 integer :: iter
 real :: trapareamax
 real :: delarw
+real :: raxis
 
 real :: aatmin, aatmax, astmin, astmax, altmin, altmax
 real :: dists, distn, wts, wtn
@@ -1023,8 +1036,13 @@ endif
                    xmean/landflux(ilf)%area,  &
                    ymean/landflux(ilf)%area   )
 
-         landflux(ilf)%arf_atm  = landflux(ilf)%area / arw0(iw)
+         landflux(ilf)%arf_atm = landflux(ilf)%area / arw0(iw)
          landflux(ilf)%arf_sfc = landflux(ilf)%area / land%area(iwl)
+
+         raxis = sqrt( landflux(ilf)%xef**2 + landflux(ilf)%yef**2 )
+
+         landflux(ilf)%glatf = atan2(landflux(ilf)%zef,raxis) * piu180
+         landflux(ilf)%glonf = atan2(landflux(ilf)%yef,landflux(ilf)%xef) * piu180
 
       enddo ! k loop
 
@@ -1292,6 +1310,11 @@ endif
 
          seaflux(isf)%arf_atm = seaflux(isf)%area / arw0(iw)
          seaflux(isf)%arf_sfc = seaflux(isf)%area / sea%area(iws)
+
+         raxis = sqrt( seaflux(isf)%xef**2 + seaflux(isf)%yef**2 )
+
+         seaflux(isf)%glatf = atan2(seaflux(isf)%zef,raxis) * piu180
+         seaflux(isf)%glonf = atan2(seaflux(isf)%yef,seaflux(isf)%xef) * piu180
 
       enddo ! k loop
 
