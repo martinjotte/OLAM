@@ -105,7 +105,7 @@ do while (i <= numarg)
          i = i + 2
       elseif (cargv(2:2) == 'r') then
          call get_command_argument(i+1,cmdlne_runtype)
-         if (len_trim(name_name) < 1) bad = bad + 1
+         if (len_trim(cmdlne_runtype) < 1) bad = bad + 1
          i = i + 2
       else
          ! write(io6,*) 'OLAM unknown option: ', cargv

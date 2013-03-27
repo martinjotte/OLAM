@@ -258,12 +258,11 @@ Module oname_coms
 
 !!    ED MODEL VARIABLES
 
-      character(pathlen) :: ed2_namelist    = ''
-      integer :: ed2_active = 0
+      character(pathlen) :: ed2_namelist = ''
+      integer            :: ed2_active   = 0
 
 !!    ISENTROPIC CONTROL
 
-      integer            :: isdirs = 0
       character(pathlen) :: iapr(maxisdirs) = ''
 
 !!    MODEL_PLOT VARIABLES

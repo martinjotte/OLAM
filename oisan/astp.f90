@@ -46,7 +46,7 @@ character(len=3), intent(inout) :: fform
 
 character(len=16) :: ext
 
-integer, external :: lastdot
+logical :: exists
 integer :: lv,n,iunit
 integer :: ndims, idims(2)
 
@@ -64,17 +64,22 @@ write(io6,'(/,a,/)') 'Reading pressure gridded data header '//trim(innpr)
 
 ! Find file name extension
 
-ext = trim( innpr(lastdot(innpr)+1:) )
-write(io6,*) 'ffffff-ext:-',trim(ext),'----',lastdot(innpr)
+ext = trim( innpr( index(innpr,'.',back=.true.)+1:) )
 
 fform = "GDF"
-if (trim(ext) == 'h5' .or. trim(ext) == 'hdf5' .or. &
-    trim(ext) == 'H5' .or. trim(ext) == 'HDF5') &
+if (ext == 'h5' .or. ext == 'hdf5' .or. ext == 'hdf' .or. &
+    ext == 'H5' .or. ext == 'HDF5' .or. ext == 'HDF' )    &
     fform = 'HD5'
+
+inquire(file=innpr, exist=exists)
+if (.not. exists) then
+   write(*,*) "read_press_header: Error opening analysis file " // trim(innpr)
+   stop       " File does not exist."
+endif
 
 if (fform == 'GDF') then
 
-   open(11,file=innpr)
+   open(11, file=innpr, status="OLD", action="READ")
    read(11,*) marker,isversion
    if(marker.ne.999999) isversion=1
 
@@ -94,7 +99,7 @@ if (fform == 'GDF') then
 
 elseif (fform == 'HD5') then
 
-   call shdf5_open (trim(innpr), 'R')
+   call shdf5_open (innpr, 'R')
 
    ndims = 1
    idims(1) = 1
@@ -172,8 +177,7 @@ end subroutine read_press_header
 
 !===============================================================================
 
-subroutine pressure_stage(fform,p_u,p_v,p_t,p_z,p_r, &
-                          p_slp, p_sfp, p_sft, p_snow, p_sst)
+subroutine pressure_stage(fform, p_u, p_v, p_t, p_z, p_r)
 
 use isan_coms,   only: pnpr, levpr, nprx, npry, nprz, nprz_rh
 use consts_coms, only: rocp, p00, eps_vap
@@ -190,14 +194,9 @@ real, intent(out) :: p_t(nprx+3,npry+2,nprz)
 real, intent(out) :: p_z(nprx+3,npry+2,nprz)
 real, intent(out) :: p_r(nprx+3,npry+2,nprz)
 
-real, intent(out) :: p_slp (nprx+3,npry+2)
-real, intent(out) :: p_sfp (nprx+3,npry+2)
-real, intent(out) :: p_sft (nprx+3,npry+2)
-real, intent(out) :: p_snow(nprx+3,npry+2)
-real, intent(out) :: p_sst (nprx+3,npry+2)
-
 real :: thmax,thmin,vapor_press
 integer :: i,j,k,lv,n,iunit
+logical :: isrh
 
 real, external :: eslf
 
@@ -214,8 +213,7 @@ enddo
 
 ! Call routine to fill pressure arrays from the chosen dataset.
 
-call get_press (fform,iunit,p_u,p_v,p_t,p_z,p_r, &
-                p_slp, p_sfp, p_sft, p_snow, p_sst)
+call get_press (fform,iunit,p_u,p_v,p_t,p_z,p_r,isrh)
 
 !!!!!!!! Be careful !!!!!!!!!
 !  Check input humidity variable p_r.  Assume that if the maximum of the field
@@ -223,7 +221,7 @@ call get_press (fform,iunit,p_u,p_v,p_t,p_z,p_r, &
 !  it is specific humidity (in g/kg) which needs to be converted to kg/kg,
 !  else it is R.H. which needs to be converted to specific humidity
 
-if (maxval(p_r(1:nprx+3,1:npry+2,1:nprz_rh)) > 1.1) then
+if (.not. isrh) then
 
    ! Convert specific humidity to kg/kg units
 
@@ -293,19 +291,19 @@ end subroutine pressure_stage
 
 !===============================================================================
 
-subroutine get_press (fform,iunit,p_u,p_v,p_t,p_z,p_r, &
-                      p_slp, p_sfp, p_sft, p_snow, p_sst)
+subroutine get_press (fform, iunit, p_u, p_v, p_t, p_z, p_r, isrh)
 
 use max_dims,   only: maxpr
 use isan_coms,  only: nprz, npry, nprx, pnpr, iyear, imonth, idate, &
                       ihour, levpr, ipoffset, nprz_rh
 use misc_coms,  only: io6
-use hdf5_utils, only: shdf5_irec
+use hdf5_utils, only: shdf5_irec, shdf5_info
 
 implicit none
 
 character(len=*), intent(in) :: fform
-integer, intent(in) :: iunit
+integer, intent(in)  :: iunit
+logical, intent(out) :: isrh
 
 real, intent(out) :: p_u(nprx+3,npry+2,nprz)
 real, intent(out) :: p_v(nprx+3,npry+2,nprz)
@@ -313,19 +311,14 @@ real, intent(out) :: p_t(nprx+3,npry+2,nprz)
 real, intent(out) :: p_z(nprx+3,npry+2,nprz)
 real, intent(out) :: p_r(nprx+3,npry+2,nprz)
 
-real, intent(out) :: p_slp (nprx+3,npry+2)
-real, intent(out) :: p_sfp (nprx+3,npry+2)
-real, intent(out) :: p_sft (nprx+3,npry+2)
-real, intent(out) :: p_snow(nprx+3,npry+2)
-real, intent(out) :: p_sst (nprx+3,npry+2)
-
 real :: as(nprx,npry)
 real :: as3(nprx,npry,nprz)
 
 integer :: i,j,k,nv,nvar,misstot,lv,n
 integer :: ithere(maxpr,5),isfthere(5)
 character(len=1) :: idat(5) = (/ 'T','R','U','V','H' /)
-integer :: ndims, idims(3)
+integer :: ndims, idims(3), njdims, jdims(3)
+character(10) :: varname
 
 ! Initialize with missing data flag
 
@@ -334,6 +327,7 @@ isfthere = -999
 
 !  Read upper air fields
 
+isrh = .true.
 write(io6,*) ' '
 
 if (fform == 'GDF') then
@@ -378,45 +372,6 @@ if (fform == 'GDF') then
 
    enddo
 
-!  Read surface fields
-
-   write(io6,*) ' '
-
-! SLP
-
-   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-   call prfill(nprx,npry,ipoffset,as,p_slp(1,1))
-   write(io6, '('' ==  Read SLP at sfc at UTC '',i6.4,2i3,i5)') &
-      ihour,idate,imonth,iyear
-
-! SFP
-
-   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-   call prfill(nprx,npry,ipoffset,as,p_sfp(1,1))
-   write(io6, '('' ==  Read SFP at sfc at UTC '',i6.4,2i3,i5)') &
-      ihour,idate,imonth,iyear
-
-! SFT
-
-   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-   call prfill(nprx,npry,ipoffset,as,p_sft(1,1))
-   write(io6, '('' ==  Read SFT at sfc at UTC '',i6.4,2i3,i5)') &
-      ihour,idate,imonth,iyear
-
-! SNOW
-
-   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-   call prfill(nprx,npry,ipoffset,as,p_snow(1,1))
-   write(io6, '('' ==  Read SNOW at sfc at UTC '',i6.4,2i3,i5)') &
-      ihour,idate,imonth,iyear
-
-! SST at surface
-
-   read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-   call prfill(nprx,npry,ipoffset,as,p_sst(1,1))
-   write(io6, '('' ==  Read SST at sfc at UTC '',i6.4,2i3,i5)') &
-      ihour,idate,imonth,iyear
-
    write(io6,*) ''
 
    goto 71
@@ -435,29 +390,89 @@ elseif (fform == 'HD5') then
    idims(2) = npry
    idims(3) = nprz
 
-   call shdf5_irec(ndims, idims,'UP',rvara = as3)
+   ! Read east-west velocity U. It may be called UP, UE, or U in the file
+
+   varname = 'U'
+   call shdf5_info(varname, njdims, jdims)
+
+   if (njdims <= 0) then
+      varname = 'UP'
+      call shdf5_info(varname, njdims, jdims)
+   endif
+
+   if (njdims <= 0) then
+      varname = 'UE'
+      call shdf5_info(varname, njdims, jdims)
+   endif
+
+   call shdf5_irec(ndims, idims, varname, rvara = as3)
    call prfill3(nprx,npry,nprz,ipoffset,as3,p_u)
 
-   call shdf5_irec(ndims, idims,'VP',rvara = as3)
+   ! Read north-south velocity V. It may be called VP, VE, or V in the file
+
+   varname = 'V'
+   call shdf5_info(varname, njdims, jdims)
+
+   if (njdims <= 0) then
+      varname = 'VP'
+      call shdf5_info(varname, njdims, jdims)
+   endif
+
+   if (njdims <= 0) then
+      varname = 'VE'
+      call shdf5_info(varname, njdims, jdims)
+   endif
+
+   call shdf5_irec(ndims, idims, varname, rvara = as3)
    call prfill3(nprx,npry,nprz,ipoffset,as3,p_v)
+   
+   ! Read temperature 
 
    call shdf5_irec(ndims, idims,'TEMP',rvara = as3)
    call prfill3(nprx,npry,nprz,ipoffset,as3,p_t)
 
+   ! Read geopotential height
+
    call shdf5_irec(ndims, idims,'GEO',rvara = as3)
    call prfill3(nprx,npry,nprz,ipoffset,as3,p_z)
 
-   call shdf5_irec(ndims, idims,'RELHUM',rvara = as3)
-   call prfill3(nprx,npry,nprz,ipoffset,as3,p_r)
+   ! Read water vapor specific humidity if it exists in the file
 
-!   if (ivertcoord == 3) call shdf5_irec('PRESS',rvara = p_p)
+   njdims = 0
+   call shdf5_info("SHV", njdims, jdims)
 
-   print*,'uu max-min:', maxval(p_u), minval(p_u)
-   print*,'vv max-min:', maxval(p_v), minval(p_v)
-   print*,'tt max-min:', maxval(p_t), minval(p_t)
-   print*,'zz max-min:', maxval(p_z), minval(p_z)
-   print*,'rr max-min:', maxval(p_r), minval(p_r)
-!   print*,'pp max-min:', maxval(p_p), minval(p_p)
+   if (njdims > 0) then
+
+      isrh = .false.
+      call shdf5_irec(ndims, idims,'SHV',rvara = as3)
+      call prfill3(nprx,npry,nprz,ipoffset,as3,p_r)
+     
+   else
+      
+   ! Read relative humidity if we don't have specific humidity, 
+   ! It may be called RELHUM or RH
+
+      varname = 'RH'
+      call shdf5_info(varname, njdims, jdims)
+
+      if (njdims <= 0) then
+         varname = 'RELHUM'
+      endif
+
+      isrh = .true.
+      call shdf5_irec(ndims, idims, varname, rvara = as3)
+      call prfill3(nprx,npry,nprz,ipoffset,as3,p_r)
+
+   endif
+
+!  if (ivertcoord == 3) call shdf5_irec('PRESS',rvara = p_p)
+
+!  print*,'uu max-min:', maxval(p_u), minval(p_u)
+!  print*,'vv max-min:', maxval(p_v), minval(p_v)
+!  print*,'tt max-min:', maxval(p_t), minval(p_t)
+!  print*,'zz max-min:', maxval(p_z), minval(p_z)
+!  print*,'rr max-min:', maxval(p_r), minval(p_r)
+!  print*,'pp max-min:', maxval(p_p), minval(p_p)
 
    ! 3D scalar vars
 
@@ -471,19 +486,6 @@ elseif (fform == 'HD5') then
 !      enddo
 !   endif
 
-! Read 2D met vars
-
-   ndims = 2
-   idims(1) = nprx
-   idims(2) = npry
-   idims(3) = 1
-
-   call shdf5_irec(ndims, idims, 'PRMSL'    ,rvara = p_slp)
-   call shdf5_irec(ndims, idims, 'PRSFC'    ,rvara = p_sfp)
-   call shdf5_irec(ndims, idims, 'TSFC'     ,rvara = p_sft)
-   call shdf5_irec(ndims, idims, 'SNOW_MASS',rvara = p_snow)
-   call shdf5_irec(ndims, idims, 'SST'      ,rvara = p_sst)
-
 endif
 
 ! Special for RH:
@@ -496,6 +498,20 @@ do k = nprz,1,-1
       exit
    endif
 enddo
+
+! Special for GDF text files:
+! The old ralph format does not differentiate between specific humidity
+! and relative humidity. We assume that if the maximum of the humidity 
+! variable is greater than 1.1 (which allows for some machine roundoff), 
+! it is specific humidity (in g/kg), else it is relative humidity
+
+if (fform == 'GDF') then
+   if (maxval(p_r(1:nprx+3,1:npry+2,1:nprz_rh)) > 1.1) then
+      isrh = .false.
+   else
+      isrh = .true.
+   endif
+endif
 
 write(io6, *) '----------------------------------------------------'
 write(io6, "(A,I0,A,I0,A)") ' Pressure-level data has ', nprz, &
@@ -516,14 +532,6 @@ enddo
 
 where (ithere(:,:) > nprx*npry) ithere(:,:) = -1
 
-isfthere(1) = count(p_slp (:,:) < -998.0)
-isfthere(2) = count(p_sfp (:,:) < -998.0)
-isfthere(3) = count(p_sft (:,:) < -998.0)
-isfthere(4) = count(p_snow(:,:) < -998.0)
-isfthere(5) = count(p_sst (:,:) < -998.0)
-
-where (isfthere(:) > nprx*npry) isfthere(:) = -1
-
 write(io6,*) '---------------------------------------------------'
 write(io6,*) ' # of missing values per level (-1 = all missing): '
 write(io6,*) '---------------------------------------------------'
@@ -532,14 +540,6 @@ write(io6, '(a,5(6x,a1))') '   P (mb)', (idat(n),n=1,5)
 do k = 1,nprz
    write(io6, '(f10.2,t10,5(i7))') pnpr(k)/100., (ithere(k,n),n=1,5)
 enddo
-
-write(io6,*) ''
-write(io6,*) '---------------------------------------------------'
-write(io6,*) ' # of missing surface values (-1 = all missing):   '
-write(io6,*) '---------------------------------------------------'
-write(io6,*) '             SLP    SFP    SFT    SNOW   SST       '
-
-write(io6, '(t10,5(i7))') (isfthere(n),n=1,5)
 
 if (any(ithere(1:nprz,(/1,3,4,5/)) > 0) .or. any(ithere(1:nprz_rh,2) > 0)) then
    write(io6,*) ''
@@ -632,26 +632,3 @@ enddo
 
 return
 end subroutine prfill3
-
-!===============================================================================
-
-integer function lastdot(str)
-implicit none
-character(len=*) :: str
-integer :: n,ln
-
-! returns last . character position from a string
-!     trailing blanks are ignored
-
-ln=len_trim(str)
-do n=ln,1,-1
-   if(str(n:n) == '.') then
-      lastdot = n
-      return
-   endif
-enddo
-lastdot = 0
-
-return
-end
-

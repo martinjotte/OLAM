@@ -503,15 +503,10 @@
  ! Isentropic control 
  !--------------------------------------------------------------------------
  
- !  Input data file directories/prefixes
+  ! IAPR points to .txt listings of analysis files, one per line
+  ! Multiple text listing files can be specified
 
-   NL%ISDIRS  = -1     ! Number of directory and file prefixes listed in
-                      ! iapr (limit of maxisdirs directory/file prefixes)
-                      !
-                      ! -1 means that IAPR points to a .txt list of files
-
- !  NL%IAPR    = './dp_etc/dp-p',
-   NL%IAPR    = '/home/rwalko/frances_cfsr/dp_list'
+  NL%IAPR    = 'dp-p.txt',
 
  !--------------------------------------------------------------------------
  ! Plotting parameters

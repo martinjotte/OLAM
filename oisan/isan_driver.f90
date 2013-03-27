@@ -146,12 +146,6 @@ real :: p_t(nprx+3,npry+2,nprz)
 real :: p_z(nprx+3,npry+2,nprz)
 real :: p_r(nprx+3,npry+2,nprz)
 
-real :: p_slp (nprx+3,npry+2)
-real :: p_sfp (nprx+3,npry+2)
-real :: p_sft (nprx+3,npry+2)
-real :: p_snow(nprx+3,npry+2)
-real :: p_sst (nprx+3,npry+2)
-
 real(kind=8) :: o_rho   (mza,mwa)
 real         :: o_theta (mza,mwa)
 real         :: o_shv   (mza,mwa)
@@ -159,18 +153,9 @@ real         :: o_uzonal(mza,mwa)
 real         :: o_umerid(mza,mwa)
 real         :: o_uvc   (mza,mva) ! uc or vc wind component
 
-! Fill surface arrays with 'missing' values in case they are not present
-
-p_slp (1:nprx+3,1:npry+2) = -999.0
-p_sfp (1:nprx+3,1:npry+2) = -999.0
-p_sft (1:nprx+3,1:npry+2) = -999.0
-p_snow(1:nprx+3,1:npry+2) = -999.0
-p_sst (1:nprx+3,1:npry+2) = -999.0
-
 ! Read in gridded pressure-level data and copy to isan arrays
 
-call pressure_stage(fform,p_u, p_v, p_t, p_z, p_r, &
-                    p_slp, p_sfp, p_sft, p_snow, p_sst)
+call pressure_stage(fform,p_u, p_v, p_t, p_z, p_r)
 
 ! Add pressure-level data at higher levels from climatology and interpolate
 ! combined data to OLAM grid

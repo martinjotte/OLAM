@@ -103,7 +103,7 @@ use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst, &
                        iseaiceflg, seaice_database, iupdseaice
 
 use oplot_coms,  only: op
-use isan_coms,   only: iapr, isdirs
+use isan_coms,   only: iapr
 use mem_nudge,   only: tnudcent, nudflag, nudnxp
 use mem_rayf,    only: rayf_zmin,    rayf_distim,   rayf_expon,    &
                        rayfw_zmin,   rayfw_distim,   rayfw_expon,  &
@@ -231,11 +231,10 @@ if (copy_type == 'ALL_CASES') then
    isstflg       = nl%isstflg
    iseaiceflg    = nl%iseaiceflg
    isoilflg      = nl%isoilflg
-   isoilstateinit = nl%isoilstateinit
+   isoilstateinit= nl%isoilstateinit
    isoildepthflg = nl%isoildepthflg
    iwatertabflg  = nl%iwatertabflg
    ndviflg       = nl%ndviflg
-   isdirs        = nl%isdirs
 
    slmstr(1:nzgmax) = nl%slmstr(1:nzgmax)
 

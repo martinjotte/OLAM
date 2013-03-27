@@ -521,10 +521,6 @@ endif
 ! ISENTROPIC CONTROL 
 !--------------------------------------------------------------------------
 
-CALL ichk_bnds( nl%isdirs,   "ISANDIRS", -1, maxisdirs, 0, nfatal, nwarn, &
-     msgmax="Increase maxisdirs in maxdims.f90 if you need to read from more &
-          & directories" )
-
 !--------------------------------------------------------------------------
 ! PLOTTING PARAMETERS
 !--------------------------------------------------------------------------
