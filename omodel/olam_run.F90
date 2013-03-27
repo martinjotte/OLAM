@@ -389,14 +389,14 @@ if (iswrtyp > 0 .or. ilwrtyp > 0) then
    call radinit()
 endif
 
-! Check if LEAF3 will be used
+! Check if LEAF will be used
 
 if (isfcl == 1) then
 
-! Start up LEAF3
+! Start up LEAF
 
-   write(io6,'(/,a)') 'olam_run calling leaf3_startup'
-   call leaf3_startup()
+   write(io6,'(/,a)') 'olam_run calling leaf4_startup'
+   call leaf4_startup()
 
 ! Start up SEA
 
@@ -414,8 +414,8 @@ if (isfcl == 1) then
 
 ! Initialize leaf fields that depend on atmosphere
 
-   write(io6,'(/,a)') 'olam_run calling leaf3_init_atm'
-   call leaf3_init_atm()
+   write(io6,'(/,a)') 'olam_run calling leaf4_init_atm'
+   call leaf4_init_atm()
 
 #ifdef USE_ED2
    if (ed2_active == 1) then

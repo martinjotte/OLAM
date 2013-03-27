@@ -416,7 +416,7 @@ call rsub('JLANDFLUX',1)
 
 ! (ON THE OTHER HAND, LAND%SXFER_T, LAND%SXFER_R, SEA%SXFER_T, AND SEA%SXFER_R
 ! ARE SUMMED OVER BOTH SPACE AND TIME; THEY ARE NOT RESET TO ZERO HERE BUT INSTEAD
-! IN LEAF3 OR SEA AFTER THEY ARE TRANSFERRED TO THE LEAF3 OR SEA CANOPY.)
+! IN LEAF OR SEA AFTER THEY ARE TRANSFERRED TO THE LEAF OR SEA CANOPY.)
 
 ! Loop over all SEA cells
 
@@ -683,7 +683,7 @@ real :: tempc
 real, external :: rhovsl
 
 ! Subroutine to transfer atmospheric cumulus parameterization 
-! precipitation FLUX to leaf3 land cells
+! precipitation FLUX to leaf land cells
 
 ! Set land fluxes to be done for CUPARM
 !    1. for mrl = 0, no fluxes 
@@ -811,7 +811,7 @@ real :: arf_land
 real :: arf_land_dtf
 
 ! Subroutine to transfer atmospheric microphysics parameterization 
-! precipitation flux to leaf3 land cells.
+! precipitation flux to leaf land cells.
 
 ! Land fluxes to be done for PRECIP 
 !    1. for mrl = 0, no fluxes 

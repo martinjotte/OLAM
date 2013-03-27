@@ -30,11 +30,6 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine leaf3()
-call leaf4()
-end subroutine leaf3
-
-!===============================================================================
 
 subroutine leaf4()
 

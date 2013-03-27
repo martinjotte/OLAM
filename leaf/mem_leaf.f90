@@ -108,7 +108,7 @@ Module mem_leaf
       real, allocatable :: wny         (:) ! norm unit vector y comp of land cells
       real, allocatable :: wnz         (:) ! norm unit vector z comp of land cells
 
-      ! LEAF3 model variables:
+      ! LEAF4 model variables:
 
       integer, allocatable :: nlev_sfcwater (:) ! # of active surface water levels
       real, allocatable :: soil_water     (:,:) ! soil water content [vol_water/vol_tot]

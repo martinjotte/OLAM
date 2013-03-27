@@ -30,11 +30,6 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine leaf3_init_atm()
-call leaf4_init_atm()
-end subroutine leaf3_init_atm
-
-!===============================================================================
 
 subroutine leaf4_init_atm()
 

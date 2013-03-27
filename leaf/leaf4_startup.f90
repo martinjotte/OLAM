@@ -30,11 +30,6 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine leaf3_startup()
-call leaf4_startup()
-end subroutine leaf3_startup
-
-!===============================================================================
 
 subroutine leaf4_startup()
 

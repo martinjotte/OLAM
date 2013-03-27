@@ -133,7 +133,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
 !$omp end parallel do
    call rsub('Wa',12)
 
-! If running leaf3, loop over all SEA cells.
+! If running leaf, loop over all SEA cells.
 
 !$omp parallel do private (sea_cosz)
    do iws = 2,mws
@@ -208,7 +208,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
       call mpi_send_ws('R')
    endif
 
-! If running leaf3, loop over all LAND cells.
+! If running leaf, loop over all LAND cells.
 
 !$omp parallel do
    do iwl = 2,mwl
@@ -250,7 +250,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
             land%wnx           (      iwl), land%wny            (      iwl), &
             land%wnz           (      iwl)                                 )
 
-! For LEAF3 land cells, there is no distinction between beam and 
+! For LEAF land cells, there is no distinction between beam and 
 ! diffuse radiation.
 
          land%albedo_diffuse(iwl) = land%albedo_beam(iwl)
@@ -280,7 +280,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
       call mpi_send_wl('R')
    endif
 
-! If running leaf3, loop over all SEAFLUX cells to get mean surface radiative
+! If running leaf, loop over all SEAFLUX cells to get mean surface radiative
 ! properties for each IW grid cell.
 
 ! No OMP parallelization of following J/ISF loop unless conflicts are prevented
@@ -311,7 +311,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
       call mpi_recv_wl('R')
    endif
 
-! If running leaf3, loop over all LANDFLUX cells to get mean surface radiative
+! If running leaf, loop over all LANDFLUX cells to get mean surface radiative
 ! properties for each IW grid cell.
 
 ! No OMP parallelization of following J/ILF loop unless conflicts are prevented
@@ -370,7 +370,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
 !$omp end parallel do
    call rsub('Wb',12)
 
-! If running leaf3, loop over SEAFLUX cells to transfer downward surface
+! If running leaf, loop over SEAFLUX cells to transfer downward surface
 ! shortwave and longwave fluxes from IW atmospheric column to sea cells
 
 !$omp parallel do private (isf,iw,iws,arf_sea)
@@ -402,7 +402,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
       call mpi_send_wsf('R',mrl)
    endif
 
-! If running leaf3, loop over LANDFLUX cells to transfer downward surface
+! If running leaf, loop over LANDFLUX cells to transfer downward surface
 ! shortwave and longwave fluxes from IW atmospheric column to land cells
 
 !$omp parallel do private (ilf,iw,iwl,arf_land)
@@ -441,7 +441,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
       call mpi_send_wlf('R',mrl)
    endif
 
-! If running leaf3, loop over SEAFLUX cells to transfer downward surface
+! If running leaf, loop over SEAFLUX cells to transfer downward surface
 ! shortwave and longwave fluxes from IW atmospheric column to sea cells
 
 ! No OMP parallelization of following J/ISF loop unless conflicts are prevented
@@ -492,7 +492,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
       call mpi_recv_wlf('R',mrl)
    endif
 
-! If running leaf3, loop over LANDFLUX cells to transfer downward surface
+! If running leaf, loop over LANDFLUX cells to transfer downward surface
 ! shortwave and longwave fluxes from IW atmospheric column to land cells
 
 ! No OMP parallelization of following J/ILF loop unless conflicts are prevented
@@ -514,7 +514,7 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
                                + landflux(ilf)%rshort_diffuse
    enddo
 
-! If running leaf3, loop over all LAND cells to compute radiative fluxes 
+! If running leaf, loop over all LAND cells to compute radiative fluxes 
 ! for all cell components, given that rshort and rlong are now updated.
 
 !$omp parallel do
