@@ -35,6 +35,7 @@ SOURCE_FILES= \
              $(LEAF)/ndvi_database_read.f90 \
              $(LEAF)/olam_mpi_land.F90 \
              $(LEAF)/para_init_land.f90 \
+             $(LEAF)/read_soil_analysis.f90 \
              ./consts_coms.f90 \
              $(MODEL_MODS)/ke_coms.f90 \
              $(MODEL_MODS)/massflux.f90 \
