@@ -43,7 +43,7 @@ use leaf_coms,   only: mwl, nzg, nzs, &
                       
 use mem_sflux,    only: landflux, jlandflux
 use mem_basic,    only: rho, tair, sh_v
-use misc_coms,    only: io6, time8, s1900_sim, iparallel, runtype
+use misc_coms,    only: io6, time8, s1900_sim, iparallel, runtype, initial
 use mem_ijtabs,   only: itabg_w
 use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000
 use mem_para,     only: myrank
@@ -300,11 +300,24 @@ do iwl = 2,mwl
 
 enddo
 
-! If required, read in sfcwater mass, soil_tempc, and soil_water from file.
+! Overwrite the default soil initialization with observed data if specified
 
-if (runtype /= 'INITIAL') return
+if (isoilstateinit == 1) then
 
-if (isoilstateinit == 1) call read_soil_moist_temp(soil_tempc)
+   ! read sfcwater mass, soil_tempc, and soil_water from the 2 X 2.5 degree
+   ! NCEP/NCAR reanalysis in netcdf format, obtained from
+   ! ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis/surface_gauss/
+
+   call read_soil_moist_temp(soil_tempc)
+
+elseif (isoilstateinit == 2 .and. initial == 2) then
+
+   ! read sfcwater mass, soil_tempc, and soil_water saved in the initial
+   ! degribbed analysis files
+
+   call read_analysis_soil(soil_tempc)
+
+endif
 
 !--------------------------------------------------------------------------------
 ! ADD A METHOD HERE TO INITIALIZE FRACTION OF SOIL WATER THAT IS LIQUID (FRACLIQ)

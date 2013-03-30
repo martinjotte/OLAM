@@ -460,9 +460,9 @@ if (nl%isfcl == 1) then
    call ichk_bnds( nl%isoilflg,    "ISOILFLG",    1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%ndviflg,     "NDVIFLG",     1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%isstflg,     "ISSTFLG",     0, 2, 0, nfatal, nwarn )
-   CALL ichk_bnds( nl%iseaiceflg,  "ISEAICEFLG",  0, 2, 0, nfatal, nwarn )
+   call ichk_bnds( nl%iseaiceflg,  "ISEAICEFLG",  0, 2, 0, nfatal, nwarn )
 
-   call ichk_bnds( nl%isoilstateinit, "ISOILSTATEINIT", 0, 1, 0, nfatal,nwarn )
+   call ichk_bnds( nl%isoilstateinit, "ISOILSTATEINIT", 0, 2, 0, nfatal,nwarn )
    call ichk_bnds( nl%isoildepthflg,  "ISOILDEPTHFLG",  0, 1, 0, nfatal,nwarn )
 
    call ichk_bnds( nl%iupdndvi,  "IUPDNDVI",    0, 1, 0, nfatal, nwarn )
@@ -515,6 +515,16 @@ if (nl%isfcl == 1) then
       endif
    endif
 
+   ! Set isoilstateinit to 0 if not doing 3D initialization, as it requires
+   ! the 3D analysis files
+   if (nl%isoilstateinit == 1) then
+      if (nl%initial /= 2) then
+         write(io6,*) "Turning off SOIL initialization when not not doing 3d initialization"
+         nl%isoilstateinit = 0
+         nwarn = nwarn + 1
+      endif
+   endif
+   
 endif
       
 !--------------------------------------------------------------------------

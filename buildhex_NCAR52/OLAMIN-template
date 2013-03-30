@@ -439,11 +439,9 @@
                        ! .txt list of files, not the path and basename,
                        ! in a new schema to avoid call systems
 
-   NL%ISOILSTATEINIT = 0  ! 0 -- use slmstr
-                          ! 1 -- read from file
-
-   NL%ISOILDEPTHFLG  = 0  ! 0 -- use NZG, SLZ for each grid cell
-                          ! 1 -- read file to get soil depth for each grid cell
+   NL%ISOILSTATEINIT = 0  ! 0 -- default initialization based on landuse
+                          ! 1 -- read from NCEP/NCAR netcdf reanalysis
+                          ! 2 -- read from initial analysis files
 
    NL%IWATERTABFLG   = 0  ! 0 -- use default for each landuse class
                           ! 1 -- read from file

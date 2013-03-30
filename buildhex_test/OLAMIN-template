@@ -146,7 +146,7 @@
  ! Variable initialization input
  !--------------------------------------------------------------------------
 
-   NL%INITIAL  = 3   ! Initial fields:  1 = horizontally homogeneous
+   NL%INITIAL  = 2   ! Initial fields:  1 = horizontally homogeneous
                      !                  2 = 3D heterogeneous
                      !                  3 = longitudinally homogeneous
 
@@ -413,8 +413,9 @@
                        ! .txt list of files, not the path and basename,
                        ! in a new schema to avoid call systems
 
-   NL%ISOILSTATEINIT = 0  ! 0 -- use slmstr
-                          ! 1 -- read from file
+   NL%ISOILSTATEINIT = 0  ! 0 -- default initialization based on landuse
+                          ! 1 -- read from NCEP/NCAR netcdf reanalysis
+                          ! 2 -- read from initial analysis files
 
    NL%ISOILDEPTHFLG  = 0  ! 0 -- use NZG, SLZ for each grid cell
                           ! 1 -- read file to get soil depth for each grid cell
