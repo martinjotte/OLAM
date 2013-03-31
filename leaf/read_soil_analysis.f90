@@ -1,4 +1,4 @@
-subroutine read_analysis_soil(soil_tempc)
+subroutine read_soil_analysis(soil_tempc)
 
   use misc_coms, only: io6, s1900_sim, s1900_init
   use leaf_coms, only: nzg, mwl, slzt, soilcp, slmsts, slcpd, soilstate_db
@@ -455,4 +455,4 @@ do iwl = 2, mwl
 
 enddo
    
-end subroutine read_analysis_soil
+end subroutine read_soil_analysis

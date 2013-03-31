@@ -315,7 +315,7 @@ elseif (isoilstateinit == 2 .and. initial == 2) then
    ! read sfcwater mass, soil_tempc, and soil_water saved in the initial
    ! degribbed analysis files
 
-   call read_analysis_soil(soil_tempc)
+   call read_soil_analysis(soil_tempc)
 
 endif
 
