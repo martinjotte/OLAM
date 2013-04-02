@@ -316,7 +316,7 @@ real :: as3(nprx,npry,nprz)
 
 integer :: i,j,k,nv,nvar,misstot,lv,n
 integer :: ithere(maxpr,5),isfthere(5)
-character(len=1) :: idat(5) = (/ 'T','R','U','V','H' /)
+character(len=1) :: idat(5) = (/ 'T','U','V','H','R' /)
 integer :: ndims, idims(3), njdims, jdims(3)
 character(10) :: varname
 
@@ -524,10 +524,10 @@ write(io6, *) ''
 
 do k = 1,nprz
    ithere(k,1) = count(p_t(:,:,k) < -998.0)
-   ithere(k,5) = count(p_r(:,:,k) < -998.0)
    ithere(k,2) = count(p_u(:,:,k) < -998.0)
    ithere(k,3) = count(p_v(:,:,k) < -998.0)
    ithere(k,4) = count(p_z(:,:,k) < -998.0)
+   ithere(k,5) = count(p_r(:,:,k) < -998.0)
 enddo
 
 where (ithere(:,:) > nprx*npry) ithere(:,:) = -1
@@ -541,7 +541,7 @@ do k = 1,nprz
    write(io6, '(f10.2,t10,5(i7))') pnpr(k)/100., (ithere(k,n),n=1,5)
 enddo
 
-if (any(ithere(1:nprz,(/1,3,4,5/)) > 0) .or. any(ithere(1:nprz_rh,2) > 0)) then
+if (any(ithere(1:nprz,(/1,2,3,4/)) /= 0) .or. any(ithere(1:nprz_rh,5) /= 0)) then
    write(io6,*) ''
    write(io6,*) '-------------------------------------------------------'
    write(io6,*) 'WARNING - There appears to be missing data in the input'
