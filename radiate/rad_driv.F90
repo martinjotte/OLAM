@@ -358,6 +358,11 @@ if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
 
       koff = ka - 2
    
+! Set total surface albedo to surface direct albedo
+! (LEAF doesn't differentiate between diffuse and direct albedo)
+   
+      albedt(iw) = albedt_beam(iw)
+
 ! Do Harrington radiation if specified
 
       if (ilwrtyp == 3 .or. iswrtyp == 3) then
