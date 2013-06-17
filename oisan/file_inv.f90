@@ -144,6 +144,9 @@ do nf = 1, nfgfiles
 
    read (filename(lnf-14:lnf), '(i4,1x,i2,1x,i2,1x,i4)') iyear, imonth, idate, ihour
 
+   ! Note that subroutines date_make_big and date_abs_secs2 assume that
+   ! the format of ihour is hhmmss
+
    call date_make_big (iyear,imonth,idate,ihour*100,ctotdate_fg(nf))
    call date_abs_secs2(iyear,imonth,idate,ihour*100,s1900_fg(nf))
 

@@ -122,6 +122,10 @@ if (iaction == 0) then
       sdate = flnm(slen-12:slen-3)
 
       read(sdate,'(i4,i2,i2,i2)') issty, isstm, isstd, issth
+
+      ! Convert issth format from hh to hhmmss
+
+      issth = issth * 10000
       
       ! If file year is read as zero, sst data is expected to be cyclic
       ! over 1 year. Increment isstcyclic to indicate this and use current
@@ -132,8 +136,8 @@ if (iaction == 0) then
          issty = iyears
       endif
 
-      call date_make_big (issty,isstm,isstd,issth*100,ctotdate_sst(jtime))
-      call date_abs_secs2(issty,isstm,isstd,issth*100,s1900_sst(jtime))
+      call date_make_big (issty,isstm,isstd,issth,ctotdate_sst(jtime))
+      call date_abs_secs2(issty,isstm,isstd,issth,s1900_sst(jtime))
    enddo
 
    ! Make sure files are sorted by date

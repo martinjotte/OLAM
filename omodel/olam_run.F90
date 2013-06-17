@@ -145,6 +145,7 @@ endif
 #endif
 
 ! Get abs seconds of simulation start and current simulation time
+! Note that itime1 has format of hhmm, and date_abs_secs2 needs hhmmss
 
 time_istp8 = time8
 

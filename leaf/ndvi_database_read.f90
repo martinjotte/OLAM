@@ -106,7 +106,11 @@ if (iaction == 0) then
    nndvifiles = ntimes
 
    do jtime = 1,ntimes
-      read(29,*) filemonth, indviy, indvim, indvid, indvih 
+      read(29,*) filemonth, indviy, indvim, indvid, indvih
+
+! Convert indvih from hh to hhmmss format
+
+      indvih = indvih * 10000
       
 ! If file year is read as zero, ndvi data is expected to be cyclic over 1 year.
 ! Increment indvicyclic to indicate this and use current simulation year for
@@ -120,8 +124,9 @@ if (iaction == 0) then
 ! Compute and store ndvi database file times in arrays
 
       fnames_ndvi(jtime) = trim(ndvi_database)//trim(filemonth)
-      call date_make_big (indviy,indvim,indvid,indvih*100,ctotdate_ndvi(jtime))
-      call date_abs_secs2(indviy,indvim,indvid,indvih*100,s1900_ndvi(jtime))
+      call date_make_big (indviy,indvim,indvid,indvih,ctotdate_ndvi(jtime))
+      call date_abs_secs2(indviy,indvim,indvid,indvih,s1900_ndvi(jtime))
+
    enddo                     
 
    close(29)
