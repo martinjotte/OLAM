@@ -337,7 +337,7 @@ Contains
             mrlw = 1
          endif
 
-         seaflux(isf)%dtf = min(dtlm(mrlw),dt_leaf)
+         seaflux(isf)%dtf = min( real(dtlm(mrlw)), dt_leaf )
 
          if (mrlw == mrl) then
       
@@ -397,7 +397,7 @@ Contains
             mrlw = 1
          endif
 
-         landflux(ilf)%dtf = min(dtlm(mrlw),dt_leaf)
+         landflux(ilf)%dtf = min( real(dtlm(mrlw)), dt_leaf )
 
          if (mrlw == mrl) then
 
@@ -533,7 +533,7 @@ use mem_grid,   only: nza, nwa, arw0, xem, yem, zem, xew, yew, zew, &
 use mem_leaf,   only: land, itab_wl
 use mem_sea,    only: sea,  itab_ws
 use mem_ijtabs, only: itab_w, mrls
-use leaf_coms,  only: nwl, dt_leaf
+use leaf_coms,  only: nwl
 use sea_coms,   only: nws
 use misc_coms,  only: io6, rinit
 use consts_coms,only: piu180

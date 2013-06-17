@@ -44,14 +44,14 @@ subroutine oname_check()
 use max_dims,    only: nzgmax, maxgrds, maxsndg, maxnplt, maxisdirs, &
                        maxpltfiles, maxngrdll
 use oname_coms,  only: nl
-use consts_coms, only: erad, pi1, pi2, p00
+use consts_coms, only: erad, pi1, pi2, p00, r8
 use misc_coms,   only: io6
 
 implicit none
 
-integer      :: nfatal, nwarn, ifm, ng, i, k, iplt, i_huge, idz
-real         :: r_huge, r_min, r_max, r_tiny, dzxmin, zb_min, zb_max
-real(kind=8) :: d_huge
+integer  :: nfatal, nwarn, ifm, ng, i, k, iplt, i_huge, idz
+real     :: r_huge, r_min, r_max, r_tiny, dzxmin, zb_min, zb_max, dtlong4
+real(r8) :: d_huge, d_tiny
 
 character(len=1), dimension(8) :: tunits = (/ 'd','D','h','H','m','M','s','S' /)
 
@@ -61,6 +61,7 @@ nwarn  = 0
 r_tiny = spacing(1.0)       ! real value small compared to 1.0
 r_huge = huge(1.0) - 1.0    ! largest allowable real value
 i_huge = huge(1) - 1        ! largest allowable integer
+d_tiny = spacing(nl%timmax)     ! smallest real*8 value
 d_huge = huge(nl%timmax) - 1.d0 ! largest allowable real*8 value
 dzxmin = 0.001              ! minimum grid spacing (horiz. and vertical)
 
@@ -70,6 +71,8 @@ if (nl%mdomain == 0) then
 else
    zb_max = 2.e3  ! max. vertical base (allow above MSL for a regional run)
 endif
+
+dtlong4 = real(nl%dtlong)
 
 write(io6,*) ' '
 write(io6,*) '  CHECKING NAMELIST VALUES'
@@ -124,7 +127,7 @@ call ichk_bnds( nl%nzp,         "NZP",       3,   10000, 0, nfatal, nwarn, &
      msgmin="At least 3 vertical levels are needed for OLAM." )
 
 call ichk_bnds( nl%nxp,         "NXP",       1,   10000, 0, nfatal, nwarn )
-call rchk_bnds( nl%dtlong,   "DTLONG",  r_tiny,  r_huge, 0, nfatal, nwarn )
+call dchk_bnds( nl%dtlong,   "DTLONG",  d_tiny,  d_huge, 0, nfatal, nwarn )
 call rchk_bnds( nl%deltax,   "DELTAX",  dzxmin,  r_huge, 0, nfatal, nwarn )
 call ichk_bnds( nl%ndz,         "NDZ",       1,      10, 0, nfatal, nwarn )
 
@@ -219,7 +222,7 @@ if (nl%initial == 2) then
    if (nl%nudflag == 1) then
 
       call ichk_bnds( nl%nudnxp, "NUDNXP", 0, 10000, 2, nfatal, nwarn )
-      call rchk_bnds( nl%tnudcent, "TNUDCENT", nl%dtlong, r_huge, 2, nfatal, &
+      call rchk_bnds( nl%tnudcent, "TNUDCENT", dtlong4, r_huge, 2, nfatal, &
                       nwarn, msgmin="Nudging time must be larger than dtlong")
    endif
 
@@ -235,7 +238,7 @@ call ichk_bnds( nl%icompress, "ICOMPRESS", 0, 9, 2, nfatal, nwarn )
 call ichk_bnds( nl%ipar_out,  "IPAR_OUT ", 0, 1, 2, nfatal, nwarn )
 call ichk_bnds( nl%iquiet   , "IQUIET   ", 0, 1, 1, nfatal, nwarn )
 
-call rchk_bnds( nl%frqstate, "FRQSTATE", nl%dtlong, r_huge, 2, nfatal, nwarn )
+call dchk_bnds( nl%frqstate, "FRQSTATE", nl%dtlong, d_huge, 2, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! Topography
@@ -260,21 +263,21 @@ call ichk_bnds( nl%iscal_monot, "ISCAL_MONOT", 0, 1, 0, nfatal, nwarn )
 
 call rchk_bnds( nl%rayf_distim, "RAYF_DISTIM", 0.0, r_huge, 0, nfatal, nwarn )
 if (nl%rayf_distim > r_tiny) &
-     call rchk_bnds( nl%rayf_distim, "RAYF_DISTIM", nl%dtlong, r_huge, 2, &
+     call rchk_bnds( nl%rayf_distim, "RAYF_DISTIM", dtlong4, r_huge, 2, &
                      nfatal, nwarn )
 call rchk_bnds( nl%rayf_expon, "RAYF_EXPON", 0.0,   5.0, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayf_zmin,  "RAYF_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
 
 call rchk_bnds( nl%rayfw_distim, "RAYFW_DISTIM", 0.0, r_huge, 2, nfatal, nwarn )
 if (nl%rayfw_distim > r_tiny) &
-     call rchk_bnds( nl%rayfw_distim, "RAYFW_DISTIM", nl%dtlong, r_huge, 2, &
+     call rchk_bnds( nl%rayfw_distim, "RAYFW_DISTIM", dtlong4, r_huge, 2, &
      nfatal, nwarn )
 call rchk_bnds( nl%rayfw_expon, "RAYFW_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayfw_zmin,  "RAYFW_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
 
 call rchk_bnds( nl%rayfdiv_distim, "RAYFDIV_DISTIM", 0.0, r_huge, 2, nfatal, nwarn )
 if (nl%rayfdiv_distim > r_tiny) &
-     call rchk_bnds( nl%rayfdiv_distim, "RAYFDIV_DISTIM", nl%dtlong, r_huge, 2, &
+     call rchk_bnds( nl%rayfdiv_distim, "RAYFDIV_DISTIM", dtlong4, r_huge, 2, &
      nfatal, nwarn )
 call rchk_bnds( nl%rayfdiv_expon, "RAYFDIV_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayfdiv_zmin,  "RAYFDIV_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
@@ -285,7 +288,7 @@ call rchk_bnds( nl%rayfdiv_zmin,  "RAYFDIV_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn
 
 call ichk_bnds( nl%iswrtyp, "ISWRTYP", 0,  3, 0, nfatal, nwarn )
 call ichk_bnds( nl%ilwrtyp, "ILWRTYP", 0,  3, 0, nfatal, nwarn )
-call rchk_bnds( nl%radfrq,   "RADFRQ", nl%dtlong, r_huge, 2, nfatal, nwarn )
+call dchk_bnds( nl%radfrq,   "RADFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
 
 ! Currently, radiation types of 1 and 2 are invalid
 if ( nl%iswrtyp==1 .or. nl%ilwrtyp==1 .or. &
@@ -302,7 +305,7 @@ do ng=1, nl%ngrids
    call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 4, 0, nfatal, nwarn )
    call ichk_bnds( nl%nqparm_sh(ng), "NQPARM_SH", 0, 1, 0, nfatal, nwarn )
 enddo
-call rchk_bnds( nl%confrq, "CONFRQ", nl%dtlong, r_huge, 2, nfatal, nwarn )
+call dchk_bnds( nl%confrq, "CONFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
 call rchk_bnds( nl%wcldbs, "WCLDBS", -10., 10., 2, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
@@ -543,7 +546,7 @@ if (nl%runtype == 'PLOTONLY') &
      & from more files" )
 
 if ((nl%runtype == 'INITIAL') .or. (nl%runtype == 'HISTORY')) &
-     call rchk_bnds( nl%frqplt, "FRQPLT", nl%dtlong, r_huge, 2, nfatal, nwarn )
+     call dchk_bnds( nl%frqplt, "FRQPLT", nl%dtlong, d_huge, 2, nfatal, nwarn )
 
 call rchk_bnds( nl%dtvec,     "DTVEC",     1.e-3, r_huge, 2, nfatal, nwarn )
 call rchk_bnds( nl%headspeed, "HEADSPEED", 1.e-3, r_huge, 2, nfatal, nwarn )

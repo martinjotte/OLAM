@@ -50,6 +50,7 @@ use obnd,        only: trsets, lbcopy_v, lbcopy_w
 use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_timeavg, only: accum_timeavg
+use consts_coms, only: r8
 
 implicit none
 
@@ -71,7 +72,7 @@ real :: rhot       (mza,mwa) ! grid-cell total mass tendency [kg/s]
 
 time_istp8 = time8
 
-if (time_istp8 < 1.e-3) then
+if (time_istp8 < 1.e-3_r8) then
 !   call bubble()
 
 ! For shallow water test cases, compute error norms at initial time
@@ -200,7 +201,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
 
 ! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
-!if (mod(real(time8),op%frqplt) < dtlm(1) .and. istp == nstp+1000) then
+!if (mod(time8,op%frqplt) < dtlm(1) .and. istp == nstp+1000) then
 !
 !   allocate (op%extfld(mza,mwa))
 !   op%extfld(:,:) = thil(:,:)
@@ -287,7 +288,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(22)
 
-   time_istp8 = time8 + float(istp) * dtsm(mrls)  ! Update precise time
+   time_istp8 = time8 + istp * dtsm(mrls)  ! Update precise time
    s1900_sim = s1900_init + time_istp8
 
 enddo
@@ -305,6 +306,7 @@ use mem_ijtabs, only: nstp, mrls,  &
 use misc_coms,  only: io6, nacoust, ndtrat, dtlm, dtlong, dtsm, nqparm
 use leaf_coms,  only: dt_leaf, mrl_leaf, isfcl
 use sea_coms,   only: dt_sea
+use consts_coms,only: r8
 
 implicit none
 
@@ -353,7 +355,7 @@ dtlm(1) = dtlong
 dtsm(1) = dtlm(1) / nacoust(1)
 
 do mrl = 2,mrls
-   dtlm(mrl) = dtlm(mrl-1) / float(ndtrat(mrl))
+   dtlm(mrl) = dtlm(mrl-1) / ndtrat(mrl)
    dtsm(mrl) = dtlm(mrl) / nacoust(mrl)
 enddo
 
@@ -408,13 +410,13 @@ do jstp = 1,nstp
 
    mrl = mrl_endl(jstp)
    if (isfcl == 1 .and. mrl > 0) then
-      if (mrl == 1 .or. dtlm(mrl) > 30.) then
+      if (mrl == 1 .or. dtlm(mrl) > 30.0_r8) then
          leafstep(jstp) = 1
 
 ! Set leaf mrl and timestep according to highest selected mrl
 
-         mrl_leaf = max(mrl_leaf,mrl)
-         dt_leaf = min(dt_leaf,dtlm(mrl))
+         mrl_leaf = max(mrl_leaf, mrl)
+         dt_leaf  = min(dt_leaf, real(dtlm(mrl)))
       endif
    endif
 

@@ -562,6 +562,8 @@ subroutine model()
 
 use misc_coms, only: io6, time8, timmax8, dtlm, time_istp8, simtime,  &
                      current_time, s1900_init, s1900_sim
+use consts_coms, only: r8
+
 implicit none
 
 !   +------------------------------------------------------------------
@@ -575,6 +577,7 @@ real :: wtime_start,t1,wtime1,wtime2,t2,wtime_tot
 real, external :: walltime
 character(len=40) :: stepc1,stepc2,stepc3,stepc4,stepc5
 type(simtime) :: begtime
+real(r8) :: time8p, bias
 
  write(io6,*) 'starting subroutine MODEL'
 
@@ -582,9 +585,11 @@ wtime_start = walltime(0.)
 
 ! Start the timesteps
 
-mstp = 0
+mstp   = 0
+bias   = 1.e-7_r8 * dtlm(1) ! A number small compared to the timestep
+time8p = time8 + bias       ! Slightly forward biased time
 
-do while (time8 < timmax8)
+do while (time8p < timmax8)
 
    begtime = current_time
 
@@ -652,10 +657,10 @@ use hcane_rz,    only: init_hurr_step, hurricane_track
 implicit none
 
 integer  :: ierr, ifm, ifileok
-real(r8) :: frqplt8, time8p
+real(r8) :: time8p, bias
 
-time8p  = time8 + 0.001_r8
-frqplt8 = op%frqplt
+bias    = 1.e-7_r8 * dtlm(1) ! A number small compared to the timestep
+time8p  = time8 + bias       ! Slightly forward biased time
 
 !-------------------- SPECIAL - HURRICANE TRACKING ------------------
 if (init_hurr_step == 1 .or. init_hurr_step == 2) then
@@ -669,12 +674,12 @@ if (init_hurr_step == 1 .or. init_hurr_step == 2) then
 endif
 !-------------------------------------------------------------------
 
-if (mod(time8p,frqplt8) < dtlm(1) .or. iflag == 1) then
+if (mod(time8p,op%frqplt) < dtlm(1) .or. iflag == 1) then
    call plot_fields(0)
 endif
 
-if (mod(time8p,real(frqstate,r8)) < dtlm(1)  .or.  &
-   time8  >=  timmax8 - .01*dtlm(1) .or. iflag == 1) then
+if (mod(time8p,frqstate) < dtlm(1)  .or.  &
+   time8 >= timmax8 - bias .or. iflag == 1) then
    call history_write('INST')
    time_prevhist = time8
 endif

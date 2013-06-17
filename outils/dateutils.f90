@@ -32,14 +32,16 @@
 !===============================================================================
 subroutine date_abs_secs(cdate,seconds)
 
+use consts_coms, only: r8
 implicit none
 
 character(len=14), intent(in) :: cdate
-real(kind=8), intent(out) :: seconds
+real(kind=r8), intent(out) :: seconds
 
-! compute number of seconds past 1 January 1900 12:00 am
+! Compute number of seconds past 1 January 1900 12:00 am
+! The format of hour1 is hhmmss
 
-real(kind=8) :: s1,s2,s3,s4
+real(kind=r8) :: s1,s2,s3,s4
 integer :: year1,month1,date1,hour1,iy,ndays
 integer, external :: julday
 
@@ -47,11 +49,13 @@ call date_unmake_big(year1,month1,date1,hour1,cdate)
 
 iy = year1 - 1900
 ndays = iy * 365 + (iy-1)/4 + julday(month1,date1,iy)
-s1= dble(ndays) *86400.
-s2= dble(hour1/10000)*3600.
-s3= dble(mod(hour1,10000)/100)*60.
-s4= dble(mod(hour1,100))
-seconds= s1+s2+s3+s4
+
+s1 = real(ndays,r8) * 86400._r8
+s2 = real(hour1/10000,r8) * 3600._r8
+s3 = real(mod(hour1,10000)/100,r8) * 60._r8
+s4 = real(mod(hour1,100),r8)
+
+seconds = s1 + s2 + s3 +s4
 
 return
 end subroutine date_abs_secs
@@ -60,23 +64,27 @@ end subroutine date_abs_secs
 
 subroutine date_abs_secs2(year1,month1,date1,hour1,seconds)
 
+use consts_coms, only: r8
 implicit none
 
 integer, intent(in) :: year1,month1,date1,hour1
-real(kind=8), intent(out) :: seconds
+real(kind=r8), intent(out) :: seconds
 
-! compute number of seconds past 1 January 1900 12:00 am
+! Compute number of seconds past 1 January 1900 12:00 am
+! The format of hour1 is hhmmss
 
 integer :: iy,ndays
-real(kind=8) :: s1,s2,s3,s4
+real(kind=r8) :: s1,s2,s3,s4
 integer, external :: julday
 
 iy = year1 - 1900
 ndays = iy * 365 + (iy-1)/4 + julday(month1,date1,iy)
-s1 = dble(ndays) * 86400.
-s2 = dble(hour1/10000) * 3600.
-s3 = dble(mod(hour1,10000)/100) * 60.
-s4 = dble(mod(hour1,100))
+
+s1 = real(ndays,r8) * 86400._r8
+s2 = real(hour1/10000,r8) * 3600._r8
+s3 = real(mod(hour1,10000)/100,r8) * 60._r8
+s4 = real(mod(hour1,100),r8)
+
 seconds = s1 + s2 + s3 + s4
 
 return
@@ -394,7 +402,9 @@ end subroutine date_add_to8
 !===============================================================================
 
 subroutine makefnam(fname, prefix, ctime, ftype, post, fmt)
+
   use misc_coms, only: simtime
+
   implicit none
   
 ! Creates standard timestamped filename from date/time
@@ -423,24 +433,27 @@ end subroutine makefnam
 !===============================================================================
 
 integer function timetohhmmss(time)
-  implicit none
-  real, intent(in) :: time
 
-  integer          :: ihr, imn, isc
-  real             :: t
+  use consts_coms, only: r8
+  implicit none
+
+  real(r8), intent(in) :: time
+
+  integer  :: ihr, imn, isc
+  real(r8) :: t
 
 ! Converts # of seconds since begining of day to hhmmss format
 
-  t = time
-  ihr = int(t/3600.)
+  t = time + .0001_r8    ! Adding small bias 
+  ihr = int(t/3600._r8)
 
-  t = t - ihr*3600.
-  imn = int(t/60.)
+  t = t - ihr*3600._r8
+  imn = int(t/60._r8)
 
-  t = t - imn*60.
+  t = t - imn*60._r8
   isc = int(t)
 
-  timetohhmmss = ihr*10000+imn*100+isc
+  timetohhmmss = ihr*10000 + imn*100 + isc
 end function timetohhmmss
 
 !===============================================================================
@@ -493,12 +506,15 @@ end subroutine dintsort28
 
 !===============================================================================
 
-subroutine update_model_time(ctime,dtlong)
+subroutine update_model_time(ctime,dtlong8)
+
   use misc_coms, only: simtime
+  use consts_coms, only: r8
+
   implicit none
 
   type(simtime), intent(inout) :: ctime
-  real,          intent(in)    :: dtlong
+  real(r8),      intent(in)    :: dtlong8
   logical                      :: isleap
 
 ! Update the year, month, day, and time structure based on the current timestep
@@ -506,52 +522,52 @@ subroutine update_model_time(ctime,dtlong)
   isleap = ( (mod(ctime%year,400) == 0) .or. &
              (mod(ctime%year,100) /= 0 .and. mod(ctime%year,4) == 0) )
   
-  ctime%time = ctime%time + dtlong
+  ctime%time = ctime%time + dtlong8
 
-  if (ctime%time.ge.86400.0) then
+  if (ctime%time + .0001_r8 >= 86400.0_r8) then  ! Using a small bias of .0001_r8
 
-     ctime%time = ctime%time - 86400.0
+     ctime%time = ctime%time - 86400.0_r8
      ctime%date = ctime%date + 1
-     if (ctime%date.eq.29 .and. ctime%month.eq.2 .and. .not. isleap) then
+     if (ctime%date == 29 .and. ctime%month == 2 .and. .not. isleap) then
         ctime%date = 1
         ctime%month = ctime%month + 1
-     elseif (ctime%date.eq.30 .and. ctime%month.eq.2) then
+     elseif (ctime%date == 30 .and. ctime%month == 2) then
         ctime%date = 1
         ctime%month = ctime%month + 1
-     elseif (ctime%date.eq.31) then
-        if (ctime%month.eq.4 .or. ctime%month.eq.6 .or. ctime%month.eq.9  &
-             .or. ctime%month.eq.11) then
+     elseif (ctime%date == 31) then
+        if (ctime%month == 4 .or. ctime%month == 6 .or. ctime%month == 9  &
+             .or. ctime%month == 11) then
            ctime%date = 1
            ctime%month = ctime%month + 1
         endif
-     elseif (ctime%date.eq.32) then
+     elseif (ctime%date == 32) then
         ctime%date = 1
         ctime%month = ctime%month + 1
-        if(ctime%month.eq.13)then
+        if(ctime%month == 13)then
            ctime%month = 1
            ctime%year = ctime%year + 1
         endif
      endif
 
-  elseif (ctime%time.lt.0.0) then
+  elseif (ctime%time + 0.0001_r8 < 0.0_r8) then  ! Using a small bias of .0001_r8
 
-     ctime%time = ctime%time + 86400.0
+     ctime%time = ctime%time + 86400.0_r8
      ctime%date = ctime%date - 1
-     if (ctime%date.eq.0) then
+     if (ctime%date == 0) then
         ctime%month = ctime%month - 1
-        if (ctime%month.eq.0) then
+        if (ctime%month == 0) then
            ctime%month = 12
            ctime%year = ctime%year - 1
            ctime%date = 31
         else
-           if (ctime%month.eq.2) then
+           if (ctime%month == 2) then
               if (isleap) then
                  ctime%date = 29
               else
                  ctime%date = 28
               endif
-           elseif (ctime%month.eq.4 .or. ctime%month.eq.6 .or.   &
-                   ctime%month.eq.9 .or. ctime%month.eq.11) then
+           elseif (ctime%month == 4 .or. ctime%month == 6 .or.   &
+                   ctime%month == 9 .or. ctime%month == 11) then
               ctime%date = 30
            else
               ctime%date = 31

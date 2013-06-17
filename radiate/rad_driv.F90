@@ -44,7 +44,7 @@ use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,    &
                        rshort_top, rshortup_top, rshort_diffuse
 use mem_basic,   only: rho
 use micro_coms,  only: level
-use consts_coms, only: stefan, pio180, eradi
+use consts_coms, only: stefan, pio180, eradi, r8
 use misc_coms,   only: io6, time_istp8, radfrq, itime1, ilwrtyp, iswrtyp,   &
                        dtlong, current_time, iparallel
 use mem_grid,    only: lpw, mza, mwa
@@ -77,13 +77,16 @@ real :: arf_sea
 real :: flux
 real :: sea_cosz
 
+real(r8) :: time8p
 integer, external :: julday
 integer :: jday
 real :: rlong_previous(mwa)
 
 ! Check whether it is time to update radiative fluxes and heating rates
 
-if (istp == 1 .and. mod(time_istp8 + .001d0,dble(radfrq)) < dtlong) then
+time8p = time_istp8 + 1.e-7_r8 * dtlong
+
+if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! Print message that radiative transfer is being computed
 

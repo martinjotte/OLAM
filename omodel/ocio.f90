@@ -113,7 +113,7 @@ call shdf5_io(action, ndims, idims, 'time8',     dvars=time8)
 call shdf5_io(action, ndims, idims, 'cur%year',  ivars=current_time%year)
 call shdf5_io(action, ndims, idims, 'cur%month', ivars=current_time%month)
 call shdf5_io(action, ndims, idims, 'cur%date',  ivars=current_time%date)
-call shdf5_io(action, ndims, idims, 'cur%time',  rvars=current_time%time)
+call shdf5_io(action, ndims, idims, 'cur%time',  dvars=current_time%time)
 
 return
 end subroutine commio

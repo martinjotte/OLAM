@@ -75,8 +75,8 @@ Module oname_coms
       integer :: nzp      = 0
       integer :: nxp      = 0
 
-      real :: dtlong = 0.0
-      real :: deltax = 0.0
+      real(r8) :: dtlong = 0.0_r8
+      real     :: deltax = 0.0
       
       integer :: ndz = 0
       
@@ -119,7 +119,7 @@ Module oname_coms
       integer :: icompress = 0
       integer :: ipar_out  = 0
       integer :: iquiet    = 0
-      real    :: frqstate  = 3600.0
+      real(r8):: frqstate  = 3600.0_r8
 
       character(pathlen) :: gridfile  = 'sfcfile/gridfile_0'
       character(pathlen) :: hfilin    = ''
@@ -158,15 +158,15 @@ Module oname_coms
 
       integer :: iswrtyp = 0
       integer :: ilwrtyp = 0
-      real    :: radfrq  = 1800      
+      real(r8):: radfrq  = 1800.0_r8
       
 !!    CUMULUS PARAMETERIZATION PARAMETERS
 
       integer :: nqparm   (maxgrds) = 0
       integer :: nqparm_sh(maxgrds) = 0
 
-      real :: confrq = 1800.0
-      real :: wcldbs = 0.01
+      real(r8) :: confrq = 1800.0_r8
+      real     :: wcldbs = 0.01
 
 !!    EDDY DIFFUSION PARAMETERS
 
@@ -269,7 +269,7 @@ Module oname_coms
 
       integer :: nplt       = 0
       integer :: nplt_files = 0
-      real    :: frqplt     = 3600.0
+      real(r8):: frqplt     = 3600.0_r8
       real    :: dtvec      = 1200.0
       real    :: headspeed  = 3.0
       real    :: stemlength = 3.0e3
