@@ -443,10 +443,6 @@ endif
 write(io6,'(/,a)') 'olam_run calling rayf_init'
 call rayf_init(mua,mva,mwa,mza)
 
-! Initialize PBL quantities
-
-call pbl_init()
-
 ! For shallow water test case 5, read in and initialize reference
 ! solution for time = 0 and time = 15d.
 
@@ -517,6 +513,10 @@ if (runtype == 'HISTORY') then
 
    call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 endif
+
+! Initialize PBL quantities
+
+call pbl_init()
 
 write(io6,'(/,a)') 'olam_run calling plot_fields'
 

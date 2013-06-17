@@ -40,7 +40,7 @@ use micro_coms,  only: jnmb, parm, emb0, emb1, cparm, mza0, ncat, &
                        iccnlev, dparm, cnparm, gnparm, rxmin
 use misc_coms,   only: io6
 use mem_grid,    only: zt
-use consts_coms, only: rvap, grav, alvl, cp, cliq, alli
+use consts_coms, only: rvap, grav, alvl, cp, cliq, alli, eps_vapi
 
 implicit none
 
@@ -81,7 +81,7 @@ real :: con_ccn_tab, con_gccn_tab, con_ccn_nuc, con_gccn_nuc, frac
 integer :: ic,rgb,jrg,ct,ctc,maxct,sps
 
 real :: grat,crat,wtrg1,wtrg2,gvap,cvap,rg,rg1,rg2
-real :: vaprccn,vaprgccn,mult1,mult2,relhumid,supsat_rate,a1inv,w_pseudo
+real :: vaprccn,vaprgccn,mult1,mult2,supsat,supsat_rate,a1inv,w_pseudo
 
 !Saleeby (6/3/02)
 !The following tables are percent of prescibed CCN to activate.
@@ -2055,14 +2055,14 @@ elseif (jnmb(1) >= 5) then
 
 ! Inverse of A1 coefficient in Pruppacher and Klett Eqn. 13-31.
 
-         a1inv = (rvap * tair(k)) / (grav * (alvl / (cp * tair(k)) - 1.))
+         a1inv = (rvap * tair(k)) / (grav * (alvl / (cp * tair(k)) - eps_vapi))
 
 ! Pseudo vertical velocity based on supersaturation and its assumed 
 ! production over 1 timestep
 
-         relhumid = rhov(k) / (1.00001 * rhovslair(k))
+         supsat = rhov(k) / (1.00001 * rhovslair(k)) - 1.0
 
-         supsat_rate = relhumid * dtli0
+         supsat_rate = supsat * dtli0
 
          w_pseudo = a1inv * supsat_rate
 
