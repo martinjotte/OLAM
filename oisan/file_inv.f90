@@ -140,9 +140,30 @@ do nf = 1, nfgfiles
       lnf      = lns - 1
    endif
 
-   ! With any suffix removed, assume files have the form of *2005-09-01-0000
+   ! With any suffix removed, assume files have the form *2005-09-01-hhmm 
+   ! or *2005-09-01-hhmmss so check if seconds are present by counting how many
+   ! characters are present after the last '-' character.
 
-   read (filename(lnf-14:lnf), '(i4,1x,i2,1x,i2,1x,i4)') iyear, imonth, idate, ihour
+   lns = index( filename, "-", back=.true.)
+
+   if (lnf-lns == 4) then
+      
+      ! time is in hhmm
+      read (filename(lnf-14:lnf), '(i4,1x,i2,1x,i2,1x,i4)') iyear, imonth, idate, ihour
+
+   elseif (lnf-lns == 6) then
+
+      ! time is in hhmmss
+      read (filename(lnf-16:lnf-2), '(i4,1x,i2,1x,i2,1x,i4)') iyear, imonth, idate, ihour
+
+   else
+
+      write(*,*) "file_inv: Error opening file:"
+      write(*,*) trim(fnames_fg(nf))
+      write(*,*) "Date/time portion of filename should be YYYY-MM-DD-hhmm or YYYY-MM-DD-hhmmss"
+      stop       "Invalid date/time in analysis filename."
+
+   endif
 
    ! Note that subroutines date_make_big and date_abs_secs2 assume that
    ! the format of ihour is hhmmss

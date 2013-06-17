@@ -73,7 +73,8 @@ if (ext == 'h5' .or. ext == 'hdf5' .or. ext == 'hdf' .or. &
 
 inquire(file=innpr, exist=exists)
 if (.not. exists) then
-   write(*,*) "read_press_header: Error opening analysis file " // trim(innpr)
+   write(*,*) "read_press_header: Error opening analysis file:"
+   write(*,*) trim(innpr)
    stop       " File does not exist."
 endif
 
