@@ -34,7 +34,7 @@
 subroutine pbl_driver(rhot, mrl)
 
   use mem_grid,       only: mwa, mza, lpw, lsw
-  use misc_coms,      only: io6, idiffk, do_chem
+  use misc_coms,      only: io6, idiffk
   use mem_tend,       only: thilt, sh_wt
   use mem_basic,      only: vxe, vye, vze, thil, theta, tair, sh_w, sh_v, rho
   use mem_turb,       only: hkm, sxfer_tk, sxfer_rk, ustar, wstar, wtv0, &
@@ -44,9 +44,9 @@ subroutine pbl_driver(rhot, mrl)
   use mem_radiate,    only: fthrd
   use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx, acm2
   use smagorinsky,    only: turb_k
-  use emis_defn,      only: get_emis
-  use depv_defn,      only: get_depv
 
+  use mem_grid, only: zm
+  
 !$use omp_lib
 
   implicit none
@@ -62,18 +62,11 @@ subroutine pbl_driver(rhot, mrl)
   real    :: vkm   (mza)
   real    :: moli
 
-! Get chemical emisions for this timestep
-
-  if (do_chem) then
-     call get_emis(mrl)
-     call get_depv(mrl)
-  endif
-
 ! Loop over all W/T points where PBL parameterization may be done
 
   call psub()
 !----------------------------------------------------------------------
-!$omp parallel do private(iw,mrlw,ka,k,ks) 
+!$omp parallel do private(iw,mrlw,ka,k,ks,qc,thetav,thilv,moli,vkh,vkm) 
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
      call qsub('W',iw)
@@ -123,7 +116,7 @@ subroutine pbl_driver(rhot, mrl)
            hkm(k,iw) = 0.5 * (vkh(k-1) + vkh(k))
         enddo
 
-     else if (idiffk(mrlw) == 2) then
+     else if (idiffk(mrlw) == 2 .or. idiffk(mrlw) == 3) then
    
         ! Smagorinsky scheme
 
@@ -139,6 +132,7 @@ subroutine pbl_driver(rhot, mrl)
      enddo
    
   enddo
+!$omp end parallel do
 
 end subroutine pbl_driver
 

@@ -261,6 +261,8 @@ do jfile = 1,jfiles
                call shdf5_irec(ndims,idims,'fao',ivara=idato)
             elseif (trim(iaction) == 'ndvi') then
                call shdf5_irec(ndims,idims,'ndvi',rvara=dato)
+            elseif (trim(iaction) == 'wtd') then
+               call shdf5_irec(ndims,idims,'WTD',rvara=dato)
             else
                write(io6,*) 'incorrect action specified in leaf_database'
                write(io6,*) 'stopping run'
@@ -310,7 +312,7 @@ do jfile = 1,jfiles
                jo1 = jo1 + 1
             endif
             
-! This is end of correction
+! Correction for offpix = .5 is now completed
             
             io2 = io1 + 1
             jo2 = jo1 + 1
@@ -322,11 +324,31 @@ do jfile = 1,jfiles
 
 ! Interpolate from 4 surrounding values
 
-               datp(iwl)  & 
-                  = wio1 * (wjo1 * dato(io1,jo1) + wjo2 * dato(io1,jo2))  &
+               datp(iwl) & 
+                  = wio1 * (wjo1 * dato(io1,jo1) + wjo2 * dato(io1,jo2)) &
                   + wio2 * (wjo1 * dato(io2,jo1) + wjo2 * dato(io2,jo2))
 
-            elseif (trim(iaction) == 'leaf_class' .or.  &
+            elseif (trim(iaction) == 'wtd') then
+
+! Interpolate from 4 surrounding values unless any are "missing" (negative)
+
+               if (min(dato(io1,jo1), dato(io1,jo2), &
+                       dato(io2,jo1), dato(io2,jo2)) > -1.e-6) then
+
+                  datp(iwl) & 
+                     = wio1 * (wjo1 * dato(io1,jo1) + wjo2 * dato(io1,jo2)) &
+                     + wio2 * (wjo1 * dato(io2,jo1) + wjo2 * dato(io2,jo2))
+
+               else
+
+! If any values are missing, set datp to maximum of surrounding values
+
+                  datp(iwl) = max(dato(io1,jo1), dato(io1,jo2), &
+                                  dato(io2,jo1), dato(io2,jo2))
+
+               endif
+
+            elseif (trim(iaction) == 'leaf_class' .or. &
                     trim(iaction) == 'soil_text') then
 
 ! Use nearest data point - do not interpolate
@@ -351,4 +373,4 @@ deallocate(nump,numpind1,numpind2,idato,dato)
 return
 end subroutine leaf_database_read
 
-End module
+End module leaf_db

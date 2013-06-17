@@ -146,7 +146,7 @@
  ! Variable initialization input
  !--------------------------------------------------------------------------
 
-   NL%INITIAL  = 3   ! Initial fields:  1 = horizontally homogeneous
+   NL%INITIAL  = 2   ! Initial fields:  1 = horizontally homogeneous
                      !                  2 = 3D heterogeneous
                      !                  3 = longitudinally homogeneous
 
@@ -261,6 +261,7 @@
                                   !  0 = off
                                   !  1 = ACM2 non-local PBL
                                   !  2 = Smagorinsky-Lilly-Hill
+                                  !  3 = Smagorinsky-Lilly-Hill with 3D strain rate
 
    NL%CSX    = .2,.2,.2,.2,.2     ! Horizontal length scale coefficient
    NL%CSZ    = .2,.2,.2,.2,.2     ! Vertical length scale coefficient
@@ -412,11 +413,15 @@
                        ! .txt list of files, not the path and basename,
                        ! in a new schema to avoid call systems
 
-   NL%ISOILSTATEINIT = 0  ! 0 -- use slmstr
-                          ! 1 -- read from file
+   NL%ISOILSTATEINIT = 0  ! 0 -- default initialization based on landuse
+                          ! 1 -- read from NCEP/NCAR netcdf reanalysis
+                          ! 2 -- read from initial analysis files
 
-   NL%ISOILDEPTHFLG  = 0 ! 0 -- use NZG, SLZ for each grid cell
-                         ! 1 -- read file to get soil depth for each grid cell
+   NL%ISOILDEPTHFLG  = 0  ! 0 -- use NZG, SLZ for each grid cell
+                          ! 1 -- read file to get soil depth for each grid cell
+
+   NL%IWATERTABFLG   = 0  ! 0 -- use default for each landuse class
+                          ! 1 -- read from file
 
  ! Surface database file paths and names
 
@@ -427,6 +432,7 @@
    NL%SEAICE_DATABASE = '../../olamdatah5/ice8100/ICE'
    NL%SOILSTATE_DB    = './dp_etc/STW-'
    NL%SOILDEPTH_DB    = '../../olamdatah5/SOIL_DEPTHS.h5'
+   NL%WATERTAB_DB     = '../../olamdatah5/wtd/WTD'
 
  ! Update flags for surface data
 
@@ -472,14 +478,10 @@
  ! Isentropic control 
  !--------------------------------------------------------------------------
  
- !  Input data file directories/prefixes
+  ! IAPR points to .txt listings of analysis files, one per line
+  ! Multiple text listing files can be specified
 
-   NL%ISDIRS  = 1     ! Number of directory and file prefixes listed in
-                      ! iapr (limit of maxisdirs directory/file prefixes)
-                      !
-                      ! -1 means that IAPR points to a .txt list of files
-
-   NL%IAPR    = './dp_etc/dp-p',
+  NL%IAPR    = 'dp-p.txt',
 
  !--------------------------------------------------------------------------
  ! Plotting parameters

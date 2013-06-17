@@ -30,14 +30,15 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine leaf3()
+
+subroutine leaf4()
 
 use leaf_coms, only: nzg, nzs, mwl, iupdndvi, s1900_ndvi, indvifile, nndvifiles
 
 use mem_leaf,  only: land, itab_wl
-use misc_coms, only: io6, time8, s1900_sim, iparallel
+use misc_coms, only: io6, s1900_sim, iparallel
 
-use leaf3_landcell,    only: landcell
+use leaf4_landcell,    only: landcell
 use mem_para,          only: myrank
 
 !$ use omp_lib
@@ -76,10 +77,10 @@ do iwl = 2,mwl
       land%ntext_soil     (1:nzg,iwl), land%soil_water     (1:nzg,iwl), &
       land%soil_energy    (1:nzg,iwl), land%sfcwater_mass  (1:nzs,iwl), &
       land%sfcwater_energy(1:nzs,iwl), land%sfcwater_depth (1:nzs,iwl), &
-      land%rshort_s       (1:nzs,iwl), land%rshort_v             (iwl), &
-      land%rshort_g             (iwl), land%rshort               (iwl), &
-      land%rlong_v              (iwl), land%rlong_s              (iwl), &
-      land%rlong_g              (iwl), land%veg_height           (iwl), &
+      land%rshort_v             (iwl), land%rshort_g             (iwl), &
+      land%rshort               (iwl), land%rlong_v              (iwl), &
+      land%rlong_s              (iwl), land%rlong_g              (iwl), &
+      land%veg_height           (iwl),                                  &
       land%veg_rough            (iwl), land%veg_tai              (iwl), &
       land%veg_lai              (iwl), land%veg_fracarea         (iwl), &
       land%hcapveg              (iwl), land%can_depth            (iwl), &
@@ -96,9 +97,8 @@ do iwl = 2,mwl
       land%veg_ndvic            (iwl), land%veg_albedo           (iwl), &
       land%rough                (iwl), land%ggaer                (iwl), &
       land%head0                (iwl), land%head1                (iwl), &
-      land%xew                  (iwl), land%yew                  (iwl), &
-      land%zew                  (iwl), timefac_ndvi                   , &
-      time8                                                             )
+      land%glatw                (iwl), land%glonw                (iwl), &
+      timefac_ndvi                                                      )
 
    elseif(land%ed_flag(iwl) == 1)then
 
@@ -124,12 +124,12 @@ enddo
 !$omp end parallel do
 
 return
-end subroutine leaf3
+end subroutine leaf4
 
 !===============================================================================
 
-subroutine grndvap(iwl, nlev_sfcwater, nts, soil_water, soil_energy,    &
-                   sfcwater_energy, rhos, can_shv, ground_shv, surface_ssh)
+subroutine grndvap(iwl, nlev_sfcwater, nts, soil_water, soil_energy, &
+                   sfcwater_energy, rhos, can_shv, surface_ssh, ground_shv)
 
 use leaf_coms,   only: nstyp, slbs, slmsts, slpots, slcpd, nzg
 use consts_coms, only: grav, rvap
@@ -146,8 +146,66 @@ real, intent(in)  :: soil_energy     ! [J/m^3]
 real, intent(in)  :: sfcwater_energy ! [J/kg]
 real, intent(in)  :: rhos            ! air density [kg/m^3]
 real, intent(in)  :: can_shv         ! canopy vapor spec hum [kg_vap/kg_air]
-real, intent(out) :: ground_shv      ! ground equilibrium spec hum [kg_vap/kg_air]
 real, intent(out) :: surface_ssh     ! surface (saturation) spec hum [kg_vap/kg_air]
+real, intent(out) :: ground_shv      ! ground equilibrium spec hum [kg_vap/kg_air]
+
+! Local variables
+
+real :: tempk     ! surface water temp [K]
+real :: fracliq   ! fraction of surface water in liquid phase
+real :: can_rhov  ! canopy water vapor density [kg_vap/m^3]
+real :: sfc_rhovs ! ground sfc saturation vapor density [kg_vap/m^3]
+real :: gnd_rhov  ! ground sfc evaporative vapor density [kg_vap/m^3]
+
+real, external :: rhovsil  ! function to compute sat vapor density (over ice or liq)
+
+can_rhov = can_shv * rhos
+
+if (nlev_sfcwater > 0) then
+
+! sfc_rhovs is the saturation vapor density of the top soil or snow surface
+! and is used for dew formation and snow evaporation.
+
+   call qtk(sfcwater_energy,tempk,fracliq)
+   sfc_rhovs = rhovsil(tempk-273.15)
+   surface_ssh = sfc_rhovs / rhos
+
+else
+
+! Without snowcover, gnd_rhov is the effective saturation vapor density
+! of soil and is used for soil evaporation.
+
+   call qwtk(soil_energy,soil_water*1.e3,slcpd(nts),tempk,fracliq)
+   sfc_rhovs = rhovsil(tempk-273.15)
+
+   call grndvap_ab(iwl,nts,tempk,soil_water,can_rhov,sfc_rhovs,gnd_rhov)
+
+   surface_ssh = sfc_rhovs / rhos
+   ground_shv  = gnd_rhov  / rhos
+
+endif
+
+return
+end subroutine grndvap
+
+!===============================================================================
+
+subroutine grndvap_ab(iwl,nts,tempk,soil_water,can_rhov,sfc_rhovs,gnd_rhov)
+
+use leaf_coms,   only: nstyp, slbs, slmsts, slpots, slcpd, nzg
+use consts_coms, only: grav, rvap
+use misc_coms,   only: io6
+
+implicit none
+
+integer, intent(in) :: iwl       ! current land cell number 
+integer, intent(in) :: nts       ! soil textural class (local name)
+
+real, intent(in)  :: tempk       ! soil temperature [K]
+real, intent(in)  :: soil_water  ! soil water content [vol_water/vol_tot]
+real, intent(in)  :: can_rhov    ! canopy vapor density [kg_vap/m^3]
+real, intent(in)  :: sfc_rhovs   ! surface saturation vapor density [kg_vap/m^3]
+real, intent(out) :: gnd_rhov    ! ground equilibrium vapor density [kg_vap/m^3]
 
 ! Local parameter
 
@@ -158,38 +216,21 @@ real, parameter :: gorvap = grav / rvap  ! gravity divided by vapor gas constant
 real :: slpotvn ! soil water potential [m]
 real :: alpha   ! "alpha" term in Lee and Pielke (1993)
 real :: beta    ! "beta" term in Lee and Pielke (1993)
-real :: tempk   ! surface water temp [K]
-real :: fracliq ! fraction of surface water in liquid phase
-real, save, dimension(nstyp) :: sfldcap  ! soil water field capacity [vol_water/vol_tot]
+real, save :: sfldcap(nstyp)  ! soil water field capacity [vol_water/vol_tot]
 
 data sfldcap/.135,.150,.195,.255,.240,.255,.322,.325,.310,.370,.367,.535/
 
-real, external :: rhovsil  ! function to compute sat vapor density (over ice or liq)
-
-! surface_ssh is the saturation mixing ratio of the top soil or snow surface
-! and is used for dew formation and snow evaporation.
-
-if (nlev_sfcwater > 0) then
-   call qtk(sfcwater_energy,tempk,fracliq)
-   surface_ssh = rhovsil(tempk-273.15) / rhos
-else
-
-! Without snowcover, ground_shv is the effective saturation mixing
+! Without snowcover, gnd_rhov is the effective saturation mixing
 ! ratio of soil and is used for soil evaporation.  First, compute the
 ! "alpha" term or soil "relative humidity" and the "beta" term.
 
-   call qwtk(soil_energy,soil_water*1.e3,slcpd(nts),tempk,fracliq)
-   surface_ssh = rhovsil(tempk-273.15) / rhos
-
-   slpotvn = slpots(nts) * (slmsts(nts) / soil_water) ** slbs(nts)
-   alpha = exp(gorvap * slpotvn / tempk)
-   beta = .25 * (1. - cos (min(1.,soil_water / sfldcap(nts)) * 3.14159)) ** 2
-   ground_shv = surface_ssh * alpha * beta + (1. - beta) * can_shv
-
-endif
+slpotvn = slpots(nts) * (slmsts(nts) / soil_water) ** slbs(nts)
+alpha = exp(gorvap * slpotvn / tempk)
+beta = .25 * (1. - cos (min(1.,soil_water / sfldcap(nts)) * 3.14159)) ** 2
+gnd_rhov = sfc_rhovs * alpha * beta + (1. - beta) * can_rhov
 
 return
-end subroutine grndvap
+end subroutine grndvap_ab
 
 !===============================================================================
 
@@ -263,16 +304,15 @@ real :: rlongs_a         ! longwave radiative flux from snow to atm  [W/m^2]
 real :: rlongs_v         ! longwave radiative flux from snow to veg  [W/m^2]
 real :: rlongg_a         ! longwave radiative flux from soil to atm  [W/m^2]
 real :: rlongg_v         ! longwave radiative flux from soil to veg  [W/m^2]
-real :: fracabs (nzs)    ! fraction of rshort that is absorbed by snowcover
+real :: fracabs          ! fraction of rshort that is absorbed by snowcover
 real :: vfc       ! 1 - vf
 real :: fcpct     ! soil water fraction
-real :: alg       ! soil albedo
+real :: alg       ! ground (soil) albedo
 real :: als       ! snowcover albedo (needs better formula based on age of snow)
 real :: alv       ! veg albedo
-real :: rad       ! fraction s/w rad absorbed into sfcwater + soil
+real :: abss      ! fraction s/w rad absorbed into top sfcwater layer
 real :: fractrans ! fraction of s/w rad flux transmitted through snowcover layer
-real :: absg      ! fraction of rshort that is absorbed by ground
-real :: algs      ! albedo from snow plus ground
+real :: absg      ! fraction of rshort that is absorbed by ground (soil)
 real :: emv       ! veg emissivity
 real :: emg       ! soil emissivity
 real :: ems       ! surface water emissivity
@@ -288,7 +328,7 @@ real :: vlong     ! veg l/w rad emission [W/m^2]
 ! call using the albedo and upward longwave flux.  The second call to this 
 ! subroutine is made after the atmospheric radiative fluxes are computed.  
 ! This call provides net radiative fluxes to vegetation, snowcover, and soil in
-! each land cell, plus functions of snowcover, all of which are used in leaf3.
+! each land cell, plus functions of snowcover, all of which are used in leaf4.
 
 !-------------------------------------------------------------------------------
 ! Two forms - but still need to consider shadowing and exact energy conservation.
@@ -304,15 +344,23 @@ cosz = wnxl * sunx + wnyl * suny + wnzl * sunz
 
 ! COSZ IS NOT CURRENTLY USED IN THIS SUBROUTINE
 !-------------------------------------------------------------------------------
+! Change for LEAF4: rshort_s(1:nzs) is always set to zero here, and rshort_g
+! always gets all shortwave that is absorbed by the surface, whether it is
+! sfcwater, soil, or a combination.  Subroutine leaf4_canopy further sorts out
+! where rshort_g should go.
+
+rshort_s(1:nzs) = 0.
 
 if (nlev_sfcwater == 0) then
 
 ! Case with no surface water
 
-! Shortwave radiation calculations
+! Diagnose soil temperature and liquid fraction
 
-   snowfac = 0.
-   alv = veg_albedo
+   call qwtk(soil_energy,soil_water*1.e3,  &
+             slcpd(ntext_soil),soil_tempk,soil_fracliq)
+
+! Shortwave radiation calculations
 
    fcpct = soil_water / slmsts(ntext_soil)  ! soil water fraction
 
@@ -330,22 +378,20 @@ if (nlev_sfcwater == 0) then
 
    endif
 
+   snowfac = 0.
+
+   alv = veg_albedo
+
    vf = veg_fracarea
    vfc = 1. - vf
 
    albedo_beam = vf * alv + vfc * vfc * alg
 
    rshort_g = rshort * vfc * (1. - alg)
-   rshort_s(1:nzs) = 0.
    rshort_v = rshort * vf * (1. - alv + vfc * alg)
 !  rshort_a = rshort * albedo_beam
 
 ! Longwave radiation calculations
-
-! Diagnose soil temperature and liquid fraction
-
-   call qwtk(soil_energy,soil_water*1.e3,  &
-             slcpd(ntext_soil),soil_tempk,soil_fracliq)
 
    emv    = emisv(leaf_class)
    emg    = emisg(ntext_soil)
@@ -377,33 +423,17 @@ else
 
 ! Shortwave radiation calculations
 
-   alv = veg_albedo
-
 ! Sfcwater albedo ALS ranges from wet-soil value .14 for all-liquid
 ! to .5 for all-ice
 
    als = .5 - .36 * sfcwater_fracliq
-   rad = 1. - als    ! fraction shortwave absorbed into sfcwater + soil
+
+! Sum over sfcwater layers to get total depth
 
    snowfac = 0.
-   do k = nlev_sfcwater,1,-1
 
+   do k = 1,nlev_sfcwater
       snowfac = snowfac + sfcwater_depth(k)
-
-! fractrans is fraction of shortwave entering each sfcwater layer that
-! gets transmitted through that layer
-
-      fractrans = exp(-20. * sfcwater_depth(k))
-
-! fracabs(k) is fraction of total incident shortwave (at top of top sfcwater
-! layer) that is absorbed in each sfcwater layer
-
-      fracabs(k) = rad * (1. - fractrans)
-
-! rad is fraction of total incident shortwave (at top of top sfcwater layer)
-! that remains at bottom of current sfcwater layer
-
-      rad = rad * fractrans
    enddo
 
    snowfac = snowfac / max(.001,veg_height)
@@ -413,37 +443,15 @@ else
 
    if (snowfac > .9) snowfac = 1.   
 
+   alv = veg_albedo
+
    vf = veg_fracarea * (1. - snowfac)
    vfc = 1. - vf
 
-   fcpct = soil_water / slmsts(ntext_soil)
+   albedo_beam = vf * alv + vfc * vfc * als
 
-   if (leaf_class == 2) then
-
-      alg = .50  ! Firn/glacier albedo
-
-   else
-
-      if (fcpct > .5) then
-         alg = .14
-      else
-         alg = .31 - .34 * fcpct
-      endif
-
-   endif
-
-   absg = (1. - alg) * rad
-   algs = 1. - absg
-   do k = nlev_sfcwater,1,-1
-      algs = algs - fracabs(k)
-      rshort_s(k) = rshort * vfc * fracabs(k)
-   enddo
-
-   albedo_beam = vf * alv + vfc * vfc * algs
-
-   rshort_g = rshort * vfc * absg
-   rshort_s(nlev_sfcwater+1:nzs) = 0.
-   rshort_v = rshort * vf * (1. - alv + vfc * algs)
+   rshort_g = rshort * vfc * (1. - als)
+   rshort_v = rshort * vf * (1. - alv + vfc * als)
 !  rshort_a = rshort * albedo_beam
 
 ! Longwave radiation calculations

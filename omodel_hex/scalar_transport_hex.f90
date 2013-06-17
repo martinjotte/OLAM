@@ -247,7 +247,8 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
          ! tfact(k,iw) = 1.0 + cfl_in_sum(k,iw) - cfl_out_sum(k,iw)
 
            ! cfl_out_sum is reused as 1 / cfl_out_sum
-           cfl_out_sum(k,iw) = 1.0 / max( cfl_out_sum(k,iw), 1.e-6)
+           ! cfl_out_sum(k,iw) = 1.0 / max( cfl_out_sum(k,iw), 1.e-6)
+           cfl_out_sum(k,iw) = 0.999999 / max( cfl_out_sum(k,iw), 1.e-6)
         enddo
 
      enddo

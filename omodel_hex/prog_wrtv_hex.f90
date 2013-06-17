@@ -403,7 +403,7 @@ endif ! mrl = mrl_begl(istp) > 0
 ! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
 ! (Example of how to plot "external" field; one not available in module memory)
 !
-!if (mod(real(time8),op%frqplt) < dtlm(1) .and. istp == 900) then
+!if (mod(time8,op%frqplt) < dtlm(1) .and. istp == 900) then
 !
 !   allocate (op%extfld(mza,mwa))
 !   op%extfld(:,:) = vxe(:,:)

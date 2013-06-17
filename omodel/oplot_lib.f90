@@ -115,7 +115,7 @@ real,         save, allocatable :: uc_init(:,:)
 real,         save, allocatable :: vc_init(:,:)
 real,         save, allocatable :: addsc1_init(:,:)
 
-integer, parameter :: nfields = 303
+integer, parameter :: nfields = 301
 character(len=40) :: fldlib(4,nfields)
 character(len=40), save :: fldname
 
@@ -461,7 +461,7 @@ data fldlib(1:4,269:278)/ &
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,279:300)/ &
+data fldlib(1:4,279:298)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 279
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 280
  'SHW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 281
@@ -481,16 +481,14 @@ data fldlib(1:4,279:300)/ &
  'VYE'           ,'T3' ,'EARTH CARTESIAN Y WIND',' (m s:S2:-1  )'           ,& ! 295
  'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'           ,& ! 296
  'PBLH'          ,'T2' ,'PBL HEIGHT',' (m)'                                 ,& ! 297
- 'HKM'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 298
- 'FCELL_GLAT'    ,'F2' ,'FLUXCELL LATITUDE', ' (deg)'                       ,& ! 299
- 'FCELL_GLON'    ,'F2' ,'FLUXCELL LONGITUDE',' (deg)'                        / ! 300
+ 'HKM'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'             / ! 298
 
 ! External fields
 
-data fldlib(1:4,301:303)/ &
- 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 301
- 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 302
- 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 303
+data fldlib(1:4,299:301)/ &
+ 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 299
+ 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 300
+ 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 301
 
 if (ncall /= 10) then
    ncall = 10
@@ -2380,22 +2378,6 @@ case(298) ! 'HKM'
 
    fldval = wtbot * hkm(k  ,i) / rho(k  ,i) &
           + wttop * hkm(k+1,i) / rho(k+1,i)
-
-case(299) ! 'FCELL_GLAT'
-
-   if (op%stagpt == 'S') then
-      fldval = real(seaflux(i)%glatf)
-   elseif (op%stagpt == 'L') then
-      fldval = real(landflux(i)%glatf)
-   endif
-
-case(300) ! FCELL_GLON'
-
-   if (op%stagpt == 'S') then
-      fldval = real(seaflux(i)%glonf)
-   elseif (op%stagpt == 'L') then
-      fldval = real(landflux(i)%glonf)
-   endif
 
 case default
 

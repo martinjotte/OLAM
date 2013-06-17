@@ -416,7 +416,7 @@ call rsub('JLANDFLUX',1)
 
 ! (ON THE OTHER HAND, LAND%SXFER_T, LAND%SXFER_R, SEA%SXFER_T, AND SEA%SXFER_R
 ! ARE SUMMED OVER BOTH SPACE AND TIME; THEY ARE NOT RESET TO ZERO HERE BUT INSTEAD
-! IN LEAF3 OR SEA AFTER THEY ARE TRANSFERRED TO THE LEAF3 OR SEA CANOPY.)
+! IN LEAF OR SEA AFTER THEY ARE TRANSFERRED TO THE LEAF OR SEA CANOPY.)
 
 ! Loop over all SEA cells
 
@@ -554,7 +554,7 @@ end subroutine surface_turb_flux
 !===============================================================================
 
 subroutine stars(zts, rough, vels, rhos, airtemp, sh_vs, cantemp, &
-                 can_shv, vkmsfc, sfluxt, sfluxr, ustar0, ggbare  )
+                 can_shv, vkmsfc, sfluxt, sfluxr, ustar0, ggaero  )
 
 ! Subroutine stars computes surface heat and vapor fluxes and momentum drag
 ! coefficient from Louis (1981) equations
@@ -582,7 +582,7 @@ real, intent(out) :: vkmsfc   ! surface drag coefficient for this flux cell
 real, intent(out) :: sfluxt   ! surface sensible heat flux for this flux cell
 real, intent(out) :: sfluxr   ! surface vapor flux for this flux cell
 real, intent(out) :: ustar0   ! surface friction velocity for this flux cell
-real, intent(out) :: ggbare   ! bare ground conductance m/s
+real, intent(out) :: ggaero   ! bare ground conductance m/s
 
 ! Local parameters
 
@@ -644,11 +644,10 @@ vkmsfc = vtscr * ustar0 * zts / vels0
 sfluxt = - vtscr * tstar
 sfluxr = - vtscr * rstar
 
-! Compute the bare ground conductance.  This equation is similar to the original,
-! except that we don't assume the ratio between the gradient and the characteristic
-! scale to be 0.2; instead we use the actual ratio that is computed here.
+! Store the aerodynamic conductance between the surface canopy and
+! the lowest model level
 
-ggbare  = c3 * ustar0
+ggaero  = c3 * ustar0
 
 return
 end subroutine stars
@@ -684,7 +683,7 @@ real :: tempc
 real, external :: rhovsl
 
 ! Subroutine to transfer atmospheric cumulus parameterization 
-! precipitation FLUX to leaf3 land cells
+! precipitation FLUX to leaf land cells
 
 ! Set land fluxes to be done for CUPARM
 !    1. for mrl = 0, no fluxes 
@@ -812,7 +811,7 @@ real :: arf_land
 real :: arf_land_dtf
 
 ! Subroutine to transfer atmospheric microphysics parameterization 
-! precipitation flux to leaf3 land cells.
+! precipitation flux to leaf land cells.
 
 ! Land fluxes to be done for PRECIP 
 !    1. for mrl = 0, no fluxes 

@@ -30,7 +30,7 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine nudge_prep(iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
+subroutine nudge_prep(iaction, o_rho, o_theta, o_shv, o_uvc)
 
 use mem_nudge,   only: nudflag, nudnxp, mwnud, &
                        rho_obsp, theta_obsp, shw_obsp, &
@@ -42,6 +42,7 @@ use mem_grid,    only: mza, mva, mwa, lpw, vnx, vny, vnz, xeu, yeu, zeu, &
                        xev, yev, zev, xew, yew, zew, volt
 use misc_coms,   only: io6, iparallel, runtype, meshtype
 use mem_ijtabs,  only: jtab_w, itab_w, jtw_init
+use consts_coms, only: eradi
 
 implicit none
 
@@ -50,16 +51,19 @@ integer, intent(in) :: iaction
 real(kind=8), intent(in) :: o_rho   (mza,mwa)
 real,         intent(in) :: o_theta (mza,mwa)
 real,         intent(in) :: o_shv   (mza,mwa)
-real,         intent(in) :: o_uzonal(mza,mwa)
-real,         intent(in) :: o_umerid(mza,mwa)
+real,         intent(in) :: o_uvc   (mza,mva)
 
 integer :: j,iw,k,ka,iu,iv,iw1,iw2,iup,ivp,iwnud,iwnud1
 integer :: npoly,kb,jv
-real    :: volwnudi
+
+real :: raxis,raxisi
+real :: volwnudi
 
 ! Automatic arrays
 
 real :: volwnud(mza,mwnud)
+real :: vxe(mza),vye(mza),vze(mza)
+real :: ouzonal(mza),oumerid(mza)
 
 ! Swap future data time into past data time if necessary.
 
@@ -105,17 +109,70 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 call qsub('W',iw)
 
+! Reconstruct vxe, vye, vze from observational o_uvc and zero vertical velocity
+
+   npoly = itab_w(iw)%npoly
+   kb = lpw(iw)
+   
+   vxe(:) = 0.
+   vye(:) = 0.
+   vze(:) = 0.
+
+   do jv = 1,npoly
+
+      if (meshtype == 1) then
+
+         iv = itab_w(iw)%iu(jv)
+
+         do k = kb,mza-1
+            vxe(k) = vxe(k) + itab_w(iw)%vxu(jv) * o_uvc(k,iv)
+            vye(k) = vye(k) + itab_w(iw)%vyu(jv) * o_uvc(k,iv)
+            vze(k) = vze(k) + itab_w(iw)%vzu(jv) * o_uvc(k,iv)
+         enddo
+
+      else
+
+         iv = itab_w(iw)%iv(jv)
+
+         do k = kb,mza-1
+            vxe(k) = vxe(k) + itab_w(iw)%ecvec_vx(jv) * o_uvc(k,iv)
+            vye(k) = vye(k) + itab_w(iw)%ecvec_vy(jv) * o_uvc(k,iv)
+            vze(k) = vze(k) + itab_w(iw)%ecvec_vz(jv) * o_uvc(k,iv)
+         enddo
+
+      endif
+
+   enddo
+
+! Reconstruct OUZONAL(k) and OUMERID(k) from VXE, VYE, VZE
+
+   raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+
+   if (raxis > 1.e3) then
+      raxisi = 1. / raxis
+
+      do k = kb,mza-1
+         ouzonal(k) = (vye(k) * xew(iw) - vxe(k) * yew(iw)) * raxisi
+         oumerid(k) = vze(k) * raxis * eradi &
+            - (vxe(k) * xew(iw) + vye(k) * yew(iw)) * zew(iw) * raxisi * eradi
+      enddo
+
+   else
+      ouzonal(:) = 0.
+      oumerid(:) = 0.
+   endif
+
 ! If doing point-by-point (non-spectral) nudging, fill future observational
 ! arrays with simple memory copy
 
    if (nudnxp == 0) then
 
       do k = 2,mza-1
-            rho_obsf(k,iw) = o_rho   (k,iw)
-          theta_obsf(k,iw) = o_theta (k,iw)
-            shw_obsf(k,iw) = o_shv   (k,iw)
-         uzonal_obsf(k,iw) = o_uzonal(k,iw)
-         umerid_obsf(k,iw) = o_umerid(k,iw)
+            rho_obsf(k,iw) = o_rho  (k,iw)
+          theta_obsf(k,iw) = o_theta(k,iw)
+            shw_obsf(k,iw) = o_shv  (k,iw)
+         uzonal_obsf(k,iw) = ouzonal(k)
+         umerid_obsf(k,iw) = oumerid(k)
       enddo
 
 ! If doing spectral nudging, sum data to nudging polygon arrays
@@ -126,11 +183,11 @@ call qsub('W',iw)
       do k = kb,mza-1
              volwnud(k,iwnud1) =     volwnud(k,iwnud1) + volt(k,iw) 
 
-            rho_obsf(k,iwnud1) =    rho_obsf(k,iwnud1) + o_rho   (k,iw) * volt(k,iw)
-          theta_obsf(k,iwnud1) =  theta_obsf(k,iwnud1) + o_theta (k,iw) * volt(k,iw)
-            shw_obsf(k,iwnud1) =    shw_obsf(k,iwnud1) + o_shv   (k,iw) * volt(k,iw)
-         uzonal_obsf(k,iwnud1) = uzonal_obsf(k,iwnud1) + o_uzonal(k,iw) * volt(k,iw)
-         umerid_obsf(k,iwnud1) = umerid_obsf(k,iwnud1) + o_umerid(k,iw) * volt(k,iw)
+            rho_obsf(k,iwnud1) =    rho_obsf(k,iwnud1) + o_rho  (k,iw) * volt(k,iw)
+          theta_obsf(k,iwnud1) =  theta_obsf(k,iwnud1) + o_theta(k,iw) * volt(k,iw)
+            shw_obsf(k,iwnud1) =    shw_obsf(k,iwnud1) + o_shv  (k,iw) * volt(k,iw)
+         uzonal_obsf(k,iwnud1) = uzonal_obsf(k,iwnud1) + ouzonal(k)    * volt(k,iw)
+         umerid_obsf(k,iwnud1) = umerid_obsf(k,iwnud1) + oumerid(k)    * volt(k,iw)
       enddo
 
    endif
@@ -144,6 +201,7 @@ if (nudnxp > 0) then
 
 ! Horizontal loop over nudging polygons
 
+   !$omp parallel do private(k,volwnudi)
    do iwnud = 2,mwnud
       do k = 2,mza-1
 
@@ -157,6 +215,7 @@ if (nudnxp > 0) then
 
       enddo
    enddo
+   !$omp end parallel do
 
 endif
 
@@ -174,7 +233,7 @@ use mem_nudge, only: nudnxp, tnudcent, mwnud,                          &
                      uzonal_sim, uzonal_obs, uzonal_obsp, uzonal_obsf, &
                      umerid_sim, umerid_obs, umerid_obsp, umerid_obsf
 
-use mem_basic,   only: uc, vc, rho, theta, sh_w, vxe, vye, vze
+use mem_basic,   only: uc, vc, rho, theta, sh_w
 use mem_grid,    only: mza, mwa, lpu, lpv, lpw, &
                        xeu, yeu, zeu, xev, yev, zev, xew, yew, zew, &
                        unx, uny, unz, vnx, vny, vnz, volt, glatw, glonw
@@ -200,6 +259,7 @@ integer :: iwnud,k,j,jv,iv,iw,iwnud1,iwnud2,iwnud3,iw1,iw2,iu,mrl,npoly,kb
 real :: volwnud (mza,mwnud)
 real :: umzonalt (mza,mwa)
 real :: ummeridt (mza,mwa)
+real :: vxe(mza),vye(mza),vze(mza)
 real :: uzonal(mza),umerid(mza)
 
 real :: volwnudi,tp,tf,tnudi,tnudirho
@@ -223,20 +283,26 @@ if (icall /= 1) then
 
    do iw = 2,mwa
 
+! Default: Uniform nudging weight = 1
+
+      wtnud(iw) = 1.
+
+! Sample code for modifying nudging weight
+      
 ! Transform current IW point to polar stereographic coordinates using specified
 ! pole point location (pole point lat/lon = 4th & 5th arguments of e_ps)
    
-      call e_ps(xew(iw),yew(iw),zew(iw),37.,-117.,xw,yw)
+!      call e_ps(xew(iw),yew(iw),zew(iw),37.,-117.,xw,yw)
 
-      dist = sqrt(xw ** 2 + yw ** 2)
-      
-      if (dist > 5000.e3) then
-         wtnud(iw) = 1.
-      elseif (dist < 3600.e3) then
-         wtnud(iw) = 0.
-      else
-         wtnud(iw) = ((dist - 3600.e3) / 1400.e3) ** 2
-      endif
+!      dist = sqrt(xw ** 2 + yw ** 2)
+
+!      if (dist > 5000.e3) then
+!         wtnud(iw) = 1.
+!      elseif (dist < 3600.e3) then
+!         wtnud(iw) = 0.
+!      else
+!         wtnud(iw) = ((dist - 3600.e3) / 1400.e3) ** 2
+!      endif
 
    enddo
 
@@ -285,6 +351,41 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !---------------------------------------------------------------------
 call qsub('W',iw)
 
+! Reconstruct vxe, vye, vze from model horizontal velocity and zero vertical velocity
+
+   npoly = itab_w(iw)%npoly
+   kb = lpw(iw)
+
+   vxe(:) = 0.
+   vye(:) = 0.
+   vze(:) = 0.
+
+   do jv = 1,npoly
+
+      if (meshtype == 1) then
+      
+         iv = itab_w(iw)%iu(jv)
+
+         do k = kb,mza-1
+            vxe(k) = vxe(k) + itab_w(iw)%vxu(jv) * uc(k,iv)
+            vye(k) = vye(k) + itab_w(iw)%vyu(jv) * uc(k,iv)
+            vze(k) = vze(k) + itab_w(iw)%vzu(jv) * uc(k,iv)
+         enddo
+
+      else
+
+         iv = itab_w(iw)%iv(jv)
+
+         do k = kb,mza-1
+            vxe(k) = vxe(k) + itab_w(iw)%ecvec_vx(jv) * vc(k,iv)
+            vye(k) = vye(k) + itab_w(iw)%ecvec_vy(jv) * vc(k,iv)
+            vze(k) = vze(k) + itab_w(iw)%ecvec_vz(jv) * vc(k,iv)
+         enddo
+
+      endif
+
+   enddo
+
 ! Reconstruct UZONAL(k) and UMERID(k) from VXE, VYE, VZE
 
    raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
@@ -293,9 +394,9 @@ call qsub('W',iw)
       raxisi = 1. / raxis
 
       do k = kb,mza-1
-         uzonal(k) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
-         umerid(k) = vze(k,iw) * raxis * eradi &
-            - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) * zew(iw) * raxisi * eradi
+         uzonal(k) = (vye(k) * xew(iw) - vxe(k) * yew(iw)) * raxisi
+         umerid(k) = vze(k) * raxis * eradi &
+            - (vxe(k) * xew(iw) + vye(k) * yew(iw)) * zew(iw) * raxisi * eradi
       enddo
 
    else
@@ -352,8 +453,6 @@ do iwnud = 2,mwnud
 
          volwnudi = 1. / max(1.,volwnud(k,iwnud))
 
-! Normalize sum to obtain average model value for each polygon nudge point
-
             rho_sim(k,iwnud) =    rho_sim(k,iwnud) * volwnudi
           theta_sim(k,iwnud) =  theta_sim(k,iwnud) * volwnudi
             shw_sim(k,iwnud) =    shw_sim(k,iwnud) * volwnudi
@@ -374,7 +473,6 @@ do iwnud = 2,mwnud
          shw_obs(k,iwnud) = tp *    shw_obsp(k,iwnud) + tf *    shw_obsf(k,iwnud)
       uzonal_obs(k,iwnud) = tp * uzonal_obsp(k,iwnud) + tf * uzonal_obsf(k,iwnud)
       umerid_obs(k,iwnud) = tp * umerid_obsp(k,iwnud) + tf * umerid_obsf(k,iwnud)
-
    enddo
 enddo
 !$omp end parallel do
@@ -388,16 +486,12 @@ if (nudnxp == 0) then
 
    call psub()
 !----------------------------------------------------------------------
-   !$omp parallel do private(iw,iwnud1,iwnud2,iwnud3,k,tnudi,fnud1,fnud2,fnud3)
+   !$omp parallel do private(iw,k,tnudi,tnudirho)
    do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !---------------------------------------------------------------------
    call qsub('W',iw)
 
 ! Inverse of nudging time scale
-
-! Default case - no spatial nudging mask
-
-!      tnudi = 1. / tnudcent
 
 ! Use spatial nudging mask defined above in this subroutine
 
@@ -419,7 +513,6 @@ if (nudnxp == 0) then
          umzonalt(k,iw) = tnudirho * (uzonal_obs(k,iw) - uzonal_sim(k,iw))
 
          ummeridt(k,iw) = tnudirho * (umerid_obs(k,iw) - umerid_sim(k,iw))
-
       enddo
 
    enddo
@@ -433,7 +526,8 @@ else
 
    call psub()
 !----------------------------------------------------------------------
-   !$omp parallel do private(iw,iwnud1,iwnud2,iwnud3,k,tnudi,fnud1,fnud2,fnud3)
+   !$omp parallel do private(iw,iwnud1,iwnud2,iwnud3,k,tnudi,tnudirho, &
+   !$omp                     fnud1,fnud2,fnud3)
    do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
       iwnud1 = itab_w(iw)%iwnud(1);  fnud1 = itab_w(iw)%fnud(1)
       iwnud2 = itab_w(iw)%iwnud(2);  fnud2 = itab_w(iw)%fnud(2)
@@ -442,11 +536,6 @@ else
    call qsub('W',iw)
 
 ! Inverse of nudging time scale
-
-! Default case - no spatial nudging mask
-
-!      tnudi = 1. / tnudcent
-
 ! Use spatial nudging mask defined above in this subroutine
 
       tnudi = wtnud(iw) / tnudcent

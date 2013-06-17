@@ -58,7 +58,7 @@ subroutine sea_init_atm()
 
   real, external :: rhovsl, rhovsil
 
-! This subroutine fills the primary LEAF3 arrays which depend on current
+! This subroutine fills the primary SEA arrays which depend on current
 ! atmospheric conditions.
 
 ! Time interpolation factor for updating SST and SEA ICE

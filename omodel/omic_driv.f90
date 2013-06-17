@@ -484,9 +484,10 @@ call each_column(lpw0,iw0,k1,k2,dtl0,                          &
 ! USEFUL SAMPLE PRINTS FOR EXAMINING A SINGLE IW0 COLUMN BEFORE
 ! MAIN MICROPHYSICS COMPUTATIONS ARE DONE
 
-!print*, 'micphys1 ',iw0,glatw(iw0),glonw(iw0)
+!if (time_istp8 > 17300.) then
+!   print*, 'micphys1 ',iw0,glatw(iw0),glonw(iw0)
 
-!if (iw0 == 2443) then
+!if (iw0 == 12170) then
 !   print*, ' '
 !   do k = lpw0,mza0
 !      write(6,'(a,i6,10e12.3)') 'rx ',k,(rx(k,j1),j1=1,8)
@@ -504,9 +505,22 @@ call each_column(lpw0,iw0,k1,k2,dtl0,                          &
 
 !   print*, ' '
 !   do k = lpw0,mza0
-!      write(6,'(a,i6,10e12.3)') 'env ',k,press0(k),theta0(k),wc0(k),tair(k), &
-!                                tairc(k),rhoa(k),rhow(k),rhov(k)
+!      if (press0(k) < 1.e-6 .or. press0(k) > 1.5e5 .or. &
+!          theta0(k) < 50.   .or. theta0(k) > 3000. .or. &
+!            tair(k) < 50.   .or.   tair(k) > 400.  .or. &
+!            rhoa(k) < 1.e-6 .or.   rhoa(k) > 2.0   .or. &
+!            rhow(k) < 0.    .or.   rhow(k) > 0.1   .or. &
+!            rhov(k) < 0.    .or.   rhov(k) > 0.1  ) then
+
+!         print*, ' '
+!         print*, 'micphys1 ',iw0,glatw(iw0),glonw(iw0)
+
+!         write(6,'(a,i6,10e12.3)') 'env ',k,press0(k),theta0(k),wc0(k),tair(k), &
+!                                   tairc(k),rhoa(k),rhow(k),rhov(k)
+!      endif
 !   enddo
+!endif
+
 !endif
 
 ! Diagnose hydrometeor mean mass emb, and if necessary, number concentration.

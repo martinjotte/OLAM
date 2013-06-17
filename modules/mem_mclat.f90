@@ -41,11 +41,6 @@ real :: mcdat(33,9,6)
 real :: mclat(13,33,6)
 real :: ypp_mclat(13,33,6)  ! Expanded arrays for spline intp
 
-real, allocatable :: mclatz    (:,:,:)  ! Array for z/spline intp
-real, allocatable :: ypp_mclatz(:,:,:)  ! Array for z/spline intp
-
-real :: mcol(33,6)
-
 data slat/-135.,-120.,-90.,-60.,-45.,-25.,0.,25.,45.,60.,90.,120.,135./
 
 !---------------------------------------------------------------------
@@ -512,92 +507,12 @@ Contains
 
    do lv = 1,33
       do lf = 1,6
-         call spline1(13,slat,mclat(1,lv,lf),ypp_mclat(1,lv,lf))
+         call spline1(13,slat,mclat(:,lv,lf),ypp_mclat(:,lv,lf))
       enddo
    enddo
 
    return
    end subroutine mclat_spline
-
-!===============================================================================
-
-   subroutine mclat_zintrp(jday,mza,zt)
-
-   implicit none
-   
-   integer, intent(in) :: jday
-   integer, intent(in) :: mza
-
-   real, intent(in) :: zt(mza)
-
-! automatic arrays
-
-   real :: vctr2(mza)
-   real :: vctr3(mza)
-   real :: vctr6(mza)
-   real :: vctr4(mza)
-   
-   integer :: lv
-   integer :: lf
-   integer :: llat
-   integer :: k
-
-   if (allocated(mclatz))     deallocate(mclatz)
-   if (allocated(ypp_mclatz)) deallocate(ypp_mclatz)
-   
-   allocate(mclatz(13,mza,6),ypp_mclatz(13,mza,6))
-
-   call mclat_copy(jday)
-
-! Vertical interpolation to model zt levels
-
-   do llat = 1,13
-      do lv = 1,33
-         do lf = 1,6
-            mcol(lv,lf) = mclat(llat,lv,lf)
-         enddo
-      enddo
-
-      call htint(33,mcol(1,2),mcol(1,1),mza,vctr2,zt)  ! press
-      call htint(33,mcol(1,3),mcol(1,1),mza,vctr3,zt)  ! temp
-      call htint(33,mcol(1,6),mcol(1,1),mza,vctr6,zt)  ! rho
-      call htint(33,mcol(1,4),mcol(1,1),mza,vctr4,zt)  ! rho_v
-
-      do k = 1,mza
-         mclatz(llat,k,2) = vctr2(k)
-         mclatz(llat,k,3) = vctr3(k)
-         mclatz(llat,k,6) = vctr6(k)
-         mclatz(llat,k,4) = vctr4(k)
-      enddo
-   enddo
-      
-   return
-   end subroutine mclat_zintrp
-
-!===============================================================================
-
-   subroutine mclatz_spline(mza)
-
-   implicit none
-   
-   integer, intent(in) :: mza
-   
-   integer :: k
-
-! Cubic spline interpolation coefficients for all k levels and 4 fields
-
-   sslat(1:13) = slat(1:13)
-   slat(7) = wtjan * (-5.) + wtjul * (10.)
-
-   do k = 1,mza
-      call spline1(13,sslat,mclatz(1,k,2),ypp_mclatz(1,k,2))  ! press
-      call spline1(13,sslat,mclatz(1,k,3),ypp_mclatz(1,k,3))  ! temp
-      call spline1(13,sslat,mclatz(1,k,6),ypp_mclatz(1,k,6))  ! rho
-      call spline1(13,sslat,mclatz(1,k,4),ypp_mclatz(1,k,4))  ! rho_v
-   enddo
-
-   return
-   end subroutine mclatz_spline
 
 End Module mem_mclat
 

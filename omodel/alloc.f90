@@ -47,13 +47,12 @@ use oname_coms,  only: nl
 use mem_thuburn, only: alloc_thuburn
 
 use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
-                       nqparm, nqparm_sh, dtsm, meshtype, do_chem
+                       nqparm, nqparm_sh, dtsm, meshtype
 
 use micro_coms,  only: level, ncat, jnmb, &
                        icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail
                        
 use mem_timeavg, only: alloc_timeavg, filltab_timeavg
-use cgrid_defn,  only: alloc_cgrid, filltab_cgrid
 
 implicit none 
 
@@ -81,11 +80,6 @@ call filltab_turb()
 
 call alloc_timeavg(mza,mwa)
 call filltab_timeavg()
-
-if (do_chem) then
-   call alloc_cgrid(mza,mwa)
-   call filltab_cgrid()
-endif
 
 call filltab_sflux()  ! Already allocated
 

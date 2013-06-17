@@ -30,27 +30,34 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
+subroutine harr_radinit()  ! Bob's interface subroutine
 
-subroutine harr_radinit()
+use mem_harr, only: ng,nb,nsolb,npsb,nuum,prf,alpha,trf,beta  &
+                    ,xp,wght,wlenlo,wlenhi,solar0,ralcs,a0,a1,a2,a3  &
+                    ,ulim,npartob,npartg,ncog,ncb  &
+                    ,ocoef,bcoef,gcoef,solara,solarb
 
-  use mem_harr,   only: ng,nb,nsolb,npsb,nuum,prf,alpha,trf,beta,       &
-                        xp,wght,wlenlo,wlenhi,solar0,ralcs,a0,a1,a2,a3, &
-                        ulim,npartob,npartg,ncog,ncb,                   &
-                        ocoef,bcoef,gcoef,solara,solarb
-  use micro_coms, only: gnu
+use micro_coms,  only: gnu
+use misc_coms,   only: io6
 
-  implicit none
+implicit none
+
+real :: deltaz
 
 !------------------------------------------------------------------------------
-! This subroutine initializes some constants for the Harrington s/w and l/w
-! radiation schemes.  It is called only once, by the master process or by
-! each compute node process, at the time of model initialization.
+! This subroutine initializes some constants for the Harrington radiation
+! scheme.  It is called only once, by the master process or by each 
+! compute node process, at the time of model initialization.
 !------------------------------------------------------------------------------
 
-  call harr_radinit1(ng,nb,nsolb,npsb,nuum,prf,alpha,trf,beta,  &
-       xp,wght,wlenlo,wlenhi,solar0,ralcs,a0,a1,a2,a3,  &
-       ulim,npartob,npartg,ncog,ncb,ocoef,bcoef,gcoef,gnu)
+! Initialize constants for Harrington s/w and l/w radiation computations
 
+call harr_radinit1(ng,nb,nsolb,npsb,nuum,prf,alpha,trf,beta  &
+   ,xp,wght,wlenlo,wlenhi,solar0,ralcs,a0,a1,a2,a3  &
+   ,ulim,npartob,npartg,ncog,ncb  &
+   ,ocoef,bcoef,gcoef,gnu)
+
+return
 end subroutine harr_radinit
 
 !===============================================================================
@@ -61,6 +68,7 @@ subroutine harr_radinit1(ng,nb,ns,npsb,nuum,prf,alpha,trf,beta,xp,  &
     
 implicit none
 
+!
 !     read input parameters for the radiative transfer scheme
 !     Original: J Verlinde March 1993
 !

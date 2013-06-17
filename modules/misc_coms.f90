@@ -39,10 +39,10 @@ implicit none
 private :: maxsndg, maxgrds, maxngrdll, pathlen, r8
 
 type simtime
-   integer :: year
-   integer :: month
-   integer :: date
-   real    :: time
+   integer  :: year
+   integer  :: month
+   integer  :: date
+   real(r8) :: time
 end type simtime
 
 type(simtime) :: current_time ! current simulation time
@@ -62,9 +62,6 @@ real(r8) :: rinit8 = 0.0_r8
 
 logical :: debug_fp  = .false.
 logical :: init_nans = .false.
-
-logical       :: do_chem   = .false.
-character(30) :: chem_mech = ""
 
 integer :: io6
 integer :: initial
@@ -104,15 +101,16 @@ integer :: nacoust  (maxgrds)
 integer :: nqparm   (maxgrds)
 integer :: nqparm_sh(maxgrds)
 
+real(r8) :: dtlong
+real(r8) :: frqstate
+real(r8) :: radfrq
+real(r8) :: confrq
+
 real :: wcldbs
-real :: radfrq
-real :: confrq
 real :: ubmin
-real :: dtlong
 real :: topref
 real :: polelat
 real :: polelon
-real :: frqstate
 real :: deltax
 real :: hdz(10)
 real :: dz(10)
@@ -130,8 +128,9 @@ real :: cflz  (maxgrds)
 real :: csz   (maxgrds)
 real :: csx   (maxgrds)
 real :: akmin (maxgrds)
-real :: dtlm  (maxgrds)
-real :: dtsm  (maxgrds)
+
+real(r8) :: dtlm(maxgrds)
+real(r8) :: dtsm(maxgrds)
 
 real, allocatable :: u01d (:)
 real, allocatable :: v01d (:)

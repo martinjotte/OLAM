@@ -40,8 +40,8 @@ use misc_coms,   only: io6, time8, iflag, runtype, hfilin, time_istp8, nzp,    &
                        expnme, mdomain, ngrids, initial, iswrtyp, ilwrtyp,     &
                        meshtype, timmax8, alloc_misc, iparallel, ipar_out,     &
                        iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
-                       time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
-                       do_chem, chem_mech
+                       time_prevhist, rinit, rinit8, debug_fp, init_nans
+
 use leaf_coms,   only: nzg, nzs, isfcl, nwl, mwl
 use mem_leaf,    only: fill_jland
 use sea_coms,    only: nws, mws
@@ -63,14 +63,9 @@ use ed_misc_coms,only: ed2_active, ed2_namelist
 use hcane_rz,    only: init_hurr_step, hurricane_init
 use obnd,        only: trsets, lbcopy_w
 use var_tables,  only: nvar_par, vtab_r, nptonv
-use cgrid_spcs,  only: cgrid_spcs_init
-use emis_defn,   only: emis_init
-use depv_defn,   only: depv_init
 use mem_swtc5_refsoln_cubic
 
 implicit none
-
-include 'makedefs.inc'
 
 character(len=*), intent(in) :: name_name
 
@@ -78,7 +73,6 @@ integer :: i,ifm,nndtflg,ifileok,ierr,iplt_file,mrl
 integer :: mwa_prog, mua_prog, mva_prog
 real :: w1,w2,t1,t2,wtime_start
 real, external :: walltime
-logical :: result
 
 wtime_start = walltime(0.)
 w1 = walltime(wtime_start)
@@ -151,6 +145,7 @@ endif
 #endif
 
 ! Get abs seconds of simulation start and current simulation time
+! Note that itime1 has format of hhmm, and date_abs_secs2 needs hhmmss
 
 time_istp8 = time8
 
@@ -289,12 +284,6 @@ write(io6,'(/,a)') 'olam_run calling jnmbinit'
 
 call jnmbinit()
 
-#ifdef USE_CHEM
-chem_mech = build_chem_meth
-do_chem   = .true.
-result    = cgrid_spcs_init()
-#endif
-
 !------------------------------------------------------------------
 ! If we got here, we are doing an actual simulation or PLOTONLY run
 !------------------------------------------------------------------
@@ -369,17 +358,9 @@ endif
 ! Initialize 3d microphysics fields (if level = 3) and other microphysics
 ! quantities
 
-write(io6,'(/,1x,a)') 'olam_run calling micinit'
+write(io6,'(/,a)') 'olam_run calling micinit'
 
 call micinit()
-
-
-if (do_chem) then
-   mrl = 1
-   write(io6,'(/,1x,a)') 'Initializing chemical concentrations'
-   call init_cgrid()
-   call conv_cgrid(mrl) ! convert aerosol species from densities to concentrations
-endif
 
 !-------------------------------------------------------------------------------
 if (runtype == "INITIAL") then
@@ -409,14 +390,14 @@ if (iswrtyp > 0 .or. ilwrtyp > 0) then
    call radinit()
 endif
 
-! Check if LEAF3 will be used
+! Check if LEAF will be used
 
 if (isfcl == 1) then
 
-! Start up LEAF3
+! Start up LEAF
 
-   write(io6,'(/,a)') 'olam_run calling leaf3_startup'
-   call leaf3_startup()
+   write(io6,'(/,a)') 'olam_run calling leaf4_startup'
+   call leaf4_startup()
 
 ! Start up SEA
 
@@ -434,8 +415,8 @@ if (isfcl == 1) then
 
 ! Initialize leaf fields that depend on atmosphere
 
-   write(io6,'(/,a)') 'olam_run calling leaf3_init_atm'
-   call leaf3_init_atm()
+   write(io6,'(/,a)') 'olam_run calling leaf4_init_atm'
+   call leaf4_init_atm()
 
 #ifdef USE_ED2
    if (ed2_active == 1) then
@@ -447,14 +428,6 @@ if (isfcl == 1) then
    write(io6,'(/,a)') 'olam_run calling sea_init_atm'
    call sea_init_atm()
 
-endif
-
-! Initialize emissions/deposition if doing chemistry
-
-if (do_chem) then
-   write(io6,'(/,1x,a)') 'Initializing chemical emissions/deposition'
-   call emis_init()
-   call depv_init()
 endif
 
 ! If using variable initialization and polygon nudging, read most recent
@@ -469,10 +442,6 @@ endif
 
 write(io6,'(/,a)') 'olam_run calling rayf_init'
 call rayf_init(mua,mva,mwa,mza)
-
-! Initialize PBL quantities
-
-call pbl_init()
 
 ! For shallow water test case 5, read in and initialize reference
 ! solution for time = 0 and time = 15d.
@@ -545,6 +514,10 @@ if (runtype == 'HISTORY') then
    call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 endif
 
+! Initialize PBL quantities
+
+call pbl_init()
+
 write(io6,'(/,a)') 'olam_run calling plot_fields'
 
 call plot_fields(0)
@@ -590,6 +563,8 @@ subroutine model()
 
 use misc_coms, only: io6, time8, timmax8, dtlm, time_istp8, simtime,  &
                      current_time, s1900_init, s1900_sim
+use consts_coms, only: r8
+
 implicit none
 
 !   +------------------------------------------------------------------
@@ -603,6 +578,7 @@ real :: wtime_start,t1,wtime1,wtime2,t2,wtime_tot
 real, external :: walltime
 character(len=40) :: stepc1,stepc2,stepc3,stepc4,stepc5
 type(simtime) :: begtime
+real(r8) :: time8p, bias
 
  write(io6,*) 'starting subroutine MODEL'
 
@@ -610,9 +586,11 @@ wtime_start = walltime(0.)
 
 ! Start the timesteps
 
-mstp = 0
+mstp   = 0
+bias   = 1.e-7_r8 * dtlm(1) ! A number small compared to the timestep
+time8p = time8 + bias       ! Slightly forward biased time
 
-do while (time8 < timmax8)
+do while (time8p < timmax8)
 
    begtime = current_time
 
@@ -680,10 +658,10 @@ use hcane_rz,    only: init_hurr_step, hurricane_track
 implicit none
 
 integer  :: ierr, ifm, ifileok
-real(r8) :: frqplt8, time8p
+real(r8) :: time8p, bias
 
-time8p  = time8 + 0.001_r8
-frqplt8 = op%frqplt
+bias    = 1.e-7_r8 * dtlm(1) ! A number small compared to the timestep
+time8p  = time8 + bias       ! Slightly forward biased time
 
 !-------------------- SPECIAL - HURRICANE TRACKING ------------------
 if (init_hurr_step == 1 .or. init_hurr_step == 2) then
@@ -697,12 +675,12 @@ if (init_hurr_step == 1 .or. init_hurr_step == 2) then
 endif
 !-------------------------------------------------------------------
 
-if (mod(time8,frqplt8) < dtlm(1) .or. iflag == 1) then
+if (mod(time8p,op%frqplt) < dtlm(1) .or. iflag == 1) then
    call plot_fields(0)
 endif
 
-if (mod(time8,real(frqstate,r8)) < dtlm(1)  .or.  &
-   time8  >=  timmax8 - .01*dtlm(1) .or. iflag == 1) then
+if (mod(time8p,frqstate) < dtlm(1)  .or.  &
+   time8 >= timmax8 - bias .or. iflag == 1) then
    call history_write('INST')
    time_prevhist = time8
 endif

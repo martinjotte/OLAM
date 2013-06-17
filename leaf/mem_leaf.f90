@@ -108,7 +108,7 @@ Module mem_leaf
       real, allocatable :: wny         (:) ! norm unit vector y comp of land cells
       real, allocatable :: wnz         (:) ! norm unit vector z comp of land cells
 
-      ! LEAF3 model variables:
+      ! LEAF4 model variables:
 
       integer, allocatable :: nlev_sfcwater (:) ! # of active surface water levels
       real, allocatable :: soil_water     (:,:) ! soil water content [vol_water/vol_tot]
@@ -145,7 +145,7 @@ Module mem_leaf
       real, allocatable :: sxfer_csav  (:) ! saved previous value of sxter_c
       real, allocatable :: ed_zeta     (:)
       real, allocatable :: ed_rib      (:)
-      real, allocatable :: ggaer       (:) ! surface aerodynamic conductance [m/s]
+      real, allocatable :: ggaer       (:) ! canopy-atmosphere aerodynamic conductance [m/s]
       real, allocatable :: can_depth   (:) ! canopy depth for heat & vap capacity [m]
       real, allocatable :: hcapveg     (:) ! veg heat capacity [J/(m^2 K)]
       real, allocatable :: can_temp    (:) ! canopy air temp [K]
@@ -419,7 +419,7 @@ Contains
      endif
 
      if (allocated(land%ggaer)) then
-        call increment_vtable('LAND%GGAER', 'LW')
+        call increment_vtable('LAND%ED_GGAER', 'LW')
         vtab_r(num_var)%rvar1_p => land%ggaer
      endif
 

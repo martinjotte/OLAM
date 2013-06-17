@@ -42,7 +42,6 @@ contains
     use tridiag,    only: tridv, acm_matrix
     use var_tables, only: num_scalar, scalar_tab, sxfer_map, num_sxfer, &
                           emis_map, num_emis
-    use emis_defn,  only: emlays
 
     implicit none
 
@@ -228,10 +227,9 @@ contains
     ! Include emissions (emis units are concentration / sec )
 
     if (num_emis > 0) then
-       kmax = min(kbot + nsfc + emlays - 2, ktop)
        do ns = 1, num_emis
           n = emis_map(ns)
-          do k = kbot, kmax
+          do k = kbot, ktop
              ks = k - kbot + 1
              rhs(ks,n) = rhs(ks,n) + scalar_tab(n)%emis(k,iw) * dtl
           enddo
@@ -339,17 +337,16 @@ contains
     ! Include tendencies due to emissions (emis units are concentration / sec )
 
     if (num_emis > 0) then
-       kmax = min(kbot + nsfc + emlays - 2, ktop)
        do ns = 1, num_emis
           n = emis_map(ns)
-          do k = kbot, kmax
+          do k = kbot, ktop
              scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
                                        + rho(k,iw) * scalar_tab(n)%emis(k,iw)
           enddo
        enddo
     endif
 
-    ! Apply surface vapor xfer [kg_vap] directly to rhot [kg_air / s]
+    ! Apply surface vapor xfer [kg_vap] directly to rhot [kg_air / (m^3 s)]
 
     do k = kbot, kbot + nsfc - 1
        ks = k - kbot + 1

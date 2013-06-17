@@ -88,8 +88,8 @@ use consts_coms, only: r8
 
 implicit none
 
-integer, intent(in) :: mrl
-real,    intent(in) :: dtl
+integer,  intent(in) :: mrl
+real(r8), intent(in) :: dtl
 
 integer  :: itc, k, idnc
 real     :: tc, y

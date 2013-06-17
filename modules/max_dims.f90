@@ -40,7 +40,6 @@ Module max_dims
       ,maxsndg      = 200   & ! Max # of vertical levels for the input sounding
       ,maxsstfiles  = 2000  & ! Max # of input SST files
       ,maxndvifiles = 2000  & ! Max # of input NDVI files
-      ,maxisfiles   = 2000  & ! Max # of input data files for the isan stage
       ,maxisdirs    = 30    & ! Max # of directories that contain data files
       ,maxpr        = 100   & ! Max # of press levels in the input data files
       ,maxnplt      = 150   & ! Max # of fields to plot

@@ -30,19 +30,19 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-Module leaf3_plot
+Module leaf4_plot
 
 Contains
 
  subroutine leaf_plot(iwl,              nlev_sfcwater,   &
-                      time8,            linit,           &
+                      linit,                             &
                       lframe,           ntext_soil,      &
                       leaf_class,       ktrans,          &
                       soil_water,       soil_energy,     &
                       soil_rfactor,     soil_tempk,      &
                       soil_fracliq,     hxferg,          &
                       wxfer,            qwxfer,          &
-                      psi,                  &
+                      psi,                               &
                       sfcwater_mass,    sfcwater_energy, &
                       energy_per_m2,                     &
                       sfcwater_depth,   sfcwater_tempk,  &
@@ -66,7 +66,7 @@ Contains
                       stom_resist,      hxfergc,         &
                       wxfergc,          hxfersc,         &
                       wxfersc,          veg_fracarea,    &
-                      hxferca,          hxfervc,         &
+                      hxfervc,                           &
                       wxfervc,          rdi,             &
                       rb,               head,            &
                       head0,            head1            )
@@ -74,14 +74,12 @@ Contains
 use leaf_coms,   only: nzg, nzs, slz, dslz
 use consts_coms, only: cp
 use oplot_coms,  only: op
-use misc_coms,   only: io6, runtype
+use misc_coms,   only: io6, runtype, time8
 
 implicit none
 
 integer, intent(in) :: iwl                ! current land cell index
 integer, intent(in) :: nlev_sfcwater      ! # active levels of surface water
-
-real(kind=8), intent(in) :: time8 ! model time [s]
 
 integer, optional, intent(in) :: linit  ! flag to initialize frame
 integer, optional, intent(in) :: lframe ! flag to complete current frame
@@ -145,7 +143,6 @@ real, optional, intent(in) :: wxfergc      ! vap xfer from soil to can_air this 
 real, optional, intent(in) :: hxfersc      ! heat xfer from sfcwater to can_air this step [J/m^2]
 real, optional, intent(in) :: wxfersc      ! vap xfer from sfcwater to can_air this step [kg_vap/m^2]
 real, optional, intent(in) :: veg_fracarea ! veg fractional area ! veg fractional area
-real, optional, intent(in) :: hxferca      ! can_air-to-atm heat xfer this step [J/m^2]
 real, optional, intent(in) :: hxfervc      ! veg-to-can_air heat xfer this step [J/m^2]
 real, optional, intent(in) :: wxfervc      ! veg-to-can_air vapor xfer this step [kg_vap/m^2]
 real, optional, intent(in) :: rdi          ! (soil or surface water)-to-can_air conductance [m/s]
@@ -941,13 +938,6 @@ if (present(sxfer_r)) then
 
 endif
 
-if (present(hxferca)) then
-
-   write (number,'(f12.3)') hxferca
-   call o_plchhq(xw7,yw1,'hxferca = '//trim(adjustl(number)),psiz,0.,0.)
-
-endif
-
 if (present(ustar)) then
 
    write (number,'(f12.3)') ustar
@@ -1124,5 +1114,5 @@ endif
 return
 end subroutine leaf_plot
 
-End Module leaf3_plot
+End Module leaf4_plot
 

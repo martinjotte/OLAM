@@ -50,11 +50,12 @@ implicit none
 
 real, intent(inout) :: rhot(mza,mwa)
 real(r8), parameter :: cptime = 0.0
+real(r8)            :: time8p
 integer             :: j, iw, k, mrl, mrlw
 integer, save       :: init_kf = 0
 integer, save       :: init_em = 0
 
-real :: dthmax, ftcon
+real     :: dthmax, ftcon, dtlong4
 integer :: iwqmax, kqmax
 
 ! Time-weighting coefficients for w average
@@ -96,7 +97,9 @@ if ((initial == 2) .and. (time_istp8 < cptime)) return
 
 ! Check whether it is time to update cumulus parameterization tendencies
 
-if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
+time8p = time_istp8 + 1.e-7_r8 * dtlong
+
+if ((istp == 1) .and. (mod(time8p, confrq) < dtlong)) then
 
 ! Print message that cumulus parameterization is being computed
 
@@ -110,6 +113,8 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
    dthmax = 0.
    iwqmax = 0
    kqmax  = 0
+
+   dtlong4 = real(dtlong)
 
 ! Loop over all IW grid cells where cumulus parameterization may be done
 
@@ -136,19 +141,19 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
    
 ! Grell deep convection
 
-         call cuparth(iw,dtlong)
+         call cuparth(iw,dtlong4)
 
       elseif (nqparm(mrlw) == 3) then
    
 ! Kain-Fritsch deep convection
 
-         call cuparm_kfeta(iw,dtlong,w0avg)
+         call cuparm_kfeta(iw,dtlong4,w0avg)
 
       elseif (nqparm(mrlw) == 4) then
    
 ! Emanuel convective parameterization
 
-         call cuparm_emanuel(iw,dtlong)
+         call cuparm_emanuel(iw,dtlong4)
 
       endif
    
@@ -156,7 +161,7 @@ if ((istp == 1) .and. (mod(time_istp8+0.001_r8,real(confrq,r8)) < dtlong)) then
    
 ! Grell shallow convection
 
-         call cuparth_shal(iw,dtlong)
+         call cuparth_shal(iw,dtlong4)
       
       endif
 

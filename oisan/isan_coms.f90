@@ -32,12 +32,12 @@
 !===============================================================================
 Module isan_coms
 
-use max_dims,    only: maxisfiles, maxpr, maxisdirs, pathlen
+use max_dims,    only: maxpr, maxisdirs, pathlen
 use consts_coms, only: r8
 
 integer :: ioflgisz, ioflgvar, iszstage, ivrstage
 integer :: iyear, imonth, idate, ihour, ipoffset
-integer :: npd,lzon_bot,kzonoff,isdirs
+integer :: npd,lzon_bot,kzonoff
 
 real, dimension(maxpr+2) :: pcol_p, pcol_thet, pcol_pk, pcol_u, pcol_v, pcol_z
 real, dimension(maxpr+2) :: pcol_r, pcol_pi, pcol_temp, pcol_rt, pcol_thv
@@ -45,11 +45,11 @@ real, dimension(maxpr+2) :: pcol_r, pcol_pi, pcol_temp, pcol_rt, pcol_thv
 integer :: nfgfiles, ifgfile
 
 character(pathlen) :: iapr(maxisdirs)
-character(pathlen) :: fnames_fg(maxisfiles)
 character(pathlen) :: innpr
-character(14)      :: ctotdate_fg(maxisfiles)
 
-real(r8)  :: s1900_fg(maxisfiles)
+character(pathlen), allocatable :: fnames_fg  (:)
+character(14),      allocatable :: ctotdate_fg(:)
+real(r8),           allocatable :: s1900_fg   (:)
 
 ! Pressure header variables:
 integer :: marker, isversion, iyy, imm, idd, ihh, itinc, inproj, ivertcoord

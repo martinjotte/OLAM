@@ -124,6 +124,10 @@ if (iaction == 0) then
       sdate = flnm(slen-12:slen-3)
 
       read(sdate,'(i4,i2,i2,i2)') iseaicey, iseaicem, iseaiced, iseaiceh
+
+      ! Convert iseaiceh format from hh to hhmmss
+
+      iseaiceh = iseaiceh * 10000
       
       ! If file year is read as zero, seaice data is expected to be cyclic
       ! over 1 year. Increment iseaicecyclic to indicate this and use current
@@ -134,9 +138,9 @@ if (iaction == 0) then
          iseaicey = iyears
       endif
 
-      call date_make_big (iseaicey,iseaicem,iseaiced,iseaiceh*100, &
+      call date_make_big (iseaicey,iseaicem,iseaiced,iseaiceh, &
            ctotdate_seaice(jtime))
-      call date_abs_secs2(iseaicey,iseaicem,iseaiced,iseaiceh*100, &
+      call date_abs_secs2(iseaicey,iseaicem,iseaiced,iseaiceh, &
            s1900_seaice(jtime))
    enddo
 

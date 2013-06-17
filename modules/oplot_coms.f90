@@ -32,7 +32,8 @@
 !===============================================================================
 Module oplot_coms
 
-use max_dims, only: maxnplt, maxpltfiles, pathlen
+use max_dims,    only: maxnplt, maxpltfiles, pathlen
+use consts_coms, only: r8
 implicit none
 
 private :: maxnplt, maxpltfiles, pathlen
@@ -47,7 +48,8 @@ Type oplot_vars
    integer :: pltorient  ! Landscape or portrait
    integer :: vec_maxmrl ! Highest mesh level to plot wind vectors
 
-   real :: frqplt    ! Time interval between plots
+   real(r8) :: frqplt    ! Time interval between plots
+
    real :: dtvec     ! Scaling time (seconds) for plotted velocity vectors
    real :: headspeed ! Scaling speed [m/s] for velocity vector arrow head length
    real :: stemlength ! Map distance [m] of windbarb stem for size scaling

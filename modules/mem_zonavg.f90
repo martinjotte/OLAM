@@ -228,7 +228,7 @@ Contains
   subroutine fill_zonr_mclat(idate,imonth,iyear)
 
   use misc_coms,   only: io6
-  use mem_mclat,   only: slat, mclat, ypp_mclat, mcol, mclat_spline
+  use mem_mclat,   only: slat, mclat, ypp_mclat, mclat_spline
 
   implicit none   
 
@@ -237,6 +237,10 @@ Contains
   integer :: ilat,lv,jday
   real :: alat
   integer, external :: julday
+
+! Automatic array
+
+  real :: mcol(33,6)
 
 ! Subroutine fill_zonr_mclat fills the ZONR array with specific humidity values
 ! by means of interpolation from the McLatchy sounding.  The ZONR array is 2-D,

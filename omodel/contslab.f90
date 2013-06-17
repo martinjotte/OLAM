@@ -738,7 +738,7 @@ subroutine contslab_vert_t(iplt)
 
 use oplot_coms,  only: op
 use mem_grid,    only: mva, mza, lpw, zt
-use mem_ijtabs,  only: itab_u, jtab_u, jtu_prog
+use mem_ijtabs,  only: itab_u, itab_v, jtab_u, jtab_v, jtu_prog, jtv_prog
 use misc_coms,   only: io6, meshtype
 use consts_coms, only: erad, pio180
 
@@ -746,14 +746,13 @@ implicit none
 
 integer, intent(in) :: iplt
 
-integer :: k,jv,iv,iw1,iw2,iv1,iv2,iok,notavail
+integer :: k,jv,iv,iw1,iw2,iv1,iv2,iok,notavail,jvmax
 real :: hpt,hpt1,hpt2
 real :: hcpn(4),hcpn1(4),hcpn2(4),vcpn(4),fldvals(4)
 real :: topo1,topo2,radcone
 real :: wtbot = 1., wttop = 0.
 
 ! FOR HEXAGONS, REDIRECT TO NEW SUBROUTINE
-
 IF (MESHTYPE == 2) THEN
    CALL CONTSLAB_VERT_TW(IPLT)
    RETURN
@@ -763,16 +762,23 @@ ENDIF
 
 call plot_underground_w(iplt,(/0/))
 
-do jv = 1, jtab_u(jtu_prog)%jend(1)
-   iv = jtab_u(jtu_prog)%iu(jv)
+if (meshtype == 1) then
+   jvmax = jtab_u(jtu_prog)%jend(1)
+else
+   jvmax = jtab_v(jtv_prog)%jend(1)
+endif
 
-!  if (meshtype == 1) then
+do jv = 1, jvmax
+
+   if (meshtype == 1) then
+      iv  = jtab_u(jtu_prog)%iu(jv)
       iw1 = itab_u(iv)%iw(1)
       iw2 = itab_u(iv)%iw(2)
-!  else
-!     iw1 = itab_v(iv)%iw(1)
-!     iw2 = itab_v(iv)%iw(2)
-!  endif
+   else
+      iv  = jtab_v(jtv_prog)%iv(jv)
+      iw1 = itab_v(iv)%iw(1)
+      iw2 = itab_v(iv)%iw(2)
+   endif
 
 ! Jump to end of loop if either iw1 or iw2 is less than 1
 
@@ -978,7 +984,7 @@ subroutine contslab_vert_w(iplt)
 
 use oplot_coms, only: op
 use mem_grid,   only: mva, mza, lpw, zm
-use mem_ijtabs, only: itab_u, jtab_u, jtu_prog
+use mem_ijtabs, only: itab_u, itab_v, jtab_u, jtab_v, jtu_prog, jtv_prog
 use misc_coms,  only: io6, meshtype
 use consts_coms, only: erad, pio180
 
@@ -986,14 +992,13 @@ implicit none
 
 integer, intent(in) :: iplt
 
-integer :: k,jv,iv,iw1,iw2,iv1,iv2,iok,notavail
+integer :: k,jv,iv,iw1,iw2,iv1,iv2,iok,notavail,jvmax
 real :: hpt,hpt1,hpt2
 real, dimension(4) :: hcpn,hcpn1,hcpn2,vcpn,fldvals
 real :: topo1,topo2,radcone
 real :: wtbot = 1., wttop = 0.
 
 ! FOR HEXAGONS, REDIRECT TO NEW SUBROUTINE
-
 IF (MESHTYPE == 2) THEN
    CALL CONTSLAB_VERT_TW(IPLT)
    RETURN
@@ -1003,16 +1008,23 @@ ENDIF
 
 call plot_underground_w(iplt,(/0/))
 
-do jv = 1, jtab_u(jtu_prog)%jend(1)
-   iv = jtab_u(jtu_prog)%iu(jv)
+if (meshtype == 1) then
+   jvmax = jtab_u(jtu_prog)%jend(1)
+else
+   jvmax = jtab_v(jtv_prog)%jend(1)
+endif
 
-!  if (meshtype == 1) then
+do jv = 1, jvmax
+
+   if (meshtype == 1) then
+      iv  = jtab_u(jtu_prog)%iu(jv)
       iw1 = itab_u(iv)%iw(1)
       iw2 = itab_u(iv)%iw(2)
-!  else
-!     iw1 = itab_v(iv)%iw(1)
-!     iw2 = itab_v(iv)%iw(2)
-!  endif
+   else
+      iv  = jtab_v(jtv_prog)%iv(jv)
+      iw1 = itab_v(iv)%iw(1)
+      iw2 = itab_v(iv)%iw(2)
+   endif
 
 ! Jump to end of loop if either iw1 or iw2 is less than 1
 

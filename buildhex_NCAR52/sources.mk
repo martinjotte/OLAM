@@ -21,20 +21,21 @@ SOURCE_FILES= \
              $(CONVECT)/smagorinsky.f90 \
              $(ED2MEM)/ed_max_dims.F90 \
              $(ED2MEM)/ed_misc_coms.f90 \
-             $(LEAF)/leaf3.F90 \
-             $(LEAF)/leaf3_canopy.f90 \
-             $(LEAF)/leaf3_init_atm.f90 \
-             $(LEAF)/leaf3_landcell.f90 \
-             $(LEAF)/leaf3_sfcwater.f90 \
-             $(LEAF)/leaf3_soil.f90 \
-             $(LEAF)/leaf3_startup.f90 \
-             $(LEAF)/leaf_coms.f90 \
-             $(LEAF)/leaf_database_read.f90 \
-             $(LEAF)/leaf_plot.f90 \
+             $(LEAF)/leaf4.F90 \
+             $(LEAF)/leaf4_canopy.f90 \
+             $(LEAF)/leaf4_init_atm.f90 \
+             $(LEAF)/leaf4_landcell.f90 \
+             $(LEAF)/leaf4_sfcwater.f90 \
+             $(LEAF)/leaf4_soil.f90 \
+             $(LEAF)/leaf4_startup.f90 \
+             $(LEAF)/leaf4_coms.f90 \
+             $(LEAF)/leaf4_database_read.f90 \
+             $(LEAF)/leaf4_plot.f90 \
              $(LEAF)/mem_leaf.f90 \
              $(LEAF)/ndvi_database_read.f90 \
              $(LEAF)/olam_mpi_land.F90 \
              $(LEAF)/para_init_land.f90 \
+             $(LEAF)/read_soil_analysis.f90 \
              ./consts_coms.f90 \
              $(MODEL_MODS)/ke_coms.f90 \
              $(MODEL_MODS)/massflux.f90 \

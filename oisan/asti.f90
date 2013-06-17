@@ -46,7 +46,9 @@ use mem_zonavg, only: zonp_vect, zont, zonz, zonr, zonu
 use consts_coms,only: eradi
 use misc_coms,  only: io6, meshtype, iparallel
 
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
+use olam_mpi_atm, only: mpi_send_w, mpi_send_u, mpi_send_v, &
+                        mpi_recv_w, mpi_recv_u, mpi_recv_v
+use obnd,       only: lbcopy_u, lbcopy_v
 
 implicit none
 
@@ -210,6 +212,17 @@ if (meshtype == 1) then
    enddo
    call rsub('Ua',7)
 
+! MPI parallel send/recv of o_uvc
+
+   if (iparallel == 1) then
+      call mpi_send_u('L', domrl=1, uc0=o_uvc)
+      call mpi_recv_u('L', domrl=1, uc0=o_uvc)
+   endif
+
+! LBC copy of o_uvc
+
+   call lbcopy_u(1, a1=o_uvc)
+
 else
 
 ! If using hexagonal mesh, initialize V wind component
@@ -250,6 +263,17 @@ else
 
    enddo
    call rsub('Va',7)
+
+! MPI parallel send/recv of o_uvc
+
+   if (iparallel == 1) then
+      call mpi_send_v('L', domrl=1, rarray1=o_uvc)
+      call mpi_recv_v('L', domrl=1, rarray1=o_uvc)
+   endif
+
+! LBC copy of o_uvc
+
+   call lbcopy_v(1, vc=o_uvc)
 
 endif
 
