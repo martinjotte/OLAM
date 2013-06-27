@@ -40,8 +40,8 @@ use misc_coms,   only: io6, time8, iflag, runtype, hfilin, time_istp8, nzp,    &
                        expnme, mdomain, ngrids, initial, iswrtyp, ilwrtyp,     &
                        meshtype, timmax8, alloc_misc, iparallel, ipar_out,     &
                        iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
-                       time_prevhist, rinit, rinit8, debug_fp, init_nans
-
+                       time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
+                       do_chem, chem_mech
 use leaf_coms,   only: nzg, nzs, isfcl, nwl, mwl
 use mem_leaf,    only: fill_jland
 use sea_coms,    only: nws, mws
@@ -63,9 +63,14 @@ use ed_misc_coms,only: ed2_active, ed2_namelist
 use hcane_rz,    only: init_hurr_step, hurricane_init
 use obnd,        only: trsets, lbcopy_w
 use var_tables,  only: nvar_par, vtab_r, nptonv
+use cgrid_spcs,  only: cgrid_spcs_init
+use emis_defn,   only: emis_init
+use depv_defn,   only: depv_init
 use mem_swtc5_refsoln_cubic
 
 implicit none
+
+include 'makedefs.inc'
 
 character(len=*), intent(in) :: name_name
 
@@ -73,6 +78,7 @@ integer :: i,ifm,nndtflg,ifileok,ierr,iplt_file,mrl
 integer :: mwa_prog, mua_prog, mva_prog
 real :: w1,w2,t1,t2,wtime_start
 real, external :: walltime
+logical :: result
 
 wtime_start = walltime(0.)
 w1 = walltime(wtime_start)
@@ -284,6 +290,12 @@ write(io6,'(/,a)') 'olam_run calling jnmbinit'
 
 call jnmbinit()
 
+#ifdef USE_CHEM
+chem_mech = build_chem_meth
+do_chem   = .true.
+result    = cgrid_spcs_init()
+#endif
+
 !------------------------------------------------------------------
 ! If we got here, we are doing an actual simulation or PLOTONLY run
 !------------------------------------------------------------------
@@ -362,6 +374,14 @@ write(io6,'(/,a)') 'olam_run calling micinit'
 
 call micinit()
 
+
+if (do_chem) then
+   mrl = 1
+   write(io6,'(/,1x,a)') 'Initializing chemical concentrations'
+   call init_cgrid()
+   call conv_cgrid(mrl) ! convert aerosol species from densities to concentrations
+endif
+
 !-------------------------------------------------------------------------------
 if (runtype == "INITIAL") then
    if (init_hurr_step > 0) call hurricane_init()
@@ -428,6 +448,14 @@ if (isfcl == 1) then
    write(io6,'(/,a)') 'olam_run calling sea_init_atm'
    call sea_init_atm()
 
+endif
+
+! Initialize emissions/deposition if doing chemistry
+
+if (do_chem) then
+   write(io6,'(/,1x,a)') 'Initializing chemical emissions/deposition'
+   call emis_init()
+   call depv_init()
 endif
 
 ! If using variable initialization and polygon nudging, read most recent

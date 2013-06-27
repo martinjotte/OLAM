@@ -34,7 +34,7 @@
 subroutine pbl_driver(rhot, mrl)
 
   use mem_grid,       only: mwa, mza, lpw, lsw
-  use misc_coms,      only: io6, idiffk
+  use misc_coms,      only: io6, idiffk, do_chem
   use mem_tend,       only: thilt, sh_wt
   use mem_basic,      only: vxe, vye, vze, thil, theta, tair, sh_w, sh_v, rho
   use mem_turb,       only: hkm, sxfer_tk, sxfer_rk, ustar, wstar, wtv0, &
@@ -44,9 +44,9 @@ subroutine pbl_driver(rhot, mrl)
   use mem_radiate,    only: fthrd
   use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx, acm2
   use smagorinsky,    only: turb_k
+  use emis_defn,      only: get_emis
+  use depv_defn,      only: get_depv
 
-  use mem_grid, only: zm
-  
 !$use omp_lib
 
   implicit none
@@ -61,6 +61,13 @@ subroutine pbl_driver(rhot, mrl)
   real    :: vkh   (mza)
   real    :: vkm   (mza)
   real    :: moli
+
+! Get chemical emisions for this timestep
+
+  if (do_chem) then
+     call get_emis(mrl)
+     call get_depv(mrl)
+  endif
 
 ! Loop over all W/T points where PBL parameterization may be done
 

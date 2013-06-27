@@ -1,0 +1,31 @@
+# OLAM root directory.
+
+OLAM_ROOT=..
+
+# Versions.
+
+OLAM_VERSION=4.0
+
+# Source directories.
+
+MODEL_MODS=$(OLAM_ROOT)/modules
+OMODEL=$(OLAM_ROOT)/omodel
+OMODEL_TRI=$(OLAM_ROOT)/omodel_tri
+OMODEL_HEX=$(OLAM_ROOT)/omodel_hex
+OISAN=$(OLAM_ROOT)/oisan
+CONVECT=$(OLAM_ROOT)/convect
+LEAF=$(OLAM_ROOT)/leaf
+SEA=$(OLAM_ROOT)/sea
+ED=$(OLAM_ROOT)/ed
+ED2DYN=$(OLAM_ROOT)/ED2/dynamics
+ED2DRIV=$(OLAM_ROOT)/ED2/driver
+ED2INIT=$(OLAM_ROOT)/ED2/init
+ED2MEM=$(OLAM_ROOT)/ED2/memory
+ED2UTILS=$(OLAM_ROOT)/ED2/utils
+ED2IO=$(OLAM_ROOT)/ED2/io
+ED2MPI=$(OLAM_ROOT)/ED2/mpi
+OUTILS=$(OLAM_ROOT)/outils
+RADIATE=$(OLAM_ROOT)/radiate
+HURRICANE=$(OLAM_ROOT)/hurricane
+TEST_CASES=$(OLAM_ROOT)/test_cases
+CHEM=$(OLAM_ROOT)/chem

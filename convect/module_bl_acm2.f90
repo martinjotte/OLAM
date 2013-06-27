@@ -42,6 +42,7 @@ contains
     use tridiag,    only: tridv, acm_matrix
     use var_tables, only: num_scalar, scalar_tab, sxfer_map, num_sxfer, &
                           emis_map, num_emis
+    use emis_defn,  only: emlays
 
     implicit none
 
@@ -214,7 +215,7 @@ contains
     ! Include surface exchange
     
     if (num_sxfer > 0) then
-       kmax = min(kbot + nsfc - 1, ktop)
+       kmax = min(kbot + nsfc - 1, ktop-1)
        do ns = 1, num_sxfer
           n = sxfer_map(ns)
           do k = kbot, kmax
@@ -227,9 +228,10 @@ contains
     ! Include emissions (emis units are concentration / sec )
 
     if (num_emis > 0) then
+       kmax = min(kbot + nsfc + emlays - 2, ktop-1)
        do ns = 1, num_emis
           n = emis_map(ns)
-          do k = kbot, ktop
+          do k = kbot, kmax
              ks = k - kbot + 1
              rhs(ks,n) = rhs(ks,n) + scalar_tab(n)%emis(k,iw) * dtl
           enddo
@@ -323,7 +325,7 @@ contains
     ! Include tendencies due to surface exchange
 
     if (num_sxfer > 0) then
-       kmax = min(kbot + nsfc - 1, ktop)
+       kmax = min(kbot + nsfc - 1, ktop-1)
        do ns = 1, num_sxfer
           n = sxfer_map(ns)
           do k = kbot, kmax
@@ -337,9 +339,10 @@ contains
     ! Include tendencies due to emissions (emis units are concentration / sec )
 
     if (num_emis > 0) then
+       kmax = min(kbot + nsfc + emlays - 2, ktop-1)
        do ns = 1, num_emis
           n = emis_map(ns)
-          do k = kbot, ktop
+          do k = kbot, kmax
              scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
                                        + rho(k,iw) * scalar_tab(n)%emis(k,iw)
           enddo

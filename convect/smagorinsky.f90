@@ -57,6 +57,7 @@ contains
     use mem_tend,    only: vmxet, vmyet, vmzet
     use var_tables,  only: num_scalar, scalar_tab, sxfer_map, num_sxfer, &
                            emis_map, num_emis
+    use emis_defn,   only: emlays
     use tridiag,     only: tridv
 
  !$ use omp_lib
@@ -359,6 +360,8 @@ contains
     ! APPLY SURFACE HEAT AND MOISTURE FLUXES DIRECTLY TO TENDENCY ARRAYS, AND
     ! INCLUDE THE CHANGES IN THE FUTURE FLUXES DUE TO SURFACE TRANSFER
 
+    del_scp(ka+lsw(iw)) = 0.0
+    
     do ns = 1, num_sxfer
        n = sxfer_map(ns)
 
@@ -371,8 +374,6 @@ contains
           del_scp(k) = scalar_tab(n)%sxfer(ks,iw) / (rho(k,iw) * volt(k,iw))
        enddo
 
-       del_scp(ka+lsw(iw)) = 0.0
-    
        do ks = 1, lsw(iw)
           k = ka + ks - 1
           rhs(k,n) = rhs(k,n) + akodz(k) * (del_scp(k) - del_scp(k+1))
@@ -385,19 +386,20 @@ contains
 
     if (num_emis > 0) then
 
+       kmax = min(ka + lsw(iw) + emlays - 2, mza-2)
+       del_scp(kmax+1) = 0.0
+       
        do ns = 1, num_emis
           n = emis_map(ns)
 
-          do k = ka, mza-2
+          do k = ka, kmax
              scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
                                        + rho(k,iw) * scalar_tab(n)%emis(k,iw)
 
              del_scp(k) = scalar_tab(n)%emis(k,iw) * dtl
           enddo
           
-          del_scp(mza-1) = 0.0
-    
-          do k = ka, mza-2
+          do k = ka, kmax
              rhs(k,n) = rhs(k,n) + akodz(k) * (del_scp(k) - del_scp(k+1))
           enddo
        enddo

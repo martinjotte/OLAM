@@ -190,6 +190,7 @@ do iwl = 2,mwl
    land%stom_resist(iwl) = 1.e6
    land%veg_temp   (iwl) = land%can_temp(iwl)
    land%veg_water  (iwl) = 0.
+   land%snowfac    (iwl) = 0.
 
 ! For now, choose heat/vapor capacities for stability based on timestep   
 

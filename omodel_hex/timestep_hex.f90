@@ -34,7 +34,7 @@ subroutine timestep()
 
 use misc_coms,   only: io6, time8, time_istp8, nqparm, initial, ilwrtyp, &
                       iswrtyp, dtsm, nqparm_sh, dtlm, iparallel,         &
-                      s1900_init, s1900_sim
+                      s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag
 use mem_grid,    only: mza, mva, mwa
@@ -231,6 +231,17 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
       if (isfcl == 1) then
          call surface_precip_flux()
+      endif
+   endif
+
+   if (do_chem) then
+      mrl = mrl_endl(istp)
+      if (mrl > 0) then
+!         call check_nans(17)
+!         call rev_cgrid (mrl) ! convert aerosol cgrid species to densities
+         write(io6,*) "Calling chem!"
+         call chem(mrl)
+!         call conv_cgrid(mrl) ! convert aerosol species back to concentrations
       endif
    endif
 

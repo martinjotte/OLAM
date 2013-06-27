@@ -40,7 +40,7 @@ use mem_leaf,  only: jtab_wl_mpi
 use mem_para,  only: nsends_wl, nsends_wlf, nrecvs_wl, nrecvs_wlf,  &
                      send_wl, send_wlf, recv_wl, recv_wlf
 use mem_sflux, only: landflux, jlandflux
-use misc_coms, only: io6
+use misc_coms, only: io6, do_chem
 
 implicit none
 
@@ -100,6 +100,12 @@ enddo
 
 nbytes_per_iwl = 1 * nbytes_int   &
                + 4 * nbytes_real
+
+if (do_chem) then
+   nbytes_per_iwl = nbytes_per_iwl  &
+                  + 1 * nbytes_int  &
+                  + 8 * nbytes_real
+endif
 
 ! Loop over all WL sends
 
@@ -215,9 +221,9 @@ subroutine mpi_send_wl(sendgroup)
   use mpi
 #endif
 
-use misc_coms,  only: io6
+use misc_coms,  only: io6, do_chem
 use mem_leaf,   only: land, itab_wl, jtab_wl_mpi
-
+use leaf_coms,  only: nzg
 use mem_para,   only: nrecvs_wl, nsends_wl, send_wl, recv_wl
 
 implicit none
@@ -273,6 +279,46 @@ do jsend = 1,nsends_wl(1)
 
          call MPI_Pack(land%can_shv(iwl),1,MPI_REAL,  &
             send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+         if (do_chem) then
+
+            call MPI_Pack(land%veg_lai(iwl),1,MPI_REAL,  &
+                 send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+            call MPI_Pack(land%veg_fracarea(iwl),1,MPI_REAL,  &
+                 send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+            call MPI_Pack(land%veg_water(iwl),1,MPI_REAL,  &
+                 send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+            call MPI_Pack(land%veg_height(iwl),1,MPI_REAL,  &
+                 send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+            call MPI_Pack(land%stom_resist(iwl),1,MPI_REAL,  &
+                 send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+            call MPI_Pack(land%nlev_sfcwater(iwl),1,MPI_INTEGER,  &
+                 send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+            call MPI_Pack(land%snowfac(iwl),1,MPI_REAL,  &
+                 send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+            if (land%nlev_sfcwater(iwl) > 0) then
+
+               call MPI_Pack(land%sfcwater_energy(land%nlev_sfcwater(iwl),iwl),1,MPI_REAL,  &
+                    send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+            else
+
+               call MPI_Pack(land%soil_energy(nzg,iwl),1,MPI_REAL,  &
+                    send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+               call MPI_Pack(land%soil_water(nzg,iwl),1,MPI_REAL,  &
+                    send_wl(jsend)%buff,send_wl(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+            endif
+
+         endif
 
       elseif (sendgroup == 'R') then
 
@@ -446,8 +492,9 @@ subroutine mpi_recv_wl(recvgroup)
   use mpi
 #endif
 
-use misc_coms, only: io6
+use misc_coms, only: io6, do_chem
 use mem_leaf,  only: land, itabg_wl
+use leaf_coms,  only: nzg
 use mem_para,  only: nsends_wl, nrecvs_wl, send_wl, recv_wl
 
 implicit none
@@ -497,6 +544,46 @@ do jtmp = 1,nrecvs_wl(1)
 
          call MPI_Unpack(recv_wl(jrecv)%buff,recv_wl(jrecv)%nbytes,ipos,  &
             land%can_shv(iwl),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+         if (do_chem) then
+
+            call MPI_Unpack(recv_wl(jrecv)%buff,recv_wl(jrecv)%nbytes,ipos,  &
+                 land%veg_lai(iwl),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+            call MPI_Unpack(recv_wl(jrecv)%buff,recv_wl(jrecv)%nbytes,ipos,  &
+                 land%veg_fracarea(iwl),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+            
+            call MPI_Unpack(recv_wl(jrecv)%buff,recv_wl(jrecv)%nbytes,ipos,  &
+                 land%veg_water(iwl),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+            
+            call MPI_Unpack(recv_wl(jrecv)%buff,recv_wl(jrecv)%nbytes,ipos,  &
+                 land%veg_height(iwl),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+            
+            call MPI_Unpack(recv_wl(jrecv)%buff,recv_wl(jrecv)%nbytes,ipos,  &
+                 land%stom_resist(iwl),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+            call MPI_Unpack(recv_wl(jrecv)%buff,recv_wl(jrecv)%nbytes,ipos,  &
+                 land%nlev_sfcwater(iwl),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+
+            call MPI_Unpack(recv_wl(jrecv)%buff,recv_wl(jrecv)%nbytes,ipos,  &
+                 land%snowfac(iwl),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+            if (land%nlev_sfcwater(iwl) > 0) then
+
+               call MPI_Unpack(recv_wl(jrecv)%buff,recv_wl(jrecv)%nbytes,ipos,  &
+                    land%sfcwater_energy(land%nlev_sfcwater(iwl),iwl),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+               
+            else
+
+               call MPI_Unpack(recv_wl(jrecv)%buff,recv_wl(jrecv)%nbytes,ipos,  &
+                    land%soil_energy(nzg,iwl),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+               call MPI_Unpack(recv_wl(jrecv)%buff,recv_wl(jrecv)%nbytes,ipos,  &
+                    land%soil_water(nzg,iwl),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+            endif
+
+         endif
 
       elseif (recvgroup == 'R') then
 
