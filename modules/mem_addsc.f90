@@ -62,7 +62,7 @@ Contains
    
         write(io6,*) 'alloc_addsc ', iaddsc, mza, mwa, naddsc
    
-        allocate (addsc(iaddsc)%sclp(mza,mwa)) ; addsc(iaddsc)%sclp   = rinit
+        allocate (addsc(iaddsc)%sclp(mza,mwa)) ; addsc(iaddsc)%sclp   = 0.0
         allocate (addsc(iaddsc)%drydep  (mwa)) ; addsc(iaddsc)%drydep = rinit
 
      enddo
