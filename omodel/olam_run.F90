@@ -607,6 +607,7 @@ do while (time8p < timmax8)
    mstp = mstp + 1
    time8 = time8 + dtlm(1)
    time_istp8 = time8
+   time8p = time8 + bias  ! Slightly forward biased time
    s1900_sim = s1900_init + time8
 
    call update_model_time(current_time, dtlm(1))
