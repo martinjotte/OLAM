@@ -114,7 +114,9 @@ Module oname_coms
 
 !!    GRID, HISTORY FILES
 
-      integer :: ioutput   = 1
+      integer :: ioutput      = 1
+      integer :: ioutput_mavg = 1
+      integer :: ioutput_davg = 1
       integer :: iclobber  = 0
       integer :: icompress = 0
       integer :: ipar_out  = 0
@@ -267,8 +269,10 @@ Module oname_coms
 
 !!    MODEL_PLOT VARIABLES
 
-      integer :: nplt       = 0
-      integer :: nplt_files = 0
+      integer :: nplt        = 0
+      integer :: nplt_files  = 0
+      integer :: nmavg_files = 0
+      integer :: ndavg_files = 0
       real(r8):: frqplt     = 3600.0_r8
       real    :: dtvec      = 1200.0
       real    :: headspeed  = 3.0
@@ -284,7 +288,9 @@ Module oname_coms
 
 !!    THE LIST OF FILES TO PLOT FROM
 
-      character(pathlen) :: plt_files(maxpltfiles) = ''
+      character(pathlen) ::  plt_files(maxpltfiles) = ''
+      character(pathlen) :: mavg_files(maxpltfiles) = ''
+      character(pathlen) :: davg_files(maxpltfiles) = ''
 
 !!    THE ARRAYS OF FIELDS TO PLOT
 

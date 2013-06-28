@@ -57,19 +57,47 @@ subroutine plot_fields(id)
 
 use misc_coms,  only: io6, iyear1, imonth1, idate1, itime1, time_istp8
 use oplot_coms, only: op
-use mem_grid,   only: mza, mwa, lpw
+use mem_grid,   only: mza, mwa
 use misc_coms,  only: runtype
-use mem_ijtabs, only: jtab_w, jtw_prog
+
+use mem_plot,   only: alloc_plot, copy_plot
+
+use mem_micro,  only: pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
+                      accpd, accpr, accpp, accps, accpa, accpg, accph
+
+use mem_cuparm, only: conprr, aconpr
+
+use obnd,       only: lbcopy_w1d
 
 implicit none
 
+integer, save :: ncall = 0
 integer, intent(in) :: id
 
-integer :: iplt,labincx,labincy,notavail,k,iw
+integer :: iplt,labincx,labincy,notavail
 real :: fldval,bsize
 integer :: outyear,outmonth,outdate,outhour
 real, save :: dummy(1)=0.,xinc,yinc
 character(len=30) :: ylabel,title
+
+if (ncall /= 10) then
+   ncall = 10
+
+   call alloc_plot()
+endif
+
+! Lateral boundary copy of surface precipitation quantities (only needed for 
+! plotting, and not functional for mpi-parallel plot run)
+
+if (allocated(pcprd)) call lbcopy_w1d(1,a1=pcprd,a2=accpd)
+if (allocated(pcprr)) call lbcopy_w1d(1,a1=pcprr,a2=accpr)
+if (allocated(pcprp)) call lbcopy_w1d(1,a1=pcprp,a2=accpp)
+if (allocated(pcprs)) call lbcopy_w1d(1,a1=pcprs,a2=accps)
+if (allocated(pcpra)) call lbcopy_w1d(1,a1=pcpra,a2=accpa)
+if (allocated(pcprg)) call lbcopy_w1d(1,a1=pcprg,a2=accpg)
+if (allocated(pcprh)) call lbcopy_w1d(1,a1=pcprh,a2=accph)
+
+if (allocated(conprr)) call lbcopy_w1d(1,a1=conprr,a2=aconpr)
 
 ! Reopen the current graphics output workstation if it is closed
 
@@ -275,6 +303,8 @@ do iplt = 1,op%nplt
    endif
 
 enddo
+
+call copy_plot()
 
 ! Close the current workstation if not a plotonly run and if output
 ! is to a NCAR graphics meta file. This allows viewing the complete
@@ -1904,8 +1934,8 @@ elseif (op%projectn(iplt) == 'P') then
 elseif (op%projectn(iplt) == 'O') then
    call e_or(xeq,yeq,zeq,op%plat3,op%plon3,xout,yout)
 else  ! Cartesian domain
-   xout = xeq
-   yout = yeq
+   xout = xeq - op%plon3
+   yout = yeq - op%plat3
 endif
 
 return

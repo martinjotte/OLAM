@@ -65,14 +65,17 @@ use obnd,        only: trsets, lbcopy_w
 use var_tables,  only: nvar_par, vtab_r, nptonv
 use mem_swtc5_refsoln_cubic
 
+use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
+
 implicit none
 
 character(len=*), intent(in) :: name_name
 
-integer :: i,ifm,nndtflg,ifileok,ierr,iplt_file,mrl
+integer :: i,ifm,nndtflg,ifileok,ierr,iplt_file,mrl, imavg_file, idavg_file
 integer :: mwa_prog, mua_prog, mva_prog
 real :: w1,w2,t1,t2,wtime_start
 real, external :: walltime
+character(len=128) :: mavgfile, davgfile
 
 wtime_start = walltime(0.)
 w1 = walltime(wtime_start)
@@ -325,6 +328,7 @@ elseif (initial == 2) then
 ! (If in future, initialization is not automatically done for history restart,
 !  isan_driver(0) will still need to be called when nudging is to be done in 
 !  order to set current value of IFGFILE.)
+
 elseif (initial == 3) then
    write(io6,'(/,a)') 'olam_run calling fldslhi'
    call fldslhi()           ! Longitudinally-homogeneous initialization
@@ -476,6 +480,32 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
       call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
       if (runtype == 'PLOTONLY') then
+
+! If month-average or day-average plots are specified, do them when
+! iplt_file = 1 and then exit iplt_file do loop.  IT IS ASSUMED THAT 
+! MONTH-AVERAGE AND DAY-AVERAGE FILES ARE SINGLE NON-PARALLEL FILES.
+
+         if (nl%ioutput_mavg == 1 .and. nl%nmavg_files > 0) then
+            do imavg_file = 1,nl%nmavg_files
+               mavgfile = nl%mavg_files(imavg_file)
+               call read_mavg_vars(mavgfile)
+               call plot_fields(0)
+            enddo
+            exit
+         endif
+
+         if (nl%ioutput_davg == 1 .and. nl%ndavg_files > 0) then
+            do idavg_file = 1,nl%ndavg_files
+               davgfile = nl%davg_files(idavg_file)
+               call read_davg_vars(davgfile)
+               call plot_fields(0)
+            enddo
+            exit
+         endif
+
+! If month-average and day-average plots are NOT specified, do regular plots
+! from history files
+
          call plot_fields(0)
 
 ! For shallow water test cases, compute error norms
@@ -538,6 +568,11 @@ write(io6,'(/,a)') 'olam_run completed initialization'
 ! Exit if doing a zero time run
 if (time8 >= timmax8) go to 1000
 
+! Initialize field average arrays
+
+if (nl%ioutput_mavg == 1) call reset_mavg_vars()
+if (nl%ioutput_davg == 1) call reset_davg_vars()
+
 ! Call the model time integration driver
 
 write(io6,'(/,a)') 'olam_run calling model'
@@ -564,6 +599,7 @@ subroutine model()
 use misc_coms, only: io6, time8, timmax8, dtlm, time_istp8, simtime,  &
                      current_time, s1900_init, s1900_sim
 use consts_coms, only: r8
+use oname_coms,  only: nl
 
 implicit none
 
@@ -630,6 +666,13 @@ do while (time8p < timmax8)
    write(io6,'(a)')  &
       trim(stepc1)//trim(stepc2)//trim(stepc3)//trim(stepc4)//trim(stepc5)
 
+! Add current contribution to time-averaged variables
+
+   if (nl%ioutput_mavg == 1) call inc_mavg_vars()
+   if (nl%ioutput_davg == 1) call inc_davg_vars()
+
+! Check schedule for I/O operations and perform those that are due 
+
    call olam_output()
    
 enddo
@@ -645,7 +688,8 @@ end subroutine model
 subroutine olam_output()
 
 use misc_coms,   only: io6, time8, dtlm, iflag, frqstate, timmax8, initial, &
-                       s1900_sim, time_prevhist
+                       s1900_sim, time_prevhist, iyear1, imonth1, idate1,   &
+                       itime1
 use leaf_coms,   only: isfcl, iupdndvi, indvifile, s1900_ndvi
 use sea_coms,    only: iupdsst, iupdseaice, isstfile, iseaicefile,  &
                        s1900_sst, s1900_seaice
@@ -655,6 +699,8 @@ use isan_coms,   only: ifgfile, s1900_fg
 use consts_coms, only: r8
 use oname_coms,  only: nl
 use hcane_rz,    only: init_hurr_step, hurricane_track
+
+use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
 
 implicit none
 
@@ -684,6 +730,26 @@ if (mod(time8p,frqstate) < dtlm(1)  .or.  &
    time8 >= timmax8 - bias .or. iflag == 1) then
    call history_write('INST')
    time_prevhist = time8
+endif
+
+! Output of time-averaged quantities
+
+if (mod(time8p,86400.0_r8) < dtlm(1)) then
+   call date_add_to8(iyear1,imonth1,idate1,itime1,time8,'s',outyear,  &
+        outmonth,outdate,outhour)
+
+   if (nl%ioutput_davg == 1) then
+      call norm_davg_vars()
+      call write_davg_vars(outyear,outmonth,outdate)
+      call reset_davg_vars()
+   endif
+
+   if (nl%ioutput_mavg == 1 .and. outdate == 1) then
+      call norm_mavg_vars()
+      call write_mavg_vars(outyear,outmonth)
+      call reset_mavg_vars()
+   endif
+
 endif
 
 ! For idealized test cases, compute error norms

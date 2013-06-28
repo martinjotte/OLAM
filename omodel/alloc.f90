@@ -32,91 +32,101 @@
 !===============================================================================
 subroutine olam_mem_alloc()
 
-use mem_basic,   only: alloc_basic, filltab_basic
-use mem_cuparm,  only: alloc_cuparm, filltab_cuparm
-use mem_micro,   only: alloc_micro, filltab_micro
-use mem_radiate, only: alloc_radiate, filltab_radiate
-use mem_addsc,   only: alloc_addsc, filltab_addsc
-use mem_tend,    only: alloc_tend, filltab_tend
-use mem_turb,    only: alloc_turb, filltab_turb
-use mem_sflux,   only: mseaflux, mlandflux, filltab_sflux
-use mem_grid,    only: mza, nsw_max, mma, mua, mva, mwa
-use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge
-use mem_ijtabs,  only: mrls, filltab_itabs
-use oname_coms,  only: nl
-use mem_thuburn, only: alloc_thuburn
+  use mem_basic,   only: alloc_basic, filltab_basic
+  use mem_cuparm,  only: alloc_cuparm, filltab_cuparm
+  use mem_micro,   only: alloc_micro, filltab_micro
+  use mem_radiate, only: alloc_radiate, filltab_radiate
+  use mem_addsc,   only: alloc_addsc, filltab_addsc
+  use mem_tend,    only: alloc_tend, filltab_tend
+  use mem_turb,    only: alloc_turb, filltab_turb
+  use mem_sflux,   only: mseaflux, mlandflux, filltab_sflux
+  use mem_grid,    only: mza, nsw_max, mma, mua, mva, mwa
+  use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge
+  use mem_ijtabs,  only: mrls, filltab_itabs
+  use oname_coms,  only: nl
+  use mem_thuburn, only: alloc_thuburn
 
-use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
-                       nqparm, nqparm_sh, dtsm, meshtype
+  use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
+                         nqparm, nqparm_sh, dtsm, meshtype
 
-use micro_coms,  only: level, ncat, jnmb, &
-                       icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail
+  use micro_coms,  only: level, ncat, jnmb, &
+                         icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail
                        
-use mem_timeavg, only: alloc_timeavg, filltab_timeavg
+  use leaf_coms,   only: mwl
+  use sea_coms,    only: mws
+  use mem_sflux,   only: mseaflux, mlandflux
 
-implicit none 
+  use mem_timeavg, only: alloc_timeavg, filltab_timeavg
 
-integer :: ng,nv,ntpts
+  use mem_average_vars, only: alloc_average_vars
+
+  implicit none 
+
+  integer :: ng,nv,ntpts
 
 ! Allocate basic memory and fill variable tables
 
-call filltab_itabs()  ! Already allocated
+  call filltab_itabs()  ! Already allocated
 
-call alloc_basic(meshtype,mza,mua,mva,mwa)
-call filltab_basic()
+  call alloc_basic(meshtype,mza,mua,mva,mwa)
+  call filltab_basic()
 
-call alloc_cuparm(mza, mwa, mrls, nqparm, nqparm_sh)
-call filltab_cuparm() 
+  call alloc_cuparm(mza, mwa, mrls, nqparm, nqparm_sh)
+  call filltab_cuparm() 
 
-call alloc_micro(mza,mwa,level,ncat, &
-   icloud,idriz,irain,ipris,isnow,iaggr,igraup,ihail) 
-call filltab_micro()
+  call alloc_micro(mza,mwa,level,ncat, &
+     icloud,idriz,irain,ipris,isnow,iaggr,igraup,ihail)
+  call filltab_micro()
 
-call alloc_radiate(mza,mwa,ilwrtyp,iswrtyp)
-call filltab_radiate()
+  call alloc_radiate(mza,mwa,ilwrtyp,iswrtyp)
+  call filltab_radiate()
 
-call alloc_turb(mza,mwa,nsw_max,idiffk(1),mrls)
-call filltab_turb()
+  call alloc_turb(mza,mwa,nsw_max,idiffk(1),mrls)
+  call filltab_turb()
 
-call alloc_timeavg(mza,mwa)
-call filltab_timeavg()
+  call alloc_timeavg(mza,mwa)
+  call filltab_timeavg()
 
-call filltab_sflux()  ! Already allocated
+! Allocate field average arrays
 
-if (initial == 2 .and. nudflag > 0) then
+  call alloc_average_vars(mwa,mwl,mws,mlandflux,mseaflux)
+
+  call filltab_sflux()  ! Already allocated
+
+  if (initial == 2 .and. nudflag > 0) then
 
 ! If doing point-by-point (non-spectral) nudging, define mwnud here
 
-  if (nudnxp == 0) mwnud = mwa
+      if (nudnxp == 0) mwnud = mwa
 
-  call alloc_nudge2(mza)
-  call filltab_nudge()
-endif
+      call alloc_nudge2(mza)
+      call filltab_nudge()
+  endif
 
 ! Allocate any added Scalar types 
 
-write(io6,*) 'start addsc alloc'
+  write(io6,*) 'start addsc alloc'
 
-if (naddsc > 0) then
-   call alloc_addsc(mza,mwa,naddsc)
-   call filltab_addsc(naddsc)
-endif
+  if (naddsc > 0) then
+     call alloc_addsc(mza,mwa,naddsc)
+     call filltab_addsc(naddsc)
+  endif
 
 ! Allocate tendency data type and fill scalar table.  These subroutine
 ! calls must occur after allocating all prognostic variables.
 
-write(io6,*) 'start tendency alloc'
+  write(io6,*) 'start tendency alloc'
 
-call alloc_tend(mza,mua,mva,mwa,naddsc)
-call filltab_tend(naddsc) 
+  call alloc_tend(mza,mua,mva,mwa,naddsc)
+  call filltab_tend(naddsc) 
 
 ! Extra memory for Thuburn's monotonic advection
 
-call alloc_thuburn(meshtype, nl%iscal_monot, mza, mva, mwa)
+  call alloc_thuburn(meshtype, nl%iscal_monot, mza, mva, mwa)
 
-write(io6,*) 'end alloc'
+  write(io6,*) 'end alloc'
 
-return
+  return
 end subroutine olam_mem_alloc
 
 !===============================================================================

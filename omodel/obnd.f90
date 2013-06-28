@@ -304,5 +304,59 @@ endif
 return
 end subroutine lbcopy_w
 
+!===============================================================================
+
+subroutine lbcopy_w1d(mrl, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12)
+
+use mem_ijtabs, only: jtab_w, itab_w, jtw_lbcp
+use mem_grid,   only: mwa
+use misc_coms,  only: io6
+
+implicit none
+
+integer, intent(in) :: mrl
+
+real, optional, intent(inout) :: a1 (mwa)
+real, optional, intent(inout) :: a2 (mwa)
+real, optional, intent(inout) :: a3 (mwa)
+real, optional, intent(inout) :: a4 (mwa)
+real, optional, intent(inout) :: a5 (mwa)
+real, optional, intent(inout) :: a6 (mwa)
+real, optional, intent(inout) :: a7 (mwa)
+real, optional, intent(inout) :: a8 (mwa)
+real, optional, intent(inout) :: a9 (mwa)
+real, optional, intent(inout) :: a10(mwa)
+real, optional, intent(inout) :: a11(mwa)
+real, optional, intent(inout) :: a12(mwa)
+
+integer :: j,iw,iwp
+
+! Lateral boundary copy (usually cyclic)
+
+!----------------------------------------------------------------------
+if (mrl > 0) then
+do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
+   iwp = itab_w(iw)%iwp
+!----------------------------------------------------------------------
+
+   if (present(a1 )) a1 (iw) = a1 (iwp) 
+   if (present(a2 )) a2 (iw) = a2 (iwp) 
+   if (present(a3 )) a3 (iw) = a3 (iwp) 
+   if (present(a4 )) a4 (iw) = a4 (iwp) 
+   if (present(a5 )) a5 (iw) = a5 (iwp) 
+   if (present(a6 )) a6 (iw) = a6 (iwp) 
+   if (present(a7 )) a7 (iw) = a7 (iwp) 
+   if (present(a8 )) a8 (iw) = a8 (iwp) 
+   if (present(a9 )) a9 (iw) = a9 (iwp) 
+   if (present(a10)) a10(iw) = a10(iwp) 
+   if (present(a11)) a11(iw) = a11(iwp) 
+   if (present(a12)) a12(iw) = a12(iwp) 
+
+enddo
+endif
+
+return
+end subroutine lbcopy_w1d
+
 End Module obnd
 

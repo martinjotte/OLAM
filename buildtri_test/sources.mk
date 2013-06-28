@@ -41,6 +41,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/massflux.f90 \
              $(MODEL_MODS)/max_dims.f90 \
              $(MODEL_MODS)/mem_addsc.f90 \
+             $(MODEL_MODS)/mem_average_vars.f90 \
              $(MODEL_MODS)/mem_basic.f90 \
              $(MODEL_MODS)/mem_grid.f90 \
              $(MODEL_MODS)/mem_ijtabs.f90 \
@@ -49,6 +50,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_mksfc.f90 \
              $(MODEL_MODS)/mem_nudge.f90 \
              $(MODEL_MODS)/mem_para.f90 \
+             $(MODEL_MODS)/mem_plot.f90 \
              $(MODEL_MODS)/mem_rayf.f90 \
              $(MODEL_MODS)/mem_sflux.f90 \
              $(MODEL_MODS)/mem_tend.f90 \
@@ -71,6 +73,7 @@ SOURCE_FILES= \
              $(OISAN)/isan_driver.f90 \
              $(OISAN)/nudge.f90 \
              $(OMODEL)/alloc.f90 \
+             $(OMODEL)/average_vars.f90 \
              $(OMODEL)/cartesian.f90 \
              $(OMODEL)/cart_hex.f90 \
              $(OMODEL)/coneplot.f90 \
