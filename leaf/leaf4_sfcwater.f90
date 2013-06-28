@@ -105,6 +105,7 @@ real :: tempk     ! Kelvin temperature of snowcover, limited to max of 273.15 [K
 real :: flmin     ! lower bound on sfcwater_fracliq(1) in balance with soil
 real :: flmax     ! upper bound on sfcwater_fracliq(1) in balance with soil
 real :: specvol   ! specific volume of sfcwater involved in vapor xfer [m^3/kg]
+real :: wcap_min  ! minimum surface water water [kg/m^2]
 
 ! Local parameters
 
@@ -198,7 +199,9 @@ endif
 ! at this point.  If sfcwater_mass(1) is below threshold, transfer sfcwater
 ! mass and energy to soil, set sfcwater quantities to zero and return.
 
-if (sfcwater_mass(1) < 1.e-6) then
+wcap_min = dt_leaf * 1.e-6 ! 1.e-6 is 1 mm pcp/dew in 11 days    [kg/m^2]
+
+if (sfcwater_mass(1) < wcap_min) then
 
    soil_water (nzg) = soil_water (nzg) + dslzi(nzg) * sfcwater_mass(1) * .001
    soil_energy(nzg) = soil_energy(nzg) + dslzi(nzg) * energy_per_m2(1)

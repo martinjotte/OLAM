@@ -50,8 +50,7 @@ subroutine landcell(iwl, nlev_sfcwater, leaf_class, ntext_soil,             &
 use leaf_coms,         only: nzg, nzs, soil_rough, snow_rough, slcpd, dt_leaf, slmsts
 use misc_coms,         only: io6
 use leaf4_canopy,      only: canopy, vegndvi
-use leaf4_sfcwater,    only: sfcwater, sfcwater_soil_comb, sfcwater_adjust, &
-                             remove_runoff
+use leaf4_sfcwater,    only: sfcwater, sfcwater_adjust, remove_runoff
 use leaf4_soil,        only: soil
 use leaf4_plot,        only: leaf_plot
 
