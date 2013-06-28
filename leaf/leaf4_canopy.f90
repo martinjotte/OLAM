@@ -450,37 +450,20 @@ Contains
  sfcwater_depth = sfcwater_depth + dpcpg * (1. - vf) + wshed * .001
  energy_per_m2  = energy_per_m2  + qpcpg * (1. - vf) + qwshed
 
-! Diagnose sfcwater temperature and liquid fraction.  Use qwtk instead
-! of qtk because energy_per_m2 is used instead of sfcwater_energy.
-! ("dryhcap" = 100 is very small value)
-
- call qwtk(energy_per_m2,sfcwater_mass,100.,sfcwater_tempk,sfcwater_fracliq)
-
-! If nlsw1 = 1 (lowest sfcwater layer), and sfcwater mass is below limiting
-! value or sfcwater is mostly liquid, perform implicit thermal balance between
-! sfcwater and the top soil layer.  First, set implicit energy exchange flag
-! (icomb) to default of 0 and surface wetness flag (iwetsfc) to default of 1.
+! Check whether nlsw1 = 1 (lowest sfcwater layer), in which case sfcwater
+! content may be very small which requires adjustments to be made.
+! First, set implicit energy exchange flag (icomb) to default of 0
+! and surface wetness flag (iwetsfc) to default of 1.
 
  icomb = 0
- iwetsfc = 1   ! Any surface evaporation will be from sfcwater
-
+ iwetsfc = 1  ! Any surface evaporation will be from sfcwater
  nts = ntext_soil(nzg)
 
- if (nlsw1 == 1 .and. &
-    (sfcwater_mass < snowmin_expl .or. sfcwater_fracliq > .5)) then
+ if (nlsw1 == 1) then
 
-! Peform implicit balance and set icomb = 1.
-
-    call sfcwater_soil_comb(iwl,ntext_soil(nzg), &
-                            soil_water(nzg),soil_energy(nzg), &
-                            sfcwater_mass,energy_per_m2, &
-                            sfcwater_tempk,sfcwater_fracliq)
-
-    icomb = 1
-
-! If sfcwater mass (of layer 1) is very small, or if it is mostly liquid and
-! and scarce enough to infiltrate this timestep, transfer its mass and energy
-! to top soil layer.  First compute water capacity available in soil for new
+! If sfcwater mass is very small or zero, or if it is mostly liquid and and
+! scarce enough to infiltrate this timestep, transfer its mass and energy to
+! top soil layer.  First compute water capacity available in soil for new
 ! infiltration, water capacity that could infiltrate based on saturated
 ! hydraulic conductivity, and minimum water capacity below which infiltration
 ! is forced even if sfcwater is frozen.  This helps to avoid situations of
@@ -509,17 +492,35 @@ Contains
        sfcwater_tempk   = soil_tempk(nzg)
        sfcwater_fracliq = 0.
 
+       icomb = 1
        iwetsfc = 0   ! Any surface evaporation will be from soil
+
+    elseif (sfcwater_mass < snowmin_expl .or. sfcwater_fracliq > .5) then
+
+! If nlsw1 = 1 (lowest sfcwater layer), and sfcwater mass is present but
+! below limiting stability value for explicit heat transfer, or if sfcwater
+! is mostly liquid, perform implicit thermal balance between sfcwater and
+! the top soil layer.  
+
+       call sfcwater_soil_comb(iwl,ntext_soil(nzg), &
+                            soil_water(nzg),soil_energy(nzg), &
+                            sfcwater_mass,energy_per_m2, &
+                            sfcwater_tempk,sfcwater_fracliq)
+
+       icomb = 1
 
     endif
 
- endif  ! (nlsw1 == 1.and. sfcwater_mass < snowmin_expl)
-
-! If explicit heat transfer between sfcwater and soil(nzg) was done, diagnose
-! diagnose sfc heat capacity for that layer alone.  Otherwise, use combined
-! sfcwater and soil(nzg) components.
+ endif ! (nlsw1 == 1)
 
  if (icomb == 0) then
+
+! If sfcwater and soil(nzg) temperatures are NOT implicitly coupled, diagnose
+! sfc heat capacity for sfcwater alone.  First, diagnose sfcwater temperature
+! and liquid fraction.  Use qwtk instead of qtk because energy_per_m2 is used
+! instead of sfcwater_energy. ("dryhcap" = 100 is very small value)
+
+    call qwtk(energy_per_m2,sfcwater_mass,100.,sfcwater_tempk,sfcwater_fracliq)
 
     if     (energy_per_m2 < 0.) then
        hcapsfc = sfcwater_mass * cice
@@ -531,6 +532,9 @@ Contains
 
  else
 
+! If sfcwater and soil(nzg) temperatures ARE implicitly coupled, diagnose
+! sfc heat capacity for both together.
+
     sfc_energy = energy_per_m2 + soil_energy(nzg) * dslz(nzg)
     sfc_wmass  = sfcwater_mass + soil_water(nzg)  * dslz(nzg) * 1.e3
     sfc_soilhc = slcpd(nts) * dslz(nzg)
@@ -540,7 +544,7 @@ Contains
     elseif (sfc_energy > sfc_wmass * alli) then
        hcapsfc = sfc_wmass * cliq + sfc_soilhc
     else
-       hcapsfc = sfc_wmass * (alli / 1.) + sfc_soilhc  ! Assume small but nonzero dT/dE
+       hcapsfc = sfc_wmass * (alli / 1.) + sfc_soilhc ! Assume small positive dT/dE
     endif
 
  endif

@@ -545,47 +545,29 @@ do iws = 2,mws
 
    nspoly = itab_ws(iws)%npoly
 
-! Initialize hpt and vpt to zero
-
-   hpt = 0.
-   vpt = 0.
-
 ! Get tile plot coordinates.  
 
-   do jms = 1,nspoly
+   call oplot_transform(iplt,sea%xew(iws),sea%yew(iws),sea%zew(iws),hpt,vpt)
 
+   do jms = 1,nspoly
       ims = itab_ws(iws)%im(jms)
       
-      call oplot_transform(iplt          &
-                          ,sea%xem(ims)  &
-                          ,sea%yem(ims)  &
-                          ,sea%zem(ims)  &
-                          ,htpn(jms)     &
-                          ,vtpn(jms)     )
-
-      hpt = hpt + htpn(jms)
-      vpt = vpt + vtpn(jms)
-   enddo
-
-   hpt = hpt / real(nspoly)
-   vpt = vpt / real(nspoly)
+      call oplot_transform(iplt,sea%xem(ims),sea%yem(ims),sea%zem(ims), &
+                           htpn(jms),vtpn(jms))
 
 ! Avoid wrap-around for lat-lon plot
 
-   if (op%projectn(iplt) == 'L') then
-      do jms = 1,nspoly
-         call ll_unwrap(hpt,htpn(jms))
-      enddo
-   endif
-   
+      if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(jms))
+   enddo
+
 ! Jump out of loop if any cell corner is on other side of earth
 
    if (any(htpn(1:nspoly) > 1.e11)) cycle
 
-! Jump out of loop if any is cell corner is outside plot window. 
+! Jump out of loop if entire cell is outside plot window. 
 
-   if ( all(htpn(1:nspoly) < op%xmin) .or. all(htpn(1:nspoly) > op%xmax) .or. &
-        all(vtpn(1:nspoly) < op%ymin) .or. all(vtpn(1:nspoly) > op%ymax) ) cycle
+   if (all(htpn(1:nspoly) < op%xmin) .or. all(htpn(1:nspoly) > op%xmax) .or. &
+       all(vtpn(1:nspoly) < op%ymin) .or. all(vtpn(1:nspoly) > op%ymax)) cycle
 
 ! Plot cell
 
@@ -647,48 +629,29 @@ do iwl = 2,mwl
 
    nlpoly = itab_wl(iwl)%npoly
 
-! Initialize hpt and vpt to zero
-
-   hpt = 0.
-   vpt = 0.
-
 ! Get tile plot coordinates.  
 
-   do jml = 1,nlpoly
+   call oplot_transform(iplt,land%xew(iwl),land%yew(iwl),land%zew(iwl),hpt,vpt)
 
+   do jml = 1,nlpoly
       iml = itab_wl(iwl)%im(jml)
 
-      call oplot_transform(iplt           &
-                          ,land%xem(iml)  &
-                          ,land%yem(iml)  &
-                          ,land%zem(iml)  &
-                          ,htpn(jml)      &
-                          ,vtpn(jml)      )
+      call oplot_transform(iplt,land%xem(iml),land%yem(iml),land%zem(iml), &
+                           htpn(jml),vtpn(jml))
 
-      hpt = hpt + htpn(jml)
-      vpt = vpt + vtpn(jml)
-
-   enddo
-
-   hpt = hpt / real(nlpoly)
-   vpt = vpt / real(nlpoly)
-   
 ! Avoid wrap-around for lat-lon plots
 
-   if (op%projectn(iplt) == 'L') then
-      do jml = 1,nlpoly
-         call ll_unwrap(hpt,htpn(jml))
-      enddo
-   endif
-   
+      if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(jml))
+   enddo
+
 ! Jump out of loop if any cell corner is on other side of earth
 
    if (any(htpn(1:nlpoly) > 1.e11)) cycle
 
 ! Jump out of loop if entire cell is outside plot window. 
 
-   if ( all(htpn(1:nlpoly) < op%xmin) .or. all(htpn(1:nlpoly) > op%xmax) .or.  &
-        all(vtpn(1:nlpoly) < op%ymin) .or. all(vtpn(1:nlpoly) > op%ymax) ) cycle
+   if (all(htpn(1:nlpoly) < op%xmin) .or. all(htpn(1:nlpoly) > op%xmax) .or. &
+       all(vtpn(1:nlpoly) < op%ymin) .or. all(vtpn(1:nlpoly) > op%ymax)) cycle
 
 ! Plot cell
 
@@ -1771,5 +1734,3 @@ htpn(4) = htpn(1)
 
 return
 end subroutine xyplot_w
-
-

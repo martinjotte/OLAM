@@ -7,7 +7,7 @@
    NL%EXPNME = 'OLAM test simulation'   
 
  !--------------------------------------------------------------------------
- ! NCAR DCMIP 2012 TEST CASES
+ ! FLAG FOR STANDARD TEST CASE SIMULATIONS (SHALLOW WATER & NCAR DCMIP 2012)
  !--------------------------------------------------------------------------
 
    NL%TEST_CASE = 5
@@ -198,7 +198,9 @@
  ! History file I/O
  !--------------------------------------------------------------------------
 
-   NL%IOUTPUT   = 1             ! 0-no files, 1-write files
+   NL%IOUTPUT      = 1         ! 0-no files, 1-write files
+   NL%IOUTPUT_MAVG = 0         ! Month-avg:  0-no files, 1-write or read files
+   NL%IOUTPUT_DAVG = 0         ! Day-avg:    0-no files, 1-write or read files
 
    NL%HFILEPREF = 'hist/b'      ! History file output path/prefix
    NL%ICLOBBER  = 1             ! 0 = stop if files exist, 1 = overwite files
@@ -509,16 +511,50 @@
 
   NL%IAPR    = 'dp-p.txt',
 
+ !------------------------------------------------------------------------
+ ! History files to plot from for RUNTYPE = 'PLOTONLY'
+ !------------------------------------------------------------------------
+
+  NL%NPLT_FILES = 7   ! Number of history files to plot from for
+                      ! RUNTYPE = 'PLOTONLY' (limit of maxpltfiles)
+
+  NL%PLT_FILES =
+    './hist/f-H-2004-09-01-000000.h5',
+    './hist/f-H-2004-09-01-010000.h5',
+    './hist/f-H-2004-09-01-020000.h5',
+    './hist/f-H-2004-09-01-030000.h5',
+    './hist/f-H-2004-09-01-040000.h5',
+    './hist/f-H-2004-09-01-050000.h5',
+    './hist/f-H-2004-09-01-060000.h5',
+
+ !------------------------------------------------------------------------
+ ! Month-average files to plot from for RUNTYPE = 'PLOTONLY'
+ !------------------------------------------------------------------------
+
+  NL%NMAVG_FILES = 0  ! Number of month-average files to plot from for
+                      ! RUNTYPE = 'PLOTONLY' (limit of maxpltfiles)
+
+  NL%MAVG_FILES =
+    './hist/a-M-2006-02-01-000000.h5',
+    './hist/a-M-2006-03-01-000000.h5',
+
+ !------------------------------------------------------------------------
+ ! Day-average files to plot from for RUNTYPE = 'PLOTONLY'
+ !------------------------------------------------------------------------
+
+  NL%NDAVG_FILES = 0  ! Number of day-average files to plot from for
+                      ! RUNTYPE = 'PLOTONLY' (limit of maxpltfiles)
+
+  NL%DAVG_FILES =
+    './hist/a-D-2006-01-18-000000.h5',
+    './hist/a-D-2006-01-19-000000.h5',
+
  !--------------------------------------------------------------------------
  ! Plotting parameters
  !--------------------------------------------------------------------------
 
   NL%NPLT       = 3   ! Number of fields plotted at each time 
                       ! (limit of maxnplt fields in max_dims.f90)
-
-  NL%NPLT_FILES = 7   ! Number of history files to plot from for
-                      ! RUNTYPE = 'PLOTONLY'. (limit of maxpltfiles defined
-                      ! in max_dims.f90)
 
   NL%FRQPLT = 86400.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
                             
@@ -550,31 +586,18 @@
   NL%ZPLOT_MAX = 20000.0   ! extent of the plots (m); use -1.0 to indicate the
                         ! default top and bottom of the model
 
- !------------------------------------------------------------------------
- ! List of history files to plot from for RUNTYPE = 'PLOTONLY'
- !------------------------------------------------------------------------
-
-  NL%PLT_FILES =
-    './hist/f-H-2004-09-01-000000.h5',
-    './hist/f-H-2004-09-01-010000.h5',
-    './hist/f-H-2004-09-01-020000.h5',
-    './hist/f-H-2004-09-01-030000.h5',
-    './hist/f-H-2004-09-01-040000.h5',
-    './hist/f-H-2004-09-01-050000.h5',
-    './hist/f-H-2004-09-01-060000.h5',
-
  !-------------------------------------------------------------------------
  ! Plotting Specifications
  ! (limit of maxnplt fields set in max_dims.f90)
  !-------------------------------------------------------------------------
   NL%PLOTSPECS =
  !-------------------------------------------------------------------------------
- !        PROJECTN:              PLTSPEC2:
+ !        PROJECTN:              PLTSPEC2: (Use 0 or 1 from each row)
  !-------------------------------------------------------------------------------
  !  L = Lat/lon cylindrical     T,F,L,O = Tiles, Fillcnt, Linecnt, Overlay L on F
  !  P = Polar stereographic     P       = Print value
  !  O = Orthographic            I,J     = local Index, all indices
- !  Z = Horizontal cartesian    B,U,V,v = Barb, U-normvec, V-normvec, v(totvec)
+ !  Z = Horizontal cartesian    B,U,V,v,w = Barb, U-normvec, V-normvec, v,w(totvec)
  !  C = Cone                    G       = Grid cells
  !  V = Vertical plane          g       = land/sea grid cells
  !                              D       = Dual grid cells
@@ -673,7 +696,7 @@
 / 
  ! End of OLAMIN namelist
  ! Some example plotting specifications that you may use:
-
+!-------------------------------------------------------------------------------
 'WC'                ,'O',108,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
 'RHO'               ,'O', 18,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
 'PRESS'             ,'O', 17,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
@@ -738,9 +761,9 @@
 'PCPRA'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
 'PCPRG'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
 'PCPRH'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
-'PCPRTOT'           ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
-'CONPRR'            ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
-'TOTPRR'            ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPRMIC'           ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPRCON'           ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPRBOTH'          ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
 'ACCPD'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
 'ACCPR'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
 'ACCPP'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
@@ -748,9 +771,12 @@
 'ACCPA'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
 'ACCPG'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
 'ACCPH'             ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
-'ACCPTOT'           ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
-'ACONPR'            ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
-'ATOTPR'            ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ACCPMIC'           ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ACCPCON'           ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'ACCPBOTH'          ,'O',200,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPDIFMIC'         ,'O',109,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPDIFCON'         ,'O',109,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
+'PCPDIFBOTH'        ,'O',109,'FmcitW',      -85.,30.,     1000.,   5000.e3,    0.
 'SOIL_TEXT'         ,'O',  9,'TmcitW',      -85.,30.,     21.,     5000.e3,    0.
 'SOIL_ENERGY'       ,'O',105,'TmcitW',      -85.,30.,     21.,     5000.e3,    0.
 'SOIL_TEMPC'        ,'O',100,'TmcitW',      -85.,30.,     21.,     5000.e3,    0.
@@ -870,4 +896,58 @@
 'MERID_WINDW'       ,'C',106,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
 'DIVERG'            ,'C',306,'FmcitW',      -85.,30.,       90.,   5000.e3,    0.
 
+'PRESS_MAVG(3)'      ,'L',  8,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'RHO_MAVG(3)'        ,'L',414,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'TEMPK_MAVG(3)'      ,'L', 20,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'SH_V_MAVG(3)'       ,'L',  5,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'SH_W_MAVG(3)'       ,'L',  5,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'WC_MAVG(3)'         ,'L',302,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'ZONAL_WINDW_MAVG(3)','L',106,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'MERID_WINDW_MAVG(3)','L',106,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'RSHORT_MAVG'        ,'L', 63,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'RSHORT_TOP_MAVG'    ,'L', 63,'TGmcib',   0.,0.,       100.,    5000.e3,     0.
+'RSHORTUP_MAVG'      ,'L', 63,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'RSHORTUP_TOP_MAVG'  ,'L', 63,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'RLONG_MAVG'         ,'L', 63,'TGmcib',   0.,0.,       100.,    5000.e3,     0.
+'RLONGUP_MAVG'       ,'L', 63,'TGmcib',   0.,0.,       100.,    5000.e3,     0.
+'RLONGUP_TOP_MAVG'   ,'L', 63,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'LATFLUX_MAVG'       ,'L',163,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'SENSFLUX_MAVG'      ,'L',163,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'WINDSPEED_MAVG'     ,'L', 54,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'ACCPMIC_MTOT'       ,'L',200,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'ACCPCON_MTOT'       ,'L',200,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'ACCPBOTH_MTOT'      ,'L',200,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+
+'PRESS_AVG24(12)'    ,'L',  8,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+
+'PRESS_DAVG'         ,'L',  8,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'ZONAL_WINDW_DAVG'   ,'L',106,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'MERID_WINDW_DAVG'   ,'L',106,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'RSHORT_DAVG'        ,'L', 63,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'TEMPK_DAVG'         ,'L', 20,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'TEMPK_DMIN'         ,'L', 20,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'TEMPK_DMAX'         ,'L', 20,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'ACCPMIC_DTOT'       ,'L',200,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'ACCPCON_DTOT'       ,'L',200,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'ACCPBOTH_DTOT'      ,'L',200,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'PRESS_UL_DAVG'      ,'L',  8,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'ZONAL_WINDW_UL_DAVG','L',106,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'MERID_WINDW_UL_DAVG','L',106,'FGmcib',   0.,0.,       100.,    5000.e3,     0.
+'CANTEMPK_DAVG'      ,'L', 20,'TGgmcib',  0.,0.,       100.,    5000.e3,     0.
+'CANTEMPK_DMIN'      ,'L', 20,'TGgmcib',  0.,0.,       100.,    5000.e3,     0.
+'CANTEMPK_DMAX'      ,'L', 20,'TGgmcib',  0.,0.,       100.,    5000.e3,     0.
+'VEGTEMPK_DAVG'      ,'L', 20,'TGgmcib',  0.,0.,       100.,    5000.e3,     0.
+'VEGTEMPK_DMIN'      ,'L', 20,'TGgmcib',  0.,0.,       100.,    5000.e3,     0.
+'VEGTEMPK_DMAX'      ,'L', 20,'TGgmcib',  0.,0.,       100.,    5000.e3,     0.
+'SOILTEMPK_DAVG'     ,'L', 20,'TGgmcib',  0.,0.,       100.,    5000.e3,     0.
+'SOILTEMPK_DMIN'     ,'L', 20,'TGgmcib',  0.,0.,       100.,    5000.e3,     0.
+'SOILTEMPK_DMAX'     ,'L', 20,'TGgmcib',  0.,0.,       100.,    5000.e3,     0.
+'FCELL_AIRTEMPK_DAVG','L', 20,'Tmcib',    0.,0.,       100.,    5000.e3,     0.
+'FCELL_AIRTEMPK_DMIN','L', 20,'Tmcib',    0.,0.,       100.,    5000.e3,     0.
+'FCELL_AIRTEMPK_DMAX','L', 20,'Tmcib',    0.,0.,       100.,    5000.e3,     0.
+'FCELL_CANTEMPK_DAVG','L', 20,'Tmcib',    0.,0.,       100.,    5000.e3,     0.
+'FCELL_CANTEMPK_DMIN','L', 20,'Tmcib',    0.,0.,       100.,    5000.e3,     0.
+'FCELL_CANTEMPK_DMAX','L', 20,'Tmcib',    0.,0.,       100.,    5000.e3,     0.
+'FCELL_SENSFLUX_DAVG','L',163,'Tmcib',    0.,0.,       100.,    5000.e3,     0.
+'FCELL_LATFLUX_DAVG' ,'L',163,'Tmcib',    0.,0.,       100.,    5000.e3,     0.
 
