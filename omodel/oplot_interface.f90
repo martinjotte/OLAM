@@ -57,8 +57,9 @@ subroutine plot_fields(id)
 
 use misc_coms,  only: io6, iyear1, imonth1, idate1, itime1, time_istp8
 use oplot_coms, only: op
-use mem_grid,   only: mza, mwa
+use mem_grid,   only: mza, mwa, lpw
 use misc_coms,  only: runtype
+use mem_ijtabs, only: jtab_w, jtw_prog
 
 use mem_plot,   only: alloc_plot, copy_plot
 
@@ -74,7 +75,7 @@ implicit none
 integer, save :: ncall = 0
 integer, intent(in) :: id
 
-integer :: iplt,labincx,labincy,notavail
+integer :: iplt,labincx,labincy,notavail,k,iw
 real :: fldval,bsize
 integer :: outyear,outmonth,outdate,outhour
 real, save :: dummy(1)=0.,xinc,yinc

@@ -706,6 +706,7 @@ implicit none
 
 integer  :: ierr, ifm, ifileok
 real(r8) :: time8p, bias
+integer  :: outyear, outmonth, outdate, outhour
 
 bias    = 1.e-7_r8 * dtlm(1) ! A number small compared to the timestep
 time8p  = time8 + bias       ! Slightly forward biased time
