@@ -267,8 +267,8 @@ do ngr = 2,ngrids  ! Loop over nested grids
             yeg = reg  * sin(grdlon(ngr,1) * pio180)
          else
             zeg = 0.
-            xeg = 1.e5 * grdlon(ngr,1)
-            yeg = 1.e5 * grdlat(ngr,1)
+            xeg = grdlon(ngr,1)
+            yeg = grdlat(ngr,1)
          endif
 
 ! Initialize distance 
@@ -1101,7 +1101,7 @@ enddo
 
 if (imstart == 0) then
    write(io6,*) 'imstart is zero - stopping model'
-   stop 'stop imstart'
+   stop 'stop imstart perim_map'
 endif
 
 ! March around NGR boundary in a counterclockwise direction beginning at IMSTART
@@ -1223,7 +1223,7 @@ enddo
 
 if (imstart == 0) then
    write(io6,*) 'imstart is zero - stopping model'
-   stop 'stop imstart'
+   stop 'stop imstart perim_map2'
 endif
 
 ! March around NGR boundary in a counterclockwise direction beginning at IMSTART
@@ -1945,10 +1945,10 @@ do ipt = 1,ngrdll(ngr)
 
    else
 
-      xs(1) = 1.e5 * grdlon(ngr,ipt)
-      ys(1) = 1.e5 * grdlat(ngr,ipt)
-      xs(2) = 1.e5 * grdlon(ngr,jpt)
-      ys(2) = 1.e5 * grdlat(ngr,jpt)
+      xs(1) = grdlon(ngr,ipt)
+      ys(1) = grdlat(ngr,ipt)
+      xs(2) = grdlon(ngr,jpt)
+      ys(2) = grdlat(ngr,jpt)
 
       xm1 = x
       ym1 = y
