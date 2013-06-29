@@ -36,11 +36,11 @@ subroutine sea_init_atm()
   use sea_coms,    only: mws, iupdsst, s1900_sst, isstfile, nsstfiles, dt_sea,  &
                          iupdseaice, s1900_seaice, iseaicefile, nseaicefiles, nzi
   use mem_sflux,   only: mseaflux, seaflux, jseaflux
-  use mem_basic,   only: press, rho, theta, sh_v
+  use mem_basic,   only: rho, tair, sh_v
   use misc_coms,   only: io6, time8, s1900_sim, iparallel, runtype
   use mem_ijtabs,  only: itabg_w
   use mem_para,    only: myrank
-  use consts_coms, only: p00i, rocp, t00
+  use consts_coms, only: t00
 
   implicit none
 
@@ -50,7 +50,6 @@ subroutine sea_init_atm()
   integer :: iws
   integer :: j
 
-  real :: airtemp
   real :: timefac_sst
   real :: timefac_seaice
   real :: arf_sea
@@ -58,7 +57,7 @@ subroutine sea_init_atm()
 
   real, external :: rhovsl, rhovsil
 
-! This subroutine fills the primary SEA arrays which depend on current
+! This subroutine fills the primary LEAF3 arrays which depend on current
 ! atmospheric conditions.
 
 ! Time interpolation factor for updating SST and SEA ICE
@@ -81,7 +80,7 @@ subroutine sea_init_atm()
 ! Loop over all SEAFLUX cells that are EVALUATED on this rank, and transfer 
 ! atmospheric properties to each, with weighting according to arf_sea
 
-  !$omp parallel do private (isf,iw,kw,arf_sea,airtemp)
+  !$omp parallel do private (isf,iw,kw,arf_sea)
   do j = 1,jseaflux(1)%jend(1)
      isf = jseaflux(1)%iseaflux(j)
 
@@ -96,10 +95,8 @@ subroutine sea_init_atm()
      kw      = seaflux(isf)%kw
      arf_sea = seaflux(isf)%arf_sfc
 
-     airtemp = theta(kw,iw) * (p00i * press(kw,iw)) ** rocp
-     
      seaflux(isf)%rhos    = arf_sea * rho(kw,iw)
-     seaflux(isf)%airtemp = arf_sea * airtemp
+     seaflux(isf)%airtemp = arf_sea * tair(kw,iw)
      seaflux(isf)%airshv  = arf_sea * sh_v(kw,iw)   
   enddo
   !$omp end parallel do

@@ -63,7 +63,6 @@ integer :: nlsw1 ! maximum of (1,nlev_sfcwater)
 integer :: mrl
 integer :: j
 
-real :: airtemp
 real :: timefac_ndvi
 real :: arf_land
 real :: wq, wq_added
