@@ -104,12 +104,13 @@ C...modules
       USE AERO_DATA            ! describes aerosol distribution
       USE PHOT_MOD             ! photolysis in-line module
       use misc_coms,   only: io6, current_time
-      use mem_grid,    only: mwa, mza, glatw, glonw, zt, zm, lpw
+      use mem_grid,    only: mwa, mza, glatw, glonw, zt, zm, lpw, dzt
       use cgrid_defn
       use mem_radiate, only: albedt
-      use mem_basic,   only: tair, press, rho
-      use consts_coms, only: r8
+      use mem_basic,   only: tair, press, rho, sh_v
+      use consts_coms, only: r8, t00, alvl, eps_vap, cp
       use mem_ijtabs,  only: jtab_w, jtw_prog
+      use mem_turb,    only: kpblh
 
       IMPLICIT NONE
 
@@ -138,7 +139,7 @@ C...arguments
 
 C...parameters
 
-      LOGICAL, PARAMETER :: CLDATT = .TRUE.  ! include cloud attenuation
+!     LOGICAL, PARAMETER :: CLDATT = .TRUE.  ! include cloud attenuation
 
       REAL, PARAMETER :: DENS_CONV    = ( 1.0E+03 * AVO / MWAIR ) * 1.0E-06  ! convert from kg/m**3 to #/cc
       REAL, PARAMETER :: PPM_MCM3     = 1.0E-06  ! convert from ppm to molecules / cc mol_Spec/mol_Air = ppm * 1E-06
@@ -200,8 +201,8 @@ C for INTERPX
       REAL CURRHR          ! current GMT hour
       REAL JULIAN_DAY      ! time of year [days]
       REAL CURRHR_LST      ! local standard time at each grid cell
-      REAL CTOP            ! cloud top in single dimension
-      REAL CBASE           ! cloud base in single dimension
+!      REAL CTOP            ! cloud top in single dimension
+!      REAL CBASE           ! cloud base in single dimension
       REAL ZLEV            ! height in single dimension
       REAL ZEN             ! cosine of zenith angle
       REAL SINLAT          ! sine of latitude
@@ -292,14 +293,15 @@ C FSB new arrays for new on-line cloud version
 !      REAL CLDT   ( NCOLS, NROWS ) ! cloud top, as K index
 !      REAL CLDB   ( NCOLS, NROWS ) ! cloud bottom, as K index
 !      REAL CFRAC  ( NCOLS, NROWS ) ! total fractional cloud coverage
+      real :: wbar, cfrac
 
       REAL COSZENS( mwa ) ! cosines of solar zenith angles
 !      REAL TOC    ( NCOLS, NROWS ) ! total ozone column
 !      REAL SNOCOV ( NCOLS, NROWS ) ! snow cover    (1=yes, 0=no)
 
-      LOGICAL, SAVE :: HAS_SEAICE = .FALSE.     ! does metcro2d file contain sea ice data
-      REAL, ALLOCATABLE, SAVE :: SEAICE ( :,: ) ! sea ice cover (1=yes, 0=no)
-      REAL, ALLOCATABLE, SAVE :: TEMPG  ( :,: ) ! ground surface temperature [K]
+!      LOGICAL, SAVE :: HAS_SEAICE = .FALSE.     ! does metcro2d file contain sea ice data
+!      REAL, ALLOCATABLE, SAVE :: SEAICE ( :,: ) ! sea ice cover (1=yes, 0=no)
+!      REAL, ALLOCATABLE, SAVE :: TEMPG  ( :,: ) ! ground surface temperature [K]
 
       REAL, ALLOCATABLE, SAVE :: ETOT_SFC_WL ( :,:,: ) ! total downward irradiance at sfc [ Watts / m**2  ]
       REAL, ALLOCATABLE, SAVE :: TAU_AERO_WL ( :,:,: ) ! aerosol optical depth
@@ -312,8 +314,17 @@ C FSB new arrays for new on-line cloud version
 !      REAL ZM   ( NCOLS, NROWS, NLAYS ) ! layer half height agl [ m ]
 !      REAL ZFULL( NCOLS, NROWS, NLAYS ) ! layer full height agl [ m ]
 
-      integer :: j, iw, nlays
+      logical :: docloud
+      integer :: j, iw, nlays, lct, ltop, lbase, iflag, itr
+      real    :: rhov, tairc, rhovsat, rh, rhc, sg1, ccmax, qs, x1, dtdp, tad
+      real    :: plcl, tlcl, qlcl, pbase, tbase, sumz, wtbar, pbar, prs, dp
+      real    :: wt, qwsa, qwat, tbar, twc, wl, frac
+      real    :: ccov(mza)
+
       integer, external :: julday
+      real,    external :: rslf, rhovsl
+
+      
 
 !      INTERFACE
 !         SUBROUTINE AERO_PHOTDATA ( COL, ROW, NLAYS, CGRID,
@@ -1222,16 +1233,16 @@ C...MAIN loop over all rows and columns
 
 C...initialize BLKRJ using F90 array operations.
 
-            BLKRJ_CLR(:,:) = 0.0
-            BLKRJ_CLD(:,:) = 0.0
+         BLKRJ_CLR(:,:) = 0.0
+         BLKRJ_CLD(:,:) = 0.0
 
 C...Set height of lowest level to zero
 
-            BLKZF( 1 ) = 0.0
+         BLKZF( 1 ) = 0.0
 
-            ZSFC   = zm( lpw(iw)-1 )     ! surface height [m]
-            COSZEN = COSZENS( iw ) ! local cosine of solar zenith angle
-            SINZEN = SQRT( 1.0 - COSZEN * COSZEN ) ! sine of zenith angle
+         ZSFC   = zm( lpw(iw)-1 ) ! surface height [m]
+         COSZEN = COSZENS( iw ) ! local cosine of solar zenith angle
+         SINZEN = SQRT( 1.0 - COSZEN * COSZEN ) ! sine of zenith angle
 
 C...FSB now get cloud base, cloud top information
 
@@ -1240,69 +1251,68 @@ C...FSB now get cloud base, cloud top information
 
 C...fetch local latitude an dlongitude
 
-            LATCR = glatw( iw )
-            LONCR = glonw( iw )
+         LATCR = glatw( iw )
+         LONCR = glonw( iw )
 
 C...loop over vertical layers
             
-            nlays = mza - lpw(iw)
+         nlays = mza - lpw(iw)
 
-            do k = lpw(iw), mza-1
-               l = k - lpw(iw) + 1
+         do k = lpw(iw), mza-1
+            l = k - lpw(iw) + 1
 
 C...Fetch the grid cell ambient data at each layer.
 
-               BLKTA  ( L )   = tair ( k, iw )             ! temperature [K]
-               BLKPRS ( L )   = press( k, iw ) / STDATMPA  ! [atmospheres]
-               BLKDENS( L )   = rho  ( k, iw ) * DENS_CONV ! [molecules / cm**3]
-               BLKZH  ( L )   = zt   ( k ) - zsfc      ! mid layer height [m]
-               BLKZF  ( L+1 ) = zm   ( k ) - zsfc      ! full layer height [m]
+            BLKTA  ( L )   = tair ( k, iw ) ! temperature [K]
+            BLKPRS ( L )   = press( k, iw ) / STDATMPA ! [atmospheres]
+            BLKDENS( L )   = rho  ( k, iw ) * DENS_CONV ! [molecules / cm**3]
+            BLKZH  ( L )   = zt   ( k ) - zsfc ! mid layer height [m]
+            BLKZF  ( L+1 ) = zm   ( k ) - zsfc ! full layer height [m]
 
 C...set scale factor for [ppm] -> [molecule / cm**3]
 C...  To go from ppm to molecule/cc:
 C...  molecule/cc = ppm *  1.0E-06 * DENS (given in molecule/cc)
 
-               MSCALE = BLKDENS( L ) * PPM_MCM3
+            MSCALE = BLKDENS( L ) * PPM_MCM3
 
 C...fetch ozone and no2 and convert to [ molecules / cm **3 ]
 C...  and adjust the volume for ambient temperature and pressure.
 
-               BLKO3 ( L ) = max(CGRID( k, iw, LGC_O3  ), 0.0) * MSCALE
-               BLKNO2( L ) = max(CGRID( k, iw, LGC_NO2 ), 0.0) * MSCALE
+            BLKO3 ( L ) = max(CGRID( k, iw, LGC_O3  ), 0.0) * MSCALE
+            BLKNO2( L ) = max(CGRID( k, iw, LGC_NO2 ), 0.0) * MSCALE
 
-               LWC    ( L ) = 0.0
-               CLDFRAC( L ) = 0.0
-            !  ZLEV = BLKZF( L )
+            LWC    ( L ) = 0.0
+            CLDFRAC( L ) = 0.0
 
-            END DO ! loop on layers
+         END DO                 ! loop on layers
 
 C..calculate needed aerosol properties in column
 
 !            CALL  AERO_PHOTDATA ( COL, ROW, NLAYS, CGRID,
 !     &                            BLK_AE_VOL, BLK_AE_LSG, BLK_AE_DGN,
 !     &                            BLK_AE_NR, BLK_AE_NI )
-            blk_ae_vol = 1.e-25
-            blk_ae_lsg = 1.1
-            blk_ae_dgn = 1.e-7
+         blk_ae_vol = 1.e-25
+         blk_ae_lsg = 1.1
+         blk_ae_dgn = 1.e-7
 
 C...calculate the clear sky photolysis rates for all layers:
 
-            DO IWL = 1, NWL
-               ! ALB( IWL ) = SURFACE_ALBEDO( IWL, COL, ROW )
-               ! For now, surface albedo is independent of wavelength
-               ALB( IWL ) = albedt(iw)
-            END DO
+         DO IWL = 1, NWL
+            ! ALB( IWL ) = SURFACE_ALBEDO( IWL, COL, ROW )
+            ! For now, surface albedo is independent of wavelength
+            ALB( IWL ) = albedt(iw)
+         END DO
 
-            CALL NEW_OPTICS ( iw, NLAYS, mza, N_MODE,
-     &                        BLK_AE_NR, BLK_AE_NI, BLK_AE_VOL,
-     &                        BLK_AE_DGN, BLK_AE_LSG,
-     &                        BLKTA, BLKPRS, BLKDENS, BLKZH, BLKZF,
-     &                        BLKO3, BLKNO2,
-     &                        ZSFC, COSZEN, SINZEN, RSQD, LATCR, LONCR,
-     &                        JDATE, LWC, CLDFRAC,
-     &                        BLKRJ_CLR, ETOT_SFC,
-     &                        TAU_AERO, TAU_TOT, TAUO3_TOP,
-     &                        TAU_RAY, SSA, TAU_CLOUD, STOZONE )
+         CALL NEW_OPTICS ( iw, NLAYS, mza, N_MODE,
+     &                     BLK_AE_NR, BLK_AE_NI, BLK_AE_VOL,
+     &                     BLK_AE_DGN, BLK_AE_LSG,
+     &                     BLKTA, BLKPRS, BLKDENS, BLKZH, BLKZF,
+     &                     BLKO3, BLKNO2,
+     &                     ZSFC, COSZEN, SINZEN, RSQD, LATCR, LONCR,
+     &                     JDATE, LWC, CLDFRAC,
+     &                     BLKRJ_CLR, ETOT_SFC,
+     &                     TAU_AERO, TAU_TOT, TAUO3_TOP,
+     &                     TAU_RAY, SSA, TAU_CLOUD, STOZONE )
 
 C...load diagnostic file arrays
 
@@ -1317,33 +1327,168 @@ C...load diagnostic file arrays
 !            END IF
 
 !C...load cloud information
-!
-!            IF ( CLDATT .AND. CFRAC( COL,ROW ) .GT. 0.0 ) THEN
-!               DO L = 1, NLAYS
-!
-!                  ZLEV = BLKZF( L )
-!
-!C...FSB check if in cloud, then set LWC and CLDFRAC profiles.
-!
-!                  IF ( ZLEV .GE. CBASE .AND. ZLEV .LE. CTOP ) THEN
-!                     LWC    ( L ) = WBAR ( COL, ROW )
-!                     CLDFRAC( L ) = 1.0
-!                  END IF ! end cloud check
-!
-!               END DO ! loop on layers
-!
-!C...calculate the in-cloud photolysis rates for all layers:
 
-!               CALL NEW_OPTICS ( iw, NLAYS, mza, N_MODE,
-!     &                           BLK_AE_NR, BLK_AE_NI, BLK_AE_VOL,
-!     &                           BLK_AE_DGN, BLK_AE_LSG,
-!     &                           BLKTA, BLKPRS, BLKDENS, BLKZH, BLKZF,
-!     &                           BLKO3, BLKNO2,
-!     &                           ZSFC, COSZEN, SINZEN, RSQD, LATCR, LONCR,
-!     &                           JDATE, LWC, CLDFRAC,
-!     &                           BLKRJ_CLD, ETOT_SFC,
-!     &                           TAU_AERO, TAU_TOT, TAUO3_TOP,
-!     &                           TAU_RAY, SSA, TAU_CLOUD, STOZONE )
+         ! Define cloud cover within PBL
+
+         docloud = .false.
+
+         do k = lpw(iw), kpblh(iw)
+            l = k - lpw(iw) + 1
+               
+            rhov    = max(0., sh_v(k,iw)) * rho(k,iw) 
+            tairc   = tair(k,iw) - t00
+            rhovsat = rhovsl( tairc )
+
+            rh = min(1.0, rhov / rhovsat)
+                  
+            ! Set RHC to at least 98% in PBL - JEP 5/91
+            rhc = 0.98
+
+            IF ( rh > rhc ) THEN
+               ccov(l) = MAX( MIN( 0.34 * ( rh - rhc ) / ( 1.0 - rhc ), 1.0 ), 0.0 )
+            ELSE
+               ccov(l) = 0.0
+            ENDIF
+         enddo
+
+         ! Define cloud cover above PBL
+               
+         do k = kpblh(iw) + 1, mza-1
+            l = k - lpw(iw) + 1
+
+            rhov    = max(0., sh_v(k,iw)) * rho(k,iw) 
+            tairc   = tair(k,iw) - t00
+            rhovsat = rhovsl( tairc )
+
+            rh  = min(1.0, rhov / rhovsat)
+            sg1 = press(k,iw) / press(kpblh(iw),iw)
+
+            rhc = 1.0 - ( 2.0 * sg1 * (1.0-sg1) * (1.0 + 1.732*(sg1-0.5)) )
+
+            IF ( rh > rhc ) THEN
+               ! Geleyn et al., 1982
+               ccov(l) = MAX( MIN( ( (rh - rhc)/(1.0 - rhc) )**2, 1.0 ), 0.0 )
+            ELSE
+               ccov(l) = 0.0
+            ENDIF
+         enddo
+
+         lct   = maxloc(ccov(1:nlays), dim=1)
+         ccmax = ccov(lct)
+
+         if (ccmax > 0.01) then
+
+            docloud = .true.
+
+            ! Look for cloud top and base layer up and down from level of max RH.
+
+            top: DO l = lct, nlays
+               ltop = l - 1
+               IF ( ccov(l) < 0.5*ccmax ) EXIT top
+            ENDDO top
+
+            bottom: DO l = lct, 1, -1
+               lbase = l + 1
+               IF ( ccov(l) < 0.5*ccmax ) EXIT bottom
+            ENDDO bottom
+
+            ltop  = max(ltop,lbase)
+
+            ! We need pres. at the bottom of the lowest layer containing clouds.
+            ! Temp. and qv at cloud base are for mid layer values.
+
+            k = lbase + lpw(iw) - 1
+
+            plcl = 0.5 * (press(k,iw) + press(k-1,iw))
+            tlcl = tair(k,iw)
+            qlcl = rslf(plcl,tlcl)
+
+            iflag = 0
+            pbase = plcl
+            tbase = tlcl
+            sumz  = 0.0
+            wtbar = 0.0
+            frac  = 0.0
+
+            ! Follow moist adiabat up.
+            
+            DO l = lbase, ltop
+               k = l + lpw(iw) - 1
+
+               prs  = press(k,iw)
+               dp   = pbase - prs
+               pbar = pbase - 0.5 * dp
+               tbar = tbase
+
+               DO itr = 1, 5
+                  qs   = rslf(pbar, tbar)
+                  x1   = alvl * qs / ( rdgas * tbar )
+                  dtdp = rdgas * tbar / pbar / cp * ( ( 1.0 + x1 ) /
+     &                 ( 1.0 + eps_vap * alvl / cp / tbar * x1 ) )
+                  tad  = tbase - dp * dtdp
+                  tbar = ( tad + tbase ) * 0.5
+               ENDDO
+
+               ! Determine water content by fraction of adiabatic.
+
+               tad = MAX(tad, 150.0)
+               IF ( tad > tair(k,iw) ) iflag = 1
+
+               ! Pressure in Pascal = cb*1000
+
+               wl    = 0.7 * EXP( ( prs - plcl ) / 8000.0 ) + 0.2
+               qwsa  = rslf(prs, tad)
+               qwat  = MAX( wl * ( qlcl - qwsa ), 0.0)
+
+               twc   = qwat * prs * 1.0e3 / rdgas / tair(k,iw)
+
+               wtbar = wtbar + dzt(k) * twc
+               frac  = frac  + dzt(k) * ccov(l)
+               sumz  = sumz  + dzt(k)
+               tbase = tad
+               pbase = prs
+               
+            ENDDO
+
+            ! If stable environment, use alternate water content expression.
+
+            IF ( iflag == 0 ) THEN
+
+               wtbar = 0.0
+               DO l = lbase, ltop
+                  k = l + lpw(iw) - 1
+                  twc   = 0.05e3 * sh_v(k,iw) * press(k,iw) /
+     &                    rdgas / tair(k,iw)
+                  wtbar = wtbar + twc * dzt(k)
+               ENDDO
+            ENDIF
+
+            cfrac = frac  / sumz
+            wbar  = wtbar / sumz
+
+            IF ( cfrac < 0.001 .or. wbar < 1.e-7) THEN
+               docloud = .false.
+            ENDIF
+
+         endif
+
+         if (docloud) then
+      
+            lwc    (lbase:ltop) = wbar
+            cldfrac(lbase:ltop) = 1.0
+
+C...calculate the in-cloud photolysis rates for all layers:
+
+            CALL NEW_OPTICS ( iw, NLAYS, mza, N_MODE,
+     &                        BLK_AE_NR, BLK_AE_NI, BLK_AE_VOL,
+     &                        BLK_AE_DGN, BLK_AE_LSG,
+     &                        BLKTA, BLKPRS, BLKDENS, BLKZH, BLKZF,
+     &                        BLKO3, BLKNO2,
+     &                        ZSFC, COSZEN, SINZEN, RSQD, LATCR, LONCR,
+     &                        JDATE, LWC, CLDFRAC,
+     &                        BLKRJ_CLD, ETOT_SFC,
+     &                        TAU_AERO, TAU_TOT, TAUO3_TOP,
+     &                        TAU_RAY, SSA, TAU_CLOUD, STOZONE )
 
 C...load diagnostic file arrays
 C...compute a cloud-fraction weighted average of ETOT_SFC and TAU_TOT
@@ -1369,31 +1514,33 @@ C...  cloudy regions
 C...set the photolysis rates based on a weighted average of the clear
 C...  and cloudy fractions, and convert from 1/sec to 1/min
 
-!               DO L = 1, NLAYS
-!                  DO IPHOT = 1, NPHOTAB
-!                     RJ( COL, ROW, L, IPHOT ) = 60.0 *
-!     &               ( BLKRJ_CLD( L,IPHOT ) * CFRAC( COL,ROW )
-!     &               + BLKRJ_CLR( L,IPHOT ) * ( 1.0 - CFRAC( COL,ROW ) ) )
-!                  END DO  ! Loop on PHOT
-!               END DO  ! Loop on layers
-!
-!            ELSE ! not cldatt or cfrac = 0
+            do k = lpw(iw), mza-1
+               l = k - lpw(iw) + 1
+
+               DO IPHOT = 1, NPHOTAB
+                  RJ( IPHOT, k, iw ) = 60.0 *
+     &                 ( BLKRJ_CLD( L,IPHOT ) * CFRAC
+     &                 + BLKRJ_CLR( L,IPHOT ) * ( 1.0 - CFRAC ) )
+               END DO           ! Loop on PHOT
+            END DO              ! Loop on layers
+
+         ELSE                   ! no clouds
 
 C...set the photolysis rates to the clear sky values and convert
 C...  from 1/sec to 1/min
 
             do k = lpw(iw), mza-1
                l = k - lpw(iw) + 1
-               
+
                DO IPHOT = 1, NPHOTAB
-                  RJ( IPHOT, k, iw ) = 60.0 * BLKRJ_CLR( L,IPHOT )
-               ENDDO           ! Loop on PHOT
+                  RJ( IPHOT, k, iw ) = 60.0 * BLKRJ_CLR( L, IPHOT )
+               ENDDO            ! Loop on PHOT
 
-            ENDDO              ! Loop on layers
+            ENDDO               ! Loop on layers
 
-!        ENDIF                 ! cldatt and cfrac
+         ENDIF                  ! if clouds
 
-      ENDDO                    ! horizontal index
+      ENDDO                     ! horizontal index
 
 C...write diagnostic data to output file at the end of every hour
 
