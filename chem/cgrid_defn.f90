@@ -149,11 +149,6 @@ contains
        indxe = findex( ng, n_gc_emis, gc_emis_map )
        indxd = findex( ng, n_gc_depv, gc_depv_map )
 
-       if (gc_trns(n) == 'HNO3') then
-          write(*,*) nc, indxd
-       endif
-
-
        if (indxe > 0 .and. indxd > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &

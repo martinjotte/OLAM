@@ -116,7 +116,8 @@ C***Cloud albedo values from JPROC
       REAL, ALLOCATABLE, SAVE :: XO3CS( :,: )       !
       REAL, ALLOCATABLE, SAVE :: TEMP_O3_STRAT( : ) ! temperature for XO3CS, K
 
-      CHARACTER(16), ALLOCATABLE, SAVE  :: PHOTOLYSIS_RATE( : ) ! subset of photolysis rates from CSQY DATA
+      CHARACTER(16), ALLOCATABLE, SAVE  ::  PHOTOLYSIS_RATE( : ) ! subset of photolysis rates from CSQY DATA
+      integer,       ALLOCATABLE, SAVE  :: IPHOTOLYSIS_RATE( : ) ! subset of photolysis rates from CSQY DATA
 
       real, allocatable, save  :: csz( :,:,: )
       real, allocatable, save  :: qyz( :,:,: )
@@ -199,6 +200,20 @@ C***     pp 283-297, 2000.
       REAL :: OPTT                ! variable needed for acetone
 
       real, allocatable :: rj(:,:,:)
+
+      integer, parameter :: I_CH3CHO    =  1
+      integer, parameter :: I_ALDEHYDES =  2
+      integer, parameter :: I_MVK       =  3
+      integer, parameter :: I_MACR      =  4
+      integer, parameter :: I_MEK       =  5
+      integer, parameter :: I_MGLY1     =  6
+      integer, parameter :: I_ACRO      =  7
+      integer, parameter :: I_CH2O      =  8
+      integer, parameter :: I_CH3COCH3  =  9
+      integer, parameter :: I_KETONE    = 10
+      integer, parameter :: I_KET_RACM2 = 11
+      integer, parameter :: I_GLYOXAL   = 12
+      integer, parameter :: I_MGLY2     = 13
 
       CONTAINS
 
@@ -440,7 +455,8 @@ C***arrays for new values
          NEW_OPTICS_LOG = io6
          
          NPHOT = NPHOTAB
-         ALLOCATE( PHOTOLYSIS_RATE ( NPHOTAB ) )
+         ALLOCATE(  PHOTOLYSIS_RATE ( NPHOTAB ) )
+         ALLOCATE( IPHOTOLYSIS_RATE ( NPHOTAB ) )
          ALLOCATE( XXCS( NPHOTAB, IREFTEMPS, NWL ) )
          ALLOCATE( XXQY( NPHOTAB, IREFTEMPS, NWL ) )
          ALLOCATE( CONV_WM2( NWL ) )
@@ -498,7 +514,7 @@ C***check to see if this photolysis reaction is a special case that
 C***  is referenced in other sections of the code.  if so, then set
 C***  the appropriate pointers for later processing
 
-            SELECT CASE ( TRIM( PHOTOLYSIS_RATE( IPHOT ) ) )
+            SELECT CASE ( PHOTOLYSIS_RATE( IPHOT ) )
                CASE( 'O3O3P', 'O3O3P_SAPRC99', 'O3O3P_06', 'O3_O3P_IUPAC04', 'O3O3P_NASA06' )
                      LO3O3P = IPHOT
                CASE( 'NO2', 'NO2_SAPRC99', 'NO2_06', 'NO2_RACM2' )
@@ -517,6 +533,52 @@ C***  the appropriate pointers for later processing
                      LHCHOR_06 = IPHOT
             END SELECT
 
+            SELECT CASE ( PHOTOLYSIS_RATE( IPHOT ) )
+
+               CASE ( 'CCHO_R', 'ALD2', 'CH3CHO_RACM2' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_CH3CHO
+
+               CASE ( 'C2CHO', 'ALD_RACM2', 'BALD_RACM2', 'UALD_RACM2' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_ALDEHYDES
+
+               CASE ( 'MVK-06', 'MVK_06' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_MVK
+
+               CASE ( 'MACR-06', 'MACR_06', 'MACR_RACM2' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_MACR
+
+               CASE ( 'MEK-06', 'MEK_06' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_MEK
+
+               CASE ( 'MGLY-06', 'BACL-07', 'MGLY_06', 'BACL_07', 'MGLY_IUPAC04' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_MGLY1
+
+               CASE ( 'ACRO-09', 'ACRO_09' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_ACRO
+
+               CASE ( 'HCHOM-06', 'HCHOM_06', 'HCHO_MOL_RACM2' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_CH2O
+
+               CASE ( 'ACET-06', 'ACET_06', 'ACETONE', 'CH3COCH3_RACM2' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_CH3COCH3
+
+               CASE ( 'KETONE' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_KETONE
+                  
+               CASE ( 'KET_RACM2', 'HKET_RACM2', 'MEK_RACM2', 'MVK_RACM2' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_KET_RACM2
+
+               CASE ( 'GLYH2_RACM2', 'GLYF_RACM2', 'GLYHX_RACM2', 'MGLY_RACM2' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_GLYOXAL
+
+               CASE ( 'MGLY_ADJ', 'MGLY_ABS' )
+                  IPHOTOLYSIS_RATE( IPHOT ) = I_MGLY2
+
+               CASE DEFAULT
+                  IPHOTOLYSIS_RATE( IPHOT ) = -1
+
+               END SELECT
+               
 !           IF  ( ( PNAME_MAP( IP_MAP ) .EQ. 'NO2' ) .OR.
 !    &            ( PNAME_MAP( IP_MAP ) .EQ. 'NO2_SAPRC99' ) .OR.
 !    &            ( PNAME_MAP( IP_MAP ) .EQ. 'NO2_06'      ) .OR.
@@ -580,7 +642,6 @@ C***  dataset for this photolysis reaction
            XMSG = 'The above fatal error(s) found in CSQY data! '
            CALL M3EXIT( 'NEW_OPTICS', 0, 0, XMSG, 1 )
          END IF
-
          FIRST = .FALSE.
 
       END IF   ! FIRSTIME
@@ -1568,9 +1629,11 @@ C***  reference temperature, then use the value at the maximum reference tempera
 
 C***Make density corrections using values from Fast-JX V. 5.0
 
-               SELECT CASE ( TRIM( PHOTOLYSIS_RATE( IPHOT ) ) )
+!              SELECT CASE ( TRIM( PHOTOLYSIS_RATE( IPHOT ) ) )
+               SELECT CASE ( IPHOTOLYSIS_RATE( IPHOT ) )
 
-                  CASE ( 'CCHO_R', 'ALD2', 'CH3CHO_RACM2' )      ! 'CH3CHO -> CH3 + HCO'
+!                 CASE ( 'CCHO_R', 'ALD2', 'CH3CHO_RACM2' )      ! 'CH3CHO -> CH3 + HCO'
+                  CASE ( I_CH3CHO )
 
                      IF ( QYZ( LAYS, IWL, IPHOT ) .GT. 1.0E-5 ) THEN
                         QDUM = 0.0
@@ -1582,7 +1645,8 @@ C***Make density corrections using values from Fast-JX V. 5.0
                         QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, QYZ( LAYS, IWL, IPHOT ) )
                      END IF
 
-                  CASE ( 'C2CHO', 'ALD_RACM2', 'BALD_RACM2',  'UALD_RACM2' )  ! C3 and higher aldehydes
+!                 CASE ( 'C2CHO', 'ALD_RACM2', 'BALD_RACM2',  'UALD_RACM2' )  ! C3 and higher aldehydes
+                  CASE ( I_ALDEHYDES )
 
 C***density correction to quantum yield
 
@@ -1599,7 +1663,8 @@ C***density correction to quantum yield
                      QYZ( LAYS, IWL, IPHOT ) = MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) )
                      QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, QYZ( LAYS, IWL, IPHOT ) )
 
-                  CASE ( 'MVK-06', 'MVK_06' )
+!                 CASE ( 'MVK-06', 'MVK_06' )
+                  CASE ( I_MVK )
 
 C***quantum yield from
 C***  Gierczak, T., J. B. Burkholder, R. K. Talukdar, A. Mellouki, S. B. Barone,
@@ -1622,7 +1687,8 @@ C***remove wavelength dependence
                      QYZ( LAYS, IWL, IPHOT ) = MIN(1.0, QYZ( LAYS, IWL, IPHOT ))
                      QYZ( LAYS, IWL, IPHOT ) = MAX(0.0, QYZ( LAYS, IWL, IPHOT ))
 
-                  CASE ( 'MACR-06', 'MACR_06', 'MACR_RACM2' )
+!                 CASE ( 'MACR-06', 'MACR_06', 'MACR_RACM2' )
+                  CASE ( I_MACR )
 
 C***quantum yield based on 2.76 times MVK from
 C***  Gierczak, T., J. B. Burkholder, R. K. Talukdar, A. Mellouki, S. B. Barone,
@@ -1645,7 +1711,8 @@ C***remove wavelength dependence
                      QYZ( LAYS, IWL, IPHOT ) = MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) )
                      QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, QYZ( LAYS, IWL, IPHOT ) )
 
-                  CASE ( 'MEK-06', 'MEK_06' )
+!                 CASE ( 'MEK-06', 'MEK_06' )
+                  CASE ( I_MEK )
 
 C***Quantum Yields from
 C***  Raber, W.H. (1992) PhD Thesis, Johannes Gutenberg-Universitaet, Mainz, Germany.
@@ -1674,7 +1741,8 @@ C***the factor 2.645 normalizes at surface and allows mech.def adjustment
                      QYZ( LAYS, IWL, IPHOT ) = MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) )
                      QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, QYZ( LAYS, IWL, IPHOT ) )
 
-                  CASE ( 'MGLY-06' , 'BACL-07', 'MGLY_06' , 'BACL_07', 'MGLY_IUPAC04' )
+!                 CASE ( 'MGLY-06', 'BACL-07', 'MGLY_06', 'BACL_07', 'MGLY_IUPAC04' )
+                  CASE ( I_MGLY1 )
 
 C***temperature/density correction to quantum yield
 
@@ -1712,7 +1780,8 @@ C***remove wavelength dependence
                      QYZ( LAYS, IWL, IPHOT ) = MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) )
                      QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, QYZ( LAYS, IWL, IPHOT ) )
 
-                  CASE (  'ACRO-09', 'ACRO_09' )
+!                 CASE (  'ACRO-09', 'ACRO_09' )
+                  CASE ( I_ACRO )
 
 C***density correction quantum yield
 
@@ -1737,7 +1806,8 @@ C***  Gardner et. al may support this conclusion.
                      QYZ( LAYS, IWL, IPHOT ) = MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) )
                      QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, QYZ( LAYS, IWL, IPHOT ) )
 
-                  CASE ( 'HCHOM-06', 'HCHOM_06', 'HCHO_MOL_RACM2' )  ! 'CH2O -> H2 + CO'
+!                 CASE ( 'HCHOM-06', 'HCHOM_06', 'HCHO_MOL_RACM2' )  ! 'CH2O -> H2 + CO'
+                  CASE ( I_CH2O )
 
 C***temperature/density correction to quantum yield
 
@@ -1783,7 +1853,8 @@ C***reduce wavelength dependence
 
                      END IF
 
-                  CASE (  'ACET-06' , 'ACET_06', 'ACETONE', 'CH3COCH3_RACM2' ) ! 'CH3COCH3 -> products'
+!                 CASE (  'ACET-06', 'ACET_06', 'ACETONE', 'CH3COCH3_RACM2' ) ! 'CH3COCH3 -> products'
+                  CASE ( I_CH3COCH3 )
 
 C***temperature/density correction to quantum yield
 
@@ -1813,12 +1884,14 @@ C***              pp 283-297, 2000.
 
                      END IF
 
-                  CASE (  'KETONE'  )
+!                 CASE (  'KETONE'  )
+                  CASE ( I_KETONE )
 
                      CSZ( LAYS, IWL, IPHOT ) = CSZ( LAYS, IWL, IPHOT )
      &                                       * 1.0 / ( 1.0 + 0.80E-19 * DENS( LAYS ) )
 
-                  CASE ( 'KET_RACM2', 'HKET_RACM2', 'MEK_RACM2', 'MVK_RACM2' ) ! Ketone treatement from W. Stockwell sbox
+!                 CASE ( 'KET_RACM2', 'HKET_RACM2', 'MEK_RACM2', 'MVK_RACM2' ) ! Ketone treatement from W. Stockwell sbox
+                  CASE ( I_KET_RACM2 )
 
                      IF( QYZ( LAYS, IWL, IPHOT ) .GT. 1.0E-5  )THEN
                          QYZ( LAYS, IWL, IPHOT ) =  1.0 
@@ -1830,7 +1903,8 @@ C***              pp 283-297, 2000.
                          QYZ( LAYS, IWL, IPHOT ) = 0.0
                      END IF
 
-                  CASE ( 'GLYH2_RACM2', 'GLYF_RACM2', 'GLYHX_RACM2', 'MGLY_RACM2'  ) ! glyoxal treatement from W. Stockwell sbox
+!                 CASE ( 'GLYH2_RACM2', 'GLYF_RACM2', 'GLYHX_RACM2', 'MGLY_RACM2'  ) ! glyoxal treatement from W. Stockwell sbox
+                  CASE ( I_GLYOXAL )
 
                      IF( QYZ( LAYS, IWL, IPHOT ) .GT. 1.0E-5  )THEN
                          QYZ( LAYS, IWL, IPHOT ) =  1.0 
@@ -1842,12 +1916,13 @@ C***              pp 283-297, 2000.
                          QYZ( LAYS, IWL, IPHOT ) = 0.0
                      END IF
 
-                  CASE (  'MGLY_ADJ',  'MGLY_ABS' )
+!                 CASE ( 'MGLY_ADJ',  'MGLY_ABS' )
+                  CASE ( I_MGLY2 )
 
                      CSZ( LAYS, IWL, IPHOT ) = CSZ( LAYS, IWL, IPHOT )
      &                                       * 1.0 / ( 1.0 + 1.67E-19 * DENS( LAYS ) )
 
-                  END SELECT
+                END SELECT
 
             END DO     ! loop on IWL
          END DO     ! loop on IPHOT
