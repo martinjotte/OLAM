@@ -105,46 +105,46 @@ Contains
 
        if (idriz >= 1)  then
           allocate (sh_d(mza,mwa)) ; sh_d  = rinit
-          allocate (accpd   (mwa)) ; accpd = rinit
+          allocate (accpd   (mwa)) ; accpd = 0.0
           allocate (pcprd   (mwa)) ; pcprd = rinit
        endif
 
        if (irain >= 1)  then
           allocate (sh_r(mza,mwa)) ; sh_r  = rinit
           allocate (q2  (mza,mwa)) ; q2    = rinit
-          allocate (accpr   (mwa)) ; accpr = rinit
+          allocate (accpr   (mwa)) ; accpr = 0.0
           allocate (pcprr   (mwa)) ; pcprr = rinit
        endif
 
        if (ipris >= 1)  then
           allocate (sh_p(mza,mwa)) ; sh_p  = rinit
-          allocate (accpp   (mwa)) ; accpp = rinit
+          allocate (accpp   (mwa)) ; accpp = 0.0
           allocate (pcprp   (mwa)) ; pcprp = rinit
        endif
 
        if (isnow >= 1)  then
           allocate (sh_s(mza,mwa)) ; sh_s  = rinit
-          allocate (accps   (mwa)) ; accps = rinit
+          allocate (accps   (mwa)) ; accps = 0.0
           allocate (pcprs   (mwa)) ; pcprs = rinit
        endif
 
        if (iaggr >= 1)  then
           allocate (sh_a(mza,mwa)) ; sh_a  = rinit
-          allocate (accpa   (mwa)) ; accpa = rinit
+          allocate (accpa   (mwa)) ; accpa = 0.0
           allocate (pcpra   (mwa)) ; pcpra = rinit
        endif
 
        if (igraup >= 1) then
           allocate (sh_g(mza,mwa)) ; sh_g  = rinit
           allocate (q6  (mza,mwa)) ; q6    = rinit
-          allocate (accpg   (mwa)) ; accpg = rinit
+          allocate (accpg   (mwa)) ; accpg = 0.0
           allocate (pcprg   (mwa)) ; pcprg = rinit
        endif
 
        if (ihail >= 1) then
           allocate (sh_h(mza,mwa)) ; sh_h  = rinit
           allocate (q7  (mza,mwa)) ; q7    = rinit
-          allocate (accph   (mwa)) ; accph = rinit
+          allocate (accph   (mwa)) ; accph = 0.0
           allocate (pcprh   (mwa)) ; pcprh = rinit
        endif
 
