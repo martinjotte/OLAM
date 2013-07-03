@@ -150,6 +150,7 @@ C-------------------------------------------------------------------------------
       use mem_basic,   only: sh_v, theta, rho
       use mem_turb,    only: pblh
       use leaf_coms,   only: nzg, slcpd
+      use hlconst_mod, only: hlconst, hlconst_spcs_init
 
       IMPLICIT NONE
 
@@ -182,7 +183,7 @@ C Local Variables:
       real                       :: glon
       REAL                       :: heff                 ! effective Henry's Law constant
       REAL                       :: heff_ap              ! Henry's Law constant for leaf apoplast M/atm
-      REAL,            EXTERNAL  :: hlconst              ! [M / atm]
+!     REAL,            EXTERNAL  :: hlconst              ! [M / atm]
       REAL                       :: hplus
       REAL,            PARAMETER :: hplus_ap   = 1.0e-6  ! pH=6.0 leaf apoplast solution Ph (Massad et al 2008)
       REAL,            PARAMETER :: hplus_def  = 1.0e-5  ! pH=5.0
@@ -273,9 +274,9 @@ C Local Variables:
                                                               ! react with cell walls. fo in 
                                                               ! Wesely 1989 eq 6.
       REAL, SAVE                 :: scc_pr_23( ltotg )        ! (SCC/PR)**2/3, fn of DIF0
+
       CHARACTER( 16 )            :: subname  ( ltotg )        ! for subroutine HLCONST
       integer, save              :: hlspc    ( ltotg )        ! species index in hlconst
-
       INTEGER                    :: SPC
 
 C-------------------------------------------------------------------------------
@@ -447,6 +448,15 @@ C-------------------------------------------------------------------------------
             END IF
          END DO
 
+         ! Set up Henry's law species indices
+
+         hlspc( : ) = 0
+
+         DO l = 1, n_spc_m3dry
+            IF ( .NOT. use_depspc( l ) ) CYCLE
+            call hlconst_spcs_init ( subname( l ), hlspc( l ) )
+         enddo
+
       END IF   ! first_call
       
 C-------------------------------------------------------------------------------
@@ -582,8 +592,7 @@ C-------------------------------------------------------------------------------
          ! constant.  Note that original M3DRY wants inverse,
          ! non-dimensional Henry's Law (caq/cg).
 
-               heff  = hlconst( subname( l ), tempcr, effective, hplus,
-     &              hlspc( l ) )
+               heff  = hlconst( tempcr, effective, hplus, hlspc( l ) )
 
          ! Make Henry's Law constant non-dimensional.
                
@@ -632,8 +641,7 @@ C-------------------------------------------------------------------------------
 
          ! Bulk stomatal resistance; include mesophyll resistance.
 
-               heff_ap = hlconst( subname( l ), tempcr, effective,
-     &              hplus_ap, hlspc( l ) )
+               heff_ap = hlconst( tempcr, effective, hplus_ap, hlspc( l ) )
 
 !              rstom = rs * dwat / dif0( l )
 !    &               + 1.0 / ( heff_ap / 3000.0 + 100.0 * meso( l ) ) / lai
@@ -850,8 +858,7 @@ C Calculate production (pvd) for HONO; unit = ppm * m/s
          ! dimensional Henry's Law (caq/cg).   Water pH is different
          ! than rain, and we need to use the water temperature.
 
-               heff  = hlconst( subname( l ), tw, effective, hplus_h2o,
-     &              hlspc( l ) )
+               heff  = hlconst( tw, effective, hplus_h2o, hlspc( l ) )
 
          ! Make Henry's Law constant non-dimensional.
 
@@ -879,8 +886,7 @@ C Calculate production (pvd) for HONO; unit = ppm * m/s
          ! constant.  Note that original M3DRY wants inverse,
          ! non-dimensional Henry's Law (caq/cg).
 
-                  heff  = hlconst( subname( l ), tice, effective,
-     &                 hplus_h2o, hlspc( l ) )
+                  heff  = hlconst( tice, effective, hplus_h2o, hlspc( l ) )
 
          ! Make Henry's Law constant non-dimensional
 

@@ -24,57 +24,10 @@ C $Header: /project/yoj/arc/CCTM/src/cloud/cloud_acm_ae5/hlconst.F,v 1.6 2011/10
 C what(1) key, module and SID; SCCS file; date and time of last delta:
 C %W% %P% %G% %U%
 
-      REAL FUNCTION HLCONST ( CNAME, TEMP, EFFECTIVE, HPLUS, spc )
+      module hlconst_mod
 
-C-----------------------------------------------------------------------
-C
-C  FUNCTION: return the Henry's law constant for the specified substance
-C            at the given temperature
-C
-C  revision history:
-C    who        when           what
-C  ---------  --------  -------------------------------------
-C  S.Roselle  08/15/97  code written for Models-3
-C  J.Gipson   06/18/01  added Henry's Law constants 50-55 for saprc99
-C  W.Hutzell  07/03/01  added Henry's Law constants 56-57 for Atrazine
-C                       and the daughter products from Atrazine and OH
-C                       reactions.
-C  J.Gipson.  09/06/02  added Henry's Law constants 59-73   for toxics
-C  S.Roselle  11/07/02  added capability for calculating the effective
-C                       Henry's law constant and updated coefficients
-C                       in Henry's law constant table
-C  J.Gipson   08/06/03  added Henry's Law constants 77-79
-C  G.Sarwar   11/21/04  added constants for chlorine chemistry (Henry's
-C                       law constants 80-85 and dissociation constants
-C                       14-16
-C  R.Bullock  07/05/05  added Henry's Law constants 86-87 for mercury 
-C                       with enthalpy calculated from cited laboratory 
-C                       data fit to an Arrhenius equation
-C  W.Hutzell  02/14/06  added HLC 88 to 116, dissociation constant for
-C                       17 (hydrazine)
-C  A.Carlton  09/20/06  updated Henry's Law constants for 1,7,19,20,21,30 
-C                       O3, NO3, hexane, octane, nonane, methanol and
-C                       isoprene reference
-C  S.Roselle  10/10/07  changed pointers to parameters; reformatted
-C                       variable declarations
-C  W.Hutzell  03/07/08  added Henry's Law constants for 117 to 120
-C  W.Hutzell  01/01/09  added Henry's Law constants for 121 to 125 for
-C                       for SAPRC07T mechanism                 
-C  S.Roselle  03/01/11  replaced I/O API include files with UTILIO_DEFN;
-C                       removed deprecated TRIMLEN
-C-----------------------------------------------------------------------
-
-!     USE UTILIO_DEFN
-      use m3utils
-
-      IMPLICIT NONE
-
-C...........INCLUDES and their descriptions
-
-C...........PARAMETERS and their descriptions:
-
-      INTEGER, PARAMETER :: MXSPCS = 125     ! Number of substances
-      INTEGER, PARAMETER :: MXDSPCS = 17     ! Number of dissociating species
+      INTEGER, PARAMETER :: MXSPCS = 125   ! Number of substances
+      INTEGER, PARAMETER :: MXDSPCS = 17   ! Number of dissociating species
 
 C...pointers for the dissociation constants (array B and D)
 
@@ -96,32 +49,7 @@ C...pointers for the dissociation constants (array B and D)
       INTEGER, PARAMETER :: LHCL       = 16  ! HCL
       INTEGER, PARAMETER :: LHYDRAZINE = 17  ! Hydrazine
 
-C...........ARGUMENTS and their descriptions
-
-      CHARACTER(*), intent(in)    :: CNAME     ! name of substance
-      REAL,         intent(in)    :: TEMP      ! temperature (K)
-      LOGICAL,      intent(in)    :: EFFECTIVE ! true=compute the effective henry's law constant
-      REAL,         intent(in)    :: HPLUS     ! hydrogen ion concentration (mol/l)
-      integer,      intent(inout) :: spc       ! species index
-
-C...........SCRATCH LOCAL VARIABLES and their descriptions:
-
-      CHARACTER( 16 ), SAVE :: PNAME = 'HLCONST'  ! program name
       CHARACTER( 16 ), SAVE :: SUBNAME( MXSPCS )  ! list of substance names
-
-      CHARACTER( 120 ) :: XMSG = ' '    ! exit status message string
-
-!     INTEGER       SPC                 ! species index
-
-      REAL          HPLUSI              ! 1 / HPLUS
-      REAL          HPLUS2I             ! 1 / HPLUS**2
-      REAL          CLMINUS             ! chlorine ion conc [CL-]
-      REAL          CLMINUSI            ! 1 / CLMINUS
-      REAL          TFAC                ! (298-T)/(T*298)
-      REAL          AKEQ1               ! temp var for dissociation constant
-      REAL          AKEQ2               ! temp var for dissociation constant
-      REAL          OHION               ! OH ion concentration
-      REAL          KH                  ! temp var for henry's law constant
 
 C...Henry's law constant data taken mostly from Rolf Sanders' Compilation of
 C...  Henry's Law Constants for Inorganic and Organic Species of Potential
@@ -262,23 +190,113 @@ C...  Atmospheric Chemistry and Physics, 1997
       DATA SUBNAME(124), A(124), E(124) / 'NITRYL_CHLORIDE ', 2.43E-02, 0.0E+00 / ! Behnke et al. (1997), JGR, D102, 3795-3804
       DATA SUBNAME(125), A(125), E(125) / 'HEXYL_HYDROPEROX', 1.23E+01, 0.0E+00 / ! Bond Estimated by EPA SUITE PROGRAM  (2007)
 
-      DATA B( LSO2   ), D( LSO2   ) / 1.30E-02,  1.96E+03 /  ! SO2*H2O<=>HSO3+H     : Smith and Martell (1976)
-      DATA B( LHSO3  ), D( LHSO3  ) / 6.60E-08,  1.50E+03 /  ! HSO3<=>SO3+H         : Smith and Martell (1976)
-      DATA B( LHNO2  ), D( LHNO2  ) / 5.10E-04, -1.26E+03 /  ! HNO2(aq)<=>NO2+H     : Schwartz and White (1981)
-      DATA B( LHNO3  ), D( LHNO3  ) / 1.54E+01,  8.70E+03 /  ! HNO3(aq)<=>NO3+H     : Schwartz (1984)
-      DATA B( LCO2   ), D( LCO2   ) / 4.30E-07, -1.00E+03 /  ! CO2*H2O<=>HCO3+H     : Smith and Martell (1976)
-      DATA B( LHCO3  ), D( LHCO3  ) / 4.68E-11, -1.76E+03 /  ! HCO3<=>CO3+H         : Smith and Martell (1976)
-      DATA B( LH2O2  ), D( LH2O2  ) / 2.20E-12, -3.73E+03 /  ! H2O2(aq)<=>HO2+H     : Smith and Martell (1976)
-      DATA B( LHCHO  ), D( LHCHO  ) / 2.53E+03,  4.02E+03 /  ! HCHO(aq)<=>H2C(OH)2  : Le Hanaf (1968)
-      DATA B( LHCOOH ), D( LHCOOH ) / 1.80E-04, -2.00E+01 /  ! HCOOH(aq)<=>HCOO+H   : Martell and Smith (1977)
-      DATA B( LHO2   ), D( LHO2   ) / 3.50E-05,  0.00E+00 /  ! HO2(aq)<=>H+O2       : Perrin (1982)
-      DATA B( LNH4OH ), D( LNH4OH ) / 1.70E-05, -4.50E+02 /  ! NH4*OH<=>NH4+OH      : Smith and Martell (1976)
-      DATA B( LH2O   ), D( LH2O   ) / 1.00E-14, -6.71E+03 /  ! H2O<=>H+OH           : Smith and Martell (1976)
-      DATA B( LATRA  ), D( LATRA  ) / 2.09E-02,  0.00E+00 /  ! C8H14ClN5<=>C8H13ClN5+H  : Weber (1970)
-      DATA B( LCL2   ), D( LCL2   ) / 5.01E-04,  0.00E+00 /  ! CL2*H2O <=> HOCL + H + CL : LIN AND PEHKONEN, JGR, 103, D21, 28093-28102, NOVEMBER 20, 1998. ALSO SEE NOTE BELOW
-      DATA B( LHOCL  ), D( LHOCL  ) / 3.16E-08,  0.00E+00 /  ! HOCL <=>H + OCL      : LIN AND PEHKONEN, JGR, 103, D21, 28093-28102, NOVEMBER 20, 1998
-      DATA B( LHCL   ), D( LHCL   ) / 1.74E+06,  6.90E+03 /  ! HCL <=> H + CL       : Marsh and McElroy (1985)
+      DATA B( LSO2      ), D( LSO2      ) / 1.30E-02,  1.96E+03 /  ! SO2*H2O<=>HSO3+H     : Smith and Martell (1976)
+      DATA B( LHSO3     ), D( LHSO3     ) / 6.60E-08,  1.50E+03 /  ! HSO3<=>SO3+H         : Smith and Martell (1976)
+      DATA B( LHNO2     ), D( LHNO2     ) / 5.10E-04, -1.26E+03 /  ! HNO2(aq)<=>NO2+H     : Schwartz and White (1981)
+      DATA B( LHNO3     ), D( LHNO3     ) / 1.54E+01,  8.70E+03 /  ! HNO3(aq)<=>NO3+H     : Schwartz (1984)
+      DATA B( LCO2      ), D( LCO2      ) / 4.30E-07, -1.00E+03 /  ! CO2*H2O<=>HCO3+H     : Smith and Martell (1976)
+      DATA B( LHCO3     ), D( LHCO3     ) / 4.68E-11, -1.76E+03 /  ! HCO3<=>CO3+H         : Smith and Martell (1976)
+      DATA B( LH2O2     ), D( LH2O2     ) / 2.20E-12, -3.73E+03 /  ! H2O2(aq)<=>HO2+H     : Smith and Martell (1976)
+      DATA B( LHCHO     ), D( LHCHO     ) / 2.53E+03,  4.02E+03 /  ! HCHO(aq)<=>H2C(OH)2  : Le Hanaf (1968)
+      DATA B( LHCOOH    ), D( LHCOOH    ) / 1.80E-04, -2.00E+01 /  ! HCOOH(aq)<=>HCOO+H   : Martell and Smith (1977)
+      DATA B( LHO2      ), D( LHO2      ) / 3.50E-05,  0.00E+00 /  ! HO2(aq)<=>H+O2       : Perrin (1982)
+      DATA B( LNH4OH    ), D( LNH4OH    ) / 1.70E-05, -4.50E+02 /  ! NH4*OH<=>NH4+OH      : Smith and Martell (1976)
+      DATA B( LH2O      ), D( LH2O      ) / 1.00E-14, -6.71E+03 /  ! H2O<=>H+OH           : Smith and Martell (1976)
+      DATA B( LATRA     ), D( LATRA     ) / 2.09E-02,  0.00E+00 /  ! C8H14ClN5<=>C8H13ClN5+H  : Weber (1970)
+      DATA B( LCL2      ), D( LCL2      ) / 5.01E-04,  0.00E+00 /  ! CL2*H2O <=> HOCL + H + CL : LIN AND PEHKONEN, JGR, 103, D21, 28093-28102, NOVEMBER 20, 1998. ALSO SEE NOTE BELOW
+      DATA B( LHOCL     ), D( LHOCL     ) / 3.16E-08,  0.00E+00 /  ! HOCL <=>H + OCL      : LIN AND PEHKONEN, JGR, 103, D21, 28093-28102, NOVEMBER 20, 1998
+      DATA B( LHCL      ), D( LHCL      ) / 1.74E+06,  6.90E+03 /  ! HCL <=> H + CL       : Marsh and McElroy (1985)
       DATA B( LHYDRAZINE), D( LHYDRAZINE) / 1.11E-08,  0.00E+00 /  ! HYDRAZINE <=> HYDRAZINE+ + OH-  : Moliner and Street (1989)
+
+
+      contains
+
+
+      subroutine hlconst_spcs_init ( cname, spc )
+
+      use m3utils
+      implicit none
+
+      CHARACTER(*), intent(in)  :: CNAME ! name of substance
+      integer,      intent(out) :: spc   ! species index in hlconst table
+
+      SPC = INDEX1( CNAME, MXSPCS, SUBNAME )
+
+      end subroutine hlconst_spcs_init
+
+
+      REAL FUNCTION HLCONST ( TEMP, EFFECTIVE, HPLUS, spc )
+
+C-----------------------------------------------------------------------
+C
+C  FUNCTION: return the Henry's law constant for the specified substance
+C            at the given temperature
+C
+C  revision history:
+C    who        when           what
+C  ---------  --------  -------------------------------------
+C  S.Roselle  08/15/97  code written for Models-3
+C  J.Gipson   06/18/01  added Henry's Law constants 50-55 for saprc99
+C  W.Hutzell  07/03/01  added Henry's Law constants 56-57 for Atrazine
+C                       and the daughter products from Atrazine and OH
+C                       reactions.
+C  J.Gipson.  09/06/02  added Henry's Law constants 59-73   for toxics
+C  S.Roselle  11/07/02  added capability for calculating the effective
+C                       Henry's law constant and updated coefficients
+C                       in Henry's law constant table
+C  J.Gipson   08/06/03  added Henry's Law constants 77-79
+C  G.Sarwar   11/21/04  added constants for chlorine chemistry (Henry's
+C                       law constants 80-85 and dissociation constants
+C                       14-16
+C  R.Bullock  07/05/05  added Henry's Law constants 86-87 for mercury 
+C                       with enthalpy calculated from cited laboratory 
+C                       data fit to an Arrhenius equation
+C  W.Hutzell  02/14/06  added HLC 88 to 116, dissociation constant for
+C                       17 (hydrazine)
+C  A.Carlton  09/20/06  updated Henry's Law constants for 1,7,19,20,21,30 
+C                       O3, NO3, hexane, octane, nonane, methanol and
+C                       isoprene reference
+C  S.Roselle  10/10/07  changed pointers to parameters; reformatted
+C                       variable declarations
+C  W.Hutzell  03/07/08  added Henry's Law constants for 117 to 120
+C  W.Hutzell  01/01/09  added Henry's Law constants for 121 to 125 for
+C                       for SAPRC07T mechanism                 
+C  S.Roselle  03/01/11  replaced I/O API include files with UTILIO_DEFN;
+C                       removed deprecated TRIMLEN
+C-----------------------------------------------------------------------
+
+!     USE UTILIO_DEFN
+      use m3utils
+
+      IMPLICIT NONE
+
+C...........INCLUDES and their descriptions
+
+C...........ARGUMENTS and their descriptions
+
+      REAL,         intent(in) :: TEMP      ! temperature (K)
+      LOGICAL,      intent(in) :: EFFECTIVE ! true=compute the effective henry's law constant
+      REAL,         intent(in) :: HPLUS     ! hydrogen ion concentration (mol/l)
+      integer,      intent(in) :: spc       ! species index
+
+C...........SCRATCH LOCAL VARIABLES and their descriptions:
+
+      CHARACTER( 16 ), SAVE :: PNAME = 'HLCONST'  ! program name
+
+      CHARACTER( 120 ) :: XMSG = ' '    ! exit status message string
+
+!     INTEGER       SPC                 ! species index
+
+      REAL          HPLUSI              ! 1 / HPLUS
+      REAL          HPLUS2I             ! 1 / HPLUS**2
+      REAL          CLMINUS             ! chlorine ion conc [CL-]
+      REAL          CLMINUSI            ! 1 / CLMINUS
+      REAL          TFAC                ! (298-T)/(T*298)
+      REAL          AKEQ1               ! temp var for dissociation constant
+      REAL          AKEQ2               ! temp var for dissociation constant
+      REAL          OHION               ! OH ion concentration
+      REAL          KH                  ! temp var for henry's law constant
+
 
       integer, parameter :: I_SO2         =  12
       integer, parameter :: I_HNO2        =   9
@@ -303,16 +321,12 @@ C...  Atmospheric Chemistry and Physics, 1997
 !-------------------------------------------------------------------------------
 
 C-----------------------------------------------------------------------
-C  begin body of subroutine HLCONST
-
-      if (spc < 1 .or. spc > mxspcs) then
-         SPC = INDEX1( CNAME, MXSPCS, SUBNAME )
-      endif
+!  begin body of function HLCONST
 
 C...error if species not found in table
 
-      IF ( SPC .LE. 0 ) THEN
-        XMSG = TRIM( CNAME ) // ' not found in Henry''s '//
+      IF ( SPC < 1 .or. SPC > MXSPCS ) THEN
+        XMSG = 'Species not found in Henry''s '//
      &         ' Law Constant table in routine HLCONST.'
         CALL M3EXIT ( PNAME, 0, 0, XMSG, XSTAT2 )
       END IF
@@ -446,4 +460,6 @@ C...assign a value for clminus.  use 2.0 mM based on Lin and Pehkonene, 1998, JG
       END IF
 
       RETURN
-      END
+      END FUNCTION HLCONST
+
+      end module hlconst_mod

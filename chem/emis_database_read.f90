@@ -111,18 +111,18 @@ if (iaction == 0) then
    allocate(ctotdate_emis(nemisfiles+2))
    allocate(s1900_emis   (nemisfiles+2))
 
-   emis_files( 1) = '../chem/emis/global_emis_cb05_01.nc4'
-   emis_files( 2) = '../chem/emis/global_emis_cb05_02.nc4'
-   emis_files( 3) = '../chem/emis/global_emis_cb05_03.nc4'
-   emis_files( 4) = '../chem/emis/global_emis_cb05_04.nc4'
-   emis_files( 5) = '../chem/emis/global_emis_cb05_05.nc4'
-   emis_files( 6) = '../chem/emis/global_emis_cb05_06.nc4'
-   emis_files( 7) = '../chem/emis/global_emis_cb05_07.nc4'
-   emis_files( 8) = '../chem/emis/global_emis_cb05_08.nc4'
-   emis_files( 9) = '../chem/emis/global_emis_cb05_09.nc4'
-   emis_files(10) = '../chem/emis/global_emis_cb05_10.nc4'
-   emis_files(11) = '../chem/emis/global_emis_cb05_11.nc4'
-   emis_files(12) = '../chem/emis/global_emis_cb05_12.nc4'
+   emis_files( 1) = 'emis/global_emis_cb05_01.nc4'
+   emis_files( 2) = 'emis/global_emis_cb05_02.nc4'
+   emis_files( 3) = 'emis/global_emis_cb05_03.nc4'
+   emis_files( 4) = 'emis/global_emis_cb05_04.nc4'
+   emis_files( 5) = 'emis/global_emis_cb05_05.nc4'
+   emis_files( 6) = 'emis/global_emis_cb05_06.nc4'
+   emis_files( 7) = 'emis/global_emis_cb05_07.nc4'
+   emis_files( 8) = 'emis/global_emis_cb05_08.nc4'
+   emis_files( 9) = 'emis/global_emis_cb05_09.nc4'
+   emis_files(10) = 'emis/global_emis_cb05_10.nc4'
+   emis_files(11) = 'emis/global_emis_cb05_11.nc4'
+   emis_files(12) = 'emis/global_emis_cb05_12.nc4'
 
 !!! Initialize sst cyclic flag to zero
 !!
