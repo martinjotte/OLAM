@@ -38,12 +38,13 @@ subroutine isan_file_inv()
 
   implicit none
 
-  integer :: n, nf, lnf, lns, istat, nfsize
+  integer :: n, nf, lnf, lns, istat, nfsize, islash
   integer :: iyear, imonth, idate, ihour
   logical :: exists
 
   character(pathlen), allocatable :: fnames_tmp(:)
   character(pathlen)              :: filename
+  character(pathlen)              :: dir_prefix
 
   integer, parameter :: iun = 98
   integer, parameter :: incr = 500
@@ -67,9 +68,19 @@ subroutine isan_file_inv()
         write(*,*) "file_inv: Error opening file list " // trim(iapr(n))
         stop       "File listing first-guess fields cannot be found"
      endif
-     
+
      open(unit=iun, file=iapr(n), status="OLD", action="READ")
-   
+
+     ! Store the seaice_database directory prefix
+
+     islash = index( iapr(n), '/', back=.true. )
+
+     if (islash > 0) then
+        dir_prefix = iapr(n)(1:islash)
+     else
+        dir_prefix = ''
+     endif
+
    ! Loop until the end-of file
 
    do while (.true.)
@@ -81,6 +92,16 @@ subroutine isan_file_inv()
       
       ! Skip over any blank lines in filelist
       IF (len_trim(filename) < 1) cycle
+
+      ! Remove leading blanks from filenames
+      filename = adjustl(filename)
+
+      ! If the filename is a relative path, make it relative 
+      ! to the text listing path
+
+      if ( filename(1:1) /= '/' .and. filename(1:1) /= '~' ) then
+         if ( islash > 0 ) filename = trim(dir_prefix) // trim(filename)
+      endif
 
       nfgfiles = nfgfiles + 1
       nfsize   = size(fnames_tmp)
