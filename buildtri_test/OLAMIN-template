@@ -400,18 +400,16 @@
                 0.55, 0.55, 0.55, 0.55, 0.55
 
    NL%LANDUSEFILE = 'sfcfiles/landh'      ! path/prefix for landuse file. 
-   NL%SEAFILE     = 'sfcfiles/seah'       ! path/prefix for landuse file. 
+   NL%SEAFILE     = 'sfcfiles/seah'       ! path/prefix for sea file. 
 
-   NL%IVEGFLG    = 1   ! 2 = Use default value assigned in subroutine
-   NL%ISOILFLG   = 1   !     mksfc.f90
-   NL%NDVIFLG    = 1   ! 
-   NL%ISSTFLG    = 1   ! 1 = Read data from standard database file
-   NL%ISEAICEFLG = 1   !
-                       ! ISSTFLG or ISEAICEFLG = 0 means that
-                       ! the respective database name below points to a
-                       ! .txt list of files, not the path and basename,
-                       ! in a new schema to avoid call systems
+   NL%IVEGFLG    = 1      ! 1 -- Read data from standard database file
+   NL%ISOILFLG   = 1      ! 2 -- Use default value assigned in mksfc.f90
+   NL%NDVIFLG    = 1      ! 
 
+   NL%ISSTFLG    = 1      ! 0 -- use default seatmp, seaice value set below
+   NL%ISEAICEFLG = 1      ! 1 -- read data from standard database file
+                          ! 2 -- read from degribbed analysis files
+ 
    NL%ISOILSTATEINIT = 0  ! 0 -- default initialization based on landuse
                           ! 1 -- read from NCEP/NCAR netcdf reanalysis
                           ! 2 -- read from initial analysis files
@@ -427,11 +425,15 @@
    NL%VEG_DATABASE    = '../../olamdatah5/oge2/OGE2_'
    NL%SOIL_DATABASE   = '../../olamdatah5/fao/FAO_'
    NL%NDVI_DATABASE   = '../../olamdatah5/ndvi/NDVI'
-   NL%SST_DATABASE    = '../../olamdatah5/sst7100/SST'
-   NL%SEAICE_DATABASE = '../../olamdatah5/ice8100/ICE'
    NL%SOILSTATE_DB    = './dp_etc/STW-'
    NL%SOILDEPTH_DB    = '../../olamdatah5/SOIL_DEPTHS.h5'
    NL%WATERTAB_DB     = '../../olamdatah5/wtd/WTD'
+
+ ! These point to a .txt listing of sst/seaice files, and are used only
+ ! if isstflg/iseaiceflg = 1
+
+   NL%SST_DATABASE    = '../../olamdatah5/sst7100/sstfiles.txt'
+   NL%SEAICE_DATABASE = '../../olamdatah5/ice8100/icefiles.txt'
 
  ! Update flags for surface data
 
@@ -439,7 +441,8 @@
    NL%IUPDSST    = 0  ! 0/1 = No/Yes update of SST values during run
    NL%IUPDSEAICE = 0  ! 0/1 = No/Yes update of SST values during run
  
-   NL%SEATMP   = 280.   ! Water surface temperature (K) if ISSTFLG = 2
+   NL%SEATMP   = 280.0   ! Water surface temperature (K) if ISSTFLG = 2
+   NL%SEAICE   =   0.0   ! Seaice fraction (0 - 1) if ISEAICEFLG = 0
 
    NL%NVGCON   = 8      ! LEAF-3 class if IVEGFLG = 2 (choices listed below:)
    

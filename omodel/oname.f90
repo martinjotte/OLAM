@@ -100,7 +100,7 @@ use leaf_coms,   only: nvgcon, nslcon, slmstr, isoilflg, ndviflg, &
                        soilstate_db, soildepth_db, watertab_db
 
 use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst, &
-                       iseaiceflg, seaice_database, iupdseaice
+                       iseaiceflg, seaice_database, seaice, iupdseaice
 
 use oplot_coms,  only: op
 use isan_coms,   only: iapr
@@ -200,6 +200,7 @@ if (copy_type == 'ALL_CASES') then
    confrq        = nl%confrq
    wcldbs        = nl%wcldbs
    seatmp        = nl%seatmp
+   seaice        = nl%seaice
    level         = nl%level
    icloud        = nl%icloud
    idriz         = nl%idriz

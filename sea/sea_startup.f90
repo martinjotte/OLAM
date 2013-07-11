@@ -33,7 +33,7 @@
 subroutine sea_startup()
 
 use sea_coms,  only: mms, mus, mws, isstflg, seatmp,  &
-                     iupdsst, iseaiceflg, iupdseaice
+                     iupdsst, iseaiceflg, iupdseaice, seaice
 
 use mem_sea,   only: sea, alloc_sea, filltab_sea
 
@@ -59,7 +59,7 @@ call filltab_sea()
 ! STEP 2a: Fill sst values
 !-------------------------------------------------------------------------------
 
-if (isstflg == 2) then
+if (isstflg == 0) then
 
 ! Default initialization of SST
 
@@ -87,13 +87,13 @@ endif
 ! STEP 2b: Fill sea ice values
 !-------------------------------------------------------------------------------
 
-if (iseaiceflg == 2) then
+if (iseaiceflg == 0) then
 
 ! Default initialization of SEAICE
 
    do iws = 2,mws
-      sea%seaicep(iws) = 0.
-      sea%seaicef(iws) = 0.
+      sea%seaicep(iws) = seaice
+      sea%seaicef(iws) = seaice
    enddo
 
 elseif (runtype /= 'PLOTONLY' .and. runtype /= 'PARCOMBINE') then

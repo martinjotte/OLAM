@@ -38,7 +38,6 @@ Module max_dims
       ,maxremote    = 30    & ! Max # of remote send/recv processes
       ,nzgmax       = 25    & ! Max # of soil levels
       ,maxsndg      = 200   & ! Max # of vertical levels for the input sounding
-      ,maxsstfiles  = 2000  & ! Max # of input SST files
       ,maxndvifiles = 2000  & ! Max # of input NDVI files
       ,maxisdirs    = 30    & ! Max # of directories that contain data files
       ,maxpr        = 100   & ! Max # of press levels in the input data files

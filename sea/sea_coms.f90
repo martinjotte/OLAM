@@ -39,11 +39,13 @@ Module sea_coms
 ! only read and not written, and may be safely treated as shared memory.
 !--------------------------------------------------------------------------
 
-   use max_dims,    only: maxsstfiles, pathlen
+   use max_dims,    only: pathlen
    use consts_coms, only: r8
+
    implicit none
 
-   private :: maxsstfiles, pathlen, r8
+   ! Don't re-export symbols from other modules
+   private :: pathlen, r8
 
    character(pathlen) :: seafile
 
@@ -51,17 +53,19 @@ Module sea_coms
    integer            :: nsstfiles, isstfile, isstflg
    integer            :: iupdsst, isstcyclic
    character(pathlen) :: sst_database
-   character(pathlen) :: fnames_sst(maxsstfiles)
-   character(14)      :: ctotdate_sst(maxsstfiles)
-   real(r8)           :: s1900_sst(maxsstfiles)
+
+   character(pathlen), allocatable :: fnames_sst  (:)
+   character(14),      allocatable :: ctotdate_sst(:)
+   real(r8),           allocatable :: s1900_sst   (:)
 
    ! SEAICE VARIABLES
    integer            :: nseaicefiles, iseaicefile, iseaiceflg
    integer            :: iupdseaice, iseaicecyclic
    character(pathlen) :: seaice_database
-   character(pathlen) :: fnames_seaice  (maxsstfiles)
-   character(14)      :: ctotdate_seaice(maxsstfiles)
-   real(r8)           :: s1900_seaice(maxsstfiles)
+
+   character(pathlen), allocatable :: fnames_seaice  (:)
+   character(14),      allocatable :: ctotdate_seaice(:)
+   real(r8),           allocatable :: s1900_seaice   (:)
 
    integer :: nms  ! Total # of sea cell M pts in model domain
    integer :: nus  ! Total # of sea cell U pts in model domain
@@ -71,7 +75,8 @@ Module sea_coms
    integer :: mus  ! Total # of sea cell U pts in model parallel sub_domain
    integer :: mws  ! Total # of sea cell W pts in model parallel sub-domain
 
-   real :: seatmp     ! default sea sfc temp [K]
+   real :: seatmp     ! default sea sfc temperature [K]
+   real :: seaice     ! default sea ice fraction [0-1]
    real :: dt_sea     ! sea timestep [s]
 
    integer, parameter :: nzi    = 3      ! max number of seaice layers
@@ -79,7 +84,5 @@ Module sea_coms
    real,    parameter :: emw    = 1.0    ! emissivity of water
    real,    parameter :: t00sea = 271.38 ! Freezing temperature of sea water [K]
 
-   
-   
 End Module sea_coms
 
