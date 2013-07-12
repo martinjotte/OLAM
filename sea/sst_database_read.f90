@@ -30,12 +30,13 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
+
 subroutine sst_database_read(iaction)
 
   use mem_sea,     only: sea, itab_ws
 
-  use sea_coms,    only: mms, mws, iupdsst, isstcyclic, nsstfiles,  &
-                         fnames_sst, ctotdate_sst, s1900_sst,       &
+  use sea_coms,    only: mws, iupdsst, isstcyclic, nsstfiles,  &
+                         fnames_sst, ctotdate_sst, s1900_sst,  &
                          isstfile, sst_database, isstflg
 
   use misc_coms,   only: io6, iyear1, imonth1, idate1, itime1, timmax8,  &
@@ -80,6 +81,10 @@ subroutine sst_database_read(iaction)
 
   logical :: exists
 
+! Nothing to do here if isstflg is not 1
+
+  if (isstflg /= 1) return
+
 ! This subroutine is simpler than topm_database because it assumes that 
 ! each sst_database file covers the entire geographic area of the model.
 ! If this ever changes, this subroutine must be modified.
@@ -96,20 +101,6 @@ subroutine sst_database_read(iaction)
 
      isstcyclic = 0
      nsstfiles  = 0
-
-   ! new schema to avoid call systems
-!!   IF (isstflg == 0) THEN
-!      flnm = TRIM(sst_database)
-!      nocall = .TRUE.
-!      isstflg = 1
-
-!!   ELSE
-!!      flnm = TRIM(sst_database)//'??????????.h5'
-!!      nocall = .FALSE.
-!!   ENDIF
-
-!!     write(io6,*) 'Checking for sst database files'
-!!     CALL OLAM_filelist(fnames_sst, maxsstfiles, flnm, nsstfiles, nocall)
 
      ! Open the sst filelist and read through the files
 

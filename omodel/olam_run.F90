@@ -692,7 +692,7 @@ use misc_coms,   only: io6, time8, dtlm, iflag, frqstate, timmax8, initial, &
                        itime1
 use leaf_coms,   only: isfcl, iupdndvi, indvifile, s1900_ndvi
 use sea_coms,    only: iupdsst, iupdseaice, isstfile, iseaicefile,  &
-                       s1900_sst, s1900_seaice
+                       s1900_sst, s1900_seaice, isstflg, iseaiceflg
 use oplot_coms,  only: op
 use mem_nudge,   only: nudflag
 use isan_coms,   only: ifgfile, s1900_fg
@@ -760,14 +760,26 @@ if (nl%test_case == 2 .or. nl%test_case == 5) then
 endif
 
 if (isfcl == 1 .and. iupdsst == 1) then
-   if (s1900_sim >= s1900_sst(isstfile) .and. time8p < timmax8) then
-      call sst_database_read(1)
+   if (isstflg == 1) then
+      if (s1900_sim >= s1900_sst(isstfile) .and. time8p < timmax8) then
+         call sst_database_read(1)
+      endif
+   elseif (isstflg == 2) then
+      if (s1900_sim >= s1900_fg(isstfile) .and. time8p < timmax8) then
+         call read_sst_analysis(1)
+      endif
    endif
 endif
 
 if (isfcl == 1 .and. iupdseaice == 1) then
-   if (s1900_sim >= s1900_seaice(iseaicefile) .and. time8p < timmax8) then
-      call seaice_database_read(1)
+   if (iseaiceflg == 1) then
+      if (s1900_sim >= s1900_seaice(iseaicefile) .and. time8p < timmax8) then
+         call seaice_database_read(1)
+      endif
+   elseif (iseaiceflg == 2) then
+      if (s1900_sim >= s1900_fg(iseaicefile) .and. time8p < timmax8) then
+         call read_seaice_analysis(1)
+      endif
    endif
 endif
 

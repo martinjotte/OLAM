@@ -30,6 +30,7 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
+
 subroutine seaice_database_read(iaction)
 
   use mem_sea,     only: sea, itab_ws
@@ -79,6 +80,10 @@ subroutine seaice_database_read(iaction)
   integer, parameter :: incr = 500
 
   logical :: exists
+
+! Nothing to do here if iseaiceflg is not 1
+
+  if (iseaiceflg /= 1) return
 
 ! This subroutine is simpler than topm_database because it assumes that 
 ! each seaice_database file covers the entire geographic area of the model.
