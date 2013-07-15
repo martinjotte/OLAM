@@ -1,0 +1,46 @@
+--- wgrib.c.orig	2010-07-06 09:06:35.000000000 -0400
++++ wgrib.c	2010-07-06 09:09:46.000000000 -0400
+@@ -704,10 +704,14 @@
+ 	open_parm[0] = append ? 'a' : 'w'; open_parm[1] = 'b'; open_parm[2] = '\0';
+ 	if (output_type == TEXT) open_parm[1] = '\0';
+ 
+-	if ((dump_file = fopen(dump_file_name,open_parm)) == NULL) {
++	if (strcmp(dump_file_name,"-") != 0) {
++	  if ((dump_file = fopen(dump_file_name,open_parm)) == NULL) {
+ 	    fprintf(stderr,"could not open dump file\n");
+ 	    exit(8);
+-        }
++	  }
++	} else {
++	  dump_file = stdout;
++	}
+ 	if (header == dwd && output_type == GRIB) wrtieee_header(0, dump_file);
+     }
+ 
+@@ -857,7 +861,7 @@
+         }
+ #endif
+  
+-        if (verbose <= 0) {
++        if (verbose <= 0 && dump_file != stdout) {
+ 	    printf("%ld:%lu:d=", count, pos);
+ 	    PDS_date(pds,year_4,v_time);
+ 	    printf(":%s:", k5toa(pds));
+@@ -876,7 +880,7 @@
+ 	    if (gds && (print_GDS || print_GDS10)) print_gds(gds, print_GDS, print_GDS10, verbose);
+             printf("\n");
+        }
+-       else if (verbose == 1) {
++       else if (verbose == 1 && dump_file != stdout) {
+ 	    printf("%ld:%lu:D=", count, pos);
+             PDS_date(pds, 1, v_time);
+ 	    printf(":%s:", k5toa(pds));
+@@ -893,7 +897,7 @@
+ 	    if (gds && (print_GDS || print_GDS10)) print_gds(gds, print_GDS, print_GDS10, verbose);
+             printf("\n");
+ 	}
+-        else if (verbose == 2) {
++        else if (verbose == 2 && dump_file != stdout) {
+ 	    printf("rec %ld:%lu:date ", count, pos);
+ 	    PDS_date(pds, 1, v_time);
+ 	    printf(" %s kpds5=%d kpds6=%d kpds7=%d levels=(%d,%d) grid=%d ", 
