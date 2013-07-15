@@ -58,7 +58,7 @@ C_COMP=cc
 C_OPTS=-O3
 
 JASPER_INCS=-I/usr/local/include
-JASPER_LIBS=-L/usr/local/lib -ljasper
+JASPER_LIBS=-L/usr/local/lib -ljasper -ljpeg
 
 PNG_INCS=-I/usr/local/include
 PNG_LIBS=-L/usr/local/lib -lpng -lz
