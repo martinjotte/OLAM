@@ -1,6 +1,6 @@
 .SUFFIXES:
 .SUFFIXES: .F90 .f90 .c .o
-.PHONY: all clean
+.PHONY: all clean wgrib2
 
 include ./include.mk
 
@@ -10,6 +10,8 @@ include ./include.mk
 F_COMMAND = $(F_COMP) -c $(F_OPTS) $(FORT_INCS)
 C_COMMAND = $(C_COMP) -c $(C_OPTS) $(DEFINES)
 
+WGRIB2_FLAGS  = $(C_OPTS) $(PNG_INCS) $(JASPER_INCS) -DUSE_PNG -DUSE_JPEG2000
+WGRIB2_LDFLGS = $(C_OPTS) $(JASPER_LIBS) $(PNG_LIBS)
 #
 #     Define run archive and executable file names.
 #
@@ -24,7 +26,6 @@ OBJS = grib2olam.o  \
        tokenize.o   \
        hdf5_utils.o \
        hdf5_f2f.o   \
-       look_ssth5.o \
        relax.o
 
 # Rules
@@ -40,7 +41,7 @@ OBJS = grib2olam.o  \
 
 # Define targets
 
-all:  $(EXE) wgrib
+all:  $(EXE) wgrib wgrib2
 
 $(EXE): $(OBJS)
 	@echo ""
@@ -56,9 +57,17 @@ wgrib: wgrib_patched.c
 	@echo Finished building wgrib
 	@echo ""
 
+wgrib2:
+	@echo "Compiling wgrib2 executable"
+	$(MAKE) -C wgrib2_src CC="$(C_COMP)" CFLAGS="$(WGRIB2_FLAGS)" LDFLAGS="$(WGRIB2_LDFLGS)"
+	mv wgrib2_src/wgrib2 ./
+	@echo Finished building wgrib2
+	@echo ""
+
 clean:
 	@echo ""
-	rm -f $(EXE) $(OBJS) *.mod wgrib wgrib_patched.o
+	rm -f $(EXE) $(OBJS) *.mod wgrib wgrib_patched.o wgrib2
+	make -C wgrib2_src clean
 	@echo ""
 
 # Dependencies

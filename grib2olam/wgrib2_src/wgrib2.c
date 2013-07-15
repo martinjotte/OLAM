@@ -129,7 +129,7 @@ int main(int argc, char **argv) {
 //    jas_init();
 
 //  gctpc initialiation
-    init(-1,-1,"gctpc_1,txt", "gctpc_2.txt");
+//    init(-1,-1,"gctpc_1,txt", "gctpc_2.txt");
 
     /* no arguments .. help screen */
     if (argc == 1) {
@@ -489,9 +489,9 @@ int main(int argc, char **argv) {
 
             if (latlon) {
 		i = 1;
-		if (use_gctpc && output_order == wesn) {		/* use gctpc to get lat lon values */
-		   i = gctpc_get_latlon(sec, &lon, &lat);
-		}
+//		if (use_gctpc && output_order == wesn) {		/* use gctpc to get lat lon values */
+//		   i = gctpc_get_latlon(sec, &lon, &lat);
+//		}
 		if (i) get_latlon(sec, &lon, &lat);			 /* get lat lon of grid points */
 	    }
 	}

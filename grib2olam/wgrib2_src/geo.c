@@ -878,10 +878,11 @@ int closest_init(unsigned char **sec) {
    double s, c;
    int grid_type;
 
-
+   /*
    if (use_gctpc && output_order == wesn && nx > 0 && ny > 0) {
       if (gctpc_ll2xy_init(sec, lon, lat) == 0) return 0;
    }
+   */
 
 
    grid_type = code_table_3_1(sec);
@@ -928,9 +929,11 @@ int closest(unsigned char **sec, double plat, double plon) {
     int grid_type, j;
     double t, xx, yy, zz, small;
 
+    /*
     if (use_gctpc && output_order == wesn && nx > 0 && ny > 0) {
 	if (gctpc_ll2i(1, &plon, &plat, &j) == 0) return j;
     }
+    */
 
     grid_type = code_table_3_1(sec);
     // if grid with (lat,lon) -> (i,j) /l.. insert code here

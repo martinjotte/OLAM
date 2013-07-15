@@ -44,19 +44,8 @@
 #-----------------  LINUX Intel Fortran ifort/gcc ---------------
 F_COMP=h5pfc
 
-# If using MPI libraries:
-#MPI_PATH=/usr/local/mpich
-#PAR_INCS=-I$(MPI_PATH)/include
-#PAR_LIBS=-L$(MPI_PATH)/lib -lmpich -lpmpich
-OLAM_MPI=yes
-IEEE_ARITHMETIC=yes
-OLAM_PARALLEL_HDF5=yes
-#USE_ED2=yes
-
 # OPTIMIZED:
 F_OPTS=-O3 -xHost -fno-alias -ip -traceback
-#F_OPTS=-O3 -fno-alias -ip -traceback -g -debug extended # -override-limits -guide-data-trans -guide-vec
-#F_OPTS=-O2 -xHost -fno-alias -traceback -check all -g -debug extended
 
 # DEBUG:
 #F_OPTS=-g -fp-model precise -check bounds -traceback \
@@ -65,27 +54,24 @@ F_OPTS=-O3 -xHost -fno-alias -ip -traceback
 # FORTRAN FLAGS FOR BIG FILES WHICH WOULD HAVE EXCESSIVE COMPILATION TIME
 SLOW_FFLAGS=-O1 -g -no-ip -traceback
 
-C_COMP=gcc
+C_COMP=cc
 C_OPTS=-O3
 
-NCARG_DIR=$(NCARG_ROOT)/lib
-LIBNCARG=-L$(NCARG_DIR) -lncarg -lncarg_gks -lncarg_c
+JASPER_INCS=-I/usr/local/include
+JASPER_LIBS=-L/usr/local/lib -ljasper
 
-HDF5_LIBS= #-L$(HDF5_ROOT)/lib -lhdf5_fortran -lhdf5 -lhdf5_hl -lz -lm
-HDF5_INCS= #-I$(HDF5_ROOT)/include
+PNG_INCS=-I/usr/local/include
+PNG_LIBS=-L/usr/local/lib -lpng -lz
 
-NETCDF_LIBS=-L$(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
-NETCDF_INCS=-I$(NETCDF_ROOT)/include
+HDF5_LIBS=
+HDF5_INCS=
 
-LOADER=$(F_COMP) $(LIBNCARG)
-#LOADER_OPTS=$(F_OPTS)
+LOADER=$(F_COMP)
+LOADER_OPTS=$(F_OPTS)
 
 # For Apple OSX: the stack size needs to be increased at link time
-LOADER_OPTS=$(F_OPTS) -Wl,-stack_size -Wl,0x40000000
+#LOADER_OPTS=$(F_OPTS) -Wl,-stack_size -Wl,0x10000000
 
-## to allow ifort compiler to link with pg-compiled ncar graphics:
-## LIBS=-z muldefs -L/opt/pgi/linux86-64/5.2/lib -lpgftnrtl -lpgc
-#
 #----------------- IBM xlf/xlc ---------------------------------
 #F_COMP=xlf95_r       # without MPI
 #
