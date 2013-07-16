@@ -1,6 +1,6 @@
 &dgrib_in
 
-wgrib_exe='wgrib2'
+wgrib_exe='./wgrib2'
 
 filein='pgbh00.gdas.1999010100.grb2'
 
@@ -8,7 +8,7 @@ c_date='99999999', c_hr='99999999',
 
 ! 3D atmospheric fields
 
-nvar3d = 0,
+nvar3d = 5,
 var3d  = 'UGRD','VGRD','TMP','HGT','SPFH',
 out3d  = 'UE', 'VE', 'TEMP', 'GEO', 'SHV',
 

@@ -23,7 +23,12 @@ module grib_get_mod
   real :: alat1,alon1,alov,aorient,dx,dy,reflat1,reflat2
 
   integer :: lenout
-  integer, parameter :: lenbuff=20000000,maxrecs=1000000
+
+! integer, parameter :: lenbuff=20000000,maxrecs=1000000
+  
+  integer, parameter :: lenbuff = 200000
+  integer, parameter :: maxrecs =  10000
+
   character(len=lenbuff) :: buffer
   character(len=256) :: cmd,line
   character(len=20) :: tokens(100)
@@ -36,7 +41,7 @@ module grib_get_mod
 
 contains
 
-!!*****************************************************************
+!*****************************************************************
 
   subroutine grib_get_recf(filein,inrec,a,nxy)
 
@@ -45,45 +50,30 @@ contains
     integer,      intent( in) :: nxy
     real,         intent(out) :: a(nxy)
     character(*), intent( in) :: filein,inrec
-
-    integer :: n,istart,iend ! ,nb,ne
+    integer                   :: isize
 
     if (grib_ver == 1) then
+
+!      cmd = trim(wgrib_exe) // " -d " // trim(inrec) // &
+!            " -text -nh -o - " // trim(filein) // char(0)
+
        cmd = trim(wgrib_exe) // " -d " // trim(inrec) // &
-             " -text -nh -o - " // trim(filein) // char(0)
+             " -bin -nh -o - " // trim(filein) // char(0)
+
     elseif (grib_ver == 2) then
+
+!      cmd = trim(wgrib_exe) // " -d " // trim(inrec) // &
+!            " -text - -no_header -inv /dev/null -order we:sn "// trim(filein) // char(0)
+
        cmd = trim(wgrib_exe) // " -d " // trim(inrec) // &
-             " -text - -no_header -inv /dev/null -order we:sn "// trim(filein) // char(0)
+             " -bin - -no_header -inv /dev/null -order we:sn "// trim(filein) // char(0)
+
        iscan = 1   ! switch output order to s-n
     endif
 
-    ! print*,'recf cmd: ',trim(cmd)
+    isize = nxy * 4
+    call ir_popen(isize, a, cmd, lenout)
 
-    call ir_popen(lenbuff,buffer,cmd,lenout)
-    ! print*,'returned: ',lenout!,buffer(1:lenout)
-
-    ! For ifort, the \n can't be included in the substring for the float read,
-    !     so subtract 2
-
-    istart=1
-    do n=1,nxy
-       iend=istart+index(buffer(istart:),char(10))-2
-       !if(n<10) print*,'aa:',istart,iend,index(buffer(istart:),char(10))
-       lines(n) = buffer(istart:iend)
-       !if(n<10)   print*,'nnn:',n,istart,iend,ichar(buffer(4:4)),buffer(istart:iend)
-       istart=iend+2
-       !print*,'nnn:',nxy,n,trim(lines(n))
-    enddo
-    
-!    do n = 1, nxy
-!       read(lines(n),*) a(n)
-!    enddo
-
-    read(lines(1:nxy),*) a(1:nxy)
-
-    ! print*,'done    : ',trim(cmd)
-   
-return
 end subroutine grib_get_recf
 
 !*****************************************************************

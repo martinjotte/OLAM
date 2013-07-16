@@ -60,7 +60,7 @@ wgrib: wgrib_patched.c
 wgrib2:
 	@echo "Compiling wgrib2 executable"
 	$(MAKE) -C wgrib2_src CC="$(C_COMP)" CFLAGS="$(WGRIB2_FLAGS)" LDFLAGS="$(WGRIB2_LDFLGS)"
-	mv wgrib2_src/wgrib2 ./
+	ln -sf wgrib2_src/wgrib2 ./
 	@echo Finished building wgrib2
 	@echo ""
 

@@ -711,10 +711,14 @@ int main(int argc, char **argv) {
 	open_parm[0] = append ? 'a' : 'w'; open_parm[1] = 'b'; open_parm[2] = '\0';
 	if (output_type == TEXT) open_parm[1] = '\0';
 
-	if ((dump_file = fopen(dump_file_name,open_parm)) == NULL) {
+	if (strcmp(dump_file_name,"-") != 0) {
+	  if ((dump_file = fopen(dump_file_name,open_parm)) == NULL) {
 	    fprintf(stderr,"could not open dump file\n");
 	    exit(8);
-        }
+	  }
+	} else {
+	  dump_file = stdout;
+	}
 	if (header == dwd && output_type == GRIB) wrtieee_header(0, dump_file);
     }
 
@@ -864,7 +868,7 @@ int main(int argc, char **argv) {
         }
 #endif
  
-        if (verbose <= 0) {
+        if (verbose <= 0 && dump_file != stdout) {
 	    printf("%ld:%lu:d=", count, pos);
 	    PDS_date(pds,year_4,v_time);
 	    printf(":%s:", k5toa(pds));
@@ -883,7 +887,7 @@ int main(int argc, char **argv) {
 	    if (gds && (print_GDS || print_GDS10)) print_gds(gds, print_GDS, print_GDS10, verbose);
             printf("\n");
        }
-       else if (verbose == 1) {
+       else if (verbose == 1 && dump_file != stdout) {
 	    printf("%ld:%lu:D=", count, pos);
             PDS_date(pds, 1, v_time);
 	    printf(":%s:", k5toa(pds));
@@ -900,7 +904,7 @@ int main(int argc, char **argv) {
 	    if (gds && (print_GDS || print_GDS10)) print_gds(gds, print_GDS, print_GDS10, verbose);
             printf("\n");
 	}
-        else if (verbose == 2) {
+        else if (verbose == 2 && dump_file != stdout) {
 	    printf("rec %ld:%lu:date ", count, pos);
 	    PDS_date(pds, 1, v_time);
 	    printf(" %s kpds5=%d kpds6=%d kpds7=%d levels=(%d,%d) grid=%d ", 
