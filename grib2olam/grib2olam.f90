@@ -20,14 +20,14 @@ program grib_to_gdf
   use hdf5_utils
 
   implicit none
-  
+
   integer, parameter   :: max_hours=24
   character(len= 10)   :: c_date, c_hr(max_hours), out_ext
   character(len=128)   :: filein,fileout,out_prefix,dstring,namein
   character(len= 20)   :: cargv
   integer, allocatable :: itlevs(:)
   real,    allocatable :: a4(:,:,:,:),a3(:,:,:,:),a2(:,:,:)
-  
+
   integer :: ia,iargc,istr,iend,inc
   integer :: i,j,idprep=0,ndate,nhr,ii,nh,ngnd
   integer :: nlev,inproj,ivertcoord,miss,ircode,num_hours
@@ -49,7 +49,7 @@ program grib_to_gdf
   integer  :: iice
 
   namelist /dgrib_in/ nvar3d, var3d, nvarsfc, varsfc, c_date, num_hours, c_hr, &
-                     filein, out3d, outsfc, wgrib_exe, out_prefix, &
+                     filein, out3d, outsfc, wgrib1_exe, wgrib2_exe, out_prefix, &
                      nvargnd, vargnd, outgnd
 
   dousage = .false.
@@ -58,7 +58,8 @@ program grib_to_gdf
 
 ! Initialize the namelist variables
 
-  wgrib_exe         = "wgrib2"
+  wgrib1_exe        = "./wgrib"
+  wgrib2_exe        = "./wgrib2"
   num_hours         = 1
   c_date            = "99999999"
   c_hr(1:max_hours) = "99999999"
@@ -75,7 +76,7 @@ program grib_to_gdf
   filein            = ""
 
   ia = command_argument_count()
-  write(*,*) 'num args: ', ia
+! write(*,*) 'num args: ', ia
 
   do i = 1, ia
      call get_command_argument(i,cargv)
@@ -117,26 +118,33 @@ program grib_to_gdf
         call get_command_argument(i+1,filein)
         if (len_trim(filein)<1) dousage = .true.
         i = i + 2
-     elseif (cargv(1:2) == '-e') then
-        wgrib_exe = ""
-        call get_command_argument(i+1,wgrib_exe)
-        if (len_trim(wgrib_exe)<1) dousage = .true.
+     elseif (cargv(1:3) == '-e1') then
+        wgrib1_exe = ""
+        call get_command_argument(i+1,wgrib1_exe)
+        if (len_trim(wgrib1_exe)<1) dousage = .true.
+        i = i + 2
+     elseif (cargv(1:3) == '-e2') then
+        wgrib2_exe = ""
+        call get_command_argument(i+1,wgrib2_exe)
+        if (len_trim(wgrib2_exe)<1) dousage = .true.
         i = i + 2
      elseif (cargv(1:2) == '-f') then
         ! we already processed the namelist
         i = i + 2
      else
         dousage = .true.
+        exit
      endif
   enddo
 
   if (dousage) then
      print*
-     print*,'Usage:dgrib [-f namelist_file] [-g gribfile] [-t yyyymmddhh] [-h hh]'
+     print*,'Usage: grib2olam [-f namelist_file] [-g gribfile] [-t yyyymmddhh] [-h hh]'
      print*,'      namelist file name defaults to DGRIB_IN'
      print*,'      -t : data time to process - yyyymmddhh'
      print*,'      -h : forecast hour - hh'
-     print*,'      -e : wgrib_executable - if ends in "2" assume grib v2'
+     print*,'      -e1: wgrib  executable path'
+     print*,'      -e2: wgrib2 executable path'
      print*
      print*,'           If c_date or c_hr set to ''99999999'', '
      print*,'           the date/hour of the first record'
@@ -152,14 +160,6 @@ print*,'GRIB to GDF converter'
 print*,'---------------------------------------------------------------'
 print*,'Namelist file name: ',trim(namein)
 print*,'GRIB file name    : ',trim(filein)
-print*,'WGRIB exec        : '
-if (wgrib_exe(len_trim(wgrib_exe):len_trim(wgrib_exe)) == '2') then
-   print*,'      Assumimg GRIB 2   : ',trim(wgrib_exe)
-   grib_ver=2
-else
-   print*,'      Assumimg GRIB 1   : ',trim(wgrib_exe)
-   grib_ver=1
-endif
 print*,'Data date/time    : ', c_date
 print*,'Forecast hour     : ', c_hr(1:num_hours)
 print*,'3D  variables: ', var3d(1:nvar3d)
@@ -198,6 +198,18 @@ do i = 1, nvargnd
       stop
    endif
 enddo
+
+! Does the grib file exist?
+
+inquire( file=filein, exist=exists )
+if (.not. exists) then
+   write(*,*)
+   write(*,*) "Error: grib file " // trim(filein) // " does not exist."
+   write(*,*)
+   stop
+endif
+
+call grib_get_vers(filein)
 
 call grib_get_date(filein)
 

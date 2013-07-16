@@ -34,7 +34,7 @@ module grib_get_mod
   character(len=20) :: tokens(100)
   character(len=1) :: funit
 
-  character(len=128) :: lines(maxrecs), wgrib_exe
+  character(len=128) :: lines(maxrecs), wgrib_exe, wgrib1_exe, wgrib2_exe
   integer :: grib_ver
 
   character(4) :: sdunit
@@ -435,5 +435,76 @@ end subroutine grib_get_recf
   end subroutine grib_get_fields
 
 !**********************************************************************
+  subroutine grib_get_vers(filein)
+
+    implicit none
+
+    character(*), intent(in) :: filein
+
+    write(*,*) "Checking grib file version..."
+
+    cmd = trim(wgrib1_exe) // " 2>&1 "// char(0)
+    call ir_popen(lenbuff,buffer,cmd,lenout)
+    if (index(buffer, "wgrib ") == 0) then
+       write(*,*)
+       write(*,'(A)') "The wgrib command " // trim(wgrib1_exe) // " does not appear to be working."
+       write(*,'(A)') "Compile the wgrib executable and specify the proper path in the namelist."
+       stop
+    endif
+
+    grib_ver = 1
+    cmd = trim(wgrib1_exe) // " -V -d 1 " // trim(filein) // " 2>&1 "// char(0)
+    
+    call ir_popen(lenbuff,buffer,cmd,lenout)
+
+    if (index(buffer, "grib2 message ignored") /= 0) grib_ver = 0
+    if (index(buffer, "missing GRIB record")   /= 0) grib_ver = 0
+
+    if (grib_ver == 1) then
+
+       write(*,*)
+       write(*,*) "We have a grib1 file, using " // trim(wgrib1_exe) // " to read file."
+       wgrib_exe = wgrib1_exe
+       return
+    else
+
+       write(*,*)
+       write(*,*) "We do not have a grib1 file that can be read with wgrib."
+       write(*,*) "Checking if we have a grib2 file that can be read with wgrib2..."
+
+       cmd = trim(wgrib2_exe) // " 2>&1 "// char(0)
+       call ir_popen(lenbuff,buffer,cmd,lenout)
+       if (index(buffer, "wgrib2 ") == 0) then
+          write(*,*)
+          write(*,'(A)') "The wgrib2 command " // trim(wgrib2_exe) // " does not appear to be working."
+          write(*,'(A)') "Compile the included wgrib2 executable and specify the proper path in the namelist."
+          stop
+       endif
+
+       cmd = trim(wgrib2_exe) // " -t -d 1 " // trim(filein) // " 2>&1 "// char(0)
+       call ir_popen(lenbuff,buffer,cmd,lenout)
+
+       if (index(buffer, "FATAL ERROR") == 0) then
+
+          write(*,*)
+          write(*,*) "We have a grib2 file, using " // trim(wgrib2_exe) // " to read file."
+          grib_ver = 2
+          wgrib_exe = wgrib2_exe
+          return
+
+       else
+
+          write(*,*)
+          write(*,*) "Cannot recognize file " // trim(filein)
+          write(*,*) "Will not process grib file."
+          stop
+
+       endif
+
+    endif
+
+  end subroutine grib_get_vers
+
+!************************************************************************
 
 end module grib_get_mod

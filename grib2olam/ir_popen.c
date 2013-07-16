@@ -19,64 +19,32 @@
 
 #include "sub_gribnames.h"
 
-/**********************************************************************/
-
 static FILE *pipe;
-
-/**********************************************************************/
 
 void ir_popen (int *nbuff, char *buff, char *cmd, int *lenout
                            ,int bufflen, int cmdlen) {
 
-int nch;
+  int nch;
 
 /*printf(" popen cmd: %s \n",cmd);*/
 
-*lenout=-1;
+  *lenout=-1;
 
-if ((pipe = popen(cmd, "r")) != NULL) {
+  if ((pipe = popen(cmd, "r")) != NULL) {
 
-   nch =fread(buff, 1, *nbuff, pipe);
+    nch =fread(buff, 1, *nbuff, pipe);
 
-   /*printf(" popen nch: %d \n",nch);*/
+  /*printf(" popen nch: %d \n",nch);*/
 
-   if ( nch >= *nbuff) {
+    if ( nch > *nbuff ) {
       fprintf(stderr,"Maximum ir_popen buffer length exceeded: %d\n",nch);
       fprintf(stderr,"popen command: %s\n",cmd);
       fprintf(stderr,"Increase buffer size in ir_popen call\n");
       exit(1);
-   }
+    }
 
-*lenout=nch;
+    *lenout=nch;
 
-pclose(pipe);
-}
-}
-
-
-
-/**********************************************************************/
-
-void grib_get_rec (char *filein, int *nxy, float *a, char *inrec) {
-
-int res,i;
-char cmd[512];
-
-/* Read the wgrib short description of the first record */
-//sprintf(cmd,"rams_wgrib -d %d -nh -o - %s",inrec,filein);
-sprintf(cmd,"wgrib2 -d %s -text aaa -no_header %s",inrec,filein);
-
-printf("executed command=%s\n",cmd);
-if ((pipe = popen(cmd, "r")) != NULL) {
-   /* Read the wgrib results */
-   //res=fread(a, 4, *nxy, pipe);
-  printf(" Record %s: %f value %d %d\n",inrec,a[1],(int)sizeof(float),*nxy);
-	for (i = 0; i < *nxy; i++) {
-	    //fscanf(pipe,"%f",a[i]);
-   printf(" %d: value %f\n",i,a[i]);
-        }
-
-   pclose(pipe);
-}
-
+    pclose(pipe);
+  }
 }

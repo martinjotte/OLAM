@@ -1,6 +1,7 @@
 &dgrib_in
 
-wgrib_exe='./wgrib2'
+wgrib1_exe='./wgrib'
+wgrib2_exe='./wgrib2'
 
 filein='pgbh00.gdas.1999010100.grb2'
 
@@ -36,12 +37,3 @@ c_hr - forecast hour - hh
 If c_date or c_hr set to '99999999', the date/hour of the first record
 in the grib file will be used.
 ============================================================================
-
-!var2d(1)='MSLET'         !Mean sea level pressure (ETA model) [Pa]
-!var2d(1)='PRMSL'          !Pressure reduced to MSL [Pa]
-!var2d(2)='PRES'           !pressure (at surface if ilev=0)
-!var2d(3)='TMP'            !temp (at surface if ilev=0)
-!var2d(4)='WEASD'          !Accum. snow [kg/m^2]
-!var2d(5)='WTMP'           !water temp
-
-nvar3d=5, var3d='U','V','T','Z','R',
