@@ -217,16 +217,17 @@ Module oname_coms
 
       real :: sounding(5,maxsndg) = 0.0
 
-!!    LEAF VARIABLES
+!!    LEAF/SEA VARIABLES
 
-      integer :: isfcl    = 1
+      integer :: isfcl    =  1
       integer :: nzg      = 11
-      integer :: nzs      = 1
-      integer :: ivegflg  = 2
-      integer :: isoilflg = 2
-      integer :: ndviflg  = 2
-      integer :: isstflg  = 2
-      integer :: iseaiceflg = 2
+      integer :: nzs      =  1
+
+      integer :: ivegflg    = 0
+      integer :: isoilflg   = 0
+      integer :: ndviflg    = 0
+      integer :: isstflg    = 0
+      integer :: iseaiceflg = 0
 
       integer :: isoilstateinit = 0
       integer :: isoildepthflg  = 0
@@ -237,7 +238,9 @@ Module oname_coms
       integer :: iupdseaice = 0
       integer :: nvgcon     = 8
       integer :: nslcon     = 6
-      real    :: seatmp     = 280.0
+
+      real    :: seatmp = 280.0
+      real    :: seaice =   0.0
 
       real :: slz(nzgmax) = (/ -1.00, -.85, -.70, -.60, -.50, -.40, &
            -.30, -.20, -.15, -.10, -.05, (0.0, i=12,nzgmax) /)

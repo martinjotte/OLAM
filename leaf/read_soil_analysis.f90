@@ -365,14 +365,6 @@ do iwl = 2, mwl
 
       land%sfcwater_depth(1,iwl) = land%sfcwater_mass(1,iwl) / snowdens
 
-      if (iwl == 35739) then
-         write(*,*) land%sfcwater_mass  (1,iwl)
-         write(*,*) land%sfcwater_energy(1,iwl)
-         write(*,*) land%can_temp(iwl)
-         write(*,*) snowdens
-         write(*,*) land%sfcwater_depth(1,iwl)
-      endif
-
    endif
 
    ! Interpolate soil temperature to this land cell if any of the 9 closest
@@ -394,26 +386,6 @@ do iwl = 2, mwl
          soil_tempc(1:nzg,iwl) = tcol(1)
       else
          call hintrp_cc( ngnd, tcol, zcol, nzg, soil_tempc(:,iwl), slzt )
-      endif
-
-!!      write(*,*)
-!!      write(*,*) iwl
-!!      do k = 1, ngnd
-!!         kk = ngnd - k + 1
-!!         write(*,*) k, zcol(kk), tcol(kk)
-!!      do j = -1,1
-!!         write(*,*) j,  soilt(io-1:io+1,jo+j,k) - 273.15
-!!      enddo
-!!      write(*,*)
-!!      enddo
-!!!      write(*,*) zcol
-!!!      write(*,*) tcol
-!!      write(*,*)
-!!      write(*,*) soil_tempc(:,iwl)
-!!!      if (iwl > 10) stop
-
-      if (iwl == 35739) then
-         write(*,*) soil_tempc(:,iwl)
       endif
 
    endif
@@ -443,13 +415,8 @@ do iwl = 2, mwl
 
       do k = 1, nzg
          ntext = land%ntext_soil(k,iwl)
-         land%soil_water(k,iwl) = max( soilcp(ntext), land%soil_water(k,iwl)*slmsts(ntext))
+         land%soil_water(k,iwl) = max( soilcp(ntext), land%soil_water(k,iwl)*slmsts(ntext) )
       enddo
-
-      if (iwl == 35739) then
-         write(*,*) wcol
-         write(*,*) land%soil_water(:,iwl)
-      endif
 
    endif
 

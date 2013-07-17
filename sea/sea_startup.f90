@@ -33,7 +33,7 @@
 subroutine sea_startup()
 
 use sea_coms,  only: mms, mus, mws, isstflg, seatmp,  &
-                     iupdsst, iseaiceflg, iupdseaice
+                     iupdsst, iseaiceflg, iupdseaice, seaice
 
 use mem_sea,   only: sea, alloc_sea, filltab_sea
 
@@ -59,7 +59,7 @@ call filltab_sea()
 ! STEP 2a: Fill sst values
 !-------------------------------------------------------------------------------
 
-if (isstflg == 2) then
+if (isstflg == 0) then
 
 ! Default initialization of SST
 
@@ -68,18 +68,43 @@ if (isstflg == 2) then
       sea%seatf(iws) = seatmp
    enddo
 
-elseif (runtype /= 'PLOTONLY' .and. runtype /= 'PARCOMBINE') then
+elseif (isstflg == 1) then
 
-! Read SST database
+   if (runtype /= 'PLOTONLY' .and. runtype /= 'PARCOMBINE') then
+
+! Read standard SST database
 ! Not needed for a plotonly run
 
-   write(io6,'(/,a)') 'calling sst_database_read(0)'
+      write(io6,'(/,a)') 'calling sst_database_read(0)'
+      call sst_database_read(0)
 
-   call sst_database_read(0)
+! Future SSTs are only needed if iupdsst == 1
 
-   write(io6,'(/,a)') 'calling sst_database_read(1)'
+      if (iupdsst == 1) then
+         write(io6,'(/,a)') 'calling sst_database_read(1)'
+         call sst_database_read(1)
+      endif
 
-   call sst_database_read(1)
+   endif
+
+elseif (isstflg == 2) then
+
+   if (runtype /= 'PLOTONLY' .and. runtype /= 'PARCOMBINE') then
+
+! Read SST from degribbed analysis files
+! Not needed for a plotonly run
+
+      write(io6,'(/,a)') 'calling read_sst_analysis(0)'
+      call read_sst_analysis(0)
+
+! Future SSTs are only needed if iupdsst == 1
+
+      if (iupdsst == 1) then
+         write(io6,'(/,a)') 'calling read_sst_analysis(1)'
+         call read_sst_analysis(1)
+      endif
+
+   endif
 
 endif
 
@@ -87,34 +112,53 @@ endif
 ! STEP 2b: Fill sea ice values
 !-------------------------------------------------------------------------------
 
-if (iseaiceflg == 2) then
+if (iseaiceflg == 0) then
 
 ! Default initialization of SEAICE
 
    do iws = 2,mws
-      sea%seaicep(iws) = 0.
-      sea%seaicef(iws) = 0.
+      sea%seaicep(iws) = seaice
+      sea%seaicef(iws) = seaice
    enddo
 
-elseif (runtype /= 'PLOTONLY' .and. runtype /= 'PARCOMBINE') then
+elseif (iseaiceflg == 1) then
 
-! Read SEA ICE database
+   if (runtype /= 'PLOTONLY' .and. runtype /= 'PARCOMBINE') then
+
+! Read standard SEAICE database
 ! Not needed for a plotonly run
 
-   write(io6,'(/,a)') 'calling seaice_database_read(0)'
+      write(io6,'(/,a)') 'calling seaice_database_read(0)'
+      call seaice_database_read(0)
 
-   call seaice_database_read(0)
+! Future SEAICE is only needed if iupdseaice == 1
 
-   if (iupdseaice == 1) then
+      if (iupdseaice == 1) then
+         write(io6,'(/,a)') 'calling seaice_database_read(1)'
+         call seaice_database_read(1)
+      endif
+   
+   endif
 
-      write(io6,'(/,a)') 'calling seaice_database_read(1)'
+elseif (iseaiceflg == 2) then
 
-      call seaice_database_read(1)
+   if (runtype /= 'PLOTONLY' .and. runtype /= 'PARCOMBINE') then
+
+! Read SEAICE from degribbed analysis files
+! Not needed for a plotonly run
+
+      write(io6,'(/,a)') 'calling read_seaice_analysis(0)'
+      call read_seaice_analysis(0)
+
+! Future SEAICE is only needed if iupdseaice == 1
+
+      if (iupdseaice == 1) then
+         write(io6,'(/,a)') 'calling read_seaice_analysis(1)'
+         call read_seaice_analysis(1)
+      endif
 
    endif
-   
+
 endif
 
-return
 end subroutine sea_startup
-

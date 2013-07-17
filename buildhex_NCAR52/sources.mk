@@ -126,7 +126,6 @@ SOURCE_FILES= \
              $(OUTILS)/blas.f90 \
              $(OUTILS)/check_nans.F90 \
              $(OUTILS)/dateutils.f90 \
-             $(OUTILS)/filelist.f90 \
              $(OUTILS)/hdf5_f2f.F90 \
              $(OUTILS)/hdf5_utils.f90 \
              $(OUTILS)/interp_lib.f90 \
@@ -145,6 +144,8 @@ SOURCE_FILES= \
              $(SEA)/mem_sea.f90 \
              $(SEA)/olam_mpi_sea.F90 \
              $(SEA)/para_init_sea.f90 \
+             $(SEA)/read_sst_analysis.f90 \
+             $(SEA)/read_seaice_analysis.f90 \
              $(SEA)/sea_coms.f90 \
              $(SEA)/sea.f90 \
              $(SEA)/seaice.f90 \

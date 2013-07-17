@@ -478,8 +478,11 @@ if (nl%isfcl == 1) then
    if (nl%isoilflg == 2) &
         call ichk_bnds( nl%nslcon, "NSLCON", 1, 12, 0, nfatal, nwarn )
 
-   if (nl%isstflg == 2) &
+   if (nl%isstflg == 0) &
         call rchk_bnds( nl%seatmp, "SEATMP", 100., 500., 0, nfatal, nwarn )
+
+   if (nl%iseaiceflg == 0) &
+        call rchk_bnds( nl%seatmp, "SEAICE", 0., 1., 2, nfatal, nwarn )
 
    call rchk_bnds( nl%slz(nl%nzg), "SLZ", -r_huge, -0.02, 0, nfatal, nwarn )
    do k=nl%nzg-1, 1, -1
@@ -501,7 +504,7 @@ if (nl%isfcl == 1) then
    endif
 
    ! Set iupdsst to 0 if not reading SST files
-   if (nl%isstflg == 2) then
+   if (nl%isstflg == 0) then
       if (nl%iupdsst == 1) then
          write(io6,*) "Turning off SST update for isstflg == 2"
          nl%iupdsst = 0
@@ -510,7 +513,7 @@ if (nl%isfcl == 1) then
    endif
 
    ! Set iupdseaice to 0 if not reading SEAICE files
-   if (nl%iseaiceflg == 2) then
+   if (nl%iseaiceflg == 0) then
       if (nl%iupdseaice == 1) then
          write(io6,*) "Turning off SEAICE update for iseaiceflg == 2"
          nl%iupdseaice = 0
