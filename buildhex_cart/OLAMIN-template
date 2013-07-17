@@ -459,7 +459,7 @@
    NL%IUPDSST    = 1  ! 0/1 = No/Yes update of SST values during run
    NL%IUPDSEAICE = 1  ! 0/1 = No/Yes update of SST values during run
  
-   NL%SEATMP   = 280.0   ! Water surface temperature (K) if ISSTFLG = 2
+   NL%SEATMP   = 280.0   ! Water surface temperature (K) if ISSTFLG = 0
    NL%SEAICE   =   0.0   ! Seaice fraction (0 - 1) if ISEAICEFLG = 0
 
    NL%NVGCON   = 8      ! LEAF-3 class if IVEGFLG = 2 (choices listed below:)
