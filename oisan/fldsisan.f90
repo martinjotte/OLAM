@@ -30,12 +30,12 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine fldsisan(o_rho, o_theta, o_shv, o_uvc)
+subroutine fldsisan(o_rho, o_theta, o_shv, o_uvc, o_ozone)
 
 use mem_basic,   only: umc, ump, uc, vmc, vmp, vc, vp, thil, sh_w, sh_v, &
                        wmc, wc, theta, tair, rho, press
 use mem_grid,    only: mza, mua, mva, mwa, lcu, lpv, lpw, zm, zt
-use misc_coms,   only: io6, deltax, iparallel, runtype, meshtype
+use misc_coms,   only: io6, deltax, iparallel, runtype, meshtype, do_chem
 use mem_micro,   only: sh_c
 use micro_coms,  only: level
 use mem_ijtabs,  only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
@@ -48,17 +48,25 @@ use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
 
 use obnd,         only: lbcopy_u, lbcopy_v, lbcopy_w
 
+use cgrid_defn,   only: ns_o3
+use var_tables,   only: scalar_tab
+
 implicit none
 
 real(kind=8), intent(in) :: o_rho   (mza,mwa)
 real,         intent(in) :: o_theta (mza,mwa)
 real,         intent(in) :: o_shv   (mza,mwa)
 real,         intent(in) :: o_uvc   (mza,mva)
+real,         intent(in) :: o_ozone (mza,mwa)
 
 integer :: j,iw,k,ka,iu,iv,iw1,iw2,iup,ivp
 
 real :: rcloud,temp,rvls,uu,vv
 real :: alph_p
+
+real, parameter :: mwair = 28.9628             ! molecular weight of air
+real, parameter :: mwo3  = 48.0                ! molecular weight of ozone
+real, parameter :: convt = mwair / mwo3 * 1.e6 ! ozone mixing ratio to ppmV
 
 ! If initializing the model, fill the main model arrays
 ! and initialize related arrays
@@ -78,6 +86,10 @@ call qsub('W',iw)
       sh_w(k,iw) = sh_v(k,iw)   ! no condensate considered here
       if (level > 1) then
          sh_c(k,iw) = 0.        ! no condensate considered here
+      endif
+
+      if (do_chem) then
+         scalar_tab(ns_o3)%var_p(k,iw) = o_ozone(k,iw) * convt
       endif
 
 ! alph_p is like alpha_press except that the (theta/thil) factor is excluded

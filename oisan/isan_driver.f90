@@ -145,6 +145,7 @@ real :: p_v(nprx+3,npry+2,nprz)
 real :: p_t(nprx+3,npry+2,nprz)
 real :: p_z(nprx+3,npry+2,nprz)
 real :: p_r(nprx+3,npry+2,nprz)
+real :: p_o(nprx+3,npry+2,nprz)
 
 real(kind=8) :: o_rho   (mza,mwa)
 real         :: o_theta (mza,mwa)
@@ -152,21 +153,22 @@ real         :: o_shv   (mza,mwa)
 real         :: o_uzonal(mza,mwa)
 real         :: o_umerid(mza,mwa)
 real         :: o_uvc   (mza,mva) ! uc or vc wind component
+real         :: o_ozone (mza,mwa)
 
 ! Read in gridded pressure-level data and copy to isan arrays
 
-call pressure_stage(fform,p_u, p_v, p_t, p_z, p_r)
+call pressure_stage(fform,p_u, p_v, p_t, p_z, p_r, p_o)
 
 ! Add pressure-level data at higher levels from climatology and interpolate
 ! combined data to OLAM grid
 
-call isnstage(p_u,p_v,p_t,p_z,p_r, &
-              o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_uvc)
+call isnstage(p_u, p_v, p_t, p_z, p_r, p_o, &
+              o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_uvc, o_ozone)
 
 ! If initializing model, fill main model fields
 
 if (iaction == 0 .and. runtype == 'INITIAL') then
-   call fldsisan(o_rho, o_theta, o_shv, o_uvc)
+   call fldsisan(o_rho, o_theta, o_shv, o_uvc, o_ozone)
 endif
 
 ! If nudging, prepare observational nudging fields

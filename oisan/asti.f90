@@ -30,19 +30,20 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine isnstage(p_u,p_v,p_t,p_z,p_r, &
-                    o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_uvc)
+subroutine isnstage(p_u, p_v, p_t, p_z, p_r, p_o, &
+                    o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_uvc, o_ozone)
 
 use max_dims,   only: maxpr
 use isan_coms,  only: nprz, npry, nprx, nprz_rh, pcol_v, &
                       pcol_u, pcol_rt, pcol_z, pcol_temp, gdatdx, gdatdy, &
-                      npd, kzonoff, levpr, lzon_bot, pcol_p
+                      npd, kzonoff, levpr, lzon_bot, pcol_p, &
+                      pcol_o3, haso3, nbot_o3
 use mem_grid,   only: glatw, glonw, mza, mwa, mva, &
                       xeu, yeu, zeu, xev, yev, zev, &
                       unx, uny, unz, vnx, vny, vnz
 use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
                       jtu_init, jtv_init, jtw_init
-use mem_zonavg, only: zonp_vect, zont, zonz, zonr, zonu
+use mem_zonavg, only: zonp_vect, zont, zonz, zonr, zonu, zono
 use consts_coms,only: eradi
 use misc_coms,  only: io6, meshtype, iparallel
 
@@ -57,6 +58,7 @@ real, intent(in) :: p_v(nprx+3,npry+2,nprz)
 real, intent(in) :: p_t(nprx+3,npry+2,nprz)
 real, intent(in) :: p_z(nprx+3,npry+2,nprz)
 real, intent(in) :: p_r(nprx+3,npry+2,nprz)
+real, intent(in) :: p_o(nprx+3,npry+2,nprz)
 
 real(kind=8), intent(out) :: o_rho   (mza,mwa)
 real,         intent(out) :: o_theta (mza,mwa)
@@ -64,6 +66,7 @@ real,         intent(out) :: o_shv   (mza,mwa)
 real,         intent(out) :: o_uzonal(mza,mwa)
 real,         intent(out) :: o_umerid(mza,mwa)
 real,         intent(out) :: o_uvc   (mza,mva)
+real,         intent(out) :: o_ozone (mza,mwa)
 
 character(3) :: csuff
 character(8) :: rot_type
@@ -116,16 +119,22 @@ call qsub('W',iw)
 ! Horizontally interpolate gridded pressure-level data to column
 ! at location of current W point
 
-   do k = 1,nprz
+   do k = 1, nprz
       call gdtost(p_t(1,1,k),nprx+3,npry+2,grx,gry,pcol_temp(k+2)) ! temp
       call gdtost(p_z(1,1,k),nprx+3,npry+2,grx,gry,pcol_z(k+2))    ! geop ht
       call gdtost(p_u(1,1,k),nprx+3,npry+2,grx,gry,pcol_u(k+2))    ! uzonal
       call gdtost(p_v(1,1,k),nprx+3,npry+2,grx,gry,pcol_v(k+2))    ! umerid
    enddo
 
-   do k=1,nprz_rh
-      call gdtost(p_r(1,1,k),nprx+3,npry+2,grx,gry,pcol_rt(k+2))    ! s.h.
+   do k = 1, nprz_rh
+      call gdtost(p_r(1,1,k),nprx+3,npry+2,grx,gry,pcol_rt(k+2))   ! s.h.
    enddo
+
+   if (haso3) then
+      do k = nbot_o3, nprz
+         call gdtost(p_o(1,1,k),nprx+3,npry+2,grx,gry,pcol_o3(k+2)) ! ozone
+      enddo
+   endif
 
 ! surface gridded data
 
@@ -146,7 +155,31 @@ call qsub('W',iw)
       r_interp(:) = (1. - wt2) * zonr(ilat,:) + wt2 * zonr(ilat+1,:)
       call pintrp_ee(22, r_interp, zonp_vect, nlevs, pcol_rt(kstrt), pcol_p(kstrt))
    endif
-   
+
+   if (haso3) then
+
+! If ozone is not reported at lower levels, fill pcol_o3 from levels 3 
+! to nbot_o3 + 1 with values interpolated from the ZONAVG data
+
+      if (nbot_o3 /= 1) then
+         nlevs = nbot_o3 - 1
+         kstrt = 3
+         r_interp(:) = (1. - wt2) * zono(ilat,:) + wt2 * zono(ilat+1,:)
+         call pintrp_ee(22, r_interp, zonp_vect, nlevs, pcol_o3(kstrt), pcol_p(kstrt))
+      endif
+
+   else
+
+! If ozone is not reported at all, fill pcol_o3 from levels 3
+! to nbrz+2 with values interpolated from the ZONAVG data
+
+      nlevs = nprz
+      kstrt = 3
+      r_interp(:) = (1. - wt2) * zono(ilat,:) + wt2 * zono(ilat+1,:)
+      call pintrp_ee(22, r_interp, zonp_vect, nlevs, pcol_o3(kstrt), pcol_p(kstrt))
+
+   endif
+
 ! Linearly interpolate zonavg arrays by latitude to current IW column 
 ! and K level. WIND IS ALL U AND NO V.
 
@@ -157,12 +190,13 @@ call qsub('W',iw)
       pcol_rt(k)   = (1. - wt2) * zonr(ilat,levp) + wt2 * zonr(ilat+1,levp)
       pcol_u(k)    = (1. - wt2) * zonu(ilat,levp) + wt2 * zonu(ilat+1,levp)
       pcol_v(k)    = 0.
+      pcol_o3(k)   = (1. - wt2) * zono(ilat,levp) + wt2 * zono(ilat+1,levp)
    enddo
 
 ! Vertically interpolate current column to model grid and 
 ! perform iterative hydrostatic balance 
 
-   call vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid)
+   call vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid,o_ozone)
 
 enddo
 call rsub('Wa',7)
@@ -281,11 +315,11 @@ end subroutine isnstage
 
 !===============================================================================
 
-subroutine vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid)
+subroutine vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid,o_ozone)
 
 use isan_coms,   only: pcol_z, pcol_thv, pcol_rt, pcol_thet, pcol_pi,  &
                        pcol_p, pcol_pk, npd, pcol_temp, pcol_r, pcol_v,  &
-                       pcol_u
+                       pcol_u, pcol_o3
 use consts_coms, only: grav2, gravo2, cvocp, p00k, rdry, rvap, p00,  &
                        cp, rocp, grav, eps_virt, eps_vap
 use mem_grid,    only: mwa, mza, dzt, zt
@@ -300,6 +334,7 @@ real,         intent(out) :: o_theta (mza,mwa)
 real,         intent(out) :: o_shv   (mza,mwa)
 real,         intent(out) :: o_uzonal(mza,mwa)
 real,         intent(out) :: o_umerid(mza,mwa)
+real,         intent(out) :: o_ozone (mza,mwa)
 
 real(kind=8) :: o_press(mza)  ! automatic array
 
@@ -308,6 +343,7 @@ real :: vctr2(mza)  ! automatic array
 real :: vctr3(mza)  ! automatic array
 real :: vctr4(mza)  ! automatic array
 real :: vctr5(mza)  ! automatic array
+real :: vctr6(mza)  ! automatic array
 
 integer :: i,j,k,mcnt,kl,kpbc,klo,khi,kbc,levp,kother,iter
 real :: pbc,cpo2g,piocp,z,extrap,pressnew,pkhyd, vapor_press
@@ -320,6 +356,7 @@ pcol_v(1:2)  = pcol_v(3)
 pcol_rt(1:2) = pcol_rt(3)
 pcol_temp(2) = pcol_temp(3) + 5.3  ! Uses approx std lapse rate
 pcol_temp(1) = pcol_temp(2) + 4.9  ! Uses approx std lapse rate
+pcol_o3(1:2) = pcol_o3(3)
 
 do k = 1,npd
    pcol_pk(k) = pcol_p(k)**rocp
@@ -372,13 +409,15 @@ call hintrp_cc(npd,pcol_thet,pcol_z,mza,vctr2,zt)  ! theta
 call hintrp_cc(npd,pcol_rt  ,pcol_z,mza,vctr3,zt)  ! vapor specific humidity
 call hintrp_cc(npd,pcol_u   ,pcol_z,mza,vctr4,zt)  ! zonal wind
 call hintrp_cc(npd,pcol_v   ,pcol_z,mza,vctr5,zt)  ! merid wind
+call hintrp_cc(npd,pcol_o3  ,pcol_z,mza,vctr6,zt)  ! ozone
 
-do k = 1,mza
+do k = 1, mza
    o_press (k)    = vctr1(k)
    o_theta (k,iw) = vctr2(k)
    o_shv   (k,iw) = max(1.e-8,vctr3(k))
    o_uzonal(k,iw) = vctr4(k)
    o_umerid(k,iw) = vctr5(k)
+   o_ozone (k,iw) = max(1.e-30,vctr6(k))
 enddo
 
 ! Hydrostatically balance fields on model grid

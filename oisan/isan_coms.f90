@@ -41,6 +41,7 @@ integer :: npd,lzon_bot,kzonoff
 
 real, dimension(maxpr+2) :: pcol_p, pcol_thet, pcol_pk, pcol_u, pcol_v, pcol_z
 real, dimension(maxpr+2) :: pcol_r, pcol_pi, pcol_temp, pcol_rt, pcol_thv
+real, dimension(maxpr+2) :: pcol_o3
 
 integer :: nfgfiles, ifgfile
 
@@ -55,8 +56,9 @@ real(r8),           allocatable :: s1900_fg   (:)
 integer :: marker, isversion, iyy, imm, idd, ihh, itinc, inproj, ivertcoord
 real    :: xnelat, xnelon, cntlat, cntlon, secondlat
 
-integer :: nprx, npry, nprz, nprz_rh
+integer :: nprx, npry, nprz, nprz_rh, nbot_o3
 integer :: levpr(maxpr)
+logical :: haso3
 
 real    :: xswlon, xswlat, gdatdx, gdatdy
 real    :: pnpr(maxpr)

@@ -178,7 +178,7 @@ end subroutine read_press_header
 
 !===============================================================================
 
-subroutine pressure_stage(fform, p_u, p_v, p_t, p_z, p_r)
+subroutine pressure_stage(fform, p_u, p_v, p_t, p_z, p_r, p_o)
 
 use isan_coms,   only: pnpr, levpr, nprx, npry, nprz, nprz_rh
 use consts_coms, only: rocp, p00, eps_vap
@@ -194,6 +194,7 @@ real, intent(out) :: p_v(nprx+3,npry+2,nprz)
 real, intent(out) :: p_t(nprx+3,npry+2,nprz)
 real, intent(out) :: p_z(nprx+3,npry+2,nprz)
 real, intent(out) :: p_r(nprx+3,npry+2,nprz)
+real, intent(out) :: p_o(nprx+3,npry+2,nprz)
 
 real :: thmax,thmin,vapor_press
 integer :: i,j,k,lv,n,iunit
@@ -214,7 +215,7 @@ enddo
 
 ! Call routine to fill pressure arrays from the chosen dataset.
 
-call get_press (fform,iunit,p_u,p_v,p_t,p_z,p_r,isrh)
+call get_press (fform, iunit, p_u, p_v, p_t, p_z, p_r, p_o, isrh)
 
 !!!!!!!! Be careful !!!!!!!!!
 !  Check input humidity variable p_r.  Assume that if the maximum of the field
@@ -292,11 +293,11 @@ end subroutine pressure_stage
 
 !===============================================================================
 
-subroutine get_press (fform, iunit, p_u, p_v, p_t, p_z, p_r, isrh)
+subroutine get_press (fform, iunit, p_u, p_v, p_t, p_z, p_r, p_o, isrh)
 
 use max_dims,   only: maxpr
 use isan_coms,  only: nprz, npry, nprx, pnpr, iyear, imonth, idate, &
-                      ihour, levpr, ipoffset, nprz_rh
+                      ihour, levpr, ipoffset, nprz_rh, nbot_o3, haso3
 use misc_coms,  only: io6
 use hdf5_utils, only: shdf5_irec, shdf5_info
 
@@ -311,6 +312,7 @@ real, intent(out) :: p_v(nprx+3,npry+2,nprz)
 real, intent(out) :: p_t(nprx+3,npry+2,nprz)
 real, intent(out) :: p_z(nprx+3,npry+2,nprz)
 real, intent(out) :: p_r(nprx+3,npry+2,nprz)
+real, intent(out) :: p_o(nprx+3,npry+2,nprz)
 
 real :: as(nprx,npry)
 real :: as3(nprx,npry,nprz)
@@ -325,6 +327,7 @@ character(10) :: varname
 
 ithere   = -999
 isfthere = -999
+haso3    = .false.
 
 !  Read upper air fields
 
@@ -466,6 +469,17 @@ elseif (fform == 'HD5') then
 
    endif
 
+   ! Read ozone if it exists in the file
+
+   njdims = 0
+   call shdf5_info("O3MR", njdims, jdims)
+
+   if (njdims > 0) then
+      haso3 = .true.
+      call shdf5_irec(ndims, idims,'O3MR',rvara = as3)
+      call prfill3(nprx,npry,nprz,ipoffset,as3,p_o)
+   endif
+
 !  if (ivertcoord == 3) call shdf5_irec('PRESS',rvara = p_p)
 
 !  print*,'uu max-min:', maxval(p_u), minval(p_u)
@@ -512,6 +526,24 @@ if (fform == 'GDF') then
    else
       isrh = .true.
    endif
+endif
+
+! Special for OZONE:
+! GFS only reports ozone ABOVE 100 mb, whereas the CFSR reanalysis reports the
+! whole column. Check the lowest level at which ozone is reported if it is in
+! the analysis file:
+
+if (haso3) then
+   nbot_o3 = 0
+
+   do k = 1, nprz
+      if (all(p_o(:,:,k) > -998.)) then
+         nbot_o3 = k
+         exit
+      endif
+   enddo
+   
+   if (nbot_o3 == 0) haso3 = .false.
 endif
 
 write(io6, *) '----------------------------------------------------'

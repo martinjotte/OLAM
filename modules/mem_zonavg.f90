@@ -36,15 +36,19 @@ Module mem_zonavg
 
 real :: zont12(74,22,12)
 real :: zonu12(74,22,12)
+
 real :: zont(74,22)
 real :: zonu(74,22)
 real :: zonr(74,22)
 real :: zonz(74,22)
+real :: zono(74,22)
+
 real :: zonp_vect(22)
 real :: zonr_vect(22)
 real :: zonz_vect(22)
 real :: zont_vect(22)
 real :: zonu_vect(22)
+real :: zono_vect(22)
 
 Contains
 
@@ -69,9 +73,9 @@ Contains
 
   call fill_zonavg(zonclim,idate,imonth)
 
-! In order to obtain zonally averaged water vapor mixing ratio, interpolate
-! Mclatchy soundings in time to mclat array and obtain coefficients for
-! latitudinal spline interpolation
+! In order to obtain zonally averaged water vapor and ozone mixing ratios,
+! interpolate Mclatchy soundings in time to mclat array and obtain coefficients
+! for latitudinal spline interpolation
 
   call fill_zonr_mclat(idate,imonth,iyear)
 
@@ -265,16 +269,18 @@ Contains
 
      do lv = 1,33
 
-! Spline-interpolate (by latitude) Mclatchy pressure, vapor density, and
-! total density to current latitude
+! Spline-interpolate (by latitude) Mclatchy pressure, vapor density, ozone,
+! and total density to current latitude
 
         call spline2(13,slat,mclat(1,lv,2),ypp_mclat(1,lv,2),alat,mcol(lv,2))
         call spline2(13,slat,mclat(1,lv,4),ypp_mclat(1,lv,4),alat,mcol(lv,4))
+        call spline2(13,slat,mclat(1,lv,5),ypp_mclat(1,lv,5),alat,mcol(lv,5))
         call spline2(13,slat,mclat(1,lv,6),ypp_mclat(1,lv,6),alat,mcol(lv,6))
 
 ! Compute specific humidity from quotient of vapor and total density
 
         mcol(lv,4) = mcol(lv,4) / mcol(lv,6)
+        mcol(lv,5) = mcol(lv,5) / mcol(lv,6)
      enddo
 
 ! Vertically interpolate Mclatchy vapor specific humidity BY PRESSURE to zonavg
@@ -282,11 +288,13 @@ Contains
 
      call pintrp_ee(33,mcol(1,4),mcol(1,2),22,zonr_vect,zonp_vect)
      zonr(ilat,1:22) = zonr_vect(1:22)
+
+     call pintrp_ee(33,mcol(1,5),mcol(1,2),22,zono_vect,zonp_vect)
+     zono(ilat,1:22) = zono_vect(1:22)
+
   enddo
 
   return
   end subroutine fill_zonr_mclat
 
 End Module mem_zonavg
-
-

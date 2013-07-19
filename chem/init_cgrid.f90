@@ -88,9 +88,9 @@ subroutine init_cgrid ()
   jdate = iyear1 * 1000 + julday(imonth1,idate1,iyear1) ! YYYYDDD
   jtime = itime1 * 100                                  ! HHMMSS
 
-  ! Initialize the CGRID array
+  ! Initialize the CGRID array (now done at allocation in cgrid_defn)
 
-  CGRID = CMIN
+! CGRID = CMIN
   
   FNAME = '../chem/' // trim(chem_mech) // '/ic_profile.dat'
   
@@ -200,7 +200,7 @@ contains
 
     REAL    :: MWH2SO4                           ! H2SO4 molec. wt.
     REAL    :: H2SO4CONV                         ! ppm -> ug/m**3
-    INTEGER :: LSULF                             ! Gas chem CGRID index
+    INTEGER :: LSULF, LO3                        ! Gas chem CGRID index
     INTEGER :: ISO4AJ, ISO4AI, INUMATKN, INUMACC ! CGRID aerosol indices
 
     INTEGER :: SPC_STRT
@@ -247,6 +247,8 @@ contains
 
        SPC_STRT = GC_STRT
        N_SPCS   = N_GC_SPC
+
+       LO3 = INDEX1( 'O3', N_GC_SPC, GC_SPC )
 
        DO SPC = 1, N_SPCS
 
@@ -431,6 +433,11 @@ contains
 
        V   = SPC_STRT - 1 + SPC
        NDX = INDX( SPC )
+
+       ! Skip ozone, since we use climatological values or reanalysis for now
+       if ( SPC_CAT .EQ. 'GC' ) THEN
+          if (V == LO3) NDX = 0
+       endif
 
        IF ( NDX .GT. 0 ) THEN
 

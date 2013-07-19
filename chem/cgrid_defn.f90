@@ -14,6 +14,9 @@ module cgrid_defn
   real, allocatable, target :: sxfer_ae(:,:,:)
   real, allocatable, target :: sxfer_nr(:,:,:)
 
+  integer :: ns_o3  = 0
+  integer :: ns_no2 = 0
+
 contains
 
   subroutine alloc_cgrid(mza, mwa)
@@ -27,9 +30,10 @@ contains
     implicit none
 
     integer, intent(in) :: mza, mwa
+    integer, parameter  :: cmin = 1.e-30
 
     allocate( cgrid( mza, mwa, nspcsd ) )
-    cgrid = rinit
+    cgrid = cmin
 
     allocate( gc_tend( mza, mwa, n_gc_trns) )
     gc_tend = rinit
@@ -134,7 +138,7 @@ contains
   subroutine cgrid_scalar_tabs()
     
     use cgrid_spcs
-    use var_tables, only: vtables_scalar
+    use var_tables, only: vtables_scalar, scalar_tab, num_scalar
     implicit none
 
     integer           :: n, nc, indxe, indxd, ng, nr, na
@@ -237,6 +241,13 @@ contains
 
        endif
 
+    enddo
+
+    ! Save some scalar indices for common species
+
+    do n = 1, num_scalar
+       if ( scalar_tab(n)%name == 'O3'  ) ns_o3  = n
+       if ( scalar_tab(n)%name == 'NO2' ) ns_no2 = n
     enddo
 
   end subroutine cgrid_scalar_tabs
