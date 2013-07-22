@@ -142,53 +142,65 @@ Contains
     use var_tables, only: vtab_r, num_var, increment_vtable
     implicit none
 
+    character(2) :: stagpt
+    
+    ! obs (point-by-point) nudging is done at W points, while spectral
+    ! nudging is done on a separate nudging mesh. Currently, parallel
+    ! output on the nudging mesh in not implemented
+
+    if (nudnxp == 0) then
+       stagpt = 'AW'
+    else
+       stagpt = 'AN'
+    endif
+
     if (allocated(rho_obsp)) then
-         call increment_vtable('RHO_OBSP', 'AN', noread=.true.)
+         call increment_vtable('RHO_OBSP', stagpt, noread=.true.)
          vtab_r(num_var)%rvar2_p => rho_obsp
       endif
 
     if (allocated(theta_obsp)) then
-         call increment_vtable('THETA_OBSP', 'AN', noread=.true.)
+         call increment_vtable('THETA_OBSP', stagpt, noread=.true.)
          vtab_r(num_var)%rvar2_p => theta_obsp
       endif
 
     if (allocated(shw_obsp)) then
-         call increment_vtable('SHW_OBSP', 'AN', noread=.true.)
+         call increment_vtable('SHW_OBSP', stagpt, noread=.true.)
          vtab_r(num_var)%rvar2_p => shw_obsp
       endif
 
     if (allocated(uzonal_obsp)) then
-         call increment_vtable('UZONAL_OBSP', 'AN', noread=.true.)
+         call increment_vtable('UZONAL_OBSP', stagpt, noread=.true.)
          vtab_r(num_var)%rvar2_p => uzonal_obsp
       endif
 
     if (allocated(umerid_obsp)) then
-         call increment_vtable('UMERID_OBSP', 'AN', noread=.true.)
+         call increment_vtable('UMERID_OBSP', stagpt, noread=.true.)
          vtab_r(num_var)%rvar2_p => umerid_obsp
       endif
 
     if (allocated(rho_obsf)) then
-         call increment_vtable('RHO_OBSF', 'AN', noread=.true.)
+         call increment_vtable('RHO_OBSF', stagpt, noread=.true.)
          vtab_r(num_var)%rvar2_p => rho_obsf
       endif
 
     if (allocated(theta_obsf)) then
-         call increment_vtable('THETA_OBSF', 'AN', noread=.true.)
+         call increment_vtable('THETA_OBSF', stagpt, noread=.true.)
          vtab_r(num_var)%rvar2_p => theta_obsf
       endif
 
     if (allocated(shw_obsf)) then
-         call increment_vtable('SHW_OBSF', 'AN', noread=.true.)
+         call increment_vtable('SHW_OBSF', stagpt, noread=.true.)
          vtab_r(num_var)%rvar2_p => shw_obsf
       endif
 
     if (allocated(uzonal_obsf)) then
-         call increment_vtable('UZONAL_OBSF', 'AN', noread=.true.)
+         call increment_vtable('UZONAL_OBSF', stagpt, noread=.true.)
          vtab_r(num_var)%rvar2_p => uzonal_obsf
       endif
 
     if (allocated(umerid_obsf)) then
-         call increment_vtable('UMERID_OBSF', 'AN', noread=.true.)
+         call increment_vtable('UMERID_OBSF', stagpt, noread=.true.)
          vtab_r(num_var)%rvar2_p => umerid_obsf
       endif
 
