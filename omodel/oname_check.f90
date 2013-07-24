@@ -45,7 +45,7 @@ use max_dims,    only: nzgmax, maxgrds, maxsndg, maxnplt, maxisdirs, &
                        maxpltfiles, maxngrdll
 use oname_coms,  only: nl
 use consts_coms, only: erad, pi1, pi2, p00, r8
-use misc_coms,   only: io6
+use misc_coms,   only: io6, do_chem
 
 implicit none
 
@@ -228,6 +228,24 @@ if (nl%initial == 2) then
 
 endif
 
+!--------------------------------------------------------------------------
+! OZONE NUDGING PARAMETERS
+!--------------------------------------------------------------------------
+
+if (nl%initial == 2 .and. do_chem) then
+
+   call ichk_bnds( nl%o3nudflag, "O3NUDFLAG", 0,  1, 2, nfatal, nwarn )
+
+   if (nl%o3nudflag == 1) then
+
+      call rchk_bnds( nl%o3tnudcent, "O3TNUDCENT", dtlong4, r_huge, 2, nfatal, &
+                      nwarn, msgmin="Ozone nudging time must be larger than dtlong")
+
+      call rchk_bnds( nl%o3nudpress, "O3NUDPRESS", 0.0, 1200.0, 2, nfatal, nwarn)
+
+   endif
+
+endif
 !--------------------------------------------------------------------------
 ! HISTORY FILE OUTPUT
 !--------------------------------------------------------------------------

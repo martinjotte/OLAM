@@ -41,7 +41,8 @@ subroutine olam_mem_alloc()
   use mem_turb,    only: alloc_turb, filltab_turb
   use mem_sflux,   only: mseaflux, mlandflux, filltab_sflux
   use mem_grid,    only: mza, nsw_max, mma, mua, mva, mwa
-  use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge
+  use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge, &
+                         o3nudflag, alloc_nudge_o3, filltab_nudge_o3
   use mem_ijtabs,  only: mrls, filltab_itabs
   use oname_coms,  only: nl
   use mem_thuburn, only: alloc_thuburn
@@ -108,6 +109,16 @@ subroutine olam_mem_alloc()
       call alloc_nudge2(mza)
       call filltab_nudge()
   endif
+
+  if (initial == 2 .and. o3nudflag > 0) then
+
+     ! point-by-point (non-spectral) nudging of ozone
+
+      call alloc_nudge_o3(mza,mwa)
+      call filltab_nudge_o3()
+  endif
+
+
 
 ! Allocate any added Scalar types 
 

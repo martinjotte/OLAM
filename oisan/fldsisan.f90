@@ -64,10 +64,6 @@ integer :: j,iw,k,ka,iu,iv,iw1,iw2,iup,ivp
 real :: rcloud,temp,rvls,uu,vv
 real :: alph_p
 
-real, parameter :: mwair = 28.9628             ! molecular weight of air
-real, parameter :: mwo3  = 48.0                ! molecular weight of ozone
-real, parameter :: convt = mwair / mwo3 * 1.e6 ! ozone mixing ratio to ppmV
-
 ! If initializing the model, fill the main model arrays
 ! and initialize related arrays
 
@@ -89,7 +85,7 @@ call qsub('W',iw)
       endif
 
       if (do_chem) then
-         scalar_tab(ns_o3)%var_p(k,iw) = o_ozone(k,iw) * convt
+         scalar_tab(ns_o3)%var_p(k,iw) = o_ozone(k,iw)
       endif
 
 ! alph_p is like alpha_press except that the (theta/thil) factor is excluded

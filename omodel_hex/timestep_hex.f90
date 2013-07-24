@@ -36,7 +36,7 @@ use misc_coms,   only: io6, time8, time_istp8, nqparm, initial, ilwrtyp, &
                       iswrtyp, dtsm, nqparm_sh, dtlm, iparallel,         &
                       s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
-use mem_nudge,   only: nudflag
+use mem_nudge,   only: nudflag, o3nudflag
 use mem_grid,    only: mza, mva, mwa
 use micro_coms,  only: level
 use leaf_coms,   only: isfcl
@@ -132,7 +132,10 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 ! call check_nans(6)
 
    if (initial == 2 .and. nudflag == 1)  &
-   call obs_nudge(rhot)
+        call obs_nudge(rhot)
+   
+   if (initial == 2 .and. o3nudflag == 1)  &
+        call obs_nudge_o3()
 
 ! call check_nans(10)
 

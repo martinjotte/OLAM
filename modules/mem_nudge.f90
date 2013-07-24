@@ -50,11 +50,15 @@ Module mem_nudge
   real,    allocatable, target :: uzonal_obsp(:,:)
   real,    allocatable, target :: umerid_obsp(:,:)
 
+  real,    allocatable, target ::  ozone_obsp(:,:)
+
   real,    allocatable, target ::    rho_obsf(:,:)
   real,    allocatable, target ::  theta_obsf(:,:)
   real,    allocatable, target ::    shw_obsf(:,:)
   real,    allocatable, target :: uzonal_obsf(:,:)
   real,    allocatable, target :: umerid_obsf(:,:)
+
+  real,    allocatable, target ::  ozone_obsf(:,:)
 
   real,    allocatable         ::    rho_obs(:,:)
   real,    allocatable         ::  theta_obs(:,:)
@@ -68,12 +72,12 @@ Module mem_nudge
   real,    allocatable         :: uzonal_sim(:,:)
   real,    allocatable         :: umerid_sim(:,:)
 
-  integer :: nudflag
+  integer :: nudflag, o3nudflag
   integer :: nudnxp
   integer :: nnudfiles
   integer :: nwnud, mwnud
-
   real    :: tnudcent
+  real    :: tnudi_o3, o3nudpress
 
 Contains
 
@@ -135,7 +139,25 @@ Contains
 
   end subroutine alloc_nudge2
 
-  !=========================================================================
+!=========================================================================
+
+  subroutine alloc_nudge_o3(mza,mwa)
+
+    use misc_coms, only: io6, rinit
+    implicit none
+
+    integer, intent(in) :: mza, mwa
+
+!   Allocate arrays based on options (if necessary)
+
+    write(io6,*) 'allocating nudge_o3 ', mza, mwa
+
+    allocate (ozone_obsp(mza,mwa)) ; ozone_obsp = rinit
+    allocate (ozone_obsf(mza,mwa)) ; ozone_obsf = rinit
+
+  end subroutine alloc_nudge_o3
+
+!=========================================================================
 
   subroutine filltab_nudge()
 
@@ -193,5 +215,28 @@ Contains
       endif
 
   end subroutine filltab_nudge
+
+!=========================================================================
+
+  subroutine filltab_nudge_o3()
+
+    use var_tables, only: vtab_r, num_var, increment_vtable
+    implicit none
+
+    ! ozone currently only uses non-spectral nudging, which is only
+    ! computed at W points
+    character(2) :: stagpt = 'AW'
+
+    if (allocated(ozone_obsp)) then
+       call increment_vtable('OZONE_OBSP', 'AW', noread=.true.)
+       vtab_r(num_var)%rvar2_p => ozone_obsp
+    endif
+
+    if (allocated(ozone_obsf)) then
+       call increment_vtable('OZONE_OBSF', 'AW', noread=.true.)
+       vtab_r(num_var)%rvar2_p => ozone_obsf
+    endif
+
+  end subroutine filltab_nudge_o3
 
 End Module mem_nudge

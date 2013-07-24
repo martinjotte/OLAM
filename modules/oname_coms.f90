@@ -35,7 +35,7 @@ Module oname_coms
    use max_dims,    only: nzgmax, maxsndg, maxgrds, maxisdirs, maxnplt,  &
                           maxpltfiles, maxngrdll, pathlen
    use consts_coms, only: r8
-        
+
    Type oname_plot
       ! Derived type to hold the components of the plot specification fields
       character(20) :: fldname    = ''
@@ -112,6 +112,10 @@ Module oname_coms
       integer :: nudnxp   = 0
       real    :: tnudcent = 0.0
 
+      integer :: o3nudflag  = 0
+      real    :: o3nudpress = 150.0
+      real    :: o3tnudcent = 86400.0
+      
 !!    GRID, HISTORY FILES
 
       integer :: ioutput      = 1

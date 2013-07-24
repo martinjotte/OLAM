@@ -436,7 +436,10 @@ contains
 
        ! Skip ozone, since we use climatological values or reanalysis for now
        if ( SPC_CAT .EQ. 'GC' ) THEN
-          if (V == LO3) NDX = 0
+          if (V == LO3) then
+             cgrid(:,:,v) = 1.e-30
+             NDX = 0
+          endif
        endif
 
        IF ( NDX .GT. 0 ) THEN

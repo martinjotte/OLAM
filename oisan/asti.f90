@@ -349,6 +349,10 @@ integer :: i,j,k,mcnt,kl,kpbc,klo,khi,kbc,levp,kother,iter
 real :: pbc,cpo2g,piocp,z,extrap,pressnew,pkhyd, vapor_press
 real, external :: eslf
 
+real, parameter :: mwair  = 28.9628             ! molecular weight of air
+real, parameter :: mwo3   = 48.0                ! molecular weight of ozone
+real, parameter :: cnvto3 = mwair / mwo3 * 1.e6 ! ozone mixing ratio to ppmV
+
 ! Fill phony underground values for PPD levels 1100 mb and 1200 mb
 
 pcol_u(1:2)  = pcol_u(3)
@@ -414,10 +418,10 @@ call hintrp_cc(npd,pcol_o3  ,pcol_z,mza,vctr6,zt)  ! ozone
 do k = 1, mza
    o_press (k)    = vctr1(k)
    o_theta (k,iw) = vctr2(k)
-   o_shv   (k,iw) = max(1.e-8,vctr3(k))
+   o_shv   (k,iw) = max( 1.e-8, vctr3(k))
    o_uzonal(k,iw) = vctr4(k)
    o_umerid(k,iw) = vctr5(k)
-   o_ozone (k,iw) = max(1.e-30,vctr6(k))
+   o_ozone (k,iw) = max( 1.e-30, vctr6(k)*cnvto3) ! s.h. to ppmV
 enddo
 
 ! Hydrostatically balance fields on model grid

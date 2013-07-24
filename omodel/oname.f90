@@ -104,7 +104,8 @@ use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst, &
 
 use oplot_coms,  only: op
 use isan_coms,   only: iapr
-use mem_nudge,   only: tnudcent, nudflag, nudnxp
+use mem_nudge,   only: tnudcent, nudflag, nudnxp, o3nudflag,       &
+                       tnudi_o3, o3nudpress
 use mem_rayf,    only: rayf_zmin,    rayf_distim,   rayf_expon,    &
                        rayfw_zmin,   rayfw_distim,   rayfw_expon,  &
                        rayfdiv_zmin, rayfdiv_distim, rayfdiv_expon
@@ -170,6 +171,11 @@ if (copy_type == 'ALL_CASES') then
    zonclim       = nl%zonclim
    tnudcent      = nl%tnudcent
    nudflag       = nl%nudflag
+
+   o3nudflag     = nl%o3nudflag
+   tnudi_o3      = 1.0 / max( nl%o3tnudcent, nl%dtlong )
+   o3nudpress    = nl%o3nudpress * 100.0  ! mb to Pa
+
    hfilin        = nl%hfilin
    ioutput       = nl%ioutput
    hfilepref     = nl%hfilepref

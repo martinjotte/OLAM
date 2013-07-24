@@ -39,6 +39,8 @@ use misc_coms,  only: io6, initial, runtype, s1900_init, s1900_sim
 
 use mem_zonavg, only: zonavg_init
 
+use mem_nudge,  only: nudflag, o3nudflag
+
 implicit none
 
 integer, intent(in) :: iaction
@@ -117,11 +119,18 @@ call zonavg_init(idate,imonth,iyear)
 
 call read_press_header(fform)
 
-! Process isan data for this file time.
+if (iaction == 0 .or. nudflag == 1) then
 
-call isan_singletime(iaction,fform)
+   ! Process isan data for this file time
+   call isan_singletime(iaction,fform)
 
-return
+elseif (iaction == 1 .and. o3nudflag == 1) then
+   
+   ! Process isan data for this file time, but only do ozone
+   call isan_singletime_justo3(iaction,fform)
+
+endif
+
 end subroutine isan_driver
 
 !=======================================================================
@@ -131,7 +140,7 @@ subroutine isan_singletime(iaction,fform)
 use isan_coms, only: nprx, npry, nprz
 use mem_grid,  only: mza, mwa, mva
 use misc_coms, only: io6, runtype
-use mem_nudge, only: nudflag
+use mem_nudge, only: nudflag, o3nudflag
 
 implicit none
 
@@ -177,5 +186,67 @@ if (nudflag > 0) then
    call nudge_prep(iaction, o_rho, o_theta, o_shv, o_uvc)
 endif
 
-return
+if (o3nudflag == 1) then
+   call nudge_prep_o3(iaction, o_ozone)
+endif
+
 end subroutine isan_singletime
+
+!=======================================================================
+
+subroutine isan_singletime_justo3(iaction,fform)
+
+use isan_coms, only: nprx, npry, nprz
+use mem_grid,  only: mza, mwa, mva
+use misc_coms, only: io6, runtype
+use mem_nudge, only: nudflag, o3nudflag
+
+implicit none
+
+integer, intent(in) :: iaction
+character(len=3), intent(in) :: fform
+
+! Automatic arrays
+
+real :: p_u(nprx+3,npry+2,nprz)
+real :: p_v(nprx+3,npry+2,nprz)
+real :: p_t(nprx+3,npry+2,nprz)
+real :: p_z(nprx+3,npry+2,nprz)
+real :: p_r(nprx+3,npry+2,nprz)
+real :: p_o(nprx+3,npry+2,nprz)
+
+real(kind=8) :: o_rho   (mza,mwa)
+real         :: o_theta (mza,mwa)
+real         :: o_shv   (mza,mwa)
+real         :: o_uzonal(mza,mwa)
+real         :: o_umerid(mza,mwa)
+real         :: o_uvc   (mza,mva) ! uc or vc wind component
+real         :: o_ozone (mza,mwa)
+
+! Read in gridded pressure-level data and copy to isan arrays
+
+call pressure_stage(fform,p_u, p_v, p_t, p_z, p_r, p_o)
+
+! Add pressure-level data at higher levels from climatology and interpolate
+! combined data to OLAM grid
+
+call isnstage(p_u, p_v, p_t, p_z, p_r, p_o, &
+              o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_uvc, o_ozone)
+
+! If initializing model, fill main model fields
+
+if (iaction == 0 .and. runtype == 'INITIAL') then
+   call fldsisan(o_rho, o_theta, o_shv, o_uvc, o_ozone)
+endif
+
+! If nudging, prepare observational nudging fields
+
+if (nudflag > 0) then
+   call nudge_prep(iaction, o_rho, o_theta, o_shv, o_uvc)
+endif
+
+if (o3nudflag == 1) then
+   call nudge_prep_o3(iaction, o_ozone)
+endif
+
+end subroutine isan_singletime_justo3
