@@ -127,9 +127,12 @@ Contains
     allocate ( uzonal_obs(mza,mwnud)) ; uzonal_obs  = rinit
     allocate ( umerid_obs(mza,mwnud)) ; umerid_obs  = rinit
 
-    allocate (    rho_sim(mza,mwnud)) ; rho_sim     = rinit
-    allocate (  theta_sim(mza,mwnud)) ; theta_sim   = rinit
-    allocate (    shw_sim(mza,mwnud)) ; shw_sim     = rinit
+    if (nudnxp /= 0) then
+       allocate (    rho_sim(mza,mwnud)) ; rho_sim     = rinit
+       allocate (  theta_sim(mza,mwnud)) ; theta_sim   = rinit
+       allocate (    shw_sim(mza,mwnud)) ; shw_sim     = rinit
+    endif
+
     allocate ( uzonal_sim(mza,mwnud)) ; uzonal_sim  = rinit
     allocate ( umerid_sim(mza,mwnud)) ; umerid_sim  = rinit
 

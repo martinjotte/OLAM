@@ -131,11 +131,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(6)
 
-   if (initial == 2 .and. nudflag == 1)  &
-   call obs_nudge(rhot)
-
-! call check_nans(10)
-
    call zero_momsc(vmsc,wmsc,rho_old)
 
 ! MPI Recv and LBC copy of K's
@@ -145,6 +140,13 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       if (iparallel == 1) call mpi_recv_w('K')
       call lbcopy_w(mrl, a1=hkm)
    endif
+
+! Compute nudging tendencies
+
+   if (initial == 2 .and. nudflag == 1)  &
+   call obs_nudge(rhot)
+
+! call check_nans(10)
 
    mrl = mrl_begl(istp)
    if (mrl > 0) then
