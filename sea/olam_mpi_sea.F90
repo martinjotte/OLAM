@@ -471,7 +471,8 @@ subroutine mpi_recv_ws(recvgroup)
 #endif
 
 use misc_coms,  only: io6
-use mem_sea,    only: sea, itabg_ws
+use mem_sea,    only: sea, itabg_ws, itab_ws
+use sea_coms,   only: mws
 use mem_para,   only: nsends_ws, nrecvs_ws, send_ws, recv_ws, myrank
 
 implicit none
@@ -556,6 +557,31 @@ do jtmp = 1,nrecvs_ws(1)
    enddo
    call rsub('WSrecv',jrecv)
 
+enddo
+
+! Compute the combined sea-ice canopy values on non-primary cells, so that
+! we do not have to communicate them too
+
+do iws = 2, mws
+   if (itab_ws(iws)%irank == myrank) cycle
+
+   if (sea%nlev_seaice(iws) > 0) then
+
+      sea%rough      (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_rough  (iws) + &
+                                    sea%seaicec(iws)  * sea%ice_rough  (iws)
+
+      sea%can_temp   (iws) = (1.0 - sea%seaicec(iws)) * sea%seacan_temp(iws) + &
+                                    sea%seaicec(iws)  * sea%icecan_temp(iws)
+
+      sea%can_shv    (iws) = (1.0 - sea%seaicec(iws)) * sea%seacan_shv (iws) + &
+                                    sea%seaicec(iws)  * sea%icecan_shv (iws)
+   else
+
+      sea%rough      (iws) = sea%sea_rough  (iws)
+      sea%can_temp   (iws) = sea%seacan_temp(iws)
+      sea%can_shv    (iws) = sea%seacan_shv (iws)
+
+   endif
 enddo
 
 ! Make sure sends are all finished and de-allocated

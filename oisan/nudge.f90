@@ -410,9 +410,9 @@ call qsub('W',iw)
    if (nudnxp == 0) then
 
       do k = 2,mza-1
-            rho_sim(k,iw) = rho  (k,iw)
-          theta_sim(k,iw) = theta(k,iw)
-            shw_sim(k,iw) = sh_w (k,iw)
+!           rho_sim(k,iw) = rho   (k,iw)
+!         theta_sim(k,iw) = theta (k,iw)
+!           shw_sim(k,iw) = sh_w  (k,iw)
          uzonal_sim(k,iw) = uzonal(k)
          umerid_sim(k,iw) = umerid(k)
       enddo
@@ -436,14 +436,14 @@ call qsub('W',iw)
 enddo
 call rsub('Wa',23)
 
+if (nudnxp > 0) then
+
 ! Horizontal loop over nudging polygons
 
-!$omp parallel do private(k,volwnudi)
-do iwnud = 2,mwnud
+   !$omp parallel do private(k,volwnudi)
+   do iwnud = 2,mwnud
 
 ! If doing spectral nudging, normalize nudging point sums to get average values
-
-   if (nudnxp > 0) then
 
 ! Vertical loop over nudging polygons
 
@@ -460,23 +460,45 @@ do iwnud = 2,mwnud
          umerid_sim(k,iwnud) = umerid_sim(k,iwnud) * volwnudi
 
       enddo
-   endif
 
 ! Vertical loop over nudging polygons
 
-      do k = 2,mza-1
+      do k = 2, mza-1
 
 ! Interpolate observational fields in time
 
-         rho_obs(k,iwnud) = tp *    rho_obsp(k,iwnud) + tf *    rho_obsf(k,iwnud)
-       theta_obs(k,iwnud) = tp *  theta_obsp(k,iwnud) + tf *  theta_obsf(k,iwnud)
-         shw_obs(k,iwnud) = tp *    shw_obsp(k,iwnud) + tf *    shw_obsf(k,iwnud)
-      uzonal_obs(k,iwnud) = tp * uzonal_obsp(k,iwnud) + tf * uzonal_obsf(k,iwnud)
-      umerid_obs(k,iwnud) = tp * umerid_obsp(k,iwnud) + tf * umerid_obsf(k,iwnud)
-   enddo
-enddo
-!$omp end parallel do
+            rho_obs(k,iwnud) = tp *    rho_obsp(k,iwnud) + tf *    rho_obsf(k,iwnud)
+          theta_obs(k,iwnud) = tp *  theta_obsp(k,iwnud) + tf *  theta_obsf(k,iwnud)
+            shw_obs(k,iwnud) = tp *    shw_obsp(k,iwnud) + tf *    shw_obsf(k,iwnud)
+         uzonal_obs(k,iwnud) = tp * uzonal_obsp(k,iwnud) + tf * uzonal_obsf(k,iwnud)
+         umerid_obs(k,iwnud) = tp * umerid_obsp(k,iwnud) + tf * umerid_obsf(k,iwnud)
+      enddo
 
+   enddo
+   !$omp end parallel do
+
+else
+
+   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+      
+      ! Vertical loop over iw cells
+
+      do k = lpw(iw), mza-1
+
+         ! Interpolate observational fields in time
+
+            rho_obs(k,iw) = tp *    rho_obsp(k,iw) + tf *    rho_obsf(k,iw)
+          theta_obs(k,iw) = tp *  theta_obsp(k,iw) + tf *  theta_obsf(k,iw)
+            shw_obs(k,iw) = tp *    shw_obsp(k,iw) + tf *    shw_obsf(k,iw)
+         uzonal_obs(k,iw) = tp * uzonal_obsp(k,iw) + tf * uzonal_obsf(k,iw)
+         umerid_obs(k,iw) = tp * umerid_obsp(k,iw) + tf * umerid_obsf(k,iw)
+      enddo
+
+   enddo
+   !$omp end parallel do
+
+endif
+      
 ! If doing point-by-point (non-spectral) nudging, compute tendencies using
 ! point-by-point information
 
@@ -497,18 +519,18 @@ if (nudnxp == 0) then
 
       tnudi = wtnud(iw) / tnudcent
 
-      do k = lpw(iw),mza-1
+      do k = lpw(iw), mza-1
 
          tnudirho = tnudi * rho(k,iw)
 
              rhot(k,iw) = rhot(k,iw) &
-                        + tnudi * (rho_obs(k,iw) - rho_sim(k,iw))
+                        + tnudi * (rho_obs(k,iw) - rho(k,iw))
 
             thilt(k,iw) = thilt(k,iw) &
-                        + tnudirho * (theta_obs(k,iw) - theta_sim(k,iw))
+                        + tnudirho * (theta_obs(k,iw) - theta(k,iw))
                  
             sh_wt(k,iw) = sh_wt(k,iw) &
-                        + tnudirho * (shw_obs(k,iw) - shw_sim(k,iw))
+                        + tnudirho * (shw_obs(k,iw) - sh_w(k,iw))
 
          umzonalt(k,iw) = tnudirho * (uzonal_obs(k,iw) - uzonal_sim(k,iw))
 
@@ -578,8 +600,8 @@ else
 endif
 
 if (iparallel == 1) then
-   call mpi_send_w('V', vxe=umzonalt, vye=ummeridt)
-   call mpi_recv_w('V', vxe=umzonalt, vye=ummeridt)
+   call mpi_send_w('V', vxe=umzonalt, vye=ummeridt, domrl=mrl)
+   call mpi_recv_w('V', vxe=umzonalt, vye=ummeridt, domrl=mrl)
 endif
 
 if (meshtype == 1) then

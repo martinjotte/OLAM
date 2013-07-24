@@ -23,10 +23,11 @@ subroutine inc_mavg_vars()
   use mem_micro,   only: pcpgr
   use mem_radiate, only: rshort, rshort_top, rshortup_top, rlong, rlongup, &
                          rlongup_top, albedt
+  use mem_ijtabs,  only: jtab_w, jtw_prog
 
   implicit none
 
-  integer :: iw, k, dhr, kll
+  integer :: iw, k, dhr, kll, j
   real(kind=8) :: dsec
   real :: windspeed
   integer, dimension(nz_avg-1) :: level_list = (/ 8, 13, 18, 26, 30, 34 /)
@@ -38,9 +39,9 @@ subroutine inc_mavg_vars()
 
   npoints_avg24(dhr) = npoints_avg24(dhr) + 1
 
-! Horizontal loop over all W/T points
+! Horizontal loop over all prognostic W/T points
 
-  do iw = 2, mwa
+  do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
 ! Loop over k levels from level_list table
 
@@ -132,7 +133,7 @@ subroutine inc_davg_vars()
      cantempk_sf_davg, cantempk_sf_dmin, cantempk_sf_dmax, &
        sfluxt_sf_davg,   sfluxr_sf_davg
 
-  use mem_ijtabs,  only: itabg_w
+  use mem_ijtabs,  only: itabg_w, jtab_w, jtw_prog
   use mem_grid,    only: mwa, lpw, zt, zm, mza, dzim
   use mem_basic,   only: wc, sh_v, sh_w, tair, press, rho, vxe, vye, vze
   use consts_coms, only: alvl, cp
@@ -144,10 +145,11 @@ subroutine inc_davg_vars()
                          rlongup_top, albedt
 
   use leaf_coms, only: nzg, mwl, slcpd
-  use mem_leaf,  only: land, itabg_wl
+  use mem_leaf,  only: land, itabg_wl, itab_wl
   use sea_coms,  only: mws
-  use mem_sea,   only: sea, itabg_ws
+  use mem_sea,   only: sea, itabg_ws, itab_ws
   use mem_sflux, only: landflux, seaflux, jlandflux, jseaflux
+  use mem_para,  only: myrank
 
   implicit none
   
@@ -157,9 +159,9 @@ subroutine inc_davg_vars()
 
   npoints_davg = npoints_davg + 1
 
-! Horizontal loop over all W/T points
+! Horizontal loop over all prognostic W/T points
 
-  do iw = 2, mwa
+  do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
 ! Accumulate of sums for 2D surface quantities
 
@@ -189,7 +191,10 @@ subroutine inc_davg_vars()
 
 ! Horizontal loop over all land cells
 
-  do iwl = 2,mwl
+  do iwl = 2, mwl
+
+     if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+
      cantempk = land%can_temp(iwl)
      vegtempk = land%veg_temp(iwl)
 
@@ -214,7 +219,10 @@ subroutine inc_davg_vars()
 
 ! Horizontal loop over all sea cells
 
-  do iws = 2,mws
+  do iws = 2, mws
+
+     if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+
      cantempk = sea%can_temp(iws)
 
      canstempk_davg(iws) = canstempk_davg(iws) + cantempk
@@ -296,11 +304,12 @@ subroutine norm_mavg_vars()
      rlong_avg24, rlongup_avg24, rlongup_top_avg24, &
      latflux_avg24, sensflux_avg24
 
-  use mem_grid, only: mwa
+  use mem_grid,   only: mwa
+  use mem_ijtabs, only: jtab_w, jtw_prog
 
   implicit none
 
-  integer :: iw, ih
+  integer :: iw, ih, j
   real :: n24i(24), ni
 
   ni = 1.0 / npoints_mavg
@@ -318,7 +327,7 @@ subroutine norm_mavg_vars()
     vye_mavg =   vye_mavg * ni
     vze_mavg =   vze_mavg * ni
 
-  do iw = 2, mwa
+    do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
            rshort_mavg(iw) =       rshort_mavg(iw) * ni
        rshort_top_mavg(iw) =   rshort_top_mavg(iw) * ni
@@ -369,8 +378,13 @@ subroutine norm_davg_vars()
 
   use mem_grid,  only: mwa
   use leaf_coms, only: mwl
+  use mem_leaf,  only: itab_wl
   use sea_coms,  only: mws
+  use mem_sea,   only: itab_ws
   use mem_sflux, only: jlandflux, jseaflux
+  use mem_ijtabs,only: jtab_w, jtw_prog
+  use misc_coms, only: iparallel
+  use mem_para,  only: myrank
 
   implicit none
 
@@ -379,7 +393,8 @@ subroutine norm_davg_vars()
 
   ni = 1. / npoints_davg
 
-  do iw = 2, mwa
+  do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+
         press_davg(iw) =    press_davg(iw) * ni
           vxe_davg(iw) =      vxe_davg(iw) * ni
           vye_davg(iw) =      vye_davg(iw) * ni
@@ -393,12 +408,14 @@ subroutine norm_davg_vars()
   enddo
 
   do iwl = 2, mwl
+     if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
      canltempk_davg(iwl) = canltempk_davg(iwl) * ni
       vegtempk_davg(iwl) =  vegtempk_davg(iwl) * ni
      soiltempk_davg(iwl) = soiltempk_davg(iwl) * ni
   enddo
 
   do iws = 2, mws
+     if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
      canstempk_davg(iws) = canstempk_davg(iws) * ni
   enddo
 
@@ -449,7 +466,7 @@ subroutine write_mavg_vars(outyear,outmonth)
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
   use mem_grid,   only: mwa, nwa
   use leaf_coms,  only: mwl, nzg, nzs, dslz
-  use mem_leaf,   only: land
+  use mem_leaf,   only: land, itab_wl
 
   implicit none
 
@@ -468,6 +485,7 @@ subroutine write_mavg_vars(outyear,outmonth)
   ! Compute total water
 
   do iwl = 2, mwl
+     if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
      wstorage(iwl) = sum(land%sfcwater_mass(1:nzs,iwl)) +   &
           land%veg_water(iwl) +   &
           land%rhos(iwl) * land%can_depth(iwl) * land%can_shv(iwl)
