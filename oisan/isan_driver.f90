@@ -131,7 +131,7 @@ subroutine isan_singletime(iaction,fform)
 use isan_coms, only: nprx, npry, nprz
 use mem_grid,  only: mza, mwa, mva
 use misc_coms, only: io6, runtype
-use mem_nudge, only: nudflag
+use mem_nudge, only: nudflag, nudnxp
 
 implicit none
 
@@ -172,7 +172,11 @@ endif
 ! If nudging, prepare observational nudging fields
 
 if (nudflag > 0) then
-   call nudge_prep(iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
+   if (nudnxp == 0) then
+      call nudge_prep_obs (iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
+   else
+      call nudge_prep_spec(iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
+   endif
 endif
 
 return
