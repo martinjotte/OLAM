@@ -72,6 +72,7 @@ SOURCE_FILES= \
              $(OISAN)/isan_coms.f90 \
              $(OISAN)/isan_driver.f90 \
              $(OISAN)/nudge.f90 \
+             $(OISAN)/nudge_o3.f90 \
              $(OMODEL)/alloc.f90 \
              $(OMODEL)/average_vars.f90 \
              $(OMODEL)/cartesian.f90 \
