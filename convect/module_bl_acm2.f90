@@ -369,6 +369,8 @@ contains
     !      vertical wind shear, similar to LIU & CARROLL (1996)
     !   3. Cloud-top radiational cooling scaling, Lock et al. (2000)
 
+    use mem_turb, only: frac_urb
+    use mem_grid, only: lsw
     implicit none
     
     ! INPUT VARIABLES
@@ -403,13 +405,14 @@ contains
     INTEGER  :: ILX, KL, KLM, K, I
     real :: zagl, deltar, wcloud, zoh, a, b, buoy
     REAL     :: ZOVL, WT, ZSOL, ZFUNC, DZF, SS
-    REAL     :: RI, QMEAN, TMEAN, XLV, ALPH, CHI, ZK, SQL, DENSF, KZO
+    REAL     :: RI, QMEAN, TMEAN, XLV, ALPH, CHI, ZK, SQL, DENSF
     REAL     :: FH
 
     real :: phih(mza) ! M-O similarity nondimensional scalar gradient
     real :: edyz(mza) ! Holtslag's K-profile eddy diffusivity
     real :: edyc(mza) ! Lock et al. (2000) cloud-top driven K-profile
     real :: edyr(mza) ! Richardson-number eddy diffusivity
+    real :: kzo (mza) ! minimum eddy diffusivity
 
     real :: alpha(mza)
     real :: beta(mza)
@@ -428,6 +431,8 @@ contains
     REAL, PARAMETER :: EDYZ0  = 0.0   ! New Min Kz
 !   REAL, PARAMETER :: EDYZ0  = 0.01  ! New Min Kz
 !   REAL, PARAMETER :: EDYZ0  = 0.1
+    real, parameter :: edyurb = 1.0
+    real, parameter :: edysfc = 0.2
 
     ! Constants for the "moist" richardson number
 
@@ -435,7 +440,25 @@ contains
     real, parameter :: c2 = eps_vap * alvlor
     real, parameter :: c3 = c2 * alvlocp
 
-    kzo = edyz0
+    ! set minimum eddy diffusivity
+
+    kzo(kbot:kbot+lsw(iw)-1) = edysfc
+    kzo(kbot+lsw(iw):ktop)   = edyz0
+
+    if (allocated(frac_urb)) then
+       if (frac_urb(iw) > 1.e-5) then
+          do k = kbot, ktop
+             zagl = zm(k) - zm(kbot-1)
+             if (zagl <= 1.e3) then
+                kzo(k) = max(kzo(k), edyurb * frac_urb(iw))
+             elseif (zagl <= 1.5e3) then
+                kzo(k) = max(kzo(k), edyurb * frac_urb(iw) * 0.5)
+             else
+                exit
+             endif
+          enddo
+       endif
+    endif
 
 !! Holtslag's Eddy-Diffusivity Profile Within the PBL
 
@@ -565,13 +588,15 @@ contains
              sql = ( zk * rlam / (rlam + zk) )**2
         ! endif
 
-             edyr(k) = kzo + sqrt(ss) * fh * sql
+       !     edyr(k) = kzo + sqrt(ss) * fh * sql
+             edyr(k) =       sqrt(ss) * fh * sql
        !     pran(k) = pr0 / ( 1.0 - (1.0 - pr0) * min(ri,rc) / rc )
 
        else
 
           sql     = ( zk * rlam / (rlam + zk) )**2
-          edyr(k) = kzo + sqrt(ss * (1.0 - 25.0 * ri)) * sql
+       !  edyr(k) = kzo + sqrt(ss * (1.0 - 25.0 * ri)) * sql
+          edyr(k) =       sqrt(ss * (1.0 - 25.0 * ri)) * sql
        !  pran(k) = pr0 / ( 1.0 - (1.0 - pr0) * min(ri,rc) / rc )
 
        endif
@@ -582,7 +607,7 @@ contains
 !! and Richardson-number eddy diffusivity
 
     do k = kbot, mza-2
-       zkh(k) = max( edyr(k), edyz(k) + edyc(k), kzo )
+       zkh(k) = max( edyr(k), edyz(k) + edyc(k), kzo(k) )
        zkh(k) = min( zkh(k), 1000.0 )
        zkh(k) = 0.5 * (rho(k+1) + rho(k)) * zkh(k)
     enddo
