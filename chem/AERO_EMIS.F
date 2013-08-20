@@ -213,7 +213,7 @@ C-----------------------------------------------------------------------
          USE PRECURSOR_DATA
 !         USE UTILIO_DEFN
 
-         use m3utils,   only: index1, m3exit, xstat1, xstat2, xstat3
+         use m3utils,   only: index1, m3exit, m3warn, xstat1, xstat2, xstat3
          use misc_coms, only: io6
          use mem_grid,  only: mwa, mza, nsw_max
 
@@ -518,7 +518,8 @@ C *** find index of SO4 emissions
          IF ( VPSO4 .EQ. 0 ) THEN
             XMSG = 'Cannot define index for SO4 emissions: '
      &           // 'aerospc%emis='' '' in AERO_DATA.F'
-            CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT3 )
+!           CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT3 )
+            CALL M3WARN( PNAME, JDATE, JTIME, XMSG )
          END IF
 
 C *** Get length and width of each grid cell
@@ -553,8 +554,10 @@ C     already opened.
      &             PMEM_UNITS .EQ. 'kg/hr' ) THEN
             CONVEM_PM_MASS = GPKG * MGPG / 3600.0  ! (kg/hr) -> (ug/s)
          ELSE
+            CONVEM_PM_MASS = 1.0
             XMSG = 'Units incorrect on ' // EMIS_1
-            CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
+!           CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
+            CALL M3WARN( PNAME, JDATE, JTIME, XMSG )
          END IF
 
 !         DO L = 1, PM_EMLYRS
@@ -718,7 +721,7 @@ C     time.  Store result in EMBUFF array.
 !         END IF
 
          EMBUFF = 0.0           ! array assignment
-
+         
          DO S = 1, N_EMIS_PM
 
             IDX  = PMEM_MAP( S )
@@ -775,6 +778,7 @@ C     time.  Store result in EMBUFF array.
          enddo
 
          vdemis_ae = 0.0
+         if (n_emis_pm == 0) return
 
 !C *** Read air density [kg/m3], atmospheric pressure [Pa], air temperature 
 !C     [K], specific humidity [kg H2O / kg air], and 10m wind speed [m/s] 
