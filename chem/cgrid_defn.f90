@@ -14,8 +14,10 @@ module cgrid_defn
   real, allocatable, target :: sxfer_ae(:,:,:)
   real, allocatable, target :: sxfer_nr(:,:,:)
 
-  integer :: ns_o3  = 0
+  integer :: ns_co  = 0
+  integer :: ns_no  = 0
   integer :: ns_no2 = 0
+  integer :: ns_o3  = 0
 
 contains
 
@@ -246,8 +248,10 @@ contains
     ! Save some scalar indices for common species
 
     do n = 1, num_scalar
-       if ( scalar_tab(n)%name == 'O3'  ) ns_o3  = n
+       if ( scalar_tab(n)%name == 'CO'  ) ns_co  = n
+       if ( scalar_tab(n)%name == 'NO'  ) ns_no  = n
        if ( scalar_tab(n)%name == 'NO2' ) ns_no2 = n
+       if ( scalar_tab(n)%name == 'O3'  ) ns_o3  = n
     enddo
 
   end subroutine cgrid_scalar_tabs
