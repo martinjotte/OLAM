@@ -33,26 +33,37 @@
 subroutine date_abs_secs(cdate,seconds)
 
 use consts_coms, only: r8
+
 implicit none
 
 character(len=14), intent(in) :: cdate
-real(kind=r8), intent(out) :: seconds
+real(r8), intent(out) :: seconds
 
 ! Compute number of seconds past 1 January 1900 12:00 am
 ! The format of hour1 is hhmmss
 
-real(kind=r8) :: s1,s2,s3,s4
-integer :: year1,month1,date1,hour1,iy,ndays
+integer :: nyears,ndays
+real(r8) :: s1,s2,s3,s4
 integer, external :: julday
+
+integer :: year1, month1, date1, hour1
 
 call date_unmake_big(year1,month1,date1,hour1,cdate)
 
-iy = year1 - 1900
-ndays = iy * 365 + (iy-1)/4 + julday(month1,date1,iy)
+nyears = year1 - 1900
+ndays = nyears * 365 + (nyears-1)/4 + julday(month1,date1,year1) - 1
+
+! Integer arithmetic in ndays calculation correctly treats 1900 as 
+! non-leapyear and 2000 as leapyear.  Correct for non-leapyears 
+! 2100, 2200, and 2300 if necessary.
+
+if (year1 > 2100) ndays = ndays - 1
+if (year1 > 2200) ndays = ndays - 1
+if (year1 > 2300) ndays = ndays - 1
 
 s1 = real(ndays,r8) * 86400._r8
 s2 = real(hour1/10000,r8) * 3600._r8
-s3 = real(mod(hour1,10000)/100,r8) * 60._r8
+s3 = real(mod(hour1,10000) / 100,r8) * 60._r8
 s4 = real(mod(hour1,100),r8)
 
 seconds = s1 + s2 + s3 +s4
@@ -65,24 +76,33 @@ end subroutine date_abs_secs
 subroutine date_abs_secs2(year1,month1,date1,hour1,seconds)
 
 use consts_coms, only: r8
+
 implicit none
 
 integer, intent(in) :: year1,month1,date1,hour1
-real(kind=r8), intent(out) :: seconds
+real(r8), intent(out) :: seconds
 
 ! Compute number of seconds past 1 January 1900 12:00 am
 ! The format of hour1 is hhmmss
 
-integer :: iy,ndays
-real(kind=r8) :: s1,s2,s3,s4
+integer :: nyears,ndays
+real(r8) :: s1,s2,s3,s4
 integer, external :: julday
 
-iy = year1 - 1900
-ndays = iy * 365 + (iy-1)/4 + julday(month1,date1,iy)
+nyears = year1 - 1900
+ndays = nyears * 365 + (nyears-1)/4 + julday(month1,date1,year1) - 1
+
+! Integer arithmetic in ndays calculation correctly treats 1900 as 
+! non-leapyear and 2000 as leapyear.  Correct for non-leapyears 
+! 2100, 2200, and 2300 if necessary.
+
+if (year1 > 2100) ndays = ndays - 1
+if (year1 > 2200) ndays = ndays - 1
+if (year1 > 2300) ndays = ndays - 1
 
 s1 = real(ndays,r8) * 86400._r8
 s2 = real(hour1/10000,r8) * 3600._r8
-s3 = real(mod(hour1,10000)/100,r8) * 60._r8
+s3 = real(mod(hour1,10000) / 100,r8) * 60._r8
 s4 = real(mod(hour1,100),r8)
 
 seconds = s1 + s2 + s3 + s4
@@ -93,6 +113,8 @@ end subroutine date_abs_secs2
 !===============================================================================
 
 subroutine date_subtract(cdate1,cdate2,tinc,tunits)
+
+use consts_coms, only: r8
 
 implicit none
 
@@ -106,7 +128,7 @@ character(len=1), intent(in) :: tunits
 integer :: mondays(12)
 data mondays/31,28,31,30,31,30,31,31,30,31,30,31/
 integer :: year1,month1,date1,hour1,year2,month2,date2,hour2
-real(kind=8) :: secs1,secs2
+real(r8) :: secs1,secs2
 real :: ttinc
 
 call date_abs_secs(cdate1,secs1)
@@ -127,60 +149,75 @@ end subroutine date_subtract
 
 subroutine date_secs_ymdt(seconds,iyear1,imonth1,idate1,ihour1)
 
+use consts_coms, only: r8
+
 implicit none
 
-real(kind=8), intent(in) :: seconds
+real(r8), intent(in) :: seconds
 integer, intent(out) :: iyear1,imonth1,idate1,ihour1
 
 ! compute real time given number of seconds past 1 January 1900 12:00 am  
 
-real(kind=8) :: s1
-integer :: ny,nyr,ileap,nm,nd,ihr,imn,isc
+real(r8) :: s1, secs_in_year, secs_in_month
+integer :: iyear, ileap, imonth, iday, ihour, iminute, isecond, days_in_month
 integer :: mondays(12)
+
 data mondays/31,28,31,30,31,30,31,31,30,31,30,31/
 
 ! Get what year it is
 
-s1=seconds
-do ny=0,10000
-   ileap=0
-   if(mod(1900+ny,4) == 0) ileap=1
-   s1=s1-(365.+ileap)*86400.
-   if(s1 < 0.) then
-      nyr=ny
-      s1=s1+(365.+ileap)*86400.
+s1 = seconds
+
+do iyear = 1900,10000
+
+   if ( (mod(iyear,400) == 0) .or. &
+        (mod(iyear,  4) == 0 .and. mod(iyear,100) /= 0) ) then
+      ileap = 1
+   else
+      ileap = 0
+   endif
+
+   secs_in_year = real((365+ileap)*86400,r8)
+
+   if (s1 - secs_in_year < 0._r8) then
+      iyear1 = iyear
       exit
    endif
+
+   s1 = s1 - secs_in_year
 enddo
-iyear1=1900+nyr
 
-! s1 is now number of secs into the year
-!   Get month
+! s1 is now number of secs into the year; get month
 
-do nm=1,12
-   ileap=0
-   if(mod(1900+ny,4) == 0 .and. nm == 2) ileap=1
-   s1=s1-(mondays(nm)+ileap)*86400.
-   if(s1 < 0.) then
-      s1=s1+(mondays(nm)+ileap)*86400.
+do imonth = 1,12
+   days_in_month = mondays(imonth)
+   if (imonth == 2) days_in_month = days_in_month + ileap
+
+   secs_in_month = real(days_in_month*86400,r8)
+
+   if (s1 - secs_in_month < 0._r8) then
+      imonth1 = imonth
       exit
    endif
+
+   s1 = s1 - secs_in_month
 enddo
-imonth1=nm
 
 ! s1 is now number of secs into the month
 !   Get date and time
 
-idate1=int(s1/86400.)
-s1=s1-idate1*86400.
-idate1=idate1+1 ! Since date starts at 1
+idate1 = int(s1 / 86400._r8)
+s1 = s1 - real(idate1*86400,r8)
+idate1 = idate1 + 1 ! Since date starts at 1
 
-ihr=int(s1/3600.)
-s1=s1-ihr*3600.
-imn=int(s1/60.)
-s1=s1-imn*60.
-isc=s1
-ihour1=ihr*10000+imn*100+isc
+ihour = int(s1 / 3600._r8)
+s1 = s1 - real(ihour*3600,r8)
+
+iminute = int(s1 / 60._r8)
+s1 = s1 - real(iminute*60,r8)
+
+isecond = int(s1)
+ihour1 = ihour * 10000 + iminute * 100 + isecond
 
 return
 end subroutine date_secs_ymdt
@@ -335,26 +372,28 @@ end function julday
 
 subroutine date_add_to_big8(cindate,tinc8,tunits,coutdate)
 
+use consts_coms, only: r8
+
 implicit none
 
 character(len=14), intent(in) :: cindate
-real(kind=8), intent(in) :: tinc8
+real(r8), intent(in) :: tinc8
 character(len=1), intent(in) :: tunits
 character(len=14), intent(out) :: coutdate
 
 ! adds/subtracts a time increment to a date and output new date
 ! -> uses hhmmss for hours, 4 digit year
 
-real(kind=8) :: ttinc,secs
+real(r8) :: ttinc,secs
 integer :: inyear,inmonth,indate,inhour  &
           ,outyear,outmonth,outdate,outhour
 
 ! convert input time to seconds
 
 ttinc = tinc8
-if (tunits == 'm') ttinc = tinc8 * 60.
-if (tunits == 'h') ttinc = tinc8 * 3600.
-if (tunits == 'd') ttinc = tinc8 * 86400.
+if (tunits == 'm') ttinc = tinc8 * 60._r8
+if (tunits == 'h') ttinc = tinc8 * 3600._r8
+if (tunits == 'd') ttinc = tinc8 * 86400._r8
 
 call date_unmake_big(inyear,inmonth,indate,inhour,cindate)
 call date_abs_secs2(inyear,inmonth,indate,inhour,secs)
@@ -371,24 +410,27 @@ end subroutine date_add_to_big8
 
 subroutine date_add_to8(inyear,inmonth,indate,inhour,tinc8,tunits  &
                        ,outyear,outmonth,outdate,outhour)
+
+use consts_coms, only: r8
+
 implicit none
 
 integer, intent(in) :: inyear,inmonth,indate,inhour
-real(kind=8), intent(in) :: tinc8
+real(r8), intent(in) :: tinc8
 character(len=1), intent(in) :: tunits
 integer, intent(out) :: outyear,outmonth,outdate,outhour
 
 ! adds/subtracts a time increment to a date and output new date
 ! -> uses hhmmss for hours, 4 digit year
 
-real(kind=8) :: ttinc,secs
+real(r8) :: ttinc,secs
 
 ! convert input time to seconds
 
 ttinc = tinc8
-if (tunits == 'm') ttinc = tinc8 * 60.
-if (tunits == 'h') ttinc = tinc8 * 3600.
-if (tunits == 'd') ttinc = tinc8 * 86400.
+if (tunits == 'm') ttinc = tinc8 * 60._r8
+if (tunits == 'h') ttinc = tinc8 * 3600._r8
+if (tunits == 'd') ttinc = tinc8 * 86400._r8
 
 call date_abs_secs2(inyear,inmonth,indate,inhour,secs)
 
@@ -435,6 +477,7 @@ end subroutine makefnam
 integer function timetohhmmss(time)
 
   use consts_coms, only: r8
+
   implicit none
 
   real(r8), intent(in) :: time
@@ -460,18 +503,20 @@ end function timetohhmmss
 
 subroutine dintsort28(ni,chnums,cstr,array8)
 
+use consts_coms, only: r8
+
 implicit none
 
 integer,           intent(in)    :: ni
 character(len=14), intent(inout) :: chnums(ni)
 character(len=*),  intent(inout) :: cstr  (ni)
-real(kind=8),      intent(inout) :: array8(ni)
+real(r8),          intent(inout) :: array8(ni)
 
 ! sort an array of character strings by an associated character field
 
 character(len=200) :: cscr
 character(len=14)  :: mini,nscr
-real(kind=8)       :: aa
+real(r8)           :: aa
 
 integer :: n
 integer :: nm
@@ -508,7 +553,7 @@ end subroutine dintsort28
 
 subroutine update_model_time(ctime,dtlong8)
 
-  use misc_coms, only: simtime
+  use misc_coms,   only: simtime
   use consts_coms, only: r8
 
   implicit none
@@ -582,6 +627,7 @@ end subroutine update_model_time
 !===============================================================================
 
 real function walltime(wstart)
+
   implicit none
 
   real, intent(in) :: wstart

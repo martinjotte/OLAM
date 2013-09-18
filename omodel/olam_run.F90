@@ -736,7 +736,7 @@ endif
 ! Output of time-averaged quantities
 
 if (mod(time8p,86400.0_r8) < dtlm(1)) then
-   call date_add_to8(iyear1,imonth1,idate1,itime1,time8,'s',outyear,  &
+   call date_add_to8(iyear1,imonth1,idate1,itime1,time8p,'s',outyear,  &
         outmonth,outdate,outhour)
 
    if (nl%ioutput_davg == 1) then
