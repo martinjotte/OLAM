@@ -32,9 +32,9 @@
 !===============================================================================
 Module mem_leaf
 
-   use max_dims,          only: maxremote
-   use mem_mksfc,         only: itab_mls_vars, itab_uls_vars, itab_wls_vars, &
-                                itab_uls_pd_vars, itab_wls_pd_vars
+   use max_dims,  only: maxremote
+   use mem_mksfc, only: itab_mls_vars, itab_uls_vars, itab_wls_vars, &
+                        itab_uls_pd_vars, itab_wls_pd_vars
    implicit none
    
    private :: maxremote, itab_mls_vars, itab_uls_vars, itab_wls_vars
@@ -206,15 +206,24 @@ Contains
 !=========================================================================
 
    subroutine alloc_land_grid(mml, mul, mwl, nzg)
-     use misc_coms, only: rinit
+
+     use misc_coms, only: rinit, runtype
+     use leaf_coms, only: ilandgrid
+
      implicit none
 
      integer, intent(in) :: mml, mul, mwl, nzg
 
 !    Allocate land grid tables
 
-     allocate (itab_ml(mml))
-     allocate (itab_ul(mul))
+     if (runtype == 'MAKESFC'  .or. &
+         runtype == 'MAKEGRID' .or. &
+         ilandgrid == 1) then
+
+        allocate (itab_ml(mml))
+        allocate (itab_ul(mul))
+     endif
+
      allocate (itab_wl(mwl))
 
 !    Allocate and initialize land grid information from mksfc
@@ -244,19 +253,27 @@ Contains
 !=========================================================================
 
    subroutine alloc_land_grid_pd(mml, mul, mwl)
-     use misc_coms, only: rinit
+
+     use misc_coms, only: rinit, runtype
+     use leaf_coms, only: ilandgrid
+
      implicit none
 
      integer, intent(in) :: mml, mul, mwl
 
 !    Allocate land grid tables
 
-     allocate (itab_ul_pd(mul))
      allocate (itab_wl_pd(mwl))
 
-     allocate (land_pd%xem  (mml)) ; land_pd%xem   = rinit
-     allocate (land_pd%yem  (mml)) ; land_pd%yem   = rinit
-     allocate (land_pd%zem  (mml)) ; land_pd%zem   = rinit
+     if (runtype == 'MAKESFC'  .or. &
+         runtype == 'MAKEGRID' .or. &
+         ilandgrid == 1) then
+
+        allocate (itab_ul_pd(mul))
+        allocate (land_pd%xem(mml)) ; land_pd%xem = rinit
+        allocate (land_pd%yem(mml)) ; land_pd%yem = rinit
+        allocate (land_pd%zem(mml)) ; land_pd%zem = rinit
+     endif
 
    end subroutine alloc_land_grid_pd
 

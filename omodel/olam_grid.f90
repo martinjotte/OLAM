@@ -701,10 +701,7 @@ subroutine gridfile_write()
        glatw, glonw, glatm, glonm, glatu, glonu, glatv, glonv, &
        aru, arv, volui, volvi, arw, volwi, volt, volti
   use leaf_coms,  only: isfcl
-  use mem_sflux,  only: nseaflux, nlandflux, seaflux, landflux, &
-       nsfpats, nlfpats, nsfpatm, nlfpatm, &
-       xemsfpat, yemsfpat, zemsfpat, &
-       xemlfpat, yemlfpat, zemlfpat
+  use mem_sflux,  only: nseaflux, nlandflux, seaflux, landflux, maxnpolyf
 
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
 
@@ -715,7 +712,7 @@ subroutine gridfile_write()
 
   ! This routine writes the grid variables to the grid file.
 
-  integer :: im, iu, iv, iw, iwnud
+  integer :: im, iu, iv, iw, iwnud, isf, ilf
 
   integer :: ndims, idims(2)
 
@@ -1432,7 +1429,6 @@ subroutine gridfile_write()
      idims(1) = 1
 
      call shdf5_orec(ndims, idims, 'NSEAFLUX',ivars=nseaflux)
-     call shdf5_orec(ndims, idims, 'NSFPATS',ivars=nsfpats)
 
      ndims    = 1
      idims(1) = nseaflux
@@ -1441,8 +1437,7 @@ subroutine gridfile_write()
      call shdf5_orec(ndims,idims,'seaflux%iw'      ,ivara=seaflux(:)%iw)
      call shdf5_orec(ndims,idims,'seaflux%kw'      ,ivara=seaflux(:)%kw)
      call shdf5_orec(ndims,idims,'seaflux%iws'     ,ivara=seaflux(:)%iwls)
-     call shdf5_orec(ndims,idims,'seaflux%jpats'   ,ivara=seaflux(:)%jpats)
-     call shdf5_orec(ndims,idims,'seaflux%ipat'    ,ivara=seaflux(:)%ipat)
+     call shdf5_orec(ndims,idims,'seaflux%npoly'   ,ivara=seaflux(:)%npoly)
      call shdf5_orec(ndims,idims,'seaflux%area'    ,rvara=seaflux(:)%area)
      call shdf5_orec(ndims,idims,'seaflux%xef'     ,rvara=seaflux(:)%xef)
      call shdf5_orec(ndims,idims,'seaflux%yef'     ,rvara=seaflux(:)%yef)
@@ -1453,30 +1448,37 @@ subroutine gridfile_write()
      call shdf5_orec(ndims,idims,'seaflux%arf_sea' ,rvara=seaflux(:)%arf_sfc)
      call shdf5_orec(ndims,idims,'seaflux%arf_kw'  ,rvara=seaflux(:)%arf_kw)
 
-     if (nsfpats > 0) then
+     ! Write SEAFLUX ARRAYS
 
-        ndims    = 1
-        idims(1) = nsfpats
+     ndims = 2
+     idims(1) = maxnpolyf
+     idims(2) = nseaflux
 
-        call shdf5_orec(ndims,idims,'nsfpatm' ,ivara=nsfpatm)
+     allocate (rscr(maxnpolyf,nseaflux))
 
-        ndims    = 2
-        idims(1) = 5
-        idims(2) = nsfpats
+     do isf = 1,nseaflux
+        rscr(1:maxnpolyf,isf) = seaflux(isf)%xem(1:maxnpolyf)
+     enddo
+     call shdf5_orec(ndims,idims,'seaflux%xem',rvara=rscr)
 
-        call shdf5_orec(ndims,idims,'xemsfpat' ,rvara=xemsfpat)
-        call shdf5_orec(ndims,idims,'yemsfpat' ,rvara=yemsfpat)
-        call shdf5_orec(ndims,idims,'zemsfpat' ,rvara=zemsfpat)
+     do isf = 1,nseaflux
+        rscr(1:maxnpolyf,isf) = seaflux(isf)%yem(1:maxnpolyf)
+     enddo
+     call shdf5_orec(ndims,idims,'seaflux%yem',rvara=rscr)
 
-     endif
+     do isf = 1,nseaflux
+        rscr(1:maxnpolyf,isf) = seaflux(isf)%zem(1:maxnpolyf)
+     enddo
+     call shdf5_orec(ndims,idims,'seaflux%zem',rvara=rscr)
 
+     deallocate(rscr)
+   
      ! Write LANDFLUX VALUES
 
      ndims    = 1
      idims(1) = 1
 
      call shdf5_orec(ndims, idims, 'NLANDFLUX',ivars=nlandflux)
-     call shdf5_orec(ndims, idims, 'NLFPATS'  ,ivars=nlfpats)
 
      ndims    = 1
      idims(1) = nlandflux
@@ -1485,8 +1487,7 @@ subroutine gridfile_write()
      call shdf5_orec(ndims,idims,'landflux%iw'      ,ivara=landflux(:)%iw)
      call shdf5_orec(ndims,idims,'landflux%kw'      ,ivara=landflux(:)%kw)
      call shdf5_orec(ndims,idims,'landflux%iwl'     ,ivara=landflux(:)%iwls)
-     call shdf5_orec(ndims,idims,'landflux%jpats'   ,ivara=landflux(:)%jpats)
-     call shdf5_orec(ndims,idims,'landflux%ipat'    ,ivara=landflux(:)%ipat)
+     call shdf5_orec(ndims,idims,'landflux%npoly'   ,ivara=landflux(:)%npoly)
      call shdf5_orec(ndims,idims,'landflux%area'    ,rvara=landflux(:)%area)
      call shdf5_orec(ndims,idims,'landflux%xef'     ,rvara=landflux(:)%xef)
      call shdf5_orec(ndims,idims,'landflux%yef'     ,rvara=landflux(:)%yef)
@@ -1497,23 +1498,31 @@ subroutine gridfile_write()
      call shdf5_orec(ndims,idims,'landflux%arf_land',rvara=landflux(:)%arf_sfc)
      call shdf5_orec(ndims,idims,'landflux%arf_kw'  ,rvara=landflux(:)%arf_kw)
 
-     if (nlfpats > 0) then
+     ! Write LANDFLUX ARRAYS
 
-        ndims    = 1
-        idims(1) = nlfpats
+     ndims = 2
+     idims(1) = maxnpolyf
+     idims(2) = nlandflux
 
-        call shdf5_orec(ndims,idims,'nlfpatm' ,ivara=nlfpatm)
+     allocate (rscr(maxnpolyf,nlandflux))
 
-        ndims    = 2
-        idims(1) = 5
-        idims(2) = nlfpats
+     do ilf = 1,nlandflux
+        rscr(1:maxnpolyf,ilf) = landflux(ilf)%xem(1:maxnpolyf)
+     enddo
+     call shdf5_orec(ndims,idims,'landflux%xem',rvara=rscr)
 
-        call shdf5_orec(ndims,idims,'xemlfpat' ,rvara=xemlfpat)
-        call shdf5_orec(ndims,idims,'yemlfpat' ,rvara=yemlfpat)
-        call shdf5_orec(ndims,idims,'zemlfpat' ,rvara=zemlfpat)
+     do ilf = 1,nlandflux
+        rscr(1:maxnpolyf,ilf) = landflux(ilf)%yem(1:maxnpolyf)
+     enddo
+     call shdf5_orec(ndims,idims,'landflux%yem',rvara=rscr)
 
-     endif
+     do ilf = 1,nlandflux
+        rscr(1:maxnpolyf,ilf) = landflux(ilf)%zem(1:maxnpolyf)
+     enddo
+     call shdf5_orec(ndims,idims,'landflux%zem',rvara=rscr)
 
+     deallocate(rscr)
+   
   endif
 
   ! Check whether NUDGING arrays are used
@@ -1576,8 +1585,7 @@ use mem_grid,   only: nza, nma, nua, nva, nwa, &
                       xem, yem, zem, xew, yew, zew, &
                       alloc_xyzem, alloc_xyzew
 use leaf_coms,  only: isfcl
-use mem_sflux,  only: nseaflux, nlandflux, mseaflux, mlandflux,  &
-                      nsfpats, nlfpats, msfpats, mlfpats,  &
+use mem_sflux,  only: nseaflux, nlandflux, mseaflux, mlandflux, &
                       seaflux_pd, landflux_pd
 
 use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
@@ -1995,10 +2003,8 @@ if (exans) then
       idims(1) = 1
 
       call shdf5_irec(ndims, idims, 'NSEAFLUX',ivars=nseaflux)
-      call shdf5_irec(ndims, idims, 'NSFPATS' ,ivars=nsfpats)
 
       mseaflux = nseaflux
-      msfpats = nsfpats
 
       allocate (seaflux_pd(nseaflux))
 
@@ -2014,10 +2020,8 @@ if (exans) then
       idims(1) = 1
 
       call shdf5_irec(ndims, idims, 'NLANDFLUX',ivars=nlandflux)
-      call shdf5_irec(ndims, idims, 'NLFPATS'  ,ivars=nlfpats)
 
       mlandflux = nlandflux
-      mlfpats = nlfpats
 
       allocate (landflux_pd(nlandflux))
 
@@ -2075,10 +2079,7 @@ use mem_grid,   only: nza, &
                       aru, arv, volui, volvi, arw, volwi, volt, volti
 use leaf_coms,  only: isfcl
 use mem_sflux,  only: nseaflux, nlandflux, mseaflux, mlandflux, &
-                      nsfpats, nlfpats, msfpats, mlfpats, nsfpatm, nlfpatm, &
-                      seaflux, landflux, &
-                      xemsfpat, yemsfpat, zemsfpat, &
-                      xemlfpat, yemlfpat, zemlfpat
+                      seaflux, landflux, maxnpolyf
 
 use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
 use mem_para,   only: myrank
@@ -2093,7 +2094,7 @@ use mem_nudge,  only: nudflag, nudnxp, nwnud, mwnud, itab_wnud, &
 
 implicit none
 
-integer :: im, iu, iv, iw, iwnud
+integer :: im, iu, iv, iw, iwnud, isf, ilf
 
 integer :: ierr
 
@@ -2793,18 +2794,10 @@ if (exans) then
       idims(1) = 1
 
       call shdf5_irec(ndims, idims, 'NSEAFLUX',ivars=nseaflux)
-      call shdf5_irec(ndims, idims, 'NSFPATS' ,ivars=nsfpats)
 
       mseaflux = nseaflux
-      msfpats = nsfpats
 
       allocate (seaflux(nseaflux))
-
-      allocate (nsfpatm(nsfpats))
-
-      allocate (xemsfpat(5,nsfpats))
-      allocate (yemsfpat(5,nsfpats))
-      allocate (zemsfpat(5,nsfpats))
 
       ndims    = 1
       idims(1) = nseaflux
@@ -2813,8 +2806,7 @@ if (exans) then
       call shdf5_irec(ndims,idims,'seaflux%iw'      ,ivara=seaflux(:)%iw)
       call shdf5_irec(ndims,idims,'seaflux%kw'      ,ivara=seaflux(:)%kw)
       call shdf5_irec(ndims,idims,'seaflux%iws'     ,ivara=seaflux(:)%iwls)
-      call shdf5_irec(ndims,idims,'seaflux%jpats'   ,ivara=seaflux(:)%jpats)
-      call shdf5_irec(ndims,idims,'seaflux%ipat'    ,ivara=seaflux(:)%ipat)
+      call shdf5_irec(ndims,idims,'seaflux%npoly'   ,ivara=seaflux(:)%npoly)
       call shdf5_irec(ndims,idims,'seaflux%area'    ,rvara=seaflux(:)%area)
       call shdf5_irec(ndims,idims,'seaflux%xef'     ,rvara=seaflux(:)%xef)
       call shdf5_irec(ndims,idims,'seaflux%yef'     ,rvara=seaflux(:)%yef)
@@ -2825,41 +2817,41 @@ if (exans) then
       call shdf5_irec(ndims,idims,'seaflux%arf_sea' ,rvara=seaflux(:)%arf_sfc)
       call shdf5_irec(ndims,idims,'seaflux%arf_kw'  ,rvara=seaflux(:)%arf_kw)
 
-      if (nsfpats > 0) then
+! Read SEAFLUX ARRAYS
 
-         ndims    = 1
-        idims(1) = nsfpats
+      ndims = 2
+      idims(1) = maxnpolyf
+      idims(2) = nseaflux
 
-         call shdf5_irec(ndims,idims,'nsfpatm' ,ivara=nsfpatm)
+      allocate (rscr(maxnpolyf,nseaflux))
 
-         ndims    = 2
-         idims(1) = 5
-         idims(2) = nsfpats
+      call shdf5_irec(ndims,idims,'seaflux%xem',rvara=rscr)
+      do isf = 1,nseaflux
+         seaflux(isf)%xem(1:maxnpolyf) = rscr(1:maxnpolyf,isf)
+      enddo
 
-         call shdf5_irec(ndims,idims,'xemsfpat' ,rvara=xemsfpat)
-         call shdf5_irec(ndims,idims,'yemsfpat' ,rvara=yemsfpat)
-         call shdf5_irec(ndims,idims,'zemsfpat' ,rvara=zemsfpat)
+      call shdf5_irec(ndims,idims,'seaflux%yem',rvara=rscr)
+      do isf = 1,nseaflux
+         seaflux(isf)%yem(1:maxnpolyf) = rscr(1:maxnpolyf,isf)
+      enddo
 
-      endif
+      call shdf5_irec(ndims,idims,'seaflux%zem',rvara=rscr)
+      do isf = 1,nseaflux
+         seaflux(isf)%zem(1:maxnpolyf) = rscr(1:maxnpolyf,isf)
+      enddo
 
+      deallocate(rscr)
+   
 ! Read LANDFLUX VALUES
 
       ndims    = 1
       idims(1) = 1
 
       call shdf5_irec(ndims, idims, 'NLANDFLUX',ivars=nlandflux)
-      call shdf5_irec(ndims, idims, 'NLFPATS'  ,ivars=nlfpats)
 
       mlandflux = nlandflux
-      mlfpats = nlfpats
 
       allocate (landflux(nlandflux))
-
-      allocate (nlfpatm(nlfpats))
-
-      allocate (xemlfpat(5,nlfpats))
-      allocate (yemlfpat(5,nlfpats))
-      allocate (zemlfpat(5,nlfpats))
 
       ndims    = 1
       idims(1) = nlandflux
@@ -2868,8 +2860,7 @@ if (exans) then
       call shdf5_irec(ndims,idims,'landflux%iw'      ,ivara=landflux(:)%iw)
       call shdf5_irec(ndims,idims,'landflux%kw'      ,ivara=landflux(:)%kw)
       call shdf5_irec(ndims,idims,'landflux%iwl'     ,ivara=landflux(:)%iwls)
-      call shdf5_irec(ndims,idims,'landflux%jpats'   ,ivara=landflux(:)%jpats)
-      call shdf5_irec(ndims,idims,'landflux%ipat'    ,ivara=landflux(:)%ipat)
+      call shdf5_irec(ndims,idims,'landflux%npoly'   ,ivara=landflux(:)%npoly)
       call shdf5_irec(ndims,idims,'landflux%area'    ,rvara=landflux(:)%area)
       call shdf5_irec(ndims,idims,'landflux%xef'     ,rvara=landflux(:)%xef)
       call shdf5_irec(ndims,idims,'landflux%yef'     ,rvara=landflux(:)%yef)
@@ -2880,23 +2871,31 @@ if (exans) then
       call shdf5_irec(ndims,idims,'landflux%arf_land',rvara=landflux(:)%arf_sfc)
       call shdf5_irec(ndims,idims,'landflux%arf_kw'  ,rvara=landflux(:)%arf_kw)
 
-      if (nlfpats > 0) then
+! Read LANDFLUX ARRAYS
 
-         ndims    = 1
-         idims(1) = nlfpats
+      ndims = 2
+      idims(1) = maxnpolyf
+      idims(2) = nlandflux
 
-         call shdf5_irec(ndims,idims,'nlfpatm' ,ivara=nlfpatm)
+      allocate (rscr(maxnpolyf,nlandflux))
 
-         ndims    = 2
-         idims(1) = 5
-         idims(2) = nlfpats
+      call shdf5_irec(ndims,idims,'landflux%xem',rvara=rscr)
+      do ilf = 1,nlandflux
+         landflux(ilf)%xem(1:maxnpolyf) = rscr(1:maxnpolyf,ilf)
+      enddo
 
-         call shdf5_irec(ndims,idims,'xemlfpat' ,rvara=xemlfpat)
-         call shdf5_irec(ndims,idims,'yemlfpat' ,rvara=yemlfpat)
-         call shdf5_irec(ndims,idims,'zemlfpat' ,rvara=zemlfpat)
+      call shdf5_irec(ndims,idims,'landflux%yem',rvara=rscr)
+      do ilf = 1,nlandflux
+         landflux(ilf)%yem(1:maxnpolyf) = rscr(1:maxnpolyf,ilf)
+      enddo
 
-      endif
+      call shdf5_irec(ndims,idims,'landflux%zem',rvara=rscr)
+      do ilf = 1,nlandflux
+         landflux(ilf)%zem(1:maxnpolyf) = rscr(1:maxnpolyf,ilf)
+      enddo
 
+      deallocate(rscr)
+   
    endif
 
 ! Check whether NUDGING arrays are used

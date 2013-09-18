@@ -142,7 +142,7 @@ Module oname_coms
       logical :: debug_fp    = .false.
       logical :: init_nans   = .false.
 
-!!    RALEIGH FRICTION PARAMETERS
+!!    RAYLEIGH FRICTION PARAMETERS
 
       real :: rayf_zmin    = 30000.0
       real :: rayf_distim  = 0.0
@@ -219,9 +219,11 @@ Module oname_coms
 
 !!    LEAF/SEA VARIABLES
 
-      integer :: isfcl    =  1
-      integer :: nzg      = 11
-      integer :: nzs      =  1
+      integer :: isfcl     =  1
+      integer :: nzg       = 11
+      integer :: nzs       =  1
+      integer :: ilandgrid =  1
+      integer :: iseagrid  =  1
 
       integer :: ivegflg    = 0
       integer :: isoilflg   = 0

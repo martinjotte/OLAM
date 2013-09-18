@@ -93,14 +93,15 @@ use micro_coms,  only: level, icloud, idriz, irain, ipris, &
                        aparm, gparm, hparm, cnparm, gnparm
 
 use leaf_coms,   only: nvgcon, nslcon, slmstr, isoilflg, ndviflg, &
-                       isfcl, ivegflg, nzg, nzs, slz, &
+                       isfcl, ivegflg, nzg, nzs, ilandgrid, slz, &
                        veg_database, soil_database, &
                        ndvi_database, iupdndvi, landusefile, &
                        isoilstateinit, isoildepthflg, iwatertabflg, &
                        soilstate_db, soildepth_db, watertab_db
 
 use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst, &
-                       iseaiceflg, seaice_database, seaice, iupdseaice
+                       iseaiceflg, seaice_database, seaice, iupdseaice, &
+                       iseagrid
 
 use oplot_coms,  only: op
 use isan_coms,   only: iapr
@@ -330,20 +331,22 @@ elseif (copy_type == 'NOT_HISTORY') then
 ! history restart or changing them would be irrelevant.  Thus, they are
 ! only copied to main model memory if this is not a history restart.
 
-   itime1   = nl%itime1
-   idate1   = nl%idate1
-   imonth1  = nl%imonth1
-   iyear1   = nl%iyear1
-   ngrids   = nl%ngrids
-   nzp      = nl%nzp
-   nzg      = nl%nzg
-   nzs      = nl%nzs
-   mdomain  = nl%mdomain
-   meshtype = nl%meshtype
-   isfcl    = nl%isfcl
-   itopoflg = nl%itopoflg
-   ivegflg  = nl%ivegflg
-   nxp      = nl%nxp
+   itime1    = nl%itime1
+   idate1    = nl%idate1
+   imonth1   = nl%imonth1
+   iyear1    = nl%iyear1
+   ngrids    = nl%ngrids
+   nzp       = nl%nzp
+   nzg       = nl%nzg
+   nzs       = nl%nzs
+   mdomain   = nl%mdomain
+   meshtype  = nl%meshtype
+   isfcl     = nl%isfcl
+   itopoflg  = nl%itopoflg
+   ivegflg   = nl%ivegflg
+   nxp       = nl%nxp
+   ilandgrid = nl%ilandgrid
+   iseagrid  = nl%iseagrid
 
    do i = 1,maxgrds
       ngrdll(i) = nl%ngrdll(i)

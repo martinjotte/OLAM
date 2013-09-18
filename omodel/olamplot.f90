@@ -556,7 +556,7 @@ integer :: ip,ipnext
 integer :: iq,iqnext,nq
 integer :: ir,irnext,nr
 
-real :: xr(10),yr(10)
+real :: xr(30),yr(30)
 
 ! Truncate polygon to plot window
 
@@ -700,12 +700,12 @@ integer, intent(in) :: np
 real,    intent(in) :: xp(np),yp(np)
 
 integer, intent(out) :: nr
-real,    intent(out) :: xr(10),yr(10)
+real,    intent(out) :: xr(30),yr(30)
 
 integer :: ip,ipnext
 integer :: iq,iqnext,nq
 
-real :: xq(10),yq(10)
+real :: xq(30),yq(30)
 
 real :: frac_remain
 

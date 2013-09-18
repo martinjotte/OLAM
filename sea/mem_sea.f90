@@ -186,15 +186,24 @@ Contains
 !=========================================================================
 
    subroutine alloc_sea_grid(mms,mus,mws)
-     use misc_coms, only: rinit
+
+     use misc_coms, only: rinit, runtype
+     use sea_coms,  only: iseagrid
+
      implicit none
 
      integer, intent(in) :: mms, mus, mws
 
 !    Allocate sea grid tables
 
-     allocate (itab_ms(mms))
-     allocate (itab_us(mus))
+     if (runtype == 'MAKESFC'  .or. &
+         runtype == 'MAKEGRID' .or. &
+         iseagrid == 1) then
+
+        allocate (itab_ms(mms))
+        allocate (itab_us(mus))
+     endif
+
      allocate (itab_ws(mws))
 
 !    Allocate and initialize sea grid information from mksfc
@@ -219,19 +228,27 @@ Contains
 !=========================================================================
 
    subroutine alloc_sea_grid_pd(mms,mus,mws)
-     use misc_coms, only: rinit
+
+     use misc_coms, only: rinit, runtype
+     use sea_coms,  only: iseagrid
+
      implicit none
 
      integer, intent(in) :: mms, mus, mws
 
 !    Allocate sea grid tables
 
-     allocate (itab_us_pd(mus))
      allocate (itab_ws_pd(mws))
 
-     allocate (sea_pd%xem       (mms)) ; sea_pd%xem        = rinit
-     allocate (sea_pd%yem       (mms)) ; sea_pd%yem        = rinit
-     allocate (sea_pd%zem       (mms)) ; sea_pd%zem        = rinit
+     if (runtype == 'MAKESFC'  .or. &
+         runtype == 'MAKEGRID' .or. &
+         iseagrid == 1) then
+
+        allocate (itab_us_pd(mus))
+        allocate (sea_pd%xem(mms)) ; sea_pd%xem = rinit
+        allocate (sea_pd%yem(mms)) ; sea_pd%yem = rinit
+        allocate (sea_pd%zem(mms)) ; sea_pd%zem = rinit
+     endif
 
    end subroutine alloc_sea_grid_pd
 
@@ -241,6 +258,7 @@ Contains
 
      use misc_coms, only: rinit
      use sea_coms,  only: nzi
+
      implicit none
 
      integer, intent(in) :: mws

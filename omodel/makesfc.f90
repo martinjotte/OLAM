@@ -1460,7 +1460,7 @@ use max_dims,   only: maxnlspoly, pathlen
 use leaf_coms,  only: nzg, nml, nul, nwl, landusefile, slz
 use mem_leaf,   only: land, itab_ul, itab_wl
 use hdf5_utils, only: shdf5_open, shdf5_orec, shdf5_close
-use misc_coms,  only: io6, ngrids, nxp
+use misc_coms,  only: io6, ngrids, nxp, runtype
 
 implicit none
 
@@ -1473,7 +1473,11 @@ character(pathlen) :: flnm
 
 ! Write land file header information
 
-flnm=trim(landusefile)//'-S'//'.h5'
+if (runtype == 'MAKESFC') then
+   flnm=trim(landusefile)//'-S'//'.h5'
+else
+   flnm=trim(landusefile)//'-S2'//'.h5'
+endif
 
 call shdf5_open(flnm,'W',iclobber1)
 
@@ -1508,47 +1512,52 @@ call shdf5_orec(ndims, idims, 'wnyl'      , rvara=land%wny)
 call shdf5_orec(ndims, idims, 'wnzl'      , rvara=land%wnz)
 call shdf5_orec(ndims, idims, 'nlpoly'    , ivara=itab_wl(:)%npoly)
 
-idims(1) = nul
-
-call shdf5_orec(ndims, idims, 'itab_ul%im1', ivara=itab_ul(:)%im(1))
-call shdf5_orec(ndims, idims, 'itab_ul%im2', ivara=itab_ul(:)%im(2))
-call shdf5_orec(ndims, idims, 'itab_ul%iw1', ivara=itab_ul(:)%iw(1))
-call shdf5_orec(ndims, idims, 'itab_ul%iw2', ivara=itab_ul(:)%iw(2))
-
-idims(1) = nml
-
-call shdf5_orec(ndims, idims, 'xeml'  , rvara=land%xem)
-call shdf5_orec(ndims, idims, 'yeml'  , rvara=land%yem)
-call shdf5_orec(ndims, idims, 'zeml'  , rvara=land%zem)
-call shdf5_orec(ndims, idims, 'zml'   , rvara=land%zm)
-call shdf5_orec(ndims, idims, 'glatml', rvara=land%glatm)
-call shdf5_orec(ndims, idims, 'glonml', rvara=land%glonm)
-
 ndims = 2
 idims(1) = nzg
 idims(2) = nwl
 
 call shdf5_orec(ndims, idims, 'ntext_soil', ivara=land%ntext_soil)
 
-ndims = 2
-idims(1) = maxnlspoly
-idims(2) = nwl
+if (runtype == 'MAKESFC') then
+
+   ndims = 1
+   idims(1) = nul
+
+   call shdf5_orec(ndims, idims, 'itab_ul%im1', ivara=itab_ul(:)%im(1))
+   call shdf5_orec(ndims, idims, 'itab_ul%im2', ivara=itab_ul(:)%im(2))
+   call shdf5_orec(ndims, idims, 'itab_ul%iw1', ivara=itab_ul(:)%iw(1))
+   call shdf5_orec(ndims, idims, 'itab_ul%iw2', ivara=itab_ul(:)%iw(2))
+
+   idims(1) = nml
+
+   call shdf5_orec(ndims, idims, 'xeml'  , rvara=land%xem)
+   call shdf5_orec(ndims, idims, 'yeml'  , rvara=land%yem)
+   call shdf5_orec(ndims, idims, 'zeml'  , rvara=land%zem)
+   call shdf5_orec(ndims, idims, 'zml'   , rvara=land%zm)
+   call shdf5_orec(ndims, idims, 'glatml', rvara=land%glatm)
+   call shdf5_orec(ndims, idims, 'glonml', rvara=land%glonm)
+
+   ndims = 2
+   idims(1) = maxnlspoly
+   idims(2) = nwl
 
 ! Copy itab_wl%im to scratch array for output
 
-do iwl = 1,nwl
-   iscr(1:maxnlspoly,iwl) = itab_wl(iwl)%im(1:maxnlspoly)
-enddo
+   do iwl = 1,nwl
+      iscr(1:maxnlspoly,iwl) = itab_wl(iwl)%im(1:maxnlspoly)
+   enddo
 
-call shdf5_orec(ndims,idims,'itab_wl%im',ivara=iscr)
+   call shdf5_orec(ndims,idims,'itab_wl%im',ivara=iscr)
 
 ! Copy itab_wl%iu to scratch array for output
 
-do iwl = 1,nwl
-   iscr(1:maxnlspoly,iwl) = itab_wl(iwl)%iu(1:maxnlspoly)
-enddo
+   do iwl = 1,nwl
+      iscr(1:maxnlspoly,iwl) = itab_wl(iwl)%iu(1:maxnlspoly)
+   enddo
 
-call shdf5_orec(ndims,idims,'itab_wl%iu',ivara=iscr)
+   call shdf5_orec(ndims,idims,'itab_wl%iu',ivara=iscr)
+
+endif
 
 call shdf5_close()
 
@@ -1563,7 +1572,7 @@ use max_dims,   only: maxnlspoly, pathlen
 use sea_coms,   only: nms, nus, nws, seafile
 use mem_sea,    only: sea, itab_us, itab_ws
 use hdf5_utils, only: shdf5_open, shdf5_orec, shdf5_close
-use misc_coms,  only: io6, ngrids, nxp
+use misc_coms,  only: io6, ngrids, nxp, runtype
 
 implicit none
 
@@ -1576,7 +1585,11 @@ character(pathlen) :: flnm
 
 ! Write sea file header information
 
-flnm=trim(seafile)//'-S'//'.h5'
+if (runtype == 'MAKESFC') then
+   flnm=trim(seafile)//'-S'//'.h5'
+else
+   flnm=trim(seafile)//'-S2'//'.h5'
+endif
 
 call shdf5_open(flnm,'W',iclobber1)
 
@@ -1603,41 +1616,45 @@ call shdf5_orec(ndims, idims, 'glatws'    , rvara=sea%glatw)
 call shdf5_orec(ndims, idims, 'glonws'    , rvara=sea%glonw)
 call shdf5_orec(ndims, idims, 'nspoly'    , ivara=itab_ws(:)%npoly)
 
-idims(1) = nus
+if (runtype == 'MAKESFC') then
 
-call shdf5_orec(ndims, idims, 'itab_us%im1', ivara=itab_us(:)%im(1))
-call shdf5_orec(ndims, idims, 'itab_us%im2', ivara=itab_us(:)%im(2))
-call shdf5_orec(ndims, idims, 'itab_us%iw1', ivara=itab_us(:)%iw(1))
-call shdf5_orec(ndims, idims, 'itab_us%iw2', ivara=itab_us(:)%iw(2))
+   idims(1) = nus
 
-idims(1) = nms
+   call shdf5_orec(ndims, idims, 'itab_us%im1', ivara=itab_us(:)%im(1))
+   call shdf5_orec(ndims, idims, 'itab_us%im2', ivara=itab_us(:)%im(2))
+   call shdf5_orec(ndims, idims, 'itab_us%iw1', ivara=itab_us(:)%iw(1))
+   call shdf5_orec(ndims, idims, 'itab_us%iw2', ivara=itab_us(:)%iw(2))
 
-call shdf5_orec(ndims, idims, 'xems'  , rvara=sea%xem)
-call shdf5_orec(ndims, idims, 'yems'  , rvara=sea%yem)
-call shdf5_orec(ndims, idims, 'zems'  , rvara=sea%zem)
-call shdf5_orec(ndims, idims, 'zms'   , rvara=sea%zm)
-call shdf5_orec(ndims, idims, 'glatms', rvara=sea%glatm)
-call shdf5_orec(ndims, idims, 'glonms', rvara=sea%glonm)
+   idims(1) = nms
 
-ndims = 2
-idims(1) = maxnlspoly
-idims(2) = nws
+   call shdf5_orec(ndims, idims, 'xems'  , rvara=sea%xem)
+   call shdf5_orec(ndims, idims, 'yems'  , rvara=sea%yem)
+   call shdf5_orec(ndims, idims, 'zems'  , rvara=sea%zem)
+   call shdf5_orec(ndims, idims, 'zms'   , rvara=sea%zm)
+   call shdf5_orec(ndims, idims, 'glatms', rvara=sea%glatm)
+   call shdf5_orec(ndims, idims, 'glonms', rvara=sea%glonm)
+
+   ndims = 2
+   idims(1) = maxnlspoly
+   idims(2) = nws
 
 ! Copy itab_ws%im to temporary array for output
 
-do iws = 1,nws
-   iscr(1:maxnlspoly,iws) = itab_ws(iws)%im(1:maxnlspoly)
-enddo
+   do iws = 1,nws
+      iscr(1:maxnlspoly,iws) = itab_ws(iws)%im(1:maxnlspoly)
+   enddo
 
-call shdf5_orec(ndims, idims, 'itab_ws%im', ivara=iscr)
+   call shdf5_orec(ndims, idims, 'itab_ws%im', ivara=iscr)
 
 ! Copy itab_ws%iu to scratch array for output
 
-do iws = 1,nws
-   iscr(1:maxnlspoly,iws) = itab_ws(iws)%iu(1:maxnlspoly)
-enddo
+   do iws = 1,nws
+      iscr(1:maxnlspoly,iws) = itab_ws(iws)%iu(1:maxnlspoly)
+   enddo
 
-call shdf5_orec(ndims,idims,'itab_ws%iu',ivara=iscr)
+   call shdf5_orec(ndims,idims,'itab_ws%iu',ivara=iscr)
+
+endif
 
 call shdf5_close()
 
@@ -1649,10 +1666,11 @@ end subroutine seafile_write
 subroutine landfile_read()
 
 use max_dims,   only: maxnlspoly, pathlen
-use leaf_coms,  only: nzg, nml, nul, nwl, mml, mul, mwl, landusefile, slz
+use leaf_coms,  only: nzg, nml, nul, nwl, mml, mul, mwl, landusefile, slz, &
+                      ilandgrid
 use mem_leaf,   only: land, itab_ul, itab_wl, alloc_land_grid
 use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
-use misc_coms,  only: io6
+use misc_coms,  only: io6, runtype
 
 implicit none
 
@@ -1666,7 +1684,11 @@ integer, allocatable :: iscr(:,:)
 ! STEP 1: Open land file and read 4 array dimensions
 !-------------------------------------------------------------------------------
 
-flnm = trim(landusefile)//'-S'//'.h5'
+if (runtype == 'MAKEGRID' .or. ilandgrid == 1) then
+   flnm = trim(landusefile)//'-S'//'.h5'
+else
+   flnm = trim(landusefile)//'-S2'//'.h5'
+endif
 
 write(io6,*) 'Checking leaf file ',trim(flnm)
 
@@ -1725,47 +1747,52 @@ call shdf5_irec(ndims, idims, 'wnyl'      , rvara=land%wny)
 call shdf5_irec(ndims, idims, 'wnzl'      , rvara=land%wnz)
 call shdf5_irec(ndims ,idims, 'nlpoly'    , ivara=itab_wl(:)%npoly)
 
-idims(1) = nul
-
-call shdf5_irec(ndims, idims, 'itab_ul%im1', ivara=itab_ul(:)%im(1))
-call shdf5_irec(ndims, idims, 'itab_ul%im2', ivara=itab_ul(:)%im(2))
-call shdf5_irec(ndims, idims, 'itab_ul%iw1', ivara=itab_ul(:)%iw(1))
-call shdf5_irec(ndims, idims, 'itab_ul%iw2', ivara=itab_ul(:)%iw(2))
-
-idims(1) = nml
-
-call shdf5_irec(ndims, idims, 'xeml',   rvara=land%xem)
-call shdf5_irec(ndims, idims, 'yeml',   rvara=land%yem)
-call shdf5_irec(ndims, idims, 'zeml',   rvara=land%zem)
-call shdf5_irec(ndims, idims, 'zml' ,   rvara=land%zm)
-call shdf5_irec(ndims, idims, 'glatml', rvara=land%glatm)
-call shdf5_irec(ndims, idims, 'glonml', rvara=land%glonm)
-
 ndims = 2
 idims(1) = nzg
 idims(2) = nwl
 
 call shdf5_irec(ndims, idims, 'ntext_soil', ivara=land%ntext_soil)
 
-ndims = 2
-idims(1) = maxnlspoly
-idims(2) = nwl
+if (runtype == 'MAKEGRID' .or. ilandgrid == 1) then
 
-call shdf5_irec(ndims,idims,'itab_wl%im',ivara=iscr)
+   ndims = 1
+   idims(1) = nul
+
+   call shdf5_irec(ndims, idims, 'itab_ul%im1', ivara=itab_ul(:)%im(1))
+   call shdf5_irec(ndims, idims, 'itab_ul%im2', ivara=itab_ul(:)%im(2))
+   call shdf5_irec(ndims, idims, 'itab_ul%iw1', ivara=itab_ul(:)%iw(1))
+   call shdf5_irec(ndims, idims, 'itab_ul%iw2', ivara=itab_ul(:)%iw(2))
+
+   idims(1) = nml
+
+   call shdf5_irec(ndims, idims, 'xeml',   rvara=land%xem)
+   call shdf5_irec(ndims, idims, 'yeml',   rvara=land%yem)
+   call shdf5_irec(ndims, idims, 'zeml',   rvara=land%zem)
+   call shdf5_irec(ndims, idims, 'zml' ,   rvara=land%zm)
+   call shdf5_irec(ndims, idims, 'glatml', rvara=land%glatm)
+   call shdf5_irec(ndims, idims, 'glonml', rvara=land%glonm)
+
+   ndims = 2
+   idims(1) = maxnlspoly
+   idims(2) = nwl
+
+   call shdf5_irec(ndims,idims,'itab_wl%im',ivara=iscr)
 
 ! Copy input scratch array to itab_wl%im
 
-do iwl = 1,nwl
-   itab_wl(iwl)%im(1:maxnlspoly) = iscr(1:maxnlspoly,iwl)
-enddo
+   do iwl = 1,nwl
+      itab_wl(iwl)%im(1:maxnlspoly) = iscr(1:maxnlspoly,iwl)
+   enddo
 
-call shdf5_irec(ndims,idims,'itab_wl%iu',ivara=iscr)
+   call shdf5_irec(ndims,idims,'itab_wl%iu',ivara=iscr)
 
 ! Copy input scratch array to itab_wl%iu
 
-do iwl = 1,nwl
-   itab_wl(iwl)%iu(1:maxnlspoly) = iscr(1:maxnlspoly,iwl)
-enddo
+   do iwl = 1,nwl
+      itab_wl(iwl)%iu(1:maxnlspoly) = iscr(1:maxnlspoly,iwl)
+   enddo
+
+endif
 
 call shdf5_close()
 deallocate(iscr)
@@ -1782,10 +1809,10 @@ end subroutine landfile_read
 subroutine seafile_read()
 
 use max_dims,   only: maxnlspoly, pathlen
-use sea_coms,   only: nms, nus, nws, mms, mus, mws, seafile
+use sea_coms,   only: nms, nus, nws, mms, mus, mws, seafile, iseagrid
 use mem_sea,    only: sea, itab_us, itab_ws, alloc_sea_grid
 use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
-use misc_coms,  only: io6
+use misc_coms,  only: io6, runtype
 
 implicit none
 
@@ -1799,7 +1826,11 @@ integer, allocatable :: iscr(:,:)
 ! STEP 1: Open SEAFILE and read 3 array dimensions
 !-------------------------------------------------------------------------------
 
-flnm = trim(seafile)//'-S'//'.h5'
+if (runtype == 'MAKEGRID' .or. iseagrid == 1) then
+   flnm = trim(seafile)//'-S'//'.h5'
+else
+   flnm = trim(seafile)//'-S2'//'.h5'
+endif
 
 write(io6,*) 'Checking sea file ', trim(flnm)
 
@@ -1829,7 +1860,6 @@ write(io6, '(a,/)')   '====================================='
 !-------------------------------------------------------------------------------
 
 call alloc_sea_grid(nms,nus,nws)
-allocate (iscr(maxnlspoly,nws))
 
 !-------------------------------------------------------------------------------
 ! STEP 3: Read arrays from sea file
@@ -1847,46 +1877,51 @@ call shdf5_irec(ndims, idims, 'glatws'    , rvara=sea%glatw)
 call shdf5_irec(ndims, idims, 'glonws'    , rvara=sea%glonw)
 call shdf5_irec(ndims, idims, 'nspoly'    , ivara=itab_ws(:)%npoly)
 
-idims(1) = nus
+if (runtype == 'MAKEGRID' .or. iseagrid == 1) then
+   allocate (iscr(maxnlspoly,nws))
 
-call shdf5_irec(ndims, idims, 'itab_us%im1', ivara=itab_us(:)%im(1))
-call shdf5_irec(ndims, idims, 'itab_us%im2', ivara=itab_us(:)%im(2))
-call shdf5_irec(ndims, idims, 'itab_us%iw1', ivara=itab_us(:)%iw(1))
-call shdf5_irec(ndims, idims, 'itab_us%iw2', ivara=itab_us(:)%iw(2))
+   idims(1) = nus
 
-idims(1) = nms
+   call shdf5_irec(ndims, idims, 'itab_us%im1', ivara=itab_us(:)%im(1))
+   call shdf5_irec(ndims, idims, 'itab_us%im2', ivara=itab_us(:)%im(2))
+   call shdf5_irec(ndims, idims, 'itab_us%iw1', ivara=itab_us(:)%iw(1))
+   call shdf5_irec(ndims, idims, 'itab_us%iw2', ivara=itab_us(:)%iw(2))
 
-call shdf5_irec(ndims, idims, 'xems'  , rvara=sea%xem)
-call shdf5_irec(ndims, idims, 'yems'  , rvara=sea%yem)
-call shdf5_irec(ndims, idims, 'zems'  , rvara=sea%zem)
-call shdf5_irec(ndims, idims, 'zms'   , rvara=sea%zm)
-call shdf5_irec(ndims, idims, 'glatms', rvara=sea%glatm)
-call shdf5_irec(ndims, idims, 'glonms', rvara=sea%glonm)
+   idims(1) = nms
 
-ndims = 2
-idims(1) = maxnlspoly
-idims(2) = nws
+   call shdf5_irec(ndims, idims, 'xems'  , rvara=sea%xem)
+   call shdf5_irec(ndims, idims, 'yems'  , rvara=sea%yem)
+   call shdf5_irec(ndims, idims, 'zems'  , rvara=sea%zem)
+   call shdf5_irec(ndims, idims, 'zms'   , rvara=sea%zm)
+   call shdf5_irec(ndims, idims, 'glatms', rvara=sea%glatm)
+   call shdf5_irec(ndims, idims, 'glonms', rvara=sea%glonm)
 
-iscr(:,:) = 0
+   ndims = 2
+   idims(1) = maxnlspoly
+   idims(2) = nws
 
-call shdf5_irec(ndims, idims, 'itab_ws%im', ivara=iscr)
+   iscr(:,:) = 0
+
+   call shdf5_irec(ndims, idims, 'itab_ws%im', ivara=iscr)
 
 ! Copy temporary scratch array to itab_ws%im
 
-do iws = 1,nws
-   itab_ws(iws)%im(1:maxnlspoly) = iscr(1:maxnlspoly,iws)
-enddo
+   do iws = 1,nws
+      itab_ws(iws)%im(1:maxnlspoly) = iscr(1:maxnlspoly,iws)
+   enddo
 
-call shdf5_irec(ndims, idims, 'itab_ws%iu', ivara=iscr)
+   call shdf5_irec(ndims, idims, 'itab_ws%iu', ivara=iscr)
 
 ! Copy temporary scratch array to itab_ws%iu
 
-do iws = 1,nws
-   itab_ws(iws)%iu(1:maxnlspoly) = iscr(1:maxnlspoly,iws)
-enddo
+   do iws = 1,nws
+      itab_ws(iws)%iu(1:maxnlspoly) = iscr(1:maxnlspoly,iws)
+   enddo
+
+   deallocate(iscr)
+endif
 
 call shdf5_close()
-deallocate(iscr)
 
 mms = nms
 mus = nus

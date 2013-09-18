@@ -42,7 +42,8 @@ use misc_coms,  only: io6, itime1, idate1, imonth1, iyear1, nxp, ngrids, &
                       ngrdll, grdrad, grdlat, grdlon, nzp, &
                       mdomain, meshtype, deltax, &
                       itopoflg, time8, ndz, hdz, dz, current_time
-use leaf_coms,  only: nzg, nzs, slz, ivegflg, isfcl
+use leaf_coms,  only: nzg, nzs, slz, ivegflg, isfcl, ilandgrid
+use sea_coms,   only: iseagrid
 use hdf5_utils, only: shdf5_orec, shdf5_irec, shdf5_io
 
 implicit none
@@ -79,7 +80,9 @@ call shdf5_io(action, ndims, idims, 'nl%itopoflg',ivars=itopoflg)
 call shdf5_io(action, ndims, idims, 'nl%ivegflg', ivars=ivegflg)
 call shdf5_io(action, ndims, idims, 'nl%deltax',  rvars=deltax)
 
-call shdf5_io(action, ndims, idims, 'nl%ndz',     ivars=ndz)
+call shdf5_io(action, ndims, idims, 'nl%ndz',      ivars=ndz)
+call shdf5_io(action, ndims, idims, 'nl%ilandgrid',ivars=ilandgrid)
+call shdf5_io(action, ndims, idims, 'nl%iseagrid', ivars=iseagrid)
 
 ndims = 1
 idims(1) = ndz

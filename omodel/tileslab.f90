@@ -513,10 +513,10 @@ subroutine tileslab_horiz_s(iplt,action)
 
 use oplot_coms, only: op
 use mem_sea,    only: sea, itab_ws
-use sea_coms,   only: mws
+use sea_coms,   only: mws, iseagrid
 use misc_coms,  only: io6, iparallel
-use max_dims,   only: maxnlspoly
 use mem_para,   only: myrank
+use mem_sflux,  only: seaflux, nseaflux, maxnpolyf
 
 implicit none
 
@@ -529,54 +529,107 @@ integer :: ici
 integer :: ng
 integer :: ipm, jpm
 integer :: notavail
-integer :: iws
+integer :: iws, isf
 integer :: nspoly, jms, ims
 
 real :: hpt, vpt
 real :: fldval
 
-real :: htpn(maxnlspoly), vtpn(maxnlspoly)
+real :: htpn(maxnpolyf), vtpn(maxnpolyf)
 real :: wtbot = 1., wttop = 0.
 
-do iws = 2,mws
+if (iseagrid == 1) then
+
+   do iws = 2,mws
 
    ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
-   if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
-   nspoly = itab_ws(iws)%npoly
+      if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+
+      nspoly = itab_ws(iws)%npoly
 
 ! Get tile plot coordinates.  
 
-   call oplot_transform(iplt,sea%xew(iws),sea%yew(iws),sea%zew(iws),hpt,vpt)
+      call oplot_transform(iplt,sea%xew(iws),sea%yew(iws),sea%zew(iws),hpt,vpt)
 
-   do jms = 1,nspoly
-      ims = itab_ws(iws)%im(jms)
+      do jms = 1,nspoly
+         ims = itab_ws(iws)%im(jms)
       
-      call oplot_transform(iplt,sea%xem(ims),sea%yem(ims),sea%zem(ims), &
-                           htpn(jms),vtpn(jms))
+         call oplot_transform(iplt,sea%xem(ims),sea%yem(ims),sea%zem(ims), &
+                              htpn(jms),vtpn(jms))
 
 ! Avoid wrap-around for lat-lon plot
 
-      if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(jms))
-   enddo
+         if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(jms))
+      enddo
 
 ! Jump out of loop if any cell corner is on other side of earth
 
-   if (any(htpn(1:nspoly) > 1.e11)) cycle
+      if (any(htpn(1:nspoly) > 1.e11)) cycle
 
 ! Jump out of loop if entire cell is outside plot window. 
 
-   if (all(htpn(1:nspoly) < op%xmin) .or. all(htpn(1:nspoly) > op%xmax) .or. &
-       all(vtpn(1:nspoly) < op%ymin) .or. all(vtpn(1:nspoly) > op%ymax)) cycle
+      if (all(htpn(1:nspoly) < op%xmin) .or. all(htpn(1:nspoly) > op%xmax) .or. &
+          all(vtpn(1:nspoly) < op%ymin) .or. all(vtpn(1:nspoly) > op%ymax)) cycle
 
 ! Plot cell
 
-   call oplot_lib(1,iws,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                  fldval,notavail)    
-   if (notavail > 0) cycle 
-   call celltile(iplt,iws,nspoly,htpn,vtpn,hpt,vpt,fldval,action)
+      call oplot_lib(1,iws,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                     fldval,notavail)    
+      if (notavail > 0) cycle 
+      call celltile(iplt,iws,nspoly,htpn,vtpn,hpt,vpt,fldval,action)
 
-enddo
+   enddo
+
+elseif (iseagrid > 1) then
+
+   do isf = 2,nseaflux
+      iws = seaflux(isf)%iwls
+
+! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
+
+      if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+
+! Get tile plot coordinates.  
+
+      call oplot_transform(iplt,seaflux(isf)%xef, &
+                                seaflux(isf)%yef, &
+                                seaflux(isf)%zef, &
+                                hpt,vpt)
+
+      npoly = seaflux(isf)%npoly
+
+      do jms = 1,npoly
+
+         call oplot_transform(iplt, seaflux(isf)%xem(jms), &
+                                    seaflux(isf)%yem(jms), &
+                                    seaflux(isf)%zem(jms), &
+                                    htpn(jms),vtpn(jms))
+
+! Avoid wrap-around for lat-lon plots
+
+         if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(jms))
+      enddo
+
+! Jump out of loop if any cell corner is on other side of earth
+
+      if (any(htpn(1:npoly) > 1.e11)) cycle
+
+! Jump out of loop if entire cell is outside plot window. 
+
+      if (all(htpn(1:npoly) < op%xmin) .or. all(htpn(1:npoly) > op%xmax) .or. &
+          all(vtpn(1:npoly) < op%ymin) .or. all(vtpn(1:npoly) > op%ymax)) cycle
+
+! Plot cell
+
+      call oplot_lib(1,iws,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                     fldval,notavail)    
+   
+      call celltile(iplt,iws,npoly,htpn,vtpn,hpt,vpt,fldval,action)
+
+   enddo
+
+endif
 
 return
 end subroutine tileslab_horiz_s
@@ -587,10 +640,10 @@ subroutine tileslab_horiz_l(iplt,action)
 
 use oplot_coms, only: op
 use mem_leaf,   only: land, itab_wl
-use leaf_coms,  only: mwl, nzg, nzs
+use leaf_coms,  only: mwl, nzg, nzs, ilandgrid
 use misc_coms,  only: io6, iparallel
-use max_dims,   only: maxnlspoly
 use mem_para,   only: myrank
+use mem_sflux,  only: landflux, nlandflux, maxnpolyf
 
 implicit none
 
@@ -604,13 +657,13 @@ integer :: ipm
 integer :: k
 integer :: notavail
 integer :: iwl
-integer :: nlpoly, jml, iml
+integer :: nlpoly, jml, iml, ilf, j
 
 real :: hpt, vpt
 real :: fldval
 real :: wtbot = 1., wttop = 0.
 
-real :: htpn(maxnlspoly), vtpn(maxnlspoly)
+real :: htpn(maxnpolyf), vtpn(maxnpolyf)
 
 ! Find K level to plot if field is 3d
 
@@ -622,45 +675,98 @@ else
    k = 1
 endif
 
-do iwl = 2,mwl
+if (ilandgrid == 1) then
 
-   ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
-   if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+   do iwl = 2,mwl
 
-   nlpoly = itab_wl(iwl)%npoly
+! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
+
+      if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+
+      nlpoly = itab_wl(iwl)%npoly
 
 ! Get tile plot coordinates.  
 
-   call oplot_transform(iplt,land%xew(iwl),land%yew(iwl),land%zew(iwl),hpt,vpt)
+      call oplot_transform(iplt,land%xew(iwl),land%yew(iwl),land%zew(iwl),hpt,vpt)
 
-   do jml = 1,nlpoly
-      iml = itab_wl(iwl)%im(jml)
+      do jml = 1,nlpoly
+         iml = itab_wl(iwl)%im(jml)
 
-      call oplot_transform(iplt,land%xem(iml),land%yem(iml),land%zem(iml), &
-                           htpn(jml),vtpn(jml))
+         call oplot_transform(iplt,land%xem(iml),land%yem(iml),land%zem(iml), &
+                              htpn(jml),vtpn(jml))
 
 ! Avoid wrap-around for lat-lon plots
 
-      if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(jml))
-   enddo
+         if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(jml))
+      enddo
 
 ! Jump out of loop if any cell corner is on other side of earth
 
-   if (any(htpn(1:nlpoly) > 1.e11)) cycle
+      if (any(htpn(1:nlpoly) > 1.e11)) cycle
 
 ! Jump out of loop if entire cell is outside plot window. 
 
-   if (all(htpn(1:nlpoly) < op%xmin) .or. all(htpn(1:nlpoly) > op%xmax) .or. &
-       all(vtpn(1:nlpoly) < op%ymin) .or. all(vtpn(1:nlpoly) > op%ymax)) cycle
+      if (all(htpn(1:nlpoly) < op%xmin) .or. all(htpn(1:nlpoly) > op%xmax) .or. &
+          all(vtpn(1:nlpoly) < op%ymin) .or. all(vtpn(1:nlpoly) > op%ymax)) cycle
 
 ! Plot cell
 
-   call oplot_lib(k,iwl,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                  fldval,notavail)    
+      call oplot_lib(k,iwl,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                     fldval,notavail)    
    
-   call celltile(iplt,iwl,nlpoly,htpn,vtpn,hpt,vpt,fldval,action)
+      call celltile(iplt,iwl,nlpoly,htpn,vtpn,hpt,vpt,fldval,action)
 
-enddo
+   enddo
+
+elseif (ilandgrid > 1) then
+
+   do ilf = 2,nlandflux
+      iwl = landflux(ilf)%iwls
+
+! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
+
+      if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+
+! Get tile plot coordinates.  
+
+      call oplot_transform(iplt,landflux(ilf)%xef, &
+                                landflux(ilf)%yef, &
+                                landflux(ilf)%zef, &
+                                hpt,vpt)
+
+      npoly = landflux(ilf)%npoly
+
+      do j = 1,npoly
+
+         call oplot_transform(iplt, landflux(ilf)%xem(j), &
+                                    landflux(ilf)%yem(j), &
+                                    landflux(ilf)%zem(j), &
+                                    htpn(j),vtpn(j))
+
+! Avoid wrap-around for lat-lon plots
+
+         if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(j))
+      enddo
+
+! Jump out of loop if any cell corner is on other side of earth
+
+      if (any(htpn(1:npoly) > 1.e11)) cycle
+
+! Jump out of loop if entire cell is outside plot window. 
+
+      if (all(htpn(1:npoly) < op%xmin) .or. all(htpn(1:npoly) > op%xmax) .or. &
+          all(vtpn(1:npoly) < op%ymin) .or. all(vtpn(1:npoly) > op%ymax)) cycle
+
+! Plot cell
+
+      call oplot_lib(k,iwl,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                     fldval,notavail)    
+   
+      call celltile(iplt,iwl,npoly,htpn,vtpn,hpt,vpt,fldval,action)
+
+   enddo
+
+endif
 
 return
 end subroutine tileslab_horiz_l
@@ -670,10 +776,12 @@ end subroutine tileslab_horiz_l
 subroutine tileslab_horiz_fs(iplt,action)
 
 use oplot_coms, only: op
+use sea_coms,   only: iseagrid
 use mem_sea,    only: sea, itab_ws
 use leaf_coms,  only: mwl, nzg, nzs
-use misc_coms,  only: io6
-use mem_sflux,  only: mseaflux,seaflux,xemsfpat,yemsfpat,zemsfpat,nsfpatm
+use misc_coms,  only: io6, iparallel
+use mem_sflux,  only: mseaflux,seaflux,maxnpolyf
+use mem_para,   only: myrank
 
 implicit none
 
@@ -688,70 +796,63 @@ integer :: notavail
 integer :: iws
 integer :: j
 integer :: ims, jms
-integer :: isf,isfpat,jsfpats,ksfpat,jsfpatm
-integer :: isfprev
+integer :: isf, nsfpoly, jpoly
 
 real :: hpt, vpt
 real :: fldval
 
-real :: htpn(5), vtpn(5)
+real :: htpn(maxnpolyf), vtpn(maxnpolyf)
 real :: wtbot = 1., wttop = 0.
 
 k = 1
-isfprev = 0
-
 do isf = 2,mseaflux
 
-   jsfpats = seaflux(isf)%jpats
-   isfpat  = seaflux(isf)%ipat
+! Skip ISF cell if running in parallel and primary rank of ISF /= MYRANK
 
-   call oplot_transform(iplt              &
-                       ,seaflux(isf)%xef  &
-                       ,seaflux(isf)%yef  &
-                       ,seaflux(isf)%zef  &
-                       ,hpt               &
-                       ,vpt               )
+   if (iparallel == 1 .and. seaflux(isf)%iwrank /= myrank) cycle
 
-   do ksfpat = isfpat,isfpat + jsfpats - 1
-   
-      jsfpatm = nsfpatm(ksfpat)
+   nsfpoly = seaflux(isf)%npoly
 
-      do j = 1,jsfpatm
-         call oplot_transform(iplt               &
-                             ,xemsfpat(j,ksfpat)  &
-                             ,yemsfpat(j,ksfpat)  &
-                             ,zemsfpat(j,ksfpat)  &
-                             ,htpn(j)            &
-                             ,vtpn(j)            )
+! Get tile plot coordinates.  
 
-! Avoid wrap-around for lat-lon plots
+   call oplot_transform(iplt,             &
+                        seaflux(isf)%xef, &
+                        seaflux(isf)%yef, &
+                        seaflux(isf)%zef, &
+                        hpt, vpt)
 
-         if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(j))
+   do jpoly = 1,nsfpoly
+      call oplot_transform(iplt,                    &
+                           seaflux(isf)%xem(jpoly), &
+                           seaflux(isf)%yem(jpoly), &
+                           seaflux(isf)%zem(jpoly), &
+                           htpn(jpoly),vtpn(jpoly))
 
-      enddo
+! Avoid wrap-around for lat-lon plot
+
+      if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(jpoly))
+   enddo
 
 ! Jump out of loop if any cell corner is on other side of earth
 
-      if (any(htpn(1:jsfpatm) > 1.e11)) cycle
+   if (any(htpn(1:nsfpoly) > 1.e11)) cycle
 
 ! Jump out of loop if entire cell is outside plot window. 
 
-      if ( all(htpn(1:jsfpatm) < op%xmin) .or.  &
-           all(htpn(1:jsfpatm) > op%xmax) .or.  &
-           all(vtpn(1:jsfpatm) < op%ymin) .or.  &
-           all(vtpn(1:jsfpatm) > op%ymax) ) cycle
+   if ( all(htpn(1:nsfpoly) < op%xmin) .or.  &
+        all(htpn(1:nsfpoly) > op%xmax) .or.  &
+        all(vtpn(1:nsfpoly) < op%ymin) .or.  &
+        all(vtpn(1:nsfpoly) > op%ymax) ) cycle
 
-      if (isfprev /= isf) then
-         isfprev = isf
-         
-         call oplot_lib(k,isf,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                        fldval,notavail)   
-      endif
+! Plot cell
+
+   call oplot_lib(k,isf,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                  fldval,notavail)   
+
+   if (notavail > 0) cycle 
       
-      call celltile(iplt,isf,jsfpatm,htpn,vtpn,hpt,vpt,fldval,action)
-      if (action == 'P') cycle
-
-   enddo
+   call celltile(iplt,isf,nsfpoly,htpn,vtpn,hpt,vpt,fldval,action)
+   if (action == 'P') cycle
 
 enddo
 
@@ -764,8 +865,9 @@ subroutine tileslab_horiz_fl(iplt,action)
 
 use oplot_coms, only: op
 use leaf_coms,  only: mwl, nzg, nzs
-use misc_coms,  only: io6
-use mem_sflux,  only: mlandflux,landflux,xemlfpat,yemlfpat,zemlfpat,nlfpatm
+use misc_coms,  only: io6, iparallel
+use mem_sflux,  only: mlandflux,landflux,maxnpolyf
+use mem_para,   only: myrank
 
 implicit none
 
@@ -780,68 +882,67 @@ integer :: notavail
 integer :: iwl
 integer :: j
 integer :: iml, jml
-integer :: ilf,ilfpat,jlfpats,klfpat,jlfpatm
-integer :: ilfprev
+integer :: ilf, nlfpoly, jpoly
 
 real :: hpt,  vpt
 real :: fldval
 
-real :: htpn(5), vtpn(5)
+real :: htpn(maxnpolyf), vtpn(maxnpolyf)
 real :: wtbot = 1., wttop = 0.
 
 k = 1
-ilfprev = 0
 
 do ilf = 2,mlandflux
 
-   jlfpats = landflux(ilf)%jpats
-   ilfpat  = landflux(ilf)%ipat
-   
-   call oplot_transform(iplt               &
-                       ,landflux(ilf)%xef  &
-                       ,landflux(ilf)%yef  &
-                       ,landflux(ilf)%zef  &
-                       ,hpt                &
-                       ,vpt                )
+! Skip ILF cell if running in parallel and primary rank of ILF /= MYRANK
 
+   if (iparallel == 1 .and. landflux(ilf)%iwrank /= myrank) cycle
 
-   do klfpat = ilfpat,ilfpat + jlfpats - 1
+   nlfpoly = landflux(ilf)%npoly
 
-      jlfpatm = nlfpatm(klfpat)
+! Get tile plot coordinates.  
 
-      do j = 1,jlfpatm
-         call oplot_transform(iplt               &
-                             ,xemlfpat(j,klfpat)  &
-                             ,yemlfpat(j,klfpat)  &
-                             ,zemlfpat(j,klfpat)  &
-                             ,htpn(j)            &
-                             ,vtpn(j)            )
+   call oplot_transform(iplt,              &
+                        landflux(ilf)%xef, &
+                        landflux(ilf)%yef, &
+                        landflux(ilf)%zef, &
+                        hpt, vpt)
 
-          if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(j))
-      enddo
+   do jpoly = 1,nlfpoly
+      call oplot_transform(iplt,                     &
+                           landflux(ilf)%xem(jpoly), &
+                           landflux(ilf)%yem(jpoly), &
+                           landflux(ilf)%zem(jpoly), &
+                           htpn(jpoly),vtpn(jpoly))
+
+! Avoid wrap-around for lat-lon plot
+
+      if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(jpoly))
+
+   enddo
 
 ! Jump out of loop if any cell corner is on other side of earth
 
-      if (any(htpn(1:jlfpatm) > 1.e11)) cycle
+   if (any(htpn(1:nlfpoly) > 1.e11)) cycle
 
 ! Jump out of loop if entire cell is outside plot window. 
 
-      if ( all(htpn(1:jlfpatm) < op%xmin) .or.  &
-           all(htpn(1:jlfpatm) > op%xmax) .or.  &
-           all(vtpn(1:jlfpatm) < op%ymin) .or.  &
-           all(vtpn(1:jlfpatm) > op%ymax) ) cycle
+   if ( all(htpn(1:nlfpoly) < op%xmin) .or.  &
+        all(htpn(1:nlfpoly) > op%xmax) .or.  &
+        all(vtpn(1:nlfpoly) < op%ymin) .or.  &
+        all(vtpn(1:nlfpoly) > op%ymax) ) cycle
 
-      if (ilfprev /= ilf) then
-         ilfprev = ilf
-         
-         call oplot_lib(k,ilf,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                        fldval,notavail)
-      endif
+! Plot cell
 
-      call celltile(iplt,ilf,jlfpatm,htpn,vtpn,hpt,vpt,fldval,action)
-      if (action == 'P') cycle
+   call oplot_lib(k,ilf,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                  fldval,notavail)
 
-   enddo
+
+
+   if (notavail > 0) cycle 
+      
+   call celltile(iplt,ilf,nlfpoly,htpn,vtpn,hpt,vpt,fldval,action)
+   if (action == 'P') cycle
 
 enddo
 
@@ -1479,7 +1580,7 @@ if (action == 'T') then
    fldval1 = fldval
 
    if (clrtab(itab)%ifmt(1) == 20) &
-      fldval1 = mod(fldval-1.,real(clrtab(itab)%nvals-2)) + 1.
+      fldval1 = mod(fldval-1.,real(clrtab(itab)%nvals-2)) - 1. ! table 124 has 2 neg vals
 
 ! Case for color table 130; used with itab_w_mrowh
 

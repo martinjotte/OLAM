@@ -44,7 +44,7 @@ use mem_para,   only: mgroupsize, myrank,  &
                       nsends_wl, nrecvs_wl,  &
                       nsends_wlf, nrecvs_wlf
 
-use leaf_coms,  only: mml, mul, mwl, nml, nul, nwl, nzg
+use leaf_coms,  only: mml, mul, mwl, nml, nul, nwl, nzg, ilandgrid
 
 use mem_leaf,   only: itab_ml, itab_ul, itab_wl,       &
                       itabg_ml, itabg_ul, itabg_wl,    &
@@ -83,8 +83,11 @@ type(land_vars)                  :: land_t
 
 ! Move data to temporary data structures, nullifying the old datatype
 
-call move_alloc (itab_ml, ltab_ml)
-call move_alloc (itab_ul, ltab_ul)
+if (ilandgrid == 1) then
+   call move_alloc (itab_ml, ltab_ml)
+   call move_alloc (itab_ul, ltab_ul)
+endif
+
 call move_alloc (itab_wl, ltab_wl)
 
 call move_alloc (land%leaf_class, land_t%leaf_class)
@@ -116,8 +119,11 @@ allocate (nrecvs_wlf(mrls)) ; nrecvs_wlf = 0
 
 ! Initialize myrank flag arrays to .false.
 
-myrankflag_ml(1:nml) = .false.
-myrankflag_ul(1:nul) = .false.
+if (ilandgrid == 1) then
+   myrankflag_ml(1:nml) = .false.
+   myrankflag_ul(1:nul) = .false.
+endif
+
 myrankflag_wl(1:nwl) = .false.
 
 !------------------------------------------------------------------------------
@@ -152,7 +158,7 @@ do iwl = 2,nwl
       myrankflag_wl(iwl) = .true.
    endif
 
-   if (myrankflag_wl(iwl)) then
+   if (ilandgrid == 1 .and. myrankflag_wl(iwl)) then
 
       do jml = 1,ltab_wl(iwl)%npoly
          iml = ltab_wl(iwl)%im(jml)
@@ -168,17 +174,22 @@ enddo
 ! Loop over all ML, UL, and WL points and count the ones that have been flagged
 ! for inclusion on this rank.
 
-do iml = 2,nml
-   if (myrankflag_ml(iml)) then
-      iml_myrank = iml_myrank + 1
-   endif
-enddo
+if (ilandgrid == 1) then
+   do iml = 2,nml
+      if (myrankflag_ml(iml)) then
+         iml_myrank = iml_myrank + 1
+      endif
+   enddo
 
-do iul = 2,nul
-   if (myrankflag_ul(iul)) then
-      iul_myrank = iul_myrank + 1
-   endif
-enddo
+   do iul = 2,nul
+      if (myrankflag_ul(iul)) then
+         iul_myrank = iul_myrank + 1
+      endif
+   enddo
+
+   mml = iml_myrank
+   mul = iul_myrank
+endif
 
 do iwl = 2,nwl
    if (myrankflag_wl(iwl)) then
@@ -186,10 +197,6 @@ do iwl = 2,nwl
    endif
 enddo
 
-! Set mml, mul, mwl values for this rank
-
-mml = iml_myrank
-mul = iul_myrank
 mwl = iwl_myrank
 
 ! Re-allocate itab data structures and main grid coordinate arrays
@@ -204,21 +211,23 @@ iwl_myrank = 1
 
 ! Store new myrank ML, UL, WL indices in itabg data structures
 
-do iml = 2,nml
-   if (myrankflag_ml(iml)) then
-      iml_myrank = iml_myrank + 1
+if (ilandgrid == 1) then
+   do iml = 2,nml
+      if (myrankflag_ml(iml)) then
+         iml_myrank = iml_myrank + 1
 
-      itabg_ml(iml)%iml_myrank = iml_myrank      
-   endif
-enddo
+         itabg_ml(iml)%iml_myrank = iml_myrank      
+      endif
+   enddo
 
-do iul = 2,nul
-   if (myrankflag_ul(iul)) then
-      iul_myrank = iul_myrank + 1
+   do iul = 2,nul
+      if (myrankflag_ul(iul)) then
+         iul_myrank = iul_myrank + 1
 
-      itabg_ul(iul)%iul_myrank = iul_myrank
-   endif
-enddo
+         itabg_ul(iul)%iul_myrank = iul_myrank
+      endif
+   enddo
+endif
 
 do iwl = 2,nwl
    if (myrankflag_wl(iwl)) then
@@ -230,40 +239,42 @@ enddo
 
 ! Memory copy to main tables
 
-do iml = 2,nml
-   if (myrankflag_ml(iml)) then
-      iml_myrank = itabg_ml(iml)%iml_myrank
+if (ilandgrid == 1) then
+   do iml = 2,nml
+      if (myrankflag_ml(iml)) then
+         iml_myrank = itabg_ml(iml)%iml_myrank
 
-      itab_ml(iml_myrank)%imglobe = iml
+         itab_ml(iml_myrank)%imglobe = iml
 
-      land%xem  (iml_myrank) = land_t%xem  (iml)
-      land%yem  (iml_myrank) = land_t%yem  (iml)
-      land%zem  (iml_myrank) = land_t%zem  (iml)
-      land%zm   (iml_myrank) = land_t%zm   (iml)
-      land%glatm(iml_myrank) = land_t%glatm(iml)
-      land%glonm(iml_myrank) = land_t%glonm(iml)
+         land%xem  (iml_myrank) = land_t%xem  (iml)
+         land%yem  (iml_myrank) = land_t%yem  (iml)
+         land%zem  (iml_myrank) = land_t%zem  (iml)
+         land%zm   (iml_myrank) = land_t%zm   (iml)
+         land%glatm(iml_myrank) = land_t%glatm(iml)
+         land%glonm(iml_myrank) = land_t%glonm(iml)
 
-   endif
-enddo
+      endif
+   enddo
 
-do iul = 2,nul
-   if (myrankflag_ul(iul)) then
-      iul_myrank = itabg_ul(iul)%iul_myrank
+   do iul = 2,nul
+      if (myrankflag_ul(iul)) then
+         iul_myrank = itabg_ul(iul)%iul_myrank
 
-      itab_ul(iul_myrank)%irank = itabg_ul(iul)%irank
-      itab_ul(iul_myrank)%iuglobe = iul
+         itab_ul(iul_myrank)%irank = itabg_ul(iul)%irank
+         itab_ul(iul_myrank)%iuglobe = iul
 
-      im1l = ltab_ul(iul)%im(1)
-      im2l = ltab_ul(iul)%im(2)
-      iw1l = ltab_ul(iul)%iw(1)
-      iw2l = ltab_ul(iul)%iw(2)
+         im1l = ltab_ul(iul)%im(1)
+         im2l = ltab_ul(iul)%im(2)
+         iw1l = ltab_ul(iul)%iw(1)
+         iw2l = ltab_ul(iul)%iw(2)
 
-      if (myrankflag_ml(im1l)) itab_ul(iul_myrank)%im(1) = itabg_ml(im1l)%iml_myrank
-      if (myrankflag_ml(im2l)) itab_ul(iul_myrank)%im(2) = itabg_ml(im2l)%iml_myrank
-      if (myrankflag_wl(iw1l)) itab_ul(iul_myrank)%iw(1) = itabg_wl(iw1l)%iwl_myrank
-      if (myrankflag_wl(iw2l)) itab_ul(iul_myrank)%iw(2) = itabg_wl(iw2l)%iwl_myrank
-   endif
-enddo
+         if (myrankflag_ml(im1l)) itab_ul(iul_myrank)%im(1) = itabg_ml(im1l)%iml_myrank
+         if (myrankflag_ml(im2l)) itab_ul(iul_myrank)%im(2) = itabg_ml(im2l)%iml_myrank
+         if (myrankflag_wl(iw1l)) itab_ul(iul_myrank)%iw(1) = itabg_wl(iw1l)%iwl_myrank
+         if (myrankflag_wl(iw2l)) itab_ul(iul_myrank)%iw(2) = itabg_wl(iw2l)%iwl_myrank
+      endif
+   enddo
+endif
 
 do iwl = 2,nwl
    if (myrankflag_wl(iwl)) then
@@ -286,17 +297,18 @@ do iwl = 2,nwl
       land%wny  (iwl_myrank) = land_t%wny  (iwl)
       land%wnz  (iwl_myrank) = land_t%wnz  (iwl)
 
-      do jml = 1,ltab_wl(iwl)%npoly
-         iml = ltab_wl(iwl)%im(jml)
-         iul = ltab_wl(iwl)%iu(jml)
+      if (ilandgrid == 1) then
+         do jml = 1,ltab_wl(iwl)%npoly
+            iml = ltab_wl(iwl)%im(jml)
+            iul = ltab_wl(iwl)%iu(jml)
          
-         if (myrankflag_ml(iml)) itab_wl(iwl_myrank)%im(jml) =  &
-                                 itabg_ml(iml)%iml_myrank
+            if (myrankflag_ml(iml)) itab_wl(iwl_myrank)%im(jml) =  &
+                                    itabg_ml(iml)%iml_myrank
 
-         if (myrankflag_ul(iul)) itab_wl(iwl_myrank)%iu(jml) =  &
-                                 itabg_ul(iul)%iul_myrank
-      enddo
-
+            if (myrankflag_ul(iul)) itab_wl(iwl_myrank)%iu(jml) =  &
+                                    itabg_ul(iul)%iul_myrank
+         enddo
+      endif
    endif
 enddo
 
@@ -348,6 +360,9 @@ enddo
 ! (This section is required for computing landcell-atmosphere fluxes and 
 ! involves only surface and canopy properties.)
 
+! NOTE: (JULY 2013) WITH ILANDGRID > 1, NOTHING SHOULD BE ADDED TO SEND OR
+! RECV TABLES; CHECK THAT THIS IS TRUE...
+
 do ilf = 2,nlandflux
 
    iw  = landflux_temp(ilf)%iw   ! full-domain index
@@ -379,7 +394,10 @@ enddo
 
 ! Deallocate temporary data structures and arrays
 
-deallocate (ltab_ml, ltab_ul, ltab_wl)
+if (allocated(ltab_ml)) deallocate (ltab_ml)
+if (allocated(ltab_ul)) deallocate (ltab_ul)
+
+deallocate(ltab_wl)
 
 deallocate (land_t%leaf_class, land_t%ntext_soil)
 

@@ -73,6 +73,7 @@ character(pathlen) :: fnames_ndvi  (maxndvifiles)
 character(14)      :: ctotdate_ndvi(maxndvifiles)
 real(r8)           :: s1900_ndvi(maxndvifiles)
 
+integer :: ilandgrid
 integer :: ivegflg
 integer :: isoilflg
 integer :: ndviflg
