@@ -66,6 +66,8 @@ use var_tables,  only: nvar_par, vtab_r, nptonv
 use cgrid_spcs,  only: cgrid_spcs_init
 use emis_defn,   only: emis_init
 use depv_defn,   only: depv_init
+use mem_megan,   only: megan_init
+
 use mem_swtc5_refsoln_cubic
 
 use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
@@ -460,6 +462,10 @@ if (do_chem) then
    write(io6,'(/,1x,a)') 'Initializing chemical emissions/deposition'
    call emis_init()
    call depv_init()
+
+   if (isfcl > 0) then
+      call megan_init()
+   endif
 endif
 
 ! If using variable initialization and polygon nudging, read most recent
@@ -717,7 +723,7 @@ subroutine olam_output()
 
 use misc_coms,   only: io6, time8, dtlm, iflag, frqstate, timmax8, initial, &
                        s1900_sim, time_prevhist, iyear1, imonth1, idate1,   &
-                       itime1
+                       itime1, do_chem
 use leaf_coms,   only: isfcl, iupdndvi, indvifile, s1900_ndvi
 use sea_coms,    only: iupdsst, iupdseaice, isstfile, iseaicefile,  &
                        s1900_sst, s1900_seaice, isstflg, iseaiceflg
@@ -727,6 +733,7 @@ use isan_coms,   only: ifgfile, s1900_fg
 use consts_coms, only: r8
 use oname_coms,  only: nl
 use hcane_rz,    only: init_hurr_step, hurricane_track
+use mem_megan,   only: megan_store_lai
 
 use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
 
@@ -814,6 +821,9 @@ endif
 if (isfcl == 1 .and. iupdndvi == 1) then
    if (s1900_sim >= s1900_ndvi(indvifile) .and. time8p < timmax8) then
       call ndvi_database_read(1)
+      if (do_chem) then
+         call megan_store_lai()
+      endif
    endif
 endif
 

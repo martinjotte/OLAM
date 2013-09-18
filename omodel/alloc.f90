@@ -53,11 +53,13 @@ subroutine olam_mem_alloc()
   use micro_coms,  only: level, ncat, jnmb, &
                          icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail
                        
-  use leaf_coms,   only: mwl
+  use leaf_coms,   only: mwl, isfcl
   use sea_coms,    only: mws
   use mem_sflux,   only: mseaflux, mlandflux
 
   use cgrid_defn,  only: alloc_cgrid, filltab_cgrid
+
+  use mem_megan,   only: alloc_megan, filltab_megan
 
   use mem_timeavg,      only: alloc_timeavg, filltab_timeavg
   use mem_average_vars, only: alloc_average_vars
@@ -92,6 +94,11 @@ subroutine olam_mem_alloc()
   if (do_chem) then
      call alloc_cgrid(mza,mwa)
      call filltab_cgrid()
+
+     if (isfcl > 0) then
+        call alloc_megan(mwl,mwa,mlandflux)
+        call filltab_megan()
+     endif
   endif
 
 ! Allocate field average arrays

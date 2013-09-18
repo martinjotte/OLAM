@@ -51,6 +51,7 @@ use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_timeavg, only: accum_timeavg
 use consts_coms, only: r8
+use mem_megan,   only: megan_avg_temp
 
 implicit none
 
@@ -298,6 +299,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
       if (iparallel == 1) call mpi_send_wl('T')
       if (iparallel == 1) call mpi_recv_wl('T')
+
+      if (do_chem) call megan_avg_temp()
 
       call seacells()
 
