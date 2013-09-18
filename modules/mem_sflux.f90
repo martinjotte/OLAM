@@ -715,7 +715,7 @@ topw(:) = -1.e6
 
 do iw = 2,nwa
 
-if (mod(iw,1000) == 0) then
+if (mod(iw,1000) == 2) then
    print*, 'init_fluxcells ',iw,nwa
 endif
 
@@ -770,6 +770,8 @@ endif
 
       nlpoly = itab_wl(iwl)%npoly
 
+      zmin = 1.e6
+
       do jml = 1,nlpoly
          iml = itab_wl(iwl)%im(jml)
 
@@ -785,6 +787,21 @@ endif
 ! Store topography height of M point in zq array
 
          zq(jml) = real(land%zm(iml),r8)
+
+         if (zmin > land%zm(iml)) zmin = land%zm(iml)
+      enddo
+
+! Find k level of T cell that intersects topography in this IWL cell
+! (In makesfc when topography is within top 1% of a model dzt layer, it is
+! moved up to the next zm level, so 0.995 is good threshold to check here.)
+
+      do k = 2,nza-1
+         fraczmin = (zmin - zm(k-1)) / (zm(k) - zm(k-1))
+
+         if (fraczmin < 0.995) then
+            kw0 = k
+            exit
+         endif
       enddo
 
 ! Evaluate possible overlap of ATM and LAND polygons
@@ -872,19 +889,6 @@ endif
          enddo
       enddo
 
-! Find k level of T cell that intersects topography in this IW-IWL overlap
-
-      do k = 2,nza-1
-         fraczmax = (zmax - zm(k-1)) / (zm(k) - zm(k-1))
-         fraczmin = (zmin - zm(k-1)) / (zm(k) - zm(k-1))
-
-         if (fraczmin < 0.995) then
-!         if (zm(k) > zmax + 1.0) then
-            kw0 = k
-            exit
-         endif
-      enddo
-
 ! Add full-cell contribution to ARW for levels kw0 and above
 
       arw(kw0:nza-1,iw) = arw(kw0:nza-1,iw) + area
@@ -904,7 +908,7 @@ endif
 
          stop 'stop flux cell topography range '
       endif
- 
+
 ! Numerically integrate over all trapezoids of this IW-IWL overlap
 ! to get VOLT for level kw0 and to get barycenter location of flux cell
 
@@ -1128,6 +1132,8 @@ endif
 
       nspoly = itab_ws(iws)%npoly
 
+      zmin = 1.e6
+
       do jms = 1,nspoly
          ims = itab_ws(iws)%im(jms)
 
@@ -1143,6 +1149,21 @@ endif
 ! Store topography height of M point in zq array
 
          zq(jms) = real(sea%zm(ims),r8)
+
+         if (zmin > sea%zm(ims)) zmin = sea%zm(ims)
+      enddo
+
+! Find k level of T cell that intersects topography in this IWS cell
+! (In makesfc when topography is within top 1% of a model dzt layer, it is
+! moved up to the next zm level, so 0.995 is good threshold to check here.)
+
+      do k = 2,nza-1
+         fraczmin = (zmin - zm(k-1)) / (zm(k) - zm(k-1))
+
+         if (fraczmin < 0.995) then
+            kw0 = k
+            exit
+         endif
       enddo
 
 ! Evaluate possible overlap of ATM and SEA polygons
@@ -1228,19 +1249,6 @@ endif
             if (zmax < ztrap(jc,jt)) zmax = ztrap(jc,jt)
             if (zmin > ztrap(jc,jt)) zmin = ztrap(jc,jt)
          enddo
-      enddo
-
-! Find k level of T cell that intersects topography in this IW-IWS overlap
-
-      do k = 2,nza-1
-         fraczmax = (zmax - zm(k-1)) / (zm(k) - zm(k-1))
-         fraczmin = (zmin - zm(k-1)) / (zm(k) - zm(k-1))
-
-         if (fraczmin < 0.995) then
-!         if (zm(k) > zmax + 1.0) then
-            kw0 = k
-            exit
-         endif
       enddo
 
 ! Add full-cell contribution to ARW for levels kw0 and above
