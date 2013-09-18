@@ -426,24 +426,37 @@ real :: flmax        ! upper bound on sfcwater_fracliq in balance with soil
 
   else
 
-! Equilibrium temperature is 0 deg C.  Determine separate values for
+! Equilibrium temperature is 0 deg C.  If sfcwater_mass is near zero,
+! assume identical values for sfcwater_fracliq and soil_fracliq.
+
+     if (sfcwater_mass < 1.e-6) then
+
+        sfcwater_fracliq = fracliq_comb
+        sfcwater_tempk   = 273.15
+        energy_per_m2    = sfcwater_mass * sfcwater_fracliq * alli
+
+     else
+
+! If sfcwater_mass is larger, determine separate values for
 ! sfcwater_fracliq and soil_fracliq using constraint that the sum
 ! of (mass * fracliq) over both components is (w_comb * fracliq_comb).
 
 ! Lower bound on sfcwater_fracliq: case with soil_water all liquid
 
-     flmin = (fracliq_comb * w_comb - soil_water * 1.e3 * dslz(nzg)) &
-           / sfcwater_mass
+        flmin = (fracliq_comb * w_comb - soil_water * 1.e3 * dslz(nzg)) &
+              / sfcwater_mass
 
 ! Upper bound on sfcwater_fracliq: case with soil_water all ice
 
-     flmax = fracliq_comb * w_comb / sfcwater_mass         
+        flmax = fracliq_comb * w_comb / sfcwater_mass         
 
 ! New sfcwater_fracliq value becomes closest value within bounds to old value
 
-     sfcwater_fracliq = max(0.,flmin,min(1.0,flmax,sfcwater_fracliq))
-     sfcwater_tempk   = 273.15
-     energy_per_m2    = sfcwater_mass * sfcwater_fracliq * alli
+        sfcwater_fracliq = max(0.,flmin,min(1.0,flmax,sfcwater_fracliq))
+        sfcwater_tempk   = 273.15
+        energy_per_m2    = sfcwater_mass * sfcwater_fracliq * alli
+
+     endif
 
   endif
 
