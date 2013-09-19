@@ -213,4 +213,8 @@ subroutine read_seaice_analysis(iaction)
 
   deallocate( ice )
 
+  if (iaction == 0) then
+     sea%seaicep(:) = sea%seaicef(:)
+  endif
+
 end subroutine read_seaice_analysis
