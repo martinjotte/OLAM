@@ -558,8 +558,7 @@ integer :: j, kpoly, j1, j2, j3
 integer :: k, kw0
 integer :: mrl
 integer :: np, nps, nq
-integer :: nseaflux_est, nlandflux_est
-integer :: incr_flux
+integer :: incr_flux, nflux_est, ifsize
 integer :: jtrap, jt, it, ktrap
 integer :: iml, jm, jwl, jml
 integer :: npoly
@@ -608,13 +607,11 @@ real :: zeamax(nwa),zelmax(nwl),zesmax(nws)
 
 ! Estimate required array sizes and allocate arrays
 
-incr_flux = 52 * nwa
+nflux_est = 50 * nwa
+incr_flux = 10 * nwa
 
-nseaflux_est = incr_flux
-nlandflux_est = incr_flux
-
-allocate (seaflux(nseaflux_est))
-allocate (landflux(nlandflux_est))
+allocate (seaflux (nflux_est))
+allocate (landflux(nflux_est))
 
 ! new - find maximum extents of all atm, land, and sea cells
 
@@ -971,9 +968,17 @@ endif
 
       enddo  ! jt
 
-! Set new landflux cell index and fill landflux values
+! Set new landflux cell index, allocate more space if necessary,
+! and fill landflux values
 
       ilf = ilf + 1
+
+      ifsize = size(landflux)
+      if (ilf > ifsize) then
+         allocate ( landflux_temp(ifsize+incr_flux) )
+         landflux_temp(1:ifsize) = landflux(1:ifsize)
+         call move_alloc(landflux_temp, landflux)
+      endif
 
 ! Fill M points for landflux cell from trapezoid corners, skipping repeated pts
 
@@ -1068,18 +1073,6 @@ endif
       landflux(ilf)%glonf   = atan2(landflux(ilf)%yef,landflux(ilf)%xef) * piu180
 
    enddo  ! iwl loop
-
-! If number of landflux cells or polygons is getting close to allocated 
-! quantity, allocate more space
-
-   if (nlandflux_est - ilf < 1000) then 
-
-      nlandflux_est = nlandflux_est + incr_flux
-      allocate (landflux_temp(nlandflux_est))
-      landflux_temp(1:ilf) = landflux(1:ilf)
-      call move_alloc(landflux_temp, landflux)
-
-   endif
 
 ! Loop over all WS points
 
@@ -1333,9 +1326,17 @@ endif
 
       enddo  ! jt
 
-! Set new seaflux cell index and fill seaflux values
+! Set new seaflux cell index, allocate more space if necessary,
+! and fill seaflux values
 
       isf = isf + 1
+
+      ifsize = size(seaflux)
+      if (isf > ifsize) then
+         allocate ( seaflux_temp(ifsize+incr_flux) )
+         seaflux_temp(1:ifsize) = seaflux(1:ifsize)
+         call move_alloc(seaflux_temp, seaflux)
+      endif
 
 ! Fill M points for seaflux cell from trapezoid corners, skipping repeated pts
 
@@ -1430,18 +1431,6 @@ endif
       seaflux(isf)%glonf   = atan2(seaflux(isf)%yef,seaflux(isf)%xef) * piu180
 
    enddo ! iws loop
-
-! If number of flux cells or polygons is getting close to allocated 
-! quantity, allocate more space
-
-   if (nseaflux_est - isf < 1000) then 
-
-      nseaflux_est = nseaflux_est + incr_flux
-      allocate (seaflux_temp(nseaflux_est))
-      seaflux_temp(1:isf) = seaflux(1:isf)
-      call move_alloc(seaflux_temp, seaflux)
-
-   endif
 
 enddo ! iw loop
 
