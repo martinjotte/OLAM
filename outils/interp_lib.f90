@@ -219,13 +219,13 @@ do kb = 1,nb
    do while(ka < na-1 .and. elevb(kb) > eleva(ka+1))
       ka = ka + 1
    enddo
-   grada = (vctra(ka+1) - vctra(ka)) / (eleva(ka+1) - eleva(ka))
 
    if (elevb(kb) < eleva(1)) then
       vctrb(kb) = vctra(1)
    elseif (elevb(kb) > eleva(na)) then
       vctrb(kb) = vctra(na)
    else
+      grada = (vctra(ka+1) - vctra(ka)) / (eleva(ka+1) - eleva(ka))
       vctrb(kb) = vctra(ka) + grada * (elevb(kb) - eleva(ka))
    endif
 enddo
@@ -262,6 +262,41 @@ do kb = 1,nb
 enddo
 return
 end
+
+!===============================================================================
+
+subroutine pintrp_cc(na,vctra,pressa,nb,vctrb,pressb)
+  implicit none
+
+  integer, intent(in)  :: na
+  real,    intent(in)  :: vctra (na)
+  real,    intent(in)  :: pressa(na)
+
+  integer, intent(in)  :: nb
+  real,    intent(out) :: vctrb (nb)
+  real,    intent(in)  :: pressb(nb)
+
+  integer :: ka
+  integer :: kb
+  real    :: grada
+
+  ka = 1
+  do kb = 1,nb
+     do while(ka < na-1 .and. pressb(kb) < pressa(ka+1))
+        ka = ka + 1
+     enddo
+     
+     if (pressb(kb) >= pressa(1)) then
+        vctrb(kb) = vctra(1)
+     elseif (pressb(kb) <= pressa(na)) then
+        vctrb(kb) = vctra(na)
+     else
+        grada = (vctra(ka+1) - vctra(ka)) / (pressa(ka+1) - pressa(ka))
+        vctrb(kb) = vctra(ka) + grada * (pressb(kb) - pressa(ka))
+     endif
+  enddo
+
+end subroutine pintrp_cc
 
 !===============================================================================
 
