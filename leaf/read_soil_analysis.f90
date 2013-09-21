@@ -263,7 +263,7 @@ subroutine read_soil_analysis(soil_tempc)
      
      do i = 1, nx+3
         do j = 1, ny+2
-           if (snow(i,j) < -1.0) then
+           if (snow(i,j) < -1.0 .or. snow(i,j) > 1.e30) then
               snowmask(i,j) = 0.0
            else
               snowmask(i,j) = 1.0
@@ -278,7 +278,7 @@ subroutine read_soil_analysis(soil_tempc)
 
      do i = 1, nx+3
         do j = 1, ny+2
-           if ( any( soilt(i,j,:) < 100.0 )) then
+           if ( any( soilt(i,j,:) < 100.0 .or. soilt(i,j,:) > 1.e30 )) then
               tempmask(i,j) = 0.0
            else
               tempmask(i,j)   = 1.0
@@ -293,7 +293,7 @@ subroutine read_soil_analysis(soil_tempc)
 
      do i = 1, nx+3
         do j = 1, ny+2
-           if ( any( soilw(i,j,:) < -1.0 )) then
+           if ( any( soilw(i,j,:) < -1.0 .or. soilw(i,j,:) > 1.e30 )) then
               soilwmask(i,j) = 0.0
            else
               soilwmask(i,j)   = 1.0
