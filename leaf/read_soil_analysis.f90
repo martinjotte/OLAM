@@ -24,7 +24,7 @@ subroutine read_soil_analysis(soil_tempc)
   real               :: glat, glon, rio, rjo, dss
   real               :: snowdens
   integer            :: iwl, io, jo, i, j, k, kk, ntext
-  logical            :: has_snow, has_soilt, has_soilw
+  logical            :: has_snow, has_soilt, has_soilw, soil_volw
 
   real, allocatable  :: snow (:,:)   ! snow mass  [kg/m2]
   real, allocatable  :: soilt(:,:,:) ! soil temp  [K]
@@ -38,6 +38,7 @@ subroutine read_soil_analysis(soil_tempc)
   has_snow  = .false.
   has_soilt = .false.
   has_soilw = .false.
+  soil_volw = .false. ! Is volumetric soil water input or fraction of saturation
   ngnd      =  0
 
 ! Loop over analysis files and search for the one that corresponds
@@ -117,7 +118,7 @@ subroutine read_soil_analysis(soil_tempc)
 
      ! olam stores the soil arrays from bottom to top, so we need to reverse
      ! the input soil depth array, and convert to m
-     
+
      do k = 1, ngnd
         kk = ngnd - k + 1
         zcol(kk) = ztmp(k) * 0.01
@@ -199,6 +200,19 @@ subroutine read_soil_analysis(soil_tempc)
         call shdf5_irec(ndims, idims, 'SOILW', rvara = a3d)
         call prfill3(nx, ny, ngnd, ipoffset, a3d, soilw)
         has_soilw = .true.
+
+     else
+
+        call shdf5_info('SOILVOLW', ndims, idims)
+        
+        if (ndims > 0) then
+           allocate(soilw(nx+3,ny+2,ngnd))
+
+           call shdf5_irec(ndims, idims, 'SOILVOLW', rvara = a3d)
+           call prfill3(nx, ny, ngnd, ipoffset, a3d, soilw)
+           has_soilw = .true.
+           soil_volw = .true.
+        endif
      endif
 
      deallocate(a3d)
@@ -229,7 +243,7 @@ subroutine read_soil_analysis(soil_tempc)
   ! but the grib file didn't have any soil or snow fields
 
   if (has_snow) then
-     if ( count( snow(:,:) < -1.0 ) >= nx*ny ) then
+     if ( count( snow(:,:) < -1.0 .or. snow(:,:) > 1.e30) >= nx*ny ) then
         write(io6,*) "read_soil: Snow mass from analysis contains mostly missing data."
         write(io6,*) "Skipping snow depth initialization."
         has_snow = .false.
@@ -237,7 +251,7 @@ subroutine read_soil_analysis(soil_tempc)
   endif
   
   if (has_soilt) then
-     if ( count( soilt(:,:,:) < -1.0 ) >= nx*ny*ngnd ) then
+     if ( count( soilt(:,:,:) < -1.0  .or. soilt(:,:,:) > 1.e30) >= nx*ny*ngnd ) then
         write(io6,*) "read_soil: Soil temperature from analysis contains mostly missing data."
         write(io6,*) "Skipping soil temperature initialization."
         has_soilt = .false.
@@ -245,7 +259,7 @@ subroutine read_soil_analysis(soil_tempc)
   endif
   
   if (has_soilw) then
-     if ( count( soilw(:,:,:) < -1.0 ) >= nx*ny*ngnd ) then
+     if ( count( soilw(:,:,:) < -1.0 .or. soilw(:,:,:) > 1.e30) >= nx*ny*ngnd ) then
         write(io6,*) "read_soil: Soil moisture from analysis contains mostly missing data."
         write(io6,*) "Skipping soil moisture initialization."
         has_soilw = .false.
@@ -411,12 +425,24 @@ do iwl = 2, mwl
          call hintrp_cc( ngnd, wcol, zcol, nzg, land%soil_water(:,iwl), slzt )
       endif
 
-      ! convert from fraction of saturation to soil moisture [m^3_wat/m^3_tot]
+      if (soil_volw) then
 
-      do k = 1, nzg
-         ntext = land%ntext_soil(k,iwl)
-         land%soil_water(k,iwl) = max( soilcp(ntext), land%soil_water(k,iwl)*slmsts(ntext) )
-      enddo
+         ! Bound soil moisture between capcity soilcp and porosity slmsts
+
+         do k = 1, nzg
+            ntext = land%ntext_soil(k,iwl)
+            land%soil_water(k,iwl) = max( soilcp(ntext), min( land%soil_water(k,iwl), slmsts(ntext) ))
+         enddo
+
+      else
+
+         ! Convert from fraction of saturation to soil moisture [m^3_wat/m^3_tot]
+         do k = 1, nzg
+            ntext = land%ntext_soil(k,iwl)
+            land%soil_water(k,iwl) = max( soilcp(ntext), land%soil_water(k,iwl)*slmsts(ntext) )
+         enddo
+
+      endif
 
    endif
 
