@@ -442,6 +442,7 @@ C combined gas emssions conversion factor
          use mem_grid,    only: mza, volti
          use mem_ijtabs,  only: itabg_w, jtab_w, jtw_prog
          use mem_basic,   only: rho
+         use mem_megan,   only: megan_emis, mgn_2_gc_map !, mgn_2_nr_map
 
          IMPLICIT NONE
 !
@@ -767,7 +768,62 @@ C non-reactive gases (conversion to ppmv/s) VDEMIS in this order from RDEMIS
 !#endif
 !
 !         END DO
+
+
+
+! MEGAN Emissions
+
+         do s = 1, n_gc_emis
+            n = mgn_2_gc_map(s)
+
+            if (n /= 0) then
+
+               do j = 1,jlandflux(1)%jend(mrl)
+                  ilf = jlandflux(1)%ilandflux(j)
+                  kw  = landflux(ilf)%kw
+                  iw  = landflux(ilf)%iw ! global index
+
+                  ! If run is parallel, get local rank indices
+                  if (iparallel == 1) then
+                     iw = itabg_w(iw)%iw_myrank
+                  endif
+               
+                  ! convert mol/ sec emissions to ppmV / sec
+                  cnvtc = cnvte * volti(kw,iw) / rho(kw,iw)
+                  vdemis_gc(kw,iw,s) = vdemis_gc(kw,iw,s) + megan_emis(ilf,n) * cnvtc
+
+               enddo
+            endif
+         enddo
+
+         ! TODO: soil nox!
+
+!         do s = 1, n_nr_emis
+!            n = mgn_2_nr_map(s)
 !
+!            if (n /= 0) then
+!
+!               do j = 1,jlandflux(1)%jend(mrl)
+!                  ilf = jlandflux(1)%ilandflux(j)
+!                  kw  = landflux(ilf)%kw
+!                  iw  = landflux(ilf)%iw ! global index
+!
+!                  ! If run is parallel, get local rank indices
+!                  if (iparallel == 1) then
+!                     iw = itabg_w (iw )%iw_myrank
+!                  endif
+!               
+!                  ! convert mol/ sec emissions to ppmV / sec
+!                  cnvtc = cnvte * volti(kw,iw) / rho(kw,iw)
+!                  write(*,*) ilf, vdemis_nr(kw,iw,s), megan_emis(ilf,n) * cnvtc
+!                  vdemis_nr(kw,iw,s) = vdemis_nr(kw,iw,s) + megan_emis(ilf,n) * cnvtc
+!
+!               enddo
+!            endif
+!         enddo
+
+
+
 !C tracer gases (conversion to ppmv/s)
 !
 !         IF ( EM_TRAC ) THEN

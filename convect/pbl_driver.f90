@@ -46,6 +46,7 @@ subroutine pbl_driver(rhot, mrl)
   use smagorinsky,    only: turb_k
   use emis_defn,      only: get_emis
   use depv_defn,      only: get_depv
+  use mem_megan,      only: megan_driver
 
 !$use omp_lib
 
@@ -65,6 +66,7 @@ subroutine pbl_driver(rhot, mrl)
 ! Get chemical emisions for this timestep
 
   if (do_chem) then
+     call megan_driver(mrl)
      call get_emis(mrl)
      call get_depv(mrl)
   endif

@@ -245,9 +245,9 @@ endif
 
 ! If nudging, prepare observational nudging fields
 
-if (nudflag > 0) then
-   call nudge_prep(iaction, o_rho, o_theta, o_shv, o_uvc)
-endif
+!if (nudflag > 0) then
+!   call nudge_prep(iaction, o_rho, o_theta, o_shv, o_uvc)
+!endif
 
 if (o3nudflag == 1) then
    call nudge_prep_o3(iaction, o_ozone)

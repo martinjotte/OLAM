@@ -50,7 +50,7 @@ ifdef USE_CHEM
 ifeq ($(USE_CHEM),$(filter $(USE_CHEM),YES yes))
 SOURCE_FILES += $(CHEM_SOURCES)
 CHEM_DEF = $(F_DEFINE_FLAG)USE_CHEM
-INCLUDES += -I../$(CHEM) -I../$(CHEM)/$(CHEM_MECH)
+INCLUDES += -I../$(CHEM) -I../$(CHEM)/$(CHEM_MECH) -I../$(MEGAN)
 endif
 endif
 

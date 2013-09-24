@@ -189,7 +189,9 @@ SOURCE_FILES= \
              $(CHEM)/o3totcol.f \
              $(CHEM)/phot.F \
              $(CHEM)/PHOT_MOD.F \
-             $(CHEM)/PRECURSOR_DATA.F
+             $(CHEM)/PRECURSOR_DATA.F \
+             $(MEGAN)/canopy.f90 \
+             $(MEGAN)/driver.f90
 
 
 ED2_SOURCES = \
