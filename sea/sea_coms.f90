@@ -67,6 +67,7 @@ Module sea_coms
    character(14),      allocatable :: ctotdate_seaice(:)
    real(r8),           allocatable :: s1900_seaice   (:)
 
+   integer :: iseagrid
    integer :: nms  ! Total # of sea cell M pts in model domain
    integer :: nus  ! Total # of sea cell U pts in model domain
    integer :: nws  ! Total # of sea cell W pts in model domain

@@ -326,14 +326,40 @@ subroutine shdf5_io(action,ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
 
   if (action == 'READ') then
      
-     call shdf5_irec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
-                     ivars,rvars,cvars,dvars,lvars)
+         if (present(ivars)) then ; call shdf5_irec(ndims, dims, dsetname, ivars=ivars)
+     elseif (present(rvars)) then ; call shdf5_irec(ndims, dims, dsetname, rvars=rvars)
+     elseif (present(cvars)) then ; call shdf5_irec(ndims, dims, dsetname, cvars=cvars)
+     elseif (present(dvars)) then ; call shdf5_irec(ndims, dims, dsetname, dvars=dvars)
+     elseif (present(lvars)) then ; call shdf5_irec(ndims, dims, dsetname, lvars=lvars)
+     elseif (present(ivara)) then ; call shdf5_irec(ndims, dims, dsetname, ivara=ivara)
+     elseif (present(rvara)) then ; call shdf5_irec(ndims, dims, dsetname, rvara=rvara)
+     elseif (present(cvara)) then ; call shdf5_irec(ndims, dims, dsetname, cvara=cvara)
+     elseif (present(dvara)) then ; call shdf5_irec(ndims, dims, dsetname, dvara=dvara)
+     elseif (present(lvara)) then ; call shdf5_irec(ndims, dims, dsetname, lvara=lvara)
+     else
+        print*,'Incorrect or missing data field argument in shdf5_io'
+        print*, 'field = ', dsetname
+        stop    'shdf5_io: bad data field'
+     endif
      
   elseif (action == 'WRITE') then
      
-     call shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
-                     ivars,rvars,cvars,dvars,lvars)
-     
+         if (present(ivars)) then ; call shdf5_orec(ndims, dims, dsetname, ivars=ivars)
+     elseif (present(rvars)) then ; call shdf5_orec(ndims, dims, dsetname, rvars=rvars)
+     elseif (present(cvars)) then ; call shdf5_orec(ndims, dims, dsetname, cvars=cvars)
+     elseif (present(dvars)) then ; call shdf5_orec(ndims, dims, dsetname, dvars=dvars)
+     elseif (present(lvars)) then ; call shdf5_orec(ndims, dims, dsetname, lvars=lvars)
+     elseif (present(ivara)) then ; call shdf5_orec(ndims, dims, dsetname, ivara=ivara)
+     elseif (present(rvara)) then ; call shdf5_orec(ndims, dims, dsetname, rvara=rvara)
+     elseif (present(cvara)) then ; call shdf5_orec(ndims, dims, dsetname, cvara=cvara)
+     elseif (present(dvara)) then ; call shdf5_orec(ndims, dims, dsetname, dvara=dvara)
+     elseif (present(lvara)) then ; call shdf5_orec(ndims, dims, dsetname, lvara=lvara)
+     else
+        print*,'Incorrect or missing data field argument in shdf5_io'
+        print*, 'field = ', dsetname
+        stop    'shdf5_io: bad data field'
+     endif
+
   else
      
      print *, "Illegal action in shdf5_io."

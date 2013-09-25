@@ -184,7 +184,7 @@
    NL%GRIDFILE = 'sfcfiles/gridfile_1.h5'
 
  !--------------------------------------------------------------------------
- ! History file I/O
+ ! History file, Month-average, and Day-average I/O
  !--------------------------------------------------------------------------
 
    NL%IOUTPUT      = 1         ! 0-no files, 1-write files
@@ -404,6 +404,10 @@
 
    NL%NZG = 21    ! Number of soil layers
    NL%NZS = 1     ! Maximum number of snowcover layers
+
+   NL%ILANDGRID = 2  ! 1 = land and/or sea cells NOT subdivided by atm grid
+   NL%ISEAGRID  = 2  ! 2 = land and/or sea cells subdivided by atm grid
+                     ! 3 = sea (only) cells subdivided then recombined by atm grid
 
  ! Depth (m) of bottom of soil model grid levels
 

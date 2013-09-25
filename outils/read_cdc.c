@@ -144,7 +144,7 @@ void cdc_stw(int *iyear, int *imonth, int *idate, int *itime, char *locfn, float
   beg_time[10] = beg_time[9] + 31 * 4;
   beg_time[11] = beg_time[10] + 30 * 4;
   beg_time[12] = beg_time[11] + 31 * 4;
-  beg_time[*imonth-1] += 4 * (*idate - 1) + *itime/6; 
+  beg_time[*imonth-1] += 4 * (*idate - 1) + *itime/600;
 
   /* loop over sites */
   for(lati = 1; lati <= 73; lati++) {

@@ -44,7 +44,7 @@ use mem_para,   only: mgroupsize, myrank,  &
                       nsends_ws, nrecvs_ws,  &
                       nsends_wsf, nrecvs_wsf
 
-use sea_coms,   only: mms, mus, mws, nms, nus, nws
+use sea_coms,   only: mms, mus, mws, nms, nus, nws, iseagrid
 
 use mem_sea,    only: itab_ms, itab_us, itab_ws,             &
                       itabg_ms, itabg_us, itabg_ws,          &
@@ -83,8 +83,8 @@ type(sea_vars)                   :: sea_t
 
 ! Move data to temporary data structures, nullifying the old datatype
 
-call move_alloc(itab_ms, ltab_ms)
-call move_alloc(itab_us, ltab_us)
+if (iseagrid == 1) call move_alloc(itab_ms, ltab_ms)
+if (iseagrid == 1) call move_alloc(itab_us, ltab_us)
 call move_alloc(itab_ws, ltab_ws)
 
 call move_alloc (sea%leaf_class, sea_t%leaf_class)
@@ -112,8 +112,8 @@ allocate (nrecvs_wsf(mrls)) ; nrecvs_wsf = 0
 
 ! Initialize myrank flag arrays to .false.
 
-myrankflag_ms(:) = .false.
-myrankflag_us(:) = .false.
+if (iseagrid == 1) myrankflag_ms(:) = .false.
+if (iseagrid == 1) myrankflag_us(:) = .false.
 myrankflag_ws(:) = .false.
 
 !------------------------------------------------------------------------------
@@ -147,7 +147,7 @@ do iws = 2,nws
       myrankflag_ws(iws) = .true.
    endif
 
-   if (myrankflag_ws(iws)) then
+   if (iseagrid == 1 .and. myrankflag_ws(iws)) then
 
       do jms = 1,ltab_ws(iws)%npoly
          ims = ltab_ws(iws)%im(jms)
@@ -163,17 +163,22 @@ enddo
 ! Loop over all MS, US, and WS points and count the ones that have been flagged
 ! for inclusion on this rank.
 
-do ims = 2,nms
-   if (myrankflag_ms(ims)) then
-      ims_myrank = ims_myrank + 1
-   endif
-enddo
+if (iseagrid == 1) then
+   do ims = 2,nms
+      if (myrankflag_ms(ims)) then
+         ims_myrank = ims_myrank + 1
+      endif
+   enddo
 
-do ius = 2,nus
-   if (myrankflag_us(ius)) then
-      ius_myrank = ius_myrank + 1
-   endif
-enddo
+   do ius = 2,nus
+      if (myrankflag_us(ius)) then
+         ius_myrank = ius_myrank + 1
+      endif
+   enddo
+
+   mms = ims_myrank
+   mus = ius_myrank
+endif
 
 do iws = 2,nws
    if (myrankflag_ws(iws)) then
@@ -181,10 +186,6 @@ do iws = 2,nws
    endif
 enddo
 
-! Set mms, mus, mws values for this rank
-
-mms = ims_myrank
-mus = ius_myrank
 mws = iws_myrank
 
 ! Re-allocate itab data structures and main grid coordinate arrays
@@ -199,21 +200,23 @@ iws_myrank = 1
 
 ! Store new myrank MS, US, WS indices in itabg data structures
 
-do ims = 2,nms
-   if (myrankflag_ms(ims)) then
-      ims_myrank = ims_myrank + 1
+if (iseagrid == 1) then
+   do ims = 2,nms
+      if (myrankflag_ms(ims)) then
+         ims_myrank = ims_myrank + 1
 
-      itabg_ms(ims)%ims_myrank = ims_myrank      
-   endif
-enddo
+         itabg_ms(ims)%ims_myrank = ims_myrank      
+      endif
+   enddo
 
-do ius = 2,nus
-   if (myrankflag_us(ius)) then
-      ius_myrank = ius_myrank + 1
+   do ius = 2,nus
+      if (myrankflag_us(ius)) then
+         ius_myrank = ius_myrank + 1
 
-      itabg_us(ius)%ius_myrank = ius_myrank
-   endif
-enddo
+         itabg_us(ius)%ius_myrank = ius_myrank
+      endif
+   enddo
+endif
 
 do iws = 2,nws
    if (myrankflag_ws(iws)) then
@@ -225,39 +228,41 @@ enddo
 
 ! Memory copy to main tables
 
-do ims = 2,nms
-   if (myrankflag_ms(ims)) then
-      ims_myrank = itabg_ms(ims)%ims_myrank
+if (iseagrid == 1) then
+   do ims = 2,nms
+      if (myrankflag_ms(ims)) then
+         ims_myrank = itabg_ms(ims)%ims_myrank
 
-      itab_ms(ims_myrank)%imglobe = ims
+         itab_ms(ims_myrank)%imglobe = ims
 
-      sea%xem  (ims_myrank) = sea_t%xem  (ims)
-      sea%yem  (ims_myrank) = sea_t%yem  (ims)
-      sea%zem  (ims_myrank) = sea_t%zem  (ims)
-      sea%zm   (ims_myrank) = sea_t%zm   (ims)
-      sea%glatm(ims_myrank) = sea_t%glatm(ims)
-      sea%glonm(ims_myrank) = sea_t%glonm(ims)
-   endif
-enddo
+         sea%xem  (ims_myrank) = sea_t%xem  (ims)
+         sea%yem  (ims_myrank) = sea_t%yem  (ims)
+         sea%zem  (ims_myrank) = sea_t%zem  (ims)
+         sea%zm   (ims_myrank) = sea_t%zm   (ims)
+         sea%glatm(ims_myrank) = sea_t%glatm(ims)
+         sea%glonm(ims_myrank) = sea_t%glonm(ims)
+      endif
+   enddo
 
-do ius = 2,nus
-   if (myrankflag_us(ius)) then
-      ius_myrank = itabg_us(ius)%ius_myrank
+   do ius = 2,nus
+      if (myrankflag_us(ius)) then
+         ius_myrank = itabg_us(ius)%ius_myrank
 
-      itab_us(ius_myrank)%irank = itabg_us(ius)%irank
-      itab_us(ius_myrank)%iuglobe = ius
+         itab_us(ius_myrank)%irank = itabg_us(ius)%irank
+         itab_us(ius_myrank)%iuglobe = ius
 
-      im1s = ltab_us(ius)%im(1)
-      im2s = ltab_us(ius)%im(2)
-      iw1s = ltab_us(ius)%iw(1)
-      iw2s = ltab_us(ius)%iw(2)
+         im1s = ltab_us(ius)%im(1)
+         im2s = ltab_us(ius)%im(2)
+         iw1s = ltab_us(ius)%iw(1)
+         iw2s = ltab_us(ius)%iw(2)
 
-      if (myrankflag_ms(im1s)) itab_us(ius_myrank)%im(1) = itabg_ms(im1s)%ims_myrank
-      if (myrankflag_ms(im2s)) itab_us(ius_myrank)%im(2) = itabg_ms(im2s)%ims_myrank
-      if (myrankflag_ws(iw1s)) itab_us(ius_myrank)%iw(1) = itabg_ws(iw1s)%iws_myrank
-      if (myrankflag_ws(iw2s)) itab_us(ius_myrank)%iw(2) = itabg_ws(iw2s)%iws_myrank
-   endif
-enddo
+         if (myrankflag_ms(im1s)) itab_us(ius_myrank)%im(1) = itabg_ms(im1s)%ims_myrank
+         if (myrankflag_ms(im2s)) itab_us(ius_myrank)%im(2) = itabg_ms(im2s)%ims_myrank
+         if (myrankflag_ws(iw1s)) itab_us(ius_myrank)%iw(1) = itabg_ws(iw1s)%iws_myrank
+         if (myrankflag_ws(iw2s)) itab_us(ius_myrank)%iw(2) = itabg_ws(iw2s)%iws_myrank
+      endif
+   enddo
+endif
 
 do iws = 2,nws
    if (myrankflag_ws(iws)) then
@@ -276,17 +281,18 @@ do iws = 2,nws
       sea%glatw(iws_myrank) = sea_t%glatw(iws)
       sea%glonw(iws_myrank) = sea_t%glonw(iws)
 
-       do jms = 1,ltab_ws(iws)%npoly
-         ims = ltab_ws(iws)%im(jms)
-         ius = ltab_ws(iws)%iu(jms)
+      if (iseagrid == 1) then
+         do jms = 1,ltab_ws(iws)%npoly
+            ims = ltab_ws(iws)%im(jms)
+            ius = ltab_ws(iws)%iu(jms)
 
-         if (myrankflag_ms(ims)) itab_ws(iws_myrank)%im(jms) =  &
-                                 itabg_ms(ims)%ims_myrank
+            if (myrankflag_ms(ims)) itab_ws(iws_myrank)%im(jms) =  &
+                                    itabg_ms(ims)%ims_myrank
 
-         if (myrankflag_us(ius)) itab_ws(iws_myrank)%iu(jms) =  &
-                                 itabg_us(ius)%ius_myrank
-      enddo
-
+            if (myrankflag_us(ius)) itab_ws(iws_myrank)%iu(jms) =  &
+                                    itabg_us(ius)%ius_myrank
+         enddo
+      endif
    endif
 enddo
 
@@ -337,6 +343,9 @@ enddo
 ! (This section is required for computing seacell-atmosphere fluxes and 
 ! involves only surface and canopy properties.)
 
+! NOTE: (JULY 2013) WITH ISEAFLAG > 1, NOTHING SHOULD BE ADDED TO SEND OR
+! RECV TABLES; CHECK THAT THIS IS TRUE...
+
 do isf = 2,nseaflux
 
    iw  = seaflux_temp(isf)%iw   ! full-domain index
@@ -368,7 +377,11 @@ enddo
 
 ! Deallocate temporary data structures and arrays
 
-deallocate (ltab_ms, ltab_us, ltab_ws)
+if (allocated(ltab_ms)) deallocate (ltab_ms)
+if (allocated(ltab_us)) deallocate (ltab_us)
+
+deallocate (ltab_ws)
+
 deallocate (sea_t%leaf_class)
 
 deallocate (sea_t%area, sea_t%xew, sea_t%yew, sea_t%zew)

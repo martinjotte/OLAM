@@ -211,4 +211,8 @@ subroutine read_sst_analysis(iaction)
 
   deallocate( sst )
 
+  if (iaction == 0) then
+     sea%seatp(:) = sea%seatf(:)
+  endif
+
 end subroutine read_sst_analysis

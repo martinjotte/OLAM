@@ -1565,11 +1565,12 @@ end subroutine plot_dualgrid
 subroutine plot_grid_landsea(iplt)
 
 use oplot_coms, only: op
-use sea_coms,   only: mws, mus
+use sea_coms,   only: mws, mus, iseagrid
 use mem_sea,    only: sea, itab_ws, itab_us
-use leaf_coms,  only: mwl, mul
+use leaf_coms,  only: mwl, mul, ilandgrid
 use mem_leaf,   only: land, itab_wl, itab_ul
 use misc_coms,  only: io6
+use mem_sflux,  only: landflux, seaflux, nlandflux, nseaflux
 
 implicit none
 
@@ -1577,7 +1578,7 @@ integer, intent(in) :: iplt
 
 integer :: iflag180,iskip
 
-integer :: im1,im2,iok,iv1,iv2,ius,iul
+integer :: im1,im2,iok,iv1,iv2,ius,iul,ilf,isf,j1,j2,npoly
 
 real :: xp1,xp2,yp1,yp2
 real :: xq1,xq2,yq1,yq2
@@ -1597,59 +1598,127 @@ if (op%projectn(iplt) == 'L'  .or.  &
    call o_gsplci(3)
    call o_gstxci(3)
 
-   do ius = 2,mus
+   if (iseagrid == 1) then
+
+      do ius = 2,mus
 
 ! Get tile plot coordinates.
 
-      im1 = itab_us(ius)%im(1)
-      im2 = itab_us(ius)%im(2)
+         im1 = itab_us(ius)%im(1)
+         im2 = itab_us(ius)%im(2)
 
-      call oplot_transform(iplt, sea%xem(im1), sea%yem(im1), &
-           sea%zem(im1), xp1, yp1)
-      call oplot_transform(iplt, sea%xem(im2), sea%yem(im2), &
-           sea%zem(im2), xp2, yp2)
+         call oplot_transform(iplt, sea%xem(im1), sea%yem(im1), &
+              sea%zem(im1), xp1, yp1)
+         call oplot_transform(iplt, sea%xem(im2), sea%yem(im2), &
+              sea%zem(im2), xp2, yp2)
 
 ! Avoid wrap-around and set iflag180
 
-      iflag180 = 0
+         iflag180 = 0
 
-      if (op%projectn(iplt) == 'L') then
-         call ll_unwrap(xp1,xp2)
+         if (op%projectn(iplt) == 'L') then
+            call ll_unwrap(xp1,xp2)
 
-         if (xp1 < -180. .or. xp2 < -180.) iflag180 =  1
-         if (xp1 >  180. .or. xp2 >  180.) iflag180 = -1
-      endif
+            if (xp1 < -180. .or. xp2 < -180.) iflag180 =  1
+            if (xp1 >  180. .or. xp2 >  180.) iflag180 = -1
+         endif
 
 ! Truncate segment if it crosses plot window boundary or skip if both endpoints
 ! are outside plot window
 
-      call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
-
-      if (iskip == 1) cycle
-
-! Plot line segment
-
-      call o_frstpt (xq1,yq1)
-      call o_vector (xq2,yq2)
-
-! If this segment crosses +/- 180 degrees longitude in lat/lon plot, re-plot
-! at other end
-
-      if (iflag180 /= 0) then
-
-         xp1 = xp1 + 360. * iflag180
-         xp2 = xp2 + 360. * iflag180
-
          call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+
+         if (iskip == 1) cycle
 
 ! Plot line segment
 
          call o_frstpt (xq1,yq1)
          call o_vector (xq2,yq2)
-      
-      endif
 
-   enddo
+! If this segment crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+! at other end
+
+         if (iflag180 /= 0) then
+
+            xp1 = xp1 + 360. * iflag180
+            xp2 = xp2 + 360. * iflag180
+
+            call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+
+! Plot line segment
+
+            call o_frstpt (xq1,yq1)
+            call o_vector (xq2,yq2)
+      
+         endif
+
+      enddo
+
+   elseif (iseagrid > 1) then
+
+      do isf = 1,nseaflux
+         npoly = seaflux(isf)%npoly
+
+         do j1 = 1,npoly
+            j2 = j1 + 1
+            if (j1 == npoly) j2 = 1
+
+! Get tile plot coordinates.
+
+            call oplot_transform(iplt, seaflux(isf)%xem(j1), &
+                                       seaflux(isf)%yem(j1), &
+                                       seaflux(isf)%zem(j1), &
+                                       xp1, yp1)
+            call oplot_transform(iplt, seaflux(isf)%xem(j2), &
+                                       seaflux(isf)%yem(j2), &
+                                       seaflux(isf)%zem(j2), &
+                                       xp2, yp2)
+             
+! Avoid wrap-around and set iflag180
+
+            iflag180 = 0
+
+            if (op%projectn(iplt) == 'L') then
+               call ll_unwrap(xp1,xp2)
+
+               if (xp1 < -180. .or. xp2 < -180.) iflag180 =  1
+               if (xp1 >  180. .or. xp2 >  180.) iflag180 = -1
+            endif
+
+! Truncate segment if it crosses plot window boundary or skip if both endpoints
+! are outside plot window
+
+            call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+
+            if (iskip == 1) cycle
+
+! Plot line segment
+
+            call o_frstpt (xq1,yq1)
+            call o_vector (xq2,yq2)
+
+! If this segment crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+! at other end
+
+            if (iflag180 /= 0) then
+
+               xp1 = xp1 + 360. * iflag180
+               xp2 = xp2 + 360. * iflag180
+
+               call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+
+! Plot line segment
+
+               call o_frstpt (xq1,yq1)
+               call o_vector (xq2,yq2)
+      
+            endif
+
+         enddo
+
+      enddo
+
+   endif
 
 !-------------------------------------------------
 ! Plot land grid
@@ -1659,59 +1728,128 @@ if (op%projectn(iplt) == 'L'  .or.  &
    call o_gsplci(6)
    call o_gstxci(6)
 
-   do iul = 2,mul
+   if (ilandgrid == 1) then
+
+      do iul = 2,mul
 
 ! Get tile plot coordinates.
 
-      im1 = itab_ul(iul)%im(1)
-      im2 = itab_ul(iul)%im(2)
+         im1 = itab_ul(iul)%im(1)
+         im2 = itab_ul(iul)%im(2)
 
-      call oplot_transform  &
-         (iplt,land%xem(im1),land%yem(im1),land%zem(im1),xp1,yp1)
-      call oplot_transform  &
-         (iplt,land%xem(im2),land%yem(im2),land%zem(im2),xp2,yp2)
+         call oplot_transform  &
+            (iplt,land%xem(im1),land%yem(im1),land%zem(im1),xp1,yp1)
+         call oplot_transform  &
+            (iplt,land%xem(im2),land%yem(im2),land%zem(im2),xp2,yp2)
 
 ! Avoid wrap-around and set iflag180
 
-      iflag180 = 0
+         iflag180 = 0
 
-      if (op%projectn(iplt) == 'L') then
-         call ll_unwrap(xp1,xp2)
+         if (op%projectn(iplt) == 'L') then
+            call ll_unwrap(xp1,xp2)
 
-         if (xp1 < -180. .or. xp2 < -180.) iflag180 =  1
-         if (xp1 >  180. .or. xp2 >  180.) iflag180 = -1
-      endif
+            if (xp1 < -180. .or. xp2 < -180.) iflag180 =  1
+            if (xp1 >  180. .or. xp2 >  180.) iflag180 = -1
+         endif
 
 ! Truncate segment if it crosses plot window boundary or skip if both endpoints
 ! are outside plot window
 
-      call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
-
-      if (iskip == 1) cycle
-
-! Plot line segment
-
-      call o_frstpt (xq1,yq1)
-      call o_vector (xq2,yq2)
-
-! If this segment crosses +/- 180 degrees longitude in lat/lon plot, re-plot
-! at other end
-
-      if (iflag180 /= 0) then
-
-         xp1 = xp1 + 360. * iflag180
-         xp2 = xp2 + 360. * iflag180
-
          call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+
+         if (iskip == 1) cycle
 
 ! Plot line segment
 
          call o_frstpt (xq1,yq1)
          call o_vector (xq2,yq2)
-      
-      endif
 
-   enddo
+! If this segment crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+! at other end
+
+         if (iflag180 /= 0) then
+
+            xp1 = xp1 + 360. * iflag180
+            xp2 = xp2 + 360. * iflag180
+
+            call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+
+! Plot line segment
+
+            call o_frstpt (xq1,yq1)
+            call o_vector (xq2,yq2)
+      
+         endif
+
+      enddo
+
+   elseif (ilandgrid > 1) then
+
+      do ilf = 1,nlandflux
+         npoly = landflux(ilf)%npoly
+
+         do j1 = 1,npoly
+            j2 = j1 + 1
+            if (j1 == npoly) j2 = 1
+
+! Get tile plot coordinates.
+
+            call oplot_transform(iplt, landflux(ilf)%xem(j1), &
+                                       landflux(ilf)%yem(j1), &
+                                       landflux(ilf)%zem(j1), &
+                                       xp1, yp1)
+            call oplot_transform(iplt, landflux(ilf)%xem(j2), &
+                                       landflux(ilf)%yem(j2), &
+                                       landflux(ilf)%zem(j2), &
+                                       xp2, yp2)
+
+! Avoid wrap-around and set iflag180
+
+            iflag180 = 0
+
+            if (op%projectn(iplt) == 'L') then
+               call ll_unwrap(xp1,xp2)
+
+               if (xp1 < -180. .or. xp2 < -180.) iflag180 =  1
+               if (xp1 >  180. .or. xp2 >  180.) iflag180 = -1
+            endif
+
+! Truncate segment if it crosses plot window boundary or skip if both endpoints
+! are outside plot window
+
+            call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+
+            if (iskip == 1) cycle
+
+! Plot line segment
+
+            call o_frstpt (xq1,yq1)
+            call o_vector (xq2,yq2)
+
+! If this segment crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+! at other end
+
+            if (iflag180 /= 0) then
+
+               xp1 = xp1 + 360. * iflag180
+               xp2 = xp2 + 360. * iflag180
+
+               call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+
+! Plot line segment
+
+               call o_frstpt (xq1,yq1)
+               call o_vector (xq2,yq2)
+      
+            endif
+
+         enddo
+
+      enddo
+
+   endif
+
    call o_sflush()
 
 else  ! Vertical cross section

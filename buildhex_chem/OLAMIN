@@ -89,8 +89,8 @@
  ! Horizontal grid refinement ("nested grid") definition
  !--------------------------------------------------------------------------
 
-   ! Number of grids to run:
-   NL%NGRIDS  = 1
+   ! Number of grids to generate:
+   NL%NGRIDS = 1
 
    ! Method to reduce grid concavities when generating each mesh
    ! 1 eliminates only sharp concavities (Method B)
@@ -182,7 +182,7 @@
    NL%GRIDFILE = 'sfcfiles/gridfile_r2.h5'
 
  !--------------------------------------------------------------------------
- ! History file I/O
+ ! History file, Month-average, and Day-average I/O
  !--------------------------------------------------------------------------
 
    NL%IOUTPUT      = 1         ! 0-no files, 1-write files
@@ -214,15 +214,15 @@
    NL%NADDSC    = 0       ! Number of additional scalar species
 
    NL%ICORFLG   = 1       ! Coriolis flag/2D v-component: 0 = off, 1 = on
-
+   
    NL%ISCAL_MONOT = 0     ! Monotonic advection for scalars (including moisture)
                           ! 0 = off, 1 = on
 
-   NL%DEBUG_FP  = .false.  ! Detect floating point errors such as overflows,
+   NL%DEBUG_FP  = .false. ! Detect floating point errors such as overflows,
                           ! INFs, divide-by-zeros, and NANs (best if code is
                           ! compiled with debug options too)
 
-   NL%INIT_NANS = .false.  ! Initialize model variables to NANs to catch
+   NL%INIT_NANS = .false. ! Initialize model variables to NANs to catch
                           ! errors (useful if DEBUG_FP is set to .true.)
 
  !--------------------------------------------------------------------------
@@ -400,6 +400,10 @@
    NL%NZG = 19    ! Number of soil layers
    NL%NZS = 1     ! Maximum number of snowcover layers
 
+   NL%ILANDGRID = 2  ! 1 = land and/or sea cells NOT subdivided by atm grid
+   NL%ISEAGRID  = 2  ! 2 = land and/or sea cells subdivided by atm grid
+                     ! 3 = sea (only) cells subdivided then recombined by atm grid
+
  ! Depth (m) of bottom of soil model grid levels
 
    NL%SLZ  = -5.00, -4.50, -4.00, -3.50, -3.00, -2.50, -2.00, -1.75, 
@@ -532,7 +536,7 @@
   NL%NPLT       = 1   ! Number of fields plotted at each time 
                       ! (limit of maxnplt fields in max_dims.f90)
 
-  NL%FRQPLT =  900.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
+  NL%FRQPLT =  3600.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
                             
   NL%DTVEC = 1200.    ! Scaling time (seconds) for plotted velocity vectors
 
@@ -544,8 +548,8 @@
   NL%VEC_MAXMRL = 6   ! The maximum mesh refinement level when plotting 
                       ! velocity vectors with the "V" pltspec
 
-  NL%PRTVAL_SIZE = 'large' ! Relative size of font when printing values on the plot
-                            ! Can be 'small', 'medium', or 'large'
+  NL%PRTVAL_SIZE = 'small' ! Relative size of font when printing values on the
+                           ! plot: 'small', 'medium', or 'large'
 
   NL%PLTTYPE = 0      ! 0 = NCAR graphics meta file
                       ! 1 = postscript file
@@ -558,8 +562,8 @@
   NL%PLTORIENT = 0    ! 0 = portrait,  1 = landscape
                       ! (only for postscript or pdf output)
 
-  NL%ZPLOT_MIN = -1.0 ! For vertical or cone plots, these specify the vertical
-  NL%ZPLOT_MAX = 6000.0   ! extent of the plots (m); use -1.0 to indicate the
+  NL%ZPLOT_MIN = -1.0   ! For vertical or cone plots, these specify the vertical
+  NL%ZPLOT_MAX = -1.0   ! extent of the plots (m); use -1.0 to indicate the
                         ! default top and bottom of the model
 
  !-------------------------------------------------------------------------
