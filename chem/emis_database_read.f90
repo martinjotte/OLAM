@@ -41,7 +41,7 @@ subroutine emis_database_read(iaction)
 use misc_coms,   only: io6, iyear1, imonth1, idate1, itime1, timmax8,  &
                        time8, runtype, s1900_init, s1900_sim
 !!
-use consts_coms, only: erad, pio180
+use consts_coms, only: erad, pio180, r8
 !!use hdf5_utils,  only: shdf5_open, shdf5_close, shdf5_irec, shdf5_info
 !!use max_dims,    only: maxsstfiles
 use mem_sflux, only: mseaflux, mlandflux, seaflux, landflux
@@ -119,13 +119,13 @@ if (iaction == 0) then
    write(juldstring,'(I3)') julday( imonths, idates, iyears )
    write(yearstring,'(I4)') iyears
 
-   indx = ihours / 4 + 1
+   indx = ihours / 40000 + 1
 
    iemisy = iyears
    iemism = imonths
    iemisd = idates
-   iemish = (indx - 1) * 4
-   call date_abs_secs2(iemisy,iemism,iemisd,iemish*100,s1900_emis(1))
+   iemish = (indx - 1) * 40000
+   call date_abs_secs2(iemisy,iemism,iemisd,iemish,s1900_emis(1))
 
    iemisfile = 1
    flnm = trim(header) // yearstring // juldstring !! // '.nc'
@@ -280,23 +280,22 @@ elseif (iaction == 1) then
 
    ! Processing next emis file (only called with iaction = 1 if iupdemis = 1)
 
-   ! next emissions data will be 4 hours later
-
-   call date_secs_ymdt(s1900_emis(1), oemisy, oemism, oemisd, oemish)
-
-   call date_add_to8(oemisy, oemism, oemisd, oemish*100, 4.0_8, 'h', &
-                     iemisy, iemism, iemisd, iemish)
-
-   iemish = iemish / 100
-   indx   = iemish / 4 + 1
-
    s1900_emis(1) = s1900_emis(2)
    emis_files(1) = emis_files(2)
 
-   call date_abs_secs2(iemisy,iemism,iemisd,iemish*100,s1900_emis(2))
+   ! next emissions data will be 4 hours later
 
-   write(juldstring,'(I3)') julday( iemism, iemisd, iemisy )
-   write(yearstring,'(I4)') iemisy
+   call date_secs_ymdt(s1900_emis(2), oemisy, oemism, oemisd, oemish)
+
+   call date_add_to8(oemisy, oemism, oemisd, oemish, 4.0_r8, 'h', &
+                     iemisy, iemism, iemisd, iemish)
+
+   indx = iemish / 40000 + 1
+
+   call date_abs_secs2(iemisy,iemism,iemisd,iemish,s1900_emis(2))
+
+   write(juldstring,'(I3.3)') julday( iemism, iemisd, iemisy )
+   write(yearstring,'(I4.4)') iemisy
 
    iemisfile = 2
    flnm = trim(header) // yearstring // juldstring !! // '.nc'
@@ -323,6 +322,11 @@ elseif (iaction == 1) then
     sea_emisp =  sea_emisf
    land_emisp = land_emisf
 
+endif
+
+if (indx < 1 .or. indx > 6) then
+   write(*,*) "Invalid time reading emissions files."
+   stop
 endif
 
 ! Open and read emis_database file

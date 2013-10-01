@@ -491,7 +491,7 @@ C combined gas emssions conversion factor
 !C-----------------------------------------------------------------------
 
          if (iupdemis == 1 .and. nemisfiles > 1) then
-            if (s1900_sim >= s1900_emis(iemisfile) .and. time8+0.001_r8 < timmax8) then
+            if (s1900_sim > s1900_emis(iemisfile) .and. time8+0.001_r8 < timmax8) then
                call emis_database_read(1)
             endif
 
