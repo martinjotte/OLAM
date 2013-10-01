@@ -287,6 +287,12 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
          do k = lpw(iw), mza-1
 
+            if (press(k,iw) < 10000.) then
+               DO S = 1, N_GC_SPC
+                  CGRID( k, iw, S ) = max(CGRID( k, iw, S ), 1.e-30)
+               enddo
+            else
+
 !c..Load ICs
             DO S = 1, N_GC_SPC
                YC( S ) = MAX( CGRID( k, iw, s ), 1.0E-30 )
@@ -327,6 +333,8 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !              CGRID( C, R, L, S ) = YC( S )
                CGRID( k, iw, S ) = YC( S )
             END DO
+
+            endif
 
 !            END DO
          END DO

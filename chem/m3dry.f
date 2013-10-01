@@ -849,7 +849,7 @@ C Calculate production (pvd) for HONO; unit = ppm * m/s
          ! Sulfate calculation follows Wesely (1985), Eqn. 11.
 
                rbsulf = 1.0 / ( 0.002 * (ustar**2 + 0.24*wstar**2) / ustar )
-               depvel_gas_sea( isf,n ) =  1.0 / ( ra + rbsulf )
+               depvel_gas_sea( isf,n ) =  1.0 / ( raw + rbsulf )
                
             else
 

@@ -29,3 +29,4 @@ RADIATE=$(OLAM_ROOT)/radiate
 HURRICANE=$(OLAM_ROOT)/hurricane
 TEST_CASES=$(OLAM_ROOT)/test_cases
 CHEM=$(OLAM_ROOT)/chem
+MEGAN=$(OLAM_ROOT)/megan

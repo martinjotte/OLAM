@@ -733,7 +733,7 @@
       INTEGER :: i
       REAL :: HumidAirKgm3,GHforced,StomRes,IRoutairT,LHV,LatHv,Ws1,  &
               LHairT,Tdelt,Balance,LeafBLC,LeafH,LeafLE,LeafIRout,  &
-              GH1,SH1,LH1,E1,ConvertHumidityPa2kgm3,ResSC,IRout1,GH
+              GH1,SH1,LH1,E1,ConvertHumidityPa2kgm3,ResSC,IRout1,GH,sm
 !----------------------------------------------------
 
 !!      IF (Ws <= 0) THEN
@@ -783,7 +783,10 @@
           IRout1 = IRout - IRoutairT
 !!          Tdelt  = E1 / ((SH1 + LH1 + IRout1) / Tdelt)
 !!          Any Divide by zero here?
-          Tdelt  = E1 * Tdelt / (SH1 + LH1 + IRout1)
+
+!!          Tdelt  = E1 * Tdelt / (SH1 + LH1 + IRout1)
+          sm = SH1 + LH1 + IRout1
+          Tdelt  = E1 * Tdelt / sign(max(abs(sm),0.5),sm)
           Balance = Q + IRin - IRout - SH1 - LH
         else
            exit
@@ -1120,11 +1123,11 @@
 ! diffusivity so that you end up with a heat convection coefficient 
 ! (W m-2 K-1) instead of a conductance for free convection
 
-      IF (Tdelta >= 0) THEN
+      IF (Tdelta >= 0.) THEN
          GhFree = 0.5 * 0.00253 * ((160000000. * Tdelta /  &
                    (Llength**3))**0.25) / Llength
       ELSE
-        GhFree = 0
+        GhFree = 0.
       ENDIF
       LeafBLC = GHforced + GhFree
 

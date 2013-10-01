@@ -335,7 +335,7 @@ C   begin body of subroutine  UPCASE
 
 
       SUBROUTINE M3WARN( CALLER, JDATE, JTIME, MSGTXT )
-
+      use misc_coms, only: io6
       IMPLICIT NONE
 
 C...........   INCLUDES:
@@ -414,13 +414,13 @@ C   begin body of subroutine  M3EXIT
 
 !       CALL EXIT( EXITSTAT )
 
-      write(*,'(A)'      ) " Warning in " // trim(caller)
+      write(io6,'(A)'      ) " Warning in " // trim(caller)
 
       if (jdate /= 0 .and. jtime /= 0)
-     &     write(*,'(2(A,I0))') " At date ", JDATE, " and time ", JTIME
+     &     write(io6,'(2(A,I0))') " At date ", JDATE, " and time ", JTIME
 
       if (len_trim(msgtxt) > 0) then
-         write(*,'(1x,A)') trim(msgtxt)
+         write(io6,'(1x,A)') trim(msgtxt)
       endif
 
       END SUBROUTINE M3WARN
