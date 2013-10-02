@@ -2053,54 +2053,54 @@ subroutine mpi_recv_wnud(rarray1, rarray2, rarray3, rarray4, rarray5, rarray6)
         if (present(rarray1)) then
 
            call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
-                           vctr1(1),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+                           vctr1,mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
-           rarray1(:,iwnud) = rarray1(:,iwnud) + vctr1(:)
+           rarray1(2:mza-1,iwnud) = rarray1(2:mza-1,iwnud) + vctr1(2:mza-1)
 
         endif
 
         if (present(rarray2)) then
 
            call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
-                           vctr1(1),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+                           vctr1,mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
-           rarray2(:,iwnud) = rarray2(:,iwnud) + vctr1(:)
+           rarray2(2:mza-1,iwnud) = rarray2(2:mza-1,iwnud) + vctr1(2:mza-1)
 
         endif
 
         if (present(rarray3)) then
 
            call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
-                           vctr1(1),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+                           vctr1,mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
-           rarray3(:,iwnud) = rarray3(:,iwnud) + vctr1(:)
+           rarray3(2:mza-1,iwnud) = rarray3(2:mza-1,iwnud) + vctr1(2:mza-1)
 
         endif
 
         if (present(rarray4)) then
 
            call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
-                           vctr1(1),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+                           vctr1,mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
-           rarray4(:,iwnud) = rarray4(:,iwnud) + vctr1(:)
+           rarray4(2:mza-1,iwnud) = rarray4(2:mza-1,iwnud) + vctr1(2:mza-1)
 
         endif
 
         if (present(rarray5)) then
 
            call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
-                           vctr1(1),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+                           vctr1,mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
-           rarray5(:,iwnud) = rarray5(:,iwnud) + vctr1(:)
+           rarray5(2:mza-1,iwnud) = rarray5(2:mza-1,iwnud) + vctr1(2:mza-1)
 
         endif
 
         if (present(rarray6)) then
 
            call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
-                           vctr1(1),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+                           vctr1,mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
-           rarray6(:,iwnud) = rarray6(:,iwnud) + vctr1(:)
+           rarray6(2:mza-1,iwnud) = rarray6(2:mza-1,iwnud) + vctr1(2:mza-1)
 
         endif
 
