@@ -692,7 +692,6 @@ do im = 2, nma
       if (myrankflag_m(im)) call recv_table_m(itabg_m(imp)%irank)
    endif
 
-
 enddo
 
 do iw = 2, nwa
@@ -1112,7 +1111,7 @@ end subroutine send_table_m
 
 subroutine send_table_wnud(iwnud,iremote)
 
-use mem_nudge, only: itab_wnud, itabg_wnud
+use mem_nudge, only: nloops_wnud, itab_wnud, itabg_wnud
 use mem_para,  only: nsends_wnud, send_wnud
 use misc_coms, only: io6
 
@@ -1133,7 +1132,11 @@ enddo
 ! If jsend exceeds nsends_wnud, jsend represents a rank not yet entered in the
 ! table, so increase nsends_w.
 
-if (jsend > nsends_wnud) nsends_wnud = jsend
+if (jsend > nsends_wnud) then
+    nsends_wnud = jsend
+    write(io6,*) 'increasing nsends_wnud to ',nsends_wnud
+    if (nsends_wnud > nloops_wnud) stop 'stop: nsends_wnud > nloops_wnud '
+endif
 
 ! Enter point in send-point table, and enter remote rank in send-remote-rank table.
 
@@ -1422,7 +1425,6 @@ subroutine compute_primary_points()
   enddo
 
   if (ia /= mwnud_primary) stop "error computing number of primary points"
-
 
 !!!! temporary checks !!!!!!!!!!!!!!!
 if (meshtype == 1) then

@@ -33,13 +33,9 @@
 
 Module mem_nudge
 
-  use max_dims, only: maxremote
-
   implicit none
    
-  private :: maxremote
-
-  integer, parameter :: nloops_wnud = maxremote ! # WNUD DO loops for para
+  integer, parameter :: nloops_wnud = 100 ! # WNUD DO loops for para
 
   Type itab_wnud_vars          ! data structure for WNUD points (individual rank)
     logical :: loop(nloops_wnud) = .false. ! flag to perform DO loop at this WNUD pt
