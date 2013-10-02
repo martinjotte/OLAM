@@ -296,6 +296,7 @@ Module mem_ijtabs
       integer :: iu(9) = 1  ! neighbor U pts (9 Delaunay, 7 Voronoi)
       integer :: iv(7) = 1  ! neighbor V pts (Voronoi)
       integer :: iw(9) = 1  ! neighbor W pts (9 Delaunay, 7 Voronoi)
+      integer :: iwnud(3) = 1  ! local nudpoly pts
    End Type itab_w_pd_vars
 
    type (itab_m_vars), allocatable :: itab_md(:)
@@ -352,7 +353,7 @@ Contains
 
    implicit none
 
-  integer, intent(in) :: meshtype,mma,mua,mva,mwa
+   integer, intent(in) :: meshtype,mma,mua,mva,mwa
 
    if (meshtype == 1) then
       allocate (itab_u(mua))
@@ -372,9 +373,9 @@ Contains
 
    implicit none
 
-  integer, intent(in) :: meshtype,mma,mua,mva,mwa
+   integer, intent(in) :: meshtype,mma,mua,mva,mwa
 
-  allocate (itab_m_pd(mma))
+   allocate (itab_m_pd(mma))
    if (meshtype == 1) then
       allocate (itab_u_pd(mua))
    elseif (meshtype == 2) then

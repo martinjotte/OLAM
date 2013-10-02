@@ -744,6 +744,8 @@ subroutine gridfile_write()
   call shdf5_orec(ndims, idims, 'ITOPOFLG', ivars=itopoflg)
   call shdf5_orec(ndims, idims, 'DELTAX'  , rvars=deltax)
   call shdf5_orec(ndims, idims, 'NDZ'     , ivars=ndz)
+  call shdf5_orec(ndims, idims, 'NUDFLAG' , ivars=nudflag)
+  call shdf5_orec(ndims, idims, 'NUDNXP'  , ivars=nudnxp)
 
   if (ndz > 1) then
      ndims    = 1
@@ -778,6 +780,7 @@ subroutine gridfile_write()
   call shdf5_orec(ndims, idims, 'NWA'    , ivars=nwa)
   call shdf5_orec(ndims, idims, 'NSW_MAX', ivars=nsw_max)
   call shdf5_orec(ndims, idims, 'MRLS'   , ivars=mrls)
+  call shdf5_orec(ndims, idims, 'NWNUD'  , ivars=nwnud)
 
   ! Write grid structure variables
 
@@ -1532,9 +1535,6 @@ subroutine gridfile_write()
      ndims    = 1
      idims(1) = 1
 
-     call shdf5_orec(ndims, idims, 'NUDNXP' , ivars=nudnxp)
-     call shdf5_orec(ndims, idims, 'NWNUD'  , ivars=nwnud)
-
      ndims    = 1
      idims(1) = nwnud
 
@@ -1591,8 +1591,8 @@ use mem_sflux,  only: nseaflux, nlandflux, mseaflux, mlandflux, &
 use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
 use mem_para,   only: myrank
 
-use mem_nudge,  only: nudflag, nudnxp, nwnud, mwnud, itab_wnud, &
-                       xewnud, yewnud, zewnud, alloc_nudge1
+use mem_nudge,  only: nudflag, nudnxp, nwnud, mwnud, xewnud, yewnud, zewnud, &
+                      alloc_nudge1
 
 ! This subroutine checks for the existence of a gridfile, and if it exists, 
 ! also checks for agreement of grid configuration between the file and the 
@@ -1657,6 +1657,9 @@ if (exans) then
    call shdf5_irec(ndims, idims, 'DELTAX'  , rvars=deltax0)
 
    call shdf5_irec(ndims, idims, 'NDZ'     , ivars=ndz0)
+
+   call shdf5_irec(ndims, idims, 'NUDFLAG' , ivars=nudflag)
+   call shdf5_irec(ndims, idims, 'NUDNXP'  , ivars=nudnxp)
 
    allocate( ngrdll0 (ngrids0) )
    allocate( grdrad0 (ngrids0) )
@@ -1774,6 +1777,7 @@ if (exans) then
    call shdf5_irec(ndims, idims, 'NWA'    , ivars=nwa)
    call shdf5_irec(ndims, idims, 'NSW_MAX', ivars=nsw_max)
    call shdf5_irec(ndims, idims, 'MRLS'   , ivars=mrls)
+   call shdf5_irec(ndims, idims, 'NWNUD'  , ivars=nwnud)
 
 ! Copy grid dimensions
 
@@ -1782,6 +1786,7 @@ if (exans) then
    mva = nva
    mua = nua
    mwa = nwa
+   mwnud = nwnud
 
 ! Allocate and read grid structure variables
 
@@ -1951,6 +1956,15 @@ if (exans) then
    ndims    = 2
    idims(2) = nwa
 
+   idims(1) = 3
+
+   allocate (iscr(3,nwa))
+   call shdf5_irec(ndims,idims,'itab_w%iwnud',ivara=iscr)
+   do iw = 1,nwa
+      itab_w_pd(iw)%iwnud(1:3) = iscr(1:3,iw)
+   enddo
+   deallocate (iscr)
+
    idims(1) = 7
 
    allocate (iscr(7,nwa))
@@ -2033,6 +2047,21 @@ if (exans) then
 
    endif
 
+! Check whether NUDGING arrays are used
+
+   if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+
+      call alloc_nudge1(nwnud)
+
+      ndims    = 1
+      idims(1) = nwnud
+
+      call shdf5_irec(ndims, idims, 'XEWNUD'  , rvara=xewnud)
+      call shdf5_irec(ndims, idims, 'YEWNUD'  , rvara=yewnud)
+      call shdf5_irec(ndims, idims, 'ZEWNUD'  , rvara=zewnud)
+
+   endif
+
 ! Close the GRIDFILE
 
    call shdf5_close()
@@ -2085,7 +2114,7 @@ use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
 use mem_para,   only: myrank
 
 use mem_nudge,  only: nudflag, nudnxp, nwnud, mwnud, itab_wnud, &
-                       xewnud, yewnud, zewnud, alloc_nudge1
+                      xewnud, yewnud, zewnud
 
 ! This subroutine checks for the existence of a gridfile, and if it exists, 
 ! also checks for agreement of grid configuration between the file and the 
@@ -2120,6 +2149,8 @@ integer, pointer :: lgua(:)
 integer, pointer :: lgva(:)
 integer, pointer :: lgwa(:)
 
+integer, pointer :: lgwnud(:)
+
 lgma => itab_m%imglobe
 if (meshtype == 1) then
    lgua => itab_u%iuglobe
@@ -2129,6 +2160,7 @@ else
    lgua => null()
 endif
 lgwa => itab_w%iwglobe
+lgwnud => itab_wnud%iwnudglobe
 
 ! Check if grid file exists
 
@@ -2903,33 +2935,23 @@ if (exans) then
    if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
 
       ndims    = 1
-      idims(1) = 1
+      idims(1) = mwnud
 
-      call shdf5_irec(ndims, idims, 'NUDNXP' , ivars=nudnxp)
-      call shdf5_irec(ndims, idims, 'NWNUD'  , ivars=nwnud)
+      call shdf5_irec(ndims, idims, 'XEWNUD'  , rvara=xewnud, points=lgwnud)
+      call shdf5_irec(ndims, idims, 'YEWNUD'  , rvara=yewnud, points=lgwnud)
+      call shdf5_irec(ndims, idims, 'ZEWNUD'  , rvara=zewnud, points=lgwnud)
 
-      mwnud = nwnud
+      call shdf5_irec(ndims, idims, 'itab_wnud%npoly' ,ivara=itab_wnud(:)%npoly, points=lgwnud)
 
-      ndims    = 1
-      idims(1) = nwnud
-
-      call alloc_nudge1(nwnud)
-
-      call shdf5_irec(ndims, idims, 'XEWNUD'  , rvara=xewnud)
-      call shdf5_irec(ndims, idims, 'YEWNUD'  , rvara=yewnud)
-      call shdf5_irec(ndims, idims, 'ZEWNUD'  , rvara=zewnud)
-
-      call shdf5_irec(ndims, idims, 'itab_wnud%npoly' ,ivara=itab_wnud(:)%npoly)
-
-      allocate (iscr(6,nwnud))
+      allocate (iscr(6,mwnud))
 
       ndims    = 2
       idims(1) = 6
-      idims(2) = nwnud
+      idims(2) = mwnud
 
-      call shdf5_irec(ndims,idims,'itab_wnud%iwnud',ivara=iscr)
+      call shdf5_irec(ndims,idims,'itab_wnud%iwnud',ivara=iscr, points=lgwnud)
 
-      do iwnud = 1,nwnud
+      do iwnud = 1,mwnud
          itab_wnud(iwnud)%iwnud(1:6) = iscr(1:6,iwnud)
       enddo
 

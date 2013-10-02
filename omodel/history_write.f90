@@ -41,6 +41,7 @@ subroutine history_write(vtype)
   use leaf_coms,  only: nwl
   use sea_coms,   only: nws
   use mem_sflux,  only: nlandflux, nseaflux
+  use mem_nudge,  only: nwnud
   use mem_para,   only: iua_globe_primary, iua_local_primary, mua_primary, &
                         iva_globe_primary, iva_local_primary, mva_primary, &
                         iwa_globe_primary, iwa_local_primary, mwa_primary, &
@@ -49,6 +50,7 @@ subroutine history_write(vtype)
                         iws_globe_primary, iws_local_primary, mws_primary, &
                         ifl_globe_primary, ifl_local_primary, mfl_primary, &
                         ifs_globe_primary, ifs_local_primary, mfs_primary, &
+                        iwnud_globe_primary, iwnud_local_primary, mwnud_primary, &
                         myrank
   implicit none
 
@@ -152,9 +154,13 @@ subroutine history_write(vtype)
               ilpts => ifs_local_primary
               igpts => ifs_globe_primary
               nglobe = nseaflux
+           elseif (stagpt == 'AN') then
+              ilpts => iwnud_local_primary
+              igpts => iwnud_globe_primary
+              nglobe = nwnud
            else
-              ! TODO: Nudging values, const values
-              ! TODO: Land U and M; Sea U and M?
+              ! TODO: Const values
+              ! TODO: Land U and M; Sea U and M? (probably not!)
               ! See history_start too
               stop "invalid array size in history_write for parallel output"
            endif

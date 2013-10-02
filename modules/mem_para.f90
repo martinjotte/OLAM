@@ -40,10 +40,14 @@ Module mem_para
   integer, allocatable :: nsends_w(:)  ! dimensioned to mrls
   integer, allocatable :: nsends_m(:)  ! dimensioned to mrls
 
+  integer :: nsends_wnud
+
   integer, allocatable :: nrecvs_u(:)  ! dimensioned to mrls
   integer, allocatable :: nrecvs_v(:)  ! dimensioned to mrls
   integer, allocatable :: nrecvs_w(:)  ! dimensioned to mrls
   integer, allocatable :: nrecvs_m(:)  ! dimensioned to mrls
+
+  integer :: nrecvs_wnud
 
 ! LAND and SEA sends/receives are scalars
 
@@ -74,11 +78,13 @@ Module mem_para
   type(nodebuffs), allocatable :: send_v(:)
   type(nodebuffs), allocatable :: send_w(:)
   type(nodebuffs), allocatable :: send_m(:)
+  type(nodebuffs), allocatable :: send_wnud(:)
 
   type(nodebuffs), allocatable :: recv_u(:)
   type(nodebuffs), allocatable :: recv_v(:)
   type(nodebuffs), allocatable :: recv_w(:)
   type(nodebuffs), allocatable :: recv_m(:)
+  type(nodebuffs), allocatable :: recv_wnud(:)
 
 ! type(nodebuffs), allocatable :: send_ul(:)
   type(nodebuffs), allocatable :: send_wl(:)
@@ -127,6 +133,10 @@ Module mem_para
   integer                      :: mfs_primary = 0
   integer, target, allocatable :: ifs_globe_primary(:)
   integer, target, allocatable :: ifs_local_primary(:)
+
+  integer                      :: mwnud_primary = 0
+  integer, target, allocatable :: iwnud_globe_primary(:)
+  integer, target, allocatable :: iwnud_local_primary(:)
 
 End Module mem_para
 

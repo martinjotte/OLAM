@@ -35,10 +35,14 @@ subroutine para_decomp()
 ! Decompose global grid into multiple subdomains for parallel computation
 
 use mem_para,   only: mgroupsize, myrank
-use misc_coms,  only: io6, meshtype
+use misc_coms,  only: io6, meshtype, mdomain
 
 use mem_ijtabs, only: itab_u_pd, itab_v_pd, itab_w_pd, itab_m_pd, &
                       itabg_m, itabg_u, itabg_v, itabg_w
+
+use mem_nudge,  only: nudflag, nudnxp, nwnud, itabg_wnud, itab_wnud, &
+                      xewnud, yewnud, zewnud
+
 use mem_grid,   only: nma, nua, nva, nwa, xem, yem, zem, xew, yew, zew
 
 use leaf_coms,  only: nml, nul, nwl, isfcl, ilandgrid
@@ -55,7 +59,7 @@ implicit none
 integer :: im,iu,iv,iw
 integer :: im1,im2,im3,iw1,iw2
 integer :: igp,jgp
-integer :: i, j, ii, jj, iil, jjl, iis, jjs, npoly, is, ilf, isf
+integer :: i, j, ii, jj, iil, jjl, iis, jjs, iinud, jjnud, npoly, is, ilf, isf
 
 integer :: iter,ibin
 integer :: ngroups
@@ -74,21 +78,25 @@ integer :: igsize(mgroupsize)
 integer :: nwg   (mgroupsize)
 integer :: nwgl  (mgroupsize)
 integer :: nwgs  (mgroupsize)
+integer :: nwgnud(mgroupsize)
 
 integer :: iwtemp (nwa-1), jwtemp (nwa-1)
 integer :: iwltemp(nwl-1), jwltemp(nwl-1)
 integer :: iwstemp(nws-1), jwstemp(nws-1)
+integer :: iwnudtemp(nwnud-1), jwnudtemp(nwnud-1)
 
 integer :: num(1002)
 
 real :: val (nwa)
 real :: vall(nwl)
 real :: vals(nws)
+real :: valnud(nwnud)
 
 Type grp_var
    integer, allocatable :: iw(:)
    integer, allocatable :: iwl(:)
    integer, allocatable :: iws(:)
+   integer, allocatable :: iwnud(:)
 End type
 
 type (grp_var) :: grp(mgroupsize)
@@ -116,6 +124,10 @@ endif
 allocate (itabg_m(nma))
 allocate (itabg_w(nwa))
 allocate (xewm(nwa),yewm(nwa),zewm(nwa))
+
+if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+   allocate (itabg_wnud(nwnud))
+endif
 
 if (isfcl == 1) then
    allocate (itabg_wl(nwl))
@@ -233,6 +245,16 @@ if (isfcl == 1) then
 
 endif
 
+! Check if NUDGING GRID is being used
+
+if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+   allocate (grp(1)%iwnud(nwnud-1))
+
+   do iw = 2,nwnud
+      grp(1)%iwnud(iw-1) = iw
+   enddo
+endif
+
 ngroups = 1
 jgp = 1
 igsize(1) = mgroupsize
@@ -240,6 +262,7 @@ igsize(1) = mgroupsize
 nwg (1) = nwa - 1
 nwgl(1) = nwl - 1
 nwgs(1) = nws - 1
+nwgnud(1) = nwnud - 1
 
 do while (ngroups < mgroupsize)
 
@@ -304,6 +327,15 @@ do while (ngroups < mgroupsize)
                enddo
             endif
 
+! WNUD cells - z direction
+
+            if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+               do i = 1,nwgnud(igp)
+                  iw = grp(igp)%iwnud(i)
+                  valnud(iw) = zewnud(iw)
+               enddo
+            endif
+
          elseif (1.01 * (xmax - xmin) > ymax - ymin) then
 
 ! ATM cells - x direction
@@ -331,6 +363,15 @@ do while (ngroups < mgroupsize)
                do i = 1,nwgs(igp)
                   iw = grp(igp)%iws(i)
                   vals(iw) = xewms(iw)
+               enddo
+            endif
+
+! WNUD cells - x direction
+
+            if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+               do i = 1,nwgnud(igp)
+                  iw = grp(igp)%iwnud(i)
+                  valnud(iw) = xewnud(iw)
                enddo
             endif
 
@@ -363,6 +404,15 @@ do while (ngroups < mgroupsize)
                   vals(iw) = yewms(iw)
                enddo
                
+            endif
+
+! WNUD cells - y direction
+
+            if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+               do i = 1,nwgnud(igp)
+                  iw = grp(igp)%iwnud(i)
+                  valnud(iw) = yewnud(iw)
+               enddo
             endif
 
          endif
@@ -525,6 +575,43 @@ do while (ngroups < mgroupsize)
             enddo
          endif
 
+! Transfer a number of WNUD points from igp to jgp
+
+         if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+            jjnud = 0
+            iinud = 0
+            do i = 1,nwgnud(igp)
+               iw = grp(igp)%iwnud(i)
+
+               if (valnud(iw) > cut) then
+                  jjnud = jjnud + 1
+                  jwnudtemp(jjnud) = iw
+               else
+                  iinud = iinud + 1
+                  iwnudtemp(iinud) = iw
+               endif
+            enddo
+
+            nwgnud(igp) = iinud
+            nwgnud(jgp) = jjnud
+
+! Deallocate 1 old group and allocate 2 new groups
+
+            deallocate(grp(igp)%iwnud)
+            allocate(grp(igp)%iwnud(iinud))
+            allocate(grp(jgp)%iwnud(jjnud))
+
+! Fill 2 new groups of WNUD cells from temporary arrays
+
+            do j = 1,jjnud
+               grp(jgp)%iwnud(j)=jwnudtemp(j)
+            enddo
+
+            do i = 1,iinud
+               grp(igp)%iwnud(i)=iwnudtemp(i)
+            enddo
+         endif
+
       endif
    enddo
 
@@ -541,6 +628,12 @@ if (allocated(zewml)) deallocate (zewml)
 if (allocated(xewms)) deallocate (xewms)
 if (allocated(yewms)) deallocate (yewms)
 if (allocated(zewms)) deallocate (zewms)
+
+if (allocated(xewnud)) deallocate (xewnud)
+if (allocated(yewnud)) deallocate (yewnud)
+if (allocated(zewnud)) deallocate (zewnud)
+
+if (allocated(itab_wnud)) deallocate(itab_wnud)
 
 ! Fill irank for each IW point from group array
 
@@ -568,6 +661,15 @@ do igp = 1,ngroups
       do i = 1,nwgs(igp)
          iw = grp(igp)%iws(i)
          itabg_ws(iw)%irank = igp - 1
+      enddo
+   endif
+
+! WNUD cells
+
+   if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+      do i = 1,nwgnud(igp)
+         iw = grp(igp)%iwnud(i)
+         itabg_wnud(iw)%irank = igp - 1
       enddo
    endif
 
@@ -745,7 +847,6 @@ else
    enddo
    
 endif
-
 
 ! Set rank of M point based on rank of 1st U or V point in stencil
 ! Optimize later....

@@ -331,7 +331,7 @@ integer, target, allocatable :: isfglobe(:), isfrank(:)
 integer :: idn(3)
 integer, target, allocatable :: inglobe(:), inrank(:)
 
-character(len=2)   :: stagpt
+character(len=2) :: stagpt
 integer, pointer :: iglobe(:), irank(:)
 
 integer, allocatable :: iscr1(:)
@@ -565,18 +565,9 @@ do nv = 1, num_var
       irank  => isfrank
 !  elseif (stagpt == 'AN') then
 !
-!     TODO: NUDGING DOES NOT YET WORK IN PARALLEL.
-!     ASSUME FOR NOW THAT EACH PROCESSOR WILL HAVE THE ENTIRE
-!     COARSE GLOBAL OBSERVATIONS???
+!     TODO: NUDGING DOES NOT YET WORK IN PARALLEL 
+!           (in this subroutine, but it does elsewhere).
 !
-!     allocate(inglobe(idims(ndims)))
-!     allocate(inrank(idims(ndims)))
-!     do i=1,idims(ndims)
-!        inglobe(i) = i
-!        inrank(i) = 0
-!     enddo
-!     iglobe => inglobe
-!     irank  => inrank
 !  elseif (stagpt == 'CN') then
 !
 !     TODO: READING CONSTANT VALUES
@@ -721,10 +712,11 @@ use mem_sea,     only: itab_ws
 use sea_coms,    only: nws, mws
 use mem_para,    only: myrank
 use consts_coms, only: r8
+use mem_nudge,   only: nwnud, mwnud, itab_wnud
+
 implicit none
 
 integer          :: nv, nvcnt, ndims, idims(3)
-integer          :: i, k, il, iw, isf, ilf
 character(32)    :: varn
 character (2)    :: stagpt
 integer, pointer :: ilocal(:)
@@ -783,10 +775,13 @@ do nv = 1, num_var
    elseif (stagpt == 'SF' .and. idims(ndims) == nseaflux) then
       ilocal => seaflux(:)%ifglobe
       idims(ndims) = mseaflux
+   elseif (stagpt == 'AN' .and. idims(ndims) == nwnud) then
+      ilocal => itab_wnud(:)%iwnudglobe
+      idims(ndims) = mwnud
    else
 
-      ! TODO: Nudging values, const values
-      ! TODO: Land U and M; Sea U and M?
+      ! TODO: Const values
+      ! TODO: Land U and M; Sea U and M? (probably not!)
 
       stop "invalid array size in history_start_s"
    endif
