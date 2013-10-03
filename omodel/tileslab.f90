@@ -512,11 +512,11 @@ end subroutine tileslab_horiz_vn
 subroutine tileslab_horiz_s(iplt,action)
 
 use oplot_coms, only: op
-use mem_sea,    only: sea, itab_ws
+use mem_sea,    only: sea, itab_ws, itabg_ws
 use sea_coms,   only: mws, iseagrid
 use misc_coms,  only: io6, iparallel
 use mem_para,   only: myrank
-use mem_sflux,  only: seaflux, nseaflux, maxnpolyf
+use mem_sflux,  only: seaflux, mseaflux, maxnpolyf
 
 implicit none
 
@@ -583,8 +583,12 @@ if (iseagrid == 1) then
 
 elseif (iseagrid > 1) then
 
-   do isf = 2,nseaflux
+   do isf = 2, mseaflux
       iws = seaflux(isf)%iwls
+      
+      if (iparallel == 1) then
+         iws = itabg_ws(iws)%iws_myrank
+      endif
 
 ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
 
@@ -639,11 +643,11 @@ end subroutine tileslab_horiz_s
 subroutine tileslab_horiz_l(iplt,action)
 
 use oplot_coms, only: op
-use mem_leaf,   only: land, itab_wl
+use mem_leaf,   only: land, itab_wl, itabg_wl
 use leaf_coms,  only: mwl, nzg, nzs, ilandgrid
 use misc_coms,  only: io6, iparallel
 use mem_para,   only: myrank
-use mem_sflux,  only: landflux, nlandflux, maxnpolyf
+use mem_sflux,  only: landflux, mlandflux, maxnpolyf
 
 implicit none
 
@@ -720,8 +724,12 @@ if (ilandgrid == 1) then
 
 elseif (ilandgrid > 1) then
 
-   do ilf = 2,nlandflux
+   do ilf = 2,mlandflux
       iwl = landflux(ilf)%iwls
+
+      if (iparallel == 1) then
+         iwl = itabg_wl(iwl)%iwl_myrank
+      endif
 
 ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
 

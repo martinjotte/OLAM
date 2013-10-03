@@ -1570,7 +1570,7 @@ use mem_sea,    only: sea, itab_ws, itab_us
 use leaf_coms,  only: mwl, mul, ilandgrid
 use mem_leaf,   only: land, itab_wl, itab_ul
 use misc_coms,  only: io6
-use mem_sflux,  only: landflux, seaflux, nlandflux, nseaflux
+use mem_sflux,  only: landflux, seaflux, mlandflux, mseaflux
 
 implicit none
 
@@ -1656,7 +1656,7 @@ if (op%projectn(iplt) == 'L'  .or.  &
 
    elseif (iseagrid > 1) then
 
-      do isf = 1,nseaflux
+      do isf = 1, mseaflux
          npoly = seaflux(isf)%npoly
 
          do j1 = 1,npoly
@@ -1786,7 +1786,7 @@ if (op%projectn(iplt) == 'L'  .or.  &
 
    elseif (ilandgrid > 1) then
 
-      do ilf = 1,nlandflux
+      do ilf = 1, mlandflux
          npoly = landflux(ilf)%npoly
 
          do j1 = 1,npoly
