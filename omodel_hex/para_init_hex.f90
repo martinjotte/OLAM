@@ -79,6 +79,8 @@ integer :: im_myrank ! Counter for M points to be included on this rank
 integer :: iv_myrank ! Counter for V points to be included on this rank
 integer :: iw_myrank ! Counter for W points to be included on this rank
 integer :: iwnud_myrank ! Counter for WNUD points to be included on this rank
+integer :: isf_myrank ! Counter for seaflux cells to be included on this rank
+integer :: ilf_myrank ! Counter for landflux cells to be included on this rank
 
 ! Automatic arrays
 
@@ -92,11 +94,6 @@ logical :: myrankflag_wnud1(nwnud) ! Flag that ITABW(IW)%IWNUD(1) exists on
 
 logical :: seaflag(nws)
 logical :: landflag(nwl)
-
-! Temporary datatypes
-
-type(lflux_vars), allocatable :: landflux_temp(:)
-type(sflux_vars), allocatable ::  seaflux_temp(:)
 
 integer :: ierr
 
@@ -174,13 +171,15 @@ myrankflag_w(1) = .false.
 myrankflag_wnud(1) = .false.
 myrankflag_wnud1(1) = .false.
 
-! Loop over all M, V, W, and WNUD points and count the ones that have been
-! flagged for inclusion on this rank.
+! Loop over all M, V, W, WNUD, and flux points and count the ones that
+! have been flagged for inclusion on this rank.
 
 im_myrank = 1
 iv_myrank = 1
 iw_myrank = 1
 iwnud_myrank = 1
+isf_myrank = 1
+ilf_myrank = 1
 
 do im = 2,nma
    if (myrankflag_m(im)) then
@@ -210,12 +209,46 @@ if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
    mwnud = iwnud_myrank
 endif
 
+if (isfcl == 1) then
+
+   ! Flux cells are included on this node if either of the corresponding 
+   ! atmospheric or surface cells are primary on this node
+
+   do isf = 2, nseaflux
+      iw  = seaflux_pd(isf)%iw
+      iws = seaflux_pd(isf)%iwls
+
+      if ( itabg_w (iw )%irank == myrank .or.  &
+           itabg_ws(iws)%irank == myrank ) then
+
+         isf_myrank = isf_myrank + 1
+         seaflag(iws) = .true.
+
+      endif
+   enddo
+
+   do ilf = 2, nlandflux
+      iw  = landflux_pd(ilf)%iw
+      iwl = landflux_pd(ilf)%iwls
+
+      if ( itabg_w (iw )%irank == myrank .or.  &
+           itabg_wl(iwl)%irank == myrank ) then
+
+         ilf_myrank = ilf_myrank + 1
+         landflag(iwl) = .true.
+      endif
+   enddo
+   
+endif
+
 ! Set mma, mva, mwa values for this rank
 
 mma = im_myrank
 mva = iv_myrank
 mua = mva
 mwa = iw_myrank
+mseaflux = isf_myrank
+mlandflux = ilf_myrank
 
 ! Allocate grid structure variables
 
@@ -228,14 +261,21 @@ call alloc_grid2(meshtype, mma, mua, mva, mwa)
 
 if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) call alloc_nudge1(mwnud)
 
+if (isfcl == 1) then
+   allocate (seaflux (mseaflux ))
+   allocate (landflux(mlandflux))
+endif
+
 ! Reset point counts to 1
 
 im_myrank = 1
 iv_myrank = 1
 iw_myrank = 1
 iwnud_myrank = 1
+isf_myrank = 1
+ilf_myrank = 1
 
-! Store new myrank M, V, W, and WNUD indices in itabg data structures
+! Store new myrank M, V, W, WNUD, and flux indices in itabg data structures
 
 do im = 1,nma
    if (myrankflag_m(im)) then
@@ -271,6 +311,35 @@ if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
    enddo
 endif
 
+if (isfcl == 1) then
+
+   do isf = 2, nseaflux
+      iw  = seaflux_pd(isf)%iw   ! full-domain index
+      iws = seaflux_pd(isf)%iwls ! full-domain index
+
+      if ( itabg_w (iw )%irank == myrank .or.  &
+           itabg_ws(iws)%irank == myrank ) then
+
+         isf_myrank = isf_myrank + 1
+         seafluxg(isf)%isf_myrank = isf_myrank
+
+      endif
+   enddo
+
+   do ilf = 2, nlandflux
+      iw  = landflux_pd(ilf)%iw   ! full-domain index
+      iwl = landflux_pd(ilf)%iwls ! full-domain index
+
+      if ( itabg_w (iw )%irank == myrank .or.  &
+           itabg_wl(iwl)%irank == myrank ) then
+
+         ilf_myrank = ilf_myrank + 1
+         landfluxg(ilf)%ilf_myrank = ilf_myrank
+      endif
+   enddo
+
+endif
+
 ! Defining global index of local points (will be used on gridfile_read)
 
 do im = 1, nma
@@ -292,6 +361,38 @@ if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
    enddo
 endif
 
+if (isfcl == 1) then
+
+   seaflux(1)%ifglobe = 1
+   
+   do isf = 2, nseaflux
+      iw  = seaflux_pd(isf)%iw   ! full-domain index
+      iws = seaflux_pd(isf)%iwls ! full-domain index
+
+      if ( itabg_w (iw )%irank == myrank .or.  &
+           itabg_ws(iws)%irank == myrank) then
+         
+         seaflux(seafluxg(isf)%isf_myrank)%ifglobe = isf
+
+      endif
+   enddo
+
+   landflux(1)%ifglobe = 1
+
+    do ilf = 2, nlandflux
+      iw  = landflux_pd(ilf)%iw   ! full-domain index
+      iwl = landflux_pd(ilf)%iwls ! full-domain index
+
+      if ( itabg_w (iw )%irank == myrank .or.  &
+           itabg_wl(iwl)%irank == myrank) then
+         
+         landflux(landfluxg(ilf)%ilf_myrank)%ifglobe = ilf
+
+      endif
+   enddo
+
+endif
+
 ! Read the grid structure for all points in local parallel subdomain
 ! for this rank (or for all points in domain if run is sequential)
 
@@ -300,7 +401,7 @@ call gridfile_read()
 ! itab_m, itab_v, and itab_w data structures that exist in local subdomain
 ! memory were filled in subroutine gridfile_read, but with member values
 ! for the full domain.  Those member values that depend on local subdomain
-! are reset next.
+! are reset next. 
 
 ! Loop over all M points in global domain
 
@@ -745,125 +846,31 @@ do im = 2, nma
    endif
 enddo
 
-!!!!!!!!!! ISSO DEVE SER DELETADO
-if (isfcl == 1) then
-   call move_alloc(landflux, landflux_temp)
-   call move_alloc( seaflux,  seaflux_temp)
-endif
-!!!!!!!!!! ISSO DEVE SER DELETADO
-
 ! Check whether LAND/SEA models are used
 
 if (isfcl == 1) then
 
-! Copy SEAFLUX values
-
-   mseaflux = 1
-
-   do isf = 2,nseaflux
-      iw  = seaflux_temp(isf)%iw
-      iws = seaflux_temp(isf)%iwls
-
-      if (itabg_w (iw )%irank == myrank .or.  &
-          itabg_ws(iws)%irank == myrank) then
-
-         mseaflux = mseaflux + 1
-         seaflag(iws) = .true.
-      endif
-   enddo
-
-   allocate (seaflux(mseaflux))
-
-   mseaflux = 1
-
-   seaflux(1)%ifglobe = 1
-   seaflux(1)%iw = 1
-   seaflux(1)%iwls = 1
-
-   do isf = 2,nseaflux
-      iw  = seaflux_temp(isf)%iw   ! full-domain index
-      iws = seaflux_temp(isf)%iwls ! full-domain index
-
-      if (itabg_w (iw )%irank == myrank .or.  &
-          itabg_ws(iws)%irank == myrank) then
-
-         mseaflux = mseaflux + 1
-
-         seaflux(mseaflux) = seaflux_temp(isf) ! retain global indices
-
-         seafluxg(isf)%isf_myrank = mseaflux
-      endif
-   enddo
-
-   ! Set the rank of the seaflux cell to the rank of the atm cell
+   ! Set the rank of flux cells to the rank of the atm cell
    ! (only needed for the parcombine step)
 
-   do isf = 1,mseaflux
+   do isf = 1, mseaflux
       iw = seaflux(isf)%iw
       seaflux(isf)%iwrank = itabg_w(iw)%irank
    enddo
-
-! Copy LANDLUX values
-
-   mlandflux = 1
-
-   do ilf = 2,nlandflux
-      iw  = landflux_temp(ilf)%iw
-      iwl = landflux_temp(ilf)%iwls
-
-      if (itabg_w (iw )%irank == myrank .or.  &
-          itabg_wl(iwl)%irank == myrank) then
-
-         mlandflux = mlandflux + 1
-         landflag(iwl) = .true.
-      endif
-   enddo
-
-   allocate (landflux(mlandflux))
-
-   mlandflux = 1
-
-   landflux(1)%ifglobe = 1
-   landflux(1)%iw = 1
-   landflux(1)%iwls = 1
-
-   do ilf = 2,nlandflux
-      iw  = landflux_temp(ilf)%iw   ! full-domain index
-      iwl = landflux_temp(ilf)%iwls ! full-domain index
-
-      if (itabg_w (iw )%irank == myrank .or.  &
-          itabg_wl(iwl)%irank == myrank) then
-
-         mlandflux = mlandflux + 1
-
-         landflux(mlandflux) = landflux_temp(ilf) ! retain global indices
-
-         landfluxg(ilf)%ilf_myrank = mlandflux
-      endif
-   enddo
-
-   ! Set the rank of the landlflux cell to the rank of the atm cell
-   ! (only needed for the parcombine step)
 
    do ilf = 1,mlandflux
       iw = landflux(ilf)%iw
       landflux(ilf)%iwrank = itabg_w(iw)%irank
    enddo
 
-   call para_init_sea ( seaflag,  seaflux_temp)
-   call para_init_land(landflag, landflux_temp)
+   call para_init_sea ( seaflag)
+   call para_init_land(landflag)
 
 endif
 
 call compute_primary_points()
 
-! Deallocate temporary data structures and arrays
-
-if (isfcl == 1) then
-   deallocate (landflux_temp, seaflux_temp)
-endif
-
- ! Deallocate para_decomp _pd arrays
+! Deallocate para_decomp _pd arrays
 
 deallocate (itab_m_pd, itab_v_pd, itab_w_pd)
 

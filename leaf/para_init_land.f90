@@ -30,7 +30,7 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine para_init_land(landflag, landflux_temp)
+subroutine para_init_land(landflag)
 
 use misc_coms,  only: io6
 
@@ -52,12 +52,11 @@ use mem_leaf,   only: itab_ml, itab_ul, itab_wl,       &
 
 use mem_mksfc,  only: itab_mls_vars, itab_uls_vars, itab_wls_vars
                         
-use mem_sflux,  only: landflux, nlandflux, jlandflux, lflux_vars
+use mem_sflux,  only: landflux_pd, nlandflux
 
 implicit none
 
-logical,          intent(in) :: landflag(nwl)
-type(lflux_vars), intent(in) :: landflux_temp(nlandflux)
+logical, intent(in) :: landflag(nwl)
 
 integer :: jml
 integer :: iw,iml,iul,iwl
@@ -363,10 +362,10 @@ enddo
 ! NOTE: (JULY 2013) WITH ILANDGRID > 1, NOTHING SHOULD BE ADDED TO SEND OR
 ! RECV TABLES; CHECK THAT THIS IS TRUE...
 
-do ilf = 2,nlandflux
+do ilf = 2, nlandflux
 
-   iw  = landflux_temp(ilf)%iw   ! full-domain index
-   iwl = landflux_temp(ilf)%iwls ! full-domain index
+   iw  = landflux_pd(ilf)%iw   ! full-domain index
+   iwl = landflux_pd(ilf)%iwls ! full-domain index
 
    if (itabg_w(iw)%irank /= myrank .and. itabg_wl(iwl)%irank == myrank) then  
 

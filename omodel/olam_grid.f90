@@ -900,7 +900,6 @@ subroutine gridfile_write()
 
   call shdf5_orec(ndims,idims,'itab_m%npoly'    ,ivara=itab_m(:)%npoly)
   call shdf5_orec(ndims,idims,'itab_m%imp'      ,ivara=itab_m(:)%imp)
-  call shdf5_orec(ndims,idims,'itab_m%imglobe'  ,ivara=itab_m(:)%imglobe)
   call shdf5_orec(ndims,idims,'itab_m%mrlm'     ,ivara=itab_m(:)%mrlm)
   call shdf5_orec(ndims,idims,'itab_m%mrlm_orig',ivara=itab_m(:)%mrlm_orig)
   call shdf5_orec(ndims,idims,'itab_m%mrow'     ,ivara=itab_m(:)%mrow)
@@ -960,7 +959,6 @@ subroutine gridfile_write()
 
      call shdf5_orec(ndims,idims,'itab_u%iup'    ,ivara=itab_u(:)%iup)
      call shdf5_orec(ndims,idims,'itab_u%mrlu'   ,ivara=itab_u(:)%mrlu)
-     call shdf5_orec(ndims,idims,'itab_u%iuglobe',ivara=itab_u(:)%iuglobe)
 
      call shdf5_orec(ndims,idims,'itab_u%gcf36'  ,rvara=itab_u(:)%gcf36)
      call shdf5_orec(ndims,idims,'itab_u%gcf45'  ,rvara=itab_u(:)%gcf45)
@@ -1093,7 +1091,6 @@ subroutine gridfile_write()
 
      call shdf5_orec(ndims,idims,'itab_v%ivp'    ,ivara=itab_v(:)%ivp)
      call shdf5_orec(ndims,idims,'itab_v%mrlv'   ,ivara=itab_v(:)%mrlv)
-     call shdf5_orec(ndims,idims,'itab_v%ivglobe',ivara=itab_v(:)%ivglobe)
 
      ! Write ITAB_V ARRAYS
 
@@ -1211,7 +1208,6 @@ subroutine gridfile_write()
 
   call shdf5_orec(ndims,idims,'itab_w%npoly'    ,ivara=itab_w(:)%npoly)
   call shdf5_orec(ndims,idims,'itab_w%iwp'      ,ivara=itab_w(:)%iwp)
-  call shdf5_orec(ndims,idims,'itab_w%iwglobe'  ,ivara=itab_w(:)%iwglobe)
   call shdf5_orec(ndims,idims,'itab_w%mrlw'     ,ivara=itab_w(:)%mrlw)
   call shdf5_orec(ndims,idims,'itab_w%mrlw_orig',ivara=itab_w(:)%mrlw_orig)
   call shdf5_orec(ndims,idims,'itab_w%mrow'     ,ivara=itab_w(:)%mrow)
@@ -1436,7 +1432,6 @@ subroutine gridfile_write()
      ndims    = 1
      idims(1) = nseaflux
 
-     call shdf5_orec(ndims,idims,'seaflux%isfglobe',ivara=seaflux(:)%ifglobe)
      call shdf5_orec(ndims,idims,'seaflux%iw'      ,ivara=seaflux(:)%iw)
      call shdf5_orec(ndims,idims,'seaflux%kw'      ,ivara=seaflux(:)%kw)
      call shdf5_orec(ndims,idims,'seaflux%iws'     ,ivara=seaflux(:)%iwls)
@@ -1486,7 +1481,6 @@ subroutine gridfile_write()
      ndims    = 1
      idims(1) = nlandflux
 
-     call shdf5_orec(ndims,idims,'landflux%ilfglobe',ivara=landflux(:)%ifglobe)
      call shdf5_orec(ndims,idims,'landflux%iw'      ,ivara=landflux(:)%iw)
      call shdf5_orec(ndims,idims,'landflux%kw'      ,ivara=landflux(:)%kw)
      call shdf5_orec(ndims,idims,'landflux%iwl'     ,ivara=landflux(:)%iwls)
@@ -2151,6 +2145,9 @@ integer, pointer :: lgwa(:)
 
 integer, pointer :: lgwnud(:)
 
+integer, pointer :: lgsf(:)
+integer, pointer :: lglf(:)
+
 lgma => itab_m%imglobe
 if (meshtype == 1) then
    lgua => itab_u%iuglobe
@@ -2161,6 +2158,8 @@ else
 endif
 lgwa => itab_w%iwglobe
 lgwnud => itab_wnud%iwnudglobe
+lgsf => seaflux%ifglobe
+lglf => landflux%ifglobe
 
 ! Check if grid file exists
 
@@ -2300,7 +2299,6 @@ if (exans) then
 
    call shdf5_irec(ndims,idims,'itab_m%npoly'    ,ivara=itab_m(:)%npoly, points=lgma)
    call shdf5_irec(ndims,idims,'itab_m%imp'      ,ivara=itab_m(:)%imp, points=lgma)
-   call shdf5_irec(ndims,idims,'itab_m%imglobe'  ,ivara=itab_m(:)%imglobe, points=lgma)
    call shdf5_irec(ndims,idims,'itab_m%mrlm'     ,ivara=itab_m(:)%mrlm, points=lgma)
    call shdf5_irec(ndims,idims,'itab_m%mrlm_orig',ivara=itab_m(:)%mrlm_orig, points=lgma)
    call shdf5_irec(ndims,idims,'itab_m%mrow'     ,ivara=itab_m(:)%mrow, points=lgma)
@@ -2359,7 +2357,6 @@ if (exans) then
 
       call shdf5_irec(ndims,idims,'itab_u%iup'    ,ivara=itab_u(:)%iup, points=lgua)
       call shdf5_irec(ndims,idims,'itab_u%mrlu'   ,ivara=itab_u(:)%mrlu, points=lgua)
-      call shdf5_irec(ndims,idims,'itab_u%iuglobe',ivara=itab_u(:)%iuglobe, points=lgua)
 
       call shdf5_irec(ndims,idims,'itab_u%gcf36'  ,rvara=itab_u(:)%gcf36, points=lgua)
       call shdf5_irec(ndims,idims,'itab_u%gcf45'  ,rvara=itab_u(:)%gcf45, points=lgua)
@@ -2491,7 +2488,6 @@ if (exans) then
 
       call shdf5_irec(ndims,idims,'itab_v%ivp'      ,ivara=itab_v(:)%ivp, points=lgva)
       call shdf5_irec(ndims,idims,'itab_v%mrlv'     ,ivara=itab_v(:)%mrlv, points=lgva)
-      call shdf5_irec(ndims,idims,'itab_v%ivglobe'  ,ivara=itab_v(:)%ivglobe, points=lgva)
 
 ! Read ITAB_V ARRAYS
 
@@ -2605,7 +2601,6 @@ if (exans) then
 
    call shdf5_irec(ndims,idims,'itab_w%npoly'    ,ivara=itab_w(:)%npoly, points=lgwa)
    call shdf5_irec(ndims,idims,'itab_w%iwp'      ,ivara=itab_w(:)%iwp, points=lgwa)
-   call shdf5_irec(ndims,idims,'itab_w%iwglobe'  ,ivara=itab_w(:)%iwglobe, points=lgwa)
    call shdf5_irec(ndims,idims,'itab_w%mrlw'     ,ivara=itab_w(:)%mrlw, points=lgwa)
    call shdf5_irec(ndims,idims,'itab_w%mrlw_orig',ivara=itab_w(:)%mrlw_orig, points=lgwa)
    call shdf5_irec(ndims,idims,'itab_w%mrow'     ,ivara=itab_w(:)%mrow, points=lgwa)
@@ -2823,106 +2818,86 @@ if (exans) then
 ! Read SEAFLUX VALUES
 
       ndims    = 1
-      idims(1) = 1
+      idims(1) = mseaflux
 
-      call shdf5_irec(ndims, idims, 'NSEAFLUX',ivars=nseaflux)
-
-      mseaflux = nseaflux
-
-      allocate (seaflux(nseaflux))
-
-      ndims    = 1
-      idims(1) = nseaflux
-
-      call shdf5_irec(ndims,idims,'seaflux%isfglobe',ivara=seaflux(:)%ifglobe)
-      call shdf5_irec(ndims,idims,'seaflux%iw'      ,ivara=seaflux(:)%iw)
-      call shdf5_irec(ndims,idims,'seaflux%kw'      ,ivara=seaflux(:)%kw)
-      call shdf5_irec(ndims,idims,'seaflux%iws'     ,ivara=seaflux(:)%iwls)
-      call shdf5_irec(ndims,idims,'seaflux%npoly'   ,ivara=seaflux(:)%npoly)
-      call shdf5_irec(ndims,idims,'seaflux%area'    ,rvara=seaflux(:)%area)
-      call shdf5_irec(ndims,idims,'seaflux%xef'     ,rvara=seaflux(:)%xef)
-      call shdf5_irec(ndims,idims,'seaflux%yef'     ,rvara=seaflux(:)%yef)
-      call shdf5_irec(ndims,idims,'seaflux%zef'     ,rvara=seaflux(:)%zef)
-      call shdf5_irec(ndims,idims,'seaflux%glatf'   ,rvara=seaflux(:)%glatf)
-      call shdf5_irec(ndims,idims,'seaflux%glonf'   ,rvara=seaflux(:)%glonf)
-      call shdf5_irec(ndims,idims,'seaflux%arf_atm' ,rvara=seaflux(:)%arf_atm)
-      call shdf5_irec(ndims,idims,'seaflux%arf_sea' ,rvara=seaflux(:)%arf_sfc)
-      call shdf5_irec(ndims,idims,'seaflux%arf_kw'  ,rvara=seaflux(:)%arf_kw)
+      call shdf5_irec(ndims,idims,'seaflux%iw'      ,ivara=seaflux(:)%iw, points=lgsf)
+      call shdf5_irec(ndims,idims,'seaflux%kw'      ,ivara=seaflux(:)%kw, points=lgsf)
+      call shdf5_irec(ndims,idims,'seaflux%iws'     ,ivara=seaflux(:)%iwls, points=lgsf)
+      call shdf5_irec(ndims,idims,'seaflux%npoly'   ,ivara=seaflux(:)%npoly, points=lgsf)
+      call shdf5_irec(ndims,idims,'seaflux%area'    ,rvara=seaflux(:)%area, points=lgsf)
+      call shdf5_irec(ndims,idims,'seaflux%xef'     ,rvara=seaflux(:)%xef, points=lgsf)
+      call shdf5_irec(ndims,idims,'seaflux%yef'     ,rvara=seaflux(:)%yef, points=lgsf)
+      call shdf5_irec(ndims,idims,'seaflux%zef'     ,rvara=seaflux(:)%zef, points=lgsf)
+      call shdf5_irec(ndims,idims,'seaflux%glatf'   ,rvara=seaflux(:)%glatf, points=lgsf)
+      call shdf5_irec(ndims,idims,'seaflux%glonf'   ,rvara=seaflux(:)%glonf, points=lgsf)
+      call shdf5_irec(ndims,idims,'seaflux%arf_atm' ,rvara=seaflux(:)%arf_atm, points=lgsf)
+      call shdf5_irec(ndims,idims,'seaflux%arf_sea' ,rvara=seaflux(:)%arf_sfc, points=lgsf)
+      call shdf5_irec(ndims,idims,'seaflux%arf_kw'  ,rvara=seaflux(:)%arf_kw, points=lgsf)
 
 ! Read SEAFLUX ARRAYS
 
       ndims = 2
       idims(1) = maxnpolyf
-      idims(2) = nseaflux
+      idims(2) = mseaflux
 
-      allocate (rscr(maxnpolyf,nseaflux))
+      allocate (rscr(maxnpolyf,mseaflux))
 
-      call shdf5_irec(ndims,idims,'seaflux%xem',rvara=rscr)
-      do isf = 1,nseaflux
+      call shdf5_irec(ndims,idims,'seaflux%xem',rvara=rscr, points=lgsf)
+      do isf = 1,mseaflux
          seaflux(isf)%xem(1:maxnpolyf) = rscr(1:maxnpolyf,isf)
       enddo
 
-      call shdf5_irec(ndims,idims,'seaflux%yem',rvara=rscr)
-      do isf = 1,nseaflux
+      call shdf5_irec(ndims,idims,'seaflux%yem',rvara=rscr, points=lgsf)
+      do isf = 1,mseaflux
          seaflux(isf)%yem(1:maxnpolyf) = rscr(1:maxnpolyf,isf)
       enddo
 
-      call shdf5_irec(ndims,idims,'seaflux%zem',rvara=rscr)
-      do isf = 1,nseaflux
+      call shdf5_irec(ndims,idims,'seaflux%zem',rvara=rscr, points=lgsf)
+      do isf = 1,mseaflux
          seaflux(isf)%zem(1:maxnpolyf) = rscr(1:maxnpolyf,isf)
       enddo
 
       deallocate(rscr)
-   
+
 ! Read LANDFLUX VALUES
 
       ndims    = 1
-      idims(1) = 1
+      idims(1) = mlandflux
 
-      call shdf5_irec(ndims, idims, 'NLANDFLUX',ivars=nlandflux)
-
-      mlandflux = nlandflux
-
-      allocate (landflux(nlandflux))
-
-      ndims    = 1
-      idims(1) = nlandflux
-
-      call shdf5_irec(ndims,idims,'landflux%ilfglobe',ivara=landflux(:)%ifglobe)
-      call shdf5_irec(ndims,idims,'landflux%iw'      ,ivara=landflux(:)%iw)
-      call shdf5_irec(ndims,idims,'landflux%kw'      ,ivara=landflux(:)%kw)
-      call shdf5_irec(ndims,idims,'landflux%iwl'     ,ivara=landflux(:)%iwls)
-      call shdf5_irec(ndims,idims,'landflux%npoly'   ,ivara=landflux(:)%npoly)
-      call shdf5_irec(ndims,idims,'landflux%area'    ,rvara=landflux(:)%area)
-      call shdf5_irec(ndims,idims,'landflux%xef'     ,rvara=landflux(:)%xef)
-      call shdf5_irec(ndims,idims,'landflux%yef'     ,rvara=landflux(:)%yef)
-      call shdf5_irec(ndims,idims,'landflux%zef'     ,rvara=landflux(:)%zef)
-      call shdf5_irec(ndims,idims,'landflux%glatf'   ,rvara=landflux(:)%glatf)
-      call shdf5_irec(ndims,idims,'landflux%glonf'   ,rvara=landflux(:)%glonf)
-      call shdf5_irec(ndims,idims,'landflux%arf_atm' ,rvara=landflux(:)%arf_atm)
-      call shdf5_irec(ndims,idims,'landflux%arf_land',rvara=landflux(:)%arf_sfc)
-      call shdf5_irec(ndims,idims,'landflux%arf_kw'  ,rvara=landflux(:)%arf_kw)
+      call shdf5_irec(ndims,idims,'landflux%iw'      ,ivara=landflux(:)%iw, points=lglf)
+      call shdf5_irec(ndims,idims,'landflux%kw'      ,ivara=landflux(:)%kw, points=lglf)
+      call shdf5_irec(ndims,idims,'landflux%iwl'     ,ivara=landflux(:)%iwls, points=lglf)
+      call shdf5_irec(ndims,idims,'landflux%npoly'   ,ivara=landflux(:)%npoly, points=lglf)
+      call shdf5_irec(ndims,idims,'landflux%area'    ,rvara=landflux(:)%area, points=lglf)
+      call shdf5_irec(ndims,idims,'landflux%xef'     ,rvara=landflux(:)%xef, points=lglf)
+      call shdf5_irec(ndims,idims,'landflux%yef'     ,rvara=landflux(:)%yef, points=lglf)
+      call shdf5_irec(ndims,idims,'landflux%zef'     ,rvara=landflux(:)%zef, points=lglf)
+      call shdf5_irec(ndims,idims,'landflux%glatf'   ,rvara=landflux(:)%glatf, points=lglf)
+      call shdf5_irec(ndims,idims,'landflux%glonf'   ,rvara=landflux(:)%glonf, points=lglf)
+      call shdf5_irec(ndims,idims,'landflux%arf_atm' ,rvara=landflux(:)%arf_atm, points=lglf)
+      call shdf5_irec(ndims,idims,'landflux%arf_land',rvara=landflux(:)%arf_sfc, points=lglf)
+      call shdf5_irec(ndims,idims,'landflux%arf_kw'  ,rvara=landflux(:)%arf_kw, points=lglf)
 
 ! Read LANDFLUX ARRAYS
 
       ndims = 2
       idims(1) = maxnpolyf
-      idims(2) = nlandflux
+      idims(2) = mlandflux
 
-      allocate (rscr(maxnpolyf,nlandflux))
+      allocate (rscr(maxnpolyf,mlandflux))
 
-      call shdf5_irec(ndims,idims,'landflux%xem',rvara=rscr)
-      do ilf = 1,nlandflux
+      call shdf5_irec(ndims,idims,'landflux%xem',rvara=rscr, points=lglf)
+      do ilf = 1,mlandflux
          landflux(ilf)%xem(1:maxnpolyf) = rscr(1:maxnpolyf,ilf)
       enddo
 
-      call shdf5_irec(ndims,idims,'landflux%yem',rvara=rscr)
-      do ilf = 1,nlandflux
+      call shdf5_irec(ndims,idims,'landflux%yem',rvara=rscr, points=lglf)
+      do ilf = 1,mlandflux
          landflux(ilf)%yem(1:maxnpolyf) = rscr(1:maxnpolyf,ilf)
       enddo
 
-      call shdf5_irec(ndims,idims,'landflux%zem',rvara=rscr)
-      do ilf = 1,nlandflux
+      call shdf5_irec(ndims,idims,'landflux%zem',rvara=rscr, points=lglf)
+      do ilf = 1,mlandflux
          landflux(ilf)%zem(1:maxnpolyf) = rscr(1:maxnpolyf,ilf)
       enddo
 
