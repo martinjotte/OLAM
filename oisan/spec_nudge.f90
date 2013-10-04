@@ -42,6 +42,7 @@ use mem_grid,    only: mza, mva, mwa, lpw, vnx, vny, vnz, xeu, yeu, zeu, &
                        xev, yev, zev, xew, yew, zew, volt
 use misc_coms,   only: io6, iparallel, runtype, meshtype
 use mem_ijtabs,  only: jtab_w, itab_w, jtw_init
+use olam_mpi_atm, only: mpi_send_wnud, mpi_recv_wnud
 
 implicit none
 
@@ -94,7 +95,6 @@ do iwnud = 2, mwnud
 enddo
 
 ! If doing spectral nudging, sum data to nudging polygon arrays
-! (Will need more work to do this in parallel!)
 
 call psub()
 !----------------------------------------------------------------------
@@ -114,6 +114,16 @@ call qsub('W',iw)
 
 enddo
 call rsub('Wbb',7)
+
+! MPI SEND/RECV of nudging arrays
+
+if (iparallel == 1) call mpi_send_wnud(rarray1=volwnud,    rarray2=rho_obsf, &
+                                       rarray3=theta_obsf, rarray4=shw_obsf, &
+                                       rarray5=uzonal_obsf,rarray6=umerid_obsf)
+
+if (iparallel == 1) call mpi_recv_wnud(rarray1=volwnud,    rarray2=rho_obsf, &
+                                       rarray3=theta_obsf, rarray4=shw_obsf, &
+                                       rarray5=uzonal_obsf,rarray6=umerid_obsf)
 
 ! If doing spectral nudging, normalize nudging point sums to get average values
 
@@ -158,7 +168,7 @@ use mem_ijtabs,  only: istp, jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
 use consts_coms, only: eradi
 use mem_tend,    only: umt, vmt, thilt, sh_wt
 use isan_coms,   only: ifgfile, s1900_fg
-use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
+use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_wnud, mpi_recv_wnud
 
 !$ use omp_lib
 
@@ -297,6 +307,16 @@ call qsub('W',iw)
 
 enddo
 call rsub('Wa',23)
+
+! MPI SEND/RECV of nudging arrays
+
+if (iparallel == 1) call mpi_send_wnud(rarray1=volwnud,   rarray2=rho_sim, &
+                                       rarray3=theta_sim, rarray4=shw_sim, &
+                                       rarray5=uzonal_sim,rarray6=umerid_sim)
+
+if (iparallel == 1) call mpi_recv_wnud(rarray1=volwnud,   rarray2=rho_sim, &
+                                       rarray3=theta_sim, rarray4=shw_sim, &
+                                       rarray5=uzonal_sim,rarray6=umerid_sim)
 
 ! Horizontal loop over nudging polygons
 

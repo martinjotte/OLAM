@@ -71,6 +71,7 @@ subroutine alloc_mpi_sndrcv_bufs()
                        send_v, recv_v, &
                        send_w, recv_w, &
                        send_m, recv_m, &
+                       send_wnud, recv_wnud, &
                        send_wl, send_wlf, send_ws, send_wsf, &
                        recv_wl, recv_wlf, recv_ws, recv_wsf
 
@@ -99,6 +100,9 @@ subroutine alloc_mpi_sndrcv_bufs()
   allocate(send_w (mgroupsize))
   allocate(recv_w (mgroupsize))
 
+  allocate(send_wnud(mgroupsize))
+  allocate(recv_wnud(mgroupsize))
+
   allocate(send_wl (mgroupsize))
   allocate(send_wlf(mgroupsize))
   allocate(send_ws (mgroupsize))
@@ -123,6 +127,7 @@ subroutine olam_mpi_finalize()
                       send_v, recv_v, &
                       send_w, recv_w, &
                       send_m, recv_m, &
+                      send_wnud, recv_wnud, &
                       send_wl, send_wlf, send_ws, send_wsf, &
                       recv_wl, recv_wlf, recv_ws, recv_wsf
 
@@ -145,6 +150,9 @@ subroutine olam_mpi_finalize()
 
   if (allocated(send_w))  deallocate(send_w)
   if (allocated(recv_w))  deallocate(recv_w)
+
+  if (allocated(send_wnud))  deallocate(send_wnud)
+  if (allocated(recv_wnud))  deallocate(recv_wnud)
 
   if (allocated(send_wl))   deallocate(send_wl)
   if (allocated(send_wlf))  deallocate(send_wlf)
@@ -169,11 +177,12 @@ subroutine olam_alloc_mpi(mza, mrls)
 #endif
 
   use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, jtab_m, mloops
-  use mem_para,   only: myrank,                                 &
-                        nrecvs_u, nrecvs_v, nrecvs_w, nrecvs_m, &
-                        nsends_u, nsends_v, nsends_w, nsends_m, &
-                        recv_u,   recv_v,   recv_w,   recv_m,   &
-                        send_u,   send_v,   send_w,   send_m
+  use mem_nudge,  only: jtab_wnud
+  use mem_para,   only: myrank,                                              &
+                        nrecvs_u, nrecvs_v, nrecvs_w, nrecvs_m, nrecvs_wnud, &
+                        nsends_u, nsends_v, nsends_w, nsends_m, nsends_wnud, &
+                        recv_u,   recv_v,   recv_w,   recv_m,   recv_wnud,   &
+                        send_u,   send_v,   send_w,   send_m,   send_wnud
   use misc_coms,  only: io6, meshtype
   use var_tables, only: nvar_par
 
@@ -192,17 +201,19 @@ subroutine olam_alloc_mpi(mza, mrls)
   integer :: nbytes_per_iv
   integer :: nbytes_per_iw
   integer :: nbytes_per_im
+  integer :: nbytes_per_iwnud
 
   integer :: itag10  =  10
   integer :: itag110 = 110
   integer :: itag210 = 210
+  integer :: itag310 = 310
 
   integer :: ierr
   integer :: jsend
   integer :: jrecv
   integer :: jtmp
 
-  integer :: nupts, nvpts, nwpts
+  integer :: nupts, nvpts, nwpts, nwnudpts
   integer :: nv
   integer :: mrl
 
@@ -214,6 +225,9 @@ subroutine olam_alloc_mpi(mza, mrls)
 
   integer              :: msbuf(mrls)
   integer, allocatable :: mrbuf(:,:)
+
+  integer              :: wnudsbuf
+  integer, allocatable :: wnudrbuf(:)
 
 ! Allocate send buffers
 
@@ -262,6 +276,17 @@ subroutine olam_alloc_mpi(mza, mrls)
 
      call MPI_IRecv(wrbuf(1,jrecv), mrls, MPI_INTEGER, recv_w(jrecv)%iremote, &
           itag110, MPI_COMM_WORLD, recv_w(jrecv)%irequest, ierr)
+
+  enddo
+
+! Post WNUD receives
+
+  allocate(wnudrbuf(nrecvs_wnud))
+
+  do jrecv = 1,nrecvs_wnud
+
+     call MPI_IRecv(wnudrbuf(jrecv), 1, MPI_INTEGER, recv_wnud(jrecv)%iremote, &
+          itag310, MPI_COMM_WORLD, recv_wnud(jrecv)%irequest, ierr)
 
   enddo
 
@@ -429,6 +454,32 @@ subroutine olam_alloc_mpi(mza, mrls)
 
   enddo
 
+! Determine number of bytes to send per IWNUD column
+
+  nbytes_per_iwnud = nbytes_int + mza * 6 * nbytes_real
+
+! Loop over all WNUD sends
+  
+  do jsend = 1, nsends_wnud
+
+! Determine size of send_wnud buffer
+
+     send_wnud(jsend)%nbytes = nbytes_int &
+          + nbytes_per_iwnud * jtab_wnud(jsend)%jend
+
+! Allocate buffer
+
+     allocate(send_wnud(jsend)%buff(send_wnud(jsend)%nbytes))
+
+! Send buffer sizes to receive ranks
+
+     wnudsbuf = send_wnud(jsend)%nbytes
+
+     call MPI_Send(wnudsbuf, 1, MPI_INTEGER, send_wnud(jsend)%iremote, itag310, &
+          MPI_COMM_WORLD, ierr)
+
+  enddo
+
   if (meshtype == 1) then
 
 ! If triangular grid, loop over all U receives for mrl = 1
@@ -527,6 +578,22 @@ subroutine olam_alloc_mpi(mza, mrls)
      do mrl = 2,mrls
         if (wrbuf(mrl,jrecv) > 0) nrecvs_w(mrl) = nrecvs_w(mrl) + 1
      enddo
+
+  enddo
+
+! Loop over all WNUD receives
+
+  do jtmp = 1,nrecvs_wnud
+
+! Get recv_wnud buffer sizes
+
+     call MPI_Waitany(nrecvs_wnud, recv_wnud(1:nrecvs_wnud)%irequest, jrecv, &
+          MPI_STATUS_IGNORE, ierr)
+
+! Allocate recv_wnud buffers
+
+     recv_wnud(jrecv)%nbytes = wnudrbuf(jrecv)
+     allocate(recv_wnud(jrecv)%buff(recv_wnud(jrecv)%nbytes))
 
   enddo
 
@@ -1188,6 +1255,118 @@ end subroutine mpi_send_w
 
 !=============================================================================
 
+subroutine mpi_send_wnud(rarray1, rarray2, rarray3, rarray4, rarray5, rarray6)
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+  
+  use misc_coms,  only: io6
+  use mem_para,   only: nrecvs_wnud, nsends_wnud, recv_wnud, send_wnud
+  use mem_grid,   only: mza
+  use mem_nudge,  only: mwnud, jtab_wnud, itab_wnud
+
+  implicit none
+
+  real, optional, intent(in) :: rarray1(mza,mwnud)
+  real, optional, intent(in) :: rarray2(mza,mwnud)
+  real, optional, intent(in) :: rarray3(mza,mwnud)
+  real, optional, intent(in) :: rarray4(mza,mwnud)
+  real, optional, intent(in) :: rarray5(mza,mwnud)
+  real, optional, intent(in) :: rarray6(mza,mwnud)
+
+#ifdef OLAM_MPI
+
+  integer :: ierr, ipos
+  integer :: jrecv, jsend, ivar
+  integer :: itag4 = 4
+  integer :: j
+  integer :: iwnud
+  integer :: iwnudglobe
+
+! Before we send anything, post the receives
+
+  do jrecv = 1, nrecvs_wnud
+
+     call MPI_Irecv(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,MPI_PACKED, &
+                    recv_wnud(jrecv)%iremote,itag4,MPI_COMM_WORLD,            &
+                    recv_wnud(jrecv)%irequest,ierr                            )
+  enddo
+
+! Now we can actually go on to sending the stuff
+
+  do jsend = 1, nsends_wnud
+
+     ipos = 0
+
+     call MPI_Pack(jtab_wnud(jsend)%jend,1,MPI_INTEGER,  &
+          send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+!----------------------------------------------------------------
+     do j = 1,jtab_wnud(jsend)%jend
+        iwnud = jtab_wnud(jsend)%iwnud(j)
+        iwnudglobe = itab_wnud(iwnud)%iwnudglobe
+!----------------------------------------------------------------
+        
+        call MPI_Pack(iwnudglobe,1,MPI_INTEGER,  &
+             send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+        if (present(rarray1)) then
+
+           call MPI_Pack(rarray1(1,iwnud),mza,MPI_REAL,  &
+                send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+        endif
+
+        if (present(rarray2)) then
+
+           call MPI_Pack(rarray2(1,iwnud),mza,MPI_REAL,  &
+                send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+        endif
+
+        if (present(rarray3)) then
+
+           call MPI_Pack(rarray3(1,iwnud),mza,MPI_REAL,  &
+                send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+        endif
+
+        if (present(rarray4)) then
+
+           call MPI_Pack(rarray4(1,iwnud),mza,MPI_REAL,  &
+                send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+        endif
+
+        if (present(rarray5)) then
+
+           call MPI_Pack(rarray5(1,iwnud),mza,MPI_REAL,  &
+                send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+        endif
+
+        if (present(rarray6)) then
+
+           call MPI_Pack(rarray6(1,iwnud),mza,MPI_REAL,  &
+                send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+        endif
+
+     enddo
+
+     call MPI_Isend(send_wnud(jsend)%buff,ipos,MPI_PACKED,          &
+                    send_wnud(jsend)%iremote,itag4,MPI_COMM_WORLD,  &
+                    send_wnud(jsend)%irequest,ierr                  )
+     
+  enddo
+
+#endif
+
+end subroutine mpi_send_wnud
+
+!=============================================================================
+
 subroutine mpi_recv_u(recvgroup,domrl,uc0,rpos,rneg)
 
 ! Subroutine to perform a parallel MPI receive of a "U group"
@@ -1806,13 +1985,137 @@ enddo
 
 ! Make sure all of our sends are finished and de-allocated
 
-call MPI_Waitall(nsends_w(mrl), send_w(1:nsends_w(mrl))%irequest, &
+ call MPI_Waitall(nsends_w(mrl), send_w(1:nsends_w(mrl))%irequest, &
      MPI_STATUSES_IGNORE, ierr)
 
 #endif
 
 return
 end subroutine mpi_recv_w
+
+!=============================================================================
+
+subroutine mpi_recv_wnud(rarray1, rarray2, rarray3, rarray4, rarray5, rarray6)
+
+! Subroutine to perform a parallel MPI receive of a "WNUD group"
+! of field variables
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
+  use mem_para,  only: send_wnud, recv_wnud, nsends_wnud, nrecvs_wnud
+  use mem_grid,  only: mza
+  use mem_nudge, only: mwnud, itabg_wnud
+  use misc_coms, only: io6
+
+  implicit none
+
+  real, optional, intent(inout) :: rarray1(mza,mwnud)
+  real, optional, intent(inout) :: rarray2(mza,mwnud)
+  real, optional, intent(inout) :: rarray3(mza,mwnud)
+  real, optional, intent(inout) :: rarray4(mza,mwnud)
+  real, optional, intent(inout) :: rarray5(mza,mwnud)
+  real, optional, intent(inout) :: rarray6(mza,mwnud)
+
+  real :: vctr1(mza)
+
+#ifdef OLAM_MPI
+
+  integer :: ierr,ipos
+  integer :: jrecv,jsend,ivar,jtmp
+  integer :: nwnudpts
+  integer :: j
+  integer :: iwnud
+  integer :: iwnudglobe
+
+!  Now, let's wait on our receives
+
+  do jtmp = 1, nrecvs_wnud
+
+     call MPI_Waitany(nrecvs_wnud, recv_wnud(1:nrecvs_wnud)%irequest, jrecv, &
+                      MPI_STATUS_IGNORE, ierr)
+
+     !  We got all our stuff.  Now unpack it into appropriate space.
+     
+     ipos = 0
+
+     call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos,  &
+                     nwnudpts,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+
+!----------------------------------------------------------------
+     do j = 1, nwnudpts
+        call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos,  &
+                        iwnudglobe,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+        iwnud = itabg_wnud(iwnudglobe)%iwnud_myrank
+!----------------------------------------------------------------
+
+        if (present(rarray1)) then
+
+           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
+                           vctr1,mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           rarray1(2:mza-1,iwnud) = rarray1(2:mza-1,iwnud) + vctr1(2:mza-1)
+
+        endif
+
+        if (present(rarray2)) then
+
+           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
+                           vctr1,mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           rarray2(2:mza-1,iwnud) = rarray2(2:mza-1,iwnud) + vctr1(2:mza-1)
+
+        endif
+
+        if (present(rarray3)) then
+
+           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
+                           vctr1,mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           rarray3(2:mza-1,iwnud) = rarray3(2:mza-1,iwnud) + vctr1(2:mza-1)
+
+        endif
+
+        if (present(rarray4)) then
+
+           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
+                           vctr1,mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           rarray4(2:mza-1,iwnud) = rarray4(2:mza-1,iwnud) + vctr1(2:mza-1)
+
+        endif
+
+        if (present(rarray5)) then
+
+           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
+                           vctr1,mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           rarray5(2:mza-1,iwnud) = rarray5(2:mza-1,iwnud) + vctr1(2:mza-1)
+
+        endif
+
+        if (present(rarray6)) then
+
+           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
+                           vctr1,mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           rarray6(2:mza-1,iwnud) = rarray6(2:mza-1,iwnud) + vctr1(2:mza-1)
+
+        endif
+
+     enddo
+
+  enddo
+
+! Make sure all of our sends are finished and de-allocated
+
+  call MPI_Waitall(nsends_wnud, send_wnud(1:nsends_wnud)%irequest, &
+       MPI_STATUSES_IGNORE, ierr)
+
+#endif
+
+end subroutine mpi_recv_wnud
 
 !=============================================================================
 

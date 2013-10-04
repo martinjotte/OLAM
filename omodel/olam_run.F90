@@ -52,7 +52,7 @@ use oplot_coms,  only: op
 use mem_grid,    only: nma, nua, nva, nwa, mma, mua, mva, mwa, mza, zm, zt
 use mem_basic,   only: alloc_basic, wc, vxe, vye, vze
 use micro_coms,  only: gnu
-use mem_nudge,   only: nudflag, o3nudflag
+use mem_nudge,   only: nudflag, nudnxp, fill_jnudge, o3nudflag
 use mem_rayf,    only: rayf_init
 use mem_sflux,   only: init_fluxcells, fill_jflux, mseaflux, mlandflux
 use mem_para,    only: myrank
@@ -276,6 +276,8 @@ call modsched()
 write(io6,'(/,a)') 'olam_run calling fill_jtabs'
 
 call fill_jtabs(mma,mua,mva,mwa)
+
+if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) call fill_jnudge()
 
 ! Allocate and fill jsea, jland, and jflux data structures
 

@@ -32,7 +32,7 @@
 !===============================================================================
 subroutine para_init()
 
-use misc_coms,  only: io6, meshtype
+use misc_coms,  only: io6, meshtype, mdomain
 
 use mem_ijtabs, only: itab_m,      itab_v,      itab_w,      &
                       itab_m_vars, itab_v_vars, itab_w_vars, &
@@ -47,10 +47,9 @@ use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, &
                       alloc_gridz, alloc_xyzem, alloc_xyzew, &
                       alloc_grid1, alloc_grid2
 
-use mem_para,   only: mgroupsize, myrank,                             &
-                      send_u, recv_u, send_v, recv_v, send_w, recv_w, &
-                      nsends_u, nsends_v, nsends_w, nsends_m,         &
-                      nrecvs_u, nrecvs_v, nrecvs_w, nrecvs_m
+use mem_para,   only: mgroupsize, myrank,                                  &
+                      nsends_u, nsends_v, nsends_w, nsends_m, nsends_wnud, &
+                      nrecvs_u, nrecvs_v, nrecvs_w, nrecvs_m, nrecvs_wnud
 
 use mem_sflux,  only: nseaflux,  mseaflux,  seaflux,  seafluxg,  seaflux_pd,  &
                       nlandflux, mlandflux, landflux, landfluxg, landflux_pd, &
@@ -64,10 +63,13 @@ use mem_sea,    only: itabg_ws
 
 use mem_leaf,   only: itabg_wl
 
+use mem_nudge,  only: nudflag, nudnxp, nwnud, mwnud, itab_wnud, itabg_wnud, &
+                      alloc_nudge1
+
 implicit none
 
-integer :: j,k,imn,ivn,iwn
-integer :: im,iv,iw,iw1,iw2
+integer :: j,k,imn,ivn,iwn,jnud
+integer :: im,iv,iw,iw1,iw2,iwnud,iwnud1,iwnud2,iwnud3
 integer :: imp,ivp,iwp
 integer :: isf,ilf,iws,iwl
 integer :: npoly
@@ -76,20 +78,22 @@ integer :: wadj_flag
 integer :: im_myrank ! Counter for M points to be included on this rank
 integer :: iv_myrank ! Counter for V points to be included on this rank
 integer :: iw_myrank ! Counter for W points to be included on this rank
+integer :: iwnud_myrank ! Counter for WNUD points to be included on this rank
+integer :: isf_myrank ! Counter for seaflux cells to be included on this rank
+integer :: ilf_myrank ! Counter for landflux cells to be included on this rank
 
 ! Automatic arrays
 
 logical :: myrankflag_m(nma) ! Flag for M points existing on this rank
 logical :: myrankflag_v(nva) ! Flag for V points existing on this rank
 logical :: myrankflag_w(nwa) ! Flag for W points existing on this rank
+logical :: myrankflag_wnud(nwnud)  ! Flag that ITABW(IW)%IWNUD(1:3) exist on
+                                   ! this rank (for IW primary on this rank)
+logical :: myrankflag_wnud1(nwnud) ! Flag that ITABW(IW)%IWNUD(1) exists on
+                                   ! this rank (for IW primary on this rank)
 
 logical :: seaflag(nws)
 logical :: landflag(nwl)
-
-! Temporary datatypes
-
-type(lflux_vars), allocatable :: landflux_temp(:)
-type(sflux_vars), allocatable ::  seaflux_temp(:)
 
 integer :: ierr
 
@@ -99,9 +103,13 @@ allocate (nsends_v(mrls)) ; nsends_v(1:mrls) = 0
 allocate (nsends_w(mrls)) ; nsends_w(1:mrls) = 0
 allocate (nsends_m(mrls)) ; nsends_m(1:mrls) = 0
 
+nsends_wnud = 0
+
 allocate (nrecvs_v(mrls)) ; nrecvs_v(1:mrls) = 0
 allocate (nrecvs_w(mrls)) ; nrecvs_w(1:mrls) = 0
 allocate (nrecvs_m(mrls)) ; nrecvs_m(1:mrls) = 0
+
+nrecvs_wnud = 0
 
 ! Initialize myrank flag arrays to .false.
 
@@ -113,6 +121,8 @@ endif
 myrankflag_m(:) = .false.
 myrankflag_v(:) = .false.
 myrankflag_w(:) = .false.
+myrankflag_wnud(:) = .false.
+myrankflag_wnud1(:) = .false.
 
 ! Loop over all V points, and for each whose assigned irank is equal to myrank,
 ! flag all M, V, and W points in its computational stencil for inclusion on this
@@ -131,8 +141,8 @@ do iv = 2,nva
 enddo
 
 ! Loop over all W points, and for each whose assigned irank is equal to myrank,
-! flag all M, V, and W points in its computational stencil for inclusion on this
-! rank, excluding IWP.
+! flag all M, V, W and WNUD points in its computational stencil for
+! inclusion on this rank, excluding IWP.
 
 do iw = 2,nwa
    if (itabg_w(iw)%irank == myrank) then
@@ -145,36 +155,31 @@ do iw = 2,nwa
       myrankflag_v( itab_w_pd(iw)%iv(1:7) ) = .true.
       myrankflag_w( itab_w_pd(iw)%iw(1:7) ) = .true.
 
+      if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+         myrankflag_wnud ( itab_w_pd(iw)%iwnud(1:3) ) = .true.
+         myrankflag_wnud1( itab_w_pd(iw)%iwnud(1)   ) = .true.
+      endif
+
    endif
 enddo
-
-!! IS THIS NECESSARY ANYMORE??
-!! Loop over all V points, and for each that has been flagged for inclusion
-!! on this rank, flag its 2 primary M points for inclusion on this rank.
-!!
-!! Count V points also.
-!!
-!!do iv = 2,nva
-!!   if (myrankflag_v(iv)) then
-!!
-!!     myrankflag_m( itab_v_pd(iv)%im(1:2) ) = .true.
-!!      iv_myrank = iv_myrank + 1
-!!
-!!   endif
-!!enddo
 
 ! Ignore the "dummy" 1st point in case it was activated
 
 myrankflag_m(1) = .false.
 myrankflag_v(1) = .false.
 myrankflag_w(1) = .false.
+myrankflag_wnud(1) = .false.
+myrankflag_wnud1(1) = .false.
 
-! Loop over all M and W points and count the ones that have been flagged
-! for inclusion on this rank.
+! Loop over all M, V, W, WNUD, and flux points and count the ones that
+! have been flagged for inclusion on this rank.
 
 im_myrank = 1
 iv_myrank = 1
 iw_myrank = 1
+iwnud_myrank = 1
+isf_myrank = 1
+ilf_myrank = 1
 
 do im = 2,nma
    if (myrankflag_m(im)) then
@@ -194,12 +199,56 @@ do iw = 2,nwa
    endif
 enddo
 
+if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+   do iwnud = 2,nwnud
+      if (myrankflag_wnud(iwnud)) then
+         iwnud_myrank = iwnud_myrank + 1
+      endif
+   enddo
+
+   mwnud = iwnud_myrank
+endif
+
+if (isfcl == 1) then
+
+   ! Flux cells are included on this node if either of the corresponding 
+   ! atmospheric or surface cells are primary on this node
+
+   do isf = 2, nseaflux
+      iw  = seaflux_pd(isf)%iw
+      iws = seaflux_pd(isf)%iwls
+
+      if ( itabg_w (iw )%irank == myrank .or.  &
+           itabg_ws(iws)%irank == myrank ) then
+
+         isf_myrank = isf_myrank + 1
+         seaflag(iws) = .true.
+
+      endif
+   enddo
+
+   do ilf = 2, nlandflux
+      iw  = landflux_pd(ilf)%iw
+      iwl = landflux_pd(ilf)%iwls
+
+      if ( itabg_w (iw )%irank == myrank .or.  &
+           itabg_wl(iwl)%irank == myrank ) then
+
+         ilf_myrank = ilf_myrank + 1
+         landflag(iwl) = .true.
+      endif
+   enddo
+   
+endif
+
 ! Set mma, mva, mwa values for this rank
 
 mma = im_myrank
 mva = iv_myrank
 mua = mva
 mwa = iw_myrank
+mseaflux = isf_myrank
+mlandflux = ilf_myrank
 
 ! Allocate grid structure variables
 
@@ -210,13 +259,23 @@ call alloc_xyzew(mwa)
 call alloc_grid1(meshtype, mma, mua, mva, mwa)
 call alloc_grid2(meshtype, mma, mua, mva, mwa)
 
+if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) call alloc_nudge1(mwnud)
+
+if (isfcl == 1) then
+   allocate (seaflux (mseaflux ))
+   allocate (landflux(mlandflux))
+endif
+
 ! Reset point counts to 1
 
 im_myrank = 1
 iv_myrank = 1
 iw_myrank = 1
+iwnud_myrank = 1
+isf_myrank = 1
+ilf_myrank = 1
 
-! Store new myrank M, V, W indices in itabg data structures
+! Store new myrank M, V, W, WNUD, and flux indices in itabg data structures
 
 do im = 1,nma
    if (myrankflag_m(im)) then
@@ -242,6 +301,45 @@ do iw = 1,nwa
    endif
 enddo
 
+if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+   do iwnud = 1,nwnud
+      if (myrankflag_wnud(iwnud)) then
+         iwnud_myrank = iwnud_myrank + 1
+
+         itabg_wnud(iwnud)%iwnud_myrank = iwnud_myrank      
+      endif
+   enddo
+endif
+
+if (isfcl == 1) then
+
+   do isf = 2, nseaflux
+      iw  = seaflux_pd(isf)%iw   ! full-domain index
+      iws = seaflux_pd(isf)%iwls ! full-domain index
+
+      if ( itabg_w (iw )%irank == myrank .or.  &
+           itabg_ws(iws)%irank == myrank ) then
+
+         isf_myrank = isf_myrank + 1
+         seafluxg(isf)%isf_myrank = isf_myrank
+
+      endif
+   enddo
+
+   do ilf = 2, nlandflux
+      iw  = landflux_pd(ilf)%iw   ! full-domain index
+      iwl = landflux_pd(ilf)%iwls ! full-domain index
+
+      if ( itabg_w (iw )%irank == myrank .or.  &
+           itabg_wl(iwl)%irank == myrank ) then
+
+         ilf_myrank = ilf_myrank + 1
+         landfluxg(ilf)%ilf_myrank = ilf_myrank
+      endif
+   enddo
+
+endif
+
 ! Defining global index of local points (will be used on gridfile_read)
 
 do im = 1, nma
@@ -256,6 +354,45 @@ do iw = 1, nwa
    if (myrankflag_w(iw)) itab_w(itabg_w(iw)%iw_myrank)%iwglobe = iw
 enddo
 
+if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+   do iwnud = 1, nwnud
+      if (myrankflag_wnud(iwnud)) &
+         itab_wnud(itabg_wnud(iwnud)%iwnud_myrank)%iwnudglobe = iwnud
+   enddo
+endif
+
+if (isfcl == 1) then
+
+   seaflux(1)%ifglobe = 1
+   
+   do isf = 2, nseaflux
+      iw  = seaflux_pd(isf)%iw   ! full-domain index
+      iws = seaflux_pd(isf)%iwls ! full-domain index
+
+      if ( itabg_w (iw )%irank == myrank .or.  &
+           itabg_ws(iws)%irank == myrank) then
+         
+         seaflux(seafluxg(isf)%isf_myrank)%ifglobe = isf
+
+      endif
+   enddo
+
+   landflux(1)%ifglobe = 1
+
+    do ilf = 2, nlandflux
+      iw  = landflux_pd(ilf)%iw   ! full-domain index
+      iwl = landflux_pd(ilf)%iwls ! full-domain index
+
+      if ( itabg_w (iw )%irank == myrank .or.  &
+           itabg_wl(iwl)%irank == myrank) then
+         
+         landflux(landfluxg(ilf)%ilf_myrank)%ifglobe = ilf
+
+      endif
+   enddo
+
+endif
+
 ! Read the grid structure for all points in local parallel subdomain
 ! for this rank (or for all points in domain if run is sequential)
 
@@ -264,7 +401,7 @@ call gridfile_read()
 ! itab_m, itab_v, and itab_w data structures that exist in local subdomain
 ! memory were filled in subroutine gridfile_read, but with member values
 ! for the full domain.  Those member values that depend on local subdomain
-! are reset next.
+! are reset next. 
 
 ! Loop over all M points in global domain
 
@@ -436,7 +573,7 @@ do iw = 1,nwa
          else
             itab_w(iw_myrank)%iv(j) = 1
          endif
- 
+
          if (myrankflag_w(iwn)) then
             itab_w(iw_myrank)%iw(j) = itabg_w(iwn)%iw_myrank
          else
@@ -445,6 +582,15 @@ do iw = 1,nwa
 
          if (itabg_w(iwn)%irank == myrank) wadj_flag = 1
       enddo
+
+! Set local indices of WNUD points in W stencil
+
+      if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+         do jnud = 1,3
+            iwnud = itab_w_pd(iw)%iwnud(jnud) ! Global index
+            itab_w(iw_myrank)%iwnud(jnud) = itabg_wnud(iwnud)%iwnud_myrank
+         enddo
+      endif
 
 ! If IW point is not primary on local parallel subdomain,
 ! turn off jtw_init and jtw_prog flags
@@ -472,6 +618,17 @@ do iw = 1,nwa
          call wloopf('n',iw_myrank, -jtw_lbcp, 0, 0, 0, 0, 0)
       endif
 
+   endif
+enddo
+
+! Loop over all WNUD points in global domain
+
+do iwnud = 1,nwnud
+   if (myrankflag_wnud(iwnud)) then ! WNUD point is in memory on local subdomain
+
+      iwnud_myrank = itabg_wnud(iwnud)%iwnud_myrank ! Local index of WNUD point
+
+      itab_wnud(iwnud_myrank)%irank = itabg_wnud(iwnud)%irank
    endif
 enddo
 
@@ -568,6 +725,30 @@ do iw = 2,nwa
          if (itabg_m(imn)%irank == myrank) call send_table_m(imn,itabg_w(iw)%irank)
       enddo
 
+! Although a primary rank is assigned to each nudging point, the assignment is
+! used only to designate which rank writes values for that nudging point to
+! history files.  Parallel MPI communication, on the other hand, must take into
+! account that computation of nudging point values is based on sums over model
+! grid points on multiple ranks.  Each of the ranks that contribute to a given
+! nudging point accumulate a partial sum and send the partial sum to all other
+! ranks that need that nudging point value.  After receiving the partial sums,
+! each rank completes the sum (a small duplication of effort) over the partial
+! sums to obtain its own copy of the full sum.  Thus, for building send and
+! recv tables, we check itab_w_pd(iw)%iwnud(1:3) and itab_w_pd(iw)%iwnud(1)
+! instead of itab_wnud()%irank.
+
+      if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+         iwnud1 = itab_w_pd(iw)%iwnud(1)
+         iwnud2 = itab_w_pd(iw)%iwnud(2)
+         iwnud3 = itab_w_pd(iw)%iwnud(3)
+
+         if (myrankflag_wnud(iwnud1)) call recv_table_wnud(itabg_w(iw)%irank)
+
+         if (myrankflag_wnud1(iwnud1)) call send_table_wnud(iwnud1,itabg_w(iw)%irank)
+         if (myrankflag_wnud1(iwnud2)) call send_table_wnud(iwnud2,itabg_w(iw)%irank)
+         if (myrankflag_wnud1(iwnud3)) call send_table_wnud(iwnud3,itabg_w(iw)%irank)
+      endif
+
    endif
 
 ! If IW point in in memory of myrank but its IWP is not, add the remote rank
@@ -611,7 +792,6 @@ do im = 2, nma
    if (itabg_m(imp)%irank /= myrank) then
       if (myrankflag_m(im)) call recv_table_m(itabg_m(imp)%irank)
    endif
-
 
 enddo
 
@@ -666,125 +846,31 @@ do im = 2, nma
    endif
 enddo
 
-!!!!!!!!!! ISSO DEVE SER DELETADO
-if (isfcl == 1) then
-   call move_alloc(landflux, landflux_temp)
-   call move_alloc( seaflux,  seaflux_temp)
-endif
-!!!!!!!!!! ISSO DEVE SER DELETADO
-
 ! Check whether LAND/SEA models are used
 
 if (isfcl == 1) then
 
-! Copy SEAFLUX values
-
-   mseaflux = 1
-
-   do isf = 2,nseaflux
-      iw  = seaflux_temp(isf)%iw
-      iws = seaflux_temp(isf)%iwls
-
-      if (itabg_w (iw )%irank == myrank .or.  &
-          itabg_ws(iws)%irank == myrank) then
-
-         mseaflux = mseaflux + 1
-         seaflag(iws) = .true.
-      endif
-   enddo
-
-   allocate (seaflux(mseaflux))
-
-   mseaflux = 1
-
-   seaflux(1)%ifglobe = 1
-   seaflux(1)%iw = 1
-   seaflux(1)%iwls = 1
-
-   do isf = 2,nseaflux
-      iw  = seaflux_temp(isf)%iw   ! full-domain index
-      iws = seaflux_temp(isf)%iwls ! full-domain index
-
-      if (itabg_w (iw )%irank == myrank .or.  &
-          itabg_ws(iws)%irank == myrank) then
-
-         mseaflux = mseaflux + 1
-
-         seaflux(mseaflux) = seaflux_temp(isf) ! retain global indices
-
-         seafluxg(isf)%isf_myrank = mseaflux
-      endif
-   enddo
-
-   ! Set the rank of the seaflux cell to the rank of the atm cell
+   ! Set the rank of flux cells to the rank of the atm cell
    ! (only needed for the parcombine step)
 
-   do isf = 1,mseaflux
+   do isf = 1, mseaflux
       iw = seaflux(isf)%iw
       seaflux(isf)%iwrank = itabg_w(iw)%irank
    enddo
-
-! Copy LANDLUX values
-
-   mlandflux = 1
-
-   do ilf = 2,nlandflux
-      iw  = landflux_temp(ilf)%iw
-      iwl = landflux_temp(ilf)%iwls
-
-      if (itabg_w (iw )%irank == myrank .or.  &
-          itabg_wl(iwl)%irank == myrank) then
-
-         mlandflux = mlandflux + 1
-         landflag(iwl) = .true.
-      endif
-   enddo
-
-   allocate (landflux(mlandflux))
-
-   mlandflux = 1
-
-   landflux(1)%ifglobe = 1
-   landflux(1)%iw = 1
-   landflux(1)%iwls = 1
-
-   do ilf = 2,nlandflux
-      iw  = landflux_temp(ilf)%iw   ! full-domain index
-      iwl = landflux_temp(ilf)%iwls ! full-domain index
-
-      if (itabg_w (iw )%irank == myrank .or.  &
-          itabg_wl(iwl)%irank == myrank) then
-
-         mlandflux = mlandflux + 1
-
-         landflux(mlandflux) = landflux_temp(ilf) ! retain global indices
-
-         landfluxg(ilf)%ilf_myrank = mlandflux
-      endif
-   enddo
-
-   ! Set the rank of the landlflux cell to the rank of the atm cell
-   ! (only needed for the parcombine step)
 
    do ilf = 1,mlandflux
       iw = landflux(ilf)%iw
       landflux(ilf)%iwrank = itabg_w(iw)%irank
    enddo
 
-   call para_init_sea ( seaflag,  seaflux_temp)
-   call para_init_land(landflag, landflux_temp)
+   call para_init_sea ( seaflag)
+   call para_init_land(landflag)
 
 endif
 
 call compute_primary_points()
 
-! Deallocate temporary data structures and arrays
-
-if (isfcl == 1) then
-   deallocate (landflux_temp, seaflux_temp)
-endif
-
- ! Deallocate para_decomp _pd arrays
+! Deallocate para_decomp _pd arrays
 
 deallocate (itab_m_pd, itab_v_pd, itab_w_pd)
 
@@ -886,6 +972,37 @@ if (jrecv > nrecvs_m(1)) nrecvs_m(1) = jrecv
 recv_m(jrecv)%iremote = iremote
 
 end subroutine recv_table_m
+
+!===============================================================================
+
+subroutine recv_table_wnud(iremote)
+
+use mem_para,  only: nrecvs_wnud, recv_wnud
+use misc_coms, only: io6
+
+implicit none
+
+integer, intent(in) :: iremote
+
+integer :: jrecv
+
+! Check whether iremote_w is already in table of ranks to receive from
+
+do jrecv = 1,nrecvs_wnud
+   if (recv_wnud(jrecv)%iremote == iremote) exit
+enddo
+
+! If jrecv exceeds nrecvs_wnud, jrecv represents a rank not yet entered in the
+! table, so increase nrecvs_wnud.
+
+if (jrecv > nrecvs_wnud) nrecvs_wnud = jrecv
+
+! Enter remote rank in recv-remote-rank table.
+
+recv_wnud(jrecv)%iremote = iremote
+
+return
+end subroutine recv_table_wnud
 
 !===============================================================================
 
@@ -999,10 +1116,52 @@ end subroutine send_table_m
 
 !===============================================================================
 
+subroutine send_table_wnud(iwnud,iremote)
+
+use mem_nudge, only: nloops_wnud, itab_wnud, itabg_wnud
+use mem_para,  only: nsends_wnud, send_wnud
+use misc_coms, only: io6
+
+implicit none
+
+integer, intent(in) :: iwnud
+integer, intent(in) :: iremote
+
+integer :: jsend
+integer :: iwnud_myrank
+
+! Check whether iremote is already in table of ranks to send to
+
+do jsend=1,nsends_wnud
+   if (send_wnud(jsend)%iremote == iremote) exit
+enddo
+
+! If jsend exceeds nsends_wnud, jsend represents a rank not yet entered in the
+! table, so increase nsends_w.
+
+if (jsend > nsends_wnud) then
+    nsends_wnud = jsend
+    write(io6,*) 'increasing nsends_wnud to ',nsends_wnud
+    if (nsends_wnud > nloops_wnud) stop 'stop: nsends_wnud > nloops_wnud '
+endif
+
+! Enter point in send-point table, and enter remote rank in send-remote-rank table.
+
+iwnud_myrank = itabg_wnud(iwnud)%iwnud_myrank
+
+itab_wnud(iwnud_myrank)%loop(jsend) = .true.
+send_wnud(jsend)%iremote = iremote
+
+return
+end subroutine send_table_wnud
+
+!===============================================================================
+
 subroutine compute_primary_points()
 
   use mem_grid,   only: mma, mua, mva, mwa
   use mem_ijtabs, only: itab_u, itab_v, itab_w, itab_m, itabg_m
+  use mem_nudge,  only: mwnud, itab_wnud
   use misc_coms,  only: meshtype, io6
   use leaf_coms,  only: mwl
   use mem_leaf,   only: itab_wl
@@ -1017,6 +1176,7 @@ subroutine compute_primary_points()
                         mws_primary, iws_globe_primary, iws_local_primary, &
                         mfl_primary, ifl_globe_primary, ifl_local_primary, &
                         mfs_primary, ifs_globe_primary, ifs_local_primary, &
+                        mwnud_primary, iwnud_globe_primary, iwnud_local_primary, &
                         myrank
 
   implicit none
@@ -1061,6 +1221,10 @@ subroutine compute_primary_points()
      if (seaflux(i)%iwrank == myrank) mfs_primary = mfs_primary + 1
   enddo
 
+  do i = 2, mwnud
+     if (itab_wnud(i)%irank == myrank) mwnud_primary = mwnud_primary + 1
+  enddo
+
   ! additional space for dummy 1st point included with rank 0 only
 
   if (myrank == 0) then
@@ -1075,6 +1239,7 @@ subroutine compute_primary_points()
      mws_primary = mws_primary + 1
      mfl_primary = mfl_primary + 1
      mfs_primary = mfs_primary + 1
+     mwnud_primary = mwnud_primary + 1 
   endif
 
   ! allocate space for primary global indices
@@ -1104,6 +1269,9 @@ subroutine compute_primary_points()
 
   allocate(ifs_globe_primary(mfs_primary))
   allocate(ifs_local_primary(mfs_primary))
+
+  allocate(iwnud_globe_primary(mwnud_primary))
+  allocate(iwnud_local_primary(mwnud_primary))
 
   ! dummy 1st point included with rank 0 only
 
@@ -1138,6 +1306,9 @@ subroutine compute_primary_points()
 
      ifs_globe_primary(1) = 1
      ifs_local_primary(1) = 1
+
+     iwnud_globe_primary(1) = 1
+     iwnud_local_primary(1) = 1
   endif
 
   ! set locations of global and local primary points
@@ -1250,6 +1421,17 @@ subroutine compute_primary_points()
 
   if (ia /= mfs_primary) stop "error computing number of primary points"
 
+  ia = istart
+
+  do i = 2, mwnud
+     if (itab_wnud(i)%irank == myrank) then
+        ia = ia + 1
+        iwnud_globe_primary(ia) = itab_wnud(i)%iwnudglobe
+        iwnud_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mwnud_primary) stop "error computing number of primary points"
 
 !!!! temporary checks !!!!!!!!!!!!!!!
 if (meshtype == 1) then
@@ -1310,6 +1492,13 @@ do i = 2, mfs_primary
    endif
 enddo
 
+do i = 2, mwnud_primary
+   if (iwnud_globe_primary(i) < iwnud_globe_primary(i-1)) then
+      write(io6,*) 'error: WNUD is out of order!!!!'
+      stop
+   endif
+enddo
+
 !!!!!!! temporary checks 2
 
 if (meshtype == 1) then
@@ -1366,6 +1555,13 @@ enddo
 do i = 2, mseaflux
    if (seaflux(i)%ifglobe < seaflux(i-1)%ifglobe) then
       write(io6,*) 'error: FLGLOBE is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mwnud
+   if (itab_wnud(i)%iwnudglobe < itab_wnud(i-1)%iwnudglobe) then
+      write(io6,*) 'error: WNUDGLOBE is out of order!!!!'
       stop
    endif
 enddo

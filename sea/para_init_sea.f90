@@ -30,7 +30,7 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine para_init_sea(seaflag, seaflux_temp)
+subroutine para_init_sea(seaflag)
 
 use misc_coms,  only: io6
 
@@ -52,12 +52,11 @@ use mem_sea,    only: itab_ms, itab_us, itab_ws,             &
 
 use mem_mksfc,  only: itab_mls_vars, itab_uls_vars, itab_wls_vars
 
-use mem_sflux,  only: seaflux, nseaflux, jseaflux, sflux_vars
+use mem_sflux,  only: seaflux_pd, nseaflux
 
 implicit none
 
-logical,          intent(in) :: seaflag(nws)
-type(sflux_vars), intent(in) :: seaflux_temp(nseaflux)
+logical, intent(in) :: seaflag(nws)
 
 integer :: j,jms,jsend
 integer :: iw,ims,ius,iws
@@ -346,10 +345,10 @@ enddo
 ! NOTE: (JULY 2013) WITH ISEAFLAG > 1, NOTHING SHOULD BE ADDED TO SEND OR
 ! RECV TABLES; CHECK THAT THIS IS TRUE...
 
-do isf = 2,nseaflux
+do isf = 2, nseaflux
 
-   iw  = seaflux_temp(isf)%iw   ! full-domain index
-   iws = seaflux_temp(isf)%iwls ! full-domain index
+   iw  = seaflux_pd(isf)%iw   ! full-domain index
+   iws = seaflux_pd(isf)%iwls ! full-domain index
 
    if (itabg_w(iw)%irank /= myrank .and. itabg_ws(iws)%irank == myrank) then  
 

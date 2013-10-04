@@ -33,12 +33,33 @@
 
 Module mem_nudge
 
-  Type itab_wnudge          ! data structure for nudging points (individual rank)
-    integer :: npoly = 0    ! number of W neighbors of this WNUD pt
-    integer :: iwnud(6) = 1 ! array of WNUD neighbors of this WNUD pt
-  End Type itab_wnudge
+  implicit none
+   
+  integer, parameter :: nloops_wnud = 100 ! # WNUD DO loops for para
 
-  type (itab_wnudge), allocatable :: itab_wnud(:)
+  Type itab_wnud_vars          ! data structure for WNUD points (individual rank)
+    logical :: loop(nloops_wnud) = .false. ! flag to perform DO loop at this WNUD pt
+    integer :: npoly = 0      ! number of W neighbors of this WNUD pt
+    integer :: irank = -1     ! rank of process at this WNUD pt (for hist write only)
+    integer :: iwnud(6) = 1   ! array of WNUD neighbors of this WNUD pt
+    integer :: iwnudglobe = 1 ! global index of WNUD point
+  End Type itab_wnud_vars
+
+  type (itab_wnud_vars), allocatable, target :: itab_wnud(:)
+
+  Type itabg_wnud_vars            ! data structure for WNUD pts (global)
+     integer :: iwnud_myrank = -1 ! local (parallel subdomain) index of this WNUD pt
+     integer :: irank = -1        ! rank of process at this WNUD pt
+  End Type itabg_wnud_vars
+
+  type (itabg_wnud_vars), allocatable, target :: itabg_wnud(:)
+
+  Type jtab_wnud_vars
+     integer, allocatable :: iwnud(:)
+     integer              :: jend
+  End Type jtab_wnud_vars
+
+  type (jtab_wnud_vars) :: jtab_wnud(nloops_wnud)
 
   real,    allocatable, target ::      xewnud(:)
   real,    allocatable, target ::      yewnud(:)
@@ -75,7 +96,9 @@ Module mem_nudge
   integer :: nudflag, o3nudflag
   integer :: nudnxp
   integer :: nnudfiles
-  integer :: nwnud, mwnud
+  integer :: nwnud = 1
+  integer :: mwnud = 1
+
   real    :: tnudcent
   real    :: tnudi_o3, o3nudpress
 
@@ -252,5 +275,60 @@ Contains
     endif
 
   end subroutine filltab_nudge_o3
+
+!===============================================================================
+
+   subroutine fill_jnudge()
+
+   use misc_coms,  only: io6
+
+   implicit none
+
+   integer :: iwnud, iloop, jend
+
+! Allocate and zero-fill jtab%jend()
+
+   do iloop = 1,nloops_wnud
+      jtab_wnud(iloop)%jend = 0
+   enddo
+
+! Compute and store jtab%jend(1)
+
+   do iloop = 1,nloops_wnud
+      jtab_wnud(iloop)%jend = 0
+      do iwnud = 2,mwnud
+         if (itab_wnud(iwnud)%loop(iloop)) then
+            jtab_wnud(iloop)%jend = jtab_wnud(iloop)%jend + 1
+         endif
+      enddo
+      jtab_wnud(iloop)%jend = max(1,jtab_wnud(iloop)%jend)
+   enddo
+
+! Allocate and zero-fill JTAB_M%IM, JTAB_V%IV, JTAB_W%IW, JTAB_WNUD%IWNUD
+
+   do iloop = 1,nloops_wnud
+      jend = jtab_wnud(iloop)%jend
+      allocate (jtab_wnud(iloop)%iwnud(jend))
+      jtab_wnud(iloop)%iwnud(1:jend) = 0
+   enddo
+
+! Initialize JTAB%JEND counters to zero
+
+   do iloop = 1,nloops_wnud
+      jtab_wnud(iloop)%jend = 0
+   enddo
+
+! Compute JTAB_WNUD%IWNUD
+
+   do iwnud = 2,mwnud
+      do iloop = 1,nloops_wnud
+         if (itab_wnud(iwnud)%loop(iloop)) then
+            jtab_wnud(iloop)%jend = jtab_wnud(iloop)%jend + 1
+            jtab_wnud(iloop)%iwnud(jtab_wnud(iloop)%jend) = iwnud
+         endif
+      enddo
+   enddo
+
+   end subroutine fill_jnudge
 
 End Module mem_nudge

@@ -1780,9 +1780,9 @@ real(r8), intent(out) :: th1       ! output value
 
 integer :: i
 real(r8) :: theta
-real(r8) :: xh1, xh2
+real(r8) :: xh0, xh1, xh2
 real(r8) :: edgemax
-real(r8) :: x1(n+1), y1(n+1)
+real(r8) :: x1(n), y1(n)
 
 real(r8), parameter :: pi1 = 3.1415926535898_r8, pi2 = 2.0_r8 * pi1
 
@@ -1798,16 +1798,21 @@ do i = 1,n
    endif
 enddo
 
-x1(n+1) = x1(1)
-y1(n+1) = y1(1)
 th1 = 0.0_r8
 
 xh2 = atan2(y1(1),x1(1))
 if (xh2 < 0.0_r8) xh2 = xh2 + pi2
 
+xh0 = xh2
+
 do i = 1,n
-   xh1 = atan2(y1(i+1),x1(i+1))
-   if (xh1 < 0.0_r8) xh1 = xh1 + pi2
+   
+   if (i == n) then
+      xh1 = xh0
+   else
+      xh1 = atan2(y1(i+1),x1(i+1))
+      if (xh1 < 0.0_r8) xh1 = xh1 + pi2
+   endif
 
    theta = xh1 - xh2
    if (theta < -pi1) theta = theta + pi2
