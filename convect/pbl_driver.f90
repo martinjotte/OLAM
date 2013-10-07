@@ -199,6 +199,8 @@ subroutine pbl_init()
      endif
   enddo
 
+  if (runtype /= 'INITIAL') return
+
 ! Initialize PBL height and some PBL quantities
     
   do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)

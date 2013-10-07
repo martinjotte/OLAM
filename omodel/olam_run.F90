@@ -456,6 +456,10 @@ if (nl%test_case == 5) then
    call fill_swtc5()
 endif
 
+! Initialize PBL quantities
+
+call pbl_init()
+
 ! If this is 'PLOTONLY' run, loop through input history files, plot 
 ! specified fields, and exit
 
@@ -545,10 +549,6 @@ if (runtype == 'HISTORY') then
 
    call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 endif
-
-! Initialize PBL quantities
-
-call pbl_init()
 
 write(io6,'(/,a)') 'olam_run calling plot_fields'
 

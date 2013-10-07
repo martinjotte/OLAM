@@ -201,6 +201,16 @@ Contains
        vtab_r(num_var)%rvar1_p => ustar
     endif
 
+    if (allocated(wstar)) then
+       call increment_vtable('WSTAR', 'AW')
+       vtab_r(num_var)%rvar1_p => wstar
+    endif
+
+    if (allocated(wtv0)) then
+       call increment_vtable('WTV0', 'AW')
+       vtab_r(num_var)%rvar1_p => wtv0
+    endif
+
     if (allocated(pblh)) then
        call increment_vtable('PBLH', 'AW')
        vtab_r(num_var)%rvar1_p => pblh
