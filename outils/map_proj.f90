@@ -461,7 +461,7 @@ zq = erad2 * (t - 1.)
 ! from the pole point.
 
 xeq = xep - sinplon * xq + cosplon * (-sinplat * yq + cosplat * zq)
-yeq = yep + cosplon * xq - sinplon * ( sinplat * yq + cosplat * zq)
+yeq = yep + cosplon * xq - sinplon * ( sinplat * yq - cosplat * zq)
 zeq = zep                            + cosplat * yq + sinplat * zq
 
 return
