@@ -349,10 +349,6 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
       ka = lpw(iw)
       
-! K index offset for radiation column arrays
-
-      koff = ka - 2
-   
 ! Set total surface albedo to surface direct albedo
 ! (LEAF doesn't differentiate between diffuse and direct albedo)
    
@@ -361,15 +357,26 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 ! Do Harrington radiation if specified
 
       if (ilwrtyp == 3 .or. (iswrtyp == 3 .and. cosz(iw) > 0.03)) then
+
+         ! K index offset for radiation column arrays
+         ! (Harrington scheme requires extra layer at surface)
+         koff = ka - 2 
+
          nrad = mza - 1 - koff + nadd_rad
          call harr_raddriv( iw, ka, nrad, koff )
+
       endif
 
-! Do RRTMg radiation is specified
+! Do RRTMg radiation if specified
 
       if (ilwrtyp == 2 .or. (iswrtyp == 2 .and. cosz(iw) > 0.03)) then
+
+         ! K index offset for radiation column arrays
+         koff = ka - 1
+
          nrad = mza - 1 - koff + nadd_rad
          call rrtmg_raddriv( iw, ka, nrad, koff )
+
       endif
 
    enddo
@@ -578,7 +585,7 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
-   do k = lpw(iw),mza-1
+   do k = lpw(iw), mza-1
       thilt(k,iw) = thilt(k,iw) + rho(k,iw) * (fthrd_sw(k,iw) + fthrd_lw(k,iw))
    enddo
 

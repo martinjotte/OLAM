@@ -34,7 +34,7 @@ subroutine harr_raddriv(iw,ka,nrad,koff)
 
 use mem_harr, only: mg, mb
 
-use mem_grid, only: mza, zm, zt, glatw, glonw
+use mem_grid, only: mza, zm, zt, dzt, glatw, glonw
 
 use mem_basic, only: rho, press, theta, tair, sh_v
 
@@ -107,31 +107,34 @@ real :: exner
 ! Copy surface and vertical-column values from model to radiation memory space
 ! In this loop, (k-koff) ranges from 2 to mza + 1 - lpw(iw)
 
-do k = ka,mza-1
+do k = ka, mza-1
    krad = k - koff
 
    rhov(k)  = max(0.,sh_v(k,iw)) * rho(k,iw)
 
-   dl(krad)  = rho  (k,iw)
-   pl(krad)  = press(k,iw)
-   tl(krad)  = tair (k,iw)
-   rl(krad)  = rhov (k)
+   dl (krad) = rho  (k,iw)
+   pl (krad) = press(k,iw)
+   tl (krad) = tair (k,iw)
+   rl (krad) = rhov (k)
    zml(krad) = zm   (k)
    ztl(krad) = zt   (k)
-   exl(krad) = tair(k,iw) / theta(k,iw)
+   exl(krad) = tair (k,iw) / theta(k,iw)
+   dzl(krad) = dzt  (k)
 enddo
  
 ! Fill surface values
 
 zml(1) = zm(1+koff)
 ztl(1) = zt(1+koff)
+dzl(1) = ztl(2) - ztl(1)
 pl (1) = pl(2) + (zml(1) - ztl(2)) / (ztl(2) - ztl(3)) * (pl(2) - pl(3))
+tl (1) = ((rlongup(iw) + rlong(iw) * rlong_albedo(iw)) / stefan) ** 0.25
+dl (1) = dl(2)
+rl (1) = rl(2)
+
+! Fill ozone column and any extra radiation layers at model top
 
 call rad_mclat(iw,nrad,koff,glatw(iw),dl,pl,rl,tl,o3l,zml,ztl,dzl)
-
-tl(1) = ( (rlongup(iw) + rlong(iw) * rlong_albedo(iw)) / stefan) ** 0.25
-dl(1) = dl(2)
-rl(1) = rl(2)
 
 ! zero out scratch arrays
 
