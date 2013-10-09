@@ -38,14 +38,14 @@ use mem_leaf,    only: land, itabg_wl, itab_wl
 use mem_sea,     only: sea, itabg_ws, itab_ws
 use leaf_coms,   only: nzg, nzs, mwl
 use sea_coms,    only: mws, nzi
-use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,    &
-                       rlongup, rlong_albedo, albedt, albedt_beam,  &
-                       albedt_diffuse, fthrd, rshort, rlong, fthrd_lw,  &
+use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,          &
+                       rlongup, rlong_albedo, albedt, albedt_beam,        &
+                       albedt_diffuse, fthrd_sw, rshort, rlong, fthrd_lw, &
                        rshort_top, rshortup_top, rshort_diffuse
 use mem_basic,   only: rho
 use micro_coms,  only: level
 use consts_coms, only: stefan, pio180, eradi, r8
-use misc_coms,   only: io6, time_istp8, radfrq, itime1, ilwrtyp, iswrtyp,   &
+use misc_coms,   only: io6, time_istp8, radfrq, itime1, ilwrtyp, iswrtyp, &
                        dtlong, current_time, iparallel
 use mem_grid,    only: lpw, mza, mwa
 use mem_sflux,   only: mseaflux, seaflux, jseaflux,  &
@@ -80,7 +80,6 @@ real :: sea_cosz
 real(r8) :: time8p
 integer, external :: julday
 integer :: jday
-real :: rlong_previous(mwa)
 
 ! Check whether it is time to update radiative fluxes and heating rates
 
@@ -112,31 +111,29 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
       cosz(iw) = wnx(iw) * sunx + wny(iw) * suny + wnz(iw) * sunz
 
-! Zero out rlongup, albedt, rshort, rlong, and fthrd prior to summing over 
-! land/sea flux cells
+! Zero out fields that are summed from land/sea cells
 
-      rlong_previous(iw) = rlong(iw)
-      rlong         (iw) = 0.
       rlongup       (iw) = 0.
       rlong_albedo  (iw) = 0.
-      albedt        (iw) = 0.
       albedt_beam   (iw) = 0.
+      albedt_diffuse(iw) = 0.
+
+! Zero out solar radiation fields when solar radiation calls are skipped at night
+
       rshort        (iw) = 0.
       rshort_diffuse(iw) = 0.
-      albedt_diffuse(iw) = 0.
       rshort_top    (iw) = 0.
       rshortup_top  (iw) = 0.
       
-      do k = lpw(iw),mza-1
-         fthrd(k,iw) = 0.
-         fthrd_lw(k,iw) = 0.
+      do k = lpw(iw), mza-1
+         fthrd_sw(k,iw) = 0.
       enddo
 
    enddo
 !$omp end parallel do
    call rsub('Wa',12)
 
-! If running leaf, loop over all SEA cells.
+! Loop over all SEA cells
 
 !$omp parallel do private (sea_cosz)
    do iws = 2,mws
@@ -211,7 +208,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
       call mpi_send_ws('R')
    endif
 
-! If running leaf, loop over all LAND cells.
+! Loop over all LAND cells
 
 !$omp parallel do
    do iwl = 2,mwl
@@ -283,7 +280,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
       call mpi_send_wl('R')
    endif
 
-! If running leaf, loop over all SEAFLUX cells to get mean surface radiative
+! Loop over all SEAFLUX cells to get mean surface radiative
 ! properties for each IW grid cell.
 
 ! No OMP parallelization of following J/ISF loop unless conflicts are prevented
@@ -314,7 +311,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
       call mpi_recv_wl('R')
    endif
 
-! If running leaf, loop over all LANDFLUX cells to get mean surface radiative
+! Loop over all LANDFLUX cells to get mean surface radiative
 ! properties for each IW grid cell.
 
 ! No OMP parallelization of following J/ILF loop unless conflicts are prevented
@@ -332,15 +329,10 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
       arf_atm = landflux(ilf)%arf_atm
 
-      rlongup       (iw) = rlongup(iw)         &
-                         + arf_atm * land%rlongup(iwl)
-      rlong_albedo  (iw) = rlong_albedo(iw)    &
-                         + arf_atm * land%rlong_albedo(iwl)
-
-      albedt_beam   (iw) = albedt_beam(iw)     &
-                         + arf_atm * land%albedo_beam(iwl)
-      albedt_diffuse(iw) = albedt_diffuse(iw)  &
-                         + arf_atm * land%albedo_diffuse(iwl)
+      rlongup       (iw) = rlongup       (iw) + arf_atm * land%rlongup(iwl)
+      rlong_albedo  (iw) = rlong_albedo  (iw) + arf_atm * land%rlong_albedo(iwl)
+      albedt_beam   (iw) = albedt_beam   (iw) + arf_atm * land%albedo_beam(iwl)
+      albedt_diffuse(iw) = albedt_diffuse(iw) + arf_atm * land%albedo_diffuse(iwl)
 
    enddo
 
@@ -368,10 +360,16 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! Do Harrington radiation if specified
 
-      if (ilwrtyp == 3 .or. iswrtyp == 3) then
+      if (ilwrtyp == 3 .or. (iswrtyp == 3 .and. cosz(iw) > 0.03)) then
          nrad = mza - 1 - koff + nadd_rad
+         call harr_raddriv( iw, ka, nrad, koff )
+      endif
 
-         call harr_raddriv(iw,ka,nrad,koff,rlong_previous(iw))
+! Do RRTMg radiation is specified
+
+      if (ilwrtyp == 2 .or. (iswrtyp == 2 .and. cosz(iw) > 0.03)) then
+         nrad = mza - 1 - koff + nadd_rad
+         call rrtmg_raddriv( iw, ka, nrad, koff )
       endif
 
    enddo
@@ -581,7 +579,7 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 call qsub('W',iw)
 
    do k = lpw(iw),mza-1
-      thilt(k,iw) = thilt(k,iw) + rho(k,iw) * fthrd(k,iw)
+      thilt(k,iw) = thilt(k,iw) + rho(k,iw) * (fthrd_sw(k,iw) + fthrd_lw(k,iw))
    enddo
 
 enddo      
@@ -723,8 +721,8 @@ use mem_radiate,   only: maxadd_rad, nadd_rad, zmrad
 use mem_grid,      only: mza, zm
 use misc_coms,     only: io6, iswrtyp, ilwrtyp
 use consts_coms,   only: cp
-! use rrtmg_sw_init, only: rrtmg_sw_ini
-! use rrtmg_lw_init, only: rrtmg_lw_ini
+use rrtmg_sw_init, only: rrtmg_sw_ini
+use rrtmg_lw_init, only: rrtmg_lw_ini
 
 implicit none
 
@@ -757,11 +755,11 @@ real :: deltaz
 if (iswrtyp == 3 .or. ilwrtyp == 3) call harr_radinit()
 
 ! Initialize RRTMG s/w scheme
-!
-!if (iswrtyp == 2) call rrtmg_sw_ini(cp)
-!
+
+if (iswrtyp == 2) call rrtmg_sw_ini(cp)
+
 ! Initialize RRTMG l/w scheme
-!
-!if (ilwrtyp == 2) call rrtmg_lw_ini(cp)
+
+if (ilwrtyp == 2) call rrtmg_lw_ini(cp)
 
 end subroutine radinit

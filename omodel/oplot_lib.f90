@@ -54,7 +54,7 @@ use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                        accpd, accpr, accpp, accps, accpa, accpg, accph
                       
-use mem_radiate, only: fthrd, rshort, rlong, rlongup, albedt, &
+use mem_radiate, only: fthrd_lw, fthrd_sw, rshort, rlong, rlongup, albedt, &
                        rshort_top, rshortup_top, rlongup_top
 use mem_addsc,   only: addsc
 use mem_tend,    only: umt, vmt, wmt
@@ -959,10 +959,11 @@ case(38) ! 'VKM'
 
 case(39) ! 'FTHRD'
 
-   if (.not. allocated(fthrd)) go to 1000
+   if (.not. allocated(fthrd_sw)) goto 1000
+   if (.not. allocated(fthrd_lw)) goto 1000
 
-   fldval = wtbot * fthrd(k  ,i) &
-          + wttop * fthrd(k+1,i)
+   fldval = wtbot * (fthrd_sw(k  ,i) + fthrd_sw(k  ,i)) &
+          + wttop * (fthrd_sw(k+1,i) + fthrd_lw(k+1,i))
 
 case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERID_WINDV_P'
 

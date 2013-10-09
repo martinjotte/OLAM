@@ -40,7 +40,7 @@ Module mem_radiate
   real :: suny    ! y-component of unit vector pointing to sun [m]
   real :: sunz    ! z-component of unit vector pointing to sun [m]
 
-  real, allocatable, target :: fthrd       (:,:)
+  real, allocatable, target :: fthrd_sw    (:,:)
   real, allocatable, target :: fthrd_lw    (:,:)
 
   real, allocatable, target :: rshort        (:)
@@ -56,7 +56,7 @@ Module mem_radiate
   real, allocatable         :: rlong_albedo  (:)
   real, allocatable         :: rshort_diffuse(:)
 
-  integer, allocatable      :: rad_region    (:)
+! integer, allocatable      :: rad_region    (:)
 
 ! These are used for adding extra levels at the top with the Mclatchy soundings
 
@@ -84,24 +84,24 @@ Contains
 
        write(io6,*) 'allocating rad ', mwa, mza
 
-       allocate (fthrd     (mza,mwa)) ; fthrd          = rinit
+       allocate (fthrd_sw  (mza,mwa)) ; fthrd_sw       = rinit
        allocate (fthrd_lw  (mza,mwa)) ; fthrd_lw       = rinit
        allocate (rshort        (mwa)) ; rshort         = rinit
-       allocate (rlong         (mwa)) ; rlong          = rinit
-       allocate (rlongup       (mwa)) ; rlongup        = rinit
-       allocate (rshort_top    (mwa)) ; rshort_top     = rinit
-       allocate (rshortup_top  (mwa)) ; rshortup_top   = rinit
-       allocate (rlongup_top   (mwa)) ; rlongup_top    = rinit
-       allocate (rshort_diffuse(mwa)) ; rshort_diffuse = rinit
+       allocate (rlong         (mwa)) ; rlong          = 0.0
+       allocate (rlongup       (mwa)) ; rlongup        = 0.0
+       allocate (rshort_top    (mwa)) ; rshort_top     = 0.0
+       allocate (rshortup_top  (mwa)) ; rshortup_top   = 0.0
+       allocate (rlongup_top   (mwa)) ; rlongup_top    = 0.0
+       allocate (rshort_diffuse(mwa)) ; rshort_diffuse = 0.0
        allocate (rlong_albedo  (mwa)) ; rlong_albedo   = rinit
        allocate (albedt        (mwa)) ; albedt         = rinit
        allocate (albedt_beam   (mwa)) ; albedt_beam    = rinit
        allocate (albedt_diffuse(mwa)) ; albedt_diffuse = rinit
        allocate (cosz          (mwa)) ; cosz           = rinit
 
-       if (iswrtyp == 3 .or. ilwrtyp == 3) then
-          allocate (rad_region(mwa))  ; rad_region = 0
-       endif
+!      if (iswrtyp == 3 .or. ilwrtyp == 3) then
+!         allocate (rad_region(mwa))  ; rad_region = 0
+!      endif
 
     endif
 
@@ -113,7 +113,7 @@ Contains
 
     implicit none
 
-    if (allocated(fthrd))          deallocate (fthrd)
+    if (allocated(fthrd_sw))       deallocate (fthrd_sw)
     if (allocated(fthrd_lw))       deallocate (fthrd_lw)
     if (allocated(rshort))         deallocate (rshort)
     if (allocated(rlong))          deallocate (rlong)
@@ -121,7 +121,7 @@ Contains
     if (allocated(rshort_top))     deallocate (rshort_top)
     if (allocated(rshortup_top))   deallocate (rshortup_top)
     if (allocated(rlongup_top))    deallocate (rlongup_top)
-    if (allocated(rad_region))     deallocate (rad_region)
+!   if (allocated(rad_region))     deallocate (rad_region)
     if (allocated(rshort_diffuse)) deallocate (rshort_diffuse)
     if (allocated(rlong_albedo))   deallocate (rlong_albedo)
     if (allocated(albedt))         deallocate (albedt)
@@ -138,9 +138,9 @@ Contains
     use var_tables, only: vtab_r, num_var, increment_vtable
     implicit none
 
-    if (allocated(fthrd)) then
-       call increment_vtable('FTHRD', 'AW')
-       vtab_r(num_var)%rvar2_p => fthrd
+    if (allocated(fthrd_sw)) then
+       call increment_vtable('FTHRD_SW', 'AW')
+       vtab_r(num_var)%rvar2_p => fthrd_sw
     endif
 
     if (allocated(fthrd_lw)) then

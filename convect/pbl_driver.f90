@@ -41,7 +41,7 @@ subroutine pbl_driver(rhot, mrl)
                             frac_urb, frac_land, frac_sfc, pblh, kpblh
   use consts_coms,    only: grav, vonk, eps_virt
   use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
-  use mem_radiate,    only: fthrd
+  use mem_radiate,    only: fthrd_sw, fthrd_lw
   use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx, acm2
   use smagorinsky,    only: turb_k
 
@@ -60,6 +60,7 @@ subroutine pbl_driver(rhot, mrl)
   real    :: thilv (mza)
   real    :: vkh   (mza)
   real    :: vkm   (mza)
+  real    :: fthrd (mza)
   real    :: moli
 
 ! Loop over all W/T points where PBL parameterization may be done
@@ -102,10 +103,12 @@ subroutine pbl_driver(rhot, mrl)
 
         moli = - grav * vonk * wtv0(iw) / ustar(iw)**3 / thetav(ka)
 
+        fthrd(ka:mza-1) = fthrd_sw(iw,ka:mza-1) + fthrd_lw(iw,ka:mza-1)
+
         call acm2_eddyx( iw, moli, ustar(iw), pblh(iw), kpblh(iw), ka, mza-1, &
                          vkh, vxe(:,iw), vye(:,iw), vze(:,iw), sh_w(:,iw),    &
                          sh_v(:,iw), qc, thil(:,iw), theta(:,iw), thetav,     &
-                         tair(:,iw), fthrd(:,iw), rho(:,iw)                   )
+                         tair(:,iw), fthrd, rho(:,iw)                         )
 
         call acm2( iw, rhot, moli, ustar(iw), pblh(iw), kpblh(iw), thetav, vkh )
 
@@ -147,7 +150,7 @@ subroutine pbl_init()
                            pblh, kpblh
   use mem_leaf,      only: land, itabg_wl
   use mem_basic,     only: vxe, vye, vze, thil, sh_v
-  use misc_coms,     only: io6, iparallel
+  use misc_coms,     only: io6, iparallel, runtype
   use module_bl_acm2,only: acm2_pblhgt
   use leaf_coms,     only: isfcl
   use consts_coms,   only: eps_virt
@@ -219,11 +222,3 @@ subroutine pbl_init()
   enddo
 
 end subroutine pbl_init
-
-
-
-
-
-
-
-

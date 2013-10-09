@@ -290,10 +290,9 @@ call ichk_bnds( nl%iswrtyp, "ISWRTYP", 0,  3, 0, nfatal, nwarn )
 call ichk_bnds( nl%ilwrtyp, "ILWRTYP", 0,  3, 0, nfatal, nwarn )
 call dchk_bnds( nl%radfrq,   "RADFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
 
-! Currently, radiation types of 1 and 2 are invalid
-if ( nl%iswrtyp==1 .or. nl%ilwrtyp==1 .or. &
-     nl%iswrtyp==2 .or. nl%ilwrtyp==2 ) then
-   write(io6,*) 'FATAL - Radiation types 1 or 2 are invalid'
+! Currently, radiation type 1 is invalid
+if ( nl%iswrtyp==1 .or. nl%ilwrtyp==1 ) then
+   write(io6,*) 'FATAL - Radiation type 1 is invalid'
    nfatal = nfatal + 1
 endif
 
