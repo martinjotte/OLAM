@@ -103,7 +103,7 @@ subroutine pbl_driver(rhot, mrl)
 
         moli = - grav * vonk * wtv0(iw) / ustar(iw)**3 / thetav(ka)
 
-        fthrd(ka:mza-1) = fthrd_sw(iw,ka:mza-1) + fthrd_lw(iw,ka:mza-1)
+        fthrd(ka:mza-1) = fthrd_sw(ka:mza-1,iw) + fthrd_lw(ka:mza-1,iw)
 
         call acm2_eddyx( iw, moli, ustar(iw), pblh(iw), kpblh(iw), ka, mza-1, &
                          vkh, vxe(:,iw), vye(:,iw), vze(:,iw), sh_w(:,iw),    &
