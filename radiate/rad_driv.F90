@@ -699,23 +699,19 @@ sunx = cos(declin * pio180) * cos(sun_longitude * pio180)
 suny = cos(declin * pio180) * sin(sun_longitude * pio180)
 sunz = sin(declin * pio180)
 
-! Check whether shortwave or longwave radiation is used
-
-if (iswrtyp + ilwrtyp > 0) then
-
 ! Adjust solar fluxes at top of atmosphere for current Earth-Sun distance
 ! for Harrington shortwave radiation
 
+if (iswrtyp == 3) then
    do is = 1,nsolb
       solar1(is) = solar0(is) * solfac
    enddo
+endif
 
 ! Interpolate Mclatchy soundings between summer and winter values, and prepare
 ! spline coefficients for interpolation by latitude.
 
-   call mclat_spline(jday)
-
-endif
+call mclat_spline(jday)
 
 return
 end subroutine sunloc

@@ -439,8 +439,8 @@
 
 ! Set iaer to select aerosol option
 ! iaer = 0, no aerosols
-! icld = 10, input total aerosol optical depth (tauaer) directly
-      iaer = 10
+! iaer = 10, input total aerosol optical depth (tauaer) directly
+      iaer = 0
 
 ! Call model and data initialization, compute lookup tables, perform
 ! reduction of g-points from 256 to 140 for input absorption coefficient 
