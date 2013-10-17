@@ -245,16 +245,17 @@ if (jnmb(lcat) == 2) then
 elseif (jnmb(lcat) == 4) then
 
    parmi = 1. / parm(lcat)
-   do k = k1(lcat),k2(lcat)
-      emb(k,lcat) = max(emb0(lcat),min(emb1(lcat),rx(k,lcat) * parmi))
+   do k = k1(lcat), k2(lcat)
+      emb(k,lcat) = max( emb0(lcat),                                     &
+                         min( emb1(lcat), rx(k,lcat) * parmi / rhoa(k) ) )
       cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
    enddo
 
 elseif (jnmb(lcat) >= 5) then
 
-   do k = k1(lcat),k2(lcat)
-      emb(k,lcat) = &
-         max(emb0(lcat),min(emb1(lcat),rx(k,lcat) / max(1.e-12,cx(k,lcat))))
+   do k = k1(lcat), k2(lcat)
+      emb(k,lcat) = max( emb0(lcat),                                            &
+                         min( emb1(lcat), rx(k,lcat) / max(1.e-12,cx(k,lcat)) ) )
       cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
    enddo
 
