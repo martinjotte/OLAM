@@ -42,6 +42,9 @@
       use rrlw_tbl, only: ntbl, tblint, pade, bpade, tau_tbl, exp_tbl, tfn_tbl
       use rrlw_vsn, only: hvrini, hnamini
 
+      use hdf5_utils, only: shdf5_open, shdf5_close
+      use oname_coms, only: nl
+
       real(kind=rb), intent(in) :: cpdair     ! Specific heat capacity of dry air
                                               ! at constant pressure at 273 K
                                               ! (J kg-1 K-1)
@@ -55,6 +58,7 @@
       real(kind=rb) :: tfn                    !
 
       real(kind=rb), parameter :: expeps = 1.e-20_rb   ! Smallest value for exponential table
+      logical :: exists
 
 ! ------- Definitions -------
 !     Arrays for 10000-point look-up tables:
@@ -77,22 +81,33 @@
       call lwatmref               ! reference MLS profile
       call lwavplank              ! Planck function 
       call lwavplankderiv         ! Planck function derivative wrt temp
-      call lw_kgb01               ! molecular absorption coefficients
-      call lw_kgb02
-      call lw_kgb03
-      call lw_kgb04
-      call lw_kgb05
-      call lw_kgb06
-      call lw_kgb07
-      call lw_kgb08
-      call lw_kgb09
-      call lw_kgb10
-      call lw_kgb11
-      call lw_kgb12
-      call lw_kgb13
-      call lw_kgb14
-      call lw_kgb15
-      call lw_kgb16
+
+      inquire(file=nl%rrtmg_lw_file, exist=exists)
+      if (.not. exists) then
+         write(*,*) "rrtmg_lw_init: Error opening data file " // trim(nl%rrtmg_lw_file)
+         stop       "RRTMg longwave datafile cannot be found"
+      endif
+
+      call shdf5_open(nl%rrtmg_lw_file, 'R')
+
+      call lw_kgb01_h5               ! molecular absorption coefficients
+      call lw_kgb02_h5
+      call lw_kgb03_h5
+      call lw_kgb04_h5
+      call lw_kgb05_h5
+      call lw_kgb06_h5
+      call lw_kgb07_h5
+      call lw_kgb08_h5
+      call lw_kgb09_h5
+      call lw_kgb10_h5
+      call lw_kgb11_h5
+      call lw_kgb12_h5
+      call lw_kgb13_h5
+      call lw_kgb14_h5
+      call lw_kgb15_h5
+      call lw_kgb16_h5
+
+      call shdf5_close()
 
 ! Compute lookup tables for transmittance, tau transition function,
 ! and clear sky tau (for the cloudy sky radiative transfer).  Tau is 

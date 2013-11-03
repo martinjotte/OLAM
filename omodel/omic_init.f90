@@ -270,7 +270,7 @@ use micro_coms,  only: icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail,
                        pwemb0, ch3, cdp1, pwvtmasi, jnmb, cfemb0, cfen0, &
                        dnfac, vtfac, frefac1, frefac2, sipfac, cfmasft, &
                        dict, dpsmi, gamm, gamn1, ngam, gam, gaminc, &
-                       gamsip13, gamsip24, ddn_ngam
+                       gamsip13, gamsip24, ddn_ngam, reffcof
                       
 use consts_coms, only: alvl, alvi, alli
 use misc_coms,   only: io6
@@ -412,12 +412,13 @@ do lhcat = 1,nhcat
    sipfac(lhcat) = .785 * exp(glg2 - glg)  &
       * (cfmasi(lhcat) * exp(glg - glgm)) ** (2. * pwmasi(lhcat))
 
-   cfmasft(lhcat) = cfmas(lhcat) * exp(gammln  &
-      (gnu(lcat) + pwmas(lhcat)) - gammln(gnu(lcat)))
+   cfmasft(lhcat) = cfmas(lhcat) * exp(glgm - glg)
 
    dict(lcat) = float(nembc-1) / (emb1log(lcat) - emb0log(lcat))
 
    dpsmi(lhcat) = 1. / (cfmas(lhcat) * dps ** pwmas(lhcat))
+
+   reffcof(lhcat) = 0.5 * (gnu(lcat) + 2.) * dnfac(lhcat)
 
    if (lhcat <= 4) gamm(lhcat) = exp(glg)
    if (lhcat <= 4) gamn1(lhcat) = exp(glg1)

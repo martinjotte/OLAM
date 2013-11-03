@@ -161,7 +161,10 @@ Module oname_coms
       integer :: iswrtyp = 0
       integer :: ilwrtyp = 0
       real(r8):: radfrq  = 1800.0_r8
-      
+
+      character(pathlen) :: rrtmg_lw_file = '../etc/rrtmg_lw.h5'
+      character(pathlen) :: rrtmg_sw_file = '../etc/rrtmg_sw.h5'
+
 !!    CUMULUS PARAMETERIZATION PARAMETERS
 
       integer :: nqparm   (maxgrds) = 0

@@ -41,6 +41,9 @@
       use rrsw_tbl, only: ntbl, tblint, pade, bpade, tau_tbl, exp_tbl
       use rrsw_vsn, only: hvrini, hnamini
 
+      use hdf5_utils, only: shdf5_open, shdf5_close
+      use oname_coms, only: nl
+
       real(kind=rb), intent(in) :: cpdair     ! Specific heat capacity of dry air
                                               ! at constant pressure at 273 K
                                               ! (J kg-1 K-1)
@@ -55,6 +58,7 @@
       real(kind=rb) :: tfn
 
       real(kind=rb), parameter :: expeps = 1.e-20_rb   ! Smallest value for exponential table
+      logical :: exists
 
 ! ------- Definitions -------
 !     Arrays for 10000-point look-up tables:
@@ -72,20 +76,31 @@
       call swaerpr               ! aerosol optical properties
       call swcldpr               ! cloud optical properties
       call swatmref              ! reference MLS profile
-      call sw_kgb16              ! molecular absorption coefficients
-      call sw_kgb17
-      call sw_kgb18
-      call sw_kgb19
-      call sw_kgb20
-      call sw_kgb21
-      call sw_kgb22
-      call sw_kgb23
-      call sw_kgb24
-      call sw_kgb25
-      call sw_kgb26
-      call sw_kgb27
-      call sw_kgb28
-      call sw_kgb29
+
+      inquire(file=nl%rrtmg_sw_file, exist=exists)
+      if (.not. exists) then
+         write(*,*) "rrtmg_sw_init: Error opening data file " // trim(nl%rrtmg_sw_file)
+         stop       "RRTMg shortwave datafile cannot be found"
+      endif
+
+      call shdf5_open(nl%rrtmg_sw_file, 'R')
+
+      call sw_kgb16_h5              ! molecular absorption coefficients
+      call sw_kgb17_h5
+      call sw_kgb18_h5
+      call sw_kgb19_h5
+      call sw_kgb20_h5
+      call sw_kgb21_h5
+      call sw_kgb22_h5
+      call sw_kgb23_h5
+      call sw_kgb24_h5
+      call sw_kgb25_h5
+      call sw_kgb26_h5
+      call sw_kgb27_h5
+      call sw_kgb28_h5
+      call sw_kgb29_h5
+
+      call shdf5_close()
 
 ! Define exponential lookup tables for transmittance. Tau is
 ! computed as a function of the tau transition function, and transmittance 

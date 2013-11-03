@@ -142,6 +142,7 @@ SOURCE_FILES= \
              $(RADIATE)/mem_radiate.f90 \
              $(RADIATE)/rad_driv.F90 \
              $(RADIATE)/rad_mclat.f90 \
+             $(RADIATE)/rrtmg_raddriv.f90 \
              $(RADIATE)/rrtmg_lw/mcica_random_numbers.f90 \
              $(RADIATE)/rrtmg_lw/mcica_subcol_gen_lw.f90 \
              $(RADIATE)/rrtmg_lw/parkind.f90 \
@@ -174,7 +175,7 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_init.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_rad.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_rad_nomcica.f90 \
-             $(RADIATE)/rrtmg_lw/rrtmg_lw_read_nc.f90 \
+             $(RADIATE)/rrtmg_lw/rrtmg_lw_read_h5.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_rtrn.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_rtrnmc.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_rtrnmr.f90 \
@@ -209,7 +210,7 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_init.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_rad.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_rad_nomcica.f90 \
-             $(RADIATE)/rrtmg_sw/rrtmg_sw_read_nc.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_read_h5.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_reftra.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_setcoef.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_spcvmc.f90 \
