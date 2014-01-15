@@ -36,14 +36,14 @@ subroutine isnstage(p_u,p_v,p_t,p_z,p_r, &
 use max_dims,   only: maxpr
 use isan_coms,  only: nprz, npry, nprx, nprz_rh, pcol_v, &
                       pcol_u, pcol_rt, pcol_z, pcol_temp, gdatdx, gdatdy, &
-                      npd, kzonoff, levpr, lzon_bot, pcol_p
+                      npd, kzonoff, levpr, lzon_bot, pcol_p, pcol_pi
 use mem_grid,   only: glatw, glonw, mza, mwa, mva, &
                       xeu, yeu, zeu, xev, yev, zev, &
                       unx, uny, unz, vnx, vny, vnz
 use mem_ijtabs, only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
                       jtu_init, jtv_init, jtw_init
 use mem_zonavg, only: zonp_vect, zont, zonz, zonr, zonu
-use consts_coms,only: eradi
+use consts_coms,only: eradi, rocp, p00i, cp
 use misc_coms,  only: io6, meshtype, iparallel
 
 use olam_mpi_atm, only: mpi_send_w, mpi_send_u, mpi_send_v, &
@@ -100,6 +100,12 @@ npd = 22 + kzonoff          ! Total number of pressure levels
 do levp = lzon_bot,22
    k = levp + kzonoff
    pcol_p(k) = zonp_vect(levp)
+enddo
+
+! Fill column array of exner function values
+
+do k = 1, npd
+   pcol_pi(k) = cp * (pcol_p(k) * p00i)**rocp
 enddo
 
 call psub()
@@ -284,10 +290,9 @@ end subroutine isnstage
 subroutine vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid)
 
 use isan_coms,   only: pcol_z, pcol_thv, pcol_rt, pcol_thet, pcol_pi,  &
-                       pcol_p, pcol_pk, npd, pcol_temp, pcol_r, pcol_v,  &
-                       pcol_u
+                       pcol_p, npd, pcol_temp, pcol_r, pcol_v, pcol_u
 use consts_coms, only: grav2, gravo2, cvocp, p00k, rdry, rvap, p00,  &
-                       cp, rocp, grav, eps_virt, eps_vap
+                       cp, rocp, gravi, eps_virt, eps_vap
 use mem_grid,    only: mwa, mza, dzt, zt
 use misc_coms,   only: io6
 
@@ -310,7 +315,7 @@ real :: vctr4(mza)  ! automatic array
 real :: vctr5(mza)  ! automatic array
 
 integer :: i,j,k,mcnt,kl,kpbc,klo,khi,kbc,levp,kother,iter
-real :: pbc,cpo2g,piocp,z,extrap,pressnew,pkhyd, vapor_press
+real :: pbc,cpo2g,z,extrap,pressnew,pkhyd, vapor_press
 real, external :: eslf
 
 ! Fill phony underground values for PPD levels 1100 mb and 1200 mb
@@ -322,10 +327,6 @@ pcol_temp(2) = pcol_temp(3) + 5.3  ! Uses approx std lapse rate
 pcol_temp(1) = pcol_temp(2) + 4.9  ! Uses approx std lapse rate
 
 do k = 1,npd
-   pcol_pk(k) = pcol_p(k)**rocp
-   piocp = (pcol_p(k)/p00)**rocp
-   pcol_pi(k) = cp * piocp
-   pcol_thet(k) = pcol_temp(k) / piocp                  ! dry theta
 
 !! NOTE:
 !! HUMIDITY ALREADY CONVERTED TO SPECIFIC HUMIDITY
@@ -344,18 +345,20 @@ do k = 1,npd
 !!   pcol_rt(k) = eps_vap * vapor_press  &
 !!              / (pcol_p(k) + vapor_press * (eps_vap - 1.))
 
-! Compute virtual potential temperature
+! Compute potential temperatures
 
-   pcol_thv(k) = pcol_thet(k) * (1. + eps_virt * pcol_rt(k))
+   pcol_thet(k) = pcol_temp(k) * cp / pcol_pi(k)                ! dry theta
+   pcol_thv (k) = pcol_thet(k) * (1. + eps_virt * pcol_rt(k))   ! virtual theta
+
 enddo
 
 ! Use hydrostatic integration to get heights of phony underground press levels
 
 pcol_z(2) = pcol_z(3) + .5 * (pcol_thv(3) + pcol_thv(2))   &
-          * (pcol_pi(3) - pcol_pi(2)) / grav
+          * (pcol_pi(3) - pcol_pi(2)) * gravi
 
 pcol_z(1) = pcol_z(2) + .5 * (pcol_thv(2) + pcol_thv(1))   &
-          * (pcol_pi(2) - pcol_pi(1)) / grav
+          * (pcol_pi(2) - pcol_pi(1)) * gravi
 
 !!cpo2g = cp / grav2
 !!

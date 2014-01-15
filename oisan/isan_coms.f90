@@ -39,7 +39,7 @@ integer :: ioflgisz, ioflgvar, iszstage, ivrstage
 integer :: iyear, imonth, idate, ihour, ipoffset
 integer :: npd,lzon_bot,kzonoff
 
-real, dimension(maxpr+2) :: pcol_p, pcol_thet, pcol_pk, pcol_u, pcol_v, pcol_z
+real, dimension(maxpr+2) :: pcol_p, pcol_thet, pcol_u, pcol_v, pcol_z
 real, dimension(maxpr+2) :: pcol_r, pcol_pi, pcol_temp, pcol_rt, pcol_thv
 
 integer :: nfgfiles, ifgfile
