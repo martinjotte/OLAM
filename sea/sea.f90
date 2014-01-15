@@ -36,7 +36,7 @@ subroutine seacells()
                        iupdseaice, s1900_seaice, iseaicefile, nseaicefiles
 
   use mem_sea,   only: sea, itab_ws
-  use misc_coms, only: io6, time8, s1900_sim, iparallel
+  use misc_coms, only: io6, time8, s1900_sim, isubdomain
   use mem_para,  only: myrank
 !$use omp_lib
 
@@ -70,7 +70,7 @@ subroutine seacells()
 
 ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
 
-     if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+     if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
 ! Update SEATC and seaice fraction
 

@@ -34,7 +34,8 @@ subroutine history_start(action)
 
 ! This routine initializes the model from the history file
 
-use misc_coms,  only: io6, hfilin, time8, time_istp8, runtype, iparallel
+use misc_coms,  only: io6, hfilin, time8, time_istp8, runtype, &
+                      iparallel, isubdomain
 use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
 use mem_para,   only: myrank, mgroupsize
 use max_dims,   only: pathlen
@@ -47,6 +48,17 @@ logical                  :: exans, exanz, exanp
 integer                  :: nfl, iter
 character(pathlen+10)    :: hfilinp
 character(10)            :: number
+
+! List of all allowable runtype, seq-para run, histfile read combinations:
+
+! 'HISTORY'     , sequential run, sequential histfile  (isubdomain = 0)
+! 'HISTORY'     , parallel   run, sequential histfile  (isubdomain = 1)
+! 'HISTORY'     , parallel   run, parallel   histfile  (isubdomain = 1)
+! 'PLOTONLY'    , sequential run, sequential histfile  (isubdomain = 0)
+! 'PLOTONLY'    , sequential run, parallel   histfile  (isubdomain = 0)
+! 'PARCOMBINE'  , sequential run, parallel   histfile  (isubdomain = 0)
+!future 'EXTRACT'     , sequential run, sequential histfile  (isubdomain = 1)
+!future 'PLOTEXTRACT' , sequential run, extracted  histfile  (isubdomain = 1)
 
 ! Check if history files exist
 
@@ -153,7 +165,7 @@ elseif (exanz .and. iparallel == 0) then
 
    endif
 
-elseif (exans .and. iparallel == 1) then
+elseif (exans .and. isubdomain == 1) then
 
 ! Parallel run reading serial history file
 

@@ -36,11 +36,12 @@ subroutine olam_run(name_name)
 use, intrinsic :: ieee_arithmetic
 #endif
 
-use misc_coms,   only: io6, time8, iflag, runtype, hfilin, time_istp8, nzp,    &
+use misc_coms,   only: io6, time8, time_istp8, iflag, runtype, hfilin, nzp,    &
                        expnme, mdomain, ngrids, initial, iswrtyp, ilwrtyp,     &
                        meshtype, timmax8, alloc_misc, iparallel, ipar_out,     &
                        iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
-                       time_prevhist, rinit, rinit8, debug_fp, init_nans
+                       time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
+                       isubdomain
 
 use leaf_coms,   only: nzg, nzs, isfcl, nwl, mwl
 use mem_leaf,    only: fill_jland
@@ -81,9 +82,10 @@ wtime_start = walltime(0.)
 w1 = walltime(wtime_start)
 call cpu_time(t1)
 
+iflag = 0
 istp  = 1
 time8 = 0.0_r8
-iflag = 0
+time_istp8 = time8
 
 ! Read, check, and copy namelist variables
 
@@ -95,6 +97,16 @@ call oname_check()
 
 write(io6,'(/,a)') 'olam_run calling namelist copy'
 call copy_nl('ALL_CASES')
+
+isubdomain = 0
+
+if (iparallel == 1) isubdomain = 1
+
+!future if (iparallel == 1 .or. &
+!future     runtype == 'EXTRACT' .or. &
+!future     runtype == 'PLOTEXTRACT') isubdomain = 1
+
+write(io6,'(/,a,i6,/)') ' isubdomain = ',isubdomain
 
 if (runtype == 'HISTORY') then
    write(io6,'(/,a)') 'olam_run reading common values from history file'
@@ -208,12 +220,12 @@ write(io6,'(/,a)') 'olam_run calling para_decomp'
 
 call para_decomp()
 
-write(io6,'(/,a,2i7)') 'olam_run after para_decomp',nwl,nws
+write(io6,'(/,a,2i9)') 'olam_run after para_decomp',nwl,nws
 
 ! Set up itab data types and grid coordinate arrays for current node, and 
 ! reallocate memory for current node
 
-call para_init() 
+call para_init()
 
 write(io6,'(/,a)') 'olam_run after para_init'
 
@@ -598,8 +610,8 @@ end subroutine olam_run
 
 subroutine model()
 
-use misc_coms, only: io6, time8, timmax8, dtlm, time_istp8, simtime,  &
-                     current_time, s1900_init, s1900_sim
+use misc_coms, only: io6, time8, time8p, time_istp8, time_istp8p, time_bias, &
+                     timmax8, dtlm, simtime, current_time, s1900_init, s1900_sim
 use consts_coms, only: r8
 use oname_coms,  only: nl
 
@@ -616,7 +628,6 @@ real :: wtime_start,t1,wtime1,wtime2,t2,wtime_tot
 real, external :: walltime
 character(len=40) :: stepc1,stepc2,stepc3,stepc4,stepc5
 type(simtime) :: begtime
-real(r8) :: time8p, bias
 
  write(io6,*) 'starting subroutine MODEL'
 
@@ -625,8 +636,8 @@ wtime_start = walltime(0.)
 ! Start the timesteps
 
 mstp   = 0
-bias   = 1.e-7_r8 * dtlm(1) ! A number small compared to the timestep
-time8p = time8 + bias       ! Slightly forward biased time
+time_bias = 1.e-7_r8 * dtlm(1) ! A number small compared to the timestep
+time8p = time8 + time_bias     ! Slightly forward biased time
 
 do while (time8p < timmax8)
 
@@ -643,9 +654,11 @@ do while (time8p < timmax8)
    call timestep()
 
    mstp = mstp + 1
-   time8 = time8 + dtlm(1)
-   time_istp8 = time8
-   time8p = time8 + bias  ! Slightly forward biased time
+   time8       = time8 + dtlm(1)
+   time8p      = time8 + time_bias       ! Slightly forward biased time
+   time_istp8  = time8
+   time_istp8p = time_istp8 + time_bias  ! Slightly forward biased time
+
    s1900_sim = s1900_init + time8
 
    call update_model_time(current_time, dtlm(1))
@@ -689,11 +702,11 @@ end subroutine model
 
 subroutine olam_output()
 
-use misc_coms,   only: io6, time8, dtlm, iflag, frqstate, timmax8, initial, &
-                       s1900_sim, time_prevhist, iyear1, imonth1, idate1,   &
-                       itime1
+use misc_coms,   only: io6, time8, time8p, dtlm, iflag, frqstate, timmax8, &
+                       initial, s1900_sim, time_prevhist, &
+                       iyear1, imonth1, idate1, itime1
 use leaf_coms,   only: isfcl, iupdndvi, indvifile, s1900_ndvi
-use sea_coms,    only: iupdsst, iupdseaice, isstfile, iseaicefile,  &
+use sea_coms,    only: iupdsst, iupdseaice, isstfile, iseaicefile, &
                        s1900_sst, s1900_seaice, isstflg, iseaiceflg
 use oplot_coms,  only: op
 use mem_nudge,   only: nudflag
@@ -707,11 +720,7 @@ use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
 implicit none
 
 integer  :: ierr, ifm, ifileok
-real(r8) :: time8p, bias
 integer  :: outyear, outmonth, outdate, outhour
-
-bias    = 1.e-7_r8 * dtlm(1) ! A number small compared to the timestep
-time8p  = time8 + bias       ! Slightly forward biased time
 
 !-------------------- SPECIAL - HURRICANE TRACKING ------------------
 if (init_hurr_step == 1 .or. init_hurr_step == 2) then
@@ -730,7 +739,7 @@ if (mod(time8p,op%frqplt) < dtlm(1) .or. iflag == 1) then
 endif
 
 if (mod(time8p,frqstate) < dtlm(1)  .or.  &
-   time8 >= timmax8 - bias .or. iflag == 1) then
+   time8p >= timmax8 .or. iflag == 1) then
    call history_write('INST')
    time_prevhist = time8
 endif

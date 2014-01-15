@@ -258,7 +258,7 @@ Contains
       jtab_wnud(iloop)%jend = max(1,jtab_wnud(iloop)%jend)
    enddo
 
-! Allocate and zero-fill JTAB_M%IM, JTAB_V%IV, JTAB_W%IW, JTAB_WNUD%IWNUD
+! Allocate and zero-fill JTAB_WNUD%IWNUD
 
    do iloop = 1,nloops_wnud
       jend = jtab_wnud(iloop)%jend

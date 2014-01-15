@@ -231,9 +231,9 @@ do iplt = 1,op%nplt
             labincy = 3
          endif
 
-         call oplot_xy2(op%panel(iplt),op%colorbar(iplt),0.,.016  &
+         call oplot_xy2(op%panel(iplt),op%colorbar(iplt),0.,.016 &
             ,1,dummy,dummy                                       &
-            ,'LONGITUDE (deg)','LATITUDE (deg)'                  &
+            ,'LONGITUDE (deg)','LATITUDE (deg)',10,              &
             ,op%xmin,op%xmax,xinc,labincx                        &
             ,op%ymin,op%ymax,yinc,labincy                        )
       else
@@ -246,11 +246,11 @@ do iplt = 1,op%nplt
             ylabel = 'Y (km)'
          endif
 
-         call oplot_xy2(op%panel(iplt),op%colorbar(iplt),1.0,.016   &
-            ,1,dummy,dummy                                         &
-            ,'X (km)',ylabel                                       &
-            ,.001*op%xmin,.001*op%xmax,xinc,labincx                &
-            ,.001*op%ymin,.001*op%ymax,yinc,labincy                )
+         call oplot_xy2(op%panel(iplt),op%colorbar(iplt),1.0,.016 &
+            ,1,dummy,dummy                                        &
+            ,'X (km)',ylabel,10                                   &
+            ,.001*op%xmin,.001*op%xmax,xinc,labincx               &
+            ,.001*op%ymin,.001*op%ymax,yinc,labincy               )
       endif
 
    endif
@@ -272,7 +272,7 @@ do iplt = 1,op%nplt
 
 ! Draw colorbar if so specified
 
-   if (op%colorbar(iplt) == 'c') call plot_colorbar(iplt,op%icolortab(iplt))
+   if (op%colorbar(iplt) == 'c') call plot_colorbar(op%icolortab(iplt))
 
 ! Draw label bar if so specified
 
@@ -312,7 +312,10 @@ call copy_plot()
 ! meta file (including the last frame) during a run and in case the
 ! simulation crashes.
 
-if ((trim(runtype) /= 'PLOTONLY') .and. (op%plttype == 0)) then
+if ((trim(runtype) /= 'PLOTONLY')    .and. &
+    (trim(runtype) /= 'PLOTEXTRACT') .and. &
+    (op%plttype == 0)) then
+
    call o_clswk()
 endif
 
@@ -1656,7 +1659,7 @@ if (op%projectn(iplt) == 'L'  .or.  &
 
    elseif (iseagrid > 1) then
 
-      do isf = 1, mseaflux
+      do isf = 1,mseaflux
          npoly = seaflux(isf)%npoly
 
          do j1 = 1,npoly
@@ -1786,7 +1789,7 @@ if (op%projectn(iplt) == 'L'  .or.  &
 
    elseif (ilandgrid > 1) then
 
-      do ilf = 1, mlandflux
+      do ilf = 1,mlandflux
          npoly = landflux(ilf)%npoly
 
          do j1 = 1,npoly

@@ -43,7 +43,8 @@ use leaf_coms,   only: mwl, nzg, nzs, &
                       
 use mem_sflux,    only: landflux, jlandflux
 use mem_basic,    only: rho, tair, sh_v
-use misc_coms,    only: io6, time8, s1900_sim, iparallel, runtype, initial
+use misc_coms,    only: io6, time8, s1900_sim, iparallel, isubdomain, &
+                        runtype, initial
 use mem_ijtabs,   only: itabg_w
 use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000
 use mem_para,     only: myrank
@@ -116,7 +117,7 @@ do j = 1,jlandflux(1)%jend(1)
 
 ! If run is parallel, convert iw to local domain
 
-   if (iparallel == 1) then
+   if (isubdomain == 1) then
       iw = itabg_w(iw)%iw_myrank
    endif
 
@@ -143,7 +144,7 @@ do iwl = 2,mwl
 
 ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
 
-   if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+   if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
    land%rhos(iwl) = 0.
    land%can_temp(iwl) = 0.
@@ -161,7 +162,7 @@ do j = 1,jlandflux(2)%jend(1)
 
 ! If run is parallel, convert iwl to local domain.
 
-   if (iparallel == 1) then
+   if (isubdomain == 1) then
       iwl = itabg_wl(iwl)%iwl_myrank
    endif
 
@@ -177,7 +178,7 @@ do iwl = 2,mwl
 
 ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
 
-   if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+   if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
 ! Set vegetation parameters
 
@@ -329,7 +330,7 @@ do iwl = 2,mwl
 
 ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
 
-   if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+   if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
 ! Leaf classes 17 and 20 represent persistent wetlands (bogs, marshes, fens,
 ! swamps).  Initialize these areas with saturated soil, and with 0.1 m of standing

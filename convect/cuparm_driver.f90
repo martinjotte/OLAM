@@ -34,8 +34,8 @@ subroutine cuparm_driver(rhot)
 
 use mem_grid,        only: mwa, mza, lpw
 use module_cu_kfeta, only: kf_lutab, cuparm_kfeta 
-use misc_coms,       only: io6, time_istp8, nqparm, nqparm_sh, confrq, &
-                           dtlong, initial, itime1
+use misc_coms,       only: io6, time_istp8, time_istp8p, nqparm, nqparm_sh, &
+                           confrq, dtlong, initial, itime1
 use mem_ijtabs,      only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog
 use mem_cuparm,      only: thsrc, rtsrc, thsrcsh, rtsrcsh, aconpr, conprr, &
                            w0avg
@@ -50,12 +50,11 @@ implicit none
 
 real, intent(inout) :: rhot(mza,mwa)
 real(r8), parameter :: cptime = 0.0
-real(r8)            :: time8p
 integer             :: j, iw, k, mrl, mrlw
 integer, save       :: init_kf = 0
 integer, save       :: init_em = 0
 
-real     :: dthmax, ftcon, dtlong4
+real    :: dthmax, ftcon, dtlong4
 integer :: iwqmax, kqmax
 
 ! Time-weighting coefficients for w average
@@ -97,9 +96,7 @@ if ((initial == 2) .and. (time_istp8 < cptime)) return
 
 ! Check whether it is time to update cumulus parameterization tendencies
 
-time8p = time_istp8 + 1.e-7_r8 * dtlong
-
-if ((istp == 1) .and. (mod(time8p, confrq) < dtlong)) then
+if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
 ! Print message that cumulus parameterization is being computed
 

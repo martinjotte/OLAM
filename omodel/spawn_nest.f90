@@ -542,9 +542,9 @@ do ngr = 2,ngrids  ! Loop over nested grids
          ju2 = iuper(iper+1)
 
          if (jm2 == ltab_ud(ju2)%im(1)) then
-            jw2  = ltab_ud(ju2)%iw(2)
+            jw2 = ltab_ud(ju2)%iw(2)
          else
-            jw2  = ltab_ud(ju2)%iw(1)
+            jw2 = ltab_ud(ju2)%iw(1)
          endif
 
          nest_wd(jw2)%iw(3) = -1
@@ -583,8 +583,8 @@ do ngr = 2,ngrids  ! Loop over nested grids
 ! Define new vertex index for midpoint of each original U edge that is adjacent
 ! to an original triangle that is being subdivided, unless it is also adjacent
 ! to an original triangle with subdivide flag = -1.  Attach new vertex
-! index to old U edge.  Also, define new U index for second half of U.
-! Attach to U.  [Make adjacent to U%m2.]
+! index to old U edge.  Also, define new U index for second half of U, and
+! attach to U.  [Make adjacent to U%m2.]
 
    do iu = 2,nua
 
@@ -645,7 +645,10 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
    do im = 1,nma
       itab_md(im)%loop(1:nloops_m) = ltab_md(im)%loop(1:nloops_m)
-      itab_md(im)%imp = ltab_md(im)%imp
+      itab_md(im)%imp       = ltab_md(im)%imp
+      itab_md(im)%mrlm      = ltab_md(im)%mrlm
+      itab_md(im)%mrlm_orig = ltab_md(im)%mrlm_orig
+
       xem(im) = xem_temp(im)
       yem(im) = yem_temp(im)
       zem(im) = zem_temp(im)
@@ -654,9 +657,9 @@ do ngr = 2,ngrids  ! Loop over nested grids
    itab_ud(1:nua) = ltab_ud(1:nua)
    itab_wd(1:nwa) = ltab_wd(1:nwa)
 
-! Loop over U points and check for those flagged fur subdivision
+! Loop over U points and check for those flagged for subdivision
 
-   ngroo = 0
+   mrlo = 0
 
    do iu = 2,nua
       if (nest_ud(iu)%im > 1) then
@@ -664,10 +667,11 @@ do ngr = 2,ngrids  ! Loop over nested grids
          im1 = itab_ud(iu)%im(1)
          im2 = itab_ud(iu)%im(2)
          
-! Save ngr value of parent grid for new grid being spawned
+! Save mrl value of parent grid for new grid being spawned (saved within IF
+! block because itab_md(im1)%mrlm gets changed later in DO loop)
 
-         if (ngroo == 0) then
-            ngroo = itab_md(im1)%mrlm
+         if (mrlo == 0) then
+            mrlo = itab_md(im1)%mrlm
          endif
 
 ! Average coordinates to new M points
@@ -676,12 +680,13 @@ do ngr = 2,ngrids  ! Loop over nested grids
          yem(im) = .5 * (yem(im1) + yem(im2))
          zem(im) = .5 * (zem(im1) + zem(im2))
 
-! Set itab_md()%mrlm = ngr at end and mid points of subdivided U edge
+! Set itab_md()%mrlm = mrlo + 1 at end and mid points of subdivided U edge
 
-         itab_md(im )%mrlm = ngr         
-         itab_md(im1)%mrlm = ngr         
-         itab_md(im2)%mrlm = ngr         
+         itab_md(im1)%mrlm = mrlo + 1
+         itab_md(im2)%mrlm = mrlo + 1
+         itab_md(im )%mrlm = mrlo + 1
 
+         itab_md(im )%mrlm_orig = mrlo + 1
       endif
    enddo
 
@@ -853,15 +858,13 @@ do ngr = 2,ngrids  ! Loop over nested grids
    elseif (nconcave == 1) then
       call perim_fill2(ngr,mrloo,kma,kua,kwa,jm,ju,npts,ngrp,igsize,nwdivg)
    else ! nconcave = 3
-      call perim_fill3(nper2,imper,iuper)
+      call perim_fill3(mrlo,nper2,imper,iuper)
    endif
 
 ! Fill itabs loop tables for newly spawned points
-! Set itab_md()%mrlm = ngroo at newly added boundary M points
 
    do im = nma+1,nma0
       itab_md(im)%imp = im
-      itab_md(im)%mrlm = ngroo
       if (meshtype == 1) then
          call mdloopf('f',im, jtm_grid, jtm_vadj, 0, 0, 0, 0)
       else

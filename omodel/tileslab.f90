@@ -514,7 +514,7 @@ subroutine tileslab_horiz_s(iplt,action)
 use oplot_coms, only: op
 use mem_sea,    only: sea, itab_ws, itabg_ws
 use sea_coms,   only: mws, iseagrid
-use misc_coms,  only: io6, iparallel
+use misc_coms,  only: io6, isubdomain
 use mem_para,   only: myrank
 use mem_sflux,  only: seaflux, mseaflux, maxnpolyf
 
@@ -544,7 +544,7 @@ if (iseagrid == 1) then
 
    ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
 
-      if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+      if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
       nspoly = itab_ws(iws)%npoly
 
@@ -586,13 +586,13 @@ elseif (iseagrid > 1) then
    do isf = 2, mseaflux
       iws = seaflux(isf)%iwls
       
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iws = itabg_ws(iws)%iws_myrank
       endif
 
 ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
 
-      if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+      if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
 ! Get tile plot coordinates.  
 
@@ -645,7 +645,7 @@ subroutine tileslab_horiz_l(iplt,action)
 use oplot_coms, only: op
 use mem_leaf,   only: land, itab_wl, itabg_wl
 use leaf_coms,  only: mwl, nzg, nzs, ilandgrid
-use misc_coms,  only: io6, iparallel
+use misc_coms,  only: io6, isubdomain
 use mem_para,   only: myrank
 use mem_sflux,  only: landflux, mlandflux, maxnpolyf
 
@@ -685,7 +685,7 @@ if (ilandgrid == 1) then
 
 ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
 
-      if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+      if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
       nlpoly = itab_wl(iwl)%npoly
 
@@ -727,13 +727,13 @@ elseif (ilandgrid > 1) then
    do ilf = 2,mlandflux
       iwl = landflux(ilf)%iwls
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iwl = itabg_wl(iwl)%iwl_myrank
       endif
 
 ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
 
-      if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+      if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
 ! Get tile plot coordinates.  
 
@@ -787,7 +787,7 @@ use oplot_coms, only: op
 use sea_coms,   only: iseagrid
 use mem_sea,    only: sea, itab_ws
 use leaf_coms,  only: mwl, nzg, nzs
-use misc_coms,  only: io6, iparallel
+use misc_coms,  only: io6, isubdomain
 use mem_sflux,  only: mseaflux,seaflux,maxnpolyf
 use mem_para,   only: myrank
 
@@ -817,7 +817,7 @@ do isf = 2,mseaflux
 
 ! Skip ISF cell if running in parallel and primary rank of ISF /= MYRANK
 
-   if (iparallel == 1 .and. seaflux(isf)%iwrank /= myrank) cycle
+   if (isubdomain == 1 .and. seaflux(isf)%iwrank /= myrank) cycle
 
    nsfpoly = seaflux(isf)%npoly
 
@@ -873,7 +873,7 @@ subroutine tileslab_horiz_fl(iplt,action)
 
 use oplot_coms, only: op
 use leaf_coms,  only: mwl, nzg, nzs
-use misc_coms,  only: io6, iparallel
+use misc_coms,  only: io6, isubdomain
 use mem_sflux,  only: mlandflux,landflux,maxnpolyf
 use mem_para,   only: myrank
 
@@ -904,7 +904,7 @@ do ilf = 2,mlandflux
 
 ! Skip ILF cell if running in parallel and primary rank of ILF /= MYRANK
 
-   if (iparallel == 1 .and. landflux(ilf)%iwrank /= myrank) cycle
+   if (isubdomain == 1 .and. landflux(ilf)%iwrank /= myrank) cycle
 
    nlfpoly = landflux(ilf)%npoly
 
@@ -1588,7 +1588,8 @@ if (action == 'T') then
    fldval1 = fldval
 
    if (clrtab(itab)%ifmt(1) == 20) &
-      fldval1 = mod(fldval-1.,real(clrtab(itab)%nvals-2)) - 1. ! table 124 has 2 neg vals
+!      fldval1 = mod(fldval-1.,real(clrtab(itab)%nvals-2)) - 1. ! table 124 has 2 neg vals
+      fldval1 = mod(fldval,real(clrtab(itab)%nvals-2)) - 1. ! table 124 has 2 neg vals
 
 ! Case for color table 130; used with itab_w_mrowh
 

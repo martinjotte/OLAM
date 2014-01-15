@@ -61,16 +61,16 @@ subroutine surface_turb_flux(mrl)
 use leaf_coms,   only: mwl, dt_leaf, isfcl
 use sea_coms,    only: mws, dt_sea
 use mem_ijtabs,  only: itab_w, itabg_w, jtab_w, jtw_prog, jtw_wstn
-use misc_coms,   only: io6, iparallel
+use misc_coms,   only: io6, iparallel, isubdomain, dtlm, mdomain
 use mem_para,    only: myrank
-use mem_grid,    only: mza, mwa, lsw, lpw, zt, zm
+use mem_grid,    only: mza, mwa, lsw, lpw, zt, zm, arw
 use mem_sea,     only: sea, itabg_ws, itab_ws
 use mem_leaf,    only: land, itabg_wl, itab_wl
 use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
 use mem_turb,    only: vkm_sfc, sflux_t, sflux_r, sxfer_tk, sxfer_rk, &
                        ustar, wstar, wtv0, pblh
 use mem_basic,   only: press, rho, theta, tair, sh_v, vxe, vye, vze
-use consts_coms, only: grav
+use consts_coms, only: grav, p00i, rocp, cpi
 
 implicit none
 
@@ -92,10 +92,20 @@ real :: vkmsfc, vkmsfcs, vkmsfci
 real :: vels
 real :: my_co2, ed_zeta, ed_rib
 
+real :: shflx
+
 if (isfcl == 0) then
 
-! ISFCL = 0 is the no-LEAF option:  Set all surface fluxes (to zero by default).
-! These flux values can be altered if desired.
+! ISFCL = 0 is the no-LEAF option.  Assign surface fluxes here, noting the
+! following examples.  SHFLX has units of [K m/s kg/m^3].
+
+! Default surface flux = 0 W/m^2
+
+   shflx = 0. * cpi
+
+! Example with surface flux = 250 W/m^2
+
+!  shflx = 250. * cpi
 
    call psub()
 !-----------------------------------------------------------------------------
@@ -111,9 +121,17 @@ if (isfcl == 0) then
       wtv0   (iw) = 0.
 
       do ks = 1,lsw(iw)
+         kw = ks + lpw(iw) - 1
+
          vkm_sfc (ks,iw) = 0.
          sxfer_tk(ks,iw) = 0.
          sxfer_rk(ks,iw) = 0.
+
+         exneri = 1. / ((p00i * press(kw,iw)) ** rocp)
+
+         sxfer_tk(ks,iw) = dtlm(itab_w(iw)%mrlw) * shflx * exneri &
+                         * (arw(kw,iw) - arw(kw-1,iw))
+
       enddo
 
 !      albedt (iw) = albedo
@@ -168,19 +186,19 @@ do j = 1,jseaflux(1)%jend(mrl)
 
 ! If run is parallel, get local rank indices
 
-   if (iparallel == 1) then
+   if (isubdomain == 1) then
       iw  = itabg_w (iw )%iw_myrank
       iws = itabg_ws(iws)%iws_myrank
    endif
 
    kw          = seaflux(isf)%kw
    arf_kw      = seaflux(isf)%arf_kw
-   arf_atm     = seaflux(isf)%arf_atm    ! area ratio of flux cell to atm cell
-   arf_sea     = seaflux(isf)%arf_sfc    ! area ratio of flux cell to sea cell
-   arf_sea_dtf = seaflux(isf)%arf_sfc  & ! area ratio of flux cell to sea cell
-               * seaflux(isf)%dtf        !   timestep of flux cell [m^2 * s]
-   area_dtf    = seaflux(isf)%area     & ! area of flux cell
-               * seaflux(isf)%dtf        !   timestep of flux cell [m^2 * s]
+   arf_atm     = seaflux(isf)%arf_atm   ! area ratio of flux cell to atm cell
+   arf_sea     = seaflux(isf)%arf_sfc   ! area ratio of flux cell to sea cell
+   arf_sea_dtf = seaflux(isf)%arf_sfc & ! area ratio of flux cell to sea cell
+               * seaflux(isf)%dtf       !   timestep of flux cell [m^2 * s]
+   area_dtf    = seaflux(isf)%area    & ! area of flux cell
+               * seaflux(isf)%dtf       !   timestep of flux cell [m^2 * s]
 
    ka = lpw(iw)
    ks = kw - ka + 1
@@ -308,19 +326,19 @@ do j = 1,jlandflux(1)%jend(mrl)
 
 ! If run is parallel, get local rank indices
 
-    if (iparallel == 1) then
+    if (isubdomain == 1) then
       iw  = itabg_w (iw )%iw_myrank
       iwl = itabg_wl(iwl)%iwl_myrank
    endif
 
    kw           = landflux(ilf)%kw
    arf_kw       = landflux(ilf)%arf_kw
-   arf_atm      = landflux(ilf)%arf_atm    ! flux cell to atm cell area ratio
-   arf_land     = landflux(ilf)%arf_sfc    ! flux cell to land cell area ratio
-   arf_land_dtf = landflux(ilf)%arf_sfc  & ! flux cell to land cell area ratio
-                * landflux(ilf)%dtf        !   timestep of flux cell [m^2 * s]
-   area_dtf     = landflux(ilf)%area     & ! flux cell area 
-                * landflux(ilf)%dtf        !   timestep of flux cell [m^2 * s]
+   arf_atm      = landflux(ilf)%arf_atm   ! flux cell to atm cell area ratio
+   arf_land     = landflux(ilf)%arf_sfc   ! flux cell to land cell area ratio
+   arf_land_dtf = landflux(ilf)%arf_sfc & ! flux cell to land cell area ratio
+                * landflux(ilf)%dtf       !   timestep of flux cell [m^2 * s]
+   area_dtf     = landflux(ilf)%area    & ! flux cell area 
+                * landflux(ilf)%dtf       !   timestep of flux cell [m^2 * s]
 
    ka = lpw(iw)
    ks = kw - ka + 1
@@ -424,7 +442,7 @@ do iws = 2,mws
 
 ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
 
-   if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+   if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
    sea%rhos     (iws) = 0.
    sea%ustar    (iws) = 0.
@@ -442,7 +460,7 @@ do iwl = 2,mwl
 
 ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
 
-   if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+   if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
    land%ustar  (iwl) = 0.
    land%rhos   (iwl) = 0.
@@ -467,7 +485,7 @@ do j = 1,jseaflux(2)%jend(mrl)
 
 ! If run is parallel, get local rank indices
 
-   if (iparallel == 1) then
+   if (isubdomain == 1) then
       iws = itabg_ws(iws)%iws_myrank
    endif
 !----------------------------------------------------------------------
@@ -510,7 +528,7 @@ do j = 1,jlandflux(2)%jend(mrl)
 
 ! If run is parallel, get local rank indices
 
-   if (iparallel == 1) then
+   if (isubdomain == 1) then
       iwl = itabg_wl(iwl)%iwl_myrank
    endif
 
@@ -663,7 +681,7 @@ use mem_ijtabs,  only: istp, mrl_begl, itabg_w
 use consts_coms, only: cliq, alli, t00
 use mem_basic,   only: tair, rho, sh_v
 use leaf_coms,   only: mwl, dt_leaf, mrl_leaf
-use misc_coms,   only: io6, iparallel
+use misc_coms,   only: io6, iparallel, isubdomain
 use mem_para,    only: myrank
 use ed_misc_coms,only: ed2_active
 
@@ -707,7 +725,7 @@ if (mrl > 0 .and. mrl <= mrl_leaf) then
 
 ! If run is parallel, get local rank indices
 
-   if (iparallel == 1) then
+   if (isubdomain == 1) then
       iw = itabg_w(iw)%iw_myrank
    endif
 
@@ -762,7 +780,7 @@ do j = 1,jlandflux(2)%jend(mrl)
 
 ! If run is parallel, get local rank indices
 
-   if (iparallel == 1) then
+   if (isubdomain == 1) then
       iwl = itabg_wl(iwl)%iwl_myrank
    endif
 
@@ -795,7 +813,7 @@ use mem_micro,   only: pcpgr, qpcpgr, dpcpgr
 use mem_leaf,    only: land, itabg_wl, itab_wl
 use mem_ijtabs,  only: istp, mrl_endl, itabg_w
 use leaf_coms,   only: mwl, mrl_leaf
-use misc_coms,   only: io6, iparallel
+use misc_coms,   only: io6, iparallel, isubdomain
 use mem_para,    only: myrank
 use ed_misc_coms,only: ed2_active
 
@@ -835,7 +853,7 @@ call qsub('LF',iw)
 
 ! If run is parallel, get local rank indices
 
-   if (iparallel == 1) then
+   if (isubdomain == 1) then
       iw = itabg_w(iw)%iw_myrank
    endif
 
@@ -875,7 +893,7 @@ call qsub('LF',iw)
 
 ! If run is parallel, get local rank indices
 
-   if (iparallel == 1) then
+   if (isubdomain == 1) then
       iwl = itabg_wl(iwl)%iwl_myrank
    endif
 

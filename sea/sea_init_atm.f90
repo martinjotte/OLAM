@@ -37,7 +37,7 @@ subroutine sea_init_atm()
                          iupdseaice, s1900_seaice, iseaicefile, nseaicefiles, nzi
   use mem_sflux,   only: mseaflux, seaflux, jseaflux
   use mem_basic,   only: rho, tair, sh_v
-  use misc_coms,   only: io6, time8, s1900_sim, iparallel, runtype
+  use misc_coms,   only: io6, time8, s1900_sim, iparallel, isubdomain, runtype
   use mem_ijtabs,  only: itabg_w
   use mem_para,    only: myrank
   use consts_coms, only: t00
@@ -88,7 +88,7 @@ subroutine sea_init_atm()
 
      ! If run is parallel, convert iw to local domain
 
-     if (iparallel == 1) then
+     if (isubdomain == 1) then
         iw = itabg_w(iw)%iw_myrank
      endif
 
@@ -113,7 +113,7 @@ subroutine sea_init_atm()
   do iws = 2, mws
 
      ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
-     if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+     if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
      sea%rhos(iws)     = 0.0
      sea%can_temp(iws) = 0.0
@@ -138,7 +138,7 @@ subroutine sea_init_atm()
 
      ! If run is parallel, convert iws to local domain
 
-     if (iparallel == 1) then
+     if (isubdomain == 1) then
         iws = itabg_ws(iws)%iws_myrank
      endif
 
@@ -155,7 +155,7 @@ subroutine sea_init_atm()
 
      ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
 
-     if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+     if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
      sea%seatc(iws) = sea%seatp(iws)  &
                     + (sea%seatf(iws) - sea%seatp(iws)) * timefac_sst

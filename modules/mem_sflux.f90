@@ -287,7 +287,7 @@ Contains
    subroutine fill_jflux()
 
    use mem_ijtabs, only: itab_w, mrls, itabg_w
-   use misc_coms,  only: io6, dtlm, iparallel
+   use misc_coms,  only: io6, dtlm, iparallel, isubdomain
    use leaf_coms,  only: dt_leaf
    use mem_leaf,   only: itab_wl, itabg_wl
    use mem_sea,    only: itab_ws, itabg_ws
@@ -315,7 +315,7 @@ Contains
       
 ! If run is parallel, convert iw to local domain
 
-         if (iparallel == 1) then
+         if (isubdomain == 1) then
             iw  = itabg_w (iw )%iw_myrank
             iws = itabg_ws(iws)%iws_myrank
          endif
@@ -338,16 +338,16 @@ Contains
          if (mrlw == mrl) then
       
             if (iw > 1) then
-               if (iparallel == 0 .or.  &
-                  (iparallel == 1 .and. itab_w(iw)%irank == myrank)) then
+               if (isubdomain == 0 .or.  &
+                  (isubdomain == 1 .and. itab_w(iw)%irank == myrank)) then
 
                   jseaflux(1)%jend(1:mrl) = jseaflux(1)%jend(1:mrl) + 1
                   jseaflux(1)%iseaflux(jseaflux(1)%jend(1)) = isf
                endif
             endif
 
-            if (iparallel == 0 .or.  &
-               (iparallel == 1 .and. itab_ws(iws)%irank == myrank)) then
+            if (isubdomain == 0 .or.  &
+               (isubdomain == 1 .and. itab_ws(iws)%irank == myrank)) then
 
                jseaflux(2)%jend(1:mrl) = jseaflux(2)%jend(1:mrl) + 1
                jseaflux(2)%iseaflux(jseaflux(2)%jend(1)) = isf
@@ -375,7 +375,7 @@ Contains
 
 ! If run is parallel, convert iw to local domain
 
-         if (iparallel == 1) then
+         if (isubdomain == 1) then
             iw  = itabg_w (iw )%iw_myrank
             iwl = itabg_wl(iwl)%iwl_myrank
          endif
@@ -398,16 +398,16 @@ Contains
          if (mrlw == mrl) then
 
             if (iw > 1) then
-               if (iparallel == 0 .or.  &
-                  (iparallel == 1 .and. itab_w(iw)%irank == myrank)) then
+               if (isubdomain == 0 .or.  &
+                  (isubdomain == 1 .and. itab_w(iw)%irank == myrank)) then
 
                   jlandflux(1)%jend(1:mrl) = jlandflux(1)%jend(1:mrl) + 1
                   jlandflux(1)%ilandflux(jlandflux(1)%jend(1)) = ilf
                endif
             endif
 
-            if (iparallel == 0 .or.  &
-               (iparallel == 1 .and. itab_wl(iwl)%irank == myrank)) then
+            if (isubdomain == 0 .or.  &
+               (isubdomain == 1 .and. itab_wl(iwl)%irank == myrank)) then
 
                jlandflux(2)%jend(1:mrl) = jlandflux(2)%jend(1:mrl) + 1
                jlandflux(2)%ilandflux(jlandflux(2)%jend(1)) = ilf
@@ -453,7 +453,7 @@ Contains
       do isf = 2,mseaflux
 
          iw = seaflux(isf)%iw
-         if (iparallel == 1) iw = itabg_w(iw)%iw_myrank
+         if (isubdomain == 1) iw = itabg_w(iw)%iw_myrank
 
          ! skip this seaflux point if the atm cell does not exist on this node
          if (iw < 2) cycle
@@ -501,7 +501,7 @@ Contains
       do ilf = 2,mlandflux
 
          iw = landflux(ilf)%iw
-         if (iparallel == 1) iw = itabg_w(iw)%iw_myrank
+         if (isubdomain == 1) iw = itabg_w(iw)%iw_myrank
 
          ! skip this landflux point if the atm cell does not exist on this node
          if (iw < 2) cycle

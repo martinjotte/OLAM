@@ -45,8 +45,8 @@ use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,          &
 use mem_basic,   only: rho
 use micro_coms,  only: level
 use consts_coms, only: stefan, pio180, eradi, r8
-use misc_coms,   only: io6, time_istp8, radfrq, itime1, ilwrtyp, iswrtyp, &
-                       dtlong, current_time, iparallel
+use misc_coms,   only: io6, time8p, time_istp8, radfrq, itime1, ilwrtyp, &
+                       iswrtyp, dtlong, current_time, iparallel, isubdomain
 use mem_grid,    only: lpw, mza, mwa
 use mem_sflux,   only: mseaflux, seaflux, jseaflux,  &
                        mlandflux, landflux, jlandflux
@@ -77,13 +77,10 @@ real :: arf_sea
 real :: flux
 real :: sea_cosz
 
-real(r8) :: time8p
 integer, external :: julday
 integer :: jday
 
 ! Check whether it is time to update radiative fluxes and heating rates
-
-time8p = time_istp8 + 1.e-7_r8 * dtlong
 
 if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
@@ -140,7 +137,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          if (itab_ws(iws)%irank /= myrank) cycle
       endif
 
@@ -215,7 +212,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          if (itab_wl(iwl)%irank /= myrank) cycle
       endif
 
@@ -291,7 +288,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If run is parallel, get local rank indices
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iw  = itabg_w(iw)%iw_myrank
          iws = itabg_ws(iws)%iws_myrank
       endif
@@ -322,7 +319,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If run is parallel, get local rank indices
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iw  = itabg_w(iw)%iw_myrank
          iwl = itabg_wl(iwl)%iwl_myrank
       endif
@@ -394,7 +391,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If run is parallel, get local rank indices
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iw  = itabg_w(iw)%iw_myrank
          iws = itabg_ws(iws)%iws_myrank
       endif
@@ -426,7 +423,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If run is parallel, get local rank indices
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iw  = itabg_w(iw)%iw_myrank
          iwl = itabg_wl(iwl)%iwl_myrank
       endif
@@ -464,7 +461,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If run is parallel, get local rank indices
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iws = itabg_ws(iws)%iws_myrank
       endif
 
@@ -483,7 +480,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
       ! If current IWS sea cell is not prognosed on this rank, skip to next cell
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          if (itab_ws(iws)%irank /= myrank) cycle
       endif
 
@@ -515,7 +512,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If run is parallel, get local rank indices
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iwl = itabg_wl(iwl)%iwl_myrank
       endif
 
@@ -535,7 +532,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If current IWL land cell is not prognosed on this rank, skip to next cell
 
-      if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+      if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
       if (land%ed_flag(iwl) == 0) then
 

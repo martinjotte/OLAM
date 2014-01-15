@@ -244,6 +244,9 @@ do iw = 2,nwa
    itab_w(iw)%npoly   = itab_md(imd)%npoly
    itab_w(iw)%iwglobe = iw
 
+   itab_w(iw)%mrlw = itab_md(imd)%mrlm
+   itab_w(iw)%mrlw_orig = itab_md(imd)%mrlm_orig
+
    npoly = itab_w(iw)%npoly
 
 ! Loop over IM/IV neighbors of IW
@@ -256,11 +259,11 @@ do iw = 2,nwa
       iw1 = itab_v(iv)%iw(1)
       iw2 = itab_v(iv)%iw(2)
 
-! Set mrlw to max of itab_wd neighbors
-
-      if (itab_w(iw)%mrlw < itab_wd(iwd)%mrlw) then
-          itab_w(iw)%mrlw = itab_wd(iwd)%mrlw
-      endif
+!! Set mrlw to max of itab_wd neighbors
+!
+!      if (itab_w(iw)%mrlw < itab_wd(iwd)%mrlw) then
+!          itab_w(iw)%mrlw = itab_wd(iwd)%mrlw
+!      endif
 
       itab_w(iw)%im(j) = im
       itab_w(iw)%iv(j) = iv
@@ -292,6 +295,7 @@ do im = 2,nma
 
    itab_m(im)%npoly     = itab_wd(iwd)%npoly
    itab_m(im)%imglobe   = itab_wd(iwd)%iwglobe
+   itab_m(im)%mrlm      = itab_wd(iwd)%mrlw
    itab_m(im)%mrlm_orig = itab_wd(iwd)%mrlw_orig
    itab_m(im)%mrow      = itab_wd(iwd)%mrow
    itab_m(im)%mrowh     = itab_wd(iwd)%mrowh
@@ -301,15 +305,15 @@ do im = 2,nma
 
 ! Loop over IW neighbors of IM
 
-   do j = 1,itab_m(im)%npoly
-      iw = itab_m(im)%iw(j)
-
-! Set mrlm to max of itab_w neighbors
-
-      if (itab_m(im)%mrlm < itab_w(iw)%mrlw) then
-          itab_m(im)%mrlm = itab_w(iw)%mrlw
-      endif
-   enddo
+!   do j = 1,itab_m(im)%npoly
+!      iw = itab_m(im)%iw(j)
+!
+!! Set mrlm to max of itab_w neighbors
+!
+!      if (itab_m(im)%mrlm < itab_w(iw)%mrlw) then
+!          itab_m(im)%mrlm = itab_w(iw)%mrlw
+!      endif
+!   enddo
 enddo
 
 ! Special: for a cartesian domain, do a lateral boundary copy of MRL
@@ -664,15 +668,15 @@ do im = 2,nma
 
 ! Number of polygon edges/vertices
 
-   npoly = itab_m(im)%npoly
-
+!   npoly = itab_m(im)%npoly
+!
 ! Loop over all polygon edges
-
-   do j = 1,npoly
-      iw = itab_m(im)%iw(j)
-
-      itab_m(im)%mrlm = max(itab_m(im)%mrlm, itab_w(iw)%mrlw)
-   enddo
+!
+!   do j = 1,npoly
+!      iw = itab_m(im)%iw(j)
+!
+!      itab_m(im)%mrlm = max(itab_m(im)%mrlm, itab_w(iw)%mrlw)
+!   enddo
 
 enddo
 !$omp end do

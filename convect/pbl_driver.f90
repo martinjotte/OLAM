@@ -150,7 +150,7 @@ subroutine pbl_init()
                            pblh, kpblh
   use mem_leaf,      only: land, itabg_wl
   use mem_basic,     only: vxe, vye, vze, thil, sh_v
-  use misc_coms,     only: io6, iparallel, runtype
+  use misc_coms,     only: io6, isubdomain, runtype
   use module_bl_acm2,only: acm2_pblhgt
   use leaf_coms,     only: isfcl
   use consts_coms,   only: eps_virt
@@ -172,7 +172,7 @@ subroutine pbl_init()
         iw  = landflux(ilf)%iw   ! global index
         iwl = landflux(ilf)%iwls ! global index
 
-        if (iparallel == 1) then
+        if (isubdomain == 1) then
            iw  = itabg_w (iw )%iw_myrank  ! local index
            iwl = itabg_wl(iwl)%iwl_myrank ! local index
         endif

@@ -178,7 +178,7 @@ use mem_grid,   only: mma, mva, mwa, zm, zt, lpu, lpv, lpw, &
                       xev, yev, zev, xew, yew, zew
 use mem_ijtabs, only: itab_m, itab_w, itab_u, itab_v, jtab_m, jtm_vadj, &
                       jtab_w, jtw_prog
-use misc_coms,  only: io6, iparallel, meshtype
+use misc_coms,  only: io6, isubdomain, meshtype
 use mem_para,   only: myrank
 
 implicit none
@@ -250,7 +250,7 @@ do jm = 1, jtab_m(jtm_vadj)%jend(1)
 
 ! TEMPORARY FIX TO AVOID ACCESSING UNDEFINED VALUES IN PARALLEL
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          if (itab_v(iv)%irank /= myrank) goto 8
       endif
 
@@ -418,7 +418,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
 
 ! TEMPORARY FIX TO AVOID ACCESSING UNDEFINED VALUES IN PARALLEL
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          if (itab_v(iv)%irank /= myrank) goto 9
       endif
 

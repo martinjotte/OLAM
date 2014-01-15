@@ -36,7 +36,7 @@ subroutine leaf4()
 use leaf_coms, only: nzg, nzs, mwl, iupdndvi, s1900_ndvi, indvifile, nndvifiles
 
 use mem_leaf,  only: land, itab_wl
-use misc_coms, only: io6, s1900_sim, iparallel
+use misc_coms, only: io6, s1900_sim, isubdomain
 
 use leaf4_landcell,    only: landcell
 use mem_para,          only: myrank
@@ -66,7 +66,7 @@ do iwl = 2,mwl
 
 ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
 
-   if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+   if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
    if (land%ed_flag(iwl) == 0) then 
 
