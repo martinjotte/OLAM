@@ -40,9 +40,6 @@ Module mem_cuparm
    real, allocatable, target :: aconpr   (:)
    real, allocatable, target :: conprr   (:)
 
-   ! Extra memory for KF_eta
-   real, allocatable, target :: w0avg(:,:)
-
    ! Extra memory for Grell
    integer, allocatable, target :: iact_gr(:)
 
@@ -87,12 +84,6 @@ Contains
        allocate (iact_gr(mwa)) ; iact_gr(:) = 0
     endif
 
-    ! Extra memory for KF_eta scheme
-
-    if ( any(nqparm(1:mrls) == 3) ) then
-       allocate (w0avg(mza,mwa)) ; w0avg = 0.0
-    endif
-
     ! Extra memory for Emanuel scheme
     
     if ( any(nqparm(1:mrls) == 4) ) then
@@ -112,7 +103,6 @@ Contains
     if (allocated(rtsrcsh)) deallocate (rtsrcsh)
     if (allocated(aconpr))  deallocate (aconpr)
     if (allocated(conprr))  deallocate (conprr)
-    if (allocated(w0avg))   deallocate (w0avg)
     if (allocated(iact_gr)) deallocate (iact_gr)
     if (allocated(cbmf))    deallocate (cbmf)
 
@@ -153,11 +143,6 @@ Contains
      if (allocated(conprr)) then
         call increment_vtable('CONPRR', 'AW')
         vtab_r(num_var)%rvar1_p => conprr
-     endif
-
-     if (allocated(w0avg)) then
-        call increment_vtable('W0AVG', 'AW')
-        vtab_r(num_var)%rvar2_p => w0avg
      endif
 
      if (allocated(iact_gr)) then

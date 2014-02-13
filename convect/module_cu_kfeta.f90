@@ -26,22 +26,22 @@ REAL, PARAMETER :: r     = 287.04
 
 CONTAINS
 
-   subroutine cuparm_kfeta(iw,dtlong,w0avg)
+   subroutine cuparm_kfeta(iw,dtlong)
 
    use mem_grid,    only: mza, mwa, lpu, lpv, lpw, zt, dzm, xew, yew, zew, &
                           unx, uny, unz, vnx, vny, vnz, arw0
    use misc_coms,   only: io6, meshtype
    use mem_cuparm,  only: thsrc, rtsrc, conprr
-   use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v
+   use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc
    use mem_ijtabs,  only: itab_w, jtab_w
    use consts_coms, only: p00i, rocp, erad
 
    implicit none
 
    integer, intent(in) :: iw
-   real, intent(in)    :: dtlong, w0avg(mza,mwa)
+   real,    intent(in) :: dtlong
 
-   integer :: kte, k, jv, iv, kv, kt
+   integer :: kte, k, jv, iv, kv, kt, npoly, jwn, iwn
    INTEGER :: trigger = 1
 
    real :: dqdt(mza),dqidt(mza),dqcdt(mza),dqrdt(mza)
@@ -52,7 +52,7 @@ CONTAINS
    real :: cubot(mwa),cutop(mwa)  ! bottom & top K level of cumulus (for radiation)
    real :: raincv(mwa)            ! time-step cumulus scheme precipitation (mm)
 
-   real :: wtold, wtnew, dxsq, dx, dt, raxis
+   real :: wtold, wtnew, dxsq, dx, dt, raxis, fnpoly1
 
    LOGICAL :: F_QR, F_QI, F_QS, warm_rain
 
@@ -65,6 +65,9 @@ CONTAINS
    F_QI = .FALSE.
    F_QS = .FALSE.
    warm_rain = .FALSE.
+
+   npoly = itab_w(iw)%npoly
+   fnpoly1 = 0.5 / real(npoly+1)
 
 ! Initialize 1D arrays
 
@@ -84,16 +87,21 @@ CONTAINS
    cubot(iw) = mza
 
    kte = mza - lpw(iw)
+   do k = lpw(iw), mza-1
+      if (press(k,iw) < 50.e2) then
+         kte = k - lpw(iw)
+         exit
+      endif
+   enddo
 
    do k = lpw(iw),mza-1
       kt = k + 1 - lpw(iw)
 
-      t1d    (kt) = tair (k,iw)
-      w0avg1d(kt) = w0avg(k,iw)
-      rho1d  (kt) = rho  (k,iw)
-      qv1d   (kt) = sh_v (k,iw)
-      p1d    (kt) = press(k,iw)
-      dz1d   (kt) = dzm  (k)
+      t1d  (kt) = tair (k,iw)
+      rho1d(kt) = rho  (k,iw)
+      qv1d (kt) = sh_v (k,iw)
+      p1d  (kt) = press(k,iw)
+      dz1d (kt) = dzm  (k)
 
 ! Compute zonal and meridional wind components
 
@@ -106,6 +114,18 @@ CONTAINS
          v1d(kt) = vye(k,iw)
       endif
 
+   enddo
+
+! Compute an area-mean vertical velocity
+
+   do k = lpw(iw), mza-1
+      kt = k + 1 - lpw(iw)
+      w0avg1d(kt) = fnpoly1 * (wc(k,iw) + wc(k+1,iw))
+      do jwn = 1,npoly
+         iwn = itab_w(iw)%iw(jwn)
+         if (lpw(iwn) > k) iwn = iw
+         w0avg1d(kt) = w0avg1d(kt) + fnpoly1 * (wc(k,iwn) + wc(k+1,iwn))
+      enddo
    enddo
 
    CALL KF_eta_PARA(mza,mwa,IW,io6,kte, &
@@ -441,9 +461,18 @@ usl:   DO
           a1=emix/aliq
           tp=(a1-astrt)/ainc
           indlu=int(tp)+1
-          value=(indlu-1)*ainc+astrt
-          aintrp=(a1-value)/ainc
-          tlog=aintrp*alu(indlu+1)+(1-aintrp)*alu(indlu)
+          ! Make sure we don't go beyond the bounds of the lookup table
+          if (indlu < 1) then
+             indlu = 1
+             aintrp = 0.0
+          elseif (indlu > 199) then
+             indlu = 199
+             aintrp = 1.0
+          else
+             value=(indlu-1)*ainc+astrt
+             aintrp=(a1-value)/ainc
+          endif
+          tlog=aintrp*alu(indlu+1)+(1.-aintrp)*alu(indlu)
           TDPT=(CLIQ-DLIQ*TLOG)/(BLIQ-TLOG)
           TLCL=TDPT-(.212+1.571E-3*(TDPT-T00)-4.36E-4*(TMIX-T00))*(TMIX-TDPT)
           TLCL=AMIN1(TLCL,TMIX)
@@ -1271,7 +1300,7 @@ d_mf:   IF(TDER.LT.1.)THEN
             DDR(NK)=DDR(NK)*DDINC
           ENDDO
          CPR=TRPPT
-         PPTFLX = TRPPT-TDER
+         PPTFLX = max(TRPPT-TDER, 0.0)
          PEFF=PPTFLX/TRPPT
          IF(IPRNT)THEN
            write(message,*)'PRECIP EFFICIENCY =',PEFF
@@ -1568,9 +1597,18 @@ iter:     DO NCOUNT=1,10
             a1=emix/aliq
             tp=(a1-astrt)/binc
             indlu=int(tp)+1
-            value=(indlu-1)*binc+astrt
-            aintrp=(a1-value)/binc
-            tlog=aintrp*alu(indlu+1)+(1-aintrp)*alu(indlu)
+            ! Make sure we don't go beyond the bounds of the lookup table
+            if (indlu < 1) then
+               indlu = 1
+               aintrp = 0.0
+            elseif (indlu > 199) then
+               indlu = 199
+               aintrp = 1.0
+            else
+               value=(indlu-1)*binc+astrt
+               aintrp=(a1-value)/binc
+            endif
+            tlog=aintrp*alu(indlu+1)+(1.-aintrp)*alu(indlu)
             TDPT=(CLIQ-DLIQ*TLOG)/(BLIQ-TLOG)
             TLCL=TDPT-(.212+1.571E-3*(TDPT-T00)-4.36E-4*(TMIX-T00))*(TMIX-TDPT)
             TLCL=AMIN1(TLCL,TMIX)
@@ -2071,6 +2109,16 @@ iter:     DO NCOUNT=1,10
       qq=tp-aint(tp)
       iptb=int(tp)+1
 
+      if (iptb > 219) then
+         write(io6,*)'**** OUT OF BOUNDS *********'
+         iptb = 219
+         qq = 1.0
+      elseif (iptb < 1) then
+         write(io6,*)'**** OUT OF BOUNDS *********'
+         iptb = 1
+         qq = 0.0
+      endif
+
 !***********************************************************************
 !              base and scaling factor for the                           
 !***********************************************************************
@@ -2081,13 +2129,15 @@ iter:     DO NCOUNT=1,10
       pp   =tth-aint(tth)
       ithtb=int(tth)+1
 
-      IF(IPTB.GE.220 .OR. IPTB.LT.1 .OR. ITHTB.GE.250 .OR. ITHTB.LT.1)THEN
+      if (ithtb > 249) then
          write(io6,*)'**** OUT OF BOUNDS *********'
-         iptb  = min(iptb,219)
-         iptb  = max(iptb,1  )
-         ithtb = min(ithtb,249)
-         ithtb = max(ithtb,1  )
-      ENDIF
+         ithtb = 249
+         pp = 1.0
+      elseif (ithtb < 1) then
+         write(io6,*)'**** OUT OF BOUNDS *********'
+         ithtb = 1
+         pp = 0.0
+      endif
 !
       t00=ttab(ithtb  ,iptb  )
       t10=ttab(ithtb+1,iptb  )
@@ -2147,7 +2197,7 @@ iter:     DO NCOUNT=1,10
 !...IF SOME LIQ WATER/ICE IS AVAILABLE, BUT NOT ENOUGH TO ACHIEVE SATURATION,
 !   THE TEMPERATURE IS GIVEN BY:
 !
-            TEMP=TEMP+RLL*((DQ-QTOT)/(1+DQ-QTOT))/CPP
+            TEMP=TEMP+RLL*((DQ-QTOT)/(1.+DQ-QTOT))/CPP
             QU=QU+QTOT
             QTOT=0.
             QLIQ=0.
@@ -2360,6 +2410,14 @@ iter:     DO NCOUNT=1,10
       qq=tp-aint(tp)
       iptb=int(tp)+1
 
+      if (iptb > 219) then
+         iptb = 219
+         qq = 1.0
+      elseif (iptb < 1) then
+         iptb = 1
+         qq = 0.0
+      endif
+
 !***********************************************************************
 !              base and scaling factor for the                           
 !***********************************************************************
@@ -2369,11 +2427,14 @@ iter:     DO NCOUNT=1,10
       tth=(thes-bth)*rdthk
       pp   =tth-aint(tth)
       ithtb=int(tth)+1
-
-      iptb  = min(iptb,219)
-      iptb  = max(iptb,1  )
-      ithtb = min(ithtb,249)
-      ithtb = max(ithtb,1  )
+      
+      if (ithtb > 249) then
+         ithtb = 249
+         pp = 1.0
+      elseif (ithtb < 1) then
+         ithtb = 1
+         pp = 0.0
+      endif
 
       t00=ttab(ithtb  ,iptb  )
       t10=ttab(ithtb+1,iptb  )
@@ -2424,9 +2485,20 @@ iter:     DO NCOUNT=1,10
       a1=ee/aliq
       tp=(a1-astrt)/ainc
       indlu=int(tp)+1
-      value=(indlu-1)*ainc+astrt
-      aintrp=(a1-value)/ainc
-      tlog=aintrp*alu(indlu+1)+(1-aintrp)*alu(indlu)
+      
+      ! Make sure we don't go beyond the bounds of the lookup table
+      if (indlu < 1) then
+         indlu = 1
+         aintrp = 0.0
+      elseif (indlu > 199) then
+         indlu = 199
+         aintrp = 1.0
+      else
+         value=(indlu-1)*ainc+astrt
+         aintrp=(a1-value)/ainc
+      endif
+
+      tlog=aintrp*alu(indlu+1)+(1.-aintrp)*alu(indlu)
 
       TDPT=(CLIQ-DLIQ*TLOG)/(BLIQ-TLOG)                               
       TSAT=TDPT-(.212+1.571E-3*(TDPT-T00)-4.36E-4*(T1-T00))*(T1-TDPT) 

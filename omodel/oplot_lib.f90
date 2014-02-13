@@ -963,8 +963,8 @@ case(39) ! 'FTHRD'
    if (.not. allocated(fthrd_sw)) goto 1000
    if (.not. allocated(fthrd_lw)) goto 1000
 
-   fldval = wtbot * (fthrd_sw(k  ,i) + fthrd_sw(k  ,i)) &
-          + wttop * (fthrd_lw(k+1,i) + fthrd_lw(k+1,i))
+   fldval = wtbot * (fthrd_sw(k  ,i) + fthrd_lw(k  ,i)) &
+          + wttop * (fthrd_sw(k+1,i) + fthrd_lw(k+1,i))
 
 case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERID_WINDV_P'
 
@@ -3047,14 +3047,14 @@ case(352) ! 'UMERID_SIM'
 
 case(353) ! 'RHO_OBS_SIM'
 
-   if (.not. allocated(rho_obs)) go to 1000
+   if (.not. allocated(rho_sim)) go to 1000
 
    fldval = rho_obs(k,itab_w(i)%iwnud(1)) &
           - rho_sim(k,itab_w(i)%iwnud(1))
 
 case(354) ! 'THETA_OBS_SIM'
 
-   if (.not. allocated(theta_obs)) go to 1000
+   if (.not. allocated(theta_sim)) go to 1000
 
 !   fldval = theta_obs(k,itab_w(i)%iwnud(1)) &
 !          - theta_sim(k,itab_w(i)%iwnud(1))
@@ -3063,21 +3063,21 @@ case(354) ! 'THETA_OBS_SIM'
 
 case(355) ! 'SHW_OBS_SIM'
 
-   if (.not. allocated(shw_obs)) go to 1000
+   if (.not. allocated(shw_sim)) go to 1000
 
    fldval = shw_obs(k,itab_w(i)%iwnud(1)) * 1.e3 &
           - shw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
 
 case(356) ! 'UZONAL_OBS_SIM'
 
-   if (.not. allocated(uzonal_obs)) go to 1000
+   if (.not. allocated(uzonal_sim)) go to 1000
 
    fldval = uzonal_obs(k,itab_w(i)%iwnud(1)) &
           - uzonal_sim(k,itab_w(i)%iwnud(1))
 
 case(357) ! 'UMERID_OBS_SIM'
 
-   if (.not. allocated(umerid_obs)) go to 1000
+   if (.not. allocated(umerid_sim)) go to 1000
 
    fldval = umerid_obs(k,itab_w(i)%iwnud(1)) &
           - umerid_sim(k,itab_w(i)%iwnud(1))

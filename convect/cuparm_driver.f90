@@ -37,14 +37,11 @@ use module_cu_kfeta, only: kf_lutab, cuparm_kfeta
 use misc_coms,       only: io6, time_istp8, time_istp8p, nqparm, nqparm_sh, &
                            confrq, dtlong, initial, itime1
 use mem_ijtabs,      only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog
-use mem_cuparm,      only: thsrc, rtsrc, thsrcsh, rtsrcsh, aconpr, conprr, &
-                           w0avg
+use mem_cuparm,      only: thsrc, rtsrc, thsrcsh, rtsrcsh, aconpr, conprr
 use mem_tend,        only: thilt, sh_wt
-use mem_basic,       only: wc, rho
+use mem_basic,       only: rho
 use consts_coms,     only: r8
 use emanuel_coms,    only: alloc_eman
-
-!$ use omp_lib
 
 implicit none
 
@@ -57,30 +54,16 @@ integer, save       :: init_em = 0
 real    :: dthmax, ftcon, dtlong4
 integer :: iwqmax, kqmax
 
-! Time-weighting coefficients for w average
-
-real, parameter :: wtnew = 0.05
-real, parameter :: wtold = 1.00 - wtnew
-
 ! For KF_eta parameterization, initialize scheme if needed
-! and compute running mean vertical velocity
 
 if ( any(nqparm(1:mrls) == 3) ) then
-
    if (init_kf == 0) then
       init_kf = 1
       call kf_lutab()
    endif
-
-   !$omp parallel do private(iw,mrlw)
-   do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
-      do k = lpw(iw),mza-1
-         w0avg(k,iw) = w0avg(k,iw) * wtold + .5 * (wc(k,iw) + wc(k+1,iw)) * wtnew
-      enddo
-   enddo
-   !$omp end parallel do
-
 endif
+
+! For Emanuel parameterization, allocate additional memory
 
 if ( any(nqparm(1:mrls) == 4) ) then
    if (init_em == 0) then
@@ -117,7 +100,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
    call psub()
 !----------------------------------------------------------------------
-!$omp parallel do private(iw,mrlw) 
+!$omp parallel do private(iw,mrlw,k,ftcon,dthmax,iwqmax,kqmax) 
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
 !----------------------------------------------------------------------
    call qsub('W',iw)
@@ -144,7 +127,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
    
 ! Kain-Fritsch deep convection
 
-         call cuparm_kfeta(iw,dtlong4,w0avg)
+         call cuparm_kfeta(iw,dtlong4)
 
       elseif (nqparm(mrlw) == 4) then
    

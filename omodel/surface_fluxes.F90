@@ -70,6 +70,7 @@ use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
 use mem_turb,    only: vkm_sfc, sflux_t, sflux_r, sxfer_tk, sxfer_rk, &
                        ustar, wstar, wtv0, pblh
 use mem_basic,   only: press, rho, theta, tair, sh_v, vxe, vye, vze
+use mem_micro,   only: sh_c
 use consts_coms, only: grav, p00i, rocp, cpi
 
 implicit none
@@ -92,7 +93,7 @@ real :: vkmsfc, vkmsfcs, vkmsfci
 real :: vels
 real :: my_co2, ed_zeta, ed_rib
 
-real :: shflx
+real :: shflx, sh_vc
 
 if (isfcl == 0) then
 
@@ -210,6 +211,12 @@ do j = 1,jseaflux(1)%jend(mrl)
    vels   = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
    exneri = theta(kw,iw) / tair(kw,iw)
 
+   if (allocated(sh_c)) then
+      sh_vc = sh_v(kw,iw) + sh_c(kw,iw)
+   else
+      sh_vc = sh_v(kw,iw)
+   endif
+
 ! Sea (open water) component always computed
 
    call stars(zt(kw)-zm(kw-1),         &
@@ -217,7 +224,7 @@ do j = 1,jseaflux(1)%jend(mrl)
               vels,                    &
               rho      (kw,iw),        &
               tair     (kw,iw),        &
-              sh_v     (kw,iw),        &
+              sh_vc,                   &
               sea%seacan_temp(iws),    &
               sea%seacan_shv (iws),    &
               vkmsfcs,                 &
@@ -235,7 +242,7 @@ do j = 1,jseaflux(1)%jend(mrl)
                 vels,                    &
                 rho      (kw,iw),        &
                 tair     (kw,iw),        &
-                sh_v     (kw,iw),        &
+                sh_vc,                   &
                 sea%icecan_temp(iws),    &
                 sea%icecan_shv (iws),    &
                 vkmsfci,                 &
@@ -349,6 +356,12 @@ do j = 1,jlandflux(1)%jend(mrl)
    vels   = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
    exneri = theta(kw,iw) / tair(kw,iw)
 
+   if (allocated(sh_c)) then
+      sh_vc = sh_v(kw,iw) + sh_c(kw,iw)
+   else
+      sh_vc = sh_v(kw,iw)
+   endif
+
 ! Store atmospheric properties in landflux cell
 
    landflux(ilf)%vels = arf_land * vels
@@ -364,7 +377,7 @@ do j = 1,jlandflux(1)%jend(mrl)
                  vels,                 &
                  rho         (kw,iw),  &
                  tair        (kw,iw),  &
-                 sh_v        (kw,iw),  &
+                 sh_vc,                &
                  land%can_temp (iwl),  &
                  land%can_shv  (iwl),  &
                  vkmsfc,               &
@@ -388,7 +401,7 @@ do j = 1,jlandflux(1)%jend(mrl)
            vels,                 &
            rho         (kw,iw),  &
            tair        (kw,iw),  &
-           sh_v        (kw,iw),  &
+           sh_vc,                &
            my_co2,               &
            vkmsfc,               &
            landflux(ilf)%sfluxt, &
