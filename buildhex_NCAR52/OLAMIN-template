@@ -261,8 +261,11 @@
  
    NL%ISWRTYP = 3   ! Shortwave radiation type:
    NL%ILWRTYP = 3   ! Longwave  radiation type:
-                    !   0=none, 3=Harrington
+                    !   0=none, 2=RRTMG, 3=Harrington
+
    NL%RADFRQ  = 900.  ! Time interval between radiation tendency updates (s)
+
+   NL%RRTMG_DATADIR = ../etc  ! Directory containing RRTMg input files
 
  !--------------------------------------------------------------------------
  ! Cumulus parameterization parameters

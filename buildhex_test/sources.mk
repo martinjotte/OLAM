@@ -141,6 +141,7 @@ SOURCE_FILES= \
              $(RADIATE)/mem_radiate.f90 \
              $(RADIATE)/rad_driv.F90 \
              $(RADIATE)/rad_mclat.f90 \
+             $(RADIATE)/rrtmg_cloud_optics.f90 \
              $(RADIATE)/rrtmg_raddriv.f90 \
              $(RADIATE)/rrtmg_lw/mcica_random_numbers.f90 \
              $(RADIATE)/rrtmg_lw/mcica_subcol_gen_lw.f90 \

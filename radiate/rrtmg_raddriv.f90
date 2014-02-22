@@ -1,46 +1,24 @@
-!!module rrtmg_drivermod
-!!  implicit none
-!!
-!!  integer, parameter :: ncol   = 1
-!!  integer, parameter :: icld   = 2
-!!  integer, parameter :: dyofyr = 0
-!!  integer, parameter :: inflg  = 0
-!!  integer, parameter :: iceflg = 0
-!!  integer, parameter :: liqflg = 0
-!!  
-!!contains
-!!
-!!  subroutine alloc_rrtmg_columns
-!!
-!!    integer, intent(in) :: 
-!!
-!!
-
 subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   use mem_grid,    only: mza, zm, zt, glatw, glonw, dzt, dzim
-
   use mem_basic,   only: rho, press, theta, tair, sh_v
-
   use misc_coms,   only: io6, iswrtyp, ilwrtyp, time8
-
   use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1
-
   use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
                          rshort_top, rshortup_top, rlongup_top, fthrd_sw, &
                          albedt_beam, albedt_diffuse, rshort_diffuse, &
                          rlong_albedo, solfac
-
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dnfac
+  use rrtmg_cloud, only: cloud_props
 
   use parrrtm,              only: nbndlw
-  use parrrsw,              only: nbndsw, jpb1, jpb2
+  use parrrsw,              only: nbndsw !, jpb1, jpb2
   use rrtmg_sw_rad_nomcica, only: rrtmg_sw_nomcica
   use rrtmg_sw_rad,         only: rrtmg_sw
   use rrtmg_lw_rad_nomcica, only: rrtmg_lw_nomcica
   use rrtmg_lw_rad,         only: rrtmg_lw
-  use rrsw_cld,             only: extliq1, ssaliq1, asyliq1, extice2, ssaice2, asyice2
-  use rrlw_cld,             only: absliq1, absice2
+!  use rrsw_cld,             only: extliq1, ssaliq1, asyliq1, extice2, ssaice2, asyice2
+!  use rrlw_cld,             only: absliq1, absice2
 
   implicit none
 
@@ -65,10 +43,6 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: rx   (mza,ncat)  ! hydrom bulk spec dens [kg_hyd/kg_air]
   real :: cx   (mza,ncat)  ! hydrom bulk number [num_hyd/kg_air]
   real :: emb  (mza,ncat)  ! hydrom mean particle mass [kg/particle]
-
-  integer :: mc, mcat, ih
-  real    :: r_ef, watp
-
 
   real :: coszen(ncol)
   real :: tsfc  (ncol)
@@ -140,7 +114,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: ecaer  (ncol, nrad, nbndsw)
 
   integer :: k, krad, icloud, index, ib, jb
-  real    :: lwc, tau, ssa, asm, fint, ext, abs
+  integer :: mc, mcat, ih, l, num
+  real    :: tau, ssa, asm
+  real    :: r_ef, watp, rstart, rend, rscale, fint0, fint1
 
 ! Set gas volume mixing ratios, 2005 values, IPCC (2007)
 
@@ -156,6 +132,30 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 ! Molecular weight of dry air / ozone
 
   real, parameter :: amdo3 = 0.603428
+
+! Array kradcat maps RAMS/OLAM microphysics hydrometeor categories to those
+! represented in the cloud optics tables according to the following numbering:
+
+!     Lookup table category             OLAM Microphysics
+! ----------------------------------------------------------------
+!  1:   cloud drops                 1.  cloud drops
+!  2:   drizzle                     2.  rain
+!  3:   rain                        3.  pristine ice columns
+!  4:   hail                        4.  snow columns
+!  5:   aggregates                  5.  aggregates
+!  6:   hollow columns              6.  graupel
+!  7:   solid columns               7.  hail
+!  8:   hexagonal plates            8.  drizzle
+!  9:   rosettes                    9.  pristine ice hexagonal plates
+!                                  10.  pristine ice dendrites
+!                                  11.  pristine ice needles
+!                                  12.  pristine ice rosettes
+!                                  13.  snow hexagonal plates
+!                                  14.  snow dendrites
+!                                  15.  snow needles
+!                                  16.  snow rosettes
+
+integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
 ! Set some surface values needed by RRTMg
 
@@ -233,7 +233,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   plev(ncol,nrad+1) = play(ncol,nrad) + (ztl(nrad) - zml(nrad)) * dl(nrad) * grav * 0.01
   tlev(ncol,nrad+1) = tlay(ncol,nrad)
 
-! NO CLOUDS FOR NOW !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! initialize cloud properties to 0
+  
   cldfr    (ncol,:) = 0.0
   taucldl(:,ncol,:) = 0.0
   tauclds(:,ncol,:) = 0.0
@@ -244,142 +245,65 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   cliqwp   (ncol,:) = 0.0
   reice    (ncol,:) = 0.0
   reliq    (ncol,:) = 0.0
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 ! Fill arrays rx, cx, and emb with hydrometeor properties
 
   call cloudprep_rad(iw,ka,mcat,jhcat,rhov,rx,cx,emb)
 
-  do mc = 1, 8
+  do mc = 1, mcat
 
      do k = ka, mza-1
         krad = k - koff
 
         if (rx(k,mc) >= rxmin(mc) .and. emb(k,mc) >= emb0(mc)) then
 
-           ih = jhcat(k,mc)
            cldfr(1,krad) = 1.0
+
+           ih = jhcat(k,mc)
+           l  = kradcat(ih)
+
+           num    = cloud_props(l)%num
+           rstart = cloud_props(l)%start
+           rend   = cloud_props(l)%end
+
            r_ef = 1.e6 * reffcof(ih) * emb(k,mc) ** pwmasi(ih)
+           r_ef = max(rstart, min(rend, r_ef))
            watp = rx(k,mc) * dl(krad) * 1000. * dzt(k)
 
-           if (any( ih == (/ 1, 2, 8 /) )) then
+           rscale = (r_ef - rstart) / cloud_props(l)%delr
+           index  = max(1, min(num-1, int(rscale) + 1))
+           fint1  = rscale - real(index-1)
+           fint0  = 1.0 - fint1
 
-              ! Spherical water droplet model for solar
+           if (iswrtyp == 2 .and. cosz(iw) >= 0.03) then
 
-              if (iswrtyp == 2 .and. cosz(iw) >= 0.03) then
-                 do ib = 1, nbndsw
-                    jb = ib + jpb1 - 1
+              do ib = 1, nbndsw
+                 tau = ( fint0 * cloud_props(l)%extsw(ib, index  ) &
+                       + fint1 * cloud_props(l)%extsw(ib, index+1) ) * watp
 
-                    if (r_ef <= 2.5) then
-                       ext = extliq1(1,jb)
-                       ssa = ssaliq1(1,jb)
-                       asm = asyliq1(1,jb)
-                    elseif (r_ef >= 59.5) then
-                       ext = extliq1(58,jb)
-                       ssa = ssaliq1(58,jb)
-                       asm = asyliq1(58,jb)
-                    else
-                       index = max(1, min( int(r_ef - 1.5), 57) )
-                       fint  = r_ef - 1.5 - real(index)
+                 ssa = fint0 * cloud_props(l)%ssasw(ib, index  ) &
+                     + fint1 * cloud_props(l)%ssasw(ib, index+1)
 
-                       ext = extliq1(index,jb) + &
-                             fint * (extliq1(index+1,jb) - extliq1(index,jb))
+                 asm = fint0 * cloud_props(l)%asysw(ib, index  ) &
+                     + fint1 * cloud_props(l)%asysw(ib, index+1)
 
-                       ssa = ssaliq1(index,jb) + &
-                             fint * (ssaliq1(index+1,jb) - ssaliq1(index,jb))
-
-                       asm = asyliq1(index,jb) + &
-                             fint * (asyliq1(index+1,jb) - asyliq1(index,jb))
-                    endif
-
-                    tau = watp * ext
-                    tauclds(ib,1,krad) = tauclds(ib,1,krad) + tau
-                    ssaclds(ib,1,krad) = ssaclds(ib,1,krad) + tau * ssa
-                    asmclds(ib,1,krad) = asmclds(ib,1,krad) + tau * ssa * asm
-
-                 enddo
-              endif
-
-              ! Spherical water droplet model for longwave
-
-              if (ilwrtyp == 2) then
-                 do ib = 1, nbndlw
-                 
-                    if (r_ef <= 2.5) then
-                       abs = absliq1(1,ib)
-                    elseif (r_ef >= 59.5) then
-                       abs = absliq1(58,ib)
-                    else
-                       index = max(1, min( int(r_ef - 1.5), 57) )
-                       fint  = r_ef - 1.5 - real(index)
-                       abs = absliq1(index,ib) + &
-                             fint * (absliq1(index+1,ib) -absliq1(index,ib))
-                    endif
-
-                    taucldl(ib,1,krad) = taucldl(ib,1,krad) + watp * abs
-
-                 enddo
-              endif
-
-           else
-
-              ! Spherical ice model for solar
-
-              if (iswrtyp == 2 .and. cosz(iw) >= 0.03) then
-                 do ib = 1, nbndsw
-                    jb = ib + jpb1 - 1
-
-                    if (r_ef <= 5.0) then
-                       ext = extice2(1,jb)
-                       ssa = ssaice2(1,jb)
-                       asm = asyice2(1,jb)
-                    elseif (r_ef >= 131) then
-                       ext = extice2(43,jb)
-                       ssa = ssaice2(43,jb)
-                       asm = asyice2(43,jb)
-                    else
-                       index = max(1, min( int((r_ef - 2.0)/3.0), 42) )
-                       fint  = (r_ef - 2.0)/3.0 - real(index)
-
-                       ext = extice2(index,jb) + &
-                             fint * (extice2(index+1,jb) - extice2(index,jb))
-
-                       ssa = ssaice2(index,jb) + &
-                             fint * (ssaice2(index+1,jb) - ssaice2(index,jb))
-
-                       asm = asyice2(index,jb) + &
-                             fint * (asyice2(index+1,jb) - asyice2(index,jb))
-                    endif
-                 
-                    tau = watp * ext
-                    tauclds(ib,1,krad) = tauclds(ib,1,krad) + tau
-                    ssaclds(ib,1,krad) = ssaclds(ib,1,krad) + tau * ssa
-                    asmclds(ib,1,krad) = asmclds(ib,1,krad) + tau * ssa * asm
-
-                 enddo
-              endif
-
-              if (ilwrtyp == 2) then
-                 do ib = 1, nbndlw
-
-                    if (r_ef <= 5.0) then
-                       abs = absice2(1,ib)
-                    elseif (r_ef >= 131) then
-                       abs = absice2(43,ib)
-                    else
-                       index = max(1, min( int((r_ef - 2.0)/3.0), 42) )
-                       fint  = (r_ef - 2.0)/3.0 - real(index)
-                       abs = absice2(index,ib) + &
-                             fint * (absice2(index+1,ib) - absice2(index,ib))
-                    endif
-
-                    taucldl(ib,1,krad) = taucldl(ib,1,krad) + watp * abs
-
-                 enddo
-              endif
+                 tauclds(ib,1,krad) = tauclds(ib,1,krad) + tau
+                 ssaclds(ib,1,krad) = ssaclds(ib,1,krad) + tau * ssa
+                 asmclds(ib,1,krad) = asmclds(ib,1,krad) + tau * ssa * asm
+              enddo
 
            endif
 
+           if (ilwrtyp == 2) then
+
+              do ib = 1, nbndlw
+                 tau = ( fint0 * cloud_props(l)%abslw(ib, index  ) &
+                       + fint1 * cloud_props(l)%abslw(ib, index+1) ) * watp
+
+                 taucldl(ib,1,krad) = taucldl(ib,1,krad) + tau
+              enddo
+
+           endif
         endif
      enddo
   enddo
@@ -391,7 +315,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
      do k = ka, mza-1
         krad = k - koff
         do ib = 1, nbndsw
-           if (tauclds(ib,1,krad) > 1.e-15 .and. ssaclds(ib,1,krad) > 1.e-15) then
+           if (tauclds(ib,1,krad) > 1.e-12 .and. ssaclds(ib,1,krad) > 1.e-12) then
               asmclds(ib,1,krad) = asmclds(ib,1,krad) / ssaclds(ib,1,krad)
               ssaclds(ib,1,krad) = ssaclds(ib,1,krad) / tauclds(ib,1,krad)
               fsfclds(ib,1,krad) = asmclds(ib,1,krad) * asmclds(ib,1,krad)
@@ -400,13 +324,6 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
      enddo
           
      icloud = icld
-
-!!     swuflx  = 0.0
-!!     swdflx  = 0.0
-!!     swhr    = 0.0
-!!     swuflxc = 0.0
-!!     swdflxc = 0.0
-!!     swhrc   = 0.0
 
      call rrtmg_sw_nomcica( ncol   , nrad   , icloud ,                          &
                             play   , plev   , tlay   , tlev   , tsfc   ,        &

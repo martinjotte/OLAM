@@ -22,6 +22,8 @@
 
       implicit none
 
+      character(20), parameter :: rrtmg_sw_file = "rrtmg_sw.h5"
+
       contains
 
 ! **************************************************************************
@@ -37,12 +39,13 @@
 !  spectral band are reduced from 224 g-point intervals to 112.
 ! **************************************************************************
 
-      use parrrsw, only : mg, nbndsw, ngptsw
+      use parrrsw,  only : mg, nbndsw, ngptsw
       use rrsw_tbl, only: ntbl, tblint, pade, bpade, tau_tbl, exp_tbl
       use rrsw_vsn, only: hvrini, hnamini
 
       use hdf5_utils, only: shdf5_open, shdf5_close
       use oname_coms, only: nl
+      use max_dims,   only: pathlen
 
       real(kind=rb), intent(in) :: cpdair     ! Specific heat capacity of dry air
                                               ! at constant pressure at 273 K
@@ -59,6 +62,8 @@
 
       real(kind=rb), parameter :: expeps = 1.e-20_rb   ! Smallest value for exponential table
       logical :: exists
+
+      character(pathlen) :: inputfile
 
 ! ------- Definitions -------
 !     Arrays for 10000-point look-up tables:
@@ -77,13 +82,15 @@
       call swcldpr               ! cloud optical properties
       call swatmref              ! reference MLS profile
 
-      inquire(file=nl%rrtmg_sw_file, exist=exists)
+      inputfile = trim(nl%rrtmg_datadir) // "/" // trim(rrtmg_sw_file)
+
+      inquire(file=inputfile, exist=exists)
       if (.not. exists) then
-         write(*,*) "rrtmg_sw_init: Error opening data file " // trim(nl%rrtmg_sw_file)
+         write(*,*) "rrtmg_sw_init: Error opening data file " // trim(inputfile)
          stop       "RRTMg shortwave datafile cannot be found"
       endif
 
-      call shdf5_open(nl%rrtmg_sw_file, 'R')
+      call shdf5_open(inputfile, 'R')
 
       call sw_kgb16_h5              ! molecular absorption coefficients
       call sw_kgb17_h5

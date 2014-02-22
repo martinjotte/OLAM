@@ -717,16 +717,18 @@ end subroutine sunloc
 
 subroutine radinit()
 
-use mem_radiate,   only: maxadd_rad, nadd_rad, zmrad
-use mem_grid,      only: mza, zm
-use misc_coms,     only: io6, iswrtyp, ilwrtyp
-use consts_coms,   only: cp
-use rrtmg_sw_init, only: rrtmg_sw_ini
-use rrtmg_lw_init, only: rrtmg_lw_ini
+  use mem_radiate,   only: maxadd_rad, nadd_rad, zmrad
+  use mem_grid,      only: mza, zm
+  use misc_coms,     only: io6, iswrtyp, ilwrtyp
+  use consts_coms,   only: cp
+  use rrtmg_sw_init, only: rrtmg_sw_ini
+  use rrtmg_lw_init, only: rrtmg_lw_ini
+  use rrtmg_cloud,   only: rsw_cld_optics_init, rlw_cloud_optics_init
 
-implicit none
 
-real :: deltaz
+  implicit none
+
+  real :: deltaz
 
 ! Compute NADD_RAD, the number of radiation levels to be added above the top
 ! model prognostic level.  (Added levels will be filled elsewhere with data 
@@ -740,26 +742,32 @@ real :: deltaz
 ! Make it approximately the increment between the two highest model levels,
 ! but no less than allowed by maxadd_rad, the maximum number of added levels.
    
-   zmrad = 45.e3
+  zmrad = 45.e3
 
-   deltaz = max( zm(mza-1) - zm(mza-2), (zmrad - zm(mza-1)) / real(maxadd_rad) )
+  deltaz = max( zm(mza-1) - zm(mza-2), (zmrad - zm(mza-1)) / real(maxadd_rad) )
 
-   zmrad = max(zmrad, zm(mza-1) + 5. * deltaz)
+  zmrad = max(zmrad, zm(mza-1) + 5. * deltaz)
 
-   nadd_rad = nint( (zmrad - zm(mza-1)) / deltaz )
-   nadd_rad = max(nadd_rad,1)
-   nadd_rad = min(nadd_rad,maxadd_rad)
+  nadd_rad = nint( (zmrad - zm(mza-1)) / deltaz )
+  nadd_rad = max(nadd_rad,1)
+  nadd_rad = min(nadd_rad,maxadd_rad)
 
 ! Initialize constants for Harrington s/w and l/w radiation computations
 
-if (iswrtyp == 3 .or. ilwrtyp == 3) call harr_radinit()
+  if (iswrtyp == 3 .or. ilwrtyp == 3) call harr_radinit()
 
 ! Initialize RRTMG s/w scheme
 
-if (iswrtyp == 2) call rrtmg_sw_ini(cp)
+  if (iswrtyp == 2) then
+     call rrtmg_sw_ini(cp)
+     call rsw_cld_optics_init()
+  endif
 
 ! Initialize RRTMG l/w scheme
 
-if (ilwrtyp == 2) call rrtmg_lw_ini(cp)
+  if (ilwrtyp == 2) then
+     call rrtmg_lw_ini(cp)
+     call rlw_cloud_optics_init()
+  endif
 
 end subroutine radinit
