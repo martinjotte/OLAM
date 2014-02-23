@@ -865,6 +865,9 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
    do im = nma+1,nma0
       itab_md(im)%imp = im
+
+      if (nconcave /= 3) itab_md(im)%mrlm = mrloo
+
       if (meshtype == 1) then
          call mdloopf('f',im, jtm_grid, jtm_vadj, 0, 0, 0, 0)
       else
@@ -1965,7 +1968,7 @@ do ipt = 1,ngrdll(ngr)
 
    if (dist < grdrad(ngr)) then
       inside = 1
-   elseif (inside == 0 .and. dist < grdrad(ngr) * 1.1 ) then
+   elseif (inside == 0 .and. dist < grdrad(ngr) * 1.2 ) then
       inside = 2  ! larger radius when searching for ipent points
    endif
 
