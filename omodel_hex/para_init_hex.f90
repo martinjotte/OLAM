@@ -775,7 +775,7 @@ do im = 2, nma
       imp = itab_m_pd(im)%imp
 
       if (myrankflag_m(im)) then
-         if (itabg_m(iwp)%irank /= myrank) call recv_table_m(itabg_m(imp)%irank)
+         if (itabg_m(imp)%irank /= myrank) call recv_table_m(itabg_m(imp)%irank)
       endif
 
 ! Add to send table any V or M point that is primary on myrank and is 
