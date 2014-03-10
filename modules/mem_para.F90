@@ -32,6 +32,15 @@
 !===============================================================================
 Module mem_para
 
+#ifdef OLAM_MPI
+   use mpi, only: MPI_REQUEST_NULL
+   implicit none
+   private     :: MPI_REQUEST_NULL
+#else
+   implicit none
+   integer, parameter, private :: MPI_REQUEST_NULL = 0
+#endif
+
   integer :: mgroupsize
   integer :: myrank
 
@@ -69,9 +78,9 @@ Module mem_para
 
   Type nodebuffs
      character, allocatable :: buff(:)
-     integer :: nbytes  =  0
-     integer :: iremote = -1
-     integer :: irequest
+     integer :: nbytes   =  0
+     integer :: iremote  = -1
+     integer :: irequest = MPI_REQUEST_NULL
   End Type nodebuffs
 
   type(nodebuffs), allocatable :: send_u(:)
@@ -138,5 +147,14 @@ Module mem_para
   integer, target, allocatable :: iwnud_globe_primary(:)
   integer, target, allocatable :: iwnud_local_primary(:)
 
-End Module mem_para
+  integer, parameter :: itagu   = 0
+  integer, parameter :: itagv   = 1
+  integer, parameter :: itagm   = 2
+  integer, parameter :: itagw   = 3
+  integer, parameter :: itagwl  = 4
+  integer, parameter :: itagwlf = 5
+  integer, parameter :: itagws  = 6
+  integer, parameter :: itagwsf = 7
+  integer, parameter :: itagwnud= 8
 
+End Module mem_para

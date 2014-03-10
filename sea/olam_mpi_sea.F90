@@ -217,7 +217,7 @@ subroutine mpi_send_ws(sendgroup)
 
 use misc_coms,  only: io6
 use mem_sea,    only: sea, itab_ws, jtab_ws_mpi
-use mem_para,   only: nrecvs_ws, nsends_ws, send_ws, recv_ws
+use mem_para,   only: nrecvs_ws, nsends_ws, send_ws, recv_ws, itagws
 
 implicit none
 
@@ -227,7 +227,6 @@ character(1), intent(in) :: sendgroup
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
-integer :: itag6 = 6
 integer :: j
 integer :: iws
 integer :: iwsglobe
@@ -237,7 +236,7 @@ integer :: iwsglobe
 do jrecv = 1,nrecvs_ws(1)
 
    call MPI_Irecv(recv_ws(jrecv)%buff,recv_ws(jrecv)%nbytes,MPI_PACKED,  &
-                  recv_ws(jrecv)%iremote,itag6,MPI_COMM_WORLD,          &
+                  recv_ws(jrecv)%iremote,itagws,MPI_COMM_WORLD,          &
                   recv_ws(jrecv)%irequest,ierr                          )
 
 enddo
@@ -308,7 +307,7 @@ do jsend = 1,nsends_ws(1)
    call rsub('WSsend',jsend)
 
    call MPI_Isend(send_ws(jsend)%buff,ipos,MPI_PACKED,        &
-                  send_ws(jsend)%iremote,itag6,MPI_COMM_WORLD,  &
+                  send_ws(jsend)%iremote,itagws,MPI_COMM_WORLD,  &
                   send_ws(jsend)%irequest,ierr                  )
 
 enddo
@@ -330,7 +329,7 @@ subroutine mpi_send_wsf(sendgroup,mrl)
 #endif
 
 use misc_coms,  only: io6
-use mem_para,   only: nrecvs_wsf, nsends_wsf, send_wsf, recv_wsf
+use mem_para,   only: nrecvs_wsf, nsends_wsf, send_wsf, recv_wsf, itagwsf
 use mem_sflux,  only: seaflux, jseaflux
 
 implicit none
@@ -342,7 +341,6 @@ integer,      intent(in) :: mrl
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
-integer :: itag7 = 7
 integer :: j
 integer :: isf
 integer :: isfglobe
@@ -356,7 +354,7 @@ if (mrl < 1) return
 do jrecv = 1,nrecvs_wsf(mrl)
 
    call MPI_Irecv(recv_wsf(jrecv)%buff,recv_wsf(jrecv)%nbytes,MPI_PACKED,  &
-                  recv_wsf(jrecv)%iremote,itag7,MPI_COMM_WORLD,          &
+                  recv_wsf(jrecv)%iremote,itagwsf,MPI_COMM_WORLD,          &
                   recv_wsf(jrecv)%irequest,ierr                          )
 
 enddo
@@ -449,7 +447,7 @@ do jsend = 1,nsends_wsf(mrl)
    call rsub('WSFsend',jsend)
 
    call MPI_Isend(send_wsf(jsend)%buff,ipos,MPI_PACKED,        &
-                  send_wsf(jsend)%iremote,itag7,MPI_COMM_WORLD,  &
+                  send_wsf(jsend)%iremote,itagwsf,MPI_COMM_WORLD,  &
                   send_wsf(jsend)%irequest,ierr                  )
 
 enddo

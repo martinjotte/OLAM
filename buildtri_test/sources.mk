@@ -49,7 +49,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_micro.f90 \
              $(MODEL_MODS)/mem_mksfc.f90 \
              $(MODEL_MODS)/mem_nudge.f90 \
-             $(MODEL_MODS)/mem_para.f90 \
+             $(MODEL_MODS)/mem_para.F90 \
              $(MODEL_MODS)/mem_plot.f90 \
              $(MODEL_MODS)/mem_rayf.f90 \
              $(MODEL_MODS)/mem_sflux.f90 \
