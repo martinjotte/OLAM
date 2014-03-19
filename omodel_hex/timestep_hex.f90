@@ -277,15 +277,16 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 ! call check_nans(21)
 
    if (leafstep(istp) > 0) then
-      call leaf4()
 
+      call leaf4()
       if (iparallel == 1) call mpi_send_wl('T')
-      if (iparallel == 1) call mpi_recv_wl('T')
 
       call seacells()
-
       if (iparallel == 1) call mpi_send_ws('T')
+
+      if (iparallel == 1) call mpi_recv_wl('T')
       if (iparallel == 1) call mpi_recv_ws('T')
+
    endif
 
    call accum_timeavg()

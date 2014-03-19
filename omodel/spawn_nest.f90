@@ -85,6 +85,7 @@ integer :: nccv, jj, ipt, jpt, minside
 integer :: iper, jm2, ju2, jw2
 
 integer :: imbeg, ipent, nlista, nlistb, immmm, ndone, ilistb
+integer :: impen, imcent, imnear
 integer :: mlist(6)
 real :: reg, xeg, yeg, zeg, dist, distmin
 
@@ -229,47 +230,73 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
    else
 
-! For NCONCAVE = 3, use the following procedure
+! For NCONCAVE = 3, use the following procedure...
 
-! If using global grid (MDOMAIN < 2), search over 12 original ipent points
-! and determine if any lies inside current NGR refinement area
+      allocate (lista(nma), listb(nma), jdone(6,nma))
+
+! Find closest M point to first specified NGR center point.
+
+! Get earth coordinates for [grdlat(ngr,1),grdlon(ngr,1)]
+
+      if (mdomain < 2) then
+         zeg = erad * sin(grdlat(ngr,1) * pio180)
+         reg = erad * cos(grdlat(ngr,1) * pio180)
+         xeg = reg  * cos(grdlon(ngr,1) * pio180)
+         yeg = reg  * sin(grdlon(ngr,1) * pio180)
+      else
+         zeg = 0.
+         xeg = grdlon(ngr,1)
+         yeg = grdlat(ngr,1)
+      endif
+
+! Initialize distance 
+
+      distmin = 1.e12
+
+! Loop over all M points in domain
+
+      do im = 2,nma
+         dist = sqrt((xem_temp(im) - xeg) ** 2 &
+                   + (yem_temp(im) - yeg) ** 2 &
+                   + (zem_temp(im) - zeg) ** 2)
+
+         if (distmin > dist) then
+            distmin = dist
+            imcent = im
+         endif
+      enddo
+
+! If using global grid (MDOMAIN < 2), search over 12 original ipent points and
+! determine if any lies inside current NGR refinement area.  If not, determine
+! whether any ipent point is close to NGR refinement area AND has the same 
+! mrlm value as the imcent point.
 
       imbeg = 0
+      impen = 0
 
       if (mdomain < 2) then
 
          do ipent = 1,12
             im = impent(ipent)
 
-! Check whether IM point is inside NGR refinement area
-
             call ngr_area(ngr,minside,xem_temp(im),yem_temp(im),zem_temp(im))
 
-            if (minside > 0) then
+            if (minside == 1) then
                imbeg = im
                exit
+            elseif (minside == 2 .and. &
+               ltab_md(im)%mrlm == ltab_md(imcent)%mrlm) then
+
+               impen = im
             endif
          enddo
 
       endif
 
-! If imbeg is still zero, then no ipent points are inside NGR refinement area.
-! Thus, find closest M point to first specified NGR center point.
+! If imbeg is zero but impen is not, then find nearest M point to impen
+! that is inside NGR refinement area.
 
-      if (imbeg == 0) then
-
-! Get earth coordinates for [grdlat(ngr,1),grdlon(ngr,1)]
-
-         if (mdomain < 2) then
-            zeg = erad * sin(grdlat(ngr,1) * pio180)
-            reg = erad * cos(grdlat(ngr,1) * pio180)
-            xeg = reg  * cos(grdlon(ngr,1) * pio180)
-            yeg = reg  * sin(grdlon(ngr,1) * pio180)
-         else
-            zeg = 0.
-            xeg = grdlon(ngr,1)
-            yeg = grdlat(ngr,1)
-         endif
+      if (imbeg == 0 .and. impen > 0) then
 
 ! Initialize distance 
 
@@ -278,24 +305,81 @@ do ngr = 2,ngrids  ! Loop over nested grids
 ! Loop over all M points in domain
 
          do im = 2,nma
-            dist = sqrt((xem_temp(im) - xeg) ** 2 &
-                      + (yem_temp(im) - yeg) ** 2 &
-                      + (zem_temp(im) - zeg) ** 2)
 
-            if (distmin > dist) then
-               distmin = dist
-               imbeg = im
+! Check whether M location is within specified region for NGR refinement
+
+            call ngr_area(ngr,minside,xem_temp(im),yem_temp(im),zem_temp(im))
+
+            if (minside == 1) then
+
+               dist = sqrt((xem_temp(im) - xem_temp(impen)) ** 2 &
+                         + (yem_temp(im) - yem_temp(impen)) ** 2 &
+                         + (zem_temp(im) - zem_temp(impen)) ** 2)
+
+               if (distmin > dist) then
+                  distmin = dist
+                  imnear = im
+               endif
+
             endif
+
          enddo
 
-      endif
+! Now, march three M points at a time from impen toward imnear until finding
+! an M point that IS inside the NGR refinement area.
+
+         im = impen
+
+         do  ! until go to 60
+
+            jdone(:,im) = 0  ! (6,nma)
+            mlist(1:6) = 0
+
+            call thirdm(im,jdone,mlist)
+
+! Search through THIRDM neighbors of IM that are in current mlist
+
+            distmin = 1.e12
+
+            do j = 1,6
+               immmm = mlist(j)
+               if (immmm > 1) then
+
+                  call ngr_area(ngr,minside,xem_temp(immmm),yem_temp(immmm), &
+                                                            zem_temp(immmm))
+
+                  if (minside == 1) then
+                     imbeg = immmm
+                     go to 60
+                  endif
+
+                  dist = sqrt((xem_temp(immmm) - xem_temp(imnear)) ** 2 &
+                            + (yem_temp(immmm) - yem_temp(imnear)) ** 2 &
+                            + (zem_temp(immmm) - zem_temp(imnear)) ** 2)
+
+                  if (distmin > dist) then
+                     distmin = dist
+                     im = immmm
+                  endif
+
+               endif ! immmm > 1
+
+            enddo ! j,immmm
+
+         enddo
+
+      endif   ! (imbeg == 0 .and. impen > 0)
+
+      60 continue
+
+! If imbeg is still zero, then use imcent as starting point
+
+      if (imbeg == 0) imbeg = imcent
 
 ! Now that starting point IMBEG has been determined, build full list of
 ! M points that are inside specified NGR refinement area
 
 ! Initialize quantities for search
-
-      allocate (lista(nma), listb(nma), jdone(6,nma))
 
       jdone(:,:) = 0
 
@@ -1936,6 +2020,16 @@ do ipt = 1,ngrdll(ngr)
 
       seglat = .5 * (grdlat(ngr,ipt) + grdlat(ngr,jpt))
       seglon = .5 * (grdlon(ngr,ipt) + grdlon(ngr,jpt))
+
+! Correct seglon if segment crosses 180 W
+
+      if (abs(grdlon(ngr,ipt) - grdlon(ngr,jpt)) > 180.) then
+         if (seglon <= 0.) then
+            seglon = seglon + 180.
+         else
+            seglon = seglon - 180.
+         endif
+      endif
 
       call ll_xy (grdlat(ngr,ipt),grdlon(ngr,ipt), &
          seglat,seglon,xs(1),ys(1))

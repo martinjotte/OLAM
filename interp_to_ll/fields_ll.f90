@@ -178,13 +178,12 @@ endif
 
 do ilon = 1,nlon
    alon(ilon) = beglon + dlon * real(ilon-1)
+   if (alon(ilon) > 180.) alon(ilon) = alon(ilon) - 360.
 enddo
-
-if (alon(ilon) > 180.) alon(ilon) = alon(ilon) - 360.
 
 ! Fill zlev with model grid levels
 
-do k = 2,mza
+do k = 2,mza-1
    zlev(k-1) = zt(k)
 enddo
 
@@ -299,7 +298,11 @@ call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1b,pvap_sfc_ll)
 ! Interpolate atmospheric pressure
 !------------------------------------------------------------
 
-call interp_htw_ll(nlon,nlat,mza,mza-2,alon,alat,press,p_ll)
+! Copy pressure to real array
+
+scr2a(:,:) = real(press(:,:))
+
+call interp_htw_ll(nlon,nlat,mza,mza-2,alon,alat,scr2a,p_ll)
 
 !------------------------------------------------------------
 ! Compute total (resolved + parameterized) accumulated
