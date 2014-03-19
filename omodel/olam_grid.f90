@@ -33,7 +33,7 @@
 subroutine gridinit()
 
 use misc_coms,   only: io6, runtype, mdomain, ngrids, initial, nxp, nzp, &
-                       timmax8, alloc_misc, iparallel, meshtype, &
+                       timmax8, alloc_misc, meshtype, &
                        iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim
 
 use leaf_coms,   only: isfcl, nwl
@@ -265,7 +265,7 @@ if (runtype == 'MAKESFC' .or. runtype == 'MAKEGRID') then
 ! that any ATM grid IW point will be closer than this distance to at least one
 ! nuding point
 
-      dist_wnud = 7100.e3 / real(nudnxp)
+      dist_wnud = 7200.e3 / real(nudnxp)
 
 ! Loop over all W points
 
@@ -325,7 +325,7 @@ if (runtype == 'MAKESFC' .or. runtype == 'MAKEGRID') then
             iwnudn = itab_wnud(iwnud)%iwnud(j)
 
 ! Compute x,y components of iwnudn polygon center on a polar stereographic 
-! plane tangent at W point
+! plane tangent at IW point
 
 !write(6,'(a,3i7,8e13.3)') 'og1 ',iw,j,iwnudn, &
 !          xewnud(iwnudn),yewnud(iwnudn),zewnud(iwnudn), &
@@ -1525,9 +1525,6 @@ subroutine gridfile_write()
   ! Check whether NUDGING arrays are used
 
   if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
-
-     ndims    = 1
-     idims(1) = 1
 
      ndims    = 1
      idims(1) = nwnud

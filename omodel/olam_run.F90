@@ -738,7 +738,11 @@ if (mod(time8p,op%frqplt) < dtlm(1) .or. iflag == 1) then
    call plot_fields(0)
 endif
 
-if (mod(time8p,frqstate) < dtlm(1)  .or.  &
+call date_add_to8(iyear1,imonth1,idate1,itime1,time8p,'s',outyear,  &
+                  outmonth,outdate,outhour)
+
+if (mod(time8p,frqstate) < dtlm(1)   .or. &
+   (outdate == 1 .and. outhour == 0) .or. &
    time8p >= timmax8 .or. iflag == 1) then
    call history_write('INST')
    time_prevhist = time8

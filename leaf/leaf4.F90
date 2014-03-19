@@ -366,7 +366,7 @@ if (nlev_sfcwater == 0) then
 
    if (leaf_class == 2) then
 
-      alg = .50  ! Firn/glacier albedo
+      alg = .80  ! Firn/glacier albedo
 
    else
 

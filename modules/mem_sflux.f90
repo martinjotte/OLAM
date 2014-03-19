@@ -943,15 +943,15 @@ endif
 
 ! Check that topp is within (zm(k-1),zm(k)) range
 
-               if (fractopp < -.01 .or. fractopp > 1.01) then
+               if (fractopp < -.02 .or. fractopp > 1.02) then
 
                   print*, 'topp outside DZT range. '
                   print*, 'IW, IWL, KW0, jsub, isub '
                   print*,  iw, iwl, kw0, jsub, isub
                   print*, 'zmin, zmax, topp '
                   print*,  zmin, zmax, topp
-                  print*, 'zm(kw0-1), zm(kw0) '
-                  print*,  zm(kw0-1), zm(kw0)
+                  print*, 'zm(kw0-1), zm(kw0), fractopp '
+                  print*,  zm(kw0-1), zm(kw0), fractopp
 
                   stop 'stop topp '
                endif

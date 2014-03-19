@@ -853,12 +853,12 @@ if (isfcl == 1) then
    ! Set the rank of flux cells to the rank of the atm cell
    ! (only needed for the parcombine step)
 
-   do isf = 1, mseaflux
+   do isf = 2, mseaflux
       iw = seaflux(isf)%iw
       seaflux(isf)%iwrank = itabg_w(iw)%irank
    enddo
 
-   do ilf = 1,mlandflux
+   do ilf = 2,mlandflux
       iw = landflux(ilf)%iw
       landflux(ilf)%iwrank = itabg_w(iw)%irank
    enddo

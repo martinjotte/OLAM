@@ -1611,10 +1611,10 @@ case(101) ! 'PCPDIF2MIC'
    if (allocated(accph)) fldval = fldval + accph(i)
 
 ! Compute difference involving 1 previously-stored field
-! Convert to mm/day if time interval >= 1 hour
+! Convert to mm/day if time interval >= 1 second
 
    fldval = fldval - accpmic_prev1(i)
-   if (time8 - time8_prev1 > 3599.9) then
+   if (time8 - time8_prev1 > .99) then
       fldval = fldval * 86400. / (time8 - time8_prev1)
    endif
 
@@ -1625,10 +1625,10 @@ case(102) ! 'PCPDIF2CON'
    fldval = aconpr(i)
 
 ! Compute difference involving 1 previously-stored field
-! Convert to mm/day if time interval >= 1 hour
+! Convert to mm/day if time interval >= 1 second
 
    fldval = fldval - accpcon_prev1(i)
-   if (time8 - time8_prev1 > 3599.9) then
+   if (time8 - time8_prev1 > .99) then
       fldval = fldval * 86400. / (time8 - time8_prev1)
    endif
 
@@ -1646,12 +1646,12 @@ case(103) ! 'PCPDIF2BOTH'
    if (allocated(aconpr)) fldval = fldval + aconpr(i)
 
 ! Compute difference involving 1 previously-stored field
-! Convert to mm/day if time interval >= 1 hour
+! Convert to mm/day if time interval >= 1 second
 
    accpboth_prev1 = accpmic_prev1(i) + accpcon_prev1(i)
 
    fldval = fldval - accpboth_prev1
-   if (time8 - time8_prev1 > 3599.9) then
+   if (time8 - time8_prev1 > .99) then
       fldval = fldval * 86400. / (time8 - time8_prev1)
    endif
 
@@ -1668,10 +1668,10 @@ case(104) ! 'PCPDIF4MIC'
    if (allocated(accph)) fldval = fldval + accph(i)
 
 ! Compute differences involving 3 previously-stored fields
-! Convert to mm/day if time interval >= 1 hour
+! Convert to mm/day if time interval >= 1 second
 
    fldval = fldval - accpmic_prev1(i) - (accpmic_prev2(i) - accpmic_prev3(i))
-   if (time8 - time8_prev2 > 3599.9) then
+   if (time8 - time8_prev2 > .99) then
       fldval = fldval * 86400. / (time8 - time8_prev2)
    endif
 
@@ -1682,10 +1682,10 @@ case(105) ! 'PCPDIF4CON'
    fldval = aconpr(i)
 
 ! Compute differences involving 3 previously-stored fields
-! Convert to mm/day if time interval >= 1 hour
+! Convert to mm/day if time interval >= 1 second
 
    fldval = fldval - accpcon_prev1(i) - (accpcon_prev2(i) - accpcon_prev3(i))
-   if (time8 - time8_prev2 > 3599.9) then
+   if (time8 - time8_prev2 > .99) then
       fldval = fldval * 86400. / (time8 - time8_prev2)
    endif
 
@@ -1703,14 +1703,14 @@ case(106) ! 'PCPDIF4BOTH'
    if (allocated(aconpr)) fldval = fldval + aconpr(i)
 
 ! Compute differences involving 3 previously-stored fields
-! Convert to mm/day if time interval >= 1 hour
+! Convert to mm/day if time interval >= 1 second
 
    accpboth_prev1 = accpmic_prev1(i) + accpcon_prev1(i)
    accpboth_prev2 = accpmic_prev2(i) + accpcon_prev2(i)
    accpboth_prev3 = accpmic_prev3(i) + accpcon_prev3(i)
 
    fldval = fldval - accpboth_prev1 - (accpboth_prev2 - accpboth_prev3)
-   if (time8 - time8_prev2 > 3599.9) then
+   if (time8 - time8_prev2 > .99) then
       fldval = fldval * 86400. / (time8 - time8_prev2)
    endif
 
@@ -1727,9 +1727,11 @@ case(107) ! 'PCPREL4MIC'
    if (allocated(accph)) fldval = fldval + accph(i)
 
 ! Compute relative differences involving 3 previously-stored fields
+! [fldval=runB_end; prev1=runA_end; prev2=runB_beg; prev3=runA_beg]
 
+   denom  = fldval + accpmic_prev1(i) - (accpmic_prev2(i) + accpmic_prev3(i))
    fldval = fldval - accpmic_prev1(i) - (accpmic_prev2(i) - accpmic_prev3(i))
-   denom = fldval + accpmic_prev1(i) - (accpmic_prev2(i) + accpmic_prev3(i))
+
    if (abs(denom) > 1.e-3) then
       fldval = fldval / denom
    else
@@ -1744,8 +1746,9 @@ case(108) ! 'PCPREL4CON'
 
 ! Compute relative differences involving 3 previously-stored fields
 
+   denom  = fldval + accpcon_prev1(i) - (accpcon_prev2(i) + accpcon_prev3(i))
    fldval = fldval - accpcon_prev1(i) - (accpcon_prev2(i) - accpcon_prev3(i))
-   denom = fldval + accpcon_prev1(i) - (accpcon_prev2(i) + accpcon_prev3(i))
+
    if (abs(denom) > 1.e-3) then
       fldval = fldval / denom
    else
@@ -1771,8 +1774,9 @@ case(109) ! 'PCPREL4BOTH'
    accpboth_prev2 = accpmic_prev2(i) + accpcon_prev2(i)
    accpboth_prev3 = accpmic_prev3(i) + accpcon_prev3(i)
 
+   denom  = fldval + accpboth_prev1 - (accpboth_prev2 + accpboth_prev3)
    fldval = fldval - accpboth_prev1 - (accpboth_prev2 - accpboth_prev3)
-   denom = fldval + accpboth_prev1 - (accpboth_prev2 + accpboth_prev3)
+
    if (abs(denom) > 1.e-3) then
       fldval = fldval / denom
    else

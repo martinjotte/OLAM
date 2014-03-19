@@ -193,7 +193,7 @@ do iwl = 2,mwl
 
 ! For now, choose heat/vapor capacities for stability based on timestep   
 
-   land%can_depth(iwl) = 20. * max(1.,.025 * dt_leaf)
+   land%can_depth(iwl) = 20. * max(1.,.030 * dt_leaf)
    land%hcapveg  (iwl) = 3.e4 * max(1.,.025 * dt_leaf)
 
 ! Initialize vegetation TAI, LAI, fractional area, albedo, and roughness
