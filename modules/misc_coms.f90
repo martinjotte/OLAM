@@ -107,7 +107,6 @@ real(r8) :: frqstate
 real(r8) :: radfrq
 real(r8) :: confrq
 
-real :: wcldbs
 real :: ubmin
 real :: topref
 real :: polelat

@@ -100,6 +100,18 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call radiate()
    endif
 
+! call check_nans(2)
+
+   if (any(nqparm   (1:mrls) > 0) .or.  &
+       any(nqparm_sh(1:mrls) > 0)) then
+
+      call cuparm_driver(rhot)
+
+      if (isfcl == 1) then
+         call surface_cuparm_flux()
+      endif
+   endif
+
 ! call check_nans(3)
 
    mrl = mrl_begl(istp)
@@ -114,18 +126,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
 
 ! call check_nans(5)
-
-   if (any(nqparm   (1:mrls) > 0) .or.  &
-       any(nqparm_sh(1:mrls) > 0)) then
-
-      call cuparm_driver(rhot)
-
-      if (isfcl == 1) then
-         call surface_cuparm_flux()
-      endif
-   endif
-
-! call check_nans(6)
 
    call zero_momsc(vmsc,wmsc,rho_old)
 

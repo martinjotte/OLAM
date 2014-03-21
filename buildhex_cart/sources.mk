@@ -9,8 +9,6 @@ SOURCE_FILES= \
              $(CONVECT)/grell_shallow_capmax_ens.f90 \
              $(CONVECT)/grell_shallow_coms.f90 \
              $(CONVECT)/grell_updraft.f90 \
-             $(CONVECT)/kuo.f90 \
-             $(CONVECT)/kuo_coms.f90 \
              $(CONVECT)/mem_cuparm.f90 \
              $(CONVECT)/module_cu_kfeta.f90 \
              $(CONVECT)/emanuel_coms.f90 \

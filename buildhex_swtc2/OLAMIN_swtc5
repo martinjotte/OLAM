@@ -272,16 +272,13 @@
  !--------------------------------------------------------------------------
   
    NL%NQPARM = 0,0,0,0,0,0,0,0,0,0   ! Cumulus parameterization scheme for each MRL
-                                 ! 0=off, 1=Kuo, 2=Grell, 3=KF_eta, 4=Emanuel
+                                 ! 0=off, 2=Grell, 3=KF_eta, 4=Emanuel
 
    NL%NQPARM_SH = 0,0,0,0,0,0,0,0,0  ! Shallow cumulus parameterization scheme 
                                    ! for each MRL:  0=off, 1=Grell
 
    NL%CONFRQ = 1200.   ! Time interval (s) between cumulus param updates
 
-   NL%WCLDBS = .002     ! Minimum vertical motion (m/s) needed at cloud base 
-                       ! to trigger convection in Kuo scheme
- 
  !--------------------------------------------------------------------------
  ! Eddy diffusion coefficient parameters (one value for each MRL)
  !--------------------------------------------------------------------------
