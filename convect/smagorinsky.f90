@@ -47,7 +47,7 @@ contains
 
   subroutine turb_k(iw, mrlw, rhot, thetav, vkh, vkm)
 
-    use mem_turb,    only: hkm, vkm_sfc, sxfer_rk, fthpbl, fqtpbl
+    use mem_turb,    only: hkm, vkm_sfc, sxfer_rk
     use mem_ijtabs,  only: istp, jtab_w, itab_w, mrl_begl
     use mem_grid,    only: mza, mwa, lpv, lpw, dzim, zt, zm, volt, arw, lsw, volti
     use misc_coms,   only: io6, idiffk, csx, csz, zkhkm, akmin, dtlm
