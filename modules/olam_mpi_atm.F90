@@ -921,7 +921,7 @@ subroutine mpi_send_w(sendgroup,domrl,thil0,wmc0,scp0,wmarw, &
   use mpi
 #endif
 
-use mem_basic,  only: wmc,wc,thil,rho,press
+use mem_basic,  only: wmc,wc,thil,rho,press,theta,tair
 use mem_turb,   only: hkm,vkm,vkm_sfc
 use var_tables, only: nvar_par, vtab_r, num_scalar, nptonv
 use mem_ijtabs, only: jtab_w, itab_w, mrl_begs, mrl_begl, mrl_endl, istp, mloops
@@ -1123,7 +1123,17 @@ do jsend = 1,nsends_w(mrl)
             call MPI_Pack(rho(1,iw),mza,MPI_REAL8, &
                send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
          endif
- 
+
+         if (mrl_endl(istp) > 0) then
+            call MPI_Pack(theta(1,iw),mza,MPI_REAL, &
+               send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+         endif
+            
+         if (mrl_endl(istp) > 0) then
+            call MPI_Pack(tair(1,iw),mza,MPI_REAL, &
+               send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+         endif
+
       elseif (sendgroup == 'V') then
 
          if (present(vxe)) then
@@ -1663,7 +1673,7 @@ subroutine mpi_recv_w(recvgroup,domrl,thil0,wmc0,scp0,wmarw, &
   use mpi
 #endif
 
-use mem_basic,  only: wmc,wc,thil,rho,press
+use mem_basic,  only: wmc,wc,thil,rho,press,theta,tair
 use mem_turb,   only: hkm,vkm,vkm_sfc
 use var_tables, only: vtab_r, nvar_par, num_scalar, nptonv
 use mem_para,   only: nrecvs_w, nsends_w, recv_w, send_w, mgroupsize
@@ -1862,6 +1872,15 @@ do jtmp = 1,nrecvs_w(mrl)
                rho(1,iw),mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
          endif
 
+         if (mrl_endl(istp) > 0) then
+            call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+               theta(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+         endif
+
+         if (mrl_endl(istp) > 0) then
+            call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+               tair(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+         endif
       elseif (recvgroup == 'V') then
 
          if (present(vxe)) then

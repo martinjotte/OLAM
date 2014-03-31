@@ -61,8 +61,6 @@ use mem_grid,   only: mza, mwa, lpw
 use misc_coms,  only: runtype
 use mem_ijtabs, only: jtab_w, jtw_prog
 
-use mem_plot,   only: alloc_plot, copy_plot
-
 use mem_micro,  only: pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                       accpd, accpr, accpp, accps, accpa, accpg, accph
 
@@ -72,7 +70,6 @@ use obnd,       only: lbcopy_w1d
 
 implicit none
 
-integer, save :: ncall = 0
 integer, intent(in) :: id
 
 integer :: iplt,labincx,labincy,notavail,k,iw
@@ -80,12 +77,6 @@ real :: fldval,bsize
 integer :: outyear,outmonth,outdate,outhour
 real, save :: dummy(1)=0.,xinc,yinc
 character(len=30) :: ylabel,title
-
-if (ncall /= 10) then
-   ncall = 10
-
-   call alloc_plot()
-endif
 
 ! Lateral boundary copy of surface precipitation quantities (only needed for 
 ! plotting, and not functional for mpi-parallel plot run)
@@ -304,8 +295,6 @@ do iplt = 1,op%nplt
    endif
 
 enddo
-
-call copy_plot()
 
 ! Close the current workstation if not a plotonly run and if output
 ! is to a NCAR graphics meta file. This allows viewing the complete

@@ -64,6 +64,7 @@ use ed_misc_coms,only: ed2_active, ed2_namelist
 use hcane_rz,    only: init_hurr_step, hurricane_init
 use obnd,        only: trsets, lbcopy_w
 use var_tables,  only: nvar_par, vtab_r, nptonv
+use mem_plot,    only: copy_plot
 use mem_swtc5_refsoln_cubic
 
 use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
@@ -522,9 +523,21 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
          endif
 
 ! If month-average and day-average plots are NOT specified, do regular plots
-! from history files
+! from history files.
+! First, save a copy of some fields; used later to plot difference fields 
 
-         call plot_fields(0)
+         call copy_plot(iplt_file)
+
+! The following commented-out IF block is a template for cases where fields
+! need not be plotted for every call to copy_plot
+
+!         if (iplt_file == 20 .or. &
+!             iplt_file == 30 .or. &
+!             iplt_file == 40 .or. &
+!             iplt_file == 50) then
+ 
+            call plot_fields(0)
+!         endif
 
 ! For shallow water test cases, compute error norms
 
@@ -713,6 +726,7 @@ use mem_nudge,   only: nudflag
 use isan_coms,   only: ifgfile, s1900_fg
 use consts_coms, only: r8
 use oname_coms,  only: nl
+use mem_plot,    only: copy_plot
 use hcane_rz,    only: init_hurr_step, hurricane_track
 
 use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
@@ -734,7 +748,11 @@ if (init_hurr_step == 1 .or. init_hurr_step == 2) then
 endif
 !-------------------------------------------------------------------
 
+! Save a copy of some fields; used later to compute & plot difference fields,
+! and plot fields
+
 if (mod(time8p,op%frqplt) < dtlm(1) .or. iflag == 1) then
+   call copy_plot(0)
    call plot_fields(0)
 endif
 

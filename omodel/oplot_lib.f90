@@ -104,11 +104,12 @@ use oname_coms,  only: nl
 
 use mem_swtc5_refsoln_cubic
 
-use mem_plot,    only:   time8_prev1,   time8_prev2,   time8_prev3, &
-                       accpmic_prev1, accpmic_prev2, accpmic_prev3, &
-                       accpcon_prev1, accpcon_prev2, accpcon_prev3, &
-                          press_init,      rho_init,    theta_init, &
-                             uc_init,       vc_init,   addsc1_init
+use mem_plot, only: time8_prev0, accpmic_prev0, accpcon_prev0, &
+                    time8_prev1, accpmic_prev1, accpcon_prev1, &
+                    time8_prev2, accpmic_prev2, accpcon_prev2, &
+                    time8_prev3, accpmic_prev3, accpcon_prev3, &
+                     press_init,      rho_init,    theta_init, &
+                        uc_init,       vc_init,   addsc1_init
 
 implicit none
 
@@ -136,7 +137,7 @@ integer, save :: indp, icase
 
 real :: ucc,vcc
 real :: ucc_init, vcc_init, vx_init, vy_init, vz_init, u_init, v_init
-real :: accpboth_prev1, accpboth_prev2, accpboth_prev3
+real :: accpboth_prev0, accpboth_prev1, accpboth_prev2, accpboth_prev3
 real :: denom
 
 integer :: isf, ilf
@@ -145,7 +146,7 @@ real, save, allocatable :: aux(:)
 
 real :: zanal_swtc5, zanal0_swtc5
 
-integer, parameter :: nfields = 366
+integer, parameter :: nfields = 368
 character(len=40) :: fldlib(4,nfields)
 character(len=40), save :: fldname
 
@@ -558,7 +559,7 @@ data fldlib(1:4,333:342)/ &
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,343:363)/ &
+data fldlib(1:4,343:365)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 343
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 344
  'SHW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 345
@@ -579,14 +580,16 @@ data fldlib(1:4,343:363)/ &
  'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'           ,& ! 360
  'PBLH'          ,'T2' ,'PBL HEIGHT',' (m)'                                 ,& ! 361
  'HKM'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 362
- 'HEAD0'         ,'L2' ,'HEAD0',' (m)'                                       / ! 363
+ 'HEAD0'         ,'L2' ,'HEAD0',' (m)'                                      ,& ! 363
+ 'SHW_HCONV'     ,'T2' ,'TOTAL WATER HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 364
+ 'SHV_HCONV'     ,'T2' ,'WATER VAPOR HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )' / ! 365
 
 ! External fields
 
-data fldlib(1:4,364:366)/ &
- 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 364
- 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 365
- 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 366
+data fldlib(1:4,366:368)/ &
+ 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 366
+ 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 367
+ 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 368
 
 if (icall /= 1) then
    icall = 1
@@ -1600,140 +1603,98 @@ case(100) ! 'ACCPBOTH'
 
 case(101) ! 'PCPDIF2MIC'
 
-   fldval = 0.
-
-   if (allocated(accpd)) fldval = fldval + accpd(i)
-   if (allocated(accpr)) fldval = fldval + accpr(i)
-   if (allocated(accpp)) fldval = fldval + accpp(i)
-   if (allocated(accps)) fldval = fldval + accps(i)
-   if (allocated(accpa)) fldval = fldval + accpa(i)
-   if (allocated(accpg)) fldval = fldval + accpg(i)
-   if (allocated(accph)) fldval = fldval + accph(i)
-
 ! Compute difference involving 1 previously-stored field
 ! Convert to mm/day if time interval >= 1 second
 
-   fldval = fldval - accpmic_prev1(i)
-   if (time8 - time8_prev1 > .99) then
-      fldval = fldval * 86400. / (time8 - time8_prev1)
+   fldval = accpmic_prev0(i) - accpmic_prev1(i)
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval * 86400. / (time8_prev0 - time8_prev1)
    endif
 
 case(102) ! 'PCPDIF2CON'
 
    if (.not. allocated(aconpr)) go to 1000
 
-   fldval = aconpr(i)
-
 ! Compute difference involving 1 previously-stored field
 ! Convert to mm/day if time interval >= 1 second
 
-   fldval = fldval - accpcon_prev1(i)
-   if (time8 - time8_prev1 > .99) then
-      fldval = fldval * 86400. / (time8 - time8_prev1)
+   fldval = accpcon_prev0(i) - accpcon_prev1(i)
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval * 86400. / (time8_prev0 - time8_prev1)
    endif
 
 case(103) ! 'PCPDIF2BOTH'
 
-   fldval = 0.
-
-   if (allocated(accpd)) fldval = fldval + accpd(i)
-   if (allocated(accpr)) fldval = fldval + accpr(i)
-   if (allocated(accpp)) fldval = fldval + accpp(i)
-   if (allocated(accps)) fldval = fldval + accps(i)
-   if (allocated(accpa)) fldval = fldval + accpa(i)
-   if (allocated(accpg)) fldval = fldval + accpg(i)
-   if (allocated(accph)) fldval = fldval + accph(i)
-   if (allocated(aconpr)) fldval = fldval + aconpr(i)
-
 ! Compute difference involving 1 previously-stored field
 ! Convert to mm/day if time interval >= 1 second
 
+   accpboth_prev0 = accpmic_prev0(i) + accpcon_prev0(i)
    accpboth_prev1 = accpmic_prev1(i) + accpcon_prev1(i)
 
-   fldval = fldval - accpboth_prev1
-   if (time8 - time8_prev1 > .99) then
-      fldval = fldval * 86400. / (time8 - time8_prev1)
+   fldval = accpboth_prev0 - accpboth_prev1
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval * 86400. / (time8_prev0 - time8_prev1)
    endif
 
 case(104) ! 'PCPDIF4MIC'
 
-   fldval = 0.
-
-   if (allocated(accpd)) fldval = fldval + accpd(i)
-   if (allocated(accpr)) fldval = fldval + accpr(i)
-   if (allocated(accpp)) fldval = fldval + accpp(i)
-   if (allocated(accps)) fldval = fldval + accps(i)
-   if (allocated(accpa)) fldval = fldval + accpa(i)
-   if (allocated(accpg)) fldval = fldval + accpg(i)
-   if (allocated(accph)) fldval = fldval + accph(i)
-
 ! Compute differences involving 3 previously-stored fields
 ! Convert to mm/day if time interval >= 1 second
 
-   fldval = fldval - accpmic_prev1(i) - (accpmic_prev2(i) - accpmic_prev3(i))
-   if (time8 - time8_prev2 > .99) then
-      fldval = fldval * 86400. / (time8 - time8_prev2)
+   fldval =  accpmic_prev0(i) - accpmic_prev1(i) &
+          - (accpmic_prev2(i) - accpmic_prev3(i))
+
+   if (time8_prev0 - time8_prev2 > .99) then
+      fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
    endif
 
 case(105) ! 'PCPDIF4CON'
 
    if (.not. allocated(aconpr)) go to 1000
 
-   fldval = aconpr(i)
-
 ! Compute differences involving 3 previously-stored fields
 ! Convert to mm/day if time interval >= 1 second
 
-   fldval = fldval - accpcon_prev1(i) - (accpcon_prev2(i) - accpcon_prev3(i))
-   if (time8 - time8_prev2 > .99) then
-      fldval = fldval * 86400. / (time8 - time8_prev2)
+   fldval =  accpcon_prev0(i) - accpcon_prev1(i) &
+          - (accpcon_prev2(i) - accpcon_prev3(i))
+
+   if (time8_prev0 - time8_prev2 > .99) then
+      fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
    endif
 
 case(106) ! 'PCPDIF4BOTH'
 
-   fldval = 0.
-
-   if (allocated(accpd)) fldval = fldval + accpd(i)
-   if (allocated(accpr)) fldval = fldval + accpr(i)
-   if (allocated(accpp)) fldval = fldval + accpp(i)
-   if (allocated(accps)) fldval = fldval + accps(i)
-   if (allocated(accpa)) fldval = fldval + accpa(i)
-   if (allocated(accpg)) fldval = fldval + accpg(i)
-   if (allocated(accph)) fldval = fldval + accph(i)
-   if (allocated(aconpr)) fldval = fldval + aconpr(i)
-
 ! Compute differences involving 3 previously-stored fields
 ! Convert to mm/day if time interval >= 1 second
 
+   accpboth_prev0 = accpmic_prev0(i) + accpcon_prev0(i)
    accpboth_prev1 = accpmic_prev1(i) + accpcon_prev1(i)
    accpboth_prev2 = accpmic_prev2(i) + accpcon_prev2(i)
    accpboth_prev3 = accpmic_prev3(i) + accpcon_prev3(i)
 
-   fldval = fldval - accpboth_prev1 - (accpboth_prev2 - accpboth_prev3)
-   if (time8 - time8_prev2 > .99) then
-      fldval = fldval * 86400. / (time8 - time8_prev2)
+   fldval =  accpboth_prev0 - accpboth_prev1 &
+          - (accpboth_prev2 - accpboth_prev3)
+
+   if (time8_prev0 - time8_prev2 > .99) then
+      fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
    endif
 
 case(107) ! 'PCPREL4MIC'
 
-   fldval = 0.
-
-   if (allocated(accpd)) fldval = fldval + accpd(i)
-   if (allocated(accpr)) fldval = fldval + accpr(i)
-   if (allocated(accpp)) fldval = fldval + accpp(i)
-   if (allocated(accps)) fldval = fldval + accps(i)
-   if (allocated(accpa)) fldval = fldval + accpa(i)
-   if (allocated(accpg)) fldval = fldval + accpg(i)
-   if (allocated(accph)) fldval = fldval + accph(i)
-
 ! Compute relative differences involving 3 previously-stored fields
 ! [fldval=runB_end; prev1=runA_end; prev2=runB_beg; prev3=runA_beg]
 
-   denom  = fldval + accpmic_prev1(i) - (accpmic_prev2(i) + accpmic_prev3(i))
-   fldval = fldval - accpmic_prev1(i) - (accpmic_prev2(i) - accpmic_prev3(i))
+   denom  =  accpmic_prev0(i) + accpmic_prev1(i) &
+          - (accpmic_prev2(i) + accpmic_prev3(i))
+
+   fldval =  accpmic_prev0(i) - accpmic_prev1(i) &
+          - (accpmic_prev2(i) - accpmic_prev3(i))
 
    if (abs(denom) > 1.e-3) then
-      fldval = fldval / denom
+      fldval = max(-1.0,min(1.0,fldval / denom)) ! min/max in case of trunc error
    else
       fldval = 0.
    endif
@@ -1742,43 +1703,37 @@ case(108) ! 'PCPREL4CON'
 
    if (.not. allocated(aconpr)) go to 1000
 
-   fldval = aconpr(i)
-
 ! Compute relative differences involving 3 previously-stored fields
 
-   denom  = fldval + accpcon_prev1(i) - (accpcon_prev2(i) + accpcon_prev3(i))
-   fldval = fldval - accpcon_prev1(i) - (accpcon_prev2(i) - accpcon_prev3(i))
+   denom  =  accpcon_prev0(i) + accpcon_prev1(i) &
+          - (accpcon_prev2(i) + accpcon_prev3(i))
+
+   fldval =  accpcon_prev0(i) - accpcon_prev1(i) &
+          - (accpcon_prev2(i) - accpcon_prev3(i))
 
    if (abs(denom) > 1.e-3) then
-      fldval = fldval / denom
+      fldval = max(-1.0,min(1.0,fldval / denom)) ! min/max in case of trunc error
    else
       fldval = 0.
    endif
 
 case(109) ! 'PCPREL4BOTH'
 
-   fldval = 0.
-
-   if (allocated(accpd)) fldval = fldval + accpd(i)
-   if (allocated(accpr)) fldval = fldval + accpr(i)
-   if (allocated(accpp)) fldval = fldval + accpp(i)
-   if (allocated(accps)) fldval = fldval + accps(i)
-   if (allocated(accpa)) fldval = fldval + accpa(i)
-   if (allocated(accpg)) fldval = fldval + accpg(i)
-   if (allocated(accph)) fldval = fldval + accph(i)
-   if (allocated(aconpr)) fldval = fldval + aconpr(i)
-
 ! Compute relative differences involving 3 previously-stored fields
 
+   accpboth_prev0 = accpmic_prev0(i) + accpcon_prev0(i)
    accpboth_prev1 = accpmic_prev1(i) + accpcon_prev1(i)
    accpboth_prev2 = accpmic_prev2(i) + accpcon_prev2(i)
    accpboth_prev3 = accpmic_prev3(i) + accpcon_prev3(i)
 
-   denom  = fldval + accpboth_prev1 - (accpboth_prev2 + accpboth_prev3)
-   fldval = fldval - accpboth_prev1 - (accpboth_prev2 - accpboth_prev3)
+   denom  =  accpboth_prev0 + accpboth_prev1 &
+          - (accpboth_prev2 + accpboth_prev3)
+
+   fldval =  accpboth_prev0 - accpboth_prev1 &
+          - (accpboth_prev2 - accpboth_prev3)
 
    if (abs(denom) > 1.e-3) then
-      fldval = fldval / denom
+      fldval = max(-1.0,min(1.0,fldval / denom)) ! min/max in case of trunc error
    else
       fldval = 0.
    endif
@@ -3123,6 +3078,46 @@ case(362) ! 'HKM'
 case(363) ! 'HEAD0'
 
    fldval = land%head0(i)
+
+case(364) ! 'SHW_HCONV'
+
+   fldval = 0.
+
+   npoly = itab_w(i)%npoly
+
+   do klev = lpw(i),mza-1
+      do j = 1,npoly
+
+         iv = itab_w(i)%iv(j)
+         iw = itab_w(i)%iw(j)
+
+         fldval = fldval &
+                + vmc(klev,iv) * itab_w(i)%dirv(j) * arv(klev,iv) &
+                * 0.5 * (sh_w(klev,i) + sh_w(klev,iw))
+      enddo
+   enddo
+
+   fldval = fldval / arw0(i)
+
+case(365) ! 'SHV_HCONV'
+
+   fldval = 0.
+
+   npoly = itab_w(i)%npoly
+
+   do klev = lpw(i),mza-1
+      do j = 1,npoly
+
+         iv = itab_w(i)%iv(j)
+         iw = itab_w(i)%iw(j)
+
+         fldval = fldval &
+                + vmc(klev,iv) * itab_w(i)%dirv(j) * arv(klev,iv) &
+                * 0.5 * (sh_v(klev,i) + sh_v(klev,iw))
+      enddo
+   enddo
+
+   fldval = fldval / arw0(i)
 
 case default
 

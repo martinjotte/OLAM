@@ -37,14 +37,17 @@ use consts_coms, only: r8
 
 implicit none
 
+real(r8) :: time8_prev0
 real(r8) :: time8_prev1
 real(r8) :: time8_prev2
 real(r8) :: time8_prev3
 
+real, allocatable :: accpmic_prev0(:)
 real, allocatable :: accpmic_prev1(:)
 real, allocatable :: accpmic_prev2(:)
 real, allocatable :: accpmic_prev3(:)
 
+real, allocatable :: accpcon_prev0(:)
 real, allocatable :: accpcon_prev1(:)
 real, allocatable :: accpcon_prev2(:)
 real, allocatable :: accpcon_prev3(:)
@@ -68,10 +71,12 @@ Contains
 
   implicit none
 
+  allocate ( accpmic_prev0(mwa))
   allocate ( accpmic_prev1(mwa))
   allocate ( accpmic_prev2(mwa))
   allocate ( accpmic_prev3(mwa))
 
+  allocate ( accpcon_prev0(mwa))
   allocate ( accpcon_prev1(mwa))
   allocate ( accpcon_prev2(mwa))
   allocate ( accpcon_prev3(mwa))
@@ -83,10 +88,12 @@ Contains
   allocate (    vc_init(mza,mva))
 ! allocate (addsc1_init(mza,mwa))
 
+   accpmic_prev0(:) = 0.
    accpmic_prev1(:) = 0.
    accpmic_prev2(:) = 0.
    accpmic_prev3(:) = 0.
 
+   accpcon_prev0(:) = 0.
    accpcon_prev1(:) = 0.
    accpcon_prev2(:) = 0.
    accpcon_prev3(:) = 0.
@@ -99,6 +106,7 @@ Contains
   if (allocated(vc)) vc_init(:,:) = vc(:,:)
 !   addsc1_init(:,:) = addsc(1)%sclp(:,:)
 
+  time8_prev0 = 0.
   time8_prev1 = 0.
   time8_prev2 = 0.
   time8_prev3 = 0.
@@ -107,7 +115,7 @@ Contains
 
 !===============================================================================
 
-  subroutine copy_plot()
+  subroutine copy_plot(iplt_file)
 
   use mem_cuparm, only: aconpr
 
@@ -115,33 +123,68 @@ Contains
   use misc_coms, only: time8
 
   implicit none
- 
+
+  integer, intent(in) :: iplt_file ! File index for 'PLOTONLY' runs; 0 otherwise
+
+! The following IF/ENDIF statements (but not the lines between them) should be
+! commented out for most applications.  Uncommenting them provides the ability
+! to sum precipitation values from multiple history files into a single
+! accpmic_prev0 or accpcon_prev0 value, before later differencing between 
+! prev0, prev1, prev2, and prev3 groupings.  For example, the first application
+! of this capability was to sum the accumulated precipitation of 'Simulation A'
+! each March 1 over 5 consecutive years and store the sum in the prev0 arrays,
+! copy the prev0 sum into prev1 and then sum the March 1 precipitation totals
+! for 'Simulation B' into prev0, copy the forgoing into prev2 and prev1,
+! respectively, and sum June 1 totals for 'Simulation A' into prev0, and finaly
+! copy the foregoing into prev3, prev2, and prev1, respectively, and sum June 1
+! totals from 'Simulation B' into prev0.  Oplot_lib then plotted differences of
+! the above 4 totals to get the difference in springtime precipitation
+! from A to B.
+
+!  if (iplt_file ==  6 .or. &
+!      iplt_file == 11 .or. &
+!      iplt_file == 16 .or. &
+!      iplt_file == 21 .or. &
+!      iplt_file == 26 .or. &
+!      iplt_file == 31 .or. &
+!      iplt_file == 36 .or. &
+!      iplt_file == 41 .or. &
+!      iplt_file == 46) then
+
 ! Shift previous values (#3's are oldest)
 
-  time8_prev3 = time8_prev2
-  time8_prev2 = time8_prev1
+     time8_prev3 = time8_prev2
+     time8_prev2 = time8_prev1
+     time8_prev1 = time8_prev0
 
-  accpmic_prev3(:) = accpmic_prev2(:)
-  accpmic_prev2(:) = accpmic_prev1(:)
+     accpmic_prev3(:) = accpmic_prev2(:)
+     accpmic_prev2(:) = accpmic_prev1(:)
+     accpmic_prev1(:) = accpmic_prev0(:)
 
-  accpcon_prev3(:) = accpcon_prev2(:)
-  accpcon_prev2(:) = accpcon_prev1(:)
+     accpcon_prev3(:) = accpcon_prev2(:)
+     accpcon_prev2(:) = accpcon_prev1(:)
+     accpcon_prev1(:) = accpcon_prev0(:)
 
 ! Fill most recent previous values
 
-  time8_prev1 = time8
+     time8_prev0 = 0.
 
-  accpmic_prev1(:) = 0.
-                     
-  if (allocated(accpd)) accpmic_prev1(:) = accpmic_prev1(:) + accpd(:)
-  if (allocated(accpr)) accpmic_prev1(:) = accpmic_prev1(:) + accpr(:)
-  if (allocated(accpp)) accpmic_prev1(:) = accpmic_prev1(:) + accpp(:)
-  if (allocated(accps)) accpmic_prev1(:) = accpmic_prev1(:) + accps(:)
-  if (allocated(accpa)) accpmic_prev1(:) = accpmic_prev1(:) + accpa(:)
-  if (allocated(accpg)) accpmic_prev1(:) = accpmic_prev1(:) + accpg(:)
-  if (allocated(accph)) accpmic_prev1(:) = accpmic_prev1(:) + accph(:)
+     accpmic_prev0(:) = 0.
+     accpcon_prev0(:) = 0.
 
-  if (allocated(aconpr)) accpcon_prev1(:) = aconpr(:)
+!  endif
+
+  time8_prev0 = time8_prev0 + time8
+
+  if (allocated(accpd)) accpmic_prev0(:) = accpmic_prev0(:) + accpd(:)
+  if (allocated(accpr)) accpmic_prev0(:) = accpmic_prev0(:) + accpr(:)
+  if (allocated(accpp)) accpmic_prev0(:) = accpmic_prev0(:) + accpp(:)
+  if (allocated(accps)) accpmic_prev0(:) = accpmic_prev0(:) + accps(:)
+  if (allocated(accpa)) accpmic_prev0(:) = accpmic_prev0(:) + accpa(:)
+  if (allocated(accpg)) accpmic_prev0(:) = accpmic_prev0(:) + accpg(:)
+  if (allocated(accph)) accpmic_prev0(:) = accpmic_prev0(:) + accph(:)
+
+  if (allocated(aconpr)) accpcon_prev0(:) = accpcon_prev0(:) + aconpr(:)
 
   end subroutine copy_plot
 

@@ -55,6 +55,7 @@ subroutine olam_mem_alloc()
   use leaf_coms,   only: mwl
   use sea_coms,    only: mws
   use mem_sflux,   only: mseaflux, mlandflux
+  use mem_plot,    only: alloc_plot
 
   use mem_timeavg, only: alloc_timeavg, filltab_timeavg
 
@@ -123,6 +124,10 @@ subroutine olam_mem_alloc()
 ! Extra memory for Thuburn's monotonic advection
 
   call alloc_thuburn(meshtype, nl%iscal_monot, mza, mva, mwa)
+
+! Memory for storing past values for plotting
+
+  call alloc_plot()
 
   write(io6,*) 'end alloc'
 
