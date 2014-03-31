@@ -26,20 +26,20 @@ REAL, PARAMETER :: r     = 287.04
 
 CONTAINS
 
-   subroutine cuparm_kfeta(iw,dtlong)
+   subroutine cuparm_kfeta(iw,dtlong4)
 
-   use mem_grid,    only: mza, mwa, lpu, lpv, lpw, zt, dzm, xew, yew, zew, &
+   use mem_grid,    only: mza, lpw, zt, dzt, xew, yew, zew, &
                           unx, uny, unz, vnx, vny, vnz, arw0
    use misc_coms,   only: io6, meshtype
    use mem_cuparm,  only: thsrc, rtsrc, conprr
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc
    use mem_ijtabs,  only: itab_w, jtab_w
-   use consts_coms, only: p00i, rocp, erad
+   use consts_coms, only: erad
 
    implicit none
 
    integer, intent(in) :: iw
-   real,    intent(in) :: dtlong
+   real,    intent(in) :: dtlong4
 
    integer :: kte, k, jv, iv, kv, kt, npoly, jwn, iwn
    INTEGER :: trigger = 1
@@ -49,16 +49,19 @@ CONTAINS
    real :: u1d(mza),v1d(mza),t1d(mza),dz1d(mza)
    real :: qv1d(mza),p1d(mza),rho1d(mza),w0avg1d(mza)
 
-   real :: cubot(mwa),cutop(mwa)  ! bottom & top K level of cumulus (for radiation)
-   real :: raincv(mwa)            ! time-step cumulus scheme precipitation (mm)
+! cubot and cutop are bottom and top K level of cumulus clouds as diagnosed
+! in the kf_eta scheme.  They are not currently used in OLAM but could be
+! in the future, possibly redefined as integer variables.
 
-   real :: wtold, wtnew, dxsq, dx, dt, raxis, fnpoly1
+   real :: cubot, cutop
+
+   real :: wtold, wtnew, dxsq, dx, dt, raxis, fnpoly1, pratec
 
    LOGICAL :: F_QR, F_QI, F_QS, warm_rain
 
    dxsq  = arw0(iw)
    dx    = sqrt(dxsq)
-   dt    = dtlong
+   dt    = dtlong4
    raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
    F_QR = .FALSE.
@@ -82,9 +85,8 @@ CONTAINS
    rtsrc(:,iw) = 0.0
    conprr (iw) = 0.0
 
-   raincv(iw) = 0.
-   cutop(iw) = lpw(iw)
-   cubot(iw) = mza
+   cutop = lpw(iw)
+   cubot = mza - 1
 
    kte = mza - lpw(iw)
    do k = lpw(iw), mza-1
@@ -101,14 +103,16 @@ CONTAINS
       rho1d(kt) = rho  (k,iw)
       qv1d (kt) = sh_v (k,iw)
       p1d  (kt) = press(k,iw)
-      dz1d (kt) = dzm  (k)
+!      dz1d (kt) = dzm  (k) ! Error: corrected 3/19/2014 in next line
+      dz1d (kt) = dzt  (k)
 
 ! Compute zonal and meridional wind components
 
       if (raxis > 1.e3) then
          u1d(kt) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) / raxis
          v1d(kt) = vze(k,iw) * raxis / erad  &
-                - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) * zew(iw) / (raxis * erad) 
+                 - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) &
+                 * zew(iw) / (raxis * erad) 
       else
          u1d(kt) = vxe(k,iw)
          v1d(kt) = vye(k,iw)
@@ -128,12 +132,12 @@ CONTAINS
       enddo
    enddo
 
-   CALL KF_eta_PARA(mza,mwa,IW,io6,kte, &
+   CALL KF_eta_PARA(mza,IW,io6,kte, &
       U1D,V1D,T1D,QV1D,P1D,DZ1D,W0AVG1D,    &
       trigger,                              &
       DT,DX,DXSQ,RHO1D,                     &
       DQDT,DQIDT,DQCDT,DQRDT,DQSDT,DTDT,    &
-      RAINCV,conprr,                        &
+      pratec,                               &
       F_QI,F_QS,warm_rain,                  &
       CUTOP,CUBOT)
 
@@ -144,17 +148,19 @@ CONTAINS
       rtsrc(k,iw) = DQDT(Kt)
    enddo
 
+   conprr(iw) = pratec
+
    return
    END SUBROUTINE cuparm_kfeta
 
 !====================================================================
 
-   SUBROUTINE KF_eta_PARA (mza,mwa,IW,io6,kte,             &
+   SUBROUTINE KF_eta_PARA (mza,IW,io6,kte,             &
                       U0,V0,T0,QV0,P0,DZQ,W0AVG1D,         &
                       trigger,                             &
                       DT,DX,DXSQ,rhoe,                     &
                       DQDT,DQIDT,DQCDT,DQRDT,DQSDT,DTDT,   &
-                      RAINCV,PRATEC,                       &
+                      PRATEC,                              &
                       F_QI,F_QS,warm_rain,                 &
                       CUTOP,CUBOT)
 
@@ -163,7 +169,7 @@ CONTAINS
 !
       IMPLICIT NONE
 
-      INTEGER, INTENT(IN) :: mza,mwa,iw,io6,kte
+      INTEGER, INTENT(IN) :: mza,iw,io6,kte
 
       INTEGER, INTENT(IN) ::  trigger
 
@@ -177,10 +183,8 @@ CONTAINS
 
       REAL,  INTENT(IN) :: DT,DX,DXSQ
 
-      REAL, INTENT(INOUT) :: RAINCV(mwa)
-      REAL, INTENT(INOUT) :: PRATEC(mwa)
-      REAL, INTENT(INOUT) :: CUBOT (mwa)
-      REAL, INTENT(INOUT) :: CUTOP (mwa)
+      REAL, INTENT(INOUT) :: PRATEC
+      REAL, INTENT(INOUT) :: CUBOT, CUTOP
 
 !...DEFINE LOCAL VARIABLES...
 
@@ -236,7 +240,7 @@ CONTAINS
                  RELERR,RLC,RLS,RNC,FABEOLD,AINCOLD,UEFRC, &
                  DDFRC,TDC,DEFRC,RHBAR,DMFFRC,DPMIN,DILBE
    REAL    ::    ASTRT,TP,VALUE,AINTRP,TKEMAX,QFRZ,&
-                 QSS,PPTMLT,DTMELT,RHH,EVAC,BINC
+                 QSS,PPTMLT,DTMELT,RHH,EVAC,BINC,raincv
 !
       INTEGER :: INDLU,NU,NUCHM,NNN,KLFS
    REAL    :: CHMIN,PM15,CHMAX,DTRH,RAD,DPPP
@@ -1917,11 +1921,11 @@ iter:     DO NCOUNT=1,10
   4455  format(8f11.3) 
        ENDIF
         CNDTNF=(1.-EQFRC(LFS))*(QLIQ(LFS)+QICE(LFS))*DMF(LFS)
-        PRATEC(IW)=PPTFLX*(1.-FBFRC)/DXSQ
-        RAINCV(IW)=DT*PRATEC(IW)     !  PPT FB MODS
-!        RAINCV(IW)=.1*.5*DT*PPTFLX/DXSQ               !  PPT FB MODS
+        PRATEC=PPTFLX*(1.-FBFRC)/DXSQ
+        RAINCV=DT*PRATEC     !  PPT FB MODS
+!        RAINCV=.1*.5*DT*PPTFLX/DXSQ               !  PPT FB MODS
 !         RNC=0.1*TIMEC*PPTFLX/DXSQ
-        RNC=RAINCV(IW)*NIC
+        RNC=RAINCV*NIC
        IF(ISHALL.EQ.0.AND.IPRNT)write (io6,909)IW,RNC
   
 !  EVALUATE MOISTURE BUDGET...    
@@ -2022,11 +2026,11 @@ iter:     DO NCOUNT=1,10
           DTDT(K)=(TG(K)-T0(K))/TIMEC
           DQDT(K)=(QG(K)-Q0(K))/TIMEC
         ENDDO
-        PRATEC(IW)=PPTFLX*(1.-FBFRC)/DXSQ
-        RAINCV(IW)=DT*PRATEC(IW)
-!        RAINCV(IW)=.1*.5*DT*PPTFLX/DXSQ               !  PPT FB MODS
+        PRATEC=PPTFLX*(1.-FBFRC)/DXSQ
+        RAINCV=DT*PRATEC
+!        RAINCV=.1*.5*DT*PPTFLX/DXSQ               !  PPT FB MODS
 !         RNC=0.1*TIMEC*PPTFLX/DXSQ
-        RNC=RAINCV(IW)*NIC
+        RNC=RAINCV*NIC
  909     FORMAT('AT I =',i3,' CONVECTIVE RAINFALL =',F8.4,' mm')
 !      write (io6,909)IW,RNC
 !      write (6,909)IW,RNC
@@ -2066,8 +2070,8 @@ iter:     DO NCOUNT=1,10
 !--------------SAVE CLOUD TOP AND BOTTOM FOR RADIATION------------------
 !-----------------------------------------------------------------------
 
-      CUTOP(IW)=REAL(LTOP)
-      CUBOT(IW)=REAL(LCL)
+      CUTOP = REAL(LTOP)
+      CUBOT = REAL(LCL)
 
    END SUBROUTINE  KF_eta_PARA
 

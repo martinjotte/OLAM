@@ -34,6 +34,7 @@ subroutine cuparm_driver(rhot)
 
 use mem_grid,        only: mwa, mza, lpw, arw0, lpv
 use module_cu_kfeta, only: kf_lutab, cuparm_kfeta 
+use module_cu_tiedtke, only: cuparm_tiedtke 
 use misc_coms,       only: io6, time_istp8, time_istp8p, nqparm, nqparm_sh, &
                            confrq, dtlong, initial, itime1, iparallel
 use mem_ijtabs,      only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
@@ -52,8 +53,8 @@ integer             :: j, iw, k, mrl, mrlw
 integer, save       :: init_kf = 0
 integer, save       :: init_em = 0
 
-real    :: dthmax, ftcon, dtlong4
-integer :: iwqmax, kqmax
+real    :: dthmax, ftcon, dtlong4, confrq4, confrq4i
+integer :: iwqmax, kqmax, km, km1
 
 integer, save :: ncall = 0
 integer :: npoly, jwn, iwn, iv, nblocked
@@ -140,7 +141,9 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
    iwqmax = 0
    kqmax  = 0
 
-   dtlong4 = real(dtlong)
+   dtlong4  = real(dtlong)
+   confrq4  = real(confrq)
+   confrq4i = 1. / confrq4
 
    thsrc_distrib(:,:) = 0.0
    thsrc        (:,:) = 0.0
@@ -149,7 +152,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
    call psub()
 !----------------------------------------------------------------------
-   !$omp parallel do private(iw,mrlw,k) 
+   !$omp parallel do private(iw,mrlw,k,km,km1) 
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
 !----------------------------------------------------------------------
    call qsub('W',iw)
@@ -160,7 +163,16 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
 ! Select cumulus convection scheme based on MRL of current IW column
       
-      if (nqparm(mrlw) == 2) then
+      if (nqparm(mrlw) == 1) then
+   
+! Tiedtke convective parameterization
+
+         km = mza - lpw(iw) ! km  = # of T levels in cuparm_tiedtke
+         km1 = km + 1       ! km1 = # of W levels in cuparm_tiedtke
+
+         call cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
+
+      elseif (nqparm(mrlw) == 2) then
    
 ! Grell deep convection
 
