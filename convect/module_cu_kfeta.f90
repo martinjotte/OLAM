@@ -17,6 +17,8 @@ MODULE module_cu_kfeta
   REAL, PARAMETER, PRIVATE :: SVPT0 = 273.15
   REAL, PARAMETER, PRIVATE :: XLV0  = 3.15E6
   REAL, PARAMETER, PRIVATE :: XLV1  = 2370.
+  REAL, PARAMETER, PRIVATE :: XLS0  = 2.905E6
+  REAL, PARAMETER, PRIVATE :: XLS1  = 259.532
   REAL, PARAMETER, PRIVATE :: cp    = 1004.6
   REAL, PARAMETER, PRIVATE :: g     = 9.81  ! acceleration due to gravity (m {s}^-2)
   REAL, PARAMETER, PRIVATE :: r     = 287.04
@@ -54,7 +56,7 @@ CONTAINS
 ! in the future, possibly redefined as integer variables.
 
    integer :: cubot, cutop
-   real    :: dxsq, dx, dt, raxis, fnpoly1, pratec, dqildt, lv
+   real    :: dxsq, dx, dt, raxis, fnpoly1, pratec, dqldt, dqfdt, lv, ls
 
    dxsq  = arw0(iw)
    dx    = sqrt(dxsq)
@@ -137,21 +139,26 @@ CONTAINS
       do kt = 1, kte
          k  = kt + lpw(iw) - 1
 
-         ! total condensate tendency from K-F
-         dqildt = DQIDT(kt) + DQCDT(kt) + DQRDT(kt) + DQSDT(kt)
+         ! liquid and frozen condensate tendencies from K-F
+         dqldt = DQCDT(kt) + DQRDT(kt)
+         dqfdt = DQIDT(kt) + DQSDT(kt)
 
          ! include condensate in total water tendency
-         rtsrc(k,iw) =  DQVDT(kt) + dqildt
+         rtsrc(k,iw) = DQVDT(kt) + dqldt + dqfdt
 
          ! since we do not add the condensate to the microphysics tendencies,
          ! we will evaporate the condensate that the K-F scheme leaves in the column
          ! when computing the convective theta tendency
-         lv          = xlv0 - xlv1 * t1d(kt)
-         DTDT(kt)    = DTDT(kt) - lv / cp * dqildt
+         lv           = xlv0 - xlv1 * t1d(kt)
+         ls           = xls0 - xls1 * t1d(kt)
+         DTDT(kt)    = DTDT(kt) - lv / cp * dqldt - ls / cp * dqfdt
          thsrc(k,iw) = DTDT(kt) * theta(k,iw) / tair(k,iw)
-
-         conprr(iw) = pratec
       enddo
+
+      conprr(iw) = pratec
+
+      cubot = cubot + lpw(iw) - 1
+      cutop = cutop + lpw(iw) - 1
 
    endif
 

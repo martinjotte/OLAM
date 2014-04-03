@@ -10,79 +10,79 @@
 !###########################################################
 MODULE module_cu_tiedtke
 
-  private :: g, cpv
-
-  real, parameter :: t000 = 273.15
-  real, parameter :: hgfr = 233.15   ! defined in param.f in explct
-  real, parameter :: ALV = 2.5008E6
-  real, parameter :: ALS = 2.8345E6
-  real, parameter :: ALF = ALS-ALV
-  real, parameter :: CPD = 1005.46
-  real, parameter :: CPV = 1869.46 ! CPV in module is 1846.4
-  real, parameter :: RCPD = 1.0/CPD
-  real, parameter :: RHOH2O = 1.0E03
-  real, parameter :: TMELT = 273.16
-  real, parameter :: G = 9.806 ! G=9.806
-  real, parameter :: ZRG = 1.0/G
-  real, parameter :: RD = 287.05
-  real, parameter :: RV = 461.51
-  real, parameter :: C1ES = 610.78
-  real, parameter :: C2ES = C1ES*RD/RV
-  real, parameter :: C3LES = 17.269
-  real, parameter :: C4LES = 35.86
-  real, parameter :: C5LES = C3LES*(TMELT-C4LES)
-  real, parameter :: C3IES = 21.875
-  real, parameter :: C4IES = 7.66
-  real, parameter :: C5IES = C3IES*(TMELT-C4IES)
-  real, parameter :: VTMPC1 = RV/RD-1.0
-  real, parameter :: VTMPC2 = CPV/CPD-1.0
-  real, parameter :: CVDIFTS = 1.0
-  real, parameter :: CEVAPCU1 = 1.93E-6*261.0*0.5/G
-  real, parameter :: CEVAPCU2 = 1.E3/(38.3*0.293)
+  real, parameter, private :: t000 = 273.15
+  real, parameter, private :: hgfr = 233.15   ! defined in param.f in explct
+  real, parameter, private :: ALV = 2.5008E6
+  real, parameter, private :: ALS = 2.8345E6
+  real, parameter, private :: ALF = ALS-ALV
+  real, parameter, private :: CPD = 1005.46
+  real, parameter, private :: CPV = 1869.46 ! CPV in module is 1846.4
+  real, parameter, private :: RCPD = 1.0/CPD
+  real, parameter, private :: RHOH2O = 1.0E03
+  real, parameter, private :: TMELT = 273.16
+  real, parameter, private :: G = 9.806 ! G=9.806
+  real, parameter, private :: ZRG = 1.0/G
+  real, parameter, private :: RD = 287.05
+  real, parameter, private :: RV = 461.51
+  real, parameter, private :: C1ES = 610.78
+  real, parameter, private :: C2ES = C1ES*RD/RV
+  real, parameter, private :: C3LES = 17.269
+  real, parameter, private :: C4LES = 35.86
+  real, parameter, private :: C5LES = C3LES*(TMELT-C4LES)
+  real, parameter, private :: C3IES = 21.875
+  real, parameter, private :: C4IES = 7.66
+  real, parameter, private :: C5IES = C3IES*(TMELT-C4IES)
+  real, parameter, private :: VTMPC1 = RV/RD-1.0
+  real, parameter, private :: VTMPC2 = CPV/CPD-1.0
+  real, parameter, private :: CVDIFTS = 1.0
+  real, parameter, private :: CEVAPCU1 = 1.93E-6*261.0*0.5/G
+  real, parameter, private :: CEVAPCU2 = 1.E3/(38.3*0.293)
      
 ! Specify TUNABLE parameters for massflux scheme
 
-  real, parameter :: ENTRPEN = 1.0E-4 ! avg entrain rate for penetrative conv
-  real, parameter :: ENTRSCV = 1.2E-3 ! avg entrain rate for shallow conv
-  real, parameter :: ENTRMID = 1.0E-4 ! avg entrain rate for midlev conv
-  real, parameter :: ENTRDD  = 2.0E-4 ! avg entrain rate for downdrafts
-  real, parameter :: CMFCTOP = 0.30   ! relative cloud massflux at level
-                                      ! above nonbuoyancy level
-  real, parameter :: CMFCMAX = 1.0   ! max massflux allowed for updrafts, etc
-  real, parameter :: CMFCMIN = 1.E-10 ! min massflux value (for safety)
-  real, parameter :: CMFDEPS = 0.30 ! fractional massflux for downdrafts at LFS
-  real, parameter :: CPRCON = 1.1E-3/G ! coeffs for conversion from cld water
-  real, parameter :: ZDNOPRC = 1.5E4 ! pressure depth below which no precip
+  real, parameter, private :: ENTRPEN = 1.0E-4 ! avg entrain rate for penetrative conv
+  real, parameter, private :: ENTRSCV = 1.2E-3 ! avg entrain rate for shallow conv
+  real, parameter, private :: ENTRMID = 1.0E-4 ! avg entrain rate for midlev conv
+  real, parameter, private :: ENTRDD  = 2.0E-4 ! avg entrain rate for downdrafts
+  real, parameter, private :: CMFCTOP = 0.30   ! relative cloud massflux at level
+                                               ! above nonbuoyancy level
+  real, parameter, private :: CMFCMAX = 1.0   ! max massflux allowed for updrafts, etc
+  real, parameter, private :: CMFCMIN = 1.E-10 ! min massflux value (for safety)
+  real, parameter, private :: CMFDEPS = 0.30 ! fractional massflux for downdrafts at LFS
+  real, parameter, private :: CPRCON = 1.1E-3/G ! coeffs for conversion from cld water
+  real, parameter, private :: ZDNOPRC = 1.5E4 ! pressure depth below which no precip
 
-  integer, parameter :: orgen = 1  ! Old organized entrain rate
-! integer, parameter :: orgen = 2  ! New organized entrain rate
+  integer, parameter, private :: orgen = 1  ! Old organized entrain rate
+! integer, parameter, private :: orgen = 2  ! New organized entrain rate
 
-  integer, parameter :: nturben = 1 ! old deep turbulent entrain/detrain rate
-! integer, parameter :: nturben = 2 ! New deep turbulent entrain/detrain rate
+  integer, parameter, private :: nturben = 1 ! old deep turbulent entrain/detrain rate
+! integer, parameter, private :: nturben = 2 ! New deep turbulent entrain/detrain rate
 
-  integer, parameter :: cutrigger = 1 ! Old trigger function
-! integer, parameter :: cutrigger = 2 ! New trigger function
+  integer, parameter, private :: cutrigger = 1 ! Old trigger function
+! integer, parameter, private :: cutrigger = 2 ! New trigger function
 
-  real, parameter :: RHC = 0.80, RHM = 1.0, ZBUO0 = 0.50
-  real, parameter :: CRIRH = 0.70, fdbk = 1.0, ZTAU = 1800.0
+  real, parameter, private :: RHC = 0.80, RHM = 1.0, ZBUO0 = 0.50
+  real, parameter, private :: CRIRH = 0.70, fdbk = 1.0, ZTAU = 1800.0
 
-  logical, parameter :: LMFPEN = .TRUE.
-  logical, parameter :: LMFMID = .TRUE.
-  logical, parameter :: LMFSCV = .TRUE.
-  logical, parameter :: LMFDD = .TRUE.
-  logical, parameter :: LMFDUDV = .TRUE.
+  logical, parameter, private :: LMFPEN = .TRUE.
+  logical, parameter, private :: LMFMID = .TRUE.
+  logical, parameter, private :: LMFSCV = .TRUE.
+  logical, parameter, private :: LMFDD  = .TRUE.
+  logical, parameter, private :: LMFDUDV= .TRUE.
 
 CONTAINS
 
    subroutine cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
 
-   use mem_grid,    only: mza, mwa, lpw, zt, dzm, xew, yew, zew, &
-                          unx, uny, unz, vnx, vny, vnz
+   use mem_grid,    only: mza, mwa, lpv, lpw, zt, dzm, xew, yew, zew, &
+                          unx, uny, unz, vnx, vny, vnz, arv, arw, volt
    use misc_coms,   only: io6
    use mem_cuparm,  only: thsrc, rtsrc, conprr
-   use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc
-   use mem_turb,    only: frac_land, sflux_t, sflux_r
+   use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc, &
+                          vmc, wmc
+   use mem_turb,    only: frac_land, sflux_t, sflux_r, fqtpbl
    use consts_coms, only: erad
+   use mem_ijtabs,  only: itab_w
 
    implicit none
 
@@ -104,6 +104,8 @@ CONTAINS
    real :: prsw(km1) ! pressure at OLAM W levels
    real :: sig1(km1) ! sigma_p value
 
+   real :: vflux(mza), vflux_vap(mza)
+
    integer :: lndj  ! 0 over land, 1 over water
    integer :: ktype ! Convective closure type; output from Tiedtke param
 
@@ -112,15 +114,34 @@ CONTAINS
    real :: rhosf ! air density at lpw level
    real :: rn    ! conv precip [kg/m^2] accum over confrq period
 
-   integer :: ka, k, kt
+   integer :: ka, k, kt, jv, iv, iwn, npoly
+   integer :: ictop, icbot
 
-   real :: raxis
-   real :: uzonal = 0., umerid = 0. ! dummy variables for now
+   real :: raxis, hflux, hflux_vap, dirv, flx
+   real :: uzonal(mza), umerid(mza) ! dummy variables for now
    real :: uzonal_tend, umerid_tend ! dummy variables for now
 
    ka = lpw(iw)
+   npoly = itab_w(iw)%npoly
 
    raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+
+   thsrc(:,iw) = 0.0
+   rtsrc(:,iw) = 0.0
+   conprr (iw) = 0.0
+
+! Vertical advective mass and water vapor fluxes (W levels)
+
+   do k = ka,mza-2
+      vflux(k) = arw(k,iw) * wmc(k,iw)
+      vflux_vap(k) = vflux(k) * 0.5 * (sh_v(k,iw) + sh_v(k+1,iw))
+   enddo
+   vflux(ka-1) = 0.
+   vflux(mza-1) = 0.
+   vflux_vap(ka-1) = 0.
+   vflux_vap(mza-1) = 0.
+
+! Loop over T levels
 
    do k = ka,mza-1
       kt = mza - k        
@@ -137,12 +158,38 @@ CONTAINS
          v1(kt) = vye(k,iw)
       endif
 
+      uzonal(k) = u1(kt)
+      umerid(k) = v1(kt)
+
+! Horizontal advective mass and water vapor fluxes
+
+      hflux = 0.
+      hflux_vap = 0.
+      
+      do jv = 1, npoly
+         iv  = itab_w(iw)%iv(jv)
+
+         if (lpv(iv) >= k) then
+            iwn = itab_w(iw)%iw(jv)
+
+            dirv = itab_w(iw)%dirv(jv)
+
+            flx = dirv * vmc(k,iv) * arv(k,iv)
+
+            hflux = hflux + flx
+            hflux_vap = hflux_vap + flx * 0.5 * (sh_v(k,iw) + sh_v(k,iwn))
+         endif
+      enddo
+
+      q1b (kt) = ((vflux_vap(k-1) - vflux_vap(k) + hflux_vap) &
+               - (vflux(k-1) - vflux(k) + hflux) * sh_v(k,iw)) &
+               / (volt(k,iw) * rho(k,iw))
+
       t1  (kt) = tair(k,iw)
       q1  (kt) = sh_v(k,iw)
-      q2  (kt) = 0. ! not used in OLAM
-      q3  (kt) = 0. ! not used in OLAM
-      q1b (kt) = 0. ! zero for now; later, compute advection here
-      q1bl(kt) = 0. ! zero for now; later, use Martin's pbl array
+      q2  (kt) = 0.0  ! no initial liquid
+      q3  (kt) = 0.0  ! no initial ice
+      q1bl(kt) = fqtpbl(k,iw)
 
       ght (kt) = zt(k)
       omg (kt) = -0.5 * g * rho(k,iw) * (wc(k-1,iw) + wc(k,iw))
@@ -161,32 +208,50 @@ CONTAINS
    hfx   = sflux_t(iw) * tair(ka,iw) / theta(ka,iw)
    rhosf = rho(ka,iw)
 
-   lndj = 1
-
    if (allocated(frac_land)) then
       lndj = nint(1.0 - frac_land(iw))
+   else
+      lndj = 1
    endif
-
+   
 ! Tiedtke convective parameterization for one IW column
 
    call tiecnv(u1,v1,t1,q1,q2,q3,q1b,q1bl, &
               ght,omg,prst,prsw,evap,hfx,rhosf, &
-              rn,lndj,ktype,km,km1,sig1,confrq4)
+              rn,lndj,ktype,km,km1,sig1,confrq4, &
+              icbot,ictop)
+
+   ictop = mza - ictop
+   icbot = mza - icbot
 
 ! Apply convective parameterization results to main model arrays
 
-   do k = ka,mza-1
-      kt = mza - k        
+   if (ictop > ka+1) then
 
-      thsrc(k,iw) = (t1(kt) - tair(k,iw)) * confrq4i &
-                  * (theta(k,iw) / tair(k,iw))
-      rtsrc(k,iw) = (q1(kt) - sh_v(k,iw)) * confrq4i
+      do k = ka,mza-1
+         kt = mza - k        
 
-      uzonal_tend = (u1(kt) - uzonal) * confrq4i
-      umerid_tend = (v1(kt) - umerid) * confrq4i
-   enddo
+         ! if convection created any ice or liquid, add it to the
+         ! total water and evaporate it
+         
+         q1(kt) = q1(kt) + q2(kt) + q3(kt)
+         t1(kt) = t1(kt) - alv / cpd * q2(kt) - als / cpd * q3(kt)
 
-   conprr(iw) = rn * confrq4i
+         ! store convective heating and moisture rates
+
+         thsrc(k,iw) = (t1(kt) - tair(k,iw)) * confrq4i &
+                     * (theta(k,iw) / tair(k,iw))
+         rtsrc(k,iw) = (q1(kt) - sh_v(k,iw)) * confrq4i
+      enddo
+
+!     do k = ka, mza-1
+!        uzonal_tend = (u1(kt) - uzonal(k)) * confrq4i
+!        umerid_tend = (v1(kt) - umerid(k)) * confrq4i
+!     enddo
+
+      conprr(iw) = rn * confrq4i
+
+   endif
 
    end subroutine cuparm_tiedtke
 
@@ -205,7 +270,8 @@ CONTAINS
 !        subroutine TIECNV
 !********************************************************
       SUBROUTINE TIECNV(pu,pv,pt,pqv,pqc,pqi,pqvf,pqvbl,poz,pomg,  &
-           pap,paph,evap,hfx,rho,zprecc,lndj,KTYPE,km,km1,sig1,dt)
+           pap,paph,evap,hfx,rho,zprecc,lndj,KTYPE,km,km1,sig1,dt, &
+           icbot,ictop)
 !-----------------------------------------------------------------
 !  This is the interface between the meso-scale model and the mass 
 !  flux convection module
@@ -224,7 +290,7 @@ CONTAINS
           ZLU(km),     ZLUDE(km), ZMFU(km),  ZMFD(km),  &
           ZQSAT(km),   pqc(km),   pqi(km),   ZRAIN
 
-      REAL sig(km1),sig1(km)
+      REAL sig1(km)
       INTEGER ICBOT,   ICTOP,     KTYPE,   lndj
       REAL  dt
       LOGICAL LOCUM
