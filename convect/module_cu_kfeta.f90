@@ -1,28 +1,30 @@
 MODULE module_cu_kfeta
 
 ! Lookup table variables:
-      INTEGER, PARAMETER :: KFNT=250,KFNP=220
-      REAL, DIMENSION(KFNT,KFNP),PRIVATE, SAVE :: TTAB,QSTAB
-      REAL, DIMENSION(KFNP),PRIVATE, SAVE :: THE0K
-      REAL, DIMENSION(200),PRIVATE, SAVE :: ALU
-      REAL, PRIVATE, SAVE :: RDPR,RDTHK,PLUTOP
+  INTEGER,                   PRIVATE, PARAMETER :: KFNT=250, KFNP=220
+  REAL, DIMENSION(KFNT,KFNP),PRIVATE, SAVE      :: TTAB, QSTAB
+  REAL, DIMENSION(KFNP),     PRIVATE, SAVE      :: THE0K
+  REAL, DIMENSION(200),      PRIVATE, SAVE      :: ALU
+  REAL,                      PRIVATE, SAVE      :: RDPR, RDTHK, PLUTOP
 ! Note:  KF Lookup table is used by subroutines KF_eta_PARA, TPMIX2,
 !        TPMIX2DD, ENVIRTHT
-! End of Lookup table variables:
+! End of Lookup table variables
 
-! KF_eta parameters
+! KF_eta parameters:
+  REAL, PARAMETER, PRIVATE :: SVP1  = 0.6112
+  REAL, PARAMETER, PRIVATE :: SVP2  = 17.67
+  REAL, PARAMETER, PRIVATE :: SVP3  = 29.65
+  REAL, PARAMETER, PRIVATE :: SVPT0 = 273.15
+  REAL, PARAMETER, PRIVATE :: XLV0  = 3.15E6
+  REAL, PARAMETER, PRIVATE :: XLV1  = 2370.
+  REAL, PARAMETER, PRIVATE :: cp    = 1004.6
+  REAL, PARAMETER, PRIVATE :: g     = 9.81  ! acceleration due to gravity (m {s}^-2)
+  REAL, PARAMETER, PRIVATE :: r     = 287.04
 
-REAL, PARAMETER :: SVP1  = 0.6112
-REAL, PARAMETER :: SVP2  = 17.67
-REAL, PARAMETER :: SVP3  = 29.65
-REAL, PARAMETER :: SVPT0 = 273.15
-REAL, PARAMETER :: XLV0  = 3.15E6
-REAL, PARAMETER :: XLV1  = 2370.
-REAL, PARAMETER :: XLS0  = 2.905E6
-REAL, PARAMETER :: XLS1  = 259.532
-REAL, PARAMETER :: cp    = 1004.6
-REAL, PARAMETER :: g     = 9.81  ! acceleration due to gravity (m {s}^-2)
-REAL, PARAMETER :: r     = 287.04
+  logical, parameter, private :: F_QI      = .true.
+  logical, parameter, private :: F_QS      = .false.
+  logical, parameter, private :: warm_rain = .false.
+  integer, parameter, private :: trigger   =  1
 
 CONTAINS
 
@@ -41,10 +43,8 @@ CONTAINS
    integer, intent(in) :: iw
    real,    intent(in) :: dtlong4
 
-   integer :: kte, k, jv, iv, kv, kt, npoly, jwn, iwn
-   INTEGER :: trigger = 1
-
-   real :: dqdt(mza),dqidt(mza),dqcdt(mza),dqrdt(mza)
+   integer :: kte, k, kt, npoly, jwn, iwn
+   real :: dqvdt(mza),dqidt(mza),dqcdt(mza),dqrdt(mza)
    real :: dqsdt(mza),dtdt(mza)
    real :: u1d(mza),v1d(mza),t1d(mza),dz1d(mza)
    real :: qv1d(mza),p1d(mza),rho1d(mza),w0avg1d(mza)
@@ -53,28 +53,20 @@ CONTAINS
 ! in the kf_eta scheme.  They are not currently used in OLAM but could be
 ! in the future, possibly redefined as integer variables.
 
-   real :: cubot, cutop
-
-   real :: wtold, wtnew, dxsq, dx, dt, raxis, fnpoly1, pratec
-
-   LOGICAL :: F_QR, F_QI, F_QS, warm_rain
+   integer :: cubot, cutop
+   real    :: dxsq, dx, dt, raxis, fnpoly1, pratec, dqildt, lv
 
    dxsq  = arw0(iw)
    dx    = sqrt(dxsq)
    dt    = dtlong4
    raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
-   F_QR = .FALSE.
-   F_QI = .FALSE.
-   F_QS = .FALSE.
-   warm_rain = .FALSE.
-
    npoly = itab_w(iw)%npoly
    fnpoly1 = 0.5 / real(npoly+1)
 
 ! Initialize 1D arrays
 
-   DQDT (:) = 0.
+   DQVDT(:) = 0.
    DQIDT(:) = 0.
    DQCDT(:) = 0.
    DQRDT(:) = 0.
@@ -88,6 +80,8 @@ CONTAINS
    cutop = lpw(iw)
    cubot = mza - 1
 
+! Go no higher than 50mb for convective calculations
+
    kte = mza - lpw(iw)
    do k = lpw(iw), mza-1
       if (press(k,iw) < 50.e2) then
@@ -96,14 +90,13 @@ CONTAINS
       endif
    enddo
 
-   do k = lpw(iw),mza-1
-      kt = k + 1 - lpw(iw)
+   do kt = 1, kte
+      k  = kt + lpw(iw) - 1
 
       t1d  (kt) = tair (k,iw)
       rho1d(kt) = rho  (k,iw)
       qv1d (kt) = sh_v (k,iw)
       p1d  (kt) = press(k,iw)
-!      dz1d (kt) = dzm  (k) ! Error: corrected 3/19/2014 in next line
       dz1d (kt) = dzt  (k)
 
 ! Compute zonal and meridional wind components
@@ -122,8 +115,8 @@ CONTAINS
 
 ! Compute an area-mean vertical velocity
 
-   do k = lpw(iw), mza-1
-      kt = k + 1 - lpw(iw)
+   do kt = 1, kte
+      k  = kt + lpw(iw) - 1
       w0avg1d(kt) = fnpoly1 * (wc(k,iw) + wc(k+1,iw))
       do jwn = 1,npoly
          iwn = itab_w(iw)%iw(jwn)
@@ -134,34 +127,43 @@ CONTAINS
 
    CALL KF_eta_PARA(mza,IW,io6,kte, &
       U1D,V1D,T1D,QV1D,P1D,DZ1D,W0AVG1D,    &
-      trigger,                              &
       DT,DX,DXSQ,RHO1D,                     &
-      DQDT,DQIDT,DQCDT,DQRDT,DQSDT,DTDT,    &
+      DQVDT,DQIDT,DQCDT,DQRDT,DQSDT,DTDT,   &
       pratec,                               &
-      F_QI,F_QS,warm_rain,                  &
       CUTOP,CUBOT)
 
-   do k = lpw(iw),mza-1
-      kt = k + 1 - lpw(iw)
+   if (cutop >= cubot) then
 
-      thsrc(k,iw) = DTDT(Kt) * theta(k,iw) / tair(k,iw)
-      rtsrc(k,iw) = DQDT(Kt)
-   enddo
+      do kt = 1, kte
+         k  = kt + lpw(iw) - 1
 
-   conprr(iw) = pratec
+         ! total condensate tendency from K-F
+         dqildt = DQIDT(kt) + DQCDT(kt) + DQRDT(kt) + DQSDT(kt)
 
-   return
+         ! include condensate in total water tendency
+         rtsrc(k,iw) =  DQVDT(kt) + dqildt
+
+         ! since we do not add the condensate to the microphysics tendencies,
+         ! we will evaporate the condensate that the K-F scheme leaves in the column
+         ! when computing the convective theta tendency
+         lv          = xlv0 - xlv1 * t1d(kt)
+         DTDT(kt)    = DTDT(kt) - lv / cp * dqildt
+         thsrc(k,iw) = DTDT(kt) * theta(k,iw) / tair(k,iw)
+
+         conprr(iw) = pratec
+      enddo
+
+   endif
+
    END SUBROUTINE cuparm_kfeta
 
 !====================================================================
 
    SUBROUTINE KF_eta_PARA (mza,IW,io6,kte,             &
                       U0,V0,T0,QV0,P0,DZQ,W0AVG1D,         &
-                      trigger,                             &
                       DT,DX,DXSQ,rhoe,                     &
                       DQDT,DQIDT,DQCDT,DQRDT,DQSDT,DTDT,   &
                       PRATEC,                              &
-                      F_QI,F_QS,warm_rain,                 &
                       CUTOP,CUBOT)
 
 !***** The KF scheme that is currently used in experimental runs of EMCs 
@@ -170,10 +172,6 @@ CONTAINS
       IMPLICIT NONE
 
       INTEGER, INTENT(IN) :: mza,iw,io6,kte
-
-      INTEGER, INTENT(IN) ::  trigger
-
-      LOGICAL, INTENT(IN) :: F_QI, F_QS, warm_rain
 
       real, intent(inout) :: dqdt(mza),dqidt(mza),dqcdt(mza),dqrdt(mza)
       real, intent(inout) :: dqsdt(mza),dtdt(mza)
@@ -184,7 +182,8 @@ CONTAINS
       REAL,  INTENT(IN) :: DT,DX,DXSQ
 
       REAL, INTENT(INOUT) :: PRATEC
-      REAL, INTENT(INOUT) :: CUBOT, CUTOP
+
+      integer, INTENT(INOUT) :: CUBOT, CUTOP
 
 !...DEFINE LOCAL VARIABLES...
 
@@ -2070,8 +2069,8 @@ iter:     DO NCOUNT=1,10
 !--------------SAVE CLOUD TOP AND BOTTOM FOR RADIATION------------------
 !-----------------------------------------------------------------------
 
-      CUTOP = REAL(LTOP)
-      CUBOT = REAL(LCL)
+      CUTOP = LTOP
+      CUBOT = LCL
 
    END SUBROUTINE  KF_eta_PARA
 
