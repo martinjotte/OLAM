@@ -114,6 +114,8 @@ CONTAINS
    real :: rhosf ! air density at lpw level
    real :: rn    ! conv precip [kg/m^2] accum over confrq period
 
+   logical :: iact ! was convection active in this cell
+
    integer :: ka, k, kt, jv, iv, iwn, npoly
    integer :: ictop, icbot
 
@@ -169,7 +171,7 @@ CONTAINS
       do jv = 1, npoly
          iv  = itab_w(iw)%iv(jv)
 
-         if (lpv(iv) >= k) then
+         if (k >= lpv(iv)) then
             iwn = itab_w(iw)%iw(jv)
 
             dirv = itab_w(iw)%dirv(jv)
@@ -219,17 +221,17 @@ CONTAINS
    call tiecnv(u1,v1,t1,q1,q2,q3,q1b,q1bl, &
               ght,omg,prst,prsw,evap,hfx,rhosf, &
               rn,lndj,ktype,km,km1,sig1,confrq4, &
-              icbot,ictop)
+              icbot,ictop,iact)
 
    ictop = mza - ictop
    icbot = mza - icbot
 
 ! Apply convective parameterization results to main model arrays
 
-   if (ictop > ka+1) then
+   if (iact) then
 
       do k = ka,mza-1
-         kt = mza - k        
+         kt = mza - k
 
          ! if convection created any ice or liquid, add it to the
          ! total water and evaporate it
@@ -271,7 +273,7 @@ CONTAINS
 !********************************************************
       SUBROUTINE TIECNV(pu,pv,pt,pqv,pqc,pqi,pqvf,pqvbl,poz,pomg,  &
            pap,paph,evap,hfx,rho,zprecc,lndj,KTYPE,km,km1,sig1,dt, &
-           icbot,ictop)
+           icbot,ictop,locum)
 !-----------------------------------------------------------------
 !  This is the interface between the meso-scale model and the mass 
 !  flux convection module
