@@ -302,7 +302,6 @@ endif
 
 do ng=1, nl%ngrids
    call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 4, 0, nfatal, nwarn )
-   call ichk_bnds( nl%nqparm_sh(ng), "NQPARM_SH", 0, 1, 0, nfatal, nwarn )
 enddo
 call dchk_bnds( nl%confrq, "CONFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
 

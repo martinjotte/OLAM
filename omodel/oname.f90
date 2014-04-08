@@ -85,7 +85,7 @@ use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
                        itime1, idate1, imonth1, iyear1, ngrids, nzp, &
                        mdomain, meshtype, itopoflg, nxp, &
                        ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
-                       current_time, nqparm_sh, debug_fp, init_nans
+                       current_time, debug_fp, init_nans
 
 use micro_coms,  only: level, icloud, idriz, irain, ipris, &
                        isnow, iaggr, igraup, ihail, iccnlev, &
@@ -149,7 +149,6 @@ if (copy_type == 'ALL_CASES') then
       csx(i)     = nl%csx(i)
       akmin(i)   = nl%akmin(i)
       nqparm(i)  = nl%nqparm(i)
-      nqparm_sh(i)  = nl%nqparm_sh(i)
    enddo
 
    topo_database = nl%topo_database

@@ -100,7 +100,6 @@ integer :: idiffk   (maxgrds)
 integer :: ndtrat   (maxgrds)
 integer :: nacoust  (maxgrds)
 integer :: nqparm   (maxgrds)
-integer :: nqparm_sh(maxgrds)
 
 real(r8) :: dtlong
 real(r8) :: frqstate

@@ -47,7 +47,7 @@ subroutine olam_mem_alloc()
   use mem_thuburn, only: alloc_thuburn
 
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
-                         nqparm, nqparm_sh, dtsm, meshtype
+                         nqparm, dtsm, meshtype
 
   use micro_coms,  only: level, ncat, jnmb, &
                          icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail
@@ -72,7 +72,7 @@ subroutine olam_mem_alloc()
   call alloc_basic(meshtype,mza,mua,mva,mwa)
   call filltab_basic()
 
-  call alloc_cuparm(mza, mwa, mrls, nqparm, nqparm_sh)
+  call alloc_cuparm(mza, mwa, mrls, nqparm)
   call filltab_cuparm() 
 
   call alloc_micro(mza,mwa,level,ncat, &

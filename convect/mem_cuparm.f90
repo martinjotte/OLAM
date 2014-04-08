@@ -35,8 +35,6 @@ Module mem_cuparm
 
    real, allocatable, target :: thsrc  (:,:)
    real, allocatable, target :: rtsrc  (:,:)
-   real, allocatable, target :: thsrcsh(:,:)
-   real, allocatable, target :: rtsrcsh(:,:)
    real, allocatable, target :: aconpr   (:)
    real, allocatable, target :: conprr   (:)
 
@@ -54,13 +52,13 @@ Contains
 
 !===============================================================================
 
-  subroutine alloc_cuparm(mza, mwa, mrls, nqparm, nqparm_sh)
+  subroutine alloc_cuparm(mza, mwa, mrls, nqparm)
 
     use misc_coms,       only: rinit
     implicit none
 
     integer, intent(in) :: mza, mwa, mrls
-    integer, intent(in) :: nqparm(:), nqparm_sh(:)
+    integer, intent(in) :: nqparm(:)
    
     ! Base tendency arrays for all deep convective schemes
 
@@ -69,13 +67,6 @@ Contains
        allocate (rtsrc(mza,mwa)) ; rtsrc  = 0.0
        allocate (aconpr   (mwa)) ; aconpr = 0.0
        allocate (conprr   (mwa)) ; conprr = 0.0
-    endif
-
-    ! Base tendency arrays for all shallow convective schemes
-
-    if ( any(nqparm_sh(1:mrls) > 0) ) then
-       allocate (thsrcsh(mza,mwa)) ; thsrcsh = 0.0
-       allocate (rtsrcsh(mza,mwa)) ; rtsrcsh = 0.0
     endif
 
     ! Extra memory for Grell scheme
@@ -99,8 +90,6 @@ Contains
 
     if (allocated(thsrc))   deallocate (thsrc)
     if (allocated(rtsrc))   deallocate (rtsrc)
-    if (allocated(thsrcsh)) deallocate (thsrcsh)
-    if (allocated(rtsrcsh)) deallocate (rtsrcsh)
     if (allocated(aconpr))  deallocate (aconpr)
     if (allocated(conprr))  deallocate (conprr)
     if (allocated(iact_gr)) deallocate (iact_gr)
@@ -123,16 +112,6 @@ Contains
      if (allocated(rtsrc)) then
         call increment_vtable('RTSRC', 'AW')
         vtab_r(num_var)%rvar2_p => rtsrc
-     endif
-
-     if (allocated(thsrcsh)) then
-        call increment_vtable('THSRCSH', 'AW')
-        vtab_r(num_var)%rvar2_p => thsrcsh
-     endif
-
-     if (allocated(rtsrcsh)) then
-        call increment_vtable('RTSRCSH', 'AW')
-        vtab_r(num_var)%rvar2_p => rtsrcsh
      endif
 
      if (allocated(aconpr)) then

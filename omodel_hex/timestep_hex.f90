@@ -33,8 +33,8 @@
 subroutine timestep()
 
 use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, time_bias, &
-                       nqparm, initial, ilwrtyp, iswrtyp, dtsm, nqparm_sh, &
-                       dtlm, iparallel, s1900_init, s1900_sim
+                       nqparm, initial, ilwrtyp, iswrtyp, dtsm, dtlm, &
+                       iparallel, s1900_init, s1900_sim
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp
 use mem_grid,    only: mza, mva, mwa
@@ -102,11 +102,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(2)
 
-   if (any(nqparm   (1:mrls) > 0) .or.  &
-       any(nqparm_sh(1:mrls) > 0)) then
-
+   if (any( nqparm(1:mrls) > 0 )) then
       call cuparm_driver(rhot)
-
       if (isfcl == 1) then
          call surface_cuparm_flux()
       endif

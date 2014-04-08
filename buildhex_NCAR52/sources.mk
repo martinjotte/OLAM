@@ -2,15 +2,9 @@
 
 SOURCE_FILES= \
              $(CONVECT)/cuparm_driver.f90 \
-             $(CONVECT)/grell_deep_capmax_ens.f90 \
-             $(CONVECT)/grell_deep_coms.f90 \
-             $(CONVECT)/grell_downdraft.f90 \
-             $(CONVECT)/grell_env_capmax_ens.f90 \
-             $(CONVECT)/grell_shallow_capmax_ens.f90 \
-             $(CONVECT)/grell_shallow_coms.f90 \
-             $(CONVECT)/grell_updraft.f90 \
              $(CONVECT)/mem_cuparm.f90 \
              $(CONVECT)/module_bl_acm2.f90 \
+             $(CONVECT)/module_cu_g3.f90 \
              $(CONVECT)/module_cu_kfeta.f90 \
              $(CONVECT)/module_cu_tiedtke.f90 \
              $(CONVECT)/emanuel_coms.f90 \

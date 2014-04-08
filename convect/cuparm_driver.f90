@@ -32,18 +32,19 @@
 !===============================================================================
 subroutine cuparm_driver(rhot)
 
-use mem_grid,        only: mwa, mza, lpw, arw0, lpv
-use module_cu_kfeta, only: kf_lutab, cuparm_kfeta 
-use module_cu_tiedtke, only: cuparm_tiedtke 
-use misc_coms,       only: io6, time_istp8, time_istp8p, nqparm, nqparm_sh, &
-                           confrq, dtlong, initial, itime1, iparallel
-use mem_ijtabs,      only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
-use mem_cuparm,      only: thsrc, rtsrc, thsrcsh, rtsrcsh, aconpr, conprr
-use mem_tend,        only: thilt, sh_wt
-use mem_basic,       only: rho
-use consts_coms,     only: r8
-use emanuel_coms,    only: alloc_eman
-use olam_mpi_atm,    only: mpi_send_w, mpi_recv_w
+use mem_grid,         only: mwa, mza, lpw, arw0, lpv
+use module_cu_g3,     only: grell_driver
+use module_cu_kfeta,  only: kf_lutab, cuparm_kfeta
+use module_cu_tiedtke,only: cuparm_tiedtke
+use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
+                            dtlong, initial, itime1, iparallel
+use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
+use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr
+use mem_tend,         only: thilt, sh_wt
+use mem_basic,        only: rho
+use consts_coms,      only: r8
+use emanuel_coms,     only: alloc_eman
+use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
 
 implicit none
 
@@ -176,7 +177,8 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
    
 ! Grell deep convection
 
-         call cuparth(iw,dtlong4)
+         call grell_driver( iw, dtlong4, conprr(iw), thsrc(:,iw), &
+                            thsrc_distrib(:,iw), rtsrc(:,iw) )
 
       elseif (nqparm(mrlw) == 3) then
    
@@ -191,19 +193,14 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
          call cuparm_emanuel(iw,dtlong4)
 
       endif
-   
-      if (nqparm_sh(mrlw) == 1) then
-   
-! Grell shallow convection
 
-         call cuparth_shal(iw,dtlong4)
-      
+      if (nqparm(mrlw) /= 2) then
+         ! Grell scheme already partitions heating into local and distributed components
+         do k = lpw(iw), mza-1
+            thsrc_distrib(k,iw) = max(thsrc(k,iw), 0.0) ! heating will be distributed
+            thsrc        (k,iw) = min(thsrc(k,iw), 0.0) ! cooling remains in cell
+         enddo
       endif
-
-      do k = lpw(iw), mza-1
-         thsrc_distrib(k,iw) = max(thsrc(k,iw), 0.0) ! heating will be distributed
-         thsrc        (k,iw) = min(thsrc(k,iw), 0.0) ! cooling remains in cell
-      enddo
 
    enddo
    !$omp end parallel do
@@ -284,18 +281,6 @@ call qsub('W',iw)
          sh_wt(k,iw) = sh_wt(k,iw) + rtsrc(k,iw) * rho(k,iw)
 
          rhot (k,iw) = rhot (k,iw) + rtsrc(k,iw) * rho(k,iw)
-      enddo
-
-   endif
-
-   if ( any(nqparm_sh(1:mrls) > 0) ) then
-      
-      do k = lpw(iw),mza-1
-         thilt(k,iw) = thilt(k,iw) + thsrcsh(k,iw) * rho(k,iw)
-
-         sh_wt(k,iw) = sh_wt(k,iw) + rtsrcsh(k,iw) * rho(k,iw)
-
-         rhot (k,iw) = rhot (k,iw) + rtsrcsh(k,iw) * rho(k,iw)
       enddo
 
    endif
