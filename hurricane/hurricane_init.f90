@@ -2166,24 +2166,24 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! turn off the clipping indicator.
 
-  call gsclip (0)
+  call o_gsclip (0)
 
 ! set all the gks aspect source flags to "individual".
 
-  call gsasf (iasf)
+  call o_gsasf (iasf)
 
 ! force solid fill.
 
-  call gsfais (1)
+  call o_gsfais (1)
 
-  call set(.01,.87,.01,.96,0.,radius_ax(nr),0.,zm(nzz),1)
+  call o_set(.01,.87,.01,.96,0.,radius_ax(nr),0.,zm(nzz),1)
 
   op%xmin = 0.
   op%xmax = radius_ax(nr)
   op%ymin = 0.
   op%ymax = zm(nzz)
 
-  call sfseti ('type of fill',0)
+  call o_sfseti ('type of fill',0)
 
   do k = 2,nzz
      km = max(k-1,2)
@@ -2217,14 +2217,14 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
      enddo
   enddo
 
-  call sflush
+  call o_sflush
 
 ! draw a color bar for the plot.
 
-  call set (0.,1.,0.,1.,0.,1.,0.,1.,1)
+  call o_set (0.,1.,0.,1.,0.,1.,0.,1.,1)
 
-  call gsplci(8)
-  call gstxci(8)
+  call o_gsplci(8)
+  call o_gstxci(8)
 
   hcpn(1) = .88
   hcpn(2) = .91
@@ -2253,10 +2253,10 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
      endif
 
      if (ibox < clrtab(itab)%nvals) then
-        call plchlq (hcpn(2)+.01,vcpn(3),numbr(1:ln),bsize,0.,-1.)
+        call o_plchlq (hcpn(2)+.01,vcpn(3),numbr(1:ln),bsize,0.,-1.)
      endif
 
-     call sfsgfa (hcpn,vcpn,4,dst,6,ind,8,clrtab(itab)%ipal(ibox))
+     call o_sfsgfa (hcpn,vcpn,4,dst,6,ind,8,clrtab(itab)%ipal(ibox))
 !     call fillpolyg (4,hcpn,vcpn,ipal(ibox))
 
   enddo

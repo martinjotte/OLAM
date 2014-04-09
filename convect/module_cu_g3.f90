@@ -1,5 +1,11 @@
 MODULE module_cu_g3
 
+  use mem_para,  only: myrank
+  use misc_coms, only: io6
+  implicit none
+
+  private :: myrank, io6
+
   integer, parameter, private :: iens    = 1
   integer, parameter, private :: maxens  = 3
   integer, parameter, private :: maxens2 = 3
@@ -296,7 +302,7 @@ CONTAINS
      APR_CAPME = 0.0
      APR_CAPMI = 0.0
 
-     ipr = 0
+     ipr = iw
      jpr = 0
 
      xl  = alvl
@@ -345,7 +351,7 @@ CONTAINS
 
      thsrc        (:) = 0.0
      thsrc_distrib(:) = 0.0
-     rtsrc        (:) = 0.0
+     rtsrc        (:) = 0.0 
      conprr           = 0.0
 
      if (pre(1) > 1.e-16) then
@@ -2987,11 +2993,11 @@ CONTAINS
 
                 do nens=1,maxens
                    XK(nens)=(XAA0(I,nens)-AA1(I))/MBDT(2)
-                   xk(nens)=sign( max(abs(xk(nens)), 2.e-3), xk(nens))
-!                  if(xk(nens).le.0.and.xk(nens).gt.-1.e-6) &
-!                          xk(nens)=-1.e-6
-!                  if(xk(nens).gt.0.and.xk(nens).lt.1.e-6) &
-!                          xk(nens)=1.e-6
+!mjo match with newer gf scheme
+                   if(xk(nens).le.0.and.xk(nens).gt.-1.e-2) &
+                           xk(nens)=-1.e-2
+                   if(xk(nens).gt.0.and.xk(nens).lt.1.e-2) &
+                           xk(nens)=1.e-2
                 enddo
 !
 !--- add up all ensembles
@@ -3103,16 +3109,16 @@ CONTAINS
                                         +massfld)
                          xf_ens(i,j,nall+14)=max(0.,xff_ens3(14) &
                                         +massfld)
-                         a1=max(1.e-3,pr_ens(i,j,nall+7))
+                         a1=max(5.e-3,pr_ens(i,j,nall+7))
                          xf_ens(i,j,nall+7)=max(0.,xff_ens3(7) &
                                      /a1)
-                         a1=max(1.e-3,pr_ens(i,j,nall+8))
+                         a1=max(5.e-3,pr_ens(i,j,nall+8))
                          xf_ens(i,j,nall+8)=max(0.,xff_ens3(8) &
                                      /a1)
-                         a1=max(1.e-3,pr_ens(i,j,nall+9))
+                         a1=max(5.e-3,pr_ens(i,j,nall+9))
                          xf_ens(i,j,nall+9)=max(0.,xff_ens3(9) &
                                      /a1)
-                         a1=max(1.e-3,pr_ens(i,j,nall+15))
+                         a1=max(5.e-3,pr_ens(i,j,nall+15))
                          xf_ens(i,j,nall+15)=max(0.,xff_ens3(15) &
                                      /a1)
                          if(XK(ne).lt.0.)then
@@ -3277,6 +3283,9 @@ CONTAINS
              enddo
           endif
  100   continue
+
+!mjo    Make sure any individual closures are not going crazy
+        xf_ens(:,:,:) = min(xf_ens(:,:,:), 2.*xmbmax)
 
    END SUBROUTINE cup_forcing_ens_3d
 
