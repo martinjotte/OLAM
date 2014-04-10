@@ -301,7 +301,7 @@ endif
 !--------------------------------------------------------------------------
 
 do ng=1, nl%ngrids
-   call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 4, 0, nfatal, nwarn )
+   call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 5, 0, nfatal, nwarn )
 enddo
 call dchk_bnds( nl%confrq, "CONFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
 
@@ -481,7 +481,7 @@ if (nl%isfcl == 1) then
         call rchk_bnds( nl%seatmp, "SEATMP", 100., 500., 0, nfatal, nwarn )
 
    if (nl%iseaiceflg == 0) &
-        call rchk_bnds( nl%seatmp, "SEAICE", 0., 1., 2, nfatal, nwarn )
+        call rchk_bnds( nl%seaice, "SEAICE", 0., 1., 2, nfatal, nwarn )
 
    call rchk_bnds( nl%slz(nl%nzg), "SLZ", -r_huge, -0.02, 0, nfatal, nwarn )
    do k=nl%nzg-1, 1, -1
