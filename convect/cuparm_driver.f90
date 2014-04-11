@@ -34,6 +34,7 @@ subroutine cuparm_driver(rhot)
 
 use mem_grid,         only: mwa, mza, lpw, arw0, lpv
 use module_cu_g3,     only: grell_driver
+use module_cu_gf,     only: gf_driver
 use module_cu_kfeta,  only: kf_lutab, cuparm_kfeta
 use module_cu_tiedtke,only: cuparm_tiedtke
 use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
@@ -64,6 +65,9 @@ real :: dx, ratio, total
 real, save, allocatable :: tkeep(:), tsend(:)
 
 real :: thsrc_distrib(mza,mwa)
+
+real, parameter :: ths_min = 0.0
+!real, parameter :: ths_min = 25.0 / 86400.
 
 !--------------------------------------------
 ! THSRC(k,iw) will contain the heating from parameterized convection in the IW
@@ -135,19 +139,14 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
         ' Convective tendencies updated at ', time_istp8/3600., &
         ' hrs into simulation'
 
-! Initialize indices for search for maximum heating rate
-! (commented out because incorrect in parallel operation)
-
-   dthmax = 0.
-   iwqmax = 0
-   kqmax  = 0
-
    dtlong4  = real(dtlong)
    confrq4  = real(confrq)
    confrq4i = 1. / confrq4
 
    thsrc_distrib(:,:) = 0.0
    thsrc        (:,:) = 0.0
+   rtsrc        (:,:) = 0.0
+   conprr         (:) = 0.0
 
 ! Loop over all IW grid cells where cumulus parameterization may be done
 
@@ -175,10 +174,9 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
       elseif (nqparm(mrlw) == 2) then
    
-! Grell deep convection
+! Grell deep and shallow convection
 
-         call grell_driver( iw, dtlong4, conprr(iw), thsrc(:,iw), &
-                            thsrc_distrib(:,iw), rtsrc(:,iw) )
+         call grell_driver( iw, dtlong4 )
 
       elseif (nqparm(mrlw) == 3) then
    
@@ -192,13 +190,24 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
          call cuparm_emanuel(iw,dtlong4)
 
+      elseif (nqparm(mrlw) == 5) then
+   
+! Grell-Freitas deep and shallow convection
+
+         call gf_driver( iw, dtlong4 )
+
       endif
 
-      if (nqparm(mrlw) /= 2) then
-         ! Grell scheme already partitions heating into local and distributed components
+! Distribute any deep convective heating among local and neighboring cells
+
+      if (nqparm(mrlw) /= 0 .and. conprr(iw) > 1.e-16) then
          do k = lpw(iw), mza-1
-            thsrc_distrib(k,iw) = max(thsrc(k,iw), 0.0) ! heating will be distributed
-            thsrc        (k,iw) = min(thsrc(k,iw), 0.0) ! cooling remains in cell
+
+            ! heating above ths_min will be a candidate to be distributed
+            thsrc_distrib(k,iw) = max( thsrc(k,iw) - ths_min, 0.0 ) 
+
+            ! the rest always stays in the local cell
+            thsrc(k,iw) = thsrc(k,iw) - thsrc_distrib(k,iw)
          enddo
       endif
 
@@ -212,7 +221,11 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
 ! Print maximum heating rate in current parallel sub-domain
 
-   !$omp parallel do private(iw,k,ftcon,dthmax,iwqmax,kqmax) 
+   dthmax = 0.
+   iwqmax = 0
+   kqmax  = 0
+
+   ! this will need to be changed to work with OpenMP
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
       do k = lpw(iw), mza-1
          ftcon = thsrc(k,iw) + thsrc_distrib(k,iw)
@@ -223,7 +236,6 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
          endif
       enddo
    enddo
-   !$omp end parallel do
 
    write(io6, '(A,I0,A,I0,A,F0.3,A)') " MAX CONVECTIVE HEATING RATE AT IW=",  &
         iwqmax, " K=", kqmax, " IS ", dthmax*86400., " K/DAY"

@@ -5,6 +5,7 @@ SOURCE_FILES= \
              $(CONVECT)/mem_cuparm.f90 \
              $(CONVECT)/module_bl_acm2.f90 \
              $(CONVECT)/module_cu_g3.f90 \
+             $(CONVECT)/module_cu_gf.f90 \
              $(CONVECT)/module_cu_kfeta.f90 \
              $(CONVECT)/module_cu_tiedtke.f90 \
              $(CONVECT)/emanuel_coms.f90 \

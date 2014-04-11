@@ -19,7 +19,7 @@ MODULE module_cu_g3
 
 CONTAINS
 
-  SUBROUTINE grell_driver(iw, dtlong, conprr, thsrc, thsrc_distrib, rtsrc)
+  SUBROUTINE grell_driver(iw, dtlong)
 
      use mem_turb,    only: kpblh, frac_land, fthpbl, fqtpbl
      use consts_coms, only: cp, alvl, grav, p00i, rocp, rvap, erad, &
@@ -30,16 +30,13 @@ CONTAINS
      use mem_ijtabs,  only: itab_w
      use mem_basic,   only: wmc, vmc, theta, tair, press, rho, sh_v, &
                             vxe, vye, vze
+     use mem_cuparm,  only: thsrc, rtsrc, conprr
+
      implicit none
 
      integer, intent(in)  :: iw
      real,    intent(in)  :: dtlong
 
-     real,    intent(out) :: conprr
-     real,    intent(out) :: thsrc        (mza)
-     real,    intent(out) :: thsrc_distrib(mza)
-     real,    intent(out) :: rtsrc        (mza)
- 
      real    :: outqc  (1,mza) ! output deep conv cloud water tendency
      integer :: j              ! dummy horizontal index
      real    :: aaeq   (1)     ! turn off convection if negative
@@ -349,10 +346,9 @@ CONTAINS
               xl,rv,cpd,g,ichoice,ipr,jpr,ens4,high_resolution,        &
               ishallow_g3,ktf,kts,kte                                  )
 
-     thsrc        (:) = 0.0
-     thsrc_distrib(:) = 0.0
-     rtsrc        (:) = 0.0 
-     conprr           = 0.0
+     thsrc(:,iw) = 0.0
+     rtsrc(:,iw) = 0.0
+     conprr (iw) = 0.0
 
      if (pre(1) > 1.e-16) then
 
@@ -361,18 +357,15 @@ CONTAINS
         do kc = 1, ktf
            k  = kc + ka - 1
 
-           ! Subsidence temp tendency will be distributed among neighboring cells
-           thsrc_distrib(k) = subt(1,kc) / exner(k)
-        
            ! Total water tendency
-           rtsrc(k) =  outq(1,kc) + subq(1,kc) + outqc(1,kc)
+           rtsrc(k,iw) =  outq(1,kc) + subq(1,kc) + outqc(1,kc)
 
            ! Any cloud condensate is evaporated since we do not feed back
            ! to resolved microphysics
-           thsrc(k) = (outt(1,kc) - alvlocp * outqc(1,kc)) / exner(k)
+           thsrc(k,iw) = (outt(1,kc) + subt(1,kc) - alvlocp * outqc(1,kc)) / exner(k)
         enddo
 
-        conprr = pre(1)
+        conprr(iw) = pre(1)
 
      else if (ishallow_g3 == 1 .and. kbcon3(1) > 0 .and. ktop3(1) >= kbcon3(1)) then
 
@@ -380,8 +373,8 @@ CONTAINS
 
         do kc = 1, ktf
            k  = kc + ka - 1
-           thsrc(k) = outts(1,kc) / exner(k)
-           rtsrc(k) = outqs(1,kc)
+           thsrc(k,iw) = outts(1,kc) / exner(k)
+           rtsrc(k,iw) = outqs(1,kc)
         enddo
 
      endif
@@ -1524,7 +1517,7 @@ CONTAINS
            iedt,mconv,            &
            po_cup,ktop,omeg,zdo,k22,zuo,pr_ens,edto,kbcon,    &
            massflx,iact,direction,massfln,ichoice,edt_out,     &
-           high_resolution,ktf,kts,kte,ens4,ktau)
+           high_resolution,ktf,kts,kte,ens4,ktau,ipr)
 !
       do k=kts,ktf
       do i=its,itf
@@ -2711,13 +2704,13 @@ CONTAINS
               xf_ens,j,name,axx,iedt,mconv,    &
               p_cup,ktop,omeg,zd,k22,zu,pr_ens,edt,kbcon,massflx,      &
               iact_old_gr,dir,massfln,icoic,edt_out,            &
-              high_resolution,ktf,kts,kte,ens4,ktau                )
+              high_resolution,ktf,kts,kte,ens4,ktau,ipr               )
 
    IMPLICIT NONE
 
      integer                                                           &
         ,intent (in   )                   ::                           &
-        ktf,kts,kte,ens4,high_resolution,ktau
+        ktf,kts,kte,ens4,high_resolution,ktau,ipr
      integer, intent (in   )              ::                           &
         j,iedt
   !
@@ -3743,14 +3736,14 @@ CONTAINS
       enddo
       enddo
 
-      do i=its,itf
-        if(ierr(i).eq.0)then
-        do k=(iens-1)*maxens*maxens2*maxens3+1,iens*maxens*maxens2*maxens3
-          massfln(i,j,k)=massfln(i,j,k)*xfac1(i)
-          xf_ens(i,j,k)=xf_ens(i,j,k)*xfac1(i)
-        enddo
-        endif
-      ENDDO
+!     do i=its,itf
+!       if(ierr(i).eq.0)then
+!       do k=(iens-1)*maxens*maxens2*maxens3+1,iens*maxens*maxens2*maxens3
+!         massfln(i,j,k)=massfln(i,j,k)*xfac1(i)
+!         xf_ens(i,j,k)=xf_ens(i,j,k)*xfac1(i)
+!       enddo
+!       endif
+!     ENDDO
 
    END SUBROUTINE cup_output_ens_3d
 

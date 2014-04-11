@@ -96,7 +96,8 @@ Contains
     allocate (frac_urb (mwa)) ; frac_urb  = 0.0 
     allocate (frac_land(mwa)) ; frac_land = 0.0
 
-    if ( any(nqparm(1:mrls) == 1) .or. any(nqparm(1:mrls) == 2) ) then
+    if ( any(nqparm(1:mrls) == 1) .or. any(nqparm(1:mrls) == 2) .or. &
+         any(nqparm(1:mrls) == 5) ) then
        allocate (fthpbl(mza,mwa)) ; fthpbl = 0.0
        allocate (fqtpbl(mza,mwa)) ; fqtpbl = 0.0
     endif

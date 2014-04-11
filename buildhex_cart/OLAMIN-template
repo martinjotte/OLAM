@@ -260,7 +260,8 @@
  !--------------------------------------------------------------------------
   
    NL%NQPARM = 0,0,0,0,0,0,0,0   ! Cumulus parameterization scheme for each MRL
-                                 ! 0=off, 1=Tiedtke, 2=Grell, 3=KF_eta, 4=Emanuel
+                                 ! 0 = off, 1 = Tiedtke, 2 = Grell, 3 = KF_eta,
+                                 ! 4 = Emanuel, 5 = Grell-Freitas
 
    NL%CONFRQ = 1200.   ! Time interval (s) between cumulus param updates
 
