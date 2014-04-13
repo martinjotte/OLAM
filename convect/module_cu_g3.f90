@@ -174,7 +174,7 @@ CONTAINS
      ! Loop over T levels
 
      do kc = 1, ktf
-        k  = kc + ka -1
+        k  = kc + ka - 1
 
         exner(k) = tair(k,iw) / theta(k,iw)
 

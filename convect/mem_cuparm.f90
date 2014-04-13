@@ -33,20 +33,16 @@
 
 Module mem_cuparm
 
-   real, allocatable, target :: thsrc  (:,:)
-   real, allocatable, target :: rtsrc  (:,:)
-   real, allocatable, target :: aconpr   (:)
-   real, allocatable, target :: conprr   (:)
-
-   ! Extra memory for Grell
-   integer, allocatable, target :: iact_gr(:)
+   real, allocatable, target :: thsrc (:,:)
+   real, allocatable, target :: rtsrc (:,:)
+   real, allocatable, target :: aconpr  (:)
+   real, allocatable, target :: conprr  (:)
+   real, allocatable, target :: vxsrc (:,:)
+   real, allocatable, target :: vysrc (:,:)
+   real, allocatable, target :: vzsrc (:,:)
 
    ! Extra memory for Emanuel
    real, allocatable, target :: cbmf(:)
-   real, allocatable :: wprime (:)
-   real, allocatable :: tprime (:)
-   real, allocatable :: qprime (:)
-   real, allocatable :: qsubg(:,:)
 
 Contains
 
@@ -69,10 +65,12 @@ Contains
        allocate (conprr   (mwa)) ; conprr = 0.0
     endif
 
-    ! Extra memory for Grell scheme
-
-    if ( any(nqparm(1:mrls) == 2) ) then
-       allocate (iact_gr(mwa)) ; iact_gr(:) = 0
+    ! Tiedtke and Emanuel schemes do momentum mixing
+    
+    if ( any(nqparm(1:mrls) == 1) .or. any(nqparm(1:mrls) == 4) ) then
+       allocate (vxsrc(mza,mwa)) ; vxsrc = 0.0
+       allocate (vysrc(mza,mwa)) ; vysrc = 0.0
+       allocate (vzsrc(mza,mwa)) ; vzsrc = 0.0
     endif
 
     ! Extra memory for Emanuel scheme
@@ -92,8 +90,10 @@ Contains
     if (allocated(rtsrc))   deallocate (rtsrc)
     if (allocated(aconpr))  deallocate (aconpr)
     if (allocated(conprr))  deallocate (conprr)
-    if (allocated(iact_gr)) deallocate (iact_gr)
     if (allocated(cbmf))    deallocate (cbmf)
+    if (allocated(vxsrc))   deallocate (vxsrc)
+    if (allocated(vysrc))   deallocate (vysrc)
+    if (allocated(vzsrc))   deallocate (vzsrc)
 
   end subroutine dealloc_cuparm
 
@@ -124,14 +124,24 @@ Contains
         vtab_r(num_var)%rvar1_p => conprr
      endif
 
-     if (allocated(iact_gr)) then
-        call increment_vtable('IACTGR', 'AW')
-        vtab_r(num_var)%ivar1_p => iact_gr
-     endif
-
      if (allocated(cbmf)) then
         call increment_vtable('CBMF', 'AW')
         vtab_r(num_var)%rvar1_p => cbmf
+     endif
+
+     if (allocated(vxsrc)) then
+        call increment_vtable('VXSRC', 'AW')
+        vtab_r(num_var)%rvar2_p => vxsrc
+     endif
+
+     if (allocated(vysrc)) then
+        call increment_vtable('VYSRC', 'AW')
+        vtab_r(num_var)%rvar2_p => vysrc
+     endif
+
+     if (allocated(vzsrc)) then
+        call increment_vtable('VZSRC', 'AW')
+        vtab_r(num_var)%rvar2_p => vzsrc
      endif
 
    end subroutine filltab_cuparm

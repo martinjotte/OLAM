@@ -35,16 +35,16 @@ subroutine cuparm_driver(rhot)
 use mem_grid,         only: mwa, mza, lpw, arw0, lpv
 use module_cu_g3,     only: grell_driver
 use module_cu_gf,     only: gf_driver
-use module_cu_kfeta,  only: kf_lutab, cuparm_kfeta
+use module_cu_kfeta,  only: cuparm_kfeta, kf_lutab
 use module_cu_tiedtke,only: cuparm_tiedtke
+use module_cu_emanuel,only: cuparm_emanuel
 use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
                             dtlong, initial, itime1, iparallel
 use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
-use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr
-use mem_tend,         only: thilt, sh_wt
+use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc
+use mem_tend,         only: thilt, sh_wt, vmxet, vmyet, vmzet
 use mem_basic,        only: rho
 use consts_coms,      only: r8
-use emanuel_coms,     only: alloc_eman
 use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
 
 implicit none
@@ -53,7 +53,6 @@ real, intent(inout) :: rhot(mza,mwa)
 real(r8), parameter :: cptime = 0.0
 integer             :: j, iw, k, mrl, mrlw
 integer, save       :: init_kf = 0
-integer, save       :: init_em = 0
 
 real    :: dthmax, ftcon, dtlong4, confrq4, confrq4i
 integer :: iwqmax, kqmax, km, km1
@@ -68,6 +67,8 @@ real :: thsrc_distrib(mza,mwa)
 
 real, parameter :: ths_min = 0.0
 !real, parameter :: ths_min = 25.0 / 86400.
+
+logical :: uvmix
 
 !--------------------------------------------
 ! THSRC(k,iw) will contain the heating from parameterized convection in the IW
@@ -115,14 +116,7 @@ if ( any(nqparm(1:mrls) == 3) ) then
    endif
 endif
 
-! For Emanuel parameterization, allocate additional memory
-
-if ( any(nqparm(1:mrls) == 4) ) then
-   if (init_em == 0) then
-      init_em = 1
-      call alloc_eman(mza,1)
-   endif
-endif
+uvmix = (allocated(vxsrc) .and. allocated(vysrc) .and. allocated(vzsrc))
 
 ! If model run has been initialized from observational data, avoid cumulus
 ! parameterization during an initial period to allow gravity waves to settle.
@@ -147,6 +141,12 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
    thsrc        (:,:) = 0.0
    rtsrc        (:,:) = 0.0
    conprr         (:) = 0.0
+
+   if (uvmix) then
+      vxsrc(:,:) = 0.0
+      vysrc(:,:) = 0.0
+      vzsrc(:,:) = 0.0
+   endif
 
 ! Loop over all IW grid cells where cumulus parameterization may be done
 
@@ -231,13 +231,13 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
          ftcon = thsrc(k,iw) + thsrc_distrib(k,iw)
          if (ftcon > dthmax) then
             dthmax = ftcon
-            iwqmax = iw
+           iwqmax = iw
             kqmax = k
          endif
       enddo
    enddo
 
-   write(io6, '(A,I0,A,I0,A,F0.3,A)') " MAX CONVECTIVE HEATING RATE AT IW=",  &
+   write(io6, '(A,I0,A,I0,A,F0.3,A,F0.4)') " MAX CONVECTIVE HEATING RATE AT IW=",  &
         iwqmax, " K=", kqmax, " IS ", dthmax*86400., " K/DAY"
 
 ! Perform MPI receive of thsrc_distrib
@@ -269,7 +269,6 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
 endif
 
-
 ! Add current value of convective tendencies to thilt and sh_wt arrays
 ! every long timestep (whether cumulus parameterization is updated 
 ! this timestep or not)
@@ -287,13 +286,23 @@ call qsub('W',iw)
 
    if ( any(nqparm(1:mrls) > 0) ) then
 
-      do k = lpw(iw),mza-1
+      do k = lpw(iw), mza-1
          thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * rho(k,iw)
 
          sh_wt(k,iw) = sh_wt(k,iw) + rtsrc(k,iw) * rho(k,iw)
 
          rhot (k,iw) = rhot (k,iw) + rtsrc(k,iw) * rho(k,iw)
       enddo
+
+      if (uvmix) then
+         do k = lpw(iw), mza-1
+            vmxet(k,iw) = vmxet(k,iw) + vxsrc(k,iw) * rho(k,iw)
+
+            vmyet(k,iw) = vmyet(k,iw) + vysrc(k,iw) * rho(k,iw)
+
+            vmzet(k,iw) = vmzet(k,iw) + vzsrc(k,iw) * rho(k,iw)
+         enddo
+      endif
 
    endif
 

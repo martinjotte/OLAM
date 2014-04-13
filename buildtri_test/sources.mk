@@ -4,13 +4,11 @@ SOURCE_FILES= \
              $(CONVECT)/cuparm_driver.f90 \
              $(CONVECT)/mem_cuparm.f90 \
              $(CONVECT)/module_bl_acm2.f90 \
+             $(CONVECT)/module_cu_emanuel.f90 \
              $(CONVECT)/module_cu_g3.f90 \
              $(CONVECT)/module_cu_gf.f90 \
              $(CONVECT)/module_cu_kfeta.f90 \
              $(CONVECT)/module_cu_tiedtke.f90 \
-             $(CONVECT)/emanuel_coms.f90 \
-             $(CONVECT)/emanuel43c.f90 \
-             $(CONVECT)/emanuel_driver.f90 \
              $(CONVECT)/pbl_driver.f90 \
              $(CONVECT)/smagorinsky.f90 \
              $(ED2MEM)/ed_max_dims.F90 \

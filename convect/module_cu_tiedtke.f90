@@ -75,13 +75,13 @@ CONTAINS
    subroutine cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
 
    use mem_grid,    only: mza, mwa, lpv, lpw, zt, dzm, xew, yew, zew, &
-                          unx, uny, unz, vnx, vny, vnz, arv, arw, volt
+                          wnx, wny, wnz, arv, arw, volt
    use misc_coms,   only: io6
-   use mem_cuparm,  only: thsrc, rtsrc, conprr
+   use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc, &
                           vmc, wmc
    use mem_turb,    only: frac_land, sflux_t, sflux_r, fqtpbl
-   use consts_coms, only: erad
+   use consts_coms, only: eradi
    use mem_ijtabs,  only: itab_w
 
    implicit none
@@ -118,19 +118,26 @@ CONTAINS
 
    integer :: ka, k, kt, jv, iv, iwn, npoly
    integer :: ictop, icbot
+   logical :: uvmix
 
    real :: raxis, hflux, hflux_vap, dirv, flx
-   real :: uzonal(mza), umerid(mza) ! dummy variables for now
-   real :: uzonal_tend, umerid_tend ! dummy variables for now
+   real :: uzonal(mza), umerid(mza)
+   real :: ut, vt, uvtr, raxisi
 
    ka = lpw(iw)
    npoly = itab_w(iw)%npoly
 
-   raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+   raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+   raxisi = 1.0 / max(raxis, 1.e-12)
 
    thsrc(:,iw) = 0.0
    rtsrc(:,iw) = 0.0
    conprr (iw) = 0.0
+
+   uvmix = (allocated(vxsrc) .and. allocated(vysrc) .and. allocated(vzsrc))
+   if (uvmix) vxsrc(:,iw) = 0.0
+   if (uvmix) vysrc(:,iw) = 0.0
+   if (uvmix) vzsrc(:,iw) = 0.0
 
 ! Vertical advective mass and water vapor fluxes (W levels)
 
@@ -151,10 +158,10 @@ CONTAINS
 ! Compute zonal and meridional wind components
 
       if (raxis > 1.e3) then
-         u1(kt) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) / raxis
-         v1(kt) = vze(k,iw) * raxis / erad  &
+         u1(kt) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
+         v1(kt) = vze(k,iw) * raxis * eradi  &
                   - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) &
-                  * zew(iw) / (raxis * erad) 
+                  * zew(iw) * raxisi * eradi
       else
          u1(kt) = vxe(k,iw)
          v1(kt) = vye(k,iw)
@@ -246,10 +253,31 @@ CONTAINS
          rtsrc(k,iw) = (q1(kt) - sh_v(k,iw)) * confrq4i
       enddo
 
-!     do k = ka, mza-1
-!        uzonal_tend = (u1(kt) - uzonal(k)) * confrq4i
-!        umerid_tend = (v1(kt) - umerid(k)) * confrq4i
-!     enddo
+      ! convective momentum transport
+
+      if (uvmix) then
+         do k = ka, mza-1
+            kt = mza - k
+
+            ut = (u1(kt) - uzonal(k)) * confrq4i
+            vt = (v1(kt) - umerid(k)) * confrq4i
+
+            if (raxis > 1.e3) then
+               uvtr = -vt * zew(iw) * eradi
+               vxsrc(k,iw) = (-ut * yew(iw) + uvtr * xew(iw)) * raxisi
+               vysrc(k,iw) = ( ut * xew(iw) + uvtr * yew(iw)) * raxisi
+               vzsrc(k,iw) =   vt * raxis * eradi 
+               
+            else
+               vxsrc(k,iw) = ut
+               vysrc(k,iw) = vt
+               vzsrc(k,iw) = 0.0
+            endif
+
+         enddo
+      endif
+
+      ! precipitation
 
       conprr(iw) = rn * confrq4i
 

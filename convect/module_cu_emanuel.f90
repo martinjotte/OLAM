@@ -1,3 +1,5 @@
+MODULE module_cu_emanuel
+
 !**************************************************************************
 !****                       SUBROUTINE CONVECT                        *****
 !****                          VERSION 4.3c                           *****
@@ -5,10 +7,166 @@
 !****                          Kerry Emanuel                          *****
 !**************************************************************************
 
-SUBROUTINE CONVECT (                                       &
-     T,   Q,    QS,     U1,    U2,    U3,     TRA,  P,     PH,    gz,  &
-     ND,  NL,     NTRA, DELT,   IFLAG,  FT,   FQ,    FU1,  FU2,  &
-     FU3,  FTRA, PRECIP, WD,   TPRIME, QPRIME, CBMF, QCONDC, icb, inb)
+  use mem_para,  only: myrank
+  use misc_coms, only: io6
+  use mem_grid,  only: mza
+  implicit none
+
+  private :: myrank, io6, mza
+
+  real,    parameter, private :: xmbmax = 1.0
+  integer, parameter, private :: iupsrc =   1
+
+CONTAINS
+
+SUBROUTINE cuparm_emanuel(iw, dtlong)
+
+  use mem_grid,    only: mwa, lpu, lpw, volt, mua, zm, zt, xew, yew, zew
+  use mem_tend,    only: thilt, sh_wt
+  use mem_basic,   only: theta, tair, press, rho, sh_v, vxe, vye, vze
+  use consts_coms, only: t00, grav, eradi
+  use misc_coms,   only: confrq
+  use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc
+
+  implicit none
+
+  integer, intent(in)  :: iw
+  real,    intent(in)  :: dtlong
+
+  real, dimension(mza) :: tc, qc, qsc, u, v, pc, pfc, gz
+  real, dimension(mza) :: tt, qt, ut, vt, qcldc
+
+  integer :: k, ka, kc, kp, nd, na, nl
+  real, external :: rhovsil
+
+  real    :: pcprate, wprime, tprime, qprime
+  integer :: iflag, kcbase, kctop, kup
+  real    :: raxis, raxisi, uvtr
+  logical :: uvmix
+
+  ka = lpw(iw)
+
+  ! Set initial convective top to mza-2
+
+  nd = mza - ka - 1
+
+  ! Redefine top to go no higher than 50mb for convective calculations
+  ! to prevent any problems when esat gets near ambient pressure
+
+  do k = ka, nd-1
+     if (press(k,iw) < 50.e2) then
+        nd = k - ka + 1
+        exit
+     endif
+  enddo
+
+  na = nd + 1
+  nl = nd - 1
+
+  ! Initialize tendencies to 0
+
+  thsrc(:,iw) = 0.0
+  rtsrc(:,iw) = 0.0
+  conprr (iw) = 0.0
+
+  uvmix = (allocated(vxsrc) .and. allocated(vysrc) .and. allocated(vzsrc))
+  if (uvmix) vxsrc(:,iw) = 0.0
+  if (uvmix) vysrc(:,iw) = 0.0
+  if (uvmix) vzsrc(:,iw) = 0.0
+
+  ! Temp, water vapor, geopential, and pressure
+
+  do kc = 1, nd
+     k  = kc + ka - 1
+     kp = kc + 1
+
+     gz (kc) = grav * (zt(k) - zt(ka)) ! geopotential height relative to 1st level
+     tc (kc) = tair(k,iw)
+     qc (kc) = max(sh_v(k,iw), 1.e-10)
+     pc (kc) = 0.01  *  press(k,iw)
+     pfc(kp) = 0.005 * (press(k,iw) + press(k+1,iw))
+  enddo
+
+  ! Estimate surface pressure
+  pfc(1) =  0.01 * (press(ka,iw) + (zt(ka)-zm(ka-1))*rho(ka,iw)*grav)
+
+  ! Compute zonal and meridional winds
+
+  raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+  raxisi = 1.0 / max(raxis, 1.e-12)
+
+  if (raxis > 1.e3) then
+     do kc = 1, nd
+        k  = kc + ka - 1
+        u(kc) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
+        v(kc) = vze(k,iw) * raxis * eradi  &
+                - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) &
+                * zew(iw) * raxisi * eradi
+     enddo
+  else
+     do kc = 1, nd
+        k  = kc + ka - 1
+        u(kc) = vxe(k,iw)
+        v(kc) = vye(k,iw)
+     enddo
+  endif
+
+  ! Saturated vapor pressure
+
+  do kc = 1, nd
+     k  = kc + ka - 1
+     qsc(kc) = rhovsil(tc(kc)-t00) / rho(k,iw)
+     qc (kc) = min(qsc(kc), qc(kc))
+  enddo
+
+  call convect43c (     iw,                                                 &
+       tc,      qc,     qsc,    u,      v,        pc,    pfc, gz,           &
+       nd,      nl,     dtlong, iflag,  tt,       qt,    ut,  vt,           &
+       pcprate, wprime, tprime, qprime, cbmf(iw), qcldc, kup, kcbase, kctop )
+
+  kup    = kup    + ka - 1
+  kcbase = kcbase + ka - 1
+  kctop  = kctop  + ka - 1
+
+  if (iflag == 1 .or. iflag == 4) then
+
+     conprr(iw) = pcprate
+
+     do kc = 1, nd
+        k  = kc + ka - 1
+        thsrc(k,iw) = tt(kc) * theta(k,iw) / tair(k,iw)
+        rtsrc(k,iw) = qt(kc)
+     enddo
+
+     if (uvmix) then
+
+        do kc = 1, nd
+           k  = kc + ka - 1
+
+           if (raxis > 1.e3) then
+              uvtr = -vt(kc) * zew(iw) * eradi
+              vxsrc(k,iw) = (-ut(kc) * yew(iw) + uvtr * xew(iw)) * raxisi
+              vysrc(k,iw) = ( ut(kc) * xew(iw) + uvtr * yew(iw)) * raxisi
+              vzsrc(k,iw) =   vt(kc) * raxis * eradi 
+               
+           else
+              vxsrc(k,iw) = ut(kc)
+              vysrc(k,iw) = vt(kc)
+              vzsrc(k,iw) = 0.0
+           endif
+
+        enddo
+     endif
+
+  endif
+
+END SUBROUTINE cuparm_emanuel
+
+
+SUBROUTINE CONVECT43C (  iw,                                &
+     T,      Q,  QS,     U,      V,    P,      PH, gz,      &
+     ND,     NL, DELT,   IFLAG,  FT,   FQ,     FU, FV,      & 
+     PRECIP, WD, TPRIME, QPRIME, CBMF, QCONDC, nk, icb, inb )
   
 !-----------------------------------------------------------------------------
 !    *** On input:      ***
@@ -130,29 +288,41 @@ SUBROUTINE CONVECT (                                       &
 !              by the calling program between calls to CONVECT.
 !
 !------------------------------------------------------------------------------
-  use emanuel_coms
   implicit none
 
-  integer, intent(in) :: nd, nl, ntra
-  real,    intent(in) :: t(nd), q(nd), qs(nd), u1(nd), u2(nd), u3(nd)
-  real,    intent(in) :: tra(nd,ntra), p(nd), ph(nd+1), gz(nd), delt
+  integer, intent(in) :: nd, nl, iw !, ntra
+  real,    intent(in) :: t(nd), q(nd), qs(nd), u(nd), v(nd)
+  real,    intent(in) :: p(nd), ph(nd+1), gz(nd), delt !, tra(nd,ntra)
 
-  integer, intent(out) :: iflag, icb, inb
-  real,    intent(out) :: ft(nd), fq(nd), fu1(nd), fu2(nd), fu3(nd)
-  real,    intent(out) :: qcondc(nd), ftra(nd,ntra)
+  integer, intent(out) :: iflag, icb, inb, nk
+  real,    intent(out) :: ft(nd), fq(nd), fu(nd), fv(nd)
+  real,    intent(out) :: qcondc(nd) !, ftra(nd,ntra)
   real,    intent(out) :: wd, tprime, qprime, precip
   real,    intent(inout) :: cbmf
-  
+
   real :: ad, afac, ahmax, ahmin, alt, altem, am, amde, amp1, anum, asij, &
        awat, b6, bf2, bsum, by, byp, c6, cape, capem, chi, coeff, &
        cpinv, cwat, damps, dbo, dbosum, defrac, dei, delm, delp, delt0, &
        delti, denom, dhdp, dpinv, dtma, dtmin, dtpbl, elacrit, ents, epmax, &
-       fac, fqold, frac, ftold, ftraold, fu1old, fu2old, fu3old, plcl, qp1, &
+       fac, fqold, frac, ftold, ftraold, fuold, fvold, plcl, qp1, &
        qsm, qstm, qti, rat, revap, rh, scrit, sigt, sjmax, sjmin, smid, &
-       smin, stemp, tca, traav, tvaplcl, tvpplcl, u1av, u2av, u3av, &
+       smin, stemp, tca, traav, tvaplcl, tvpplcl, uav, vav, qav, &
        wdtrain
+
+  integer :: i, ihmin, inb1, j, jtt, k, is
+
+  integer ::  nent(mza)
+  real    ::  uent(mza,mza), vent(mza,mza) !, traent(mza,mza,ntra), tratm(mza)
+  real    ::  up(mza), vp(mza) !, trap(mza,ntra)
+  real    ::  m(mza), mp(mza), ment(mza,mza), qent(mza,mza), elij(mza,mza)
+  real    ::  sij(mza,mza), tvp(mza), tv(mza), water(mza)
+  real    ::  qp(mza), ep(mza), wt(mza), evap(mza), clw(mza)
+  real    ::  sigp(mza), tp(mza), cpn(mza)
+  real    ::  lv(mza), lvcp(mza), h(mza), hp(mza), hm(mza)
+  real    ::  qcond(mza), nqcond(mza), wa(mza), ma(mza), siga(mza), ax(mza)
   
-  integer :: i, ihmin, inb1, j, jtt, k, nk
+  integer :: nkmax
+  real    :: dbmax, deltv
 
 ! -----------------------------------------------------------------------
 !
@@ -194,24 +364,23 @@ SUBROUTINE CONVECT (                                       &
 !   ***                 APPROACH TO QUASI-EQUILIBRIUM                ***
 !   ***   (THEIR STANDARD VALUES ARE  0.20 AND 0.1, RESPECTIVELY)    ***
 !   ***                   (DAMP MUST BE LESS THAN 1)                 ***
-  
+
   real, parameter :: &  
        ELCRIT=.0011, &
        TLCRIT=-55.0, &
-       ENTP=1.5,     &
+       ENTP=1.0,     & ! 1.5
        SIGD=0.05,    &
        SIGS=0.12,    &
        OMTRAIN=50.0, &
        OMTSNOW=5.5,  &
        COEFFR=1.0,   &
        COEFFS=0.8,   &
-       CU=0.7,       &
+       CU=0.5,       & ! 0.7
        BETA=10.0,    &
-       DTMAX=0.9,    &
+       DTMAX=0.5,    & ! 0.9
        ALPHA=0.2,    &
        DAMP=0.1,     &
        DELTA=0.01    ! sb (for cloud parameterization)
-  
 
 !   ***        ASSIGN VALUES OF THERMODYNAMIC CONSTANTS,        ***
 !   ***            GRAVITY, AND LIQUID WATER DENSITY.           ***
@@ -240,18 +409,17 @@ SUBROUTINE CONVECT (                                       &
   DO I=1,ND
      FT(I)=0.0
      FQ(I)=0.0
-     fu1(i)=0.0
-     fu2(i)=0.0
-     fu3(i)=0.0
+     fu(i)=0.0
+     fv(i)=0.0
 
      ! -- sb:
      QCONDC(I)=0.0
      QCOND(I)=0.0
      NQCOND(I)=0.0
 
-     DO J=1,NTRA
-        FTRA(I,J)=0.0
-     ENDDO
+!     DO J=1,NTRA
+!        FTRA(I,J)=0.0
+!     ENDDO
   ENDDO
 
   PRECIP=0.0
@@ -263,37 +431,39 @@ SUBROUTINE CONVECT (                                       &
 !  *** CALCULATE ARRAYS OF GEOPOTENTIAL, HEAT CAPACITY AND STATIC ENERGY
 
 !  GZ(1)=0.0
-  CPN(1)=CPD*(1.-Q(1))+Q(1)*CPV
-  H(1)=T(1)*CPN(1)
-  LV(1)=LV0-CPVMCL*(T(1)-273.15)
-  HM(1)=LV(1)*Q(1)
-  TV(1)=T(1)*(1.+Q(1)*EPSI-Q(1))
-  AHMIN=1.0E12
-  IHMIN=NL
+!  CPN(1)=CPD*(1.-Q(1))+Q(1)*CPV
+!  H(1)=T(1)*CPN(1)
+!  LV(1)=LV0-CPVMCL*(T(1)-273.15)
+!  HM(1)=LV(1)*Q(1)
+!  TV(1)=T(1)*(1.+Q(1)*EPSI-Q(1))
 
-  DO I=2,NL+1
-!     TVX=T(I)*(1.+Q(I)*EPSI-Q(I))
-!     TVY=T(I-1)*(1.+Q(I-1)*EPSI-Q(I-1))
-!     GZ(I)=GZ(I-1)+0.5*RD*(TVX+TVY)*(P(I-1)-P(I))/PH(I)
+  DO I=1,NL+1
+!    TVX=T(I)*(1.+Q(I)*EPSI-Q(I))
+!    TVY=T(I-1)*(1.+Q(I-1)*EPSI-Q(I-1))
+!    GZ(I)=GZ(I-1)+0.5*RD*(TVX+TVY)*(P(I-1)-P(I))/PH(I)
      CPN(I)=CPD*(1.-Q(I))+CPV*Q(I)
      H(I)=T(I)*CPN(I)+GZ(I)
      LV(I)=LV0-CPVMCL*(T(I)-273.15)
      HM(I)=(CPD*(1.-Q(I))+CL*Q(I))*(T(I)-T(1))+LV(I)*Q(I)+GZ(I)
      TV(I)=T(I)*(1.+Q(I)*EPSI-Q(I))
+  enddo
 
-     ! Find level of minimum moist static energy
+  ! Find level of minimum moist static energy
 
-     IF(I.GE.MINORIG.AND.HM(I).LT.AHMIN.AND.HM(I).LT.HM(I-1))THEN
+  AHMIN=1.0E12
+  IHMIN=NL-1
+  do i = minorig, nl-2
+     IF(HM(I).LT.AHMIN.AND.HM(I).LT.HM(I-1))THEN
         AHMIN=HM(I)
         IHMIN=I
      END IF
   ENDDO
-  IHMIN=MIN(IHMIN, NL-1)
 
 !  ***     Find that model level below the level of minimum moist       ***
 !  ***  static energy that has the maximum value of moist static energy ***
 
   AHMAX=0.0
+  nk = minorig
   DO I=MINORIG,IHMIN
      IF(HM(I).GT.AHMAX)THEN
         NK=I
@@ -311,6 +481,37 @@ SUBROUTINE CONVECT (                                       &
      RETURN
   END IF
 
+  if (nk < ihmin .and. iupsrc == 1) then
+     nkmax = nk
+     dbmax = -1.e10
+
+     do i = nk, ihmin
+        RH=Q(I)/QS(I)
+        CHI=T(I)/(1669.0-122.0*RH-T(I))
+        PLCL=P(I)*(RH**CHI)
+        IF(PLCL.LT.200.0.OR.PLCL.GE.2000.0) cycle
+
+        icb = nl-1
+        do k = i+1, nl
+           if (p(k) < plcl) then
+              icb = k
+              exit
+           endif
+        enddo
+        IF (ICB >= NL-1) cycle
+        
+        call tlift(p,t,q,qs,gz,icb,i,tvp,tp,clw,nd,nl,1)
+        deltv = tvp(icb) - tp(icb)*q(i) - tv(icb)
+
+        if (deltv > dbmax) then
+           dbmax = deltv
+           nkmax = i
+        endif
+     enddo
+
+     nk = nkmax
+  endif
+
 !   ***  CALCULATE LIFTED CONDENSATION LEVEL OF AIR AT PARCEL ORIGIN LEVEL ***
 !   ***       (WITHIN 0.2% OF FORMULA OF BOLTON, MON. WEA. REV.,1980)      ***
 
@@ -326,9 +527,10 @@ SUBROUTINE CONVECT (                                       &
 !   ***  CALCULATE FIRST LEVEL ABOVE LCL (=ICB)  ***
 
   ICB=NL-1
-  DO I=NK+1,NL
+  DO I=NK+1,NL-2
      IF(P(I).LT.PLCL)THEN
-        ICB=MIN(ICB,I)
+        ICB=I
+        EXIT
      END IF
   ENDDO
   IF(ICB.GE.(NL-1))THEN
@@ -351,7 +553,7 @@ SUBROUTINE CONVECT (                                       &
 !   ***  If there was no convection at last time step and parcel    ***
 !   ***       is stable at ICB then skip rest of calculation        ***
 
-  IF (CBMF < 1.e-8 .AND. TVP(ICB).LE.(TV(ICB)-DTMAX)) THEN
+  IF (CBMF < 1.e-6 .AND. TVP(ICB).LE.(TV(ICB)-DTMAX)) THEN
      cbmf  = 0.0
      IFLAG = 0
      RETURN
@@ -412,29 +614,26 @@ SUBROUTINE CONVECT (                                       &
         ELIJ(I,J)=0.0
         MENT(I,J)=0.0
         SIJ(I,J)=0.0
-        u1ent(i,j)=u1(j)
-        u2ent(i,j)=u2(j)
-        u3ent(i,j)=u3(j)
-        DO K=1,NTRA
-           TRAENT(I,J,K)=TRA(J,K)
-        ENDDO
+        uent(i,j)=u(j)
+        vent(i,j)=v(j)
+!        DO K=1,NTRA
+!           TRAENT(I,J,K)=TRA(J,K)
+!        ENDDO
      ENDDO
   ENDDO
   QP(1)=Q(1)
-  u1p(1)=u1(1)
-  u2p(1)=u2(1)
-  u3p(1)=u3(1)
-  DO I=1,NTRA
-     TRAP(1,I)=TRA(1,I)
-  ENDDO
+  up(1)=u(1)
+  vp(1)=v(1)
+!  DO I=1,NTRA
+!     TRAP(1,I)=TRA(1,I)
+!  ENDDO
   DO I=2,NL+1
      QP(I)=Q(I-1)
-     u1p(i)=u1(i-1)
-     u2p(i)=u2(i-1)
-     u3p(i)=u3(i-1)
-     DO J=1,NTRA
-        TRAP(I,J)=TRA(I-1,J)
-     ENDDO
+     up(i)=u(i-1)
+     vp(i)=v(i-1)
+!     DO J=1,NTRA
+!        TRAP(I,J)=TRA(I-1,J)
+!     ENDDO
   ENDDO
   
 !  ***  FIND THE FIRST MODEL LEVEL (INB1) ABOVE THE PARCEL'S      ***
@@ -497,13 +696,13 @@ SUBROUTINE CONVECT (                                       &
 ! CBMF=(1.-DAMPS)*CBMF+0.1*ALPHA*DTMA 
   CBMF = (1.-DAMP)*CBMF + 0.1*ALPHA*DTMA 
   CBMF=MAX(CBMF,0.0)
+  CBMF=MIN(CBMF,xmbmax)
 !
 ! cbmf=min(cbmf,0.95*delti*ginv*(ph(minorig)-ph(minorig+1))/(0.01*2.))
 
 !   *** If cloud base mass flux is zero, skip rest of calculation  ***
 
-! IF (CBMF <= 1.e-8 .AND. CBMFOLD <= spacing(0.0)) THEN
-  IF (CBMF < 1.e-8) THEN
+  IF (CBMF < 1.e-6) THEN
      iflag = 0
      cbmf  = 0.0
      RETURN
@@ -511,22 +710,27 @@ SUBROUTINE CONVECT (                                       &
 
 !   ***   CALCULATE RATES OF MIXING,  M(I)   ***
 
-  M(ICB)=0.0
-  DO I=ICB+1,INB
-     K=MIN(I,INB1)
-     DBO=ABS(TV(K)-TVP(K))+ENTP*0.02*(PH(K)-PH(K+1))
+! M(ICB)=0.0
+! DO I=ICB+1,INB
+  DO I=ICB,INB
+!    K=MIN(I,INB1)
+!    DBO=ABS(TV(K)-TVP(K))+ENTP*0.02*(PH(K)-PH(K+1))
+     K=I
+     DBO=max(TVP(K)-TV(K),0.0)+ENTP*0.02*(PH(K)-PH(K+1))
      DBOSUM=DBOSUM+DBO
      M(I)=CBMF*DBO
   ENDDO
-  DO I=ICB+1,INB
-     M(I)=M(I)/DBOSUM  
+! DO I=ICB+1,INB
+  DO I=ICB,INB
+     M(I)=M(I)/DBOSUM
   ENDDO
 
 !   ***  CALCULATE ENTRAINED AIR MASS FLUX (MENT), TOTAL WATER MIXING  ***
 !   ***     RATIO (QENT), TOTAL CONDENSED WATER (ELIJ), AND MIXING     ***
 !   ***                        FRACTION (SIJ)                          ***
 
-  DO I=ICB+1,INB
+! DO I=ICB+1,INB
+  DO I=ICB,INB
      QTI=Q(NK)-EP(I)*CLW(I)
      DO J=ICB,INB
         BF2=1.+LV(J)*LV(J)*QS(J)/(RV*T(J)*T(J)*CPD)
@@ -548,14 +752,13 @@ SUBROUTINE CONVECT (                                       &
            ALTEM=SIJ(I,J)*Q(I)+(1.-SIJ(I,J))*QTI-QS(J)
            ALTEM=ALTEM-(BF2-1.)*CWAT
         END IF
-        IF(SIJ(I,J).GT.0.0.AND.SIJ(I,J).LT.0.9)THEN
+        IF(SIJ(I,J).GE.0.0.AND.SIJ(I,J).LE.0.9)THEN
            QENT(I,J)=SIJ(I,J)*Q(I)+(1.-SIJ(I,J))*QTI
-           u1ent(i,j)=sij(i,j)*u1(i)+(1.-sij(i,j))*u1(nk)
-           u2ent(i,j)=sij(i,j)*u2(i)+(1.-sij(i,j))*u2(nk)
-           u3ent(i,j)=sij(i,j)*u3(i)+(1.-sij(i,j))*u3(nk)
-           DO K=1,NTRA
-              TRAENT(I,J,K)=SIJ(I,J)*TRA(I,K)+(1.-SIJ(I,J))*TRA(NK,K)
-           END DO
+           uent(i,j)=sij(i,j)*u(i)+(1.-sij(i,j))*u(nk)
+           vent(i,j)=sij(i,j)*v(i)+(1.-sij(i,j))*v(nk)
+!           DO K=1,NTRA
+!              TRAENT(I,J,K)=SIJ(I,J)*TRA(I,K)+(1.-SIJ(I,J))*TRA(NK,K)
+!           END DO
            ELIJ(I,J)=ALTEM
            ELIJ(I,J)=MAX(0.0,ELIJ(I,J))
            MENT(I,J)=M(I)/(1.-SIJ(I,J))
@@ -571,22 +774,22 @@ SUBROUTINE CONVECT (                                       &
      IF(NENT(I).EQ.0)THEN
         MENT(I,I)=M(I)
         QENT(I,I)=Q(NK)-EP(I)*CLW(I)
-        u1ent(i,i)=u1(nk)
-        u2ent(i,i)=u2(nk)
-        u3ent(i,i)=u3(nk)
-        DO J=1,NTRA
-           TRAENT(I,I,J)=TRA(NK,J)
-        END DO
+        uent(i,i)=u(nk)
+        vent(i,i)=v(nk)
+!        DO J=1,NTRA
+!           TRAENT(I,I,J)=TRA(NK,J)
+!        END DO
         ELIJ(I,I)=CLW(I)
         SIJ(I,I)=1.0
      END IF
   ENDDO
   SIJ(INB,INB)=1.0
-  
+
 !   ***  NORMALIZE ENTRAINED AIR MASS FLUXES TO REPRESENT EQUAL  ***
 !   ***              PROBABILITIES OF MIXING                     ***
 
-  DO I=ICB+1,INB
+! DO I=ICB+1,INB
+  DO I=ICB,INB
      IF(NENT(I).NE.0)THEN
         QP1=Q(NK)-EP(I)*CLW(I)
         ANUM=H(I)-HP(I)-LV(I)*(QP1-QS(I))
@@ -599,7 +802,7 @@ SUBROUTINE CONVECT (                                       &
         ASIJ=0.0
         SMIN=1.0
         DO J=ICB,INB
-           IF(SIJ(I,J).GT.0.0.AND.SIJ(I,J).LT.0.9)THEN
+           IF(SIJ(I,J).GE.0.0.AND.SIJ(I,J).LE.0.9)THEN
               IF(J.GT.I)THEN
                  SMID=MIN(SIJ(I,J),SCRIT)
                  SJMAX=SMID
@@ -636,12 +839,11 @@ SUBROUTINE CONVECT (                                       &
            NENT(I)=0
            MENT(I,I)=M(I)
            QENT(I,I)=Q(NK)-EP(I)*CLW(I)
-           u1ent(i,i)=u1(nk)
-           u2ent(i,i)=u2(nk)
-           u3ent(i,i)=u3(nk)
-           DO J=1,NTRA
-              TRAENT(I,I,J)=TRA(NK,J)
-           END DO
+           uent(i,i)=u(nk)
+           vent(i,i)=v(nk)
+!           DO J=1,NTRA
+!              TRAENT(I,I,J)=TRA(NK,J)
+!           END DO
            ELIJ(I,I)=CLW(I)
            SIJ(I,I)=1.0
         END IF
@@ -734,23 +936,21 @@ SUBROUTINE CONVECT (                                       &
               RAT=MP(I+1)/MP(I)
               QP(I)=QP(I+1)*RAT+Q(I)*(1.0-RAT)+100.*GINV* &
                    SIGD*(PH(I)-PH(I+1))*(EVAP(I)/MP(I))
-              u1p(i)=u1p(i+1)*rat+u1(i)*(1.-rat)
-              u2p(i)=u2p(i+1)*rat+u2(i)*(1.-rat)
-              u3p(i)=u3p(i+1)*rat+u3(i)*(1.-rat)
-              DO J=1,NTRA
-                 ! TRAP(I,J)=TRAP(I+1,J)*RAT+TRAP(I,J)*(1.-RAT)
-                 trap(i,j)=trap(i+1,j)*rat+tra(i,j)*(1.-rat)
-              END DO
+              up(i)=up(i+1)*rat+u(i)*(1.-rat)
+              vp(i)=vp(i+1)*rat+v(i)*(1.-rat)
+!              DO J=1,NTRA
+!               ! TRAP(I,J)=TRAP(I+1,J)*RAT+TRAP(I,J)*(1.-RAT)
+!                 trap(i,j)=trap(i+1,j)*rat+tra(i,j)*(1.-rat)
+!              END DO
            ELSE
               IF(MP(I+1).GT.0.0)THEN
                  QP(I)=(GZ(I+1)-GZ(I)+QP(I+1)*(LV(I+1)+T(I+1)* &
                       (CL-CPD))+CPD*(T(I+1)-T(I)))/(LV(I)+T(I)*(CL-CPD))
-                 u1p(i)=u1p(i+1)
-                 u2p(i)=u2p(i+1)
-                 u3p(i)=u3p(i+1)
-                 DO J=1,NTRA
-                    TRAP(I,J)=TRAP(I+1,J)
-                 END DO
+                 up(i)=up(i+1)
+                 vp(i)=vp(i+1)
+!                 DO J=1,NTRA
+!                    TRAP(I,J)=TRAP(I+1,J)
+!                 END DO
               END IF
            END IF
            QP(I)=MIN(QP(I),QSTM)
@@ -763,7 +963,7 @@ SUBROUTINE CONVECT (                                       &
 !   PRECIP=PRECIP+WT(1)*SIGD*WATER(1)*3600.*24000./(ROWL*G)
 
 !   ***  CALCULATE SURFACE PRECIPITATION IN MM/s     ***
-    precip=precip+wt(1)*sigd*water(1)*1000./(rowl*g)
+    precip=wt(1)*sigd*water(1)*1000./(rowl*g)
 
   ENDIF
 
@@ -790,21 +990,19 @@ SUBROUTINE CONVECT (                                       &
   FT(1)=FT(1)+SIGD*WT(2)*(CL-CPD)*WATER(2)*(T(2)-T(1))*DPINV/CPN(1)
   FQ(1)=FQ(1)+G*MP(2)*(QP(2)-Q(1))*DPINV+SIGD*EVAP(1)
   FQ(1)=FQ(1)+G*AM*(Q(2)-Q(1))*DPINV
-  fu1(1)=fu1(1)+g*dpinv*(mp(2)*(u1p(2)-u1(1))+am*(u1(2)-u1(1)))
-  fu2(1)=fu2(1)+g*dpinv*(mp(2)*(u2p(2)-u2(1))+am*(u2(2)-u2(1)))
-  fu3(1)=fu3(1)+g*dpinv*(mp(2)*(u3p(2)-u3(1))+am*(u3(2)-u3(1)))
-  DO J=1,NTRA
-     FTRA(1,J)=FTRA(1,J)+G*DPINV*(MP(2)*(TRAP(2,J)-TRA(1,J))+AM*(TRA(2,J)-TRA(1,J)))
-  END DO
+  fu(1)=fu(1)+g*dpinv*(mp(2)*(up(2)-u(1))+am*(u(2)-u(1)))
+  fv(1)=fv(1)+g*dpinv*(mp(2)*(vp(2)-v(1))+am*(v(2)-v(1)))
+!  DO J=1,NTRA
+!     FTRA(1,J)=FTRA(1,J)+G*DPINV*(MP(2)*(TRAP(2,J)-TRA(1,J))+AM*(TRA(2,J)-TRA(1,J)))
+!  END DO
   AMDE=0.0
   DO J=2,INB
      FQ(1)=FQ(1)+G*DPINV*MENT(J,1)*(QENT(J,1)-Q(1))
-     fu1(1)=fu1(1)+g*dpinv*ment(j,1)*(u1ent(j,1)-u1(1))
-     fu2(1)=fu2(1)+g*dpinv*ment(j,1)*(u2ent(j,1)-u2(1))
-     fu3(1)=fu3(1)+g*dpinv*ment(j,1)*(u3ent(j,1)-u3(1))
-     DO K=1,NTRA
-        FTRA(1,K)=FTRA(1,K)+G*DPINV*MENT(J,1)*(TRAENT(J,1,K)-TRA(1,K))
-     END DO
+     fu(1)=fu(1)+g*dpinv*ment(j,1)*(uent(j,1)-u(1))
+     fv(1)=fv(1)+g*dpinv*ment(j,1)*(vent(j,1)-v(1))
+!     DO K=1,NTRA
+!        FTRA(1,K)=FTRA(1,K)+G*DPINV*MENT(J,1)*(TRAENT(J,1,K)-TRA(1,K))
+!     END DO
   ENDDO
 
 !   ***  CALCULATE TENDENCIES OF POTENTIAL TEMPERATURE AND MIXING RATIO  ***
@@ -843,47 +1041,43 @@ SUBROUTINE CONVECT (                                       &
           (T(I+1)-T(I))*DPINV*CPINV
      FQ(I)=FQ(I)+G*DPINV*(AMP1*(Q(I+1)-Q(I))- &
           AD*(Q(I)-Q(I-1)))
-     fu1(i)=fu1(i)+g*dpinv*(amp1*(u1(i+1)-u1(i))-ad*(u1(i)-u1(i-1)))
-     fu2(i)=fu2(i)+g*dpinv*(amp1*(u2(i+1)-u2(i))-ad*(u2(i)-u2(i-1)))
-     fu3(i)=fu3(i)+g*dpinv*(amp1*(u3(i+1)-u3(i))-ad*(u3(i)-u3(i-1)))
-     DO K=1,NTRA
-        FTRA(I,K)=FTRA(I,K)+G*DPINV*(AMP1*(TRA(I+1,K)- &
-              TRA(I,K))-AD*(TRA(I,K)-TRA(I-1,K)))
-     END DO
+     fu(i)=fu(i)+g*dpinv*(amp1*(u(i+1)-u(i))-ad*(u(i)-u(i-1)))
+     fv(i)=fv(i)+g*dpinv*(amp1*(v(i+1)-v(i))-ad*(v(i)-v(i-1)))
+!     DO K=1,NTRA
+!        FTRA(I,K)=FTRA(I,K)+G*DPINV*(AMP1*(TRA(I+1,K)- &
+!              TRA(I,K))-AD*(TRA(I,K)-TRA(I-1,K)))
+!     END DO
      DO K=1,I-1
         AWAT=ELIJ(K,I)-(1.-EP(I))*CLW(I)
         AWAT=MAX(AWAT,0.0)
         FQ(I)=FQ(I)+G*DPINV*MENT(K,I)*(QENT(K,I)-AWAT-Q(I))
-        fu1(i)=fu1(i)+g*dpinv*ment(k,i)*(u1ent(k,i)-u1(i))
-        fu2(i)=fu2(i)+g*dpinv*ment(k,i)*(u2ent(k,i)-u2(i))
-        fu3(i)=fu3(i)+g*dpinv*ment(k,i)*(u3ent(k,i)-u3(i))
+        fu(i)=fu(i)+g*dpinv*ment(k,i)*(uent(k,i)-u(i))
+        fv(i)=fv(i)+g*dpinv*ment(k,i)*(vent(k,i)-v(i))
         ! -- sb:
         ! (saturated updrafts resulting from mixing)
          QCOND(I)=QCOND(I)+(ELIJ(K,I)-AWAT)
          NQCOND(I)=NQCOND(I)+1.
          ! sb --
-        DO J=1,NTRA
-           FTRA(I,J)=FTRA(I,J)+G*DPINV*MENT(K,I)*(TRAENT(K,I,J)-TRA(I,J))
-        END DO
+!        DO J=1,NTRA
+!           FTRA(I,J)=FTRA(I,J)+G*DPINV*MENT(K,I)*(TRAENT(K,I,J)-TRA(I,J))
+!        END DO
      ENDDO
      DO K=I,INB
         FQ(I)=FQ(I)+G*DPINV*MENT(K,I)*(QENT(K,I)-Q(I))
-        fu1(i)=fu1(i)+g*dpinv*ment(k,i)*(u1ent(k,i)-u1(i))
-        fu2(i)=fu2(i)+g*dpinv*ment(k,i)*(u2ent(k,i)-u2(i))
-        fu3(i)=fu3(i)+g*dpinv*ment(k,i)*(u3ent(k,i)-u3(i))
-        DO J=1,NTRA
-           FTRA(I,J)=FTRA(I,J)+G*DPINV*MENT(K,I)*(TRAENT(K,I,J)-TRA(I,J))
-        END DO
+        fu(i)=fu(i)+g*dpinv*ment(k,i)*(uent(k,i)-u(i))
+        fv(i)=fv(i)+g*dpinv*ment(k,i)*(vent(k,i)-v(i))
+!        DO J=1,NTRA
+!           FTRA(I,J)=FTRA(I,J)+G*DPINV*MENT(K,I)*(TRAENT(K,I,J)-TRA(I,J))
+!        END DO
      ENDDO
      FQ(I)=FQ(I)+SIGD*EVAP(I)+G*(MP(I+1)* &
           (QP(I+1)-Q(I))-MP(I)*(QP(I)-Q(I-1)))*DPINV
-     fu1(i)=fu1(i)+g*(mp(i+1)*(u1p(i+1)-u1(i))-mp(i)*(u1p(i)-u1(i-1)))*dpinv
-     fu2(i)=fu2(i)+g*(mp(i+1)*(u2p(i+1)-u2(i))-mp(i)*(u2p(i)-u2(i-1)))*dpinv
-     fu3(i)=fu3(i)+g*(mp(i+1)*(u3p(i+1)-u3(i))-mp(i)*(u3p(i)-u3(i-1)))*dpinv
-     DO J=1,NTRA
-        FTRA(I,J)=FTRA(I,J)+G*DPINV*(MP(I+1)*(TRAP(I+1,J)-TRA(I,J))- &
-             MP(I)*(TRAP(I,J)-TRA(I-1,J)))
-     END DO
+     fu(i)=fu(i)+g*(mp(i+1)*(up(i+1)-u(i))-mp(i)*(up(i)-u(i-1)))*dpinv
+     fv(i)=fv(i)+g*(mp(i+1)*(vp(i+1)-v(i))-mp(i)*(vp(i)-v(i-1)))*dpinv
+!     DO J=1,NTRA
+!        FTRA(I,J)=FTRA(I,J)+G*DPINV*(MP(I+1)*(TRAP(I+1,J)-TRA(I,J))- &
+!             MP(I)*(TRAP(I,J)-TRA(I-1,J)))
+!     END DO
      ! -- sb:
      ! (saturated downdrafts resulting from mixing)
      DO K=I+1,INB
@@ -892,10 +1086,10 @@ SUBROUTINE CONVECT (                                       &
      ENDDO
      ! (particular case: no detraining level is found)
      IF (NENT(I).EQ.0) THEN
-        QCOND(I)=QCOND(I)+(1-EP(I))*CLW(I)
+        QCOND(I)=QCOND(I)+(1.-EP(I))*CLW(I)
         NQCOND(I)=NQCOND(I)+1.
      ENDIF
-     IF (NQCOND(I).NE.0.) THEN
+     IF (NQCOND(I).GT.1.e-10) THEN
         QCOND(I)=QCOND(I)/NQCOND(I)
      ENDIF
      ! sb --
@@ -914,71 +1108,74 @@ SUBROUTINE CONVECT (                                       &
   FT(INB-1)=FT(INB-1)+FRAC*FTOLD*((PH(INB)-PH(INB+1)) / &
        (PH(INB-1)-PH(INB)))*CPN(INB)/CPN(INB-1)
 
-  fu1old = fu1(inb)
-  fu1(inb) = fu1(inb)*(1.-frac)
-  fu1(inb-1) = fu1(inb-1)+frac*fu1old*((ph(inb)-ph(inb+1)) / &
+  fuold = fu(inb)
+  fu(inb) = fu(inb)*(1.-frac)
+  fu(inb-1) = fu(inb-1)+frac*fuold*((ph(inb)-ph(inb+1)) / &
        (ph(inb-1)-ph(inb)))
 
-  fu2old = fu2(inb)
-  fu2(inb) = fu2(inb)*(1.-frac)
-  fu2(inb-1) = fu2(inb-1)+frac*fu2old*((ph(inb)-ph(inb+1)) / &
+  fvold = fv(inb)
+  fv(inb) = fv(inb)*(1.-frac)
+  fv(inb-1) = fv(inb-1)+frac*fvold*((ph(inb)-ph(inb+1)) / &
        (ph(inb-1)-ph(inb)))
 
-  fu3old = fu3(inb)
-  fu3(inb) = fu3(inb)*(1.-frac)
-  fu3(inb-1) = fu3(inb-1)+frac*fu3old*((ph(inb)-ph(inb+1)) / &
-       (ph(inb-1)-ph(inb)))
-
-  DO K=1,NTRA
-     FTRAOLD=FTRA(INB,K)
-     FTRA(INB,K)=FTRA(INB,K)*(1.-FRAC)
-     FTRA(INB-1,K)=FTRA(INB-1,K)+FRAC*FTRAOLD*(PH(INB)-PH(INB+1)) / & 
-          (PH(INB-1)-PH(INB))
-  END DO
+!  DO K=1,NTRA
+!     FTRAOLD=FTRA(INB,K)
+!     FTRA(INB,K)=FTRA(INB,K)*(1.-FRAC)
+!     FTRA(INB-1,K)=FTRA(INB-1,K)+FRAC*FTRAOLD*(PH(INB)-PH(INB+1)) / & 
+!          (PH(INB-1)-PH(INB))
+!  END DO
 
 !   ***   Very slightly adjust tendencies to force exact   ***
 !   ***     enthalpy, momentum and tracer conservation     ***
 
+  if (precip > 1.e-12) then
+     is = 1
+  else
+     is = nk
+  endif
+     
+  qav = 0.0
+  do i = is, inb
+     qav = qav + fq(i)*(ph(i)-ph(i+1))
+  enddo
+  qav = (qav + precip * g * 0.01) / (ph(is)-ph(inb+1))
+  do i = is, inb
+     fq(i) = fq(i) - qav
+  enddo
+
   ENTS=0.0
-  u1av=0.0
-  u2av=0.0
-  u3av=0.0
-  DO I=1,INB
+  uav=0.0
+  vav=0.0
+  DO I=IS,INB
      ENTS=ENTS+(CPN(I)*FT(I)+LV(I)*FQ(I))*(PH(I)-PH(I+1))	
-     u1av=u1av+fu1(i)*(ph(i)-ph(i+1))
-     u2av=u2av+fu2(i)*(ph(i)-ph(i+1))
-     u3av=u3av+fu3(i)*(ph(i)-ph(i+1))
+     uav=uav+fu(i)*(ph(i)-ph(i+1))
+     vav=vav+fv(i)*(ph(i)-ph(i+1))
   ENDDO
-  ENTS=ENTS/(PH(1)-PH(INB+1))
-  u1av=u1av/(ph(1)-ph(inb+1))
-  u2av=u2av/(ph(1)-ph(inb+1))
-  u3av=u3av/(ph(1)-ph(inb+1))
-  DO I=1,INB
+  ENTS=ENTS/(PH(IS)-PH(INB+1))
+  uav=uav/(ph(IS)-ph(inb+1))
+  vav=vav/(ph(IS)-ph(inb+1))
+  DO I=IS,INB
      FT(I)=FT(I)-ENTS/CPN(I)
-     fu1(i)=(1.-cu)*(fu1(i)-u1av)
-     fu2(i)=(1.-cu)*(fu2(i)-u2av)
-     fu3(i)=(1.-cu)*(fu3(i)-u3av)
+     fu(i)=(1.-cu)*(fu(i)-uav)
+     fv(i)=(1.-cu)*(fv(i)-vav)
   ENDDO
-  DO K=1,NTRA
-     TRAAV=0.0
-     DO I=1,INB
-        TRAAV=TRAAV+FTRA(I,K)*(PH(I)-PH(I+1))
-     ENDDO
-     TRAAV=TRAAV/(PH(1)-PH(INB+1))
-     DO I=1,INB
-        FTRA(I,K)=FTRA(I,K)-TRAAV
-     ENDDO
-  ENDDO
+!  DO K=1,NTRA
+!     TRAAV=0.0
+!     DO I=1,INB
+!        TRAAV=TRAAV+FTRA(I,K)*(PH(I)-PH(I+1))
+!     ENDDO
+!     TRAAV=TRAAV/(PH(1)-PH(INB+1))
+!     DO I=1,INB
+!        FTRA(I,K)=FTRA(I,K)-TRAAV
+!     ENDDO
+!  ENDDO
 
   ! IN-CLOUD MIXING RATIO OF CONDENSED WATER :
 
-  DO I=1,ND
-     MA(I)=0.0
-     WA(I)=0.0
-     SIGA(I)=0.0
-  ENDDO
+  ma(inb) = 0.0
+  wa(inb) = 1.e-10
 
-  DO I=NK,INB
+  DO I=icb,inb-1
      DO K=I+1,INB+1
         MA(I)=MA(I)+M(K)
      ENDDO
@@ -990,19 +1187,21 @@ SUBROUTINE CONVECT (                                       &
         AX(I)=AX(I)+RD*(TVP(J)-TV(J))*(PH(J)-PH(J+1))/P(J)
      ENDDO
      IF (AX(I).GT.0.) THEN
-        WA(I)=SQRT(2.*AX(I))
-     ENDIF
+        WA(I)=max(SQRT(2.*AX(I)), 1.e-10)
+     else
+        wa(i)=1.e-10
+     endif
   ENDDO
 
-  ! DO I=1,NL
   do i=icb,inb
-     IF (WA(I) > 0.) SIGA(I) = MA(I)/WA(I)*RD*TVP(I)/P(I)/100./DELTA
-     SIGA(I) = MIN(SIGA(I),1.0) 
+     SIGA(I) = MA(I)/WA(I)*RD*TVP(I)/P(I)/100./DELTA
+     SIGA(I) = MIN(SIGA(I),0.9) 
+     SIGA(I) = MAX(SIGA(I),0.1) 
      QCONDC(I) = SIGA(I)*CLW(I)*(1.-EP(I)) + (1.-SIGA(I))*QCOND(I)
   ENDDO
 
   RETURN
-END SUBROUTINE CONVECT
+END SUBROUTINE CONVECT43C
 
 
 ! ---------------------------------------------------------------------------
@@ -1087,3 +1286,6 @@ SUBROUTINE TLIFT(P,T,Q,QS,GZ,ICB,NK,TVP,TPK,CLW,ND,NL,KK)
 
   RETURN
 END SUBROUTINE TLIFT
+
+
+END MODULE module_cu_emanuel
