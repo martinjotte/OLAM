@@ -70,6 +70,7 @@ real :: wq, wq_added
 real :: headp_phi  ! Inverse of derivative of hydraulic pressure head
                    ! wrt soil water
 real :: psi
+real :: wcap_min   ! minimum surface water water [kg/m^2]
 
 ! automatic arrays
 
@@ -411,8 +412,15 @@ do iwl = 2,mwl
 
 ! Determine active number of surface water levels
 
+   wcap_min = dt_leaf * 1.e-6  ! same as in leaf4_sfcwater
+   
+   land%nlev_sfcwater(iwl) = 0
+
    do k = 1,nzs
-      if (land%sfcwater_mass(k,iwl) > 1.e-3) then
+      if (land%sfcwater_mass(k,iwl) < wcap_min) then
+         land%sfcwater_mass(k:nzs,iwl) = 0.0
+         exit
+      else
          land%nlev_sfcwater(iwl) = k
       endif
    enddo
