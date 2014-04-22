@@ -11,16 +11,16 @@
 MODULE module_cu_tiedtke
 
   real, parameter, private :: t000 = 273.15
-  real, parameter, private :: hgfr = 233.15   ! defined in param.f in explct
+  real, parameter, private :: hgfr = 233.15
   real, parameter, private :: ALV = 2.5008E6
   real, parameter, private :: ALS = 2.8345E6
   real, parameter, private :: ALF = ALS-ALV
   real, parameter, private :: CPD = 1005.46
-  real, parameter, private :: CPV = 1869.46 ! CPV in module is 1846.4
+  real, parameter, private :: CPV = 1869.46
   real, parameter, private :: RCPD = 1.0/CPD
   real, parameter, private :: RHOH2O = 1.0E03
   real, parameter, private :: TMELT = 273.16
-  real, parameter, private :: G = 9.806 ! G=9.806
+  real, parameter, private :: G = 9.806
   real, parameter, private :: ZRG = 1.0/G
   real, parameter, private :: RD = 287.05
   real, parameter, private :: RV = 461.51
@@ -37,11 +37,11 @@ MODULE module_cu_tiedtke
   real, parameter, private :: CVDIFTS = 1.0
   real, parameter, private :: CEVAPCU1 = 1.93E-6*261.0*0.5/G
   real, parameter, private :: CEVAPCU2 = 1.E3/(38.3*0.293)
-     
+
 ! Specify TUNABLE parameters for massflux scheme
 
   real, parameter, private :: ENTRPEN = 1.0E-4 ! avg entrain rate for penetrative conv
-  real, parameter, private :: ENTRSCV = 1.2E-3 ! avg entrain rate for shallow conv
+  real, parameter, private :: ENTRSCV = 3.0E-4 ! avg entrain rate for shallow conv
   real, parameter, private :: ENTRMID = 1.0E-4 ! avg entrain rate for midlev conv
   real, parameter, private :: ENTRDD  = 2.0E-4 ! avg entrain rate for downdrafts
   real, parameter, private :: CMFCTOP = 0.30   ! relative cloud massflux at level
@@ -62,7 +62,7 @@ MODULE module_cu_tiedtke
 ! integer, parameter, private :: cutrigger = 2 ! New trigger function
 
   real, parameter, private :: RHC = 0.80, RHM = 1.0, ZBUO0 = 0.50
-  real, parameter, private :: CRIRH = 0.70, fdbk = 1.0, ZTAU = 1800.0
+  real, parameter, private :: CRIRH = 0.70, fdbk = 0.0, ZTAU = 2200.0
 
   logical, parameter, private :: LMFPEN = .TRUE.
   logical, parameter, private :: LMFMID = .TRUE.
@@ -75,13 +75,13 @@ CONTAINS
    subroutine cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
 
    use mem_grid,    only: mza, mwa, lpv, lpw, zt, dzm, xew, yew, zew, &
-                          wnx, wny, wnz, arv, arw, volt
+                          wnx, wny, wnz, arv, arw, volt, arw0
    use misc_coms,   only: io6
    use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc, &
                           vmc, wmc
    use mem_turb,    only: frac_land, sflux_t, sflux_r, fqtpbl
-   use consts_coms, only: eradi
+   use consts_coms, only: eradi, gravo2
    use mem_ijtabs,  only: itab_w
 
    implicit none
@@ -93,39 +93,57 @@ CONTAINS
    real :: v1  (km) ! meridional wind component
    real :: t1  (km) ! temperature
    real :: q1  (km) ! water vapor mixing ratio [kg/kg]
-   real :: q2  (km) ! 'cloud' mixing ratio (not used)
-   real :: q3  (km) ! 'ice' mixing ratio (not used)
-   real :: q1b (km) ! water vapor mixing ratio tendency from advection
-   real :: q1bl(km) ! water vapor mixing ratio tendency from PBL mixing
+
    real :: ght (km) ! geopotential height [m] at OLAM T levels
    real :: omg (km) ! 'omega' vertical velocity at OLAM T levels
    real :: prst(km) ! pressure at OLAM T levels
+   real :: qsat(km) ! saturated vapor pressure
+   real :: sig1(km) ! sigma_p value
+
+   real :: dTdt(km) ! Temperature tendency
+   real :: dQdt(km) ! Water Vapor tendency
+   real :: dCdt(km) ! Cloud water/ice tendency
+   real :: dUdt(km) ! east-west wind tendency
+   real :: dVdt(km) ! nort-south wind tendency
 
    real :: prsw(km1) ! pressure at OLAM W levels
-   real :: sig1(km1) ! sigma_p value
 
-   real :: vflux(mza), vflux_vap(mza)
+   real :: ztu (km) ! cloud temperature
+   real :: zqu (km) ! cloud specific humidity
+   real :: zlu (km) ! cloud liquid water
+   real :: zlde(km) ! cloud water detrained to environment
+   real :: zmfu(km) ! upraft mass flux
+   real :: zmfd(km) ! downdraft mass flux
+
+   real :: prsfc    ! surface rainfall rate [kg/(m^2 s)]
+   real :: pssfc    ! surface snowfall rate [kg/(m^2 s)]
+
+   real :: paprc, paprsm, paprs, zrain, psrain
+   real :: psevap, psheat, psdiss, psmelt
 
    integer :: lndj  ! 0 over land, 1 over water
    integer :: ktype ! Convective closure type; output from Tiedtke param
 
-   real :: evap  ! vapor flux at surface [kg/(m^2 s)]
+   real :: evap  ! vapor flux at surface 
    real :: hfx   ! sensible heat flux at surface [W/m^2]
    real :: rhosf ! air density at lpw level
-   real :: rn    ! conv precip [kg/m^2] accum over confrq period
 
-   logical :: iact ! was convection active in this cell
+   integer :: ictop, icbot ! cloud top and bottom
+   logical :: iact         ! was convection active in this cell
+
+   real :: dQdt_sav(km)
+   real :: vflux(mza), vflux_vap(mza)
 
    integer :: ka, k, kt, jv, iv, iwn, npoly
-   integer :: ictop, icbot
    logical :: uvmix
 
-   real :: raxis, hflux, hflux_vap, dirv, flx
+   real :: raxis, hflux, hflux_vap, dirv, flx, fqvadv
    real :: uzonal(mza), umerid(mza)
-   real :: ut, vt, uvtr, raxisi
+   real :: uvtr, raxisi, gnpoly1
 
    ka = lpw(iw)
    npoly = itab_w(iw)%npoly
+   gnpoly1 = gravo2 / real(npoly+1)
 
    raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
    raxisi = 1.0 / max(raxis, 1.e-12)
@@ -143,7 +161,16 @@ CONTAINS
 
    do k = ka,mza-2
       vflux(k) = arw(k,iw) * wmc(k,iw)
-      vflux_vap(k) = vflux(k) * 0.5 * (sh_v(k,iw) + sh_v(k+1,iw))
+
+      ! upwinded
+      if (wmc(k,iw) >= 0.0) then
+         vflux_vap(k) = vflux(k) * sh_v(k,iw)
+      else
+         vflux_vap(k) = vflux(k) * sh_v(k+1,iw)
+      endif
+      
+      ! centered
+      ! vflux_vap(k) = vflux(k) * 0.5 * (sh_v(k,iw) + sh_v(k+1,iw))
    enddo
    vflux(ka-1) = 0.
    vflux(mza-1) = 0.
@@ -155,7 +182,7 @@ CONTAINS
    do k = ka,mza-1
       kt = mza - k        
 
-! Compute zonal and meridional wind components
+      ! Compute zonal and meridional wind components
 
       if (raxis > 1.e3) then
          u1(kt) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
@@ -170,45 +197,70 @@ CONTAINS
       uzonal(k) = u1(kt)
       umerid(k) = v1(kt)
 
-! Horizontal advective mass and water vapor fluxes
+      ! Horizontal advective mass and water vapor fluxes
 
       hflux = 0.
       hflux_vap = 0.
       
       do jv = 1, npoly
-         iv  = itab_w(iw)%iv(jv)
+         iv   = itab_w(iw)%iv(jv)
 
          if (k >= lpv(iv)) then
-            iwn = itab_w(iw)%iw(jv)
-
             dirv = itab_w(iw)%dirv(jv)
+            iwn  = itab_w(iw)%iw(jv)
 
-            flx = dirv * vmc(k,iv) * arv(k,iv)
-
+            flx   = dirv * vmc(k,iv) * arv(k,iv)
             hflux = hflux + flx
-            hflux_vap = hflux_vap + flx * 0.5 * (sh_v(k,iw) + sh_v(k,iwn))
+
+            ! upwinded
+            if (flx >= 0.0) then
+               hflux_vap = hflux_vap + flx * sh_v(k,iwn)
+            else
+               hflux_vap = hflux_vap + flx * sh_v(k,iw)
+            endif
+
+            ! centered
+            ! hflux_vap = hflux_vap + flx * 0.5 * (sh_v(k,iw) + sh_v(k,iwn))
          endif
       enddo
 
-      q1b (kt) = ((vflux_vap(k-1) - vflux_vap(k) + hflux_vap) &
-               - (vflux(k-1) - vflux(k) + hflux) * sh_v(k,iw)) &
-               / (volt(k,iw) * rho(k,iw))
-
       t1  (kt) = tair(k,iw)
-      q1  (kt) = sh_v(k,iw)
-      q2  (kt) = 0.0  ! no initial liquid
-      q3  (kt) = 0.0  ! no initial ice
-      q1bl(kt) = fqtpbl(k,iw)
+      ght (kt) = g * zt(k)
 
-      ght (kt) = zt(k)
-      omg (kt) = -0.5 * g * rho(k,iw) * (wc(k-1,iw) + wc(k,iw))
       prst(kt) = press(k,iw)
       prsw(kt) = 0.5 * (press(k,iw) + press(k+1,iw))
       sig1(kt) = (press(k,iw)  - press(mza-1,iw)) &
                / (press(ka,iw) - press(mza-1,iw))
+
+      ! use Tiedtke scheme's saturation calcs for now
+
+      qsat(kt) = min(0.5, tlucua(t1(kt)) / prst(kt))
+      qsat(kt) = qsat(kt) / (1.0 - vtmpc1*qsat(kt))
+      q1  (kt) = min(sh_v(k,iw), qsat(kt))
+
+      ! Average vertical velocity from current and surrounding cells
+
+      omg (kt) = -gnpoly1 * (wmc(k-1,iw) + wmc(k,iw) + sum(wmc(k-1:k,itab_w(iw)%iw(1:npoly))))
+
+      ! Initialize tendencies to zero
+
+      dTdt(kt) = 0.0
+      dCdt(kt) = 0.0
+      dUdt(kt) = 0.0
+      dVdt(kt) = 0.0
+
+      ! Tiedtke scheme requires large scale moisture tendency
+
+      fqvadv = ((vflux_vap(k-1) - vflux_vap(k) + hflux_vap) &
+               - (vflux(k-1) - vflux(k) + hflux) * sh_v(k,iw)) &
+               / (volt(k,iw) * rho(k,iw))
+
+      dQdt    (kt) = fqtpbl(k,iw) + fqvadv
+      dQdt_sav(kt) = dQdt(kt)
+
    enddo
 
-! prsw(1) is press at zm(mza-1); prsw(km1) is press at zm(ka-1)
+   ! prsw(1) is press at zm(mza-1); prsw(km1) is press at zm(ka-1)
 
    prsw(1) = max(1.e-3,2. * press(mza-1,iw) - press(mza-2,iw))
    prsw(km1) = 2. * press(ka,iw) - press(ka+1,iw)
@@ -222,13 +274,32 @@ CONTAINS
    else
       lndj = 1
    endif
-   
-! Tiedtke convective parameterization for one IW column
 
-   call tiecnv(u1,v1,t1,q1,q2,q3,q1b,q1bl, &
-              ght,omg,prst,prsw,evap,hfx,rhosf, &
-              rn,lndj,ktype,km,km1,sig1,confrq4, &
-              icbot,ictop,iact)
+   iact   = .false.
+   prsfc  = 0.0
+   pssfc  = 0.0
+   paprc  = 0.0
+   paprsm = 0.0
+   paprs  = 0.0
+   zrain  = 0.0
+   psrain = 0.0
+   psevap = 0.0
+   psheat = 0.0
+   psdiss = 0.0
+   psmelt = 0.0
+
+   ! Tiedtke convective parameterization for one IW column
+
+   CALL CUMASTR_NEW(                                   &
+        km,       km1,      km-1,     t1,              &
+        q1,       u1,       v1,       omg,     qsat,   &
+        evap,     confrq4,  prst,     prsw,    ght,    &
+        dTdt,     dQdt,     dUdt,     dVdt,    prsfc,  & 
+        pssfc,    paprc,    paprsm,   paprs,   iact,   &
+        ktype,    icbot,    ictop,    ztu,     zqu,    &
+        zlu,      zlde,     zmfu,     zmfd,    zrain,  &
+        psrain,   psevap,   psheat,   psdiss,  psmelt, &
+        dCdt,     hfx,      rhosf,    sig1,    lndj    )
 
    ictop = mza - ictop
    icbot = mza - icbot
@@ -240,17 +311,26 @@ CONTAINS
       do k = ka,mza-1
          kt = mza - k
 
-         ! if convection created any ice or liquid, add it to the
-         ! total water and evaporate it
-         
-         q1(kt) = q1(kt) + q2(kt) + q3(kt)
-         t1(kt) = t1(kt) - alv / cpd * q2(kt) - als / cpd * q3(kt)
+         ! subtract off the input humdity tendency
+         dQdt(kt) = dQdt(kt) - dQdt_sav(kt)
+
+         ! If convection created any ice or liquid, add it to the total
+         ! water and evaporate it. Shouldn't be needed with fdbk=0 though.
+
+         if (dCdt(kt) > 1.e-18) then
+            dQdt(kt) = dQdt(kt) + dCdt(kt)
+            
+            if (t1(kt) > tmelt) then
+               dTdt(kt) = dTdt(kt) - alv * rcpd * dCdt(kt)
+            else
+               dTdt(kt) = dTdt(kt) - als * rcpd * dCdt(kt)
+            endif
+         endif
 
          ! store convective heating and moisture rates
 
-         thsrc(k,iw) = (t1(kt) - tair(k,iw)) * confrq4i &
-                     * (theta(k,iw) / tair(k,iw))
-         rtsrc(k,iw) = (q1(kt) - sh_v(k,iw)) * confrq4i
+         thsrc(k,iw) = dTdt(kt) * (theta(k,iw) / tair(k,iw))
+         rtsrc(k,iw) = dQdt(kt)
       enddo
 
       ! convective momentum transport
@@ -259,179 +339,33 @@ CONTAINS
          do k = ka, mza-1
             kt = mza - k
 
-            ut = (u1(kt) - uzonal(k)) * confrq4i
-            vt = (v1(kt) - umerid(k)) * confrq4i
-
             if (raxis > 1.e3) then
-               uvtr = -vt * zew(iw) * eradi
-               vxsrc(k,iw) = (-ut * yew(iw) + uvtr * xew(iw)) * raxisi
-               vysrc(k,iw) = ( ut * xew(iw) + uvtr * yew(iw)) * raxisi
-               vzsrc(k,iw) =   vt * raxis * eradi 
+               uvtr = -dVdt(kt) * zew(iw) * eradi
+               vxsrc(k,iw) = (-dUdt(kt) * yew(iw) + uvtr * xew(iw)) * raxisi
+               vysrc(k,iw) = ( dUdt(kt) * xew(iw) + uvtr * yew(iw)) * raxisi
+               vzsrc(k,iw) =   dVdt(kt) * raxis * eradi 
                
             else
-               vxsrc(k,iw) = ut
-               vysrc(k,iw) = vt
+               vxsrc(k,iw) = dUdt(kt)
+               vysrc(k,iw) = dVdt(kt)
                vzsrc(k,iw) = 0.0
             endif
 
          enddo
       endif
 
-      ! precipitation
+      ! precipitation rate
 
-      conprr(iw) = rn * confrq4i
+      conprr(iw) = max(prsfc+pssfc, 0.0)
 
    endif
 
    end subroutine cuparm_tiedtke
 
-!====================================================================
 
 !------------This is the combined version for tiedtke---------------
-!----------------------------------------------------------------
 !  In this module only the mass flux convection scheme of the ECMWF is included
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!#############################################################
 !
-!             LEVEL 1 SUBROUTINEs
-!
-!#############################################################
-!********************************************************
-!        subroutine TIECNV
-!********************************************************
-      SUBROUTINE TIECNV(pu,pv,pt,pqv,pqc,pqi,pqvf,pqvbl,poz,pomg,  &
-           pap,paph,evap,hfx,rho,zprecc,lndj,KTYPE,km,km1,sig1,dt, &
-           icbot,ictop,locum)
-!-----------------------------------------------------------------
-!  This is the interface between the meso-scale model and the mass 
-!  flux convection module
-!-----------------------------------------------------------------
-      implicit none
-
-      real pu(km),pv(km),pt(km),pqv(km),pqvf(km)
-      real poz(km),pomg(km),evap,zprecc,pqvbl(km)
-      real PHHFL,RHO,hfx
-      REAL PUM1(km),    PVM1(km),                       &
-          PTTE(km),    PQTE(km),  PVOM(km),  PVOL(km),  &
-          PVERV(km),   PGEO(km),  PAP(km),   PAPH(km1)
-      REAL PQHFL,      ZQQ(km),   PAPRC,    PAPRS,   &
-          PRSFC,      PSSFC,    PAPRSM,   PCTE(km)
-      REAL ZTP1(km),    ZQP1(km),  ZTU(km),   ZQU(km),  &
-          ZLU(km),     ZLUDE(km), ZMFU(km),  ZMFD(km),  &
-          ZQSAT(km),   pqc(km),   pqi(km),   ZRAIN
-
-      REAL sig1(km)
-      INTEGER ICBOT,   ICTOP,     KTYPE,   lndj
-      REAL  dt
-      LOGICAL LOCUM
-
-      real PSHEAT,PSRAIN,PSEVAP,PSMELT,PSDISS,TT
-      real ZTMST,ZTPP1,fliq,fice,ZTC,ZALF
-      integer i,j,k,lp,km,km1
-!      real TLUCUA
-!      external TLUCUA
-
-      ZTMST=dt
-!  Masv flux diagnostics.
-
-      PSHEAT=0.0
-      PSRAIN=0.0
-      PSEVAP=0.0
-      PSMELT=0.0
-      PSDISS=0.0
-      ZRAIN=0.0
-      LOCUM=.FALSE.
-      PRSFC=0.0
-      PSSFC=0.0
-      PAPRC=0.0
-      PAPRS=0.0
-      PAPRSM=0.0
-      PQHFL=evap
-      PHHFL=hfx
-
-!     CONVERT MODEL VARIABLES FOR MFLUX SCHEME
-
-      DO 10 k=1,km
-        PTTE(k)=0.0
-        PCTE(k)=0.0
-        PVOM(k)=0.0
-        PVOL(k)=0.0
-        ZTP1(k)=pt(k)
-        ZQP1(k)=pqv(k)/(1.0+pqv(k))
-        PUM1(k)=pu(k)
-        PVM1(k)=pv(k)
-        PVERV(k)=pomg(k)
-        PGEO(k)=G*poz(k)
-        TT=ZTP1(k)
-        ZQSAT(k)=TLUCUA(TT)/PAP(k)
-        ZQSAT(k)=MIN(0.5,ZQSAT(k))
-        ZQSAT(k)=ZQSAT(k)/(1.-VTMPC1*ZQSAT(k))
-        PQTE(k)=pqvf(k)+pqvbl(k)
-        ZQQ(k)=PQTE(k)
-   10 CONTINUE
-!
-!-----------------------------------------------------------------------
-!*    2.     CALL 'CUMASTR'(MASTER-ROUTINE FOR CUMULUS PARAMETERIZATION)
-!
-      CALL CUMASTR_NEW &
-         (km,       km1,      km-1,     ZTP1,            &
-          ZQP1,     PUM1,     PVM1,     PVERV,   ZQSAT,  &
-          PQHFL,    ZTMST,    PAP,      PAPH,    PGEO,   &
-          PTTE,     PQTE,     PVOM,     PVOL,    PRSFC,  & 
-          PSSFC,    PAPRC,    PAPRSM,   PAPRS,   LOCUM,  &
-          KTYPE,    ICBOT,    ICTOP,    ZTU,     ZQU,    &
-          ZLU,      ZLUDE,    ZMFU,     ZMFD,    ZRAIN,  &
-          PSRAIN,   PSEVAP,   PSHEAT,   PSDISS,  PSMELT, &
-          PCTE,     PHHFL,       RHO,    sig1,     lndj)
-!
-!     TO INCLUDE THE CLOUD WATER AND CLOUD ICE DETRAINED FROM CONVECTION
-!
-      IF(fdbk.ge.1.0e-9) THEN
-      DO 20 K=1,km
-      If(PCTE(k).GT.0.0) then
-        ZTPP1=pt(k)+PTTE(k)*ZTMST
-        if(ZTPP1.ge.t000) then
-           fliq=1.0
-           ZALF=0.0
-        else if(ZTPP1.le.hgfr) then
-           fliq=0.0
-           ZALF=ALF
-        else
-           ZTC=ZTPP1-t000
-           fliq=0.0059+0.9941*exp(-0.003102*ZTC*ZTC)
-           ZALF=ALF
-        endif
-        fice=1.0-fliq
-        pqc(k)=pqc(k)+fliq*PCTE(k)*ZTMST
-        pqi(k)=pqi(k)+fice*PCTE(k)*ZTMST
-        PTTE(k)=PTTE(k)-ZALF*RCPD*fliq*PCTE(k)
-      Endif
-   20 CONTINUE
-      ENDIF
-!
-      DO 75 k=1,km
-        pt(k)=ZTP1(k)+PTTE(k)*ZTMST
-        ZQP1(k)=ZQP1(k)+(PQTE(k)-ZQQ(k))*ZTMST
-        pqv(k)=ZQP1(k)/(1.0-ZQP1(k))
-   75 CONTINUE
-        zprecc=amax1(0.0,(PRSFC+PSSFC)*ZTMST)
-      IF (LMFDUDV) THEN
-        DO 100 k=1,km
-          pu(k)=pu(k)+PVOM(k)*ZTMST
-          pv(k)=pv(k)+PVOL(k)*ZTMST
-  100   CONTINUE
-      ENDIF
-!
-      RETURN
-      END SUBROUTINE TIECNV
-
-!#############################################################
-!
-!             LEVEL 2 SUBROUTINEs
-!
-!#############################################################
-!***********************************************************
-!           SUBROUTINE CUMASTR_NEW
 !***********************************************************
       SUBROUTINE CUMASTR_NEW                             &
          (KLEV,     KLEVP1,   KLEVM1,   PTEN,            &
@@ -442,7 +376,7 @@ CONTAINS
           KTYPE,    KCBOT,    KCTOP,    PTU,      PQU,   &
           PLU,      PLUDE,    PMFU,     PMFD,     PRAIN, &
           PSRAIN,   PSEVAP,   PSHEAT,   PSDISS,   PSMELT,& 
-          PCTE,     PHHFL,       RHO,     sig1,     lndj)
+          PCTE,     PHHFL,       RHO,     sig1,     lndj )
 !
 !***CUMASTR*  MASTER ROUTINE FOR CUMULUS MASSFLUX-SCHEME
 !     M.TIEDTKE      E.C.M.W.F.     1986/1987/1989

@@ -32,7 +32,7 @@
 !===============================================================================
 subroutine cuparm_driver(rhot)
 
-use mem_grid,         only: mwa, mza, lpw, arw0, lpv
+use mem_grid,         only: mwa, mza, lpw, arw0, lpv, dzt
 use module_cu_g3,     only: grell_driver
 use module_cu_gf,     only: gf_driver
 use module_cu_kfeta,  only: cuparm_kfeta, kf_lutab
@@ -43,7 +43,7 @@ use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
 use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
 use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc
 use mem_tend,         only: thilt, sh_wt, vmxet, vmyet, vmzet
-use mem_basic,        only: rho
+use mem_basic,        only: rho, sh_w
 use consts_coms,      only: r8
 use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
 
@@ -53,6 +53,9 @@ real, intent(inout) :: rhot(mza,mwa)
 real(r8), parameter :: cptime = 0.0
 integer             :: j, iw, k, mrl, mrlw
 integer, save       :: init_kf = 0
+
+real(r8) :: qpos, qadd, fact
+real     :: qtest, rt(mza)
 
 real    :: dthmax, ftcon, dtlong4, confrq4, confrq4i
 integer :: iwqmax, kqmax, km, km1
@@ -64,6 +67,9 @@ real :: dx, ratio, total
 real, save, allocatable :: tkeep(:), tsend(:)
 
 real :: thsrc_distrib(mza,mwa)
+real :: vxsrc_distrib(mza,mwa)
+real :: vysrc_distrib(mza,mwa)
+real :: vzsrc_distrib(mza,mwa)
 
 real, parameter :: ths_min = 0.0
 !real, parameter :: ths_min = 25.0 / 86400.
@@ -146,6 +152,10 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
       vxsrc(:,:) = 0.0
       vysrc(:,:) = 0.0
       vzsrc(:,:) = 0.0
+      
+      vxsrc_distrib(:,:) = 0.0
+      vysrc_distrib(:,:) = 0.0
+      vzsrc_distrib(:,:) = 0.0
    endif
 
 ! Loop over all IW grid cells where cumulus parameterization may be done
@@ -201,6 +211,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 ! Distribute any deep convective heating among local and neighboring cells
 
       if (nqparm(mrlw) /= 0 .and. conprr(iw) > 1.e-16) then
+
          do k = lpw(iw), mza-1
 
             ! heating above ths_min will be a candidate to be distributed
@@ -209,15 +220,37 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
             ! the rest always stays in the local cell
             thsrc(k,iw) = thsrc(k,iw) - thsrc_distrib(k,iw)
          enddo
+
+! Distribute any deep convective momentum mixing among local and neighboring cells
+
+         if (uvmix) then
+            do k = lpw(iw), mza-1
+               vxsrc_distrib(k,iw) = vxsrc(k,iw)
+               vysrc_distrib(k,iw) = vysrc(k,iw)
+               vzsrc_distrib(k,iw) = vzsrc(k,iw)
+
+               vxsrc(k,iw) = 0.0
+               vysrc(k,iw) = 0.0
+               vzsrc(k,iw) = 0.0
+            enddo
+         endif
+
       endif
 
    enddo
    !$omp end parallel do
    call rsub('Wa',15)
 
-! Perform MPI send of thsrc_distrib
+! Perform MPI send of heating and mixing for lateral spreading
 
-   if (iparallel == 1) call mpi_send_w('V', vxe=thsrc_distrib, domrl=1)
+   if (iparallel == 1) then
+      if (uvmix) then
+         call mpi_send_w('V', vxe=vxsrc_distrib, vye=vysrc_distrib,     &
+                         vze=vzsrc_distrib, vmxet=thsrc_distrib, domrl=1)
+      else
+         call mpi_send_w('V', vmxet=thsrc_distrib, domrl=1)
+      endif
+   endif
 
 ! Print maximum heating rate in current parallel sub-domain
 
@@ -240,27 +273,46 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
    write(io6, '(A,I0,A,I0,A,F0.3,A,F0.4)') " MAX CONVECTIVE HEATING RATE AT IW=",  &
         iwqmax, " K=", kqmax, " IS ", dthmax*86400., " K/DAY"
 
-! Perform MPI receive of thsrc_distrib
+! Perform MPI receive of heating and mixing for lateral spreading
 
-   if (iparallel == 1) call mpi_recv_w('V', vxe=thsrc_distrib, domrl=1)
+   if (iparallel == 1) then
+      if (uvmix) then
+         call mpi_recv_w('V', vxe=vxsrc_distrib, vye=vysrc_distrib,     &
+                         vze=vzsrc_distrib, vmxet=thsrc_distrib, domrl=1)
+      else
+         call mpi_recv_w('V', vmxet=thsrc_distrib, domrl=1)
+      endif
+   endif
 
-! Distribute convective heating among neighboring cells
+! Distribute convective heating and momentum mixing among neighboring cells
 
    !$omp parallel do private(iw,npoly,k,nblocked,jwn,iwn,iv) 
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
       npoly = itab_w(iw)%npoly
 
+      ! This section is the amount of heating/mixing that stays in the current cell
       do k = lpw(iw), mza-1
          nblocked = count( lpw( itab_w(iw)%iw(1:npoly)  ) > k )
          thsrc(k,iw) = thsrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * thsrc_distrib(k,iw)
+         if (uvmix) then
+            vxsrc(k,iw) = vxsrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * vxsrc_distrib(k,iw)
+            vysrc(k,iw) = vysrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * vysrc_distrib(k,iw)
+            vzsrc(k,iw) = vzsrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * vzsrc_distrib(k,iw)
+         endif
       enddo
 
+      ! This section is the amount of heating/mixing that is added to neighboring cells
       do jwn = 1, npoly
          iwn = itab_w(iw)%iw(jwn)
          iv  = itab_w(iw)%iv(jwn)
          do k = lpv(iv), mza-1
             thsrc(k,iw) = thsrc(k,iw) + tsend(iwn) * thsrc_distrib(k,iwn)
+            if (uvmix) then
+               vxsrc(k,iw) = vxsrc(k,iw) + tsend(iwn) * vxsrc_distrib(k,iwn)
+               vysrc(k,iw) = vysrc(k,iw) + tsend(iwn) * vysrc_distrib(k,iwn)
+               vzsrc(k,iw) = vzsrc(k,iw) + tsend(iwn) * vzsrc_distrib(k,iwn)
+            endif
          enddo
       enddo
 
@@ -282,28 +334,72 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
-   aconpr(iw) = aconpr(iw) + conprr(iw) * dtlong
+   ! Slight adjustment of water vapor tendencies to ensure that
+   ! convection does not produce negative sh_w. This may happen
+   ! since we usually do not call convection every timestep.
 
-   if ( any(nqparm(1:mrls) > 0) ) then
+   ! First modify humidity tendencies so that we don't create negative
+   ! sh_w's, and keep track of how much water we added in variable qadd
+
+   qadd = 0.0_r8
+
+   do k = lpw(iw), mza-1
+      qtest = max(sh_w(k,iw),0.0) + rtsrc(k,iw) * dtlong
+
+      if (qtest < 0. .and. rtsrc(k,iw) < 0.) then
+         rt(k) = rtsrc(k,iw) - qtest / dtlong
+         qadd  = qadd - qtest / dtlong * rho(k,iw) * dzt(k)
+      else
+         rt(k) = rtsrc(k,iw)
+      endif
+   enddo
+
+   ! If we added any water, remove it from positive tendency areas so
+   ! that there is no net change over the whole column
+
+   if (qadd > 1.e-20_r8) then
+
+      ! qpos is sum of positive tendencies that we can borrow from
+      qpos = 0.0_r8
 
       do k = lpw(iw), mza-1
-         thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * rho(k,iw)
-
-         sh_wt(k,iw) = sh_wt(k,iw) + rtsrc(k,iw) * rho(k,iw)
-
-         rhot (k,iw) = rhot (k,iw) + rtsrc(k,iw) * rho(k,iw)
+         if (rtsrc(k,iw) > 0.) then
+            qpos = qpos + rho(k,iw)*rtsrc(k,iw)*dzt(k)
+         endif
       enddo
 
-      if (uvmix) then
-         do k = lpw(iw), mza-1
-            vmxet(k,iw) = vmxet(k,iw) + vxsrc(k,iw) * rho(k,iw)
+      fact = 1.0 - min(qadd, qpos) / (qpos + 1.e-20_r8)
+      fact = min(fact, 1.0_r8)
+      fact = max(fact, 0.0_r8)
 
-            vmyet(k,iw) = vmyet(k,iw) + vysrc(k,iw) * rho(k,iw)
+      ! now borrow water from positive tendency areas to balance qadd
+      do k = lpw(iw), mza-1
+         if (rtsrc(k,iw) > 0.) then
+            rt(k) = rtsrc(k,iw) * fact
+         endif
+      enddo
+   endif
 
-            vmzet(k,iw) = vmzet(k,iw) + vzsrc(k,iw) * rho(k,iw)
-         enddo
-      endif
+   ! Now copy the tendencies
 
+   aconpr(iw) = aconpr(iw) + conprr(iw) * dtlong
+
+   do k = lpw(iw), mza-1
+      thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * rho(k,iw)
+
+      sh_wt(k,iw) = sh_wt(k,iw) +    rt(k)    * rho(k,iw)
+
+      rhot (k,iw) = rhot (k,iw) +    rt(k)    * rho(k,iw)
+   enddo
+
+   if (uvmix) then
+      do k = lpw(iw), mza-1
+         vmxet(k,iw) = vmxet(k,iw) + vxsrc(k,iw) * rho(k,iw)
+
+         vmyet(k,iw) = vmyet(k,iw) + vysrc(k,iw) * rho(k,iw)
+
+         vmzet(k,iw) = vmzet(k,iw) + vzsrc(k,iw) * rho(k,iw)
+      enddo
    endif
 
 enddo
