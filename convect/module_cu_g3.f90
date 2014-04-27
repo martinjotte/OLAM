@@ -23,7 +23,7 @@ CONTAINS
 
      use mem_turb,    only: kpblh, frac_land, fthpbl, fqtpbl
      use consts_coms, only: cp, alvl, grav, p00i, rocp, rvap, erad, &
-                            gravi, alvlocp
+                            gravi, alvlocp, r8
      use mem_radiate, only: rshort, fthrd_sw, fthrd_lw
      use mem_grid,    only: mza, lpw, arw0, zm, zt, xew, yew, zew, &
                             glatw, glonw, dzt, arw, lpv, arv, volt
@@ -72,12 +72,7 @@ CONTAINS
      integer :: ktop3  (1)       ! shallow convection cloud top
      real    :: xmb3   (1)       ! shallow convection mass flux
      real    :: mconv  (1,    8) ! column moisture convergence
-
-     real    :: massfln(1,1,ensdim) ! downdraft massflux ensembles, unused????
-     integer :: iact   (1,1)     ! flag if convection was active, unused
      real    :: omeg   (1,mza,8) ! vertical velocity in pressure coordinates
-     real    :: direction(1)     ! mean wind direction, unused
-     real    :: massflx(1,1)     ! unused
 
      real    :: APR_GR (1,1)     ! precip (mm/hr) for different closures/caps
      real    :: APR_W  (1,1)
@@ -121,6 +116,8 @@ CONTAINS
      real    :: vflux(mza), vflux_the(mza), vflux_vap(mza)
      real    :: hflux, hflux_the, hflux_vap
      real    :: fqvadv, fthadv
+     real(r8):: qsum, qav, tsum, tav
+     real    :: dtemp, dsh_v, fens4m
 
      ka    = lpw(iw)
      npoly = itab_w(iw)%npoly
@@ -130,6 +127,8 @@ CONTAINS
      kts  = 1
      kte  = mza
      ens4 = npoly + 1
+
+     fens4m = 1.0 / real(ens4)
 
      ! Go no higher than 50mb for convective calculations to prevent any
      ! problems when esat gets near ambient pressure
@@ -147,7 +146,10 @@ CONTAINS
      gsw   = rshort(iw)
      psur  = 0.01 * (press(ka,iw) + (zt(ka)-zm(ka-1))*rho(ka,iw)*grav)
      z1    = zm(ka-1)
+     
+     mconv(1,:) = 0.0
 
+     ! one if by land, two if by sea
      if (allocated(frac_land)) then
         xland = 2.0 - frac_land(iw)
      else
@@ -159,9 +161,20 @@ CONTAINS
      ! Vertical advective theta and water vapor fluxes (W levels)
 
      do k = ka,mza-2
-        vflux    (k) = arw(k,iw) * wmc(k,iw)
-        vflux_the(k) = vflux(k) * 0.5 * (theta(k,iw) + theta(k+1,iw))
-        vflux_vap(k) = vflux(k) * 0.5 * (sh_v (k,iw) + sh_v (k+1,iw))
+        vflux(k) = arw(k,iw) * wmc(k,iw)
+
+        ! upwinded
+        if (wmc(k,iw) >= 0.0) then
+           vflux_vap(k) = vflux(k) * sh_v(k,iw)
+           vflux_the(k) = vflux(k) * theta(k,iw)
+        else
+           vflux_vap(k) = vflux(k) * sh_v(k+1,iw)
+           vflux_the(k) = vflux(k) * theta(k+1,iw)
+        endif
+
+        ! centered
+        ! vflux_the(k) = vflux(k) * 0.5 * (theta(k,iw) + theta(k+1,iw))
+        ! vflux_vap(k) = vflux(k) * 0.5 * (sh_v (k,iw) + sh_v (k+1,iw))
      enddo
 
      vflux    (ka-1)  = 0.
@@ -197,11 +210,21 @@ CONTAINS
               iwn  = itab_w(iw)%iw(jv)
               dirv = itab_w(iw)%dirv(jv)
 
-              flx = dirv * vmc(k,iv) * arv(k,iv)
+              flx   = dirv * vmc(k,iv) * arv(k,iv)
+              hflux = hflux + flx
 
-              hflux     = hflux     + flx
-              hflux_the = hflux_the + flx * 0.5 * (theta(k,iw) + theta(k,iwn))
-              hflux_vap = hflux_vap + flx * 0.5 * (sh_v (k,iw) + sh_v (k,iwn))
+              ! upwinded
+              if (flx >= 0.0) then
+                 hflux_vap = hflux_vap + flx * sh_v (k,iwn)
+                 hflux_the = hflux_the + flx * theta(k,iwn)
+              else
+                 hflux_vap = hflux_vap + flx * sh_v (k,iw)
+                 hflux_the = hflux_the + flx * theta(k,iw)
+              endif
+
+              ! centered
+              ! hflux_vap = hflux_vap + flx * 0.5 * (sh_v (k,iw) + sh_v (k,iwn))
+              ! hflux_the = hflux_the + flx * 0.5 * (theta(k,iw) + theta(k,iwn))
            endif
         enddo
 
@@ -214,10 +237,12 @@ CONTAINS
                / (volt(k,iw) * rho(k,iw))
 
         ! "forced" temp, water vapor, and pressure
+        dtemp = (fthrd_lw(k,iw) + fthrd_sw(k,iw) + &
+                 fthpbl(k,iw) + fthadv) * dtlong * exner(k)
+        dsh_v = (fqtpbl(k,iw) + fqvadv) * dtlong
 
-        tn(1,kc) = tair(k,iw) + (fthrd_lw(k,iw) + fthrd_sw(k,iw) + &
-                                 fthpbl(k,iw) + fthadv) * dtlong * exner(k)
-        qo(1,kc) = sh_v(k,iw) + (fqtpbl(k,iw) + fqvadv) * dtlong
+        tn(1,kc) = tair(k,iw) + dtemp
+        qo(1,kc) = sh_v(k,iw) + dsh_v
         tn(1,kc) = max( tn(1,kc), 200.0 )
         qo(1,kc) = max( qo(1,kc), 1.e-8 )
         po(1,kc) = p(1,kc)
@@ -234,50 +259,44 @@ CONTAINS
         endif
 
         ! Horizontal ensemble members (1st ensemble is current column)
-        tx  (1,kc,1) = t(1,kc)
-        qx  (1,kc,1) = q(1,kc)
+        tx  (1,kc,1) = tn(1,kc)
+        qx  (1,kc,1) = qo(1,kc)
         omeg(1,kc,1) = -grav * wmc(k,iw)
 
         ! Shallow convection uses current T and Q plus PBL tendencies
         tshall(1,kc) = t(1,kc) + fthpbl(k,iw) * dtlong * exner(k)
         qshall(1,kc) = q(1,kc) + fqtpbl(k,iw) * dtlong
         dhdt  (1,kc) = cp * fthpbl(k,iw) + alvl * fqtpbl(k,iw)
-     enddo
-
-     ! Set area ensembles of omega, T, and Q
-
-     do n = 1, npoly
-        do kc = 1, ktf
-           k  = kc + ka - 1
+        
+        ! Set area ensembles of omega, T, and Q
+        do n = 1, npoly
 
            if (k >= lpw(itab_w(iw)%iw(n))) then
               iwn = itab_w(iw)%iw(n)
            else
               iwn = iw
            endif
-
-           tx  (1,kc,n+1) = max( tair(k,iwn), 200.0 )
-           qx  (1,kc,n+1) = max( sh_v(k,iwn), 1.e-8 )
+        
+           tx  (1,kc,n+1) = max( tair(k,iwn) + dtemp, 200.0 )
+           qx  (1,kc,n+1) = max( sh_v(k,iwn) + dsh_v, 1.e-8 )
            omeg(1,kc,n+1) = -grav * wmc(k,iwn)
         enddo
-     enddo
 
-     ! Compute area ensemble moisture convergence based on average omega
-        
-     mconv(1,1:ens4) = 0.0
+        ! Compute area ensemble moisture convergence based on average omega
+        omega_ave = sum(omeg(1,kc,1:ens4)) * fens4m
+        mconv(1,1) = mconv(1,1) + omega_ave * (sh_v(k+1,iw) - sh_v(k,iw)) * gravi
 
-     do kc = 1, ktf-1
-        k  = kc + ka - 1
+        do n = 1, npoly
+           iwn = itab_w(iw)%iw(n)
 
-        omega_ave = sum(omeg(1,kc,1:ens4)) / real(ens4)
-
-        do n = 1, ens4
-           mconv(1,n) = mconv(1,n) + omega_ave * (qx(1,kc+1,n) - qx(1,kc,n)) * gravi
+           if (k >= lpw(iwn)) then
+              mconv(1,n+1) = mconv(1,n+1) + omega_ave * (sh_v(k+1,iwn) - sh_v(k,iwn)) * gravi
+           endif
         enddo
+
      enddo
 
      mconv(1,1:ens4) = max(mconv(1,1:ens4), 0.00)
-!    mconv(1,1:ens4) = min(mconv(1,1:ens4), 0.01)
 
      ishallow_g3 = 1
      tcrit = 258.0
@@ -285,8 +304,6 @@ CONTAINS
      j = 1
      ichoice = 0
      edt_out = 0
-     direction = 0.0
-     massflx = 0.0
      high_resolution = 0
 !    if (arw0(iw) < 1.e8) high_resolution = 1
 
@@ -320,8 +337,6 @@ CONTAINS
      kbcon3 = 0
      ktop3 = 0
      xmb3 = 0.0
-     massfln = 0.0
-     iact = 0
      ktau = 0
      tkmax = 0.0
      k22 = 0
@@ -338,8 +353,8 @@ CONTAINS
               TCRIT,tx,qx,                                             &
               tshall,qshall,kpbl,dhdt,outts,outqs,tscl_kf,             &
               k23,kbcon3,ktop3,xmb3,                                   &
-              mconv,massfln,iact,                                      &
-              omeg,direction,massflx,k22,xmb,                          &
+              mconv,                                      &
+              omeg,k22,xmb,                                            &
               APR_GR,APR_W,APR_MC,APR_ST,APR_AS,                       &
               APR_CAPMA,APR_CAPME,APR_CAPMI,kbcon,ktop,cupclw,         &
               xf_ens,pr_ens,xland,gsw,edt_out,subt,subq,               &
@@ -358,11 +373,31 @@ CONTAINS
            k  = kc + ka - 1
 
            ! Total water tendency
-           rtsrc(k,iw) =  outq(1,kc) + subq(1,kc) + outqc(1,kc)
+           outq(1,kc) = outq(1,kc) + subq(1,kc) + outqc(1,kc)
 
            ! Any cloud condensate is evaporated since we do not feed back
            ! to resolved microphysics
-           thsrc(k,iw) = (outt(1,kc) + subt(1,kc) - alvlocp * outqc(1,kc)) / exner(k)
+           outt(1,kc) = outt(1,kc) + subt(1,kc) - alvlocp * outqc(1,kc)
+        enddo
+
+        ! Slightly modify tendencies to ensure heat and moisture conservation
+
+        qav  = sum(     outq(1,1:ktf)  * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) ) + pre(1)
+        qsum = sum( abs(outq(1,1:ktf)) * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) )
+
+        tav  = cp * sum(     outt(1,1:ktf)  * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) ) - pre(1) * alvl
+        tsum = cp * sum( abs(outt(1,1:ktf)) * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) )
+
+        qav = qav / max(qsum, 1.e-20_r8)
+        tav = tav / max(tsum, 1.e-20_r8)
+
+        qav = 0.
+        tav = 0.
+        
+        do kc = 1, ktf
+           k  = kc + ka - 1
+           rtsrc(k,iw) =  outq(1,kc) - qav * abs(outq(1,kc))
+           thsrc(k,iw) = (outt(1,kc) - tav * abs(outt(1,kc))) / exner(k)
         enddo
 
         conprr(iw) = pre(1)
@@ -371,10 +406,24 @@ CONTAINS
 
         ! Shallow convection is active
 
+        ! Slightly modify tendencies to ensure heat and moisture conservation
+
+        qav  = sum(     outqs(1,1:ktf)  * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) )
+        qsum = sum( abs(outqs(1,1:ktf)) * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) )
+
+        tav  = cp * sum(     outts(1,1:ktf)  * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) )
+        tsum = cp * sum( abs(outts(1,1:ktf)) * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) )
+
+        qav = qav / max(qsum, 1.e-20_r8)
+        tav = tav / max(tsum, 1.e-20_r8)
+
+        qav = 0.
+        tav = 0.
+        
         do kc = 1, ktf
            k  = kc + ka - 1
-           thsrc(k,iw) = outts(1,kc) / exner(k)
-           rtsrc(k,iw) = outqs(1,kc)
+           rtsrc(k,iw) =  outqs(1,kc) - qav * abs(outqs(1,kc))
+           thsrc(k,iw) = (outts(1,kc) - tav * abs(outts(1,kc))) / exner(k)
         enddo
 
      endif
@@ -388,8 +437,8 @@ CONTAINS
               TCRIT,tx,qx,                                             &
               tshall,qshall,kpbl,dhdt,outts,outqs,tscl_kf,             &
               k23,kbcon3,ktop3,xmb3,                                   &
-              mconv,massfln,iact,                                      &
-              omeg,direction,massflx,k22,xmb,                          &
+              mconv,                                                   &
+              omeg,k22,xmb,                                            &
               APR_GR,APR_W,APR_MC,APR_ST,APR_AS,                       &
               APR_CAPMA,APR_CAPME,APR_CAPMI,kbcon,ktop,cupclw,         &
               xf_ens,pr_ens,xland,gsw,edt_out,subt,subq,               &
@@ -409,17 +458,14 @@ CONTAINS
   !
      real,    dimension (its:ite,jts:jte,1:ensdim)                     &
         ,intent (inout)                   ::                           &
-        massfln,xf_ens,pr_ens
+        xf_ens,pr_ens
      real,    dimension (its:ite,jts:jte)                              &
         ,intent (inout )                  ::                           &
-               APR_GR,APR_W,APR_MC,APR_ST,APR_AS,APR_CAPMA,     &
-               APR_CAPME,APR_CAPMI,massflx,edt_out
+               APR_GR,APR_W,APR_MC,APR_ST,APR_AS,APR_CAPMA,            &
+               APR_CAPME,APR_CAPMI,edt_out
      real,    dimension (its:ite,jts:jte)                              &
         ,intent (in   )                   ::                           &
                gsw
-     integer, dimension (its:ite,jts:jte)                              &
-        ,intent (in   )                   ::                           &
-        iact
   ! outtem = output temp tendency (per s)
   ! outq   = output q tendency (per s)
   ! outqc  = output qc tendency (per s)
@@ -452,7 +498,7 @@ CONTAINS
          Q,QO,qshall
      real, dimension (its:ite)                                         &
         ,intent (in   )                   ::                           &
-        Z1,PSUR,AAEQ,direction,tkmax,xland
+        Z1,PSUR,AAEQ,tkmax,xland
      real, dimension (its:ite,1:ens4)                                         &
         ,intent (in   )                   ::                           &
         mconv
@@ -526,15 +572,12 @@ CONTAINS
   ! z1          = terrain elevation
   ! pr_ens = precipitation ensemble
   ! xf_ens = mass flux ensembles
-  ! massfln = downdraft mass flux ensembles used in next timestep
   ! omeg = omega from large scale model
   ! mconv = moisture convergence from large scale model
   ! zd      = downdraft normalized mass flux
   ! zu      = updraft normalized mass flux
-  ! dir     = "storm motion"
   ! mbdt    = arbitrary numerical parameter
   ! dtime   = dt over which forcing is applied
-  ! iact_gr_old = flag to tell where convection was active
   ! kbcon       = LFC of parcel from k22
   ! k22         = updraft originating level
   ! icoic       = flag if only want one closure (usually set to zero!)
@@ -598,7 +641,7 @@ CONTAINS
        KBCONx,KBx,KTOPx,ierr,ierr2,ierr3,KBMAX,ierr5,ierr5_0 
 
      integer                              ::                           &
-       nall,iedt,nens,nens3,ki,I,K,KK,iresult
+       nall,iedt,nens,nens3,ki,I,K,KK
      real                                 ::                           &
       day,dz,mbdt,mbdt_s,entr_rate,radius,entrd_rate,mentr_rate,mentrd_rate,  &
       zcutdown,edtmax,edtmin,depth_min,zkbmax,z_detr,zktop,            &
@@ -608,9 +651,7 @@ CONTAINS
      logical :: keep_going
      real xff_shal(9),blqe,xkshal
 
-
-
-     day=86400.
+      day=86400.
       do i=its,itf
         xmb3(i)=0.
         closure_n(i)=16.
@@ -625,14 +666,14 @@ CONTAINS
       if(iens.le.4)then
       radius=14000.-float(iens)*2000.
       else
-      radius=12000.
+      radius=10000.
       endif
 !
 !--- gross entrainment rate (these may be changed later on in the
 !--- program, depending what your detrainment is!!)
 !
       entr_rate =.2/radius
-      entr_rate3=.2/200.
+      entr_rate3=.2/300.
 !
 !--- entrainment of mass
 !
@@ -659,17 +700,19 @@ CONTAINS
 !    base mass flux
 !
       edtmax=1.
-      edtmin=.2
+      edtmin=.1
 !
 !--- minimum depth (m), clouds must have
 !
-      depth_min=500.
+      depth_min=750.
 !
-!--- maximum depth (mb) of capping 
-!--- inversion (larger cap = no convection)
+!--- maximum depth (mb) of capping inversion that convection is
+!--- allowed to overcome (smaller cap_max means less convection)
 !
 !     cap_maxs=125.
-      cap_maxs=75.
+!     cap_maxs=75.
+      cap_maxs=50.
+
       DO i=its,itf
         kbmax(i)=1
         jmin3(i)=0
@@ -687,15 +730,14 @@ CONTAINS
         IERR3(i)=0
         IERR5(i)=0
         IERR5_0(i)=0
- enddo
-!
-!--- first check for upstream convection
-!
+      enddo
+
       do i=its,itf
           cap_max(i)=cap_maxs
           cap_max3(i)=25.
-          if(gsw(i,j).lt.1.or.high_resolution.eq.1)cap_max(i)=25.
-          iresult=0
+          if ((gsw(i,j).lt.1.0.and.xland1(i)>0.5).or.high_resolution.eq.1) then
+             cap_max(i)=max(cap_max(i)-25.,25.)
+          endif
       enddo
 !
 !--- max height(m) above ground where updraft air can originate
@@ -951,8 +993,7 @@ CONTAINS
            ktf,kts,kte)
       do i=its,itf
          if(ierr(i).eq.0)then
-!mjo        if(aa1(i).eq.0.)then
-            if (abs(aa1(i)) < 1.e-12) then
+            if (aa1(i) < 1.e-12) then
                ierr(i)=17
            endif
          endif
@@ -1044,10 +1085,7 @@ CONTAINS
                     DELLAT3(I,K)=(1./cp)*(DELLAH3(I,K)-xl*DELLAQ3(I,K))
                     dSUBT3(I,K)=(1./cp)*(dsubt3(i,k)-xl*dsubq3(i,k))
                     XT3(I,K)= (DELLAT3(I,K)+dsubt3(i,k))*MBDT_S+TSHALL(I,K)
-                    IF(XQ3(I,K).LE.0.)XQ3(I,K)=1.E-08
-!                    if(i.eq.ipr.and.j.eq.jpr)then
-!                      write(0,*)k,trash,DELLAQ3(I,K),dsubq3(I,K),dsubt3(i,k)
-!                    endif
+                    IF(XQ3(I,K).LT.1.E-08)XQ3(I,K)=1.E-08
                  ENDIF
               enddo
               enddo
@@ -1056,7 +1094,7 @@ CONTAINS
       XHE3(I,ktf)=HE3(I,ktf)
       XQ3(I,ktf)=QSHALL(I,ktf)
       XT3(I,ktf)=TSHALL(I,ktf)
-      IF(XQ3(I,ktf).LE.0.)XQ3(I,ktf)=1.E-08
+      IF(XQ3(I,ktf).LT.1.E-08)XQ3(I,ktf)=1.E-08
       endif
       enddo
 !
@@ -1149,33 +1187,11 @@ CONTAINS
            xmb3(i)=xmb3(i)+xff_shal(k)
           enddo
           xmb3(i)=min(.1,xmb3(i)/9.)
-!         if(xmb3(i).eq.10.1 )then
-!           write(0,*)'i0,xmb3,blqe,xkshal = ',i,j,xmb3(i),blqe,xkshal
-!           if(xff_shal(7).ge.0.1)then
-!             write(0,*)'i1,blqe,trash = ',blqe,trash
-!           endif
-!           if(xff_shal(7).eq.0 .and. xff_shal(1).ge.0.1)then
-!              write(0,*)'i2,aa3_0(i),aa3(i),xaa3(i) = ',aa3_0(i),aa3(i),xaa3(i)
-!           endif
-!           if(xff_shal(5).ge.0.1)then
-!              write(0,*)'i3,aa3(i),a0,xkshal= ',aa3(i),aa3_0(i),xkshal
-!           endif
-!           write(0,*)'i0, xff_shallow = ',xff_shal
-!         endif
-!!         if(xff_shal(7).eq.0 .and. xff_shal(4).gt.0 .and. xmb3(i).eq.0.5)then
-!!           write(0,*)'i4,xmb3 = ',i,j,xmb3(i),xkshal
-!!           write(0,*)'xff_shallow = ',xff_shal
-!!           write(0,*)aa3(i),xaa3(i),blqe
-!!         endif
           if(xmb3(i).eq.0.)ierr5(i)=22
           if(xmb3(i).lt.0.)then
              ierr5(i)=21
-!            write(0,*)'neg xmb,i,j,xmb3 for shallow = ',i,j,k23(i),ktop3(i),kbcon3(i),kpbl(i)
           endif
         endif
-!         if(ierr5(i).eq.0)write(0,*)'i,j,xmb3 for shallow = ',i,j,xmb3(i),k23(i),ktop3(i)
-!         if(ierr5(i).eq.0.and.i.eq.12.and.j.eq.25)write(0,*)'i,j,xmb3 for shallow = ',k23(i),ktop3(i),kbcon3(i),kpbl(i)
-!         if(ierr5(i).eq.0)write(0,*)'i,j,xmb3 for shallow = ',i,j,k23(i),ktop3(i),kbcon3(i),kpbl(i)
         if(ierr5(i).ne.0)then
            k23(i)=0
            kbcon3(i)=0
@@ -1218,30 +1234,11 @@ CONTAINS
           enddo
         endif
        enddo
-!       if(j.eq.-25)then
-!!        write(0,*)'!!!!!!!! j = ',j,' !!!!!!!!!!!!!!!!!!!!'
-        i=12
-!        write(0,*)k23(i),kbcon3(i),ktop3(i)
-!        write(0,*)kpbl(i),ierr5(i),ierr(i)
-!        write(0,*)xmb3(i),xff_shal(1:9)
-!        write(0,*)xaa3(i),aa1(i),aa0(i),aa3(i)
-!        do k=1,ktf
-!          write(0,*)po(i,k),he3(i,k),hes3(i,k),dellah3(i,k)
-!        enddo
-!        do k=1,ktf
-!          write(0,*)zu3(i,k),hc3(i,k),dsubt3(i,k),dellat3(i,k)
-!        enddo
-!        do k=1,ktop3(i)+1
-!          blqe=cp*outts(i,k)+xl*outqs(i,k)
-!          write(0,*)outts(i,k),outqs(i,k),blqe
-!        enddo
-!       endif
-!      
+
 ! done shallow
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
        ENDIF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 
       call cup_axx(tcrit,kbmax,z1,p,psur,xl,rv,cp,tx,qx,axx,ierr,    &
            cap_max,cap_max_increment,entr_rate,mentr_rate,&
@@ -1278,23 +1275,6 @@ CONTAINS
            pwo_ens(i,k,iedt)=0.
         enddo
         enddo
-!
-!      if(j.eq.jpr.and.iedt.eq.1.and.ipr.gt.its.and.ipr.lt.ite)then
-!!      if(j.eq.jpr)then
-!         i=ipr
-!!        write(0,*)'in 250 loop ',iedt,edt(ipr),ierr(ipr)
-!!       if(ierr(i).eq.0.or.ierr(i).eq.3)then
-!         write(0,*)'250',k22(I),kbcon(i),ktop(i),jmin(i)
-!         write(0,*)edt(i),aa0(i),aa1(i)
-!         do k=kts,ktf
-!           write(0,*)k,z(i,k),he(i,k),hes(i,k)
-!         enddo
-!         write(0,*)'end 250 loop ',iedt,edt(ipr),ierr(ipr)
-!         do k=1,ktop(i)+1
-!           write(0,*)zu(i,k),zd(i,k),pw(i,k),pwd(i,k)
-!         enddo
-!!        endif
-!      endif
       do i=its,itf
         aad(i)=0.
       enddo
@@ -1320,7 +1300,6 @@ CONTAINS
 !
 !-- take out cloud liquid water for detrainment
 !
-!??   do k=kts,ktf
       do k=kts,ktf-1
       do i=its,itf
        scr1(i,k)=0.
@@ -1355,9 +1334,6 @@ CONTAINS
       xaa0_ens(i,3)=0.
       enddo
 
-!      if(j.eq.jpr)then
-!               write(0,*)'xt',xl,'DELLAH(I,K),DELLAQ(I,K),dsubq(I,K),dsubt(i,k)'
-!      endif
       do k=kts,ktf
       do i=its,itf
          dellat(i,k)=0.
@@ -1368,11 +1344,7 @@ CONTAINS
             DELLAT(I,K)=(1./cp)*(DELLAH(I,K)-xl*DELLAQ(I,K))
             dSUBT(I,K)=(1./cp)*(dsubt(i,k)-xl*dsubq(i,k))
             XT(I,K)= (DELLAT(I,K)+dsubt(i,k))*MBDT+TN(I,K)
-!mjo        IF(XQ(I,K).LE.0.)XQ(I,K)=1.E-08
             IF(XQ(I,K).LT.1.E-08)XQ(I,K)=1.E-08
-!             if(i.eq.ipr.and.j.eq.jpr)then
-!               write(0,*)k,trash,DELLAQ(I,K),dsubq(I,K),dsubt(i,k)
-!             endif
          ENDIF
       enddo
       enddo
@@ -1381,7 +1353,6 @@ CONTAINS
       XHE(I,ktf)=HEO(I,ktf)
       XQ(I,ktf)=QO(I,ktf)
       XT(I,ktf)=TN(I,ktf)
-!mjo  IF(XQ(I,ktf).LE.0.)XQ(I,ktf)=1.E-08
       IF(XQ(I,ktf).LT.1.E-08)XQ(I,ktf)=1.E-08
       endif
       enddo
@@ -1516,7 +1487,7 @@ CONTAINS
            ierr,ierr2,ierr3,xf_ens,j,'deeps',axx,                 &
            iedt,mconv,            &
            po_cup,ktop,omeg,zdo,k22,zuo,pr_ens,edto,kbcon,    &
-           massflx,iact,direction,massfln,ichoice,edt_out,     &
+           ichoice,edt_out,     &
            high_resolution,ktf,kts,kte,ens4,ktau,ipr)
 !
       do k=kts,ktf
@@ -1536,11 +1507,6 @@ CONTAINS
            dellaqc_ens(i,k,iedt)=0.
            pwo_ens(i,k,iedt)=0.
         endif
-!       if(i.eq.ipr.and.j.eq.jpr)then
-!         write(0,*)'1',iens,iedt,dellat(i,k),dellat_ens(i,k,iedt), &
-!           dellaq(i,k), dellaqc(i,k)
-!         write(0,*)'2',k,subt_ens(i,k,iedt),subq_ens(i,k,iedt)
-!       endif
       enddo
       enddo
  250  continue
@@ -1551,7 +1517,7 @@ CONTAINS
            dellaqc_ens,subt_ens,subq_ens,subt,subq,outt,     &
            outq,outqc,zuo,sub_mas,pre,pwo_ens,xmb,ktop,      &
            j,'deep',ierr2,ierr3,         &
-           pr_ens,massfln,                    &
+           pr_ens,                    &
            APR_GR,APR_W,APR_MC,APR_ST,APR_AS,                &
            APR_CAPMA,APR_CAPME,APR_CAPMI,closure_n,xland1,   &
            ktf,kts,kte)
@@ -1969,18 +1935,13 @@ CONTAINS
          pwd(i,ki)=zd(i,ki)*dqeva
          qcd(i,ki)=qrcd(i,ki)
          pwev(i)=pwev(i)+pwd(i,ki)
-!        if(iloop.eq.1.and.i.eq.102.and.j.eq.62)then
-!         print *,'in cup_dd_moi ', hcd(i,ki),HES_cup(I,Ki),dh,dqeva
-!        endif
       enddo
 !
 !--- end loop over i
-!mjo   if(pwev(I).eq.0.and.iloop.eq.1)then
        if(pwev(I).ge.0.0.and.iloop.eq.1)then
 !        print *,'problem with buoy in cup_dd_moisture',i
          ierr(i)=7
        endif
-!mjo   if(BU(I).GE.0.and.iloop.eq.1)then
        if(BU(I).ge.0.0.and.iloop.eq.1)then
 !        print *,'problem with buoy in cup_dd_moisture',i
          ierr(i)=7
@@ -2340,149 +2301,10 @@ CONTAINS
                subs(i,k)=(entupk*he(i,k)-entupk*he_cup(i,k))*g/dp
          endif
          endif
-!       if(i.eq.ipr.and.j.eq.jpr)then
-!         write(0,*)'d',k,della(i,k),subs(i,k),subin,subdown
-!!        write(0,*)'d',detup,entup,entdo,entupk,entdoj
-!!        print *,k,della(i,k),subin*he_cup(i,k+1),subdown*he_cup(i,k),
-!!     1            detdo*.5*(HCD(i,K+1)+HCD(i,K))
-!!        print *,k,detup*.5*(HC(i,K+1)+HC(i,K)),detupk*hc(i,ktop(i)),
-!!     1         entup*he(i,k),entdo*he(i,k)
-!!        print *,k,he_cup(i,k+1),he_cup(i,k),entupk*he_cup(i,k)
-!       endif
 
  100  CONTINUE
 
    END SUBROUTINE cup_dellas_3d
-
-
-   SUBROUTINE cup_direction2(i,j,dir,id,massflx,             &
-              iresult,imass,massfld,                         &
-              ktf,kts,kte                     )
-
-   IMPLICIT NONE
-
-     integer                                                           &
-        ,intent (in   )                   ::                           &
-        ktf,kts,kte
-     integer, intent (in   )              ::                           &
-        i,j,imass
-     integer, intent (out  )              ::                           &
-        iresult
-  !
-  ! ierr error value, maybe modified in this routine
-  !
-     integer,    dimension (its:ite,jts:jte)                           &
-        ,intent (in   )                   ::                           &
-        id
-     real,    dimension (its:ite,jts:jte)                              &
-        ,intent (in   )                   ::                           &
-        massflx
-     real,    dimension (its:ite)                                      &
-        ,intent (inout)                   ::                           &
-        dir
-     real                                                              &
-        ,intent (out  )                   ::                           &
-        massfld
-!
-!  local variables in this routine
-!
-
-       integer k,ia,ja,ib,jb
-       real diff
-!
-!
-!
-       if(imass.eq.1)then
-           massfld=massflx(i,j)
-       endif
-       iresult=0
-!      return
-       diff=22.5
-       if(dir(i).lt.22.5)dir(i)=360.+dir(i)
-       if(id(i,j).eq.1)iresult=1
-!      ja=max(2,j-1)
-!      ia=max(2,i-1)
-!      jb=min(mjx-1,j+1)
-!      ib=min(mix-1,i+1)
-       ja=j-1
-       ia=i-1
-       jb=j+1
-       ib=i+1
-        if(dir(i).gt.90.-diff.and.dir(i).le.90.+diff)then
-!--- steering flow from the east
-          if(id(ib,j).eq.1)then
-            iresult=1
-            if(imass.eq.1)then
-               massfld=max(massflx(ib,j),massflx(i,j))
-            endif
-            return
-          endif
-        else if(dir(i).gt.135.-diff.and.dir(i).le.135.+diff)then
-!--- steering flow from the south-east
-          if(id(ib,ja).eq.1)then
-            iresult=1
-            if(imass.eq.1)then
-               massfld=max(massflx(ib,ja),massflx(i,j))
-            endif
-            return
-          endif
-!--- steering flow from the south
-        else if(dir(i).gt.180.-diff.and.dir(i).le.180.+diff)then
-          if(id(i,ja).eq.1)then
-            iresult=1
-            if(imass.eq.1)then
-               massfld=max(massflx(i,ja),massflx(i,j))
-            endif
-            return
-          endif
-!--- steering flow from the south west
-        else if(dir(i).gt.225.-diff.and.dir(i).le.225.+diff)then
-          if(id(ia,ja).eq.1)then
-            iresult=1
-            if(imass.eq.1)then
-               massfld=max(massflx(ia,ja),massflx(i,j))
-            endif
-            return
-          endif
-!--- steering flow from the west
-        else if(dir(i).gt.270.-diff.and.dir(i).le.270.+diff)then
-          if(id(ia,j).eq.1)then
-            iresult=1
-            if(imass.eq.1)then
-               massfld=max(massflx(ia,j),massflx(i,j))
-            endif
-            return
-          endif
-!--- steering flow from the north-west
-        else if(dir(i).gt.305.-diff.and.dir(i).le.305.+diff)then
-          if(id(ia,jb).eq.1)then
-            iresult=1
-            if(imass.eq.1)then
-               massfld=max(massflx(ia,jb),massflx(i,j))
-            endif
-            return
-          endif
-!--- steering flow from the north
-        else if(dir(i).gt.360.-diff.and.dir(i).le.360.+diff)then
-          if(id(i,jb).eq.1)then
-            iresult=1
-            if(imass.eq.1)then
-               massfld=max(massflx(i,jb),massflx(i,j))
-            endif
-            return
-          endif
-!--- steering flow from the north-east
-        else if(dir(i).gt.45.-diff.and.dir(i).le.45.+diff)then
-          if(id(ib,jb).eq.1)then
-            iresult=1
-            if(imass.eq.1)then
-               massfld=max(massflx(ib,jb),massflx(i,j))
-            endif
-            return
-          endif
-        endif
-
-   END SUBROUTINE cup_direction2
 
 
    SUBROUTINE cup_env(z,qes,he,hes,t,q,p,z1,                 &
@@ -2556,7 +2378,7 @@ CONTAINS
 !       print *, 'AE(IPH),BE(IPH) = ',AE(IPH),BE(IPH),AE(IPH)-BE(IPH),T(i,k),i,k
         E=EXP(AE(IPH)-BE(IPH)/T(I,K))
 !       print *, 'P, E = ', P(I,K), E
-        QES(I,K)=.622*E/(100.*P(I,K)-E)
+        QES(I,K)=.622*E/(100.*P(I,K)-(1.-0.622)*E)
         IF(QES(I,K).LE.1.E-08)QES(I,K)=1.E-08
 !       IF(QES(I,K).LT.Q(I,K))QES(I,K)=Q(I,K)
         IF(Q(I,K).GT.QES(I,K))Q(I,K)=QES(I,K)
@@ -2702,8 +2524,8 @@ CONTAINS
 
    SUBROUTINE cup_forcing_ens_3d(closure_n,xland,aa0,aa1,xaa0,mbdt,dtime,ierr,ierr2,ierr3,&
               xf_ens,j,name,axx,iedt,mconv,    &
-              p_cup,ktop,omeg,zd,k22,zu,pr_ens,edt,kbcon,massflx,      &
-              iact_old_gr,dir,massfln,icoic,edt_out,            &
+              p_cup,ktop,omeg,zd,k22,zu,pr_ens,edt,kbcon,      &
+              icoic,edt_out,            &
               high_resolution,ktf,kts,kte,ens4,ktau,ipr               )
 
    IMPLICIT NONE
@@ -2717,7 +2539,6 @@ CONTAINS
   ! ierr error value, maybe modified in this routine
   ! pr_ens = precipitation ensemble
   ! xf_ens = mass flux ensembles
-  ! massfln = downdraft mass flux ensembles used in next timestep
   ! omeg = omega from large scale model
   ! mconv = moisture convergence from large scale model
   ! zd      = downdraft normalized mass flux
@@ -2726,10 +2547,8 @@ CONTAINS
   ! aa1     = cloud work function with forcing effects
   ! xaa0    = cloud work function with cloud effects (ensemble dependent)
   ! edt     = epsilon
-  ! dir     = "storm motion"
   ! mbdt    = arbitrary numerical parameter
   ! dtime   = dt over which forcing is applied
-  ! iact_gr_old = flag to tell where convection was active
   ! kbcon       = LFC of parcel from k22
   ! k22         = updraft originating level
   ! icoic       = flag if only want one closure (usually set to zero!)
@@ -2740,13 +2559,10 @@ CONTAINS
         pr_ens
      real,    dimension (its:ite,jts:jte,1:ensdim)                     &
         ,intent (out  )                   ::                           &
-        xf_ens,massfln
+        xf_ens
      real,    dimension (its:ite,jts:jte)                              &
         ,intent (inout   )                   ::                           &
         edt_out
-     real,    dimension (its:ite,jts:jte)                              &
-        ,intent (in   )                   ::                           &
-        massflx
      real,    dimension (its:ite,kts:kte)                              &
         ,intent (in   )                   ::                           &
         zd,zu,p_cup
@@ -2758,7 +2574,7 @@ CONTAINS
         xaa0
      real,    dimension (its:ite)                                      &
         ,intent (in   )                   ::                           &
-        aa1,edt,dir,xland
+        aa1,edt,xland
      real,    dimension (its:ite,1:ens4)                                      &
         ,intent (in   )                   ::                           &
         mconv,axx
@@ -2771,9 +2587,6 @@ CONTAINS
      real                                                              &
         ,intent (in   )                   ::                           &
         dtime
-     integer, dimension (its:ite,jts:jte)                              &
-        ,intent (in   )                   ::                           &
-        iact_old_gr
      integer, dimension (its:ite)                                      &
         ,intent (in   )                   ::                           &
         k22,kbcon,ktop
@@ -2794,32 +2607,19 @@ CONTAINS
      real,    dimension (1:maxens)        ::                           &
        xk
      integer                              ::                           &
-       i,k,nall,n,ne,nens,nens3,iresult,iresultd,iresulte,mkxcrt,kclim
-     parameter (mkxcrt=15)
+       i,k,nall,n,ne,nens,nens3
      real                                 ::                           &
-       fens4,a1,massfld,a_ave,xff0,xff00,xxx,xomg,aclim1,aclim2,aclim3,aclim4
-     real,    dimension(1:mkxcrt)         ::                           &
-       pcrit,acrit,acritt
+       fens4,a1,a_ave,a_max,a_min,xff0,xff00,xxx,xomg
 
-     integer :: nall2,ixxx,irandom
+     integer :: nall2,ixxx
      integer,  dimension (12) :: seed
 
+     integer, parameter :: irandom = 0
 
-      DATA PCRIT/850.,800.,750.,700.,650.,600.,550.,500.,450.,400.,    &
-                 350.,300.,250.,200.,150./
-      DATA ACRIT/.0633,.0445,.0553,.0664,.075,.1082,.1521,.2216,       &
-                 .3151,.3677,.41,.5255,.7663,1.1686,1.6851/
-!  GDAS DERIVED ACRIT
-      DATA ACRITT/.203,.515,.521,.566,.625,.665,.659,.688,             &
-                  .743,.813,.886,.947,1.138,1.377,1.896/
-!
        seed=0
        seed(2)=j
        seed(3)=ktau
        nens=0
-       irandom=1
-       if(high_resolution.eq.1)irandom=0
-       irandom=0
        fens4=float(ens4)
 
 !--- LARGE SCALE FORCING
@@ -2834,21 +2634,27 @@ CONTAINS
 !---
 !
              if(name.eq.'deeps')then
-!
-                a_ave=0.
-                do ne=1,ens4
-                  a_ave=a_ave+axx(i,ne)
-                enddo
-                a_ave=max(0.,a_ave/fens4)
-                a_ave=min(a_ave,aa1(i))
-                a_ave=max(0.,a_ave)
+
+                a_ave = sum(axx(1,1:ens4))/fens4
+                a_ave = min(a_ave,aa1(i))
+                a_ave = max(0.,a_ave)
+
+                a_min = minval(axx(1,1:ens4))
+                a_min = max(0.,a_min)
+
+                a_max = maxval(axx(1,1:ens4))
+                a_max = max(0.,a_max)
+
                 do ne=1,16
                   xff_ens3(ne)=0.
                 enddo
+
                 xff0= (AA1(I)-AA0(I))/DTIME
                 if(high_resolution.eq.1)xff0= (a_ave-AA0(I))/DTIME
+
                 xff_ens3(1)=(AA1(I)-AA0(I))/dtime
-                xff_ens3(2)=(a_ave-AA0(I))/dtime
+                xff_ens3(2)=(AA1(I)-AA0(I))/dtime
+
                 if(irandom.eq.1)then
                    seed(1)=i
                    call random_seed (PUT=seed)
@@ -2859,14 +2665,17 @@ CONTAINS
                    ixxx=min(ens4,max(1,int(fens4*xxx+1.e-8)))
                    xff_ens3(13)=(axx(i,ixxx)-AA0(I))/dtime
                 else
-                   xff_ens3(3)=(AA1(I)-AA0(I))/dtime
-                   xff_ens3(13)=(AA1(I)-AA0(I))/dtime
+                   xff_ens3(3) =(a_ave-AA0(I))/dtime
+                   xff_ens3(13)=(a_min-AA0(I))/dtime
+                   xff_ens3(16)=(a_max-AA0(I))/dtime
                 endif
+
                 if(high_resolution.eq.1)then
                    xff_ens3(1)=(a_ave-AA0(I))/dtime
                    xff_ens3(2)=(a_ave-AA0(I))/dtime
                    xff_ens3(3)=(a_ave-AA0(I))/dtime
                    xff_ens3(13)=(a_ave-AA0(I))/dtime
+                   xff_ens3(16)=(a_ave-AA0(I))/dtime
                 endif
 !   
 !--- more original Arakawa-Schubert (climatologic value of aa0)
@@ -2914,7 +2723,7 @@ CONTAINS
                    xff_ens3(6)=xff_ens3(5)
                 endif
 !
-!--- more like Krishnamurti et al.; pick max and average values
+!--- more like Krishnamurti et al.; pick max, min,  and average values
 !
                 xff_ens3(7)=mconv(i,1)
                 xff_ens3(8)=mconv(i,1)
@@ -2951,7 +2760,7 @@ CONTAINS
 !
 !--- more like Fritsch Chappel or Kain Fritsch (plus triggers)
 !
-                xff_ens3(10)=A_AVE/(60.*40.)
+                xff_ens3(10)=AA0(I)/(60.*40.)
                 xff_ens3(11)=AA1(I)/(60.*40.)
                 if(irandom.eq.1)then
                    seed(1)=i
@@ -2960,36 +2769,18 @@ CONTAINS
                    ixxx=min(ens4,max(1,int(fens4*xxx+1.e-8)))
                    xff_ens3(12)=AXX(I,ixxx)/(60.*40.)
                 else
-                   xff_ens3(12)=AA1(I)/(60.*40.)
+                   xff_ens3(12)=A_AVE/(60.*40.)
                 endif
                 if(high_resolution.eq.1)then
-                   xff_ens3(11)=xff_ens3(10)
-                   xff_ens3(12)=xff_ens3(10)
+                   xff_ens3(11)=A_AVE/(60.*40.)
+                   xff_ens3(12)=A_AVE/(60.*40.)
                 endif
-!  
-!--- more original Arakawa-Schubert (climatologic value of aa0)
-!
-!               edt_out(i,j)=xff0
-                if(icoic.eq.0)then
-                if(xff0.lt.0.)then
-                     xff_ens3(1)=0.
-                     xff_ens3(2)=0.
-                     xff_ens3(3)=0.
-                     xff_ens3(13)=0.
-                     xff_ens3(10)=0.
-                     xff_ens3(11)=0.
-                     xff_ens3(12)=0.
-                endif
-                endif
-
-
 
                 do nens=1,maxens
                    XK(nens)=(XAA0(I,nens)-AA1(I))/MBDT(2)
-!mjo match with newer gf scheme
-                   if(xk(nens).le.0.and.xk(nens).gt.-1.e-2) &
+                   if(xk(nens).le.0.0.and.xk(nens).gt.-1.e-2) &
                            xk(nens)=-1.e-2
-                   if(xk(nens).gt.0.and.xk(nens).lt.1.e-2) &
+                   if(xk(nens).gt.0.0.and.xk(nens).lt.1.e-2) &
                            xk(nens)=1.e-2
                 enddo
 !
@@ -3007,127 +2798,70 @@ CONTAINS
 !--- ensembles!!! nall would be 0, if everything is on first
 !--- loop index, then ne would start counting, then iedt, then iens....
 !
-                   iresult=0
-                   iresultd=0
-                   iresulte=0
                    nall=(iens-1)*maxens3*maxens*maxens2 &
                         +(iedt-1)*maxens*maxens3 &
                         +(ne-1)*maxens3
 !
-! over water, enfor!e small cap for some of the closures
+! over water, enforce small cap for some of the closures
 !
                 if(xland(i).lt.0.1)then
                  if(ierr2(i).gt.0.or.ierr3(i).gt.0)then
                       xff_ens3(1) =0.
-                      massfln(i,j,nall+1)=0.
                       xff_ens3(2) =0.
-                      massfln(i,j,nall+2)=0.
                       xff_ens3(3) =0.
-                      massfln(i,j,nall+3)=0.
                       xff_ens3(10) =0.
-                      massfln(i,j,nall+10)=0.
                       xff_ens3(11) =0.
-                      massfln(i,j,nall+11)=0.
                       xff_ens3(12) =0.
-                      massfln(i,j,nall+12)=0.
                       xff_ens3(7) =0.
-                      massfln(i,j,nall+7)=0.
                       xff_ens3(8) =0.
-                      massfln(i,j,nall+8)=0.
                       xff_ens3(9) =0.
-                      massfln(i,j,nall+9)=0.
                       xff_ens3(13) =0.
-                      massfln(i,j,nall+13)=0.
                       xff_ens3(15) =0.
-                      massfln(i,j,nall+15)=0.
-                endif
+                 endif
                 endif
 !
 ! end water treatment
 !
-!
-!--- check for upwind convection
-!                  iresult=0
-                   massfld=0.
 
-!                  call cup_direction2(i,j,dir,iact_old_gr, &
-!                       massflx,iresult,1,                  &
-!                       massfld,                            &
-!                       itf,jtf,ktf,          &
-!                       ims,ime, jms,jme, kms,kme,          &
-!                       its,ite, jts,jte, kts,kte          )
-!                  if(i.eq.ipr.and.j.eq.jpr.and.iedt.eq.1.and.ne.eq.1)then
-!                  if(iedt.eq.1.and.ne.eq.1)then
-!                   print *,massfld,ne,iedt,
-!                   print *,xk(ne),xff_ens3(1),xff_ens3(2),xff_ens3(3)
-!                  endif
-!                  print *,i,j,massfld,aa0(i),aa1(i)
-                   IF(XK(ne).lt.0.and.xff0.gt.0.)iresultd=1
-                   iresulte=max(iresult,iresultd)
-                   iresulte=1
-                   if(iresulte.eq.1)then
 !
 !--- special treatment for stability closures
 !
-
-!mjo                  if(xff0.ge.0.)then
                       if(xff0.gt.0. .and. xk(ne).lt.0.)then
-                         xf_ens(i,j,nall+1)=massfld
-                         xf_ens(i,j,nall+2)=massfld
-                         xf_ens(i,j,nall+3)=massfld
-                         xf_ens(i,j,nall+13)=massfld
-                         if(xff_ens3(1).gt.0.)xf_ens(i,j,nall+1)=max(0.,-xff_ens3(1)/xk(ne)) &
-                                        +massfld
-                         if(xff_ens3(2).gt.0.)xf_ens(i,j,nall+2)=max(0.,-xff_ens3(2)/xk(ne)) &
-                                        +massfld
-                         if(xff_ens3(3).gt.0.)xf_ens(i,j,nall+3)=max(0.,-xff_ens3(3)/xk(ne)) &
-                                        +massfld
-                         if(xff_ens3(13).gt.0.)xf_ens(i,j,nall+13)=max(0.,-xff_ens3(13)/xk(ne)) &
-                                        +massfld
-!                       endif
+                         if(xff_ens3(1).gt.0.)xf_ens(i,j,nall+1)=max(0.,-xff_ens3(1)/xk(ne))
+                         if(xff_ens3(2).gt.0.)xf_ens(i,j,nall+2)=max(0.,-xff_ens3(2)/xk(ne))
+                         if(xff_ens3(3).gt.0.)xf_ens(i,j,nall+3)=max(0.,-xff_ens3(3)/xk(ne))
+                         if(xff_ens3(13).gt.0.)xf_ens(i,j,nall+13)=max(0.,-xff_ens3(13)/xk(ne))
+                         if(xff_ens3(16).gt.0.)xf_ens(i,j,nall+16)=max(0.,-xff_ens3(16)/xk(ne))
                       else
-                         xf_ens(i,j,nall+1)=massfld
-                         xf_ens(i,j,nall+2)=massfld
-                         xf_ens(i,j,nall+3)=massfld
-                         xf_ens(i,j,nall+13)=massfld
+                         xf_ens(i,j,nall+1)=0.
+                         xf_ens(i,j,nall+2)=0.
+                         xf_ens(i,j,nall+3)=0.
+                         xf_ens(i,j,nall+13)=0.
+                         xf_ens(i,j,nall+16)=0.
                       endif
 !
-!--- if iresult.eq.1, following independent of xff0
+!--- following independent of xff0
 !
-                         xf_ens(i,j,nall+4)=max(0.,xff_ens3(4) &
-                            +massfld)
-                         xf_ens(i,j,nall+5)=max(0.,xff_ens3(5) &
-                                        +massfld)
-                         xf_ens(i,j,nall+6)=max(0.,xff_ens3(6) &
-                                        +massfld)
-                         xf_ens(i,j,nall+14)=max(0.,xff_ens3(14) &
-                                        +massfld)
-                         a1=max(5.e-3,pr_ens(i,j,nall+7))
-                         xf_ens(i,j,nall+7)=max(0.,xff_ens3(7) &
-                                     /a1)
-                         a1=max(5.e-3,pr_ens(i,j,nall+8))
-                         xf_ens(i,j,nall+8)=max(0.,xff_ens3(8) &
-                                     /a1)
-                         a1=max(5.e-3,pr_ens(i,j,nall+9))
-                         xf_ens(i,j,nall+9)=max(0.,xff_ens3(9) &
-                                     /a1)
-                         a1=max(5.e-3,pr_ens(i,j,nall+15))
-                         xf_ens(i,j,nall+15)=max(0.,xff_ens3(15) &
-                                     /a1)
+                         xf_ens(i,j,nall+4)=max(0.,xff_ens3(4))
+                         xf_ens(i,j,nall+5)=max(0.,xff_ens3(5))
+                         xf_ens(i,j,nall+6)=max(0.,xff_ens3(6))
+                         xf_ens(i,j,nall+14)=max(0.,xff_ens3(14))
+                         a1=max(1.e-2,pr_ens(i,j,nall+7))
+                         xf_ens(i,j,nall+7)=max(0.,xff_ens3(7)/a1)
+                         a1=max(1.e-2,pr_ens(i,j,nall+8))
+                         xf_ens(i,j,nall+8)=max(0.,xff_ens3(8)/a1)
+                         a1=max(1.e-2,pr_ens(i,j,nall+9))
+                         xf_ens(i,j,nall+9)=max(0.,xff_ens3(9)/a1)
+                         a1=max(1.e-2,pr_ens(i,j,nall+15))
+                         xf_ens(i,j,nall+15)=max(0.,xff_ens3(15)/a1)
                          if(XK(ne).lt.0.)then
-                            xf_ens(i,j,nall+10)=max(0., &
-                                        -xff_ens3(10)/xk(ne)) &
-                                        +massfld
-                            xf_ens(i,j,nall+11)=max(0., &
-                                        -xff_ens3(11)/xk(ne)) &
-                                        +massfld
-                            xf_ens(i,j,nall+12)=max(0., &
-                                        -xff_ens3(12)/xk(ne)) &
-                                        +massfld
+                            xf_ens(i,j,nall+10)=max(0.,-xff_ens3(10)/xk(ne))
+                            xf_ens(i,j,nall+11)=max(0.,-xff_ens3(11)/xk(ne))
+                            xf_ens(i,j,nall+12)=max(0.,-xff_ens3(12)/xk(ne))
                          else
-                            xf_ens(i,j,nall+10)=massfld
-                            xf_ens(i,j,nall+11)=massfld
-                            xf_ens(i,j,nall+12)=massfld
+                            xf_ens(i,j,nall+10)=0.
+                            xf_ens(i,j,nall+11)=0.
+                            xf_ens(i,j,nall+12)=0.
                          endif
                       if(icoic.ge.1)then
                       closure_n(i)=0.
@@ -3155,19 +2889,7 @@ CONTAINS
                    call random_number (xxx)
                    ixxx=min(15,max(1,int(15.*xxx+1.e-8)))
                    xf_ens(i,j,nall+16)=xf_ens(i,j,nall+ixxx)
-                else
-                   xf_ens(i,j,nall+16)=xf_ens(i,j,nall+1)
                 endif
-!
-!
-!--- store new for next time step
-!
-                      do nens3=1,maxens3
-                        massfln(i,j,nall+nens3)=edt(i) &
-                                                *xf_ens(i,j,nall+nens3)
-                        massfln(i,j,nall+nens3)=max(0., &
-                                              massfln(i,j,nall+nens3))
-                      enddo
 !
 !
 !--- do some more on the caps!!! ne=1 for 175, ne=2 for 100,....
@@ -3193,22 +2915,6 @@ CONTAINS
                       xf_ens(i,j,nall+14)=0.
                       xf_ens(i,j,nall+15)=0.
                       xf_ens(i,j,nall+16)=0.
-                      massfln(i,j,nall+1)=0.
-                      massfln(i,j,nall+2)=0.
-                      massfln(i,j,nall+3)=0.
-                      massfln(i,j,nall+4)=0.
-                      massfln(i,j,nall+5)=0.
-                      massfln(i,j,nall+6)=0.
-                      massfln(i,j,nall+7)=0.
-                      massfln(i,j,nall+8)=0.
-                      massfln(i,j,nall+9)=0.
-                      massfln(i,j,nall+10)=0.
-                      massfln(i,j,nall+11)=0.
-                      massfln(i,j,nall+12)=0.
-                      massfln(i,j,nall+13)=0.
-                      massfln(i,j,nall+14)=0.
-                      massfln(i,j,nall+15)=0.
-                      massfln(i,j,nall+16)=0.
                 endif
                 if(ne.eq.3.and.ierr3(i).gt.0)then
                       xf_ens(i,j,nall+1) =0.
@@ -3227,25 +2933,8 @@ CONTAINS
                       xf_ens(i,j,nall+14)=0.
                       xf_ens(i,j,nall+15)=0.
                       xf_ens(i,j,nall+16)=0.
-                      massfln(i,j,nall+1)=0.
-                      massfln(i,j,nall+2)=0.
-                      massfln(i,j,nall+3)=0.
-                      massfln(i,j,nall+4)=0.
-                      massfln(i,j,nall+5)=0.
-                      massfln(i,j,nall+6)=0.
-                      massfln(i,j,nall+7)=0.
-                      massfln(i,j,nall+8)=0.
-                      massfln(i,j,nall+9)=0.
-                      massfln(i,j,nall+10)=0.
-                      massfln(i,j,nall+11)=0.
-                      massfln(i,j,nall+12)=0.
-                      massfln(i,j,nall+13)=0.
-                      massfln(i,j,nall+14)=0.
-                      massfln(i,j,nall+15)=0.
-                      massfln(i,j,nall+16)=0.
                 endif
 
-                   endif
  350            continue
 ! ne=1, cap=175
 !
@@ -3272,7 +2961,6 @@ CONTAINS
           elseif(ierr(i).ne.20.and.ierr(i).ne.0)then
              do n=1,ensdim
                xf_ens(i,j,n)=0.
-               massfln(i,j,n)=0.
              enddo
           endif
  100   continue
@@ -3540,7 +3228,6 @@ CONTAINS
               subt_ens,subq_ens,subt,subq,outtem,outq,outqc,     &
               zu,sub_mas,pre,pw,xmb,ktop,                 &
               j,name,ierr2,ierr3,pr_ens,             &
-              massfln,                            &
               APR_GR,APR_W,APR_MC,APR_ST,APR_AS,                 &
               APR_CAPMA,APR_CAPME,APR_CAPMI,closure_n,xland1,    &
               ktf,kts,kte)
@@ -3573,7 +3260,7 @@ CONTAINS
   !
      real,    dimension (its:ite,jts:jte,1:ensdim)                     &
         ,intent (inout)                   ::                           &
-       xf_ens,pr_ens,massfln
+       xf_ens,pr_ens
      real,    dimension (its:ite,jts:jte)                              &
         ,intent (inout)                   ::                           &
                APR_GR,APR_W,APR_MC,APR_ST,APR_AS,APR_CAPMA,            &
@@ -3692,7 +3379,6 @@ CONTAINS
 !       closures over water) to properly normalize xmb
            clos_wei=16./max(1.,closure_n(i))
            if (xland1(i).lt.0.5)xmb(i)=xmb(i)*clos_wei
-!mjo       if(xmb(i).eq.0.)then
            if(xmb(i).le.0.)then
               ierr(i)=19
            endif
@@ -3739,7 +3425,6 @@ CONTAINS
 !     do i=its,itf
 !       if(ierr(i).eq.0)then
 !       do k=(iens-1)*maxens*maxens2*maxens3+1,iens*maxens*maxens2*maxens3
-!         massfln(i,j,k)=massfln(i,j,k)*xfac1(i)
 !         xf_ens(i,j,k)=xf_ens(i,j,k)*xfac1(i)
 !       enddo
 !       endif
@@ -4434,7 +4119,7 @@ CONTAINS
         IPH=1
         IF(Tx(I,K,n).LE.TCRIT)IPH=2
         E=EXP(AE(IPH)-BE(IPH)/TX(I,K,N))
-        QES(I,K)=.622*E/(100.*P(I,K)-E)
+        QES(I,K)=.622*E/(100.*P(I,K)-(1.-0.622)*E)
         IF(QES(I,K).LE.1.E-08)QES(I,K)=1.E-08
         IF(Qx(I,K,N).GT.QES(I,K))Qx(I,K,N)=QES(I,K)
         TV(I,K)=Tx(I,K,N)+.608*Qx(I,K,N)*Tx(I,K,N)

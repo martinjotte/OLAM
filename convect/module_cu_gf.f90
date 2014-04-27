@@ -1265,7 +1265,6 @@ CONTAINS
            kbcon,ktop,ierr,ktf,kts,kte)
       do i=its,itf
          if(ierr(i).eq.0)then
-!mjo       if(aa1(i).eq.0.)then
            if(aa1(i).lt.1.e-12)then
                ierr(i)=17
                ierrc(i)="cloud work function zero"
@@ -1482,7 +1481,6 @@ CONTAINS
       do i=its,itf
          dellat(i,k)=0.
          if(ierr(i).eq.0)then
-!           if(i.eq.ipr.and.j.eq.jpr.and.k.eq.kts)write(0,*)'mbdt = ',mbdt,mbdt_ens,dtime
             dsubh(i,k)=dsubt(i,k)
             XHE(I,K)=(dsubt(i,k)+DELLAH(I,K))*MBDT+HEO(I,K)
 !           XQ(I,K)=(dsubq(i,k)+DELLAQ(I,K)+dellaqc(i,k))*MBDT+QO(I,K)
@@ -1491,7 +1489,6 @@ CONTAINS
             dSUBT(I,K)=(1./cp)*(dsubt(i,k)-xl*dsubq(i,k))
 !           XT(I,K)= (DELLAT(I,K)+dsubt(i,k)-dellaqc(i,k)*xl/cp)*MBDT+TN(I,K)
             XT(I,K)= (DELLAT(I,K)+dsubt(i,k))*MBDT+TN(I,K)
-!           IF(XQ(I,K).LE.0.)XQ(I,K)=1.E-08
             IF(XQ(I,K).LT.1.E-08)XQ(I,K)=1.E-08
          ENDIF
       enddo
@@ -1502,7 +1499,6 @@ CONTAINS
       XHE(I,ktf)=HEO(I,ktf)
       XQ(I,ktf)=QO(I,ktf)
       XT(I,ktf)=TN(I,ktf)
-!     IF(XQ(I,ktf).LE.0.)XQ(I,ktf)=1.E-08
       IF(XQ(I,ktf).LT.1.E-08)XQ(I,ktf)=1.E-08
       endif
       enddo
@@ -3154,8 +3150,10 @@ CONTAINS
            if(xmb(i).gt.100.)then
               ierr(i)=19
            endif
+
 !mjo limit mass flux
            xmb(i) = min(xmb(i),xmbmax)
+
            xfac1(i)=xmb(i)
            xfac2(i)=xmb(i)
 
@@ -3721,9 +3719,8 @@ CONTAINS
 !--- initial entrainment rate (these may be changed later on in the
 !--- program
 !
-      entr_rate =.2/200.
+      entr_rate =.2/300.
       tun_lim=7
-      
 !
 !--- initial detrainmentrates
 !
@@ -4194,7 +4191,6 @@ CONTAINS
             DELLAT(I,K)=(1./cp)*(DELLAH(I,K)-xl*DELLAQ(I,K))
             dSUBT(I,K)=(1./cp)*(dsubt(i,k)-xl*dsubq(i,k))
             XT(I,K)= (DELLAT(I,K)+dsubt(i,k))*MBDT+TN(I,K)
-!           IF(XQ(I,K).LE.0.)XQ(I,K)=1.E-08
             IF(XQ(I,K).LE.1.E-08)XQ(I,K)=1.E-08
          ENDIF
       enddo
@@ -4205,7 +4201,6 @@ CONTAINS
       XHE(I,ktf)=HEO(I,ktf)
       XQ(I,ktf)=QO(I,ktf)
       XT(I,ktf)=TN(I,ktf)
-!     IF(XQ(I,ktf).LE.0.)XQ(I,ktf)=1.E-08
       IF(XQ(I,ktf).LE.1.E-08)XQ(I,ktf)=1.E-08
       endif
       enddo
