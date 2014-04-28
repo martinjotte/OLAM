@@ -7,21 +7,22 @@ MODULE module_cu_emanuel
 !****                          Kerry Emanuel                          *****
 !**************************************************************************
 
-  use mem_para,  only: myrank
-  use misc_coms, only: io6
-  use mem_grid,  only: mza
+  use mem_para,    only: myrank
+  use misc_coms,   only: io6
+  use mem_grid,    only: mza
+  use consts_coms, only: r8
   implicit none
 
-  private :: myrank, io6, mza
+  private :: myrank, io6, mza, r8
 
   real,    parameter, private :: xmbmax = 1.0
-  integer, parameter, private :: iupsrc =   1
+  integer, parameter, private :: iupsrc =   0
 
 CONTAINS
 
 SUBROUTINE cuparm_emanuel(iw, dtlong)
 
-  use mem_grid,    only: mwa, lpu, lpw, volt, mua, zm, zt, xew, yew, zew
+  use mem_grid,    only: mwa, lpu, lpw, volt, mua, zm, zt, xew, yew, zew, dzt
   use mem_tend,    only: thilt, sh_wt
   use mem_basic,   only: theta, tair, press, rho, sh_v, vxe, vye, vze
   use consts_coms, only: t00, grav, eradi
@@ -33,7 +34,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   integer, intent(in)  :: iw
   real,    intent(in)  :: dtlong
 
-  real, dimension(mza) :: tc, qc, qsc, u, v, pc, pfc, gz
+  real, dimension(mza) :: tc, qc, qsc, u, v, pc, pfc, gz, den, dz
   real, dimension(mza) :: tt, qt, ut, vt, qcldc
 
   integer :: k, ka, kc, kp, nd, na, nl
@@ -74,7 +75,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   if (uvmix) vysrc(:,iw) = 0.0
   if (uvmix) vzsrc(:,iw) = 0.0
 
-  ! Temp, water vapor, geopential, and pressure
+  ! Temp, water vapor, geopotential, and pressure
 
   do kc = 1, nd
      k  = kc + ka - 1
@@ -85,6 +86,8 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
      qc (kc) = max(sh_v(k,iw), 1.e-10)
      pc (kc) = 0.01  *  press(k,iw)
      pfc(kp) = 0.005 * (press(k,iw) + press(k+1,iw))
+     den(kc) = rho(k,iw)
+     dz (kc)  = dzt(k)
   enddo
 
   ! Estimate surface pressure
@@ -119,7 +122,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
      qc (kc) = min(qsc(kc), qc(kc))
   enddo
 
-  call convect43c (     iw,                                                 &
+  call convect43c (     iw,     den,    dz,                                 &
        tc,      qc,     qsc,    u,      v,        pc,    pfc, gz,           &
        nd,      nl,     dtlong, iflag,  tt,       qt,    ut,  vt,           &
        pcprate, wprime, tprime, qprime, cbmf(iw), qcldc, kup, kcbase, kctop )
@@ -163,7 +166,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
 END SUBROUTINE cuparm_emanuel
 
 
-SUBROUTINE CONVECT43C (  iw,                                &
+SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      T,      Q,  QS,     U,      V,    P,      PH, gz,      &
      ND,     NL, DELT,   IFLAG,  FT,   FQ,     FU, FV,      & 
      PRECIP, WD, TPRIME, QPRIME, CBMF, QCONDC, nk, icb, inb )
@@ -293,6 +296,7 @@ SUBROUTINE CONVECT43C (  iw,                                &
   integer, intent(in) :: nd, nl, iw !, ntra
   real,    intent(in) :: t(nd), q(nd), qs(nd), u(nd), v(nd)
   real,    intent(in) :: p(nd), ph(nd+1), gz(nd), delt !, tra(nd,ntra)
+  real,    intent(in) :: rho(nd), dz(nd)
 
   integer, intent(out) :: iflag, icb, inb, nk
   real,    intent(out) :: ft(nd), fq(nd), fu(nd), fv(nd)
@@ -303,13 +307,12 @@ SUBROUTINE CONVECT43C (  iw,                                &
   real :: ad, afac, ahmax, ahmin, alt, altem, am, amde, amp1, anum, asij, &
        awat, b6, bf2, bsum, by, byp, c6, cape, capem, chi, coeff, &
        cpinv, cwat, damps, dbo, dbosum, defrac, dei, delm, delp, delt0, &
-       delti, denom, dhdp, dpinv, dtma, dtmin, dtpbl, elacrit, ents, epmax, &
+       delti, denom, dhdp, dpinv, dtma, dtmin, dtpbl, elacrit, epmax, &
        fac, fqold, frac, ftold, ftraold, fuold, fvold, plcl, qp1, &
        qsm, qstm, qti, rat, revap, rh, scrit, sigt, sjmax, sjmin, smid, &
-       smin, stemp, tca, traav, tvaplcl, tvpplcl, uav, vav, qav, &
-       wdtrain
+       smin, stemp, tca, traav, tvaplcl, tvpplcl, wdtrain
 
-  integer :: i, ihmin, inb1, j, jtt, k, is
+  integer :: i, ihmin, inb1, j, jtt, k
 
   integer ::  nent(mza)
   real    ::  uent(mza,mza), vent(mza,mza) !, traent(mza,mza,ntra), tratm(mza)
@@ -323,6 +326,7 @@ SUBROUTINE CONVECT43C (  iw,                                &
   
   integer :: nkmax
   real    :: dbmax, deltv
+  real(r8):: qsum, tsum, usum, vsum, uav, vav, qav, tav
 
 ! -----------------------------------------------------------------------
 !
@@ -375,7 +379,7 @@ SUBROUTINE CONVECT43C (  iw,                                &
        OMTSNOW=5.5,  &
        COEFFR=1.0,   &
        COEFFS=0.8,   &
-       CU=0.5,       & ! 0.7
+       CU=0.7,       &
        BETA=10.0,    &
        DTMAX=0.5,    & ! 0.9
        ALPHA=0.2,    &
@@ -641,22 +645,22 @@ SUBROUTINE CONVECT43C (  iw,                                &
 !  ***     AND THE HIGHEST LEVEL OF POSITIVE CAPE (INB)           ***
 
   CAPE=0.0
-  CAPEM=0.0
   INB=ICB+1
   INB1=INB
-  BYP=0.0
+
   DO I=ICB+1,NL-1
+     CAPEM=CAPE
      BY=(TVP(I)-TV(I))*(PH(I)-PH(I+1))/P(I)
      CAPE=CAPE+BY
      IF(BY.GE.0.0)INB1=I+1
      IF(CAPE.GT.0.0)THEN
         INB=I+1
-        BYP=(TVP(I+1)-TV(I+1))*(PH(I+1)-PH(I+2))/P(I+1)
-        CAPEM=CAPE
-     END IF
+     ELSE
+        EXIT
+     ENDIF
   ENDDO
-  INB=MAX(INB,INB1)
-  CAPE=CAPEM+BYP
+
+  inb1=min(inb1,inb)
   DEFRAC=CAPEM-CAPE
   DEFRAC=MAX(DEFRAC,0.001)
   FRAC=-CAPE/DEFRAC
@@ -1128,37 +1132,40 @@ SUBROUTINE CONVECT43C (  iw,                                &
 !   ***   Very slightly adjust tendencies to force exact   ***
 !   ***     enthalpy, momentum and tracer conservation     ***
 
-  if (precip > 1.e-12) then
-     is = 1
-  else
-     is = nk
-  endif
-     
-  qav = 0.0
-  do i = is, inb
-     qav = qav + fq(i)*(ph(i)-ph(i+1))
-  enddo
-  qav = (qav + precip * g * 0.01) / (ph(is)-ph(inb+1))
-  do i = is, inb
-     fq(i) = fq(i) - qav
+  qav =  precip
+  tav = -precip * lv0
+  uav = 0.0_r8
+  vav = 0.0_r8
+
+  qsum = 0.0_r8
+  tsum = 0.0_r8
+  usum = 0.0_r8
+  vsum = 0.0_r8
+
+  do i=1, inb
+     qav = qav + fq(i)*rho(i)*dz(i)
+     tav = tav + ft(i)*rho(i)*dz(i)*cpn(i)
+     uav = uav + fu(i)*rho(i)*dz(i)
+     vav = vav + fv(i)*rho(i)*dz(i)
+
+     qsum = qsum + abs(fq(i))*rho(i)*dz(i)
+     tsum = tsum + abs(ft(i))*rho(i)*dz(i)*cpn(i)
+     usum = usum + abs(fu(i))*rho(i)*dz(i)
+     vsum = vsum + abs(fv(i))*rho(i)*dz(i)
   enddo
 
-  ENTS=0.0
-  uav=0.0
-  vav=0.0
-  DO I=IS,INB
-     ENTS=ENTS+(CPN(I)*FT(I)+LV(I)*FQ(I))*(PH(I)-PH(I+1))	
-     uav=uav+fu(i)*(ph(i)-ph(i+1))
-     vav=vav+fv(i)*(ph(i)-ph(i+1))
-  ENDDO
-  ENTS=ENTS/(PH(IS)-PH(INB+1))
-  uav=uav/(ph(IS)-ph(inb+1))
-  vav=vav/(ph(IS)-ph(inb+1))
-  DO I=IS,INB
-     FT(I)=FT(I)-ENTS/CPN(I)
-     fu(i)=(1.-cu)*(fu(i)-uav)
-     fv(i)=(1.-cu)*(fv(i)-vav)
-  ENDDO
+  qav = qav / max(qsum, 1.e-20_r8)
+  tav = tav / max(tsum, 1.e-20_r8)
+  uav = uav / max(usum, 1.e-20_r8)
+  vav = vav / max(vsum, 1.e-20_r8)
+
+  do i=1,inb
+     fq(i) =  fq(i) - qav * abs(fq(i))
+     ft(i) =  ft(i) - tav * abs(ft(i))
+     fu(i) = (fu(i) - uav * abs(fu(i))) * (1.-cu)
+     fv(i) = (fv(i) - vav * abs(fv(i))) * (1.-cu)
+  enddo
+
 !  DO K=1,NTRA
 !     TRAAV=0.0
 !     DO I=1,INB
