@@ -94,7 +94,6 @@ SOURCE_FILES= \
              $(OMODEL)/omic_vap.f90 \
              $(OMODEL)/oname_check.f90 \
              $(OMODEL)/oname.f90 \
-             $(OMODEL)/o_ncar.f90 \
              $(OMODEL)/oplot_interface.f90 \
              $(OMODEL)/oplot_lib.f90 \
              $(OMODEL)/othrm.f90 \
@@ -122,6 +121,7 @@ SOURCE_FILES= \
              $(OUTILS)/hdf5_utils.f90 \
              $(OUTILS)/interp_lib.f90 \
              $(OUTILS)/map_proj.f90 \
+             $(OUTILS)/o_ncar.f90 \
              $(OUTILS)/read_cdc.c \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \
