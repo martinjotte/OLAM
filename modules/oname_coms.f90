@@ -197,6 +197,7 @@ Module oname_coms
       integer :: igraup = 2
       integer :: ihail  = 2
       integer :: iccnlev = 0
+      integer :: qxtrans = 0
       
       real :: cparm  = 300.e6 ! [#/kg]
       real :: dparm  = 1.e1   ! [#/kg]

@@ -327,6 +327,9 @@
    NL%ICCNLEV = 0,        ! CCN 0=no source or sink
                           !     1=nucleation CCN sink, evaporation CCN source 
 
+   NL%QXTRANS = 0,        ! 0 = no transport of rain/graupel/hail internal energy
+                          ! 1 = transport rain/graupel/hail internal energy 
+
    NL%CPARM   = 300.e6   ! Cloud concen (#/kg_air) if ICLOUD = 4,
                           ! CCN concen (#/kg_air) if ICLOUD = 5
 

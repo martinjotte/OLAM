@@ -338,6 +338,7 @@ if (nl%level <= 2) then
    nl%igraup  = 0
    nl%ihail   = 0
    nl%iccnlev = 0
+   nl%qxtrans = 0
 
 elseif (nl%level == 3) then
 
@@ -383,6 +384,11 @@ elseif (nl%level == 3) then
 
    if (.not. any(nl%iccnlev == (/0, 1/) )) then
       write(io6,*) 'FATAL - iccnlev must be set to 0 or 1.'
+      nfatal = nfatal + 1
+   endif
+
+   if (.not. any(nl%qxtrans == (/0, 1/) )) then
+      write(io6,*) 'FATAL - qxtrans must be set to 0 or 1.'
       nfatal = nfatal + 1
    endif
 
