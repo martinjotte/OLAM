@@ -215,8 +215,8 @@ Contains
    if (allocated(con_gt))   call vtables_scalar (con_g,con_gt,'CON_G')
    if (allocated(con_ht))   call vtables_scalar (con_h,con_ht,'CON_H')
 
-   if (allocated(con_ccnt)) call vtables_scalar (con_ccn,con_ccnt,'CON_CCN')
-   if (allocated(con_ifnt)) call vtables_scalar (con_ifn,con_ifnt,'CON_IFN')
+   if (allocated(con_ccnt)) call vtables_scalar (con_ccn,con_ccnt,'CON_CCN',cu_mix=.true.)
+   if (allocated(con_ifnt)) call vtables_scalar (con_ifn,con_ifnt,'CON_IFN',cu_mix=.true.)
 
    if (allocated(tket))     call vtables_scalar (tkep,tket,'TKEP')
    if (allocated(epst))     call vtables_scalar (epsp,epst,'EPSP')
@@ -224,8 +224,10 @@ Contains
    do iaddsc = 1,naddsc
       write(sname,'(a4,i3.3)') 'SCLP',iaddsc
       
-      if (allocated(addsc(iaddsc)%sclt))  &
-         call vtables_scalar (addsc(iaddsc)%sclp,addsc(iaddsc)%sclt,sname)
+      if (allocated(addsc(iaddsc)%sclt)) then
+         call vtables_scalar (addsc(iaddsc)%sclp,addsc(iaddsc)%sclt,sname,cu_mix=.true.)
+      endif
+
    enddo
 
    return

@@ -27,7 +27,9 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   use mem_basic,   only: theta, tair, press, rho, sh_v, vxe, vye, vze
   use consts_coms, only: t00, grav, eradi
   use misc_coms,   only: confrq
-  use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc
+  use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc, &
+                         kcutop, kcubot
+  use oname_coms,  only: nl
 
   implicit none
 
@@ -37,13 +39,12 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   real, dimension(mza) :: tc, qc, qsc, u, v, pc, pfc, gz, den, dz
   real, dimension(mza) :: tt, qt, ut, vt, qcldc
 
-  integer :: k, ka, kc, kp, nd, na, nl
+  integer :: k, ka, kc, kp, nd, na, nm
   real, external :: rhovsil
 
   real    :: pcprate, wprime, tprime, qprime
   integer :: iflag, kcbase, kctop, kup
   real    :: raxis, raxisi, uvtr
-  logical :: uvmix
 
   ka = lpw(iw)
 
@@ -62,18 +63,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   enddo
 
   na = nd + 1
-  nl = nd - 1
-
-  ! Initialize tendencies to 0
-
-  thsrc(:,iw) = 0.0
-  rtsrc(:,iw) = 0.0
-  conprr (iw) = 0.0
-
-  uvmix = (allocated(vxsrc) .and. allocated(vysrc) .and. allocated(vzsrc))
-  if (uvmix) vxsrc(:,iw) = 0.0
-  if (uvmix) vysrc(:,iw) = 0.0
-  if (uvmix) vzsrc(:,iw) = 0.0
+  nm = nd - 1
 
   ! Temp, water vapor, geopotential, and pressure
 
@@ -91,6 +81,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   enddo
 
   ! Estimate surface pressure
+
   pfc(1) =  0.01 * (press(ka,iw) + (zt(ka)-zm(ka-1))*rho(ka,iw)*grav)
 
   ! Compute zonal and meridional winds
@@ -124,14 +115,13 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
 
   call convect43c (     iw,     den,    dz,                                 &
        tc,      qc,     qsc,    u,      v,        pc,    pfc, gz,           &
-       nd,      nl,     dtlong, iflag,  tt,       qt,    ut,  vt,           &
+       nd,      nm,     dtlong, iflag,  tt,       qt,    ut,  vt,           &
        pcprate, wprime, tprime, qprime, cbmf(iw), qcldc, kup, kcbase, kctop )
 
-  kup    = kup    + ka - 1
-  kcbase = kcbase + ka - 1
-  kctop  = kctop  + ka - 1
-
   if (iflag == 1 .or. iflag == 4) then
+
+     kcutop(iw) = kctop  + ka - 1
+     kcubot(iw) = kcbase + ka - 1
 
      conprr(iw) = pcprate
 
@@ -141,24 +131,29 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
         rtsrc(k,iw) = qt(kc)
      enddo
 
-     if (uvmix) then
+     if (nl%conv_uv_mix > 0) then
 
-        do kc = 1, nd
-           k  = kc + ka - 1
+        if (raxis > 1.e3) then
 
-           if (raxis > 1.e3) then
+           do kc = 1, nd
+              k  = kc + ka - 1
               uvtr = -vt(kc) * zew(iw) * eradi
               vxsrc(k,iw) = (-ut(kc) * yew(iw) + uvtr * xew(iw)) * raxisi
               vysrc(k,iw) = ( ut(kc) * xew(iw) + uvtr * yew(iw)) * raxisi
               vzsrc(k,iw) =   vt(kc) * raxis * eradi 
-               
-           else
+           enddo
+ 
+        else
+
+           do kc = 1, nd
+              k  = kc + ka - 1
               vxsrc(k,iw) = ut(kc)
               vysrc(k,iw) = vt(kc)
               vzsrc(k,iw) = 0.0
-           endif
+           enddo
 
-        enddo
+        endif
+
      endif
 
   endif

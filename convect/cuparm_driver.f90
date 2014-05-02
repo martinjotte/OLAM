@@ -41,11 +41,14 @@ use module_cu_emanuel,only: cuparm_emanuel
 use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
                             dtlong, initial, itime1, iparallel
 use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
-use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc
+use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc, &
+                            kcutop, kcubot
 use mem_tend,         only: thilt, sh_wt, vmxet, vmyet, vmzet
 use mem_basic,        only: rho, sh_w
 use consts_coms,      only: r8
 use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
+use oname_coms,       only: nl
+use var_tables,       only: num_cumix
 
 implicit none
 
@@ -73,8 +76,6 @@ real :: vzsrc_distrib(mza,mwa)
 
 real, parameter :: ths_min = 0.0
 !real, parameter :: ths_min = 25.0 / 86400.
-
-logical :: uvmix
 
 !--------------------------------------------
 ! THSRC(k,iw) will contain the heating from parameterized convection in the IW
@@ -122,12 +123,12 @@ if ( any(nqparm(1:mrls) == 3) ) then
    endif
 endif
 
-uvmix = (allocated(vxsrc) .and. allocated(vysrc) .and. allocated(vzsrc))
-
 ! If model run has been initialized from observational data, avoid cumulus
 ! parameterization during an initial period to allow gravity waves to settle.
 
 if ((initial == 2) .and. (time_istp8 < cptime)) return
+
+dtlong4  = real(dtlong)
 
 ! Check whether it is time to update cumulus parameterization tendencies
 
@@ -139,7 +140,6 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
         ' Convective tendencies updated at ', time_istp8/3600., &
         ' hrs into simulation'
 
-   dtlong4  = real(dtlong)
    confrq4  = real(confrq)
    confrq4i = 1. / confrq4
 
@@ -148,7 +148,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
    rtsrc        (:,:) = 0.0
    conprr         (:) = 0.0
 
-   if (uvmix) then
+   if (nl%conv_uv_mix > 0) then
       vxsrc(:,:) = 0.0
       vysrc(:,:) = 0.0
       vzsrc(:,:) = 0.0
@@ -157,6 +157,9 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
       vysrc_distrib(:,:) = 0.0
       vzsrc_distrib(:,:) = 0.0
    endif
+
+   kcutop(:) = -1
+   kcubot(:) = -1
 
 ! Loop over all IW grid cells where cumulus parameterization may be done
 
@@ -208,6 +211,15 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
       endif
 
+! If cumulus scheme does not mix momentum, compute a non-local momentum mixing
+
+      if ( nl%conv_uv_mix > 0 .and. nqparm(mrlw) /= 0 .and. &
+           nqparm(mrlw) /= 1  .and. nqparm(mrlw) /= 4 ) then
+
+         call acmcld_uvmix(iw, dtlong4)
+
+      endif
+
 ! Distribute any deep convective heating among local and neighboring cells
 
       if (nqparm(mrlw) /= 0 .and. conprr(iw) > 1.e-16) then
@@ -223,7 +235,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
 ! Distribute any deep convective momentum mixing among local and neighboring cells
 
-         if (uvmix) then
+         if (nl%conv_uv_mix > 0) then
             do k = lpw(iw), mza-1
                vxsrc_distrib(k,iw) = vxsrc(k,iw)
                vysrc_distrib(k,iw) = vysrc(k,iw)
@@ -244,7 +256,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 ! Perform MPI send of heating and mixing for lateral spreading
 
    if (iparallel == 1) then
-      if (uvmix) then
+      if (nl%conv_uv_mix > 0) then
          call mpi_send_w('V', vxe=vxsrc_distrib, vye=vysrc_distrib,     &
                          vze=vzsrc_distrib, vmxet=thsrc_distrib, domrl=1)
       else
@@ -276,7 +288,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 ! Perform MPI receive of heating and mixing for lateral spreading
 
    if (iparallel == 1) then
-      if (uvmix) then
+      if (nl%conv_uv_mix > 0) then
          call mpi_recv_w('V', vxe=vxsrc_distrib, vye=vysrc_distrib,     &
                          vze=vzsrc_distrib, vmxet=thsrc_distrib, domrl=1)
       else
@@ -295,7 +307,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
       do k = lpw(iw), mza-1
          nblocked = count( lpw( itab_w(iw)%iw(1:npoly)  ) > k )
          thsrc(k,iw) = thsrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * thsrc_distrib(k,iw)
-         if (uvmix) then
+         if (nl%conv_uv_mix > 0) then
             vxsrc(k,iw) = vxsrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * vxsrc_distrib(k,iw)
             vysrc(k,iw) = vysrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * vysrc_distrib(k,iw)
             vzsrc(k,iw) = vzsrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * vzsrc_distrib(k,iw)
@@ -308,7 +320,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
          iv  = itab_w(iw)%iv(jwn)
          do k = lpv(iv), mza-1
             thsrc(k,iw) = thsrc(k,iw) + tsend(iwn) * thsrc_distrib(k,iwn)
-            if (uvmix) then
+            if (nl%conv_uv_mix > 0) then
                vxsrc(k,iw) = vxsrc(k,iw) + tsend(iwn) * vxsrc_distrib(k,iwn)
                vysrc(k,iw) = vysrc(k,iw) + tsend(iwn) * vysrc_distrib(k,iwn)
                vzsrc(k,iw) = vzsrc(k,iw) + tsend(iwn) * vzsrc_distrib(k,iwn)
@@ -329,10 +341,15 @@ call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begl(istp)
 if (mrl > 0) then
-!$omp parallel do private(iw,k) 
+!$omp parallel do private(iw,mrlw,qadd,k,qtest,rt,qpos,fact)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
+
+   ! Skip if no convection in this column
+
+   mrlw = itab_w(iw)%mrlw
+   if (nqparm(mrlw) < 1) cycle
 
    ! Slight adjustment of water vapor tendencies to ensure that
    ! convection does not produce negative sh_w. This may happen
@@ -392,7 +409,7 @@ call qsub('W',iw)
       rhot (k,iw) = rhot (k,iw) +    rt(k)    * rho(k,iw)
    enddo
 
-   if (uvmix) then
+   if (nl%conv_uv_mix > 0) then
       do k = lpw(iw), mza-1
          vmxet(k,iw) = vmxet(k,iw) + vxsrc(k,iw) * rho(k,iw)
 
@@ -400,6 +417,12 @@ call qsub('W',iw)
 
          vmzet(k,iw) = vmzet(k,iw) + vzsrc(k,iw) * rho(k,iw)
       enddo
+   endif
+
+   ! Compute tracer mixing due to convection
+
+   if (nl%conv_tracer_mix > 0 .and. num_cumix > 0) then
+      call acmcld_tracermix( iw, dtlong4 )
    endif
 
 enddo

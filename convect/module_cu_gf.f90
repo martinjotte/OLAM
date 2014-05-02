@@ -50,7 +50,7 @@ CONTAINS
      use mem_ijtabs,  only: itab_w
      use mem_basic,   only: wmc, vmc, theta, tair, press, rho, sh_v, &
                            vxe, vye, vze
-     use mem_cuparm,  only: thsrc, rtsrc, conprr
+     use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf
 
      implicit none
 
@@ -360,6 +360,8 @@ CONTAINS
      kbcon = 0
      ktop = 0
 
+     cbmf(iw) = 0.0
+
      call CUP_gf(xmb,zo,OUTQC,J,AAEQ,T,Q,Z1,sub_mas,           &
           TN,QO,PO,PRE,P,OUTT,OUTQ,DTIME,ktau,PSUR,US,VS,      &
           TCRIT,ztexec,zqexec,ccn,ccnclean,r,dx,mconv,         &
@@ -370,13 +372,14 @@ CONTAINS
           beta,autoconv,aeroevap,ktf,training,                 &
           use_excess,kts,kte                                   )
 
-     thsrc(:,iw) = 0.0
-     rtsrc(:,iw) = 0.0
-     conprr (iw) = 0.0
-
      if (pre(1) > 1.e-16) then
-
+        
         ! Deep convecton is active. Copy tendencies to model arrays.
+
+        kcutop(iw) = ktop (1) + ka - 1
+        kcubot(iw) = kbcon(1) + ka - 1
+
+        cbmf(iw) = xmb(1)
 
         do kc = 1, ktf
            k  = kc + ka - 1
@@ -446,6 +449,11 @@ CONTAINS
         if (kbcons(1) > 0 .and. ktops(1) >= kbcons(1)) then
 
            ! Shallow convection is active; copy tendencies
+
+           kcutop(iw) = ktops (1) + ka - 1
+           kcubot(iw) = kbcons(1) + ka - 1
+
+           cbmf(iw) = xmbs(1)
 
            ! Slightly modify tendencies to ensure heat and moisture conservation
 

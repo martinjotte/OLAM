@@ -303,7 +303,11 @@ endif
 do ng=1, nl%ngrids
    call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 5, 0, nfatal, nwarn )
 enddo
+
 call dchk_bnds( nl%confrq, "CONFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
+
+call ichk_bnds( nl%conv_uv_mix,     "CONV_UV_MIX",     0, 1, 0, nfatal, nwarn )
+call ichk_bnds( nl%conv_tracer_mix, "CONV_TRACER_MIX", 0, 1, 0, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! EDDY DIFFUSION PARAMETERS

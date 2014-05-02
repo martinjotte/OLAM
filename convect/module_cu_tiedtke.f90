@@ -77,12 +77,14 @@ CONTAINS
    use mem_grid,    only: mza, mwa, lpv, lpw, zt, dzm, xew, yew, zew, &
                           wnx, wny, wnz, arv, arw, volt, arw0
    use misc_coms,   only: io6
-   use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc
+   use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc, &
+                          kcubot, kcutop, cbmf
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc, &
                           vmc, wmc
    use mem_turb,    only: frac_land, sflux_t, sflux_r, fqtpbl
    use consts_coms, only: eradi, gravo2
    use mem_ijtabs,  only: itab_w
+   use oname_coms,  only: nl
 
    implicit none
 
@@ -135,7 +137,6 @@ CONTAINS
    real :: vflux(mza), vflux_vap(mza)
 
    integer :: ka, k, kt, jv, iv, iwn, npoly
-   logical :: uvmix
 
    real :: raxis, hflux, hflux_vap, dirv, flx, fqvadv
    real :: uzonal(mza), umerid(mza)
@@ -147,15 +148,6 @@ CONTAINS
 
    raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
    raxisi = 1.0 / max(raxis, 1.e-12)
-
-   thsrc(:,iw) = 0.0
-   rtsrc(:,iw) = 0.0
-   conprr (iw) = 0.0
-
-   uvmix = (allocated(vxsrc) .and. allocated(vysrc) .and. allocated(vzsrc))
-   if (uvmix) vxsrc(:,iw) = 0.0
-   if (uvmix) vysrc(:,iw) = 0.0
-   if (uvmix) vzsrc(:,iw) = 0.0
 
 ! Vertical advective mass and water vapor fluxes (W levels)
 
@@ -288,6 +280,8 @@ CONTAINS
    psdiss = 0.0
    psmelt = 0.0
 
+   cbmf(iw) = 0.0
+
    ! Tiedtke convective parameterization for one IW column
 
    CALL CUMASTR_NEW(                                   &
@@ -301,14 +295,16 @@ CONTAINS
         psrain,   psevap,   psheat,   psdiss,  psmelt, &
         dCdt,     hfx,      rhosf,    sig1,    lndj    )
 
-   ictop = mza - ictop
-   icbot = mza - icbot
-
 ! Apply convective parameterization results to main model arrays
 
    if (iact) then
 
-      do k = ka,mza-1
+      kcutop(iw) = mza - ictop + 1
+      kcubot(iw) = mza - icbot
+
+      cbmf(iw) = zmfu(icbot)
+
+      do k = ka, mza-1
          kt = mza - k
 
          ! subtract off the input humdity tendency
@@ -335,23 +331,29 @@ CONTAINS
 
       ! convective momentum transport
 
-      if (uvmix) then
-         do k = ka, mza-1
-            kt = mza - k
+      if (nl%conv_uv_mix > 0) then
+         
+         if (raxis > 1.e3) then
 
-            if (raxis > 1.e3) then
+            do k = ka, mza-1
+               kt = mza - k
                uvtr = -dVdt(kt) * zew(iw) * eradi
                vxsrc(k,iw) = (-dUdt(kt) * yew(iw) + uvtr * xew(iw)) * raxisi
                vysrc(k,iw) = ( dUdt(kt) * xew(iw) + uvtr * yew(iw)) * raxisi
                vzsrc(k,iw) =   dVdt(kt) * raxis * eradi 
+            enddo
                
-            else
+         else
+
+            do k = ka, mza-1
+               kt = mza - k
                vxsrc(k,iw) = dUdt(kt)
                vysrc(k,iw) = dVdt(kt)
                vzsrc(k,iw) = 0.0
-            endif
+            enddo
+            
+         endif
 
-         enddo
       endif
 
       ! precipitation rate

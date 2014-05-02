@@ -1,6 +1,7 @@
 #Makefile
 
 SOURCE_FILES= \
+             $(CONVECT)/acmcld.f90 \
              $(CONVECT)/cuparm_driver.f90 \
              $(CONVECT)/mem_cuparm.f90 \
              $(CONVECT)/module_bl_acm2.f90 \

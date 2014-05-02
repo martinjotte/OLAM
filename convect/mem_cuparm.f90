@@ -33,16 +33,17 @@
 
 Module mem_cuparm
 
-   real, allocatable, target :: thsrc (:,:)
-   real, allocatable, target :: rtsrc (:,:)
-   real, allocatable, target :: aconpr  (:)
-   real, allocatable, target :: conprr  (:)
-   real, allocatable, target :: vxsrc (:,:)
-   real, allocatable, target :: vysrc (:,:)
-   real, allocatable, target :: vzsrc (:,:)
+   real,    allocatable, target :: thsrc (:,:)
+   real,    allocatable, target :: rtsrc (:,:)
+   real,    allocatable, target :: aconpr  (:)
+   real,    allocatable, target :: conprr  (:)
+   real,    allocatable, target :: vxsrc (:,:)
+   real,    allocatable, target :: vysrc (:,:)
+   real,    allocatable, target :: vzsrc (:,:)
 
-   ! Extra memory for Emanuel
-   real, allocatable, target :: cbmf(:)
+   real,    allocatable, target :: cbmf  (:)
+   integer, allocatable, target :: kcutop(:)
+   integer, allocatable, target :: kcubot(:)
 
 Contains
 
@@ -50,35 +51,38 @@ Contains
 
   subroutine alloc_cuparm(mza, mwa, mrls, nqparm)
 
-    use misc_coms,       only: rinit
+    use misc_coms,  only: rinit
+    use oname_coms, only: nl
     implicit none
 
     integer, intent(in) :: mza, mwa, mrls
     integer, intent(in) :: nqparm(:)
    
-    ! Base tendency arrays for all deep convective schemes
-
     if ( any(nqparm(1:mrls) > 0) ) then      
+       
+       ! Base tendency arrays for all deep convective schemes
+       
        allocate (thsrc(mza,mwa)) ; thsrc  = 0.0
        allocate (rtsrc(mza,mwa)) ; rtsrc  = 0.0
        allocate (aconpr   (mwa)) ; aconpr = 0.0
        allocate (conprr   (mwa)) ; conprr = 0.0
-    endif
 
-    ! Tiedtke and Emanuel schemes do momentum mixing
-    
-    if ( any(nqparm(1:mrls) == 1) .or. any(nqparm(1:mrls) == 4) ) then
-       allocate (vxsrc(mza,mwa)) ; vxsrc = 0.0
-       allocate (vysrc(mza,mwa)) ; vysrc = 0.0
-       allocate (vzsrc(mza,mwa)) ; vzsrc = 0.0
-    endif
+       ! Extra arrays for momentum mixing
 
-    ! Extra memory for Emanuel scheme
-    
-    if ( any(nqparm(1:mrls) == 4) ) then
-       allocate(cbmf(mwa)) ; cbmf = 0.0
-    endif
+       if (nl%conv_uv_mix > 0) then
+          allocate (vxsrc(mza,mwa)) ; vxsrc = 0.0
+          allocate (vysrc(mza,mwa)) ; vysrc = 0.0
+          allocate (vzsrc(mza,mwa)) ; vzsrc = 0.0
+       endif
 
+       ! Diagnostic arrays for clouds/radiation/tracer mixing
+
+       allocate(cbmf  (mwa)) ; cbmf   = 0.0
+       allocate(kcutop(mwa)) ; kcutop = -1
+       allocate(kcubot(mwa)) ; kcubot = -1
+
+    endif
+       
   end subroutine alloc_cuparm
 
 !===============================================================================
@@ -91,6 +95,8 @@ Contains
     if (allocated(aconpr))  deallocate (aconpr)
     if (allocated(conprr))  deallocate (conprr)
     if (allocated(cbmf))    deallocate (cbmf)
+    if (allocated(kcutop))  deallocate (kcutop)
+    if (allocated(kcubot))  deallocate (kcubot)
     if (allocated(vxsrc))   deallocate (vxsrc)
     if (allocated(vysrc))   deallocate (vysrc)
     if (allocated(vzsrc))   deallocate (vzsrc)
@@ -127,6 +133,16 @@ Contains
      if (allocated(cbmf)) then
         call increment_vtable('CBMF', 'AW')
         vtab_r(num_var)%rvar1_p => cbmf
+     endif
+
+     if (allocated(kcutop)) then
+        call increment_vtable('KCUTOP', 'AW')
+        vtab_r(num_var)%ivar1_p => kcutop
+     endif
+
+     if (allocated(kcubot)) then
+        call increment_vtable('KCUBOT', 'AW')
+        vtab_r(num_var)%ivar1_p => kcubot
      endif
 
      if (allocated(vxsrc)) then

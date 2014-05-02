@@ -166,11 +166,14 @@ Module oname_coms
 
 !!    CUMULUS PARAMETERIZATION PARAMETERS
 
-      integer :: nqparm   (maxgrds) = 0
-      integer :: nqparm_sh(maxgrds) = 0
+      integer  :: nqparm(maxgrds) = 0
+      real(r8) :: confrq          = 1800.0_r8
+      integer  :: conv_uv_mix     = 0
+      integer  :: conv_tracer_mix = 0
 
-      real(r8) :: confrq = 1800.0_r8
-      real     :: wcldbs = 0.01
+      ! these are unused and will be deleted
+      real     :: wcldbs = 0.0
+      integer  :: nqparm_sh(maxgrds) = 0
 
 !!    EDDY DIFFUSION PARAMETERS
 

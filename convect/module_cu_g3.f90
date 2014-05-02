@@ -30,7 +30,7 @@ CONTAINS
      use mem_ijtabs,  only: itab_w
      use mem_basic,   only: wmc, vmc, theta, tair, press, rho, sh_v, &
                             vxe, vye, vze
-     use mem_cuparm,  only: thsrc, rtsrc, conprr
+     use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf
 
      implicit none
 
@@ -348,26 +348,28 @@ CONTAINS
      pr_ens = 0.0
      sub_mas = 0.0
 
+     cbmf(iw) = 0.0
+
      call  CUP_enss_3d(OUTQC,J,AAEQ,T,Q,Z1,sub_mas,                    &
               TN,QO,PO,PRE,P,OUTT,OUTQ,DTIME,ktau,tkmax,PSUR,US,VS,    &
               TCRIT,tx,qx,                                             &
               tshall,qshall,kpbl,dhdt,outts,outqs,tscl_kf,             &
               k23,kbcon3,ktop3,xmb3,                                   &
-              mconv,                                      &
-              omeg,k22,xmb,                                            &
+              mconv,omeg,k22,xmb,                                      &
               APR_GR,APR_W,APR_MC,APR_ST,APR_AS,                       &
               APR_CAPMA,APR_CAPME,APR_CAPMI,kbcon,ktop,cupclw,         &
               xf_ens,pr_ens,xland,gsw,edt_out,subt,subq,               &
               xl,rv,cpd,g,ichoice,ipr,jpr,ens4,high_resolution,        &
               ishallow_g3,ktf,kts,kte                                  )
 
-     thsrc(:,iw) = 0.0
-     rtsrc(:,iw) = 0.0
-     conprr (iw) = 0.0
-
      if (pre(1) > 1.e-16) then
 
         ! Deep convecton is active
+
+        kcutop(iw) = ktop (1) + ka - 1
+        kcubot(iw) = kbcon(1) + ka - 1
+
+        cbmf(iw) = xmb(1)
 
         do kc = 1, ktf
            k  = kc + ka - 1
@@ -405,6 +407,9 @@ CONTAINS
      else if (ishallow_g3 == 1 .and. kbcon3(1) > 0 .and. ktop3(1) >= kbcon3(1)) then
 
         ! Shallow convection is active
+
+        kcutop(iw) = ktop3 (1) + ka - 1
+        kcubot(iw) = kbcon3(1) + ka - 1
 
         ! Slightly modify tendencies to ensure heat and moisture conservation
 
