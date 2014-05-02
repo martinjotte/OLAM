@@ -2256,8 +2256,8 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
         call o_plchlq (hcpn(2)+.01,vcpn(3),numbr(1:ln),bsize,0.,-1.)
      endif
 
-     call o_sfsgfa (hcpn,vcpn,4,dst,6,ind,8,clrtab(itab)%ipal(ibox))
-!     call fillpolyg (4,hcpn,vcpn,ipal(ibox))
+     call o_sfsgfa (hcpn,vcpn,4,clrtab(itab)%ipal(ibox))
+!    call fillpolyg (4,hcpn,vcpn,ipal(ibox))
 
   enddo
 
