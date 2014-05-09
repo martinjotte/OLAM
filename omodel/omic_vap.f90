@@ -47,7 +47,7 @@ integer, intent(in) :: k2(11)
 real, intent(in)    :: press0  (mza0)
 real, intent(in)    :: thil0   (mza0)
 real, intent(in)    :: rhoi    (mza0)
-real, intent(out)   :: exner0  (mza0)
+real, intent(in)    :: exner0  (mza0)
 real, intent(out)   :: tair    (mza0)
 real, intent(inout) :: theta0  (mza0)
 real, intent(inout) :: rhov    (mza0)
@@ -82,11 +82,10 @@ do k = k2(11)+1,mza0
    theta0(k) = thil0(k)
    rhov(k) = rhow(k)
 enddo
-   
+
 ! Loop over whole column
 
 do k = lpw0,mza0
-   exner0(k) = (press0(k) * p00i) ** rocp  ! defined WITHOUT CP factor
    tair(k) = theta0(k) * exner0(k)
 enddo
 

@@ -393,7 +393,7 @@ accpx(:) = 0.
 ! to microphysics column arrays
 
 call mic_copy(iw0,lpw0,thil0,press0,wc0,rhoa,rhow,rhoi, &
-   theta0,exner0,rhov,tair, &
+   theta0,exner0,rhov, &
    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 ! Loop over all vertical levels
@@ -1140,7 +1140,7 @@ end subroutine micphys
 !===============================================================================
 
 subroutine mic_copy(iw0,lpw0,thil0,press0,wc0,rhoa,rhow,rhoi, &
-   theta0,exner0,rhov,tair, &
+   theta0,exner0,rhov, &
    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 use micro_coms, only: mza0, ncat, jnmb, rxmin
@@ -1165,7 +1165,6 @@ real, intent(out) :: rhoi  (mza0)
 real, intent(out) :: theta0(mza0)
 real, intent(out) :: exner0(mza0)
 real, intent(out) :: rhov  (mza0)
-real, intent(out) :: tair  (mza0)
 real, intent(out) :: con_ccnx (mza0)
 real, intent(out) :: con_gccnx(mza0)
 real, intent(out) :: con_ifnx (mza0)
@@ -1194,7 +1193,6 @@ do k = lpw0,mza0
    rhoi  (k) = 1. / rhoa(k)
 
    exner0(k) = (press0(k) * p00i) ** rocp  ! defined WITHOUT CP factor
-   tair  (k) = theta0(k) * exner0(k)
 enddo
 
 ! Cloud water

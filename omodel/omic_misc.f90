@@ -569,7 +569,7 @@ subroutine sedim(lcat,iw0,lpw0,k1,k2,alphasfc, &
 use micro_coms,  only: mza0, ncat, rxmin, cfmasi, ch3, ch2, dispemb0i, &
                        nembfall, pcpfillc, pcpfillr, dztf, nhcat, maxkfall, &
                        emb1
-use consts_coms, only: cpi
+use consts_coms, only: cpi, alvlocp, alviocp
 use misc_coms,   only: io6
 
 implicit none
@@ -611,8 +611,8 @@ real, intent(in) :: ch1(nhcat)
 
 real, parameter :: iplaws = 0
 
-integer :: k,lhcat,iemb,iemb2,kkf,kk
-real :: dispemb,riemb,wt2,rsfc,qrsfc
+integer :: k,lhcat,iemb,kkf,kk
+real    :: dispemb,riemb,rsfc,qrsfc,tc,fracliq,alocp
 
 ! automatic arrays
 
@@ -700,9 +700,20 @@ do k = lpw0,k2(lcat)
 
    rhoa(k) = rhoa(k) + rfall(k) - rx(k,lcat)
    rhow(k) = rhow(k) + rfall(k) - rx(k,lcat)
-   
+
+   qx(k,lcat) = qrfall(k) / max(rxmin(lcat),rfall(k))
+
+   if (lcat == 6 .or. lcat == 7) then
+      call qtc(qx(k,lcat),tc,fracliq)
+      alocp = fracliq * alvlocp + (1.-fracliq) * alviocp
+   elseif (lcat == 1 .or. lcat == 2 .or. lcat == 8)  then
+      alocp = alvlocp
+   else
+      alocp = alviocp
+   endif
+
    dsed_thil(k) = dsed_thil(k) - thil0(k) * thil0(k)  &
-      * (2820. * (rfall(k) - rx(k,lcat))  &
+      * (alocp * (rfall(k) - rx(k,lcat))  &
       - cpi * (qrfall(k) - qr(k,lcat)))  &
       / (max(tair(k), 253.) * theta0(k))
 
@@ -710,7 +721,6 @@ do k = lpw0,k2(lcat)
 
    rx(k,lcat) = rfall(k)
    cx(k,lcat) = cfall(k)
-   qx(k,lcat) = qrfall(k) / max(rxmin(lcat),rfall(k))
 
    if (rx(k,lcat) < rxmin(lcat)) then
       rx(k,lcat) = 0.
