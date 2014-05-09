@@ -22,6 +22,9 @@ module module_bl_acm2
   real, parameter :: mvonk  =      - vonk
   real, parameter :: vonk72 = 0.72 * vonk
 
+  integer, parameter :: imoist_ri = 0  ! 0 = use dTheta_v / dz for buoyancy
+                                       ! 1 = use "moist" Richardson number
+
 ! Don't re-export symbols from other modules
 
   private :: alvlocp, alvlor, eps_vap, eps_virt, grav, grav2, vonk
@@ -54,7 +57,7 @@ contains
     real,    intent(inout) :: rhot(mza,mwa)
 
     logical :: cnvct
-    real :: mbarks(mza)
+    real :: massflx(mza)
     real :: seddy(mza)
     real :: akodz(mza)
 
@@ -73,7 +76,7 @@ contains
     real :: fact(nsw_max)
 
     integer :: k, ks, n, ns, ksm, ksp, kk, ksmax, kmax
-    real :: hovl, mbar, fnl
+    real :: hovl, mbar, fnl, dens
     real :: dtl, dtli
     
     integer :: kbot, ktop, nsfc, nlev
@@ -88,8 +91,8 @@ contains
 
     hovl = pblh * moli 
 
-    seddy (:) = zkh(:)
-    mbarks(:) = 0.0
+    seddy  (:) = zkh(:)
+    massflx(:) = 0.0
     
     cnvct = ((hovl < -0.1) .and. (kpblh - kbot > 2))
 
@@ -101,19 +104,22 @@ contains
        
     if (cnvct) then
 
+       dens = 0.5 * (rho(kbot,iw) + rho(kbot+1,iw))
        fnl  = vonk72 / ( vonk72 + (mvonk / hovl) ** 0.33333333)
-       mbar = zkh(kbot) / (pblh - dzt(kbot)) * dzit(kbot) * fnl
+       mbar = zkh(kbot) / pblh * dzit(kbot) * fnl / dens
 
        do k = kbot, kpblh-1
           seddy(k) = zkh(k) * ( 1.0 - fnl)
        enddo
-       
-       do k = kbot, kpblh-1
-          mbarks(k) = arw(k,iw) * mbar * (pblh - zm(k) + zm(kbot-1))
+
+       do k = kbot, kbot + nsfc - 1
+          dens = 0.5 * (rho(k,iw) + rho(k+1,iw))
+          massflx(k) = arw(k,iw) * mbar * (pblh - (zm(k) - zm(kbot))) * dens
        enddo
 
-       do k = kbot + nsfc, kpblh-1
-          mbarks(k) = mbarks(k) * zfacm(kbot+nsfc-1)**2 / zfacm(k)**2
+       do k = kbot+nsfc, kpblh-1
+          dens = 0.5 * (rho(k,iw) + rho(k+1,iw))
+          massflx(k) = arw(kbot+nsfc-1,iw) * mbar * (pblh - (zm(k) - zm(kbot))) * dens
        enddo
 
     endif
@@ -242,8 +248,8 @@ contains
 
        do k = kbot+1, kpblh
           ks = k - kbot + 1
-          dia(ks)   = dia(ks)   + dtom(k)   * mbarks(k-1)
-          upp(ks-1) = upp(ks-1) - dtom(k-1) * mbarks(k-1)
+          dia(ks)   = dia(ks)   + dtom(k)   * massflx(k-1)
+          upp(ks-1) = upp(ks-1) - dtom(k-1) * massflx(k-1)
        enddo
 
        aa(:,:) = 0.0
@@ -257,13 +263,13 @@ contains
              ksm = min(ks-1,nsfc)
 
              aa(ks,kk) = dtom(k) * frac_sfc(kk,iw) * &
-                       ( mbarks(k) / frac_sum(ksp) - mbarks(k-1) / frac_sum(ksm) )
+                       ( massflx(k) / frac_sum(ksp) - massflx(k-1) / frac_sum(ksm) )
           enddo
        enddo
-       
+
        do k = kbot, min(kbot + nsfc - 1, kpblh)
           ks = k - kbot + 1
-          dia(ks) = dia(ks) + dtom(k) * mbarks(k) * frac_sfc(ks,iw) / frac_sum(ks)
+          dia(ks) = dia(ks) + dtom(k) * massflx(k) * frac_sfc(ks,iw) / frac_sum(ks)
           low(ks+1) = low(ks+1) + aa(ks+1,ks)
        enddo
 
@@ -300,7 +306,7 @@ contains
 
           do k = kbot, kpblh
              ks = k - kbot + 1
-             aflux(k,n) = aflux(k,n) + mbarks(k) * (cbot(ks) - soln(ks+1,n))
+             aflux(k,n) = aflux(k,n) + massflx(k) * (cbot(ks) - soln(ks+1,n))
           enddo
           
        enddo
@@ -397,11 +403,10 @@ contains
 
     ! LOCAL VARIABLES
 
-    INTEGER  :: ILX, KL, KLM, K, I
-    real :: zagl, deltar, wcloud, zoh, a, b, buoy
-    REAL     :: ZOVL, WT, ZSOL, ZFUNC, DZF, SS
-    REAL     :: RI, QMEAN, TMEAN, XLV, ALPH, CHI, ZK, SQL, DENSF, KZO
-    REAL     :: FH
+    integer :: k
+    real    :: zagl, deltar, wcloud, zoh, a, b, buoy
+    real    :: zovl, zsol, zfunc, ss
+    real    :: ri, zk, sql, kzo, fh
 
     real :: phih(mza) ! M-O similarity nondimensional scalar gradient
     real :: edyz(mza) ! Holtslag's K-profile eddy diffusivity
@@ -416,7 +421,7 @@ contains
     REAL, PARAMETER :: RV     = 461.5
     REAL, PARAMETER :: RC     = 0.25
     REAL, PARAMETER :: RLAM   = 80.0
-    REAL, PARAMETER :: GAMH   = 16.0 !15.0  !  Holtslag and Boville (1993)
+    REAL, PARAMETER :: GAMH   = 16.0  !  Holtslag and Boville (1993)
     REAL, PARAMETER :: BETAH  = 5.0   !  Holtslag and Boville (1993)
     
 !   REAL, PARAMETER :: FHMIN = 0.01  ! Minimum value of f(Ri)
@@ -424,7 +429,6 @@ contains
 
     REAL, PARAMETER :: EDYZ0  = 0.0   ! New Min Kz
 !   REAL, PARAMETER :: EDYZ0  = 0.01  ! New Min Kz
-!   REAL, PARAMETER :: EDYZ0  = 0.1
 
     ! Constants for the "moist" richardson number
 
@@ -509,25 +513,27 @@ contains
     endif
 
 !! Vertical loop over T levels to compute the alpha and beta coefficients
-!! in the buoyancy term of the moist Richardson number, from Cuipers and
+!! in the buoyancy term of the moist Richardson number, from Cuijpers and
 !! Duynkerke (JAS, 1993, pp 3894-3908)
 
-    do k = kbot, ktop
+    if (imoist_ri == 1) then
 
-       if (ql(k) < 1.e-6) then
+       do k = kbot, ktop
+          if (ql(k) < 1.e-6) then
 
-          alpha(k) = 1.0 + eps_virt * qv(k)
-          beta (k) = eps_virt * theta(k)
+             alpha(k) = 1.0 + eps_virt * qv(k)
+             beta (k) = eps_virt * theta(k)
 
-       else
+          else
 
-          alpha(k) = (1.0 - qw(k) + c1 * qv(k) * (1.0 + c2/tair(k))) / &
-                     (1.0 + c3 * qv(k) / (tair(k) * tair(k)))
-          beta(k)  = alpha(k) * alvlocp * theta(k) / tair(k) - theta(k)
-
-       endif
-
-    enddo
+             alpha(k) = (1.0 - qw(k) + c1 * qv(k) * (1.0 + c2/tair(k))) / &
+                        (1.0 + c3 * qv(k) / (tair(k) * tair(k)))
+             beta(k)  = alpha(k) * alvlocp * theta(k) / tair(k) - theta(k)
+          
+          endif
+       enddo
+       
+    endif
 
 !! Louis's Richardson-number dependent eddy diffusivity
 !! Vertical loop over W levels
@@ -537,15 +543,18 @@ contains
        ! This uses the moist Richardson number of Brinkop and Roeckner 
        ! (Tellus, 1995, pp 197-222) computed from THIL and total water,
        ! but with the alpha and beta coefficients of Cuipers and Duynkerke
-    
+
        ss = ( (vx(k+1) - vx(k))**2 &
             + (vy(k+1) - vy(k))**2 &
             + (vz(k+1) - vz(k))**2 ) * dzim(k) * dzim(k) + 1.e-9
 
-       a  = 0.5 * (alpha(k+1) + alpha(k))
-       b  = 0.5 * (beta (k+1) + beta (k))
-
-       buoy = a * (thil(k+1) - thil(k)) + b * (qw(k+1) - qw(k))
+       if (imoist_ri == 1) then
+          a  = 0.5 * (alpha(k+1) + alpha(k))
+          b  = 0.5 * (beta (k+1) + beta (k))
+          buoy = a * (thil(k+1) - thil(k)) + b * (qw(k+1) - qw(k))
+       else
+          buoy = thetav(k+1) - thetav(k)
+       endif
 
        ri = grav2 / (thetav(k+1) + thetav(k)) * buoy * dzim(k) / ss
 
@@ -568,7 +577,7 @@ contains
        else
 
           sql     = ( zk * rlam / (rlam + zk) )**2
-          edyr(k) = kzo + sqrt(ss * (1.0 - 25.0 * ri)) * sql
+          edyr(k) = kzo + sqrt(ss * (1.0 - 18.0 * ri)) * sql
        !  pran(k) = pr0 / ( 1.0 - (1.0 - pr0) * min(ri,rc) / rc )
 
        endif
