@@ -189,7 +189,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
          sea%ice_albedo (iws) = 0.0
 
          sea%rlongup    (iws) = sea%sea_rlongup(iws)
-         sea%albedo_beam(iws) = sea%ice_albedo(iws)
+         sea%albedo_beam(iws) = sea%sea_albedo(iws)
 
       endif
 
