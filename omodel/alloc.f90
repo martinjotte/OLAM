@@ -40,7 +40,7 @@ subroutine olam_mem_alloc()
   use mem_tend,    only: alloc_tend, filltab_tend
   use mem_turb,    only: alloc_turb, filltab_turb
   use mem_sflux,   only: mseaflux, mlandflux, filltab_sflux
-  use mem_grid,    only: mza, nsw_max, mma, mua, mva, mwa
+  use mem_grid,    only: alloc_grid_other, mza, nsw_max, mma, mua, mva, mwa
   use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge
   use mem_ijtabs,  only: mrls, filltab_itabs
   use oname_coms,  only: nl
@@ -68,6 +68,8 @@ subroutine olam_mem_alloc()
 ! Allocate basic memory and fill variable tables
 
   call filltab_itabs()  ! Already allocated
+
+  call alloc_grid_other()
 
   call alloc_basic(meshtype,mza,mua,mva,mwa)
   call filltab_basic()
