@@ -399,7 +399,7 @@ call qsub('W',iw)
 
    ! Now copy the tendencies
 
-   aconpr(iw) = aconpr(iw) + conprr(iw) * dtlong
+   aconpr(iw) = aconpr(iw) + real(conprr(iw),r8) * dtlong
 
    do k = lpw(iw), mza-1
       thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * rho(k,iw)

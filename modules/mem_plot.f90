@@ -52,6 +52,33 @@ real, allocatable :: accpcon_prev1(:)
 real, allocatable :: accpcon_prev2(:)
 real, allocatable :: accpcon_prev3(:)
 
+real, allocatable :: rshort_accum_prev0(:)
+real, allocatable :: rshort_accum_prev1(:)
+
+real, allocatable :: rshortup_accum_prev0(:)
+real, allocatable :: rshortup_accum_prev1(:)
+
+real, allocatable :: rlong_accum_prev0(:)
+real, allocatable :: rlong_accum_prev1(:)
+
+real, allocatable :: rlongup_accum_prev0(:)
+real, allocatable :: rlongup_accum_prev1(:)
+
+real, allocatable :: rshort_top_accum_prev0(:)
+real, allocatable :: rshort_top_accum_prev1(:)
+
+real, allocatable :: rshortup_top_accum_prev0(:)
+real, allocatable :: rshortup_top_accum_prev1(:)
+
+real, allocatable :: rlongup_top_accum_prev0(:)
+real, allocatable :: rlongup_top_accum_prev1(:)
+
+real, allocatable :: sflux_t_accum_prev0(:)
+real, allocatable :: sflux_t_accum_prev1(:)
+
+real, allocatable :: sflux_r_accum_prev0(:)
+real, allocatable :: sflux_r_accum_prev1(:)
+
 real(r8), allocatable ::  press_init(:,:)
 real(r8), allocatable ::    rho_init(:,:)
 real,     allocatable ::  theta_init(:,:)
@@ -81,6 +108,33 @@ Contains
   allocate ( accpcon_prev2(mwa))
   allocate ( accpcon_prev3(mwa))
 
+  allocate ( rshort_accum_prev0(mwa))
+  allocate ( rshort_accum_prev1(mwa))
+
+  allocate ( rshortup_accum_prev0(mwa))
+  allocate ( rshortup_accum_prev1(mwa))
+
+  allocate ( rlong_accum_prev0(mwa))
+  allocate ( rlong_accum_prev1(mwa))
+
+  allocate ( rlongup_accum_prev0(mwa))
+  allocate ( rlongup_accum_prev1(mwa))
+
+  allocate ( rshort_top_accum_prev0(mwa))
+  allocate ( rshort_top_accum_prev1(mwa))
+
+  allocate ( rshortup_top_accum_prev0(mwa))
+  allocate ( rshortup_top_accum_prev1(mwa))
+
+  allocate ( rlongup_top_accum_prev0(mwa))
+  allocate ( rlongup_top_accum_prev1(mwa))
+
+  allocate ( sflux_t_accum_prev0(mwa))
+  allocate ( sflux_t_accum_prev1(mwa))
+
+  allocate ( sflux_r_accum_prev0(mwa))
+  allocate ( sflux_r_accum_prev1(mwa))
+
   allocate ( press_init(mza,mwa))
   allocate (   rho_init(mza,mwa))
   allocate ( theta_init(mza,mwa))
@@ -88,15 +142,42 @@ Contains
   allocate (    vc_init(mza,mva))
 ! allocate (addsc1_init(mza,mwa))
 
-   accpmic_prev0(:) = 0.
-   accpmic_prev1(:) = 0.
-   accpmic_prev2(:) = 0.
-   accpmic_prev3(:) = 0.
+  accpmic_prev0(:) = 0.
+  accpmic_prev1(:) = 0.
+  accpmic_prev2(:) = 0.
+  accpmic_prev3(:) = 0.
 
-   accpcon_prev0(:) = 0.
-   accpcon_prev1(:) = 0.
-   accpcon_prev2(:) = 0.
-   accpcon_prev3(:) = 0.
+  accpcon_prev0(:) = 0.
+  accpcon_prev1(:) = 0.
+  accpcon_prev2(:) = 0.
+  accpcon_prev3(:) = 0.
+
+  rshort_accum_prev0(:) = 0.
+  rshort_accum_prev1(:) = 0.
+
+  rshortup_accum_prev0(:) = 0.
+  rshortup_accum_prev1(:) = 0.
+
+  rlong_accum_prev0(:) = 0.
+  rlong_accum_prev1(:) = 0.
+
+  rlongup_accum_prev0(:) = 0.
+  rlongup_accum_prev1(:) = 0.
+
+  rshort_top_accum_prev0(:) = 0.
+  rshort_top_accum_prev1(:) = 0.
+
+  rshortup_top_accum_prev0(:) = 0.
+  rshortup_top_accum_prev1(:) = 0.
+
+  rlongup_top_accum_prev0(:) = 0.
+  rlongup_top_accum_prev1(:) = 0.
+
+  sflux_t_accum_prev0(:) = 0.
+  sflux_t_accum_prev1(:) = 0.
+
+  sflux_r_accum_prev0(:) = 0.
+  sflux_r_accum_prev1(:) = 0.
 
   press_init(:,:) = press(:,:)
   rho_init  (:,:) = rho  (:,:)
@@ -119,8 +200,14 @@ Contains
 
   use mem_cuparm, only: aconpr
 
-  use mem_micro,  only: accpd, accpr, accpp, accps, accpa, accpg, accph
-  use misc_coms, only: time8
+  use mem_micro,      only: accpd, accpr, accpp, accps, accpa, accpg, accph
+  use misc_coms,      only: time8
+  use mem_turb,       only: sflux_t, sflux_r
+  use mem_flux_accum, only: rshort_accum, rshortup_accum, &
+                            rlong_accum, rlongup_accum, &
+                            rshort_top_accum, rshortup_top_accum, &
+                            rlongup_top_accum, &
+                            sflux_t_accum, sflux_r_accum
 
   implicit none
 
@@ -165,6 +252,16 @@ Contains
      accpcon_prev2(:) = accpcon_prev1(:)
      accpcon_prev1(:) = accpcon_prev0(:)
 
+           rshort_accum_prev1(:) =       rshort_accum_prev0(:)
+         rshortup_accum_prev1(:) =     rshortup_accum_prev0(:)
+            rlong_accum_prev1(:) =        rlong_accum_prev0(:)
+          rlongup_accum_prev1(:) =      rlongup_accum_prev0(:)
+       rshort_top_accum_prev1(:) =   rshort_top_accum_prev0(:)
+     rshortup_top_accum_prev1(:) = rshortup_top_accum_prev0(:)
+      rlongup_top_accum_prev1(:) =  rlongup_top_accum_prev0(:)
+          sflux_t_accum_prev1(:) =      sflux_t_accum_prev0(:)
+          sflux_r_accum_prev1(:) =      sflux_r_accum_prev0(:)
+
 ! Fill most recent previous values
 
      time8_prev0 = 0.
@@ -172,19 +269,65 @@ Contains
      accpmic_prev0(:) = 0.
      accpcon_prev0(:) = 0.
 
+           rshort_accum_prev0(:) = 0.
+         rshortup_accum_prev0(:) = 0.
+            rlong_accum_prev0(:) = 0.
+          rlongup_accum_prev0(:) = 0.
+       rshort_top_accum_prev0(:) = 0.
+     rshortup_top_accum_prev0(:) = 0.
+      rlongup_top_accum_prev0(:) = 0.
+          sflux_t_accum_prev0(:) = 0.
+          sflux_r_accum_prev0(:) = 0.
+
 !  endif
 
   time8_prev0 = time8_prev0 + time8
 
-  if (allocated(accpd)) accpmic_prev0(:) = accpmic_prev0(:) + accpd(:)
-  if (allocated(accpr)) accpmic_prev0(:) = accpmic_prev0(:) + accpr(:)
-  if (allocated(accpp)) accpmic_prev0(:) = accpmic_prev0(:) + accpp(:)
-  if (allocated(accps)) accpmic_prev0(:) = accpmic_prev0(:) + accps(:)
-  if (allocated(accpa)) accpmic_prev0(:) = accpmic_prev0(:) + accpa(:)
-  if (allocated(accpg)) accpmic_prev0(:) = accpmic_prev0(:) + accpg(:)
-  if (allocated(accph)) accpmic_prev0(:) = accpmic_prev0(:) + accph(:)
+  if (allocated(accpd)) accpmic_prev0(:) = accpmic_prev0(:) + real(accpd(:))
+  if (allocated(accpr)) accpmic_prev0(:) = accpmic_prev0(:) + real(accpr(:))
+  if (allocated(accpp)) accpmic_prev0(:) = accpmic_prev0(:) + real(accpp(:))
+  if (allocated(accps)) accpmic_prev0(:) = accpmic_prev0(:) + real(accps(:))
+  if (allocated(accpa)) accpmic_prev0(:) = accpmic_prev0(:) + real(accpa(:))
+  if (allocated(accpg)) accpmic_prev0(:) = accpmic_prev0(:) + real(accpg(:))
+  if (allocated(accph)) accpmic_prev0(:) = accpmic_prev0(:) + real(accph(:))
 
-  if (allocated(aconpr)) accpcon_prev0(:) = accpcon_prev0(:) + aconpr(:)
+  if (allocated(aconpr)) accpcon_prev0(:) = accpcon_prev0(:) + real(aconpr(:))
+
+  if (allocated(rshort_accum)) rshort_accum_prev0(:) = &
+                               rshort_accum_prev0(:) + &
+                          real(rshort_accum(:))
+
+  if (allocated(rshortup_accum)) rshortup_accum_prev0(:) = &
+                                 rshortup_accum_prev0(:) + &
+                            real(rshortup_accum(:))
+
+  if (allocated(rlong_accum)) rlong_accum_prev0(:) = &
+                              rlong_accum_prev0(:) + &
+                         real(rlong_accum(:))
+
+  if (allocated(rlongup_accum)) rlongup_accum_prev0(:) = &
+                                rlongup_accum_prev0(:) + &
+                           real(rlongup_accum(:))
+
+  if (allocated(rshort_top_accum)) rshort_top_accum_prev0(:) = &
+                                   rshort_top_accum_prev0(:) + &
+                              real(rshort_top_accum(:))
+
+  if (allocated(rshortup_top_accum)) rshortup_top_accum_prev0(:) = &
+                                     rshortup_top_accum_prev0(:) + &
+                                real(rshortup_top_accum(:))
+
+  if (allocated(rlongup_top_accum)) rlongup_top_accum_prev0(:) = &
+                                    rlongup_top_accum_prev0(:) + &
+                               real(rlongup_top_accum(:))
+
+  if (allocated(sflux_t_accum)) sflux_t_accum_prev0(:) = &
+                                sflux_t_accum_prev0(:) + &
+                           real(sflux_t_accum(:))
+
+  if (allocated(sflux_r_accum)) sflux_r_accum_prev0(:) = &
+                                sflux_r_accum_prev0(:) + &
+                           real(sflux_r_accum(:))
 
   end subroutine copy_plot
 

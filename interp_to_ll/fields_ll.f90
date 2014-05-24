@@ -12,17 +12,6 @@ subroutine fields_ll()
 !     model fields if required
 ! (4) Call subroutine to interpolate each selected field to latitude-longitude array
 
-!--------------------------------------------------------------------------------
-! NOTE: Some of the fields included in this template are time-averaged surface
-! or top-of-atmosphere fluxes.  OLAM currently evaluates these as averages over
-! the time interval between consecutive history-file writes, and it therefore 
-! resets the averages to zero after each history write.  Consequently, for these
-! fields to have their correct meaning when interpolated to the latitude-longitude
-! grid, the interpolation should be done only at times when history file writes 
-! are performed.  Both the accumulation and resetting of averages are performed
-! in subroutine accum_timeavg in the source code file mem_timeavg.f90.
-!--------------------------------------------------------------------------------
-
 use mem_ijtabs,  only: itab_w, itab_u, itab_v
 use mem_basic,   only: uc, vc, wc, rho, press, theta, sh_w, sh_v, &
                        vxe, vye, vze
@@ -35,19 +24,40 @@ use mem_grid,    only: mza, mua, mva, mwa, lpu, lpv, lpw, &
 
 use misc_coms,   only: io6, meshtype, current_time, hfilepref, iclobber
 
-use mem_micro,   only: accpd, accpr, accpp, accps, accpa, accpg, accph
-
-use mem_cuparm,  only: aconpr
-
-use consts_coms, only: p00, rocp, piu180, erad, eradi, pio180, cp, alvl, rvap
-
-use mem_timeavg, only: rshort_avg, rshortup_avg, rlong_avg, rlongup_avg, &
-                       rshort_top_avg, rshortup_top_avg, rlongup_top_avg, &
-                       sflux_t_avg, sflux_r_avg
+use consts_coms, only: p00, rocp, piu180, erad, eradi, pio180, cp, alvl, rvap, r8
 
 use hdf5_utils,  only: shdf5_open, shdf5_orec, shdf5_close
 
 use max_dims,    only: pathlen
+
+! NOTE: The fields used from the MEM_MICRO, MEM_CUPARM, and MEM_FLUX_ACCUM
+! modules are time-integrated fluxes of mass or energy and have units of
+! [kg/m^2] or [J/m^2].  Their values written to any history file represent flux
+! integrals from the beginning of a simulation to the time of the history file
+! write.  Thus, time averages of a flux over any time interval can be computed
+! as the difference between the flux integrals in two different history files
+! divided by the difference in simulation times when the files were written.
+
+use mem_micro,   only: accpd, accpr, accpp, accps, accpa, accpg, accph
+
+use mem_cuparm,  only: aconpr
+
+use mem_flux_accum, only: rshort_accum, rshortup_accum, rlong_accum, rlongup_accum, &
+                          rshort_top_accum, rshortup_top_accum, rlongup_top_accum, &
+                          sflux_t_accum, sflux_r_accum
+
+! NOTE: The fields used from the MEM_TIMEAVG module are time-averaged surface
+! or top-of-atmosphere fluxes.  OLAM currently evaluates these as averages over
+! the time interval between consecutive history-file writes, and it therefore 
+! resets the averages to zero after each history write.  Consequently, for these
+! fields to have their correct meaning when interpolated to the latitude-longitude
+! grid, the interpolation should be done only at times when history file writes 
+! are performed.  Both the accumulation and resetting of averages are performed
+! in subroutine accum_timeavg in the source code file mem_timeavg.f90.
+
+use mem_timeavg, only: rshort_avg, rshortup_avg, rlong_avg, rlongup_avg, &
+                       rshort_top_avg, rshortup_top_avg, rlongup_top_avg, &
+                       sflux_t_avg, sflux_r_avg
 
 implicit none
 
@@ -58,13 +68,36 @@ implicit none
 ! LATITUDE-LONGITUDE GRID CROSS THE 180 DEGREE MERIDIAN.
 !--------------------------------------------------------------------------------
 
-integer, parameter :: nlon = 641   ! number of longitude values
-integer, parameter :: nlat = 641   ! number of latitude values
+! Global domain:
+real   , parameter :: beglon = -180.   ! minimum (westernmost) longitude (deg)
+real   , parameter :: endlon =  180.   ! maximum (easternmost) longitude (deg)
+real   , parameter :: beglat =  -90.   ! minimum (southernmost) latitude (deg)
+real   , parameter :: endlat =   90.   ! maximum (northernmost) latitude (deg)
+integer, parameter :: rf = 1           ! horiz resolution factor (pts per deg)
 
-real, parameter :: beglon = -100. ! minimum (westernmost) longitude (deg)
-real, parameter :: endlon = -20.  ! maximum (easternmost) longitude (deg)
-real, parameter :: beglat = -55.   ! minimum (southernmost) latitude (deg)
-real, parameter :: endlat = 25.   ! maximum (northernmost) latitude (deg)
+!Regional domain:
+!real   , parameter :: beglon = -92.   ! minimum (westernmost) longitude (deg)
+!real   , parameter :: endlon = -72.   ! maximum (easternmost) longitude (deg)
+!real   , parameter :: beglat =  23.   ! minimum (southernmost) latitude (deg)
+!real   , parameter :: endlat =  35.   ! maximum (northernmost) latitude (deg)
+!integer, parameter :: rf = 30         ! horiz resolution factor (pts per deg)
+
+!real   , parameter :: beglon = -91.   ! minimum (westernmost) longitude (deg)
+!real   , parameter :: endlon = -71.   ! maximum (easternmost) longitude (deg)
+!real   , parameter :: beglat =  17.   ! minimum (southernmost) latitude (deg)
+!real   , parameter :: endlat =  37.   ! maximum (northernmost) latitude (deg)
+!integer, parameter :: rf = 30         ! horiz resolution factor (pts per deg)
+
+! NLON and NLAT are the number of longitude and latitude points in the lat-lon
+! arrays that get filled by interpolation from the native OLAM grid.  They may
+! be computed from values of BEGLON, ENDLON, BEGLAT, ENDLAT, and RF, or they
+! may be specified directly.
+
+integer, parameter :: nlon = nint(endlon - beglon) * rf + 1  ! # of lon values
+integer, parameter :: nlat = nint(endlat - beglat) * rf + 1  ! # of lat values
+
+!integer, parameter :: nlon = 641   ! # of lon values
+!integer, parameter :: nlat = 641   ! # of lat values
 
 !--------------------------------------------------------------------------------
 ! THE FOLLOWING ARRAYS WILL CONTAIN THE FIELDS THAT ARE DEFINED ON THE 
@@ -92,17 +125,30 @@ real :: t_sfc_ll           (nlon,nlat) ! surface air temperature (K)
 real :: r_sfc_ll           (nlon,nlat) ! surface water vapor mixing ratio (kg/kg)
 real :: pvap_sfc_ll        (nlon,nlat) ! surface vapor pressure (Pa)
 real :: slp_ll             (nlon,nlat) ! sea level pressure (Pa)
-real :: atotpr_ll          (nlon,nlat) ! accumulated precipitation (kg/m2)
-real :: sensflux_avg_ll    (nlon,nlat) ! TA surface sensible heat flux (W/m2)
-real :: latflux_avg_ll     (nlon,nlat) ! TA surface latent heat flux (W/m2)
-real :: vapflux_avg_ll     (nlon,nlat) ! TA surface vapor flux (kg/m2/s)
-real :: rshort_avg_ll      (nlon,nlat) ! TA surface downward s/w rad flux (W/m2)
-real :: rshortup_avg_ll    (nlon,nlat) ! TA surface upward s/w rad flux (W/m2)
-real :: rlong_avg_ll       (nlon,nlat) ! TA surface downward l/w rad flux (W/m2)
-real :: rlongup_avg_ll     (nlon,nlat) ! TA surface upward l/w rad flux (W/m2)
-real :: rshort_top_avg_ll  (nlon,nlat) ! TA top of atm downward s/w rad flux (W/m2)
-real :: rshortup_top_avg_ll(nlon,nlat) ! TA top of atm upward s/w rad flux (W/m2)
-real :: rlongup_top_avg_ll (nlon,nlat) ! TA top of atm upward l/w rad flux (W/m2)
+
+real :: accpmic_ll           (nlon,nlat) ! accum microphysics precip (kg/m^2)
+real :: accpcon_ll           (nlon,nlat) ! accum convective precip (kg/m^2)
+real :: vapflux_accum_ll     (nlon,nlat) ! accum sfc vapor (kg/m^2)
+real :: sensflux_accum_ll    (nlon,nlat) ! accum sfc sensible heat (J/m^2)
+real :: latflux_accum_ll     (nlon,nlat) ! accum sfc latent heat (J/m^2)
+real :: rshort_accum_ll      (nlon,nlat) ! accum sfc downward s/w rad (J/m^2)
+real :: rshortup_accum_ll    (nlon,nlat) ! accum sfc upward s/w rad (J/m^2)
+real :: rlong_accum_ll       (nlon,nlat) ! accum sfc downward l/w rad (J/m^2)
+real :: rlongup_accum_ll     (nlon,nlat) ! accum sfc upward l/w rad (J/m^2)
+real :: rshort_top_accum_ll  (nlon,nlat) ! accum TOA downward s/w rad (J/m^2)
+real :: rshortup_top_accum_ll(nlon,nlat) ! accum TOA upward s/w rad (J/m^2)
+real :: rlongup_top_accum_ll (nlon,nlat) ! accum TOA upward l/w rad (J/m^2)
+
+real :: vapflux_avg_ll     (nlon,nlat) ! avg sfc vapor flux (kg/m^2/s)
+real :: sensflux_avg_ll    (nlon,nlat) ! avg sfc sensible heat flux (W/m^2)
+real :: latflux_avg_ll     (nlon,nlat) ! avg sfc latent heat flux (W/m^2)
+real :: rshort_avg_ll      (nlon,nlat) ! avg sfc downward s/w rad flux (W/m^2)
+real :: rshortup_avg_ll    (nlon,nlat) ! avg sfc upward s/w rad flux (W/m^2)
+real :: rlong_avg_ll       (nlon,nlat) ! avg sfc downward l/w rad flux (W/m^2)
+real :: rlongup_avg_ll     (nlon,nlat) ! avg sfc upward l/w rad flux (W/m^2)
+real :: rshort_top_avg_ll  (nlon,nlat) ! avg TOA downward s/w rad flux (W/m^2)
+real :: rshortup_top_avg_ll(nlon,nlat) ! avg TOA upward s/w rad flux (W/m^2)
+real :: rlongup_top_avg_ll (nlon,nlat) ! avg TOA upward l/w rad flux (W/m^2)
 
 !----------
 ! 3D FIELDS
@@ -114,22 +160,18 @@ real :: t_ll (nlon,nlat,mza-2) ! air temperature (K)
 real :: r_ll (nlon,nlat,mza-2) ! water vapor mixing ratio (kg/kg)
 real :: p_ll (nlon,nlat,mza-2) ! air pressure (Pa)
 
-integer :: k,iv,iw,lpuv,ilat,ilon
-integer :: npoly,kb,jv
+integer :: k,iw,ilat,ilon
+integer :: npoly,kb
 
 integer :: ndims, idims(3)
 
-real :: vx,vy,vz,raxis,raxisi,u,v
+real :: raxis,raxisi
 real :: dlon,dlat
-real :: xeuv,yeuv,zeuv,farv2
 
 real :: scr1a(mwa), scr1b(mwa)
 real :: scr2a(mza,mwa), scr2b(mza,mwa)
 real :: scr2_ll(nlon,nlat), scr3_ll(nlon,nlat,mza-2)
-
 real :: uzonal(mza,mua), umerid(mza,mua)
-
-real :: alat1,alat2
 
 ! SEIGEL 2013 - Added for ll interp writeout
 character(pathlen) :: hnamel
@@ -144,10 +186,23 @@ t_sfc_ll           (:,:) = 0.
 r_sfc_ll           (:,:) = 0.
 pvap_sfc_ll        (:,:) = 0.
 slp_ll             (:,:) = 0.
-atotpr_ll          (:,:) = 0.
+
+accpmic_ll           (:,:) = 0.
+accpcon_ll           (:,:) = 0.
+vapflux_accum_ll     (:,:) = 0.
+sensflux_accum_ll    (:,:) = 0.
+latflux_accum_ll     (:,:) = 0.
+rshort_accum_ll      (:,:) = 0.
+rshortup_accum_ll    (:,:) = 0.
+rlong_accum_ll       (:,:) = 0.
+rlongup_accum_ll     (:,:) = 0.
+rshort_top_accum_ll  (:,:) = 0.
+rshortup_top_accum_ll(:,:) = 0.
+rlongup_top_accum_ll (:,:) = 0.
+
+vapflux_avg_ll     (:,:) = 0.
 sensflux_avg_ll    (:,:) = 0.
 latflux_avg_ll     (:,:) = 0.
-vapflux_avg_ll     (:,:) = 0.
 rshort_avg_ll      (:,:) = 0.
 rshortup_avg_ll    (:,:) = 0.
 rlong_avg_ll       (:,:) = 0.
@@ -312,28 +367,69 @@ call interp_htw_ll(nlon,nlat,mza,mza-2,alon,alat,scr2a,p_ll)
 do iw = 2,mwa
    scr1a(iw) = 0.
 
-   if (allocated(accpd))  scr1a(iw) = scr1a(iw) + accpd(iw)
-   if (allocated(accpr))  scr1a(iw) = scr1a(iw) + accpr(iw)
-   if (allocated(accpp))  scr1a(iw) = scr1a(iw) + accpp(iw)
-   if (allocated(accps))  scr1a(iw) = scr1a(iw) + accps(iw)
-   if (allocated(accpa))  scr1a(iw) = scr1a(iw) + accpa(iw)
-   if (allocated(accpg))  scr1a(iw) = scr1a(iw) + accpg(iw)
-   if (allocated(accph))  scr1a(iw) = scr1a(iw) + accph(iw)
-   if (allocated(aconpr)) scr1a(iw) = scr1a(iw) + aconpr(iw)
+   if (allocated(accpd))  scr1a(iw) = scr1a(iw) + real(accpd(iw))
+   if (allocated(accpr))  scr1a(iw) = scr1a(iw) + real(accpr(iw))
+   if (allocated(accpp))  scr1a(iw) = scr1a(iw) + real(accpp(iw))
+   if (allocated(accps))  scr1a(iw) = scr1a(iw) + real(accps(iw))
+   if (allocated(accpa))  scr1a(iw) = scr1a(iw) + real(accpa(iw))
+   if (allocated(accpg))  scr1a(iw) = scr1a(iw) + real(accpg(iw))
+   if (allocated(accph))  scr1a(iw) = scr1a(iw) + real(accph(iw))
 enddo
 
 !------------------------------------------------------------
-! Interpolate total accumulated precipitation
+! Interpolate accumulated microphysics and convective precipitation
 !------------------------------------------------------------
 
-call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,atotpr_ll)
+call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,accpmic_ll)
+
+if (allocated(aconpr)) then
+   scr1a(:) = real(aconpr(:))
+   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,accpcon_ll)
+endif
+
+!------------------------------------------------------------
+! Compute (as necessary) and interpolate time-integrated surface fluxes
+!------------------------------------------------------------
+
+scr1a(:) = real(sflux_r_accum(:))
+call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,vapflux_accum_ll)
+
+scr1a(:) = real(sflux_t_accum(:)) * cp
+call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,sensflux_accum_ll)
+
+scr1a(:) = real(sflux_r_accum(:)) * alvl
+call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,latflux_accum_ll)
+
+scr1a(:) = real(rshort_accum(:))
+call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,rshort_accum_ll)
+
+scr1a(:) = real(rshortup_accum(:))
+call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,rshortup_accum_ll)
+
+scr1a(:) = real(rlong_accum(:))
+call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,rlong_accum_ll)
+
+scr1a(:) = real(rlongup_accum(:))
+call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,rlongup_accum_ll)
+
+!------------------------------------------------------------
+! Interpolate time-averaged top-of-atmosphere radiative fluxes
+!------------------------------------------------------------
+
+scr1a(:) = real(rshort_top_accum(:))
+call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,rshort_top_accum_ll)
+
+scr1a(:) = real(rshortup_top_accum(:))
+call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,rshortup_top_accum_ll)
+
+scr1a(:) = real(rlongup_top_accum(:))
+call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,rlongup_top_accum_ll)
 
 !------------------------------------------------------------
 ! Compute (as necessary) and interpolate time-averaged surface fluxes
 !------------------------------------------------------------
 
 scr1a(:) = sflux_t_avg(:) * cp
-
 call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,sensflux_avg_ll)
 
 scr1a(:) = sflux_r_avg(:) * alvl
@@ -377,31 +473,48 @@ call interp_htw_ll(nlon,nlat,1,1,alon,alat,rlongup_top_avg,rlongup_top_avg_ll)
   CALL shdf5_orec(ndims, idims, 'ZLEV', rvara=zlev)
 
   ndims = 2
-  idims(1) = nlat
-  idims(2) = nlon
+  !idims(1) = nlat
+  !idims(2) = nlon
+  idims(1) = nlon
+  idims(2) = nlat
 
   CALL shdf5_orec(ndims, idims, 'TOPO_LL'            , rvara=topo_ll)
-  CALL shdf5_orec(ndims, idims, 'U_SFc_LL'           , rvara=u_sfc_ll)
+  CALL shdf5_orec(ndims, idims, 'U_SFC_LL'           , rvara=u_sfc_ll)
   CALL shdf5_orec(ndims, idims, 'V_SFC_LL'           , rvara=v_sfc_ll)
   CALL shdf5_orec(ndims, idims, 'T_SFC_LL'           , rvara=t_sfc_ll)
   CALL shdf5_orec(ndims, idims, 'R_SFC_LL'           , rvara=r_sfc_ll)
   CALL shdf5_orec(ndims, idims, 'SLP_LL'             , rvara=slp_ll)
   CALL shdf5_orec(ndims, idims, 'PVAP_SFC_LL'        , rvara=pvap_sfc_ll)
-  CALL shdf5_orec(ndims, idims, 'ATOTPR_LL'          , rvara=atotpr_ll)
+
+  CALL shdf5_orec(ndims, idims, 'ACCPMIC_LL'           , rvara=accpmic_ll)
+  CALL shdf5_orec(ndims, idims, 'ACCPCON_LL'           , rvara=accpcon_ll)
+  CALL shdf5_orec(ndims, idims, 'VAPFLUX_ACCUM_LL'     , rvara=vapflux_accum_ll)
+  CALL shdf5_orec(ndims, idims, 'SENSFLUX_ACCUM_LL'    , rvara=sensflux_accum_ll)
+  CALL shdf5_orec(ndims, idims, 'LATFLUX_ACCUM_LL'     , rvara=latflux_accum_ll)
+  CALL shdf5_orec(ndims, idims, 'RSHORT_ACCUM_LL'      , rvara=rshort_accum_ll)
+  CALL shdf5_orec(ndims, idims, 'RSHORTUP_ACCUM_LL'    , rvara=rshortup_accum_ll)
+  CALL shdf5_orec(ndims, idims, 'RLONG_ACCUM_LL'       , rvara=rlong_accum_ll)
+  CALL shdf5_orec(ndims, idims, 'RLONGUP_ACCUM_LL'     , rvara=rlongup_accum_ll)
+  CALL shdf5_orec(ndims, idims, 'RSHORT_TOP_ACCUM_LL'  , rvara=rshort_top_accum_ll)
+  CALL shdf5_orec(ndims, idims, 'RSHORTUP_TOP_ACCUM_LL', rvara=rshortup_top_accum_ll)
+  CALL shdf5_orec(ndims, idims, 'RLONGUP_TOP_ACCUM_LL' , rvara=rlongup_top_accum_ll)
+
+  CALL shdf5_orec(ndims, idims, 'VAPFLUX_AVG_LL'     , rvara=vapflux_avg_ll)
   CALL shdf5_orec(ndims, idims, 'SENSFLUX_AVG_LL'    , rvara=sensflux_avg_ll)
   CALL shdf5_orec(ndims, idims, 'LATFLUX_AVG_LL'     , rvara=latflux_avg_ll)
-  CALL shdf5_orec(ndims, idims, 'VAPFLUX_AVG_LL'     , rvara=vapflux_avg_ll)
   CALL shdf5_orec(ndims, idims, 'RSHORT_AVG_LL'      , rvara=rshort_avg_ll)
   CALL shdf5_orec(ndims, idims, 'RSHORTUP_AVG_LL'    , rvara=rshortup_avg_ll)
   CALL shdf5_orec(ndims, idims, 'RLONG_AVG_LL'       , rvara=rlong_avg_ll)
   CALL shdf5_orec(ndims, idims, 'RLONGUP_AVG_LL'     , rvara=rlongup_avg_ll)
   CALL shdf5_orec(ndims, idims, 'RSHORT_TOP_AVG_LL'  , rvara=rshort_top_avg_ll)
   CALL shdf5_orec(ndims, idims, 'RSHORTUP_TOP_AVG_LL', rvara=rshortup_top_avg_ll)
-  CALL shdf5_orec(ndims, idims, 'RLONGUP_TOP_AVG_LL' , RVARA=RLONGUP_TOP_AVG_LL)
+  CALL shdf5_orec(ndims, idims, 'RLONGUP_TOP_AVG_LL' , rvara=rlongup_top_avg_ll)
 
   ndims = 3
-  idims(1) = nlat
-  idims(2) = nlon
+  !idims(1) = nlat
+  !idims(2) = nlon
+  idims(1) = nlon
+  idims(2) = nlat
   idims(3) = mza-2
 
   CALL shdf5_orec(ndims, idims, 'U_LL', rvara=u_ll)
@@ -430,11 +543,26 @@ call interp_htw_ll(nlon,nlat,1,1,alon,alat,rlongup_top_avg,rlongup_top_avg_ll)
  scr2_ll(:,:) = slp_ll(:,:) * .01 
  call contplot_ll(nlon,nlat,1,1,alon,alat,scr2_ll,17)
  call contplot_ll(nlon,nlat,1,1,alon,alat,pvap_sfc_ll,35)
- call contplot_ll(nlon,nlat,1,1,alon,alat,atotpr_ll,54)
 
+ call contplot_ll(nlon,nlat,1,1,alon,alat,accpmic_ll,54)
+ call contplot_ll(nlon,nlat,1,1,alon,alat,accpcon_ll,54)
+
+ call contplot_ll(nlon,nlat,1,1,alon,alat,vapflux_accum_ll,306)
+ call contplot_ll(nlon,nlat,1,1,alon,alat,sensflux_accum_ll,163)
+ call contplot_ll(nlon,nlat,1,1,alon,alat,latflux_accum_ll,163)
+
+ call contplot_ll(nlon,nlat,1,1,alon,alat,rshort_accum_ll,63)
+ call contplot_ll(nlon,nlat,1,1,alon,alat,rshortup_accum_ll,63)
+ call contplot_ll(nlon,nlat,1,1,alon,alat,rlong_accum_ll,63)
+ call contplot_ll(nlon,nlat,1,1,alon,alat,rlongup_accum_ll,63)
+
+ call contplot_ll(nlon,nlat,1,1,alon,alat,rshort_top_accum_ll,63)
+ call contplot_ll(nlon,nlat,1,1,alon,alat,rshortup_top_accum_ll,63)
+ call contplot_ll(nlon,nlat,1,1,alon,alat,rlongup_top_accum_ll,63)
+
+ call contplot_ll(nlon,nlat,1,1,alon,alat,vapflux_avg_ll,306)
  call contplot_ll(nlon,nlat,1,1,alon,alat,sensflux_avg_ll,102)
  call contplot_ll(nlon,nlat,1,1,alon,alat,latflux_avg_ll,102)
- call contplot_ll(nlon,nlat,1,1,alon,alat,vapflux_avg_ll,306)
 
  call contplot_ll(nlon,nlat,1,1,alon,alat,rshort_avg_ll,102)
  call contplot_ll(nlon,nlat,1,1,alon,alat,rshortup_avg_ll,102)
@@ -489,6 +617,9 @@ op%xmin = 2. * glon(1) - glon(2)
 op%xmax = 2. * glon(nlon) - glon(nlon-1)
 op%ymin = 2. * alat(1) - alat(2)
 op%ymax = 2. * alat(nlat) - alat(nlat-1)
+
+! The following call to o_set uses full plot window, which will distort shape
+! unless op%xmax - op%xmin = op%ymax - op%ymin
 
 call o_set(0.,1.,0.,1.,op%xmin,op%xmax,op%ymin,op%ymax,1)
 
@@ -578,6 +709,9 @@ op%xmin = 2. * glon(1) - glon(2)
 op%xmax = 2. * glon(nlon) - glon(nlon-1)
 op%ymin = 2. * alat(1) - alat(2)
 op%ymax = 2. * alat(nlat) - alat(nlat-1)
+
+! The following call to o_set uses full plot window, which will distort shape
+! unless op%xmax - op%xmin = op%ymax - op%ymin
 
 call o_set(0.,1.,0.,1.,op%xmin,op%xmax,op%ymin,op%ymax,1)
 

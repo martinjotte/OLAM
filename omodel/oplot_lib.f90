@@ -72,6 +72,9 @@ use sea_coms,    only: mws
 use mem_timeavg, only: rshort_avg, rshortup_avg, rlong_avg, rlongup_avg, &
                        rshort_top_avg, rshortup_top_avg, rlongup_top_avg, &
                        sflux_t_avg, sflux_r_avg
+use mem_flux_accum, only: rshort_accum, rshortup_accum, rlong_accum, rlongup_accum, &
+                          rshort_top_accum, rshortup_top_accum, rlongup_top_accum, &
+                          sflux_t_accum, sflux_r_accum
 
   use mem_average_vars, only: &
      npoints_mavg, npoints_davg, npoints_avg24, nz_avg, &
@@ -109,7 +112,17 @@ use mem_plot, only: time8_prev0, accpmic_prev0, accpcon_prev0, &
                     time8_prev2, accpmic_prev2, accpcon_prev2, &
                     time8_prev3, accpmic_prev3, accpcon_prev3, &
                      press_init,      rho_init,    theta_init, &
-                        uc_init,       vc_init,   addsc1_init
+                        uc_init,       vc_init,   addsc1_init, &
+                    rshort_accum_prev0,     rshortup_accum_prev0,     &
+                    rshort_accum_prev1,     rshortup_accum_prev1,     &
+                    rlong_accum_prev0,      rlongup_accum_prev0,      &
+                    rlong_accum_prev1,      rlongup_accum_prev1,      &
+                    rshort_top_accum_prev0, rshortup_top_accum_prev0, &
+                    rshort_top_accum_prev1, rshortup_top_accum_prev1, &
+                    rlongup_top_accum_prev0,                          &
+                    rlongup_top_accum_prev1,                          &
+                    sflux_t_accum_prev0,    sflux_r_accum_prev0,      &
+                    sflux_t_accum_prev1,    sflux_r_accum_prev1
 
 implicit none
 
@@ -146,7 +159,7 @@ real, save, allocatable :: aux(:)
 
 real :: zanal_swtc5, zanal0_swtc5
 
-integer, parameter :: nfields = 368
+integer, parameter :: nfields = 378
 character(len=40) :: fldlib(4,nfields)
 character(len=40), save :: fldname
 
@@ -545,7 +558,7 @@ data fldlib(1:4,279:332)/ &
  'FTOA_LATFLUX_DAVG'  ,'T2','DAY-AVG FTOA LAT HEAT FLUX',' (W m:S2:-2  )'     ,& ! 331
  'PRESS_AVG24'      ,'T2','MONTH-AVG HOURLY PRESSURE',' (hPa)'               / ! 332
 
-data fldlib(1:4,333:342)/ &
+data fldlib(1:4,333:352)/ &
  'RSHORT_AVG'      ,'T2' ,'AVG SFC DOWNWARD SHORTWV FLX',' (W m:S2:-2  )'   ,& ! 333
  'RSHORTUP_AVG'    ,'T2' ,'AVG SFC UPWARD SHORTWV FLX',' (W m:S2:-2  )'     ,& ! 334
  'RLONG_AVG'       ,'T2' ,'AVG SFC DOWNWARD LONGWV FLX',' (W m:S2:-2  )'    ,& ! 335
@@ -555,41 +568,51 @@ data fldlib(1:4,333:342)/ &
  'RLONGUP_TOP_AVG' ,'T2' ,'AVG TOP UPWARD LONGWV FLX',' (W m:S2:-2  )'      ,& ! 339
  'SENSFLUX_AVG'    ,'T2' ,'AVG ATM SFC SENS HEAT FLUX',' (N m:S2:-2  )'     ,& ! 340
  'LATFLUX_AVG'     ,'T2' ,'AVG ATM SFC LAT HEAT FLUX',' (W m:S2:-2  )'      ,& ! 341
- 'VAPFLUX_AVG'     ,'T2' ,'AVG ATM SFC VAP FLUX',' (kg m:S2:-2   s:S2:-1  )' / ! 342
+ 'VAPFLUX_AVG'     ,'T2' ,'AVG ATM SFC VAP FLUX',' (kg m:S2:-2   s:S2:-1  )',& ! 342
+ 'RSHORT_DIF2'      ,'T2' ,'SFC DOWNWARD SHORTWV FLX DIF2',' (W m:S2:-2  )'   ,& ! 343
+ 'RSHORTUP_DIF2'    ,'T2' ,'SFC UPWARD SHORTWV FLX DIF2',' (W m:S2:-2  )'     ,& ! 344
+ 'RLONG_DIF2'       ,'T2' ,'SFC DOWNWARD LONGWV FLX DIF2',' (W m:S2:-2  )'    ,& ! 345
+ 'RLONGUP_DIF2'     ,'T2' ,'SFC UPWARD LONGWV FLX DIF2',' (W m:S2:-2  )'      ,& ! 346
+ 'RSHORT_TOP_DIF2'  ,'T2' ,'TOP DOWNWARD SHORTWV FLX DIF2',' (W m:S2:-2  )'   ,& ! 347
+ 'RSHORTUP_TOP_DIF2','T2' ,'TOP UPWARD SHORTWV FLX DIF2',' (W m:S2:-2  )'     ,& ! 348
+ 'RLONGUP_TOP_DIF2' ,'T2' ,'TOP UPWARD LONGWV FLX DIF2',' (W m:S2:-2  )'      ,& ! 349
+ 'SENSFLUX_DIF2'    ,'T2' ,'ATM SFC SENS HEAT FLUX DIF2',' (N m:S2:-2  )'     ,& ! 350
+ 'LATFLUX_DIF2'     ,'T2' ,'ATM SFC LAT HEAT FLUX DIF2',' (W m:S2:-2  )'      ,& ! 351
+ 'VAPFLUX_DIF2'     ,'T2' ,'ATM SFC VAP FLUX DIF2',' (kg m:S2:-2   s:S2:-1  )' / ! 352
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,343:365)/ &
- 'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 343
- 'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 344
- 'SHW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 345
- 'UZONAL_OBS'    ,'T3' ,'NUDGING OBS ZONAL WIND',' (m s:S2:-1  )'           ,& ! 346
- 'UMERID_OBS'    ,'T3' ,'NUDGING OBS MERID WIND',' (m s:S2:-1  )'           ,& ! 347
- 'RHO_SIM'       ,'T3' ,'NUDGING SIM AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 348
- 'THETA_SIM'     ,'T3' ,'NUDGING SIM THETA',' (K)'                          ,& ! 349
- 'SHW_SIM'       ,'T3' ,'NUDGING SIM VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 350
- 'UZONAL_SIM'    ,'T3' ,'NUDGING SIM ZONAL WIND',' (m s:S2:-1  )'           ,& ! 351
- 'UMERID_SIM'    ,'T3' ,'NUDGING SIM MERID WIND',' (m s:S2:-1  )'           ,& ! 352
- 'RHO_OBS_SIM'   ,'T3' ,'NUDGING DIF AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 353
- 'THETA_OBS_SIM' ,'T3' ,'NUDGING DIF THETA',' (K)'                          ,& ! 354
- 'SHW_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 355
- 'UZONAL_OBS_SIM','T3' ,'NUDGING DIF ZONAL WIND',' (m s:S2:-1  )'           ,& ! 356
- 'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'           ,& ! 357
- 'VXE'           ,'T3' ,'EARTH CARTESIAN X WIND',' (m s:S2:-1  )'           ,& ! 358
- 'VYE'           ,'T3' ,'EARTH CARTESIAN Y WIND',' (m s:S2:-1  )'           ,& ! 359
- 'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'           ,& ! 360
- 'PBLH'          ,'T2' ,'PBL HEIGHT',' (m)'                                 ,& ! 361
- 'HKM'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 362
- 'HEAD0'         ,'L2' ,'HEAD0',' (m)'                                      ,& ! 363
- 'SHW_HCONV'     ,'T2' ,'TOTAL WATER HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 364
- 'SHV_HCONV'     ,'T2' ,'WATER VAPOR HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )' / ! 365
+data fldlib(1:4,353:375)/ &
+ 'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 353
+ 'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 354
+ 'SHW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 355
+ 'UZONAL_OBS'    ,'T3' ,'NUDGING OBS ZONAL WIND',' (m s:S2:-1  )'           ,& ! 356
+ 'UMERID_OBS'    ,'T3' ,'NUDGING OBS MERID WIND',' (m s:S2:-1  )'           ,& ! 357
+ 'RHO_SIM'       ,'T3' ,'NUDGING SIM AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 358
+ 'THETA_SIM'     ,'T3' ,'NUDGING SIM THETA',' (K)'                          ,& ! 359
+ 'SHW_SIM'       ,'T3' ,'NUDGING SIM VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 360
+ 'UZONAL_SIM'    ,'T3' ,'NUDGING SIM ZONAL WIND',' (m s:S2:-1  )'           ,& ! 361
+ 'UMERID_SIM'    ,'T3' ,'NUDGING SIM MERID WIND',' (m s:S2:-1  )'           ,& ! 362
+ 'RHO_OBS_SIM'   ,'T3' ,'NUDGING DIF AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 363
+ 'THETA_OBS_SIM' ,'T3' ,'NUDGING DIF THETA',' (K)'                          ,& ! 364
+ 'SHW_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 365
+ 'UZONAL_OBS_SIM','T3' ,'NUDGING DIF ZONAL WIND',' (m s:S2:-1  )'           ,& ! 366
+ 'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'           ,& ! 367
+ 'VXE'           ,'T3' ,'EARTH CARTESIAN X WIND',' (m s:S2:-1  )'           ,& ! 368
+ 'VYE'           ,'T3' ,'EARTH CARTESIAN Y WIND',' (m s:S2:-1  )'           ,& ! 369
+ 'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'           ,& ! 370
+ 'PBLH'          ,'T2' ,'PBL HEIGHT',' (m)'                                 ,& ! 371
+ 'HKM'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 372
+ 'HEAD0'         ,'L2' ,'HEAD0',' (m)'                                      ,& ! 373
+ 'SHW_HCONV'     ,'T2' ,'TOTAL WATER HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 374
+ 'SHV_HCONV'     ,'T2' ,'WATER VAPOR HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )' / ! 375
 
 ! External fields
 
-data fldlib(1:4,366:368)/ &
- 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 366
- 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 367
- 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 368
+data fldlib(1:4,376:378)/ &
+ 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 376
+ 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 377
+ 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 378
 
 if (icall /= 1) then
    icall = 1
@@ -1532,74 +1555,74 @@ case(91) ! 'ACCPD'
 
    if (.not. allocated(accpd)) go to 1000
 
-   fldval = accpd(i)
+   fldval = real(accpd(i))
 
 case(92) ! 'ACCPR'
 
    if (.not. allocated(accpr)) go to 1000
 
-   fldval = accpr(i)
+   fldval = real(accpr(i))
 
 case(93) ! 'ACCPP'
 
    if (.not. allocated(accpp)) go to 1000
 
-   fldval = accpp(i)
+   fldval = real(accpp(i))
 
 case(94) ! 'ACCPS'
 
    if (.not. allocated(accps)) go to 1000
 
-   fldval = accps(i)
+   fldval = real(accps(i))
 
 case(95) ! 'ACCPA'
 
    if (.not. allocated(accpa)) go to 1000
 
-   fldval = accpa(i)
+   fldval = real(accpa(i))
 
 case(96) ! 'ACCPG'
 
    if (.not. allocated(accpg)) go to 1000
 
-   fldval = accpg(i)
+   fldval = real(accpg(i))
 
 case(97) ! 'ACCPH'
 
    if (.not. allocated(accph)) go to 1000
 
-   fldval = accph(i)
+   fldval = real(accph(i))
 
 case(98) ! 'ACCPMIC'
 
    fldval = 0.
 
-   if (allocated(accpd)) fldval = fldval + accpd(i)
-   if (allocated(accpr)) fldval = fldval + accpr(i)
-   if (allocated(accpp)) fldval = fldval + accpp(i)
-   if (allocated(accps)) fldval = fldval + accps(i)
-   if (allocated(accpa)) fldval = fldval + accpa(i)
-   if (allocated(accpg)) fldval = fldval + accpg(i)
-   if (allocated(accph)) fldval = fldval + accph(i)
+   if (allocated(accpd)) fldval = fldval + real(accpd(i))
+   if (allocated(accpr)) fldval = fldval + real(accpr(i))
+   if (allocated(accpp)) fldval = fldval + real(accpp(i))
+   if (allocated(accps)) fldval = fldval + real(accps(i))
+   if (allocated(accpa)) fldval = fldval + real(accpa(i))
+   if (allocated(accpg)) fldval = fldval + real(accpg(i))
+   if (allocated(accph)) fldval = fldval + real(accph(i))
 
 case(99) ! 'ACCPCON'
 
    if (.not. allocated(aconpr)) go to 1000
 
-   fldval = aconpr(i)
+   fldval = real(aconpr(i))
 
 case(100) ! 'ACCPBOTH'
 
    fldval = 0.
 
-   if (allocated(accpd)) fldval = fldval + accpd(i)
-   if (allocated(accpr)) fldval = fldval + accpr(i)
-   if (allocated(accpp)) fldval = fldval + accpp(i)
-   if (allocated(accps)) fldval = fldval + accps(i)
-   if (allocated(accpa)) fldval = fldval + accpa(i)
-   if (allocated(accpg)) fldval = fldval + accpg(i)
-   if (allocated(accph)) fldval = fldval + accph(i)
-   if (allocated(aconpr)) fldval = fldval + aconpr(i)
+   if (allocated(accpd)) fldval = fldval + real(accpd(i))
+   if (allocated(accpr)) fldval = fldval + real(accpr(i))
+   if (allocated(accpp)) fldval = fldval + real(accpp(i))
+   if (allocated(accps)) fldval = fldval + real(accps(i))
+   if (allocated(accpa)) fldval = fldval + real(accpa(i))
+   if (allocated(accpg)) fldval = fldval + real(accpg(i))
+   if (allocated(accph)) fldval = fldval + real(accph(i))
+   if (allocated(aconpr)) fldval = fldval + real(aconpr(i))
 
 case(101) ! 'PCPDIF2MIC'
 
@@ -2940,78 +2963,178 @@ case(342) ! 'VAPFLUX_AVG'
 
    fldval = sflux_r_avg(i)
 
+case(343) ! 'RSHORT_DIF2'
+
+   if (.not. allocated(rshort_accum)) go to 1000
+
+   fldval = rshort_accum_prev0(i) - rshort_accum_prev1(i)
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval / (time8_prev0 - time8_prev1)
+   endif
+
+case(344) ! 'RSHORTUP_DIF2'
+
+   if (.not. allocated(rshortup_accum)) go to 1000
+
+   fldval = rshortup_accum_prev0(i) - rshortup_accum_prev1(i)
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval / (time8_prev0 - time8_prev1)
+   endif
+
+case(345) ! 'RLONG_DIF2'
+
+   if (.not. allocated(rlong_accum)) go to 1000
+
+   fldval = rlong_accum_prev0(i) - rlong_accum_prev1(i)
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval / (time8_prev0 - time8_prev1)
+   endif
+
+case(346) ! 'RLONGUP_DIF2'
+
+   if (.not. allocated(rlongup_accum)) go to 1000
+
+   fldval = rlongup_accum_prev0(i) - rlongup_accum_prev1(i)
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval / (time8_prev0 - time8_prev1)
+   endif
+
+case(347) ! 'RSHORT_TOP_DIF2'
+
+   if (.not. allocated(rshort_top_accum)) go to 1000
+
+   fldval = rshort_top_accum_prev0(i) - rshort_top_accum_prev1(i)
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval / (time8_prev0 - time8_prev1)
+   endif
+
+case(348) ! 'RSHORTUP_TOP_DIF2'
+
+   if (.not. allocated(rshortup_top_accum)) go to 1000
+
+   fldval = rshortup_top_accum_prev0(i) - rshortup_top_accum_prev1(i)
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval / (time8_prev0 - time8_prev1)
+   endif
+
+case(349) ! 'RLONGUP_TOP_DIF2'
+
+   if (.not. allocated(rlongup_top_accum)) go to 1000
+
+   fldval = rlongup_top_accum_prev0(i) - rlongup_top_accum_prev1(i)
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval / (time8_prev0 - time8_prev1)
+   endif
+
+case(350) ! 'SENSFLUX_DIF2'
+
+   if (.not. allocated(sflux_t_accum)) go to 1000
+
+   fldval = sflux_t_accum_prev0(i) * cp - sflux_t_accum_prev1(i) * cp
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval / (time8_prev0 - time8_prev1)
+   endif
+
+case(351) ! 'LATFLUX_DIF2'
+
+   if (.not. allocated(sflux_r_accum)) go to 1000
+
+   fldval = sflux_r_accum_prev0(i) * alvl - sflux_r_accum_prev1(i) * alvl
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval / (time8_prev0 - time8_prev1)
+   endif
+
+case(352) ! 'VAPFLUX_DIF2'
+
+   if (.not. allocated(sflux_r_accum)) go to 1000
+
+   fldval = sflux_r_accum_prev0(i) - sflux_r_accum_prev1(i)
+
+   if (time8_prev0 - time8_prev1 > .99) then
+      fldval = fldval / (time8_prev0 - time8_prev1)
+   endif
+
 ! Miscellaneous and new additions
 
-case(343) ! 'RHO_OBS'
+case(353) ! 'RHO_OBS'
 
    if (.not. allocated(rho_obs)) go to 1000
 
    fldval = rho_obs(k,itab_w(i)%iwnud(1))
 
-case(344) ! 'THETA_OBS'
+case(354) ! 'THETA_OBS'
 
    if (.not. allocated(theta_obs)) go to 1000
 
 !   fldval = theta_obs(k,itab_w(i)%iwnud(1))
    fldval = theta_obs(k,i)
 
-case(345) ! 'SHW_OBS'
+case(355) ! 'SHW_OBS'
 
    if (.not. allocated(shw_obs)) go to 1000
 
    fldval = shw_obs(k,itab_w(i)%iwnud(1)) * 1.e3
 
-case(346) ! 'UZONAL_OBS'
+case(356) ! 'UZONAL_OBS'
 
    if (.not. allocated(uzonal_obs)) go to 1000
 
    fldval = uzonal_obs(k,itab_w(i)%iwnud(1))
 
-case(347) ! 'UMERID_OBS'
+case(357) ! 'UMERID_OBS'
 
    if (.not. allocated(umerid_obs)) go to 1000
 
    fldval = umerid_obs(k,itab_w(i)%iwnud(1))
 
-case(348) ! 'RHO_SIM'
+case(358) ! 'RHO_SIM'
 
    if (.not. allocated(rho_sim)) go to 1000
 
    fldval = rho_sim(k,itab_w(i)%iwnud(1))
 
-case(349) ! 'THETA_SIM'
+case(359) ! 'THETA_SIM'
 
    if (.not. allocated(theta_sim)) go to 1000
 
 !   fldval = theta_sim(k,itab_w(i)%iwnud(1))
    fldval = theta_sim(k,i)
 
-case(350) ! 'SHW_SIM'
+case(360) ! 'SHW_SIM'
 
    if (.not. allocated(shw_sim)) go to 1000
 
    fldval = shw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
 
-case(351) ! 'UZONAL_SIM'
+case(361) ! 'UZONAL_SIM'
 
    if (.not. allocated(uzonal_sim)) go to 1000
 
    fldval = uzonal_sim(k,itab_w(i)%iwnud(1))
 
-case(352) ! 'UMERID_SIM'
+case(362) ! 'UMERID_SIM'
 
    if (.not. allocated(umerid_sim)) go to 1000
 
    fldval = umerid_sim(k,itab_w(i)%iwnud(1))
 
-case(353) ! 'RHO_OBS_SIM'
+case(363) ! 'RHO_OBS_SIM'
 
    if (.not. allocated(rho_sim)) go to 1000
 
    fldval = rho_obs(k,itab_w(i)%iwnud(1)) &
           - rho_sim(k,itab_w(i)%iwnud(1))
 
-case(354) ! 'THETA_OBS_SIM'
+case(364) ! 'THETA_OBS_SIM'
 
    if (.not. allocated(theta_sim)) go to 1000
 
@@ -3020,66 +3143,66 @@ case(354) ! 'THETA_OBS_SIM'
    fldval = theta_obs(k,i) &
           - theta_sim(k,i)
 
-case(355) ! 'SHW_OBS_SIM'
+case(365) ! 'SHW_OBS_SIM'
 
    if (.not. allocated(shw_sim)) go to 1000
 
    fldval = shw_obs(k,itab_w(i)%iwnud(1)) * 1.e3 &
           - shw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
 
-case(356) ! 'UZONAL_OBS_SIM'
+case(366) ! 'UZONAL_OBS_SIM'
 
    if (.not. allocated(uzonal_sim)) go to 1000
 
    fldval = uzonal_obs(k,itab_w(i)%iwnud(1)) &
           - uzonal_sim(k,itab_w(i)%iwnud(1))
 
-case(357) ! 'UMERID_OBS_SIM'
+case(367) ! 'UMERID_OBS_SIM'
 
    if (.not. allocated(umerid_sim)) go to 1000
 
    fldval = umerid_obs(k,itab_w(i)%iwnud(1)) &
           - umerid_sim(k,itab_w(i)%iwnud(1))
 
-case(358) ! 'VXE'
+case(368) ! 'VXE'
 
    if (.not. allocated(vxe)) go to 1000
 
    fldval = wtbot * vxe(k  ,i) &
           + wttop * vxe(k+1,i)
 
-case(359) ! 'VYE'
+case(369) ! 'VYE'
 
    if (.not. allocated(vye)) go to 1000
 
    fldval = wtbot * vye(k  ,i) &
           + wttop * vye(k+1,i)
 
-case(360) ! 'VZE'
+case(370) ! 'VZE'
 
    if (.not. allocated(vze)) go to 1000
 
    fldval = wtbot * vze(k  ,i) &
           + wttop * vze(k+1,i)
 
-case(361) ! 'PBLH'
+case(371) ! 'PBLH'
 
    if (.not. allocated(pblh)) go to 1000
 
    fldval = pblh(i)
 
-case(362) ! 'HKM'
+case(372) ! 'HKM'
 
    if (.not. allocated(hkm)) go to 1000
 
    fldval = wtbot * hkm(k  ,i) / rho(k  ,i) &
           + wttop * hkm(k+1,i) / rho(k+1,i)
 
-case(363) ! 'HEAD0'
+case(373) ! 'HEAD0'
 
    fldval = land%head0(i)
 
-case(364) ! 'SHW_HCONV'
+case(374) ! 'SHW_HCONV'
 
    fldval = 0.
 
@@ -3099,7 +3222,7 @@ case(364) ! 'SHW_HCONV'
 
    fldval = fldval / arw0(i)
 
-case(365) ! 'SHV_HCONV'
+case(375) ! 'SHV_HCONV'
 
    fldval = 0.
 

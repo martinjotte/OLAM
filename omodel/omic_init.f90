@@ -45,6 +45,8 @@ use misc_coms,   only: io6, dtlm, runtype
 use mem_ijtabs,  only: jtab_w, mrls, jtw_init
 use mem_grid,    only: mza, zm, dzt, dzit
 use mem_para,    only: myrank
+use consts_coms, only: r8
+
 
 use micro_coms,  only: level, icloud, idriz, irain, ipris, isnow, iaggr, &
                        igraup, ihail, jnmb, ncat, nhcat, nembc, gnu, emb0, &
@@ -91,45 +93,45 @@ if (runtype == 'INITIAL') then
 
       if (idriz >= 1)  then
          sh_d(1:mza,iw) = 0.
-         accpd(iw) = 0.
+         accpd(iw) = 0._r8
          pcprd(iw) = 0.
       endif
 
       if (irain >= 1)  then
          sh_r(1:mza,iw) = 0.
-         accpr(iw) = 0.
+         accpr(iw) = 0._r8
          pcprr(iw) = 0.
          q2(1:mza,iw) = tair(1:mza,iw) - 193.15
       endif
    
       if (ipris >= 1)  then
          sh_p(1:mza,iw) = 0.
-         accpp(iw) = 0.
+         accpp(iw) = 0._r8
          pcprp(iw) = 0.
       endif
 
       if (isnow >= 1)  then
          sh_s(1:mza,iw) = 0.
-         accps(iw) = 0.
+         accps(iw) = 0._r8
          pcprs(iw) = 0.
       endif
 
       if (iaggr >= 1)  then
          sh_a(1:mza,iw) = 0.
-         accpa(iw) = 0.
+         accpa(iw) = 0._r8
          pcpra(iw) = 0.
       endif
 
       if (igraup >= 1) then
          sh_g(1:mza,iw) = 0.
-         accpg(iw) = 0.
+         accpg(iw) = 0._r8
          pcprg(iw) = 0.
          q6(1:mza,iw) = .5 * min(0.,tair(1:mza,iw) - 273.15)
       endif
 
       if (ihail >= 1)  then
          sh_h(1:mza,iw) = 0.
-         accph(iw) = 0.
+         accph(iw) = 0._r8
          pcprh(iw) = 0.
          q7(1:mza,iw) = .5 * min(0.,tair(1:mza,iw) - 273.15)
       endif

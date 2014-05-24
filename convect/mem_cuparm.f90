@@ -33,9 +33,11 @@
 
 Module mem_cuparm
 
+   use consts_coms, only: r8
+
    real,    allocatable, target :: thsrc (:,:)
    real,    allocatable, target :: rtsrc (:,:)
-   real,    allocatable, target :: aconpr  (:)
+   real(r8),allocatable, target :: aconpr  (:)
    real,    allocatable, target :: conprr  (:)
    real,    allocatable, target :: vxsrc (:,:)
    real,    allocatable, target :: vysrc (:,:)
@@ -53,6 +55,8 @@ Contains
 
     use misc_coms,  only: rinit
     use oname_coms, only: nl
+    use consts_coms, only: r8
+
     implicit none
 
     integer, intent(in) :: mza, mwa, mrls
@@ -64,7 +68,7 @@ Contains
        
        allocate (thsrc(mza,mwa)) ; thsrc  = 0.0
        allocate (rtsrc(mza,mwa)) ; rtsrc  = 0.0
-       allocate (aconpr   (mwa)) ; aconpr = 0.0
+       allocate (aconpr   (mwa)) ; aconpr = 0.0_r8
        allocate (conprr   (mwa)) ; conprr = 0.0
 
        ! Extra arrays for momentum mixing
@@ -122,7 +126,7 @@ Contains
 
      if (allocated(aconpr)) then
         call increment_vtable('ACONPR', 'AW')
-        vtab_r(num_var)%rvar1_p => aconpr
+        vtab_r(num_var)%dvar1_p => aconpr
      endif
 
      if (allocated(conprr)) then
