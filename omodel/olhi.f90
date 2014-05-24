@@ -38,8 +38,8 @@ use mem_micro,   only: sh_c
 use micro_coms,  only: level
 use mem_ijtabs,  only: jtab_w, jtab_u, itab_u, jtab_v, itab_v, &
                        jtu_init, jtv_init, jtw_init
-use consts_coms, only: p00, p00i, rocp, cvocp, p00k, rdry, rvap, alvlocp, gravo2
-use mem_grid,    only: mza, mua, mva, mwa, lcu, lpv, zt, dzt, zm, &
+use consts_coms, only: p00, p00i, rocp, cvocp, p00k, rdry, rvap, alvlocp, grav
+use mem_grid,    only: mza, mua, mva, mwa, lcu, lpv, zt, zm, dzt_top, dzt_bot, &
                        xeu, yeu, zeu, xev, yev, zev, unx, uny, vnx, vny, &
                        glatw, aru, arv
 use mem_zonavg,  only: zonz_vect, zonu_vect, zont_vect, zonr_vect,  &
@@ -146,7 +146,7 @@ call qsub('W',iw)
 
          if (k >= 2) then
             pkhyd = press(k-1,iw)  &
-               - gravo2 * (rho(k-1,iw) * dzt(k-1) + rho(k,iw) * dzt(k))
+               - grav * (rho(k-1,iw) * dzt_top(k-1) + rho(k,iw) * dzt_bot(k))
 ! Impose minimum value of .01 Pa to avoid overshoot to negative values 
 ! during iteration.  Use weighting to damp oscillations
             press(k,iw) = .15 * press(k,iw) + .85 * max(.01,pkhyd)

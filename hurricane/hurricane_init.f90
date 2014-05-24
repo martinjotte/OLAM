@@ -1198,7 +1198,7 @@ Contains
 ! Hydrostatically integrate downward using weighting to damp oscillations
 
            pkhyd = press(k+1,iw)  &
-                 + gravo2 * (rho(k+1,iw) * dzt(k+1) + rho(k,iw) * dzt(k))
+                 + grav * (rho(k+1,iw) * dzt_bot(k+1) + rho(k,iw) * dzt_top(k))
            press(k,iw) = .05 * press(k,iw) + .95 * pkhyd
 
         enddo
@@ -1828,8 +1828,8 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtab_w
   use misc_coms,   only: io6, iparallel
   use mem_grid,    only: mza, mma, mwa, lpw, xev, yev, zev, xew, yew, zew, &
-                         vnx, vny, vnz, zt, dzt
-  use consts_coms, only: erad, piu180, pio180, gravo2, rvap, rdry, &
+                         vnx, vny, vnz, zt, dzt_top, dzt_bot
+  use consts_coms, only: erad, piu180, pio180, grav, rvap, rdry, &
                          cvocp, rocp, p00k, p00i
   use max_dims,    only: pathlen
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
@@ -2007,7 +2007,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 ! Hydrostatically integrate downward using weighting to damp oscillations
 
            pkhyd = press(k+1,iw)  &
-              + gravo2 * (rho(k+1,iw) * dzt(k+1) + rho(k,iw) * dzt(k))
+              + grav * (rho(k+1,iw) * dzt_bot(k+1) + rho(k,iw) * dzt_top(k))
            press(k,iw) = .05 * press(k,iw) + .95 * pkhyd
 
         enddo

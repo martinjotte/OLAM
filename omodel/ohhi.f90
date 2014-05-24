@@ -228,8 +228,8 @@ subroutine refs1d()
 
 use misc_coms,   only: io6, nsndg, hs, thds, us, vs, rts, ps,  &
                        pr01d, dn01d, rt01d, th01d, u01d, v01d
-use consts_coms, only: cvocp, p00k, rdry, eps_virt, gravo2
-use mem_grid,    only: mza, zm, zt, dzt
+use consts_coms, only: cvocp, p00k, rdry, eps_virt, grav, gravo2
+use mem_grid,    only: mza, zm, zt, dzt_top, dzt_bot
 use micro_coms,  only: level
 
 implicit none
@@ -273,7 +273,7 @@ do iter = 1,100
 ! Impose minimum value of 1 Pa to avoid overshoot to negative values 
 ! during iteration
       pr01d(k) = max(1.,  &
-         pr01d(k-1) - gravo2 * (dn01d(k-1) * dzt(k-1) + dn01d(k) * dzt(k)))
+         pr01d(k-1) - grav * (dn01d(k-1) * dzt_top(k-1) + dn01d(k) * dzt_bot(k)))
    enddo
 enddo
 
@@ -316,11 +316,11 @@ use mem_ijtabs,  only: jtab_w, jtab_u, jtab_v, itab_w, itab_u, itab_v, &
 use misc_coms,   only: io6, mdomain, th01d, pr01d, dn01d, rt01d, u01d, v01d,  &
                        iparallel, meshtype
 use consts_coms, only: cvocp, p00k, rdry, rvap, p00, p00i, rocp, alvlocp,  &
-                       gravo2, erad
+                       grav, erad
 use mem_grid,    only: mza, mua, mva, lpu, lpv, lcu, &
                        unx, uny, unz, vnx, vny, vnz, xeu, yeu, zeu, &
-                       xev, yev, zev, aru, arv, volt, volui, volvi, dzt, &
-                       xew, yew, zew
+                       xev, yev, zev, aru, arv, volt, volui, volvi, &
+                       xew, yew, zew, dzt_top, dzt_bot
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w,  &
                         mpi_send_u, mpi_recv_u,  &
@@ -395,7 +395,7 @@ call qsub('W',iw)
 ! during iteration.  Use weighting to damp oscillations
              press(k,iw) = .05d0 * press(k,iw)  &
                          + .95d0 * max(1.d0,press(k-1,iw)  &
-                - gravo2 * (rho(k-1,iw) * dzt(k-1) + rho(k,iw) * dzt(k)))
+                - grav * (rho(k-1,iw) * dzt_top(k-1) + rho(k,iw) * dzt_bot(k)))
          endif
          
       enddo

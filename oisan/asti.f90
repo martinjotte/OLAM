@@ -291,9 +291,9 @@ subroutine vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid)
 
 use isan_coms,   only: pcol_z, pcol_thv, pcol_rt, pcol_thet, pcol_pi,  &
                        pcol_p, npd, pcol_temp, pcol_r, pcol_v, pcol_u
-use consts_coms, only: grav2, gravo2, cvocp, p00k, rdry, rvap, p00,  &
+use consts_coms, only: grav2, grav, cvocp, p00k, rdry, rvap, p00,  &
                        cp, rocp, gravi, eps_virt, eps_vap
-use mem_grid,    only: mwa, mza, dzt, zt
+use mem_grid,    only: mwa, mza, dzt_top, dzt_bot, zt
 use misc_coms,   only: io6
 
 implicit none
@@ -438,13 +438,13 @@ do iter = 1,100
 
    do k = kbc+1,mza
       pkhyd = o_press(k-1)  &
-         - gravo2 * (o_rho(k-1,iw) * dzt(k-1) + o_rho(k,iw) * dzt(k))
+         - grav * (o_rho(k-1,iw) * dzt_top(k-1) + o_rho(k,iw) * dzt_bot(k))
       o_press(k) = .05 * o_press(k) + .95 * max(.1,pkhyd)
    enddo
 
    do k = kbc-1,1,-1
       pkhyd = o_press(k+1)  &
-         + gravo2 * (o_rho(k+1,iw) * dzt(k+1) + o_rho(k,iw) * dzt(k))
+         + grav * (o_rho(k+1,iw) * dzt_bot(k+1) + o_rho(k,iw) * dzt_top(k))
       o_press(k) = .05 * o_press(k) + .95 * max(.1,pkhyd)
    enddo
 

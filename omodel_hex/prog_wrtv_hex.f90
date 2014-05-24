@@ -633,7 +633,7 @@ use mem_basic,   only: wmc, rho, thil, wc, vc, theta, vxe, vye, vze
 use misc_coms,   only: io6, initial, dn01d, th01d, &
                        deltax, nxp, mdomain, time8, dtlm
 use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, dniv, volt, volti, &
-                       xew, vnx, vny, wnx, wny, wnz
+                       xew, vnx, vny, wnxo2, wnyo2, wnzo2
 use mem_turb,    only: hkm
 use mem_rayf,    only: rayf_cof, rayf_cofw, dorayf, dorayfw, krayf_bot, krayfw_bot
 
@@ -703,10 +703,10 @@ do k = kb,mza-2
 
 ! Update WM tendency from turbulent fluxes
 
-   wmt(k,iw) = wmt(k,iw) +                                     &
-               0.5 * ( wnx(iw) * (vmxet(k,iw) + vmxet(k+1,iw)) &
-                     + wny(iw) * (vmyet(k,iw) + vmyet(k+1,iw)) &
-                     + wnz(iw) * (vmzet(k,iw) + vmzet(k+1,iw)) )
+   wmt(k,iw) = wmt(k,iw)                                   &
+             + ( wnxo2(iw) * (vmxet(k,iw) + vmxet(k+1,iw)) &
+               + wnyo2(iw) * (vmyet(k,iw) + vmyet(k+1,iw)) &
+               + wnzo2(iw) * (vmzet(k,iw) + vmzet(k+1,iw)) )
 enddo
 
 ! RAYLEIGH FRICTION ON WM
@@ -770,10 +770,10 @@ use mem_ijtabs,  only: itab_w
 use mem_basic,   only: wmc, rho, thil, wc, vc, theta, press
 use misc_coms,   only: io6, dtsm, initial, dn01d, th01d, deltax, nxp,  &
                        mdomain, time8, icorflg
-use consts_coms, only: cpocv, gravo2, grav, omega2, pi1, pio180
-use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, arw, volt, volti, &
-                       volwi, dzm, dzim, dzt, xew, zm, unx, uny, vnx,  &
-                       vny, wnx, wny, wnz, glatw, glonw
+use consts_coms, only: cpocv, grav, omega2, pi1, pio180, r8
+use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, arw, volti, volwi,   &
+                       dzim, dzt, xew, wnxo2, wnyo2, wnzo2, glatw, glonw, &
+                       dzt_top, dzt_bot, zwgt_top, zwgt_bot
 use tridiag,     only: tridiffo
 use oname_coms,  only: nl
 
@@ -832,7 +832,6 @@ real :: delex_wm     (mza)
 real :: delex_rhothil(mza)
 real :: del_wm       (mza)
 real :: fwdel_wm     (mza)
-real :: hadv_wm      (mza)
 
 real :: vmx_cor(mza)
 real :: vmy_cor(mza)
@@ -848,9 +847,9 @@ real :: vflux_vxe(mza)
 real :: vflux_vye(mza)
 real :: vflux_vze(mza)
 
-real(kind=8) :: delex_rho(mza)
-real(kind=8) :: rhothil  (mza)
-real(kind=8) :: press_t  (mza)
+real(r8) :: delex_rho(mza)
+real(r8) :: rhothil  (mza)
+real(r8) :: press_t  (mza)
 
 real :: b1(mza),b2(mza),b5(mza),b6(mza),b10(mza)
 real :: b7(mza),b8(mza),b9(mza),b11(mza),b12(mza),b13(mza),b14(mza)
@@ -988,32 +987,20 @@ do k = ka,mza-2
 
       + dzim(k) * (press_t(k) - press_t(k+1) &
 
-      - gravo2 * (dzt(k) * rho(k,iw) + dzt(k+1) * rho(k+1,iw))) &
+      - grav * (dzt_top(k) * rho(k,iw) + dzt_bot(k+1) * rho(k+1,iw))) &
 
 ! In the following, do we want to use unequal weights between k and k+1 T levels?
 
-      + wnx(iw) * .5 * (vmxet(k,iw) + vmxet(k+1,iw)) &
-      + wny(iw) * .5 * (vmyet(k,iw) + vmyet(k+1,iw)) &
-      + wnz(iw) * .5 * (vmzet(k,iw) + vmzet(k+1,iw)))
+      + wnxo2(iw) * (vmxet(k,iw) + vmxet(k+1,iw)) &
+      + wnyo2(iw) * (vmyet(k,iw) + vmyet(k+1,iw)) &
+      + wnzo2(iw) * (vmzet(k,iw) + vmzet(k+1,iw)))
 
 enddo
-
-!!!!!!!!!!!!!!!!!!!!!special
-   go to 55
-!!!!!!!!!!!!!!!!!!!!!! end special
-
-! Change in WM(ka) from EXPLICIT terms (3 horizontal advective fluxes at ka-1)
-
-delex_wm(ka) = delex_wm(ka) + dts * volwi(ka,iw) * .25 * hadv_wm(ka-1)
-
-!!!!!!!!!!!!!! special
-55 continue
-!!!!!!!!!!!!!!!!end special
 
 c6  = dts * .5 * fw
 c7  = dts * .25 * fw
 c8  = dts * pc2
-c9  = dts * (-.5) * fr * grav
+c9  =-dts * fr * grav
 c10 = dts * fw
 
 ! Fill matrix coefficients for implicit update of WM
@@ -1034,8 +1021,8 @@ do k = ka,mza-2
    b9(k)  = c9     * dzim(k)     ! W pts
    b11(k) = b8(k)  * b5(k)       ! W pts
    b12(k) = b8(k)  * b5(k+1)     ! W pts
-   b13(k) = b9(k)  * dzt(k)      ! W pts
-   b14(k) = b9(k)  * dzt(k+1)    ! W pts
+   b13(k) = b9(k)  * dzt_top(k)  ! W pts
+   b14(k) = b9(k)  * dzt_bot(k+1)! W pts
 
    b21(k) = b7(k)  * b1(k)    ! W pts
    b22(k) = b7(k)  * b1(k+1)  ! W pts
@@ -1148,8 +1135,8 @@ do k = ka,mza-2
 ! Update WMC and WC to future value (at t+1) due to change in WM (del_wm)
 
    wmc(k,iw) = wmc(k,iw) + del_wm(k)
-   wc(k,iw) = wmc(k,iw) * 2. * dzm(k) &
-            / (dzt(k+1) * rho(k,iw) + dzt(k) * rho(k+1,iw))
+   wc (k,iw) = wmc(k,iw) / (zwgt_bot(k) * rho(k,iw) + zwgt_top(k) * rho(k+1,iw))
+
 enddo
 
 ! Set top & bottom values of WC

@@ -299,6 +299,7 @@ Contains
      dzt_top(1) = zm(1) - zt(1)
      dzt_bot(1) = dzt(1) - dzt_top(1)
 
+     ! Loop over T levels
      do k = 2, mza
         dzt_top(k) = zm(k) - zt(k)
         dzt_bot(k) = zt(k) - zm(k-1)
@@ -307,13 +308,14 @@ Contains
      allocate(zwgt_top(mza))
      allocate(zwgt_bot(mza))
 
-     do k = 2, mza
-        zwgt_top(k) = dzt_bot(k-1) * dzim(k)
-        zwgt_bot(k) = dzt_top(k)   * dzim(k)
+     ! Loop over W levels
+     do k = 1, mza-1
+        zwgt_top(k) = dzt_top(k)   * dzim(k)
+        zwgt_bot(k) = dzt_bot(k+1) * dzim(k)
      enddo
      
-     zwgt_top(1) = zwgt_top(2)
-     zwgt_bot(1) = zwgt_bot(2)
+     zwgt_top(mza) = zwgt_top(mza-1)
+     zwgt_bot(mza) = zwgt_bot(mza-1)
 
      allocate(wnxo2(mwa))
      allocate(wnyo2(mwa))
@@ -334,4 +336,3 @@ Contains
    end subroutine alloc_grid_other
 
 End Module mem_grid
-
