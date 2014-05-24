@@ -24,6 +24,7 @@ module module_bl_acm2
 
   integer, parameter :: imoist_ri = 0  ! 0 = use dTheta_v / dz for buoyancy
                                        ! 1 = use "moist" Richardson number
+                                       ! 2 = use dThil_v / dz for buoyancy
 
 ! Don't re-export symbols from other modules
 
@@ -364,7 +365,7 @@ contains
 !=======================================================================
 
   subroutine acm2_eddyx(iw, moli, ustar, pblh, kpblh, kbot, ktop, zkh, &
-       vx, vy, vz, qw, qv, ql, thil, theta, thetav, tair, fthrd, rho)
+       vx, vy, vz, qw, qv, ql, thil, theta, thetav, tair, fthrd, rho, thilv)
 
     ! THREE METHODS FOR COMPUTING KZ:
     !   1. Boundary scaling similar to Holtslag and Boville (1993)
@@ -394,6 +395,7 @@ contains
     real,    intent(in) :: tair  (:) ! air temperature profile
     real,    intent(in) :: fthrd (:) ! radiational heating/cooling profile
     real(8), intent(in) :: rho   (:) ! air density
+    real,    intent(in) :: thilv (:) ! virtual ice-liquid potential temperature
     integer, intent(in) :: iw
 
     ! OUTPUT VARIABLES
@@ -552,6 +554,8 @@ contains
           a  = 0.5 * (alpha(k+1) + alpha(k))
           b  = 0.5 * (beta (k+1) + beta (k))
           buoy = a * (thil(k+1) - thil(k)) + b * (qw(k+1) - qw(k))
+       elseif (imoist_ri == 2) then
+          buoy = thilv(k+1) - thilv(k)
        else
           buoy = thetav(k+1) - thetav(k)
        endif

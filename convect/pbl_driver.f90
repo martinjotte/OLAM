@@ -123,7 +123,7 @@ subroutine pbl_driver(rhot, mrl)
         call acm2_eddyx( iw, moli, ustar(iw), pblh(iw), kpblh(iw), ka, mza-1, &
                          vkh, vxe(:,iw), vye(:,iw), vze(:,iw), sh_w(:,iw),    &
                          sh_v(:,iw), qc, thil(:,iw), theta(:,iw), thetav,     &
-                         tair(:,iw), fthrd, rho(:,iw)                         )
+                         tair(:,iw), fthrd, rho(:,iw), thilv                  )
 
         call acm2( iw, rhot, moli, ustar(iw), pblh(iw), kpblh(iw), thetav, vkh )
 
