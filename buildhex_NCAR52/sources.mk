@@ -16,14 +16,14 @@ SOURCE_FILES= \
              $(ED2MEM)/ed_misc_coms.f90 \
              $(LEAF)/leaf4.F90 \
              $(LEAF)/leaf4_canopy.f90 \
+             $(LEAF)/leaf4_coms.f90 \
+             $(LEAF)/leaf4_database_read.f90 \
              $(LEAF)/leaf4_init_atm.f90 \
              $(LEAF)/leaf4_landcell.f90 \
+             $(LEAF)/leaf4_plot.f90 \
              $(LEAF)/leaf4_sfcwater.f90 \
              $(LEAF)/leaf4_soil.f90 \
              $(LEAF)/leaf4_startup.f90 \
-             $(LEAF)/leaf4_coms.f90 \
-             $(LEAF)/leaf4_database_read.f90 \
-             $(LEAF)/leaf4_plot.f90 \
              $(LEAF)/mem_leaf.f90 \
              $(LEAF)/ndvi_database_read.f90 \
              $(LEAF)/olam_mpi_land.F90 \
@@ -40,8 +40,8 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_grid.f90 \
              $(MODEL_MODS)/mem_ijtabs.f90 \
              $(MODEL_MODS)/mem_mclat.f90 \
-             $(MODEL_MODS)/mem_mksfc.f90 \
              $(MODEL_MODS)/mem_micro.f90 \
+             $(MODEL_MODS)/mem_mksfc.f90 \
              $(MODEL_MODS)/mem_nudge.f90 \
              $(MODEL_MODS)/mem_para.F90 \
              $(MODEL_MODS)/mem_plot.f90 \
@@ -215,12 +215,12 @@ SOURCE_FILES= \
              $(SEA)/mem_sea.f90 \
              $(SEA)/olam_mpi_sea.F90 \
              $(SEA)/para_init_sea.f90 \
-             $(SEA)/read_sst_analysis.f90 \
              $(SEA)/read_seaice_analysis.f90 \
+             $(SEA)/read_sst_analysis.f90 \
              $(SEA)/sea_coms.f90 \
              $(SEA)/sea.f90 \
-             $(SEA)/seaice.f90 \
              $(SEA)/seaice_database_read.f90 \
+             $(SEA)/seaice.f90 \
              $(SEA)/sea_init_atm.f90 \
              $(SEA)/sea_startup.f90 \
              $(SEA)/sst_database_read.f90 \

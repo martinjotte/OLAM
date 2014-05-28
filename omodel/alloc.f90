@@ -59,6 +59,8 @@ subroutine olam_mem_alloc()
 
   use mem_timeavg, only: alloc_timeavg, filltab_timeavg
 
+  use mem_flux_accum, only: alloc_flux_accum, filltab_flux_accum
+
   use mem_average_vars, only: alloc_average_vars
 
   implicit none 
@@ -89,6 +91,9 @@ subroutine olam_mem_alloc()
 
   call alloc_timeavg(mza,mwa)
   call filltab_timeavg()
+
+  call alloc_flux_accum(mza,mwa)
+  call filltab_flux_accum()
 
 ! Allocate field average arrays
 

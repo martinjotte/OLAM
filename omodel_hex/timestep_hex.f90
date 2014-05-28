@@ -50,6 +50,7 @@ use obnd,        only: trsets, lbcopy_v, lbcopy_w
 use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_timeavg, only: accum_timeavg
+use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
 
 implicit none
@@ -287,6 +288,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
 
    call accum_timeavg()
+   call flux_accum()
 
 ! call check_nans(22)
 
