@@ -116,8 +116,8 @@ if (iaction == 0) then
 
    call date_secs_ymdt(s1900_sim,iyears,imonths,idates,ihours)
 
-   write(juldstring,'(I3)') julday( imonths, idates, iyears )
-   write(yearstring,'(I4)') iyears
+   write(juldstring,'(I3.3)') julday( imonths, idates, iyears )
+   write(yearstring,'(I4.4)') iyears
 
    indx = ihours / 40000 + 1
 

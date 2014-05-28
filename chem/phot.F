@@ -876,14 +876,14 @@ C...Calculate cosines of the zenith angles and compute NDARK
 
       coszens(:) = 0.0
 
-      do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+!      do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
 C...correct CURRHR for current longitude to obtain LST.
 
-            CURRHR_LST = CURRHR + glonw( iw )  / 15.0
+!            CURRHR_LST = CURRHR + glonw( iw )  / 15.0
 
-            CALL GETZEN2 ( CURRHR_LST , SINLATS(iw), COSLATS(iw),
-     &                     SINDEC, COSDEC, EQT, COSZENS(iw) )
+!            CALL GETZEN2 ( CURRHR_LST , SINLATS(iw), COSLATS(iw),
+!     &                     SINDEC, COSDEC, EQT, COSZENS(iw) )
 
 !            IF ( .NOT. HAS_SEAICE ) THEN ! determine sea ice can form
 !               IF ( TEMPG( COL, ROW ) .LT. SEAICE_POINT .AND.
@@ -979,7 +979,7 @@ C...  seasonal adjustment has an 11 day phase delay in the solar cycle
 !            END DO
 
 !         END DO
-      END DO
+!      END DO
 
 C...SA  Write COSZENS array at the end of each hour
 
@@ -999,15 +999,15 @@ C...SA  Write COSZENS array at the end of each hour
 C...If sun below horizon at all cells, zero photolysis rates & exit
 C...  (assumes sun below horizon at *all* levels!)
 
-      if (all(coszens(:) <= 0.01)) then
-
-         do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-            DO LEV = lpw(iw), mza-1
-               DO IPHOT = 1, NPHOTAB
-                  RJ( IPHOT, LEV, iw ) = 0.0
-               ENDDO
-            ENDDO
-         ENDDO
+!      if (all(coszens(:) <= 0.01)) then
+!
+!         do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+!            DO LEV = lpw(iw), mza-1
+!               DO IPHOT = 1, NPHOTAB
+!                  RJ( IPHOT, LEV, iw ) = 0.0
+!               ENDDO
+!            ENDDO
+!         ENDDO
 
 C...write to the log file, CTM_RJ_1 file and return
 
@@ -1114,8 +1114,8 @@ C...Write data to output diagnostic file
 !
 !         END IF ! if photdiag .and. jtime_chk .eq. 0
 
-         RETURN
-      END IF  ! all cells dark
+!         RETURN
+!      END IF  ! all cells dark
 
 C...Get heights of each level [m]
 
@@ -1230,6 +1230,20 @@ C...Read & Interpolate WBAR
 C...MAIN loop over all rows and columns
 
       do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+         CURRHR_LST = CURRHR + glonw( iw )  / 15.0
+
+         CALL GETZEN2 ( CURRHR_LST , SINLATS(iw), COSLATS(iw),
+     &                  SINDEC, COSDEC, EQT, COSZENS(iw) )
+
+         if (coszens(iw) <= 0.01) then
+            DO LEV = lpw(iw), mza-1
+               DO IPHOT = 1, NPHOTAB
+                  RJ( IPHOT, LEV, iw ) = 0.0
+               ENDDO
+            ENDDO
+            cycle
+         endif
 
 C...initialize BLKRJ using F90 array operations.
 

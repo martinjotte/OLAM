@@ -305,7 +305,8 @@ C***arguments
 C***internal
 
       REAL, PARAMETER :: STRAT_TEMP = 225.0  ! stratospheric temperature
-      REAL, PARAMETER :: ZTOA = 50.0E3  ! top of the atmosphere [ m ]
+!     REAL, PARAMETER :: ZTOA = 50.0E3  ! top of the atmosphere [ m ]
+      real            :: ztoa
 
       INTEGER L, I, IWL , II, ILEV, IPHOT ! loop indices
       INTEGER NPHOT
@@ -702,11 +703,12 @@ C***get total ozone column
 
 !     DAY = JDATE - ( JDATE / 1000 ) * 1000
 !     CALL O3AMT ( LATCR, LONGCR, DAY, STOZONE )
-      CALL O3TOTCOL ( LATCR, LONGCR, JDATE, STOZONE )
+!     CALL O3TOTCOL ( LATCR, LONGCR, JDATE, STOZONE )
 
 C***set top of modeling domain
 
       ZTOM = BLKZF( NLAYS + 1 )
+      ZTOA = max( ztom + zsfc + 10.e3, 50.e3)
 
 C***get layer thicknesses and slantpath starting at the TOP
 
@@ -737,9 +739,9 @@ C***  top layer. THe assumption here is that this layer is at about 100
 C***  [mb] or 10 [kPa]
 C***Get optical depth for stratospheric ozone
 
-         CALL GET_TAUO3 ( IWL, STOZONE, STRAT_TEMP, TAU_O3 )
+!        CALL GET_TAUO3 ( IWL, STOZONE, STRAT_TEMP, TAU_O3 )
 
-         TAUO3_TOP( IWL ) = TAU_O3
+!        TAUO3_TOP( IWL ) = TAU_O3
 
 C***get Rayleigh optical depth for stratosphere
 
@@ -855,16 +857,19 @@ C***FSB get sums of unscaled optical depths
             TAU_TOT  ( IWL ) = TAU_TOT  ( IWL ) + DTAU( L )  ! total optical depth
             TAU_SCAT ( IWL ) = TAU_SCAT ( IWL ) + DTSCAT_A
             TAU_CLOUD( IWL ) = TAU_CLOUD( IWL ) + DT_CLOUD
-            TAUO3_TOP( IWL ) = TAUO3_TOP( IWL ) - ( AO3 * BLKDZ( II ) )  ! remove tropospheric O3 from stratospheric value
+!           TAUO3_TOP( IWL ) = TAUO3_TOP( IWL ) - ( AO3 * BLKDZ( II ) )  ! remove tropospheric O3 from stratospheric value
 
          END DO                 ! loop over layers
 
 C***set values for the stratosphere
 
-         OM     ( 1 ) = TAU_RAY( IWL )
-     &                / ( TAU_RAY( IWL ) + TAUO3_TOP( IWL ) )
-         G      ( 1 ) = 0.05
-         DTAU   ( 1 ) = TAUO3_TOP( IWL ) + TAU_RAY( IWL )
+!         OM     ( 1 ) = TAU_RAY( IWL )
+!     &                / ( TAU_RAY( IWL ) + TAUO3_TOP( IWL ) )
+!         G      ( 1 ) = 0.05
+!         DTAU   ( 1 ) = TAUO3_TOP( IWL ) + TAU_RAY( IWL )
+         om     ( 1 ) =   om( 2 )
+         g      ( 1 ) =    g( 2 )
+         dtau   ( 1 ) = dtau( 2 )
          DSDH_TD( 1 ) = DSDH_TOP
 
 C***Set fluxes to zero
