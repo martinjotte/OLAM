@@ -40,7 +40,7 @@ subroutine olam_mem_alloc()
   use mem_tend,    only: alloc_tend, filltab_tend
   use mem_turb,    only: alloc_turb, filltab_turb
   use mem_sflux,   only: mseaflux, mlandflux, filltab_sflux
-  use mem_grid,    only: mza, nsw_max, mma, mua, mva, mwa
+  use mem_grid,    only: alloc_grid_other, mza, nsw_max, mma, mua, mva, mwa
   use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge, &
                          o3nudflag, alloc_nudge_o3, filltab_nudge_o3
   use mem_ijtabs,  only: mrls, filltab_itabs
@@ -48,7 +48,7 @@ subroutine olam_mem_alloc()
   use mem_thuburn, only: alloc_thuburn
 
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
-                         nqparm, nqparm_sh, dtsm, meshtype, do_chem
+                         nqparm, dtsm, meshtype, do_chem
 
   use micro_coms,  only: level, ncat, jnmb, &
                          icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail
@@ -56,12 +56,16 @@ subroutine olam_mem_alloc()
   use leaf_coms,   only: mwl, isfcl
   use sea_coms,    only: mws
   use mem_sflux,   only: mseaflux, mlandflux
+  use mem_plot,    only: alloc_plot
 
   use cgrid_defn,  only: alloc_cgrid, filltab_cgrid
 
   use mem_megan,   only: alloc_megan, filltab_megan
 
   use mem_timeavg,      only: alloc_timeavg, filltab_timeavg
+
+  use mem_flux_accum, only: alloc_flux_accum, filltab_flux_accum
+
   use mem_average_vars, only: alloc_average_vars
 
   implicit none 
@@ -72,10 +76,12 @@ subroutine olam_mem_alloc()
 
   call filltab_itabs()  ! Already allocated
 
+  call alloc_grid_other()
+
   call alloc_basic(meshtype,mza,mua,mva,mwa)
   call filltab_basic()
 
-  call alloc_cuparm(mza, mwa, mrls, nqparm, nqparm_sh)
+  call alloc_cuparm(mza, mwa, mrls, nqparm)
   call filltab_cuparm() 
 
   call alloc_micro(mza,mwa,level,ncat, &
@@ -90,6 +96,9 @@ subroutine olam_mem_alloc()
 
   call alloc_timeavg(mza,mwa)
   call filltab_timeavg()
+
+  call alloc_flux_accum(mza,mwa)
+  call filltab_flux_accum()
 
   if (do_chem) then
      call alloc_cgrid(mza,mwa)
@@ -147,6 +156,10 @@ subroutine olam_mem_alloc()
 ! Extra memory for Thuburn's monotonic advection
 
   call alloc_thuburn(meshtype, nl%iscal_monot, mza, mva, mwa)
+
+! Memory for storing past values for plotting
+
+  call alloc_plot()
 
   write(io6,*) 'end alloc'
 

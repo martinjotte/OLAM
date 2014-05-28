@@ -32,9 +32,9 @@
 !===============================================================================
 subroutine timestep()
 
-use misc_coms,   only: io6, time8, time_istp8, nqparm, initial, ilwrtyp, &
-                      iswrtyp, dtsm, nqparm_sh, dtlm, iparallel,         &
-                      s1900_init, s1900_sim, do_chem
+use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, time_bias, &
+                       nqparm, initial, ilwrtyp, iswrtyp, dtsm, dtlm, &
+                       iparallel, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag
 use mem_grid,    only: mza, mva, mwa
@@ -50,6 +50,7 @@ use obnd,        only: trsets, lbcopy_v, lbcopy_w
 use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_timeavg, only: accum_timeavg
+use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
 use mem_megan,   only: megan_avg_temp
 
@@ -62,7 +63,7 @@ real :: t1,w1
 
 real :: vmsc(mza,mva) ! V face momentum for scalar advection
 real :: wmsc(mza,mwa) ! W face momentum for scalar advection
-real(kind=8) :: rho_old(mza,mwa) ! density at beginning of timestep [kg/m^3]
+real(r8) :: rho_old(mza,mwa) ! density at beginning of timestep [kg/m^3]
 
 real :: alpha_press(mza,mwa) ! 
 real :: rhot       (mza,mwa) ! grid-cell total mass tendency [kg/s]
@@ -70,8 +71,6 @@ real :: rhot       (mza,mwa) ! grid-cell total mass tendency [kg/s]
 ! +----------------------------------------------------------------------------+
 ! |  Each call to subroutine timestep drives all steps in advancing by dtlong  |
 ! +----------------------------------------------------------------------------+
-
-time_istp8 = time8
 
 if (time_istp8 < 1.e-3_r8) then
 !   call bubble()
@@ -92,6 +91,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call tend0(rhot)
 
+   mrl = mrl_begl(istp)
+   if (mrl > 0) then
+      call surface_turb_flux(mrl)
+   endif
+
 ! call check_nans(1)
 
    if (ilwrtyp + iswrtyp > 0) then
@@ -100,9 +104,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(2)
 
-   mrl = mrl_begl(istp)
-   if (mrl > 0) then
-      call surface_turb_flux(mrl)
+   if (any( nqparm(1:mrls) > 0 )) then
+      call cuparm_driver(rhot)
+      if (isfcl == 1) then
+         call surface_cuparm_flux()
+   endif
    endif
 
 ! call check_nans(3)
@@ -119,18 +125,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
 
 ! call check_nans(5)
-
-   if (any(nqparm   (1:mrls) > 0) .or.  &
-       any(nqparm_sh(1:mrls) > 0)) then
-
-      call cuparm_driver(rhot)
-
-      if (isfcl == 1) then
-         call surface_cuparm_flux()
-      endif
-   endif
-
-! call check_nans(6)
 
    call zero_momsc(vmsc,wmsc,rho_old)
 
@@ -237,7 +231,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(17)
 
-   if (level == 3) then
+   mrl = mrl_endl(istp)
+   if (level == 3 .and. mrl > 0) then
       call micro()  ! maybe later make freq. uniform
 
       if (isfcl == 1) then
@@ -295,24 +290,27 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 ! call check_nans(21)
 
    if (leafstep(istp) > 0) then
-      call leaf4()
 
+      call leaf4()
       if (iparallel == 1) call mpi_send_wl('T')
-      if (iparallel == 1) call mpi_recv_wl('T')
 
       if (do_chem) call megan_avg_temp()
 
       call seacells()
-
       if (iparallel == 1) call mpi_send_ws('T')
+
+      if (iparallel == 1) call mpi_recv_wl('T')
       if (iparallel == 1) call mpi_recv_ws('T')
+
    endif
 
    call accum_timeavg()
+   call flux_accum()
 
 ! call check_nans(22)
 
    time_istp8 = time8 + istp * dtsm(mrls)  ! Update precise time
+   time_istp8p = time_istp8 + time_bias
    s1900_sim = s1900_init + time_istp8
 
 enddo

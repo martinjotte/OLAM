@@ -1,13 +1,14 @@
 subroutine read_soil_analysis(soil_tempc)
 
-  use misc_coms, only: io6, s1900_sim, s1900_init
-  use leaf_coms, only: nzg, mwl, slzt, soilcp, slmsts, slcpd, soilstate_db
-  use mem_leaf,  only: land, itab_wl
-  use consts_coms, only: pio180, piu180, erad, cliq1000, alli1000, cice,   &
+  use misc_coms,  only: io6, s1900_sim, s1900_init, isubdomain
+  use leaf_coms,  only: nzg, mwl, slzt, soilcp, slmsts, slcpd, soilstate_db
+  use mem_leaf,   only: land, itab_wl
+  use consts_coms,only: pio180, piu180, erad, cliq1000, alli1000, cice,   &
                          cice1000, r8
-  use max_dims,  only: pathlen
-  use isan_coms, only: nfgfiles, s1900_fg, fnames_fg
+  use max_dims,   only: pathlen
+  use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
+  use mem_para,   only: myrank
 
   implicit none
 
@@ -332,6 +333,10 @@ subroutine read_soil_analysis(soil_tempc)
 ! Fill seaice array
 
 do iwl = 2, mwl
+
+   ! Skip this cell if running in parallel and primary rank of IWL /= MYRANK
+
+   if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
    glat = land%glatw(iwl)
    glon = land%glonw(iwl)

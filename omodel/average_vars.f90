@@ -138,7 +138,7 @@ subroutine inc_davg_vars()
   use mem_basic,   only: wc, sh_v, sh_w, tair, press, rho, vxe, vye, vze
   use consts_coms, only: alvl, cp
   use mem_turb,    only: sflux_r, sflux_t
-  use misc_coms,   only: io6, dtlong, time8, iparallel
+  use misc_coms,   only: io6, dtlong, time8, isubdomain
   use mem_cuparm,  only: conprr
   use mem_micro,   only: pcpgr
   use mem_radiate, only: rshort, rshort_top, rshortup_top, rlong, rlongup, &
@@ -193,7 +193,7 @@ subroutine inc_davg_vars()
 
   do iwl = 2, mwl
 
-     if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+     if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
      cantempk = land%can_temp(iwl)
      vegtempk = land%veg_temp(iwl)
@@ -221,7 +221,7 @@ subroutine inc_davg_vars()
 
   do iws = 2, mws
 
-     if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+     if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
      cantempk = sea%can_temp(iws)
 
@@ -239,7 +239,7 @@ subroutine inc_davg_vars()
      kw  = landflux(ilf)%kw
      iwl = landflux(ilf)%iwls       ! global index
 
-     if (iparallel == 1) then
+     if (isubdomain == 1) then
         iw  = itabg_w (iw )%iw_myrank  ! Local rank index (if MPI parallel)
         iwl = itabg_wl(iwl)%iwl_myrank ! Local rank index (if MPI parallel)
      endif
@@ -266,7 +266,7 @@ subroutine inc_davg_vars()
      kw  = seaflux(isf)%kw
      iws = seaflux(isf)%iwls           ! global index
 
-     if (iparallel == 1) then
+     if (isubdomain == 1) then
         iw  = itabg_w (iw )%iw_myrank  ! Local rank index (if MPI parallel)
         iws = itabg_ws(iws)%iws_myrank ! Local rank index (if MPI parallel)
      endif
@@ -383,7 +383,7 @@ subroutine norm_davg_vars()
   use mem_sea,   only: itab_ws
   use mem_sflux, only: jlandflux, jseaflux
   use mem_ijtabs,only: jtab_w, jtw_prog
-  use misc_coms, only: iparallel
+  use misc_coms, only: isubdomain
   use mem_para,  only: myrank
 
   implicit none
@@ -408,14 +408,14 @@ subroutine norm_davg_vars()
   enddo
 
   do iwl = 2, mwl
-     if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+     if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
      canltempk_davg(iwl) = canltempk_davg(iwl) * ni
       vegtempk_davg(iwl) =  vegtempk_davg(iwl) * ni
      soiltempk_davg(iwl) = soiltempk_davg(iwl) * ni
   enddo
 
   do iws = 2, mws
-     if (iparallel == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+     if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
      canstempk_davg(iws) = canstempk_davg(iws) * ni
   enddo
 
@@ -460,7 +460,7 @@ subroutine write_mavg_vars(outyear,outmonth)
      latflux_avg24, sensflux_avg24, &
      accpmic_tot24, accpcon_tot24
 
-  use misc_coms,  only: iparallel, hfilepref, iclobber, io6, time8, iyear1, &
+  use misc_coms,  only: iparallel, isubdomain, hfilepref, iclobber, io6, time8, iyear1, &
                         imonth1, idate1, itime1, ipar_out
   use mem_para,   only: myrank, iwa_globe_primary, iwa_local_primary
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
@@ -485,7 +485,7 @@ subroutine write_mavg_vars(outyear,outmonth)
   ! Compute total water
 
   do iwl = 2, mwl
-     if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+     if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
      wstorage(iwl) = sum(land%sfcwater_mass(1:nzs,iwl)) +   &
           land%veg_water(iwl) +   &
           land%rhos(iwl) * land%can_depth(iwl) * land%can_shv(iwl)
@@ -563,7 +563,7 @@ subroutine write_mavg_vars(outyear,outmonth)
      call shdf5_orec(ndims,idims,  'VZE_MAVG',rvara=  vze_mavg, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
 
-     ndims      = 1
+     ndims    = 1
      idims(1) = mwa
      ilpts => iwa_local_primary
      igpts => iwa_globe_primary

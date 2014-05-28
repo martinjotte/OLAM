@@ -393,7 +393,7 @@ accpx(:) = 0.
 ! to microphysics column arrays
 
 call mic_copy(iw0,lpw0,thil0,press0,wc0,rhoa,rhow,rhoi, &
-   theta0,exner0,rhov,tair, &
+   theta0,exner0,rhov, &
    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 ! Loop over all vertical levels
@@ -1140,7 +1140,7 @@ end subroutine micphys
 !===============================================================================
 
 subroutine mic_copy(iw0,lpw0,thil0,press0,wc0,rhoa,rhow,rhoi, &
-   theta0,exner0,rhov,tair, &
+   theta0,exner0,rhov, &
    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 use micro_coms, only: mza0, ncat, jnmb, rxmin
@@ -1165,7 +1165,6 @@ real, intent(out) :: rhoi  (mza0)
 real, intent(out) :: theta0(mza0)
 real, intent(out) :: exner0(mza0)
 real, intent(out) :: rhov  (mza0)
-real, intent(out) :: tair  (mza0)
 real, intent(out) :: con_ccnx (mza0)
 real, intent(out) :: con_gccnx(mza0)
 real, intent(out) :: con_ifnx (mza0)
@@ -1194,7 +1193,6 @@ do k = lpw0,mza0
    rhoi  (k) = 1. / rhoa(k)
 
    exner0(k) = (press0(k) * p00i) ** rocp  ! defined WITHOUT CP factor
-   tair  (k) = theta0(k) * exner0(k)
 enddo
 
 ! Cloud water
@@ -1591,6 +1589,7 @@ use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                       con_ccn, con_gccn, con_ifn
 
 use misc_coms,  only: io6
+use consts_coms, only: r8
 
 implicit none
 
@@ -1655,7 +1654,7 @@ endif
 ! Copy rain bulk density, internal energy, and surface precip back to main arrays
 
 if (jnmb(2) >= 1) then
-   accpr(iw0) = accpr(iw0) + accpx(2)
+   accpr(iw0) = accpr(iw0) + real(accpx(2),r8)
    pcprr(iw0) = pcprx(2)
 
    do k = lpw0,k2(11)
@@ -1667,7 +1666,7 @@ endif
 ! Copy pristine ice bulk density and surface precip back to main arrays
 
 if (jnmb(3) >= 1) then
-   accpp(iw0) = accpp(iw0) + accpx(3)
+   accpp(iw0) = accpp(iw0) + real(accpx(3),r8)
    pcprp(iw0) = pcprx(3)
 
    do k = lpw0,k3(3)
@@ -1678,7 +1677,7 @@ endif
 ! Copy snow bulk density and surface precip back to main arrays
 
 if (jnmb(4) >= 1) then
-   accps(iw0) = accps(iw0) + accpx(4)
+   accps(iw0) = accps(iw0) + real(accpx(4),r8)
    pcprs(iw0) = pcprx(4)
 
    do k = lpw0,k2(11)
@@ -1689,7 +1688,7 @@ endif
 ! Copy aggregates bulk density and surface precip back to main arrays
 
 if (jnmb(5) >= 1) then
-   accpa(iw0) = accpa(iw0) + accpx(5)
+   accpa(iw0) = accpa(iw0) + real(accpx(5),r8)
    pcpra(iw0) = pcprx(5)
 
    do k = lpw0,k2(11)
@@ -1700,7 +1699,7 @@ endif
 ! Copy graupel bulk density, internal energy, and surface precip back to main arrays
 
 if (jnmb(6) >= 1) then
-   accpg(iw0) = accpg(iw0) + accpx(6)
+   accpg(iw0) = accpg(iw0) + real(accpx(6),r8)
    pcprg(iw0) = pcprx(6)
    do k = lpw0,k2(11)
       sh_g(k,iw0) = rx(k,6) * rhoi(k)
@@ -1711,7 +1710,7 @@ endif
 ! Copy hail bulk density, internal energy, and surface precip back to main arrays
 
 if (jnmb(7) >= 1) then
-   accph(iw0) = accph(iw0) + accpx(7)
+   accph(iw0) = accph(iw0) + real(accpx(7),r8)
    pcprh(iw0) = pcprx(7)
    do k = lpw0,k2(11)
       sh_h(k,iw0) = rx(k,7) * rhoi(k)
@@ -1722,7 +1721,7 @@ endif
 ! Copy drizzle bulk density and surface precip back to main arrays
 
 if (jnmb(8) >= 1) then
-   accpd(iw0) = accpd(iw0) + accpx(8)
+   accpd(iw0) = accpd(iw0) + real(accpx(8),r8)
    pcprd(iw0) = pcprx(8)
 
    do k = lpw0,k3(8)

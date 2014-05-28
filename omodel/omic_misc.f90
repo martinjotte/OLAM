@@ -245,16 +245,17 @@ if (jnmb(lcat) == 2) then
 elseif (jnmb(lcat) == 4) then
 
    parmi = 1. / parm(lcat)
-   do k = k1(lcat),k2(lcat)
-      emb(k,lcat) = max(emb0(lcat),min(emb1(lcat),rx(k,lcat) * parmi))
+   do k = k1(lcat), k2(lcat)
+      emb(k,lcat) = max( emb0(lcat),                                     &
+                         min( emb1(lcat), rx(k,lcat) * parmi / rhoa(k) ) )
       cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
    enddo
 
 elseif (jnmb(lcat) >= 5) then
 
-   do k = k1(lcat),k2(lcat)
-      emb(k,lcat) = &
-         max(emb0(lcat),min(emb1(lcat),rx(k,lcat) / max(1.e-12,cx(k,lcat))))
+   do k = k1(lcat), k2(lcat)
+      emb(k,lcat) = max( emb0(lcat),                                            &
+                         min( emb1(lcat), rx(k,lcat) / max(1.e-12,cx(k,lcat)) ) )
       cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
    enddo
 
@@ -568,7 +569,7 @@ subroutine sedim(lcat,iw0,lpw0,k1,k2,alphasfc, &
 use micro_coms,  only: mza0, ncat, rxmin, cfmasi, ch3, ch2, dispemb0i, &
                        nembfall, pcpfillc, pcpfillr, dztf, nhcat, maxkfall, &
                        emb1
-use consts_coms, only: cpi
+use consts_coms, only: cpi, alviocp
 use misc_coms,   only: io6
 
 implicit none
@@ -610,8 +611,8 @@ real, intent(in) :: ch1(nhcat)
 
 real, parameter :: iplaws = 0
 
-integer :: k,lhcat,iemb,iemb2,kkf,kk
-real :: dispemb,riemb,wt2,rsfc,qrsfc
+integer :: k,lhcat,iemb,kkf,kk
+real    :: dispemb,riemb,rsfc,qrsfc
 
 ! automatic arrays
 
@@ -699,9 +700,9 @@ do k = lpw0,k2(lcat)
 
    rhoa(k) = rhoa(k) + rfall(k) - rx(k,lcat)
    rhow(k) = rhow(k) + rfall(k) - rx(k,lcat)
-   
+
    dsed_thil(k) = dsed_thil(k) - thil0(k) * thil0(k)  &
-      * (2820. * (rfall(k) - rx(k,lcat))  &
+      * (alviocp * (rfall(k) - rx(k,lcat))  &
       - cpi * (qrfall(k) - qr(k,lcat)))  &
       / (max(tair(k), 253.) * theta0(k))
 

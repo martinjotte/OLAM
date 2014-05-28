@@ -306,11 +306,12 @@ end subroutine lbcopy_w
 
 !===============================================================================
 
-subroutine lbcopy_w1d(mrl, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12)
+subroutine lbcopy_w1d(mrl, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, d1)
 
 use mem_ijtabs, only: jtab_w, itab_w, jtw_lbcp
 use mem_grid,   only: mwa
 use misc_coms,  only: io6
+use consts_coms, only: r8
 
 implicit none
 
@@ -328,6 +329,8 @@ real, optional, intent(inout) :: a9 (mwa)
 real, optional, intent(inout) :: a10(mwa)
 real, optional, intent(inout) :: a11(mwa)
 real, optional, intent(inout) :: a12(mwa)
+
+real(r8), optional, intent(inout) :: d1(mwa)
 
 integer :: j,iw,iwp
 
@@ -351,6 +354,7 @@ do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
    if (present(a10)) a10(iw) = a10(iwp) 
    if (present(a11)) a11(iw) = a11(iwp) 
    if (present(a12)) a12(iw) = a12(iwp) 
+   if (present(d1 )) d1 (iw) = d1 (iwp) 
 
 enddo
 endif

@@ -30,11 +30,11 @@
 ! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
 ! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine harr_raddriv(iw,ka,nrad,koff,rlong_previous)
+subroutine harr_raddriv(iw,ka,nrad,koff)
 
 use mem_harr, only: mg, mb
 
-use mem_grid, only: mza, zm, zt, glatw, glonw
+use mem_grid, only: mza, zm, zt, dzt, glatw, glonw
 
 use mem_basic, only: rho, press, theta, tair, sh_v
 
@@ -42,9 +42,9 @@ use misc_coms, only: io6, iswrtyp, ilwrtyp, time8
 
 use consts_coms, only: rocp, p00i, stefan, cp
 
-use mem_radiate, only: rshort, rlong, fthrd, rlongup, cosz, albedt,   &
-     rshort_top,rshortup_top,rlongup_top, fthrd_lw, albedt_beam,   &
-     albedt_diffuse,rshort_diffuse,rlong_albedo
+use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz,        &
+     rshort_top, rshortup_top, rlongup_top, fthrd_sw, rshort_diffuse, &
+     albedt, albedt_beam, albedt_diffuse, rlong_albedo
 
 use micro_coms, only: ncat
 
@@ -56,7 +56,6 @@ integer, intent(in) :: iw
 integer, intent(in) :: ka
 integer, intent(in) :: nrad
 integer, intent(in) :: koff
-real,    intent(in) :: rlong_previous
 
 ! Local arrays
 
@@ -108,35 +107,34 @@ real :: exner
 ! Copy surface and vertical-column values from model to radiation memory space
 ! In this loop, (k-koff) ranges from 2 to mza + 1 - lpw(iw)
 
-do k = ka,mza-1
+do k = ka, mza-1
    krad = k - koff
 
    rhov(k)  = max(0.,sh_v(k,iw)) * rho(k,iw)
 
-   dl(krad)  = rho  (k,iw)
-   pl(krad)  = press(k,iw)
-   tl(krad)  = tair (k,iw)
-   rl(krad)  = rhov (k)
+   dl (krad) = rho  (k,iw)
+   pl (krad) = press(k,iw)
+   tl (krad) = tair (k,iw)
+   rl (krad) = rhov (k)
    zml(krad) = zm   (k)
    ztl(krad) = zt   (k)
-   exl(krad) = tair(k,iw) / theta(k,iw)
+   exl(krad) = tair (k,iw) / theta(k,iw)
+   dzl(krad) = dzt  (k)
 enddo
  
 ! Fill surface values
 
 zml(1) = zm(1+koff)
 ztl(1) = zt(1+koff)
+dzl(1) = ztl(2) - ztl(1)
 pl (1) = pl(2) + (zml(1) - ztl(2)) / (ztl(2) - ztl(3)) * (pl(2) - pl(3))
+tl (1) = ((rlongup(iw) + rlong(iw) * rlong_albedo(iw)) / stefan) ** 0.25
+dl (1) = dl(2)
+rl (1) = rl(2)
+
+! Fill ozone column and any extra radiation layers at model top
 
 call rad_mclat(iw,nrad,koff,glatw(iw),dl,pl,rl,tl,o3l,zml,ztl,dzl)
-
-if (time8 < 1.e-3) then
-   tl(1) = tl(2)
-else
-   tl(1) = sqrt(sqrt((rlongup(iw) + rlong_previous * rlong_albedo(iw))/ stefan))
-endif
-dl(1) = dl(2)
-rl(1) = rl(2)
 
 ! zero out scratch arrays
 
@@ -186,18 +184,16 @@ if (iswrtyp == 3 .and. cosz(iw) > 0.03) then
    call harr_swrad(nrad,iw,albedt_beam(iw),albedt_diffuse(iw),cosz(iw),  &
         u,pl,tl,dzl,vp,tp,omgp,gp,fu,fd,flxus,flxds,ngass,flx_diff)
 
-   rshort(iw) = flxds(1)
+   rshort        (iw) = flxds(1)
    rshort_diffuse(iw) = flx_diff
-   rshort_top(iw) = flxds(nrad)
-   rshortup_top(iw) = flxus(nrad)
-   albedt(iw) = albedt_beam(iw) + rshort_diffuse(iw) / rshort(iw) *  &
-        (albedt_diffuse(iw) - albedt_beam(iw))
+   rshort_top    (iw) = flxds(nrad)
+   rshortup_top  (iw) = flxus(nrad)
+   albedt        (iw) = flxus(1) / flxds(1)
 
    do k = ka,mza-1
       krad = k - koff
-      fthrd(k,iw) = fthrd(k,iw)  &
-         + (flxds(krad) - flxds(krad-1) + flxus(krad-1) - flxus(krad))  &
-         / (dl(krad) * dzl(krad) * cp * exl(krad))
+      fthrd_sw(k,iw) = (flxds(krad) - flxds(krad-1) + flxus(krad-1) - flxus(krad)) &
+                     / (dl(krad) * dzl(krad) * cp * exl(krad))
    enddo
 
 endif
@@ -211,42 +207,18 @@ if (ilwrtyp == 3) then
 
    call harr_lwrad(nrad,u,pl,tl,vp,tp,omgp,gp,fu,fd,flxul,flxdl,ngast)
 
-   rlong(iw) = flxdl(1)
-   rlongup(iw) = flxul(1)
+   rlong(iw)       = flxdl(1)
+   rlongup(iw)     = flxul(1)
    rlongup_top(iw) = flxul(nrad)
 
    do k = ka,mza-1
       krad = k - koff
-      fthrd(k,iw) = fthrd(k,iw)  &
-         + (flxdl(krad) - flxdl(krad-1) + flxul(krad-1) - flxul(krad))  &
-         / (dl(krad) * dzl(krad) * cp * exl(krad))
-      fthrd_lw(k,iw) = fthrd_lw(k,iw)  &
-         + (flxdl(krad) - flxdl(krad-1) + flxul(krad-1) - flxul(krad))  &
-         / (dl(krad) * dzl(krad) * cp * exl(krad))
+      fthrd_lw(k,iw) = (flxdl(krad) - flxdl(krad-1) + flxul(krad-1) - flxul(krad)) &
+                     / (dl(krad) * dzl(krad) * cp * exl(krad))
    enddo
 
 endif
 
-!      if (i == isave .and. j == jsave) then
-!         downs = rshort
-!         downl = rlong
-!         do k = lpw,m1-1
-!            kk = k - koff
-!            ttendl(k) = (flxdl(kk) - flxdl(kk-1) + flxul(kk-1) - flxul(kk)) &
-!               / (dl(kk) * dzl(kk) * cp)
-!            ttends(k) = (flxds(kk) - flxds(kk-1) + flxus(kk-1) - flxus(kk)) &
-!               / (dl(kk) * dzl(kk) * cp)
-!         enddo
-!         do k = lpw-1,m1-1
-!            kk = k - koff
-!            sfluxu(k) = flxus(kk)
-!            sfluxd(k) = flxds(kk)
-!            lfluxu(k) = flxul(kk)
-!            lfluxd(k) = flxdl(kk)
-!         enddo
-!      endif
-
-return
 end subroutine harr_raddriv
 
 !===============================================================================
@@ -580,7 +552,7 @@ use mem_basic, only: rho
 
 use mem_grid,  only: mza, dzt
 
-use mem_radiate, only: rad_region
+!use mem_radiate, only: rad_region
 
 ! computing properties of spherical liquid water and irregular ice
 ! using fits to adt theory
@@ -809,216 +781,215 @@ end subroutine path_lengths
 
 !===============================================================================
 
-subroutine define_rad_regions()
-
-  !  This subroutine classifies each grid cell as:
-  !  (1) Polar  (mreg = 8)
-  !  (2) Temperate land (mreg = 2)
-  !  (3) Temperate ocean (mreg = 7)
-  !  (4) Tropical ocean (mreg = 4)
-  !  (5) Tropical land (mreg = 5)
-
-  !  However, the current radiation parameters have only a 
-  !  latitude-dependence, not a land/sea dependence.  Thus, their are 
-  !  only 3 radiation regions:
-  !  (1)  rad_region = 1 corresponds to mreg = 4 and 5 (tropical)
-  !  (2)  rad_region = 2 corresponds to mreg = 2 and 7 (temperate)
-  !  (3)  rad_region = 3 corresponds to mreg = 8 (polar)
-
-  use mem_grid, only: mwa, glatw, glonw
-  
-  use mem_radiate, only: rad_region
-
-  implicit none
-
-  integer :: iw, mreg
-  real :: lat, lon
- 
-  do iw = 2, mwa
-     lat = glatw(iw)
-     lon = glonw(iw)
-     if(lat > 70.0)then
-        mreg = 8
-     elseif(lat > 60.0)then
-        if(lon < -160.0)then
-           mreg = 8
-        elseif(lon < -60.0)then
-           mreg = 2
-        elseif(lon < 10.0)then
-           mreg = 8
-        else
-           mreg = 2
-        endif
-     elseif(lat > 50.0)then
-        if(lon < -130.0)then
-           mreg = 7
-        elseif(lon < -60.0)then
-           mreg = 2
-        elseif(lon < -10.0)then
-           mreg = 7
-        elseif(lon < 0.0)then
-           mreg = 2
-        elseif(lon < 10.0)then
-           mreg = 7
-        elseif(lon < 140.0)then
-           mreg = 2
-        else
-           mreg = 7
-        endif
-     elseif(lat > 40.0)then
-        if(lon < -120.0)then
-           mreg = 7
-        elseif(lon < -60.0)then
-           mreg = 2
-        elseif(lon < -10.0)then
-           mreg = 7
-        elseif(lon < 130.0)then
-           mreg = 2
-        else
-           mreg = 7
-        endif
-     elseif(lat > 30.0)then
-        if(lon < -120.0)then
-           mreg = 7
-        elseif(lon < -80.0)then
-           mreg = 2
-        elseif(lon < -10.0)then
-           mreg = 7
-        elseif(lon < 120.0)then
-           mreg = 2
-        else
-           mreg = 7
-        endif
-     elseif(lat > 20.0)then
-        if(lon < -110.0)then
-           mreg = 7
-        elseif(lon < -100.0)then
-           mreg = 2
-        elseif(lon < -10.0)then
-           mreg = 7
-        elseif(lon < 120.0)then
-           mreg = 2
-        else
-           mreg = 7
-        endif
-     elseif(lat > 10.0)then
-        if(lon < -90.0)then
-           mreg = 4
-        elseif(lon < -80.0)then
-           mreg = 5
-        elseif(lon < -20.0)then
-           mreg = 4
-        elseif(lon < 50.0)then
-           mreg = 5
-        elseif(lon < 70.0)then
-           mreg = 4
-        elseif(lon < 80.0)then
-           mreg = 5
-        elseif(lon < 90.0)then
-           mreg = 4
-        elseif(lon < 130.0)then
-           mreg = 5
-        else
-           mreg = 4
-        endif
-     elseif(lat > 0.0)then
-        if(lon < -80.0)then
-           mreg = 4
-        elseif(lon < -50.0)then
-           mreg = 5
-        elseif(lon < -10.0)then
-           mreg = 4
-        elseif(lon < 50.0)then
-           mreg = 5
-        elseif(lon < 90.0)then
-           mreg = 4
-        elseif(lon < 130.0)then
-           mreg = 5
-        else
-           mreg = 4
-        endif
-     elseif(lat > -10.0)then
-        if(lon < -80.0)then
-           mreg = 4
-        elseif(lon < -30.0)then
-           mreg = 5
-        elseif(lon < 10.0)then
-           mreg = 4
-        elseif(lon < 40.0)then
-           mreg = 5
-        elseif(lon < 90.0)then
-           mreg = 4
-        elseif(lon < 140.0)then
-           mreg = 5
-        else
-           mreg = 4
-        endif
-     elseif(lat > -20.0)then
-        if(lon < -80.0)then
-           mreg = 4
-        elseif(lon < -40.0)then
-           mreg = 5
-        elseif(lon < 10.0)then
-           mreg = 4
-        elseif(lon < 40.0)then
-           mreg = 5
-        elseif(lon < 130.0)then
-           mreg = 4
-        elseif(lon < 150.0)then
-           mreg = 5
-        else
-           mreg = 4
-        endif
-     elseif(lat > -30.0)then
-        if(lon < -70.0)then
-           mreg = 7
-        elseif(lon < -50.0)then
-           mreg = 2
-        elseif(lon < 10.0)then
-           mreg = 7
-        elseif(lon < 30.0)then
-           mreg = 2
-        elseif(lon < 110.0)then
-           mreg = 7
-        elseif(lon < 150.0)then
-           mreg = 2
-        else
-           mreg = 7
-        endif
-     elseif(lat > -40.0)then
-        if(lon < -70.0)then
-           mreg = 7
-        elseif(lon < -50.0)then
-           mreg = 2
-        elseif(lon < 20.0)then
-           mreg = 7
-        elseif(lon < 30.0)then
-           mreg = 2
-        elseif(lon < 120.0)then
-           mreg = 7
-        elseif(lon < 150.0)then
-           mreg = 2
-        else
-           mreg = 7
-        endif
-     elseif(lat > -50.0)then
-        if(lon < -70.0)then
-           mreg = 7
-        elseif(lon < -60.0)then
-           mreg = 2
-        else
-           mreg = 7
-        endif
-     elseif(lat > -60.0)then
-        mreg = 7
-     else
-        mreg = 8
-     endif     
-     if(mreg == 4 .or. mreg == 5)rad_region(iw) = 1
-     if(mreg == 2 .or. mreg == 7)rad_region(iw) = 2
-     if(mreg == 8)rad_region(iw) = 3
-  enddo
-
-  return
-end subroutine define_rad_regions
-
+!subroutine define_rad_regions()
+!
+!  !  This subroutine classifies each grid cell as:
+!  !  (1) Polar  (mreg = 8)
+!  !  (2) Temperate land (mreg = 2)
+!  !  (3) Temperate ocean (mreg = 7)
+!  !  (4) Tropical ocean (mreg = 4)
+!  !  (5) Tropical land (mreg = 5)
+!
+!  !  However, the current radiation parameters have only a 
+!  !  latitude-dependence, not a land/sea dependence.  Thus, their are 
+!  !  only 3 radiation regions:
+!  !  (1)  rad_region = 1 corresponds to mreg = 4 and 5 (tropical)
+!  !  (2)  rad_region = 2 corresponds to mreg = 2 and 7 (temperate)
+!  !  (3)  rad_region = 3 corresponds to mreg = 8 (polar)
+!
+!  use mem_grid, only: mwa, glatw, glonw
+!  
+!  use mem_radiate, only: rad_region
+!
+!  implicit none
+!
+!  integer :: iw, mreg
+!  real :: lat, lon
+! 
+!  do iw = 2, mwa
+!     lat = glatw(iw)
+!     lon = glonw(iw)
+!     if(lat > 70.0)then
+!        mreg = 8
+!     elseif(lat > 60.0)then
+!        if(lon < -160.0)then
+!           mreg = 8
+!        elseif(lon < -60.0)then
+!           mreg = 2
+!        elseif(lon < 10.0)then
+!           mreg = 8
+!        else
+!           mreg = 2
+!        endif
+!     elseif(lat > 50.0)then
+!        if(lon < -130.0)then
+!           mreg = 7
+!        elseif(lon < -60.0)then
+!           mreg = 2
+!        elseif(lon < -10.0)then
+!           mreg = 7
+!        elseif(lon < 0.0)then
+!           mreg = 2
+!        elseif(lon < 10.0)then
+!           mreg = 7
+!        elseif(lon < 140.0)then
+!           mreg = 2
+!        else
+!           mreg = 7
+!        endif
+!     elseif(lat > 40.0)then
+!        if(lon < -120.0)then
+!           mreg = 7
+!        elseif(lon < -60.0)then
+!           mreg = 2
+!        elseif(lon < -10.0)then
+!           mreg = 7
+!        elseif(lon < 130.0)then
+!           mreg = 2
+!        else
+!           mreg = 7
+!        endif
+!     elseif(lat > 30.0)then
+!        if(lon < -120.0)then
+!           mreg = 7
+!        elseif(lon < -80.0)then
+!           mreg = 2
+!        elseif(lon < -10.0)then
+!           mreg = 7
+!        elseif(lon < 120.0)then
+!           mreg = 2
+!        else
+!           mreg = 7
+!        endif
+!     elseif(lat > 20.0)then
+!        if(lon < -110.0)then
+!           mreg = 7
+!        elseif(lon < -100.0)then
+!           mreg = 2
+!        elseif(lon < -10.0)then
+!           mreg = 7
+!        elseif(lon < 120.0)then
+!           mreg = 2
+!        else
+!           mreg = 7
+!        endif
+!     elseif(lat > 10.0)then
+!        if(lon < -90.0)then
+!           mreg = 4
+!        elseif(lon < -80.0)then
+!           mreg = 5
+!        elseif(lon < -20.0)then
+!           mreg = 4
+!        elseif(lon < 50.0)then
+!           mreg = 5
+!        elseif(lon < 70.0)then
+!           mreg = 4
+!        elseif(lon < 80.0)then
+!           mreg = 5
+!        elseif(lon < 90.0)then
+!           mreg = 4
+!        elseif(lon < 130.0)then
+!           mreg = 5
+!        else
+!           mreg = 4
+!        endif
+!     elseif(lat > 0.0)then
+!        if(lon < -80.0)then
+!           mreg = 4
+!        elseif(lon < -50.0)then
+!           mreg = 5
+!        elseif(lon < -10.0)then
+!           mreg = 4
+!        elseif(lon < 50.0)then
+!           mreg = 5
+!        elseif(lon < 90.0)then
+!           mreg = 4
+!        elseif(lon < 130.0)then
+!           mreg = 5
+!        else
+!           mreg = 4
+!        endif
+!     elseif(lat > -10.0)then
+!        if(lon < -80.0)then
+!           mreg = 4
+!        elseif(lon < -30.0)then
+!           mreg = 5
+!        elseif(lon < 10.0)then
+!           mreg = 4
+!        elseif(lon < 40.0)then
+!           mreg = 5
+!        elseif(lon < 90.0)then
+!           mreg = 4
+!        elseif(lon < 140.0)then
+!           mreg = 5
+!        else
+!           mreg = 4
+!        endif
+!     elseif(lat > -20.0)then
+!        if(lon < -80.0)then
+!           mreg = 4
+!        elseif(lon < -40.0)then
+!           mreg = 5
+!        elseif(lon < 10.0)then
+!           mreg = 4
+!        elseif(lon < 40.0)then
+!           mreg = 5
+!        elseif(lon < 130.0)then
+!           mreg = 4
+!        elseif(lon < 150.0)then
+!           mreg = 5
+!        else
+!           mreg = 4
+!        endif
+!     elseif(lat > -30.0)then
+!        if(lon < -70.0)then
+!           mreg = 7
+!        elseif(lon < -50.0)then
+!           mreg = 2
+!        elseif(lon < 10.0)then
+!           mreg = 7
+!        elseif(lon < 30.0)then
+!           mreg = 2
+!        elseif(lon < 110.0)then
+!           mreg = 7
+!        elseif(lon < 150.0)then
+!           mreg = 2
+!        else
+!           mreg = 7
+!        endif
+!     elseif(lat > -40.0)then
+!        if(lon < -70.0)then
+!           mreg = 7
+!        elseif(lon < -50.0)then
+!           mreg = 2
+!        elseif(lon < 20.0)then
+!           mreg = 7
+!        elseif(lon < 30.0)then
+!           mreg = 2
+!        elseif(lon < 120.0)then
+!           mreg = 7
+!        elseif(lon < 150.0)then
+!           mreg = 2
+!        else
+!           mreg = 7
+!        endif
+!     elseif(lat > -50.0)then
+!        if(lon < -70.0)then
+!           mreg = 7
+!        elseif(lon < -60.0)then
+!           mreg = 2
+!        else
+!           mreg = 7
+!        endif
+!     elseif(lat > -60.0)then
+!        mreg = 7
+!     else
+!        mreg = 8
+!     endif     
+!     if(mreg == 4 .or. mreg == 5)rad_region(iw) = 1
+!     if(mreg == 2 .or. mreg == 7)rad_region(iw) = 2
+!     if(mreg == 8)rad_region(iw) = 3
+!  enddo
+!
+!  return
+!end subroutine define_rad_regions

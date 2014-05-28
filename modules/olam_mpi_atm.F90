@@ -614,7 +614,7 @@ subroutine mpi_send_u(sendgroup,domrl,uc0,rpos,rneg)
 #endif
 
 use mem_basic,  only: umc,uc
-use mem_para,   only: send_u, recv_u, nsends_u, nrecvs_u
+use mem_para,   only: send_u, recv_u, nsends_u, nrecvs_u, itagu
 use mem_ijtabs, only: itab_u, jtab_u, mrl_begs, istp, mloops
 
 use mem_grid,   only: mza, mua
@@ -633,7 +633,6 @@ real,    optional, intent(in) :: rneg(mza,mua)
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
-integer :: itag1 = 1
 integer :: mrl
 integer :: j
 integer :: iu
@@ -656,7 +655,7 @@ if (mrl < 1) return
 do jrecv = 1,nrecvs_u(mrl)
 
    call MPI_Irecv(recv_u(jrecv)%buff,recv_u(jrecv)%nbytes,MPI_PACKED,  &
-                  recv_u(jrecv)%iremote,itag1,MPI_COMM_WORLD,          &
+                  recv_u(jrecv)%iremote,itagu,MPI_COMM_WORLD,          &
                   recv_u(jrecv)%irequest,ierr                          )
 
 enddo
@@ -708,7 +707,7 @@ do jsend = 1,nsends_u(mrl)
    call rsub('Usend',mloops+jsend)
 
    call MPI_Isend(send_u(jsend)%buff,ipos,MPI_PACKED,          &
-                  send_u(jsend)%iremote,itag1,MPI_COMM_WORLD,  &
+                  send_u(jsend)%iremote,itagu,MPI_COMM_WORLD,  &
                   send_u(jsend)%irequest,ierr                  )
 
 enddo
@@ -730,7 +729,7 @@ subroutine mpi_send_v(sendgroup,domrl,rarray1)
 #endif
 
 use mem_basic,  only: vmc,vc
-use mem_para,   only: send_v, recv_v, nsends_v, nrecvs_v
+use mem_para,   only: send_v, recv_v, nsends_v, nrecvs_v, itagv
 
 use mem_ijtabs, only: itab_v, jtab_v, mrl_begs, istp, mloops
 use mem_grid,   only: mza, mva
@@ -747,7 +746,6 @@ real,    optional, intent(in) :: rarray1(mza,mva)
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
-integer :: itag1 = 1
 integer :: mrl
 integer :: j
 integer :: iv
@@ -770,7 +768,7 @@ if (mrl < 1) return
 do jrecv = 1,nrecvs_v(mrl)
 
    call MPI_Irecv(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,MPI_PACKED,  &
-                  recv_v(jrecv)%iremote,itag1,MPI_COMM_WORLD,          &
+                  recv_v(jrecv)%iremote,itagv,MPI_COMM_WORLD,          &
                   recv_v(jrecv)%irequest,ierr                          )
 
 enddo
@@ -814,7 +812,7 @@ do jsend = 1,nsends_v(mrl)
    call rsub('Vsend',mloops+jsend)
 
    call MPI_Isend(send_v(jsend)%buff,ipos,MPI_PACKED,          &
-                  send_v(jsend)%iremote,itag1,MPI_COMM_WORLD,  &
+                  send_v(jsend)%iremote,itagv,MPI_COMM_WORLD,  &
                   send_v(jsend)%irequest,ierr                  )
 
 enddo
@@ -833,7 +831,7 @@ subroutine mpi_send_m(mrl, rarray1, rarray2)
 #endif
   
   use misc_coms,  only: io6
-  use mem_para,   only: nrecvs_m, nsends_m, recv_m, send_m
+  use mem_para,   only: nrecvs_m, nsends_m, recv_m, send_m, itagm
   use mem_ijtabs, only: jtab_m, itab_m, mloops
   use mem_grid,   only: mza, mma
 
@@ -847,7 +845,6 @@ subroutine mpi_send_m(mrl, rarray1, rarray2)
 
   integer :: ierr, ipos
   integer :: jrecv, jsend, ivar
-  integer :: itag2 = 2
   integer :: j
   integer :: im
   integer :: imglobe
@@ -859,7 +856,7 @@ subroutine mpi_send_m(mrl, rarray1, rarray2)
   do jrecv = 1, nrecvs_m(mrl)
 
      call MPI_Irecv(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,MPI_PACKED, &
-                    recv_m(jrecv)%iremote,itag2,MPI_COMM_WORLD,         &
+                    recv_m(jrecv)%iremote,itagm,MPI_COMM_WORLD,         &
                     recv_m(jrecv)%irequest,ierr                         )
   enddo
 
@@ -898,7 +895,7 @@ subroutine mpi_send_m(mrl, rarray1, rarray2)
      enddo
 
      call MPI_Isend(send_m(jsend)%buff,ipos,MPI_PACKED,          &
-                    send_m(jsend)%iremote,itag2,MPI_COMM_WORLD,  &
+                    send_m(jsend)%iremote,itagm,MPI_COMM_WORLD,  &
                     send_m(jsend)%irequest,ierr                  )
      
   enddo
@@ -931,7 +928,7 @@ use mem_ijtabs, only: jtab_w, itab_w, mrl_begs, mrl_begl, mrl_endl, istp, mloops
 use mem_grid,   only: mza, mwa
 use misc_coms,  only: io6
 use micro_coms, only: level
-use mem_para,   only: nrecvs_w, nsends_w, recv_w, send_w
+use mem_para,   only: nrecvs_w, nsends_w, recv_w, send_w, itagw
 
 implicit none
 
@@ -970,7 +967,6 @@ real(kind=8), optional, intent(in) :: wmarw(mza,mwa)
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
-integer :: itag3 = 3
 integer :: mrl
 integer :: i, j
 integer :: iw
@@ -995,7 +991,7 @@ if (mrl < 1) return
 do jrecv = 1,nrecvs_w(mrl)
 
    call MPI_Irecv(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,MPI_PACKED, &
-                  recv_w(jrecv)%iremote,itag3,MPI_COMM_WORLD,         &
+                  recv_w(jrecv)%iremote,itagw,MPI_COMM_WORLD,         &
                   recv_w(jrecv)%irequest,ierr                         )
 
 enddo
@@ -1127,7 +1123,7 @@ do jsend = 1,nsends_w(mrl)
             call MPI_Pack(rho(1,iw),mza,MPI_REAL8, &
                send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
          endif
- 
+
       elseif (sendgroup == 'V') then
 
          if (present(vxe)) then
@@ -1243,7 +1239,7 @@ do jsend = 1,nsends_w(mrl)
    call rsub('Wsend',mloops+jsend)
 
    call MPI_Isend(send_w(jsend)%buff,ipos,MPI_PACKED,         &
-                  send_w(jsend)%iremote,itag3,MPI_COMM_WORLD, &
+                  send_w(jsend)%iremote,itagw,MPI_COMM_WORLD, &
                   send_w(jsend)%irequest,ierr                 )
 
 enddo
@@ -1262,7 +1258,7 @@ subroutine mpi_send_wnud(rarray1, rarray2, rarray3, rarray4, rarray5, rarray6)
 #endif
   
   use misc_coms,  only: io6
-  use mem_para,   only: nrecvs_wnud, nsends_wnud, recv_wnud, send_wnud
+  use mem_para,   only: nrecvs_wnud, nsends_wnud, recv_wnud, send_wnud, itagwnud
   use mem_grid,   only: mza
   use mem_nudge,  only: mwnud, jtab_wnud, itab_wnud
 
@@ -1279,7 +1275,6 @@ subroutine mpi_send_wnud(rarray1, rarray2, rarray3, rarray4, rarray5, rarray6)
 
   integer :: ierr, ipos
   integer :: jrecv, jsend, ivar
-  integer :: itag4 = 4
   integer :: j
   integer :: iwnud
   integer :: iwnudglobe
@@ -1289,7 +1284,7 @@ subroutine mpi_send_wnud(rarray1, rarray2, rarray3, rarray4, rarray5, rarray6)
   do jrecv = 1, nrecvs_wnud
 
      call MPI_Irecv(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,MPI_PACKED, &
-                    recv_wnud(jrecv)%iremote,itag4,MPI_COMM_WORLD,            &
+                    recv_wnud(jrecv)%iremote,itagwnud,MPI_COMM_WORLD,            &
                     recv_wnud(jrecv)%irequest,ierr                            )
   enddo
 
@@ -1356,7 +1351,7 @@ subroutine mpi_send_wnud(rarray1, rarray2, rarray3, rarray4, rarray5, rarray6)
      enddo
 
      call MPI_Isend(send_wnud(jsend)%buff,ipos,MPI_PACKED,          &
-                    send_wnud(jsend)%iremote,itag4,MPI_COMM_WORLD,  &
+                    send_wnud(jsend)%iremote,itagwnud,MPI_COMM_WORLD,  &
                     send_wnud(jsend)%irequest,ierr                  )
      
   enddo

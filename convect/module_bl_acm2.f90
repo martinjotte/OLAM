@@ -22,6 +22,10 @@ module module_bl_acm2
   real, parameter :: mvonk  =      - vonk
   real, parameter :: vonk72 = 0.72 * vonk
 
+  integer, parameter :: imoist_ri = 0  ! 0 = use dTheta_v / dz for buoyancy
+                                       ! 1 = use "moist" Richardson number
+                                       ! 2 = use dThil_v / dz for buoyancy
+
 ! Don't re-export symbols from other modules
 
   private :: alvlocp, alvlor, eps_vap, eps_virt, grav, grav2, vonk
@@ -42,7 +46,6 @@ contains
     use tridiag,    only: tridv, acm_matrix
     use var_tables, only: num_scalar, scalar_tab, sxfer_map, num_sxfer, &
                           emis_map, num_emis
-    use emis_defn,  only: emlays
 
     implicit none
 
@@ -55,7 +58,7 @@ contains
     real,    intent(inout) :: rhot(mza,mwa)
 
     logical :: cnvct
-    real :: mbarks(mza)
+    real :: massflx(mza)
     real :: seddy(mza)
     real :: akodz(mza)
 
@@ -74,7 +77,7 @@ contains
     real :: fact(nsw_max)
 
     integer :: k, ks, n, ns, ksm, ksp, kk, ksmax, kmax
-    real :: hovl, mbar, fnl
+    real :: hovl, mbar, fnl, dens
     real :: dtl, dtli
     
     integer :: kbot, ktop, nsfc, nlev
@@ -90,7 +93,7 @@ contains
     hovl = pblh * moli 
 
     seddy (:) = zkh(:)
-    mbarks(:) = 0.0
+    massflx(:) = 0.0
     
     cnvct = ((hovl < -0.1) .and. (kpblh - kbot > 2))
 
@@ -102,19 +105,22 @@ contains
        
     if (cnvct) then
 
+       dens = 0.5 * (rho(kbot,iw) + rho(kbot+1,iw))
        fnl  = vonk72 / ( vonk72 + (mvonk / hovl) ** 0.33333333)
-       mbar = zkh(kbot) / (pblh - dzt(kbot)) * dzit(kbot) * fnl
+       mbar = zkh(kbot) / pblh * dzit(kbot) * fnl / dens
 
        do k = kbot, kpblh-1
           seddy(k) = zkh(k) * ( 1.0 - fnl)
        enddo
        
-       do k = kbot, kpblh-1
-          mbarks(k) = arw(k,iw) * mbar * (pblh - zm(k) + zm(kbot-1))
+       do k = kbot, kbot + nsfc - 1
+          dens = 0.5 * (rho(k,iw) + rho(k+1,iw))
+          massflx(k) = arw(k,iw) * mbar * (pblh - (zm(k) - zm(kbot))) * dens
        enddo
 
        do k = kbot + nsfc, kpblh-1
-          mbarks(k) = mbarks(k) * zfacm(kbot+nsfc-1)**2 / zfacm(k)**2
+          dens = 0.5 * (rho(k,iw) + rho(k+1,iw))
+          massflx(k) = arw(kbot+nsfc-1,iw) * mbar * (pblh - (zm(k) - zm(kbot))) * dens
        enddo
 
     endif
@@ -228,10 +234,9 @@ contains
     ! Include emissions (emis units are concentration / sec )
 
     if (num_emis > 0) then
-       kmax = min(kbot + nsfc + emlays - 2, ktop-1)
        do ns = 1, num_emis
           n = emis_map(ns)
-          do k = kbot, kmax
+          do k = kbot, ktop
              ks = k - kbot + 1
              rhs(ks,n) = rhs(ks,n) + scalar_tab(n)%emis(k,iw) * dtl
           enddo
@@ -244,8 +249,8 @@ contains
 
        do k = kbot+1, kpblh
           ks = k - kbot + 1
-          dia(ks)   = dia(ks)   + dtom(k)   * mbarks(k-1)
-          upp(ks-1) = upp(ks-1) - dtom(k-1) * mbarks(k-1)
+          dia(ks)   = dia(ks)   + dtom(k)   * massflx(k-1)
+          upp(ks-1) = upp(ks-1) - dtom(k-1) * massflx(k-1)
        enddo
 
        aa(:,:) = 0.0
@@ -259,13 +264,13 @@ contains
              ksm = min(ks-1,nsfc)
 
              aa(ks,kk) = dtom(k) * frac_sfc(kk,iw) * &
-                       ( mbarks(k) / frac_sum(ksp) - mbarks(k-1) / frac_sum(ksm) )
+                       ( massflx(k) / frac_sum(ksp) - massflx(k-1) / frac_sum(ksm) )
           enddo
        enddo
        
        do k = kbot, min(kbot + nsfc - 1, kpblh)
           ks = k - kbot + 1
-          dia(ks) = dia(ks) + dtom(k) * mbarks(k) * frac_sfc(ks,iw) / frac_sum(ks)
+          dia(ks) = dia(ks) + dtom(k) * massflx(k) * frac_sfc(ks,iw) / frac_sum(ks)
           low(ks+1) = low(ks+1) + aa(ks+1,ks)
        enddo
 
@@ -302,7 +307,7 @@ contains
 
           do k = kbot, kpblh
              ks = k - kbot + 1
-             aflux(k,n) = aflux(k,n) + mbarks(k) * (cbot(ks) - soln(ks+1,n))
+             aflux(k,n) = aflux(k,n) + massflx(k) * (cbot(ks) - soln(ks+1,n))
           enddo
           
        enddo
@@ -325,7 +330,7 @@ contains
     ! Include tendencies due to surface exchange
 
     if (num_sxfer > 0) then
-       kmax = min(kbot + nsfc - 1, ktop-1)
+       kmax = min(kbot + nsfc - 1, ktop)
        do ns = 1, num_sxfer
           n = sxfer_map(ns)
           do k = kbot, kmax
@@ -339,10 +344,9 @@ contains
     ! Include tendencies due to emissions (emis units are concentration / sec )
 
     if (num_emis > 0) then
-       kmax = min(kbot + nsfc + emlays - 2, ktop-1)
        do ns = 1, num_emis
           n = emis_map(ns)
-          do k = kbot, kmax
+          do k = kbot, ktop
              scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
                                        + rho(k,iw) * scalar_tab(n)%emis(k,iw)
           enddo
@@ -361,7 +365,7 @@ contains
 !=======================================================================
 
   subroutine acm2_eddyx(iw, moli, ustar, pblh, kpblh, kbot, ktop, zkh, &
-       vx, vy, vz, qw, qv, ql, thil, theta, thetav, tair, fthrd, rho)
+       vx, vy, vz, qw, qv, ql, thil, theta, thetav, tair, fthrd, rho, thilv)
 
     ! THREE METHODS FOR COMPUTING KZ:
     !   1. Boundary scaling similar to Holtslag and Boville (1993)
@@ -393,6 +397,7 @@ contains
     real,    intent(in) :: tair  (:) ! air temperature profile
     real,    intent(in) :: fthrd (:) ! radiational heating/cooling profile
     real(8), intent(in) :: rho   (:) ! air density
+    real,    intent(in) :: thilv (:) ! virtual ice-liquid potential temperature
     integer, intent(in) :: iw
 
     ! OUTPUT VARIABLES
@@ -402,11 +407,10 @@ contains
 
     ! LOCAL VARIABLES
 
-    INTEGER  :: ILX, KL, KLM, K, I
+    integer :: k
     real :: zagl, deltar, wcloud, zoh, a, b, buoy
-    REAL     :: ZOVL, WT, ZSOL, ZFUNC, DZF, SS
-    REAL     :: RI, QMEAN, TMEAN, XLV, ALPH, CHI, ZK, SQL, DENSF
-    REAL     :: FH
+    real    :: zovl, zsol, zfunc, ss
+    real    :: ri, zk, sql, fh
 
     real :: phih(mza) ! M-O similarity nondimensional scalar gradient
     real :: edyz(mza) ! Holtslag's K-profile eddy diffusivity
@@ -422,7 +426,7 @@ contains
     REAL, PARAMETER :: RV     = 461.5
     REAL, PARAMETER :: RC     = 0.25
     REAL, PARAMETER :: RLAM   = 80.0
-    REAL, PARAMETER :: GAMH   = 16.0 !15.0  !  Holtslag and Boville (1993)
+    REAL, PARAMETER :: GAMH   = 16.0  !  Holtslag and Boville (1993)
     REAL, PARAMETER :: BETAH  = 5.0   !  Holtslag and Boville (1993)
     
 !   REAL, PARAMETER :: FHMIN = 0.01  ! Minimum value of f(Ri)
@@ -430,7 +434,7 @@ contains
 
     REAL, PARAMETER :: EDYZ0  = 0.0   ! New Min Kz
 !   REAL, PARAMETER :: EDYZ0  = 0.01  ! New Min Kz
-!   REAL, PARAMETER :: EDYZ0  = 0.1
+
     real, parameter :: edyurb = 1.0
     real, parameter :: edysfc = 0.2
 
@@ -535,11 +539,12 @@ contains
     endif
 
 !! Vertical loop over T levels to compute the alpha and beta coefficients
-!! in the buoyancy term of the moist Richardson number, from Cuipers and
+!! in the buoyancy term of the moist Richardson number, from Cuijpers and
 !! Duynkerke (JAS, 1993, pp 3894-3908)
 
-    do k = kbot, ktop
+    if (imoist_ri == 1) then
 
+    do k = kbot, ktop
        if (ql(k) < 1.e-6) then
 
           alpha(k) = 1.0 + eps_virt * qv(k)
@@ -552,8 +557,9 @@ contains
           beta(k)  = alpha(k) * alvlocp * theta(k) / tair(k) - theta(k)
 
        endif
-
     enddo
+
+    endif
 
 !! Louis's Richardson-number dependent eddy diffusivity
 !! Vertical loop over W levels
@@ -568,10 +574,15 @@ contains
             + (vy(k+1) - vy(k))**2 &
             + (vz(k+1) - vz(k))**2 ) * dzim(k) * dzim(k) + 1.e-9
 
+       if (imoist_ri == 1) then
        a  = 0.5 * (alpha(k+1) + alpha(k))
        b  = 0.5 * (beta (k+1) + beta (k))
-
        buoy = a * (thil(k+1) - thil(k)) + b * (qw(k+1) - qw(k))
+       elseif (imoist_ri == 2) then
+          buoy = thilv(k+1) - thilv(k)
+       else
+          buoy = thetav(k+1) - thetav(k)
+       endif
 
        ri = grav2 / (thetav(k+1) + thetav(k)) * buoy * dzim(k) / ss
 
@@ -595,8 +606,8 @@ contains
        else
 
           sql     = ( zk * rlam / (rlam + zk) )**2
-       !  edyr(k) = kzo + sqrt(ss * (1.0 - 25.0 * ri)) * sql
-          edyr(k) =       sqrt(ss * (1.0 - 25.0 * ri)) * sql
+       !  edyr(k) = kzo + sqrt(ss * (1.0 - 18.0 * ri)) * sql
+          edyr(k) =       sqrt(ss * (1.0 - 18.0 * ri)) * sql
        !  pran(k) = pr0 / ( 1.0 - (1.0 - pr0) * min(ri,rc) / rc )
 
        endif

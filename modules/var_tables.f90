@@ -82,10 +82,12 @@ Module var_tables
   type(scalar_table), allocatable :: scalar_tab(:)
   integer,            allocatable :: sxfer_map (:)
   integer,            allocatable :: emis_map  (:)
+  integer,            allocatable :: cumix_map (:)
 
   integer :: num_scalar = 0
   integer :: num_sxfer  = 0
   integer :: num_emis   = 0
+  integer :: num_cumix  = 0
 
 !-------------------------------------------------------------------
 
@@ -254,7 +256,7 @@ Contains
 
 !===============================================================================
 
-  subroutine vtables_scalar(varp,vart,name,sxfer,emis)
+  subroutine vtables_scalar(varp,vart,name,sxfer,emis,cu_mix)
     use misc_coms, only: io6
     implicit none
 
@@ -264,13 +266,22 @@ Contains
 
     real, target, optional, intent(in) :: sxfer(:,:)
     real, target, optional, intent(in) :: emis (:,:)
+    logical,      optional, intent(in) :: cu_mix
 
     integer                         :: ntsize
     integer,            parameter   :: ialloc = 20
+    logical                         :: cumix
 
     type(scalar_table), allocatable :: scalar_copy(:)
     integer,            allocatable ::  sxfer_copy(:)
     integer,            allocatable ::   emis_copy(:)
+    integer,            allocatable ::  cumix_copy(:)
+
+    if (present(cu_mix)) then
+       cumix = cu_mix
+    else
+       cumix = .false.
+    endif
 
     ! Initial allocation of tables if this is the first call
 
@@ -282,6 +293,10 @@ Contains
 
     if (present(emis)) then
        if (.not. allocated(emis_map)) allocate(emis_map(ialloc))
+    endif
+
+    if (cumix) then
+       if (.not. allocated(cumix_map)) allocate(cumix_map(ialloc))
     endif
 
     num_scalar = num_scalar + 1
@@ -309,7 +324,7 @@ Contains
        if (num_sxfer > ntsize) then
           allocate(sxfer_copy(ntsize+ialloc))
           sxfer_copy(1:ntsize) = sxfer_map
-          call move_alloc(sxfer_copy, sxfer_map) 
+          call move_alloc(sxfer_copy, sxfer_map)
        endif
 
        scalar_tab(num_scalar)%sxfer => sxfer
@@ -328,13 +343,31 @@ Contains
        if (num_emis > ntsize) then
           allocate(emis_copy(ntsize+ialloc))
           emis_copy(1:ntsize) = emis_map
-          call move_alloc(emis_copy, emis_map) 
+          call move_alloc(emis_copy, emis_map)
        endif
 
        scalar_tab(num_scalar)%emis => emis
        emis_map(num_emis) = num_scalar
        
        write(io6,*) "Emissions:", scalar_tab(num_scalar)%name, num_emis, num_scalar
+
+    endif
+
+    ! If this species will be mixed by subgrid cumulus, include it in table
+
+    if (cumix) then
+
+       num_cumix = num_cumix + 1
+       ntsize = size(cumix_map)
+
+       ! Increase cumix table size if necessary
+       if (num_cumix > ntsize) then
+          allocate(cumix_copy(ntsize+ialloc))
+          cumix_copy(1:ntsize) = cumix_map
+          call move_alloc(cumix_copy, cumix_map)
+       endif
+
+       cumix_map(num_cumix) = num_scalar
 
     endif
 

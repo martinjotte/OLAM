@@ -742,7 +742,7 @@ C-----------------------------------------------------------------------
 !         USE BIDI_Mod, Only: lufrac
 !         USE LSM_Mod,  Only: n_lufrac
          use cgrid_defn, only: cgrid
-         use misc_coms,  only: io6, iparallel
+         use misc_coms,  only: io6, isubdomain
          use mem_grid,   only: lpw, lsw, volt
          use mem_sflux,  only: seaflux, landflux, jseaflux, jlandflux
          use mem_ijtabs, only: itabg_w, jtab_w, jtw_prog
@@ -889,7 +889,7 @@ C-----------------------------------------------------------------------
 
             ! If run is parallel, get local rank indices
 
-            if (iparallel == 1) then
+            if (isubdomain == 1) then
                iw = itabg_w(iw)%iw_myrank
             endif
                
@@ -933,7 +933,7 @@ C-----------------------------------------------------------------------
 
             ! If run is parallel, get local rank indices
 
-            if (iparallel == 1) then
+            if (isubdomain == 1) then
                iw = itabg_w(iw)%iw_myrank
             endif
                

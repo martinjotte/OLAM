@@ -85,26 +85,20 @@ if (nadd_rad > 0) then
 
    if (zmrad < zm(mza-1)) then
       write(io6,*) 'Error - top of radiation grid is below the model grid'
-      stop    'in rad_mclat'
+      stop         'in rad_mclat'
    endif
 
    ! Compute heights of added levels for this column.
 
    deltaz = (zmrad - zm(mza-1)) / real(nadd_rad)
 
-   do k = mza-koff,nrad
+   do k = mza-koff, nrad
       zml(k) = zml(k-1) + deltaz
       ztl(k) = .5 * (zml(k) + zml(k-1))
+      dzl(k) = deltaz
    enddo
 
 endif
-
-! Compute dzl values.
-
-do k = 2,nrad
-   dzl(k) = zml(k) - zml(k-1)
-enddo
-dzl(1) = zml(2)
 
 ! Interpolate O3 from Mclatchy sounding to all levels in radiation column,
 

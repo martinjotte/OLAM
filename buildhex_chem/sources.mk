@@ -1,36 +1,29 @@
 #Makefile
 
 SOURCE_FILES= \
+             $(CONVECT)/acmcld.f90 \
              $(CONVECT)/cuparm_driver.f90 \
-             $(CONVECT)/grell_deep_capmax_ens.f90 \
-             $(CONVECT)/grell_deep_coms.f90 \
-             $(CONVECT)/grell_downdraft.f90 \
-             $(CONVECT)/grell_env_capmax_ens.f90 \
-             $(CONVECT)/grell_shallow_capmax_ens.f90 \
-             $(CONVECT)/grell_shallow_coms.f90 \
-             $(CONVECT)/grell_updraft.f90 \
-             $(CONVECT)/kuo.f90 \
-             $(CONVECT)/kuo_coms.f90 \
              $(CONVECT)/mem_cuparm.f90 \
-             $(CONVECT)/module_cu_kfeta.f90 \
-             $(CONVECT)/emanuel_coms.f90 \
-             $(CONVECT)/emanuel43c.f90 \
-             $(CONVECT)/emanuel_driver.f90 \
              $(CONVECT)/module_bl_acm2.f90 \
+             $(CONVECT)/module_cu_emanuel.f90 \
+             $(CONVECT)/module_cu_g3.f90 \
+             $(CONVECT)/module_cu_gf.f90 \
+             $(CONVECT)/module_cu_kfeta.f90 \
+             $(CONVECT)/module_cu_tiedtke.f90 \
              $(CONVECT)/pbl_driver.f90 \
              $(CONVECT)/smagorinsky.f90 \
              $(ED2MEM)/ed_max_dims.F90 \
              $(ED2MEM)/ed_misc_coms.f90 \
              $(LEAF)/leaf4.F90 \
              $(LEAF)/leaf4_canopy.f90 \
+             $(LEAF)/leaf4_coms.f90 \
+             $(LEAF)/leaf4_database_read.f90 \
              $(LEAF)/leaf4_init_atm.f90 \
              $(LEAF)/leaf4_landcell.f90 \
+             $(LEAF)/leaf4_plot.f90 \
              $(LEAF)/leaf4_sfcwater.f90 \
              $(LEAF)/leaf4_soil.f90 \
              $(LEAF)/leaf4_startup.f90 \
-             $(LEAF)/leaf4_coms.f90 \
-             $(LEAF)/leaf4_database_read.f90 \
-             $(LEAF)/leaf4_plot.f90 \
              $(LEAF)/mem_leaf.f90 \
              $(LEAF)/ndvi_database_read.f90 \
              $(LEAF)/olam_mpi_land.F90 \
@@ -43,13 +36,14 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_addsc.f90 \
              $(MODEL_MODS)/mem_average_vars.f90 \
              $(MODEL_MODS)/mem_basic.f90 \
+             $(MODEL_MODS)/mem_flux_accum.f90 \
              $(MODEL_MODS)/mem_grid.f90 \
              $(MODEL_MODS)/mem_ijtabs.f90 \
              $(MODEL_MODS)/mem_mclat.f90 \
-             $(MODEL_MODS)/mem_mksfc.f90 \
              $(MODEL_MODS)/mem_micro.f90 \
+             $(MODEL_MODS)/mem_mksfc.f90 \
              $(MODEL_MODS)/mem_nudge.f90 \
-             $(MODEL_MODS)/mem_para.f90 \
+             $(MODEL_MODS)/mem_para.F90 \
              $(MODEL_MODS)/mem_plot.f90 \
              $(MODEL_MODS)/mem_rayf.f90 \
              $(MODEL_MODS)/mem_sflux.f90 \
@@ -71,9 +65,9 @@ SOURCE_FILES= \
              $(OISAN)/fldsisan.f90 \
              $(OISAN)/isan_coms.f90 \
              $(OISAN)/isan_driver.f90 \
+             $(OISAN)/nudge_o3.f90 \
              $(OISAN)/obs_nudge.f90 \
              $(OISAN)/spec_nudge.f90 \
-             $(OISAN)/nudge_o3.f90 \
              $(OMODEL)/alloc.f90 \
              $(OMODEL)/average_vars.f90 \
              $(OMODEL)/cartesian.f90 \
@@ -103,7 +97,6 @@ SOURCE_FILES= \
              $(OMODEL)/omic_vap.f90 \
              $(OMODEL)/oname_check.f90 \
              $(OMODEL)/oname.f90 \
-             $(OMODEL)/o_ncar.f90 \
              $(OMODEL)/oplot_interface.f90 \
              $(OMODEL)/oplot_lib.f90 \
              $(OMODEL)/othrm.f90 \
@@ -132,6 +125,7 @@ SOURCE_FILES= \
              $(OUTILS)/interp_lib.f90 \
              $(OUTILS)/lapack.f90 \
              $(OUTILS)/map_proj.f90 \
+             $(OUTILS)/o_ncar.f90 \
              $(OUTILS)/read_cdc.c \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \
@@ -142,15 +136,91 @@ SOURCE_FILES= \
              $(RADIATE)/mem_radiate.f90 \
              $(RADIATE)/rad_driv.F90 \
              $(RADIATE)/rad_mclat.f90 \
+             $(RADIATE)/rrtmg_cloud_optics.f90 \
+             $(RADIATE)/rrtmg_raddriv.f90 \
+             $(RADIATE)/rrtmg_lw/mcica_random_numbers.f90 \
+             $(RADIATE)/rrtmg_lw/mcica_subcol_gen_lw.f90 \
+             $(RADIATE)/rrtmg_lw/parkind.f90 \
+             $(RADIATE)/rrtmg_lw/parrrtm.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_cld.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_con.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg01.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg02.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg03.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg04.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg05.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg06.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg07.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg08.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg09.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg10.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg11.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg12.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg13.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg14.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg15.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_kg16.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_ncpar.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_ref.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_tbl.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_vsn.f90 \
+             $(RADIATE)/rrtmg_lw/rrlw_wvn.f90 \
+             $(RADIATE)/rrtmg_lw/rrtmg_lw_cldprmc.f90 \
+             $(RADIATE)/rrtmg_lw/rrtmg_lw_cldprop.f90 \
+             $(RADIATE)/rrtmg_lw/rrtmg_lw_init.f90 \
+             $(RADIATE)/rrtmg_lw/rrtmg_lw_rad.f90 \
+             $(RADIATE)/rrtmg_lw/rrtmg_lw_rad_nomcica.f90 \
+             $(RADIATE)/rrtmg_lw/rrtmg_lw_read_h5.f90 \
+             $(RADIATE)/rrtmg_lw/rrtmg_lw_rtrn.f90 \
+             $(RADIATE)/rrtmg_lw/rrtmg_lw_rtrnmc.f90 \
+             $(RADIATE)/rrtmg_lw/rrtmg_lw_rtrnmr.f90 \
+             $(RADIATE)/rrtmg_lw/rrtmg_lw_setcoef.f90 \
+             $(RADIATE)/rrtmg_lw/rrtmg_lw_taumol.f90 \
+             $(RADIATE)/rrtmg_sw/mcica_subcol_gen_sw.f90 \
+             $(RADIATE)/rrtmg_sw/parrrsw.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_aer.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_cld.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_con.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg16.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg17.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg18.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg19.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg20.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg21.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg22.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg23.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg24.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg25.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg26.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg27.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg28.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_kg29.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_ncpar.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_ref.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_tbl.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_vsn.f90 \
+             $(RADIATE)/rrtmg_sw/rrsw_wvn.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_cldprmc.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_cldprop.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_init.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_rad.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_rad_nomcica.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_read_h5.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_reftra.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_setcoef.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_spcvmc.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_spcvrt.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_taumol.f90 \
+             $(RADIATE)/rrtmg_sw/rrtmg_sw_vrtqdr.f90 \
              $(SEA)/mem_sea.f90 \
              $(SEA)/olam_mpi_sea.F90 \
              $(SEA)/para_init_sea.f90 \
-             $(SEA)/read_sst_analysis.f90 \
              $(SEA)/read_seaice_analysis.f90 \
+             $(SEA)/read_sst_analysis.f90 \
              $(SEA)/sea_coms.f90 \
              $(SEA)/sea.f90 \
-             $(SEA)/seaice.f90 \
              $(SEA)/seaice_database_read.f90 \
+             $(SEA)/seaice.f90 \
              $(SEA)/sea_init_atm.f90 \
              $(SEA)/sea_startup.f90 \
              $(SEA)/sst_database_read.f90 \
@@ -192,7 +262,6 @@ SOURCE_FILES= \
              $(CHEM)/PRECURSOR_DATA.F \
              $(MEGAN)/canopy.f90 \
              $(MEGAN)/driver.f90
-
 
 ED2_SOURCES = \
              $(ED2DRIV)/ed_1st.f90 \

@@ -71,7 +71,7 @@ subroutine thiltend_long0(iw,rhot)
 use mem_ijtabs,  only: itab_w
 use misc_coms,   only: io6, dtlm, meshtype
 use mem_basic,   only: rho, thil
-use mem_turb,    only: vkh, hkm, sxfer_tk, sxfer_rk, fthpbl
+use mem_turb,    only: vkh, hkm, sxfer_tk, sxfer_rk
 use mem_tend,    only: thilt
 use mem_grid,    only: mza, mwa, arw, dzim, volt, volti, &
                        aru, arv, dniu, dniv, lpu, lpv
@@ -153,7 +153,7 @@ endif
 
 do k = ka,mza-1
 
-! Update thil tendency from vertical and horizontal turbulent fluxes
+! Update thil tendency from horizontal turbulent fluxes
 
    thilt(k,iw) = thilt(k,iw) + volti(k,iw) * vctr1(k)
 

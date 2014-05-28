@@ -152,6 +152,8 @@ real :: pwvtmasi (nhcat) ! constant dependent on mass and fall power laws
 real :: dispemb0 (nhcat) ! minimum vertical displacement in sedim table for each category
 real :: dispemb0i(nhcat) ! inverse of dispemb0
 real :: dispemb1 (nhcat) ! maximum vertical displacement in sedim table for each category
+real :: reffcof  (nhcat) ! constant dependent on gamma function and mass power law
+                         ! for computing effective diameter
 
 real :: coltabc(nembc,nembc,npairc) ! collection table for bulk number
 real :: coltabx(nembc,nembc,npairx) ! collection table for x bulk density

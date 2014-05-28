@@ -38,10 +38,11 @@ subroutine pbl_driver(rhot, mrl)
   use mem_tend,       only: thilt, sh_wt
   use mem_basic,      only: vxe, vye, vze, thil, theta, tair, sh_w, sh_v, rho
   use mem_turb,       only: hkm, sxfer_tk, sxfer_rk, ustar, wstar, wtv0, &
-                            frac_urb, frac_land, frac_sfc, pblh, kpblh
+                            frac_urb, frac_land, frac_sfc, pblh, kpblh, &
+                            fthpbl, fqtpbl
   use consts_coms,    only: grav, vonk, eps_virt
   use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
-  use mem_radiate,    only: fthrd
+  use mem_radiate,    only: fthrd_sw, fthrd_lw
   use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx, acm2
   use smagorinsky,    only: turb_k
   use emis_defn,      only: get_emis
@@ -61,6 +62,7 @@ subroutine pbl_driver(rhot, mrl)
   real    :: thilv (mza)
   real    :: vkh   (mza)
   real    :: vkm   (mza)
+  real    :: fthrd (mza)
   real    :: moli
 
 ! Get chemical emisions for this timestep
@@ -91,6 +93,20 @@ subroutine pbl_driver(rhot, mrl)
 !       vkh(k,iw) = 0.
      enddo
 
+     ! Save input tendencies of theta and qt for later determining PBL tendencies
+
+     if (allocated(fthpbl)) then
+        do k = ka, mza-1
+           fthpbl(k,iw) = thilt(k,iw)
+        enddo
+     endif
+
+     if (allocated(fqtpbl)) then
+        do k = ka, mza-1
+           fqtpbl(k,iw) = sh_wt(k,iw)
+        enddo
+     endif
+
      ! Diagnose PBL height regardless of scheme
 
      do k = ka, mza-1
@@ -111,10 +127,12 @@ subroutine pbl_driver(rhot, mrl)
 
         moli = - grav * vonk * wtv0(iw) / ustar(iw)**3 / thetav(ka)
 
+        fthrd(ka:mza-1) = fthrd_sw(ka:mza-1,iw) + fthrd_lw(ka:mza-1,iw)
+
         call acm2_eddyx( iw, moli, ustar(iw), pblh(iw), kpblh(iw), ka, mza-1, &
                          vkh, vxe(:,iw), vye(:,iw), vze(:,iw), sh_w(:,iw),    &
                          sh_v(:,iw), qc, thil(:,iw), theta(:,iw), thetav,     &
-                         tair(:,iw), fthrd(:,iw), rho(:,iw)                   )
+                         tair(:,iw), fthrd, rho(:,iw), thilv                  )
 
         call acm2( iw, rhot, moli, ustar(iw), pblh(iw), kpblh(iw), thetav, vkh )
 
@@ -139,6 +157,20 @@ subroutine pbl_driver(rhot, mrl)
         sxfer_tk(ks,iw) = 0.0
         sxfer_rk(ks,iw) = 0.0
      enddo
+
+     ! Save PBL tendencies of theta and qt needed by some convective schemes
+
+     if (allocated(fthpbl)) then
+        do k = ka, mza-1
+           fthpbl(k,iw) = (thilt(k,iw) - fthpbl(k,iw)) / rho(k,iw)
+        enddo
+     endif
+
+     if (allocated(fqtpbl)) then
+        do k = ka, mza-1
+           fqtpbl(k,iw) = (sh_wt(k,iw) - fqtpbl(k,iw)) / rho(k,iw)
+        enddo
+     endif
    
   enddo
 !$omp end parallel do
@@ -153,10 +185,10 @@ subroutine pbl_init()
   use mem_grid,      only: lsw, lpw, mza, mwa, arw
   use mem_ijtabs,    only: itab_w, jtab_w, jtw_prog, itabg_w
   use mem_turb,      only: frac_urb, frac_land, frac_sfc, ustar, wstar, wtv0, &
-                           pblh, kpblh
+                           pblh, kpblh, fthpbl, fqtpbl
   use mem_leaf,      only: land, itabg_wl
   use mem_basic,     only: vxe, vye, vze, thil, sh_v
-  use misc_coms,     only: io6, iparallel
+  use misc_coms,     only: io6, isubdomain, runtype
   use module_bl_acm2,only: acm2_pblhgt
   use leaf_coms,     only: isfcl
   use consts_coms,   only: eps_virt
@@ -165,6 +197,9 @@ subroutine pbl_init()
 
   integer :: j, ilf, iw, iwl, k
   real    :: thilv(mza)
+
+  if (allocated(fthpbl)) fthpbl(:,:) = 0.0
+  if (allocated(fqtpbl)) fqtpbl(:,:) = 0.0
 
 ! Populate urban and land fraction arrays if used
   
@@ -178,7 +213,7 @@ subroutine pbl_init()
         iw  = landflux(ilf)%iw   ! global index
         iwl = landflux(ilf)%iwls ! global index
 
-        if (iparallel == 1) then
+        if (isubdomain == 1) then
            iw  = itabg_w (iw )%iw_myrank  ! local index
            iwl = itabg_wl(iwl)%iwl_myrank ! local index
         endif
@@ -208,6 +243,8 @@ subroutine pbl_init()
      endif
   enddo
 
+  if (runtype /= 'INITIAL') return
+
 ! Initialize PBL height and some PBL quantities
     
   do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
@@ -226,11 +263,3 @@ subroutine pbl_init()
   enddo
 
 end subroutine pbl_init
-
-
-
-
-
-
-
-

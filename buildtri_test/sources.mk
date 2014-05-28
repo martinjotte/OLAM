@@ -1,22 +1,15 @@
 #Makefile
 
 SOURCE_FILES= \
+             $(CONVECT)/acmcld.f90 \
              $(CONVECT)/cuparm_driver.f90 \
-             $(CONVECT)/grell_deep_capmax_ens.f90 \
-             $(CONVECT)/grell_deep_coms.f90 \
-             $(CONVECT)/grell_downdraft.f90 \
-             $(CONVECT)/grell_env_capmax_ens.f90 \
-             $(CONVECT)/grell_shallow_capmax_ens.f90 \
-             $(CONVECT)/grell_shallow_coms.f90 \
-             $(CONVECT)/grell_updraft.f90 \
-             $(CONVECT)/kuo.f90 \
-             $(CONVECT)/kuo_coms.f90 \
              $(CONVECT)/mem_cuparm.f90 \
-             $(CONVECT)/module_cu_kfeta.f90 \
-             $(CONVECT)/emanuel_coms.f90 \
-             $(CONVECT)/emanuel43c.f90 \
-             $(CONVECT)/emanuel_driver.f90 \
              $(CONVECT)/module_bl_acm2.f90 \
+             $(CONVECT)/module_cu_emanuel.f90 \
+             $(CONVECT)/module_cu_g3.f90 \
+             $(CONVECT)/module_cu_gf.f90 \
+             $(CONVECT)/module_cu_kfeta.f90 \
+             $(CONVECT)/module_cu_tiedtke.f90 \
              $(CONVECT)/pbl_driver.f90 \
              $(CONVECT)/smagorinsky.f90 \
              $(ED2MEM)/ed_max_dims.F90 \
@@ -43,13 +36,14 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_addsc.f90 \
              $(MODEL_MODS)/mem_average_vars.f90 \
              $(MODEL_MODS)/mem_basic.f90 \
+             $(MODEL_MODS)/mem_flux_accum.f90 \
              $(MODEL_MODS)/mem_grid.f90 \
              $(MODEL_MODS)/mem_ijtabs.f90 \
              $(MODEL_MODS)/mem_mclat.f90 \
              $(MODEL_MODS)/mem_micro.f90 \
              $(MODEL_MODS)/mem_mksfc.f90 \
              $(MODEL_MODS)/mem_nudge.f90 \
-             $(MODEL_MODS)/mem_para.f90 \
+             $(MODEL_MODS)/mem_para.F90 \
              $(MODEL_MODS)/mem_plot.f90 \
              $(MODEL_MODS)/mem_rayf.f90 \
              $(MODEL_MODS)/mem_sflux.f90 \
@@ -102,7 +96,6 @@ SOURCE_FILES= \
              $(OMODEL)/omic_vap.f90 \
              $(OMODEL)/oname_check.f90 \
              $(OMODEL)/oname.f90 \
-             $(OMODEL)/o_ncar.f90 \
              $(OMODEL)/oplot_interface.f90 \
              $(OMODEL)/oplot_lib.f90 \
              $(OMODEL)/othrm.f90 \
@@ -130,6 +123,7 @@ SOURCE_FILES= \
              $(OUTILS)/hdf5_utils.f90 \
              $(OUTILS)/interp_lib.f90 \
              $(OUTILS)/map_proj.f90 \
+             $(OUTILS)/o_ncar.f90 \
              $(OUTILS)/read_cdc.c \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \

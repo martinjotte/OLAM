@@ -261,24 +261,25 @@
  
    NL%ISWRTYP = 3   ! Shortwave radiation type:
    NL%ILWRTYP = 3   ! Longwave  radiation type:
-                    !   0=none, 3=Harrington
+                    !   0=none, 2=RRTMG, 3=Harrington
+
    NL%RADFRQ  = 900.  ! Time interval between radiation tendency updates (s)
+
+   NL%RRTMG_DATADIR = ../etc  ! Directory containing RRTMg input files
 
  !--------------------------------------------------------------------------
  ! Cumulus parameterization parameters
  !--------------------------------------------------------------------------
   
    NL%NQPARM = 3,3,3,0,0,0,0,0,0,0   ! Cumulus parameterization scheme for each MRL
-                                 ! 0=off, 1=Kuo, 2=Grell, 3=KF_eta, 4=Emanuel
-
-   NL%NQPARM_SH = 0,0,0,0,0,0,0,0,0  ! Shallow cumulus parameterization scheme 
-                                   ! for each MRL:  0=off, 1=Grell
+                                 ! 0=off, 1=Tiedtke, 2=Grell, 3=KF_eta, 4=Emanuel
 
    NL%CONFRQ = 1200.   ! Time interval (s) between cumulus param updates
 
-   NL%WCLDBS = .002     ! Minimum vertical motion (m/s) needed at cloud base 
-                       ! to trigger convection in Kuo scheme
- 
+   NL%CONV_UV_MIX     = 1  ! Vertical momentum mixing due to convection?
+   NL%CONV_TRACER_MIX = 1  ! Vertical tracer mixing due to convection?
+                           !   0 = no, 1 = yes
+
  !--------------------------------------------------------------------------
  ! Eddy diffusion coefficient parameters (one value for each MRL)
  !--------------------------------------------------------------------------
@@ -324,6 +325,9 @@
                                 
    NL%ICCNLEV = 0,        ! CCN 0=no source or sink
                           !     1=nucleation CCN sink, evaporation CCN source 
+
+   NL%QXTRANS = 0,        ! 0 = no transport of rain/graupel/hail internal energy
+                          ! 1 = transport rain/graupel/hail internal energy 
 
    NL%CPARM   = 300.e6   ! Cloud concen (#/kg_air) if ICLOUD = 4,
                           ! CCN concen (#/kg_air) if ICLOUD = 5

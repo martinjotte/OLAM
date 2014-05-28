@@ -33,6 +33,8 @@
 
 Module mem_micro
 
+  use consts_coms, only: r8
+
   real, allocatable, target :: sh_c(:,:) ! cloud water spec dens [kg_cld/kg_air]
   real, allocatable, target :: sh_d(:,:) ! drizzle spec dens [kg_driz/kg_air]
   real, allocatable, target :: sh_r(:,:) ! rain spec dens [kg_rain/kg_air]
@@ -59,13 +61,13 @@ Module mem_micro
   real, allocatable, target :: q6(:,:) ! graupel internal energy [J/kg]
   real, allocatable, target :: q7(:,:) ! hail internal energy [J/kg]
 
-  real, allocatable, target :: accpd (:) ! sfc drizzle accum [kg/m^2]
-  real, allocatable, target :: accpr (:) ! sfc rain accum [kg/m^2]
-  real, allocatable, target :: accpp (:) ! sfc pristine ice accum [kg/m^2]
-  real, allocatable, target :: accps (:) ! sfc snow accum [kg/m^2]
-  real, allocatable, target :: accpa (:) ! sfc aggregates  accum [kg/m^2]
-  real, allocatable, target :: accpg (:) ! sfc graupel accum [kg/m^2]
-  real, allocatable, target :: accph (:) ! sfc hail accum [kg/m^2]
+  real(r8), allocatable, target :: accpd (:) ! sfc drizzle accum [kg/m^2]
+  real(r8), allocatable, target :: accpr (:) ! sfc rain accum [kg/m^2]
+  real(r8), allocatable, target :: accpp (:) ! sfc pristine ice accum [kg/m^2]
+  real(r8), allocatable, target :: accps (:) ! sfc snow accum [kg/m^2]
+  real(r8), allocatable, target :: accpa (:) ! sfc aggregates  accum [kg/m^2]
+  real(r8), allocatable, target :: accpg (:) ! sfc graupel accum [kg/m^2]
+  real(r8), allocatable, target :: accph (:) ! sfc hail accum [kg/m^2]
 
   real, allocatable, target :: pcprd (:) ! sfc drizzle pcp rate [kg/(m^2 s)]
   real, allocatable, target :: pcprr (:) ! sfc rain pcp rate [kg/(m^2 s)]
@@ -88,6 +90,7 @@ Contains
 
     use misc_coms, only: rinit
     use oname_coms, only: nl
+    use consts_coms, only: r8
 
     implicit none
 
@@ -105,46 +108,46 @@ Contains
 
        if (idriz >= 1)  then
           allocate (sh_d(mza,mwa)) ; sh_d  = rinit
-          allocate (accpd   (mwa)) ; accpd = 0.0
+          allocate (accpd   (mwa)) ; accpd = 0.0_r8
           allocate (pcprd   (mwa)) ; pcprd = rinit
        endif
 
        if (irain >= 1)  then
           allocate (sh_r(mza,mwa)) ; sh_r  = rinit
           allocate (q2  (mza,mwa)) ; q2    = rinit
-          allocate (accpr   (mwa)) ; accpr = 0.0
+          allocate (accpr   (mwa)) ; accpr = 0.0_r8
           allocate (pcprr   (mwa)) ; pcprr = rinit
        endif
 
        if (ipris >= 1)  then
           allocate (sh_p(mza,mwa)) ; sh_p  = rinit
-          allocate (accpp   (mwa)) ; accpp = 0.0
+          allocate (accpp   (mwa)) ; accpp = 0.0_r8
           allocate (pcprp   (mwa)) ; pcprp = rinit
        endif
 
        if (isnow >= 1)  then
           allocate (sh_s(mza,mwa)) ; sh_s  = rinit
-          allocate (accps   (mwa)) ; accps = 0.0
+          allocate (accps   (mwa)) ; accps = 0.0_r8
           allocate (pcprs   (mwa)) ; pcprs = rinit
        endif
 
        if (iaggr >= 1)  then
           allocate (sh_a(mza,mwa)) ; sh_a  = rinit
-          allocate (accpa   (mwa)) ; accpa = 0.0
+          allocate (accpa   (mwa)) ; accpa = 0.0_r8
           allocate (pcpra   (mwa)) ; pcpra = rinit
        endif
 
        if (igraup >= 1) then
           allocate (sh_g(mza,mwa)) ; sh_g  = rinit
           allocate (q6  (mza,mwa)) ; q6    = rinit
-          allocate (accpg   (mwa)) ; accpg = 0.0
+          allocate (accpg   (mwa)) ; accpg = 0.0_r8
           allocate (pcprg   (mwa)) ; pcprg = rinit
        endif
 
        if (ihail >= 1) then
           allocate (sh_h(mza,mwa)) ; sh_h  = rinit
           allocate (q7  (mza,mwa)) ; q7    = rinit
-          allocate (accph   (mwa)) ; accph = 0.0
+          allocate (accph   (mwa)) ; accph = 0.0_r8
           allocate (pcprh   (mwa)) ; pcprh = rinit
        endif
 
@@ -384,37 +387,37 @@ Contains
 
     if (allocated(accpd)) then
        call increment_vtable('ACCPD', 'AW')
-       vtab_r(num_var)%rvar1_p => accpd
+       vtab_r(num_var)%dvar1_p => accpd
     endif
 
     if (allocated(accpr)) then
        call increment_vtable('ACCPR', 'AW')
-       vtab_r(num_var)%rvar1_p => accpr
+       vtab_r(num_var)%dvar1_p => accpr
     endif
 
     if (allocated(accpp)) then
        call increment_vtable('ACCPP', 'AW')
-       vtab_r(num_var)%rvar1_p => accpp
+       vtab_r(num_var)%dvar1_p => accpp
     endif
 
     if (allocated(accps)) then
        call increment_vtable('ACCPS', 'AW')
-       vtab_r(num_var)%rvar1_p => accps
+       vtab_r(num_var)%dvar1_p => accps
     endif
 
     if (allocated(accpa)) then
        call increment_vtable('ACCPA', 'AW')
-       vtab_r(num_var)%rvar1_p => accpa
+       vtab_r(num_var)%dvar1_p => accpa
     endif
 
     if (allocated(accpg)) then
        call increment_vtable('ACCPG', 'AW')
-       vtab_r(num_var)%rvar1_p => accpg
+       vtab_r(num_var)%dvar1_p => accpg
     endif
 
     if (allocated(accph)) then
        call increment_vtable('ACCPH', 'AW')
-       vtab_r(num_var)%rvar1_p => accph
+       vtab_r(num_var)%dvar1_p => accph
     endif
 
     if (allocated(pcprd)) then

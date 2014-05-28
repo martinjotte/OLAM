@@ -603,7 +603,7 @@ C ----------------------------------------------------------------------
 !         USE UTILIO_DEFN
 !         USE DUST_EMIS                            ! windblown dust emissions
          use m3utils
-         use misc_coms,   only: io6, iparallel
+         use misc_coms,   only: io6, isubdomain
          use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
          use mem_grid,    only: mza, lpw, volti, lsw
          use mem_ijtabs,  only: itabg_w, itab_w, jtab_w, jtw_prog
@@ -736,7 +736,7 @@ C     time.  Store result in EMBUFF array.
 
                   ! If run is parallel, get local rank indices
 
-                  if (iparallel == 1) then
+                  if (isubdomain == 1) then
                      iw = itabg_w(iw)%iw_myrank
                   endif
                
@@ -756,7 +756,7 @@ C     time.  Store result in EMBUFF array.
 
                   ! If run is parallel, get local rank indices
 
-                  if (iparallel == 1) then
+                  if (isubdomain == 1) then
                      iw = itabg_w(iw)%iw_myrank
                   endif
                

@@ -575,7 +575,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
               hfluxadv(k) = hfluxadv(k) &
                           + dirv * vmsc(k,iv) * arv(k,iv) * scp_upv(k,iv)
-              
+
               hfluxdif(k) = hfluxdif(k) &
                           + hdniv * arv(k,iv) * (hkm(k,iwn) + hkm(k,iw)) &
                           * (scp(k,iwn) - scp(k,iw))
@@ -728,7 +728,7 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv, &
   use mem_ijtabs,  only: jtab_v, itab_v, jtv_wadj
   use mem_grid,    only: mza, mva, mwa, lpv, zt, zm, &
                          unx, uny, unz, xev, yev, zev
-  use misc_coms,   only: io6, dtlm, dtsm
+  use misc_coms,   only: io6, dtlm, dtsm, mdomain
   use max_dims,    only: maxgrds
   use consts_coms, only: eradi
 
@@ -793,9 +793,15 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv, &
      cosv2 = itab_v(iv)%cosv(2)
      sinv2 = itab_v(iv)%sinv(2)
    
-     wnx_v = xev(iv) * eradi
-     wny_v = yev(iv) * eradi
-     wnz_v = zev(iv) * eradi
+     if (mdomain <= 1) then
+        wnx_v = xev(iv) * eradi
+        wny_v = yev(iv) * eradi
+        wnz_v = zev(iv) * eradi
+     else
+        wnx_v = 0.
+        wny_v = 0.
+        wnz_v = 1.
+     endif
 
 ! Vertical loop over T/V levels
 

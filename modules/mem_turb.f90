@@ -96,7 +96,8 @@ Contains
     allocate (frac_urb (mwa)) ; frac_urb  = 0.0 
     allocate (frac_land(mwa)) ; frac_land = 0.0
 
-    if ( any(nqparm(1:mrls) == 2) ) then
+    if ( any(nqparm(1:mrls) == 1) .or. any(nqparm(1:mrls) == 2) .or. &
+         any(nqparm(1:mrls) == 5) ) then
        allocate (fthpbl(mza,mwa)) ; fthpbl = 0.0
        allocate (fqtpbl(mza,mwa)) ; fqtpbl = 0.0
     endif
@@ -199,6 +200,16 @@ Contains
     if (allocated(ustar)) then
        call increment_vtable('USTAR', 'AW')
        vtab_r(num_var)%rvar1_p => ustar
+    endif
+
+    if (allocated(wstar)) then
+       call increment_vtable('WSTAR', 'AW')
+       vtab_r(num_var)%rvar1_p => wstar
+    endif
+
+    if (allocated(wtv0)) then
+       call increment_vtable('WTV0', 'AW')
+       vtab_r(num_var)%rvar1_p => wtv0
     endif
 
     if (allocated(pblh)) then

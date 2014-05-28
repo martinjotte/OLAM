@@ -218,16 +218,16 @@ call o_reopnwk()
 
  call plotback()
  call oplot_xy2log10('0','N',aspect,scalelab &
-               ,ncall,  vctr18,ge1          &
-               ,'time(days)',' '             &
+               ,ncall,  vctr18,ge1           &
+               ,'time(days)',' ',10          &
                ,timebeg,timeend,timeinc,5  ,-6,-1  )
  call oplot_xy2log10('0','N',aspect,scalelab &
-               ,ncall,  vctr18,ge2          &
-               ,' ',' '                      &
+               ,ncall,  vctr18,ge2           &
+               ,' ',' ',10                   &
                ,timebeg,timeend,timeinc,5  ,-6,-1  )
  call oplot_xy2log10('0','N',aspect,scalelab &
-               ,ncall,  vctr18,ge3          &
-               ,' ',' '                      &
+               ,ncall,  vctr18,ge3           &
+               ,' ',' ',10                   &
                ,timebeg,timeend,timeinc,5  ,-6,-1  )
  call o_frame()
 

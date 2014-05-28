@@ -91,6 +91,7 @@ call alloc_xyzem(nma)
 do im = 2,nma
    itab_md(im)%imp = im
    itab_md(im)%mrlm = 1
+   itab_md(im)%mrlm_orig = 1
    if (meshtype == 1) then
       call mdloopf('f',im, jtm_grid, jtm_vadj, 0, 0, 0, 0)
    else

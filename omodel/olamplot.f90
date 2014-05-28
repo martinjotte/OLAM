@@ -1064,7 +1064,7 @@ end subroutine plot_labelbar
 
 !===============================================================================
 
-subroutine plot_colorbar(iplt,itab)
+subroutine plot_colorbar(itab)
 
 use oplot_coms, only: op
 use plotcolors, only: clrtab
@@ -1072,7 +1072,7 @@ use misc_coms,  only: io6
 
 implicit none
 
-integer, intent(in) :: iplt,itab
+integer, intent(in) :: itab
 
 integer :: ibox, jbox, ln, ifmt, logabsval
 real :: bsize, yinc, absval
@@ -1226,7 +1226,7 @@ end subroutine plot_colorbar
 !===============================================================================
 
 subroutine oplot_xy2(panel,colorbar0,aspect,scalelab &
-   ,n,xval,yval,xlab,ylab                            &
+   ,n,xval,yval,xlab,ylab,linecolor                  &
    ,xmin,xmax,xinc,labincx  ,ymin,ymax,yinc,labincy  )
  
 use oplot_coms, only: op
@@ -1240,7 +1240,7 @@ implicit none
 
 character(len=1), intent(in) :: panel,colorbar0
 real, intent(in) :: aspect,scalelab
-integer, intent(in) :: n,labincx,labincy
+integer, intent(in) :: n,labincx,labincy,linecolor
 real, intent(in) :: xval(n),yval(n)
 character(len=*), intent(in) :: xlab,ylab
 real, intent(in) :: xmin,xmax,xinc,ymin,ymax,yinc
@@ -1251,10 +1251,10 @@ character(len=20)  :: numbr,numbr2
 
 ! Set plot color (black)
 
+call o_sflush()
 call o_gsplci(10)
 call o_gsfaci(10)
 call o_gstxci(10)
-call o_sflush()
 
 ! Scale local working window (0,1,0,1) 
 ! to plotter coordinates (op%hp1,op%hp2,op%vp1,op%vp2)
@@ -1272,10 +1272,10 @@ call o_vector(op%fx1,op%fy1)
 
 ! Specify font # and scale font size to designated plotter coordinates
 
+call o_sflush()
 call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
 call o_pcsetr('CL',1.)  ! set character line width to 1
 sizelab = scalelab * (op%hp2 - op%hp1)
-call o_sflush()
 
 ! Write x axis label
 
@@ -1420,6 +1420,14 @@ call o_set(op%h1,op%h2,op%v1,op%v2,xmin,xmax,ymin,ymax,1)
 
 ! Plot values
 
+! Set plot color (linecolor)
+
+call o_sflush()
+call o_gsplci(linecolor)
+call o_gsfaci(linecolor)
+call o_gstxci(linecolor)
+
+
 call o_frstpt(xval(1),yval(1))
 do i = 2,n
    call o_vector(xval(i),yval(i))
@@ -1430,8 +1438,8 @@ end subroutine oplot_xy2
 
 !===============================================================================
 
-subroutine oplot_xy2log10(panel,colorbar0,aspect,scalelab  &
-   ,n,xval,yval,xlab,ylab                         &
+subroutine oplot_xy2log10(panel,colorbar0,aspect,scalelab &
+   ,n,xval,yval,xlab,ylab,linecolor                       &
    ,xmin,xmax,xinc,labincx  ,logymin,logymax      )
  
 use oplot_coms, only: op
@@ -1445,7 +1453,7 @@ implicit none
 
 character(len=1), intent(in) :: panel,colorbar0
 real, intent(in) :: aspect,scalelab
-integer, intent(in) :: n,labincx
+integer, intent(in) :: n,labincx,linecolor
 real, intent(in) :: xval(n),yval(n)
 character(len=*), intent(in) :: xlab,ylab
 real, intent(in) :: xmin,xmax,xinc
@@ -1457,10 +1465,10 @@ character(len=20)  :: numbr
 
 ! Set plot color (black)
 
+call o_sflush()
 call o_gsplci(10)
 call o_gsfaci(10)
 call o_gstxci(10)
-call o_sflush()
 
 ! Scale local working window (0,1,0,1) 
 ! to plotter coordinates (op%hp1,op%hp2,op%vp1,op%vp2)
@@ -1590,6 +1598,13 @@ call o_set(op%h1,op%h2,op%v1,op%v2,xmin,xmax,real(logymin),real(logymax),1)
 
 ! Plot values
 
+! Set plot color (linecolor)
+
+call o_sflush()
+call o_gsplci(linecolor)
+call o_gsfaci(linecolor)
+call o_gstxci(linecolor)
+
 yminlog = real(logymin)
 ymaxlog = real(logymax)
 
@@ -1603,8 +1618,8 @@ end subroutine oplot_xy2log10
 
 !===============================================================================
 
-subroutine oplot_xy2loglog10(panel,colorbar0,aspect,scalelab  &
-   ,n,xval,yval,xlab,ylab                         &
+subroutine oplot_xy2loglog10(panel,colorbar0,aspect,scalelab &
+   ,n,xval,yval,xlab,ylab,linecolor                          &
    ,logxmin,logxmax  ,logymin,logymax      )
  
 use oplot_coms, only: op
@@ -1618,7 +1633,7 @@ implicit none
 
 character(len=1), intent(in) :: panel,colorbar0
 real, intent(in) :: aspect,scalelab
-integer, intent(in) :: n
+integer, intent(in) :: n,linecolor
 real, intent(in) :: xval(n),yval(n)
 character(len=*), intent(in) :: xlab,ylab
 integer, intent(in) :: logxmin,logxmax
@@ -1632,10 +1647,10 @@ character(len=20)  :: numbr
 
 ! Set plot color (black)
 
+call o_sflush()
 call o_gsplci(10)
 call o_gsfaci(10)
 call o_gstxci(10)
-call o_sflush()
 
 ! Scale local working window (0,1,0,1) 
 ! to plotter coordinates (op%hp1,op%hp2,op%vp1,op%vp2)
@@ -1764,6 +1779,13 @@ call o_set(op%h1,op%h2,op%v1,op%v2,real(logxmin),real(logxmax)  &
 
 ! Plot values
 
+! Set plot color (linecolor)
+
+call o_sflush()
+call o_gsplci(linecolor)
+call o_gsfaci(linecolor)
+call o_gstxci(linecolor)
+
 xminlog = real(logxmin)
 xmaxlog = real(logxmax)
 
@@ -1783,6 +1805,253 @@ enddo
 
 return
 end subroutine oplot_xy2loglog10
+
+!===============================================================================
+
+  subroutine oplot_zxy2(panel,colorbar0,aspect,scalelab,fldname,units, &
+      nx,ny,xval,yval,xlab,ylab,field,icolortab,ifill,  &
+      xmin,xmax,xinc,labincx  ,ymin,ymax,yinc,labincy   )
+ 
+  use oplot_coms, only: op
+  use misc_coms,  only: io6
+
+! This routine produces a contour plot of a field with control over fonts,
+! labels, axis labels, line width, scaling, etc.  Pass in a value of 1 for n
+! in order to not plot (only draw frame and ticks).
+
+  implicit none
+
+  character(len=1), intent(in) :: panel,colorbar0
+  real, intent(in) :: aspect,scalelab
+  integer, intent(in) :: nx,ny,labincx,labincy,icolortab,ifill
+  real, intent(in) :: xval(nx),yval(ny)
+  character(len=*), intent(in) :: fldname,units,xlab,ylab
+  real, intent(in) :: xmin,xmax,xinc,ymin,ymax,yinc
+  real, intent(in) :: field(ny,nx)
+
+  integer :: i,im,k,logy,itickvalq
+  real :: xl,yl,dx,dy,tickval,xmargin,ymargin,sizelab,xlabx,ylaby,tickvalq
+  real :: hcpn(4),vcpn(4),fldvals(4)
+  character(len=20) :: numbr,numbr2
+
+! Set panel relative positions
+
+  call oplot_panel(panel,colorbar0,aspect,'N')
+
+! Scale local working window (xmin,xmax,ymin,ymax)
+!  to plotter coordinates (op%h1,op%h2,op%v1,op%v2)
+
+  call o_set(op%h1,op%h2,op%v1,op%v2,xmin,xmax,ymin,ymax,1)
+
+! Set op%xmin, op%xmax, op%ymin, and op%ymax to avoid trunc_polyg
+
+  op%xmin = xmin
+  op%xmax = xmax
+  op%ymin = ymin
+  op%ymax = ymax
+
+! Contour-plot values
+
+  do i = 2,nx
+
+     hcpn(1) = xval(i-1)
+     hcpn(2) = xval(i)
+     hcpn(3) = hcpn(2)
+     hcpn(4) = hcpn(1)
+
+     do k = 2,ny   ! Loop is over W levels
+
+! Get T-cell vertical coordinates
+
+        vcpn(1) = yval(k-1)
+        vcpn(2) = vcpn(1)
+        vcpn(3) = yval(k)
+        vcpn(4) = vcpn(3)
+
+        fldvals(1) = field(k-1,i-1)
+        fldvals(2) = field(k-1,i  )
+        fldvals(3) = field(k  ,i  )
+        fldvals(4) = field(k  ,i-1)
+
+! Contour plot cell around current M point
+
+        call contpolyg(icolortab,ifill,4,hcpn,vcpn,fldvals)
+      
+     enddo
+
+  enddo
+   
+! Draw colorbar if so specified
+
+  if (colorbar0 == 'c') call plot_colorbar(icolortab)
+
+! Scale local working window (0,1,0,1) 
+! to plotter coordinates (op%hp1,op%hp2,op%vp1,op%vp2)
+
+  call o_set(op%hp1,op%hp2,op%vp1,op%vp2,0.,1.,0.,1.,1)
+
+! Set plot color (black)
+
+  call o_sflush()
+  call o_gsplci(10)
+  call o_gsfaci(10)
+  call o_gstxci(10)
+
+! Specify font # and scale font size to designated plotter coordinates
+
+  call o_pcsetr('CL',1.)  ! set character line width to 1.
+  call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
+  sizelab = scalelab * (op%hp2 - op%hp1)
+
+! Plot field name and units
+
+  call o_plchhq(op%fx1,op%fnamey,trim(fldname)//trim(units),sizelab,0.,-1.)
+
+! Draw frame
+
+  call o_frstpt(op%fx1,op%fy1)
+  call o_vector(op%fx2,op%fy1)
+  call o_vector(op%fx2,op%fy2)
+  call o_vector(op%fx1,op%fy2)
+  call o_vector(op%fx1,op%fy1)
+
+! Write x axis label
+
+  xlabx = .5 * (op%fx1 + op%fx2)
+  call o_plchhq(xlabx,op%xlaby,trim(xlab),sizelab, 0.,0.)
+
+! Write y axis label
+
+  ylaby = .5 * (op%fy1 + op%fy2)
+  call o_plchhq(op%ylabx,ylaby,trim(ylab),sizelab,90.,0.)
+
+! Scale local working window (xmin,xmax,0.,1.) 
+! to plotter coordinates (op%h1,op%h2,op%vp1,op%vp2)
+
+  call o_set(op%h1,op%h2,op%vp1,op%vp2,xmin,xmax,0.,1.,1)
+
+! Plot and label X-axis ticks
+
+  tickval = nint(xmin/xinc) * xinc
+  if (tickval < xmin - .001 * xinc) tickval = tickval + xinc
+
+  do while (tickval < xmax + .001 * xinc)
+
+     if (mod(nint(tickval/xinc),labincx) == 0) then  ! Only for long ticks
+
+        dy = .014
+
+! Encode and plot current X tick label
+ 
+        if (xinc * labincx >= .999) then
+           write (numbr,'(i6)') nint(tickval)
+        elseif (xinc * labincx >= .0999) then
+           write (numbr,'(f5.1)') tickval
+        elseif (xinc * labincx >= .00999) then
+           write (numbr,'(f5.2)') tickval
+        elseif (xinc * labincx >= .000999) then
+           write (numbr,'(f6.3)') tickval
+        else
+           write (numbr,'(f7.4)') tickval
+        endif
+   
+        call o_plchhq(tickval,op%xtlaby,trim(adjustl(numbr)),sizelab,0.,0.)
+
+     else                                          ! Only for short ticks
+        dy = .007
+     endif
+   
+! Plot current X tick
+   
+     call o_frstpt(tickval,op%fy1)
+     call o_vector(tickval,op%fy1 + dy)
+     call o_frstpt(tickval,op%fy2)
+     call o_vector(tickval,op%fy2 - dy)
+   
+     tickval = tickval + xinc
+  enddo
+
+! Scale local working window (0.,1.,ymin,ymax) 
+! to plotter coordinates (op%hp1,op%hp2,op%v1,op%v2)
+
+  call o_set(op%hp1,op%hp2,op%v1,op%v2,0.,1.,ymin,ymax,1)
+
+! Plot and label Y-axis ticks
+
+  tickval = nint(ymin/yinc) * yinc
+  if ((tickval - ymax) / (ymin - ymax) > 1.001) tickval = tickval + yinc
+
+  do while ((tickval - ymin) / (ymax - ymin) < 1.001)
+   
+     if (mod(nint(tickval/yinc),labincy) == 0) then  ! Only for long ticks
+
+        dx = .014
+ 
+! Encode current Y tick label
+
+        if (abs(yinc * labincy) >= .999) then
+           write (numbr,'(i6)') nint(tickval)
+        elseif (yinc * labincy >= .0999) then
+           write (numbr,'(f5.1)') tickval
+        elseif (yinc * labincy >= .00999) then
+           write (numbr,'(f5.2)') tickval
+        elseif (yinc * labincy >= .000999) then
+           write (numbr,'(f6.3)') tickval
+        else
+
+           logy = int(log10(yinc * labincy)) - 2
+           tickvalq = tickval * 10. ** (-logy)         
+           itickvalq = nint(tickvalq)
+
+! If significand is at or above 10, reduce
+
+           do while (abs(itickvalq) >= 10)
+              logy = logy + 1
+              tickvalq = tickvalq * .1
+              itickvalq = nint(tickvalq)
+           enddo
+
+! Use only one of the following 2 lines
+
+!          write (numbr,'(f4.1)') tickvalq   ! If real significand is required
+           write (numbr,'(i2)') itickvalq    ! If integer significand is ok
+
+           write (numbr2,'(i3)') logy
+           numbr = trim(adjustl(numbr))
+           numbr2 = trim(adjustl(numbr2))
+
+! Determine whether significand, power of 10, or both are to be plotted
+
+           if (itickvalq == 1) then 
+              numbr = '10:S3:'//trim(numbr2)//'        '
+           elseif (itickvalq == -1) then 
+              numbr = '-10:S3:'//trim(numbr2)//'        '
+           elseif (itickvalq /= 0) then
+              numbr = trim(adjustl(numbr))//'x'//'10:S3:'//trim(adjustl(numbr2))//'        '
+           endif
+
+        endif
+
+! Plot Y tick label
+
+!        call o_plchhq(op%ytlabx,tickval,numbr(1:len_trim(numbr)),sizelab,0.,1.)
+        call o_plchhq(op%ytlabx,tickval,trim(adjustl(numbr)),sizelab,0.,1.)
+
+     else                                          ! Only for short ticks
+        dx = .007
+     endif
+
+! Plot current Y tick
+
+     call o_frstpt(op%fx1     ,tickval)
+     call o_vector(op%fx1 + dx,tickval)
+     call o_frstpt(op%fx2     ,tickval)
+     call o_vector(op%fx2 - dx,tickval)
+   
+     tickval = tickval + yinc
+  enddo
+
+  end subroutine oplot_zxy2
 
 !===============================================================================
 
@@ -1820,7 +2089,3 @@ labincx = 5
 
 return
 end subroutine niceinc20
-
-
-
-

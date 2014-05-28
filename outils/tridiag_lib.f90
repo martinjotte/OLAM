@@ -158,8 +158,10 @@ contains
     real :: up1( nlays )
     real :: ru ( nlays )
 
-    real    :: dd, dd1, ysum
+    real    :: dd, dd1, ysum(nspcs)
     integer :: i, j, v, jj
+
+    real, parameter :: eps = 1.e2 * tiny(1.)
 
 !-- Define Upper and Lower matrices
 
@@ -206,18 +208,32 @@ contains
 
     do v = 1, nspcs
        y( 1,v ) = d( 1,v )
-       do i = 2, nlays
-          ysum = d( i,v )
-          do j = 1, i-1
-             ysum = ysum - l( i,j ) * y( j,v )
-          end do
-          y( i,v ) = ysum
+    end do
+
+    do i = 2, nlays
+
+       do v = 1, nspcs
+          ysum(v) = d( i,v )
        end do
+       
+       do j = 1, i-1
+          ! matrix is largley sparse, so avoid some unneeded computation
+          if (abs(l(i,j)) > eps) then
+             do v = 1, nspcs
+                ysum(v) = ysum(v) - l( i,j ) * y( j,v )
+             end do
+          endif
+       end do
+
+       do v = 1, nspcs
+          y( i,v ) = ysum(v)
+       enddo
+
     end do
       
 ! -- Back sub for Ux=y
 
-    do v= 1, nspcs
+    do v = 1, nspcs
        x( nlays,v ) = y( nlays,v ) * ru( nlays )
     end do
 

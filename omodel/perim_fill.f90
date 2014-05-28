@@ -190,15 +190,15 @@ end subroutine perim_fill2
 
 !===========================================================================
 
-subroutine perim_fill3(nper,imper,iuper)
+subroutine perim_fill3(mrlo,nper,imper,iuper)
 
-use mem_ijtabs, only: itab_ud, itab_wd, ltab_ud, nest_ud, nest_wd
+use mem_ijtabs, only: itab_md, itab_ud, itab_wd, ltab_ud, nest_ud, nest_wd
 use mem_grid,   only: xem, yem, zem
 use misc_coms,  only: io6
 
 implicit none
 
-integer, intent(in) :: nper, imper(nper), iuper(nper) 
+integer, intent(in) :: mrlo, nper, imper(nper), iuper(nper) 
 
 integer :: jm1, jm2, jm3, ju1, ju2, ju3, ku1, ku2, ku3
 
@@ -513,6 +513,11 @@ do iper = 1,nper,3
    endif
 
 ! NEW M locations
+
+   itab_md(im17)%mrlm_orig = itab_md(im18)%mrlm_orig
+   itab_md(im20)%mrlm_orig = itab_md(im19)%mrlm_orig
+   itab_md(im18)%mrlm_orig = mrlo + 1
+   itab_md(im19)%mrlm_orig = mrlo + 1
 
    xem(im19) = .5 * (xem(im24) + xem(im5))
    yem(im19) = .5 * (yem(im24) + yem(im5))

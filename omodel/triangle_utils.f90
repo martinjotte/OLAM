@@ -656,7 +656,7 @@ subroutine matrix_NxN(nsiz,AA,Y,X,sing)
    real   , dimension(nsiz,nsiz)              :: EE     ! Copy of AA, for elimination.
    real   , dimension(nsiz)                   :: Z      ! Copy of Y, for scaling
    real   , dimension(nsiz)                   :: dumvec ! Dummy vector, for row swapping
-   real                                       :: pivot  ! The pivot
+   real   , dimension(nsiz)                   :: diagm1 ! The inverse of the pivot values
    real                                       :: multip ! Multiplier
    integer                                    :: r      ! Row index
    integer                                    :: b      ! Row below index
@@ -670,13 +670,13 @@ subroutine matrix_NxN(nsiz,AA,Y,X,sing)
    !----- First thing, we copy AA to EE and Y to Z. ---------------------------------------!
    EE(:,:) = AA(:,:)
    Z (:)   = Y (:)
-   dumvec  = 0.
-   dumsca  = 0.
+
    !---------------------------------------------------------------------------------------!
    !     We initialise X with a huge, non-sense value, which will become the answer when   !
    ! the matrix is singular.                                                               !
    !---------------------------------------------------------------------------------------!
    X (:)   = -huge(1.)
+
    !----- We first assume that everything will be fine. -----------------------------------!
    sing    = .false.
 
@@ -684,16 +684,16 @@ subroutine matrix_NxN(nsiz,AA,Y,X,sing)
    ! 1. Main elimination loop, done row by row.                                            !
    !---------------------------------------------------------------------------------------!
    elimloop: do r = 1, nsiz-1
+
       !------ 1a. Finding the largest element, which will become our pivot ----------------!
       p = (r-1) + maxloc(abs(EE(r:nsiz,r)),dim=1)
       
-      pivot = maxval(abs(EE(r:nsiz,r)))
       !------------------------------------------------------------------------------------!
       ! 1b. Check the pivot and make sure it is a good one.  If not, then this matrix is   !
       !     singular or almost singular, and we cannot solve it, so we switch the flag and !
       !     return.                                                                        !
       !------------------------------------------------------------------------------------!
-      if (pivot < tinyoff) then
+      if (abs(EE(p,r)) < tinyoff) then
          sing = .true.
          return
       end if
@@ -708,12 +708,15 @@ subroutine matrix_NxN(nsiz,AA,Y,X,sing)
          Z(p)           = dumsca
       end if
 
+      ! Store the inverse of the pivot to avoid an extra divide
+      diagm1(r) = 1.0 / ee(r,r)
+
       !------------------------------------------------------------------------------------!
       ! 1d.  Eliminate rows below, everything to the left of the (,r) column will become   !
       !      zero (we won't compute that, but they will be.).                              !
       !------------------------------------------------------------------------------------!
       belowloop: do b=r+1,nsiz
-         multip = EE(b,r)/EE(r,r)
+         multip = EE(b,r) * diagm1(r)
          EE(b,r:nsiz) = EE(b,r:nsiz) - multip * EE(r,r:nsiz)
          Z(b)         = Z(b)         - multip * Z(r)
       end do belowloop
@@ -734,7 +737,7 @@ subroutine matrix_NxN(nsiz,AA,Y,X,sing)
    X(nsiz) = Z(nsiz) / EE(nsiz,nsiz)
    backsubloop: do r=nsiz-1,1,-1
       b    = r+1
-      X(r) = (Z(r) - sum(EE(r,b:nsiz)*x(b:nsiz))) / EE(r,r)
+      X(r) = (Z(r) - dot_product(EE(r,b:nsiz),x(b:nsiz))) * diagm1(r)
    end do backsubloop
 
    return
@@ -754,36 +757,36 @@ subroutine matrix8_NxN(nsiz,AA,Y,X,sing)
    implicit none
 
    !----- Arguments. ----------------------------------------------------------------------!
-   integer                      , intent(in)  :: nsiz  ! matrix and vector size
-   real(r8)   , dimension(nsiz,nsiz), intent(in)  :: AA    ! matrix
-   real(r8)   , dimension(nsiz)     , intent(in)  :: Y     ! right-hand side vector
-   real(r8)   , dimension(nsiz)     , intent(out) :: X     ! unknown vector
-   logical                      , intent(out) :: sing  ! The matrix was singular      [T|F]
+   integer                       , intent(in)  :: nsiz  ! matrix and vector size
+   real(r8), dimension(nsiz,nsiz), intent(in)  :: AA    ! matrix
+   real(r8), dimension(nsiz)     , intent(in)  :: Y     ! right-hand side vector
+   real(r8), dimension(nsiz)     , intent(out) :: X     ! unknown vector
+   logical                       , intent(out) :: sing  ! The matrix was singular     [T|F]
    !----- Local variables. ----------------------------------------------------------------!
-   real(r8)   , dimension(nsiz,nsiz)              :: EE     ! Copy of AA, for elimination.
-   real(r8)   , dimension(nsiz)                   :: Z      ! Copy of Y, for scaling
-   real(r8)   , dimension(nsiz)                   :: dumvec ! Dummy vector, for row swapping
-   real(r8)                                       :: pivot  ! The pivot
-   real(r8)                                       :: multip ! Multiplier
-   integer                                    :: r      ! Row index
-   integer                                    :: b      ! Row below index
-   integer                                    :: c      ! Column index
-   integer                                    :: p      ! Pivot index
-   real(r8)                                       :: dumsca ! Dummy scalar, for row swapping
+   real(r8), dimension(nsiz,nsiz)              :: EE     ! Copy of AA, for elimination.
+   real(r8), dimension(nsiz)                   :: Z      ! Copy of Y, for scaling
+   real(r8), dimension(nsiz)                   :: dumvec ! Dummy vector, for row swapping
+   real(r8), dimension(nsiz)                   :: diagm1 ! The inverse of the pivot values
+   real(r8)                                    :: multip ! Multiplier
+   integer                                     :: r      ! Row index
+   integer                                     :: b      ! Row below index
+   integer                                     :: c      ! Column index
+   integer                                     :: p      ! Pivot index
+   real(r8)                                    :: dumsca ! Dummy scalar, for row swapping
    !----- Local parameters. ---------------------------------------------------------------!
-   real(r8)                         , parameter   :: tinyoff=1.e-20
+   real(r8)                      , parameter   :: tinyoff=1.e-20
    !---------------------------------------------------------------------------------------!
    
    !----- First thing, we copy AA to EE and Y to Z. ---------------------------------------!
    EE(:,:) = AA(:,:)
    Z (:)   = Y (:)
-   dumvec  = 0.
-   dumsca  = 0.
+
    !---------------------------------------------------------------------------------------!
    !     We initialise X with a huge, non-sense value, which will become the answer when   !
    ! the matrix is singular.                                                               !
    !---------------------------------------------------------------------------------------!
    X (:)   = -huge(1.)
+
    !----- We first assume that everything will be fine. -----------------------------------!
    sing    = .false.
 
@@ -791,16 +794,16 @@ subroutine matrix8_NxN(nsiz,AA,Y,X,sing)
    ! 1. Main elimination loop, done row by row.                                            !
    !---------------------------------------------------------------------------------------!
    elimloop: do r = 1, nsiz-1
+
       !------ 1a. Finding the largest element, which will become our pivot ----------------!
       p = (r-1) + maxloc(abs(EE(r:nsiz,r)),dim=1)
-      
-      pivot = maxval(abs(EE(r:nsiz,r)))
+
       !------------------------------------------------------------------------------------!
       ! 1b. Check the pivot and make sure it is a good one.  If not, then this matrix is   !
       !     singular or almost singular, and we cannot solve it, so we switch the flag and !
       !     return.                                                                        !
       !------------------------------------------------------------------------------------!
-      if (pivot < tinyoff) then
+      if (abs(EE(p,r)) < tinyoff) then
          sing = .true.
          return
       end if
@@ -815,12 +818,15 @@ subroutine matrix8_NxN(nsiz,AA,Y,X,sing)
          Z(p)           = dumsca
       end if
 
+      ! Store the inverse of the pivot to avoid an extra divide
+      diagm1(r) = 1.0_r8 / ee(r,r)
+
       !------------------------------------------------------------------------------------!
       ! 1d.  Eliminate rows below, everything to the left of the (,r) column will become   !
       !      zero (we won't compute that, but they will be.).                              !
       !------------------------------------------------------------------------------------!
       belowloop: do b=r+1,nsiz
-         multip = EE(b,r)/EE(r,r)
+         multip = EE(b,r) * diagm1(r)
          EE(b,r:nsiz) = EE(b,r:nsiz) - multip * EE(r,r:nsiz)
          Z(b)         = Z(b)         - multip * Z(r)
       end do belowloop
@@ -841,14 +847,10 @@ subroutine matrix8_NxN(nsiz,AA,Y,X,sing)
    X(nsiz) = Z(nsiz) / EE(nsiz,nsiz)
    backsubloop: do r=nsiz-1,1,-1
       b    = r+1
-      X(r) = (Z(r) - sum(EE(r,b:nsiz)*x(b:nsiz))) / EE(r,r)
+      X(r) = (Z(r) - dot_product(EE(r,b:nsiz),x(b:nsiz))) * diagm1(r)
    end do backsubloop
 
    return
 end subroutine matrix8_NxN
 !==========================================================================================!
 !==========================================================================================!
-
-
-
-

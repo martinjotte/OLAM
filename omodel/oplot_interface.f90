@@ -61,8 +61,6 @@ use mem_grid,   only: mza, mwa, lpw
 use misc_coms,  only: runtype
 use mem_ijtabs, only: jtab_w, jtw_prog
 
-use mem_plot,   only: alloc_plot, copy_plot
-
 use mem_micro,  only: pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                       accpd, accpr, accpp, accps, accpa, accpg, accph
 
@@ -72,7 +70,6 @@ use obnd,       only: lbcopy_w1d
 
 implicit none
 
-integer, save :: ncall = 0
 integer, intent(in) :: id
 
 integer :: iplt,labincx,labincy,notavail,k,iw
@@ -81,24 +78,18 @@ integer :: outyear,outmonth,outdate,outhour
 real, save :: dummy(1)=0.,xinc,yinc
 character(len=30) :: ylabel,title
 
-if (ncall /= 10) then
-   ncall = 10
-
-   call alloc_plot()
-endif
-
 ! Lateral boundary copy of surface precipitation quantities (only needed for 
 ! plotting, and not functional for mpi-parallel plot run)
 
-if (allocated(pcprd)) call lbcopy_w1d(1,a1=pcprd,a2=accpd)
-if (allocated(pcprr)) call lbcopy_w1d(1,a1=pcprr,a2=accpr)
-if (allocated(pcprp)) call lbcopy_w1d(1,a1=pcprp,a2=accpp)
-if (allocated(pcprs)) call lbcopy_w1d(1,a1=pcprs,a2=accps)
-if (allocated(pcpra)) call lbcopy_w1d(1,a1=pcpra,a2=accpa)
-if (allocated(pcprg)) call lbcopy_w1d(1,a1=pcprg,a2=accpg)
-if (allocated(pcprh)) call lbcopy_w1d(1,a1=pcprh,a2=accph)
+if (allocated(pcprd)) call lbcopy_w1d(1,a1=pcprd,d1=accpd)
+if (allocated(pcprr)) call lbcopy_w1d(1,a1=pcprr,d1=accpr)
+if (allocated(pcprp)) call lbcopy_w1d(1,a1=pcprp,d1=accpp)
+if (allocated(pcprs)) call lbcopy_w1d(1,a1=pcprs,d1=accps)
+if (allocated(pcpra)) call lbcopy_w1d(1,a1=pcpra,d1=accpa)
+if (allocated(pcprg)) call lbcopy_w1d(1,a1=pcprg,d1=accpg)
+if (allocated(pcprh)) call lbcopy_w1d(1,a1=pcprh,d1=accph)
 
-if (allocated(conprr)) call lbcopy_w1d(1,a1=conprr,a2=aconpr)
+if (allocated(conprr)) call lbcopy_w1d(1,a1=conprr,d1=aconpr)
 
 ! Reopen the current graphics output workstation if it is closed
 
@@ -231,11 +222,11 @@ do iplt = 1,op%nplt
             labincy = 3
          endif
 
-         call oplot_xy2(op%panel(iplt),op%colorbar(iplt),0.,.016  &
-            ,1,dummy,dummy                                       &
-            ,'LONGITUDE (deg)','LATITUDE (deg)'                  &
-            ,op%xmin,op%xmax,xinc,labincx                        &
-            ,op%ymin,op%ymax,yinc,labincy                        )
+         call oplot_xy2(op%panel(iplt),op%colorbar(iplt),0.,.016, &
+            1,dummy,dummy,                                        &
+            'LONGITUDE (deg)','LATITUDE (deg)',10,                &
+            op%xmin,op%xmax,xinc,labincx,                         &
+            op%ymin,op%ymax,yinc,labincy                          )
       else
          call niceinc20(.001*op%xmin,.001*op%xmax,xinc,labincx)
          call niceinc20(.001*op%ymin,.001*op%ymax,yinc,labincy)
@@ -246,11 +237,11 @@ do iplt = 1,op%nplt
             ylabel = 'Y (km)'
          endif
 
-         call oplot_xy2(op%panel(iplt),op%colorbar(iplt),1.0,.016   &
-            ,1,dummy,dummy                                         &
-            ,'X (km)',ylabel                                       &
-            ,.001*op%xmin,.001*op%xmax,xinc,labincx                &
-            ,.001*op%ymin,.001*op%ymax,yinc,labincy                )
+         call oplot_xy2(op%panel(iplt),op%colorbar(iplt),1.0,.016, &
+            1,dummy,dummy,                                         &
+            'X (km)',ylabel,10,                                    &
+            .001*op%xmin,.001*op%xmax,xinc,labincx,                &
+            .001*op%ymin,.001*op%ymax,yinc,labincy                 )
       endif
 
    endif
@@ -272,7 +263,7 @@ do iplt = 1,op%nplt
 
 ! Draw colorbar if so specified
 
-   if (op%colorbar(iplt) == 'c') call plot_colorbar(iplt,op%icolortab(iplt))
+   if (op%colorbar(iplt) == 'c') call plot_colorbar(op%icolortab(iplt))
 
 ! Draw label bar if so specified
 
@@ -305,14 +296,15 @@ do iplt = 1,op%nplt
 
 enddo
 
-call copy_plot()
-
 ! Close the current workstation if not a plotonly run and if output
 ! is to a NCAR graphics meta file. This allows viewing the complete
 ! meta file (including the last frame) during a run and in case the
 ! simulation crashes.
 
-if ((trim(runtype) /= 'PLOTONLY') .and. (op%plttype == 0)) then
+if ((trim(runtype) /= 'PLOTONLY')    .and. &
+    (trim(runtype) /= 'PLOTEXTRACT') .and. &
+    (op%plttype == 0)) then
+
    call o_clswk()
 endif
 
@@ -1656,7 +1648,7 @@ if (op%projectn(iplt) == 'L'  .or.  &
 
    elseif (iseagrid > 1) then
 
-      do isf = 1, mseaflux
+      do isf = 1,mseaflux
          npoly = seaflux(isf)%npoly
 
          do j1 = 1,npoly
@@ -1786,7 +1778,7 @@ if (op%projectn(iplt) == 'L'  .or.  &
 
    elseif (ilandgrid > 1) then
 
-      do ilf = 1, mlandflux
+      do ilf = 1,mlandflux
          npoly = landflux(ilf)%npoly
 
          do j1 = 1,npoly
@@ -1914,8 +1906,11 @@ if (trim(filltype) == 'LINE') then
    call o_mappos(op%h1,op%h2,op%v1,op%v2)
    call o_mapsti('GR',10)    ! For 10-degree spacing of plotted parallels and meridians
    call o_mapsti('DA',65535) ! To plot parallels and meridians with solid lines
-   call o_mapstc('OU','PS')  ! To plot bnds of continents, countries, and US  states
+!   call o_mapstc('OU','PS')  ! To plot bnds of continents, countries, and US  states
 !   call o_mapstc('OU','NO')  ! To plot NO geographic information
+   call o_mapstc('OU','CO')  ! To plot continental outlines
+!   call o_mapstc('OU','US')  ! To plot US state outlines
+!   call o_mapstc('OU','PO')  ! To plot continental outlines + international outlines
 
    if (op%projectn(iplt) == 'L') then
       call o_maproj('CE',0.,op%plon3,0.)  ! Force plat to be zero for CE projection

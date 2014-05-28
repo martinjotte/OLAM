@@ -224,7 +224,7 @@ subroutine mpi_send_wl(sendgroup)
 use misc_coms,  only: io6, do_chem
 use mem_leaf,   only: land, itab_wl, jtab_wl_mpi
 use leaf_coms,  only: nzg
-use mem_para,   only: nrecvs_wl, nsends_wl, send_wl, recv_wl
+use mem_para,   only: nrecvs_wl, nsends_wl, send_wl, recv_wl, itagwl
 
 implicit none
 
@@ -234,7 +234,6 @@ character(1), intent(in) :: sendgroup
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
-integer :: itag4 = 4
 integer :: j
 integer :: iwl
 integer :: iwlglobe
@@ -244,7 +243,7 @@ integer :: iwlglobe
 do jrecv = 1,nrecvs_wl(1)
 
    call MPI_Irecv(recv_wl(jrecv)%buff,recv_wl(jrecv)%nbytes,MPI_PACKED,  &
-                  recv_wl(jrecv)%iremote,itag4,MPI_COMM_WORLD,          &
+                  recv_wl(jrecv)%iremote,itagwl,MPI_COMM_WORLD,          &
                   recv_wl(jrecv)%irequest,ierr                          )
 
 enddo
@@ -340,7 +339,7 @@ do jsend = 1,nsends_wl(1)
    call rsub('WLsend',jsend)
 
    call MPI_Isend(send_wl(jsend)%buff,ipos,MPI_PACKED,        &
-                  send_wl(jsend)%iremote,itag4,MPI_COMM_WORLD,  &
+                  send_wl(jsend)%iremote,itagwl,MPI_COMM_WORLD,  &
                   send_wl(jsend)%irequest,ierr                  )
 
 enddo
@@ -362,7 +361,7 @@ subroutine mpi_send_wlf(sendgroup,mrl)
 #endif
 
 use misc_coms,  only: io6
-use mem_para,   only: nrecvs_wlf, nsends_wlf, send_wlf, recv_wlf
+use mem_para,   only: nrecvs_wlf, nsends_wlf, send_wlf, recv_wlf, itagwlf
 use mem_sflux,  only: landflux, jlandflux
 
 implicit none
@@ -374,7 +373,6 @@ integer,      intent(in) :: mrl
 
 integer :: ierr,ipos
 integer :: jrecv,jsend,ivar
-integer :: itag5 = 5
 integer :: j
 integer :: ilf
 integer :: ilfglobe
@@ -388,7 +386,7 @@ if (mrl < 1) return
 do jrecv = 1,nrecvs_wlf(mrl)
 
    call MPI_Irecv(recv_wlf(jrecv)%buff,recv_wlf(jrecv)%nbytes,MPI_PACKED,  &
-                  recv_wlf(jrecv)%iremote,itag5,MPI_COMM_WORLD,          &
+                  recv_wlf(jrecv)%iremote,itagwlf,MPI_COMM_WORLD,          &
                   recv_wlf(jrecv)%irequest,ierr                          )
 
 enddo
@@ -471,7 +469,7 @@ do jsend = 1,nsends_wlf(mrl)
    call rsub('WLFsend',jsend)
 
    call MPI_Isend(send_wlf(jsend)%buff,ipos,MPI_PACKED,        &
-                  send_wlf(jsend)%iremote,itag5,MPI_COMM_WORLD,  &
+                  send_wlf(jsend)%iremote,itagwlf,MPI_COMM_WORLD,  &
                   send_wlf(jsend)%irequest,ierr                  )
 
 enddo

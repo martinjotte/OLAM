@@ -308,10 +308,9 @@ call ichk_bnds( nl%iswrtyp, "ISWRTYP", 0,  3, 0, nfatal, nwarn )
 call ichk_bnds( nl%ilwrtyp, "ILWRTYP", 0,  3, 0, nfatal, nwarn )
 call dchk_bnds( nl%radfrq,   "RADFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
 
-! Currently, radiation types of 1 and 2 are invalid
-if ( nl%iswrtyp==1 .or. nl%ilwrtyp==1 .or. &
-     nl%iswrtyp==2 .or. nl%ilwrtyp==2 ) then
-   write(io6,*) 'FATAL - Radiation types 1 or 2 are invalid'
+! Currently, radiation type 1 is invalid
+if ( nl%iswrtyp==1 .or. nl%ilwrtyp==1 ) then
+   write(io6,*) 'FATAL - Radiation type 1 is invalid'
    nfatal = nfatal + 1
 endif
 
@@ -320,11 +319,13 @@ endif
 !--------------------------------------------------------------------------
 
 do ng=1, nl%ngrids
-   call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 4, 0, nfatal, nwarn )
-   call ichk_bnds( nl%nqparm_sh(ng), "NQPARM_SH", 0, 1, 0, nfatal, nwarn )
+   call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 5, 0, nfatal, nwarn )
 enddo
+
 call dchk_bnds( nl%confrq, "CONFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
-call rchk_bnds( nl%wcldbs, "WCLDBS", -10., 10., 2, nfatal, nwarn )
+
+call ichk_bnds( nl%conv_uv_mix,     "CONV_UV_MIX",     0, 1, 0, nfatal, nwarn )
+call ichk_bnds( nl%conv_tracer_mix, "CONV_TRACER_MIX", 0, 1, 0, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! EDDY DIFFUSION PARAMETERS
@@ -355,6 +356,7 @@ if (nl%level <= 2) then
    nl%igraup  = 0
    nl%ihail   = 0
    nl%iccnlev = 0
+   nl%qxtrans = 0
 
 elseif (nl%level == 3) then
 
@@ -400,6 +402,11 @@ elseif (nl%level == 3) then
 
    if (.not. any(nl%iccnlev == (/0, 1/) )) then
       write(io6,*) 'FATAL - iccnlev must be set to 0 or 1.'
+      nfatal = nfatal + 1
+   endif
+
+   if (.not. any(nl%qxtrans == (/0, 1/) )) then
+      write(io6,*) 'FATAL - qxtrans must be set to 0 or 1.'
       nfatal = nfatal + 1
    endif
 
@@ -502,7 +509,7 @@ if (nl%isfcl == 1) then
         call rchk_bnds( nl%seatmp, "SEATMP", 100., 500., 0, nfatal, nwarn )
 
    if (nl%iseaiceflg == 0) &
-        call rchk_bnds( nl%seatmp, "SEAICE", 0., 1., 2, nfatal, nwarn )
+        call rchk_bnds( nl%seaice, "SEAICE", 0., 1., 2, nfatal, nwarn )
 
    call rchk_bnds( nl%slz(nl%nzg), "SLZ", -r_huge, -0.02, 0, nfatal, nwarn )
    do k=nl%nzg-1, 1, -1

@@ -2054,6 +2054,21 @@ data clrtab(307)%vals(1:22)/ &
        0., 1.e1, 2.e1, 5.e1, 1.e2, 2.e2, 5.e2, 1.e3, 2.e3, 5.e3, &
      1.e4,  2.e4                                                 /
 
+! Table 308 (vortz [s^-1],
+!           fthrd [K/s],
+!           fcorw [s^-1]) 
+
+data clrtab(308)%nvals/22/
+data clrtab(308)%ifmt(1:2)/-1,-4/
+data clrtab(308)%ipal(1:22)/ &
+    39, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
+    20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
+    59, 69                                  /
+data clrtab(308)%vals(1:22)/ &
+   -1.e-4,-5.e-5,-2.e-5,-1.e-5,-5.e-6,-2.e-6,-1.e-6,-5.e-7,-2.e-7,-1.e-7, &
+       0., 1.e-7, 2.e-7, 5.e-7, 1.e-6, 2.e-6, 5.e-6, 1.e-5, 2.e-5, 5.e-5, &
+    1.e-4, 2.e-4                                                          /
+
 
 !----------------------------------------------------------------------------
 ! COLORTABLES 400-499: IRREGULAR SCALING
@@ -2404,26 +2419,26 @@ Contains
 
 ! Finer shades
 
-   call o_hls (iwk, 20,350.,94., 99.) ! blues (classic3)
-   call o_hls (iwk, 21,350.,87., 99.)
-   call o_hls (iwk, 22,350.,79., 99.)
-   call o_hls (iwk, 23,350.,71., 99.)
-   call o_hls (iwk, 24,350.,63., 99.)
-   call o_hls (iwk, 25,350.,54., 99.)
-   call o_hls (iwk, 26,350.,45., 99.)
-   call o_hls (iwk, 27,350.,36., 99.)
-   call o_hls (iwk, 28,350.,28., 99.)
+!   call o_hls (iwk, 20,350.,94., 99.) ! blues (classic3)
+!   call o_hls (iwk, 21,350.,87., 99.)
+!   call o_hls (iwk, 22,350.,79., 99.)
+!   call o_hls (iwk, 23,350.,71., 99.)
+!   call o_hls (iwk, 24,350.,63., 99.)
+!   call o_hls (iwk, 25,350.,54., 99.)
+!   call o_hls (iwk, 26,350.,45., 99.)
+!   call o_hls (iwk, 27,350.,36., 99.)
+!   call o_hls (iwk, 28,350.,28., 99.)
 
-!   call o_hls (iwk, 20,350.,96., 70.) ! blues
-!   call o_hls (iwk, 21,350.,92., 70.)
-!   call o_hls (iwk, 22,350.,88., 70.)
-!   call o_hls (iwk, 23,350.,83., 70.)
-!   call o_hls (iwk, 24,350.,77., 70.)
-!   call o_hls (iwk, 25,350.,71., 70.)
-!   call o_hls (iwk, 26,350.,64., 70.)
-!   call o_hls (iwk, 27,350.,56., 70.)
-!   call o_hls (iwk, 28,350.,46., 70.)
-!   call o_hls (iwk, 29,350.,38., 70.)
+   call o_hls (iwk, 20,350.,96., 70.) ! blues
+   call o_hls (iwk, 21,350.,92., 70.)
+   call o_hls (iwk, 22,350.,88., 70.)
+   call o_hls (iwk, 23,350.,83., 70.)
+   call o_hls (iwk, 24,350.,77., 70.)
+   call o_hls (iwk, 25,350.,71., 70.)
+   call o_hls (iwk, 26,350.,64., 70.)
+   call o_hls (iwk, 27,350.,56., 70.)
+   call o_hls (iwk, 28,350.,46., 70.)
+   call o_hls (iwk, 29,350.,38., 70.)
 
    call o_hls (iwk, 30,302.,92., 70.) ! blue greens
    call o_hls (iwk, 31,302.,88., 70.)
@@ -2447,26 +2462,26 @@ Contains
    call o_hls (iwk, 48,270.,46., 70.)
    call o_hls (iwk, 49,270.,38., 70.)
 
-   call o_hls (iwk, 50,120.,94., 99.) ! reds (classic 3)
-   call o_hls (iwk, 51,120.,86., 99.)
-   call o_hls (iwk, 52,120.,77., 99.)
-   call o_hls (iwk, 53,120.,69., 99.)
-   call o_hls (iwk, 54,120.,58., 99.)
-   call o_hls (iwk, 55,120.,46., 99.)
-   call o_hls (iwk, 56,120.,39., 99.)
-   call o_hls (iwk, 57,120.,32., 99.)
-   call o_hls (iwk, 58,120.,26., 80.)
+!   call o_hls (iwk, 50,120.,94., 99.) ! reds (classic 3)
+!   call o_hls (iwk, 51,120.,86., 99.)
+!   call o_hls (iwk, 52,120.,77., 99.)
+!   call o_hls (iwk, 53,120.,69., 99.)
+!   call o_hls (iwk, 54,120.,58., 99.)
+!   call o_hls (iwk, 55,120.,46., 99.)
+!   call o_hls (iwk, 56,120.,39., 99.)
+!   call o_hls (iwk, 57,120.,32., 99.)
+!   call o_hls (iwk, 58,120.,26., 80.)
 
-!   call o_hls (iwk, 50,135.,96., 70.) ! reds
-!   call o_hls (iwk, 51,135.,92., 70.)
-!   call o_hls (iwk, 52,135.,88., 70.)
-!   call o_hls (iwk, 53,135.,83., 70.)
-!   call o_hls (iwk, 54,135.,77., 70.)
-!   call o_hls (iwk, 55,135.,71., 70.)
-!   call o_hls (iwk, 56,135.,64., 70.)
-!   call o_hls (iwk, 57,135.,56., 70.)
-!   call o_hls (iwk, 58,135.,46., 70.)
-!   call o_hls (iwk, 59,135.,38., 70.)
+   call o_hls (iwk, 50,135.,96., 70.) ! reds
+   call o_hls (iwk, 51,135.,92., 70.)
+   call o_hls (iwk, 52,135.,88., 70.)
+   call o_hls (iwk, 53,135.,83., 70.)
+   call o_hls (iwk, 54,135.,77., 70.)
+   call o_hls (iwk, 55,135.,71., 70.)
+   call o_hls (iwk, 56,135.,64., 70.)
+   call o_hls (iwk, 57,135.,56., 70.)
+   call o_hls (iwk, 58,135.,46., 70.)
+   call o_hls (iwk, 59,135.,38., 70.)
 
    call o_hls (iwk, 60,170.,92., 70.) ! oranges
    call o_hls (iwk, 61,170.,88., 70.)

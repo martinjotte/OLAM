@@ -95,6 +95,7 @@ integer :: nzpp
 integer :: nscl
 integer :: nxp
 integer :: iparallel = 0
+integer :: isubdomain = 0
 integer :: ipar_out  = 0
 integer :: ndz
 
@@ -102,14 +103,12 @@ integer :: idiffk   (maxgrds)
 integer :: ndtrat   (maxgrds)
 integer :: nacoust  (maxgrds)
 integer :: nqparm   (maxgrds)
-integer :: nqparm_sh(maxgrds)
 
 real(r8) :: dtlong
 real(r8) :: frqstate
 real(r8) :: radfrq
 real(r8) :: confrq
 
-real :: wcldbs
 real :: ubmin
 real :: topref
 real :: polelat
@@ -151,11 +150,14 @@ real :: hs  (maxsndg)
 real :: rts (maxsndg)
 
 real(r8) :: time8
+real(r8) :: time8p
 real(r8) :: time_istp8
+real(r8) :: time_istp8p
 real(r8) :: timmax8
 real(r8) :: s1900_init
 real(r8) :: s1900_sim
 real(r8) :: time_prevhist = 0.0_r8
+real(r8) :: time_bias ! A number small compared to the timestep
 
 Contains
 

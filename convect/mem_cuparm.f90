@@ -33,72 +33,60 @@
 
 Module mem_cuparm
 
-   real, allocatable, target :: thsrc  (:,:)
-   real, allocatable, target :: rtsrc  (:,:)
-   real, allocatable, target :: thsrcsh(:,:)
-   real, allocatable, target :: rtsrcsh(:,:)
-   real, allocatable, target :: aconpr   (:)
-   real, allocatable, target :: conprr   (:)
+   use consts_coms, only: r8
 
-   ! Extra memory for KF_eta
-   real, allocatable, target :: w0avg(:,:)
+   real,    allocatable, target :: thsrc (:,:)
+   real,    allocatable, target :: rtsrc (:,:)
+   real(r8),allocatable, target :: aconpr  (:)
+   real,    allocatable, target :: conprr  (:)
+   real,    allocatable, target :: vxsrc (:,:)
+   real,    allocatable, target :: vysrc (:,:)
+   real,    allocatable, target :: vzsrc (:,:)
 
-   ! Extra memory for Grell
-   integer, allocatable, target :: iact_gr(:)
-
-   ! Extra memory for Emanuel
-   real, allocatable, target :: cbmf(:)
-   real, allocatable :: wprime (:)
-   real, allocatable :: tprime (:)
-   real, allocatable :: qprime (:)
-   real, allocatable :: qsubg(:,:)
+   real,    allocatable, target :: cbmf  (:)
+   integer, allocatable, target :: kcutop(:)
+   integer, allocatable, target :: kcubot(:)
 
 Contains
 
 !===============================================================================
 
-  subroutine alloc_cuparm(mza, mwa, mrls, nqparm, nqparm_sh)
+  subroutine alloc_cuparm(mza, mwa, mrls, nqparm)
 
-    use misc_coms,       only: rinit
+    use misc_coms,  only: rinit
+    use oname_coms, only: nl
+    use consts_coms, only: r8
+
     implicit none
 
     integer, intent(in) :: mza, mwa, mrls
-    integer, intent(in) :: nqparm(:), nqparm_sh(:)
+    integer, intent(in) :: nqparm(:)
    
-    ! Base tendency arrays for all deep convective schemes
-
     if ( any(nqparm(1:mrls) > 0) ) then      
+       
+       ! Base tendency arrays for all deep convective schemes
+       
        allocate (thsrc(mza,mwa)) ; thsrc  = 0.0
        allocate (rtsrc(mza,mwa)) ; rtsrc  = 0.0
-       allocate (aconpr   (mwa)) ; aconpr = 0.0
+       allocate (aconpr   (mwa)) ; aconpr = 0.0_r8
        allocate (conprr   (mwa)) ; conprr = 0.0
+
+       ! Extra arrays for momentum mixing
+
+       if (nl%conv_uv_mix > 0) then
+          allocate (vxsrc(mza,mwa)) ; vxsrc = 0.0
+          allocate (vysrc(mza,mwa)) ; vysrc = 0.0
+          allocate (vzsrc(mza,mwa)) ; vzsrc = 0.0
+       endif
+
+       ! Diagnostic arrays for clouds/radiation/tracer mixing
+
+       allocate(cbmf  (mwa)) ; cbmf   = 0.0
+       allocate(kcutop(mwa)) ; kcutop = -1
+       allocate(kcubot(mwa)) ; kcubot = -1
+
     endif
-
-    ! Base tendency arrays for all shallow convective schemes
-
-    if ( any(nqparm_sh(1:mrls) > 0) ) then
-       allocate (thsrcsh(mza,mwa)) ; thsrcsh = 0.0
-       allocate (rtsrcsh(mza,mwa)) ; rtsrcsh = 0.0
-    endif
-
-    ! Extra memory for Grell scheme
-
-    if ( any(nqparm(1:mrls) == 2) ) then
-       allocate (iact_gr(mwa)) ; iact_gr(:) = 0
-    endif
-
-    ! Extra memory for KF_eta scheme
-
-    if ( any(nqparm(1:mrls) == 3) ) then
-       allocate (w0avg(mza,mwa)) ; w0avg = 0.0
-    endif
-
-    ! Extra memory for Emanuel scheme
-    
-    if ( any(nqparm(1:mrls) == 4) ) then
-       allocate(cbmf(mwa)) ; cbmf = 0.0
-    endif
-
+       
   end subroutine alloc_cuparm
 
 !===============================================================================
@@ -108,13 +96,14 @@ Contains
 
     if (allocated(thsrc))   deallocate (thsrc)
     if (allocated(rtsrc))   deallocate (rtsrc)
-    if (allocated(thsrcsh)) deallocate (thsrcsh)
-    if (allocated(rtsrcsh)) deallocate (rtsrcsh)
     if (allocated(aconpr))  deallocate (aconpr)
     if (allocated(conprr))  deallocate (conprr)
-    if (allocated(w0avg))   deallocate (w0avg)
-    if (allocated(iact_gr)) deallocate (iact_gr)
     if (allocated(cbmf))    deallocate (cbmf)
+    if (allocated(kcutop))  deallocate (kcutop)
+    if (allocated(kcubot))  deallocate (kcubot)
+    if (allocated(vxsrc))   deallocate (vxsrc)
+    if (allocated(vysrc))   deallocate (vysrc)
+    if (allocated(vzsrc))   deallocate (vzsrc)
 
   end subroutine dealloc_cuparm
 
@@ -135,19 +124,9 @@ Contains
         vtab_r(num_var)%rvar2_p => rtsrc
      endif
 
-     if (allocated(thsrcsh)) then
-        call increment_vtable('THSRCSH', 'AW')
-        vtab_r(num_var)%rvar2_p => thsrcsh
-     endif
-
-     if (allocated(rtsrcsh)) then
-        call increment_vtable('RTSRCSH', 'AW')
-        vtab_r(num_var)%rvar2_p => rtsrcsh
-     endif
-
      if (allocated(aconpr)) then
         call increment_vtable('ACONPR', 'AW')
-        vtab_r(num_var)%rvar1_p => aconpr
+        vtab_r(num_var)%dvar1_p => aconpr
      endif
 
      if (allocated(conprr)) then
@@ -155,19 +134,34 @@ Contains
         vtab_r(num_var)%rvar1_p => conprr
      endif
 
-     if (allocated(w0avg)) then
-        call increment_vtable('W0AVG', 'AW')
-        vtab_r(num_var)%rvar2_p => w0avg
-     endif
-
-     if (allocated(iact_gr)) then
-        call increment_vtable('IACTGR', 'AW')
-        vtab_r(num_var)%ivar1_p => iact_gr
-     endif
-
      if (allocated(cbmf)) then
         call increment_vtable('CBMF', 'AW')
         vtab_r(num_var)%rvar1_p => cbmf
+     endif
+
+     if (allocated(kcutop)) then
+        call increment_vtable('KCUTOP', 'AW')
+        vtab_r(num_var)%ivar1_p => kcutop
+     endif
+
+     if (allocated(kcubot)) then
+        call increment_vtable('KCUBOT', 'AW')
+        vtab_r(num_var)%ivar1_p => kcubot
+     endif
+
+     if (allocated(vxsrc)) then
+        call increment_vtable('VXSRC', 'AW')
+        vtab_r(num_var)%rvar2_p => vxsrc
+     endif
+
+     if (allocated(vysrc)) then
+        call increment_vtable('VYSRC', 'AW')
+        vtab_r(num_var)%rvar2_p => vysrc
+     endif
+
+     if (allocated(vzsrc)) then
+        call increment_vtable('VZSRC', 'AW')
+        vtab_r(num_var)%rvar2_p => vzsrc
      endif
 
    end subroutine filltab_cuparm

@@ -158,22 +158,26 @@ contains
        if (indxe > 0 .and. indxd > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
-                               emis = vdemis_gc(:,:,indxe),               &
-                               sxfer = sxfer_gc(:,:,indxd) )
+                               emis   = vdemis_gc(:,:,indxe),             &
+                               sxfer  = sxfer_gc(:,:,indxd),              &
+                               cu_mix = .true.)
 
        elseif (indxe > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
-                               emis = vdemis_gc(:,:,indxe) )
+                               emis   = vdemis_gc(:,:,indxe),             &
+                               cu_mix = .true.)
 
        elseif (indxd > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
-                               sxfer = sxfer_gc(:,:,indxd) )
+                               sxfer  = sxfer_gc(:,:,indxd),              &
+                               cu_mix = .true.)
 
        else
 
-          call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n) )
+          call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
+                               cu_mix = .true.)
 
        endif
 

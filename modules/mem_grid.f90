@@ -32,6 +32,11 @@
 !===============================================================================
 Module mem_grid
 
+   use consts_coms, only: r8
+   implicit none
+
+   private :: r8
+
    integer :: &  ! N values for full-domain reference on any process
 
       nza           &  ! Vertical number of all points
@@ -88,7 +93,7 @@ Module mem_grid
       aru, arv, arw        &  ! Aperture area of U,V,W face
      ,volui, volvi ,volwi     ! (1/Volume) of U,V,W cell
 
-   real(kind=8), allocatable, dimension(:,:) ::  &
+   real(r8), allocatable, dimension(:,:) ::  &
 
       volt                 &  ! Volume of T cell
      ,volti                   ! (1/Volume) of T cell
@@ -97,6 +102,18 @@ Module mem_grid
 
    integer, parameter :: nrows = 5
    integer :: mrows
+
+! "Derived" variables computed at beginning of integration rather than
+! at the MAKEGRID stage
+
+   real, allocatable, dimension(:) ::  &
+
+        wnxo2, wnyo2, wnzo2,  & ! W-face unit normals divided by 2
+        
+        dzt_top,              & ! distance between ZM(k) and ZT(k)
+        dzt_bot,              & ! distance between ZT(k) and ZM(k-1)
+
+        zwgt_top, zwgt_bot      ! weights for interpolating T levels to W
 
 Contains
 
@@ -264,5 +281,58 @@ Contains
   
    end subroutine alloc_grid2
 
-End Module mem_grid
+!===============================================================================
 
+   subroutine alloc_grid_other()
+     
+     use consts_coms, only: r8
+     implicit none
+     
+     integer :: iw, k
+
+     ! This routine allocates and defines grid arrays that were not computed
+     ! during the MAKEGRID stage
+     
+     allocate(dzt_top(mza))
+     allocate(dzt_bot(mza))
+
+     dzt_top(1) = zm(1) - zt(1)
+     dzt_bot(1) = dzt(1) - dzt_top(1)
+
+     ! Loop over T levels
+     do k = 2, mza
+        dzt_top(k) = zm(k) - zt(k)
+        dzt_bot(k) = zt(k) - zm(k-1)
+     enddo
+
+     allocate(zwgt_top(mza))
+     allocate(zwgt_bot(mza))
+
+     ! Loop over W levels
+     do k = 1, mza-1
+        zwgt_top(k) = dzt_top(k)   * dzim(k)
+        zwgt_bot(k) = dzt_bot(k+1) * dzim(k)
+     enddo
+     
+     zwgt_top(mza) = zwgt_top(mza-1)
+     zwgt_bot(mza) = zwgt_bot(mza-1)
+
+     allocate(wnxo2(mwa))
+     allocate(wnyo2(mwa))
+     allocate(wnzo2(mwa))
+     
+     wnxo2(1) = 0.0
+     wnyo2(1) = 0.0
+     wnzo2(1) = 0.0
+
+     !$omp parallel do
+     do iw = 2, mwa
+        wnxo2(iw) = wnx(iw) * 0.5
+        wnyo2(iw) = wny(iw) * 0.5
+        wnzo2(iw) = wnz(iw) * 0.5
+     enddo
+     !$omp end parallel do
+
+   end subroutine alloc_grid_other
+
+End Module mem_grid

@@ -38,15 +38,15 @@ use mem_leaf,    only: land, itabg_wl, itab_wl
 use mem_sea,     only: sea, itabg_ws, itab_ws
 use leaf_coms,   only: nzg, nzs, mwl
 use sea_coms,    only: mws, nzi
-use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,    &
-                       rlongup, rlong_albedo, albedt, albedt_beam,  &
-                       albedt_diffuse, fthrd, rshort, rlong, fthrd_lw,  &
+use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,          &
+                       rlongup, rlong_albedo, albedt, albedt_beam,        &
+                       albedt_diffuse, fthrd_sw, rshort, rlong, fthrd_lw, &
                        rshort_top, rshortup_top, rshort_diffuse
 use mem_basic,   only: rho
 use micro_coms,  only: level
 use consts_coms, only: stefan, pio180, eradi, r8
-use misc_coms,   only: io6, time_istp8, radfrq, itime1, ilwrtyp, iswrtyp,   &
-                       dtlong, current_time, iparallel
+use misc_coms,   only: io6, time8p, time_istp8, radfrq, itime1, ilwrtyp, &
+                       iswrtyp, dtlong, current_time, iparallel, isubdomain
 use mem_grid,    only: lpw, mza, mwa
 use mem_sflux,   only: mseaflux, seaflux, jseaflux,  &
                        mlandflux, landflux, jlandflux
@@ -77,14 +77,10 @@ real :: arf_sea
 real :: flux
 real :: sea_cosz
 
-real(r8) :: time8p
 integer, external :: julday
 integer :: jday
-real :: rlong_previous(mwa)
 
 ! Check whether it is time to update radiative fluxes and heating rates
-
-time8p = time_istp8 + 1.e-7_r8 * dtlong
 
 if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
@@ -112,38 +108,36 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
       cosz(iw) = wnx(iw) * sunx + wny(iw) * suny + wnz(iw) * sunz
 
-! Zero out rlongup, albedt, rshort, rlong, and fthrd prior to summing over 
-! land/sea flux cells
+! Zero out fields that are summed from land/sea cells
 
-      rlong_previous(iw) = rlong(iw)
-      rlong         (iw) = 0.
       rlongup       (iw) = 0.
       rlong_albedo  (iw) = 0.
-      albedt        (iw) = 0.
       albedt_beam   (iw) = 0.
+      albedt_diffuse(iw) = 0.
+
+! Zero out solar radiation fields when solar radiation calls are skipped at night
+
       rshort        (iw) = 0.
       rshort_diffuse(iw) = 0.
-      albedt_diffuse(iw) = 0.
       rshort_top    (iw) = 0.
       rshortup_top  (iw) = 0.
       
-      do k = lpw(iw),mza-1
-         fthrd(k,iw) = 0.
-         fthrd_lw(k,iw) = 0.
+      do k = lpw(iw), mza-1
+         fthrd_sw(k,iw) = 0.
       enddo
 
    enddo
 !$omp end parallel do
    call rsub('Wa',12)
 
-! If running leaf, loop over all SEA cells.
+! Loop over all SEA cells
 
 !$omp parallel do private (sea_cosz)
    do iws = 2,mws
 
 ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          if (itab_ws(iws)%irank /= myrank) cycle
       endif
 
@@ -195,7 +189,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
          sea%ice_albedo (iws) = 0.0
 
          sea%rlongup    (iws) = sea%sea_rlongup(iws)
-         sea%albedo_beam(iws) = sea%ice_albedo(iws)
+         sea%albedo_beam(iws) = sea%sea_albedo(iws)
 
       endif
 
@@ -211,14 +205,14 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
       call mpi_send_ws('R')
    endif
 
-! If running leaf, loop over all LAND cells.
+! Loop over all LAND cells
 
 !$omp parallel do
    do iwl = 2,mwl
 
 ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          if (itab_wl(iwl)%irank /= myrank) cycle
       endif
 
@@ -283,7 +277,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
       call mpi_send_wl('R')
    endif
 
-! If running leaf, loop over all SEAFLUX cells to get mean surface radiative
+! Loop over all SEAFLUX cells to get mean surface radiative
 ! properties for each IW grid cell.
 
 ! No OMP parallelization of following J/ISF loop unless conflicts are prevented
@@ -294,7 +288,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If run is parallel, get local rank indices
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iw  = itabg_w(iw)%iw_myrank
          iws = itabg_ws(iws)%iws_myrank
       endif
@@ -314,7 +308,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
       call mpi_recv_wl('R')
    endif
 
-! If running leaf, loop over all LANDFLUX cells to get mean surface radiative
+! Loop over all LANDFLUX cells to get mean surface radiative
 ! properties for each IW grid cell.
 
 ! No OMP parallelization of following J/ILF loop unless conflicts are prevented
@@ -325,22 +319,17 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If run is parallel, get local rank indices
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iw  = itabg_w(iw)%iw_myrank
          iwl = itabg_wl(iwl)%iwl_myrank
       endif
 
       arf_atm = landflux(ilf)%arf_atm
 
-      rlongup       (iw) = rlongup(iw)         &
-                         + arf_atm * land%rlongup(iwl)
-      rlong_albedo  (iw) = rlong_albedo(iw)    &
-                         + arf_atm * land%rlong_albedo(iwl)
-
-      albedt_beam   (iw) = albedt_beam(iw)     &
-                         + arf_atm * land%albedo_beam(iwl)
-      albedt_diffuse(iw) = albedt_diffuse(iw)  &
-                         + arf_atm * land%albedo_diffuse(iwl)
+      rlongup       (iw) = rlongup       (iw) + arf_atm * land%rlongup(iwl)
+      rlong_albedo  (iw) = rlong_albedo  (iw) + arf_atm * land%rlong_albedo(iwl)
+      albedt_beam   (iw) = albedt_beam   (iw) + arf_atm * land%albedo_beam(iwl)
+      albedt_diffuse(iw) = albedt_diffuse(iw) + arf_atm * land%albedo_diffuse(iwl)
 
    enddo
 
@@ -357,10 +346,6 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
       ka = lpw(iw)
       
-! K index offset for radiation column arrays
-
-      koff = ka - 2
-   
 ! Set total surface albedo to surface direct albedo
 ! (LEAF doesn't differentiate between diffuse and direct albedo)
    
@@ -368,10 +353,27 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! Do Harrington radiation if specified
 
-      if (ilwrtyp == 3 .or. iswrtyp == 3) then
-         nrad = mza - 1 - koff + nadd_rad
+      if (ilwrtyp == 3 .or. (iswrtyp == 3 .and. cosz(iw) > 0.03)) then
 
-         call harr_raddriv(iw,ka,nrad,koff,rlong_previous(iw))
+         ! K index offset for radiation column arrays
+         ! (Harrington scheme requires extra layer at surface)
+         koff = ka - 2 
+
+         nrad = mza - 1 - koff + nadd_rad
+         call harr_raddriv( iw, ka, nrad, koff )
+
+      endif
+
+! Do RRTMg radiation if specified
+
+      if (ilwrtyp == 2 .or. (iswrtyp == 2 .and. cosz(iw) > 0.03)) then
+
+         ! K index offset for radiation column arrays
+         koff = ka - 1
+
+         nrad = mza - 1 - koff + nadd_rad
+         call rrtmg_raddriv( iw, ka, nrad, koff )
+
       endif
 
    enddo
@@ -389,7 +391,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If run is parallel, get local rank indices
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iw  = itabg_w(iw)%iw_myrank
          iws = itabg_ws(iws)%iws_myrank
       endif
@@ -421,7 +423,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If run is parallel, get local rank indices
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iw  = itabg_w(iw)%iw_myrank
          iwl = itabg_wl(iwl)%iwl_myrank
       endif
@@ -459,7 +461,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If run is parallel, get local rank indices
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iws = itabg_ws(iws)%iws_myrank
       endif
 
@@ -478,7 +480,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
       ! If current IWS sea cell is not prognosed on this rank, skip to next cell
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          if (itab_ws(iws)%irank /= myrank) cycle
       endif
 
@@ -510,7 +512,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If run is parallel, get local rank indices
 
-      if (iparallel == 1) then
+      if (isubdomain == 1) then
          iwl = itabg_wl(iwl)%iwl_myrank
       endif
 
@@ -530,7 +532,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! If current IWL land cell is not prognosed on this rank, skip to next cell
 
-      if (iparallel == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+      if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
       if (land%ed_flag(iwl) == 0) then
 
@@ -580,8 +582,8 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 call qsub('W',iw)
 
-   do k = lpw(iw),mza-1
-      thilt(k,iw) = thilt(k,iw) + rho(k,iw) * fthrd(k,iw)
+   do k = lpw(iw), mza-1
+      thilt(k,iw) = thilt(k,iw) + rho(k,iw) * (fthrd_sw(k,iw) + fthrd_lw(k,iw))
    enddo
 
 enddo      
@@ -694,23 +696,19 @@ sunx = cos(declin * pio180) * cos(sun_longitude * pio180)
 suny = cos(declin * pio180) * sin(sun_longitude * pio180)
 sunz = sin(declin * pio180)
 
-! Check whether shortwave or longwave radiation is used
-
-if (iswrtyp + ilwrtyp > 0) then
-
 ! Adjust solar fluxes at top of atmosphere for current Earth-Sun distance
 ! for Harrington shortwave radiation
 
+if (iswrtyp == 3) then
    do is = 1,nsolb
       solar1(is) = solar0(is) * solfac
    enddo
+endif
 
 ! Interpolate Mclatchy soundings between summer and winter values, and prepare
 ! spline coefficients for interpolation by latitude.
 
-   call mclat_spline(jday)
-
-endif
+call mclat_spline(jday)
 
 return
 end subroutine sunloc
@@ -719,16 +717,18 @@ end subroutine sunloc
 
 subroutine radinit()
 
-use mem_radiate,   only: maxadd_rad, nadd_rad, zmrad
-use mem_grid,      only: mza, zm
-use misc_coms,     only: io6, iswrtyp, ilwrtyp
-use consts_coms,   only: cp
-! use rrtmg_sw_init, only: rrtmg_sw_ini
-! use rrtmg_lw_init, only: rrtmg_lw_ini
+  use mem_radiate,   only: maxadd_rad, nadd_rad, zmrad
+  use mem_grid,      only: mza, zm
+  use misc_coms,     only: io6, iswrtyp, ilwrtyp
+  use consts_coms,   only: cp
+  use rrtmg_sw_init, only: rrtmg_sw_ini
+  use rrtmg_lw_init, only: rrtmg_lw_ini
+  use rrtmg_cloud,   only: rsw_cld_optics_init, rlw_cloud_optics_init
 
-implicit none
 
-real :: deltaz
+  implicit none
+
+  real :: deltaz
 
 ! Compute NADD_RAD, the number of radiation levels to be added above the top
 ! model prognostic level.  (Added levels will be filled elsewhere with data 
@@ -742,26 +742,32 @@ real :: deltaz
 ! Make it approximately the increment between the two highest model levels,
 ! but no less than allowed by maxadd_rad, the maximum number of added levels.
    
-   zmrad = 45.e3
+  zmrad = 45.e3
 
-   deltaz = max( zm(mza-1) - zm(mza-2), (zmrad - zm(mza-1)) / real(maxadd_rad) )
+  deltaz = max( zm(mza-1) - zm(mza-2), (zmrad - zm(mza-1)) / real(maxadd_rad) )
 
-   zmrad = max(zmrad, zm(mza-1) + 5. * deltaz)
+  zmrad = max(zmrad, zm(mza-1) + 5. * deltaz)
 
-   nadd_rad = nint( (zmrad - zm(mza-1)) / deltaz )
-   nadd_rad = max(nadd_rad,1)
-   nadd_rad = min(nadd_rad,maxadd_rad)
+  nadd_rad = nint( (zmrad - zm(mza-1)) / deltaz )
+  nadd_rad = max(nadd_rad,1)
+  nadd_rad = min(nadd_rad,maxadd_rad)
 
 ! Initialize constants for Harrington s/w and l/w radiation computations
 
-if (iswrtyp == 3 .or. ilwrtyp == 3) call harr_radinit()
+  if (iswrtyp == 3 .or. ilwrtyp == 3) call harr_radinit()
 
 ! Initialize RRTMG s/w scheme
-!
-!if (iswrtyp == 2) call rrtmg_sw_ini(cp)
-!
+
+  if (iswrtyp == 2) then
+     call rrtmg_sw_ini(cp)
+     call rsw_cld_optics_init()
+  endif
+
 ! Initialize RRTMG l/w scheme
-!
-!if (ilwrtyp == 2) call rrtmg_lw_ini(cp)
+
+  if (ilwrtyp == 2) then
+     call rrtmg_lw_ini(cp)
+     call rlw_cloud_optics_init()
+  endif
 
 end subroutine radinit

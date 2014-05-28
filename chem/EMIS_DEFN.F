@@ -437,7 +437,7 @@ C combined gas emssions conversion factor
 !
          use m3utils, only: index1
          use consts_coms, only: r8
-         use misc_coms,   only: io6, time8, timmax8, initial, s1900_sim, iparallel
+         use misc_coms,   only: io6, time8, timmax8, initial, s1900_sim, isubdomain
          use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
          use mem_grid,    only: mza, volti
          use mem_ijtabs,  only: itabg_w, jtab_w, jtw_prog
@@ -536,7 +536,7 @@ C read & interpolate emissions (create VDEMIS in the species class order)
 
                   ! If run is parallel, get local rank indices
 
-                  if (iparallel == 1) then
+                  if (isubdomain == 1) then
                      iw = itabg_w(iw)%iw_myrank
                   endif
                
@@ -556,7 +556,7 @@ C read & interpolate emissions (create VDEMIS in the species class order)
 
                   ! If run is parallel, get local rank indices
 
-                  if (iparallel == 1) then
+                  if (isubdomain == 1) then
                      iw = itabg_w(iw)%iw_myrank
                   endif
                
@@ -698,7 +698,7 @@ C non-reactive gases (conversion to ppmv/s) VDEMIS in this order from RDEMIS
 
                   ! If run is parallel, get local rank indices
 
-                  if (iparallel == 1) then
+                  if (isubdomain == 1) then
                      iw = itabg_w(iw)%iw_myrank
                   endif
                
@@ -718,7 +718,7 @@ C non-reactive gases (conversion to ppmv/s) VDEMIS in this order from RDEMIS
 
                   ! If run is parallel, get local rank indices
 
-                  if (iparallel == 1) then
+                  if (isubdomain == 1) then
                      iw = itabg_w (iw )%iw_myrank
                   endif
                
@@ -784,7 +784,7 @@ C non-reactive gases (conversion to ppmv/s) VDEMIS in this order from RDEMIS
                   iw  = landflux(ilf)%iw ! global index
 
                   ! If run is parallel, get local rank indices
-                  if (iparallel == 1) then
+                  if (isubdomain == 1) then
                      iw = itabg_w(iw)%iw_myrank
                   endif
                
@@ -809,7 +809,7 @@ C non-reactive gases (conversion to ppmv/s) VDEMIS in this order from RDEMIS
 !                  iw  = landflux(ilf)%iw ! global index
 !
 !                  ! If run is parallel, get local rank indices
-!                  if (iparallel == 1) then
+!                  if (isubdomain == 1) then
 !                     iw = itabg_w (iw )%iw_myrank
 !                  endif
 !               

@@ -646,3 +646,26 @@ real function walltime(wstart)
   walltime=adjustOverflow + real(ii)/real(ir) - wstart
 
 end function walltime
+
+!===============================================================================
+
+integer function day_of_week(m, d, y)
+  implicit none
+
+  integer, intent(in) :: d, m, y
+  integer             :: j, k, mm, yy
+
+  ! Given the month, day, and year, this function computes the
+  ! day of week (Sun=1, Mon=2, .., Sat=7).
+
+  mm = m
+  yy = y
+  if (mm <= 2) then
+     mm = mm + 12
+     yy = yy -  1
+  end if
+  j = yy / 100
+  k = mod(yy, 100)
+  day_of_week = mod(d + ((mm+1)*26)/10 + k + k/4 + j/4 + 5*j, 7)
+
+end function day_of_week

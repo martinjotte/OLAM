@@ -142,7 +142,7 @@ C-------------------------------------------------------------------------------
 !     Use Bidi_Mod,    only: lufrac
       use cgrid_defn,  only: cgrid, vdemis_gc
       use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
-      use misc_coms,   only: io6, iparallel
+      use misc_coms,   only: io6, isubdomain
       use mem_ijtabs,  only: itabg_w
       use mem_sea,     only: sea,  itabg_ws, itab_ws
       use mem_leaf,    only: land, itabg_wl, itab_wl
@@ -473,7 +473,7 @@ C-------------------------------------------------------------------------------
 
          ! If run is parallel, get local rank indices
 
-         if (iparallel == 1) then
+         if (isubdomain == 1) then
             iw  = itabg_w (iw )%iw_myrank
             iwl = itabg_wl(iwl)%iwl_myrank
          endif
@@ -799,7 +799,7 @@ C Calculate production (pvd) for HONO; unit = ppm * m/s
 
          ! If run is parallel, get local rank indices
 
-         if (iparallel == 1) then
+         if (isubdomain == 1) then
             iw  = itabg_w (iw )%iw_myrank
             iws = itabg_ws(iws)%iws_myrank
          endif

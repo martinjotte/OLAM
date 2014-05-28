@@ -85,6 +85,7 @@ integer :: nccv, jj, ipt, jpt, minside
 integer :: iper, jm2, ju2, jw2
 
 integer :: imbeg, ipent, nlista, nlistb, immmm, ndone, ilistb
+integer :: impen, imcent, imnear
 integer :: mlist(6)
 real :: reg, xeg, yeg, zeg, dist, distmin
 
@@ -229,47 +230,73 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
    else
 
-! For NCONCAVE = 3, use the following procedure
+! For NCONCAVE = 3, use the following procedure...
 
-! If using global grid (MDOMAIN < 2), search over 12 original ipent points
-! and determine if any lies inside current NGR refinement area
+      allocate (lista(nma), listb(nma), jdone(6,nma))
+
+! Find closest M point to first specified NGR center point.
+
+! Get earth coordinates for [grdlat(ngr,1),grdlon(ngr,1)]
+
+      if (mdomain < 2) then
+         zeg = erad * sin(grdlat(ngr,1) * pio180)
+         reg = erad * cos(grdlat(ngr,1) * pio180)
+         xeg = reg  * cos(grdlon(ngr,1) * pio180)
+         yeg = reg  * sin(grdlon(ngr,1) * pio180)
+      else
+         zeg = 0.
+         xeg = grdlon(ngr,1)
+         yeg = grdlat(ngr,1)
+      endif
+
+! Initialize distance 
+
+      distmin = 1.e12
+
+! Loop over all M points in domain
+
+      do im = 2,nma
+         dist = sqrt((xem_temp(im) - xeg) ** 2 &
+                   + (yem_temp(im) - yeg) ** 2 &
+                   + (zem_temp(im) - zeg) ** 2)
+
+         if (distmin > dist) then
+            distmin = dist
+            imcent = im
+         endif
+      enddo
+
+! If using global grid (MDOMAIN < 2), search over 12 original ipent points and
+! determine if any lies inside current NGR refinement area.  If not, determine
+! whether any ipent point is close to NGR refinement area AND has the same 
+! mrlm value as the imcent point.
 
       imbeg = 0
+      impen = 0
 
       if (mdomain < 2) then
 
          do ipent = 1,12
             im = impent(ipent)
 
-! Check whether IM point is inside NGR refinement area
-
             call ngr_area(ngr,minside,xem_temp(im),yem_temp(im),zem_temp(im))
 
-            if (minside > 0) then
+            if (minside == 1) then
                imbeg = im
                exit
+            elseif (minside == 2 .and. &
+               ltab_md(im)%mrlm == ltab_md(imcent)%mrlm) then
+
+               impen = im
             endif
          enddo
 
       endif
 
-! If imbeg is still zero, then no ipent points are inside NGR refinement area.
-! Thus, find closest M point to first specified NGR center point.
+! If imbeg is zero but impen is not, then find nearest M point to impen
+! that is inside NGR refinement area.
 
-      if (imbeg == 0) then
-
-! Get earth coordinates for [grdlat(ngr,1),grdlon(ngr,1)]
-
-         if (mdomain < 2) then
-            zeg = erad * sin(grdlat(ngr,1) * pio180)
-            reg = erad * cos(grdlat(ngr,1) * pio180)
-            xeg = reg  * cos(grdlon(ngr,1) * pio180)
-            yeg = reg  * sin(grdlon(ngr,1) * pio180)
-         else
-            zeg = 0.
-            xeg = grdlon(ngr,1)
-            yeg = grdlat(ngr,1)
-         endif
+      if (imbeg == 0 .and. impen > 0) then
 
 ! Initialize distance 
 
@@ -278,24 +305,81 @@ do ngr = 2,ngrids  ! Loop over nested grids
 ! Loop over all M points in domain
 
          do im = 2,nma
-            dist = sqrt((xem_temp(im) - xeg) ** 2 &
-                      + (yem_temp(im) - yeg) ** 2 &
-                      + (zem_temp(im) - zeg) ** 2)
 
-            if (distmin > dist) then
-               distmin = dist
-               imbeg = im
+! Check whether M location is within specified region for NGR refinement
+
+            call ngr_area(ngr,minside,xem_temp(im),yem_temp(im),zem_temp(im))
+
+            if (minside == 1) then
+
+               dist = sqrt((xem_temp(im) - xem_temp(impen)) ** 2 &
+                         + (yem_temp(im) - yem_temp(impen)) ** 2 &
+                         + (zem_temp(im) - zem_temp(impen)) ** 2)
+
+               if (distmin > dist) then
+                  distmin = dist
+                  imnear = im
+               endif
+
             endif
+
          enddo
 
-      endif
+! Now, march three M points at a time from impen toward imnear until finding
+! an M point that IS inside the NGR refinement area.
+
+         im = impen
+
+         do  ! until go to 60
+
+            jdone(:,im) = 0  ! (6,nma)
+            mlist(1:6) = 0
+
+            call thirdm(im,jdone,mlist)
+
+! Search through THIRDM neighbors of IM that are in current mlist
+
+            distmin = 1.e12
+
+            do j = 1,6
+               immmm = mlist(j)
+               if (immmm > 1) then
+
+                  call ngr_area(ngr,minside,xem_temp(immmm),yem_temp(immmm), &
+                                                            zem_temp(immmm))
+
+                  if (minside == 1) then
+                     imbeg = immmm
+                     go to 60
+                  endif
+
+                  dist = sqrt((xem_temp(immmm) - xem_temp(imnear)) ** 2 &
+                            + (yem_temp(immmm) - yem_temp(imnear)) ** 2 &
+                            + (zem_temp(immmm) - zem_temp(imnear)) ** 2)
+
+                  if (distmin > dist) then
+                     distmin = dist
+                     im = immmm
+                  endif
+
+               endif ! immmm > 1
+
+            enddo ! j,immmm
+
+         enddo
+
+      endif   ! (imbeg == 0 .and. impen > 0)
+
+      60 continue
+
+! If imbeg is still zero, then use imcent as starting point
+
+      if (imbeg == 0) imbeg = imcent
 
 ! Now that starting point IMBEG has been determined, build full list of
 ! M points that are inside specified NGR refinement area
 
 ! Initialize quantities for search
-
-      allocate (lista(nma), listb(nma), jdone(6,nma))
 
       jdone(:,:) = 0
 
@@ -542,9 +626,9 @@ do ngr = 2,ngrids  ! Loop over nested grids
          ju2 = iuper(iper+1)
 
          if (jm2 == ltab_ud(ju2)%im(1)) then
-            jw2  = ltab_ud(ju2)%iw(2)
+            jw2 = ltab_ud(ju2)%iw(2)
          else
-            jw2  = ltab_ud(ju2)%iw(1)
+            jw2 = ltab_ud(ju2)%iw(1)
          endif
 
          nest_wd(jw2)%iw(3) = -1
@@ -583,8 +667,8 @@ do ngr = 2,ngrids  ! Loop over nested grids
 ! Define new vertex index for midpoint of each original U edge that is adjacent
 ! to an original triangle that is being subdivided, unless it is also adjacent
 ! to an original triangle with subdivide flag = -1.  Attach new vertex
-! index to old U edge.  Also, define new U index for second half of U.
-! Attach to U.  [Make adjacent to U%m2.]
+! index to old U edge.  Also, define new U index for second half of U, and
+! attach to U.  [Make adjacent to U%m2.]
 
    do iu = 2,nua
 
@@ -645,7 +729,10 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
    do im = 1,nma
       itab_md(im)%loop(1:nloops_m) = ltab_md(im)%loop(1:nloops_m)
-      itab_md(im)%imp = ltab_md(im)%imp
+      itab_md(im)%imp       = ltab_md(im)%imp
+      itab_md(im)%mrlm      = ltab_md(im)%mrlm
+      itab_md(im)%mrlm_orig = ltab_md(im)%mrlm_orig
+
       xem(im) = xem_temp(im)
       yem(im) = yem_temp(im)
       zem(im) = zem_temp(im)
@@ -654,9 +741,9 @@ do ngr = 2,ngrids  ! Loop over nested grids
    itab_ud(1:nua) = ltab_ud(1:nua)
    itab_wd(1:nwa) = ltab_wd(1:nwa)
 
-! Loop over U points and check for those flagged fur subdivision
+! Loop over U points and check for those flagged for subdivision
 
-   ngroo = 0
+   mrlo = 0
 
    do iu = 2,nua
       if (nest_ud(iu)%im > 1) then
@@ -664,10 +751,11 @@ do ngr = 2,ngrids  ! Loop over nested grids
          im1 = itab_ud(iu)%im(1)
          im2 = itab_ud(iu)%im(2)
          
-! Save ngr value of parent grid for new grid being spawned
+! Save mrl value of parent grid for new grid being spawned (saved within IF
+! block because itab_md(im1)%mrlm gets changed later in DO loop)
 
-         if (ngroo == 0) then
-            ngroo = itab_md(im1)%mrlm
+         if (mrlo == 0) then
+            mrlo = itab_md(im1)%mrlm
          endif
 
 ! Average coordinates to new M points
@@ -676,12 +764,13 @@ do ngr = 2,ngrids  ! Loop over nested grids
          yem(im) = .5 * (yem(im1) + yem(im2))
          zem(im) = .5 * (zem(im1) + zem(im2))
 
-! Set itab_md()%mrlm = ngr at end and mid points of subdivided U edge
+! Set itab_md()%mrlm = mrlo + 1 at end and mid points of subdivided U edge
 
-         itab_md(im )%mrlm = ngr         
-         itab_md(im1)%mrlm = ngr         
-         itab_md(im2)%mrlm = ngr         
+         itab_md(im1)%mrlm = mrlo + 1
+         itab_md(im2)%mrlm = mrlo + 1
+         itab_md(im )%mrlm = mrlo + 1
 
+         itab_md(im )%mrlm_orig = mrlo + 1
       endif
    enddo
 
@@ -853,15 +942,16 @@ do ngr = 2,ngrids  ! Loop over nested grids
    elseif (nconcave == 1) then
       call perim_fill2(ngr,mrloo,kma,kua,kwa,jm,ju,npts,ngrp,igsize,nwdivg)
    else ! nconcave = 3
-      call perim_fill3(nper2,imper,iuper)
+      call perim_fill3(mrlo,nper2,imper,iuper)
    endif
 
 ! Fill itabs loop tables for newly spawned points
-! Set itab_md()%mrlm = ngroo at newly added boundary M points
 
    do im = nma+1,nma0
       itab_md(im)%imp = im
-      itab_md(im)%mrlm = ngroo
+
+      if (nconcave /= 3) itab_md(im)%mrlm = mrloo
+
       if (meshtype == 1) then
          call mdloopf('f',im, jtm_grid, jtm_vadj, 0, 0, 0, 0)
       else
@@ -1931,6 +2021,16 @@ do ipt = 1,ngrdll(ngr)
       seglat = .5 * (grdlat(ngr,ipt) + grdlat(ngr,jpt))
       seglon = .5 * (grdlon(ngr,ipt) + grdlon(ngr,jpt))
 
+! Correct seglon if segment crosses 180 W
+
+      if (abs(grdlon(ngr,ipt) - grdlon(ngr,jpt)) > 180.) then
+         if (seglon <= 0.) then
+            seglon = seglon + 180.
+         else
+            seglon = seglon - 180.
+         endif
+      endif
+
       call ll_xy (grdlat(ngr,ipt),grdlon(ngr,ipt), &
          seglat,seglon,xs(1),ys(1))
 
@@ -1962,7 +2062,7 @@ do ipt = 1,ngrdll(ngr)
 
    if (dist < grdrad(ngr)) then
       inside = 1
-   elseif (inside == 0 .and. dist < grdrad(ngr) * 1.1 ) then
+   elseif (inside == 0 .and. dist < grdrad(ngr) * 1.2 ) then
       inside = 2  ! larger radius when searching for ipent points
    endif
 
