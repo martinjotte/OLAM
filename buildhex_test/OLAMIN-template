@@ -242,7 +242,7 @@
 
    NL%RADFRQ  = 1800.  ! Time interval between radiation tendency updates (s)
 
-   NL%RRTMG_DATADIR = ../etc  ! Directory containing RRTMg input files
+   NL%RRTMG_DATADIR = '../etc'  ! Directory containing RRTMg input files
 
  !--------------------------------------------------------------------------
  ! Cumulus parameterization parameters
