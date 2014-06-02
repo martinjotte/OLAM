@@ -29,7 +29,7 @@ subroutine read_soil_analysis(soil_tempc)
 
   real, allocatable  :: snow (:,:)   ! snow mass  [kg/m2]
   real, allocatable  :: soilt(:,:,:) ! soil temp  [K]
-  real, allocatable  :: soilw(:,:,:) ! soil water [frac of sat.]
+  real, allocatable  :: soilw(:,:,:) ! soil water [Vol. fraction]
 
   real, allocatable  :: a2d(:,:), a3d(:,:,:), tcol(:), wcol(:)
   real               :: wgt0(-1:1,-1:1), wgts(-1:1,-1:1)
@@ -201,19 +201,21 @@ subroutine read_soil_analysis(soil_tempc)
         call shdf5_irec(ndims, idims, 'SOILW', rvara = a3d)
         call prfill3(nx, ny, ngnd, ipoffset, a3d, soilw)
         has_soilw = .true.
+        soil_volw = .true.
 
-     else
+!    else
+!
+!       call shdf5_info('SOILVOLW', ndims, idims)
+!
+!       if (ndims > 0) then
+!          allocate(soilw(nx+3,ny+2,ngnd))
+!
+!          call shdf5_irec(ndims, idims, 'SOILVOLW', rvara = a3d)
+!          call prfill3(nx, ny, ngnd, ipoffset, a3d, soilw)
+!          has_soilw = .true.
+!          soil_volw = .true.
+!       endif
 
-        call shdf5_info('SOILVOLW', ndims, idims)
-        
-        if (ndims > 0) then
-           allocate(soilw(nx+3,ny+2,ngnd))
-
-           call shdf5_irec(ndims, idims, 'SOILVOLW', rvara = a3d)
-           call prfill3(nx, ny, ngnd, ipoffset, a3d, soilw)
-           has_soilw = .true.
-           soil_volw = .true.
-        endif
      endif
 
      deallocate(a3d)
