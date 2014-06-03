@@ -249,7 +249,7 @@ Contains
    if (allocated(con_st))   call vtables_scalar (con_s, con_st, 'CON_S')
    if (allocated(con_at))   call vtables_scalar (con_a, con_at, 'CON_A')
    if (allocated(con_gt))   call vtables_scalar (con_g, con_gt, 'CON_G')
-   if (allocated(con_ht))   call vtables_scalar (con_h, con_ht,' CON_H')
+   if (allocated(con_ht))   call vtables_scalar (con_h, con_ht, 'CON_H')
    if (allocated(con_dt))   call vtables_scalar (con_d, con_dt, 'CON_D')
 
    if (allocated(con_ccnt)) call vtables_scalar (con_ccn,  con_ccnt,  'CON_CCN',  cu_mix=.true.)
