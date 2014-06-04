@@ -92,7 +92,7 @@ contains
 
     hovl = pblh * moli 
 
-    seddy (:) = zkh(:)
+    seddy  (:) = zkh(:)
     massflx(:) = 0.0
     
     cnvct = ((hovl < -0.1) .and. (kpblh - kbot > 2))
@@ -107,20 +107,20 @@ contains
 
        dens = 0.5 * (rho(kbot,iw) + rho(kbot+1,iw))
        fnl  = vonk72 / ( vonk72 + (mvonk / hovl) ** 0.33333333)
-       mbar = zkh(kbot) / pblh * dzit(kbot) * fnl / dens
+       mbar = zkh(kbot) / (pblh - dzt(kbot)) * dzit(kbot) * fnl / dens
 
        do k = kbot, kpblh-1
           seddy(k) = zkh(k) * ( 1.0 - fnl)
        enddo
-       
-       do k = kbot, kbot + nsfc - 1
+
+       do k = kbot, min(kbot + nsfc - 1, kpblh-1)
           dens = 0.5 * (rho(k,iw) + rho(k+1,iw))
-          massflx(k) = arw(k,iw) * mbar * (pblh - (zm(k) - zm(kbot))) * dens
+          massflx(k) = arw(k,iw) * mbar * (pblh - (zm(k) - zm(kbot-1))) * dens
        enddo
 
-       do k = kbot + nsfc, kpblh-1
+       do k = kbot+nsfc, kpblh-1
           dens = 0.5 * (rho(k,iw) + rho(k+1,iw))
-          massflx(k) = arw(kbot+nsfc-1,iw) * mbar * (pblh - (zm(k) - zm(kbot))) * dens
+          massflx(k) = arw(kbot+nsfc-1,iw) * mbar * (pblh - (zm(k) - zm(kbot-1))) * dens
        enddo
 
     endif
@@ -221,7 +221,7 @@ contains
     ! Include surface exchange
     
     if (num_sxfer > 0) then
-       kmax = min(kbot + nsfc - 1, ktop-1)
+       kmax = min(kbot + nsfc - 1, ktop)
        do ns = 1, num_sxfer
           n = sxfer_map(ns)
           do k = kbot, kmax
@@ -244,7 +244,7 @@ contains
     endif
 
     ! IF CONVECTIVE, INCLUDE NONLOCAL TERMS
-       
+
     if (cnvct) then
 
        do k = kbot+1, kpblh
@@ -267,7 +267,7 @@ contains
                        ( massflx(k) / frac_sum(ksp) - massflx(k-1) / frac_sum(ksm) )
           enddo
        enddo
-       
+
        do k = kbot, min(kbot + nsfc - 1, kpblh)
           ks = k - kbot + 1
           dia(ks) = dia(ks) + dtom(k) * massflx(k) * frac_sfc(ks,iw) / frac_sum(ks)
@@ -544,20 +544,20 @@ contains
 
     if (imoist_ri == 1) then
 
-    do k = kbot, ktop
-       if (ql(k) < 1.e-6) then
+       do k = kbot, ktop
+          if (ql(k) < 1.e-6) then
 
-          alpha(k) = 1.0 + eps_virt * qv(k)
-          beta (k) = eps_virt * theta(k)
+             alpha(k) = 1.0 + eps_virt * qv(k)
+             beta (k) = eps_virt * theta(k)
 
-       else
+          else
 
-          alpha(k) = (1.0 - qw(k) + c1 * qv(k) * (1.0 + c2/tair(k))) / &
-                     (1.0 + c3 * qv(k) / (tair(k) * tair(k)))
-          beta(k)  = alpha(k) * alvlocp * theta(k) / tair(k) - theta(k)
+             alpha(k) = (1.0 - qw(k) + c1 * qv(k) * (1.0 + c2/tair(k))) / &
+                        (1.0 + c3 * qv(k) / (tair(k) * tair(k)))
+             beta(k)  = alpha(k) * alvlocp * theta(k) / tair(k) - theta(k)
 
-       endif
-    enddo
+          endif
+       enddo
 
     endif
 
@@ -575,9 +575,9 @@ contains
             + (vz(k+1) - vz(k))**2 ) * dzim(k) * dzim(k) + 1.e-9
 
        if (imoist_ri == 1) then
-       a  = 0.5 * (alpha(k+1) + alpha(k))
-       b  = 0.5 * (beta (k+1) + beta (k))
-       buoy = a * (thil(k+1) - thil(k)) + b * (qw(k+1) - qw(k))
+          a  = 0.5 * (alpha(k+1) + alpha(k))
+          b  = 0.5 * (beta (k+1) + beta (k))
+          buoy = a * (thil(k+1) - thil(k)) + b * (qw(k+1) - qw(k))
        elseif (imoist_ri == 2) then
           buoy = thilv(k+1) - thilv(k)
        else
@@ -720,7 +720,8 @@ contains
     ! EXISTS), SEARCH UPWARD UNTIL THE BULK RICHARDSON NUMBER EQUALS ITS
     ! CRITICAL VALUE. THIS WILL BE THE PBL HEIGHT
 
-    rib = 0.0
+    rib     = 0.0
+    rib_sav = 0.0
 
     do k = kmix, ktop-1
        rib_sav = rib
@@ -738,20 +739,29 @@ contains
        if (rib >= ric) exit
     enddo
 
-    kpblh = k
+    kpblh = min(k,ktop-1)
 
-    ! INTERPOLATE BETWEEN LEVELS TO DETERMINE THE PBL HEIGHT
+    if (kpblh == ktop-1) then
 
-    fint = (ric - rib_sav) / (rib - rib_sav)
+       ! write(*,*) "Warning: PBL extends to model top!!!"
+       pblh = zm(kpblh-1)
 
-    if (fint > 0.5) then
-       fint  = fint - 0.5
     else
-       kpblh = kpblh - 1
-       fint  = fint  + 0.5
-    endif
 
-    pblh = fint * (zm(kpblh) - zm(kpblh-1)) + zm(kpblh-1) - zm(kbot-1)
+       ! INTERPOLATE BETWEEN LEVELS TO DETERMINE THE PBL HEIGHT
+
+       fint = (ric - rib_sav) / (rib - rib_sav)
+
+       if (fint > 0.5) then
+          fint  = fint - 0.5
+       else
+          kpblh = kpblh - 1
+          fint  = fint  + 0.5
+       endif
+
+       pblh = fint * (zm(kpblh) - zm(kpblh-1)) + zm(kpblh-1) - zm(kbot-1)
+
+    endif
 
   end subroutine acm2_pblhgt
 

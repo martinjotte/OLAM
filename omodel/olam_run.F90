@@ -233,7 +233,7 @@ write(io6,'(/,a,2i9)') 'olam_run after para_decomp',nwl,nws
 ! Set up itab data types and grid coordinate arrays for current node, and 
 ! reallocate memory for current node
 
-call para_init() 
+call para_init()
 
 write(io6,'(/,a)') 'olam_run after para_init'
 
@@ -394,8 +394,7 @@ write(io6,'(/,a)') 'olam_run calling micinit'
 
 call micinit()
 
-
-if (do_chem) then
+if (do_chem .and. runtype == 'INITIAL') then
    mrl = 1
    write(io6,'(/,1x,a)') 'Initializing chemical concentrations'
    call init_cgrid()
@@ -569,7 +568,7 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
 !             iplt_file == 40 .or. &
 !             iplt_file == 50) then
  
-         call plot_fields(0)
+            call plot_fields(0)
 !         endif
 
 ! For shallow water test cases, compute error norms
@@ -700,9 +699,9 @@ do while (time8p < timmax8)
    call timestep()
 
    mstp = mstp + 1
-   time8 = time8 + dtlm(1)
+   time8       = time8 + dtlm(1)
    time8p      = time8 + time_bias       ! Slightly forward biased time
-   time_istp8 = time8
+   time_istp8  = time8
    time_istp8p = time_istp8 + time_bias  ! Slightly forward biased time
 
    s1900_sim = s1900_init + time8
@@ -752,7 +751,7 @@ use misc_coms,   only: io6, time8, time8p, dtlm, iflag, frqstate, timmax8, &
                        initial, s1900_sim, time_prevhist, &
                        iyear1, imonth1, idate1, itime1, do_chem
 use leaf_coms,   only: isfcl, iupdndvi, indvifile, s1900_ndvi
-use sea_coms,    only: iupdsst, iupdseaice, isstfile, iseaicefile,  &
+use sea_coms,    only: iupdsst, iupdseaice, isstfile, iseaicefile, &
                        s1900_sst, s1900_seaice, isstflg, iseaiceflg
 use oplot_coms,  only: op
 use mem_nudge,   only: nudflag, o3nudflag
@@ -793,7 +792,7 @@ endif
 call date_add_to8(iyear1,imonth1,idate1,itime1,time8p,'s',outyear,  &
                   outmonth,outdate,outhour)
 
-if (mod(time8p,frqstate) < dtlm(1)  .or.  &
+if (mod(time8p,frqstate) < dtlm(1)   .or. &
    (outdate == 1 .and. outhour == 0) .or. &
    time8p >= timmax8 .or. iflag == 1) then
    call history_write('INST')

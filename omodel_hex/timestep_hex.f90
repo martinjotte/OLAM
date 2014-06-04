@@ -108,7 +108,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call cuparm_driver(rhot)
       if (isfcl == 1) then
          call surface_cuparm_flux()
-   endif
+      endif
    endif
 
 ! call check_nans(3)
@@ -309,9 +309,9 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(22)
 
-   time_istp8 = time8 + istp * dtsm(mrls)  ! Update precise time
+   time_istp8  = time8 + istp * dtsm(mrls)  ! Update precise time
    time_istp8p = time_istp8 + time_bias
-   s1900_sim = s1900_init + time_istp8
+   s1900_sim   = s1900_init + time_istp8
 
 enddo
 

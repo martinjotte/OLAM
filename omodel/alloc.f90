@@ -134,8 +134,6 @@ subroutine olam_mem_alloc()
       call filltab_nudge_o3()
   endif
 
-
-
 ! Allocate any added Scalar types 
 
   write(io6,*) 'start addsc alloc'

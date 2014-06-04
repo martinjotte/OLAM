@@ -70,9 +70,6 @@ real :: dx, ratio, total
 real, save, allocatable :: tkeep(:), tsend(:)
 
 real :: thsrc_distrib(mza,mwa)
-real :: vxsrc_distrib(mza,mwa)
-real :: vysrc_distrib(mza,mwa)
-real :: vzsrc_distrib(mza,mwa)
 
 real, parameter :: ths_min = 0.0
 !real, parameter :: ths_min = 25.0 / 86400.
@@ -152,10 +149,6 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
       vxsrc(:,:) = 0.0
       vysrc(:,:) = 0.0
       vzsrc(:,:) = 0.0
-      
-      vxsrc_distrib(:,:) = 0.0
-      vysrc_distrib(:,:) = 0.0
-      vzsrc_distrib(:,:) = 0.0
    endif
 
    kcutop(:) = -1
@@ -233,35 +226,16 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
             thsrc(k,iw) = thsrc(k,iw) - thsrc_distrib(k,iw)
          enddo
 
-! Distribute any deep convective momentum mixing among local and neighboring cells
-
-         if (nl%conv_uv_mix > 0) then
-            do k = lpw(iw), mza-1
-               vxsrc_distrib(k,iw) = vxsrc(k,iw)
-               vysrc_distrib(k,iw) = vysrc(k,iw)
-               vzsrc_distrib(k,iw) = vzsrc(k,iw)
-
-               vxsrc(k,iw) = 0.0
-               vysrc(k,iw) = 0.0
-               vzsrc(k,iw) = 0.0
-            enddo
-         endif
-
       endif
 
    enddo
    !$omp end parallel do
    call rsub('Wa',15)
 
-! Perform MPI send of heating and mixing for lateral spreading
+! Perform MPI send of thsrc_distrib
 
    if (iparallel == 1) then
-      if (nl%conv_uv_mix > 0) then
-         call mpi_send_w('V', vxe=vxsrc_distrib, vye=vysrc_distrib,     &
-                         vze=vzsrc_distrib, vmxet=thsrc_distrib, domrl=1)
-      else
-         call mpi_send_w('V', vmxet=thsrc_distrib, domrl=1)
-      endif
+      call mpi_send_w('V', vxe=thsrc_distrib, domrl=1)
    endif
 
 ! Print maximum heating rate in current parallel sub-domain
@@ -288,43 +262,28 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 ! Perform MPI receive of heating and mixing for lateral spreading
 
    if (iparallel == 1) then
-      if (nl%conv_uv_mix > 0) then
-         call mpi_recv_w('V', vxe=vxsrc_distrib, vye=vysrc_distrib,     &
-                         vze=vzsrc_distrib, vmxet=thsrc_distrib, domrl=1)
-      else
-         call mpi_recv_w('V', vmxet=thsrc_distrib, domrl=1)
-      endif
+      call mpi_recv_w('V', vxe=thsrc_distrib, domrl=1)
    endif
 
-! Distribute convective heating and momentum mixing among neighboring cells
+! Distribute convective heating among neighboring cells
 
    !$omp parallel do private(iw,npoly,k,nblocked,jwn,iwn,iv) 
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
       npoly = itab_w(iw)%npoly
 
-      ! This section is the amount of heating/mixing that stays in the current cell
+      ! This section is the amount of heating that stays in the current cell
       do k = lpw(iw), mza-1
          nblocked = count( lpw( itab_w(iw)%iw(1:npoly)  ) > k )
          thsrc(k,iw) = thsrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * thsrc_distrib(k,iw)
-         if (nl%conv_uv_mix > 0) then
-            vxsrc(k,iw) = vxsrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * vxsrc_distrib(k,iw)
-            vysrc(k,iw) = vysrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * vysrc_distrib(k,iw)
-            vzsrc(k,iw) = vzsrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * vzsrc_distrib(k,iw)
-         endif
       enddo
 
-      ! This section is the amount of heating/mixing that is added to neighboring cells
+      ! This section is the amount of heating that is added to neighboring cells
       do jwn = 1, npoly
          iwn = itab_w(iw)%iw(jwn)
          iv  = itab_w(iw)%iv(jwn)
          do k = lpv(iv), mza-1
             thsrc(k,iw) = thsrc(k,iw) + tsend(iwn) * thsrc_distrib(k,iwn)
-            if (nl%conv_uv_mix > 0) then
-               vxsrc(k,iw) = vxsrc(k,iw) + tsend(iwn) * vxsrc_distrib(k,iwn)
-               vysrc(k,iw) = vysrc(k,iw) + tsend(iwn) * vysrc_distrib(k,iwn)
-               vzsrc(k,iw) = vzsrc(k,iw) + tsend(iwn) * vzsrc_distrib(k,iwn)
-            endif
          enddo
       enddo
 

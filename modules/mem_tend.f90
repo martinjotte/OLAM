@@ -68,7 +68,7 @@ Module mem_tend
    real, target, allocatable :: con_ccnt(:,:) ! ccn number tend [#/(m^3 s)]
    real, target, allocatable :: con_gccnt(:,:)! giant ccn number tend [#/(m^3 s)]
    real, target, allocatable :: con_ifnt(:,:) ! ifn number tend [#/(m^3 s)]
-   
+
    real, target, allocatable :: tket    (:,:) ! subgrid-scale turb KE tend [m^2/s^3]
    real, target, allocatable :: epst    (:,:) ! subgrid dissipation rate tend [m^2/s^4]
    
@@ -126,9 +126,9 @@ Contains
    if (allocated(con_h))   allocate (con_ht(lza,lwa))
    if (allocated(con_d))   allocate (con_dt(lza,lwa))
 
-   if (allocated(con_ccn)) allocate (con_ccnt(lza,lwa))
+   if (allocated(con_ccn)) allocate (con_ccnt (lza,lwa))
    if (allocated(con_gccn))allocate (con_gccnt(lza,lwa))
-   if (allocated(con_ifn)) allocate (con_ifnt(lza,lwa))
+   if (allocated(con_ifn)) allocate (con_ifnt (lza,lwa))
 
    if (nl%qxtrans > 0) then
       if (allocated(q2))   allocate (q2t(lza,lwa))
@@ -233,25 +233,25 @@ Contains
 
 ! Fill pointers to scalar arrays into scalar tables
 
-   if (allocated(thilt))    call vtables_scalar (thil,thilt,'THIL',sxfer=sxfer_tk)
+   if (allocated(thilt))    call vtables_scalar (thil,thilt, 'THIL', sxfer=sxfer_tk)
    if (allocated(sh_wt))    call vtables_scalar (sh_w,sh_wt, 'SH_W', sxfer=sxfer_rk)
 
-   if (allocated(sh_ct))    call vtables_scalar (sh_c,sh_ct,'SH_C')
-   if (allocated(sh_rt))    call vtables_scalar (sh_r,sh_rt,'SH_R')
-   if (allocated(sh_pt))    call vtables_scalar (sh_p,sh_pt,'SH_P')
-   if (allocated(sh_st))    call vtables_scalar (sh_s,sh_st,'SH_S')
-   if (allocated(sh_at))    call vtables_scalar (sh_a,sh_at,'SH_A')
-   if (allocated(sh_gt))    call vtables_scalar (sh_g,sh_gt,'SH_G')
-   if (allocated(sh_ht))    call vtables_scalar (sh_h,sh_ht,'SH_H')
+   if (allocated(sh_ct))    call vtables_scalar (sh_c, sh_ct, 'SH_C')
+   if (allocated(sh_rt))    call vtables_scalar (sh_r, sh_rt, 'SH_R')
+   if (allocated(sh_pt))    call vtables_scalar (sh_p, sh_pt, 'SH_P')
+   if (allocated(sh_st))    call vtables_scalar (sh_s, sh_st, 'SH_S')
+   if (allocated(sh_at))    call vtables_scalar (sh_a, sh_at, 'SH_A')
+   if (allocated(sh_gt))    call vtables_scalar (sh_g, sh_gt, 'SH_G')
+   if (allocated(sh_ht))    call vtables_scalar (sh_h, sh_ht, 'SH_H')
    if (allocated(sh_dt))    call vtables_scalar (sh_d, sh_dt, 'SH_D')
 
-   if (allocated(con_ct))   call vtables_scalar (con_c,con_ct,'CON_C')
-   if (allocated(con_rt))   call vtables_scalar (con_r,con_rt,'CON_R')
-   if (allocated(con_pt))   call vtables_scalar (con_p,con_pt,'CON_P')
-   if (allocated(con_st))   call vtables_scalar (con_s,con_st,'CON_S')
-   if (allocated(con_at))   call vtables_scalar (con_a,con_at,'CON_A')
-   if (allocated(con_gt))   call vtables_scalar (con_g,con_gt,'CON_G')
-   if (allocated(con_ht))   call vtables_scalar (con_h,con_ht,'CON_H')
+   if (allocated(con_ct))   call vtables_scalar (con_c, con_ct, 'CON_C')
+   if (allocated(con_rt))   call vtables_scalar (con_r, con_rt, 'CON_R')
+   if (allocated(con_pt))   call vtables_scalar (con_p, con_pt, 'CON_P')
+   if (allocated(con_st))   call vtables_scalar (con_s, con_st, 'CON_S')
+   if (allocated(con_at))   call vtables_scalar (con_a, con_at, 'CON_A')
+   if (allocated(con_gt))   call vtables_scalar (con_g, con_gt, 'CON_G')
+   if (allocated(con_ht))   call vtables_scalar (con_h, con_ht, 'CON_H')
    if (allocated(con_dt))   call vtables_scalar (con_d, con_dt, 'CON_D')
 
    if (allocated(con_ccnt)) call vtables_scalar (con_ccn,  con_ccnt,  'CON_CCN',  cu_mix=.true.)
@@ -262,8 +262,8 @@ Contains
    if (allocated(q6t))      call vtables_scalar (q6, q6t, 'Q6')
    if (allocated(q7t))      call vtables_scalar (q7, q7t, 'Q7')
 
-   if (allocated(tket))     call vtables_scalar (tkep,tket,'TKEP')
-   if (allocated(epst))     call vtables_scalar (epsp,epst,'EPSP')
+   if (allocated(tket))     call vtables_scalar (tkep, tket, 'TKEP')
+   if (allocated(epst))     call vtables_scalar (epsp, epst, 'EPSP')
 
    if (do_chem) call cgrid_scalar_tabs()
 
