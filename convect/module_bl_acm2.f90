@@ -107,20 +107,20 @@ contains
 
        dens = 0.5 * (rho(kbot,iw) + rho(kbot+1,iw))
        fnl  = vonk72 / ( vonk72 + (mvonk / hovl) ** 0.33333333)
-       mbar = zkh(kbot) / pblh * dzit(kbot) * fnl / dens
+       mbar = zkh(kbot) / (pblh - dzt(kbot)) * dzit(kbot) * fnl / dens
 
        do k = kbot, kpblh-1
           seddy(k) = zkh(k) * ( 1.0 - fnl)
        enddo
 
-       do k = kbot, kbot + nsfc - 1
+       do k = kbot, min(kbot + nsfc - 1, kpblh-1)
           dens = 0.5 * (rho(k,iw) + rho(k+1,iw))
-          massflx(k) = arw(k,iw) * mbar * (pblh - (zm(k) - zm(kbot))) * dens
+          massflx(k) = arw(k,iw) * mbar * (pblh - (zm(k) - zm(kbot-1))) * dens
        enddo
 
        do k = kbot+nsfc, kpblh-1
           dens = 0.5 * (rho(k,iw) + rho(k+1,iw))
-          massflx(k) = arw(kbot+nsfc-1,iw) * mbar * (pblh - (zm(k) - zm(kbot))) * dens
+          massflx(k) = arw(kbot+nsfc-1,iw) * mbar * (pblh - (zm(k) - zm(kbot-1))) * dens
        enddo
 
     endif
@@ -694,7 +694,8 @@ contains
     ! EXISTS), SEARCH UPWARD UNTIL THE BULK RICHARDSON NUMBER EQUALS ITS
     ! CRITICAL VALUE. THIS WILL BE THE PBL HEIGHT
 
-    rib = 0.0
+    rib     = 0.0
+    rib_sav = 0.0
 
     do k = kmix, ktop-1
        rib_sav = rib
@@ -712,20 +713,29 @@ contains
        if (rib >= ric) exit
     enddo
 
-    kpblh = k
+    kpblh = min(k,ktop-1)
 
-    ! INTERPOLATE BETWEEN LEVELS TO DETERMINE THE PBL HEIGHT
+    if (kpblh == ktop-1) then
 
-    fint = (ric - rib_sav) / (rib - rib_sav)
+       ! write(*,*) "Warning: PBL extends to model top!!!"
+       pblh = zm(kpblh-1)
 
-    if (fint > 0.5) then
-       fint  = fint - 0.5
     else
-       kpblh = kpblh - 1
-       fint  = fint  + 0.5
-    endif
 
-    pblh = fint * (zm(kpblh) - zm(kpblh-1)) + zm(kpblh-1) - zm(kbot-1)
+       ! INTERPOLATE BETWEEN LEVELS TO DETERMINE THE PBL HEIGHT
+
+       fint = (ric - rib_sav) / (rib - rib_sav)
+
+       if (fint > 0.5) then
+          fint  = fint - 0.5
+       else
+          kpblh = kpblh - 1
+          fint  = fint  + 0.5
+       endif
+
+       pblh = fint * (zm(kpblh) - zm(kpblh-1)) + zm(kpblh-1) - zm(kbot-1)
+
+    endif
 
   end subroutine acm2_pblhgt
 

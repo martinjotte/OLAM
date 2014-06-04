@@ -104,8 +104,6 @@ subroutine acmcld_uvmix( iw, dtl )
   do k = kb, kt-1
      massflx_loc(k) = massflx_acm(kb) * rho(k,iw) / rho(kb,iw) - massflx_acm(k)
      massflx_loc(k) = min(massflx_loc(k), fl*massflx_acm(k))
-
-     massflx_loc(k) = 0.0
      massflx_tot(k) = massflx_acm(k) + massflx_loc(k)
   enddo
      
@@ -308,8 +306,6 @@ subroutine acmcld_tracermix( iw, dtl )
   do k = kb, kt-1
      massflx_loc(k) = massflx_acm(kb) * rho(k,iw) / rho(kb,iw) - massflx_acm(k)
      massflx_loc(k) = min(massflx_loc(k), fl*massflx_acm(k))
-
-     massflx_loc(k) = 0.0
      massflx_tot(k) = massflx_acm(k) + massflx_loc(k)
   enddo
      
