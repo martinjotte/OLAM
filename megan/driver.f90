@@ -299,7 +299,7 @@ contains
     use mem_leaf,     only: land
     use leaf4_canopy, only: vegndvi
     use consts_coms,  only: pio180, pi2
-    use misc_coms,    only: io6, current_time
+    use misc_coms,    only: io6, current_time, runtype
     use mem_grid,     only: mwa, glatw
     use cgrid_spcs,   only: n_gc_emis, gc_emis, n_nr_emis, nr_emis
     use m3utils,    only: index1
@@ -339,35 +339,41 @@ contains
        ! initialize average temperature based on current temperature modified
        ! by a simple diurnal variation
 
-       beta        = calcbeta( Day, land%glatw(iwl), 12.0 )
-       sinbeta_max = max( sin(beta * pio180), 0.0 )
-       avg_temp(iwl) = land%can_temp(iwl) &
-                     - tdiff0 * cos( (hour - hrmax) * pi2 / 24.0 ) * sinbeta_max
+       if (runtype == 'INITIAL') then
+          beta        = calcbeta( Day, land%glatw(iwl), 12.0 )
+          sinbeta_max = max( sin(beta * pio180), 0.0 )
+          avg_temp(iwl) = land%can_temp(iwl) &
+               - tdiff0 * cos( (hour - hrmax) * pi2 / 24.0 ) * sinbeta_max
+       endif
 
        ! set current and next months LAI
 
-       call vegndvi( iwl, land%leaf_class(iwl), 0.0, land%veg_height(iwl), &
+       call vegndvi( iwl, land%leaf_class(iwl), 0.0, 1.0,                  &
                      land%veg_ndvip(iwl), land%veg_ndvif(iwl), ta, tb,     &
                      lai_prev(iwl), tc, td, te                             )
 
-       call vegndvi( iwl, land%leaf_class(iwl), 1.0, land%veg_height(iwl), &
+       call vegndvi( iwl, land%leaf_class(iwl), 1.0, 1.0,                  &
                      land%veg_ndvip(iwl), land%veg_ndvif(iwl), ta, tb,     &
                      lai_next(iwl), tc, td, te                             )
 
     enddo
     !$omp end do
 
-    !$omp do private (beta,sinbeta_max)
-    do iw = 2, mwa
+    if (runtype == 'INITIAL') then
 
-       ! initialize average radiation to be a fraction of midday clear-sky 
-       ! top-of-atmosphere solar flux
+       !$omp do private (beta,sinbeta_max)
+       do iw = 2, mwa
 
-       beta         = calcbeta( Day, glatw(iw), 12.0 )
-       sinbeta_max  = max( sin(beta * pio180), 0.0 )
-       avg_srad(iw) = solcon * sinbeta_max * 0.25
-    enddo
-    !$omp end do
+          ! initialize average radiation to be a fraction of midday clear-sky 
+          ! top-of-atmosphere solar flux
+
+          beta         = calcbeta( Day, glatw(iw), 12.0 )
+          sinbeta_max  = max( sin(beta * pio180), 0.0 )
+          avg_srad(iw) = solcon * sinbeta_max * 0.25
+       enddo
+       !$omp end do
+
+    endif
     !$omp end parallel
 
     do n = 1, n_gc_emis

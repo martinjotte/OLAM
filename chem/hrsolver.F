@@ -329,19 +329,19 @@ c.....start inner loop over unless max backups exceeded
 92000 FORMAT( 'WARNING: EBI Euler convergence failure' /
      &        '         Reducing EBI time step because of ',
      &         'convergence failure for ' /
-     &        '         Cell (', I6, ', ', I3, ', ', I3, ')' ,
+     &        '         Cell (', I0, ', ', I0, ', ', I0, ')' ,
      &        '  Back-up number', I2 )
 
 92010 FORMAT( 'WARNING: EBI Euler convergence failure' /
      &        '         Reducing EBI time step because of ',
      &         'MAXPRED convergence failure for ' /
-     &        '         Cell (', I6, ', ', I3, ', ', I3, ')' ,
+     &        '         Cell (', I0, ', ', I0, ', ', I0, ')' ,
      &        ' and species ', A,
      &        '  Back-up number', I2 )
 
 92040 FORMAT( 'ERROR: Max number of EBI time step reductions exceeded'
-     &      / '      Convergence failure for cell (', I6, ', ', I3,
-     &                ', ', I3, ')' )
+     &      / '      Convergence failure for cell (', I0, ', ', I0,
+     &                ', ', I0, ')' )
 
 92060 FORMAT( '      Convergence failure for the following species:' )
 

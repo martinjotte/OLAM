@@ -63,7 +63,7 @@ C-----------------------------------------------------------------------
       use m3utils
       use phot_mod,   only: rj
       use mem_grid,   only: lpw, mza
-      use mem_ijtabs, only: jtab_w, jtw_prog
+      use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
       use mem_basic,  only: tair, sh_v, press
 
       IMPLICIT NONE
@@ -320,7 +320,8 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !               N_EBI_IT = 0
 !
 !           CALL HRSOLVER( JDATE, JTIME, C, R, L )
-            CALL HRSOLVER( 0, 0, iw, 0, k )
+!           CALL HRSOLVER( 0, 0, iw, 0, k )
+            CALL HRSOLVER( 0, 0, iw, itab_w(iw)%iwglobe, k )
 !
 !#ifdef hrstats
 !               MXEBI  = MAX( MXEBI, N_EBI_IT )

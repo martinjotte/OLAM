@@ -256,7 +256,6 @@ SOURCE_FILES= \
              $(CHEM)/init_cgrid.f90 \
              $(CHEM)/m3dry.f \
              $(CHEM)/m3utils.F \
-             $(CHEM)/o3totcol.f \
              $(CHEM)/phot.F \
              $(CHEM)/PHOT_MOD.F \
              $(CHEM)/PRECURSOR_DATA.F \
