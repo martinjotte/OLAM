@@ -1,7 +1,7 @@
 subroutine read_soil_analysis(soil_tempc)
 
   use misc_coms,  only: io6, s1900_sim, s1900_init, isubdomain
-  use leaf_coms,  only: nzg, mwl, slzt, soilcp, slmsts, slcpd, soilstate_db
+  use leaf_coms,  only: nzg, mwl, slzt, soilcp, slmsts, slcpd, soilstate_db, slpott
   use mem_leaf,   only: land, itab_wl
   use consts_coms,only: pio180, piu180, erad, cliq1000, alli1000, cice,   &
                          cice1000, r8
@@ -35,6 +35,7 @@ subroutine read_soil_analysis(soil_tempc)
   real               :: wgt0(-1:1,-1:1), wgts(-1:1,-1:1)
   real, allocatable  :: snowmask(:,:), tempmask(:,:), soilwmask(:,:)
   real, allocatable  :: zcol(:), ztmp(:)
+  real               :: wprof(nzg)
 
   has_snow  = .false.
   has_soilt = .false.
@@ -388,6 +389,7 @@ do iwl = 2, mwl
 
    endif
 
+
    ! Interpolate soil temperature to this land cell if any of the 9 closest
    ! analysis points have non-missing temperature data
 
@@ -427,9 +429,9 @@ do iwl = 2, mwl
       enddo
          
       if (ngnd == 1) then
-         land%soil_water(1:nzg,iwl) = wcol(1)
+         wprof(:)= wcol(1)
       else
-         call hintrp_cc( ngnd, wcol, zcol, nzg, land%soil_water(:,iwl), slzt )
+         call hintrp_cc( ngnd, wcol, zcol, nzg, wprof, slzt )
       endif
 
       if (soil_volw) then
@@ -438,7 +440,9 @@ do iwl = 2, mwl
 
          do k = 1, nzg
             ntext = land%ntext_soil(k,iwl)
-            land%soil_water(k,iwl) = max( soilcp(ntext), min( land%soil_water(k,iwl), slmsts(ntext) ))
+            if (land%head0(iwl) - slzt(k) < slpott(ntext)) then
+               land%soil_water(k,iwl) = max( soilcp(ntext), min( wprof(k), slmsts(ntext) ))
+            endif
          enddo
 
       else
@@ -446,7 +450,9 @@ do iwl = 2, mwl
          ! Convert from fraction of saturation to soil moisture [m^3_wat/m^3_tot]
          do k = 1, nzg
             ntext = land%ntext_soil(k,iwl)
-            land%soil_water(k,iwl) = max( soilcp(ntext), land%soil_water(k,iwl)*slmsts(ntext) )
+            if (land%head0(iwl) - slzt(k) < slpott(ntext)) then
+               land%soil_water(k,iwl) = max( soilcp(ntext), wprof(k)*slmsts(ntext) )
+            endif
          enddo
 
       endif
