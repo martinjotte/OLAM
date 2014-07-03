@@ -393,9 +393,6 @@ CONTAINS
         qav = qav / max(qsum, 1.e-20_r8)
         tav = tav / max(tsum, 1.e-20_r8)
 
-        qav = 0.
-        tav = 0.
-        
         do kc = 1, ktf
            k  = kc + ka - 1
            rtsrc(k,iw) =  outq(1,kc) - qav * abs(outq(1,kc))
@@ -422,9 +419,6 @@ CONTAINS
         qav = qav / max(qsum, 1.e-20_r8)
         tav = tav / max(tsum, 1.e-20_r8)
 
-        qav = 0.
-        tav = 0.
-        
         do kc = 1, ktf
            k  = kc + ka - 1
            rtsrc(k,iw) =  outqs(1,kc) - qav * abs(outqs(1,kc))
