@@ -14,6 +14,7 @@ SOURCE_FILES= \
              $(CONVECT)/smagorinsky.f90 \
              $(ED2MEM)/ed_max_dims.F90 \
              $(ED2MEM)/ed_misc_coms.f90 \
+             ../interp_to_ll/fields2_ll.f90 \
              $(LEAF)/leaf4.F90 \
              $(LEAF)/leaf4_canopy.f90 \
              $(LEAF)/leaf4_init_atm.f90 \

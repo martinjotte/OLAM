@@ -163,8 +163,6 @@ endif
 ! Get abs seconds of simulation start and current simulation time
 ! Note that itime1 has format of hhmm, and date_abs_secs2 needs hhmmss
 
-time_istp8 = time8
-
 call date_abs_secs2(iyear1,imonth1,idate1,itime1*100,s1900_init)
 s1900_sim = s1900_init + time8
 
@@ -536,7 +534,8 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
 !             iplt_file == 40 .or. &
 !             iplt_file == 50) then
  
-            call plot_fields(0)
+             call plot_fields(0)
+             call fields2_ll()
 !         endif
 
 ! For shallow water test cases, compute error norms
@@ -577,7 +576,9 @@ endif
 
 write(io6,'(/,a)') 'olam_run calling plot_fields'
 
+call copy_plot(0)
 call plot_fields(0)
+call fields2_ll()
 
 if (runtype /= 'HISTORY') then
    write(io6,'(/,a)') 'olam_run calling history_write'
@@ -754,6 +755,7 @@ endif
 if (mod(time8p,op%frqplt) < dtlm(1) .or. iflag == 1) then
    call copy_plot(0)
    call plot_fields(0)
+   call fields2_ll()
 endif
 
 call date_add_to8(iyear1,imonth1,idate1,itime1,time8p,'s',outyear,  &

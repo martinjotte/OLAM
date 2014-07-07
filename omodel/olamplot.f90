@@ -1225,9 +1225,9 @@ end subroutine plot_colorbar
 
 !===============================================================================
 
-subroutine oplot_xy2(panel,colorbar0,aspect,scalelab &
-   ,n,xval,yval,xlab,ylab,linecolor                  &
-   ,xmin,xmax,xinc,labincx  ,ymin,ymax,yinc,labincy  )
+subroutine oplot_xy2(panel,colorbar0,aspect,scalelab,linecolor,ndashes, &
+   n,xval,yval,xlab,ylab, &
+   xmin,xmax,xinc,labincx  ,ymin,ymax,yinc,labincy)
  
 use oplot_coms, only: op
 use misc_coms,  only: io6
@@ -1239,15 +1239,17 @@ use misc_coms,  only: io6
 implicit none
 
 character(len=1), intent(in) :: panel,colorbar0
-real, intent(in) :: aspect,scalelab
-integer, intent(in) :: n,labincx,labincy,linecolor
+integer, intent(in) :: n,labincx,labincy,linecolor,ndashes
+real, intent(in) :: aspect,scalelab,xmin,xmax,xinc,ymin,ymax,yinc
 real, intent(in) :: xval(n),yval(n)
 character(len=*), intent(in) :: xlab,ylab
-real, intent(in) :: xmin,xmax,xinc,ymin,ymax,yinc
 
 integer :: i,logy,itickvalq
 real :: xl,yl,dx,dy,tickval,xmargin,ymargin,sizelab,xlabx,ylaby,tickvalq
 character(len=20)  :: numbr,numbr2
+
+integer :: icyc
+real :: dashlen, dist, remain, step, xfac, yfac, asp2, x, y, eps
 
 ! Set plot color (black)
 
@@ -1304,7 +1306,7 @@ do while (tickval < xmax + .001 * xinc)
       dy = .014
 
 ! Encode and plot current X tick label
- 
+
       if (xinc * labincx >= .999) then
          write (numbr,'(i6)') nint(tickval)
       elseif (xinc * labincx >= .0999) then
@@ -1428,19 +1430,83 @@ call o_gsfaci(linecolor)
 call o_gstxci(linecolor)
 
 
-call o_frstpt(xval(1),yval(1))
-do i = 2,n
-   call o_vector(xval(i),yval(i))
-enddo
+if (ndashes <= 0) then
+
+   call o_frstpt(xval(1),yval(1))
+   do i = 2,n
+      call o_vector(xval(i),yval(i))
+   enddo
+
+else
+
+   eps = 1.e-6 * (xmax - xmin)
+
+   xfac = (op%h2 - op%h1) / (xmax - xmin)
+   yfac = (op%v2 - op%v1) / (ymax - ymin)
+
+   asp2 = (yfac / xfac)**2
+
+   dashlen = (xmax - xmin) / real(2 * ndashes)
+   remain = dashlen
+
+   x = xval(1)
+   y = yval(1)
+
+   call o_frstpt(x,y)
+
+   icyc = 1
+   i = 2
+
+   do while (i < n)
+
+      dist = sqrt((xval(i) - x)**2 + asp2 * (yval(i) - y)**2) 
+
+      if (remain > dist + eps) then
+
+         step = dist
+
+         x = xval(i)
+         y = yval(i)
+
+         if (icyc > 0) then
+            call o_vector(x,y)
+         else
+            call o_frstpt(x,y)
+         endif
+
+         remain = remain - step
+         i = i + 1
+
+      else
+
+         step = remain
+
+         x = x + (xval(i) - x) * step / dist
+         y = y + (yval(i) - y) * step / dist
+
+         if (icyc > 0) then
+            call o_vector(x,y)
+         else
+            call o_frstpt(x,y)
+         endif
+
+         remain = dashlen
+         icyc = -icyc
+
+      endif
+
+   enddo
+
+endif
 
 return
 end subroutine oplot_xy2
 
 !===============================================================================
 
-subroutine oplot_xy2log10(panel,colorbar0,aspect,scalelab &
-   ,n,xval,yval,xlab,ylab,linecolor                       &
-   ,xmin,xmax,xinc,labincx  ,logymin,logymax      )
+subroutine oplot_xy2log10(panel,colorbar0,aspect,scalelab,linecolor, &
+   n,xval,yval,xlab,ylab, &
+   xmin,xmax,xinc,labincx  ,logymin,logymax)
  
 use oplot_coms, only: op
 use misc_coms,  only: io6
@@ -1618,9 +1684,9 @@ end subroutine oplot_xy2log10
 
 !===============================================================================
 
-subroutine oplot_xy2loglog10(panel,colorbar0,aspect,scalelab &
-   ,n,xval,yval,xlab,ylab,linecolor                          &
-   ,logxmin,logxmax  ,logymin,logymax      )
+subroutine oplot_xy2loglog10(panel,colorbar0,aspect,scalelab,linecolor, &
+   n,xval,yval,xlab,ylab,   &
+   logxmin,logxmax  ,logymin,logymax)
  
 use oplot_coms, only: op
 use misc_coms,  only: io6
