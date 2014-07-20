@@ -78,7 +78,7 @@ CONTAINS
                           wnx, wny, wnz, arv, arw, volt, arw0
    use misc_coms,   only: io6
    use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc, &
-                          kcubot, kcutop, cbmf
+                          kcubot, kcutop, cbmf, qwcon
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc, &
                           vmc, wmc
    use mem_turb,    only: frac_land, sflux_t, sflux_r, fqtpbl
@@ -323,10 +323,13 @@ CONTAINS
             endif
          endif
 
-         ! store convective heating and moisture rates
+         ! store convective heating and moisture rates and cloud water
 
          thsrc(k,iw) = dTdt(kt) * (theta(k,iw) / tair(k,iw))
          rtsrc(k,iw) = dQdt(kt)
+
+         qwcon(k,iw) = zlu(kt)
+
       enddo
 
       ! convective momentum transport

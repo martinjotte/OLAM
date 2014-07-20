@@ -43,14 +43,15 @@ CONTAINS
      use mem_turb,    only: kpblh, frac_land, fthpbl, fqtpbl, wtv0, &
                             ustar, sflux_t, sflux_r
      use consts_coms, only: cp, alvl, grav, p00i, rocp, rvap, erad, &
-                           gravi, alvlocp, vonk, r8
+                            gravi, alvlocp, vonk, r8
      use mem_radiate, only: rshort, fthrd_sw, fthrd_lw
      use mem_grid,    only: mza, lpw, arw0, zm, zt, xew, yew, zew, &
-                           glatw, glonw, dzt, arw, lpv, arv, volt
+                            glatw, glonw, dzt, arw, lpv, arv, volt
      use mem_ijtabs,  only: itab_w
      use mem_basic,   only: wmc, vmc, theta, tair, press, rho, sh_v, &
-                           vxe, vye, vze
-     use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf
+                            vxe, vye, vze
+     use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
+                            qwcon
 
      implicit none
 
@@ -138,10 +139,10 @@ CONTAINS
      real    :: qshall (1,mza) ! PBL forced water vapor for shallow convection
      real    :: xmbs   (1)     ! shallow conv convective mass flux
      real    :: dhdt   (1,mza) ! moist static energy tendency
-     integer :: k22s   (1)     ! deep convectin updraft source level
-     integer :: kbcons (1)     ! deep convection LCL
-     integer :: ktops  (1)     ! deep convection cloud top
-     real    :: cupclws(1,mza) ! deep convection cloud water
+     integer :: k22s   (1)     ! shallow convectin updraft source level
+     integer :: kbcons (1)     ! shallow convection LCL
+     integer :: ktops  (1)     ! shallow convection cloud top
+     real    :: cupclws(1,mza) ! shallow convection cloud water
      real    :: tscl_kf        ! shallow convection timescale
      integer :: ierr(1)        ! error code
      integer :: kpbl (1)       ! layer corresponding to PBL height
@@ -407,6 +408,7 @@ CONTAINS
            k  = kc + ka - 1
            rtsrc(k,iw) =  outq(1,kc) - qav * abs(outq(1,kc))
            thsrc(k,iw) = (outt(1,kc) - tav * abs(outt(1,kc))) / exner(k)
+           qwcon(k,iw) = cupclw(1,kc)
         enddo
 
         conprr(iw) = pre(1)
@@ -470,6 +472,7 @@ CONTAINS
               k  = kc + ka - 1
               rtsrc(k,iw) =  outqs(1,kc) - qav * abs(outqs(1,kc))
               thsrc(k,iw) = (outts(1,kc) - tav * abs(outts(1,kc))) / exner(k)
+              qwcon(k,iw) = cupclws(1,kc)
            enddo
 
         endif

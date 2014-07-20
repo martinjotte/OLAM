@@ -42,7 +42,7 @@ use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
                             dtlong, initial, itime1, iparallel, idiffk
 use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
 use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc, &
-                            kcutop, kcubot
+                            kcutop, kcubot, qwcon
 use mem_tend,         only: thilt, sh_wt, vmxet, vmyet, vmzet
 use mem_basic,        only: rho, sh_w
 use consts_coms,      only: r8
@@ -172,6 +172,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
    thsrc        (:,:) = 0.0
    rtsrc        (:,:) = 0.0
    conprr         (:) = 0.0
+   qwcon        (:,:) = 0.0
 
    if (nl%conv_uv_mix > 0) then
       vxsrc(:,:) = 0.0

@@ -30,7 +30,8 @@ CONTAINS
      use mem_ijtabs,  only: itab_w
      use mem_basic,   only: wmc, vmc, theta, tair, press, rho, sh_v, &
                             vxe, vye, vze
-     use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf
+     use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
+                            qwcon
 
      implicit none
 
@@ -95,6 +96,7 @@ CONTAINS
      real    :: edt_out(1,1)
      real    :: subt   (1,mza)   ! temp tendency due to subsidence
      real    :: subq   (1,mza)   ! water vapor tendency due to subsidence
+     real    :: cupclws(1,mza)   ! shallow convection cloud water
      real    :: xl               ! latent heat of vaporization
      real    :: rv               ! gas constant for water vapor
      real    :: cpd              ! heat capacity of air
@@ -344,6 +346,7 @@ CONTAINS
      ktop = 0
      xmb = 0.0
      cupclw = 0.0
+     cupclws = 0.0
      xf_ens = 0.0
      pr_ens = 0.0
      sub_mas = 0.0
@@ -360,7 +363,7 @@ CONTAINS
               APR_CAPMA,APR_CAPME,APR_CAPMI,kbcon,ktop,cupclw,         &
               xf_ens,pr_ens,xland,gsw,edt_out,subt,subq,               &
               xl,rv,cpd,g,ichoice,ipr,jpr,ens4,high_resolution,        &
-              ishallow_g3,ktf,kts,kte                                  )
+              ishallow_g3,cupclws,ktf,kts,kte                          )
 
      if (pre(1) > 1.e-16) then
 
@@ -397,6 +400,7 @@ CONTAINS
            k  = kc + ka - 1
            rtsrc(k,iw) =  outq(1,kc) - qav * abs(outq(1,kc))
            thsrc(k,iw) = (outt(1,kc) - tav * abs(outt(1,kc))) / exner(k)
+           qwcon(k,iw) = cupclw(1,kc)
         enddo
 
         conprr(iw) = pre(1)
@@ -407,6 +411,8 @@ CONTAINS
 
         kcutop(iw) = ktop3 (1) + ka - 1
         kcubot(iw) = kbcon3(1) + ka - 1
+
+        cbmf(iw) = xmb3(1)
 
         ! Slightly modify tendencies to ensure heat and moisture conservation
 
@@ -423,6 +429,7 @@ CONTAINS
            k  = kc + ka - 1
            rtsrc(k,iw) =  outqs(1,kc) - qav * abs(outqs(1,kc))
            thsrc(k,iw) = (outts(1,kc) - tav * abs(outts(1,kc))) / exner(k)
+           qwcon(k,iw) = cupclws(1,kc)
         enddo
 
      endif
@@ -442,7 +449,7 @@ CONTAINS
               APR_CAPMA,APR_CAPME,APR_CAPMI,kbcon,ktop,cupclw,         &
               xf_ens,pr_ens,xland,gsw,edt_out,subt,subq,               &
               xl,rv,cp,g,ichoice,ipr,jpr,ens4,high_resolution,         &
-              ishallow_g3,ktf,kts,kte                                  )
+              ishallow_g3,cupclws,ktf,kts,kte                          )
 
    IMPLICIT NONE
 
@@ -471,7 +478,7 @@ CONTAINS
   ! pre    = output precip
      real,    dimension (its:ite,kts:kte)                              &
         ,intent (inout  )                   ::                           &
-        DHDT,OUTT,OUTQ,OUTQC,subt,subq,sub_mas,cupclw,outts,outqs
+        DHDT,OUTT,OUTQ,OUTQC,subt,subq,sub_mas,cupclw,outts,outqs,cupclws
      real,    dimension (its:ite)                                      &
         ,intent (out  )                   ::                           &
         pre,xmb3,xmb
@@ -685,6 +692,7 @@ CONTAINS
       do k=kts,ktf
       do i=its,itf
         cupclw(i,k)=0.
+        cupclws(i,k)=0.
         cd(i,k)=0.01*entr_rate
         cd3(i,k)=entr_rate3
         cdd(i,k)=0.
@@ -1050,6 +1058,11 @@ CONTAINS
            kbcon3,ktop3,cd3,dby3,mentr_rate3,clw_all, &
            qshall,GAMMA3_cup,zu3,qes3_cup,k23,q3_cup,xl,&
            ktf,kts,kte)
+      do k=kts,ktf
+      do i=its,itf
+         cupclws(i,k)=qrc3(i,k)
+      enddo
+      enddo
       call cup_up_aa0(aa3,z3,zu3,dby3,GAMMA3_CUP,t3_cup, &
            kbcon3,ktop3,ierr5,           &
            ktf,kts,kte)
