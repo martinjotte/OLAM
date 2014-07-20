@@ -1,7 +1,7 @@
-!     path:      $Source: /storm/rc1/cvsroot/rc/rrtmg_sw/src/rrtmg_sw_reftra.f90,v $
+!     path:      $Source$
 !     author:    $Author: mike $
-!     revision:  $Revision: 1.5 $
-!     created:   $Date: 2009/05/22 22:22:22 $
+!     revision:  $Revision: 11661 $
+!     created:   $Date: 2009-05-22 18:22:22 -0400 (Fri, 22 May 2009) $
 
       module rrtmg_sw_reftra
 
@@ -122,7 +122,7 @@
 
 ! Initialize
 
-      hvrrft = '$Revision: 1.5 $'
+      hvrrft = '$Revision: 11661 $'
 
       zsr3=sqrt(3._rb)
       zwcrit=0.9999995_rb

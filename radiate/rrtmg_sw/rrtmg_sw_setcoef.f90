@@ -1,7 +1,7 @@
-!     path:      $Source: /storm/rc1/cvsroot/rc/rrtmg_sw/src/rrtmg_sw_setcoef.f90,v $
-!     author:    $Author: mike $
-!     revision:  $Revision: 1.4 $
-!     created:   $Date: 2009/05/22 22:22:22 $
+!     path:      $Source$
+!     author:    $Author: miacono $
+!     revision:  $Revision: 23308 $
+!     created:   $Date: 2013-12-27 17:23:51 -0500 (Fri, 27 Dec 2013) $
 
       module rrtmg_sw_setcoef
 
@@ -171,14 +171,14 @@
          elseif (jt(lay) .gt. 4) then
             jt(lay) = 4
          endif
-         ft = ((tavel(lay)-tref(jp(lay)))/15._rb) - float(jt(lay)-3)
+         ft = ((tavel(lay)-tref(jp(lay)))/15._rb) - real((jt(lay)-3),kind=rb)
          jt1(lay) = int(3._rb + (tavel(lay)-tref(jp1))/15._rb)
          if (jt1(lay) .lt. 1) then
             jt1(lay) = 1
          elseif (jt1(lay) .gt. 4) then
             jt1(lay) = 4
          endif
-         ft1 = ((tavel(lay)-tref(jp1))/15._rb) - float(jt1(lay)-3)
+         ft1 = ((tavel(lay)-tref(jp1))/15._rb) - real((jt1(lay)-3),kind=rb)
 
          water = wkl(1,lay)/coldry(lay)
          scalefac = pavel(lay) * stpfac / tavel(lay)
@@ -196,7 +196,7 @@
          forfac(lay) = scalefac / (1.+water)
          factor = (332.0_rb-tavel(lay))/36.0_rb
          indfor(lay) = min(2, max(1, int(factor)))
-         forfrac(lay) = factor - float(indfor(lay))
+         forfrac(lay) = factor - real(indfor(lay),kind=rb)
 
 ! Set up factors needed to separately include the water vapor
 ! self-continuum in the calculation of absorption coefficient.
@@ -204,7 +204,7 @@
          selffac(lay) = water * forfac(lay)
          factor = (tavel(lay)-188.0_rb)/7.2_rb
          indself(lay) = min(9, max(1, int(factor)-7))
-         selffrac(lay) = factor - float(indself(lay) + 7)
+         selffrac(lay) = factor - real((indself(lay) + 7),kind=rb)
 
 ! Calculate needed column amounts.
 

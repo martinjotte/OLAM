@@ -30,6 +30,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   integer, parameter :: ncol   = 1
   integer, parameter :: icld   = 2
 ! integer, parameter :: icld   = 0
+  integer, parameter :: iaer   = 0
   integer, parameter :: dyofyr = 0
   integer, parameter :: inflg  = 0
   integer, parameter :: iceflg = 0
@@ -324,8 +325,9 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      enddo
           
      icloud = icld
+     iaeros = iaer
 
-     call rrtmg_sw_nomcica( ncol   , nrad   , icloud ,                          &
+     call rrtmg_sw_nomcica( ncol   , nrad   , icloud , iaeros ,                 &
                             play   , plev   , tlay   , tlev   , tsfc   ,        &
                             h2ovmr , o3vmr  , co2vmr , ch4vmr , n2ovmr , o2vmr, &
                             asdir  , asdif  , aldif  , aldif  ,                 &
