@@ -37,8 +37,13 @@ use isan_coms,  only: iyear, nprz, levpr, ivertcoord, secondlat, cntlon, &
                       gdatdx, xswlat, xswlon, npry, nprx, ihh, idd, imm, &
                       iyy, isversion, marker, innpr, imonth, idate, ihour, &
                       ipoffset
-use misc_coms,  only: io6
+use misc_coms,  only: io6, iparallel
 use hdf5_utils, only: shdf5_open, shdf5_irec
+use mem_para,   only: myrank
+
+#ifdef OLAM_MPI
+use mpi
+#endif
 
 implicit none
 
@@ -47,8 +52,11 @@ character(len=3), intent(inout) :: fform
 character(len=16) :: ext
 
 logical :: exists
-integer :: lv,n,iunit
+integer :: lv, n, ier
 integer :: ndims, idims(2)
+integer :: bytes, nbytes_int, nbytes_real, isize
+
+integer, allocatable :: buffer(:)
 
 ! Read the header of input pressure file.
 
@@ -100,35 +108,113 @@ if (fform == 'GDF') then
 
 elseif (fform == 'HD5') then
 
-   call shdf5_open (innpr, 'R')
+#ifdef OLAM_MPI
+   if (iparallel == 1) then
 
-   ndims = 1
-   idims(1) = 1
-   idims(2) = 1
+      call MPI_Pack_size(1, MPI_INTEGER, MPI_COMM_WORLD, nbytes_int , ier)
+      call MPI_Pack_size(1, MPI_REAL   , MPI_COMM_WORLD, nbytes_real, ier)
 
-   call shdf5_irec(ndims, idims, 'version',ivars=isversion)
-   call shdf5_irec(ndims, idims, 'year'   ,ivars=iyy)
-   call shdf5_irec(ndims, idims, 'month'  ,ivars=imm)
-   call shdf5_irec(ndims, idims, 'day'    ,ivars=idd)
-   call shdf5_irec(ndims, idims, 'hour'   ,ivars=ihh)
-   call shdf5_irec(ndims, idims, 'ftime'  ,ivars=itinc)
-   call shdf5_irec(ndims, idims, 'nx'     ,ivars=nprx)
-   call shdf5_irec(ndims, idims, 'ny'     ,ivars=npry)
-   call shdf5_irec(ndims, idims, 'nlev'   ,ivars=nprz)
-   call shdf5_irec(ndims, idims, 'iproj'  ,ivars=inproj)
-   call shdf5_irec(ndims, idims, 'vcoord' ,ivars=ivertcoord)
-   call shdf5_irec(ndims, idims, 'swlat'  ,rvars=xswlat)
-   call shdf5_irec(ndims, idims, 'swlon'  ,rvars=xswlon)
-   call shdf5_irec(ndims, idims, 'nelat'  ,rvars=xnelat)
-   call shdf5_irec(ndims, idims, 'nelon'  ,rvars=xnelon)
-   call shdf5_irec(ndims, idims, 'dx'     ,rvars=gdatdx)
-   call shdf5_irec(ndims, idims, 'dy'     ,rvars=gdatdy)
-   call shdf5_irec(ndims, idims, 'reflat1',rvars=cntlat)
-   call shdf5_irec(ndims, idims, 'reflat2',rvars=secondlat)
+      bytes = 0
+      isize = nbytes_int*12 + nbytes_real*9
 
-   idims(1) = nprz
+      allocate( buffer( isize ) )
+      
+   endif
+#endif
 
-   call shdf5_irec(ndims, idims, 'levels' ,ivara=levpr)
+   if (myrank == 0) then
+
+      call shdf5_open (innpr, 'R')
+
+      ndims    = 1
+      idims(1) = 1
+      idims(2) = 1
+
+      call shdf5_irec(ndims, idims, 'version',ivars=isversion)
+      call shdf5_irec(ndims, idims, 'year'   ,ivars=iyy)
+      call shdf5_irec(ndims, idims, 'month'  ,ivars=imm)
+      call shdf5_irec(ndims, idims, 'day'    ,ivars=idd)
+      call shdf5_irec(ndims, idims, 'hour'   ,ivars=ihh)
+      call shdf5_irec(ndims, idims, 'ftime'  ,ivars=itinc)
+      call shdf5_irec(ndims, idims, 'nx'     ,ivars=nprx)
+      call shdf5_irec(ndims, idims, 'ny'     ,ivars=npry)
+      call shdf5_irec(ndims, idims, 'nlev'   ,ivars=nprz)
+      call shdf5_irec(ndims, idims, 'iproj'  ,ivars=inproj)
+      call shdf5_irec(ndims, idims, 'vcoord' ,ivars=ivertcoord)
+      call shdf5_irec(ndims, idims, 'swlat'  ,rvars=xswlat)
+      call shdf5_irec(ndims, idims, 'swlon'  ,rvars=xswlon)
+      call shdf5_irec(ndims, idims, 'nelat'  ,rvars=xnelat)
+      call shdf5_irec(ndims, idims, 'nelon'  ,rvars=xnelon)
+      call shdf5_irec(ndims, idims, 'dx'     ,rvars=gdatdx)
+      call shdf5_irec(ndims, idims, 'dy'     ,rvars=gdatdy)
+      call shdf5_irec(ndims, idims, 'reflat1',rvars=cntlat)
+      call shdf5_irec(ndims, idims, 'reflat2',rvars=secondlat)
+      
+      idims(1) = nprz
+      call shdf5_irec(ndims, idims, 'levels' ,ivara=levpr)
+
+#ifdef OLAM_MPI
+      if (iparallel == 1) then
+         call MPI_Pack(isversion , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(iyy       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(imm       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(idd       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(ihh       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(itinc     , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(nprx      , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(npry      , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(nprz      , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(inproj    , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(ivertcoord, 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(xswlat    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(xswlon    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(xnelat    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(xnelon    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(gdatdx    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(gdatdy    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(cntlat    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+         call MPI_Pack(secondlat , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+      endif
+#endif
+
+   endif
+
+#ifdef OLAM_MPI
+   if (iparallel == 1) then
+
+      call MPI_Bcast(buffer, isize, MPI_PACKED, 0, MPI_COMM_WORLD, ier)
+
+      if (myrank /= 0) then
+
+         bytes = 0
+         call MPI_Unpack(buffer, isize, bytes, isversion , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, iyy       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, imm       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, idd       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, ihh       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, itinc     , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, nprx      , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, npry      , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, nprz      , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, inproj    , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, ivertcoord, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, xswlat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, xswlon    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, xnelat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, xnelon    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, gdatdx    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, gdatdy    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, cntlat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+         call MPI_Unpack(buffer, isize, bytes, secondlat , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+         
+      endif
+
+      call MPI_Bcast(levpr, nprz, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+
+      deallocate(buffer)
+
+   endif
+#endif
 
 endif
 
@@ -184,6 +270,7 @@ use isan_coms,   only: pnpr, levpr, nprx, npry, nprz, nprz_rh
 use consts_coms, only: rocp, p00, eps_vap
 use misc_coms,   only: io6
 use hdf5_utils,  only: shdf5_close
+use mem_para,    only: myrank
 
 implicit none
 
@@ -196,7 +283,7 @@ real, intent(out) :: p_z(nprx+3,npry+2,nprz)
 real, intent(out) :: p_r(nprx+3,npry+2,nprz)
 
 real :: thmax,thmin,vapor_press
-integer :: i,j,k,lv,n,iunit
+integer :: i,j,k,iunit
 logical :: isrh
 
 real, external :: eslf
@@ -281,7 +368,7 @@ write(io6, "(' Maximum THETA at ',I4,' mb: ',F9.3)") levpr(nprz), thmax
 
 if (fform == 'GDF') then
    close(iunit)
-elseif (fform == 'HD5') then
+elseif (fform == 'HD5' .and. myrank == 0) then
    call shdf5_close()
 endif
 
@@ -297,8 +384,13 @@ subroutine get_press (fform, iunit, p_u, p_v, p_t, p_z, p_r, isrh)
 use max_dims,   only: maxpr
 use isan_coms,  only: nprz, npry, nprx, pnpr, iyear, imonth, idate, &
                       ihour, levpr, ipoffset, nprz_rh
-use misc_coms,  only: io6
+use misc_coms,  only: io6, iparallel
 use hdf5_utils, only: shdf5_irec, shdf5_info
+use mem_para,   only: myrank
+
+#ifdef OLAM_MPI
+use mpi
+#endif
 
 implicit none
 
@@ -315,7 +407,7 @@ real, intent(out) :: p_r(nprx+3,npry+2,nprz)
 real :: as(nprx,npry)
 real :: as3(nprx,npry,nprz)
 
-integer :: i,j,k,nv,nvar,misstot,lv,n
+integer :: i,j,k,lv,n,ier
 integer :: ithere(maxpr,5),isfthere(5)
 character(len=1) :: idat(5) = (/ 'T','U','V','H','R' /)
 integer :: ndims, idims(3), njdims, jdims(3)
@@ -393,78 +485,126 @@ elseif (fform == 'HD5') then
 
    ! Read east-west velocity U. It may be called UP, UE, or U in the file
 
-   varname = 'U'
-   call shdf5_info(varname, njdims, jdims)
+   if (myrank == 0) then
 
-   if (njdims <= 0) then
-      varname = 'UP'
+      varname = 'U'
       call shdf5_info(varname, njdims, jdims)
+
+      if (njdims <= 0) then
+         varname = 'UP'
+         call shdf5_info(varname, njdims, jdims)
+      endif
+
+      if (njdims <= 0) then
+         varname = 'UE'
+         call shdf5_info(varname, njdims, jdims)
+      endif
+
+      call shdf5_irec(ndims, idims, varname, rvara = as3)
+      call prfill3(nprx,npry,nprz,ipoffset,as3,p_u)
+
    endif
 
-   if (njdims <= 0) then
-      varname = 'UE'
-      call shdf5_info(varname, njdims, jdims)
+#ifdef OLAM_MPI
+   if (iparallel == 1) then
+      call MPI_Bcast( p_u, (nprx+3)*(npry+2)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
    endif
-
-   call shdf5_irec(ndims, idims, varname, rvara = as3)
-   call prfill3(nprx,npry,nprz,ipoffset,as3,p_u)
+#endif
 
    ! Read north-south velocity V. It may be called VP, VE, or V in the file
 
-   varname = 'V'
-   call shdf5_info(varname, njdims, jdims)
+   if (myrank == 0) then
 
-   if (njdims <= 0) then
-      varname = 'VP'
+      varname = 'V'
       call shdf5_info(varname, njdims, jdims)
-   endif
 
-   if (njdims <= 0) then
-      varname = 'VE'
-      call shdf5_info(varname, njdims, jdims)
-   endif
+      if (njdims <= 0) then
+         varname = 'VP'
+         call shdf5_info(varname, njdims, jdims)
+      endif
 
-   call shdf5_irec(ndims, idims, varname, rvara = as3)
-   call prfill3(nprx,npry,nprz,ipoffset,as3,p_v)
+      if (njdims <= 0) then
+         varname = 'VE'
+         call shdf5_info(varname, njdims, jdims)
+      endif
+
+      call shdf5_irec(ndims, idims, varname, rvara = as3)
+      call prfill3(nprx,npry,nprz,ipoffset,as3,p_v)
+
+   endif
    
+#ifdef OLAM_MPI
+   if (iparallel == 1) then
+      call MPI_Bcast( p_v, (nprx+3)*(npry+2)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+   endif
+#endif
+
    ! Read temperature 
 
-   call shdf5_irec(ndims, idims,'TEMP',rvara = as3)
-   call prfill3(nprx,npry,nprz,ipoffset,as3,p_t)
+   if (myrank == 0) then
+
+      call shdf5_irec(ndims, idims,'TEMP',rvara = as3)
+      call prfill3(nprx,npry,nprz,ipoffset,as3,p_t)
+
+   endif
+
+#ifdef OLAM_MPI
+   if (iparallel == 1) then
+      call MPI_Bcast( p_t, (nprx+3)*(npry+2)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+   endif
+#endif
 
    ! Read geopotential height
 
-   call shdf5_irec(ndims, idims,'GEO',rvara = as3)
-   call prfill3(nprx,npry,nprz,ipoffset,as3,p_z)
+   if (myrank == 0) then
+      call shdf5_irec(ndims, idims,'GEO',rvara = as3)
+      call prfill3(nprx,npry,nprz,ipoffset,as3,p_z)
+   endif
+
+#ifdef OLAM_MPI
+   if (iparallel == 1) then
+      call MPI_Bcast( p_z, (nprx+3)*(npry+2)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+   endif
+#endif
 
    ! Read water vapor specific humidity if it exists in the file
 
-   njdims = 0
-   call shdf5_info("SHV", njdims, jdims)
+   if (myrank == 0) then
 
-   if (njdims > 0) then
+      njdims = 0
+      call shdf5_info("SHV", njdims, jdims)
 
-      isrh = .false.
-      call shdf5_irec(ndims, idims,'SHV',rvara = as3)
-      call prfill3(nprx,npry,nprz,ipoffset,as3,p_r)
+      if (njdims > 0) then
+
+         isrh = .false.
+         call shdf5_irec(ndims, idims,'SHV',rvara = as3)
+         call prfill3(nprx,npry,nprz,ipoffset,as3,p_r)
      
-   else
+      else
       
    ! Read relative humidity if we don't have specific humidity, 
    ! It may be called RELHUM or RH
 
-      varname = 'RH'
-      call shdf5_info(varname, njdims, jdims)
+         varname = 'RH'
+         call shdf5_info(varname, njdims, jdims)
 
-      if (njdims <= 0) then
-         varname = 'RELHUM'
+         if (njdims <= 0) then
+            varname = 'RELHUM'
+         endif
+
+         isrh = .true.
+         call shdf5_irec(ndims, idims, varname, rvara = as3)
+         call prfill3(nprx,npry,nprz,ipoffset,as3,p_r)
+
       endif
-
-      isrh = .true.
-      call shdf5_irec(ndims, idims, varname, rvara = as3)
-      call prfill3(nprx,npry,nprz,ipoffset,as3,p_r)
-
    endif
+
+#ifdef OLAM_MPI
+   if (iparallel == 1) then
+      call MPI_Bcast( p_r, (nprx+3)*(npry+2)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+      call MPI_Bcast( isrh, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier )
+   endif
+#endif
 
 !  if (ivertcoord == 3) call shdf5_irec('PRESS',rvara = p_p)
 

@@ -2,10 +2,15 @@ subroutine read_seaice_analysis(iaction)
 
   use mem_sea,    only: sea, itab_ws
   use sea_coms,   only: mws, iseaicefile, iseaiceflg
-  use misc_coms,  only: io6, s1900_sim, s1900_init
+  use misc_coms,  only: io6, s1900_sim, s1900_init, iparallel
   use max_dims,   only: pathlen
   use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
+  use mem_para,   only: myrank
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
 
   implicit none
 
@@ -23,9 +28,11 @@ subroutine read_seaice_analysis(iaction)
   integer            :: nio, njo, iws
   integer            :: io1, io2, jo1, jo2
   logical            :: exists, has_seaice
+  integer            :: bytes, nbytes_int, nbytes_real, isize, ier
 
-  real, allocatable  :: ice(:,:)  ! sea ice concentration [0 - 1]
-  real, allocatable  :: a2d(:,:)
+  real,    allocatable :: ice(:,:)  ! sea ice concentration [0 - 1]
+  real,    allocatable :: a2d(:,:)
+  integer, allocatable :: buffer(:)
 
 ! Nothing to do here if iseaiceflg is not 2
 
@@ -87,34 +94,82 @@ subroutine read_seaice_analysis(iaction)
 
   inquire(file=fname, exist=exists)
   if (.not. exists) then
-     write(io6,*) "read_soil: Error opening analysis file " // trim(fname)
-     write(io6,*) "Using default soil initialization instead."
+     write(io6,'(A)') " read_seaice: Error opening analysis file " // trim(fname)
+     write(io6,'(A)') " Using default soil initialization instead."
      return
   endif
 
-  write(io6,*) 'read_seaice_analysis: opening ' // trim(fname)
+  write(io6,'(A)') ' read_seaice: opening ' // trim(fname)
 
-  call shdf5_open (fname, 'R')
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
 
-  ndims    = 1
-  idims(1) = 1
-  idims(2) = 1
-  idims(3) = 1
+     call MPI_Pack_size(1, MPI_INTEGER, MPI_COMM_WORLD, nbytes_int , ier)
+     call MPI_Pack_size(1, MPI_REAL   , MPI_COMM_WORLD, nbytes_real, ier)
 
-  call shdf5_irec(ndims, idims, 'nx'   , ivars=nx)
-  call shdf5_irec(ndims, idims, 'ny'   , ivars=ny)
-  call shdf5_irec(ndims, idims, 'iproj', ivars=inproj)
-  call shdf5_irec(ndims, idims, 'swlat', rvars=xswlat)
-  call shdf5_irec(ndims, idims, 'swlon', rvars=xswlon)
-  call shdf5_irec(ndims, idims, 'dx'   , rvars=gdatdx)
-  call shdf5_irec(ndims, idims, 'dy'   , rvars=gdatdy)
+     bytes = 0
+     isize = nbytes_int*3 + nbytes_real*4
+     allocate( buffer( isize ) )
+  endif
+#endif
+
+  if (myrank == 0) then
+
+     call shdf5_open (fname, 'R')
+
+     ndims    = 1
+     idims(1) = 1
+     idims(2) = 1
+     idims(3) = 1
+
+     call shdf5_irec(ndims, idims, 'nx'   , ivars=nx)
+     call shdf5_irec(ndims, idims, 'ny'   , ivars=ny)
+     call shdf5_irec(ndims, idims, 'iproj', ivars=inproj)
+     call shdf5_irec(ndims, idims, 'swlat', rvars=xswlat)
+     call shdf5_irec(ndims, idims, 'swlon', rvars=xswlon)
+     call shdf5_irec(ndims, idims, 'dx'   , rvars=gdatdx)
+     call shdf5_irec(ndims, idims, 'dy'   , rvars=gdatdy)
+
+#ifdef OLAM_MPI
+     if (iparallel == 1) then
+        call MPI_Pack(nx    , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(ny    , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(inproj, 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(xswlat, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(xswlon, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(gdatdx, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(gdatdy, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+     endif
+#endif
+
+  endif
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+
+     call MPI_Bcast(buffer, isize, MPI_PACKED, 0, MPI_COMM_WORLD, ier)
+
+     if (myrank /= 0) then
+        call MPI_Unpack(buffer, isize, bytes, nx    , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, ny    , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, inproj, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, xswlat, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, xswlon, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, gdatdx, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, gdatdy, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+     endif
+
+     deallocate(buffer)
+
+  endif
+#endif
 
   ! Check data domain size and location
 
   if (inproj /= 1) then
      write(io6,*) 'You must input a lat-lon grid for sst/seaice initialization.'
      write(io6,*) 'Stopping run.'
-     call shdf5_close()
+     if (myrank == 0) call shdf5_close()
      stop
   endif
 
@@ -128,7 +183,7 @@ subroutine read_seaice_analysis(iaction)
       abs ((ny-1) * gdatdy - 180.) > .1) then
      write(io6,*) 'Gridded seaice data does not have global coverage.'
      write(io6,*) 'Stopping model run.'
-     call shdf5_close()
+     if (myrank == 0) call shdf5_close()
      stop
   endif
 
@@ -137,33 +192,46 @@ subroutine read_seaice_analysis(iaction)
   ! follow the GRIB standard and keep the SW corner at (0,-90)
 
   ipoffset = xswlon / gdatdx + 1
+  nio = nx + 3
+  njo = ny + 2
+
+  allocate(ice(nio,njo))
 
   ! Check if seaice is in the analysis file, and read it
 
-  call shdf5_info('ICEC', ndims, idims)
+  if (myrank == 0) then
+     call shdf5_info('ICEC', ndims, idims)
 
-  if (ndims > 0) then
+     if (ndims > 0) then
+        allocate(a2d(nx,ny))
 
-     nio = nx + 3
-     njo = ny + 2
+        call shdf5_irec(ndims, idims, 'ICEC', rvara = a2d)
+        call prfill(nx, ny, ipoffset, a2d, ice)
 
-     allocate(a2d(nx,ny))
-     allocate(ice(nio,njo))
+        has_seaice = .true.
+        deallocate(a2d)
+     endif
 
-     call shdf5_irec(ndims, idims, 'ICEC', rvara = a2d)
-     call prfill(nx, ny, ipoffset, a2d, ice)
-
-     has_seaice = .true.
-     deallocate(a2d)
+     call shdf5_close()
   endif
 
-  call shdf5_close()
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     call MPI_Bcast(has_seaice, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier)
+  endif
+#endif
 
   if (.not. has_seaice) then
      write(io6,*) "read_seaice: Analysis file does not contain seaice."
      write(io6,*) "Stopping run."
      stop
   endif
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     call MPI_Bcast(ice, nio*njo, MPI_REAL, 0, MPI_COMM_WORLD, ier)
+  endif
+#endif
 
   ! GRIB data is unstaggered, so there should be no offsets, but we 
   ! offset the grid by 1 row and column so we take that into account here

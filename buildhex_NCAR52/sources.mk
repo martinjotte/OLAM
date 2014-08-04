@@ -29,7 +29,7 @@ SOURCE_FILES= \
              $(LEAF)/ndvi_database_read.f90 \
              $(LEAF)/olam_mpi_land.F90 \
              $(LEAF)/para_init_land.f90 \
-             $(LEAF)/read_soil_analysis.f90 \
+             $(LEAF)/read_soil_analysis.F90 \
              ./consts_coms.f90 \
              $(MODEL_MODS)/ke_coms.f90 \
              $(MODEL_MODS)/massflux.f90 \
@@ -62,7 +62,7 @@ SOURCE_FILES= \
              ./plotcolors.f90 \
              $(MODEL_MODS)/var_tables.f90 \
              $(OISAN)/asti.f90 \
-             $(OISAN)/astp.f90 \
+             $(OISAN)/astp.F90 \
              $(OISAN)/file_inv.f90 \
              $(OISAN)/fldsisan.f90 \
              $(OISAN)/isan_coms.f90 \
@@ -216,8 +216,8 @@ SOURCE_FILES= \
              $(SEA)/mem_sea.f90 \
              $(SEA)/olam_mpi_sea.F90 \
              $(SEA)/para_init_sea.f90 \
-             $(SEA)/read_seaice_analysis.f90 \
-             $(SEA)/read_sst_analysis.f90 \
+             $(SEA)/read_seaice_analysis.F90 \
+             $(SEA)/read_sst_analysis.F90 \
              $(SEA)/sea_coms.f90 \
              $(SEA)/sea.f90 \
              $(SEA)/seaice_database_read.f90 \
