@@ -960,7 +960,7 @@ do k = ka,mza-1
    delex_rho(k) = dts * (rhot(k,iw) &
       + volti(k,iw) * (hflux_rho(k) + wmarw(k-1) - wmarw(k)))
 
-   delex_rhothil(k) = dts * (thilt(k,iw) &
+   delex_rhothil(k) = dts * (thilt(k,iw) + thil(k,iw) * rhot(k,iw) &
       + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
 
    vmxet(k,iw) = volti(k,iw) * (hflux_vxe(k) + vflux_vxe(k-1) - vflux_vxe(k)) &
