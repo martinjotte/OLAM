@@ -164,7 +164,7 @@ if (mrl > 0) then
          rhot(k,iw) = rhot(k,iw) + sh_wt(k,iw)
       enddo
 
-      call prog_wrt_begl(iw)
+      call prog_wrt_begl(iw,rhot)
    
    enddo
    !$omp end parallel do
@@ -172,7 +172,7 @@ if (mrl > 0) then
 
 ! MPI SEND of VMXET, VMYET, VMZET
 
-   if (iparallel == 1) call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet,vxe=rhot)
+   if (iparallel == 1) call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
 
 ! Horizontal loop over M/P columns for BEGL; Diagnose vertical vorticity
 ! in preparation for horizontal filter
@@ -230,8 +230,8 @@ if (mrl > 0) then
 
 ! MPI RECV of VMXET, VMYET, VMZET
 
-   if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet,vxe=rhot)
-   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, a4=rhot)
+   if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
+   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
 
 endif ! mrl = mrl_begl(istp) > 0
 
@@ -599,7 +599,7 @@ do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 !----------------------------------------------------------------------
 call qsub('V',iv)
 
-   call prog_v_begs(iv,vmxet,vmyet,vmzet,div2d,rhot)
+   call prog_v_begs(iv,vmxet,vmyet,vmzet,div2d)
 
 enddo
 !$omp end parallel do 
@@ -618,7 +618,7 @@ end subroutine prog_wrtv
 
 !=========================================================================
 
-subroutine prog_wrt_begl(iw)
+subroutine prog_wrt_begl(iw,rhot)
 
 ! This version includes turbulent fluxes of VXE, VYE, VZE through V faces
 ! Vertical mixing is computed in subroutine pbl_driver
@@ -638,6 +638,7 @@ use mem_rayf,    only: rayf_cof, rayf_cofw, dorayf, dorayfw, krayf_bot, krayfw_b
 implicit none
 
 integer, intent(in) :: iw
+real,    intent(in) :: rhot(mza,mwa)
 
 integer :: iv, iwn, k, ka, kb, npoly, jv
 real    :: fracx, rayfx
@@ -689,9 +690,12 @@ enddo
 
 do k = kb,mza-1
 
-   vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) * hdiff_vxe(k)
-   vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) * hdiff_vye(k)
-   vmzet(k,iw) = vmzet(k,iw) + volti(k,iw) * hdiff_vze(k)
+   vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) * hdiff_vxe(k) &
+               + vxe(k,iw) * rhot(k,iw)
+   vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) * hdiff_vye(k) &
+               + vye(k,iw) * rhot(k,iw)
+   vmzet(k,iw) = vmzet(k,iw) + volti(k,iw) * hdiff_vze(k) &
+               + vze(k,iw) * rhot(k,iw)
 
 enddo
 
@@ -981,7 +985,7 @@ do k = ka,mza-2
 ! Change in WM from EXPLICIT terms (long timestep tendency, 3 horizontal
 ! advective fluxes, 2 vertical advective fluxes, vertical pgf, gravity)
 
-   delex_wm(k) = dts * (wmt(k,iw) + wc(k,iw) * rhot(k,iw) &
+   delex_wm(k) = dts * (wmt(k,iw) &
 
       + dzim(k) * (press_t(k) - press_t(k+1) &
 
@@ -1147,7 +1151,7 @@ end subroutine prog_wrt_begs
 
 !============================================================================
 
-subroutine prog_v_begs(iv,vmxet,vmyet,vmzet,div2d,rhot)
+subroutine prog_v_begs(iv,vmxet,vmyet,vmzet,div2d)
 
 use mem_tend,    only: vmt
 use mem_ijtabs,  only: itab_v, itab_w
@@ -1169,7 +1173,6 @@ real, intent(in) :: vmxet(mza,mwa)
 real, intent(in) :: vmyet(mza,mwa)
 real, intent(in) :: vmzet(mza,mwa)
 real, intent(in) :: div2d(mza,mwa)
-real, intent(in) :: rhot(mza,mwa)
 
 integer :: jv,ivn,k,kb,npoly
 
@@ -1273,7 +1276,6 @@ do k = kb,mza-1
 ! Update VM from long timestep tendencies, advection, and pressure gradient force
 
    vmc(k,iv) = vmc(k,iv) + dts * (vmt(k,iv) + vmt_rayf(k) + pgf(k) &
-             + 0.5 * vc(k,iv) * (rhot(k,iw1) + rhot(k,iw2)) &
              + vnxo2(iv) * (vmxet(k,iw1) + vmxet(k,iw2)) &
              + vnyo2(iv) * (vmyet(k,iw1) + vmyet(k,iw2)) &
              + vnzo2(iv) * (vmzet(k,iw1) + vmzet(k,iw2)) )
