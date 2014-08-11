@@ -45,9 +45,8 @@ use mem_basic,    only: rho, thil, theta, wc, press, wmc, vmp, vmc, vp, vc, &
 use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, &
                         zt, zm, dzim, zfacit, dzm, dzt, dnv, dnu, arm0, arv, &
                         vnx, vny, vnz, volt, volwi
-use mem_tend,     only: vmt, vmxet, vmyet, vmzet
+use mem_tend,     only: vmt, vmxet, vmyet, vmzet, sh_wt
 use misc_coms,    only: io6, iparallel, time8, dtlm, rinit
-use consts_coms,  only: cpocv, pc1, rdry, rvap
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
 use oplot_coms,   only: op
 use obnd,         only: lbcopy_m, lbcopy_w
@@ -59,8 +58,8 @@ implicit none
 real, intent(inout) :: vmsc(mza,mva)
 real, intent(inout) :: wmsc(mza,mwa)
 
-real, intent(inout) :: alpha_press(mza,mwa)
-real, intent(in)    :: rhot       (mza,mwa)
+real, intent(in)    :: alpha_press(mza,mwa)
+real, intent(inout) :: rhot       (mza,mwa)
 
 integer :: j, iv, k, ka, kb, mrl, kbv, kd
 integer :: iw, iw1, iw2, iwp, ivp
@@ -159,11 +158,10 @@ if (mrl > 0) then
 !----------------------------------------------------------------------
    call qsub('W',iw)
 
-! Evaluate alpha coefficient for pressure
+! Include moisture changes in total density tendency
 
       do k = lpw(iw), mza-1
-         alpha_press(k,iw) = pc1 * (((1. - sh_w(k,iw)) * rdry + sh_v(k,iw) * rvap) &
-                           * theta(k,iw) / thil(k,iw)) ** cpocv
+         rhot(k,iw) = rhot(k,iw) + sh_wt(k,iw)
       enddo
 
       call prog_wrt_begl(iw)
@@ -174,7 +172,7 @@ if (mrl > 0) then
 
 ! MPI SEND of VMXET, VMYET, VMZET
 
-   if (iparallel == 1) call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
+   if (iparallel == 1) call mpi_send_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet,vxe=rhot)
 
 ! Horizontal loop over M/P columns for BEGL; Diagnose vertical vorticity
 ! in preparation for horizontal filter
@@ -232,8 +230,8 @@ if (mrl > 0) then
 
 ! MPI RECV of VMXET, VMYET, VMZET
 
-   if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet)
-   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
+   if (iparallel == 1) call mpi_recv_w('V',vmxet=vmxet,vmyet=vmyet,vmzet=vmzet,vxe=rhot)
+   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, a4=rhot)
 
 endif ! mrl = mrl_begl(istp) > 0
 
@@ -601,7 +599,7 @@ do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 !----------------------------------------------------------------------
 call qsub('V',iv)
 
-   call prog_v_begs(iv,vmxet,vmyet,vmzet,div2d)
+   call prog_v_begs(iv,vmxet,vmyet,vmzet,div2d,rhot)
 
 enddo
 !$omp end parallel do 
@@ -983,7 +981,7 @@ do k = ka,mza-2
 ! Change in WM from EXPLICIT terms (long timestep tendency, 3 horizontal
 ! advective fluxes, 2 vertical advective fluxes, vertical pgf, gravity)
 
-   delex_wm(k) = dts * (wmt(k,iw) &
+   delex_wm(k) = dts * (wmt(k,iw) + wc(k,iw) * rhot(k,iw) &
 
       + dzim(k) * (press_t(k) - press_t(k+1) &
 
@@ -1149,7 +1147,7 @@ end subroutine prog_wrt_begs
 
 !============================================================================
 
-subroutine prog_v_begs(iv,vmxet,vmyet,vmzet,div2d)
+subroutine prog_v_begs(iv,vmxet,vmyet,vmzet,div2d,rhot)
 
 use mem_tend,    only: vmt
 use mem_ijtabs,  only: itab_v, itab_w
@@ -1158,7 +1156,7 @@ use misc_coms,   only: io6, dtsm, initial, mdomain, u01d, v01d, dn01d, &
                        deltax, nxp
 use consts_coms, only: erad, eradi, gravo2
 use mem_grid,    only: lpv, lpw, volt, volvi, xev, yev, zev, &
-                       unx, uny, vnx, vny, vnz, mza, mva, mwa, dniv, arw0, dnu
+                       vnxo2, vnyo2, vnzo2, mza, mva, mwa, dniv, arw0, dnu
 use mem_rayf,    only: dorayf, rayf_cof, vc03d, dn03d, krayf_bot, &
                        dorayfdiv, krayfdiv_bot, rayf_cofdiv
 use oname_coms,  only: nl
@@ -1171,6 +1169,7 @@ real, intent(in) :: vmxet(mza,mwa)
 real, intent(in) :: vmyet(mza,mwa)
 real, intent(in) :: vmzet(mza,mwa)
 real, intent(in) :: div2d(mza,mwa)
+real, intent(in) :: rhot(mza,mwa)
 
 integer :: jv,ivn,k,kb,npoly
 
@@ -1274,9 +1273,10 @@ do k = kb,mza-1
 ! Update VM from long timestep tendencies, advection, and pressure gradient force
 
    vmc(k,iv) = vmc(k,iv) + dts * (vmt(k,iv) + vmt_rayf(k) + pgf(k) &
-             + .5 * (vnx(iv) * (vmxet(k,iw1) + vmxet(k,iw2)) &
-                   + vny(iv) * (vmyet(k,iw1) + vmyet(k,iw2)) &
-                   + vnz(iv) * (vmzet(k,iw1) + vmzet(k,iw2))))
+             + 0.5 * vc(k,iv) * (rhot(k,iw1) + rhot(k,iw2)) &
+             + vnxo2(iv) * (vmxet(k,iw1) + vmxet(k,iw2)) &
+             + vnyo2(iv) * (vmyet(k,iw1) + vmyet(k,iw2)) &
+             + vnzo2(iv) * (vmzet(k,iw1) + vmzet(k,iw2)) )
 
    vc(k,iv) = 2.0 * vmc(k,iv) / (rho(k,iw1) + rho(k,iw2))
 

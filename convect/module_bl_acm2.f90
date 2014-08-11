@@ -348,13 +348,6 @@ contains
        enddo
     endif
 
-    ! Apply surface vapor xfer [kg_vap] directly to rhot [kg_air / (m^3 s)]
-
-    do k = kbot, kbot + nsfc - 1
-       ks = k - kbot + 1
-       rhot(k,iw) = rhot(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
-    enddo
-
   end subroutine acm2
     
 !=======================================================================

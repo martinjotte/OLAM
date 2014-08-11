@@ -92,6 +92,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    mrl = mrl_begl(istp)
    if (mrl > 0) then
+      call comp_alpha_press(mrl, alpha_press)
       call surface_turb_flux(mrl)
    endif
 
@@ -623,6 +624,36 @@ call rsub('W',27)!RRR
 
 return
 end subroutine o_update
+
+!==========================================================================
+
+subroutine comp_alpha_press(mrl, alpha_press)
+
+  use mem_grid,    only: lpw, mza, mwa
+  use mem_ijtabs,  only: jtab_w, jtw_prog
+  use consts_coms, only: pc1, rdry, rvap, cpocv
+  use mem_basic,   only: sh_w, sh_v, theta, thil
+
+  implicit none
+
+  integer, intent(in)  :: mrl
+  real,    intent(out) :: alpha_press(mza,mwa)
+  integer              :: j, iw, k
+
+! Evaluate alpha coefficient for pressure
+
+  !$omp parallel do private(iw,k) 
+  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+     do k = lpw(iw), mza-1
+        alpha_press(k,iw) = pc1 * (((1. - sh_w(k,iw)) * rdry + sh_v(k,iw) * rvap) &
+                          * theta(k,iw) / thil(k,iw)) ** cpocv
+     enddo
+
+  enddo
+  !$omp end parallel do
+
+end subroutine comp_alpha_press
 
 !==========================================================================
 

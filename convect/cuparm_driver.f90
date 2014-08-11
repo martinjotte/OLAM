@@ -397,8 +397,6 @@ call qsub('W',iw)
       thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * rho(k,iw)
 
       sh_wt(k,iw) = sh_wt(k,iw) +    rt(k)    * rho(k,iw)
-
-      rhot (k,iw) = rhot (k,iw) +    rt(k)    * rho(k,iw)
    enddo
 
    if (nl%conv_uv_mix > 0) then
