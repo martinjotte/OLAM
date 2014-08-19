@@ -253,7 +253,7 @@ subroutine pbl_init()
      wtv0 (iw) = 0.0
 
      do k = lpw(iw), mza-1
-        thlv(k) = theta(iw,k) * (1.0 + eps_virt * sh_v(k,iw))
+        thlv(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw))
      enddo
 
      call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), lpw(iw), mza-2, lsw(iw), &
