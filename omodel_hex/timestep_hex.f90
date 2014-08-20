@@ -43,7 +43,7 @@ use leaf_coms,   only: isfcl
 use mem_para,    only: myrank
 use massflux,    only: zero_momsc, timeavg_momsc
 use mem_turb,    only: hkm
-use mem_basic,   only: vmc, vc, vxe, vye, vze, thil, rho
+use mem_basic,   only: vmc, vc, vxe, vye, vze, thil, rho, wmc, wc
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 use var_tables,  only: nvar_par, vtab_r, nptonv
 use obnd,        only: trsets, lbcopy_v, lbcopy_w
@@ -55,17 +55,15 @@ use consts_coms, only: r8
 
 implicit none
 
-integer :: is,mvl,isl4,jstp,iw,mrl,n
-real :: t1,w1
+integer :: jstp, mrl, n
 
 ! automatic arrays
 
-real :: vmsc(mza,mva) ! V face momentum for scalar advection
-real :: wmsc(mza,mwa) ! W face momentum for scalar advection
-real(r8) :: rho_old(mza,mwa) ! density at beginning of timestep [kg/m^3]
-
-real :: alpha_press(mza,mwa) ! 
-real :: rhot       (mza,mwa) ! grid-cell total mass tendency [kg/s]
+real     :: vmsc       (mza,mva) ! V face momentum for scalar advection
+real     :: wmsc       (mza,mwa) ! W face momentum for scalar advection
+real(r8) :: rho_old    (mza,mwa) ! density at beginning of timestep [kg/m^3]
+real     :: alpha_press(mza,mwa) ! coefficient for computing pressure
+real     :: rhot       (mza,mwa) ! grid-cell total mass tendency [kg/s]
 
 ! +----------------------------------------------------------------------------+
 ! |  Each call to subroutine timestep drives all steps in advancing by dtlong  |
@@ -157,10 +155,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call prog_wrtv(vmsc,wmsc,alpha_press,rhot)
 
-! MPI send of VMC, VC
-
-   if (iparallel == 1) call mpi_send_v('V')
-
 ! call check_nans(12)
 
    call timeavg_momsc(vmsc,wmsc)
@@ -173,30 +167,9 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(14)
 
-! MPI recv and LBC copy of VMC, VC
-
-   if (iparallel == 1) then
-      call mpi_recv_v('V')
-   endif
-
-   call lbcopy_v(1, vmc=vmc, vc=vc)
-
-   mrl = mrl_ends(istp)
-   if (mrl > 0) then
-      call diagvel_t3d(mrl)
-   endif
-
-! MPI send of vxe, vye, vze
-
-   if (iparallel == 1) then
-      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
-   endif
-
-! call check_nans(15)
-
    call predtr(rho_old)
 
-! call check_nans(16)
+! call check_nans(15)
 
    if (level /= 3) then
       call thermo()
@@ -226,7 +199,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 !endif
 ! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
 
-! call check_nans(17)
+! call check_nans(16)
 
    mrl = mrl_endl(istp)
    if (level == 3 .and. mrl > 0) then
@@ -237,19 +210,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       endif
    endif
 
-! call check_nans(18)
+! call check_nans(17)
 
    call trsets()  
 
-   ! MPI recv and LBC copy of vxe, vye, vze
-
-   if (iparallel == 1) then
-      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
-   endif
-
-   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
-
-! call check_nans(19)
+! call check_nans(18)
 
    mrl = mrl_ends(istp)
 
@@ -258,20 +223,52 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call mpi_recv_w('T')  ! Recv W group
    endif
 
-   call lbcopy_w(mrl, a1=thil, d1=rho)
+   if (mrl_endl(istp) > 0) then
+      call lbcopy_w(mrl, a1=thil, a2=wmc, a3=wc, d1=rho)
+   else
+      call lbcopy_w(mrl, a1=thil, a2=wmc, a3=wc)
+   endif
+
+! call check_nans(19)
+
+   mrl = mrl_endl(istp)
+   if (mrl > 0) then
+
+      if (iparallel == 1) call mpi_send_w('S')  ! Send scalars
+
+      if (level == 3) call omic_update_v_mom(mrl)
+
+      if (iparallel == 1) call mpi_recv_w('S')  ! Recv scalars
+
+      do n = 1, nvar_par
+         call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
+      enddo
+
+   endif
 
 ! call check_nans(20)
 
-   mrl = mrl_endl(istp)
+! MPI send/recv and lbc copy of VMC, VC
 
    if (iparallel == 1) then
-      call mpi_send_w('S')  ! Send scalars
-      call mpi_recv_w('S')  ! Recv scalars
+      call mpi_send_v('V')
+      call mpi_recv_v('V')
+   endif
+   call lbcopy_v(1, vmc=vmc, vc=vc)
+
+! Compute earth cartesian velocities
+
+   mrl = mrl_ends(istp)
+   if (mrl > 0) then
+      call diagvel_t3d(mrl)
    endif
 
-   do n = 1, nvar_par
-      call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
-   enddo
+! MPI send/recv of vxe, vye, vze
+
+   if (iparallel == 1) then
+      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
+      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+   endif
 
 ! call check_nans(21)
 
@@ -317,11 +314,6 @@ use consts_coms,only: r8
 implicit none
 
 integer :: ndts
-integer :: ng
-integer :: j
-integer :: i
-integer :: ii
-integer :: iw
 integer :: jstp
 integer :: mrl
 
@@ -591,7 +583,6 @@ use mem_ijtabs, only: jtab_w, istp, itab_w, mrl_endl, jtw_prog
 use mem_basic,  only: rho
 use misc_coms,  only: io6, dtlm
 use mem_grid,   only: mza, mwa, lpw
-!$ use omp_lib
 
 implicit none
 
@@ -654,6 +645,34 @@ subroutine comp_alpha_press(mrl, alpha_press)
   !$omp end parallel do
 
 end subroutine comp_alpha_press
+
+!==========================================================================
+
+subroutine omic_update_v_mom(mrl)
+  
+  use mem_grid,    only: lpv, mza
+  use mem_ijtabs,  only: jtab_v, jtv_prog, itab_v
+  use mem_basic,   only: vmc, vc, rho
+
+  implicit none
+  
+  integer, intent(in) :: mrl
+  integer             :: j, iv, iw1, iw2, k
+
+! Update V momentum after microphysics update of rho
+
+  !$ omp parallel do private(iv,iw1,iw2,k)
+  do j = 1, jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
+     iw1 = itab_v(iv)%iw(1)
+     iw2 = itab_v(iv)%iw(2)
+
+     do k = lpv(iv), mza-1
+        vmc(k,iv) = 0.5 * vc(k,iv) * (rho(k,iw1) + rho(k,iw2))
+     enddo
+  enddo
+  !$ omp end parallel do
+
+end subroutine omic_update_v_mom
 
 !==========================================================================
 

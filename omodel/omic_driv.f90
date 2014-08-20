@@ -1580,16 +1580,18 @@ subroutine mic_copyback(iw0,lpw0,k1,k2,k3, &
    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
 use micro_coms, only: mza0, ncat, jnmb
-use mem_basic,  only: thil, theta, tair, rho, sh_w, sh_v
+use mem_basic,  only: thil, theta, tair, rho, sh_w, sh_v, wmc, wc
 use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                       q2, q6, q7, pcpgr, qpcpgr, dpcpgr, &
                       con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
                       accpd, accpr, accpp, accps, accpa, accpg, accph, &
                       pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                       con_ccn, con_gccn, con_ifn
-
 use misc_coms,  only: io6
-use consts_coms, only: r8
+use consts_coms,only: r8
+use mem_grid,   only: zwgt_bot, zwgt_top
+use mem_tend,   only: num_omic
+use var_tables, only: num_scalar, scalar_tab
 
 implicit none
 
@@ -1625,7 +1627,8 @@ real, intent(in) :: rx(mza0,ncat)
 real, intent(in) :: cx(mza0,ncat)
 real, intent(in) :: qx(mza0,ncat)
 
-integer :: k,kk
+real     :: rfact(mza0)
+integer  :: k, kk, n
 
 ! Convert surface precipitation from amount to rate
 
@@ -1633,14 +1636,31 @@ pcpgr (iw0) = pcpg0 * dtli0
 qpcpgr(iw0) = qpcpg0 * dtli0
 dpcpgr(iw0) = dpcpg0 * dtli0
 
+! Copy base thermodynamic variables
+
 do k = lpw0,mza0
    thil(k,iw0)  = thil0(k)
    theta(k,iw0) = theta0(k)
    tair(k,iw0)  = tair0(k)
-   rho(k,iw0)   = rhoa(k)
    rhoi(k)      = 1. / rhoa(k)
+   rfact(k)     = rhoi(k) * rho(k,iw0)
+   rho(k,iw0)   = rhoa(k)
    sh_w(k,iw0)  = rhow(k) * rhoi(k)
    sh_v(k,iw0)  = min(rhov(k) * rhoi(k), sh_w(k,iw0))
+enddo
+
+! Adjust scalar specific densities to conserve mass when air density changes
+
+do n = num_omic+1, num_scalar
+   do k = lpw0, mza0
+      scalar_tab(n)%var_p(k,iw0) = scalar_tab(n)%var_p(k,iw0) * rfact(k)
+   enddo
+enddo
+
+! Conserve vertical momentum when air density changes
+
+do k = lpw0, mza0-1
+   wmc(k,iw0) = wc(k,iw0) * (zwgt_bot(k) * rho(k,iw0) + zwgt_top(k) * rho(k+1,iw0))
 enddo
 
 ! Copy cloud water bulk density back to main array

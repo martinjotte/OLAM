@@ -578,7 +578,8 @@ enddo
 endif
 call rsub('Wa',19)
 
-! MPI SEND/RECV of WMC, PRESS, RHO, VMXET, VMYET, VMZET and LBC copy
+! MPI SEND/RECV and LBC copy of quantities needed for prog_v: 
+! PRESS, RHO, VMXET, VMYET, and VMZET
 
 if (iparallel == 1) then
    call mpi_send_w('P', vmxet=vmxet, vmyet=vmyet, vmzet=vmzet)

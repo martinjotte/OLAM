@@ -906,7 +906,7 @@ end subroutine mpi_send_m
 
 !=============================================================================
 
-subroutine mpi_send_w(sendgroup,domrl,thil0,wmc0,scp0,wmarw, &
+subroutine mpi_send_w(sendgroup,domrl,thil0,wmc0,scp0, &
                       vxe,vye,vze,vmxet,vmyet,vmzet, &
                       gxps_thil,gyps_thil,gzps_thil, &
                       gxps_vxe ,gyps_vxe ,gzps_vxe, &
@@ -960,8 +960,6 @@ real, optional, intent(in) :: gzps_vze(mza,mwa)
 real, optional, intent(in) :: gxps_scp(mza,mwa)
 real, optional, intent(in) :: gyps_scp(mza,mwa)
 real, optional, intent(in) :: gzps_scp(mza,mwa)
-
-real(kind=8), optional, intent(in) :: wmarw(mza,mwa)
 
 #ifdef OLAM_MPI
 
@@ -1079,22 +1077,17 @@ do jsend = 1,nsends_w(mrl)
 
       elseif (sendgroup == 'P') then
 
-         call MPI_Pack(wmc(1,iw),mza,MPI_REAL, &
-            send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-
-         call MPI_Pack(wc(1,iw),mza,MPI_REAL, &
-            send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+!        call MPI_Pack(wmc(1,iw),mza,MPI_REAL, &
+!           send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+!
+!        call MPI_Pack(wc(1,iw),mza,MPI_REAL, &
+!           send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
          call MPI_Pack(press(1,iw),mza,MPI_REAL8, &
             send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
          call MPI_Pack(rho(1,iw),mza,MPI_REAL8, &
             send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-
-         if (present(wmarw)) then
-            call MPI_Pack(wmarw(1,iw),mza,MPI_REAL8, &
-                 send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-         endif
 
          if (present(vmxet)) then
             call MPI_Pack(vmxet(1,iw),mza,MPI_REAL, &
@@ -1113,13 +1106,16 @@ do jsend = 1,nsends_w(mrl)
 
       elseif (sendgroup == 'T') then
 
-!        call MPI_Pack(wc(1,iw),mza,MPI_REAL, &
-!           send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+        call MPI_Pack(wmc(1,iw),mza,MPI_REAL, &
+           send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+
+        call MPI_Pack(wc(1,iw),mza,MPI_REAL, &
+           send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
          call MPI_Pack(thil(1,iw),mza,MPI_REAL, &
             send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-         if (level == 3) then
+         if (level == 3 .and. mrl_endl(istp) > 0) then
             call MPI_Pack(rho(1,iw),mza,MPI_REAL8, &
                send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
          endif
@@ -1648,7 +1644,7 @@ end subroutine mpi_recv_m
 
 !=============================================================================
 
-subroutine mpi_recv_w(recvgroup,domrl,thil0,wmc0,scp0,wmarw, &
+subroutine mpi_recv_w(recvgroup,domrl,thil0,wmc0,scp0, &
                       vxe,vye,vze,vmxet,vmyet,vmzet, &
                       gxps_thil,gyps_thil,gzps_thil, &
                       gxps_vxe ,gyps_vxe ,gzps_vxe, &
@@ -1702,8 +1698,6 @@ real, optional, intent(inout) :: gzps_vze(mza,mwa)
 real, optional, intent(inout) :: gxps_scp(mza,mwa)
 real, optional, intent(inout) :: gyps_scp(mza,mwa)
 real, optional, intent(inout) :: gzps_scp(mza,mwa)
-
-real(kind=8), optional, intent(inout) :: wmarw(mza,mwa)
 
 #ifdef OLAM_MPI
 
@@ -1817,22 +1811,17 @@ do jtmp = 1,nrecvs_w(mrl)
 
       elseif (recvgroup == 'P') then
             
-         call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
-            wmc(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
-
-         call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
-            wc(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+!        call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+!           wmc(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+!
+!        call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+!           wc(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
          call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
             press(1,iw),mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
 
          call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
             rho(1,iw),mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
-
-         if (present(wmarw)) then
-            call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
-                 wmarw(1,iw),mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
-         endif
 
          if (present(vmxet)) then
             call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
@@ -1851,13 +1840,16 @@ do jtmp = 1,nrecvs_w(mrl)
 
       elseif (recvgroup == 'T') then
 
-!        call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
-!           wc(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+        call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+           wmc(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+        call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+           wc(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
          call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
             thil(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
 
-         if (level == 3) then
+         if (level == 3 .and. mrl_endl(istp) > 0) then
             call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
                rho(1,iw),mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
          endif
