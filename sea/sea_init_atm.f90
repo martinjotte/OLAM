@@ -78,9 +78,9 @@ subroutine sea_init_atm()
   if (runtype /= "INITIAL") return
 
 ! Loop over all SEAFLUX cells that are EVALUATED on this rank, and transfer 
-! atmospheric properties to each, with weighting according to arf_sea
+! atmospheric properties to each
 
-  !$omp parallel do private (isf,iw,kw,arf_sea)
+  !$omp parallel do private (isf,iw,kw)
   do j = 1,jseaflux(1)%jend(1)
      isf = jseaflux(1)%iseaflux(j)
 
@@ -93,11 +93,10 @@ subroutine sea_init_atm()
      endif
 
      kw      = seaflux(isf)%kw
-     arf_sea = seaflux(isf)%arf_sfc
 
-     seaflux(isf)%rhos    = arf_sea * rho(kw,iw)
-     seaflux(isf)%airtemp = arf_sea * tair(kw,iw)
-     seaflux(isf)%airshv  = arf_sea * sh_v(kw,iw)   
+     seaflux(isf)%rhos    = rho(kw,iw)
+     seaflux(isf)%airtemp = tair(kw,iw)
+     seaflux(isf)%airshv  = sh_v(kw,iw)   
   enddo
   !$omp end parallel do
 
@@ -130,7 +129,7 @@ subroutine sea_init_atm()
 ! Loop over all SEAFLUX cells that are APPLIED on this rank, and sum 
 ! atmospheric properties to corresponding SEA cell
 
-  !$omp parallel do private (isf,iws)
+  !$omp parallel do private (isf,iws,arf_sea)
   do j = 1,jseaflux(2)%jend(1)
      isf = jseaflux(2)%iseaflux(j)
 
@@ -142,9 +141,11 @@ subroutine sea_init_atm()
         iws = itabg_ws(iws)%iws_myrank
      endif
 
-     sea%rhos(iws)     = sea%rhos(iws)     + seaflux(isf)%rhos
-     sea%can_temp(iws) = sea%can_temp(iws) + seaflux(isf)%airtemp
-     sea%can_shv(iws)  = sea%can_shv(iws)  + seaflux(isf)%airshv
+     arf_sea = seaflux(isf)%arf_sfc
+
+     sea%rhos(iws)     = sea%rhos(iws)     + arf_sea * seaflux(isf)%rhos
+     sea%can_temp(iws) = sea%can_temp(iws) + arf_sea * seaflux(isf)%airtemp
+     sea%can_shv(iws)  = sea%can_shv(iws)  + arf_sea * seaflux(isf)%airshv
   enddo
   !$omp end parallel do
 
