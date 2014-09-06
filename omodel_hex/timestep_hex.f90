@@ -661,7 +661,7 @@ subroutine omic_update_v_mom(mrl)
 
 ! Update V momentum after microphysics update of rho
 
-  !$ omp parallel do private(iv,iw1,iw2,k)
+  !$omp parallel do private(iv,iw1,iw2,k)
   do j = 1, jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
      iw1 = itab_v(iv)%iw(1)
      iw2 = itab_v(iv)%iw(2)
@@ -670,7 +670,7 @@ subroutine omic_update_v_mom(mrl)
         vmc(k,iv) = 0.5 * vc(k,iv) * (rho(k,iw1) + rho(k,iw2))
      enddo
   enddo
-  !$ omp end parallel do
+  !$omp end parallel do
 
 end subroutine omic_update_v_mom
 
