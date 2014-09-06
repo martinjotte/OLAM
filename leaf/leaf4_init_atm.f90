@@ -109,7 +109,7 @@ if (runtype /= "INITIAL") return
    endif
 
 ! Loop over all LANDFLUX cells that are EVALUATED on this rank, and transfer
-! atmospheric properties to each, with weighting according to arf_land
+! atmospheric properties to each
 
 do j = 1,jlandflux(1)%jend(1)
    ilf = jlandflux(1)%ilandflux(j)
@@ -122,12 +122,11 @@ do j = 1,jlandflux(1)%jend(1)
       iw = itabg_w(iw)%iw_myrank
    endif
 
-   kw       = landflux(ilf)%kw
-   arf_land = landflux(ilf)%arf_sfc
+   kw = landflux(ilf)%kw
 
-   landflux(ilf)%rhos    = arf_land * rho (kw,iw)
-   landflux(ilf)%airtemp = arf_land * tair(kw,iw)
-   landflux(ilf)%airshv  = arf_land * sh_v(kw,iw)
+   landflux(ilf)%rhos    = rho (kw,iw)
+   landflux(ilf)%airtemp = tair(kw,iw)
+   landflux(ilf)%airshv  = sh_v(kw,iw)
 enddo
 
 ! Do parallel send/recv of ATM properties in landflux cells
@@ -167,9 +166,11 @@ do j = 1,jlandflux(2)%jend(1)
       iwl = itabg_wl(iwl)%iwl_myrank
    endif
 
-   land%rhos    (iwl) = land%rhos    (iwl) + landflux(ilf)%rhos
-   land%can_temp(iwl) = land%can_temp(iwl) + landflux(ilf)%airtemp
-   land%can_shv (iwl) = land%can_shv (iwl) + landflux(ilf)%airshv
+   arf_land = landflux(ilf)%arf_sfc
+
+   land%rhos    (iwl) = land%rhos    (iwl) + arf_land * landflux(ilf)%rhos
+   land%can_temp(iwl) = land%can_temp(iwl) + arf_land * landflux(ilf)%airtemp
+   land%can_shv (iwl) = land%can_shv (iwl) + arf_land * landflux(ilf)%airshv
 
 enddo
 
