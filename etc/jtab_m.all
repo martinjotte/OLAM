@@ -1,3 +1,0 @@
-buildhex_NCAR52A/hex_grid.f90:       do j = 1,jtab_m(1)%jend(1)   ! LPM, LPW, LPV
-
-buildhex_NCAR52A/prog_wrtv_hex.f90:  do j = 1,jtab_m(3)%jend(mrl) !  vortp for filter
