@@ -111,12 +111,12 @@ SOURCE_FILES= \
              $(OMODEL)/triangle_utils.f90 \
              $(OMODEL)/vectslab.f90 \
              $(OMODEL)/vel_t3d.f90 \
-             $(OMODEL_HEX)/hex_grid.f90 \
-             $(OMODEL_HEX)/para_init_hex.f90 \
-             $(OMODEL_HEX)/prog_wrtv_hex.f90 \
-             $(OMODEL_HEX)/scalar_transport_hex.f90 \
-             $(OMODEL_HEX)/timestep_hex.f90 \
-             $(OMODEL_TRI)/tri_grid.f90 \
+             $(OMODEL)/hex_grid.f90 \
+             $(OMODEL)/para_init_hex.f90 \
+             $(OMODEL)/prog_wrtv_hex.f90 \
+             $(OMODEL)/scalar_transport_hex.f90 \
+             $(OMODEL)/timestep_hex.f90 \
+             $(OMODEL)/tri_grid.f90 \
              $(OUTILS)/blas.f90 \
              $(OUTILS)/check_nans.F90 \
              $(OUTILS)/dateutils.f90 \
