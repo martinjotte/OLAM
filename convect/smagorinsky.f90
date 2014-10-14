@@ -423,13 +423,6 @@ contains
        enddo
     enddo
 
-    ! Apply surface vapor xfer [kg_vap] directly to rhot [kg_air / s]
-
-    do ks = 1, lsw(iw)
-       k = ka + ks - 1
-       rhot(k,iw) = rhot(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
-    enddo
-
   end subroutine turb_k
 
 end module smagorinsky

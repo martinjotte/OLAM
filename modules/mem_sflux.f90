@@ -75,7 +75,6 @@ Module mem_sflux
      real :: sfluxt  = 0.0
      real :: sfluxr  = 0.0
      real :: sfluxc  = 0.0
-     real :: ustar0  = 0.0
      real :: ustar   = 0.0
      real :: rhos    = 0.0
      real :: prss    = 0.0
@@ -87,7 +86,6 @@ Module mem_sflux
      real :: sxfer_c = 0.0
      real :: ed_zeta = 0.0
      real :: ed_rib  = 0.0
-     real :: ggaer0  = 0.0
      real :: ggaer   = 0.0
      real :: pcpg    = 0.0
      real :: qpcpg   = 0.0
@@ -142,11 +140,8 @@ Module mem_sflux
 
      real ::     sfluxc = 0.0
 
-     real ::     ustar0 = 0.0
      real ::     ustar  = 0.0
-     real :: sea_ustar0 = 0.0
      real :: sea_ustar  = 0.0
-     real :: ice_ustar0 = 0.0
      real :: ice_ustar  = 0.0
 
      real ::     sxfer_t = 0.0
@@ -161,11 +156,8 @@ Module mem_sflux
      real ::     ed_zeta = 0.0
      real ::      ed_rib = 0.0
 
-     real ::      ggaer0 = 0.0
      real ::      ggaer  = 0.0
-     real ::  sea_ggaer0 = 0.0
      real ::  sea_ggaer  = 0.0
-     real ::  ice_ggaer0 = 0.0
      real ::  ice_ggaer  = 0.0
   End Type sflux_vars
 

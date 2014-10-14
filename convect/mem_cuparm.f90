@@ -42,6 +42,7 @@ Module mem_cuparm
    real,    allocatable, target :: vxsrc (:,:)
    real,    allocatable, target :: vysrc (:,:)
    real,    allocatable, target :: vzsrc (:,:)
+   real,    allocatable, target :: qwcon (:,:)
 
    real,    allocatable, target :: cbmf  (:)
    integer, allocatable, target :: kcutop(:)
@@ -70,6 +71,7 @@ Contains
        allocate (rtsrc(mza,mwa)) ; rtsrc  = 0.0
        allocate (aconpr   (mwa)) ; aconpr = 0.0_r8
        allocate (conprr   (mwa)) ; conprr = 0.0
+       allocate (qwcon(mza,mwa)) ; qwcon  = 0.0
 
        ! Extra arrays for momentum mixing
 
@@ -98,6 +100,7 @@ Contains
     if (allocated(rtsrc))   deallocate (rtsrc)
     if (allocated(aconpr))  deallocate (aconpr)
     if (allocated(conprr))  deallocate (conprr)
+    if (allocated(qwcon))   deallocate (qwcon)
     if (allocated(cbmf))    deallocate (cbmf)
     if (allocated(kcutop))  deallocate (kcutop)
     if (allocated(kcubot))  deallocate (kcubot)
@@ -132,6 +135,11 @@ Contains
      if (allocated(conprr)) then
         call increment_vtable('CONPRR', 'AW')
         vtab_r(num_var)%rvar1_p => conprr
+     endif
+
+     if (allocated(qwcon)) then
+        call increment_vtable('QWCON', 'AW')
+        vtab_r(num_var)%rvar2_p => qwcon
      endif
 
      if (allocated(cbmf)) then

@@ -222,11 +222,11 @@ do iplt = 1,op%nplt
             labincy = 3
          endif
 
-         call oplot_xy2(op%panel(iplt),op%colorbar(iplt),0.,.016, &
-            1,dummy,dummy,                                        &
-            'LONGITUDE (deg)','LATITUDE (deg)',10,                &
-            op%xmin,op%xmax,xinc,labincx,                         &
-            op%ymin,op%ymax,yinc,labincy                          )
+         call oplot_xy2(op%panel(iplt),op%colorbar(iplt),0.,.016,10,0, &
+            1,dummy,dummy,                      &
+            'LONGITUDE (deg)','LATITUDE (deg)', &
+            op%xmin,op%xmax,xinc,labincx,       &
+            op%ymin,op%ymax,yinc,labincy        )
       else
          call niceinc20(.001*op%xmin,.001*op%xmax,xinc,labincx)
          call niceinc20(.001*op%ymin,.001*op%ymax,yinc,labincy)
@@ -237,11 +237,11 @@ do iplt = 1,op%nplt
             ylabel = 'Y (km)'
          endif
 
-         call oplot_xy2(op%panel(iplt),op%colorbar(iplt),1.0,.016, &
-            1,dummy,dummy,                                         &
-            'X (km)',ylabel,10,                                    &
-            .001*op%xmin,.001*op%xmax,xinc,labincx,                &
-            .001*op%ymin,.001*op%ymax,yinc,labincy                 )
+         call oplot_xy2(op%panel(iplt),op%colorbar(iplt),1.0,.016,10,0, &
+            1,dummy,dummy,                          &
+            'X (km)',ylabel,                        &
+            .001*op%xmin,.001*op%xmax,xinc,labincx, &
+            .001*op%ymin,.001*op%ymax,yinc,labincy  )
       endif
 
    endif

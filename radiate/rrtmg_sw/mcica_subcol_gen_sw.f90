@@ -1,7 +1,7 @@
-!     path:      $Source: /storm/rc1/cvsroot/rc/rrtmg_sw/src/mcica_subcol_gen_sw.f90,v $
+!     path:      $Source$
 !     author:    $Author: mike $
-!     revision:  $Revision: 1.7 $
-!     created:   $Date: 2009/05/22 22:22:21 $
+!     revision:  $Revision: 11661 $
+!     created:   $Date: 2009-05-22 18:22:22 -0400 (Fri, 22 May 2009) $
 !
 
       module mcica_subcol_gen_sw

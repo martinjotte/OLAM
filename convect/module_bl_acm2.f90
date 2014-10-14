@@ -22,10 +22,6 @@ module module_bl_acm2
   real, parameter :: mvonk  =      - vonk
   real, parameter :: vonk72 = 0.72 * vonk
 
-  integer, parameter :: imoist_ri = 0  ! 0 = use dTheta_v / dz for buoyancy
-                                       ! 1 = use "moist" Richardson number
-                                       ! 2 = use dThil_v / dz for buoyancy
-
 ! Don't re-export symbols from other modules
 
   private :: alvlocp, alvlor, eps_vap, eps_virt, grav, grav2, vonk
@@ -35,7 +31,7 @@ contains
 
 !=======================================================================
 
-  subroutine acm2( iw, rhot, moli, ustar, pblh, kpblh, thetav, zkh )
+  subroutine acm2( iw, rhot, moli, ustar, pblh, kpblh, zkh )
 
     use mem_grid,   only: arw, volt, volti, lpw, lsw, nsw_max, mwa, zfacm
     use mem_turb,   only: vkm_sfc, frac_sfc, sxfer_rk
@@ -53,7 +49,6 @@ contains
     real,    intent(in)    :: pblh
     real,    intent(in)    :: ustar
     real,    intent(in)    :: moli
-    real,    intent(in)    :: thetav(:)
     real,    intent(in)    :: zkh(:)
     real,    intent(inout) :: rhot(mza,mwa)
 
@@ -353,19 +348,12 @@ contains
        enddo
     endif
 
-    ! Apply surface vapor xfer [kg_vap] directly to rhot [kg_air / (m^3 s)]
-
-    do k = kbot, kbot + nsfc - 1
-       ks = k - kbot + 1
-       rhot(k,iw) = rhot(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
-    enddo
-
   end subroutine acm2
     
 !=======================================================================
 
   subroutine acm2_eddyx(iw, moli, ustar, pblh, kpblh, kbot, ktop, zkh, &
-       vx, vy, vz, qw, qv, ql, thil, theta, thetav, tair, fthrd, rho, thilv)
+       vx, vy, vz, qw, qv, ql, thil, theta, thetav, tair, fthrd, rho)
 
     ! THREE METHODS FOR COMPUTING KZ:
     !   1. Boundary scaling similar to Holtslag and Boville (1993)
@@ -397,7 +385,6 @@ contains
     real,    intent(in) :: tair  (:) ! air temperature profile
     real,    intent(in) :: fthrd (:) ! radiational heating/cooling profile
     real(8), intent(in) :: rho   (:) ! air density
-    real,    intent(in) :: thilv (:) ! virtual ice-liquid potential temperature
     integer, intent(in) :: iw
 
     ! OUTPUT VARIABLES
@@ -408,7 +395,7 @@ contains
     ! LOCAL VARIABLES
 
     integer :: k
-    real :: zagl, deltar, wcloud, zoh, a, b, buoy
+    real    :: zagl, deltar, wcloud, zoh, buoy
     real    :: zovl, zsol, zfunc, ss
     real    :: ri, zk, sql, fh
 
@@ -417,9 +404,6 @@ contains
     real :: edyc(mza) ! Lock et al. (2000) cloud-top driven K-profile
     real :: edyr(mza) ! Richardson-number eddy diffusivity
     real :: kzo (mza) ! minimum eddy diffusivity
-
-    real :: alpha(mza)
-    real :: beta(mza)
 
     ! PARAMETERS
 
@@ -438,13 +422,7 @@ contains
     real, parameter :: edyurb = 1.0
     real, parameter :: edysfc = 0.2
 
-    ! Constants for the "moist" richardson number
-
-    real, parameter :: c1 = 1.0 + eps_virt
-    real, parameter :: c2 = eps_vap * alvlor
-    real, parameter :: c3 = c2 * alvlocp
-
-    ! set minimum eddy diffusivity
+    ! Set minimum eddy diffusivity
 
     kzo(kbot:kbot+lsw(iw)-1) = edysfc
     kzo(kbot+lsw(iw):ktop)   = edyz0
@@ -538,53 +516,18 @@ contains
        endif
     endif
 
-!! Vertical loop over T levels to compute the alpha and beta coefficients
-!! in the buoyancy term of the moist Richardson number, from Cuijpers and
-!! Duynkerke (JAS, 1993, pp 3894-3908)
-
-    if (imoist_ri == 1) then
-
-       do k = kbot, ktop
-          if (ql(k) < 1.e-6) then
-
-             alpha(k) = 1.0 + eps_virt * qv(k)
-             beta (k) = eps_virt * theta(k)
-
-          else
-
-             alpha(k) = (1.0 - qw(k) + c1 * qv(k) * (1.0 + c2/tair(k))) / &
-                        (1.0 + c3 * qv(k) / (tair(k) * tair(k)))
-             beta(k)  = alpha(k) * alvlocp * theta(k) / tair(k) - theta(k)
-
-          endif
-       enddo
-
-    endif
-
 !! Louis's Richardson-number dependent eddy diffusivity
 !! Vertical loop over W levels
       
     do k = kbot, ktop-1
 
-       ! This uses the moist Richardson number of Brinkop and Roeckner 
-       ! (Tellus, 1995, pp 197-222) computed from THIL and total water,
-       ! but with the alpha and beta coefficients of Cuipers and Duynkerke
-    
        ss = ( (vx(k+1) - vx(k))**2 &
             + (vy(k+1) - vy(k))**2 &
             + (vz(k+1) - vz(k))**2 ) * dzim(k) * dzim(k) + 1.e-9
 
-       if (imoist_ri == 1) then
-          a  = 0.5 * (alpha(k+1) + alpha(k))
-          b  = 0.5 * (beta (k+1) + beta (k))
-          buoy = a * (thil(k+1) - thil(k)) + b * (qw(k+1) - qw(k))
-       elseif (imoist_ri == 2) then
-          buoy = thilv(k+1) - thilv(k)
-       else
-          buoy = thetav(k+1) - thetav(k)
-       endif
+       buoy = (thetav(k+1) - thetav(k)) * dzim(k)
 
-       ri = grav2 / (thetav(k+1) + thetav(k)) * buoy * dzim(k) / ss
+       ri = grav2 / (thetav(k+1) + thetav(k)) * buoy / ss
 
        zagl = zm(k) - zm(kbot-1)
        zk   = 0.4 * zagl

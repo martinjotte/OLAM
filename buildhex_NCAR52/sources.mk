@@ -14,6 +14,7 @@ SOURCE_FILES= \
              $(CONVECT)/smagorinsky.f90 \
              $(ED2MEM)/ed_max_dims.F90 \
              $(ED2MEM)/ed_misc_coms.f90 \
+             ../interp_to_ll/fields2_ll.f90 \
              $(LEAF)/leaf4.F90 \
              $(LEAF)/leaf4_canopy.f90 \
              $(LEAF)/leaf4_coms.f90 \
@@ -28,7 +29,7 @@ SOURCE_FILES= \
              $(LEAF)/ndvi_database_read.f90 \
              $(LEAF)/olam_mpi_land.F90 \
              $(LEAF)/para_init_land.f90 \
-             $(LEAF)/read_soil_analysis.f90 \
+             $(LEAF)/read_soil_analysis.F90 \
              ./consts_coms.f90 \
              $(MODEL_MODS)/ke_coms.f90 \
              $(MODEL_MODS)/massflux.f90 \
@@ -61,7 +62,7 @@ SOURCE_FILES= \
              ./plotcolors.f90 \
              $(MODEL_MODS)/var_tables.f90 \
              $(OISAN)/asti.f90 \
-             $(OISAN)/astp.f90 \
+             $(OISAN)/astp.F90 \
              $(OISAN)/file_inv.f90 \
              $(OISAN)/fldsisan.f90 \
              $(OISAN)/isan_coms.f90 \
@@ -111,12 +112,12 @@ SOURCE_FILES= \
              $(OMODEL)/triangle_utils.f90 \
              $(OMODEL)/vectslab.f90 \
              $(OMODEL)/vel_t3d.f90 \
-             $(OMODEL_HEX)/hex_grid.f90 \
-             $(OMODEL_HEX)/para_init_hex.f90 \
-             $(OMODEL_HEX)/prog_wrtv_hex.f90 \
-             $(OMODEL_HEX)/scalar_transport_hex.f90 \
-             $(OMODEL_HEX)/timestep_hex.f90 \
-             $(OMODEL_TRI)/tri_grid.f90 \
+             $(OMODEL)/hex_grid.f90 \
+             $(OMODEL)/para_init_hex.f90 \
+             $(OMODEL)/prog_wrtv_hex.f90 \
+             $(OMODEL)/scalar_transport_hex.f90 \
+             $(OMODEL)/timestep_hex.f90 \
+             $(OMODEL)/tri_grid.f90 \
              $(OUTILS)/blas.f90 \
              $(OUTILS)/check_nans.F90 \
              $(OUTILS)/dateutils.f90 \
@@ -215,8 +216,8 @@ SOURCE_FILES= \
              $(SEA)/mem_sea.f90 \
              $(SEA)/olam_mpi_sea.F90 \
              $(SEA)/para_init_sea.f90 \
-             $(SEA)/read_seaice_analysis.f90 \
-             $(SEA)/read_sst_analysis.f90 \
+             $(SEA)/read_seaice_analysis.F90 \
+             $(SEA)/read_sst_analysis.F90 \
              $(SEA)/sea_coms.f90 \
              $(SEA)/sea.f90 \
              $(SEA)/seaice_database_read.f90 \

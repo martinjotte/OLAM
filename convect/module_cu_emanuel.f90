@@ -28,7 +28,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   use consts_coms, only: t00, grav, eradi
   use misc_coms,   only: confrq
   use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc, &
-                         kcutop, kcubot
+                         kcutop, kcubot, qwcon
   use oname_coms,  only: nl
 
   implicit none
@@ -129,6 +129,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
         k  = kc + ka - 1
         thsrc(k,iw) = tt(kc) * theta(k,iw) / tair(k,iw)
         rtsrc(k,iw) = qt(kc)
+        qwcon(k,iw) = qcldc(kc)
      enddo
 
      if (nl%conv_uv_mix > 0) then

@@ -216,7 +216,7 @@ end subroutine tileslab_horiz_mp
 subroutine tileslab_horiz_tw(iplt,action)
 
 use oplot_coms, only: op, xepc, yepc, zepc
-use mem_grid,   only: mza, mwa, zm, zt, xew, yew, zew, xem, yem, zem, lpw
+use mem_grid,   only: mza, mwa, zm, zt, xew, yew, zew, xem, yem, zem, lpw, arw0
 use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
 use misc_coms,  only: io6, meshtype
 
@@ -244,6 +244,8 @@ real :: htpn(7), vtpn(7)
 integer :: ktf(mwa),kw(mwa)
 real :: wtbot(mwa),wttop(mwa)
 
+real :: arw0_tot, field_tot
+
 ! Find cell K indices on the given plot surface
 
 call horizplot_k(iplt,mwa,ktf,kw,wtbot,wttop)
@@ -253,6 +255,9 @@ call horizplot_k(iplt,mwa,ktf,kw,wtbot,wttop)
 if (action == 'T' .and. op%dimens == '3') then
    call plot_underground_w(iplt,ktf)
 endif
+
+arw0_tot = 0.
+field_tot = 0.
 
 do jw = 1, jtab_w(jtw_prog)%jend(1)
    iw = jtab_w(jtw_prog)%iw(jw)
@@ -300,6 +305,9 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
 
    if (notavail > 0) cycle 
 
+   arw0_tot = arw0_tot + arw0(iw)
+   field_tot = field_tot + fldval * arw0(iw)
+
    call celltile(iplt,iw,npoly,htpn,vtpn,hpt,vpt,fldval,action)
 
 ! Plot cone circle if so specified
@@ -323,6 +331,9 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
    9 continue
       
 enddo
+
+if (arw0_tot > 1.) print*, trim(op%fldname(iplt)),' field_avg ', &
+                           field_tot, arw0_tot, field_tot/arw0_tot
 
 return
 end subroutine tileslab_horiz_tw
@@ -812,6 +823,11 @@ real :: fldval
 real :: htpn(maxnpolyf), vtpn(maxnpolyf)
 real :: wtbot = 1., wttop = 0.
 
+real :: areasf_tot, field_tot
+
+areasf_tot = 0.
+field_tot = 0.
+
 k = 1
 do isf = 2,mseaflux
 
@@ -859,10 +875,16 @@ do isf = 2,mseaflux
 
    if (notavail > 0) cycle 
       
+   areasf_tot = areasf_tot + seaflux(isf)%area
+   field_tot = field_tot + fldval * seaflux(isf)%area
+
    call celltile(iplt,isf,nsfpoly,htpn,vtpn,hpt,vpt,fldval,action)
    if (action == 'P') cycle
 
 enddo
+
+if (areasf_tot > 1.) print*, trim(op%fldname(iplt)),' field_avg ', &
+                           field_tot, areasf_tot, field_tot/areasf_tot
 
 return
 end subroutine tileslab_horiz_fs
@@ -897,6 +919,11 @@ real :: fldval
 
 real :: htpn(maxnpolyf), vtpn(maxnpolyf)
 real :: wtbot = 1., wttop = 0.
+
+real :: arealf_tot, field_tot
+
+arealf_tot = 0.
+field_tot = 0.
 
 k = 1
 
@@ -949,10 +976,16 @@ do ilf = 2,mlandflux
 
    if (notavail > 0) cycle 
       
+   arealf_tot = arealf_tot + landflux(ilf)%area
+   field_tot = field_tot + fldval * landflux(ilf)%area
+
    call celltile(iplt,ilf,nlfpoly,htpn,vtpn,hpt,vpt,fldval,action)
    if (action == 'P') cycle
 
 enddo
+
+if (arealf_tot > 1.) print*, trim(op%fldname(iplt)),' field_avg ', &
+                           field_tot, arealf_tot, field_tot/arealf_tot
 
 return
 end subroutine tileslab_horiz_fl

@@ -1927,16 +1927,20 @@ data clrtab(203)%vals(1:26)/ &
 
 ! Table 204 (general positive exponential)
 
-data clrtab(204)%nvals/29/
+data clrtab(204)%nvals/46/
 data clrtab(204)%ifmt(1:2)/-1,-6/
-data clrtab(204)%ipal(1:29)/ &
+data clrtab(204)%ipal(1:46)/ &
    100,101,102,103,104,105,106,107,108,109, &
    110,111,112,113,114,115,116,117,118,119, &
-   120,121,122,123,124,125,126,127,128      /
-data clrtab(204)%vals(1:29)/ &
-      0.e-2, 1.e-2, 2.e-2, 5.e-2, 1.e-1, 2.e-1, 5.e-1,  1.e0,  2.e0,  5.e0, &
-      1.e1,  2.e1,  5.e1,  1.e2,  2.e2,  5.e2,  1.e3,   2.e3,  5.e3,  1.e4, &
-      2.e4,  5.e4,  1.e5,  2.e5,  5.e5,  1.e6,  2.e6,   5.e6,  1.e7         /
+   120,121,122,123,124,125,126,127,128,129, &
+   130,131,132,133,134,135,136,137,138,139, &
+   140,141,142,143,144,145                  /
+data clrtab(204)%vals(1:46)/ &
+      0.e-2, 1.e-2, 2.e-2, 5.e-2, 1.e-1, 2.e-1, 5.e-1,  1.e0,  2.e0,  5.e0,  &
+      1.e1,  2.e1,  5.e1,  1.e2,  2.e2,  5.e2,  1.e3,   2.e3,  5.e3,  1.e4,  &
+      2.e4,  5.e4,  1.e5,  2.e5,  5.e5,  1.e6,  2.e6,   5.e6,  1.e7,  2.e7,  &
+      5.e7,  1.e8,  2.e8,  5.e8,  1.e9,  2.e9,  5.e9,   1.e10, 2.e10, 5.e10, &
+      1.e11, 2.e11, 5.e11, 1.e12, 2.e12, 5.e12                               /
 
 !----------------------------------------------------------------------------
 ! COLORTABLES 300-399: EXPONENTIAL SCALING WITH NEGATIVE VALUES
@@ -2392,6 +2396,17 @@ data clrtab(420)%vals(1:24)/ &
    .50, .55, .60, .65, .70, .75, .80, .85, .90, .95, &
    .98, .99,1.00,1.01                                /
 
+! Table 421 (pcp for GPCP comparison [mm/day])
+
+data clrtab(421)%nvals/12/
+data clrtab(421)%ifmt(1:2)/1,6/
+data clrtab(421)%ipal(1:12)/ &
+   71,72,73,74,75,76,77,78,79,80, &
+   81,82 /
+data clrtab(421)%vals(1:12)/ &
+    0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, &
+   10.0,99.0 /
+
 Contains
 
 !===============================================================================
@@ -2401,21 +2416,23 @@ Contains
    implicit none
    integer, intent(in) :: iwk
 
-   call o_hls(iwk, 1,135., 30., 70.)  ! red
+   call o_hls(iwk, 1,120., 70.,100.)  ! red
    call o_hls(iwk, 2,180., 62., 90.)  ! yellow
    call o_hls(iwk, 3,265., 75., 70.)  ! green
    call o_hls(iwk, 4,290., 55., 70.)  ! cyan
    call o_hls(iwk, 5,188., 50., 75.)  ! yellow-green
    call o_hls(iwk, 6,350., 81., 75.)  ! blue
    call o_hls(iwk, 7, 00.,100.,  0.)  ! white
-   call o_hls(iwk, 8,350., 60., 75.)  ! dark blue
-   call o_hls(iwk, 9,265., 33., 70.)  ! dark green
+   call o_hls(iwk, 8,350., 60.,100.)  ! dark blue
+   call o_hls(iwk, 9,265., 33., 90.)  ! dark green
    call o_hls(iwk,10, 00.,  0.,  0.)  ! black
-   call o_hls(iwk,11, 50., 49., 70.)  ! purple
+   call o_hls(iwk,11, 50., 60.,100.)  ! purple
    call o_hls(iwk,12,135., 40., 70.)  ! dark red for roads
    call o_hls(iwk,13, 00., 43.,  0.)  ! gray for roads
    call o_hls(iwk,14,  0., 40., 80.)  ! test
    call o_hls(iwk,15,290., 90., 70.)  ! blue-green for canopy air
+   call o_hls(iwk,16,150., 60.,100.)  ! orange
+   call o_hls(iwk,17,150., 50., 50.)  ! brown
 
 ! Finer shades
 
@@ -2702,6 +2719,21 @@ Contains
    call o_hls (iwk,252,160.,50.,100.)  ! Orange
    call o_hls (iwk,253,140.,50.,100.)  ! Red Orange
    call o_hls (iwk,254,120.,50.,100.)  ! Red
+
+! Extras - for precip (GPCP v22) 
+
+   call o_hls (iwk,71,  0.,99.,  0.)  ! White
+   call o_hls (iwk,72,305.,90.,100.)  ! Light Blue
+   call o_hls (iwk,73,255.,80., 90.)  ! Light Green
+   call o_hls (iwk,74,265.,50., 65.)  ! Green
+   call o_hls (iwk,75,180.,50.,100.)  ! Yellow
+   call o_hls (iwk,76,150.,50.,100.)  ! Orange
+   call o_hls (iwk,77,100.,80.,100.)  ! Darkish Pink
+   call o_hls (iwk,78,120.,50.,100.)  ! Red
+   call o_hls (iwk,79, 60.,80., 90.)  ! Light violet
+   call o_hls (iwk,80, 40.,42., 95.)  ! Violet
+   call o_hls (iwk,81,140.,30.,100.)  ! Reddish brown
+   call o_hls (iwk,82,  0., 0.,  0.)  ! Black
 
 ! NCAR
 

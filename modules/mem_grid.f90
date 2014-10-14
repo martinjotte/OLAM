@@ -109,6 +109,7 @@ Module mem_grid
    real, allocatable, dimension(:) ::  &
 
         wnxo2, wnyo2, wnzo2,  & ! W-face unit normals divided by 2
+        vnxo2, vnyo2, vnzo2,  & ! V-face unit normals divided by 2
         
         dzt_top,              & ! distance between ZM(k) and ZT(k)
         dzt_bot,              & ! distance between ZT(k) and ZM(k-1)
@@ -288,7 +289,7 @@ Contains
      use consts_coms, only: r8
      implicit none
      
-     integer :: iw, k
+     integer :: iw, iv, k
 
      ! This routine allocates and defines grid arrays that were not computed
      ! during the MAKEGRID stage
@@ -330,6 +331,22 @@ Contains
         wnxo2(iw) = wnx(iw) * 0.5
         wnyo2(iw) = wny(iw) * 0.5
         wnzo2(iw) = wnz(iw) * 0.5
+     enddo
+     !$omp end parallel do
+
+     allocate(vnxo2(mva))
+     allocate(vnyo2(mva))
+     allocate(vnzo2(mva))
+
+     vnxo2(1) = 0.0
+     vnyo2(1) = 0.0
+     vnzo2(1) = 0.0
+
+     !$omp parallel do
+     do iv = 2, mva
+        vnxo2(iv) = vnx(iv) * 0.5
+        vnyo2(iv) = vny(iv) * 0.5
+        vnzo2(iv) = vnz(iv) * 0.5
      enddo
      !$omp end parallel do
 

@@ -45,9 +45,8 @@ use mem_basic,    only: rho, thil, theta, wc, press, wmc, vmp, vmc, vp, vc, &
 use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, &
                         zt, zm, dzim, zfacit, dzm, dzt, dnv, dnu, arm0, arv, &
                         vnx, vny, vnz, volt, volwi
-use mem_tend,     only: vmt, vmxet, vmyet, vmzet
+use mem_tend,     only: vmt, vmxet, vmyet, vmzet, sh_wt
 use misc_coms,    only: io6, iparallel, time8, dtlm, rinit
-use consts_coms,  only: cpocv, pc1, rdry, rvap
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
 use oplot_coms,   only: op
 use obnd,         only: lbcopy_m, lbcopy_w
@@ -59,8 +58,8 @@ implicit none
 real, intent(inout) :: vmsc(mza,mva)
 real, intent(inout) :: wmsc(mza,mwa)
 
-real, intent(inout) :: alpha_press(mza,mwa)
-real, intent(in)    :: rhot       (mza,mwa)
+real, intent(in)    :: alpha_press(mza,mwa)
+real, intent(inout) :: rhot       (mza,mwa)
 
 integer :: j, iv, k, ka, kb, mrl, kbv, kd
 integer :: iw, iw1, iw2, iwp, ivp
@@ -159,14 +158,13 @@ if (mrl > 0) then
 !----------------------------------------------------------------------
    call qsub('W',iw)
 
-! Evaluate alpha coefficient for pressure
+! Include moisture changes in total density tendency
 
       do k = lpw(iw), mza-1
-         alpha_press(k,iw) = pc1 * (((1. - sh_w(k,iw)) * rdry + sh_v(k,iw) * rvap) &
-                           * theta(k,iw) / thil(k,iw)) ** cpocv
+         rhot(k,iw) = rhot(k,iw) + sh_wt(k,iw)
       enddo
 
-      call prog_wrt_begl(iw)
+      call prog_wrt_begl(iw,rhot)
    
    enddo
    !$omp end parallel do
@@ -580,7 +578,8 @@ enddo
 endif
 call rsub('Wa',19)
 
-! MPI SEND/RECV of WMC, PRESS, RHO, VMXET, VMYET, VMZET and LBC copy
+! MPI SEND/RECV and LBC copy of quantities needed for prog_v: 
+! PRESS, RHO, VMXET, VMYET, and VMZET
 
 if (iparallel == 1) then
    call mpi_send_w('P', vmxet=vmxet, vmyet=vmyet, vmzet=vmzet)
@@ -620,7 +619,7 @@ end subroutine prog_wrtv
 
 !=========================================================================
 
-subroutine prog_wrt_begl(iw)
+subroutine prog_wrt_begl(iw,rhot)
 
 ! This version includes turbulent fluxes of VXE, VYE, VZE through V faces
 ! Vertical mixing is computed in subroutine pbl_driver
@@ -640,6 +639,7 @@ use mem_rayf,    only: rayf_cof, rayf_cofw, dorayf, dorayfw, krayf_bot, krayfw_b
 implicit none
 
 integer, intent(in) :: iw
+real,    intent(in) :: rhot(mza,mwa)
 
 integer :: iv, iwn, k, ka, kb, npoly, jv
 real    :: fracx, rayfx
@@ -691,9 +691,12 @@ enddo
 
 do k = kb,mza-1
 
-   vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) * hdiff_vxe(k)
-   vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) * hdiff_vye(k)
-   vmzet(k,iw) = vmzet(k,iw) + volti(k,iw) * hdiff_vze(k)
+   vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) * hdiff_vxe(k) &
+               + vxe(k,iw) * rhot(k,iw)
+   vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) * hdiff_vye(k) &
+               + vye(k,iw) * rhot(k,iw)
+   vmzet(k,iw) = vmzet(k,iw) + volti(k,iw) * hdiff_vze(k) &
+               + vze(k,iw) * rhot(k,iw)
 
 enddo
 
@@ -960,7 +963,7 @@ do k = ka,mza-1
    delex_rho(k) = dts * (rhot(k,iw) &
       + volti(k,iw) * (hflux_rho(k) + wmarw(k-1) - wmarw(k)))
 
-   delex_rhothil(k) = dts * (thilt(k,iw) &
+   delex_rhothil(k) = dts * (thilt(k,iw) + thil(k,iw) * rhot(k,iw) &
       + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
 
    vmxet(k,iw) = volti(k,iw) * (hflux_vxe(k) + vflux_vxe(k-1) - vflux_vxe(k)) &
@@ -1158,7 +1161,7 @@ use misc_coms,   only: io6, dtsm, initial, mdomain, u01d, v01d, dn01d, &
                        deltax, nxp
 use consts_coms, only: erad, eradi, gravo2
 use mem_grid,    only: lpv, lpw, volt, volvi, xev, yev, zev, &
-                       unx, uny, vnx, vny, vnz, mza, mva, mwa, dniv, arw0, dnu
+                       vnxo2, vnyo2, vnzo2, mza, mva, mwa, dniv, arw0, dnu
 use mem_rayf,    only: dorayf, rayf_cof, vc03d, dn03d, krayf_bot, &
                        dorayfdiv, krayfdiv_bot, rayf_cofdiv
 use oname_coms,  only: nl
@@ -1274,9 +1277,9 @@ do k = kb,mza-1
 ! Update VM from long timestep tendencies, advection, and pressure gradient force
 
    vmc(k,iv) = vmc(k,iv) + dts * (vmt(k,iv) + vmt_rayf(k) + pgf(k) &
-             + .5 * (vnx(iv) * (vmxet(k,iw1) + vmxet(k,iw2)) &
-                   + vny(iv) * (vmyet(k,iw1) + vmyet(k,iw2)) &
-                   + vnz(iv) * (vmzet(k,iw1) + vmzet(k,iw2))))
+             + vnxo2(iv) * (vmxet(k,iw1) + vmxet(k,iw2)) &
+             + vnyo2(iv) * (vmyet(k,iw1) + vmyet(k,iw2)) &
+             + vnzo2(iv) * (vmzet(k,iw1) + vmzet(k,iw2)) )
 
    vc(k,iv) = 2.0 * vmc(k,iv) / (rho(k,iw1) + rho(k,iw2))
 

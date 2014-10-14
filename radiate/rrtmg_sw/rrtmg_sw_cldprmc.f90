@@ -1,7 +1,7 @@
-!     path:      $Source: /storm/rc1/cvsroot/rc/rrtmg_sw/src/rrtmg_sw_cldprmc.f90,v $
-!     author:    $Author: mike $
-!     revision:  $Revision: 1.8 $
-!     created:   $Date: 2009/05/22 22:22:21 $
+!     path:      $Source$
+!     author:    $Author: miacono $
+!     revision:  $Revision: 23308 $
+!     created:   $Date: 2013-12-27 17:23:51 -0500 (Fri, 27 Dec 2013) $
 
       module rrtmg_sw_cldprmc
 
@@ -106,7 +106,7 @@
 
 ! Initialize
 
-      hvrclc = '$Revision: 1.8 $'
+      hvrclc = '$Revision: 23308 $'
 
 ! Some of these initializations are done elsewhere
       do lay = 1, nlayers
@@ -195,7 +195,7 @@
                      factor = (radice - 2._rb)/3._rb
                      index = int(factor)
                      if (index .eq. 43) index = 42
-                     fint = factor - float(index)
+                     fint = factor - real(index,kind=rb)
                      ib = ngb(ig)
                      extcoice(ig) = extice2(index,ib) + fint * &
                                    (extice2(index+1,ib) -  extice2(index,ib))
@@ -218,7 +218,7 @@
                      factor = (radice - 2._rb)/3._rb
                      index = int(factor)
                      if (index .eq. 46) index = 45
-                     fint = factor - float(index)
+                     fint = factor - real(index,kind=rb)
                      ib = ngb(ig)
                      extcoice(ig) = extice3(index,ib) + fint * &
                                    (extice3(index+1,ib) - extice3(index,ib))
@@ -256,7 +256,7 @@
                      index = int(radliq - 1.5_rb)
                      if (index .eq. 0) index = 1
                      if (index .eq. 58) index = 57
-                     fint = radliq - 1.5_rb - float(index)
+                     fint = radliq - 1.5_rb - real(index,kind=rb)
                      ib = ngb(ig)
                      extcoliq(ig) = extliq1(index,ib) + fint * &
                                    (extliq1(index+1,ib) - extliq1(index,ib))

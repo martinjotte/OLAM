@@ -35,7 +35,7 @@ CONTAINS
    use mem_grid,    only: mza, lpw, zt, dzt, xew, yew, zew, &
                           unx, uny, unz, vnx, vny, vnz, arw0
    use misc_coms,   only: io6, meshtype
-   use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf
+   use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, qwcon
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc
    use mem_ijtabs,  only: itab_w, jtab_w
    use consts_coms, only: erad
@@ -161,12 +161,12 @@ CONTAINS
          ls           = xls0 - xls1 * t1d(kt)
          DTDT(kt)    = DTDT(kt) - lv / cp * dqldt - ls / cp * dqfdt
          thsrc(k,iw) = DTDT(kt) * theta(k,iw) / tair(k,iw)
+         
+         ! cloud condensate
+         qwcon(k,iw) = cldliq(kt) + cldice(kt)
       enddo
 
       conprr(iw) = pratec
-
-      cubot = cubot + lpw(iw) - 1
-      cutop = cutop + lpw(iw) - 1
 
    endif
 

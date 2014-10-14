@@ -71,6 +71,8 @@ Module mem_tend
 
    real, target, allocatable :: tket    (:,:) ! subgrid-scale turb KE tend [m^2/s^3]
    real, target, allocatable :: epst    (:,:) ! subgrid dissipation rate tend [m^2/s^4]
+
+   integer :: num_omic = 0
    
 Contains
 
@@ -220,7 +222,7 @@ Contains
    use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,        &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
                          con_ccn, con_ifn, con_gccn, q2, q6, q7
-   use var_tables, only: vtables_scalar
+   use var_tables, only: vtables_scalar, num_var
    use misc_coms,  only: io6, do_chem
    use cgrid_defn, only: cgrid_scalar_tabs
 
@@ -261,6 +263,8 @@ Contains
    if (allocated(q2t))      call vtables_scalar (q2, q2t, 'Q2')
    if (allocated(q6t))      call vtables_scalar (q6, q6t, 'Q6')
    if (allocated(q7t))      call vtables_scalar (q7, q7t, 'Q7')
+
+   num_omic = num_var
 
    if (allocated(tket))     call vtables_scalar (tkep, tket, 'TKEP')
    if (allocated(epst))     call vtables_scalar (epsp, epst, 'EPSP')

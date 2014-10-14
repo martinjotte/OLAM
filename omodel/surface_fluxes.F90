@@ -81,13 +81,12 @@ integer :: j,jv,iw,iv,iws,iwl
 integer :: ks,kw,ka,k
 integer :: isf,ilf
 
+real :: dtf
 real :: area_dtf
 real :: arf_kw
 real :: arf_atm
 real :: arf_sea
 real :: arf_land
-real :: arf_sea_dtf
-real :: arf_land_dtf
 real :: exneri
 real :: vkmsfc, vkmsfcs, vkmsfci
 real :: vels
@@ -192,14 +191,12 @@ do j = 1,jseaflux(1)%jend(mrl)
       iws = itabg_ws(iws)%iws_myrank
    endif
 
-   kw          = seaflux(isf)%kw
-   arf_kw      = seaflux(isf)%arf_kw
-   arf_atm     = seaflux(isf)%arf_atm   ! area ratio of flux cell to atm cell
-   arf_sea     = seaflux(isf)%arf_sfc   ! area ratio of flux cell to sea cell
-   arf_sea_dtf = seaflux(isf)%arf_sfc & ! area ratio of flux cell to sea cell
-               * seaflux(isf)%dtf       !   timestep of flux cell [m^2 * s]
-   area_dtf    = seaflux(isf)%area    & ! area of flux cell
-               * seaflux(isf)%dtf       !   timestep of flux cell [m^2 * s]
+   kw       = seaflux(isf)%kw
+   dtf      = seaflux(isf)%dtf        ! timestep of flux cell [s]
+   arf_kw   = seaflux(isf)%arf_kw
+   arf_atm  = seaflux(isf)%arf_atm    ! area ratio of flux cell to atm cell
+   arf_sea  = seaflux(isf)%arf_sfc    ! area ratio of flux cell to sea cell
+   area_dtf = seaflux(isf)%area * dtf ! flux cell area * timestep [m^2 * s]
 
    ka = lpw(iw)
    ks = kw - ka + 1
@@ -230,8 +227,8 @@ do j = 1,jseaflux(1)%jend(mrl)
               vkmsfcs,                 &
               seaflux(isf)%sea_sfluxt, &
               seaflux(isf)%sea_sfluxr, & 
-              seaflux(isf)%sea_ustar0, &
-              seaflux(isf)%sea_ggaer0  )
+              seaflux(isf)%sea_ustar,  &
+              seaflux(isf)%sea_ggaer   )
 
 ! Include fractional seaice component if seaice layers exist
 
@@ -248,17 +245,17 @@ do j = 1,jseaflux(1)%jend(mrl)
                 vkmsfci,                 &
                 seaflux(isf)%ice_sfluxt, &
                 seaflux(isf)%ice_sfluxr, &
-                seaflux(isf)%ice_ustar0, &
-                seaflux(isf)%ice_ggaer0  )
+                seaflux(isf)%ice_ustar,  &
+                seaflux(isf)%ice_ggaer   )
 
       vkmsfc              = (1.0 - sea%seaicec(iws)) * vkmsfcs + &
                                    sea%seaicec(iws)  * vkmsfci
 
-      seaflux(isf)%ustar0 = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_ustar0 + &
-                                   sea%seaicec(iws)  * seaflux(isf)%ice_ustar0
+      seaflux(isf)%ustar  = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_ustar  + &
+                                   sea%seaicec(iws)  * seaflux(isf)%ice_ustar 
 
-      seaflux(isf)%ggaer0 = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_ggaer0 + &
-                                   sea%seaicec(iws)  * seaflux(isf)%ice_ggaer0
+      seaflux(isf)%ggaer  = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_ggaer  + &
+                                   sea%seaicec(iws)  * seaflux(isf)%ice_ggaer 
 
       seaflux(isf)%sfluxt = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_sfluxt + &
                                    sea%seaicec(iws)  * seaflux(isf)%ice_sfluxt
@@ -269,14 +266,14 @@ do j = 1,jseaflux(1)%jend(mrl)
    else
       
       vkmsfc              = vkmsfcs
-      seaflux(isf)%ustar0 = seaflux(isf)%sea_ustar0
-      seaflux(isf)%ggaer0 = seaflux(isf)%sea_ggaer0
+      seaflux(isf)%ustar  = seaflux(isf)%sea_ustar 
+      seaflux(isf)%ggaer  = seaflux(isf)%sea_ggaer 
       seaflux(isf)%sfluxt = seaflux(isf)%sea_sfluxt
       seaflux(isf)%sfluxr = seaflux(isf)%sea_sfluxr
 
       vkmsfci                 = 0.0
-      seaflux(isf)%ice_ustar0 = 0.0
-      seaflux(isf)%ice_ggaer0 = 0.0
+      seaflux(isf)%ice_ustar  = 0.0
+      seaflux(isf)%ice_ggaer  = 0.0
       seaflux(isf)%ice_sfluxt = 0.0
       seaflux(isf)%ice_sfluxr = 0.0
       
@@ -285,30 +282,27 @@ do j = 1,jseaflux(1)%jend(mrl)
 ! Add flux contributions to IW atmospheric column
 
    vkm_sfc (ks,iw) = vkm_sfc(ks,iw)  + arf_kw   * vkmsfc
-   ustar      (iw) = ustar  (iw)     + arf_atm  * seaflux(isf)%ustar0
+   ustar      (iw) = ustar  (iw)     + arf_atm  * seaflux(isf)%ustar 
    sflux_t    (iw) = sflux_t(iw)     + arf_atm  * seaflux(isf)%sfluxt * exneri
    sflux_r    (iw) = sflux_r(iw)     + arf_atm  * seaflux(isf)%sfluxr
    sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dtf * seaflux(isf)%sfluxt * exneri
    sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dtf * seaflux(isf)%sfluxr
 
-! Store flux and ATM density contributions to SEA cell in SEAFLUX cell
+! Store atmospheric properties and flux contributions in SEAFLUX cell
 
-   seaflux(isf)%rhos        = arf_sea     * rho(kw,iw)
-   seaflux(isf)%sxfer_t     = arf_sea_dtf * seaflux(isf)%sfluxt
-   seaflux(isf)%sxfer_r     = arf_sea_dtf * seaflux(isf)%sfluxr
+   seaflux(isf)%rhos        =       rho(kw,iw)
+   seaflux(isf)%airtemp     =       tair(kw,iw)
+   seaflux(isf)%airshv      =       sh_vc
+
+   seaflux(isf)%sxfer_t     = dtf * seaflux(isf)%sfluxt
+   seaflux(isf)%sxfer_r     = dtf * seaflux(isf)%sfluxr
    seaflux(isf)%sxfer_c     = 0.
-   seaflux(isf)%ustar       = arf_sea     * seaflux(isf)%ustar0
-   seaflux(isf)%ggaer       = arf_sea     * seaflux(isf)%ggaer0
 
-   seaflux(isf)%sea_sxfer_t = arf_sea_dtf * seaflux(isf)%sea_sfluxt
-   seaflux(isf)%sea_sxfer_r = arf_sea_dtf * seaflux(isf)%sea_sfluxr
-   seaflux(isf)%sea_ustar   = arf_sea     * seaflux(isf)%sea_ustar0
-   seaflux(isf)%sea_ggaer   = arf_sea     * seaflux(isf)%sea_ggaer0
+   seaflux(isf)%sea_sxfer_t = dtf * seaflux(isf)%sea_sfluxt
+   seaflux(isf)%sea_sxfer_r = dtf * seaflux(isf)%sea_sfluxr
 
-   seaflux(isf)%ice_sxfer_t = arf_sea_dtf * seaflux(isf)%ice_sfluxt
-   seaflux(isf)%ice_sxfer_r = arf_sea_dtf * seaflux(isf)%ice_sfluxr
-   seaflux(isf)%ice_ustar   = arf_sea     * seaflux(isf)%ice_ustar0
-   seaflux(isf)%ice_ggaer   = arf_sea     * seaflux(isf)%ice_ggaer0
+   seaflux(isf)%ice_sxfer_t = dtf * seaflux(isf)%ice_sfluxt
+   seaflux(isf)%ice_sxfer_r = dtf * seaflux(isf)%ice_sfluxr
 
 enddo
 
@@ -339,13 +333,11 @@ do j = 1,jlandflux(1)%jend(mrl)
    endif
 
    kw           = landflux(ilf)%kw
+   dtf          = landflux(ilf)%dtf        ! timestep of flux cell [s]
    arf_kw       = landflux(ilf)%arf_kw
-   arf_atm      = landflux(ilf)%arf_atm   ! flux cell to atm cell area ratio
-   arf_land     = landflux(ilf)%arf_sfc   ! flux cell to land cell area ratio
-   arf_land_dtf = landflux(ilf)%arf_sfc & ! flux cell to land cell area ratio
-                * landflux(ilf)%dtf       !   timestep of flux cell [m^2 * s]
-   area_dtf     = landflux(ilf)%area    & ! flux cell area 
-                * landflux(ilf)%dtf       !   timestep of flux cell [m^2 * s]
+   arf_atm      = landflux(ilf)%arf_atm    ! flux cell to atm cell area ratio
+   arf_land     = landflux(ilf)%arf_sfc    ! flux cell to land cell area ratio
+   area_dtf     = landflux(ilf)%area * dtf ! flux cell area * timestep [m^2 * s]
 
    ka = lpw(iw)
    ks = kw - ka + 1
@@ -362,12 +354,6 @@ do j = 1,jlandflux(1)%jend(mrl)
       sh_vc = sh_v(kw,iw)
    endif
 
-! Store atmospheric properties in landflux cell
-
-   landflux(ilf)%vels = arf_land * vels
-   landflux(ilf)%prss = arf_land * press(kw,iw)
-   landflux(ilf)%rhos = arf_land * rho(kw,iw)
-
 ! Calculate turbulent fluxes between atmosphere and land canopy
 
    if (land%ed_flag(iwl) == 0) then
@@ -383,8 +369,8 @@ do j = 1,jlandflux(1)%jend(mrl)
                  vkmsfc,               &
                  landflux(ilf)%sfluxt, &
                  landflux(ilf)%sfluxr, &
-                 landflux(ilf)%ustar0, &
-                 landflux(ilf)%ggaer0  )
+                 landflux(ilf)%ustar,  &
+                 landflux(ilf)%ggaer   )
 
       landflux(ilf)%sfluxc = 0.
       ed_zeta = 0.
@@ -407,9 +393,9 @@ do j = 1,jlandflux(1)%jend(mrl)
            landflux(ilf)%sfluxt, &
            landflux(ilf)%sfluxr, &
            landflux(ilf)%sfluxc, &
-           landflux(ilf)%ustar0, &
+           landflux(ilf)%ustar,  &
            ed_zeta, ed_rib,      &
-           landflux(ilf)%ggaer0  )
+           landflux(ilf)%ggaer   )
 #endif
 
    endif
@@ -417,21 +403,25 @@ do j = 1,jlandflux(1)%jend(mrl)
 ! Add flux contributions to IW atmospheric column
 
    vkm_sfc(ks,iw)  = vkm_sfc(ks,iw)  + arf_kw   * vkmsfc
-   ustar  (iw)     = ustar  (iw)     + arf_atm  * landflux(ilf)%ustar0
+   ustar  (iw)     = ustar  (iw)     + arf_atm  * landflux(ilf)%ustar
    sflux_t(iw)     = sflux_t(iw)     + arf_atm  * landflux(ilf)%sfluxt * exneri
    sflux_r(iw)     = sflux_r(iw)     + arf_atm  * landflux(ilf)%sfluxr
    sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dtf * landflux(ilf)%sfluxt * exneri
    sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dtf * landflux(ilf)%sfluxr
 
-! Store flux contributions to land cell in landflux cell
+! Store atmospheric properties and flux contributions in LANDFLUX cell
 
-   landflux(ilf)%sxfer_t = arf_land_dtf * landflux(ilf)%sfluxt
-   landflux(ilf)%sxfer_r = arf_land_dtf * landflux(ilf)%sfluxr
-   landflux(ilf)%sxfer_c = arf_land_dtf * landflux(ilf)%sfluxc
-   landflux(ilf)%ustar   = arf_land     * landflux(ilf)%ustar0
-   landflux(ilf)%ggaer   = arf_land     * landflux(ilf)%ggaer0
-   landflux(ilf)%ed_zeta = arf_land     * ed_zeta
-   landflux(ilf)%ed_rib  = arf_land     * ed_rib
+   landflux(ilf)%vels    =       vels
+   landflux(ilf)%prss    =       press(kw,iw)
+   landflux(ilf)%rhos    =       rho(kw,iw)
+   landflux(ilf)%airtemp =       tair(kw,iw)
+   landflux(ilf)%airshv  =       sh_vc
+
+   landflux(ilf)%sxfer_t = dtf * landflux(ilf)%sfluxt
+   landflux(ilf)%sxfer_r = dtf * landflux(ilf)%sfluxr
+   landflux(ilf)%sxfer_c = dtf * landflux(ilf)%sfluxc
+   landflux(ilf)%ed_zeta =       ed_zeta
+   landflux(ilf)%ed_rib  =       ed_rib
 
 enddo
 
@@ -504,25 +494,27 @@ do j = 1,jseaflux(2)%jend(mrl)
 !----------------------------------------------------------------------
    call qsub('SF',isf)
 
-   sea%rhos(iws)        = sea%rhos(iws)        + seaflux(isf)%rhos
+   arf_sea  = seaflux(isf)%arf_sfc    ! area ratio of flux cell to sea cell
 
-   sea%ustar    (iws)   = sea%ustar    (iws)   + seaflux(isf)%ustar
-   sea%sea_ustar(iws)   = sea%sea_ustar(iws)   + seaflux(isf)%sea_ustar
-   sea%ice_ustar(iws)   = sea%ice_ustar(iws)   + seaflux(isf)%ice_ustar
+   sea%rhos(iws)        = sea%rhos(iws)        + arf_sea * seaflux(isf)%rhos
 
-   sea%sxfer_t    (iws) = sea%sxfer_t    (iws) + seaflux(isf)%sxfer_t
-   sea%sea_sxfer_t(iws) = sea%sea_sxfer_t(iws) + seaflux(isf)%sea_sxfer_t
-   sea%ice_sxfer_t(iws) = sea%ice_sxfer_t(iws) + seaflux(isf)%ice_sxfer_t
+   sea%ustar    (iws)   = sea%ustar    (iws)   + arf_sea * seaflux(isf)%ustar
+   sea%sea_ustar(iws)   = sea%sea_ustar(iws)   + arf_sea * seaflux(isf)%sea_ustar
+   sea%ice_ustar(iws)   = sea%ice_ustar(iws)   + arf_sea * seaflux(isf)%ice_ustar
 
-   sea%sxfer_r    (iws) = sea%sxfer_r    (iws) + seaflux(isf)%sxfer_r
-   sea%sea_sxfer_r(iws) = sea%sea_sxfer_r(iws) + seaflux(isf)%sea_sxfer_r
-   sea%ice_sxfer_r(iws) = sea%ice_sxfer_r(iws) + seaflux(isf)%ice_sxfer_r
+   sea%sxfer_t    (iws) = sea%sxfer_t    (iws) + arf_sea * seaflux(isf)%sxfer_t
+   sea%sea_sxfer_t(iws) = sea%sea_sxfer_t(iws) + arf_sea * seaflux(isf)%sea_sxfer_t
+   sea%ice_sxfer_t(iws) = sea%ice_sxfer_t(iws) + arf_sea * seaflux(isf)%ice_sxfer_t
 
-   sea%sxfer_c(iws)     = sea%sxfer_c(iws)     + seaflux(isf)%sxfer_c
+   sea%sxfer_r    (iws) = sea%sxfer_r    (iws) + arf_sea * seaflux(isf)%sxfer_r
+   sea%sea_sxfer_r(iws) = sea%sea_sxfer_r(iws) + arf_sea * seaflux(isf)%sea_sxfer_r
+   sea%ice_sxfer_r(iws) = sea%ice_sxfer_r(iws) + arf_sea * seaflux(isf)%ice_sxfer_r
 
-   sea%ggaer    (iws)   = sea%ggaer    (iws)   + seaflux(isf)%ggaer
-   sea%sea_ggaer(iws)   = sea%sea_ggaer(iws)   + seaflux(isf)%sea_ggaer
-   sea%ice_ggaer(iws)   = sea%ice_ggaer(iws)   + seaflux(isf)%ice_ggaer
+   sea%sxfer_c(iws)     = sea%sxfer_c(iws)     + arf_sea * seaflux(isf)%sxfer_c
+
+   sea%ggaer    (iws)   = sea%ggaer    (iws)   + arf_sea * seaflux(isf)%ggaer
+   sea%sea_ggaer(iws)   = sea%sea_ggaer(iws)   + arf_sea * seaflux(isf)%sea_ggaer
+   sea%ice_ggaer(iws)   = sea%ice_ggaer(iws)   + arf_sea * seaflux(isf)%ice_ggaer
 
 enddo
 call rsub('JSEAFLUX',2)
@@ -548,16 +540,18 @@ do j = 1,jlandflux(2)%jend(mrl)
 !----------------------------------------------------------------------
    call qsub('LF',iw)
 
-   land%rhos     (iwl) = land%rhos     (iwl) + landflux(ilf)%rhos
-   land%vels     (iwl) = land%vels     (iwl) + landflux(ilf)%vels
-   land%prss     (iwl) = land%prss     (iwl) + landflux(ilf)%prss
-   land%sxfer_t  (iwl) = land%sxfer_t  (iwl) + landflux(ilf)%sxfer_t
-   land%sxfer_r  (iwl) = land%sxfer_r  (iwl) + landflux(ilf)%sxfer_r
-   land%sxfer_c  (iwl) = land%sxfer_c  (iwl) + landflux(ilf)%sxfer_c
-   land%ustar    (iwl) = land%ustar    (iwl) + landflux(ilf)%ustar
-   land%ggaer    (iwl) = land%ggaer    (iwl) + landflux(ilf)%ggaer
-   land%ed_zeta  (iwl) = land%ed_zeta  (iwl) + landflux(ilf)%ed_zeta
-   land%ed_rib   (iwl) = land%ed_rib   (iwl) + landflux(ilf)%ed_rib
+   arf_land  = landflux(ilf)%arf_sfc    ! area ratio of flux cell to land cell
+
+   land%rhos     (iwl) = land%rhos     (iwl) + arf_land * landflux(ilf)%rhos
+   land%vels     (iwl) = land%vels     (iwl) + arf_land * landflux(ilf)%vels
+   land%prss     (iwl) = land%prss     (iwl) + arf_land * landflux(ilf)%prss
+   land%sxfer_t  (iwl) = land%sxfer_t  (iwl) + arf_land * landflux(ilf)%sxfer_t
+   land%sxfer_r  (iwl) = land%sxfer_r  (iwl) + arf_land * landflux(ilf)%sxfer_r
+   land%sxfer_c  (iwl) = land%sxfer_c  (iwl) + arf_land * landflux(ilf)%sxfer_c
+   land%ustar    (iwl) = land%ustar    (iwl) + arf_land * landflux(ilf)%ustar
+   land%ggaer    (iwl) = land%ggaer    (iwl) + arf_land * landflux(ilf)%ggaer
+   land%ed_zeta  (iwl) = land%ed_zeta  (iwl) + arf_land * landflux(ilf)%ed_zeta
+   land%ed_rib   (iwl) = land%ed_rib   (iwl) + arf_land * landflux(ilf)%ed_rib
 
 enddo
 call rsub('JLANDFLUX',2)
@@ -707,7 +701,7 @@ integer :: iw
 integer :: iwl
 integer :: kw
 
-real :: arf_land_dtf
+real :: arf_land
 real :: airtempc
 real :: tempc
 
@@ -744,11 +738,6 @@ if (mrl > 0 .and. mrl <= mrl_leaf) then
 
    kw = landflux(ilf)%kw
 
-! dt_leaf is correct timestep in next line since this subroutine is called at
-! same frequency as leaf timestep   
-
-   arf_land_dtf = landflux(ilf)%arf_sfc * dt_leaf
-
 ! Compute air temperature in C
 
    airtempc = tair(kw,iw) - t00
@@ -759,9 +748,12 @@ if (mrl > 0 .and. mrl <= mrl_leaf) then
    tempc = airtempc - min(25.,  &
        700. * (rhovsl(airtempc) / real(rho(kw,iw)) - sh_v(kw,iw)))
 
-   landflux(ilf)%pcpg  = arf_land_dtf * conprr(iw)
-   landflux(ilf)%qpcpg = arf_land_dtf * conprr(iw) * (cliq * tempc + alli)
-   landflux(ilf)%dpcpg = arf_land_dtf * conprr(iw) * .001
+! dt_leaf is correct timestep in next lines since this subroutine is called at
+! same frequency as leaf timestep   
+
+   landflux(ilf)%pcpg  = dt_leaf * conprr(iw)
+   landflux(ilf)%qpcpg = dt_leaf * conprr(iw) * (cliq * tempc + alli)
+   landflux(ilf)%dpcpg = dt_leaf * conprr(iw) * .001
 
 enddo
 
@@ -797,9 +789,11 @@ do j = 1,jlandflux(2)%jend(mrl)
       iwl = itabg_wl(iwl)%iwl_myrank
    endif
 
-   land%pcpg (iwl) = land%pcpg (iwl) + landflux(ilf)%pcpg
-   land%qpcpg(iwl) = land%qpcpg(iwl) + landflux(ilf)%qpcpg
-   land%dpcpg(iwl) = land%dpcpg(iwl) + landflux(ilf)%dpcpg
+   arf_land = landflux(ilf)%arf_sfc
+
+   land%pcpg (iwl) = land%pcpg (iwl) + arf_land * landflux(ilf)%pcpg
+   land%qpcpg(iwl) = land%qpcpg(iwl) + arf_land * landflux(ilf)%qpcpg
+   land%dpcpg(iwl) = land%dpcpg(iwl) + arf_land * landflux(ilf)%dpcpg
 
 enddo
 
@@ -838,8 +832,8 @@ integer :: iw
 integer :: iwl
 integer :: mrl
 
+real :: dtf
 real :: arf_land
-real :: arf_land_dtf
 
 ! Subroutine to transfer atmospheric microphysics parameterization 
 ! precipitation flux to leaf land cells.
@@ -870,11 +864,11 @@ call qsub('LF',iw)
       iw = itabg_w(iw)%iw_myrank
    endif
 
-   arf_land_dtf = landflux(ilf)%arf_sfc * landflux(ilf)%dtf
+   dtf = landflux(ilf)%dtf
 
-   landflux(ilf)%pcpg  = arf_land_dtf * pcpgr(iw)
-   landflux(ilf)%qpcpg = arf_land_dtf * qpcpgr(iw)
-   landflux(ilf)%dpcpg = arf_land_dtf * dpcpgr(iw)
+   landflux(ilf)%pcpg  = dtf * pcpgr(iw)
+   landflux(ilf)%qpcpg = dtf * qpcpgr(iw)
+   landflux(ilf)%dpcpg = dtf * dpcpgr(iw)
 
 enddo
 
@@ -910,9 +904,11 @@ call qsub('LF',iw)
       iwl = itabg_wl(iwl)%iwl_myrank
    endif
 
-   land%pcpg (iwl) = land%pcpg (iwl) + landflux(ilf)%pcpg
-   land%qpcpg(iwl) = land%qpcpg(iwl) + landflux(ilf)%qpcpg
-   land%dpcpg(iwl) = land%dpcpg(iwl) + landflux(ilf)%dpcpg
+   arf_land = landflux(ilf)%arf_sfc
+
+   land%pcpg (iwl) = land%pcpg (iwl) + arf_land * landflux(ilf)%pcpg
+   land%qpcpg(iwl) = land%qpcpg(iwl) + arf_land * landflux(ilf)%qpcpg
+   land%dpcpg(iwl) = land%dpcpg(iwl) + arf_land * landflux(ilf)%dpcpg
 
 enddo
 

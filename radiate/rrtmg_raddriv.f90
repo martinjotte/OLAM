@@ -30,6 +30,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   integer, parameter :: ncol   = 1
   integer, parameter :: icld   = 2
 ! integer, parameter :: icld   = 0
+  integer, parameter :: iaer   = 0
   integer, parameter :: dyofyr = 0
   integer, parameter :: inflg  = 0
   integer, parameter :: iceflg = 0
@@ -113,7 +114,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: asmaers(ncol, nrad, nbndsw)
   real :: ecaer  (ncol, nrad, nbndsw)
 
-  integer :: k, krad, icloud, index, ib, jb
+  integer :: k, krad, icloud, iaeros, index, ib, jb
   integer :: mc, mcat, ih, l, num
   real    :: tau, ssa, asm
   real    :: r_ef, watp, rstart, rend, rscale, fint0, fint1
@@ -324,17 +325,18 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      enddo
           
      icloud = icld
+     iaeros = iaer
 
-     call rrtmg_sw_nomcica( ncol   , nrad   , icloud ,                          &
-                            play   , plev   , tlay   , tlev   , tsfc   ,        &
-                            h2ovmr , o3vmr  , co2vmr , ch4vmr , n2ovmr , o2vmr, &
-                            asdir  , asdif  , aldif  , aldif  ,                 &
-                            coszen , solfac , dyofyr , solar  ,                 &   
-                            inflg  , iceflg , liqflg , cldfr  ,                 &
-                            tauclds, ssaclds, asmclds, fsfclds,                 &
-                            cicewp , cliqwp , reice  , reliq  ,                 &
-                            tauaers, ssaaers, asmaers, ecaer  ,                 &
-                            swuflx , swdflx , swhr   , swuflxc, swdflxc, swhrc  )
+     call rrtmg_sw_nomcica( ncol   , nrad   , icloud , iaeros ,                &
+                            play   , plev   , tlay   , tlev   , tsfc   ,       &
+                            h2ovmr , o3vmr  , co2vmr , ch4vmr , n2ovmr , o2vmr,&
+                            asdir  , asdif  , aldif  , aldif  ,                &
+                            coszen , solfac , dyofyr , solar  ,                &
+                            inflg  , iceflg , liqflg , cldfr  ,                &
+                            tauclds, ssaclds, asmclds, fsfclds,                &
+                            cicewp , cliqwp , reice  , reliq  ,                &
+                            tauaers, ssaaers, asmaers, ecaer  ,                &
+                            swuflx , swdflx , swhr   , swuflxc, swdflxc, swhrc )
 
      rshort        (iw) = swdflx(1,1)
 !!   rshort_diffuse(iw) = flx_diff

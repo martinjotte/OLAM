@@ -423,10 +423,20 @@ else
 
 ! Shortwave radiation calculations
 
+   if (leaf_class == 2) then
+
+! Sfcwater albedo ALS is set to .80 over firn/glacier
+
+      als = .80  ! Firn/glacier albedo
+
+   else
+
 ! Sfcwater albedo ALS ranges from wet-soil value .14 for all-liquid
 ! to .5 for all-ice
 
-   als = .5 - .36 * sfcwater_fracliq
+      als = .5 - .36 * sfcwater_fracliq
+
+   endif
 
 ! Sum over sfcwater layers to get total depth
 
