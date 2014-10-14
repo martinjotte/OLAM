@@ -225,7 +225,7 @@ subroutine read_soil_analysis(soil_tempc)
 
   ipoffset = xswlon / gdatdx + 1
   nio = nx + 3
-  njo = nx + 2
+  njo = ny + 2
 
   if (myrank == 0) then
 
