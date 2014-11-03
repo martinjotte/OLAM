@@ -121,8 +121,8 @@ subroutine read_sst_analysis(iaction)
      idims(2) = 1
      idims(3) = 1
 
-     call shdf5_irec(ndims, idims, 'nprx' , ivars=nprx)
-     call shdf5_irec(ndims, idims, 'npry' , ivars=npry)
+     call shdf5_irec(ndims, idims, 'nx'   , ivars=nprx)
+     call shdf5_irec(ndims, idims, 'ny'   , ivars=npry)
      call shdf5_irec(ndims, idims, 'iproj', ivars=inproj)
      call shdf5_irec(ndims, idims, 'swlat', rvars=xswlat)
      call shdf5_irec(ndims, idims, 'swlon', rvars=xswlon)

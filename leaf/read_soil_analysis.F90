@@ -6,7 +6,8 @@ subroutine read_soil_analysis(soil_tempc)
   use consts_coms,only: pio180, piu180, erad, cliq1000, alli1000, cice,   &
                          cice1000, r8
   use max_dims,   only: pathlen
-  use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg
+  use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, &
+                        inproj, xswlat, xswlon, gdatdx, gdatdy, ipoffset
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
   use mem_para,   only: myrank
 
@@ -18,17 +19,15 @@ subroutine read_soil_analysis(soil_tempc)
 
   real, intent(inout) :: soil_tempc(nzg,mwl)
 
-  integer            :: ifgfile, nf, ipoffset
+  integer            :: ifgfile, nf
   character(pathlen) :: fname
   character(16)      :: ext
   logical            :: exists
   integer            :: ndims, idims(3)
-  integer            :: nx, ny, ngnd, inproj
-  real               :: xswlat, xswlon, gdatdx, gdatdy
   real               :: xoffpix, yoffpix, xperdeg, yperdeg
   real               :: glat, glon, rio, rjo, dss
   real               :: snowdens
-  integer            :: nio, njo
+  integer            :: nio, njo, ngnd
   integer            :: iwl, io, jo, i, j, k, kk, ntext
   logical            :: has_snow, has_soilt, has_soilw
   integer            :: bytes, nbytes_int, nbytes_real, isize, ier
@@ -119,8 +118,8 @@ subroutine read_soil_analysis(soil_tempc)
      idims(2) = 1
      idims(3) = 1
 
-     call shdf5_irec(ndims, idims, 'nx'   , ivars=nx)
-     call shdf5_irec(ndims, idims, 'ny'   , ivars=ny)
+     call shdf5_irec(ndims, idims, 'nx'   , ivars=nprx)
+     call shdf5_irec(ndims, idims, 'ny'   , ivars=npry)
      call shdf5_irec(ndims, idims, 'iproj', ivars=inproj)
      call shdf5_irec(ndims, idims, 'swlat', rvars=xswlat)
      call shdf5_irec(ndims, idims, 'swlon', rvars=xswlon)
@@ -154,8 +153,8 @@ subroutine read_soil_analysis(soil_tempc)
 
 #ifdef OLAM_MPI
      if (iparallel == 1) then
-        call MPI_Pack(nx    , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(ny    , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(nprx  , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(npry  , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
         call MPI_Pack(inproj, 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
         call MPI_Pack(xswlat, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
         call MPI_Pack(xswlon, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
@@ -173,8 +172,8 @@ subroutine read_soil_analysis(soil_tempc)
      call MPI_Bcast(buffer, isize, MPI_PACKED, 0, MPI_COMM_WORLD, ier)
 
      if (myrank /= 0) then
-        call MPI_Unpack(buffer, isize, bytes, nx    , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, ny    , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, nprx  , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, npry  , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
         call MPI_Unpack(buffer, isize, bytes, inproj, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
         call MPI_Unpack(buffer, isize, bytes, xswlat, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
         call MPI_Unpack(buffer, isize, bytes, xswlon, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
@@ -211,8 +210,8 @@ subroutine read_soil_analysis(soil_tempc)
   ! (-90. and 90. degrees) but that the longitudinal boundary is not repeated.
   ! If either is not the case, this check will stop execution. 
 
-  if (abs(nx      * gdatdx - 360.) > .1 .or. &
-      abs ((ny-1) * gdatdy - 180.) > .1) then
+  if (abs(nprx      * gdatdx - 360.) > .1 .or. &
+      abs ((npry-1) * gdatdy - 180.) > .1) then
      write(io6,*) 'Gridded soil data does not have global coverage.'
      write(io6,*) "Using default soil initialization instead."
      if (myrank == 0) call shdf5_close()
@@ -224,8 +223,8 @@ subroutine read_soil_analysis(soil_tempc)
   ! follow the GRIB standard and keep the SW corner at (0,-90)
 
   ipoffset = xswlon / gdatdx + 1
-  nio = nx + 3
-  njo = ny + 2
+  nio = nprx + 3
+  njo = npry + 2
 
   if (myrank == 0) then
 
@@ -235,11 +234,11 @@ subroutine read_soil_analysis(soil_tempc)
 
      if (ndims > 0) then
 
-        allocate(a2d(nx,ny))
+        allocate(a2d(nprx,npry))
         allocate(snow(nio,njo))
 
         call shdf5_irec(ndims, idims, 'SNOWMASS', rvara = a2d)
-        call prfill(nx, ny, ipoffset, a2d, snow)
+        call prfill(nprx, npry, a2d, snow)
 
         has_snow = .true.
         deallocate(a2d)
@@ -249,7 +248,7 @@ subroutine read_soil_analysis(soil_tempc)
      ! and read them
 
      if (ngnd > 0 .and. allocated(zcol)) then
-        allocate(a3d(nx,ny,ngnd))
+        allocate(a3d(nprx,npry,ngnd))
      
         call shdf5_info('SOILT', ndims, idims)
 
@@ -257,7 +256,7 @@ subroutine read_soil_analysis(soil_tempc)
            allocate(soilt(nio,njo,ngnd))
 
            call shdf5_irec(ndims, idims, 'SOILT', rvara = a3d)
-           call prfill3(nx, ny, ngnd, ipoffset, a3d, soilt)
+           call prfill3(nprx, npry, ngnd, a3d, soilt)
            has_soilt = .true.
         endif
 
@@ -267,7 +266,7 @@ subroutine read_soil_analysis(soil_tempc)
            allocate(soilw(nio,njo,ngnd))
 
            call shdf5_irec(ndims, idims, 'SOILW', rvara = a3d)
-           call prfill3(nx, ny, ngnd, ipoffset, a3d, soilw)
+           call prfill3(nprx, npry, ngnd, a3d, soilw)
            has_soilw = .true.
         endif
 
@@ -320,23 +319,23 @@ subroutine read_soil_analysis(soil_tempc)
   ! but the grib file didn't have any soil or snow fields
 
   if (has_snow) then
-     if ( count( snow(:,:) < -1.0 .or. snow(:,:) > 1.e30) >= nx*ny ) then
+     if ( count( snow(:,:) < -1.0 .or. snow(:,:) > 1.e30) >= nprx*npry ) then
         write(io6,*) "read_soil: Snow mass from analysis contains mostly missing data."
         write(io6,*) "Skipping snow depth initialization."
         has_snow = .false.
      endif
   endif
-  
+
   if (has_soilt) then
-     if ( count( soilt(:,:,:) < -1.0  .or. soilt(:,:,:) > 1.e30) >= nx*ny*ngnd ) then
+     if ( count( soilt(:,:,:) < -1.0  .or. soilt(:,:,:) > 1.e30) >= nprx*npry*ngnd ) then
         write(io6,*) "read_soil: Soil temperature from analysis contains mostly missing data."
         write(io6,*) "Skipping soil temperature initialization."
         has_soilt = .false.
      endif
   endif
-  
+
   if (has_soilw) then
-     if ( count( soilw(:,:,:) < -1.0 .or. soilw(:,:,:) > 1.e30) >= nx*ny*ngnd ) then
+     if ( count( soilw(:,:,:) < -1.0 .or. soilw(:,:,:) > 1.e30) >= nprx*npry*ngnd ) then
         write(io6,*) "read_soil: Soil moisture from analysis contains mostly missing data."
         write(io6,*) "Skipping soil moisture initialization."
         has_soilw = .false.
