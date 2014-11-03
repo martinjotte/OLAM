@@ -255,7 +255,7 @@ CONTAINS
    ! prsw(1) is press at zm(mza); prsw(km1) is press at zm(ka-1)
 
    prsw(1) = max(1.e-3,1.5 * press(mza,iw) - 0.5 * press(mza-1,iw))
-   prsw(km1) = 1.5* press(ka,iw) - 0.5 * press(ka+1,iw)
+   prsw(km1) = 1.5 * press(ka,iw) - 0.5 * press(ka+1,iw)
 
    evap  = sfluxr(iw)
    hfx   = sfluxt(iw) * tair(ka,iw) / theta(ka,iw)
@@ -300,7 +300,7 @@ CONTAINS
    if (iact) then
 
       kcutop(iw) = mza - ictop + 1
-      kcubot(iw) = mza - icbot
+      kcubot(iw) = mza - icbot + 1
 
       cbmf(iw) = zmfu(icbot)
 

@@ -876,7 +876,7 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw, &
   real :: uface,vface
   real :: dtm(maxgrds)
 
-  integer :: j, kb, k, iw
+  integer :: j, kb, k, kp, iw
 
   if (ldt == 1) then
      dtm(:) = dtlm(:)
@@ -906,12 +906,13 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw, &
 ! Vertical loop over W levels
 
      do k = kb, mza
+        kp = min(k+1,mza)
 
 ! Average 3 velocity components from T points to W point
 
-        vxeface = .5 * (vxe(k,iw) + vxe(k+1,iw))
-        vyeface = .5 * (vye(k,iw) + vye(k+1,iw))
-        vzeface = .5 * (vze(k,iw) + vze(k+1,iw))
+        vxeface = .5 * (vxe(k,iw) + vxe(kp,iw))
+        vyeface = .5 * (vye(k,iw) + vye(kp,iw))
+        vzeface = .5 * (vze(k,iw) + vze(kp,iw))
 
 ! Project earth velocity components at W face onto U and V directions
 

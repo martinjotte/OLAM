@@ -798,7 +798,7 @@ real, intent(in) :: vze_upw (mza,mwa)
 
 
 integer :: jv, iv, iwn
-integer :: k, ka, kbv
+integer :: k, ka, kbv, kp
 integer :: npoly
 
 real :: dts
@@ -997,9 +997,10 @@ c10 = dts * fw
 ! Fill matrix coefficients for implicit update of WM
 
 do k = ka,mza
+   kp = min(k+1,mza)
    b1(k)  = wc(k,iw) + wc(k-1,iw)            ! T pts
-   b2(k)  = thil_s(k,iw) + thil_s(k+1,iw)    ! W pts
-   b3(k)  = 2. / (volt(k,iw) + volt(k+1,iw)) ! W pts [b3 replaces volwi]
+   b2(k)  = thil_s(k,iw) + thil_s(kp,iw)    ! W pts
+   b3(k)  = 2. / (volt(k,iw) + volt(kp,iw)) ! W pts [b3 replaces volwi]
    b5(k)  = press_t(k) / rhothil(k)          ! T pts
    b6(k)  = c6 * volti(k,iw)                 ! T pts
    b10(k) = c10 * volti(k,iw)                ! T pts

@@ -544,7 +544,9 @@ write(io6,'(a)'  ) '   k    zm(m)     k     zt(m)    dzm(m)    dzrat'
 write(io6,'(a,/)') '================================================='
 
 do k = nza,1,-1
-   if (k == nza .or. k == 1) then
+   if (k == nza) then
+      write(io6,11) k, zm(k), dzt(k)/dzt(k)
+   elseif (k == 1) then
       write(io6,11) k, zm(k), dzt(k+1)/dzt(k)
    else
       write(io6,12) k, zm(k), dzt(k+1)/dzt(k)

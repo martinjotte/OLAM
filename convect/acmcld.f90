@@ -49,7 +49,7 @@ subroutine acmcld_uvmix( iw, dtl )
   if ( kcubot(iw) >= lpw(iw) .and. kcutop(iw) > kcubot(iw) .and. &
          cbmf(iw) > 1.e-6 ) then
 
-     kb = kcubot(iw) - 1
+     kb = kcubot(iw)
      kt = kcutop(iw)
 
      ! For some schemes, mixing extends 1 level above cloud

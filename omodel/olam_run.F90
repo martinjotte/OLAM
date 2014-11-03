@@ -74,11 +74,12 @@ implicit none
 character(len=*), intent(in) :: name_name
 
 integer :: i,ifm,nndtflg,ifileok,ierr,iplt_file,mrl, imavg_file, idavg_file
-integer :: mwa_prog, mva_prog
+integer :: mwa_prog, mva_prog, nthr
 real :: w1,w2,t1,t2,wtime_start
 real, external :: walltime
-integer, external :: omp_get_max_threads
 character(len=128) :: mavgfile, davgfile
+
+!integer, external :: omp_get_max_threads
 
 ! Useful code for setting and checking number of threads
 
