@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 subroutine read_nl(file)
@@ -83,7 +83,7 @@ use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
                        nsndg, ipsflg, itsflg, irtsflg, iusflg, &
                        hs, p_sfc, us, vs, ts, ps, rts, &
                        itime1, idate1, imonth1, iyear1, ngrids, nzp, &
-                       mdomain, meshtype, itopoflg, nxp, &
+                       mdomain, itopoflg, nxp, &
                        ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
                        current_time, debug_fp, init_nans
 
@@ -93,7 +93,7 @@ use micro_coms,  only: level, icloud, idriz, irain, ipris, &
                        aparm, gparm, hparm, cnparm, gnparm
 
 use leaf_coms,   only: nvgcon, nslcon, slmstr, isoilflg, ndviflg, &
-                       isfcl, ivegflg, nzg, nzs, ilandgrid, slz, &
+                       isfcl, ivegflg, nzg, nzs, slz, &
                        veg_database, soil_database, &
                        ndvi_database, iupdndvi, landusefile, &
                        isoilstateinit, isoildepthflg, iwatertabflg, &
@@ -281,9 +281,7 @@ if (copy_type == 'ALL_CASES') then
       if (index(nl%plotspecs(i)%pltspec2,'J') > 0) op%pltindx(i) = 'J'
 
       if (index(nl%plotspecs(i)%pltspec2,'B') > 0) op%vectbarb(i) = 'B'
-      if (index(nl%plotspecs(i)%pltspec2,'U') > 0) op%vectbarb(i) = 'U'
       if (index(nl%plotspecs(i)%pltspec2,'V') > 0) op%vectbarb(i) = 'V'
-      if (index(nl%plotspecs(i)%pltspec2,'v') > 0) op%vectbarb(i) = 'v'
       if (index(nl%plotspecs(i)%pltspec2,'w') > 0) op%vectbarb(i) = 'w'
 
       if (index(nl%plotspecs(i)%pltspec2,'G') > 0) op%pltgrid(i) = 'G'
@@ -338,12 +336,10 @@ elseif (copy_type == 'NOT_HISTORY') then
    nzg       = nl%nzg
    nzs       = nl%nzs
    mdomain   = nl%mdomain
-   meshtype  = nl%meshtype
    isfcl     = nl%isfcl
    itopoflg  = nl%itopoflg
    ivegflg   = nl%ivegflg
    nxp       = nl%nxp
-   ilandgrid = nl%ilandgrid
    iseagrid  = nl%iseagrid
 
    do i = 1,maxgrds

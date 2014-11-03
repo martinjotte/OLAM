@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,22 +29,19 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine sea_init_atm()
 
   use mem_sea,     only: sea, itabg_ws, itab_ws
   use sea_coms,    only: mws, iupdsst, s1900_sst, isstfile, nsstfiles, dt_sea,  &
                          iupdseaice, s1900_seaice, iseaicefile, nseaicefiles, nzi
-  use mem_sflux,   only: mseaflux, seaflux, jseaflux
-  use mem_basic,   only: rho, tair, sh_v
+  use mem_basic,   only: rho, press, vxe, vye, vze, tair, sh_v
   use misc_coms,   only: io6, time8, s1900_sim, iparallel, isubdomain, runtype
   use mem_ijtabs,  only: itabg_w
   use mem_para,    only: myrank
   use consts_coms, only: t00
+
+!$ use omp_lib
 
   implicit none
 
@@ -77,86 +78,29 @@ subroutine sea_init_atm()
 
   if (runtype /= "INITIAL") return
 
-! Loop over all SEAFLUX cells that are EVALUATED on this rank, and transfer 
-! atmospheric properties to each
+! Loop over all SEA cells
 
-  !$omp parallel do private (isf,iw,kw)
-  do j = 1,jseaflux(1)%jend(1)
-     isf = jseaflux(1)%iseaflux(j)
-
-     iw = seaflux(isf)%iw  ! global index
-
-     ! If run is parallel, convert iw to local domain
-
+  !$omp parallel do private (iw,kw,dum1,dum2)
+  do iws = 2,mws
+     
+     iw = itab_ws(iws)%iw  ! global index
      if (isubdomain == 1) then
         iw = itabg_w(iw)%iw_myrank
      endif
 
-     kw      = seaflux(isf)%kw
+     kw = itab_ws(iws)%kw
 
-     seaflux(isf)%rhos    = rho(kw,iw)
-     seaflux(isf)%airtemp = tair(kw,iw)
-     seaflux(isf)%airshv  = sh_v(kw,iw)   
-  enddo
-  !$omp end parallel do
+! Transfer atmospheric properties to sea cells
 
-! Do parallel send of ATM properties in seaflux cells
+     sea%rhos   (iws) = rho (kw,iw)
+     sea%vels   (iws) = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
+     sea%prss   (iws) = press(kw,iw)
+     sea%airtemp(iws) = tair(kw,iw)
+     sea%airshv (iws) = sh_v(kw,iw)
+     sea%cantemp(iws) = tair(kw,iw)
+     sea%canshv (iws) = sh_v(kw,iw)
 
-  if (iparallel == 1) then
-     call mpi_send_wsf('A', 1)
-  endif
-
-! Loop over all SEA cells and zero properties before summation
-
-  !$omp parallel do
-  do iws = 2, mws
-
-     ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
-     if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
-
-     sea%rhos(iws)     = 0.0
-     sea%can_temp(iws) = 0.0
-     sea%can_shv(iws)  = 0.0
-  enddo
-  !$omp end parallel do
-
-! Do parallel recv of ATM properties in seaflux cells
-
-  if (iparallel == 1) then
-     call mpi_recv_wsf('A',1)
-  endif
-
-! Loop over all SEAFLUX cells that are APPLIED on this rank, and sum 
-! atmospheric properties to corresponding SEA cell
-
-  !$omp parallel do private (isf,iws,arf_sea)
-  do j = 1,jseaflux(2)%jend(1)
-     isf = jseaflux(2)%iseaflux(j)
-
-     iws = seaflux(isf)%iwls ! global index
-
-     ! If run is parallel, convert iws to local domain
-
-     if (isubdomain == 1) then
-        iws = itabg_ws(iws)%iws_myrank
-     endif
-
-     arf_sea = seaflux(isf)%arf_sfc
-
-     sea%rhos(iws)     = sea%rhos(iws)     + arf_sea * seaflux(isf)%rhos
-     sea%can_temp(iws) = sea%can_temp(iws) + arf_sea * seaflux(isf)%airtemp
-     sea%can_shv(iws)  = sea%can_shv(iws)  + arf_sea * seaflux(isf)%airshv
-  enddo
-  !$omp end parallel do
-
-! Loop over all SEA cells to initialize remaining fields
-
-  !$omp parallel do private (dum1,dum2)
-  do iws = 2, mws
-
-     ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
-
-     if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+! Initialize sea temperature, sea ice, and canopy depth
 
      sea%seatc(iws) = sea%seatp(iws)  &
                     + (sea%seatf(iws) - sea%seatp(iws)) * timefac_sst
@@ -171,16 +115,16 @@ subroutine sea_init_atm()
      ! Seawater quantities
 
      sea%sea_rough  (iws) = .001
-     sea%seacan_temp(iws) = sea%can_temp(iws)
-     sea%seacan_shv (iws) = sea%can_shv(iws)
+     sea%sea_cantemp(iws) = sea%cantemp(iws)
+     sea%sea_canshv (iws) = sea%canshv(iws)
      sea%sea_sfc_ssh(iws) = rhovsl(sea%seatc(iws)-t00) / sea%rhos(iws)
 
      ! Seaice quantities
    
      call prep_seaice(sea%seatc              (iws), &
                       sea%seaicec            (iws), &
-                      sea%seacan_temp        (iws), &
-                      sea%icecan_temp        (iws), &
+                      sea%sea_cantemp        (iws), &
+                      sea%ice_cantemp        (iws), &
                       sea%seaice_energy(1:nzi,iws), &
                       sea%seaice_tempk (1:nzi,iws), &
                       sea%nlev_seaice        (iws), &
@@ -191,8 +135,8 @@ subroutine sea_init_atm()
                       0.0                         , &
                       0.0                         , &
                       sea%ice_rough          (iws), &
-                      sea%seacan_shv         (iws), &
-                      sea%icecan_shv         (iws), &
+                      sea%sea_canshv         (iws), &
+                      sea%ice_canshv         (iws), &
                       sea%sea_ustar          (iws), &
                       sea%ice_ustar          (iws), &
                       sea%sea_ggaer          (iws), &
@@ -208,11 +152,11 @@ subroutine sea_init_atm()
         sea%rough      (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_rough  (iws) + &
                                       sea%seaicec(iws)  * sea%ice_rough  (iws)
 
-        sea%can_temp   (iws) = (1.0 - sea%seaicec(iws)) * sea%seacan_temp(iws) + &
-                                      sea%seaicec(iws)  * sea%icecan_temp(iws)
+        sea%cantemp    (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_cantemp(iws) + &
+                                      sea%seaicec(iws)  * sea%ice_cantemp(iws)
 
-        sea%can_shv    (iws) = (1.0 - sea%seaicec(iws)) * sea%seacan_shv (iws) + &
-                                      sea%seaicec(iws)  * sea%icecan_shv (iws)
+        sea%canshv     (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_canshv (iws) + &
+                                      sea%seaicec(iws)  * sea%ice_canshv (iws)
 
         sea%surface_ssh(iws) = (1.0 - sea%seaicec(iws)) * sea%sea_sfc_ssh(iws) + &
                                       sea%seaicec(iws)  * sea%ice_sfc_ssh(iws)
@@ -220,20 +164,13 @@ subroutine sea_init_atm()
      else
 
         sea%rough      (iws) = sea%sea_rough  (iws)
-        sea%can_temp   (iws) = sea%seacan_temp(iws)
-        sea%can_shv    (iws) = sea%seacan_shv (iws)
+        sea%cantemp    (iws) = sea%sea_cantemp(iws)
+        sea%canshv     (iws) = sea%sea_canshv (iws)
         sea%surface_ssh(iws) = sea%sea_sfc_ssh(iws)
 
      endif
 
   enddo
   !$omp end parallel do
-
-! Do parallel send/recv of SEA fields
-
-  if (iparallel == 1) then
-     call mpi_send_ws('A')
-     call mpi_recv_ws('A')
-  endif
 
 end subroutine sea_init_atm

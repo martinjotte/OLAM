@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine ndvi_database_read(iaction)
 
@@ -41,7 +41,7 @@ use leaf_coms, only: mml, mwl, iupdndvi,   &
 use misc_coms, only: io6, iyear1, imonth1, idate1, itime1, timmax8,  &
                      time8, runtype, s1900_init, s1900_sim
 
-use leaf_db,   only: leaf_database_read
+use land_db,   only: land_database_read
 use mem_para,  only: myrank
 
 implicit none
@@ -67,7 +67,7 @@ integer :: ntimes, jtime
 real(kind=8) :: secs_init
 real(kind=8) :: secs1, secs2
 
-real :: datp(mwl)
+real :: datq(mwl)
 
 integer, save :: indvicyclic, nndvifiles
 
@@ -218,18 +218,18 @@ endif
 
 ! Read and interpolate current ndvi file
   
-call leaf_database_read(mwl,                    &
+call land_database_read(mwl,                    &
                         land%glatw,    &
                         land%glonw,    &
                         ndvi_database,          &
                         fnames_ndvi(indvifile), &
                         'ndvi',                 &
-                        datp=datp               )
+                        datq=datq               )
 
 ! Loop over all land cells (already defined and filled with leaf_class)
 
 do iwl = 2,mwl
-   land%veg_ndvif(iwl) = max(.05,datp(iwl))
+   land%veg_ndvif(iwl) = max(.05,datq(iwl))
 enddo
 
 if (iaction == 0) then

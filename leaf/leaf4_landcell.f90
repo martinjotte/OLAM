@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module leaf4_landcell
 
@@ -43,7 +43,7 @@ subroutine landcell(iwl, nlev_sfcwater, leaf_class, ntext_soil,             &
                     rhos, vels, prss, pcpg, qpcpg, dpcpg,                   &
                     sxfer_t, sxfer_r, ustar, snowfac, vf,                   &
                     surface_ssh, ground_shv, veg_water, veg_temp,           &
-                    can_temp, can_shv, stom_resist, veg_ndvip, veg_ndvif,   &
+                    cantemp, canshv, stom_resist, veg_ndvip, veg_ndvif,     &
                     veg_ndvic, veg_albedo, rough, ggaero, head0, head1,     &
                     glatw, glonw, timefac_ndvi                              )
                               
@@ -96,8 +96,8 @@ real, intent(inout) :: surface_ssh  ! surface saturation spec hum [kg_vap/kg_air
 real, intent(inout) :: ground_shv   ! soil vapor spec hum [kg_vap/kg_air]
 real, intent(inout) :: veg_water    ! veg sfc water content [kg/m^2]
 real, intent(inout) :: veg_temp     ! veg temperature [K]
-real, intent(inout) :: can_temp     ! canopy air temperature [K]
-real, intent(inout) :: can_shv      ! canopy air vapor spec hum [kg/kg]
+real, intent(inout) :: cantemp      ! canopy air temperature [K]
+real, intent(inout) :: canshv       ! canopy air vapor spec hum [kg/kg]
 real, intent(inout) :: stom_resist  ! veg stomatal resistance [s/m]
 real, intent(inout) :: veg_ndvip    ! past veg ndvi (obs time)
 real, intent(inout) :: veg_ndvif    ! past veg ndvi (obs time)
@@ -245,10 +245,11 @@ call canopy(iwl,                   nlsw1,                   &
             snowfac,               vf,                      &
             surface_ssh,           ground_shv,              &
             veg_water,             veg_temp,                &
-            can_temp,              can_shv,                 & 
+            cantemp,               canshv,                  & 
             transp,                stom_resist,             &
             ggaero,                snowmin_expl,            &
             glatw,                 glonw                    )
+
 
 ! CALL SFCWATER:
 !  1. Compute soil and sfcwater heat conductivities
@@ -299,7 +300,7 @@ nlsw1 = max(nlev_sfcwater,1)
 call grndvap(iwl,              nlev_sfcwater,          &
              ntext_soil (nzg), soil_water     (nzg),   &
              soil_energy(nzg), sfcwater_energy(nlsw1), &
-             rhos,             can_shv,                &
+             rhos,             canshv,                 &
              surface_ssh,      ground_shv              )
              
 !-----------------------------------------------------------------------------
@@ -361,8 +362,8 @@ if (iwl == 0)  &
                   ground_shv       = ground_shv,       &
                   veg_water        = veg_water,        &
                   veg_temp         = veg_temp,         &
-                  can_temp         = can_temp,         &
-                  can_shv          = can_shv,          &
+                  cantemp          = cantemp,          &
+                  canshv           = canshv,           &
                   transp           = transp,           &
                   stom_resist      = stom_resist,      &
                   veg_fracarea     = veg_fracarea,     &

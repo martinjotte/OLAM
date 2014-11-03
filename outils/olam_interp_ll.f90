@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,19 +29,14 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine interp_hvn_ll(nlon,nlat,nlevin,nlevout,alon,alat,field,field_ll)
 
-use mem_grid,   only: mza, mma, mva, mwa, zm, zt, lpu, lpv, lpw, &
-                      xem, yem, zem, xeu, yeu, zeu, &
-                      xev, yev, zev, xew, yew, zew, &
+use mem_grid,   only: mza, mma, mva, mwa, zm, zt, lpv, lpw, &
+                      xem, yem, zem, xev, yev, zev, xew, yew, zew, &
                       glatm, glonm, glatw, glonw
-use mem_ijtabs, only: itab_m, itab_w, itab_u, itab_v
-use misc_coms,  only: io6, meshtype
+use mem_ijtabs, only: itab_m, itab_w, itab_v
+use misc_coms,  only: io6
 use consts_coms, only: erad,piu180,pio180
 
 implicit none
@@ -66,7 +65,7 @@ if (nlevin == 1) then
    k2 = 1
    koff = 0
 else
-   k2 = mza-1
+   k2 = mza
    koff = 1
 endif
 
@@ -81,7 +80,7 @@ do im = 2,mma
 
    npoly = itab_m(im)%npoly
 
-! Initialize maximum radius, maximum lpu/lpv, and field average
+! Initialize maximum radius, maximum lpv, and field average
 
    radmax = 0.
    lpuvmax = 2
@@ -93,11 +92,7 @@ do im = 2,mma
 
 ! Current U/V point index   
 
-      if (meshtype == 1) then
-         iv = itab_m(im)%iu(j)
-      else
-         iv = itab_m(im)%iv(j)
-      endif
+      iv = itab_m(im)%iv(j)
 
 ! Skip current U/V point if index < 2
 
@@ -105,13 +100,8 @@ do im = 2,mma
 
 ! Transform current U/V point to PS coordinates tangent at M point
 
-      if (meshtype == 1) then
-         call e_ps(xeu(iv),yeu(iv),zeu(iv),glatm(im),glonm(im),xuv(j),yuv(j))
-         if (lpuvmax < lpu(iv)) lpuvmax = lpu(iv)
-      else
-         call e_ps(xev(iv),yev(iv),zev(iv),glatm(im),glonm(im),xuv(j),yuv(j))
-         if (lpuvmax < lpv(iv)) lpuvmax = lpv(iv)
-      endif
+      call e_ps(xev(iv),yev(iv),zev(iv),glatm(im),glonm(im),xuv(j),yuv(j))
+      if (lpuvmax < lpv(iv)) lpuvmax = lpv(iv)
 
       rad = sqrt(xuv(j)**2 + yuv(j)**2)
       if (radmax < rad) radmax = rad
@@ -162,13 +152,8 @@ do im = 2,mma
 
 ! Current U/V point index   
 
-      if (meshtype == 1) then
-         iv = itab_m(im)%iu(j)
-         ivnext = itab_m(im)%iu(jnext)
-      else
-         iv = itab_m(im)%iv(j)
-         ivnext = itab_m(im)%iv(jnext)
-      endif
+      iv = itab_m(im)%iv(j)
+      ivnext = itab_m(im)%iv(jnext)
 
       x(2) = xuv(j)
       y(2) = yuv(j)
@@ -270,7 +255,7 @@ do iw = 2,mwa
 
    npoly = itab_w(iw)%npoly
 
-! Initialize maximum radius, maximum lpu/lpv, and field average
+! Initialize maximum radius, maximum lpv, and field average
 
    radmax = 0.
    lpuvmax = 2
@@ -282,11 +267,7 @@ do iw = 2,mwa
 
 ! Current U/V point index   
 
-      if (meshtype == 1) then
-         iv = itab_w(iw)%iu(j)
-      else
-         iv = itab_w(iw)%iv(j)
-      endif
+      iv = itab_w(iw)%iv(j)
 
 ! Skip current U/V point if ndex < 2
 
@@ -294,13 +275,8 @@ do iw = 2,mwa
 
 ! Transform current U/V point to PS coordinates tangent at W point
 
-      if (meshtype == 1) then
-         call e_ps(xeu(iv),yeu(iv),zeu(iv),glatw(iw),glonw(iw),xuv(j),yuv(j))
-         if (lpuvmax < lpu(iv)) lpuvmax = lpu(iv)
-      else
-         call e_ps(xev(iv),yev(iv),zev(iv),glatw(iw),glonw(iw),xuv(j),yuv(j))
-         if (lpuvmax < lpv(iv)) lpuvmax = lpv(iv)
-      endif
+      call e_ps(xev(iv),yev(iv),zev(iv),glatw(iw),glonw(iw),xuv(j),yuv(j))
+      if (lpuvmax < lpv(iv)) lpuvmax = lpv(iv)
 
       rad = sqrt(xuv(j)**2 + yuv(j)**2)
       if (radmax < rad) radmax = rad
@@ -351,13 +327,8 @@ do iw = 2,mwa
 
 ! Current U/V point index   
 
-      if (meshtype == 1) then
-         iv = itab_w(iw)%iu(j)
-         ivnext = itab_w(iw)%iu(jnext)
-      else
-         iv = itab_w(iw)%iv(j)
-         ivnext = itab_w(iw)%iv(jnext)
-      endif
+      iv = itab_w(iw)%iv(j)
+      ivnext = itab_w(iw)%iv(jnext)
 
       x(2) = xuv(j)
       y(2) = yuv(j)
@@ -491,7 +462,7 @@ if (nlevin == 1) then
    k2 = 1
    koff = 0
 else
-   k2 = mza-1
+   k2 = mza
    koff = 1
 endif
 
@@ -670,5 +641,3 @@ enddo   ! im
 
 return
 end subroutine interp_htw_ll
-
-

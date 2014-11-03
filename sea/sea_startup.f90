@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -18,17 +22,13 @@
    ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
    ! for more details.
-
+ 
    ! You should have received a copy of the GNU General Public License along
    ! with this program; if not, write to the Free Software Foundation, Inc.,
    ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine sea_startup()
 
@@ -70,7 +70,7 @@ if (isstflg == 0) then
 
 elseif (isstflg == 1) then
 
-   if (runtype /= 'PLOTONLY' .and. runtype /= 'PARCOMBINE') then
+   if (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
 
 ! Read standard SST database
 ! Not needed for a plotonly run
@@ -89,7 +89,7 @@ elseif (isstflg == 1) then
 
 elseif (isstflg == 2) then
 
-   if (runtype /= 'PLOTONLY' .and. runtype /= 'PARCOMBINE') then
+   if (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
 
 ! Read SST from degribbed analysis files
 ! Not needed for a plotonly run
@@ -123,7 +123,7 @@ if (iseaiceflg == 0) then
 
 elseif (iseaiceflg == 1) then
 
-   if (runtype /= 'PLOTONLY' .and. runtype /= 'PARCOMBINE') then
+   if (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
 
 ! Read standard SEAICE database
 ! Not needed for a plotonly run
@@ -142,7 +142,7 @@ elseif (iseaiceflg == 1) then
 
 elseif (iseaiceflg == 2) then
 
-   if (runtype /= 'PLOTONLY' .and. runtype /= 'PARCOMBINE') then
+   if (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
 
 ! Read SEAICE from degribbed analysis files
 ! Not needed for a plotonly run

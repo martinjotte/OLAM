@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 subroutine coneplot_tri(iplt,iw,xe1,ye1,ze1,xe2,ye2,ze2,xe3,ye3,ze3, &
@@ -42,7 +42,7 @@ use oplot_coms,  only: op, xepc, yepc, zepc
 use mem_grid,    only: xem, yem, zem, xev, yev, zev, xew, yew, zew
 use mem_ijtabs,  only: itab_w
 use consts_coms, only: pio180, erad, eradi, piu180, pi2
-use misc_coms,   only: io6, mdomain, meshtype
+use misc_coms,   only: io6, mdomain
 
 implicit none
 
@@ -406,7 +406,7 @@ use oplot_coms,  only: op, xepc, yepc, zepc
 use mem_grid,    only: xem, yem, zem, topm
 use mem_ijtabs,  only: itab_w
 use consts_coms, only: pio180, erad, piu180, pi2
-use misc_coms,   only: io6, meshtype
+use misc_coms,   only: io6
 
 implicit none
 
@@ -553,13 +553,8 @@ do j = 1,npoly
    im1 = itab_w(iw)%im(jm1)
    im2 = itab_w(iw)%im(jm2)
 
-   if (meshtype == 1) then
-      jv = jm3
-      iv  = itab_w(iw)%iu(jv)
-   else
-      jv = jm2
-      iv  = itab_w(iw)%iv(jv)
-   endif
+   jv = jm2
+   iv  = itab_w(iw)%iv(jv)
       
    xem1 = xem(im1)
    yem1 = yem(im1)

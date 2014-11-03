@@ -1,3 +1,35 @@
+!===============================================================================
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
+
+! Portions of this software are copied or derived from the RAMS software
+! package.  The following copyright notice pertains to RAMS and its derivatives,
+! including OLAM:  
+
+   !----------------------------------------------------------------------------
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
+   ! Colorado State University Research Foundation ; ATMET, LLC 
+
+   ! This software is free software; you can redistribute it and/or modify it 
+   ! under the terms of the GNU General Public License as published by the Free
+   ! Software Foundation; either version 2 of the License, or (at your option)
+   ! any later version. 
+
+   ! This software is distributed in the hope that it will be useful, but
+   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+   ! for more details.
+ 
+   ! You should have received a copy of the GNU General Public License along
+   ! with this program; if not, write to the Free Software Foundation, Inc.,
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
+   ! (http://www.gnu.org/licenses/gpl.html) 
+   !----------------------------------------------------------------------------
+
+!===============================================================================
 Module mem_average_vars
 
   use mem_ijtabs, only: itab_w
@@ -89,59 +121,49 @@ Module mem_average_vars
 
   ! Daily values - land
 
-  real, allocatable :: canltempk_davg(:)
-  real, allocatable :: canltempk_dmin(:)
-  real, allocatable :: canltempk_dmax(:)
+  real, allocatable :: airtempk_l_davg(:)
+  real, allocatable :: airtempk_l_dmin(:)
+  real, allocatable :: airtempk_l_dmax(:)
+
+  real, allocatable :: cantempk_l_davg(:)
+  real, allocatable :: cantempk_l_dmin(:)
+  real, allocatable :: cantempk_l_dmax(:)
+
   real, allocatable ::  vegtempk_davg(:)
   real, allocatable ::  vegtempk_dmin(:)
   real, allocatable ::  vegtempk_dmax(:)
+
   real, allocatable :: soiltempk_davg(:)
   real, allocatable :: soiltempk_dmin(:)
   real, allocatable :: soiltempk_dmax(:)
 
+  real, allocatable :: sfluxt_l_davg(:)
+  real, allocatable :: sfluxr_l_davg(:)
+
   ! Daily values - sea
 
-  real, allocatable :: canstempk_davg(:)
-  real, allocatable :: canstempk_dmin(:)
-  real, allocatable :: canstempk_dmax(:)
+  real, allocatable :: airtempk_s_davg(:)
+  real, allocatable :: airtempk_s_dmin(:)
+  real, allocatable :: airtempk_s_dmax(:)
 
-  ! Daily values - landflux
+  real, allocatable :: cantempk_s_davg(:)
+  real, allocatable :: cantempk_s_dmin(:)
+  real, allocatable :: cantempk_s_dmax(:)
 
-  real, allocatable :: tempk_lf_davg(:)
-  real, allocatable :: tempk_lf_dmin(:)
-  real, allocatable :: tempk_lf_dmax(:)
-
-  real, allocatable :: cantempk_lf_davg(:)
-  real, allocatable :: cantempk_lf_dmin(:)
-  real, allocatable :: cantempk_lf_dmax(:)
-
-  real, allocatable :: sfluxt_lf_davg(:)
-  real, allocatable :: sfluxr_lf_davg(:)
-
-  ! Daily values - seaflux
-
-  real, allocatable :: tempk_sf_davg(:)
-  real, allocatable :: tempk_sf_dmin(:)
-  real, allocatable :: tempk_sf_dmax(:)
-
-  real, allocatable :: cantempk_sf_davg(:)
-  real, allocatable :: cantempk_sf_dmin(:)
-  real, allocatable :: cantempk_sf_dmax(:)
-
-  real, allocatable :: sfluxt_sf_davg(:)
-  real, allocatable :: sfluxr_sf_davg(:)
+  real, allocatable :: sfluxt_s_davg(:)
+  real, allocatable :: sfluxr_s_davg(:)
 
 Contains
 
 !===============================================================================
 
-  subroutine alloc_average_vars(mwa, mwl, mws, mlandflux, mseaflux)
+  subroutine alloc_average_vars(mwa, mwl, mws)
 
     use oname_coms,  only: nl
 
     implicit none
 
-    integer, intent(in) :: mwa, mwl, mws, mlandflux, mseaflux
+    integer, intent(in) :: mwa, mwl, mws
 
     if (nl%ioutput_mavg == 1) then
 
@@ -215,47 +237,37 @@ Contains
 
   ! Daily values - land
 
-       allocate(canltempk_davg(mwl))
-       allocate(canltempk_dmin(mwl))
-       allocate(canltempk_dmax(mwl))
-       allocate( vegtempk_davg(mwl))
-       allocate( vegtempk_dmin(mwl))
-       allocate( vegtempk_dmax(mwl))
+       allocate(airtempk_l_davg(mwl))
+       allocate(airtempk_l_dmin(mwl))
+       allocate(airtempk_l_dmax(mwl))
+
+       allocate(cantempk_l_davg(mwl))
+       allocate(cantempk_l_dmin(mwl))
+       allocate(cantempk_l_dmax(mwl))
+
+       allocate(vegtempk_davg(mwl))
+       allocate(vegtempk_dmin(mwl))
+       allocate(vegtempk_dmax(mwl))
+
        allocate(soiltempk_davg(mwl))
        allocate(soiltempk_dmin(mwl))
        allocate(soiltempk_dmax(mwl))
 
+       allocate(sfluxt_l_davg(mwl))
+       allocate(sfluxr_l_davg(mwl))
+
   ! Daily values - sea
 
-       allocate(canstempk_davg(mws))
-       allocate(canstempk_dmin(mws))
-       allocate(canstempk_dmax(mws))
+       allocate(airtempk_s_davg(mws))
+       allocate(airtempk_s_dmin(mws))
+       allocate(airtempk_s_dmax(mws))
 
-  ! Daily values - landflux
+       allocate(cantempk_s_davg(mws))
+       allocate(cantempk_s_dmin(mws))
+       allocate(cantempk_s_dmax(mws))
 
-       allocate(tempk_lf_davg(mlandflux))
-       allocate(tempk_lf_dmin(mlandflux))
-       allocate(tempk_lf_dmax(mlandflux))
-
-       allocate(cantempk_lf_davg(mlandflux))
-       allocate(cantempk_lf_dmin(mlandflux))
-       allocate(cantempk_lf_dmax(mlandflux))
-
-       allocate(sfluxt_lf_davg(mlandflux))
-       allocate(sfluxr_lf_davg(mlandflux))
-
-  ! Daily values - seaflux
-
-       allocate(tempk_sf_davg(mseaflux))
-       allocate(tempk_sf_dmin(mseaflux))
-       allocate(tempk_sf_dmax(mseaflux))
-
-       allocate(cantempk_sf_davg(mseaflux))
-       allocate(cantempk_sf_dmin(mseaflux))
-       allocate(cantempk_sf_dmax(mseaflux))
-
-       allocate(sfluxt_sf_davg(mseaflux))
-       allocate(sfluxr_sf_davg(mseaflux))
+       allocate(sfluxt_s_davg(mws))
+       allocate(sfluxr_s_davg(mws))
 
     endif
 
@@ -348,47 +360,37 @@ Contains
 
   ! Daily values - land
 
-    canltempk_davg(:) = 0.0
-    canltempk_dmin(:) = 10000.0
-    canltempk_dmax(:) = 0.0
-     vegtempk_davg(:) = 0.0
-     vegtempk_dmin(:) = 10000.0
-     vegtempk_dmax(:) = 0.0
+    airtempk_l_davg(:) = 0.0
+    airtempk_l_dmin(:) = 10000.0
+    airtempk_l_dmax(:) = 0.0
+
+    cantempk_l_davg(:) = 0.0
+    cantempk_l_dmin(:) = 10000.0
+    cantempk_l_dmax(:) = 0.0
+
+    vegtempk_davg(:) = 0.0
+    vegtempk_dmin(:) = 10000.0
+    vegtempk_dmax(:) = 0.0
+
     soiltempk_davg(:) = 0.0
     soiltempk_dmin(:) = 10000.0
     soiltempk_dmax(:) = 0.0
 
+    sfluxt_l_davg(:) = 0.0
+    sfluxr_l_davg(:) = 0.0
+
   ! Daily values - sea
 
-    canstempk_davg(:) = 0.0
-    canstempk_dmin(:) = 10000.0
-    canstempk_dmax(:) = 0.0
+    airtempk_s_davg(:) = 0.0
+    airtempk_s_dmin(:) = 10000.0
+    airtempk_s_dmax(:) = 0.0
 
-  ! Daily values - landflux
+    cantempk_s_davg(:) = 0.0
+    cantempk_s_dmin(:) = 10000.0
+    cantempk_s_dmax(:) = 0.0
 
-  tempk_lf_davg(:) = 0.0
-  tempk_lf_dmin(:) = 10000.0
-  tempk_lf_dmax(:) = 0.0
-
-  cantempk_lf_davg(:) = 0.0
-  cantempk_lf_dmin(:) = 10000.0
-  cantempk_lf_dmax(:) = 0.0
-
-  sfluxt_lf_davg(:) = 0.0
-  sfluxr_lf_davg(:) = 0.0
-
-  ! Daily values - seaflux
-
-  tempk_sf_davg(:) = 0.0
-  tempk_sf_dmin(:) = 10000.0
-  tempk_sf_dmax(:) = 0.0
-
-  cantempk_sf_davg(:) = 0.0
-  cantempk_sf_dmin(:) = 10000.0
-  cantempk_sf_dmax(:) = 0.0
-
-  sfluxt_sf_davg(:) = 0.0
-  sfluxr_sf_davg(:) = 0.0
+    sfluxt_s_davg(:) = 0.0
+    sfluxr_s_davg(:) = 0.0
 
     return
   end subroutine reset_davg_vars

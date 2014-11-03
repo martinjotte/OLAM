@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,22 +29,17 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 ! TURB, CUPARM, and PRECIP flux scheduling:
 
 ! 1. Cuparm and micphys give precip RATES
 ! 2. Stars gives heat and vapor flux RATES
-! 3. Fluxes computed as often as the MORE FREQUENT of atm and leaf
-! 4. Fluxes converted to AMOUNTS TRANSFERED based on rate * dtf 
-!    (DTF SAME FOR MICRO & TURB?)
+! 3. Fluxes computed once per interval of dtlong = dtlm(1) = dt_leaf = dt_sea,
+!    which (as of July 2011) are hardwired to be all the same.
+! 4. Fluxes converted to AMOUNTS TRANSFERED based on rate * dtlm(1) 
 ! 5. Each time leaf runs, it uses at once all it has gotten and zeroes xfer arrays
-! 6. For MRL with dtlm < dt_leaf, only do fluxes for MRL atm points
-! 7. For MRL with dtlm >= dt_leaf, do fluxes for MRL = 1 atm points
+! 6. When fluxes are done, they are done for all MRL = 1 atm points
 
 ! RADIATIVE fluxes only:
 
@@ -48,7 +47,7 @@
 
 !----------------------------------------------------------------------------
 ! AS OF JULY 2011, SUBROUTINE SURFACE_TURB_FLUXP IS HARDWIRED FOR 
-! DT_LEAF = DTLONG(1) AND MRL_LEAF = 1, WHICH FOR A LONG TIME HAS BEEN 
+! DT_LEAF = DTLM(1) AND MRL_LEAF = 1, WHICH FOR A LONG TIME HAS BEEN 
 ! ASSIGNED IN SUBROUTINE MODSCHED AND USED SUCCESSFULLY.
 ! IF DT_LEAF EVER GETS LARGE ENOUGH TO CAUSE INSTABILITY, THE INSTABILITY
 ! SHOULD BE CONTROLLED BY INCREASING CAPACITANCE OF THE LEAF COMPONENTS, 
@@ -58,16 +57,15 @@
 
 subroutine surface_turb_flux(mrl)
 
-use leaf_coms,   only: mwl, dt_leaf, isfcl
-use sea_coms,    only: mws, dt_sea
+use leaf_coms,   only: mwl, isfcl
+use sea_coms,    only: mws
 use mem_ijtabs,  only: itab_w, itabg_w, jtab_w, jtw_prog, jtw_wstn
 use misc_coms,   only: io6, iparallel, isubdomain, dtlm, mdomain
 use mem_para,    only: myrank
 use mem_grid,    only: mza, mwa, lsw, lpw, zt, zm, arw
 use mem_sea,     only: sea, itabg_ws, itab_ws
 use mem_leaf,    only: land, itabg_wl, itab_wl
-use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
-use mem_turb,    only: vkm_sfc, sflux_t, sflux_r, sxfer_tk, sxfer_rk, &
+use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, sxfer_tk, sxfer_rk, &
                        ustar, wstar, wtv0, pblh
 use mem_basic,   only: press, rho, theta, tair, sh_v, vxe, vye, vze
 use mem_micro,   only: sh_c
@@ -79,18 +77,16 @@ integer, intent(in) :: mrl
 
 integer :: j,jv,iw,iv,iws,iwl
 integer :: ks,kw,ka,k
-integer :: isf,ilf
+integer :: nsea,jws,nland,jwl
 
-real :: dtf
-real :: area_dtf
+
+real :: area_dt
 real :: arf_kw
-real :: arf_atm
-real :: arf_sea
-real :: arf_land
+real :: arf_iw
 real :: exneri
 real :: vkmsfc, vkmsfcs, vkmsfci
 real :: vels
-real :: my_co2, ed_zeta, ed_rib
+real :: my_co2
 
 real :: shflx, sh_vc
 
@@ -107,18 +103,17 @@ if (isfcl == 0) then
 
 !  shflx = 250. * cpi
 
-   call psub()
 !-----------------------------------------------------------------------------
+   !$omp parallel do private(iw,ks,kw,exneri)
    do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !-----------------------------------------------------------------------------
-   call qsub('W',iw)
 
-      sflux_t(iw) = 0.
-      sflux_r(iw) = 0.
-      ustar  (iw) = .1  ! Minimum value
+      sfluxt(iw) = 0.
+      sfluxr(iw) = 0.
+      ustar (iw) = .1  ! Minimum value
 
-      wstar  (iw) = 0.
-      wtv0   (iw) = 0.
+      wstar (iw) = 0.
+      wtv0  (iw) = 0.
 
       do ks = 1,lsw(iw)
          kw = ks + lpw(iw) - 1
@@ -129,7 +124,7 @@ if (isfcl == 0) then
 
          exneri = 1. / ((p00i * press(kw,iw)) ** rocp)
 
-         sxfer_tk(ks,iw) = dtlm(itab_w(iw)%mrlw) * shflx * exneri &
+         sxfer_tk(ks,iw) = dtlm(1) * shflx * exneri &
                          * (arw(kw,iw) - arw(kw-1,iw))
 
       enddo
@@ -138,16 +133,16 @@ if (isfcl == 0) then
 !      rlongup(iw) = stefan * 288.15 ** 4  ! std msl temp; make decision to not
                                            ! run radiation if not running leaf?
    enddo
-   call rsub('W_noleaf',13)
+   !$omp end parallel do
 
    return
 endif
 
 ! ISFCL = 1 is the LEAF option...
 
-! Reset to zero the atm values of VKM_SFC, USTAR, SFLUX_T, and SFLUX_R
+! Reset to zero the atm values of VKM_SFC, USTAR, SFLUXT, and SFLUXR
 ! for same mrl's that fluxes will be evaluated for this time.  
-! THUS, VKM_SFC, USTAR, SFLUX_T, AND SFLUX_R ARE ONLY SUMMED OVER
+! THUS, VKM_SFC, USTAR, SFLUXT, AND SFLUXR ARE ONLY SUMMED OVER
 ! SPACE, BUT NOT OVER TIME. (ON THE OTHER HAND, SXFER_TK AND SXFER_RK ARE SUMMED
 ! OVER BOTH SPACE AND TIME; THEY ARE RESET TO ZERO IN THILTEND_LONG AND
 ! SCALAR_TRANSPORT AFTER THEY ARE TRANSFERRED TO THE ATMOSPHERE.)
@@ -155,226 +150,217 @@ endif
 ! Set sea and land fluxes to be done for SURFACE SIMILARITY: 
 !    Do fluxes at beginning of long timestep at given mrl
 
-call psub()
 !----------------------------------------------------------------------
+!$omp parallel do private(iw,ka)
 do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
-call qsub('W',iw)
 
    ka = lpw(iw)
 
    vkm_sfc(:,iw) = 0.
-   ustar(iw)   = 0.
-   sflux_t(iw) = 0.
-   sflux_r(iw) = 0.
+   ustar(iw)  = 0.
+   sfluxt(iw) = 0.
+   sfluxr(iw) = 0.
 
 enddo
-call rsub('W',20)
+!$omp end parallel do
 
 ! Fluxes with SEA cells
 
 ! 1. Evaluate turbulent surface fluxes between atmosphere columns and SEA cells
 ! 2. Add flux contribution from each flux cell to atmosphere columns
-! 3. Store fluxes and atmospheric properties in SEAFLUX cells
+! 3. Store fluxes and atmospheric properties in SEA cells
 
-call psub()
 !----------------------------------------------------------------------
-do j = 1,jseaflux(1)%jend(mrl)
-   isf = jseaflux(1)%iseaflux(j)
-   iw  = seaflux(isf)%iw         ! global index
-   iws = seaflux(isf)%iwls       ! global index
 
-! If run is parallel, get local rank indices
+!$omp parallel do private(iw,kw)
+do iws = 2,mws
 
+   iw = itab_ws(iws)%iw
    if (isubdomain == 1) then
-      iw  = itabg_w (iw )%iw_myrank
-      iws = itabg_ws(iws)%iws_myrank
+      iw = itabg_w(iw)%iw_myrank
    endif
-
-   kw       = seaflux(isf)%kw
-   dtf      = seaflux(isf)%dtf        ! timestep of flux cell [s]
-   arf_kw   = seaflux(isf)%arf_kw
-   arf_atm  = seaflux(isf)%arf_atm    ! area ratio of flux cell to atm cell
-   arf_sea  = seaflux(isf)%arf_sfc    ! area ratio of flux cell to sea cell
-   area_dtf = seaflux(isf)%area * dtf ! flux cell area * timestep [m^2 * s]
-
-   ka = lpw(iw)
-   ks = kw - ka + 1
+   kw = itab_ws(iws)%kw
 !----------------------------------------------------------------------
-   call qsub('SF1',iw)
 
 ! Calculate turbulent fluxes between atmosphere and "water canopy"
 
-   vels   = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
-   exneri = theta(kw,iw) / tair(kw,iw)
+   sea%rhos   (iws) = real(rho(kw,iw))
+   sea%vels   (iws) = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
+   sea%prss   (iws) = real(press(kw,iw))
+   sea%airtemp(iws) = tair(kw,iw)
 
    if (allocated(sh_c)) then
-      sh_vc = sh_v(kw,iw) + sh_c(kw,iw)
+      sea%airshv(iws) = sh_v(kw,iw) + sh_c(kw,iw)
    else
-      sh_vc = sh_v(kw,iw)
+      sea%airshv(iws) = sh_v(kw,iw)
    endif
 
 ! Sea (open water) component always computed
 
-   call stars(zt(kw)-zm(kw-1),         &
-              sea%sea_rough(iws),      &
-              vels,                    &
-              rho      (kw,iw),        &
-              tair     (kw,iw),        &
-              sh_vc,                   &
-              sea%seacan_temp(iws),    &
-              sea%seacan_shv (iws),    &
-              vkmsfcs,                 &
-              seaflux(isf)%sea_sfluxt, &
-              seaflux(isf)%sea_sfluxr, & 
-              seaflux(isf)%sea_ustar,  &
-              seaflux(isf)%sea_ggaer   )
+   call stars(zt(kw)-zm(kw-1),      &
+              sea%sea_rough  (iws), &
+              sea%vels       (iws), &
+              sea%rhos       (iws), &
+              sea%airtemp    (iws), &
+              sea%airshv     (iws), &
+              sea%sea_cantemp(iws), &
+              sea%sea_canshv (iws), &
+              sea%sea_vkmsfc (iws), &
+              sea%sea_sfluxt (iws), &
+              sea%sea_sfluxr (iws), & 
+              sea%sea_ustar  (iws), &
+              sea%sea_ggaer  (iws)  )
+
+    sea%sfluxc(iws) = 0.
 
 ! Include fractional seaice component if seaice layers exist
 
    if (sea%nlev_seaice(iws) > 0) then
 
-      call stars(zt(kw)-zm(kw-1),        &
-                sea%ice_rough(iws),      &
-                vels,                    &
-                rho      (kw,iw),        &
-                tair     (kw,iw),        &
-                sh_vc,                   &
-                sea%icecan_temp(iws),    &
-                sea%icecan_shv (iws),    &
-                vkmsfci,                 &
-                seaflux(isf)%ice_sfluxt, &
-                seaflux(isf)%ice_sfluxr, &
-                seaflux(isf)%ice_ustar,  &
-                seaflux(isf)%ice_ggaer   )
+      call stars(zt(kw)-zm(kw-1),     &
+                sea%ice_rough  (iws), &
+                sea%vels       (iws), &
+                sea%rhos       (iws), &
+                sea%airtemp    (iws), &
+                sea%airshv     (iws), &
+                sea%ice_cantemp(iws), &
+                sea%ice_canshv (iws), &
+                sea%ice_vkmsfc (iws), &
+                sea%ice_sfluxt (iws), &
+                sea%ice_sfluxr (iws), &
+                sea%ice_ustar  (iws), &
+                sea%ice_ggaer  (iws)  )
 
-      vkmsfc              = (1.0 - sea%seaicec(iws)) * vkmsfcs + &
-                                   sea%seaicec(iws)  * vkmsfci
+      sea%vkmsfc(iws) = (1.0 - sea%seaicec(iws)) * sea%sea_vkmsfc(iws) &
+                             + sea%seaicec(iws)  * sea%ice_vkmsfc(iws)
 
-      seaflux(isf)%ustar  = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_ustar  + &
-                                   sea%seaicec(iws)  * seaflux(isf)%ice_ustar 
+      sea%ustar(iws)  = (1.0 - sea%seaicec(iws)) * sea%sea_ustar(iws) &
+                             + sea%seaicec(iws)  * sea%ice_ustar(iws) 
 
-      seaflux(isf)%ggaer  = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_ggaer  + &
-                                   sea%seaicec(iws)  * seaflux(isf)%ice_ggaer 
+      sea%ggaer(iws)  = (1.0 - sea%seaicec(iws)) * sea%sea_ggaer(iws) &
+                             + sea%seaicec(iws)  * sea%ice_ggaer(iws) 
 
-      seaflux(isf)%sfluxt = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_sfluxt + &
-                                   sea%seaicec(iws)  * seaflux(isf)%ice_sfluxt
+      sea%sfluxt(iws) = (1.0 - sea%seaicec(iws)) * sea%sea_sfluxt(iws) &
+                             + sea%seaicec(iws)  * sea%ice_sfluxt(iws)
 
-      seaflux(isf)%sfluxr = (1.0 - sea%seaicec(iws)) * seaflux(isf)%sea_sfluxr + &
-                                   sea%seaicec(iws)  * seaflux(isf)%ice_sfluxr
+      sea%sfluxr(iws) = (1.0 - sea%seaicec(iws)) * sea%sea_sfluxr(iws) &
+                             + sea%seaicec(iws)  * sea%ice_sfluxr(iws)
 
    else
-      
-      vkmsfc              = vkmsfcs
-      seaflux(isf)%ustar  = seaflux(isf)%sea_ustar 
-      seaflux(isf)%ggaer  = seaflux(isf)%sea_ggaer 
-      seaflux(isf)%sfluxt = seaflux(isf)%sea_sfluxt
-      seaflux(isf)%sfluxr = seaflux(isf)%sea_sfluxr
 
-      vkmsfci                 = 0.0
-      seaflux(isf)%ice_ustar  = 0.0
-      seaflux(isf)%ice_ggaer  = 0.0
-      seaflux(isf)%ice_sfluxt = 0.0
-      seaflux(isf)%ice_sfluxr = 0.0
+      sea%vkmsfc(iws) = sea%sea_vkmsfc(iws)
+      sea%ustar (iws) = sea%sea_ustar (iws)
+      sea%ggaer (iws) = sea%sea_ggaer (iws)
+      sea%sfluxt(iws) = sea%sea_sfluxt(iws)
+      sea%sfluxr(iws) = sea%sea_sfluxr(iws)
+
+      sea%ice_vkmsfc(iws) = 0.0
+      sea%ice_ustar (iws) = 0.0
+      sea%ice_ggaer (iws) = 0.0
+      sea%ice_sfluxt(iws) = 0.0
+      sea%ice_sfluxr(iws) = 0.0
       
    endif
 
-! Add flux contributions to IW atmospheric column
+! Store atmospheric properties and flux contributions in SEA cell
 
-   vkm_sfc (ks,iw) = vkm_sfc(ks,iw)  + arf_kw   * vkmsfc
-   ustar      (iw) = ustar  (iw)     + arf_atm  * seaflux(isf)%ustar 
-   sflux_t    (iw) = sflux_t(iw)     + arf_atm  * seaflux(isf)%sfluxt * exneri
-   sflux_r    (iw) = sflux_r(iw)     + arf_atm  * seaflux(isf)%sfluxr
-   sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dtf * seaflux(isf)%sfluxt * exneri
-   sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dtf * seaflux(isf)%sfluxr
+   sea%sxfer_t    (iws) = dtlm(1) * sea%sfluxt    (iws)
+   sea%sea_sxfer_t(iws) = dtlm(1) * sea%sea_sfluxt(iws)
+   sea%ice_sxfer_t(iws) = dtlm(1) * sea%ice_sfluxt(iws)
 
-! Store atmospheric properties and flux contributions in SEAFLUX cell
+   sea%sxfer_r    (iws) = dtlm(1) * sea%sfluxr    (iws)
+   sea%sea_sxfer_r(iws) = dtlm(1) * sea%sea_sfluxr(iws)
+   sea%ice_sxfer_r(iws) = dtlm(1) * sea%ice_sfluxr(iws)
 
-   seaflux(isf)%rhos        =       rho(kw,iw)
-   seaflux(isf)%airtemp     =       tair(kw,iw)
-   seaflux(isf)%airshv      =       sh_vc
-
-   seaflux(isf)%sxfer_t     = dtf * seaflux(isf)%sfluxt
-   seaflux(isf)%sxfer_r     = dtf * seaflux(isf)%sfluxr
-   seaflux(isf)%sxfer_c     = 0.
-
-   seaflux(isf)%sea_sxfer_t = dtf * seaflux(isf)%sea_sfluxt
-   seaflux(isf)%sea_sxfer_r = dtf * seaflux(isf)%sea_sfluxr
-
-   seaflux(isf)%ice_sxfer_t = dtf * seaflux(isf)%ice_sfluxt
-   seaflux(isf)%ice_sxfer_r = dtf * seaflux(isf)%ice_sfluxr
+   sea%sxfer_c    (iws) = dtlm(1) * sea%sfluxc    (iws)
 
 enddo
+!$omp end parallel do
 
-! Do parallel send of TURBULENT fluxes and ATM properties for SEA cells
+!$omp parallel do private(iw, nsea, ka, jws, iws, kw, &
+!$omp                     arf_iw, arf_kw, area_dt, ks, exneri)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+   nsea = itab_w(iw)%nsea
+   ka = lpw(iw)
 
-if (iparallel == 1) call mpi_send_wsf('T',mrl)
+   do jws = 1,nsea
+      iws = itab_w(iw)%isea(jws)
+      kw  = itab_ws(iws)%kw
+      arf_iw  = itab_ws(iws)%arf_iw     ! sea cell area frac of atm IW col
+      arf_kw  = itab_ws(iws)%arf_kw     ! sea cell area frac of atm (KW,IW)
+                                        !    cell contact with surface
+      area_dt = sea%area(iws) * dtlm(1) ! sea cell area * timestep [m^2 * s]
 
-call rsub('JSEAFLUX',1)
+      ks = kw - ka + 1
+
+! Add flux contributions to IW atmospheric column
+
+      exneri = theta(kw,iw) / tair(kw,iw)
+
+      ustar      (iw) = ustar      (iw) + arf_iw  * sea%ustar (iws) 
+       sfluxt    (iw) = sfluxt     (iw) + arf_iw  * sea%sfluxt(iws) * exneri
+       sfluxr    (iw) = sfluxr     (iw) + arf_iw  * sea%sfluxr(iws)
+      vkm_sfc (ks,iw) = vkm_sfc (ks,iw) + arf_kw  * sea%vkmsfc(iws)
+      sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dt * sea%sfluxt(iws) * exneri
+      sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dt * sea%sfluxr(iws)
+   enddo
+enddo
+!$omp end parallel do
 
 ! Fluxes with LAND cells
 
 ! 1. Evaluate turbulent surface fluxes between atmosphere columns and LAND cells
 ! 2. Add flux contribution from each flux cell to atmosphere columns
-! 3. Store fluxes and atmospheric properties in LANDFLUX cells
+! 3. Store fluxes and atmospheric properties in LAND cells
 
-call psub()
 !----------------------------------------------------------------------
-do j = 1,jlandflux(1)%jend(mrl)
-   ilf = jlandflux(1)%ilandflux(j)
-   iw  = landflux(ilf)%iw         ! global index
-   iwl = landflux(ilf)%iwls       ! global index
 
-! If run is parallel, get local rank indices
+!$omp parallel do private(iw,kw,my_co2)
+do iwl = 2,mwl
 
-    if (isubdomain == 1) then
-      iw  = itabg_w (iw )%iw_myrank
-      iwl = itabg_wl(iwl)%iwl_myrank
+   iw = itab_wl(iwl)%iw
+   if (isubdomain == 1) then
+      iw = itabg_w(iw)%iw_myrank
    endif
-
-   kw           = landflux(ilf)%kw
-   dtf          = landflux(ilf)%dtf        ! timestep of flux cell [s]
-   arf_kw       = landflux(ilf)%arf_kw
-   arf_atm      = landflux(ilf)%arf_atm    ! flux cell to atm cell area ratio
-   arf_land     = landflux(ilf)%arf_sfc    ! flux cell to land cell area ratio
-   area_dtf     = landflux(ilf)%area * dtf ! flux cell area * timestep [m^2 * s]
-
-   ka = lpw(iw)
-   ks = kw - ka + 1
+   kw = itab_wl(iwl)%kw
 
 !----------------------------------------------------------------------
-   call qsub('LF1',iw)
 
-   vels   = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
-   exneri = theta(kw,iw) / tair(kw,iw)
+! Calculate turbulent fluxes between atmosphere and "land canopy"
+
+   land%prss   (iwl) = real(press(kw,iw))
+   land%vels   (iwl) = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
+   land%rhos   (iwl) = real(rho(kw,iw))
+   land%airtemp(iwl) = tair(kw,iw)
 
    if (allocated(sh_c)) then
-      sh_vc = sh_v(kw,iw) + sh_c(kw,iw)
+      land%airshv(iwl) = sh_v(kw,iw) + sh_c(kw,iw)
    else
-      sh_vc = sh_v(kw,iw)
+      land%airshv(iwl) = sh_v(kw,iw)
    endif
 
 ! Calculate turbulent fluxes between atmosphere and land canopy
 
    if (land%ed_flag(iwl) == 0) then
 
-      call stars(zt(kw)-zm(kw-1),      &
-                 land%rough    (iwl),  &
-                 vels,                 &
-                 rho         (kw,iw),  &
-                 tair        (kw,iw),  &
-                 sh_vc,                &
-                 land%can_temp (iwl),  &
-                 land%can_shv  (iwl),  &
-                 vkmsfc,               &
-                 landflux(ilf)%sfluxt, &
-                 landflux(ilf)%sfluxr, &
-                 landflux(ilf)%ustar,  &
-                 landflux(ilf)%ggaer   )
+      call stars(zt(kw)-zm(kw-1), &
+               land%rough  (iwl), &
+               land%vels   (iwl), &
+               land%rhos   (iwl), &
+               land%airtemp(iwl), &
+               land%airshv (iwl), &
+               land%cantemp(iwl), &
+               land%canshv (iwl), &
+               land%vkmsfc (iwl), &
+               land%sfluxt (iwl), &
+               land%sfluxr (iwl), & 
+               land%ustar  (iwl), &
+               land%ggaer  (iwl)  )
 
-      landflux(ilf)%sfluxc = 0.
-      ed_zeta = 0.
-      ed_rib  = 0.
+      land%sfluxc (iwl) = 0.
+      land%ed_zeta(iwl) = 0.
+      land%ed_rib (iwl) = 0.
 
    else
 
@@ -383,187 +369,74 @@ do j = 1,jlandflux(1)%jend(mrl)
       ! Someday we may track CO2 in OLAM...
       call get_ed2_atm_co2(iwl,my_co2)
 
-      call ed_stars_wrapper(iwl, zt(kw)-zm(kw-1),      &
-           vels,                 &
-           rho         (kw,iw),  &
-           tair        (kw,iw),  &
-           sh_vc,                &
-           my_co2,               &
-           vkmsfc,               &
-           landflux(ilf)%sfluxt, &
-           landflux(ilf)%sfluxr, &
-           landflux(ilf)%sfluxc, &
-           landflux(ilf)%ustar,  &
-           ed_zeta, ed_rib,      &
-           landflux(ilf)%ggaer   )
+      call ed_stars_wrapper(iwl, zt(kw)-zm(kw-1), &
+           land%vels   (iwl), &
+           land%rhos   (iwl), &
+           land%airtemp(iwl), &
+           land%airshv (iwl), &
+           my_co2,            &
+           land%vkmsfc (iwl), &
+           land%sfluxt (iwl), &
+           land%sfluxr (iwl), & 
+           land%sfluxc (iwl), &
+           land%ustar  (iwl), &
+           land%ed_zeta(iwl), &
+           land%ed_rib (iwl), &
+           land%ggaer  (iwl)  )
+
 #endif
 
    endif
 
+! Store flux contributions in LAND cell
+
+   land%sxfer_t(iwl) = dtlm(1) * land%sfluxt(iwl)
+   land%sxfer_r(iwl) = dtlm(1) * land%sfluxr(iwl)
+   land%sxfer_c(iwl) = dtlm(1) * land%sfluxc(iwl)
+
+enddo
+!$omp end parallel do
+
+!$omp parallel do private(iw, nland, ka, jwl, iwl, kw, &
+!$omp                     arf_iw, arf_kw, area_dt, ks, exneri) 
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+   nland = itab_w(iw)%nland
+   ka = lpw(iw)
+
+   do jwl = 1,nland
+      iwl = itab_w(iw)%iland(jwl)
+      kw      = itab_wl(iwl)%kw
+      arf_iw  = itab_wl(iwl)%arf_iw      ! land cell area frac of atm IW col
+      arf_kw  = itab_wl(iwl)%arf_kw      ! land cell area frac of atm (KW,IW)
+                                         !    cell contact with surface
+      area_dt = land%area(iwl) * dtlm(1) ! land cell area * timestep [m^2 * s]
+
+      ks = kw - ka + 1
+
 ! Add flux contributions to IW atmospheric column
 
-   vkm_sfc(ks,iw)  = vkm_sfc(ks,iw)  + arf_kw   * vkmsfc
-   ustar  (iw)     = ustar  (iw)     + arf_atm  * landflux(ilf)%ustar
-   sflux_t(iw)     = sflux_t(iw)     + arf_atm  * landflux(ilf)%sfluxt * exneri
-   sflux_r(iw)     = sflux_r(iw)     + arf_atm  * landflux(ilf)%sfluxr
-   sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dtf * landflux(ilf)%sfluxt * exneri
-   sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dtf * landflux(ilf)%sfluxr
+      exneri = theta(kw,iw) / tair(kw,iw)
 
-! Store atmospheric properties and flux contributions in LANDFLUX cell
+      ustar      (iw) = ustar      (iw) + arf_iw  * land%ustar (iwl) 
+      sfluxt     (iw) = sfluxt     (iw) + arf_iw  * land%sfluxt(iwl) * exneri
+      sfluxr     (iw) = sfluxr     (iw) + arf_iw  * land%sfluxr(iwl)
+      vkm_sfc (ks,iw) = vkm_sfc (ks,iw) + arf_kw  * land%vkmsfc(iwl)
+      sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dt * land%sfluxt(iwl) * exneri
+      sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dt * land%sfluxr(iwl)
 
-   landflux(ilf)%vels    =       vels
-   landflux(ilf)%prss    =       press(kw,iw)
-   landflux(ilf)%rhos    =       rho(kw,iw)
-   landflux(ilf)%airtemp =       tair(kw,iw)
-   landflux(ilf)%airshv  =       sh_vc
-
-   landflux(ilf)%sxfer_t = dtf * landflux(ilf)%sfluxt
-   landflux(ilf)%sxfer_r = dtf * landflux(ilf)%sfluxr
-   landflux(ilf)%sxfer_c = dtf * landflux(ilf)%sfluxc
-   landflux(ilf)%ed_zeta =       ed_zeta
-   landflux(ilf)%ed_rib  =       ed_rib
-
+   enddo
 enddo
-
-! Do parallel send of TURBULENT fluxes and ATM properties
-
-if (iparallel == 1) call mpi_send_wlf('T',mrl)
-
-call rsub('JLANDFLUX',1)
-
-! Zero out sea-cell and land-cell copies of atmospheric properties prior 
-! to summation over flux cells.
-! THUS, RHOS, VELS, PRSS, AND USTAR ARE ONLY SUMMED OVER SPACE, BUT NOT OVER TIME.
-
-! (ON THE OTHER HAND, LAND%SXFER_T, LAND%SXFER_R, SEA%SXFER_T, AND SEA%SXFER_R
-! ARE SUMMED OVER BOTH SPACE AND TIME; THEY ARE NOT RESET TO ZERO HERE BUT INSTEAD
-! IN LEAF OR SEA AFTER THEY ARE TRANSFERRED TO THE LEAF OR SEA CANOPY.)
-
-! Loop over all SEA cells
-
-do iws = 2,mws
-
-! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
-
-   if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
-
-   sea%rhos     (iws) = 0.
-   sea%ustar    (iws) = 0.
-   sea%sea_ustar(iws) = 0.
-   sea%ice_ustar(iws) = 0.
-   sea%ggaer    (iws) = 0.
-   sea%sea_ggaer(iws) = 0.
-   sea%ice_ggaer(iws) = 0.
-
-enddo
-
-! Loop over ALL LAND cells
-
-do iwl = 2,mwl
-
-! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
-
-   if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
-
-   land%ustar  (iwl) = 0.
-   land%rhos   (iwl) = 0.
-   land%prss   (iwl) = 0.
-   land%vels   (iwl) = 0.
-   land%ggaer  (iwl) = 0.
-   land%ed_zeta(iwl) = 0.
-   land%ed_rib (iwl) = 0.
-enddo
-
-! Sum fluxes for SEA cells
-
-call psub()
-!----------------------------------------------------------------------
-! Do parallel recv of TURBULENT fluxes and ATM properties for SEA cells
-
-if (iparallel == 1) call mpi_recv_wsf('T',mrl)
-
-do j = 1,jseaflux(2)%jend(mrl)
-   isf = jseaflux(2)%iseaflux(j)
-   iws = seaflux(isf)%iwls        ! global index
-
-! If run is parallel, get local rank indices
-
-   if (isubdomain == 1) then
-      iws = itabg_ws(iws)%iws_myrank
-   endif
-!----------------------------------------------------------------------
-   call qsub('SF',isf)
-
-   arf_sea  = seaflux(isf)%arf_sfc    ! area ratio of flux cell to sea cell
-
-   sea%rhos(iws)        = sea%rhos(iws)        + arf_sea * seaflux(isf)%rhos
-
-   sea%ustar    (iws)   = sea%ustar    (iws)   + arf_sea * seaflux(isf)%ustar
-   sea%sea_ustar(iws)   = sea%sea_ustar(iws)   + arf_sea * seaflux(isf)%sea_ustar
-   sea%ice_ustar(iws)   = sea%ice_ustar(iws)   + arf_sea * seaflux(isf)%ice_ustar
-
-   sea%sxfer_t    (iws) = sea%sxfer_t    (iws) + arf_sea * seaflux(isf)%sxfer_t
-   sea%sea_sxfer_t(iws) = sea%sea_sxfer_t(iws) + arf_sea * seaflux(isf)%sea_sxfer_t
-   sea%ice_sxfer_t(iws) = sea%ice_sxfer_t(iws) + arf_sea * seaflux(isf)%ice_sxfer_t
-
-   sea%sxfer_r    (iws) = sea%sxfer_r    (iws) + arf_sea * seaflux(isf)%sxfer_r
-   sea%sea_sxfer_r(iws) = sea%sea_sxfer_r(iws) + arf_sea * seaflux(isf)%sea_sxfer_r
-   sea%ice_sxfer_r(iws) = sea%ice_sxfer_r(iws) + arf_sea * seaflux(isf)%ice_sxfer_r
-
-   sea%sxfer_c(iws)     = sea%sxfer_c(iws)     + arf_sea * seaflux(isf)%sxfer_c
-
-   sea%ggaer    (iws)   = sea%ggaer    (iws)   + arf_sea * seaflux(isf)%ggaer
-   sea%sea_ggaer(iws)   = sea%sea_ggaer(iws)   + arf_sea * seaflux(isf)%sea_ggaer
-   sea%ice_ggaer(iws)   = sea%ice_ggaer(iws)   + arf_sea * seaflux(isf)%ice_ggaer
-
-enddo
-call rsub('JSEAFLUX',2)
-
-! Sum atmospheric properties and fluxes for land cells
-
-call psub()
-!----------------------------------------------------------------------
-! Do parallel recv of landflux TURBULENT fluxes and ATM properties for land cells
-
-if (iparallel == 1) call mpi_recv_wlf('T',mrl)
-
-do j = 1,jlandflux(2)%jend(mrl)
-   ilf = jlandflux(2)%ilandflux(j)
-   iwl = landflux(ilf)%iwls        ! global index
-
-! If run is parallel, get local rank indices
-
-   if (isubdomain == 1) then
-      iwl = itabg_wl(iwl)%iwl_myrank
-   endif
-
-!----------------------------------------------------------------------
-   call qsub('LF',iw)
-
-   arf_land  = landflux(ilf)%arf_sfc    ! area ratio of flux cell to land cell
-
-   land%rhos     (iwl) = land%rhos     (iwl) + arf_land * landflux(ilf)%rhos
-   land%vels     (iwl) = land%vels     (iwl) + arf_land * landflux(ilf)%vels
-   land%prss     (iwl) = land%prss     (iwl) + arf_land * landflux(ilf)%prss
-   land%sxfer_t  (iwl) = land%sxfer_t  (iwl) + arf_land * landflux(ilf)%sxfer_t
-   land%sxfer_r  (iwl) = land%sxfer_r  (iwl) + arf_land * landflux(ilf)%sxfer_r
-   land%sxfer_c  (iwl) = land%sxfer_c  (iwl) + arf_land * landflux(ilf)%sxfer_c
-   land%ustar    (iwl) = land%ustar    (iwl) + arf_land * landflux(ilf)%ustar
-   land%ggaer    (iwl) = land%ggaer    (iwl) + arf_land * landflux(ilf)%ggaer
-   land%ed_zeta  (iwl) = land%ed_zeta  (iwl) + arf_land * landflux(ilf)%ed_zeta
-   land%ed_rib   (iwl) = land%ed_rib   (iwl) + arf_land * landflux(ilf)%ed_rib
-
-enddo
-call rsub('JLANDFLUX',2)
+!$omp end parallel do
 
 ! Compute some derived surface quantities
 
+!$omp parallel do private(iw,ka)
 do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
    ka = lpw(iw)
    
-   wtv0(iw) = sflux_t(iw) * (1. + .61 * sh_v(ka,iw)) &
-            + sflux_r(iw) * .61 * theta(ka,iw)
+   wtv0(iw) = sfluxt(iw) * (1. + .61 * sh_v(ka,iw)) &
+            + sfluxr(iw) * .61 * theta(ka,iw)
 
    if (wtv0(iw) > 0.0) then
       wstar(iw) = (grav * pblh(iw) * wtv0(iw) / theta(ka,iw)) ** 0.33333333
@@ -572,6 +445,7 @@ do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    endif
 
 enddo
+!$omp end parallel do
 
 return
 end subroutine surface_turb_flux
@@ -579,7 +453,7 @@ end subroutine surface_turb_flux
 !===============================================================================
 
 subroutine stars(zts, rough, vels, rhos, airtemp, sh_vs, cantemp, &
-                 can_shv, vkmsfc, sfluxt, sfluxr, ustar0, ggaero  )
+                 canshv, vkmsfc, sfluxt, sfluxr, ustar0, ggaero  )
 
 ! Subroutine stars computes surface heat and vapor fluxes and momentum drag
 ! coefficient from Louis (1981) equations
@@ -597,9 +471,9 @@ real, intent(in) :: vels      ! atmos near-surface wind speed [m/s]
 real, intent(in) :: airtemp   ! atmos near-surface temp [K]
 real, intent(in) :: sh_vs     ! atmos near-surface vapor spec hum [kg_vap/m^3]
 real, intent(in) :: cantemp   ! canopy air temp [K]
-real, intent(in) :: can_shv   ! canopy air vapor spec hum [kg_vap/m^3]
+real, intent(in) :: canshv   ! canopy air vapor spec hum [kg_vap/m^3]
 
-real(kind=8), intent(in) :: rhos  ! atmos near-surface density [kg/m^3]
+real, intent(in) :: rhos  ! atmos near-surface density [kg/m^3]
 
 ! Output variables
 
@@ -661,7 +535,7 @@ endif
 ustar0 = max(ustmin,sqrt(c1 * vels0 * fm))
 c3 = c1 * fh / ustar0
 tstar = c3 * (airtemp - cantemp)
-rstar = c3 * (sh_vs - can_shv)
+rstar = c3 * (sh_vs - canshv)
 
 vtscr = ustar0 * rhos
 
@@ -681,27 +555,23 @@ end subroutine stars
 
 subroutine surface_cuparm_flux()
 
-use mem_sflux,   only: jlandflux, landflux
 use mem_cuparm,  only: conprr
 use mem_leaf,    only: land, itabg_wl, itab_wl
 use mem_ijtabs,  only: istp, mrl_begl, itabg_w
 use consts_coms, only: cliq, alli, t00
 use mem_basic,   only: tair, rho, sh_v
-use leaf_coms,   only: mwl, dt_leaf, mrl_leaf
-use misc_coms,   only: io6, iparallel, isubdomain
+use leaf_coms,   only: mwl, mrl_leaf
+use misc_coms,   only: io6, isubdomain, dtlm
 use mem_para,    only: myrank
 use ed_misc_coms,only: ed2_active
 
 implicit none
 
-integer :: ilf
 integer :: mrl
-integer :: j
 integer :: iw
 integer :: iwl
 integer :: kw
 
-real :: arf_land
 real :: airtempc
 real :: tempc
 
@@ -716,27 +586,19 @@ real, external :: rhovsl
 !    3. For mrl <= mrl_leaf, do fluxes at beginning of long timestep 
 !                            for all points in mrl = 1
 
-call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begl(istp)
 if (mrl > 0 .and. mrl <= mrl_leaf) then
 
-   mrl = 1  ! special mrl set for leaf
+do iwl = 2,mwl
 
-   do j = 1,jlandflux(1)%jend(mrl)
-      ilf = jlandflux(1)%ilandflux(j)
-!----------------------------------------------------------------------
-   call qsub('LF',iw)
-
-   iw = landflux(ilf)%iw  ! global index
-
-! If run is parallel, get local rank indices
-
+   iw = itab_wl(iwl)%iw
    if (isubdomain == 1) then
       iw = itabg_w(iw)%iw_myrank
    endif
 
-   kw = landflux(ilf)%kw
+   kw = itab_wl(iwl)%kw
+!----------------------------------------------------------------------
 
 ! Compute air temperature in C
 
@@ -748,52 +610,9 @@ if (mrl > 0 .and. mrl <= mrl_leaf) then
    tempc = airtempc - min(25.,  &
        700. * (rhovsl(airtempc) / real(rho(kw,iw)) - sh_v(kw,iw)))
 
-! dt_leaf is correct timestep in next lines since this subroutine is called at
-! same frequency as leaf timestep   
-
-   landflux(ilf)%pcpg  = dt_leaf * conprr(iw)
-   landflux(ilf)%qpcpg = dt_leaf * conprr(iw) * (cliq * tempc + alli)
-   landflux(ilf)%dpcpg = dt_leaf * conprr(iw) * .001
-
-enddo
-
-! Do parallel send/recv of CUPARM FLUXES
-
-if (iparallel == 1) then
-  call mpi_send_wlf('C',mrl)
-  call mpi_recv_wlf('C',mrl)
-endif
-
-endif
-call rsub('JLANDFLUX_cuparm',1)
-
-! Sum landflux cell precipitation to get land cell precipitation
-
-call psub()
-!----------------------------------------------------------------------
-mrl = mrl_begl(istp)
-if (mrl > 0 .and. mrl <= mrl_leaf) then
-
-mrl = 1  ! special mrl set for leaf
-
-do j = 1,jlandflux(2)%jend(mrl)
-   ilf = jlandflux(2)%ilandflux(j)
-!----------------------------------------------------------------------
-   call qsub('LF',iw)
-
-   iwl = landflux(ilf)%iwls ! global index
-
-! If run is parallel, get local rank indices
-
-   if (isubdomain == 1) then
-      iwl = itabg_wl(iwl)%iwl_myrank
-   endif
-
-   arf_land = landflux(ilf)%arf_sfc
-
-   land%pcpg (iwl) = land%pcpg (iwl) + arf_land * landflux(ilf)%pcpg
-   land%qpcpg(iwl) = land%qpcpg(iwl) + arf_land * landflux(ilf)%qpcpg
-   land%dpcpg(iwl) = land%dpcpg(iwl) + arf_land * landflux(ilf)%dpcpg
+   land%pcpg (iwl) = dtlm(1) * conprr(iw)
+   land%qpcpg(iwl) = dtlm(1) * conprr(iw) * (cliq * tempc + alli)
+   land%dpcpg(iwl) = dtlm(1) * conprr(iw) * .001
 
 enddo
 
@@ -804,7 +623,6 @@ endif
 #endif
 
 endif
-call rsub('JLANDFLUX_cuparm',2)
 
 ! WILL NEED TO ADD SEA LOOP HERE WHEN OCEAN MODEL IS COUPLED WITH OLAM
 
@@ -815,25 +633,19 @@ end subroutine surface_cuparm_flux
 
 subroutine surface_precip_flux()
 
-use mem_sflux,   only: jlandflux, landflux
 use mem_micro,   only: pcpgr, qpcpgr, dpcpgr
 use mem_leaf,    only: land, itabg_wl, itab_wl
 use mem_ijtabs,  only: istp, mrl_endl, itabg_w
 use leaf_coms,   only: mwl, mrl_leaf
-use misc_coms,   only: io6, iparallel, isubdomain
+use misc_coms,   only: io6, isubdomain, dtlm
 use mem_para,    only: myrank
 use ed_misc_coms,only: ed2_active
 
 implicit none
 
-integer :: j
-integer :: ilf
 integer :: iw
 integer :: iwl
 integer :: mrl
-
-real :: dtf
-real :: arf_land
 
 ! Subroutine to transfer atmospheric microphysics parameterization 
 ! precipitation flux to leaf land cells.
@@ -844,71 +656,23 @@ real :: arf_land
 !    3. For mrl <= mrl_leaf, do fluxes at end of long timestep
 !                            for all points in mrl = 1
 
-call psub()
 !----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 
 if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
 
-do j = 1,jlandflux(1)%jend(mrl)
-   ilf = jlandflux(1)%ilandflux(j)
+do iwl = 2,mwl
 !----------------------------------------------------------------------
-call qsub('LF',iw)
 
-   iw = landflux(ilf)%iw  ! global index
-
-! If run is parallel, get local rank indices
-
+   iw = itab_wl(iwl)%iw
    if (isubdomain == 1) then
       iw = itabg_w(iw)%iw_myrank
    endif
 
-   dtf = landflux(ilf)%dtf
-
-   landflux(ilf)%pcpg  = dtf * pcpgr(iw)
-   landflux(ilf)%qpcpg = dtf * qpcpgr(iw)
-   landflux(ilf)%dpcpg = dtf * dpcpgr(iw)
-
-enddo
-
-! Do parallel send/recv of MICPHYS PRECIP FLUXES
-
-if (iparallel == 1) then
-   call mpi_send_wlf('M',mrl)
-   call mpi_recv_wlf('M',mrl)
-endif
-
-endif
-call rsub('JLANDFLUX_pcp',1)
-
-! Sum landflux cell precipitation to get land cell precipitation
-
-call psub()
-!----------------------------------------------------------------------
-mrl = mrl_endl(istp)
-if (mrl > 0) then
-
-if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
-
-do j = 1,jlandflux(2)%jend(mrl)
-   ilf = jlandflux(2)%ilandflux(j)
-!----------------------------------------------------------------------
-call qsub('LF',iw)
-
-   iwl = landflux(ilf)%iwls ! global index
-
-! If run is parallel, get local rank indices
-
-   if (isubdomain == 1) then
-      iwl = itabg_wl(iwl)%iwl_myrank
-   endif
-
-   arf_land = landflux(ilf)%arf_sfc
-
-   land%pcpg (iwl) = land%pcpg (iwl) + arf_land * landflux(ilf)%pcpg
-   land%qpcpg(iwl) = land%qpcpg(iwl) + arf_land * landflux(ilf)%qpcpg
-   land%dpcpg(iwl) = land%dpcpg(iwl) + arf_land * landflux(ilf)%dpcpg
+   land%pcpg (iwl) = dtlm(1) * pcpgr(iw)
+   land%qpcpg(iwl) = dtlm(1) * qpcpgr(iw)
+   land%dpcpg(iwl) = dtlm(1) * dpcpgr(iw)
 
 enddo
 
@@ -919,7 +683,6 @@ endif
 #endif
 
 endif
-call rsub('JLANDFLUX_pcp',2)
 
 ! WILL NEED TO ADD SEA LOOP HERE WHEN OCEAN MODEL IS COUPLED WITH OLAM
 

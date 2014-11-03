@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine isan_driver(iaction)
 
@@ -132,41 +132,53 @@ use isan_coms, only: nprx, npry, nprz
 use mem_grid,  only: mza, mwa, mva
 use misc_coms, only: io6, runtype
 use mem_nudge, only: nudflag, nudnxp
+use consts_coms, only: r8
 
 implicit none
 
 integer, intent(in) :: iaction
 character(len=3), intent(in) :: fform
 
-! Automatic arrays
+! Define expanded arrays with 2 added rows/colums at N, S, E, and W
+! boundaries so that overlapping quadratic interpolation (in subroutine gdtost)
+! has sufficient points to work from.  Input data may be offset by 1/2 grid
+! cell from nodal latitudes and longitudes (e.g., (-180.,-90.)), in which case
+! all added points would be required.
 
-real :: p_u(nprx+3,npry+2,nprz)
-real :: p_v(nprx+3,npry+2,nprz)
-real :: p_t(nprx+3,npry+2,nprz)
-real :: p_z(nprx+3,npry+2,nprz)
-real :: p_r(nprx+3,npry+2,nprz)
+real :: p_u(nprx+4,npry+4,nprz)
+real :: p_v(nprx+4,npry+4,nprz)
+real :: p_t(nprx+4,npry+4,nprz)
+real :: p_z(nprx+4,npry+4,nprz)
+real :: p_r(nprx+4,npry+4,nprz)
 
-real(kind=8) :: o_rho   (mza,mwa)
-real         :: o_theta (mza,mwa)
-real         :: o_shv   (mza,mwa)
-real         :: o_uzonal(mza,mwa)
-real         :: o_umerid(mza,mwa)
-real         :: o_uvc   (mza,mva) ! uc or vc wind component
+real :: p_topo (nprx+4,npry+4)
+real :: p_prsfc(nprx+4,npry+4)
+real :: p_tsfc (nprx+4,npry+4)
+real :: p_shsfc(nprx+4,npry+4)
+
+real(r8) :: o_rho   (mza,mwa)
+real     :: o_theta (mza,mwa)
+real     :: o_shv   (mza,mwa)
+real     :: o_uzonal(mza,mwa)
+real     :: o_umerid(mza,mwa)
+real     :: o_vc    (mza,mva) ! vc wind component
 
 ! Read in gridded pressure-level data and copy to isan arrays
 
-call pressure_stage(fform,p_u, p_v, p_t, p_z, p_r)
+call pressure_stage(fform, p_u, p_v, p_t, p_z, p_r, &
+                    p_topo, p_prsfc, p_tsfc, p_shsfc)
 
 ! Add pressure-level data at higher levels from climatology and interpolate
 ! combined data to OLAM grid
 
 call isnstage(p_u,p_v,p_t,p_z,p_r, &
-              o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_uvc)
+              p_topo, p_prsfc, p_tsfc, p_shsfc, &
+              o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_vc)
 
 ! If initializing model, fill main model fields
 
 if (iaction == 0 .and. runtype == 'INITIAL') then
-   call fldsisan(o_rho, o_theta, o_shv, o_uvc)
+   call fldsisan(o_rho, o_theta, o_shv, o_vc)
 endif
 
 ! If nudging, prepare observational nudging fields

@@ -1,12 +1,16 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
 ! including OLAM:  
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
    ! Colorado State University Research Foundation ; ATMET, LLC 
 
    ! This software is free software; you can redistribute it and/or modify it 
@@ -25,12 +29,7 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-
 subroutine oname_check()
 
 ! THIS ROUTINE CHECKS THE OPTION SPECIFICATIONS OF THE NAMELIST
@@ -82,14 +81,13 @@ write(io6,*) ' '
 ! RUNTYPE
 !--------------------------------------------------------------------------
 
-if ( (nl%runtype /= 'MAKESFC'   ) .and. &
-     (nl%runtype /= 'MAKEGRID'  ) .and. &
+if ( (nl%runtype /= 'MAKEGRID'  ) .and. &
      (nl%runtype /= 'INITIAL'   ) .and. &
      (nl%runtype /= 'HISTORY'   ) .and. &
      (nl%runtype /= 'PLOTONLY'  ) .and. &
      (nl%runtype /= 'PARCOMBINE') ) then
    write(io6,*) " -- FATAL -- RUNTYPE = "//trim(nl%runtype)
-   write(io6,*) "             RUNTYPE must be either 'MAKESFC', 'MAKEGRID',"
+   write(io6,*) "             RUNTYPE must be either 'MAKEGRID',"
    write(io6,*) "             'INITIAL', 'HISTORY', 'PLOTONLY', or"
    write(io6,*) "             'PARCOMBINE'"
    nfatal = nfatal + 1
@@ -121,9 +119,8 @@ call ichk_bnds( nl%iyear1,   "IYEAR1",       0,    9999, 0, nfatal, nwarn )
 !--------------------------------------------------------------------------
 
 call ichk_bnds( nl%mdomain, "MDOMAIN",       0,       5, 0, nfatal, nwarn )
-call ichk_bnds( nl%meshtype,"MESHTYPE",      1,       2, 0, nfatal, nwarn )
 
-call ichk_bnds( nl%nzp,         "NZP",       3,   10000, 0, nfatal, nwarn, &
+call ichk_bnds( nl%nzp,         "NZP",       2,   10000, 0, nfatal, nwarn, &
      msgmin="At least 3 vertical levels are needed for OLAM." )
 
 call ichk_bnds( nl%nxp,         "NXP",       1,   10000, 0, nfatal, nwarn )
@@ -466,7 +463,6 @@ if (nl%isfcl == 1) then
 
    call ichk_bnds( nl%nzs, "NZS", 0, 10, 0, nfatal, nwarn )
 
-   call ichk_bnds( nl%ilandgrid,   "ILANDGRID",   1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%iseagrid,    "ISEAGRID",    1, 3, 0, nfatal, nwarn )
    call ichk_bnds( nl%ivegflg,     "IVEGFLG",     1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%isoilflg,    "ISOILFLG",    1, 2, 0, nfatal, nwarn )

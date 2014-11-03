@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module plotcolors
 
@@ -116,7 +116,7 @@ data clrtab(4)%vals(1:36)/ &
   280.,285.,290.,295.,300.,305.,310.,315.,320.,325., &
   330.,335.,340.,345.,350.,355.                      /
 
-! Table 5 (all specific humidities(g/kg); lpu,lpw)
+! Table 5 (all specific humidities(g/kg); lpv,lpw)
 
 data clrtab(5)%nvals/46/  
 data clrtab(5)%ifmt(1:2)/0,6/
@@ -983,6 +983,53 @@ data clrtab(63)%vals(1:46)/ &
      400., 420., 440., 460., 480., 500., 520., 540., 560., 580., &
      600., 620., 640., 660., 680., 700., 720., 740., 760., 780., &
      800., 820., 840., 860., 880., 900.                          /
+
+! Table 64 (CERES radiative fluxes W/m^2)
+
+data clrtab(64)%nvals/20/
+data clrtab(64)%ifmt(1:2)/0,2/
+data clrtab(64)%ipal(1:20)/ &
+   121,122,123,135, 80,  8, 18,105,109,248, &
+   250,116,119,252,253,131,144,143,142,141  /
+data clrtab(64)%vals(1:20)/ &
+       0.,  20.,  40.,  60.,  80., 100., 120., 140., 160., 180., &
+     200., 220., 240., 260., 280., 300., 320., 340., 360., 380.  /
+
+! Table 65 (integer values, cyclic)
+
+data clrtab(65)%nvals/48/  
+data clrtab(65)%ifmt(1:2)/20,0/
+data clrtab(65)%ipal(1:48)/ &
+    99, &
+   100,101,102,103,104,105,106,107,108,109, &
+   110,111,112,113,114,115,116,117,118,119, &
+   120,121,122,123,124,125,126,127,128,129, &
+   130,131,132,133,134,135,136,137,138,139, &
+   140,141,142,143,144,145,146              /
+data clrtab(65)%vals(1:48)/ &
+  -1.1, &
+  -0.1,  0.9,  1.9,  2.9,  3.9,  4.9,  5.9,  6.9,  7.9,  8.9, &
+   9.9, 10.9, 11.9, 12.9, 13.9, 14.9, 15.9, 16.9, 17.9, 18.9, &
+  19.9, 20.9, 21.9, 22.9, 23.9, 24.9, 25.9, 26.9, 27.9, 28.9, &
+  29.9, 30.9, 31.9, 32.9, 33.9, 34.9, 35.9, 36.9, 37.9, 38.9, &
+  39.9, 40.9, 41.9, 42.9, 43.9, 44.9, 45.9                    /
+
+! Table 66 (250 mb height)
+
+data clrtab(66)%nvals/46/  
+data clrtab(66)%ifmt(1:2)/0,3/
+data clrtab(66)%ipal(1:46)/ &
+   100,101,102,103,104,105,106,107,108,109, &
+   110,111,112,113,114,115,116,117,118,119, &
+   120,121,122,123,124,125,126,127,128,129, &
+   130,131,132,133,134,135,136,137,138,139, &
+   140,141,142,143,144,145                  /
+data clrtab(66)%vals(1:46)/ &
+    8780., 8840., 8900., 8960., 9020., 9080., 9140., 9200., 9260., 9320., &
+    9380., 9440., 9500., 9560., 9620., 9680., 9740., 9800., 9860., 9920., &
+    9980.,10040.,10100.,10160.,10220.,10280.,10340.,10400.,10460.,10520., &
+   10580.,10640.,10700.,10760.,10820.,10880.,10940.,11000.,11060.,11120., &
+   11180.,11240.,11300.,11360.,11420.,11480.                              /
 
 !----------------------------------------------------------------------------
 ! COLORTABLES 100-199: LINEAR SCALING WITH NEGATIVE VALUES
@@ -1859,6 +1906,19 @@ data clrtab(164)%vals(1:20)/ &
     -2.7,-2.4,-2.1,-1.8,-1.5,-1.2, -.9, -.6, -.3, .0, &
       .3,  .6,  .9, 1.2, 1.5, 1.8, 2.1, 2.4, 2.7,3.0  /
     
+! Table 165 (D_THIL, D_THETA for micsgs)
+
+data clrtab(165)%nvals/22/
+data clrtab(165)%ifmt(1:2)/1,6/
+data clrtab(165)%ipal(1:22)/ &
+    29, 28, 27, 26, 25, 24, 23, 22, 21, 20, &
+     7, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
+    59,133                                  /
+data clrtab(165)%vals(1:22)/ &
+   -10.0, -9.0, -8.0, -7.0, -6.0, -5.0, -4.0, -3.0, -2.0, -1.0, &
+     1.0,  2.0,  3.0,  4.0,  5.0,  6.0,  7.0,  8.0,  9.0, 10.0, &
+    11.0, 12.0                                                  /
+    
 !----------------------------------------------------------------------------
 ! COLORTABLES 200-299: EXPONENTIAL SCALING WITH NO NEGATIVE VALUES
 !----------------------------------------------------------------------------
@@ -1883,7 +1943,7 @@ data clrtab(200)%vals(1:26)/ &
 
 ! Table 201 (roughness height [m],
 !           sfcwater_depth [m],
-!           sflux_u,v,w [N/m^2],
+!           sfluxv,w [N/m^2],
 !           veg_water [kg/m^2] 
 
 data clrtab(201)%nvals/20/ 
@@ -1895,7 +1955,7 @@ data clrtab(201)%vals(1:20)/ &
      0., 1.e-5, 2.e-5, 5.e-5, 1.e-4, 2.e-4, 5.e-4, 1.e-3, 2.e-3, 5.e-3, &
   1.e-2, 2.e-2, 5.e-2, 1.e-1, 2.e-1, 5.e-1,  1.e0, 2.e0 , 5.e0 , 1.e1   /
 
-! Table 202 (ARU, ARW, VOLT, VOLU, VOLW)
+! Table 202 (ARV, ARW, VOLT)
 
 data clrtab(202)%nvals/46/
 data clrtab(202)%ifmt(1:2)/-1,-6/
@@ -2073,6 +2133,31 @@ data clrtab(308)%vals(1:22)/ &
        0., 1.e-7, 2.e-7, 5.e-7, 1.e-6, 2.e-6, 5.e-6, 1.e-5, 2.e-5, 5.e-5, &
     1.e-4, 2.e-4                                                          /
 
+! Table 309 (general +/- exponential) 
+
+data clrtab(309)%nvals/22/
+data clrtab(309)%ifmt(1:2)/-1,-4/
+data clrtab(309)%ipal(1:22)/ &
+    39, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
+    20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
+    59, 69                                  /
+data clrtab(309)%vals(1:22)/ &
+    -1.e2, -5.e1, -2.e1, -1.e1,-5.e0,-2.e0,-1.e0,-5.e-1,-2.e-1,-1.e-1, &
+       0., 1.e-1, 2.e-1, 5.e-1, 1.e0, 2.e0, 5.e0,  1.e1,  2.e1,  5.e1, &
+     1.e2,  2.e2                                                       /
+
+! Table 310 (general +/- exponential) 
+
+data clrtab(310)%nvals/21/
+data clrtab(310)%ifmt(1:2)/-1,-4/
+data clrtab(310)%ipal(1:21)/ &
+    39, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
+     7, 51, 52, 53, 54, 55, 56, 57, 58, 59, &
+    69                                      /
+data clrtab(310)%vals(1:21)/ &
+    -1.e1, -5.e0, -2.e0, -1.e0,-5.e-1,-2.e-1,-1.e-1,-5.e-2,-2.e-2,-1.e-2, &
+    1.e-2, 2.e-2, 5.e-2, 1.e-1, 2.e-1, 5.e-1,  1.e0,  2.e0,  5.e0,  1.e1, &
+     2.e1                                                                 /
 
 !----------------------------------------------------------------------------
 ! COLORTABLES 400-499: IRREGULAR SCALING
@@ -2407,6 +2492,34 @@ data clrtab(421)%vals(1:12)/ &
     0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, &
    10.0,99.0 /
 
+! Table 422 (all specific humidities(g/kg))
+
+data clrtab(422)%nvals/28/  
+data clrtab(422)%ifmt(1:2)/1,6/
+data clrtab(422)%ipal(1:28)/ &
+   100,101,102,103,104,105,106,107,108,109, &
+   110,111,112,113,114,115,116,117,118,119, &
+   120,121,122,123,124,125,126,127          /
+data clrtab(422)%vals(1:28)/ &
+   0.1, 0.2, 0.5,  1.,  2.,  3.,  4.,  5.,  6.,  7., &
+    8.,  9., 10., 11., 12., 13., 14., 15., 16., 17., &
+   18., 19., 20., 21., 22., 23., 24., 25.            /
+
+! Table 423 (all specific humidities(g/kg))
+
+data clrtab(423)%nvals/31/  
+data clrtab(423)%ifmt(1:2)/2,6/
+data clrtab(423)%ipal(1:31)/ &
+   100,101,102,103,104,105,106,107,108,109, &
+   110,111,112,113,114,115,116,117,118,119, &
+   120,121,122,123,124,125,126,127,128,129, &
+   130                                      /
+data clrtab(423)%vals(1:31)/ &
+    .01, .02, .05, 0.1, 0.2, 0.5,  1.,  2.,  3.,  4., &
+     5.,  6.,  7.,  8.,  9., 10., 11., 12., 13., 14., &
+    15., 16., 17., 18., 19., 20., 21., 22., 23., 24., &
+    25.                                               /
+
 Contains
 
 !===============================================================================
@@ -2433,6 +2546,7 @@ Contains
    call o_hls(iwk,15,290., 90., 70.)  ! blue-green for canopy air
    call o_hls(iwk,16,150., 60.,100.)  ! orange
    call o_hls(iwk,17,150., 50., 50.)  ! brown
+   call o_hls(iwk,18,340., 80.,100.)  ! light blue
 
 ! Finer shades
 

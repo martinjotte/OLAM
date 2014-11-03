@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module obnd
 
@@ -52,18 +52,18 @@ integer :: n
 do n = 2, num_scalar
 
    call latsett(scalar_tab(n)%var_p)
-   call topbots(scalar_tab(n)%var_p)
+   call botset(scalar_tab(n)%var_p)
 
 enddo
 
 ! THETA and SH_V
 
 call latsett(theta)
-call topbots(theta)
+call botset(theta)
 
 if (level >= 1) then
    call latsett(sh_v)
-   call topbots(sh_v)
+   call botset(sh_v)
 endif
 
 return
@@ -85,32 +85,27 @@ integer :: j,iw,iwp,k,mrl
 
 ! LBC for scalars (usually cyclic)
 
-call psub()
 !----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
    iwp = itab_w(iw)%iwp
 !----------------------------------------------------------------------
-call qsub('W',iw)
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       sclr(k,iw) = sclr(k,iwp)
    enddo
 enddo
 endif
-call rsub('W',31)
 
 return
 end subroutine latsett
 
 !===============================================================================
 
-subroutine topbots(sclr)
+subroutine botset(sclr)
 
 use mem_ijtabs, only: jtab_w, istp, mrl_endl, jtw_prog
 use mem_grid,   only: mza, mwa, lpw
-
-!$ use omp_lib
 
 implicit none
 
@@ -120,16 +115,12 @@ integer :: iw,j,k,ka,mrl
 
 ! Top/bottom boundary condition for scalars: zero-gradient
 
-call psub()
 !----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private (iw,ka,k)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
-call qsub('W',iw)
-
-   sclr(mza,iw) = sclr(mza-1,iw)
 
    ka = lpw(iw)
    do k = ka-1,1,-1
@@ -139,10 +130,9 @@ call qsub('W',iw)
 enddo
 !$omp end parallel do
 endif
-call rsub('W',33)
 
 return
-end subroutine topbots
+end subroutine botset
 
 !===============================================================================
 
@@ -175,40 +165,6 @@ endif
 
 return
 end subroutine lbcopy_m
-
-!===============================================================================
-
-subroutine lbcopy_u(mrl, a1, a2)
-
-use mem_ijtabs, only: jtab_u, itab_u, jtu_lbcp
-use mem_grid,   only: mza, mua
-use misc_coms,  only: io6
-
-implicit none
-
-integer, intent(in) :: mrl
-
-real, optional, intent(inout) :: a1(mza,mua)
-real, optional, intent(inout) :: a2(mza,mua)
-
-integer :: j,iu,iup
-
-! Lateral boundary copy (usually cyclic)
-
-!----------------------------------------------------------------------
-if (mrl > 0) then
-do j = 1,jtab_u(jtu_lbcp)%jend(mrl); iu = jtab_u(jtu_lbcp)%iu(j)
-   iup = itab_u(iu)%iup
-!----------------------------------------------------------------------
-
-   if (present(a1)) a1(:,iu) = a1(:,iup) 
-   if (present(a2)) a2(:,iu) = a2(:,iup) 
-
-enddo
-endif
-
-return
-end subroutine lbcopy_u
 
 !===============================================================================
 

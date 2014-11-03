@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,16 +29,12 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
-subroutine prep_seaice( sst, seaice, seacan_temp, icecan_temp,        &
+subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
                         seaice_energy, seaice_tempk, nlev_seaice,     &
                         ice_albedo, ice_rlongup, rshort_i, rlong_i,   &
-                        rshort, rlong, rough, seacan_shv, icecan_shv, &
+                        rshort, rlong, rough, sea_canshv, ice_canshv, &
                         sea_ustar, ice_ustar, sea_ggaer, ice_ggaer,   &
                         sxfer_t, sxfer_r                              )
 
@@ -45,8 +45,8 @@ subroutine prep_seaice( sst, seaice, seacan_temp, icecan_temp,        &
 
   real,    intent(in)    :: sst
   real,    intent(in)    :: seaice
-  real,    intent(in)    :: seacan_temp
-  real,    intent(out)   :: icecan_temp
+  real,    intent(in)    :: sea_cantemp
+  real,    intent(out)   :: ice_cantemp
   real,    intent(out)   :: seaice_energy(nzi) ! seaice layer energy [J/kg]
   real,    intent(out)   :: seaice_tempk (nzi) ! seaice layer temperature [K]
   integer, intent(inout) :: nlev_seaice
@@ -57,8 +57,8 @@ subroutine prep_seaice( sst, seaice, seacan_temp, icecan_temp,        &
   real,    intent(in)    :: rshort
   real,    intent(in)    :: rlong
   real,    intent(out)   :: rough  ! sea cell roughess height [m] 
-  real,    intent(in)    :: seacan_shv
-  real,    intent(out)   :: icecan_shv
+  real,    intent(in)    :: sea_canshv
+  real,    intent(out)   :: ice_canshv
   real,    intent(in)    :: sea_ustar
   real,    intent(out)   :: ice_ustar
   real,    intent(in)    :: sea_ggaer
@@ -76,8 +76,8 @@ subroutine prep_seaice( sst, seaice, seacan_temp, icecan_temp,        &
      nlev_seaice      = 0
      seaice_tempk (:) = 0.0
      seaice_energy(:) = 0.0
-     icecan_temp      = 0.0
-     icecan_shv       = 0.0
+     ice_cantemp      = 0.0
+     ice_canshv       = 0.0
      ice_albedo       = 0.0
      ice_rlongup      = 0.0
      rshort_i         = 0.0
@@ -111,8 +111,8 @@ subroutine prep_seaice( sst, seaice, seacan_temp, icecan_temp,        &
   if (nlev_seaice == 0) then
 
      nlev_seaice = nzi
-     icecan_temp = seacan_temp
-     icecan_shv  = seacan_shv
+     ice_cantemp = sea_cantemp
+     ice_canshv  = sea_canshv
      ice_ustar   = sea_ustar
      ice_ggaer   = sea_ggaer
      sxfer_t     = 0.0
@@ -120,7 +120,7 @@ subroutine prep_seaice( sst, seaice, seacan_temp, icecan_temp,        &
 
      ! Initialize top layer to the canopy temperature
 
-     seaice_tempk (nlev_seaice) = min(icecan_temp, t00sea)
+     seaice_tempk (nlev_seaice) = min(ice_cantemp, t00sea)
      seaice_energy(nlev_seaice) = cice * (seaice_tempk(nlev_seaice) - t00sea)
 
      ! Interpolate other layers between the top and bottom temperature
@@ -140,7 +140,7 @@ subroutine prep_seaice( sst, seaice, seacan_temp, icecan_temp,        &
      call sfcrad_seaice_1( ice_rlongup,        &
                            ice_albedo,         &
                            nlev_seaice,        &
-                           icecan_temp,        &
+                           ice_cantemp,        &
                            seaice_tempk(1:nzi) )
 
      ! Estimate net seaice longwave and shortwave radiative fluxes in case
@@ -164,7 +164,7 @@ end subroutine prep_seaice
 
 subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,          &
                    rshort_i, rlong_i, rhos, ustar, ggaer, can_depth,  &
-                   can_temp, can_shv, surface_ssh, sxfer_t, sxfer_r   )
+                   cantemp, canshv, surface_ssh, sxfer_t, sxfer_r   )
 
   use consts_coms, only: alvi, cice, t00, cp, alli
   use sea_coms,    only: dt_sea, t00sea, nzi
@@ -181,8 +181,8 @@ subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,          &
   real,    intent(in)    :: ustar       ! friction velocity [m/s]
   real,    intent(in)    :: ggaer       ! surface aerodynamic conductance [m/s]
   real,    intent(in)    :: can_depth   ! "canopy" depth for heat and vap capacity [m]
-  real,    intent(inout) :: can_temp    ! ice "canopy" air temp [K]
-  real,    intent(inout) :: can_shv     ! ice "canopy" air vapor spec hum [kg_vap/kg_air]
+  real,    intent(inout) :: cantemp     ! ice "canopy" air temp [K]
+  real,    intent(inout) :: canshv      ! ice "canopy" air vapor spec hum [kg_vap/kg_air]
   real,    intent(out)   :: surface_ssh ! ice surface sat spec hum [kg_vap/kg_air] 
   real,    intent(in)    :: sxfer_t     ! can_air to atm heat xfer this step [kg_air K/m^2]
   real,    intent(in)    :: sxfer_r     ! can_air to atm vapor xfer this step (kg_vap/m^2]
@@ -231,13 +231,13 @@ subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,          &
   rdi = .2 * ustar
 ! rdi = ggaer
 
-  hxferic = dt_sea * cp * rhos * rdi * (seaice_tempk(nlev_seaice) - can_temp)
-  wxferic = dt_sea *      rhos * rdi * (surface_ssh - can_shv)
+  hxferic = dt_sea * cp * rhos * rdi * (seaice_tempk(nlev_seaice) - cantemp)
+  wxferic = dt_sea *      rhos * rdi * (surface_ssh - canshv)
 
   hxferca = cp * sxfer_t  ! sxfer_t and sxfer_r already incorporate dt_sea
 
-  can_temp = can_temp + (hxferic - hxferca) / (can_depth * rhos * cp)
-  can_shv  = can_shv  + (wxferic - sxfer_r) / (can_depth * rhos)             
+  cantemp = cantemp + (hxferic - hxferca) / (can_depth * rhos * cp)
+  canshv  = canshv  + (wxferic - sxfer_r) / (can_depth * rhos)             
 
 ! Zero out sfcwater internal heat transfer array at top and bottom surfaces.
 ! Energy transfer at top is applied separately.
@@ -288,7 +288,7 @@ end subroutine seaice
 
 
 
-subroutine sfcrad_seaice_1( rlongup, albedo, nlev_seaice, can_temp, seaice_tempk )
+subroutine sfcrad_seaice_1( rlongup, albedo, nlev_seaice, cantemp, seaice_tempk )
 
   use sea_coms,    only: nzi, emi
   use consts_coms, only: stefan
@@ -298,7 +298,7 @@ subroutine sfcrad_seaice_1( rlongup, albedo, nlev_seaice, can_temp, seaice_tempk
   real,    intent(out) :: albedo    ! seaice albedo                [0-1]
 
   integer, intent(in)  :: nlev_seaice       ! number of seaice levels
-  real,    intent(in)  :: can_temp          ! seaice canopy temperature [K]
+  real,    intent(in)  :: cantemp           ! seaice canopy temperature [K]
   real,    intent(in)  :: seaice_tempk(nzi) ! seaice layer temperatures [K]
 
   if (nlev_seaice > 0) then
@@ -310,11 +310,11 @@ subroutine sfcrad_seaice_1( rlongup, albedo, nlev_seaice, can_temp, seaice_tempk
      ! equal parts visible and NIR, yielding an albedo of 0.57.  This
      ! albedo decreases to 0.5 as the temperature increases to 0C.
 
-     if (can_temp < 272.15) then
+     if (cantemp < 272.15) then
         albedo = 0.72  ! Dave modification
      !  albedo = 0.57
      else
-        albedo = 0.72 - 0.22 * ( min( 273.15, can_temp) - 272.15 )
+        albedo = 0.72 - 0.22 * ( min( 273.15, cantemp) - 272.15 )
      endif
 
   else

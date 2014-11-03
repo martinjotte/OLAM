@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,51 +29,46 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine micro()
 
-use mem_ijtabs,  only: jtab_w, istp, mrl_endl, jtw_prog
-use micro_coms,  only: level
-use misc_coms,   only: io6
-
-!$ use omp_lib
+use mem_ijtabs, only: jtab_w, istp, mrl_endl, jtw_prog
+use micro_coms, only: level
+use misc_coms,  only: io6
+use oname_coms, only: nl
 
 implicit none
 
-integer :: j,iw,mrl,k
+integer :: j,iw,mrl
 
 if (level /= 3) return
 
-!dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-! iw = 3
-! k = 2
+! Section for parcel model simulation (only one grid cell is prognosed)
 
-! call parcel_env(iw,k)
+if (nl%test_case == 901 .or. nl%test_case == 902) then
 
-! call micphys(iw)
+! Specify IW of grid cell to prognose (k=2 assumed for parcel cell)
 
-! RETURN
-!dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+   iw = 3
 
-call psub()
+   call parcel_env(iw)
+   call micphys(iw)
+
+   RETURN
+endif
+
 !----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private (iw)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
-call qsub('W',iw)
 
    call micphys(iw)
 
 enddo
 !$omp end parallel do
 endif
-call rsub('W',30)
 
 return
 end subroutine micro
@@ -83,6 +82,7 @@ use consts_coms, only: pi4
 use misc_coms,   only: io6, dtlm, time_istp8, timmax8
 use mem_ijtabs,  only: itab_w
 use mem_grid,    only: lpw,glatw,glonw
+use oname_coms,  only: nl
 
 implicit none
 
@@ -660,6 +660,10 @@ endif
 call newtemp(k1(11),k2(11), &
    tairstrc,rhoi,rhovstr,rhov,exner0,tairc,tair,theta0,rhovslair,rhovsiair,sa)
 
+! No diagnosis or collisions if running parcel test 901 or 902
+
+if (nl%test_case == 901 .or. nl%test_case == 902) go to 1411
+
 ! Diagnose hydrometeor mean mass emb, and if necessary, number concentration.
 
 jflag = 2
@@ -742,7 +746,7 @@ if (j12 <= k12) &
 if (j82 <= k82) &
    call col1(8,2,2,1,j82,k82, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r8282,e8288)
-   
+
 ! Self collection of rain, aggregates, graupel, and hail: number change only
 
 if (jnmb(2) == 5 .and. k1(2) <= k2(2)) &
@@ -918,7 +922,7 @@ if (jnmb(7) >= 1) then
       call col3(7,7,1,j27,k27, &
          jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
          r2772,r2727,r0000,r0000,e2722,e0000,e2777,e0000)
-   
+
 endif
 
 ! Apply transfers of bulk mass, energy, and number from all collisions
@@ -938,6 +942,8 @@ endif
     e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
     e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
     e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000)
+
+1411 continue
 
 ! Nucleation of cloud droplets
 
@@ -1064,71 +1070,84 @@ pcprx(1:ncat) = 0.
 
 dsed_thil(lpw0:mza0) = 0.
 
+! No sedimentation if running parcel test 901 or 902
+
+if (nl%test_case == 901 .or. nl%test_case == 902) go to 1412
+
 ! Compute sedimentation for all 7 precipitating categories
 
 if (k1(2) <= k2(2)) &
    call sedim(2,iw0,lpw0,k1,k2,.001, &
-      dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-      rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
+   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
+   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
 
 if (k1(3) <= k2(3)) &
    call sedim(3,iw0,lpw0,k1,k2,.010, &
-      dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-      rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
+   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
+   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
 
 if (k1(4) <= k2(4)) &
    call sedim(4,iw0,lpw0,k1,k2,.010, &
-      dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-      rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
+   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
+   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
 
 if (k1(5) <= k2(5)) &
    call sedim(5,iw0,lpw0,k1,k2,.010, &
-      dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-      rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
+   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
+   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
 
 if (k1(6) <= k2(6)) &
    call sedim(6,iw0,lpw0,k1,k2,.003, &
-      dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-      rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
+   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
+   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
 
 if (k1(7) <= k2(7)) &
    call sedim(7,iw0,lpw0,k1,k2,.001, &
-      dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-      rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
+   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
+   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
 
 if (k1(8) <= k2(8)) &
    call sedim(8,iw0,lpw0,k1,k2,.001, &
-      dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-      rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
+   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
+   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
 
 ! Apply change to thil from sedim of all categories
 
 thil0(lpw0:mza0) = thil0(lpw0:mza0) + dsed_thil(lpw0:mza0)
 
+1412 continue
+
+! If running parcel test case 901 or 902, call parcel plot to store and
+! (on last timestep) plot parcel fields
+
+if (nl%test_case == 901 .or. nl%test_case == 902) then
+
+   call parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
+      press0,thil0,theta0,tairc,rhovslair,rhovsiair,rhov,rhoi,rhoa,rhow, &
+      rnuc_vc,rnuc_vd,rnuc_cp_hom,rnuc_dp_hom, &
+      rnuc_cp_cont,rnuc_dp_cont,rnuc_vp_haze,rnuc_vp_depcond, &
+      cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom, &
+      cnuc_cp_cont,cnuc_dp_cont,cnuc_vp_haze,cnuc_vp_depcond, &
+      rpsxfer,epsxfer, &
+      r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
+      r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
+      r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
+      r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
+      r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
+      r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
+      r2727,r0000, &
+      e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
+      e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
+      e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
+      e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
+      e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
+      e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
+      e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000)
+
+endif
+
 ! Copy hydrometeor bulk mass and number concentration and surface precipitation
 ! from microphysics column arrays to main model arrays
-
-! call parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
-!    press0,thil0,theta0,tairc,rhovslair,rhovsiair,rhov,rhoi,rhoa,rhow, &
-!    rnuc_vc,rnuc_vd,rnuc_cp_hom,rnuc_dp_hom, &
-!    rnuc_cp_cont,rnuc_dp_cont,rnuc_vp_haze,rnuc_vp_depcond, &
-!    cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom, &
-!    cnuc_cp_cont,cnuc_dp_cont,cnuc_vp_haze,cnuc_vp_depcond, &
-!    rpsxfer,epsxfer, &
-!    r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
-!    r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
-!    r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
-!    r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
-!    r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
-!    r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
-!    r2727,r0000, &
-!    e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
-!    e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
-!    e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
-!    e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
-!    e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
-!    e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
-!    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000)
 
  call mic_copyback(iw0,lpw0,k1,k2,k3, &
     pcpg0,qpcpg0,dpcpg0,dtli0,accpx,pcprx,thil0,theta0,tair,rhoa,rhow,rhov,rhoi, &

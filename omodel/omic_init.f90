@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,14 +29,10 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine micinit()
+subroutine micinit_fields()
 
-use mem_basic,   only: tair, press, rho
+use mem_basic,   only: rho
 
 use mem_micro,   only: sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        accpd, accpr, accpp, accps, accpa, accpg, accph, &
@@ -41,113 +41,83 @@ use mem_micro,   only: sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        con_ccn, con_gccn, con_ifn, q2, q6, q7, &
                        pcpgr, qpcpgr, dpcpgr
 
-use misc_coms,   only: io6, dtlm, runtype
-use mem_ijtabs,  only: jtab_w, mrls, jtw_init
-use mem_grid,    only: mza, zm, dzt, dzit
-use mem_para,    only: myrank
+use misc_coms,   only: io6, runtype
+use mem_ijtabs,  only: jtab_w, jtw_init
+use mem_grid,    only: mza
 use consts_coms, only: r8
 
-
 use micro_coms,  only: level, icloud, idriz, irain, ipris, isnow, iaggr, &
-                       igraup, ihail, jnmb, ncat, nhcat, nembc, gnu, emb0, &
-                       emb1, cfmas, pwmas, cfvt, pwvt, cparm, dparm, pparm, &
-                       npairx, npairy, npairc, coltabx, coltaby, coltabc, &
-                       alloc_sedimtab
-
-use hdf5_utils, only: shdf5_irec, shdf5_orec, shdf5_open, shdf5_close
+                       igraup, ihail, jnmb, cparm, dparm, pparm
 
 implicit none
 
-integer :: j,iw,k,lcat,lhcat,mrl,ndims,idims(3)
-
-character(len=80) :: coltabfile
-
-logical :: exans
-
-call micinit_gam()
-
-if (level < 3) return
-
-call haznuc()
-
-call tabmelt()
-
-call tabhab()
-
-call alloc_sedimtab(mza)
-call mksedim_tab(mza,zm,dzt,dzit)
-
-do mrl = 1,mrls
-   call homfrzcl(dtlm(mrl),mrl)
-enddo
+integer :: j, iw
 
 ! Initialize 3D and 2D microphysics fields
 
 if (runtype == 'INITIAL') then
 
-   call psub()
 !----------------------------------------------------------------------
    do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !----------------------------------------------------------------------
-   call qsub('W',iw)
 
-      if (idriz >= 1)  then
+      if (allocated(sh_d))  then
          sh_d(1:mza,iw) = 0.
          accpd(iw) = 0._r8
          pcprd(iw) = 0.
       endif
 
-      if (irain >= 1)  then
+      if (allocated(sh_r))  then
          sh_r(1:mza,iw) = 0.
          accpr(iw) = 0._r8
          pcprr(iw) = 0.
-         q2(1:mza,iw) = tair(1:mza,iw) - 193.15
+         q2(1:mza,iw) = 0.
       endif
    
-      if (ipris >= 1)  then
+      if (allocated(sh_p))  then
          sh_p(1:mza,iw) = 0.
          accpp(iw) = 0._r8
          pcprp(iw) = 0.
       endif
 
-      if (isnow >= 1)  then
+      if (allocated(sh_s))  then
          sh_s(1:mza,iw) = 0.
          accps(iw) = 0._r8
          pcprs(iw) = 0.
       endif
 
-      if (iaggr >= 1)  then
+      if (allocated(sh_a))  then
          sh_a(1:mza,iw) = 0.
          accpa(iw) = 0._r8
          pcpra(iw) = 0.
       endif
 
-      if (igraup >= 1) then
+      if (allocated(sh_g)) then
          sh_g(1:mza,iw) = 0.
          accpg(iw) = 0._r8
          pcprg(iw) = 0.
-         q6(1:mza,iw) = .5 * min(0.,tair(1:mza,iw) - 273.15)
+         q6(1:mza,iw) = 0.
       endif
 
-      if (ihail >= 1)  then
+      if (allocated(sh_h))  then
          sh_h(1:mza,iw) = 0.
          accph(iw) = 0._r8
          pcprh(iw) = 0.
-         q7(1:mza,iw) = .5 * min(0.,tair(1:mza,iw) - 273.15)
+         q7(1:mza,iw) = 0.
       endif
 
-      if (jnmb(1) == 5) con_c(1:mza,iw) = 0.
-      if (jnmb(2) == 5) con_r(1:mza,iw) = 0.
-      if (jnmb(3) == 5) con_p(1:mza,iw) = 0.
-      if (jnmb(4) == 5) con_s(1:mza,iw) = 0.
-      if (jnmb(5) == 5) con_a(1:mza,iw) = 0.
-      if (jnmb(6) == 5) con_g(1:mza,iw) = 0.
-      if (jnmb(7) == 5) con_h(1:mza,iw) = 0.
-      if (jnmb(8) == 5) con_d(1:mza,iw) = 0.
+      if (allocated(con_c)) con_c(1:mza,iw) = 0.
+      if (allocated(con_r)) con_r(1:mza,iw) = 0.
+      if (allocated(con_p)) con_p(1:mza,iw) = 0.
+      if (allocated(con_s)) con_s(1:mza,iw) = 0.
+      if (allocated(con_a)) con_a(1:mza,iw) = 0.
+      if (allocated(con_g)) con_g(1:mza,iw) = 0.
+      if (allocated(con_h)) con_h(1:mza,iw) = 0.
+      if (allocated(con_d)) con_d(1:mza,iw) = 0.
 
 ! Initialize CCN field if activated
       
-      if (icloud  == 7) then
+      if (allocated(con_ccn)) then
          con_ccn(1:mza,iw) = cparm  ! Default specification
 
 ! Steve's example (changed to #/kg)
@@ -158,7 +128,7 @@ if (runtype == 'INITIAL') then
 
 ! Initialize GCCN field if activated
 
-      if (idriz == 7) then
+      if (allocated(con_gccn)) then
          con_gccn(1:mza,iw) = dparm  ! Default specification
 
 ! Steve's example (changed to #/kg)
@@ -169,95 +139,139 @@ if (runtype == 'INITIAL') then
 
 ! Initialize IFN field if activated
 
-      if (ipris == 7) then
+      if (allocated(con_ifn)) then
          con_ifn (1:mza,iw) = pparm * rho(1:mza,iw) ** 5.4  ! Default specification
       endif
 
 ! Initialize accumulated precipitation for surface model
 
-      pcpgr(iw)  = 0.
-      qpcpgr(iw) = 0.
-      dpcpgr(iw) = 0.
+      if (allocated(pcpgr)) then
+         pcpgr(iw)  = 0.
+         qpcpgr(iw) = 0.
+         dpcpgr(iw) = 0.
+      endif
 
    enddo
-   call rsub('Wc',7)
 
 endif ! runtype == 'INITIAL'
 
+end subroutine micinit_fields
+
+!===============================================================================
+
+subroutine micinit_tabs()
+
+use mem_basic, only: rho
+
+use misc_coms,   only: io6, dtlm, runtype
+use mem_ijtabs,  only: jtab_w, mrls, jtw_init
+use mem_grid,    only: mza, zm, dzt, dzit
+use mem_para,    only: myrank
+
+use micro_coms,  only: level, jnmb, nembc, &
+                       cfmas, pwmas, cfvt, pwvt, &
+                       npairx, npairy, npairc, coltabx, coltaby, coltabc, &
+                       alloc_sedimtab
+
+use hdf5_utils, only: shdf5_irec, shdf5_orec, shdf5_open, shdf5_close
+
+implicit none
+
+  integer :: j,iw,k,mrl,ndims,idims(3)
+
+  character(len=80) :: coltabfile
+
+  logical :: exans
+
+  call micinit_gam()
+
+  if (level < 3) return
+
+  call haznuc()
+
+  call tabmelt()
+
+  call tabhab()
+
+  call alloc_sedimtab(mza)
+  call mksedim_tab(mza,zm,dzt,dzit)
+
+  do mrl = 1,mrls
+     call homfrzcl(dtlm(mrl),mrl)
+  enddo
+
 ! Check if collection table file exists
 
-coltabfile = './COLTABFILE2'
+  coltabfile = './COLTABFILE2'
 
-inquire(file=coltabfile, exist=exans)
+  inquire(file=coltabfile, exist=exans)
 
-if (exans) then
+  if (exans) then
 
 ! Collection table file exists.  Open, read, and close file.
 
-   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
-   write(io6,*) 'Opening collection table file ', trim(coltabfile)
-   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+     write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+     write(io6,*) 'Opening collection table file ', trim(coltabfile)
+     write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-   call shdf5_open(trim(coltabfile),'R')
+     call shdf5_open(trim(coltabfile),'R')
 
-   ndims = 3
-   idims(1) = nembc
-   idims(2) = nembc
-   idims(3) = npairc
+     ndims = 3
+     idims(1) = nembc
+     idims(2) = nembc
+     idims(3) = npairc
 
-   call shdf5_irec(ndims, idims, 'COLTABC', rvara=coltabc)
+     call shdf5_irec(ndims, idims, 'COLTABC', rvara=coltabc)
 
-   idims(3) = npairx
+     idims(3) = npairx
 
-   call shdf5_irec(ndims, idims, 'COLTABX', rvara=coltabx)
+     call shdf5_irec(ndims, idims, 'COLTABX', rvara=coltabx)
 
-   idims(3) = npairy
+     idims(3) = npairy
 
-   call shdf5_irec(ndims, idims, 'COLTABY', rvara=coltaby)
+     call shdf5_irec(ndims, idims, 'COLTABY', rvara=coltaby)
 
 ! Close the collection table file
 
-   call shdf5_close()
+     call shdf5_close()
 
-else
+  else
 
 ! Collection table file does not exist.
 
 ! Make collection table
 
-   call mkcoltb_brute()
+     call mkcoltb_brute()
 
 ! Open, write, and close collection table file.
 
-   if (myrank == 0) then
+     if (myrank == 0) then
 
-      call shdf5_open(trim(coltabfile),'W',0)
+        call shdf5_open(trim(coltabfile),'W',0)
 
-      ndims = 3
-      idims(1) = nembc
-      idims(2) = nembc
-      idims(3) = npairc
+        ndims = 3
+        idims(1) = nembc
+        idims(2) = nembc
+        idims(3) = npairc
 
-      call shdf5_orec(ndims, idims, 'COLTABC', rvara=coltabc)
+        call shdf5_orec(ndims, idims, 'COLTABC', rvara=coltabc)
 
-      idims(3) = npairx
+        idims(3) = npairx
 
-      call shdf5_orec(ndims, idims, 'COLTABX', rvara=coltabx)
+        call shdf5_orec(ndims, idims, 'COLTABX', rvara=coltabx)
 
-      idims(3) = npairy
+        idims(3) = npairy
 
-      call shdf5_orec(ndims, idims, 'COLTABY', rvara=coltaby)
+        call shdf5_orec(ndims, idims, 'COLTABY', rvara=coltaby)
 
 ! Close the collection table file
 
-      call shdf5_close()
+        call shdf5_close()
 
-   endif
-endif
+     endif
+  endif
 
-return
-
-end subroutine micinit
+end subroutine micinit_tabs
 
 !===============================================================================
 

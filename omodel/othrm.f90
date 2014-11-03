@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine thermo()
 
@@ -36,22 +36,18 @@ use mem_ijtabs, only: jtab_w, istp, mrl_endl, jtw_prog
 use micro_coms, only: level
 use misc_coms,  only: io6
 
-!$ use omp_lib
-
 implicit none
 
 integer iw,j,mrl
 
 ! Horizontal loop over W/T points
 
-call psub()
 !-------------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private (iw)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !-------------------------------------------------------------------------
-call qsub('W',iw)
 
    if (level <= 1) then
       call drythrm(iw)
@@ -66,7 +62,6 @@ call qsub('W',iw)
 enddo
 !$omp end parallel do
 endif
-call rsub('W',29)
 
 return
 end subroutine thermo
@@ -90,13 +85,13 @@ integer, intent(in) :: iw
 
 integer k
 
-do k = lpw(iw),mza-1
+do k = lpw(iw),mza
    theta(k,iw) = thil(k,iw)
    tair (k,iw) = thil(k,iw) * (press(k,iw) * p00i) ** rocp
 enddo
 
 if (level == 1) then
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       sh_v(k,iw) = sh_w(k,iw)
    enddo
 endif
@@ -125,7 +120,7 @@ integer :: iterate,k
 real :: temp,rlvs,rt,rc,t_il,rvls,exner,rhovs
 real, external :: rhovsl
 
-do k = lpw(iw),mza-1
+do k = lpw(iw),mza
    exner = (press(k,iw) * p00i) ** rocp  ! Defined WITHOUT CP factor
    t_il = thil(k,iw) * exner
    temp = t_il
@@ -174,7 +169,7 @@ real :: totliq  (mza)  ! automatic array
 real :: totice  (mza)  ! automatic array
 real :: qhydm   (mza)  ! automatic array
 
-do k = lpw(iw),mza-1
+do k = lpw(iw),mza
    exner(k) = (press(k,iw) / p00) ** rocp  ! exner WITHOUT CP factor
    til(k) = thil(k,iw) * exner(k)          ! ice-liquid temperature T_il
    totliq(k) = 0.                          ! total liquid spec. density
@@ -182,37 +177,37 @@ do k = lpw(iw),mza-1
 enddo
 
 if (jnmb(1) >= 1) then
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       totliq(k) = totliq(k) + sh_c(k,iw)
    enddo
 endif
 
 if (jnmb(2) >= 1) then
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       totliq(k) = totliq(k) + sh_r(k,iw)
    enddo
 endif
 
 if (jnmb(3) >= 1) then
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       totice(k) = totice(k) + sh_p(k,iw)
    enddo
 endif
 
 if (jnmb(4) >= 1) then
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       totice(k) = totice(k) + sh_s(k,iw)
    enddo
 endif
 
 if (jnmb(5) >= 1) then
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       totice(k) = totice(k) + sh_a(k,iw)
    enddo
 endif
 
 if (jnmb(6) >= 1) then
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       call qtc(q6(k,iw),tcoal,fracliq)
       totliq(k) = totliq(k) + sh_g(k,iw) * fracliq
       totice(k) = totice(k) + sh_g(k,iw) * (1. - fracliq)
@@ -220,7 +215,7 @@ if (jnmb(6) >= 1) then
 endif
 
 if (jnmb(7) >= 1) then
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       call qtc(q7(k,iw),tcoal,fracliq)
       totliq(k) = totliq(k) + sh_h(k,iw) * fracliq
       totice(k) = totice(k) + sh_h(k,iw) * (1. - fracliq)
@@ -228,17 +223,17 @@ if (jnmb(7) >= 1) then
 endif
 
 if (jnmb(8) >= 1) then
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       totliq(k) = totliq(k) + sh_d(k,iw)
    enddo
 endif
 
-do k = lpw(iw),mza-1
+do k = lpw(iw),mza
    qhydm(k) = alvl * totliq(k) + alvi * totice(k)
    sh_v(k,iw) = sh_w(k,iw) - totliq(k) - totice(k)
 enddo
 
-do k = lpw(iw),mza-1
+do k = lpw(iw),mza
    if (tair(k,iw) > 253.) then
       tairstr = .5 * (til(k)  &
          + sqrt(til(k) * (til(k) + cpi4 * qhydm(k))))

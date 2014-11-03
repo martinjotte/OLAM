@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine timestep()
 
@@ -41,7 +41,6 @@ use mem_grid,    only: mza, mva, mwa
 use micro_coms,  only: level
 use leaf_coms,   only: isfcl
 use mem_para,    only: myrank
-use massflux,    only: zero_momsc, timeavg_momsc
 use mem_turb,    only: hkm
 use mem_basic,   only: vmc, vc, vxe, vye, vze, thil, rho, wmc, wc
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
@@ -86,6 +85,10 @@ endif
 do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    istp = jstp
 
+! Bypass all processes except microphyics if running parcel test 901 or 902
+
+if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
+
    call tend0(rhot)
 
    mrl = mrl_begl(istp)
@@ -103,7 +106,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 ! call check_nans(2)
 
    if (any( nqparm(1:mrls) > 0 )) then
-      call cuparm_driver(rhot)
+      call cuparm_driver()
       if (isfcl == 1) then
          call surface_cuparm_flux()
       endif
@@ -114,10 +117,10 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    mrl = mrl_begl(istp)
    if (mrl > 0) then
 
-      call pbl_driver(rhot, mrl)
+      call pbl_driver(mrl)
 
       if (iparallel == 1) then
-         call mpi_send_w('K')  ! Send K's
+         call mpi_send_w(mrl, rvara1=hkm)  ! Send K's
       endif
 
    endif
@@ -130,7 +133,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    mrl = mrl_begl(istp)
    if (mrl > 0) then
-      if (iparallel == 1) call mpi_recv_w('K')
+      if (iparallel == 1) call mpi_recv_w(mrl, rvara1=hkm)
       call lbcopy_w(mrl, a1=hkm)
    endif
 
@@ -148,7 +151,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    mrl = mrl_begl(istp)
    if (mrl > 0) then
-      call thiltend_long(mrl,rhot)
+      call thiltend_long(mrl)
    endif
 
 ! call check_nans(11)
@@ -201,6 +204,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(16)
 
+1311 continue
+
    mrl = mrl_endl(istp)
    if (level == 3 .and. mrl > 0) then
       call micro()  ! maybe later make freq. uniform
@@ -209,6 +214,10 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
          call surface_precip_flux()
       endif
    endif
+
+! Bypass all processes except microphyics if running parcel test 901 or 902
+
+if (nl%test_case == 901 .or. nl%test_case == 902) go to 1312
 
 ! call check_nans(17)
 
@@ -219,11 +228,14 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    mrl = mrl_ends(istp)
 
    if (iparallel == 1) then
-      call mpi_send_w('T')  ! Send W group
-      call mpi_recv_w('T')  ! Recv W group
+      call mpi_send_w(mrl, dvara1=rho, rvara1=wmc, &
+                           rvara2=wc,  rvara3=thil)
+
+      call mpi_recv_w(mrl, dvara1=rho, rvara1=wmc, &
+                           rvara2=wc,  rvara3=thil)
    endif
 
-   if (mrl_endl(istp) > 0) then
+   if (mrl_ends(istp) > 0) then
       call lbcopy_w(mrl, a1=thil, a2=wmc, a3=wc, d1=rho)
    else
       call lbcopy_w(mrl, a1=thil, a2=wmc, a3=wc)
@@ -234,11 +246,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    mrl = mrl_endl(istp)
    if (mrl > 0) then
 
-      if (iparallel == 1) call mpi_send_w('S')  ! Send scalars
+      if (iparallel == 1) call mpi_send_w(mrl, scalars='S')  ! Send scalars
 
       if (level == 3) call omic_update_v_mom(mrl)
 
-      if (iparallel == 1) call mpi_recv_w('S')  ! Recv scalars
+      if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')  ! Recv scalars
 
       do n = 1, nvar_par
          call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
@@ -250,15 +262,16 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! MPI send/recv and lbc copy of VMC, VC
 
+   mrl = mrl_ends(istp)
+
    if (iparallel == 1) then
-      call mpi_send_v('V')
-      call mpi_recv_v('V')
+      call mpi_send_v(mrl, rvara1=vmc, rvara2=vc)
+      call mpi_recv_v(mrl ,rvara1=vmc, rvara2=vc)
    endif
    call lbcopy_v(1, vmc=vmc, vc=vc)
 
 ! Compute earth cartesian velocities
 
-   mrl = mrl_ends(istp)
    if (mrl > 0) then
       call diagvel_t3d(mrl)
    endif
@@ -266,29 +279,23 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 ! MPI send/recv of vxe, vye, vze
 
    if (iparallel == 1) then
-      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
-      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+      call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
+      call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
    endif
 
 ! call check_nans(21)
 
    if (leafstep(istp) > 0) then
-
       call leaf4()
-      if (iparallel == 1) call mpi_send_wl('T')
-
       call seacells()
-      if (iparallel == 1) call mpi_send_ws('T')
-
-      if (iparallel == 1) call mpi_recv_wl('T')
-      if (iparallel == 1) call mpi_recv_ws('T')
-
    endif
 
    call accum_timeavg()
    call flux_accum()
 
 ! call check_nans(22)
+
+1312 continue
 
    time_istp8  = time8 + istp * dtsm(mrls)  ! Update precise time
    time_istp8p = time_istp8 + time_bias
@@ -437,8 +444,6 @@ use mem_grid,   only: mza, mwa, mva, lpv, lpw
 use mem_tend,   only: wmt, vmt, thilt, vmxet, vmyet, vmzet
 use misc_coms,  only: io6
 
-!$ use omp_lib
-
 implicit none
 
 real, intent(inout) :: rhot(mza,mwa)
@@ -459,15 +464,13 @@ endif
 
 ! SET W AND EARTH-CARTESIAN MOMENTUM TENDENCIES TO ZERO
 
-call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k)
 do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
-call qsub('W',iw)
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       wmt  (k,iw) = 0.0
       vmxet(k,iw) = 0.0
       vmyet(k,iw) = 0.0
@@ -476,25 +479,21 @@ call qsub('W',iw)
 enddo
 !$omp end parallel do
 endif
-call rsub('W',14)
 
 ! SET V MOMENTUM TENDENCY TO ZERO
 
-call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iv,k)
 do j = 1,jtab_v(jtv_wstn)%jend(mrl); iv = jtab_v(jtv_wstn)%iv(j)
 !----------------------------------------------------------------------
-call qsub('V',iv)
-   do k = lpv(iv),mza-1
+   do k = lpv(iv),mza
       vmt(k,iv) = 0.
    enddo
 enddo
 !$omp end parallel do
 endif
-call rsub('V',11)
 
 return
 end subroutine tend0
@@ -506,7 +505,6 @@ subroutine tnd0(vart)
 use mem_ijtabs, only: jtab_w, istp, mrl_begl, jtw_wstn
 use mem_grid,   only: mza, mwa, lpw
 use misc_coms,  only: io6
-!$ use omp_lib
 
 implicit none
 
@@ -514,15 +512,12 @@ real, intent(inout) :: vart(mza,mwa)
 
 integer :: j,iw,k,mrl
 
-call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k)
 do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
-
-call qsub('W',iw)
    do k = lpw(iw)-1,mza
       vart(k,iw) = 0.
    enddo
@@ -530,7 +525,6 @@ call qsub('W',iw)
 enddo
 !$omp end parallel do
 endif
-call rsub('W',11)
 
 return
 end subroutine tnd0
@@ -596,22 +590,19 @@ real(kind=8), intent(in) :: rho_old(mza,mwa)
 integer :: iw,j,k,mrl
 real :: dtl
 
-call psub()
 !----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k,dtl)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
-call qsub('W',iw)
    dtl = dtlm(itab_w(iw)%mrlw)
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       varp(k,iw) = (varp(k,iw) * rho_old(k,iw) + dtl * vart(k,iw)) / rho(k,iw)
    enddo
 enddo
 !$omp end parallel do
 endif
-call rsub('W',27)!RRR
 
 return
 end subroutine o_update
@@ -636,7 +627,7 @@ subroutine comp_alpha_press(mrl, alpha_press)
   !$omp parallel do private(iw,k) 
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-     do k = lpw(iw), mza-1
+     do k = lpw(iw), mza
         alpha_press(k,iw) = pc1 * (((1. - sh_w(k,iw)) * rdry + sh_v(k,iw) * rvap) &
                           * theta(k,iw) / thil(k,iw)) ** cpocv
      enddo
@@ -666,7 +657,7 @@ subroutine omic_update_v_mom(mrl)
      iw1 = itab_v(iv)%iw(1)
      iw2 = itab_v(iv)%iw(2)
 
-     do k = lpv(iv), mza-1
+     do k = lpv(iv), mza
         vmc(k,iv) = 0.5 * vc(k,iv) * (rho(k,iw1) + rho(k,iw2))
      enddo
   enddo

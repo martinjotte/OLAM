@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 Module mem_basic
@@ -37,10 +37,6 @@ Module mem_basic
   implicit none
 
   private :: r8
-
-  real, allocatable, target :: ump  (:,:) ! past U horiz momentum [kg/(m^2 s)]
-  real, allocatable, target :: umc  (:,:) ! current U horiz momentum [kg/(m^2 s)]
-  real, allocatable, target :: uc   (:,:) ! current U horiz velocity [m/s]
 
   real, allocatable, target :: vmp  (:,:) ! past V horiz momentum [kg/(m^2 s)]
   real, allocatable, target :: vmc  (:,:) ! current V horiz momentum [kg/(m^2 s)]
@@ -73,34 +69,24 @@ Contains
 
 !===============================================================================
 
-  subroutine alloc_basic(meshtype,mza,mua,mva,mwa)
+  subroutine alloc_basic(mza,mva,mwa)
     use misc_coms, only: rinit, rinit8
     implicit none
 
-    integer, intent(in) :: meshtype,mza,mua,mva,mwa
+    integer, intent(in) :: mza,mva,mwa
 
 !   Allocate basic memory needed for 'INITIAL' or 'HISTORY' runs
 !   and initialize allocated arrays to zero
 
-    if (meshtype == 1) then
+    allocate (vmp(mza,mva)) ; vmp = rinit
+    allocate (vmc(mza,mva)) ; vmc = rinit
+    allocate (vc (mza,mva)) ; vc  = rinit
 
-       allocate (ump(mza,mua)) ; ump = rinit
-       allocate (umc(mza,mua)) ; umc = rinit
-       allocate (uc (mza,mua)) ; uc  = rinit
-      
-    elseif (meshtype == 2) then
-   
-       allocate (vmp(mza,mva)) ; vmp = rinit
-       allocate (vmc(mza,mva)) ; vmc = rinit
-       allocate (vc (mza,mva)) ; vc  = rinit
-
-       if (strict_wvt_donorpoint) then
-          ! needed for half-forward earth-cartesian velocities:
-          allocate (vp (mza,mva)) ; vp  = rinit
-       endif
-
+    if (strict_wvt_donorpoint) then
+       ! needed for half-forward earth-cartesian velocities:
+       allocate (vp (mza,mva)) ; vp  = rinit
     endif
-   
+
     allocate (rho  (mza,mwa)) ; rho   = rinit8
     allocate (press(mza,mwa)) ; press = rinit8
     allocate (wmc  (mza,mwa)) ; wmc   = rinit
@@ -122,9 +108,6 @@ Contains
   subroutine dealloc_basic()
     implicit none
 
-    if (allocated(ump))   deallocate (ump)
-    if (allocated(umc))   deallocate (umc)
-    if (allocated(uc))    deallocate (uc)
     if (allocated(vmp))   deallocate (vmp)
     if (allocated(vmc))   deallocate (vmc)
     if (allocated(vp))    deallocate (vp)
@@ -150,38 +133,23 @@ Contains
     use var_tables, only: vtab_r, num_var, increment_vtable
     implicit none
 
-    if (allocated(ump)) then
-       call increment_vtable('UMP', 'AU')
-       vtab_r(num_var)%rvar2_p => ump
-    endif
-
-    if (allocated(umc)) then
-       call increment_vtable('UMC', 'AU')
-       vtab_r(num_var)%rvar2_p => umc
-    endif
-    
-    if (allocated(uc)) then
-       call increment_vtable('UC',  'AU')
-       vtab_r(num_var)%rvar2_p => uc
-    endif
-
     if (allocated(vmp)) then
-       call increment_vtable('VMP', 'AU')
+       call increment_vtable('VMP', 'AV')
        vtab_r(num_var)%rvar2_p => vmp
     endif
 
     if (allocated(vmc)) then
-       call increment_vtable('VMC', 'AU')
+       call increment_vtable('VMC', 'AV')
        vtab_r(num_var)%rvar2_p => vmc
     endif
 
     if (allocated(vp)) then
-       call increment_vtable('VP',  'AU')
+       call increment_vtable('VP',  'AV')
        vtab_r(num_var)%rvar2_p => vp
     endif
 
     if (allocated(vc)) then
-       call increment_vtable('VC',  'AU')
+       call increment_vtable('VC',  'AV')
        vtab_r(num_var)%rvar2_p => vc
     endif
 

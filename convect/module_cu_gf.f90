@@ -41,7 +41,7 @@ CONTAINS
   subroutine gf_driver(iw, dtlong)
 
      use mem_turb,    only: kpblh, frac_land, fthpbl, fqtpbl, wtv0, &
-                            ustar, sflux_t, sflux_r
+                            ustar, sfluxt, sfluxr
      use consts_coms, only: cp, alvl, grav, p00i, rocp, rvap, erad, &
                             gravi, alvlocp, vonk, r8
      use mem_radiate, only: rshort, fthrd_sw, fthrd_lw
@@ -164,13 +164,13 @@ CONTAINS
      kpbl  = kpblh(iw) - ka + 1
 
      kts  = 1
-     ktf  = mza - ka
-     kte  = mza
+     ktf  = mza + 1 - ka  ! number of ATM levels to process
+     kte  = mza  ! array dimension
      ens4 = 1
 
      ! Go no higher than 50mb for convective calculations to prevent any
      ! problems when esat gets near ambient pressure
-     do k = ka, mza-2
+     do k = ka, mza-1
         if (press(k,iw) < 50.e2) then
            ktf = k - ka + 1
            exit
@@ -201,8 +201,8 @@ CONTAINS
         zws = vonk * grav * wtv0(iw) * (zt(ka)-zm(ka-1)) / theta(ka,iw)
         zws = (ustar(iw)**3 + zws) ** 0.33333333
         zws = max(zws,0.1)
-        ztexec(1) = max( sflux_t(iw) / zws, 0.0)
-        zqexec(1) = max( sflux_r(iw) / zws, 0.0)
+        ztexec(1) = max( sfluxt(iw) / zws, 0.0)
+        zqexec(1) = max( sfluxr(iw) / zws, 0.0)
      else
         ztexec(1) = 0.0
         zqexec(1) = 0.0
@@ -212,7 +212,7 @@ CONTAINS
 
      ! Vertical advective theta and water vapor fluxes (W levels)
 
-     do k = ka,mza-2
+     do k = ka,mza-1
         vflux(k) = arw(k,iw) * wmc(k,iw)
 
         ! upwinded
@@ -230,11 +230,11 @@ CONTAINS
      enddo
 
      vflux    (ka-1)  = 0.
-     vflux    (mza-1) = 0.
+     vflux    (mza) = 0.
      vflux_the(ka-1)  = 0.
-     vflux_the(mza-1) = 0.
+     vflux_the(mza) = 0.
      vflux_vap(ka-1)  = 0.
-     vflux_vap(mza-1) = 0.
+     vflux_vap(mza) = 0.
 
      mconv(1,1) = 0.0
 

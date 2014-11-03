@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module mem_turb
 
@@ -42,9 +42,9 @@ Module mem_turb
   real, allocatable, target :: sxfer_rk(:,:)
 
   real, allocatable, target :: vkm_sfc (:,:)
-  real, allocatable, target :: sflux_w (:)
-  real, allocatable, target :: sflux_t (:)
-  real, allocatable, target :: sflux_r (:)
+  real, allocatable, target :: sfluxw  (:)
+  real, allocatable, target :: sfluxt  (:)
+  real, allocatable, target :: sfluxr  (:)
   real, allocatable, target :: ustar   (:)
   real, allocatable, target :: wstar   (:)
   real, allocatable, target :: wtv0    (:)
@@ -84,9 +84,9 @@ Contains
     allocate (vkm_sfc (nsw_max,mwa)) ; vkm_sfc  = rinit
     allocate (frac_sfc(nsw_max,mwa)) ; frac_sfc = rinit
 
-    allocate (sflux_t  (mwa)) ; sflux_t   = rinit
-    allocate (sflux_r  (mwa)) ; sflux_r   = rinit
-!   allocate (sflux_w  (mwa)) ; sflux_w   = rinit
+    allocate (sfluxt  (mwa)) ; sfluxt   = rinit
+    allocate (sfluxr  (mwa)) ; sfluxr   = rinit
+!   allocate (sfluxw  (mwa)) ; sfluxw   = rinit
 
     allocate (ustar    (mwa)) ; ustar     = rinit
     allocate (wstar    (mwa)) ; wstar     = rinit
@@ -117,9 +117,9 @@ Contains
     if (allocated(vkm))     deallocate (vkm)
     if (allocated(vkh))     deallocate (vkh)
     if (allocated(vkm_sfc)) deallocate (vkm_sfc)
-    if (allocated(sflux_w)) deallocate (sflux_w)
-    if (allocated(sflux_t)) deallocate (sflux_t)
-    if (allocated(sflux_r)) deallocate (sflux_r)
+    if (allocated(sfluxw))  deallocate (sfluxw)
+    if (allocated(sfluxt))  deallocate (sfluxt)
+    if (allocated(sfluxr))  deallocate (sfluxr)
     if (allocated(ustar))   deallocate (ustar)
     if (allocated(wstar))   deallocate (wstar)
     if (allocated(wtv0))    deallocate (wtv0)
@@ -182,19 +182,19 @@ Contains
        vtab_r(num_var)%rvar2_p => vkm_sfc
     endif
 
-    if (allocated(sflux_w)) then
-       call increment_vtable('SFLUX_W', 'AW')
-       vtab_r(num_var)%rvar1_p => sflux_w
+    if (allocated(sfluxw)) then
+       call increment_vtable('SFLUXW', 'AW')
+       vtab_r(num_var)%rvar1_p => sfluxw
     endif
 
-    if (allocated(sflux_t)) then
-       call increment_vtable('SFLUX_T', 'AW')
-       vtab_r(num_var)%rvar1_p => sflux_t
+    if (allocated(sfluxt)) then
+       call increment_vtable('SFLUXT', 'AW')
+       vtab_r(num_var)%rvar1_p => sfluxt
     endif
 
-    if (allocated(sflux_r)) then
-       call increment_vtable('SFLUX_R', 'AW')
-       vtab_r(num_var)%rvar1_p => sflux_r
+    if (allocated(sfluxr)) then
+       call increment_vtable('SFLUXR', 'AW')
+       vtab_r(num_var)%rvar1_p => sfluxr
     endif
 
     if (allocated(ustar)) then

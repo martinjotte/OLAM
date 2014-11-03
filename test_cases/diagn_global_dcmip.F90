@@ -162,7 +162,7 @@ do iw = 2,mwa
 
 ! Vertical loop over all active T levels
 
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
 
 ! Sums and max values for q1
 

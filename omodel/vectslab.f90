@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,19 +29,14 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine vectslab_horiz_v(iplt)
 
 use oplot_coms,  only: op
 use mem_grid,    only: mza, mva, mwa, zm, lpw, unx, uny, unz, vnx, vny, vnz, &
-                       xeu, yeu, zeu, xev, yev, zev
-use mem_ijtabs,  only: itab_m, itab_u, itab_v, itab_w, jtab_u, jtab_v, &
-                       jtu_prog, jtv_prog
-use misc_coms,   only: io6, mdomain, meshtype
+                       xev, yev, zev
+use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtv_prog
+use misc_coms,   only: io6, mdomain
 use consts_coms, only: erad
 
 implicit none
@@ -46,7 +45,7 @@ integer, intent(in) :: iplt
 
 integer :: jv,iv,iw1,iw2,notavail,im1,im2,iw1_v1,iw2_v1,jvmax
 
-real :: fldval_u,fldval_v,uavg,vavg,pointx  &
+real :: fldval_v,uavg,vavg,pointx  &
    ,pointy,tailx,taily,stemangle,headangle1,headangle2   &
    ,headlen,head1x  &
    ,head1y,head2x,head2y,ptx,pty,tlx,tly,h1x,h1y,h2x,h2y  &
@@ -54,7 +53,6 @@ real :: fldval_u,fldval_v,uavg,vavg,pointx  &
    ,tailxe,tailye,tailze,stemlen
 real :: stemx,stemy,stemz,snx,sny,snz,rnx,rny,rnz
 real :: head1xe,head1ye,head1ze,head2xe,head2ye,head2ze
-real :: xeuv,yeuv,zeuv
 
 integer :: ktf(mwa),kv(mva)
 real :: wtbot(mva),wttop(mva)
@@ -74,75 +72,35 @@ real :: xa, ya, xb, yb, xc, yc
 op%stagpt = 'V'
 call horizplot_k(iplt,mva,ktf,kv,wtbot,wttop)
 
-if (meshtype == 1) then
-   jvmax = jtab_u(jtu_prog)%jend(1)
-else
-   jvmax = jtab_v(jtv_prog)%jend(1)
-endif
+jvmax = jtab_v(jtv_prog)%jend(1)
 
 do jv = 1, jvmax
 
-   if (meshtype == 1) then
+   iv  = jtab_v(jtv_prog)%iv(jv)
 
-      iv  = jtab_u(jtu_prog)%iu(jv)
+   im1 = itab_v(iv)%im(1)
+   im2 = itab_v(iv)%im(2)
 
-      im1 = itab_u(iv)%im(1)
-      im2 = itab_u(iv)%im(2)
+   iw1 = itab_v(iv)%iw(1)
+   iw2 = itab_v(iv)%iw(2)
 
-      iw1 = itab_u(iv)%iw(1)
-      iw2 = itab_u(iv)%iw(2)
-
-      iw1_v1 = itab_w(iw1)%iu(1)
-      iw2_v1 = itab_w(iw2)%iu(1)
+   iw1_v1 = itab_w(iw1)%iv(1)
+   iw2_v1 = itab_w(iw2)%iv(1)
       
-      xeuv = xeu(iv)
-      yeuv = yeu(iv)
-      zeuv = zeu(iv)
-
 ! Skip this point if we want to plot vectors only on a coarser mesh level
 
-      if (itab_w(iw1)%mrlw_orig > op%vec_maxmrl .and. &
-          itab_w(iw2)%mrlw_orig > op%vec_maxmrl) cycle
+   if (itab_m(im1)%mrlm_orig > op%vec_maxmrl .and. &
+       itab_m(im2)%mrlm_orig > op%vec_maxmrl) cycle
 
-      if (itab_w(iw1)%mrlw_orig > op%vec_maxmrl .and. &
-          itab_w(iw2)%iu(1) /= iv) cycle
+   if (itab_m(im1)%mrlm_orig > op%vec_maxmrl .and. &
+       itab_m(im2)%iv(1) /= iv) cycle
 
-      if (itab_w(iw2)%mrlw_orig > op%vec_maxmrl .and. &
-          itab_w(iw1)%iu(1) /= iv) cycle
-
-   else
-
-      iv  = jtab_v(jtv_prog)%iv(jv)
-
-      im1 = itab_v(iv)%im(1)
-      im2 = itab_v(iv)%im(2)
-
-      iw1 = itab_v(iv)%iw(1)
-      iw2 = itab_v(iv)%iw(2)
-
-      iw1_v1 = itab_w(iw1)%iv(1)
-      iw2_v1 = itab_w(iw2)%iv(1)
-      
-      xeuv = xev(iv)
-      yeuv = yev(iv)
-      zeuv = zev(iv)
-
-! Skip this point if we want to plot vectors only on a coarser mesh level
-
-      if (itab_m(im1)%mrlm_orig > op%vec_maxmrl .and. &
-          itab_m(im2)%mrlm_orig > op%vec_maxmrl) cycle
-
-      if (itab_m(im1)%mrlm_orig > op%vec_maxmrl .and. &
-          itab_m(im2)%iv(1) /= iv) cycle
-
-      if (itab_m(im2)%mrlm_orig > op%vec_maxmrl .and. &
-          itab_m(im1)%iv(1) /= iv) cycle
-
-   endif
+   if (itab_m(im2)%mrlm_orig > op%vec_maxmrl .and. &
+       itab_m(im1)%iv(1) /= iv) cycle
 
 ! Transform IV coordinates
 
-   call oplot_transform(iplt,xeuv,yeuv,zeuv,pointx,pointy)
+   call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),pointx,pointy)
 
 ! Jump out of loop if vector head is outside plot window. 
 
@@ -156,50 +114,15 @@ do jv = 1, jvmax
 
 ! Cell is above ground 
 
-      call oplot_lib(kv(iv),iv,'VALUV','UC',wtbot(iv),wttop(iv), &
-                     fldval_u,notavail)
       call oplot_lib(kv(iv),iv,'VALUV','VC',wtbot(iv),wttop(iv), &
                      fldval_v,notavail)
 
 ! 3D vector displacement (in time interval op%dtvec)...
-
-      if (op%vectbarb(iplt) == 'U') then
-
-! Plot normal component to U face
-
-         stemx = unx(iv) * fldval_u * op%dtvec
-         stemy = uny(iv) * fldval_u * op%dtvec
-         stemz = unz(iv) * fldval_u * op%dtvec
-
-      elseif (op%vectbarb(iplt) == 'V') then
-
 ! Plot normal component to V face
 
-         stemx = vnx(iv) * fldval_v * op%dtvec
-         stemy = vny(iv) * fldval_v * op%dtvec
-         stemz = vnz(iv) * fldval_v * op%dtvec
-
-      elseif (op%vectbarb(iplt) == 'v') then
-
-! Plot total horizontal vector at V point
-
-         stemx = (unx(iv) * fldval_u + vnx(iv) * fldval_v) * op%dtvec
-         stemy = (uny(iv) * fldval_u + vny(iv) * fldval_v) * op%dtvec
-         stemz = (unz(iv) * fldval_u + vnz(iv) * fldval_v) * op%dtvec
-
-      else    ! case for op%vectbarb(iplt) == 'B'
-
-! Plot wind barb at V point
-
-         speed = sqrt(fldval_u**2 + fldval_v**2)
-         
-         if (speed < 1.e-9) cycle
-
-         stemx = (unx(iv) * fldval_u + vnx(iv) * fldval_v) * op%stemlength / speed
-         stemy = (uny(iv) * fldval_u + vny(iv) * fldval_v) * op%stemlength / speed
-         stemz = (unz(iv) * fldval_u + vnz(iv) * fldval_v) * op%stemlength / speed
-
-      endif
+      stemx = vnx(iv) * fldval_v * op%dtvec
+      stemy = vny(iv) * fldval_v * op%dtvec
+      stemz = vnz(iv) * fldval_v * op%dtvec
 
 ! Vector length and unit components
 
@@ -212,9 +135,9 @@ do jv = 1, jvmax
 ! "Right" unit components
 
       if (mdomain <= 1) then  ! Spherical geometry case
-         rnx = (sny * zeuv - snz * yeuv) / erad
-         rny = (snz * xeuv - snx * zeuv) / erad
-         rnz = (snx * yeuv - sny * xeuv) / erad
+         rnx = (sny * zev(iv) - snz * yev(iv)) / erad
+         rny = (snz * xev(iv) - snx * zev(iv)) / erad
+         rnz = (snx * yev(iv) - sny * xev(iv)) / erad
       else                    ! Cartesian case
          rnx = sny
          rny = - snx
@@ -223,168 +146,54 @@ do jv = 1, jvmax
 
 ! Earth coordinates of tail
 
-      tailxe = xeuv - stemx
-      tailye = yeuv - stemy
-      tailze = zeuv - stemz
+      tailxe = xev(iv) - stemx
+      tailye = yev(iv) - stemy
+      tailze = zev(iv) - stemz
 
-      if (op%vectbarb(iplt) /= 'B') then
+ ! Earth coordinates of left and right head tips
 
-! Earth coordinates of left and right head tips
+      headlen = op%headspeed * op%dtvec
 
-         headlen = op%headspeed * op%dtvec
+      head1xe = xev(iv) + rnx * .42 * headlen - snx * .91 * headlen
+      head1ye = yev(iv) + rny * .42 * headlen - sny * .91 * headlen
+      head1ze = zev(iv) + rnz * .42 * headlen - snz * .91 * headlen
 
-         head1xe = xeuv + rnx * .42 * headlen - snx * .91 * headlen
-         head1ye = yeuv + rny * .42 * headlen - sny * .91 * headlen
-         head1ze = zeuv + rnz * .42 * headlen - snz * .91 * headlen
-
-         head2xe = xeuv - rnx * .42 * headlen - snx * .91 * headlen
-         head2ye = yeuv - rny * .42 * headlen - sny * .91 * headlen
-         head2ze = zeuv - rnz * .42 * headlen - snz * .91 * headlen
+      head2xe = xev(iv) - rnx * .42 * headlen - snx * .91 * headlen
+      head2ye = yev(iv) - rny * .42 * headlen - sny * .91 * headlen
+      head2ze = zev(iv) - rnz * .42 * headlen - snz * .91 * headlen
 
 ! Transform other tail and coordinates
 
-         call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
-         call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
-         call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+      call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
+      call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+      call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
 
 ! Avoid wrap-around
 
-         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,tailx)
-         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head1x)
-         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head2x)
+      if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,tailx)
+      if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head1x)
+      if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head2x)
 
 ! Jump out of loop if tail or sides of head are outside plot window. 
 
-         if (tailx  < op%xmin .or. tailx  > op%xmax .or.  &
-             taily  < op%ymin .or. taily  > op%ymax .or.  &
-             head1x < op%xmin .or. head1x > op%xmax .or.  &
-             head1y < op%ymin .or. head1y > op%ymax .or.  &
-             head2x < op%xmin .or. head2x > op%xmax .or.  &
-             head2y < op%ymin .or. head2y > op%ymax) cycle
+      if (tailx  < op%xmin .or. tailx  > op%xmax .or.  &
+          taily  < op%ymin .or. taily  > op%ymax .or.  &
+          head1x < op%xmin .or. head1x > op%xmax .or.  &
+          head1y < op%ymin .or. head1y > op%ymax .or.  &
+          head2x < op%xmin .or. head2x > op%xmax .or.  &
+          head2y < op%ymin .or. head2y > op%ymax) cycle
 
 ! Compute re-scaling factor from transformation- STILL NEED THIS??????????
 
-         fac = 1.0
+      fac = 1.0
 
 ! Draw vector
 
-         call o_frstpt(pointx+fac*(tailx-pointx),pointy+fac*(taily-pointy))
-         call o_vector(pointx,pointy)
-         call o_frstpt(pointx+fac*(head1x-pointx),pointy+fac*(head1y-pointy))
-         call o_vector(pointx,pointy)
-         call o_vector(pointx+fac*(head2x-pointx),pointy+fac*(head2y-pointy))
-
-      else    ! case for op%vectbarb(iplt) == 'B'
-
-! Transform stem tail
-
-         call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
-
-! Draw stem
-
-         call o_frstpt(tailx,taily)
-         call o_vector(pointx,pointy)
-
-         pc = 1.
-         xt = speed + .25 * bb
-
-! Draw triangles (if any)
-
-         do while (xt >= ba)
-
-            xea = xeuv + (tailxe - xeuv) * pc
-            yea = yeuv + (tailye - yeuv) * pc
-            zea = zeuv + (tailze - zeuv) * pc
-
-            xeb = xea - rnx * pf * op%stemlength
-            yeb = yea - rny * pf * op%stemlength
-            zeb = zea - rnz * pf * op%stemlength
-
-            pc = pc - pi
-
-            xec = xeuv + (tailxe - xeuv) * pc
-            yec = yeuv + (tailye - yeuv) * pc
-            zec = zeuv + (tailze - zeuv) * pc
-
-! Transform triangle coordinates
-
-            call oplot_transform(iplt,xea,yea,zea,xa,ya)
-            call oplot_transform(iplt,xeb,yeb,zeb,xb,yb)
-            call oplot_transform(iplt,xec,yec,zec,xc,yc)
-
-! Avoid wrap-around
-
-            if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xa)
-            if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xb)
-            if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xc)
-
-            call o_frstpt(xa,ya)
-            call o_vector(xb,yb)
-            call o_vector(xc,yc)
-
-            pc = pc - pi
-            xt = xt - ba
-
-         enddo
-
-! Draw barbs (if any)
-
-         do while (xt >= bb)
-
-            xea = xeuv + (tailxe - xeuv) * pc
-            yea = yeuv + (tailye - yeuv) * pc
-            zea = zeuv + (tailze - zeuv) * pc
-
-            xeb = xea - rnx * pf * op%stemlength
-            yeb = yea - rny * pf * op%stemlength
-            zeb = zea - rnz * pf * op%stemlength
-
-! Transform triangle coordinates
-
-            call oplot_transform(iplt,xea,yea,zea,xa,ya)
-            call oplot_transform(iplt,xeb,yeb,zeb,xb,yb)
-
-! Avoid wrap-around
-
-            if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xa)
-            if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xb)
-
-            call o_frstpt(xa,ya)
-            call o_vector(xb,yb)
-
-            pc = pc - pi
-            xt = xt - bb
-
-         enddo
-
-! Draw half barb (if any)
-
-         if (xt >= .5*bb) then
-
-            xea = xeuv + (tailxe - xeuv) * pc
-            yea = yeuv + (tailye - yeuv) * pc
-            zea = zeuv + (tailze - zeuv) * pc
-
-            xeb = xea - rnx * .5 * pf * op%stemlength
-            yeb = yea - rny * .5 * pf * op%stemlength
-            zeb = zea - rnz * .5 * pf * op%stemlength
-
-! Transform triangle coordinates
-
-            call oplot_transform(iplt,xea,yea,zea,xa,ya)
-            call oplot_transform(iplt,xeb,yeb,zeb,xb,yb)
-
-! Avoid wrap-around
-
-            if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xa)
-            if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xb)
-
-            call o_frstpt(xa,ya)
-            call o_vector(xb,yb)
-
-         endif
-
-      endif
+      call o_frstpt(pointx+fac*(tailx-pointx),pointy+fac*(taily-pointy))
+      call o_vector(pointx,pointy)
+      call o_frstpt(pointx+fac*(head1x-pointx),pointy+fac*(head1y-pointy))
+      call o_vector(pointx,pointy)
+      call o_vector(pointx+fac*(head2x-pointx),pointy+fac*(head2y-pointy))
 
    endif
 
@@ -399,7 +208,7 @@ subroutine vectslab_horiz_w(iplt)
 
 use oplot_coms,  only: op
 use mem_grid,    only: mza, mwa, zm, lpw, xew, yew, zew, wnx, wny, wnz
-use mem_ijtabs,  only: itab_m, itab_u, itab_v, itab_w, jtab_w, jtw_prog
+use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_w, jtw_prog
 use mem_basic,   only: vxe, vye, vze
 use misc_coms,   only: io6, mdomain
 use consts_coms, only: erad
@@ -410,12 +219,12 @@ integer, intent(in) :: iplt
 
 integer :: jw,iw,notavail
 
-real :: fldval,uavg,vavg,pointx  &
-   ,pointy,tailx,taily,stemangle,headangle1,headangle2   &
-   ,headlen,head1x  &
-   ,head1y,head2x,head2y,ptx,pty,tlx,tly,h1x,h1y,h2x,h2y  &
-   ,fac,headlent  &
-   ,tailxe,tailye,tailze,stemlen
+real :: fldval,uavg,vavg,pointx, &
+        pointy,tailx,taily,stemangle,headangle1,headangle2, &
+        headlen,head1x,  &
+        head1y,head2x,head2y,ptx,pty,tlx,tly,h1x,h1y,h2x,h2y, &
+        fac,headlent, &
+        tailxe,tailye,tailze,stemlen
 real :: stemx,stemy,stemz,snx,sny,snz,rnx,rny,rnz
 real :: head1xe,head1ye,head1ze,head2xe,head2ye,head2ze
 real :: vx,vy,vz,vert_vel

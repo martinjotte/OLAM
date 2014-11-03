@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,12 +29,8 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine cuparm_driver(rhot)
+subroutine cuparm_driver()
 
 use mem_grid,         only: mwa, mza, lpw, arw0, lpv, dzt
 use module_cu_g3,     only: grell_driver
@@ -53,7 +53,6 @@ use smagorinsky,      only: turb_k
 
 implicit none
 
-real, intent(inout) :: rhot(mza,mwa)
 real(r8), parameter :: cptime = 0.0
 integer             :: j, iw, k, mrl, mrlw
 integer, save       :: init_kf = 0
@@ -185,12 +184,10 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
 ! Loop over all IW grid cells where cumulus parameterization may be done
 
-   call psub()
 !----------------------------------------------------------------------
    !$omp parallel do private(iw,mrlw,k,km,km1) 
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
 !----------------------------------------------------------------------
-   call qsub('W',iw)
 
 ! MRL for current IW column
 
@@ -202,7 +199,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
    
 ! Tiedtke convective parameterization
 
-         km = mza - lpw(iw) ! km  = # of T levels in cuparm_tiedtke
+         km = mza + 1 - lpw(iw) ! km  = # of T levels in cuparm_tiedtke
          km1 = km + 1       ! km1 = # of W levels in cuparm_tiedtke
 
          call cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
@@ -246,7 +243,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
       if (nqparm(mrlw) /= 0 .and. conprr(iw) > 1.e-16 .and. do_spreading) then
 
-         do k = lpw(iw), mza-1
+         do k = lpw(iw), mza
 
             ! heating above ths_min will be a candidate to be distributed
             thsrc_distrib(k,iw) = max( thsrc(k,iw) - ths_min, 0.0 ) 
@@ -259,12 +256,12 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
    enddo
    !$omp end parallel do
-   call rsub('Wa',15)
 
 ! Perform MPI send of thsrc_distrib
 
    if (iparallel == 1 .and. do_spreading) then
-      call mpi_send_w('V', vxe=thsrc_distrib, domrl=1)
+      mrl = 1
+      call mpi_send_w(mrl, rvara1=thsrc_distrib)
    endif
 
 ! Print maximum heating rate in current parallel sub-domain
@@ -275,12 +272,12 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 
    ! this will need to be changed to work with OpenMP
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
-      do k = lpw(iw), mza-1
+      do k = lpw(iw), mza
          ftcon = thsrc(k,iw) + thsrc_distrib(k,iw)
          if (ftcon > dthmax) then
             dthmax = ftcon
-           iwqmax = iw
-            kqmax = k
+            iwqmax = iw
+             kqmax = k
          endif
       enddo
    enddo
@@ -291,7 +288,8 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 ! Perform MPI receive of heating and mixing for lateral spreading
 
    if (iparallel == 1 .and. do_spreading) then
-      call mpi_recv_w('V', vxe=thsrc_distrib, domrl=1)
+      mrl = 1
+      call mpi_recv_w(mrl, rvara1=thsrc_distrib)
    endif
 
 ! Distribute convective heating among neighboring cells
@@ -304,7 +302,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
          npoly = itab_w(iw)%npoly
 
          ! This section is the amount of heating that stays in the current cell
-         do k = lpw(iw), mza-1
+         do k = lpw(iw), mza
             nblocked = count( lpw( itab_w(iw)%iw(1:npoly)  ) > k )
             thsrc(k,iw) = thsrc(k,iw) + (tkeep(iw)+nblocked*tsend(iw)) * thsrc_distrib(k,iw)
          enddo
@@ -313,7 +311,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
          do jwn = 1, npoly
             iwn = itab_w(iw)%iw(jwn)
             iv  = itab_w(iw)%iv(jwn)
-            do k = lpv(iv), mza-1
+            do k = lpv(iv), mza
                thsrc(k,iw) = thsrc(k,iw) + tsend(iwn) * thsrc_distrib(k,iwn)
             enddo
          enddo
@@ -329,14 +327,17 @@ endif
 ! every long timestep (whether cumulus parameterization is updated 
 ! this timestep or not)
 
-call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begl(istp)
 if (mrl > 0) then
-!$omp parallel do private(iw,mrlw,qadd,k,qtest,rt,qpos,fact)
+
+! NOTE:  The following omp parallel do statement has been disabled due to
+! its resulting in a stack error on at least one computer; if the cause is
+! found and fixed, the omp statement can be restored.
+
+!!disabled !$omp parallel do private(iw,mrlw,qadd,k,qtest,rt,qpos,fact)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
-call qsub('W',iw)
 
    ! Skip if no convection in this column
 
@@ -352,7 +353,7 @@ call qsub('W',iw)
 
    qadd = 0.0_r8
 
-   do k = lpw(iw), mza-1
+   do k = lpw(iw), mza
       qtest = max(sh_w(k,iw),0.0) + rtsrc(k,iw) * dtlong
 
       if (qtest < 0. .and. rtsrc(k,iw) < 0.) then
@@ -371,7 +372,7 @@ call qsub('W',iw)
       ! qpos is sum of positive tendencies that we can borrow from
       qpos = 0.0_r8
 
-      do k = lpw(iw), mza-1
+      do k = lpw(iw), mza
          if (rtsrc(k,iw) > 0.) then
             qpos = qpos + rho(k,iw)*rtsrc(k,iw)*dzt(k)
          endif
@@ -382,7 +383,7 @@ call qsub('W',iw)
       fact = max(fact, 0.0_r8)
 
       ! now borrow water from positive tendency areas to balance qadd
-      do k = lpw(iw), mza-1
+      do k = lpw(iw), mza
          if (rtsrc(k,iw) > 0.) then
             rt(k) = rtsrc(k,iw) * fact
          endif
@@ -393,14 +394,14 @@ call qsub('W',iw)
 
    aconpr(iw) = aconpr(iw) + real(conprr(iw),r8) * dtlong
 
-   do k = lpw(iw), mza-1
+   do k = lpw(iw), mza
       thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * rho(k,iw)
 
       sh_wt(k,iw) = sh_wt(k,iw) +    rt(k)    * rho(k,iw)
    enddo
 
    if (nl%conv_uv_mix > 0) then
-      do k = lpw(iw), mza-1
+      do k = lpw(iw), mza
          vmxet(k,iw) = vmxet(k,iw) + vxsrc(k,iw) * rho(k,iw)
 
          vmyet(k,iw) = vmyet(k,iw) + vysrc(k,iw) * rho(k,iw)
@@ -416,9 +417,8 @@ call qsub('W',iw)
    endif
 
 enddo
-!$omp end parallel do
+!!disabled !$omp end parallel do
 endif
-call rsub('Wb',15)
 
 return
 end subroutine cuparm_driver

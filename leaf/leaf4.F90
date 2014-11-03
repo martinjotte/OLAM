@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 subroutine leaf4()
@@ -40,8 +40,6 @@ use misc_coms, only: io6, s1900_sim, isubdomain
 
 use leaf4_landcell,    only: landcell
 use mem_para,          only: myrank
-
-!$ use omp_lib
 
 implicit none
 
@@ -72,33 +70,34 @@ do iwl = 2,mwl
 
 ! Update LAND CELL
 
-   call landcell(iwl                 ,                                  &
-      land%nlev_sfcwater        (iwl), land%leaf_class           (iwl), &
-      land%ntext_soil     (1:nzg,iwl), land%soil_water     (1:nzg,iwl), &
-      land%soil_energy    (1:nzg,iwl), land%sfcwater_mass  (1:nzs,iwl), &
-      land%sfcwater_energy(1:nzs,iwl), land%sfcwater_depth (1:nzs,iwl), &
-      land%rshort_v             (iwl), land%rshort_g             (iwl), &
-      land%rshort               (iwl), land%rlong_v              (iwl), &
-      land%rlong_s              (iwl), land%rlong_g              (iwl), &
-      land%veg_height           (iwl),                                  &
-      land%veg_rough            (iwl), land%veg_tai              (iwl), &
-      land%veg_lai              (iwl), land%veg_fracarea         (iwl), &
-      land%hcapveg              (iwl), land%can_depth            (iwl), &
-      land%rhos                 (iwl), land%vels                 (iwl), &
-      land%prss                 (iwl), land%pcpg                 (iwl), &
-      land%qpcpg                (iwl), land%dpcpg                (iwl), &
-      land%sxfer_t              (iwl), land%sxfer_r              (iwl), &
-      land%ustar                (iwl), land%snowfac              (iwl), &
-      land%vf                   (iwl), land%surface_ssh          (iwl), &
-      land%ground_shv           (iwl), land%veg_water            (iwl), &
-      land%veg_temp             (iwl), land%can_temp             (iwl), &
-      land%can_shv              (iwl), land%stom_resist          (iwl), &
-      land%veg_ndvip            (iwl), land%veg_ndvif            (iwl), &
-      land%veg_ndvic            (iwl), land%veg_albedo           (iwl), &
-      land%rough                (iwl), land%ggaer                (iwl), &
-      land%head0                (iwl), land%head1                (iwl), &
-      land%glatw                (iwl), land%glonw                (iwl), &
-      timefac_ndvi                                                      )
+
+   call landcell(iwl                 ,                                 &
+      land%nlev_sfcwater        (iwl), land%leaf_class          (iwl), &
+      land%ntext_soil     (1:nzg,iwl), land%soil_water    (1:nzg,iwl), &
+      land%soil_energy    (1:nzg,iwl), land%sfcwater_mass (1:nzs,iwl), &
+      land%sfcwater_energy(1:nzs,iwl), land%sfcwater_depth(1:nzs,iwl), &
+      land%rshort_v             (iwl), land%rshort_g            (iwl), &
+      land%rshort               (iwl), land%rlong_v             (iwl), &
+      land%rlong_s              (iwl), land%rlong_g             (iwl), &
+      land%veg_height           (iwl),                                 &
+      land%veg_rough            (iwl), land%veg_tai             (iwl), &
+      land%veg_lai              (iwl), land%veg_fracarea        (iwl), &
+      land%hcapveg              (iwl), land%can_depth           (iwl), &
+      land%rhos                 (iwl), land%vels                (iwl), &
+      land%prss                 (iwl), land%pcpg                (iwl), &
+      land%qpcpg                (iwl), land%dpcpg               (iwl), &
+      land%sxfer_t              (iwl), land%sxfer_r             (iwl), &
+      land%ustar                (iwl), land%snowfac             (iwl), &
+      land%vf                   (iwl), land%surface_ssh         (iwl), &
+      land%ground_shv           (iwl), land%veg_water           (iwl), &
+      land%veg_temp             (iwl), land%cantemp             (iwl), &
+      land%canshv               (iwl), land%stom_resist         (iwl), &
+      land%veg_ndvip            (iwl), land%veg_ndvif           (iwl), &
+      land%veg_ndvic            (iwl), land%veg_albedo          (iwl), &
+      land%rough                (iwl), land%ggaer               (iwl), &
+      land%head0                (iwl), land%head1               (iwl), &
+      land%glatw                (iwl), land%glonw               (iwl), &
+      timefac_ndvi                                                     )
 
    elseif(land%ed_flag(iwl) == 1)then
 
@@ -129,7 +128,7 @@ end subroutine leaf4
 !===============================================================================
 
 subroutine grndvap(iwl, nlev_sfcwater, nts, soil_water, soil_energy, &
-                   sfcwater_energy, rhos, can_shv, surface_ssh, ground_shv)
+                   sfcwater_energy, rhos, canshv, surface_ssh, ground_shv)
 
 use leaf_coms,   only: nstyp, slbs, slmsts, slpots, slcpd, nzg
 use consts_coms, only: grav, rvap
@@ -145,7 +144,7 @@ real, intent(in)  :: soil_water      ! soil water content [vol_water/vol_tot]
 real, intent(in)  :: soil_energy     ! [J/m^3]
 real, intent(in)  :: sfcwater_energy ! [J/kg]
 real, intent(in)  :: rhos            ! air density [kg/m^3]
-real, intent(in)  :: can_shv         ! canopy vapor spec hum [kg_vap/kg_air]
+real, intent(in)  :: canshv          ! canopy vapor spec hum [kg_vap/kg_air]
 real, intent(out) :: surface_ssh     ! surface (saturation) spec hum [kg_vap/kg_air]
 real, intent(out) :: ground_shv      ! ground equilibrium spec hum [kg_vap/kg_air]
 
@@ -159,7 +158,7 @@ real :: gnd_rhov  ! ground sfc evaporative vapor density [kg_vap/m^3]
 
 real, external :: rhovsil  ! function to compute sat vapor density (over ice or liq)
 
-can_rhov = can_shv * rhos
+can_rhov = canshv * rhos
 
 if (nlev_sfcwater > 0) then
 
@@ -227,6 +226,7 @@ data sfldcap/.135,.150,.195,.255,.240,.255,.322,.325,.310,.370,.367,.535/
 slpotvn = slpots(nts) * (slmsts(nts) / soil_water) ** slbs(nts)
 alpha = exp(gorvap * slpotvn / tempk)
 beta = .25 * (1. - cos (min(1.,soil_water / sfldcap(nts)) * 3.14159)) ** 2
+
 gnd_rhov = sfc_rhovs * alpha * beta + (1. - beta) * can_rhov
 
 return

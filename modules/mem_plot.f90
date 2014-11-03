@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 Module mem_plot
@@ -73,52 +73,51 @@ real, allocatable :: rshortup_top_accum_prev1(:)
 real, allocatable :: rlongup_top_accum_prev0(:)
 real, allocatable :: rlongup_top_accum_prev1(:)
 
-real, allocatable :: sflux_t_accum_prev0(:)
-real, allocatable :: sflux_t_accum_prev1(:)
+real, allocatable :: sfluxt_accum_prev0(:)
+real, allocatable :: sfluxt_accum_prev1(:)
 
-real, allocatable :: sflux_r_accum_prev0(:)
-real, allocatable :: sflux_r_accum_prev1(:)
+real, allocatable :: sfluxr_accum_prev0(:)
+real, allocatable :: sfluxr_accum_prev1(:)
 
-real, allocatable :: lf_sfluxt_accum_prev0(:)
-real, allocatable :: lf_sfluxt_accum_prev1(:)
+real, allocatable :: sfluxt_l_accum_prev0(:)
+real, allocatable :: sfluxt_l_accum_prev1(:)
 
-real, allocatable :: lf_sfluxr_accum_prev0(:)
-real, allocatable :: lf_sfluxr_accum_prev1(:)
+real, allocatable :: sfluxr_l_accum_prev0(:)
+real, allocatable :: sfluxr_l_accum_prev1(:)
 
-real, allocatable :: lf_airtemp_accum_prev0(:)
-real, allocatable :: lf_airtemp_accum_prev1(:)
+real, allocatable :: airtemp_l_accum_prev0(:)
+real, allocatable :: airtemp_l_accum_prev1(:)
 
-real, allocatable :: lf_airshv_accum_prev0(:)
-real, allocatable :: lf_airshv_accum_prev1(:)
+real, allocatable :: airshv_l_accum_prev0(:)
+real, allocatable :: airshv_l_accum_prev1(:)
 
-real, allocatable :: lf_cantemp_accum_prev0(:)
-real, allocatable :: lf_cantemp_accum_prev1(:)
+real, allocatable :: cantemp_l_accum_prev0(:)
+real, allocatable :: cantemp_l_accum_prev1(:)
 
-real, allocatable :: lf_canshv_accum_prev0(:)
-real, allocatable :: lf_canshv_accum_prev1(:)
+real, allocatable :: canshv_l_accum_prev0(:)
+real, allocatable :: canshv_l_accum_prev1(:)
 
-real, allocatable :: sf_sfluxt_accum_prev0(:)
-real, allocatable :: sf_sfluxt_accum_prev1(:)
+real, allocatable :: sfluxt_s_accum_prev0(:)
+real, allocatable :: sfluxt_s_accum_prev1(:)
 
-real, allocatable :: sf_sfluxr_accum_prev0(:)
-real, allocatable :: sf_sfluxr_accum_prev1(:)
+real, allocatable :: sfluxr_s_accum_prev0(:)
+real, allocatable :: sfluxr_s_accum_prev1(:)
 
-real, allocatable :: sf_airtemp_accum_prev0(:)
-real, allocatable :: sf_airtemp_accum_prev1(:)
+real, allocatable :: airtemp_s_accum_prev0(:)
+real, allocatable :: airtemp_s_accum_prev1(:)
 
-real, allocatable :: sf_airshv_accum_prev0(:)
-real, allocatable :: sf_airshv_accum_prev1(:)
+real, allocatable :: airshv_s_accum_prev0(:)
+real, allocatable :: airshv_s_accum_prev1(:)
 
-real, allocatable :: sf_cantemp_accum_prev0(:)
-real, allocatable :: sf_cantemp_accum_prev1(:)
+real, allocatable :: cantemp_s_accum_prev0(:)
+real, allocatable :: cantemp_s_accum_prev1(:)
 
-real, allocatable :: sf_canshv_accum_prev0(:)
-real, allocatable :: sf_canshv_accum_prev1(:)
+real, allocatable :: canshv_s_accum_prev0(:)
+real, allocatable :: canshv_s_accum_prev1(:)
 
 real(r8), allocatable ::  press_init(:,:)
 real(r8), allocatable ::    rho_init(:,:)
 real,     allocatable ::  theta_init(:,:)
-real,     allocatable ::     uc_init(:,:)
 real,     allocatable ::     vc_init(:,:)
 real,     allocatable :: addsc1_init(:,:)
 
@@ -128,10 +127,11 @@ Contains
 
   subroutine alloc_plot()
 
-  use mem_grid,  only: mza, mua, mva, mwa
-  use mem_basic, only: press, rho, theta, uc, vc
+  use mem_grid,  only: mza, mva, mwa
+  use mem_basic, only: press, rho, theta, vc
   use mem_addsc, only: addsc
-  use mem_sflux, only: mlandflux, mseaflux
+  use leaf_coms, only: mwl
+  use sea_coms,  only: mws
 
   implicit none
 
@@ -166,52 +166,51 @@ Contains
   allocate ( rlongup_top_accum_prev0(mwa))
   allocate ( rlongup_top_accum_prev1(mwa))
 
-  allocate ( sflux_t_accum_prev0(mwa))
-  allocate ( sflux_t_accum_prev1(mwa))
+  allocate ( sfluxt_accum_prev0(mwa))
+  allocate ( sfluxt_accum_prev1(mwa))
 
-  allocate ( sflux_r_accum_prev0(mwa))
-  allocate ( sflux_r_accum_prev1(mwa))
+  allocate ( sfluxr_accum_prev0(mwa))
+  allocate ( sfluxr_accum_prev1(mwa))
 
-  allocate ( lf_sfluxt_accum_prev0(mlandflux))
-  allocate ( lf_sfluxt_accum_prev1(mlandflux))
+  allocate ( sfluxt_l_accum_prev0(mwl))
+  allocate ( sfluxt_l_accum_prev1(mwl))
 
-  allocate ( lf_sfluxr_accum_prev0(mlandflux))
-  allocate ( lf_sfluxr_accum_prev1(mlandflux))
+  allocate ( sfluxr_l_accum_prev0(mwl))
+  allocate ( sfluxr_l_accum_prev1(mwl))
 
-  allocate ( lf_airtemp_accum_prev0(mlandflux))
-  allocate ( lf_airtemp_accum_prev1(mlandflux))
+  allocate ( airtemp_l_accum_prev0(mwl))
+  allocate ( airtemp_l_accum_prev1(mwl))
 
-  allocate ( lf_airshv_accum_prev0(mlandflux))
-  allocate ( lf_airshv_accum_prev1(mlandflux))
+  allocate ( airshv_l_accum_prev0(mwl))
+  allocate ( airshv_l_accum_prev1(mwl))
 
-  allocate ( lf_cantemp_accum_prev0(mlandflux))
-  allocate ( lf_cantemp_accum_prev1(mlandflux))
+  allocate ( cantemp_l_accum_prev0(mwl))
+  allocate ( cantemp_l_accum_prev1(mwl))
 
-  allocate ( lf_canshv_accum_prev0(mlandflux))
-  allocate ( lf_canshv_accum_prev1(mlandflux))
+  allocate ( canshv_l_accum_prev0(mwl))
+  allocate ( canshv_l_accum_prev1(mwl))
 
-  allocate ( sf_sfluxt_accum_prev0(mseaflux))
-  allocate ( sf_sfluxt_accum_prev1(mseaflux))
+  allocate ( sfluxt_s_accum_prev0(mws))
+  allocate ( sfluxt_s_accum_prev1(mws))
 
-  allocate ( sf_sfluxr_accum_prev0(mseaflux))
-  allocate ( sf_sfluxr_accum_prev1(mseaflux))
+  allocate ( sfluxr_s_accum_prev0(mws))
+  allocate ( sfluxr_s_accum_prev1(mws))
 
-  allocate ( sf_airtemp_accum_prev0(mseaflux))
-  allocate ( sf_airtemp_accum_prev1(mseaflux))
+  allocate ( airtemp_s_accum_prev0(mws))
+  allocate ( airtemp_s_accum_prev1(mws))
 
-  allocate ( sf_airshv_accum_prev0(mseaflux))
-  allocate ( sf_airshv_accum_prev1(mseaflux))
+  allocate ( airshv_s_accum_prev0(mws))
+  allocate ( airshv_s_accum_prev1(mws))
 
-  allocate ( sf_cantemp_accum_prev0(mseaflux))
-  allocate ( sf_cantemp_accum_prev1(mseaflux))
+  allocate ( cantemp_s_accum_prev0(mws))
+  allocate ( cantemp_s_accum_prev1(mws))
 
-  allocate ( sf_canshv_accum_prev0(mseaflux))
-  allocate ( sf_canshv_accum_prev1(mseaflux))
+  allocate ( canshv_s_accum_prev0(mws))
+  allocate ( canshv_s_accum_prev1(mws))
 
   allocate ( press_init(mza,mwa))
   allocate (   rho_init(mza,mwa))
   allocate ( theta_init(mza,mwa))
-  allocate (    uc_init(mza,mua))
   allocate (    vc_init(mza,mva))
 ! allocate (addsc1_init(mza,mwa))
 
@@ -246,54 +245,53 @@ Contains
   rlongup_top_accum_prev0(:) = 0.
   rlongup_top_accum_prev1(:) = 0.
 
-  sflux_t_accum_prev0(:) = 0.
-  sflux_t_accum_prev1(:) = 0.
+  sfluxt_accum_prev0(:) = 0.
+  sfluxt_accum_prev1(:) = 0.
 
-  sflux_r_accum_prev0(:) = 0.
-  sflux_r_accum_prev1(:) = 0.
+  sfluxr_accum_prev0(:) = 0.
+  sfluxr_accum_prev1(:) = 0.
 
-  lf_sfluxt_accum_prev0(:) = 0.
-  lf_sfluxt_accum_prev1(:) = 0.
+  sfluxt_l_accum_prev0(:) = 0.
+  sfluxt_l_accum_prev1(:) = 0.
 
-  lf_sfluxr_accum_prev0(:) = 0.
-  lf_sfluxr_accum_prev1(:) = 0.
+  sfluxr_l_accum_prev0(:) = 0.
+  sfluxr_l_accum_prev1(:) = 0.
 
-  lf_airtemp_accum_prev0(:) = 0.
-  lf_airtemp_accum_prev1(:) = 0.
+  airtemp_l_accum_prev0(:) = 0.
+  airtemp_l_accum_prev1(:) = 0.
 
-  lf_airshv_accum_prev0(:) = 0.
-  lf_airshv_accum_prev1(:) = 0.
+  airshv_l_accum_prev0(:) = 0.
+  airshv_l_accum_prev1(:) = 0.
 
-  lf_cantemp_accum_prev0(:) = 0.
-  lf_cantemp_accum_prev1(:) = 0.
+  cantemp_l_accum_prev0(:) = 0.
+  cantemp_l_accum_prev1(:) = 0.
 
-  lf_canshv_accum_prev0(:) = 0.
-  lf_canshv_accum_prev1(:) = 0.
+  canshv_l_accum_prev0(:) = 0.
+  canshv_l_accum_prev1(:) = 0.
 
-  sf_sfluxt_accum_prev0(:) = 0.
-  sf_sfluxt_accum_prev1(:) = 0.
+  sfluxt_s_accum_prev0(:) = 0.
+  sfluxt_s_accum_prev1(:) = 0.
 
-  sf_sfluxr_accum_prev0(:) = 0.
-  sf_sfluxr_accum_prev1(:) = 0.
+  sfluxr_s_accum_prev0(:) = 0.
+  sfluxr_s_accum_prev1(:) = 0.
 
-  sf_airtemp_accum_prev0(:) = 0.
-  sf_airtemp_accum_prev1(:) = 0.
+  airtemp_s_accum_prev0(:) = 0.
+  airtemp_s_accum_prev1(:) = 0.
 
-  sf_airshv_accum_prev0(:) = 0.
-  sf_airshv_accum_prev1(:) = 0.
+  airshv_s_accum_prev0(:) = 0.
+  airshv_s_accum_prev1(:) = 0.
 
-  sf_cantemp_accum_prev0(:) = 0.
-  sf_cantemp_accum_prev1(:) = 0.
+  cantemp_s_accum_prev0(:) = 0.
+  cantemp_s_accum_prev1(:) = 0.
 
-  sf_canshv_accum_prev0(:) = 0.
-  sf_canshv_accum_prev1(:) = 0.
+  canshv_s_accum_prev0(:) = 0.
+  canshv_s_accum_prev1(:) = 0.
 
   press_init(:,:) = press(:,:)
   rho_init  (:,:) = rho  (:,:)
   theta_init(:,:) = theta(:,:)
 
-  if (allocated(uc)) uc_init(:,:) = uc(:,:)
-  if (allocated(vc)) vc_init(:,:) = vc(:,:)
+     vc_init(:,:) = vc(:,:)
 !   addsc1_init(:,:) = addsc(1)%sclp(:,:)
 
   time8_prev0 = 0.
@@ -311,18 +309,18 @@ Contains
 
   use mem_micro,      only: accpd, accpr, accpp, accps, accpa, accpg, accph
   use misc_coms,      only: time8
-  use mem_turb,       only: sflux_t, sflux_r
+  use mem_turb,       only: sfluxt, sfluxr
   use mem_flux_accum, only: rshort_accum, rshortup_accum, &
                             rlong_accum, rlongup_accum, &
                             rshort_top_accum, rshortup_top_accum, &
                             rlongup_top_accum, &
-                            sflux_t_accum, sflux_r_accum, &
-                            lf_sfluxt_accum,  lf_sfluxr_accum, &
-                            lf_airtemp_accum, lf_airshv_accum, &
-                            lf_cantemp_accum, lf_canshv_accum, &
-                            sf_sfluxt_accum,  sf_sfluxr_accum, &
-                            sf_airtemp_accum, sf_airshv_accum, &
-                            sf_cantemp_accum, sf_canshv_accum
+                               sfluxt_accum,   sfluxr_accum, &
+                             sfluxt_l_accum, sfluxr_l_accum, &
+                            airtemp_l_accum, airshv_l_accum, &
+                            cantemp_l_accum, canshv_l_accum, &
+                             sfluxt_s_accum, sfluxr_s_accum, &
+                            airtemp_s_accum, airshv_s_accum, &
+                            cantemp_s_accum, canshv_s_accum
 
   implicit none
 
@@ -374,22 +372,22 @@ Contains
        rshort_top_accum_prev1(:) =   rshort_top_accum_prev0(:)
      rshortup_top_accum_prev1(:) = rshortup_top_accum_prev0(:)
       rlongup_top_accum_prev1(:) =  rlongup_top_accum_prev0(:)
-          sflux_t_accum_prev1(:) =      sflux_t_accum_prev0(:)
-          sflux_r_accum_prev1(:) =      sflux_r_accum_prev0(:)
+           sfluxt_accum_prev1(:) =       sfluxt_accum_prev0(:)
+           sfluxr_accum_prev1(:) =       sfluxr_accum_prev0(:)
 
-        lf_sfluxt_accum_prev1(:) =  lf_sfluxt_accum_prev0(:)
-        lf_sfluxr_accum_prev1(:) =  lf_sfluxr_accum_prev0(:)
-       lf_airtemp_accum_prev1(:) = lf_airtemp_accum_prev0(:)
-        lf_airshv_accum_prev1(:) =  lf_airshv_accum_prev0(:)
-       lf_cantemp_accum_prev1(:) = lf_cantemp_accum_prev0(:)
-        lf_canshv_accum_prev1(:) =  lf_canshv_accum_prev0(:)
+        sfluxt_l_accum_prev1(:) =  sfluxt_l_accum_prev0(:)
+        sfluxr_l_accum_prev1(:) =  sfluxr_l_accum_prev0(:)
+       airtemp_l_accum_prev1(:) = airtemp_l_accum_prev0(:)
+        airshv_l_accum_prev1(:) =  airshv_l_accum_prev0(:)
+       cantemp_l_accum_prev1(:) = cantemp_l_accum_prev0(:)
+        canshv_l_accum_prev1(:) =  canshv_l_accum_prev0(:)
 
-        sf_sfluxt_accum_prev1(:) =  sf_sfluxt_accum_prev0(:)
-        sf_sfluxr_accum_prev1(:) =  sf_sfluxr_accum_prev0(:)
-       sf_airtemp_accum_prev1(:) = sf_airtemp_accum_prev0(:)
-        sf_airshv_accum_prev1(:) =  sf_airshv_accum_prev0(:)
-       sf_cantemp_accum_prev1(:) = sf_cantemp_accum_prev0(:)
-        sf_canshv_accum_prev1(:) =  sf_canshv_accum_prev0(:)
+        sfluxt_s_accum_prev1(:) =  sfluxt_s_accum_prev0(:)
+        sfluxr_s_accum_prev1(:) =  sfluxr_s_accum_prev0(:)
+       airtemp_s_accum_prev1(:) = airtemp_s_accum_prev0(:)
+        airshv_s_accum_prev1(:) =  airshv_s_accum_prev0(:)
+       cantemp_s_accum_prev1(:) = cantemp_s_accum_prev0(:)
+        canshv_s_accum_prev1(:) =  canshv_s_accum_prev0(:)
 
 ! Fill most recent previous values
 
@@ -405,22 +403,22 @@ Contains
        rshort_top_accum_prev0(:) = 0.
      rshortup_top_accum_prev0(:) = 0.
       rlongup_top_accum_prev0(:) = 0.
-          sflux_t_accum_prev0(:) = 0.
-          sflux_r_accum_prev0(:) = 0.
+           sfluxt_accum_prev0(:) = 0.
+           sfluxr_accum_prev0(:) = 0.
 
-        lf_sfluxt_accum_prev0(:) = 0.
-        lf_sfluxr_accum_prev0(:) = 0.
-       lf_airtemp_accum_prev0(:) = 0.
-        lf_airshv_accum_prev0(:) = 0.
-       lf_cantemp_accum_prev0(:) = 0.
-        lf_canshv_accum_prev0(:) = 0.
+        sfluxt_l_accum_prev0(:) = 0.
+        sfluxr_l_accum_prev0(:) = 0.
+       airtemp_l_accum_prev0(:) = 0.
+        airshv_l_accum_prev0(:) = 0.
+       cantemp_l_accum_prev0(:) = 0.
+        canshv_l_accum_prev0(:) = 0.
 
-        sf_sfluxt_accum_prev0(:) = 0.
-        sf_sfluxr_accum_prev0(:) = 0.
-       sf_airtemp_accum_prev0(:) = 0.
-        sf_airshv_accum_prev0(:) = 0.
-       sf_cantemp_accum_prev0(:) = 0.
-        sf_canshv_accum_prev0(:) = 0.
+        sfluxt_s_accum_prev0(:) = 0.
+        sfluxr_s_accum_prev0(:) = 0.
+       airtemp_s_accum_prev0(:) = 0.
+        airshv_s_accum_prev0(:) = 0.
+       cantemp_s_accum_prev0(:) = 0.
+        canshv_s_accum_prev0(:) = 0.
 
 !  endif
 
@@ -464,61 +462,61 @@ Contains
                                     rlongup_top_accum_prev0(:) + &
                                real(rlongup_top_accum(:))
 
-  if (allocated(sflux_t_accum)) sflux_t_accum_prev0(:) = &
-                                sflux_t_accum_prev0(:) + &
-                           real(sflux_t_accum(:))
+  if (allocated(sfluxt_accum)) sfluxt_accum_prev0(:) = &
+                               sfluxt_accum_prev0(:) + &
+                          real(sfluxt_accum(:))
 
-  if (allocated(sflux_r_accum)) sflux_r_accum_prev0(:) = &
-                                sflux_r_accum_prev0(:) + &
-                           real(sflux_r_accum(:))
+  if (allocated(sfluxr_accum)) sfluxr_accum_prev0(:) = &
+                               sfluxr_accum_prev0(:) + &
+                          real(sfluxr_accum(:))
 
-  if (allocated(lf_sfluxt_accum)) lf_sfluxt_accum_prev0(:) = &
-                                  lf_sfluxt_accum_prev0(:) + &
-                             real(lf_sfluxt_accum(:))
+  if (allocated(sfluxt_l_accum))  sfluxt_l_accum_prev0(:) = &
+                                  sfluxt_l_accum_prev0(:) + &
+                             real(sfluxt_l_accum(:))
 
-  if (allocated(lf_sfluxr_accum)) lf_sfluxr_accum_prev0(:) = &
-                                  lf_sfluxr_accum_prev0(:) + &
-                             real(lf_sfluxr_accum(:))
+  if (allocated(sfluxr_l_accum))  sfluxr_l_accum_prev0(:) = &
+                                  sfluxr_l_accum_prev0(:) + &
+                             real(sfluxr_l_accum(:))
 
-  if (allocated(lf_airtemp_accum)) lf_airtemp_accum_prev0(:) = &
-                                   lf_airtemp_accum_prev0(:) + &
-                              real(lf_airtemp_accum(:))
+  if (allocated(airtemp_l_accum))  airtemp_l_accum_prev0(:) = &
+                                   airtemp_l_accum_prev0(:) + &
+                              real(airtemp_l_accum(:))
 
-  if (allocated(lf_airshv_accum)) lf_airshv_accum_prev0(:) = &
-                                  lf_airshv_accum_prev0(:) + &
-                             real(lf_airshv_accum(:))
+  if (allocated(airshv_l_accum))  airshv_l_accum_prev0(:) = &
+                                  airshv_l_accum_prev0(:) + &
+                             real(airshv_l_accum(:))
 
-  if (allocated(lf_cantemp_accum)) lf_cantemp_accum_prev0(:) = &
-                                   lf_cantemp_accum_prev0(:) + &
-                              real(lf_cantemp_accum(:))
+  if (allocated(cantemp_l_accum))  cantemp_l_accum_prev0(:) = &
+                                   cantemp_l_accum_prev0(:) + &
+                              real(cantemp_l_accum(:))
 
-  if (allocated(lf_canshv_accum)) lf_canshv_accum_prev0(:) = &
-                                  lf_canshv_accum_prev0(:) + &
-                             real(lf_canshv_accum(:))
+  if (allocated(canshv_l_accum))  canshv_l_accum_prev0(:) = &
+                                  canshv_l_accum_prev0(:) + &
+                             real(canshv_l_accum(:))
 
-  if (allocated(sf_sfluxt_accum)) sf_sfluxt_accum_prev0(:) = &
-                                  sf_sfluxt_accum_prev0(:) + &
-                             real(sf_sfluxt_accum(:))
+  if (allocated(sfluxt_s_accum))  sfluxt_s_accum_prev0(:) = &
+                                  sfluxt_s_accum_prev0(:) + &
+                             real(sfluxt_s_accum(:))
 
-  if (allocated(sf_sfluxr_accum)) sf_sfluxr_accum_prev0(:) = &
-                                  sf_sfluxr_accum_prev0(:) + &
-                             real(sf_sfluxr_accum(:))
+  if (allocated(sfluxr_s_accum))  sfluxr_s_accum_prev0(:) = &
+                                  sfluxr_s_accum_prev0(:) + &
+                             real(sfluxr_s_accum(:))
 
-  if (allocated(sf_airtemp_accum)) sf_airtemp_accum_prev0(:) = &
-                                   sf_airtemp_accum_prev0(:) + &
-                              real(sf_airtemp_accum(:))
+  if (allocated(airtemp_s_accum))  airtemp_s_accum_prev0(:) = &
+                                   airtemp_s_accum_prev0(:) + &
+                              real(airtemp_s_accum(:))
 
-  if (allocated(sf_airshv_accum)) sf_airshv_accum_prev0(:) = &
-                                  sf_airshv_accum_prev0(:) + &
-                             real(sf_airshv_accum(:))
+  if (allocated(airshv_s_accum))  airshv_s_accum_prev0(:) = &
+                                  airshv_s_accum_prev0(:) + &
+                             real(airshv_s_accum(:))
 
-  if (allocated(sf_cantemp_accum)) sf_cantemp_accum_prev0(:) = &
-                                   sf_cantemp_accum_prev0(:) + &
-                              real(sf_cantemp_accum(:))
+  if (allocated(cantemp_s_accum))  cantemp_s_accum_prev0(:) = &
+                                   cantemp_s_accum_prev0(:) + &
+                              real(cantemp_s_accum(:))
 
-  if (allocated(sf_canshv_accum)) sf_canshv_accum_prev0(:) = &
-                                  sf_canshv_accum_prev0(:) + &
-                             real(sf_canshv_accum(:))
+  if (allocated(canshv_s_accum))  canshv_s_accum_prev0(:) = &
+                                  canshv_s_accum_prev0(:) + &
+                             real(canshv_s_accum(:))
 
   end subroutine copy_plot
 

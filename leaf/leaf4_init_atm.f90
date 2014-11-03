@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 subroutine leaf4_init_atm()
@@ -41,15 +41,14 @@ use leaf_coms,   only: mwl, nzg, nzs, &
                        dt_leaf, isoilstateinit, iwatertabflg, watertab_db, &
                        water_frac_ph0, water_def_ph0, slpott, slpots, slbs, slzt
                       
-use mem_sflux,    only: landflux, jlandflux
-use mem_basic,    only: rho, tair, sh_v
+use mem_basic,    only: rho, press, vxe, vye, vze, tair, sh_v
 use misc_coms,    only: io6, time8, s1900_sim, iparallel, isubdomain, &
                         runtype, initial
 use mem_ijtabs,   only: itabg_w
 use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000
 use mem_para,     only: myrank
 use leaf4_canopy, only: vegndvi
-use leaf_db,      only: leaf_database_read
+use land_db,      only: land_database_read
 
 implicit none
 
@@ -98,23 +97,21 @@ if (runtype /= "INITIAL") return
 
    if (iwatertabflg == 1) then
 
-      call leaf_database_read(mwl, &
+      call land_database_read(mwl, &
            land%glatw,             &
            land%glonw,             &
            watertab_db,            &
            watertab_db,            &
            'wtd',                  &
-           datp=wtd                )
+           datq=wtd                )
 
    endif
 
-! Loop over all LANDFLUX cells that are EVALUATED on this rank, and transfer
-! atmospheric properties to each
+! Loop over all LAND cells
 
-do j = 1,jlandflux(1)%jend(1)
-   ilf = jlandflux(1)%ilandflux(j)
+do iwl = 2,mwl
 
-   iw = landflux(ilf)%iw  ! global index
+   iw = itab_wl(iwl)%iw  ! global index
 
 ! If run is parallel, convert iw to local domain
 
@@ -122,65 +119,17 @@ do j = 1,jlandflux(1)%jend(1)
       iw = itabg_w(iw)%iw_myrank
    endif
 
-   kw = landflux(ilf)%kw
+   kw = itab_wl(iwl)%kw
 
-   landflux(ilf)%rhos    = rho (kw,iw)
-   landflux(ilf)%airtemp = tair(kw,iw)
-   landflux(ilf)%airshv  = sh_v(kw,iw)
-enddo
+! Transfer atmospheric properties to each land cell
 
-! Do parallel send/recv of ATM properties in landflux cells
-
-if (iparallel == 1) then
-   mrl = 1
-
-   call mpi_send_wlf('A',mrl)
-   call mpi_recv_wlf('A',mrl)
-endif
-
-! Loop over all LAND cells and zero properties before summation
-
-do iwl = 2,mwl
-
-! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
-
-   if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
-
-   land%rhos(iwl) = 0.
-   land%can_temp(iwl) = 0.
-   land%can_shv(iwl) = 0.
-
-enddo
-
-! Loop over all LANDFLUX cells that are APPLIED on this rank, and sum
-! atmospheric properties to corresponding LAND cell.
-
-do j = 1,jlandflux(2)%jend(1)
-   ilf = jlandflux(2)%ilandflux(j)
-
-   iwl = landflux(ilf)%iwls ! global index
-
-! If run is parallel, convert iwl to local domain.
-
-   if (isubdomain == 1) then
-      iwl = itabg_wl(iwl)%iwl_myrank
-   endif
-
-   arf_land = landflux(ilf)%arf_sfc
-
-   land%rhos    (iwl) = land%rhos    (iwl) + arf_land * landflux(ilf)%rhos
-   land%can_temp(iwl) = land%can_temp(iwl) + arf_land * landflux(ilf)%airtemp
-   land%can_shv (iwl) = land%can_shv (iwl) + arf_land * landflux(ilf)%airshv
-
-enddo
-
-! Loop over all LAND cells and perform default initialization of remaining fields
-
-do iwl = 2,mwl
-
-! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
-
-   if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+   land%rhos   (iwl) = rho (kw,iw)
+   land%vels   (iwl) = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
+   land%prss   (iwl) = press(kw,iw)
+   land%airtemp(iwl) = tair(kw,iw)
+   land%airshv (iwl) = sh_v(kw,iw)
+   land%cantemp(iwl) = tair(kw,iw)
+   land%canshv (iwl) = sh_v(kw,iw)
 
 ! Set vegetation parameters
 
@@ -190,7 +139,7 @@ do iwl = 2,mwl
    land%veg_rough  (iwl) = .13 * veg_ht(leaf_class)
    land%veg_height (iwl) = veg_ht(leaf_class)   
    land%stom_resist(iwl) = 1.e6
-   land%veg_temp   (iwl) = land%can_temp(iwl)
+   land%veg_temp   (iwl) = land%cantemp(iwl)
    land%veg_water  (iwl) = 0.
 
 ! For now, choose heat/vapor capacities for stability based on timestep   
@@ -255,7 +204,7 @@ do iwl = 2,mwl
    land%sfcwater_energy(1:nzs,iwl) = 0.
    land%sfcwater_depth (1:nzs,iwl) = 0.
 
-   soil_tempc(1:nzg,iwl) = land%can_temp(iwl) - 273.15
+   soil_tempc(1:nzg,iwl) = land%cantemp(iwl) - 273.15
    fracliq(1:nzg,iwl) = 1.0
 
 ! Loop over soil layers
@@ -364,7 +313,7 @@ do iwl = 2,mwl
 ! water at canopy air temperature, which could be below freezing.
 
       wq_added = 100.  &  ! 100 kg/m^2 added mass
-               * ((land%can_temp(iwl) - 273.15) * cliq + alli) ! J/kg of added
+               * ((land%cantemp(iwl) - 273.15) * cliq + alli) ! J/kg of added
                                                                ! liquid water
 ! Diagnose new sfcwater energy
 
@@ -437,18 +386,11 @@ do iwl = 2,mwl
                 land%soil_energy      (nzg,iwl), &
                 land%sfcwater_energy(nlsw1,iwl), &
                 land%rhos                 (iwl), &
-                land%can_shv              (iwl), &
+                land%canshv               (iwl), &
                 land%surface_ssh          (iwl), &
                 land%ground_shv           (iwl)  )
 
 enddo
-
-! Do parallel send/recv of LEAF fields
-
-if (iparallel == 1) then
-  call mpi_send_wl('A')
-  call mpi_recv_wl('A')
-endif
 
 return
 end subroutine leaf4_init_atm
@@ -589,12 +531,12 @@ subroutine read_soil_moist_temp(soil_tempc)
               if (snow(i) > 1.0e-3 .and. snow(i) == snow(i)) then
                  land%sfcwater_mass(1,iwl) = snow(i)
                  land%sfcwater_energy(1,iwl) = min(0.,   &
-                      (land%can_temp(iwl) - 273.15) * cice) 
+                      (land%cantemp(iwl) - 273.15) * cice) 
                  ! snow density calculation comes from CLM3.0 documentation 
                  ! which is based on Anderson 1975 NWS Technical Doc # 19 
                  snowdens = 50.0
-                 if (land%can_temp(iwl) > 258.15) snowdens =   &
-                      50.0 + 1.5 * (land%can_temp(iwl) - 258.15)**1.5
+                 if (land%cantemp(iwl) > 258.15) snowdens =   &
+                      50.0 + 1.5 * (land%cantemp(iwl) - 258.15)**1.5
                  land%sfcwater_depth(1,iwl) = land%sfcwater_mass(1,iwl) / snowdens
               endif
 

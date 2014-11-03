@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,68 +29,54 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine thiltend_long(mrl,rhot)
+subroutine thiltend_long(mrl)
 
 use mem_ijtabs, only: istp, jtab_w, mrl_begl, jtw_prog
 use mem_grid,   only: mza, mwa
 use misc_coms,  only: io6
 
-!$ use omp_lib
-
 implicit none
 
 integer, intent(in) :: mrl
-
-real, intent(inout) :: rhot(mza,mwa)
 
 integer :: j,iw
 
 ! Horizontal loop over W/T points
 
-call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private (iw)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
-call qsub('W',iw)
 
-   call thiltend_long0(iw,rhot)
+   call thiltend_long0(iw)
 
 enddo
 !$omp end parallel do
-call rsub('W',17)
 
 return
 end subroutine thiltend_long
 
 !===============================================================================
 
-subroutine thiltend_long0(iw,rhot)
+subroutine thiltend_long0(iw)
 
 use mem_ijtabs,  only: itab_w
-use misc_coms,   only: io6, dtlm, meshtype
+use misc_coms,   only: io6, dtlm
 use mem_basic,   only: rho, thil
 use mem_turb,    only: vkh, hkm, sxfer_tk, sxfer_rk
 use mem_tend,    only: thilt
-use mem_grid,    only: mza, mwa, arw, dzim, volt, volti, &
-                       aru, arv, dniu, dniv, lpu, lpv
+use mem_grid,    only: mza, mwa, arw, dzim, volt, volti, arv, dniv, lpv
 
 implicit none
 
 integer, intent(in) :: iw
 
-real, intent(inout) :: rhot(mza,mwa)
-
 integer :: k,ka,ks
-integer :: j, iu, iv, iwn, npoly
+integer :: j, iv, iwn, npoly
 
 real :: dtl,dtli
-real :: hdniu, hdniv, hflux
+real :: hdniv, hflux
 
 ! Automatic arrays:
 
@@ -103,55 +93,29 @@ dtli = 1. / dtl
 npoly = itab_w(iw)%npoly
 vctr1(1:mza) = 0.
 
-if (meshtype == 1) then
+! Loop over V neighbors of this W cell
 
-! If mesh is triangular, loop over U neighbors of this W cell
+do j = 1, npoly
+   iv  = itab_w(iw)%iv(j)
+   iwn = itab_w(iw)%iw(j)
+   ka  = lpv(iv)
 
-   do j = 1, npoly
-      iu  = itab_w(iw)%iu(j)
-      iwn = itab_w(iw)%iw(j)
-      ka  = lpu(iu)
+   hdniv = .5 * dniv(iv)  ! use this 1/dx form now - it seems better than A/V
 
-      hdniu = .5 * dniu(iu)  ! use this 1/dx form now - it seems better than A/V
-
-      do k = ka, mza-1
-
-! Horizontal turbulent flux across ARU
-
-         hflux = aru(k,iu) * (hkm(k,iwn) + hkm(k,iw))  &
-               * hdniu * (thil(k,iwn) - thil(k,iw))
-
-         vctr1(k) = vctr1(k) + hflux
-      enddo
-   enddo
-
-else
-
-! If mesh is hexagonal, loop over V neighbors of this W cell
-
-   do j = 1, npoly
-      iv  = itab_w(iw)%iv(j)
-      iwn = itab_w(iw)%iw(j)
-      ka  = lpv(iv)
-
-      hdniv = .5 * dniv(iv)  ! use this 1/dx form now - it seems better than A/V
-
-      do k = ka, mza-1
+   do k = ka, mza
 
 ! Horizontal turbulent flux across ARV
 
-         hflux = arv(k,iv) * (hkm(k,iwn) + hkm(k,iw))  &
-               * hdniv * (thil(k,iwn) - thil(k,iw))
+      hflux = arv(k,iv) * (hkm(k,iwn) + hkm(k,iw))  &
+            * hdniv * (thil(k,iwn) - thil(k,iw))
 
-         vctr1(k) = vctr1(k) + hflux
-      enddo
+      vctr1(k) = vctr1(k) + hflux
    enddo
-
-endif
+enddo
 
 ! Vertical loop over T levels
 
-do k = ka,mza-1
+do k = ka,mza
 
 ! Update thil tendency from horizontal turbulent fluxes
 

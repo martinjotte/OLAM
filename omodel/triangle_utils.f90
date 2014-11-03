@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine tri_neighbors()
 
@@ -39,7 +39,7 @@ use misc_coms,  only: io6
 implicit none
 
 integer :: iu,iw
-integer :: iu1,iu2,iu3,iu4,iu5,iu6,iu7,iu8,iu9
+integer :: iu1,iu2,iu3,iu4
 integer :: iw1,iw2,iw3,iw4,iw5,iw6
 integer :: iw1_iu1,iw1_iu2,iw1_iu3
 integer :: iw2_iu1,iw2_iu2,iw2_iu3
@@ -65,12 +65,10 @@ do iw = 2,nwa
          itab_wd(iw)%im(3) = itab_ud(iu1)%im(1)
          itab_wd(iw)%im(2) = itab_ud(iu1)%im(2)
          itab_wd(iw)%iw(1) = itab_ud(iu1)%iw(2)
-         itab_wd(iw)%diru(1) = -1.
       elseif (iw == itab_ud(iu1)%iw(2)) then
          itab_wd(iw)%im(3) = itab_ud(iu1)%im(2)
          itab_wd(iw)%im(2) = itab_ud(iu1)%im(1)
          itab_wd(iw)%iw(1) = itab_ud(iu1)%iw(1)
-         itab_wd(iw)%diru(1) = 1.
       endif
    endif
 
@@ -79,12 +77,10 @@ do iw = 2,nwa
          itab_wd(iw)%im(1) = itab_ud(iu2)%im(1)
          itab_wd(iw)%im(3) = itab_ud(iu2)%im(2)
          itab_wd(iw)%iw(2) = itab_ud(iu2)%iw(2)
-         itab_wd(iw)%diru(2) = -1.
       elseif (iw == itab_ud(iu2)%iw(2)) then
          itab_wd(iw)%im(1) = itab_ud(iu2)%im(2)
          itab_wd(iw)%im(3) = itab_ud(iu2)%im(1)
          itab_wd(iw)%iw(2) = itab_ud(iu2)%iw(1)
-         itab_wd(iw)%diru(2) = 1.
       endif
    endif
 
@@ -93,18 +89,16 @@ do iw = 2,nwa
          itab_wd(iw)%im(2) = itab_ud(iu3)%im(1)
          itab_wd(iw)%im(1) = itab_ud(iu3)%im(2)
          itab_wd(iw)%iw(3) = itab_ud(iu3)%iw(2)
-         itab_wd(iw)%diru(3) = -1.
       elseif (iw == itab_ud(iu3)%iw(2)) then
          itab_wd(iw)%im(2) = itab_ud(iu3)%im(2)
          itab_wd(iw)%im(1) = itab_ud(iu3)%im(1)
          itab_wd(iw)%iw(3) = itab_ud(iu3)%iw(1)
-         itab_wd(iw)%diru(3) = 1.
       endif
    endif
 
 enddo
 
-! Fill outer U and W points for current W point
+! Fill outer W points for current W point
 
 do iw = 2,nwa
    iw1 = itab_wd(iw)%iw(1)
@@ -115,24 +109,15 @@ do iw = 2,nwa
 
    if (iw == itab_wd(iw1)%iw(1)) then
 
-      itab_wd(iw)%iu(4) = itab_wd(iw1)%iu(2)
-      itab_wd(iw)%iu(5) = itab_wd(iw1)%iu(3)
-
       itab_wd(iw)%iw(4) = itab_wd(iw1)%iw(2)
       itab_wd(iw)%iw(5) = itab_wd(iw1)%iw(3)
 
    elseif (iw == itab_wd(iw1)%iw(2)) then
 
-      itab_wd(iw)%iu(4) = itab_wd(iw1)%iu(3)
-      itab_wd(iw)%iu(5) = itab_wd(iw1)%iu(1)
-
       itab_wd(iw)%iw(4) = itab_wd(iw1)%iw(3)
       itab_wd(iw)%iw(5) = itab_wd(iw1)%iw(1)
 
    else
-
-      itab_wd(iw)%iu(4) = itab_wd(iw1)%iu(1)
-      itab_wd(iw)%iu(5) = itab_wd(iw1)%iu(2)
 
       itab_wd(iw)%iw(4) = itab_wd(iw1)%iw(1)
       itab_wd(iw)%iw(5) = itab_wd(iw1)%iw(2)
@@ -143,24 +128,15 @@ do iw = 2,nwa
 
    if (iw == itab_wd(iw2)%iw(1)) then
 
-      itab_wd(iw)%iu(6) = itab_wd(iw2)%iu(2)
-      itab_wd(iw)%iu(7) = itab_wd(iw2)%iu(3)
-
       itab_wd(iw)%iw(6) = itab_wd(iw2)%iw(2)
       itab_wd(iw)%iw(7) = itab_wd(iw2)%iw(3)
 
    elseif (iw == itab_wd(iw2)%iw(2)) then
 
-      itab_wd(iw)%iu(6) = itab_wd(iw2)%iu(3)
-      itab_wd(iw)%iu(7) = itab_wd(iw2)%iu(1)
-
       itab_wd(iw)%iw(6) = itab_wd(iw2)%iw(3)
       itab_wd(iw)%iw(7) = itab_wd(iw2)%iw(1)
 
    else
-
-      itab_wd(iw)%iu(6) = itab_wd(iw2)%iu(1)
-      itab_wd(iw)%iu(7) = itab_wd(iw2)%iu(2)
 
       itab_wd(iw)%iw(6) = itab_wd(iw2)%iw(1)
       itab_wd(iw)%iw(7) = itab_wd(iw2)%iw(2)
@@ -171,24 +147,15 @@ do iw = 2,nwa
 
    if (iw == itab_wd(iw3)%iw(1)) then
 
-      itab_wd(iw)%iu(8) = itab_wd(iw3)%iu(2)
-      itab_wd(iw)%iu(9) = itab_wd(iw3)%iu(3)
-
       itab_wd(iw)%iw(8) = itab_wd(iw3)%iw(2)
       itab_wd(iw)%iw(9) = itab_wd(iw3)%iw(3)
 
    elseif (iw == itab_wd(iw3)%iw(2)) then
 
-      itab_wd(iw)%iu(8) = itab_wd(iw3)%iu(3)
-      itab_wd(iw)%iu(9) = itab_wd(iw3)%iu(1)
-
       itab_wd(iw)%iw(8) = itab_wd(iw3)%iw(3)
       itab_wd(iw)%iw(9) = itab_wd(iw3)%iw(1)
 
    else
-
-      itab_wd(iw)%iu(8) = itab_wd(iw3)%iu(1)
-      itab_wd(iw)%iu(9) = itab_wd(iw3)%iu(2)
 
       itab_wd(iw)%iw(8) = itab_wd(iw3)%iw(1)
       itab_wd(iw)%iw(9) = itab_wd(iw3)%iw(2)
@@ -249,48 +216,40 @@ do iu = 2,nua
    iu3 = itab_ud(iu)%iu(3)
    iu4 = itab_ud(iu)%iu(4)
 
-! Fill IW3 and DIRU1 for current U point
+! Fill IW3 for current U point
 ! This should work ok for iu1 = 1, but may bypass if desired
 
    if (itab_ud(iu1)%iw(1) == iw1) then
       itab_ud(iu)%iw(3) = itab_ud(iu1)%iw(2)
-      itab_ud(iu)%diru(1) = -1.
    else
       itab_ud(iu)%iw(3) = itab_ud(iu1)%iw(1)
-      itab_ud(iu)%diru(1) = 1.
    endif
 
-! Fill IW4 and DIRU2 for current U point
+! Fill IW4 for current U point
 ! This should work ok for iu2 = 1, but may bypass if desired
 
    if (itab_ud(iu2)%iw(1) == iw1) then
       itab_ud(iu)%iw(4) = itab_ud(iu2)%iw(2)
-      itab_ud(iu)%diru(2) = -1.
    else
       itab_ud(iu)%iw(4) = itab_ud(iu2)%iw(1)
-      itab_ud(iu)%diru(2) = 1.
    endif
 
-! Fill IW5 and DIRU3 for current U point
+! Fill IW5 for current U point
 ! This should work ok for iu3 = 1, but may bypass if desired
 
    if (itab_ud(iu3)%iw(1) == iw2) then
       itab_ud(iu)%iw(5) = itab_ud(iu3)%iw(2)
-      itab_ud(iu)%diru(3) = -1.
    else
       itab_ud(iu)%iw(5) = itab_ud(iu3)%iw(1)
-      itab_ud(iu)%diru(3) = 1.
    endif
 
-! Fill IW6 and DIRU4 for current U point
+! Fill IW6 for current U point
 ! This should work ok for iu4 = 1, but may bypass if desired
 
    if (itab_ud(iu4)%iw(1) == iw2) then
       itab_ud(iu)%iw(6) = itab_ud(iu4)%iw(2)
-      itab_ud(iu)%diru(4) = -1.
    else
       itab_ud(iu)%iw(6) = itab_ud(iu4)%iw(1)
-      itab_ud(iu)%diru(4) = 1.
    endif
 
    iw3 = itab_ud(iu)%iw(3)

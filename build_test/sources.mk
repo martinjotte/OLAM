@@ -14,11 +14,10 @@ SOURCE_FILES= \
              $(CONVECT)/smagorinsky.f90 \
              $(ED2MEM)/ed_max_dims.F90 \
              $(ED2MEM)/ed_misc_coms.f90 \
-             ../interp_to_ll/fields2_ll.f90 \
+             $(LEAF)/land_database_read.f90 \
              $(LEAF)/leaf4.F90 \
              $(LEAF)/leaf4_canopy.f90 \
              $(LEAF)/leaf4_coms.f90 \
-             $(LEAF)/leaf4_database_read.f90 \
              $(LEAF)/leaf4_init_atm.f90 \
              $(LEAF)/leaf4_landcell.f90 \
              $(LEAF)/leaf4_plot.f90 \
@@ -26,13 +25,11 @@ SOURCE_FILES= \
              $(LEAF)/leaf4_soil.f90 \
              $(LEAF)/leaf4_startup.f90 \
              $(LEAF)/mem_leaf.f90 \
-             $(LEAF)/ndvi_database_read.f90 \
-             $(LEAF)/olam_mpi_land.F90 \
              $(LEAF)/para_init_land.f90 \
+             $(LEAF)/ndvi_database_read.f90 \
              $(LEAF)/read_soil_analysis.F90 \
              $(MODEL_MODS)/consts_coms.f90 \
              $(MODEL_MODS)/ke_coms.f90 \
-             $(MODEL_MODS)/massflux.f90 \
              $(MODEL_MODS)/max_dims.f90 \
              $(MODEL_MODS)/mem_addsc.f90 \
              $(MODEL_MODS)/mem_average_vars.f90 \
@@ -42,12 +39,11 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_ijtabs.f90 \
              $(MODEL_MODS)/mem_mclat.f90 \
              $(MODEL_MODS)/mem_micro.f90 \
-             $(MODEL_MODS)/mem_mksfc.f90 \
+             $(MODEL_MODS)/mem_mksfc2.f90 \
              $(MODEL_MODS)/mem_nudge.f90 \
              $(MODEL_MODS)/mem_para.F90 \
              $(MODEL_MODS)/mem_plot.f90 \
              $(MODEL_MODS)/mem_rayf.f90 \
-             $(MODEL_MODS)/mem_sflux.f90 \
              $(MODEL_MODS)/mem_tend.f90 \
              $(MODEL_MODS)/mem_thuburn.f90 \
              $(MODEL_MODS)/mem_timeavg.f90 \
@@ -74,11 +70,13 @@ SOURCE_FILES= \
              $(OMODEL)/cart_hex.f90 \
              $(OMODEL)/coneplot.f90 \
              $(OMODEL)/contslab.f90 \
+             $(OMODEL)/fields2_ll.f90 \
              $(OMODEL)/fill_itabs.f90 \
+             $(OMODEL)/hex_grid.f90 \
              $(OMODEL)/history_start.f90 \
              $(OMODEL)/history_write.f90 \
              $(OMODEL)/icosahedron.f90 \
-             $(OMODEL)/makesfc.f90 \
+             $(OMODEL)/makesfc2.f90 \
              $(OMODEL)/obnd.f90 \
              $(OMODEL)/ocio.f90 \
              $(OMODEL)/ohhi.f90 \
@@ -93,6 +91,7 @@ SOURCE_FILES= \
              $(OMODEL)/omic_init.f90 \
              $(OMODEL)/omic_misc.f90 \
              $(OMODEL)/omic_nuc.f90  \
+             $(OMODEL)/omic_parcel.f90  \
              $(OMODEL)/omic_tabs.f90 \
              $(OMODEL)/omic_vap.f90 \
              $(OMODEL)/oname_check.f90 \
@@ -101,22 +100,19 @@ SOURCE_FILES= \
              $(OMODEL)/oplot_lib.f90 \
              $(OMODEL)/othrm.f90 \
              $(OMODEL)/para_decomp.f90 \
+             $(OMODEL)/para_init.f90 \
              $(OMODEL)/perim_fill.f90 \
+             $(OMODEL)/prog_wrtv.f90 \
+             $(OMODEL)/scalar_transport.f90 \
              $(OMODEL)/spawn_nest.f90 \
              $(OMODEL)/spring_dynamics.f90 \
              $(OMODEL)/surface_fluxes.F90 \
              $(OMODEL)/thiltend_long.f90 \
              $(OMODEL)/tileslab.f90 \
-             $(OMODEL)/topo_database_read.f90 \
+             $(OMODEL)/timestep.f90 \
              $(OMODEL)/triangle_utils.f90 \
              $(OMODEL)/vectslab.f90 \
              $(OMODEL)/vel_t3d.f90 \
-             $(OMODEL)/hex_grid.f90 \
-             $(OMODEL)/para_init_hex.f90 \
-             $(OMODEL)/prog_wrtv_hex.f90 \
-             $(OMODEL)/scalar_transport_hex.f90 \
-             $(OMODEL)/timestep_hex.f90 \
-             $(OMODEL)/tri_grid.f90 \
              $(OUTILS)/blas.f90 \
              $(OUTILS)/check_nans.F90 \
              $(OUTILS)/dateutils.f90 \
@@ -125,8 +121,9 @@ SOURCE_FILES= \
              $(OUTILS)/interp_lib.f90 \
              $(OUTILS)/lapack.f90 \
              $(OUTILS)/map_proj.f90 \
+             $(OUTILS)/olam_interp_ll.f90 \
              $(OUTILS)/o_ncar.f90 \
-             $(OUTILS)/read_cdc.c \
+             $(OUTILS)/read_cdc.f90 \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \
              $(RADIATE)/harr_raddriv.f90 \
@@ -213,7 +210,6 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_taumol.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_vrtqdr.f90 \
              $(SEA)/mem_sea.f90 \
-             $(SEA)/olam_mpi_sea.F90 \
              $(SEA)/para_init_sea.f90 \
              $(SEA)/read_seaice_analysis.F90 \
              $(SEA)/read_sst_analysis.F90 \

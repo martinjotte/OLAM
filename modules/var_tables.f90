@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 Module var_tables
@@ -140,11 +140,11 @@ Contains
     character(*),      intent(in) :: name, stagpt
     logical, optional, intent(in) :: hist, noread, mpt1
 
-    character(2), parameter :: ptypes(13) = (/  &
-         'AU', 'AW', 'AM', 'AN',  &  ! Atmos U, W, M, or nudging array
-         'LU', 'LW', 'LM', 'LF',  &  ! Land  U, W, M, or flux array
-         'SU', 'SW', 'SM', 'SF',  &  ! Sea   U, W, M, or flux array
-         'CN'                     /) ! Contstant (scalar) value
+    character(2), parameter :: ptypes(11) = (/  &
+         'AV', 'AW', 'AM', 'AN',  &  ! Atmos V, W, M, NUDGE array
+         'LU', 'LW', 'LM',        &  ! Land  U, W, M array
+         'SU', 'SW', 'SM',        &  ! Sea   U, W, M array
+         'CN'                     /) ! Contstant (scalar)
 
     integer :: ntsize
     integer, parameter :: ialloc = 20 ! Increment to increase tables

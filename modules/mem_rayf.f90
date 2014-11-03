@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module mem_rayf
 
@@ -63,21 +63,21 @@ Module mem_rayf
 
 Contains
 
-  subroutine rayf_init(mua,mva,mwa,mza)
+  subroutine rayf_init(mva,mwa,mza)
 
 ! Initialize Rayleigh friction vertical profile coefficients
 
-    use misc_coms,    only: initial, meshtype, rinit, iparallel
-    use mem_grid,     only: lpu, lpv, zm, zt
-    use mem_ijtabs,   only: jtab_u, jtu_init, jtab_v, jtv_init, itab_u, itab_v
-    use mem_basic,    only: rho, uc, vc
-    use olam_mpi_atm, only: mpi_send_v, mpi_recv_v, mpi_send_u, mpi_recv_u
+    use misc_coms,    only: initial, rinit, iparallel
+    use mem_grid,     only: lpv, zm, zt
+    use mem_ijtabs,   only: jtab_v, jtv_init, itab_v
+    use mem_basic,    only: rho, vc
+    use olam_mpi_atm, only: mpi_send_v, mpi_recv_v
 
     implicit none
     
-    integer, intent(in) :: mua, mva, mwa, mza
+    integer, intent(in) :: mva, mwa, mza
 
-    integer :: k, j, iv, iu, iw1, iw2
+    integer :: k, j, iv, iu, iw1, iw2, mrl
     real    :: distimi
 
     allocate( rayf_cof   (mza) )
@@ -88,7 +88,7 @@ Contains
     krayfw_bot   = mza
     krayfdiv_bot = mza
 
-! RAYF coefficient for THIL and UMC  
+! RAYF coefficient for THIL and VMC  
 
     rayf_cof(1:mza) = 0.
 
@@ -97,16 +97,16 @@ Contains
        dorayf = .true.
        distimi = 1. / rayf_distim
        
-       do k = 2, mza-1
+       do k = 2, mza
           if (zt(k) > rayf_zmin) then
              krayf_bot = k
              exit
           endif
        enddo
 
-       do k = krayf_bot, mza-1
+       do k = krayf_bot, mza
           rayf_cof(k) = distimi   &
-               * ((zt(k) - rayf_zmin) / (zm(mza-1) - rayf_zmin)) ** rayf_expon
+               * ((zt(k) - rayf_zmin) / (zm(mza) - rayf_zmin)) ** rayf_expon
        enddo
 
     endif
@@ -120,16 +120,16 @@ Contains
        dorayfw = .true.
        distimi = 1. / rayfw_distim
 
-       do k = 2, mza-1
+       do k = 2, mza
           if (zm(k) > rayfw_zmin) then
              krayfw_bot = k
              exit
           endif
        enddo
 
-       do k = krayfw_bot, mza-2
+       do k = krayfw_bot, mza-1
           rayf_cofw(k) = distimi   &
-               * ((zm(k) - rayfw_zmin) / (zm(mza-1) - rayfw_zmin)) ** rayfw_expon
+               * ((zm(k) - rayfw_zmin) / (zm(mza) - rayfw_zmin)) ** rayfw_expon
        enddo
 
     endif
@@ -143,16 +143,16 @@ Contains
        dorayfdiv = .true.
        distimi = 1. / rayfdiv_distim
 
-       do k = 2, mza-1
+       do k = 2, mza
           if (zt(k) > rayfdiv_zmin) then
              krayfdiv_bot = k
              exit
           endif
        enddo
 
-       do k = krayfdiv_bot, mza-1
+       do k = krayfdiv_bot, mza
           rayf_cofdiv(k) = distimi   &
-               * ((zt(k) - rayfdiv_zmin) / (zm(mza-1) - rayfdiv_zmin)) ** rayfdiv_expon
+               * ((zt(k) - rayfdiv_zmin) / (zm(mza) - rayfdiv_zmin)) ** rayfdiv_expon
        enddo
 
     endif
@@ -161,13 +161,8 @@ Contains
 ! to store the momentum values that the model will relax towards
 
     if (dorayf .and. (initial == 1 .or. initial == 3)) then
-       if (meshtype == 1) then
-          allocate( vc03d(mza,mua) ) ; vc03d = rinit
-          allocate( dn03d(mza,mua) ) ; dn03d = rinit
-       else
-          allocate( vc03d(mza,mva) ) ; vc03d = rinit
-          allocate( dn03d(mza,mva) ) ; dn03d = rinit
-       endif
+       allocate( vc03d(mza,mva) ) ; vc03d = rinit
+       allocate( dn03d(mza,mva) ) ; dn03d = rinit
     endif
 
 ! For a horizontally homogeneous run, the initial momentum that the model will
@@ -175,45 +170,24 @@ Contains
     
     if (dorayf .and. initial == 1) then
 
-       if (meshtype == 1) then
-
-          do j = 1,jtab_u(jtu_init)%jend(1); iu = jtab_u(jtu_init)%iu(j)
-             iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
-             do k = lpu(iu), mza-1
-                dn03d(k,iu) = 0.5 * (rho(k,iw1) + rho(k,iw2))
-             enddo
+       do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
+          iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+          do k = lpv(iv), mza
+             dn03d(k,iv) = 0.5 * (rho(k,iw1) + rho(k,iw2))
           enddo
+       enddo
 
-          if (iparallel == 1) call mpi_send_u('L', domrl=1, uc0=dn03d)
+       mrl = 1
 
-          do iu = 2, mua
-             do k = lpu(iu), mza-1
-                vc03d(k,iu) = uc(k,iu)
-             enddo
-          enddo
-
-          if (iparallel == 1) call mpi_recv_u('L', domrl=1, uc0=dn03d)
-
-       else ! (meshtype == 2)
-
-          do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
-             iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-             do k = lpv(iv), mza-1
-                dn03d(k,iv) = 0.5 * (rho(k,iw1) + rho(k,iw2))
-             enddo
-          enddo
-
-          if (iparallel == 1) call mpi_send_v('L', domrl=1, rarray1=dn03d)
+       if (iparallel == 1) call mpi_send_v(mrl, rvara1=dn03d)
           
-          do iv = 2, mva
-             do k = lpv(iv), mza-1
-                vc03d(k,iv) = vc(k,iv)
-             enddo
+       do iv = 2, mva
+          do k = lpv(iv), mza
+             vc03d(k,iv) = vc(k,iv)
           enddo
+       enddo
           
-          if (iparallel == 1) call mpi_recv_v('L', domrl=1, rarray1=dn03d)
-
-       endif ! (meshtype)
+       if (iparallel == 1) call mpi_recv_v(mrl, rvara1=dn03d)
 
     endif ! (dorayf .and. initial)
 

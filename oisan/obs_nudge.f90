@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 subroutine nudge_prep_obs(iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
@@ -42,16 +42,17 @@ use mem_nudge,   only: nudflag, nudnxp,                &
 use mem_grid,   only: mza, mwa
 use misc_coms,  only: io6
 use mem_ijtabs, only: jtab_w, jtw_init
+use consts_coms, only: r8
 
 implicit none
 
-integer,      intent(in) :: iaction
-real(kind=8), intent(in) :: o_rho   (mza,mwa)
-real,         intent(in) :: o_theta (mza,mwa)
-real,         intent(in) :: o_shv   (mza,mwa)
-real,         intent(in) :: o_uzonal(mza,mwa)
-real,         intent(in) :: o_umerid(mza,mwa)
-integer                  :: j,iw,k
+integer,  intent(in) :: iaction
+real(r8), intent(in) :: o_rho   (mza,mwa)
+real,     intent(in) :: o_theta (mza,mwa)
+real,     intent(in) :: o_shv   (mza,mwa)
+real,     intent(in) :: o_uzonal(mza,mwa)
+real,     intent(in) :: o_umerid(mza,mwa)
+integer              :: j,iw,k
 
 ! Begin OpenMP parallel block
 !$omp parallel
@@ -64,7 +65,7 @@ if (iaction == 1) then
    !$omp do private(iw,k)
    do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
-      do k = 2, mza-1
+      do k = 2, mza
             rho_obsp(k,iw) =    rho_obsf(k,iw)
           theta_obsp(k,iw) =  theta_obsf(k,iw)
             shw_obsp(k,iw) =    shw_obsf(k,iw)
@@ -82,14 +83,12 @@ endif
 
 ! Horizontal loop over W columns
 
-call psub()
 !----------------------------------------------------------------------
 !$omp do private(iw,k)
 do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
-   call qsub('W',iw)
 
-   do k = 2, mza-1
+   do k = 2, mza
          rho_obsf(k,iw) = o_rho   (k,iw)
        theta_obsf(k,iw) = o_theta (k,iw)
          shw_obsf(k,iw) = o_shv   (k,iw)
@@ -99,7 +98,6 @@ do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
 enddo
 !$omp end do
-call rsub('Wbb',7)
 
 ! End OpenMP parallel block
 !$omp end parallel
@@ -117,26 +115,26 @@ use mem_nudge, only: nudnxp, tnudcent, mwnud,                          &
                      uzonal_sim, uzonal_obs, uzonal_obsp, uzonal_obsf, &
                      umerid_sim, umerid_obs, umerid_obsp, umerid_obsf
 
-use mem_basic,   only: uc, vc, rho, theta, sh_w, vxe, vye, vze
-use mem_grid,    only: mza, mwa, lpu, lpv, lpw, &
-                       xeu, yeu, zeu, xev, yev, zev, xew, yew, zew, &
-                       unx, uny, unz, vnx, vny, vnz, volt, glatw, glonw
-use misc_coms,   only: io6, time8, s1900_sim, meshtype, iparallel
-use mem_ijtabs,  only: istp, jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
-                       mrl_begl, jtu_prog, jtv_prog, jtw_prog
+use mem_basic,   only: vc, rho, theta, sh_w, vxe, vye, vze
+use mem_grid,    only: mza, mwa, lpv, lpw, &
+                       xev, yev, zev, xew, yew, zew, &
+                       vnx, vny, vnz, volt, glatw, glonw
+use misc_coms,   only: io6, time8, s1900_sim, iparallel
+use mem_ijtabs,  only: istp, jtab_v, jtab_w, itab_v, itab_w, &
+                       mrl_begl, jtv_prog, jtw_prog
 use consts_coms, only: eradi
-use mem_tend,    only: umt, vmt, thilt, sh_wt
+use mem_tend,    only: vmt, thilt, sh_wt
 use isan_coms,   only: ifgfile, s1900_fg
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
 
 implicit none
 
-! Nudge selected model fields (rho, thil, sh_w, umc, vmc) to observed data
+! Nudge selected model fields (rho, thil, sh_w, vmc) to observed data
 ! using polygon filtering
 
 real, intent(inout) :: rhot(mza,mwa)
 
-integer :: j, iw, k, mrl, iu, iv, iw1, iw2
+integer :: j, iw, k, mrl, iv, iw1, iw2
 
 real :: umzonalt(mza,mwa)
 real :: ummeridt(mza,mwa)
@@ -203,12 +201,10 @@ tp = 1. - tf
 
 ! Horizontal loop over W columns
 
-call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private(iw,raxis,raxisi,k,uzonal,umerid,tnudi,tnudirho)
 do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !---------------------------------------------------------------------
-call qsub('W',iw)
 
 ! Reconstruct UZONAL(k) and UMERID(k) from VXE, VYE, VZE
 
@@ -217,7 +213,7 @@ call qsub('W',iw)
    if (raxis > 1.e3) then
       raxisi = 1. / raxis
 
-      do k = lpw(iw), mza-1
+      do k = lpw(iw), mza
 
          uzonal(k) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
          umerid(k) = vze(k,iw) * raxis * eradi &
@@ -232,7 +228,7 @@ call qsub('W',iw)
 
 ! Interpolate observational fields in time
 
-   do k = lpw(iw), mza-1
+   do k = lpw(iw), mza
          rho_obs(k,iw) = tp *    rho_obsp(k,iw) + tf *    rho_obsf(k,iw)
        theta_obs(k,iw) = tp *  theta_obsp(k,iw) + tf *  theta_obsf(k,iw)
          shw_obs(k,iw) = tp *    shw_obsp(k,iw) + tf *    shw_obsf(k,iw)
@@ -247,7 +243,7 @@ call qsub('W',iw)
 
 ! Compute nudging tendencies, interpolating observational fields in time
 
-   do k = lpw(iw), mza-1
+   do k = lpw(iw), mza
 
       tnudirho = tnudi * rho(k,iw)
 
@@ -267,102 +263,48 @@ call qsub('W',iw)
 
 enddo
 !$omp end parallel do
-call rsub('Wb',23)
 
 if (iparallel == 1) then
-   call mpi_send_w('V', vxe=umzonalt, vye=ummeridt, domrl=mrl)
-   call mpi_recv_w('V', vxe=umzonalt, vye=ummeridt, domrl=mrl)
+   call mpi_send_w(mrl, rvara1=umzonalt, rvara2=ummeridt)
+   call mpi_recv_w(mrl, rvara1=umzonalt, rvara2=ummeridt)
 endif
-
-if (meshtype == 1) then
-
-! UMT
-
-   call psub()
-!----------------------------------------------------------------------
-   !$omp parallel do private(iu,iw1,iw2,k, &
-   !$omp                     raxis,raxisi,umgt,vmgt,uvmgrt,uvmgxt,uvmgyt,uvmgzt)
-   do j = 1,jtab_u(jtu_prog)%jend(mrl); iu = jtab_u(jtu_prog)%iu(j)
-      iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
-!----------------------------------------------------------------------
-   call qsub('U',iu)
-
-      raxis = sqrt(xeu(iu) ** 2 + yeu(iu) ** 2)  ! dist from earth axis
-
-      if (raxis > 1.e3) then
-
-         raxisi = 1. / raxis
-
-! Average momentum tendencies (times volume) to U point and rotate at U point
-
-         do k = lpu(iu), mza-1
-
-            umgt = .5 * (umzonalt(k,iw1) * volt(k,iw1) &
-                       + umzonalt(k,iw2) * volt(k,iw2))
-
-            vmgt = .5 * (ummeridt(k,iw1) * volt(k,iw1) &
-                       + ummeridt(k,iw2) * volt(k,iw2))
-
-            uvmgrt = -vmgt * zeu(iu) * eradi  ! radially outward from axis
-
-            uvmgxt = (-umgt * yeu(iu) + uvmgrt * xeu(iu)) * raxisi
-            uvmgyt = ( umgt * xeu(iu) + uvmgrt * yeu(iu)) * raxisi
-            uvmgzt =   vmgt * raxis * eradi 
-
-            umt(k,iu) = umt(k,iu) &
-                      + uvmgxt * unx(iu) + uvmgyt * uny(iu) + uvmgzt * unz(iu)
-
-         enddo
-
-      endif
-
-   enddo
-   !$omp end parallel do
-   call rsub('U',13)
-
-else
 
 ! VMT
 
-   call psub()
 !----------------------------------------------------------------------
-   !$omp parallel do private(iv,iw1,iw2,k, &
-   !$omp                     raxis,raxisi,umgt,vmgt,uvmgrt,uvmgxt,uvmgyt,uvmgzt)
-   do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+!$omp parallel do private(iv,iw1,iw2,k, &
+!$omp                     raxis,raxisi,umgt,vmgt,uvmgrt,uvmgxt,uvmgyt,uvmgzt)
+do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
+   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
-   call qsub('V',iv)
 
-      raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
+   raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
 
-      if (raxis > 1.e3) then
+   if (raxis > 1.e3) then
       
-         raxisi = 1. / raxis
+      raxisi = 1. / raxis
 
 ! Average momentum tendencies to V point and rotate at V point
 
-         do k = lpv(iv), mza-1
-            umgt = .5 * (umzonalt(k,iw1) + umzonalt(k,iw2))
+      do k = lpv(iv), mza
+         umgt = .5 * (umzonalt(k,iw1) + umzonalt(k,iw2))
 
-            vmgt = .5 * (ummeridt(k,iw1) + ummeridt(k,iw2))
+         vmgt = .5 * (ummeridt(k,iw1) + ummeridt(k,iw2))
 
-            uvmgrt = -vmgt * zev(iv) * eradi  ! radially outward from axis
+         uvmgrt = -vmgt * zev(iv) * eradi  ! radially outward from axis
 
-            uvmgxt = (-umgt * yev(iv) + uvmgrt * xev(iv)) * raxisi 
-            uvmgyt = ( umgt * xev(iv) + uvmgrt * yev(iv)) * raxisi 
-            uvmgzt =   vmgt * raxis * eradi 
+         uvmgxt = (-umgt * yev(iv) + uvmgrt * xev(iv)) * raxisi 
+         uvmgyt = ( umgt * xev(iv) + uvmgrt * yev(iv)) * raxisi 
+         uvmgzt =   vmgt * raxis * eradi 
 
-            vmt(k,iv) = vmt(k,iv) &
-                      + uvmgxt * vnx(iv) + uvmgyt * vny(iv) + uvmgzt * vnz(iv)
+         vmt(k,iv) = vmt(k,iv) &
+                   + uvmgxt * vnx(iv) + uvmgyt * vny(iv) + uvmgzt * vnz(iv)
 
-         enddo
+      enddo
 
-      endif
+   endif
 
-   enddo
-   !$omp end parallel do
-   call rsub('V',13)
-
-endif
+enddo
+!$omp end parallel do
 
 end subroutine obs_nudge

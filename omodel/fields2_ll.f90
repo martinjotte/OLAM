@@ -1,3 +1,35 @@
+!===============================================================================
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
+
+! Portions of this software are copied or derived from the RAMS software
+! package.  The following copyright notice pertains to RAMS and its derivatives,
+! including OLAM:  
+
+   !----------------------------------------------------------------------------
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
+   ! Colorado State University Research Foundation ; ATMET, LLC 
+
+   ! This software is free software; you can redistribute it and/or modify it 
+   ! under the terms of the GNU General Public License as published by the Free
+   ! Software Foundation; either version 2 of the License, or (at your option)
+   ! any later version. 
+
+   ! This software is distributed in the hope that it will be useful, but
+   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+   ! for more details.
+ 
+   ! You should have received a copy of the GNU General Public License along
+   ! with this program; if not, write to the Free Software Foundation, Inc.,
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
+   ! (http://www.gnu.org/licenses/gpl.html) 
+   !----------------------------------------------------------------------------
+
+!===============================================================================
 subroutine fields2_ll()
 
 ! This subroutine is a template, intended for user modification, for
@@ -19,17 +51,16 @@ subroutine fields2_ll()
 ! fields, or selected processes such as hdf5 output and plotting, may be
 ! disabled by commenting out lines of code.
 
-  use mem_ijtabs,  only: itab_w, itab_u, itab_v
-  use mem_basic,   only: uc, vc, wc, rho, press, theta, sh_w, sh_v, &
+  use mem_ijtabs,  only: itab_w, itab_v
+  use mem_basic,   only: vc, wc, rho, press, theta, sh_w, sh_v, &
                          vxe, vye, vze
 
-  use mem_grid,    only: mza, mua, mva, mwa, lpu, lpv, lpw, &
-                         xem, yem, zem, xeu, yeu, zeu, &
-                         xev, yev, zev, xew, yew, zew, &
+  use mem_grid,    only: mza, mva, mwa, lpv, lpw, &
+                         xem, yem, zem, xev, yev, zev, xew, yew, zew, &
                          topw, glatm, glonm, glatw, glonw, zm, zt, &
-                         unx, uny, unz, vnx, vny, vnz, dzt
+                         vnx, vny, vnz, dzt
 
-  use misc_coms,   only: io6, meshtype, current_time, hfilepref, iclobber
+  use misc_coms,   only: io6, current_time, hfilepref, iclobber
 
   use consts_coms, only: p00, rocp, piu180, erad, eradi, pio180, cp, alvl, rvap, r8
 
@@ -51,7 +82,7 @@ subroutine fields2_ll()
 
   use mem_flux_accum, only: rshort_accum, rshortup_accum, rlong_accum, rlongup_accum, &
                             rshort_top_accum, rshortup_top_accum, rlongup_top_accum, &
-                            sflux_t_accum, sflux_r_accum
+                            sfluxt_accum, sfluxr_accum
 
 ! NOTE: The fields used from the MEM_PLOT module are time-integrated fluxes of
 ! mass or energy and have units of [kg/m^2] or [J/m^2].  They are filled from
@@ -73,8 +104,8 @@ subroutine fields2_ll()
                       rshort_top_accum_prev1, rshortup_top_accum_prev1, &
                       rlongup_top_accum_prev0,                          &
                       rlongup_top_accum_prev1,                          &
-                      sflux_t_accum_prev0,    sflux_r_accum_prev0,      &
-                      sflux_t_accum_prev1,    sflux_r_accum_prev1
+                      sfluxt_accum_prev0,     sfluxr_accum_prev0,       &
+                      sfluxt_accum_prev1,     sfluxr_accum_prev1
 
   implicit none
 
@@ -129,7 +160,7 @@ subroutine fields2_ll()
 
   real :: alat(nlat)  ! latitudes of grid points (deg)
   real :: alon(nlon)  ! longitudes of grid points (deg)
-  real :: zlev(mza-2) ! heights above sea level of grid points (m)
+  real :: zlev(mza-1) ! heights above sea level of grid points (m)
   real :: value(nlat) ! longitudinal average of a field
 
 !----------
@@ -175,11 +206,11 @@ subroutine fields2_ll()
 ! 3D FIELDS
 !----------
 
-  real :: u_ll (nlon,nlat,mza-2) ! zonal wind component (m/s)
-  real :: v_ll (nlon,nlat,mza-2) ! meridional wind component (m/s)
-  real :: t_ll (nlon,nlat,mza-2) ! air temperature (K)
-  real :: r_ll (nlon,nlat,mza-2) ! water vapor mixing ratio (kg/kg)
-  real :: p_ll (nlon,nlat,mza-2) ! air pressure (Pa)
+  real :: u_ll (nlon,nlat,mza-1) ! zonal wind component (m/s)
+  real :: v_ll (nlon,nlat,mza-1) ! meridional wind component (m/s)
+  real :: t_ll (nlon,nlat,mza-1) ! air temperature (K)
+  real :: r_ll (nlon,nlat,mza-1) ! water vapor mixing ratio (kg/kg)
+  real :: p_ll (nlon,nlat,mza-1) ! air pressure (Pa)
 
   integer :: k,iw,ilat,ilon
   integer :: npoly,kb
@@ -191,8 +222,7 @@ subroutine fields2_ll()
 
   real :: scr1a(mwa), scr1b(mwa)
   real :: scr2a(mza,mwa), scr2b(mza,mwa)
-  real :: scr2_ll(nlon,nlat), scr3_ll(nlon,nlat,mza-2)
-  real :: uzonal(mza,mua), umerid(mza,mua)
+  real :: scr2_ll(nlon,nlat), scr3_ll(nlon,nlat,mza-1)
 
   real :: timefac
   real :: aspect, scalelab, ymin, ymax, yinc, alatinc
@@ -272,7 +302,7 @@ subroutine fields2_ll()
 
 ! Fill zlev with model grid levels
 
-  do k = 2,mza-1
+  do k = 2,mza
      zlev(k-1) = zt(k)
   enddo
 
@@ -299,9 +329,6 @@ subroutine fields2_ll()
      npoly = itab_w(iw)%npoly
      kb = lpw(iw)
 
-     uzonal(:,iw) = 0.
-     umerid(:,iw) = 0.
-
      raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
 ! Evaluate zonal and meridional wind components from model
@@ -309,7 +336,7 @@ subroutine fields2_ll()
      if (raxis > 1.e3) then
         raxisi = 1. / raxis
 
-        do k = kb,mza-1
+        do k = kb,mza
            scr2a(k,iw) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
            scr2b(k,iw) = vze(k,iw) * raxis * eradi &
               - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) * zew(iw) * raxisi * eradi
@@ -327,8 +354,8 @@ subroutine fields2_ll()
 ! near-surface values
 !------------------------------------------------------------
 
-  call interp_htw_ll(nlon,nlat,mza,mza-2,alon,alat,scr2a,u_ll)
-  call interp_htw_ll(nlon,nlat,mza,mza-2,alon,alat,scr2b,v_ll)
+  call interp_htw_ll(nlon,nlat,mza,mza-1,alon,alat,scr2a,u_ll)
+  call interp_htw_ll(nlon,nlat,mza,mza-1,alon,alat,scr2b,v_ll)
 
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,u_sfc_ll)
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1b,v_sfc_ll)
@@ -343,7 +370,7 @@ subroutine fields2_ll()
   do iw = 2,mwa
      kb = lpw(iw)
 
-     do k = kb,mza-1
+     do k = kb,mza
         scr2a(k,iw) = theta(k,iw) * (press(k,iw) / p00) ** rocp
      enddo
 
@@ -357,7 +384,7 @@ subroutine fields2_ll()
 ! Interpolate temperature, its surface value, and sea level pressure
 !------------------------------------------------------------
 
-  call interp_htw_ll(nlon,nlat,mza,mza-2,alon,alat,scr2a,t_ll)
+  call interp_htw_ll(nlon,nlat,mza,mza-1,alon,alat,scr2a,t_ll)
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,t_sfc_ll)
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1b,slp_ll)
 
@@ -370,7 +397,7 @@ subroutine fields2_ll()
   do iw = 2,mwa
      kb = lpw(iw)
 
-     do k = kb,mza-1
+     do k = kb,mza
         scr2a(k,iw) = sh_v(k,iw) / (1. - sh_w(k,iw))
      enddo
 
@@ -385,7 +412,7 @@ subroutine fields2_ll()
 ! the surface value of vapor pressure
 !------------------------------------------------------------
 
-  call interp_htw_ll(nlon,nlat,mza,mza-2,alon,alat,scr2a,r_ll)
+  call interp_htw_ll(nlon,nlat,mza,mza-1,alon,alat,scr2a,r_ll)
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,r_sfc_ll)
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1b,pvap_sfc_ll)
 
@@ -397,7 +424,7 @@ subroutine fields2_ll()
 
   scr2a(:,:) = real(press(:,:))
 
-  call interp_htw_ll(nlon,nlat,mza,mza-2,alon,alat,scr2a,p_ll)
+  call interp_htw_ll(nlon,nlat,mza,mza-1,alon,alat,scr2a,p_ll)
 
 !------------------------------------------------------------
 ! Compute total (resolved + parameterized) accumulated
@@ -427,13 +454,13 @@ subroutine fields2_ll()
      call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,accpcon_ll)
   endif
 
-  scr1a(:) = real(sflux_r_accum(:))
+  scr1a(:) = real(sfluxr_accum(:))
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,vapflux_accum_ll)
 
-  scr1a(:) = real(sflux_t_accum(:)) * cp
+  scr1a(:) = real(sfluxt_accum(:)) * cp
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,sensflux_accum_ll)
 
-  scr1a(:) = real(sflux_r_accum(:)) * alvl
+  scr1a(:) = real(sfluxr_accum(:)) * alvl
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,latflux_accum_ll)
 
   scr1a(:) = real(rshort_accum(:))
@@ -478,13 +505,13 @@ subroutine fields2_ll()
             + accpcon_prev0(:) - accpcon_prev1(:)) * timefac * 86400.
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,pcpdif2both_ll)
 
-  scr1a(:) = (sflux_r_accum_prev0(:) - sflux_r_accum_prev1(:)) * timefac
+  scr1a(:) = (sfluxr_accum_prev0(:) - sfluxr_accum_prev1(:)) * timefac
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,vapflux_dif2_ll)
 
-  scr1a(:) = (sflux_t_accum_prev0(:) - sflux_t_accum_prev1(:)) * timefac * cp
+  scr1a(:) = (sfluxt_accum_prev0(:) - sfluxt_accum_prev1(:)) * timefac * cp
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,sensflux_dif2_ll)
 
-  scr1a(:) = (sflux_r_accum_prev0(:) - sflux_r_accum_prev1(:)) * timefac * alvl
+  scr1a(:) = (sfluxr_accum_prev0(:) - sfluxr_accum_prev1(:)) * timefac * alvl
   call interp_htw_ll(nlon,nlat,1,1,alon,alat,scr1a,latflux_dif2_ll)
 
   scr1a(:) = (rshort_accum_prev0(:) - rshort_accum_prev1(:)) * timefac
@@ -535,7 +562,7 @@ subroutine fields2_ll()
 
   CALL shdf5_orec(ndims, idims, 'ALON', rvara=alon)
 
-  idims(1) = mza-2
+  idims(1) = mza-1
 
   CALL shdf5_orec(ndims, idims, 'ZLEV', rvara=zlev)
 
@@ -584,7 +611,7 @@ subroutine fields2_ll()
   !idims(2) = nlon
   idims(1) = nlon
   idims(2) = nlat
-  idims(3) = mza-2
+  idims(3) = mza-1
 
   CALL shdf5_orec(ndims, idims, 'U_LL', rvara=u_ll)
   CALL shdf5_orec(ndims, idims, 'V_LL', rvara=v_ll)
@@ -660,13 +687,13 @@ subroutine fields2_ll()
 ! Contour plot or tile plot 2D slices of 3D lat-lon fields
 !------------------------------------------------------------
 
-  call tileplot_ll(nlon,nlat,mza-2,1,alon,alat,u_ll,113)
-  call tileplot_ll(nlon,nlat,mza-2,1,alon,alat,v_ll,113)
-  call tileplot_ll(nlon,nlat,mza-2,1,alon,alat,t_ll,2)
+  call tileplot_ll(nlon,nlat,mza-1,1,alon,alat,u_ll,113)
+  call tileplot_ll(nlon,nlat,mza-1,1,alon,alat,v_ll,113)
+  call tileplot_ll(nlon,nlat,mza-1,1,alon,alat,t_ll,2)
   scr3_ll(:,:,:) = r_ll(:,:,:) * 1000. 
-  call tileplot_ll(nlon,nlat,mza-2,1,alon,alat,scr3_ll,5)
+  call tileplot_ll(nlon,nlat,mza-1,1,alon,alat,scr3_ll,5)
   scr3_ll(:,:,:) = p_ll(:,:,:) * .01 
-  call tileplot_ll(nlon,nlat,mza-2,1,alon,alat,scr3_ll,8)
+  call tileplot_ll(nlon,nlat,mza-1,1,alon,alat,scr3_ll,8)
 
   300 CONTINUE
 

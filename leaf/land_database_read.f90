@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,17 +29,15 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-Module leaf_db
+Module land_db
 
 Contains
 
-subroutine leaf_database_read(nwl,glatw,glonw, &
-                              ofn,ofn2,iaction,idatp,datp)
+subroutine land_database_read(nqa,glatq,glonq,ofn,ofn2,iaction,idatq,datq)
+
+! The letter "q" represents any point in the grid stagger, as determined by
+! the routine that calls this subroutine.
 
 use consts_coms, only: erad, piu180
 use hdf5_utils,  only: shdf5_open, shdf5_close, shdf5_irec
@@ -44,18 +46,16 @@ use max_dims,    only: pathlen
 
 implicit none
 
-integer, intent(in) :: nwl
-real,    intent(in) :: glatw(nwl), glonw(nwl)
+integer, intent(in) :: nqa
+real,    intent(in) :: glatq(nqa), glonq(nqa)
 
 character(*), intent(in) :: ofn, ofn2
 character(*), intent(in) :: iaction
 
-integer, optional, intent(out) :: idatp(nwl)
-real,    optional, intent(out) ::  datp(nwl)
+integer, optional, intent(out) :: idatq(nqa)
+real,    optional, intent(out) ::  datq(nqa)
 
-! automatic arrays
-
-integer :: ptable(nwl)
+integer :: qtable(nqa)
 
 integer :: nio, njo
 integer :: niosh, njosh
@@ -69,21 +69,21 @@ integer :: io1, io2, jo1, jo2
 integer :: ifiles, jfiles
 integer :: ifile, jfile
 integer :: io_full, jo_full
-integer :: iwl
+integer :: iq
 integer :: nperdeg
 integer :: ndims, idims(2)
 
 real :: offpix 
-real :: wlat1, wlon1
+real :: qlat1, qlon1
 real :: wio1, wio2, wjo1, wjo2
 real :: rio_full, rjo_full
 
 integer(kind=4), allocatable :: idato (:,:)
 real(kind=4), allocatable :: dato (:,:)
 
-integer, allocatable :: nump    (:,:)
-integer, allocatable :: numpind1(:,:)
-integer, allocatable :: numpind2(:,:) ! (ifiles,jfiles)
+integer, allocatable :: numq    (:,:)
+integer, allocatable :: numqind1(:,:)
+integer, allocatable :: numqind2(:,:) ! (ifiles,jfiles)
 
 character(len=3)   :: title1
 character(len=4)   :: title2
@@ -91,7 +91,7 @@ character(pathlen) :: fname
 
 logical :: l1,l2
 
-! Open, read, and close OGE, FAO, or NDVI dataset header file
+! Open, read, and close dataset header file
 
 fname = trim(ofn)//'HEADER'
 inquire(file=fname, exist=l1)
@@ -99,11 +99,11 @@ inquire(file=fname, exist=l1)
 if (.not. l1) then
    write(io6,*)
    write(io6,*) '==================================================='
-   write(io6,*) '| Problem in leaf_database_read:'
+   write(io6,*) '| Problem in land_database_read:'
    write(io6,*) '| Header file ', trim(fname)
    write(io6,*) '| not found!'
    write(io6,*) '==================================================='
-   stop 'leaf_database_read'
+   stop 'land_database_read'
 endif
 
 open(29, file=fname, form='FORMATTED', status='OLD', action='READ')
@@ -125,86 +125,96 @@ else
    njosh = njo - 1
 endif
 
-! Compute number of files in input dataset that span all latitudes and
-! longitudes on earth.  
-
 ifiles = 360 * nperdeg / niosh
 jfiles = 180 * nperdeg / njosh
    
 ! Allocate 5 arrays.
 
-allocate (nump    (ifiles,jfiles))
-allocate (numpind1(ifiles,jfiles))
-allocate (numpind2(ifiles,jfiles))
+allocate (numq    (ifiles,jfiles))
+allocate (numqind1(ifiles,jfiles))
+allocate (numqind2(ifiles,jfiles))
 allocate (idato   (nio,njo))
 allocate (dato    (nio,njo))
 
 do jfile = 1,jfiles
    do ifile = 1,ifiles
-      nump(ifile,jfile) = 0
+      numq(ifile,jfile) = 0
    enddo
 enddo
 
-! Get file index (ifile,jfile) within full dataset and count number of p 
-! points (nump) that occur in each file
+! Loop over all geographic points that need data filled, determine which
+! file to read for each one, and count number of points to be read from
+! each file.
 
-do iwl = 2,nwl
+do iq = 2,nqa
 
-   wlat1 = max(-89.9999,min(89.9999,glatw(iwl)))
-   wlon1 = glonw(iwl)
+   qlat1 = max(-89.9999,min(89.9999,glatq(iq)))
+   qlon1 = glonq(iq)
 
-   if (wlon1 >=  180.) wlon1 = wlon1 - 360.
-   if (wlon1 <  -180.) wlon1 = wlon1 + 360.
-   wlon1 = max(-179.9999,min(179.9999,wlon1))
+   if (qlon1 >=  180.) qlon1 = qlon1 - 360.
+   if (qlon1 <  -180.) qlon1 = qlon1 + 360.
+   qlon1 = max(-179.9999,min(179.9999,qlon1))
 
-   rio_full = (wlon1 + 180.) * nperdeg ! must ignore pixel offset here
-   rjo_full = (wlat1 +  90.) * nperdeg ! must ignore pixel offset here
+   rio_full = (qlon1 + 180.) * nperdeg ! must ignore pixel offset here
+   rjo_full = (qlat1 +  90.) * nperdeg ! must ignore pixel offset here
 
    io_full = int(rio_full)
    jo_full = int(rjo_full)
 
+! If io_full and/or jo_full are at max value for database, decrease by 1 so
+! that out-of-range file will not be sought.
+
+   if (io_full == 360 * nperdeg) io_full = io_full - 1
+   if (jo_full == 180 * nperdeg) jo_full = jo_full - 1
+
    ifile = io_full / niosh + 1
    jfile = jo_full / njosh + 1
 
-   nump(ifile,jfile) = nump(ifile,jfile) + 1  ! Summation to # pts 
-                               ! filled by file (ifile,jfile) in dataset
+   numq(ifile,jfile) = numq(ifile,jfile) + 1
 
 enddo
 
-! Set up array index values for ptable array
+! Set up array index values for qtable array
 
 ind = 1
 do jfile = 1,jfiles
    do ifile = 1,ifiles
-      numpind1(ifile,jfile) = ind
-      numpind2(ifile,jfile) = ind
-      ind = ind + nump(ifile,jfile)
+      numqind1(ifile,jfile) = ind
+      numqind2(ifile,jfile) = ind
+      ind = ind + numq(ifile,jfile)
    enddo
 enddo
 
-! Fill ptable array
+! Fill qtable array
 
-do iwl = 2,nwl
+do iq = 2,nqa
 
-   wlat1 = max(-89.9999,min(89.9999,glatw(iwl)))
-   wlon1 = glonw(iwl)
+   qlat1 = max(-89.9999,min(89.9999,glatq(iq)))
+   qlon1 = glonq(iq)
 
-   if (wlon1 >=  180.) wlon1 = wlon1 - 360.
-   if (wlon1 <  -180.) wlon1 = wlon1 + 360.
-   wlon1 = max(-179.9999,min(179.9999,wlon1))
+   if (qlon1 >=  180.) qlon1 = qlon1 - 360.
+   if (qlon1 <  -180.) qlon1 = qlon1 + 360.
+   qlon1 = max(-179.9999,min(179.9999,qlon1))
 
-   rio_full = (wlon1 + 180.) * nperdeg ! must ignore pixel offset here
-   rjo_full = (wlat1 +  90.) * nperdeg ! must ignore pixel offset here
+   rio_full = (qlon1 + 180.) * nperdeg ! must ignore pixel offset here
+   rjo_full = (qlat1 +  90.) * nperdeg ! must ignore pixel offset here
 
    io_full = int(rio_full)
    jo_full = int(rjo_full)
 
+! If io_full and/or jo_full are at max value for database, decrease by 1 so
+! that out-of-range file will not be sought.
+
+   if (io_full == 360 * nperdeg) io_full = io_full - 1
+   if (jo_full == 180 * nperdeg) jo_full = jo_full - 1
+
    ifile = io_full / niosh + 1
    jfile = jo_full / njosh + 1
 
-   ind = numpind2(ifile,jfile)
-   ptable(ind) = iwl
-   numpind2(ifile,jfile) = numpind2(ifile,jfile) + 1 ! Sums to ending index
+   ind = numqind2(ifile,jfile)
+
+   qtable(ind) = iq
+   numqind2(ifile,jfile) = numqind2(ifile,jfile) + 1 ! Sums to ending index
          
 enddo
 
@@ -213,8 +223,8 @@ enddo
 do jfile = 1,jfiles
    do ifile = 1,ifiles
    
-      ind1 = numpind1(ifile,jfile)
-      ind2 = numpind2(ifile,jfile)
+      ind1 = numqind1(ifile,jfile)
+      ind2 = numqind2(ifile,jfile)
    
       if (ind2 > ind1) then
          iwoc = (ifile - 1) * niosh / nperdeg - 180  ! SW longitude of current file
@@ -241,7 +251,6 @@ do jfile = 1,jfiles
          endif
 
          fname = trim(ofn2)//title1//title2//'.h5'
-             
          inquire(file=fname,exist=l1,opened=l2)
 
 ! Read file
@@ -255,7 +264,9 @@ do jfile = 1,jfiles
             idims(1) = nio
             idims(2) = njo
 
-            if (trim(iaction) == 'leaf_class') then
+            if     (trim(iaction) == 'topo') then
+               call shdf5_irec(ndims,idims,'topo',rvara=dato)
+            elseif (trim(iaction) == 'leaf_class') then
                call shdf5_irec(ndims,idims,'oge2',ivara=idato)
             elseif (trim(iaction) == 'soil_text') then
                call shdf5_irec(ndims,idims,'fao',ivara=idato)
@@ -279,19 +290,25 @@ do jfile = 1,jfiles
 
          do ind = ind1,ind2-1
 
-            iwl = ptable(ind)         
+            iq = qtable(ind)         
 
-            wlat1 = max(-89.9999,min(89.9999,glatw(iwl)))
-            wlon1 = glonw(iwl)
+            qlat1 = max(-89.9999,min(89.9999,glatq(iq)))
+            qlon1 = glonq(iq)
             
-            if (wlon1 >=  180.) wlon1 = wlon1 - 360.
-            if (wlon1 <= -180.) wlon1 = wlon1 + 360.
+            if (qlon1 >=  180.) qlon1 = qlon1 - 360.
+            if (qlon1 <= -180.) qlon1 = qlon1 + 360.
 
-            rio_full = (wlon1 + 180.) * nperdeg ! must ignore pixel offset here
-            rjo_full = (wlat1 +  90.) * nperdeg ! must ignore pixel offset here
+            rio_full = (qlon1 + 180.) * nperdeg ! must ignore pixel offset here
+            rjo_full = (qlat1 +  90.) * nperdeg ! must ignore pixel offset here
 
             io_full = int(rio_full)
             jo_full = int(rjo_full)
+
+! If io_full and/or jo_full are at max value for database, decrease by 1 so
+! that out-of-range file will not be sought.
+
+            if (io_full == 360 * nperdeg) io_full = io_full - 1
+            if (jo_full == 180 * nperdeg) jo_full = jo_full - 1
 
             io1 = mod(io_full,niosh) + 1
             jo1 = mod(jo_full,njosh) + 1
@@ -320,11 +337,12 @@ do jfile = 1,jfiles
             wio1 = 1. - wio2
             wjo1 = 1. - wjo2
 
-            if (trim(iaction) == 'ndvi') then
+            if (trim(iaction) == 'topo' .or. &
+                trim(iaction) == 'ndvi') then
 
 ! Interpolate from 4 surrounding values
 
-               datp(iwl) & 
+               datq(iq) & 
                   = wio1 * (wjo1 * dato(io1,jo1) + wjo2 * dato(io1,jo2)) &
                   + wio2 * (wjo1 * dato(io2,jo1) + wjo2 * dato(io2,jo2))
 
@@ -335,7 +353,7 @@ do jfile = 1,jfiles
                if (min(dato(io1,jo1), dato(io1,jo2), &
                        dato(io2,jo1), dato(io2,jo2)) > -1.e-6) then
 
-                  datp(iwl) & 
+                  datq(iq) & 
                      = wio1 * (wjo1 * dato(io1,jo1) + wjo2 * dato(io1,jo2)) &
                      + wio2 * (wjo1 * dato(io2,jo1) + wjo2 * dato(io2,jo2))
 
@@ -343,8 +361,8 @@ do jfile = 1,jfiles
 
 ! If any values are missing, set datp to maximum of surrounding values
 
-                  datp(iwl) = max(dato(io1,jo1), dato(io1,jo2), &
-                                  dato(io2,jo1), dato(io2,jo2))
+                  datq(iq) = max(dato(io1,jo1), dato(io1,jo2), &
+                                 dato(io2,jo1), dato(io2,jo2))
 
                endif
 
@@ -358,19 +376,19 @@ do jfile = 1,jfiles
                if (wio2 < .5) io = io1
                if (wjo2 < .5) jo = jo1
                
-               idatp(iwl) = idato(io,jo)
+               idatq(iq) = idato(io,jo)
 
-            endif
+            endif    ! iaction
 
-         enddo
+         enddo    ! ind
 
-     endif
-   enddo
-enddo
+     endif     ! ind2 > ind1
+   enddo    ! ifile
+enddo    ! jfile
 
-deallocate(nump,numpind1,numpind2,idato,dato)
+deallocate(numq,numqind1,numqind2,idato,dato)
 
 return
-end subroutine leaf_database_read
+end subroutine land_database_read
 
-End module leaf_db
+End module land_db

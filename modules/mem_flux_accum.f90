@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 Module mem_flux_accum
@@ -44,43 +44,41 @@ Module mem_flux_accum
   real(r8), allocatable, target :: rshort_top_accum  (:)
   real(r8), allocatable, target :: rshortup_top_accum(:)
   real(r8), allocatable, target :: rlongup_top_accum (:)
-  real(r8), allocatable, target :: sflux_t_accum     (:)
-  real(r8), allocatable, target :: sflux_r_accum     (:)
+  real(r8), allocatable, target :: sfluxt_accum      (:)
+  real(r8), allocatable, target :: sfluxr_accum      (:)
 
-! Landflux/land arrays
+! Land arrays
 
-  real(r8), allocatable, target :: lf_sfluxt_accum (:)
-  real(r8), allocatable, target :: lf_sfluxr_accum (:)
-  real(r8), allocatable, target :: lf_airtemp_accum(:)
-  real(r8), allocatable, target :: lf_airshv_accum (:)
-  real(r8), allocatable, target :: lf_cantemp_accum(:)
-  real(r8), allocatable, target :: lf_canshv_accum (:)
+  real(r8), allocatable, target :: sfluxt_l_accum (:)
+  real(r8), allocatable, target :: sfluxr_l_accum (:)
+  real(r8), allocatable, target :: airtemp_l_accum(:)
+  real(r8), allocatable, target :: airshv_l_accum (:)
+  real(r8), allocatable, target :: cantemp_l_accum(:)
+  real(r8), allocatable, target :: canshv_l_accum (:)
 
-! Seaflux/sea arrays
+! Sea arrays
 
-  real(r8), allocatable, target :: sf_sfluxt_accum (:)
-  real(r8), allocatable, target :: sf_sfluxr_accum (:)
-  real(r8), allocatable, target :: sf_airtemp_accum(:)
-  real(r8), allocatable, target :: sf_airshv_accum (:)
-  real(r8), allocatable, target :: sf_cantemp_accum(:)
-  real(r8), allocatable, target :: sf_canshv_accum (:)
+  real(r8), allocatable, target :: sfluxt_s_accum (:)
+  real(r8), allocatable, target :: sfluxr_s_accum (:)
+  real(r8), allocatable, target :: airtemp_s_accum(:)
+  real(r8), allocatable, target :: airshv_s_accum (:)
+  real(r8), allocatable, target :: cantemp_s_accum(:)
+  real(r8), allocatable, target :: canshv_s_accum (:)
 
 
 Contains
 
 !===============================================================================
 
-subroutine alloc_flux_accum(mza,mwa)
+subroutine alloc_flux_accum(mza,mwa,mwl,mws)
 
   use misc_coms, only: ilwrtyp, iswrtyp
   use leaf_coms, only: isfcl
   use consts_coms, only: r8
-  use mem_sflux, only: mlandflux, mseaflux
 
   implicit none
 
-  integer, intent(in) :: mza
-  integer, intent(in) :: mwa
+  integer, intent(in) :: mza, mwa, mwl, mws
 
 ! Allocate arrays for accumulated flux quantities
 ! Initialize arrays to zero
@@ -99,22 +97,22 @@ subroutine alloc_flux_accum(mza,mwa)
   endif
 
   if (isfcl > 0) then
-     allocate (sflux_t_accum     (mwa)) ; sflux_t_accum      = 0._r8
-     allocate (sflux_r_accum     (mwa)) ; sflux_r_accum      = 0._r8
+     allocate (sfluxt_accum   (mwa)) ; sfluxt_accum    = 0._r8
+     allocate (sfluxr_accum   (mwa)) ; sfluxr_accum    = 0._r8
 
-     allocate (lf_sfluxt_accum (mlandflux)) ; lf_sfluxt_accum  = 0._r8
-     allocate (lf_sfluxr_accum (mlandflux)) ; lf_sfluxr_accum  = 0._r8
-     allocate (lf_airtemp_accum(mlandflux)) ; lf_airtemp_accum = 0._r8
-     allocate (lf_airshv_accum (mlandflux)) ; lf_airshv_accum  = 0._r8
-     allocate (lf_cantemp_accum(mlandflux)) ; lf_cantemp_accum = 0._r8
-     allocate (lf_canshv_accum (mlandflux)) ; lf_canshv_accum  = 0._r8
+     allocate (sfluxt_l_accum (mwl)) ; sfluxt_l_accum  = 0._r8
+     allocate (sfluxr_l_accum (mwl)) ; sfluxr_l_accum  = 0._r8
+     allocate (airtemp_l_accum(mwl)) ; airtemp_l_accum = 0._r8
+     allocate (airshv_l_accum (mwl)) ; airshv_l_accum  = 0._r8
+     allocate (cantemp_l_accum(mwl)) ; cantemp_l_accum = 0._r8
+     allocate (canshv_l_accum (mwl)) ; canshv_l_accum  = 0._r8
 
-     allocate (sf_sfluxt_accum (mseaflux)) ; sf_sfluxt_accum  = 0._r8
-     allocate (sf_sfluxr_accum (mseaflux)) ; sf_sfluxr_accum  = 0._r8
-     allocate (sf_airtemp_accum(mseaflux)) ; sf_airtemp_accum = 0._r8
-     allocate (sf_airshv_accum (mseaflux)) ; sf_airshv_accum  = 0._r8
-     allocate (sf_cantemp_accum(mseaflux)) ; sf_cantemp_accum = 0._r8
-     allocate (sf_canshv_accum (mseaflux)) ; sf_canshv_accum  = 0._r8
+     allocate (sfluxt_s_accum (mws)) ; sfluxt_s_accum  = 0._r8
+     allocate (sfluxr_s_accum (mws)) ; sfluxr_s_accum  = 0._r8
+     allocate (airtemp_s_accum(mws)) ; airtemp_s_accum = 0._r8
+     allocate (airshv_s_accum (mws)) ; airshv_s_accum  = 0._r8
+     allocate (cantemp_s_accum(mws)) ; cantemp_s_accum = 0._r8
+     allocate (canshv_s_accum (mws)) ; canshv_s_accum  = 0._r8
   endif
   
 end subroutine alloc_flux_accum
@@ -161,74 +159,74 @@ subroutine filltab_flux_accum()
      vtab_r(num_var)%dvar1_p => rlongup_top_accum
   endif
 
-  if (allocated(sflux_t_accum)) then
-     call increment_vtable('SFLUX_T_ACCUM', 'AW')
-     vtab_r(num_var)%dvar1_p => sflux_t_accum
+  if (allocated(sfluxt_accum)) then
+     call increment_vtable('SFLUXT_ACCUM', 'AW')
+     vtab_r(num_var)%dvar1_p => sfluxt_accum
   endif
 
-  if (allocated(sflux_r_accum)) then
-     call increment_vtable('SFLUX_R_ACCUM', 'AW')
-     vtab_r(num_var)%dvar1_p => sflux_r_accum
+  if (allocated(sfluxr_accum)) then
+     call increment_vtable('SFLUXR_ACCUM', 'AW')
+     vtab_r(num_var)%dvar1_p => sfluxr_accum
   endif
 
-  if (allocated(lf_sfluxt_accum)) then
-     call increment_vtable('LF_SFLUXT_ACCUM', 'LF')
-     vtab_r(num_var)%dvar1_p => lf_sfluxt_accum
+  if (allocated(sfluxt_l_accum)) then
+     call increment_vtable('SFLUXT_L_ACCUM', 'LW')
+     vtab_r(num_var)%dvar1_p => sfluxt_l_accum
   endif
 
-  if (allocated(lf_sfluxr_accum)) then
-     call increment_vtable('LF_SFLUXR_ACCUM', 'LF')
-     vtab_r(num_var)%dvar1_p => lf_sfluxr_accum
+  if (allocated(sfluxr_l_accum)) then
+     call increment_vtable('SFLUXR_L_ACCUM', 'LW')
+     vtab_r(num_var)%dvar1_p => sfluxr_l_accum
   endif
 
-  if (allocated(lf_airtemp_accum)) then
-     call increment_vtable('LF_AIRTEMP_ACCUM', 'LF')
-     vtab_r(num_var)%dvar1_p => lf_airtemp_accum
+  if (allocated(airtemp_l_accum)) then
+     call increment_vtable('AIRTEMP_L_ACCUM', 'LW')
+     vtab_r(num_var)%dvar1_p => airtemp_l_accum
   endif
 
-  if (allocated(lf_airshv_accum)) then
-     call increment_vtable('LF_AIRSHV_ACCUM', 'LF')
-     vtab_r(num_var)%dvar1_p => lf_airshv_accum
+  if (allocated(airshv_l_accum)) then
+     call increment_vtable('AIRSHV_L_ACCUM', 'LW')
+     vtab_r(num_var)%dvar1_p => airshv_l_accum
   endif
 
-  if (allocated(lf_cantemp_accum)) then
-     call increment_vtable('LF_CANTEMP_ACCUM', 'LF')
-     vtab_r(num_var)%dvar1_p => lf_cantemp_accum
+  if (allocated(cantemp_l_accum)) then
+     call increment_vtable('CANTEMP_L_ACCUM', 'LW')
+     vtab_r(num_var)%dvar1_p => cantemp_l_accum
   endif
 
-  if (allocated(lf_canshv_accum)) then
-     call increment_vtable('LF_CANSHV_ACCUM', 'LF')
-     vtab_r(num_var)%dvar1_p => lf_canshv_accum
+  if (allocated(canshv_l_accum)) then
+     call increment_vtable('CANSHV_L_ACCUM', 'LW')
+     vtab_r(num_var)%dvar1_p => canshv_l_accum
   endif
 
-  if (allocated(sf_sfluxt_accum)) then
-     call increment_vtable('SF_SFLUXT_ACCUM', 'SF')
-     vtab_r(num_var)%dvar1_p => sf_sfluxt_accum
+  if (allocated(sfluxt_s_accum)) then
+     call increment_vtable('SFLUXT_S_ACCUM', 'SW')
+     vtab_r(num_var)%dvar1_p => sfluxt_s_accum
   endif
 
-  if (allocated(sf_sfluxr_accum)) then
-     call increment_vtable('SF_SFLUXR_ACCUM', 'SF')
-     vtab_r(num_var)%dvar1_p => sf_sfluxr_accum
+  if (allocated(sfluxr_s_accum)) then
+     call increment_vtable('SFLUXR_S_ACCUM', 'SW')
+     vtab_r(num_var)%dvar1_p => sfluxr_s_accum
   endif
 
-  if (allocated(sf_airtemp_accum)) then
-     call increment_vtable('SF_AIRTEMP_ACCUM', 'SF')
-     vtab_r(num_var)%dvar1_p => sf_airtemp_accum
+  if (allocated(airtemp_s_accum)) then
+     call increment_vtable('AIRTEMP_S_ACCUM', 'SW')
+     vtab_r(num_var)%dvar1_p => airtemp_s_accum
   endif
 
-  if (allocated(sf_airshv_accum)) then
-     call increment_vtable('SF_AIRSHV_ACCUM', 'SF')
-     vtab_r(num_var)%dvar1_p => sf_airshv_accum
+  if (allocated(airshv_s_accum)) then
+     call increment_vtable('AIRSHV_S_ACCUM', 'SW')
+     vtab_r(num_var)%dvar1_p => airshv_s_accum
   endif
 
-  if (allocated(sf_cantemp_accum)) then
-     call increment_vtable('SF_CANTEMP_ACCUM', 'SF')
-     vtab_r(num_var)%dvar1_p => sf_cantemp_accum
+  if (allocated(cantemp_s_accum)) then
+     call increment_vtable('CANTEMP_S_ACCUM', 'SW')
+     vtab_r(num_var)%dvar1_p => cantemp_s_accum
   endif
 
-  if (allocated(sf_canshv_accum)) then
-     call increment_vtable('SF_CANSHV_ACCUM', 'SF')
-     vtab_r(num_var)%dvar1_p => sf_canshv_accum
+  if (allocated(canshv_s_accum)) then
+     call increment_vtable('CANSHV_S_ACCUM', 'SW')
+     vtab_r(num_var)%dvar1_p => canshv_s_accum
   endif
 
 end subroutine filltab_flux_accum
@@ -245,29 +243,25 @@ subroutine flux_accum()
   use mem_radiate, only: albedt, rshort, rlong, rlongup, &
                          rshort_top, rshortup_top, rlongup_top
 
-  use leaf_coms,   only: mrl_leaf, dt_leaf, isfcl
+  use leaf_coms,   only: mwl, mrl_leaf, dt_leaf, isfcl
 
-  use mem_turb,    only: sflux_t, sflux_r
+  use mem_turb,    only: sfluxt, sfluxr
 
   use consts_coms, only: r8
 
+  use sea_coms,    only: mws
   use mem_sea,     only: sea, itabg_ws, itab_ws
 
   use mem_leaf,    only: land, itabg_wl, itab_wl
 
-  use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
-
-!$ use omp_lib
-
   implicit none
 
-  integer :: mrl, j, iw, iwl, iws, ilf, isf
+  integer :: mrl, j, iw, iwl, iws
 
   real(r8) :: dta
 
 ! Update accumulations of ATM SFC turbulent fluxes
 
-  call psub()
 !----------------------------------------------------------------------
   mrl = mrl_begl(istp)
   if (mrl > 0 .and. isfcl > 0) then
@@ -277,7 +271,6 @@ subroutine flux_accum()
 !$omp parallel do private(iw,dta)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
-        call qsub('W',iw)
 
 ! Timestep for accumulating fluxes, DTA, is the lesser of dtlm for the given
 ! IW cell and dt_leaf; the frequency that each IW cell is processed in this
@@ -285,24 +278,21 @@ subroutine flux_accum()
 
         dta = min(dtlm(itab_w(iw)%mrlw),dt_leaf)
 
-        sflux_t_accum(iw) = sflux_t_accum(iw) + dta * real(sflux_t(iw),r8)
-        sflux_r_accum(iw) = sflux_r_accum(iw) + dta * real(sflux_r(iw),r8)
+        sfluxt_accum(iw) = sfluxt_accum(iw) + dta * real(sfluxt(iw),r8)
+        sfluxr_accum(iw) = sfluxr_accum(iw) + dta * real(sfluxr(iw),r8)
      enddo
 !$omp end parallel do
 
   endif
-  call rsub('Waf',20)
 
 ! Update accumulations of ATM SFC and TOP radiative fluxes
 
-  call psub()
 !----------------------------------------------------------------------
   mrl = mrl_begl(istp)
   if (mrl > 0 .and. ilwrtyp + iswrtyp > 0) then
 !$omp parallel do private(iw,dta)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
-        call qsub('W',iw)
 
 ! Timestep for accumulating fluxes, DTA is dtlm for the given IW cell; 
 ! the frequency that each IW cell is processed in this loop should be 
@@ -326,9 +316,8 @@ subroutine flux_accum()
      enddo
 !$omp end parallel do
   endif
-  call rsub('Waf',12)
 
-! Update accumulations of LANDFLUX cells
+! Update accumulations of LAND cells
 
 !----------------------------------------------------------------------
   mrl = mrl_begl(istp)
@@ -336,17 +325,14 @@ subroutine flux_accum()
 
      if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
 
-!$omp parallel do private(ilf,iw,iwl,dta)
-     do j = 1,jlandflux(1)%jend(mrl)
-        ilf = jlandflux(1)%ilandflux(j)
-        iw  = landflux(ilf)%iw         ! global index
-        iwl = landflux(ilf)%iwls       ! global index
+!$omp parallel do private(iw,dta)
+     do iwl = 2,mwl
+        iw = itab_wl(iwl)%iw         ! global index
 
 ! If run is parallel, get local rank indices
 
         if (isubdomain == 1) then
-           iw  = itabg_w (iw )%iw_myrank
-           iwl = itabg_wl(iwl)%iwl_myrank
+           iw = itabg_w (iw )%iw_myrank
         endif
 
 ! Timestep for accumulating fluxes, DTA is dtlm for the given IW cell; 
@@ -355,17 +341,17 @@ subroutine flux_accum()
 
         dta = dtlm(itab_w(iw)%mrlw)
 
-        lf_sfluxt_accum (ilf) = lf_sfluxt_accum (ilf) + dta * real(landflux(ilf)%sfluxt,r8)
-        lf_sfluxr_accum (ilf) = lf_sfluxr_accum (ilf) + dta * real(landflux(ilf)%sfluxr,r8)
-        lf_airtemp_accum(ilf) = lf_airtemp_accum(ilf) + dta * real(landflux(ilf)%airtemp,r8)
-        lf_airshv_accum (ilf) = lf_airshv_accum (ilf) + dta * real(landflux(ilf)%airshv,r8)
-        lf_cantemp_accum(ilf) = lf_cantemp_accum(ilf) + dta * real(land%can_temp(iwl),r8)
-        lf_canshv_accum (ilf) = lf_canshv_accum (ilf) + dta * real(land%can_shv(iwl),r8)
+         sfluxt_l_accum(iwl) =  sfluxt_l_accum(iwl) + dta * real(land%sfluxt  (iwl),r8)
+         sfluxr_l_accum(iwl) =  sfluxr_l_accum(iwl) + dta * real(land%sfluxr  (iwl),r8)
+        airtemp_l_accum(iwl) = airtemp_l_accum(iwl) + dta * real(land%airtemp (iwl),r8)
+         airshv_l_accum(iwl) =  airshv_l_accum(iwl) + dta * real(land%airshv  (iwl),r8)
+        cantemp_l_accum(iwl) = cantemp_l_accum(iwl) + dta * real(land%cantemp(iwl),r8)
+         canshv_l_accum(iwl) =  canshv_l_accum(iwl) + dta * real(land%canshv (iwl),r8)
 
      enddo
   endif
 
-! Update accumulations of SEAFLUX cells
+! Update accumulations of SEA cells
 
 !----------------------------------------------------------------------
   mrl = mrl_begl(istp)
@@ -373,18 +359,15 @@ subroutine flux_accum()
 
      if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
 
-!$omp parallel do private(isf,iw,iws,dta)
-     do j = 1,jseaflux(1)%jend(mrl)
-        isf = jseaflux(1)%iseaflux(j)
-        iw  = seaflux(isf)%iw         ! global index
-        iws = seaflux(isf)%iwls       ! global index
+!$omp parallel do private(iw,dta)
+     do iws = 2,mws
+        iw = itab_ws(iws)%iw         ! global index
 
 ! If run is parallel, get local rank indices
 
         if (isubdomain == 1) then
-           iw  = itabg_w (iw )%iw_myrank
-           iws = itabg_ws(iws)%iws_myrank
-        endif
+           iw = itabg_w (iw )%iw_myrank
+       endif
 
 ! Timestep for accumulating fluxes, DTA is dtlm for the given IW cell; 
 ! the frequency that each IW cell is processed in this loop should be 
@@ -392,12 +375,12 @@ subroutine flux_accum()
 
         dta = dtlm(itab_w(iw)%mrlw)
 
-        sf_sfluxt_accum (isf) = sf_sfluxt_accum(isf)  + dta * real(seaflux(isf)%sfluxt,r8)
-        sf_sfluxr_accum (isf) = sf_sfluxr_accum(isf)  + dta * real(seaflux(isf)%sfluxr,r8)
-        sf_airtemp_accum(isf) = sf_airtemp_accum(isf) + dta * real(seaflux(isf)%airtemp,r8)
-        sf_airshv_accum (isf) = sf_airshv_accum(isf)  + dta * real(seaflux(isf)%airshv,r8)
-        sf_cantemp_accum(isf) = sf_cantemp_accum(isf) + dta * real(sea%can_temp(iws),r8)
-        sf_canshv_accum (isf) = sf_canshv_accum(isf)  + dta * real(sea%can_shv(iws),r8)
+         sfluxt_s_accum(iws) =  sfluxt_s_accum(iws) + dta * real(sea%sfluxt  (iws),r8)
+         sfluxr_s_accum(iws) =  sfluxr_s_accum(iws) + dta * real(sea%sfluxr  (iws),r8)
+        airtemp_s_accum(iws) = airtemp_s_accum(iws) + dta * real(sea%airtemp (iws),r8)
+         airshv_s_accum(iws) =  airshv_s_accum(iws) + dta * real(sea%airshv  (iws),r8)
+        cantemp_s_accum(iws) = cantemp_s_accum(iws) + dta * real(sea%cantemp(iws),r8)
+         canshv_s_accum(iws) =  canshv_s_accum(iws) + dta * real(sea%canshv (iws),r8)
 
      enddo
   endif

@@ -31,7 +31,7 @@ contains
 
 !=======================================================================
 
-  subroutine acm2( iw, rhot, moli, ustar, pblh, kpblh, zkh )
+  subroutine acm2( iw, moli, ustar, pblh, kpblh, zkh )
 
     use mem_grid,   only: arw, volt, volti, lpw, lsw, nsw_max, mwa, zfacm
     use mem_turb,   only: vkm_sfc, frac_sfc, sxfer_rk
@@ -50,7 +50,6 @@ contains
     real,    intent(in)    :: ustar
     real,    intent(in)    :: moli
     real,    intent(in)    :: zkh(:)
-    real,    intent(inout) :: rhot(mza,mwa)
 
     logical :: cnvct
     real :: massflx(mza)
@@ -78,7 +77,7 @@ contains
     integer :: kbot, ktop, nsfc, nlev
 
     kbot = lpw(iw)
-    ktop = mza-1
+    ktop = mza
     nsfc = lsw(iw)
     nlev = ktop - kbot + 1
 
@@ -161,7 +160,7 @@ contains
 
     ! Compute internal vertical turbulent fluxes
 
-    do k = kbot, mza-2
+    do k = kbot, mza-1
        aflux(k,1) = akodz(k) * (soln(k,1) - soln(k+1,1))
        aflux(k,2) = akodz(k) * (soln(k,2) - soln(k+1,2))
        aflux(k,3) = akodz(k) * (soln(k,3) - soln(k+1,3))
@@ -170,11 +169,11 @@ contains
     ! Set bottom and top internal fluxes to zero
     
     aflux(kbot-1,1:3) = 0.
-    aflux(mza-1, 1:3) = 0.
+    aflux(mza, 1:3) = 0.
 
     ! Compute tendencies due to internal turbulent fluxes
 
-    do k = kbot, mza-1
+    do k = kbot, mza
        vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) * (aflux(k-1,1) - aflux(k,1))
        vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) * (aflux(k-1,2) - aflux(k,2))
        vmzet(k,iw) = vmzet(k,iw) + volti(k,iw) * (aflux(k-1,3) - aflux(k,3))
@@ -534,14 +533,13 @@ contains
 !! Now computed combined eddy diffusivity from surface and cloud K-profiles
 !! and Richardson-number eddy diffusivity
 
-    do k = kbot, mza-2
+    do k = kbot, mza-1
        zkh(k) = max( edyr(k), edyz(k) + edyc(k), kzo )
        zkh(k) = min( zkh(k), 1000.0 )
        zkh(k) = 0.5 * (rho(k+1) + rho(k)) * zkh(k)
     enddo
 
     zkh(1:kbot-1) = 0.0
-    zkh(mza-1)  = 0.0
     zkh(mza)    = 0.0
 
   end subroutine acm2_eddyx

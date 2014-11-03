@@ -450,14 +450,14 @@ do iwl = 2, mwl
 
          land%sfcwater_mass  (1,iwl) = sum(wgts * max(snow(io-1:io+1,jo-1:jo+1), 0.))
 
-         land%sfcwater_energy(1,iwl) = min(0., (land%can_temp(iwl) - 273.15) * cice)
+         land%sfcwater_energy(1,iwl) = min(0., (land%cantemp(iwl) - 273.15) * cice)
 
          ! snow density calculation comes from CLM3.0 documentation 
          ! which is based on Anderson 1975 NWS Technical Doc # 19 
 
          snowdens = 50.0
-         if (land%can_temp(iwl) > 258.15) snowdens =   &
-              50.0 + 1.5 * (land%can_temp(iwl) - 258.15)**1.5
+         if (land%cantemp(iwl) > 258.15) snowdens =   &
+              50.0 + 1.5 * (land%cantemp(iwl) - 258.15)**1.5
 
          land%sfcwater_depth(1,iwl) = land%sfcwater_mass(1,iwl) / snowdens
 

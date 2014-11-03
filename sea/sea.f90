@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine seacells()
 
@@ -90,8 +90,8 @@ subroutine seacells()
                   sea%sea_sxfer_r(iws),  &
                   sea%can_depth  (iws),  &
                   sea%seatc      (iws),  &
-                  sea%seacan_temp(iws),  &
-                  sea%seacan_shv (iws),  &
+                  sea%sea_cantemp(iws),  &
+                  sea%sea_canshv (iws),  &
                   sea%sea_sfc_ssh(iws),  &
                   sea%sea_rough  (iws)   )
 
@@ -99,8 +99,8 @@ subroutine seacells()
 
      call prep_seaice(sea%seatc              (iws), &      
                       sea%seaicec            (iws), &
-                      sea%seacan_temp        (iws), &
-                      sea%icecan_temp        (iws), &
+                      sea%sea_cantemp        (iws), &
+                      sea%ice_cantemp        (iws), &
                       sea%seaice_energy(1:nzi,iws), &
                       sea%seaice_tempk (1:nzi,iws), &
                       sea%nlev_seaice        (iws), &
@@ -111,8 +111,8 @@ subroutine seacells()
                       sea%rshort             (iws), &
                       sea%rlong              (iws), &
                       sea%ice_rough          (iws), &
-                      sea%seacan_shv         (iws), &
-                      sea%icecan_shv         (iws), &
+                      sea%sea_canshv         (iws), &
+                      sea%ice_canshv         (iws), &
                       sea%sea_ustar          (iws), &
                       sea%ice_ustar          (iws), &
                       sea%sea_ggaer          (iws), &
@@ -133,8 +133,8 @@ subroutine seacells()
                     sea%ice_ustar          (iws), &
                     sea%ice_ggaer          (iws), &
                     sea%can_depth          (iws), &
-                    sea%icecan_temp        (iws), &
-                    sea%icecan_shv         (iws), &
+                    sea%ice_cantemp        (iws), &
+                    sea%ice_canshv         (iws), &
                     sea%ice_sfc_ssh        (iws), &
                     sea%ice_sxfer_t        (iws), &
                     sea%ice_sxfer_r        (iws)  )
@@ -142,19 +142,19 @@ subroutine seacells()
         sea%rough      (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_rough  (iws) + &
                                       sea%seaicec(iws)  * sea%ice_rough  (iws)
 
-        sea%can_temp   (iws) = (1.0 - sea%seaicec(iws)) * sea%seacan_temp(iws) + &
-                                      sea%seaicec(iws)  * sea%icecan_temp(iws)
+        sea%cantemp    (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_cantemp(iws) + &
+                                      sea%seaicec(iws)  * sea%ice_cantemp(iws)
 
-        sea%can_shv    (iws) = (1.0 - sea%seaicec(iws)) * sea%seacan_shv (iws) + &
-                                      sea%seaicec(iws)  * sea%icecan_shv (iws)
+        sea%canshv     (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_canshv (iws) + &
+                                      sea%seaicec(iws)  * sea%ice_canshv (iws)
 
         sea%surface_ssh(iws) = (1.0 - sea%seaicec(iws)) * sea%sea_sfc_ssh(iws) + &
                                       sea%seaicec(iws)  * sea%ice_sfc_ssh(iws)
      else
 
         sea%rough      (iws) = sea%sea_rough  (iws)
-        sea%can_temp   (iws) = sea%seacan_temp(iws)
-        sea%can_shv    (iws) = sea%seacan_shv (iws)
+        sea%cantemp    (iws) = sea%sea_cantemp (iws)
+        sea%canshv     (iws) = sea%sea_canshv  (iws)
         sea%surface_ssh(iws) = sea%sea_sfc_ssh(iws)
 
      endif
@@ -185,7 +185,7 @@ end subroutine seacells
 !===============================================================================
 
 subroutine seacell( iws, rhos, ustar, ggaer, sxfer_t, sxfer_r, can_depth, &
-                    seatc, can_temp, can_shv, surface_ssh, rough           )
+                    seatc, cantemp, canshv, surface_ssh, rough           )
 
   use sea_coms,    only: dt_sea
   use consts_coms, only: cp, grav
@@ -201,8 +201,8 @@ subroutine seacell( iws, rhos, ustar, ggaer, sxfer_t, sxfer_r, can_depth, &
   real,    intent(in)    :: sxfer_r     ! can_air to atm vapor xfer this step (kg_vap/m^2]
   real,    intent(in)    :: can_depth   ! "canopy" depth for heat and vap capacity [m]
   real,    intent(in)    :: seatc       ! current sea temp (obs time) [K]
-  real,    intent(inout) :: can_temp    ! "canopy" air temp [K]
-  real,    intent(inout) :: can_shv     ! "canopy" air vapor spec hum [kg_vap/kg_air]
+  real,    intent(inout) :: cantemp     ! "canopy" air temp [K]
+  real,    intent(inout) :: canshv      ! "canopy" air vapor spec hum [kg_vap/kg_air]
   real,    intent(out)   :: surface_ssh ! sea surface sat spec hum [kg_vap/kg_air] 
   real,    intent(out)   :: rough       ! sea cell roughess height [m] 
   
@@ -234,13 +234,13 @@ subroutine seacell( iws, rhos, ustar, ggaer, sxfer_t, sxfer_r, can_depth, &
   rdi = .2 * ustar
 ! rdi = ggaer
 
-  hxfergc = dt_sea * cp * rhos * rdi * (seatc - can_temp)
-  wxfergc = dt_sea *      rhos * rdi * (surface_ssh - can_shv)
+  hxfergc = dt_sea * cp * rhos * rdi * (seatc - cantemp)
+  wxfergc = dt_sea *      rhos * rdi * (surface_ssh - canshv)
 
   hxferca = cp * sxfer_t  ! sxfer_t and sxfer_r already incorporate dt_sea
 
-  can_temp = can_temp + (hxfergc - hxferca) / (can_depth * rhos * cp)
-  can_shv  = can_shv  + (wxfergc - sxfer_r) / (can_depth * rhos)             
+  cantemp = cantemp + (hxfergc - hxferca) / (can_depth * rhos * cp)
+  canshv  = canshv  + (wxfergc - sxfer_r) / (can_depth * rhos)             
 
 ! Evaluate sea roughness height
 

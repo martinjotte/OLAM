@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module leaf4_canopy
 
@@ -44,7 +44,7 @@ Contains
                    rshort, rshort_v, rshort_g,                        &
                    rlong_v, rlong_s, rlong_g, sxfer_t, sxfer_r,       &
                    snowfac, vf, surface_ssh, ground_shv,              &
-                   veg_water, veg_temp, can_temp, can_shv,            &
+                   veg_water, veg_temp, cantemp, canshv,              &
                    transp, stom_resist, ggaero, snowmin_expl,         &
                    glatw, glonw                                       ) 
 
@@ -108,8 +108,8 @@ Contains
 
  real, intent(inout) :: veg_water   ! veg sfc water content [kg/m^2]
  real, intent(inout) :: veg_temp    ! veg temp [K]
- real, intent(inout) :: can_temp    ! canopy air temp [K]
- real, intent(inout) :: can_shv     ! canopy air vapor spec hum [kg_vap/kg_air]
+ real, intent(inout) :: cantemp     ! canopy air temp [K]
+ real, intent(inout) :: canshv      ! canopy air vapor spec hum [kg_vap/kg_air]
  real, intent(inout) :: stom_resist ! veg stomatal resistance [s/m]
 
  real, intent(out) :: transp       ! transpiration xfer this LEAF timestep [kg_vap/m^2]
@@ -385,7 +385,7 @@ Contains
 
 ! Compute vapor pressure in canopy air from equation of state
 
-       e_can = can_shv * rhos * rvap * can_temp
+       e_can = canshv * rhos * rvap * cantemp
 
 ! Compute vapor pressure at leaf surface using rc from previous timestep
 
@@ -413,7 +413,7 @@ Contains
 
 ! Limit maximum transpiration to be <= 500 W/m^2 by increasing rc if necessary.
 
-       transp_test = alvl * veg_lai * (veg_rhovs - rhos * can_shv) / (rb + rc)
+       transp_test = alvl * veg_lai * (veg_rhovs - rhos * canshv) / (rb + rc)
        if (transp_test > 500.) then
           rc = (rb + rc) * transp_test * .002 - rb
        endif      
@@ -437,7 +437,7 @@ Contains
 
 ! Canopy air quantities
 
- can_rhov = can_shv * rhos
+ can_rhov = canshv * rhos
  canair = rhos * can_depth
  hcapcan = cp * canair
 
@@ -621,13 +621,13 @@ Contains
  a5 = dt_leaf * rdi                             ! sfc vap xfer coef
  a6 = cp * rhos * a5                            ! sfc heat xfer coef
 
- y2 = sfc_rhovs - rhos * can_shv &
+ y2 = sfc_rhovs - rhos * canshv &
     + fcn * (sfc_rhovsp * radsfc * hcapsfci + rhos * sxfer_r * canairi)
 
- y3 = gnd_rhov - rhos * can_shv &
+ y3 = gnd_rhov - rhos * canshv &
     + fcn * (gnd_rhovp * radsfc * hcapsfci + rhos * sxfer_r * canairi)
 
- y5 = sfc_tempk - can_temp &
+ y5 = sfc_tempk - cantemp &
     + fcn * (radsfc * hcapsfci + cp * sxfer_t * hcapcani)
 
  h2 = fcn * sfc_rhovsp * hcapsfci
@@ -701,11 +701,11 @@ Contains
 
 ! Update components
 
-    can_temp = can_temp + (hxfersc - cp * sxfer_t) * hcapcani
+    cantemp = cantemp + (hxfersc - cp * sxfer_t) * hcapcani
 
     energy_per_m2 = energy_per_m2 + radsfc - hxfersc - wxfersc * alvl
 
-    can_shv = can_shv + (wxfersc - sxfer_r) * canairi
+    canshv = canshv + (wxfersc - sxfer_r) * canairi
 
     sfcwater_mass = sfcwater_mass - wxfersc
 
@@ -735,10 +735,10 @@ Contains
 
 ! Auxiliary quantities
 
-    y1 = veg_rhovs - rhos * can_shv &
+    y1 = veg_rhovs - rhos * canshv &
        + fcn * (veg_rhovsp * radveg * hcapvegi + rhos * sxfer_r * canairi)
 
-    y4 = veg_temp - can_temp &
+    y4 = veg_temp - cantemp &
        + fcn * (radveg * hcapvegi + cp * sxfer_t * hcapcani)
 
     h1 = fcn * veg_rhovsp * hcapvegi
@@ -1012,13 +1012,13 @@ Contains
 
 ! Update components
 
-    can_temp = can_temp + (hxfervc + hxfersc - cp * sxfer_t) * hcapcani
+    cantemp = cantemp + (hxfervc + hxfersc - cp * sxfer_t) * hcapcani
 
     veg_temp = veg_temp + (radveg - hxfervc - (wxfervc + transp) * alvl) * hcapvegi
 
     energy_per_m2 = energy_per_m2 + radsfc - hxfersc - wxfersc * alvl
 
-    can_shv = can_shv + (wxfervc + transp + wxfersc - sxfer_r) * canairi
+    canshv = canshv + (wxfervc + transp + wxfersc - sxfer_r) * canairi
 
     veg_water = max(0.,veg_water - wxfervc)
 

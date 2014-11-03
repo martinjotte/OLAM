@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,13 +29,9 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
-subroutine pbl_driver(rhot, mrl)
+subroutine pbl_driver(mrl)
 
   use mem_grid,       only: mwa, mza, lpw, lsw
   use misc_coms,      only: io6, idiffk
@@ -50,7 +50,6 @@ subroutine pbl_driver(rhot, mrl)
   
   implicit none
 
-  real, intent(inout) :: rhot(mza,mwa)
   integer, intent(in) :: mrl
   integer :: j, k, ka, iw, mrlw, ks
 
@@ -63,19 +62,17 @@ subroutine pbl_driver(rhot, mrl)
 
 ! Loop over all W/T points where PBL parameterization may be done
 
-  call psub()
 !----------------------------------------------------------------------
-!$omp parallel do private(iw,mrlw,ka,k,ks,qc,thlv,moli,vkh,vkm) 
+!$omp parallel do private(iw,mrlw,ka,k,ks,qc,thlv,moli,vkh,vkm,fthrd) 
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
-     call qsub('W',iw)
 
      ! MRL for current IW column
 
      mrlw = itab_w(iw)%mrlw
      ka   = lpw(iw)
 
-     do k = ka-1, mza-1
+     do k = ka-1, mza
         hkm(k,iw) = 0.
 !       vkm(k,iw) = 0.
 !       vkh(k,iw) = 0.
@@ -84,13 +81,13 @@ subroutine pbl_driver(rhot, mrl)
      ! Save input tendencies of theta and qt for later determining PBL tendencies
 
      if (allocated(fthpbl)) then
-        do k = ka, mza-1
+        do k = ka, mza
            fthpbl(k,iw) = thilt(k,iw)
         enddo
      endif
 
      if (allocated(fqtpbl)) then
-        do k = ka, mza-1
+        do k = ka, mza
            fqtpbl(k,iw) = sh_wt(k,iw)
         enddo
      endif
@@ -99,13 +96,13 @@ subroutine pbl_driver(rhot, mrl)
      ! for diagnosing stability
 
      if (allocated(sh_c)) then
-        do k = ka, mza-1
+        do k = ka, mza
            qc  (k) = max( sh_w(k,iw) - sh_v(k,iw), 0.0 )
            thlv(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw) - qc(k)) &
                    / ( 1.0 + alvlocp * sh_c(k,iw) / max(tair(k,iw), 253.0) )
         enddo
      else
-        do k = ka, mza-1
+        do k = ka, mza
            qc  (k) = 0.0
            thlv(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw))
         enddo
@@ -113,7 +110,7 @@ subroutine pbl_driver(rhot, mrl)
 
      ! Diagnose PBL height regardless of scheme
 
-     call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), ka, mza-2, lsw(iw),     &
+     call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), ka, mza-1, lsw(iw),     &
                        frac_sfc(:,iw), thlv, vxe(:,iw), vye(:,iw), vze(:,iw), &
                        kpblh(iw), pblh(iw) )
 
@@ -125,19 +122,19 @@ subroutine pbl_driver(rhot, mrl)
 
         moli = - grav * vonk * wtv0(iw) / ustar(iw)**3 / thlv(ka)
 
-        fthrd(ka:mza-1) = fthrd_sw(ka:mza-1,iw) + fthrd_lw(ka:mza-1,iw)
+        fthrd(ka:mza) = fthrd_sw(ka:mza,iw) + fthrd_lw(ka:mza,iw)
 
-        call acm2_eddyx( iw, moli, ustar(iw), pblh(iw), kpblh(iw), ka, mza-1, &
+        call acm2_eddyx( iw, moli, ustar(iw), pblh(iw), kpblh(iw), ka, mza, &
                          vkh, vxe(:,iw), vye(:,iw), vze(:,iw), sh_w(:,iw),    &
                          sh_v(:,iw), qc, thil(:,iw), theta(:,iw), thlv,       &
                          tair(:,iw), fthrd, rho(:,iw)                         )
 
-        call acm2( iw, rhot, moli, ustar(iw), pblh(iw), kpblh(iw), vkh )
+        call acm2( iw, moli, ustar(iw), pblh(iw), kpblh(iw), vkh )
 
         ! get horizontal diffusion coefficient from vkh
         
         hkm(ka,iw) = vkh(ka)
-        do k = ka, mza-1
+        do k = ka, mza
            hkm(k,iw) = 0.5 * (vkh(k-1) + vkh(k))
         enddo
 
@@ -145,7 +142,7 @@ subroutine pbl_driver(rhot, mrl)
    
         ! Smagorinsky scheme
 
-        call turb_k(iw, mrlw, rhot, thlv, vkh, vkm)
+        call turb_k(iw, mrlw, thlv, vkh, vkm)
 
      endif
 
@@ -159,13 +156,13 @@ subroutine pbl_driver(rhot, mrl)
      ! Save PBL tendencies of theta and qt needed by some convective schemes
 
      if (allocated(fthpbl)) then
-        do k = ka, mza-1
+        do k = ka, mza
            fthpbl(k,iw) = (thilt(k,iw) - fthpbl(k,iw)) / rho(k,iw)
         enddo
      endif
 
      if (allocated(fqtpbl)) then
-        do k = ka, mza-1
+        do k = ka, mza
            fqtpbl(k,iw) = (sh_wt(k,iw) - fqtpbl(k,iw)) / rho(k,iw)
         enddo
      endif
@@ -179,16 +176,15 @@ end subroutine pbl_driver
 
 subroutine pbl_init()
 
-  use mem_sflux,     only: landflux, jlandflux
   use mem_grid,      only: lsw, lpw, mza, mwa, arw
   use mem_ijtabs,    only: itab_w, jtab_w, jtw_prog, itabg_w
   use mem_turb,      only: frac_urb, frac_land, frac_sfc, ustar, wstar, wtv0, &
                            pblh, kpblh, fthpbl, fqtpbl
-  use mem_leaf,      only: land, itabg_wl
+  use mem_leaf,      only: land, itab_wl, itabg_wl
   use mem_basic,     only: vxe, vye, vze, theta, tair, sh_v
   use misc_coms,     only: io6, isubdomain, runtype
   use module_bl_acm2,only: acm2_pblhgt
-  use leaf_coms,     only: isfcl
+  use leaf_coms,     only: mwl, isfcl
   use consts_coms,   only: eps_virt, alvlocp
   
   implicit none
@@ -205,25 +201,20 @@ subroutine pbl_init()
   if (allocated(frac_land)) frac_land(:) = 0.0
 
   if (isfcl > 0) then
-     do j = 1,jlandflux(1)%jend(1)
-        ilf = jlandflux(1)%ilandflux(j)
-
-        iw  = landflux(ilf)%iw   ! global index
-        iwl = landflux(ilf)%iwls ! global index
-
+     do iwl = 2,mwl
+        iw  = itab_wl(iwl)%iw   ! global index
         if (isubdomain == 1) then
            iw  = itabg_w (iw )%iw_myrank  ! local index
-           iwl = itabg_wl(iwl)%iwl_myrank ! local index
         endif
    
         if (allocated(frac_urb)) then
            if (any(land%leaf_class(iwl) == (/ 19, 21 /))) then
-              frac_urb(iw) = frac_urb(iw) + landflux(ilf)%arf_atm
+              frac_urb(iw) = frac_urb(iw) + itab_wl(iwl)%arf_iw
            endif
         endif
        
         if (allocated(frac_land)) then
-           frac_land(iw) = frac_land(iw) + landflux(ilf)%arf_atm
+           frac_land(iw) = frac_land(iw) + itab_wl(iwl)%arf_iw
         endif
      enddo
   endif
@@ -252,11 +243,11 @@ subroutine pbl_init()
      wstar(iw) = 0.0
      wtv0 (iw) = 0.0
 
-     do k = lpw(iw), mza-1
+     do k = lpw(iw), mza
         thlv(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw))
      enddo
 
-     call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), lpw(iw), mza-2, lsw(iw), &
+     call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), lpw(iw), mza-1, lsw(iw), &
                        frac_sfc(:,iw), thlv, vxe(:,iw), vye(:,iw), vze(:,iw),  &
                        kpblh(iw), pblh(iw)                                      )
   enddo

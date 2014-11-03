@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,16 +29,12 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine read_press_header(fform)
 
 use isan_coms,  only: iyear, nprz, levpr, ivertcoord, secondlat, cntlon, &
-                      cntlat, xnelon, xnelat, itinc, inproj, gdatdy, &
-                      gdatdx, xswlat, xswlon, npry, nprx, ihh, idd, imm, &
+                      cntlat, xnelon, xnelat, itinc, inproj, gdatdy, gdatdx, &
+                      xswlat, xswlon, npry, nprx, ihh, idd, imm, &
                       iyy, isversion, marker, innpr, imonth, idate, ihour, &
                       ipoffset
 use misc_coms,  only: io6, iparallel
@@ -52,7 +52,7 @@ character(len=3), intent(inout) :: fform
 character(len=16) :: ext
 
 logical :: exists
-integer :: lv, n, ier
+integer :: lv, n, ier, igloberr
 integer :: ndims, idims(2)
 integer :: bytes, nbytes_int, nbytes_real, isize
 
@@ -241,13 +241,30 @@ endif
 
 ! We make the requirement that a full global domain of pressure-level data
 ! be read in.  Check this here.  Following the convention for the NCEP/DOE
-! Reanalysis2 data, assume that data exists at both latitudinal boundaries
-! (-90. and 90. degrees) but that the longitudinal boundary is not repeated.
-! If either is not the case, this check will stop execution.
+! Reanalysis2 data, it is assumed that nprx * gdatdx should equal 360 degrees
+! (of longitude).  If this is not the case, this check will stop execution.
 
-if (abs(nprx      * gdatdx - 360.) > .1 .or. &
-    abs ((npry-1) * gdatdy - 180.) > .1) then
+igloberr = 0
 
+if (abs(nprx * gdatdx - 360.) > .1) igloberr = 1
+
+! Data points may be defined at latitudinal coordinates that include both
+! geographic poles (-90. and 90. degrees), in which (npry-1) * gdatdy should
+! equal 180 degrees, or data points may be offset by 1/2 gdatdy from polar
+! locations, in which case npry * gdatdy should equal 180 degrees.  Both
+! possibilities are checked here, and if neither is satisfied, this check
+! will stop execution.  For either case, the beginning latitude of the dataset
+! is checked for consistency.
+
+if (abs((npry-1) * gdatdy - 180.) < .1) then
+   if (abs(xswlat + 90.) > .1) igloberr = 1
+elseif (abs(npry * gdatdy - 180.) < .1) then
+   if (abs(xswlat - 0.5 * gdatdy + 90.) > .1) igloberr = 1
+else
+   igloberr = 1
+endif
+
+if (igloberr == 1) then
     write(io6,*) 'Gridded pressure level data must have global coverage'
     write(io6,*) 'nprx,npry = ',nprx,npry
     write(io6,*) 'gdatdx,gdatdy = ',gdatdx,gdatdy
@@ -255,16 +272,17 @@ if (abs(nprx      * gdatdx - 360.) > .1 .or. &
     stop 'astp - non-global domain in input pressure data'
 endif
 
-! Compute longitudinal offset index, which is the index in the expanded isan
-! pressure arrays where the first input data point (at xswlon) is locatd.
+! Compute longitudinal offset index for copying input data to the expanded
+! isan pressure arrays.
 
-ipoffset = (xswlon + 180.) / gdatdx + 1
+ipoffset = int((xswlon + 180.) / gdatdx) + 2
 
 end subroutine read_press_header
 
 !===============================================================================
 
-subroutine pressure_stage(fform, p_u, p_v, p_t, p_z, p_r)
+subroutine pressure_stage(fform, p_u, p_v, p_t, p_z, p_r, &
+                          p_topo, p_prsfc, p_tsfc, p_shsfc)
 
 use isan_coms,   only: pnpr, levpr, nprx, npry, nprz, nprz_rh
 use consts_coms, only: rocp, p00, eps_vap
@@ -276,11 +294,16 @@ implicit none
 
 character(len=*), intent(in) :: fform
 
-real, intent(out) :: p_u(nprx+3,npry+2,nprz)
-real, intent(out) :: p_v(nprx+3,npry+2,nprz)
-real, intent(out) :: p_t(nprx+3,npry+2,nprz)
-real, intent(out) :: p_z(nprx+3,npry+2,nprz)
-real, intent(out) :: p_r(nprx+3,npry+2,nprz)
+real, intent(inout) :: p_u(nprx+4,npry+4,nprz)
+real, intent(inout) :: p_v(nprx+4,npry+4,nprz)
+real, intent(inout) :: p_t(nprx+4,npry+4,nprz)
+real, intent(inout) :: p_z(nprx+4,npry+4,nprz)
+real, intent(inout) :: p_r(nprx+4,npry+4,nprz)
+
+real, intent(inout) :: p_topo (nprx+4,npry+4)
+real, intent(inout) :: p_prsfc(nprx+4,npry+4)
+real, intent(inout) :: p_tsfc (nprx+4,npry+4)
+real, intent(inout) :: p_shsfc(nprx+4,npry+4)
 
 real :: thmax,thmin,vapor_press
 integer :: i,j,k,iunit
@@ -301,7 +324,8 @@ enddo
 
 ! Call routine to fill pressure arrays from the chosen dataset.
 
-call get_press (fform,iunit,p_u,p_v,p_t,p_z,p_r,isrh)
+call get_press (fform, iunit, p_u, p_v, p_t, p_z, p_r, &
+                p_topo, p_prsfc, p_tsfc, p_shsfc, isrh)
 
 !!!!!!!! Be careful !!!!!!!!!
 !  Check input humidity variable p_r.  Assume that if the maximum of the field
@@ -317,8 +341,8 @@ if (.not. isrh) then
    write(io6, *) 'Converting specific humidity to kg/kg'
 
    do k = 1,nprz
-      do j = 1,npry+2
-         do i = 1,nprx+3
+      do j = 1,npry+4
+         do i = 1,nprx+4
 
             p_r(i,j,k) = .001 * p_r(i,j,k)
 
@@ -334,8 +358,8 @@ else
    write(io6, *) 'Converting relative humidity to specific humidity'
 
    do k = 1,nprz
-      do j = 1,npry+2
-         do i = 1,nprx+3
+      do j = 1,npry+4
+         do i = 1,nprx+4
 
             ! Compute ambient vapor pressure based on R.H.
             ! and saturation vapor pressure (eslf)
@@ -379,11 +403,12 @@ end subroutine pressure_stage
 
 !===============================================================================
 
-subroutine get_press (fform, iunit, p_u, p_v, p_t, p_z, p_r, isrh)
+subroutine get_press (fform, iunit, p_u, p_v, p_t, p_z, p_r, &
+                      p_topo, p_prsfc, p_tsfc, p_shsfc, isrh)
 
 use max_dims,   only: maxpr
 use isan_coms,  only: nprz, npry, nprx, pnpr, iyear, imonth, idate, &
-                      ihour, levpr, ipoffset, nprz_rh
+                      ihour, levpr, nprz_rh, ihydsfc
 use misc_coms,  only: io6, iparallel
 use hdf5_utils, only: shdf5_irec, shdf5_info
 use mem_para,   only: myrank
@@ -396,13 +421,18 @@ implicit none
 
 character(len=*), intent(in) :: fform
 integer, intent(in)  :: iunit
-logical, intent(out) :: isrh
+logical, intent(inout) :: isrh
 
-real, intent(out) :: p_u(nprx+3,npry+2,nprz)
-real, intent(out) :: p_v(nprx+3,npry+2,nprz)
-real, intent(out) :: p_t(nprx+3,npry+2,nprz)
-real, intent(out) :: p_z(nprx+3,npry+2,nprz)
-real, intent(out) :: p_r(nprx+3,npry+2,nprz)
+real, intent(inout) :: p_u(nprx+4,npry+4,nprz)
+real, intent(inout) :: p_v(nprx+4,npry+4,nprz)
+real, intent(inout) :: p_t(nprx+4,npry+4,nprz)
+real, intent(inout) :: p_z(nprx+4,npry+4,nprz)
+real, intent(inout) :: p_r(nprx+4,npry+4,nprz)
+
+real, intent(inout) :: p_topo (nprx+4,npry+4)
+real, intent(inout) :: p_prsfc(nprx+4,npry+4)
+real, intent(inout) :: p_tsfc (nprx+4,npry+4)
+real, intent(inout) :: p_shsfc(nprx+4,npry+4)
 
 real :: as(nprx,npry)
 real :: as3(nprx,npry,nprz)
@@ -412,6 +442,12 @@ integer :: ithere(maxpr,5),isfthere(5)
 character(len=1) :: idat(5) = (/ 'T','U','V','H','R' /)
 integer :: ndims, idims(3), njdims, jdims(3)
 character(10) :: varname
+
+! Set ihydsfc = 1 to read surface variables (topography, pressure, temperature, 
+! moisture) and to compute geopotential heights of pressure levels by
+! hydrostatic integration from surface; set ihydint = 0 otherwise.
+
+ihydsfc = 0
 
 ! Initialize with missing data flag
 
@@ -430,36 +466,36 @@ if (fform == 'GDF') then
 ! Zonal wind component
 
       read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,ipoffset,as,p_u(1,1,lv))
+      call prfill(nprx,npry,as,p_u(1,1,lv))
       write(io6, '('' ==  Read UE on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
          levpr(lv),ihour,idate,imonth,iyear
 
 ! Meridional wind component
 
       read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,ipoffset,as,p_v(1,1,lv))
+      call prfill(nprx,npry,as,p_v(1,1,lv))
       write(io6, '('' ==  Read VE on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
          levpr(lv),ihour,idate,imonth,iyear
 
 ! Temperature
 
       read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,ipoffset,as,p_t(1,1,lv))
+      call prfill(nprx,npry,as,p_t(1,1,lv))
       write(io6, '('' ==  Read T on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
          levpr(lv),ihour,idate,imonth,iyear
-      write(io6,*) 'prread1 ',as(5,5),nprx,npry,ipoffset,p_t(5,5,lv)
+      write(io6,*) 'prread1 ',as(5,5),nprx,npry,p_t(5,5,lv)
 
 ! Geopotential height
 
       read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,ipoffset,as,p_z(1,1,lv))
+      call prfill(nprx,npry,as,p_z(1,1,lv))
       write(io6, '('' ==  Read Z on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
          levpr(lv),ihour,idate,imonth,iyear
 
 ! Relative humidity (or specific humidity)
 
       read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,ipoffset,as,p_r(1,1,lv))
+      call prfill(nprx,npry,as,p_r(1,1,lv))
       write(io6, '('' ==  Read RH on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
          levpr(lv),ihour,idate,imonth,iyear
 
@@ -475,6 +511,69 @@ if (fform == 'GDF') then
    71 continue
 
 elseif (fform == 'HD5') then
+
+! Read 2D surface vars if ihydsfc = 1
+
+   if (ihydsfc == 1) then
+
+      ndims = 2
+      idims(1) = nprx
+      idims(2) = npry
+      idims(3) = 1
+
+   ! Read topography
+
+      if (myrank == 0) then
+         call shdf5_irec(ndims, idims,'TOPO',rvara = as)
+         call prfill(nprx,npry,as,p_topo)
+      endif
+
+#ifdef OLAM_MPI
+   if (iparallel == 1) then
+      call MPI_Bcast( p_topo, (nprx+4)*(npry+4), MPI_REAL, 0, MPI_COMM_WORLD, ier )
+   endif
+#endif
+
+   ! Read surface pressure
+
+      if (myrank == 0) then
+         call shdf5_irec(ndims, idims,'PRSFC',rvara = as)
+         call prfill(nprx,npry,as,p_prsfc)
+      endif
+
+#ifdef OLAM_MPI
+   if (iparallel == 1) then
+      call MPI_Bcast( p_prsfc, (nprx+4)*(npry+4), MPI_REAL, 0, MPI_COMM_WORLD, ier )
+   endif
+#endif
+
+   ! Read surface temperature
+
+      if (myrank == 0) then
+         call shdf5_irec(ndims, idims,'TSFC',rvara = as)
+         call prfill(nprx,npry,as,p_tsfc)
+      endif
+
+#ifdef OLAM_MPI
+   if (iparallel == 1) then
+      call MPI_Bcast( p_tsfc, (nprx+4)*(npry+4), MPI_REAL, 0, MPI_COMM_WORLD, ier )
+   endif
+#endif
+
+   ! Read surface specific humidity
+
+      if (myrank == 0) then
+         call shdf5_irec(ndims, idims,'SHSFC',rvara = as)
+         call prfill(nprx,npry,as,p_shsfc)
+      endif
+
+#ifdef OLAM_MPI
+   if (iparallel == 1) then
+      call MPI_Bcast( p_shsfc, (nprx+4)*(npry+4), MPI_REAL, 0, MPI_COMM_WORLD, ier )
+   endif
+#endif
+
+   endif  ! ihydsfc
 
 ! Read 3D met vars
 
@@ -501,13 +600,13 @@ elseif (fform == 'HD5') then
       endif
 
       call shdf5_irec(ndims, idims, varname, rvara = as3)
-      call prfill3(nprx,npry,nprz,ipoffset,as3,p_u)
+      call prfill3(nprx,npry,nprz,as3,p_u)
 
    endif
 
 #ifdef OLAM_MPI
    if (iparallel == 1) then
-      call MPI_Bcast( p_u, (nprx+3)*(npry+2)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+      call MPI_Bcast( p_u, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
    endif
 #endif
 
@@ -529,13 +628,13 @@ elseif (fform == 'HD5') then
       endif
 
       call shdf5_irec(ndims, idims, varname, rvara = as3)
-      call prfill3(nprx,npry,nprz,ipoffset,as3,p_v)
+      call prfill3(nprx,npry,nprz,as3,p_v)
 
    endif
    
 #ifdef OLAM_MPI
    if (iparallel == 1) then
-      call MPI_Bcast( p_v, (nprx+3)*(npry+2)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+      call MPI_Bcast( p_v, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
    endif
 #endif
 
@@ -544,13 +643,13 @@ elseif (fform == 'HD5') then
    if (myrank == 0) then
 
       call shdf5_irec(ndims, idims,'TEMP',rvara = as3)
-      call prfill3(nprx,npry,nprz,ipoffset,as3,p_t)
+      call prfill3(nprx,npry,nprz,as3,p_t)
 
    endif
 
 #ifdef OLAM_MPI
    if (iparallel == 1) then
-      call MPI_Bcast( p_t, (nprx+3)*(npry+2)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+      call MPI_Bcast( p_t, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
    endif
 #endif
 
@@ -558,12 +657,12 @@ elseif (fform == 'HD5') then
 
    if (myrank == 0) then
       call shdf5_irec(ndims, idims,'GEO',rvara = as3)
-      call prfill3(nprx,npry,nprz,ipoffset,as3,p_z)
+      call prfill3(nprx,npry,nprz,as3,p_z)
    endif
 
 #ifdef OLAM_MPI
    if (iparallel == 1) then
-      call MPI_Bcast( p_z, (nprx+3)*(npry+2)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+      call MPI_Bcast( p_z, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
    endif
 #endif
 
@@ -578,7 +677,7 @@ elseif (fform == 'HD5') then
 
          isrh = .false.
          call shdf5_irec(ndims, idims,'SHV',rvara = as3)
-         call prfill3(nprx,npry,nprz,ipoffset,as3,p_r)
+         call prfill3(nprx,npry,nprz,as3,p_r)
      
       else
       
@@ -594,14 +693,14 @@ elseif (fform == 'HD5') then
 
          isrh = .true.
          call shdf5_irec(ndims, idims, varname, rvara = as3)
-         call prfill3(nprx,npry,nprz,ipoffset,as3,p_r)
+         call prfill3(nprx,npry,nprz,as3,p_r)
 
       endif
    endif
 
 #ifdef OLAM_MPI
    if (iparallel == 1) then
-      call MPI_Bcast( p_r, (nprx+3)*(npry+2)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+      call MPI_Bcast( p_r, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
       call MPI_Bcast( isrh, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier )
    endif
 #endif
@@ -647,7 +746,7 @@ enddo
 ! it is specific humidity (in g/kg), else it is relative humidity
 
 if (fform == 'GDF') then
-   if (maxval(p_r(1:nprx+3,1:npry+2,1:nprz_rh)) > 1.1) then
+   if (maxval(p_r(1:nprx+4,1:npry+4,1:nprz_rh)) > 1.1) then
       isrh = .false.
    else
       isrh = .true.
@@ -694,82 +793,137 @@ end subroutine get_press
 
 !===============================================================================
 
-subroutine prfill (nprx,npry,ipoffset,xx,dn)
+subroutine prfill (nprx,npry,xx,dn)
+
+use isan_coms,  only: gdatdy, xswlat, ipoffset
 
 implicit none
 
-integer, intent(in) :: nprx,npry,ipoffset
+integer, intent(in) :: nprx,npry
 
-real, intent(in)  :: xx(nprx,npry)
-real, intent(out) :: dn(nprx+3,npry+2)
+real, intent(in)    :: xx(nprx,npry)
+real, intent(inout) :: dn(nprx+4,npry+4)
 
 integer :: i,j,nprxo2,iin
 
 nprxo2 = nprx / 2
 
-! Copy pressure-level or surface data from xx to dn array, shifting by 1 row
-! and column, and set any required missing values
+! Copy pressure-level or surface data from xx to dn array, shifting by ipoffset
+! in x direction and by 2 in y direction
 
 do j = 1,npry
-   do i = 1,nprx+3
+   do i = 1,nprx+4
       iin = mod(i+nprx-ipoffset-1,nprx)+1
-      dn(i,j+1) = xx(iin,j)
+      dn(i,j+2) = xx(iin,j)
    enddo
 enddo
 
-! Fill in N/S boundary points
+! Fill in N/S boundary rows, based on whether xswlat = -90. or -90. + gdatdy/2.
 
-do i = 1,nprxo2
-   dn(i,1)      = dn(i+nprxo2,3)
-   dn(i,npry+2) = dn(i+nprxo2,npry)
-enddo
+if (abs(xswlat + 90.) < .1) then
 
-do i = nprxo2+1,nprx+3
-   dn(i,1)      = dn(i-nprxo2,3)
-   dn(i,npry+2) = dn(i-nprxo2,npry)
-enddo
+   do i = 1,nprxo2
+      dn(i,1)      = dn(i+nprxo2,5)
+      dn(i,2)      = dn(i+nprxo2,4)
+      dn(i,npry+3) = dn(i+nprxo2,npry+1)
+      dn(i,npry+4) = dn(i+nprxo2,npry)
+   enddo
 
-return
+   do i = nprxo2+1,nprx+4
+      dn(i,1)      = dn(i-nprxo2,5)
+      dn(i,2)      = dn(i-nprxo2,4)
+      dn(i,npry+3) = dn(i-nprxo2,npry+1)
+      dn(i,npry+4) = dn(i-nprxo2,npry)
+   enddo
+
+elseif (abs(xswlat - .5 * gdatdy + 90.) < .1) then
+
+   do i = 1,nprxo2
+      dn(i,1)      = dn(i+nprxo2,4)
+      dn(i,2)      = dn(i+nprxo2,3)
+      dn(i,npry+3) = dn(i+nprxo2,npry+2)
+      dn(i,npry+4) = dn(i+nprxo2,npry+1)
+   enddo
+
+   do i = nprxo2+1,nprx+4
+      dn(i,1)      = dn(i-nprxo2,4)
+      dn(i,2)      = dn(i-nprxo2,3)
+      dn(i,npry+3) = dn(i-nprxo2,npry+2)
+      dn(i,npry+4) = dn(i-nprxo2,npry+1)
+   enddo
+
+else
+   print*, 'xswlat & gdatdy combo not found ',xswlat,gdatdy
+endif
+
 end subroutine prfill
 
 !===============================================================================
 
-subroutine prfill3 (nprx,npry,nprz,ipoffset,xx,dn)
+subroutine prfill3 (nprx,npry,nprz,xx,dn)
+
+use isan_coms,  only: gdatdy, xswlat, ipoffset
 
 implicit none
 
-integer, intent(in) :: nprx,npry,nprz,ipoffset
+integer, intent(in) :: nprx,npry,nprz
 
-real, intent(in)  :: xx(nprx,npry,nprz)
-real, intent(out) :: dn(nprx+3,npry+2,nprz)
+real, intent(in)    :: xx(nprx,npry,nprz)
+real, intent(inout) :: dn(nprx+4,npry+4,nprz)
 
 integer :: i,j,k,nprxo2,iin
 
 nprxo2 = nprx / 2
 
-! Copy pressure-level or surface data from xx to dn array, shifting by 1 row
-! and column, and set any required missing values
+! Copy pressure-level or surface data from xx to dn array, shifting by ipoffset
+! in x direction and by 2 in y direction
 
 do k = 1,nprz
    do j = 1,npry
-      do i = 1,nprx+3
+      do i = 1,nprx+4
          iin = mod(i+nprx-ipoffset-1,nprx)+1
-         dn(i,j+1,k) = xx(iin,j,k)
+         dn(i,j+2,k) = xx(iin,j,k)
       enddo
    enddo
 
-! Fill in N/S boundary points
+! Fill in N/S boundary rows, based on whether xswlat = -90. or -90. + gdatdy/2.
 
-   do i = 1,nprxo2
-      dn(i,1,k)      = dn(i+nprxo2,3,k)
-      dn(i,npry+2,k) = dn(i+nprxo2,npry,k)
-   enddo
+   if (abs(xswlat + 90.) < .1) then
 
-   do i = nprxo2+1,nprx+3
-      dn(i,1,k)      = dn(i-nprxo2,3,k)
-      dn(i,npry+2,k) = dn(i-nprxo2,npry,k)
-   enddo
+      do i = 1,nprxo2
+         dn(i,1,k)      = dn(i+nprxo2,5,k)
+         dn(i,2,k)      = dn(i+nprxo2,4,k)
+         dn(i,npry+3,k) = dn(i+nprxo2,npry+1,k)
+         dn(i,npry+4,k) = dn(i+nprxo2,npry,k)
+      enddo
+
+      do i = nprxo2+1,nprx+4
+         dn(i,1,k)      = dn(i-nprxo2,5,k)
+         dn(i,2,k)      = dn(i-nprxo2,4,k)
+         dn(i,npry+3,k) = dn(i-nprxo2,npry+1,k)
+         dn(i,npry+4,k) = dn(i-nprxo2,npry,k)
+      enddo
+
+   elseif (abs(xswlat - .5 * gdatdy + 90.) < .1) then
+
+      do i = 1,nprxo2
+         dn(i,1,k)      = dn(i+nprxo2,4,k)
+         dn(i,2,k)      = dn(i+nprxo2,3,k)
+         dn(i,npry+3,k) = dn(i+nprxo2,npry+2,k)
+         dn(i,npry+4,k) = dn(i+nprxo2,npry+1,k)
+      enddo
+
+      do i = nprxo2+1,nprx+4
+         dn(i,1,k)      = dn(i-nprxo2,4,k)
+         dn(i,2,k)      = dn(i-nprxo2,3,k)
+         dn(i,npry+3,k) = dn(i-nprxo2,npry+2,k)
+         dn(i,npry+4,k) = dn(i-nprxo2,npry+1,k)
+      enddo
+
+   else
+      print*, 'xswlat & gdatdy combo not found ',xswlat,gdatdy
+   endif
+   
 enddo
 
-return
 end subroutine prfill3

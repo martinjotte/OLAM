@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine draw_cellbnd(ntpn,xtpn,ytpn)
 
@@ -460,15 +460,15 @@ do while (contlev < z1)
       endif
 
       if (ival == clrtab(itab)%nvals) then  ! highest table color:
-         xcpn(3) = x2                       ! z1 is a node
+         xcpn(3) = x2                       ! z1 and z2 are nodes
          ycpn(3) = y2
          xcpn(4) = x1         
          ycpn(4) = y1
          icolor = clrtab(itab)%ipal(ival)
          call fillpolyg(4,xcpn,ycpn,icolor)
          return
-      elseif (clrtab(itab)%vals(ival+1) >= z1) then  ! highest table color:
-         xcpn(3) = x2                                ! z1 is a node
+      elseif (clrtab(itab)%vals(ival+1) >= z1) then  ! highest contour interval:
+         xcpn(3) = x2                                ! z1 and z2 are nodes
          ycpn(3) = y2
          xcpn(4) = x1         
          ycpn(4) = y1
@@ -489,7 +489,7 @@ do while (contlev < z1)
          ycpn(2) = y2
       endif
       
-      if (iflag == 0) then  ! lowest contour color: z3 is a node
+      if (iflag == 0) then  ! lowest contour color: z2 and z3 are nodes
          xcpn(3) = x2
          ycpn(3) = y2
          xcpn(4) = x3        
@@ -520,7 +520,7 @@ do while (contlev < z1)
          icolor = clrtab(itab)%ipal(ival)
          call fillpolyg(3,xcpn,ycpn,icolor)
          return
-      elseif (clrtab(itab)%vals(ival+1) >= z1) then  ! highest table color:
+      elseif (clrtab(itab)%vals(ival+1) >= z1) then  ! highest contour interval:
          xcpn(3) = x1                                ! z1 is a node
          ycpn(3) = y1
          icolor = clrtab(itab)%ipal(ival+1)

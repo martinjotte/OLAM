@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,38 +29,31 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine para_decomp()
 
 ! Decompose global grid into multiple subdomains for parallel computation
 
-use mem_para,   only: mgroupsize, myrank
-use misc_coms,  only: io6, meshtype, mdomain
+use mem_para,   only: mgroupsize
+use misc_coms,  only: io6, mdomain
 
-use mem_ijtabs, only: itab_u_pd, itab_v_pd, itab_w_pd, itab_m_pd, &
-                      itabg_m, itabg_u, itabg_v, itabg_w
+use mem_ijtabs, only: itab_v_pd, itab_w_pd, itab_m_pd, &
+                      itabg_m, itabg_v, itabg_w
 
 use mem_nudge,  only: nudflag, nudnxp, nwnud, itabg_wnud, itab_wnud, &
                       xewnud, yewnud, zewnud
 
 use mem_grid,   only: nma, nua, nva, nwa, xem, yem, zem, xew, yew, zew
 
-use leaf_coms,  only: nml, nul, nwl, isfcl, ilandgrid
-use mem_leaf,   only: itab_ul, itab_wl, itabg_ml, itabg_ul, itabg_wl, land
+use leaf_coms,  only: nwl, isfcl
+use mem_leaf,   only: itab_wl, itabg_wl
 
-use sea_coms,   only: nms, nus, nws, iseagrid
-use mem_sea,    only: itab_us, itab_ws, itabg_ms, itabg_us, itabg_ws, sea
-
-use mem_sflux,  only: nseaflux, nlandflux, seafluxg, landfluxg, &
-                      landflux_pd, seaflux_pd
+use sea_coms,   only: nws
+use mem_sea,    only: itab_ws, itabg_ws
 
 implicit none
 
-integer :: im,iu,iv,iw
+integer :: im,iu,iv,iw,iwl,iws
 integer :: im1,im2,im3,iw1,iw2
 integer :: igp,jgp
 integer :: i, j, ii, jj, iil, jjl, iis, jjs, iinud, jjnud, npoly, is, ilf, isf
@@ -66,8 +63,6 @@ integer :: ngroups
 integer :: numtot, numcut, numcent
 
 real, allocatable :: xewm (:),yewm (:),zewm (:)
-real, allocatable :: xewml(:),yewml(:),zewml(:)
-real, allocatable :: xewms(:),yewms(:),zewms(:)
 
 real :: xmin,ymin,zmin
 real :: xmax,ymax,zmax
@@ -81,49 +76,28 @@ integer :: nwgs  (mgroupsize)
 integer :: nwgnud(mgroupsize)
 
 integer :: iwtemp (nwa-1), jwtemp (nwa-1)
-integer :: iwltemp(nwl-1), jwltemp(nwl-1)
-integer :: iwstemp(nws-1), jwstemp(nws-1)
 integer :: iwnudtemp(nwnud-1), jwnudtemp(nwnud-1)
 
 integer :: num(1002)
 
 real :: val (nwa)
-real :: vall(nwl)
-real :: vals(nws)
 real :: valnud(nwnud)
 
 Type grp_var
    integer, allocatable :: iw(:)
-   integer, allocatable :: iwl(:)
-   integer, allocatable :: iws(:)
    integer, allocatable :: iwnud(:)
 End type
 
 type (grp_var) :: grp(mgroupsize)
 
-integer, allocatable :: iwl_atm_ranks(:,:)
-integer, allocatable :: niwl_atm(:)
-integer              :: iwl
-
-integer, allocatable :: iws_atm_ranks(:,:)
-integer, allocatable :: niws_atm(:)
-integer              :: iws
-
 integer :: nuv_per_node(0:mgroupsize-1)
 integer :: iwcr, iwor
 
 ! Allocate permanent itabg data structures
-! and temporary "ewm" coordinate arrays
-
-if (meshtype == 1) then
-   allocate (itabg_u(nua))
-else
-   allocate (itabg_v(nva))
-endif
 
 allocate (itabg_m(nma))
+allocate (itabg_v(nva))
 allocate (itabg_w(nwa))
-allocate (xewm(nwa),yewm(nwa),zewm(nwa))
 
 if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
    allocate (itabg_wnud(nwnud))
@@ -132,118 +106,29 @@ endif
 if (isfcl == 1) then
    allocate (itabg_wl(nwl))
    allocate (itabg_ws(nws))
-
-   allocate (seafluxg(nseaflux))
-   allocate (landfluxg(nlandflux))
-
-   if (ilandgrid == 1) then
-      allocate (itabg_ml(nml))
-      allocate (itabg_ul(nul))
-      allocate (xewml(nwl),yewml(nwl),zewml(nwl))
-   endif
-
-   if (iseagrid == 1) then
-      allocate (itabg_ms(nms))
-      allocate (itabg_us(nus))
-      allocate (xewms(nws),yewms(nws),zewms(nws))
-   endif
 endif
 
-! Define temp variables for W
+! Allocate temporary "ewm" coordinate arrays
 
-if (meshtype == 1) then
+allocate (xewm(nwa),yewm(nwa),zewm(nwa))
 
-   do iw = 2,nwa
-      xewm(iw) = -1.e9
-      yewm(iw) = -1.e9
-      zewm(iw) = -1.e9
+do iw = 2,nwa
+   xewm(iw) = xew(iw)
+   yewm(iw) = yew(iw)
+   zewm(iw) = zew(iw)
+enddo
 
-      do j = 1,itab_w_pd(iw)%npoly
-         im = itab_w_pd(iw)%im(j)
-      
-         if (xewm(iw) < xem(im)) xewm(iw) = xem(im)
-         if (yewm(iw) < yem(im)) yewm(iw) = yem(im)
-         if (zewm(iw) < zem(im)) zewm(iw) = zem(im)
-      enddo
-   enddo
+! We don't need global [xyz]ew anymore
 
-   ! We don't need global [xyz]em anymore
-   deallocate(xem, yem, zem)
+deallocate(xew, yew, zew)
 
-else
-
-   do iw = 2,nwa
-      xewm(iw) = xew(iw)
-      yewm(iw) = yew(iw)
-      zewm(iw) = zew(iw)
-   enddo
-
-   ! We don't need global [xyz]ew anymore
-   deallocate(xew, yew, zew)
-
-endif
-
-! Allocate and fill grp%iw, grp%iwl, and grp%iws for group 1
+! Allocate and fill grp%iw for group 1
 
 allocate (grp(1)%iw(nwa-1))
 
 do iw = 2,nwa
    grp(1)%iw(iw-1) = iw
 enddo
-
-! Check if LEAF and SEA models are being used
-
-if (isfcl == 1) then
-
-! Define temp variables for WL
-
-   if (ilandgrid == 1) then
-
-      allocate (grp(1)%iwl(nwl-1))
-
-      do iw = 2,nwl
-         grp(1)%iwl(iw-1) = iw
-
-         xewml(iw) = -1.e9
-         yewml(iw) = -1.e9
-         zewml(iw) = -1.e9
-
-         do j = 1,itab_wl(iw)%npoly
-            im = itab_wl(iw)%im(j)
-      
-            if (xewml(iw) < land%xem(im)) xewml(iw) = land%xem(im)
-            if (yewml(iw) < land%yem(im)) yewml(iw) = land%yem(im)
-            if (zewml(iw) < land%zem(im)) zewml(iw) = land%zem(im)
-         enddo
-      enddo
-
-   endif
-
-! Define temp variables for WS
-
-   if (iseagrid == 1) then
-
-      allocate (grp(1)%iws(nws-1))
-
-      do iw = 2,nws
-         grp(1)%iws(iw-1) = iw
-
-         xewms(iw) = -1.e9
-         yewms(iw) = -1.e9
-         zewms(iw) = -1.e9
-
-         do j = 1,itab_ws(iw)%npoly
-            im = itab_ws(iw)%im(j)
-      
-            if (xewms(iw) < sea%xem(im)) xewms(iw) = sea%xem(im)
-            if (yewms(iw) < sea%yem(im)) yewms(iw) = sea%yem(im)
-            if (zewms(iw) < sea%zem(im)) zewms(iw) = sea%zem(im)
-         enddo
-      enddo
-
-   endif
-
-endif
 
 ! Check if NUDGING GRID is being used
 
@@ -260,8 +145,6 @@ jgp = 1
 igsize(1) = mgroupsize
 
 nwg (1) = nwa - 1
-nwgl(1) = nwl - 1
-nwgs(1) = nws - 1
 nwgnud(1) = nwnud - 1
 
 do while (ngroups < mgroupsize)
@@ -309,24 +192,6 @@ do while (ngroups < mgroupsize)
             cmin = zmin
             cmax = zmax
 
-! LAND cells - z direction
-
-            if (isfcl == 1 .and. ilandgrid == 1) then
-               do i = 1,nwgl(igp)
-                  iw = grp(igp)%iwl(i)
-                  vall(iw) = zewml(iw)
-               enddo
-            endif
-
-! SEA cells - z direction
-
-            if (isfcl == 1 .and. iseagrid == 1) then
-               do i = 1,nwgs(igp)
-                  iw = grp(igp)%iws(i)
-                  vals(iw) = zewms(iw)
-               enddo
-            endif
-
 ! WNUD cells - z direction
 
             if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
@@ -348,24 +213,6 @@ do while (ngroups < mgroupsize)
             cmin = xmin
             cmax = xmax
 
-! LAND cells - x direction
-
-            if (isfcl == 1 .and. ilandgrid == 1) then
-               do i = 1,nwgl(igp)
-                  iw = grp(igp)%iwl(i)
-                  vall(iw) = xewml(iw)
-               enddo
-            endif
-
-! SEA cells - x direction
-
-            if (isfcl == 1 .and. iseagrid == 1) then
-               do i = 1,nwgs(igp)
-                  iw = grp(igp)%iws(i)
-                  vals(iw) = xewms(iw)
-               enddo
-            endif
-
 ! WNUD cells - x direction
 
             if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
@@ -386,25 +233,6 @@ do while (ngroups < mgroupsize)
 
             cmin = ymin
             cmax = ymax
-
-! LAND cells - y direction
-
-            if (isfcl == 1 .and. ilandgrid == 1) then
-               do i = 1,nwgl(igp)
-                  iw = grp(igp)%iwl(i)
-                  vall(iw) = yewml(iw)
-               enddo
-            endif
-
-! SEA cells - y direction
-
-            if (isfcl == 1 .and. iseagrid == 1) then
-               do i = 1,nwgs(igp)
-                  iw = grp(igp)%iws(i)
-                  vals(iw) = yewms(iw)
-               enddo
-               
-            endif
 
 ! WNUD cells - y direction
 
@@ -501,80 +329,6 @@ do while (ngroups < mgroupsize)
             grp(igp)%iw(i)=iwtemp(i)
          enddo
 
-! Transfer a number of IWL points from igp to jgp
-
-         if (isfcl == 1 .and. ilandgrid == 1) then
-            jjl = 0
-            iil = 0
-            do i = 1,nwgl(igp)
-               iw = grp(igp)%iwl(i)
-
-               if (vall(iw) > cut) then
-                  jjl = jjl + 1
-                  jwltemp(jjl) = iw
-               else
-                  iil = iil + 1
-                  iwltemp(iil) = iw
-               endif
-            enddo
-
-            nwgl(igp) = iil
-            nwgl(jgp) = jjl
-
-! Deallocate 1 old group and allocate 2 new groups
-
-            deallocate(grp(igp)%iwl)
-            allocate(grp(igp)%iwl(iil))
-            allocate(grp(jgp)%iwl(jjl))
-
-! Fill 2 new groups of LAND cells from temporary arrays
-
-            do j = 1,jjl
-               grp(jgp)%iwl(j)=jwltemp(j)
-            enddo
-
-            do i = 1,iil
-               grp(igp)%iwl(i)=iwltemp(i)
-            enddo
-         endif
-
-! Transfer a number of IWS points from igp to jgp
-
-         if (isfcl == 1 .and. iseagrid == 1) then
-            jjs = 0
-            iis = 0
-            do i = 1,nwgs(igp)
-               iw = grp(igp)%iws(i)
-
-               if (vals(iw) > cut) then
-                  jjs = jjs + 1
-                  jwstemp(jjs) = iw
-               else
-                  iis = iis + 1
-                  iwstemp(iis) = iw
-               endif
-            enddo
-
-            nwgs(igp) = iis
-            nwgs(jgp) = jjs
-
-! Deallocate 1 old group and allocate 2 new groups
-
-            deallocate(grp(igp)%iws)
-            allocate(grp(igp)%iws(iis))
-            allocate(grp(jgp)%iws(jjs))
-
-! Fill 2 new groups of SEA cells from temporary arrays
-
-            do j = 1,jjs
-               grp(jgp)%iws(j)=jwstemp(j)
-            enddo
-
-            do i = 1,iis
-               grp(igp)%iws(i)=iwstemp(i)
-            enddo
-         endif
-
 ! Transfer a number of WNUD points from igp to jgp
 
          if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
@@ -619,22 +373,6 @@ do while (ngroups < mgroupsize)
 
 enddo
 
-deallocate (xewm,yewm,zewm)
-
-if (allocated(xewml)) deallocate (xewml)
-if (allocated(yewml)) deallocate (yewml)
-if (allocated(zewml)) deallocate (zewml)
-
-if (allocated(xewms)) deallocate (xewms)
-if (allocated(yewms)) deallocate (yewms)
-if (allocated(zewms)) deallocate (zewms)
-
-if (allocated(xewnud)) deallocate (xewnud)
-if (allocated(yewnud)) deallocate (yewnud)
-if (allocated(zewnud)) deallocate (zewnud)
-
-if (allocated(itab_wnud)) deallocate(itab_wnud)
-
 ! Fill irank for each IW point from group array
 
 do igp = 1,ngroups
@@ -645,24 +383,6 @@ do igp = 1,ngroups
       iw = grp(igp)%iw(i)
       itabg_w(iw)%irank = igp - 1
    enddo
-
-! LAND cells
-
-   if (isfcl == 1 .and. ilandgrid == 1) then
-      do i = 1,nwgl(igp)
-         iw = grp(igp)%iwl(i)
-         itabg_wl(iw)%irank = igp - 1
-      enddo
-   endif
-
-! SEA cells
-
-   if (isfcl == 1 .and. iseagrid == 1) then
-      do i = 1,nwgs(igp)
-         iw = grp(igp)%iws(i)
-         itabg_ws(iw)%irank = igp - 1
-      enddo
-   endif
 
 ! WNUD cells
 
@@ -675,250 +395,67 @@ do igp = 1,ngroups
 
 enddo
 
-if (isfcl == 1 .and. mgroupsize > 1 ) then
+if (allocated(xewm)) deallocate (xewm)
+if (allocated(yewm)) deallocate (yewm)
+if (allocated(zewm)) deallocate (zewm)
 
-   ! Trial code for reducing unnecessary communication:
-   ! If all of the atm cells above a land cell are on the same node,
-   ! put the land cell on that same node too if it isn't already
+if (allocated(xewnud)) deallocate (xewnud)
+if (allocated(yewnud)) deallocate (yewnud)
+if (allocated(zewnud)) deallocate (zewnud)
 
-   if (ilandgrid == 1) then
+if (allocated(itab_wnud)) deallocate(itab_wnud)
 
-      allocate( iwl_atm_ranks( nwl, 20))
-      allocate( niwl_atm     ( nwl ))
-
-      iwl_atm_ranks = -1
-      niwl_atm      =  0
-   
-      do i = 1, nlandflux
-         iw  = landflux_pd(i)%iw
-         iwl = landflux_pd(i)%iwls
-         niwl_atm(iwl) = niwl_atm(iwl) + 1
-         j = niwl_atm(iwl)
-         is = size(iwl_atm_ranks,2)
-
-         if (j > is) then
-            call move_alloc(iwl_atm_ranks, iws_atm_ranks)
-            allocate( iwl_atm_ranks( nwl, is+10))
-            iwl_atm_ranks(:,1:is) = iws_atm_ranks(:,1:is)
-            deallocate( iws_atm_ranks)
-            iwl_atm_ranks(:,is+1:) = -1
-         endif
-
-         iwl_atm_ranks(iwl,j) = itabg_w(iw)%irank
-      enddo
-
-      do iwl = 1, nwl
-         if (niwl_atm(iwl) > 0) then
-            j = niwl_atm(iwl)
-            if ( all( iwl_atm_ranks(iwl,1:j) == iwl_atm_ranks(iwl,1) )) then
-               if (iwl_atm_ranks(iwl,1) /= itabg_wl(iwl)%irank) then
-                  itabg_wl(iwl)%irank = iwl_atm_ranks(iwl,1)
-               endif
-            endif
-         endif
-      enddo
-
-      deallocate( iwl_atm_ranks, niwl_atm)
-
-   endif
-
-   ! If all of the atm cells above a sea cell are on the same node,
-   ! put the sea cell on that same node too if it isn't already
-
-   if (iseagrid == 1) then
-
-      allocate( iws_atm_ranks( nws, 20))
-      allocate( niws_atm     ( nws ))
-
-      iws_atm_ranks = -1
-      niws_atm      =  0
-
-      do i = 1, nseaflux
-         iw  = seaflux_pd(i)%iw
-         iws = seaflux_pd(i)%iwls
-         niws_atm(iws) = niws_atm(iws) + 1
-         j = niws_atm(iws)
-         is = size(iws_atm_ranks,2)
-
-         if (j > is) then
-            call move_alloc(iws_atm_ranks, iwl_atm_ranks)
-            allocate( iws_atm_ranks( nws, is+10))
-            iws_atm_ranks(:,1:is) = iwl_atm_ranks(:,1:is)
-            deallocate( iwl_atm_ranks)
-            iws_atm_ranks(:,is+1:) = -1
-         endif
-
-         iws_atm_ranks(iws,j) = itabg_w(iw)%irank
-      enddo
-
-      do iws = 1, nws
-         if (niws_atm(iws) > 0) then
-            j = niws_atm(iws)
-            if ( all( iws_atm_ranks(iws,1:j) == iws_atm_ranks(iws,1) )) then
-               if (iws_atm_ranks(iws,1) /= itabg_ws(iws)%irank) then
-                  itabg_ws(iws)%irank = iws_atm_ranks(iws,1)
-               endif
-            endif
-         endif
-      enddo
-
-      deallocate( iws_atm_ranks, niws_atm)
-
-   endif
-
-endif
-
-! Old way for assigning U/V rank:
-! Loop over each U/V point and assign its rank to the higher rank of its
-! two IW neighbors
-!
-!if (meshtype == 1) then
-!   do iu = 2,nua
-!      iw1 = itab_u_pd(iu)%iw(1)
-!      iw2 = itab_u_pd(iu)%iw(2)
-!      itabg_u(iu)%irank = max(itabg_w(iw1)%irank, itabg_w(iw2)%irank)
-!   enddo
-!else
-!   do iv = 2,nva
-!      iw1 = itab_v_pd(iv)%iw(1)
-!      iw2 = itab_v_pd(iv)%iw(2)
-!      itabg_v(iv)%irank = max(itabg_w(iw1)%irank, itabg_w(iw2)%irank)
-!   enddo
-!endif
-!
 ! New way for assigning U/V rank:
 ! Loop over each U/V point and assign its rank to the IW neighbor that has
 ! fewer U/V points in its stencil
 
 nuv_per_node(:) = 0
 
-if (meshtype == 1) then
+! If W neighbors have the same rank, set V to this rank too
 
-   ! If W neighbors have the same rank, set U to this rank too
-   do iu = 2, nua
-      iw1 = itab_u_pd(iu)%iw(1)
-      iw2 = itab_u_pd(iu)%iw(2)
-      if (itabg_w(iw1)%irank == itabg_w(iw2)%irank) then
-         itabg_u(iu)%irank = itabg_w(iw1)%irank
-         nuv_per_node(itabg_u(iu)%irank) = nuv_per_node(itabg_u(iu)%irank) + 1
-      endif
-   enddo
+do iv = 2,nva
+   iw1 = itab_v_pd(iv)%iw(1)
+   iw2 = itab_v_pd(iv)%iw(2)
+   if (itabg_w(iw1)%irank == itabg_w(iw2)%irank) then
+      itabg_v(iv)%irank = itabg_w(iw1)%irank
+      nuv_per_node(itabg_v(iv)%irank) = nuv_per_node(itabg_v(iv)%irank) + 1
+   endif
+enddo
 
-   ! If W neighbors are on different ranks, set U to the rank with fewer U points
-   do iu = 2,nua
-      iw1 = itab_u_pd(iu)%iw(1)
-      iw2 = itab_u_pd(iu)%iw(2)
-      if (itabg_w(iw1)%irank /= itabg_w(iw2)%irank) then
-         if (nuv_per_node(itabg_w(iw1)%irank) <= nuv_per_node(itabg_w(iw2)%irank)) then
-            itabg_u(iu)%irank = itabg_w(iw1)%irank
-            nuv_per_node(itabg_w(iw1)%irank) = nuv_per_node(itabg_w(iw1)%irank) + 1
-         else
-            itabg_u(iu)%irank = itabg_w(iw2)%irank
-            nuv_per_node(itabg_w(iw2)%irank) = nuv_per_node(itabg_w(iw2)%irank) + 1
-         endif
-      endif
-   enddo
+! If W neighbors are on different ranks, set V to the rank with fewer V points
 
-else
-
-   ! If W neighbors have the same rank, set V to this rank too
-   do iv = 2,nva
-      iw1 = itab_v_pd(iv)%iw(1)
-      iw2 = itab_v_pd(iv)%iw(2)
-      if (itabg_w(iw1)%irank == itabg_w(iw2)%irank) then
+do iv = 2,nva
+   iw1 = itab_v_pd(iv)%iw(1)
+   iw2 = itab_v_pd(iv)%iw(2)
+   if (itabg_w(iw1)%irank /= itabg_w(iw2)%irank) then
+      if (nuv_per_node(itabg_w(iw1)%irank) <= nuv_per_node(itabg_w(iw2)%irank)) then
          itabg_v(iv)%irank = itabg_w(iw1)%irank
-         nuv_per_node(itabg_v(iv)%irank) = nuv_per_node(itabg_v(iv)%irank) + 1
+         nuv_per_node(itabg_w(iw1)%irank) = nuv_per_node(itabg_w(iw1)%irank) + 1
+      else
+         itabg_v(iv)%irank = itabg_w(iw2)%irank
+         nuv_per_node(itabg_w(iw2)%irank) = nuv_per_node(itabg_w(iw2)%irank) + 1
       endif
-   enddo
-
-   ! If W neighbors are on different ranks, set V to the rank with fewer V points
-   do iv = 2,nva
-      iw1 = itab_v_pd(iv)%iw(1)
-      iw2 = itab_v_pd(iv)%iw(2)
-      if (itabg_w(iw1)%irank /= itabg_w(iw2)%irank) then
-         if (nuv_per_node(itabg_w(iw1)%irank) <= nuv_per_node(itabg_w(iw2)%irank)) then
-            itabg_v(iv)%irank = itabg_w(iw1)%irank
-            nuv_per_node(itabg_w(iw1)%irank) = nuv_per_node(itabg_w(iw1)%irank) + 1
-         else
-            itabg_v(iv)%irank = itabg_w(iw2)%irank
-            nuv_per_node(itabg_w(iw2)%irank) = nuv_per_node(itabg_w(iw2)%irank) + 1
-         endif
-      endif
-   enddo
+   endif
+enddo
    
-endif
-
 ! Set rank of M point based on rank of 1st U or V point in stencil
 ! Optimize later....
 
 do im = 2, nma
-   if (meshtype == 1) then
-      itabg_m(im)%irank = itabg_u( itab_m_pd(im)%iu(1) )%irank
-   else
-      itabg_m(im)%irank = itabg_v( itab_m_pd(im)%iv(1) )%irank
-   endif
+   itabg_m(im)%irank = itabg_v( itab_m_pd(im)%iv(1) )%irank
 enddo
 
-! LAND cells
-
-if (isfcl == 1 .and. ilandgrid == 1) then
-
-   do iu = 2,nul
-      iw1 = itab_ul(iu)%iw(1)
-      iw2 = itab_ul(iu)%iw(2)
-
-! iw1 or iw2 may be zero at edge of land grid
-
-      if (iw1 < 2) then
-         itabg_ul(iu)%irank = itabg_wl(iw2)%irank
-      elseif (iw2 < 2) then
-         itabg_ul(iu)%irank = itabg_wl(iw1)%irank
-      else
-         itabg_ul(iu)%irank = max(itabg_wl(iw1)%irank,itabg_wl(iw2)%irank)
-      endif
-   enddo
-
-endif
-
-! SEA cells
-
-if (isfcl == 1 .and. iseagrid == 1) then
-
-   do iu = 2,nus
-      iw1 = itab_us(iu)%iw(1)
-      iw2 = itab_us(iu)%iw(2)
-
-! iw1 or iw2 may be zero at edge of sea grid
-
-      if (iw1 < 2) then
-         itabg_us(iu)%irank = itabg_ws(iw2)%irank
-      elseif (iw2 < 2) then
-         itabg_us(iu)%irank = itabg_ws(iw1)%irank
-      else
-         itabg_us(iu)%irank = max(itabg_ws(iw1)%irank,itabg_ws(iw2)%irank)
-      endif
-      
-   enddo
-
-endif
-
-! For ilandgrid > 1 and/or iseagrid > 1, determine rank directly from (single) 
+! Determine rank of LAND & SEA cells directly from (single) 
 ! atmospheric cell to which land/sea cell is coupled
 
-if (isfcl == 1 .and. ilandgrid > 1) then
-   do ilf = 2,nlandflux
-      iw  = landflux_pd(ilf)%iw
-      iwl = landflux_pd(ilf)%iwls
-
+if (isfcl == 1) then
+   do iwl = 2,nwl
+      iw  = itab_wl(iwl)%iw
       itabg_wl(iwl)%irank = itabg_w(iw)%irank
    enddo
-endif
 
-if (isfcl == 1 .and. iseagrid > 1) then
-   do isf = 2,nseaflux
-      iw  = seaflux_pd(isf)%iw
-      iws = seaflux_pd(isf)%iwls
-
+   do iws = 2,nws
+      iw  = itab_ws(iws)%iw
       itabg_ws(iws)%irank = itabg_w(iw)%irank
    enddo
 endif

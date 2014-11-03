@@ -22,7 +22,7 @@ CONTAINS
 
 SUBROUTINE cuparm_emanuel(iw, dtlong)
 
-  use mem_grid,    only: mwa, lpu, lpw, volt, mua, zm, zt, xew, yew, zew, dzt
+  use mem_grid,    only: mwa, lpw, volt, zm, zt, xew, yew, zew, dzt
   use mem_tend,    only: thilt, sh_wt
   use mem_basic,   only: theta, tair, press, rho, sh_v, vxe, vye, vze
   use consts_coms, only: t00, grav, eradi
@@ -48,9 +48,9 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
 
   ka = lpw(iw)
 
-  ! Set initial convective top to mza-2
+  ! Set initial convective top to mza-1
 
-  nd = mza - ka - 1
+  nd = mza - ka
 
   ! Redefine top to go no higher than 50mb for convective calculations
   ! to prevent any problems when esat gets near ambient pressure

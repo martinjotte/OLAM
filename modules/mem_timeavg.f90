@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 Module mem_timeavg
@@ -40,8 +40,8 @@ Module mem_timeavg
   real, allocatable, target :: rshort_top_avg  (:)
   real, allocatable, target :: rshortup_top_avg(:)
   real, allocatable, target :: rlongup_top_avg (:)
-  real, allocatable, target :: sflux_t_avg     (:)
-  real, allocatable, target :: sflux_r_avg     (:)
+  real, allocatable, target :: sfluxt_avg      (:)
+  real, allocatable, target :: sfluxr_avg      (:)
 
 Contains
 
@@ -68,14 +68,14 @@ subroutine alloc_timeavg(mza,mwa)
   endif
 
   if (ilwrtyp > 0) then
-     allocate (rlong_avg       (mwa)) ; rlong_avg        = 0.
-     allocate (rlongup_avg     (mwa)) ; rlongup_avg      = 0.
-     allocate (rlongup_top_avg (mwa)) ; rlongup_top_avg  = 0.
+     allocate (rlong_avg      (mwa)) ; rlong_avg       = 0.
+     allocate (rlongup_avg    (mwa)) ; rlongup_avg     = 0.
+     allocate (rlongup_top_avg(mwa)) ; rlongup_top_avg = 0.
   endif
 
   if (isfcl > 0) then
-     allocate (sflux_t_avg     (mwa)) ; sflux_t_avg      = 0.
-     allocate (sflux_r_avg     (mwa)) ; sflux_r_avg      = 0.
+     allocate (sfluxt_avg(mwa)) ; sfluxt_avg = 0.
+     allocate (sfluxr_avg(mwa)) ; sfluxr_avg = 0.
   endif
   
 end subroutine alloc_timeavg
@@ -93,8 +93,8 @@ subroutine dealloc_timeavg()
   if (allocated (rshort_top_avg  )) deallocate (rshort_top_avg  )
   if (allocated (rshortup_top_avg)) deallocate (rshortup_top_avg)
   if (allocated (rlongup_top_avg )) deallocate (rlongup_top_avg )
-  if (allocated (sflux_t_avg     )) deallocate (sflux_t_avg     )
-  if (allocated (sflux_r_avg     )) deallocate (sflux_r_avg     )
+  if (allocated (sfluxt_avg      )) deallocate (sfluxt_avg      )
+  if (allocated (sfluxr_avg      )) deallocate (sfluxr_avg      )
 
 end subroutine dealloc_timeavg
 
@@ -140,14 +140,14 @@ subroutine filltab_timeavg()
      vtab_r(num_var)%rvar1_p => rlongup_top_avg
   endif
 
-  if (allocated(sflux_t_avg)) then
-     call increment_vtable('SFLUX_T_AVG', 'AW')
-     vtab_r(num_var)%rvar1_p => sflux_t_avg
+  if (allocated(sfluxt_avg)) then
+     call increment_vtable('SFLUXT_AVG', 'AW')
+     vtab_r(num_var)%rvar1_p => sfluxt_avg
   endif
 
-  if (allocated(sflux_r_avg)) then
-     call increment_vtable('SFLUX_R_AVG', 'AW')
-     vtab_r(num_var)%rvar1_p => sflux_r_avg
+  if (allocated(sfluxr_avg)) then
+     call increment_vtable('SFLUXR_AVG', 'AW')
+     vtab_r(num_var)%rvar1_p => sfluxr_avg
   endif
 
 end subroutine filltab_timeavg
@@ -166,9 +166,7 @@ subroutine accum_timeavg()
 
   use leaf_coms,   only: mrl_leaf, dt_leaf, isfcl
 
-  use mem_turb,    only: sflux_t, sflux_r
-
-!$ use omp_lib
+  use mem_turb,    only: sfluxt, sfluxr
 
   implicit none
 
@@ -177,7 +175,6 @@ subroutine accum_timeavg()
 
 ! Update averages of ATM SFC turbulent fluxes
 
-  call psub()
 !----------------------------------------------------------------------
   mrl = mrl_begl(istp)
   if (mrl > 0 .and. isfcl > 0) then
@@ -187,7 +184,6 @@ subroutine accum_timeavg()
 !$omp parallel do private(iw,dt_avg,wt_new,wt_old)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
-        call qsub('W',iw)
 
 ! Timestep for computing averages, DT_AVG, is the lesser of dtlm for the given
 ! IW cell and dt_leaf; the frequency that each IW cell is processed in this
@@ -208,28 +204,25 @@ subroutine accum_timeavg()
 
 ! Modify averages 
 
-        sflux_t_avg(iw) = wt_old * sflux_t_avg(iw) &
-             + wt_new * sflux_t(iw)
+        sfluxt_avg(iw) = wt_old * sfluxt_avg(iw) &
+             + wt_new * sfluxt(iw)
 
-        sflux_r_avg(iw) = wt_old * sflux_r_avg(iw) &
-             + wt_new * sflux_r(iw)
+        sfluxr_avg(iw) = wt_old * sfluxr_avg(iw) &
+             + wt_new * sfluxr(iw)
 
      enddo
 !$omp end parallel do
 
   endif
-  call rsub('Waf',20)
 
 ! Update averages of ATM SFC and TOP radiative fluxes
 
-  call psub()
 !----------------------------------------------------------------------
   mrl = mrl_begl(istp)
   if (mrl > 0 .and. ilwrtyp + iswrtyp > 0) then
 !$omp parallel do private(iw,dt_avg,wt_new,wt_old)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
-        call qsub('W',iw)
 
 ! Timestep for computing averages, DT_AVG is dtlm for the given IW cell; 
 ! the frequency that each IW cell is processed in this loop should be 
@@ -282,7 +275,6 @@ subroutine accum_timeavg()
      enddo
 !$omp end parallel do
   endif
-  call rsub('Waf',12)
 
 end subroutine accum_timeavg
 

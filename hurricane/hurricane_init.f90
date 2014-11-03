@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 module hcane_rz
 
@@ -87,7 +87,7 @@ Contains
   subroutine hurricane_init()
 
   use mem_grid,  only: mza, zt
-  use misc_coms, only: iparallel, meshtype, runtype
+  use misc_coms, only: iparallel, runtype
 
   implicit none
 
@@ -101,7 +101,7 @@ Contains
   if (newcall /= 1) then
      newcall = 1
 
-     do k = 2,mza-1
+     do k = 2,mza
         nzz = k
         if (zt(k) > 25000.) exit
      enddo
@@ -158,8 +158,6 @@ Contains
 !==================================================================================
 
   subroutine hurricane_track(itype)
-
-  use misc_coms, only: meshtype
 
   implicit none
 
@@ -247,7 +245,7 @@ Contains
 
 ! Vertical loop over T levels
 
-     do k = lpw(iw),mza-1
+     do k = lpw(iw),mza
 
 ! Do not apply algorithm above threshold height
 
@@ -269,7 +267,7 @@ Contains
 
 ! Vertical loop over T levels
 
-  do k = 2,mza-1
+  do k = 2,mza
 
 ! Do not apply algorithm above threshold height
 
@@ -306,7 +304,7 @@ Contains
 
 ! Vertical loop over T levels
 
-     do k = lpw(iw),mza-1
+     do k = lpw(iw),mza
 
 ! Do not apply algorithm above threshold height
 
@@ -332,7 +330,7 @@ Contains
 
 ! Vertical loop over T levels
 
-  do k = 2,mza-1
+  do k = 2,mza
 
 ! Do not apply algorithm above threshold height
 
@@ -437,7 +435,6 @@ Contains
   integer :: irad,ir
 
   real :: weight_t(nz,nr)   ! weight array for T points
-  real :: weight_u(nz,nr)   ! weight array for U points
   real :: weight_v(nz,nr)   ! weight array for V points
 
 ! Find "earth" coordinates of hurricane center
@@ -465,11 +462,9 @@ Contains
 
   weight_t(:,:) = 0.
 
-  call psub()
 !----------------------------------------------------------------------
   do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)  ! jend(1) = hardwired for mrl 1
 !----------------------------------------------------------------------
-  call qsub('W',iw)
 
 ! Distance of this IW point from eye center
 
@@ -547,205 +542,101 @@ Contains
 
   enddo
 
-! If meshtype = 1, diagnose UC field
-
-  if (meshtype == 1) then
-
-     weight_u(:,:) = 0.
+  weight_v(:,:) = 0.
 
 !----------------------------------------------------------------------
-     do j = 1,jtab_u(7)%jend(1); iu = jtab_u(7)%iu(j)  ! jend(1) = hardwired for mrl 1
-        iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
-!----------------------------------------------------------------------
-
-! Distance of this point from eye center
-
-        rad = sqrt((xeu(iu)-xeh)**2 + (yeu(iu)-yeh)**2 + (zeu(iu)-zeh)**2)
-
-! Skip hurricane assimilation for all points outside specified radius
-
-        if (rad >= radius_ax(nr) - 1.) cycle
-
-! Determine interpolation point in radial dimension
-
-        irad = 1
-        do while (rad > radius_ax(irad+1))
-           irad = irad + 1
-        enddo
-
-        wrad2 = (rad - radius_ax(irad)) / (radius_ax(irad+1) - radius_ax(irad))
-        wrad1 = 1. - wrad2
-   
-! Unit normal vector components from hurricane center to current IU point
-
-        unxrad = (xeu(iu) - xeh) / rad
-        unyrad = (yeu(iu) - yeh) / rad
-        unzrad = (zeu(iu) - zeh) / rad
-
-! Unit vector components in direction of tangential vortex wind
-
-        unxtan = wnyh * unzrad - wnzh * unyrad
-        unytan = wnzh * unxrad - wnxh * unzrad
-        unztan = wnxh * unyrad - wnyh * unxrad
-
-! Vertical loop over T levels
-
-        do k = lpu(iu),nzz
-
-           weight_u(k,irad)   = weight_u(k,irad)   + wrad1
-           weight_u(k,irad+1) = weight_u(k,irad+1) + wrad2
-
-! Diagnose axisymmetric component of model's own vortex
-
-           vtan_ax0 = uc(k,iu) &
-                    * (unx(iu) * unxtan + uny(iu) * unytan + unz(iu) * unztan) &
-                    + vc(k,iu) &
-                    * (vnx(iu) * unxtan + vny(iu) * unytan + vnz(iu) * unztan)
-
-           vrad_ax0 = uc(k,iu) &
-                    * (unx(iu) * unxrad + uny(iu) * unyrad + unz(iu) * unzrad) &
-                    + vc(k,iu) &
-                    * (vnx(iu) * unxrad + vny(iu) * unyrad + vnz(iu) * unzrad)
-
-           vtan_ax(k,irad)   = vtan_ax(k,irad)   + wrad1 * vtan_ax0
-           vtan_ax(k,irad+1) = vtan_ax(k,irad+1) + wrad2 * vtan_ax0
-
-           vrad_ax(k,irad)   = vrad_ax(k,irad)   + wrad1 * vrad_ax0
-           vrad_ax(k,irad+1) = vrad_ax(k,irad+1) + wrad2 * vrad_ax0
-
-        enddo
-
-     enddo
-
-! Convert sums to averages
-
-     do irad = nr,2,-1
-
-        do k = 2,nzz
-
-           if (weight_u(k,irad) < 1.e-6) then
-
-              if (irad == nr) stop 'stop irad U'
-
-              vtan_ax(k,irad) = vtan_ax(k,irad+1) &
-                              * radius_ax(irad) / radius_ax(irad+1)
-
-              vrad_ax(k,irad) = vrad_ax(k,irad+1) &
-                              * radius_ax(irad) / radius_ax(irad+1)
-
-           else
-
-              vtan_ax(k,irad) = vtan_ax(k,irad) / weight_u(k,irad)
-              vrad_ax(k,irad) = vrad_ax(k,irad) / weight_u(k,irad)
-
-           endif
-
-        enddo
-
-     enddo
-
-     vtan_ax(:,1) = 0.
-     vrad_ax(:,1) = 0.
-
-  else  ! If meshtype = 2, diagnose VC field
-
-     weight_v(:,:) = 0.
-
-!----------------------------------------------------------------------
-     do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)  ! jend(1) = hardwired for mrl 1
-        iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+  do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)  ! jend(1) = hardwired for mrl 1
+     iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
  
 ! Distance of this point from eye center
 
-        rad = sqrt((xev(iv)-xeh)**2 + (yev(iv)-yeh)**2 + (zev(iv)-zeh)**2)
+     rad = sqrt((xev(iv)-xeh)**2 + (yev(iv)-yeh)**2 + (zev(iv)-zeh)**2)
 
 ! Skip hurricane assimilation for all points outside specified radius
 
-        if (rad >= radius_ax(nr) - 1.) cycle
+     if (rad >= radius_ax(nr) - 1.) cycle
 
 ! Determine interpolation point in radial dimension
 
-        irad = 1
-        do while (rad > radius_ax(irad+1))
-           irad = irad + 1
-        enddo
+     irad = 1
+     do while (rad > radius_ax(irad+1))
+        irad = irad + 1
+     enddo
 
-        wrad2 = (rad - radius_ax(irad)) / (radius_ax(irad+1) - radius_ax(irad))
-        wrad1 = 1. - wrad2
+     wrad2 = (rad - radius_ax(irad)) / (radius_ax(irad+1) - radius_ax(irad))
+     wrad1 = 1. - wrad2
 
 ! Unit normal vector components from hurricane center to current IV point
 
-        vnxrad = (xev(iv) - xeh) / rad
-        vnyrad = (yev(iv) - yeh) / rad
-        vnzrad = (zev(iv) - zeh) / rad
+     vnxrad = (xev(iv) - xeh) / rad
+     vnyrad = (yev(iv) - yeh) / rad
+     vnzrad = (zev(iv) - zeh) / rad
 
 ! Unit vector components in direction of tangential vortex wind
 
-        vnxtan = wnyh * vnzrad - wnzh * vnyrad
-        vnytan = wnzh * vnxrad - wnxh * vnzrad
-        vnztan = wnxh * vnyrad - wnyh * vnxrad
+     vnxtan = wnyh * vnzrad - wnzh * vnyrad
+     vnytan = wnzh * vnxrad - wnxh * vnzrad
+     vnztan = wnxh * vnyrad - wnyh * vnxrad
 
 ! Vertical loop over T levels
 
-        do k = lpv(iv),nzz
+     do k = lpv(iv),nzz
 
-           weight_v(k,irad)   = weight_v(k,irad)   + wrad1
-           weight_v(k,irad+1) = weight_v(k,irad+1) + wrad2
+        weight_v(k,irad)   = weight_v(k,irad)   + wrad1
+        weight_v(k,irad+1) = weight_v(k,irad+1) + wrad2
 
 ! Diagnose axisymmetric component of model's own vortex
 
-           vtan_ax0 = vc(k,iv) &
-                    * (vnx(iv) * vnxtan + vny(iv) * vnytan + vnz(iv) * vnztan) &
-                    + uc(k,iv) &
-                    * (unx(iv) * vnxtan + uny(iv) * vnytan + unz(iv) * vnztan)
+        vtan_ax0 = vc(k,iv) &
+                 * (vnx(iv) * vnxtan + vny(iv) * vnytan + vnz(iv) * vnztan) !&
+!why here?                 + uc(k,iv) &
+!why here?                 * (unx(iv) * vnxtan + uny(iv) * vnytan + unz(iv) * vnztan)
 
-           vrad_ax0 = vc(k,iv) &
-                    * (vnx(iv) * vnxrad + vny(iv) * vnyrad + vnz(iv) * vnzrad) &
-                    + uc(k,iv) &
-                    * (unx(iv) * vnxrad + uny(iv) * vnyrad + unz(iv) * vnzrad)
+        vrad_ax0 = vc(k,iv) &
+                 * (vnx(iv) * vnxrad + vny(iv) * vnyrad + vnz(iv) * vnzrad) !&
+!why here?                 + uc(k,iv) &
+!why here?                 * (unx(iv) * vnxrad + uny(iv) * vnyrad + unz(iv) * vnzrad)
 
-           vtan_ax(k,irad)   = vtan_ax(k,irad)   + wrad1 * vtan_ax0
-           vtan_ax(k,irad+1) = vtan_ax(k,irad+1) + wrad2 * vtan_ax0
+        vtan_ax(k,irad)   = vtan_ax(k,irad)   + wrad1 * vtan_ax0
+        vtan_ax(k,irad+1) = vtan_ax(k,irad+1) + wrad2 * vtan_ax0
 
-           vrad_ax(k,irad)   = vrad_ax(k,irad)   + wrad1 * vrad_ax0
-           vrad_ax(k,irad+1) = vrad_ax(k,irad+1) + wrad2 * vrad_ax0
-
-        enddo
+        vrad_ax(k,irad)   = vrad_ax(k,irad)   + wrad1 * vrad_ax0
+        vrad_ax(k,irad+1) = vrad_ax(k,irad+1) + wrad2 * vrad_ax0
 
      enddo
+
+  enddo
 
 ! Convert sums to averages
 
-     do irad = nr,2,-1
+  do irad = nr,2,-1
 
-        do k = 2,nzz
+     do k = 2,nzz
 
-           if (weight_v(k,irad) < 1.e-6) then
+        if (weight_v(k,irad) < 1.e-6) then
 
-              if (irad == nr) stop 'stop irad V'
+           if (irad == nr) stop 'stop irad V'
 
-              vtan_ax(k,irad) = vtan_ax(k,irad+1) &
-                              * radius_ax(irad) / radius_ax(irad+1)
+           vtan_ax(k,irad) = vtan_ax(k,irad+1) &
+                           * radius_ax(irad) / radius_ax(irad+1)
 
-              vrad_ax(k,irad) = vrad_ax(k,irad+1) &
-                              * radius_ax(irad) / radius_ax(irad+1)
+           vrad_ax(k,irad) = vrad_ax(k,irad+1) &
+                           * radius_ax(irad) / radius_ax(irad+1)
 
-           else
+        else
 
-              vtan_ax(k,irad) = vtan_ax(k,irad) / weight_v(k,irad)
-              vrad_ax(k,irad) = vrad_ax(k,irad) / weight_v(k,irad)
+           vtan_ax(k,irad) = vtan_ax(k,irad) / weight_v(k,irad)
+           vrad_ax(k,irad) = vrad_ax(k,irad) / weight_v(k,irad)
 
-           endif
-
-        enddo
+        endif
 
      enddo
 
-     vtan_ax(:,1) = 0.
-     vrad_ax(:,1) = 0.
+  enddo
 
-  endif
+  vtan_ax(:,1) = 0.
+  vrad_ax(:,1) = 0.
 
   return
   end subroutine vortex_diagnose0
@@ -811,11 +702,9 @@ Contains
 
 ! Loop over all W points
 
-  call psub()
 !----------------------------------------------------------------------
   do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)  ! jend(1) = hardwired for mrl 1
 !----------------------------------------------------------------------
-  call qsub('W',iw)
 
 ! Distance of this IW point from eye center
 
@@ -965,10 +854,9 @@ Contains
   use mem_grid
   use consts_coms
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
-                          mpi_send_u, mpi_recv_u, &
                           mpi_send_v, mpi_recv_v 
 
-  use obnd,         only: lbcopy_u, lbcopy_v, lbcopy_w
+  use obnd,         only: lbcopy_v, lbcopy_w
 
 ! Define initial perturbation using analytical functions
 
@@ -1130,11 +1018,9 @@ Contains
 
 ! Add perturbation to thermodynamic fields
 
-  call psub()
 !----------------------------------------------------------------------
   do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)  ! jend(1) = hardwired for mrl 1
 !----------------------------------------------------------------------
-  call qsub('W',iw)
 
 ! Distance of this IW point from eye center
 
@@ -1211,222 +1097,122 @@ Contains
      enddo
 
   enddo
-  call rsub('W_frances_a',7)
 
 ! If using MPI, perform parallel send/recv
 
   if (iparallel == 1) then
-     call mpi_send_w('I')  ! Send W group
-     call mpi_recv_w('I')  ! Recv W group
+     mrl = 1
+     call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
+                     rvara1=wc, rvara2=wmc, rvara3=thil)
+
+     call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
+                     rvara1=wc, rvara2=wmc, rvara3=thil)
   endif
 
 ! LBC copy (THETA and TAIR will be copied later with the scalars)
 
   call lbcopy_w(1, a1=thil, d1=press, d2=rho)
 
-! If meshtype = 1, initialize UC field
-
-  if (meshtype == 1) then
-
-     call psub()
 !----------------------------------------------------------------------
-     do j = 1,jtab_u(7)%jend(1); iu = jtab_u(7)%iu(j)  ! jend(1) = hardwired for mrl 1
-        iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
+  do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)  ! jend(1) = hardwired for mrl 1
+     iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
-     call qsub('U',iu)
-
-! Distance of this point from eye center
-
-        rad = sqrt((xeu(iu)-xeh)**2 + (yeu(iu)-yeh)**2 + (zeu(iu)-zeh)**2)
-
-! Skip hurricane assimilation for all points outside specified radius
-
-        if (rad >= rad_env) cycle
-
-! Determine interpolation point in radial dimension
-
-        ir = 1
-        do while (rad > radius_ax(ir+1))
-           ir = ir + 1
-        enddo
-
-        wrad2 = (rad - radius_ax(ir)) / (radius_ax(ir+1) - radius_ax(ir))
-        wrad1 = 1. - wrad2
-   
-! Interpolate circulation perturbation table values to rad
-
-        dcirc = wrad1 * del_circ(ir  ) &
-              + wrad2 * del_circ(ir+1)
-
-! Evaluate perturbation tangential velocity
-
-        if (rad <= rad_eyw) then
-           vpert_rad = delv_eyw * rad / rad_eyw
-        else
-           vpert_rad = dcirc / (pi2 * rad)
-        endif
-
-! Unit normal vector components from hurricane center to current IU point
-
-        unxrad = (xeu(iu) - xeh) / rad
-        unyrad = (yeu(iu) - yeh) / rad
-        unzrad = (zeu(iu) - zeh) / rad
-
-! Unit vector components in direction of tangential vortex wind
-
-        unxtan = wnyh * unzrad - wnzh * unyrad
-        unytan = wnzh * unxrad - wnxh * unzrad
-        unztan = wnxh * unyrad - wnyh * unxrad
-
-! Vertical loop over T levels
-
-        do k = lpu(iu),nzz
-
-! Skip hurricane assimilation for all points above limiting height
-
-           if (zt(k) >= zmax_delv) exit
-
-! Vertical dependence of tangential velocity perturbation
-
-           vpert_vert = 1. - (zt(k) / zmax_delv) ** zexpon_delv
-
-! Combine vertical and radial parts of perturbation
-
-           vtan_pert0 = vpert_rad * vpert_vert
-
-! Add enhanced vortex to winds interpolated from NCEP reanalysis
-
-           uc(k,iu) = uc(k,iu) + vtan_pert0  &
-              * (unx(iu) * unxtan + uny(iu) * unytan + unz(iu) * unztan)
-
-           umc(k,iu) = uc(k,iu) * .5 * (rho(k,iw1) + rho(k,iw2))
-
-        enddo
-
-     enddo
-     call rsub('U_frances_a',7)
-
-! If using MPI, perform parallel send/recv
-
-     if (iparallel == 1) then
-        call mpi_send_u('I')
-        call mpi_recv_u('I')
-     endif
-
-! LBC copy of UMC, UC
-
-     call lbcopy_u(1, a1=umc, a2=uc)
-
-! Set UMP to UMC
-
-      ump(:,:) = umc(:,:)
-
-  else  ! If meshtype = 2, initialize VC field
-
-     call psub()
-!----------------------------------------------------------------------
-     do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)  ! jend(1) = hardwired for mrl 1
-        iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-!----------------------------------------------------------------------
-     call qsub('V',iv)
  
 ! Distance of this point from eye center
 
-        rad = sqrt((xev(iv)-xeh)**2 + (yev(iv)-yeh)**2 + (zev(iv)-zeh)**2)
+     rad = sqrt((xev(iv)-xeh)**2 + (yev(iv)-yeh)**2 + (zev(iv)-zeh)**2)
 
 ! Skip hurricane assimilation for all points outside specified radius
 
-        if (rad >= rad_env) cycle
+     if (rad >= rad_env) cycle
 
 ! Determine interpolation point in radial dimension
 
-        ir = 1
-        do while (rad > radius_ax(ir+1))
-           ir = ir + 1
-        enddo
+     ir = 1
+     do while (rad > radius_ax(ir+1))
+        ir = ir + 1
+     enddo
 
-        wrad2 = (rad - radius_ax(ir)) / (radius_ax(ir+1) - radius_ax(ir))
-        wrad1 = 1. - wrad2
+     wrad2 = (rad - radius_ax(ir)) / (radius_ax(ir+1) - radius_ax(ir))
+     wrad1 = 1. - wrad2
    
 ! Interpolate circulation perturbation table values to rad
 
-        dcirc = wrad1 * del_circ(ir  ) &
-              + wrad2 * del_circ(ir+1)
+     dcirc = wrad1 * del_circ(ir  ) &
+           + wrad2 * del_circ(ir+1)
 
 ! Evaluate perturbation tangential velocity
 
-        if (rad <= rad_eyw) then
-           vpert_rad = delv_eyw * rad / rad_eyw
-        else
-           vpert_rad = dcirc / (pi2 * rad)
-        endif
+     if (rad <= rad_eyw) then
+        vpert_rad = delv_eyw * rad / rad_eyw
+     else
+        vpert_rad = dcirc / (pi2 * rad)
+     endif
 
 ! Unit normal vector components from hurricane center to current IV point
 
-        vnxrad = (xev(iv) - xeh) / rad
-        vnyrad = (yev(iv) - yeh) / rad
-        vnzrad = (zev(iv) - zeh) / rad
+     vnxrad = (xev(iv) - xeh) / rad
+     vnyrad = (yev(iv) - yeh) / rad
+     vnzrad = (zev(iv) - zeh) / rad
 
 ! Unit vector components in direction of tangential vortex wind
 
-        vnxtan = wnyh * vnzrad - wnzh * vnyrad
-        vnytan = wnzh * vnxrad - wnxh * vnzrad
-        vnztan = wnxh * vnyrad - wnyh * vnxrad
+     vnxtan = wnyh * vnzrad - wnzh * vnyrad
+     vnytan = wnzh * vnxrad - wnxh * vnzrad
+     vnztan = wnxh * vnyrad - wnyh * vnxrad
 
 ! Vertical loop over T levels
 
-        do k = lpv(iv),nzz
+     do k = lpv(iv),nzz
 
 ! Skip hurricane assimilation for all points above limiting height
 
-           if (zt(k) >= zmax_delv) exit
+        if (zt(k) >= zmax_delv) exit
 
 ! Vertical dependence of tangential velocity perturbation
 
-           vpert_vert = 1. - (zt(k) / zmax_delv) ** zexpon_delv
+        vpert_vert = 1. - (zt(k) / zmax_delv) ** zexpon_delv
 
 ! Combine vertical and radial parts of perturbation
 
-           vtan_pert0 = vpert_rad * vpert_vert
+        vtan_pert0 = vpert_rad * vpert_vert
 
 ! Add enhanced vortex to winds interpolated from NCEP reanalysis
 
-           vc(k,iv) = vc(k,iv) + vtan_pert0  &
-              * (vnx(iv) * vnxtan + vny(iv) * vnytan + vnz(iv) * vnztan)
+        vc(k,iv) = vc(k,iv) + vtan_pert0  &
+           * (vnx(iv) * vnxtan + vny(iv) * vnytan + vnz(iv) * vnztan)
 
-           vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
-
-        enddo
+        vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
 
      enddo
-     call rsub('V_frances_a',7)
+
+  enddo
+
+  mrl = 1
 
 ! If using MPI, perform parallel send/recv
 
-     if (iparallel == 1) then
-        call mpi_send_v('I')
-        call mpi_recv_v('I')
-     endif
+  if (iparallel == 1) then
+     call mpi_send_v(mrl, rvara1=vmc, rvara2=vc)
+     call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
+  endif
 
 ! LBC copy of VMC, VC
 
-     call lbcopy_v(1, vmc=vmc, vc=vc)
+  call lbcopy_v(1, vmc=vmc, vc=vc)
 
 ! Set VMP and VP
 
-     if (allocated(vmp)) vmp(:,:) = vmc(:,:)
-     if (allocated(vp )) vp (:,:) = vc (:,:)
-
-  endif
+  if (allocated(vmp)) vmp(:,:) = vmc(:,:)
+  if (allocated(vp )) vp (:,:) = vc (:,:)
 
 ! Re-diagnose earth-relative velocities
 
-  mrl = 1
   call diagvel_t3d(mrl)
 
   if (iparallel == 1) then
-     call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
-     call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+     call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
+     call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
   endif
 
   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
@@ -1514,11 +1300,9 @@ print*, 'hlat0,hlon0 ',hlat0,hlon0,xeh,yeh,zeh
 
 ! Loop over all W points
 
-  call psub()
 !----------------------------------------------------------------------
   do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)  ! jend(1) = hardwired for mrl 1
 !----------------------------------------------------------------------
-  call qsub('W',iw)
 
 ! Distance of this IW point from initial eye center
 
@@ -1624,7 +1408,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! Vertical loop over T levels
 
-        do k = 2,mza-1
+        do k = 2,mza
            vtan = vxe(k,iw) * wnxtan + vye(k,iw) * wnytan + vze(k,iw) * wnztan
            vrad = vxe(k,iw) * wnxrad + vye(k,iw) * wnyrad + vze(k,iw) * wnzrad
 
@@ -1679,7 +1463,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! Loop over vertical levels
 
-        do k = 2,mza-1
+        do k = 2,mza
 
 ! Loop over fields
 
@@ -1760,7 +1544,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
                     iwout(nout) = iwi
 
-                    do k = 2,mza-1
+                    do k = 2,mza
 
 ! Interpolate to output field point
 
@@ -1833,9 +1617,8 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
                          cvocp, rocp, p00k, p00i
   use max_dims,    only: pathlen
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
-                          mpi_send_u, mpi_recv_u, &
                           mpi_send_v, mpi_recv_v 
-  use obnd,         only: lbcopy_u, lbcopy_v, lbcopy_w
+  use obnd,         only: lbcopy_v, lbcopy_w
 
   implicit none
 
@@ -1921,7 +1704,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! Vertical loop over T levels
 
-     do k = 2,mza-1
+     do k = 2,mza
 
 ! Apply height weight coefficient
 
@@ -2025,8 +1808,12 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 ! If using MPI, perform parallel send/recv
 
   if (iparallel == 1) then
-     call mpi_send_w('I')  ! Send W group
-     call mpi_recv_w('I')  ! Recv W group
+     mrl = 1
+     call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
+                     rvara1=wc, rvara2=wmc, rvara3=thil)
+
+     call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
+                     rvara1=wc, rvara2=wmc, rvara3=thil)
   endif
 
 ! LBC copy (THETA and TAIR will be copied later with the scalars)
@@ -2035,12 +1822,10 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! Initialize VC field
 
-  call psub()
 !----------------------------------------------------------------------
   do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)  ! jend(1) = hardwired for mrl 1
      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
-     call qsub('V',iv)
  
 ! Distance of this point from eye center
 
@@ -2074,7 +1859,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! Vertical loop over T levels
 
-     do k = 2,mza-1
+     do k = 2,mza
 
 ! Apply height weight coefficient
 
@@ -2104,13 +1889,14 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
      enddo
 
   enddo
-  call rsub('V_frances_a',7)
+
+  mrl = 1
 
 ! If using MPI, perform parallel send/recv
 
   if (iparallel == 1) then
-     call mpi_send_v('I')
-     call mpi_recv_v('I')
+     call mpi_send_v(mrl, rvara1=vmc, rvara2=vc)
+     call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
   endif
 
 ! LBC copy of VMC, VC
@@ -2124,12 +1910,11 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! Re-diagnose earth-relative velocities
 
-  mrl = 1
   call diagvel_t3d(mrl)
 
   if (iparallel == 1) then
-     call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
-     call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+     call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
+     call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
   endif
 
   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)

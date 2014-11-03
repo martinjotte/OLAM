@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine radiate()
 
@@ -48,21 +48,15 @@ use consts_coms, only: stefan, pio180, eradi, r8
 use misc_coms,   only: io6, time8p, time_istp8, radfrq, itime1, ilwrtyp, &
                        iswrtyp, dtlong, current_time, iparallel, isubdomain
 use mem_grid,    only: lpw, mza, mwa
-use mem_sflux,   only: mseaflux, seaflux, jseaflux,  &
-                       mlandflux, landflux, jlandflux
 use mem_grid,    only: wnx, wny, wnz
 use mem_para,    only: myrank
 use ed_misc_coms,only: ed2_active
-
-!$ use omp_lib
 
 implicit none
 
 integer :: j
 integer :: iw
 integer :: k
-integer :: isf
-integer :: ilf
 integer :: iws
 integer :: iwl
 integer :: ka
@@ -71,9 +65,7 @@ integer :: nrad
 integer :: mrl
 
 real :: water_albedo
-real :: arf_atm
-real :: arf_land
-real :: arf_sea
+real :: arf_iw
 real :: flux
 real :: sea_cosz
 
@@ -97,12 +89,10 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
 ! Loop over all radiative IW grid cells where radiation may be done
 
-   call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private(iw,k)
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)! jend(1) = hardw for mrl = 1
 !----------------------------------------------------------------------
-   call qsub('W',iw)
 
 ! Compute solar zenith angle for atmosphere cells
 
@@ -122,13 +112,12 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
       rshort_top    (iw) = 0.
       rshortup_top  (iw) = 0.
       
-      do k = lpw(iw), mza-1
+      do k = lpw(iw), mza
          fthrd_sw(k,iw) = 0.
       enddo
 
    enddo
 !$omp end parallel do
-   call rsub('Wa',12)
 
 ! Loop over all SEA cells
 
@@ -140,13 +129,6 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
       if (isubdomain == 1) then
          if (itab_ws(iws)%irank /= myrank) cycle
       endif
-
-! Zero out sea cell downward radiative fluxes prior to summation 
-! over flux cells.
-
-      sea%rlong(iws) = 0.                           
-      sea%rshort(iws) = 0.                           
-      sea%rshort_diffuse(iws) = 0.
 
 ! Get surface radiative properties (albedos and rlongup) for each sea cell. 
 ! Compute solar zenith angle for sea cells
@@ -172,7 +154,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
          call sfcrad_seaice_1( sea%ice_rlongup(iws),       &
                                sea%ice_albedo(iws),        &
                                sea%nlev_seaice(iws),       &
-                               sea%icecan_temp(iws),       &
+                               sea%ice_cantemp(iws),       &
                                sea%seaice_tempk(1:nzi,iws) )
 
          ! Average ice and water components based on seaice fraction
@@ -199,12 +181,6 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
    enddo
 !$omp end parallel do
 
-! Do parallel send of SEA albedos and rlongup
-
-   if (iparallel == 1) then
-      call mpi_send_ws('R')
-   endif
-
 ! Loop over all LAND cells
 
 !$omp parallel do
@@ -216,19 +192,15 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
          if (itab_wl(iwl)%irank /= myrank) cycle
       endif
 
-! Zero out land cell downward radiative fluxes prior to summation 
-! over flux cells.
-
-      land%rlong(iwl) = 0.                           
-      land%rshort(iwl) = 0.                           
-      land%rshort_diffuse(iwl) = 0.
-
 ! Get surface radiative properties (albedos and rlongup) for each land cell.
 
       if (land%ed_flag(iwl) == 0) then
 
 ! THIS IS ONLY FOR CELLS NOT RUNNING ED.
 
+         land%rshort(iwl) = 0.
+         land%rlong (iwl) = 0.
+         
          call sfcrad_land(iwl,                                               &
             land%leaf_class    (      iwl), land%ntext_soil     (  nzg,iwl), &
             land%nlev_sfcwater (      iwl), land%sfcwater_energy(1:nzs,iwl), &
@@ -265,82 +237,56 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
    endif
 #endif
 
-! Do parallel recv of SEA albedos and rlongup
+! Loop over all SEA cells to get mean surface radiative properties
+! for each IW grid cell.
 
-   if (iparallel == 1) then  
-      call mpi_recv_ws('R')
-   endif
+! No OMP parallelization of following IWS loop unless conflicts are prevented
+   do iws = 2,mws
+      iw  = itab_ws(iws)%iw        ! global index
 
-! Do parallel send of LAND albedos and rlongup
-
-   if (iparallel == 1) then  
-      call mpi_send_wl('R')
-   endif
-
-! Loop over all SEAFLUX cells to get mean surface radiative
-! properties for each IW grid cell.
-
-! No OMP parallelization of following J/ISF loop unless conflicts are prevented
-   do j = 1,jseaflux(1)%jend(1)
-      isf = jseaflux(1)%iseaflux(j)
-      iw  = seaflux(isf)%iw        ! global index
-      iws = seaflux(isf)%iwls      ! global index
-
-! If run is parallel, get local rank indices
+! If run is parallel, get local rank index
 
       if (isubdomain == 1) then
          iw  = itabg_w(iw)%iw_myrank
-         iws = itabg_ws(iws)%iws_myrank
       endif
 
-      arf_atm = seaflux(isf)%arf_atm
+      arf_iw = itab_ws(iws)%arf_iw
 
-      rlongup       (iw) = rlongup       (iw) + arf_atm * sea%rlongup(iws)       
-      rlong_albedo  (iw) = rlong_albedo  (iw) + arf_atm * sea%rlong_albedo(iws)  
-      albedt_beam   (iw) = albedt_beam   (iw) + arf_atm * sea%albedo_beam(iws)   
-      albedt_diffuse(iw) = albedt_diffuse(iw) + arf_atm * sea%albedo_diffuse(iws)
+      rlongup       (iw) = rlongup       (iw) + arf_iw * sea%rlongup(iws)       
+      rlong_albedo  (iw) = rlong_albedo  (iw) + arf_iw * sea%rlong_albedo(iws)  
+      albedt_beam   (iw) = albedt_beam   (iw) + arf_iw * sea%albedo_beam(iws)   
+      albedt_diffuse(iw) = albedt_diffuse(iw) + arf_iw * sea%albedo_diffuse(iws)
 
    enddo
 
-! Do parallel recv of LAND albedos and rlongup
-
-   if (iparallel == 1) then  
-      call mpi_recv_wl('R')
-   endif
-
-! Loop over all LANDFLUX cells to get mean surface radiative
+! Loop over all LAND cells to get mean surface radiative
 ! properties for each IW grid cell.
 
-! No OMP parallelization of following J/ILF loop unless conflicts are prevented
-   do j = 1,jlandflux(1)%jend(1)
-      ilf = jlandflux(1)%ilandflux(j)
-      iw  = landflux(ilf)%iw         ! global index
-      iwl = landflux(ilf)%iwls       ! global index
+! No OMP parallelization of following IWL loop unless conflicts are prevented
+   do iwl = 2,mwl
+      iw  = itab_wl(iwl)%iw         ! global index
 
 ! If run is parallel, get local rank indices
 
       if (isubdomain == 1) then
-         iw  = itabg_w(iw)%iw_myrank
-         iwl = itabg_wl(iwl)%iwl_myrank
+         iw = itabg_w(iw)%iw_myrank
       endif
 
-      arf_atm = landflux(ilf)%arf_atm
+      arf_iw = itab_wl(iwl)%arf_iw
 
-      rlongup       (iw) = rlongup       (iw) + arf_atm * land%rlongup(iwl)
-      rlong_albedo  (iw) = rlong_albedo  (iw) + arf_atm * land%rlong_albedo(iwl)
-      albedt_beam   (iw) = albedt_beam   (iw) + arf_atm * land%albedo_beam(iwl)
-      albedt_diffuse(iw) = albedt_diffuse(iw) + arf_atm * land%albedo_diffuse(iwl)
+      rlongup       (iw) = rlongup       (iw) + arf_iw * land%rlongup(iwl)
+      rlong_albedo  (iw) = rlong_albedo  (iw) + arf_iw * land%rlong_albedo(iwl)
+      albedt_beam   (iw) = albedt_beam   (iw) + arf_iw * land%albedo_beam(iwl)
+      albedt_diffuse(iw) = albedt_diffuse(iw) + arf_iw * land%albedo_diffuse(iwl)
 
    enddo
 
 ! Loop over all radiative IW grid columns
 
-   call psub()
 !----------------------------------------------------------------------
 !$omp parallel do private (iw,ka,koff,nrad)
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) = hardw for  mrl=1
 !----------------------------------------------------------------------
-   call qsub('W',iw)
 
 ! K index of lowest predicted level
 
@@ -359,7 +305,7 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
          ! (Harrington scheme requires extra layer at surface)
          koff = ka - 2 
 
-         nrad = mza - 1 - koff + nadd_rad
+         nrad = mza - koff + nadd_rad
          call harr_raddriv( iw, ka, nrad, koff )
 
       endif
@@ -371,106 +317,53 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
          ! K index offset for radiation column arrays
          koff = ka - 1
 
-         nrad = mza - 1 - koff + nadd_rad
+         nrad = mza - koff + nadd_rad
          call rrtmg_raddriv( iw, ka, nrad, koff )
 
       endif
 
    enddo
 !$omp end parallel do
-   call rsub('Wb',12)
 
-! If running leaf, loop over SEAFLUX cells to transfer downward surface
+! If running leaf, loop over SEA cells to transfer downward surface
 ! shortwave and longwave fluxes from IW atmospheric column to sea cells
 
-!$omp parallel do private (isf,iw,iws,arf_sea)
-   do j = 1,jseaflux(1)%jend(1)
-      isf = jseaflux(1)%iseaflux(j)
-      iw  = seaflux(isf)%iw         ! global index
-      iws = seaflux(isf)%iwls       ! global index
+!$omp parallel do private (iw)
+   do iws = 2,mws
+      iw = itab_ws(iws)%iw         ! global index
 
 ! If run is parallel, get local rank indices
 
       if (isubdomain == 1) then
-         iw  = itabg_w(iw)%iw_myrank
-         iws = itabg_ws(iws)%iws_myrank
+         iw = itabg_w(iw)%iw_myrank
       endif
 
-      arf_sea = seaflux(isf)%arf_sfc
-
-      seaflux(isf)%rlong          = arf_sea * rlong(iw)
-      seaflux(isf)%rshort         = arf_sea * rshort(iw)
-      seaflux(isf)%rshort_diffuse = arf_sea * rshort_diffuse(iw)
+      sea%rlong(iws)          = rlong(iw)
+      sea%rshort(iws)         = rshort(iw)
+      sea%rshort_diffuse(iws) = rshort_diffuse(iw)
 
    enddo
 !$omp end parallel do
 
-! Do parallel send of atm radiative fluxes to sea
-
-   if (iparallel == 1) then  
-      mrl = 1
-      call mpi_send_wsf('R',mrl)
-   endif
-
-! If running leaf, loop over LANDFLUX cells to transfer downward surface
+! If running leaf, loop over LAND cells to transfer downward surface
 ! shortwave and longwave fluxes from IW atmospheric column to land cells
 
-!$omp parallel do private (ilf,iw,iwl,arf_land)
-   do j = 1,jlandflux(1)%jend(1)
-      ilf = jlandflux(1)%ilandflux(j)
-      iw  = landflux(ilf)%iw         ! global index
-      iwl = landflux(ilf)%iwls       ! global index
+!$omp parallel do private (iw)
+   do iwl = 2,mwl
+      iw = itab_wl(iwl)%iw         ! global index
 
 ! If run is parallel, get local rank indices
 
       if (isubdomain == 1) then
-         iw  = itabg_w(iw)%iw_myrank
-         iwl = itabg_wl(iwl)%iwl_myrank
+         iw = itabg_w(iw)%iw_myrank
       endif
 
-      arf_land = landflux(ilf)%arf_sfc
-
-      landflux(ilf)%rlong          = arf_land * rlong(iw)
-      landflux(ilf)%rshort         = arf_land * rshort(iw)
-      landflux(ilf)%rshort_diffuse = arf_land * rshort_diffuse(iw)
+      land%rlong(iwl)          = rlong(iw)
+      land%rshort(iwl)         = rshort(iw)
+      land%rshort_diffuse(iwl) = rshort_diffuse(iw)
 
    enddo   
 !$omp end parallel do
-
-! Do parallel recv of atm radiative fluxes to sea
-
-   if (iparallel == 1) then
-      mrl = 1
-      call mpi_recv_wsf('R',mrl)
-   endif
-
-! Do parallel send of atm radiative fluxes to land
-
-   if (iparallel == 1) then  
-      mrl = 1
-      call mpi_send_wlf('R',mrl)
-   endif
-
-! If running leaf, loop over SEAFLUX cells to transfer downward surface
-! shortwave and longwave fluxes from IW atmospheric column to sea cells
-
-! No OMP parallelization of following J/ISF loop unless conflicts are prevented
-   do j = 1,jseaflux(2)%jend(1)
-      isf = jseaflux(2)%iseaflux(j)
-      iws = seaflux(isf)%iwls       ! global index
-
-! If run is parallel, get local rank indices
-
-      if (isubdomain == 1) then
-         iws = itabg_ws(iws)%iws_myrank
-      endif
-
-      sea%rlong(iws)          = sea%rlong(iws)          + seaflux(isf)%rlong
-      sea%rshort(iws)         = sea%rshort(iws)         + seaflux(isf)%rshort
-      sea%rshort_diffuse(iws) = sea%rshort_diffuse(iws)  &
-                              + seaflux(isf)%rshort_diffuse
-
-   enddo
 
 ! Loop over all SEA cells to compute radiative fluxes for all 
 ! seaice components, given that rshort and rlong are now updated.
@@ -494,35 +387,6 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
 
    enddo
    !$omp end parallel do
-
-! Do parallel recv of atm radiative fluxes to land
-
-   if (iparallel == 1) then  
-      mrl = 1
-      call mpi_recv_wlf('R',mrl)
-   endif
-
-! If running leaf, loop over LANDFLUX cells to transfer downward surface
-! shortwave and longwave fluxes from IW atmospheric column to land cells
-
-! No OMP parallelization of following J/ILF loop unless conflicts are prevented
-   do j = 1,jlandflux(2)%jend(1)
-      ilf = jlandflux(2)%ilandflux(j)
-      iwl = landflux(ilf)%iwls       ! global index
-
-! If run is parallel, get local rank indices
-
-      if (isubdomain == 1) then
-         iwl = itabg_wl(iwl)%iwl_myrank
-      endif
-
-      arf_land = landflux(ilf)%arf_sfc
-
-      land%rlong         (iwl) = land%rlong         (iwl) + landflux(ilf)%rlong
-      land%rshort        (iwl) = land%rshort        (iwl) + landflux(ilf)%rshort
-      land%rshort_diffuse(iwl) = land%rshort_diffuse(iwl)  &
-                               + landflux(ilf)%rshort_diffuse
-   enddo
 
 ! If running leaf, loop over all LAND cells to compute radiative fluxes 
 ! for all cell components, given that rshort and rlong are now updated.
@@ -573,23 +437,20 @@ endif
 
 ! Apply radiation tendencies in FTHRD to THILT
 
-call psub()
 !----------------------------------------------------------------------
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 !$omp parallel do private(iw,k)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
-call qsub('W',iw)
 
-   do k = lpw(iw), mza-1
+   do k = lpw(iw), mza
       thilt(k,iw) = thilt(k,iw) + rho(k,iw) * (fthrd_sw(k,iw) + fthrd_lw(k,iw))
    enddo
 
 enddo      
 !$omp end parallel do
 endif
-call rsub('Wc',12)
 
 ! Update ED output variables
 
@@ -744,11 +605,11 @@ subroutine radinit()
    
   zmrad = 45.e3
 
-  deltaz = max( zm(mza-1) - zm(mza-2), (zmrad - zm(mza-1)) / real(maxadd_rad) )
+  deltaz = max( zm(mza) - zm(mza-1), (zmrad - zm(mza)) / real(maxadd_rad) )
 
-  zmrad = max(zmrad, zm(mza-1) + 5. * deltaz)
+  zmrad = max(zmrad, zm(mza) + 5. * deltaz)
 
-  nadd_rad = nint( (zmrad - zm(mza-1)) / deltaz )
+  nadd_rad = nint( (zmrad - zm(mza)) / deltaz )
   nadd_rad = max(nadd_rad,1)
   nadd_rad = min(nadd_rad,maxadd_rad)
 

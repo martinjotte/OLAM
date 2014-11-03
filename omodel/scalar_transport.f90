@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine scalar_transport(vmsc, wmsc, rho_old)
 
@@ -45,8 +45,6 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use obnd,         only: lbcopy_w
   use mem_thuburn
-
-  !$ use omp_lib
 
   implicit none
 
@@ -117,12 +115,12 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
      kb = lpw(iw)
 
-     do k = kb, mza-2
+     do k = kb, mza-1
         wsc(k,iw) = 2.0 * wmsc(k,iw) / (rho_old(k,iw) + rho_old(k+1,iw))
      enddo
    
      wsc(kb-1 ,iw) = wsc(kb,iw)
-     wsc(mza-1,iw) = 0.
+     wsc(mza,iw) = 0.
    
   enddo
   !$omp end do
@@ -141,7 +139,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
      vsc(2:kb-1,iv) = 0.0
 
-     do k = kb, mza-1
+     do k = kb, mza
         vsc(k,iv) = 2.0 * vmsc(k,iv) / ( rho_old(k,iw1) + rho_old(k,iw2) )
      enddo
 
@@ -156,7 +154,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 ! MPI send of VXESC, VYESC, VZESC
 
   if (iparallel == 1) then
-     call mpi_send_w('V', vxe=vxesc, vye=vyesc, vze=vzesc)
+     call mpi_send_w(mrl, rvara1=vxesc, rvara2=vyesc, rvara3=vzesc)
   endif
 
 ! Diagnose advective donor point locations for all primary W faces
@@ -168,7 +166,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 ! Complete MPI recv of VXESC, VYESC, VZESC and do LBC copy
 
   if (iparallel == 1) then
-     call mpi_recv_w('V', vxe=vxesc, vye=vyesc, vze=vzesc)
+     call mpi_recv_w(mrl, rvara1=vxesc, rvara2=vyesc, rvara3=vzesc)
   endif
 
   call lbcopy_w(mrl, a1=vxesc, a2=vyesc, a3=vzesc)
@@ -195,11 +193,11 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
      do j = 1, jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
         kbv = lpv(iv)
       
-        do k = kbv, mza-1
+        do k = kbv, mza
            iwr = iwrecv(k,iv)
            iwd = iwdepv(k,iv)
 
-           kdepv(k,iv) = merge( min(k+1,mza-1), max(k-1,kbv), dzps_v(k,iv) >= 0.0)
+           kdepv(k,iv) = merge( min(k+1,mza), max(k-1,kbv), dzps_v(k,iv) >= 0.0)
 
            cfl_vin(k,iv) = abs(vmsc(k,iv)) * arv(k,iv) * dtlm(itab_w(iwr)%mrlw) &
                            * volti(k,iwr) / rho_old(k,iwr) 
@@ -222,7 +220,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
         ! note: use dtsm for short time step
         dtl = dtlm(itab_w(iw)%mrlw)
       
-        do k = kb, mza-2
+        do k = kb, mza-1
            kd = kdepw(k,iw)
            kr = krecw(k,iw)
 
@@ -238,9 +236,9 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
            cfl_out_sum(kd,iw) = cfl_out_sum(kd,iw) + cfl_wout
         enddo
 
-        cfl_win(mza-1,iw) = 0.0
+        cfl_win(mza,iw) = 0.0
 
-        do k = kb, mza-1
+        do k = kb, mza
            tfact(k,iw) = rho(k,iw) / rho_old(k,iw)
 
          ! if we don't have future rho (for thil, vxe, vye, vze):
@@ -276,8 +274,8 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 ! MPI send of SCP gradient components
 
      if (iparallel == 1) then
-        call mpi_send_w('G', gxps_scp=gxps_scp, gyps_scp=gyps_scp, &
-                             gzps_scp=gzps_scp)
+        call mpi_send_w(mrl, rvara1=gxps_scp, rvara2=gyps_scp, &
+                             rvara3=gzps_scp)
      endif
 
 ! Compute bounds on the scalar values at each W level for the Thuburn
@@ -305,7 +303,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
         !$omp do private(iv,k,iwd,iwr)
         do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-           do k = lpv(iv), mza-1
+           do k = lpv(iv), mza
               iwd = iwdepv(k,iv)
               iwr = iwrecv(k,iv)
               scp_in_max(k,iwr) = max(scp_in_max(k,iwr), scp(k,iwd))
@@ -325,7 +323,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
      !$omp do private(iw,k,kr,kd)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-        do k = lpw(iw), mza-1
+        do k = lpw(iw), mza
            kd = kdepw(k,iw)
 
            ! First-order upstream:
@@ -341,7 +339,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
 ! Make sure the upwinded scalar value at each W level is properly bounded
 
-           do k = lpw(iw), mza-1
+           do k = lpw(iw), mza
               kr = krecw(k,iw)
               kd = kdepw(k,iw)
               scp_upw(k,iw) = min( scp_upw(k,iw), max( scp_in_max(kd,iw), scp(kr,iw)))
@@ -351,7 +349,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 ! Compute the W contribution to the max/min allowed values in each grid box, and
 ! the sum of the max and min inputs to each grid box
 
-           do k = lpw(iw), mza-1
+           do k = lpw(iw), mza
               kr = krecw(k,iw)
               kd = kdepw(k,iw)
 
@@ -376,8 +374,8 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 ! MPI recv of SCP gradient components
 
      if (iparallel == 1) then
-        call mpi_recv_w('G', gxps_scp=gxps_scp, gyps_scp=gyps_scp, &
-                             gzps_scp=gzps_scp)
+        call mpi_recv_w(mrl, rvara1=gxps_scp, rvara2=gyps_scp, &
+                             rvara3=gzps_scp)
      endif
 
      call lbcopy_w(mrl, a1=gxps_scp, a2=gyps_scp, a3=gzps_scp)
@@ -389,7 +387,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
      do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
         kbv = lpv(iv)
-        do k = kbv, mza-1
+        do k = kbv, mza
            iwd = iwdepv(k,iv)
 
            ! 1st-ORDER UPWIND:         
@@ -414,7 +412,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
            ! Compute inflow bounds at each V interface. Here we include the 
            ! immediate upwind cell and vertically upstream-diagonal neighbor
 
-           do k = kbv, mza-1
+           do k = kbv, mza
               iwd = iwdepv(k,iv)
               kd  =  kdepv(k,iv)
               scp_vin_min(k) = min( scp(k,iwd), scp(kd,iwd))
@@ -423,21 +421,21 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
            ! Include contribution of lateral neighbor iw3 to inflow bounds
       
-           do k = max(lpw(iw3),kbv), mza-1
+           do k = max(lpw(iw3),kbv), mza
               scp_vin_min(k) = min( scp_vin_min(k), scp(k,iw3))
               scp_vin_max(k) = max( scp_vin_max(k), scp(k,iw3))
            enddo
 
            ! Include contribution of lateral neighbor iw4 to inflow bounds
       
-           do k = max(lpw(iw4),kbv), mza-1
+           do k = max(lpw(iw4),kbv), mza
               scp_vin_min(k) = min( scp_vin_min(k), scp(k,iw4))
               scp_vin_max(k) = max( scp_vin_max(k), scp(k,iw4))
            enddo
 
            ! Make sure the upwinded scalar value at each V interface is properly bounded
 
-           do k = kbv, mza-1
+           do k = kbv, mza
               iwr = iwrecv(k,iv)
               scp_upv(k,iv) = min(scp_upv(k,iv), max(scp_vin_max(k), scp(k,iwr)))
               scp_upv(k,iv) = max(scp_upv(k,iv), min(scp_vin_min(k), scp(k,iwr)))
@@ -446,7 +444,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
            ! Compute the V contribution to the max/min allowed values in each grid box
            ! and the sum of the max and min inputs to each grid box
 
-           do k = kbv, mza-1
+           do k = kbv, mza
               iwr = iwrecv(k,iv)
 
               scp_local_min(k,iwr) = min(scp_local_min(k,iwr), scp_vin_min(k))
@@ -473,7 +471,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
         do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
            ! Vertical loop over T levels
-           do k = lpw(iw), mza-1
+           do k = lpw(iw), mza
 
               scp_out_min(k,iw) = (scp(k,iw) + c_scp_in_max_sum(k,iw) - &
                    scp_local_max(k,iw) * tfact(k,iw)) * cfl_out_sum(k,iw)
@@ -489,7 +487,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
         ! MPI send of scalar max/min outflow values
 
         if (iparallel == 1) then
-           call mpi_send_w('G', gxps_scp=scp_out_min, gyps_scp=scp_out_max)
+           call mpi_send_w(mrl, rvara1=scp_out_min, rvara2=scp_out_max)
         endif
 
 ! Limit the vertical fluxes based on the computed scalar outgoing max/min values
@@ -500,7 +498,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
         do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
            ! Vertical loop over W levels
-           do k = lpw(iw), mza-2
+           do k = lpw(iw), mza-1
               kd = kdepw(k,iw)
               scp_upw(k,iw) = min( scp_upw(k,iw), scp_out_max(kd,iw))
               scp_upw(k,iw) = max( scp_upw(k,iw), scp_out_min(kd,iw))
@@ -512,7 +510,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 ! MPI receive of scalar max/min outflow values
 
         if (iparallel == 1) then
-           call mpi_recv_w('G', gxps_scp=scp_out_min, gyps_scp=scp_out_max)
+           call mpi_recv_w(mrl, rvara1=scp_out_min, rvara2=scp_out_max)
         endif
 
         call lbcopy_w(mrl, a1=scp_out_min, a2=scp_out_max)
@@ -524,7 +522,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
         do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
            ! Vertical loop over T levels
-           do  k = lpv(iv), mza-1
+           do  k = lpv(iv), mza
               iwd = iwdepv(k,iv)
 
               scp_upv(k,iv) = min( scp_upv(k,iv), scp_out_max(k,iwd) )
@@ -569,7 +567,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
    
 ! Vertical loop over T levels 
 
-           do k = kbv, mza-1
+           do k = kbv, mza
 
 ! Horizontal advective and diffusive scalar fluxes
 
@@ -584,7 +582,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
 ! Vertical loop over W levels
 
-        do k = kb, mza-2
+        do k = kb, mza-1
 
            vfluxadv(k) = wmsc(k,iw) * arw(k,iw) * scp_upw(k,iw)
 
@@ -593,11 +591,11 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 ! Set bottom & top vertical advective fluxes to zero
 
         vfluxadv(kb-1)  = 0.
-        vfluxadv(mza-1) = 0.
+        vfluxadv(mza) = 0.
 
 ! Vertical loop over T levels
 
-        do k = kb,mza-1
+        do k = kb,mza
 
 ! Add contributions to scalar tendency from horizontal and vertical 
 ! advection and diffusion
@@ -625,8 +623,6 @@ subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
   use misc_coms,  only: io6
   use max_dims,   only: maxgrds
 
-  !$ use omp_lib
-
   implicit none
 
   integer, intent(in) :: mrl
@@ -641,13 +637,11 @@ subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
 
 ! Horizontal loop over W columns for BEGS
 
-  call psub()
 !----------------------------------------------------------------------
   !$omp parallel do private(iw,npoly,kb,jw1,jw2,iw1,iw2,iv1, &
   !$omp                     iv2,gxps1,gyps1,gxps2,gyps2,k,gwz)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
-  call qsub('W',iw)
 
      npoly = itab_w(iw)%npoly
      kb = lpw(iw)
@@ -676,7 +670,7 @@ subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
 ! Vertical loop over T levels
 ! Zero-gradient lateral B.C. below lpv(iv1)
 
-        do k = lpv(iv1), mza-1
+        do k = lpv(iv1), mza
            gxps(k,iw) = gxps(k,iw) + gxps1 * (scp(k,iw1) - scp(k,iw))
            gyps(k,iw) = gyps(k,iw) + gyps1 * (scp(k,iw1) - scp(k,iw))
         enddo
@@ -684,7 +678,7 @@ subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
 ! Vertical loop over T levels
 ! Zero-gradient lateral B.C. below lpv(iv2)
 
-        do k = lpv(iv2), mza-1
+        do k = lpv(iv2), mza
            gxps(k,iw) = gxps(k,iw) + gxps2 * (scp(k,iw2) - scp(k,iw))
            gyps(k,iw) = gyps(k,iw) + gyps2 * (scp(k,iw2) - scp(k,iw))
         enddo
@@ -693,27 +687,26 @@ subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
 
 ! Vertical loop over W levels
 
-     do k = kb, mza-2
+     do k = kb, mza-1
         gwz(k) = dzim(k) * (scp(k+1,iw) - scp(k,iw))
      enddo
 
 ! Constant gradient top and bottom:
      gwz(kb-1)  = gwz(kb)
-     gwz(mza-1) = gwz(mza-2)
+     gwz(mza) = gwz(mza-1)
 
 ! Zero-gradient top and bottom:
 !    gwz(kb-1)  = 0.0
-!    gwz(mza-1) = 0.0
+!    gwz(mza) = 0.0
 
 ! Vertical loop over T levels
  
-     do k = kb, mza-1
+     do k = kb, mza
         gzps(k,iw) = 0.5 * (gwz(k-1) + gwz(k))
      enddo
 
   enddo
   !$omp end parallel do
-  call rsub('Wa',16)
 
   return
 end subroutine grad_t3d
@@ -731,8 +724,6 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv, &
   use misc_coms,   only: io6, dtlm, dtsm, mdomain
   use max_dims,    only: maxgrds
   use consts_coms, only: eradi
-
-  !$ use omp_lib
 
   implicit none
 
@@ -767,7 +758,6 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv, &
 
 ! Horizontal loop over V points
 
-  call psub()
 !----------------------------------------------------------------------------
   !$omp parallel do private(iv,iw1,iw2,kb,k,dto2,dxps1,dyps1,dxps2,dyps2, &
   !$omp                     cosv1,sinv1,cosv2,sinv2,wnx_v,wny_v,wnz_v, &
@@ -775,7 +765,6 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv, &
   do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------------
-  call qsub('V',iv)
 
      kb = lpv(iv)
 
@@ -805,7 +794,7 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv, &
 
 ! Vertical loop over T/V levels
 
-     do k = kb, mza-1
+     do k = kb, mza
 
 ! Average 3 earth velocity components from T points to V face
 
@@ -827,7 +816,7 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv, &
 ! Compute X, Y displacement components for V face relative to T point
 ! Vertical loop over T/V levels
 
-     do k = kb, mza-1
+     do k = kb, mza
 
         if (vs(k,iv) > 0.0) then
 
@@ -850,7 +839,7 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv, &
      enddo
 
   enddo
-  call rsub('V',15)
+  !$omp end parallel do
 
   return
 end subroutine donorpointv
@@ -866,8 +855,6 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw, &
   use mem_grid,   only: mza, mwa, lpw, zt, zm
   use misc_coms,  only: io6, dtlm, dtsm
   use max_dims,   only: maxgrds
-
-  !$ use omp_lib
 
   implicit none
 
@@ -899,13 +886,11 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw, &
 
 ! Horizontal loop over all primary W points
 
-  call psub()
 !------------------------------------------------------------------------
   !$omp parallel do private(iw,kb,k,dto2,unx_w,uny_w,vnx_w,vny_w,vnz_w, &
   !$omp                     vxeface,vyeface,vzeface,uface,vface) 
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !------------------------------------------------------------------------
-  call qsub('W',iw)
 
      kb = lpw(iw)
 
@@ -920,7 +905,7 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw, &
 
 ! Vertical loop over W levels
 
-     do k = kb, mza-1
+     do k = kb, mza
 
 ! Average 3 velocity components from T points to W point
 
@@ -944,7 +929,7 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw, &
 ! and store the vertical donor and recv cell indices.
 ! Vertical loop over W levels
 
-     do k = kb, mza-2
+     do k = kb, mza-1
 
         if (ws(k,iw) > 0.0) then
 
@@ -964,12 +949,129 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw, &
 
      enddo
    
-     kdepw (mza-1,iw) = mza-1
-     krecw (mza-1,iw) = mza
-     dzps_w(mza-1,iw) = zm(mza-1) - zt(mza-1)
+     kdepw (mza,iw) = mza
+     krecw (mza,iw) = mza
+     dzps_w(mza,iw) = zm(mza) - zt(mza)
 
   enddo
-  call rsub('V',15)
+  !$omp end parallel do
 
   return
 end subroutine donorpointw
+
+!===========================================================================
+
+subroutine zero_momsc(vmsc,wmsc,rho_old)
+
+use mem_ijtabs, only: jtab_v, jtab_w, istp, mrl_begl, jtv_wstn, jtw_wstn
+use mem_grid,   only: mza, mva, mwa, lpw
+use mem_basic,  only: rho
+use misc_coms,  only: io6
+
+implicit none
+
+real, intent(out) :: vmsc(mza,mva)
+real, intent(out) :: wmsc(mza,mwa)
+real(kind=8), intent(out) :: rho_old(mza,mwa)
+
+integer :: j,k,iv,iw,mrl
+
+mrl = mrl_begl(istp)
+
+! Zero out long timestep mass flux components (used for scalar advective 
+! transport) so they may be summed over small timesteps
+
+if (mrl > 0) then
+
+!----------------------------------------------------------------------
+   !$omp parallel do
+   do iv = 2, mva
+!----------------------------------------------------------------------
+
+      vmsc(:,iv) = 0.0
+
+   enddo
+   !$omp end parallel do
+
+!----------------------------------------------------------------------
+   !$omp parallel do private(k)
+   do iw = 2, mwa
+!----------------------------------------------------------------------
+
+      wmsc(:,iw) = 0.0
+
+      ! Save DT_LONG density for use with scalar updates
+
+      do k = 1, lpw(iw)-2
+         rho_old(k,iw) = 0.0
+      enddo
+      do k = lpw(iw)-1, mza
+         rho_old(k,iw) = rho(k,iw)
+      enddo
+
+   enddo
+   !$omp end parallel do
+
+endif
+
+return
+end subroutine zero_momsc
+
+!===========================================================================
+
+subroutine timeavg_momsc(vmsc,wmsc)
+
+use mem_ijtabs, only: jtab_v, itab_v, jtab_w, itab_w, istp, mrl_endl, &
+                      jtv_prog, jtw_prog
+use mem_grid,   only: mza, mva, mwa, lpv, lpw
+use misc_coms,  only: io6, nacoust
+
+implicit none
+
+real, intent(inout) :: vmsc(mza,mva)
+real, intent(inout) :: wmsc(mza,mwa)
+
+integer :: j,k,iv,iw,mrl,mrlv,mrlw
+real :: acoi
+
+mrl = mrl_endl(istp)
+if (mrl > 0) then
+
+!----------------------------------------------------------------------
+   !$omp parallel do private(mrlv,acoi,k)
+   do iv = 2, mva
+!----------------------------------------------------------------------
+
+      mrlv = itab_v(iv)%mrlv
+      acoi = 1.0 / real(nacoust(mrlv))
+
+      do k = lpv(iv), mza
+         vmsc(k,iv) = vmsc(k,iv) * acoi
+      enddo
+
+   enddo
+   !$omp end parallel do
+
+!----------------------------------------------------------------------
+   !$omp parallel do private(mrlw,acoi,k)
+   do iw = 2, mwa
+!----------------------------------------------------------------------
+
+      mrlw = itab_w(iw)%mrlw
+      acoi = 1.0 / real(nacoust(mrlw))
+
+      wmsc(lpw(iw)-1,iw) = 0.0
+
+      do k = lpw(iw), mza-1
+         wmsc(k,iw) = wmsc(k,iw) * acoi
+      enddo
+
+      wmsc(mza,iw) = 0.0
+
+   enddo
+   !$omp end parallel do
+
+endif
+
+return
+end subroutine timeavg_momsc

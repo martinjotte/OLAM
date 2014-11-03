@@ -1,3 +1,35 @@
+!===============================================================================
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
+
+! Portions of this software are copied or derived from the RAMS software
+! package.  The following copyright notice pertains to RAMS and its derivatives,
+! including OLAM:  
+
+   !----------------------------------------------------------------------------
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
+   ! Colorado State University Research Foundation ; ATMET, LLC 
+
+   ! This software is free software; you can redistribute it and/or modify it 
+   ! under the terms of the GNU General Public License as published by the Free
+   ! Software Foundation; either version 2 of the License, or (at your option)
+   ! any later version. 
+
+   ! This software is distributed in the hope that it will be useful, but
+   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+   ! for more details.
+ 
+   ! You should have received a copy of the GNU General Public License along
+   ! with this program; if not, write to the Free Software Foundation, Inc.,
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
+   ! (http://www.gnu.org/licenses/gpl.html) 
+   !----------------------------------------------------------------------------
+
+!===============================================================================
 subroutine inc_mavg_vars()
 
   use mem_average_vars, only: &
@@ -14,10 +46,10 @@ subroutine inc_mavg_vars()
      latflux_avg24, sensflux_avg24, &
      accpmic_tot24, accpcon_tot24
 
-  use mem_grid,    only: mwa, lpw, zt, zm, mza, dzim, mua, lpu, lpv, mva
+  use mem_grid,    only: mwa, lpw, zt, zm, mza, dzim, lpv, mva
   use mem_basic,   only: wc, sh_v, sh_w, tair, press, rho, vxe, vye, vze
   use consts_coms, only: alvl, cp
-  use mem_turb,    only: sflux_r, sflux_t
+  use mem_turb,    only: sfluxr, sfluxt
   use misc_coms,   only: io6, dtlong, time8
   use mem_cuparm,  only: conprr
   use mem_micro,   only: pcpgr
@@ -76,8 +108,8 @@ subroutine inc_mavg_vars()
           rlongup_mavg(iw) =      rlongup_mavg(iw) + rlongup     (iw) 
       rlongup_top_mavg(iw) =  rlongup_top_mavg(iw) + rlongup_top (iw) 
 
-       latflux_mavg(iw) =   latflux_mavg(iw) + sflux_r(iw) * alvl
-      sensflux_mavg(iw) =  sensflux_mavg(iw) + sflux_t(iw) * cp
+       latflux_mavg(iw) =   latflux_mavg(iw) + sfluxr(iw) * alvl
+      sensflux_mavg(iw) =  sensflux_mavg(iw) + sfluxt(iw) * cp
      windspeed_mavg(iw) = windspeed_mavg(iw) + windspeed
 
      accpmic_mtot(iw) = accpmic_mtot(iw) + pcpgr(iw) * dtlong
@@ -101,8 +133,8 @@ subroutine inc_mavg_vars()
             rlong_avg24(dhr,iw) =        rlong_avg24(dhr,iw) + rlong(iw)
           rlongup_avg24(dhr,iw) =      rlongup_avg24(dhr,iw) + rlongup(iw)
       rlongup_top_avg24(dhr,iw) =  rlongup_top_avg24(dhr,iw) + rlongup_top(iw)
-          latflux_avg24(dhr,iw) =      latflux_avg24(dhr,iw) + sflux_r(iw) * alvl
-         sensflux_avg24(dhr,iw) =     sensflux_avg24(dhr,iw) + sflux_t(iw) * cp
+          latflux_avg24(dhr,iw) =      latflux_avg24(dhr,iw) + sfluxr(iw) * alvl
+         sensflux_avg24(dhr,iw) =     sensflux_avg24(dhr,iw) + sfluxt(iw) * cp
           accpmic_tot24(dhr,iw) =      accpmic_tot24(dhr,iw) + pcpgr (iw) * dtlong
      if (allocated(conprr)) then
           accpcon_tot24(dhr,iw) =      accpcon_tot24(dhr,iw) + conprr(iw) * dtlong
@@ -122,22 +154,20 @@ subroutine inc_davg_vars()
      press_davg, vxe_davg, vye_davg, vze_davg, rshort_davg, &
      tempk_davg, tempk_dmin, tempk_dmax, accpmic_dtot, accpcon_dtot, &
      press_ul_davg, vxe_ul_davg, vye_ul_davg, vze_ul_davg, &
-       canltempk_davg,   canltempk_dmin,   canltempk_dmax, &
-        vegtempk_davg,    vegtempk_dmin,    vegtempk_dmax, &
-       soiltempk_davg,   soiltempk_dmin,   soiltempk_dmax, &
-       canstempk_davg,   canstempk_dmin,   canstempk_dmax, &
-        tempk_lf_davg,    tempk_lf_dmin,    tempk_lf_dmax, &
-     cantempk_lf_davg, cantempk_lf_dmin, cantempk_lf_dmax, &
-       sfluxt_lf_davg,   sfluxr_lf_davg,                   &
-        tempk_sf_davg,    tempk_sf_dmin,    tempk_sf_dmax, &
-     cantempk_sf_davg, cantempk_sf_dmin, cantempk_sf_dmax, &
-       sfluxt_sf_davg,   sfluxr_sf_davg
+     airtempk_l_davg,  airtempk_l_dmin,  airtempk_l_dmax, &
+     cantempk_l_davg,  cantempk_l_dmin,  cantempk_l_dmax, &
+       vegtempk_davg,    vegtempk_dmin,    vegtempk_dmax, &
+      soiltempk_davg,   soiltempk_dmin,   soiltempk_dmax, &
+       sfluxt_l_davg,    sfluxr_l_davg,                   &
+     airtempk_s_davg,  airtempk_s_dmin,  airtempk_s_dmax, &
+     cantempk_s_davg,  cantempk_s_dmin,  cantempk_s_dmax, &
+       sfluxt_s_davg,    sfluxr_s_davg
 
   use mem_ijtabs,  only: itabg_w, jtab_w, jtw_prog
   use mem_grid,    only: mwa, lpw, zt, zm, mza, dzim
   use mem_basic,   only: wc, sh_v, sh_w, tair, press, rho, vxe, vye, vze
   use consts_coms, only: alvl, cp
-  use mem_turb,    only: sflux_r, sflux_t
+  use mem_turb,    only: sfluxr, sfluxt
   use misc_coms,   only: io6, dtlong, time8, isubdomain
   use mem_cuparm,  only: conprr
   use mem_micro,   only: pcpgr
@@ -148,13 +178,12 @@ subroutine inc_davg_vars()
   use mem_leaf,  only: land, itabg_wl, itab_wl
   use sea_coms,  only: mws
   use mem_sea,   only: sea, itabg_ws, itab_ws
-  use mem_sflux, only: landflux, seaflux, jlandflux, jseaflux
   use mem_para,  only: myrank
 
   implicit none
   
-  integer :: j, iw, k, iwl, iws, kw, ilf, isf
-  real :: tempk, cantempk, vegtempk, soiltempk, fracliq
+  integer :: j, iw, k, iwl, iws, kw
+  real :: airtempk, cantempk, vegtempk, soiltempk, fracliq
   integer, dimension(nz_avg-1) :: level_list = (/ 8, 13, 18, 26, 30, 34 /)
 
   npoints_davg = npoints_davg + 1
@@ -193,9 +222,8 @@ subroutine inc_davg_vars()
 
   do iwl = 2, mwl
 
-     if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
-
-     cantempk = land%can_temp(iwl)
+     airtempk = land%airtemp (iwl)
+     cantempk = land%cantemp(iwl)
      vegtempk = land%veg_temp(iwl)
 
      call qwtk(land%soil_energy(nzg,iwl),       &
@@ -203,12 +231,18 @@ subroutine inc_davg_vars()
                slcpd(land%ntext_soil(nzg,iwl)), &
                soiltempk, fracliq)
 
-     canltempk_davg(iwl) = canltempk_davg(iwl) +  cantempk
-      vegtempk_davg(iwl) =  vegtempk_davg(iwl) +  vegtempk
-     soiltempk_davg(iwl) = soiltempk_davg(iwl) + soiltempk
+     airtempk_l_davg(iwl) = airtempk_l_davg(iwl) +  airtempk
+     cantempk_l_davg(iwl) = cantempk_l_davg(iwl) +  cantempk
+       vegtempk_davg(iwl) =   vegtempk_davg(iwl) +  vegtempk
+      soiltempk_davg(iwl) =  soiltempk_davg(iwl) + soiltempk
+       sfluxt_l_davg(iwl) =   sfluxt_l_davg(iwl) + land%sfluxt(iwl)
+       sfluxr_l_davg(iwl) =   sfluxr_l_davg(iwl) + land%sfluxr(iwl)
 
-     if (canltempk_dmin(iwl) > cantempk) canltempk_dmin(iwl) = cantempk
-     if (canltempk_dmax(iwl) < cantempk) canltempk_dmax(iwl) = cantempk
+     if (airtempk_l_dmin(iwl) > airtempk) airtempk_l_dmin(iwl) = airtempk
+     if (airtempk_l_dmax(iwl) < airtempk) airtempk_l_dmax(iwl) = airtempk
+
+     if (cantempk_l_dmin(iwl) > cantempk) cantempk_l_dmin(iwl) = cantempk
+     if (cantempk_l_dmax(iwl) < cantempk) cantempk_l_dmax(iwl) = cantempk
 
      if (vegtempk_dmin(iwl) > vegtempk) vegtempk_dmin(iwl) = vegtempk
      if (vegtempk_dmax(iwl) < vegtempk) vegtempk_dmax(iwl) = vegtempk
@@ -221,68 +255,19 @@ subroutine inc_davg_vars()
 
   do iws = 2, mws
 
-     if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
+     airtempk = sea%airtemp (iws)
+     cantempk = sea%cantemp(iws)
 
-     cantempk = sea%can_temp(iws)
+     airtempk_s_davg(iws) = airtempk_s_davg(iws) + airtempk
+     cantempk_s_davg(iws) = cantempk_s_davg(iws) + cantempk
+       sfluxt_s_davg(iws) =   sfluxt_s_davg(iws) + sea%sfluxt(iws)
+       sfluxr_s_davg(iws) =   sfluxr_s_davg(iws) + sea%sfluxr(iws)
 
-     canstempk_davg(iws) = canstempk_davg(iws) + cantempk
+     if (airtempk_s_dmin(iws) > airtempk) airtempk_s_dmin(iws) = airtempk
+     if (airtempk_s_dmax(iws) < airtempk) airtempk_s_dmax(iws) = airtempk
 
-     if (canstempk_dmin(iws) > cantempk) canstempk_dmin(iws) = cantempk
-     if (canstempk_dmax(iws) < cantempk) canstempk_dmax(iws) = cantempk
-  enddo
-
-! Horizontal loop over all landflux cells
-
-  do j = 1,jlandflux(1)%jend(1)
-     ilf = jlandflux(1)%ilandflux(j)
-     iw  = landflux(ilf)%iw         ! global index
-     kw  = landflux(ilf)%kw
-     iwl = landflux(ilf)%iwls       ! global index
-
-     if (isubdomain == 1) then
-        iw  = itabg_w (iw )%iw_myrank  ! Local rank index (if MPI parallel)
-        iwl = itabg_wl(iwl)%iwl_myrank ! Local rank index (if MPI parallel)
-     endif
-
-     cantempk = land%can_temp(iwl)
-
-        tempk_lf_davg(ilf) =    tempk_lf_davg(ilf) + tair(kw,iw)
-     cantempk_lf_davg(ilf) = cantempk_lf_davg(ilf) + cantempk
-       sfluxt_lf_davg(ilf) =   sfluxt_lf_davg(ilf) + landflux(ilf)%sfluxt
-       sfluxr_lf_davg(ilf) =   sfluxr_lf_davg(ilf) + landflux(ilf)%sfluxr
-
-     if (tempk_lf_dmin(ilf) > tair(kw,iw)) tempk_lf_dmin(ilf) = tair(kw,iw)
-     if (tempk_lf_dmax(ilf) < tair(kw,iw)) tempk_lf_dmax(ilf) = tair(kw,iw)
-
-     if (cantempk_lf_dmin(ilf) > cantempk) cantempk_lf_dmin(ilf) = cantempk
-     if (cantempk_lf_dmax(ilf) < cantempk) cantempk_lf_dmax(ilf) = cantempk
-  enddo
-
-! Horizontal loop over all seaflux cells
-
-  do j = 1,jseaflux(1)%jend(1)
-     isf = jseaflux(1)%iseaflux(j)
-     iw  = seaflux(isf)%iw         ! global index
-     kw  = seaflux(isf)%kw
-     iws = seaflux(isf)%iwls           ! global index
-
-     if (isubdomain == 1) then
-        iw  = itabg_w (iw )%iw_myrank  ! Local rank index (if MPI parallel)
-        iws = itabg_ws(iws)%iws_myrank ! Local rank index (if MPI parallel)
-     endif
-
-     cantempk = sea%can_temp(iws)
-
-        tempk_sf_davg(isf) =    tempk_sf_davg(isf) + tair(kw,iw)
-     cantempk_sf_davg(isf) = cantempk_sf_davg(isf) + cantempk
-       sfluxt_sf_davg(isf) =   sfluxt_sf_davg(isf) + seaflux(isf)%sfluxt
-       sfluxr_sf_davg(isf) =   sfluxr_sf_davg(isf) + seaflux(isf)%sfluxr
-
-     if (tempk_sf_dmin(isf) > tair(kw,iw)) tempk_sf_dmin(isf) = tair(kw,iw)
-     if (tempk_sf_dmax(isf) < tair(kw,iw)) tempk_sf_dmax(isf) = tair(kw,iw)
-
-     if (cantempk_sf_dmin(isf) > cantempk) cantempk_sf_dmin(isf) = cantempk
-     if (cantempk_sf_dmax(isf) < cantempk) cantempk_sf_dmax(isf) = cantempk
+     if (cantempk_s_dmin(iws) > cantempk) cantempk_s_dmin(iws) = cantempk
+     if (cantempk_s_dmax(iws) < cantempk) cantempk_s_dmax(iws) = cantempk
   enddo
 
   return
@@ -372,23 +357,22 @@ subroutine norm_davg_vars()
      npoints_davg, &
      press_davg, vxe_davg, vye_davg, vze_davg, rshort_davg, tempk_davg, &
      press_ul_davg, vxe_ul_davg, vye_ul_davg, vze_ul_davg, &
-     canltempk_davg,    vegtempk_davg, soiltempk_davg, canstempk_davg, &
-      tempk_lf_davg, cantempk_lf_davg, sfluxt_lf_davg, sfluxr_lf_davg, &
-      tempk_sf_davg, cantempk_sf_davg, sfluxt_sf_davg, sfluxr_sf_davg
+         vegtempk_davg, soiltempk_davg, &
+     cantempk_l_davg, airtempk_l_davg, sfluxt_l_davg, sfluxr_l_davg, &
+     cantempk_s_davg, airtempk_s_davg, sfluxt_s_davg, sfluxr_s_davg
 
   use mem_grid,  only: mwa
   use leaf_coms, only: mwl
   use mem_leaf,  only: itab_wl
   use sea_coms,  only: mws
   use mem_sea,   only: itab_ws
-  use mem_sflux, only: jlandflux, jseaflux
   use mem_ijtabs,only: jtab_w, jtw_prog
   use misc_coms, only: isubdomain
   use mem_para,  only: myrank
 
   implicit none
 
-  integer :: iw, iwl, iws, j, ilf, isf
+  integer :: iw, iwl, iws, j
   real :: ni
 
   ni = 1. / npoints_davg
@@ -409,37 +393,22 @@ subroutine norm_davg_vars()
 
   do iwl = 2, mwl
      if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
-     canltempk_davg(iwl) = canltempk_davg(iwl) * ni
-      vegtempk_davg(iwl) =  vegtempk_davg(iwl) * ni
-     soiltempk_davg(iwl) = soiltempk_davg(iwl) * ni
+     airtempk_l_davg(iwl) = airtempk_l_davg(iwl) * ni
+     cantempk_l_davg(iwl) = cantempk_l_davg(iwl) * ni
+       vegtempk_davg(iwl) =   vegtempk_davg(iwl) * ni
+      soiltempk_davg(iwl) =  soiltempk_davg(iwl) * ni
+       sfluxt_l_davg(iwl) =   sfluxt_l_davg(iwl) * ni
+       sfluxr_l_davg(iwl) =   sfluxr_l_davg(iwl) * ni
   enddo
 
   do iws = 2, mws
      if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
-     canstempk_davg(iws) = canstempk_davg(iws) * ni
+     airtempk_s_davg(iws) = airtempk_s_davg(iws) * ni
+     cantempk_s_davg(iws) = cantempk_s_davg(iws) * ni
+       sfluxt_s_davg(iws) =   sfluxt_s_davg(iws) * ni
+       sfluxr_s_davg(iws) =   sfluxr_s_davg(iws) * ni
   enddo
 
-  do j = 1,jlandflux(1)%jend(1)
-     ilf = jlandflux(1)%ilandflux(j)
-
-        tempk_lf_davg(ilf) =    tempk_lf_davg(ilf) * ni
-     cantempk_lf_davg(ilf) = cantempk_lf_davg(ilf) * ni
-       sfluxt_lf_davg(ilf) =   sfluxt_lf_davg(ilf) * ni
-       sfluxr_lf_davg(ilf) =   sfluxr_lf_davg(ilf) * ni
-  enddo
-
-! Horizontal loop over all seaflux cells
-
-  do j = 1,jseaflux(1)%jend(1)
-     isf = jseaflux(1)%iseaflux(j)
-
-        tempk_sf_davg(isf) =    tempk_sf_davg(isf) * ni
-     cantempk_sf_davg(isf) = cantempk_sf_davg(isf) * ni
-       sfluxt_sf_davg(isf) =   sfluxt_sf_davg(isf) * ni
-       sfluxr_sf_davg(isf) =   sfluxr_sf_davg(isf) * ni
-  enddo
-
-  return
 end subroutine norm_davg_vars
 
 !===============================================================
@@ -488,7 +457,7 @@ subroutine write_mavg_vars(outyear,outmonth)
      if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
      wstorage(iwl) = sum(land%sfcwater_mass(1:nzs,iwl)) +   &
           land%veg_water(iwl) +   &
-          land%rhos(iwl) * land%can_depth(iwl) * land%can_shv(iwl)
+          land%rhos(iwl) * land%can_depth(iwl) * land%canshv(iwl)
      tot_soil_water = 0.0
      do k = 1, nzg
         tot_soil_water = tot_soil_water +   &
@@ -672,16 +641,14 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
      press_davg, vxe_davg, vye_davg, vze_davg, rshort_davg, &
      tempk_davg, tempk_dmin, tempk_dmax, accpmic_dtot, accpcon_dtot, &
      press_ul_davg, vxe_ul_davg, vye_ul_davg, vze_ul_davg, &
-     canltempk_davg, canltempk_dmin, canltempk_dmax, &
-      vegtempk_davg,  vegtempk_dmin,  vegtempk_dmax, &
-     soiltempk_davg, soiltempk_dmin, soiltempk_dmax, &
-     canstempk_davg, canstempk_dmin, canstempk_dmax, &
-        tempk_lf_davg,    tempk_lf_dmin,    tempk_lf_dmax, &
-     cantempk_lf_davg, cantempk_lf_dmin, cantempk_lf_dmax, &
-       sfluxt_lf_davg,   sfluxr_lf_davg,                   &
-        tempk_sf_davg,    tempk_sf_dmin,    tempk_sf_dmax, &
-     cantempk_sf_davg, cantempk_sf_dmin, cantempk_sf_dmax, &
-       sfluxt_sf_davg,   sfluxr_sf_davg
+     airtempk_l_davg, airtempk_l_dmin, airtempk_l_dmax, &
+     cantempk_l_davg, cantempk_l_dmin, cantempk_l_dmax, &
+       vegtempk_davg,   vegtempk_dmin,   vegtempk_dmax, &
+      soiltempk_davg,  soiltempk_dmin,  soiltempk_dmax, &
+       sfluxt_l_davg,   sfluxr_l_davg,                  &
+     airtempk_s_davg, airtempk_s_dmin, airtempk_s_dmax, &
+     cantempk_s_davg, cantempk_s_dmin, cantempk_s_dmax, &
+       sfluxt_s_davg,   sfluxr_s_davg
 
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
   use mem_grid,   only: mwa, nwa
@@ -689,13 +656,10 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
                         imonth1, idate1, itime1, ipar_out
   use mem_para,   only: myrank, iwa_globe_primary, iwa_local_primary, &
                                 iwl_globe_primary, iwl_local_primary, &
-                                iws_globe_primary, iws_local_primary, &
-                                ifl_globe_primary, ifl_local_primary, &
-                                ifs_globe_primary, ifs_local_primary
+                                iws_globe_primary, iws_local_primary
 
   use leaf_coms,  only: mwl, nwl
   use sea_coms,   only: mws, nws
-  use mem_sflux,  only: nseaflux, mseaflux, nlandflux, mlandflux
 
   implicit none
 
@@ -804,23 +768,33 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
      igpts => iwl_globe_primary
      nglobe = nwl
 
-     call shdf5_orec(ndims,idims,'CANLTEMPK_DAVG',rvara=canltempk_davg, &
+     call shdf5_orec(ndims,idims,'AIRTEMPK_L_DAVG',rvara=airtempk_l_davg, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANLTEMPK_DMIN',rvara=canltempk_dmin, &
+     call shdf5_orec(ndims,idims,'AIRTEMPK_L_DMIN',rvara=airtempk_l_dmin, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANLTEMPK_DMAX',rvara=canltempk_dmax, &
+     call shdf5_orec(ndims,idims,'AIRTEMPK_L_DMAX',rvara=airtempk_l_dmax, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims, 'VEGTEMPK_DAVG',rvara= vegtempk_davg, &
+     call shdf5_orec(ndims,idims,'CANTEMPK_L_DAVG',rvara=cantempk_l_davg, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims, 'VEGTEMPK_DMIN',rvara= vegtempk_dmin, &
+     call shdf5_orec(ndims,idims,'CANTEMPK_L_DMIN',rvara=cantempk_l_dmin, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims, 'VEGTEMPK_DMAX',rvara= vegtempk_dmax, &
+     call shdf5_orec(ndims,idims,'CANTEMPK_L_DMAX',rvara=cantempk_l_dmax, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'SOILTEMPK_DAVG',rvara=soiltempk_davg, &
+     call shdf5_orec(ndims,idims,  'VEGTEMPK_DAVG',rvara=  vegtempk_davg, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'SOILTEMPK_DMIN',rvara=soiltempk_dmin, &
+     call shdf5_orec(ndims,idims,  'VEGTEMPK_DMIN',rvara=  vegtempk_dmin, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'SOILTEMPK_DMAX',rvara=soiltempk_dmax, &
+     call shdf5_orec(ndims,idims,  'VEGTEMPK_DMAX',rvara=  vegtempk_dmax, &
+          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+     call shdf5_orec(ndims,idims, 'SOILTEMPK_DAVG',rvara= soiltempk_davg, &
+          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+     call shdf5_orec(ndims,idims, 'SOILTEMPK_DMIN',rvara= soiltempk_dmin, &
+          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+     call shdf5_orec(ndims,idims, 'SOILTEMPK_DMAX',rvara= soiltempk_dmax, &
+          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+     call shdf5_orec(ndims,idims,  'SFLUXT_L_DAVG',rvara=  sfluxt_l_davg, &
+          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+     call shdf5_orec(ndims,idims,  'SFLUXR_L_DAVG',rvara=  sfluxr_l_davg, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
 
      idims(1) = mws
@@ -829,57 +803,21 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
      igpts => iws_globe_primary
      nglobe = nws
 
-     call shdf5_orec(ndims,idims,'CANSTEMPK_DAVG',rvara=canstempk_davg, &
+     call shdf5_orec(ndims,idims,'AIRTEMPK_S_DAVG',rvara=airtempk_s_davg, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANSTEMPK_DMIN',rvara=canstempk_dmin, &
+     call shdf5_orec(ndims,idims,'AIRTEMPK_S_DMIN',rvara=airtempk_s_dmin, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANSTEMPK_DMAX',rvara=canstempk_dmax, &
+     call shdf5_orec(ndims,idims,'AIRTEMPK_S_DMAX',rvara=airtempk_s_dmax, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-
-     idims(1) = mlandflux
-
-     ilpts => ifl_local_primary
-     igpts => ifl_globe_primary
-     nglobe = nlandflux
-
-     call shdf5_orec(ndims,idims,   'TEMPK_LF_DAVG',rvara=   tempk_lf_davg, &
+     call shdf5_orec(ndims,idims,'CANTEMPK_S_DAVG',rvara=cantempk_s_davg, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,   'TEMPK_LF_DMIN',rvara=   tempk_lf_dmin, &
+     call shdf5_orec(ndims,idims,'CANTEMPK_S_DMIN',rvara=cantempk_s_dmin, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,   'TEMPK_LF_DMAX',rvara=   tempk_lf_dmax, &
+     call shdf5_orec(ndims,idims,'CANTEMPK_S_DMAX',rvara=cantempk_s_dmax, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANTEMPK_LF_DAVG',rvara=cantempk_lf_davg, &
+     call shdf5_orec(ndims,idims,  'SFLUXT_S_DAVG',rvara=  sfluxt_s_davg, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANTEMPK_LF_DMIN',rvara=cantempk_lf_dmin, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANTEMPK_LF_DMAX',rvara=cantempk_lf_dmax, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'SFLUXT_LF_DAVG',rvara=  sfluxt_lf_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'SFLUXR_LF_DAVG',rvara=  sfluxr_lf_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-
-     idims(1) = mseaflux
-
-     ilpts => ifs_local_primary
-     igpts => ifs_globe_primary
-     nglobe = nseaflux
-
-     call shdf5_orec(ndims,idims,   'TEMPK_SF_DAVG',rvara=   tempk_sf_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,   'TEMPK_SF_DMIN',rvara=   tempk_sf_dmin, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,   'TEMPK_SF_DMAX',rvara=   tempk_sf_dmax, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANTEMPK_SF_DAVG',rvara=cantempk_sf_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANTEMPK_SF_DMIN',rvara=cantempk_sf_dmin, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANTEMPK_SF_DMAX',rvara=cantempk_sf_dmax, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'SFLUXT_SF_DAVG',rvara=  sfluxt_sf_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'SFLUXR_SF_DAVG',rvara=  sfluxr_sf_davg, &
+     call shdf5_orec(ndims,idims,  'SFLUXR_S_DAVG',rvara=  sfluxr_s_davg, &
           lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
 
   else
@@ -905,43 +843,31 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
 
      idims(1) = mwl
 
-     call shdf5_orec(ndims,idims,'CANLTEMPK_DAVG',rvara=canltempk_davg)
-     call shdf5_orec(ndims,idims, 'VEGTEMPK_DAVG',rvara= vegtempk_davg)
-     call shdf5_orec(ndims,idims,'SOILTEMPK_DAVG',rvara=soiltempk_davg)
-     call shdf5_orec(ndims,idims,'CANLTEMPK_DMIN',rvara=canltempk_dmin)
-     call shdf5_orec(ndims,idims,'CANLTEMPK_DMAX',rvara=canltempk_dmax)
-     call shdf5_orec(ndims,idims, 'VEGTEMPK_DMIN',rvara= vegtempk_dmin)
-     call shdf5_orec(ndims,idims, 'VEGTEMPK_DMAX',rvara= vegtempk_dmax)
-     call shdf5_orec(ndims,idims,'SOILTEMPK_DMIN',rvara=soiltempk_dmin)
-     call shdf5_orec(ndims,idims,'SOILTEMPK_DMAX',rvara=soiltempk_dmax)
+     call shdf5_orec(ndims,idims,'AIRTEMPK_L_DAVG',rvara=airtempk_l_davg)
+     call shdf5_orec(ndims,idims,'AIRTEMPK_L_DMIN',rvara=airtempk_l_dmin)
+     call shdf5_orec(ndims,idims,'AIRTEMPK_L_DMAX',rvara=airtempk_l_dmax)
+     call shdf5_orec(ndims,idims,'CANTEMPK_L_DAVG',rvara=cantempk_l_davg)
+     call shdf5_orec(ndims,idims,'CANTEMPK_L_DMIN',rvara=cantempk_l_dmin)
+     call shdf5_orec(ndims,idims,'CANTEMPK_L_DMAX',rvara=cantempk_l_dmax)
+     call shdf5_orec(ndims,idims,  'VEGTEMPK_DAVG',rvara=  vegtempk_davg)
+     call shdf5_orec(ndims,idims,  'VEGTEMPK_DMIN',rvara=  vegtempk_dmin)
+     call shdf5_orec(ndims,idims,  'VEGTEMPK_DMAX',rvara=  vegtempk_dmax)
+     call shdf5_orec(ndims,idims, 'SOILTEMPK_DAVG',rvara= soiltempk_davg)
+     call shdf5_orec(ndims,idims, 'SOILTEMPK_DMIN',rvara= soiltempk_dmin)
+     call shdf5_orec(ndims,idims, 'SOILTEMPK_DMAX',rvara= soiltempk_dmax)
+     call shdf5_orec(ndims,idims,  'SFLUXT_L_DAVG',rvara=  sfluxt_l_davg)
+     call shdf5_orec(ndims,idims,  'SFLUXR_L_DAVG',rvara=  sfluxr_l_davg)
 
      idims(1) = mws
 
-     call shdf5_orec(ndims,idims,'CANSTEMPK_DAVG',rvara=canstempk_davg)
-     call shdf5_orec(ndims,idims,'CANSTEMPK_DMIN',rvara=canstempk_dmin)
-     call shdf5_orec(ndims,idims,'CANSTEMPK_DMAX',rvara=canstempk_dmax)
-
-     idims(1) = mlandflux
-
-     call shdf5_orec(ndims,idims,   'TEMPK_LF_DAVG',rvara=   tempk_lf_davg)
-     call shdf5_orec(ndims,idims,   'TEMPK_LF_DMIN',rvara=   tempk_lf_dmin)
-     call shdf5_orec(ndims,idims,   'TEMPK_LF_DMAX',rvara=   tempk_lf_dmax)
-     call shdf5_orec(ndims,idims,'CANTEMPK_LF_DAVG',rvara=cantempk_lf_davg)
-     call shdf5_orec(ndims,idims,'CANTEMPK_LF_DMIN',rvara=cantempk_lf_dmin)
-     call shdf5_orec(ndims,idims,'CANTEMPK_LF_DMAX',rvara=cantempk_lf_dmax)
-     call shdf5_orec(ndims,idims,  'SFLUXT_LF_DAVG',rvara=  sfluxt_lf_davg)
-     call shdf5_orec(ndims,idims,  'SFLUXR_LF_DAVG',rvara=  sfluxr_lf_davg)
-
-     idims(1) = mseaflux
-
-     call shdf5_orec(ndims,idims,   'TEMPK_SF_DAVG',rvara=   tempk_sf_davg)
-     call shdf5_orec(ndims,idims,   'TEMPK_SF_DMIN',rvara=   tempk_sf_dmin)
-     call shdf5_orec(ndims,idims,   'TEMPK_SF_DMAX',rvara=   tempk_sf_dmax)
-     call shdf5_orec(ndims,idims,'CANTEMPK_SF_DAVG',rvara=cantempk_sf_davg)
-     call shdf5_orec(ndims,idims,'CANTEMPK_SF_DMIN',rvara=cantempk_sf_dmin)
-     call shdf5_orec(ndims,idims,'CANTEMPK_SF_DMAX',rvara=cantempk_sf_dmax)
-     call shdf5_orec(ndims,idims,  'SFLUXT_SF_DAVG',rvara=  sfluxt_sf_davg)
-     call shdf5_orec(ndims,idims,  'SFLUXR_SF_DAVG',rvara=  sfluxr_sf_davg)
+     call shdf5_orec(ndims,idims,'AIRTEMPK_S_DAVG',rvara=airtempk_s_davg)
+     call shdf5_orec(ndims,idims,'AIRTEMPK_S_DMIN',rvara=airtempk_s_dmin)
+     call shdf5_orec(ndims,idims,'AIRTEMPK_S_DMAX',rvara=airtempk_s_dmax)
+     call shdf5_orec(ndims,idims,'CANTEMPK_S_DAVG',rvara=cantempk_s_davg)
+     call shdf5_orec(ndims,idims,'CANTEMPK_S_DMIN',rvara=cantempk_s_dmin)
+     call shdf5_orec(ndims,idims,'CANTEMPK_S_DMAX',rvara=cantempk_s_dmax)
+     call shdf5_orec(ndims,idims,  'SFLUXT_S_DAVG',rvara=  sfluxt_s_davg)
+     call shdf5_orec(ndims,idims,  'SFLUXR_S_DAVG',rvara=  sfluxr_s_davg)
 
   endif
 
@@ -1078,23 +1004,20 @@ subroutine read_davg_vars(davgfile)
      press_davg, vxe_davg, vye_davg, vze_davg, rshort_davg, &
      tempk_davg, tempk_dmin, tempk_dmax, accpmic_dtot, accpcon_dtot, &
      press_ul_davg, vxe_ul_davg, vye_ul_davg, vze_ul_davg, &
-     canltempk_davg, canltempk_dmin, canltempk_dmax, &
-      vegtempk_davg,  vegtempk_dmin,  vegtempk_dmax, &
-     soiltempk_davg, soiltempk_dmin, soiltempk_dmax, &
-     canstempk_davg, canstempk_dmin, canstempk_dmax, &
-        tempk_lf_davg,    tempk_lf_dmin,    tempk_lf_dmax, &
-     cantempk_lf_davg, cantempk_lf_dmin, cantempk_lf_dmax, &
-       sfluxt_lf_davg,   sfluxr_lf_davg,                   &
-        tempk_sf_davg,    tempk_sf_dmin,    tempk_sf_dmax, &
-     cantempk_sf_davg, cantempk_sf_dmin, cantempk_sf_dmax, &
-       sfluxt_sf_davg,   sfluxr_sf_davg
+     airtempk_l_davg, airtempk_l_dmin, airtempk_l_dmax, &
+     cantempk_l_davg, cantempk_l_dmin, cantempk_l_dmax, &
+       vegtempk_davg,   vegtempk_dmin,   vegtempk_dmax, &
+      soiltempk_davg,  soiltempk_dmin,  soiltempk_dmax, &
+       sfluxt_l_davg,   sfluxr_l_davg,                  &
+     airtempk_s_davg, airtempk_s_dmin, airtempk_s_dmax, &
+     cantempk_s_davg, cantempk_s_dmin, cantempk_s_dmax, &
+       sfluxt_s_davg,   sfluxr_s_davg
 
   use misc_coms,  only: io6
   use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
   use mem_grid,   only: mwa
   use leaf_coms,  only: mwl
   use sea_coms,   only: mws
-  use mem_sflux,  only: mseaflux, mlandflux
 
   implicit none
 
@@ -1139,43 +1062,31 @@ subroutine read_davg_vars(davgfile)
 
      idims(1) = mwl
 
-     call shdf5_irec(ndims,idims,'CANLTEMPK_DAVG',rvara=canltempk_davg)
-     call shdf5_irec(ndims,idims, 'VEGTEMPK_DAVG',rvara= vegtempk_davg)
-     call shdf5_irec(ndims,idims,'SOILTEMPK_DAVG',rvara=soiltempk_davg)
-     call shdf5_irec(ndims,idims,'CANLTEMPK_DMIN',rvara=canltempk_dmin)
-     call shdf5_irec(ndims,idims,'CANLTEMPK_DMAX',rvara=canltempk_dmax)
-     call shdf5_irec(ndims,idims, 'VEGTEMPK_DMIN',rvara= vegtempk_dmin)
-     call shdf5_irec(ndims,idims, 'VEGTEMPK_DMAX',rvara= vegtempk_dmax)
-     call shdf5_irec(ndims,idims,'SOILTEMPK_DMIN',rvara=soiltempk_dmin)
-     call shdf5_irec(ndims,idims,'SOILTEMPK_DMAX',rvara=soiltempk_dmax)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DAVG',rvara=airtempk_l_davg)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DMIN',rvara=airtempk_l_dmin)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DMAX',rvara=airtempk_l_dmax)
+     call shdf5_irec(ndims,idims,'CANTEMPK_L_DAVG',rvara=cantempk_l_davg)
+     call shdf5_irec(ndims,idims,'CANTEMPK_L_DMIN',rvara=cantempk_l_dmin)
+     call shdf5_irec(ndims,idims,'CANTEMPK_L_DMAX',rvara=cantempk_l_dmax)
+     call shdf5_irec(ndims,idims,  'VEGTEMPK_DAVG',rvara=  vegtempk_davg)
+     call shdf5_irec(ndims,idims,  'VEGTEMPK_DMIN',rvara=  vegtempk_dmin)
+     call shdf5_irec(ndims,idims,  'VEGTEMPK_DMAX',rvara=  vegtempk_dmax)
+     call shdf5_irec(ndims,idims, 'SOILTEMPK_DAVG',rvara= soiltempk_davg)
+     call shdf5_irec(ndims,idims, 'SOILTEMPK_DMIN',rvara= soiltempk_dmin)
+     call shdf5_irec(ndims,idims, 'SOILTEMPK_DMAX',rvara= soiltempk_dmax)
+     call shdf5_irec(ndims,idims,  'SFLUXT_L_DAVG',rvara=  sfluxt_l_davg)
+     call shdf5_irec(ndims,idims,  'SFLUXR_L_DAVG',rvara=  sfluxr_l_davg)
 
      idims(1) = mws
 
-     call shdf5_irec(ndims,idims,'CANSTEMPK_DAVG',rvara=canstempk_davg)
-     call shdf5_irec(ndims,idims,'CANSTEMPK_DMIN',rvara=canstempk_dmin)
-     call shdf5_irec(ndims,idims,'CANSTEMPK_DMAX',rvara=canstempk_dmax)
-  
-     idims(1) = mlandflux
-
-     call shdf5_irec(ndims,idims,   'TEMPK_LF_DAVG',rvara=   tempk_lf_davg)
-     call shdf5_irec(ndims,idims,   'TEMPK_LF_DMIN',rvara=   tempk_lf_dmin)
-     call shdf5_irec(ndims,idims,   'TEMPK_LF_DMAX',rvara=   tempk_lf_dmax)
-     call shdf5_irec(ndims,idims,'CANTEMPK_LF_DAVG',rvara=cantempk_lf_davg)
-     call shdf5_irec(ndims,idims,'CANTEMPK_LF_DMIN',rvara=cantempk_lf_dmin)
-     call shdf5_irec(ndims,idims,'CANTEMPK_LF_DMAX',rvara=cantempk_lf_dmax)
-     call shdf5_irec(ndims,idims,  'SFLUXT_LF_DAVG',rvara=  sfluxt_lf_davg)
-     call shdf5_irec(ndims,idims,  'SFLUXR_LF_DAVG',rvara=  sfluxr_lf_davg)
-
-     idims(1) = mseaflux
-
-     call shdf5_irec(ndims,idims,   'TEMPK_SF_DAVG',rvara=   tempk_sf_davg)
-     call shdf5_irec(ndims,idims,   'TEMPK_SF_DMIN',rvara=   tempk_sf_dmin)
-     call shdf5_irec(ndims,idims,   'TEMPK_SF_DMAX',rvara=   tempk_sf_dmax)
-     call shdf5_irec(ndims,idims,'CANTEMPK_SF_DAVG',rvara=cantempk_sf_davg)
-     call shdf5_irec(ndims,idims,'CANTEMPK_SF_DMIN',rvara=cantempk_sf_dmin)
-     call shdf5_irec(ndims,idims,'CANTEMPK_SF_DMAX',rvara=cantempk_sf_dmax)
-     call shdf5_irec(ndims,idims,  'SFLUXT_SF_DAVG',rvara=  sfluxt_sf_davg)
-     call shdf5_irec(ndims,idims,  'SFLUXR_SF_DAVG',rvara=  sfluxr_sf_davg)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DAVG',rvara=airtempk_s_davg)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DMIN',rvara=airtempk_s_dmin)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DMAX',rvara=airtempk_s_dmax)
+     call shdf5_irec(ndims,idims,'CANTEMPK_S_DAVG',rvara=cantempk_s_davg)
+     call shdf5_irec(ndims,idims,'CANTEMPK_S_DMIN',rvara=cantempk_s_dmin)
+     call shdf5_irec(ndims,idims,'CANTEMPK_S_DMAX',rvara=cantempk_s_dmax)
+     call shdf5_irec(ndims,idims,  'SFLUXT_S_DAVG',rvara=  sfluxt_s_davg)
+     call shdf5_irec(ndims,idims,  'SFLUXR_S_DAVG',rvara=  sfluxr_s_davg)
 
      call shdf5_close()
   else

@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine contslab_horiz_mp(iplt)
 
@@ -173,12 +173,12 @@ end subroutine contslab_horiz_mp
 subroutine contslab_horiz_vn(iplt)
 
 use oplot_coms, only: op
-use mem_grid,   only: mma, mva, mwa, zm, zt, lpu, lpv, lpw, &
-                      xem, yem, zem, xeu, yeu, zeu, &
+use mem_grid,   only: mma, mva, mwa, zm, zt, lpv, lpw, &
+                      xem, yem, zem, &
                       xev, yev, zev, xew, yew, zew
-use mem_ijtabs, only: itab_m, itab_w, itab_u, itab_v, jtab_m, jtm_vadj, &
+use mem_ijtabs, only: itab_m, itab_w, itab_v, jtab_m, jtm_vadj, &
                       jtab_w, jtw_prog
-use misc_coms,  only: io6, isubdomain, meshtype
+use misc_coms,  only: io6, isubdomain
 use mem_para,   only: myrank
 
 implicit none
@@ -238,15 +238,9 @@ do jm = 1, jtab_m(jtm_vadj)%jend(1)
 
 ! Current U/V point index   
 
-      if (meshtype == 1) then
-         iv = itab_m(im)%iu(j) ! Eventually, may drop iu as member for all itabs??
-         iw1 = itab_u(iv)%iw(1)
-         iw2 = itab_u(iv)%iw(2)
-      else
-         iv = itab_m(im)%iv(j)
-         iw1 = itab_v(iv)%iw(1)
-         iw2 = itab_v(iv)%iw(2)
-      endif
+      iv = itab_m(im)%iv(j)
+      iw1 = itab_v(iv)%iw(1)
+      iw2 = itab_v(iv)%iw(2)
 
 ! TEMPORARY FIX TO AVOID ACCESSING UNDEFINED VALUES IN PARALLEL
 
@@ -260,11 +254,7 @@ do jm = 1, jtab_m(jtm_vadj)%jend(1)
 
 ! Get plot coordinates of current V point
 
-      if (meshtype == 1) then
-         call oplot_transform(iplt,xeu(iv),yeu(iv),zeu(iv),hcpn(j),vcpn(j))
-      else
-         call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn(j),vcpn(j))
-      endif
+      call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn(j),vcpn(j))
 
 ! Skip this M point if current V point is far outside plot window 
 ! (which means that orthographic projection returned large value that
@@ -323,27 +313,13 @@ do jm = 1, jtab_m(jtm_vadj)%jend(1)
       jnn = jn + 1
       if (jnn > npoly) jnn = 1
 
-      if (meshtype == 1) then
-
-         iv1 = itab_m(im)%iu(j)
-         iv2 = itab_m(im)%iu(jn)
+      iv1 = itab_m(im)%iv(j)
+      iv2 = itab_m(im)%iv(jn)
 
 ! Specific way to get IW since ordering of W and U/V neighbors of M is not
 ! identical for both grid systems
 
-         iw = itab_m(im)%iw(j)
-
-      else
-
-         iv1 = itab_m(im)%iv(j)
-         iv2 = itab_m(im)%iv(jn)
-
-! Specific way to get IW since ordering of W and U/V neighbors of M is not
-! identical for both grid systems
-
-         iw = itab_m(im)%iw(jnn)
-
-      endif
+      iw = itab_m(im)%iw(jnn)
 
       if (ktf(iw) == 0) then
       
@@ -410,11 +386,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
 
 ! Current V point index   
 
-      if (meshtype == 1) then
-         iv = itab_w(iw)%iu(j)
-      else
-         iv = itab_w(iw)%iv(j)
-      endif
+      iv = itab_w(iw)%iv(j)
 
 ! TEMPORARY FIX TO AVOID ACCESSING UNDEFINED VALUES IN PARALLEL
 
@@ -428,11 +400,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
 
 ! Get plot coordinates of current V point
 
-      if (meshtype == 1) then
-         call oplot_transform(iplt,xeu(iv),yeu(iv),zeu(iv),hcpn(j),vcpn(j))
-      else
-         call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn(j),vcpn(j))
-      endif
+      call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn(j),vcpn(j))
 
 ! Skip this M point if current V point is far outside plot window 
 ! (which means that orthographic projection returned large value that
@@ -466,11 +434,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
 ! Loop over all V points that surround current W point and fill field values
 
    do j = 1,npoly
-      if (meshtype == 1) then
-         iv = itab_w(iw)%iu(j)
-      else
-         iv = itab_w(iw)%iv(j)
-      endif
+      iv = itab_w(iw)%iv(j)
       
       call oplot_lib(kv(iv),iv,'VALUE',op%fldname(iplt),wtbot(iv),wttop(iv), &
                      fldvals(j),notavail)
@@ -507,9 +471,9 @@ subroutine contslab_horiz_tw(iplt)
 
 use oplot_coms, only: op
 use mem_grid,   only: mva, mma, mwa, zm, zt, lpw, xem, yem, zem, &
-                      xeu, yeu, zeu, xev, yev, zev, xew, yew, zew
+                      xev, yev, zev, xew, yew, zew
 use mem_ijtabs, only: itab_m, jtab_m, jtm_vadj
-use misc_coms,  only: io6, meshtype
+use misc_coms,  only: io6
 
 implicit none
 
@@ -669,13 +633,8 @@ do jm = 1, jtab_m(jtm_vadj)%jend(1)
 ! Specific way to get IV since ordering of W and U/V neighbors of M is not
 ! identical for both grid systems
 
-            if (meshtype == 1) then
-               iv = itab_m(im)%iu(jn)
-               call oplot_transform(iplt,xeu(iv),yeu(iv),zeu(iv),hcpn3(3),vcpn3(3))
-            else
-               iv = itab_m(im)%iv(jnn)
-               call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn3(3),vcpn3(3))
-            endif
+            iv = itab_m(im)%iv(jnn)
+            call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn3(3),vcpn3(3))
 
             fldvals3(3) = fldvals(j)
 
@@ -688,13 +647,8 @@ do jm = 1, jtab_m(jtm_vadj)%jend(1)
 ! Specific way to get IV since ordering of W and U/V neighbors of M is not
 ! identical for both grid systems
 
-            if (meshtype == 1) then
-               iv = itab_m(im)%iu(jn)
-               call oplot_transform(iplt,xeu(iv),yeu(iv),zeu(iv),hcpn3(2),vcpn3(2))
-            else
-               iv = itab_m(im)%iv(jnn)
-               call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn3(2),vcpn3(2))
-            endif
+            iv = itab_m(im)%iv(jnn)
+            call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn3(2),vcpn3(2))
 
             fldvals3(2) = fldvals(jn)
 
@@ -731,154 +685,6 @@ enddo
 
 return
 end subroutine contslab_horiz_tw
-
-!===============================================================================
-
-subroutine contslab_vert_t(iplt)
-
-use oplot_coms,  only: op
-use mem_grid,    only: mva, mza, lpw, zt
-use mem_ijtabs,  only: itab_u, itab_v, jtab_u, jtab_v, jtu_prog, jtv_prog
-use misc_coms,   only: io6, meshtype
-use consts_coms, only: erad, pio180
-
-implicit none
-
-integer, intent(in) :: iplt
-
-integer :: k,jv,iv,iw1,iw2,iv1,iv2,iok,notavail,jvmax
-real :: hpt,hpt1,hpt2
-real :: hcpn(4),hcpn1(4),hcpn2(4),vcpn(4),fldvals(4)
-real :: topo1,topo2,radcone
-real :: wtbot = 1., wttop = 0.
-
-! FOR HEXAGONS, REDIRECT TO NEW SUBROUTINE
-IF (MESHTYPE == 2) THEN
-   CALL CONTSLAB_VERT_TW(IPLT)
-   RETURN
-ENDIF
-
-! First plot underground T cells with underground color
-
-call plot_underground_w(iplt,(/0/))
-
-if (meshtype == 1) then
-   jvmax = jtab_u(jtu_prog)%jend(1)
-else
-   jvmax = jtab_v(jtv_prog)%jend(1)
-endif
-
-do jv = 1, jvmax
-
-   if (meshtype == 1) then
-      iv  = jtab_u(jtu_prog)%iu(jv)
-      iw1 = itab_u(iv)%iw(1)
-      iw2 = itab_u(iv)%iw(2)
-   else
-      iv  = jtab_v(jtv_prog)%iv(jv)
-      iw1 = itab_v(iv)%iw(1)
-      iw2 = itab_v(iv)%iw(2)
-   endif
-
-! Jump to end of loop if either iw1 or iw2 is less than 1
-
-   if (iw1 < 2 .or. iw2 < 2) cycle
-
-! Get horizontal plot coordinates for IW1 point
-
-   if (op%projectn(iplt) == 'C') then
-      call coneplot_w(iw1,iv1,iv2,topo1,topo2,iok,hcpn1)
-   elseif (op%projectn(iplt)(1:1) == 'V') then
-      call xyplot_w(iplt,iw1,iv1,iv2,topo1,topo2,iok,hcpn1) ! Need to fix for hex??
-   endif
-
-! Skip current IV point if this IW1 point does not intersect plot cone
-
-   if (iok /= 1) cycle
-
-   hpt1 = .5 * (hcpn1(1) + hcpn1(2))
-
-! Get horizontal plot coordinates for IW2 point
-
-   if (op%projectn(iplt) == 'C') then
-      call coneplot_w(iw2,iv1,iv2,topo1,topo2,iok,hcpn2)
-   elseif (op%projectn(iplt)(1:1) == 'V') then
-      call xyplot_w(iplt,iw2,iv1,iv2,topo1,topo2,iok,hcpn2) ! Need to fix for hex??
-   endif
-
-! Skip current IV point if this IW2 point does not intersect plot cone
-
-   if (iok /= 1) cycle
-
-   hpt2 = .5 * (hcpn2(1) + hcpn2(2))
-
-! For now, skip point if +/- 180 degree point is crossed.  Later, truncate cells.
-
-   if (op%projectn(iplt) == 'C') then
-      radcone = erad * sin(op%coneang * pio180)
-
-      if (abs(hpt2 - hpt1) > 3. * radcone) cycle
-   endif
-
-! Skip this point if either cell side is outside plot window. 
-
-   if (hpt1 < op%xmin .or. hpt1 > op%xmax .or.  &
-       hpt2 < op%xmin .or. hpt2 > op%xmax) cycle
-   
-   hcpn(1) = hpt1
-   hcpn(2) = hpt2
-   hcpn(3) = hcpn(2)
-   hcpn(4) = hcpn(1)
-   
-   do k = 2,mza-2   ! Loop is over M levels
-
-! Skip plot if any T cell around current M point is below ground 
-! or is cell #1 (for now; later maybe draw contours 
-! across partial cells).
-
-      if (iw1 < 2 .or. iw2 < 2)           cycle
-      if (k < lpw(iw1) .or. k < lpw(iw2)) cycle
-
-! Jump to end loop if either upper or lower cell center is outside plot window. 
-
-   if (zt(k) < op%ymin .or. zt(k+1) > op%ymax) cycle
-   
-! Get T-cell vertical coordinates
-
-      vcpn(1) = zt(k)
-      vcpn(2) = vcpn(1)
-      vcpn(3) = zt(k+1)
-      vcpn(4) = vcpn(3)
-
-! special for dudhia expts
-!if (vcpn(4) > op%ymax) cycle
-! end special
-
-! Fill field values of 4 T points around current M point
-
-      call oplot_lib(k,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                     fldvals(1),notavail)
-      if (notavail > 0) cycle 
-      call oplot_lib(k,iw2,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                     fldvals(2),notavail)
-      if (notavail > 0) cycle 
-      call oplot_lib(k+1,iw2,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                     fldvals(3),notavail)
-      if (notavail > 0) cycle 
-      call oplot_lib(k+1,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                     fldvals(4),notavail)
-      if (notavail > 0) cycle 
-
-! Contour plot cell around current M point
-
-      call contpolyg(op%icolortab(iplt),op%ifill,4,hcpn,vcpn,fldvals)
-      
-   enddo
-
-enddo
-   
-return
-end subroutine contslab_vert_t
 
 !===============================================================================
 
@@ -935,7 +741,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
    hcpn(3) = hcpn(2)
    hcpn(4) = hcpn(1)
    
-   do k = lpw(iw),mza-2   ! Loop is over W levels
+   do k = lpw(iw),mza-1   ! Loop is over W levels
 
 ! Skip this K point if either upper or lower cell center is outside plot window. 
 
@@ -980,157 +786,13 @@ end subroutine contslab_vert_v
 
 !===============================================================================
 
-subroutine contslab_vert_w(iplt)
-
-use oplot_coms, only: op
-use mem_grid,   only: mva, mza, lpw, zm
-use mem_ijtabs, only: itab_u, itab_v, jtab_u, jtab_v, jtu_prog, jtv_prog
-use misc_coms,  only: io6, meshtype
-use consts_coms, only: erad, pio180
-
-implicit none
-
-integer, intent(in) :: iplt
-
-integer :: k,jv,iv,iw1,iw2,iv1,iv2,iok,notavail,jvmax
-real :: hpt,hpt1,hpt2
-real, dimension(4) :: hcpn,hcpn1,hcpn2,vcpn,fldvals
-real :: topo1,topo2,radcone
-real :: wtbot = 1., wttop = 0.
-
-! FOR HEXAGONS, REDIRECT TO NEW SUBROUTINE
-IF (MESHTYPE == 2) THEN
-   CALL CONTSLAB_VERT_TW(IPLT)
-   RETURN
-ENDIF
-
-! First plot underground T cells with underground color
-
-call plot_underground_w(iplt,(/0/))
-
-if (meshtype == 1) then
-   jvmax = jtab_u(jtu_prog)%jend(1)
-else
-   jvmax = jtab_v(jtv_prog)%jend(1)
-endif
-
-do jv = 1, jvmax
-
-   if (meshtype == 1) then
-      iv  = jtab_u(jtu_prog)%iu(jv)
-      iw1 = itab_u(iv)%iw(1)
-      iw2 = itab_u(iv)%iw(2)
-   else
-      iv  = jtab_v(jtv_prog)%iv(jv)
-      iw1 = itab_v(iv)%iw(1)
-      iw2 = itab_v(iv)%iw(2)
-   endif
-
-! Jump to end of loop if either iw1 or iw2 is less than 1
-
-   if (iw1 < 2 .or. iw2 < 2) cycle
-
-! Get horizontal plot coordinates for IW1 point
-
-   if (op%projectn(iplt) == 'C') then
-      call coneplot_w(iw1,iv1,iv2,topo1,topo2,iok,hcpn1)
-   elseif (op%projectn(iplt)(1:1) == 'V') then
-      call xyplot_w(iplt,iw1,iv1,iv2,topo1,topo2,iok,hcpn1) ! Need to fix for hex??
-   endif
-
-! Skip current IV point if IW1 point does not intersect plot cone
-
-   if (iok /= 1) cycle
-
-   hpt1 = .5 * (hcpn1(1) + hcpn1(2))
-
-! Get horizontal plot coordinates for IW2 point
-
-   if (op%projectn(iplt) == 'C') then
-      call coneplot_w(iw2,iv1,iv2,topo1,topo2,iok,hcpn2)
-   elseif (op%projectn(iplt)(1:1) == 'V') then
-      call xyplot_w(iplt,iw2,iv1,iv2,topo1,topo2,iok,hcpn2) ! Need to fix for hex??
-   endif
-
-! Skip current IV point if IW2 point does not intersect plot cone
-
-   if (iok /= 1) cycle
-
-   hpt2 = .5 * (hcpn2(1) + hcpn2(2))
-
-! For now, skip point if +/- 180 degree point is crossed.  Later, truncate cells.
-
-   if (op%projectn(iplt) == 'C') then
-      radcone = erad * sin(op%coneang * pio180)
-
-      if (abs(hpt2 - hpt1) > 3. * radcone) cycle
-   endif
-
-! Skip this IV point if either cell side is outside plot window. 
-
-   if (hpt1 < op%xmin .or. hpt1 > op%xmax .or.  &
-       hpt2 < op%xmin .or. hpt2 > op%xmax) cycle
-
-   hcpn(1) = hpt1
-   hcpn(2) = hpt2
-   hcpn(3) = hcpn(2)
-   hcpn(4) = hcpn(1)
-   
-   do k = 2,mza-1   ! Loop is over T levels
-
-! Skip plot if either T cell around current U point is below ground 
-! or is cell #1 (for now; later maybe draw contours 
-! across partial cells).
-
-      if (iw1 < 2 .or. iw2 < 2)           cycle
-      if (k < lpw(iw1) .or. k < lpw(iw2)) cycle
-
-! Get W-cell vertical coordinates
-
-      vcpn(1) = zm(k-1)
-      vcpn(2) = vcpn(1)
-      vcpn(3) = zm(k)
-      vcpn(4) = vcpn(3)
-
-! special for dudhia expts
-!if (vcpn(4) > op%ymax) cycle
-! end special
-
-! Fill field values of 4 W points around current U point
-
-      call oplot_lib(k-1,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                     fldvals(1),notavail)
-      if (notavail > 0) cycle 
-      call oplot_lib(k-1,iw2,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                     fldvals(2),notavail)
-      if (notavail > 0) cycle 
-      call oplot_lib(k,iw2,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                     fldvals(3),notavail)
-      if (notavail > 0) cycle 
-      call oplot_lib(k,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                     fldvals(4),notavail)
-      if (notavail > 0) cycle 
-
-! Contour plot cell around current M point
-
-      call contpolyg(op%icolortab(iplt),op%ifill,4,hcpn,vcpn,fldvals)
-
-   enddo
-
-enddo
-
-return
-end subroutine contslab_vert_w
-
-!===============================================================================
-
 subroutine contslab_vert_tw(iplt)
 
 use oplot_coms, only: op
 use mem_grid,   only: mwa, mza, lpw, zm, zt, &
                       xem, yem, zem, xev, yev, zev, xew, yew, zew
 use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
-use misc_coms,  only: io6, mdomain, meshtype
+use misc_coms,  only: io6, mdomain
 use consts_coms, only: erad, pio180
 
 implicit none
@@ -1168,17 +830,10 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
       jv3 = jv2 + 1
       if (jv2 == npoly) jv3 = 1
 
-      if (meshtype == 1) then  ! However, assuming hex mesh for now...
-         iv2 = itab_w(iw)%iu(jv2)
+      iv2 = itab_w(iw)%iv(jv2)
 
-         im1 = itab_w(iw)%im(jv3)
-         im2 = itab_w(iw)%im(jv1)
-      else
-         iv2 = itab_w(iw)%iv(jv2)
-
-         im1 = itab_w(iw)%im(jv1) ! check these
-         im2 = itab_w(iw)%im(jv2) ! check these
-      endif
+      im1 = itab_w(iw)%im(jv1) ! check these
+      im2 = itab_w(iw)%im(jv2) ! check these
 
       iw1 = itab_w(iw)%iw(jv1)
       iw2 = itab_w(iw)%iw(jv2)
@@ -1218,12 +873,12 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
          if (hcpn(1) < op%xmin .or. hcpn(1) > op%xmax .or.  &
              hcpn(2) < op%xmin .or. hcpn(2) > op%xmax) cycle         
 
-         do k = lpw(iw),mza   ! Loop is over T levels
+         do k = lpw(iw),mza+1   ! Loop is over T levels
 
-! Use k = mza level only for contouring field values defined at T points
-! (in which case the top half of the mza-1 cell is contoured)
+! Use k = mza+1 level only for contouring field values defined at T points
+! (in which case the top half of the mza cell is contoured)
 
-            if (k == mza .and. op%stagpt == 'W') cycle
+            if (k == mza+1 .and. op%stagpt == 'W') cycle
 
 ! Define vertical plot coordinates depending on whether field values
 ! are defined at T or W points
@@ -1232,7 +887,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
                vcpn(1:2) = zt(k-1)
                vcpn(3:4) = zt(k)
                if (k == lpw(iw)) vcpn(1:2) = zm(k-1)
-               if (k == mza)     vcpn(3:4) = zm(k-1)
+               if (k == mza+1)     vcpn(3:4) = zm(k-1)
             else
                vcpn(1:2) = zm(k-1)
                vcpn(3:4) = zm(k)
@@ -1240,7 +895,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
 
 ! Fill field values at two adjacent vertical levels at each of three IW pts
 
-            if (k < mza) then
+            if (k < mza+1) then
                call oplot_lib(k,iw,'VALUE',op%fldname(iplt),wtbot,wttop, &
                               valw(2),notavail)
                if (notavail > 0) cycle 
@@ -1270,7 +925,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
 
             if (itri == 1) then
 
-               if (k < mza) then
+               if (k < mza+1) then
                   call oplot_lib(k,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
                                  valw1(2),notavail)
                   if (notavail > 0) cycle 
@@ -1284,7 +939,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
                   valw1(1) = valw1(2) 
                endif
 
-               if (k == mza) then
+               if (k == mza+1) then
                   valw (2) = valw (1)
                   valw1(2) = valw1(1)
                   valw2(2) = valw2(1)
@@ -1304,7 +959,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
 
            else
 
-               if (k < mza) then
+               if (k < mza+1) then
                   call oplot_lib(k,iw3,'VALUE',op%fldname(iplt),wtbot,wttop, &
                                  valw3(2),notavail)
                   if (notavail > 0) cycle 
@@ -1318,7 +973,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
                   valw3(1) = valw3(2) 
                endif
 
-               if (k == mza) then
+               if (k == mza+1) then
                   valw (2) = valw (1)
                   valw2(2) = valw2(1)
                   valw3(2) = valw3(1)

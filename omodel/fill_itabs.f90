@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,14 +29,10 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine mdloopf(init,im,j1,j2,j3,j4,j5,j6)
 
-use mem_ijtabs, only: itab_md, nloops_m
+use mem_ijtabs, only: itab_md
 use misc_coms,  only: io6
 
 implicit none
@@ -42,7 +42,7 @@ character(1), intent(in) :: init
 integer, intent(in) :: im
 integer, intent(in) :: j1,j2,j3,j4,j5,j6
 
-if (init == 'f') itab_md(im)%loop(1:nloops_m) = .false.
+if (init == 'f') itab_md(im)%loop(:) = .false.
 
 if (j1 < 0) itab_md(im)%loop(abs(j1)) = .false.
 if (j2 < 0) itab_md(im)%loop(abs(j2)) = .false.
@@ -65,7 +65,7 @@ end subroutine mdloopf
 
 subroutine udloopf(init,iu,j1,j2,j3,j4,j5,j6)
 
-use mem_ijtabs, only: itab_ud, nloops_u
+use mem_ijtabs, only: itab_ud
 use misc_coms,  only: io6
 
 implicit none
@@ -75,7 +75,7 @@ character(1), intent(in) :: init
 integer, intent(in) :: iu
 integer, intent(in) :: j1,j2,j3,j4,j5,j6
    
-if (init == 'f') itab_ud(iu)%loop(1:nloops_u) = .false.
+if (init == 'f') itab_ud(iu)%loop(:) = .false.
 
 if (j1  < 0) itab_ud(iu)%loop(abs(j1))  = .false.
 if (j2  < 0) itab_ud(iu)%loop(abs(j2))  = .false.
@@ -98,7 +98,7 @@ end subroutine udloopf
 
 subroutine wdloopf(init,iw,j1,j2,j3,j4,j5,j6)
 
-use mem_ijtabs, only: itab_wd, nloops_w
+use mem_ijtabs, only: itab_wd
 use misc_coms,  only: io6
 
 implicit none
@@ -108,7 +108,7 @@ character(1), intent(in) :: init
 integer, intent(in) :: iw
 integer, intent(in) :: j1,j2,j3,j4,j5,j6
                              
-if (init == 'f') itab_wd(iw)%loop(1:nloops_w) = .false.
+if (init == 'f') itab_wd(iw)%loop(:) = .false.
 
 if (j1  < 0) itab_wd(iw)%loop(abs(j1))  = .false.
 if (j2  < 0) itab_wd(iw)%loop(abs(j2))  = .false.
@@ -131,7 +131,7 @@ end subroutine wdloopf
 
 subroutine mloopf(init,im,j1,j2,j3,j4,j5,j6)
 
-use mem_ijtabs, only: itab_m, nloops_m
+use mem_ijtabs, only: itab_m
 use misc_coms,  only: io6
 
 implicit none
@@ -141,7 +141,7 @@ character(1), intent(in) :: init
 integer, intent(in) :: im
 integer, intent(in) :: j1,j2,j3,j4,j5,j6
 
-if (init == 'f') itab_m(im)%loop(1:nloops_m) = .false.
+if (init == 'f') itab_m(im)%loop(:) = .false.
 
 if (j1 < 0) itab_m(im)%loop(abs(j1)) = .false.
 if (j2 < 0) itab_m(im)%loop(abs(j2)) = .false.
@@ -162,42 +162,9 @@ end subroutine mloopf
 
 !===============================================================================
 
-subroutine uloopf(init,iu,j1,j2,j3,j4,j5,j6)
-
-use mem_ijtabs, only: itab_u, nloops_u
-use misc_coms,  only: io6
-
-implicit none
-
-character(1), intent(in) :: init
-
-integer, intent(in) :: iu
-integer, intent(in) :: j1,j2,j3,j4,j5,j6
-   
-if (init == 'f') itab_u(iu)%loop(1:nloops_u) = .false.
-
-if (j1  < 0) itab_u(iu)%loop(abs(j1))  = .false.
-if (j2  < 0) itab_u(iu)%loop(abs(j2))  = .false.
-if (j3  < 0) itab_u(iu)%loop(abs(j3))  = .false.
-if (j4  < 0) itab_u(iu)%loop(abs(j4))  = .false.
-if (j5  < 0) itab_u(iu)%loop(abs(j5))  = .false.
-if (j6  < 0) itab_u(iu)%loop(abs(j6))  = .false.
-
-if (j1  > 0) itab_u(iu)%loop(j1)  = .true.
-if (j2  > 0) itab_u(iu)%loop(j2)  = .true.
-if (j3  > 0) itab_u(iu)%loop(j3)  = .true.
-if (j4  > 0) itab_u(iu)%loop(j4)  = .true.
-if (j5  > 0) itab_u(iu)%loop(j5)  = .true.
-if (j6  > 0) itab_u(iu)%loop(j6)  = .true.
-
-return
-end subroutine uloopf
-
-!===============================================================================
-
 subroutine vloopf(init,iv,j1,j2,j3,j4,j5,j6)
 
-use mem_ijtabs, only: itab_v, nloops_v
+use mem_ijtabs, only: itab_v
 use misc_coms,  only: io6
 
 implicit none
@@ -207,7 +174,7 @@ character(1), intent(in) :: init
 integer, intent(in) :: iv
 integer, intent(in) :: j1,j2,j3,j4,j5,j6
    
-if (init == 'f') itab_v(iv)%loop(1:nloops_v) = .false.
+if (init == 'f') itab_v(iv)%loop(:) = .false.
 
 if (j1  < 0) itab_v(iv)%loop(abs(j1))  = .false.
 if (j2  < 0) itab_v(iv)%loop(abs(j2))  = .false.
@@ -230,7 +197,7 @@ end subroutine vloopf
 
 subroutine wloopf(init,iw,j1,j2,j3,j4,j5,j6)
 
-use mem_ijtabs, only: itab_w, nloops_w
+use mem_ijtabs, only: itab_w
 use misc_coms,  only: io6
 
 implicit none
@@ -240,7 +207,7 @@ character(1), intent(in) :: init
 integer, intent(in) :: iw
 integer, intent(in) :: j1,j2,j3,j4,j5,j6
                              
-if (init == 'f') itab_w(iw)%loop(1:nloops_w) = .false.
+if (init == 'f') itab_w(iw)%loop(:) = .false.
 
 if (j1  < 0) itab_w(iw)%loop(abs(j1))  = .false.
 if (j2  < 0) itab_w(iw)%loop(abs(j2))  = .false.

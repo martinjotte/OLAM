@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine olam_mem_alloc()
 
@@ -39,22 +39,20 @@ subroutine olam_mem_alloc()
   use mem_addsc,   only: alloc_addsc, filltab_addsc
   use mem_tend,    only: alloc_tend, filltab_tend
   use mem_turb,    only: alloc_turb, filltab_turb
-  use mem_sflux,   only: mseaflux, mlandflux, filltab_sflux
-  use mem_grid,    only: alloc_grid_other, mza, nsw_max, mma, mua, mva, mwa
+  use mem_grid,    only: alloc_grid_other, mza, nsw_max, mma, mva, mwa
   use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge
   use mem_ijtabs,  only: mrls, filltab_itabs
   use oname_coms,  only: nl
   use mem_thuburn, only: alloc_thuburn
 
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
-                         nqparm, dtsm, meshtype
+                         nqparm, dtsm
 
   use micro_coms,  only: level, ncat, jnmb, &
                          icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail
                        
   use leaf_coms,   only: mwl
   use sea_coms,    only: mws
-  use mem_sflux,   only: mseaflux, mlandflux
   use mem_plot,    only: alloc_plot
 
   use mem_timeavg, only: alloc_timeavg, filltab_timeavg
@@ -73,7 +71,7 @@ subroutine olam_mem_alloc()
 
   call alloc_grid_other()
 
-  call alloc_basic(meshtype,mza,mua,mva,mwa)
+  call alloc_basic(mza,mva,mwa)
   call filltab_basic()
 
   call alloc_cuparm(mza, mwa, mrls, nqparm)
@@ -92,14 +90,12 @@ subroutine olam_mem_alloc()
   call alloc_timeavg(mza,mwa)
   call filltab_timeavg()
 
-  call alloc_flux_accum(mza,mwa)
+  call alloc_flux_accum(mza,mwa,mwl,mws)
   call filltab_flux_accum()
 
 ! Allocate field average arrays
 
-  call alloc_average_vars(mwa,mwl,mws,mlandflux,mseaflux)
-
-  call filltab_sflux()  ! Already allocated
+  call alloc_average_vars(mwa,mwl,mws)
 
   if (initial == 2 .and. nudflag > 0) then
 
@@ -125,12 +121,12 @@ subroutine olam_mem_alloc()
 
   write(io6,*) 'start tendency alloc'
 
-  call alloc_tend(mza,mua,mva,mwa,naddsc)
+  call alloc_tend(mza,mva,mwa,naddsc)
   call filltab_tend(naddsc) 
 
 ! Extra memory for Thuburn's monotonic advection
 
-  call alloc_thuburn(meshtype, nl%iscal_monot, mza, mva, mwa)
+  call alloc_thuburn(nl%iscal_monot, mza, mva, mwa)
 
 ! Memory for storing past values for plotting
 

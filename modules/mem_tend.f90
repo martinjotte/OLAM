@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,14 +29,9 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module mem_tend
 
-   real, allocatable :: umt  (:,:) ! U-mom density tend [kg/(m^2 s^2)]
    real, allocatable :: vmt  (:,:) ! V-mom density tend [kg/(m^2 s^2)]
    real, allocatable :: wmt  (:,:) ! W-mom density tend [kg/(m^2 s^2)]
 
@@ -78,10 +77,10 @@ Contains
 
 !===============================================================================
 
-   subroutine alloc_tend(lza,lua,lva,lwa,naddsc)
+   subroutine alloc_tend(lza,lva,lwa,naddsc)
 
    use mem_turb,   only: tkep, epsp
-   use mem_basic,  only: umc, vmc, wmc, thil, sh_w, vxe, vye, vze
+   use mem_basic,  only: vmc, wmc, thil, sh_w, vxe, vye, vze
    use mem_addsc,  only: addsc
    use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,        &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
@@ -91,7 +90,7 @@ Contains
    
    implicit none
 
-   integer, intent(in) :: lza,lua,lva,lwa,naddsc
+   integer, intent(in) :: lza,lva,lwa,naddsc
 
    integer :: iaddsc
 
@@ -99,7 +98,6 @@ Contains
 
 ! Find the maximum number of grid points needed for any grid.
 
-   if (allocated(umc))     allocate (umt(lza,lua))
    if (allocated(vmc))     allocate (vmt(lza,lva))
    if (allocated(wmc))     allocate (wmt(lza,lwa))
 
@@ -165,7 +163,6 @@ Contains
 
 ! Deallocate all tendency arrays
  
-   if (allocated(umt))      deallocate (umt)
    if (allocated(vmt))      deallocate (vmt)
    if (allocated(wmt))      deallocate (wmt)
 

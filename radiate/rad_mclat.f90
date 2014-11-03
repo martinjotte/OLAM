@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine rad_mclat(iw,nrad,koff,glat,dl,pl,rl,tl,o3l,zml,ztl,dzl)
 
@@ -79,20 +79,20 @@ do lv = 1,33    ! Loop over number of vertical levels
 enddo
 
 ! Model values of dl, pl, tl, rl, zml, and ztl were filled in harr_radcomp
-! from k = 1 to k = mza - 1 - koff
+! from k = 1 to k = mza - koff
 
 if (nadd_rad > 0) then
 
-   if (zmrad < zm(mza-1)) then
+   if (zmrad < zm(mza)) then
       write(io6,*) 'Error - top of radiation grid is below the model grid'
       stop         'in rad_mclat'
    endif
 
    ! Compute heights of added levels for this column.
 
-   deltaz = (zmrad - zm(mza-1)) / real(nadd_rad)
+   deltaz = (zmrad - zm(mza)) / real(nadd_rad)
 
-   do k = mza-koff, nrad
+   do k = mza+1-koff, nrad
       zml(k) = zml(k-1) + deltaz
       ztl(k) = .5 * (zml(k) + zml(k-1))
       dzl(k) = deltaz
@@ -109,7 +109,7 @@ if (nadd_rad > 0) then
    ! Interpolate other variables (temperature, density, vapor mixing ratio)
    ! to added levels.
 
-   kadd = mza - koff
+   kadd = mza + 1 - koff
    call hintrp_cc(33, mcol(1,3), mcol(1,1), nadd_rad, tl(kadd), ztl(kadd))
    call hintrp_cc(33, mcol(1,4), mcol(1,1), nadd_rad, rl(kadd), ztl(kadd))
    call hintrp_cc(33, mcol(1,6), mcol(1,1), nadd_rad, dl(kadd), ztl(kadd))

@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,31 +29,23 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine history_write(vtype)
 
   use var_tables, only: num_var, vtab_r, get_vtab_dims
   use misc_coms,  only: io6, ioutput, hfilepref, current_time, iclobber, &
-                        iparallel, ipar_out, meshtype
+                        iparallel, ipar_out
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
   use max_dims,   only: pathlen
-  use mem_grid,   only: nma, nua, nva, nwa
+  use mem_grid,   only: nma, nva, nwa
   use leaf_coms,  only: nwl
   use sea_coms,   only: nws
-  use mem_sflux,  only: nlandflux, nseaflux
   use mem_nudge,  only: nwnud
-  use mem_para,   only: iua_globe_primary, iua_local_primary, mua_primary, &
-                        iva_globe_primary, iva_local_primary, mva_primary, &
+  use mem_para,   only: iva_globe_primary, iva_local_primary, mva_primary, &
                         iwa_globe_primary, iwa_local_primary, mwa_primary, &
                         ima_globe_primary, ima_local_primary, mma_primary, &
                         iwl_globe_primary, iwl_local_primary, mwl_primary, &
                         iws_globe_primary, iws_local_primary, mws_primary, &
-                        ifl_globe_primary, ifl_local_primary, mfl_primary, &
-                        ifs_globe_primary, ifs_local_primary, mfs_primary, &
                         iwnud_globe_primary, iwnud_local_primary, mwnud_primary, &
                         myrank
   implicit none
@@ -126,11 +122,7 @@ subroutine history_write(vtype)
               ilpts => iwa_local_primary
               igpts => iwa_globe_primary
               nglobe = nwa
-           elseif (stagpt == 'AU' .and. meshtype == 1) then
-              ilpts => iua_local_primary
-              igpts => iua_globe_primary
-              nglobe = nua
-           elseif (stagpt == 'AU' .and. meshtype == 2) then
+           elseif (stagpt == 'AV') then
               ilpts => iva_local_primary
               igpts => iva_globe_primary
               nglobe = nva
@@ -146,14 +138,6 @@ subroutine history_write(vtype)
               ilpts => iws_local_primary
               igpts => iws_globe_primary
               nglobe = nws
-           elseif (stagpt == 'LF') then
-              ilpts => ifl_local_primary
-              igpts => ifl_globe_primary
-              nglobe = nlandflux
-           elseif (stagpt == 'SF') then
-              ilpts => ifs_local_primary
-              igpts => ifs_globe_primary
-              nglobe = nseaflux
            elseif (stagpt == 'AN') then
               ilpts => iwnud_local_primary
               igpts => iwnud_globe_primary

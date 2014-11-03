@@ -125,16 +125,16 @@ CONTAINS
      npoly = itab_w(iw)%npoly
      kpbl  = kpblh(iw) - ka + 1
 
-     ktf  = mza - ka
+     ktf  = mza + 1 - ka  ! number of ATM levels to process
      kts  = 1
-     kte  = mza
+     kte  = mza  ! array dimension
      ens4 = npoly + 1
 
      fens4m = 1.0 / real(ens4)
 
      ! Go no higher than 50mb for convective calculations to prevent any
      ! problems when esat gets near ambient pressure
-     do k = ka, mza-2
+     do k = ka, mza-1
         if (press(k,iw) < 50.e2) then
            ktf = k - ka + 1
            exit
@@ -162,7 +162,7 @@ CONTAINS
 
      ! Vertical advective theta and water vapor fluxes (W levels)
 
-     do k = ka,mza-2
+     do k = ka,mza-1
         vflux(k) = arw(k,iw) * wmc(k,iw)
 
         ! upwinded
@@ -180,11 +180,11 @@ CONTAINS
      enddo
 
      vflux    (ka-1)  = 0.
-     vflux    (mza-1) = 0.
+     vflux    (mza) = 0.
      vflux_the(ka-1)  = 0.
-     vflux_the(mza-1) = 0.
+     vflux_the(mza) = 0.
      vflux_vap(ka-1)  = 0.
-     vflux_vap(mza-1) = 0.
+     vflux_vap(mza) = 0.
 
      ! Loop over T levels
 

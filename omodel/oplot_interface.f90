@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine oplot_init()
 
@@ -359,12 +359,6 @@ if (op%projectn(iplt) == 'L' .or.  &
          op%stagpt = 'L'
          call tileslab_horiz_l(iplt,'T') 
          op%stagpt = 'B'
-      elseif (op%stagpt == 'F') then  ! for flux cells (land + sea)
-         op%stagpt = 'S'
-         call tileslab_horiz_fs(iplt,'T')
-         op%stagpt = 'L'
-         call tileslab_horiz_fl(iplt,'T') 
-         op%stagpt = 'F'
       endif
 
    else
@@ -394,12 +388,10 @@ else  ! Vertical plots
 
    else
 
-      if (op%stagpt == 'T') then
-         call contslab_vert_t(iplt)
+      if (op%stagpt == 'T' .or. op%stagpt == 'W') then
+         call contslab_vert_tw(iplt)
       elseif (op%stagpt == 'V') then
          call contslab_vert_v(iplt)
-      elseif (op%stagpt == 'W') then
-         call contslab_vert_w(iplt)
       endif
 
    endif
@@ -447,12 +439,6 @@ if (op%projectn(iplt) == 'L' .or.  &
          op%stagpt = 'L'
          call tileslab_horiz_l(iplt,'P') 
          op%stagpt = 'B'
-      elseif (op%stagpt == 'F') then  ! for flux cells (land + sea)
-         op%stagpt = 'S'
-         call tileslab_horiz_fs(iplt,'P')
-         op%stagpt = 'L'
-         call tileslab_horiz_fl(iplt,'P') 
-         op%stagpt = 'F'
       endif
 
 else  ! Vertical plots
@@ -475,14 +461,13 @@ end subroutine slab_val
 subroutine plot_index(iplt)
 
 use oplot_coms, only: op
-use mem_grid,   only: mma, mva, mwa, xem, yem, zem, xeu, yeu, zeu, &
+use mem_grid,   only: mma, mva, mwa, xem, yem, zem, &
                       xev, yev, zev, xew, yew, zew
 use sea_coms,   only: mws, mus
 use mem_sea,    only: sea
 use leaf_coms,  only: mwl, mul
 use mem_leaf,   only: land
-use misc_coms,  only: io6, meshtype
-use mem_sflux,  only: mlandflux, landflux, mseaflux, seaflux
+use misc_coms,  only: io6
 
 implicit none
 
@@ -526,11 +511,7 @@ if (op%pltindx(iplt) == 'J' .or.  &
      trim(op%stagpt) == 'V' .or.  &
      trim(op%stagpt) == 'N') then
    do iv = 2,mva
-      if (meshtype == 1) then
-         call oplot_transform(iplt,xeu(iv),yeu(iv),zeu(iv),hpt,vpt)
-      else
-         call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hpt,vpt)
-      endif
+      call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hpt,vpt)
 
       if (hpt < op%xmin .or. hpt > op%xmax .or.  &
           vpt < op%ymin .or. vpt > op%ymax) cycle
@@ -599,43 +580,6 @@ if (trim(op%stagpt) == 'S' .or.  &
 
 endif   
 
-! Plot Flux cell indices
-
-if (trim(op%stagpt) == 'F') then
-
-! LANDFLUX CELLS
-
-   do ilf = 2,mlandflux
-
-      call oplot_transform(iplt,landflux(ilf)%xef,  &
-                                landflux(ilf)%yef,  &
-                                landflux(ilf)%zef,hpt,vpt)
-
-      if (hpt < op%xmin .or. hpt > op%xmax .or.  &
-          vpt < op%ymin .or. vpt > op%ymax) cycle
-
-      call oplot_locindex(ilf,hpt,vpt,.7*op%psiz) 
-
-   enddo
-
-! SEAFLUX CELLS
-
-   do isf = 2,mseaflux
-
-      call oplot_transform(iplt,seaflux(isf)%xef,  &
-                                seaflux(isf)%yef,  &
-                                seaflux(isf)%zef,hpt,vpt)
-
-      if (hpt < op%xmin .or. hpt > op%xmax .or.  &
-          vpt < op%ymin .or. vpt > op%ymax) cycle
-
-      call oplot_locindex(isf,hpt,vpt,.7*op%psiz) 
-
-   enddo
-
-endif   
-
-return
 end subroutine plot_index
 
 !===============================================================================
@@ -659,9 +603,7 @@ if (op%projectn(iplt) == 'L' .or.  &
     op%projectn(iplt) == 'O' .or.  &
     op%projectn(iplt) == 'Z') then
 
-   if (op%vectbarb(iplt) == 'U' .or. &
-       op%vectbarb(iplt) == 'V' .or. &
-       op%vectbarb(iplt) == 'v') call vectslab_horiz_v(iplt)
+   if (op%vectbarb(iplt) == 'V') call vectslab_horiz_v(iplt)
 
    if (op%vectbarb(iplt) == 'w' .or. &
        op%vectbarb(iplt) == 'B') call vectslab_horiz_w(iplt)
@@ -679,9 +621,9 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
 
 use mem_basic,  only: press
 use mem_grid,   only: mza, mma, mva, mwa, lpw, zm, zt
-use mem_ijtabs, only: itab_m, itab_u, itab_v
+use mem_ijtabs, only: itab_m, itab_v
 use oplot_coms, only: op
-use misc_coms,  only: io6, meshtype
+use misc_coms,  only: io6
 
 implicit none
 
@@ -805,13 +747,8 @@ if (op%stagpt == 'V' .or. op%stagpt == 'N') then
 
       elseif (op%pltlev(iplt) == 's') then
 
-         if (meshtype == 1) then
-            iw1 = itab_u(iv)%iw(1)
-            iw2 = itab_u(iv)%iw(2)
-         else
-            iw1 = itab_v(iv)%iw(1)
-            iw2 = itab_v(iv)%iw(2)
-         endif
+         iw1 = itab_v(iv)%iw(1)
+         iw2 = itab_v(iv)%iw(2)
 
          kc(iv) = max(lpw(iw1),lpw(iw2))
          wtbot(iv) = 1.
@@ -819,17 +756,12 @@ if (op%stagpt == 'V' .or. op%stagpt == 'N') then
 
       elseif (op%pltlev(iplt) == 'p') then
 
-         if (meshtype == 1) then
-            iw1 = itab_u(iv)%iw(1)
-            iw2 = itab_u(iv)%iw(2)
-         else
-            iw1 = itab_v(iv)%iw(1)
-            iw2 = itab_v(iv)%iw(2)
-         endif
+         iw1 = itab_v(iv)%iw(1)
+         iw2 = itab_v(iv)%iw(2)
 
          if (ktf(iw1) == 0 .and. ktf(iw2) == 0) then
 
-            do k = max(lpw(iw1),lpw(iw2)),mza-2
+            do k = max(lpw(iw1),lpw(iw2)),mza-1
                kc(iv) = k
                pressv1 = .5 * (press(k  ,iw1) + press(k  ,iw2))
                pressv2 = .5 * (press(k+1,iw1) + press(k+1,iw2))
@@ -841,7 +773,7 @@ if (op%stagpt == 'V' .or. op%stagpt == 'N') then
 
          elseif (ktf(iw1) == 0) then
 
-            do k = lpw(iw1),mza-2
+            do k = lpw(iw1),mza-1
                kc(iv) = k
                pressv1 = press(k  ,iw1)
                pressv2 = press(k+1,iw1)
@@ -853,7 +785,7 @@ if (op%stagpt == 'V' .or. op%stagpt == 'N') then
 
          elseif (ktf(iw2) == 0) then
 
-            do k = lpw(iw2),mza-2
+            do k = lpw(iw2),mza-1
                kc(iv) = k
                pressv1 = press(k  ,iw2)
                pressv2 = press(k+1,iw2)
@@ -947,7 +879,7 @@ if (op%stagpt == 'P' .or. op%stagpt == 'M') then
 ! Now, kp is minimum of surrounding lpw(iw) points, at least some of which are
 ! below constant-pressure surface
 
-            do k = kp,mza-2
+            do k = kp,mza-1
 
                pressp2 = 0.
                count2 = 0.
@@ -1090,7 +1022,7 @@ else  ! Vertical cross section
       if (htpn(1) < op%xmin .or. htpn(1) > op%xmax .or.  &
           htpn(2) < op%xmin .or. htpn(2) > op%xmax) go to 9
    
-      do k = 2,mza-1
+      do k = 2,mza
 
 ! If cell is totally underground...
 
@@ -1222,9 +1154,8 @@ subroutine plot_grid(iplt)
 
 use oplot_coms, only: op
 use mem_grid, only: mwa, mva, mza, xem, yem, zem, xew, yew, zew, zm
-use mem_ijtabs, only: itab_w, itab_u, itab_v, jtab_u, jtab_v, jtab_w, &
-                      jtv_wadj, jtu_wadj, jtw_prog
-use misc_coms,  only: io6, meshtype
+use mem_ijtabs, only: itab_w, itab_v, jtab_v, jtab_w, jtv_wadj, jtw_prog
+use misc_coms,  only: io6
 
 implicit none
 
@@ -1246,11 +1177,7 @@ call o_sflush()
 call o_gsplci(10)
 call o_gstxci(10)
 
-if (meshtype == 1) then
-   jvmax = jtab_u(jtu_wadj)%jend(1)
-else
-   jvmax = jtab_v(jtv_wadj)%jend(1)
-endif
+jvmax = jtab_v(jtv_wadj)%jend(1)
 
 if (op%projectn(iplt) == 'L'  .or.  &
     op%projectn(iplt) == 'P'  .or.  &
@@ -1261,15 +1188,9 @@ if (op%projectn(iplt) == 'L'  .or.  &
 
 ! Get tile plot coordinates.
 
-      if (meshtype == 1) then
-         iv  = jtab_u(jtu_wadj)%iu(jv)
-         im1 = itab_u(iv)%im(1)
-         im2 = itab_u(iv)%im(2)
-      else
-         iv  = jtab_v(jtv_wadj)%iv(jv)
-         im1 = itab_v(iv)%im(1)
-         im2 = itab_v(iv)%im(2)
-      endif
+      iv  = jtab_v(jtv_wadj)%iv(jv)
+      im1 = itab_v(iv)%im(1)
+      im2 = itab_v(iv)%im(2)
 
       if (im1 < 2 .or. im2 < 2) cycle
 
@@ -1324,17 +1245,15 @@ else  ! Vertical cross section
 
    do jv = 1, jvmax
 
-      if (meshtype == 1) then
-         iv  = jtab_u(jtu_wadj)%iu(jv)
-         im1 = itab_u(iv)%im(1)
-         im2 = itab_u(iv)%im(2)
-      else
-         iv  = jtab_v(jtv_wadj)%iv(jv)
-         im1 = itab_v(iv)%im(1)
-         im2 = itab_v(iv)%im(2)
-      endif
+      iv  = jtab_v(jtv_wadj)%iv(jv)
+      im1 = itab_v(iv)%im(1)
+      im2 = itab_v(iv)%im(2)
 
       if (im1 < 2 .or. im2 < 2) cycle
+
+! Subroutine coneplot_tri does not use iv index (which it calls iw).  It
+! works on triangle concept but here is given limiting case of triangle
+! with zero angle.
 
       call coneplot_tri(iplt,iv,xem(im1),yem(im1),zem(im1), &
          xem(im2),yem(im2),zem(im2),xem(im2),yem(im2),zem(im2), &
@@ -1374,7 +1293,7 @@ else  ! Vertical cross section
 !t      if (htpn(1) < op%xmin .or. htpn(1) > op%xmax .or.  &
 !t          htpn(2) < op%xmin .or. htpn(2) > op%xmax) go to 9
 
-!q      do k = 2,mza-1
+!q      do k = 2,mza
 
 ! Get T-cell vertical coordinates
 
@@ -1422,7 +1341,7 @@ else  ! Vertical cross section
 
 ! Second, draw horizontal lines
 
-   do k = 1,mza-1
+   do k = 1,mza
 
       call trunc_segment(op%xmin,op%xmax,zm(k),zm(k),xq1,xq2,yq1,yq2,iskip)
 
@@ -1445,8 +1364,8 @@ subroutine plot_dualgrid(iplt)
 use oplot_coms,  only: op
 use mem_grid,    only: mwa, mva, mza, xem, yem, zem, xew, yew, zew, zm,  &
                      wnx, wny, wnz
-use mem_ijtabs,  only: itab_w, itab_u, itab_v, jtab_v, jtv_wadj, jtab_u, jtu_wadj
-use misc_coms,   only: io6, meshtype
+use mem_ijtabs,  only: itab_w, itab_v, jtab_v, jtv_wadj
+use misc_coms,   only: io6
 use consts_coms, only: erad
 
 implicit none
@@ -1467,11 +1386,7 @@ call o_gsplci(6)
 call o_gstxci(6)
 call o_sflush()
 
-if (meshtype == 1) then
-   jvmax = jtab_u(jtu_wadj)%jend(1)
-else
-   jvmax = jtab_v(jtv_wadj)%jend(1)
-endif
+jvmax = jtab_v(jtv_wadj)%jend(1)
 
 if (op%projectn(iplt) == 'L'  .or.  &
     op%projectn(iplt) == 'P'  .or.  &
@@ -1482,15 +1397,9 @@ if (op%projectn(iplt) == 'L'  .or.  &
 
 ! Get tile plot coordinates.
 
-      if (meshtype == 1) then
-         iv  = jtab_u(jtu_wadj)%iu(jv)
-         iw1 = itab_u(iv)%iw(1)
-         iw2 = itab_u(iv)%iw(2)
-      else
-         iv = jtab_v(jtv_wadj)%iv(jv)
-         iw1 = itab_v(iv)%iw(1)
-         iw2 = itab_v(iv)%iw(2)
-      endif
+      iv = jtab_v(jtv_wadj)%iv(jv)
+      iw1 = itab_v(iv)%iw(1)
+      iw2 = itab_v(iv)%iw(2)
 
       if (iw1 < 2 .or. iw2 < 2) cycle
 
@@ -1557,12 +1466,11 @@ end subroutine plot_dualgrid
 subroutine plot_grid_landsea(iplt)
 
 use oplot_coms, only: op
-use sea_coms,   only: mws, mus, iseagrid
-use mem_sea,    only: sea, itab_ws, itab_us
-use leaf_coms,  only: mwl, mul, ilandgrid
-use mem_leaf,   only: land, itab_wl, itab_ul
+use sea_coms,   only: mws, iseagrid
+use mem_sea,    only: sea, itab_ws
+use leaf_coms,  only: mwl
+use mem_leaf,   only: land, itab_wl
 use misc_coms,  only: io6
-use mem_sflux,  only: landflux, seaflux, mlandflux, mseaflux
 
 implicit none
 
@@ -1570,7 +1478,7 @@ integer, intent(in) :: iplt
 
 integer :: iflag180,iskip
 
-integer :: im1,im2,iok,iv1,iv2,ius,iul,ilf,isf,j1,j2,npoly
+integer :: im1,im2,iok,iv1,iv2,iws,iwl,jm1,jm2,npoly
 
 real :: xp1,xp2,yp1,yp2
 real :: xq1,xq2,yq1,yq2
@@ -1590,19 +1498,22 @@ if (op%projectn(iplt) == 'L'  .or.  &
    call o_gsplci(3)
    call o_gstxci(3)
 
-   if (iseagrid == 1) then
+   do iws = 2,mws
 
-      do ius = 2,mus
+      npoly = itab_ws(iws)%npoly
+
+      do jm1 = 1,npoly
+         jm2 = jm1 + 1
+         if (jm2 > npoly) jm2 = 1
 
 ! Get tile plot coordinates.
 
-         im1 = itab_us(ius)%im(1)
-         im2 = itab_us(ius)%im(2)
-
-         call oplot_transform(iplt, sea%xem(im1), sea%yem(im1), &
-              sea%zem(im1), xp1, yp1)
-         call oplot_transform(iplt, sea%xem(im2), sea%yem(im2), &
-              sea%zem(im2), xp2, yp2)
+         call oplot_transform(iplt, itab_ws(iws)%xem(jm1), &
+                                    itab_ws(iws)%yem(jm1), &
+                                    itab_ws(iws)%zem(jm1), xp1, yp1)
+         call oplot_transform(iplt, itab_ws(iws)%xem(jm2), &
+                                    itab_ws(iws)%yem(jm2), &
+                                    itab_ws(iws)%zem(jm2), xp2, yp2)
 
 ! Avoid wrap-around and set iflag180
 
@@ -1644,73 +1555,9 @@ if (op%projectn(iplt) == 'L'  .or.  &
       
          endif
 
-      enddo
+      enddo  ! jm1
 
-   elseif (iseagrid > 1) then
-
-      do isf = 1,mseaflux
-         npoly = seaflux(isf)%npoly
-
-         do j1 = 1,npoly
-            j2 = j1 + 1
-            if (j1 == npoly) j2 = 1
-
-! Get tile plot coordinates.
-
-            call oplot_transform(iplt, seaflux(isf)%xem(j1), &
-                                       seaflux(isf)%yem(j1), &
-                                       seaflux(isf)%zem(j1), &
-                                       xp1, yp1)
-            call oplot_transform(iplt, seaflux(isf)%xem(j2), &
-                                       seaflux(isf)%yem(j2), &
-                                       seaflux(isf)%zem(j2), &
-                                       xp2, yp2)
-             
-! Avoid wrap-around and set iflag180
-
-            iflag180 = 0
-
-            if (op%projectn(iplt) == 'L') then
-               call ll_unwrap(xp1,xp2)
-
-               if (xp1 < -180. .or. xp2 < -180.) iflag180 =  1
-               if (xp1 >  180. .or. xp2 >  180.) iflag180 = -1
-            endif
-
-! Truncate segment if it crosses plot window boundary or skip if both endpoints
-! are outside plot window
-
-            call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
-
-            if (iskip == 1) cycle
-
-! Plot line segment
-
-            call o_frstpt (xq1,yq1)
-            call o_vector (xq2,yq2)
-
-! If this segment crosses +/- 180 degrees longitude in lat/lon plot, re-plot
-! at other end
-
-            if (iflag180 /= 0) then
-
-               xp1 = xp1 + 360. * iflag180
-               xp2 = xp2 + 360. * iflag180
-
-               call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
-
-! Plot line segment
-
-               call o_frstpt (xq1,yq1)
-               call o_vector (xq2,yq2)
-      
-            endif
-
-         enddo
-
-      enddo
-
-   endif
+   enddo  ! iws
 
 !-------------------------------------------------
 ! Plot land grid
@@ -1720,19 +1567,22 @@ if (op%projectn(iplt) == 'L'  .or.  &
    call o_gsplci(6)
    call o_gstxci(6)
 
-   if (ilandgrid == 1) then
+   do iwl = 2,mwl
 
-      do iul = 2,mul
+      npoly = itab_wl(iwl)%npoly
+
+      do jm1 = 1,npoly
+         jm2 = jm1 + 1
+         if (jm2 > npoly) jm2 = 1
 
 ! Get tile plot coordinates.
 
-         im1 = itab_ul(iul)%im(1)
-         im2 = itab_ul(iul)%im(2)
-
-         call oplot_transform  &
-            (iplt,land%xem(im1),land%yem(im1),land%zem(im1),xp1,yp1)
-         call oplot_transform  &
-            (iplt,land%xem(im2),land%yem(im2),land%zem(im2),xp2,yp2)
+         call oplot_transform(iplt, itab_wl(iwl)%xem(jm1), &
+                                    itab_wl(iwl)%yem(jm1), &
+                                    itab_wl(iwl)%zem(jm1), xp1, yp1)
+         call oplot_transform(iplt, itab_wl(iwl)%xem(jm2), &
+                                    itab_wl(iwl)%yem(jm2), &
+                                    itab_wl(iwl)%zem(jm2), xp2, yp2)
 
 ! Avoid wrap-around and set iflag180
 
@@ -1774,73 +1624,9 @@ if (op%projectn(iplt) == 'L'  .or.  &
       
          endif
 
-      enddo
+      enddo  ! jm1
 
-   elseif (ilandgrid > 1) then
-
-      do ilf = 1,mlandflux
-         npoly = landflux(ilf)%npoly
-
-         do j1 = 1,npoly
-            j2 = j1 + 1
-            if (j1 == npoly) j2 = 1
-
-! Get tile plot coordinates.
-
-            call oplot_transform(iplt, landflux(ilf)%xem(j1), &
-                                       landflux(ilf)%yem(j1), &
-                                       landflux(ilf)%zem(j1), &
-                                       xp1, yp1)
-            call oplot_transform(iplt, landflux(ilf)%xem(j2), &
-                                       landflux(ilf)%yem(j2), &
-                                       landflux(ilf)%zem(j2), &
-                                       xp2, yp2)
-
-! Avoid wrap-around and set iflag180
-
-            iflag180 = 0
-
-            if (op%projectn(iplt) == 'L') then
-               call ll_unwrap(xp1,xp2)
-
-               if (xp1 < -180. .or. xp2 < -180.) iflag180 =  1
-               if (xp1 >  180. .or. xp2 >  180.) iflag180 = -1
-            endif
-
-! Truncate segment if it crosses plot window boundary or skip if both endpoints
-! are outside plot window
-
-            call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
-
-            if (iskip == 1) cycle
-
-! Plot line segment
-
-            call o_frstpt (xq1,yq1)
-            call o_vector (xq2,yq2)
-
-! If this segment crosses +/- 180 degrees longitude in lat/lon plot, re-plot
-! at other end
-
-            if (iflag180 /= 0) then
-
-               xp1 = xp1 + 360. * iflag180
-               xp2 = xp2 + 360. * iflag180
-
-               call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
-
-! Plot line segment
-
-               call o_frstpt (xq1,yq1)
-               call o_vector (xq2,yq2)
-      
-            endif
-
-         enddo
-
-      enddo
-
-   endif
+   enddo  ! iwl
 
    call o_sflush()
 
@@ -1850,7 +1636,6 @@ else  ! Vertical cross section
 
 endif
 
-return
 end subroutine plot_grid_landsea
 
 !===============================================================================
@@ -1962,7 +1747,7 @@ end subroutine psub
 subroutine qsub(var,i)
 
 use oplot_coms, only: op
-use mem_grid,   only: xem, yem, zem, xeu, yeu, zeu, xev, yev, zev, xew, yew, zew
+use mem_grid,   only: xem, yem, zem, xev, yev, zev, xew, yew, zew
 use misc_coms,  only: io6
 
 implicit none
@@ -1977,8 +1762,6 @@ if (op%loopplot /= 1) return
 
 if (var == 'M') then
    call oplot_transform(jplt,xem(i),yem(i),zem(i),hpt,vpt)
-elseif (var == 'U') then
-   call oplot_transform(jplt,xeu(i),yeu(i),zeu(i),hpt,vpt)
 elseif (var == 'V') then
    call oplot_transform(jplt,xev(i),yev(i),zev(i),hpt,vpt)
 elseif (var == 'W') then
@@ -1990,10 +1773,10 @@ if (hpt > op%xmin .and. hpt < op%xmax .and.  &
    call oplot_locindex(i,hpt,vpt,op%psiz)
 endif
 
-! Add new sections for 'S' and 'L'  (and 'SF', and 'LF' ??)
+! Add new sections for 'S' and 'L'
 
 ! For this, need xeland, yeland, zeland, xesea, yesea, zesea
-!    (and xeseaflux, etc.)
+
 
 return
 end subroutine qsub
@@ -2291,9 +2074,9 @@ if (op%windowin(iplt) == 'W') then
       endif
 
       if (abs(nl%zplot_max + 1.0) < 1.e-3) then
-         op%ymax = zm(nza-1)
+         op%ymax = zm(nza)
       else
-         op%ymax = min(nl%zplot_max, zm(nza-1))
+         op%ymax = min(nl%zplot_max, zm(nza))
       endif
 
 ! special for hurricane
@@ -2352,9 +2135,9 @@ else
       endif
 
       if (abs(nl%zplot_max + 1.0) < 1.e-3) then
-         op%ymax = zm(nza-1)
+         op%ymax = zm(nza)
       else
-         op%ymax = min(nl%zplot_max, zm(nza-1))
+         op%ymax = min(nl%zplot_max, zm(nza))
       endif
 
       if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax  
@@ -2371,9 +2154,9 @@ else
       endif
 
       if (abs(nl%zplot_max + 1.0) < 1.e-3) then
-         op%ymax = zm(nza-1)
+         op%ymax = zm(nza)
       else
-         op%ymax = min(nl%zplot_max, zm(nza-1))
+         op%ymax = min(nl%zplot_max, zm(nza))
       endif
 
       if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax  

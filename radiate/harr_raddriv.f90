@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine harr_raddriv(iw,ka,nrad,koff)
 
@@ -107,7 +107,7 @@ real :: exner
 ! Copy surface and vertical-column values from model to radiation memory space
 ! In this loop, (k-koff) ranges from 2 to mza + 1 - lpw(iw)
 
-do k = ka, mza-1
+do k = ka, mza
    krad = k - koff
 
    rhov(k)  = max(0.,sh_v(k,iw)) * rho(k,iw)
@@ -190,7 +190,7 @@ if (iswrtyp == 3 .and. cosz(iw) > 0.03) then
    rshortup_top  (iw) = flxus(nrad)
    albedt        (iw) = flxus(1) / flxds(1)
 
-   do k = ka,mza-1
+   do k = ka,mza
       krad = k - koff
       fthrd_sw(k,iw) = (flxds(krad) - flxds(krad-1) + flxus(krad-1) - flxus(krad)) &
                      / (dl(krad) * dzl(krad) * cp * exl(krad))
@@ -211,7 +211,7 @@ if (ilwrtyp == 3) then
    rlongup(iw)     = flxul(1)
    rlongup_top(iw) = flxul(nrad)
 
-   do k = ka,mza-1
+   do k = ka,mza
       krad = k - koff
       fthrd_lw(k,iw) = (flxdl(krad) - flxdl(krad-1) + flxul(krad-1) - flxul(krad)) &
                      / (dl(krad) * dzl(krad) * cp * exl(krad))
@@ -294,7 +294,7 @@ if (level == 2) then
 ! or parm(1).  Diagnose cloud droplet mean mass.
 
    parmi = 1. / parm(1)
-   do k = ka,mza-1
+   do k = ka,mza
       rx(k,1) = sh_c(k,iw)
       emb(k,1) = rx(k,1) * parmi
       cx(k,1) = parm(1)
@@ -327,7 +327,7 @@ if (level == 3) then
 ! Cloud water
 
    if (jnmb(1) >= 1) then
-      do k = ka,mza-1
+      do k = ka,mza
          if (sh_c(k,iw) >= rxmin(1)) then
 
 ! If cloud bulk density is sufficiently abundant, copy to rx.
@@ -345,7 +345,7 @@ if (level == 3) then
 ! Rain
 
    if (jnmb(2) >= 1) then
-      do k = ka,mza-1
+      do k = ka,mza
          if (sh_r(k,iw) >= rxmin(2)) then
 
 ! If rain bulk density is sufficiently abundant, copy to rx,
@@ -363,7 +363,7 @@ if (level == 3) then
 ! Pristine ice
 
    if (jnmb(3) >= 1) then
-      do k = ka,mza-1
+      do k = ka,mza
          if (sh_p(k,iw) >= rxmin(3)) then
 
 ! If pristine ice bulk density is sufficiently abundant, copy to rx.
@@ -381,7 +381,7 @@ if (level == 3) then
 ! Snow
 
    if (jnmb(4) >= 1) then
-      do k = ka,mza-1
+      do k = ka,mza
          if (sh_s(k,iw) >= rxmin(4)) then
 
 ! If snow bulk density is sufficiently abundant, copy to rx.
@@ -399,7 +399,7 @@ if (level == 3) then
 ! Aggregates
 
    if (jnmb(5) >= 1) then
-      do k = ka,mza-1
+      do k = ka,mza
          if (sh_a(k,iw) >= rxmin(5)) then
 
 ! If aggregates bulk density is sufficiently abundant, copy to rx.
@@ -417,7 +417,7 @@ if (level == 3) then
 ! Graupel
 
    if (jnmb(6) >= 1) then
-      do k = ka,mza-1
+      do k = ka,mza
          if (sh_g(k,iw) >= rxmin(6)) then
 
 ! If graupel bulk density is sufficiently abundant, copy to rx,
@@ -435,7 +435,7 @@ if (level == 3) then
 ! Hail
 
    if (jnmb(7) >= 1) then
-      do k = ka,mza-1
+      do k = ka,mza
          if (sh_h(k,iw) >= rxmin(7)) then
 
 ! If hail bulk density is sufficiently abundant, copy to rx,
@@ -453,7 +453,7 @@ if (level == 3) then
 ! Drizzle
 
    if (jnmb(8) >= 1) then
-      do k = ka,mza-1
+      do k = ka,mza
          if (sh_d(k,iw) >= rxmin(8)) then
 
 ! If drizzle bulk density is sufficiently abundant, copy to rx,
@@ -472,7 +472,7 @@ if (level == 3) then
 ! This section of code copied or adapted from subroutines THRMSTR in omic_vap.f90 
 ! and EACH_COLUMN in omic_misc.f90
 
-   do k = ka,mza-1
+   do k = ka,mza
       tairc = tair(k,iw) - 273.15
       rhovslair = rhovsl(tairc)
       relhum = min(1.,rhov(k) / rhovslair)
@@ -503,7 +503,7 @@ if (level == 3) then
 
       if (jnmb(icat) == 2) then
 
-         do k = ka,mza-1
+         do k = ka,mza
 !!          ihcat = jhcat(k,icat)
 !!          emb(k,icat) = emb2(ihcat)
             emb(k,icat) = emb2(icat)
@@ -513,14 +513,14 @@ if (level == 3) then
       elseif (jnmb(icat) == 4) then
 
          parmi = 1. / parm(icat)
-         do k = ka,mza-1
+         do k = ka,mza
             emb(k,icat) = max(emb0(icat),min(emb1(icat),rx(k,icat) * parmi))
             cx(k,icat) = rx(k,icat) / emb(k,icat)
          enddo
 
       elseif (jnmb(icat) >= 5) then
 
-         do k = ka,mza-1
+         do k = ka,mza
             emb(k,icat) = max(emb0(icat),min(emb1(icat),rx(k,icat)  &
                         / max(1.e-12,cx(k,icat))))
             cx(k,icat) = rx(k,icat) / emb(k,icat)
@@ -643,7 +643,7 @@ gp  (:,:) = 0.0
 do icat = 1,mcat
    if (jnmb(icat) > 0) then
 
-      do k = ka,mza-1
+      do k = ka,mza
          krad = k - koff
 
          if (cx(k,icat) > 1.e-9) then
@@ -700,7 +700,7 @@ enddo
 
 do ib = 1,nb
 
-   do k = ka,mza-1
+   do k = ka,mza
       krad = k - koff
 
       if (tp(krad,ib) > 1.e-15 .and. omgp(krad,ib) > 1.e-15) then

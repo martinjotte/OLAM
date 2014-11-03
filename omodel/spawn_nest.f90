@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine spawn_nest()
 
@@ -37,7 +37,7 @@ subroutine spawn_nest()
 !   simulation.
 
 use mem_ijtabs, only: itab_md, itab_ud, itab_wd, ltab_md, ltab_ud, ltab_wd, &
-                      nest_ud, nest_wd, nloops_m, nloops_u, nloops_w, mrls, &
+                      nest_ud, nest_wd, mloops, mrls, &
                       alloc_itabsd, &
                       jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
                       jtm_init, jtu_init, jtv_init, jtw_init, &
@@ -49,7 +49,7 @@ use mem_ijtabs, only: itab_md, itab_ud, itab_wd, ltab_md, ltab_ud, ltab_wd, &
 
 use mem_grid,    only: nma, nua, nwa, xem, yem, zem, impent, &
                        alloc_xyzem, nrows, mrows
-use misc_coms,   only: io6, ngrids, mdomain, nxp, meshtype, &
+use misc_coms,   only: io6, ngrids, mdomain, nxp, &
                        ngrdll, grdrad, grdlat, grdlon
 use consts_coms, only: pio180, erad, pi1, pi2
 use oname_coms,  only: nl
@@ -728,7 +728,7 @@ do ngr = 2,ngrids  ! Loop over nested grids
 ! Memory copy to main tables
 
    do im = 1,nma
-      itab_md(im)%loop(1:nloops_m) = ltab_md(im)%loop(1:nloops_m)
+      itab_md(im)%loop(1:mloops) = ltab_md(im)%loop(1:mloops)
       itab_md(im)%imp       = ltab_md(im)%imp
       itab_md(im)%mrlm      = ltab_md(im)%mrlm
       itab_md(im)%mrlm_orig = ltab_md(im)%mrlm_orig
@@ -952,11 +952,7 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
       if (nconcave /= 3) itab_md(im)%mrlm = mrloo
 
-      if (meshtype == 1) then
-         call mdloopf('f',im, jtm_grid, jtm_vadj, 0, 0, 0, 0)
-      else
-         call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
-      endif
+      call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
    enddo
 
    do iu = nua+1,nua0
@@ -966,11 +962,7 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
    do iw = nwa+1,nwa0
       itab_wd(iw)%iwp = iw
-      if (meshtype == 1) then
-         call wdloopf('f',iw, jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
-      else
-         call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
-      endif
+      call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
    enddo
 
 ! Copy new counter values

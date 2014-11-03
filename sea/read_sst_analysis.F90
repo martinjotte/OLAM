@@ -4,7 +4,8 @@ subroutine read_sst_analysis(iaction)
   use sea_coms,   only: mws, isstfile, isstflg
   use misc_coms,  only: io6, s1900_sim, s1900_init, iparallel
   use max_dims,   only: pathlen
-  use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg
+  use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, &
+                        inproj, xswlat, xswlon, gdatdx, gdatdy, ipoffset
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
   use mem_para,   only: myrank
 
@@ -16,12 +17,10 @@ subroutine read_sst_analysis(iaction)
 
   integer, intent(in) :: iaction
 
-  integer            :: nf, ipoffset
+  integer            :: nf
   character(pathlen) :: fname
   character(16)      :: ext
   integer            :: ndims, idims(3)
-  integer            :: nx, ny, inproj
-  real               :: xswlat, xswlon, gdatdx, gdatdy
   real               :: xoffpix, yoffpix, xperdeg, yperdeg
   real               :: glat, glon, rio, rjo
   real               :: wio1, wio2, wjo1, wjo2
@@ -51,7 +50,7 @@ subroutine read_sst_analysis(iaction)
            isstfile = nf
         endif
      enddo
-  
+
      if (isstfile < 1) then
         write(io6,*) ' '
         write(io6,*) 'Unable to find analysis file for sst/seaice'
@@ -122,8 +121,8 @@ subroutine read_sst_analysis(iaction)
      idims(2) = 1
      idims(3) = 1
 
-     call shdf5_irec(ndims, idims, 'nx'   , ivars=nx)
-     call shdf5_irec(ndims, idims, 'ny'   , ivars=ny)
+     call shdf5_irec(ndims, idims, 'nprx' , ivars=nprx)
+     call shdf5_irec(ndims, idims, 'npry' , ivars=npry)
      call shdf5_irec(ndims, idims, 'iproj', ivars=inproj)
      call shdf5_irec(ndims, idims, 'swlat', rvars=xswlat)
      call shdf5_irec(ndims, idims, 'swlon', rvars=xswlon)
@@ -132,8 +131,8 @@ subroutine read_sst_analysis(iaction)
 
 #ifdef OLAM_MPI
      if (iparallel == 1) then
-        call MPI_Pack(nx    , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(ny    , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(nprx  , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(npry  , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
         call MPI_Pack(inproj, 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
         call MPI_Pack(xswlat, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
         call MPI_Pack(xswlon, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
@@ -150,8 +149,8 @@ subroutine read_sst_analysis(iaction)
      call MPI_Bcast(buffer, isize, MPI_PACKED, 0, MPI_COMM_WORLD, ier)
 
      if (myrank /= 0) then
-        call MPI_Unpack(buffer, isize, bytes, nx    , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, ny    , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, nprx  , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, npry  , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
         call MPI_Unpack(buffer, isize, bytes, inproj, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
         call MPI_Unpack(buffer, isize, bytes, xswlat, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
         call MPI_Unpack(buffer, isize, bytes, xswlon, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
@@ -179,8 +178,8 @@ subroutine read_sst_analysis(iaction)
   ! (-90. and 90. degrees) but that the longitudinal boundary is not repeated.
   ! If either is not the case, this check will stop execution. 
 
-  if (abs(nx      * gdatdx - 360.) > .1 .or. &
-      abs ((ny-1) * gdatdy - 180.) > .1) then
+  if (abs(nprx      * gdatdx - 360.) > .1 .or. &
+      abs ((npry-1) * gdatdy - 180.) > .1) then
      write(io6,*) 'Gridded sst data does not have global coverage.'
      write(io6,*) 'Stoppig model run.'
      if (myrank == 0) call shdf5_close()
@@ -192,8 +191,8 @@ subroutine read_sst_analysis(iaction)
   ! follow the GRIB standard and keep the SW corner at (0,-90)
 
   ipoffset = xswlon / gdatdx + 1
-  nio = nx + 3
-  njo = ny + 2
+  nio = nprx + 3
+  njo = npry + 2
 
   allocate(sst(nio,njo))
 
@@ -203,10 +202,10 @@ subroutine read_sst_analysis(iaction)
      call shdf5_info('SST', ndims, idims)
 
      if (ndims > 0) then
-        allocate(a2d(nx,ny))
+        allocate(a2d(nprx,npry))
 
         call shdf5_irec(ndims, idims, 'SST', rvara = a2d)
-        call prfill(nx, ny, ipoffset, a2d, sst)
+        call prfill(nprx, npry, a2d, sst)
 
         has_sst = .true.
         deallocate(a2d)

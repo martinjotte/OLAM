@@ -1,11 +1,11 @@
 subroutine check_nans(icall)
 
-  use mem_basic,  only: sh_w,rho,thil,sh_v,wc,wmc,press,umc,uc,vmc,vc
+  use mem_basic,  only: sh_w,rho,thil,sh_v,wc,wmc,press,vmc,vc
   use mem_micro,  only: sh_c,sh_r
-  use mem_grid,   only: mza,mwa,lpw,volti,mua,mva,lpu,lpv
+  use mem_grid,   only: mza,mwa,lpw,volti,mva,lpv
   use mem_tend,   only: thilt, vmt
   use micro_coms, only: level
-  use misc_coms,  only: io6, iparallel, meshtype
+  use misc_coms,  only: io6, iparallel
   use mem_ijtabs, only: itab_v, itab_w
   use mem_para,   only: myrank
   use var_tables, only: num_scalar, scalar_tab
@@ -48,39 +48,19 @@ subroutine check_nans(icall)
      enddo
   enddo
 
-  if (meshtype == 1) then
-
-     do i = 2,mua
-        do k = lpu(i), mza
-           if (ieee_is_nan(umc(k,i)) .or.  &
-                ieee_is_nan(uc (k,i))) then
-              write(io6,*) ''
-              write(*,*) 'Node ', myrank
-              write(*,*) 'NaN at ', k, i, icall
-              write(io6,*) 'check_nans',k,i,icall
-              write(io6,*) 'umc, uc: ', umc(k,i), uc(k,i)
-              stop
-           endif
-        enddo
+  do i = 2,mva
+     do k = lpv(i), mza
+        if (ieee_is_nan(vmc(k,i)) .or.  &
+             ieee_is_nan(vc (k,i))) then
+           write(io6,*) ''
+           write(*,*) 'Node ', myrank
+           write(*,*) 'NaN at ', k, i, icall
+           write(io6,*) 'check_nans',k,i,icall
+           write(io6,*) 'vmc, vc: ', vmc(k,i), vc(k,i)
+           stop
+        endif
      enddo
-     
-  else
-     
-     do i = 2,mva
-        do k = lpv(i), mza
-           if (ieee_is_nan(vmc(k,i)) .or.  &
-                ieee_is_nan(vc (k,i))) then
-              write(io6,*) ''
-              write(*,*) 'Node ', myrank
-              write(*,*) 'NaN at ', k, i, icall
-              write(io6,*) 'check_nans',k,i,icall
-              write(io6,*) 'vmc, vc: ', vmc(k,i), vc(k,i)
-              stop
-           endif
-        enddo
-     enddo
-
-  endif
+  enddo
 
 #endif
 end subroutine check_nans

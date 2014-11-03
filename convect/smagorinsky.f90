@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 module smagorinsky
@@ -45,7 +45,7 @@ contains
 !!
 !!!!!
 
-  subroutine turb_k(iw, mrlw, rhot, thetav, vkh, vkm)
+  subroutine turb_k(iw, mrlw, thetav, vkh, vkm)
 
     use mem_turb,    only: hkm, vkm_sfc, sxfer_rk
     use mem_ijtabs,  only: istp, jtab_w, itab_w, mrl_begl
@@ -59,15 +59,12 @@ contains
                            emis_map, num_emis
     use tridiag,     only: tridv
 
- !$ use omp_lib
-
     implicit none
 
     integer, intent(in)    :: iw, mrlw
     real,    intent(in)    :: thetav(mza)
     real,    intent(inout) :: vkh(mza)
     real,    intent(inout) :: vkm(mza)
-    real,    intent(inout) :: rhot(mza,mwa)
 
     integer :: j, npoly, jw1, jw2, iw1, iw2, iv1, iv2, n, ns, k, ka, ks, kmax
 
@@ -105,7 +102,7 @@ contains
 !!
 !!!!!
 
-    do k = 2,mza-1
+    do k = 2,mza
        dzim2(k) = dzim(k) * dzim(k)
 
        strain2h(k) = 0.
@@ -152,7 +149,7 @@ contains
 ! Vertical loop over T levels
 ! Zero-gradient lateral B.C. below lpv(iv1)
 
-          do k = lpv(iv1), mza-1
+          do k = lpv(iv1), mza
              gxps_vxe(k) = gxps_vxe(k) + gxps1 * (vxe(k,iw1) - vxe(k,iw))
              gyps_vxe(k) = gyps_vxe(k) + gyps1 * (vxe(k,iw1) - vxe(k,iw))
 
@@ -166,7 +163,7 @@ contains
 ! Vertical loop over T levels
 ! Zero-gradient lateral B.C. below lpv(iv2)
 
-          do k = lpv(iv2), mza-1
+          do k = lpv(iv2), mza
              gxps_vxe(k) = gxps_vxe(k) + gxps2 * (vxe(k,iw2) - vxe(k,iw))
              gyps_vxe(k) = gyps_vxe(k) + gyps2 * (vxe(k,iw2) - vxe(k,iw))
 
@@ -181,7 +178,7 @@ contains
 
     ! Loop over T levels: horizontal gradient contributions to 3D strain rate
 
-       do k = ka,mza-1
+       do k = ka,mza
           strain2h(k) = gxps_vxe(k)**2 + gyps_vxe(k)**2 &
                       + gxps_vye(k)**2 + gyps_vye(k)**2 &
                       + gxps_vze(k)**2 + gyps_vze(k)**2
@@ -191,7 +188,7 @@ contains
 
     ! Loop over W levels
 
-    do k = ka,mza-2
+    do k = ka,mza-1
 
     ! Vertical strain rate squared (based on dV/dz only)
 
@@ -208,7 +205,7 @@ contains
 
     enddo
 
-    do k = ka,mza-2
+    do k = ka,mza-1
 
        !  Compute Richardson number and Lilly Richardson-number term
 
@@ -242,8 +239,8 @@ contains
    
     vkm(ka-1)  = 0.
     vkh(ka-1)  = 0.
-    vkm(mza-1) = 0.
-    vkh(mza-1) = 0.
+    vkm(mza) = 0.
+    vkh(mza) = 0.
 
     ! Horizontal diffusion coefficient (current version)
 
@@ -251,7 +248,7 @@ contains
 
     ! akmin hardwired for "grid 1" value for now
 
-    do k = ka,mza-1
+    do k = ka,mza
        hkm(k,iw) = max(vkm(k-1), vkm(k), bkmin * real(rho(k,iw)))
     enddo
 
@@ -266,12 +263,12 @@ contains
 
     ! Vertical loop over W levels
 
-    do k = ka,mza-2
+    do k = ka,mza-1
        akodz(k) = arw(k,iw) * vkm(k) * dzim(k)
     enddo
 
     akodz(ka-1)  = 0.
-    akodz(mza-1) = 0.
+    akodz(mza) = 0.
 
     ! Distribution of surface flux over multiple levels
     
@@ -284,7 +281,7 @@ contains
 
     ! Vertical loop over T levels
 
-    do k = ka,mza-1
+    do k = ka,mza
        
        ! Mass in t control volume and its inverse times dtl
        
@@ -306,15 +303,15 @@ contains
 
     ! Solve tri-diagonal matrix for each component
 
-    if (ka <= mza-1) then
-       call tridv( vctr5, vctr6, vctr7, rhs, soln, ka, mza-1, mza, 3 )
+    if (ka <= mza) then
+       call tridv( vctr5, vctr6, vctr7, rhs, soln, ka, mza, mza, 3 )
     endif
 
     ! Now, soln contains velocity(t+1) values
 
     ! Compute internal vertical turbulent fluxes
 
-    do k = ka, mza-2
+    do k = ka, mza-1
        vctr2(k,1) = akodz(k) * (soln(k,1) - soln(k+1,1))
        vctr2(k,2) = akodz(k) * (soln(k,2) - soln(k+1,2))
        vctr2(k,3) = akodz(k) * (soln(k,3) - soln(k+1,3))
@@ -323,11 +320,11 @@ contains
     ! Set bottom and top internal fluxes to zero
     
     vctr2(ka-1, 1:3) = 0.
-    vctr2(mza-1,1:3) = 0.
+    vctr2(mza , 1:3) = 0.
 
     ! Compute tendencies
 
-    do k = ka, mza-1
+    do k = ka, mza
        vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) &
                    * (vctr2(k-1,1) - vctr2(k,1) - vctr3(k) * soln(k,1))
        vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) &
@@ -345,7 +342,7 @@ contains
 
     ! Vertical loop over W levels: fill tri-diagonal matrix coefficients and r.h.s.
 
-    do k = ka, mza-2
+    do k = ka, mza-1
        akodz(k) = arw(k,iw) * vkh(k) * dzim(k)
        vctr5(k) = -akodz(k) * dtomass(k)
        vctr7(k) = -akodz(k) * dtomass(k+1)
@@ -388,16 +385,16 @@ contains
        do ns = 1, num_emis
           n = emis_map(ns)
 
-          do k = ka, mza-2
+          do k = ka, mza-1
              scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
                                        + rho(k,iw) * scalar_tab(n)%emis(k,iw)
 
              del_scp(k) = scalar_tab(n)%emis(k,iw) * dtl
           enddo
           
-          del_scp(mza-1) = 0.0
+          del_scp(mza) = 0.0
     
-          do k = ka, mza-2
+          do k = ka, mza-1
              rhs(k,n) = rhs(k,n) + akodz(k) * (del_scp(k) - del_scp(k+1))
           enddo
        enddo
@@ -405,19 +402,19 @@ contains
 
     ! Solve tri-diagonal matrix equation
 
-    if (ka <= mza-2) then
-       call tridv( vctr5, vctr6, vctr7, rhs, soln, ka, mza-2, mza, num_scalar )
+    if (ka <= mza-1) then
+       call tridv( vctr5, vctr6, vctr7, rhs, soln, ka, mza-1, mza, num_scalar )
     endif
 
     ! Set bottom and top vertical internal turbulent fluxes to zero
 
     soln( ka-1, 1:num_scalar) = 0.0
-    soln(mza-1, 1:num_scalar) = 0.0
+    soln(mza  , 1:num_scalar) = 0.0
 
     ! Vertical loop over T levels
 
     do n = 1, num_scalar
-       do k = ka, mza-1
+       do k = ka, mza
           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
                                     + volti(k,iw) * (soln(k-1,n) - soln(k,n))
        enddo

@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 Module mem_thuburn
@@ -52,13 +52,13 @@ Contains
 
 !===============================================================================
 
-  subroutine alloc_thuburn(meshtype, imonot, mza, mva, mwa)
+  subroutine alloc_thuburn(imonot, mza, mva, mwa)
     use misc_coms, only: rinit
     implicit none
     
-    integer, intent(in) :: meshtype, imonot, mza, mva, mwa
+    integer, intent(in) :: imonot, mza, mva, mwa
 
-    if (meshtype == 2 .and. imonot == 1) then
+    if (imonot == 1) then
        
        allocate( scp_local_min   (mza,mwa)) ; scp_local_min    = rinit
        allocate( scp_local_max   (mza,mwa)) ; scp_local_max    = rinit

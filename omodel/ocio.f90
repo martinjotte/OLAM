@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 
 subroutine commio(action)
@@ -40,9 +40,9 @@ subroutine commio(action)
 use max_dims,   only: maxngrdll
 use misc_coms,  only: io6, itime1, idate1, imonth1, iyear1, nxp, ngrids, &
                       ngrdll, grdrad, grdlat, grdlon, nzp, &
-                      mdomain, meshtype, deltax, &
+                      mdomain, deltax, &
                       itopoflg, time8, ndz, hdz, dz, current_time
-use leaf_coms,  only: nzg, nzs, slz, ivegflg, isfcl, ilandgrid
+use leaf_coms,  only: nzg, nzs, slz, ivegflg, isfcl
 use sea_coms,   only: iseagrid
 use hdf5_utils, only: shdf5_orec, shdf5_irec, shdf5_io
 
@@ -74,14 +74,12 @@ call shdf5_io(action, ndims, idims, 'nl%nzg',     ivars=nzg)
 call shdf5_io(action, ndims, idims, 'nl%nzs',     ivars=nzs)
 call shdf5_io(action, ndims, idims, 'nl%nxp',     ivars=nxp)
 call shdf5_io(action, ndims, idims, 'nl%mdomain', ivars=mdomain)
-call shdf5_io(action, ndims, idims, 'nl%meshtype',ivars=meshtype)
 call shdf5_io(action, ndims, idims, 'nl%isfcl',   ivars=isfcl)
 call shdf5_io(action, ndims, idims, 'nl%itopoflg',ivars=itopoflg)
 call shdf5_io(action, ndims, idims, 'nl%ivegflg', ivars=ivegflg)
 call shdf5_io(action, ndims, idims, 'nl%deltax',  rvars=deltax)
 
 call shdf5_io(action, ndims, idims, 'nl%ndz',      ivars=ndz)
-call shdf5_io(action, ndims, idims, 'nl%ilandgrid',ivars=ilandgrid)
 call shdf5_io(action, ndims, idims, 'nl%iseagrid', ivars=iseagrid)
 
 ndims = 1

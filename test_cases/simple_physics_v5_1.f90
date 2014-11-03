@@ -259,7 +259,7 @@ subroutine simple_physics (mza, ka, za, dtime, lat, t, q, u, v, pmid, pint, pdel
 
 ! Calculate Tendencies
 
-      do k=ka,mza-1  ! Loop order does not matter
+      do k=ka,mza  ! Loop order does not matter
          qsat = epsilo*e0/pmid(k)*exp(-latvap/rh2o*((1._r8/t(k))-1._r8/T0))  ! saturation specific humidity
 
 if (iw == 46685 .and. k < 15) then
@@ -282,7 +282,7 @@ endif
 
 ! Update moisture and temperature fields from Large-Scale Precipitation Scheme
 
-      do k=ka,mza-1
+      do k=ka,mza
          t(k) =  t(k) + dtdt(k)*dtime    ! update the state variables T and q
          q(k) =  q(k) + dqdt(k)*dtime
       end do
@@ -327,7 +327,7 @@ if (test == 2) return   ! Code added by Bob Walko for test_case 42
          Km(ka-1) = Cm*wind*za
       endif
 
-      do k=ka,mza-1
+      do k=ka,mza
          if( pint(k) .ge. pbltop) then
             Km(k) = Km(ka-1)                 ! constant Km below 850 hPa level
             Ke(k) = Ke(ka-1)                 ! constant Ke below 850 hPa level
@@ -368,7 +368,7 @@ if (test == 2) return   ! Code added by Bob Walko for test_case 42
 !===============================================================================
 ! Calculate Diagonal Variables for Implicit PBL Scheme
 
-      do k=ka+1,mza-1  ! loop order does not matter
+      do k=ka+1,mza  ! loop order does not matter
          rho = (pint(k-1)/(rair*(t(k-1)+t(k))/2.0_r8))
          CAm(k)   = rpdel(k)*dtime*gravit*gravit*Km(k-1)*rho*rho   &
                       /(pmid(k-1)-pmid(k))    
@@ -380,16 +380,16 @@ if (test == 2) return   ! Code added by Bob Walko for test_case 42
                       /(pmid(k-1)-pmid(k))
       end do
       CAm(ka) = 0._r8
-      CCm(mza-1) = 0._r8
+      CCm(mza) = 0._r8
       CEm(ka-1) = 0._r8
       CA(ka) = 0._r8
-      CC(mza-1) = 0._r8
+      CC(mza) = 0._r8
       CE(ka-1) = 0._r8
       CFu(ka-1) = 0._r8
       CFv(ka-1) = 0._r8
       CFt(ka-1) = 0._r8
       CFq(ka-1) = 0._r8 
-      do k=ka,mza-1  ! loop order matters
+      do k=ka,mza  ! loop order matters
          CE(k)  = CC(k)/(1._r8+CA(k)+CC(k)-CA(k)*CE(k-1)) 
          CEm(k) = CCm(k)/(1._r8+CAm(k)+CCm(k)-CAm(k)*CEm(k-1))
          CFu(k) = (u(k)+CAm(k)*CFu(k-1)) &
@@ -406,18 +406,18 @@ if (test == 2) return   ! Code added by Bob Walko for test_case 42
 
 ! First we need to calculate the updates at the top model level
 
-      dudt(mza-1)  = dudt(mza-1)+(CFu(mza-1)-u(mza-1))/dtime
-      dvdt(mza-1)  = dvdt(mza-1)+(CFv(mza-1)-v(mza-1))/dtime
-      u(mza-1)    = CFu(mza-1)
-      v(mza-1)    = CFv(mza-1)
-      dtdt(mza-1)  = dtdt(mza-1)+(CFt(mza-1)*(pmid(mza-1)/p0)**(rair/cpair)-t(mza-1))/dtime  ! corrected in version 1.3
-      t(mza-1)    = CFt(mza-1)*(pmid(mza-1)/p0)**(rair/cpair)
-      dqdt(mza-1)  = dqdt(mza-1)+(CFq(mza-1)-q(mza-1))/dtime
-      q(mza-1)  = CFq(mza-1)
+      dudt(mza)  = dudt(mza)+(CFu(mza)-u(mza))/dtime
+      dvdt(mza)  = dvdt(mza)+(CFv(mza)-v(mza))/dtime
+      u(mza)    = CFu(mza)
+      v(mza)    = CFv(mza)
+      dtdt(mza)  = dtdt(mza)+(CFt(mza)*(pmid(mza)/p0)**(rair/cpair)-t(mza))/dtime  ! corrected in version 1.3
+      t(mza)    = CFt(mza)*(pmid(mza)/p0)**(rair/cpair)
+      dqdt(mza)  = dqdt(mza)+(CFq(mza)-q(mza))/dtime
+      q(mza)  = CFq(mza)
 
 ! Loop over the remaining levels
 
-      do k=mza-2,ka,-1  ! loop order matters
+      do k=mza-1,ka,-1  ! loop order matters
          dudt(k)  = dudt(k)+(CEm(k)*u(k+1)+CFu(k)-u(k))/dtime
          dvdt(k)  = dvdt(k)+(CEm(k)*v(k+1)+CFv(k)-v(k))/dtime
          u(k)    = CEm(k)*u(k+1)+CFu(k) 

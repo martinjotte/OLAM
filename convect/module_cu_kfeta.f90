@@ -34,7 +34,7 @@ CONTAINS
 
    use mem_grid,    only: mza, lpw, zt, dzt, xew, yew, zew, &
                           unx, uny, unz, vnx, vny, vnz, arw0
-   use misc_coms,   only: io6, meshtype
+   use misc_coms,   only: io6
    use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, qwcon
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc
    use mem_ijtabs,  only: itab_w, jtab_w
@@ -81,12 +81,12 @@ CONTAINS
    massflx(:) = 0.0
 
    cutop = lpw(iw)
-   cubot = mza - 1
+   cubot = mza
 
 ! Go no higher than 50mb for convective calculations
 
-   kte = mza - lpw(iw)
-   do k = lpw(iw), mza-1
+   kte = mza + 1 - lpw(iw)
+   do k = lpw(iw), mza
       if (press(k,iw) < 50.e2) then
          kte = k - lpw(iw)
          exit

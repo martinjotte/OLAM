@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,28 +29,24 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine oplot_lib(k,i,infotyp,fldname0,wtbot,wttop,fldval,notavail)
 
-use mem_ijtabs,  only: itab_w, itab_u, itab_v, itab_m, itabg_u, itabg_w
-use mem_basic,   only: umc, vmc, wmc, ump, vmp, uc, vc, wc, rho, press, &
+use mem_ijtabs,  only: itab_w, itab_v, itab_m, itabg_w
+use mem_basic,   only: vmc, wmc, vmp, vc, wc, rho, press, &
                        thil, theta, tair, sh_w, sh_v, vxe, vye, vze
 use mem_cuparm,  only: conprr, aconpr
 
-use mem_grid,    only: mza, mua, mva, mwa, lpm, lpu, lcu, lpv, lpw, lsw, &
-                       zm, zt, dnu, dnv, arw0, arm0, aru, arv, arw, volt, &
-                       volti, volui, volvi, volwi, xem, yem, zem, &
-                       xeu, yeu, zeu, xev, yev, zev, xew, yew, zew, &
-                       topm, topw, glatm, glonm, glatu, glonu, glatv, glonv, &
-                       glatw, glonw, unx, uny, unz, vnx, vny, vnz, dnu, dnv
+use mem_grid,    only: mza, mva, mwa, lpm, lpv, lpw, lsw, &
+                       zm, zt, dnu, dnv, arw0, arm0, arv, arw, volt, &
+                       volti, xem, yem, zem, &
+                       xev, yev, zev, xew, yew, zew, &
+                       topm, topw, glatm, glonm, glatv, glonv, &
+                       glatw, glonw, unx, uny, unz, vnx, vny, vnz
 
-use mem_leaf,    only: land, itabg_wl
+use mem_leaf,    only: land, itab_wl, itabg_wl
 
-use mem_sea,     only: sea, itabg_ws
+use mem_sea,     only: sea, itab_ws, itabg_ws
 
 use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
@@ -57,30 +57,29 @@ use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
 use mem_radiate, only: fthrd_lw, fthrd_sw, rshort, rlong, rlongup, albedt, &
                        rshort_top, rshortup_top, rlongup_top
 use mem_addsc,   only: addsc
-use mem_tend,    only: umt, vmt, wmt
-use mem_turb,    only: vkm, vkm_sfc, sflux_w, sflux_t, sflux_r, pblh, hkm
+use mem_tend,    only: vmt, wmt
+use mem_turb,    only: vkm, vkm_sfc, sfluxw, sfluxt, sfluxr, pblh, hkm
 use mem_nudge,   only: rho_obs, theta_obs, shw_obs, uzonal_obs, umerid_obs, &
                        rho_sim, theta_sim, shw_sim, uzonal_sim, umerid_sim
 
-use misc_coms,   only: io6, pr01d, dn01d, th01d, time8, isubdomain, meshtype, &
+use misc_coms,   only: io6, pr01d, dn01d, th01d, time8, isubdomain, &
                        naddsc, mdomain
 use oplot_coms,  only: op
 use consts_coms, only: p00i, rocp, erad, piu180, cp, alvl, grav, omega2
 use leaf_coms,   only: slcpd, nzg, slmsts, slz, mwl, dt_leaf
-use mem_sflux,   only: landflux, seaflux, mlandflux, mseaflux
 use sea_coms,    only: mws
 use mem_timeavg, only: rshort_avg, rshortup_avg, rlong_avg, rlongup_avg, &
                        rshort_top_avg, rshortup_top_avg, rlongup_top_avg, &
-                       sflux_t_avg, sflux_r_avg
+                       sfluxt_avg, sfluxr_avg
 use mem_flux_accum, only: rshort_accum, rshortup_accum, rlong_accum, rlongup_accum, &
                           rshort_top_accum, rshortup_top_accum, rlongup_top_accum, &
-                             sflux_t_accum, sflux_r_accum, &
-                           lf_sfluxt_accum, lf_sfluxr_accum, &
-                          lf_airtemp_accum, lf_airshv_accum, &
-                          lf_cantemp_accum, lf_canshv_accum, &
-                           sf_sfluxt_accum, sf_sfluxr_accum, &
-                          sf_airtemp_accum, sf_airshv_accum, &
-                          sf_cantemp_accum, sf_canshv_accum
+                              sfluxt_accum,    sfluxr_accum, &
+                            sfluxt_l_accum,  sfluxr_l_accum, &
+                           airtemp_l_accum,  airshv_l_accum, &
+                           cantemp_l_accum,  canshv_l_accum, &
+                            sfluxt_s_accum,  sfluxr_s_accum, &
+                           airtemp_s_accum,  airshv_s_accum, &
+                           cantemp_s_accum,  canshv_s_accum
 
   use mem_average_vars, only: &
      npoints_mavg, npoints_davg, npoints_avg24, nz_avg, &
@@ -98,24 +97,21 @@ use mem_flux_accum, only: rshort_accum, rshortup_accum, rlong_accum, rlongup_acc
      press_davg, vxe_davg, vye_davg, vze_davg, rshort_davg, &
      tempk_davg, tempk_dmin, tempk_dmax, accpmic_dtot, accpcon_dtot, &
      press_ul_davg, vxe_ul_davg, vye_ul_davg, vze_ul_davg, &
-     canltempk_davg, canltempk_dmin, canltempk_dmax, &
-      vegtempk_davg,  vegtempk_dmin,  vegtempk_dmax, &
-     soiltempk_davg, soiltempk_dmin, soiltempk_dmax, &
-     canstempk_davg, canstempk_dmin, canstempk_dmax, &
-        tempk_lf_davg,    tempk_lf_dmin,    tempk_lf_dmax, &
-     cantempk_lf_davg, cantempk_lf_dmin, cantempk_lf_dmax, &
-       sfluxt_lf_davg,   sfluxr_lf_davg,                   &
-        tempk_sf_davg,    tempk_sf_dmin,    tempk_sf_dmax, &
-     cantempk_sf_davg, cantempk_sf_dmin, cantempk_sf_dmax, &
-       sfluxt_sf_davg,   sfluxr_sf_davg
+     airtempk_l_davg, airtempk_l_dmin, airtempk_l_dmax, &
+     cantempk_l_davg, cantempk_l_dmin, cantempk_l_dmax, &
+       vegtempk_davg,   vegtempk_dmin,   vegtempk_dmax, &
+      soiltempk_davg,  soiltempk_dmin,  soiltempk_dmax, &
+       sfluxt_l_davg,   sfluxr_l_davg,                  &
+     airtempk_s_davg, airtempk_s_dmin, airtempk_s_dmax, &
+     cantempk_s_davg, cantempk_s_dmin, cantempk_s_dmax, &
+       sfluxt_s_davg,   sfluxr_s_davg
 
-use oname_coms,  only: nl
+use oname_coms, only: nl
 
 use mem_swtc5_refsoln_cubic
 
 use mem_plot, only: &
-      press_init,      rho_init,    theta_init, &
-         uc_init,       vc_init,   addsc1_init, &
+      press_init,      rho_init,    theta_init, vc_init, addsc1_init, &
      time8_prev0,   time8_prev1,   time8_prev2,   time8_prev3, &
    accpmic_prev0, accpmic_prev1, accpmic_prev2, accpmic_prev3, &
    accpcon_prev0, accpcon_prev1, accpcon_prev2, accpcon_prev3, &
@@ -126,20 +122,20 @@ use mem_plot, only: &
      rshort_top_accum_prev0,   rshort_top_accum_prev1, &
    rshortup_top_accum_prev0, rshortup_top_accum_prev1, &
     rlongup_top_accum_prev0,  rlongup_top_accum_prev1, &
-        sflux_t_accum_prev0,      sflux_t_accum_prev1, &
-        sflux_r_accum_prev0,      sflux_r_accum_prev1, &
-      lf_sfluxt_accum_prev0,    lf_sfluxt_accum_prev1, &
-      lf_sfluxr_accum_prev0,    lf_sfluxr_accum_prev1, &
-     lf_airtemp_accum_prev0,   lf_airtemp_accum_prev1, &
-      lf_airshv_accum_prev0,    lf_airshv_accum_prev1, &
-     lf_cantemp_accum_prev0,   lf_cantemp_accum_prev1, &
-      lf_canshv_accum_prev0,    lf_canshv_accum_prev1, &
-      sf_sfluxt_accum_prev0,    sf_sfluxt_accum_prev1, &
-      sf_sfluxr_accum_prev0,    sf_sfluxr_accum_prev1, &
-     sf_airtemp_accum_prev0,   sf_airtemp_accum_prev1, &
-      sf_airshv_accum_prev0,    sf_airshv_accum_prev1, &
-     sf_cantemp_accum_prev0,   sf_cantemp_accum_prev1, &
-      sf_canshv_accum_prev0,    sf_canshv_accum_prev1
+         sfluxt_accum_prev0,       sfluxt_accum_prev1, &
+         sfluxr_accum_prev0,       sfluxr_accum_prev1, &
+       sfluxt_l_accum_prev0,     sfluxt_l_accum_prev1, &
+       sfluxr_l_accum_prev0,     sfluxr_l_accum_prev1, &
+      airtemp_l_accum_prev0,    airtemp_l_accum_prev1, &
+       airshv_l_accum_prev0,     airshv_l_accum_prev1, &
+      cantemp_l_accum_prev0,    cantemp_l_accum_prev1, &
+       canshv_l_accum_prev0,     canshv_l_accum_prev1, &
+       sfluxt_s_accum_prev0,     sfluxt_s_accum_prev1, &
+       sfluxr_s_accum_prev0,     sfluxr_s_accum_prev1, &
+      airtemp_s_accum_prev0,    airtemp_s_accum_prev1, &
+       airshv_s_accum_prev0,     airshv_s_accum_prev1, &
+      cantemp_s_accum_prev0,    cantemp_s_accum_prev1, &
+       canshv_s_accum_prev0,     canshv_s_accum_prev1
 
 implicit none
 
@@ -154,19 +150,17 @@ integer, intent(out) :: notavail  ! 0 - variable is available
                                   ! 3 - variable is not available in this run
 
 integer :: klev,nls,iv,iw,kw
-real :: raxis,u,v,ucint,vcint,farv2,rpolyi
+real :: raxis,u,v,farv2,rpolyi
 real :: vx, vy, vz, vxc, vyc, vzc
 real :: tempk,fracliq
 real :: contrib
-real :: tuu1, tuu2, tuu3, tuu4
 integer :: iw1,iw2,iwl,iws
-integer :: iu, iu1, iu2, iu3, iu4
 integer :: npoly,j
 integer :: lenstr, ic, ifield
 integer, save :: indp, icase
 
-real :: ucc,vcc
-real :: ucc_init, vcc_init, vx_init, vy_init, vz_init, u_init, v_init
+real :: vcc
+real :: vcc_init, vx_init, vy_init, vz_init, u_init, v_init
 real :: accpboth_prev0, accpboth_prev1, accpboth_prev2, accpboth_prev3
 real :: denom
 
@@ -176,7 +170,7 @@ real, save, allocatable :: aux(:)
 
 real :: zanal_swtc5, zanal0_swtc5
 
-integer, parameter :: nfields = 385
+integer, parameter :: nfields = 332
 character(len=40) :: fldlib(4,nfields)
 character(len=40), save :: fldname
 
@@ -184,459 +178,377 @@ character(len=40), save :: fldname
 !-----------------------------------------------------------------------------------
 ! ATMOSPHERE - 3D
 
-data fldlib(1:4,  1:37)/ &
- 'UMC'           ,'V3' ,'U-NORMAL MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'     ,& !p  1
- 'VMC'           ,'V3' ,'V-NORMAL MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'     ,& !p  2
- 'WMC'           ,'W3' ,'W MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'            ,& !p  3
- 'UMP'           ,'V3' ,'U-NORMAL MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'     ,& !p  4
- 'VMP'           ,'V3' ,'V-NORMAL MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'     ,& !p  5
- 'UC'            ,'V3' ,'U-NORMAL VELOCITY',' (m s:S2:-1  )'                ,& !p  6
- 'VC'            ,'V3' ,'V-NORMAL VELOCITY',' (m s:S2:-1  )'                ,& !p  7
- 'WC'            ,'W3' ,'W VELOCITY',' (m s:S2:-1  )'                       ,& !p  8
- 'RHO'           ,'T3' ,'AIR DENSITY',' (kg m:S2:-3  )'                     ,& !p  9
- 'PRESS'         ,'T3' ,'PRESSURE',' (hPa)'                                 ,& !  10
- 'THIL'          ,'T3' ,'ICE-LIQUID THETA',' (K)'                           ,& !p 11
- 'THETA'         ,'T3' ,'THETA',' (K)'                                      ,& !p 12
- 'AIRTEMPK'      ,'T3' ,'AIR TEMP',' (K)'                                   ,& !p 13
- 'AIRTEMPC'      ,'T3' ,'AIR TEMP',' (C)'                                   ,& !p 14
- 'SH_W'          ,'T3' ,'TOTAL WATER SPEC DENSITY',' (g kg:S2:-1  )'        ,& !p 15
- 'SH_V'          ,'T3' ,'WATER VAPOR SPEC DENSITY',' (g kg:S2:-1  )'        ,& !p 16
- 'SH_C'          ,'T3' ,'CLOUDWATER SPEC DENSITY',' (g kg:S2:-1  )'         ,& !p 17
- 'SH_D'          ,'T3' ,'DRIZZLE SPEC DENSITY',' (g kg:S2:-1  )'            ,& !p 18
- 'SH_R'          ,'T3' ,'RAIN SPEC DENSITY',' (g kg:S2:-1  )'               ,& !p 19
- 'SH_P'          ,'T3' ,'PRISTINE ICE SPEC DENSITY',' (g kg:S2:-1  )'       ,& !p 20
- 'SH_S'          ,'T3' ,'SNOW SPEC DENSITY',' (g kg:S2:-1  )'               ,& !p 21
- 'SH_A'          ,'T3' ,'AGGREGATES SPEC DENSITY',' (g kg:S2:-1  )'         ,& !p 22
- 'SH_G'          ,'T3' ,'GRAUPEL SPEC DENSITY',' (g kg:S2:-1  )'            ,& !p 23
- 'SH_H'          ,'T3' ,'HAIL SPEC DENSITY',' (g kg:S2:-1  )'               ,& !p 24
- 'SH_CP'         ,'T3' ,'CLOUD + PRIST ICE SPEC DENSITY',' (g kg:S2:-1  )'  ,& !p 25
- 'SH_TOTCOND'    ,'T3' ,'CONDENSATE SPEC DENSITY',' (g kg:S2:-1  )'         ,& !p 26
- 'CON_C'         ,'T3' ,'CLOUD DROPLET NUMBER CONCEN',' (# mg:S2:-1  )'     ,& !p 27
- 'CON_D'         ,'T3' ,'DRIZZLE NUMBER CONCEN',' (# mg:S2:-1  )'           ,& !p 28
- 'CON_R'         ,'T3' ,'RAIN NUMBER CONCEN',' (# kg:S2:-1  )'              ,& !p 29
- 'CON_P'         ,'T3' ,'PRISTINE ICE NUMBER CONCEN',' (# kg:S2:-1  )'      ,& !p 30
- 'CON_S'         ,'T3' ,'SNOW NUMBER CONCEN',' (# kg:S2:-1  )'              ,& !p 31
- 'CON_A'         ,'T3' ,'AGGREGATES NUMBER CONCEN',' (# kg:S2:-1  )'        ,& !p 32
- 'CON_G'         ,'T3' ,'GRAUPEL NUMBER CONCEN',' (# kg:S2:-1  )'           ,& !p 33
- 'CON_H'         ,'T3' ,'HAIL NUMBER CONCEN',' (# kg:S2:-1  )'              ,& !p 34
- 'CON_CCN'       ,'T3' ,'CCN NUMBER CONCEN',' (# mg:S2:-1  )'               ,& !p 35
- 'CON_GCCN'      ,'T3' ,'GCCN NUMBER CONCEN',' (# mg:S2:-1  )'              ,& !p 36
- 'CON_IFN'       ,'T3' ,'IFN NUMBER CONCEN',' (# kg:S2:-1  )'                / !p 37
+data fldlib(1:4,  1:34)/ &
+ 'VMC'           ,'V3' ,'V-NORMAL MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'     ,& !p  1
+ 'WMC'           ,'W3' ,'W MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'            ,& !p  2
+ 'VMP'           ,'V3' ,'V-NORMAL MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'     ,& !p  3
+ 'VC'            ,'V3' ,'V-NORMAL VELOCITY',' (m s:S2:-1  )'                ,& !p  4
+ 'WC'            ,'W3' ,'W VELOCITY',' (m s:S2:-1  )'                       ,& !p  5
+ 'RHO'           ,'T3' ,'AIR DENSITY',' (kg m:S2:-3  )'                     ,& !p  6
+ 'PRESS'         ,'T3' ,'PRESSURE',' (hPa)'                                 ,& !   7
+ 'THIL'          ,'T3' ,'ICE-LIQUID THETA',' (K)'                           ,& !p  8
+ 'THETA'         ,'T3' ,'THETA',' (K)'                                      ,& !p  9
+ 'AIRTEMPK'      ,'T3' ,'AIR TEMP',' (K)'                                   ,& !p 10
+ 'AIRTEMPC'      ,'T3' ,'AIR TEMP',' (C)'                                   ,& !p 11
+ 'SH_W'          ,'T3' ,'TOTAL WATER SPEC DENSITY',' (g kg:S2:-1  )'        ,& !p 12
+ 'SH_V'          ,'T3' ,'WATER VAPOR SPEC DENSITY',' (g kg:S2:-1  )'        ,& !p 13
+ 'SH_C'          ,'T3' ,'CLOUDWATER SPEC DENSITY',' (g kg:S2:-1  )'         ,& !p 14
+ 'SH_D'          ,'T3' ,'DRIZZLE SPEC DENSITY',' (g kg:S2:-1  )'            ,& !p 15
+ 'SH_R'          ,'T3' ,'RAIN SPEC DENSITY',' (g kg:S2:-1  )'               ,& !p 16
+ 'SH_P'          ,'T3' ,'PRISTINE ICE SPEC DENSITY',' (g kg:S2:-1  )'       ,& !p 17
+ 'SH_S'          ,'T3' ,'SNOW SPEC DENSITY',' (g kg:S2:-1  )'               ,& !p 18
+ 'SH_A'          ,'T3' ,'AGGREGATES SPEC DENSITY',' (g kg:S2:-1  )'         ,& !p 19
+ 'SH_G'          ,'T3' ,'GRAUPEL SPEC DENSITY',' (g kg:S2:-1  )'            ,& !p 20
+ 'SH_H'          ,'T3' ,'HAIL SPEC DENSITY',' (g kg:S2:-1  )'               ,& !p 21
+ 'SH_CP'         ,'T3' ,'CLOUD + PRIST ICE SPEC DENSITY',' (g kg:S2:-1  )'  ,& !p 22
+ 'SH_TOTCOND'    ,'T3' ,'CONDENSATE SPEC DENSITY',' (g kg:S2:-1  )'         ,& !p 23
+ 'CON_C'         ,'T3' ,'CLOUD DROPLET NUMBER CONCEN',' (# mg:S2:-1  )'     ,& !p 24
+ 'CON_D'         ,'T3' ,'DRIZZLE NUMBER CONCEN',' (# mg:S2:-1  )'           ,& !p 25
+ 'CON_R'         ,'T3' ,'RAIN NUMBER CONCEN',' (# kg:S2:-1  )'              ,& !p 26
+ 'CON_P'         ,'T3' ,'PRISTINE ICE NUMBER CONCEN',' (# kg:S2:-1  )'      ,& !p 27
+ 'CON_S'         ,'T3' ,'SNOW NUMBER CONCEN',' (# kg:S2:-1  )'              ,& !p 28
+ 'CON_A'         ,'T3' ,'AGGREGATES NUMBER CONCEN',' (# kg:S2:-1  )'        ,& !p 29
+ 'CON_G'         ,'T3' ,'GRAUPEL NUMBER CONCEN',' (# kg:S2:-1  )'           ,& !p 30
+ 'CON_H'         ,'T3' ,'HAIL NUMBER CONCEN',' (# kg:S2:-1  )'              ,& !p 31
+ 'CON_CCN'       ,'T3' ,'CCN NUMBER CONCEN',' (# mg:S2:-1  )'               ,& !p 32
+ 'CON_GCCN'      ,'T3' ,'GCCN NUMBER CONCEN',' (# mg:S2:-1  )'              ,& !p 33
+ 'CON_IFN'       ,'T3' ,'IFN NUMBER CONCEN',' (# kg:S2:-1  )'                / !p 34
 
-data fldlib(1:4, 38:67)/ &
- 'VKM'           ,'W3' ,'VERT TURB MOMENTUM K',' (N s m:S2:-2  )'           ,& !p 38
- 'FTHRD'         ,'T3' ,'RADIATIVE THETA TENDENCY',' (K s:S2:-1  )'         ,& !p 39
- 'SPEEDV'        ,'V3' ,'WIND SPEED AT V',' (m s:S2:-1  )'                  ,& !p 40
- 'AZIMV'         ,'V3' ,'WIND AZIMUTH AT V',' (deg)'                        ,& !p 41
- 'ZONAL_WINDV'   ,'V3' ,'ZONAL WIND AT V',' (m s:S2:-1  )'                  ,& !p 42
- 'MERID_WINDV'   ,'V3' ,'MERIDIONAL WIND AT V',' (m s:S2:-1  )'             ,& !p 43
- 'ZONAL_WINDV_P' ,'V3' ,'ZONAL WIND PERT AT V',' (m s:S2:-1  )'             ,& !  44
- 'MERID_WINDV_P' ,'V3' ,'MERIDIONAL WIND PERT V',' (m s:S2:-1  )'           ,& !  45
- 'SPEEDW'        ,'T3' ,'WIND SPEED AT W',' (m s:S2:-1  )'                  ,& !p 46
- 'AZIMW'         ,'T3' ,'WIND AZIMUTH AT W',' (deg)'                        ,& !p 47
- 'ZONAL_WINDW'   ,'T3' ,'ZONAL WIND AT W',' (m s:S2:-1  )'                  ,& !p 48
- 'MERID_WINDW'   ,'T3' ,'MERIDIONAL WIND AT W',' (m s:S2:-1  )'             ,& !p 49
- 'RVORTZM'       ,'P3' ,'REL VERT VORTICITY AT M',' (s:S2:-1  )'            ,& !p 50
- 'TVORTZM'       ,'P3' ,'TOT VERT VORTICITY AT M',' (s:S2:-1  )'            ,& !p 51
- 'RVORTZM_P'     ,'P3' ,'REL VERT VORTICITY PERT AT M',' (s:S2:-1  )'       ,& !p 52
- 'DIVERG'        ,'T3' ,'HORIZONTAL DIVERGENCE',' (s:S2:-1  )'              ,& !p 53
- 'UMASSFLUX'     ,'V3' ,'GRID CELL U-FACE MASS FLUX',' (kg s:S2:-1  )'      ,& !  54
- 'VMASSFLUX'     ,'V3' ,'GRID CELL V-FACE MASS FLUX',' (kg s:S2:-1  )'      ,& !  55
- 'UC_P'          ,'V3' ,'NORMAL WIND PERT AT U',' (m s:S2:-1  )'            ,& !p 56
- 'VC_P'          ,'V3' ,'NORMAL WIND PERT AT V',' (m s:S2:-1  )'            ,& !p 57
- 'PRESS_P'       ,'T3' ,'PRESSURE PERT',' (hPa)'                            ,& !  58
- 'RHO_P'         ,'T3' ,'DENSITY PERT',' (kg m:S2:-3  )'                    ,& !  59
- 'THETA_P'       ,'T3' ,'THETA PERT',' (K)'                                 ,& !  60
- 'AIRTEMPK_P'    ,'T3' ,'AIR TEMP PERT',' (K)'                              ,& !p 61
- 'UMT'           ,'V3' ,'U-NORM MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'  ,& !  62
- 'VMT'           ,'V3' ,'V-NORM MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'  ,& !  63
- 'WMT'           ,'W3' ,'W MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'       ,& !  64
- 'ADDSC'         ,'T3' ,'ADDED SCALAR AMOUNT PER KG AIR',' '                ,& !p 65
- 'ADDSCP'        ,'T3' ,'SCALAR PERTURBATION',' ( )'                        ,& !  66
- 'ZPLEV'         ,'T3' ,'HEIGHT OF CONST P SFC',' (m)'                       / !p 67
+data fldlib(1:4, 35:55)/ &
+ 'VKM'           ,'W3' ,'VERT TURB MOMENTUM K',' (N s m:S2:-2  )'           ,& !p 35
+ 'FTHRD'         ,'T3' ,'RADIATIVE THETA TENDENCY',' (K s:S2:-1  )'         ,& !p 36
+ 'SPEEDW'        ,'T3' ,'WIND SPEED AT W',' (m s:S2:-1  )'                  ,& !p 37
+ 'AZIMW'         ,'T3' ,'WIND AZIMUTH AT W',' (deg)'                        ,& !p 38
+ 'ZONAL_WINDW'   ,'T3' ,'ZONAL WIND AT W',' (m s:S2:-1  )'                  ,& !p 39
+ 'MERID_WINDW'   ,'T3' ,'MERIDIONAL WIND AT W',' (m s:S2:-1  )'             ,& !p 40
+ 'RVORTZM'       ,'P3' ,'REL VERT VORTICITY AT M',' (s:S2:-1  )'            ,& !p 41
+ 'TVORTZM'       ,'P3' ,'TOT VERT VORTICITY AT M',' (s:S2:-1  )'            ,& !p 42
+ 'RVORTZM_P'     ,'P3' ,'REL VERT VORTICITY PERT AT M',' (s:S2:-1  )'       ,& !p 43
+ 'DIVERG'        ,'T3' ,'HORIZONTAL DIVERGENCE',' (s:S2:-1  )'              ,& !p 44
+ 'VMASSFLUX'     ,'V3' ,'GRID CELL V-FACE MASS FLUX',' (kg s:S2:-1  )'      ,& !  45
+ 'VC_P'          ,'V3' ,'NORMAL WIND PERT AT V',' (m s:S2:-1  )'            ,& !p 46
+ 'PRESS_P'       ,'T3' ,'PRESSURE PERT',' (hPa)'                            ,& !  47
+ 'RHO_P'         ,'T3' ,'DENSITY PERT',' (kg m:S2:-3  )'                    ,& !  48
+ 'THETA_P'       ,'T3' ,'THETA PERT',' (K)'                                 ,& !  49
+ 'AIRTEMPK_P'    ,'T3' ,'AIR TEMP PERT',' (K)'                              ,& !p 50
+ 'VMT'           ,'V3' ,'V-NORM MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'  ,& !  51
+ 'WMT'           ,'W3' ,'W MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'       ,& !  52
+ 'ADDSC'         ,'T3' ,'ADDED SCALAR AMOUNT PER KG AIR',' '                ,& !p 53
+ 'ADDSCP'        ,'T3' ,'SCALAR PERTURBATION',' ( )'                        ,& !  54
+ 'ZPLEV'         ,'T3' ,'HEIGHT OF CONST P SFC',' (m)'                       / !p 55
 
 ! ATMOSPHERE - 2D
 
-data fldlib(1:4, 68:109)/ &
- 'RSHORT_TOP'    ,'T2' ,'TOP DOWNWARD SHORTWV FLX',' (W m:S2:-2  )'         ,& !  68
- 'RSHORTUP_TOP'  ,'T2' ,'TOP UPWARD SHORTWV FLX',' (W m:S2:-2  )'           ,& !  69
- 'RLONGUP_TOP'   ,'T2' ,'TOP UPWARD LONGWV FLX',' (W m:S2:-2  )'            ,& !  70
+data fldlib(1:4, 62:103)/ &
+ 'RSHORT_TOP'    ,'T2' ,'TOP DOWNWARD SHORTWV FLX',' (W m:S2:-2  )'         ,& !  62
+ 'RSHORTUP_TOP'  ,'T2' ,'TOP UPWARD SHORTWV FLX',' (W m:S2:-2  )'           ,& !  63
+ 'RLONGUP_TOP'   ,'T2' ,'TOP UPWARD LONGWV FLX',' (W m:S2:-2  )'            ,& !  64
 
 ! ATMOSPHERE SURFACE - 2D
 
- 'RSHORT'        ,'T2' ,'SFC DOWNWARD SHORTWV FLX',' (W m:S2:-2  )'         ,& !  71
- 'RSHORTUP'      ,'T2' ,'SFC UPWARD SHORTWV FLX',' (W m:S2:-2  )'           ,& !  72
- 'RLONG'         ,'T2' ,'SFC DOWNWARD LONGWV FLX',' (W m:S2:-2  )'          ,& !  73
- 'RLONGUP'       ,'T2' ,'SFC UPWARD LONGWV FLX',' (W m:S2:-2  )'            ,& !  74
- 'ALBEDT'        ,'T2' ,'NET GRID COLUMN SFC ALBEDO',' ( )'                 ,& !  75
- 'VKM_SFC'       ,'T2' ,'SFC TURB K FOR MOMENTUM',' (N s m:S2:-2  )'        ,& !  76
- 'SFLUX_W'       ,'T2' ,'SFC W MOMENTUM FLUX',' (N m:S2:-2  )'              ,& !  77
- 'SENSFLUX'      ,'T2' ,'ATM SFC SENSIBLE HEAT FLUX',' (W m:S2:-2  )'       ,& !  78
- 'VAPFLUX'       ,'T2' ,'ATM SFC VAPOR FLUX',' (kg m:S2:-2   s:S2:-1  )'    ,& !  79
- 'LATFLUX'       ,'T2' ,'ATM SFC LATENT HEAT FLUX',' (W m:S2:-2  )'         ,& !  80
- 'PCPRD'         ,'T2' ,'DRIZZLE PRECIP RATE',' (kg m:S2:-2   h:S2:-1  )'   ,& !  81
- 'PCPRR'         ,'T2' ,'RAIN PRECIP RATE',' (kg m:S2:-2   h:S2:-1  )'      ,& !  82
- 'PCPRP'         ,'T2' ,'PRIST ICE PCP RATE',' (kg m:S2:-2   h:S2:-1  )'    ,& !  83
- 'PCPRS'         ,'T2' ,'SNOW PCP RATE',' (kg m:S2:-2   h:S2:-1  )'         ,& !  84
- 'PCPRA'         ,'T2' ,'AGGREGATES PCP RATE',' (kg m:S2:-2   h:S2:-1  )'   ,& !  85
- 'PCPRG'         ,'T2' ,'GRAUPEL PCP RATE',' (kg m:S2:-2   h:S2:-1  )'      ,& !  86
- 'PCPRH'         ,'T2' ,'HAIL PCP RATE',' (kg m:S2:-2   h:S2:-1  )'         ,& !  87
- 'PCPRMIC'       ,'T2' ,'MICROPHYS PCP RATE',' (kg m:S2:-2   h:S2:-1  )'    ,& !  88
- 'PCPRCON'       ,'T2' ,'CONV PCP RATE',' (kg m:S2:-2   h:S2:-1  )'         ,& !  89
- 'PCPRBOTH'      ,'T2' ,'MICRO + CONV PCP RATE',' (kg m:S2:-2   h:S2:-1  )' ,& !  90
- 'ACCPD'         ,'T2' ,'ACCUM DRIZZLE',' (kg m:S2:-2  )'                   ,& !  91
- 'ACCPR'         ,'T2' ,'ACCUM RAIN',' (kg m:S2:-2  )'                      ,& !  92
- 'ACCPP'         ,'T2' ,'ACCUM PRIST ICE',' (kg m:S2:-2  )'                 ,& !  93
- 'ACCPS'         ,'T2' ,'ACCUM SNOW',' (kg m:S2:-2  )'                      ,& !  94
- 'ACCPA'         ,'T2' ,'ACCUM AGGREGATES',' (kg m:S2:-2  )'                ,& !  95
- 'ACCPG'         ,'T2' ,'ACCUM GRAUPEL',' (kg m:S2:-2  )'                   ,& !  96
- 'ACCPH'         ,'T2' ,'ACCUM HAIL',' (kg m:S2:-2  )'                      ,& !  97
- 'ACCPMIC'       ,'T2' ,'ACCUM MICPHYS PCP',' (kg m:S2:-2  )'               ,& !  98
- 'ACCPCON'       ,'T2' ,'ACCUM CONV PCP',' (kg m:S2:-2  )'                  ,& !  99
- 'ACCPBOTH'      ,'T2' ,'ACCUM MICPHYS + CONV PCP',' (kg m:S2:-2  )'        ,& ! 100
- 'PCPDIF2MIC'    ,'T2' ,'MICPHYS PRECIP DIFF2',' (mm/day)'                  ,& ! 101
- 'PCPDIF2CON'    ,'T2' ,'CONV PRECIP DIFF2',' (mm/day)'                     ,& ! 102
- 'PCPDIF2BOTH'   ,'T2' ,'MICPHYS + CONV PRECIP DIFF2',' (mm/day)'           ,& ! 103
- 'PCPDIF4MIC'    ,'T2' ,'MICPHYS PRECIP DIFF4',' (mm/day)'                  ,& ! 104
- 'PCPDIF4CON'    ,'T2' ,'CONV PRECIP DIFF4',' (mm/day)'                     ,& ! 105
- 'PCPDIF4BOTH'   ,'T2' ,'MICPHYS + CONV PRECIP DIFF4',' (mm/day)'           ,& ! 106
- 'PCPREL4MIC'    ,'T2' ,'MICPHYS PRECIP RELATIVE DIFF4',' '                 ,& ! 107
- 'PCPREL4CON'    ,'T2' ,'CONV PRECIP RELATIVE DIFF4',' '                    ,& ! 108
- 'PCPREL4BOTH'   ,'T2' ,'MICPHYS + CONV PRECIP RELATIVE DIFF4',' '           / ! 109
+ 'RSHORT'        ,'T2' ,'SFC DOWNWARD SHORTWV FLX',' (W m:S2:-2  )'         ,& !  65
+ 'RSHORTUP'      ,'T2' ,'SFC UPWARD SHORTWV FLX',' (W m:S2:-2  )'           ,& !  66
+ 'RLONG'         ,'T2' ,'SFC DOWNWARD LONGWV FLX',' (W m:S2:-2  )'          ,& !  67
+ 'RLONGUP'       ,'T2' ,'SFC UPWARD LONGWV FLX',' (W m:S2:-2  )'            ,& !  68
+ 'ALBEDT'        ,'T2' ,'NET GRID COLUMN SFC ALBEDO',' ( )'                 ,& !  69
+ 'VKM_SFC'       ,'T2' ,'SFC TURB K FOR MOMENTUM',' (N s m:S2:-2  )'        ,& !  70
+ 'SFLUXW'        ,'T2' ,'SFC W MOMENTUM FLUX',' (N m:S2:-2  )'              ,& !  71
+ 'SENSFLUX'      ,'T2' ,'ATM SFC SENSIBLE HEAT FLUX',' (W m:S2:-2  )'       ,& !  72
+ 'VAPFLUX'       ,'T2' ,'ATM SFC VAPOR FLUX',' (kg m:S2:-2   s:S2:-1  )'    ,& !  73
+ 'LATFLUX'       ,'T2' ,'ATM SFC LATENT HEAT FLUX',' (W m:S2:-2  )'         ,& !  74
+ 'PCPRD'         ,'T2' ,'DRIZZLE PRECIP RATE',' (kg m:S2:-2   h:S2:-1  )'   ,& !  75
+ 'PCPRR'         ,'T2' ,'RAIN PRECIP RATE',' (kg m:S2:-2   h:S2:-1  )'      ,& !  76
+ 'PCPRP'         ,'T2' ,'PRIST ICE PCP RATE',' (kg m:S2:-2   h:S2:-1  )'    ,& !  77
+ 'PCPRS'         ,'T2' ,'SNOW PCP RATE',' (kg m:S2:-2   h:S2:-1  )'         ,& !  78
+ 'PCPRA'         ,'T2' ,'AGGREGATES PCP RATE',' (kg m:S2:-2   h:S2:-1  )'   ,& !  79
+ 'PCPRG'         ,'T2' ,'GRAUPEL PCP RATE',' (kg m:S2:-2   h:S2:-1  )'      ,& !  80
+ 'PCPRH'         ,'T2' ,'HAIL PCP RATE',' (kg m:S2:-2   h:S2:-1  )'         ,& !  81
+ 'PCPRMIC'       ,'T2' ,'MICROPHYS PCP RATE',' (kg m:S2:-2   h:S2:-1  )'    ,& !  82
+ 'PCPRCON'       ,'T2' ,'CONV PCP RATE',' (kg m:S2:-2   h:S2:-1  )'         ,& !  83
+ 'PCPRBOTH'      ,'T2' ,'MICRO + CONV PCP RATE',' (kg m:S2:-2   h:S2:-1  )' ,& !  84
+ 'ACCPD'         ,'T2' ,'ACCUM DRIZZLE',' (kg m:S2:-2  )'                   ,& !  85
+ 'ACCPR'         ,'T2' ,'ACCUM RAIN',' (kg m:S2:-2  )'                      ,& !  86
+ 'ACCPP'         ,'T2' ,'ACCUM PRIST ICE',' (kg m:S2:-2  )'                 ,& !  87
+ 'ACCPS'         ,'T2' ,'ACCUM SNOW',' (kg m:S2:-2  )'                      ,& !  88
+ 'ACCPA'         ,'T2' ,'ACCUM AGGREGATES',' (kg m:S2:-2  )'                ,& !  89
+ 'ACCPG'         ,'T2' ,'ACCUM GRAUPEL',' (kg m:S2:-2  )'                   ,& !  90
+ 'ACCPH'         ,'T2' ,'ACCUM HAIL',' (kg m:S2:-2  )'                      ,& !  91
+ 'ACCPMIC'       ,'T2' ,'ACCUM MICPHYS PCP',' (kg m:S2:-2  )'               ,& !  92
+ 'ACCPCON'       ,'T2' ,'ACCUM CONV PCP',' (kg m:S2:-2  )'                  ,& !  93
+ 'ACCPBOTH'      ,'T2' ,'ACCUM MICPHYS + CONV PCP',' (kg m:S2:-2  )'        ,& !  94
+ 'PCPDIF2MIC'    ,'T2' ,'MICPHYS PRECIP DIFF2',' (mm/day)'                  ,& !  95
+ 'PCPDIF2CON'    ,'T2' ,'CONV PRECIP DIFF2',' (mm/day)'                     ,& !  96
+ 'PCPDIF2BOTH'   ,'T2' ,'MICPHYS + CONV PRECIP DIFF2',' (mm/day)'           ,& !  97
+ 'PCPDIF4MIC'    ,'T2' ,'MICPHYS PRECIP DIFF4',' (mm/day)'                  ,& !  98
+ 'PCPDIF4CON'    ,'T2' ,'CONV PRECIP DIFF4',' (mm/day)'                     ,& !  99
+ 'PCPDIF4BOTH'   ,'T2' ,'MICPHYS + CONV PRECIP DIFF4',' (mm/day)'           ,& ! 100
+ 'PCPREL4MIC'    ,'T2' ,'MICPHYS PRECIP RELATIVE DIFF4',' '                 ,& ! 101
+ 'PCPREL4CON'    ,'T2' ,'CONV PRECIP RELATIVE DIFF4',' '                    ,& ! 102
+ 'PCPREL4BOTH'   ,'T2' ,'MICPHYS + CONV PRECIP RELATIVE DIFF4',' '           / ! 103
 
 ! LAND_CELLS - 3D
 
-data fldlib(1:4,110:132)/ &
- 'SOIL_TEXT'     ,'L3G','SOIL TEXTURAL CLASS',' ( )'                        ,& ! 110
- 'SOIL_ENERGY'   ,'L3G','SOIL ENERGY',' (J cm:S2:-3  )'                     ,& ! 111
- 'SOIL_TEMPC'    ,'L3G','SOIL TEMP',' (C)'                                  ,& ! 112
- 'SOIL_FRACLIQ'  ,'L3G','LIQUID FRACTION OF SOIL WATER',' ( )'              ,& ! 113
- 'SOIL_WATER'    ,'L3G','SOIL WATER CONTENT',' ( )'                         ,& ! 114
- 'SFWAT_MASS'    ,'L3S','SFCWATER MASS',' (kg m:S2:-2  )'                   ,& ! 115
- 'SFWAT_ENERGY'  ,'L3S','SFCWATER ENERGY',' (J g:S2:-1  )'                  ,& ! 116
- 'SFWAT_TEMPC'   ,'L3S','SFCWATER TEMP',' (C)'                              ,& ! 117
- 'SFWAT_FRACLIQ' ,'L3S','SFCWATER LIQUID FRACTION',' ( )'                   ,& ! 118
- 'SFWAT_DEPTH'   ,'L3S','SFCWATER DEPTH',' (m)'                             ,& ! 119
+data fldlib(1:4,104:126)/ &
+ 'SOIL_TEXT'     ,'L3G','SOIL TEXTURAL CLASS',' ( )'                        ,& ! 104
+ 'SOIL_ENERGY'   ,'L3G','SOIL ENERGY',' (J cm:S2:-3  )'                     ,& ! 105
+ 'SOIL_TEMPC'    ,'L3G','SOIL TEMP',' (C)'                                  ,& ! 106
+ 'SOIL_FRACLIQ'  ,'L3G','LIQUID FRACTION OF SOIL WATER',' ( )'              ,& ! 107
+ 'SOIL_WATER'    ,'L3G','SOIL WATER CONTENT',' ( )'                         ,& ! 108
+ 'SFWAT_MASS'    ,'L3S','SFCWATER MASS',' (kg m:S2:-2  )'                   ,& ! 109
+ 'SFWAT_ENERGY'  ,'L3S','SFCWATER ENERGY',' (J g:S2:-1  )'                  ,& ! 110
+ 'SFWAT_TEMPC'   ,'L3S','SFCWATER TEMP',' (C)'                              ,& ! 111
+ 'SFWAT_FRACLIQ' ,'L3S','SFCWATER LIQUID FRACTION',' ( )'                   ,& ! 112
+ 'SFWAT_DEPTH'   ,'L3S','SFCWATER DEPTH',' (m)'                             ,& ! 113
 
 ! LAND_CELLS - 2D
 
- 'NLEV_SFWAT'    ,'L2' ,'NUMBER OF SFCWATER LAYERS',' ( )'                  ,& ! 120
- 'VEG_NDVIC'     ,'L2' ,'VEGETATION NDVI',' ( )'                            ,& ! 121
- 'VEG_TEMPC'     ,'L2' ,'VEGETATION TEMP',' (C)'                            ,& ! 122
- 'VEG_WATER'     ,'L2' ,'VEGETATION SFC WATER ',' (kg m:S2:-2  )'           ,& ! 123
- 'STOM_RESIST'   ,'L2' ,'STOMATAL RESISTANCE',' (s m:S2:-1  )'              ,& ! 124
- 'GROUND_SHV'    ,'L2' ,'EQUIL VAP SPEC DENSITY OF SOIL',' (g kg:S2:-1  )'  ,& ! 125
- 'SOIL_DEPTH'    ,'L2' ,'SOIL DEPTH',' (m)'                                 ,& ! 126
+ 'NLEV_SFWAT'    ,'L2' ,'NUMBER OF SFCWATER LAYERS',' ( )'                  ,& ! 114
+ 'VEG_NDVIC'     ,'L2' ,'VEGETATION NDVI',' ( )'                            ,& ! 115
+ 'VEG_TEMPC'     ,'L2' ,'VEGETATION TEMP',' (C)'                            ,& ! 116
+ 'VEG_WATER'     ,'L2' ,'VEGETATION SFC WATER ',' (kg m:S2:-2  )'           ,& ! 117
+ 'STOM_RESIST'   ,'L2' ,'STOMATAL RESISTANCE',' (s m:S2:-1  )'              ,& ! 118
+ 'GROUND_SHV'    ,'L2' ,'EQUIL VAP SPEC DENSITY OF SOIL',' (g kg:S2:-1  )'  ,& ! 119
+ 'SOIL_DEPTH'    ,'L2' ,'SOIL DEPTH',' (m)'                                 ,& ! 120
 
 ! SEA_CELLS - 2D
 
- 'SEATP'         ,'S2' ,'SEA SFC TEMP (PAST DATA)',' (K)'                   ,& ! 127
- 'SEATF'         ,'S2' ,'SEA SFC TEMP (FUTURE DATA)',' (K)'                 ,& ! 128
- 'SEATC'         ,'S2' ,'SEA SFC TEMP (CURRENT)',' (K)'                     ,& ! 129
- 'SEAICEP'       ,'S2' ,'SEAICE FRACTION (PAST DATA)',' ( )'                ,& ! 130
- 'SEAICEF'       ,'S2' ,'SEAICE FRACTION (FUTURE DATA)',' ( )'              ,& ! 131
- 'SEAICEC'       ,'S2' ,'SEAICE FRACTION (CURRENT)',' ( )'                   / ! 132
+ 'SEATP'         ,'S2' ,'SEA SFC TEMP (PAST DATA)',' (K)'                   ,& ! 121
+ 'SEATF'         ,'S2' ,'SEA SFC TEMP (FUTURE DATA)',' (K)'                 ,& ! 122
+ 'SEATC'         ,'S2' ,'SEA SFC TEMP (CURRENT)',' (K)'                     ,& ! 123
+ 'SEAICEP'       ,'S2' ,'SEAICE FRACTION (PAST DATA)',' ( )'                ,& ! 124
+ 'SEAICEF'       ,'S2' ,'SEAICE FRACTION (FUTURE DATA)',' ( )'              ,& ! 125
+ 'SEAICEC'       ,'S2' ,'SEAICE FRACTION (CURRENT)',' ( )'                   / ! 126
 
 ! LAND AND SEA CELLS - 2D
 
-data fldlib(1:4,133:149)/ &
- 'LEAF_CLASS'    ,'B2' ,'LEAF CLASS',' ( )'                                 ,& ! 133
- 'AREA'          ,'B2' ,'LAND/SEA CELL AREA',' (m:S2:2  )'                  ,& ! 134
- 'ROUGH'         ,'B2' ,'NET ROUGHNESS HEIGHT',' (m)'                       ,& ! 135
- 'CAN_TEMPC'     ,'B2' ,'CANOPY AIR TEMP',' (C)'                            ,& ! 136
- 'CAN_SHV'       ,'B2' ,'CANOPY VAPOR SPEC DENSITY',' (g kg:S2:-1  )'       ,& ! 137
- 'SFC_TEMPC'     ,'B2' ,'SOIL/SFCWATER/SEA SFC TEMP',' (C)'                 ,& ! 138
- 'SFC_SSH'       ,'B2' ,'LAND/SEA SFC SAT VAP SPEC DENS',' (g kg:S2:-1  )'  ,& ! 139
+data fldlib(1:4,127:148)/ &
+ 'LEAF_CLASS'      ,'B2' ,'LEAF CLASS',' ( )'                               ,& ! 127
+ 'LS_IW'           ,'B2' ,'L/S ATM IW INDEX',' '                            ,& ! 128
+ 'LS_KW'           ,'B2' ,'L/S ATM KW INDEX',' '                            ,& ! 129
+ 'LS_ARF_IW'       ,'B2' ,'L/S IW AREA FRACTION',' '                        ,& ! 130
+ 'LS_ARF_KW'       ,'B2' ,'L/S KW AREA FRACTION',' '                        ,& ! 131
+ 'LS_AREA'         ,'B2' ,'L/S CELL AREA',' (m:S2:2  )'                     ,& ! 132
+ 'LS_TOPW'         ,'B2' ,'L/S CELL TOPW',' (m)'                            ,& ! 133
+ 'ROUGH'           ,'B2' ,'NET ROUGHNESS HEIGHT',' (m)'                     ,& ! 134
+ 'CAN_TEMPC'       ,'B2' ,'CANOPY AIR TEMP',' (C)'                          ,& ! 135
+ 'CAN_SHV'         ,'B2' ,'CANOPY VAPOR SPEC DENSITY',' (g kg:S2:-1  )'     ,& ! 136
+ 'SFC_TEMPC'       ,'B2' ,'SOIL/SFCWATER/SEA SFC TEMP',' (C)'               ,& ! 137
+ 'SFC_SSH'         ,'B2' ,'L/S SFC SAT VAP SPEC DENS',' (g kg:S2:-1  )'     ,& ! 138
 
- 'SENSFLUX_LS'      ,'B2','L/S CAN TOP SENS HEAT FLX',' (W m:S2:-2  )'      ,& ! 140
- 'VAPFLUX_LS'       ,'B2','L/S CAN TOP VAP FLX',' (kg m:S2:-2   s:S2:-1  )' ,& ! 141
- 'LATFLUX_LS'       ,'B2','L/S CAN TOP LAT HEAT FLX',' (W m:S2:-2  )'       ,& ! 142
- 'RSHORT_LS'        ,'B2','L/S CAN TOP DOWN SW FLX',' (W m:S2:-2  )'        ,& ! 143
- 'RSHORT_DIFFUSE_LS','B2','L/S CAN TOP DOWN DIFFUSE SW FLX',' (W m:S2:-2  )',& ! 144
- 'RLONG_LS'         ,'B2','L/S CAN TOP DOWN LW FLX',' (W m:S2:-2  )'        ,& ! 145
- 'RLONGUP_LS'       ,'B2','L/S CAN TOP UP LW FLX',' (W m:S2:-2  )'          ,& ! 146
- 'RLONG_ALBEDO_LS'  ,'B2','L/S NET SFC LW ALBEDO',' ( )'                    ,& ! 147
- 'ALBEDO_BEAM_LS'   ,'B2','L/S NET SFC BEAM ALBEDO',' ( )'                  ,& ! 148
- 'ALBEDO_DIFFUSE_LS','B2','L/S NET SFC DIFFUSE ALBEDO',' ( )'                / ! 149
-
-! FLUX CELLS - 2D
-
-data fldlib(1:4,150:162)/  &
- 'FCELL_ILSF'    ,'F2' ,'FLUXCELL INDEX',' '                                ,& ! 150
- 'FCELL_IWLS'    ,'F2' ,'FLUXCELL LAND/SEA INDEX',' '                       ,& ! 151
- 'FCELL_IW'      ,'F2' ,'FLUXCELL ATM IW INDEX',' '                         ,& ! 152
- 'FCELL_KW'      ,'F2' ,'FLUXCELL ATM KW INDEX',' '                         ,& ! 153
- 'FCELL_AREA'    ,'F2' ,'FLUXCELL AREA',' (m:S2:2  )'                       ,& ! 154
- 'FCELL_ARFATM'  ,'F2' ,'FLUXCELL ATM AREA FRACTION',' '                    ,& ! 155
- 'FCELL_ARFLS'   ,'F2' ,'FLUXCELL LAND/SEA AREA FRACTION',' '               ,& ! 156
- 'FCELL_SENS'    ,'F2' ,'FLUXCELL SENS HEAT FLUX',' (W m:S2:-2  )'          ,& ! 157
- 'FCELL_VAP'     ,'F2' ,'FLUXCELL VAP FLUX',' (kg m:S2:-2   s:S2:-1  )'     ,& ! 158
- 'FCELL_LAT'     ,'F2' ,'FLUXCELL LAT HEAT FLUX',' (W m:S2:-2  )'           ,& ! 159
- 'FCELL_AIRTEMPC','F2' ,'FLUXCELL AIR TEMP',' (C)'                          ,& ! 160
- 'FCELL_AIRTEMPK','F2' ,'FLUXCELL AIR TEMP',' (K)'                          ,& ! 161
- 'FCELL_CANTEMPC','F2' ,'FLUXCELL CAN TEMP',' (C)'                           / ! 162
+ 'LS_SENSFLUX'      ,'B2','L/S CAN TOP SENS HEAT FLX',' (W m:S2:-2  )'      ,& ! 139
+ 'LS_VAPFLUX'       ,'B2','L/S CAN TOP VAP FLX',' (kg m:S2:-2   s:S2:-1  )' ,& ! 140
+ 'LS_LATFLUX'       ,'B2','L/S CAN TOP LAT HEAT FLX',' (W m:S2:-2  )'       ,& ! 141
+ 'LS_RSHORT'        ,'B2','L/S CAN TOP DOWN SW FLX',' (W m:S2:-2  )'        ,& ! 142
+ 'LS_RSHORT_DIFFUSE','B2','L/S CAN TOP DOWN DIFFUSE SW FLX',' (W m:S2:-2  )',& ! 143
+ 'LS_RLONG'         ,'B2','L/S CAN TOP DOWN LW FLX',' (W m:S2:-2  )'        ,& ! 144
+ 'LS_RLONGUP'       ,'B2','L/S CAN TOP UP LW FLX',' (W m:S2:-2  )'          ,& ! 145
+ 'LS_RLONG_ALBEDO'  ,'B2','L/S NET SFC LW ALBEDO',' ( )'                    ,& ! 146
+ 'LS_ALBEDO_BEAM'   ,'B2','L/S NET SFC BEAM ALBEDO',' ( )'                  ,& ! 147
+ 'LS_ALBEDO_DIFFUSE','B2','L/S NET SFC DIFFUSE ALBEDO',' ( )'                / ! 148
 
 ! GRID GEOMETRY - 3D
 
-data fldlib(1:4,163:169)/ &
- 'ARU'           ,'V3' ,'AREA OF GRID CELL U-FACE',' (m:S2:2  )'            ,& ! 163
- 'ARV'           ,'V3' ,'AREA OF GRID CELL V-FACE',' (m:S2:2  )'            ,& ! 164
- 'ARW'           ,'W3' ,'AREA OF GRID CELL W-FACE',' (m:S2:2  )'            ,& ! 165
- 'VOLT'          ,'T3' ,'GRID T-CELL VOLUME',' (m:S2:3  )'                  ,& ! 166
- 'VOLU'          ,'V3' ,'GRID U-CELL VOLUME',' (m:S2:3  )'                  ,& ! 167
- 'VOLV'          ,'V3' ,'GRID V-CELL VOLUME',' (m:S2:3  )'                  ,& ! 168
- 'VOLW'          ,'W3' ,'GRID W-CELL VOLUME',' (m:S2:3  )'                   / ! 169
+data fldlib(1:4,157:159)/ &
+ 'ARV'           ,'V3' ,'AREA OF GRID CELL V-FACE',' (m:S2:2  )'            ,& ! 157
+ 'ARW'           ,'W3' ,'AREA OF GRID CELL W-FACE',' (m:S2:2  )'            ,& ! 158
+ 'VOLT'          ,'T3' ,'GRID T-CELL VOLUME',' (m:S2:3  )'                   / ! 159
 
 ! GRID GEOMETRY - 2D
 
-data fldlib(1:4,170:202)/ &
- 'TOPM'          ,'M2' ,'TOPOGRAPHY HEIGHT',' (m)'                          ,& ! 170
- 'TOPW'          ,'W2' ,'TOPOGRAPHY HEIGHT AT W',' (m)'                     ,& ! 171
- 'GLATM'         ,'M2' ,'LATITUDE AT M',' (deg)'                            ,& ! 172
- 'GLONM'         ,'M2' ,'LONGITUDE AT M',' (deg)'                           ,& ! 173
- 'GLATU'         ,'V2' ,'LATITUDE AT U',' (deg)'                            ,& ! 174
- 'GLONU'         ,'V2' ,'LONGITUDE AT U',' (deg)'                           ,& ! 175
- 'GLATV'         ,'V2' ,'LATITUDE AT V',' (deg)'                            ,& ! 176
- 'GLONV'         ,'V2' ,'LONGITUDE AT V',' (deg)'                           ,& ! 177
- 'GLATW'         ,'T2' ,'LATITUDE',' (deg)'                                 ,& ! 178
- 'GLONW'         ,'T2' ,'LONGITUDE',' (deg)'                                ,& ! 179
- 'LPM'           ,'M2' ,'LOWEST PREDICTED M LEVEL',' ( )'                   ,& ! 180
- 'LPU'           ,'V2' ,'LOWEST PREDICTED U LEVEL',' ( )'                   ,& ! 181
- 'LCU'           ,'V2' ,'LOWEST ACTIVE U CONTROL VOL',' ( )'                ,& ! 182
- 'LPV'           ,'V2' ,'LOWEST PREDICTED V LEVEL',' ( )'                   ,& ! 183
- 'LCV'           ,'V2' ,'LOWEST ACTIVE V CONTROL VOL',' ( )'                ,& ! 184
- 'LPW'           ,'W2' ,'LOWEST PREDICTED W LEVEL',' ( )'                   ,& ! 185
- 'LSW'           ,'W2' ,'NUMBER OF SFC W LEVELS',' ( )'                     ,& ! 186
- 'XEM'           ,'M2' ,'EARTH-X COORD OF M POINT',' ( )'                   ,& ! 187
- 'YEM'           ,'M2' ,'EARTH-Y COORD OF M POINT',' ( )'                   ,& ! 188
- 'ZEM'           ,'M2' ,'EARTH-Z COORD OF M POINT',' ( )'                   ,& ! 189
- 'XEU'           ,'V2' ,'EARTH-X COORD OF U POINT',' ( )'                   ,& ! 190
- 'YEU'           ,'V2' ,'EARTH-Y COORD OF U POINT',' ( )'                   ,& ! 191
- 'ZEU'           ,'V2' ,'EARTH-Z COORD OF U POINT',' ( )'                   ,& ! 192
- 'XEV'           ,'V2' ,'EARTH-X COORD OF V POINT',' ( )'                   ,& ! 193
- 'YEV'           ,'V2' ,'EARTH-Y COORD OF V POINT',' ( )'                   ,& ! 194
- 'ZEV'           ,'V2' ,'EARTH-Z COORD OF V POINT',' ( )'                   ,& ! 195
- 'XEW'           ,'W2' ,'EARTH-X COORD OF W POINT',' ( )'                   ,& ! 196
- 'YEW'           ,'W2' ,'EARTH-Y COORD OF W POINT',' ( )'                   ,& ! 197
- 'ZEW'           ,'W2' ,'EARTH-Z COORD OF W POINT',' ( )'                   ,& ! 198
- 'DNU'           ,'V2' ,'DNU',' (m)'                                        ,& ! 199
- 'DNV'           ,'V2' ,'DNV',' (m)'                                        ,& ! 200
- 'ARM0'          ,'W2' ,'SFC AREA OF M CELL',' (m:S2:2  )'                  ,& ! 201
- 'ARW0'          ,'W2' ,'SFC AREA OF W CELL',' (m:S2:2  )'                   / ! 202
+data fldlib(1:4,162:187)/ &
+ 'TOPM'          ,'M2' ,'TOPOGRAPHY HEIGHT',' (m)'                          ,& ! 162
+ 'TOPW'          ,'W2' ,'TOPOGRAPHY HEIGHT AT W',' (m)'                     ,& ! 163
+ 'GLATM'         ,'M2' ,'LATITUDE AT M',' (deg)'                            ,& ! 164
+ 'GLONM'         ,'M2' ,'LONGITUDE AT M',' (deg)'                           ,& ! 165
+ 'GLATV'         ,'V2' ,'LATITUDE AT V',' (deg)'                            ,& ! 166
+ 'GLONV'         ,'V2' ,'LONGITUDE AT V',' (deg)'                           ,& ! 167
+ 'GLATW'         ,'T2' ,'LATITUDE',' (deg)'                                 ,& ! 168
+ 'GLONW'         ,'T2' ,'LONGITUDE',' (deg)'                                ,& ! 169
+ 'LPM'           ,'M2' ,'LOWEST PREDICTED M LEVEL',' ( )'                   ,& ! 170
+ 'LPV'           ,'V2' ,'LOWEST PREDICTED V LEVEL',' ( )'                   ,& ! 171
+ 'LCV'           ,'V2' ,'LOWEST ACTIVE V CONTROL VOL',' ( )'                ,& ! 172
+ 'LPW'           ,'W2' ,'LOWEST PREDICTED W LEVEL',' ( )'                   ,& ! 173
+ 'LSW'           ,'W2' ,'NUMBER OF SFC W LEVELS',' ( )'                     ,& ! 174
+ 'XEM'           ,'M2' ,'EARTH-X COORD OF M POINT',' ( )'                   ,& ! 175
+ 'YEM'           ,'M2' ,'EARTH-Y COORD OF M POINT',' ( )'                   ,& ! 176
+ 'ZEM'           ,'M2' ,'EARTH-Z COORD OF M POINT',' ( )'                   ,& ! 177
+ 'XEV'           ,'V2' ,'EARTH-X COORD OF V POINT',' ( )'                   ,& ! 178
+ 'YEV'           ,'V2' ,'EARTH-Y COORD OF V POINT',' ( )'                   ,& ! 179
+ 'ZEV'           ,'V2' ,'EARTH-Z COORD OF V POINT',' ( )'                   ,& ! 180
+ 'XEW'           ,'W2' ,'EARTH-X COORD OF W POINT',' ( )'                   ,& ! 181
+ 'YEW'           ,'W2' ,'EARTH-Y COORD OF W POINT',' ( )'                   ,& ! 182
+ 'ZEW'           ,'W2' ,'EARTH-Z COORD OF W POINT',' ( )'                   ,& ! 183
+ 'DNU'           ,'V2' ,'DNU',' (m)'                                        ,& ! 184
+ 'DNV'           ,'V2' ,'DNV',' (m)'                                        ,& ! 185
+ 'ARM0'          ,'W2' ,'SFC AREA OF M CELL',' (m:S2:2  )'                  ,& ! 186
+ 'ARW0'          ,'W2' ,'SFC AREA OF W CELL',' (m:S2:2  )'                   / ! 187
 
 ! ITAB_M MEMBERS - 2D
 
-data fldlib(1:4,203:238)/ &
- 'ITAB_M_NPOLY'  ,'M2' ,'ITAB_M_NPOLY',' ( )'                               ,& ! 203
- 'ITAB_M_IMGLOBE','M2' ,'ITAB_M_IMGLOBE',' ( )'                             ,& ! 204
- 'ITAB_M_MRLM'   ,'M2' ,'ITAB_M_MRLM',' ( )'                                ,& ! 205
- 'ITAB_M_MRLM_OR','M2' ,'ITAB_M_MRLM_ORIG',' ( )'                           ,& ! 206
- 'ITAB_M_MROW'   ,'M2' ,'ITAB_M_MROW',' ( )'                                ,& ! 207
- 'ITAB_M_MROWH'  ,'M2' ,'ITAB_M_MROWH',' ( )'                               ,& ! 208
- 'ITAB_M_IU'     ,'M2' ,'ITAB_M_IU',' ( )'                                  ,& ! 209
- 'ITAB_M_IV'     ,'M2' ,'ITAB_M_IV',' ( )'                                  ,& ! 210
- 'ITAB_M_IW'     ,'M2' ,'ITAB_M_IW',' ( )'                                  ,& ! 211
- 'ITAB_M_FMW'    ,'M2' ,'ITAB_M_FMW',' ( )'                                 ,& ! 212
-
-! ITAB_U MEMBERS - 2D
-
- 'ITAB_U_IUP'    ,'V2' ,'ITAB_U_IUP',' ( )'                                 ,& ! 213
- 'ITAB_U_IRANK'  ,'V2' ,'ITAB_U_IRANK',' ( )'                               ,& ! 214
- 'ITAB_U_IUGLOBE','V2' ,'ITAB_U_IUGLOBE',' ( )'                             ,& ! 215
- 'ITAB_U_MRLU'   ,'V2' ,'ITAB_U_MRLU',' ( )'                                ,& ! 216
- 'ITAB_U_IM'     ,'V2' ,'ITAB_U_IM',' ( )'                                  ,& ! 217
- 'ITAB_U_IU'     ,'V2' ,'ITAB_U_IU',' ( )'                                  ,& ! 218
- 'ITAB_U_IW'     ,'V2' ,'ITAB_U_IW',' ( )'                                  ,& ! 219
- 'ITAB_U_DIRU'   ,'V2' ,'ITAB_U_DIRU',' ( )'                                ,& ! 220
- 'ITAB_U_FUU'    ,'V2' ,'ITAB_U_FUU',' ( )'                                 ,& ! 221
- 'ITAB_U_FUW'    ,'V2' ,'ITAB_U_FUW',' ( )'                                 ,& ! 222
- 'ITAB_U_TUU'    ,'V2' ,'ITAB_U_TUU',' ( )'                                 ,& ! 223
- 'ITAB_U_GUW'    ,'V2' ,'ITAB_U_GUW',' ( )'                                 ,& ! 224
- 'ITAB_U_PGC12'  ,'V2' ,'ITAB_U_PGC12',' (m:S2:-1  )'                       ,& ! 225
- 'ITAB_U_PGC12b' ,'V2' ,'ITAB_U_PGC12b',' (m:S2:-1  )'                      ,& ! 226
- 'ITAB_U_PGC12c' ,'V2' ,'ITAB_U_PGC12c',' (m:S2:-1  )'                      ,& ! 227
- 'ITAB_U_PGC12d' ,'V2' ,'ITAB_U_PGC12d',' (m:S2:-1  )'                      ,& ! 228
- 'ITAB_U_PGC45'  ,'V2' ,'ITAB_U_PGC45',' (m:S2:-1  )'                       ,& ! 229
- 'ITAB_U_PGC45b' ,'V2' ,'ITAB_U_PGC45b',' (m:S2:-1  )'                      ,& ! 230
- 'ITAB_U_PGC63'  ,'V2' ,'ITAB_U_PGC63',' (m:S2:-1  )'                       ,& ! 231
- 'ITAB_U_PGC63c' ,'V2' ,'ITAB_U_PGC63c',' (m:S2:-1  )'                      ,& ! 232
- 'ITAB_U_VXU_U'  ,'V2' ,'ITAB_U_VXU_U',' ( )'                               ,& ! 233
- 'ITAB_U_VYU_U'  ,'V2' ,'ITAB_U_VYU_U',' ( )'                               ,& ! 234
- 'ITAB_U_VXW_U'  ,'V2' ,'ITAB_U_VXW_U',' ( )'                               ,& ! 235
- 'ITAB_U_VYW_U'  ,'V2' ,'ITAB_U_VYW_U',' ( )'                               ,& ! 236
- 'ITAB_U_CROSSMM','V2' ,'ITAB_U_CROSSMM',' ( )'                             ,& ! 237
- 'ITAB_U_CROSSWW','V2' ,'ITAB_U_CROSSWW',' ( )'                              / ! 238
+data fldlib(1:4,188:195)/ &
+ 'ITAB_M_NPOLY'  ,'M2' ,'ITAB_M_NPOLY',' ( )'                               ,& ! 188
+ 'ITAB_M_IMGLOBE','M2' ,'ITAB_M_IMGLOBE',' ( )'                             ,& ! 189
+ 'ITAB_M_MRLM'   ,'M2' ,'ITAB_M_MRLM',' ( )'                                ,& ! 190
+ 'ITAB_M_MRLM_OR','M2' ,'ITAB_M_MRLM_ORIG',' ( )'                           ,& ! 191
+ 'ITAB_M_MROW'   ,'M2' ,'ITAB_M_MROW',' ( )'                                ,& ! 192
+ 'ITAB_M_MROWH'  ,'M2' ,'ITAB_M_MROWH',' ( )'                               ,& ! 193
+ 'ITAB_M_IV'     ,'M2' ,'ITAB_M_IV',' ( )'                                  ,& ! 194
+ 'ITAB_M_IW'     ,'M2' ,'ITAB_M_IW',' ( )'                                   / ! 195
 
 ! ITAB_V MEMBERS - 2D
 
-data fldlib(1:4,239:249)/  &
- 'ITAB_V_IVP'    ,'V2' ,'ITAB_V_IVP',' ( )'                                 ,& ! 239
- 'ITAB_V_IRANK'  ,'V2' ,'ITAB_V_IRANK',' ( )'                               ,& ! 240
- 'ITAB_V_IVGLOBE','V2' ,'ITAB_V_IVGLOBE',' ( )'                             ,& ! 241
- 'ITAB_V_MRLV'   ,'V2' ,'ITAB_V_MRLV',' ( )'                                ,& ! 242
- 'ITAB_V_IM'     ,'V2' ,'ITAB_V_IM',' ( )'                                  ,& ! 243
- 'ITAB_V_IV'     ,'V2' ,'ITAB_V_IV',' ( )'                                  ,& ! 244
- 'ITAB_V_IW'     ,'V2' ,'ITAB_V_IW',' ( )'                                  ,& ! 245
- 'ITAB_V_FVV'    ,'V2' ,'ITAB_V_FVV',' ( )'                                 ,& ! 246
- 'ITAB_V_FVW'    ,'V2' ,'ITAB_V_FVW',' ( )'                                 ,& ! 247
- 'ITAB_V_FUV'    ,'V2' ,'ITAB_V_FUV',' ( )'                                 ,& ! 248
- 'ITAB_V_FARW'   ,'V2' ,'ITAB_V_FARW',' ( )'                                 / ! 249
+data fldlib(1:4,197:204)/  &
+ 'ITAB_V_IVP'    ,'V2' ,'ITAB_V_IVP',' ( )'                                 ,& ! 197
+ 'ITAB_V_IRANK'  ,'V2' ,'ITAB_V_IRANK',' ( )'                               ,& ! 198
+ 'ITAB_V_IVGLOBE','V2' ,'ITAB_V_IVGLOBE',' ( )'                             ,& ! 199
+ 'ITAB_V_MRLV'   ,'V2' ,'ITAB_V_MRLV',' ( )'                                ,& ! 200
+ 'ITAB_V_IM'     ,'V2' ,'ITAB_V_IM',' ( )'                                  ,& ! 201
+ 'ITAB_V_IV'     ,'V2' ,'ITAB_V_IV',' ( )'                                  ,& ! 202
+ 'ITAB_V_IW'     ,'V2' ,'ITAB_V_IW',' ( )'                                  ,& ! 203
+ 'ITAB_V_FARW'   ,'V2' ,'ITAB_V_FARW',' ( )'                                 / ! 204
 
 ! ITAB_W MEMBERS - 2D
 
-data fldlib(1:4,250:278)/ &
+data fldlib(1:4,208:223)/ &
 
- 'ITAB_W_NPOLY'  ,'W2' ,'ITAB_W_NPOLY',' ( )'                               ,& ! 250
- 'ITAB_W_IWP'    ,'W2' ,'ITAB_W_IWP',' ( )'                                 ,& ! 251
- 'ITAB_W_IRANK'  ,'W2' ,'ITAB_W_IRANK',' ( )'                               ,& ! 252
- 'ITAB_W_IWGLOBE','W2' ,'ITAB_W_IWGLOBE',' ( )'                             ,& ! 253
- 'ITAB_W_MRLW'   ,'W2' ,'ITAB_W_MRLW',' ( )'                                ,& ! 254
- 'ITAB_W_MRLW_OR','W2' ,'ITAB_W_MRLW_ORIG',' ( )'                           ,& ! 255
- 'ITAB_W_MROW'   ,'W2' ,'ITAB_W_MROW',' ( )'                                ,& ! 256
- 'ITAB_W_MROWH'  ,'W2' ,'ITAB_W_MROWH',' ( )'                               ,& ! 257
- 'ITAB_W_IM'     ,'W2' ,'ITAB_W_IM',' ( )'                                  ,& ! 258
- 'ITAB_W_IU'     ,'W2' ,'ITAB_W_IU',' ( )'                                  ,& ! 259
- 'ITAB_W_IV'     ,'W2' ,'ITAB_W_IV',' ( )'                                  ,& ! 260
- 'ITAB_W_IW'     ,'W2' ,'ITAB_W_IW',' ( )'                                  ,& ! 261
- 'ITAB_W_DIRU'   ,'W2' ,'ITAB_W_DIRU',' ( )'                                ,& ! 262
- 'ITAB_W_DIRV'   ,'W2' ,'ITAB_W_DIRV',' ( )'                                ,& ! 263
- 'ITAB_W_FWV'    ,'W2' ,'ITAB_W_FWV',' ( )'                                 ,& ! 264
- 'ITAB_W_FWW'    ,'W2' ,'ITAB_W_FWW',' ( )'                                 ,& ! 265
- 'ITAB_W_FWU'    ,'W2' ,'ITAB_W_FWU',' ( )'                                 ,& ! 266
- 'ITAB_W_VXU'    ,'W2' ,'ITAB_W_VXU',' ( )'                                 ,& ! 267
- 'ITAB_W_VYU'    ,'W2' ,'ITAB_W_VYU',' ( )'                                 ,& ! 268
- 'ITAB_W_VZU'    ,'W2' ,'ITAB_W_VZU',' ( )'                                 ,& ! 269
- 'ITAB_W_VXW'    ,'W2' ,'ITAB_W_VXW',' ( )'                                 ,& ! 270
- 'ITAB_W_VYW'    ,'W2' ,'ITAB_W_VYW',' ( )'                                 ,& ! 271
- 'ITAB_W_VZW'    ,'W2' ,'ITAB_W_VZW',' ( )'                                 ,& ! 272
- 'ITAB_W_VXU_W'  ,'W2' ,'ITAB_W_VXU_W',' ( )'                               ,& ! 273
- 'ITAB_W_VYU_W'  ,'W2' ,'ITAB_W_VYU_W',' ( )'                               ,& ! 274
- 'ITAB_W_FARM'   ,'W2' ,'ITAB_W_FARM',' ( )'                                ,& ! 275
- 'ITAB_W_FARV'   ,'W2' ,'ITAB_W_FARV',' ( )'                                ,& ! 276
- 'ITAB_W_IWNUD'  ,'W2' ,'ITAB_W_IWNUD',' ( )'                               ,& ! 277
- 'ITAB_W_FNUD'   ,'W2' ,'ITAB_W_FNUD',' ( )'                                 / ! 278
+ 'ITAB_W_NPOLY'  ,'W2' ,'ITAB_W_NPOLY',' ( )'                               ,& ! 208
+ 'ITAB_W_IWP'    ,'W2' ,'ITAB_W_IWP',' ( )'                                 ,& ! 209
+ 'ITAB_W_IRANK'  ,'W2' ,'ITAB_W_IRANK',' ( )'                               ,& ! 210
+ 'ITAB_W_IWGLOBE','W2' ,'ITAB_W_IWGLOBE',' ( )'                             ,& ! 211
+ 'ITAB_W_MRLW'   ,'W2' ,'ITAB_W_MRLW',' ( )'                                ,& ! 212
+ 'ITAB_W_MRLW_OR','W2' ,'ITAB_W_MRLW_ORIG',' ( )'                           ,& ! 213
+ 'ITAB_W_MROW'   ,'W2' ,'ITAB_W_MROW',' ( )'                                ,& ! 214
+ 'ITAB_W_MROWH'  ,'W2' ,'ITAB_W_MROWH',' ( )'                               ,& ! 215
+ 'ITAB_W_IM'     ,'W2' ,'ITAB_W_IM',' ( )'                                  ,& ! 216
+ 'ITAB_W_IV'     ,'W2' ,'ITAB_W_IV',' ( )'                                  ,& ! 217
+ 'ITAB_W_IW'     ,'W2' ,'ITAB_W_IW',' ( )'                                  ,& ! 218
+ 'ITAB_W_DIRV'   ,'W2' ,'ITAB_W_DIRV',' ( )'                                ,& ! 219
+ 'ITAB_W_FARM'   ,'W2' ,'ITAB_W_FARM',' ( )'                                ,& ! 220
+ 'ITAB_W_FARV'   ,'W2' ,'ITAB_W_FARV',' ( )'                                ,& ! 221
+ 'ITAB_W_IWNUD'  ,'W2' ,'ITAB_W_IWNUD',' ( )'                               ,& ! 222
+ 'ITAB_W_FNUD'   ,'W2' ,'ITAB_W_FNUD',' ( )'                                 / ! 223
 
 ! TIME-AVERAGED FIELDS - 2D
 
-data fldlib(1:4,279:332)/ &
+data fldlib(1:4,224:277)/ &
 
- 'PRESS_MAVG'    ,'T2','MONTH-AVG PRESSURE',' (hPa)'                        ,& ! 279
- 'RHO_MAVG'      ,'T2','MONTH-AVG AIR DENSITY',' (kg m:S2:-3  )'            ,& ! 280
- 'TEMPK_MAVG'    ,'T2','MONTH-AVG TEMPERATURE',' (K)'                       ,& ! 281
- 'SH_V_MAVG'     ,'T2','MONTH-AVG VAPOR SPEC DENSITY',' (g kg:S2:-1  )'     ,& ! 282
- 'SH_W_MAVG'     ,'T2','MONTH-AVG TOT WATER SPEC DENSITY',' (g kg:S2:-1  )' ,& ! 283
- 'WC_MAVG'       ,'T2','MONTH-AVG W VELOCITY',' (m s:S2:-1  )'              ,& ! 284
- 'ZONAL_WINDW_MAVG' ,'T2','MONTH-AVG ZONAL WIND',' (m s:S2:-1  )'           ,& ! 285
- 'MERID_WINDW_MAVG' ,'T2','MONTH-AVG MERID WIND',' (m s:S2:-1  )'           ,& ! 286
- 'RSHORT_MAVG'      ,'T2','MONTH-AVG SFC DOWNWARD S/W FLX',' (W m:S2:-2  )' ,& ! 287
- 'RSHORT_TOP_MAVG'  ,'T2','MONTH-AVG TOP DOWNWARD S/W FLX',' (W m:S2:-2  )' ,& ! 288
- 'RSHORTUP_MAVG'    ,'T2','MONTH-AVG SFC UPWARD S/W FLX',' (W m:S2:-2  )'   ,& ! 289
- 'RSHORTUP_TOP_MAVG','T2','MONTH-AVG TOP UPWARD S/W FLX',' (W m:S2:-2  )'   ,& ! 290
- 'RLONG_MAVG'       ,'T2','MONTH-AVG SFC DOWNWARD L/W FLX',' (W m:S2:-2  )' ,& ! 291
- 'RLONGUP_MAVG'     ,'T2','MONTH-AVG SFC UPWARD L/W FLX',' (W m:S2:-2  )'   ,& ! 292
- 'RLONGUP_TOP_MAVG' ,'T2','MONTH-AVG TOP UPWARD L/W FLX',' (W m:S2:-2  )'   ,& ! 293
- 'LATFLUX_MAVG'     ,'T2','MONTH-AVG SFC LATENT HEAT FLX',' (W m:S2:-2  )'  ,& ! 294
- 'SENSFLUX_MAVG'    ,'T2','MONTH-AVG SFC SENSIBLE HEAT FLX',' (W m:S2:-2  )',& ! 295
- 'WINDSPEED_MAVG'   ,'T2','MONTH-AVG SFC WIND SPEED',' (m s:S2:-1  )'       ,& ! 296
- 'ACCPMIC_MTOT'     ,'T2','MONTH-ACCUM MICPHYS PRECIP',' (kg m:S2:-2  )'    ,& ! 297
- 'ACCPCON_MTOT'     ,'T2','MONTH-ACCUM CUPARM PRECIP',' (kg m:S2:-2  )'     ,& ! 298
- 'ACCPBOTH_MTOT'    ,'T2','MONTH-ACCUM MICPHYS + CONV PCP',' (kg m:S2:-2  )',& ! 299
- 'PRESS_DAVG'       ,'T2','DAY-AVG SFC PRESSURE',' (hPa)'                   ,& ! 300
- 'ZONAL_WINDW_DAVG' ,'T2','DAY-AVG SFC ZONAL WIND',' (m s:S2:-1  )'         ,& ! 301
- 'MERID_WINDW_DAVG' ,'T2','DAY-AVG SFC MERID WIND',' (m s:S2:-1  )'         ,& ! 302
- 'RSHORT_DAVG'      ,'T2','DAY-AVG SFC DOWNWARD S/W FLX',' (W m:S2:-2  )'   ,& ! 303
- 'TEMPK_DAVG'       ,'T2','DAY-AVG SFC TEMPERATURE',' (K)'                  ,& ! 304
- 'TEMPK_DMIN'       ,'T2','DAY-MIN SFC TEMPERATURE',' (K)'                  ,& ! 305
- 'TEMPK_DMAX'       ,'T2','DAY-MAX SFC TEMPERATURE',' (K)'                  ,& ! 306
- 'ACCPMIC_DTOT'     ,'T2','DAY-ACCUM MICPHYS PRECIP',' (kg m:S2:-2  )'      ,& ! 307
- 'ACCPCON_DTOT'     ,'T2','DAY-ACCUM CUPARM PRECIP',' (kg m:S2:-2  )'       ,& ! 308
- 'ACCPBOTH_DTOT'    ,'T2','DAY-ACCUM MICPHYS + CONV PCP',' (kg m:S2:-2  )'  ,& ! 309
- 'PRESS_UL_DAVG'      ,'T2','DAY-AVG UL PRESSURE',' (hPa)'                  ,& ! 310
- 'ZONAL_WINDW_UL_DAVG','T2','DAY-AVG UL ZONAL WIND',' (m s:S2:-1  )'        ,& ! 311
- 'MERID_WINDW_UL_DAVG','T2','DAY-AVG UL MERID WIND',' (m s:S2:-1  )'        ,& ! 312
- 'CANTEMPK_DAVG'    ,'B2','DAY-AVG CANOPY TEMPERATURE',' (K)'               ,& ! 313
- 'CANTEMPK_DMIN'    ,'B2','DAY-MIN CANOPY TEMPERATURE',' (K)'               ,& ! 314
- 'CANTEMPK_DMAX'    ,'B2','DAY-MAX CANOPY TEMPERATURE',' (K)'               ,& ! 315
- 'VEGTEMPK_DAVG'    ,'L2','DAY-AVG VEG TEMPERATURE',' (K)'                  ,& ! 316
- 'VEGTEMPK_DMIN'    ,'L2','DAY-MIN VEG TEMPERATURE',' (K)'                  ,& ! 317
- 'VEGTEMPK_DMAX'    ,'L2','DAY-MAX VEG TEMPERATURE',' (K)'                  ,& ! 318
- 'SOILTEMPK_DAVG'   ,'L2','DAY-AVG SOIL TEMPERATURE',' (K)'                 ,& ! 319
- 'SOILTEMPK_DMIN'   ,'L2','DAY-MIN SOIL TEMPERATURE',' (K)'                 ,& ! 320
- 'SOILTEMPK_DMAX'   ,'L2','DAY-MAX SOIL TEMPERATURE',' (K)'                 ,& ! 321
- 'FCELL_AIRTEMPK_DAVG','F2','DAY-AVG FLUXCELL ATM TEMP',' (K)'                ,& ! 322
- 'FCELL_AIRTEMPK_DMIN','F2','DAY-MIN FLUXCELL ATM TEMP',' (K)'                ,& ! 323
- 'FCELL_AIRTEMPK_DMAX','F2','DAY-MAX FLUXCELL ATM TEMP',' (K)'                ,& ! 324
- 'FCELL_CANTEMPK_DAVG','F2','DAY-AVG FLUXCELL CAN TEMP',' (K)'                ,& ! 325
- 'FCELL_CANTEMPK_DMIN','F2','DAY-MIN FLUXCELL CAN TEMP',' (K)'                ,& ! 326
- 'FCELL_CANTEMPK_DMAX','F2','DAY-MAX FLUXCELL CAN TEMP',' (K)'                ,& ! 327
- 'FCELL_SENSFLUX_DAVG','F2','DAY-AVG FLUXCELL SENS HEAT FLUX',' (W m:S2:-2  )',& ! 328
- 'FCELL_LATFLUX_DAVG' ,'F2','DAY-AVG FLUXCELL LAT HEAT FLUX',' (W m:S2:-2  )' ,& ! 329
- 'FTOA_SENSFLUX_DAVG' ,'T2','DAY-AVG FTOA SENS HEAT FLUX',' (W m:S2:-2  )'    ,& ! 330
- 'FTOA_LATFLUX_DAVG'  ,'T2','DAY-AVG FTOA LAT HEAT FLUX',' (W m:S2:-2  )'     ,& ! 331
- 'PRESS_AVG24'      ,'T2','MONTH-AVG HOURLY PRESSURE',' (hPa)'               / ! 332
+ 'PRESS_MAVG'    ,'T2','MONTH-AVG PRESSURE',' (hPa)'                        ,& ! 224
+ 'RHO_MAVG'      ,'T2','MONTH-AVG AIR DENSITY',' (kg m:S2:-3  )'            ,& ! 225
+ 'TEMPK_MAVG'    ,'T2','MONTH-AVG TEMPERATURE',' (K)'                       ,& ! 226
+ 'SH_V_MAVG'     ,'T2','MONTH-AVG VAPOR SPEC DENSITY',' (g kg:S2:-1  )'     ,& ! 227
+ 'SH_W_MAVG'     ,'T2','MONTH-AVG TOT WATER SPEC DENSITY',' (g kg:S2:-1  )' ,& ! 228
+ 'WC_MAVG'       ,'T2','MONTH-AVG W VELOCITY',' (m s:S2:-1  )'              ,& ! 229
+ 'ZONAL_WINDW_MAVG' ,'T2','MONTH-AVG ZONAL WIND',' (m s:S2:-1  )'           ,& ! 230
+ 'MERID_WINDW_MAVG' ,'T2','MONTH-AVG MERID WIND',' (m s:S2:-1  )'           ,& ! 231
+ 'RSHORT_MAVG'      ,'T2','MONTH-AVG SFC DOWNWARD S/W FLX',' (W m:S2:-2  )' ,& ! 232
+ 'RSHORT_TOP_MAVG'  ,'T2','MONTH-AVG TOP DOWNWARD S/W FLX',' (W m:S2:-2  )' ,& ! 233
+ 'RSHORTUP_MAVG'    ,'T2','MONTH-AVG SFC UPWARD S/W FLX',' (W m:S2:-2  )'   ,& ! 234
+ 'RSHORTUP_TOP_MAVG','T2','MONTH-AVG TOP UPWARD S/W FLX',' (W m:S2:-2  )'   ,& ! 235
+ 'RLONG_MAVG'       ,'T2','MONTH-AVG SFC DOWNWARD L/W FLX',' (W m:S2:-2  )' ,& ! 236
+ 'RLONGUP_MAVG'     ,'T2','MONTH-AVG SFC UPWARD L/W FLX',' (W m:S2:-2  )'   ,& ! 237
+ 'RLONGUP_TOP_MAVG' ,'T2','MONTH-AVG TOP UPWARD L/W FLX',' (W m:S2:-2  )'   ,& ! 238
+ 'LATFLUX_MAVG'     ,'T2','MONTH-AVG SFC LATENT HEAT FLX',' (W m:S2:-2  )'  ,& ! 239
+ 'SENSFLUX_MAVG'    ,'T2','MONTH-AVG SFC SENSIBLE HEAT FLX',' (W m:S2:-2  )',& ! 240
+ 'WINDSPEED_MAVG'   ,'T2','MONTH-AVG SFC WIND SPEED',' (m s:S2:-1  )'       ,& ! 241
+ 'ACCPMIC_MTOT'     ,'T2','MONTH-ACCUM MICPHYS PRECIP',' (kg m:S2:-2  )'    ,& ! 242
+ 'ACCPCON_MTOT'     ,'T2','MONTH-ACCUM CUPARM PRECIP',' (kg m:S2:-2  )'     ,& ! 243
+ 'ACCPBOTH_MTOT'    ,'T2','MONTH-ACCUM MICPHYS + CONV PCP',' (kg m:S2:-2  )',& ! 244
+ 'PRESS_DAVG'       ,'T2','DAY-AVG SFC PRESSURE',' (hPa)'                   ,& ! 245
+ 'ZONAL_WINDW_DAVG' ,'T2','DAY-AVG SFC ZONAL WIND',' (m s:S2:-1  )'         ,& ! 246
+ 'MERID_WINDW_DAVG' ,'T2','DAY-AVG SFC MERID WIND',' (m s:S2:-1  )'         ,& ! 247
+ 'RSHORT_DAVG'      ,'T2','DAY-AVG SFC DOWNWARD S/W FLX',' (W m:S2:-2  )'   ,& ! 248
+ 'TEMPK_DAVG'       ,'T2','DAY-AVG SFC TEMPERATURE',' (K)'                  ,& ! 249
+ 'TEMPK_DMIN'       ,'T2','DAY-MIN SFC TEMPERATURE',' (K)'                  ,& ! 250
+ 'TEMPK_DMAX'       ,'T2','DAY-MAX SFC TEMPERATURE',' (K)'                  ,& ! 251
+ 'ACCPMIC_DTOT'     ,'T2','DAY-ACCUM MICPHYS PRECIP',' (kg m:S2:-2  )'      ,& ! 252
+ 'ACCPCON_DTOT'     ,'T2','DAY-ACCUM CUPARM PRECIP',' (kg m:S2:-2  )'       ,& ! 253
+ 'ACCPBOTH_DTOT'    ,'T2','DAY-ACCUM MICPHYS + CONV PCP',' (kg m:S2:-2  )'  ,& ! 254
+ 'PRESS_UL_DAVG'      ,'T2','DAY-AVG UL PRESSURE',' (hPa)'                  ,& ! 255
+ 'ZONAL_WINDW_UL_DAVG','T2','DAY-AVG UL ZONAL WIND',' (m s:S2:-1  )'        ,& ! 256
+ 'MERID_WINDW_UL_DAVG','T2','DAY-AVG UL MERID WIND',' (m s:S2:-1  )'        ,& ! 257
+ 'CANTEMPK_DAVG'    ,'B2','DAY-AVG CANOPY TEMPERATURE',' (K)'               ,& ! 258
+ 'CANTEMPK_DMIN'    ,'B2','DAY-MIN CANOPY TEMPERATURE',' (K)'               ,& ! 259
+ 'CANTEMPK_DMAX'    ,'B2','DAY-MAX CANOPY TEMPERATURE',' (K)'               ,& ! 260
+ 'VEGTEMPK_DAVG'    ,'L2','DAY-AVG VEG TEMPERATURE',' (K)'                  ,& ! 261
+ 'VEGTEMPK_DMIN'    ,'L2','DAY-MIN VEG TEMPERATURE',' (K)'                  ,& ! 262
+ 'VEGTEMPK_DMAX'    ,'L2','DAY-MAX VEG TEMPERATURE',' (K)'                  ,& ! 263
+ 'SOILTEMPK_DAVG'   ,'L2','DAY-AVG SOIL TEMPERATURE',' (K)'                 ,& ! 264
+ 'SOILTEMPK_DMIN'   ,'L2','DAY-MIN SOIL TEMPERATURE',' (K)'                 ,& ! 265
+ 'SOILTEMPK_DMAX'   ,'L2','DAY-MAX SOIL TEMPERATURE',' (K)'                 ,& ! 266
+ 'LS_AIRTEMPK_DAVG' ,'B2','L/S DAY-AVG ATM TEMP',' (K)'                     ,& ! 267
+ 'LS_AIRTEMPK_DMIN' ,'B2','L/S DAY-MIN ATM TEMP',' (K)'                     ,& ! 268
+ 'LS_AIRTEMPK_DMAX' ,'B2','L/S DAY-MAX ATM TEMP',' (K)'                     ,& ! 269
+ 'LS_CANTEMPK_DAVG' ,'B2','L/S DAY-AVG CAN TEMP',' (K)'                     ,& ! 270
+ 'LS_CANTEMPK_DMIN' ,'B2','L/S DAY-MIN CAN TEMP',' (K)'                     ,& ! 271
+ 'LS_CANTEMPK_DMAX' ,'B2','L/S DAY-MAX CAN TEMP',' (K)'                     ,& ! 272
+ 'LS_SENSFLUX_DAVG' ,'B2','L/S DAY-AVG SENS HEAT FLUX',' (W m:S2:-2  )'     ,& ! 273
+ 'LS_LATFLUX_DAVG'  ,'B2','L/S DAY-AVG LAT HEAT FLUX',' (W m:S2:-2  )'      ,& ! 274
+ 'SENSFLUX_DAVG'    ,'T2','DAY-AVG SENS HEAT FLUX',' (W m:S2:-2  )'         ,& ! 275
+ 'LATFLUX_DAVG'     ,'T2','DAY-AVG LAT HEAT FLUX',' (W m:S2:-2  )'          ,& ! 276
+ 'PRESS_AVG24'      ,'T2','MONTH-AVG HOURLY PRESSURE',' (hPa)'               / ! 277
 
-data fldlib(1:4,333:359)/ &
- 'RSHORT_AVG'      ,'T2' ,'AVG SFC DOWNWARD SHORTWV FLX',' (W m:S2:-2  )'   ,& ! 333
- 'RSHORTUP_AVG'    ,'T2' ,'AVG SFC UPWARD SHORTWV FLX',' (W m:S2:-2  )'     ,& ! 334
- 'RLONG_AVG'       ,'T2' ,'AVG SFC DOWNWARD LONGWV FLX',' (W m:S2:-2  )'    ,& ! 335
- 'RLONGUP_AVG'     ,'T2' ,'AVG SFC UPWARD LONGWV FLX',' (W m:S2:-2  )'      ,& ! 336
- 'RSHORT_TOP_AVG'  ,'T2' ,'AVG TOP DOWNWARD SHORTWV FLX',' (W m:S2:-2  )'   ,& ! 337
- 'RSHORTUP_TOP_AVG','T2' ,'AVG TOP UPWARD SHORTWV FLX',' (W m:S2:-2  )'     ,& ! 338
- 'RLONGUP_TOP_AVG' ,'T2' ,'AVG TOP UPWARD LONGWV FLX',' (W m:S2:-2  )'      ,& ! 339
- 'SENSFLUX_AVG'    ,'T2' ,'AVG ATM SFC SENS HEAT FLUX',' (N m:S2:-2  )'     ,& ! 340
- 'LATFLUX_AVG'     ,'T2' ,'AVG ATM SFC LAT HEAT FLUX',' (W m:S2:-2  )'      ,& ! 341
- 'VAPFLUX_AVG'     ,'T2' ,'AVG ATM SFC VAP FLUX',' (kg m:S2:-2   s:S2:-1  )',& ! 342
- 'RSHORT_DIF2'      ,'T2' ,'SFC DOWNWARD SHORTWV FLX DIF2',' (W m:S2:-2  )'   ,& ! 343
- 'RSHORTUP_DIF2'    ,'T2' ,'SFC UPWARD SHORTWV FLX DIF2',' (W m:S2:-2  )'     ,& ! 344
- 'RLONG_DIF2'       ,'T2' ,'SFC DOWNWARD LONGWV FLX DIF2',' (W m:S2:-2  )'    ,& ! 345
- 'RLONGUP_DIF2'     ,'T2' ,'SFC UPWARD LONGWV FLX DIF2',' (W m:S2:-2  )'      ,& ! 346
- 'RSHORT_TOP_DIF2'  ,'T2' ,'TOP DOWNWARD SHORTWV FLX DIF2',' (W m:S2:-2  )'   ,& ! 347
- 'RSHORTUP_TOP_DIF2','T2' ,'TOP UPWARD SHORTWV FLX DIF2',' (W m:S2:-2  )'     ,& ! 348
- 'RLONGUP_TOP_DIF2' ,'T2' ,'TOP UPWARD LONGWV FLX DIF2',' (W m:S2:-2  )'      ,& ! 349
- 'SENSFLUX_DIF2'    ,'T2' ,'ATM SFC SENS HEAT FLUX DIF2',' (W m:S2:-2  )'     ,& ! 350
- 'LATFLUX_DIF2'     ,'T2' ,'ATM SFC LAT HEAT FLUX DIF2',' (W m:S2:-2  )'      ,& ! 351
- 'VAPFLUX_DIF2'     ,'T2' ,'ATM SFC VAP FLUX DIF2',' (kg m:S2:-2   s:S2:-1  )',& ! 352
- 'FCELL_SENSFLUX_DIF2','F2','FLUXCELL SENS HEAT FLUX DIF2',' (W m:S2:-2  )'   ,& ! 353
- 'FCELL_LATFLUX_DIF2' ,'F2','FLUXCELL LAT HEAT FLUX DIF2',' (W m:S2:-2  )'    ,& ! 354
- 'FCELL_VAPFLUX_DIF2' ,'F2','FLUXCELL VAP FLUX DIF2',' (kg m:S2:-2   s:S2:-1  )',& ! 355
- 'FCELL_AIRTEMPK_DIF2','F2','FLUXCELL ATM TEMP DIF2',' (K)'                   ,& ! 356
- 'FCELL_AIRSHV_DIF2'  ,'F2','FLUXCELL ATM SHV DIF2',' (g kg:S2:-1  )'         ,& ! 357
- 'FCELL_CANTEMPK_DIF2','F2','FLUXCELL CAN TEMP DIF2',' (K)'                   ,& ! 358
- 'FCELL_CANSHV_DIF2'  ,'F2','FLUXCELL CAN SHV DIF2',' (g kg:S2:-1  )'          / ! 359
+data fldlib(1:4,278:304)/ &
+ 'RSHORT_AVG'      ,'T2' ,'AVG SFC DOWNWARD SHORTWV FLX',' (W m:S2:-2  )'   ,& ! 278
+ 'RSHORTUP_AVG'    ,'T2' ,'AVG SFC UPWARD SHORTWV FLX',' (W m:S2:-2  )'     ,& ! 279
+ 'RLONG_AVG'       ,'T2' ,'AVG SFC DOWNWARD LONGWV FLX',' (W m:S2:-2  )'    ,& ! 280
+ 'RLONGUP_AVG'     ,'T2' ,'AVG SFC UPWARD LONGWV FLX',' (W m:S2:-2  )'      ,& ! 281
+ 'RSHORT_TOP_AVG'  ,'T2' ,'AVG TOP DOWNWARD SHORTWV FLX',' (W m:S2:-2  )'   ,& ! 282
+ 'RSHORTUP_TOP_AVG','T2' ,'AVG TOP UPWARD SHORTWV FLX',' (W m:S2:-2  )'     ,& ! 283
+ 'RLONGUP_TOP_AVG' ,'T2' ,'AVG TOP UPWARD LONGWV FLX',' (W m:S2:-2  )'      ,& ! 284
+ 'SENSFLUX_AVG'    ,'T2' ,'AVG ATM SFC SENS HEAT FLUX',' (N m:S2:-2  )'     ,& ! 285
+ 'LATFLUX_AVG'     ,'T2' ,'AVG ATM SFC LAT HEAT FLUX',' (W m:S2:-2  )'      ,& ! 286
+ 'VAPFLUX_AVG'     ,'T2' ,'AVG ATM SFC VAP FLUX',' (kg m:S2:-2   s:S2:-1  )',& ! 287
+ 'RSHORT_DIF2'      ,'T2' ,'SFC DOWNWARD SHORTWV FLX DIF2',' (W m:S2:-2  )'   ,& ! 288
+ 'RSHORTUP_DIF2'    ,'T2' ,'SFC UPWARD SHORTWV FLX DIF2',' (W m:S2:-2  )'     ,& ! 289
+ 'RLONG_DIF2'       ,'T2' ,'SFC DOWNWARD LONGWV FLX DIF2',' (W m:S2:-2  )'    ,& ! 290
+ 'RLONGUP_DIF2'     ,'T2' ,'SFC UPWARD LONGWV FLX DIF2',' (W m:S2:-2  )'      ,& ! 291
+ 'RSHORT_TOP_DIF2'  ,'T2' ,'TOP DOWNWARD SHORTWV FLX DIF2',' (W m:S2:-2  )'   ,& ! 292
+ 'RSHORTUP_TOP_DIF2','T2' ,'TOP UPWARD SHORTWV FLX DIF2',' (W m:S2:-2  )'     ,& ! 293
+ 'RLONGUP_TOP_DIF2' ,'T2' ,'TOP UPWARD LONGWV FLX DIF2',' (W m:S2:-2  )'      ,& ! 294
+ 'SENSFLUX_DIF2'    ,'T2' ,'ATM SFC SENS HEAT FLUX DIF2',' (W m:S2:-2  )'     ,& ! 295
+ 'LATFLUX_DIF2'     ,'T2' ,'ATM SFC LAT HEAT FLUX DIF2',' (W m:S2:-2  )'      ,& ! 296
+ 'VAPFLUX_DIF2'     ,'T2' ,'ATM SFC VAP FLUX DIF2',' (kg m:S2:-2   s:S2:-1  )',& ! 297
+ 'LS_SENSFLUX_DIF2' ,'B2','L/S SENS HEAT FLUX DIF2',' (W m:S2:-2  )'        ,& ! 298
+ 'LS_LATFLUX_DIF2'  ,'B2','L/S LAT HEAT FLUX DIF2',' (W m:S2:-2  )'         ,& ! 299
+ 'LS_VAPFLUX_DIF2'  ,'B2','L/S VAP FLUX DIF2',' (kg m:S2:-2   s:S2:-1  )'   ,& ! 300
+ 'LS_AIRTEMPK_DIF2' ,'B2','L/S ATM TEMP DIF2',' (K)'                        ,& ! 301
+ 'LS_AIRSHV_DIF2'   ,'B2','L/S ATM SHV DIF2',' (g kg:S2:-1  )'              ,& ! 302
+ 'LS_CANTEMPK_DIF2' ,'B2','L/S CAN TEMP DIF2',' (K)'                        ,& ! 303
+ 'LS_CANSHV_DIF2'   ,'B2','L/S CAN SHV DIF2',' (g kg:S2:-1  )'               / ! 304
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,360:382)/ &
- 'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 360
- 'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 361
- 'SHW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 362
- 'UZONAL_OBS'    ,'T3' ,'NUDGING OBS ZONAL WIND',' (m s:S2:-1  )'           ,& ! 363
- 'UMERID_OBS'    ,'T3' ,'NUDGING OBS MERID WIND',' (m s:S2:-1  )'           ,& ! 364
- 'RHO_SIM'       ,'T3' ,'NUDGING SIM AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 365
- 'THETA_SIM'     ,'T3' ,'NUDGING SIM THETA',' (K)'                          ,& ! 366
- 'SHW_SIM'       ,'T3' ,'NUDGING SIM VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 367
- 'UZONAL_SIM'    ,'T3' ,'NUDGING SIM ZONAL WIND',' (m s:S2:-1  )'           ,& ! 368
- 'UMERID_SIM'    ,'T3' ,'NUDGING SIM MERID WIND',' (m s:S2:-1  )'           ,& ! 369
- 'RHO_OBS_SIM'   ,'T3' ,'NUDGING DIF AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 370
- 'THETA_OBS_SIM' ,'T3' ,'NUDGING DIF THETA',' (K)'                          ,& ! 371
- 'SHW_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 372
- 'UZONAL_OBS_SIM','T3' ,'NUDGING DIF ZONAL WIND',' (m s:S2:-1  )'           ,& ! 373
- 'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'           ,& ! 374
- 'VXE'           ,'T3' ,'EARTH CARTESIAN X WIND',' (m s:S2:-1  )'           ,& ! 375
- 'VYE'           ,'T3' ,'EARTH CARTESIAN Y WIND',' (m s:S2:-1  )'           ,& ! 376
- 'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'           ,& ! 377
- 'PBLH'          ,'T2' ,'PBL HEIGHT',' (m)'                                 ,& ! 378
- 'HKM'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 379
- 'HEAD0'         ,'L2' ,'HEAD0',' (m)'                                      ,& ! 380
- 'SHW_HCONV'     ,'T2' ,'TOTAL WATER HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 381
- 'SHV_HCONV'     ,'T2' ,'WATER VAPOR HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )' / ! 382
+data fldlib(1:4,305:327)/ &
+ 'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 305
+ 'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 306
+ 'SHW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 307
+ 'UZONAL_OBS'    ,'T3' ,'NUDGING OBS ZONAL WIND',' (m s:S2:-1  )'           ,& ! 308
+ 'UMERID_OBS'    ,'T3' ,'NUDGING OBS MERID WIND',' (m s:S2:-1  )'           ,& ! 309
+ 'RHO_SIM'       ,'T3' ,'NUDGING SIM AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 310
+ 'THETA_SIM'     ,'T3' ,'NUDGING SIM THETA',' (K)'                          ,& ! 311
+ 'SHW_SIM'       ,'T3' ,'NUDGING SIM VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 312
+ 'UZONAL_SIM'    ,'T3' ,'NUDGING SIM ZONAL WIND',' (m s:S2:-1  )'           ,& ! 313
+ 'UMERID_SIM'    ,'T3' ,'NUDGING SIM MERID WIND',' (m s:S2:-1  )'           ,& ! 314
+ 'RHO_OBS_SIM'   ,'T3' ,'NUDGING DIF AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 315
+ 'THETA_OBS_SIM' ,'T3' ,'NUDGING DIF THETA',' (K)'                          ,& ! 316
+ 'SHW_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 317
+ 'UZONAL_OBS_SIM','T3' ,'NUDGING DIF ZONAL WIND',' (m s:S2:-1  )'           ,& ! 318
+ 'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'           ,& ! 319
+ 'VXE'           ,'T3' ,'EARTH CARTESIAN X WIND',' (m s:S2:-1  )'           ,& ! 320
+ 'VYE'           ,'T3' ,'EARTH CARTESIAN Y WIND',' (m s:S2:-1  )'           ,& ! 321
+ 'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'           ,& ! 322
+ 'PBLH'          ,'T2' ,'PBL HEIGHT',' (m)'                                 ,& ! 323
+ 'HKM'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 324
+ 'HEAD0'         ,'L2' ,'HEAD0',' (m)'                                      ,& ! 325
+ 'SHW_HCONV'     ,'T2' ,'TOTAL WATER HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 326
+ 'SHV_HCONV'     ,'T2' ,'WATER VAPOR HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )' / ! 327
 
 ! External fields
 
-data fldlib(1:4,383:385)/ &
- 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 383
- 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 384
- 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 385
+data fldlib(1:4,328:330)/ &
+ 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 328
+ 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 329
+ 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 330
 
 if (icall /= 1) then
    icall = 1
@@ -709,14 +621,6 @@ if (infotyp == 'UNITS') then
       endif
    enddo
 
-   if (fldname(1:6) == 'ITAB_V' .and. meshtype == 1) then
-      write(io6,*) 'Plot field ',trim(fldname),' not available for hexagonal mesh.'
-      go to 1000
-   elseif (fldname(1:6) == 'ITAB_U' .and. meshtype == 2) then
-      write(io6,*) 'Plot field ',trim(fldname),' not available for triangular mesh.'
-      go to 1000
-   endif
-
    op%stagpt = fldlib(2,icase)(1:1)
    op%dimens = fldlib(2,icase)(2:3)
    op%label  = fldlib(3,icase)
@@ -733,11 +637,7 @@ endif
 if (infotyp == 'VALUV') then
    op%stagpt = 'V'
    op%dimens = '3'
-   if (trim(fldname0) == 'UC') then
-      icase = 6
-   else
-      icase = 7
-   endif
+   icase = 7
 endif
 
 if (op%stagpt == 'L' .and. mwl < 2) then
@@ -760,66 +660,45 @@ notavail = 0
 
 select case(icase)
 
-case(1) ! 'UMC'
-
-   if (.not. allocated(umc)) go to 1000
-
-   fldval = wtbot * umc(k  ,i) &
-          + wttop * umc(k+1,i)
-
-case(2) ! 'VMC'
+case(1) ! 'VMC'
 
    if (.not. allocated(vmc)) go to 1000
 
    fldval = wtbot * vmc(k  ,i) &
           + wttop * vmc(k+1,i)
 
-case(3) ! 'WMC'
+case(2) ! 'WMC'
 
 ! Need to re-examine use of k-1 when k = lpw
 
    fldval = wtbot * wmc(k  ,i) &
           + wttop * wmc(k+1,i)
 
-case(4) ! 'UMP'
-
-   if (.not. allocated(ump)) go to 1000
-
-   fldval = wtbot * ump(k  ,i) &
-          + wttop * ump(k+1,i)
-
-case(5) ! 'VMP'
+case(3) ! 'VMP'
 
    if (.not. allocated(vmp)) go to 1000
 
    fldval = wtbot * vmp(k  ,i) &
           + wttop * vmp(k+1,i)
 
-case(6) ! 'UC'
-
-   if (.not. allocated(uc)) go to 1000
-
-   fldval = wtbot * uc(k  ,i) &
-          + wttop * uc(k+1,i)
-
-case(7) ! 'VC'
+case(4) ! 'VC'
 
    if (.not. allocated(vc)) go to 1000
 
    fldval = wtbot * vc(k  ,i) &
           + wttop * vc(k+1,i)
 
-case(8) ! 'WC'
+case(5) ! 'WC'
 
    fldval = wtbot * wc(k  ,i) &
           + wttop * wc(k+1,i)
 
-case(9) ! 'RHO'
+case(6) ! 'RHO'
 
    fldval = wtbot * rho(k  ,i) &
           + wttop * rho(k+1,i)
 
-case(10) ! 'PRESS'
+case(7) ! 'PRESS'
 
    fldval = press(k,i) * .01
 
@@ -827,93 +706,93 @@ case(10) ! 'PRESS'
       fldval = press(k,i)
    endif
 
-case(11) ! 'THIL'
+case(8) ! 'THIL'
 
    fldval = wtbot * thil(k  ,i) &
           + wttop * thil(k+1,i)
 
-case(12) ! 'THETA'
+case(9) ! 'THETA'
 
    fldval = wtbot * theta(k  ,i) &
           + wttop * theta(k+1,i)
 
-case(13) ! 'AIRTEMPK'
+case(10) ! 'AIRTEMPK'
 
    fldval = wtbot * tair(k  ,i) &
           + wttop * tair(k+1,i)
 
-case(14) ! 'AIRTEMPC'
+case(11) ! 'AIRTEMPC'
 
    fldval = wtbot * tair(k  ,i) &
           + wttop * tair(k+1,i) - 273.15
 
-case(15) ! 'SH_W'
+case(12) ! 'SH_W'
 
    fldval = (wtbot * sh_w(k  ,i) &
           +  wttop * sh_w(k+1,i)) * 1.e3
 
-case(16) ! 'SH_V'
+case(13) ! 'SH_V'
 
    fldval = (wtbot * sh_v(k  ,i) &
           +  wttop * sh_v(k+1,i)) * 1.e3
 
-case(17) ! 'SH_C'
+case(14) ! 'SH_C'
 
    if (.not. allocated(sh_c)) go to 1000
 
    fldval = (wtbot * sh_c(k  ,i) &
           +  wttop * sh_c(k+1,i)) * 1.e3
 
-case(18) ! 'SH_D'
+case(15) ! 'SH_D'
 
    if (.not. allocated(sh_d)) go to 1000
 
    fldval = (wtbot * sh_d(k  ,i) &
           +  wttop * sh_d(k+1,i)) * 1.e3
 
-case(19) ! 'SH_R'
+case(16) ! 'SH_R'
 
    if (.not. allocated(sh_r)) go to 1000
 
    fldval = (wtbot * sh_r(k  ,i) &
           +  wttop * sh_r(k+1,i)) * 1.e3
 
-case(20) ! 'SH_P'
+case(17) ! 'SH_P'
 
    if (.not. allocated(sh_p)) go to 1000
 
    fldval = (wtbot * sh_p(k  ,i) &
           +  wttop * sh_p(k+1,i)) * 1.e3
 
-case(21) ! 'SH_S'
+case(18) ! 'SH_S'
 
    if (.not. allocated(sh_s)) go to 1000
 
    fldval = (wtbot * sh_s(k  ,i) &
           +  wttop * sh_s(k+1,i)) * 1.e3
 
-case(22) ! 'SH_A'
+case(19) ! 'SH_A'
 
    if (.not. allocated(sh_a)) go to 1000
 
    fldval = (wtbot * sh_a(k  ,i) &
           +  wttop * sh_a(k+1,i)) * 1.e3
 
-case(23) ! 'SH_G'
+case(20) ! 'SH_G'
 
    if (.not. allocated(sh_g)) go to 1000
 
    fldval = (wtbot * sh_g(k  ,i) &
           +  wttop * sh_g(k+1,i)) * 1.e3
 
-case(24) ! 'SH_H'
+case(21) ! 'SH_H'
 
    if (.not. allocated(sh_h)) go to 1000
 
    fldval = (wtbot * sh_h(k  ,i) &
           +  wttop * sh_h(k+1,i)) * 1.e3
 
-case(25) ! 'SH_CP'
+case(22) ! 'SH_CP'
 
    if (.not. allocated(sh_c)) go to 1000
    if (.not. allocated(sh_p)) go to 1000
@@ -921,94 +800,94 @@ case(25) ! 'SH_CP'
    fldval = (wtbot * (sh_c(k  ,i) + sh_p(k  ,i)) &
           +  wttop * (sh_c(k+1,i) + sh_p(k+1,i))) * 1.e3
 
-case(26) ! 'SH_TOTCOND'
+case(23) ! 'SH_TOTCOND'
 
    fldval = (wtbot * (sh_w(k  ,i) - sh_v(k  ,i)) &
           +  wttop * (sh_w(k+1,i) - sh_v(k+1,i))) * 1.e3
 
-case(27) ! 'CON_C'
+case(24) ! 'CON_C'
 
    if (.not. allocated(con_c)) go to 1000
 
    fldval = (wtbot * con_c(k  ,i) &
           +  wttop * con_c(k+1,i)) * 1.e-6
 
-case(28) ! 'CON_D'
+case(25) ! 'CON_D'
 
    if (.not. allocated(con_d)) go to 1000
 
    fldval = (wtbot * con_d(k  ,i) &
           +  wttop * con_d(k+1,i)) * 1.e-6
 
-case(29) ! 'CON_R'
+case(26) ! 'CON_R'
 
    if (.not. allocated(con_r)) go to 1000
 
    fldval = wtbot * con_r(k  ,i) &
           + wttop * con_r(k+1,i)
 
-case(30) ! 'CON_P'
+case(27) ! 'CON_P'
 
    if (.not. allocated(con_p)) go to 1000
 
    fldval = wtbot * con_p(k  ,i) &
           + wttop * con_p(k+1,i)
 
-case(31) ! 'CON_S'
+case(28) ! 'CON_S'
 
    if (.not. allocated(con_s)) go to 1000
 
    fldval = wtbot * con_s(k  ,i) &
           + wttop * con_s(k+1,i)
 
-case(32) ! 'CON_A'
+case(29) ! 'CON_A'
 
    if (.not. allocated(con_a)) go to 1000
 
    fldval = wtbot * con_a(k  ,i) &
           + wttop * con_a(k+1,i)
 
-case(33) ! 'CON_G'
+case(30) ! 'CON_G'
 
    if (.not. allocated(con_g)) go to 1000
 
    fldval = wtbot * con_g(k  ,i) &
           + wttop * con_g(k+1,i)
 
-case(34) ! 'CON_H'
+case(31) ! 'CON_H'
 
    if (.not. allocated(con_h)) go to 1000
 
    fldval = wtbot * con_h(k  ,i) &
           + wttop * con_h(k+1,i)
 
-case(35) ! 'CON_CCN'
+case(32) ! 'CON_CCN'
 
    if (.not. allocated(con_ccn)) go to 1000
 
    fldval = (wtbot * con_ccn(k  ,i) &
           +  wttop * con_ccn(k+1,i)) * 1.e-6
 
-case(36) ! 'CON_GCCN'
+case(33) ! 'CON_GCCN'
 
    if (.not. allocated(con_gccn)) go to 1000
 
    fldval = (wtbot * con_gccn(k  ,i) &
           +  wttop * con_gccn(k+1,i)) * 1.e-6
 
-case(37) ! 'CON_IFN'
+case(34) ! 'CON_IFN'
 
    if (.not. allocated(con_ifn)) go to 1000
 
    fldval = wtbot * con_ifn(k  ,i) &
           + wttop * con_ifn(k+1,i)
 
-case(38) ! 'VKM'
+case(35) ! 'VKM'
 
    fldval = wtbot * vkm(k  ,i) &
           + wttop * vkm(k+1,i)
 
-case(39) ! 'FTHRD'
+case(36) ! 'FTHRD'
 
    if (.not. allocated(fthrd_sw)) goto 1000
    if (.not. allocated(fthrd_lw)) goto 1000
@@ -1016,134 +895,7 @@ case(39) ! 'FTHRD'
    fldval = wtbot * (fthrd_sw(k  ,i) + fthrd_lw(k  ,i)) &
           + wttop * (fthrd_sw(k+1,i) + fthrd_lw(k+1,i))
 
-case(40:45) ! 'SPEEDV','AZIMV','ZONAL_WINDV','MERID_WINDV','ZONAL_WINDV_P','MERID_WINDV_P'
-
-   if (meshtype == 1) then
-      iw1 = itab_u(i)%iw(1)
-      iw2 = itab_u(i)%iw(2)
-   else
-      iw1 = itab_v(i)%iw(1)
-      iw2 = itab_v(i)%iw(2)
-   endif
-
-   vx = wtbot * 0.5 * (vxe(k  ,iw1) + vxe(k  ,iw2)) &
-      + wttop * 0.5 * (vxe(k+1,iw1) + vxe(k+1,iw2))
-
-   vy = wtbot * 0.5 * (vye(k  ,iw1) + vye(k  ,iw2)) &
-      + wttop * 0.5 * (vye(k+1,iw1) + vye(k+1,iw2))
-
-   vz = wtbot * 0.5 * (vze(k  ,iw1) + vze(k  ,iw2)) &
-      + wttop * 0.5 * (vze(k+1,iw1) + vze(k+1,iw2))
-
-   if (trim(fldname) == 'SPEEDV') then
-
-      fldval = sqrt(vx** 2 + vy** 2 + vz** 2)
-
-   else
-
-      u = 0.
-      v = 0.
-
-      if (meshtype == 1) then
-
-         raxis = sqrt(xeu(i) ** 2 + yeu(i) ** 2)  ! dist from earth axis
-
-         if (raxis > 1.e3) then
-            u = (vy * xeu(i) - vx * yeu(i)) / raxis
-            v = vz * raxis / erad &
-              - (vx * xeu(i) + vy * yeu(i)) * zeu(i) / (raxis * erad) 
-         else
-            u = 0.0
-            v = 0.0
-         endif
-
-      elseif (mdomain < 2) then
-
-         raxis = sqrt(xev(i) ** 2 + yev(i) ** 2)  ! dist from earth axis
-
-         if (raxis > 1.e3) then
-            u = (vy * xev(i) - vx * yev(i)) / raxis
-            v = vz * raxis / erad &
-              - (vx * xev(i) + vy * yev(i)) * zev(i) / (raxis * erad)
-         else
-            u = 0.0
-            v = 0.0
-         endif
-
-      else
-         
-         u = vx
-         v = vy
-
-      endif
-
-      if (trim(fldname) == 'AZIMV'           ) then
-         fldval = mod(450. - piu180 * atan2(v,u),360.)
-      elseif (trim(fldname) == 'ZONAL_WINDV' ) then
-         fldval = u
-      elseif (trim(fldname) == 'MERID_WINDV' ) then
-         fldval = v
-      else
-
-! Tangential component of initial wind at V point
-
-         ucc_init = wtbot * uc_init(k  ,i) &
-                  + wttop * uc_init(k+1,i)
-
-         vcc_init = wtbot * vc_init(k  ,i) &
-                  + wttop * vc_init(k+1,i)
-
-         vx_init = unx(i) * ucc_init + vnx(i) * vcc_init
-         vy_init = uny(i) * ucc_init + vny(i) * vcc_init
-         vz_init = unz(i) * ucc_init + vnz(i) * vcc_init
-
-         u_init = 0.
-         v_init = 0.
-
-         if (meshtype == 1) then
-
-            raxis = sqrt(xeu(i) ** 2 + yeu(i) ** 2)  ! dist from earth axis
-
-            if (raxis > 1.e3) then
-               u_init = (vy_init * xeu(i) - vx_init * yeu(i)) / raxis
-               v_init = vz_init * raxis / erad &
-                  - (vx_init * xeu(i) + vy_init * yeu(i)) * zeu(i) / (raxis * erad) 
-            else
-               u_init = 0.0
-               v_init = 0.0
-            endif
-
-         elseif (mdomain < 2) then
-
-            raxis = sqrt(xev(i) ** 2 + yev(i) ** 2)  ! dist from earth axis
-
-            if (raxis > 1.e3) then
-               u_init = (vy_init * xev(i) - vx_init * yev(i)) / raxis
-               v_init = vz_init * raxis / erad &
-                  - (vx_init * xev(i) + vy_init * yev(i)) * zev(i) / (raxis * erad) 
-            else
-               u_init = 0.0
-               v_init = 0.0
-            endif
-
-         else
-
-            u_init = vx_init
-            v_init = vy_init
-
-         endif
-
-         if     (trim(fldname) == 'ZONAL_WINDV_P') then
-            fldval = u - u_init
-         elseif (trim(fldname) == 'MERID_WINDV_P') then
-            fldval = v - v_init
-         endif
-
-      endif
-
-   endif
-
-case(46:49) ! 'SPEEDW','AZIMW','ZONAL_WINDW','MERID_WINDW'
+case(37:40) ! 'SPEEDW','AZIMW','ZONAL_WINDW','MERID_WINDW'
 
    npoly = itab_w(i)%npoly
    rpolyi = 1. / real(npoly)
@@ -1158,12 +910,12 @@ case(46:49) ! 'SPEEDW','AZIMW','ZONAL_WINDW','MERID_WINDW'
       + wttop * vze(k+1,i)
 
    if (trim(fldname) == 'SPEEDW') then
-      fldval = sqrt(vx** 2 + vy** 2 + vz** 2)
+      fldval = sqrt(vx**2 + vy**2 + vz**2)
    else
       
       if (mdomain < 2) then
 
-         raxis = sqrt(xew(i) ** 2 + yew(i) ** 2)  ! dist from earth axis
+         raxis = sqrt(xew(i)**2 + yew(i)**2)  ! dist from earth axis
 
          if (raxis > 1.e3) then
             u = (vy * xew(i) - vx * yew(i)) / raxis
@@ -1188,104 +940,33 @@ case(46:49) ! 'SPEEDW','AZIMW','ZONAL_WINDW','MERID_WINDW'
       endif
    endif
 
-case(50:52) ! 'RVORTZM','RVORTZM_P','TVORTZM'
+case(41:43) ! 'RVORTZM','TVORTZM','RVORTZM_P'
 
    fldval = 0.
 
    do j = 1,itab_m(i)%npoly
 
-      if (meshtype == 1) then
 
-         iu = itab_m(i)%iu(j)
+       iv = itab_m(i)%iv(j)
 
-         iu1 = itab_u(iu)%iu(1)
-         iu2 = itab_u(iu)%iu(2)
-         iu3 = itab_u(iu)%iu(3)
-         iu4 = itab_u(iu)%iu(4)
+       vcc = wtbot * vc(k  ,iv) &
+           + wttop * vc(k+1,iv)
 
-         iw1 = itab_u(iu)%iw(1)
-         iw2 = itab_u(iu)%iw(2)
-
-         tuu1 = itab_u(iu)%tuu(1)
-         tuu2 = itab_u(iu)%tuu(2)
-         tuu3 = itab_u(iu)%tuu(3)
-         tuu4 = itab_u(iu)%tuu(4)
-
-         ucc = wtbot * uc(k  ,iu) &
-             + wttop * uc(k+1,iu)
-
-         vcc = wtbot * (uc(k  ,iu1) * tuu1  &
-                      + uc(k  ,iu2) * tuu2  &
-                      + uc(k  ,iu3) * tuu3  &
-                      + uc(k  ,iu4) * tuu4) &
-             + wttop * (uc(k+1,iu1) * tuu1  &
-                      + uc(k+1,iu2) * tuu2  &
-                      + uc(k+1,iu3) * tuu3  &
-                      + uc(k+1,iu4) * tuu4)
-      else
-
-         iv = itab_m(i)%iv(j)
-
-         vcc = wtbot * vc(k  ,iv) &
-             + wttop * vc(k+1,iv)
-
-      endif
-      
       if (fldname == 'RVORTZM_P') then
 
-         if (meshtype == 1) then
+         vcc_init = wtbot * vc_init(k  ,iv) &
+                  + wttop * vc_init(k+1,iv)
 
-            ucc_init = wtbot * uc_init(k  ,iu) &
-                     + wttop * uc_init(k+1,iu)
-
-            vcc_init = wtbot * (uc_init(k  ,iu1) * tuu1  &
-                              + uc_init(k  ,iu2) * tuu2  &
-                              + uc_init(k  ,iu3) * tuu3  &
-                              + uc_init(k  ,iu4) * tuu4) &
-                     + wttop * (uc_init(k+1,iu1) * tuu1  &
-                              + uc_init(k+1,iu2) * tuu2  &
-                              + uc_init(k+1,iu3) * tuu3  &
-                              + uc_init(k+1,iu4) * tuu4)
-            
-            ucc = ucc - ucc_init
-            vcc = vcc - vcc_init
-
-         else
-
-            vcc_init = wtbot * vc_init(k  ,iv) &
-                     + wttop * vc_init(k+1,iv)
-
-            vcc = vcc - vcc_init
-
-         endif
+         vcc = vcc - vcc_init
 
       endif
 
 ! Now reconstruct total wind vector projected onto vector from IW1 to IW2
 
-      if (meshtype == 1) then
-
-         contrib = ucc * (unx(iu) * (xew(iw2) - xew(iw1))  &
-                       +  uny(iu) * (yew(iw2) - yew(iw1))  &
-                       +  unz(iu) * (zew(iw2) - zew(iw1))) &
-                 + vcc * (vnx(iu) * (xew(iw2) - xew(iw1))  &
-                       +  vny(iu) * (yew(iw2) - yew(iw1))  &
-                       +  vnz(iu) * (zew(iw2) - zew(iw1)))
-
-         if (i == itab_u(iu)%im(1)) then
-            fldval = fldval + contrib
-         else
-            fldval = fldval - contrib
-         endif
-
+      if (i == itab_v(iv)%im(2)) then
+         fldval = fldval + dnv(iv) * vcc
       else
-
-         if (i == itab_v(iv)%im(2)) then
-            fldval = fldval + dnv(iv) * vcc
-         else
-            fldval = fldval - dnv(iv) * vcc
-         endif
-
+         fldval = fldval - dnv(iv) * vcc
       endif
 
    enddo
@@ -1302,7 +983,7 @@ case(50:52) ! 'RVORTZM','RVORTZM_P','TVORTZM'
       fldval = fldval + omega2 * zem(i) / erad  ! add earth vorticity at M point
    endif
 
-case(53) ! 'DIVERG'
+case(44) ! 'DIVERG'
 
    fldval = 0.
 
@@ -1310,21 +991,7 @@ case(53) ! 'DIVERG'
 
    if (itab_w(i)%iwp == i) then
 
-   do j = 1,npoly
-
-      if (meshtype == 1) then
-
-         iv = itab_w(i)%iu(j)
-
-         fldval = fldval &
-
-                + wtbot * umc(k,iv) * (-itab_w(i)%diru(j)) * aru(k,iv) &
-                        / (volt(k,i) * rho(k,i)) &
-
-                + wttop * umc(k+1,iv) * (-itab_w(i)%diru(j)) * aru(k+1,iv) &
-                        / (volt(k+1,i) * rho(k+1,i))
-
-      else
+      do j = 1,npoly
 
          iv = itab_w(i)%iv(j)
 
@@ -1335,36 +1002,22 @@ case(53) ! 'DIVERG'
 
                 + wttop * vmc(k+1,iv) * (-itab_w(i)%dirv(j)) * arv(k+1,iv) &
                         / (volt(k+1,i) * rho(k+1,i))
-      endif
-
-   enddo
+      enddo
    endif
 
-case(54) ! 'UMASSFLUX'
+case(45) ! 'VMASSFLUX'
 
-   if (meshtype == 2) goto 1000
-   fldval = umc(k,i) * aru(k,i)
-
-case(55) ! 'VMASSFLUX'
-
-   if (meshtype == 1) goto 1000
    fldval = vmc(k,i) * arv(k,i)
 
-case(56) ! 'UC_P'
+case(46) ! 'VC_P'
 
-   if (meshtype == 2) goto 1000
-   fldval = uc(k,i) - uc_init(k,i)
-
-case(57) ! 'VC_P'
-
-   if (meshtype == 1) goto 1000
    fldval = vc(k,i) - vc_init(k,i)
 
-case(58) ! 'PRESS_P'
+case(47) ! 'PRESS_P'
 
    fldval = press(k,i) - press_init(k,i)
 
-case(59) ! 'RHO_P'
+case(48) ! 'RHO_P'
 
    fldval = wtbot * (rho(k  ,i) - rho_init(k  ,i)) &
           + wttop * (rho(k+1,i) - rho_init(k+1,i))
@@ -1378,33 +1031,27 @@ case(59) ! 'RHO_P'
       fldval = (rho(k,i) - rho_init(k,i)) - (zanal_swtc5 - zanal0_swtc5)
    endif
 
-case(60) ! 'THETA_P'
+case(49) ! 'THETA_P'
 
    fldval = wtbot * (theta(k  ,i) - theta_init(k  ,i)) &
           + wttop * (theta(k+1,i) - theta_init(k+1,i))
 
-case(61) ! 'AIRTEMPK_P'
+case(50) ! 'AIRTEMPK_P'
 
    fldval = wtbot * tair(k  ,i) &
           + wttop * tair(k+1,i) &
           - wtbot * theta_init(k  ,i) * (press_init(k  ,i) * p00i) ** rocp &
           - wttop * theta_init(k+1,i) * (press_init(k+1,i) * p00i) ** rocp
 
-case(62) ! 'UMT'
+case(51) ! 'VMT'
 
-   if (meshtype == 2) goto 1000
-   fldval = umt(k,i) * volui(k,i)
+   fldval = vmt(k,i)
 
-case(63) ! 'VMT'
+case(52) ! 'WMT'
 
-   if (meshtype == 1) goto 1000
-   fldval = vmt(k,i) * volvi(k,i)
+   fldval = wmt(k,i)
 
-case(64) ! 'WMT'
-
-   fldval = wmt(k,i) * volwi(k,i)
-
-case(65) ! 'ADDSC'
+case(53) ! 'ADDSC'
 
    if (indp > naddsc) go to 1000
    if (.not. allocated(addsc(indp)%sclp)) go to 1000
@@ -1412,7 +1059,7 @@ case(65) ! 'ADDSC'
    fldval = wtbot * addsc(indp)%sclp(k  ,i) &
           + wttop * addsc(indp)%sclp(k+1,i)
 
-case(66) ! 'ADDSC_P'
+case(54) ! 'ADDSC_P'
 
    if (indp > naddsc) go to 1000
    if (.not. allocated(addsc(indp)%sclp)) go to 1000
@@ -1422,24 +1069,24 @@ case(66) ! 'ADDSC_P'
    
 ! ATMOSPHERE - 2D
 
-case(67) ! 'ZPLEV'
+case(55) ! 'ZPLEV'
 
    fldval = wtbot * zt(k  ) &
           + wttop * zt(k+1)
 
-case(68) ! 'RSHORT_TOP'
+case(62) ! 'RSHORT_TOP'
 
    if (.not. allocated(rshort_top)) go to 1000
 
    fldval = rshort_top(i)
 
-case(69) ! 'RSHORTUP_TOP'
+case(63) ! 'RSHORTUP_TOP'
 
    if (.not. allocated(rshortup_top)) go to 1000
 
    fldval = rshortup_top(i)
 
-case(70) ! 'RLONGUP_TOP'
+case(64) ! 'RLONGUP_TOP'
 
    if (.not. allocated(rlongup_top)) go to 1000
 
@@ -1447,100 +1094,100 @@ case(70) ! 'RLONGUP_TOP'
 
 ! ATMOSPHERE SURFACE - 2D
 
-case(71) ! 'RSHORT'
+case(65) ! 'RSHORT'
 
    if (.not. allocated(rshort)) go to 1000
 
    fldval = rshort(i)
 
-case(72) ! 'RSHORTUP'
+case(66) ! 'RSHORTUP'
 
    if (.not. allocated(rshort)) go to 1000
    if (.not. allocated(albedt)) go to 1000
 
    fldval = rshort(i) * albedt(i)
 
-case(73) ! 'RLONG'
+case(67) ! 'RLONG'
 
    if (.not. allocated(rlong)) go to 1000
 
    fldval = rlong(i)
 
-case(74) ! 'RLONGUP'
+case(68) ! 'RLONGUP'
 
    if (.not. allocated(rlongup)) go to 1000
 
    fldval = rlongup(i)
 
-case(75) ! 'ALBEDT'
+case(69) ! 'ALBEDT'
 
    if (.not. allocated(albedt)) go to 1000
 
    fldval = albedt(i)
 
-case(76) ! 'VKM_SFC'
+case(70) ! 'VKM_SFC'
 
    fldval = vkm_sfc(1,i)
 
-case(77) ! 'SFLUX_W'
+case(71) ! 'SFLUXW'
 
-   fldval = sflux_w(i)
+   fldval = sfluxw(i)
 
-case(78) ! 'SENSFLUX'
+case(72) ! 'SENSFLUX'
 
-   fldval = sflux_t(i) * cp
+   fldval = sfluxt(i) * cp
    
-case(79) ! 'VAPFLUX'
+case(73) ! 'VAPFLUX'
 
-   fldval = sflux_r(i)
+   fldval = sfluxr(i)
 
-case(80) ! 'LATFLUX'
+case(74) ! 'LATFLUX'
 
-   fldval = sflux_r(i) * alvl
+   fldval = sfluxr(i) * alvl
 
-case(81) ! 'PCPRD'
+case(75) ! 'PCPRD'
 
    if (.not. allocated(pcprd)) go to 1000
 
    fldval = pcprd(i) * 3600.
 
-case(82) ! 'PCPRR'
+case(76) ! 'PCPRR'
 
    if (.not. allocated(pcprr)) go to 1000
 
    fldval = pcprr(i) * 3600.
 
-case(83) ! 'PCPRP'
+case(77) ! 'PCPRP'
 
    if (.not. allocated(pcprp)) go to 1000
 
    fldval = pcprp(i)  * 3600.   
 
-case(84) ! 'PCPRS'
+case(78) ! 'PCPRS'
 
    if (.not. allocated(pcprs)) go to 1000
 
    fldval = pcprs(i) * 3600.
 
-case(85) ! 'PCPRA'
+case(79) ! 'PCPRA'
 
    if (.not. allocated(pcpra)) go to 1000
 
    fldval = pcpra(i) * 3600.
 
-case(86) ! 'PCPRG'
+case(80) ! 'PCPRG'
 
    if (.not. allocated(pcprg)) go to 1000
 
    fldval = pcprg(i) * 3600.
 
-case(87) ! 'PCPRH'
+case(81) ! 'PCPRH'
 
    if (.not. allocated(pcprh)) go to 1000
 
    fldval = pcprh(i) * 3600.
 
-case(88) ! 'PCPRMIC'
+case(82) ! 'PCPRMIC'
 
    fldval = 0.
 
@@ -1554,13 +1201,13 @@ case(88) ! 'PCPRMIC'
 
    fldval = fldval * 3600.
 
-case(89) ! 'PCPRCON'
+case(83) ! 'PCPRCON'
 
    if (.not. allocated(conprr)) go to 1000
 
    fldval = conprr(i) * 3600.
 
-case(90) ! 'PCPRBOTH'
+case(84) ! 'PCPRBOTH'
 
    fldval = 0.
 
@@ -1575,49 +1222,49 @@ case(90) ! 'PCPRBOTH'
 
    fldval = fldval * 3600.
 
-case(91) ! 'ACCPD'
+case(85) ! 'ACCPD'
 
    if (.not. allocated(accpd)) go to 1000
 
    fldval = real(accpd(i))
 
-case(92) ! 'ACCPR'
+case(86) ! 'ACCPR'
 
    if (.not. allocated(accpr)) go to 1000
 
    fldval = real(accpr(i))
 
-case(93) ! 'ACCPP'
+case(87) ! 'ACCPP'
 
    if (.not. allocated(accpp)) go to 1000
 
    fldval = real(accpp(i))
 
-case(94) ! 'ACCPS'
+case(88) ! 'ACCPS'
 
    if (.not. allocated(accps)) go to 1000
 
    fldval = real(accps(i))
 
-case(95) ! 'ACCPA'
+case(89) ! 'ACCPA'
 
    if (.not. allocated(accpa)) go to 1000
 
    fldval = real(accpa(i))
 
-case(96) ! 'ACCPG'
+case(90) ! 'ACCPG'
 
    if (.not. allocated(accpg)) go to 1000
 
    fldval = real(accpg(i))
 
-case(97) ! 'ACCPH'
+case(91) ! 'ACCPH'
 
    if (.not. allocated(accph)) go to 1000
 
    fldval = real(accph(i))
 
-case(98) ! 'ACCPMIC'
+case(92) ! 'ACCPMIC'
 
    fldval = 0.
 
@@ -1629,13 +1276,13 @@ case(98) ! 'ACCPMIC'
    if (allocated(accpg)) fldval = fldval + real(accpg(i))
    if (allocated(accph)) fldval = fldval + real(accph(i))
 
-case(99) ! 'ACCPCON'
+case(93) ! 'ACCPCON'
 
    if (.not. allocated(aconpr)) go to 1000
 
    fldval = real(aconpr(i))
 
-case(100) ! 'ACCPBOTH'
+case(94) ! 'ACCPBOTH'
 
    fldval = 0.
 
@@ -1648,7 +1295,7 @@ case(100) ! 'ACCPBOTH'
    if (allocated(accph)) fldval = fldval + real(accph(i))
    if (allocated(aconpr)) fldval = fldval + real(aconpr(i))
 
-case(101) ! 'PCPDIF2MIC'
+case(95) ! 'PCPDIF2MIC'
 
 ! Compute difference involving 1 previously-stored field
 ! Convert to mm/day if time interval >= 1 second
@@ -1659,7 +1306,7 @@ case(101) ! 'PCPDIF2MIC'
       fldval = fldval * 86400. / (time8_prev0 - time8_prev1)
    endif
 
-case(102) ! 'PCPDIF2CON'
+case(96) ! 'PCPDIF2CON'
 
    if (.not. allocated(aconpr)) go to 1000
 
@@ -1672,7 +1319,7 @@ case(102) ! 'PCPDIF2CON'
       fldval = fldval * 86400. / (time8_prev0 - time8_prev1)
    endif
 
-case(103) ! 'PCPDIF2BOTH'
+case(97) ! 'PCPDIF2BOTH'
 
 ! Compute difference involving 1 previously-stored field
 ! Convert to mm/day if time interval >= 1 second
@@ -1686,7 +1333,7 @@ case(103) ! 'PCPDIF2BOTH'
       fldval = fldval * 86400. / (time8_prev0 - time8_prev1)
    endif
 
-case(104) ! 'PCPDIF4MIC'
+case(98) ! 'PCPDIF4MIC'
 
 ! Compute differences involving 3 previously-stored fields
 ! Convert to mm/day if time interval >= 1 second
@@ -1698,7 +1345,7 @@ case(104) ! 'PCPDIF4MIC'
       fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
    endif
 
-case(105) ! 'PCPDIF4CON'
+case(99) ! 'PCPDIF4CON'
 
    if (.not. allocated(aconpr)) go to 1000
 
@@ -1712,7 +1359,7 @@ case(105) ! 'PCPDIF4CON'
       fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
    endif
 
-case(106) ! 'PCPDIF4BOTH'
+case(100) ! 'PCPDIF4BOTH'
 
 ! Compute differences involving 3 previously-stored fields
 ! Convert to mm/day if time interval >= 1 second
@@ -1729,7 +1376,7 @@ case(106) ! 'PCPDIF4BOTH'
       fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
    endif
 
-case(107) ! 'PCPREL4MIC'
+case(101) ! 'PCPREL4MIC'
 
 ! Compute relative differences involving 3 previously-stored fields
 ! [fldval=runB_end; prev1=runA_end; prev2=runB_beg; prev3=runA_beg]
@@ -1746,7 +1393,7 @@ case(107) ! 'PCPREL4MIC'
       fldval = 0.
    endif
 
-case(108) ! 'PCPREL4CON'
+case(102) ! 'PCPREL4CON'
 
    if (.not. allocated(aconpr)) go to 1000
 
@@ -1764,7 +1411,7 @@ case(108) ! 'PCPREL4CON'
       fldval = 0.
    endif
 
-case(109) ! 'PCPREL4BOTH'
+case(103) ! 'PCPREL4BOTH'
 
 ! Compute relative differences involving 3 previously-stored fields
 
@@ -1787,15 +1434,15 @@ case(109) ! 'PCPREL4BOTH'
 
 ! LAND_CELLS - 3D
 
-case(110) ! 'SOIL_TEXT'
+case(104) ! 'SOIL_TEXT'
 
    fldval = real(land%ntext_soil(k,i))
 
-case(111) ! 'SOIL_ENERGY'
+case(105) ! 'SOIL_ENERGY'
 
    fldval = land%soil_energy(k,i) * 1.e-6
 
-case(112) ! 'SOIL_TEMPC'
+case(106) ! 'SOIL_TEMPC'
 
    call qwtk(land%soil_energy(k,i)       &
             ,land%soil_water(k,i)*1.e3   &
@@ -1803,7 +1450,7 @@ case(112) ! 'SOIL_TEMPC'
             ,tempk, fracliq)
    fldval = tempk - 273.15
 
-case(113) ! 'SOIL_FRACLIQ'
+case(107) ! 'SOIL_FRACLIQ'
 
    call qwtk(land%soil_energy(k,i)       &
             ,land%soil_water(k,i)*1.e3   &
@@ -1811,29 +1458,29 @@ case(113) ! 'SOIL_FRACLIQ'
             ,tempk, fracliq)
    fldval = fracliq
 
-case(114) ! 'SOIL_WATER'
+case(108) ! 'SOIL_WATER'
 
    fldval = land%soil_water(k,i) / slmsts(land%ntext_soil(k,i))
 
-case(115) ! 'SFWAT_MASS'
+case(109) ! 'SFWAT_MASS'
 
    fldval = land%sfcwater_mass(k,i)
 
-case(116) ! 'SFWAT_ENERGY'
+case(110) ! 'SFWAT_ENERGY'
 
    fldval = land%sfcwater_energy(k,i) * 1.e-3
 
-case(117) ! 'SFWAT_TEMPC'
+case(111) ! 'SFWAT_TEMPC'
 
    call qtk(land%sfcwater_energy(k,i),tempk,fracliq)
    fldval = tempk - 273.15
 
-case(118) ! 'SFWAT_FRACLIQ'
+case(112) ! 'SFWAT_FRACLIQ'
 
    call qtk(land%sfcwater_energy(k,i),tempk,fracliq)
    fldval = fracliq
 
-case(119) ! 'SFWAT_DEPTH'
+case(113) ! 'SFWAT_DEPTH'
 
    fldval = 0.
    do klev = 1,land%nlev_sfcwater(i)
@@ -1842,63 +1489,63 @@ case(119) ! 'SFWAT_DEPTH'
 
 ! LAND_CELLS - 2D
 
-case(120) ! 'NLEV_SFWAT'
+case(114) ! 'NLEV_SFWAT'
 
    fldval = real(land%nlev_sfcwater(i))
 
-case(121) ! 'VEG_NDVIC'
+case(115) ! 'VEG_NDVIC'
 
    fldval = land%veg_ndvic(i)
 
-case(122) ! 'VEG_TEMPC'
+case(116) ! 'VEG_TEMPC'
 
    fldval = land%veg_temp(i) - 273.15
 
-case(123) ! 'VEG_WATER'
+case(117) ! 'VEG_WATER'
 
    fldval = land%veg_water(i)
 
-case(124) ! 'STOM_RESIST'
+case(118) ! 'STOM_RESIST'
 
    fldval = land%stom_resist(i)
 
-case(125) ! 'GROUND_SHV'
+case(119) ! 'GROUND_SHV'
 
    fldval = land%ground_shv(i) * 1.e3
 
-case(126) ! 'SOIL_DEPTH'
+case(120) ! 'SOIL_DEPTH'
 
    fldval = -slz(1)
 
 ! SEA_CELLS - 2D
 
-case(127) ! 'SEATP'
+case(121) ! 'SEATP'
 
    fldval = sea%seatp(i)   
 
-case(128) ! 'SEATF'
+case(122) ! 'SEATF'
 
    fldval = sea%seatf(i)
 
-case(129) ! 'SEATC'
+case(123) ! 'SEATC'
 
    fldval = sea%seatc(i)
 
-case(130) ! 'SEAICEP'
+case(124) ! 'SEAICEP'
 
    fldval = sea%seaicep(i)   
 
-case(131) ! 'SEAICEF'
+case(125) ! 'SEAICEF'
 
    fldval = sea%seaicef(i)
 
-case(132) ! 'SEAICEC'
+case(126) ! 'SEAICEC'
 
    fldval = sea%seaicec(i)
 
 ! LAND AND SEA CELLS - 2D
 
-case(133) ! 'LEAF_CLASS'
+case(127) ! 'LEAF_CLASS'
 
    if (op%stagpt == 'S') then
       fldval = real(sea%leaf_class(i))
@@ -1906,7 +1553,39 @@ case(133) ! 'LEAF_CLASS'
       fldval = real(land%leaf_class(i))
    endif
 
-case(134) ! 'AREA'
+case(128) ! 'LS_IW'
+
+   if (op%stagpt == 'S') then
+      fldval = real(itab_ws(i)%iw)
+   elseif (op%stagpt == 'L') then
+      fldval = real(itab_wl(i)%iw)
+   endif
+
+case(129) ! 'LS_KW'
+
+   if (op%stagpt == 'S') then
+      fldval = real(itab_ws(i)%kw)
+   elseif (op%stagpt == 'L') then
+      fldval = real(itab_wl(i)%kw)
+   endif
+
+case(130) ! 'LS_ARF_IW'
+
+   if (op%stagpt == 'S') then
+      fldval = real(itab_ws(i)%arf_iw)
+   elseif (op%stagpt == 'L') then
+      fldval = real(itab_wl(i)%arf_iw)
+   endif
+
+case(131) ! 'LS_ARF_KW'
+
+   if (op%stagpt == 'S') then
+      fldval = real(itab_ws(i)%arf_kw)
+   elseif (op%stagpt == 'L') then
+      fldval = real(itab_wl(i)%arf_kw)
+   endif
+
+case(132) ! 'LS_AREA'
 
    if (op%stagpt == 'S') then
       fldval = sea%area(i)
@@ -1914,7 +1593,15 @@ case(134) ! 'AREA'
       fldval = land%area(i)
    endif
 
-case(135) ! 'ROUGH'
+case(133) ! 'LS_TOPW'
+
+   if (op%stagpt == 'S') then
+      fldval = sea%topw(i)
+   elseif (op%stagpt == 'L') then
+      fldval = land%topw(i)
+   endif
+
+case(134) ! 'ROUGH'
 
    if (op%stagpt == 'S') then
       fldval = sea%rough(i)
@@ -1922,23 +1609,23 @@ case(135) ! 'ROUGH'
       fldval = land%rough(i)
    endif
 
-case(136) ! 'CAN_TEMPC'
+case(135) ! 'CAN_TEMPC'
 
    if (op%stagpt == 'S') then
-      fldval = sea%can_temp(i) - 273.15
+      fldval = sea%cantemp(i) - 273.15
    elseif (op%stagpt == 'L') then
-      fldval = land%can_temp(i) - 273.15
+      fldval = land%cantemp(i) - 273.15
    endif
 
-case(137) ! 'CAN_SHV'
+case(136) ! 'CANSHV'
 
    if (op%stagpt == 'S') then
-      fldval = sea%can_shv(i) * 1.e3
+      fldval = sea%canshv(i) * 1.e3
    elseif (op%stagpt == 'L') then
-      fldval = land%can_shv(i) * 1.e3
+      fldval = land%canshv(i) * 1.e3
    endif
 
-case(138) ! 'SFC_TEMPC'
+case(137) ! 'SFC_TEMPC'
 
    if (op%stagpt == 'S') then
       nls = sea%nlev_seaice(i)
@@ -1965,7 +1652,7 @@ case(138) ! 'SFC_TEMPC'
       endif
    endif
 
-case(139) ! 'SFC_SSH'
+case(138) ! 'SFC_SSH'
 
    if (op%stagpt == 'S') then
       fldval = sea%surface_ssh(i) * 1.e3
@@ -1973,7 +1660,7 @@ case(139) ! 'SFC_SSH'
       fldval = land%surface_ssh(i) * 1.e3
    endif
 
-case(140) ! 'SENSFLUX_LS'
+case(139) ! 'LS_SENSFLUX'
 
    if (op%stagpt == 'S') then
       fldval = sea%sxfer_tsav(i) * cp / dt_leaf
@@ -1981,7 +1668,7 @@ case(140) ! 'SENSFLUX_LS'
       fldval = land%sxfer_tsav(i) * cp / dt_leaf
    endif
 
-case(141) ! 'VAPFLUX_LS'
+case(140) ! 'LS_VAPFLUX'
 
    if (op%stagpt == 'S') then
       fldval = sea%sxfer_rsav(i) / dt_leaf
@@ -1989,7 +1676,7 @@ case(141) ! 'VAPFLUX_LS'
       fldval = land%sxfer_rsav(i) / dt_leaf
    endif
 
-case(142) ! 'LATFLUX_LS'
+case(141) ! 'LS_LATFLUX'
 
    if (op%stagpt == 'S') then
       fldval = sea%sxfer_rsav(i) * alvl / dt_leaf
@@ -1997,7 +1684,7 @@ case(142) ! 'LATFLUX_LS'
       fldval = land%sxfer_rsav(i) * alvl / dt_leaf
    endif
 
-case(143) ! 'RSHORT_LS'
+case(142) ! 'LS_RSHORT'
 
    if (op%stagpt == 'S') then
       fldval = sea%rshort(i)
@@ -2005,7 +1692,7 @@ case(143) ! 'RSHORT_LS'
       fldval = land%rshort(i)
    endif
 
-case(144) ! 'RSHORT_DIFFUSE_LS'
+case(143) ! 'LS_RSHORT_DIFFUSE'
 
    if (op%stagpt == 'S') then
       fldval = sea%rshort_diffuse(i)
@@ -2013,7 +1700,7 @@ case(144) ! 'RSHORT_DIFFUSE_LS'
       fldval = land%rshort_diffuse(i)
    endif
 
-case(145) ! 'RLONG_LS'
+case(144) ! 'LS_RLONG'
 
    if (op%stagpt == 'S') then
       fldval = sea%rlong(i)
@@ -2021,7 +1708,7 @@ case(145) ! 'RLONG_LS'
       fldval = land%rlong(i)
    endif
 
-case(146) ! 'RLONGUP_LS'
+case(145) ! 'LS_RLONGUP'
 
    if (op%stagpt == 'S') then
       fldval = sea%rlongup(i)
@@ -2029,7 +1716,7 @@ case(146) ! 'RLONGUP_LS'
       fldval = land%rlongup(i)
    endif
 
-case(147) ! 'RLONG_ALBEDO_LS'
+case(146) ! 'LS_RLONG_ALBEDO'
 
    if (op%stagpt == 'S') then
       fldval = sea%rlong_albedo(i)
@@ -2037,7 +1724,7 @@ case(147) ! 'RLONG_ALBEDO_LS'
       fldval = land%rlong_albedo(i)
    endif
 
-case(148) ! 'ALBEDO_BEAM_LS'
+case(147) ! 'LS_ALBEDO_BEAM'
 
    if (op%stagpt == 'S') then
       fldval = sea%albedo_beam(i)
@@ -2045,7 +1732,7 @@ case(148) ! 'ALBEDO_BEAM_LS'
       fldval = land%albedo_beam(i)
    endif
 
-case(149) ! 'ALBEDO_DIFFUSE_LS'
+case(148) ! 'LS_ALBEDO_DIFFUSE'
 
    if (op%stagpt == 'S') then
       fldval = sea%albedo_diffuse(i)
@@ -2053,452 +1740,192 @@ case(149) ! 'ALBEDO_DIFFUSE_LS'
       fldval = land%albedo_diffuse(i)
    endif
 
-! FLUX CELLS
-
-case(150) ! 'FCELL_ILSF'
-
-   fldval = real(i)
-
-case(151) ! 'FCELL_IWLS'
-
-   if (op%stagpt == 'S') then
-      fldval = real(seaflux(i)%iwls)
-   elseif (op%stagpt == 'L') then
-      fldval = real(landflux(i)%iwls)
-   endif
-
-case(152) ! 'FCELL_IW'
-
-   if (op%stagpt == 'S') then
-      fldval = real(seaflux(i)%iw)
-   elseif (op%stagpt == 'L') then
-      fldval = real(landflux(i)%iw)
-   endif
-
-case(153) ! 'FCELL_KW'
-
-   if (op%stagpt == 'S') then
-      fldval = real(seaflux(i)%kw)
-   elseif (op%stagpt == 'L') then
-      fldval = real(landflux(i)%kw)
-   endif
-
-case(154) ! FCELL_AREA'
-
-   if (op%stagpt == 'S') then
-      fldval = seaflux(i)%area
-   elseif (op%stagpt == 'L') then
-      fldval = landflux(i)%area
-   endif
-
-case(155) ! 'FCELL_ARFATM'
-
-   if (op%stagpt == 'S') then
-      fldval = seaflux(i)%arf_atm
-   elseif (op%stagpt == 'L') then
-      fldval = landflux(i)%arf_atm
-   endif
-
-case(156) ! 'FCELL_ARFLS'
-
-   if (op%stagpt == 'S') then
-      fldval = seaflux(i)%arf_sfc
-   elseif (op%stagpt == 'L') then
-      fldval = landflux(i)%arf_sfc
-   endif
-
-case(157) ! 'FCELL_SENS'
-
-   if (op%stagpt == 'S') then
-      fldval = seaflux(i)%sfluxt * cp
-   elseif (op%stagpt == 'L') then
-      fldval = landflux(i)%sfluxt * cp
-   endif
-
-case(158) ! 'FCELL_VAP'
-
-   if (op%stagpt == 'S') then
-      fldval = seaflux(i)%sfluxr
-   elseif (op%stagpt == 'L') then
-      fldval = landflux(i)%sfluxr
-   endif
-
-case(159) ! 'FCELL_LAT'
-
-   if (op%stagpt == 'S') then
-      fldval = seaflux(i)%sfluxr * alvl
-   elseif (op%stagpt == 'L') then
-      fldval = landflux(i)%sfluxr * alvl
-   endif
-
-case(160) ! 'FCELL_AIRTEMPC'
-
-   if (op%stagpt == 'S') then
-      kw = seaflux(i)%kw
-      iw = seaflux(i)%iw
-      if (isubdomain == 1) then
-         iw = itabg_w(iw)%iw_myrank
-      endif
-      fldval = tair(kw,iw) - 273.15
-   elseif (op%stagpt == 'L') then
-      kw = landflux(i)%kw
-      iw = landflux(i)%iw
-      if (isubdomain == 1) then
-         iw = itabg_w(iw)%iw_myrank
-      endif
-      fldval = tair(kw,iw) - 273.15
-   endif
-
-case(161) ! 'FCELL_AIRTEMPK'
-
-   if (op%stagpt == 'S') then
-      kw = seaflux(i)%kw
-      iw = seaflux(i)%iw
-      if (isubdomain == 1) then
-         iw = itabg_w(iw)%iw_myrank
-      endif
-      fldval = tair(kw,iw)
-   elseif (op%stagpt == 'L') then
-      kw = landflux(i)%kw
-      iw = landflux(i)%iw
-      if (isubdomain == 1) then
-         iw = itabg_w(iw)%iw_myrank
-      endif
-      fldval = tair(kw,iw)
-   endif
-
-case(162) ! 'FCELL_CANTEMPC'
-
-   if (op%stagpt == 'S') then
-      iws = real(seaflux(i)%iwls)
-      if (isubdomain == 1) then
-         iws = itabg_ws(iws)%iws_myrank
-      endif
-
-      fldval = sea%can_temp(iws) - 273.15
-   elseif (op%stagpt == 'L') then
-      iwl = real(landflux(i)%iwls)
-      if (isubdomain == 1) then
-         iwl = itabg_wl(iwl)%iwl_myrank
-      endif
-
-      fldval = land%can_temp(iwl) - 273.15
-   endif
-
 ! GRID GEOMETRY - 3D
 
-case(163) ! 'ARU'
-   if (.not. allocated(aru)) go to 1000
-   fldval = aru(k,i)
-case(164) ! 'ARV'
+case(157) ! 'ARV'
    if (.not. allocated(arv)) go to 1000
    fldval = arv(k,i)
-case(165) ! 'ARW'
+case(158) ! 'ARW'
    fldval = arw(k,i)
-case(166) ! 'VOLT'
+case(159) ! 'VOLT'
    fldval = volt(k,i)
-case(167) ! 'VOLU'
-   if (.not. allocated(volui)) go to 1000
-   fldval = 1. / volui(k,i)
-case(168) ! 'VOLV'
-   if (.not. allocated(volvi)) go to 1000
-   fldval = 1. / volvi(k,i)
-case(169) ! 'VOLW'
-   fldval = 1. / volwi(k,i)
 
 ! GRID GEOMETRY - 2D
 
-case(170) ! 'TOPM'
+case(162) ! 'TOPM'
    fldval = topm(i)
-case(171) ! 'TOPW'
+case(163) ! 'TOPW'
    fldval = topw(i)
-case(172) ! 'GLATM'
+case(164) ! 'GLATM'
    fldval = glatm(i)
-case(173) ! 'GLONM'
+case(165) ! 'GLONM'
    fldval = glonm(i)
-case(174) ! 'GLATU'
-   if (.not. allocated(glatu)) go to 1000
-   fldval = glatu(i)
-case(175) ! 'GLONU'
-   if (.not. allocated(glonu)) go to 1000
-   fldval = glonu(i)
-case(176) ! 'GLATV'
+case(166) ! 'GLATV'
    if (.not. allocated(glatv)) go to 1000
    fldval = glatv(i)
-case(177) ! 'GLONV'
+case(167) ! 'GLONV'
    if (.not. allocated(glonv)) go to 1000
    fldval = glonv(i)
-case(178) ! 'GLATW'
+case(168) ! 'GLATW'
    fldval = glatw(i)
-case(179) ! 'GLONW'
+case(169) ! 'GLONW'
    fldval = glonw(i)
-case(180) ! 'LPM'
+case(170) ! 'LPM'
    fldval = real(lpm(i))
-case(181) ! 'LPU'
-   if (.not. allocated(lpu)) go to 1000
-   fldval = real(lpu(i))
-case(182) ! 'LCU'
-   if (.not. allocated(lcu)) go to 1000
-   fldval = real(lcu(i))
-case(183) ! 'LPV'
+case(171) ! 'LPV'
    if (.not. allocated(lpv)) go to 1000
    fldval = real(lpv(i))
-case(184) ! 'LCV'
+case(172) ! 'LCV'
    if (.not. allocated(lpv)) go to 1000
    fldval = real(lpv(i))
-case(185) ! 'LPW'
+case(173) ! 'LPW'
    fldval = real(lpw(i))
-case(186) ! 'LSW'
+case(174) ! 'LSW'
    fldval = real(lsw(i))
-case(187) ! 'XEM'
+case(175) ! 'XEM'
    fldval = xem(i)
-case(188) ! 'YEM'
+case(176) ! 'YEM'
    fldval = yem(i)
-case(189) ! 'ZEM'
+case(177) ! 'ZEM'
    fldval = zem(i)
-case(190) ! 'XEU'
-   if (.not. allocated(xeu)) go to 1000
-   fldval = xeu(i)
-case(191) ! 'YEU'
-   if (.not. allocated(yeu)) go to 1000
-   fldval = yeu(i)
-case(192) ! 'ZEU'
-   if (.not. allocated(zeu)) go to 1000
-   fldval = zeu(i)
-case(193) ! 'XEV'
+case(178) ! 'XEV'
    if (.not. allocated(xev)) go to 1000
    fldval = xev(i)
-case(194) ! 'YEV'
+case(179) ! 'YEV'
    if (.not. allocated(yev)) go to 1000
    fldval = yev(i)
-case(195) ! 'ZEV'
+case(180) ! 'ZEV'
    if (.not. allocated(zev)) go to 1000
    fldval = zev(i)
-case(196) ! 'XEW'
+case(181) ! 'XEW'
    fldval = xew(i)
-case(197) ! 'YEW'
+case(182) ! 'YEW'
    fldval = yew(i)
-case(198) ! 'ZEW'
+case(183) ! 'ZEW'
    fldval = zew(i)
-case(199) ! 'DNU'
+case(184) ! 'DNU'
    fldval = dnu(i)
-case(200) ! 'DNV'
+case(185) ! 'DNV'
    fldval = dnv(i)
-case(201) ! 'ARM0'
+case(186) ! 'ARM0'
    fldval = arm0(i)
-case(202) ! 'ARW0'
+case(187) ! 'ARW0'
    fldval = arw0(i)
 
 ! ITAB_M MEMBERS
 
-case(203) ! 'ITAB_M_NPOLY'
+case(188) ! 'ITAB_M_NPOLY'
    fldval = itab_m(i)%npoly
-case(204) ! 'ITAB_M_IMGLOBE'
+case(189) ! 'ITAB_M_IMGLOBE'
    fldval = itab_m(i)%imglobe
-case(205) ! 'ITAB_M_MRLMR'
+case(190) ! 'ITAB_M_MRLMR'
    fldval = itab_m(i)%mrlm
-case(206) ! 'ITAB_M_MRLM_OR'
+case(191) ! 'ITAB_M_MRLM_OR'
    fldval = itab_m(i)%mrlm_orig
-case(207) ! 'ITAB_M_MROW'
+case(192) ! 'ITAB_M_MROW'
    fldval = itab_m(i)%mrow
-case(208) ! 'ITAB_M_MROWH'
+case(193) ! 'ITAB_M_MROWH'
    fldval = itab_m(i)%mrowh
-case(209) ! 'ITAB_M_IU'
-   fldval = itab_m(i)%iu(indp)
-case(210) ! 'ITAB_M_IV'
+case(194) ! 'ITAB_M_IV'
    fldval = itab_m(i)%iv(indp)
-case(211) ! 'ITAB_M_IW'
+case(195) ! 'ITAB_M_IW'
    fldval = itab_m(i)%iw(indp)
-case(212) ! 'ITAB_M_FMW'
-   go to 1000 ! currently not used
-   ! fldval = itab_m(i)%fmw(indp)
-
-! ITAB_U MEMBERS
-
-case(213) ! 'ITAB_U_IUP'
-   fldval = itab_u(i)%iup
-case(214) ! 'ITAB_U_IRANK'
-   fldval = itab_u(i)%irank
-!   fldval = itabg_u(i)%irank
-case(215) ! 'ITAB_U_IUGLOBE'
-   fldval = itab_u(i)%iuglobe
-case(216) ! 'ITAB_U_MRLU'
-   fldval = itab_u(i)%mrlu
-case(217) ! 'ITAB_U_IM'
-   fldval = itab_u(i)%im(indp)
-case(218) ! 'ITAB_U_IU'
-   fldval = itab_u(i)%iu(indp)
-case(219) ! 'ITAB_U_IW'
-   fldval = itab_u(i)%iw(indp)
-case(220) ! 'ITAB_U_DIRU'
-   fldval = itab_u(i)%diru(indp)
-case(221) ! 'ITAB_U_FUU'
-   fldval = itab_u(i)%fuu(indp)
-case(222) ! 'ITAB_U_FUW'
-   fldval = itab_u(i)%fuw(indp)
-case(223) ! 'ITAB_U_TUU'
-   fldval = itab_u(i)%tuu(indp)
-case(224) ! 'ITAB_U_GUW'
-   fldval = itab_u(i)%guw(indp)
-case(225) ! 'ITAB_U_PGC12'
-   fldval = itab_u(i)%pgc12
-case(226) ! 'ITAB_U_PGC12b'
-   fldval = itab_u(i)%pgc12b
-case(227) ! 'ITAB_U_PGC12c'
-   fldval = itab_u(i)%pgc12c
-case(228) ! 'ITAB_U_PGC12d'
-   fldval = itab_u(i)%pgc12d
-case(229) ! 'ITAB_U_PGC45'
-   fldval = itab_u(i)%pgc45
-case(230) ! 'ITAB_U_PGC45b'
-   fldval = itab_u(i)%pgc45b
-case(231) ! 'ITAB_U_PGC63'
-   fldval = itab_u(i)%pgc63
-case(232) ! 'ITAB_U_PGC63c'
-   fldval = itab_u(i)%pgc63c
-case(233) ! 'ITAB_U_VXU_U'
-   fldval = itab_u(i)%vxu_u(indp)
-case(234) ! 'ITAB_U_VYU_U'
-   fldval = itab_u(i)%vyu_u(indp)
-case(235) ! 'ITAB_U_VXW_U''
-   fldval = itab_u(i)%vxw_u(indp)
-case(236) ! 'ITAB_U_VYW_U'
-   fldval = itab_u(i)%vyw_u(indp)
-case(237) ! 'ITAB_U_CROSSMM'
-   fldval = itab_u(i)%crossmm
-case(238) ! 'ITAB_U_CROSSWW'
-   fldval = itab_u(i)%crossww
 
 ! ITAB_V MEMBERS
 
-case(239) ! 'ITAB_V_IVP'
+case(197) ! 'ITAB_V_IVP'
    fldval = itab_v(i)%ivp
-case(240) ! 'ITAB_V_IRANK'
+case(198) ! 'ITAB_V_IRANK'
    fldval = itab_v(i)%irank
 !   fldval = itabg_v(i)%irank
-case(241) ! 'ITAB_V_IVGLOBE'
+case(199) ! 'ITAB_V_IVGLOBE'
    fldval = itab_v(i)%ivglobe
-case(242) ! 'ITAB_V_MRLV'
+case(200) ! 'ITAB_V_MRLV'
    fldval = itab_v(i)%mrlv
-case(243) ! 'ITAB_V_IM'
+case(201) ! 'ITAB_V_IM'
    fldval = itab_v(i)%im(indp)
-case(244) ! 'ITAB_V_IV'
+case(202) ! 'ITAB_V_IV'
    fldval = itab_v(i)%iv(indp)
-case(245) ! 'ITAB_V_IW'
+case(203) ! 'ITAB_V_IW'
    fldval = itab_v(i)%iw(indp)
-case(246) ! 'ITAB_V_FVV'
-   go to 1000 ! currently not used
-   ! fldval = itab_v(i)%fvv(indp)
-case(247) ! 'ITAB_V_FVW'
-   go to 1000 ! currently not used
-   ! fldval = itab_v(i)%fvw(indp)
-case(248) ! 'ITAB_V_FUV'
-   go to 1000 ! currently not used
-   ! fldval = itab_v(i)%fuv(indp)
-case(249) ! 'ITAB_V_FARW'
+case(204) ! 'ITAB_V_FARW'
    fldval = itab_v(i)%farw(indp)
 
 ! ITAB_W MEMBERS
 
-case(250) ! 'ITAB_W_NPOLY'
+case(208) ! 'ITAB_W_NPOLY'
    fldval = itab_w(i)%npoly
-case(251) ! 'ITAB_W_IWP'
+case(209) ! 'ITAB_W_IWP'
    fldval = itab_w(i)%iwp
-case(252) ! 'ITAB_W_IRANK'
+case(210) ! 'ITAB_W_IRANK'
    fldval = itab_w(i)%irank
 !   fldval = itabg_w(i)%irank
-case(253) ! 'ITAB_W_IWGLOBE'
+case(211) ! 'ITAB_W_IWGLOBE'
    fldval = itab_w(i)%iwglobe
-case(254) ! 'ITAB_W_MRLW'
+case(212) ! 'ITAB_W_MRLW'
    fldval = itab_w(i)%mrlw
-case(255) ! 'ITAB_W_MRLW_OR'
+case(213) ! 'ITAB_W_MRLW_OR'
    fldval = itab_w(i)%mrlw_orig
-case(256) ! 'ITAB_W_MROW'
+case(214) ! 'ITAB_W_MROW'
    fldval = itab_w(i)%mrow
-case(257) ! 'ITAB_W_MROWH'
+case(215) ! 'ITAB_W_MROWH'
    fldval = itab_w(i)%mrowh
-case(258) ! 'ITAB_W_IM'
+case(216) ! 'ITAB_W_IM'
    fldval = itab_w(i)%im(indp)
-case(259) ! 'ITAB_W_IU'
-   fldval = itab_w(i)%iu(indp)
-case(260) ! 'ITAB_W_IV'
+case(217) ! 'ITAB_W_IV'
    fldval = itab_w(i)%iv(indp)
-case(261) ! 'ITAB_W_IW'
+case(218) ! 'ITAB_W_IW'
    fldval = itab_w(i)%iw(indp)
-case(262) ! 'ITAB_W_DIRU'
-   fldval = itab_w(i)%diru(indp)
-case(263) ! 'ITAB_W_DIRV'
+case(219) ! 'ITAB_W_DIRV'
    fldval = itab_w(i)%dirv(indp)
-case(264) ! 'ITAB_W_FWV'
-   fldval = itab_w(i)%fwv(indp)
-case(265) ! 'ITAB_W_FWW'
-   fldval = itab_w(i)%fww(indp)
-case(266) ! 'ITAB_W_FWU'
-   fldval = itab_w(i)%fwu(indp)
-case(267) ! 'ITAB_W_VXU'
-   fldval = itab_w(i)%vxu(indp)
-case(268) ! 'ITAB_W_VYU'
-   fldval = itab_w(i)%vyu(indp)
-case(269) ! 'ITAB_W_VZU'
-   fldval = itab_w(i)%vzu(indp)
-case(270) ! 'ITAB_W_VXW'
-   fldval = itab_w(i)%vxw
-case(271) ! 'ITAB_W_VYW'
-   fldval = itab_w(i)%vyw
-case(272) ! 'ITAB_W_VZW'
-   fldval = itab_w(i)%vzw
-case(273) ! 'ITAB_W_VXU_W'
-   fldval = itab_w(i)%vxu_w(indp)
-case(274) ! 'ITAB_W_VYU_W'
-   fldval = itab_w(i)%vyu_w(indp)
-case(275) ! 'ITAB_W_FARM'
+case(220) ! 'ITAB_W_FARM'
    fldval = itab_w(i)%farm(indp)
-case(276) ! 'ITAB_W_FARV'
+case(221) ! 'ITAB_W_FARV'
    fldval = itab_w(i)%farv(indp)
-case(277) ! 'ITAB_W_IWNUD'
+case(222) ! 'ITAB_W_IWNUD'
    fldval = itab_w(i)%iwnud(indp)
-case(278) ! 'ITAB_W_FNUD'
+case(223) ! 'ITAB_W_FNUD'
    fldval = itab_w(i)%fnud(indp)
 
 ! Time-averaged fields
 
-case(279) ! 'PRESS_MAVG' [indp = 1:nz_avg is the selected vertical level]
+case(224) ! 'PRESS_MAVG' [indp = 1:nz_avg is the selected vertical level]
 
    if (.not. allocated(press_mavg)) go to 1000
 
    fldval = press_mavg(indp,i) * .01
 
-case(280) !  'RHO_MAVG'
+case(225) !  'RHO_MAVG'
 
    if (.not. allocated(rho_mavg)) go to 1000
 
    fldval = rho_mavg(indp,i)
 
-case(281) !  'TEMPK_MAVG'
+case(226) !  'TEMPK_MAVG'
 
    if (.not. allocated(tempk_mavg)) go to 1000
 
    fldval = tempk_mavg(indp,i)
 
-case(282) !  'SH_V_MAVG'
+case(227) !  'SH_V_MAVG'
 
    if (.not. allocated(sh_v_mavg)) go to 1000
 
    fldval = sh_v_mavg(indp,i) * 1.e3
 
-case(283) !  'SH_W_MAVG'
+case(228) !  'SH_W_MAVG'
 
    if (.not. allocated(sh_w_mavg)) go to 1000
 
    fldval = sh_w_mavg(indp,i) * 1.e3
 
-case(284) !  'WC_MAVG'
+case(229) !  'WC_MAVG'
 
    if (.not. allocated(wc_mavg)) go to 1000
 
    fldval = wc_mavg(indp,i)
 
-case(285:286) !  'ZONAL_WINDW_MAVG','MERID_WINDW_MAVG'
+case(230:231) !  'ZONAL_WINDW_MAVG','MERID_WINDW_MAVG'
 
    if (.not. allocated(vxe_mavg)) go to 1000
    if (.not. allocated(vye_mavg)) go to 1000
@@ -2535,92 +1962,92 @@ case(285:286) !  'ZONAL_WINDW_MAVG','MERID_WINDW_MAVG'
       fldval = v
    endif
 
-case(287) ! 'RSHORT_MAVG'
+case(232) ! 'RSHORT_MAVG'
 
    if (.not. allocated(rshort_mavg)) go to 1000
 
    fldval = rshort_mavg(i)
 
-case(288) ! 'RSHORT_TOP_MAVG'
+case(233) ! 'RSHORT_TOP_MAVG'
 
    if (.not. allocated(rshort_top_mavg)) go to 1000
 
    fldval = rshort_top_mavg(i)
 
-case(289) ! 'RSHORTUP_MAVG'
+case(234) ! 'RSHORTUP_MAVG'
 
    if (.not. allocated(rshortup_mavg)) go to 1000
 
    fldval = rshortup_mavg(i)
 
-case(290) ! 'RSHORTUP_TOP_MAVG'
+case(235) ! 'RSHORTUP_TOP_MAVG'
 
    if (.not. allocated(rshortup_top_mavg)) go to 1000
 
    fldval = rshortup_top_mavg(i)
 
-case(291) ! 'RLONG_MAVG'
+case(236) ! 'RLONG_MAVG'
 
    if (.not. allocated(rlong_mavg)) go to 1000
 
    fldval = rlong_mavg(i)
 
-case(292) ! 'RLONGUP_MAVG'
+case(237) ! 'RLONGUP_MAVG'
 
    if (.not. allocated(rlongup_mavg)) go to 1000
 
    fldval = rlongup_mavg(i)
 
-case(293) ! 'RLONGUP_TOP_MAVG'
+case(238) ! 'RLONGUP_TOP_MAVG'
 
    if (.not. allocated(rlongup_top_mavg)) go to 1000
 
    fldval = rlongup_top_mavg(i)
 
-case(294) ! 'LATFLUX_MAVG'
+case(239) ! 'LATFLUX_MAVG'
 
    if (.not. allocated(latflux_mavg)) go to 1000
 
    fldval = latflux_mavg(i)
 
-case(295) ! 'SENSFLUX_MAVG'
+case(240) ! 'SENSFLUX_MAVG'
 
    if (.not. allocated(sensflux_mavg)) go to 1000
 
    fldval = sensflux_mavg(i)
 
-case(296) ! 'WINDSPEED_MAVG'
+case(241) ! 'WINDSPEED_MAVG'
 
    if (.not. allocated(windspeed_mavg)) go to 1000
 
    fldval = windspeed_mavg(i)
 
-case(297) ! 'ACCPMIC_MTOT'
+case(242) ! 'ACCPMIC_MTOT'
 
    if (.not. allocated(accpmic_mtot)) go to 1000
 
    fldval = accpmic_mtot(i)
 
-case(298) ! 'ACCPCON_MTOT'
+case(243) ! 'ACCPCON_MTOT'
 
    if (.not. allocated(accpcon_mtot)) go to 1000
 
    fldval = accpcon_mtot(i)
 
-case(299) ! 'ACCPBOTH_MTOT'
+case(244) ! 'ACCPBOTH_MTOT'
 
    if (.not. allocated(accpmic_mtot)) go to 1000
    if (.not. allocated(accpcon_mtot)) go to 1000
 
    fldval = accpmic_mtot(i) + accpcon_mtot(i)
 
-case(300) ! 'PRESS_DAVG'
+case(245) ! 'PRESS_DAVG'
 
    if (.not. allocated(press_davg)) go to 1000
 
    fldval = press_davg(i) * .01
 
-case(301:302) ! 'ZONAL_WINDW_DAVG','MERID_WINDW_DAVG'
+case(246:247) ! 'ZONAL_WINDW_DAVG','MERID_WINDW_DAVG'
 
    if (.not. allocated(vxe_davg)) go to 1000
    if (.not. allocated(vye_davg)) go to 1000
@@ -2657,56 +2084,56 @@ case(301:302) ! 'ZONAL_WINDW_DAVG','MERID_WINDW_DAVG'
       fldval = v
    endif
 
-case(303) ! 'RSHORT_DAVG'
+case(248) ! 'RSHORT_DAVG'
 
    if (.not. allocated(rshort_davg)) go to 1000
 
    fldval = rshort_davg(i)
 
-case(304) ! 'TEMPK_DAVG'
+case(249) ! 'TEMPK_DAVG'
 
    if (.not. allocated(tempk_davg)) go to 1000
 
    fldval = tempk_davg(i)
 
-case(305) ! 'TEMPK_DMIN'
+case(250) ! 'TEMPK_DMIN'
 
    if (.not. allocated(tempk_dmin)) go to 1000
 
    fldval = tempk_dmin(i)
 
-case(306) ! 'TEMPK_DMAX'
+case(251) ! 'TEMPK_DMAX'
 
    if (.not. allocated(tempk_dmax)) go to 1000
 
    fldval = tempk_dmax(i)
 
-case(307) ! 'ACCPMIC_DTOT'
+case(252) ! 'ACCPMIC_DTOT'
 
    if (.not. allocated(accpmic_dtot)) go to 1000
 
    fldval = accpmic_dtot(i)
 
-case(308) ! 'ACCPCON_DTOT'
+case(253) ! 'ACCPCON_DTOT'
 
    if (.not. allocated(accpcon_dtot)) go to 1000
 
    fldval = accpcon_dtot(i)
 
-case(309) ! 'ACCPBOTH_DTOT'
+case(254) ! 'ACCPBOTH_DTOT'
 
    if (.not. allocated(accpmic_dtot)) go to 1000
    if (.not. allocated(accpcon_dtot)) go to 1000
 
    fldval = accpmic_dtot(i) + accpcon_dtot(i)
 
-case(310) ! 'PRESS_UL_DAVG'
+case(255) ! 'PRESS_UL_DAVG'
 
    if (.not. allocated(press_ul_davg)) go to 1000
 
    fldval = press_ul_davg(i) * .01
 
-case(311:312) ! 'ZONAL_WINDW_UL_DAVG','MERID_WINDW_UL_DAVG'
+case(256:257) ! 'ZONAL_WINDW_UL_DAVG','MERID_WINDW_UL_DAVG'
 
    if (.not. allocated(vxe_ul_davg)) go to 1000
    if (.not. allocated(vye_ul_davg)) go to 1000
@@ -2743,251 +2170,251 @@ case(311:312) ! 'ZONAL_WINDW_UL_DAVG','MERID_WINDW_UL_DAVG'
       fldval = v
    endif
 
-case(313) ! 'CANTEMPK_DAVG'
+case(258) ! 'CANTEMPK_DAVG'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(canltempk_davg)) go to 1000
-      fldval = canltempk_davg(i)
+      if (.not. allocated(cantempk_l_davg)) go to 1000
+      fldval = cantempk_l_davg(i)
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(canstempk_davg)) go to 1000
-      fldval = canstempk_davg(i)
+      if (.not. allocated(cantempk_s_davg)) go to 1000
+      fldval = cantempk_s_davg(i)
    endif
 
-case(314) ! 'CANTEMPK_DMIN'
+case(259) ! 'CANTEMPK_DMIN'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(canltempk_dmin)) go to 1000
-      fldval = canltempk_dmin(i)
+      if (.not. allocated(cantempk_l_dmin)) go to 1000
+      fldval = cantempk_l_dmin(i)
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(canstempk_dmin)) go to 1000
-      fldval = canstempk_dmin(i)
+      if (.not. allocated(cantempk_s_dmin)) go to 1000
+      fldval = cantempk_s_dmin(i)
    endif
 
-case(315) ! 'CANTEMPK_DMAX'
+case(260) ! 'CANTEMPK_DMAX'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(canltempk_dmax)) go to 1000
-      fldval = canltempk_dmax(i)
+      if (.not. allocated(cantempk_l_dmax)) go to 1000
+      fldval = cantempk_l_dmax(i)
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(canstempk_dmax)) go to 1000
-      fldval = canstempk_dmax(i)
+      if (.not. allocated(cantempk_s_dmax)) go to 1000
+      fldval = cantempk_s_dmax(i)
    endif
 
-case(316) ! 'VEGTEMPK_DAVG'
+case(261) ! 'VEGTEMPK_DAVG'
 
    if (.not. allocated(vegtempk_davg)) go to 1000
 
    fldval = vegtempk_davg(i)
 
-case(317) ! 'VEGTEMPK_DMIN'
+case(262) ! 'VEGTEMPK_DMIN'
 
    if (.not. allocated(vegtempk_dmin)) go to 1000
 
    fldval = vegtempk_dmin(i)
 
-case(318) ! 'VEGTEMPK_DMAX'
+case(263) ! 'VEGTEMPK_DMAX'
 
    if (.not. allocated(vegtempk_dmax)) go to 1000
 
    fldval = vegtempk_dmax(i)
 
-case(319) ! 'SOILTEMPK_DAVG'
+case(264) ! 'SOILTEMPK_DAVG'
 
    if (.not. allocated(soiltempk_davg)) go to 1000
 
    fldval = soiltempk_davg(i)
 
-case(320) ! 'SOILTEMPK_DMIN'
+case(265) ! 'SOILTEMPK_DMIN'
 
    if (.not. allocated(soiltempk_dmin)) go to 1000
 
    fldval = soiltempk_dmin(i)
 
-case(321) ! 'SOILTEMPK_DMAX'
+case(266) ! 'SOILTEMPK_DMAX'
 
    if (.not. allocated(soiltempk_dmax)) go to 1000
 
    fldval = soiltempk_dmax(i)
 
-case(322) ! 'FCELL_AIRTEMPK_DAVG'
+case(267) ! 'LS_AIRTEMPK_DAVG'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(tempk_lf_davg)) go to 1000
-      fldval = tempk_lf_davg(i)
+      if (.not. allocated(airtempk_l_davg)) go to 1000
+      fldval = airtempk_l_davg(i)
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(tempk_sf_davg)) go to 1000
-      fldval = tempk_sf_davg(i)
+      if (.not. allocated(airtempk_s_davg)) go to 1000
+      fldval = airtempk_s_davg(i)
    endif
 
-case(323) ! 'FCELL_AIRTEMPK_DMIN'
+case(268) ! 'LS_AIRTEMPK_DMIN'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(tempk_lf_dmin)) go to 1000
-      fldval = tempk_lf_dmin(i)
+      if (.not. allocated(airtempk_l_dmin)) go to 1000
+      fldval = airtempk_l_dmin(i)
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(tempk_sf_dmin)) go to 1000
-      fldval = tempk_sf_dmin(i)
+      if (.not. allocated(airtempk_s_dmin)) go to 1000
+      fldval = airtempk_s_dmin(i)
    endif
 
-case(324) ! 'FCELL_AIRTEMPK_DMAX'
+case(269) ! 'LS_AIRTEMPK_DMAX'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(tempk_lf_dmax)) go to 1000
-      fldval = tempk_lf_dmax(i)
+      if (.not. allocated(airtempk_l_dmax)) go to 1000
+      fldval = airtempk_l_dmax(i)
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(tempk_sf_dmax)) go to 1000
-      fldval = tempk_sf_dmax(i)
+      if (.not. allocated(airtempk_s_dmax)) go to 1000
+      fldval = airtempk_s_dmax(i)
    endif
 
-case(325) ! 'FCELL_CANTEMPK_DAVG'
+case(270) ! 'LS_CANTEMPK_DAVG'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(cantempk_lf_davg)) go to 1000
-      fldval = cantempk_lf_davg(i)
+      if (.not. allocated(cantempk_l_davg)) go to 1000
+      fldval = cantempk_l_davg(i)
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(cantempk_sf_davg)) go to 1000
-      fldval = cantempk_sf_davg(i)
+      if (.not. allocated(cantempk_s_davg)) go to 1000
+      fldval = cantempk_s_davg(i)
    endif
 
-case(326) ! 'FCELL_CANTEMPK_DMIN'
+case(271) ! 'LS_CANTEMPK_DMIN'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(cantempk_lf_dmin)) go to 1000
-      fldval = cantempk_lf_dmin(i)
+      if (.not. allocated(cantempk_l_dmin)) go to 1000
+      fldval = cantempk_l_dmin(i)
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(cantempk_sf_dmin)) go to 1000
-      fldval = cantempk_sf_dmin(i)
+      if (.not. allocated(cantempk_s_dmin)) go to 1000
+      fldval = cantempk_s_dmin(i)
    endif
 
-case(327) ! 'FCELL_CANTEMPK_DMAX'
+case(272) ! 'LS_CANTEMPK_DMAX'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(cantempk_lf_dmax)) go to 1000
-      fldval = cantempk_lf_dmax(i)
+      if (.not. allocated(cantempk_l_dmax)) go to 1000
+      fldval = cantempk_l_dmax(i)
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(cantempk_sf_dmax)) go to 1000
-      fldval = cantempk_sf_dmax(i)
+      if (.not. allocated(cantempk_s_dmax)) go to 1000
+      fldval = cantempk_s_dmax(i)
    endif
 
-case(328) ! 'FCELL_SENSFLUX_DAVG'
+case(273) ! 'LS_SENSFLUX_DAVG'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(sfluxt_lf_davg)) go to 1000
-      fldval = sfluxt_lf_davg(i) * cp
+      if (.not. allocated(sfluxt_l_davg)) go to 1000
+      fldval = sfluxt_l_davg(i) * cp
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(sfluxt_sf_davg)) go to 1000
-      fldval = sfluxt_sf_davg(i) * cp
+      if (.not. allocated(sfluxt_s_davg)) go to 1000
+      fldval = sfluxt_s_davg(i) * cp
    endif
 
-case(329) ! 'FCELL_LATFLUX_DAVG'
+case(274) ! 'LS_LATFLUX_DAVG'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(sfluxr_lf_davg)) go to 1000
-      fldval = sfluxr_lf_davg(i) * alvl
+      if (.not. allocated(sfluxr_l_davg)) go to 1000
+      fldval = sfluxr_l_davg(i) * alvl
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(sfluxr_sf_davg)) go to 1000
-      fldval = sfluxr_sf_davg(i) * alvl
+      if (.not. allocated(sfluxr_s_davg)) go to 1000
+      fldval = sfluxr_s_davg(i) * alvl
    endif
 
-case(330) ! 'FTOA_SENSFLUX_DAVG'
+case(275) ! 'SENSFLUX_DAVG'
 
    if (infotyp == 'UNITS') then
       aux(:) = 0.
-      do isf = 2,mseaflux
-         iw = seaflux(isf)%iw
-         aux(iw) = aux(iw) + seaflux(isf)%arf_atm * sfluxt_sf_davg(isf) * cp
+      do iws = 2,mws
+         iw = itab_ws(iws)%iw
+         aux(iw) = aux(iw) + itab_ws(iws)%arf_iw * sfluxt_s_davg(isf) * cp
       enddo
-      do ilf = 2,mlandflux
-         iw = landflux(ilf)%iw
-         aux(iw) = aux(iw) + landflux(ilf)%arf_atm * sfluxt_lf_davg(ilf) * cp
+      do iwl = 2,mwl
+         iw = itab_wl(iwl)%iw
+         aux(iw) = aux(iw) + itab_wl(iwl)%arf_iw * sfluxt_l_davg(ilf) * cp
       enddo
    endif
 
    fldval = aux(i)
 
-case(331) ! 'FTOA_LATFLUX_DAVG'
+case(276) ! 'LATFLUX_DAVG'
 
    if (infotyp == 'UNITS') then
       aux(:) = 0.
-      do isf = 2,mseaflux
-         iw = seaflux(isf)%iw
-         aux(iw) = aux(iw) + seaflux(isf)%arf_atm * sfluxr_sf_davg(isf) * alvl
+      do iws = 2,mws
+         iw = itab_ws(iws)%iw
+         aux(iw) = aux(iw) + itab_ws(iws)%arf_iw * sfluxr_s_davg(isf) * alvl
       enddo
-      do ilf = 2,mlandflux
-         iw = landflux(ilf)%iw
-         aux(iw) = aux(iw) + landflux(ilf)%arf_atm * sfluxr_lf_davg(ilf) * alvl
+      do iwl = 2,mwl
+         iw = itab_wl(iwl)%iw
+         aux(iw) = aux(iw) + itab_wl(iwl)%arf_iw * sfluxr_l_davg(ilf) * alvl
       enddo
    endif
 
    fldval = aux(i)
 
-case(332) ! 'PRESS_AVG24' [indp = 1:24 is the hour of day to be plotted]
+case(277) ! 'PRESS_AVG24' [indp = 1:24 is the hour of day to be plotted]
 
    if (.not. allocated(press_avg24)) go to 1000
 
    fldval = press_avg24(indp,i)
 
-case(333) ! 'RSHORT_AVG'
+case(278) ! 'RSHORT_AVG'
 
    if (.not. allocated(rshort_avg)) go to 1000
 
    fldval = rshort_avg(i)
 
-case(334) ! 'RSHORTUP_AVG'
+case(279) ! 'RSHORTUP_AVG'
 
    if (.not. allocated(rshortup_avg)) go to 1000
 
    fldval = rshortup_avg(i)
 
-case(335) ! 'RLONG_AVG'
+case(280) ! 'RLONG_AVG'
 
    if (.not. allocated(rlong_avg)) go to 1000
 
    fldval = rlong_avg(i)
 
-case(336) ! 'RLONGUP_AVG'
+case(281) ! 'RLONGUP_AVG'
 
    if (.not. allocated(rlongup_avg)) go to 1000
 
    fldval = rlongup_avg(i)
 
-case(337) ! 'RSHORT_TOP_AVG'
+case(282) ! 'RSHORT_TOP_AVG'
 
    if (.not. allocated(rshort_top_avg)) go to 1000
 
    fldval = rshort_top_avg(i)
 
-case(338) ! 'RSHORTUP_TOP_AVG'
+case(283) ! 'RSHORTUP_TOP_AVG'
 
    if (.not. allocated(rshortup_top_avg)) go to 1000
 
    fldval = rshortup_top_avg(i)
 
-case(339) ! 'RLONGUP_TOP_AVG'
+case(284) ! 'RLONGUP_TOP_AVG'
 
    if (.not. allocated(rlongup_top_avg)) go to 1000
 
    fldval = rlongup_top_avg(i)
 
-case(340) ! 'SENSFLUX_AVG'
+case(285) ! 'SENSFLUX_AVG'
 
-   if (.not. allocated(sflux_t_avg)) go to 1000
+   if (.not. allocated(sfluxt_avg)) go to 1000
 
-   fldval = sflux_t_avg(i) * cp
+   fldval = sfluxt_avg(i) * cp
 
-case(341) ! 'LATFLUX_AVG'
+case(286) ! 'LATFLUX_AVG'
 
-   if (.not. allocated(sflux_r_avg)) go to 1000
+   if (.not. allocated(sfluxr_avg)) go to 1000
 
-   fldval = sflux_r_avg(i) * alvl
+   fldval = sfluxr_avg(i) * alvl
 
-case(342) ! 'VAPFLUX_AVG'
+case(287) ! 'VAPFLUX_AVG'
 
-   if (.not. allocated(sflux_r_avg)) go to 1000
+   if (.not. allocated(sfluxr_avg)) go to 1000
 
-   fldval = sflux_r_avg(i)
+   fldval = sfluxr_avg(i)
 
-case(343) ! 'RSHORT_DIF2'
+case(288) ! 'RSHORT_DIF2'
 
    if (.not. allocated(rshort_accum)) go to 1000
 
@@ -2997,7 +2424,7 @@ case(343) ! 'RSHORT_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(344) ! 'RSHORTUP_DIF2'
+case(289) ! 'RSHORTUP_DIF2'
 
    if (.not. allocated(rshortup_accum)) go to 1000
 
@@ -3007,7 +2434,7 @@ case(344) ! 'RSHORTUP_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(345) ! 'RLONG_DIF2'
+case(290) ! 'RLONG_DIF2'
 
    if (.not. allocated(rlong_accum)) go to 1000
 
@@ -3017,7 +2444,7 @@ case(345) ! 'RLONG_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(346) ! 'RLONGUP_DIF2'
+case(291) ! 'RLONGUP_DIF2'
 
    if (.not. allocated(rlongup_accum)) go to 1000
 
@@ -3027,7 +2454,7 @@ case(346) ! 'RLONGUP_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(347) ! 'RSHORT_TOP_DIF2'
+case(292) ! 'RSHORT_TOP_DIF2'
 
    if (.not. allocated(rshort_top_accum)) go to 1000
 
@@ -3037,7 +2464,7 @@ case(347) ! 'RSHORT_TOP_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(348) ! 'RSHORTUP_TOP_DIF2'
+case(293) ! 'RSHORTUP_TOP_DIF2'
 
    if (.not. allocated(rshortup_top_accum)) go to 1000
 
@@ -3047,7 +2474,7 @@ case(348) ! 'RSHORTUP_TOP_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(349) ! 'RLONGUP_TOP_DIF2'
+case(294) ! 'RLONGUP_TOP_DIF2'
 
    if (.not. allocated(rlongup_top_accum)) go to 1000
 
@@ -3057,128 +2484,128 @@ case(349) ! 'RLONGUP_TOP_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(350) ! 'SENSFLUX_DIF2'
+case(295) ! 'SENSFLUX_DIF2'
 
-   if (.not. allocated(sflux_t_accum)) go to 1000
+   if (.not. allocated(sfluxt_accum)) go to 1000
 
-   fldval = (sflux_t_accum_prev0(i) - sflux_t_accum_prev1(i)) * cp
-
-   if (abs(time8_prev0 - time8_prev1) > .99) then
-      fldval = fldval / (time8_prev0 - time8_prev1)
-   endif
-
-case(351) ! 'LATFLUX_DIF2'
-
-   if (.not. allocated(sflux_r_accum)) go to 1000
-
-   fldval = (sflux_r_accum_prev0(i) - sflux_r_accum_prev1(i)) * alvl
+   fldval = (sfluxt_accum_prev0(i) - sfluxt_accum_prev1(i)) * cp
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(352) ! 'VAPFLUX_DIF2'
+case(296) ! 'LATFLUX_DIF2'
 
-   if (.not. allocated(sflux_r_accum)) go to 1000
+   if (.not. allocated(sfluxr_accum)) go to 1000
 
-   fldval = sflux_r_accum_prev0(i) - sflux_r_accum_prev1(i)
+   fldval = (sfluxr_accum_prev0(i) - sfluxr_accum_prev1(i)) * alvl
+
+   if (abs(time8_prev0 - time8_prev1) > .99) then
+      fldval = fldval / (time8_prev0 - time8_prev1)
+   endif
+
+case(297) ! 'VAPFLUX_DIF2'
+
+   if (.not. allocated(sfluxr_accum)) go to 1000
+
+   fldval = sfluxr_accum_prev0(i) - sfluxr_accum_prev1(i)
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval * 86400. / (time8_prev0 - time8_prev1)
    endif
 
-case(353) ! 'FCELL_SENSFLUX_DIF2'
+case(298) ! 'LS_SENSFLUX_DIF2'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(lf_sfluxt_accum)) go to 1000
-      fldval = (lf_sfluxt_accum_prev0(i) - lf_sfluxt_accum_prev1(i)) * cp
+      if (.not. allocated(sfluxt_l_accum)) go to 1000
+      fldval = (sfluxt_l_accum_prev0(i) - sfluxt_l_accum_prev1(i)) * cp
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(sf_sfluxt_accum)) go to 1000
-      fldval = (sf_sfluxt_accum_prev0(i) - sf_sfluxt_accum_prev1(i)) * cp
+      if (.not. allocated(sfluxt_s_accum)) go to 1000
+      fldval = (sfluxt_s_accum_prev0(i) - sfluxt_s_accum_prev1(i)) * cp
    endif
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(354) ! 'FCELL_LATFLUX_DIF2'
+case(299) ! 'LS_LATFLUX_DIF2'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(lf_sfluxr_accum)) go to 1000
-      fldval = (lf_sfluxr_accum_prev0(i) - lf_sfluxr_accum_prev1(i)) * alvl
+      if (.not. allocated(sfluxr_l_accum)) go to 1000
+      fldval = (sfluxr_l_accum_prev0(i) - sfluxr_l_accum_prev1(i)) * alvl
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(sf_sfluxr_accum)) go to 1000
-      fldval = (sf_sfluxr_accum_prev0(i) - sf_sfluxr_accum_prev1(i)) * alvl
+      if (.not. allocated(sfluxr_s_accum)) go to 1000
+      fldval = (sfluxr_s_accum_prev0(i) - sfluxr_s_accum_prev1(i)) * alvl
    endif
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(355) ! 'FCELL_VAPFLUX_DIF2'
+case(300) ! 'LS_VAPFLUX_DIF2'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(lf_sfluxr_accum)) go to 1000
-      fldval = (lf_sfluxr_accum_prev0(i) - lf_sfluxr_accum_prev1(i))
+      if (.not. allocated(sfluxr_l_accum)) go to 1000
+      fldval = (sfluxr_l_accum_prev0(i) - sfluxr_l_accum_prev1(i))
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(sf_sfluxr_accum)) go to 1000
-      fldval = (sf_sfluxr_accum_prev0(i) - sf_sfluxr_accum_prev1(i))
+      if (.not. allocated(sfluxr_s_accum)) go to 1000
+      fldval = (sfluxr_s_accum_prev0(i) - sfluxr_s_accum_prev1(i))
    endif
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval * 86400. / (time8_prev0 - time8_prev1)
    endif
 
-case(356) ! 'FCELL_AIRTEMPK_DIF2'
+case(301) ! 'LS_AIRTEMPK_DIF2'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(lf_airtemp_accum)) go to 1000
-      fldval = (lf_airtemp_accum_prev0(i) - lf_airtemp_accum_prev1(i))
+      if (.not. allocated(airtemp_l_accum)) go to 1000
+      fldval = (airtemp_l_accum_prev0(i) - airtemp_l_accum_prev1(i))
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(sf_airtemp_accum)) go to 1000
-      fldval = (sf_airtemp_accum_prev0(i) - sf_airtemp_accum_prev1(i))
+      if (.not. allocated(airtemp_s_accum)) go to 1000
+      fldval = (airtemp_s_accum_prev0(i) - airtemp_s_accum_prev1(i))
    endif
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(357) ! 'FCELL_AIRSHV_DIF2'
+case(302) ! 'LS_AIRSHV_DIF2'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(lf_airshv_accum)) go to 1000
-      fldval = (lf_airshv_accum_prev0(i) - lf_airshv_accum_prev1(i)) * 1.e3
+      if (.not. allocated(airshv_l_accum)) go to 1000
+      fldval = (airshv_l_accum_prev0(i) - airshv_l_accum_prev1(i)) * 1.e3
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(sf_airshv_accum)) go to 1000
-      fldval = (sf_airshv_accum_prev0(i) - sf_airshv_accum_prev1(i)) * 1.e3
+      if (.not. allocated(airshv_s_accum)) go to 1000
+      fldval = (airshv_s_accum_prev0(i) - airshv_s_accum_prev1(i)) * 1.e3
    endif
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(358) ! 'FCELL_CANTEMPK_DIF2'
+case(303) ! 'LS_CANTEMPK_DIF2'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(lf_cantemp_accum)) go to 1000
-      fldval = (lf_cantemp_accum_prev0(i) - lf_cantemp_accum_prev1(i))
+      if (.not. allocated(cantemp_l_accum)) go to 1000
+      fldval = (cantemp_l_accum_prev0(i) - cantemp_l_accum_prev1(i))
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(sf_cantemp_accum)) go to 1000
-      fldval = (sf_cantemp_accum_prev0(i) - sf_cantemp_accum_prev1(i))
+      if (.not. allocated(cantemp_s_accum)) go to 1000
+      fldval = (cantemp_s_accum_prev0(i) - cantemp_s_accum_prev1(i))
    endif
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(359) ! 'FCELL_CANSHV_DIF2'
+case(304) ! 'LS_CANSHV_DIF2'
 
    if (op%stagpt == 'L') then
-      if (.not. allocated(lf_canshv_accum)) go to 1000
-      fldval = (lf_canshv_accum_prev0(i) - lf_canshv_accum_prev1(i)) * 1.e3
+      if (.not. allocated(canshv_l_accum)) go to 1000
+      fldval = (canshv_l_accum_prev0(i) - canshv_l_accum_prev1(i)) * 1.e3
    elseif (op%stagpt == 'S') then
-      if (.not. allocated(sf_canshv_accum)) go to 1000
-      fldval = (sf_canshv_accum_prev0(i) - sf_canshv_accum_prev1(i)) * 1.e3
+      if (.not. allocated(canshv_s_accum)) go to 1000
+      fldval = (canshv_s_accum_prev0(i) - canshv_s_accum_prev1(i)) * 1.e3
    endif
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
@@ -3187,76 +2614,76 @@ case(359) ! 'FCELL_CANSHV_DIF2'
 
 ! Miscellaneous and new additions
 
-case(360) ! 'RHO_OBS'
+case(305) ! 'RHO_OBS'
 
    if (.not. allocated(rho_obs)) go to 1000
 
    fldval = rho_obs(k,itab_w(i)%iwnud(1))
 
-case(361) ! 'THETA_OBS'
+case(306) ! 'THETA_OBS'
 
    if (.not. allocated(theta_obs)) go to 1000
 
 !   fldval = theta_obs(k,itab_w(i)%iwnud(1))
    fldval = theta_obs(k,i)
 
-case(362) ! 'SHW_OBS'
+case(307) ! 'SHW_OBS'
 
    if (.not. allocated(shw_obs)) go to 1000
 
    fldval = shw_obs(k,itab_w(i)%iwnud(1)) * 1.e3
 
-case(363) ! 'UZONAL_OBS'
+case(308) ! 'UZONAL_OBS'
 
    if (.not. allocated(uzonal_obs)) go to 1000
 
    fldval = uzonal_obs(k,itab_w(i)%iwnud(1))
 
-case(364) ! 'UMERID_OBS'
+case(309) ! 'UMERID_OBS'
 
    if (.not. allocated(umerid_obs)) go to 1000
 
    fldval = umerid_obs(k,itab_w(i)%iwnud(1))
 
-case(365) ! 'RHO_SIM'
+case(310) ! 'RHO_SIM'
 
    if (.not. allocated(rho_sim)) go to 1000
 
    fldval = rho_sim(k,itab_w(i)%iwnud(1))
 
-case(366) ! 'THETA_SIM'
+case(311) ! 'THETA_SIM'
 
    if (.not. allocated(theta_sim)) go to 1000
 
 !   fldval = theta_sim(k,itab_w(i)%iwnud(1))
    fldval = theta_sim(k,i)
 
-case(367) ! 'SHW_SIM'
+case(312) ! 'SHW_SIM'
 
    if (.not. allocated(shw_sim)) go to 1000
 
    fldval = shw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
 
-case(368) ! 'UZONAL_SIM'
+case(313) ! 'UZONAL_SIM'
 
    if (.not. allocated(uzonal_sim)) go to 1000
 
    fldval = uzonal_sim(k,itab_w(i)%iwnud(1))
 
-case(369) ! 'UMERID_SIM'
+case(314) ! 'UMERID_SIM'
 
    if (.not. allocated(umerid_sim)) go to 1000
 
    fldval = umerid_sim(k,itab_w(i)%iwnud(1))
 
-case(370) ! 'RHO_OBS_SIM'
+case(315) ! 'RHO_OBS_SIM'
 
    if (.not. allocated(rho_sim)) go to 1000
 
    fldval = rho_obs(k,itab_w(i)%iwnud(1)) &
           - rho_sim(k,itab_w(i)%iwnud(1))
 
-case(371) ! 'THETA_OBS_SIM'
+case(316) ! 'THETA_OBS_SIM'
 
    if (.not. allocated(theta_sim)) go to 1000
 
@@ -3265,72 +2692,72 @@ case(371) ! 'THETA_OBS_SIM'
    fldval = theta_obs(k,i) &
           - theta_sim(k,i)
 
-case(372) ! 'SHW_OBS_SIM'
+case(317) ! 'SHW_OBS_SIM'
 
    if (.not. allocated(shw_sim)) go to 1000
 
    fldval = shw_obs(k,itab_w(i)%iwnud(1)) * 1.e3 &
           - shw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
 
-case(373) ! 'UZONAL_OBS_SIM'
+case(318) ! 'UZONAL_OBS_SIM'
 
    if (.not. allocated(uzonal_sim)) go to 1000
 
    fldval = uzonal_obs(k,itab_w(i)%iwnud(1)) &
           - uzonal_sim(k,itab_w(i)%iwnud(1))
 
-case(374) ! 'UMERID_OBS_SIM'
+case(319) ! 'UMERID_OBS_SIM'
 
    if (.not. allocated(umerid_sim)) go to 1000
 
    fldval = umerid_obs(k,itab_w(i)%iwnud(1)) &
           - umerid_sim(k,itab_w(i)%iwnud(1))
 
-case(375) ! 'VXE'
+case(320) ! 'VXE'
 
    if (.not. allocated(vxe)) go to 1000
 
    fldval = wtbot * vxe(k  ,i) &
           + wttop * vxe(k+1,i)
 
-case(376) ! 'VYE'
+case(321) ! 'VYE'
 
    if (.not. allocated(vye)) go to 1000
 
    fldval = wtbot * vye(k  ,i) &
           + wttop * vye(k+1,i)
 
-case(377) ! 'VZE'
+case(322) ! 'VZE'
 
    if (.not. allocated(vze)) go to 1000
 
    fldval = wtbot * vze(k  ,i) &
           + wttop * vze(k+1,i)
 
-case(378) ! 'PBLH'
+case(323) ! 'PBLH'
 
    if (.not. allocated(pblh)) go to 1000
 
    fldval = pblh(i)
 
-case(379) ! 'HKM'
+case(324) ! 'HKM'
 
    if (.not. allocated(hkm)) go to 1000
 
    fldval = wtbot * hkm(k  ,i) / rho(k  ,i) &
           + wttop * hkm(k+1,i) / rho(k+1,i)
 
-case(380) ! 'HEAD0'
+case(325) ! 'HEAD0'
 
    fldval = land%head0(i)
 
-case(381) ! 'SHW_HCONV'
+case(326) ! 'SHW_HCONV'
 
    fldval = 0.
 
    npoly = itab_w(i)%npoly
 
-   do klev = lpw(i),mza-1
+   do klev = lpw(i),mza
       do j = 1,npoly
 
          iv = itab_w(i)%iv(j)
@@ -3344,13 +2771,13 @@ case(381) ! 'SHW_HCONV'
 
    fldval = fldval / arw0(i)
 
-case(382) ! 'SHV_HCONV'
+case(327) ! 'SHV_HCONV'
 
    fldval = 0.
 
    npoly = itab_w(i)%npoly
 
-   do klev = lpw(i),mza-1
+   do klev = lpw(i),mza
       do j = 1,npoly
 
          iv = itab_w(i)%iv(j)

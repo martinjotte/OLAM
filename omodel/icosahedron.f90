@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine icosahedron(nxp0)
 
@@ -43,7 +43,7 @@ use mem_ijtabs, only: mrls, itab_md, itab_ud, itab_wd, alloc_itabsd, &
 
 use mem_grid,    only: nza, nma, nua, nwa, xem, yem, zem, &
                        alloc_xyzem, impent
-use misc_coms,   only: io6, meshtype
+use misc_coms,   only: io6
 use consts_coms, only: pi2, erad, erador5
 
 implicit none
@@ -92,11 +92,7 @@ do im = 2,nma
    itab_md(im)%imp = im
    itab_md(im)%mrlm = 1
    itab_md(im)%mrlm_orig = 1
-   if (meshtype == 1) then
-      call mdloopf('f',im, jtm_grid, jtm_vadj, 0, 0, 0, 0)
-   else
-      call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
-   endif
+   call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
 enddo
 
 do iu = 2,nua
@@ -106,11 +102,7 @@ enddo
 
 do iw = 2,nwa
    itab_wd(iw)%iwp = iw
-   if (meshtype == 1) then
-      call wdloopf('f',iw, jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
-   else
-      call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
-   endif
+   call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
 enddo
 
 ! Fill big diamond corner coordinates

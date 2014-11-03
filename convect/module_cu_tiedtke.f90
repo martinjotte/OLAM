@@ -81,7 +81,7 @@ CONTAINS
                           kcubot, kcutop, cbmf, qwcon
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc, &
                           vmc, wmc
-   use mem_turb,    only: frac_land, sflux_t, sflux_r, fqtpbl
+   use mem_turb,    only: frac_land, sfluxt, sfluxr, fqtpbl
    use consts_coms, only: eradi, gravo2
    use mem_ijtabs,  only: itab_w
    use oname_coms,  only: nl
@@ -151,7 +151,7 @@ CONTAINS
 
 ! Vertical advective mass and water vapor fluxes (W levels)
 
-   do k = ka,mza-2
+   do k = ka,mza-1
       vflux(k) = arw(k,iw) * wmc(k,iw)
 
       ! upwinded
@@ -165,14 +165,14 @@ CONTAINS
       ! vflux_vap(k) = vflux(k) * 0.5 * (sh_v(k,iw) + sh_v(k+1,iw))
    enddo
    vflux(ka-1) = 0.
-   vflux(mza-1) = 0.
+   vflux(mza) = 0.
    vflux_vap(ka-1) = 0.
-   vflux_vap(mza-1) = 0.
+   vflux_vap(mza) = 0.
 
 ! Loop over T levels
 
-   do k = ka,mza-1
-      kt = mza - k        
+   do k = ka,mza
+      kt = mza + 1 - k        
 
       ! Compute zonal and meridional wind components
 
@@ -221,8 +221,8 @@ CONTAINS
 
       prst(kt) = press(k,iw)
       prsw(kt) = 0.5 * (press(k,iw) + press(k+1,iw))
-      sig1(kt) = (press(k,iw)  - press(mza-1,iw)) &
-               / (press(ka,iw) - press(mza-1,iw))
+      sig1(kt) = (press(k,iw)  - press(mza,iw)) &
+               / (press(ka,iw) - press(mza,iw))
 
       ! use Tiedtke scheme's saturation calcs for now
 
@@ -252,13 +252,13 @@ CONTAINS
 
    enddo
 
-   ! prsw(1) is press at zm(mza-1); prsw(km1) is press at zm(ka-1)
+   ! prsw(1) is press at zm(mza); prsw(km1) is press at zm(ka-1)
 
-   prsw(1) = max(1.e-3,2. * press(mza-1,iw) - press(mza-2,iw))
-   prsw(km1) = 2. * press(ka,iw) - press(ka+1,iw)
+   prsw(1) = max(1.e-3,1.5 * press(mza,iw) - 0.5 * press(mza-1,iw))
+   prsw(km1) = 1.5* press(ka,iw) - 0.5 * press(ka+1,iw)
 
-   evap  = sflux_r(iw)
-   hfx   = sflux_t(iw) * tair(ka,iw) / theta(ka,iw)
+   evap  = sfluxr(iw)
+   hfx   = sfluxt(iw) * tair(ka,iw) / theta(ka,iw)
    rhosf = rho(ka,iw)
 
    if (allocated(frac_land)) then
@@ -304,8 +304,8 @@ CONTAINS
 
       cbmf(iw) = zmfu(icbot)
 
-      do k = ka, mza-1
-         kt = mza - k
+      do k = ka, mza
+         kt = mza + 1 - k
 
          ! subtract off the input humdity tendency
          dQdt(kt) = dQdt(kt) - dQdt_sav(kt)
@@ -338,8 +338,8 @@ CONTAINS
          
          if (raxis > 1.e3) then
 
-            do k = ka, mza-1
-               kt = mza - k
+            do k = ka, mza
+               kt = mza + 1 - k
                uvtr = -dVdt(kt) * zew(iw) * eradi
                vxsrc(k,iw) = (-dUdt(kt) * yew(iw) + uvtr * xew(iw)) * raxisi
                vysrc(k,iw) = ( dUdt(kt) * xew(iw) + uvtr * yew(iw)) * raxisi
@@ -348,8 +348,8 @@ CONTAINS
                
          else
 
-            do k = ka, mza-1
-               kt = mza - k
+            do k = ka, mza
+               kt = mza + 1 - k
                vxsrc(k,iw) = dUdt(kt)
                vysrc(k,iw) = dVdt(kt)
                vzsrc(k,iw) = 0.0

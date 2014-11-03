@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module isan_coms
 
@@ -38,9 +38,6 @@ use consts_coms, only: r8
 integer :: ioflgisz, ioflgvar, iszstage, ivrstage
 integer :: iyear, imonth, idate, ihour, ipoffset
 integer :: npd,lzon_bot,kzonoff
-
-real, dimension(maxpr+2) :: pcol_p, pcol_thet, pcol_u, pcol_v, pcol_z
-real, dimension(maxpr+2) :: pcol_r, pcol_pi, pcol_temp, pcol_rt, pcol_thv
 
 integer :: nfgfiles, ifgfile
 
@@ -53,6 +50,7 @@ real(r8),           allocatable :: s1900_fg   (:)
 
 ! Pressure header variables:
 integer :: marker, isversion, iyy, imm, idd, ihh, itinc, inproj, ivertcoord
+integer :: ihydsfc
 real    :: xnelat, xnelon, cntlat, cntlon, secondlat
 
 integer :: nprx, npry, nprz, nprz_rh

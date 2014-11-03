@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,37 +29,30 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
-subroutine fldsisan(o_rho, o_theta, o_shv, o_uvc)
+subroutine fldsisan(o_rho, o_theta, o_shv, o_vc)
 
-use mem_basic,   only: umc, ump, uc, vmc, vmp, vc, vp, thil, sh_w, sh_v, &
+use mem_basic,   only: vmc, vmp, vc, vp, thil, sh_w, sh_v, &
                        wmc, wc, theta, tair, rho, press
-use mem_grid,    only: mza, mua, mva, mwa, lcu, lpv, lpw, zm, zt
-use misc_coms,   only: io6, deltax, iparallel, runtype, meshtype
+use mem_grid,    only: mza, mva, mwa, lpv, lpw, zm, zt
+use misc_coms,   only: io6, deltax, iparallel, runtype
 use mem_micro,   only: sh_c
 use micro_coms,  only: level
-use mem_ijtabs,  only: jtab_u, jtab_v, jtab_w, itab_u, itab_v, itab_w, &
-                       jtu_init, jtv_init, jtw_init
-use consts_coms, only: pc1, rdry, rvap, cpocv, rocp, p00i
+use mem_ijtabs,  only: jtab_v, jtab_w, itab_v, itab_w, jtv_init, jtw_init
+use consts_coms, only: r8, pc1, rdry, rvap, cpocv, rocp, p00i
 
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
-                        mpi_send_u, mpi_recv_u, &
-                        mpi_send_v, mpi_recv_v 
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v 
 
-use obnd,         only: lbcopy_u, lbcopy_v, lbcopy_w
+use obnd,         only: lbcopy_v, lbcopy_w
 
 implicit none
 
-real(kind=8), intent(in) :: o_rho   (mza,mwa)
-real,         intent(in) :: o_theta (mza,mwa)
-real,         intent(in) :: o_shv   (mza,mwa)
-real,         intent(in) :: o_uvc   (mza,mva)
+real(r8), intent(in) :: o_rho   (mza,mwa)
+real,     intent(in) :: o_theta (mza,mwa)
+real,     intent(in) :: o_shv   (mza,mwa)
+real,     intent(in) :: o_vc    (mza,mva)
 
-integer :: j,iw,k,ka,iu,iv,iw1,iw2,iup,ivp
+integer :: j,iw,k,ka,iu,iv,iw1,iw2,iup,ivp,mrl
 
 real :: rcloud,temp,rvls,uu,vv
 real :: alph_p
@@ -63,12 +60,13 @@ real :: alph_p
 ! If initializing the model, fill the main model arrays
 ! and initialize related arrays
 
-call psub()
 !----------------------------------------------------------------------
 do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
-call qsub('W',iw)
-   do k = 1,mza
+
+   ka = lpw(iw)
+
+   do k = ka,mza
 
       rho  (k,iw) = o_rho(k,iw)
       theta(k,iw) = o_theta(k,iw)
@@ -94,99 +92,56 @@ call qsub('W',iw)
 
    enddo
 enddo
-call rsub('Wb',7)
 
 ! LBC copy (THETA and TAIR will be copied later with the scalars)
 
 if (iparallel == 1) then
-   call mpi_send_w('I')  ! Send W group
-   call mpi_recv_w('I')  ! Recv W group
+   mrl = 1
+   call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
+                   rvara1=wc, rvara2=wmc, rvara3=thil)
+
+   call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
+                   rvara1=wc, rvara2=wmc, rvara3=thil)
 endif
 
 call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
 
-if (meshtype == 1) then
+! Initialize VMC, VC
 
-! If triangular mesh, initialize UMC, UC
-
-   call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_u(jtu_init)%jend(1); iu = jtab_u(jtu_init)%iu(j)
-      iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
+do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
+   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
-   call qsub('U',iu)
 
-      do k = 1,mza
-         uc(k,iu) = o_uvc(k,iu)
-         umc(k,iu) = uc(k,iu) * .5 * (rho(k,iw1) + rho(k,iw2))
-      enddo
+   ka = lpv(iv)
 
-! For below-ground points, set UC to LCU value.
-
-      ka = lcu(iu)
-      uc(1:ka-1,iu) = uc(ka,iu)
-
+   do k = ka,mza
+      vc(k,iv) = o_vc(k,iv)
+      vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
    enddo
-   
-   call rsub('Ub',7)
-
-! MPI parallel send/recv of U group
-
-   if (iparallel == 1) then
-      call mpi_send_u('I')
-      call mpi_recv_u('I')
-   endif
-
-! LBC copy of UMC, UC
-
-   call lbcopy_u(1, a1=umc, a2=uc)
-
-! Set UMP to UMC
-
-   ump(:,:) = umc(:,:)
-
-else
-
-! If using hexagonal mesh, initialize VMC, VC
-
-   call psub()
-!----------------------------------------------------------------------
-   do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
-      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-!----------------------------------------------------------------------
-   call qsub('V',iv)
-
-      do k = 1,mza
-         vc(k,iv) = o_uvc(k,iv)
-         vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
-      enddo
 
 ! For below-ground points, set VC to LPV value.
 
-      ka = lpv(iv)
-      vc(1:ka-1,iv) = vc(ka,iv)
+   vc(1:ka-1,iv) = vc(ka,iv)
 
-   enddo
+enddo
    
-   call rsub('Vb',7)
-
 ! MPI parallel send/recv of V group
 
-   if (iparallel == 1) then
-      call mpi_send_v('I')
-      call mpi_recv_v('I')
-   endif
+if (iparallel == 1) then
+   mrl = 1
+   call mpi_send_v(mrl, rvara1=vmc, rvara2=vc)
+   call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
+endif
 
 ! LBC copy of VMC, VC
 
-   call lbcopy_v(1, vmc=vmc, vc=vc)
+call lbcopy_v(1, vmc=vmc, vc=vc)
 
 ! Set VMP and VP
 
-   if (allocated(vmp)) vmp(:,:) = vmc(:,:)
-   if (allocated(vp )) vp (:,:) = vc (:,:)
-
-endif
+if (allocated(vmp)) vmp(:,:) = vmc(:,:)
+if (allocated(vp )) vp (:,:) = vc (:,:)
 
 ! Print out initial state from 1st jtw_init column
 
@@ -200,7 +155,7 @@ write(io6,*)'   zm(m)    k     zt(m)   press(Pa)   rho(kg/m3)   theta(K)   sh_w(
 write(io6,*)'========================================================================'
 write(io6,*)' '
 
-do k = mza-1,2,-1
+do k = mza,2,-1
    write(io6, '(f10.2,1x,9(''-------''))') zm(k)
    write(io6, '(10x,i5,f10.2,f11.2,f11.4,f12.2,f11.4)') &
        k,zt(k),press(k,iw),rho(k,iw),theta(k,iw),sh_w(k,iw)*1.e3

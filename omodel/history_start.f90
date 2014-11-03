@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine history_start(action)
 
@@ -126,7 +126,7 @@ if ((exans .and. iparallel == 0) .or. (exanp .and. iparallel == 1)) then
 
 elseif (exanz .and. iparallel == 0) then
 
-! Serial run reading parallel history files
+! Serial run reading parallel subdomain history files
 
    if (trim(action) == 'COMMIO') then
 
@@ -167,7 +167,7 @@ elseif (exanz .and. iparallel == 0) then
 
 elseif (exans .and. isubdomain == 1) then
 
-! Parallel run reading serial history file
+! Subdomain run reading full-domain history file
 
    write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
    write(io6,*) 'Opening history file '//trim(hfilin)//' for '//trim(action)
@@ -299,7 +299,7 @@ subroutine hist_read_p(myrank)
 ! Serial run reading parallel history files.
 ! Also used for parcombine and plotonly runs
 
-use misc_coms,   only: io6, runtype, meshtype
+use misc_coms,   only: io6, runtype
 use var_tables,  only: num_var, vtab_r, get_vtab_dims
 use hdf5_utils,  only: shdf5_info, shdf5_irec
 use mem_leaf,    only: land
@@ -331,14 +331,6 @@ integer, target, allocatable :: ismglobe(:), isrankm(:)
 integer, target, allocatable :: isuglobe(:), isranku(:)
 integer, target, allocatable :: iswglobe(:), isrankw(:)
 
-! LANDFLUX INDICES AND RANKS:
-integer :: idlf(3)
-integer, target, allocatable :: ilfglobe(:), ilfrank(:)
-
-! SEAFLUX INDICES AND RANKS:
-integer :: idsf(3)
-integer, target, allocatable :: isfglobe(:), isfrank(:)
-
 ! NUDGING INDICES
 integer :: idn(3)
 integer, target, allocatable :: inglobe(:), inrank(:)
@@ -369,25 +361,13 @@ if (ndims == 1 .and. idgm(1) > 0) then
    irankm(:) = myrank
 endif
 
-if (meshtype == 1) then
-
-   call shdf5_info('IUGLOBE',ndims,idgu)
-   if (ndims == 1 .and. idgu(1) > 0) then
-      allocate (iuglobe(idgu(1)))
-      call shdf5_irec(ndims, idgu, 'IUGLOBE', ivara=iuglobe)
-   endif
-
-   idgv = 0
-else
-
-   call shdf5_info('IVGLOBE',ndims,idgv)
-   if (ndims == 1 .and. idgv(1) > 0) then
-      allocate (ivglobe(idgv(1)))
-      call shdf5_irec(ndims, idgv, 'IVGLOBE', ivara=ivglobe)
-   endif
-
-   idgu = 0
+call shdf5_info('IVGLOBE',ndims,idgv)
+if (ndims == 1 .and. idgv(1) > 0) then
+   allocate (ivglobe(idgv(1)))
+   call shdf5_irec(ndims, idgv, 'IVGLOBE', ivara=ivglobe)
 endif
+
+idgu = 0
 
 call shdf5_info('IWGLOBE',ndims,idgw)
 if (ndims == 1 .and. idgw(1) > 0) then
@@ -437,34 +417,10 @@ if (ndims == 1 .and. idsw(1) > 0) then
    call shdf5_irec(ndims, idsw, 'IWGLOBE_S', ivara=iswglobe)
 endif
 
-call shdf5_info('LANDFLUX%IFGLOBE',ndims,idlf)
-if (ndims == 1 .and. idlf(1) > 0) then
-   allocate (ilfglobe(idlf(1)))
-   call shdf5_irec(ndims, idlf, 'LANDFLUX%IFGLOBE', ivara=ilfglobe)
-endif
-
-call shdf5_info('SEAFLUX%IFGLOBE',ndims,idsf)
-if (ndims == 1 .and. idsf(1) > 0) then
-   allocate (isfglobe(idsf(1)))
-   call shdf5_irec(ndims, idsf, 'SEAFLUX%IFGLOBE', ivara=isfglobe)
-endif
-
-if (meshtype == 1) then
-
-   call shdf5_info('IRANKU',ndims,idims)
-   if (ndims == 1 .and. idims(1) > 0) then
-      allocate (iranku(idims(1)))
-      call shdf5_irec(ndims, idims, 'IRANKU', ivara=iranku)
-   endif
-
-else
-
-   call shdf5_info('IRANKV',ndims,idims)
-   if (ndims == 1 .and. idims(1) > 0) then
-      allocate (irankv(idims(1)))
-      call shdf5_irec(ndims, idims, 'IRANKV', ivara=irankv)
-   endif
-
+call shdf5_info('IRANKV',ndims,idims)
+if (ndims == 1 .and. idims(1) > 0) then
+   allocate (irankv(idims(1)))
+   call shdf5_irec(ndims, idims, 'IRANKV', ivara=irankv)
 endif
 
 call shdf5_info('IRANKW',ndims,idims)
@@ -495,18 +451,6 @@ call shdf5_info('IRANKW_S',ndims,idims)
 if (ndims == 1 .and. idims(1) > 0) then
    allocate (isrankw(idims(1)))
    call shdf5_irec(ndims, idims, 'IRANKW_S', ivara=isrankw)
-endif
-
-call shdf5_info('LANDFLUX%IWRANK',ndims,idims)
-if (ndims == 1 .and. idims(1) > 0) then
-   allocate (ilfrank(idims(1)))
-   call shdf5_irec(ndims, idims, 'LANDFLUX%IWRANK', ivara=ilfrank)
-endif
-
-call shdf5_info('SEAFLUX%IWRANK',ndims,idims)
-if (ndims == 1 .and. idims(1) > 0) then
-   allocate (isfrank(idims(1)))
-   call shdf5_irec(ndims, idims, 'SEAFLUX%IWRANK', ivara=isfrank)
 endif
 
 ! Loop through all variables in the model vtables
@@ -542,10 +486,7 @@ do nv = 1, num_var
    if (    stagpt == 'AW' .and. idims(ndims) == idgw(1)) then
       iglobe => iwglobe
       irank  => irankw
-   elseif (meshtype == 1 .and. stagpt == 'AU' .and. idims(ndims) == idgu(1)) then
-      iglobe => iuglobe
-      irank  => iranku
-   elseif (meshtype == 2 .and. stagpt == 'AU' .and. idims(ndims) == idgv(1)) then
+   elseif (stagpt == 'AV' .and. idims(ndims) == idgv(1)) then
       iglobe => ivglobe
       irank  => irankv
    elseif (stagpt == 'AM' .and. idims(ndims) == idgm(1)) then
@@ -569,12 +510,6 @@ do nv = 1, num_var
    elseif (stagpt == 'SM' .and. idims(ndims) == idsm(1)) then
       iglobe => ismglobe
       irank  => isrankm
-   elseif (stagpt == 'LF' .and. idims(ndims) == idlf(1)) then
-      iglobe => ilfglobe
-      irank  => ilfrank
-   elseif (stagpt == 'SF' .and. idims(ndims) == idsf(1)) then
-      iglobe => isfglobe
-      irank  => isfrank
 !  elseif (stagpt == 'AN') then
 !
 !     TODO: NUDGING DOES NOT YET WORK IN PARALLEL 
@@ -685,8 +620,6 @@ if (allocated(ilwglobe)) deallocate (ilwglobe)
 if (allocated(ismglobe)) deallocate (ismglobe)
 if (allocated(isuglobe)) deallocate (isuglobe)
 if (allocated(iswglobe)) deallocate (iswglobe)
-if (allocated(ilfglobe)) deallocate (ilfglobe)
-if (allocated(isfglobe)) deallocate (isfglobe)
 if (allocated(inglobe))  deallocate (inglobe)
 
 if (allocated(irankm))  deallocate (irankm)
@@ -698,8 +631,6 @@ if (allocated(ilrankw)) deallocate (ilrankw)
 if (allocated(isrankm)) deallocate (isrankm)
 if (allocated(isranku)) deallocate (isranku)
 if (allocated(isrankw)) deallocate (isrankw)
-if (allocated(ilfrank)) deallocate (ilfrank)
-if (allocated(isfrank)) deallocate (isfrank)
 if (allocated(inrank))  deallocate (inrank)
 
 return
@@ -711,13 +642,11 @@ subroutine hist_read_s()
 
 ! Parallel run reading serial history file
 
-use mem_grid,    only: nwa, nua, nva, nma, mwa, mua, mva, mma, mza
-use mem_ijtabs,  only: itabg_w, itab_w, itab_u, itab_v, itab_m
-use misc_coms,   only: io6, meshtype, runtype
+use mem_grid,    only: nwa, nva, nma, mwa, mva, mma, mza
+use mem_ijtabs,  only: itabg_w, itab_w, itab_v, itab_m
+use misc_coms,   only: io6, runtype
 use var_tables,  only: num_var, vtab_r, get_vtab_dims
 use hdf5_utils,  only: shdf5_info, shdf5_irec
-use mem_sflux,   only: nlandflux, nseaflux, mlandflux, mseaflux, &
-                       landflux,  seaflux
 use mem_leaf,    only: itab_wl
 use leaf_coms,   only: nwl, mwl, nzg
 use mem_sea,     only: itab_ws
@@ -766,10 +695,7 @@ do nv = 1, num_var
    if     (stagpt == 'AW' .and. idims(ndims) == nwa) then
       ilocal => itab_w(:)%iwglobe
       idims(ndims) = mwa
-   elseif (stagpt == 'AU' .and. idims(ndims) == nua .and. meshtype == 1) then
-      ilocal => itab_u(:)%iuglobe
-      idims(ndims) = mua
-   elseif (stagpt == 'AU' .and. idims(ndims) == nva .and. meshtype == 2) then
+   elseif (stagpt == 'AV' .and. idims(ndims) == nva) then
       ilocal => itab_v(:)%ivglobe
       idims(ndims) = mva
    elseif (stagpt == 'AM' .and. idims(ndims) == nma) then
@@ -781,12 +707,6 @@ do nv = 1, num_var
    elseif (stagpt == 'SW' .and. idims(ndims) == nws) then
       ilocal => itab_ws(:)%iwglobe
       idims(ndims) = mws
-   elseif (stagpt == 'LF' .and. idims(ndims) == nlandflux) then
-      ilocal => landflux(:)%ifglobe
-      idims(ndims) = mlandflux
-   elseif (stagpt == 'SF' .and. idims(ndims) == nseaflux) then
-      ilocal => seaflux(:)%ifglobe
-      idims(ndims) = mseaflux
    elseif (stagpt == 'AN' .and. idims(ndims) == nwnud) then
       ilocal => itab_wnud(:)%iwnudglobe
       idims(ndims) = mwnud
@@ -808,7 +728,7 @@ do nv = 1, num_var
       call shdf5_irec(ndims, idims, varn, rvara=vtab_r(nv)%rvar2_p, points=ilocal)
    elseif (associated(vtab_r(nv)%dvar1_p)) then
       call shdf5_irec(ndims, idims, varn, dvara=vtab_r(nv)%dvar1_p, points=ilocal)
-  elseif (associated(vtab_r(nv)%dvar2_p)) then
+   elseif (associated(vtab_r(nv)%dvar2_p)) then
       call shdf5_irec(ndims, idims, varn, dvara=vtab_r(nv)%dvar2_p, points=ilocal)
    endif
 

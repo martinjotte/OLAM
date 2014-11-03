@@ -2,7 +2,7 @@ subroutine olam_dcmip_init()
 
 use mem_basic,  only: vc, vmc, vp, vmp, wc, wmc, rho, thil, theta, tair, &
                       press, sh_w, sh_v
-use mem_ijtabs, only: itab_v, itab_w, jtab_v, jtab_w, mrl_begl
+use mem_ijtabs, only: itab_v, itab_w, jtab_v, jtab_w
 use mem_grid,   only: mza, mva, mwa, zt, dzt, xev, yev, zev, vnx, vny, vnz, lpw, &
                       glatw, glonw, lpv, zm, glatv, glonv 
 use mem_addsc,  only: addsc
@@ -64,6 +64,8 @@ hybrid_eta = .false.
 cfv = 0
 shear = 0
 
+mrl = 1
+
 !----------------------------------------------------------------------
 !do j = 1,jtab_w(14)%jend(1); iw = jtab_w(14)%iw(j)
 do iw = 2,mwa  ! do for all points in subdomain
@@ -73,7 +75,7 @@ do iw = 2,mwa  ! do for all points in subdomain
 
    if (glonw(iw) < 0.) lon = pio180 * (glonw(iw) + 360.)
 
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       p = press(k,iw)
       zm0 = zm(k)
       zt0 = zt(k)
@@ -329,9 +331,14 @@ go to 100
 
 enddo
 
+! MPI parallel send/recv of W group
+
 if (iparallel == 1) then
-   call mpi_send_w('I')  ! Send W group
-   call mpi_recv_w('I')  ! Recv W group
+   call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
+                   rvara1=wc, rvara2=wmc, rvara3=thil))
+
+   call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
+                   rvara1=wc, rvara2=wmc, rvara3=thil))
 endif
 
 !----------------------------------------------------------------------
@@ -342,7 +349,7 @@ do iv = 2,mva
 
    if (glonv(iv) < 0.) lon = pio180 * (glonv(iv) + 360.)
 
-   do k = lpv(iv),mza-1
+   do k = lpv(iv),mza
       p = 1.0d5
       zt0 = zt(k)
 
@@ -502,8 +509,8 @@ enddo
 ! MPI parallel send/recv of V group
 
 if (iparallel == 1) then
-   call mpi_send_v('I')  ! Send V group
-   call mpi_recv_v('I')  ! Recv V group
+   call mpi_send_v(mrl, rvara1=vmc, rvara2=vc)
+   call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
 endif
 
 ! Set VMP and VP
@@ -520,7 +527,7 @@ subroutine olam_dcmip_vel(time0,vmsc,wmsc,rho_old)
 
 use mem_basic,  only: vc, vmc, wc, wmc, rho, thil, theta, press, sh_w, sh_v, &
                       vxe, vye, vze
-use mem_ijtabs, only: itab_v, itab_w, jtab_v, jtab_w, mrl_begl
+use mem_ijtabs, only: itab_v, itab_w, jtab_v, jtab_w
 use mem_grid,   only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
                       glatw, glonw, lpv, zm, glatv, glonv, xew, yew, zew, dzt
 use mem_addsc,  only: addsc
@@ -559,7 +566,7 @@ do iw = 2,mwa  ! do for all points in subdomain
 
    if (glonw(iw) < 0.) lon = pio180 * (glonw(iw) + 360.)
 
-   do k = lpw(iw),mza-1
+   do k = lpw(iw),mza
       p = press(k,iw)
       zm0 = zm(k)
       zt0 = zt(k)
@@ -619,7 +626,7 @@ do iv = 2,mva
 
    raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
 
-   do k = lpv(iv),mza-1
+   do k = lpv(iv),mza
       p = 1.0d5
       zt0 = zt(k)
 
@@ -687,7 +694,7 @@ subroutine olam_dcmip_simplephys(rhot)
 
 use mem_basic,  only: vc, vmc, wc, wmc, rho, thil, theta, press, sh_w, sh_v, &
                       vxe, vye, vze
-use mem_ijtabs, only: itab_v, itab_w, jtab_v, jtab_w, mrl_begl
+use mem_ijtabs, only: itab_v, itab_w, jtab_v, jtab_w
 use mem_grid,   only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
                       glatw, glonw, lpv, zm, glatv, glonv, xew, yew, zew, dzt
 use mem_addsc,  only: addsc
@@ -721,7 +728,7 @@ integer :: mrl,j,iw,k,iv,iw1,iw2,zcoords,test,pver
 zcoords = 1.0d0
 dtime = dtlong
 
- pver = mza - 2
+ pver = mza - 1
 
  call olam_dcmip_simplephys0(pver,rhot)
 
@@ -741,7 +748,7 @@ do iw = 2,mwa  ! do for all points in subdomain
 
    raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
-   do k = 2,mza-1
+   do k = 2,mza
 
       vx = vxe(k,iw)
       vy = vye(k,iw)
@@ -778,7 +785,7 @@ do iw = 2,mwa  ! do for all points in subdomain
 
 ! Apply changes to model prognostic fields
 
-   do k = 2,mza-1
+   do k = 2,mza
 
       exner = (p00i * press(k,iw)) ** rocp
 
@@ -810,7 +817,7 @@ do iv = 2,mva
 
    raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
 
-   do k = lpv(iv),mza-1
+   do k = lpv(iv),mza
 
       u0 = .5 * (u3d(k,iw1) + u3d(k,iw2))
       v0 = .5 * (v3d(k,iw1) + v3d(k,iw2))
@@ -841,7 +848,7 @@ subroutine olam_dcmip_simplephys0(pver,rhot)
 
 use mem_basic,  only: vc, vmc, wc, wmc, rho, thil, theta, press, sh_w, sh_v, &
                       vxe, vye, vze
-use mem_ijtabs, only: itab_v, itab_w, jtab_v, jtab_w, mrl_begl
+use mem_ijtabs, only: itab_v, itab_w, jtab_v, jtab_w
 use mem_grid,   only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
                       glatw, glonw, lpv, zm, glatv, glonv, xew, yew, zew, dzt
 use mem_addsc,  only: addsc
@@ -899,9 +906,9 @@ do iw = 2,mwa  ! do for all points in subdomain
 
    raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
-   do k = 2,mza-1
+   do k = 2,mza
 
-      kver = mza - k
+      kver = mza + 1 - k
 
       vx = vxe(k,iw)
       vy = vye(k,iw)
@@ -939,9 +946,9 @@ do iw = 2,mwa  ! do for all points in subdomain
 
 ! Apply changes to model prognostic fields
 
-   do k = 2,mza-1
+   do k = 2,mza
 
-      kver = mza - k
+      kver = mza + 1 - k
 
       exner = (p00i * press(k,iw)) ** rocp
 
@@ -976,7 +983,7 @@ do iv = 2,mva
 
    raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
 
-   do k = lpv(iv),mza-1
+   do k = lpv(iv),mza
 
       rho0  = .5 * (rho(k,iw1) + rho(k,iw2))
 

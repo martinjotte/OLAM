@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module leaf4_plot
 
@@ -60,8 +60,8 @@ Contains
                       ustar,            snowfac,         &
                       vf,               surface_ssh,     &
                       ground_shv,       veg_water,       &
-                      veg_temp,         can_temp,        &
-                      can_shv,          wshed,           &
+                      veg_temp,         cantemp,         &
+                      canshv,           wshed,           &
                       qwshed,           transp,          &
                       stom_resist,      hxfergc,         &
                       wxfergc,          hxfersc,         &
@@ -132,8 +132,8 @@ real, optional, intent(in) :: surface_ssh  ! surface saturation spec hum [kg_vap
 real, optional, intent(in) :: ground_shv   ! soil vapor spec hum [kg_vap/kg_air]
 real, optional, intent(in) :: veg_water    ! veg sfc water content [kg/m^2]
 real, optional, intent(in) :: veg_temp     ! veg temperature [K]
-real, optional, intent(in) :: can_temp     ! canopy air temperature [K]
-real, optional, intent(in) :: can_shv      ! canopy air vapor spec hum [kg/kg]
+real, optional, intent(in) :: cantemp      ! canopy air temperature [K]
+real, optional, intent(in) :: canshv       ! canopy air vapor spec hum [kg/kg]
 real, optional, intent(in) :: wshed        ! water shed from veg this timestep [kg/m^2]
 real, optional, intent(in) :: qwshed       ! water energy shed from veg this timestep [J/m^2]
 real, optional, intent(in) :: transp       ! transpiration xfer this LEAF timestep [kg/m^2]
@@ -455,11 +455,11 @@ endif
 
 if (present(can_depth) .and.  &
     present(rhos)      .and.  &
-    present(can_shv)   .and.  &
-    present(can_temp)) then
+    present(canshv)   .and.  &
+    present(cantemp)) then
 
-   water = water + can_depth * rhos * can_shv
-   energy = energy + can_depth * rhos * cp * (can_temp - 273.15)
+   water = water + can_depth * rhos * canshv
+   energy = energy + can_depth * rhos * cp * (cantemp - 273.15)
 
 endif
 
@@ -828,23 +828,23 @@ if (present(can_depth)) then
 
 endif
 
-if (present(can_temp)) then
+if (present(cantemp)) then
 
-   write (number,'(f12.2)') can_temp
-   call o_plchhq(.18,yc2 - .070,'can_temp = '//trim(adjustl(number)),psiz,0.,0.)
-
-endif
-
-if (present(can_shv)) then
-
-   write (number,'(f12.6)') can_shv
-   call o_plchhq(.18,yc2 - .082,'can_shv = '//trim(adjustl(number)),psiz,0.,0.)
+   write (number,'(f12.2)') cantemp
+   call o_plchhq(.18,yc2 - .070,'cantemp = '//trim(adjustl(number)),psiz,0.,0.)
 
 endif
 
-if (present(can_shv)) then
+if (present(canshv)) then
 
-   write (number,'(f12.6)') can_shv * can_depth * rhos
+   write (number,'(f12.6)') canshv
+   call o_plchhq(.18,yc2 - .082,'canshv = '//trim(adjustl(number)),psiz,0.,0.)
+
+endif
+
+if (present(canshv)) then
+
+   write (number,'(f12.6)') canshv * can_depth * rhos
    call o_plchhq(.18,yc2 - .094,'can_water = '//trim(adjustl(number)),psiz,0.,0.)
 
 endif

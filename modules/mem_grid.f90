@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module mem_grid
 
@@ -50,9 +50,8 @@ Module mem_grid
 
    integer, allocatable, dimension(:) ::  &
 
-      lpm,lpu,lpv,lpw   &  ! Lowest prognosed M,U,V,W/T
-     ,lcu               &  ! Lowest nonzero control volume for U
-     ,lsw                  ! number of W/T levels in contact with surface
+      lpm,lpv,lpw   &  ! Lowest prognosed M,V,W/T
+     ,lsw              ! number of W/T levels in contact with surface
 
    real, allocatable, dimension(:) ::  &
 
@@ -64,7 +63,6 @@ Module mem_grid
      ,zfacim,zfacit    &  ! inverse of zfacm, zfact
 
      ,xem ,yem, zem    &  ! XE,YE,ZE coordinates of M point
-     ,xeu ,yeu, zeu    &  ! XE,YE,ZE coordinates of U point
      ,xev ,yev, zev    &  ! XE,YE,ZE coordinates of V point
      ,xew ,yew, zew    &  ! XE,YE,ZE coordinates of W point
 
@@ -82,7 +80,6 @@ Module mem_grid
      ,arw0             &  ! Area of IW polygon at earth surface
 
      ,glatm ,glonm     &  ! Latitude/longitude at M point
-     ,glatu ,glonu     &  ! Latitude/longitude at U point
      ,glatv ,glonv     &  ! Latitude/longitude at V point
      ,glatw ,glonw     &  ! Latitude/longitude at W point
 
@@ -90,15 +87,13 @@ Module mem_grid
 
    real, allocatable, dimension(:,:) ::  &
 
-      aru, arv, arw        &  ! Aperture area of U,V,W face
-     ,volui, volvi ,volwi     ! (1/Volume) of U,V,W cell
+      arv, arw            ! Aperture area of V,W face
 
    real(r8), allocatable, dimension(:,:) ::  &
 
-      volt                 &  ! Volume of T cell
-     ,volti                   ! (1/Volume) of T cell
+      volt, volti         ! Volume of T cell; (1/Volume) of T cell
 
-   integer :: impent(12) ! Scratch array for storing 12 pentagonal IM indices
+   integer :: impent(12)  ! Scratch array for storing 12 pentagonal IM indices
 
    integer, parameter :: nrows = 5
    integer :: mrows
@@ -170,38 +165,25 @@ Contains
    
 !===============================================================================
 
-   subroutine alloc_grid1(meshtype, lma, lua, lva, lwa)
+   subroutine alloc_grid1(lma, lva, lwa)
 
    use misc_coms, only: io6
 
    implicit none
    
-   integer, intent(in) :: meshtype, lma, lua, lva, lwa
+   integer, intent(in) :: lma, lva, lwa
    
 ! Allocate and initialize arrays (xem, yem, zem are already allocated)
 
    allocate (lsw(lwa));  lsw(1:lwa) = 0
 
-   if (meshtype == 1) then
+   allocate (xev(lva));  xev(1:lva) = 0.
+   allocate (yev(lva));  yev(1:lva) = 0.
+   allocate (zev(lva));  zev(1:lva) = 0.
 
-      allocate (xeu(lua));  xeu(1:lua) = 0.
-      allocate (yeu(lua));  yeu(1:lua) = 0.
-      allocate (zeu(lua));  zeu(1:lua) = 0.
-
-      allocate (glatu(lua));  glatu(1:lua) = 0.
-      allocate (glonu(lua));  glonu(1:lua) = 0.
-
-   elseif (meshtype == 2) then
-   
-      allocate (xev(lva));  xev(1:lva) = 0.
-      allocate (yev(lva));  yev(1:lva) = 0.
-      allocate (zev(lva));  zev(1:lva) = 0.
-
-      allocate (glatv(lva));  glatv(1:lva) = 0.
-      allocate (glonv(lva));  glonv(1:lva) = 0.
+   allocate (glatv(lva));  glatv(1:lva) = 0.
+   allocate (glonv(lva));  glonv(1:lva) = 0.
       
-   endif
-
    allocate (unx(lva));  unx(1:lva) = 0.
    allocate (uny(lva));  uny(1:lva) = 0.
    allocate (unz(lva));  unz(1:lva) = 0.
@@ -238,34 +220,21 @@ Contains
 
 !===============================================================================
 
-   subroutine alloc_grid2(meshtype, lma, lua, lva, lwa)
+   subroutine alloc_grid2(lma, lva, lwa)
 
    use misc_coms, only: io6
 
    implicit none
 
-   integer, intent(in) :: meshtype, lma, lua, lva, lwa
+   integer, intent(in) :: lma, lva, lwa
    
 ! Allocate  and initialize arrays
 
-   write(io6,*) 'alloc_grid2 ',lma,lua,lva,lwa
+   write(io6,*) 'alloc_grid2 ',lma,lva,lwa
 
-   if (meshtype == 1) then
+   allocate (lpv(lva));  lpv(1:lva) = 0
 
-      allocate (lpu(lua));  lpu(1:lua) = 0
-      allocate (lcu(lua));  lcu(1:lua) = 0
-
-      allocate (aru  (mza,lua));  aru  (1:mza,1:lua) = 0.
-      allocate (volui(mza,lua));  volui(1:mza,1:lua) = 0.
-
-   elseif (meshtype == 2) then
-
-      allocate (lpv(lva));  lpv(1:lva) = 0
-
-      allocate (arv  (mza,lva));  arv  (1:mza,1:lva) = 0.
-      allocate (volvi(mza,lva));  volvi(1:mza,1:lva) = 0.
-
-   endif
+   allocate (arv  (mza,lva));  arv  (1:mza,1:lva) = 0.
 
    allocate (lpm(lma));  lpm(1:lma) = 0  ! In vtables
    allocate (lpw(lwa));  lpw(1:lwa) = 0  ! In vtables
@@ -274,7 +243,6 @@ Contains
 
    allocate (volt (mza,lwa));  volt (1:mza,1:lwa) = 0.
    allocate (volti(mza,lwa));  volti(1:mza,1:lwa) = 0.
-   allocate (volwi(mza,lwa));  volwi(1:mza,1:lwa) = 0.
             
    write(io6,*) 'finishing alloc_grid2'
             

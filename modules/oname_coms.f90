@@ -1,12 +1,16 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
 ! including OLAM:  
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
    ! Colorado State University Research Foundation ; ATMET, LLC 
 
    ! This software is free software; you can redistribute it and/or modify it 
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module oname_coms
 
@@ -71,7 +71,6 @@ Module oname_coms
 !!    GRID SPECIFICATIONS
 
       integer :: mdomain  = 0
-      integer :: meshtype = 0
       integer :: nzp      = 0
       integer :: nxp      = 0
 
@@ -112,7 +111,7 @@ Module oname_coms
       integer :: nudnxp   = 0
       real    :: tnudcent = 0.0
 
-!!    GRID, HISTORY FILES
+!!    HISTORY FILES
 
       integer :: ioutput      = 1
       integer :: ioutput_mavg = 1
@@ -123,14 +122,8 @@ Module oname_coms
       integer :: iquiet    = 0
       real(r8):: frqstate  = 3600.0_r8
 
-      character(pathlen) :: gridfile  = 'sfcfile/gridfile_0'
       character(pathlen) :: hfilin    = ''
       character(pathlen) :: hfilepref = 'hist/'
-
-!!    TOPOGRAPHY INITIALIZATION
-
-      integer            :: itopoflg      = 2
-      character(pathlen) :: topo_database = ''
 
 !!    MODEL/NUMERICAL OPTIONS
 
@@ -166,14 +159,11 @@ Module oname_coms
 
 !!    CUMULUS PARAMETERIZATION PARAMETERS
 
-      integer  :: nqparm(maxgrds) = 0
-      real(r8) :: confrq          = 1800.0_r8
-      integer  :: conv_uv_mix     = 0
-      integer  :: conv_tracer_mix = 0
+      integer :: nqparm(maxgrds) = 0
+      integer :: conv_uv_mix     = 0
+      integer :: conv_tracer_mix = 0
 
-      ! these are unused and will be deleted
-      real     :: wcldbs = 0.0
-      integer  :: nqparm_sh(maxgrds) = 0
+      real(r8) :: confrq          = 1800.0_r8
 
 !!    EDDY DIFFUSION PARAMETERS
 
@@ -223,14 +213,21 @@ Module oname_coms
 
       real :: sounding(5,maxsndg) = 0.0
 
-!!    LEAF/SEA VARIABLES
+!!    GRID, LAND, AND SEA FILES PATH/NAMES; LAND AND SEA GRID CONFIGURATIONS
+
+      character(pathlen) :: gridfile    = 'sfcfiles/gridfile_0'
+      character(pathlen) :: landusefile = 'sfcfiles/landh'
+      character(pathlen) :: seafile     = 'sfcfiles/seah'
+
+      integer :: iseagrid  =  1
+
+!!    TOPOGRAPHY, LEAF, SEA VARIABLES
 
       integer :: isfcl     =  1
       integer :: nzg       = 11
       integer :: nzs       =  1
-      integer :: ilandgrid =  1
-      integer :: iseagrid  =  1
 
+      integer :: itopoflg   = 2
       integer :: ivegflg    = 0
       integer :: isoilflg   = 0
       integer :: ndviflg    = 0
@@ -256,9 +253,7 @@ Module oname_coms
       real :: slmstr(nzgmax) = (/ .35, .35, .35, .35, .35, .35, .35, &
            .35, .35, .35, .35, (0.0, i=12,nzgmax) /)
 
-      character(pathlen) :: landusefile = 'sfcfiles/landh'
-      character(pathlen) :: seafile     = 'sfcfiles/seah'
-
+      character(pathlen) :: topo_database   = ''
       character(pathlen) :: veg_database    = ''
       character(pathlen) :: soil_database   = ''
       character(pathlen) :: ndvi_database   = ''

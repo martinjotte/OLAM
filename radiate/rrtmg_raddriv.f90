@@ -174,7 +174,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
 ! Copy column values from model to radiation memory space
 
-  do k = ka, mza-1
+  do k = ka, mza
      krad = k - koff
 
      rhov(k) = max(0.,sh_v(k,iw)) * rho(k,iw)
@@ -253,7 +253,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
   do mc = 1, mcat
 
-     do k = ka, mza-1
+     do k = ka, mza
         krad = k - koff
 
         if (rx(k,mc) >= rxmin(mc) .and. emb(k,mc) >= emb0(mc)) then
@@ -313,7 +313,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
      ! Combine optical properties
 
-     do k = ka, mza-1
+     do k = ka, mza
         krad = k - koff
         do ib = 1, nbndsw
            if (tauclds(ib,1,krad) > 1.e-12 .and. ssaclds(ib,1,krad) > 1.e-12) then
@@ -344,7 +344,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      rshortup_top  (iw) = swuflx(1,nrad)
      albedt        (iw) = swuflx(1,1) / swdflx(1,1)
 
-     do k = ka, mza-1
+     do k = ka, mza
         krad = k - koff
         fthrd_sw(k,iw) = swhr(1,krad) * exl(krad) / 86400.0
      enddo
@@ -369,7 +369,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      rlongup(iw)     = lwuflx(1,1)
      rlongup_top(iw) = lwuflx(1,nrad)
 
-     do k = ka, mza-1
+     do k = ka, mza
         krad = k - koff
         fthrd_lw(k,iw) = lwhr(1,krad) * exl(krad) / 86400.0
      enddo

@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,24 +29,17 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine inithh()
-! +--------------------------------------------------------+
-! _  Initialization of model grid, topography, and fields  _
-! _    for horizontally homogeneous fields.                _
-! +--------------------------------------------------------+
 
-implicit none
+! Horizontally-homogeneous initialization of model fields
 
-call arrsnd()  !  Arrange the input sounding.
-call refs1d()  !  Compute the 1-D reference state variables 
-call fldshhi()  !  Compute the 3-D model fields.
+  implicit none
 
-return
+  call arrsnd()  !  Arrange the input sounding.
+  call refs1d()  !  Compute the 1-D reference state variables 
+  call fldshhi() !  Initialize the 3-D model fields.
+
 end subroutine inithh
 
 !===============================================================================
@@ -290,7 +287,7 @@ write(io6,*) '   zm(m)    k     zt(m)   pr01d(Pa)  dn01d(kg/m3)  th01d(K)  rt01d
 write(io6,*) '========================================================================='
 write(io6,*) ' '
 
-do k = mza-1,2,-1
+do k = mza,2,-1
    write(io6, '(f10.2,1x,9(''-------''))') zm(k)
    write(io6, '(10x,i5,f10.2,f11.2,f11.4,f12.2,f11.4)')  &
        k,zt(k),pr01d(k),dn01d(k),th01d(k),rt01d(k)*1.e3
@@ -306,46 +303,53 @@ end subroutine refs1d
 
 subroutine fldshhi()
    
-use mem_basic,   only: theta, thil, tair, press, rho, wc, wmc, uc, ump, umc,  &
+use mem_basic,   only: theta, thil, tair, press, rho, wc, wmc, &
                        vc, vp, vmp, vmc, sh_w, sh_v
 use mem_micro,   only: sh_c
 use micro_coms,  only: level
-use mem_ijtabs,  only: jtab_w, jtab_u, jtab_v, itab_w, itab_u, itab_v, &
-                       jtu_init, jtv_init, jtw_init, &
-                       jtu_wall, jtv_wall
-use misc_coms,   only: io6, mdomain, th01d, pr01d, dn01d, rt01d, u01d, v01d,  &
-                       iparallel, meshtype
-use consts_coms, only: cvocp, p00k, rdry, rvap, p00, p00i, rocp, alvlocp,  &
+use mem_ijtabs,  only: jtab_w, jtab_v, itab_w, itab_v, &
+                       jtv_init, jtw_init, jtv_wall
+use misc_coms,   only: io6, mdomain, th01d, pr01d, dn01d, rt01d, u01d, v01d, &
+                       iparallel
+use consts_coms, only: cvocp, p00k, rdry, rvap, p00, p00i, rocp, alvl, cp, &
                        grav, erad
-use mem_grid,    only: mza, mua, mva, lpu, lpv, lcu, &
-                       unx, uny, unz, vnx, vny, vnz, xeu, yeu, zeu, &
-                       xev, yev, zev, aru, arv, volt, volui, volvi, &
+use mem_grid,    only: mza, mva, lpv, lpw, &
+                       unx, uny, unz, vnx, vny, vnz, &
+                       xev, yev, zev, arv, volt, &
                        xew, yew, zew, dzt_top, dzt_bot
 
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w,  &
-                        mpi_send_u, mpi_recv_u,  &
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                         mpi_send_v, mpi_recv_v 
 
-use obnd,         only: lbcopy_u, lbcopy_v, lbcopy_w
+use obnd,         only: lbcopy_v, lbcopy_w
 
 implicit none   
 
-integer :: j,iw,k,ka,iu,iv,iter,iw1,iw2,iup,ivp,im1,im2,iwp
-integer :: iv1,iv2,iv3,iv4,iv5,iv8,iv9,iv12,iv13,iv14,iv15,iv16
-real :: rcloud,dummy,temp,rvls,exner  &
-   ,uv01dx,uv01dy,uv01dz,uv01dr,raxis,rhovs
+integer :: j,iw,k,ka,iu,iv,iter,iw1,iw2,iup,ivp,im1,im2,iwp,kbc,mrl
+
+real :: rcloud,dummy,temp,rvls,exner
+real :: uv01dx,uv01dy,uv01dz,uv01dr,raxis,rhovs
+real :: pkhyd, qhydm
 
 real, external :: rhovsl
  
-call psub()
+! Choose as an internal pressure boundary condition the pressure level at or
+! below (in elevation) the 49900 Pa surface.  Find the k index of this level.
+
+kbc = mza
+do while (pr01d(kbc) < 49900.)
+   kbc = kbc - 1
+enddo
+
 !----------------------------------------------------------------------
 do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
-call qsub('W',iw)
+
+   ka = lpw(iw)
 
 ! Fill arrays prior to iteration
 
-   do k = 1,mza
+   do k = ka,mza
       theta(k,iw) = th01d(k)
       thil(k,iw)  = theta(k,iw)
       press(k,iw) = pr01d(k)
@@ -367,160 +371,81 @@ call qsub('W',iw)
 
    do iter = 1,100
 
-      do k = 1,mza
+!  Compute density for all levels
+
+      do k = ka,mza
 
          if (level == 0) then
             rho(k,iw) = press(k,iw) ** cvocp * p00k / (rdry * theta(k,iw))
          elseif (level == 1) then
-            rho(k,iw) = press(k,iw) ** cvocp * p00k  &
+            rho(k,iw) = press(k,iw) ** cvocp * p00k &
                / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
          else
-            exner = (press(k,iw) * p00i) ** rocp   ! Defined WITHOUT CP factor
+            exner = (press(k,iw) * p00i) ** rocp  ! Defined WITHOUT CP factor
             temp = exner * theta(k,iw)
             rhovs = rhovsl(temp-273.15)
-            sh_c(k,iw) = max(0.,sh_w(k,iw)-rhovs/real(rho(k,iw)))
+
+            sh_c(k,iw) = sh_w(k,iw) - rhovs/real(rho(k,iw))
+            sh_c(k,iw) = max(0.,sh_c(k,iw))
             sh_v(k,iw) = sh_w(k,iw) - sh_c(k,iw)
-! As for iteration in subroutine satadjst, use (0.3,0.7) weighting to damp iteration
-!            rho(k,iw) = .5 * rho(k,iw)  &
-!                      + .5 * press(k,iw) ** cvocp * p00k  &
-            rho(k,iw) = press(k,iw) ** cvocp * p00k  &
-               / (theta(k,iw) * (1. - sh_c(k,iw))  &
-               * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
-            thil(k,iw) = theta(k,iw)  &
-               / (1. + alvlocp * sh_c(k,iw) / max(temp,253.))
+
+            rho(k,iw) = press(k,iw) ** cvocp * p00k &
+               / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+
+            qhydm = alvl * sh_c(k,iw)
+            thil(k,iw) = theta(k,iw) / (1. + qhydm / (cp * max(temp,253.)))
          endif
-         
-         if (k >= 2) then
-! Impose minimum value of 1 Pa to avoid overshoot to negative values 
-! during iteration.  Use weighting to damp oscillations
-             press(k,iw) = .05d0 * press(k,iw)  &
-                         + .95d0 * max(1.d0,press(k-1,iw)  &
-                - grav * (rho(k-1,iw) * dzt_top(k-1) + rho(k,iw) * dzt_bot(k)))
-         endif
-         
+
       enddo
+
+! Integrate hydrostatic equation upward and downward from kbc level
+! Impose minimum value of 0.1 Pa to avoid overshoot to negative values 
+! during iteration.  Use weighting to damp oscillations
+
+      do k = kbc+1,mza
+         pkhyd = press(k-1,iw) &
+               - grav * (rho(k-1,iw) * dzt_top(k-1) + rho(k,iw) * dzt_bot(k))
+         press(k,iw) = .05 * press(k,iw) + .95 * max(.1,pkhyd)
+      enddo
+
+      do k = kbc-1,ka,-1
+         pkhyd = press(k+1,iw) &
+               + grav * (rho(k+1,iw) * dzt_bot(k+1) + rho(k,iw) * dzt_top(k))
+         press(k,iw) = .05 * press(k,iw) + .95 * max(.1,pkhyd)
+      enddo
+
    enddo
 
-   do k = 1,mza
+   do k = ka,mza
       tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
    enddo
 
 enddo
-call rsub('Wa',8)
-
-! Set reference state to 3d fields at 1st iw point
-
-iw = jtab_w(jtw_init)%iw(1)
-
-pr01d(1:mza) = press(1:mza,iw)
-dn01d(1:mza) = rho  (1:mza,iw)
-th01d(1:mza) = theta(1:mza,iw)
 
 ! LBC copy (THETA and TAIR will be copied later with the scalars)
 
+mrl = 1
+
 if (iparallel == 1) then
-   call mpi_send_w('I')  ! Send W group
-   call mpi_recv_w('I')  ! Recv W group
+   call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
+                   rvara1=wc,rvara2=wmc,rvara3=thil)
+   call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
+                   rvara1=wc,rvara2=wmc,rvara3=thil)
 endif
 
 call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
 
-if (meshtype == 1) then
+! Initialize VMC, VC
 
-! For triangle grid, initialize UMC, UC
-
-   call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_u(jtu_init)%jend(1); iu = jtab_u(jtu_init)%iu(j)
-      iw1 = itab_u(iu)%iw(1); iw2 = itab_u(iu)%iw(2)
+do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
+   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
-   call qsub('U',iu)
 
-      if (iw1 == 1) iw1 = iw2
-      if (iw2 == 1) iw2 = iw1
+   if (iw1 == 1) iw1 = iw2
+   if (iw2 == 1) iw2 = iw1
 
-! If sounding winds are to be interpreted as eastward (U) and 
-! northward (V) components, rotate winds from geographic to
-! polar stereographic orientation
-
-! U point coordinates and normal vector components
-
-      do k = 1,mza
-
-         if (mdomain <= 1) then  ! Model uses "earth" coordinates
-            raxis = sqrt(xeu(iu) ** 2 + yeu(iu) ** 2)  ! dist from earth axis
-
-            if (raxis > 1.e3) then
-               uv01dr = -v01d(k) * zeu(iu) / erad  ! radially outward from axis
-
-               uv01dx = (-u01d(k) * yeu(iu) + uv01dr * xeu(iu)) / raxis 
-               uv01dy = ( u01d(k) * xeu(iu) + uv01dr * yeu(iu)) / raxis 
-               uv01dz =   v01d(k) * raxis / erad 
-
-               uc(k,iu) = uv01dx * unx(iu) + uv01dy * uny(iu) + uv01dz * unz(iu)
-            else
-               uc(k,iu) = 0.
-            endif
-
-         else
-            uc(k,iu) = u01d(k) * unx(iu) + v01d(k) * uny(iu)
-         endif
-
-         umc(k,iu) = uc(k,iu) * volui(k,iu)  &
-            * (volt(k,iw2) * rho(k,iw1) + volt(k,iw1) * rho(k,iw2))
-
-      enddo      
-
-! For below-ground points, set UC to LCU value.
-
-      ka = lcu(iu)
-      uc(1:ka-1,iu) = uc(ka,iu)
-
-   enddo
-   call rsub('Ua',8)
-
-! Set UMC, UC = 0 at channel (non-topo) walls
-
-   call psub()
-!----------------------------------------------------------------------
-   do j = 1,jtab_u(jtu_wall)%jend(1); iu = jtab_u(jtu_wall)%iu(j)
-!----------------------------------------------------------------------
-   call qsub('U',iu)
-
-      umc(:,iu) = 0.
-      uc (:,iu) = 0.
-
-   enddo
-   call rsub('Ua',0)
-
-! MPI parallel send/recv of U group
-
-   if (iparallel == 1) then
-      call mpi_send_u('I')
-      call mpi_recv_u('I')
-   endif
-
-! LBC copy of UMC, UC
-
- call lbcopy_u(1, a1=umc, a2=uc)
-
-! Set UMP to UMC
-
-   ump(:,:) = umc(:,:)
-
-else
-
-! For hexagonal grid, initialize VMC, VC
-
-   call psub()
-!----------------------------------------------------------------------
-   do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
-      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-!----------------------------------------------------------------------
-   call qsub('V',iv)
-
-      if (iw1 == 1) iw1 = iw2
-      if (iw2 == 1) iw2 = iw1
+   ka = lpv(iv)
 
 ! If sounding winds are to be interpreted as eastward (U) and 
 ! northward (V) components, rotate winds from geographic to
@@ -528,70 +453,63 @@ else
 
 ! V point coordinates and normal vector components
 
-      do k = 1,mza
+   do k = ka,mza
 
-         if (mdomain <= 1) then  ! Model uses "earth" coordinates
-            raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
+      if (mdomain <= 1) then  ! Model uses "earth" coordinates
+         raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
 
-            if (raxis > 1.e3) then
-               uv01dr = -v01d(k) * zev(iv) / erad  ! radially outward from axis
+         if (raxis > 1.e3) then
+            uv01dr = -v01d(k) * zev(iv) / erad  ! radially outward from axis
 
-               uv01dx = (-u01d(k) * yev(iv) + uv01dr * xev(iv)) / raxis 
-               uv01dy = ( u01d(k) * xev(iv) + uv01dr * yev(iv)) / raxis 
-               uv01dz =   v01d(k) * raxis / erad 
+            uv01dx = (-u01d(k) * yev(iv) + uv01dr * xev(iv)) / raxis 
+            uv01dy = ( u01d(k) * xev(iv) + uv01dr * yev(iv)) / raxis 
+            uv01dz =   v01d(k) * raxis / erad 
 
-               vc(k,iv) = uv01dx * vnx(iv) + uv01dy * vny(iv) + uv01dz * vnz(iv)
-            else
-               vc(k,iv) = 0.
-            endif
-
+            vc(k,iv) = uv01dx * vnx(iv) + uv01dy * vny(iv) + uv01dz * vnz(iv)
          else
-            vc(k,iv) = u01d(k) * vnx(iv) + v01d(k) * vny(iv)
+            vc(k,iv) = 0.
          endif
 
-         vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
+      else
+         vc(k,iv) = u01d(k) * vnx(iv) + v01d(k) * vny(iv)
+      endif
 
-      enddo      
+      vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
+
+   enddo      
 
 ! For below-ground points, set VC to LPV value.
 
-      ka = lpv(iv)
-      vc(1:ka-1,iv) = vc(ka,iv)
+   vc (1:ka-1,iv) = vc(ka,iv)
+   vmc(1:ka-1,iv) = 0.0
 
-   enddo
-   call rsub('Va',8)
+enddo
 
 ! Set VMC, VC = 0 at channel (non-topo) walls
 
-   call psub()
 !----------------------------------------------------------------------
-   do j = 1,jtab_v(jtv_wall)%jend(1); iv = jtab_v(jtv_wall)%iv(j)
+do j = 1,jtab_v(jtv_wall)%jend(1); iv = jtab_v(jtv_wall)%iv(j)
 !----------------------------------------------------------------------
-   call qsub('V',iv)
 
-      vmc(:,iv) = 0.
-      vc (:,iv) = 0.
+   vmc(:,iv) = 0.
+   vc (:,iv) = 0.
 
-   enddo
-   call rsub('Ua',0)
+enddo
 
 ! MPI parallel send/recv of V group
 
-   if (iparallel == 1) then
-      call mpi_send_v('I')  ! Send V group
-      call mpi_recv_v('I')  ! Recv V group
-   endif
+if (iparallel == 1) then
+   call mpi_send_v(mrl, rvara1=vmc, rvara2=vc)
+   call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
+endif
 
 ! LBC copy of VMC, VC
 
-   call lbcopy_v(1, vmc=vmc, vc=vc)
+call lbcopy_v(1, vmc=vmc, vc=vc)
 
 ! Set VMP and VP
 
-   if (allocated(vmp)) vmp(:,:) = vmc(:,:)
-   if (allocated(vp )) vp (:,:) = vc (:,:)
+if (allocated(vmp)) vmp(:,:) = vmc(:,:)
+if (allocated(vp )) vp (:,:) = vc (:,:)
 
-endif
-
-return
 end subroutine fldshhi

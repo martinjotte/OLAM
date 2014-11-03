@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module mem_ijtabs
 
@@ -37,10 +37,9 @@ Module mem_ijtabs
    
    private :: maxgrds, maxremote
 
-   integer, parameter :: mloops = 7 ! max # non-para DO loops for M,U,V,W pts
+   integer, parameter :: mloops = 7 ! max # non-para DO loops for M,V,W pts
 
    integer, parameter :: nloops_m = mloops + maxremote ! # M DO loops incl para
-   integer, parameter :: nloops_u = mloops + maxremote ! # U DO loops incl para
    integer, parameter :: nloops_v = mloops + maxremote ! # V DO loops incl para
    integer, parameter :: nloops_w = mloops + maxremote ! # W DO loops incl para
 
@@ -50,7 +49,7 @@ Module mem_ijtabs
    ! *_grid is for setting up grid parameters in the ctrlvols subroutines
    ! *_init is for initialization of ATM fields (in ohhi, olhi, fldsisan, 
    !        hurricane_init, omic_init)
-   ! *_prog is for points where primary quantities such at UMC, VMC, THIL are
+   ! *_prog is for points where primary quantities such as VMC or THIL are
    !        prognosed
    ! *_wadj is for U, V, or W points that are adjacent to W points where primary
    !        quantities are prognosed
@@ -59,9 +58,9 @@ Module mem_ijtabs
    ! *_lbcp is for lateral boundary points whose values are copied from an
    !        interior prognostic point
    ! *_vadj is for M points that are adjacent to a prognostic V point, while
-   !        jtw_vadj is the representatio of jtm_vadj in the pre-hex-grid stage
+   !        jtw_vadj is the representation of jtm_vadj in the pre-hex-grid stage
    !        of model grid initialization)
-   ! *_wall is for U points along the wall of an x-z channel domain (mdomain = 3)
+   ! *_wall is for U or V points along the wall of an x-z channel domain (mdomain = 3)
 
    integer, parameter :: jtm_grid = 1, jtu_grid = 1, jtv_grid = 1, jtw_grid = 1
    integer, parameter :: jtm_init = 2, jtu_init = 2, jtv_init = 2, jtw_init = 2
@@ -86,7 +85,7 @@ Module mem_ijtabs
    integer, allocatable :: leafstep(:)  ! flag to run leaf on any sub-timestep
 
    Type itab_m_vars             ! data structure for M pts (individual rank)
-      logical :: loop(nloops_m) = .false. ! flag to perform each DO loop at this M pt
+      logical, allocatable :: loop(:) ! flag to perform each DO loop at this M pt
 
       integer :: npoly = 0       ! number of V/W neighbors of this M pt
       integer :: imp = 1         ! M point from which to copy this M pt's values
@@ -99,40 +98,21 @@ Module mem_ijtabs
       integer :: iu(7) = 1       ! array of U neighbors of this M pt (Delaunay)
       integer :: iv(7) = 1       ! array of V neighbors of this M pt (Voronoi)
       integer :: iw(7) = 1       ! array of W neighbors of this M pt (Del or Vor)
-    ! real    :: fmw(7) = 0.     ! Interp coefs of W values to M point
    End Type itab_m_vars
 
    Type itab_u_vars             ! data structure for U pts (individual rank)
-      logical :: loop(nloops_u) = .false. ! flag to perform each DO loop at this M pt
+      logical, allocatable :: loop(:) ! flag to perform each DO loop at this M pt
 
       integer :: iup = 1       ! U pt from which to copy this U pt's values
-      integer :: irank = -1    ! rank of parallel process at this U pt
       integer :: iuglobe = 1   ! global index of this U pt (in parallel case)
       integer :: mrlu = 0      ! mesh refinement level of this U pt
       integer :: im(2) = 1     ! neighbor M pts of this U pt
       integer :: iu(12) = 1    ! neighbor U pts
       integer :: iw(6) = 1     ! neighbor W pts
-      real    :: diru(4) = 0.  ! pos direction of U neighbors
-
-! Some of the following will change when V is routinely diagnosed on TRI grid
-
-      real :: fuu(12) = 0.   ! proj coefs of U neighbors
-      real :: fuw(6) = 0.    ! proj coefs of W neighbors
-      real :: tuu(4) = 0.    ! proj coefs of U neighbors
-      real :: guw(4)  = 0.   ! gradient coefs of outer W neighbors of U
-      real :: gcf36 = 0., gcf45 = 0. ! UMC grad coefs for intrp to U edge center
-      real :: pgc12=0., pgc45=0., pgc63=0., pgc12b=0.    ! PGF proj coefs
-      real :: pgc45b=0., pgc12c=0., pgc63c=0., pgc12d=0. ! PGF proj coefs
-      real :: vxu_u(4) = 0.  ! proj coefs
-      real :: vyu_u(4) = 0.  ! proj coefs
-      real :: vxw_u(2) = 0.  ! proj coefs
-      real :: vyw_u(2) = 0.  ! proj coefs
-      real :: crossmm = 0.
-      real :: crossww = 0.
    End Type itab_u_vars
 
    Type itab_v_vars             ! data structure for V pts (individual rank)
-      logical :: loop(nloops_v) = .false. ! flag to perform each DO loop at this V pt
+      logical, allocatable :: loop(:) ! flag to perform each DO loop at this V pt
 
       integer :: ivp = 1       ! V pt from which to copy this V pt's values
       integer :: irank = -1    ! rank of parallel process at this V pt
@@ -141,11 +121,6 @@ Module mem_ijtabs
       integer :: im(6) = 1     ! neighbor M pts of this V pt
       integer :: iw(4) = 1     ! neighbor W pts of this V pt
       integer :: iv(4) = 1     ! neighbor V pts
-
-    ! integer :: iv(16) = 1    ! neighbor V pts
-    ! real :: fvv(12) = 0.     ! Proj of V5-12 onto V    [HADV + HDIFF]
-    ! real :: fvw (4) = 0.     ! Proj of W1-4 onto V     [HADV + HDIFF]
-    ! real :: fuv(16) = 0.     ! Interp of V1-16 onto U  [CORF]
 
       real :: farw(2) = 0.     ! Interp of ARW to V control volume [VADV + VDIFF]
 
@@ -157,25 +132,22 @@ Module mem_ijtabs
    End Type itab_v_vars
 
    Type itab_w_vars             ! data structure for W pts (individual rank)
-      logical :: loop(nloops_w) = .false. ! flag to perform each DO loop at this W pt
+      logical, allocatable :: loop(:) ! flag to perform each DO loop at this W pt
 
       integer :: npoly = 0     ! number of M/V neighbors of this W pt
       integer :: iwp = 1       ! W pt from which to copy this W pt's values
       integer :: irank = -1    ! rank of parallel process at this W pt
       integer :: iwglobe = 1   ! global index of this W pt (in parallel run)
       integer :: mrlw = 0      ! mesh refinement level of this W pt
-      integer :: mrlw_orig = 0 ! mesh refinement level of this W pt
+      integer :: mrlw_orig = 0 ! original MRL of this W pt
       integer :: mrow = 0      ! Full row number outside nest (Delaunay)
       integer :: mrowh = 0     ! Half row number outside nest (Delaunay)
-      integer :: im(7) = 1     ! neighbor M pts of this W pt
-      integer :: iu(9) = 1     ! neighbor U pts (9 Delaunay, 7 Voronoi)
+      integer :: im(7) = 1     ! neighbor M pts of this W pt (Voronoi)
+      integer :: iu(3) = 1     ! neighbor U pts (Delaunay)
       integer :: iv(7) = 1     ! neighbor V pts (Voronoi)
       integer :: iw(9) = 1     ! neighbor W pts (9 Delaunay, 7 Voronoi)
 
-      real :: diru(3) = 0.     ! pos direction of U neighbors (Delaunay)
       real :: dirv(7) = 0.     ! pos direction of V neighbors (Voronoi)
-      real :: fwv (7) = 0.     ! Proj of V1-7 onto W [HADV + HDIFF]
-      real :: fww (7) = 0.     ! Proj of W1-7 onto W [HADV + HDIFF]
 
       real :: farm(7) = 0.     ! Fraction of arw0 in each M point sector 
       real :: farv(7) = 0.     ! Fraction of arw0 in each V point sector 
@@ -197,21 +169,14 @@ Module mem_ijtabs
       real :: ecvec_vy(7) = 0. ! factors converting V to earth cart. velocity
       real :: ecvec_vz(7) = 0. ! factors converting V to earth cart. velocity
 
-! Delaunay section - will change some
-
-      real :: fwu(9) = 0.  ! proj coefs of U neighbors
-!      real :: fww(3) = 0.  ! proj coefs of W neighbors
-      real :: vxu(3) = 0.  ! proj coefs of U neighbors
-      real :: vyu(3) = 0.  ! proj coefs of U neighbors
-      real :: vzu(3) = 0.  ! proj coefs of U neighbors
-      real :: vxw = 0.     ! proj coefs of W neighbors
-      real :: vyw = 0.     ! proj coefs of W neighbors
-      real :: vzw = 0.     ! proj coefs of W neighbors
-      real :: vxu_w(3) = 0.  ! proj coefs of U neighbors
-      real :: vyu_w(3) = 0.  ! proj coefs of U neighbors
-
       integer :: iwnud(3) = 1  ! local nudpoly pts
-      real    :: fnud(3) = 0. ! local nudpoly coeffs
+      real    :: fnud(3) = 0.  ! local nudpoly coeffs
+
+      integer :: nland         ! number of land cells attached to this W column
+      integer :: nsea          ! number of sea cells attached to this W column
+
+      integer, allocatable :: iland(:) ! indices of attached land cells
+      integer, allocatable :: isea(:)  ! indices of attached sea cells
    End Type itab_w_vars
 
    Type itabg_m_vars            ! data structure for M pts (global)
@@ -219,11 +184,6 @@ Module mem_ijtabs
       integer :: irank = -1     ! rank of parallel process at this M pt
       integer :: im_myrank_imp = -1 ! local M point that corresponds to global imp
    End Type itabg_m_vars
-
-   Type itabg_u_vars            ! data structure for U pts (global)
-      integer :: iu_myrank = -1 ! local (parallel subdomain) index of this U pt
-      integer :: irank = -1     ! rank of parallel process at this U pt
-   End Type itabg_u_vars
 
    Type itabg_v_vars            ! data structure for V pts (global)
       integer :: iv_myrank = -1 ! local (parallel subdomain) index of this V pt
@@ -251,11 +211,6 @@ Module mem_ijtabs
       integer, allocatable :: jend(:)
    End Type jtab_m_vars
 
-   Type jtab_u_vars
-      integer, allocatable :: iu(:)
-      integer, allocatable :: jend(:)
-   End Type jtab_u_vars
-
    Type jtab_v_vars
       integer, allocatable :: iv(:)
       integer, allocatable :: jend(:)
@@ -274,17 +229,9 @@ Module mem_ijtabs
       integer :: iw(7) = 1  ! array of W neighbors of this M pt (Del or Vor)
    End Type itab_m_pd_vars
 
-   Type itab_u_pd_vars      ! data structure for U pts (individual rank) on para_(decomp,init)
-      integer :: iup    = 1 ! U pt from which to copy this U pt's values
-      integer :: im(2)  = 1 ! neighbor M pts of this U pt
-      integer :: iu(12) = 1 ! neighbor U pts
-      integer :: iw(6)  = 1 ! neighbor W pts
-   End Type itab_u_pd_vars
-
    Type itab_v_pd_vars      ! data structure for V pts (individual rank) on para_(decomp,init)
       integer :: ivp    = 1 ! V pt from which to copy this V pt's values
       integer :: im(6)  = 1 ! neighbor M pts of this V pt
-    ! integer :: iv(16) = 1 ! neighbor V pts
       integer :: iv(4)  = 1 ! neighbor V pts
       integer :: iw(4)  = 1 ! neighbor W pts of this V pt
    End Type itab_v_pd_vars
@@ -293,9 +240,8 @@ Module mem_ijtabs
       integer :: iwp   = 1  ! W pt from which to copy this W pt's values
       integer :: npoly = 0  ! number of M/V neighbors of this W pt
       integer :: im(7) = 1  ! neighbor M pts of this W pt
-      integer :: iu(9) = 1  ! neighbor U pts (9 Delaunay, 7 Voronoi)
-      integer :: iv(7) = 1  ! neighbor V pts (Voronoi)
-      integer :: iw(9) = 1  ! neighbor W pts (9 Delaunay, 7 Voronoi)
+      integer :: iv(7) = 1  ! neighbor V pts
+      integer :: iw(7) = 1  ! neighbor W pts
       integer :: iwnud(3) = 1  ! local nudpoly pts
    End Type itab_w_pd_vars
 
@@ -304,12 +250,10 @@ Module mem_ijtabs
    type (itab_w_vars), allocatable :: itab_wd(:)
 
    type (itab_m_vars),  allocatable, target :: itab_m(:)
-   type (itab_u_vars),  allocatable, target :: itab_u(:)
    type (itab_v_vars),  allocatable, target :: itab_v(:)
    type (itab_w_vars),  allocatable, target :: itab_w(:)
 
    type (itab_m_pd_vars), allocatable, target :: itab_m_pd(:)
-   type (itab_u_pd_vars), allocatable, target :: itab_u_pd(:)
    type (itab_v_pd_vars), allocatable, target :: itab_v_pd(:)
    type (itab_w_pd_vars), allocatable, target :: itab_w_pd(:)
 
@@ -318,7 +262,6 @@ Module mem_ijtabs
    type (itab_w_vars), allocatable :: ltab_wd(:)
 
    type (itabg_m_vars), allocatable, target :: itabg_m(:)
-   type (itabg_u_vars), allocatable, target :: itabg_u(:)
    type (itabg_v_vars), allocatable, target :: itabg_v(:)
    type (itabg_w_vars), allocatable, target :: itabg_w(:)
 
@@ -326,7 +269,6 @@ Module mem_ijtabs
    type (nest_wd_vars), allocatable :: nest_wd(:)
    
    type (jtab_m_vars) :: jtab_m(nloops_m)
-   type (jtab_u_vars) :: jtab_u(nloops_u)
    type (jtab_v_vars) :: jtab_v(nloops_v)
    type (jtab_w_vars) :: jtab_w(nloops_w)
 
@@ -334,57 +276,97 @@ Contains
 
 !===============================================================================
 
-   subroutine alloc_itabsd(mma,mua,mwa)
+   subroutine alloc_itabsd(mma, mua, mwa)
 
    implicit none
 
-   integer, intent(in) :: mma,mua,mwa
+   integer, intent(in) :: mma, mua, mwa
+   integer :: imd, iud, iwd
 
    allocate (itab_md(mma))
    allocate (itab_ud(mua))
    allocate (itab_wd(mwa))
 
-   return
+   do imd = 1,mma
+      allocate(itab_md(imd)%loop(mloops))
+      itab_md(imd)%loop(1:mloops) = .false.
+   enddo
+
+   do iud = 1,mua
+      allocate(itab_ud(iud)%loop(mloops))
+      itab_ud(iud)%loop(1:mloops) = .false.
+   enddo
+
+   do iwd = 1,mwa
+      allocate(itab_wd(iwd)%loop(mloops))
+      itab_wd(iwd)%loop(1:mloops) = .false.
+   enddo
+
    end subroutine alloc_itabsd
 
 !===============================================================================
 
-   subroutine alloc_itabs(meshtype,mma,mua,mva,mwa)
+   subroutine alloc_itabs(mma, mva, mwa, input)
 
    implicit none
 
-   integer, intent(in) :: meshtype,mma,mua,mva,mwa
+   integer, intent(in) :: mma, mva, mwa, input
+   integer :: im, iv, iw
 
-   if (meshtype == 1) then
-      allocate (itab_u(mua))
-   elseif (meshtype == 2) then
-      allocate (itab_v(mva))
-   endif
-   
    allocate (itab_m(mma))
+   allocate (itab_v(mva))
    allocate (itab_w(mwa))
 
-   return
+   if (input == 0) then
+
+      do im = 1,mma
+         allocate(itab_m(im)%loop(mloops))
+         itab_m(im)%loop(1:mloops) = .false.
+      enddo
+
+      do iv = 1,mva
+         allocate(itab_v(iv)%loop(mloops))
+         itab_v(iv)%loop(1:mloops) = .false.
+      enddo
+
+      do iw = 1,mwa
+         allocate(itab_w(iw)%loop(mloops))
+         itab_w(iw)%loop(1:mloops) = .false.
+      enddo
+
+   else
+
+      do im = 1,mma
+         allocate(itab_m(im)%loop(nloops_m))
+         itab_m(im)%loop(1:nloops_m) = .false.
+      enddo
+
+      do iv = 1,mva
+         allocate(itab_v(iv)%loop(nloops_v))
+         itab_v(iv)%loop(1:nloops_v) = .false.
+      enddo
+
+      do iw = 1,mwa
+         allocate(itab_w(iw)%loop(nloops_w))
+         itab_w(iw)%loop(1:nloops_w) = .false.
+      enddo
+
+   endif
+
    end subroutine alloc_itabs
 
 !===============================================================================
 
-   subroutine alloc_itabs_pd(meshtype,mma,mua,mva,mwa)
+   subroutine alloc_itabs_pd(mma, mva, mwa)
 
    implicit none
 
-   integer, intent(in) :: meshtype,mma,mua,mva,mwa
+   integer, intent(in) :: mma, mva, mwa
 
    allocate (itab_m_pd(mma))
-   if (meshtype == 1) then
-      allocate (itab_u_pd(mua))
-   elseif (meshtype == 2) then
-      allocate (itab_v_pd(mva))
-   endif
-   
+   allocate (itab_v_pd(mva))
    allocate (itab_w_pd(mwa))
 
-   return
    end subroutine alloc_itabs_pd
 
 !===============================================================================
@@ -392,32 +374,21 @@ Contains
    subroutine filltab_itabs()
 
    use var_tables, only: vtab_r, num_var, increment_vtable
-   use misc_coms,  only: iparallel, runtype, meshtype, ipar_out
+   use misc_coms,  only: iparallel, runtype, ipar_out
 
    implicit none
 
-! THESE ONLY NEED TO BE WRITTEN TO HISTORY FILES FOR PARALLEL RUNS WRITING
-! TO MULTIPLE FILES, AND READ FOR PLOTONLY OR PARCOMBINE RUNS
+! These only need to be on parallel subdomain history files
 
    if ( (runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or. &
         (iparallel == 1 .and. ipar_out == 0) ) then
 
-      if (allocated(itab_u)) then
-
-         call increment_vtable('IUGLOBE', 'AU', noread=.true.)
-         vtab_r(num_var)%ivar1_p => itab_u%iuglobe
-         
-         call increment_vtable('IRANKU', 'AU', noread=.true.)
-         vtab_r(num_var)%ivar1_p => itab_u%irank
-            
-      endif
-
       if (allocated(itab_v)) then
             
-         call increment_vtable('IVGLOBE', 'AU', noread=.true.)
+         call increment_vtable('IVGLOBE', 'AV', noread=.true.)
          vtab_r(num_var)%ivar1_p => itab_v%ivglobe
             
-         call increment_vtable('IRANKV', 'AU', noread=.true.)
+         call increment_vtable('IRANKV', 'AV', noread=.true.)
          vtab_r(num_var)%ivar1_p => itab_v%irank
 
       endif
@@ -445,46 +416,50 @@ Contains
 
 !===============================================================================
 
-   subroutine fill_jtabs(mma,mua,mva,mwa)
+   subroutine fill_jtabs(mma, mva, mwa, input)
 
    use misc_coms,  only: io6, nqparm
 
    implicit none
 
-   integer, intent(in) :: mma,mua,mva,mwa
+   integer, intent(in) :: mma, mva, mwa, input
 
    integer :: iw,iu,iv,im,k,nl,mrl
    integer :: iloop,iw1,iw2,mrl0,jend
+   integer :: nlm, nlv, nlw
+
+   if (input == 0) then
+      nlm = mloops
+      nlv = mloops
+      nlw = mloops
+   else
+      nlm = nloops_m
+      nlv = nloops_v
+      nlw = nloops_w
+   endif
 
 ! Allocate and zero-fill jtab%jend()
 
-   do iloop = 1,nloops_m
+   do iloop = 1,nlm
       allocate (jtab_m(iloop)%jend(mrls))
       jtab_m(iloop)%jend(1:mrls) = 0
    enddo
    
-   if (allocated(itab_u)) then 
-      do iloop = 1,nloops_u
-         allocate (jtab_u(iloop)%jend(mrls))
-         jtab_u(iloop)%jend(1:mrls) = 0
-      enddo
-   endif
-
    if (allocated(itab_v)) then 
-      do iloop = 1,nloops_v
+      do iloop = 1,nlv
          allocate (jtab_v(iloop)%jend(mrls))
          jtab_v(iloop)%jend(1:mrls) = 0
       enddo
    endif
    
-   do iloop = 1,nloops_w
+   do iloop = 1,nlw
       allocate (jtab_w(iloop)%jend(mrls))
       jtab_w(iloop)%jend(1:mrls) = 0
    enddo
 
 ! Compute and store jtab%jend(1)
 
-   do iloop = 1,nloops_m
+   do iloop = 1,nlm
       jtab_m(iloop)%jend(1) = 0
       do im = 2,mma
          if (itab_m(im)%loop(iloop)) then
@@ -494,31 +469,17 @@ Contains
       jtab_m(iloop)%jend(1) = max(1,jtab_m(iloop)%jend(1))
    enddo
 
-   if (allocated(itab_u)) then 
-      do iloop = 1,nloops_u
-         jtab_u(iloop)%jend(1) = 0
-         do iu = 2,mua
-            if (itab_u(iu)%loop(iloop)) then
-               jtab_u(iloop)%jend(1) = jtab_u(iloop)%jend(1) + 1
-            endif
-         enddo
-         jtab_u(iloop)%jend(1) = max(1,jtab_u(iloop)%jend(1))
+   do iloop = 1,nlv
+      jtab_v(iloop)%jend(1) = 0
+      do iv = 2,mva
+         if (itab_v(iv)%loop(iloop)) then
+            jtab_v(iloop)%jend(1) = jtab_v(iloop)%jend(1) + 1
+         endif
       enddo
-   endif
-
-   if (allocated(itab_v)) then 
-      do iloop = 1,nloops_v
-         jtab_v(iloop)%jend(1) = 0
-         do iv = 2,mva
-            if (itab_v(iv)%loop(iloop)) then
-               jtab_v(iloop)%jend(1) = jtab_v(iloop)%jend(1) + 1
-            endif
-         enddo
-         jtab_v(iloop)%jend(1) = max(1,jtab_v(iloop)%jend(1))
-      enddo
-   endif
+      jtab_v(iloop)%jend(1) = max(1,jtab_v(iloop)%jend(1))
+   enddo
    
-   do iloop = 1,nloops_w
+   do iloop = 1,nlw
       jtab_w(iloop)%jend(1) = 0
       do iw = 2,mwa
          if (itab_w(iw)%loop(iloop)) then
@@ -530,29 +491,19 @@ Contains
 
 ! Allocate and zero-fill JTAB_M%IM, JTAB_V%IV, JTAB_W%IW
 
-   do iloop = 1,nloops_m
+   do iloop = 1,nlm
       jend = jtab_m(iloop)%jend(1)
       allocate (jtab_m(iloop)%im(jend))
       jtab_m(iloop)%im(1:jend) = 0
    enddo
 
-   if (allocated(itab_u)) then 
-      do iloop = 1,nloops_u
-         jend = jtab_u(iloop)%jend(1)
-         allocate (jtab_u(iloop)%iu(jend))
-         jtab_u(iloop)%iu(1:jend) = 0
-      enddo
-   endif
-
-   if (allocated(itab_v)) then 
-      do iloop = 1,nloops_v
-         jend = jtab_v(iloop)%jend(1)
-         allocate (jtab_v(iloop)%iv(jend))
-         jtab_v(iloop)%iv(1:jend) = 0
-      enddo
-   endif
+   do iloop = 1,nlv
+      jend = jtab_v(iloop)%jend(1)
+      allocate (jtab_v(iloop)%iv(jend))
+      jtab_v(iloop)%iv(1:jend) = 0
+   enddo
    
-   do iloop = 1,nloops_w
+   do iloop = 1,nlw
       jend = jtab_w(iloop)%jend(1)
       allocate (jtab_w(iloop)%iw(jend))
       jtab_w(iloop)%iw(1:jend) = 0
@@ -560,23 +511,15 @@ Contains
 
 ! Initialize JTAB%JEND counters to zero
 
-   do iloop = 1,nloops_m
+   do iloop = 1,nlm
       jtab_m(iloop)%jend(1:mrls) = 0
    enddo
 
-   if (allocated(itab_u)) then 
-      do iloop = 1,nloops_u
-         jtab_u(iloop)%jend(1:mrls) = 0
-      enddo
-   endif
-
-   if (allocated(itab_v)) then 
-      do iloop = 1,nloops_v
-         jtab_v(iloop)%jend(1:mrls) = 0
-      enddo
-   endif
+   do iloop = 1,nlv
+      jtab_v(iloop)%jend(1:mrls) = 0
+   enddo
    
-   do iloop = 1,nloops_w
+   do iloop = 1,nlw
       jtab_w(iloop)%jend(1:mrls) = 0
    enddo
 
@@ -586,7 +529,7 @@ Contains
 
    do mrl = mrls,1,-1
       do im = 2,mma
-         do iloop = 1,nloops_m
+         do iloop = 1,nlm
             if (itab_m(im)%loop(iloop) .and. itab_m(im)%mrlm == mrl) then
                jtab_m(iloop)%jend(1:mrl) = jtab_m(iloop)%jend(1:mrl) + 1
                jtab_m(iloop)%im(jtab_m(iloop)%jend(1)) = im
@@ -596,42 +539,21 @@ Contains
    enddo
 
 ! ///////////////////////////////////////////////////////////////////////////
-! Compute JTAB_U%IU
-! ///////////////////////////////////////////////////////////////////////////
-
-! MRL-independent loops
-
-   if (allocated(itab_u)) then 
-      do mrl = mrls,1,-1
-         do iu = 2,mua
-            do iloop = 1,nloops_u
-               if (itab_u(iu)%loop(iloop) .and. itab_u(iu)%mrlu == mrl) then
-                  jtab_u(iloop)%jend(1:mrl) = jtab_u(iloop)%jend(1:mrl) + 1
-                  jtab_u(iloop)%iu(jtab_u(iloop)%jend(1)) = iu
-               endif
-            enddo
-         enddo
-      enddo
-   endif
-
-! ///////////////////////////////////////////////////////////////////////////
 ! Compute JTAB_V%IV
 ! ///////////////////////////////////////////////////////////////////////////
 
 ! MRL-independent loops
 
-   if (allocated(itab_v)) then 
-      do mrl = mrls,1,-1
-         do iv = 2,mva
-            do iloop = 1,nloops_v
-               if (itab_v(iv)%loop(iloop) .and. itab_v(iv)%mrlv == mrl) then
-                  jtab_v(iloop)%jend(1:mrl) = jtab_v(iloop)%jend(1:mrl) + 1
-                  jtab_v(iloop)%iv(jtab_v(iloop)%jend(1)) = iv
-               endif
-            enddo
+   do mrl = mrls,1,-1
+      do iv = 2,mva
+         do iloop = 1,nlv
+            if (itab_v(iv)%loop(iloop) .and. itab_v(iv)%mrlv == mrl) then
+               jtab_v(iloop)%jend(1:mrl) = jtab_v(iloop)%jend(1:mrl) + 1
+               jtab_v(iloop)%iv(jtab_v(iloop)%jend(1)) = iv
+            endif
          enddo
       enddo
-   endif
+   enddo
 
 ! ///////////////////////////////////////////////////////////////////////////
 ! Compute JTAB_W%IW
@@ -639,7 +561,7 @@ Contains
 
    do mrl = mrls,1,-1
       do iw = 2,mwa
-         do iloop = 1,nloops_w
+         do iloop = 1,nlw
             if (itab_w(iw)%loop(iloop) .and. itab_w(iw)%mrlw == mrl) then
                jtab_w(iloop)%jend(1:mrl) = jtab_w(iloop)%jend(1:mrl) + 1
                jtab_w(iloop)%iw(jtab_w(iloop)%jend(1)) = iw

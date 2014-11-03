@@ -1,7 +1,54 @@
 # Activate appropriate parts below, comment out others:
 
 #-----------------  LINUX Portland Group pgf77/gcc ---------------
-F_COMP=pgf90
+#F_COMP=pgf90
+#
+## If the compiler supports (and the user wants to use)
+## the module IEEE_ARITHMETIC, uncomment below
+#IEEE_ARITHMETIC=yes
+#
+## If using MPI libraries:
+#OLAM_MPI=yes
+#MPI_PATH=/usr/local/mpich
+#PAR_INCS=-I$(MPI_PATH)/include
+#PAR_LIBS=-L$(MPI_PATH)/lib -lmpich -lpmpich
+#
+## If parallel hdf5 is supported, uncomment the next line
+#OLAM_PARALLEL_HDF5=yes
+#
+## If you use the ED2 model, uncomment the next line
+#USE_ED2=yes
+#
+## OPTIMIZED:
+#F_OPTS=-Mvect=cachesize:524288 -Munroll -Mnoframe -O2 -pc 64 \
+#       -Mfree  -Mbyteswapio
+#
+## DEBUG:
+#F_OPTS= -g  -pc 64 -Mfree  -Mbyteswapio -Mbounds
+#
+## FORTRAN FLAGS FOR BIG FILES WHICH WOULD HAVE EXCESSIVE COMPILATION TIME
+#SLOW_FFLAGS=-O1 -g
+#
+#C_COMP=gcc
+#C_OPTS=-O3 -DUNDERSCORE -DLITTLE
+#
+#NCARG_DIR=/usr/local/ncarg/lib
+#LIBNCARG=-L$(NCARG_DIR) -lncarg -lncarg_gks -lncarg_c \
+#          -L/usr/X11/lib64 -lX11 -ldl -lpthread
+#
+#HDF5_LIBS=-L/usr/local/lib64 -lhdf5 -lz -lm
+#HDF5_INCS=-I/usr/local/include
+#
+#NETCDF_LIBS=-L/usr/local/lib64 -lnetcdf
+#NETCDF_INCS=-I/usr/local/include
+#
+#LOADER=$(F_COMP)
+#LOADER_OPTS=-v -Wl,-static $(F_OPTS)
+#LIBS=
+
+
+#-----------------  LINUX Intel Fortran ifort/gcc ---------------
+F_COMP=h5pfc
 
 # If the compiler supports (and the user wants to use)
 # the module IEEE_ARITHMETIC, uncomment below
@@ -14,97 +61,49 @@ OLAM_MPI=yes
 OLAM_PARALLEL_HDF5=yes
 
 # If you use the ED2 model, uncomment the next line
-USE_ED2=yes
+#USE_ED2=yes
 
-# If using MPI libraries:
-#OLAM_MPI=yes
 #MPI_PATH=/usr/local/mpich
-#PAR_INCS=-I$(MPI_PATH)/include
-#PAR_LIBS=-L$(MPI_PATH)/lib -lmpich -lpmpich
+PAR_INCS=
+PAR_LIBS=
 
 # OPTIMIZED:
-#F_OPTS=-Mvect=cachesize:524288 -Munroll -Mnoframe -O2 -pc 64 \
-#       -Mfree  -Mbyteswapio
+F_OPTS=-xHost -O3 -fno-alias -ip -openmp -traceback
+#F_OPTS=-g -O3 -xHost -traceback
 
 # DEBUG:
-F_OPTS=-O0 -g #  -pc 64 -Mfree  -Mbyteswapio -Mbounds
+#F_OPTS=-g -fp-model precise -check bounds -traceback \
+#        -debug extended -check uninit -ftrapuv
 
 # FORTRAN FLAGS FOR BIG FILES WHICH WOULD HAVE EXCESSIVE COMPILATION TIME
-SLOW_FFLAGS=-O1 -g
+SLOW_FFLAGS=-O1 -g -no-ip -traceback
 
 C_COMP=gcc
-C_OPTS=-O0 -DUNDERSCORE -DLITTLE
+#C_COMP=mpicc
+C_OPTS=-O3 -DUNDERSCORE -DLITTLE
 
-NCARG_DIR=/opt/ncl/lib
+NCARG_DIR=/data/local/lib
 LIBNCARG=-L$(NCARG_DIR) -lncarg -lncarg_gks -lncarg_c \
-          -lX11 -ldl -lpthread -lgfortran
+          -L/usr/lib64 -lX11 -ldl -lpng -lpthread -lgfortran
 
-HDF5_LIBS=-L/usr/local/hdf5/lib -lhdf5_fortran -lhdf5 -lz -lm
-HDF5_INCS=-I/usr/local/hdf5/include
+HDF5_LIBS=
+HDF5_INCS=
 
-NETCDF_LIBS=-lnetcdf
-NETCDF_INCS=
+#NETCDF_LIBS=-L/usr/local/lib64 -lnetcdf
+#NETCDF_INCS=-I/usr/local/include
 
 LOADER=$(F_COMP)
-LOADER_OPTS=$(F_OPTS)
-LIBS=
+LOADER_OPTS=-static-intel $(F_OPTS)
 
+# For Apple OSX: the stack size needs to be increased at link time
+# LOADER_OPTS=-static-intel $(F_OPTS) -Wl,-stack_size -Wl,0x10000000
 
-#-----------------  LINUX Intel Fortran ifort/gcc ---------------
-#F_COMP=mpif90
-#
-## If the compiler supports (and the user wants to use)
-## the module IEEE_ARITHMETIC, uncomment below
-#IEEE_ARITHMETIC=yes
-#
-## If using MPI libraries:
-#OLAM_MPI=yes
-#
-## If parallel hdf5 is supported, uncomment the next line
-#OLAM_PARALLEL_HDF5=yes
-#
-## If you use the ED2 model, uncomment the next line
-#USE_ED2=yes
-#
-#MPI_PATH=/usr/local/mpich
-#PAR_INCS=-I$(MPI_PATH)/include
-#PAR_LIBS=-L$(MPI_PATH)/lib -lmpich -lpmpich
-#
-## OPTIMIZED:
-##F_OPTS=-xHost -O3 -fno-alias -ip -traceback
-#F_OPTS=-g -O3 -xHost -traceback
-#
-## DEBUG:
-##F_OPTS=-g -fp-model precise -check bounds -traceback \
-##        -debug extended -check uninit -ftrapuv
-#
-## FORTRAN FLAGS FOR BIG FILES WHICH WOULD HAVE EXCESSIVE COMPILATION TIME
-#SLOW_FFLAGS=-O1 -g -no-ip -traceback
-#
-#C_COMP=mpicc
-#C_OPTS=-DUNDERSCORE -DLITTLE
-#
-#NCARG_DIR=/opt/ncl/lib
-#LIBNCARG=-L$(NCARG_DIR) -lncarg -lncarg_gks -lncarg_c \
-#          -lX11 -ldl -lpthread -lgfortran
-#
-#HDF5_LIBS=-L/home/pedropl/stuff/hdf5-intel/lib -lhdf5_fortran -lhdf5 -lz -lm
-#HDF5_INCS=-I/home/pedropl/stuff/hdf5-intel/include
-#
-#
-#NETCDF_LIBS=-lnetcdf
-#NETCDF_INCS=
-#
-#LOADER=$(F_COMP)
-#LOADER_OPTS=$(F_OPTS)
-#
-## For Apple OSX: the stack size needs to be increased at link time
-## LOADER_OPTS=$(F_OPTS) -Wl,-stack_size -Wl,0x10000000 -L/Developer/SDKs/MacOSX10.6.sdk/usr/lib
-#
-## to allow ifort compiler to link with pg-compiled ncar graphics:
-## LIBS=-z muldefs -L/opt/pgi/linux86-64/5.2/lib -lpgftnrtl -lpgc
-#
-#
+# to allow ifort compiler to link with pg-compiled ncar graphics:
+# LIBS=-z muldefs -L/opt/pgi/linux86-64/5.2/lib -lpgftnrtl -lpgc
+
+## IMPORTANT:  Need to specify this flag in ED2
+USE_HDF5=1
+
 #----------------- IBM xlf/xlc ---------------------------------
 #F_COMP=xlf95_r       # without MPI
 #

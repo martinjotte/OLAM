@@ -1,5 +1,9 @@
 !===============================================================================
-! OLAM version 4.0
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -25,10 +29,6 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 subroutine olam_run(name_name)
 
@@ -38,46 +38,53 @@ use, intrinsic :: ieee_arithmetic
 
 use misc_coms,   only: io6, time8, time_istp8, iflag, runtype, hfilin, nzp,    &
                        expnme, mdomain, ngrids, initial, iswrtyp, ilwrtyp,     &
-                       meshtype, timmax8, alloc_misc, iparallel, ipar_out,     &
+                       timmax8, alloc_misc, iparallel, ipar_out,     &
                        iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
                        time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
                        isubdomain
 
-use leaf_coms,   only: nzg, nzs, isfcl, nwl, mwl
-use mem_leaf,    only: fill_jland
-use sea_coms,    only: nws, mws
-use mem_sea,     only: fill_jsea
+use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, &
+                       alloc_mpi_sndrcv_bufs
 
-use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_u, itab_v, itab_w
+use leaf_coms,   only: nzg, nzs, isfcl, nwl, mwl
+use sea_coms,    only: nws, mws
+
+use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_v, itab_w
 use oplot_coms,  only: op
-use mem_grid,    only: nma, nua, nva, nwa, mma, mua, mva, mwa, mza, zm, zt
+use mem_grid,    only: nma, nva, nwa, mma, mva, mwa, mza, zm, zt
 use mem_basic,   only: alloc_basic, wc, vxe, vye, vze
 use micro_coms,  only: gnu
 use mem_nudge,   only: nudflag, nudnxp, fill_jnudge
 use mem_rayf,    only: rayf_init
-use mem_sflux,   only: init_fluxcells, fill_jflux, mseaflux, mlandflux
 use mem_para,    only: myrank
 use consts_coms, only: r8
 use oname_coms,  only: nl
-use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, alloc_mpi_sndrcv_bufs
 use ed_misc_coms,only: ed2_active, ed2_namelist
 use hcane_rz,    only: init_hurr_step, hurricane_init
 use obnd,        only: trsets, lbcopy_w
 use var_tables,  only: nvar_par, vtab_r, nptonv
 use mem_plot,    only: copy_plot
-use mem_swtc5_refsoln_cubic
 
 use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
+
+use mem_swtc5_refsoln_cubic
 
 implicit none
 
 character(len=*), intent(in) :: name_name
 
 integer :: i,ifm,nndtflg,ifileok,ierr,iplt_file,mrl, imavg_file, idavg_file
-integer :: mwa_prog, mua_prog, mva_prog
+integer :: mwa_prog, mva_prog
 real :: w1,w2,t1,t2,wtime_start
 real, external :: walltime
+integer, external :: omp_get_max_threads
 character(len=128) :: mavgfile, davgfile
+
+! Useful code for setting and checking number of threads
+
+! call omp_set_num_threads(8)
+! nthr = omp_get_max_threads()
+! print*, 'nthr ',nthr
 
 wtime_start = walltime(0.)
 w1 = walltime(wtime_start)
@@ -175,10 +182,10 @@ write(io6,'(2a1)')        ' ','*'
 write(io6,'(2a1,a3,a64)') ' ','*','   ',EXPNME
 write(io6,'(a1,78a1)')    ' ',('*',i=1,78)
 
-! MAKESFC/MAKEGRID/PLOTONLY/PARCOMBINE runs should be single-processor
+! MAKEGRID/PLOTONLY/PARCOMBINE runs must be single-processor
 
 if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or.  &
-    (runtype == 'MAKESFC' ) .or. (runtype == 'MAKEGRID') ) then
+    (runtype == 'MAKEGRID') ) then
    if (iparallel == 1) then
       write(io6,*) trim(runtype)//' will only be done on a single process.'
       iparallel = 0
@@ -191,13 +198,11 @@ endif
 
 call oplot_init()
 
-! Generate or read from files the full-domain ATMOS, LAND, SEA, and FLUX grids
+! If RUNTYPE = 'MAKEGRID', generate full-domain ATM, LAND, and SEA grids
 
-call gridinit()
+if (runtype == 'MAKEGRID') then
+   call gridinit()
 
-! If RUNTYPE = 'MAKESFC' or 'MAKEGRID', run is finished; EXIT
-
-if (runtype == 'MAKESFC' .or. runtype == 'MAKEGRID') then
    call gridset_print()
    write(io6,*)
    write(io6,*) trim(runtype) // ' run complete'
@@ -208,9 +213,19 @@ endif
 
 call alloc_mpi_sndrcv_bufs()
 
-! reading only the needed to para_decomp from gridfile
+! Read from GRIDFILE the fields that are needed by para_decomp
 
 call gridfile_read_pd()
+
+! If land & sea models are active, read entire LANDFILE and SEAFILE
+
+if (isfcl == 1) then
+   write(io6,'(/,a)') 'olam_run calling landfile_read'
+   call landfile_read()
+
+   write(io6,'(/,a)') 'olam_run calling seafile_read'
+   call seafile_read()
+endif
 
 ! If run is parallel, assign each grid cell (ATM and, if ISFCL = 1, LAND and SEA)
 ! to one of multiple subdomains. If not, the grid remains unchanged
@@ -237,36 +252,20 @@ enddo
 write(io6,*)
 write(io6,'(a,i8)') ' # of prognostic W points on this node = ', mwa_prog
    
-if (meshtype == 1) then
-   
-   mua_prog = 0
-   do i=1,mua
-      if (itab_u(i)%irank == myrank) mua_prog = mua_prog + 1
-   enddo
-   write(io6,'(a,i8)') ' # of prognostic U points on this node = ', mua_prog
-   write(io6,*)
-
-else
-
-   mva_prog = 0
-   do i=1,mva
-      if (itab_v(i)%irank == myrank) mva_prog = mva_prog + 1
-   enddo
-   write(io6,'(a,i8)') ' # of prognostic V points on this node = ', mva_prog
+mva_prog = 0
+do i=1,mva
+   if (itab_v(i)%irank == myrank) mva_prog = mva_prog + 1
+enddo
+write(io6,'(a,i8)') ' # of prognostic V points on this node = ', mva_prog
       
-endif
-
 write(io6,'(/,a)' ) 'Local model indices:'
 write(io6,'(a,i8)') ' mma = ',mma
-write(io6,'(a,i8)') ' mua = ',mua
 write(io6,'(a,i8)') ' mva = ',mva
 write(io6,'(a,i8)') ' mwa = ',mwa
 
 if (isfcl == 1) then
    write(io6,'(a,i8)')   ' mwl = ',mwl
    write(io6,'(a,i8)')   ' mws = ',mws
-   write(io6,'(a,i8)')   ' mlandflux = ',mlandflux
-   write(io6,'(a,i8)')   ' mseaflux  = ',mseaflux
 endif
 
 ! Initialize dtlm, dtsm, ndtrat, and nacoust, 
@@ -278,19 +277,9 @@ call modsched()
 
 write(io6,'(/,a)') 'olam_run calling fill_jtabs'
 
-call fill_jtabs(mma,mua,mva,mwa)
+call fill_jtabs(mma,mva,mwa,1)
 
 if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) call fill_jnudge()
-
-! Allocate and fill jsea, jland, and jflux data structures
-
-if (isfcl == 1) then
-   write(io6,'(/,a)') 'olam_run calling fill_jsea, fill_jland, fill_jflux'
-
-   call fill_jsea()
-   call fill_jland()
-   call fill_jflux()
-endif
 
 ! Allocate column initial state arrays
 
@@ -300,13 +289,10 @@ write(io6,'(/,a)') 'olam_run calling jnmbinit'
 
 call jnmbinit()
 
-!------------------------------------------------------------------
-! If we got here, we are doing an actual simulation or PLOTONLY run
-!------------------------------------------------------------------
-
-! Allocate remainder of main model memory (for 'INITIAL', 'HISTORY', or
-! 'PLOTONLY' run).  Allocate variable tables and fill variable tables for
-! history files and parallel communication.
+! Allocate remainder of main model memory (for 'INITIAL', 'HISTORY',
+! 'PLOTONLY', or 'PARCOMBINE' run).
+! Allocate variable tables and fill variable tables for history files
+! and parallel communication.
 
 write(io6,'(/,a)') 'olam_run calling olam_mem_alloc'
 
@@ -316,19 +302,15 @@ if (iparallel == 1) then
    write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi'
 
    call olam_alloc_mpi(mza,mrls)
-
-   if (isfcl == 1) then
-      write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_land'
-
-      call olam_alloc_mpi_land(mrls)
-
-      write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_sea'
-
-      call olam_alloc_mpi_sea(mrls)
-
-      write(io6,'(/,a)') 'olam_run after olam_alloc_mpi_sea'
-   endif
 endif
+
+! Initialize 3d microphysics fields (if level = 3) and other microphysics
+! quantities
+
+write(io6,'(/,a)') 'olam_run calling micinit'
+
+call micinit_tabs()
+call micinit_fields()
 
 ! Initialize primary atmospheric fields
 
@@ -363,21 +345,14 @@ if (runtype == 'INITIAL') then
    call diagvel_t3d(mrl)
 
    if (iparallel == 1) then
-      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
-      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+      call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
+      call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
    endif
 
    call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 endif
 
 ! A good place to initialize added scalars
-
-! Initialize 3d microphysics fields (if level = 3) and other microphysics
-! quantities
-
-write(io6,'(/,a)') 'olam_run calling micinit'
-
-call micinit()
 
 !-------------------------------------------------------------------------------
 if (runtype == "INITIAL") then
@@ -392,8 +367,8 @@ call trsets()
 mrl = 1
 
 if (iparallel == 1) then
-   call mpi_send_w('S', domrl=mrl)  ! Send scalars
-   call mpi_recv_w('S', domrl=mrl)  ! Recv scalars
+   call mpi_send_w(mrl, scalars='S')  ! Send scalars
+   call mpi_recv_w(mrl, scalars='S')  ! Recv scalars
 endif
 
 do i = 1, nvar_par
@@ -458,7 +433,7 @@ endif
 ! Initialize Rayleigh friction profile
 
 write(io6,'(/,a)') 'olam_run calling rayf_init'
-call rayf_init(mua,mva,mwa,mza)
+call rayf_init(mva,mwa,mza)
 
 ! For shallow water test case 5, read in and initialize reference
 ! solution for time = 0 and time = 15d.
@@ -490,8 +465,8 @@ if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
       call diagvel_t3d(mrl)
 
       if (iparallel == 1) then
-         call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
-         call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+         call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
+         call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
       endif
 
       call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
@@ -567,8 +542,8 @@ if (runtype == 'HISTORY') then
    call diagvel_t3d(mrl)
 
    if (iparallel == 1) then
-      call mpi_send_w('V', vxe=vxe, vye=vye, vze=vze)
-      call mpi_recv_w('V', vxe=vxe, vye=vye, vze=vze)
+      call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
+      call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
    endif
 
    call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
@@ -576,9 +551,9 @@ endif
 
 write(io6,'(/,a)') 'olam_run calling plot_fields'
 
-call copy_plot(0)
-call plot_fields(0)
-call fields2_ll()
+ call copy_plot(0)
+ call plot_fields(0)
+ call fields2_ll()
 
 if (runtype /= 'HISTORY') then
    write(io6,'(/,a)') 'olam_run calling history_write'
