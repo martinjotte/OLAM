@@ -42,6 +42,7 @@ Module mem_radiate
 
   real, allocatable, target :: fthrd_sw    (:,:)
   real, allocatable, target :: fthrd_lw    (:,:)
+  real, allocatable, target :: cloud_frac  (:,:)
 
   real, allocatable, target :: rshort        (:)
   real, allocatable, target :: rlong         (:)
@@ -98,6 +99,10 @@ Contains
        allocate (albedt_beam   (mwa)) ; albedt_beam    = rinit
        allocate (albedt_diffuse(mwa)) ; albedt_diffuse = rinit
        allocate (cosz          (mwa)) ; cosz           = rinit
+       
+       if (iswrtyp == 2 .or. ilwrtyp == 2) then
+          allocate (cloud_frac(mza,mwa)) ; cloud_frac  = 0.0
+       endif
 
 !      if (iswrtyp == 3 .or. ilwrtyp == 3) then
 !         allocate (rad_region(mwa))  ; rad_region = 0
@@ -115,6 +120,7 @@ Contains
 
     if (allocated(fthrd_sw))       deallocate (fthrd_sw)
     if (allocated(fthrd_lw))       deallocate (fthrd_lw)
+    if (allocated(cloud_frac))     deallocate (cloud_frac)
     if (allocated(rshort))         deallocate (rshort)
     if (allocated(rlong))          deallocate (rlong)
     if (allocated(rlongup))        deallocate (rlongup)
@@ -146,6 +152,11 @@ Contains
     if (allocated(fthrd_lw)) then
        call increment_vtable('FTHRD_LW', 'AW')
        vtab_r(num_var)%rvar2_p => fthrd_lw
+    endif
+
+    if (allocated(cloud_frac)) then
+       call increment_vtable('CLOUD_FRAC', 'AW')
+       vtab_r(num_var)%rvar2_p => cloud_frac
     endif
 
     if (allocated(rshort)) then

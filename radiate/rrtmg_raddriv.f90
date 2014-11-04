@@ -1,24 +1,34 @@
 subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   use mem_grid,    only: mza, zm, zt, glatw, glonw, dzt, dzim
-  use mem_basic,   only: rho, press, theta, tair, sh_v
-  use misc_coms,   only: io6, iswrtyp, ilwrtyp, time8
-  use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1
+  use mem_basic,   only: rho, press, theta, tair, sh_v, sh_w, thil, wc
+  use misc_coms,   only: io6, iswrtyp, ilwrtyp, time8, nqparm
+  use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, t00
   use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
                          rshort_top, rshortup_top, rlongup_top, fthrd_sw, &
                          albedt_beam, albedt_diffuse, rshort_diffuse, &
-                         rlong_albedo, solfac
-  use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dnfac
+                         rlong_albedo, solfac, cloud_frac
+  use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab
+  use mem_ijtabs,  only: itab_w
+  use mem_cuparm,  only: kcutop, kcubot, cbmf, qwcon, conprr
+  use oname_coms,  only: nl
   use rrtmg_cloud, only: cloud_props
+  use mem_turb,    only: frac_land, pblh, kpblh, wtv0, hkm
+  use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h
+  use mem_para,    only: myrank
+  use mem_ijtabs,  only: itab_w
 
-  use parrrtm,              only: nbndlw
-  use parrrsw,              only: nbndsw !, jpb1, jpb2
-  use rrtmg_sw_rad_nomcica, only: rrtmg_sw_nomcica
+  use parrrtm,              only: nbndlw, ngptlw
+  use parrrsw,              only: nbndsw, ngptsw
   use rrtmg_sw_rad,         only: rrtmg_sw
-  use rrtmg_lw_rad_nomcica, only: rrtmg_lw_nomcica
   use rrtmg_lw_rad,         only: rrtmg_lw
-!  use rrsw_cld,             only: extliq1, ssaliq1, asyliq1, extice2, ssaice2, asyice2
-!  use rrlw_cld,             only: absliq1, absice2
+  use mcica_subcol_gen_sw,  only: mcica_subcol_sw
+  use mcica_subcol_gen_lw,  only: mcica_subcol_lw
+
+! use rrtmg_sw_rad_nomcica, only: rrtmg_sw_nomcica
+! use rrtmg_lw_rad_nomcica, only: rrtmg_lw_nomcica
+! use rrsw_cld,             only: extliq1, ssaliq1, asyliq1, extice2, ssaice2, asyice2
+! use rrlw_cld,             only: absliq1, absice2
 
   implicit none
 
@@ -29,7 +39,6 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   
   integer, parameter :: ncol   = 1
   integer, parameter :: icld   = 2
-! integer, parameter :: icld   = 0
   integer, parameter :: iaer   = 0
   integer, parameter :: dyofyr = 0
   integer, parameter :: inflg  = 0
@@ -37,7 +46,10 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   integer, parameter :: liqflg = 0
 
   integer, parameter :: idrv   = 0
-  
+
+  real, parameter :: rliqland  = 14.0
+  real, parameter :: rliqocean =  8.0
+
   integer :: jhcat(mza,ncat)  ! hydrom category table with ice habits
 
   real :: rhov (mza)       ! vapor density [kg_vap/m^3]
@@ -55,7 +67,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   real :: zsfc
   real :: emiss
-  real :: p1, p2
+  real :: p1, p2, tc, rh
+  real :: fland
 
   real :: plev(ncol, nrad+1)
   real :: tlev(ncol, nrad+1)
@@ -84,6 +97,23 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: ssaclds(nbndsw, ncol, nrad)
   real :: asmclds(nbndsw, ncol, nrad)
   real :: fsfclds(nbndsw, ncol, nrad)
+
+  real :: cldfmcl(ngptsw, ncol, nrad)
+  real :: clwpmcl(ngptsw, ncol, nrad)
+  real :: ciwpmcl(ngptsw, ncol, nrad)
+
+  real :: relqmcl(ncol, nrad)
+  real :: reicmcl(ncol, nrad)
+
+  real :: taucmcl(ngptsw, ncol, nrad)
+  real :: ssacmcl(ngptsw, ncol, nrad)
+  real :: asmcmcl(ngptsw, ncol, nrad)
+  real :: fsfcmcl(ngptsw, ncol, nrad)
+  
+  real :: taucmcl_lw(ngptlw, ncol, nrad)
+  real :: cldfmcl_lw(ngptlw, ncol, nrad)
+  real :: clwpmcl_lw(ngptlw, ncol, nrad)
+  real :: ciwpmcl_lw(ngptlw, ncol, nrad)
 
   real :: dl (nrad)
   real :: zml(nrad)
@@ -114,10 +144,19 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: asmaers(ncol, nrad, nbndsw)
   real :: ecaer  (ncol, nrad, nbndsw)
 
-  integer :: k, krad, icloud, iaeros, index, ib, jb
+  integer :: k, krad, icloud, iaeros, index, ib, mrlw
+  integer :: iplon, irng, permuteseed, ns, nt
   integer :: mc, mcat, ih, l, num
-  real    :: tau, ssa, asm
-  real    :: r_ef, watp, rstart, rend, rscale, fint0, fint1
+  real    :: tau, ssa, asm, rh00
+  real    :: r_ef, dmean, watp, rstart, rend, rscale, fint0, fint1
+  logical :: iconv, ideep
+
+  real :: qtot(mza)
+  real :: qsat(mza)
+  real :: qsub(mza)
+  real :: frac(mza)
+
+  real, external :: rhovsl, rhovsi
 
 ! Set gas volume mixing ratios, 2005 values, IPCC (2007)
 
@@ -171,6 +210,12 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
   coszen(ncol) = cosz(iw)
   emis(ncol,:) = emiss
   tsfc(ncol)   = (rlongup(iw) / emiss / stefan) ** 0.25
+
+  if (allocated(frac_land)) then
+     fland = frac_land(iw)
+  else
+     fland = 1.0
+  endif
 
 ! Copy column values from model to radiation memory space
 
@@ -251,6 +296,81 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
   call cloudprep_rad(iw,ka,mcat,jhcat,rhov,rx,cx,emb)
 
+! For the resolved microphysics, compute fractional cloudiness based on RH
+! from Mocko and Cotton (1995). The cloud fraction estimated here will only
+! be applied later in this routine if there are any resolved hydrometeors.
+
+  if (fland > 0.5) then
+     rh00 = 0.85
+  else
+     rh00 = 0.75
+  endif
+
+  do k = ka, mza
+     tc = tair(k,iw) - t00
+     if (tc > -10.0) then
+        rh = rhov(k) / rhovsl(tc)
+     else
+        rh = rhov(k) / rhovsi(tc)
+     endif
+     rh = min(rh, 1.0)
+     frac(k) = max( 1.0 - sqrt(( 1.0 - rh ) / ( 1.0 - rh00)), 0.0)
+  enddo
+
+! Determine if subgrid convection is active and the type (shallow or deep)
+
+  iconv = .false.
+  ideep = .false.
+ 
+  mrlw = itab_w(iw)%mrlw
+
+  if (nqparm(mrlw) > 0 .and. cbmf(iw) > 1.e-12 .and. kcubot(iw) >= ka) then
+     iconv = .true.
+     if (conprr(iw) > 1.e-12) ideep = .true.
+  endif
+
+! If there is subgrid convection, modify the estimated cloud fraction to include
+! the convective clouds from the cumulus scheme
+
+  if (iconv) then
+
+     ! This section estimates the cloud fraction from subgrid cumulus and 
+     ! any resolved clouds based on the scheme of Bony and Emanuel (2001, JAS)
+
+     do k = kcubot(iw), kcutop(iw)
+        krad = k - koff
+           
+        qtot(k) = sh_w(k,iw)
+        qsub(k) = max(qwcon(k,iw), 1.e-5)
+
+        tc = tair(k,iw) - t00
+        if (tc > -10.0) then
+           qsat(k) = rhovsl(tc) / rho(k,iw)
+        else
+           qsat(k) = rhovsi(tc) / rho(k,iw)
+        endif
+     enddo
+
+     call clouds_gno_40(kcubot(iw), kcutop(iw), mza, qtot, qsat, qsub, frac)
+
+     ! If there is deep convection, limit the resolved cloud fraction below and just
+     ! above the cumulus to create some breaks
+
+     if (ideep) then
+        do k = ka, kcubot(iw) - 1
+           frac(k) = min(frac(k), 0.7)
+        enddo
+        frac(kcutop(iw)+1) = min(frac(k), 0.7)
+     endif
+
+     ! TODO: Add an option to use the CAM scheme that estimates and combines 
+     ! resolved and subgrid cloud fractions based on the convective updraft 
+     ! velocity. Also add an option to turn off fractional clouds (0 or 1)
+
+  endif
+
+! Get optical properties of resolved clouds
+
   do mc = 1, mcat
 
      do k = ka, mza
@@ -258,7 +378,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
         if (rx(k,mc) >= rxmin(mc) .and. emb(k,mc) >= emb0(mc)) then
 
-           cldfr(1,krad) = 1.0
+           cldfr(1,krad) = frac(k)
 
            ih = jhcat(k,mc)
            l  = kradcat(ih)
@@ -269,7 +389,10 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
            r_ef = 1.e6 * reffcof(ih) * emb(k,mc) ** pwmasi(ih)
            r_ef = max(rstart, min(rend, r_ef))
+
+           ! ice or liquid water path in g/m^s
            watp = rx(k,mc) * dl(krad) * 1000. * dzt(k)
+           watp = watp / frac(k)
 
            rscale = (r_ef - rstart) / cloud_props(l)%delr
            index  = max(1, min(num-1, int(rscale) + 1))
@@ -309,6 +432,105 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      enddo
   enddo
 
+  ! Now include the optical properties of subgrid convective clouds
+
+  if (iconv) then
+
+     do k = kcubot(iw), kcutop(iw)
+        krad = k - koff
+
+        if (frac(k) > 1.e-12 .and. qsub(k) > 1.e-12) then
+              
+           cldfr(1,krad) = frac(k)
+
+           watp = qwcon(k,iw) * rho(k,iw) * 1000. * dzt(k)
+           tc   = tair(k,iw) - t00
+              
+           if (tc > -10.0) then
+
+              ! Add convective cloud water to cloud drops if warmer then 10C
+              l = kradcat(1)
+
+              ! Hardwire droplet effective radius to 14 over land 
+              ! and 8 over sea following CAM physics
+              r_ef = rliqland + (rliqocean-rliqland) * fland
+
+           else
+
+              ! Add convective cloud water to pristine ice. Diagnose habit
+              ! from temperature and humidity
+              rh = min( 1., rhov(k) / rhovsl(tc) )
+              ns = max( 1, nint(100. * rh) )
+              nt = max( 1, min(31,-nint(tc)) )
+              ih = jhabtab(nt,ns,1)
+              l  = kradcat(ih)
+
+              ! Mean maximum dimension of ice crystals as a function of T
+              ! (see Kristjansson et al., 2000, JGR)
+              dmean = 1030.7 * exp(0.05522*(tair(k,iw)-279.5))
+
+              ! Convert mean diameter to an effective radius using the 
+              ! microphysics power laws
+              r_ef = reffcof(ih) / dmncof(ih) * dmean
+
+           endif
+
+           num    = cloud_props(l)%num
+           rstart = cloud_props(l)%start
+           rend   = cloud_props(l)%end
+   
+           r_ef = max(rstart, min(rend, r_ef))
+
+           rscale = (r_ef - rstart) / cloud_props(l)%delr
+           index  = max(1, min(num-1, int(rscale) + 1))
+           fint1  = rscale - real(index-1)
+           fint0  = 1.0 - fint1
+
+           if (iswrtyp == 2 .and. cosz(iw) >= 0.03) then
+
+              do ib = 1, nbndsw
+                 tau = ( fint0 * cloud_props(l)%extsw(ib, index  ) &
+                       + fint1 * cloud_props(l)%extsw(ib, index+1) ) * watp
+
+                 ssa = fint0 * cloud_props(l)%ssasw(ib, index  ) &
+                     + fint1 * cloud_props(l)%ssasw(ib, index+1)
+
+                 asm = fint0 * cloud_props(l)%asysw(ib, index  ) &
+                     + fint1 * cloud_props(l)%asysw(ib, index+1)
+
+                 tauclds(ib,1,krad) = tauclds(ib,1,krad) + tau
+                 ssaclds(ib,1,krad) = ssaclds(ib,1,krad) + tau * ssa
+                 asmclds(ib,1,krad) = asmclds(ib,1,krad) + tau * ssa * asm
+              enddo
+
+           endif
+
+           if (ilwrtyp == 2) then
+
+              do ib = 1, nbndlw
+                 tau = ( fint0 * cloud_props(l)%abslw(ib, index  ) &
+                       + fint1 * cloud_props(l)%abslw(ib, index+1) ) * watp
+
+                 taucldl(ib,1,krad) = taucldl(ib,1,krad) + tau
+              enddo
+
+           endif
+
+        endif
+     enddo
+  endif
+
+  ! Save cloud fraction in 3D variable for output or plotting
+
+  cloud_frac(1:ka-1,iw) = 0.0
+
+  do k = ka, mza
+     krad = k - koff
+     cloud_frac(k,iw) = cldfr(1,krad)
+  enddo
+
+  ! Compute the shortwave fluxes and heating rates
+
   if (iswrtyp == 2 .and. cosz(iw) > 0.03) then
 
      ! Combine optical properties
@@ -323,20 +545,40 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
            endif
         enddo
      enddo
-          
+
      icloud = icld
      iaeros = iaer
+     iplon = 1
+     irng = 0
+     permuteseed = 1
 
-     call rrtmg_sw_nomcica( ncol   , nrad   , icloud , iaeros ,                &
-                            play   , plev   , tlay   , tlev   , tsfc   ,       &
-                            h2ovmr , o3vmr  , co2vmr , ch4vmr , n2ovmr , o2vmr,&
-                            asdir  , asdif  , aldif  , aldif  ,                &
-                            coszen , solfac , dyofyr , solar  ,                &
-                            inflg  , iceflg , liqflg , cldfr  ,                &
-                            tauclds, ssaclds, asmclds, fsfclds,                &
-                            cicewp , cliqwp , reice  , reliq  ,                &
-                            tauaers, ssaaers, asmaers, ecaer  ,                &
-                            swuflx , swdflx , swhr   , swuflxc, swdflxc, swhrc )
+     call mcica_subcol_sw(iplon, ncol, nrad, icloud, permuteseed, irng, play, &
+                          cldfr, cicewp, cliqwp, reice, reliq,  &
+                          tauclds, ssaclds, asmclds, fsfclds, &
+                          cldfmcl, ciwpmcl, clwpmcl, reicmcl, relqmcl, &
+                          taucmcl, ssacmcl, asmcmcl, fsfcmcl)
+
+     call rrtmg_sw(ncol    ,nrad    ,icloud  ,iaeros  ,                &
+                   play    ,plev    ,tlay    ,tlev    ,tsfc   ,        &
+                   h2ovmr  ,o3vmr   ,co2vmr  ,ch4vmr  ,n2ovmr ,o2vmr , &
+                   asdir   ,asdif   ,aldir   ,aldif   ,                &
+                   coszen  ,solfac  ,dyofyr  ,solar   ,                &
+                   inflg   ,iceflg  ,liqflg  ,cldfmcl ,                &
+                   taucmcl ,ssacmcl ,asmcmcl ,fsfcmcl ,                &
+                   ciwpmcl ,clwpmcl ,reicmcl ,relqmcl ,                &
+                   tauaers ,ssaaers ,asmaers ,ecaer   ,                &
+                   swuflx  ,swdflx  ,swhr    ,swuflxc ,swdflxc ,swhrc  )
+
+!!   call rrtmg_sw_nomcica( ncol   , nrad   , icloud , iaeros ,                &
+!!                          play   , plev   , tlay   , tlev   , tsfc   ,       &
+!!                          h2ovmr , o3vmr  , co2vmr , ch4vmr , n2ovmr , o2vmr,&
+!!                          asdir  , asdif  , aldir  , aldif  ,                &
+!!                          coszen , solfac , dyofyr , solar  ,                &
+!!                          inflg  , iceflg , liqflg , cldfr  ,                &
+!!                          tauclds, ssaclds, asmclds, fsfclds,                &
+!!                          cicewp , cliqwp , reice  , reliq  ,                &
+!!                          tauaers, ssaaers, asmaers, ecaer  ,                &
+!!                          swuflx , swdflx , swhr   , swuflxc, swdflxc, swhrc )
 
      rshort        (iw) = swdflx(1,1)
 !!   rshort_diffuse(iw) = flx_diff
@@ -351,19 +593,39 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
   endif
 
+  ! Compute the longwave fluxes and heating rates
+
   if (ilwrtyp == 2) then
 
-     icloud = 1
+     icloud = icld
+     iaeros = iaer
+     iplon = 1
+     irng = 0
+     permuteseed = 150
 
-     call rrtmg_lw_nomcica( ncol    , nrad    , icloud  , idrv    ,                 &
-                            play    , plev    , tlay    , tlev    , tsfc  ,         &
-                            h2ovmr  , o3vmr   , co2vmr  , ch4vmr  , n2ovmr, o2vmr,  &
-                            cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr , emis  ,         &
-                            inflg   , iceflg  , liqflg  , cldfr   ,                 &
-                            taucldl , cicewp  , cliqwp  , reice   , reliq ,         &
-                            tauaerl , &
-                            lwuflx  , lwdflx  , lwhr    , lwuflxc , lwdflxc, lwhrc, &
-                            duflx_dt, duflxc_dt                                     )
+     call mcica_subcol_lw(iplon     , ncol      , nrad      , icloud, permuteseed, irng   , play, &
+                          cldfr     , cicewp    , cliqwp    , reice , reliq      , taucldl,       &
+                          cldfmcl_lw, ciwpmcl_lw, clwpmcl_lw,                                     &
+                          reicmcl   , relqmcl   , taucmcl_lw                                      )
+
+     call rrtmg_lw(ncol       ,nrad       ,icloud     ,idrv       ,                  &
+                   play       ,plev       ,tlay       ,tlev       ,tsfc    ,         & 
+                   h2ovmr     ,o3vmr      ,co2vmr     ,ch4vmr     ,n2ovmr  ,o2vmr  , &
+                   cfc11vmr   ,cfc12vmr   ,cfc22vmr   ,ccl4vmr    ,emis    ,         &
+                   inflg      ,iceflg     ,liqflg     ,cldfmcl_lw ,                  &
+                   taucmcl_lw ,ciwpmcl_lw ,clwpmcl_lw ,reicmcl    ,relqmcl ,tauaerl, &
+                   lwuflx     ,lwdflx     ,lwhr       ,lwuflxc    ,lwdflxc ,lwhrc  , &
+                   duflx_dt   ,duflxc_dt                                             )
+
+!!     call rrtmg_lw_nomcica( ncol    , nrad    , icloud  , idrv    ,                 &
+!!                            play    , plev    , tlay    , tlev    , tsfc  ,         &
+!!                            h2ovmr  , o3vmr   , co2vmr  , ch4vmr  , n2ovmr, o2vmr,  &
+!!                            cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr , emis  ,         &
+!!                            inflg   , iceflg  , liqflg  , cldfr   ,                 &
+!!                            taucldl , cicewp  , cliqwp  , reice   , reliq ,         &
+!!                            tauaerl , &
+!!                            lwuflx  , lwdflx  , lwhr    , lwuflxc , lwdflxc, lwhrc, &
+!!                            duflx_dt, duflxc_dt                                     )
 
      rlong(iw)       = lwdflx(1,1)
      rlongup(iw)     = lwuflx(1,1)

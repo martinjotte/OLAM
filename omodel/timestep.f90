@@ -99,17 +99,17 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
 ! call check_nans(1)
 
-   if (ilwrtyp + iswrtyp > 0) then
-      call radiate()
-   endif
-
-! call check_nans(2)
-
    if (any( nqparm(1:mrls) > 0 )) then
       call cuparm_driver()
       if (isfcl == 1) then
          call surface_cuparm_flux()
       endif
+   endif
+
+! call check_nans(2)
+
+   if (ilwrtyp + iswrtyp > 0) then
+      call radiate()
    endif
 
 ! call check_nans(3)

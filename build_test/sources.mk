@@ -126,6 +126,7 @@ SOURCE_FILES= \
              $(OUTILS)/read_cdc.f90 \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \
+             $(RADIATE)/clouds_gno.f90 \
              $(RADIATE)/harr_raddriv.f90 \
              $(RADIATE)/harr_rad.f90 \
              $(RADIATE)/harr_radinit.f90 \
