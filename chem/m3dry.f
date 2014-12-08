@@ -480,10 +480,10 @@ C-------------------------------------------------------------------------------
 
          glat  = landflux(ilf)%glatf
          glon  = landflux(ilf)%glonf
-         ustar = landflux(ilf)%ustar0
+         ustar = landflux(ilf)%ustar
          zf    = dzt(kw)
 
-         ra    = 1.0 / landflux(ilf)%ggaer0
+         ra    = 1.0 / landflux(ilf)%ggaer
 
          wtv0  = landflux(ilf)%sfluxt * (1. + .61 * sh_v(kw,iw))
      &         + landflux(ilf)%sfluxr * .61 * theta(kw,iw)
@@ -804,9 +804,9 @@ C Calculate production (pvd) for HONO; unit = ppm * m/s
             iws = itabg_ws(iws)%iws_myrank
          endif
 
-         ustar  = seaflux(isf)%ustar0
-         ustarw = seaflux(isf)%sea_ustar0
-         raw    = 1.0 / seaflux(isf)%sea_ggaer0
+         ustar  = seaflux(isf)%ustar
+         ustarw = seaflux(isf)%sea_ustar
+         raw    = 1.0 / seaflux(isf)%sea_ggaer
 
          tw    = sea%seacan_temp(iws) ! water surface film temperature
          
@@ -820,8 +820,8 @@ C Calculate production (pvd) for HONO; unit = ppm * m/s
          endif
 
          if  (sea%nlev_seaice(iws) > 0 ) then
-            ustari = seaflux(isf)%ice_ustar0
-            raice  = 1.0 / seaflux(isf)%ice_ggaer0
+            ustari = seaflux(isf)%ice_ustar
+            raice  = 1.0 / seaflux(isf)%ice_ggaer
             tice   = sea%icecan_temp(iws) ! ice surface film temperature
 
             ! Determine the seaice liquid water mass fraction (0.0 to 0.5).

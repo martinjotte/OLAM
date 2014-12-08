@@ -34,9 +34,9 @@ subroutine timestep()
 
 use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, time_bias, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, dtlm, &
-                       iparallel, s1900_init, s1900_sim
+                       iparallel, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
-use mem_nudge,   only: nudflag, nudnxp
+use mem_nudge,   only: nudflag, nudnxp, o3nudflag
 use mem_grid,    only: mza, mva, mwa
 use micro_coms,  only: level
 use leaf_coms,   only: isfcl
@@ -52,6 +52,7 @@ use oname_coms,  only: nl
 use mem_timeavg, only: accum_timeavg
 use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
+use mem_megan,   only: megan_avg_temp
 
 implicit none
 
@@ -144,6 +145,9 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       endif
    endif
 
+   if (initial == 2 .and. o3nudflag == 1)  &
+        call obs_nudge_o3()
+
 ! call check_nans(10)
 
    mrl = mrl_begl(istp)
@@ -212,6 +216,16 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 ! call check_nans(17)
 
+   if (do_chem) then
+      mrl = mrl_endl(istp)
+      if (mrl > 0) then
+!         call rev_cgrid (mrl) ! convert aerosol cgrid species to densities
+         write(io6,*) "Calling chem!"
+         call chem(mrl)
+!         call conv_cgrid(mrl) ! convert aerosol species back to concentrations
+      endif
+   endif
+
    call trsets()  
 
 ! call check_nans(18)
@@ -276,6 +290,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
       call leaf4()
       if (iparallel == 1) call mpi_send_wl('T')
+
+      if (do_chem) call megan_avg_temp()
 
       call seacells()
       if (iparallel == 1) call mpi_send_ws('T')

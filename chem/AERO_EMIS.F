@@ -75,9 +75,10 @@ C-----------------------------------------------------------------------
 C aerosol emissions: [ppmv/s] for mass & number spcs, [m2/mol/s] for surface area spcs
 !      REAL,    ALLOCATABLE, SAVE :: VDEMIS_AE( :,:,: )
 
-      INTEGER :: PM_EMLYRS   ! number of vertical layers on emis file (set in EMIS_DEFN)
+!      INTEGER :: PM_EMLYRS   ! number of vertical layers on emis file (set in EMIS_DEFN)
 
-      PUBLIC VDEMIS_AE, PM_EMLYRS, AERO_EMIS_INIT, GET_AERO_EMIS
+!      PUBLIC PM_EMLYRS, AERO_EMIS_INIT, GET_AERO_EMIS
+      PUBLIC AERO_EMIS_INIT, GET_AERO_EMIS
       PRIVATE
 
 C Variables for converting mass emissions rate to number emissions rate
@@ -332,7 +333,7 @@ C *** Allocate memory for PM_EM, EMBUFF, CELLHGT, CELLVOL, and CONVEM_PM
          
 !         ALLOCATE ( EMBUFF( NCOLS,NROWS,PM_EMLYRS,N_EMIS_PM ),
 !     &              STAT = STATUS )
-         ALLOCATE ( EMBUFF(  pm_emlyrs+nsw_max-1, mwa, N_EMIS_PM ),
+         ALLOCATE ( EMBUFF(  mza, mwa, N_EMIS_PM ),
      &        STAT = STATUS )
          IF ( STATUS .NE. 0 ) THEN
             XMSG = '*** EMBUFF memory allocation failed'
@@ -578,7 +579,7 @@ C *** Get domain window info from input files
 C-----------------------------------------------------------------------
 
 !        SUBROUTINE GET_AERO_EMIS ( JDATE, JTIME, TSTEP, RJACM, VDEMIS )
-         SUBROUTINE GET_AERO_EMIS ( mrl, nvars3d, vname3d, sea_emisc, land_emisc )
+         SUBROUTINE GET_AERO_EMIS ( mrl, nvars3d_emis, vname3d_emis, edgar42_emis )
 
 C  GET_AERO_EMIS reads PM emissions from gridded input file and
 C  optionally from plume rise calculated point source emissions (via VDEMIS
@@ -615,10 +616,9 @@ C ----------------------------------------------------------------------
 C Arguments:
 
          integer,       intent(in) :: mrl
-         integer,       intent(in) :: nvars3d
-         character(24), intent(in) :: vname3d(:)
-         real,          intent(in) :: sea_emisc(:,:,:)
-         real,          intent(in) :: land_emisc(:,:,:)
+         integer,       intent(in) :: nvars3d_emis
+         character(24), intent(in) :: vname3d_emis(:)
+         real,          intent(in) :: edgar42_emis(:,:,:)
 
 !         INTEGER, INTENT( IN ) :: JDATE      ! current model date, coded YYYYDDD
 !         INTEGER, INTENT( IN ) :: JTIME      ! current model time, coded HHMMSS
@@ -725,49 +725,57 @@ C     time.  Store result in EMBUFF array.
          DO S = 1, N_EMIS_PM
 
             IDX  = PMEM_MAP( S )
-            n    = index1( aerospc( idx )%emis, nvars3d, vname3d )
+            n    = index1( aerospc( idx )%emis, nvars3d_emis, vname3d_emis )
 
             if (n/= 0) then
-            
-               do j = 1,jseaflux(1)%jend(mrl)
-                  isf = jseaflux(1)%iseaflux(j)
-                  kw  = seaflux(isf)%kw
-                  iw  = seaflux(isf)%iw ! global index
 
-                  ! If run is parallel, get local rank indices
+               do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
-                  if (isubdomain == 1) then
-                     iw = itabg_w(iw)%iw_myrank
-                  endif
-               
-                  ka = lpw(iw)
-                  ks = kw - ka + 1
-
-                  do k = 1, pm_emlyrs
-                     ke = ks + k - 1
-                     embuff(ke,iw,s) = embuff(ke,iw,s) + sea_emisc(k,isf,n)
+                  do k = lpw(iw), mza-1
+                     embuff(k,iw,s) = edgar42_emis(k,iw,n)
                   enddo
+
                enddo
 
-               do j = 1,jlandflux(1)%jend(mrl)
-                  ilf = jlandflux(1)%ilandflux(j)
-                  kw  = landflux(ilf)%kw
-                  iw  = landflux(ilf)%iw ! global index
-
-                  ! If run is parallel, get local rank indices
-
-                  if (isubdomain == 1) then
-                     iw = itabg_w(iw)%iw_myrank
-                  endif
-               
-                  ka = lpw(iw)
-                  ks = kw - ka + 1
-
-                  do k = 1, pm_emlyrs
-                     ke = ks + k - 1
-                     embuff(ke,iw,s) = embuff(ke,iw,s) + land_emisc(k,ilf,n)
-                  enddo
-               enddo
+!               do j = 1,jseaflux(1)%jend(mrl)
+!                  isf = jseaflux(1)%iseaflux(j)
+!                  kw  = seaflux(isf)%kw
+!                  iw  = seaflux(isf)%iw ! global index
+!
+!                  ! If run is parallel, get local rank indices
+!
+!                  if (isubdomain == 1) then
+!                     iw = itabg_w(iw)%iw_myrank
+!                  endif
+!               
+!                  ka = lpw(iw)
+!                  ks = kw - ka + 1
+!
+!                  do k = 1, pm_emlyrs
+!                     ke = ks + k - 1
+!                     embuff(ke,iw,s) = embuff(ke,iw,s) + sea_emisc(k,isf,n)
+!                  enddo
+!               enddo
+!
+!               do j = 1,jlandflux(1)%jend(mrl)
+!                  ilf = jlandflux(1)%ilandflux(j)
+!                  kw  = landflux(ilf)%kw
+!                  iw  = landflux(ilf)%iw ! global index
+!
+!                  ! If run is parallel, get local rank indices
+!
+!                  if (isubdomain == 1) then
+!                     iw = itabg_w(iw)%iw_myrank
+!                  endif
+!               
+!                  ka = lpw(iw)
+!                  ks = kw - ka + 1
+!
+!                  do k = 1, pm_emlyrs
+!                     ke = ks + k - 1
+!                     embuff(ke,iw,s) = embuff(ke,iw,s) + land_emisc(k,ilf,n)
+!                  enddo
+!               enddo
 
             else
 
@@ -971,15 +979,11 @@ C     time.  Store result in EMBUFF array.
 
          do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-            ka   = lpw(iw)
-            ktop = min( ka+lsw(iw)+pm_emlyrs-2, mza-1)
-
-            do k = ka, ktop
-               kw = k - ka + 1
+            do k = ka, mza-1
 
 C *** Store aerosol emission rates for this grid cell in a 1D array
                DO S = 1, N_EMIS_PM
-                  PM_EM( S ) = EMBUFF( kw,iw,S )
+                  PM_EM( S ) = EMBUFF( k,iw,S )
                END DO
 
 C *** Calculate scaling factor for converting mass emissions into [ug/m3/s]

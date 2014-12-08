@@ -56,16 +56,17 @@ C-----------------------------------------------------------------------
 !#endif
 
       INTEGER,              SAVE :: N_SPC_EMIS ! global emissions species
-      INTEGER,              SAVE :: EMLAYS     ! no. of emis integration layers
-                                               ! EMLAYS must be .LT. NLAYS
-      INTEGER,              SAVE :: EMLYRS     ! no. of layers on base emis input file -
+!      INTEGER,              SAVE :: EMLAYS     ! no. of emis integration layers
+!                                               ! EMLAYS must be .LT. NLAYS
+!      INTEGER,              SAVE :: EMLYRS     ! no. of layers on base emis input file -
 
-      PUBLIC N_SPC_EMIS, EMLAYS, EMLYRS, EMIS_INIT, GET_EMIS
+!     PUBLIC N_SPC_EMIS, EMLAYS, EMLYRS, EMIS_INIT, GET_EMIS
+      PUBLIC N_SPC_EMIS, EMIS_INIT, GET_EMIS
       public emis_files, nemisfiles, ctotdate_emis, s1900_emis
       public iemisflg, iupdemis, iemiscyclic, iemisfile
       public nvars3d_emis, vname3d_emis, units3d_emis
-      public sea_emisf,  sea_emisp,  sea_emisc
-      public land_emisf, land_emisp, land_emisc
+!     public sea_emisf,  sea_emisp,  sea_emisc
+!     public land_emisf, land_emisp, land_emisc
 !#ifdef Verbose2
 !      public semis
 !#endif
@@ -95,8 +96,8 @@ C-----------------------------------------------------------------------
       character(24), allocatable :: vname3d_emis(:)
       character(24), allocatable :: units3d_emis(:)
 
-      real, allocatable :: sea_emisf(:,:,:),  sea_emisc(:,:,:),  sea_emisp(:,:,:)
-      real, allocatable :: land_emisf(:,:,:), land_emisc(:,:,:), land_emisp(:,:,:)
+!     real, allocatable :: sea_emisf(:,:,:),  sea_emisc(:,:,:),  sea_emisp(:,:,:)
+!     real, allocatable :: land_emisf(:,:,:), land_emisc(:,:,:), land_emisp(:,:,:)
 
 !#ifdef Verbose2
 !      character( 16 ), allocatable, save :: emis_spc( : ) ! global emis surrogates
@@ -112,7 +113,7 @@ C-----------------------------------------------------------------------
          USE CGRID_SPCS          ! CGRID mechanism species
 
 !         USE BEIS_DEFN           ! biogenic emissions
-!         USE LTNG_DEFN           ! NO emissions from lightning strikes
+         USE LTNG_DEFN           ! NO emissions from lightning strikes
 !         USE PT3D_DEFN           ! plume rise emissions
 !         USE UTILIO_DEFN         ! I/O API
          USE AERO_EMIS           ! inherits GRID_CONF
@@ -121,6 +122,7 @@ C-----------------------------------------------------------------------
          use m3utils,   only: m3exit, xstat1, xstat2, m3warn, index1, upcase
          use misc_coms, only: io6, s1900_sim, idate1, imonth1, iyear1, itime1
          use mem_grid,  only: mwa, mza
+         use edgar_42_emis, only: edgar_42_init
 
          IMPLICIT NONE
 
@@ -194,10 +196,12 @@ C Open Emissions files
          ! HARDWIRE IUPDEMIS=1 for now
          iupdemis = 1
 
-         call emis_database_read(0)
-         if (nemisfiles > 1) then
-            call emis_database_read(1)
-         endif
+         !call emis_database_read(0)
+         !if (nemisfiles > 1) then
+         !   call emis_database_read(1)
+         !endif
+
+         call edgar_42_init(nvars3d_emis, vname3d_emis, units3d_emis)
 
          DO N = 1, N_GC_EMIS
             V = INDEX1( GC_EMIS( N ), NVARS3D_EMIS, VNAME3D_EMIS )
@@ -245,18 +249,18 @@ C Open Emissions files
 
 ! Time interpolation factor for updating EMIS
 
-         timefac_emis = 0.0
-         
-         if (nemisfiles > 1) then
-            timefac_emis = (s1900_sim             - s1900_emis(iemisfile-1))
-     &                   / (s1900_emis(iemisfile) - s1900_emis(iemisfile-1))
-         endif
-
-         sea_emisc(:,:,:) = sea_emisp(:,:,:)
-     &                    + (sea_emisf(:,:,:) - sea_emisp(:,:,:)) * timefac_emis
-
-         land_emisc(:,:,:) = land_emisp(:,:,:)
-     &                     + (land_emisf(:,:,:) - land_emisp(:,:,:)) * timefac_emis
+!         timefac_emis = 0.0
+!         
+!         if (nemisfiles > 1) then
+!            timefac_emis = (s1900_sim             - s1900_emis(iemisfile-1))
+!     &                   / (s1900_emis(iemisfile) - s1900_emis(iemisfile-1))
+!         endif
+!
+!         sea_emisc(:,:,:) = sea_emisp(:,:,:)
+!     &                    + (sea_emisf(:,:,:) - sea_emisp(:,:,:)) * timefac_emis
+!
+!         land_emisc(:,:,:) = land_emisp(:,:,:)
+!     &                     + (land_emisf(:,:,:) - land_emisp(:,:,:)) * timefac_emis
 
 C Get number of emissions layers
 
@@ -285,10 +289,10 @@ C Get number of emissions layers
 
 C lightning NO emissions?
 
-!         IF ( .NOT. LTNG_INIT( JDATE, JTIME, TSTEP, EMLAYS ) ) THEN
-!            XMSG = 'Failure initializing lightning emissions module'
-!            CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!         END IF
+         IF ( .NOT. LTNG_INIT() ) THEN
+            XMSG = 'Failure initializing lightning emissions module'
+            CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+         END IF
 
 C Initialize aerosol emissions
 
@@ -302,7 +306,7 @@ C Initialize aerosol emissions
             NEMIS_AE = 0
          END IF
 
-         PM_EMLYRS = EMLAYS   ! set PM_EMLYRS in AERO_EMIS module
+!        PM_EMLYRS = EMLAYS   ! set PM_EMLYRS in AERO_EMIS module
 
          IF ( .NOT. AERO_EMIS_INIT( JDATE, JTIME, TSTEP, NEMIS_AE ) ) THEN
             XMSG = 'Failure initializing aerosol emissions module'
@@ -432,17 +436,18 @@ C combined gas emssions conversion factor
 !         USE BIOG_EMIS, ONLY: MSPCS
 !         USE PT3D_DEFN           ! plume rise emissions
 !         USE PTMAP               ! defines emissions file(s) PM mapping
-!         USE LTNG_DEFN           ! lightning NO emissions
+         USE LTNG_DEFN           ! lightning NO emissions
 !         USE UTILIO_DEFN
 !
-         use m3utils, only: index1
-         use consts_coms, only: r8
-         use misc_coms,   only: io6, time8, timmax8, initial, s1900_sim, isubdomain
-         use mem_sflux,   only: seaflux, landflux, jseaflux, jlandflux
-         use mem_grid,    only: mza, volti
-         use mem_ijtabs,  only: itabg_w, jtab_w, jtw_prog
-         use mem_basic,   only: rho
-         use mem_megan,   only: megan_emis, mgn_2_gc_map !, mgn_2_nr_map
+         use m3utils,      only: index1
+         use consts_coms,  only: r8
+         use misc_coms,    only: io6, time8, timmax8, initial, s1900_sim, isubdomain
+         use mem_sflux,    only: seaflux, landflux, jseaflux, jlandflux
+         use mem_grid,     only: mza, volti, lpw
+         use mem_ijtabs,   only: itabg_w, jtab_w, jtw_prog
+         use mem_basic,    only: rho
+         use mem_megan,    only: megan_driver, megan_emis, mgn_2_gc_map !, mgn_2_nr_map
+         use edgar_42_emis,only: process_edgar_emis, edgar42_emis
 
          IMPLICIT NONE
 !
@@ -490,20 +495,20 @@ C combined gas emssions conversion factor
 !
 !C-----------------------------------------------------------------------
 
-         if (iupdemis == 1 .and. nemisfiles > 1) then
-            if (s1900_sim > s1900_emis(iemisfile) .and. time8+0.001_r8 < timmax8) then
-               call emis_database_read(1)
-            endif
-
-            timefac_emis = (s1900_sim             - s1900_emis(iemisfile-1))
-     &                   / (s1900_emis(iemisfile) - s1900_emis(iemisfile-1))
-
-            sea_emisc(:,:,:) = sea_emisp(:,:,:)
-     &                       + (sea_emisf(:,:,:) - sea_emisp(:,:,:)) * timefac_emis
-
-            land_emisc(:,:,:) = land_emisp(:,:,:)
-     &                        + (land_emisf(:,:,:) - land_emisp(:,:,:)) * timefac_emis
-         endif
+!         if (iupdemis == 1 .and. nemisfiles > 1) then
+!            if (s1900_sim > s1900_emis(iemisfile) .and. time8+0.001_r8 < timmax8) then
+!               call emis_database_read(1)
+!            endif
+!
+!            timefac_emis = (s1900_sim             - s1900_emis(iemisfile-1))
+!     &                   / (s1900_emis(iemisfile) - s1900_emis(iemisfile-1))
+!
+!            sea_emisc(:,:,:) = sea_emisp(:,:,:)
+!     &                       + (sea_emisf(:,:,:) - sea_emisp(:,:,:)) * timefac_emis
+!
+!            land_emisc(:,:,:) = land_emisp(:,:,:)
+!     &                        + (land_emisf(:,:,:) - land_emisp(:,:,:)) * timefac_emis
+!         endif
 
 !         IF ( FIRSTIME ) THEN
 !            FIRSTIME = .FALSE.
@@ -517,7 +522,9 @@ C combined gas emssions conversion factor
 !         END IF
 
 C read & interpolate emissions (create VDEMIS in the species class order)
-         
+
+         call process_edgar_emis()
+
          do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
             vdemis_gc(:,iw,:) = 0.0
          enddo
@@ -529,53 +536,66 @@ C read & interpolate emissions (create VDEMIS in the species class order)
 
                CNVTI = CNVTE * GC_EMIS_FAC( S )
 
-               do j = 1,jseaflux(1)%jend(mrl)
-                  isf = jseaflux(1)%iseaflux(j)
-                  kw  = seaflux(isf)%kw
-                  iw  = seaflux(isf)%iw ! global index
+               do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
-                  ! If run is parallel, get local rank indices
-
-                  if (isubdomain == 1) then
-                     iw = itabg_w(iw)%iw_myrank
-                  endif
-               
-                  ktop = min(kw + emlays - 1, mza-1)
-                  do k = kw, ktop
-                     ke = k - kw + 1
+                  do k = lpw(iw), mza-1
+                  
                      ! convert mol/ sec emissions to ppmV / sec
                      cnvtc = cnvti * volti(k,iw) / rho(k,iw)
-                     vdemis_gc(k,iw,s) = vdemis_gc(k,iw,s) + sea_emisc(ke,isf,n) * cnvtc
+
+                     vdemis_gc(k,iw,s) = edgar42_emis(k,iw,n) * cnvtc
                   enddo
                enddo
-
-               do j = 1,jlandflux(1)%jend(mrl)
-                  ilf = jlandflux(1)%ilandflux(j)
-                  kw  = landflux(ilf)%kw
-                  iw  = landflux(ilf)%iw ! global index
-
-                  ! If run is parallel, get local rank indices
-
-                  if (isubdomain == 1) then
-                     iw = itabg_w(iw)%iw_myrank
-                  endif
-               
-                  ktop = min(kw + emlays - 1, mza-1)
-                  do k = kw, ktop
-                     ke = k - kw + 1
-                     ! convert mol/ sec emissions to ppmV / sec
-                     cnvtc = cnvti * volti(k,iw) / rho(k,iw)
-                     vdemis_gc(k,iw,s) = vdemis_gc(k,iw,s) + land_emisc(ke,ilf,n) * cnvtc
-                  enddo
-               enddo
-
             endif
+         enddo
+
+!               do j = 1,jseaflux(1)%jend(mrl)
+!                  isf = jseaflux(1)%iseaflux(j)
+!                  kw  = seaflux(isf)%kw
+!                  iw  = seaflux(isf)%iw ! global index
+!
+!                  ! If run is parallel, get local rank indices
+!
+!                  if (isubdomain == 1) then
+!                     iw = itabg_w(iw)%iw_myrank
+!                  endif
+!               
+!                  ktop = min(kw + emlays - 1, mza-1)
+!                  do k = kw, ktop
+!                     ke = k - kw + 1
+!                     ! convert mol/ sec emissions to ppmV / sec
+!                     cnvtc = cnvti * volti(k,iw) / rho(k,iw)
+!                     vdemis_gc(k,iw,s) = vdemis_gc(k,iw,s) + sea_emisc(ke,isf,n) * cnvtc
+!                  enddo
+!               enddo
+!
+!               do j = 1,jlandflux(1)%jend(mrl)
+!                  ilf = jlandflux(1)%ilandflux(j)
+!                  kw  = landflux(ilf)%kw
+!                  iw  = landflux(ilf)%iw ! global index
+!
+!                  ! If run is parallel, get local rank indices
+!
+!                  if (isubdomain == 1) then
+!                     iw = itabg_w(iw)%iw_myrank
+!                  endif
+!               
+!                  ktop = min(kw + emlays - 1, mza-1)
+!                  do k = kw, ktop
+!                     ke = k - kw + 1
+!                     ! convert mol/ sec emissions to ppmV / sec
+!                     cnvtc = cnvti * volti(k,iw) / rho(k,iw)
+!                     vdemis_gc(k,iw,s) = vdemis_gc(k,iw,s) + land_emisc(ke,ilf,n) * cnvtc
+!                  enddo
+!               enddo
+
+!            endif
 
 !#ifdef Verbose2
 !            write( logdev,* ) '  GC EMIS: ', s, '  ', gc_emis( s )
 !#endif
 
-         END DO   ! s
+!         END DO   ! s
 
 C beis
 
@@ -613,16 +633,31 @@ C beis
 !
 !         END IF
 
-C lightning NO
-!         IF ( LTNG_NO ) THEN
-!            CALL GET_LTNG ( JDATE, JTIME, TSTEP )
-!
+! lightning NO
+
+         IF ( LTNG_NO ) THEN
+            CALL GET_LTNG ( mrl )
+
+            V = LTNG_MAP
+            CNVTI = CNVTE * GC_EMIS_FAC( V )
+
+            do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+               do k = lpw(iw), mza-1
+                  
+                  ! convert mol/ sec emissions to ppmV / sec
+                  cnvtc = cnvti * volti(k,iw) / rho(k,iw)
+                  vdemis_gc(k,iw,v) = vdemis_gc(k,iw,v) + cnvtc * vdemis_lt(k,iw)
+
+               enddo
+            enddo
+         ENDIF
+
 !            DO R = 1, MY_NROWS
 !               DO C = 1, MY_NCOLS
 !                  DO L = 1, EMLAYS
 !                     CNVTI = CONVPA * CNVTE * RDX3F( L )  ! per sec
 !                     CNVTC = CNVTI * RRHOJ( C,R,L )
-!                     V = LTNG_MAP
+!                    V = LTNG_MAP
 !                     VDEMIS( V,L,C,R ) = VDEMIS( V,L,C,R )
 !     &                                 + CNVTC * GC_EMIS_FAC( V ) * VDEMIS_LT( C,R,L )
 !                  END DO
@@ -662,7 +697,7 @@ C plume rise
 !
          IF ( N_AE_SPC .GT. 0 ) THEN
 !           CALL GET_AERO_EMIS ( JDATE, JTIME, TSTEP, RJACM, VDEMIS )
-            CALL GET_AERO_EMIS ( mrl, nvars3d_emis, vname3d_emis, sea_emisc, land_emisc )
+            CALL GET_AERO_EMIS ( mrl, nvars3d_emis, vname3d_emis, edgar42_emis )
 !
 !            DO R = 1, MY_NROWS
 !               DO C = 1, MY_NCOLS
@@ -690,46 +725,57 @@ C non-reactive gases (conversion to ppmv/s) VDEMIS in this order from RDEMIS
             if (n /= 0) then
 
                CNVTI = CNVTE * NR_EMIS_FAC( S )
-
-               do j = 1,jseaflux(1)%jend(mrl)
-                  isf = jseaflux(1)%iseaflux(j)
-                  kw  = seaflux(isf)%kw
-                  iw  = seaflux(isf)%iw ! global index
-
-                  ! If run is parallel, get local rank indices
-
-                  if (isubdomain == 1) then
-                     iw = itabg_w(iw)%iw_myrank
-                  endif
                
-                  ktop = min(kw + emlays - 1, mza-1)
-                  do k = kw, ktop
-                     ke = k - kw + 1
+               do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+
+                  do k = lpw(iw), mza-1
+                  
                      ! convert mol/ sec emissions to ppmV / sec
                      cnvtc = cnvti * volti(k,iw) / rho(k,iw)
-                     vdemis_nr(k,iw,s) = vdemis_nr(k,iw,s) + sea_emisc(ke,isf,n) * cnvtc
+
+                     vdemis_nr(k,iw,s) = edgar42_emis(k,iw,n) * cnvtc
                   enddo
                enddo
 
-               do j = 1,jlandflux(1)%jend(mrl)
-                  ilf = jlandflux(1)%ilandflux(j)
-                  kw  = landflux(ilf)%kw
-                  iw  = landflux(ilf)%iw ! global index
-
-                  ! If run is parallel, get local rank indices
-
-                  if (isubdomain == 1) then
-                     iw = itabg_w (iw )%iw_myrank
-                  endif
-               
-                  ktop = min(kw + emlays - 1, mza-1)
-                  do k = kw, ktop
-                     ke = k - kw + 1
-                     ! convert mol/ sec emissions to ppmV / sec
-                     cnvtc = cnvti * volti(k,iw) / rho(k,iw)
-                     vdemis_nr(k,iw,s) = vdemis_nr(k,iw,s) + land_emisc(ke,ilf,n) * cnvtc
-                  enddo
-               enddo
+!               do j = 1,jseaflux(1)%jend(mrl)
+!                  isf = jseaflux(1)%iseaflux(j)
+!                  kw  = seaflux(isf)%kw
+!                  iw  = seaflux(isf)%iw ! global index
+!
+!                  ! If run is parallel, get local rank indices
+!
+!                  if (isubdomain == 1) then
+!                     iw = itabg_w(iw)%iw_myrank
+!                  endif
+!               
+!                  ktop = min(kw + emlays - 1, mza-1)
+!                  do k = kw, ktop
+!                     ke = k - kw + 1
+!                     ! convert mol/ sec emissions to ppmV / sec
+!                     cnvtc = cnvti * volti(k,iw) / rho(k,iw)
+!                     vdemis_nr(k,iw,s) = vdemis_nr(k,iw,s) + sea_emisc(ke,isf,n) * cnvtc
+!                  enddo
+!               enddo
+!
+!               do j = 1,jlandflux(1)%jend(mrl)
+!                  ilf = jlandflux(1)%ilandflux(j)
+!                  kw  = landflux(ilf)%kw
+!                  iw  = landflux(ilf)%iw ! global index
+!
+!                  ! If run is parallel, get local rank indices
+!
+!                  if (isubdomain == 1) then
+!                     iw = itabg_w (iw )%iw_myrank
+!                  endif
+!               
+!                  ktop = min(kw + emlays - 1, mza-1)
+!                  do k = kw, ktop
+!                     ke = k - kw + 1
+!                     ! convert mol/ sec emissions to ppmV / sec
+!                     cnvtc = cnvti * volti(k,iw) / rho(k,iw)
+!                     vdemis_nr(k,iw,s) = vdemis_nr(k,iw,s) + land_emisc(ke,ilf,n) * cnvtc
+!                  enddo
+!               enddo
 
             endif
 
@@ -769,9 +815,9 @@ C non-reactive gases (conversion to ppmv/s) VDEMIS in this order from RDEMIS
 !
 !         END DO
 
-
-
 ! MEGAN Emissions
+
+         call megan_driver(mrl)
 
          do s = 1, n_gc_emis
             n = mgn_2_gc_map(s)
@@ -796,8 +842,7 @@ C non-reactive gases (conversion to ppmv/s) VDEMIS in this order from RDEMIS
             endif
          enddo
 
-         ! TODO: soil nox!
-
+! no NH3 here?
 !         do s = 1, n_nr_emis
 !            n = mgn_2_nr_map(s)
 !
@@ -823,8 +868,10 @@ C non-reactive gases (conversion to ppmv/s) VDEMIS in this order from RDEMIS
 !         enddo
 
 
+! TODO: soil nox!
 
-!C tracer gases (conversion to ppmv/s)
+
+! tracer gases (conversion to ppmv/s)
 !
 !         IF ( EM_TRAC ) THEN
 !
