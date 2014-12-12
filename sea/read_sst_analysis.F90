@@ -21,11 +21,8 @@ subroutine read_sst_analysis(iaction)
   character(pathlen) :: fname
   character(16)      :: ext
   integer            :: ndims, idims(3)
-  real               :: xoffpix, yoffpix, xperdeg, yperdeg
-  real               :: glat, glon, rio, rjo
-  real               :: wio1, wio2, wjo1, wjo2
+  real               :: grx, gry
   integer            :: nio, njo, iws
-  integer            :: io1, io2, jo1, jo2
   logical            :: exists, has_sst
   integer            :: bytes, nbytes_int, nbytes_real, isize, ier
 
@@ -187,12 +184,11 @@ subroutine read_sst_analysis(iaction)
   endif
 
   ! Compute longitudinal offset index, which is the index in the expanded
-  ! arrays where the first input data point (at xswlon) is located. We
-  ! follow the GRIB standard and keep the SW corner at (0,-90)
+  ! arrays where the first input data point (at xswlon) is located.
 
-  ipoffset = xswlon / gdatdx + 1
-  nio = nprx + 3
-  njo = npry + 2
+  ipoffset = int((xswlon + 180.) / gdatdx) + 2
+  nio = nprx + 4
+  njo = npry + 4
 
   allocate(sst(nio,njo))
 
@@ -232,48 +228,17 @@ subroutine read_sst_analysis(iaction)
   endif
 #endif
 
-  ! GRIB data is unstaggered, so there should be no offsets, but we 
-  ! offset the grid by 1 row and column so we take that into account here
-
-  xoffpix = 1.0
-  yoffpix = 1.0
-
-  xperdeg = 1.0 / gdatdx
-  yperdeg = 1.0 / gdatdy
-
   ! Fill sst array
 
   do iws = 2, mws
 
-     glat = sea%glatw(iws)
-     glon = sea%glonw(iws)
+! fractional x/y indices in pressure data arrays at current iw point location 
 
-     ! Convert OLAM's -180,180 longitude range to GRIB's 0,360 
+     gry = (sea%glatw(iws) - xswlat) / gdatdy + 3.
+     grx = (sea%glonw(iws) - xswlon) / gdatdx + 1. + real(ipoffset) 
 
-     if (glon < 0.0) glon = 360.0 + glon 
-     glon = max(0.001,min(359.999,glon))
+     call gdtost(sst, nprx+4, npry+4, grx, gry, sea%seatf(iws))
 
-     ! Find the nearest analysis point to this land cell
-
-     rio = 1. + (glon      ) * xperdeg + xoffpix
-     rjo = 1. + (glat + 90.) * yperdeg + yoffpix
-
-     io1 = int(rio)
-     jo1 = int(rjo)
-         
-     wio2 = rio - real(io1)
-     wjo2 = rjo - real(jo1)
-           
-     wio1 = 1. - wio2
-     wjo1 = 1. - wjo2
-
-     io2 = min(nio, io1 + 1)
-     jo2 = min(njo, jo1 + 1)
-
-     sea%seatf(iws) =  &
-          + wio1 * (wjo1 * sst(io1,jo1) + wjo2 * sst(io1,jo2))  &
-          + wio2 * (wjo1 * sst(io2,jo1) + wjo2 * sst(io2,jo2))
-     
   enddo
 
   deallocate( sst )

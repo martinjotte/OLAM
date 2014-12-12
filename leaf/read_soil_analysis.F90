@@ -1,7 +1,8 @@
 subroutine read_soil_analysis(soil_tempc)
 
   use misc_coms,  only: io6, s1900_sim, s1900_init, isubdomain, iparallel
-  use leaf_coms,  only: nzg, mwl, slzt, soilcp, slmsts, slcpd, soilstate_db, slpott
+  use leaf_coms,  only: nzg, mwl, slzt, soilcp, slmsts, slcpd, soilstate_db, &
+                        slpott, dt_leaf
   use mem_leaf,   only: land, itab_wl
   use consts_coms,only: pio180, piu180, erad, cliq1000, alli1000, cice,   &
                          cice1000, r8
@@ -24,11 +25,10 @@ subroutine read_soil_analysis(soil_tempc)
   character(16)      :: ext
   logical            :: exists
   integer            :: ndims, idims(3)
-  real               :: xoffpix, yoffpix, xperdeg, yperdeg
-  real               :: glat, glon, rio, rjo, dss
-  real               :: snowdens
+  real               :: grx, gry
+  real               :: snowdens, mass
   integer            :: nio, njo, ngnd
-  integer            :: iwl, io, jo, i, j, k, kk, ntext
+  integer            :: iwl, i, j, k, kk, ntext
   logical            :: has_snow, has_soilt, has_soilw
   integer            :: bytes, nbytes_int, nbytes_real, isize, ier
 
@@ -37,10 +37,9 @@ subroutine read_soil_analysis(soil_tempc)
   real, allocatable  :: soilw(:,:,:) ! soil water [Vol. fraction]
 
   real, allocatable  :: a2d(:,:), a3d(:,:,:), tcol(:), wcol(:)
-  real               :: wgt0(-1:1,-1:1), wgts(-1:1,-1:1)
-  real, allocatable  :: snowmask(:,:), tempmask(:,:), soilwmask(:,:)
   real, allocatable  :: zcol(:), ztmp(:)
   real               :: wprof(nzg)
+  real               :: wcap_min     ! minimum surface water water [kg/m^2]
 
   integer, allocatable :: buffer(:)
 
@@ -48,6 +47,8 @@ subroutine read_soil_analysis(soil_tempc)
   has_soilt = .false.
   has_soilw = .false.
   ngnd      =  0
+
+  wcap_min  = dt_leaf * 1.e-6  ! same as in leaf4_sfcwater
 
 ! Loop over analysis files and search for the one that corresponds
 ! to the model start time
@@ -219,12 +220,11 @@ subroutine read_soil_analysis(soil_tempc)
   endif
 
   ! Compute longitudinal offset index, which is the index in the expanded
-  ! arrays where the first input data point (at xswlon) is located. We
-  ! follow the GRIB standard and keep the SW corner at (0,-90)
+  ! arrays where the first input data point (at xswlon) is located.
 
-  ipoffset = xswlon / gdatdx + 1
-  nio = nprx + 3
-  njo = npry + 2
+  ipoffset = int((xswlon + 180.) / gdatdx) + 2
+  nio = nprx + 4
+  njo = npry + 4
 
   if (myrank == 0) then
 
@@ -349,46 +349,41 @@ subroutine read_soil_analysis(soil_tempc)
   ! Set masks to indicate missing data
 
   if (has_snow) then
-     allocate(snowmask(nio,njo))
-     
      do i = 1, nio
         do j = 1, njo
            if (snow(i,j) < -1.0 .or. snow(i,j) > 1.e30) then
-              snowmask(i,j) = 0.0
+              snow(i,j) = 2.e30
            else
-              snowmask(i,j) = 1.0
-              snow    (i,j) = max( snow(i,j), 0.0 )
+              snow(i,j) = max( snow(i,j), 0.0 )
            endif
         enddo
      enddo
   endif
 
   if (has_soilt) then
-     allocate(tempmask(nio,njo))
-
      do i = 1, nio
         do j = 1, njo
-           if ( any( soilt(i,j,:) < 100.0 .or. soilt(i,j,:) > 1.e30 )) then
-              tempmask(i,j) = 0.0
-           else
-              tempmask(i,j)   = 1.0
-              soilt   (i,j,:) = max(soilt(i,j,:), 200.0)
-           endif
+           do k = 1, ngnd
+              if ( soilt(i,j,k) < 100.0 .or. soilt(i,j,k) > 1.e30 ) then
+                 soilt(i,j,k) = 2.e30
+              else
+                 soilt(i,j,k) = max( min(soilt(i,j,k), 340.0), 200.0)
+              endif
+           enddo
         enddo
      enddo
   endif
 
   if (has_soilw) then
-     allocate(soilwmask(nio,njo))
-
      do i = 1, nio
         do j = 1, njo
-           if ( any( soilw(i,j,:) < -1.0 .or. soilw(i,j,:) > 1.e30 )) then
-              soilwmask(i,j) = 0.0
-           else
-              soilwmask(i,j)   = 1.0
-              soilw    (i,j,:) = max(soilw(i,j,:), 0.0)
-           endif
+           do k = 1, ngnd
+              if ( soilw(i,j,k) < -1.0 .or. soilw(i,j,k) > 1.e30 ) then
+                 soilw(i,j,k) = 2.e30
+              else
+                 soilw(i,j,k) = max(soilw(i,j,k), 1.e-10)
+              endif
+           enddo
         enddo
      enddo
   endif
@@ -396,133 +391,120 @@ subroutine read_soil_analysis(soil_tempc)
   allocate(tcol(ngnd))
   allocate(wcol(ngnd))
 
-  ! GRIB data is unstaggered, so there should be no offsets, but we 
-  ! offset the grid by 1 row and column so we take that into account here
+  ! Fill soil arrays
 
-  xoffpix = 1.0
-  yoffpix = 1.0
+  do iwl = 2, mwl
 
-  xperdeg = 1.0 / gdatdx
-  yperdeg = 1.0 / gdatdy
+     ! Skip this cell if running in parallel and primary rank of IWL /= MYRANK
 
-! Fill seaice array
+     if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
-do iwl = 2, mwl
+     ! fractional x/y indices in pressure data arrays at current iw point location 
+ 
+     gry = (land%glatw(iwl) - xswlat) / gdatdy + 3.
+     grx = (land%glonw(iwl) - xswlon) / gdatdx + 1. + real(ipoffset) 
 
-   ! Skip this cell if running in parallel and primary rank of IWL /= MYRANK
+     ! Interpolate snow depth to this land cell if any of the 4 closest
+     ! analysis points have non-missing snow data
 
-   if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
+     if (has_snow) then
 
-   glat = land%glatw(iwl)
-   glon = land%glonw(iwl)
+        ! where snow is masked out, mass will be returned as missing
+        call gdtost(snow, nprx+4, npry+4, grx, gry, mass)
+        
+        if (mass > wcap_min .and. mass < 1.e20) then
 
-   ! Convert OLAM's -180,180 longitude range to GRIB's 0,360 
+           land%sfcwater_mass  (1,iwl) = mass
+           land%sfcwater_energy(1,iwl) = min(0., (land%cantemp(iwl) - 273.15) * cice)
 
-   if (glon < 0.0) glon = 360.0 + glon
-   glon = max(0.001,min(359.999,glon))
+           ! snow density calculation comes from CLM3.0 documentation 
+           ! which is based on Anderson 1975 NWS Technical Doc # 19 
 
-   ! Find the nearest analysis point to this land cell
+           snowdens = 50.0
+           if (land%cantemp(iwl) > 258.15) snowdens =   &
+                50.0 + 1.5 * (land%cantemp(iwl) - 258.15)**1.5
 
-   rio = 1. + (glon      ) * xperdeg + xoffpix
-   rjo = 1. + (glat + 90.) * yperdeg + yoffpix
+           land%sfcwater_depth(1,iwl) = land%sfcwater_mass(1,iwl) / snowdens
 
-   io = nint(rio)
-   jo = nint(rjo)
+        else
 
-   ! Weight the 9 nearest analysis points by their inverse distance squared
+           land%sfcwater_mass  (1,iwl) = 0.
+           land%sfcwater_energy(1,iwl) = 0.
+           land%sfcwater_depth (1,iwl) = 0.
 
-   do i = -1, 1
-      do j = -1, 1
-         dss = (rio - real(io+i))**2 + (rjo - real(jo+j))**2
-         wgt0(i,j) = 1.0 / max(dss,0.05)
-      enddo
-   enddo
+        endif
 
-   ! Interpolate snow depth to this land cell if any of the 9 closest
-   ! analysis points have non-missing snow data
 
-   if (has_snow) then
-      if ( any( snowmask(io-1:io+1,jo-1:jo+1) > 0.5 ) ) then
-      
-         wgts = wgt0 * snowmask(io-1:io+1,jo-1:jo+1)
-         wgts = wgts / sum(wgts)
+!!        if (iwl == 65940) then
+!!           write(*,*) land%sfcwater_mass  (1,iwl)
+!!           stop
+!!        endif
 
-         land%sfcwater_mass  (1,iwl) = sum(wgts * max(snow(io-1:io+1,jo-1:jo+1), 0.))
+     endif
 
-         land%sfcwater_energy(1,iwl) = min(0., (land%cantemp(iwl) - 273.15) * cice)
+     ! Interpolate soil temperature to this land cell if any of the 4 closest
+     ! analysis points have non-missing temperature data
 
-         ! snow density calculation comes from CLM3.0 documentation 
-         ! which is based on Anderson 1975 NWS Technical Doc # 19 
+     if (has_soilt) then
 
-         snowdens = 50.0
-         if (land%cantemp(iwl) > 258.15) snowdens =   &
-              50.0 + 1.5 * (land%cantemp(iwl) - 258.15)**1.5
+        tcol(1:ngnd) = -999.
 
-         land%sfcwater_depth(1,iwl) = land%sfcwater_mass(1,iwl) / snowdens
+        do k = 1, ngnd
+           ! where soilt is masked out, tcol will be returned as missing
+           call gdtost(soilt(:,:,k), nprx+4, npry+4, grx, gry, tcol(k))
+        enddo
+ 
+        if ( all(tcol(1:ngnd) < 1.e20) ) then
 
-      endif
-   endif
+           tcol(1:ngnd) = tcol(1:ngnd) - 273.15
 
-   ! Interpolate soil temperature to this land cell if any of the 9 closest
-   ! analysis points have non-missing temperature data
-
-   if (has_soilt) then
-      if ( any( tempmask(io-1:io+1,jo-1:jo+1) > 0.5 ) ) then
-      
-         wgts = wgt0 * tempmask(io-1:io+1,jo-1:jo+1)
-         wgts = wgts / sum(wgts)
-
-         ! olam has soil depths starting from the bottom
-
-         do k = 1, ngnd
-            kk = ngnd - k + 1
-            tcol(kk) = sum(wgts * soilt(io-1:io+1,jo-1:jo+1,k)) - 273.15
-         enddo
+           if (any(tcol(1:ngnd) > 60.)) then
+              write(*,*) iwl, tcol(1:ngnd)
+              stop
+           endif
          
-         if (ngnd == 1) then
-            soil_tempc(1:nzg,iwl) = tcol(1)
-         else
-            call hintrp_cc( ngnd, tcol, zcol, nzg, soil_tempc(:,iwl), slzt )
-         endif
+           if (ngnd == 1) then
+              soil_tempc(1:nzg,iwl) = tcol(1)
+           else
+              call hintrp_cc( ngnd, tcol, zcol, nzg, soil_tempc(:,iwl), slzt )
+           endif
 
-      endif
-   endif
+        endif
+     endif
 
-   ! Interpolate soil moisture to this land cell if any of the 9 closest
-   ! analysis points have non-missing soil moisture data
+     ! Interpolate soil moisture to this land cell if any of the 4 closest
+     ! analysis points have non-missing soil moisture data
 
-   if (has_soilw) then
-      if ( any( soilwmask(io-1:io+1,jo-1:jo+1) > 0.5 ) ) then
-      
-         wgts = wgt0 * soilwmask(io-1:io+1,jo-1:jo+1)
-         wgts = wgts / sum(wgts)
+     if (has_soilw) then
 
-         ! olam has soil depths starting from the bottom
+        wcol(1:ngnd) = -999.
 
-         do k = 1, ngnd
-            kk = ngnd - k + 1
-            wcol(kk) = sum(wgts * soilw(io-1:io+1,jo-1:jo+1,k))
-         enddo
-         
-         if (ngnd == 1) then
-            wprof(:)= wcol(1)
-         else
-            call hintrp_cc( ngnd, wcol, zcol, nzg, wprof, slzt )
-         endif
+        do k = 1, ngnd
+           ! where soilw is masked out, wcol will be returned as missing
+           call gdtost(soilw(:,:,k), nprx+4, npry+4, grx, gry, wcol(k))
+        enddo
 
-         ! Bound soil moisture between capacity soilcp and porosity slmsts
-         ! Soil moisture is only modified above the water table depth
+        if ( all(wcol(1:ngnd) < 1.e20) ) then
 
-         do k = 1, nzg
-            ntext = land%ntext_soil(k,iwl)
-            if (land%head0(iwl) - slzt(k) < slpott(ntext)) then
-               land%soil_water(k,iwl) = max( soilcp(ntext), min( wprof(k), slmsts(ntext) ))
-            endif
-         enddo
+           if (ngnd == 1) then
+              wprof(1:nzg)= wcol(1)
+           else
+              call hintrp_cc( ngnd, wcol, zcol, nzg, wprof, slzt )
+           endif
 
-      endif
-   endif
+           ! Bound soil moisture between capacity soilcp and porosity slmsts
+           ! Soil moisture is only modified above the water table depth
 
-enddo
+           do k = 1, nzg
+              ntext = land%ntext_soil(k,iwl)
+              if (land%head0(iwl) - slzt(k) < slpott(ntext)) then
+                 land%soil_water(k,iwl) = max( soilcp(ntext), min( wprof(k), slmsts(ntext) ))
+              endif
+           enddo
+
+        endif
+     endif
+
+  enddo
    
 end subroutine read_soil_analysis

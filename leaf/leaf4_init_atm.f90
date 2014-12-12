@@ -368,7 +368,9 @@ do iwl = 2,mwl
 
    do k = 1,nzs
       if (land%sfcwater_mass(k,iwl) < wcap_min) then
-         land%sfcwater_mass(k:nzs,iwl) = 0.0
+         land%sfcwater_mass  (k:nzs,iwl) = 0.
+         land%sfcwater_energy(k:nzs,iwl) = 0.
+         land%sfcwater_depth (k:nzs,iwl) = 0.
          exit
       else
          land%nlev_sfcwater(iwl) = k
