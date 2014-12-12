@@ -1,214 +1,135 @@
-subroutine clouds_gno_40(ks, ke, nd, r, rs, qsub, cldf)
-  implicit none
+module clouds_gno
 
-!==============================================================================
-!
-!				CLOUDS_GNO 	version 4.0
+  real :: rh_start
+  real :: rh_end
+  real :: rh_delta
+
+  real :: qc_start
+  real :: qc_end
+  real :: qc_delta
+
+  integer :: n_rh
+  integer :: n_qc
+
+  real, allocatable :: cldf_tab(:,:)
+
+
+contains
+
+
+  subroutine cu_cldfrac(ks, ke, rhin, qcin, cldfrac)
+    use mem_grid, only: mza
+    implicit none
+
+!===============================================================================
 !
 ! Purpose:
 ! --------
 !
-!   Parameterization of the cloudiness (cloud amount, cloud water content)
-!   associated with cumulus convection.
+! Parameterization of the cloudiness associated with cumulus convection.
 !
-! Principle:
-! ----------
+! This routine reads in a lookup table of parameterized values of cloud fraction
+! as a function of resolved relative humidity (defined as total resolved water 
+! specific humidity devided by saturation specific humidity) and the square root
+! of subgrid convective cloud water normalized by the total resolved water in
+! the grid box. The routine to create the lookup table is in the etc/ directory 
+! in the bony_emanuel_table subdirectory, and uses the routine described in 
+! Bony and Emanuel (JAS, 2001, pp. 3158 - 3183).
 !
-!   This cloud parameterization predicts the cloudiness that is associated with 
-!   the presence of condensation within a large-scale domain: this condensation 
-!   may be produced at the subgrid-scale by cumulus convection and at the 
-!   large-scale by super-saturation.
-!
-!   IMPORTANT: in the present version of the scheme, the only source of 
-!   subgrid-scale condensation that is considered is cumulus convection 
-!   (condensation associated with boundary layer turbulence, for instance, 
-!   is not considered). 
-!
-!   The cloud fraction and the in-cloud water content are predicted by a
-!   statistical approach. The subgrid-scale variability of total water 
-!   (vapor + condensed) within the gridbox is described by a generalized 
-!   log-normal Probability Distribution Function (PDF) whose mean, variance 
-!   and skewness coefficient are predicted. The predictors are: 
-!     1) the local concentration of condensed water that is produced at
-!        the subgrid-scale by convection (output of the convection scheme) 
-!     2) the saturation deficit or excess of the environment 
-!     3) the domain-averaged mixing ratio of total water
-!   Note that we impose the distribution of total water to be bounded by zero. 
-!   On the other hand, no upper bound of the distribution is considered in this 
-!   version of the scheme.
-!
-!   If no subgrid-scale condensation occurs within the domain, the scheme
-!   becomes equivalent to an "all-or-nothing" large-scale saturation scheme.
-!
-! Inputs:
-! -------
-!
-!  ND----------: Number of vertical levels
-!  R--------ND-: Domain-averaged mixing ratio of total water 
-!  RS-------ND-: Mean saturation humidity mixing ratio within the gridbox
-!  QSUB-----ND-: Mixing ratio of condensed water within clouds associated
-!                with SUBGRID-SCALE condensation processes (here, it is
-!                predicted by the convection scheme)
-! Outputs:
-! --------
-!
-!  CLDF-----ND-: cloud fractional area (0-1)
-!
-! CALL command:
-! -------------
-!
-!     CALL CLOUDS_GNO(ND,R,RS,QSUBGRID,CLDF)
-!
-! Reference:
-! ----------
-!
-!   Bony, S and K A Emanuel, 2001: A parameterization of the cloudiness
-!       associated with cumulus convection; Evaluation using TOGA COARE data.
-!	    J. Atmos. Sci., accepted.
-!
-! Written by:
-! -----------
-!
-!  Sandrine Bony (MIT & LMD/CNRS; bony@wind.mit.edu) -  July 2000
-!
-!  Difference with version 1.0:
-!	numerical method of resolution of equation 9
-!	version 1.0: use a Gaussian PDF when erf(v)->1
-!       version 2.0: use an asymptotic expression of erf(v) instead of a 
-!       Gaussian PDF
-!==============================================================================
-!
-! -- input/output arguments of the subroutine:
+!===============================================================================
 
-  integer, intent(in)    :: ks, ke, nd
-  real,    intent(in)    :: r(nd), rs(nd), qsub(nd)
-  real,    intent(inout) :: cldf(nd)
+    integer, intent(in)  :: ks, ke
+    real,    intent(in)  :: rhin(mza)  ! q_total / q_sat
+    real,    intent(in)  :: qcin(mza)  ! sqrt( qc_cu / q_total )
 
-! -- lower bound of the PDF of total water:
+    real,    intent(out) :: cldfrac(mza)
 
-  real, parameter :: pb = 0.0
+    integer :: k
+    real    :: rh, qc
 
-! -- parameters controlling the iteration:
-! --    nmax    : maximum nb of iterations (hopefully never reached!)
-! --    epsilon : accuracy of the numerical resolution (here 2.0%)
+    real    :: rscale, rint1, rint0
+    integer :: rindex
 
-  integer, parameter :: nmax    = 5
-  real,    parameter :: epsilon = 0.05
+    real    :: qscale, qint1, qint0
+    integer :: qindex
 
-! -- gardes-fou:
+    cldfrac(   1:ks-1) = 0.0
+    cldfrac(ke+1:mza ) = 0.0
 
-  real, PARAMETER :: min_mu = 1.e-12
-  real, PARAMETER :: min_Q  = 1.e-12
+    do k = ks, ke
 
-! -- misc:
+       rh = rhin(k)
+       rh = max( rh_start, min(rh_end, rh) )
 
-  INTEGER :: K, n
-  REAL    :: mu, qsat, delta, beta 
-  REAL    :: xx, dist, fprime
-  REAL    :: u, v, erfu, erfv
+       qc = qcin(k)
+       qc = max( qc_start, min(qc_end, qc) )
 
-! real    :: alpha, lambda, kew, skew, sigs
+       rscale = (rh - rh_start) / rh_delta
+       rindex = max(1, min(n_rh-1, int(rscale) + 1))
+       rint1  = rscale - real(rindex-1)
+       rint0  = 1.0 - rint1
 
-  real, parameter :: pi = ACOS(-1.)
-  real, parameter :: ff = 2.0 / sqrt(pi)
-  real, parameter :: xx0 = -0.5*sqrt(log(2.))
-  real, parameter :: uva = 1.0 / sqrt(2.0) / xx0
-  real, parameter :: uvb = 0.5 / sqrt(2.0) * xx0
+       qscale = (qc - qc_start) / qc_delta
+       qindex  = max(1, min(n_qc-1, int(qscale) + 1))
+       qint1  = qscale - real(qindex-1)
+       qint0  = 1.0 - qint1
 
-!------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
+       cldfrac(k) = qint0 * ( rint0 * cldf_tab(qindex  , rindex  )   &
+                            + rint1 * cldf_tab(qindex  , rindex+1) ) &
+                  + qint1 * ( rint0 * cldf_tab(qindex+1, rindex  )   &
+                            + rint1 * cldf_tab(qindex+1, rindex+1) )
 
-  ! -- loop over vertical levels :
+    enddo
 
-  DO K = ks, ke
+  end subroutine cu_cldfrac
 
-     mu = R(K)
-     mu = MAX(mu,min_mu)
-     qsat = RS(K) 
-     qsat = MAX(qsat,min_mu)
 
-!===========================================================================
-!  If no condensation is produced at the subgrid-scale:
-!
-!  -> the scheme becomes equivalent to a "large-scale condensation scheme"
-!     ie: cldf = H(mu-qsat)
-!     where H is the Heaviside function.
-!     (in the absence of subgrid-scale condensation, the generalized
-!      log-normal PDF becomes equivalent to a gaussian PDF of variance
-!      zero, i.e. it becomes equivalent to a Dirac function and the 
-!      cumulative distribution function becomes an Heaviside function).
-!===========================================================================
+  subroutine gno_lookup_init()
 
-     IF ( QSUB(K) .lt. min_Q ) cycle
+    use hdf5_utils, only: shdf5_open, shdf5_close, shdf5_irec
+    use max_dims,   only: pathlen
+    use oname_coms, only: nl
 
-!===========================================================================
-!  Some condensation is produced at the subgrid-scale: 
-!  (presence of subgrid-scale variability):
-!
-! Use the (iterative) numerical method of Newton to determine the parameters 
-! that characterize the PDF of total water.
-!
-! Remark 1: the accuracy of the resolution is controlled by "epsilon"
-! Remark 2: in GCMs, this numerical method may be too much CPU-time consuming.
-! In that case, it may be more appropriate to substitute it by a tabulation 
-! of equations 9 and 11 (see the Bony-Emanuel article cited in introduction).
-!===========================================================================
+    implicit none
+    
+    logical :: exists
 
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!        PDF = generalized log-normal distribution (GNO):
-!   (k<0 if a lower bound is considered for the PDF of total water)
-! 
-!   -> determine x (the parameter k of the GNO PDF) 
-!      such that the contribution of subgrid-scale processes to the 
-!      in-cloud water content is equal to QSUB(K)
-!
-! NB: the "error function" is called ERF or DERF (in double precision)
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    character(20),     parameter :: gno_file = "bony_eman_table.h5"
+    character(pathlen)           :: inputfile
 
-     delta = log(mu/qsat)
-        
-     if (delta > 0.0) then
-        beta = QSUB(K)/mu + 1.0
-     else
-        beta = QSUB(K)/mu + EXP( -delta)
-     endif
+    integer :: ndims, idims(3)
 
-     xx = xx0
-     u = delta * uva + uvb
-     v = delta * uva - uvb
+    inputfile =  trim(nl%rrtmg_datadir) // "/bony_emanuel_table/" &
+              // trim(gno_file)
 
-     iter: do n = 1, nmax ! iteration loop
+    inquire(file=inputfile, exist=exists)
+    if (.not. exists) then
+       write(*,*) "gno_clouds_init: Error opening data file " // trim(inputfile)
+       stop       "Bony-Emanuel look table datafile cannot be found"
+    endif
 
-        erfu = 1. - ERF(u)
-        erfv = 1. - ERF(v)
+    call shdf5_open(inputfile, 'R')
 
-        erfv = max(erfv, 1.e-16)
-        dist  = erfu / erfv - beta
+    ndims=1 ; idims(1)=1
+    call shdf5_irec(ndims, idims, "rh_start", rvars=rh_start)
+    call shdf5_irec(ndims, idims, "rh_end"  , rvars=rh_end)
+    call shdf5_irec(ndims, idims, "rh_size" , ivars=n_rh)
 
-! -- numerical convergence reached?
-           
-        if ( ABS(dist/beta) .LT. epsilon .or. n == nmax .and. n > 1) then
+    rh_delta = (rh_end - rh_start) / real(n_rh - 1)
 
-           exit iter
+    call shdf5_irec(ndims, idims, "qc_start", rvars=qc_start)
+    call shdf5_irec(ndims, idims, "qc_end"  , rvars=qc_end)
+    call shdf5_irec(ndims, idims, "qc_size" , ivars=n_qc)
 
-        else
+    qc_delta = (qc_end - qc_start) / real(n_qc - 1)
 
-           fprime = ff / xx / erfv**2 &
-                  * ( erfv*v*EXP(-u*u) - erfu*u*EXP(-v*v) )
+    allocate(cldf_tab(n_qc, n_rh))
 
-           xx = xx - dist/fprime
+    ndims=2 ; idims(1:2) = (/ n_qc, n_rh /)
+    call shdf5_irec(ndims, idims, "cldfrac" , rvara=cldf_tab)
 
-           u = delta/(xx*sqrt(2.)) + xx/(2.*sqrt(2.))
-           v = delta/(xx*sqrt(2.)) - xx/(2.*sqrt(2.))
+    call shdf5_close()
 
-        endif
+  end subroutine gno_lookup_init
 
-     ENDDO iter
-
-! deduce the cloud fraction:
-
-     CLDF(K) = max( 0.5 * erfv, 0.1 )
-
-  ENDDO
-
-end subroutine clouds_gno_40
+end module clouds_gno

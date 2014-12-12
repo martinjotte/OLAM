@@ -585,7 +585,7 @@ subroutine radinit()
   use rrtmg_sw_init, only: rrtmg_sw_ini
   use rrtmg_lw_init, only: rrtmg_lw_ini
   use rrtmg_cloud,   only: rsw_cld_optics_init, rlw_cloud_optics_init
-
+  use clouds_gno,    only: gno_lookup_init
 
   implicit none
 
@@ -630,5 +630,8 @@ subroutine radinit()
      call rrtmg_lw_ini(cp)
      call rlw_cloud_optics_init()
   endif
+
+! Read in the convective cloud fraction lookup table
+  call gno_lookup_init()
 
 end subroutine radinit

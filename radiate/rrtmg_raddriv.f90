@@ -17,6 +17,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h
   use mem_para,    only: myrank
   use mem_ijtabs,  only: itab_w
+  use clouds_gno,  only: cu_cldfrac
 
   use parrrtm,              only: nbndlw, ngptlw
   use parrrsw,              only: nbndsw, ngptsw
@@ -151,10 +152,12 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real    :: r_ef, dmean, watp, rstart, rend, rscale, fint0, fint1
   logical :: iconv, ideep
 
-  real :: qtot(mza)
-  real :: qsat(mza)
-  real :: qsub(mza)
+  real :: rh_tot(mza)
+  real :: qc_sub(mza)
+  real :: cu_cldf(mza)
   real :: frac(mza)
+  real :: qsub(mza)
+  real :: qsat
 
   real, external :: rhovsl, rhovsi
 
@@ -321,7 +324,8 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
   iconv = .false.
   ideep = .false.
- 
+  qsub(:) = 0.0
+
   mrlw = itab_w(iw)%mrlw
 
   if (nqparm(mrlw) > 0 .and. cbmf(iw) > 1.e-12 .and. kcubot(iw) >= ka) then
@@ -335,23 +339,30 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
   if (iconv) then
 
      ! This section estimates the cloud fraction from subgrid cumulus and 
-     ! any resolved clouds based on the scheme of Bony and Emanuel (2001, JAS)
+     ! any resolved clouds based on a lookup table of the scheme of 
+     ! Bony and Emanuel (2001, JAS)
 
      do k = kcubot(iw), kcutop(iw)
-        krad = k - koff
-           
-        qtot(k) = sh_w(k,iw)
+
         qsub(k) = max(qwcon(k,iw), 1.e-5)
 
         tc = tair(k,iw) - t00
         if (tc > -10.0) then
-           qsat(k) = rhovsl(tc) / rho(k,iw)
+           qsat = rhovsl(tc) / rho(k,iw)
         else
-           qsat(k) = rhovsi(tc) / rho(k,iw)
+           qsat = rhovsi(tc) / rho(k,iw)
         endif
+
+        rh_tot(k) = sh_w(k,iw) / qsat
+        qc_sub(k) = sqrt(  qsub(k) / sh_w(k,iw) )
      enddo
 
-     call clouds_gno_40(kcubot(iw), kcutop(iw), mza, qtot, qsat, qsub, frac)
+     call cu_cldfrac(kcubot(iw), kcutop(iw), rh_tot, qc_sub, cu_cldf)
+
+     ! Do we want to overwrite the resolved cloud fraction or merge the two?
+     do k = kcubot(iw), kcutop(iw)
+        frac(k) = max( min(cu_cldf(k), 0.99), 0.01 )
+     enddo
 
      ! If there is deep convection, limit the resolved cloud fraction below and just
      ! above the cumulus to create some breaks

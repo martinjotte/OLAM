@@ -434,12 +434,6 @@ subroutine read_soil_analysis(soil_tempc)
 
         endif
 
-
-!!        if (iwl == 65940) then
-!!           write(*,*) land%sfcwater_mass  (1,iwl)
-!!           stop
-!!        endif
-
      endif
 
      ! Interpolate soil temperature to this land cell if any of the 4 closest
