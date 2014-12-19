@@ -201,7 +201,7 @@ end subroutine each_column
 
 !===============================================================================
 
-subroutine enemb(lcat,jflag,k1,k2, &
+subroutine enemb(lcat,jflag,k1,k2,cldnumx, &
    ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 use micro_coms, only: mza0, ncat, jnmb, emb2, cfemb0, pwemb0, cfen0, pwen0, &
@@ -216,6 +216,8 @@ integer, intent(in) :: jflag
 
 integer, intent(in) :: k1(11)
 integer, intent(in) :: k2(11)
+
+real, intent(in) :: cldnumx
 
 integer, intent(out) :: ict1(mza0,ncat)
 integer, intent(out) :: ict2(mza0,ncat)
@@ -244,7 +246,12 @@ if (jnmb(lcat) == 2) then
 
 elseif (jnmb(lcat) == 4) then
 
-   parmi = 1. / parm(lcat)
+   if (lcat == 1) then
+      parmi = 1. / cldnumx
+   else
+      parmi = 1. / parm(lcat)
+   endif
+
    do k = k1(lcat), k2(lcat)
       emb(k,lcat) = max( emb0(lcat),                                     &
                          min( emb1(lcat), rx(k,lcat) * parmi / rhoa(k) ) )
@@ -281,7 +288,7 @@ end subroutine enemb
 
 !===============================================================================
 
-subroutine x02(iw0,lpw0,lcat,k1,k2, &
+subroutine x02(iw0,lpw0,lcat,k1,k2,cldnumx, &
    jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
 use micro_coms,  only: mza0, ncat, rxmin, enmlttab, dnfac, pwmasi, gnu, shedtab
@@ -296,6 +303,8 @@ integer, intent(in) :: lcat
 
 integer, intent(inout) :: k1(11)
 integer, intent(inout) :: k2(11)
+
+real, intent(in) :: cldnumx
 
 integer, intent(in) :: jhcat(mza0,ncat)
 
@@ -348,7 +357,7 @@ if (k1(lcat) > k2(lcat)) return
 
 ! Diagnose bulk mean mass and/or number concentration for lcat
 
- call enemb(lcat,jflag,k1,k2,ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+ call enemb(lcat,jflag,k1,k2,cldnumx,ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 ! CLOUD, RAIN, and DRIZZLE categories
 

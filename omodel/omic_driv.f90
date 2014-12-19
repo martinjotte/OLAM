@@ -529,35 +529,35 @@ call each_column(lpw0,iw0,k1,k2,dtl0,                          &
 jflag = 1
 
 if (k1(1) <= k2(1)) &
-   call enemb(1,jflag,k1,k2, &
+   call enemb(1,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(2) <= k2(2)) &
-   call enemb(2,jflag,k1,k2, &
+   call enemb(2,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(3) <= k2(3)) &
-   call enemb(3,jflag,k1,k2, &
+   call enemb(3,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(4) <= k2(4)) &
-   call enemb(4,jflag,k1,k2, &
+   call enemb(4,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(5) <= k2(5)) &
-   call enemb(5,jflag,k1,k2, &
+   call enemb(5,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(6) <= k2(6)) &
-   call enemb(6,jflag,k1,k2, &
+   call enemb(6,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(7) <= k2(7)) &
-   call enemb(7,jflag,k1,k2, &
+   call enemb(7,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(8) <= k2(8)) &
-   call enemb(8,jflag,k1,k2, &
+   call enemb(8,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 ! Set up matrix for heat/vapor diffusion computation
@@ -670,35 +670,35 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1411
 jflag = 2
 
 if (k1(1) <= k2(1)) &
-   call enemb(1,jflag,k1,k2, &
+   call enemb(1,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(2) <= k2(2)) &
-   call enemb(2,jflag,k1,k2, &
+   call enemb(2,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(3) <= k2(3)) &
-   call enemb(3,jflag,k1,k2, &
+   call enemb(3,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(4) <= k2(4)) &
-   call enemb(4,jflag,k1,k2, &
+   call enemb(4,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(5) <= k2(5)) &
-   call enemb(5,jflag,k1,k2, &
+   call enemb(5,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(6) <= k2(6)) &
-   call enemb(6,jflag,k1,k2, &
+   call enemb(6,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(7) <= k2(7)) &
-   call enemb(7,jflag,k1,k2, &
+   call enemb(7,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (k1(8) <= k2(8)) &
-   call enemb(8,jflag,k1,k2, &
+   call enemb(8,jflag,k1,k2,cldnumx, &
       ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 ! Determine coalescence efficiencies
@@ -992,10 +992,10 @@ k1(8) = k
 jflag = 1
 
 if (jnmb(1) >= 3 .and. k1(1) <= k2(1)) &
-   call enemb(1,jflag,k1,k2,ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(1,jflag,k1,k2,cldnumx,ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 if (jnmb(8) >= 3 .and. k1(8) <= k2(8)) &
-   call enemb(8,jflag,k1,k2,ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(8,jflag,k1,k2,cldnumx,ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
 
 ! Nucleation of ice crystals
 
@@ -1028,35 +1028,35 @@ k1(3) = k
 ! Do not change order of the following x02 calls
 
 if (jnmb(3) >= 1) &
-   call x02(iw0,lpw0,3,k1,k2, &
+   call x02(iw0,lpw0,3,k1,k2,cldnumx, &
       jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
 if (jnmb(1) >= 1) &
-   call x02(iw0,lpw0,1,k1,k2, &
+   call x02(iw0,lpw0,1,k1,k2,cldnumx, &
       jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
 if (jnmb(8) >= 1) &
-   call x02(iw0,lpw0,8,k1,k2, &
+   call x02(iw0,lpw0,8,k1,k2,cldnumx, &
       jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
 if (jnmb(4) >= 1) &
-   call x02(iw0,lpw0,4,k1,k2, &
+   call x02(iw0,lpw0,4,k1,k2,cldnumx, &
       jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
 if (jnmb(5) >= 1) &
-   call x02(iw0,lpw0,5,k1,k2, &
+   call x02(iw0,lpw0,5,k1,k2,cldnumx, &
       jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
 if (jnmb(6) >= 1) &
-   call x02(iw0,lpw0,6,k1,k2, &
+   call x02(iw0,lpw0,6,k1,k2,cldnumx, &
       jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
 if (jnmb(7) >= 1) &
-   call x02(iw0,lpw0,7,k1,k2, &
+   call x02(iw0,lpw0,7,k1,k2,cldnumx, &
       jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
 if (jnmb(2) >= 1) &
-   call x02(iw0,lpw0,2,k1,k2, &
+   call x02(iw0,lpw0,2,k1,k2,cldnumx, &
       jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
 
 ! Zero out surface precip arrays (for leaf, will need to coordinate w/new leaf4)
