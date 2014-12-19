@@ -31,7 +31,7 @@
 
 !===============================================================================
 subroutine cldnuc(iw0,lpw0,dtli0, &
-                  rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa, &
+                  cldnumx,rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa, &
                   tair,tairc,wc0,rhovslair,rnuc_vc,rnuc_vd,cnuc_vc,cnuc_vd)
 
 !BOB: Add i,j, or iw0 to arguments?
@@ -48,6 +48,7 @@ integer, intent(in) :: iw0
 integer, intent(in) :: lpw0
 
 real, intent(in) :: dtli0
+real, intent(in) :: cldnumx
 
 real, intent(inout) :: rx(mza0,ncat)
 real, intent(inout) :: cx(mza0,ncat)
@@ -1938,9 +1939,9 @@ if (jnmb(1) == 4) then
       excessrhov = rhov(k) - 1.00001 * rhovslair(k) ! x rhoa
       if (excessrhov <= 0.) cycle                   ! x rhoa
 
-! parm(1) is specified cloud # per kg_air; use as upper bound on nucleation 
+! cldnumx is specified cloud # per kg_air; use as upper bound on nucleation 
 
-      cnuc = parm(1) * rhoa(k)   ! #_nucleated / m^3
+      cnuc = cldnumx * rhoa(k)   ! #_nucleated / m^3
       rnuc = cnuc * emb0(1)      ! kg_nucleated / m^3
 
       rnuc_vc(k) = min(rnuc,.5 * excessrhov)   ! x rhoa
@@ -1977,14 +1978,13 @@ elseif (jnmb(1) >= 5) then
 
 ! Constant in time and space CCN concentration
 
-         con_ccnk = cparm       ! cparm units are #/kg 
+         con_ccnk = cldnumx       ! cldnucx units are #/kg 
 
       elseif (jnmb(1) == 6) then
 
-! Horizontally-homogeneous, time-constant vertical profile of CCN
-! (Example profile by Saleeby)
+! Time-constant vertical profile of CCN (Example profile by Saleeby)
 
-         con_ccnk = max(100.e6,cparm * (1. - zt(k) / 4000.))
+         con_ccnk = max(100.e6,cldnumx * (1. - zt(k) / 4000.))
 
       elseif (jnmb(1) == 7) then
 

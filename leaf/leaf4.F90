@@ -306,7 +306,8 @@ real :: rlongg_a         ! longwave radiative flux from soil to atm  [W/m^2]
 real :: rlongg_v         ! longwave radiative flux from soil to veg  [W/m^2]
 real :: fracabs          ! fraction of rshort that is absorbed by snowcover
 real :: vfc       ! 1 - vf
-real :: fcpct     ! soil water fraction
+real :: fc50      ! minimum of soil water fraction and 50%
+real :: alg_dry   ! ground (soil) albedo for dry soil
 real :: alg       ! ground (soil) albedo
 real :: als       ! snowcover albedo (needs better formula based on age of snow)
 real :: alv       ! veg albedo
@@ -362,7 +363,7 @@ if (nlev_sfcwater == 0) then
 
 ! Shortwave radiation calculations
 
-   fcpct = soil_water / slmsts(ntext_soil)  ! soil water fraction
+   fc50 = min(.50, soil_water / slmsts(ntext_soil))
 
    if (leaf_class == 2) then
 
@@ -370,11 +371,13 @@ if (nlev_sfcwater == 0) then
 
    else
 
-      if (fcpct > .5) then
-         alg = .14                ! ground albedo
+      if (ntext_soil == 1 .or. ntext_soil == 2) then
+         alg_dry = .41  ! Higher albedo for sand or loamy sand
       else
-         alg = .31 - .34 * fcpct  ! ground albedo
+         alg_dry = .31  ! Soils other than sand and loamy sand
       endif
+
+      alg = alg_dry - .34 * fc50  ! ground (soil) albedo
 
    endif
 

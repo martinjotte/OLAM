@@ -79,7 +79,7 @@ use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
                        dtlong, initial, zonclim, topo_database, &
                        gridfile, hfilin, ioutput, hfilepref, iclobber, &
                        frqstate, naddsc, icorflg, ilwrtyp, iswrtyp, radfrq, &
-                       nqparm, confrq, &
+                       icfrac, cfracrh1, cfracrh2, cfraccup, nqparm, confrq, &
                        nsndg, ipsflg, itsflg, irtsflg, iusflg, &
                        hs, p_sfc, us, vs, ts, ps, rts, &
                        itime1, idate1, imonth1, iyear1, ngrids, nzp, &
@@ -197,6 +197,10 @@ if (copy_type == 'ALL_CASES') then
    ilwrtyp       = nl%ilwrtyp
    iswrtyp       = nl%iswrtyp
    radfrq        = nl%radfrq
+   icfrac        = nl%icfrac
+   cfracrh1      = nl%cfracrh1
+   cfracrh2      = nl%cfracrh2
+   cfraccup      = nl%cfraccup
    confrq        = nl%confrq
    seatmp        = nl%seatmp
    seaice        = nl%seaice

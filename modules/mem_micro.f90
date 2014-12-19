@@ -81,6 +81,8 @@ Module mem_micro
   real, allocatable, target :: qpcpgr(:) ! sfc total pcp energy FLUX [J/(m^2 s)]
   real, allocatable, target :: dpcpgr(:) ! sfc total pcp depth accum RATE [m/s]
 
+  real, allocatable, target :: cldnum(:) ! cloud drop number conc (climatology) [#_cld/kg_air]
+
 Contains
 
 !===============================================================================
@@ -99,6 +101,8 @@ Contains
 
     ! Allocate arrays based on options
     ! Initialize arrays to zero
+
+    allocate(cldnum(mwa)); cldnum = 0.
 
     if (level >= 2) then
        allocate (sh_c(mza,mwa)) ; sh_c = rinit

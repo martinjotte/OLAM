@@ -885,9 +885,12 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
 
             if (op%stagpt == 'T') then
                vcpn(1:2) = zt(k-1)
-               vcpn(3:4) = zt(k)
                if (k == lpw(iw)) vcpn(1:2) = zm(k-1)
-               if (k == mza+1)     vcpn(3:4) = zm(k-1)
+               if (k == mza+1) then
+                  vcpn(3:4) = zm(k-1)
+               else
+                  vcpn(3:4) = zt(k)
+               endif
             else
                vcpn(1:2) = zm(k-1)
                vcpn(3:4) = zm(k)

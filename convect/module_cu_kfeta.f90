@@ -163,7 +163,7 @@ CONTAINS
          thsrc(k,iw) = DTDT(kt) * theta(k,iw) / tair(k,iw)
          
          ! cloud condensate
-         qwcon(k,iw) = cldliq(kt) + cldice(kt)
+         qwcon(k,iw) = max(0.,cldliq(kt)) + max(0.,cldice(kt))
       enddo
 
       conprr(iw) = pratec

@@ -2,7 +2,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   use mem_grid,    only: mza, zm, zt, glatw, glonw, dzt, dzim
   use mem_basic,   only: rho, press, theta, tair, sh_v, sh_w, thil, wc
-  use misc_coms,   only: io6, iswrtyp, ilwrtyp, time8, nqparm
+  use misc_coms,   only: io6, iswrtyp, ilwrtyp, time8, nqparm, dtlm, &
+                         icfrac, cfracrh1, cfracrh2, cfraccup
   use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, t00
   use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
                          rshort_top, rshortup_top, rlongup_top, fthrd_sw, &
@@ -54,6 +55,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   integer :: jhcat(mza,ncat)  ! hydrom category table with ice habits
 
   real :: rhov (mza)       ! vapor density [kg_vap/m^3]
+  real :: rhoc (mza)       ! bulk cloud water density [kg_cld/m^3]
+  real :: rhop (mza)       ! bulk pristine ice density [kg_pris/m^3]
   real :: rx   (mza,ncat)  ! hydrom bulk spec dens [kg_hyd/kg_air]
   real :: cx   (mza,ncat)  ! hydrom bulk number [num_hyd/kg_air]
   real :: emb  (mza,ncat)  ! hydrom mean particle mass [kg/particle]
@@ -69,6 +72,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: zsfc
   real :: emiss
   real :: p1, p2, tc, rh
+  real :: rhl, rhi, fracl, fraci, dcfracrhi
   real :: fland
 
   real :: plev(ncol, nrad+1)
@@ -147,9 +151,12 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   integer :: k, krad, icloud, iaeros, index, ib, mrlw
   integer :: iplon, irng, permuteseed, ns, nt
-  integer :: mc, mcat, ih, l, num
-  real    :: tau, ssa, asm, rh00
-  real    :: r_ef, dmean, watp, rstart, rend, rscale, fint0, fint1
+  integer :: mc, mcat, ih, l, num, ntim
+
+  real :: tau, ssa, asm, rh00
+  real :: r_ef, dmean, watp, rstart, rend, rscale, fint0, fint1
+  real :: abslat, wt20, wt60, cfrh1, cfrh2, dcfrhi
+
   logical :: iconv, ideep
 
   real :: rh_tot(mza)
@@ -226,6 +233,12 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      krad = k - koff
 
      rhov(k) = max(0.,sh_v(k,iw)) * rho(k,iw)
+     rhoc(k) = max(0.,sh_c(k,iw)) * rho(k,iw)
+     if (allocated(sh_p)) then
+        rhop(k) = max(0.,sh_p(k,iw)) * rho(k,iw)
+     else
+        rhop(k) = 0.
+     endif
 
      play  (1,krad) = press(k,iw)
      tlay  (1,krad) = tair (k,iw)
@@ -299,33 +312,123 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
   call cloudprep_rad(iw,ka,mcat,jhcat,rhov,rx,cx,emb)
 
-! For the resolved microphysics, compute fractional cloudiness based on RH
-! from Mocko and Cotton (1995). The cloud fraction estimated here will only
-! be applied later in this routine if there are any resolved hydrometeors.
+! Compute fractional cloudiness for the resolved microphysics moisture fields. 
+! The cloud fraction estimated here will only be applied later in this routine
+! if there are any resolved hydrometeors.
 
-  if (fland > 0.5) then
-     rh00 = 0.85
-  else
-     rh00 = 0.75
-  endif
+  frac(:) = 0.
 
-  do k = ka, mza
-     tc = tair(k,iw) - t00
-     if (tc > -10.0) then
-        rh = rhov(k) / rhovsl(tc)
+  if (icfrac == 1) then
+
+! Fractional cloudiness based on RH from Mocko and Cotton (1995).
+
+     if (fland > 0.5) then
+        rh00 = 0.85
      else
-        rh = rhov(k) / rhovsi(tc)
+        rh00 = 0.75
      endif
-     rh = min(rh, 1.0)
-     frac(k) = max( 1.0 - sqrt(( 1.0 - rh ) / ( 1.0 - rh00)), 0.0)
-  enddo
+
+     do k = ka, mza
+        tc = tair(k,iw) - t00
+        if (tc > -10.0) then
+           rh = rhov(k) / rhovsl(tc)
+        else
+           rh = rhov(k) / rhovsi(tc)
+        endif
+        rh = min(rh, 1.0)
+        frac(k) = max( 1.0 - sqrt(( 1.0 - rh ) / ( 1.0 - rh00)), 0.0)
+     enddo
+
+! Walko's linear forms with inclusion of cloud and pristine ice condensate... 
+
+  elseif (icfrac == 2) then
+
+! Use adjustable lower and upward RH thresholds from namelist
+
+     cfrh1 = cfracrh1
+     cfrh2 = cfracrh2
+
+  else
+
+! Latitudinal and land/sea variation of cloud fraction parameters
+
+     abslat = abs(glatw(iw))
+
+     if     (abslat < 20.) then
+        wt60 = 0.
+     elseif (abslat > 60.) then
+        wt60 = 1.
+     else
+        wt60 = (abslat - 20.) / 20.
+     endif
+
+     wt20 = 1. - wt60
+
+! Select set of parameters with namelist flag icfrac
+
+     if (icfrac == 3) then
+
+        if (fland > 0.5) then
+           cfrh1 = wt20 * 0.85 + wt60 * 0.90  ! land set 1
+           cfrh2 = wt20 * 1.05 + wt60 * 1.40  ! land set 1
+        else
+           cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 1
+           cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 1
+        endif
+
+     elseif (icfrac == 4) then
+
+        if (fland > 0.5) then
+           cfrh1 = wt20 * 0.80 + wt60 * 0.90  ! land set 2
+           cfrh2 = wt20 * 1.05 + wt60 * 1.40  ! land set 2
+        else
+           cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 2
+           cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 2
+        endif
+
+     elseif (icfrac == 5) then
+
+        if (fland > 0.5) then
+           cfrh1 = wt20 * 0.85 + wt60 * 0.90  ! land set 3
+           cfrh2 = wt20 * 1.00 + wt60 * 1.40  ! land set 3
+        else
+           cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 3
+           cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 3
+        endif
+
+     elseif (icfrac == 6) then
+
+        if (fland > 0.5) then
+           cfrh1 = wt20 * 0.80 + wt60 * 0.90  ! land set 4
+           cfrh2 = wt20 * 1.00 + wt60 * 1.40  ! land set 4
+        else
+           cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 4
+           cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 4
+        endif
+
+     endif
+
+     dcfrhi = 1. / max(1.e-6, cfrh2-cfrh1)
+
+     do k = ka, mza
+        tc = tair(k,iw) - t00
+        rhl = (rhov(k) + rhoc(k) + rhop(k)) / rhovsl(tc)
+        rhi = (rhov(k) +           rhop(k)) / rhovsi(tc)
+
+        fracl = (rhl - cfrh1) * dcfrhi
+        fraci = (rhi - cfrh1) * dcfrhi
+
+        frac(k) = min(1.0, max(0.0, fracl, fraci))
+     enddo
+
+  endif
 
 ! Determine if subgrid convection is active and the type (shallow or deep)
 
   iconv = .false.
   ideep = .false.
   qsub(:) = 0.0
-
+ 
   mrlw = itab_w(iw)%mrlw
 
   if (nqparm(mrlw) > 0 .and. cbmf(iw) > 1.e-12 .and. kcubot(iw) >= ka) then
@@ -343,7 +446,6 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      ! Bony and Emanuel (2001, JAS)
 
      do k = kcubot(iw), kcutop(iw)
-
         qsub(k) = max(qwcon(k,iw), 1.e-5)
 
         tc = tair(k,iw) - t00
@@ -369,9 +471,9 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
      if (ideep) then
         do k = ka, kcubot(iw) - 1
-           frac(k) = min(frac(k), 0.7)
+           frac(k) = min(frac(k), cfraccup)
         enddo
-        frac(kcutop(iw)+1) = min(frac(k), 0.7)
+        frac(kcutop(iw)+1) = min(frac(k), cfraccup)
      endif
 
      ! TODO: Add an option to use the CAM scheme that estimates and combines 
@@ -388,6 +490,10 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
         krad = k - koff
 
         if (rx(k,mc) >= rxmin(mc) .and. emb(k,mc) >= emb0(mc)) then
+
+! Set lower bound on frac(k) because there is condensate
+
+           frac(k) = max(frac(k),0.1)
 
            cldfr(1,krad) = frac(k)
 
@@ -425,6 +531,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
                  tauclds(ib,1,krad) = tauclds(ib,1,krad) + tau
                  ssaclds(ib,1,krad) = ssaclds(ib,1,krad) + tau * ssa
                  asmclds(ib,1,krad) = asmclds(ib,1,krad) + tau * ssa * asm
+
               enddo
 
            endif
@@ -562,8 +669,9 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      iplon = 1
      irng = 0
      permuteseed = 1
+     ntim = nint(time8/dtlm(1))
 
-     call mcica_subcol_sw(iplon, ncol, nrad, icloud, permuteseed, irng, play, &
+     call mcica_subcol_sw(iw, ntim, iplon, ncol, nrad, icloud, permuteseed, irng, play, &
                           cldfr, cicewp, cliqwp, reice, reliq,  &
                           tauclds, ssaclds, asmclds, fsfclds, &
                           cldfmcl, ciwpmcl, clwpmcl, reicmcl, relqmcl, &
@@ -614,7 +722,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      irng = 0
      permuteseed = 150
 
-     call mcica_subcol_lw(iplon     , ncol      , nrad      , icloud, permuteseed, irng   , play, &
+     call mcica_subcol_lw(iw, ntim, iplon     , ncol      , nrad      , icloud, permuteseed, irng   , play, &
                           cldfr     , cicewp    , cliqwp    , reice , reliq      , taucldl,       &
                           cldfmcl_lw, ciwpmcl_lw, clwpmcl_lw,                                     &
                           reicmcl   , relqmcl   , taucmcl_lw                                      )

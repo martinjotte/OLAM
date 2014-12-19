@@ -235,7 +235,8 @@ use micro_coms, only: ncat, jnmb, rxmin, jhabtab, level,  &
                       emb0, emb1, emb2, parm
 
 use mem_micro,  only: sh_c, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, sh_d,  &
-                      con_c, con_r, con_p, con_s, con_a, con_g, con_h, con_d
+                      con_c, con_r, con_p, con_s, con_a, con_g, con_h, con_d, &
+                      cldnum
 
 use mem_basic,  only: tair
 
@@ -290,14 +291,14 @@ if (level == 2) then
 
    jnmb(1) = 1
    
-! In OLAM, with level = 2, cloud number concentration is specified in cparm
-! or parm(1).  Diagnose cloud droplet mean mass.
+! In OLAM, with level = 2, cloud number concentration is specified in cldnuc.
+! Diagnose cloud droplet mean mass.
 
-   parmi = 1. / parm(1)
+   parmi = 1. / cldnum(iw)
    do k = ka,mza
       rx(k,1) = sh_c(k,iw)
       emb(k,1) = rx(k,1) * parmi
-      cx(k,1) = parm(1)
+      cx(k,1) = cldnum(iw)
 
       jhcat(k,1) = 1
    enddo
@@ -512,7 +513,12 @@ if (level == 3) then
 
       elseif (jnmb(icat) == 4) then
 
-         parmi = 1. / parm(icat)
+         if (icat == 1) then
+            parmi = 1. / cldnum(iw)
+         else
+            parmi = 1. / parm(icat)
+         endif
+
          do k = ka,mza
             emb(k,icat) = max(emb0(icat),min(emb1(icat),rx(k,icat) * parmi))
             cx(k,icat) = rx(k,icat) / emb(k,icat)

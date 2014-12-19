@@ -157,6 +157,11 @@ Module oname_coms
 
       character(pathlen) :: rrtmg_datadir = '../etc'
 
+      integer :: icfrac
+      real :: cfracrh1 = 0.8
+      real :: cfracrh2 = 1.1
+      real :: cfraccup = 0.7
+
 !!    CUMULUS PARAMETERIZATION PARAMETERS
 
       integer :: nqparm(maxgrds) = 0

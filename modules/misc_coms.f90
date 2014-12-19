@@ -70,6 +70,7 @@ integer :: nzp
 integer :: icorflg
 integer :: ilwrtyp
 integer :: iswrtyp
+integer :: icfrac
 integer :: mdomain
 integer :: nsndg
 integer :: iflag
@@ -113,6 +114,9 @@ real :: deltax
 real :: hdz(10)
 real :: dz(10)
 real :: p_sfc
+real :: cfracrh1
+real :: cfracrh2
+real :: cfraccup
 
 integer :: ngrdll(maxgrds)
 

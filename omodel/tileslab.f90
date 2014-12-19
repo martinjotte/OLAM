@@ -497,6 +497,11 @@ real :: fldval
 real :: htpn(maxnlspoly), vtpn(maxnlspoly)
 real :: wtbot = 1., wttop = 0.
 
+real :: areasea_tot, field_tot
+
+areasea_tot = 0.
+field_tot = 0.
+
 do iws = 2,mws
 
    ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
@@ -532,9 +537,16 @@ do iws = 2,mws
    call oplot_lib(1,iws,'VALUE',op%fldname(iplt),wtbot,wttop, &
                   fldval,notavail)    
    if (notavail > 0) cycle 
+
+   areasea_tot = areasea_tot + sea%area(iws)
+   field_tot = field_tot + fldval * sea%area(iws)
+
    call celltile(iplt,iws,nspoly,htpn,vtpn,hpt,vpt,fldval,action)
 
 enddo
+
+if (areasea_tot > 1.) print*, trim(op%fldname(iplt)),' field_Savg ', &
+                           field_tot, areasea_tot, field_tot/areasea_tot
 
 end subroutine tileslab_horiz_s
 
@@ -568,6 +580,11 @@ real :: fldval
 real :: wtbot = 1., wttop = 0.
 
 real :: htpn(maxnlspoly), vtpn(maxnlspoly)
+
+real :: arealand_tot, field_tot
+
+arealand_tot = 0.
+field_tot = 0.
 
 ! Find K level to plot if field is 3d
 
@@ -614,9 +631,16 @@ do iwl = 2,mwl
    call oplot_lib(k,iwl,'VALUE',op%fldname(iplt),wtbot,wttop, &
                   fldval,notavail)    
    
+
+   arealand_tot = arealand_tot + land%area(iwl)
+   field_tot = field_tot + fldval * land%area(iwl)
+
    call celltile(iplt,iwl,nlpoly,htpn,vtpn,hpt,vpt,fldval,action)
 
 enddo
+
+if (arealand_tot > 1.) print*, trim(op%fldname(iplt)),' field_Lavg ', &
+                           field_tot, arealand_tot, field_tot/arealand_tot
 
 end subroutine tileslab_horiz_l
 

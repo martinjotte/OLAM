@@ -129,8 +129,8 @@ do iplt = 1,op%nplt
 
 ! Get units and stagpoint information for this field
 
-   iw = jtab_w(jtw_prog)%iw(1)
-   k  = lpw(iw)
+   iw = 2
+   k  = 2
    
    call oplot_lib(k,iw,'UNITS',trim(op%fldname(iplt)),1.,0.,fldval,notavail)
    

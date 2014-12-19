@@ -45,12 +45,13 @@
 ! Public subroutines
 !------------------------------------------------------------------
 
-      subroutine mcica_subcol_lw(iplon, ncol, nlay, icld, permuteseed, irng, play, &
+      subroutine mcica_subcol_lw(iw, ntim, iplon, ncol, nlay, icld, permuteseed, irng, play, &
                        cldfrac, ciwp, clwp, rei, rel, tauc, cldfmcl, &
                        ciwpmcl, clwpmcl, reicmcl, relqmcl, taucmcl)
 
 ! ----- Input -----
 ! Control
+      integer, intent(in) :: iw, ntim
       integer(kind=im), intent(in) :: iplon           ! column/longitude index
       integer(kind=im), intent(in) :: ncol            ! number of columns
       integer(kind=im), intent(in) :: nlay            ! number of model layers
@@ -148,14 +149,14 @@
 !      enddo
 
 !  Generate the stochastic subcolumns of cloud optical properties for the longwave;
-      call generate_stochastic_clouds (ncol, nlay, nsubclw, icld, irng, pmid, cldfrac, clwp, ciwp, tauc, &
+      call generate_stochastic_clouds (iw, ntim, ncol, nlay, nsubclw, icld, irng, pmid, cldfrac, clwp, ciwp, tauc, &
                                cldfmcl, clwpmcl, ciwpmcl, taucmcl, permuteseed)
 
       end subroutine mcica_subcol_lw
 
 
 !-------------------------------------------------------------------------------------------------
-      subroutine generate_stochastic_clouds(ncol, nlay, nsubcol, icld, irng, pmid, cld, clwp, ciwp, tauc, &
+      subroutine generate_stochastic_clouds(iw, ntim, ncol, nlay, nsubcol, icld, irng, pmid, cld, clwp, ciwp, tauc, &
                                    cld_stoch, clwp_stoch, ciwp_stoch, tauc_stoch, changeSeed) 
 !-------------------------------------------------------------------------------------------------
 
@@ -222,6 +223,7 @@
 
 ! -- Arguments
 
+      integer, intent(in) :: iw, ntim
       integer(kind=im), intent(in) :: ncol            ! number of columns
       integer(kind=im), intent(in) :: nlay            ! number of layers
       integer(kind=im), intent(in) :: icld            ! clear/cloud, cloud overlap flag
@@ -292,6 +294,7 @@
       real(kind=rb), dimension(ncol) :: rand_num      ! random number (kissvec)
       integer(kind=im) :: iseed                       ! seed to create random number (Mersenne Teister)
       real(kind=rb) :: rand_num_mt                    ! random number (Mersenne Twister)
+      real :: r1, r2, r3, r4
 
 ! Flag to identify cloud fraction in subcolumns
       logical,  dimension(nsubcol, ncol, nlay) :: iscloudy   ! flag that says whether a gridbox is cloudy
@@ -324,14 +327,26 @@
 ! For kissvec, create a seed that depends on the state of the columns. Maybe not the best way, but it works.  
 ! Must use pmid from bottom four layers. 
          do i=1,ncol
-            if (pmid(i,1).lt.pmid(i,2)) then 
-               stop 'MCICA_SUBCOL: KISSVEC SEED GENERATOR REQUIRES PMID FROM BOTTOM FOUR LAYERS.'
-            endif 
-            seed1(i) = (pmid(i,1) - int(pmid(i,1)))  * 1000000000_im
-            seed2(i) = (pmid(i,2) - int(pmid(i,2)))  * 1000000000_im
-            seed3(i) = (pmid(i,3) - int(pmid(i,3)))  * 1000000000_im
-            seed4(i) = (pmid(i,4) - int(pmid(i,4)))  * 1000000000_im
-          enddo
+!            if (pmid(i,1).lt.pmid(i,2)) then 
+!               stop 'MCICA_SUBCOL: KISSVEC SEED GENERATOR REQUIRES PMID FROM BOTTOM FOUR LAYERS.'
+!            endif 
+!            seed1(i) = (pmid(i,1) - int(pmid(i,1)))  * 1000000000_im
+!            seed2(i) = (pmid(i,2) - int(pmid(i,2)))  * 1000000000_im
+!            seed3(i) = (pmid(i,3) - int(pmid(i,3)))  * 1000000000_im
+!            seed4(i) = (pmid(i,4) - int(pmid(i,4)))  * 1000000000_im
+
+! Bob's version - based on grid column index (IW) and timestep number (NTIM)
+
+            r1 = .0001 * real(iw + ntim * 19)
+            r2 = .0001 * real(iw + ntim * 29)
+            r3 = .0001 * real(iw + ntim * 59)
+            r4 = .0001 * real(iw + ntim * 79)
+
+            seed1(i) = (r1 - int(r1))  * 1000000000_im
+            seed2(i) = (r2 - int(r2))  * 1000000000_im
+            seed3(i) = (r3 - int(r3))  * 1000000000_im
+            seed4(i) = (r4 - int(r4))  * 1000000000_im
+         enddo
          do i=1,changeSeed
             call kissvec(seed1, seed2, seed3, seed4, rand_num)
          enddo

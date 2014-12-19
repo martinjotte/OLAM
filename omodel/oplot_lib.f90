@@ -35,7 +35,7 @@ subroutine oplot_lib(k,i,infotyp,fldname0,wtbot,wttop,fldval,notavail)
 use mem_ijtabs,  only: itab_w, itab_v, itab_m, itabg_w
 use mem_basic,   only: vmc, wmc, vmp, vc, wc, rho, press, &
                        thil, theta, tair, sh_w, sh_v, vxe, vye, vze
-use mem_cuparm,  only: conprr, aconpr
+use mem_cuparm,  only: conprr, aconpr, qwcon
 
 use mem_grid,    only: mza, mva, mwa, lpm, lpv, lpw, lsw, &
                        zm, zt, dnu, dnv, arw0, arm0, arv, arw, volt, &
@@ -52,7 +52,8 @@ use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
                        con_ccn, con_gccn, con_ifn, &
                        pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
-                       accpd, accpr, accpp, accps, accpa, accpg, accph
+                       accpd, accpr, accpp, accps, accpa, accpg, accph, &
+                       cldnum
                       
 use mem_radiate, only: fthrd_lw, fthrd_sw, rshort, rlong, rlongup, albedt, &
                        rshort_top, rshortup_top, rlongup_top
@@ -149,7 +150,7 @@ integer, intent(out) :: notavail  ! 0 - variable is available
                                   ! 2 - variable is above model top
                                   ! 3 - variable is not available in this run
 
-integer :: klev,nls,iv,iw,kw
+integer :: klev,nls,iv,iw,kw,kp
 real :: raxis,u,v,farv2,rpolyi
 real :: vx, vy, vz, vxc, vyc, vzc
 real :: tempk,fracliq
@@ -214,7 +215,7 @@ data fldlib(1:4,  1:34)/ &
  'CON_GCCN'      ,'T3' ,'GCCN NUMBER CONCEN',' (# mg:S2:-1  )'              ,& !p 33
  'CON_IFN'       ,'T3' ,'IFN NUMBER CONCEN',' (# kg:S2:-1  )'                / !p 34
 
-data fldlib(1:4, 35:55)/ &
+data fldlib(1:4, 35:56)/ &
  'VKM'           ,'W3' ,'VERT TURB MOMENTUM K',' (N s m:S2:-2  )'           ,& !p 35
  'FTHRD'         ,'T3' ,'RADIATIVE THETA TENDENCY',' (K s:S2:-1  )'         ,& !p 36
  'SPEEDW'        ,'T3' ,'WIND SPEED AT W',' (m s:S2:-1  )'                  ,& !p 37
@@ -235,7 +236,8 @@ data fldlib(1:4, 35:55)/ &
  'WMT'           ,'W3' ,'W MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'       ,& !  52
  'ADDSC'         ,'T3' ,'ADDED SCALAR AMOUNT PER KG AIR',' '                ,& !p 53
  'ADDSCP'        ,'T3' ,'SCALAR PERTURBATION',' ( )'                        ,& !  54
- 'ZPLEV'         ,'T3' ,'HEIGHT OF CONST P SFC',' (m)'                       / !p 55
+ 'ZPLEV'         ,'T3' ,'HEIGHT OF CONST P SFC',' (m)'                      ,& !p 55
+ 'QWCON'         ,'T3' ,'CONV CONDENSATE SPEC DENSITY',' (g kg:S2:-1  )'     / !p 56
 
 ! ATMOSPHERE - 2D
 
@@ -510,7 +512,7 @@ data fldlib(1:4,278:304)/ &
  'VAPFLUX_DIF2'     ,'T2' ,'ATM SFC VAP FLUX DIF2',' (kg m:S2:-2   s:S2:-1  )',& ! 297
  'LS_SENSFLUX_DIF2' ,'B2','L/S SENS HEAT FLUX DIF2',' (W m:S2:-2  )'        ,& ! 298
  'LS_LATFLUX_DIF2'  ,'B2','L/S LAT HEAT FLUX DIF2',' (W m:S2:-2  )'         ,& ! 299
- 'LS_VAPFLUX_DIF2'  ,'B2','L/S VAP FLUX DIF2',' (kg m:S2:-2   s:S2:-1  )'   ,& ! 300
+ 'LS_VAPFLUX_DIF2'  ,'B2','L/S VAP FLUX DIF2',' (kg m:S2:-2   d:S2:-1  )'   ,& ! 300
  'LS_AIRTEMPK_DIF2' ,'B2','L/S ATM TEMP DIF2',' (K)'                        ,& ! 301
  'LS_AIRSHV_DIF2'   ,'B2','L/S ATM SHV DIF2',' (g kg:S2:-1  )'              ,& ! 302
  'LS_CANTEMPK_DIF2' ,'B2','L/S CAN TEMP DIF2',' (K)'                        ,& ! 303
@@ -518,7 +520,7 @@ data fldlib(1:4,278:304)/ &
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,305:327)/ &
+data fldlib(1:4,305:328)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 305
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 306
  'SHW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 307
@@ -541,14 +543,15 @@ data fldlib(1:4,305:327)/ &
  'HKM'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 324
  'HEAD0'         ,'L2' ,'HEAD0',' (m)'                                      ,& ! 325
  'SHW_HCONV'     ,'T2' ,'TOTAL WATER HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 326
- 'SHV_HCONV'     ,'T2' ,'WATER VAPOR HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )' / ! 327
+ 'SHV_HCONV'     ,'T2' ,'WATER VAPOR HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 327
+ 'CLDNUM'        ,'T2' ,'CLOUD # CONCEN (GEOG)',' (# mg:S2:-1  )'            / ! 328
 
 ! External fields
 
-data fldlib(1:4,328:330)/ &
- 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 328
- 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 329
- 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 330
+data fldlib(1:4,329:331)/ &
+ 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 329
+ 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 330
+ 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 331
 
 if (icall /= 1) then
    icall = 1
@@ -651,6 +654,7 @@ if (op%stagpt == 'S' .and. mws < 2) then
 endif
 
 notavail = 0
+kp = min(k+1,mza)
 
 ! Execute IF block below even when infotyp == 'UNITS'
 ! in order to check whether current plot field is available in this model run.
@@ -664,39 +668,39 @@ case(1) ! 'VMC'
 
    if (.not. allocated(vmc)) go to 1000
 
-   fldval = wtbot * vmc(k  ,i) &
-          + wttop * vmc(k+1,i)
+   fldval = wtbot * vmc(k ,i) &
+          + wttop * vmc(kp,i)
 
 case(2) ! 'WMC'
 
 ! Need to re-examine use of k-1 when k = lpw
 
-   fldval = wtbot * wmc(k  ,i) &
-          + wttop * wmc(k+1,i)
+   fldval = wtbot * wmc(k ,i) &
+          + wttop * wmc(kp,i)
 
 case(3) ! 'VMP'
 
    if (.not. allocated(vmp)) go to 1000
 
-   fldval = wtbot * vmp(k  ,i) &
-          + wttop * vmp(k+1,i)
+   fldval = wtbot * vmp(k ,i) &
+          + wttop * vmp(kp,i)
 
 case(4) ! 'VC'
 
    if (.not. allocated(vc)) go to 1000
 
-   fldval = wtbot * vc(k  ,i) &
-          + wttop * vc(k+1,i)
+   fldval = wtbot * vc(k ,i) &
+          + wttop * vc(kp,i)
 
 case(5) ! 'WC'
 
-   fldval = wtbot * wc(k  ,i) &
-          + wttop * wc(k+1,i)
+   fldval = wtbot * wc(k ,i) &
+          + wttop * wc(kp,i)
 
 case(6) ! 'RHO'
 
-   fldval = wtbot * rho(k  ,i) &
-          + wttop * rho(k+1,i)
+   fldval = wtbot * rho(k ,i) &
+          + wttop * rho(kp,i)
 
 case(7) ! 'PRESS'
 
@@ -708,206 +712,206 @@ case(7) ! 'PRESS'
 
 case(8) ! 'THIL'
 
-   fldval = wtbot * thil(k  ,i) &
-          + wttop * thil(k+1,i)
+   fldval = wtbot * thil(k ,i) &
+          + wttop * thil(kp,i)
 
 case(9) ! 'THETA'
 
-   fldval = wtbot * theta(k  ,i) &
-          + wttop * theta(k+1,i)
+   fldval = wtbot * theta(k ,i) &
+          + wttop * theta(kp,i)
 
 case(10) ! 'AIRTEMPK'
 
-   fldval = wtbot * tair(k  ,i) &
-          + wttop * tair(k+1,i)
+   fldval = wtbot * tair(k ,i) &
+          + wttop * tair(kp,i)
 
 case(11) ! 'AIRTEMPC'
 
-   fldval = wtbot * tair(k  ,i) &
-          + wttop * tair(k+1,i) - 273.15
+   fldval = wtbot * tair(k ,i) &
+          + wttop * tair(kp,i) - 273.15
 
 case(12) ! 'SH_W'
 
-   fldval = (wtbot * sh_w(k  ,i) &
-          +  wttop * sh_w(k+1,i)) * 1.e3
+   fldval = (wtbot * sh_w(k ,i) &
+          +  wttop * sh_w(kp,i)) * 1.e3
 
 case(13) ! 'SH_V'
 
-   fldval = (wtbot * sh_v(k  ,i) &
-          +  wttop * sh_v(k+1,i)) * 1.e3
+   fldval = (wtbot * sh_v(k ,i) &
+          +  wttop * sh_v(kp,i)) * 1.e3
 
 case(14) ! 'SH_C'
 
    if (.not. allocated(sh_c)) go to 1000
 
-   fldval = (wtbot * sh_c(k  ,i) &
-          +  wttop * sh_c(k+1,i)) * 1.e3
+   fldval = (wtbot * sh_c(k ,i) &
+          +  wttop * sh_c(kp,i)) * 1.e3
 
 case(15) ! 'SH_D'
 
    if (.not. allocated(sh_d)) go to 1000
 
-   fldval = (wtbot * sh_d(k  ,i) &
-          +  wttop * sh_d(k+1,i)) * 1.e3
+   fldval = (wtbot * sh_d(k ,i) &
+          +  wttop * sh_d(kp,i)) * 1.e3
 
 case(16) ! 'SH_R'
 
    if (.not. allocated(sh_r)) go to 1000
 
-   fldval = (wtbot * sh_r(k  ,i) &
-          +  wttop * sh_r(k+1,i)) * 1.e3
+   fldval = (wtbot * sh_r(k ,i) &
+          +  wttop * sh_r(kp,i)) * 1.e3
 
 case(17) ! 'SH_P'
 
    if (.not. allocated(sh_p)) go to 1000
 
-   fldval = (wtbot * sh_p(k  ,i) &
-          +  wttop * sh_p(k+1,i)) * 1.e3
+   fldval = (wtbot * sh_p(k ,i) &
+          +  wttop * sh_p(kp,i)) * 1.e3
 
 case(18) ! 'SH_S'
 
    if (.not. allocated(sh_s)) go to 1000
 
-   fldval = (wtbot * sh_s(k  ,i) &
-          +  wttop * sh_s(k+1,i)) * 1.e3
+   fldval = (wtbot * sh_s(k ,i) &
+          +  wttop * sh_s(kp,i)) * 1.e3
 
 case(19) ! 'SH_A'
 
    if (.not. allocated(sh_a)) go to 1000
 
-   fldval = (wtbot * sh_a(k  ,i) &
-          +  wttop * sh_a(k+1,i)) * 1.e3
+   fldval = (wtbot * sh_a(k ,i) &
+          +  wttop * sh_a(kp,i)) * 1.e3
 
 case(20) ! 'SH_G'
 
    if (.not. allocated(sh_g)) go to 1000
 
-   fldval = (wtbot * sh_g(k  ,i) &
-          +  wttop * sh_g(k+1,i)) * 1.e3
+   fldval = (wtbot * sh_g(k ,i) &
+          +  wttop * sh_g(kp,i)) * 1.e3
 
 case(21) ! 'SH_H'
 
    if (.not. allocated(sh_h)) go to 1000
 
-   fldval = (wtbot * sh_h(k  ,i) &
-          +  wttop * sh_h(k+1,i)) * 1.e3
+   fldval = (wtbot * sh_h(k ,i) &
+          +  wttop * sh_h(kp,i)) * 1.e3
 
 case(22) ! 'SH_CP'
 
    if (.not. allocated(sh_c)) go to 1000
    if (.not. allocated(sh_p)) go to 1000
 
-   fldval = (wtbot * (sh_c(k  ,i) + sh_p(k  ,i)) &
-          +  wttop * (sh_c(k+1,i) + sh_p(k+1,i))) * 1.e3
+   fldval = (wtbot * (sh_c(k ,i) + sh_p(k ,i)) &
+          +  wttop * (sh_c(kp,i) + sh_p(kp,i))) * 1.e3
 
 case(23) ! 'SH_TOTCOND'
 
-   fldval = (wtbot * (sh_w(k  ,i) - sh_v(k  ,i)) &
-          +  wttop * (sh_w(k+1,i) - sh_v(k+1,i))) * 1.e3
+   fldval = (wtbot * (sh_w(k ,i) - sh_v(k ,i)) &
+          +  wttop * (sh_w(kp,i) - sh_v(kp,i))) * 1.e3
 
 case(24) ! 'CON_C'
 
    if (.not. allocated(con_c)) go to 1000
 
-   fldval = (wtbot * con_c(k  ,i) &
-          +  wttop * con_c(k+1,i)) * 1.e-6
+   fldval = (wtbot * con_c(k ,i) &
+          +  wttop * con_c(kp,i)) * 1.e-6
 
 case(25) ! 'CON_D'
 
    if (.not. allocated(con_d)) go to 1000
 
-   fldval = (wtbot * con_d(k  ,i) &
-          +  wttop * con_d(k+1,i)) * 1.e-6
+   fldval = (wtbot * con_d(k ,i) &
+          +  wttop * con_d(kp,i)) * 1.e-6
 
 case(26) ! 'CON_R'
 
    if (.not. allocated(con_r)) go to 1000
 
-   fldval = wtbot * con_r(k  ,i) &
-          + wttop * con_r(k+1,i)
+   fldval = wtbot * con_r(k ,i) &
+          + wttop * con_r(kp,i)
 
 case(27) ! 'CON_P'
 
    if (.not. allocated(con_p)) go to 1000
 
-   fldval = wtbot * con_p(k  ,i) &
-          + wttop * con_p(k+1,i)
+   fldval = wtbot * con_p(k ,i) &
+          + wttop * con_p(kp,i)
 
 case(28) ! 'CON_S'
 
    if (.not. allocated(con_s)) go to 1000
 
-   fldval = wtbot * con_s(k  ,i) &
-          + wttop * con_s(k+1,i)
+   fldval = wtbot * con_s(k ,i) &
+          + wttop * con_s(kp,i)
 
 case(29) ! 'CON_A'
 
    if (.not. allocated(con_a)) go to 1000
 
-   fldval = wtbot * con_a(k  ,i) &
-          + wttop * con_a(k+1,i)
+   fldval = wtbot * con_a(k ,i) &
+          + wttop * con_a(kp,i)
 
 case(30) ! 'CON_G'
 
    if (.not. allocated(con_g)) go to 1000
 
-   fldval = wtbot * con_g(k  ,i) &
-          + wttop * con_g(k+1,i)
+   fldval = wtbot * con_g(k ,i) &
+          + wttop * con_g(kp,i)
 
 case(31) ! 'CON_H'
 
    if (.not. allocated(con_h)) go to 1000
 
-   fldval = wtbot * con_h(k  ,i) &
-          + wttop * con_h(k+1,i)
+   fldval = wtbot * con_h(k ,i) &
+          + wttop * con_h(kp,i)
 
 case(32) ! 'CON_CCN'
 
    if (.not. allocated(con_ccn)) go to 1000
 
-   fldval = (wtbot * con_ccn(k  ,i) &
-          +  wttop * con_ccn(k+1,i)) * 1.e-6
+   fldval = (wtbot * con_ccn(k ,i) &
+          +  wttop * con_ccn(kp,i)) * 1.e-6
 
 case(33) ! 'CON_GCCN'
 
    if (.not. allocated(con_gccn)) go to 1000
 
-   fldval = (wtbot * con_gccn(k  ,i) &
-          +  wttop * con_gccn(k+1,i)) * 1.e-6
+   fldval = (wtbot * con_gccn(k ,i) &
+          +  wttop * con_gccn(kp,i)) * 1.e-6
 
 case(34) ! 'CON_IFN'
 
    if (.not. allocated(con_ifn)) go to 1000
 
-   fldval = wtbot * con_ifn(k  ,i) &
-          + wttop * con_ifn(k+1,i)
+   fldval = wtbot * con_ifn(k ,i) &
+          + wttop * con_ifn(kp,i)
 
 case(35) ! 'VKM'
 
-   fldval = wtbot * vkm(k  ,i) &
-          + wttop * vkm(k+1,i)
+   fldval = wtbot * vkm(k ,i) &
+          + wttop * vkm(kp,i)
 
 case(36) ! 'FTHRD'
 
    if (.not. allocated(fthrd_sw)) goto 1000
    if (.not. allocated(fthrd_lw)) goto 1000
 
-   fldval = wtbot * (fthrd_sw(k  ,i) + fthrd_lw(k  ,i)) &
-          + wttop * (fthrd_sw(k+1,i) + fthrd_lw(k+1,i))
+   fldval = wtbot * (fthrd_sw(k ,i) + fthrd_lw(k ,i)) &
+          + wttop * (fthrd_sw(kp,i) + fthrd_lw(kp,i))
 
 case(37:40) ! 'SPEEDW','AZIMW','ZONAL_WINDW','MERID_WINDW'
 
    npoly = itab_w(i)%npoly
    rpolyi = 1. / real(npoly)
 
-   vx = wtbot * vxe(k  ,i) &
-      + wttop * vxe(k+1,i)
+   vx = wtbot * vxe(k ,i) &
+      + wttop * vxe(kp,i)
 
-   vy = wtbot * vye(k  ,i) &
-      + wttop * vye(k+1,i)
+   vy = wtbot * vye(k ,i) &
+      + wttop * vye(kp,i)
 
-   vz = wtbot * vze(k  ,i) &
-      + wttop * vze(k+1,i)
+   vz = wtbot * vze(k ,i) &
+      + wttop * vze(kp,i)
 
    if (trim(fldname) == 'SPEEDW') then
       fldval = sqrt(vx**2 + vy**2 + vz**2)
@@ -949,13 +953,13 @@ case(41:43) ! 'RVORTZM','TVORTZM','RVORTZM_P'
 
        iv = itab_m(i)%iv(j)
 
-       vcc = wtbot * vc(k  ,iv) &
-           + wttop * vc(k+1,iv)
+       vcc = wtbot * vc(k ,iv) &
+           + wttop * vc(kp,iv)
 
       if (fldname == 'RVORTZM_P') then
 
-         vcc_init = wtbot * vc_init(k  ,iv) &
-                  + wttop * vc_init(k+1,iv)
+         vcc_init = wtbot * vc_init(k ,iv) &
+                  + wttop * vc_init(kp,iv)
 
          vcc = vcc - vcc_init
 
@@ -1000,8 +1004,8 @@ case(44) ! 'DIVERG'
                 + wtbot * vmc(k,iv) * (-itab_w(i)%dirv(j)) * arv(k,iv) &
                         / (volt(k,i) * rho(k,i)) &
 
-                + wttop * vmc(k+1,iv) * (-itab_w(i)%dirv(j)) * arv(k+1,iv) &
-                        / (volt(k+1,i) * rho(k+1,i))
+                + wttop * vmc(kp,iv) * (-itab_w(i)%dirv(j)) * arv(kp,iv) &
+                        / (volt(kp,i) * rho(kp,i))
       enddo
    endif
 
@@ -1019,8 +1023,8 @@ case(47) ! 'PRESS_P'
 
 case(48) ! 'RHO_P'
 
-   fldval = wtbot * (rho(k  ,i) - rho_init(k  ,i)) &
-          + wttop * (rho(k+1,i) - rho_init(k+1,i))
+   fldval = wtbot * (rho(k ,i) - rho_init(k ,i)) &
+          + wttop * (rho(kp,i) - rho_init(kp,i))
 
 ! For shallow water test case 5, define RHO_P from reference fields
 
@@ -1033,15 +1037,15 @@ case(48) ! 'RHO_P'
 
 case(49) ! 'THETA_P'
 
-   fldval = wtbot * (theta(k  ,i) - theta_init(k  ,i)) &
-          + wttop * (theta(k+1,i) - theta_init(k+1,i))
+   fldval = wtbot * (theta(k ,i) - theta_init(k ,i)) &
+          + wttop * (theta(kp,i) - theta_init(kp,i))
 
 case(50) ! 'AIRTEMPK_P'
 
-   fldval = wtbot * tair(k  ,i) &
-          + wttop * tair(k+1,i) &
-          - wtbot * theta_init(k  ,i) * (press_init(k  ,i) * p00i) ** rocp &
-          - wttop * theta_init(k+1,i) * (press_init(k+1,i) * p00i) ** rocp
+   fldval = wtbot * tair(k ,i) &
+          + wttop * tair(kp,i) &
+          - wtbot * theta_init(k ,i) * (press_init(k ,i) * p00i) ** rocp &
+          - wttop * theta_init(kp,i) * (press_init(kp,i) * p00i) ** rocp
 
 case(51) ! 'VMT'
 
@@ -1056,8 +1060,8 @@ case(53) ! 'ADDSC'
    if (indp > naddsc) go to 1000
    if (.not. allocated(addsc(indp)%sclp)) go to 1000
 
-   fldval = wtbot * addsc(indp)%sclp(k  ,i) &
-          + wttop * addsc(indp)%sclp(k+1,i)
+   fldval = wtbot * addsc(indp)%sclp(k ,i) &
+          + wttop * addsc(indp)%sclp(kp,i)
 
 case(54) ! 'ADDSC_P'
 
@@ -1071,8 +1075,13 @@ case(54) ! 'ADDSC_P'
 
 case(55) ! 'ZPLEV'
 
-   fldval = wtbot * zt(k  ) &
-          + wttop * zt(k+1)
+   fldval = wtbot * zt(k ) &
+          + wttop * zt(kp)
+
+case(56) ! 'QWCON'
+
+   fldval = (wtbot * qwcon(k ,i) &
+          +  wttop * qwcon(kp,i)) * 1.e3
 
 case(62) ! 'RSHORT_TOP'
 
@@ -2717,22 +2726,22 @@ case(320) ! 'VXE'
 
    if (.not. allocated(vxe)) go to 1000
 
-   fldval = wtbot * vxe(k  ,i) &
-          + wttop * vxe(k+1,i)
+   fldval = wtbot * vxe(k ,i) &
+          + wttop * vxe(kp,i)
 
 case(321) ! 'VYE'
 
    if (.not. allocated(vye)) go to 1000
 
-   fldval = wtbot * vye(k  ,i) &
-          + wttop * vye(k+1,i)
+   fldval = wtbot * vye(k ,i) &
+          + wttop * vye(kp,i)
 
 case(322) ! 'VZE'
 
    if (.not. allocated(vze)) go to 1000
 
-   fldval = wtbot * vze(k  ,i) &
-          + wttop * vze(k+1,i)
+   fldval = wtbot * vze(k ,i) &
+          + wttop * vze(kp,i)
 
 case(323) ! 'PBLH'
 
@@ -2744,8 +2753,8 @@ case(324) ! 'HKM'
 
    if (.not. allocated(hkm)) go to 1000
 
-   fldval = wtbot * hkm(k  ,i) / rho(k  ,i) &
-          + wttop * hkm(k+1,i) / rho(k+1,i)
+   fldval = wtbot * hkm(k ,i) / rho(k ,i) &
+          + wttop * hkm(kp,i) / rho(kp,i)
 
 case(325) ! 'HEAD0'
 
@@ -2790,6 +2799,10 @@ case(327) ! 'SHV_HCONV'
    enddo
 
    fldval = fldval / arw0(i)
+
+case(328) ! 'CLDNUM'
+
+   fldval = cldnum(i) * 1.e-6
 
 case default
 

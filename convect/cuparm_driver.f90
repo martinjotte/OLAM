@@ -92,6 +92,13 @@ if (ncall /= 1) then
       do_spreading = .true.
    endif
 
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+! Bob - Nov 2014: New default is NO lateral distribution of convective heating.
+! A future study may indicate conditions under which is should be restored.
+
+   do_spreading = .false.
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
    do j = 1,jtab_w(jtw_wadj)%jend(1); iw = jtab_w(jtw_wadj)%iw(j) ! jend(1) for mrl = 1
       npoly = itab_w(iw)%npoly
 
@@ -200,7 +207,7 @@ if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
 ! Tiedtke convective parameterization
 
          km = mza + 1 - lpw(iw) ! km  = # of T levels in cuparm_tiedtke
-         km1 = km + 1       ! km1 = # of W levels in cuparm_tiedtke
+         km1 = km + 1           ! km1 = # of W levels in cuparm_tiedtke
 
          call cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
 

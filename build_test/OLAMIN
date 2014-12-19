@@ -138,7 +138,7 @@
  ! Variable initialization input
  !--------------------------------------------------------------------------
 
-   NL%INITIAL  = 3   ! Initial fields:  1 = horizontally homogeneous
+   NL%INITIAL  = 2   ! Initial fields:  1 = horizontally homogeneous
                      !                  2 = 3D heterogeneous
                      !                  3 = longitudinally homogeneous
 
@@ -218,11 +218,19 @@
 
    NL%RRTMG_DATADIR = '../etc'  ! Directory containing RRTMg input files
 
+   NL%ICFRAC = 3       ! Cloud frac scheme for resolved moisture (for RRTMg only)
+                       ! 1 = Mocko and Cotton
+                       ! 2 = linear rh formula using CFRACRH1 and CFRACRH2
+                       ! 3:6 = linear rh formula using geographic parms in code
+   NL%CFRACRH1 = 0.9   ! Lower RH threshold for linear rh formula
+   NL%CFRACRH2 = 1.3   ! Upper RH threshold for linear rh formula
+   NL%CFRACCUP = 0.7   ! Upper bound on cloud fraction with SGS convection
+
  !--------------------------------------------------------------------------
  ! Cumulus parameterization parameters
  !--------------------------------------------------------------------------
   
-   NL%NQPARM = 3,3,3,3,3,3,3,3,3   ! Cumulus parameterization scheme for each MRL
+   NL%NQPARM = 2,2,2,2,2,2,2,2,2   ! Cumulus parameterization scheme for each MRL
                                    ! 0 = off, 1 = Tiedtke, 2 = Grell, 3 = KF_eta,
                                    ! 4 = Emanuel, 5 = Grell-Freitas
 
@@ -236,7 +244,7 @@
  ! Eddy diffusion coefficient parameters (one value for each MRL)
  !--------------------------------------------------------------------------
  
-   NL%IDIFFK = 1,1,1,1,1,1,1,1    ! Turbulent parameterization scheme:
+   NL%IDIFFK = 2,2,2,2,2,2,2,2    ! Turbulent parameterization scheme:
                                   !  0 = off
                                   !  1 = ACM2 non-local PBL
                                   !  2 = Smagorinsky-Lilly-Hill
@@ -281,8 +289,9 @@
    NL%QXTRANS = 1,        ! 0 = no transport of rain/graupel/hail internal energy
                           ! 1 = transport rain/graupel/hail internal energy 
 
-   NL%CPARM   = 300.e6    ! Cloud concen (#/kg_air) if ICLOUD = 4,
+   NL%CPARM   = 0.e6    ! Cloud concen (#/kg_air) if ICLOUD = 4,
                           ! CCN concen (#/kg_air) if ICLOUD = 5
+                          ! (If less than 1.e6, geographic values are used)
 
    NL%DPARM   = 10.       ! Drizzle concen ([#/kg_air) if IDRIZ = 4,
                           ! GCCN concen (#/kg_air) if IDRIZ = 5
@@ -426,7 +435,7 @@
 
    NL%IUPDNDVI   = 1  ! 0/1 = No/Yes update of NDVI values during run
    NL%IUPDSST    = 1  ! 0/1 = No/Yes update of SST values during run
-   NL%IUPDSEAICE = 1  ! 0/1 = No/Yes update of SST values during run
+   NL%IUPDSEAICE = 1  ! 0/1 = No/Yes update of SEAICE values during run
  
    NL%SEATMP   = 280.0   ! Water surface temperature (K) if ISSTFLG = 0
    NL%SEAICE   =   0.0   ! Seaice fraction (0 - 1) if ISEAICEFLG = 0
@@ -572,16 +581,19 @@
  !                   |  color   |        lon/lat      height,  width     or 'V'
  !FLDNAME            |  table   |        or x/y      or p-lev   (m)     projectn
  !-------------------------------------------------------------------------------
-'ZPLEV'             ,'O', 28,'FIpmcitW',  -116.,39.,     500.,   1000.e3,    0.
-'AIRTEMPC'          ,'O',100,'TGImcitsW', -116.,39.,      30.,   1000.e3,    0.
-'CAN_TEMPC'         ,'O',100,'TGgIPmcitW', -116.,39.,      30.,   1000.e3,    0.
-'SFC_TEMPC'         ,'O',100,'TgIPmcitW',  -116.,39.,     100.,   1000.e3,    0.
-'TOPM'              ,'O',401,'TGIPmcitW', -116.,39.,    1000.,   1000.e3,    0.
-'TOPW'              ,'O',401,'TGIPmcitW', -116.,39.,    1000.,   1000.e3,    0.
-'LS_TOPW'           ,'O',401,'TgPmcitW',  -116.,39.,    1000.,   1000.e3,    0.
-'LS_KW'             ,'O',  5,'TGgPmcitW', -116.,39.,    1000.,   1000.e3,    0.
-'ARW0'              ,'O',200,'TGIPmcitW', -116.,39.,    1000.,   1000.e3,    0.
-'LPW'               ,'O',  5,'TGIPmcitW', -116.,39.,    1000.,   1000.e3,    0.
+ 'RSHORT'           ,'L',417,'Fmcit',         0.,  0.,    1000.,    4000.e3,    0.
+ 'CLDNUM'           ,'L', 67,'Fmcit',         0.,  0.,    1000.,    4000.e3,    0.
+ 'SH_W'             ,'C',  5,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'SH_V'             ,'C',  5,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'SH_C'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'SH_D'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'SH_R'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'SH_P'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'SH_S'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'SH_A'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'SH_G'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'SH_H'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'QWCON'            ,'C',  7,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
 
 
 
@@ -589,18 +601,44 @@
 'PCPDIF2CON'        ,'L',418,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
 'PCPDIF2BOTH'       ,'L',418,'Fmcit',    0.,0.,    1000.,    1200.e3,    0.
 'PCPDIF2BOTH'       ,'L',418,'FGmcit',    0.,0.,    1000.,    1200.e3,    0.
-'PCPDIF2BOTH'       ,'L',418,'Tmcit',    0.,0.,    1000.,    1200.e3,    0.
+'PCPDIF2MIC'        ,'L',421,'Fmcib',   -140.,0.,    1000.,    1200.e3,    0.
+'PCPDIF2CON'        ,'L',421,'Fmcib',   -140.,0.,    1000.,    1200.e3,    0.
 'PCPDIF2BOTH'       ,'L',421,'Fmcib',   -140.,0.,    1000.,    1200.e3,    0.
-'RSHORT_DIF2'       ,'L', 63,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RSHORTUP_DIF2'     ,'L', 63,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RLONG_DIF2'        ,'L', 63,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RLONGUP_DIF2'      ,'L', 63,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RSHORT_TOP_DIF2'   ,'L', 63,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RSHORTUP_TOP_DIF2' ,'L', 63,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RLONGUP_TOP_DIF2'  ,'L', 63,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
+'PCPDIF2MIC'        ,'L',418,'Tmcit',    0.,0.,    1000.,    1200.e3,    0.
+'PCPDIF2CON'        ,'L',418,'Tmcit',    0.,0.,    1000.,    1200.e3,    0.
+'PCPDIF2BOTH'       ,'L',418,'Tmcit',    0.,0.,    1000.,    1200.e3,    0.
+'VAPFLUX_DIF2'      ,'L',166,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
+'RSHORT_DIF2'       ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
+'RSHORTUP_DIF2'     ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
+'RLONG_DIF2'        ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
+'RLONGUP_DIF2'      ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
+'RSHORT_TOP_DIF2'   ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
+'RSHORTUP_TOP_DIF2' ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
+'RLONGUP_TOP_DIF2'  ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
 'SENSFLUX_DIF2'     ,'L',163,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
 'LATFLUX_DIF2'      ,'L',163,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
+'LS_SENSFLUX_DIF2'  ,'L',103,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
+'LS_LATFLUX_DIF2'   ,'L',103,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
+'LS_VAPFLUX_DIF2'   ,'L',166,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
+'LS_AIRTEMPK_DIF2'  ,'L', 20,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
+'LS_AIRSHV_DIF2'    ,'L',  5,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
+'LS_CANTEMPK_DIF2'  ,'L', 20,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
+'LS_CANSHV_DIF2'    ,'L',  5,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
 
+'VOLT'              ,'C',202,'TGPmcitW', -116.,39.,      90.,   2000.e3,    0.
+'ZPLEV'             ,'O', 28,'FIpmcit',  -116.,39.,     500.,   1000.e3,    0.
+'AIRTEMPC'          ,'O',100,'TGImcits', -116.,39.,      30.,   1000.e3,    0.
+'CAN_TEMPC'         ,'O',100,'TGgIPmcit', -116.,39.,      30.,   1000.e3,    0.
+'SFC_TEMPC'         ,'O',100,'TgIPmcit',  -116.,39.,     100.,   1000.e3,    0.
+'TOPM'              ,'O',401,'TGIPmcit', -116.,39.,    1000.,   1000.e3,    0.
+'TOPW'              ,'O',401,'TGIPmcit', -116.,39.,    1000.,   1000.e3,    0.
+'LS_TOPW'           ,'O',401,'TgPmcit',  -116.,39.,    1000.,   1000.e3,    0.
+'LS_KW'             ,'O',  5,'TGgPmcit', -116.,39.,    1000.,   1000.e3,    0.
+'ARW0'              ,'O',200,'TGIPmcit', -116.,39.,    1000.,   1000.e3,    0.
+'LPW'               ,'O',  5,'TGIPmcit', -116.,39.,    1000.,   1000.e3,    0.
+'ACCPMIC'           ,'L',200,'Fmcit',    -116.,39.    1000.,    400.e3,    0.
+'ACCPCON'           ,'L',200,'Fmcit',    -116.,39.    1000.,    400.e3,    0.
+'ACCPBOTH'          ,'L',200,'Fmcit',    -116.,39.    1000.,    400.e3,    0.
 
 'PCPDIF4MIC'        ,'L',161,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
 'PCPDIF4CON'        ,'L',161,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.

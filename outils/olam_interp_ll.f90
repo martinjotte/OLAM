@@ -200,10 +200,10 @@ do im = 2,mma
          do ilon = 1,nlon  ! loop over longitude points
 
             if (alon(ilon) < aminlon .and. &
-               (lonflag /= 2 .or. alon(ilon) > amaxlon)) cycle
+               (lonflag /= 2 .or. alon(ilon) > amaxlon - 360.)) cycle
 
             if (alon(ilon) > amaxlon .and. &
-               (lonflag /= 1 .or. alon(ilon) < aminlon)) cycle
+               (lonflag /= 1 .or. alon(ilon) < aminlon + 360.)) cycle
 
 ! Transform current lat-lon point to PS space
 
@@ -375,10 +375,10 @@ do iw = 2,mwa
          do ilon = 1,nlon  ! loop over longitude points
 
             if (alon(ilon) < aminlon .and. &
-               (lonflag /= 2 .or. alon(ilon) > amaxlon)) cycle
+               (lonflag /= 2 .or. alon(ilon) > amaxlon - 360.)) cycle
 
             if (alon(ilon) > amaxlon .and. &
-               (lonflag /= 1 .or. alon(ilon) < aminlon)) cycle
+               (lonflag /= 1 .or. alon(ilon) < aminlon + 360.)) cycle
 
 ! Transform current lat-lon point to PS space
 
@@ -592,10 +592,10 @@ do im = 2,mma
          do ilon = 1,nlon  ! loop over longitude points
 
             if (alon(ilon) < aminlon .and. &
-               (lonflag /= 2 .or. alon(ilon) > amaxlon)) cycle
+               (lonflag /= 2 .or. alon(ilon) > amaxlon - 360.)) cycle
 
             if (alon(ilon) > amaxlon .and. &
-               (lonflag /= 1 .or. alon(ilon) < aminlon)) cycle
+               (lonflag /= 1 .or. alon(ilon) < aminlon + 360.)) cycle
 
 ! Transform current lat-lon point to PS space
 

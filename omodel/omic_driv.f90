@@ -102,6 +102,7 @@ real :: pcpg0,qpcpg0,dpcpg0,dtl0,dtli0
 real :: pi4dt  ! delta_t * pi * 4
 
 real :: frac
+real :: cldnumx  ! Replacement for cparm and parm(1); can vary geographically
 
 ! Automatic arrays
 
@@ -394,7 +395,7 @@ accpx(:) = 0.
 
 call mic_copy(iw0,lpw0,thil0,press0,wc0,rhoa,rhow,rhoi, &
    theta0,exner0,rhov, &
-   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
+   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr,cldnumx)
 
 ! Loop over all vertical levels
 
@@ -948,7 +949,8 @@ endif
 ! Nucleation of cloud droplets
 
 if (jnmb(1) >= 1) &
-   call cldnuc(iw0,lpw0,dtli0,rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa, &
+   call cldnuc(iw0,lpw0,dtli0, &
+               cldnumx,rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa, &
                tair,tairc,wc0,rhovslair,rnuc_vc,rnuc_vd,cnuc_vc,cnuc_vd)
 
 ! Rediagnose k2(1) and k3(1) because of possible new cloud nucleation
@@ -1160,14 +1162,15 @@ end subroutine micphys
 
 subroutine mic_copy(iw0,lpw0,thil0,press0,wc0,rhoa,rhow,rhoi, &
    theta0,exner0,rhov, &
-   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
+   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr,cldnumx)
 
 use micro_coms, only: mza0, ncat, jnmb, rxmin
 use mem_basic,  only: thil, press, wc, rho, sh_w, sh_v, theta
 
 use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                       q2, q6, q7, con_ccn, con_gccn, con_ifn, &
-                      con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h
+                      con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
+                      cldnum
 
 use misc_coms,  only: io6, time_istp8
 use consts_coms, only: p00i, rocp, cpi
@@ -1177,24 +1180,25 @@ implicit none
 integer, intent(in) :: iw0
 integer, intent(in) :: lpw0
 
-real, intent(out) :: thil0 (mza0)
-real, intent(out) :: press0(mza0)
-real, intent(out) :: wc0   (mza0)
-real, intent(out) :: rhoi  (mza0)
-real, intent(out) :: theta0(mza0)
-real, intent(out) :: exner0(mza0)
-real, intent(out) :: rhov  (mza0)
-real, intent(out) :: con_ccnx (mza0)
-real, intent(out) :: con_gccnx(mza0)
-real, intent(out) :: con_ifnx (mza0)
+real, intent(inout) :: thil0 (mza0)
+real, intent(inout) :: press0(mza0)
+real, intent(inout) :: wc0   (mza0)
+real, intent(inout) :: rhoi  (mza0)
+real, intent(inout) :: theta0(mza0)
+real, intent(inout) :: exner0(mza0)
+real, intent(inout) :: rhov  (mza0)
+real, intent(inout) :: con_ccnx (mza0)
+real, intent(inout) :: con_gccnx(mza0)
+real, intent(inout) :: con_ifnx (mza0)
 
-real(kind=8), intent(out) :: rhoa(mza0)
-real(kind=8), intent(out) :: rhow(mza0)
+real(kind=8), intent(inout) :: rhoa(mza0)
+real(kind=8), intent(inout) :: rhow(mza0)
 
 real, intent(inout) :: rx(mza0,ncat)
 real, intent(inout) :: cx(mza0,ncat)
 real, intent(inout) :: qx(mza0,ncat)
 real, intent(inout) :: qr(mza0,ncat)
+real, intent(inout) :: cldnumx
 
 integer :: k
 
@@ -1215,6 +1219,8 @@ do k = lpw0,mza0
 enddo
 
 ! Cloud water
+
+ cldnumx = cldnum(iw0)
 
 if (jnmb(1) >= 5) then
 
