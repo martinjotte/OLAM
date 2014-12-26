@@ -40,7 +40,7 @@ subroutine olam_mpi_init()
   use mpi
 #endif
 
-  use mem_para,  only: mgroupsize, myrank
+  use mem_para,  only: mgroupsize, myrank, nbytes_int, nbytes_real, nbytes_real8
   implicit none
 
 #ifdef OLAM_MPI
@@ -53,10 +53,18 @@ subroutine olam_mpi_init()
   call MPI_Comm_size(MPI_COMM_WORLD,mgroupsize,ierr)
   call MPI_Comm_rank(MPI_COMM_WORLD,myrank,ierr)
 
+  call MPI_Pack_size(1, MPI_INTEGER, MPI_COMM_WORLD, nbytes_int  , ierr)
+  call MPI_Pack_size(1, MPI_REAL   , MPI_COMM_WORLD, nbytes_real , ierr)
+  call MPI_Pack_size(1, MPI_REAL8  , MPI_COMM_WORLD, nbytes_real8, ierr)
+
 #else
 
   mgroupsize = 1
   myrank     = 0
+
+  nbytes_int   = 4
+  nbytes_real  = 4
+  nbytes_real8 = 8
 
 #endif
 
@@ -140,11 +148,11 @@ subroutine olam_alloc_mpi(mza, mrls)
 
   use mem_ijtabs, only: jtab_v, jtab_w, jtab_m, mloops
   use mem_nudge,  only: jtab_wnud
-  use mem_para,   only: myrank,                                    &
-                        nrecvs_v, nrecvs_w, nrecvs_m, nrecvs_wnud, &
-                        nsends_v, nsends_w, nsends_m, nsends_wnud, &
-                        recv_v,   recv_w,   recv_m,   recv_wnud,   &
-                        send_v,   send_w,   send_m,   send_wnud
+  use mem_para,   only: myrank,   nbytes_int, nbytes_real, nbytes_real8,&
+                        nrecvs_v, nrecvs_w,   nrecvs_m,    nrecvs_wnud, &
+                        nsends_v, nsends_w,   nsends_m,    nsends_wnud, &
+                        recv_v,   recv_w,     recv_m,      recv_wnud,   &
+                        send_v,   send_w,     send_m,      send_wnud
   use misc_coms,  only: io6
   use var_tables, only: nvar_par
 
@@ -154,10 +162,6 @@ subroutine olam_alloc_mpi(mza, mrls)
   integer, intent(in) :: mrls
 
 #ifdef OLAM_MPI
-
-  integer :: nbytes_int
-  integer :: nbytes_real
-  integer :: nbytes_real8
 
   integer :: nbytes_per_iu
   integer :: nbytes_per_iv
@@ -190,12 +194,6 @@ subroutine olam_alloc_mpi(mza, mrls)
 
   integer              :: wnudsbuf
   integer, allocatable :: wnudrbuf(:)
-
-! Allocate send buffers
-
-  call MPI_Pack_size(1,MPI_INTEGER,MPI_COMM_WORLD,nbytes_int  ,ierr)
-  call MPI_Pack_size(1,MPI_REAL   ,MPI_COMM_WORLD,nbytes_real ,ierr)
-  call MPI_Pack_size(1,MPI_REAL8  ,MPI_COMM_WORLD,nbytes_real8,ierr)
 
 ! Post V receives
 

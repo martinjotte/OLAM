@@ -10,7 +10,7 @@ subroutine read_soil_analysis(soil_tempc)
   use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, &
                         inproj, xswlat, xswlon, gdatdx, gdatdy, ipoffset
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
-  use mem_para,   only: myrank
+  use mem_para,   only: myrank, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -30,7 +30,7 @@ subroutine read_soil_analysis(soil_tempc)
   integer            :: nio, njo, ngnd
   integer            :: iwl, i, j, k, kk, ntext
   logical            :: has_snow, has_soilt, has_soilw
-  integer            :: bytes, nbytes_int, nbytes_real, isize, ier
+  integer            :: bytes, isize, ier
 
   real, allocatable  :: snow (:,:)   ! snow mass  [kg/m2]
   real, allocatable  :: soilt(:,:,:) ! soil temp  [K]
@@ -100,10 +100,6 @@ subroutine read_soil_analysis(soil_tempc)
 
 #ifdef OLAM_MPI
   if (iparallel == 1) then
-
-     call MPI_Pack_size(1, MPI_INTEGER, MPI_COMM_WORLD, nbytes_int , ier)
-     call MPI_Pack_size(1, MPI_REAL   , MPI_COMM_WORLD, nbytes_real, ier)
-
      bytes = 0
      isize = nbytes_int*4 + nbytes_real*4
      allocate( buffer( isize ) )

@@ -102,4 +102,8 @@ Module mem_para
   integer, parameter :: itagw   = 3
   integer, parameter :: itagwnud= 4
 
+  integer :: nbytes_int
+  integer :: nbytes_real
+  integer :: nbytes_real8
+
 End Module mem_para

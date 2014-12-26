@@ -39,7 +39,7 @@ use isan_coms,  only: iyear, nprz, levpr, ivertcoord, secondlat, cntlon, &
                       ipoffset
 use misc_coms,  only: io6, iparallel
 use hdf5_utils, only: shdf5_open, shdf5_irec
-use mem_para,   only: myrank
+use mem_para,   only: myrank, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
 use mpi
@@ -54,7 +54,7 @@ character(len=16) :: ext
 logical :: exists
 integer :: lv, n, ier, igloberr
 integer :: ndims, idims(2)
-integer :: bytes, nbytes_int, nbytes_real, isize
+integer :: bytes, isize
 
 integer, allocatable :: buffer(:)
 
@@ -110,15 +110,9 @@ elseif (fform == 'HD5') then
 
 #ifdef OLAM_MPI
    if (iparallel == 1) then
-
-      call MPI_Pack_size(1, MPI_INTEGER, MPI_COMM_WORLD, nbytes_int , ier)
-      call MPI_Pack_size(1, MPI_REAL   , MPI_COMM_WORLD, nbytes_real, ier)
-
       bytes = 0
       isize = nbytes_int*12 + nbytes_real*9
-
       allocate( buffer( isize ) )
-      
    endif
 #endif
 
