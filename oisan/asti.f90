@@ -34,17 +34,17 @@ subroutine isnstage(p_u, p_v, p_t, p_z, p_r, &
                     p_topo, p_prsfc, p_tsfc, p_shsfc, &
                     o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_vc)
 
-use max_dims,   only: maxpr
-use isan_coms,  only: nprz, npry, nprx, nprz_rh, &
-                      xswlat, xswlon, gdatdx, gdatdy, &
-                      npd, kzonoff, levpr, lzon_bot, ipoffset
-use mem_grid,   only: glatw, glonw, mza, mwa, mva, lpv, lpw, &
-                      xev, yev, zev, unx, uny, unz, vnx, vny, vnz
-use mem_ijtabs, only: jtab_v, jtab_w, itab_v, itab_w, jtv_init, jtw_init
-use mem_zonavg, only: zonp_vect, zont, zonz, zonr, zonu
-use consts_coms,only: r8, eradi, rocp, p00i, cp
-use misc_coms,  only: io6, iparallel
-
+use max_dims,     only: maxpr
+use isan_coms,    only: nprz, npry, nprx, nprz_rh, &
+                        xswlat, xswlon, gdatdx, gdatdy, &
+                        npd, kzonoff, levpr, lzon_bot, ipoffset
+use mem_grid,     only: glatw, glonw, mza, mwa, mva, lpv, lpw, &
+                        xev, yev, zev, unx, uny, unz, vnx, vny, vnz
+use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, jtv_init, jtw_init
+use mem_zonavg,   only: zonp_vect, zont, zonz, zonr, zonu
+use consts_coms,  only: r8, eradi, rocp, p00i, cp
+use misc_coms,    only: io6, iparallel
+use isan_coms,    only: ihydsfc
 use olam_mpi_atm, only: mpi_send_w, mpi_send_v, mpi_recv_w, mpi_recv_v
 use obnd,         only: lbcopy_v
 
@@ -74,19 +74,15 @@ real :: pcol_z    (maxpr+2)
 real :: pcol_u    (maxpr+2)
 real :: pcol_v    (maxpr+2)
 real :: pcol_rt   (maxpr+2)
-real :: pcol_r    (maxpr+2)
 real :: pcol_exner(maxpr+2)
 
 real :: pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc
 
-character(3) :: csuff
-character(8) :: rot_type
-
-integer :: ngrd,lv,lf,k,levp,j,iw,ilat,iu,iv,iuv,mrl,ka
+integer :: k,levp,j,iw,ilat,iv,mrl,ka
 integer :: iw1,iw2,nlevs,kstrt
 
-real :: wt2,grx,gry,rlat,qlatu,qlonu,dummy,ug,vg
-real :: qlatv,qlonv,cosuv,qlatuv,qlonuv,sinuv,uvgx,uvgy,uvgz,uvgr,raxis,raxisi
+real :: wt2,grx,gry,rlat,ug,vg
+real :: uvgx,uvgy,uvgz,uvgr,raxis,raxisi
 
 real :: r_interp(22)
 
@@ -197,7 +193,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    call vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid, &
                  pcol_p, pcol_temp, pcol_z, pcol_u, pcol_v, &
-                 pcol_rt, pcol_r, pcol_exner, &
+                 pcol_rt, pcol_exner, &
                  pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc)
 
 enddo
@@ -264,7 +260,7 @@ end subroutine isnstage
 
 subroutine vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid, &
                  pcol_p, pcol_temp, pcol_z, pcol_u, pcol_v, &
-                 pcol_rt, pcol_r, pcol_exner, &
+                 pcol_rt, pcol_exner, &
                  pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc)
 
 use max_dims,    only: maxpr
@@ -299,7 +295,6 @@ real, intent(inout) :: pcol_z    (maxpr+2)
 real, intent(in)    :: pcol_u    (maxpr+2)
 real, intent(in)    :: pcol_v    (maxpr+2)
 real, intent(inout) :: pcol_rt   (maxpr+2)
-real, intent(in)    :: pcol_r    (maxpr+2)
 real, intent(in)    :: pcol_exner(maxpr+2)
 
 real, intent(in) :: pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc
@@ -309,34 +304,17 @@ real :: pcol_thv  (maxpr+2)
 
 real :: pcol_thetsfc, pcol_thvsfc
 
-integer :: i,j,k,mcnt,kl,kpbc,klo,khi,kbc,levp,kother,iter,ka
-real :: cpo2g, z, extrap, vapor_press
+integer :: k,kpbc,klo,khi,kbc,kother,iter,ka
+real :: extrap
 real, external :: eslf
 
 kpbc = 0
 
 do k = 1,npd
 
-!! NOTE:
-!! HUMIDITY ALREADY CONVERTED TO SPECIFIC HUMIDITY
-
-!!! Compute ambient vapor pressure based on relative humidity (pcol_r)
-!!! and saturation vapor pressure (eslf)
-!!
-!!   vapor_press = pcol_r(k) * eslf(pcol_temp(k)-273.15)
-!!
-!!! Do not allow vapor pressure to exceed ambient pressure
-!!
-!!   vapor_press = min(pcol_p(k),vapor_press)
-!!
-!!! Compute specific humidity (pcol_rt) from vapor pressure and ambient pressure
-!!
-!!   pcol_rt(k) = eps_vap * vapor_press  &
-!!              / (pcol_p(k) + vapor_press * (eps_vap - 1.))
-
 ! Compute potential temperatures
 
-   pcol_thet(k) = pcol_temp(k) * cp / pcol_exner(k)                ! dry theta
+   pcol_thet(k) = pcol_temp(k) * cp / pcol_exner(k)             ! dry theta
    pcol_thv (k) = pcol_thet(k) * (1. + eps_virt * pcol_rt(k))   ! virtual theta
 
 ! Find highest k level for which pressure is greater than surface pressure
