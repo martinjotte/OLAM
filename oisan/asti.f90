@@ -148,14 +148,12 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 ! Horizontally interpolate surface gridded data to column
 ! at location of current W point
 
-   call gdtost(p_topo (:,:),nprx+4,npry+4,grx,gry,pcol_topo )
-   call gdtost(p_prsfc(:,:),nprx+4,npry+4,grx,gry,pcol_prsfc)
-   call gdtost(p_tsfc (:,:),nprx+4,npry+4,grx,gry,pcol_tsfc )
-   call gdtost(p_shsfc(:,:),nprx+4,npry+4,grx,gry,pcol_shsfc)
-
-!   call gdtost(p_sft (:,:),nprx+4,npry+4,grx,gry,sfc_temp(iw))
-!   call gdtost(p_sst (:,:),nprx+4,npry+4,grx,gry,seatp(iw))
-!   call gdtost(p_snow(:,:),nprx+4,npry+4,grx,gry,snow(iw))
+   if (ihydsfc == 1) then
+      call gdtost(p_topo (:,:),nprx+4,npry+4,grx,gry,pcol_topo )
+      call gdtost(p_prsfc(:,:),nprx+4,npry+4,grx,gry,pcol_prsfc)
+      call gdtost(p_tsfc (:,:),nprx+4,npry+4,grx,gry,pcol_tsfc )
+      call gdtost(p_shsfc(:,:),nprx+4,npry+4,grx,gry,pcol_shsfc)
+   endif
  
    pcol_prsfc = pcol_prsfc * 100.
    pcol_exnersfc = cp * (pcol_prsfc * p00i)**rocp
