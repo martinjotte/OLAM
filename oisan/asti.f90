@@ -149,10 +149,10 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       call gdtost(p_prsfc(:,:),nprx+4,npry+4,grx,gry,pcol_prsfc)
       call gdtost(p_tsfc (:,:),nprx+4,npry+4,grx,gry,pcol_tsfc )
       call gdtost(p_shsfc(:,:),nprx+4,npry+4,grx,gry,pcol_shsfc)
+
+      pcol_prsfc = pcol_prsfc * 100.
+      pcol_exnersfc = cp * (pcol_prsfc * p00i)**rocp
    endif
- 
-   pcol_prsfc = pcol_prsfc * 100.
-   pcol_exnersfc = cp * (pcol_prsfc * p00i)**rocp
 
 ! If water vapor stops at a lower level, fill pcol_rt from levels nprz_rh+3
 ! to nprz+2 with values interpolated from the ZONAVG data
@@ -319,7 +319,9 @@ do k = 1,npd
 
 ! Find highest k level for which pressure is greater than surface pressure
 
-   if (ihydsfc == 1 .and. pcol_p(k) > pcol_prsfc) kpbc = k
+   if (ihydsfc == 1) then
+      if (pcol_p(k) > pcol_prsfc) kpbc = k
+   endif
 
 enddo
 
