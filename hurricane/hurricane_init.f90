@@ -370,6 +370,7 @@ Contains
   use mem_grid
   use consts_coms
   use max_dims,   only: pathlen
+  use mem_para,   only: myrank
 
   implicit none
 
@@ -382,6 +383,9 @@ Contains
   real :: zero = 0.
 
   real :: circ(nr)
+
+  ! Only works on node 0 until cplot is parallelized
+  if (myrank /= 0) return
 
   call o_reopnwk()
 

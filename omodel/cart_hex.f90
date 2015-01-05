@@ -44,6 +44,7 @@ use mem_ijtabs, only: itab_md, itab_ud, itab_wd, mrls, alloc_itabsd, &
 use mem_grid,   only: nma, nua, nwa, mma, mua, mwa, xem, yem, zem, alloc_xyzem
 use misc_coms,  only: io6, nxp, deltax
 use oplot_coms, only: op
+use mem_para,   only: myrank
 
 implicit none
 
@@ -425,68 +426,72 @@ call tri_neighbors()
 
 ! Plot grid lines
 
-call o_reopnwk()
-call plotback()
+if (.false.) then
 
-mma = nma
-mua = nua
-mwa = nwa
+   if (myrank /= 0) return
 
-call oplot_set(1)
+   call o_reopnwk()
+   call plotback()
 
-psiz = .035 / real(nxp)
+   mma = nma
+   mua = nua
+   mwa = nwa
 
-do iu = 2,nua
-   im1 = itab_ud(iu)%im(1)
-   im2 = itab_ud(iu)%im(2)
-   iw1 = itab_ud(iu)%iw(1)
-   iw2 = itab_ud(iu)%iw(2)
+   call oplot_set(1)
 
-   call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
-   call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
+   psiz = .035 / real(nxp)
 
-   call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+   do iu = 2,nua
+      im1 = itab_ud(iu)%im(1)
+      im2 = itab_ud(iu)%im(2)
+      iw1 = itab_ud(iu)%iw(1)
+      iw2 = itab_ud(iu)%iw(2)
 
-   if (iskip == 1) cycle
+      call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
+      call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
 
-   call o_frstpt (xq1,yq1)
-   call o_vector (xq2,yq2)
+      call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 
-   if ( xp1 < op%xmin .or.  &
-        xp1 > op%xmax .or.  &
-        yp1 < op%ymin .or.  &
-        yp1 > op%ymax ) cycle
+      if (iskip == 1) cycle
 
-   write(string,'(I0)') im1
-   call o_plchlq (xp1,yp1,trim(adjustl(string)),psiz,0.,0.)
+      call o_frstpt (xq1,yq1)
+      call o_vector (xq2,yq2)
 
-   write(string,'(I0)') im2
-   call o_plchlq (xp2,yp2,trim(adjustl(string)),psiz,0.,0.)
+      if ( xp1 < op%xmin .or.  &
+           xp1 > op%xmax .or.  &
+           yp1 < op%ymin .or.  &
+           yp1 > op%ymax ) cycle
 
-! Compute locations of U and W points based on M point locations
+      write(string,'(I0)') im1
+      call o_plchlq (xp1,yp1,trim(adjustl(string)),psiz,0.,0.)
 
-   xu = .5 * (xp1 + xp2)
-   yu = .5 * (yp1 + yp2)
+      write(string,'(I0)') im2
+      call o_plchlq (xp2,yp2,trim(adjustl(string)),psiz,0.,0.)
 
-   xw1 = xu + sqrt(3.)/6. * (yp2 - yp1)
-   yw1 = yu - sqrt(3.)/6. * (xp2 - xp1)
-   xw2 = xu - sqrt(3.)/6. * (yp2 - yp1)
-   yw2 = yu + sqrt(3.)/6. * (xp2 - xp1)
+      ! Compute locations of U and W points based on M point locations
 
-   write(string,'(I0)') iu
-   call o_plchlq (xu,yu,trim(adjustl(string)),psiz,0.,0.)
+      xu = .5 * (xp1 + xp2)
+      yu = .5 * (yp1 + yp2)
 
-   write(string,'(I0)') iw1
-   call o_plchlq (xw1,yw1,trim(adjustl(string)),psiz,0.,0.)
+      xw1 = xu + sqrt(3.)/6. * (yp2 - yp1)
+      yw1 = yu - sqrt(3.)/6. * (xp2 - xp1)
+      xw2 = xu - sqrt(3.)/6. * (yp2 - yp1)
+      yw2 = yu + sqrt(3.)/6. * (xp2 - xp1)
 
-   write(string,'(I0)') iw2
-   call o_plchlq (xw2,yw2,trim(adjustl(string)),psiz,0.,0.)
+      write(string,'(I0)') iu
+      call o_plchlq (xu,yu,trim(adjustl(string)),psiz,0.,0.)
 
-enddo
+      write(string,'(I0)') iw1
+      call o_plchlq (xw1,yw1,trim(adjustl(string)),psiz,0.,0.)
 
-call o_frame()
-call o_clswk()
+      write(string,'(I0)') iw2
+      call o_plchlq (xw2,yw2,trim(adjustl(string)),psiz,0.,0.)
+   enddo
 
-return
+   call o_frame()
+   call o_clswk()
+
+endif
+
 end subroutine cart_hex
 

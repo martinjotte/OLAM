@@ -557,6 +557,7 @@ use misc_coms,   only: io6, mdomain, grdlat, grdlon, nxp, rinit
 use consts_coms, only: erad, erad2, piu180, eradsq,pio2
 use oplot_coms,  only: op
 use oname_coms,  only: nl
+use mem_para,    only: myrank
 
 implicit none
 
@@ -1144,6 +1145,8 @@ endif
 ! Plot grid lines
 
 if (.false.) then
+
+   if (myrank /= 0) return
 
    call o_reopnwk()
    call plotback()

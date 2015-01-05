@@ -181,21 +181,27 @@ if (iparallel == 1) then
    sendbuf(5) = sum_htr2
    sendbuf(6) = abshtr_max
 
-   call mpi_allgather( sendbuf, nsends, mpi_real, &
-                       recvbuf, nsends, mpi_real, MPI_COMM_WORLD, ierror )
+   call mpi_gather( sendbuf, nsends, mpi_real,                           &
+                    recvbuf, nsends, mpi_real, 0, MPI_COMM_WORLD, ierror )
 
-   sum_abshdif = sum   ( recvbuf(1,1:mgroupsize) )
-   sum_hdif2   = sum   ( recvbuf(2,1:mgroupsize) )
-   abshdif_max = maxval( recvbuf(3,1:mgroupsize) )
-   sum_abshtr  = sum   ( recvbuf(4,1:mgroupsize) )
-   sum_htr2    = sum   ( recvbuf(5,1:mgroupsize) )
-   abshtr_max  = maxval( recvbuf(6,1:mgroupsize) )
+   if (myrank == 0) then
+      sum_abshdif = sum   ( recvbuf(1,1:mgroupsize) )
+      sum_hdif2   = sum   ( recvbuf(2,1:mgroupsize) )
+      abshdif_max = maxval( recvbuf(3,1:mgroupsize) )
+      sum_abshtr  = sum   ( recvbuf(4,1:mgroupsize) )
+      sum_htr2    = sum   ( recvbuf(5,1:mgroupsize) )
+      abshtr_max  = maxval( recvbuf(6,1:mgroupsize) )
+   endif
 
    deallocate( sendbuf )
    deallocate( recvbuf )
 
 endif
 #endif
+
+! Only need to compute/plot on one node
+
+if (myrank /= 0) return
 
 ! First 3 normalized global errors (Williamson et al 1992 Eqs. 82-84)
 

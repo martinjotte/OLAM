@@ -44,25 +44,21 @@ subroutine o_opngks()
   implicit none
 
   integer, parameter :: ierrf=6, lunit=2, iwkid=1
-  integer            :: iwtype
-  character(len=10 ) :: number
+  integer            :: iwtype, iopen
+
+  if (myrank > 0) return
 
   ! Instead of just calling opngks, we use the NCAR GKS
   ! routines to setup the plotting types and devices
   ! call opngks()
 
-  iwtype = 1     ! default to ncar graphics meta file
+  ! Default to ncar graphics meta file
 
-  if (op%plttype == 0 .and. iparallel == 1) then
+  iwtype = 1
 
-! For parallel run, append rank onto metacode filename
+  if (op%plttype == 1) then
 
-     write (number,'(i10)') myrank
-     op%pltname = trim(op%pltname)//'_r'//trim(adjustl(number))
-
-  elseif (op%plttype == 1) then
-
-! set ncar graphics postscript device
+     ! Set ncar graphics postscript device
 
      if (op%pltorient == 0) then
         iwtype = 20
@@ -74,7 +70,7 @@ subroutine o_opngks()
 
   elseif (op%plttype == 2) then
 
-! set ncar graphics pdf device
+     ! Set ncar graphics pdf device
 
      if (op%pltorient == 0) then
         iwtype = 11
@@ -86,7 +82,13 @@ subroutine o_opngks()
 
   endif
 
-  call gopks (ierrf, 0)
+  ! Open GKS if it is closed
+
+  call gqops(iopen)
+  if (iopen == 0) call gopks (ierrf, 0)
+
+  ! Set output file and device
+
   call ngsetc('ME', op%pltname)
   call gopwk (iwkid, lunit, iwtype)
   call gacwk (iwkid)
@@ -97,11 +99,15 @@ end subroutine o_opngks
 
 subroutine o_clsgks()
 
+  use mem_para, only: myrank
+
   implicit none
 
   integer, parameter :: iwkid=1
   integer            :: iopen
   integer, external  :: ngckop
+
+  if (myrank > 0) return
 
   ! call clsgks()
 
@@ -531,11 +537,15 @@ subroutine o_reopnwk()
 
   use oplot_coms, only: op
   use plotcolors, only: gks_colors
+  use mem_para,   only: myrank
+
   implicit none
 
   integer, parameter :: iwkid=1
   integer            :: iopen
   integer, external  :: ngckop
+
+  if (myrank > 0) return
 
   iopen = ngckop(iwkid)
 

@@ -7,9 +7,14 @@ use mem_ijtabs
 use misc_coms
 use consts_coms
 use mem_grid
-use oplot_coms,  only: op
-use mem_addsc,   only: addsc
+use oplot_coms, only: op
+use mem_addsc,  only: addsc
 use oname_coms, only: nl
+use mem_para,   only: mgroupsize, myrank
+
+#ifdef OLAM_MPI
+use mpi
+#endif
 
 implicit none
 
@@ -30,28 +35,37 @@ real, save :: aspect = .7
 real, save :: scalelab = .012
 real, save :: timebeg,timeend,timedif,timeinc
 real :: exner, temp
-real(kind=8) :: enk, ent
-real(kind=8) :: enk_sum, ent_sum
+real(r8) :: enk, ent
+real(r8) :: enk_sum, ent_sum
 
-real(kind=8), save :: enk_sum_init, ent_sum_init, tmass_sum_init
-real(kind=8), save :: q1mass_sum_init, q2mass_sum_init
-real(kind=8), save :: q3mass_sum_init, q4mass_sum_init, q5mass_sum_init
+real(r8), save :: enk_sum_init, ent_sum_init, tmass_sum_init
+real(r8), save :: q1mass_sum_init, q2mass_sum_init
+real(r8), save :: q3mass_sum_init, q4mass_sum_init, q5mass_sum_init
 
-real(kind=8) :: tmass,q1,q2,q3,q4,q5,tmass_sum
+real(r8) :: tmass,q1,q2,q3,q4,q5,tmass_sum
 
-real(kind=8), save, allocatable :: q1_tr(:,:),q2_tr(:,:),q3_tr(:,:),q4_tr(:,:),q5_tr(:,:)
+real(r8), save, allocatable :: q1_tr(:,:),q2_tr(:,:),q3_tr(:,:),q4_tr(:,:),q5_tr(:,:)
 
-real(8), save :: sum_absq1tr, sum_q1tr2, absq1tr_max
-real(8), save :: sum_absq2tr, sum_q2tr2, absq2tr_max
-real(8), save :: sum_absq3tr, sum_q3tr2, absq3tr_max
-real(8), save :: sum_absq4tr, sum_q4tr2, absq4tr_max
-real(8), save :: sum_absq5tr, sum_q5tr2, absq5tr_max
+real(r8), save :: sum_absq1tr, sum_q1tr2, absq1tr_max
+real(r8), save :: sum_absq2tr, sum_q2tr2, absq2tr_max
+real(r8), save :: sum_absq3tr, sum_q3tr2, absq3tr_max
+real(r8), save :: sum_absq4tr, sum_q4tr2, absq4tr_max
+real(r8), save :: sum_absq5tr, sum_q5tr2, absq5tr_max
 
-real(8) :: q1mass_sum, q1mas_sum_init, sum_absq1dif, sum_q1dif2, absq1dif_max
-real(8) :: q2mass_sum, q2mas_sum_init, sum_absq2dif, sum_q2dif2, absq2dif_max
-real(8) :: q3mass_sum, q3mas_sum_init, sum_absq3dif, sum_q3dif2, absq3dif_max
-real(8) :: q4mass_sum, q4mas_sum_init, sum_absq4dif, sum_q4dif2, absq4dif_max
-real(8) :: q5mass_sum, q5mas_sum_init, sum_absq5dif, sum_q5dif2, absq5dif_max
+real(r8) :: q1mass_sum, q1mas_sum_init, sum_absq1dif, sum_q1dif2, absq1dif_max
+real(r8) :: q2mass_sum, q2mas_sum_init, sum_absq2dif, sum_q2dif2, absq2dif_max
+real(r8) :: q3mass_sum, q3mas_sum_init, sum_absq3dif, sum_q3dif2, absq3dif_max
+real(r8) :: q4mass_sum, q4mas_sum_init, sum_absq4dif, sum_q4dif2, absq4dif_max
+real(r8) :: q5mass_sum, q5mas_sum_init, sum_absq5dif, sum_q5dif2, absq5dif_max
+
+real(r8) :: real_mixing, overshooting, range_pres, area_sum
+real(r8) :: q1min, q1max, q2min, q2max, aa, bb, eps, c, root
+real(r8) :: corr1, corr2, corr3, cf
+
+integer :: nsends, ierror, k4900
+real(r8), allocatable :: sendbuf(:), recvbuf(:,:)
+
+k4900 = minloc(abs(zt(:)-4900.),1)
 
 ncall = ncall + 1
 
@@ -109,68 +123,82 @@ vctr18(ncall) = time_istp8 / 86400.
 
 if (ncall == 1) then
 
-   sum_absq1tr = 0.
-   sum_absq2tr = 0.
-   sum_absq3tr = 0.
-   sum_absq4tr = 0.
-   sum_absq5tr = 0.
+   sum_absq1tr = 0.0_r8
+   sum_absq2tr = 0.0_r8
+   sum_absq3tr = 0.0_r8
+   sum_absq4tr = 0.0_r8
+   sum_absq5tr = 0.0_r8
 
-   sum_q1tr2 = 0.
-   sum_q2tr2 = 0.
-   sum_q3tr2 = 0.
-   sum_q4tr2 = 0.
-   sum_q5tr2 = 0.
+   sum_q1tr2 = 0.0_r8
+   sum_q2tr2 = 0.0_r8
+   sum_q3tr2 = 0.0_r8
+   sum_q4tr2 = 0.0_r8
+   sum_q5tr2 = 0.0_r8
 
-   absq1tr_max = 0.
-   absq2tr_max = 0.
-   absq3tr_max = 0.
-   absq4tr_max = 0.
-   absq5tr_max = 0.
+   absq1tr_max = 0.0_r8
+   absq2tr_max = 0.0_r8
+   absq3tr_max = 0.0_r8
+   absq4tr_max = 0.0_r8
+   absq5tr_max = 0.0_r8
 endif
 
- tmass_sum = 0.
+ tmass_sum = 0.0_r8
 
-q1mass_sum = 0.
-q2mass_sum = 0.
-q3mass_sum = 0.
-q4mass_sum = 0.
-q5mass_sum = 0.
+q1mass_sum = 0.0_r8
+q2mass_sum = 0.0_r8
+q3mass_sum = 0.0_r8
+q4mass_sum = 0.0_r8
+q5mass_sum = 0.0_r8
 
-sum_absq1dif = 0.
-sum_absq2dif = 0.
-sum_absq3dif = 0.
-sum_absq4dif = 0.
-sum_absq5dif = 0.
+sum_absq1dif = 0.0_r8
+sum_absq2dif = 0.0_r8
+sum_absq3dif = 0.0_r8
+sum_absq4dif = 0.0_r8
+sum_absq5dif = 0.0_r8
 
-sum_q1dif2 = 0.
-sum_q2dif2 = 0.
-sum_q3dif2 = 0.
-sum_q4dif2 = 0.
-sum_q5dif2 = 0.
+sum_q1dif2 = 0.0_r8
+sum_q2dif2 = 0.0_r8
+sum_q3dif2 = 0.0_r8
+sum_q4dif2 = 0.0_r8
+sum_q5dif2 = 0.0_r8
 
-absq1dif_max = 0.
-absq2dif_max = 0.
-absq3dif_max = 0.
-absq4dif_max = 0.
-absq5dif_max = 0.
+absq1dif_max = 0.0_r8
+absq2dif_max = 0.0_r8
+absq3dif_max = 0.0_r8
+absq4dif_max = 0.0_r8
+absq5dif_max = 0.0_r8
 
-! Horizontal loop over all IW points
+real_mixing  = 0.0_r8
+overshooting = 0.0_r8
+range_pres   = 0.0_r8
+area_sum     = 0.0_r8
+
+q1min=0.0_r8
+q1max=1.0_r8
+q2min= 0.9_r8 - 0.8_r8*q1min**2
+q2max= 0.9_r8 - 0.8_r8*q1max**2
+
+aa = (q2max-q2min)/(q1max-q1min)
+bb = q2min - q1min*aa
+eps = 1.e-7
+
+! Horizontal loop over all primary IW points
 
 !----------------------------------------------------------------------
-do iw = 2,mwa
+do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 !---------------------------------------------------------------------
 
 ! Vertical loop over all active T levels
 
-   do k = lpw(iw),mza
+   do k = lpw(iw),mza-1
 
 ! Sums and max values for q1
 
-      q1 = 1.0d0
-      q2 = 1.0d0
-      q3 = 1.0d0
-      q4 = 1.0d0
-      q5 = 1.0d0
+      q1 = 1.0_r8
+      q2 = 1.0_r8
+      q3 = 1.0_r8
+      q4 = 1.0_r8
+      q5 = 1.0_r8
 
       if (naddsc >= 1) q1 = addsc(1)%sclp(k,iw)
       if (naddsc >= 2) q2 = addsc(2)%sclp(k,iw)
@@ -234,8 +262,198 @@ do iw = 2,mwa
       absq5dif_max = max(absq5dif_max, abs(q5 - q5_tr(k,iw)))
 
    enddo
+
+   if (nl%test_case == 11) then
+
+      do k = k4900-2, k4900+2
+
+         q1 = 1.0_r8
+         q2 = 1.0_r8
+         if (naddsc >= 1) q1 = addsc(1)%sclp(k,iw)
+         if (naddsc >= 2) q2 = addsc(2)%sclp(k,iw)
+
+         c = (432.0 * q1 + 6.0 * sqrt(750.0 * (2.0*q2 - 1.0)**3 + 5184.0 * q1**2))**(1./3.) / 12.0
+
+         root = c+((5.0/24.0)-(5.0/12.0)*q2)/c
+         root = min( max(root, 0.0), 1.0)
+         
+         corr1 = 0.9 - 0.8*q1**2
+         corr2 = aa * q1 + bb
+         cf    = 0.9 - 0.8*root**2
+
+        corr3 = sqrt( (root-q1)*(root-q1)/(0.9**2) + (cf-q2)*(cf-q2)/(0.8**2) )
+!         corr3 = sqrt( (q1_tr(k,iw)-q1)**2/(0.9**2) + (q2_tr(k,iw)-q2)**2/(0.8**2) )
+
+         ! Add to the correct mixing region
+
+!         write(*,*) q1, root, q2, cf
+
+         if (q2 <= corr1+eps .and. q2 >= corr2-eps) then
+            real_mixing = real_mixing + corr3 * arw0(iw)
+         elseif (q1 <= q1max+eps .and. q1 >= q1min-eps .and. q2 <= q2min+eps .and. q2 >= q2max-eps) then
+            range_pres = range_pres + corr3 * arw0(iw)
+         else
+            overshooting = overshooting + corr3 * arw0(iw)
+         endif
+         
+         area_sum = area_sum + arw0(iw)
+      
+      enddo
+   endif
    
 enddo
+
+#ifdef OLAM_MPI
+
+if (iparallel == 1) then
+
+   if (ncall == 1) then
+      nsends = 40
+   else
+      nsends = 25
+   endif
+
+   allocate( sendbuf( nsends) )
+
+   if (myrank == 0) then
+      allocate( recvbuf( nsends, mgroupsize) )
+   else
+      allocate( recvbuf( 1, 1) )
+   endif
+
+   sendbuf( 1) =  tmass_sum
+
+   sendbuf( 2) = q1mass_sum
+   sendbuf( 3) = q2mass_sum
+   sendbuf( 4) = q3mass_sum
+   sendbuf( 5) = q4mass_sum
+   sendbuf( 6) = q5mass_sum
+
+   sendbuf( 7) = sum_absq1dif
+   sendbuf( 8) = sum_absq2dif
+   sendbuf( 9) = sum_absq3dif
+   sendbuf(10) = sum_absq4dif
+   sendbuf(11) = sum_absq5dif
+
+   sendbuf(12) = sum_q1dif2
+   sendbuf(13) = sum_q2dif2
+   sendbuf(14) = sum_q3dif2
+   sendbuf(15) = sum_q4dif2
+   sendbuf(16) = sum_q5dif2
+
+   sendbuf(17) = absq1dif_max
+   sendbuf(18) = absq2dif_max
+   sendbuf(19) = absq3dif_max
+   sendbuf(20) = absq4dif_max
+   sendbuf(21) = absq5dif_max
+
+   sendbuf(22) = real_mixing
+   sendbuf(23) = range_pres
+   sendbuf(24) = overshooting
+   sendbuf(25) = area_sum
+
+   if (ncall == 1) then
+
+      sendbuf(26) = sum_absq1tr
+      sendbuf(27) = sum_absq2tr
+      sendbuf(28) = sum_absq3tr
+      sendbuf(29) = sum_absq4tr
+      sendbuf(30) = sum_absq5tr
+
+      sendbuf(31) = sum_q1tr2
+      sendbuf(32) = sum_q2tr2
+      sendbuf(33) = sum_q3tr2
+      sendbuf(34) = sum_q4tr2
+      sendbuf(35) = sum_q5tr2
+
+      sendbuf(36) = absq1tr_max
+      sendbuf(37) = absq2tr_max
+      sendbuf(38) = absq3tr_max
+      sendbuf(39) = absq4tr_max
+      sendbuf(40) = absq5tr_max
+
+   endif
+
+   call mpi_gather( sendbuf, nsends, mpi_real8, recvbuf, nsends, mpi_real8, 0, MPI_COMM_WORLD, ierror)
+
+   if (myrank == 0) then
+
+      tmass_sum  = sum( recvbuf(1,1:mgroupsize) )
+
+      q1mass_sum = sum( recvbuf(2,1:mgroupsize) )
+      q2mass_sum = sum( recvbuf(3,1:mgroupsize) )
+      q3mass_sum = sum( recvbuf(4,1:mgroupsize) )
+      q4mass_sum = sum( recvbuf(5,1:mgroupsize) )
+      q5mass_sum = sum( recvbuf(6,1:mgroupsize) )
+
+      sum_absq1dif = sum( recvbuf( 7,1:mgroupsize) )
+      sum_absq2dif = sum( recvbuf( 8,1:mgroupsize) )
+      sum_absq3dif = sum( recvbuf( 9,1:mgroupsize) )
+      sum_absq4dif = sum( recvbuf(10,1:mgroupsize) )
+      sum_absq5dif = sum( recvbuf(11,1:mgroupsize) )
+
+      sum_q1dif2 = sum( recvbuf(12,1:mgroupsize) )
+      sum_q2dif2 = sum( recvbuf(13,1:mgroupsize) )
+      sum_q3dif2 = sum( recvbuf(14,1:mgroupsize) )
+      sum_q4dif2 = sum( recvbuf(15,1:mgroupsize) )
+      sum_q5dif2 = sum( recvbuf(16,1:mgroupsize) )
+
+      absq1dif_max = maxval( recvbuf(17,1:mgroupsize) )
+      absq2dif_max = maxval( recvbuf(18,1:mgroupsize) )
+      absq3dif_max = maxval( recvbuf(19,1:mgroupsize) )
+      absq4dif_max = maxval( recvbuf(20,1:mgroupsize) )
+      absq5dif_max = maxval( recvbuf(21,1:mgroupsize) )
+
+      real_mixing  = sum( recvbuf(22,1:mgroupsize) )
+      range_pres   = sum( recvbuf(23,1:mgroupsize) )
+      overshooting = sum( recvbuf(24,1:mgroupsize) )
+      area_sum     = sum( recvbuf(25,1:mgroupsize) )
+
+      if (ncall == 1) then
+
+         sum_absq1tr = sum( recvbuf(26,1:mgroupsize) )
+         sum_absq2tr = sum( recvbuf(27,1:mgroupsize) )
+         sum_absq3tr = sum( recvbuf(28,1:mgroupsize) )
+         sum_absq4tr = sum( recvbuf(29,1:mgroupsize) )
+         sum_absq5tr = sum( recvbuf(30,1:mgroupsize) )
+
+         sum_q1tr2 = sum( recvbuf(31,1:mgroupsize) )
+         sum_q2tr2 = sum( recvbuf(32,1:mgroupsize) )
+         sum_q3tr2 = sum( recvbuf(33,1:mgroupsize) )
+         sum_q4tr2 = sum( recvbuf(34,1:mgroupsize) )
+         sum_q5tr2 = sum( recvbuf(35,1:mgroupsize) )
+
+         absq1tr_max = maxval( recvbuf(36,1:mgroupsize) )
+         absq2tr_max = maxval( recvbuf(37,1:mgroupsize) )
+         absq3tr_max = maxval( recvbuf(38,1:mgroupsize) )
+         absq4tr_max = maxval( recvbuf(39,1:mgroupsize) )
+         absq5tr_max = maxval( recvbuf(40,1:mgroupsize) )
+
+      endif  ! ncall == 1
+
+      deallocate( recvbuf )
+         
+   endif  ! myrank == 0
+
+   deallocate( sendbuf )
+   
+endif  ! iparallel == 1
+
+#endif
+
+! Only need to compute/plot on one node
+
+if (myrank /= 0) return
+
+real_mixing = real_mixing / area_sum
+range_pres  = range_pres / area_sum
+overshooting= overshooting / area_sum
+
+write(*,*) " Mixing Diagnostics "
+write(*,*) " Real Mixing        ", real_mixing
+write(*,*) " Range Pres Unmixing", range_pres
+write(*,*) " Overshooting       ", overshooting
+write(*,*)
 
 ! first time in this routine, save initial values
 
@@ -304,10 +522,10 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
 
 !-------------------------------------------------------------------
    call plotback()
-   call oplot_xy2('0','N',aspect,scalelab,10,0,        &
-                  ncall,  vctr18,ge1,                  &
-                  'time(days)','total mass deviation', &
-                  timebeg,timeend,timeinc,5  ,-1.e-12,1.e-12,0.1e-12,10  )
+   call oplot_xy2('0','N',aspect,scalelab,10,0           &
+                 ,ncall,  vctr18,ge1                     &
+                 ,'time(days)','total mass deviation',10 &
+                 ,timebeg,timeend,timeinc,5  ,-1.e-12,1.e-12,0.1e-12,10  )
    call o_frame()
 !-------------------------------------------------------------------
 
@@ -316,10 +534,10 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
    if (nl%naddsc >= 1) then
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2('0','N',aspect,scalelab,10,0,     &
-                     ncall,  vctr18,ge2,               &
-                     'time(days)','q1 mass deviation', &
-                     timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
+      call oplot_xy2('0','N',aspect,scalelab,10,0        &
+                    ,ncall,  vctr18,ge2                  &
+                    ,'time(days)','q1 mass deviation',10 &
+                    ,timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
       call o_frame()
 !-------------------------------------------------------------------
    endif
@@ -329,10 +547,10 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
    if (nl%naddsc >= 2) then
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2('0','N',aspect,scalelab,10,0,     &
-                     ncall,  vctr18,ge3,               &
-                     'time(days)','q2 mass deviation', &
-                     timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
+      call oplot_xy2('0','N',aspect,scalelab,10,0        &
+                    ,ncall,  vctr18,ge3                  &
+                    ,'time(days)','q2 mass deviation',10 &
+                    ,timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
       call o_frame()
 !-------------------------------------------------------------------
    endif
@@ -342,10 +560,10 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
    if (nl%naddsc >= 3) then
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2('0','N',aspect,scalelab,10,0,     &
-                     ncall,  vctr18,ge4,               &
-                     'time(days)','q3 mass deviation', &
-                     timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
+      call oplot_xy2('0','N',aspect,scalelab,10,0        &
+                    ,ncall,  vctr18,ge4                  &
+                    ,'time(days)','q3 mass deviation',10 &
+                    ,timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
       call o_frame()
 !-------------------------------------------------------------------
    endif
@@ -355,10 +573,10 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
    if (nl%naddsc >= 4) then
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2('0','N',aspect,scalelab,10,0,     &
-                     ncall,  vctr18,ge5,               &
-                     'time(days)','q4 mass deviation', &
-                     timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
+      call oplot_xy2('0','N',aspect,scalelab,10,0        &
+                    ,ncall,  vctr18,ge5                  &
+                    ,'time(days)','q4 mass deviation',10 &
+                    ,timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
       call o_frame()
 !-------------------------------------------------------------------
    endif
@@ -368,10 +586,10 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
    if (nl%naddsc >= 5) then
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2('0','N',aspect,scalelab,10,0,     &
-                     ncall,  vctr18,ge6,               &
-                     'time(days)','q5 mass deviation', &
-                     timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
+      call oplot_xy2('0','N',aspect,scalelab,10,0        &
+                    ,ncall,  vctr18,ge6                  &
+                    ,'time(days)','q5 mass deviation',10 &
+                    ,timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
       call o_frame()
 !-------------------------------------------------------------------
    endif
@@ -383,24 +601,24 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
    if (nl%naddsc >= 1) then
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,      &
-                          ncall,  vctr18,q1l1,             &
-                          'time(days)','q1 mass l1 norm',  &
-                          timebeg,timeend,timeinc,5  ,-4,1 )
+      call oplot_xy2log10('0','N',aspect,scalelab,10      &
+                    ,ncall,  vctr18,q1l1                  &
+                       ,'time(days)','q1 mass l1 norm',10 &
+                 ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,      &
-                          ncall,  vctr18,q1l2,             &
-                          'time(days)','q1 mass l2 norm',  &
-                          timebeg,timeend,timeinc,5  ,-4,1 )
+      call oplot_xy2log10('0','N',aspect,scalelab,10   &
+                    ,ncall,  vctr18,q1l2               &
+                    ,'time(days)','q1 mass l2 norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,        &
-                          ncall,  vctr18,q1li,               &
-                          'time(days)','q1 mass l_inf norm', &
-                          timebeg,timeend,timeinc,5  ,-4,1   )
+      call oplot_xy2log10('0','N',aspect,scalelab,10      &
+                    ,ncall,  vctr18,q1li                  &
+                    ,'time(days)','q1 mass l_inf norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1     )
       call o_frame()
 !-------------------------------------------------------------------
    endif
@@ -410,24 +628,24 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
    if (nl%naddsc >= 2) then
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,      &
-                          ncall,  vctr18,q2l1,             &
-                          'time(days)','q2 mass l1 norm',  &
-                          timebeg,timeend,timeinc,5  ,-4,1 )
+      call oplot_xy2log10('0','N',aspect,scalelab,10   &
+                    ,ncall,  vctr18,q2l1               &
+                    ,'time(days)','q2 mass l1 norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,      &
-                          ncall,  vctr18,q2l2,             &
-                          'time(days)','q2 mass l2 norm',  &
-                          timebeg,timeend,timeinc,5  ,-4,1 )
+      call oplot_xy2log10('0','N',aspect,scalelab,10   &
+                    ,ncall,  vctr18,q2l2               &
+                    ,'time(days)','q2 mass l2 norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,  &
-                          ncall,  vctr18,q2li,              &
-                          'time(days)','q2 mass linf norm', &
-                          timebeg,timeend,timeinc,5  ,-4,1  )
+      call oplot_xy2log10('0','N',aspect,scalelab,10     &
+                    ,ncall,  vctr18,q2li                 &
+                    ,'time(days)','q2 mass linf norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1    )
       call o_frame()
 !-------------------------------------------------------------------
    endif
@@ -437,24 +655,24 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
    if (nl%naddsc >= 3) then
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,      &
-                          ncall,  vctr18,q3l1,             &
-                          'time(days)','q3 mass l1 norm',  &
-                          timebeg,timeend,timeinc,5  ,-4,1 )
+      call oplot_xy2log10('0','N',aspect,scalelab,10   &
+                    ,ncall,  vctr18,q3l1               &
+                    ,'time(days)','q3 mass l1 norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,      &
-                          ncall,  vctr18,q3l2,             &
-                          'time(days)','q3 mass l2 norm',  &
-                          timebeg,timeend,timeinc,5  ,-4,1 )
+      call oplot_xy2log10('0','N',aspect,scalelab,10   &
+                    ,ncall,  vctr18,q3l2               &
+                    ,'time(days)','q3 mass l2 norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,       &
-                          ncall,  vctr18,q3li,              &
-                          'time(days)','q3 mass linf norm', &
-                          timebeg,timeend,timeinc,5  ,-4,1  )
+      call oplot_xy2log10('0','N',aspect,scalelab,10     &
+                    ,ncall,  vctr18,q3li                 &
+                    ,'time(days)','q3 mass linf norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1    )
       call o_frame()
 !-------------------------------------------------------------------
    endif
@@ -464,24 +682,24 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
    if (nl%naddsc >= 4) then
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,      &
-                          ncall,  vctr18,q4l1,             &
-                          'time(days)','q4 mass l1 norm',  &
-                          timebeg,timeend,timeinc,5  ,-4,1 )
+      call oplot_xy2log10('0','N',aspect,scalelab,10   &
+                    ,ncall,  vctr18,q4l1               &
+                    ,'time(days)','q4 mass l1 norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,      &
-                          ncall,  vctr18,q4l2,             &
-                          'time(days)','q4 mass l2 norm',  &
-                          timebeg,timeend,timeinc,5  ,-4,1 )
+      call oplot_xy2log10('0','N',aspect,scalelab,10   &
+                    ,ncall,  vctr18,q4l2               &
+                    ,'time(days)','q4 mass l2 norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,       &
-                          ncall,  vctr18,q4li,              &
-                          'time(days)','q4 mass linf norm', &
-                          timebeg,timeend,timeinc,5  ,-4,1  )
+      call oplot_xy2log10('0','N',aspect,scalelab,10     &
+                    ,ncall,  vctr18,q4li                 &
+                    ,'time(days)','q4 mass linf norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1    )
       call o_frame()
 !-------------------------------------------------------------------
    endif
@@ -491,24 +709,24 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
    if (nl%naddsc >= 5) then
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,      &
-                          ncall,  vctr18,q5l1,             &
-                          'time(days)','q5 mass l1 norm',  &
-                          timebeg,timeend,timeinc,5  ,-4,1 )
+      call oplot_xy2log10('0','N',aspect,scalelab,10   &
+                    ,ncall,  vctr18,q5l1               &
+                    ,'time(days)','q5 mass l1 norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,      &
-                          ncall,  vctr18,q5l2,             &
-                          'time(days)','q5 mass l2 norm',  &
-                          timebeg,timeend,timeinc,5  ,-4,1 )
+      call oplot_xy2log10('0','N',aspect,scalelab,10   &
+                    ,ncall,  vctr18,q5l2               &
+                    ,'time(days)','q5 mass l2 norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab,10,       &
-                          ncall,  vctr18,q5li,              &
-                          'time(days)','q5 mass linf norm', &
-                          timebeg,timeend,timeinc,5  ,-4,1  )
+      call oplot_xy2log10('0','N',aspect,scalelab,10     &
+                    ,ncall,  vctr18,q5li                 &
+                    ,'time(days)','q5 mass linf norm',10 &
+                    ,timebeg,timeend,timeinc,5  ,-4,1    )
       call o_frame()
 !-------------------------------------------------------------------
    endif
@@ -524,4 +742,3 @@ endif
 
 return
 end subroutine diagn_global_dcmip
-

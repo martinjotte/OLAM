@@ -640,7 +640,7 @@ endif
 if (infotyp == 'VALUV') then
    op%stagpt = 'V'
    op%dimens = '3'
-   icase = 7
+   icase = 4
 endif
 
 if (op%stagpt == 'L' .and. mwl < 2) then

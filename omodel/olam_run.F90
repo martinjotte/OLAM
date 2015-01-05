@@ -183,14 +183,14 @@ write(io6,'(2a1)')        ' ','*'
 write(io6,'(2a1,a3,a64)') ' ','*','   ',EXPNME
 write(io6,'(a1,78a1)')    ' ',('*',i=1,78)
 
-! MAKEGRID/PLOTONLY/PARCOMBINE runs must be single-processor
+! MAKEGRID/PARCOMBINE runs must be single-processor
 
-if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or.  &
-    (runtype == 'MAKEGRID') ) then
+if ( (runtype == 'PARCOMBINE') .or. (runtype == 'MAKEGRID') ) then
    if (iparallel == 1) then
       write(io6,*) trim(runtype)//' will only be done on a single process.'
-      iparallel = 0
-      ipar_out  = 0
+      iparallel  = 0
+      ipar_out   = 0
+      isubdomain = 0
       if (myrank > 0) go to 1000
    endif
 endif

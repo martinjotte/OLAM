@@ -69,7 +69,7 @@ SOURCE_FILES= \
              $(OMODEL)/cartesian.f90 \
              $(OMODEL)/cart_hex.f90 \
              $(OMODEL)/coneplot.f90 \
-             $(OMODEL)/contslab.f90 \
+             $(OMODEL)/contslab.F90 \
              $(OMODEL)/fields2_ll.f90 \
              $(OMODEL)/fill_itabs.f90 \
              $(OMODEL)/hex_grid.f90 \
@@ -96,7 +96,7 @@ SOURCE_FILES= \
              $(OMODEL)/omic_vap.f90 \
              $(OMODEL)/oname_check.f90 \
              $(OMODEL)/oname.f90 \
-             $(OMODEL)/oplot_interface.f90 \
+             $(OMODEL)/oplot_interface.F90 \
              $(OMODEL)/oplot_lib.f90 \
              $(OMODEL)/othrm.f90 \
              $(OMODEL)/para_decomp.f90 \
@@ -108,10 +108,10 @@ SOURCE_FILES= \
              $(OMODEL)/spring_dynamics.f90 \
              $(OMODEL)/surface_fluxes.F90 \
              $(OMODEL)/thiltend_long.f90 \
-             $(OMODEL)/tileslab.f90 \
+             $(OMODEL)/tileslab.F90 \
              $(OMODEL)/timestep.f90 \
              $(OMODEL)/triangle_utils.f90 \
-             $(OMODEL)/vectslab.f90 \
+             $(OMODEL)/vectslab.F90 \
              $(OMODEL)/vel_t3d.f90 \
              $(OUTILS)/blas.f90 \
              $(OUTILS)/check_nans.F90 \

@@ -52,11 +52,15 @@ character(10)            :: number
 ! List of all allowable runtype, seq-para run, histfile read combinations:
 
 ! 'HISTORY'     , sequential run, sequential histfile  (isubdomain = 0)
+! 'HISTORY'     , sequential run, parallel   histfile  (isubdomain = 0)
 ! 'HISTORY'     , parallel   run, sequential histfile  (isubdomain = 1)
 ! 'HISTORY'     , parallel   run, parallel   histfile  (isubdomain = 1)
 ! 'PLOTONLY'    , sequential run, sequential histfile  (isubdomain = 0)
 ! 'PLOTONLY'    , sequential run, parallel   histfile  (isubdomain = 0)
+! 'PLOTONLY'    , parallel   run, sequential histfile  (isubdomain = 1)
+! 'PLOTONLY'    , parallel   run, parallel   histfile  (isubdomain = 1)
 ! 'PARCOMBINE'  , sequential run, parallel   histfile  (isubdomain = 0)
+
 !future 'EXTRACT'     , sequential run, sequential histfile  (isubdomain = 1)
 !future 'PLOTEXTRACT' , sequential run, extracted  histfile  (isubdomain = 1)
 
@@ -674,7 +678,7 @@ do nv = 1, num_var
 ! Skip to next variable if we don't want the current one
 
    if (.not. vtab_r(nv)%ihist) cycle
-   if (vtab_r(nv)%nread .and. runtype == 'HISTORY') cycle
+   if (vtab_r(nv)%nread) cycle
 
    varn    = trim(vtab_r(nv)%name)
    stagpt  = vtab_r(nv)%stagpt

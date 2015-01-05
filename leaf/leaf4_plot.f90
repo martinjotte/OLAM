@@ -75,6 +75,7 @@ use leaf_coms,   only: nzg, nzs, slz, dslz
 use consts_coms, only: cp
 use oplot_coms,  only: op
 use misc_coms,   only: io6, runtype, time8
+use mem_para,    only: myrank
 
 implicit none
 
@@ -196,6 +197,8 @@ real, save :: water
 real, save :: energy
 
 character(len=20) :: number
+
+if (myrank /= 0) return
 
 ! Reopen the current graphics output workstation if it is closed
 
