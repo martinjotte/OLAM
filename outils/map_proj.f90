@@ -467,4 +467,57 @@ zeq = zep                            + cosplat * yq + sinplat * zq
 return
 end subroutine ps_e
 
+!============================================================================
 
+subroutine de_ps(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
+
+use consts_coms, only: pio180, erad, erad2
+
+implicit none
+
+real, intent(in) :: dxe
+real, intent(in) :: dye
+real, intent(in) :: dze
+real, intent(in) :: cosplat
+real, intent(in) :: sinplat
+real, intent(in) :: cosplon
+real, intent(in) :: sinplon
+
+real, intent(out) :: x
+real, intent(out) :: y
+
+real :: xq
+real :: yq
+real :: zq
+real :: t
+
+! This subroutine computes coordinates (x,y) of point q projected onto polar
+! stereographic plane given the sines and cosines of the pole point 
+! located at geographic coordinates (polelat,polelon).
+! Input vector (dxe,dye,dze) is the distance of point q from the pole point
+! in "earth cartesian space", where the origin is the center of the earth, 
+! the z axis is the north pole, the x axis is the equator and prime meridian, 
+! and the y axis is the equator and 90 E..
+       
+! Transform q point from (xe,ye,ze) coordinates to 3D coordinates relative to
+! polar stereographic plane with origin at the pole point, the z axis pointing 
+! radially outward from the center of the earth, and the y axis pointing 
+! northward along the local earth meridian from the pole point.
+
+xq = - sinplon * dxe + cosplon * dye
+yq =   cosplat * dze - sinplat * (cosplon * dxe + sinplon * dye)
+zq =   sinplat * dze + cosplat * (cosplon * dxe + sinplon * dye)
+
+! Parametric equation for line from antipodal point at (0,0,-2 erad) in 3D 
+! coordinates of polar stereographic plane to point q has the following 
+! parameter (t) value on the polar stereographic plane (zq <= 0):
+
+t = erad2 / (erad2 + zq)
+
+! This gives the following x and y coordinates for the projection of point q
+! onto the polar stereographic plane:
+
+x = xq * t
+y = yq * t
+
+end subroutine de_ps

@@ -105,7 +105,6 @@ subroutine shdf5_open(locfn, access, idelete)
      endif
   endif
 
-  return
 end subroutine shdf5_open
 
 !===============================================================================
@@ -139,15 +138,20 @@ subroutine shdf5_info(dsetname, ndims, dims)
 
   call fh5d_close(hdferr)
 
-  return
 end subroutine shdf5_info
 
 !===============================================================================
 
-subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara, &
-                                          ivars,rvars,cvars,dvars,lvars, &
-                                          nglobe, lpoints, gpoints)
-  use oname_coms, only: nl
+subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
+                                          ivars,rvars,cvars,dvars,lvars,  &
+                                          nglobe, lpoints, gpoints,       &
+                                          units, long_name, positive,     &
+                                          imissing, rmissing, dmissing,   &
+                                          isdim, dimnames, standard_name, &
+                                          cell_methods                    )
+
+  use oname_coms,  only: nl
+  use consts_coms, only: r8
   use hdf5_f2f
     
   implicit none
@@ -160,11 +164,24 @@ subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara, &
   integer,      intent(in), optional :: ivara(*), ivars
   real,         intent(in), optional :: rvara(*), rvars
   character,    intent(in), optional :: cvara(*), cvars
-  real(kind=8), intent(in), optional :: dvara(*), dvars
+  real(r8),     intent(in), optional :: dvara(*), dvars
   logical,      intent(in), optional :: lvara(*), lvars
 
 ! Optional arrays to determine cells for partial/parallel IO
   integer,      intent(in), optional :: lpoints(:), gpoints(:), nglobe
+
+! Optional arrays to write common NetCDF convention attributes
+  character(*), intent(in), optional :: units, long_name, positive
+  character(*), intent(in), optional :: standard_name, cell_methods
+  integer,      intent(in), optional :: imissing
+  real,         intent(in), optional :: rmissing
+  real(r8),     intent(in), optional :: dmissing
+
+! Indicates if this variable is a global dimension
+  logical,      intent(in), optional :: isdim
+
+! Indicate names of each dimension
+  character(*), intent(in), optional :: dimnames(:)
 
 ! Local variables
   integer :: hdferr  ! Error flag
@@ -208,12 +225,57 @@ subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara, &
      stop    'shdf5_orec: hdf5 write error'
   endif
 
+! Indicate if this variable is a dimension
+
+  if (present(isdim)) then
+     if (isdim) call fh5f_create_dim(dsetname, hdferr)
+  endif
+
+! Link each variable to its dimensions
+  
+  if ((present(dimnames)) .and. (.not. present(isdim))) then
+     if (size(dimnames) >= ndims) call fh5f_attach_dims(ndims, dimnames, hdferr)
+  endif
+
+! Write any dataset attributes to match common NetCDF conventions
+
+  if (present(units)) then
+     if (len_trim(units) > 0) call fh5f_write_attribute("units", cvalue=units)
+  endif
+
+  if (present(long_name)) then
+     if (len_trim(long_name) > 0) call fh5f_write_attribute("long_name", cvalue=long_name)
+  endif
+
+  if (present(standard_name)) then
+     if (len_trim(standard_name) > 0) call fh5f_write_attribute("standard_name", cvalue=standard_name)
+  endif
+
+  if (present(cell_methods)) then
+     if (len_trim(cell_methods) > 0) call fh5f_write_attribute("cell_methods", cvalue=cell_methods)
+  endif
+
+  if (present(positive)) then
+     if (len_trim(positive) > 0) call fh5f_write_attribute("positive", cvalue=positive)
+  endif
+
+  if ((present(ivars) .or. present(ivara)) .and. present(imissing)) then
+     call fh5f_write_attribute("missing_value", ivalue=imissing)
+  endif
+
+  if ((present(rvars) .or. present(rvara)) .and. present(rmissing)) then
+     call fh5f_write_attribute("missing_value", rvalue=rmissing)
+  endif
+
+  if ((present(dvars) .or. present(dvara)) .and. present(dmissing)) then
+     call fh5f_write_attribute("missing_value", dvalue=dmissing)
+  endif
+
 ! Close the dataset, the dataspace for the dataset, and the dataspace properties.
 
   call fh5_close_write(hdferr)
 
-  return
-end subroutine
+end subroutine shdf5_orec
 
 !===============================================================================
 
@@ -288,8 +350,7 @@ subroutine shdf5_irec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
 
   call fh5_close_read(hdferr)
 
-  return
-end subroutine
+end subroutine shdf5_irec
 
 !===============================================================================
 
@@ -302,9 +363,7 @@ subroutine shdf5_close()
 ! Close hdf file.
 
   call fh5f_close(hdferr)
-
-  return
-end  subroutine
+end  subroutine shdf5_close
 
 !===============================================================================
 
@@ -369,5 +428,141 @@ subroutine shdf5_io(action,ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
   endif
   
 end subroutine shdf5_io
+
+!===============================================================================
+
+subroutine shdf5_orec_ll(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
+                                             ivars,rvars,cvars,dvars,lvars,  &
+                                             gpoints,                        &
+                                             units, long_name, positive,     &
+                                             imissing, rmissing, dmissing,   &
+                                             isdim, dimnames, standard_name, &
+                                             cell_methods                    )
+
+  use oname_coms,  only: nl
+  use consts_coms, only: r8
+  use hdf5_f2f
+
+  implicit none
+
+  character(*), intent(in) :: dsetname ! Variable label
+  integer,      intent(in) :: ndims    ! Number of dimensions or rank
+  integer,      intent(in) :: dims(:)  ! Dataset dimensions.
+
+! Array and scalar arguments for different types. Only specify one in each call
+  integer,      intent(in), optional :: ivara(*), ivars
+  real,         intent(in), optional :: rvara(*), rvars
+  character,    intent(in), optional :: cvara(*), cvars
+  real(r8),     intent(in), optional :: dvara(*), dvars
+  logical,      intent(in), optional :: lvara(*), lvars
+
+! Optional arrays to determine cells for partial/parallel IO
+  integer,      intent(in), optional :: gpoints(:)
+
+! Optional arrays to write common NetCDF convention attributes
+  character(*), intent(in), optional :: units, long_name, positive
+  character(*), intent(in), optional :: standard_name, cell_methods
+  integer,      intent(in), optional :: imissing
+  real,         intent(in), optional :: rmissing
+  real(r8),     intent(in), optional :: dmissing
+
+! Indicates if this variable is a global dimension
+  logical,      intent(in), optional :: isdim
+
+! Indicate names of each dimension
+  character(*), intent(in), optional :: dimnames(:)
+
+! Local variables
+  integer :: hdferr  ! Error flag
+
+! Check dimensions and set compression chunk size
+
+  if (ndims <=0 .or. minval(dims(1:ndims)) <=0) then
+     print*, 'Dimension error in shdf5_orec:', ndims, dims(1:ndims)
+     stop    'shdf5_orec: bad dims'
+  endif
+     
+! Prepare memory and options for the write
+
+  call fh5_prepare_write_ll(ndims, dims, hdferr, nl%icompress, fcoords=gpoints)
+
+  if (hdferr /= 0) then
+     print*, "shdf5_orec: can't prepare requested field:", trim(dsetname)
+     return
+  endif
+
+! Write the dataset.
+
+      if (present(ivars)) then ; call fh5_write(ivars, dsetname, hdferr)
+  elseif (present(rvars)) then ; call fh5_write(rvars, dsetname, hdferr)
+  elseif (present(cvars)) then ; call fh5_write(cvars, dsetname, hdferr)
+  elseif (present(dvars)) then ; call fh5_write(dvars, dsetname, hdferr)
+  elseif (present(lvars)) then ; call fh5_write(lvars, dsetname, hdferr)
+  elseif (present(ivara)) then ; call fh5_write(ivara, dsetname, hdferr)
+  elseif (present(rvara)) then ; call fh5_write(rvara, dsetname, hdferr)
+  elseif (present(cvara)) then ; call fh5_write(cvara, dsetname, hdferr)
+  elseif (present(dvara)) then ; call fh5_write(dvara, dsetname, hdferr)
+  elseif (present(lvara)) then ; call fh5_write(lvara, dsetname, hdferr)
+  else
+     print*, 'Incorrect or missing data field argument in shdf5_orec'
+     stop    'shdf5_orec: bad data field'
+  endif
+
+  if (hdferr /= 0) then
+     print*, 'In shdf5_orec: hdf5 write error =', hdferr
+     stop    'shdf5_orec: hdf5 write error'
+  endif
+
+! Indicate if this variable is a dimension
+
+  if (present(isdim)) then
+     if (isdim) call fh5f_create_dim(dsetname, hdferr)
+  endif
+
+! Link each variable to its dimensions
+  
+  if ((present(dimnames)) .and. (.not. present(isdim))) then
+     if (size(dimnames) >= ndims) call fh5f_attach_dims(ndims, dimnames, hdferr)
+  endif
+
+! Write any dataset attributes to match common NetCDF conventions
+
+  if (present(units)) then
+     if (len_trim(units) > 0) call fh5f_write_attribute("units", cvalue=units)
+  endif
+
+  if (present(long_name)) then
+     if (len_trim(long_name) > 0) call fh5f_write_attribute("long_name", cvalue=long_name)
+  endif
+
+  if (present(standard_name)) then
+     if (len_trim(standard_name) > 0) call fh5f_write_attribute("standard_name", cvalue=standard_name)
+  endif
+
+  if (present(cell_methods)) then
+     if (len_trim(cell_methods) > 0) call fh5f_write_attribute("cell_methods", cvalue=cell_methods)
+  endif
+
+  if (present(positive)) then
+     if (len_trim(positive) > 0) call fh5f_write_attribute("positive", cvalue=positive)
+  endif
+
+  if ((present(ivars) .or. present(ivara)) .and. present(imissing)) then
+     call fh5f_write_attribute("missing_value", ivalue=imissing)
+  endif
+
+  if ((present(rvars) .or. present(rvara)) .and. present(rmissing)) then
+     call fh5f_write_attribute("missing_value", rvalue=rmissing)
+  endif
+
+  if ((present(dvars) .or. present(dvara)) .and. present(dmissing)) then
+     call fh5f_write_attribute("missing_value", dvalue=dmissing)
+  endif
+
+! Close the dataset, the dataspace for the dataset, and the dataspace properties.
+
+  call fh5_close_write(hdferr)
+
+end subroutine shdf5_orec_ll
 
 end module

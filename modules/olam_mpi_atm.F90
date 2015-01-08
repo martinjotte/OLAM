@@ -1348,24 +1348,24 @@ end subroutine mpi_recv_wnud
 
 subroutine olam_stop(message)
 
+  use mem_para,  only: myrank
+
 #ifdef OLAM_MPI
   use mpi
 #endif
 
-use mem_para,  only: myrank
-
-implicit none
+  implicit none
 
 #ifdef OLAM_MPI
-integer :: ierr
+  integer :: ierr
 #endif
 
-character(*), intent(in) :: message
+  character(*), intent(in) :: message
 
-#ifdef MPI  
+#ifdef OLAM_MPI  
   write(*,'(A,I0,A)') "Node ", myrank, ":"
   write(*,'(A)') "STOP "//message
-  call mpi_abort(MPI_COMM_WORLD,1,ier)
+  call mpi_abort(MPI_COMM_WORLD,1,ierr)
   stop
 #else
   write(*,*) "STOPPING: "//message

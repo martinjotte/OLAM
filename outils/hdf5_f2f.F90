@@ -1,7 +1,12 @@
 module hdf5_f2f
 
   use hdf5
+  use h5ds
+  use consts_coms, only: r8
+
   implicit none
+
+  private :: r8
 
   integer(HID_T)   :: fileid
   integer(HID_T)   :: xferid
@@ -11,7 +16,7 @@ module hdf5_f2f
   integer(HID_T)   :: mspcid
   integer(HID_T)   :: dspcid
   integer(HSIZE_T) :: dimsf(7)
-  integer(HSIZE_T) :: ndimsf
+  integer          :: ndimsf
 
   interface fh5_write
      module procedure                 &
@@ -41,9 +46,9 @@ module hdf5_f2f
           fh5d_read_logical_array
   end interface fh5d_read
 
-
 contains
 
+!===============================================================================
 
   subroutine fh5f_open(locfn, iaccess, hdferr)
     implicit none
@@ -66,11 +71,9 @@ contains
     call h5fopen_f(locfn, flags, fileid, hdferr, access_id)
 
     hdferr = int(fileid) + hdferr
-
-    return
   end subroutine fh5f_open
 
-
+!===============================================================================
 
   subroutine fh5f_close(hdferr)
     implicit none
@@ -78,11 +81,9 @@ contains
     integer, intent(OUT) :: hdferr
 
     call h5fclose_f(fileid, hdferr)
-
-    return
   end subroutine fh5f_close
 
-
+!===============================================================================
 
   subroutine fh5f_create(locfn, iaccess, hdferr)
 
@@ -140,11 +141,9 @@ contains
 #endif
 
     hdferr = int(fileid) + hdferr
-
-    return
   end subroutine fh5f_create
 
-
+!===============================================================================
 
   subroutine fh5_prepare_write(ndims, dims, hdferr, icompress, &
                                mcoords, fcoords, ifsize)
@@ -179,7 +178,7 @@ contains
      do i = 1, ndims
        dims_file(i) = dims(i)
     end do
-   
+
     ! For distributed output, global data (file) size will be different then
     ! the local array size
 
@@ -316,10 +315,9 @@ contains
              
     endif
 
-    return
   end subroutine fh5_prepare_write
 
-
+!===============================================================================
 
   subroutine fh5_write_integer_array(buf_integer, dname, hdferr)
     implicit none
@@ -332,10 +330,9 @@ contains
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid, dspcid, xferid)
 
-    return
   end subroutine fh5_write_integer_array
 
-
+!===============================================================================
 
   subroutine fh5_write_real_array(buf_real, dname, hdferr)
     implicit none
@@ -348,10 +345,9 @@ contains
     
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid, dspcid, xferid)
 
-    return
   end subroutine fh5_write_real_array
 
-
+!===============================================================================
 
   subroutine fh5_write_character_array(buf_character, dname, hdferr)
     implicit none
@@ -364,10 +360,9 @@ contains
 
     call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr, mspcid, dspcid, xferid)
 
-    return
   end subroutine fh5_write_character_array
 
-
+!===============================================================================
 
   subroutine fh5_write_real8_array(buf_real8, dname, hdferr)
     implicit none
@@ -380,10 +375,9 @@ contains
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
 
-    return
   end subroutine fh5_write_real8_array
 
-
+!===============================================================================
 
   subroutine fh5_write_logical_array(buf_logical, dname, hdferr)
     implicit none
@@ -413,10 +407,9 @@ contains
 
     deallocate(buf_integer)
 
-    return
   end subroutine fh5_write_logical_array
 
-
+!===============================================================================
 
   subroutine fh5_write_integer_scalar(buf_integer, dname, hdferr)
     implicit none
@@ -429,10 +422,9 @@ contains
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid, dspcid, xferid)
 
-    return
   end subroutine fh5_write_integer_scalar
 
-
+!===============================================================================
 
   subroutine fh5_write_real_scalar(buf_real, dname, hdferr)
     implicit none
@@ -445,10 +437,9 @@ contains
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid, dspcid, xferid)
 
-    return
   end subroutine fh5_write_real_scalar
 
-
+!===============================================================================
 
   subroutine fh5_write_character_scalar(buf_character, dname, hdferr)
     implicit none
@@ -461,10 +452,9 @@ contains
 
     call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr, mspcid, dspcid, xferid)
 
-    return
   end subroutine fh5_write_character_scalar
 
-
+!===============================================================================
 
   subroutine fh5_write_real8_scalar(buf_real8, dname, hdferr)
     implicit none
@@ -477,10 +467,9 @@ contains
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
 
-    return
   end subroutine fh5_write_real8_scalar
 
-
+!===============================================================================
 
   subroutine fh5_write_logical_scalar(buf_logical, dname, hdferr)
     implicit none
@@ -497,10 +486,9 @@ contains
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid, dspcid, xferid)
 
-    return
   end subroutine fh5_write_logical_scalar
 
-
+!===============================================================================
 
   subroutine fh5_close_write(hdferr)
     implicit none
@@ -515,10 +503,9 @@ contains
     call h5pclose_f(xferid, hdferr)
     call h5pclose_f(propid, hdferr)
 
-    return
   end subroutine fh5_close_write
 
-
+!===============================================================================
 
   subroutine fh5d_open(dname, hdferr)
     implicit none
@@ -537,10 +524,9 @@ contains
 
     hdferr = int(dspcid) + hdferr
 
-    return
   end subroutine fh5d_open
 
-
+!===============================================================================
 
   subroutine fh5s_get_ndims(ndims)
     implicit none
@@ -551,10 +537,9 @@ contains
 
     call h5sget_simple_extent_ndims_f(dspcid, ndims, hdferr)
 
-    return
   end subroutine fh5s_get_ndims
 
-
+!===============================================================================
 
   subroutine fh5s_get_dims(dims)
     implicit none
@@ -572,10 +557,9 @@ contains
        dims(i) = int(dimsc(i))
     end do
 
-    return
   end subroutine fh5s_get_dims
 
-
+!===============================================================================
 
   subroutine fh5d_close(hdferr)
     implicit none
@@ -585,10 +569,9 @@ contains
     call h5sclose_f(dspcid, hdferr)
     call h5dclose_f(dsetid, hdferr)
 
-    return
   end subroutine fh5d_close
 
-
+!===============================================================================
 
   subroutine fh5d_read_integer_array(buf_integer, hdferr)
     implicit none
@@ -599,10 +582,9 @@ contains
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
-    return
   end subroutine fh5d_read_integer_array
 
-
+!===============================================================================
 
   subroutine fh5d_read_real_array(buf_real, hdferr)
     implicit none
@@ -613,10 +595,9 @@ contains
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
-    return
   end subroutine fh5d_read_real_array
 
-
+!===============================================================================
 
   subroutine fh5d_read_character_array(buf_character, hdferr)
     implicit none
@@ -627,10 +608,9 @@ contains
     call h5dread_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
-    return
   end subroutine fh5d_read_character_array
 
-
+!===============================================================================
 
   subroutine fh5d_read_real8_array(buf_real8, hdferr)
     implicit none
@@ -641,10 +621,9 @@ contains
     call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
-    return
   end subroutine fh5d_read_real8_array
 
-
+!===============================================================================
 
   subroutine fh5d_read_logical_array(buf_logical, hdferr)
     implicit none
@@ -676,10 +655,9 @@ contains
 
     deallocate(buf_integer)
 
-    return
   end subroutine fh5d_read_logical_array
 
-
+!===============================================================================
 
   subroutine fh5d_read_integer_scalar(buf_integer, hdferr)
     implicit none
@@ -689,10 +667,9 @@ contains
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr)
 
-    return
   end subroutine fh5d_read_integer_scalar
 
-
+!===============================================================================
 
   subroutine fh5d_read_real_scalar(buf_real, hdferr)
     implicit none
@@ -702,10 +679,9 @@ contains
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr)
 
-    return
   end subroutine fh5d_read_real_scalar
 
-
+!===============================================================================
 
   subroutine fh5d_read_character_scalar(buf_character, hdferr)
     implicit none
@@ -715,10 +691,9 @@ contains
 
     call h5dread_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr)
 
-    return
   end subroutine fh5d_read_character_scalar
 
-
+!===============================================================================
 
   subroutine fh5d_read_real8_scalar(buf_real8, hdferr)
     implicit none
@@ -728,10 +703,9 @@ contains
 
     call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr)
 
-    return
   end subroutine fh5d_read_real8_scalar
 
-
+!===============================================================================
 
   subroutine fh5d_read_logical_scalar(buf_logical, hdferr)
     implicit none
@@ -747,10 +721,9 @@ contains
     buf_logical = .false.
     if(buf_integer == -1) buf_logical = .true.
 
-    return
   end subroutine fh5d_read_logical_scalar
 
-
+!===============================================================================
 
   subroutine fh5_prepare_read(dname, ndims, dims, hdferr, coords, &
                               start, counts)
@@ -763,7 +736,7 @@ contains
     integer, optional, intent(IN)  :: coords(:)
     integer, optional, intent(IN)  :: start(:)
     integer, optional, intent(IN)  :: counts(:)
-    integer                        :: i, j, k, ndims_file, iop
+    integer                        :: i, j, iop, ndims_file
     integer(HSIZE_T)               :: dims_file(7), maxdims_file(7)
     integer(HSIZE_T)               :: offset(ndims), countf(ndims)
 
@@ -873,7 +846,7 @@ contains
 
   end subroutine fh5_prepare_read
 
-
+!===============================================================================
 
   subroutine fh5_close_read(hdferr)
     implicit none
@@ -886,6 +859,278 @@ contains
 
   end subroutine fh5_close_read
 
+!===============================================================================
 
+  subroutine fh5_prepare_write_ll(ndims, dims, hdferr, icompress, fcoords)
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    use misc_coms, only: ipar_out
+#endif
+
+    implicit none
+
+    integer, intent(IN)           :: ndims
+    integer, intent(IN)           :: dims(:)
+    integer, intent(OUT)          :: hdferr
+    integer, intent(IN), optional :: icompress
+    integer, intent(IN), optional :: fcoords(:)
+
+    logical          :: docompress
+    integer          :: i, j, iop, ilat, ilon, ilatp, ilonp
+    integer(HSIZE_T) :: dims_file(ndims)
+    integer(HSIZE_T) :: offset(ndims), countf(ndims)
+    integer           :: ndims_file
+
+    ! Output dimensions, global file size
+
+    ndims_file         = ndims
+    dims_file(1:ndims) = dims(1:ndims)
+   
+    ! Local array memory size
+
+    if (present(fcoords)) then
+
+       ndimsf   = ndims - 1
+       dimsf(1) = size(fcoords)
+       do i = 3, ndims
+          dimsf(i-1) = dims(i)
+       end do
+    else
+       ndimsf = ndims - 1
+       dimsf(1) = dims(1) * dims(2)
+       do i = 3, ndims
+          dimsf(i-1) = dims(i)
+       end do
+    endif
+
+    ! Create a property list for compression/chunking/filters
+
+    call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr) 	 
+
+    ! If no parallel IO, activate HDF5 compression for valid icompress
+
+    if (present(icompress)) then
+
+       if (icompress > 0 .and. icompress < 10) then
+          docompress = .true.
+       else
+          docompress = .false.
+       endif
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+       ! Compression does not work with parallel output
+       if (ipar_out == 1) docompress = .false.
+#endif
+
+       if (docompress) then
+          if (.not. (ndims == 1 .and. dimsf(1) == 1)) then
+             call h5pset_chunk_f(propid, ndims_file, dims_file, hdferr)
+             call h5pset_shuffle_f(propid, hdferr)
+             call h5pset_deflate_f(propid, icompress, hdferr)	 
+          endif
+       endif
+    endif
+
+    ! Create transfer property list for collective dataset write
+
+    xferid = H5P_DEFAULT_F
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    if (ipar_out == 1) then
+       call h5pcreate_f(h5p_dataset_xfer_f, xferid, hdferr)
+       call h5pset_dxpl_mpio_f(xferid, h5fd_mpio_collective_f, hdferr)
+    endif
+#endif
+
+    ! Create the global file space for the data
+
+    call h5screate_simple_f(ndims_file, dims_file, fspcid, hdferr)
+    
+    ! Create the local memory space for the data
+
+    call h5screate_simple_f(ndims, dimsf, mspcid, hdferr)
+
+    ! Select the points that we will output (either all or none for lat/lon output)
+
+    if (present(fcoords)) then
+
+       if (size(fcoords) == 0) then
+          call h5sselect_none_f(mspcid, hdferr)
+       else
+          call h5sselect_all_f(mspcid, hdferr)
+       endif
+             
+    endif
+
+    ! Create the dataspace for the data
+
+    call h5screate_simple_f(ndims_file, dims_file, dspcid, hdferr)
+
+    ! For parallel output, select the points in the output file that
+    ! we will be writing to
+
+    if (present(fcoords)) then
+
+       if (size(fcoords) == 0) then
+
+          call h5sselect_none_f(dspcid, hdferr)
+
+       else
+
+          if (ndims > 2) then
+             offset(3:ndims) = 0
+             countf(3:ndims) = dims(3:ndims)
+          endif
+
+          ilon = mod(fcoords(1)-1,dims(1)) + 1
+          ilat = (fcoords(1)-1)/dims(1) + 1
+
+          offset(1) = ilon - 1
+          offset(2) = ilat - 1
+          countf(1) = 1
+          countf(2) = 1
+          iop       = H5S_SELECT_SET_F
+
+          ! Select a contiguous group of points along a longitude as one slab for efficiency
+
+          do j = 2, size(fcoords)
+
+             ilonp = ilon
+             ilatp = ilat
+
+             ilon = mod(fcoords(j)-1,dims(1)) + 1
+             ilat = (fcoords(j)-1)/dims(1) + 1
+
+             if ((ilon /= ilonp + 1) .or. (ilat /= ilatp)) then
+                call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
+                offset(1) = ilon - 1
+                offset(2) = ilat - 1
+                countf(1) = 1
+                countf(2) = 1
+                iop          = H5S_SELECT_OR_F
+             else
+                countf(1) = countf(1) + 1
+             endif
+          enddo
+          
+          call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
+
+       endif
+             
+    endif
+
+  end subroutine fh5_prepare_write_ll
+
+!===============================================================================
+
+  subroutine fh5f_write_attribute(name, ivalue, rvalue, dvalue, cvalue)
+    implicit none
+
+    character(*),           intent(in) :: name
+    integer,      optional, intent(in) :: ivalue
+    real,         optional, intent(in) :: rvalue
+    real(r8),     optional, intent(in) :: dvalue
+    character(*), optional, intent(in) :: cvalue
+
+    integer(hid_t)   :: space_id, attr_id, atype_id
+    integer(hsize_t) :: dims(1)
+    integer(size_t)  :: attrlen
+
+    integer          :: ndims
+    integer          :: hdferr
+
+    if ( (.not. present(ivalue))  .and. &
+         (.not. present(rvalue))  .and. &
+         (.not. present(dvalue))  .and. &
+         (.not. present(cvalue)) ) return
+
+    ndims = 1
+    dims  = 1
+
+    ! Create the data space for the attribute
+    call H5Screate_simple_f(ndims, dims, space_id, hdferr)
+
+    if     (present(ivalue)) then
+
+       ! Create an attribute for this dataset
+       call H5Acreate_f(dsetid, name, H5T_NATIVE_INTEGER, space_id, attr_id, hdferr)
+
+       ! write attribute to file
+       call H5Awrite_f(attr_id, H5T_NATIVE_INTEGER, ivalue, dims, hdferr)
+
+    elseif (present(rvalue)) then
+
+       ! Create an attribute for this dataset
+       call H5Acreate_f(dsetid, name, H5T_NATIVE_REAL, space_id, attr_id, hdferr)
+
+       ! write attribute to file
+       call H5Awrite_f(attr_id, H5T_NATIVE_REAL, rvalue, dims, hdferr)
+
+    elseif (present(dvalue)) then
+
+       ! Create an attribute for this dataset
+       call H5Acreate_f(dsetid, name, H5T_NATIVE_DOUBLE, space_id, attr_id, hdferr)
+
+       ! write attribute to file
+       call H5Awrite_f(attr_id, H5T_NATIVE_DOUBLE, dvalue, dims, hdferr)
+
+    elseif (present(cvalue)) then
+
+       ! Create a type for fortran strings by expanding a native character
+       attrlen = len_trim(cvalue) + 1
+
+       call h5tcopy_f(H5T_NATIVE_CHARACTER, atype_id, hdferr)
+       CALL h5tset_size_f(atype_id, attrlen, hdferr)              
+
+       ! Write null-terminated strings ("C-style")
+       call H5Tset_strpad_f(atype_id, H5T_STR_NULLTERM_F, hdferr)
+
+       ! Create an attribute for this dataset
+       call H5Acreate_f(dsetid, name, atype_id, space_id, attr_id, hdferr)
+
+       ! write attribute to file
+       call H5Awrite_f(attr_id, atype_id, trim(cvalue)//char(0), dims, hdferr)
+
+    endif
+
+    ! Close the attribute
+
+    call H5Aclose_f(attr_id, hdferr)
+ 
+  end subroutine fh5f_write_attribute
+
+!===============================================================================
+
+  subroutine fh5f_create_dim(dname, hdferr)
+    implicit none
+    
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+
+    call H5DSset_scale_f(dsetid, hdferr, dimname=dname)
+
+  end subroutine fh5f_create_dim
+
+!===============================================================================
+
+  subroutine fh5f_attach_dims(ndims, dnames, hdferr)
+    implicit none
+    
+    integer,      intent(IN)  :: ndims
+    character(*), intent(IN)  :: dnames(ndims)
+    integer,      intent(OUT) :: hdferr
+    integer                   :: i, indx
+    integer(HID_T)            :: dimid
+
+    do i = 1, ndims
+       indx = ndims - i + 1
+       call h5dopen_f(fileid, dnames(i), dimid, hdferr)
+       call H5DSattach_scale_f(dsetid, dimid, indx, hdferr)
+       call h5dclose_f(dimid, hdferr)
+    enddo
+
+  end subroutine fh5f_attach_dims
+
+!===============================================================================
 
 end module hdf5_f2f
