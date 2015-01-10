@@ -286,7 +286,7 @@ call rchk_bnds( nl%rayfdiv_zmin,  "RAYFDIV_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn
 call ichk_bnds( nl%iswrtyp, "ISWRTYP", 0,  3, 0, nfatal, nwarn )
 call ichk_bnds( nl%ilwrtyp, "ILWRTYP", 0,  3, 0, nfatal, nwarn )
 call dchk_bnds( nl%radfrq,   "RADFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
-call ichk_bnds( nl%iswrtyp, "ICFRAC", 1,  6, 0, nfatal, nwarn )
+call ichk_bnds( nl%icfrac, "ICFRAC", 1,  6, 0, nfatal, nwarn )
 call rchk_bnds( nl%cfracrh1,"CFRACRH1", 0.,  2., 0, nfatal, nwarn )
 call rchk_bnds( nl%cfracrh2,"CFRACRH2", 0.,  2., 0, nfatal, nwarn )
 call rchk_bnds( nl%cfraccup,"CFRACCUP", 0.1,  1., 0, nfatal, nwarn )

@@ -193,7 +193,7 @@ real, allocatable :: pcpfillr(:,:,:,:) ! sedim table for bulk density
 
 real :: ipair(nhcat,nhcat,6)
 
-!         ihx ihy    ipc ipc2 ipc3 iprx ipry ieff
+!         ihx ihy    ipc ipc2 ipc3 ipx ipy ieff
 
 data ipair( 1, 1,:) /   1,107,108,  1,  0,  1 /
 data ipair( 1, 2,:) /   2,  0,  0,  2,  0,  1 /

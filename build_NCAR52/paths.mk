@@ -4,7 +4,7 @@ OLAM_ROOT=..
 
 # Versions.
 
-OLAM_VERSION=4.3
+OLAM_VERSION=4.6
 
 # Source directories.
 

@@ -235,16 +235,19 @@ real, intent(inout) :: rxxxz(mza0,2)
 real, intent(inout) :: exxxx(mza0)
 real, intent(inout) :: exxxz(mza0)
 
-integer :: k,ipc,ipc2,ipx
+integer :: k,ipc,ipc2,ipx,indc
 
 real :: c1,tabc,tabc2,tabx
+
+indc = 2
+if (mx == 1 .and. mz == 8) indc = 3
 
 do k = j1,j2
 
    if (rx(k,mx) < rxmin(mx)) cycle
    
    ipc  = ipair(jhcat(k,mx),jhcat(k,mx),1)
-   ipc2 = ipair(jhcat(k,mx),jhcat(k,mx),2)
+   ipc2 = ipair(jhcat(k,mx),jhcat(k,mx),indc)
    ipx  = ipair(jhcat(k,mx),jhcat(k,mx),4)
 
    c1 = eff(k,meff) * colfac(k) * cx(k,mx) ** 2

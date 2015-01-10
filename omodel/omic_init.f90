@@ -472,13 +472,6 @@ do lhcat = 1,nhcat
    glgc = gammln(gnu(lcat) + c1)
    glgmv = gammln(gnu(lcat) + pwmas(lhcat) + pwvt(lhcat))
 
-   if (jnmb(lcat) == 3) then
-      cfemb0(lhcat) = cfmas(lhcat) * exp(glgm - glg)  &
-         ** pwen0(lhcat) * (1. / parm(lcat)) ** pwemb0(lhcat)
-      cfen0(lhcat) = parm(lcat) * (exp(glg - glgm) / parm(lcat))  &
-         ** pwen0(lhcat)
-   endif
-
    dnfac(lhcat) = (cfmasi(lhcat) * exp(glg - glgm)) ** pwmasi(lhcat)
 
    vtfac(lhcat) = cfvt(lhcat) * exp(glgmv - glgm)  &

@@ -524,7 +524,7 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
    call plotback()
    call oplot_xy2('0','N',aspect,scalelab,10,0           &
                  ,ncall,  vctr18,ge1                     &
-                 ,'time(days)','total mass deviation',10 &
+                 ,'time(days)','total mass deviation'    &
                  ,timebeg,timeend,timeinc,5  ,-1.e-12,1.e-12,0.1e-12,10  )
    call o_frame()
 !-------------------------------------------------------------------
@@ -536,7 +536,7 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
       call plotback()
       call oplot_xy2('0','N',aspect,scalelab,10,0        &
                     ,ncall,  vctr18,ge2                  &
-                    ,'time(days)','q1 mass deviation',10 &
+                    ,'time(days)','q1 mass deviation'    &
                     ,timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
       call o_frame()
 !-------------------------------------------------------------------
@@ -549,7 +549,7 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
       call plotback()
       call oplot_xy2('0','N',aspect,scalelab,10,0        &
                     ,ncall,  vctr18,ge3                  &
-                    ,'time(days)','q2 mass deviation',10 &
+                    ,'time(days)','q2 mass deviation'    &
                     ,timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
       call o_frame()
 !-------------------------------------------------------------------
@@ -562,7 +562,7 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
       call plotback()
       call oplot_xy2('0','N',aspect,scalelab,10,0        &
                     ,ncall,  vctr18,ge4                  &
-                    ,'time(days)','q3 mass deviation',10 &
+                    ,'time(days)','q3 mass deviation'    &
                     ,timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
       call o_frame()
 !-------------------------------------------------------------------
@@ -575,7 +575,7 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
       call plotback()
       call oplot_xy2('0','N',aspect,scalelab,10,0        &
                     ,ncall,  vctr18,ge5                  &
-                    ,'time(days)','q4 mass deviation',10 &
+                    ,'time(days)','q4 mass deviation'    &
                     ,timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
       call o_frame()
 !-------------------------------------------------------------------
@@ -588,7 +588,7 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
       call plotback()
       call oplot_xy2('0','N',aspect,scalelab,10,0        &
                     ,ncall,  vctr18,ge6                  &
-                    ,'time(days)','q5 mass deviation',10 &
+                    ,'time(days)','q5 mass deviation'    &
                     ,timebeg,timeend,timeinc,5  ,-1.e-7,1.e-7,0.1e-7,10  )
       call o_frame()
 !-------------------------------------------------------------------
@@ -603,21 +603,21 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10      &
                     ,ncall,  vctr18,q1l1                  &
-                       ,'time(days)','q1 mass l1 norm',10 &
+                       ,'time(days)','q1 mass l1 norm'    &
                  ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10   &
                     ,ncall,  vctr18,q1l2               &
-                    ,'time(days)','q1 mass l2 norm',10 &
+                    ,'time(days)','q1 mass l2 norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10      &
                     ,ncall,  vctr18,q1li                  &
-                    ,'time(days)','q1 mass l_inf norm',10 &
+                    ,'time(days)','q1 mass l_inf norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1     )
       call o_frame()
 !-------------------------------------------------------------------
@@ -630,21 +630,21 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10   &
                     ,ncall,  vctr18,q2l1               &
-                    ,'time(days)','q2 mass l1 norm',10 &
+                    ,'time(days)','q2 mass l1 norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !------------------------------------------------------------------
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10   &
                     ,ncall,  vctr18,q2l2               &
-                    ,'time(days)','q2 mass l2 norm',10 &
+                    ,'time(days)','q2 mass l2 norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10     &
                     ,ncall,  vctr18,q2li                 &
-                    ,'time(days)','q2 mass linf norm',10 &
+                    ,'time(days)','q2 mass linf norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1    )
       call o_frame()
 !-------------------------------------------------------------------
@@ -657,21 +657,21 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10   &
                     ,ncall,  vctr18,q3l1               &
-                    ,'time(days)','q3 mass l1 norm',10 &
+                    ,'time(days)','q3 mass l1 norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10   &
                     ,ncall,  vctr18,q3l2               &
-                    ,'time(days)','q3 mass l2 norm',10 &
+                    ,'time(days)','q3 mass l2 norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10     &
                     ,ncall,  vctr18,q3li                 &
-                    ,'time(days)','q3 mass linf norm',10 &
+                    ,'time(days)','q3 mass linf norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1    )
       call o_frame()
 !-------------------------------------------------------------------
@@ -684,21 +684,21 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10   &
                     ,ncall,  vctr18,q4l1               &
-                    ,'time(days)','q4 mass l1 norm',10 &
+                    ,'time(days)','q4 mass l1 norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10   &
                     ,ncall,  vctr18,q4l2               &
-                    ,'time(days)','q4 mass l2 norm',10 &
+                    ,'time(days)','q4 mass l2 norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10     &
                     ,ncall,  vctr18,q4li                 &
-                    ,'time(days)','q4 mass linf norm',10 &
+                    ,'time(days)','q4 mass linf norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1    )
       call o_frame()
 !-------------------------------------------------------------------
@@ -711,21 +711,21 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10   &
                     ,ncall,  vctr18,q5l1               &
-                    ,'time(days)','q5 mass l1 norm',10 &
+                    ,'time(days)','q5 mass l1 norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10   &
                     ,ncall,  vctr18,q5l2               &
-                    ,'time(days)','q5 mass l2 norm',10 &
+                    ,'time(days)','q5 mass l2 norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !-------------------------------------------------------------------
       call plotback()
       call oplot_xy2log10('0','N',aspect,scalelab,10     &
                     ,ncall,  vctr18,q5li                 &
-                    ,'time(days)','q5 mass linf norm',10 &
+                    ,'time(days)','q5 mass linf norm'    &
                     ,timebeg,timeend,timeinc,5  ,-4,1    )
       call o_frame()
 !-------------------------------------------------------------------
