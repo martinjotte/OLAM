@@ -34,7 +34,7 @@ subroutine history_write(vtype)
 
   use var_tables, only: num_var, vtab_r, get_vtab_dims
   use misc_coms,  only: io6, ioutput, hfilepref, current_time, iclobber, &
-                        iparallel, ipar_out
+                        iparallel
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
   use max_dims,   only: pathlen
   use mem_grid,   only: nma, nva, nwa
@@ -56,7 +56,6 @@ subroutine history_write(vtype)
 
   character(pathlen) :: hnamel
   character(32)      :: varn
-  character(10)      :: post
   character(2)       :: stagpt
   logical            :: exans
   integer            :: nv, nvcnt
@@ -66,19 +65,9 @@ subroutine history_write(vtype)
 
   if (ioutput == 0) return
 
-! Set filename post depending on whether run is parallel or if
-! we are doing parallel writes to a global file
-
-  if (iparallel == 0 .or. ipar_out == 1) then
-     post = '$'
-  else
-     write(post,'(i10)') myrank
-     post = 'r'//trim(adjustl(post))
-  endif
-
 ! Construct h5 file name and open the file
 
-  call makefnam(hnamel, hfilepref, current_time, 'H', post, 'h5')
+  call makefnam(hnamel, hfilepref, current_time, 'H', '$', 'h5')
 
   inquire(file=hnamel,exist=exans)
   if (exans .and. iclobber == 0) then
@@ -114,7 +103,7 @@ subroutine history_write(vtype)
         write (io6, '(1x,a,2(I0,1x),a,3(1x,I0))')  &
              'Writing: ', nv, num_var, trim(varn), idims(1:ndims)
 
-        if (iparallel == 1 .and. ipar_out == 1) then
+        if (iparallel == 1) then
 
            stagpt = vtab_r(nv)%stagpt
            

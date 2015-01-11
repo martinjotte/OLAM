@@ -371,51 +371,6 @@ Contains
 
 !===============================================================================
 
-   subroutine filltab_itabs()
-
-   use var_tables, only: vtab_r, num_var, increment_vtable
-   use misc_coms,  only: iparallel, runtype, ipar_out
-
-   implicit none
-
-! These only need to be on parallel subdomain history files
-
-   if ( (runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or. &
-        (iparallel == 1 .and. ipar_out == 0) ) then
-
-      if (allocated(itab_v)) then
-            
-         call increment_vtable('IVGLOBE', 'AV', noread=.true.)
-         vtab_r(num_var)%ivar1_p => itab_v%ivglobe
-            
-         call increment_vtable('IRANKV', 'AV', noread=.true.)
-         vtab_r(num_var)%ivar1_p => itab_v%irank
-
-      endif
-
-      if (allocated(itab_m)) then
-
-         call increment_vtable('IMGLOBE', 'AM', noread=.true.)
-         vtab_r(num_var)%ivar1_p => itab_m%imglobe
-
-      endif
-
-      if (allocated(itab_w)) then
-
-         call increment_vtable('IWGLOBE', 'AW', noread=.true.)
-         vtab_r(num_var)%ivar1_p => itab_w%iwglobe
-
-         call increment_vtable('IRANKW', 'AW', noread=.true.)
-         vtab_r(num_var)%ivar1_p => itab_w%irank
-
-      endif
-
-   endif
-
-   end subroutine filltab_itabs
-
-!===============================================================================
-
    subroutine fill_jtabs(mma, mva, mwa, input)
 
    use misc_coms,  only: io6, nqparm

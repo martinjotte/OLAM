@@ -93,7 +93,6 @@ integer :: nscl
 integer :: nxp
 integer :: iparallel = 0
 integer :: isubdomain = 0
-integer :: ipar_out  = 0
 integer :: ndz
 
 integer :: idiffk   (maxgrds)

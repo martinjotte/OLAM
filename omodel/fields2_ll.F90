@@ -639,6 +639,8 @@ subroutine fields2_ll()
 
 ! HDF5 write
 
+  if (myrank == 0) write(io6,'(/,a)') "Writing lat/lon fields to disk..."
+
   call makefnam(hnamel, hfilepref, current_time, 'LL', '$', 'h5')
   call shdf5_open(hnamel,'W',iclobber) 
 
@@ -669,7 +671,6 @@ subroutine fields2_ll()
                   standard_name = "altitude",                  &
                   units = "m",                                 &
                   positive = "up"                              )
-
 
   ! If we ever output data on pressure levels:
 

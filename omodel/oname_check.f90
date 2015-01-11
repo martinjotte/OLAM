@@ -232,7 +232,6 @@ endif
 call ichk_bnds( nl%ioutput  , "IOUTPUT  ", 0, 1, 2, nfatal, nwarn )
 call ichk_bnds( nl%iclobber , "ICLOBBER ", 0, 1, 2, nfatal, nwarn )
 call ichk_bnds( nl%icompress, "ICOMPRESS", 0, 9, 2, nfatal, nwarn )
-call ichk_bnds( nl%ipar_out,  "IPAR_OUT ", 0, 1, 2, nfatal, nwarn )
 call ichk_bnds( nl%iquiet   , "IQUIET   ", 0, 1, 1, nfatal, nwarn )
 
 call dchk_bnds( nl%frqstate, "FRQSTATE", nl%dtlong, d_huge, 2, nfatal, nwarn )

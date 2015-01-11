@@ -430,7 +430,7 @@ subroutine write_mavg_vars(outyear,outmonth)
      accpmic_tot24, accpcon_tot24
 
   use misc_coms,  only: iparallel, isubdomain, hfilepref, iclobber, io6, time8, iyear1, &
-                        imonth1, idate1, itime1, ipar_out
+                        imonth1, idate1, itime1
   use mem_para,   only: myrank, iwa_globe_primary, iwa_local_primary
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
   use mem_grid,   only: mwa, nwa
@@ -440,7 +440,6 @@ subroutine write_mavg_vars(outyear,outmonth)
   implicit none
 
   integer, intent(in) :: outyear, outmonth
-  character(len=10) :: post
   character(len=128) :: hnamel
   integer :: lenl, iwl, k
   logical exans
@@ -468,13 +467,6 @@ subroutine write_mavg_vars(outyear,outmonth)
 
 ! Determine output file name and open file
 
-  if(iparallel == 0 .or. ipar_out == 1) then
-     post = '$'
-  else
-     write(post,'(i10)')myrank
-     post = 'r'//trim(adjustl(post))
-  endif
-
   month_use = outmonth - 1
   year_use = outyear
   if(month_use == 0)then
@@ -483,7 +475,7 @@ subroutine write_mavg_vars(outyear,outmonth)
   endif
 
   call makefnam8(hnamel,hfilepref,0.d0,year_use,month_use,1,  &
-       0,'M',post,'h5')  ! '$' argument suppresses grid# encoding
+       0,'M','$','h5')  ! '$' argument suppresses grid# encoding
 
   lenl = len_trim(hnamel)
   
@@ -504,7 +496,7 @@ subroutine write_mavg_vars(outyear,outmonth)
   
   !  Write month-average variables
   
-  if (iparallel == 1 .and. ipar_out == 1) then
+  if (iparallel == 1) then
      ilpts => iwa_local_primary
      igpts => iwa_globe_primary
      nglobe = nwa
@@ -653,7 +645,7 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
   use mem_grid,   only: mwa, nwa
   use misc_coms,  only: iparallel, hfilepref, iclobber, io6, time8, iyear1, &
-                        imonth1, idate1, itime1, ipar_out
+                        imonth1, idate1, itime1
   use mem_para,   only: myrank, iwa_globe_primary, iwa_local_primary, &
                                 iwl_globe_primary, iwl_local_primary, &
                                 iws_globe_primary, iws_local_primary
@@ -664,7 +656,6 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
   implicit none
 
   integer, intent(in) :: outyear, outmonth, outdate
-  character(len=10) :: post
   character(len=128) :: hnamel
   integer :: lenl
   logical exans
@@ -674,13 +665,6 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
   integer :: nglobe
 
 ! Determine output file name and open file
-
-  if(iparallel == 0 .or. ipar_out == 1) then
-     post = '$'
-  else
-     write(post,'(i10)')myrank
-     post = 'r'//trim(adjustl(post))
-  endif
 
   date_use = outdate - 1
   month_use = outmonth
@@ -702,7 +686,7 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
   endif
 
   call makefnam8(hnamel,hfilepref,0.d0,year_use,month_use,date_use,  &
-       0,'D',post,'h5')  ! '$' argument suppresses grid# encoding
+       0,'D','$','h5')  ! '$' argument suppresses grid# encoding
 
   lenl = len_trim(hnamel)
   
@@ -723,7 +707,7 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
 
   !  Write day-average variables
 
-  if (iparallel .and. ipar_out == 1) then
+  if (iparallel == 1) then
 
      ndims    = 1
      idims(1) = mwa

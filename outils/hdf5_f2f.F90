@@ -69,8 +69,6 @@ contains
     if(iaccess == 2) flags = H5F_ACC_RDWR_F
 
     call h5fopen_f(locfn, flags, fileid, hdferr, access_id)
-
-    hdferr = int(fileid) + hdferr
   end subroutine fh5f_open
 
 !===============================================================================
@@ -88,7 +86,7 @@ contains
   subroutine fh5f_create(locfn, iaccess, hdferr)
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    use misc_coms, only: ipar_out, io6
+    use misc_coms, only: io6, iparallel
     use mpi
 #endif
 
@@ -109,7 +107,8 @@ contains
     if (iaccess == 2) flags = H5F_ACC_EXCL_F
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    if (ipar_out == 1) then
+    if (iparallel == 1) then
+
        write(io6,*)
        write(io6,*) "Enabling parallel HDF5 output"
        write(io6,*)
@@ -135,12 +134,9 @@ contains
     call h5fcreate_f(locfn, flags, fileid, hdferr, create_id, access_id)
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    if (ipar_out == 1) then
-       call h5pclose_f(access_id, hdferr)
-    endif
+    if (iparallel == 1) call h5pclose_f(access_id, ierr)
 #endif
 
-    hdferr = int(fileid) + hdferr
   end subroutine fh5f_create
 
 !===============================================================================
@@ -148,10 +144,7 @@ contains
   subroutine fh5_prepare_write(ndims, dims, hdferr, icompress, &
                                mcoords, fcoords, ifsize)
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    use misc_coms, only: ipar_out
-#endif
-
+    use misc_coms, only: iparallel
     implicit none
 
     integer, intent(IN)           :: ndims
@@ -200,10 +193,9 @@ contains
           docompress = .false.
        endif
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
        ! Compression does not work with parallel output
-       if (ipar_out == 1) docompress = .false.
-#endif
+
+       if (iparallel == 1) docompress = .false.
 
        if (docompress) then
           if (.not. (ndims == 1 .and. dimsf(1) == 1)) then
@@ -219,7 +211,7 @@ contains
     xferid = H5P_DEFAULT_F
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    if (ipar_out == 1) then
+    if (iparallel == 1) then
        call h5pcreate_f(h5p_dataset_xfer_f, xferid, hdferr)
        call h5pset_dxpl_mpio_f(xferid, h5fd_mpio_collective_f, hdferr)
     endif
@@ -319,14 +311,23 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_integer_array(buf_integer, dname, hdferr)
+  subroutine fh5_write_integer_array(buf_integer, dname, hdferr, n)
     implicit none
 
     integer,      intent(IN)  :: buf_integer(*)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, hdferr, propid)
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, hdferr, propid)
+    endif
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid, dspcid, xferid)
 
@@ -334,14 +335,23 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_real_array(buf_real, dname, hdferr)
+  subroutine fh5_write_real_array(buf_real, dname, hdferr, n)
     implicit none
  
     real,         intent(IN)  :: buf_real(*)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, hdferr, propid)
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, hdferr, propid)
+    endif
     
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid, dspcid, xferid)
 
@@ -349,14 +359,23 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_character_array(buf_character, dname, hdferr)
+  subroutine fh5_write_character_array(buf_character, dname, hdferr, n)
     implicit none
 
     character(*), intent(IN)  :: buf_character(*)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, fspcid, dsetid, hdferr, propid)
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, fspcid, dsetid, hdferr, propid)
+    endif
 
     call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr, mspcid, dspcid, xferid)
 
@@ -364,14 +383,23 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_real8_array(buf_real8, dname, hdferr)
+  subroutine fh5_write_real8_array(buf_real8, dname, hdferr, n)
     implicit none
 
     real(kind=8), intent(IN)  :: buf_real8(*)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, fspcid, dsetid, hdferr, propid)
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, fspcid, dsetid, hdferr, propid)
+    endif
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
 
@@ -379,7 +407,7 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_logical_array(buf_logical, dname, hdferr)
+  subroutine fh5_write_logical_array(buf_logical, dname, hdferr, n)
     implicit none
 
     logical,      intent(IN)  :: buf_logical(*)
@@ -387,8 +415,17 @@ contains
     integer,      intent(OUT) :: hdferr
     integer,      allocatable :: buf_integer(:)
     integer                   :: i, size
+    integer, optional, intent(in) :: n
+    logical :: create
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, hdferr, propid)
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, hdferr, propid)
+    endif
 
     ! converting logical to integer
     size = 1
@@ -504,6 +541,32 @@ contains
     call h5pclose_f(propid, hdferr)
 
   end subroutine fh5_close_write
+
+!===============================================================================
+
+  subroutine fh5_close_write1(hdferr)
+    implicit none
+
+    integer, intent(OUT) :: hdferr
+
+    call h5sclose_f(fspcid, hdferr)
+    call h5sclose_f(dspcid, hdferr)
+    call h5sclose_f(mspcid, hdferr)
+    call h5pclose_f(xferid, hdferr)
+    call h5pclose_f(propid, hdferr)
+
+  end subroutine fh5_close_write1
+
+!===============================================================================
+
+  subroutine fh5_close_write2(hdferr)
+    implicit none
+
+    integer, intent(OUT) :: hdferr
+
+    call h5dclose_f(dsetid, hdferr)
+
+  end subroutine fh5_close_write2
 
 !===============================================================================
 
@@ -862,10 +925,7 @@ contains
 !===============================================================================
 
   subroutine fh5_prepare_write_ll(ndims, dims, hdferr, icompress, fcoords)
-
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    use misc_coms, only: ipar_out
-#endif
+    use misc_coms, only: iparallel
 
     implicit none
 
@@ -917,10 +977,9 @@ contains
           docompress = .false.
        endif
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
        ! Compression does not work with parallel output
-       if (ipar_out == 1) docompress = .false.
-#endif
+
+       if (iparallel == 1) docompress = .false.
 
        if (docompress) then
           if (.not. (ndims == 1 .and. dimsf(1) == 1)) then
@@ -936,7 +995,7 @@ contains
     xferid = H5P_DEFAULT_F
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    if (ipar_out == 1) then
+    if (iparallel == 1) then
        call h5pcreate_f(h5p_dataset_xfer_f, xferid, hdferr)
        call h5pset_dxpl_mpio_f(xferid, h5fd_mpio_collective_f, hdferr)
     endif
@@ -1091,11 +1150,14 @@ contains
        ! write attribute to file
        call H5Awrite_f(attr_id, atype_id, trim(cvalue)//char(0), dims, hdferr)
 
+       ! close character type
+       CALL h5tclose_f(atype_id, hdferr) 
     endif
 
     ! Close the attribute
 
-    call H5Aclose_f(attr_id, hdferr)
+    call H5Sclose_f(space_id, hdferr)
+    call H5Aclose_f(attr_id,  hdferr)
  
   end subroutine fh5f_write_attribute
 

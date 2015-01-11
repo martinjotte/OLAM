@@ -38,7 +38,7 @@ use, intrinsic :: ieee_arithmetic
 
 use misc_coms,   only: io6, time8, time_istp8, iflag, runtype, hfilin, nzp,    &
                        expnme, mdomain, ngrids, initial, iswrtyp, ilwrtyp,     &
-                       timmax8, alloc_misc, iparallel, ipar_out,     &
+                       timmax8, alloc_misc, iparallel,                         &
                        iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
                        time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
                        isubdomain
@@ -150,16 +150,6 @@ if (init_nans) then
 endif
 #endif
 
-! Should we enable parallel output?
-
-ipar_out = 0
-
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-if (iparallel == 1 .and. nl%ipar_out == 1) then
-   ipar_out = 1
-endif
-#endif
-
 ! If debugging, halt on illegal floating operations if supported
 
 #ifdef IEEE_ARITHMETIC
@@ -189,7 +179,6 @@ if ( (runtype == 'PARCOMBINE') .or. (runtype == 'MAKEGRID') ) then
    if (iparallel == 1) then
       write(io6,*) trim(runtype)//' will only be done on a single process.'
       iparallel  = 0
-      ipar_out   = 0
       isubdomain = 0
       if (myrank > 0) go to 1000
    endif

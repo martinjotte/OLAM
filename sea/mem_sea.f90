@@ -179,7 +179,7 @@ Contains
 
    subroutine alloc_sea_grid(mws)
 
-     use misc_coms, only: rinit, runtype
+     use misc_coms, only: rinit
      use sea_coms,  only: iseagrid
 
      implicit none
@@ -317,25 +317,7 @@ Contains
    subroutine filltab_sea()
 
      use var_tables, only: vtab_r, num_var, increment_vtable
-     use misc_coms,  only: iparallel, ipar_out, runtype
      implicit none
-
-     if ( (runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or. &
-          (iparallel == 1 .and. ipar_out == 0) ) then
-
-        if (allocated(itab_ws)) then 
-
-! These only need to be on parallel subdomain history files
-
-           call increment_vtable('IWGLOBE_S', 'SW',  noread=.true.)
-           vtab_r(num_var)%ivar1_p => itab_ws%iwglobe
-
-           call increment_vtable('IRANKW_S',  'SW',  noread=.true.)
-           vtab_r(num_var)%ivar1_p => itab_ws%irank
-
-        endif
-
-     endif
 
      if (allocated(sea%rhos)) then
         call increment_vtable('SEA%RHOS', 'SW')

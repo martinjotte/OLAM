@@ -315,26 +315,8 @@ Contains
    subroutine filltab_leaf()
 
      use var_tables, only: vtab_r, num_var, increment_vtable
-     use misc_coms,  only: iparallel, ipar_out, runtype
 
      implicit none
-
-     if ( (runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE') .or. &
-          (iparallel == 1 .and. ipar_out == 0) ) then
-
-        if (allocated(itab_wl)) then
-
-! These only need to be on parallel subdomain history files
-
-           call increment_vtable('IWGLOBE_L', 'LW', noread=.true.)
-           vtab_r(num_var)%ivar1_p => itab_wl%iwglobe
-
-           call increment_vtable('IRANKW_L',  'LW', noread=.true.)
-           vtab_r(num_var)%ivar1_p => itab_wl%irank
-
-        endif
-
-     endif
 
      if (allocated(land%rhos)) then
         call increment_vtable('LAND%RHOS', 'LW')
