@@ -21,7 +21,6 @@
    NL%RUNTYPE  = 'INITIAL'
  ! NL%RUNTYPE  = 'HISTORY'
  ! NL%RUNTYPE  = 'PLOTONLY'
- ! NL%RUNTYPE  = 'PARCOMBINE'
 
  !--------------------------------------------------------------------------
  ! Simulation ending time

@@ -84,12 +84,10 @@ write(io6,*) ' '
 if ( (nl%runtype /= 'MAKEGRID'  ) .and. &
      (nl%runtype /= 'INITIAL'   ) .and. &
      (nl%runtype /= 'HISTORY'   ) .and. &
-     (nl%runtype /= 'PLOTONLY'  ) .and. &
-     (nl%runtype /= 'PARCOMBINE') ) then
+     (nl%runtype /= 'PLOTONLY'  ) ) then
    write(io6,*) " -- FATAL -- RUNTYPE = "//trim(nl%runtype)
    write(io6,*) "             RUNTYPE must be either 'MAKEGRID',"
-   write(io6,*) "             'INITIAL', 'HISTORY', 'PLOTONLY', or"
-   write(io6,*) "             'PARCOMBINE'"
+   write(io6,*) "             'INITIAL', 'HISTORY', or 'PLOTONLY'"
    nfatal = nfatal + 1
 endif
 
@@ -693,13 +691,6 @@ if (nl%initial == 2 .and. nl%level == 0) then
    write(io6,*) 'FATAL - Moisture complexity LEVEL must be 1 or larger if'
    write(io6,*) 'variable initialization is used (i.e., if INITIAL = 2).'
    nfatal = nfatal + 1
-endif
-
-! ALWAYS SET IOUTPUT=1 FOR A PARCOMBINE RUN
-
-if (nl%runtype == 'PARCOMBINE' .and. nl%ioutput == 0) then
-   write(io6,*) ' WARNING - setting IOUTPUT=1 for a PARCOMBINE run'
-   nwarn = nwarn + 1
 endif
 
 ! STOP THE RUN IF THERE ARE ANY FATAL ERRORS, AND LIST HOW MANY

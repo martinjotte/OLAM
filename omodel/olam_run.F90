@@ -120,7 +120,7 @@ write(io6,'(/,a,i6,/)') ' isubdomain = ',isubdomain
 if (runtype == 'HISTORY') then
    write(io6,'(/,a)') 'olam_run reading common values from history file'
    call history_start('COMMIO')
-elseif ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
+elseif (runtype == 'PLOTONLY') then
    write(io6,'(/,a)') 'olam_run reading common values from plot file'
    hfilin = op%plt_files(1)
    call history_start('COMMIO')
@@ -173,9 +173,9 @@ write(io6,'(2a1)')        ' ','*'
 write(io6,'(2a1,a3,a64)') ' ','*','   ',EXPNME
 write(io6,'(a1,78a1)')    ' ',('*',i=1,78)
 
-! MAKEGRID/PARCOMBINE runs must be single-processor
+! MAKEGRID runs must be single-processor
 
-if ( (runtype == 'PARCOMBINE') .or. (runtype == 'MAKEGRID') ) then
+if ( runtype == 'MAKEGRID' ) then
    if (iparallel == 1) then
       write(io6,*) trim(runtype)//' will only be done on a single process.'
       iparallel  = 0
@@ -280,7 +280,7 @@ write(io6,'(/,a)') 'olam_run calling jnmbinit'
 call jnmbinit()
 
 ! Allocate remainder of main model memory (for 'INITIAL', 'HISTORY',
-! 'PLOTONLY', or 'PARCOMBINE' run).
+! or 'PLOTONLY' run).
 ! Allocate variable tables and fill variable tables for history files
 ! and parallel communication.
 
@@ -439,7 +439,7 @@ call pbl_init()
 ! If this is 'PLOTONLY' run, loop through input history files, plot 
 ! specified fields, and exit
 
-if ((runtype == 'PLOTONLY') .or. (runtype == 'PARCOMBINE')) then
+if (runtype == 'PLOTONLY') then
 
    write(io6,'(/,a)') 'beginning '//trim(runtype)//' loop'
 

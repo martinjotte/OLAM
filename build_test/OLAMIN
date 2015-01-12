@@ -14,14 +14,13 @@
    NL%TEST_CASE = 0
 
  !--------------------------------------------------------------------------
- ! Runtype: either MAKEGRID, INITIAL, HISTORY, PLOTONLY, or PARCOMBINE
+ ! Runtype: either MAKEGRID, INITIAL, HISTORY, or PLOTONLY
  !--------------------------------------------------------------------------
 
  ! NL%RUNTYPE  = 'MAKEGRID'
    NL%RUNTYPE  = 'INITIAL'
  ! NL%RUNTYPE  = 'HISTORY'
  ! NL%RUNTYPE  = 'PLOTONLY'
- ! NL%RUNTYPE  = 'PARCOMBINE'
 
  !--------------------------------------------------------------------------
  ! Simulation ending time
