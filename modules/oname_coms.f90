@@ -33,11 +33,17 @@
 Module oname_coms
 
    use max_dims,    only: nzgmax, maxsndg, maxgrds, maxisdirs, maxnplt,  &
-                          maxpltfiles, maxngrdll, pathlen
+                          maxpltfiles, maxngrdll, pathlen, maxlite
    use consts_coms, only: r8
         
+   ! Do not re-export symbols from other modules
+
+   private :: nzgmax, maxsndg, maxgrds, maxisdirs, maxnplt, &
+              maxpltfiles, maxngrdll, pathlen, maxlite, r8
+
+   ! Derived type to hold the components of the plot specification fields
+
    Type oname_plot
-      ! Derived type to hold the components of the plot specification fields
       character(20) :: fldname    = ''
       character(1)  :: projectn   = ''
       integer       :: icolortab  = 0
@@ -48,6 +54,8 @@ Module oname_coms
       real          :: plotwid    = 0.0
       real          :: viewazim   = 0.0
    End Type oname_plot
+
+   ! Derived type to hold the namelist variables
 
    Type oname_vars
 
@@ -116,14 +124,19 @@ Module oname_coms
       integer :: ioutput      = 1
       integer :: ioutput_mavg = 1
       integer :: ioutput_davg = 1
+      integer :: ioutput_lite = 0
+
       integer :: iclobber  = 0
       integer :: icompress = 0
       integer :: ipar_out  = 0
       integer :: iquiet    = 0
       real(r8):: frqstate  = 3600.0_r8
+      real(r8):: frqlite   = 3600.0_r8
 
       character(pathlen) :: hfilin    = ''
       character(pathlen) :: hfilepref = 'hist/'
+      character(pathlen) :: lfilepref = 'hist/l'
+      character(32)      :: lite_vars(maxlite) = ''
 
 !!    MODEL/NUMERICAL OPTIONS
 

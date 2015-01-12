@@ -76,6 +76,7 @@ SOURCE_FILES= \
              $(OMODEL)/history_start.f90 \
              $(OMODEL)/history_write.f90 \
              $(OMODEL)/icosahedron.f90 \
+             $(OMODEL)/lite_vars.f90 \
              $(OMODEL)/makesfc2.f90 \
              $(OMODEL)/obnd.f90 \
              $(OMODEL)/ocio.f90 \

@@ -58,6 +58,8 @@ Module var_tables
 
      logical :: ihist = .true.
      logical :: nread = .false.
+     logical :: ilite = .false.
+
   end type var_tables_r
 
   type(var_tables_r), allocatable :: vtab_r(:)
@@ -65,6 +67,7 @@ Module var_tables
 
   integer :: num_var  = 0
   integer :: nvar_par = 0
+  integer :: num_lite = 0
 
 !-------------------------------------------------------------------
 
@@ -133,12 +136,12 @@ Contains
 !===============================================================================
 
 
-  subroutine increment_vtable(name, stagpt, hist, noread, mpt1)
+  subroutine increment_vtable(name, stagpt, hist, noread, mpt1, lite)
     use misc_coms, only: io6
     implicit none
 
     character(*),      intent(in) :: name, stagpt
-    logical, optional, intent(in) :: hist, noread, mpt1
+    logical, optional, intent(in) :: hist, noread, mpt1, lite
 
     character(2), parameter :: ptypes(11) = (/  &
          'AV', 'AW', 'AM', 'AN',  &  ! Atmos V, W, M, NUDGE array
@@ -187,6 +190,7 @@ Contains
 
     if (present(hist))   vtab_r(num_var)%ihist = hist
     if (present(noread)) vtab_r(num_var)%nread = noread
+    if (present(lite))   vtab_r(num_var)%ilite = lite
 
 !   Parallel communication table for scalars
 !   (Currently only implemented for 2-D real variables)

@@ -1,9 +1,5 @@
 !===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
+! OLAM version 4.0
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
@@ -29,6 +25,10 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
+! OLAM was developed at Duke University and the University of Miami, Florida. 
+! For additional information, including published references, please contact
+! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
+! or Roni Avissar (ravissar@rsmas.miami.edu).
 !===============================================================================
 Module max_dims
 
@@ -45,7 +45,8 @@ Module max_dims
       ,maxpltfiles  = 2000  & ! Max # of input files for a plotonly run
       ,maxngrdll    = 20    & ! Max # of geog. pts for each grid refinement
       ,pathlen      = 128   & ! Max length of character strings for file paths
-      ,maxnlspoly   = 7       ! max # of M pts for a single land/sea cell
+      ,maxnlspoly   = 7     & ! Max # of M pts for a single land/sea cell
+      ,maxlite      = 150     ! Max # of output "lite" variables
 
 End Module max_dims
 

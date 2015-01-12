@@ -64,6 +64,7 @@ use hcane_rz,    only: init_hurr_step, hurricane_init
 use obnd,        only: trsets, lbcopy_w
 use var_tables,  only: nvar_par, vtab_r, nptonv
 use mem_plot,    only: copy_plot
+use lite_vars,   only: prepare_lite, lite_write
 
 use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
 
@@ -561,6 +562,13 @@ write(io6,'(/,a)') 'olam_run completed initialization'
 ! Exit if doing a zero time run
 if (time8 >= timmax8) go to 1000
 
+! Setup lite variable output
+
+if (nl%ioutput_lite == 1) then
+   call prepare_lite()
+   if (runtype /= 'HISTORY') call lite_write()
+endif
+
 ! Initialize field average arrays
 
 if (nl%ioutput_mavg == 1) call reset_mavg_vars()
@@ -694,6 +702,7 @@ use consts_coms, only: r8
 use oname_coms,  only: nl
 use mem_plot,    only: copy_plot
 use hcane_rz,    only: init_hurr_step, hurricane_track
+use lite_vars,   only: lite_write
 
 use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
 
@@ -726,11 +735,19 @@ endif
 call date_add_to8(iyear1,imonth1,idate1,itime1,time8p,'s',outyear,  &
                   outmonth,outdate,outhour)
 
+! Output full history restart file
+
 if (mod(time8p,frqstate) < dtlm(1)   .or. &
    (outdate == 1 .and. outhour == 0) .or. &
    time8p >= timmax8 .or. iflag == 1) then
    call history_write('INST')
    time_prevhist = time8
+endif
+
+! Output of "lite" quantities
+
+if (mod(time8p,nl%frqlite) < dtlm(1)) then
+   call lite_write()
 endif
 
 ! Output of time-averaged quantities
