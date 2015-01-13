@@ -114,63 +114,30 @@ Contains
 
   subroutine filltab_cuparm()
 
-    use var_tables, only: vtab_r, num_var, increment_vtable
+    use var_tables, only: increment_vtable
     implicit none
 
-     if (allocated(thsrc)) then
-        call increment_vtable('THSRC', 'AW')
-        vtab_r(num_var)%rvar2_p => thsrc
-     endif
+     if (allocated(thsrc))  call increment_vtable('THSRC', 'AW', rvar2=thsrc)
 
-     if (allocated(rtsrc)) then
-        call increment_vtable('RTSRC', 'AW')
-        vtab_r(num_var)%rvar2_p => rtsrc
-     endif
+     if (allocated(rtsrc))  call increment_vtable('RTSRC', 'AW', rvar2=rtsrc)
 
-     if (allocated(aconpr)) then
-        call increment_vtable('ACONPR', 'AW')
-        vtab_r(num_var)%dvar1_p => aconpr
-     endif
+     if (allocated(aconpr)) call increment_vtable('ACONPR','AW', dvar1=aconpr)
 
-     if (allocated(conprr)) then
-        call increment_vtable('CONPRR', 'AW')
-        vtab_r(num_var)%rvar1_p => conprr
-     endif
+     if (allocated(conprr)) call increment_vtable('CONPRR','AW', rvar1=conprr)
 
-     if (allocated(qwcon)) then
-        call increment_vtable('QWCON', 'AW')
-        vtab_r(num_var)%rvar2_p => qwcon
-     endif
+     if (allocated(qwcon))  call increment_vtable('QWCON', 'AW', rvar2=qwcon)
 
-     if (allocated(cbmf)) then
-        call increment_vtable('CBMF', 'AW')
-        vtab_r(num_var)%rvar1_p => cbmf
-     endif
+     if (allocated(cbmf))   call increment_vtable('CBMF',  'AW', rvar1=cbmf)
 
-     if (allocated(kcutop)) then
-        call increment_vtable('KCUTOP', 'AW')
-        vtab_r(num_var)%ivar1_p => kcutop
-     endif
+     if (allocated(kcutop)) call increment_vtable('KCUTOP','AW', ivar1=kcutop)
 
-     if (allocated(kcubot)) then
-        call increment_vtable('KCUBOT', 'AW')
-        vtab_r(num_var)%ivar1_p => kcubot
-     endif
+     if (allocated(kcubot)) call increment_vtable('KCUBOT','AW', ivar1=kcubot)
 
-     if (allocated(vxsrc)) then
-        call increment_vtable('VXSRC', 'AW')
-        vtab_r(num_var)%rvar2_p => vxsrc
-     endif
+     if (allocated(vxsrc))  call increment_vtable('VXSRC', 'AW', rvar2=vxsrc)
 
-     if (allocated(vysrc)) then
-        call increment_vtable('VYSRC', 'AW')
-        vtab_r(num_var)%rvar2_p => vysrc
-     endif
+     if (allocated(vysrc))  call increment_vtable('VYSRC', 'AW', rvar2=vysrc)
 
-     if (allocated(vzsrc)) then
-        call increment_vtable('VZSRC', 'AW')
-        vtab_r(num_var)%rvar2_p => vzsrc
-     endif
+     if (allocated(vzsrc))  call increment_vtable('VZSRC', 'AW', rvar2=vzsrc)
 
    end subroutine filltab_cuparm
 

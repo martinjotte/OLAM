@@ -94,7 +94,7 @@ Contains
 !===============================================================================
                
    subroutine filltab_addsc(naddsc)
-     use var_tables, only: vtab_r, num_var, increment_vtable
+     use var_tables, only: increment_vtable
      implicit none
 
      integer, intent(in) :: naddsc
@@ -107,16 +107,14 @@ Contains
         if (allocated (addsc(iaddsc)%sclp)) then
 
            write(sname,'(a4,i3.3)') 'SCLP', iaddsc
-           call increment_vtable(sname, 'AW', mpt1=.true.)
-           vtab_r(num_var)%rvar2_p => addsc(iaddsc)%sclp
+           call increment_vtable(sname, 'AW', mpt1=.true., rvar2=addsc(iaddsc)%sclp)
 
         endif
         
         if (allocated (addsc(iaddsc)%drydep)) then
 
            write(sname,'(a4,i3.3)') 'SCDD', iaddsc
-           call increment_vtable(sname, 'AW')
-           vtab_r(num_var)%rvar1_p => addsc(iaddsc)%drydep
+           call increment_vtable(sname, 'AW', rvar1=addsc(iaddsc)%drydep)
            
         endif
 

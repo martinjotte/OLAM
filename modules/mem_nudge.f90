@@ -163,7 +163,7 @@ Contains
 
   subroutine filltab_nudge()
 
-    use var_tables, only: vtab_r, num_var, increment_vtable
+    use var_tables, only: increment_vtable
     implicit none
 
     character(2) :: stagpt
@@ -178,55 +178,25 @@ Contains
        stagpt = 'AN'
     endif
 
-    if (allocated(rho_obsp)) then
-         call increment_vtable('RHO_OBSP', stagpt, noread=.true.)
-         vtab_r(num_var)%rvar2_p => rho_obsp
-      endif
+    if (allocated(rho_obsp))    call increment_vtable('RHO_OBSP',    stagpt, noread=.true., rvar2=rho_obsp)
 
-    if (allocated(theta_obsp)) then
-         call increment_vtable('THETA_OBSP', stagpt, noread=.true.)
-         vtab_r(num_var)%rvar2_p => theta_obsp
-      endif
+    if (allocated(theta_obsp))  call increment_vtable('THETA_OBSP',  stagpt, noread=.true., rvar2=theta_obsp)
 
-    if (allocated(shw_obsp)) then
-         call increment_vtable('SHW_OBSP', stagpt, noread=.true.)
-         vtab_r(num_var)%rvar2_p => shw_obsp
-      endif
+    if (allocated(shw_obsp))    call increment_vtable('SHW_OBSP',    stagpt, noread=.true., rvar2=shw_obsp)
 
-    if (allocated(uzonal_obsp)) then
-         call increment_vtable('UZONAL_OBSP', stagpt, noread=.true.)
-         vtab_r(num_var)%rvar2_p => uzonal_obsp
-      endif
+    if (allocated(uzonal_obsp)) call increment_vtable('UZONAL_OBSP', stagpt, noread=.true., rvar2=uzonal_obsp)
 
-    if (allocated(umerid_obsp)) then
-         call increment_vtable('UMERID_OBSP', stagpt, noread=.true.)
-         vtab_r(num_var)%rvar2_p => umerid_obsp
-      endif
+    if (allocated(umerid_obsp)) call increment_vtable('UMERID_OBSP', stagpt, noread=.true., rvar2=umerid_obsp)
 
-    if (allocated(rho_obsf)) then
-         call increment_vtable('RHO_OBSF', stagpt, noread=.true.)
-         vtab_r(num_var)%rvar2_p => rho_obsf
-      endif
+    if (allocated(rho_obsf))    call increment_vtable('RHO_OBSF',    stagpt, noread=.true., rvar2=rho_obsf)
 
-    if (allocated(theta_obsf)) then
-         call increment_vtable('THETA_OBSF', stagpt, noread=.true.)
-         vtab_r(num_var)%rvar2_p => theta_obsf
-      endif
+    if (allocated(theta_obsf))  call increment_vtable('THETA_OBSF',  stagpt, noread=.true., rvar2=theta_obsf)
 
-    if (allocated(shw_obsf)) then
-         call increment_vtable('SHW_OBSF', stagpt, noread=.true.)
-         vtab_r(num_var)%rvar2_p => shw_obsf
-      endif
+    if (allocated(shw_obsf))    call increment_vtable('SHW_OBSF',    stagpt, noread=.true., rvar2=shw_obsf)
 
-    if (allocated(uzonal_obsf)) then
-         call increment_vtable('UZONAL_OBSF', stagpt, noread=.true.)
-         vtab_r(num_var)%rvar2_p => uzonal_obsf
-      endif
+    if (allocated(uzonal_obsf)) call increment_vtable('UZONAL_OBSF', stagpt, noread=.true., rvar2=uzonal_obsf)
 
-    if (allocated(umerid_obsf)) then
-         call increment_vtable('UMERID_OBSF', stagpt, noread=.true.)
-         vtab_r(num_var)%rvar2_p => umerid_obsf
-      endif
+    if (allocated(umerid_obsf)) call increment_vtable('UMERID_OBSF', stagpt, noread=.true., rvar2=umerid_obsf)
 
   end subroutine filltab_nudge
 

@@ -121,113 +121,50 @@ end subroutine alloc_flux_accum
 
 subroutine filltab_flux_accum()
 
-  use var_tables, only: vtab_r, num_var, increment_vtable
+  use var_tables, only: increment_vtable
   implicit none
 
-  if (allocated (rshort_accum)) then
-     call increment_vtable('RSHORT_ACCUM', 'AW')
-     vtab_r(num_var)%dvar1_p => rshort_accum
-  endif
+  if (allocated (rshort_accum)) call increment_vtable('RSHORT_ACCUM', 'AW', dvar1=rshort_accum)
 
-  if (allocated(rshortup_accum)) then
-     call increment_vtable('RSHORTUP_ACCUM', 'AW')
-     vtab_r(num_var)%dvar1_p => rshortup_accum
-  endif
+  if (allocated(rshortup_accum)) call increment_vtable('RSHORTUP_ACCUM', 'AW', dvar1=rshortup_accum)
 
-  if (allocated(rlong_accum)) then
-     call increment_vtable('RLONG_ACCUM', 'AW')
-     vtab_r(num_var)%dvar1_p => rlong_accum
-  endif
+  if (allocated(rlong_accum)) call increment_vtable('RLONG_ACCUM', 'AW', dvar1=rlong_accum)
 
-  if (allocated(rlongup_accum)) then
-     call increment_vtable('RLONGUP_ACCUM', 'AW')
-     vtab_r(num_var)%dvar1_p => rlongup_accum
-  endif
+  if (allocated(rlongup_accum)) call increment_vtable('RLONGUP_ACCUM', 'AW', dvar1=rlongup_accum)
 
-  if (allocated(rshort_top_accum)) then
-     call increment_vtable('RSHORT_TOP_ACCUM', 'AW')
-     vtab_r(num_var)%dvar1_p => rshort_top_accum
-  endif
+  if (allocated(rshort_top_accum)) call increment_vtable('RSHORT_TOP_ACCUM', 'AW', dvar1=rshort_top_accum)
 
-  if (allocated(rshortup_top_accum)) then
-     call increment_vtable('RSHORTUP_TOP_ACCUM','AW')
-     vtab_r(num_var)%dvar1_p => rshortup_top_accum
-  endif
+  if (allocated(rshortup_top_accum)) call increment_vtable('RSHORTUP_TOP_ACCUM','AW', dvar1=rshortup_top_accum)
 
-  if (allocated(rlongup_top_accum)) then
-     call increment_vtable('RLONGUP_TOP_ACCUM', 'AW')
-     vtab_r(num_var)%dvar1_p => rlongup_top_accum
-  endif
+  if (allocated(rlongup_top_accum)) call increment_vtable('RLONGUP_TOP_ACCUM', 'AW', dvar1=rlongup_top_accum)
 
-  if (allocated(sfluxt_accum)) then
-     call increment_vtable('SFLUXT_ACCUM', 'AW')
-     vtab_r(num_var)%dvar1_p => sfluxt_accum
-  endif
+  if (allocated(sfluxt_accum)) call increment_vtable('SFLUXT_ACCUM', 'AW', dvar1=sfluxt_accum)
 
-  if (allocated(sfluxr_accum)) then
-     call increment_vtable('SFLUXR_ACCUM', 'AW')
-     vtab_r(num_var)%dvar1_p => sfluxr_accum
-  endif
+  if (allocated(sfluxr_accum)) call increment_vtable('SFLUXR_ACCUM', 'AW', dvar1=sfluxr_accum)
 
-  if (allocated(sfluxt_l_accum)) then
-     call increment_vtable('SFLUXT_L_ACCUM', 'LW')
-     vtab_r(num_var)%dvar1_p => sfluxt_l_accum
-  endif
+  if (allocated(sfluxt_l_accum)) call increment_vtable('SFLUXT_L_ACCUM', 'LW', dvar1=sfluxt_l_accum)
 
-  if (allocated(sfluxr_l_accum)) then
-     call increment_vtable('SFLUXR_L_ACCUM', 'LW')
-     vtab_r(num_var)%dvar1_p => sfluxr_l_accum
-  endif
+  if (allocated(sfluxr_l_accum)) call increment_vtable('SFLUXR_L_ACCUM', 'LW', dvar1=sfluxr_l_accum)
 
-  if (allocated(airtemp_l_accum)) then
-     call increment_vtable('AIRTEMP_L_ACCUM', 'LW')
-     vtab_r(num_var)%dvar1_p => airtemp_l_accum
-  endif
+  if (allocated(airtemp_l_accum)) call increment_vtable('AIRTEMP_L_ACCUM', 'LW', dvar1=airtemp_l_accum)
 
-  if (allocated(airshv_l_accum)) then
-     call increment_vtable('AIRSHV_L_ACCUM', 'LW')
-     vtab_r(num_var)%dvar1_p => airshv_l_accum
-  endif
+  if (allocated(airshv_l_accum)) call increment_vtable('AIRSHV_L_ACCUM', 'LW', dvar1=airshv_l_accum)
 
-  if (allocated(cantemp_l_accum)) then
-     call increment_vtable('CANTEMP_L_ACCUM', 'LW')
-     vtab_r(num_var)%dvar1_p => cantemp_l_accum
-  endif
+  if (allocated(cantemp_l_accum)) call increment_vtable('CANTEMP_L_ACCUM', 'LW', dvar1=cantemp_l_accum)
 
-  if (allocated(canshv_l_accum)) then
-     call increment_vtable('CANSHV_L_ACCUM', 'LW')
-     vtab_r(num_var)%dvar1_p => canshv_l_accum
-  endif
+  if (allocated(canshv_l_accum)) call increment_vtable('CANSHV_L_ACCUM', 'LW', dvar1=canshv_l_accum)
 
-  if (allocated(sfluxt_s_accum)) then
-     call increment_vtable('SFLUXT_S_ACCUM', 'SW')
-     vtab_r(num_var)%dvar1_p => sfluxt_s_accum
-  endif
+  if (allocated(sfluxt_s_accum)) call increment_vtable('SFLUXT_S_ACCUM', 'SW', dvar1=sfluxt_s_accum)
 
-  if (allocated(sfluxr_s_accum)) then
-     call increment_vtable('SFLUXR_S_ACCUM', 'SW')
-     vtab_r(num_var)%dvar1_p => sfluxr_s_accum
-  endif
+  if (allocated(sfluxr_s_accum)) call increment_vtable('SFLUXR_S_ACCUM', 'SW', dvar1=sfluxr_s_accum)
 
-  if (allocated(airtemp_s_accum)) then
-     call increment_vtable('AIRTEMP_S_ACCUM', 'SW')
-     vtab_r(num_var)%dvar1_p => airtemp_s_accum
-  endif
+  if (allocated(airtemp_s_accum)) call increment_vtable('AIRTEMP_S_ACCUM', 'SW', dvar1=airtemp_s_accum)
 
-  if (allocated(airshv_s_accum)) then
-     call increment_vtable('AIRSHV_S_ACCUM', 'SW')
-     vtab_r(num_var)%dvar1_p => airshv_s_accum
-  endif
+  if (allocated(airshv_s_accum)) call increment_vtable('AIRSHV_S_ACCUM', 'SW', dvar1=airshv_s_accum)
 
-  if (allocated(cantemp_s_accum)) then
-     call increment_vtable('CANTEMP_S_ACCUM', 'SW')
-     vtab_r(num_var)%dvar1_p => cantemp_s_accum
-  endif
+  if (allocated(cantemp_s_accum)) call increment_vtable('CANTEMP_S_ACCUM', 'SW', dvar1=cantemp_s_accum)
 
-  if (allocated(canshv_s_accum)) then
-     call increment_vtable('CANSHV_S_ACCUM', 'SW')
-     vtab_r(num_var)%dvar1_p => canshv_s_accum
-  endif
+  if (allocated(canshv_s_accum)) call increment_vtable('CANSHV_S_ACCUM', 'SW', dvar1=canshv_s_accum)
 
 end subroutine filltab_flux_accum
 

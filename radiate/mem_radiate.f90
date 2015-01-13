@@ -141,64 +141,31 @@ Contains
 
   subroutine filltab_radiate()
 
-    use var_tables, only: vtab_r, num_var, increment_vtable
+    use var_tables, only: increment_vtable
     implicit none
 
-    if (allocated(fthrd_sw)) then
-       call increment_vtable('FTHRD_SW', 'AW')
-       vtab_r(num_var)%rvar2_p => fthrd_sw
-    endif
+    if (allocated(fthrd_sw))     call increment_vtable('FTHRD_SW',    'AW', rvar2=fthrd_sw)
 
-    if (allocated(fthrd_lw)) then
-       call increment_vtable('FTHRD_LW', 'AW')
-       vtab_r(num_var)%rvar2_p => fthrd_lw
-    endif
+    if (allocated(fthrd_lw))     call increment_vtable('FTHRD_LW',    'AW', rvar2=fthrd_lw)
 
-    if (allocated(cloud_frac)) then
-       call increment_vtable('CLOUD_FRAC', 'AW')
-       vtab_r(num_var)%rvar2_p => cloud_frac
-    endif
+    if (allocated(cloud_frac))   call increment_vtable('CLOUD_FRAC',  'AW', rvar2=cloud_frac)
 
-    if (allocated(rshort)) then
-       call increment_vtable('RSHORT', 'AW')
-       vtab_r(num_var)%rvar1_p => rshort
-    endif
+    if (allocated(rshort))       call increment_vtable('RSHORT',      'AW', rvar1=rshort)
 
-    if (allocated(rlong)) then
-       call increment_vtable('RLONG', 'AW')
-       vtab_r(num_var)%rvar1_p => rlong
-    endif
+    if (allocated(rlong))        call increment_vtable('RLONG',       'AW', rvar1=rlong)
 
-    if (allocated(rlongup)) then
-       call increment_vtable('RLONGUP', 'AW')
-       vtab_r(num_var)%rvar1_p => rlongup
-    endif
+    if (allocated(rlongup))      call increment_vtable('RLONGUP',     'AW', rvar1=rlongup)
 
-    if (allocated(rshort_top)) then
-       call increment_vtable('RSHORT_TOP', 'AW')
-        vtab_r(num_var)%rvar1_p => rshort_top
-    endif
+    if (allocated(rshort_top))   call increment_vtable('RSHORT_TOP',  'AW', rvar1=rshort_top)
 
-    if (allocated(rshortup_top)) then
-       call increment_vtable('RSHORTUP_TOP', 'AW')
-        vtab_r(num_var)%rvar1_p => rshortup_top
-    endif
+    if (allocated(rshortup_top)) call increment_vtable('RSHORTUP_TOP','AW', rvar1=rshortup_top)
 
-    if (allocated(rlongup_top)) then
-       call increment_vtable('RLONGUP_TOP', 'AW')
-        vtab_r(num_var)%rvar1_p => rlongup_top
-    endif
+    if (allocated(rlongup_top))  call increment_vtable('RLONGUP_TOP', 'AW', rvar1=rlongup_top)
 
-    if (allocated(albedt)) then
-       call increment_vtable('ALBEDT', 'AW')
-        vtab_r(num_var)%rvar1_p => albedt
-    endif
+    if (allocated(albedt))       call increment_vtable('ALBEDT',      'AW', rvar1=albedt)
 
-    if (allocated(cosz)) then
-       call increment_vtable('COSZ', 'AW')
-        vtab_r(num_var)%rvar1_p => cosz
-    endif
+    if (allocated(cosz))         call increment_vtable('COSZ',        'AW', rvar1=cosz)
 
-   end subroutine filltab_radiate
+  end subroutine filltab_radiate
 
 End Module mem_radiate

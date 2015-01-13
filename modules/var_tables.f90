@@ -34,15 +34,15 @@
 Module var_tables
   use consts_coms, only: r8
   implicit none
-  
+
   private :: r8
 
   type var_tables_r
      integer,  pointer :: ivar0_p        => null()
      integer,  pointer :: ivar1_p(:)     => null()
      integer,  pointer :: ivar2_p(:,:)   => null()
-
      integer,  pointer :: ivar3_p(:,:,:) => null()
+
      real,     pointer :: rvar0_p        => null()
      real,     pointer :: rvar1_p(:)     => null()
      real,     pointer :: rvar2_p(:,:)   => null()
@@ -118,30 +118,34 @@ Module var_tables
 
   integer :: num_ED = 0
 
-!-------------------------------------------------------------------
-
-!!  type var_table_par
-!!
-!!     real, pointer :: rvar2_p(:,:)
-!!
-!!  end type var_table_par
-!!
-!!  type(var_table_par), allocatable :: vtab_par(:)
-!!
-!!  integer :: nvar_par = 0
-
 Contains
-
 
 !===============================================================================
 
-
-  subroutine increment_vtable(name, stagpt, hist, noread, mpt1, lite)
+  subroutine increment_vtable(name, stagpt, hist, noread, mpt1, lite, &
+                              ivar0, ivar1, ivar2, ivar3,             &
+                              rvar0, rvar1, rvar2, rvar3,             &
+                              dvar0, dvar1, dvar2, dvar3              )
     use misc_coms, only: io6
     implicit none
 
     character(*),      intent(in) :: name, stagpt
     logical, optional, intent(in) :: hist, noread, mpt1, lite
+
+    integer,  target, optional, intent(in) :: ivar0
+    integer,  target, optional, intent(in) :: ivar1(:)
+    integer,  target, optional, intent(in) :: ivar2(:,:)
+    integer,  target, optional, intent(in) :: ivar3(:,:,:)
+
+    real,     target, optional, intent(in) :: rvar0
+    real,     target, optional, intent(in) :: rvar1(:)
+    real,     target, optional, intent(in) :: rvar2(:,:)
+    real,     target, optional, intent(in) :: rvar3(:,:,:)
+
+    real(r8), target, optional, intent(in) :: dvar0
+    real(r8), target, optional, intent(in) :: dvar1(:)
+    real(r8), target, optional, intent(in) :: dvar2(:,:)
+    real(r8), target, optional, intent(in) :: dvar3(:,:,:)
 
     character(2), parameter :: ptypes(11) = (/  &
          'AV', 'AW', 'AM', 'AN',  &  ! Atmos V, W, M, NUDGE array
@@ -192,6 +196,34 @@ Contains
     if (present(noread)) vtab_r(num_var)%nread = noread
     if (present(lite))   vtab_r(num_var)%ilite = lite
 
+     if     (present(ivar0)) then
+        vtab_r(num_var)%ivar0_p => ivar0
+     elseif (present(ivar1)) then
+        vtab_r(num_var)%ivar1_p => ivar1
+     elseif (present(ivar2)) then
+        vtab_r(num_var)%ivar2_p => ivar2
+     elseif (present(ivar3)) then
+        vtab_r(num_var)%ivar3_p => ivar3
+
+     elseif (present(rvar0)) then
+        vtab_r(num_var)%rvar0_p => rvar0
+     elseif (present(rvar1)) then
+        vtab_r(num_var)%rvar1_p => rvar1
+     elseif (present(rvar2)) then
+        vtab_r(num_var)%rvar2_p => rvar2
+     elseif (present(rvar3)) then
+        vtab_r(num_var)%rvar3_p => rvar3
+
+     elseif (present(dvar0)) then
+        vtab_r(num_var)%dvar0_p => dvar0
+     elseif (present(dvar1)) then
+        vtab_r(num_var)%dvar1_p => dvar1
+     elseif (present(dvar2)) then
+        vtab_r(num_var)%dvar2_p => dvar2
+     elseif (present(dvar3)) then
+        vtab_r(num_var)%dvar3_p => dvar3
+     endif
+
 !   Parallel communication table for scalars
 !   (Currently only implemented for 2-D real variables)
     
@@ -213,11 +245,13 @@ Contains
     endif
   end subroutine increment_vtable
 
-
 !===============================================================================
 
+  subroutine increment_EDtab(name, mavg, yavg, hist, &
+                             ivar1, ivar2,           &
+                             rvar1, rvar2,           &
+                             dvar1, dvar2            )
 
-  subroutine increment_EDtab(name, mavg, yavg, hist)
     use misc_coms, only: io6
     implicit none
 
@@ -227,6 +261,15 @@ Contains
     type(ED_table), allocatable :: ED_copy(:)
     integer, parameter :: ialloc = 20 ! Increment to increase tables
     integer :: ntsize
+
+    integer,  target, optional, intent(in) :: ivar1(:)
+    integer,  target, optional, intent(in) :: ivar2(:,:)
+
+    real,     target, optional, intent(in) :: rvar1(:)
+    real,     target, optional, intent(in) :: rvar2(:,:)
+
+    real(r8), target, optional, intent(in) :: dvar1(:)
+    real(r8), target, optional, intent(in) :: dvar2(:,:)
 
     ! ERROR CHECKING: MAKE SURE VARIABLE HAS A NAME
 
@@ -255,6 +298,22 @@ Contains
     if (present(hist)) vtab_ED(num_ED)%hist = hist
     if (present(mavg)) vtab_ED(num_ED)%mavg = mavg
     if (present(yavg)) vtab_ED(num_ED)%yavg = yavg
+
+    if     (present(ivar1)) then
+       vtab_r(num_var)%ivar1_p => ivar1
+    elseif (present(ivar2)) then
+       vtab_r(num_var)%ivar2_p => ivar2
+
+    elseif (present(rvar1)) then
+       vtab_r(num_var)%rvar1_p => rvar1
+    elseif (present(rvar2)) then
+       vtab_r(num_var)%rvar2_p => rvar2
+
+    elseif (present(dvar1)) then
+       vtab_r(num_var)%dvar1_p => dvar1
+    elseif (present(dvar2)) then
+       vtab_r(num_var)%dvar2_p => dvar2
+    endif
 
   end subroutine increment_EDtab
 

@@ -275,204 +275,86 @@ Contains
 
   subroutine filltab_micro()
 
-    use var_tables, only: vtab_r, num_var, increment_vtable
+    use var_tables, only: increment_vtable
     implicit none
 
-    if (allocated(sh_c)) then
-       call increment_vtable('SH_C', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => sh_c
-    endif
+    if (allocated(sh_c)) call increment_vtable('SH_C', 'AW', mpt1=.true., rvar2=sh_c)
 
-    if (allocated(sh_d)) then
-       call increment_vtable('SH_D', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => sh_d
-    endif
+    if (allocated(sh_d)) call increment_vtable('SH_D', 'AW', mpt1=.true., rvar2=sh_d)
 
-    if (allocated(sh_r)) then
-       call increment_vtable('SH_R', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => sh_r
-    endif
+    if (allocated(sh_r)) call increment_vtable('SH_R', 'AW', mpt1=.true., rvar2=sh_r)
 
-    if (allocated(sh_p)) then
-       call increment_vtable('SH_P', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => sh_p
-    endif
+    if (allocated(sh_p)) call increment_vtable('SH_P', 'AW', mpt1=.true., rvar2=sh_p)
 
-    if (allocated(sh_s)) then
-       call increment_vtable('SH_S', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => sh_s
-    endif
+    if (allocated(sh_s)) call increment_vtable('SH_S', 'AW', mpt1=.true., rvar2=sh_s)
 
-    if (allocated(sh_a)) then
-       call increment_vtable('SH_A', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => sh_a
-    endif
+    if (allocated(sh_a)) call increment_vtable('SH_A', 'AW', mpt1=.true., rvar2=sh_a)
 
-    if (allocated(sh_g)) then
-       call increment_vtable('SH_G', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => sh_g
-    endif
+    if (allocated(sh_g)) call increment_vtable('SH_G', 'AW', mpt1=.true., rvar2=sh_g)
 
-    if (allocated(sh_h)) then
-       call increment_vtable('SH_H', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => sh_h
-    endif
+    if (allocated(sh_h)) call increment_vtable('SH_H', 'AW', mpt1=.true., rvar2=sh_h)
 
-    if (allocated(con_c)) then
-       call increment_vtable('CON_C', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => con_c
-    endif
+    if (allocated(con_c)) call increment_vtable('CON_C', 'AW', mpt1=.true., rvar2=con_c)
 
-    if (allocated(con_d)) then
-       call increment_vtable('CON_D', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => con_d
-    endif
+    if (allocated(con_d)) call increment_vtable('CON_D', 'AW', mpt1=.true., rvar2=con_d)
 
-    if (allocated(con_r)) then
-       call increment_vtable('CON_R', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => con_r
-    endif
+    if (allocated(con_r)) call increment_vtable('CON_R', 'AW', mpt1=.true., rvar2=con_r)
 
-    if (allocated(con_p)) then
-       call increment_vtable('CON_P', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => con_p
-    endif
+    if (allocated(con_p)) call increment_vtable('CON_P', 'AW', mpt1=.true., rvar2=con_p)
 
-    if (allocated(con_s)) then
-       call increment_vtable('CON_S', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => con_s
-    endif
+    if (allocated(con_s)) call increment_vtable('CON_S', 'AW', mpt1=.true., rvar2=con_s)
 
-    if (allocated(con_a)) then
-       call increment_vtable('CON_A', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => con_a
-    endif
+    if (allocated(con_a)) call increment_vtable('CON_A', 'AW', mpt1=.true., rvar2=con_a)
 
-    if (allocated(con_g)) then
-       call increment_vtable('CON_G', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => con_g
-    endif
+    if (allocated(con_g)) call increment_vtable('CON_G', 'AW', mpt1=.true., rvar2=con_g)
 
-    if (allocated(con_h)) then
-       call increment_vtable('CON_H', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => con_h
+    if (allocated(con_h)) call increment_vtable('CON_H', 'AW', mpt1=.true., rvar2=con_h)
 
-    endif
+    if (allocated(con_ccn)) call increment_vtable('CON_CCN', 'AW', mpt1=.true., rvar2=con_ccn)
 
-    if (allocated(con_ccn)) then
-       call increment_vtable('CON_CCN', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => con_ccn
-    endif
+    if (allocated(con_gccn)) call increment_vtable('CON_GCCN', 'AW', mpt1=.true., rvar2=con_gccn)
 
-    if (allocated(con_gccn)) then
-       call increment_vtable('CON_GCCN', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => con_gccn
-    endif
+    if (allocated(con_ifn)) call increment_vtable('CON_IFN', 'AW', mpt1=.true., rvar2=con_ifn)
 
-    if (allocated(con_ifn)) then
-       call increment_vtable('CON_IFN', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => con_ifn
-    endif
+    if (allocated(q2)) call increment_vtable('Q2', 'AW', mpt1=.true., rvar2=q2)
 
-    if (allocated(q2)) then
-       call increment_vtable('Q2', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => q2
-    endif
+    if (allocated(q6)) call increment_vtable('Q6', 'AW', mpt1=.true., rvar2=q6)
 
-    if (allocated(q6)) then
-       call increment_vtable('Q6', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => q6
-    endif
+    if (allocated(q7)) call increment_vtable('Q7', 'AW', mpt1=.true., rvar2=q7)
 
-    if (allocated(q7)) then
-       call increment_vtable('Q7', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => q7
-    endif
+    if (allocated(accpd)) call increment_vtable('ACCPD', 'AW', dvar1=accpd)
 
-    if (allocated(accpd)) then
-       call increment_vtable('ACCPD', 'AW')
-       vtab_r(num_var)%dvar1_p => accpd
-    endif
+    if (allocated(accpr)) call increment_vtable('ACCPR', 'AW', dvar1=accpr)
 
-    if (allocated(accpr)) then
-       call increment_vtable('ACCPR', 'AW')
-       vtab_r(num_var)%dvar1_p => accpr
-    endif
+    if (allocated(accpp)) call increment_vtable('ACCPP', 'AW', dvar1=accpp)
 
-    if (allocated(accpp)) then
-       call increment_vtable('ACCPP', 'AW')
-       vtab_r(num_var)%dvar1_p => accpp
-    endif
+    if (allocated(accps)) call increment_vtable('ACCPS', 'AW', dvar1=accps)
 
-    if (allocated(accps)) then
-       call increment_vtable('ACCPS', 'AW')
-       vtab_r(num_var)%dvar1_p => accps
-    endif
+    if (allocated(accpa)) call increment_vtable('ACCPA', 'AW', dvar1=accpa)
 
-    if (allocated(accpa)) then
-       call increment_vtable('ACCPA', 'AW')
-       vtab_r(num_var)%dvar1_p => accpa
-    endif
+    if (allocated(accpg)) call increment_vtable('ACCPG', 'AW', dvar1=accpg)
 
-    if (allocated(accpg)) then
-       call increment_vtable('ACCPG', 'AW')
-       vtab_r(num_var)%dvar1_p => accpg
-    endif
+    if (allocated(accph)) call increment_vtable('ACCPH', 'AW', dvar1=accph)
 
-    if (allocated(accph)) then
-       call increment_vtable('ACCPH', 'AW')
-       vtab_r(num_var)%dvar1_p => accph
-    endif
+    if (allocated(pcprd)) call increment_vtable('PCPRD', 'AW', rvar1=pcprd)
 
-    if (allocated(pcprd)) then
-       call increment_vtable('PCPRD', 'AW')
-       vtab_r(num_var)%rvar1_p => pcprd
-    endif
+    if (allocated(pcprr)) call increment_vtable('PCPRR', 'AW', rvar1=pcprr)
 
-    if (allocated(pcprr)) then
-       call increment_vtable('PCPRR', 'AW')
-       vtab_r(num_var)%rvar1_p => pcprr
-    endif
+    if (allocated(pcprp)) call increment_vtable('PCPRP', 'AW', rvar1=pcprp)
 
-    if (allocated(pcprp)) then
-       call increment_vtable('PCPRP', 'AW')
-       vtab_r(num_var)%rvar1_p => pcprp
-    endif
+    if (allocated(pcprs)) call increment_vtable('PCPRS', 'AW', rvar1=pcprs)
 
-    if (allocated(pcprs)) then
-       call increment_vtable('PCPRS', 'AW')
-       vtab_r(num_var)%rvar1_p => pcprs
-    endif
+    if (allocated(pcpra)) call increment_vtable('PCPRA', 'AW', rvar1=pcpra)
 
-    if (allocated(pcpra)) then
-       call increment_vtable('PCPRA', 'AW')
-       vtab_r(num_var)%rvar1_p => pcpra
-    endif
+    if (allocated(pcprg)) call increment_vtable('PCPRG', 'AW', rvar1=pcprg)
 
-    if (allocated(pcprg)) then
-       call increment_vtable('PCPRG', 'AW')
-       vtab_r(num_var)%rvar1_p => pcprg
-    endif
+    if (allocated(pcprh)) call increment_vtable('PCPRH', 'AW', rvar1=pcprh)
 
-    if (allocated(pcprh)) then
-       call increment_vtable('PCPRH', 'AW')
-       vtab_r(num_var)%rvar1_p => pcprh
-    endif
+    if (allocated(pcpgr)) call increment_vtable('PCPGR',  'AW', rvar1=pcpgr)
 
-    if (allocated(pcpgr)) then
-       call increment_vtable('PCPGR',  'AW')
-       vtab_r(num_var)%rvar1_p => pcpgr
-    endif
+    if (allocated(qpcpgr)) call increment_vtable('QPCPGR', 'AW', rvar1=qpcpgr)
 
-    if (allocated(qpcpgr)) then
-       call increment_vtable('QPCPGR', 'AW')
-       vtab_r(num_var)%rvar1_p => qpcpgr
-    endif
-
-    if (allocated(dpcpgr)) then
-       call increment_vtable('DPCPGR', 'AW')
-       vtab_r(num_var)%rvar1_p => dpcpgr
-    endif
+    if (allocated(dpcpgr)) call increment_vtable('DPCPGR', 'AW', rvar1=dpcpgr)
 
   end subroutine filltab_micro
 

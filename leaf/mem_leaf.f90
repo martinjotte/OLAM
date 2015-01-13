@@ -314,309 +314,128 @@ Contains
 
    subroutine filltab_leaf()
 
-     use var_tables, only: vtab_r, num_var, increment_vtable
-
+     use var_tables, only: increment_vtable
      implicit none
 
-     if (allocated(land%rhos)) then
-        call increment_vtable('LAND%RHOS', 'LW')
-        vtab_r(num_var)%rvar1_p => land%rhos
-     endif
+     if (allocated(land%rhos)) call increment_vtable('LAND%RHOS', 'LW', rvar1=land%rhos)
 
-     if (allocated(land%vels)) then
-        call increment_vtable('LAND%VELS', 'LW')
-        vtab_r(num_var)%rvar1_p => land%vels
-     endif
+     if (allocated(land%vels)) call increment_vtable('LAND%VELS', 'LW', rvar1=land%vels)
 
-     if (allocated(land%prss)) then
-        call increment_vtable('LAND%PRSS', 'LW')
-        vtab_r(num_var)%rvar1_p => land%prss
-     endif
+     if (allocated(land%prss)) call increment_vtable('LAND%PRSS', 'LW', rvar1=land%prss)
 
-     if (allocated(land%airtemp)) then
-        call increment_vtable('LAND%AIRTEMP', 'LW')
-        vtab_r(num_var)%rvar1_p => land%airtemp
-     endif
+     if (allocated(land%airtemp)) call increment_vtable('LAND%AIRTEMP', 'LW', rvar1=land%airtemp)
 
-     if (allocated(land%airshv)) then
-        call increment_vtable('LAND%AIRSHV', 'LW')
-        vtab_r(num_var)%rvar1_p => land%airshv
-     endif
+     if (allocated(land%airshv)) call increment_vtable('LAND%AIRSHV', 'LW', rvar1=land%airshv)
 
-     if (allocated(land%ustar)) then
-        call increment_vtable('LAND%USTAR', 'LW')
-        vtab_r(num_var)%rvar1_p => land%ustar
-     endif
+     if (allocated(land%ustar)) call increment_vtable('LAND%USTAR', 'LW', rvar1=land%ustar)
 
-     if (allocated(land%vkmsfc)) then
-        call increment_vtable('LAND%VKMSFC', 'LW')
-        vtab_r(num_var)%rvar1_p => land%vkmsfc
-     endif
+     if (allocated(land%vkmsfc)) call increment_vtable('LAND%VKMSFC', 'LW', rvar1=land%vkmsfc)
 
-     if (allocated(land%sfluxt)) then
-        call increment_vtable('LAND%SFLUXT', 'LW')
-        vtab_r(num_var)%rvar1_p => land%sfluxt
-     endif
+     if (allocated(land%sfluxt)) call increment_vtable('LAND%SFLUXT', 'LW', rvar1=land%sfluxt)
 
-     if (allocated(land%sfluxr)) then
-        call increment_vtable('LAND%SFLUXR', 'LW')
-        vtab_r(num_var)%rvar1_p => land%sfluxr
-     endif
+     if (allocated(land%sfluxr)) call increment_vtable('LAND%SFLUXR', 'LW', rvar1=land%sfluxr)
 
-     if (allocated(land%sfluxc)) then
-        call increment_vtable('LAND%SFLUXC', 'LW')
-        vtab_r(num_var)%rvar1_p => land%sfluxc
-     endif
+     if (allocated(land%sfluxc)) call increment_vtable('LAND%SFLUXC', 'LW', rvar1=land%sfluxc)
 
-     if (allocated(land%sxfer_t)) then
-        call increment_vtable('LAND%SXFER_T', 'LW')
-        vtab_r(num_var)%rvar1_p => land%sxfer_t
-     endif
+     if (allocated(land%sxfer_t)) call increment_vtable('LAND%SXFER_T', 'LW', rvar1=land%sxfer_t)
 
-     if (allocated(land%sxfer_r)) then
-        call increment_vtable('LAND%SXFER_R', 'LW')
-        vtab_r(num_var)%rvar1_p => land%sxfer_r
-     endif
+     if (allocated(land%sxfer_r)) call increment_vtable('LAND%SXFER_R', 'LW', rvar1=land%sxfer_r)
 
-     if (allocated(land%sxfer_c)) then
-        call increment_vtable('LAND%SXFER_C', 'LW')
-        vtab_r(num_var)%rvar1_p => land%sxfer_c
-     endif
+     if (allocated(land%sxfer_c)) call increment_vtable('LAND%SXFER_C', 'LW', rvar1=land%sxfer_c)
 
-     if (allocated(land%ggaer)) then
-        call increment_vtable('LAND%ED_GGAER', 'LW')
-        vtab_r(num_var)%rvar1_p => land%ggaer
-     endif
+     if (allocated(land%ggaer)) call increment_vtable('LAND%ED_GGAER', 'LW', rvar1=land%ggaer)
 
-     if (allocated(land%ed_zeta)) then
-        call increment_vtable('LAND%ED_ZETA', 'LW')
-        vtab_r(num_var)%rvar1_p => land%ed_zeta
-     endif
+     if (allocated(land%ed_zeta)) call increment_vtable('LAND%ED_ZETA', 'LW', rvar1=land%ed_zeta)
 
-     if (allocated(land%ed_rib)) then
-        call increment_vtable('LAND%ED_RIB', 'LW')
-        vtab_r(num_var)%rvar1_p => land%ed_rib
-     endif
+     if (allocated(land%ed_rib)) call increment_vtable('LAND%ED_RIB', 'LW', rvar1=land%ed_rib)
 
-     if (allocated(land%albedo_beam)) then
-        call increment_vtable('LAND%ALBEDO_BEAM', 'LW')
-        vtab_r(num_var)%rvar1_p => land%albedo_beam
-     endif
+     if (allocated(land%albedo_beam)) call increment_vtable('LAND%ALBEDO_BEAM', 'LW', rvar1=land%albedo_beam)
 
-     if (allocated(land%albedo_diffuse)) then
-        call increment_vtable('LAND%ALBEDO_DIFFUSE', 'LW')
-        vtab_r(num_var)%rvar1_p => land%albedo_diffuse
-     endif
+     if (allocated(land%albedo_diffuse)) call increment_vtable('LAND%ALBEDO_DIFFUSE', 'LW', rvar1=land%albedo_diffuse)
 
-     if (allocated(land%rshort)) then
-        call increment_vtable('LAND%RSHORT', 'LW')
-        vtab_r(num_var)%rvar1_p => land%rshort
-     endif
+     if (allocated(land%rshort)) call increment_vtable('LAND%RSHORT', 'LW', rvar1=land%rshort)
 
-     if (allocated(land%rshort_diffuse)) then
-        call increment_vtable('LAND%RSHORT_DIFFUSE', 'LW')
-        vtab_r(num_var)%rvar1_p => land%rshort_diffuse
-     endif
+     if (allocated(land%rshort_diffuse)) call increment_vtable('LAND%RSHORT_DIFFUSE', 'LW', rvar1=land%rshort_diffuse)
 
-     if (allocated(land%rlong)) then
-        call increment_vtable('LAND%RLONG', 'LW')
-        vtab_r(num_var)%rvar1_p => land%rlong
-     endif
+     if (allocated(land%rlong)) call increment_vtable('LAND%RLONG', 'LW', rvar1=land%rlong)
 
-     if (allocated(land%rlong_albedo)) then
-        call increment_vtable('LAND%RLONG_ALBEDO', 'LW')
-        vtab_r(num_var)%rvar1_p => land%rlong_albedo
-     endif
+     if (allocated(land%rlong_albedo)) call increment_vtable('LAND%RLONG_ALBEDO', 'LW', rvar1=land%rlong_albedo)
 
-     if (allocated(land%rlongup)) then
-        call increment_vtable('LAND%RLONGUP', 'LW')
-        vtab_r(num_var)%rvar1_p => land%rlongup
-     endif
+     if (allocated(land%rlongup)) call increment_vtable('LAND%RLONGUP', 'LW', rvar1=land%rlongup)
 
-     if (allocated(land%rshort_g)) then
-        call increment_vtable('LAND%RSHORT_G', 'LW')
-        vtab_r(num_var)%rvar1_p => land%rshort_g
-     endif
+     if (allocated(land%rshort_g)) call increment_vtable('LAND%RSHORT_G', 'LW', rvar1=land%rshort_g)
 
-     if (allocated(land%rshort_s)) then
-        call increment_vtable('LAND%RSHORT_S', 'LW')
-        vtab_r(num_var)%rvar2_p => land%rshort_s
-     endif
+     if (allocated(land%rshort_s)) call increment_vtable('LAND%RSHORT_S', 'LW', rvar2=land%rshort_s)
 
-     if (allocated(land%rshort_v)) then
-        call increment_vtable('LAND%RSHORT_V', 'LW')
-        vtab_r(num_var)%rvar1_p => land%rshort_v
-     endif
+     if (allocated(land%rshort_v)) call increment_vtable('LAND%RSHORT_V', 'LW', rvar1=land%rshort_v)
 
-     if (allocated(land%rlong_g)) then
-        call increment_vtable('LAND%RLONG_G', 'LW')
-        vtab_r(num_var)%rvar1_p => land%rlong_g
-     endif
+     if (allocated(land%rlong_g)) call increment_vtable('LAND%RLONG_G', 'LW', rvar1=land%rlong_g)
 
-     if (allocated(land%rlong_s)) then
-        call increment_vtable('LAND%RLONG_S', 'LW')
-        vtab_r(num_var)%rvar1_p => land%rlong_s
-     endif
+     if (allocated(land%rlong_s)) call increment_vtable('LAND%RLONG_S', 'LW', rvar1=land%rlong_s)
 
-     if (allocated(land%rlong_v)) then
-        call increment_vtable('LAND%RLONG_V', 'LW')
-        vtab_r(num_var)%rvar1_p => land%rlong_v
-     endif
+     if (allocated(land%rlong_v)) call increment_vtable('LAND%RLONG_V', 'LW', rvar1=land%rlong_v)
 
-     if (allocated(land%cosz)) then
-        call increment_vtable('LAND%COSZ', 'LW')
-        vtab_r(num_var)%rvar1_p => land%cosz
-     endif
+     if (allocated(land%cosz)) call increment_vtable('LAND%COSZ', 'LW', rvar1=land%cosz)
 
-     if (allocated(land%pcpg)) then
-        call increment_vtable('LAND%PCPG', 'LW')
-        vtab_r(num_var)%rvar1_p => land%pcpg
-     endif
+     if (allocated(land%pcpg)) call increment_vtable('LAND%PCPG', 'LW', rvar1=land%pcpg)
 
-     if (allocated(land%qpcpg)) then
-        call increment_vtable('LAND%QPCPG', 'LW')
-        vtab_r(num_var)%rvar1_p => land%qpcpg
-     endif
+     if (allocated(land%qpcpg)) call increment_vtable('LAND%QPCPG', 'LW', rvar1=land%qpcpg)
 
-     if (allocated(land%dpcpg)) then
-        call increment_vtable('LAND%DPCPG', 'LW')
-        vtab_r(num_var)%rvar1_p => land%dpcpg
-     endif
+     if (allocated(land%dpcpg)) call increment_vtable('LAND%DPCPG', 'LW', rvar1=land%dpcpg)
 
-     if (allocated(land%can_depth)) then
-        call increment_vtable('LAND%CAN_DEPTH', 'LW')
-        vtab_r(num_var)%rvar1_p => land%can_depth
-     endif
+     if (allocated(land%can_depth)) call increment_vtable('LAND%CAN_DEPTH', 'LW', rvar1=land%can_depth)
 
-     if (allocated(land%cantemp)) then
-        call increment_vtable('LAND%CANTEMP', 'LW')
-        vtab_r(num_var)%rvar1_p => land%cantemp
-     endif
+     if (allocated(land%cantemp)) call increment_vtable('LAND%CANTEMP', 'LW', rvar1=land%cantemp)
 
-     if (allocated(land%canshv)) then
-        call increment_vtable('LAND%CANSHV', 'LW')
-        vtab_r(num_var)%rvar1_p => land%canshv
-     endif
+     if (allocated(land%canshv)) call increment_vtable('LAND%CANSHV', 'LW', rvar1=land%canshv)
 
-     if (allocated(land%nlev_sfcwater)) then
-        call increment_vtable('LAND%NLEV_SFCWATER', 'LW')
-        vtab_r(num_var)%ivar1_p => land%nlev_sfcwater
-     endif
+     if (allocated(land%nlev_sfcwater)) call increment_vtable('LAND%NLEV_SFCWATER', 'LW', ivar1=land%nlev_sfcwater)
 
-     if (allocated(land%soil_water)) then
-        call increment_vtable('LAND%SOIL_WATER', 'LW')
-        vtab_r(num_var)%rvar2_p => land%soil_water
-     endif
+     if (allocated(land%soil_water)) call increment_vtable('LAND%SOIL_WATER', 'LW', rvar2=land%soil_water)
 
-     if (allocated(land%soil_energy)) then
-        call increment_vtable('LAND%SOIL_ENERGY', 'LW')
-        vtab_r(num_var)%rvar2_p => land%soil_energy
-     endif
+     if (allocated(land%soil_energy)) call increment_vtable('LAND%SOIL_ENERGY', 'LW', rvar2=land%soil_energy)
      
-     if (allocated(land%head0)) then
-        call increment_vtable('LAND%HEAD0', 'LW')
-        vtab_r(num_var)%rvar1_p => land%head0
-     endif
+     if (allocated(land%head0)) call increment_vtable('LAND%HEAD0', 'LW', rvar1=land%head0)
 
-     if (allocated(land%head1)) then
-        call increment_vtable('LAND%HEAD1', 'LW')
-        vtab_r(num_var)%rvar1_p => land%head1
-     endif
+     if (allocated(land%head1)) call increment_vtable('LAND%HEAD1', 'LW', rvar1=land%head1)
 
-     if (allocated(land%sfcwater_mass)) then
-        call increment_vtable('LAND%SFCWATER_MASS', 'LW')
-        vtab_r(num_var)%rvar2_p => land%sfcwater_mass
-     endif
+     if (allocated(land%sfcwater_mass)) call increment_vtable('LAND%SFCWATER_MASS', 'LW', rvar2=land%sfcwater_mass)
 
-     if (allocated(land%sfcwater_energy)) then
-        call increment_vtable('LAND%SFCWATER_ENERGY', 'LW')
-        vtab_r(num_var)%rvar2_p => land%sfcwater_energy
-     endif
+     if (allocated(land%sfcwater_energy)) call increment_vtable('LAND%SFCWATER_ENERGY', 'LW', rvar2=land%sfcwater_energy)
 
-     if (allocated(land%sfcwater_depth)) then
-        call increment_vtable('LAND%SFCWATER_DEPTH', 'LW')
-        vtab_r(num_var)%rvar2_p => land%sfcwater_depth
-     endif
+     if (allocated(land%sfcwater_depth)) call increment_vtable('LAND%SFCWATER_DEPTH', 'LW', rvar2=land%sfcwater_depth)
 
-     if (allocated(land%hcapveg)) then
-        call increment_vtable('LAND%HCAPVEG', 'LW')
-        vtab_r(num_var)%rvar1_p => land%hcapveg
-     endif
+     if (allocated(land%hcapveg)) call increment_vtable('LAND%HCAPVEG', 'LW', rvar1=land%hcapveg)
 
-     if (allocated(land%surface_ssh)) then
-        call increment_vtable('LAND%SURFACE_SSH', 'LW')
-        vtab_r(num_var)%rvar1_p => land%surface_ssh
-     endif
+     if (allocated(land%surface_ssh)) call increment_vtable('LAND%SURFACE_SSH', 'LW', rvar1=land%surface_ssh)
 
-     if (allocated(land%ground_shv)) then
-        call increment_vtable('LAND%GROUND_SHV', 'LW')
-        vtab_r(num_var)%rvar1_p => land%ground_shv
-     endif
+     if (allocated(land%ground_shv)) call increment_vtable('LAND%GROUND_SHV', 'LW', rvar1=land%ground_shv)
 
-     if (allocated(land%rough)) then
-        call increment_vtable('LAND%ROUGH', 'LW')
-        vtab_r(num_var)%rvar1_p => land%rough
-     endif
+     if (allocated(land%rough)) call increment_vtable('LAND%ROUGH', 'LW', rvar1=land%rough)
 
-     if (allocated(land%veg_fracarea)) then
-        call increment_vtable('LAND%VEG_FRACAREA', 'LW')
-        vtab_r(num_var)%rvar1_p => land%veg_fracarea
-     endif
+     if (allocated(land%veg_fracarea)) call increment_vtable('LAND%VEG_FRACAREA', 'LW', rvar1=land%veg_fracarea)
 
-     if (allocated(land%veg_lai)) then
-        call increment_vtable('LAND%VEG_LAI', 'LW')
-        vtab_r(num_var)%rvar1_p => land%veg_lai
-     endif
+     if (allocated(land%veg_lai)) call increment_vtable('LAND%VEG_LAI', 'LW', rvar1=land%veg_lai)
 
-     if (allocated(land%veg_rough)) then
-        call increment_vtable('LAND%VEG_ROUGH', 'LW')
-        vtab_r(num_var)%rvar1_p => land%veg_rough
-     endif
+     if (allocated(land%veg_rough)) call increment_vtable('LAND%VEG_ROUGH', 'LW', rvar1=land%veg_rough)
 
-     if (allocated(land%veg_height)) then
-        call increment_vtable('LAND%VEG_HEIGHT', 'LW')
-        vtab_r(num_var)%rvar1_p => land%veg_height
-     endif
+     if (allocated(land%veg_height)) call increment_vtable('LAND%VEG_HEIGHT', 'LW', rvar1=land%veg_height)
 
-     if (allocated(land%veg_albedo)) then
-        call increment_vtable('LAND%VEG_ALBEDO', 'LW')
-        vtab_r(num_var)%rvar1_p => land%veg_albedo
-     endif
+     if (allocated(land%veg_albedo)) call increment_vtable('LAND%VEG_ALBEDO', 'LW', rvar1=land%veg_albedo)
 
-     if (allocated(land%veg_tai)) then
-        call increment_vtable('LAND%VEG_TAI', 'LW')
-        vtab_r(num_var)%rvar1_p => land%veg_tai
-     endif
+     if (allocated(land%veg_tai)) call increment_vtable('LAND%VEG_TAI', 'LW', rvar1=land%veg_tai)
 
-     if (allocated(land%veg_water)) then
-        call increment_vtable('LAND%VEG_WATER', 'LW')
-        vtab_r(num_var)%rvar1_p => land%veg_water
-     endif
+     if (allocated(land%veg_water)) call increment_vtable('LAND%VEG_WATER', 'LW', rvar1=land%veg_water)
 
-     if (allocated(land%veg_temp)) then
-        call increment_vtable('LAND%VEG_TEMP', 'LW')
-        vtab_r(num_var)%rvar1_p => land%veg_temp
-     endif
+     if (allocated(land%veg_temp)) call increment_vtable('LAND%VEG_TEMP', 'LW', rvar1=land%veg_temp)
 
-     if (allocated(land%veg_ndvic)) then
-        call increment_vtable('LAND%VEG_NDVIC', 'LW')
-        vtab_r(num_var)%rvar1_p => land%veg_ndvic
-     endif
+     if (allocated(land%veg_ndvic)) call increment_vtable('LAND%VEG_NDVIC', 'LW', rvar1=land%veg_ndvic)
 
-     if (allocated(land%stom_resist)) then
-        call increment_vtable('LAND%STOM_RESIST', 'LW')
-        vtab_r(num_var)%rvar1_p => land%stom_resist
-     endif
+     if (allocated(land%stom_resist)) call increment_vtable('LAND%STOM_RESIST', 'LW', rvar1=land%stom_resist)
 
-     if (allocated(land%snowfac)) then
-        call increment_vtable('LAND%SNOWFAC', 'LW')
-        vtab_r(num_var)%rvar1_p => land%snowfac
-     endif
+     if (allocated(land%snowfac)) call increment_vtable('LAND%SNOWFAC', 'LW', rvar1=land%snowfac)
 
-     if (allocated(land%vf)) then
-        call increment_vtable('LAND%VF', 'LW')
-        vtab_r(num_var)%rvar1_p => land%vf
-     endif
+     if (allocated(land%vf)) call increment_vtable('LAND%VF', 'LW', rvar1=land%vf)
 
    end subroutine filltab_leaf
 
@@ -626,51 +445,23 @@ Contains
      use var_tables, only: increment_EDtab, num_ED, vtab_ED
      implicit none
 
-     if (allocated(land%gpp)) then
-        call increment_EDtab('LAND%GPP', hist=.true., mavg=.true., yavg=.true.)
-        vtab_ED(num_ED)%rvar1_p => land%gpp
-     endif
+     if (allocated(land%gpp)) call increment_EDtab('LAND%GPP', hist=.true., mavg=.true., yavg=.true., rvar1=land%gpp)
 
-     if (allocated(land%rh)) then
-        call increment_EDtab('LAND%RH', hist=.true., mavg=.true., yavg=.true.)
-        vtab_ED(num_ED)%rvar1_p => land%rh
-     endif
+     if (allocated(land%rh)) call increment_EDtab('LAND%RH', hist=.true., mavg=.true., yavg=.true., rvar1=land%rh)
 
-     if (allocated(land%nep)) then
-        call increment_EDtab('LAND%NEP', hist=.true., mavg=.true., yavg=.true.)
-        vtab_ED(num_ED)%rvar1_p => land%nep
-     endif
+     if (allocated(land%nep)) call increment_EDtab('LAND%NEP', hist=.true., mavg=.true., yavg=.true., rvar1=land%nep)
 
-     if (allocated(land%agb)) then
-        call increment_EDtab('LAND%AGB', yavg=.true.)
-        vtab_ED(num_ED)%rvar1_p => land%agb
-     endif
+     if (allocated(land%agb)) call increment_EDtab('LAND%AGB', yavg=.true., rvar1=land%agb)
 
-     if (allocated(land%basal_area)) then
-        call increment_EDtab('LAND%BASAL_AREA', yavg=.true.)
-        vtab_ED(num_ED)%rvar1_p => land%agb
-     endif
+     if (allocated(land%basal_area)) call increment_EDtab('LAND%BASAL_AREA', yavg=.true., rvar1=land%basal_area)
 
-     if (allocated(land%agb_growth)) then
-        call increment_EDtab('LAND%AGB_GROWTH', yavg=.true.)
-        vtab_ED(num_ED)%rvar1_p => land%agb_growth
-     endif
+     if (allocated(land%agb_growth)) call increment_EDtab('LAND%AGB_GROWTH', yavg=.true., rvar1=land%agb_growth)
 
-     if (allocated(land%agb_mort)) then
-        call increment_EDtab('LAND%AGB_MORT', yavg=.true.)
-        vtab_ED(num_ED)%rvar1_p => land%agb_mort
-     endif
+     if (allocated(land%agb_mort)) call increment_EDtab('LAND%AGB_MORT', yavg=.true., rvar1=land%agb_mort)
 
-     if (allocated(land%agb_cut)) then
-        call increment_EDtab('LAND%AGB_CUT', yavg=.true.)
-        vtab_ED(num_ED)%rvar1_p => land%agb_cut
-     endif
+     if (allocated(land%agb_cut)) call increment_EDtab('LAND%AGB_CUT', yavg=.true., rvar1=land%agb_cut)
 
-     if (allocated(land%agb_recruit)) then
-        call increment_EDtab('LAND%AGB_RECRUIT', yavg=.true.)
-        vtab_ED(num_ED)%rvar1_p => land%agb_recruit
-     endif
-
+     if (allocated(land%agb_recruit)) call increment_EDtab('LAND%AGB_RECRUIT', yavg=.true., rvar1=land%agb_recruit)
    end subroutine filltab_ED
 
 End Module mem_leaf

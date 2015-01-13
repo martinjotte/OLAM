@@ -137,100 +137,43 @@ Contains
     use var_tables, only: vtab_r, num_var, increment_vtable
     implicit none
 
-    if (allocated(tkep)) then
-       call increment_vtable('TKEP', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => tkep
-    endif
+    if (allocated(tkep))     call increment_vtable('TKEP',    'AW', rvar2=tkep, mpt1=.true.)
 
-    if (allocated(epsp)) then
-       call increment_vtable('EPSP', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => epsp
-    endif
+    if (allocated(epsp))     call increment_vtable('EPSP',    'AW', rvar2=epsp, mpt1=.true.)
 
-    if (allocated(hkm)) then
-       call increment_vtable('HKM', 'AW')
-       vtab_r(num_var)%rvar2_p => hkm
-    endif
+    if (allocated(hkm))      call increment_vtable('HKM',     'AW', rvar2=hkm)
 
-    if (allocated(hkh)) then
-       call increment_vtable('HKH', 'AW')
-       vtab_r(num_var)%rvar2_p => hkh
-    endif
+    if (allocated(hkh))      call increment_vtable('HKH',     'AW', rvar2=hkh)
 
-    if (allocated(vkm)) then
-       call increment_vtable('VKM', 'AW')
-       vtab_r(num_var)%rvar2_p => vkm
-    endif
+    if (allocated(vkm))      call increment_vtable('VKM',     'AW', rvar2=vkm)
 
-    if (allocated(vkh)) then
-       call increment_vtable('VKH', 'AW')
-       vtab_r(num_var)%rvar2_p => vkh
-    endif
+    if (allocated(vkh))      call increment_vtable('VKH',     'AW', rvar2=vkh)
 
-    if (allocated(sxfer_tk)) then
-       call increment_vtable('SXFER_TK', 'AW')
-       vtab_r(num_var)%rvar2_p => sxfer_tk
-    endif
+    if (allocated(sxfer_tk)) call increment_vtable('SXFER_TK','AW', rvar2=sxfer_tk)
 
-    if (allocated(sxfer_rk)) then
-       call increment_vtable('SXFER_RK', 'AW')
-       vtab_r(num_var)%rvar2_p => sxfer_rk
-    endif
+    if (allocated(sxfer_rk)) call increment_vtable('SXFER_RK','AW', rvar2=sxfer_rk)
 
-    if (allocated(vkm_sfc)) then
-       call increment_vtable('VKM_SFC', 'AW')
-       vtab_r(num_var)%rvar2_p => vkm_sfc
-    endif
+    if (allocated(vkm_sfc))  call increment_vtable('VKM_SFC', 'AW', rvar2=vkm_sfc)
 
-    if (allocated(sfluxw)) then
-       call increment_vtable('SFLUXW', 'AW')
-       vtab_r(num_var)%rvar1_p => sfluxw
-    endif
+    if (allocated(sfluxw))   call increment_vtable('SFLUXW',  'AW', rvar1=sfluxw)
 
-    if (allocated(sfluxt)) then
-       call increment_vtable('SFLUXT', 'AW')
-       vtab_r(num_var)%rvar1_p => sfluxt
-    endif
+    if (allocated(sfluxt))   call increment_vtable('SFLUXT',  'AW', rvar1=sfluxt)
 
-    if (allocated(sfluxr)) then
-       call increment_vtable('SFLUXR', 'AW')
-       vtab_r(num_var)%rvar1_p => sfluxr
-    endif
+    if (allocated(sfluxr))   call increment_vtable('SFLUXR',  'AW', rvar1=sfluxr)
 
-    if (allocated(ustar)) then
-       call increment_vtable('USTAR', 'AW')
-       vtab_r(num_var)%rvar1_p => ustar
-    endif
+    if (allocated(ustar))    call increment_vtable('USTAR',   'AW', rvar1=ustar)
 
-    if (allocated(wstar)) then
-       call increment_vtable('WSTAR', 'AW')
-       vtab_r(num_var)%rvar1_p => wstar
-    endif
+    if (allocated(wstar))    call increment_vtable('WSTAR',   'AW', rvar1=wstar)
 
-    if (allocated(wtv0)) then
-       call increment_vtable('WTV0', 'AW')
-       vtab_r(num_var)%rvar1_p => wtv0
-    endif
+    if (allocated(wtv0))     call increment_vtable('WTV0',    'AW', rvar1=wtv0)
 
-    if (allocated(pblh)) then
-       call increment_vtable('PBLH', 'AW')
-       vtab_r(num_var)%rvar1_p => pblh
-    endif
+    if (allocated(pblh))     call increment_vtable('PBLH',    'AW', rvar1=pblh)
     
-    if (allocated(kpblh)) then
-       call increment_vtable('KPBLH', 'AW')
-       vtab_r(num_var)%ivar1_p => kpblh
-    endif
+    if (allocated(kpblh))    call increment_vtable('KPBLH',   'AW', ivar1=kpblh)
 
-    if (allocated(fthpbl)) then
-       call increment_vtable('FTHPBL', 'AW')
-       vtab_r(num_var)%rvar2_p => fthpbl
-    endif
+    if (allocated(fthpbl))   call increment_vtable('FTHPBL',  'AW', rvar2=fthpbl)
 
-    if (allocated(fqtpbl)) then
-       call increment_vtable('FQTPBL', 'AW')
-       vtab_r(num_var)%rvar2_p => fqtpbl
-    endif
+    if (allocated(fqtpbl))   call increment_vtable('FQTPBL',  'AW', rvar2=fqtpbl)
 
   end subroutine filltab_turb
 

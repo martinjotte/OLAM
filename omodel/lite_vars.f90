@@ -156,7 +156,7 @@ subroutine alloc_lite()
 
   use max_dims,   only: maxlite
   use oname_coms, only: nl
-  use var_tables, only: vtab_r, num_var, increment_vtable
+  use var_tables, only: increment_vtable
   use mem_grid,   only: mza, mwa
 
   implicit none
@@ -176,15 +176,13 @@ subroutine alloc_lite()
 
         allocate(ue(mza,mwa))
         call increment_vtable('UE', 'AW', noread=.true., hist=.false., &
-                              lite=.true.)
-        vtab_r(num_var)%rvar2_p => ue
+                              lite=.true., rvar2=ue)
            
      case('VE')
 
         allocate(ve(mza,mwa))
         call increment_vtable('VE', 'AW', noread=.true., hist=.false., &
-                              lite=.true.)
-        vtab_r(num_var)%rvar2_p => ve
+                              lite=.true., rvar2=ve)
 
      end select
 

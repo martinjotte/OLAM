@@ -102,53 +102,26 @@ end subroutine dealloc_timeavg
 
 subroutine filltab_timeavg()
 
-  use var_tables, only: vtab_r, num_var, increment_vtable
+  use var_tables, only: increment_vtable
   implicit none
 
-  if (allocated (rshort_avg)) then
-     call increment_vtable('RSHORT_AVG', 'AW')
-     vtab_r(num_var)%rvar1_p => rshort_avg
-  endif
+  if (allocated (rshort_avg))      call increment_vtable('RSHORT_AVG',      'AW', rvar1=rshort_avg)
 
-  if (allocated(rshortup_avg)) then
-     call increment_vtable('RSHORTUP_AVG', 'AW')
-     vtab_r(num_var)%rvar1_p => rshortup_avg
-  endif
+  if (allocated(rshortup_avg))     call increment_vtable('RSHORTUP_AVG',    'AW', rvar1=rshortup_avg)
 
-  if (allocated(rlong_avg)) then
-     call increment_vtable('RLONG_AVG', 'AW')
-     vtab_r(num_var)%rvar1_p => rlong_avg
-  endif
+  if (allocated(rlong_avg))        call increment_vtable('RLONG_AVG',       'AW', rvar1=rlong_avg)
 
-  if (allocated(rlongup_avg)) then
-     call increment_vtable('RLONGUP_AVG', 'AW')
-     vtab_r(num_var)%rvar1_p => rlongup_avg
-  endif
+  if (allocated(rlongup_avg))      call increment_vtable('RLONGUP_AVG',     'AW', rvar1=rlongup_avg)
 
-  if (allocated(rshort_top_avg)) then
-     call increment_vtable('RSHORT_TOP_AVG', 'AW')
-     vtab_r(num_var)%rvar1_p => rshort_top_avg
-  endif
+  if (allocated(rshort_top_avg))   call increment_vtable('RSHORT_TOP_AVG',  'AW', rvar1=rshort_top_avg)
 
-  if (allocated(rshortup_top_avg)) then
-     call increment_vtable('RSHORTUP_TOP_AVG','AW')
-     vtab_r(num_var)%rvar1_p => rshortup_top_avg
-  endif
+  if (allocated(rshortup_top_avg)) call increment_vtable('RSHORTUP_TOP_AVG','AW', rvar1=rshortup_top_avg)
 
-  if (allocated(rlongup_top_avg)) then
-     call increment_vtable('RLONGUP_TOP_AVG', 'AW')
-     vtab_r(num_var)%rvar1_p => rlongup_top_avg
-  endif
+  if (allocated(rlongup_top_avg))  call increment_vtable('RLONGUP_TOP_AVG', 'AW', rvar1=rlongup_top_avg)
 
-  if (allocated(sfluxt_avg)) then
-     call increment_vtable('SFLUXT_AVG', 'AW')
-     vtab_r(num_var)%rvar1_p => sfluxt_avg
-  endif
+  if (allocated(sfluxt_avg))       call increment_vtable('SFLUXT_AVG',      'AW', rvar1=sfluxt_avg)
 
-  if (allocated(sfluxr_avg)) then
-     call increment_vtable('SFLUXR_AVG', 'AW')
-     vtab_r(num_var)%rvar1_p => sfluxr_avg
-  endif
+  if (allocated(sfluxr_avg))       call increment_vtable('SFLUXR_AVG',      'AW', rvar1=sfluxr_avg)
 
 end subroutine filltab_timeavg
 

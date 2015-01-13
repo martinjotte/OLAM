@@ -316,304 +316,126 @@ Contains
 
    subroutine filltab_sea()
 
-     use var_tables, only: vtab_r, num_var, increment_vtable
+     use var_tables, only: increment_vtable
      implicit none
 
-     if (allocated(sea%rhos)) then
-        call increment_vtable('SEA%RHOS', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%rhos
-     endif
+     if (allocated(sea%rhos)) call increment_vtable('SEA%RHOS', 'SW', rvar1=sea%rhos)
 
-     if (allocated(sea%vels)) then
-        call increment_vtable('SEA%VELS', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%vels
-     endif
+     if (allocated(sea%vels)) call increment_vtable('SEA%VELS', 'SW', rvar1=sea%vels)
 
-     if (allocated(sea%prss)) then
-        call increment_vtable('SEA%PRSS', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%prss
-     endif
+     if (allocated(sea%prss)) call increment_vtable('SEA%PRSS', 'SW', rvar1=sea%prss)
 
-     if (allocated(sea%airtemp)) then
-        call increment_vtable('SEA%AIRTEMP', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%airtemp
-     endif
+     if (allocated(sea%airtemp)) call increment_vtable('SEA%AIRTEMP', 'SW', rvar1=sea%airtemp)
 
-     if (allocated(sea%airshv)) then
-        call increment_vtable('SEA%AIRSHV', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%airshv
-     endif
+     if (allocated(sea%airshv)) call increment_vtable('SEA%AIRSHV', 'SW', rvar1=sea%airshv)
 
-     if (allocated(sea%ustar)) then
-        call increment_vtable('SEA%USTAR', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ustar
-     endif
+     if (allocated(sea%ustar)) call increment_vtable('SEA%USTAR', 'SW', rvar1=sea%ustar)
 
-     if (allocated(sea%sea_ustar)) then
-        call increment_vtable('SEA%SEA_USTAR', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sea_ustar
-     endif
+     if (allocated(sea%sea_ustar)) call increment_vtable('SEA%SEA_USTAR', 'SW', rvar1=sea%sea_ustar)
 
-     if (allocated(sea%ice_ustar)) then
-        call increment_vtable('SEA%ICE_USTAR', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_ustar
-     endif
+     if (allocated(sea%ice_ustar)) call increment_vtable('SEA%ICE_USTAR', 'SW', rvar1=sea%ice_ustar)
 
-     if (allocated(sea%vkmsfc)) then
-        call increment_vtable('SEA%VKMSFC', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%vkmsfc
-     endif
+     if (allocated(sea%vkmsfc)) call increment_vtable('SEA%VKMSFC', 'SW', rvar1=sea%vkmsfc)
 
-     if (allocated(sea%sea_vkmsfc)) then
-        call increment_vtable('SEA%SEA_VKMSFC', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sea_vkmsfc
-     endif
+     if (allocated(sea%sea_vkmsfc)) call increment_vtable('SEA%SEA_VKMSFC', 'SW', rvar1=sea%sea_vkmsfc)
 
-     if (allocated(sea%ice_vkmsfc)) then
-        call increment_vtable('SEA%ICE_VKMSFC', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_vkmsfc
-     endif
+     if (allocated(sea%ice_vkmsfc)) call increment_vtable('SEA%ICE_VKMSFC', 'SW', rvar1=sea%ice_vkmsfc)
 
-     if (allocated(sea%sfluxt)) then
-        call increment_vtable('SEA%SFLUXT', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sfluxt
-     endif
+     if (allocated(sea%sfluxt)) call increment_vtable('SEA%SFLUXT', 'SW', rvar1=sea%sfluxt)
 
-     if (allocated(sea%sea_sfluxt)) then
-        call increment_vtable('SEA%SEA_SFLUXT', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sea_sfluxt
-     endif
+     if (allocated(sea%sea_sfluxt)) call increment_vtable('SEA%SEA_SFLUXT', 'SW', rvar1=sea%sea_sfluxt)
 
-     if (allocated(sea%ice_sfluxt)) then
-        call increment_vtable('SEA%ICE_SFLUXT', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_sfluxt
-     endif
+     if (allocated(sea%ice_sfluxt)) call increment_vtable('SEA%ICE_SFLUXT', 'SW', rvar1=sea%ice_sfluxt)
 
-     if (allocated(sea%sfluxr)) then
-        call increment_vtable('SEA%SFLUXR', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sfluxr
-     endif
+     if (allocated(sea%sfluxr)) call increment_vtable('SEA%SFLUXR', 'SW', rvar1=sea%sfluxr)
 
-     if (allocated(sea%sea_sfluxr)) then
-        call increment_vtable('SEA%SEA_SFLUXR', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sea_sfluxr
-     endif
+     if (allocated(sea%sea_sfluxr)) call increment_vtable('SEA%SEA_SFLUXR', 'SW', rvar1=sea%sea_sfluxr)
 
-     if (allocated(sea%ice_sfluxr)) then
-        call increment_vtable('SEA%ICE_SFLUXR', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_sfluxr
-     endif
+     if (allocated(sea%ice_sfluxr)) call increment_vtable('SEA%ICE_SFLUXR', 'SW', rvar1=sea%ice_sfluxr)
 
-     if (allocated(sea%sfluxc)) then
-        call increment_vtable('SEA%SFLUXC', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sfluxc
-     endif
+     if (allocated(sea%sfluxc)) call increment_vtable('SEA%SFLUXC', 'SW', rvar1=sea%sfluxc)
 
-     if (allocated(sea%sxfer_t)) then
-        call increment_vtable('SEA%SXFER_T', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sxfer_t
-     endif
+     if (allocated(sea%sxfer_t)) call increment_vtable('SEA%SXFER_T', 'SW', rvar1=sea%sxfer_t)
 
-     if (allocated(sea%sea_sxfer_t)) then
-        call increment_vtable('SEA%SEA_SXFER_T', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sea_sxfer_t
-     endif
+     if (allocated(sea%sea_sxfer_t)) call increment_vtable('SEA%SEA_SXFER_T', 'SW', rvar1=sea%sea_sxfer_t)
 
-     if (allocated(sea%ice_sxfer_t)) then
-        call increment_vtable('SEA%ICE_SXFER_T', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_sxfer_t
-     endif
+     if (allocated(sea%ice_sxfer_t)) call increment_vtable('SEA%ICE_SXFER_T', 'SW', rvar1=sea%ice_sxfer_t)
 
-     if (allocated(sea%sxfer_r)) then
-        call increment_vtable('SEA%SXFER_R', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sxfer_r
-     endif
+     if (allocated(sea%sxfer_r)) call increment_vtable('SEA%SXFER_R', 'SW', rvar1=sea%sxfer_r)
 
-     if (allocated(sea%sea_sxfer_r)) then
-        call increment_vtable('SEA%SEA_SXFER_R', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sea_sxfer_r
-     endif
+     if (allocated(sea%sea_sxfer_r)) call increment_vtable('SEA%SEA_SXFER_R', 'SW', rvar1=sea%sea_sxfer_r)
 
-     if (allocated(sea%ice_sxfer_r)) then
-        call increment_vtable('SEA%ICE_SXFER_R', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_sxfer_r
-     endif
+     if (allocated(sea%ice_sxfer_r)) call increment_vtable('SEA%ICE_SXFER_R', 'SW', rvar1=sea%ice_sxfer_r)
 
-     if (allocated(sea%sxfer_c)) then
-        call increment_vtable('SEA%SXFER_C', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sxfer_c
-     endif
+     if (allocated(sea%sxfer_c)) call increment_vtable('SEA%SXFER_C', 'SW', rvar1=sea%sxfer_c)
 
-     if (allocated(sea%albedo_beam)) then
-        call increment_vtable('SEA%ALBEDO_BEAM', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%albedo_beam
-     endif
+     if (allocated(sea%albedo_beam)) call increment_vtable('SEA%ALBEDO_BEAM', 'SW', rvar1=sea%albedo_beam)
 
-     if (allocated(sea%albedo_diffuse)) then
-        call increment_vtable('SEA%ALBEDO_DIFFUSE', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%albedo_diffuse
-     endif
+     if (allocated(sea%albedo_diffuse)) call increment_vtable('SEA%ALBEDO_DIFFUSE', 'SW', rvar1=sea%albedo_diffuse)
 
-     if (allocated(sea%sea_albedo)) then
-        call increment_vtable('SEA%SEA_ALBEDO', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sea_albedo
-     endif
+     if (allocated(sea%sea_albedo)) call increment_vtable('SEA%SEA_ALBEDO', 'SW', rvar1=sea%sea_albedo)
 
-      if (allocated(sea%ice_albedo)) then
-        call increment_vtable('SEA%ICE_ALBEDO', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_albedo
-     endif
+      if (allocated(sea%ice_albedo)) call increment_vtable('SEA%ICE_ALBEDO', 'SW', rvar1=sea%ice_albedo)
 
-     if (allocated(sea%rshort)) then
-        call increment_vtable('SEA%RSHORT', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%rshort
-     endif
+     if (allocated(sea%rshort)) call increment_vtable('SEA%RSHORT', 'SW', rvar1=sea%rshort)
 
-     if (allocated(sea%rshort_diffuse)) then
-        call increment_vtable('SEA%RSHORT_DIFFUSE', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%rshort_diffuse
-     endif
+     if (allocated(sea%rshort_diffuse)) call increment_vtable('SEA%RSHORT_DIFFUSE', 'SW', rvar1=sea%rshort_diffuse)
 
-     if (allocated(sea%rlong)) then
-        call increment_vtable('SEA%RLONG', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%rlong
-     endif
+     if (allocated(sea%rlong)) call increment_vtable('SEA%RLONG', 'SW', rvar1=sea%rlong)
 
-     if (allocated(sea%rlong_albedo)) then
-        call increment_vtable('SEA%RLONG_ALBEDO', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%rlong_albedo
-     endif
+     if (allocated(sea%rlong_albedo)) call increment_vtable('SEA%RLONG_ALBEDO', 'SW', rvar1=sea%rlong_albedo)
 
-     if (allocated(sea%rlongup)) then
-        call increment_vtable('SEA%RLONGUP', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%rlongup
-     endif
+     if (allocated(sea%rlongup)) call increment_vtable('SEA%RLONGUP', 'SW', rvar1=sea%rlongup)
 
-     if (allocated(sea%sea_rlongup)) then
-        call increment_vtable('SEA%SEA_RLONGUP', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sea_rlongup
-     endif
+     if (allocated(sea%sea_rlongup)) call increment_vtable('SEA%SEA_RLONGUP', 'SW', rvar1=sea%sea_rlongup)
 
-     if (allocated(sea%ice_rlongup)) then
-        call increment_vtable('SEA%ICE_RLONGUP', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_rlongup
-     endif
+     if (allocated(sea%ice_rlongup)) call increment_vtable('SEA%ICE_RLONGUP', 'SW', rvar1=sea%ice_rlongup)
 
-      if (allocated(sea%ice_net_rlong)) then
-        call increment_vtable('SEA%ICE_NET_RLONG', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_net_rlong
-     endif
+      if (allocated(sea%ice_net_rlong)) call increment_vtable('SEA%ICE_NET_RLONG', 'SW', rvar1=sea%ice_net_rlong)
 
-      if (allocated(sea%ice_net_rshort)) then
-        call increment_vtable('SEA%ICE_NET_RSHORT', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_net_rshort
-     endif
+      if (allocated(sea%ice_net_rshort)) call increment_vtable('SEA%ICE_NET_RSHORT', 'SW', rvar1=sea%ice_net_rshort)
 
-     if (allocated(sea%pcpg)) then
-        call increment_vtable('SEA%PCPG', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%pcpg
-     endif
+     if (allocated(sea%pcpg)) call increment_vtable('SEA%PCPG', 'SW', rvar1=sea%pcpg)
 
-     if (allocated(sea%qpcpg)) then
-        call increment_vtable('SEA%QPCPG', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%qpcpg
-     endif
+     if (allocated(sea%qpcpg)) call increment_vtable('SEA%QPCPG', 'SW', rvar1=sea%qpcpg)
 
-     if (allocated(sea%dpcpg)) then
-        call increment_vtable('SEA%DPCPG', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%dpcpg
-     endif
+     if (allocated(sea%dpcpg)) call increment_vtable('SEA%DPCPG', 'SW', rvar1=sea%dpcpg)
 
-     if (allocated(sea%can_depth)) then
-        call increment_vtable('SEA%CAN_DEPTH', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%can_depth
-     endif
+     if (allocated(sea%can_depth)) call increment_vtable('SEA%CAN_DEPTH', 'SW', rvar1=sea%can_depth)
 
-     if (allocated(sea%seatc)) then
+     if (allocated(sea%seatc)) call increment_vtable('SEA%SEATC', 'SW', rvar1=sea%seatc)
 
-     if (allocated(sea%cantemp)) then
-        call increment_vtable('SEA%CANTEMP', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%cantemp
-     endif
+     if (allocated(sea%cantemp)) call increment_vtable('SEA%CANTEMP', 'SW', rvar1=sea%cantemp)
 
-     if (allocated(sea%sea_cantemp)) then
-        call increment_vtable('SEA%SEA_CANTEMP', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sea_cantemp
-     endif
+     if (allocated(sea%sea_cantemp)) call increment_vtable('SEA%SEA_CANTEMP', 'SW', rvar1=sea%sea_cantemp)
 
-     if (allocated(sea%ice_cantemp)) then
-        call increment_vtable('SEA%ICE_CANTEMP', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_cantemp
-     endif
+     if (allocated(sea%ice_cantemp)) call increment_vtable('SEA%ICE_CANTEMP', 'SW', rvar1=sea%ice_cantemp)
 
-     if (allocated(sea%canshv)) then
-        call increment_vtable('SEA%CANSHV', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%canshv
-     endif
+     if (allocated(sea%canshv)) call increment_vtable('SEA%CANSHV', 'SW', rvar1=sea%canshv)
 
-     if (allocated(sea%sea_canshv)) then
-        call increment_vtable('SEA%SEA_CANSHV', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sea_canshv
-     endif
+     if (allocated(sea%sea_canshv)) call increment_vtable('SEA%SEA_CANSHV', 'SW', rvar1=sea%sea_canshv)
 
-     if (allocated(sea%ice_canshv)) then
-        call increment_vtable('SEA%ICE_CANSHV', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_canshv
-     endif
+     if (allocated(sea%ice_canshv)) call increment_vtable('SEA%ICE_CANSHV', 'SW', rvar1=sea%ice_canshv)
 
-     if (allocated(sea%nlev_seaice)) then
-        call increment_vtable('SEA%NLEV_SEAICE', 'SW')
-        vtab_r(num_var)%ivar1_p => sea%nlev_seaice
-     endif
+     if (allocated(sea%nlev_seaice)) call increment_vtable('SEA%NLEV_SEAICE', 'SW', ivar1=sea%nlev_seaice)
 
-        call increment_vtable('SEA%SEATC', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%seatc
-     endif
+     if (allocated(sea%seaicec)) call increment_vtable('SEA%SEAICEC', 'SW', rvar1=sea%seaicec)
 
-     if (allocated(sea%seaicec)) then
-        call increment_vtable('SEA%SEAICEC', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%seaicec
-     endif
+     if (allocated(sea%surface_ssh)) call increment_vtable('SEA%SURFACE_SSH', 'SW', rvar1=sea%surface_ssh)
 
-     if (allocated(sea%surface_ssh)) then
-        call increment_vtable('SEA%SURFACE_SSH', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%surface_ssh
-     endif
+     if (allocated(sea%sea_sfc_ssh)) call increment_vtable('SEA%SEA_SFC_SSH', 'SW', rvar1=sea%sea_sfc_ssh)
 
-     if (allocated(sea%sea_sfc_ssh)) then
-        call increment_vtable('SEA%SEA_SFC_SSH', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sea_sfc_ssh
-     endif
+     if (allocated(sea%ice_sfc_ssh)) call increment_vtable('SEA%ICE_SFC_SSH', 'SW', rvar1=sea%ice_sfc_ssh)
 
-     if (allocated(sea%ice_sfc_ssh)) then
-        call increment_vtable('SEA%ICE_SFC_SSH', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_sfc_ssh
-     endif
+     if (allocated(sea%rough)) call increment_vtable('SEA%ROUGH', 'SW', rvar1=sea%rough)
 
-     if (allocated(sea%rough)) then
-        call increment_vtable('SEA%ROUGH', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%rough
-     endif
+     if (allocated(sea%sea_rough)) call increment_vtable('SEA%SEA_ROUGH', 'SW', rvar1=sea%sea_rough)
 
-     if (allocated(sea%sea_rough)) then
-        call increment_vtable('SEA%SEA_ROUGH', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%sea_rough
-     endif
+     if (allocated(sea%ice_rough)) call increment_vtable('SEA%ICE_ROUGH', 'SW', rvar1=sea%ice_rough)
 
-     if (allocated(sea%ice_rough)) then
-        call increment_vtable('SEA%ICE_ROUGH', 'SW')
-        vtab_r(num_var)%rvar1_p => sea%ice_rough
-     endif
-
-     if (allocated(sea%seaice_energy)) then
-        call increment_vtable('SEA%SEAICE_ENERGY', 'SW')
-        vtab_r(num_var)%rvar2_p => sea%seaice_energy
-     endif
+     if (allocated(sea%seaice_energy)) call increment_vtable('SEA%SEAICE_ENERGY', 'SW', rvar2=sea%seaice_energy)
     
-     if (allocated(sea%seaice_tempk)) then
-        call increment_vtable('SEA%SEAICE_TEMPK', 'SW')
-        vtab_r(num_var)%rvar2_p => sea%seaice_tempk
-     endif
+     if (allocated(sea%seaice_tempk)) call increment_vtable('SEA%SEAICE_TEMPK', 'SW', rvar2=sea%seaice_tempk)
     
    end subroutine filltab_sea
 

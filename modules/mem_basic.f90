@@ -130,73 +130,35 @@ Contains
 !===============================================================================
 
   subroutine filltab_basic()
-    use var_tables, only: vtab_r, num_var, increment_vtable
+
+    use var_tables, only: increment_vtable
     implicit none
 
-    if (allocated(vmp)) then
-       call increment_vtable('VMP', 'AV')
-       vtab_r(num_var)%rvar2_p => vmp
-    endif
+    if (allocated(vmp))   call increment_vtable('VMP',  'AV', rvar2=vmp)
 
-    if (allocated(vmc)) then
-       call increment_vtable('VMC', 'AV')
-       vtab_r(num_var)%rvar2_p => vmc
-    endif
+    if (allocated(vmc))   call increment_vtable('VMC',  'AV', rvar2=vmc)
 
-    if (allocated(vp)) then
-       call increment_vtable('VP',  'AV')
-       vtab_r(num_var)%rvar2_p => vp
-    endif
+    if (allocated(vp))    call increment_vtable('VP',   'AV', rvar2=vp)
 
-    if (allocated(vc)) then
-       call increment_vtable('VC',  'AV')
-       vtab_r(num_var)%rvar2_p => vc
-    endif
+    if (allocated(vc))    call increment_vtable('VC',   'AV', rvar2=vc)
 
-    if (allocated(wmc)) then
-       call increment_vtable('WMC', 'AW')
-       vtab_r(num_var)%rvar2_p => wmc
-    endif
+    if (allocated(wmc))   call increment_vtable('WMC',  'AW', rvar2=wmc)
 
-    if (allocated(wc)) then
-       call increment_vtable('WC',  'AW')
-       vtab_r(num_var)%rvar2_p => wc
-    endif
+    if (allocated(wc))    call increment_vtable('WC',   'AW', rvar2=wc)
 
-    if (allocated(sh_w)) then
-       call increment_vtable('SH_W', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => sh_w
-    endif
+    if (allocated(sh_w))  call increment_vtable('SH_W', 'AW', rvar2=sh_w,  mpt1=.true.)
 
-    if (allocated(sh_v)) then
-       call increment_vtable('SH_V', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => sh_v
-    endif
+    if (allocated(sh_v))  call increment_vtable('SH_V', 'AW', rvar2=sh_v,  mpt1=.true.)
 
-    if (allocated(thil)) then
-       call increment_vtable('THIL',  'AW')
-       vtab_r(num_var)%rvar2_p => thil
-    endif
+    if (allocated(thil))  call increment_vtable('THIL', 'AW', rvar2=thil)
 
-    if (allocated(theta)) then
-       call increment_vtable('THETA', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => theta
-    endif
+    if (allocated(theta)) call increment_vtable('THETA','AW', rvar2=theta, mpt1=.true.)
 
-    if (allocated(tair)) then
-       call increment_vtable('TAIR', 'AW', mpt1=.true.)
-       vtab_r(num_var)%rvar2_p => tair
-    endif
+    if (allocated(tair))  call increment_vtable('TAIR', 'AW', rvar2=tair,  mpt1=.true.)
 
-    if (allocated(rho)) then
-       call increment_vtable('RHO',   'AW')
-       vtab_r(num_var)%dvar2_p => rho
-    endif
+    if (allocated(rho))   call increment_vtable('RHO',  'AW', dvar2=rho)
 
-    if (allocated(press)) then
-       call increment_vtable('PRESS', 'AW')
-       vtab_r(num_var)%dvar2_p => press
-    endif
+    if (allocated(press)) call increment_vtable('PRESS','AW', dvar2=press)
 
   end subroutine filltab_basic
 
