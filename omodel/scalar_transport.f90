@@ -44,18 +44,19 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
   use oname_coms,   only: nl
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use obnd,         only: lbcopy_w
+  use consts_coms,  only: r8
   use mem_thuburn
 
   implicit none
 
-  real,    intent(in) :: vmsc(mza,mva)
-  real,    intent(in) :: wmsc(mza,mwa)
-  real(8), intent(in) :: rho_old(mza,mwa)
+  real,     intent(in) :: vmsc(mza,mva)
+  real,     intent(in) :: wmsc(mza,mwa)
+  real(r8), intent(in) :: rho_old(mza,mwa)
 
   integer :: j,iw,iw1,iw2,iw3,iw4,iwd,iwr,mrl
-  integer :: n,k,kb,kbv,ks,kd,kr,iv,iwn,jv,npoly
+  integer :: n,k,kb,kbv,kd,kr,iv,iwn,jv,npoly
   real    :: dtl,dtli
-  real    :: dirv,hdniv
+  real    :: dirv
 
 ! Automatic arrays:
 
@@ -65,6 +66,10 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
   real :: vxesc(mza,mwa) ! XE velocity component at T point
   real :: vyesc(mza,mwa) ! YE velocity component at T point
   real :: vzesc(mza,mwa) ! ZE velocity component at T point
+
+  real :: vmsca(mza,mva)
+  real :: wmsca(mza,mwa)
+  real :: akodx(mza,mva)
 
   real :: gxps_scp(mza,mwa)
   real :: gyps_scp(mza,mwa)
@@ -87,10 +92,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
   real :: scp_upv(mza,mva)
   real :: scp_upw(mza,mwa)
 
-  real :: akodz(mza), dtomass(mza)
-  real :: vctr5(mza), vctr6(mza), vctr7(mza), vctr8(mza)
-  real :: hfluxadv(mza), hfluxdif(mza), vfluxadv(mza), vfluxdif(mza)
-  real :: del_scp(mza)
+  real :: hfluxadv(mza), hfluxdif(mza), vfluxadv(mza)
 
   real, pointer :: scp(:,:)
   real, pointer :: sct(:,:)
@@ -116,12 +118,16 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
      kb = lpw(iw)
 
      do k = kb, mza-1
-        wsc(k,iw) = 2.0 * wmsc(k,iw) / (rho_old(k,iw) + rho_old(k+1,iw))
+        wsc  (k,iw) = 2.0 * wmsc(k,iw) / (rho_old(k,iw) + rho_old(k+1,iw))
+        wmsca(k,iw) = wmsc(k,iw) * arw(k,iw)
      enddo
    
-     wsc(kb-1 ,iw) = wsc(kb,iw)
-     wsc(mza,iw) = 0.
-   
+     wsc  (kb-1,iw) = wsc(kb,iw)
+     wmsca(kb-1,iw) = 0.0
+
+     wsc  (mza,iw) = 0.0
+     wmsca(mza,iw) = 0.0
+
   enddo
   !$omp end do
 
@@ -137,11 +143,14 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
      kb = lpv(iv)
 
-     vsc(2:kb-1,iv) = 0.0
-
      do k = kb, mza
-        vsc(k,iv) = 2.0 * vmsc(k,iv) / ( rho_old(k,iw1) + rho_old(k,iw2) )
+        vsc  (k,iv) = 2.0 * vmsc(k,iv) / ( rho_old(k,iw1) + rho_old(k,iw2) )
+        vmsca(k,iv) = vmsc(k,iv) * arv(k,iv)
+        akodx(k,iv) = 0.5 * dniv(iv) * arv(k,iv) * (hkm(k,iw1) + hkm(k,iw2))
      enddo
+
+     vsc  (2:kb-1,iv) = vsc(kb,iv)
+     vmsca(2:kb-1,iv) = 0.0
 
   enddo
   !$omp end do
@@ -199,10 +208,10 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
            kdepv(k,iv) = merge( min(k+1,mza), max(k-1,kbv), dzps_v(k,iv) >= 0.0)
 
-           cfl_vin(k,iv) = abs(vmsc(k,iv)) * arv(k,iv) * dtlm(itab_w(iwr)%mrlw) &
+           cfl_vin(k,iv) = abs(vmsca(k,iv)) * dtlm(itab_w(iwr)%mrlw) &
                            * volti(k,iwr) / rho_old(k,iwr) 
 
-           cfl_vout      = abs(vmsc(k,iv)) * arv(k,iv) * dtlm(itab_w(iwd)%mrlw) &
+           cfl_vout      = abs(vmsca(k,iv)) * dtlm(itab_w(iwd)%mrlw) &
                            * volti(k,iwd) / rho_old(k,iwd) 
 
          ! Not needed for scalars  
@@ -224,10 +233,10 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
            kd = kdepw(k,iw)
            kr = krecw(k,iw)
 
-           cfl_win(k,iw) = abs(wmsc(k,iw)) * arw(k,iw) * dtl * volti(kr,iw) &
+           cfl_win(k,iw) = abs(wmsca(k,iw)) * dtl * volti(kr,iw) &
                            / rho_old(kr,iw)
 
-           cfl_wout      = abs(wmsc(k,iw)) * arw(k,iw) * dtl * volti(kd,iw) &
+           cfl_wout      = abs(wmsca(k,iw)) * dtl * volti(kd,iw) &
                            / rho_old(kd,iw)
 
          ! Not needed for scalars
@@ -537,10 +546,8 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
 ! Horizontal loop over W/T points
 
-     !$omp parallel do private (iw,kb,k,npoly,jv,iv,iwn,kbv,iwd,kd,ks,   &
-     !$omp                      dtl,dtli,dtomass,hfluxadv,hfluxdif,dirv, &
-     !$omp                      vfluxadv,akodz,vctr5,vctr7,vctr6,vctr8,  &
-     !$omp                      hdniv,del_scp,vfluxdif)
+     !$omp parallel do private (iw, kb, dtl, dtli, npoly, hfluxadv, hfluxdif, & 
+     !$omp                      jv, iv, iwn, kbv, dirv, k, vfluxadv    )
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
         kb = lpw(iw)
@@ -563,20 +570,15 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
            dirv = itab_w(iw)%dirv(jv)
 
-           hdniv = .5 * dniv(iv)
-   
 ! Vertical loop over T levels 
 
            do k = kbv, mza
 
 ! Horizontal advective and diffusive scalar fluxes
 
-              hfluxadv(k) = hfluxadv(k) &
-                          + dirv * vmsc(k,iv) * arv(k,iv) * scp_upv(k,iv)
+              hfluxadv(k) = hfluxadv(k) + dirv * vmsca(k,iv) * scp_upv(k,iv)
 
-              hfluxdif(k) = hfluxdif(k) &
-                          + hdniv * arv(k,iv) * (hkm(k,iwn) + hkm(k,iw)) &
-                          * (scp(k,iwn) - scp(k,iw))
+              hfluxdif(k) = hfluxdif(k) + akodx(k,iv) * (scp(k,iwn) - scp(k,iw))
            enddo
         enddo
 
@@ -584,7 +586,7 @@ subroutine scalar_transport(vmsc, wmsc, rho_old)
 
         do k = kb, mza-1
 
-           vfluxadv(k) = wmsc(k,iw) * arw(k,iw) * scp_upw(k,iw)
+           vfluxadv(k) = wmsca(k,iw) * scp_upw(k,iw)
 
         enddo
 
@@ -852,7 +854,7 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw, &
                        dxps_w, dyps_w, dzps_w)
 
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
-  use mem_grid,   only: mza, mwa, lpw, zt, zm
+  use mem_grid,   only: mza, mwa, lpw, dzt_top, dzt_bot
   use misc_coms,  only: io6, dtlm, dtsm
   use max_dims,   only: maxgrds
 
@@ -937,14 +939,14 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw, &
            kdepw(k,iw) = k
            krecw(k,iw) = k + 1
 
-           dzps_w(k,iw) = -dto2 * ws(k,iw) + zm(k) - zt(k)
+           dzps_w(k,iw) = max( -dto2 * ws(k,iw) + dzt_top(k), 0.0)
 
         else
 
            kdepw(k,iw) = k + 1
            krecw(k,iw) = k
 
-           dzps_w(k,iw) = -dto2 * ws(k,iw) + zm(k) - zt(k+1)
+           dzps_w(k,iw) = min( -dto2 * ws(k,iw) - dzt_bot(k), 0.0)
 
         endif
 
@@ -952,7 +954,7 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw, &
    
      kdepw (mza,iw) = mza
      krecw (mza,iw) = mza
-     dzps_w(mza,iw) = zm(mza) - zt(mza)
+     dzps_w(mza,iw) = dzt_top(mza)
 
   enddo
   !$omp end parallel do
@@ -968,14 +970,15 @@ use mem_ijtabs, only: jtab_v, jtab_w, istp, mrl_begl, jtv_wstn, jtw_wstn
 use mem_grid,   only: mza, mva, mwa, lpw
 use mem_basic,  only: rho
 use misc_coms,  only: io6
+use consts_coms,only: r8
 
 implicit none
 
-real, intent(out) :: vmsc(mza,mva)
-real, intent(out) :: wmsc(mza,mwa)
-real(kind=8), intent(out) :: rho_old(mza,mwa)
+real,     intent(out) :: vmsc(mza,mva)
+real,     intent(out) :: wmsc(mza,mwa)
+real(r8), intent(out) :: rho_old(mza,mwa)
 
-integer :: j,k,iv,iw,mrl
+integer :: k,iv,iw,mrl
 
 mrl = mrl_begl(istp)
 
@@ -1032,7 +1035,7 @@ implicit none
 real, intent(inout) :: vmsc(mza,mva)
 real, intent(inout) :: wmsc(mza,mwa)
 
-integer :: j,k,iv,iw,mrl,mrlv,mrlw
+integer :: k,iv,iw,mrl,mrlv,mrlw
 real :: acoi
 
 mrl = mrl_endl(istp)
