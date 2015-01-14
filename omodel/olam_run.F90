@@ -54,7 +54,7 @@ use oplot_coms,  only: op
 use mem_grid,    only: nma, nva, nwa, mma, mva, mwa, mza, zm, zt
 use mem_basic,   only: alloc_basic, wc, vxe, vye, vze
 use micro_coms,  only: gnu
-use mem_nudge,   only: nudflag, nudnxp, fill_jnudge
+use mem_nudge,   only: nudflag, nudnxp, fill_jnudge, o3nudflag
 use mem_rayf,    only: rayf_init
 use mem_para,    only: myrank
 use consts_coms, only: r8
@@ -416,7 +416,7 @@ endif
 ! If using variable initialization and polygon nudging, read most recent
 ! and next observational analyses, and fill nudging polygons for both
 
-if (initial == 2 .and. nudflag == 1) then
+if (initial == 2 .and. (nudflag == 1 .or. o3nudflag == 1)) then
    write(io6,'(/,a)') 'olam_run calling isan_driver(1)'
    call isan_driver(1)
 endif
@@ -696,7 +696,7 @@ use leaf_coms,   only: isfcl, iupdndvi, indvifile, s1900_ndvi
 use sea_coms,    only: iupdsst, iupdseaice, isstfile, iseaicefile, &
                        s1900_sst, s1900_seaice, isstflg, iseaiceflg
 use oplot_coms,  only: op
-use mem_nudge,   only: nudflag
+use mem_nudge,   only: nudflag, o3nudflag
 use isan_coms,   only: ifgfile, s1900_fg
 use consts_coms, only: r8
 use oname_coms,  only: nl
@@ -806,7 +806,7 @@ if (isfcl == 1 .and. iupdndvi == 1) then
    endif
 endif
 
-if (initial == 2 .and. nudflag == 1) then
+if (initial == 2 .and. (nudflag == 1 .or. o3nudflag == 1)) then
    if (s1900_sim >= s1900_fg(ifgfile) .and. time8p < timmax8) then
 
       write(io6,*) ' '

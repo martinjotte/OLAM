@@ -30,7 +30,7 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine fldsisan(o_rho, o_theta, o_shv, o_vc)
+subroutine fldsisan(o_rho, o_theta, o_shv, o_vc, o_ozone)
 
 use mem_basic,   only: vmc, vmp, vc, vp, thil, sh_w, sh_v, &
                        wmc, wc, theta, tair, rho, press
@@ -40,8 +40,8 @@ use mem_micro,   only: sh_c
 use micro_coms,  only: level
 use mem_ijtabs,  only: jtab_v, jtab_w, itab_v, itab_w, jtv_init, jtw_init
 use consts_coms, only: r8, pc1, rdry, rvap, cpocv, rocp, p00i
-
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v 
+use var_tables,  only: num_var, vtab_r
+use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 
 use obnd,         only: lbcopy_v, lbcopy_w
 
@@ -51,11 +51,10 @@ real(r8), intent(in) :: o_rho   (mza,mwa)
 real,     intent(in) :: o_theta (mza,mwa)
 real,     intent(in) :: o_shv   (mza,mwa)
 real,     intent(in) :: o_vc    (mza,mva)
+real,     intent(in) :: o_ozone (mza,mwa)
 
-integer :: j,iw,k,ka,iu,iv,iw1,iw2,iup,ivp,mrl
-
-real :: rcloud,temp,rvls,uu,vv
-real :: alph_p
+integer :: j,iw,k,ka,iv,iw1,iw2,mrl,n
+real    :: alph_p
 
 ! If initializing the model, fill the main model arrays
 ! and initialize related arrays
@@ -91,9 +90,23 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       wmc(k,iw) = 0.
 
    enddo
+
+   ! Initialize any variable in the var_table that is named ozone.
+   ! Assumed units are ppmv
+
+   do n = 1, num_var
+      if ( (vtab_r(n)%name == 'O3'   ) .or. (vtab_r(n)%name == 'o3'   ) .or. &
+           (vtab_r(n)%name == 'OZONE') .or. (vtab_r(n)%name == 'ozone') ) then
+
+         if ( associated( vtab_r(n)%rvar2_p ) ) then
+            vtab_r(n)%rvar2_p(ka:mza,iw) = o_ozone(ka:mza,iw)
+         endif
+      endif
+   enddo
+
 enddo
 
-! LBC copy (THETA and TAIR will be copied later with the scalars)
+! LBC copy (THETA and TAIR and OZONE will be copied later with the scalars)
 
 if (iparallel == 1) then
    mrl = 1

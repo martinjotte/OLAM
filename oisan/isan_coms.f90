@@ -32,31 +32,35 @@
 !===============================================================================
 Module isan_coms
 
-use max_dims,    only: maxpr, maxisdirs, pathlen
-use consts_coms, only: r8
+  use max_dims,    only: maxpr, maxisdirs, pathlen
+  use consts_coms, only: r8
 
-integer :: ioflgisz, ioflgvar, iszstage, ivrstage
-integer :: iyear, imonth, idate, ihour, ipoffset
-integer :: npd,lzon_bot,kzonoff
+  integer :: ioflgisz, ioflgvar, iszstage, ivrstage
+  integer :: iyear, imonth, idate, ihour, ipoffset
+  integer :: npd,lzon_bot,kzonoff
 
-integer :: nfgfiles, ifgfile
+  integer :: nfgfiles, ifgfile
 
-character(pathlen) :: iapr(maxisdirs)
-character(pathlen) :: innpr
+  character(pathlen) :: iapr(maxisdirs)
+  character(pathlen) :: innpr
 
-character(pathlen), allocatable :: fnames_fg  (:)
-character(14),      allocatable :: ctotdate_fg(:)
-real(r8),           allocatable :: s1900_fg   (:)
+  character(pathlen), allocatable :: fnames_fg  (:)
+  character(14),      allocatable :: ctotdate_fg(:)
+  real(r8),           allocatable :: s1900_fg   (:)
+
+  logical :: haso3
+  integer :: nbot_o3
 
 ! Pressure header variables:
-integer :: marker, isversion, iyy, imm, idd, ihh, itinc, inproj, ivertcoord
-integer :: ihydsfc
-real    :: xnelat, xnelon, cntlat, cntlon, secondlat
 
-integer :: nprx, npry, nprz, nprz_rh
-integer :: levpr(maxpr)
+  integer :: marker, isversion, iyy, imm, idd, ihh, itinc, inproj, ivertcoord
+  integer :: ihydsfc
+  real    :: xnelat, xnelon, cntlat, cntlon, secondlat
 
-real    :: xswlon, xswlat, gdatdx, gdatdy
-real    :: pnpr(maxpr)
+  integer :: nprx, npry, nprz, nprz_rh
+  integer :: levpr(maxpr)
+
+  real    :: xswlon, xswlat, gdatdx, gdatdy
+  real    :: pnpr(maxpr)
 
 End module isan_coms

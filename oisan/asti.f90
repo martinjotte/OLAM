@@ -30,18 +30,18 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine isnstage(p_u, p_v, p_t, p_z, p_r, &
+subroutine isnstage(p_u, p_v, p_t, p_z, p_r, p_o, &
                     p_topo, p_prsfc, p_tsfc, p_shsfc, &
-                    o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_vc)
+                    o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_vc, o_ozone)
 
 use max_dims,     only: maxpr
-use isan_coms,    only: nprz, npry, nprx, nprz_rh, &
+use isan_coms,    only: nprz, npry, nprx, nprz_rh, haso3, nbot_o3, &
                         xswlat, xswlon, gdatdx, gdatdy, &
                         npd, kzonoff, levpr, lzon_bot, ipoffset
 use mem_grid,     only: glatw, glonw, mza, mwa, mva, lpv, lpw, &
                         xev, yev, zev, unx, uny, unz, vnx, vny, vnz
 use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, jtv_init, jtw_init
-use mem_zonavg,   only: zonp_vect, zont, zonz, zonr, zonu
+use mem_zonavg,   only: zonp_vect, zont, zonz, zonr, zonu, zono
 use consts_coms,  only: r8, eradi, rocp, p00i, cp
 use misc_coms,    only: io6, iparallel
 use isan_coms,    only: ihydsfc
@@ -55,6 +55,7 @@ real, intent(in) :: p_v(nprx+4,npry+4,nprz)
 real, intent(in) :: p_t(nprx+4,npry+4,nprz)
 real, intent(in) :: p_z(nprx+4,npry+4,nprz)
 real, intent(in) :: p_r(nprx+4,npry+4,nprz)
+real, intent(in) :: p_o(nprx+4,npry+4,nprz)
 
 real, intent(in) :: p_topo (nprx+4,npry+4)
 real, intent(in) :: p_prsfc(nprx+4,npry+4)
@@ -67,6 +68,7 @@ real,     intent(inout) :: o_shv   (mza,mwa)
 real,     intent(inout) :: o_uzonal(mza,mwa)
 real,     intent(inout) :: o_umerid(mza,mwa)
 real,     intent(inout) :: o_vc    (mza,mva)
+real,     intent(inout) :: o_ozone (mza,mwa)
 
 real :: pcol_p    (maxpr+2)
 real :: pcol_temp (maxpr+2)
@@ -75,6 +77,7 @@ real :: pcol_u    (maxpr+2)
 real :: pcol_v    (maxpr+2)
 real :: pcol_rt   (maxpr+2)
 real :: pcol_exner(maxpr+2)
+real :: pcol_o3   (maxpr+2)
 
 real :: pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc
 
@@ -141,6 +144,12 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       call gdtost(p_r(:,:,k),nprx+4,npry+4,grx,gry,pcol_rt(k+2))    ! s.h.
    enddo
 
+   if (haso3) then
+      do k = nbot_o3, nprz
+         call gdtost(p_o(:,:,k),nprx+4,npry+4,grx,gry,pcol_o3(k+2)) ! ozone
+      enddo
+   endif
+
 ! Horizontally interpolate surface gridded data to column
 ! at location of current W point
 
@@ -168,6 +177,31 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       call pintrp_ee(22, r_interp, zonp_vect, nlevs, pcol_rt(kstrt), pcol_p(kstrt))
    endif
 
+   if (haso3) then
+
+      if (nbot_o3 /= 1) then
+
+         ! If ozone is not reported at lower levels, fill pcol_o3 from levels
+         ! 3 to nbot_o3 + 1 with values interpolated from the ZONAVG data
+
+         nlevs = nbot_o3 - 1
+         kstrt = 3
+         r_interp(:) = (1. - wt2) * zono(ilat,:) + wt2 * zono(ilat+1,:)
+         call pintrp_ee(22, r_interp, zonp_vect, nlevs, pcol_o3(kstrt), pcol_p(kstrt))
+      endif
+
+   else
+
+      ! If ozone is not reported at all, fill pcol_o3 from levels 3
+      ! to nbrz+2 with values interpolated from the ZONAVG data
+
+      nlevs = nprz
+      kstrt = 3
+      r_interp(:) = (1. - wt2) * zono(ilat,:) + wt2 * zono(ilat+1,:)
+      call pintrp_ee(22, r_interp, zonp_vect, nlevs, pcol_o3(kstrt), pcol_p(kstrt))
+
+   endif
+
 ! Linearly interpolate zonavg arrays by latitude to current IW column 
 ! and K level. WIND IS ALL U AND NO V.
 
@@ -178,6 +212,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       pcol_rt(k)   = (1. - wt2) * zonr(ilat,levp) + wt2 * zonr(ilat+1,levp)
       pcol_u(k)    = (1. - wt2) * zonu(ilat,levp) + wt2 * zonu(ilat+1,levp)
       pcol_v(k)    = 0.
+      pcol_o3(k)   = (1. - wt2) * zono(ilat,levp) + wt2 * zono(ilat+1,levp)
    enddo
 
 ! Fill phony underground values for PPD levels 1100 mb and 1200 mb
@@ -187,13 +222,14 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    pcol_rt(1:2) = pcol_rt(3)
    pcol_temp(2) = pcol_temp(3) + 5.3  ! Uses approx std lapse rate
    pcol_temp(1) = pcol_temp(2) + 4.9  ! Uses approx std lapse rate
+   pcol_o3(1:2) = pcol_o3(3)
 
 ! Vertically interpolate current column to model grid and 
 ! perform iterative hydrostatic balance 
 
-   call vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid, &
+   call vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid,o_ozone, &
                  pcol_p, pcol_temp, pcol_z, pcol_u, pcol_v, &
-                 pcol_rt, pcol_exner, &
+                 pcol_rt, pcol_exner, pcol_o3, &
                  pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc)
 
 enddo
@@ -258,9 +294,9 @@ end subroutine isnstage
 
 !===============================================================================
 
-subroutine vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid, &
+subroutine vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid,o_ozone, &
                  pcol_p, pcol_temp, pcol_z, pcol_u, pcol_v, &
-                 pcol_rt, pcol_exner, &
+                 pcol_rt, pcol_exner, pcol_o3, &
                  pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc)
 
 use max_dims,    only: maxpr
@@ -279,6 +315,7 @@ real,     intent(inout) :: o_theta (mza,mwa)
 real,     intent(inout) :: o_shv   (mza,mwa)
 real,     intent(inout) :: o_uzonal(mza,mwa)
 real,     intent(inout) :: o_umerid(mza,mwa)
+real,     intent(inout) :: o_ozone (mza,mwa)
 
 real(r8) :: o_press(mza)  ! automatic array
 real(r8) :: pressnew, pkhyd
@@ -288,6 +325,7 @@ real :: vctr2(mza)  ! automatic array
 real :: vctr3(mza)  ! automatic array
 real :: vctr4(mza)  ! automatic array
 real :: vctr5(mza)  ! automatic array
+real :: vctr6(mza)  ! automatic array
 
 real, intent(in)    :: pcol_p    (maxpr+2)
 real, intent(in)    :: pcol_temp (maxpr+2)
@@ -296,8 +334,13 @@ real, intent(in)    :: pcol_u    (maxpr+2)
 real, intent(in)    :: pcol_v    (maxpr+2)
 real, intent(inout) :: pcol_rt   (maxpr+2)
 real, intent(in)    :: pcol_exner(maxpr+2)
+real, intent(in)    :: pcol_o3   (maxpr+2)
 
 real, intent(in) :: pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc
+
+real, parameter :: mwair  = 28.9628             ! molecular weight of air
+real, parameter :: mwo3   = 48.0                ! molecular weight of ozone
+real, parameter :: cnvto3 = mwair / mwo3 * 1.e6 ! ozone mixing ratio to ppmV
 
 real :: pcol_thet (maxpr+2)
 real :: pcol_thv  (maxpr+2)
@@ -379,6 +422,7 @@ call hintrp_cc(npd,pcol_thet,pcol_z,mza,vctr2,zt)  ! theta
 call hintrp_cc(npd,pcol_rt  ,pcol_z,mza,vctr3,zt)  ! vapor specific humidity
 call hintrp_cc(npd,pcol_u   ,pcol_z,mza,vctr4,zt)  ! zonal wind
 call hintrp_cc(npd,pcol_v   ,pcol_z,mza,vctr5,zt)  ! merid wind
+call hintrp_cc(npd,pcol_o3  ,pcol_z,mza,vctr6,zt)  ! ozone
 
 ka = lpw(iw)
 
@@ -388,6 +432,7 @@ do k = ka,mza
    o_shv   (k,iw) = max(1.e-8,vctr3(k))
    o_uzonal(k,iw) = vctr4(k)
    o_umerid(k,iw) = vctr5(k)
+   o_ozone (k,iw) = max( 1.e-30, vctr6(k)*cnvto3) ! s.h. to ppmV
 enddo
 
 ! Choose as an internal pressure boundary condition the pcol_p pressure level 

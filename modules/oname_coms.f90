@@ -291,6 +291,19 @@ Module oname_coms
 
       character(pathlen) :: iapr(maxisdirs) = ''
 
+!!    CMAQ Chemistry
+
+      integer            :: do_chem   =  0
+      character(20)      :: chem_mech = 'CB05TUCL_AE6_AQ'
+      integer            :: ltng_nox  =  0
+      integer            :: chem_frq  =  1
+      integer            :: phot_frq  =  1
+      character(pathlen) :: emis_dir  = '../../olamdatah5/edgar42'
+
+      integer :: o3nudflag  = 0
+      real    :: o3nudpress = 150.0
+      real    :: o3tnudcent = 86400.0
+
 !!    MODEL_PLOT VARIABLES
 
       integer :: nplt        = 0

@@ -70,12 +70,14 @@ Module mem_nudge
   real,    allocatable, target ::    shw_obsp(:,:)
   real,    allocatable, target :: uzonal_obsp(:,:)
   real,    allocatable, target :: umerid_obsp(:,:)
+  real,    allocatable, target ::  ozone_obsp(:,:)
 
   real,    allocatable, target ::    rho_obsf(:,:)
   real,    allocatable, target ::  theta_obsf(:,:)
   real,    allocatable, target ::    shw_obsf(:,:)
   real,    allocatable, target :: uzonal_obsf(:,:)
   real,    allocatable, target :: umerid_obsf(:,:)
+  real,    allocatable, target ::  ozone_obsf(:,:)
 
   real,    allocatable         ::    rho_obs(:,:)
   real,    allocatable         ::  theta_obs(:,:)
@@ -96,6 +98,11 @@ Module mem_nudge
   integer :: mwnud = 1
 
   real    :: tnudcent
+
+  integer :: o3nudflag = 0
+  integer :: io3       = 0
+  real    :: tnudi_o3
+  real    :: o3nudpress
 
 Contains
 
@@ -161,6 +168,40 @@ Contains
 
   !=========================================================================
 
+  subroutine alloc_nudge_o3(mza,mwa)
+
+    use misc_coms,  only: io6, rinit
+    use var_tables, only: scalar_tab, num_scalar
+    implicit none
+
+    integer, intent(in) :: mza, mwa
+    integer             :: n
+
+    ! If any prognostic scalars are named ozone, save its scalar index
+    ! and activate nudging
+
+    io3 = 0
+    do n = 1, num_scalar
+       if ( (scalar_tab(n)%name == 'O3'   ) .or. (scalar_tab(n)%name == 'o3'   ) .or. &
+            (scalar_tab(n)%name == 'OZONE') .or. (scalar_tab(n)%name == 'ozone') ) then
+          io3 = n
+          exit
+       endif
+    enddo
+
+    if (io3 /= 0) then
+
+       write(io6,*) 'allocating nudge_o3 ', mza, mwa
+
+       allocate (ozone_obsp(mza,mwa)) ; ozone_obsp = rinit
+       allocate (ozone_obsf(mza,mwa)) ; ozone_obsf = rinit
+
+    endif
+
+  end subroutine alloc_nudge_o3
+
+!=========================================================================
+
   subroutine filltab_nudge()
 
     use var_tables, only: increment_vtable
@@ -199,6 +240,28 @@ Contains
     if (allocated(umerid_obsf)) call increment_vtable('UMERID_OBSF', stagpt, noread=.true., rvar2=umerid_obsf)
 
   end subroutine filltab_nudge
+
+!=========================================================================
+
+  subroutine filltab_nudge_o3()
+
+    use var_tables, only: vtab_r, num_var, increment_vtable
+    implicit none
+
+    ! ozone currently only uses non-spectral nudging, which is only
+    ! computed at W points
+
+    if (allocated(ozone_obsp)) then
+       call increment_vtable('OZONE_OBSP', 'AW', noread=.true.)
+       vtab_r(num_var)%rvar2_p => ozone_obsp
+    endif
+
+    if (allocated(ozone_obsf)) then
+       call increment_vtable('OZONE_OBSF', 'AW', noread=.true.)
+       vtab_r(num_var)%rvar2_p => ozone_obsf
+    endif
+
+  end subroutine filltab_nudge_o3
 
 !===============================================================================
 

@@ -542,6 +542,46 @@ if (nl%isfcl == 1) then
    endif
    
 endif
+
+!--------------------------------------------------------------------------
+! CMAQ CHEMISTRY PARAMETERS
+!--------------------------------------------------------------------------
+
+call ichk_bnds( nl%do_chem , "DO_CHEM ", 0,   1, 2, nfatal, nwarn )
+call ichk_bnds( nl%ltng_nox, "LTNG_NOx", 0,   1, 2, nfatal, nwarn )
+call ichk_bnds( nl%chem_frq, "CHEM_FRQ", 1, 100, 2, nfatal, nwarn )
+call ichk_bnds( nl%phot_frq, "PHOT_FRQ", 1, 100, 2, nfatal, nwarn )
+
+if (nl%initial /= 2) then
+   if (nl%o3nudflag /= 0) then
+      write(io6,*) "Turning off ozone nudging when not not doing 3d initialization"
+      nl%o3nudflag = 0
+      nwarn = nwarn + 1
+   endif
+endif
+
+if (nl%do_chem == 0) then
+   if (nl%o3nudflag /= 0) then
+      write(io6,*) "Turning off ozone nudging when not not chemistry"
+      nl%o3nudflag = 0
+      nwarn = nwarn + 1
+   endif
+endif
+
+if (nl%initial == 2 .and. nl%do_chem == 1) then
+
+   call ichk_bnds( nl%o3nudflag, "O3NUDFLAG", 0,  1, 2, nfatal, nwarn )
+
+   if (nl%o3nudflag == 1) then
+
+      call rchk_bnds( nl%o3tnudcent, "O3TNUDCENT", dtlong4, r_huge, 2, nfatal, &
+                      nwarn, msgmin="Ozone nudging time must be larger than dtlong")
+
+      call rchk_bnds( nl%o3nudpress, "O3NUDPRESS", 0.0, 1200.0, 2, nfatal, nwarn)
+
+   endif
+
+endif
       
 !--------------------------------------------------------------------------
 ! ISENTROPIC CONTROL 

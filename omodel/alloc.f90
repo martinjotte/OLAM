@@ -40,7 +40,7 @@ subroutine olam_mem_alloc()
   use mem_tend,    only: alloc_tend, filltab_tend
   use mem_turb,    only: alloc_turb, filltab_turb
   use mem_grid,    only: alloc_grid_other, mza, nsw_max, mma, mva, mwa
-  use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge
+  use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge, o3nudflag
   use mem_ijtabs,  only: mrls
   use oname_coms,  only: nl
   use mem_thuburn, only: alloc_thuburn
@@ -129,6 +129,16 @@ subroutine olam_mem_alloc()
 ! Memory for storing past values for plotting
 
   call alloc_plot()
+
+! Extra memory if nudging ozone. Must be called after scalar tables are set up
+
+  if (initial == 2 .and. o3nudflag > 0) then
+
+     ! point-by-point (non-spectral) nudging of ozone
+
+      call alloc_nudge_o3(mza,mwa)
+      call filltab_nudge_o3()
+  endif
 
   write(io6,*) 'end alloc'
 

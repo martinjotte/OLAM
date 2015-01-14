@@ -85,7 +85,8 @@ use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
                        itime1, idate1, imonth1, iyear1, ngrids, nzp, &
                        mdomain, itopoflg, nxp, &
                        ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
-                       current_time, debug_fp, init_nans
+                       current_time, debug_fp, init_nans, &
+                       do_chem, chem_mech
 
 use micro_coms,  only: level, icloud, idriz, irain, ipris, &
                        isnow, iaggr, igraup, ihail, iccnlev, &
@@ -105,7 +106,8 @@ use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst, &
 
 use oplot_coms,  only: op
 use isan_coms,   only: iapr
-use mem_nudge,   only: tnudcent, nudflag, nudnxp
+use mem_nudge,   only: tnudcent, nudflag, nudnxp,  &
+                       o3nudflag, tnudi_o3, o3nudpress
 use mem_rayf,    only: rayf_zmin,    rayf_distim,   rayf_expon,    &
                        rayfw_zmin,   rayfw_distim,   rayfw_expon,  &
                        rayfdiv_zmin, rayfdiv_distim, rayfdiv_expon
@@ -239,6 +241,12 @@ if (copy_type == 'ALL_CASES') then
    isoildepthflg = nl%isoildepthflg
    iwatertabflg  = nl%iwatertabflg
    ndviflg       = nl%ndviflg
+
+   do_chem       = nl%do_chem
+   chem_mech     = nl%chem_mech
+   o3nudflag     = nl%o3nudflag
+   tnudi_o3      = 1.0 / max( nl%o3tnudcent, nl%dtlong )
+   o3nudpress    = nl%o3nudpress * 100.0  ! mb to Pa
 
    slmstr(1:nzgmax) = nl%slmstr(1:nzgmax)
 
