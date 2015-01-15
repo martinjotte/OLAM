@@ -496,133 +496,120 @@ subroutine write_mavg_vars(outyear,outmonth)
   
   !  Write month-average variables
   
-  if (iparallel == 1) then
-     ilpts => iwa_local_primary
-     igpts => iwa_globe_primary
-     nglobe = nwa
+  ilpts => iwa_local_primary
+  igpts => iwa_globe_primary
+  nglobe = nwa
 
-     ndims    = 2
-     idims(1) = nz_avg
-     idims(2) = mwa
+  ndims    = 2
+  idims(1) = nz_avg
+  idims(2) = mwa
 
-     call shdf5_orec(ndims,idims,'PRESS_MAVG',rvara=press_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'RHO_MAVG',rvara=  rho_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'TEMPK_MAVG',rvara=tempk_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims, 'SH_V_MAVG',rvara= sh_v_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims, 'SH_W_MAVG',rvara= sh_w_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,   'WC_MAVG',rvara=   wc_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'VXE_MAVG',rvara=  vxe_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'VYE_MAVG',rvara=  vye_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'VZE_MAVG',rvara=  vze_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'PRESS_MAVG',rvara=press_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'RHO_MAVG',rvara=  rho_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'TEMPK_MAVG',rvara=tempk_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims, 'SH_V_MAVG',rvara= sh_v_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims, 'SH_W_MAVG',rvara= sh_w_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,   'WC_MAVG',rvara=   wc_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'VXE_MAVG',rvara=  vxe_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'VYE_MAVG',rvara=  vye_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'VZE_MAVG',rvara=  vze_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
 
-     ndims    = 1
-     idims(1) = mwa
-     ilpts => iwa_local_primary
-     igpts => iwa_globe_primary
-     nglobe = nwa
+  ndims    = 1
+  idims(1) = mwa
+  ilpts => iwa_local_primary
+  igpts => iwa_globe_primary
+  nglobe = nwa
 
-     call shdf5_orec(ndims,idims,      'RSHORT_MAVG',rvara=      rshort_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'RSHORT_TOP_MAVG',rvara=  rshort_top_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,    'RSHORTUP_MAVG',rvara=    rshortup_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'RSHORTUP_TOP_MAVG',rvara=rshortup_top_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,       'RLONG_MAVG',rvara=       rlong_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,     'RLONGUP_MAVG',rvara=     rlongup_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims, 'RLONGUP_TOP_MAVG',rvara= rlongup_top_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,     'LATFLUX_MAVG',rvara=     latflux_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,    'SENSFLUX_MAVG',rvara=    sensflux_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,   'WINDSPEED_MAVG',rvara=   windspeed_mavg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,     'ACCPMIC_MTOT',rvara=     accpmic_mtot, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,     'ACCPCON_MTOT',rvara=     accpcon_mtot, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,      'RSHORT_MAVG',rvara=      rshort_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'RSHORT_TOP_MAVG',rvara=  rshort_top_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,    'RSHORTUP_MAVG',rvara=    rshortup_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'RSHORTUP_TOP_MAVG',rvara=rshortup_top_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,       'RLONG_MAVG',rvara=       rlong_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,     'RLONGUP_MAVG',rvara=     rlongup_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims, 'RLONGUP_TOP_MAVG',rvara= rlongup_top_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,     'LATFLUX_MAVG',rvara=     latflux_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,    'SENSFLUX_MAVG',rvara=    sensflux_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,   'WINDSPEED_MAVG',rvara=   windspeed_mavg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,     'ACCPMIC_MTOT',rvara=     accpmic_mtot, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,     'ACCPCON_MTOT',rvara=     accpcon_mtot, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,        'TOT_WATER',rvara=         wstorage, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
 
-     call shdf5_orec(ndims,idims,        'TOT_WATER',rvara=         wstorage, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-
-  else
-
-     ndims      = 2
-     idims(1) = nz_avg
-     idims(2) = mwa
-
-     call shdf5_orec(ndims,idims,'PRESS_MAVG',rvara=press_mavg)
-     call shdf5_orec(ndims,idims,  'RHO_MAVG',rvara=  rho_mavg)
-     call shdf5_orec(ndims,idims,'TEMPK_MAVG',rvara=tempk_mavg)
-     call shdf5_orec(ndims,idims, 'SH_V_MAVG',rvara= sh_v_mavg)
-     call shdf5_orec(ndims,idims, 'SH_W_MAVG',rvara= sh_w_mavg)
-     call shdf5_orec(ndims,idims,   'WC_MAVG',rvara=   wc_mavg)
-     call shdf5_orec(ndims,idims,  'VXE_MAVG',rvara=  vxe_mavg)
-     call shdf5_orec(ndims,idims,  'VYE_MAVG',rvara=  vye_mavg)
-     call shdf5_orec(ndims,idims,  'VZE_MAVG',rvara=  vze_mavg)
-
-     ndims      = 1
-     idims(1) = mwa
-
-     call shdf5_orec(ndims,idims,      'RSHORT_MAVG',rvara=      rshort_mavg)
-     call shdf5_orec(ndims,idims,  'RSHORT_TOP_MAVG',rvara=  rshort_top_mavg)
-     call shdf5_orec(ndims,idims,    'RSHORTUP_MAVG',rvara=    rshortup_mavg)
-     call shdf5_orec(ndims,idims,'RSHORTUP_TOP_MAVG',rvara=rshortup_top_mavg)
-     call shdf5_orec(ndims,idims,       'RLONG_MAVG',rvara=       rlong_mavg)
-     call shdf5_orec(ndims,idims,     'RLONGUP_MAVG',rvara=     rlongup_mavg)
-     call shdf5_orec(ndims,idims, 'RLONGUP_TOP_MAVG',rvara= rlongup_top_mavg)
-     call shdf5_orec(ndims,idims,     'LATFLUX_MAVG',rvara=     latflux_mavg)
-     call shdf5_orec(ndims,idims,    'SENSFLUX_MAVG',rvara=    sensflux_mavg)
-     call shdf5_orec(ndims,idims,   'WINDSPEED_MAVG',rvara=   windspeed_mavg)
-     call shdf5_orec(ndims,idims,     'ACCPMIC_MTOT',rvara=     accpmic_mtot)
-     call shdf5_orec(ndims,idims,     'ACCPCON_MTOT',rvara=     accpcon_mtot)
-     call shdf5_orec(ndims,idims,        'TOT_WATER',rvara=         wstorage)
-
-  endif
 
 !  ndims = 1
 !  idims(1) = mwl
+!  ilpts => iwl_local_primary
+!  igpts => iwl_globe_primary
+!  nglobe = nwl
+!
 !  call shdf5_orec(ndims,idims,'TOT_RUNOFF',rvara=tot_runoff)
 
 !  ndims = 2
 !  idims(1) = 24
 !  idims(2) = mwa
+!  ilpts => iwa_local_primary
+!  igpts => iwa_globe_primary
+!  nglobe = nwa
+!
+!  call shdf5_orec(ndims,idims,'PRESS_AVG24',rvara=press_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,'TEMPK_AVG24',rvara=tempk_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims, 'SHUM_AVG24',rvara= shum_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,  'VXE_AVG24',rvara=  vxe_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,  'VYE_AVG24',rvara=  vye_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,  'VZE_AVG24',rvara=  vze_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
 
-!  call shdf5_orec(ndims,idims,'PRESS_AVG24',rvara=press_avg24)
-!  call shdf5_orec(ndims,idims,'TEMPK_AVG24',rvara=tempk_avg24)
-!  call shdf5_orec(ndims,idims, 'SHUM_AVG24',rvara= shum_avg24)
-!  call shdf5_orec(ndims,idims,  'VXE_AVG24',rvara=  vxe_avg24)
-!  call shdf5_orec(ndims,idims,  'VYE_AVG24',rvara=  vye_avg24)
-!  call shdf5_orec(ndims,idims,  'VZE_AVG24',rvara=  vze_avg24)
-
-!  call shdf5_orec(ndims,idims,      'RSHORT_AVG24',rvara=      rshort_avg24)
-!  call shdf5_orec(ndims,idims,  'RSHORT_TOP_AVG24',rvara=  rshort_top_avg24)
-!  call shdf5_orec(ndims,idims,    'RSHORTUP_AVG24',rvara=    rshortup_avg24)
-!  call shdf5_orec(ndims,idims,'RSHORTUP_TOP_AVG24',rvara=rshortup_top_avg24)
-!  call shdf5_orec(ndims,idims,       'RLONG_AVG24',rvara=       rlong_avg24)
-!  call shdf5_orec(ndims,idims,     'RLONGUP_AVG24',rvara=     rlongup_avg24)
-!  call shdf5_orec(ndims,idims, 'RLONGUP_TOP_AVG24',rvara= rlongup_top_avg24)
-!  call shdf5_orec(ndims,idims,     'LATFLUX_AVG24',rvara=     latflux_avg24)
-!  call shdf5_orec(ndims,idims,    'SENSFLUX_AVG24',rvara=    sensflux_avg24)
-!  call shdf5_orec(ndims,idims,     'ACCPMIC_TOT24',rvara=     accpmic_tot24)
-!  call shdf5_orec(ndims,idims,     'ACCPCON_TOT24',rvara=     accpcon_tot24)
+!  call shdf5_orec(ndims,idims,      'RSHORT_AVG24',rvara=      rshort_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,  'RSHORT_TOP_AVG24',rvara=  rshort_top_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,    'RSHORTUP_AVG24',rvara=    rshortup_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,'RSHORTUP_TOP_AVG24',rvara=rshortup_top_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,       'RLONG_AVG24',rvara=       rlong_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,     'RLONGUP_AVG24',rvara=     rlongup_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims, 'RLONGUP_TOP_AVG24',rvara= rlongup_top_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,     'LATFLUX_AVG24',rvara=     latflux_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,    'SENSFLUX_AVG24',rvara=    sensflux_avg24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,     'ACCPMIC_TOT24',rvara=     accpmic_tot24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+!  call shdf5_orec(ndims,idims,     'ACCPCON_TOT24',rvara=     accpcon_tot24, &
+!       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
 
   call shdf5_close()
   
-  return
 end subroutine write_mavg_vars
 
 !===============================================================
@@ -707,157 +694,103 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
 
   !  Write day-average variables
 
-  if (iparallel == 1) then
+  ndims    = 1
+  idims(1) = mwa
 
-     ndims    = 1
-     idims(1) = mwa
+  ilpts => iwa_local_primary
+  igpts => iwa_globe_primary
+  nglobe = nwa
 
-     ilpts => iwa_local_primary
-     igpts => iwa_globe_primary
-     nglobe = nwa
+  call shdf5_orec(ndims,idims,  'PRESS_DAVG',rvara=  press_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,    'VXE_DAVG',rvara=    vxe_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,    'VYE_DAVG',rvara=    vye_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,    'VZE_DAVG',rvara=    vze_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims, 'RSHORT_DAVG',rvara= rshort_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'TEMPK_DAVG',rvara=  tempk_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'TEMPK_DMIN',  rvara=tempk_dmin, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'TEMPK_DMAX',  rvara=tempk_dmax, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'ACCPMIC_DTOT',rvara=accpmic_dtot, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'ACCPCON_DTOT',rvara=accpcon_dtot, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
 
-     call shdf5_orec(ndims,idims,  'PRESS_DAVG',rvara=  press_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,    'VXE_DAVG',rvara=    vxe_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,    'VYE_DAVG',rvara=    vye_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,    'VZE_DAVG',rvara=    vze_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims, 'RSHORT_DAVG',rvara= rshort_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'TEMPK_DAVG',rvara=  tempk_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'TEMPK_DMIN',  rvara=tempk_dmin, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'TEMPK_DMAX',  rvara=tempk_dmax, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'ACCPMIC_DTOT',rvara=accpmic_dtot, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'ACCPCON_DTOT',rvara=accpcon_dtot, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'PRESS_UL_DAVG',rvara=press_ul_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'VXE_UL_DAVG',rvara=  vxe_ul_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'VYE_UL_DAVG',rvara=  vye_ul_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'VZE_UL_DAVG',rvara=  vze_ul_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
 
-     call shdf5_orec(ndims,idims,'PRESS_UL_DAVG',rvara=press_ul_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'VXE_UL_DAVG',rvara=  vxe_ul_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'VYE_UL_DAVG',rvara=  vye_ul_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'VZE_UL_DAVG',rvara=  vze_ul_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  idims(1) = mwl
 
-     idims(1) = mwl
+  ilpts => iwl_local_primary
+  igpts => iwl_globe_primary
+  nglobe = nwl
 
-     ilpts => iwl_local_primary
-     igpts => iwl_globe_primary
-     nglobe = nwl
+  call shdf5_orec(ndims,idims,'AIRTEMPK_L_DAVG',rvara=airtempk_l_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'AIRTEMPK_L_DMIN',rvara=airtempk_l_dmin, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'AIRTEMPK_L_DMAX',rvara=airtempk_l_dmax, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'CANTEMPK_L_DAVG',rvara=cantempk_l_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'CANTEMPK_L_DMIN',rvara=cantempk_l_dmin, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'CANTEMPK_L_DMAX',rvara=cantempk_l_dmax, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'VEGTEMPK_DAVG',rvara=  vegtempk_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'VEGTEMPK_DMIN',rvara=  vegtempk_dmin, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'VEGTEMPK_DMAX',rvara=  vegtempk_dmax, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims, 'SOILTEMPK_DAVG',rvara= soiltempk_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims, 'SOILTEMPK_DMIN',rvara= soiltempk_dmin, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims, 'SOILTEMPK_DMAX',rvara= soiltempk_dmax, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'SFLUXT_L_DAVG',rvara=  sfluxt_l_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'SFLUXR_L_DAVG',rvara=  sfluxr_l_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
 
-     call shdf5_orec(ndims,idims,'AIRTEMPK_L_DAVG',rvara=airtempk_l_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'AIRTEMPK_L_DMIN',rvara=airtempk_l_dmin, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'AIRTEMPK_L_DMAX',rvara=airtempk_l_dmax, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANTEMPK_L_DAVG',rvara=cantempk_l_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANTEMPK_L_DMIN',rvara=cantempk_l_dmin, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANTEMPK_L_DMAX',rvara=cantempk_l_dmax, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'VEGTEMPK_DAVG',rvara=  vegtempk_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'VEGTEMPK_DMIN',rvara=  vegtempk_dmin, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'VEGTEMPK_DMAX',rvara=  vegtempk_dmax, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims, 'SOILTEMPK_DAVG',rvara= soiltempk_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims, 'SOILTEMPK_DMIN',rvara= soiltempk_dmin, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims, 'SOILTEMPK_DMAX',rvara= soiltempk_dmax, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'SFLUXT_L_DAVG',rvara=  sfluxt_l_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'SFLUXR_L_DAVG',rvara=  sfluxr_l_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  idims(1) = mws
 
-     idims(1) = mws
+  ilpts => iws_local_primary
+  igpts => iws_globe_primary
+  nglobe = nws
 
-     ilpts => iws_local_primary
-     igpts => iws_globe_primary
-     nglobe = nws
-
-     call shdf5_orec(ndims,idims,'AIRTEMPK_S_DAVG',rvara=airtempk_s_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'AIRTEMPK_S_DMIN',rvara=airtempk_s_dmin, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'AIRTEMPK_S_DMAX',rvara=airtempk_s_dmax, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANTEMPK_S_DAVG',rvara=cantempk_s_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANTEMPK_S_DMIN',rvara=cantempk_s_dmin, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,'CANTEMPK_S_DMAX',rvara=cantempk_s_dmax, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'SFLUXT_S_DAVG',rvara=  sfluxt_s_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-     call shdf5_orec(ndims,idims,  'SFLUXR_S_DAVG',rvara=  sfluxr_s_davg, &
-          lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-
-  else
-
-     ndims    = 1
-     idims(1) = mwa
-
-     call shdf5_orec(ndims,idims,  'PRESS_DAVG',rvara=  press_davg)
-     call shdf5_orec(ndims,idims,    'VXE_DAVG',rvara=    vxe_davg)
-     call shdf5_orec(ndims,idims,    'VYE_DAVG',rvara=    vye_davg)
-     call shdf5_orec(ndims,idims,    'VZE_DAVG',rvara=    vze_davg)
-     call shdf5_orec(ndims,idims, 'RSHORT_DAVG',rvara= rshort_davg)
-     call shdf5_orec(ndims,idims,  'TEMPK_DAVG',rvara=  tempk_davg)
-     call shdf5_orec(ndims,idims,  'TEMPK_DMIN',rvara=  tempk_dmin)
-     call shdf5_orec(ndims,idims,  'TEMPK_DMAX',rvara=  tempk_dmax)
-     call shdf5_orec(ndims,idims,'ACCPMIC_DTOT',rvara=accpmic_dtot)
-     call shdf5_orec(ndims,idims,'ACCPCON_DTOT',rvara=accpcon_dtot)
-
-     call shdf5_orec(ndims,idims,'PRESS_UL_DAVG',rvara=press_ul_davg)
-     call shdf5_orec(ndims,idims,  'VXE_UL_DAVG',  rvara=vxe_ul_davg)
-     call shdf5_orec(ndims,idims,  'VYE_UL_DAVG',  rvara=vye_ul_davg)
-     call shdf5_orec(ndims,idims,  'VZE_UL_DAVG',  rvara=vze_ul_davg)
-
-     idims(1) = mwl
-
-     call shdf5_orec(ndims,idims,'AIRTEMPK_L_DAVG',rvara=airtempk_l_davg)
-     call shdf5_orec(ndims,idims,'AIRTEMPK_L_DMIN',rvara=airtempk_l_dmin)
-     call shdf5_orec(ndims,idims,'AIRTEMPK_L_DMAX',rvara=airtempk_l_dmax)
-     call shdf5_orec(ndims,idims,'CANTEMPK_L_DAVG',rvara=cantempk_l_davg)
-     call shdf5_orec(ndims,idims,'CANTEMPK_L_DMIN',rvara=cantempk_l_dmin)
-     call shdf5_orec(ndims,idims,'CANTEMPK_L_DMAX',rvara=cantempk_l_dmax)
-     call shdf5_orec(ndims,idims,  'VEGTEMPK_DAVG',rvara=  vegtempk_davg)
-     call shdf5_orec(ndims,idims,  'VEGTEMPK_DMIN',rvara=  vegtempk_dmin)
-     call shdf5_orec(ndims,idims,  'VEGTEMPK_DMAX',rvara=  vegtempk_dmax)
-     call shdf5_orec(ndims,idims, 'SOILTEMPK_DAVG',rvara= soiltempk_davg)
-     call shdf5_orec(ndims,idims, 'SOILTEMPK_DMIN',rvara= soiltempk_dmin)
-     call shdf5_orec(ndims,idims, 'SOILTEMPK_DMAX',rvara= soiltempk_dmax)
-     call shdf5_orec(ndims,idims,  'SFLUXT_L_DAVG',rvara=  sfluxt_l_davg)
-     call shdf5_orec(ndims,idims,  'SFLUXR_L_DAVG',rvara=  sfluxr_l_davg)
-
-     idims(1) = mws
-
-     call shdf5_orec(ndims,idims,'AIRTEMPK_S_DAVG',rvara=airtempk_s_davg)
-     call shdf5_orec(ndims,idims,'AIRTEMPK_S_DMIN',rvara=airtempk_s_dmin)
-     call shdf5_orec(ndims,idims,'AIRTEMPK_S_DMAX',rvara=airtempk_s_dmax)
-     call shdf5_orec(ndims,idims,'CANTEMPK_S_DAVG',rvara=cantempk_s_davg)
-     call shdf5_orec(ndims,idims,'CANTEMPK_S_DMIN',rvara=cantempk_s_dmin)
-     call shdf5_orec(ndims,idims,'CANTEMPK_S_DMAX',rvara=cantempk_s_dmax)
-     call shdf5_orec(ndims,idims,  'SFLUXT_S_DAVG',rvara=  sfluxt_s_davg)
-     call shdf5_orec(ndims,idims,  'SFLUXR_S_DAVG',rvara=  sfluxr_s_davg)
-
-  endif
-
+  call shdf5_orec(ndims,idims,'AIRTEMPK_S_DAVG',rvara=airtempk_s_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'AIRTEMPK_S_DMIN',rvara=airtempk_s_dmin, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'AIRTEMPK_S_DMAX',rvara=airtempk_s_dmax, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'CANTEMPK_S_DAVG',rvara=cantempk_s_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'CANTEMPK_S_DMIN',rvara=cantempk_s_dmin, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,'CANTEMPK_S_DMAX',rvara=cantempk_s_dmax, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'SFLUXT_S_DAVG',rvara=  sfluxt_s_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  call shdf5_orec(ndims,idims,  'SFLUXR_S_DAVG',rvara=  sfluxr_s_davg, &
+       lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
+  
   call shdf5_close()
 
-  return
 end subroutine write_davg_vars
 
 !===============================================================
@@ -878,18 +811,21 @@ subroutine read_mavg_vars(mavgfile)
      latflux_avg24, sensflux_avg24, &
      accpmic_tot24, accpcon_tot24
 
-  use misc_coms, only: io6
+  use misc_coms,  only: io6
   use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
-  use mem_grid, only: mwa, nwa
+  use mem_grid,   only: mwa, nwa
+  use mem_ijtabs, only: itab_w
+  use mem_leaf,   only: itab_wl
 
   implicit none
 
   character(*), intent(in) :: mavgfile
 
-  logical exans
+  logical :: exans
   integer :: ndims, idims(2)
   character(len=32) :: varn
-  
+  integer, pointer :: ilocal(:)
+
   inquire(file=mavgfile,exist=exans)
 
   if (exans) then
@@ -907,60 +843,65 @@ subroutine read_mavg_vars(mavgfile)
      ndims    = 2
      idims(1) = nz_avg
      idims(2) = mwa
+     ilocal => itab_w(:)%iwglobe
 
-     call shdf5_irec(ndims,idims,'PRESS_MAVG',rvara=press_mavg)
-     call shdf5_irec(ndims,idims,  'RHO_MAVG',rvara=  rho_mavg)
-     call shdf5_irec(ndims,idims,'TEMPK_MAVG',rvara=tempk_mavg)
-     call shdf5_irec(ndims,idims, 'SH_V_MAVG',rvara= sh_v_mavg)
-     call shdf5_irec(ndims,idims, 'SH_W_MAVG',rvara= sh_w_mavg)
-     call shdf5_irec(ndims,idims,   'WC_MAVG',rvara=   wc_mavg)
-     call shdf5_irec(ndims,idims,  'VXE_MAVG',rvara=  vxe_mavg)
-     call shdf5_irec(ndims,idims,  'VYE_MAVG',rvara=  vye_mavg)
-     call shdf5_irec(ndims,idims,  'VZE_MAVG',rvara=  vze_mavg)
+     call shdf5_irec(ndims,idims,'PRESS_MAVG',rvara=press_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'RHO_MAVG',rvara=  rho_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,'TEMPK_MAVG',rvara=tempk_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims, 'SH_V_MAVG',rvara= sh_v_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims, 'SH_W_MAVG',rvara= sh_w_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,   'WC_MAVG',rvara=   wc_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'VXE_MAVG',rvara=  vxe_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'VYE_MAVG',rvara=  vye_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'VZE_MAVG',rvara=  vze_mavg, points=ilocal)
 
      ndims    = 1
      idims(1) = mwa
+     ilocal => itab_w(:)%iwglobe
 
-     call shdf5_irec(ndims,idims,      'RSHORT_MAVG',rvara=      rshort_mavg)
-     call shdf5_irec(ndims,idims,  'RSHORT_TOP_MAVG',rvara=  rshort_top_mavg)
-     call shdf5_irec(ndims,idims,    'RSHORTUP_MAVG',rvara=    rshortup_mavg)
-     call shdf5_irec(ndims,idims,'RSHORTUP_TOP_MAVG',rvara=rshortup_top_mavg)
-     call shdf5_irec(ndims,idims,       'RLONG_MAVG',rvara=       rlong_mavg)
-     call shdf5_irec(ndims,idims,     'RLONGUP_MAVG',rvara=     rlongup_mavg)
-     call shdf5_irec(ndims,idims, 'RLONGUP_TOP_MAVG',rvara= rlongup_top_mavg)
-     call shdf5_irec(ndims,idims,     'LATFLUX_MAVG',rvara=     latflux_mavg)
-     call shdf5_irec(ndims,idims,    'SENSFLUX_MAVG',rvara=    sensflux_mavg)
-     call shdf5_irec(ndims,idims,   'WINDSPEED_MAVG',rvara=   windspeed_mavg)
-     call shdf5_irec(ndims,idims,     'ACCPMIC_MTOT',rvara=     accpmic_mtot)
-     call shdf5_irec(ndims,idims,     'ACCPCON_MTOT',rvara=     accpcon_mtot)
-!     call shdf5_irec(ndims,idims,       'TOT_WATER',rvara=         wstorage)
+     call shdf5_irec(ndims,idims,      'RSHORT_MAVG',rvara=      rshort_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'RSHORT_TOP_MAVG',rvara=  rshort_top_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,    'RSHORTUP_MAVG',rvara=    rshortup_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,'RSHORTUP_TOP_MAVG',rvara=rshortup_top_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,       'RLONG_MAVG',rvara=       rlong_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,     'RLONGUP_MAVG',rvara=     rlongup_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims, 'RLONGUP_TOP_MAVG',rvara= rlongup_top_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,     'LATFLUX_MAVG',rvara=     latflux_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,    'SENSFLUX_MAVG',rvara=    sensflux_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,   'WINDSPEED_MAVG',rvara=   windspeed_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims,     'ACCPMIC_MTOT',rvara=     accpmic_mtot, points=ilocal)
+     call shdf5_irec(ndims,idims,     'ACCPCON_MTOT',rvara=     accpcon_mtot, points=ilocal)
+!    call shdf5_irec(ndims,idims,        'TOT_WATER',rvara=         wstorage, points=ilocal)
 
 !     ndims = 1
 !     idims(1) = mwl
-!     call shdf5_irec(ndims,idims,'TOT_RUNOFF',rvara=tot_runoff)
-
+!     ilocal => itab_wl(:)%iwglobe
+!
+!     call shdf5_irec(ndims,idims,'TOT_RUNOFF',rvara=tot_runoff, points=ilocal)
+!
 !     ndims = 2
 !     idims(1) = 24
 !     idims(2) = mwa
-
-!     call shdf5_irec(ndims,idims,'PRESS_AVG24',rvara=press_avg24)
-!     call shdf5_irec(ndims,idims,'TEMPK_AVG24',rvara=tempk_avg24)
-!     call shdf5_irec(ndims,idims, 'SHUM_AVG24',rvara= shum_avg24)
-!     call shdf5_irec(ndims,idims,  'VXE_AVG24',rvara=  vxe_avg24)
-!     call shdf5_irec(ndims,idims,  'VYE_AVG24',rvara=  vye_avg24)
-!     call shdf5_irec(ndims,idims,  'VZE_AVG24',rvara=  vze_avg24)
-
-!     call shdf5_irec(ndims,idims,      'RSHORT_AVG24',rvara=      rshort_avg24)
-!     call shdf5_irec(ndims,idims,  'RSHORT_TOP_AVG24',rvara=  rshort_top_avg24)
-!     call shdf5_irec(ndims,idims,    'RSHORTUP_AVG24',rvara=    rshortup_avg24)
-!     call shdf5_irec(ndims,idims,'RSHORTUP_TOP_AVG24',rvara=rshortup_top_avg24)
-!     call shdf5_irec(ndims,idims,       'RLONG_AVG24',rvara=       rlong_avg24)
-!     call shdf5_irec(ndims,idims,     'RLONGUP_AVG24',rvara=     rlongup_avg24)
-!     call shdf5_irec(ndims,idims, 'RLONGUP_TOP_AVG24',rvara= rlongup_top_avg24)
-!     call shdf5_irec(ndims,idims,     'LATFLUX_AVG24',rvara=     latflux_avg24)
-!     call shdf5_irec(ndims,idims,    'SENSFLUX_AVG24',rvara=    sensflux_avg24)
-!     call shdf5_irec(ndims,idims,     'ACCPMIC_TOT24',rvara=     accpmic_tot24)
-!     call shdf5_irec(ndims,idims,     'ACCPCON_TOT24',rvara=     accpcon_tot24)
+!     ilocal => itab_w(:)%iwglobe
+!
+!     call shdf5_irec(ndims,idims,'PRESS_AVG24',rvara=press_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims,'TEMPK_AVG24',rvara=tempk_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims, 'SHUM_AVG24',rvara= shum_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims,  'VXE_AVG24',rvara=  vxe_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims,  'VYE_AVG24',rvara=  vye_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims,  'VZE_AVG24',rvara=  vze_avg24, points=ilocal)
+!
+!     call shdf5_irec(ndims,idims,      'RSHORT_AVG24',rvara=      rshort_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims,  'RSHORT_TOP_AVG24',rvara=  rshort_top_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims,    'RSHORTUP_AVG24',rvara=    rshortup_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims,'RSHORTUP_TOP_AVG24',rvara=rshortup_top_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims,       'RLONG_AVG24',rvara=       rlong_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims,     'RLONGUP_AVG24',rvara=     rlongup_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims, 'RLONGUP_TOP_AVG24',rvara= rlongup_top_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims,     'LATFLUX_AVG24',rvara=     latflux_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims,    'SENSFLUX_AVG24',rvara=    sensflux_avg24, points=ilocal)
+!     call shdf5_irec(ndims,idims,     'ACCPMIC_TOT24',rvara=     accpmic_tot24, points=ilocal)
+!     call shdf5_irec(ndims,idims,     'ACCPCON_TOT24',rvara=     accpcon_tot24, points=ilocal)
 
      call shdf5_close()
   
@@ -1002,14 +943,18 @@ subroutine read_davg_vars(davgfile)
   use mem_grid,   only: mwa
   use leaf_coms,  only: mwl
   use sea_coms,   only: mws
+  use mem_ijtabs, only: itabg_w, itab_w, itab_v, itab_m
+  use mem_leaf,   only: itab_wl
+  use mem_sea,    only: itab_ws
 
   implicit none
 
   character(*), intent(in) :: davgfile
 
-  logical exans
+  logical :: exans
   integer :: ndims, idims(2)
   character(len=32) :: varn
+  integer, pointer :: ilocal(:)
 
   inquire(file=davgfile,exist=exans)
 
@@ -1027,50 +972,53 @@ subroutine read_davg_vars(davgfile)
   
      ndims    = 1
      idims(1) = mwa
+     ilocal => itab_w(:)%iwglobe
 
-     call shdf5_irec(ndims,idims,  'PRESS_DAVG',rvara=  press_davg)
-     call shdf5_irec(ndims,idims,    'VXE_DAVG',rvara=    vxe_davg)
-     call shdf5_irec(ndims,idims,    'VYE_DAVG',rvara=    vye_davg)
-     call shdf5_irec(ndims,idims,    'VZE_DAVG',rvara=    vze_davg)
-     call shdf5_irec(ndims,idims, 'RSHORT_DAVG',rvara= rshort_davg)
-     call shdf5_irec(ndims,idims,  'TEMPK_DAVG',rvara=  tempk_davg)
-     call shdf5_irec(ndims,idims,  'TEMPK_DMIN',rvara=  tempk_dmin)
-     call shdf5_irec(ndims,idims,  'TEMPK_DMAX',rvara=  tempk_dmax)
-     call shdf5_irec(ndims,idims,'ACCPMIC_DTOT',rvara=accpmic_dtot)
-     call shdf5_irec(ndims,idims,'ACCPCON_DTOT',rvara=accpcon_dtot)
+     call shdf5_irec(ndims,idims,  'PRESS_DAVG',rvara=  press_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,    'VXE_DAVG',rvara=    vxe_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,    'VYE_DAVG',rvara=    vye_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,    'VZE_DAVG',rvara=    vze_davg, points=ilocal)
+     call shdf5_irec(ndims,idims, 'RSHORT_DAVG',rvara= rshort_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'TEMPK_DAVG',rvara=  tempk_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'TEMPK_DMIN',rvara=  tempk_dmin, points=ilocal)
+     call shdf5_irec(ndims,idims,  'TEMPK_DMAX',rvara=  tempk_dmax, points=ilocal)
+     call shdf5_irec(ndims,idims,'ACCPMIC_DTOT',rvara=accpmic_dtot, points=ilocal)
+     call shdf5_irec(ndims,idims,'ACCPCON_DTOT',rvara=accpcon_dtot, points=ilocal)
 
-     call shdf5_irec(ndims,idims,'PRESS_UL_DAVG',rvara=press_ul_davg)
-     call shdf5_irec(ndims,idims,  'VXE_UL_DAVG',rvara=  vxe_ul_davg)
-     call shdf5_irec(ndims,idims,  'VYE_UL_DAVG',rvara=  vye_ul_davg)
-     call shdf5_irec(ndims,idims,  'VZE_UL_DAVG',rvara=  vze_ul_davg)
+     call shdf5_irec(ndims,idims,'PRESS_UL_DAVG',rvara=press_ul_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'VXE_UL_DAVG',rvara=  vxe_ul_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'VYE_UL_DAVG',rvara=  vye_ul_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'VZE_UL_DAVG',rvara=  vze_ul_davg, points=ilocal)
 
      idims(1) = mwl
+     ilocal => itab_wl(:)%iwglobe
 
-     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DAVG',rvara=airtempk_l_davg)
-     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DMIN',rvara=airtempk_l_dmin)
-     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DMAX',rvara=airtempk_l_dmax)
-     call shdf5_irec(ndims,idims,'CANTEMPK_L_DAVG',rvara=cantempk_l_davg)
-     call shdf5_irec(ndims,idims,'CANTEMPK_L_DMIN',rvara=cantempk_l_dmin)
-     call shdf5_irec(ndims,idims,'CANTEMPK_L_DMAX',rvara=cantempk_l_dmax)
-     call shdf5_irec(ndims,idims,  'VEGTEMPK_DAVG',rvara=  vegtempk_davg)
-     call shdf5_irec(ndims,idims,  'VEGTEMPK_DMIN',rvara=  vegtempk_dmin)
-     call shdf5_irec(ndims,idims,  'VEGTEMPK_DMAX',rvara=  vegtempk_dmax)
-     call shdf5_irec(ndims,idims, 'SOILTEMPK_DAVG',rvara= soiltempk_davg)
-     call shdf5_irec(ndims,idims, 'SOILTEMPK_DMIN',rvara= soiltempk_dmin)
-     call shdf5_irec(ndims,idims, 'SOILTEMPK_DMAX',rvara= soiltempk_dmax)
-     call shdf5_irec(ndims,idims,  'SFLUXT_L_DAVG',rvara=  sfluxt_l_davg)
-     call shdf5_irec(ndims,idims,  'SFLUXR_L_DAVG',rvara=  sfluxr_l_davg)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DAVG',rvara=airtempk_l_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DMIN',rvara=airtempk_l_dmin, points=ilocal)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DMAX',rvara=airtempk_l_dmax, points=ilocal)
+     call shdf5_irec(ndims,idims,'CANTEMPK_L_DAVG',rvara=cantempk_l_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,'CANTEMPK_L_DMIN',rvara=cantempk_l_dmin, points=ilocal)
+     call shdf5_irec(ndims,idims,'CANTEMPK_L_DMAX',rvara=cantempk_l_dmax, points=ilocal)
+     call shdf5_irec(ndims,idims,  'VEGTEMPK_DAVG',rvara=  vegtempk_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'VEGTEMPK_DMIN',rvara=  vegtempk_dmin, points=ilocal)
+     call shdf5_irec(ndims,idims,  'VEGTEMPK_DMAX',rvara=  vegtempk_dmax, points=ilocal)
+     call shdf5_irec(ndims,idims, 'SOILTEMPK_DAVG',rvara= soiltempk_davg, points=ilocal)
+     call shdf5_irec(ndims,idims, 'SOILTEMPK_DMIN',rvara= soiltempk_dmin, points=ilocal)
+     call shdf5_irec(ndims,idims, 'SOILTEMPK_DMAX',rvara= soiltempk_dmax, points=ilocal)
+     call shdf5_irec(ndims,idims,  'SFLUXT_L_DAVG',rvara=  sfluxt_l_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'SFLUXR_L_DAVG',rvara=  sfluxr_l_davg, points=ilocal)
 
      idims(1) = mws
+     ilocal => itab_ws(:)%iwglobe
 
-     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DAVG',rvara=airtempk_s_davg)
-     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DMIN',rvara=airtempk_s_dmin)
-     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DMAX',rvara=airtempk_s_dmax)
-     call shdf5_irec(ndims,idims,'CANTEMPK_S_DAVG',rvara=cantempk_s_davg)
-     call shdf5_irec(ndims,idims,'CANTEMPK_S_DMIN',rvara=cantempk_s_dmin)
-     call shdf5_irec(ndims,idims,'CANTEMPK_S_DMAX',rvara=cantempk_s_dmax)
-     call shdf5_irec(ndims,idims,  'SFLUXT_S_DAVG',rvara=  sfluxt_s_davg)
-     call shdf5_irec(ndims,idims,  'SFLUXR_S_DAVG',rvara=  sfluxr_s_davg)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DAVG',rvara=airtempk_s_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DMIN',rvara=airtempk_s_dmin, points=ilocal)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DMAX',rvara=airtempk_s_dmax, points=ilocal)
+     call shdf5_irec(ndims,idims,'CANTEMPK_S_DAVG',rvara=cantempk_s_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,'CANTEMPK_S_DMIN',rvara=cantempk_s_dmin, points=ilocal)
+     call shdf5_irec(ndims,idims,'CANTEMPK_S_DMAX',rvara=cantempk_s_dmax, points=ilocal)
+     call shdf5_irec(ndims,idims,  'SFLUXT_S_DAVG',rvara=  sfluxt_s_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,  'SFLUXR_S_DAVG',rvara=  sfluxr_s_davg, points=ilocal)
 
      call shdf5_close()
   else
@@ -1086,7 +1034,6 @@ subroutine read_davg_vars(davgfile)
    
   endif
 
-  return
 end subroutine read_davg_vars
 
 !=============================================================================

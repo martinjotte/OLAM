@@ -78,11 +78,7 @@ subroutine history_start(action)
         ! Read the model fields
         call shdf5_irec(1, (/1/), 'time8', dvars=time8)
 
-        if (isubdomain == 1) then
-           call hist_read_subd()
-        else
-           call hist_read_glob()
-        endif
+        call hist_read()
 
         write(io6,*) 'back from hist_read'
 
@@ -108,102 +104,10 @@ end subroutine history_start
 
 !=========================================================================
 
-subroutine hist_read_glob()
-
-  ! Sequential run reading all points from a global history file
-
-  use misc_coms,  only: io6, hfilin, runtype
-  use var_tables, only: num_var, vtab_r, get_vtab_dims
-  use hdf5_utils, only: shdf5_open, shdf5_info, shdf5_irec, shdf5_close
-
-  implicit none
-
-  integer           :: nv, nvcnt, ndims, ndims_m, idims(3), idims_m(3)
-  character(len=32) :: varn
-
-  nvcnt =  0
-
-  ! Loop through all variables in the model vtables
-
-  do nv = 1, num_var
-
-     ndims = -1
-     idims =  0
-
-     ! Skip to next variable if we don't want the current one
-
-     if (.not. vtab_r(nv)%ihist) cycle
-     if (vtab_r(nv)%nread .and. runtype == 'HISTORY') cycle
-   
-     varn = trim(vtab_r(nv)%name)
-     call get_vtab_dims(nv, ndims_m, idims_m)
-
-     ! We want it...read it if it's in the history file
-
-     call shdf5_info(varn, ndims, idims)
-
-     ! Skip to next variable if the current one is not in the history file
-
-     if (ndims < 0) then
-        write(io6,*)
-        write(io6,*) 'Variable '//trim(varn)//' is not in the history file, skipping'
-        write(io6,*)
-        cycle
-     endif
-
-     ! Report an error if the variable dimensions are different
-
-     if (ndims /= ndims_m .or. any(idims(1:ndims) /= idims_m(1:ndims))) then
-        write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-        write(io6,*) '!!!   Trying to read variable '//trim(varn)
-        write(io6,*) '!!!   from the history file '//trim(hfilin)
-        write(io6,*) '!!!   but the array size is different. '
-        write(io6,*) '!!!   ndims, ndims_m = ',ndims,ndims_m
-        write(io6,*) '!!!   idims  (1:ndims) = ',idims  (1:ndims)
-        write(io6,*) '!!!   idims_m(1:ndims) = ',idims_m(1:ndims)
-        write(io6,*) '!!!   The run is ended'
-        write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-        stop    'stop in hist_read'
-     endif
-
-     if     (associated(vtab_r(nv)%ivar1_p)) then
-        call shdf5_irec(ndims, idims, trim(varn), ivara=vtab_r(nv)%ivar1_p)
-     elseif (associated(vtab_r(nv)%ivar2_p)) then
-        call shdf5_irec(ndims, idims, trim(varn), ivara=vtab_r(nv)%ivar2_p)
-     elseif (associated(vtab_r(nv)%ivar3_p)) then
-        call shdf5_irec(ndims, idims, trim(varn), ivara=vtab_r(nv)%ivar3_p)
-
-     elseif (associated(vtab_r(nv)%rvar1_p)) then
-        call shdf5_irec(ndims, idims, trim(varn), rvara=vtab_r(nv)%rvar1_p)
-     elseif (associated(vtab_r(nv)%rvar2_p)) then
-        call shdf5_irec(ndims, idims, trim(varn), rvara=vtab_r(nv)%rvar2_p)
-     elseif (associated(vtab_r(nv)%rvar3_p)) then
-        call shdf5_irec(ndims, idims, trim(varn), rvara=vtab_r(nv)%rvar3_p)
-
-     elseif (associated(vtab_r(nv)%dvar1_p)) then
-        call shdf5_irec(ndims, idims, trim(varn), dvara=vtab_r(nv)%dvar1_p)
-     elseif (associated(vtab_r(nv)%dvar2_p)) then
-        call shdf5_irec(ndims, idims, trim(varn), dvara=vtab_r(nv)%dvar2_p)
-     elseif (associated(vtab_r(nv)%dvar3_p)) then
-        call shdf5_irec(ndims, idims, trim(varn), dvara=vtab_r(nv)%dvar3_p)
-     endif
-   
-     nvcnt = nvcnt + 1
-     write(io6, '(1x,a,I0,1x,a,3(1x,I0))')  &
-           'Read: ', nvcnt, trim(varn), idims(1:ndims)
-  enddo
-
-end subroutine hist_read_glob
-
-!=========================================================================
-
-subroutine hist_read_subd()
-
-  ! Parallel node reading portion of a global history file,
-  ! or a serial run reading a subdomain
+subroutine hist_read()
 
   use mem_grid,    only: nwa, nva, nma, mwa, mva, mma, mza
-  use mem_ijtabs,  only: itabg_w, itab_w, itab_v, itab_m
+  use mem_ijtabs,  only: itab_w, itab_v, itab_m
   use misc_coms,   only: io6, runtype
   use var_tables,  only: num_var, vtab_r, get_vtab_dims
   use hdf5_utils,  only: shdf5_info, shdf5_irec
@@ -277,7 +181,7 @@ subroutine hist_read_subd()
         ! TODO: Const values
         ! TODO: Land U and M; Sea U and M? (probably not!)
 
-        stop "invalid array size in history_start_s"
+        stop "invalid array size in history_read"
      endif
 
      if     (associated(vtab_r(nv)%ivar1_p)) then
@@ -300,4 +204,4 @@ subroutine hist_read_subd()
 
   enddo
 
-end subroutine hist_read_subd
+end subroutine hist_read

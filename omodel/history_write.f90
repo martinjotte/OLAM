@@ -103,113 +103,83 @@ subroutine history_write(vtype)
         write (io6, '(1x,a,2(I0,1x),a,3(1x,I0))')  &
              'Writing: ', nv, num_var, trim(varn), idims(1:ndims)
 
-        if (iparallel == 1) then
+        stagpt = vtab_r(nv)%stagpt
 
-           stagpt = vtab_r(nv)%stagpt
-           
-           if     (stagpt == 'AW') then
-              ilpts => iwa_local_primary
-              igpts => iwa_globe_primary
-              nglobe = nwa
-           elseif (stagpt == 'AV') then
-              ilpts => iva_local_primary
-              igpts => iva_globe_primary
-              nglobe = nva
-           elseif (stagpt == 'AM') then
-              ilpts => ima_local_primary
-              igpts => ima_globe_primary
-              nglobe = nma
-           elseif (stagpt == 'LW') then
-              ilpts => iwl_local_primary
-              igpts => iwl_globe_primary
-              nglobe = nwl
-           elseif (stagpt == 'SW') then
-              ilpts => iws_local_primary
-              igpts => iws_globe_primary
-              nglobe = nws
-           elseif (stagpt == 'AN') then
-              ilpts => iwnud_local_primary
-              igpts => iwnud_globe_primary
-              nglobe = nwnud
-           else
-              ! TODO: Const values
-              ! TODO: Land U and M; Sea U and M? (probably not!)
-              ! See history_start too
-              stop "invalid array size in history_write for parallel output"
-           endif
+        ! Identify which points will be written to disk
 
-           if     (associated(vtab_r(nv)%ivar0_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), ivars=vtab_r(nv)%ivar0_p, &
-                              lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-           elseif (associated(vtab_r(nv)%ivar1_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), ivara=vtab_r(nv)%ivar1_p, &
-                              lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-           elseif (associated(vtab_r(nv)%ivar2_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), ivara=vtab_r(nv)%ivar2_p, &
-                              lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-           elseif (associated(vtab_r(nv)%ivar3_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), ivara=vtab_r(nv)%ivar3_p, &
-                              lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-              
-           elseif (associated(vtab_r(nv)%rvar0_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), rvars=vtab_r(nv)%rvar0_p, &
-                              lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-           elseif (associated(vtab_r(nv)%rvar1_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), rvara=vtab_r(nv)%rvar1_p, &
-                              lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-           elseif (associated(vtab_r(nv)%rvar2_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), rvara=vtab_r(nv)%rvar2_p, &
-                              lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-           elseif (associated(vtab_r(nv)%rvar3_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), rvara=vtab_r(nv)%rvar3_p, &
-                              lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-
-           elseif (associated(vtab_r(nv)%dvar0_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), dvars=vtab_r(nv)%dvar0_p, &
-                              lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-           elseif (associated(vtab_r(nv)%dvar1_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), dvara=vtab_r(nv)%dvar1_p, &
-                              lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-           elseif (associated(vtab_r(nv)%dvar2_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), dvara=vtab_r(nv)%dvar2_p, &
-                              lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-           elseif (associated(vtab_r(nv)%dvar3_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), dvara=vtab_r(nv)%dvar3_p, &
-                              lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-           endif
-           
+        if     (stagpt == 'AW') then
+           ilpts => iwa_local_primary
+           igpts => iwa_globe_primary
+           nglobe = nwa
+        elseif (stagpt == 'AV') then
+           ilpts => iva_local_primary
+           igpts => iva_globe_primary
+           nglobe = nva
+        elseif (stagpt == 'AM') then
+           ilpts => ima_local_primary
+           igpts => ima_globe_primary
+           nglobe = nma
+        elseif (stagpt == 'LW') then
+           ilpts => iwl_local_primary
+           igpts => iwl_globe_primary
+           nglobe = nwl
+        elseif (stagpt == 'SW') then
+           ilpts => iws_local_primary
+           igpts => iws_globe_primary
+           nglobe = nws
+        elseif (stagpt == 'AN') then
+           ilpts => iwnud_local_primary
+           igpts => iwnud_globe_primary
+           nglobe = nwnud
         else
-
-           if     (associated(vtab_r(nv)%ivar0_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), ivars=vtab_r(nv)%ivar0_p)
-           elseif (associated(vtab_r(nv)%ivar1_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), ivara=vtab_r(nv)%ivar1_p)
-           elseif (associated(vtab_r(nv)%ivar2_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), ivara=vtab_r(nv)%ivar2_p)
-           elseif (associated(vtab_r(nv)%ivar3_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), ivara=vtab_r(nv)%ivar3_p)
-              
-           elseif (associated(vtab_r(nv)%rvar0_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), rvars=vtab_r(nv)%rvar0_p)
-           elseif (associated(vtab_r(nv)%rvar1_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), rvara=vtab_r(nv)%rvar1_p)
-           elseif (associated(vtab_r(nv)%rvar2_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), rvara=vtab_r(nv)%rvar2_p)
-           elseif (associated(vtab_r(nv)%rvar3_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), rvara=vtab_r(nv)%rvar3_p)
-
-           elseif (associated(vtab_r(nv)%dvar0_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), dvars=vtab_r(nv)%dvar0_p)
-           elseif (associated(vtab_r(nv)%dvar1_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), dvara=vtab_r(nv)%dvar1_p)
-           elseif (associated(vtab_r(nv)%dvar2_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), dvara=vtab_r(nv)%dvar2_p)
-           elseif (associated(vtab_r(nv)%dvar3_p)) then
-              call shdf5_orec(ndims, idims, trim(varn), dvara=vtab_r(nv)%dvar3_p)
-           endif
-
+           ! TODO: Const values
+           ! TODO: Land U and M; Sea U and M? (probably not!)
+           ! See history_start too
+           stop "invalid array size in history_write for parallel output"
         endif
 
+        ! Now do the writes
+
+        if     (associated(vtab_r(nv)%ivar0_p)) then
+           call shdf5_orec(ndims, idims, varn, ivars=vtab_r(nv)%ivar0_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+        elseif (associated(vtab_r(nv)%ivar1_p)) then
+           call shdf5_orec(ndims, idims, varn, ivara=vtab_r(nv)%ivar1_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+        elseif (associated(vtab_r(nv)%ivar2_p)) then
+           call shdf5_orec(ndims, idims, varn, ivara=vtab_r(nv)%ivar2_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+        elseif (associated(vtab_r(nv)%ivar3_p)) then
+           call shdf5_orec(ndims, idims, varn, ivara=vtab_r(nv)%ivar3_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+              
+        elseif (associated(vtab_r(nv)%rvar0_p)) then
+           call shdf5_orec(ndims, idims, varn, rvars=vtab_r(nv)%rvar0_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+        elseif (associated(vtab_r(nv)%rvar1_p)) then
+           call shdf5_orec(ndims, idims, varn, rvara=vtab_r(nv)%rvar1_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+        elseif (associated(vtab_r(nv)%rvar2_p)) then
+           call shdf5_orec(ndims, idims, varn, rvara=vtab_r(nv)%rvar2_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+        elseif (associated(vtab_r(nv)%rvar3_p)) then
+           call shdf5_orec(ndims, idims, varn, rvara=vtab_r(nv)%rvar3_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+
+        elseif (associated(vtab_r(nv)%dvar0_p)) then
+           call shdf5_orec(ndims, idims, varn, dvars=vtab_r(nv)%dvar0_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+        elseif (associated(vtab_r(nv)%dvar1_p)) then
+           call shdf5_orec(ndims, idims, varn, dvara=vtab_r(nv)%dvar1_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+        elseif (associated(vtab_r(nv)%dvar2_p)) then
+           call shdf5_orec(ndims, idims, varn, dvara=vtab_r(nv)%dvar2_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+        elseif (associated(vtab_r(nv)%dvar3_p)) then
+           call shdf5_orec(ndims, idims, varn, dvara=vtab_r(nv)%dvar3_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+        endif
+           
         nvcnt = nvcnt + 1
 
      endif
