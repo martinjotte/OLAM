@@ -119,19 +119,22 @@ Module oname_coms
       integer :: nudnxp   = 0
       real    :: tnudcent = 0.0
 
-!!    HISTORY FILES
+!!    HISTORY/OUTPUT FILES
 
       integer :: ioutput      = 1
       integer :: ioutput_mavg = 1
       integer :: ioutput_davg = 1
       integer :: ioutput_lite = 0
+      integer :: ioutput_latlon = 0
 
       integer :: iclobber  = 0
       integer :: icompress = 0
       integer :: ipar_out  = 0
-      integer :: iquiet    = 0
+      integer :: latlonplot = 0 
+
       real(r8):: frqstate  = 3600.0_r8
       real(r8):: frqlite   = 3600.0_r8
+      real(r8):: frqlatlon = 3600.0_r8
 
       character(pathlen) :: hfilin    = ''
       character(pathlen) :: hfilepref = 'hist/'

@@ -163,13 +163,16 @@
    NL%IOUTPUT_MAVG = 0         ! Month-avg:  0-no files, 1-write or read files
    NL%IOUTPUT_DAVG = 0         ! Day-avg:    0-no files, 1-write or read files
    NL%IOUTPUT_LITE = 0         ! Lite files: 0-no files, 1-write files
+   NL%IOUTPUT_LATLON = 0       ! Lat/Lon:    0-no files, 1-write files
 
-   NL%HFILEPREF = 'hist/sampleA'     ! History file output path/prefix
-   NL%ICLOBBER  = 1            ! 0 = stop if files exist, 1 = overwite files
-   NL%ICOMPRESS = 3            ! 0 (no compres, fast) <-> 9 (max compres, slow)
+   NL%HFILEPREF  = 'hist/sampleA'     ! History file output path/prefix
+   NL%ICLOBBER   = 1            ! 0 = stop if files exist, 1 = overwite files
+   NL%ICOMPRESS  = 3            ! 0 (no compres, fast) <-> 9 (max compres, slow)
+   NL%LATLONPLOT = 0            ! 1 = plot generated lat/lon fields too
 
    NL%FRQSTATE  = 86400.0      ! Time interval between history files
    NL%FRQLITE   =  3600.0      ! Time interval between lite files
+   NL%FRQLATLON =  3600.0      ! Time interval between lat/lon output files
 
    NL%HFILIN   = 'hist/sampleA-H-2000-01-01-000000.h5'      ! History file input
 

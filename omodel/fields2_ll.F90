@@ -67,7 +67,7 @@ subroutine fields2_ll()
   use hdf5_utils,  only: shdf5_open, shdf5_orec, shdf5_orec_ll, shdf5_close
 
   use max_dims,    only: pathlen
-
+  use oname_coms,  only: nl
   use mem_para,    only: myrank
   use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
 
@@ -245,10 +245,6 @@ subroutine fields2_ll()
   logical, parameter :: do3d    = .false.
   logical, parameter :: dopress = .false. ! TODO!
 
-  ! Do we want to plot the fields too?
-
-  logical, parameter :: doplot = .true.
-
 !------------------------------------------------------
 ! 3D FIELDS - interpolation to pressure levels (TODO!)
 !------------------------------------------------------
@@ -257,9 +253,9 @@ subroutine fields2_ll()
   real :: plev(npress) = (/ 1000., 925., 850., 700., 500., 250., 100. /)
 
 !------------------------------------------------------------------------------
-! Default is to return here and not execute this subroutine.
-! Uncomment RETURN to proceed with this subroutine.
-! RETURN
+
+  if (nl%ioutput_latlon /= 1) return
+
 !------------------------------------------------------------------------------
 
   if (.not. (dosfc .or. doaccum .or. dodifs .or. do3d .or. dopress)) return
@@ -1024,7 +1020,9 @@ subroutine fields2_ll()
 ! SEIGEL 2013 - close interpolation write
   call shdf5_close()
 
-  if (.not. doplot) return
+! Return if we do not want to plot the interpolated fields
+
+  if (nl%latlonplot == 0) return
 
 !------------------------------------------------------------
 ! Contour plot or tile plot 2D lat-lon fields

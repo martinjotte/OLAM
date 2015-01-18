@@ -744,9 +744,15 @@ if (mod(time8p,frqstate) < dtlm(1)   .or. &
    time_prevhist = time8
 endif
 
+! Ouput lat/lon interpolated quantities
+
+if (nl%ioutput_latlon == 1 .and. mod(time8p,nl%frqlatlon) < dtlm(1)) then
+   call lite_write()
+endif
+
 ! Output of "lite" quantities
 
-if (mod(time8p,nl%frqlite) < dtlm(1)) then
+if (nl%ioutput_lite == 1 .and. mod(time8p,nl%frqlite) < dtlm(1)) then
    call lite_write()
 endif
 
