@@ -729,7 +729,6 @@ endif
 if (mod(time8p,op%frqplt) < dtlm(1) .or. iflag == 1) then
    call copy_plot(0)
    call plot_fields(0)
-   call fields2_ll()
 endif
 
 call date_add_to8(iyear1,imonth1,idate1,itime1,time8p,'s',outyear,  &
@@ -747,7 +746,7 @@ endif
 ! Ouput lat/lon interpolated quantities
 
 if (nl%ioutput_latlon == 1 .and. mod(time8p,nl%frqlatlon) < dtlm(1)) then
-   call lite_write()
+   call fields2_ll()
 endif
 
 ! Output of "lite" quantities
