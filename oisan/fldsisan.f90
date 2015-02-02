@@ -65,6 +65,9 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    ka = lpw(iw)
 
+   wc (1:ka-1,iw) = 0.0
+   wmc(1:ka-1,iw) = 0.0
+
    do k = ka,mza
 
       rho  (k,iw) = o_rho(k,iw)
@@ -168,7 +171,7 @@ write(io6,*)'   zm(m)    k     zt(m)   press(Pa)   rho(kg/m3)   theta(K)   sh_w(
 write(io6,*)'========================================================================'
 write(io6,*)' '
 
-do k = mza,2,-1
+do k = mza,lpw(iw),-1
    write(io6, '(f10.2,1x,9(''-------''))') zm(k)
    write(io6, '(10x,i5,f10.2,f11.2,f11.4,f12.2,f11.4)') &
        k,zt(k),press(k,iw),rho(k,iw),theta(k,iw),sh_w(k,iw)*1.e3

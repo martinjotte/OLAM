@@ -85,9 +85,9 @@ Contains
 
        write(io6,*) 'allocating rad ', mwa, mza
 
-       allocate (fthrd_sw  (mza,mwa)) ; fthrd_sw       = rinit
-       allocate (fthrd_lw  (mza,mwa)) ; fthrd_lw       = rinit
-       allocate (rshort        (mwa)) ; rshort         = rinit
+       allocate (fthrd_sw  (mza,mwa)) ; fthrd_sw       = 0.0
+       allocate (fthrd_lw  (mza,mwa)) ; fthrd_lw       = 0.0
+       allocate (rshort        (mwa)) ; rshort         = 0.0
        allocate (rlong         (mwa)) ; rlong          = 0.0
        allocate (rlongup       (mwa)) ; rlongup        = 0.0
        allocate (rshort_top    (mwa)) ; rshort_top     = 0.0

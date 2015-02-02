@@ -30,9 +30,11 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine oplot_lib(k,i,infotyp,fldname0,wtbot,wttop,fldval,notavail)
+subroutine oplot_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
 
-use mem_ijtabs,  only: itab_w, itab_v, itab_m, itabg_w
+use mem_ijtabs,  only: itab_w, itab_v, itab_m, itabg_w, &
+                       jtab_w, jtab_v, jtab_m, &
+                       jtw_prog, jtv_prog, jtm_vadj
 use mem_basic,   only: vmc, wmc, vmp, vc, wc, rho, press, &
                        thil, theta, tair, sh_w, sh_v, vxe, vye, vze
 use mem_cuparm,  only: conprr, aconpr, qwcon
@@ -140,7 +142,7 @@ use mem_plot, only: &
 
 implicit none
 
-integer, intent(in) :: k,i
+integer, intent(in) :: kk,ii
 character(len=*), intent(in) :: infotyp,fldname0
 real, intent(out) :: fldval
 real, intent(in) :: wtbot, wttop
@@ -150,7 +152,7 @@ integer, intent(out) :: notavail  ! 0 - variable is available
                                   ! 2 - variable is above model top
                                   ! 3 - variable is not available in this run
 
-integer :: klev,nls,iv,iw,kw,kp
+integer :: klev,nls,iv,iw,kw,kp,k,i
 real :: raxis,u,v,farv2,rpolyi
 real :: vx, vy, vz, vxc, vyc, vzc
 real :: tempk,fracliq
@@ -558,6 +560,9 @@ if (icall /= 1) then
    allocate (aux(mwa))
 endif
 
+k = kk
+i = ii
+
 if (infotyp == 'UNITS') then
 
 ! Print field name to be plotted
@@ -635,6 +640,16 @@ if (infotyp == 'UNITS') then
    op%fldvalv_min = 1.e30
    op%fldvalv_max = -1.e30
 
+   if (op%stagpt == 'T' .or. op%stagpt == 'W') then
+      i = jtab_w(jtw_prog)%iw(1)
+      k = lpw(i)
+   elseif (op%stagpt == 'V') then
+      i = jtab_v(jtv_prog)%iv(1)
+      k = lpv(i)
+   elseif (op%stagpt == 'M') then
+      i = jtab_m(jtm_vadj)%im(1)
+      k = lpm(i)
+   endif
 endif
 
 if (infotyp == 'VALUV') then

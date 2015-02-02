@@ -59,24 +59,29 @@ subroutine plot_fields(id)
   use misc_coms,  only: io6, iyear1, imonth1, idate1, itime1, time_istp8
   use oplot_coms, only: op
   use mem_grid,   only: mza, mwa, lpw
-  use misc_coms,  only: runtype
+  use misc_coms,  only: runtype, iparallel
   use mem_ijtabs, only: jtab_w, jtw_prog
   use mem_micro,  only: pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                         accpd, accpr, accpp, accps, accpa, accpg, accph
   use mem_cuparm, only: conprr, aconpr
   use obnd,       only: lbcopy_w1d
-  use mem_para,   only: myrank
+  use mem_para,   only: myrank, mgroupsize
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
 
   implicit none
 
   integer, intent(in) :: id
 
-  integer :: iplt,labincx,labincy,notavail,k,iw
+  integer :: iplt,labincx,labincy,notavail,k,iw,iok
   real    :: fldval,bsize,dum1(1),dum2(1)
   integer :: outyear,outmonth,outdate,outhour
   real    :: xinc,yinc
   character(len=30) :: ylabel,title
 
+  integer :: notavails(mgroupsize)
   dum1 = 0.
   dum2 = 0.
 
@@ -133,10 +138,17 @@ subroutine plot_fields(id)
 
      iw = 2
      k  = 2
-   
+
      call oplot_lib(k,iw,'UNITS',trim(op%fldname(iplt)),1.,0.,fldval,notavail)
-   
+
      ! If notavail = 3 is returned from above call, current plot field is unavailable
+
+#ifdef OLAM_MPI
+     if (iparallel == 1) then
+        call MPI_Allgather(notavail, 1, MPI_INTEGER, notavails, 1, MPI_INTEGER, MPI_COMM_WORLD, iok)
+        notavail = minval(notavails)
+     endif
+#endif
 
      if (notavail > 2) then
         if (myrank == 0) then
@@ -146,6 +158,7 @@ subroutine plot_fields(id)
            call o_plchhq(op%fx1,op%fnamey  &
                 ,trim(op%fldname(iplt))//' NOT AVAILABLE IN THIS RUN'  &
                 ,.012 * (op%hp2 - op%hp1),0.,-1.)
+           call o_frame()
         endif
         cycle
      endif

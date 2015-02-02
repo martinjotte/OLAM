@@ -1431,9 +1431,6 @@ subroutine landfile_read()
   call shdf5_irec(ndims, idims, 'wnzl'      , rvara=land%wnz)
   call shdf5_irec(ndims, idims, 'leaf_class', ivara=land%leaf_class)
 
-print*, 'lfr1 ',itab_wl(2)%iw, itab_wl(2)%kw
-
-
   ndims = 2
   idims(1) = nzg
   idims(2) = nwl

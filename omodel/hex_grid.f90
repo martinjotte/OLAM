@@ -1581,6 +1581,7 @@ real, allocatable :: area_kw_sum(:,:)
      if (kw < lpw(iw)) itab_ws(iws)%kw = lpw(iw)
      if (kw > lpw(iw) + lsw(iw) - 1) itab_ws(iws)%kw = lpw(iw) + lsw(iw) - 1
 
+     kw = itab_ws(iws)%kw
      area_kw_sum(kw,iw) = area_kw_sum(kw,iw) + sea%area(iws)
   enddo
 
@@ -1591,6 +1592,7 @@ real, allocatable :: area_kw_sum(:,:)
      if (kw < lpw(iw)) itab_wl(iwl)%kw = lpw(iw)
      if (kw > lpw(iw) + lsw(iw) - 1) itab_wl(iwl)%kw = lpw(iw) + lsw(iw) - 1
 
+     kw = itab_wl(iwl)%kw
      area_kw_sum(kw,iw) = area_kw_sum(kw,iw) + land%area(iwl)
   enddo
 

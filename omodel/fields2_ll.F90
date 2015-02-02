@@ -514,7 +514,10 @@ subroutine fields2_ll()
 
 ! Copy pressure to real array
 
-  scr2a(:,:) = real(press(:,:))
+  scr2a = 0.0
+  do iw = 2,mwa
+     scr2a(lpw(iw):mza,iw) = real(press(lpw(iw):mza,iw))
+  enddo
 
   if (do3d) call interp_htw_ll(nlon,nlat,npts,ims_loc,lls_loc,ijs_loc,mza,mza-1,alon,alat,scr2a,p_ll)
 

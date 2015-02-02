@@ -244,7 +244,7 @@ do iv = 2,mva
 
 ! Extrapolate VM to time T + 1/2; update VMP
 
-   do k = 1,mza
+   do k = lpv(iv),mza
       vmcf(k,iv) = (1.5 * vmc(k,iv) - 0.5 * vmp(k,iv))
       vmsc(k,iv) = vmsc(k,iv) + vmcf(k,iv)
       vmp (k,iv) = vmc (k,iv)
