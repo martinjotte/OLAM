@@ -808,7 +808,7 @@ subroutine plot_index(iplt)
      endif
 
      do iws = 2, mws
-        iwsg = itab_ws(i)%iwglobe
+        iwsg = itab_ws(iws)%iwglobe
 
         call oplot_transform(iplt, sea%xew(iws), sea%yew(iws), sea%zew(iws), hpt, vpt)
 
