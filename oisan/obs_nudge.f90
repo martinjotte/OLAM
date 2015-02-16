@@ -39,7 +39,7 @@ use mem_nudge,   only: nudflag, nudnxp,                &
                        uzonal_obsp, umerid_obsp,       &
                        uzonal_obsf, umerid_obsf
 
-use mem_grid,   only: mza, mwa
+use mem_grid,   only: mza, mwa, lpw
 use misc_coms,  only: io6
 use mem_ijtabs, only: jtab_w, jtw_init
 use consts_coms, only: r8
@@ -65,7 +65,7 @@ if (iaction == 1) then
    !$omp do private(iw,k)
    do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
-      do k = 2, mza
+      do k = lpw(iw), mza
             rho_obsp(k,iw) =    rho_obsf(k,iw)
           theta_obsp(k,iw) =  theta_obsf(k,iw)
             shw_obsp(k,iw) =    shw_obsf(k,iw)
@@ -88,7 +88,7 @@ endif
 do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 
-   do k = 2, mza
+   do k = lpw(iw), mza
          rho_obsf(k,iw) = o_rho   (k,iw)
        theta_obsf(k,iw) = o_theta (k,iw)
          shw_obsf(k,iw) = o_shv   (k,iw)

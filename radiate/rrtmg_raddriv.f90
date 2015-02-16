@@ -8,7 +8,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
                          rshort_top, rshortup_top, rlongup_top, fthrd_sw, &
                          albedt_beam, albedt_diffuse, rshort_diffuse, &
-                         rlong_albedo, solfac, cloud_frac
+                         rlong_albedo, solfac, cloud_frac, rshort_clr, &
+                         rshortup_clr, rshort_top_clr, rshortup_top_clr, &
+                         rlong_clr, rlongup_clr, rlongup_top_clr
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab
   use mem_ijtabs,  only: itab_w
   use mem_cuparm,  only: kcutop, kcubot, cbmf, qwcon, conprr
@@ -705,6 +707,11 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      rshortup_top  (iw) = swuflx(1,nrad)
      albedt        (iw) = swuflx(1,1) / swdflx(1,1)
 
+     rshort_clr      (iw) = swdflxc(1,1)
+     rshortup_clr    (iw) = swuflxc(1,1)
+     rshort_top_clr  (iw) = swdflxc(1,nrad)
+     rshortup_top_clr(iw) = swuflxc(1,nrad)
+
      do k = ka, mza
         krad = k - koff
         fthrd_sw(k,iw) = swhr(1,krad) * exl(krad) / 86400.0
@@ -746,9 +753,13 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 !!                            lwuflx  , lwdflx  , lwhr    , lwuflxc , lwdflxc, lwhrc, &
 !!                            duflx_dt, duflxc_dt                                     )
 
-     rlong(iw)       = lwdflx(1,1)
-     rlongup(iw)     = lwuflx(1,1)
+     rlong      (iw) = lwdflx(1,1)
+     rlongup    (iw) = lwuflx(1,1)
      rlongup_top(iw) = lwuflx(1,nrad)
+
+     rlong_clr      (iw) = lwdflxc(1,1)
+     rlongup_clr    (iw) = lwuflxc(1,1)
+     rlongup_top_clr(iw) = lwuflxc(1,nrad)
 
      do k = ka, mza
         krad = k - koff

@@ -61,7 +61,6 @@ use leaf_coms,   only: mwl, isfcl
 use sea_coms,    only: mws
 use mem_ijtabs,  only: itab_w, itabg_w, jtab_w, jtw_prog, jtw_wstn
 use misc_coms,   only: io6, iparallel, isubdomain, dtlm, mdomain
-use mem_para,    only: myrank
 use mem_grid,    only: mza, mwa, lsw, lpw, zt, zm, arw
 use mem_sea,     only: sea, itabg_ws, itab_ws
 use mem_leaf,    only: land, itabg_wl, itab_wl
@@ -275,6 +274,12 @@ do iws = 2,mws
 
    sea%sxfer_c    (iws) = dtlm(1) * sea%sfluxc    (iws)
 
+! Reset surface precipitation flux arrays
+
+   sea%pcpg (iws) = 0.
+   sea%qpcpg(iws) = 0.
+   sea%dpcpg(iws) = 0.
+
 enddo
 !$omp end parallel do
 
@@ -393,6 +398,12 @@ do iwl = 2,mwl
    land%sxfer_t(iwl) = dtlm(1) * land%sfluxt(iwl)
    land%sxfer_r(iwl) = dtlm(1) * land%sfluxr(iwl)
    land%sxfer_c(iwl) = dtlm(1) * land%sfluxc(iwl)
+
+! Reset surface precipitation flux arrays
+
+   land%pcpg (iwl) = 0.
+   land%qpcpg(iwl) = 0.
+   land%dpcpg(iwl) = 0.
 
 enddo
 !$omp end parallel do
@@ -556,20 +567,21 @@ end subroutine stars
 subroutine surface_cuparm_flux()
 
 use mem_cuparm,  only: conprr
-use mem_leaf,    only: land, itabg_wl, itab_wl
+use mem_leaf,    only: land, itab_wl
+use mem_sea,     only: sea, itab_ws
 use mem_ijtabs,  only: istp, mrl_begl, itabg_w
 use consts_coms, only: cliq, alli, t00
 use mem_basic,   only: tair, rho, sh_v
 use leaf_coms,   only: mwl, mrl_leaf
+use sea_coms,    only: mws
 use misc_coms,   only: io6, isubdomain, dtlm
-use mem_para,    only: myrank
 use ed_misc_coms,only: ed2_active
 
 implicit none
 
 integer :: mrl
 integer :: iw
-integer :: iwl
+integer :: iwl, iws
 integer :: kw
 
 real :: airtempc
@@ -578,7 +590,7 @@ real :: tempc
 real, external :: rhovsl
 
 ! Subroutine to transfer atmospheric cumulus parameterization 
-! precipitation FLUX to leaf land cells
+! precipitation FLUX to surface cells
 
 ! Set land fluxes to be done for CUPARM
 !    1. for mrl = 0, no fluxes 
@@ -586,47 +598,75 @@ real, external :: rhovsl
 !    3. For mrl <= mrl_leaf, do fluxes at beginning of long timestep 
 !                            for all points in mrl = 1
 
-!----------------------------------------------------------------------
 mrl = mrl_begl(istp)
-if (mrl > 0 .and. mrl <= mrl_leaf) then
+if (mrl > 0) then
 
-do iwl = 2,mwl
+! Transfer precipitation FLUX to leaf land cells
 
-   iw = itab_wl(iwl)%iw
-   if (isubdomain == 1) then
-      iw = itabg_w(iw)%iw_myrank
-   endif
+   !$omp parallel do private(iw,kw,airtempc,tempc)
+   do iwl = 2, mwl
 
-   kw = itab_wl(iwl)%kw
-!----------------------------------------------------------------------
+      iw = itab_wl(iwl)%iw
+      if (isubdomain == 1) then
+         iw = itabg_w(iw)%iw_myrank
+      endif
+
+      kw = itab_wl(iwl)%kw
 
 ! Compute air temperature in C
 
-   airtempc = tair(kw,iw) - t00
+      airtempc = tair(kw,iw) - t00
 
 ! Estimate wet bulb temp using computation from subroutine each_column in micphys
 ! Assume that convective precip reaches surface at this wet bulb temp
 
-   tempc = airtempc - min(25.,  &
-       700. * (rhovsl(airtempc) / real(rho(kw,iw)) - sh_v(kw,iw)))
+      tempc = airtempc - min(25.,  &
+           700. * (rhovsl(airtempc) / real(rho(kw,iw)) - sh_v(kw,iw)))
 
-   land%pcpg (iwl) = dtlm(1) * conprr(iw)
-   land%qpcpg(iwl) = dtlm(1) * conprr(iw) * (cliq * tempc + alli)
-   land%dpcpg(iwl) = dtlm(1) * conprr(iw) * .001
+      land%pcpg (iwl) = land%pcpg (iwl) + dtlm(1) * conprr(iw)
+      land%qpcpg(iwl) = land%qpcpg(iwl) + dtlm(1) * conprr(iw) * (cliq * tempc + alli)
+      land%dpcpg(iwl) = land%dpcpg(iwl) + dtlm(1) * conprr(iw) * .001
 
-enddo
+   enddo
+   !$omp end parallel do
 
 #ifdef USE_ED2
-if (ed2_active == 1) then
-   call copy_cuparm_to_ed()
-endif
+   if (ed2_active == 1) then
+      call copy_cuparm_to_ed()
+   endif
 #endif
 
+! Transfer precipitation FLUX to sea cells
+
+   !$omp parallel do private(iw,kw,airtempc,tempc)
+   do iws = 2, mws
+
+      iw = itab_ws(iws)%iw
+      if (isubdomain == 1) then
+         iw = itabg_w(iw)%iw_myrank
+      endif
+
+      kw = itab_ws(iws)%kw
+
+! Compute air temperature in C
+
+      airtempc = tair(kw,iw) - t00
+
+! Estimate wet bulb temp using computation from subroutine each_column in micphys
+! Assume that convective precip reaches surface at this wet bulb temp
+
+      tempc = airtempc - min(25.,  &
+           700. * (rhovsl(airtempc) / real(rho(kw,iw)) - sh_v(kw,iw)))
+
+      sea%pcpg (iws) = sea%pcpg (iws) + dtlm(1) * conprr(iw)
+      sea%qpcpg(iws) = sea%qpcpg(iws) + dtlm(1) * conprr(iw) * (cliq * tempc + alli)
+      sea%dpcpg(iws) = sea%dpcpg(iws) + dtlm(1) * conprr(iw) * .001
+
+   enddo
+   !$omp end parallel do
+
 endif
 
-! WILL NEED TO ADD SEA LOOP HERE WHEN OCEAN MODEL IS COUPLED WITH OLAM
-
-return
 end subroutine surface_cuparm_flux
 
 !===============================================================================
@@ -634,21 +674,22 @@ end subroutine surface_cuparm_flux
 subroutine surface_precip_flux()
 
 use mem_micro,   only: pcpgr, qpcpgr, dpcpgr
-use mem_leaf,    only: land, itabg_wl, itab_wl
+use mem_leaf,    only: land, itab_wl
+use mem_sea,     only: sea, itab_ws
 use mem_ijtabs,  only: istp, mrl_endl, itabg_w
 use leaf_coms,   only: mwl, mrl_leaf
+use sea_coms,    only: mws
 use misc_coms,   only: io6, isubdomain, dtlm
-use mem_para,    only: myrank
 use ed_misc_coms,only: ed2_active
 
 implicit none
 
 integer :: iw
-integer :: iwl
+integer :: iwl, iws
 integer :: mrl
 
 ! Subroutine to transfer atmospheric microphysics parameterization 
-! precipitation flux to leaf land cells.
+! precipitation flux to surface cells.
 
 ! Land fluxes to be done for PRECIP 
 !    1. for mrl = 0, no fluxes 
@@ -656,38 +697,52 @@ integer :: mrl
 !    3. For mrl <= mrl_leaf, do fluxes at end of long timestep
 !                            for all points in mrl = 1
 
-!----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 
-if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
+! Transfer precipitation FLUX to leaf land cells
 
-do iwl = 2,mwl
-!----------------------------------------------------------------------
+   !$omp parallel do private(iw)
+   do iwl = 2, mwl
 
-   iw = itab_wl(iwl)%iw
-   if (isubdomain == 1) then
-      iw = itabg_w(iw)%iw_myrank
-   endif
+      iw = itab_wl(iwl)%iw
+      if (isubdomain == 1) then
+         iw = itabg_w(iw)%iw_myrank
+      endif
 
-   land%pcpg (iwl) = dtlm(1) * pcpgr(iw)
-   land%qpcpg(iwl) = dtlm(1) * qpcpgr(iw)
-   land%dpcpg(iwl) = dtlm(1) * dpcpgr(iw)
+      land%pcpg (iwl) = land%pcpg (iwl) + dtlm(1) * pcpgr (iw)
+      land%qpcpg(iwl) = land%qpcpg(iwl) + dtlm(1) * qpcpgr(iw)
+      land%dpcpg(iwl) = land%dpcpg(iwl) + dtlm(1) * dpcpgr(iw)
 
-enddo
+   enddo
+   !$omp end parallel do
 
 #ifdef USE_ED2
-if (ed2_active == 1) then
-   call copy_micro_to_ed()
-endif
+   if (ed2_active == 1) then
+      call copy_micro_to_ed()
+   endif
 #endif
 
-endif
+! Transfer precipitation FLUX to sea cells
 
-! WILL NEED TO ADD SEA LOOP HERE WHEN OCEAN MODEL IS COUPLED WITH OLAM
+   !$omp parallel do private(iw)
+   do iws = 2, mws
+
+      iw = itab_ws(iws)%iw
+      if (isubdomain == 1) then
+         iw = itabg_w(iw)%iw_myrank
+      endif
+
+      sea%pcpg (iws) = sea%pcpg (iws) + dtlm(1) * pcpgr (iw)
+      sea%qpcpg(iws) = sea%qpcpg(iws) + dtlm(1) * qpcpgr(iw)
+      sea%dpcpg(iws) = sea%dpcpg(iws) + dtlm(1) * dpcpgr(iw)
+
+   enddo
+   !$omp end parallel do
+
+endif
 
 ! pcpgr, qpcpgr, dpcpgr have now been "transferred" to leaf cells.
 ! No need to zero pcpgr, qpcpgr, dpcpgr since microphysics will replace them.
 
-return
 end subroutine surface_precip_flux

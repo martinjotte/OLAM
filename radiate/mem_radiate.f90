@@ -57,6 +57,17 @@ Module mem_radiate
   real, allocatable         :: rlong_albedo  (:)
   real, allocatable         :: rshort_diffuse(:)
 
+  ! clear-sky values
+
+  real, allocatable, target :: rshort_clr      (:)
+  real, allocatable, target :: rshortup_clr    (:)
+  real, allocatable, target :: rshort_top_clr  (:)
+  real, allocatable, target :: rshortup_top_clr(:)
+
+  real, allocatable, target :: rlong_clr       (:)
+  real, allocatable, target :: rlongup_clr     (:)
+  real, allocatable, target :: rlongup_top_clr (:)
+
 ! integer, allocatable      :: rad_region    (:)
 
 ! These are used for adding extra levels at the top with the Mclatchy soundings
@@ -102,6 +113,19 @@ Contains
        
        if (iswrtyp == 2 .or. ilwrtyp == 2) then
           allocate (cloud_frac(mza,mwa)) ; cloud_frac  = 0.0
+       endif
+
+       if (iswrtyp == 2) then
+          allocate (rshort_clr      (mwa)) ; rshort_clr       = 0.0
+          allocate (rshortup_clr    (mwa)) ; rshortup_clr     = 0.0
+          allocate (rshort_top_clr  (mwa)) ; rshort_top_clr   = 0.0
+          allocate (rshortup_top_clr(mwa)) ; rshortup_top_clr = 0.0
+       endif
+
+       if (ilwrtyp == 2) then
+          allocate (rlong_clr      (mwa)) ; rlong_clr       = 0.0
+          allocate (rlongup_clr    (mwa)) ; rlongup_clr     = 0.0
+          allocate (rlongup_top_clr(mwa)) ; rlongup_top_clr = 0.0
        endif
 
 !      if (iswrtyp == 3 .or. ilwrtyp == 3) then
