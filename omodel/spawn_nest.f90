@@ -732,6 +732,7 @@ do ngr = 2,ngrids  ! Loop over nested grids
       itab_md(im)%imp       = ltab_md(im)%imp
       itab_md(im)%mrlm      = ltab_md(im)%mrlm
       itab_md(im)%mrlm_orig = ltab_md(im)%mrlm_orig
+      itab_md(im)%ngr       = ltab_md(im)%ngr
 
       xem(im) = xem_temp(im)
       yem(im) = yem_temp(im)
@@ -771,6 +772,10 @@ do ngr = 2,ngrids  ! Loop over nested grids
          itab_md(im )%mrlm = mrlo + 1
 
          itab_md(im )%mrlm_orig = mrlo + 1
+
+         itab_md(im1)%ngr = ngr
+         itab_md(im2)%ngr = ngr
+         itab_md(im )%ngr = ngr
       endif
    enddo
 
@@ -840,6 +845,11 @@ do ngr = 2,ngrids  ! Loop over nested grids
          itab_wd(iw1)%mrlw_orig = mrlo + 1
          itab_wd(iw2)%mrlw_orig = mrlo + 1
          itab_wd(iw3)%mrlw_orig = mrlo + 1
+
+         itab_wd(iw)%ngr  = ngr
+         itab_wd(iw1)%ngr = ngr
+         itab_wd(iw2)%ngr = ngr
+         itab_wd(iw3)%ngr = ngr
 
          if (nest_ud(iu1o)%im > 1) then
             itab_ud(iu1o)%im(2) = nest_ud(iu1o)%im
@@ -942,7 +952,7 @@ do ngr = 2,ngrids  ! Loop over nested grids
    elseif (nconcave == 1) then
       call perim_fill2(ngr,mrloo,kma,kua,kwa,jm,ju,npts,ngrp,igsize,nwdivg)
    else ! nconcave = 3
-      call perim_fill3(mrlo,nper2,imper,iuper)
+      call perim_fill3(ngr,mrlo,nper2,imper,iuper)
    endif
 
 ! Fill itabs loop tables for newly spawned points
@@ -1010,7 +1020,7 @@ do ngr = 2,ngrids  ! Loop over nested grids
 ! border.  This is permanent ID, used in spring dynamics even when new
 ! grids are added.
 
-   call perim_mrow()
+   call perim_mrow(ngr)
 
 ! This is the place to do spring dynamics
 
@@ -1852,7 +1862,7 @@ end subroutine perim_add2
 
 !===========================================================================
 
-subroutine perim_mrow()
+subroutine perim_mrow(ngr)
 
 use mem_ijtabs, only: itab_wd, itab_ud, itab_md
 use mem_grid,   only: nwa
@@ -1860,10 +1870,12 @@ use misc_coms,  only: io6
 
 implicit none
 
-integer :: iper, iu, iw, iw1, iw2, iw3, im1, im2, im3
-integer :: iter, irow, jrow, mrow, mrowh, ngr
+integer, intent(in) :: ngr
 
-integer :: mrow_temp(nwa),mrowh_temp(nwa)
+integer :: iper, iu, iw, iw1, iw2, iw3, im1, im2, im3
+integer :: iter, irow, jrow, mrow
+
+integer :: mrow_temp(nwa)
 
 ! Loop over all W points
 
@@ -1872,13 +1884,10 @@ do iw = 2,nwa
 ! Initialize all mrow values to zero.
 
    itab_wd(iw)%mrow  = 0
-   itab_wd(iw)%mrowh = 0
 
    mrow_temp (iw)    = 0
-   mrowh_temp(iw)    = 0
 
 ! Set mrow values on nested grid border to +/- 1.
-! Set mrowh values on nested grid border to +/- (100 * ngr + 1)
 
    iw1 = itab_wd(iw)%iw(1)
    iw2 = itab_wd(iw)%iw(2)
@@ -1888,25 +1897,19 @@ do iw = 2,nwa
    im2 = itab_wd(iw)%im(2)
    im3 = itab_wd(iw)%im(3)
    
-   ngr = itab_wd(iw)%mrlw
-   
    if     (itab_wd(iw)%mrlw < itab_wd(iw1)%mrlw .or. &
            itab_wd(iw)%mrlw < itab_wd(iw2)%mrlw .or. &
            itab_wd(iw)%mrlw < itab_wd(iw3)%mrlw) then
 
       itab_wd(iw)%mrow = 1
-      itab_wd(iw)%mrowh = 100 * ngr + 1
       mrow_temp(iw) = 1
-      mrowh_temp(iw) = 100 * ngr + 1
 
    elseif (itab_wd(iw)%mrlw > itab_wd(iw1)%mrlw .or. &
            itab_wd(iw)%mrlw > itab_wd(iw2)%mrlw .or. &
            itab_wd(iw)%mrlw > itab_wd(iw3)%mrlw) then
 
       itab_wd(iw)%mrow = -1
-      itab_wd(iw)%mrowh = -100 * ngr - 1
       mrow_temp(iw) = -1
-      mrowh_temp(iw) = -100 * ngr - 1
 
    endif
 
@@ -1926,31 +1929,21 @@ do irow = 2,10  ! First row already done above
          iw2 = itab_wd(iw)%iw(2)
          iw3 = itab_wd(iw)%iw(3)
 
-! Check for positive mrow & mrowh values
+! Check for positive mrow values
 
          mrow = max(itab_wd(iw1)%mrow &
                    ,itab_wd(iw2)%mrow &
                    ,itab_wd(iw3)%mrow)
 
-         mrowh = max(itab_wd(iw1)%mrowh &
-                    ,itab_wd(iw2)%mrowh &
-                    ,itab_wd(iw3)%mrowh)
-
          if (mrow > 0)  mrow_temp (iw) = mrow + jrow
-         if (mrowh > 0) mrowh_temp(iw) = mrowh + 1
 
-! Check for negative mrow & mrowh values
+! Check for negative mrow values
 
          mrow = min(itab_wd(iw1)%mrow &
                    ,itab_wd(iw2)%mrow &
                    ,itab_wd(iw3)%mrow)
 
-         mrowh = min(itab_wd(iw1)%mrowh &
-                    ,itab_wd(iw2)%mrowh &
-                    ,itab_wd(iw3)%mrowh)
-
          if (mrow < 0)  mrow_temp (iw) = mrow - jrow
-         if (mrowh < 0) mrowh_temp(iw) = mrowh - 1
 
       endif
 
@@ -1958,7 +1951,6 @@ do irow = 2,10  ! First row already done above
 
    do iw = 2,nwa
       itab_wd(iw)%mrow  = mrow_temp(iw)
-      itab_wd(iw)%mrowh = mrowh_temp(iw)
    enddo
 
 enddo

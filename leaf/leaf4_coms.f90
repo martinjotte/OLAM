@@ -46,7 +46,7 @@ implicit none
 private :: nzgmax, maxndvifiles, pathlen, r8
  
 integer, parameter :: nstyp = 12    ! total # of soil textural classes
-integer, parameter :: nvtyp = 20    ! total # of leaf ("veg") classes
+integer, parameter :: nvtyp = 21    ! total # of leaf ("veg") classes
 
 ! Parameters for subroutine vegndvi
 
@@ -58,7 +58,7 @@ real, parameter :: snow_rough = .01    ! snowcover roughness height
 
 real, parameter :: water_frac_ph0 = .99  ! water fraction at onset of hydraulic
                                          ! pressure head
-real, parameter :: water_def_ph0 = 1. - water_frac_ph0
+real, parameter :: water_def_ph0 = 1.03 - water_frac_ph0
    
 character(pathlen) :: landusefile
 character(pathlen) :: veg_database
@@ -106,6 +106,7 @@ real :: slcpd    (nstyp) ! dry soil volumetric heat capacity [J/(m^3 K)]
 real :: slbs     (nstyp) ! b exponent [dimensionless]
 real :: slcons   (nstyp) ! sat soil hydraulic conductivity [m/s]
 real :: slmsts   (nstyp) ! sat volumetric moist content (porosity) [m^3_wat/m^3_tot]
+real :: slmstsh0 (nstyp) ! nzg volumetric moist content at head = 0 [m^3_wat/m^3_tot]
 real :: slpots   (nstyp) ! sat moisture potential [m]
 real :: slpott   (nstyp) ! moisture potential [m] at threshold of added hydraul head
 real :: soilcp   (nstyp) ! minimum soil moisture [m^3_wat/m^3_tot]
@@ -137,7 +138,6 @@ real :: rcmin     (nvtyp)  ! vegetation minimum stomatal resistance [s/m]
 real :: dfpardsr  (nvtyp)  ! rate of change of fpar with simple ratio (for using NDVI)
    
 real :: slz   (nzgmax)  ! Depth (neg height value) of bottom of each soil layer [m]
-real :: slmstr(nzgmax)  ! Initial soil moisture content (range 0. to 1.)
 
 real, save, allocatable :: root   (:,:) ! not used
 real, save, allocatable :: slcons1(:,:) ! z-dependent soil sat hydraul cond [m/s]

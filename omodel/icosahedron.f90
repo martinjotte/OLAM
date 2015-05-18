@@ -92,6 +92,7 @@ do im = 2,nma
    itab_md(im)%imp = im
    itab_md(im)%mrlm = 1
    itab_md(im)%mrlm_orig = 1
+   itab_md(im)%ngr = 1
    call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
 enddo
 
@@ -400,12 +401,14 @@ itab_wd(iw1)%iu(2) = iu1
 itab_wd(iw1)%iu(3) = iu2 
 itab_wd(iw1)%mrlw = 1
 itab_wd(iw1)%mrlw_orig = 1
+itab_wd(iw1)%ngr = 1
       
 itab_wd(iw2)%iu(1) = iu0 
 itab_wd(iw2)%iu(2) = iu4 
 itab_wd(iw2)%iu(3) = iu3 
 itab_wd(iw2)%mrlw = 1
 itab_wd(iw2)%mrlw_orig = 1
+itab_wd(iw2)%ngr = 1
 
 return
 end subroutine fill_diamond

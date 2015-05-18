@@ -1022,9 +1022,9 @@ subroutine tileslab_horiz_l(iplt,action)
 
   ! Find K level to plot if field is 3d
 
-  if (op%dimens == '3G') then
+  if (op%dimens == 'L3G') then
      k = min(nzg,max(1,nint(op%slabloc(iplt))))
-  elseif (op%dimens == '3S') then
+  elseif (op%dimens == 'L3S') then
      k = min(nzs,max(1,nint(op%slabloc(iplt))))
   else
      k = 1
@@ -1879,7 +1879,7 @@ subroutine celltile(iplt,npoly,htpn,vtpn,hpt,vpt,fldval,action)
 !         fldval1 = mod(fldval-1.,real(clrtab(itab)%nvals-2)) - 1. ! table 124 has 2 neg vals
           fldval1 = mod(fldval,real(clrtab(itab)%nvals-2)) - 1. ! table 124 has 2 neg vals
 
-     ! Case for color table 130; used with itab_w_mrowh
+     ! Case for color table 130
 
      if (clrtab(itab)%ifmt(1) == 30) &
           fldval1 = mod(fldval,100.)

@@ -238,7 +238,7 @@ subroutine olam_alloc_mpi(mza, mrls)
 ! Determine number of bytes to send per IV column
 
   nbytes_per_iv = nbytes_int &
-                + mza * 2 * nbytes_real
+                + mza * 4 * nbytes_real
 
 ! Loop over all V sends for mrl = 1
 
@@ -471,7 +471,7 @@ end subroutine olam_alloc_mpi
 
 !===============================================================================
 
-subroutine mpi_send_v(mrl, rvara1, rvara2)
+subroutine mpi_send_v(mrl, rvara1, rvara2, rvara3, rvara4)
 
 ! Subroutine to perform a parallel MPI send of a "V group" of field variables
 
@@ -491,6 +491,8 @@ integer, intent(in) :: mrl
 
 real, optional, intent(in) :: rvara1(mza,mva)
 real, optional, intent(in) :: rvara2(mza,mva)
+real, optional, intent(in) :: rvara3(mza,mva)
+real, optional, intent(in) :: rvara4(mza,mva)
 
 #ifdef OLAM_MPI
 
@@ -537,6 +539,16 @@ do jsend = 1,nsends_v(mrl)
 
       if (present(rvara2)) then
          call MPI_Pack(rvara2(1,iv),mza,MPI_REAL, &
+         send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(rvara3)) then
+         call MPI_Pack(rvara3(1,iv),mza,MPI_REAL, &
+         send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(rvara4)) then
+         call MPI_Pack(rvara4(1,iv),mza,MPI_REAL, &
          send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
       endif
 
@@ -907,7 +919,7 @@ end subroutine mpi_send_wnud
 
 !=============================================================================
 
-subroutine mpi_recv_v(mrl, rvara1, rvara2)
+subroutine mpi_recv_v(mrl, rvara1, rvara2, rvara3, rvara4)
 
 ! Subroutine to perform a parallel MPI receive of a "V group"
 ! of field variables
@@ -927,6 +939,8 @@ integer, intent(in) :: mrl
 
 real, optional, intent(inout) :: rvara1(mza,mva)
 real, optional, intent(inout) :: rvara2(mza,mva)
+real, optional, intent(inout) :: rvara3(mza,mva)
+real, optional, intent(inout) :: rvara4(mza,mva)
 
 #ifdef OLAM_MPI
 
@@ -970,6 +984,16 @@ do jtmp = 1,nrecvs_v(mrl)
       if (present(rvara2)) then
          call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos, &
          rvara2(1,iv),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(rvara3)) then
+         call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos, &
+         rvara3(1,iv),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(rvara4)) then
+         call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos, &
+         rvara4(1,iv),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
       endif
 
    enddo

@@ -105,10 +105,6 @@ Module mem_sea
 
       real, allocatable :: sxfer_c    (:) ! can_air-to-atm CO2 xfer [ppm/m^2]
 
-      real, allocatable :: sxfer_tsav (:) ! saved previous value of sxfer_t
-      real, allocatable :: sxfer_rsav (:) ! saved previous value of sxter_r
-      real, allocatable :: sxfer_csav (:) ! saved previous value of sxter_c
-
       real, allocatable ::     ggaer  (:) ! surface aerodynamic conductance [m/s]
       real, allocatable :: sea_ggaer  (:) ! surface aerodynamic conductance over water [m/s]
       real, allocatable :: ice_ggaer  (:) ! surface aerodynamic conductance over ice [m/s]
@@ -250,10 +246,6 @@ Contains
      allocate (sea%ice_sxfer_r   (mws)) ; sea%ice_sxfer_r    = 0.0
 
      allocate (sea%sxfer_c       (mws)) ; sea%sxfer_c        = 0.0
-
-     allocate (sea%sxfer_tsav    (mws)) ; sea%sxfer_tsav     = 0.0
-     allocate (sea%sxfer_rsav    (mws)) ; sea%sxfer_rsav     = 0.0
-     allocate (sea%sxfer_csav    (mws)) ; sea%sxfer_csav     = 0.0
 
      allocate (sea%ggaer         (mws)) ; sea%ggaer          = rinit
      allocate (sea%sea_ggaer     (mws)) ; sea%sea_ggaer      = rinit

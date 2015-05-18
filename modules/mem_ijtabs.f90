@@ -93,7 +93,7 @@ Module mem_ijtabs
       integer :: mrlm = 0        ! mesh refinement level of this M pt
       integer :: mrlm_orig = 0   ! original MRL of this M pt (hex only)
       integer :: mrow = 0        ! Full row number outside nest
-      integer :: mrowh = 0       ! Half row number outside nest
+      integer :: ngr = 0         ! Grid number
       integer :: im(7) = 1       ! array of M neighbors of this M pt (Del or Vor)
       integer :: iu(7) = 1       ! array of U neighbors of this M pt (Delaunay)
       integer :: iv(7) = 1       ! array of V neighbors of this M pt (Voronoi)
@@ -141,7 +141,7 @@ Module mem_ijtabs
       integer :: mrlw = 0      ! mesh refinement level of this W pt
       integer :: mrlw_orig = 0 ! original MRL of this W pt
       integer :: mrow = 0      ! Full row number outside nest (Delaunay)
-      integer :: mrowh = 0     ! Half row number outside nest (Delaunay)
+      integer :: ngr = 0       ! Grid number
       integer :: im(7) = 1     ! neighbor M pts of this W pt (Voronoi)
       integer :: iu(3) = 1     ! neighbor U pts (Delaunay)
       integer :: iv(7) = 1     ! neighbor V pts (Voronoi)

@@ -35,7 +35,7 @@ subroutine spring_dynamics(ngr,nconcave)
 use mem_ijtabs,  only: itab_md, itab_ud, itab_wd
 use mem_grid,    only: nma, nua, nwa, xem, yem, zem, impent, mrows
 use consts_coms, only: pi2, erad, erador5
-use misc_coms,   only: io6, nxp, ngrids, mdomain, deltax
+use misc_coms,   only: io6, nxp, ngrids, ngrids_old, mdomain, deltax
 use oplot_coms,  only: op
 
 implicit none
@@ -59,7 +59,7 @@ real :: dirs(nma,7)
 integer :: iu,iu1,iu2,iu3,iu4
 integer :: im,im1,im2,im3,im4
 integer :: iw,iw1,iw2,j
-integer :: iter,ipent,mrow1,mrow2,npoly,ngrw,mrmax,mrmin
+integer :: iter,ipent,mrow1,mrow2,npoly,ngrw,mrmax,mrmin,nmovem
 
 integer :: iskip
 real :: xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2
@@ -79,8 +79,6 @@ character(10) :: string
 integer :: movem(nma)
 integer :: moveall(ngrids)
 
-write(io6,*) "In spring dynamics...."
-
 !--------------------------------------------------------------
 ! SPECIAL CODE TO BE MODIFIED FOR DYNAMIC NESTS
 
@@ -97,15 +95,36 @@ endif
 !RETURN
 ! end special
 
+! Use same value of niter for all NGR values in case new grids are added in
+! subsequent HISTADDGRID run.  This will preserve grid cell location, size,
+! and shape everywhere outside NEW refinement region.
+
+niter = 2000 
+             
+! For the case where NEW local mesh refinements are being added in preparation
+! for a HISTADDGRID history restart, do NOT move M points outside the current
+! newly refined region.
+
+if (ngrids_old > 0 .and. ngr > ngrids_old .and. nconcave == 3) then 
+
+! First, turn off movement of ALL M points
+
+   movem(:) = 0
+
+! Restore movement of those M points that are inside current NEW refinement area
+
+   do im = 2,nma
+      if (itab_md(im)%ngr == ngr) movem(im) = 1
+   enddo
+
 ! For the case where nconcave = 3 and moveall(ngr) = 0, reset all movem values
 ! to 0, and then set those in border zone of NGR back to 1.  Specifically, 
 ! border zone consists of those M points that are adjacent to M points with
 ! MROW values of -3, -2, -1, or 1.  
 
-if (ngr > 1 .and. nconcave == 3 .and. moveall(ngr) == 0) then
+elseif (ngr > 1 .and. nconcave == 3 .and. moveall(ngr) == 0) then
 
    movem(:) = 0
-   niter    = 750
 
    do im = 2,nma
       npoly = itab_md(im)%npoly
@@ -113,7 +132,7 @@ if (ngr > 1 .and. nconcave == 3 .and. moveall(ngr) == 0) then
       do j = 1,npoly
          iw = itab_md(im)%iw(j)
 
-         ngrw = abs(itab_wd(iw)%mrowh) / 100
+         ngrw = itab_wd(iw)%ngr
 
          if (ngrw /= ngr) cycle
          
@@ -133,7 +152,6 @@ else
 ! The default is to set MOVEM flag = 1 for all points
 
    movem(:) = 1
-   niter    = 2000
 
 endif
 
@@ -218,6 +236,14 @@ do im = 2, nma
    enddo
 enddo
 !$omp end do
+!$omp end parallel
+
+nmovem = 0
+do im = 2, nma
+   if (movem(im) == 0) cycle
+   nmovem = nmovem + 1
+enddo
+write(io6,'(a,4i9)') "In spring dynamics: ngr,nma,nmovem,niter = ",ngr,nma,nmovem,niter
 
 ! Main iteration loop 
 do iter = 1, niter
@@ -225,6 +251,7 @@ do iter = 1, niter
 ! Compute length of each U segment once per iteration
 ! Loop over all U points
 
+   !$omp parallel
    !$omp do private (iu1,iu3,im1,im2,im3,im4)
    do iu = 2, nua
 
@@ -392,9 +419,9 @@ do iter = 1, niter
 !plt
 !plt   endif ! mod(iter,*)
 
-enddo ! iter
+   !$omp end parallel
 
-!$omp end parallel
+enddo ! iter
 
 return
 end subroutine spring_dynamics

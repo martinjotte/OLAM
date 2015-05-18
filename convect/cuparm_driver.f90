@@ -39,7 +39,8 @@ use module_cu_kfeta,  only: cuparm_kfeta, kf_lutab
 use module_cu_tiedtke,only: cuparm_tiedtke
 use module_cu_emanuel,only: cuparm_emanuel
 use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
-                            dtlong, initial, itime1, iparallel, idiffk
+                            dtlong, initial, itime1, iparallel, idiffk, &
+                            mstp, runtype
 use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
 use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc, &
                             kcutop, kcubot, qwcon
@@ -163,7 +164,8 @@ dtlong4  = real(dtlong)
 
 ! Check whether it is time to update cumulus parameterization tendencies
 
-if ((istp == 1) .and. (mod(time_istp8p, confrq) < dtlong)) then
+if ((istp == 1 .and. mod(time_istp8p, confrq) < dtlong) .or. &
+    (istp == 1 .and. mstp == 0 .and. runtype == 'HISTADDGRID')) then
 
 ! Print message that cumulus parameterization is being computed
 

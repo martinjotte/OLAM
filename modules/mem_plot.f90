@@ -73,17 +73,50 @@ real, allocatable :: rshortup_top_accum_prev1(:)
 real, allocatable :: rlongup_top_accum_prev0(:)
 real, allocatable :: rlongup_top_accum_prev1(:)
 
+real, allocatable :: rshort_clr_accum_prev0(:)
+real, allocatable :: rshort_clr_accum_prev1(:)
+
+real, allocatable :: rshortup_clr_accum_prev0(:)
+real, allocatable :: rshortup_clr_accum_prev1(:)
+
+real, allocatable :: rlong_clr_accum_prev0(:)
+real, allocatable :: rlong_clr_accum_prev1(:)
+
+real, allocatable :: rlongup_clr_accum_prev0(:)
+real, allocatable :: rlongup_clr_accum_prev1(:)
+
+real, allocatable :: rshort_top_clr_accum_prev0(:)
+real, allocatable :: rshort_top_clr_accum_prev1(:)
+
+real, allocatable :: rshortup_top_clr_accum_prev0(:)
+real, allocatable :: rshortup_top_clr_accum_prev1(:)
+
+real, allocatable :: rlongup_top_clr_accum_prev0(:)
+real, allocatable :: rlongup_top_clr_accum_prev1(:)
+
 real, allocatable :: sfluxt_accum_prev0(:)
 real, allocatable :: sfluxt_accum_prev1(:)
 
 real, allocatable :: sfluxr_accum_prev0(:)
 real, allocatable :: sfluxr_accum_prev1(:)
 
-real, allocatable :: sfluxt_l_accum_prev0(:)
-real, allocatable :: sfluxt_l_accum_prev1(:)
+real, allocatable :: vc_accum_prev0(:,:)
+real, allocatable :: vc_accum_prev1(:,:)
 
-real, allocatable :: sfluxr_l_accum_prev0(:)
-real, allocatable :: sfluxr_l_accum_prev1(:)
+real, allocatable :: wc_accum_prev0(:,:)
+real, allocatable :: wc_accum_prev1(:,:)
+
+real, allocatable :: press_accum_prev0(:,:)
+real, allocatable :: press_accum_prev1(:,:)
+
+real, allocatable :: tair_accum_prev0(:,:)
+real, allocatable :: tair_accum_prev1(:,:)
+
+real, allocatable :: sh_v_accum_prev0(:,:)
+real, allocatable :: sh_v_accum_prev1(:,:)
+
+real, allocatable :: vels_l_accum_prev0(:)
+real, allocatable :: vels_l_accum_prev1(:)
 
 real, allocatable :: airtemp_l_accum_prev0(:)
 real, allocatable :: airtemp_l_accum_prev1(:)
@@ -97,11 +130,20 @@ real, allocatable :: cantemp_l_accum_prev1(:)
 real, allocatable :: canshv_l_accum_prev0(:)
 real, allocatable :: canshv_l_accum_prev1(:)
 
-real, allocatable :: sfluxt_s_accum_prev0(:)
-real, allocatable :: sfluxt_s_accum_prev1(:)
+real, allocatable :: skintemp_l_accum_prev0(:)
+real, allocatable :: skintemp_l_accum_prev1(:)
 
-real, allocatable :: sfluxr_s_accum_prev0(:)
-real, allocatable :: sfluxr_s_accum_prev1(:)
+real, allocatable :: sfluxt_l_accum_prev0(:)
+real, allocatable :: sfluxt_l_accum_prev1(:)
+
+real, allocatable :: sfluxr_l_accum_prev0(:)
+real, allocatable :: sfluxr_l_accum_prev1(:)
+
+real, allocatable :: wxfer1_l_accum_prev0(:)
+real, allocatable :: wxfer1_l_accum_prev1(:)
+
+real, allocatable :: vels_s_accum_prev0(:)
+real, allocatable :: vels_s_accum_prev1(:)
 
 real, allocatable :: airtemp_s_accum_prev0(:)
 real, allocatable :: airtemp_s_accum_prev1(:)
@@ -114,6 +156,15 @@ real, allocatable :: cantemp_s_accum_prev1(:)
 
 real, allocatable :: canshv_s_accum_prev0(:)
 real, allocatable :: canshv_s_accum_prev1(:)
+
+real, allocatable :: skintemp_s_accum_prev0(:)
+real, allocatable :: skintemp_s_accum_prev1(:)
+
+real, allocatable :: sfluxt_s_accum_prev0(:)
+real, allocatable :: sfluxt_s_accum_prev1(:)
+
+real, allocatable :: sfluxr_s_accum_prev0(:)
+real, allocatable :: sfluxr_s_accum_prev1(:)
 
 real(r8), allocatable ::  press_init(:,:)
 real(r8), allocatable ::    rho_init(:,:)
@@ -166,17 +217,50 @@ Contains
   allocate ( rlongup_top_accum_prev0(mwa))
   allocate ( rlongup_top_accum_prev1(mwa))
 
+  allocate ( rshort_clr_accum_prev0(mwa))
+  allocate ( rshort_clr_accum_prev1(mwa))
+
+  allocate ( rshortup_clr_accum_prev0(mwa))
+  allocate ( rshortup_clr_accum_prev1(mwa))
+
+  allocate ( rlong_clr_accum_prev0(mwa))
+  allocate ( rlong_clr_accum_prev1(mwa))
+
+  allocate ( rlongup_clr_accum_prev0(mwa))
+  allocate ( rlongup_clr_accum_prev1(mwa))
+
+  allocate ( rshort_top_clr_accum_prev0(mwa))
+  allocate ( rshort_top_clr_accum_prev1(mwa))
+
+  allocate ( rshortup_top_clr_accum_prev0(mwa))
+  allocate ( rshortup_top_clr_accum_prev1(mwa))
+
+  allocate ( rlongup_top_clr_accum_prev0(mwa))
+  allocate ( rlongup_top_clr_accum_prev1(mwa))
+
   allocate ( sfluxt_accum_prev0(mwa))
   allocate ( sfluxt_accum_prev1(mwa))
 
   allocate ( sfluxr_accum_prev0(mwa))
   allocate ( sfluxr_accum_prev1(mwa))
 
-  allocate ( sfluxt_l_accum_prev0(mwl))
-  allocate ( sfluxt_l_accum_prev1(mwl))
+  allocate ( vc_accum_prev0(mza,mva))
+  allocate ( vc_accum_prev1(mza,mva))
 
-  allocate ( sfluxr_l_accum_prev0(mwl))
-  allocate ( sfluxr_l_accum_prev1(mwl))
+  allocate ( wc_accum_prev0(mza,mwa))
+  allocate ( wc_accum_prev1(mza,mwa))
+
+  allocate ( press_accum_prev0(mza,mwa))
+  allocate ( press_accum_prev1(mza,mwa))
+
+  allocate ( tair_accum_prev0(mza,mwa))
+  allocate ( tair_accum_prev1(mza,mwa))
+
+  allocate ( sh_v_accum_prev0(mza,mwa))
+  allocate ( sh_v_accum_prev1(mza,mwa))
+
+  allocate ( vels_l_accum_prev0(mwl))
+  allocate ( vels_l_accum_prev1(mwl))
 
   allocate ( airtemp_l_accum_prev0(mwl))
   allocate ( airtemp_l_accum_prev1(mwl))
@@ -190,11 +274,20 @@ Contains
   allocate ( canshv_l_accum_prev0(mwl))
   allocate ( canshv_l_accum_prev1(mwl))
 
-  allocate ( sfluxt_s_accum_prev0(mws))
-  allocate ( sfluxt_s_accum_prev1(mws))
+  allocate ( skintemp_l_accum_prev0(mwl))
+  allocate ( skintemp_l_accum_prev1(mwl))
 
-  allocate ( sfluxr_s_accum_prev0(mws))
-  allocate ( sfluxr_s_accum_prev1(mws))
+  allocate ( sfluxt_l_accum_prev0(mwl))
+  allocate ( sfluxt_l_accum_prev1(mwl))
+
+  allocate ( sfluxr_l_accum_prev0(mwl))
+  allocate ( sfluxr_l_accum_prev1(mwl))
+
+  allocate ( wxfer1_l_accum_prev0(mwl))
+  allocate ( wxfer1_l_accum_prev1(mwl))
+
+  allocate ( vels_s_accum_prev0(mws))
+  allocate ( vels_s_accum_prev1(mws))
 
   allocate ( airtemp_s_accum_prev0(mws))
   allocate ( airtemp_s_accum_prev1(mws))
@@ -207,6 +300,15 @@ Contains
 
   allocate ( canshv_s_accum_prev0(mws))
   allocate ( canshv_s_accum_prev1(mws))
+
+  allocate ( skintemp_s_accum_prev0(mws))
+  allocate ( skintemp_s_accum_prev1(mws))
+
+  allocate ( sfluxt_s_accum_prev0(mws))
+  allocate ( sfluxt_s_accum_prev1(mws))
+
+  allocate ( sfluxr_s_accum_prev0(mws))
+  allocate ( sfluxr_s_accum_prev1(mws))
 
   allocate ( press_init(mza,mwa))
   allocate (   rho_init(mza,mwa))
@@ -245,17 +347,50 @@ Contains
   rlongup_top_accum_prev0(:) = 0.
   rlongup_top_accum_prev1(:) = 0.
 
+  rshort_clr_accum_prev0(:) = 0.
+  rshort_clr_accum_prev1(:) = 0.
+
+  rshortup_clr_accum_prev0(:) = 0.
+  rshortup_clr_accum_prev1(:) = 0.
+
+  rlong_clr_accum_prev0(:) = 0.
+  rlong_clr_accum_prev1(:) = 0.
+
+  rlongup_clr_accum_prev0(:) = 0.
+  rlongup_clr_accum_prev1(:) = 0.
+
+  rshort_top_clr_accum_prev0(:) = 0.
+  rshort_top_clr_accum_prev1(:) = 0.
+
+  rshortup_top_clr_accum_prev0(:) = 0.
+  rshortup_top_clr_accum_prev1(:) = 0.
+
+  rlongup_top_clr_accum_prev0(:) = 0.
+  rlongup_top_clr_accum_prev1(:) = 0.
+
   sfluxt_accum_prev0(:) = 0.
   sfluxt_accum_prev1(:) = 0.
 
   sfluxr_accum_prev0(:) = 0.
   sfluxr_accum_prev1(:) = 0.
 
-  sfluxt_l_accum_prev0(:) = 0.
-  sfluxt_l_accum_prev1(:) = 0.
+  vc_accum_prev0(:,:) = 0.
+  vc_accum_prev1(:,:) = 0.
 
-  sfluxr_l_accum_prev0(:) = 0.
-  sfluxr_l_accum_prev1(:) = 0.
+  wc_accum_prev0(:,:) = 0.
+  wc_accum_prev1(:,:) = 0.
+
+  press_accum_prev0(:,:) = 0.
+  press_accum_prev1(:,:) = 0.
+
+  tair_accum_prev0(:,:) = 0.
+  tair_accum_prev1(:,:) = 0.
+
+  sh_v_accum_prev0(:,:) = 0.
+  sh_v_accum_prev1(:,:) = 0.
+
+  vels_l_accum_prev0(:) = 0.
+  vels_l_accum_prev1(:) = 0.
 
   airtemp_l_accum_prev0(:) = 0.
   airtemp_l_accum_prev1(:) = 0.
@@ -269,11 +404,17 @@ Contains
   canshv_l_accum_prev0(:) = 0.
   canshv_l_accum_prev1(:) = 0.
 
-  sfluxt_s_accum_prev0(:) = 0.
-  sfluxt_s_accum_prev1(:) = 0.
+  sfluxt_l_accum_prev0(:) = 0.
+  sfluxt_l_accum_prev1(:) = 0.
 
-  sfluxr_s_accum_prev0(:) = 0.
-  sfluxr_s_accum_prev1(:) = 0.
+  sfluxr_l_accum_prev0(:) = 0.
+  sfluxr_l_accum_prev1(:) = 0.
+
+  wxfer1_l_accum_prev0(:) = 0.
+  wxfer1_l_accum_prev1(:) = 0.
+
+  vels_s_accum_prev0(:) = 0.
+  vels_s_accum_prev1(:) = 0.
 
   airtemp_s_accum_prev0(:) = 0.
   airtemp_s_accum_prev1(:) = 0.
@@ -286,6 +427,15 @@ Contains
 
   canshv_s_accum_prev0(:) = 0.
   canshv_s_accum_prev1(:) = 0.
+
+  skintemp_s_accum_prev0(:) = 0.
+  skintemp_s_accum_prev1(:) = 0.
+
+  sfluxt_s_accum_prev0(:) = 0.
+  sfluxt_s_accum_prev1(:) = 0.
+
+  sfluxr_s_accum_prev0(:) = 0.
+  sfluxr_s_accum_prev1(:) = 0.
 
   press_init(:,:) = press(:,:)
   rho_init  (:,:) = rho  (:,:)
@@ -310,17 +460,29 @@ Contains
   use mem_micro,      only: accpd, accpr, accpp, accps, accpa, accpg, accph
   use misc_coms,      only: time8
   use mem_turb,       only: sfluxt, sfluxr
-  use mem_flux_accum, only: rshort_accum, rshortup_accum, &
-                            rlong_accum, rlongup_accum, &
-                            rshort_top_accum, rshortup_top_accum, &
-                            rlongup_top_accum, &
+  use mem_flux_accum, only:    rshort_accum,         rshortup_accum, &
+                                rlong_accum,          rlongup_accum, &
+                           rshort_top_accum,     rshortup_top_accum, &
+                          rlongup_top_accum,                         &
+                           rshort_clr_accum,     rshortup_clr_accum, &
+                            rlong_clr_accum,      rlongup_clr_accum, &
+                       rshort_top_clr_accum, rshortup_top_clr_accum, &
+                      rlongup_top_clr_accum,                         &
                                sfluxt_accum,   sfluxr_accum, &
-                             sfluxt_l_accum, sfluxr_l_accum, &
+                                   vc_accum,       wc_accum, &
+                                press_accum,     tair_accum, &
+                                 sh_v_accum,                 &
+                               vels_l_accum,                 &
                             airtemp_l_accum, airshv_l_accum, &
                             cantemp_l_accum, canshv_l_accum, &
-                             sfluxt_s_accum, sfluxr_s_accum, &
+                           skintemp_l_accum,                 &
+                             sfluxt_l_accum, sfluxr_l_accum, &
+                             wxfer1_l_accum,                 &
+                               vels_s_accum,                 &
                             airtemp_s_accum, airshv_s_accum, &
-                            cantemp_s_accum, canshv_s_accum
+                            cantemp_s_accum, canshv_s_accum, &
+                           skintemp_s_accum,                 &
+                             sfluxt_s_accum, sfluxr_s_accum
 
   implicit none
 
@@ -372,22 +534,41 @@ Contains
        rshort_top_accum_prev1(:) =   rshort_top_accum_prev0(:)
      rshortup_top_accum_prev1(:) = rshortup_top_accum_prev0(:)
       rlongup_top_accum_prev1(:) =  rlongup_top_accum_prev0(:)
+
+           rshort_clr_accum_prev1(:) =       rshort_clr_accum_prev0(:)
+         rshortup_clr_accum_prev1(:) =     rshortup_clr_accum_prev0(:)
+            rlong_clr_accum_prev1(:) =        rlong_clr_accum_prev0(:)
+          rlongup_clr_accum_prev1(:) =      rlongup_clr_accum_prev0(:)
+       rshort_top_clr_accum_prev1(:) =   rshort_top_clr_accum_prev0(:)
+     rshortup_top_clr_accum_prev1(:) = rshortup_top_clr_accum_prev0(:)
+      rlongup_top_clr_accum_prev1(:) =  rlongup_top_clr_accum_prev0(:)
+
            sfluxt_accum_prev1(:) =       sfluxt_accum_prev0(:)
            sfluxr_accum_prev1(:) =       sfluxr_accum_prev0(:)
+             vc_accum_prev1(:,:) =         vc_accum_prev0(:,:)
+             wc_accum_prev1(:,:) =         wc_accum_prev0(:,:)
+          press_accum_prev1(:,:) =      press_accum_prev0(:,:)
+           tair_accum_prev1(:,:) =       tair_accum_prev0(:,:)
+           sh_v_accum_prev1(:,:) =       sh_v_accum_prev0(:,:)
 
-        sfluxt_l_accum_prev1(:) =  sfluxt_l_accum_prev0(:)
-        sfluxr_l_accum_prev1(:) =  sfluxr_l_accum_prev0(:)
-       airtemp_l_accum_prev1(:) = airtemp_l_accum_prev0(:)
-        airshv_l_accum_prev1(:) =  airshv_l_accum_prev0(:)
-       cantemp_l_accum_prev1(:) = cantemp_l_accum_prev0(:)
-        canshv_l_accum_prev1(:) =  canshv_l_accum_prev0(:)
+          vels_l_accum_prev1(:) =     vels_l_accum_prev0(:)
+       airtemp_l_accum_prev1(:) =  airtemp_l_accum_prev0(:)
+        airshv_l_accum_prev1(:) =   airshv_l_accum_prev0(:)
+       cantemp_l_accum_prev1(:) =  cantemp_l_accum_prev0(:)
+        canshv_l_accum_prev1(:) =   canshv_l_accum_prev0(:)
+      skintemp_l_accum_prev1(:) = skintemp_l_accum_prev0(:)
+        sfluxt_l_accum_prev1(:) =   sfluxt_l_accum_prev0(:)
+        sfluxr_l_accum_prev1(:) =   sfluxr_l_accum_prev0(:)
+        wxfer1_l_accum_prev1(:) =   wxfer1_l_accum_prev0(:)
 
-        sfluxt_s_accum_prev1(:) =  sfluxt_s_accum_prev0(:)
-        sfluxr_s_accum_prev1(:) =  sfluxr_s_accum_prev0(:)
-       airtemp_s_accum_prev1(:) = airtemp_s_accum_prev0(:)
-        airshv_s_accum_prev1(:) =  airshv_s_accum_prev0(:)
-       cantemp_s_accum_prev1(:) = cantemp_s_accum_prev0(:)
-        canshv_s_accum_prev1(:) =  canshv_s_accum_prev0(:)
+          vels_s_accum_prev1(:) =     vels_s_accum_prev0(:)
+       airtemp_s_accum_prev1(:) =  airtemp_s_accum_prev0(:)
+        airshv_s_accum_prev1(:) =   airshv_s_accum_prev0(:)
+       cantemp_s_accum_prev1(:) =  cantemp_s_accum_prev0(:)
+        canshv_s_accum_prev1(:) =   canshv_s_accum_prev0(:)
+      skintemp_s_accum_prev1(:) = skintemp_s_accum_prev0(:)
+        sfluxt_s_accum_prev1(:) =   sfluxt_s_accum_prev0(:)
+        sfluxr_s_accum_prev1(:) =   sfluxr_s_accum_prev0(:)
 
 ! Fill most recent previous values
 
@@ -403,22 +584,41 @@ Contains
        rshort_top_accum_prev0(:) = 0.
      rshortup_top_accum_prev0(:) = 0.
       rlongup_top_accum_prev0(:) = 0.
+
+           rshort_clr_accum_prev0(:) = 0.
+         rshortup_clr_accum_prev0(:) = 0.
+            rlong_clr_accum_prev0(:) = 0.
+          rlongup_clr_accum_prev0(:) = 0.
+       rshort_top_clr_accum_prev0(:) = 0.
+     rshortup_top_clr_accum_prev0(:) = 0.
+      rlongup_top_clr_accum_prev0(:) = 0.
+
            sfluxt_accum_prev0(:) = 0.
            sfluxr_accum_prev0(:) = 0.
+             vc_accum_prev0(:,:) = 0.
+             wc_accum_prev0(:,:) = 0.
+          press_accum_prev0(:,:) = 0.
+           tair_accum_prev0(:,:) = 0.
+           sh_v_accum_prev0(:,:) = 0.
 
-        sfluxt_l_accum_prev0(:) = 0.
-        sfluxr_l_accum_prev0(:) = 0.
+          vels_l_accum_prev0(:) = 0.
        airtemp_l_accum_prev0(:) = 0.
         airshv_l_accum_prev0(:) = 0.
        cantemp_l_accum_prev0(:) = 0.
         canshv_l_accum_prev0(:) = 0.
+      skintemp_l_accum_prev0(:) = 0.
+        sfluxt_l_accum_prev0(:) = 0.
+        sfluxr_l_accum_prev0(:) = 0.
+        wxfer1_l_accum_prev0(:) = 0.
 
-        sfluxt_s_accum_prev0(:) = 0.
-        sfluxr_s_accum_prev0(:) = 0.
+          vels_s_accum_prev0(:) = 0.
        airtemp_s_accum_prev0(:) = 0.
         airshv_s_accum_prev0(:) = 0.
        cantemp_s_accum_prev0(:) = 0.
         canshv_s_accum_prev0(:) = 0.
+      skintemp_s_accum_prev0(:) = 0.
+        sfluxt_s_accum_prev0(:) = 0.
+        sfluxr_s_accum_prev0(:) = 0.
 
 !  endif
 
@@ -462,6 +662,34 @@ Contains
                                     rlongup_top_accum_prev0(:) + &
                                real(rlongup_top_accum(:))
 
+  if (allocated(rshort_clr_accum)) rshort_clr_accum_prev0(:) = &
+                                   rshort_clr_accum_prev0(:) + &
+                              real(rshort_clr_accum(:))
+
+  if (allocated(rshortup_clr_accum)) rshortup_clr_accum_prev0(:) = &
+                                     rshortup_clr_accum_prev0(:) + &
+                                real(rshortup_clr_accum(:))
+
+  if (allocated(rlong_clr_accum)) rlong_clr_accum_prev0(:) = &
+                                  rlong_clr_accum_prev0(:) + &
+                             real(rlong_clr_accum(:))
+
+  if (allocated(rlongup_clr_accum)) rlongup_clr_accum_prev0(:) = &
+                                    rlongup_clr_accum_prev0(:) + &
+                               real(rlongup_clr_accum(:))
+
+  if (allocated(rshort_top_clr_accum)) rshort_top_clr_accum_prev0(:) = &
+                                       rshort_top_clr_accum_prev0(:) + &
+                                  real(rshort_top_clr_accum(:))
+
+  if (allocated(rshortup_top_clr_accum)) rshortup_top_clr_accum_prev0(:) = &
+                                         rshortup_top_clr_accum_prev0(:) + &
+                                    real(rshortup_top_clr_accum(:))
+
+  if (allocated(rlongup_top_clr_accum)) rlongup_top_clr_accum_prev0(:) = &
+                                        rlongup_top_clr_accum_prev0(:) + &
+                                   real(rlongup_top_clr_accum(:))
+
   if (allocated(sfluxt_accum)) sfluxt_accum_prev0(:) = &
                                sfluxt_accum_prev0(:) + &
                           real(sfluxt_accum(:))
@@ -470,13 +698,29 @@ Contains
                                sfluxr_accum_prev0(:) + &
                           real(sfluxr_accum(:))
 
-  if (allocated(sfluxt_l_accum))  sfluxt_l_accum_prev0(:) = &
-                                  sfluxt_l_accum_prev0(:) + &
-                             real(sfluxt_l_accum(:))
+  if (allocated(vc_accum)) vc_accum_prev0(:,:) = &
+                           vc_accum_prev0(:,:) + &
+                      real(vc_accum(:,:))
 
-  if (allocated(sfluxr_l_accum))  sfluxr_l_accum_prev0(:) = &
-                                  sfluxr_l_accum_prev0(:) + &
-                             real(sfluxr_l_accum(:))
+  if (allocated(wc_accum)) wc_accum_prev0(:,:) = &
+                           wc_accum_prev0(:,:) + &
+                      real(wc_accum(:,:))
+
+  if (allocated(press_accum)) press_accum_prev0(:,:) = &
+                              press_accum_prev0(:,:) + &
+                         real(press_accum(:,:))
+
+  if (allocated(tair_accum)) tair_accum_prev0(:,:) = &
+                             tair_accum_prev0(:,:) + &
+                        real(tair_accum(:,:))
+
+  if (allocated(sh_v_accum)) sh_v_accum_prev0(:,:) = &
+                             sh_v_accum_prev0(:,:) + &
+                        real(sh_v_accum(:,:))
+
+  if (allocated(vels_l_accum))  vels_l_accum_prev0(:) = &
+                                vels_l_accum_prev0(:) + &
+                           real(vels_l_accum(:))
 
   if (allocated(airtemp_l_accum))  airtemp_l_accum_prev0(:) = &
                                    airtemp_l_accum_prev0(:) + &
@@ -494,13 +738,25 @@ Contains
                                   canshv_l_accum_prev0(:) + &
                              real(canshv_l_accum(:))
 
-  if (allocated(sfluxt_s_accum))  sfluxt_s_accum_prev0(:) = &
-                                  sfluxt_s_accum_prev0(:) + &
-                             real(sfluxt_s_accum(:))
+  if (allocated(skintemp_l_accum))  skintemp_l_accum_prev0(:) = &
+                                    skintemp_l_accum_prev0(:) + &
+                               real(skintemp_l_accum(:))
 
-  if (allocated(sfluxr_s_accum))  sfluxr_s_accum_prev0(:) = &
-                                  sfluxr_s_accum_prev0(:) + &
-                             real(sfluxr_s_accum(:))
+  if (allocated(sfluxt_l_accum))  sfluxt_l_accum_prev0(:) = &
+                                  sfluxt_l_accum_prev0(:) + &
+                             real(sfluxt_l_accum(:))
+
+  if (allocated(sfluxr_l_accum))  sfluxr_l_accum_prev0(:) = &
+                                  sfluxr_l_accum_prev0(:) + &
+                             real(sfluxr_l_accum(:))
+
+  if (allocated(wxfer1_l_accum))  wxfer1_l_accum_prev0(:) = &
+                                  wxfer1_l_accum_prev0(:) + &
+                             real(wxfer1_l_accum(:))
+
+  if (allocated(vels_s_accum))  vels_s_accum_prev0(:) = &
+                                vels_s_accum_prev0(:) + &
+                           real(vels_s_accum(:))
 
   if (allocated(airtemp_s_accum))  airtemp_s_accum_prev0(:) = &
                                    airtemp_s_accum_prev0(:) + &
@@ -517,6 +773,18 @@ Contains
   if (allocated(canshv_s_accum))  canshv_s_accum_prev0(:) = &
                                   canshv_s_accum_prev0(:) + &
                              real(canshv_s_accum(:))
+
+  if (allocated(skintemp_s_accum))  skintemp_s_accum_prev0(:) = &
+                                    skintemp_s_accum_prev0(:) + &
+                               real(skintemp_s_accum(:))
+
+  if (allocated(sfluxt_s_accum))  sfluxt_s_accum_prev0(:) = &
+                                  sfluxt_s_accum_prev0(:) + &
+                             real(sfluxt_s_accum(:))
+
+  if (allocated(sfluxr_s_accum))  sfluxr_s_accum_prev0(:) = &
+                                  sfluxr_s_accum_prev0(:) + &
+                             real(sfluxr_s_accum(:))
 
   end subroutine copy_plot
 

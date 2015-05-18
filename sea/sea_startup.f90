@@ -70,7 +70,9 @@ if (isstflg == 0) then
 
 elseif (isstflg == 1) then
 
-   if (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
+   if (runtype == 'INITIAL' .or. &
+       runtype == 'HISTORY' .or. &
+       runtype == 'HISTADDGRID') then
 
 ! Read standard SST database
 ! Not needed for a plotonly run
@@ -89,7 +91,9 @@ elseif (isstflg == 1) then
 
 elseif (isstflg == 2) then
 
-   if (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
+   if (runtype == 'INITIAL' .or. &
+       runtype == 'HISTORY' .or. &
+       runtype == 'HISTADDGRID') then
 
 ! Read SST from degribbed analysis files
 ! Not needed for a plotonly run
@@ -123,7 +127,9 @@ if (iseaiceflg == 0) then
 
 elseif (iseaiceflg == 1) then
 
-   if (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
+   if (runtype == 'INITIAL' .or. &
+       runtype == 'HISTORY' .or. &
+       runtype == 'HISTADDGRID') then
 
 ! Read standard SEAICE database
 ! Not needed for a plotonly run
@@ -142,7 +148,9 @@ elseif (iseaiceflg == 1) then
 
 elseif (iseaiceflg == 2) then
 
-   if (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
+   if (runtype == 'INITIAL' .or. &
+       runtype == 'HISTORY' .or. &
+       runtype == 'HISTADDGRID') then
 
 ! Read SEAICE from degribbed analysis files
 ! Not needed for a plotonly run

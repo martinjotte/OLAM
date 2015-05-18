@@ -90,9 +90,6 @@ Module mem_leaf
       real, allocatable :: sxfer_t   (:) ! canair-to-atm heat xfer this step [kg_air K/m^2]
       real, allocatable :: sxfer_r   (:) ! canair-to-atm vapor xfer this step [kg_vap/m^2]
       real, allocatable :: sxfer_c   (:) ! canair-to-atm CO2 xfer this step [ppm/m^2]
-      real, allocatable :: sxfer_tsav(:) ! saved previous value of sxfer_t
-      real, allocatable :: sxfer_rsav(:) ! saved previous value of sxter_r
-      real, allocatable :: sxfer_csav(:) ! saved previous value of sxter_c
 
       real, allocatable :: ggaer  (:) ! canopy-atmosphere aerodynamic conductance [m/s]
       real, allocatable :: ed_zeta(:)
@@ -235,9 +232,6 @@ Contains
      allocate (land%sxfer_t            (mwl)) ; land%sxfer_t         = 0.0
      allocate (land%sxfer_r            (mwl)) ; land%sxfer_r         = 0.0
      allocate (land%sxfer_c            (mwl)) ; land%sxfer_c         = 0.0
-     allocate (land%sxfer_tsav         (mwl)) ; land%sxfer_tsav      = 0.0
-     allocate (land%sxfer_rsav         (mwl)) ; land%sxfer_rsav      = 0.0
-     allocate (land%sxfer_csav         (mwl)) ; land%sxfer_csav      = 0.0
 
      allocate (land%ggaer              (mwl)) ; land%ggaer           = 0.0
      allocate (land%ed_zeta            (mwl)) ; land%ed_zeta         = 0.0

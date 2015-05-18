@@ -58,10 +58,7 @@ subroutine sea_init_atm()
 
   real, external :: rhovsl, rhovsil
 
-! This subroutine fills the primary LEAF3 arrays which depend on current
-! atmospheric conditions.
-
-! Time interpolation factor for updating SST and SEA ICE
+  ! Initialize sea quantities that do not depend on atmospheric conditions
 
   timefac_sst    = 0.0
   timefac_seaice = 0.0
@@ -76,9 +73,27 @@ subroutine sea_init_atm()
                     / (s1900_seaice(iseaicefile) - s1900_seaice(iseaicefile-1))
   endif
 
+  !$omp parallel do
+  do iws = 2,mws
+
+  ! Initialize sea temperature, sea ice, and canopy depth
+
+     sea%seatc(iws) = sea%seatp(iws)  &
+                    + (sea%seatf(iws) - sea%seatp(iws)) * timefac_sst
+
+     sea%seaicec(iws) = sea%seaicep(iws)  &
+                      + (sea%seaicef(iws) - sea%seaicep(iws)) * timefac_seaice
+
+     sea%can_depth(iws) = 20. * max(1.,.025 * dt_sea)
+
+  enddo  ! iws
+  !$omp end parallel do
+
+  ! End of initialization that does not depend on atmospheric conditions
+
   if (runtype /= "INITIAL") return
 
-! Loop over all SEA cells
+  ! Initialize sea quantities that depend on atmospheric conditions
 
   !$omp parallel do private (iw,kw,dum1,dum2)
   do iws = 2,mws
@@ -99,16 +114,6 @@ subroutine sea_init_atm()
      sea%airshv (iws) = sh_v(kw,iw)
      sea%cantemp(iws) = tair(kw,iw)
      sea%canshv (iws) = sh_v(kw,iw)
-
-! Initialize sea temperature, sea ice, and canopy depth
-
-     sea%seatc(iws) = sea%seatp(iws)  &
-                    + (sea%seatf(iws) - sea%seatp(iws)) * timefac_sst
-
-     sea%seaicec(iws) = sea%seaicep(iws)  &
-                      + (sea%seaicef(iws) - sea%seaicep(iws)) * timefac_seaice
-
-     sea%can_depth(iws) = 20. * max(1.,.025 * dt_sea)
 
      sea%nlev_seaice(iws) = 0
 

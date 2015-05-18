@@ -33,73 +33,75 @@
 
 subroutine leaf4_startup()
 
-use leaf_coms, only: nzg, nzs, landusefile, mml, mul, mwl, &
-                     alloc_leafcol, isoildepthflg, ndviflg
-use mem_leaf,  only: alloc_leaf, filltab_ED, filltab_leaf, land
-use misc_coms, only: io6, runtype
+  use leaf_coms, only: nzg, nzs, landusefile, mml, mul, mwl, &
+                       alloc_leafcol, isoildepthflg, ndviflg
+  use mem_leaf,  only: alloc_leaf, filltab_ED, filltab_leaf, land
+  use misc_coms, only: io6, runtype
 
-implicit none
+  implicit none
 
-integer :: iwl
+  integer :: iwl
 
-! Subroutine LEAF4_STARTUP allocates and initializes some leaf4 arrays.
+  ! Subroutine LEAF4_STARTUP allocates and initializes some leaf4 arrays.
 
-! THIS SUBROUTINE DOES NOT INITIALIZE soil/veg/canopy temperature and moisture
-! values, which depend on atmospheric conditions.
+  ! THIS SUBROUTINE DOES NOT INITIALIZE soil/veg/canopy temperature and moisture
+  ! values, which depend on atmospheric conditions.
 
-!-------------------------------------------------------------------------------
-! STEP 1: Allocate leafcol arrays
-!-------------------------------------------------------------------------------
+  !-------------------------------------------------------------------------------
+  ! STEP 1: Allocate leafcol arrays
+  !-------------------------------------------------------------------------------
 
-call alloc_leafcol()
+  call alloc_leafcol()
 
-!-------------------------------------------------------------------------------
-! STEP 2: Initialize inherent soil and vegetation properties
-!-------------------------------------------------------------------------------
+  !-------------------------------------------------------------------------------
+  ! STEP 2: Initialize inherent soil and vegetation properties
+  !-------------------------------------------------------------------------------
 
-call sfcdata()
+  call sfcdata()
 
-!-------------------------------------------------------------------------------
-! STEP 3: Allocate main LEAF arrays
-!-------------------------------------------------------------------------------
+  !-------------------------------------------------------------------------------
+  ! STEP 3: Allocate main LEAF arrays
+  !-------------------------------------------------------------------------------
 
-call alloc_leaf(mwl, nzg, nzs)
-call filltab_leaf()
+  call alloc_leaf(mwl, nzg, nzs)
+  call filltab_leaf()
 
-!-------------------------------------------------------------------------------
-! STEP 4: Read soil depth info
-!-------------------------------------------------------------------------------
+  !-------------------------------------------------------------------------------
+  ! STEP 4: Read soil depth info
+  !-------------------------------------------------------------------------------
 
-!if (isoildepthflg == 1) call leaf_soil_depth_read()
+  !if (isoildepthflg == 1) call leaf_soil_depth_read()
+  
+  !-------------------------------------------------------------------------------
+  ! STEP 5: Fill ndvi values
+  !-------------------------------------------------------------------------------
 
-!-------------------------------------------------------------------------------
-! STEP 5: Fill ndvi values
-!-------------------------------------------------------------------------------
+  if (ndviflg == 2) then
 
-if (ndviflg == 2) then
+  ! Default initialization of NDVI
 
-! Default initialization of NDVI
+     do iwl = 2,mwl
+        land%veg_ndvip(iwl) = .5
+        land%veg_ndvif(iwl) = .5
+        land%veg_ndvic(iwl) = .5
+     enddo
 
-   do iwl = 2,mwl
-      land%veg_ndvip(iwl) = .5
-      land%veg_ndvif(iwl) = .5
-      land%veg_ndvic(iwl) = .5
-   enddo
+  elseif (runtype == 'INITIAL' .or. &
+          runtype == 'HISTORY' .or. &
+          runtype == 'HISTADDGRID') then
 
-elseif (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
+  ! Make inventory of ndvi files and initialize current/past time
+  ! Not needed for a PLOTONLY run.
 
-! Make inventory of ndvi files and initialize current/past time
-! Not needed for a PLOTONLY run.
+     call ndvi_database_read(0)
 
-   call ndvi_database_read(0)
+  ! Initialize future ndvi file time
 
-! Initialize future ndvi file time
+     call ndvi_database_read(1)
 
-   call ndvi_database_read(1)
+  endif
 
-endif
 
-return
 end subroutine leaf4_startup
 
 !==========================================================================
@@ -115,7 +117,7 @@ use leaf_coms, only: slz, nstyp, nvtyp, nzg, refdepth, slcons0, fhydraul,  &
                      fpar_max, fpar_min, sr_min, root, kroot,              &
                      dt_leaf, dslz, dslzo2, dslzi,                         &
                      dslzidt, slzt, dslzt, dslzti, dslztidt,               &
-                     water_frac_ph0, slpott
+                     water_frac_ph0, slpott, water_def_ph0, slmstsh0
 use misc_coms, only: io6
 
 implicit none
@@ -203,7 +205,8 @@ data bioparms/  &
  .12, .43, .98, 5.1, 7.0, 1.0,  .0, .80,  1.6, 1.0, .0, 500., & ! 17  Bog or marsh
  .20, .36, .96, 5.1, 6.0, 1.0,  .0, .80,  7.0, 3.5, .0, 100., & ! 18  Wooded grassland 
  .20, .36, .90, 5.1, 3.6, 1.0,  .0, .74,  6.0, 2.5, .0, 500., & ! 19  Urban and built up
- .17, .24, .95, 4.1, 7.0, 1.0,  .0, .90, 32.0, 5.0, .0, 500./   ! 20  Wetland evergreen broadleaf tree
+ .17, .24, .95, 4.1, 7.0, 1.0,  .0, .90, 32.0, 5.0, .0, 500., & ! 20  Wetland evergreen broadleaf tree
+ .18, .18, .96, 5.1, 3.0,  .5,  .0, .80, 0.32, 1.0, .0, 100./   ! 21  Deforested (Amazon - Medvigy)
 !.16, .24, .96, 5.1, 2.0, 1.5, 1.0, .10, 20.0, 1.5, .0, 500./   ! 21  Very urban
 
 ! Soil vertical grid spacing arrays (some with timestep info)
@@ -253,9 +256,13 @@ do nnn = 1,nstyp
    soilcond1(nnn) = soilparms2(6,nnn)
    soilcond2(nnn) = soilparms2(7,nnn)
 
-   slpott(nnn) = slpots(nnn) * (1./water_frac_ph0) ** slbs(nnn)
-   emisg (nnn) = .98
-   soilcp(nnn) = 0.1 - 0.07 * xsand(nnn)
+   slpott   (nnn) = slpots(nnn) * (1./water_frac_ph0) ** slbs(nnn)
+   emisg    (nnn) = .98
+   soilcp   (nnn) = 0.1 - 0.07 * xsand(nnn)
+
+   slmstsh0 (nnn) = slmsts(nnn) * (water_frac_ph0 &
+                  + water_def_ph0 * (-slpott(nnn) - slz(nzg)) / (10. - slpott(nnn)))
+
 enddo
 
 do nnn = 1,nvtyp

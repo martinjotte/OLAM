@@ -371,8 +371,8 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      if (icfrac == 3) then
 
         if (fland > 0.5) then
-           cfrh1 = wt20 * 0.85 + wt60 * 0.90  ! land set 1
-           cfrh2 = wt20 * 1.05 + wt60 * 1.40  ! land set 1
+           cfrh1 = wt20 * 0.90 + wt60 * 0.90  ! land set 1
+           cfrh2 = wt20 * 1.40 + wt60 * 1.40  ! land set 1
         else
            cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 1
            cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 1

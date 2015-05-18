@@ -49,6 +49,7 @@ use consts_coms, only: cliq1000, cice1000, alli1000, alvi
 use misc_coms,   only: io6
 use tridiag,     only: tridiffo
 use leaf4_plot,  only: leaf_plot
+use mem_flux_accum, only: wxfer1_l_accum
 
 implicit none
 
@@ -230,29 +231,21 @@ do k = 1,nzg
 ! condition of specified total head.  
 
    head(k) = psi(k) + slzt(k)
-   headp(k) = -psi(k) * slbs(nts) * water_fraci(k)
+   headp(k) = -psi(k) * slbs(nts) * water_fraci(k) / slmsts(nts)
    
 ! If soil layer is nearly full, compute additional head that simulates 
 ! pressure contribution
 
    if (water_frac(k) > water_frac_ph0) then
 
-! linear form      
-
      headp_ph(k) = (10. - slpott(nts)) / (water_def_ph0 * slmsts(nts))
      head(k)  = head(k)  &
               + headp_ph(k) * (water_frac(k) - water_frac_ph0) * slmsts(nts)
 
-! quadratic form      
-
-!      headp_ph(k) = (10. - slpott(nts)) &
-!                  * 2. * (water_frac(k) - water_frac_ph0) / water_def_ph0 ** 2
-
-!      head(k) = head(k) + headp_ph(k) * .5 * (water_frac(k) - water_frac_ph0)
-
 ! headp_ph addition to headp
 
       headp(k) = headp(k) + headp_ph(k)
+
    endif
 
 ! Soil water available for transport in middle of soil layer (lesser of
@@ -355,6 +348,15 @@ endif
 
 do k = 1,nzg
 
+! Limit wxfer fluxes so that none exceeds half of the water content of
+! the current donor cell
+
+   if (wxfer(k) > 0. .and. k > 1) then
+      wxfer(k) = min(wxfer(k),soil_water(k-1) * dslzo2(k-1))
+   elseif (wxfer(k) < 0.) then
+      wxfer(k) = max(wxfer(k),-soil_water(k) * dslzo2(k))
+   endif
+
 ! Compute q transfers between soil layers (qwxfer) [J/m2]
 
    if (wxfer(k) < 0.) then
@@ -400,6 +402,10 @@ do k = 1,nzg
    soil_energy(k) = soil_energy(k) + dslzi(k) * (qwxfer(k) - qwxfer(k+1))
 
 enddo
+
+! Add bottom water flux to accumulation array
+
+wxfer1_l_accum(iwl) = wxfer1_l_accum(iwl) + wxfer(1)
 
 ! Apply fluxes at nzg + 1 to sfcwater at k = 1
 

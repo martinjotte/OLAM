@@ -353,7 +353,7 @@ CONTAINS
 
      cbmf(iw) = 0.0
 
-     call  CUP_enss_3d(OUTQC,J,AAEQ,T,Q,Z1,sub_mas,                    &
+     call  CUP_enss_3d(iw,OUTQC,J,AAEQ,T,Q,Z1,sub_mas,                    &
               TN,QO,PO,PRE,P,OUTT,OUTQ,DTIME,ktau,tkmax,PSUR,US,VS,    &
               TCRIT,tx,qx,                                             &
               tshall,qshall,kpbl,dhdt,outts,outqs,tscl_kf,             &
@@ -438,7 +438,7 @@ CONTAINS
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-   SUBROUTINE CUP_enss_3d(OUTQC,J,AAEQ,T,Q,Z1,sub_mas,                 &
+   SUBROUTINE CUP_enss_3d(iw,OUTQC,J,AAEQ,T,Q,Z1,sub_mas,                 &
               TN,QO,PO,PRE,P,OUTT,OUTQ,DTIME,ktau,tkmax,PSUR,US,VS,    &
               TCRIT,tx,qx,                                             &
               tshall,qshall,kpbl,dhdt,outts,outqs,tscl_kf,             &
@@ -455,7 +455,7 @@ CONTAINS
 
      integer                                                           &
         ,intent (in   )                   ::                           &
-        ktf,ktau,                                              &
+        iw,ktf,ktau,                                              &
         kts,kte,ipr,jpr,ens4,high_resolution
      integer, intent (in   )              ::                           &
         j,ishallow_g3,ichoice     
@@ -779,10 +779,11 @@ CONTAINS
 !
 !--- calculate moist static energy, heights, qes
 !
-      call cup_env(z,qes,he,hes,t,q,p,z1, &
+      call cup_env(iw,z,qes,he,hes,t,q,p,z1, &
            psur,ierr,tcrit,0,xl,cp,   &
            ktf,kts,kte)
-      call cup_env(zo,qeso,heo,heso,tn,qo,po,z1, &
+
+      call cup_env(iw,zo,qeso,heo,heso,tn,qo,po,z1, &
            psur,ierr,tcrit,0,xl,cp,   &
            ktf,kts,kte)
 !
@@ -1010,7 +1011,8 @@ CONTAINS
 !
       if(ishallow_g3.eq.1)then
 !     write(0,*)'now do shallow for j = ',j
-      call cup_env(z3,qes3,he3,hes3,tshall,qshall,po,z1, &
+
+      call cup_env(iw,z3,qes3,he3,hes3,tshall,qshall,po,z1, &
            psur,ierr5,tcrit,0,xl,cp,   &
            ktf,kts,kte)
       call cup_env_clev(tshall,qes3,qshall,he3,hes3,z3,po,qes3_cup,q3_cup, &
@@ -1073,15 +1075,17 @@ CONTAINS
 !          endif
 !        endif
 !     enddo
-!     call cup_dellabot('shallow',ipr,jpr,q3_cup,ierr5,z3_cup,po,qrcdo,edto, &
+!     call cup_dellabot('shallow',iw,ipr,jpr,q3_cup,ierr5,z3_cup,po,qrcdo,edto, &
 !          zdo,cdd,q3,dellaq3,dsubq,j,mentrd_rate,z3,g,&
 !          ktf,kts,kte)
-      call cup_dellas_3d(ierr5,z3_cup,po_cup,hcdo,edt3,zdo3,cdd,    &
+
+      call cup_dellas_3d(iw,ierr5,z3_cup,po_cup,hcdo,edt3,zdo3,cdd,    &
            he3,dellah3,dsubt3,j,mentrd_rate,zu3,g,                     &
            cd3,hc3,ktop3,k23,kbcon3,mentr_rate3,jmin,he3_cup,kdet, &
            k23,ipr,jpr,'shallow',0,                                 &
            ktf,kts,kte)
-      call cup_dellas_3d(ierr5,z3_cup,po_cup,qrcdo,edt3,zdo3,cdd, &
+
+      call cup_dellas_3d(iw,ierr5,z3_cup,po_cup,qrcdo,edt3,zdo3,cdd, &
            qshall,dellaq3,dsubq3,j,mentrd_rate,zu3,g, &
            cd3,qc3,ktop3,k23,kbcon3,mentr_rate3,jmin,q3_cup,kdet, &
            k23,ipr,jpr,'shallow',0,               &
@@ -1112,7 +1116,7 @@ CONTAINS
 !
 !--- calculate moist static energy, heights, qes
 !
-      call cup_env(xz3,xqes3,xhe3,xhes3,xt3,xq3,po,z1, &
+      call cup_env(iw,xz3,xqes3,xhe3,xhes3,xt3,xq3,po,z1, &
            psur,ierr5,tcrit,2,xl,cp,   &
            ktf,kts,kte)
 !
@@ -1295,16 +1299,16 @@ CONTAINS
 !
 !--- 1. in bottom layer
 !
-      call cup_dellabot('deep',ipr,jpr,heo_cup,ierr,zo_cup,po,hcdo,edto, &
+      call cup_dellabot('deep',iw,ipr,jpr,heo_cup,ierr,zo_cup,po,hcdo,edto, &
            zdo,cdd,heo,dellah,dsubt,j,mentrd_rate,zo,g, &
            ktf,kts,kte)
-      call cup_dellabot('deep',ipr,jpr,qo_cup,ierr,zo_cup,po,qrcdo,edto, &
+      call cup_dellabot('deep',iw,ipr,jpr,qo_cup,ierr,zo_cup,po,qrcdo,edto, &
            zdo,cdd,qo,dellaq,dsubq,j,mentrd_rate,zo,g,&
            ktf,kts,kte)
 !
 !--- 2. everywhere else
 !
-      call cup_dellas_3d(ierr,zo_cup,po_cup,hcdo,edto,zdo,cdd,    &
+      call cup_dellas_3d(iw,ierr,zo_cup,po_cup,hcdo,edto,zdo,cdd,    &
            heo,dellah,dsubt,j,mentrd_rate,zuo,g,                     &
            cd,hco,ktop,k22,kbcon,mentr_rate,jmin,heo_cup,kdet, &
            k22,ipr,jpr,'deep',high_resolution,                                 &
@@ -1330,7 +1334,7 @@ CONTAINS
        endif
       enddo
       enddo
-      call cup_dellas_3d(ierr,zo_cup,po_cup,qrcdo,edto,zdo,cdd, &
+      call cup_dellas_3d(iw,ierr,zo_cup,po_cup,qrcdo,edto,zdo,cdd, &
            qo,dellaq,dsubq,j,mentrd_rate,zuo,g, &
            cd,qco,ktop,k22,kbcon,mentr_rate,jmin,qo_cup,kdet, &
            k22,ipr,jpr,'deep',high_resolution,               &
@@ -1371,7 +1375,7 @@ CONTAINS
 !
 !--- calculate moist static energy, heights, qes
 !
-      call cup_env(xz,xqes,xhe,xhes,xt,xq,po,z1, &
+      call cup_env(iw,xz,xqes,xhe,xhes,xt,xq,po,z1, &
            psur,ierr,tcrit,2,xl,cp,   &
            ktf,kts,kte)
 !
@@ -2066,7 +2070,7 @@ CONTAINS
    END SUBROUTINE cup_dd_nms
 
 
-   SUBROUTINE cup_dellabot(name,ipr,jpr,he_cup,ierr,z_cup,p_cup,  &
+   SUBROUTINE cup_dellabot(name,iw,ipr,jpr,he_cup,ierr,z_cup,p_cup,  &
               hcd,edt,zd,cdd,he,della,subs,j,mentrd_rate,z,g,     &
               ktf,kts,kte                     )
 
@@ -2074,7 +2078,7 @@ CONTAINS
 
      integer                                                           &
         ,intent (in   )                   ::                           &
-        ktf,kts,kte
+        iw,ktf,kts,kte
      integer, intent (in   )              ::                           &
         j,ipr,jpr
       character *(*), intent (in)        ::                           &
@@ -2135,7 +2139,7 @@ CONTAINS
    END SUBROUTINE cup_dellabot
 
 
-   SUBROUTINE cup_dellas_3d(ierr,z_cup,p_cup,hcd,edt,zd,cdd,              &
+   SUBROUTINE cup_dellas_3d(iw,ierr,z_cup,p_cup,hcd,edt,zd,cdd,              &
               he,della,subs,j,mentrd_rate,zu,g,                             &
               cd,hc,ktop,k22,kbcon,mentr_rate,jmin,he_cup,kdet,kpbl,   &
               ipr,jpr,name,high_res,                                            &
@@ -2145,7 +2149,7 @@ CONTAINS
 
      integer                                                           &
         ,intent (in   )                   ::                           &
-        ktf,kts,kte
+        iw,ktf,kts,kte
      integer, intent (in   )              ::                           &
         j,ipr,jpr,high_res
   !
@@ -2274,6 +2278,7 @@ CONTAINS
                     -entupk*he_cup(i,k22(i)) &
                     -entdoj*he_cup(i,jmin(i)) &
                      )*g/dp
+
            if(high_res.eq.1)then
 ! the first term includes entr and detr into/from updraft as well as (entup-detup)*he(i,k) from
 !  neighbouring point, to make things mass consistent....
@@ -2319,7 +2324,7 @@ CONTAINS
    END SUBROUTINE cup_dellas_3d
 
 
-   SUBROUTINE cup_env(z,qes,he,hes,t,q,p,z1,                 &
+   SUBROUTINE cup_env(iw,z,qes,he,hes,t,q,p,z1,                 &
               psur,ierr,tcrit,itest,xl,cp,                   &
               ktf,kts,kte                     )
 
@@ -2327,7 +2332,7 @@ CONTAINS
 
      integer                                                           &
         ,intent (in   )                   ::                           &
-        ktf,kts,kte
+        iw,ktf,kts,kte
   !
   ! ierr error value, maybe modified in this routine
   ! q           = environmental mixing ratio

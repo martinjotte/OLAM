@@ -190,7 +190,7 @@ end subroutine perim_fill2
 
 !===========================================================================
 
-subroutine perim_fill3(mrlo,nper,imper,iuper)
+subroutine perim_fill3(ngr,mrlo,nper,imper,iuper)
 
 use mem_ijtabs, only: itab_md, itab_ud, itab_wd, ltab_ud, nest_ud, nest_wd
 use mem_grid,   only: xem, yem, zem
@@ -198,16 +198,19 @@ use misc_coms,  only: io6
 
 implicit none
 
-integer, intent(in) :: mrlo, nper, imper(nper), iuper(nper) 
+integer, intent(in) :: ngr, mrlo, nper, imper(nper), iuper(nper) 
 
 integer :: jm1, jm2, jm3, ju1, ju2, ju3, ku1, ku2, ku3
 
 integer :: im5,im12,im13,im17,im18,im19,im20,im24
+integer :: im16,im21,im22,im23,im25,im26
 
 integer :: iu15,iu16,iu25,iu26,iu33,iu34,iu35,iu41,iu42,iu43
 integer :: iu44,iu45,iu48,iu49,iu50,iu51
+integer :: iu46,iu53
 
 integer :: iw6,iw7,iw8,iw9,iw19,iw20,iw21,iw27,iw29,iw31
+integer :: iw26,iw28,iw30,iw32
 
 integer :: iper
 
@@ -226,10 +229,14 @@ do iper = 1,nper,3
    if (jm1 == ltab_ud(ju1)%im(1)) then
       iu41 = ju1
       iu42 = nest_ud(ju1)%iu
+      iu46 = ltab_ud(ju1)%iu(5)
+      iw26 = ltab_ud(ju1)%iw(3)
       iw27 = ltab_ud(ju1)%iw(1)
    else
       iu41 = nest_ud(ju1)%iu
       iu42 = ju1
+      iu46 = ltab_ud(ju1)%iu(12)
+      iw26 = ltab_ud(ju1)%iw(6)
       iw27 = ltab_ud(ju1)%iw(2)
    endif
 
@@ -246,6 +253,8 @@ do iper = 1,nper,3
       iw9 = ltab_ud(ju2)%iw(6)
       iw29 = ltab_ud(ju2)%iw(1)
       iw20 = ltab_ud(ju2)%iw(2)
+      iw28 = ltab_ud(ju2)%iw(3)
+      iw30 = ltab_ud(ju2)%iw(4)
 
    else
 
@@ -260,19 +269,28 @@ do iper = 1,nper,3
       iw9 = ltab_ud(ju2)%iw(3)
       iw29 = ltab_ud(ju2)%iw(2)
       iw20 = ltab_ud(ju2)%iw(1)
+      iw28 = ltab_ud(ju2)%iw(6)
+      iw30 = ltab_ud(ju2)%iw(5)
 
    endif
 
    if (jm3 == ltab_ud(ju3)%im(1)) then
+      im21 = ltab_ud(ju3)%im(2)
       iu44 = ju3
       iu45 = nest_ud(ju3)%iu
+      iu53 = ltab_ud(ju3)%iu(8)
       iw31 = ltab_ud(ju3)%iw(1)
+      iw32 = ltab_ud(ju3)%iw(4)
    else
+      im21 = ltab_ud(ju3)%im(1)
       iu44 = nest_ud(ju3)%iu
       iu45 = ju3
+      iu53 = ltab_ud(ju3)%iu(9)
       iw31 = ltab_ud(ju3)%iw(2)
+      iw32 = ltab_ud(ju3)%iw(5)
    endif
 
+   im16 = jm1
    im17 = nest_ud(ju1)%im
    im18 = jm2
    im19 = jm3
@@ -337,10 +355,34 @@ do iper = 1,nper,3
       im13 = itab_ud(iu26)%im(2) ! to reposition xyzem(13)
    endif
 
+   if (im16 == itab_ud(iu46)%im(1)) then
+      im22 = itab_ud(iu46)%im(2)
+   else
+      im22 = itab_ud(iu46)%im(1)
+   endif 
+
+   if (im18 == itab_ud(iu48)%im(1)) then
+      im23 = itab_ud(iu48)%im(2)
+   else
+      im23 = itab_ud(iu48)%im(1)
+   endif 
+
    if (im18 == itab_ud(iu49)%im(1)) then
       im24 = itab_ud(iu49)%im(2)
    else
       im24 = itab_ud(iu49)%im(1)
+   endif 
+
+   if (im19 == itab_ud(iu51)%im(1)) then
+      im25 = itab_ud(iu51)%im(2)
+   else
+      im25 = itab_ud(iu51)%im(1)
+   endif 
+
+   if (im21 == itab_ud(iu53)%im(1)) then
+      im26 = itab_ud(iu53)%im(2)
+   else
+      im26 = itab_ud(iu53)%im(1)
    endif 
 
 ! Fill neighbor indices:
@@ -511,6 +553,21 @@ do iper = 1,nper,3
    else
       itab_wd(iw31)%iu(2) = iu45
    endif
+
+   itab_md(im22)%ngr = ngr
+   itab_md(im23)%ngr = ngr
+   itab_md(im24)%ngr = ngr
+   itab_md(im25)%ngr = ngr
+   itab_md(im26)%ngr = ngr
+
+   itab_wd(iw20)%ngr = ngr
+   itab_wd(iw26)%ngr = ngr
+   itab_wd(iw27)%ngr = ngr
+   itab_wd(iw28)%ngr = ngr
+   itab_wd(iw29)%ngr = ngr
+   itab_wd(iw30)%ngr = ngr
+   itab_wd(iw31)%ngr = ngr
+   itab_wd(iw32)%ngr = ngr
 
 ! NEW M locations
 

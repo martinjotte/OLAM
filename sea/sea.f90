@@ -160,11 +160,7 @@ subroutine seacells()
      endif
 
 ! Zero out SEA%SXFER_T(IWS) and SEA%SXFER_R(IWS) now that they have 
-! been applied to the canopy (but save previous values for plotting)
-
-   sea%sxfer_tsav(iws) = sea%sxfer_t(iws)
-   sea%sxfer_rsav(iws) = sea%sxfer_r(iws)
-   sea%sxfer_csav(iws) = sea%sxfer_c(iws)
+! been applied to the canopy
 
    sea%sxfer_t(iws) = 0.
    sea%sxfer_r(iws) = 0.

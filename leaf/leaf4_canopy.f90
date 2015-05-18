@@ -49,7 +49,7 @@ Contains
                    glatw, glonw                                       ) 
 
  use leaf_coms, only: nzg, soil_rough, dt_leaf, dslz, dslzi, &
-                      slpots, slmsts, slbs, kroot, rcmin, soilcp, &
+                      slpots, slmsts, slmstsh0, slbs, kroot, rcmin, soilcp, &
                       slcpd, slcons
 
  use consts_coms, only: cp, vonk, eps_vap, alvl, cliq, cice, alli, rvap, r8
@@ -470,7 +470,7 @@ Contains
 ! over-evaporation of sfcwater; for simplicity, evaporation is not strictly
 ! limited to available sfcwater mass in matrix solution below.
 
-    wcap_soil = dslz(nzg) * (slmsts(nts) - soil_water(nzg)) * 1000. ! [kg/m^2]
+    wcap_soil = dslz(nzg) * (slmstsh0(nts) - soil_water(nzg)) * 1000. ! [kg/m^2]
     
     wcap_rate = dt_leaf * slcons(nts) * 1000.                       ! [kg/m^2]
 

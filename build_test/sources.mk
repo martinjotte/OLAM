@@ -31,6 +31,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/consts_coms.f90 \
              $(MODEL_MODS)/ke_coms.f90 \
              $(MODEL_MODS)/max_dims.f90 \
+             $(MODEL_MODS)/mem_addgrid.f90 \
              $(MODEL_MODS)/mem_addsc.f90 \
              $(MODEL_MODS)/mem_average_vars.f90 \
              $(MODEL_MODS)/mem_basic.f90 \
@@ -46,7 +47,6 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_rayf.f90 \
              $(MODEL_MODS)/mem_tend.f90 \
              $(MODEL_MODS)/mem_thuburn.f90 \
-             $(MODEL_MODS)/mem_timeavg.f90 \
              $(MODEL_MODS)/mem_turb.f90 \
              $(MODEL_MODS)/mem_zonavg.f90 \
              $(MODEL_MODS)/micro_coms.f90 \

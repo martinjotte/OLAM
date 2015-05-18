@@ -134,7 +134,7 @@ Contains
 
   subroutine filltab_turb()
 
-    use var_tables, only: vtab_r, num_var, increment_vtable
+    use var_tables, only: increment_vtable
     implicit none
 
     if (allocated(tkep))     call increment_vtable('TKEP',    'AW', rvar2=tkep, mpt1=.true.)

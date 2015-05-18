@@ -41,12 +41,16 @@ use sea_coms,    only: mws, nzi
 use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,          &
                        rlongup, rlong_albedo, albedt, albedt_beam,        &
                        albedt_diffuse, fthrd_sw, rshort, rlong, fthrd_lw, &
-                       rshort_top, rshortup_top, rshort_diffuse
+                       rshort_top, rshortup_top, rshort_diffuse,          &
+                       rshort_clr, rshortup_clr,                          &
+                       rshort_top_clr, rshortup_top_clr
+
 use mem_basic,   only: rho
 use micro_coms,  only: level
 use consts_coms, only: stefan, pio180, eradi, r8
 use misc_coms,   only: io6, time8p, time_istp8, radfrq, itime1, ilwrtyp, &
-                       iswrtyp, dtlong, current_time, iparallel, isubdomain
+                       iswrtyp, dtlong, current_time, iparallel, isubdomain, &
+                       mstp, runtype
 use mem_grid,    only: lpw, mza, mwa
 use mem_grid,    only: wnx, wny, wnz
 use mem_para,    only: myrank
@@ -74,7 +78,8 @@ integer :: jday
 
 ! Check whether it is time to update radiative fluxes and heating rates
 
-if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
+if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
+    (istp == 1 .and. mstp == 0 .and. runtype == 'HISTADDGRID')) then
 
 ! Print message that radiative transfer is being computed
 
@@ -105,12 +110,17 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
       albedt_beam   (iw) = 0.
       albedt_diffuse(iw) = 0.
 
-! Zero out solar radiation fields when solar radiation calls are skipped at night
+! Zero out solar radiation fields since solar radiation calls are skipped at night
 
       rshort        (iw) = 0.
       rshort_diffuse(iw) = 0.
       rshort_top    (iw) = 0.
       rshortup_top  (iw) = 0.
+      
+      rshort_clr      (iw) = 0.
+      rshortup_clr    (iw) = 0.
+      rshort_top_clr  (iw) = 0.
+      rshortup_top_clr(iw) = 0.
       
       do k = lpw(iw), mza
          fthrd_sw(k,iw) = 0.

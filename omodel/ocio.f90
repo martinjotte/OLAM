@@ -37,84 +37,96 @@ subroutine commio(action)
 ! THAT ARE COMMON TO ALL PROCESSES. CALL THIS ROUTINE WITH
 ! 'ACTION' EQUALS 'READ' OR 'WRITE' TO INPUT OR OUTPUT THE FIELDS
 
-use max_dims,   only: maxngrdll
-use misc_coms,  only: io6, itime1, idate1, imonth1, iyear1, nxp, ngrids, &
-                      ngrdll, grdrad, grdlat, grdlon, nzp, &
-                      mdomain, deltax, &
-                      itopoflg, time8, ndz, hdz, dz, current_time
-use leaf_coms,  only: nzg, nzs, slz, ivegflg, isfcl
-use sea_coms,   only: iseagrid
-use hdf5_utils, only: shdf5_orec, shdf5_irec, shdf5_io
+  use max_dims,   only: maxngrdll
+  use misc_coms,  only: io6, itime1, idate1, imonth1, iyear1, nxp, ngrids, &
+                        ngrdll, grdrad, grdlat, grdlon, nzp, &
+                        mdomain, deltax, runtype, &
+                        itopoflg, time8, ndz, hdz, dz, current_time
+  use leaf_coms,  only: nzg, nzs, slz, ivegflg, isfcl
+  use sea_coms,   only: iseagrid
+  use hdf5_utils, only: shdf5_orec, shdf5_irec, shdf5_io
 
-implicit none
-integer          :: ndims, idims(2), k, ihour
-character(len=*) :: action
+  implicit none
+  integer          :: ndims, idims(2), k, ihour
+  character(len=*) :: action
 
-if (action /= "READ" .and. action /= "WRITE") then
-   write(io6,*) 'Illegal action in routine commio'
-   write(io6,*) 'action must be "READ" or "WRITE"'
-   stop     'Stopping run'
-endif
+  if (action /= "READ" .and. action /= "WRITE") then
+     write(io6,*) 'Illegal action in routine commio'
+     write(io6,*) 'action must be "READ" or "WRITE"'
+     stop     'Stopping run'
+  endif
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! GROUP1: NAMELIST PARAMETERS THAT WE DON'T WANT CHANGED ON HISTORY RESTART.
-!         THESE SHOULD CORRESPOND WITH THE VARIABLES IN THE NOT_HISTORY 
-!         SECTION OF THE SUBROUTINE COPY_NL.
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The following are namelist variables that are read from a history file
+! anytime that subroutine commio is called, which occurs for runtype = 
+! 'HISTORY', 'HISTADDGRID', or 'PLOTONLY'.  These variables should be the
+! same as those in subroutine copy_nl that are copied from the namelist
+! only if runtype = 'MAKEGRID' OR 'INITIAL'.
 
-ndims = 1
-idims(1) = 1
-call shdf5_io(action, ndims, idims, 'nl%itime1',  ivars=itime1)
-call shdf5_io(action, ndims, idims, 'nl%idate1' , ivars=idate1)
-call shdf5_io(action, ndims, idims, 'nl%imonth1', ivars=imonth1)
-call shdf5_io(action, ndims, idims, 'nl%iyear1',  ivars=iyear1)
-call shdf5_io(action, ndims, idims, 'nl%ngrids',  ivars=ngrids)
-call shdf5_io(action, ndims, idims, 'nl%nzp',     ivars=nzp)
-call shdf5_io(action, ndims, idims, 'nl%nzg',     ivars=nzg)
-call shdf5_io(action, ndims, idims, 'nl%nzs',     ivars=nzs)
-call shdf5_io(action, ndims, idims, 'nl%nxp',     ivars=nxp)
-call shdf5_io(action, ndims, idims, 'nl%mdomain', ivars=mdomain)
-call shdf5_io(action, ndims, idims, 'nl%isfcl',   ivars=isfcl)
-call shdf5_io(action, ndims, idims, 'nl%itopoflg',ivars=itopoflg)
-call shdf5_io(action, ndims, idims, 'nl%ivegflg', ivars=ivegflg)
-call shdf5_io(action, ndims, idims, 'nl%deltax',  rvars=deltax)
+  ndims = 1
+  idims(1) = 1
+  call shdf5_io(action, ndims, idims, 'nl%itime1',   ivars=itime1)
+  call shdf5_io(action, ndims, idims, 'nl%idate1' ,  ivars=idate1)
+  call shdf5_io(action, ndims, idims, 'nl%imonth1',  ivars=imonth1)
+  call shdf5_io(action, ndims, idims, 'nl%iyear1',   ivars=iyear1)
+  call shdf5_io(action, ndims, idims, 'nl%nzp',      ivars=nzp)
+  call shdf5_io(action, ndims, idims, 'nl%nzg',      ivars=nzg)
+  call shdf5_io(action, ndims, idims, 'nl%nzs',      ivars=nzs)
+  call shdf5_io(action, ndims, idims, 'nl%nxp',      ivars=nxp)
+  call shdf5_io(action, ndims, idims, 'nl%mdomain',  ivars=mdomain)
+  call shdf5_io(action, ndims, idims, 'nl%isfcl',    ivars=isfcl)
+  call shdf5_io(action, ndims, idims, 'nl%itopoflg', ivars=itopoflg)
+  call shdf5_io(action, ndims, idims, 'nl%ivegflg',  ivars=ivegflg)
+  call shdf5_io(action, ndims, idims, 'nl%iseagrid', ivars=iseagrid)
+  call shdf5_io(action, ndims, idims, 'nl%deltax',   rvars=deltax)
+  call shdf5_io(action, ndims, idims, 'nl%ndz',      ivars=ndz)
 
-call shdf5_io(action, ndims, idims, 'nl%ndz',      ivars=ndz)
-call shdf5_io(action, ndims, idims, 'nl%iseagrid', ivars=iseagrid)
+  ndims = 1
+  idims(1) = ndz
+  call shdf5_io(action, ndims, idims, 'nl%hdz',    rvara=hdz)
+  call shdf5_io(action, ndims, idims, 'nl%dz',     rvara=dz)
 
-ndims = 1
-idims(1) = ndz
-call shdf5_io(action, ndims, idims, 'nl%hdz',    rvara=hdz)
-call shdf5_io(action, ndims, idims, 'nl%dz',     rvara=dz)
+  ndims=1
+  idims(1) = nzg
+  call shdf5_io(action, ndims, idims, 'nl%slz', rvara=slz)
 
-ndims = 1
-idims(1) = ngrids
-call shdf5_io(action, ndims, idims, 'nl%ngrdll', ivara=ngrdll)
-call shdf5_io(action, ndims, idims, 'nl%grdrad', rvara=grdrad)
+! The following are not namelist variables but are read from a history file
+! anytime that subroutine commio is called.
 
-ndims = 2
-idims(1) = ngrids
-idims(2) = maxngrdll
+  ndims=1
+  idims(1) = 1
+  call shdf5_io(action, ndims, idims, 'time8',     dvars=time8)
+  call shdf5_io(action, ndims, idims, 'cur%year',  ivars=current_time%year)
+  call shdf5_io(action, ndims, idims, 'cur%month', ivars=current_time%month)
+  call shdf5_io(action, ndims, idims, 'cur%date',  ivars=current_time%date)
+  call shdf5_io(action, ndims, idims, 'cur%time',  dvars=current_time%time)
 
-call shdf5_io(action, ndims, idims, 'nl%grdlat', rvara=grdlat(1:ngrids,:))
-call shdf5_io(action, ndims, idims, 'nl%grdlon', rvara=grdlon(1:ngrids,:))
+! The following are namelist variables that specify the configuration of local
+! mesh refinements and must be read from a history file unless grids are being
+! added (new refinements are being made) at the time of the history read, in
+! which case runtype = 'HISTADDGRID'.  These variables should be the same as
+! those in subroutine copy_nl that are copied from the namelist only if 
+! runtype = 'MAKEGRID', 'INITIAL', or 'HISTADDGRID'.
 
-ndims=1
-idims(1) = nzg
-call shdf5_io(action, ndims, idims, 'nl%slz', rvara=slz)
+  if (action == 'WRITE' .or. &
+      runtype == 'HISTORY' .or. runtype == 'PLOTONLY') then
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! GROUP 2: NON-HORIZONTALLY-VARYING (COMMOM) MODEL VARIABLES
-!           THAT ARE NOT PART OF THE VTABLES I/O MECHANISM
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     ndims=1
+     idims(1) = 1
+     call shdf5_io(action, ndims, idims, 'nl%ngrids',  ivars=ngrids)
 
-ndims=1
-idims(1) = 1
-call shdf5_io(action, ndims, idims, 'time8',     dvars=time8)
-call shdf5_io(action, ndims, idims, 'cur%year',  ivars=current_time%year)
-call shdf5_io(action, ndims, idims, 'cur%month', ivars=current_time%month)
-call shdf5_io(action, ndims, idims, 'cur%date',  ivars=current_time%date)
-call shdf5_io(action, ndims, idims, 'cur%time',  dvars=current_time%time)
+     ndims = 1
+     idims(1) = ngrids
+     call shdf5_io(action, ndims, idims, 'nl%ngrdll', ivara=ngrdll)
+     call shdf5_io(action, ndims, idims, 'nl%grdrad', rvara=grdrad)
+
+     ndims = 2
+     idims(1) = ngrids
+     idims(2) = maxngrdll
+
+     call shdf5_io(action, ndims, idims, 'nl%grdlat', rvara=grdlat(1:ngrids,:))
+     call shdf5_io(action, ndims, idims, 'nl%grdlon', rvara=grdlon(1:ngrids,:))
+
+  endif
 
 return
 end subroutine commio
