@@ -68,8 +68,6 @@ Module mem_radiate
   real, allocatable, target :: rlongup_clr     (:)
   real, allocatable, target :: rlongup_top_clr (:)
 
-! integer, allocatable      :: rad_region    (:)
-
 ! These are used for adding extra levels at the top with the Mclatchy soundings
 
   integer, parameter :: maxadd_rad = 10 ! max allowed # of added rad levels
@@ -110,27 +108,17 @@ Contains
        allocate (albedt_beam   (mwa)) ; albedt_beam    = rinit
        allocate (albedt_diffuse(mwa)) ; albedt_diffuse = rinit
        allocate (cosz          (mwa)) ; cosz           = rinit
-       
-       if (iswrtyp == 2 .or. ilwrtyp == 2) then
-          allocate (cloud_frac(mza,mwa)) ; cloud_frac  = 0.0
-       endif
 
-       if (iswrtyp == 2) then
-          allocate (rshort_clr      (mwa)) ; rshort_clr       = 0.0
-          allocate (rshortup_clr    (mwa)) ; rshortup_clr     = 0.0
-          allocate (rshort_top_clr  (mwa)) ; rshort_top_clr   = 0.0
-          allocate (rshortup_top_clr(mwa)) ; rshortup_top_clr = 0.0
-       endif
+       allocate (cloud_frac(mza,mwa)) ; cloud_frac  = 0.0
 
-       if (ilwrtyp == 2) then
-          allocate (rlong_clr      (mwa)) ; rlong_clr       = 0.0
-          allocate (rlongup_clr    (mwa)) ; rlongup_clr     = 0.0
-          allocate (rlongup_top_clr(mwa)) ; rlongup_top_clr = 0.0
-       endif
+       allocate (rshort_clr      (mwa)) ; rshort_clr       = 0.0
+       allocate (rshortup_clr    (mwa)) ; rshortup_clr     = 0.0
+       allocate (rshort_top_clr  (mwa)) ; rshort_top_clr   = 0.0
+       allocate (rshortup_top_clr(mwa)) ; rshortup_top_clr = 0.0
 
-!      if (iswrtyp == 3 .or. ilwrtyp == 3) then
-!         allocate (rad_region(mwa))  ; rad_region = 0
-!      endif
+       allocate (rlong_clr      (mwa)) ; rlong_clr       = 0.0
+       allocate (rlongup_clr    (mwa)) ; rlongup_clr     = 0.0
+       allocate (rlongup_top_clr(mwa)) ; rlongup_top_clr = 0.0
 
     endif
 
@@ -151,13 +139,22 @@ Contains
     if (allocated(rshort_top))     deallocate (rshort_top)
     if (allocated(rshortup_top))   deallocate (rshortup_top)
     if (allocated(rlongup_top))    deallocate (rlongup_top)
-!   if (allocated(rad_region))     deallocate (rad_region)
     if (allocated(rshort_diffuse)) deallocate (rshort_diffuse)
     if (allocated(rlong_albedo))   deallocate (rlong_albedo)
     if (allocated(albedt))         deallocate (albedt)
     if (allocated(albedt_beam))    deallocate (albedt_beam)
     if (allocated(albedt_diffuse)) deallocate (albedt_diffuse)
     if (allocated(cosz))           deallocate (cosz)
+    if (allocated(cloud_frac))     deallocate (cloud_frac)
+
+    if (allocated(rshort_clr))       deallocate (rshort_clr)
+    if (allocated(rshortup_clr))     deallocate (rshortup_clr)
+    if (allocated(rshort_top_clr))   deallocate (rshort_top_clr)
+    if (allocated(rshortup_top_clr)) deallocate (rshortup_top_clr)
+
+    if (allocated(rlong_clr))        deallocate (rlong_clr)
+    if (allocated(rlongup_clr))      deallocate (rlongup_clr)
+    if (allocated(rlongup_top_clr))  deallocate (rlongup_top_clr)
 
   end subroutine dealloc_radiate
 
@@ -168,27 +165,41 @@ Contains
     use var_tables, only: increment_vtable
     implicit none
 
-    if (allocated(fthrd_sw))     call increment_vtable('FTHRD_SW',    'AW', rvar2=fthrd_sw)
+    if (allocated(fthrd_sw))         call increment_vtable('FTHRD_SW',        'AW', rvar2=fthrd_sw)
 
-    if (allocated(fthrd_lw))     call increment_vtable('FTHRD_LW',    'AW', rvar2=fthrd_lw)
+    if (allocated(fthrd_lw))         call increment_vtable('FTHRD_LW',        'AW', rvar2=fthrd_lw)
 
-    if (allocated(cloud_frac))   call increment_vtable('CLOUD_FRAC',  'AW', rvar2=cloud_frac)
+    if (allocated(cloud_frac))       call increment_vtable('CLOUD_FRAC',      'AW', rvar2=cloud_frac)
 
-    if (allocated(rshort))       call increment_vtable('RSHORT',      'AW', rvar1=rshort)
+    if (allocated(rshort))           call increment_vtable('RSHORT',          'AW', rvar1=rshort)
 
-    if (allocated(rlong))        call increment_vtable('RLONG',       'AW', rvar1=rlong)
+    if (allocated(rlong))            call increment_vtable('RLONG',           'AW', rvar1=rlong)
 
-    if (allocated(rlongup))      call increment_vtable('RLONGUP',     'AW', rvar1=rlongup)
+    if (allocated(rlongup))          call increment_vtable('RLONGUP',         'AW', rvar1=rlongup)
 
-    if (allocated(rshort_top))   call increment_vtable('RSHORT_TOP',  'AW', rvar1=rshort_top)
+    if (allocated(rshort_top))       call increment_vtable('RSHORT_TOP',      'AW', rvar1=rshort_top)
 
-    if (allocated(rshortup_top)) call increment_vtable('RSHORTUP_TOP','AW', rvar1=rshortup_top)
+    if (allocated(rshortup_top))     call increment_vtable('RSHORTUP_TOP',    'AW', rvar1=rshortup_top)
 
-    if (allocated(rlongup_top))  call increment_vtable('RLONGUP_TOP', 'AW', rvar1=rlongup_top)
+    if (allocated(rlongup_top))      call increment_vtable('RLONGUP_TOP',     'AW', rvar1=rlongup_top)
 
-    if (allocated(albedt))       call increment_vtable('ALBEDT',      'AW', rvar1=albedt)
+    if (allocated(albedt))           call increment_vtable('ALBEDT',          'AW', rvar1=albedt)
 
-    if (allocated(cosz))         call increment_vtable('COSZ',        'AW', rvar1=cosz)
+    if (allocated(cosz))             call increment_vtable('COSZ',            'AW', rvar1=cosz)
+
+    if (allocated(rshort_clr))       call increment_vtable('RSHORT_CLR',      'AW', rvar1=rshort_clr)
+
+    if (allocated(rshortup_clr))     call increment_vtable('RSHORTUP_CLR',    'AW', rvar1=rshortup_clr)
+
+    if (allocated(rshort_top_clr))   call increment_vtable('RSHORT_TOP_CLR',  'AW', rvar1=rshort_top_clr)
+
+    if (allocated(rshortup_top_clr)) call increment_vtable('RSHORTUP_TOP_CLR','AW', rvar1=rshortup_top_clr)
+
+    if (allocated(rlong_clr))        call increment_vtable('RLONG_CLR',       'AW', rvar1=rlong_clr)
+
+    if (allocated(rlongup_clr))      call increment_vtable('RLONGUP_CLR',     'AW', rvar1=rlongup_clr)
+
+    if (allocated(rlongup_top_clr))  call increment_vtable('RLONGUP_TOP_CLR', 'AW', rvar1=rlongup_top_clr)
 
   end subroutine filltab_radiate
 

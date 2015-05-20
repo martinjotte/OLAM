@@ -128,11 +128,8 @@ SOURCE_FILES= \
              $(OUTILS)/read_cdc.f90 \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \
+             $(RADIATE)/cloudprep_rad.f90 \
              $(RADIATE)/clouds_gno.f90 \
-             $(RADIATE)/harr_raddriv.f90 \
-             $(RADIATE)/harr_rad.f90 \
-             $(RADIATE)/harr_radinit.f90 \
-             $(RADIATE)/mem_harr.f90 \
              $(RADIATE)/mem_radiate.f90 \
              $(RADIATE)/rad_driv.F90 \
              $(RADIATE)/rad_mclat.f90 \

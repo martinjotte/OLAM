@@ -291,8 +291,10 @@ call rchk_bnds( nl%rayfdiv_zmin,  "RAYFDIV_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn
 ! RADIATION PARAMETERIZATION PARAMETERS
 !--------------------------------------------------------------------------
 
-call ichk_bnds( nl%iswrtyp, "ISWRTYP", 0,  3, 0, nfatal, nwarn )
-call ichk_bnds( nl%ilwrtyp, "ILWRTYP", 0,  3, 0, nfatal, nwarn )
+! With only RRTMg, 0 turns off rad and positive turns on rad
+call ichk_bnds( nl%iswrtyp, "ISWRTYP", 0, 3, 2, nfatal, nwarn )
+call ichk_bnds( nl%ilwrtyp, "ILWRTYP", 0, 3, 2, nfatal, nwarn )
+
 call dchk_bnds( nl%radfrq,   "RADFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
 call ichk_bnds( nl%icfrac, "ICFRAC", 1,  6, 0, nfatal, nwarn )
 call rchk_bnds( nl%cfracrh1,"CFRACRH1", 0.,  2., 0, nfatal, nwarn )
@@ -300,10 +302,10 @@ call rchk_bnds( nl%cfracrh2,"CFRACRH2", 0.,  2., 0, nfatal, nwarn )
 call rchk_bnds( nl%cfraccup,"CFRACCUP", 0.1,  1., 0, nfatal, nwarn )
 
 ! Currently, radiation type 1 is invalid
-if ( nl%iswrtyp==1 .or. nl%ilwrtyp==1 ) then
-   write(io6,*) 'FATAL - Radiation type 1 is invalid'
-   nfatal = nfatal + 1
-endif
+!if ( nl%iswrtyp==1 .or. nl%ilwrtyp==1 ) then
+!   write(io6,*) 'FATAL - Radiation type 1 is invalid'
+!   nfatal = nfatal + 1
+!endif
 
 if (nl%icfrac == 2 .and. nl%cfracrh2 - nl%cfracrh1 < 1.e-6 ) then
    write(io6,*) 'FATAL - CFRACRH2 must be greater than CFRACRH1'
@@ -1030,8 +1032,3 @@ contains
 
 
 end subroutine oname_check
-
-
-
-
-
