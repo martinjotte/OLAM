@@ -30,6 +30,7 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
+
 subroutine spawn_nest()
 
 ! This subroutine adds nested grid regions at the beginning of a simulation.
@@ -56,22 +57,19 @@ use oname_coms,  only: nl
 
 implicit none
 
-integer :: iu,iw,iregion,im,iw1,iw2,im1,im2,im3, &
-   iu1,iu2,iu3,ndiv,iu1o,iu2o,iu3o,iu1o_iw1,iu2o_iw1,iu3o_iw1, &
-   iu4,iu5,iu6,iw3,ngr,mrlo,mrloo,nwaa,j,npoly,nw,ngroo
+integer :: iu,iw,im,iw1,iw2,im1,im2
+integer :: iu1,iu2,iu3,iu1o,iu2o,iu3o,iu1o_iw1,iu2o_iw1,iu3o_iw1
+integer :: iu4,iu5,iu6,iw3,ngr,mrlo,mrloo,nwaa,j,npoly,nw
    
 integer :: nma0,nua0,nwa0
 
-real :: focdist,xf1,xf2,yf1,yf2,widfac,xw,yw,xm1,ym1,xm2,ym2,xm3,ym3
 real :: expansion
 
-integer :: nside    ! Number of sides of nested grid polygon
-integer :: nper(16) ! Value of perimeter side counter at end of each side
 integer, allocatable :: imper(:) ! Ouside IW index at each perimeter index
 integer, allocatable :: iuper(:) ! Boundary IU index at each perimeter index
 integer :: kma,kua,kwa   ! New M,U,W indices while constructing nest perimeter
-integer :: ngrp   ! Number of perimeter groups
-integer :: npts = 10000  ! Sufficient array space for # of CM pts along FM perimeter
+
+integer, parameter :: npts = 10000  ! Sufficient array space for # of CM pts along FM perimeter
 
 integer, allocatable :: jm(:,:),ju(:,:),iurow_pent(:),igsize(:),nwdivg(:)
 
@@ -80,8 +78,7 @@ real, allocatable :: xem_temp(:),yem_temp(:),zem_temp(:)
 integer, allocatable :: lista(:), listb(:), jdone(:,:)
 
 integer :: nper2 = 0 ! Actual # of perimeter pts
-integer :: nconcave
-integer :: nccv, jj, ipt, jpt, minside
+integer :: jj, minside
 integer :: iper, jm2, ju2, jw2
 
 integer :: imbeg, ipent, nlista, nlistb, immmm, ndone, ilistb
@@ -93,63 +90,23 @@ integer, allocatable :: npolyper(:) ! npoly at each perimeter M pt
 integer, allocatable :: nwdivper(:) ! # divided W pts at at each perimeter M pt
 integer, allocatable :: nearpent(:) ! flag = 1 if adjacent outside M pt is poly5
 
-integer :: iskip
-real :: xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2
-
 ! Make duplicate of current grid dimensions
 
 nma0 = nma
 nua0 = nua
 nwa0 = nwa 
 
-do ngr = 2,ngrids  ! Loop over nested grids
+! This routine spawns nest using the Method C refined mesh algorithm.  It forces
+! straight segments of the refined mesh "boundary" to have lengths that are multiples
+! of 3 triangle edges on the unrefined side.  Method C also fits exactly 3 transition
+! rows across a gap that was originally 2 coarse grid rows wide, centered on
+! the aforementioned refined mesh "boundary".
 
-! Set value of NCONCAVE (allowed values are 1:3) for this grid from the namelist input
+mrows = 3
 
-! NCONCAVE = 1 eliminates only sharp concavities and activates
-!    the Method B refined mesh algorithm
+do ngr = 2, ngrids  ! Loop over nested grids
 
-! NCONCAVE = 2 eliminates both sharp and gentler concavities and uses
-!    the original refined mesh algorithm (Method A).  MROWS = 1:5 may be used with
-!    this algorithm.
-
-! NCONCAVE = 3 activates the Method C refined mesh algorithm.  It forces straight
-!    segments of the refined mesh "boundary" to have lengths that are multiples of
-!    3 triangle edges on the unrefined side.  Method C also fits exactly 3 transition
-!    rows across a gap that was originally 2 coarse grid rows wide, centered on
-!    the aforementioned refined mesh "boundary".
-
-   nconcave = nl%nconcave
-
-! Set default number of coarse-grid transition rows (MROWS) across which the
-! transition from coarse-to-fine resolution is made.
-
-! If NCONCAVE is set to 1, MROWS will (must) be set to 2
-
-   if (nconcave == 1) then
-      
-      mrows = 2
-
-! If NCONCAVE is set to 2, allowed MROWS values are 1-5; set to 3 by default
-
-   elseif (nconcave == 2) then
-
-      mrows = 3
-
-! If NCONCAVE is set to 3, MROWS will (must) be set to 3
-
-   elseif (nconcave == 3) then
-
-      mrows = 3
-
-   else
-
-      write(*,*) "Illegal value of nconcave in subroutine spawn_nest"
-      stop
-
-   endif
-
-!-------------------------------------------------------------------------------
+   mrows = 3
 
 ! Allocate temporary tables
 
@@ -182,12 +139,77 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
    deallocate (xem, yem, zem)      
 
-   if (nconcave < 3) then
+   allocate (lista(nma), listb(nma), jdone(6,nma))
 
-! For NCONCAVE = 1 or 2, use the following procedure
+! Find closest M point to first specified NGR center point.
 
-! Locate and flag all W triangles to be subdivided
-! Define 3 new W indices and 3 new U indices for each W - attach to W.
+! Get earth coordinates for [grdlat(ngr,1),grdlon(ngr,1)]
+
+   if (mdomain < 2) then
+      zeg = erad * sin(grdlat(ngr,1) * pio180)
+      reg = erad * cos(grdlat(ngr,1) * pio180)
+      xeg = reg  * cos(grdlon(ngr,1) * pio180)
+      yeg = reg  * sin(grdlon(ngr,1) * pio180)
+   else
+      zeg = 0.
+      xeg = grdlon(ngr,1)
+      yeg = grdlat(ngr,1)
+   endif
+
+! Initialize distance 
+
+   distmin = 1.e12
+
+! Loop over all M points in domain
+
+   do im = 2,nma
+      dist = sqrt((xem_temp(im) - xeg) ** 2 &
+                + (yem_temp(im) - yeg) ** 2 &
+                + (zem_temp(im) - zeg) ** 2)
+
+      if (distmin > dist) then
+         distmin = dist
+         imcent = im
+      endif
+   enddo
+
+! If using global grid (MDOMAIN < 2), search over 12 original ipent points and
+! determine if any lies inside current NGR refinement area.  If not, determine
+! whether any ipent point is close to NGR refinement area AND has the same 
+! mrlm value as the imcent point.
+
+   imbeg = 0
+   impen = 0
+
+   if (mdomain < 2) then
+
+      do ipent = 1,12
+         im = impent(ipent)
+
+         call ngr_area(ngr,minside,xem_temp(im),yem_temp(im),zem_temp(im))
+
+         if (minside == 1) then
+            imbeg = im
+            exit
+         elseif (minside == 2 .and. &
+              ltab_md(im)%mrlm == ltab_md(imcent)%mrlm) then
+
+            impen = im
+         endif
+      enddo
+
+   endif
+
+! If imbeg is zero but impen is not, then find nearest M point to impen
+! that is inside NGR refinement area.
+
+   if (imbeg == 0 .and. impen > 0) then
+
+! Initialize distance 
+
+      distmin = 1.e12
+
+! Loop over all M points in domain
 
       do im = 2,nma
 
@@ -197,279 +219,160 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
          if (minside == 1) then
 
-! W cells surrounding M are to be subdivided
+            dist = sqrt((xem_temp(im) - xem_temp(impen)) ** 2 &
+                      + (yem_temp(im) - yem_temp(impen)) ** 2 &
+                      + (zem_temp(im) - zem_temp(impen)) ** 2)
 
-            npoly = ltab_md(im)%npoly
-
-            do j = 1,npoly
-
-               iw = ltab_md(im)%iw(j)
-
-               if (nest_wd(iw)%iw(3) == 0) then
-
-!                  write(io6,*) 'subdividing W cell ',iw
-
-                  nest_wd(iw)%iu(1) = nua0 + 1
-                  nest_wd(iw)%iu(2) = nua0 + 2
-                  nest_wd(iw)%iu(3) = nua0 + 3
-
-                  nest_wd(iw)%iw(1) = nwa0 + 1
-                  nest_wd(iw)%iw(2) = nwa0 + 2
-                  nest_wd(iw)%iw(3) = nwa0 + 3
-
-                  nua0 = nua0 + 3
-                  nwa0 = nwa0 + 3
-
-               endif
-      
-            enddo
+            if (distmin > dist) then
+               distmin = dist
+               imnear = im
+            endif
 
          endif
-      
-      enddo ! im
 
-   else
-
-! For NCONCAVE = 3, use the following procedure...
-
-      allocate (lista(nma), listb(nma), jdone(6,nma))
-
-! Find closest M point to first specified NGR center point.
-
-! Get earth coordinates for [grdlat(ngr,1),grdlon(ngr,1)]
-
-      if (mdomain < 2) then
-         zeg = erad * sin(grdlat(ngr,1) * pio180)
-         reg = erad * cos(grdlat(ngr,1) * pio180)
-         xeg = reg  * cos(grdlon(ngr,1) * pio180)
-         yeg = reg  * sin(grdlon(ngr,1) * pio180)
-      else
-         zeg = 0.
-         xeg = grdlon(ngr,1)
-         yeg = grdlat(ngr,1)
-      endif
-
-! Initialize distance 
-
-      distmin = 1.e12
-
-! Loop over all M points in domain
-
-      do im = 2,nma
-         dist = sqrt((xem_temp(im) - xeg) ** 2 &
-                   + (yem_temp(im) - yeg) ** 2 &
-                   + (zem_temp(im) - zeg) ** 2)
-
-         if (distmin > dist) then
-            distmin = dist
-            imcent = im
-         endif
       enddo
-
-! If using global grid (MDOMAIN < 2), search over 12 original ipent points and
-! determine if any lies inside current NGR refinement area.  If not, determine
-! whether any ipent point is close to NGR refinement area AND has the same 
-! mrlm value as the imcent point.
-
-      imbeg = 0
-      impen = 0
-
-      if (mdomain < 2) then
-
-         do ipent = 1,12
-            im = impent(ipent)
-
-            call ngr_area(ngr,minside,xem_temp(im),yem_temp(im),zem_temp(im))
-
-            if (minside == 1) then
-               imbeg = im
-               exit
-            elseif (minside == 2 .and. &
-               ltab_md(im)%mrlm == ltab_md(imcent)%mrlm) then
-
-               impen = im
-            endif
-         enddo
-
-      endif
-
-! If imbeg is zero but impen is not, then find nearest M point to impen
-! that is inside NGR refinement area.
-
-      if (imbeg == 0 .and. impen > 0) then
-
-! Initialize distance 
-
-         distmin = 1.e12
-
-! Loop over all M points in domain
-
-         do im = 2,nma
-
-! Check whether M location is within specified region for NGR refinement
-
-            call ngr_area(ngr,minside,xem_temp(im),yem_temp(im),zem_temp(im))
-
-            if (minside == 1) then
-
-               dist = sqrt((xem_temp(im) - xem_temp(impen)) ** 2 &
-                         + (yem_temp(im) - yem_temp(impen)) ** 2 &
-                         + (zem_temp(im) - zem_temp(impen)) ** 2)
-
-               if (distmin > dist) then
-                  distmin = dist
-                  imnear = im
-               endif
-
-            endif
-
-         enddo
 
 ! Now, march three M points at a time from impen toward imnear until finding
 ! an M point that IS inside the NGR refinement area.
 
-         im = impen
+      im = impen
 
-         do  ! until go to 60
+      searchloop: do
 
-            jdone(:,im) = 0  ! (6,nma)
-            mlist(1:6) = 0
+         jdone(:,im) = 0  ! (6,nma)
+         mlist(1:6) = 0
 
-            call thirdm(im,jdone,mlist)
+         call thirdm(im,jdone,mlist)
 
 ! Search through THIRDM neighbors of IM that are in current mlist
 
-            distmin = 1.e12
+         distmin = 1.e12
 
-            do j = 1,6
-               immmm = mlist(j)
-               if (immmm > 1) then
+         do j = 1,6
+            immmm = mlist(j)
+            if (immmm > 1) then
 
-                  call ngr_area(ngr,minside,xem_temp(immmm),yem_temp(immmm), &
-                                                            zem_temp(immmm))
+               call ngr_area(ngr,minside,xem_temp(immmm),yem_temp(immmm), &
+                                                         zem_temp(immmm))
 
-                  if (minside == 1) then
-                     imbeg = immmm
-                     go to 60
-                  endif
+               if (minside == 1) then
+                  imbeg = immmm
+                  exit searchloop
+               endif
 
-                  dist = sqrt((xem_temp(immmm) - xem_temp(imnear)) ** 2 &
-                            + (yem_temp(immmm) - yem_temp(imnear)) ** 2 &
-                            + (zem_temp(immmm) - zem_temp(imnear)) ** 2)
+               dist = sqrt((xem_temp(immmm) - xem_temp(imnear)) ** 2 &
+                         + (yem_temp(immmm) - yem_temp(imnear)) ** 2 &
+                         + (zem_temp(immmm) - zem_temp(imnear)) ** 2)
 
-                  if (distmin > dist) then
-                     distmin = dist
-                     im = immmm
-                  endif
+               if (distmin > dist) then
+                  distmin = dist
+                  im = immmm
+               endif
 
-               endif ! immmm > 1
+            endif ! immmm > 1
 
-            enddo ! j,immmm
+         enddo ! j,immmm
 
-         enddo
+      enddo searchloop
 
-      endif   ! (imbeg == 0 .and. impen > 0)
-
-      60 continue
+   endif   ! (imbeg == 0 .and. impen > 0)
 
 ! If imbeg is still zero, then use imcent as starting point
 
-      if (imbeg == 0) imbeg = imcent
+   if (imbeg == 0) imbeg = imcent
 
 ! Now that starting point IMBEG has been determined, build full list of
 ! M points that are inside specified NGR refinement area
 
 ! Initialize quantities for search
 
-      jdone(:,:) = 0
+   jdone(:,:) = 0
 
-      nlista = 1
-      lista(nlista) = imbeg
+   nlista = 1
+   lista(nlista) = imbeg
 
-      nlistb = 0
+   nlistb = 0
 
 ! Loop over points in LISTA, as long as any exist
 
-      do while (nlista > 0)
+   do while (nlista > 0)
 
 ! Initialize to zero the array of up to 6 potential THIRDM neighbors of IM
 
-         mlist(1:6) = 0
+      mlist(1:6) = 0
 
 ! Search for THIRDM neighbors of IM (the last value in LISTA), rejecting
 ! paths that have already been done
 
-         im = lista(nlista)
+      im = lista(nlista)
 
-         call thirdm(im,jdone,mlist)
+      call thirdm(im,jdone,mlist)
 
 ! Now that IM's THIRDM neighbors have been found, remove IM from LISTA and add
 ! it to LISTB.
 
-         lista(nlista) = 0
-         nlista = nlista - 1
+      lista(nlista) = 0
+      nlista = nlista - 1
 
-         nlistb = nlistb + 1
-         listb(nlistb) = im
+      nlistb = nlistb + 1
+      listb(nlistb) = im
 
 ! Search through THIRDM neighbors of IM that are in current mlist
 
-         do j = 1,6
-            immmm = mlist(j)
-            if (immmm > 1) then
+      do j = 1,6
+         immmm = mlist(j)
+         if (immmm > 1) then
 
 ! Loop over jdone values of IMMMM point.  If two or more of these edges have already 
 ! been traversed, then this IMMMM point has already been added to LISTA.  
 ! Thus, do not add it again.  (One edge was traversed in latest call to thirdm, but that
 ! traverse has not yet been considered for lista.)
 
-               ndone = 0
-               do jj = 1,6
-                  if (jdone(jj,immmm) == 1) ndone = ndone + 1
-               enddo
+            ndone = 0
+            do jj = 1,6
+               if (jdone(jj,immmm) == 1) ndone = ndone + 1
+            enddo
 
-               if (ndone < 2) then
+            if (ndone < 2) then
 
 ! Check whether IMMMM point is inside NGR refinement area
 
-                  call ngr_area(ngr,minside,xem_temp(immmm),yem_temp(immmm), &
-                     zem_temp(immmm))
+               call ngr_area(ngr,minside,xem_temp(immmm),yem_temp(immmm), &
+                                                         zem_temp(immmm))
 
-                  if (minside == 1) then
+               if (minside == 1) then
 
 ! IMMMM point is inside NGR refinement area; add it to LISTA
 
-                     nlista = nlista + 1
-                     lista(nlista) = immmm
+                  nlista = nlista + 1
+                  lista(nlista) = immmm
 
-                  endif ! minside == 1
+               endif ! minside == 1
 
-               endif ! ndone < 2
+            endif ! ndone < 2
 
-            endif ! immmm > 1
+         endif ! immmm > 1
 
-         enddo ! j,immmm
+      enddo ! j,immmm
 
-      enddo ! nlista > 0
+   enddo ! nlista > 0
 
 ! Now, listb contains the full list of M point indices, numbering nlistb.
 
 ! Flag W points that are within radius_3 polygons of M points in listb.
 ! (We can use a nest_wd()%iw(3) as a flag.)
 
-      nest_wd(:)%iw(3) = 0
+   nest_wd(:)%iw(3) = 0
 
 ! Loop over IM points that are in listb
 
-      do ilistb = 1,nlistb
-         im = listb(ilistb)
+   do ilistb = 1,nlistb
+      im = listb(ilistb)
 
-         call fill_rad3(im)
-      enddo
+      call fill_rad3(im)
+   enddo
 
-      deallocate (lista,listb,jdone)
-
-   endif ! nconcave = 1,2,3
+   deallocate (lista,listb,jdone)
 
 ! Add W points to nested grid region in order to eliminate concavities
 ! (or to eliminate sharp concavities).  This requires iterative procedure
@@ -497,172 +400,79 @@ do ngr = 2,ngrids  ! Loop over nested grids
 ! Check npoly and nw for illegal values
 
          if (nw == 0 .or. nw == npoly) cycle
-         if (nconcave == 1 .and. npoly == 6 .and. nw < 5) cycle
-         if (nconcave == 3 .and. npoly == 6 .and. nw < 5) cycle
-         if (nconcave == 2 .and. npoly == 6 .and. nw < 4) cycle
+         if (npoly == 6 .and. nw < 5) cycle
 
-! If we got here, then at least one of the following is true at current M pt:
+! If we got here, then either of the following is true at current M pt:
 !        (1) npoly = 5 and nw > 0 and nw < npoly
-!        (2) nconcave = 1 or 3, and nw == 5 (a sharp concavity)
-!        (3) nconcave = 2, and nw = 4 or 5 (a weak or sharp concavity)
+!        (2) nw == 5 (a sharp concavity)
 ! Thus, we must fill in all around current M point
 
-! This M point is a concavity so activate remaining unactivated W points around it
+         call fill_rad3(im)
 
-         if (nconcave == 1 .or. nconcave == 2) then
-
-            do j = 1,npoly
-               iw = ltab_md(im)%iw(j)
-
-               if (nest_wd(iw)%iw(3) == 0) then
-                  nest_wd(iw)%iu(1) = nua0 + 1
-                  nest_wd(iw)%iu(2) = nua0 + 2
-                  nest_wd(iw)%iu(3) = nua0 + 3
-
-                  nest_wd(iw)%iw(1) = nwa0 + 1
-                  nest_wd(iw)%iw(2) = nwa0 + 2
-                  nest_wd(iw)%iw(3) = nwa0 + 3
-
-                  nua0 = nua0 + 3
-                  nwa0 = nwa0 + 3
-
-                  write(io6,*) 'Activating W point ',iw,' to prevent concavity'
-
-               endif
-            enddo
-
-         else
-
-            call fill_rad3(im)
-
-            nwa0 = nwa0 + 1 ! just to keep DO WHILE going as long as necessary
-
-         endif ! nconcave = 1,2,3
+         nwa0 = nwa0 + 1 ! just to keep DO WHILE going as long as necessary
 
       enddo
 
-      if (nconcave == 1 .or. nconcave == 3) &
-         call perim_map2(npts,nper2,imper,iuper,npolyper,nwdivper,nearpent)
-
-      if (nconcave == 1) then
-
-! Add points for refinement if 2 consecutive concave points occur
-
-         nccv = 0
-         do j = 1,nper2
-            if (nwdivper(j) > 3) then
-               nccv = nccv + 1
-            else
-               nccv = 0
-            endif
-         
-            if (nccv > 1) then
-
-               do jj = j-2,j
-                  iw1 = ltab_ud(iuper(jj))%iw(1)
-                  iw2 = ltab_ud(iuper(jj))%iw(2)
-      
-                  if (nest_wd(iw1)%iw(3) == 0) then
-                     nest_wd(iw1)%iu(1) = nua0 + 1
-                     nest_wd(iw1)%iu(2) = nua0 + 2
-                     nest_wd(iw1)%iu(3) = nua0 + 3
-
-                     nest_wd(iw1)%iw(1) = nwa0 + 1
-                     nest_wd(iw1)%iw(2) = nwa0 + 2
-                     nest_wd(iw1)%iw(3) = nwa0 + 3
-                  else
-                     nest_wd(iw2)%iu(1) = nua0 + 1
-                     nest_wd(iw2)%iu(2) = nua0 + 2
-                     nest_wd(iw2)%iu(3) = nua0 + 3
-
-                     nest_wd(iw2)%iw(1) = nwa0 + 1
-                     nest_wd(iw2)%iw(2) = nwa0 + 2
-                     nest_wd(iw2)%iw(3) = nwa0 + 3
-                  endif
-
-                  nua0 = nua0 + 3
-                  nwa0 = nwa0 + 3
-
-               enddo
-
-            endif
-
-         enddo
-
-      endif
+      call perim_map2(npts,nper2,imper,iuper,npolyper,nwdivper,nearpent)
 
    enddo ! (nwa0 > nwaa)
 
 ! Print perimeter map
-
-   print*, ' '
-   do j = 1,nper2
-      write(6,'(a,8i7)') 'perim ',ngr,nper2,j,imper(j),iuper(j),npolyper(j), &
-                                  nwdivper(j),nearpent(j)
-   enddo
-   print*, ' '
+!  print*, ' '
+!  do j = 1,nper2
+!     write(6,'(a,8i7)') 'perim ',ngr,nper2,j,imper(j),iuper(j),npolyper(j), &
+!                                 nwdivper(j),nearpent(j)
+!  enddo
+!  print*, ' '
 
 ! Nested region should be fully expanded now without any concavities, 
 ! 5-edge vertices, or consecutive weak concavities.
-
-! Map out perimeter of new mesh refined region (returning information that
-! depends on nconcave value)
-
-   if (nconcave == 2) then
-      call perim_map(nper,nside,npts,imper,iuper)
-   endif
-
-! Method C (nconcave = 3)
-
-   if (nconcave == 3) then
 
 ! Reset subdivide flag to -1 for W triangle adjacent to center segment 
 ! of each set of 3 segments.  This will suppress subdivision of W triangle
 ! and also of 3 adjacent U edges.  Doing this will cause remaining interior 
 ! subdivisions to exactly match memory requirement.
 
-      do iper = 1,nper2-2,3
-         jm2 = imper(iper+1)
-         ju2 = iuper(iper+1)
+   do iper = 1,nper2-2,3
+      jm2 = imper(iper+1)
+      ju2 = iuper(iper+1)
 
-         if (jm2 == ltab_ud(ju2)%im(1)) then
-            jw2 = ltab_ud(ju2)%iw(2)
-         else
-            jw2 = ltab_ud(ju2)%iw(1)
-         endif
+      if (jm2 == ltab_ud(ju2)%im(1)) then
+         jw2 = ltab_ud(ju2)%iw(2)
+      else
+         jw2 = ltab_ud(ju2)%iw(1)
+      endif
 
-         nest_wd(jw2)%iw(3) = -1
-      enddo
+      nest_wd(jw2)%iw(3) = -1
+   enddo
 
 ! Reset nwa0 counter for actual count
 
-      nwa0 = nwa 
+   nwa0 = nwa 
 
 ! Loop over all W points, counting up those with nest_wd()%iw(3) still flagged.
 ! Reset all nest_wd members according to current count
  
-      do iw = 2,nwa
+   do iw = 2,nwa
 
-         if (nest_wd(iw)%iw(3) > 0) then
+      if (nest_wd(iw)%iw(3) > 0) then
 
-!           write(io6,*) 'subdividing W cell ',iw
+!        write(io6,*) 'subdividing W cell ',iw
 
-            nest_wd(iw)%iu(1) = nua0 + 1
-            nest_wd(iw)%iu(2) = nua0 + 2
-            nest_wd(iw)%iu(3) = nua0 + 3
+         nest_wd(iw)%iu(1) = nua0 + 1
+         nest_wd(iw)%iu(2) = nua0 + 2
+         nest_wd(iw)%iu(3) = nua0 + 3
 
-            nest_wd(iw)%iw(1) = nwa0 + 1
-            nest_wd(iw)%iw(2) = nwa0 + 2
-            nest_wd(iw)%iw(3) = nwa0 + 3
+         nest_wd(iw)%iw(1) = nwa0 + 1
+         nest_wd(iw)%iw(2) = nwa0 + 2
+         nest_wd(iw)%iw(3) = nwa0 + 3
 
-            nua0 = nua0 + 3
-            nwa0 = nwa0 + 3
+         nua0 = nua0 + 3
+         nwa0 = nwa0 + 3
 
-         endif
+      endif
 
-      enddo
-
-   endif ! nconcave = 3
+   enddo
 
 ! Define new vertex index for midpoint of each original U edge that is adjacent
 ! to an original triangle that is being subdivided, unless it is also adjacent
@@ -702,21 +512,6 @@ do ngr = 2,ngrids  ! Loop over nested grids
    kma = nma0
    kua = nua0
    kwa = nwa0
-
-! Form groups of original M and U indices on perimeter and increase nma0, nua0, 
-! and nwa0 according to what groups will require
-
-   if (nconcave == 2) then
-
-      call perim_add(jm,ju,npts,nside,nma0,nua0,nwa0, &
-                     nper,ngrp,igsize,imper,iuper,iurow_pent)
-
-   elseif (nconcave == 1) then
-   
-      call perim_add2(npts,nper2,imper,iuper,nwdivper,nearpent,iurow_pent, &
-           nma0,nua0,nwa0,ngrp,igsize,jm,ju,nwdivg)
-
-   endif
 
 ! Allocate main tables to expanded size
 ! Initialize all neighbor indices to zero
@@ -947,21 +742,12 @@ do ngr = 2,ngrids  ! Loop over nested grids
 
 ! Fill transition zone
 
-   if (nconcave == 2) then
-      call perim_fill(ngr,mrloo,kma,kua,kwa,jm,ju,npts,ngrp,igsize)
-   elseif (nconcave == 1) then
-      call perim_fill2(ngr,mrloo,kma,kua,kwa,jm,ju,npts,ngrp,igsize,nwdivg)
-   else ! nconcave = 3
-      call perim_fill3(ngr,mrlo,nper2,imper,iuper)
-   endif
+   call perim_fill3(ngr,mrlo,nper2,imper,iuper)
 
 ! Fill itabs loop tables for newly spawned points
 
    do im = nma+1,nma0
       itab_md(im)%imp = im
-
-      if (nconcave /= 3) itab_md(im)%mrlm = mrloo
-
       call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
    enddo
 
@@ -1020,11 +806,11 @@ do ngr = 2,ngrids  ! Loop over nested grids
 ! border.  This is permanent ID, used in spring dynamics even when new
 ! grids are added.
 
-   call perim_mrow(ngr)
+   call perim_mrow()
 
 ! This is the place to do spring dynamics
 
-   call spring_dynamics(ngr,nconcave)
+   call spring_dynamics(ngr)
 
    write(io6,'(/,a,i2)') 'Finished spawning grid number ',ngr
    write(io6,'(a,i8)')   ' nma = ',nma
@@ -1054,10 +840,425 @@ if (mdomain < 2) then
    enddo
 endif
 
-return
 end subroutine spawn_nest
 
 !==============================================================================
+
+subroutine perim_fill3(ngr,mrlo,nper,imper,iuper)
+
+use mem_ijtabs, only: itab_md, itab_ud, itab_wd, ltab_ud, nest_ud, nest_wd
+use mem_grid,   only: xem, yem, zem
+use misc_coms,  only: io6
+
+implicit none
+
+integer, intent(in) :: ngr, mrlo, nper, imper(nper), iuper(nper) 
+
+integer :: jm1, jm2, jm3, ju1, ju2, ju3, ku1, ku2, ku3
+
+integer :: im5,im12,im13,im17,im18,im19,im20,im24
+integer :: im16,im21,im22,im23,im25,im26
+
+integer :: iu15,iu16,iu25,iu26,iu33,iu34,iu35,iu41,iu42,iu43
+integer :: iu44,iu45,iu48,iu49,iu50,iu51
+integer :: iu46,iu53
+
+integer :: iw6,iw7,iw8,iw9,iw19,iw20,iw21,iw27,iw29,iw31
+integer :: iw26,iw28,iw30,iw32
+
+integer :: iper
+
+do iper = 1,nper,3
+
+! Inventory of CM mesh points
+
+   jm1 = imper(iper)
+   jm2 = imper(iper+1)
+   jm3 = imper(iper+2)
+
+   ju1 = iuper(iper)
+   ju2 = iuper(iper+1)
+   ju3 = iuper(iper+2)
+
+   if (jm1 == ltab_ud(ju1)%im(1)) then
+      iu41 = ju1
+      iu42 = nest_ud(ju1)%iu
+      iu46 = ltab_ud(ju1)%iu(5)
+      iw26 = ltab_ud(ju1)%iw(3)
+      iw27 = ltab_ud(ju1)%iw(1)
+   else
+      iu41 = nest_ud(ju1)%iu
+      iu42 = ju1
+      iu46 = ltab_ud(ju1)%iu(12)
+      iw26 = ltab_ud(ju1)%iw(6)
+      iw27 = ltab_ud(ju1)%iw(2)
+   endif
+
+   if (jm2 == ltab_ud(ju2)%im(1)) then
+
+      iu49 = ltab_ud(ju2)%iu(1)
+      iu50 = ltab_ud(ju2)%iu(2)
+      iu34 = ltab_ud(ju2)%iu(3)
+      iu35 = ltab_ud(ju2)%iu(4)
+      iu48 = ltab_ud(ju2)%iu(5)
+      iu51 = ltab_ud(ju2)%iu(8)
+
+      iw6 = ltab_ud(ju2)%iw(5)
+      iw9 = ltab_ud(ju2)%iw(6)
+      iw29 = ltab_ud(ju2)%iw(1)
+      iw20 = ltab_ud(ju2)%iw(2)
+      iw28 = ltab_ud(ju2)%iw(3)
+      iw30 = ltab_ud(ju2)%iw(4)
+
+   else
+
+      iu49 = ltab_ud(ju2)%iu(4)
+      iu50 = ltab_ud(ju2)%iu(3)
+      iu34 = ltab_ud(ju2)%iu(2)
+      iu35 = ltab_ud(ju2)%iu(1)
+      iu48 = ltab_ud(ju2)%iu(12)
+      iu51 = ltab_ud(ju2)%iu(9)
+
+      iw6 = ltab_ud(ju2)%iw(4)
+      iw9 = ltab_ud(ju2)%iw(3)
+      iw29 = ltab_ud(ju2)%iw(2)
+      iw20 = ltab_ud(ju2)%iw(1)
+      iw28 = ltab_ud(ju2)%iw(6)
+      iw30 = ltab_ud(ju2)%iw(5)
+
+   endif
+
+   if (jm3 == ltab_ud(ju3)%im(1)) then
+      im21 = ltab_ud(ju3)%im(2)
+      iu44 = ju3
+      iu45 = nest_ud(ju3)%iu
+      iu53 = ltab_ud(ju3)%iu(8)
+      iw31 = ltab_ud(ju3)%iw(1)
+      iw32 = ltab_ud(ju3)%iw(4)
+   else
+      im21 = ltab_ud(ju3)%im(1)
+      iu44 = nest_ud(ju3)%iu
+      iu45 = ju3
+      iu53 = ltab_ud(ju3)%iu(9)
+      iw31 = ltab_ud(ju3)%iw(2)
+      iw32 = ltab_ud(ju3)%iw(5)
+   endif
+
+   im16 = jm1
+   im17 = nest_ud(ju1)%im
+   im18 = jm2
+   im19 = jm3
+   im20 = nest_ud(ju3)%im
+   iu43 = ju2
+
+   ku1 = nest_wd(iw6)%iu(1)
+   ku2 = nest_wd(iw6)%iu(2)
+   ku3 = nest_wd(iw6)%iu(3)
+
+   if (itab_ud(ku1)%im(1) > 1 .and. itab_ud(ku1)%im(2) > 1) then
+      iu25 = ku2
+      iu15 = ku3
+   elseif (itab_ud(ku2)%im(1) > 1 .and. itab_ud(ku2)%im(2) > 1) then
+      iu25 = ku3
+      iu15 = ku1
+   elseif (itab_ud(ku3)%im(1) > 1 .and. itab_ud(ku3)%im(2) > 1) then
+      iu25 = ku1
+      iu15 = ku2
+   endif
+
+   if (itab_ud(iu15)%iw(1) == iw6) then
+      iw7 = itab_ud(iu15)%iw(2)
+   else
+      iw7 = itab_ud(iu15)%iw(1)
+   endif
+
+   if (itab_ud(iu25)%iw(1) == iw6) then
+      iw19 = itab_ud(iu25)%iw(2)
+      im12 = itab_ud(iu25)%im(2) ! to reposition xyzem(12)
+   else
+      iw19 = itab_ud(iu25)%iw(1)
+      im12 = itab_ud(iu25)%im(1) ! to reposition xyzem(12)
+   endif
+
+   ku1 = nest_wd(iw9)%iu(1)
+   ku2 = nest_wd(iw9)%iu(2)
+   ku3 = nest_wd(iw9)%iu(3)
+
+   if (itab_ud(ku1)%im(1) > 1 .and. itab_ud(ku1)%im(2) > 1) then
+      iu16 = ku2
+      iu26 = ku3
+   elseif (itab_ud(ku2)%im(1) > 1 .and. itab_ud(ku2)%im(2) > 1) then
+      iu16 = ku3
+      iu26 = ku1
+   elseif (itab_ud(ku3)%im(1) > 1 .and. itab_ud(ku3)%im(2) > 1) then
+      iu16 = ku1
+      iu26 = ku2
+   endif
+
+   if (itab_ud(iu16)%iw(1) == iw9) then
+      iw8 = itab_ud(iu16)%iw(2)
+   else
+      iw8 = itab_ud(iu16)%iw(1)
+   endif
+
+   if (itab_ud(iu26)%iw(1) == iw9) then
+      iw21 = itab_ud(iu26)%iw(2)
+      im13 = itab_ud(iu26)%im(1) ! to reposition xyzem(13)
+   else
+      iw21 = itab_ud(iu26)%iw(1)
+      im13 = itab_ud(iu26)%im(2) ! to reposition xyzem(13)
+   endif
+
+   if (im16 == itab_ud(iu46)%im(1)) then
+      im22 = itab_ud(iu46)%im(2)
+   else
+      im22 = itab_ud(iu46)%im(1)
+   endif 
+
+   if (im18 == itab_ud(iu48)%im(1)) then
+      im23 = itab_ud(iu48)%im(2)
+   else
+      im23 = itab_ud(iu48)%im(1)
+   endif 
+
+   if (im18 == itab_ud(iu49)%im(1)) then
+      im24 = itab_ud(iu49)%im(2)
+   else
+      im24 = itab_ud(iu49)%im(1)
+   endif 
+
+   if (im19 == itab_ud(iu51)%im(1)) then
+      im25 = itab_ud(iu51)%im(2)
+   else
+      im25 = itab_ud(iu51)%im(1)
+   endif 
+
+   if (im21 == itab_ud(iu53)%im(1)) then
+      im26 = itab_ud(iu53)%im(2)
+   else
+      im26 = itab_ud(iu53)%im(1)
+   endif 
+
+! Fill neighbor indices:
+
+   if (itab_ud(iu15)%im(1) == 1) then
+      itab_ud(iu15)%im(1) = im18
+   else
+      itab_ud(iu15)%im(2) = im18
+   endif
+
+   if (itab_ud(iu16)%im(1) == 1) then
+      itab_ud(iu16)%im(1) = im18
+   else
+      itab_ud(iu16)%im(2) = im18
+   endif
+
+   if (itab_ud(iu25)%im(1) == 1) then
+      itab_ud(iu25)%im(1) = im18
+   else
+      itab_ud(iu25)%im(2) = im18
+   endif
+
+   if (itab_ud(iu26)%im(1) == 1) then
+      itab_ud(iu26)%im(1) = im18
+   else
+      itab_ud(iu26)%im(2) = im18
+   endif
+
+   if (itab_ud(iu34)%im(1) == im18) then 
+      itab_ud(iu34)%iw(1) = iw8
+      itab_ud(iu34)%iw(2) = iw7
+      im5 = itab_ud(iu34)%im(2)
+   else
+      itab_ud(iu34)%iw(1) = iw7
+      itab_ud(iu34)%iw(2) = iw8
+      im5 = itab_ud(iu34)%im(1)
+   endif
+
+   if (itab_ud(iu35)%im(1) == im19) then
+      itab_ud(iu35)%iw(2) = iw19
+      itab_ud(iu35)%iw(1) = iw21
+      itab_ud(iu35)%im(2) = im18
+   else
+      itab_ud(iu35)%iw(1) = iw19
+      itab_ud(iu35)%iw(2) = iw21
+      itab_ud(iu35)%im(1) = im18
+   endif
+
+   if (itab_ud(iu41)%im(2) == im17) then
+      itab_ud(iu41)%iw(1) = iw27
+   else
+      itab_ud(iu41)%iw(2) = iw27
+   endif
+
+   if (itab_ud(iu42)%im(1) == im17) then
+      itab_ud(iu42)%im(2) = im19
+      itab_ud(iu42)%iw(1) = iw20
+   else
+      itab_ud(iu42)%im(1) = im19
+      itab_ud(iu42)%iw(2) = iw20
+   endif
+
+   if (itab_ud(iu43)%im(2) == im19) then
+      itab_ud(iu43)%im(1) = im24
+   else
+      itab_ud(iu43)%im(2) = im24
+   endif
+
+   if (itab_ud(iu44)%im(1) == im19) then
+      itab_ud(iu44)%iw(1) = iw29
+   else
+      itab_ud(iu44)%iw(2) = iw29
+   endif
+
+   if (itab_ud(iu45)%im(1) == im20) then
+      itab_ud(iu45)%iw(1) = iw31
+   else
+      itab_ud(iu45)%iw(2) = iw31
+   endif
+
+   if (itab_ud(iu48)%iw(2) == iw27) then
+      itab_ud(iu48)%im(2) = im17
+   else
+      itab_ud(iu48)%im(1) = im17
+   endif
+
+   if (itab_ud(iu49)%im(2) == im24) then
+      itab_ud(iu49)%im(1) = im17
+      itab_ud(iu49)%iw(2) = iw20
+   else
+      itab_ud(iu49)%im(2) = im17
+      itab_ud(iu49)%iw(1) = iw20
+   endif
+
+   if (itab_ud(iu50)%im(1) == im24) then
+      itab_ud(iu50)%im(2) = im20
+   else
+      itab_ud(iu50)%im(1) = im20
+   endif
+
+   if (itab_ud(iu51)%iw(2) == iw31) then
+      itab_ud(iu51)%im(1) = im20
+   else
+      itab_ud(iu51)%im(2) = im20
+   endif
+
+   if (itab_wd(iw8)%iu(1) == iu16) then
+      itab_wd(iw8)%iu(3) = iu34
+   elseif (itab_wd(iw8)%iu(2) == iu16) then
+      itab_wd(iw8)%iu(1) = iu34
+   else
+      itab_wd(iw8)%iu(2) = iu34
+   endif
+
+   if (itab_wd(iw19)%iu(1) == iu25) then
+      iu33 = itab_wd(iw19)%iu(2)
+      itab_wd(iw19)%iu(3) = iu35
+   elseif (itab_wd(iw19)%iu(2) == iu25) then
+      iu33 = itab_wd(iw19)%iu(3)
+      itab_wd(iw19)%iu(1) = iu35
+   else
+      iu33 = itab_wd(iw19)%iu(1)
+      itab_wd(iw19)%iu(2) = iu35
+   endif
+
+! special case
+
+   if (itab_ud(iu33)%iw(2) == iw19) then
+      itab_ud(iu33)%im(2) = im19
+   else
+      itab_ud(iu33)%im(1) = im19
+   endif
+
+   if (itab_wd(iw20)%iu(1) == iu43) then
+      itab_wd(iw20)%iu(2) = iu42
+      itab_wd(iw20)%iu(3) = iu49
+   elseif (itab_wd(iw20)%iu(2) == iu43) then
+      itab_wd(iw20)%iu(3) = iu42
+      itab_wd(iw20)%iu(1) = iu49
+   else
+      itab_wd(iw20)%iu(1) = iu42
+      itab_wd(iw20)%iu(2) = iu49
+   endif
+
+   if (itab_wd(iw27)%iu(1) == iu48) then
+      itab_wd(iw27)%iu(2) = iu41
+   elseif (itab_wd(iw27)%iu(2) == iu48) then
+      itab_wd(iw27)%iu(3) = iu41
+   else
+      itab_wd(iw27)%iu(1) = iu41
+   endif
+
+   if (itab_wd(iw29)%iu(1) == iu50) then
+      itab_wd(iw29)%iu(2) = iu44
+      itab_wd(iw29)%iu(3) = iu43
+   elseif (itab_wd(iw29)%iu(2) == iu50) then
+      itab_wd(iw29)%iu(3) = iu44
+      itab_wd(iw29)%iu(1) = iu43
+   else
+      itab_wd(iw29)%iu(1) = iu44
+      itab_wd(iw29)%iu(2) = iu43
+   endif
+
+   if (itab_wd(iw31)%iu(1) == iu51) then
+      itab_wd(iw31)%iu(3) = iu45
+   elseif (itab_wd(iw31)%iu(2) == iu51) then
+      itab_wd(iw31)%iu(1) = iu45
+   else
+      itab_wd(iw31)%iu(2) = iu45
+   endif
+
+   itab_md(im22)%ngr = ngr
+   itab_md(im23)%ngr = ngr
+   itab_md(im24)%ngr = ngr
+   itab_md(im25)%ngr = ngr
+   itab_md(im26)%ngr = ngr
+
+   itab_wd(iw20)%ngr = ngr
+   itab_wd(iw26)%ngr = ngr
+   itab_wd(iw27)%ngr = ngr
+   itab_wd(iw28)%ngr = ngr
+   itab_wd(iw29)%ngr = ngr
+   itab_wd(iw30)%ngr = ngr
+   itab_wd(iw31)%ngr = ngr
+   itab_wd(iw32)%ngr = ngr
+
+! NEW M locations
+
+   itab_md(im17)%mrlm_orig = itab_md(im18)%mrlm_orig
+   itab_md(im20)%mrlm_orig = itab_md(im19)%mrlm_orig
+   itab_md(im18)%mrlm_orig = mrlo + 1
+   itab_md(im19)%mrlm_orig = mrlo + 1
+
+   xem(im19) = .5 * (xem(im24) + xem(im5))
+   yem(im19) = .5 * (yem(im24) + yem(im5))
+   zem(im19) = .5 * (zem(im24) + zem(im5))
+
+   xem(im18) = .5 * (xem(im19) + xem(im5))
+   yem(im18) = .5 * (yem(im19) + yem(im5))
+   zem(im18) = .5 * (zem(im19) + zem(im5))
+
+   xem(im17) = .75 * xem(im17) + .25 * xem(im19)
+   yem(im17) = .75 * yem(im17) + .25 * yem(im19)
+   zem(im17) = .75 * zem(im17) + .25 * zem(im19)
+
+   xem(im20) = .75 * xem(im20) + .25 * xem(im19)
+   yem(im20) = .75 * yem(im20) + .25 * yem(im19)
+   zem(im20) = .75 * zem(im20) + .25 * zem(im19)
+
+   xem(im12) = .833 * xem(im12) + .167 * xem(im18)
+   yem(im12) = .833 * yem(im12) + .167 * yem(im18)
+   zem(im12) = .833 * zem(im12) + .167 * zem(im18)
+
+   xem(im13) = .833 * xem(im13) + .167 * xem(im18)
+   yem(im13) = .833 * yem(im13) + .167 * yem(im18)
+   zem(im13) = .833 * zem(im13) + .167 * zem(im18)
+
+enddo ! iper
+
+end subroutine perim_fill3
+
+!===========================================================================
 
 subroutine pent_urows(iurow_pent)
 
@@ -1147,111 +1348,6 @@ enddo
 
 return
 end subroutine pent_urows
-
-!==============================================================================
-
-subroutine perim_map(nper,nside,npts,imper,iuper)
-
-! Perim_map maps the perimeter points of a nested grid that is being spawned
-
-use mem_grid,  only: nma
-use misc_coms, only: io6
-
-implicit none
-
-integer, intent(out) :: nper(16) ! Value of perimeter side counter at end of each side
-integer, intent(out) :: nside    ! Number of sides of nested grid polygon
-integer, intent(in)  :: npts
-integer, intent(out) :: imper(npts) ! Boundary IM index at each perimeter index
-integer, intent(out) :: iuper(npts) ! Boundary IU index at each perimeter index
-
-integer :: imstart  ! IM index of starting M point (at a corner of ngr perimeter)
-integer :: im       ! dummy im index
-integer :: nwdiv    ! number of subdivided W pts adjacent to current M pt
-integer :: ima      ! Current M pt in counterclockwise path around perimeter
-integer :: imb      ! Next M pt in counterclockwise path around perimeter
-integer :: iua      ! Current U pt in counterclockwise path around perimeter
-integer :: iper     ! Current perimeter point counter
-integer :: iside    ! Current perimeter side counter
-
-! Set IM starting point to zero
-
-imstart = 0
-
-! Loop over all ORIGINAL M points and find the first one that has exactly 2 
-! fully-divided W neighbors in the grid being spawned.
-
-do im = 2,nma   
-   call count_wdiv(im,nwdiv)
-   if (nwdiv == 2) then
-      imstart = im
-      exit
-   endif
-enddo
-
-! Bug check:  make sure that imstart is not zero now.
-
-if (imstart == 0) then
-   write(io6,*) 'imstart is zero - stopping model'
-   stop 'stop imstart perim_map'
-endif
-
-! March around NGR boundary in a counterclockwise direction beginning at IMSTART
-
-ima = imstart
-imper(1) = ima
-iper = 0
-iside = 1
-
-nper(:) = 0
-
-do  ! Loop over all original M points on ngr perimeter 
-
-! Find next M and U points (imb, iua) on perimeter and outside W point (iwout)
-
-   call perim_ngr(ima, imb, iua)
-
-! Increment perimeter point counter and store point indices
-
-   nper(iside) = nper(iside) + 1
-   iper = iper + 1
-
-   iuper(iper) = iua
-   imper(iper+1) = imb
-
-! Check if imb is a corner point.
-
-   call count_wdiv(imb,nwdiv)
-
-   if (nwdiv == 2) then
-
-! imb is corner point.  Store current iper index in nper array.
-
-      nper(iside) = iper
-
-! Check if imb equals istart.  If it does, exit loop
-
-      if (imb == imstart) then
-
-! imb equals istart.  Store total number of sides in nside.  Exit Do loop
-      
-         nside = iside
-         exit
-      endif
-   
-! imb does not equal istart.  Advance to next side
-
-      iside = iside + 1
-         
-   endif
-
-   ima = imb
-
-enddo
-
-return
-end subroutine perim_map
-
 !==============================================================================
 
 subroutine perim_map2(npts,nper2,imper,iuper,npolyper,nwdivper,nearpent)
@@ -1373,42 +1469,7 @@ do  ! Loop over all original M points on ngr perimeter
 
 enddo
 
-return
 end subroutine perim_map2
-
-!==============================================================================
-
-subroutine count_wdiv(im,nwdiv)
-
-! Subroutine count_wdiv is to be used during the process of spawning a nested grid,
-! after temporary arrays nest_ud and nest_wd have been filled for interior points.
-
-! Given any M point IM, determine how many fully-divided W points are adjacent to it.
-
-use mem_ijtabs, only: ltab_md, nest_wd
-use misc_coms,  only: io6
-
-implicit none
-
-integer, intent(in) :: im
-integer, intent(out) :: nwdiv
-
-integer :: j, iw
-
-nwdiv = 0
-
-! Loop over all W points that are adjacent to this M point
-
-do j = 1,ltab_md(im)%npoly
-   iw = ltab_md(im)%iw(j)
-
-   if (nest_wd(iw)%iw(3) > 0) then
-      nwdiv = nwdiv + 1
-   endif
-enddo
-
-return
-end subroutine count_wdiv
 
 !==============================================================================
 
@@ -1483,386 +1544,11 @@ elseif (imnext < 2) then
    stop 'perim_ngr2'
 endif
 
-return
 end subroutine perim_ngr
-
-!==============================================================================
-
-subroutine perim_add(jm,ju,npts,nside,nma0,nua0,nwa0, &
-                    nper,ngrp,igsize,imper,iuper,iurow_pent)
-
-use mem_grid,   only: nrows, mrows, nua
-use misc_coms,  only: io6
-
-implicit none
-
-integer, intent(inout) :: npts,nside,nma0,nua0,nwa0
-integer, intent(out) :: jm(nrows+1,npts)
-integer, intent(out) :: ju(nrows,npts)
-integer, intent(out) :: ngrp
-integer, intent(out) :: igsize(npts)
-integer, intent(in)  :: imper(npts)
-integer, intent(in)  :: iuper(npts)
-integer, intent(inout) :: nper(16)
-integer, intent(in) :: iurow_pent(nua)
-
-integer :: iper,ig,iside,ileft,iwid
-integer :: igs   ! counter for group number on current side
-
-integer :: iu,jside
-
-! Loop over all original U points on perimeter of new grid
-
-iper = 1
-igs = 0  ! group size
-iside = 1
-
-do while (iside <= nside)
-
-   do while (iper <= nper(iside))
-
-      iu = iuper(iper)
-
-! Check if current U point is influenced by pentagon M point.
-! If so, increase group size.
-
-      if (iurow_pent(iu) > 0) then
-         igs = igs + 1
-         
-! Check if group size equals iurow_pent(iu)
-
-         if (igs == iurow_pent(iu)) then         
-         
-! This group of points is influenced by pentagon M point.  Place them
-! Into a new "side" of the nest.  Check if there are any remaining points
-! on current ORIGINAL side.  Shift remaining iper points to new sides
-! (a shift of 1 or 2 sides).
-            
-            if (iper == nper(iside)) then
-               do jside = nside,iside,-1
-                  nper(jside+1) = nper(jside)
-               enddo
-               nside = nside + 1
-            else
-               do jside = nside,iside,-1
-                  nper(jside+2) = nper(jside)
-               enddo
-               nside = nside + 2
-               nper(iside + 1) = iper
-            endif
-            
-            nper(iside) = iper - igs
-            igs = 0
-
-         endif 
-         
-      endif
-
-      iper = iper + 1
-
-   enddo
-   
-   iside = iside + 1
-   
-enddo
-
-! Determine width of transition zone at each point on perimeter
-
-iper = 1
-ig = 0  ! group number
-
-do iside = 1,nside
-
-   igs = 0
-
-   do while (iper <= nper(iside))
-
-      ig = ig + 1
-      igs = igs + 1
-
-      ileft = nper(iside) - iper + 1
-
-! FIRST METHOD: START WITH MAX AND DECREASE AS END OF SIDE IS APPROACHED
-
-      if     (ileft == 16 .and. mrows == 5) then
-         iwid = 4
-      elseif (ileft == 12 .and. mrows == 5) then
-         iwid = 4
-      elseif (ileft == 11 .and. mrows == 5) then
-         iwid = 4
-      elseif (ileft == 9 .and. mrows == 4) then
-         iwid = 3
-      elseif (ileft == 8 .and. mrows == 5) then
-         iwid = 4
-      elseif (ileft == 7 .and. mrows == 5) then
-         iwid = 4
-      elseif (ileft == 6 .and. mrows >= 4) then
-         iwid = 3
-      elseif (ileft == 5 .and. mrows == 4) then
-         iwid = 3
-      elseif (ileft == 4 .and. mrows == 3) then
-         iwid = 2
-      else
-         iwid = min(ileft,mrows)
-      endif
-
-! SECOND METHOD: USE 2 AT BOTH ENDS
-
-!      if (igs == 1) then
-!         iwid = min(ileft,2)
-!      else
-!         iwid = min(mrows,max(2,ileft-2),ileft)
-!      endif
-
-      igsize(ig) = iwid
-
-                    jm(1,ig) = imper(iper)
-                    jm(2,ig) = imper(iper+1)
-      if (iwid > 1) jm(3,ig) = imper(iper+2)
-      if (iwid > 2) jm(4,ig) = imper(iper+3)
-      if (iwid > 3) jm(5,ig) = imper(iper+4)
-      if (iwid > 4) jm(6,ig) = imper(iper+5)
-
-                    ju(1,ig) = iuper(iper)
-      if (iwid > 1) ju(2,ig) = iuper(iper+1)
-      if (iwid > 2) ju(3,ig) = iuper(iper+2)       
-      if (iwid > 3) ju(4,ig) = iuper(iper+3)      
-      if (iwid > 4) ju(5,ig) = iuper(iper+4)
-
-      iper = iper + iwid
-
-! Add required number of W,U,M points for this group
-
-      nwa0 = nwa0 + iwid**2
-      nua0 = nua0 + iwid * (3 * iwid - 1) / 2
-      nma0 = nma0 + iwid * (iwid - 1) / 2
-
-   enddo
-
-enddo
-
-ngrp = ig
-
-return
-end subroutine perim_add
-
-!==============================================================================
-
-subroutine perim_add2(npts,nper2,imper,iuper,nwdivper,nearpent,iurow_pent, &
-     nma0,nua0,nwa0,ngrp,igsize,jm,ju,nwdivg)
-
-use mem_grid,   only: nrows, mrows, nua
-use misc_coms,  only: io6
-
-implicit none
-
-integer, intent(in) :: npts,nper2
-integer, intent(in) :: imper(npts)
-integer, intent(in) :: iuper(npts)
-integer, intent(in) :: nwdivper(npts)
-integer, intent(in) :: nearpent(npts)
-integer, intent(in) :: iurow_pent(nua)
-
-integer, intent(inout) :: nma0,nua0,nwa0
-integer, intent(out) :: ngrp
-integer, intent(out) :: igsize(npts)
-integer, intent(out) :: jm(nrows+1,npts)
-integer, intent(out) :: ju(nrows,npts)
-integer, intent(out) :: nwdivg(npts)
-
-logical :: ready
-logical :: ufilled(nper2) ! automatic array
-
-integer :: iper,iper2,iperm,iperp,ig,ileft,iwid
-integer :: igs   ! counter for group number
-
-integer :: iu
-
-ufilled(1:nper2) = .false.
-ig = 0  ! group number
-
-!---------------------------------------------------------------------------
-! FIRST PASS: PROCESS ALL ISOLATED CONVEX POINTS (UNLESS ADJACENT TO 5-NODE)
-!---------------------------------------------------------------------------
-
-! Loop over all original M/U points on perimeter of new grid
-
-do iper = 1,nper2
-   iperm = iper - 1
-   iperp = iper + 1
-
-   if (iper == 1)     iperm = nper2
-   if (iper == nper2) iperp = 1
-
-   if (nwdivper(iper ) == 2 .and. &
-       nwdivper(iperm) /= 2 .and. &
-       nwdivper(iperp) /= 2 .and. &
-       nearpent(iper ) /= 1) then
-
-! Skip IPER point if either adjacent U is already filled
-
-   if (ufilled(iperm) .or. ufilled(iper)) cycle
-
-      ig = ig + 1
-
-      igsize(ig) = 2
-
-      jm(1,ig) = imper(iperm)
-      jm(2,ig) = imper(iper )
-      jm(3,ig) = imper(iperp)
-
-      ju(1,ig) = iuper(iperm)
-      ju(2,ig) = iuper(iper )
-
-      nwdivg(ig) = nwdivper(iper)
-
-      ufilled(iperm) = .true.
-      ufilled(iper ) = .true.
-
-! Add required number of W,U,M points for this group
-
-      nma0 = nma0 + 1
-      nua0 = nua0 + 5
-      nwa0 = nwa0 + 4
-
-   endif
-
-enddo
-
-!---------------------------------------------------------------------------
-! SECOND PASS: PROCESS ALL CONCAVE POINTS
-!---------------------------------------------------------------------------
-
-! Loop over all original M/U points on perimeter of new grid
-
-do iper = 1,nper2
-   iperm = iper - 1
-   iperp = iper + 1
-
-   if (iper == 1)     iperm = nper2
-   if (iper == nper2) iperp = 1
-
-   if (nwdivper(iper) == 4) then
-
-! Skip IPER point if either adjacent U is already filled
-
-      if (ufilled(iperm) .or. ufilled(iper)) cycle
-
-      ig = ig + 1
-
-      igsize(ig) = 2
-
-      jm(1,ig) = imper(iperm)
-      jm(2,ig) = imper(iper )
-      jm(3,ig) = imper(iperp)
-
-      ju(1,ig) = iuper(iperm)
-      ju(2,ig) = iuper(iper )
-
-      nwdivg(ig) = nwdivper(iper)
-
-      ufilled(iperm) = .true.
-      ufilled(iper ) = .true.
-
-! Add required number of W,U,M points for this group
-
-      nua0 = nua0 + 2
-      nwa0 = nwa0 + 2
-
-   endif
-
-enddo
-
-!---------------------------------------------------------------------------
-! THIRD PASS: PROCESS ALL REMAINING POINTS (CENT1 & CENT2)
-!---------------------------------------------------------------------------
-
-! Loop over all original M/U points on perimeter of new grid.  (March twice
-! around perimeter to allow a delay in processing until immediately after
-! reaching the first of the convex or concave points that were filled above.)
-
-ready = .false.
-
-do iper2 = 1,nper2*2
-   iper = iper2
-   if (iper2 > nper2) iper = iper - nper2
-
-   iperm = iper - 1
-   iperp = iper + 1
-
-   if (iper == 1)     iperm = nper2
-   if (iper == nper2) iperp = 1
-
-   if (ufilled(iperm) .and. ufilled(iper)) ready = .true.
-   
-   if (.not. ready) cycle
-
-! Move to next M point if IPERM point is already filled
-
-   if (ufilled(iperm)) cycle
-
-! If IPER U point is already filled or if iper M point is next to a 5-node point,
-! fill IPERM point with 'cent1'
-
-   if (ufilled(iper) .or. nearpent(iper) == 1) then
-
-      ig = ig + 1
-
-      igsize(ig) = 1
-
-      jm(1,ig) = imper(iperm)
-      jm(2,ig) = imper(iper )
-
-      ju(1,ig) = iuper(iperm)
-
-      nwdivg(ig) = nwdivper(iper)
-
-      ufilled(iperm) = .true.
-
-! Add required number of W,U,M points for this group
-
-      nua0 = nua0 + 1
-      nwa0 = nwa0 + 1
-
-! If we got here, U points at IPERM and IPER are both unfilled and IPER M point
-! is not next to a 5-node point.  Fill with 'cent2'.
-
-   else
-      
-      ig = ig + 1
-
-      igsize(ig) = 2
-
-      jm(1,ig) = imper(iperm)
-      jm(2,ig) = imper(iper )
-      jm(3,ig) = imper(iperp)
-
-      ju(1,ig) = iuper(iperm)
-      ju(2,ig) = iuper(iper )
-
-      nwdivg(ig) = nwdivper(iper)
-
-      ufilled(iperm) = .true.
-      ufilled(iper ) = .true.
-
-! Add required number of W,U,M points for this group
-
-      nma0 = nma0 + 1
-      nua0 = nua0 + 5
-      nwa0 = nwa0 + 4
-
-   endif
-   
-enddo
-
-ngrp = ig
-
-return
-end subroutine perim_add2
 
 !===========================================================================
 
-subroutine perim_mrow(ngr)
+subroutine perim_mrow()
 
 use mem_ijtabs, only: itab_wd, itab_ud, itab_md
 use mem_grid,   only: nwa
@@ -1870,10 +1556,8 @@ use misc_coms,  only: io6
 
 implicit none
 
-integer, intent(in) :: ngr
-
-integer :: iper, iu, iw, iw1, iw2, iw3, im1, im2, im3
-integer :: iter, irow, jrow, mrow
+integer :: iw, iw1, iw2, iw3, im1, im2, im3
+integer :: irow, jrow, mrow
 
 integer :: mrow_temp(nwa)
 
@@ -1955,7 +1639,6 @@ do irow = 2,10  ! First row already done above
 
 enddo
 
-return
 end subroutine perim_mrow
 
 !==============================================================================
@@ -2090,7 +1773,6 @@ else
    linesegdist = dline
 endif
 
-return
 end function linesegdist
 
 !==============================================================================
@@ -2198,7 +1880,6 @@ do j = 1,npoly
 
 enddo ! end of j loop
 
-return
 end subroutine thirdm
 
 !==============================================================================

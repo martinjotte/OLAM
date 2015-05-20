@@ -159,19 +159,10 @@ call ichk_bnds( nl%ngrids,   "NGRIDS",       1, maxgrds, 0, nfatal, nwarn, &
 call ichk_bnds( nl%ngrids_old, "NGRIDS_OLD", 0, maxgrds, 0, nfatal, nwarn, &
      msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
 
-call ichk_bnds(nl%nconcave, "NCONCAVE", 1, 3, 0, nfatal, nwarn )
+! global mesh requires nxp to be divisible by 3
 
-! mdomain = 5 requires nconcave = 3
-
-if (nl%mdomain == 5 .and. nl%nconcave /= 3) then
-   write(io6,*) ' WARNING - Setting NCONCAVE = 3 for a Cartesian domain'
-   nl%nconcave = 3
-endif
-
-! nconcave = 3 requires nxp to be divisible by 3 for a global mesh
-
-if (nl%mdomain < 2 .and. nl%nconcave == 3 .and. mod(nl%nxp,3) /= 0) then
-   write(io6,*) 'FATAL - NXP must be divisible by 3 for NCONCAVE = 3'
+if (nl%mdomain < 2 .and. mod(nl%nxp,3) /= 0) then
+   write(io6,*) 'FATAL - NXP must be divisible by 3 for a global run'
    nfatal = nfatal + 1
 endif
 

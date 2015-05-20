@@ -95,13 +95,6 @@
                       ! set to 0 for normal MAKEGRID run that is NOT
                       ! preparation for HISTADDGRID restart.
 
-   ! Method to reduce grid concavities when generating each mesh
-   ! 1 eliminates only sharp concavities (Method B)
-   ! 2 eliminates both sharp and gentler concavities (original Method A)
-   ! 3 activates the Method C refined mesh algorithm (preferred method; requires
-   !                                                that NXP be a multiple of 3)
-   NL%NCONCAVE = 3
-
  ! One group of values must be provided for each "grid" number NG = 2:NGRIDS
 
  ! NGRDLL(NG) = Number of geographic points that you use to define the extent

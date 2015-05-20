@@ -103,7 +103,6 @@ SOURCE_FILES= \
              $(OMODEL)/othrm.f90 \
              $(OMODEL)/para_decomp.f90 \
              $(OMODEL)/para_init.f90 \
-             $(OMODEL)/perim_fill.f90 \
              $(OMODEL)/prog_wrtv.f90 \
              $(OMODEL)/scalar_transport.f90 \
              $(OMODEL)/spawn_nest.f90 \

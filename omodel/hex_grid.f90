@@ -211,11 +211,9 @@ do iw = 2,nwa
    itab_w(iw)%npoly   = itab_md(imd)%npoly
    itab_w(iw)%iwglobe = iw
 
-   if (nl%nconcave == 3) then
-      itab_w(iw)%mrlw      = itab_md(imd)%mrlm
-      itab_w(iw)%mrlw_orig = itab_md(imd)%mrlm_orig
-      itab_w(iw)%ngr       = itab_md(imd)%ngr
-   endif
+   itab_w(iw)%mrlw      = itab_md(imd)%mrlm
+   itab_w(iw)%mrlw_orig = itab_md(imd)%mrlm_orig
+   itab_w(iw)%ngr       = itab_md(imd)%ngr
 
    npoly = itab_w(iw)%npoly
 
@@ -228,15 +226,6 @@ do iw = 2,nwa
 
       iw1 = itab_v(iv)%iw(1)
       iw2 = itab_v(iv)%iw(2)
-
-!! Set mrlw to max of itab_wd neighbors
-
-      if (nl%nconcave /= 3) then
-         if (itab_w(iw)%mrlw < itab_wd(iwd)%mrlw) then
-             itab_w(iw)%mrlw = itab_wd(iwd)%mrlw
-!?           itab_w(iw)%ngr  = itab_wd(iwd)%ngr
-         endif
-      endif
 
       itab_w(iw)%im(j) = im
       itab_w(iw)%iv(j) = iv
@@ -268,31 +257,15 @@ do im = 2,nma
 
    itab_m(im)%npoly     = itab_wd(iwd)%npoly
    itab_m(im)%imglobe   = itab_wd(iwd)%iwglobe
-   if (nl%nconcave == 3) then
-      itab_m(im)%mrlm = itab_wd(iwd)%mrlw
-      itab_m(im)%ngr  = itab_wd(iwd)%ngr
-   endif
+
+   itab_m(im)%mrlm      = itab_wd(iwd)%mrlw
+   itab_m(im)%ngr       = itab_wd(iwd)%ngr
+
    itab_m(im)%mrlm_orig = itab_wd(iwd)%mrlw_orig
    itab_m(im)%mrow      = itab_wd(iwd)%mrow
 
    itab_m(im)%iv(1:3)   = itab_wd(iwd)%iu(1:3)
    itab_m(im)%iw(1:3)   = itab_wd(iwd)%im(1:3)
-
-! Loop over IW neighbors of IM
-
-   if (nl%nconcave /= 3) then
-      do j = 1,itab_m(im)%npoly
-         iw = itab_m(im)%iw(j)
-
-! Set mrlm to max of itab_w neighbors
-
-         if (itab_m(im)%mrlm < itab_w(iw)%mrlw) then
-             itab_m(im)%mrlm = itab_w(iw)%mrlw
-!?           itab_m(im)%ngr  = itab_w(iw)%ngr
-         endif
-      enddo
-   endif
-
 enddo
 
 ! Special: for a cartesian domain, do a lateral boundary copy of MRL
@@ -643,20 +616,6 @@ do im = 2,nma
 ! Fill global index (replaced later if this run is parallel)
 
    itab_m(im)%imglobe = im
-
-! Number of polygon edges/vertices
-
-   if (nl%nconcave /= 3) then
-      npoly = itab_m(im)%npoly
-
-! Loop over all polygon edges
-
-      do j = 1,npoly
-         iw = itab_m(im)%iw(j)
-
-         itab_m(im)%mrlm = max(itab_m(im)%mrlm, itab_w(iw)%mrlw)
-      enddo
-   endif
 
 enddo
 !$omp end do

@@ -30,7 +30,7 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine spring_dynamics(ngr,nconcave)
+subroutine spring_dynamics(ngr)
 
 use mem_ijtabs,  only: itab_md, itab_ud, itab_wd
 use mem_grid,    only: nma, nua, nwa, xem, yem, zem, impent, mrows
@@ -40,7 +40,7 @@ use oplot_coms,  only: op
 
 implicit none
 
-integer, intent(in) :: ngr,nconcave
+integer, intent(in) :: ngr
 
 integer :: niter
 real, parameter :: relax = .04, beta = 1.2
@@ -105,7 +105,7 @@ niter = 2000
 ! for a HISTADDGRID history restart, do NOT move M points outside the current
 ! newly refined region.
 
-if (ngrids_old > 0 .and. ngr > ngrids_old .and. nconcave == 3) then 
+if (ngrids_old > 0 .and. ngr > ngrids_old) then 
 
 ! First, turn off movement of ALL M points
 
@@ -117,12 +117,12 @@ if (ngrids_old > 0 .and. ngr > ngrids_old .and. nconcave == 3) then
       if (itab_md(im)%ngr == ngr) movem(im) = 1
    enddo
 
-! For the case where nconcave = 3 and moveall(ngr) = 0, reset all movem values
-! to 0, and then set those in border zone of NGR back to 1.  Specifically, 
-! border zone consists of those M points that are adjacent to M points with
-! MROW values of -3, -2, -1, or 1.  
+! For the case where moveall(ngr) = 0, reset all movem values to 0,
+! and then set those in border zone of NGR back to 1.  Specifically, 
+! border zone consists of those M points that are adjacent to M points
+! with MROW values of -3, -2, -1, or 1.  
 
-elseif (ngr > 1 .and. nconcave == 3 .and. moveall(ngr) == 0) then
+elseif (ngr > 1 .and. moveall(ngr) == 0) then
 
    movem(:) = 0
 
@@ -189,29 +189,20 @@ do iu = 2, nua
       mrow1 = itab_wd(iw1)%mrow
       mrow2 = itab_wd(iw2)%mrow
 
-      if (nconcave == 3) then
+      mrmax = max(mrow1,mrow2)
+      mrmin = min(mrow1,mrow2)
       
-         mrmax = max(mrow1,mrow2)
-         mrmin = min(mrow1,mrow2)
-      
-         if     (mrmax == -2 .and. mrmin == -2) then
-            dist0(iu) = dist0(iu) *  7. / 6.  !* .90
-         elseif (mrmax == -1 .and. mrmin == -2) then
-            dist0(iu) = dist0(iu) *  8. / 6.  !* .90
-         elseif (mrmax == -1 .and. mrmin == -1) then
-            dist0(iu) = dist0(iu) *  9. / 6.  !* .90
-         elseif (mrmax == 1 .and. mrmin == -1) then
-            dist0(iu) = dist0(iu) * 10. / 6.  !* .90
-         elseif (mrmax == 1 .and. mrmin == 1) then
-            dist0(iu) = dist0(iu) * 11. / 12. !* .90
-         endif
-
-      elseif (mrow1 > 0 .and. mrow1 <= mrows .and.  &
-              mrow2 > 0 .and. mrow2 <= mrows) then
-
-         dist0(iu) = dist0(iu) * (.5 + .25/real(mrows) * (mrow1 + mrow2 - 1))      
-
-      endif ! nconcave
+      if     (mrmax == -2 .and. mrmin == -2) then
+         dist0(iu) = dist0(iu) *  7. / 6.  !* .90
+      elseif (mrmax == -1 .and. mrmin == -2) then
+         dist0(iu) = dist0(iu) *  8. / 6.  !* .90
+      elseif (mrmax == -1 .and. mrmin == -1) then
+         dist0(iu) = dist0(iu) *  9. / 6.  !* .90
+      elseif (mrmax == 1 .and. mrmin == -1) then
+         dist0(iu) = dist0(iu) * 10. / 6.  !* .90
+      elseif (mrmax == 1 .and. mrmin == 1) then
+         dist0(iu) = dist0(iu) * 11. / 12. !* .90
+      endif
 
    endif ! ngr
 
