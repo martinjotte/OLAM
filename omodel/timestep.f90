@@ -34,9 +34,9 @@ subroutine timestep()
 
 use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, time_bias, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, dtlm, &
-                       iparallel, s1900_init, s1900_sim
+                       iparallel, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
-use mem_nudge,   only: nudflag, nudnxp
+use mem_nudge,   only: nudflag, nudnxp, o3nudflag, io3
 use mem_grid,    only: mza, mva, mwa
 use micro_coms,  only: level
 use leaf_coms,   only: isfcl
@@ -51,6 +51,10 @@ use oname_coms,  only: nl
 use mem_timeavg, only: accum_timeavg
 use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
+use mem_megan,   only: megan_avg_temp
+use emis_defn,   only: get_emis
+use depv_defn,   only: get_depv
+use sedv_defn,   only: aero_sedi
 
 implicit none
 
@@ -95,6 +99,11 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
    if (mrl > 0) then
       call comp_alpha_press(mrl, alpha_press)
       call surface_turb_flux(mrl)
+      if (do_chem == 1) then
+         call aero_sedi( mrl )
+         call get_emis ( mrl )
+         call get_depv ( mrl )
+      endif
    endif
 
 ! call check_nans(1)
@@ -145,6 +154,12 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       else
          call spec_nudge(rhot)
       endif
+   endif
+
+! Nudging of ozone if it is a variable in the scalar table
+
+   if (initial == 2 .and. o3nudflag == 1 .and. io3 > 0) then
+      call obs_nudge_o3()
    endif
 
 ! call check_nans(10)
@@ -217,9 +232,14 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
 ! Bypass all processes except microphyics if running parcel test 901 or 902
 
-if (nl%test_case == 901 .or. nl%test_case == 902) go to 1312
+   if (nl%test_case == 901 .or. nl%test_case == 902) go to 1312
 
 ! call check_nans(17)
+
+   ! Call atmospheric chemistry here
+   
+   mrl = mrl_endl(istp)
+   if (do_chem == 1 .and. mrl > 0) call cmaq_driver(mrl)
 
    call trsets()  
 
@@ -288,6 +308,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1312
    if (leafstep(istp) > 0) then
       call leaf4()
       call seacells()
+      if (do_chem == 1) call megan_avg_temp()
    endif
 
    call accum_timeavg()

@@ -621,7 +621,7 @@ end subroutine scalar_transport
 subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
 
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
-  use mem_grid,   only: mza, mwa, lpw, lpv, zt, zm, dzim
+  use mem_grid,   only: mza, mwa, lpw, lpv, zt, zm, dzim, gxps_coef, gyps_coef
   use misc_coms,  only: io6
   use max_dims,   only: maxgrds
 
@@ -655,35 +655,37 @@ subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
 
      do jw1 = 1, npoly
 
-        jw2 = mod(jw1,npoly) + 1
+!        jw2 = mod(jw1,npoly) + 1
 
         iw1 = itab_w(iw)%iw(jw1)
-        iw2 = itab_w(iw)%iw(jw2)
+!        iw2 = itab_w(iw)%iw(jw2)
 
         iv1 = itab_w(iw)%iv(jw1)
-        iv2 = itab_w(iw)%iv(jw2)
+!        iv2 = itab_w(iw)%iv(jw2)
 
-        gxps1 = itab_w(iw)%gxps1(jw1)
-        gyps1 = itab_w(iw)%gyps1(jw1)
+!        gxps1 = itab_w(iw)%gxps1(jw1)
+!        gyps1 = itab_w(iw)%gyps1(jw1)
 
-        gxps2 = itab_w(iw)%gxps2(jw1)
-        gyps2 = itab_w(iw)%gyps2(jw1)
+!        gxps2 = itab_w(iw)%gxps2(jw1)
+!        gyps2 = itab_w(iw)%gyps2(jw1)
 
 ! Vertical loop over T levels
 ! Zero-gradient lateral B.C. below lpv(iv1)
 
         do k = lpv(iv1), mza
-           gxps(k,iw) = gxps(k,iw) + gxps1 * (scp(k,iw1) - scp(k,iw))
-           gyps(k,iw) = gyps(k,iw) + gyps1 * (scp(k,iw1) - scp(k,iw))
+!           gxps(k,iw) = gxps(k,iw) + gxps1 * (scp(k,iw1) - scp(k,iw))
+!           gyps(k,iw) = gyps(k,iw) + gyps1 * (scp(k,iw1) - scp(k,iw))
+           gxps(k,iw) = gxps(k,iw) + gxps_coef(iw,jw1) * (scp(k,iw1) - scp(k,iw))
+           gyps(k,iw) = gyps(k,iw) + gyps_coef(iw,jw1) * (scp(k,iw1) - scp(k,iw))
         enddo
 
 ! Vertical loop over T levels
 ! Zero-gradient lateral B.C. below lpv(iv2)
 
-        do k = lpv(iv2), mza
-           gxps(k,iw) = gxps(k,iw) + gxps2 * (scp(k,iw2) - scp(k,iw))
-           gyps(k,iw) = gyps(k,iw) + gyps2 * (scp(k,iw2) - scp(k,iw))
-        enddo
+!        do k = lpv(iv2), mza
+!           gxps(k,iw) = gxps(k,iw) + gxps2 * (scp(k,iw2) - scp(k,iw))
+!           gyps(k,iw) = gyps(k,iw) + gyps2 * (scp(k,iw2) - scp(k,iw))
+!        enddo
 
      enddo
 
@@ -710,7 +712,6 @@ subroutine grad_t3d(mrl, scp, gxps, gyps, gzps)
   enddo
   !$omp end parallel do
 
-  return
 end subroutine grad_t3d
 
 

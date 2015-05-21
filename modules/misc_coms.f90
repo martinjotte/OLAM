@@ -159,7 +159,6 @@ real(r8) :: time_prevhist = 0.0_r8
 real(r8) :: time_bias ! A number small compared to the timestep
 
 integer       :: do_chem   =  0
-character(20) :: chem_mech = ""
 
 Contains
 

@@ -491,7 +491,6 @@
 
    NL%DO_CHEM   =  0
 
-   NL%CHEM_MECH = 'CB05TUCL_AE6_AQ'
    NL%LTNG_NOX  =  0
    NL%CHEM_FRQ  =  1
    NL%PHOT_FRQ  =  1

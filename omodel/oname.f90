@@ -85,8 +85,7 @@ use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
                        itime1, idate1, imonth1, iyear1, ngrids, nzp, &
                        mdomain, itopoflg, nxp, &
                        ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
-                       current_time, debug_fp, init_nans, &
-                       do_chem, chem_mech
+                       current_time, debug_fp, init_nans, do_chem
 
 use micro_coms,  only: level, icloud, idriz, irain, ipris, &
                        isnow, iaggr, igraup, ihail, iccnlev, &
@@ -243,7 +242,7 @@ if (copy_type == 'ALL_CASES') then
    ndviflg       = nl%ndviflg
 
    do_chem       = nl%do_chem
-   chem_mech     = nl%chem_mech
+
    o3nudflag     = nl%o3nudflag
    tnudi_o3      = 1.0 / max( nl%o3tnudcent, nl%dtlong )
    o3nudpress    = nl%o3nudpress * 100.0  ! mb to Pa

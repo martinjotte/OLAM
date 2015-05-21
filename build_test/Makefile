@@ -1,5 +1,5 @@
 .SUFFIXES:
-.SUFFIXES: .F90 .f90 .c .o
+.SUFFIXES: .F90 .f90 .F .f .c .o
 .PHONY: all clean
 
 # Include definitions
@@ -13,8 +13,9 @@ OBJECT_FILES = $(addsuffix .o, \
 
 # Compiler commands
 
-INCLUDES   = -I$(OUTILS) $(PAR_INCS) $(HDF5_INCS) $(NETCDF_INCS)
-C_COMMAND  = $(C_COMP) -c $(C_OPTS) $(INCLUDES)
+INCLUDES  = -I../$(OUTILS) -I../$(CMAQ) -I../$(MEGAN) \
+            $(PAR_INCS) $(HDF5_INCS) $(NETCDF_INCS)
+C_COMMAND = $(C_COMP) -c $(C_OPTS) $(INCLUDES)
 
 # F_DEFINE_FLAG is needed for the IBM XLF compiler, because the 
 # -D switch is used for something other than preprocessor symbols
@@ -64,8 +65,14 @@ EXE=$(BASE)-$(OLAM_VERSION)$(OLAM_SUFFIX)
 %.o: %.f90
 	(cd objects; $(F_COMMAND) $(<F))
 
+%.o: %.F
+	(cd objects; $(F_COMMAND) $(FIXED_SRC_FLAGS) $(DEFS) $(<F))
+
+%.o: %.f
+	(cd objects; $(F_COMMAND) $(FIXED_SRC_FLAGS) $(<F))
+
 %.o: %.c
-	$(C_COMMAND) $(DEFS) $< -o $@
+	(cd objects; $(C_COMMAND) $(DEFS) $(<F))
 
 # Define targets
 

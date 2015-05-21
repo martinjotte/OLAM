@@ -47,14 +47,18 @@ subroutine olam_mem_alloc()
   use mem_thuburn, only: alloc_thuburn
 
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
-                         nqparm, dtsm
+                         nqparm, dtsm, do_chem
 
   use micro_coms,  only: level, ncat, jnmb, &
                          icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail
                        
-  use leaf_coms,   only: mwl
+  use leaf_coms,   only: mwl, isfcl
   use sea_coms,    only: mws
   use mem_plot,    only: alloc_plot
+
+  use cgrid_defn,  only: alloc_cgrid, filltab_cgrid
+
+  use mem_megan,   only: alloc_megan, filltab_megan
 
   use mem_timeavg, only: alloc_timeavg, filltab_timeavg
 
@@ -89,6 +93,16 @@ subroutine olam_mem_alloc()
 
   call alloc_flux_accum(mza,mwa,mwl,mws)
   call filltab_flux_accum()
+
+  if (do_chem == 1) then
+     call alloc_cgrid(mza,mwa)
+     call filltab_cgrid()
+
+     if (isfcl > 0) then
+        call alloc_megan(mwl,mwa)
+        call filltab_megan()
+     endif
+  endif
 
 ! Allocate field average arrays
 

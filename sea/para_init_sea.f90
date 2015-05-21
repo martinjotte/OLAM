@@ -104,8 +104,6 @@ mws = iws_myrank
 
 ! Re-allocate itab data structures and main grid coordinate arrays
 
-print*, 'in para_init_sea1 ',mws
-
 call alloc_sea_grid(mws)
 
 ! Reset point counts to 1

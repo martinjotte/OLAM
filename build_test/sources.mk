@@ -125,7 +125,9 @@ SOURCE_FILES= \
              $(OUTILS)/map_proj.f90 \
              $(OUTILS)/olam_interp_ll.F90 \
              $(OUTILS)/o_ncar.f90 \
+             $(OUTILS)/polygon_overlap.f90 \
              $(OUTILS)/read_cdc.f90 \
+             $(OUTILS)/string_lib.f90 \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \
              $(RADIATE)/clouds_gno.f90 \
@@ -226,7 +228,67 @@ SOURCE_FILES= \
              $(HURRICANE)/hurricane_init.f90 \
              $(TEST_CASES)/mem_swtc5_refsoln_cubic.f90 \
              $(TEST_CASES)/swtc_init.f90 \
-             $(TEST_CASES)/diagn_global_swtc.F90
+             $(TEST_CASES)/diagn_global_swtc.F90 \
+             $(CMAQ)/AERO_DATA.F \
+             $(CMAQ)/aero_depv.F \
+             $(CMAQ)/aero_driver.F \
+             $(CMAQ)/AERO_EMIS.F \
+             $(CMAQ)/aero_photdata.F \
+             $(CMAQ)/aero_subs.F \
+             $(CMAQ)/AEROMET_DATA.F \
+             $(CMAQ)/AEROSOL_CHEMISTRY.F \
+             $(CMAQ)/AQ_DATA.F \
+             $(CMAQ)/aq_map.F \
+             $(CMAQ)/aqchem.F \
+             $(CMAQ)/cb05tucl_ae6_aq/RXNS_DATA_MODULE.F90 \
+             $(CMAQ)/cb05tucl_ae6_aq/RXNS_FUNC_MODULE.F90 \
+             $(CMAQ)/cldproc.F \
+             $(CMAQ)/cmaq_driver.f90 \
+             $(CMAQ)/coags.f \
+             $(CMAQ)/conv_cgrid.f90 \
+             $(CMAQ)/cgrid_defn.f90 \
+             $(CMAQ)/CGRID_SPCS.F \
+             $(CMAQ)/CSQY_DATA.F \
+             $(CMAQ)/czangle.F \
+             $(CMAQ)/DEPV_DEFN.F \
+             $(CMAQ)/DEPVVARS.F \
+             $(CMAQ)/DUST_EMIS.F \
+             $(CMAQ)/edgar_42_emis.F90 \
+             $(CMAQ)/EMIS_DEFN.F \
+             $(CMAQ)/findex.f \
+             $(CMAQ)/gas_depv_map.F \
+             $(CMAQ)/getalpha.F \
+             $(CMAQ)/getpar.f \
+             $(CMAQ)/hlconst.F \
+             $(CMAQ)/hrdata_mod.F \
+             $(CMAQ)/hrdriver.F \
+             $(CMAQ)/hrg1.F \
+             $(CMAQ)/hrg2.F \
+             $(CMAQ)/hrg3.F \
+             $(CMAQ)/hrg4.F \
+             $(CMAQ)/hrinit.F \
+             $(CMAQ)/hrprodloss.F \
+             $(CMAQ)/hrrates.F \
+             $(CMAQ)/hrsolver.F \
+             $(CMAQ)/indexn.f \
+             $(CMAQ)/init_cgrid.f90 \
+             $(CMAQ)/isocom.f \
+             $(CMAQ)/isofwd.f \
+             $(CMAQ)/isorev.f \
+             $(CMAQ)/LTNG_DEFN.F \
+             $(CMAQ)/m3dry.f \
+             $(CMAQ)/phot.F \
+             $(CMAQ)/PHOT_MOD.F \
+             $(CMAQ)/PRECURSOR_DATA.F \
+             $(CMAQ)/rescld.F \
+             $(CMAQ)/scavwdep.F \
+             $(CMAQ)/sedv_defn.f90 \
+             $(CMAQ)/setup_logdev.F \
+             $(CMAQ)/SOA_DEFN.F \
+             $(CMAQ)/SSEMIS.F \
+             $(CMAQ)/UTILIO_DEFN.F \
+             $(MEGAN)/canopy.f90 \
+             $(MEGAN)/driver.f90
 
 ED2_SOURCES = \
              $(ED2DRIV)/ed_1st.f90 \

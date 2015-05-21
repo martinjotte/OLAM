@@ -41,7 +41,7 @@ use misc_coms,   only: io6, time8, time_istp8, iflag, runtype, hfilin, nzp,    &
                        timmax8, alloc_misc, iparallel,                         &
                        iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
                        time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
-                       isubdomain
+                       isubdomain, do_chem
 
 use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, &
                        alloc_mpi_sndrcv_bufs
@@ -65,6 +65,11 @@ use obnd,        only: trsets, lbcopy_w
 use var_tables,  only: nvar_par, vtab_r, nptonv
 use mem_plot,    only: copy_plot
 use lite_vars,   only: prepare_lite, lite_write
+use cgrid_spcs,  only: cgrid_spcs_init
+use emis_defn,   only: emis_init
+use depv_defn,   only: depv_init
+use mem_megan,   only: megan_init
+use cgrid_conv,  only: conv_cgrid
 
 use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
 
@@ -79,6 +84,7 @@ integer :: mwa_prog, mva_prog, nthr
 real :: w1,w2,t1,t2,wtime_start
 real, external :: walltime
 character(len=128) :: mavgfile, davgfile
+logical :: result
 
 !integer, external :: omp_get_max_threads
 
@@ -280,6 +286,13 @@ write(io6,'(/,a)') 'olam_run calling jnmbinit'
 
 call jnmbinit()
 
+! Setup CMAQ chemical species
+
+if (do_chem == 1) then
+   result = cgrid_spcs_init()
+   call hrinit()
+endif
+
 ! Allocate remainder of main model memory (for 'INITIAL', 'HISTORY',
 ! or 'PLOTONLY' run).
 ! Allocate variable tables and fill variable tables for history files
@@ -341,6 +354,15 @@ if (runtype == 'INITIAL') then
    endif
 
    call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
+endif
+
+! Initialize CMAQ chemical species
+
+if (do_chem == 1 .and. runtype == 'INITIAL') then
+   mrl = 1
+   write(io6,'(/,1x,a)') 'Initializing chemical concentrations'
+   call init_cgrid()
+   call conv_cgrid(mrl) ! convert aerosol species from densities to concentrations
 endif
 
 ! A good place to initialize added scalars
@@ -411,6 +433,18 @@ if (isfcl == 1) then
    write(io6,'(/,a)') 'olam_run calling sea_init_atm'
    call sea_init_atm()
 
+endif
+
+! Initialize emissions/deposition if doing chemistry
+
+if (do_chem == 1) then
+   write(io6,'(/,1x,a)') 'Initializing chemical emissions/deposition'
+   call emis_init()
+   call depv_init()
+
+   if (isfcl > 0) then
+      call megan_init()
+   endif
 endif
 
 ! If using variable initialization and polygon nudging, read most recent
@@ -691,7 +725,7 @@ subroutine olam_output()
 
 use misc_coms,   only: io6, time8, time8p, dtlm, iflag, frqstate, timmax8, &
                        initial, s1900_sim, time_prevhist, &
-                       iyear1, imonth1, idate1, itime1
+                       iyear1, imonth1, idate1, itime1, do_chem
 use leaf_coms,   only: isfcl, iupdndvi, indvifile, s1900_ndvi
 use sea_coms,    only: iupdsst, iupdseaice, isstfile, iseaicefile, &
                        s1900_sst, s1900_seaice, isstflg, iseaiceflg
@@ -703,6 +737,7 @@ use oname_coms,  only: nl
 use mem_plot,    only: copy_plot
 use hcane_rz,    only: init_hurr_step, hurricane_track
 use lite_vars,   only: lite_write
+use mem_megan,   only: megan_store_lai
 
 use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
 
@@ -808,6 +843,7 @@ endif
 if (isfcl == 1 .and. iupdndvi == 1) then
    if (s1900_sim >= s1900_ndvi(indvifile) .and. time8p < timmax8) then
       call ndvi_database_read(1)
+      if (do_chem == 1) call megan_store_lai()
    endif
 endif
 

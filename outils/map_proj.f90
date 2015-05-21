@@ -521,3 +521,82 @@ x = xq * t
 y = yq * t
 
 end subroutine de_ps
+
+!============================================================================
+
+subroutine ll_xy2 (qlat,qlon,cosplat,sinplat,cosplon,sinplon,x3p,y3p,z3p,x,y)
+
+use consts_coms, only: erad, erad2, pio180
+
+implicit none
+
+real, intent(in) :: qlat
+real, intent(in) :: qlon
+real, intent(in) :: cosplat
+real, intent(in) :: sinplat
+real, intent(in) :: cosplon
+real, intent(in) :: sinplon
+real, intent(in) :: x3p
+real, intent(in) :: y3p
+real, intent(in) :: z3p
+
+real, intent(out) :: x
+real, intent(out) :: y
+
+real :: sinqlat
+real :: cosqlat
+real :: sinqlon
+real :: cosqlon
+real :: z3q
+real :: x3q
+real :: y3q
+real :: xq
+real :: yq
+real :: zq
+real :: t
+       
+! This subroutine computes cartesian coordinates (x,y) in a polar stereographic
+! projection whose pole point is located at geographic latitude-longitude
+! coordinates (polelat,polelon) of a point located at geographic 
+! latitude-longitude coordinates (qlat,qlon).
+
+! Evaluate sine and cosine of latitude and longitude of pole point p and
+! input point q.
+
+sinqlat = sin(qlat * pio180)
+cosqlat = cos(qlat * pio180)
+sinqlon = sin(qlon * pio180)
+cosqlon = cos(qlon * pio180)
+
+! Compute (x3,y3,z3) coordinates where the origin is the center of the earth,
+! the z axis is the north pole, the x axis is the equator and prime
+! meridian, and the y axis is the equator and 90 E.
+! For the given lat,lon point, these are:
+
+z3q = erad * sinqlat
+x3q = erad * cosqlat * cosqlon
+y3q = erad * cosqlat * sinqlon
+
+! Transform q point from (x3,y3,z3) coordinates in the above system to
+! polar stereographic coordinates (x,y,z):
+
+xq = - sinplon * (x3q-x3p) + cosplon * (y3q-y3p)
+yq =   cosplat * (z3q-z3p)  &
+     - sinplat * ( cosplon * (x3q-x3p) + sinplon * (y3q-y3p) )
+zq =   sinplat * (z3q-z3p)  &
+     + cosplat * ( cosplon * (x3q-x3p) + sinplon * (y3q-y3p) )
+
+! Parametric equation for line from antipodal point at (0,0,-2 erad) to
+! point q has the following parameter (t) value on the polar stereographic
+! plane:
+
+t = erad2 / (erad2 + zq)
+
+! This gives the following x and y coordinates for the projection of point q
+! onto the polar stereographic plane:
+
+x = xq * t
+y = yq * t
+
+return
+end subroutine ll_xy2

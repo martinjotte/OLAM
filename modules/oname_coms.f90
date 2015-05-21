@@ -297,7 +297,6 @@ Module oname_coms
 !!    CMAQ Chemistry
 
       integer            :: do_chem   =  0
-      character(20)      :: chem_mech = 'CB05TUCL_AE6_AQ'
       integer            :: ltng_nox  =  0
       integer            :: chem_frq  =  1
       integer            :: phot_frq  =  1

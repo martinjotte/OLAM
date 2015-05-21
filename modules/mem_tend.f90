@@ -220,6 +220,8 @@ Contains
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
                          con_ccn, con_ifn, con_gccn, q2, q6, q7
    use var_tables, only: vtables_scalar, num_var
+   use misc_coms,  only: do_chem
+   use cgrid_defn, only: cgrid_scalar_tabs
 
    implicit none
 
@@ -263,6 +265,8 @@ Contains
 
    if (allocated(tket))     call vtables_scalar (tkep, tket, 'TKEP')
    if (allocated(epst))     call vtables_scalar (epsp, epst, 'EPSP')
+
+   if (do_chem == 1) call cgrid_scalar_tabs()
 
    do iaddsc = 1,naddsc
 
