@@ -175,10 +175,24 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
 ! call check_nans(12)
 
+   mrl = mrl_endl(istp)
+   if (nl%split_scalars > 0 .and. mrl > 0) then
+      call predtr_split(mrl,rho_old)
+      if (iparallel == 1) call mpi_send_w(mrl, scalars='S')
+   endif
+
    call timeavg_momsc(vmsc,wmsc)
 
 ! call check_nans(13)
-   
+
+   mrl = mrl_endl(istp)
+   if (nl%split_scalars > 0 .and. mrl > 0) then
+      if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')
+      do n = 1, nvar_par
+         call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
+      enddo
+   endif
+
    if (mrl_endl(istp) > 0) then
       call scalar_transport(vmsc,wmsc,rho_old)
    endif
@@ -724,4 +738,46 @@ integer :: iw,i,j,k
 return
 end subroutine bubble
 
+!==========================================================================
+
+subroutine predtr_split(mrl,rho_old)
+
+  use var_tables,  only: num_scalar, scalar_tab
+  use mem_ijtabs,  only: istp, jtab_w, itab_w, jtw_prog
+  use mem_grid,    only: mza, mwa, lpw
+  use misc_coms,   only: io6, dtlm
+  use consts_coms, only: r8
+
+  implicit none
+
+  integer,  intent(in) :: mrl
+  real(r8), intent(in) :: rho_old(mza,mwa)
+  integer              :: iw, j, n, k
+  real                 :: dtl
+
+  ! Step scalars from  t  to  t+1 in a time-split sub step
+
+  if (mrl > 0) then
+
+   ! Skip n=1 which is THIL and computed elsewhere
+
+     !$omp parallel do private(iw,n,k,dtl)
+     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+        dtl = dtlm(itab_w(iw)%mrlw)
+
+        do n = 2, num_scalar
+           do k = lpw(iw), mza-1
+              scalar_tab(n)%var_p(k,iw) = scalar_tab(n)%var_p(k,iw)  &
+                                        + dtl * scalar_tab(n)%var_t(k,iw) / rho_old(k,iw)
+              scalar_tab(n)%var_t(k,iw) = 0.0
+           enddo
+        enddo
+     enddo
+     !$omp end parallel do
+
+  endif
+
+  ! TODO: check if updated scalars are positive-definite??
+
+end subroutine predtr_split
 

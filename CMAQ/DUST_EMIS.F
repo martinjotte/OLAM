@@ -617,7 +617,8 @@ C    w` = 0.0014(%clay)**2 + 0.17(%clay)
 C    Fecan et al. 1999 Annales Geophys.,17,144-157.
 !              wmax( c,r ) = ( 0.0014 * clayc( j ) + 0.17 ) * clayc( j ) <-error
 C clayc in [Kg/Kg] -> wmax in [Kg/Kg]
-               wmax( iwl ) = ( 0.14 * clayc( j ) + 0.17 ) * clayc( j )
+!              wmax( iwl ) = ( 0.14 * clayc( j ) + 0.17 ) * clayc( j )
+               wmax( iwl ) = 2.0 * ( 0.14 * clayc( j ) + 0.17 ) * clayc( j )
 
 C    log(F/G) = 0.134(%clay)-6
 C    F/G (vertical to horizontal flux) ratio is a function of clay content 0~20%
@@ -785,9 +786,10 @@ C=======================================================================
 !        use grid_conf           ! horizontal & vertical domain specifications
          use utilio_defn
          use aero_data
-         use leaf_coms,  only: mwl, nzg, soilcp
+         use leaf_coms,  only: mwl, nzg, slmsts
          use mem_leaf,   only: land, itab_wl
          use mem_grid,   only: dzit
+         use misc_coms,  only: io6
 
 C       8/18/11 D.Wong: incorporated twoway model implementation and change
 C                       RC -> RCA and RN -> RNA and made it backward compatible
@@ -1111,7 +1113,11 @@ C-----------------------------------------------------------------------
          do iwl = 2, mwl
 
             kw = itab_wl(iwl)%kw
-            dust_em( iwl ) = 0.0
+
+            dust_em     (iwl) = 0.0
+            dustoutn  (:,iwl) = 0.0
+            dustouts  (:,iwl) = 0.0
+            dustoutm(:,:,iwl) = 0.0
 
             ! Skip if no erodable land
 
@@ -1123,13 +1129,15 @@ C-----------------------------------------------------------------------
 
             ! Skip if top of soil is near saturation
                
-            if ( land%soil_water(nzg,iwl) > soilcp(land%ntext_soil(nzg,iwl)) - 0.001) cycle
+            if ( land%soil_water(nzg,iwl) > slmsts(land%ntext_soil(nzg,iwl)) - 0.001 ) cycle
 
             ! Convert layer-average U* into surface local U*
             ! -> U*t has to be surface values from measurements.
+            !
+            ! zi = sc * land%rough(iwl)
+            ! ustar = land%ustar(iwl) * log( zi / land%rough(iwl) ) / log( zi / z0s )
 
-            zi = sc * land%rough(iwl)
-            ustar = land%ustar(iwl) * log( zi / land%rough(iwl) ) / log( zi / z0s )
+            ustar = land%ustar(iwl)
 
 C ???? possiblity if rain < 1/100 in. (1 in. = 2.540 cm) and not over water (SLTYP = 0)
 C Dust possiblity if rain < 1/100 in. (1 in. = 2.540 cm) and not over water (SLTYP = 14)
@@ -1152,7 +1160,7 @@ C Dust possiblity if not over water and rain < 1/100 in. (1 in. = 2.540 cm)
 !           ! Convert volumetric soil moisture (m**3/m**3) to 
             ! gravimetric water content (Kg/Kg)based on Zender et al. (2003)
 
-            soimt = land%soil_water(nzg,iwl) 
+            soimt = land%soil_water(nzg,iwl)
      &            * 1000.0 / ( 2600.0 * ( 0.511 + 0.126 * sandc( j ) ) )
 
             ! Soil moisture effect on U*t
@@ -1250,9 +1258,9 @@ C J/K mass emis rate [g/m**3/s]  (edust( 1 ) not used)
             edust( 2 ) = fracmj * dust_em( iwl )
             edust( 3 ) = fracmk * dust_em( iwl )
 
-            do v = 1, ndust_spc
-               dustoutm( v,1,iwl ) = 0.0
-            end do
+!           do v = 1, ndust_spc
+!              dustoutm( v,1,iwl ) = 0.0
+!           end do
 
             do n = 2, n_mode
                do v = 1, ndust_spc
@@ -1265,13 +1273,13 @@ C J/K 3rd moment emis rate [1/s] (needed for number and surface)
             m3k = edust( 3 ) * f6dpi / ( gpkg * dustmode_dens( 3 ) )
 
 C Mode-specific emission rates of particle number [1/m**3/s]
-            dustoutn( 1,iwl ) = 0.0
+!           dustoutn( 1,iwl ) = 0.0
             dustoutn( 2,iwl ) = m3j * factnumj
             dustoutn( 3,iwl ) = m3k * factnumk
 
 C Mode-specific dry surface area emission rates [m2/m**3/s].
 C 2nd moment multiplied by PI to obtain the surface area emissions rate.
-            dustouts( 1,iwl ) = 0.0
+!           dustouts( 1,iwl ) = 0.0
             dustouts( 2,iwl ) = m3j * factsrfj
             dustouts( 3,iwl ) = m3k * factsrfk
 

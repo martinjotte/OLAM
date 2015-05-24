@@ -148,6 +148,7 @@ Module oname_coms
       integer :: ithil_monot = 0
       integer :: iwind_monot = 0
       integer :: iscal_monot = 0
+      integer :: split_scalars = 0
       logical :: debug_fp    = .false.
       logical :: init_nans   = .false.
 

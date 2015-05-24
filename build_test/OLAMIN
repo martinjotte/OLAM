@@ -190,6 +190,9 @@
    NL%ISCAL_MONOT = 0     ! Monotonic advection for scalars (including moisture)
                           ! 0 = off, 1 = on
 
+   NL%SPLIT_SCALARS = 0   ! time split scalar physics from advection
+                          ! 0 = off, 1 = on
+
    NL%DEBUG_FP  = .false. ! Detect floating point errors such as overflows,
                           ! INFs, divide-by-zeros, and NANs (best if code is
                           ! compiled with debug options too)
@@ -496,7 +499,7 @@
    NL%PHOT_FRQ  =  1
    NL%EMIS_DIR  = '../../olamdatah5/edgar42'
 
-   NL%O3NUDFLAG  = 1
+   NL%O3NUDFLAG  = 0
    NL%O3NUDPRESS = 150.
    NL%O3TNUDCENT = 43200.
 

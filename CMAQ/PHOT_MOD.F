@@ -2857,18 +2857,18 @@ C***calculate the gamma values from line 1 Table 1, page 16,289
 C***lambda = pg 16,290 equation 21
 C***big gamma = pg 16,290 equation 22
 
-         IF( ABS( GAM2 ) .LE. SMALLEST )THEN
-            WRITE( NEW_OPTICS_LOG, 2609)I, GI(I), OMI(I), G, OM, GAM1, GAM2
-            WRITE( NEW_OPTICS_LOG, 2610)
-         ENDIF
+!        IF( ABS( GAM2 ) .LE. SMALLEST )THEN
+!           WRITE( NEW_OPTICS_LOG, 2609)I, GI(I), OMI(I), G, OM, GAM1, GAM2
+!           WRITE( NEW_OPTICS_LOG, 2610)
+!        ENDIF
 
-         IF( ( GAM1*GAM1 - GAM2*GAM2 ) .LT. 0.0 )THEN
-            WRITE( NEW_OPTICS_LOG, 2609)I, GI(I), OMI(I), G, OM, GAM1, GAM2
-            WRITE( NEW_OPTICS_LOG, 2611)
-         ENDIF
- 
-     
-         LAM(I) = SQRT( GAM1*GAM1 - GAM2*GAM2 )
+!        IF( ( GAM1*GAM1 - GAM2*GAM2 ) .LT. 0.0 )THEN
+!           WRITE( NEW_OPTICS_LOG, 2609)I, GI(I), OMI(I), G, OM, GAM1, GAM2
+!           WRITE( NEW_OPTICS_LOG, 2611)
+!        ENDIF
+      
+!        LAM(I) = SQRT( GAM1*GAM1 - GAM2*GAM2 )
+         LAM(I) = SQRT( max( GAM1*GAM1 - GAM2*GAM2 ), 0.0 )
 
          IF( ABS( GAM2 ) .LE. SMALLEST )THEN 
 C***adjustment based on NCAR TUV model
