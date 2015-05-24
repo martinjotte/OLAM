@@ -314,8 +314,7 @@ subroutine plot_fields(id)
   ! meta file (including the last frame) during a run and in case the
   ! simulation crashes.
 
-  if ( trim(runtype) /= 'PLOTONLY'    .and. &
-       trim(runtype) /= 'PLOTEXTRACT' .and. &
+  if ( trim(runtype) /= 'PLOTONLY' .and. &
        op%plttype == 0 .and. myrank == 0 ) then
      call o_clswk()
   endif
@@ -971,13 +970,13 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
 
         k = lpw(iw) - 1
 
-        do while (press(k+1,iw) > plev .and. k < mza-1)
+        do while (press(k+1,iw) > plev .and. k < mza)
            k = k + 1
         enddo
 
         if (k < lpw(iw)) then
            ktf(iw) = 1
-        elseif (k >= mza-1) then
+        elseif (k >= mza) then
            ktf(iw) = 2
         else
            ktf(iw) = 0
@@ -1009,13 +1008,13 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
 
         k = 2
 
-        do while (k < mza .and. zm(k) < op%slabloc(iplt))
+        do while (k < mza+1 .and. zm(k) < op%slabloc(iplt))
            k = k + 1
         enddo
 
         if (k < lpw(iw)) then
            ktf(iw) = 1
-        elseif (k > mza-1) then
+        elseif (k > mza) then
            ktf(iw) = 2
         else
            ktf(iw) = 0
@@ -3028,7 +3027,7 @@ subroutine oplot_set(iplt)
            op%psiz = 0.08 * delxmin / (op%xmax - op%xmin)
         endif
 
-        op%vsprd = .15 * delxmin
+        op%vsprd = .3 * delxmin
 
      endif
 

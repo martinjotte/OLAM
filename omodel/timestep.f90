@@ -48,7 +48,6 @@ use var_tables,  only: nvar_par, vtab_r, nptonv
 use obnd,        only: trsets, lbcopy_v, lbcopy_w
 use oplot_coms,  only: op
 use oname_coms,  only: nl
-use mem_timeavg, only: accum_timeavg
 use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
 use mem_megan,   only: megan_avg_temp
@@ -325,7 +324,6 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       if (do_chem == 1) call megan_avg_temp()
    endif
 
-   call accum_timeavg()
    call flux_accum()
 
 ! call check_nans(22)

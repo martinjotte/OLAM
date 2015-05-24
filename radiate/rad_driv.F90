@@ -41,12 +41,16 @@ use sea_coms,    only: mws, nzi
 use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,          &
                        rlongup, rlong_albedo, albedt, albedt_beam,        &
                        albedt_diffuse, fthrd_sw, rshort, rlong, fthrd_lw, &
-                       rshort_top, rshortup_top, rshort_diffuse
+                       rshort_top, rshortup_top, rshort_diffuse,          &
+                       rshort_clr, rshortup_clr,                          &
+                       rshort_top_clr, rshortup_top_clr
+
 use mem_basic,   only: rho
 use micro_coms,  only: level
 use consts_coms, only: stefan, pio180, eradi, r8
 use misc_coms,   only: io6, time8p, time_istp8, radfrq, itime1, ilwrtyp, &
-                       iswrtyp, dtlong, current_time, iparallel, isubdomain
+                       iswrtyp, dtlong, current_time, iparallel, isubdomain, &
+                       mstp, runtype
 use mem_grid,    only: lpw, mza, mwa
 use mem_grid,    only: wnx, wny, wnz
 use mem_para,    only: myrank
@@ -74,7 +78,8 @@ integer :: jday
 
 ! Check whether it is time to update radiative fluxes and heating rates
 
-if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
+if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
+    (istp == 1 .and. mstp == 0 .and. runtype == 'HISTADDGRID')) then
 
 ! Print message that radiative transfer is being computed
 
@@ -105,12 +110,17 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
       albedt_beam   (iw) = 0.
       albedt_diffuse(iw) = 0.
 
-! Zero out solar radiation fields when solar radiation calls are skipped at night
+! Zero out solar radiation fields since solar radiation calls are skipped at night
 
       rshort        (iw) = 0.
       rshort_diffuse(iw) = 0.
       rshort_top    (iw) = 0.
       rshortup_top  (iw) = 0.
+      
+      rshort_clr      (iw) = 0.
+      rshortup_clr    (iw) = 0.
+      rshort_top_clr  (iw) = 0.
+      rshortup_top_clr(iw) = 0.
       
       do k = lpw(iw), mza
          fthrd_sw(k,iw) = 0.
@@ -297,22 +307,9 @@ if (istp == 1 .and. mod(time8p, radfrq) < dtlong) then
    
       albedt(iw) = albedt_beam(iw)
 
-! Do Harrington radiation if specified
-
-      if (ilwrtyp == 3 .or. (iswrtyp == 3 .and. cosz(iw) > 0.03)) then
-
-         ! K index offset for radiation column arrays
-         ! (Harrington scheme requires extra layer at surface)
-         koff = ka - 2 
-
-         nrad = mza - koff + nadd_rad
-         call harr_raddriv( iw, ka, nrad, koff )
-
-      endif
-
 ! Do RRTMg radiation if specified
 
-      if (ilwrtyp == 2 .or. (iswrtyp == 2 .and. cosz(iw) > 0.03)) then
+      if (ilwrtyp > 0 .or. (iswrtyp > 0 .and. cosz(iw) > 0.03)) then
 
          ! K index offset for radiation column arrays
          koff = ka - 1
@@ -475,7 +472,6 @@ use consts_coms, only: pi2, pio180
 use mem_radiate, only: jday, solfac, sunx, suny, sunz
 
 use mem_mclat,   only: mclat_spline
-use mem_harr,    only: nsolb, solar0, solar1
 
 implicit none
 
@@ -557,21 +553,11 @@ sunx = cos(declin * pio180) * cos(sun_longitude * pio180)
 suny = cos(declin * pio180) * sin(sun_longitude * pio180)
 sunz = sin(declin * pio180)
 
-! Adjust solar fluxes at top of atmosphere for current Earth-Sun distance
-! for Harrington shortwave radiation
-
-if (iswrtyp == 3) then
-   do is = 1,nsolb
-      solar1(is) = solar0(is) * solfac
-   enddo
-endif
-
 ! Interpolate Mclatchy soundings between summer and winter values, and prepare
 ! spline coefficients for interpolation by latitude.
 
 call mclat_spline(jday)
 
-return
 end subroutine sunloc
 
 !============================================================================
@@ -613,25 +599,22 @@ subroutine radinit()
   nadd_rad = max(nadd_rad,1)
   nadd_rad = min(nadd_rad,maxadd_rad)
 
-! Initialize constants for Harrington s/w and l/w radiation computations
-
-  if (iswrtyp == 3 .or. ilwrtyp == 3) call harr_radinit()
-
 ! Initialize RRTMG s/w scheme
 
-  if (iswrtyp == 2) then
+  if (iswrtyp > 0) then
      call rrtmg_sw_ini(cp)
      call rsw_cld_optics_init()
   endif
 
 ! Initialize RRTMG l/w scheme
 
-  if (ilwrtyp == 2) then
+  if (ilwrtyp > 0) then
      call rrtmg_lw_ini(cp)
      call rlw_cloud_optics_init()
   endif
 
 ! Read in the convective cloud fraction lookup table
+
   call gno_lookup_init()
 
 end subroutine radinit

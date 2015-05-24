@@ -109,11 +109,7 @@ do iwl = 2,mwl
    endif
 
 ! Zero out LAND%SXFER_T(iwl) and LAND%SXFER_R(iwl) now that they have 
-! been applied to the canopy (but save previous values for plotting)
-
-   land%sxfer_tsav(iwl) = land%sxfer_t(iwl)
-   land%sxfer_rsav(iwl) = land%sxfer_r(iwl)
-   land%sxfer_csav(iwl) = land%sxfer_c(iwl)
+! been applied to the canopy
 
    land%sxfer_t(iwl) = 0.
    land%sxfer_r(iwl) = 0.

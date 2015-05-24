@@ -31,6 +31,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/consts_coms.f90 \
              $(MODEL_MODS)/ke_coms.f90 \
              $(MODEL_MODS)/max_dims.f90 \
+             $(MODEL_MODS)/mem_addgrid.f90 \
              $(MODEL_MODS)/mem_addsc.f90 \
              $(MODEL_MODS)/mem_average_vars.f90 \
              $(MODEL_MODS)/mem_basic.f90 \
@@ -46,7 +47,6 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_rayf.f90 \
              $(MODEL_MODS)/mem_tend.f90 \
              $(MODEL_MODS)/mem_thuburn.f90 \
-             $(MODEL_MODS)/mem_timeavg.f90 \
              $(MODEL_MODS)/mem_turb.f90 \
              $(MODEL_MODS)/mem_zonavg.f90 \
              $(MODEL_MODS)/micro_coms.f90 \
@@ -103,7 +103,6 @@ SOURCE_FILES= \
              $(OMODEL)/othrm.f90 \
              $(OMODEL)/para_decomp.f90 \
              $(OMODEL)/para_init.f90 \
-             $(OMODEL)/perim_fill.f90 \
              $(OMODEL)/prog_wrtv.f90 \
              $(OMODEL)/scalar_transport.f90 \
              $(OMODEL)/spawn_nest.f90 \
@@ -130,11 +129,8 @@ SOURCE_FILES= \
              $(OUTILS)/string_lib.f90 \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \
+             $(RADIATE)/cloudprep_rad.f90 \
              $(RADIATE)/clouds_gno.f90 \
-             $(RADIATE)/harr_raddriv.f90 \
-             $(RADIATE)/harr_rad.f90 \
-             $(RADIATE)/harr_radinit.f90 \
-             $(RADIATE)/mem_harr.f90 \
              $(RADIATE)/mem_radiate.f90 \
              $(RADIATE)/rad_driv.F90 \
              $(RADIATE)/rad_mclat.f90 \

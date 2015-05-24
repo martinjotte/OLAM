@@ -165,6 +165,7 @@ do i = 1,nxp
    itab_wd(iw1)%iu(3) = iu3
    itab_wd(iw1)%mrlw = 1
    itab_wd(iw1)%mrlw_orig = 1
+   itab_wd(iw1)%ngr = 1
 
    if (i == 1) then
       itab_wd(iw1)%iwp = 2*nxp-2
@@ -184,6 +185,7 @@ do i = 1,nxp
    itab_wd(iw2)%iu(3) = iu4
    itab_wd(iw2)%mrlw = 1
    itab_wd(iw2)%mrlw_orig = 1
+   itab_wd(iw2)%ngr = 1
    if (i == 1) then
       itab_wd(iw2)%iwp = 2*nxp-1
       call wdloopf('f',iw2, jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
@@ -617,6 +619,7 @@ do i = 1,nxp
    itab_wd(iw5)%iu(3) = iu8
    itab_wd(iw5)%mrlw = 1
    itab_wd(iw5)%mrlw_orig = 1
+   itab_wd(iw5)%ngr = 1
 
    if (i == 1) then
       itab_wd(iw5)%iwp = iw7+iwcyc
@@ -636,6 +639,7 @@ do i = 1,nxp
    itab_wd(iw6)%iu(3) = iu6
    itab_wd(iw6)%mrlw = 1
    itab_wd(iw6)%mrlw_orig = 1
+   itab_wd(iw6)%ngr = 1
 
    if (i == 1) then
       itab_wd(iw6)%iwp = iw6+iwcyc
@@ -655,6 +659,7 @@ do i = 1,nxp
    itab_wd(iw7)%iu(3) = iu10
    itab_wd(iw7)%mrlw = 1
    itab_wd(iw7)%mrlw_orig = 1
+   itab_wd(iw7)%ngr = 1
 
    if (i == 1) then
       itab_wd(iw7)%iwp = iw7+iwcyc
@@ -674,6 +679,7 @@ do i = 1,nxp
    itab_wd(iw8)%iu(3) = iu7
    itab_wd(iw8)%mrlw = 1
    itab_wd(iw8)%mrlw_orig = 1
+   itab_wd(iw8)%ngr = 1
 
    if (i == 1) then
       itab_wd(iw8)%iwp = iw6+iwcyc
@@ -693,6 +699,7 @@ do i = 1,nxp
    itab_wd(iw9)%iu(3) = iu12
    itab_wd(iw9)%mrlw = 1
    itab_wd(iw9)%mrlw_orig = 1
+   itab_wd(iw9)%ngr = 1
 
    if (i == 1) then
       itab_wd(iw9)%iwp = iw11+iwcyc
@@ -712,6 +719,7 @@ do i = 1,nxp
    itab_wd(iw10)%iu(3) = iu15
    itab_wd(iw10)%mrlw = 1
    itab_wd(iw10)%mrlw_orig = 1
+   itab_wd(iw10)%ngr = 1
 
    if (i == 1) then
       itab_wd(iw10)%iwp = iw10+iwcyc
@@ -731,6 +739,7 @@ do i = 1,nxp
    itab_wd(iw11)%iu(3) = iu13
    itab_wd(iw11)%mrlw = 1
    itab_wd(iw11)%mrlw_orig = 1
+   itab_wd(iw11)%ngr = 1
 
    if (i == 1) then
       itab_wd(iw11)%iwp = iw11+iwcyc
@@ -750,6 +759,7 @@ do i = 1,nxp
    itab_wd(iw12)%iu(3) = iu17
    itab_wd(iw12)%mrlw = 1
    itab_wd(iw12)%mrlw_orig = 1
+   itab_wd(iw12)%ngr = 1
 
    if (i == 1) then
       itab_wd(iw12)%iwp = iw10+iwcyc

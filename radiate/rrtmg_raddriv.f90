@@ -371,8 +371,8 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      if (icfrac == 3) then
 
         if (fland > 0.5) then
-           cfrh1 = wt20 * 0.85 + wt60 * 0.90  ! land set 1
-           cfrh2 = wt20 * 1.05 + wt60 * 1.40  ! land set 1
+           cfrh1 = wt20 * 0.90 + wt60 * 0.90  ! land set 1
+           cfrh2 = wt20 * 1.40 + wt60 * 1.40  ! land set 1
         else
            cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 1
            cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 1
@@ -518,7 +518,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
            fint1  = rscale - real(index-1)
            fint0  = 1.0 - fint1
 
-           if (iswrtyp == 2 .and. cosz(iw) >= 0.03) then
+           if (iswrtyp > 0 .and. cosz(iw) >= 0.03) then
 
               do ib = 1, nbndsw
                  tau = ( fint0 * cloud_props(l)%extsw(ib, index  ) &
@@ -538,7 +538,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
            endif
 
-           if (ilwrtyp == 2) then
+           if (ilwrtyp > 0) then
 
               do ib = 1, nbndlw
                  tau = ( fint0 * cloud_props(l)%abslw(ib, index  ) &
@@ -606,7 +606,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
            fint1  = rscale - real(index-1)
            fint0  = 1.0 - fint1
 
-           if (iswrtyp == 2 .and. cosz(iw) >= 0.03) then
+           if (iswrtyp > 0 .and. cosz(iw) >= 0.03) then
 
               do ib = 1, nbndsw
                  tau = ( fint0 * cloud_props(l)%extsw(ib, index  ) &
@@ -625,7 +625,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
            endif
 
-           if (ilwrtyp == 2) then
+           if (ilwrtyp > 0) then
 
               do ib = 1, nbndlw
                  tau = ( fint0 * cloud_props(l)%abslw(ib, index  ) &
@@ -651,7 +651,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
   ! Compute the shortwave fluxes and heating rates
 
-  if (iswrtyp == 2 .and. cosz(iw) > 0.03) then
+  if (iswrtyp > 0 .and. cosz(iw) > 0.03) then
 
      ! Combine optical properties
 
@@ -721,7 +721,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
   ! Compute the longwave fluxes and heating rates
 
-  if (ilwrtyp == 2) then
+  if (ilwrtyp > 0) then
 
      icloud = icld
      iaeros = iaer

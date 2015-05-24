@@ -66,6 +66,7 @@ logical :: init_nans = .false.
 integer :: io6
 integer :: initial
 integer :: ngrids
+integer :: ngrids_old
 integer :: nzp
 integer :: icorflg
 integer :: ilwrtyp
@@ -87,13 +88,13 @@ integer :: iusflg
 integer :: ioutput
 integer :: iclobber
 integer :: itopoflg
-integer :: ngrid
 integer :: nzpp
 integer :: nscl
 integer :: nxp
 integer :: iparallel = 0
 integer :: isubdomain = 0
 integer :: ndz
+integer :: mstp
 
 integer :: idiffk   (maxgrds)
 integer :: ndtrat   (maxgrds)

@@ -135,6 +135,7 @@ do im = 2,nma
    itab_md(im)%imp = im
    itab_md(im)%mrlm = 1
    itab_md(im)%mrlm_orig = 1
+   itab_md(im)%ngr = 1
    call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
 enddo
 
@@ -147,6 +148,7 @@ do iw = 2,nwa
    itab_wd(iw)%iwp = iw
    itab_wd(iw)%mrlw = 1
    itab_wd(iw)%mrlw_orig = 1
+   itab_wd(iw)%ngr = 1
    call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
 enddo
 

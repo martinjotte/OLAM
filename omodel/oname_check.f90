@@ -81,13 +81,14 @@ write(io6,*) ' '
 ! RUNTYPE
 !--------------------------------------------------------------------------
 
-if ( (nl%runtype /= 'MAKEGRID'  ) .and. &
-     (nl%runtype /= 'INITIAL'   ) .and. &
-     (nl%runtype /= 'HISTORY'   ) .and. &
-     (nl%runtype /= 'PLOTONLY'  ) ) then
+if ( (nl%runtype /= 'MAKEGRID'   ) .and. &
+     (nl%runtype /= 'INITIAL'    ) .and. &
+     (nl%runtype /= 'HISTORY'    ) .and. &
+     (nl%runtype /= 'HISTADDGRID') .and. &
+     (nl%runtype /= 'PLOTONLY'   ) ) then
    write(io6,*) " -- FATAL -- RUNTYPE = "//trim(nl%runtype)
-   write(io6,*) "             RUNTYPE must be either 'MAKEGRID',"
-   write(io6,*) "             'INITIAL', 'HISTORY', or 'PLOTONLY'"
+   write(io6,*) "             RUNTYPE must be either 'MAKEGRID', 'INITIAL', "
+   write(io6,*) "             'HISTORY', 'HISTADDGRID', or 'PLOTONLY'"
    nfatal = nfatal + 1
 endif
 
@@ -155,19 +156,13 @@ endif
 call ichk_bnds( nl%ngrids,   "NGRIDS",       1, maxgrds, 0, nfatal, nwarn, &
      msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
 
-call ichk_bnds(nl%nconcave, "NCONCAVE", 1, 3, 0, nfatal, nwarn )
+call ichk_bnds( nl%ngrids_old, "NGRIDS_OLD", 0, maxgrds, 0, nfatal, nwarn, &
+     msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
 
-! mdomain = 5 requires nconcave = 3
+! global mesh requires nxp to be divisible by 3
 
-if (nl%mdomain == 5 .and. nl%nconcave /= 3) then
-   write(io6,*) ' WARNING - Setting NCONCAVE = 3 for a Cartesian domain'
-   nl%nconcave = 3
-endif
-
-! nconcave = 3 requires nxp to be divisible by 3 for a global mesh
-
-if (nl%mdomain < 2 .and. nl%nconcave == 3 .and. mod(nl%nxp,3) /= 0) then
-   write(io6,*) 'FATAL - NXP must be divisible by 3 for NCONCAVE = 3'
+if (nl%mdomain < 2 .and. mod(nl%nxp,3) /= 0) then
+   write(io6,*) 'FATAL - NXP must be divisible by 3 for a global run'
    nfatal = nfatal + 1
 endif
 
@@ -287,8 +282,10 @@ call rchk_bnds( nl%rayfdiv_zmin,  "RAYFDIV_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn
 ! RADIATION PARAMETERIZATION PARAMETERS
 !--------------------------------------------------------------------------
 
-call ichk_bnds( nl%iswrtyp, "ISWRTYP", 0,  3, 0, nfatal, nwarn )
-call ichk_bnds( nl%ilwrtyp, "ILWRTYP", 0,  3, 0, nfatal, nwarn )
+! With only RRTMg, 0 turns off rad and positive turns on rad
+call ichk_bnds( nl%iswrtyp, "ISWRTYP", 0, 3, 2, nfatal, nwarn )
+call ichk_bnds( nl%ilwrtyp, "ILWRTYP", 0, 3, 2, nfatal, nwarn )
+
 call dchk_bnds( nl%radfrq,   "RADFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
 call ichk_bnds( nl%icfrac, "ICFRAC", 1,  6, 0, nfatal, nwarn )
 call rchk_bnds( nl%cfracrh1,"CFRACRH1", 0.,  2., 0, nfatal, nwarn )
@@ -296,10 +293,10 @@ call rchk_bnds( nl%cfracrh2,"CFRACRH2", 0.,  2., 0, nfatal, nwarn )
 call rchk_bnds( nl%cfraccup,"CFRACCUP", 0.1,  1., 0, nfatal, nwarn )
 
 ! Currently, radiation type 1 is invalid
-if ( nl%iswrtyp==1 .or. nl%ilwrtyp==1 ) then
-   write(io6,*) 'FATAL - Radiation type 1 is invalid'
-   nfatal = nfatal + 1
-endif
+!if ( nl%iswrtyp==1 .or. nl%ilwrtyp==1 ) then
+!   write(io6,*) 'FATAL - Radiation type 1 is invalid'
+!   nfatal = nfatal + 1
+!endif
 
 if (nl%icfrac == 2 .and. nl%cfracrh2 - nl%cfracrh1 < 1.e-6 ) then
    write(io6,*) 'FATAL - CFRACRH2 must be greater than CFRACRH1'
@@ -507,10 +504,6 @@ if (nl%isfcl == 1) then
       call rchk_bnds( nl%slz(k), "SLZ", -r_huge, -0.02, 0, nfatal, nwarn )
    enddo
 
-   do k=1,nl%nzg
-      call rchk_bnds( nl%slmstr(k), "SLMSTR", 0., 1., 0, nfatal, nwarn )
-   enddo
-
    ! Set iupdndvi to 0 if not reading NDVI files
    if (nl%ndviflg == 2) then
       if (nl%iupdndvi == 1) then
@@ -605,7 +598,9 @@ if (nl%runtype == 'PLOTONLY') &
      nwarn, msgmax="Increase maxpltfiles in maxdims.f90 if you need to plot &
      & from more files" )
 
-if ((nl%runtype == 'INITIAL') .or. (nl%runtype == 'HISTORY')) &
+if ((nl%runtype == 'INITIAL') .or. &
+    (nl%runtype == 'HISTORY') .or. &
+    (nl%runtype == 'HISTADDGRID')) &
      call dchk_bnds( nl%frqplt, "FRQPLT", nl%dtlong, d_huge, 2, nfatal, nwarn )
 
 call rchk_bnds( nl%dtvec,     "DTVEC",     1.e-3, r_huge, 2, nfatal, nwarn )
@@ -1028,8 +1023,3 @@ contains
 
 
 end subroutine oname_check
-
-
-
-
-

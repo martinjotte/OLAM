@@ -14,12 +14,13 @@
    NL%TEST_CASE = 0
 
  !--------------------------------------------------------------------------
- ! Runtype: either MAKEGRID, INITIAL, HISTORY, or PLOTONLY
+ ! Runtype: either MAKEGRID, INITIAL, HISTORY, HISTADDGRID, or PLOTONLY
  !--------------------------------------------------------------------------
 
  ! NL%RUNTYPE  = 'MAKEGRID'
    NL%RUNTYPE  = 'INITIAL'
  ! NL%RUNTYPE  = 'HISTORY'
+ ! NL%RUNTYPE  = 'HISTADDGRID'
  ! NL%RUNTYPE  = 'PLOTONLY'
 
  !--------------------------------------------------------------------------
@@ -27,7 +28,7 @@
  !--------------------------------------------------------------------------
 
    NL%TIMEUNIT = 'd'      ! Time units of TIMMAX: 's','m','h','d'
-   NL%TIMMAX   = 1.    ! Ending time of this model run
+   NL%TIMMAX   = 1.       ! Ending time of this model run
  
  !--------------------------------------------------------------------------
  ! Start of simulation (when model time counter TIME8 = 0.)
@@ -42,13 +43,13 @@
  ! Vertical grid specifications
  !--------------------------------------------------------------------------
 
-   NL%NZP  = 100  ! # of vertical levels [or max # if limited by HDZ(NDZ)]
+   NL%NZP  = 200  ! # of vertical levels [or max # if limited by HDZ(NDZ)]
 
    NL%NDZ  = 4    ! # of (HDZ,DZ) pairs of values to use from list (min=2, max=10)
                   ! Exception: NDZ = 1 is flag to use ZZ instead of (HDZ,DZ) pairs
 
-   NL%HDZ  =   0.,  2000., 15000., 35000.  ! Heights at which DZ is specified
-   NL%DZ   =  60.,   300.,  2000.,  2000.  ! Vertical grid spacing at each HDZ
+   NL%HDZ  =   0.,  2000., 20000., 35000.  ! Heights at which DZ is specified
+   NL%DZ   =  60.,   200.,  2000.,  2000.  ! Vertical grid spacing at each HDZ
 
    ! Vertical levels if NDZ = 1
    NL%ZZ       = 0.0,
@@ -85,14 +86,14 @@
  ! Horizontal grid refinement ("nested grid") definition
  !--------------------------------------------------------------------------
 
-   ! Number of grids to generate:
-   NL%NGRIDS = 1
+   NL%NGRIDS = 1      ! Total number of grids to generate on any MAKEGRID run
 
-   ! Method to reduce grid concavities when generating each mesh
-   ! 1 eliminates only sharp concavities (Method B)
-   ! 2 eliminates both sharp and gentler concavities (original Method A)
-   ! 3 activates the Method C refined mesh algorithm
-   NL%NCONCAVE = 3
+   NL%NGRIDS_OLD = 0  ! Number of grids that are present on previous gridfile
+                      ! and history file.  Used in secondary MAKEGRID run in
+                      ! preparation for subsequent HISTADDGRID run for adding
+                      ! local mesh refinements on a history restart.  Must be
+                      ! set to 0 for normal MAKEGRID run that is NOT
+                      ! preparation for HISTADDGRID restart.
 
  ! One group of values must be provided for each "grid" number NG = 2:NGRIDS
 
@@ -159,22 +160,22 @@
  ! History file, Month-average, and Day-average I/O
  !--------------------------------------------------------------------------
 
-   NL%IOUTPUT      = 1         ! History:    0-no files, 1-write files
+   NL%IOUTPUT      = 1         ! 0-no files, 1-write files
    NL%IOUTPUT_MAVG = 0         ! Month-avg:  0-no files, 1-write or read files
    NL%IOUTPUT_DAVG = 0         ! Day-avg:    0-no files, 1-write or read files
    NL%IOUTPUT_LITE = 0         ! Lite files: 0-no files, 1-write files
    NL%IOUTPUT_LATLON = 0       ! Lat/Lon:    0-no files, 1-write files
 
-   NL%HFILEPREF  = 'hist/sampleA'     ! History file output path/prefix
-   NL%ICLOBBER   = 1            ! 0 = stop if files exist, 1 = overwite files
-   NL%ICOMPRESS  = 3            ! 0 (no compres, fast) <-> 9 (max compres, slow)
+   NL%HFILEPREF = 'hist/sampleA'     ! History file output path/prefix
+   NL%ICLOBBER  = 1             ! 0 = stop if files exist, 1 = overwite files
+   NL%ICOMPRESS = 3             ! 0 (no compres, fast) <-> 9 (max compres, slow)
    NL%LATLONPLOT = 0            ! 1 = plot generated lat/lon fields too
 
-   NL%FRQSTATE  = 86400.0      ! Time interval between history files
+   NL%FRQSTATE  = 86400.       ! Time interval between history files
    NL%FRQLITE   =  3600.0      ! Time interval between lite files
    NL%FRQLATLON =  3600.0      ! Time interval between lat/lon output files
 
-   NL%HFILIN   = 'hist/sampleA-H-2000-01-01-000000.h5'      ! History file input
+   NL%HFILIN   = 'hist/sampleA-H-2000-01-01-000000.h5'      ! History file intput
 
    ! Variables output in lite files:
    NL%LITE_VARS = 'TAIR', 'WC', 'SH_V', 'PRESS', 'RHO', 'RSHORT', 'RLONG'
@@ -222,7 +223,7 @@
  
    NL%ISWRTYP = 2   ! Shortwave radiation type:
    NL%ILWRTYP = 2   ! Longwave  radiation type:
-                    !   0=none, 2=RRTMg, 3=Harrington
+                    !   0=none, 1,2,3=RRTMg
    NL%RADFRQ  = 1800.  ! Time interval between radiation tendency updates (s)
 
    NL%RRTMG_DATADIR = '../etc'  ! Directory containing RRTMg input files
@@ -230,7 +231,7 @@
    NL%ICFRAC = 3       ! Cloud frac scheme for resolved moisture (for RRTMg only)
                        ! 1 = Mocko and Cotton
                        ! 2 = linear rh formula using CFRACRH1 and CFRACRH2
-                       ! 3:6 = linear rh formula using geographic parms in code
+                       ! 3:6 = linear rh formula using geographic params in code
    NL%CFRACRH1 = 0.9   ! Lower RH threshold for linear rh formula
    NL%CFRACRH2 = 1.3   ! Upper RH threshold for linear rh formula
    NL%CFRACCUP = 0.7   ! Upper bound on cloud fraction with SGS convection
@@ -298,9 +299,10 @@
    NL%QXTRANS = 1,        ! 0 = no transport of rain/graupel/hail internal energy
                           ! 1 = transport rain/graupel/hail internal energy 
 
-   NL%CPARM   = 0.e6    ! Cloud concen (#/kg_air) if ICLOUD = 4,
+   NL%CPARM   = 0.        ! Cloud concen (#/kg_air) if ICLOUD = 4, but if
+                          !    CPARM < 1.e6, OLAM uses geographically-distributed
+                          !    mean cloud droplet concentrations
                           ! CCN concen (#/kg_air) if ICLOUD = 5
-                          ! (If less than 1.e6, geographic values are used)
 
    NL%DPARM   = 10.       ! Drizzle concen ([#/kg_air) if IDRIZ = 4,
                           ! GCCN concen (#/kg_air) if IDRIZ = 5
@@ -379,9 +381,9 @@
  ! Grid, Land, and Sea files path/names; Sea grid configuration
  !--------------------------------------------------------------------------
 
-   NL%GRIDFILE    = 'sfcfiles/gridfile_2.h5' ! path/prefix for grid file. 
-   NL%LANDUSEFILE = 'sfcfiles/landh2'        ! path/prefix for landuse file. 
-   NL%SEAFILE     = 'sfcfiles/seah2'         ! path/prefix for sea file. 
+   NL%GRIDFILE    = 'sfcfiles/gridfile2'   ! path/prefix for grid file. 
+   NL%LANDUSEFILE = 'sfcfiles/landh2'      ! path/prefix for landuse file. 
+   NL%SEAFILE     = 'sfcfiles/seah2'       ! path/prefix for sea file. 
 
    NL%ISEAGRID  = 1  ! 0 = sea cells NOT recombined by atm grid
                      ! 1 = sea cells recombined by atm grid
@@ -504,7 +506,7 @@
    NL%O3TNUDCENT = 43200.
 
  !------------------------------------------------------------------------
- ! History files to read from for RUNTYPE = 'PLOTONLY' or 'PARCOMBINE'
+ ! History files to read from for RUNTYPE = 'PLOTONLY'
  !------------------------------------------------------------------------
 
   NL%NPLT_FILES = 1   ! Number of history files to plot from for
@@ -543,7 +545,7 @@
   NL%NPLT       = 10   ! Number of fields plotted at each time 
                       ! (limit of maxnplt fields in max_dims.f90)
 
-  NL%FRQPLT =  7200.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
+  NL%FRQPLT =  3600.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
                             
   NL%DTVEC = 1200.    ! Scaling time (seconds) for plotted velocity vectors
 
@@ -618,90 +620,26 @@
  'SH_G'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
  'SH_H'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
  'QWCON'            ,'C',  7,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'PCPDIF2MIC'        ,'L',418,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
+ 'PCPDIF2CON'        ,'L',418,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
+ 'PCPDIF2BOTH'       ,'L',418,'Fmcit',    0.,0.,    1000.,    1200.e3,    0.
+
+ 'VOLT'              ,'C',202,'TGPmcitW', -116.,39.,      90.,   2000.e3,    0.
+ 'ZPLEV'             ,'O', 28,'FIpmcit',  -116.,39.,     500.,   1000.e3,    0.
+ 'AIRTEMPC'          ,'O',100,'TGImcits', -116.,39.,      30.,   1000.e3,    0.
+ 'CAN_TEMPC'         ,'O',100,'TGgIPmcit', -116.,39.,      30.,   1000.e3,    0.
+ 'SFC_TEMPC'         ,'O',100,'TgIPmcit',  -116.,39.,     100.,   1000.e3,    0.
+ 'TOPM'              ,'O',401,'TGIPmcit', -116.,39.,    1000.,   1000.e3,    0.
+ 'TOPW'              ,'O',401,'TGIPmcit', -116.,39.,    1000.,   1000.e3,    0.
+ 'LS_TOPW'           ,'O',401,'TgPmcit',  -116.,39.,    1000.,   1000.e3,    0.
+ 'LS_KW'             ,'O',  5,'TGgPmcit', -116.,39.,    1000.,   1000.e3,    0.
+ 'ARW0'              ,'O',200,'TGIPmcit', -116.,39.,    1000.,   1000.e3,    0.
+ 'LPW'               ,'O',  5,'TGIPmcit', -116.,39.,    1000.,   1000.e3,    0.
+ 'ACCPMIC'           ,'L',200,'Fmcit',    -116.,39.    1000.,    400.e3,    0.
+ 'ACCPCON'           ,'L',200,'Fmcit',    -116.,39.    1000.,    400.e3,    0.
+ 'ACCPBOTH'          ,'L',200,'Fmcit',    -116.,39.    1000.,    400.e3,    0.
 
 
-
-'PCPDIF2MIC'        ,'L',418,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
-'PCPDIF2CON'        ,'L',418,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
-'PCPDIF2BOTH'       ,'L',418,'Fmcit',    0.,0.,    1000.,    1200.e3,    0.
-'PCPDIF2BOTH'       ,'L',418,'FGmcit',    0.,0.,    1000.,    1200.e3,    0.
-'PCPDIF2MIC'        ,'L',421,'Fmcib',   -140.,0.,    1000.,    1200.e3,    0.
-'PCPDIF2CON'        ,'L',421,'Fmcib',   -140.,0.,    1000.,    1200.e3,    0.
-'PCPDIF2BOTH'       ,'L',421,'Fmcib',   -140.,0.,    1000.,    1200.e3,    0.
-'PCPDIF2MIC'        ,'L',418,'Tmcit',    0.,0.,    1000.,    1200.e3,    0.
-'PCPDIF2CON'        ,'L',418,'Tmcit',    0.,0.,    1000.,    1200.e3,    0.
-'PCPDIF2BOTH'       ,'L',418,'Tmcit',    0.,0.,    1000.,    1200.e3,    0.
-'VAPFLUX_DIF2'      ,'L',166,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RSHORT_DIF2'       ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RSHORTUP_DIF2'     ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RLONG_DIF2'        ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RLONGUP_DIF2'      ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RSHORT_TOP_DIF2'   ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RSHORTUP_TOP_DIF2' ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'RLONGUP_TOP_DIF2'  ,'L', 64,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'SENSFLUX_DIF2'     ,'L',163,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'LATFLUX_DIF2'      ,'L',163,'Fmcib',     0.,0.,    1000.,    1200.e3,    0.
-'LS_SENSFLUX_DIF2'  ,'L',103,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
-'LS_LATFLUX_DIF2'   ,'L',103,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
-'LS_VAPFLUX_DIF2'   ,'L',166,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
-'LS_AIRTEMPK_DIF2'  ,'L', 20,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
-'LS_AIRSHV_DIF2'    ,'L',  5,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
-'LS_CANTEMPK_DIF2'  ,'L', 20,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
-'LS_CANSHV_DIF2'    ,'L',  5,'Tmcib',     0.,0.,    1000.,    1200.e3,    0.
-
-'VOLT'              ,'C',202,'TGPmcitW', -116.,39.,      90.,   2000.e3,    0.
-'ZPLEV'             ,'O', 28,'FIpmcit',  -116.,39.,     500.,   1000.e3,    0.
-'AIRTEMPC'          ,'O',100,'TGImcits', -116.,39.,      30.,   1000.e3,    0.
-'CAN_TEMPC'         ,'O',100,'TGgIPmcit', -116.,39.,      30.,   1000.e3,    0.
-'SFC_TEMPC'         ,'O',100,'TgIPmcit',  -116.,39.,     100.,   1000.e3,    0.
-'TOPM'              ,'O',401,'TGIPmcit', -116.,39.,    1000.,   1000.e3,    0.
-'TOPW'              ,'O',401,'TGIPmcit', -116.,39.,    1000.,   1000.e3,    0.
-'LS_TOPW'           ,'O',401,'TgPmcit',  -116.,39.,    1000.,   1000.e3,    0.
-'LS_KW'             ,'O',  5,'TGgPmcit', -116.,39.,    1000.,   1000.e3,    0.
-'ARW0'              ,'O',200,'TGIPmcit', -116.,39.,    1000.,   1000.e3,    0.
-'LPW'               ,'O',  5,'TGIPmcit', -116.,39.,    1000.,   1000.e3,    0.
-'ACCPMIC'           ,'L',200,'Fmcit',    -116.,39.    1000.,    400.e3,    0.
-'ACCPCON'           ,'L',200,'Fmcit',    -116.,39.    1000.,    400.e3,    0.
-'ACCPBOTH'          ,'L',200,'Fmcit',    -116.,39.    1000.,    400.e3,    0.
-
-'PCPDIF4MIC'        ,'L',161,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
-'PCPDIF4CON'        ,'L',161,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
-'PCPDIF4BOTH'       ,'L',161,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
-'PCPREL4MIC'        ,'L',162,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
-'PCPREL4CON'        ,'L',162,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
-'PCPREL4BOTH'       ,'L',162,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
-
-'ZPLEV'             ,'L', 28,'Fpmcit',   0., 0.,     500.,   5000.e3,    0.
-'FCELL_CANTEMPC'    ,'L',100,'Tmcit',    0., 0.,    1000.,    500.e3,    0.
-'SFC_TEMPC'         ,'L',100,'Tmcit',    0., 0.,     100.,   4000.e3,    0.
-'CAN_TEMPC'         ,'L',100,'Tmcit',    0., 0.,      30.,   4000.e3,    0.
-'SFWAT_DEPTH'       ,'L',201,'Tmcit',    0., 0.,       1.,    400.e3,    0.
-'SOIL_WATER'        ,'L',420,'Tmcit',    0., 10.,      21.,   1000.e3,     0.
-'HEAD0'             ,'L',419,'TGgmcit',  0., 10.,     500.,    400.e3,     0.
-'HEAD0'             ,'L',419,'TGgcit',   0., 10.,     500.,    400.e3,     0.
-'ACCPMIC'           ,'L',200,'Fmcit',    0., 0.,    1000.,    400.e3,    0.
-'ACCPCON'           ,'L',200,'Fmcit',    0., 0.,    1000.,    400.e3,    0.
-'ACCPBOTH'          ,'L',200,'Fmcit',    0., 0.,    1000.,    400.e3,    0.
-
-'SFC_TEMPC'        ,'O',112,'TGmcit',      -75., 15.,   3000.,   3000.e3,     0.
-'CAN_TEMPC'        ,'O',112,'TGmcit',      -75., 15.,     30.,   3000.e3,     0.
-'AIRTEMPC'         ,'O',112,'TGmcits',     -75., 15.,     30.,   3000.e3,     0.
-'TOPM'             ,'O',402,'FGmcit',      -75., 15.,    100.,   2000.e3,     0.
-'GLATW'            ,'O', 12,'FGmPIticW',   -84., 40.,    100.,   2000.e3,     0.
-'GLONW'            ,'O', 12,'FGmPIticW',   -84., 40.,    100.,   2000.e3,     0.
-'TOPM'             ,'O', 29,'G',             0., 90.,    100.,  12000.e3,     0.
-'TOPM'             ,'O', 29,'GJ',            0., 90.,    100.,  12000.e3,     0.
-'W_IRANK'          ,'O', 77,'Tmcit',         0.,  0.,    100.,   3000.e3,     0.
-'W_IRANK'          ,'O', 77,'TGmcit',        0.,-15.,    100.,   3000.e3,     0.
-'W_IRANK'          ,'O', 77,'TPmcit',      -75.,-15.,    100.,   3000.e3,     0.
-'W_IRANK'          ,'O', 77,'TPGmcit',     -75.,-15.,    100.,   3000.e3,     0.
-'TOPM'             ,'O', 29,'TPGJmcitW',   -75.,-15.,    100.,   8000.e3,     0.
-'LEAF_CLASS'       ,'O', 14,'TPGImcitW',   -75.,-15.,    100.,   8000.e3,     0.
-'LEAF_CLASS'       ,'O', 14,'TPGImcitW',   -75.,-15.,    100.,   3000.e3,     0.
-'FCELL_ILSF'       ,'O', 77,'TPGImcitW',   -75.,-15.,     30.,   3000.e3,     0.
-'FCELL_IWLS'       ,'O', 77,'TPGImcitW',   -75.,-15.,     30.,   3000.e3,     0.
-'FCELL_IW'         ,'O', 77,'TPGgImcitW',  -75.,-15.,     30.,   3000.e3,     0.
-'FCELL_KW'         ,'O', 77,'TPGImcitW',   -75.,-15.,     30.,   3000.e3,     0.
 
 / 
  ! End of OLAMIN namelist
@@ -764,6 +702,8 @@
  'ADDSCP'           ,'O',304,
  'ZPLEV'            ,'O', 28, ! color table 28 for 500 mb level
                                 ! (see others in oplot_lib)
+ 'QWCON'            ,'O',  3,
+
  'RSHORT_TOP'       ,'O',417,
  'RSHORTUP_TOP'     ,'O',417,
  'RLONGUP_TOP'      ,'O',417,
@@ -774,7 +714,7 @@
  'RLONGUP'          ,'O',417,
  'ALBEDT'           ,'O',  6,
  'VKM_SFC'          ,'O',200,
- 'SFLUX_W'          ,'O',305,
+ 'SFLUXW'           ,'O',305,
  'SENSFLUX'         ,'O',102,
  'VAPFLUX'          ,'O',306,
  'LATFLUX'          ,'O',102,
@@ -798,34 +738,73 @@
  'ACCPMIC'          ,'O',200,
  'ACCPCON'          ,'O',200,
  'ACCPBOTH'         ,'O',200,
- 'PCPDIF2MIC'       ,'O',305,
- 'PCPDIF2CON'       ,'O',305,
- 'PCPDIF2BOTH'      ,'O',305,
- 'PCPDIF4MIC'       ,'O',305,
- 'PCPDIF4CON'       ,'O',305,
- 'PCPDIF4BOTH'      ,'O',305,
- 'PCPREL4MIC'       ,'O',305,
- 'PCPREL4CON'       ,'O',305,
- 'PCPREL4BOTH'      ,'O',305,
+
+ 'ZONAL_WINDW_DIF2' ,'O',113,
+ 'MERID_WINDW_DIF2' ,'O',113,
+ 'WC_DIF2'          ,'O',125,
+ 'PRESS_DIF2'       ,'O',415,
+ 'AIRTEMPK_DIF2'    ,'O',  4,
+ 'SH_V_DIF2'        ,'O',  5,
+
+ 'PCPMIC_DIF2'      ,'O',418,
+ 'PCPCON_DIF2'      ,'O',418,
+ 'PCPBOTH_DIF2'     ,'O',418,
+ 'RSHORT_DIF2'      ,'O',417,
+ 'RSHORTUP_DIF2'    ,'O',417,
+ 'RLONG_DIF2'       ,'O',417,
+ 'RLONGUP_DIF2'     ,'O',417,
+ 'RSHORT_TOP_DIF2'  ,'O',417,
+ 'RSHORTUP_TOP_DIF2','O',417,
+ 'RLONGUP_TOP_DIF2' ,'O',417,
+ 'SENSFLUX_DIF2'    ,'O',167,
+ 'LATFLUX_DIF2'     ,'O',167,
+ 'VAPFLUX_DIF2'     ,'O',127,
+ 'RSHORT_CLR_DIF2'      ,'O',417,
+ 'RSHORTUP_CLR_DIF2'    ,'O',417,
+ 'RLONG_CLR_DIF2'       ,'O',417,
+ 'RLONGUP_CLR_DIF2'     ,'O',417,
+ 'RSHORT_TOP_CLR_DIF2'  ,'O',417,
+ 'RSHORTUP_TOP_CLR_DIF2','O',417,
+ 'RLONGUP_TOP_CLR_DIF2' ,'O',417,
+
+ 'PCPMIC_DIF4'      ,'O',305,
+ 'PCPCON_DIF4'      ,'O',305,
+ 'PCPBOTH_DI42'     ,'O',305,
+ 'PCPMIC_REL4'      ,'O',305,
+ 'PCPCON_REL4'      ,'O',305,
+ 'PCPBOTH_REL4'     ,'O',305,
 
  'SOIL_TEXT'        ,'O',  9,
  'SOIL_ENERGY'      ,'O',416,
- 'SOIL_TEMPC'       ,'O',112,
+ 'SOIL_TEMPK'       ,'O',  4,
  'SOIL_FRACLIQ'     ,'O',  6,
  'SOIL_WATER'       ,'O',  6,
  'SFWAT_MASS'       ,'O',200,
  'SFWAT_ENERGY'     ,'O',416,
- 'SFWAT_TEMPC'      ,'O',112,
+ 'SFWAT_TEMPK'      ,'O',  4,
  'SFWAT_FRACLIQ'    ,'O',420,
  'SFWAT_DEPTH'      ,'O',201,
 
  'NLEV_SFWAT'       ,'O',  9,
  'VEG_NDVIC'        ,'O',  6,
  'VEG_TEMPC'        ,'O',100,
+ 'VEG_TEMPK'        ,'O',  4,
  'VEG_WATER'        ,'O',201,
  'STOM_RESIST'      ,'O',200,
+ 'SFCWATER_TOT'     ,'O',200,
+ 'SFCWATER_TOP_TEMP','O',  4,
+ 'SOIL_TOP_TEMP'    ,'O',  4,
  'GROUND_SHV'       ,'O',  5,
  'SOIL_DEPTH'       ,'O',  7,
+ 'SOIL_WATER_TOT'   ,'O',  3,
+ 'HEAD0'            ,'O',419,
+
+ 'L_WXFER1_DIF2'    ,'O',113,
+
+ 'AL_SFCWATER_TOT'  ,'O',200,
+ 'AL_SOIL_WATER_TOT','O',  3,
+
+ 'AL_WXFER1_DIF2'   ,'O',113,
 
  'SEATP'            ,'O',  2,
  'SEATF'            ,'O',  2,
@@ -837,26 +816,59 @@
  'LEAF_CLASS'       ,'O',  1,
  'LS_IW'            ,'O', 65,
  'LS_KW'            ,'O', 65,
- 'LS_ARF_IW'        ,'O', 65,
- 'LS_ARF_KW'        ,'O', 65,
- 'LS_AREA'          ,'O',202,
+ 'LS_ARF_IW'        ,'O',  6,
+ 'LS_ARF_KW'        ,'O',  6,
+ 'LS_AREA'          ,'O',204,
  'LS_TOPW'          ,'O',401,
- 'ROUGH'            ,'O',201,
- 'CAN_TEMPC'        ,'O',100,
- 'CAN_SHV'          ,'O',  5,
- 'SFC_TEMPC'        ,'O',100,
- 'SFC_SSH'          ,'O',  5,
 
- 'LS_SENSFLUX'      ,'O',102,
- 'LS_VAPFLUX'       ,'O',306,
- 'LS_LATFLUX'       ,'O',102,
+ 'LS_ROUGH'         ,'O',201,
+ 'LS_VELS'          ,'O', 54,
+ 'LS_AIRTEMPK'      ,'O',  4,
+ 'LS_AIRSHV'        ,'O',  5,
+ 'LS_CANTEMPK'      ,'O',  4,
+ 'LS_CANSHV'        ,'O',  5,
+ 'LS_SKINTEMPK'     ,'O',  4,
+ 'LS_GSS_SSH'       ,'O',  5,
+
+ 'LS_SENSFLUX'      ,'O',167,
+ 'LS_VAPFLUX'       ,'O',167,
+ 'LS_LATFLUX'       ,'O',127,
  'LS_RSHORT'        ,'O',417,
- 'LS_RSHORT_DIFFUSE','O',417,
  'LS_RLONG'         ,'O',417,
  'LS_RLONGUP'       ,'O',417,
  'LS_RLONG_ALBEDO'  ,'O',  6,
  'LS_ALBEDO_BEAM'   ,'O',  6,
  'LS_ALBEDO_DIFFUSE','O',  6,
+
+ 'LS_VELS_DIF2'     ,'O', 54,
+ 'LS_AIRTEMPK_DIF2' ,'O',  4,
+ 'LS_AIRSHV_DIF2'   ,'O',  5,
+ 'LS_CANTEMPK_DIF2' ,'O',  4,
+ 'LS_CANSHV_DIF2'   ,'O',  5,
+ 'LS_SKINTEMPK_DIF2','O',  4,
+ 'LS_SENSFLUX_DIF2' ,'O',167,
+ 'LS_LATFLUX_DIF2'  ,'O',167,
+ 'LS_VAPFLUX_DIF2'  ,'O',127,
+
+ 'ALS_VELS'         ,'O', 54,
+ 'ALS_AIRTEMPK'     ,'O',  4,
+ 'ALS_AIRSHV'       ,'O',  5,
+ 'ALS_CANTEMPK'     ,'O',  4,
+ 'ALS_CANSHV'       ,'O',  5,
+ 'ALS_SKINTEMPK'    ,'O',  4,
+ 'ALS_SENSFLUX'     ,'O',167,
+ 'ALS_LATFLUX'      ,'O',167,
+ 'ALS_VAPFLUX'      ,'O',127,
+
+ 'ALS_VELS_DIF2'     ,'O', 54,
+ 'ALS_AIRTEMPK_DIF2' ,'O',  4,
+ 'ALS_AIRSHV_DIF2'   ,'O',  5,
+ 'ALS_CANTEMPK_DIF2' ,'O',  4,
+ 'ALS_CANSHV_DIF2'   ,'O',  5,
+ 'ALS_SKINTEMPK_DIF2','O',  4,
+ 'ALS_SENSFLUX_DIF2' ,'O',167,
+ 'ALS_LATFLUX_DIF2'  ,'O',167,
+ 'ALS_VAPFLUX_DIF2'  ,'O',127,
 
  'ARV'              ,'O',202,
  'ARW'              ,'O',202,
@@ -894,7 +906,7 @@
  'ITAB_M_MRLM'      ,'O', 65,
  'ITAB_M_MRLM_OR'   ,'O', 65,
  'ITAB_M_MROW'      ,'O', 65,
- 'ITAB_M_MROWH'     ,'O', 65,
+ 'ITAB_M_NGR'       ,'O', 65,
  'ITAB_M_IV'        ,'O', 65,
  'ITAB_M_IW'        ,'O', 65,
 
@@ -914,7 +926,7 @@
  'ITAB_W_MRLW'      ,'O', 65,
  'ITAB_W_MRLW_OR'   ,'O', 65,
  'ITAB_W_MROW'      ,'O', 65,
- 'ITAB_W_MROWH'     ,'O', 65,
+ 'ITAB_W_NGR'       ,'O', 65,
  'ITAB_W_IM'        ,'O', 65,
  'ITAB_W_IV'        ,'O', 65,
  'ITAB_W_IW'        ,'O', 65,
@@ -958,7 +970,6 @@
  'PRESS_UL_DAVG'      ,'O',415,
  'ZONAL_WINDW_UL_DAVG','O',309,
  'MERID_WINDW_UL_DAVG','O',309,
-
  'CANTEMPK_DAVG'    ,'O',  4,
  'CANTEMPK_DMIN'    ,'O',  4,
  'CANTEMPK_DMAX'    ,'O',  4,
@@ -980,34 +991,6 @@
  'LATFLUX_DAVG'     ,'O',163,
  'PRESS_AVG24'      ,'O',   ,
 
- 'RSHORT_AVG'       ,'O', 63,
- 'RSHORTUP_AVG'     ,'O', 63,
- 'RLONG_AVG'        ,'O', 63,
- 'RLONGUP_AVG'      ,'O', 63,
- 'RSHORT_TOP_AVG'   ,'O', 63,
- 'RSHORTUP_TOP_AVG' ,'O', 63,
- 'RLONGUP_TOP_AVG'  ,'O', 63,
- 'SENSFLUX_AVG'     ,'O',163,
- 'LATFLUX_AVG'      ,'O',163,
- 'VAPFLUX_AVG'      ,'O',306,
- 'RSHORT_DIF2'      ,'O',103,
- 'RSHORTUP_DIF2'    ,'O',103,
- 'RLONG_DIF2'       ,'O',103,
- 'RLONGUP_DIF2'     ,'O',103,
- 'RSHORT_TOP_DIF2'  ,'O',103,
- 'RSHORTUP_TOP_DIF2','O',103,
- 'RLONGUP_TOP_DIF2' ,'O',103,
- 'SENSFLUX_DIF2'    ,'O',103,
- 'LATFLUX_DIF2'     ,'O',103,
- 'VAPFLUX_DIF2'     ,'O',308,
- 'LS_SENSFLUX_DIF2' ,'O',103,
- 'LS_LATFLUX_DIF2'  ,'O',103,
- 'LS_VAPFLUX_DIF2'  ,'O',308,
- 'LS_AIRTEMPK_DIF2' ,'O',108,
- 'LS_AIRSHV_DIF2'   ,'O',306,
- 'LS_CANTEMPK_DIF2' ,'O',108,
- 'LS_CANSHV_DIF2'   ,'O',306,
-
  'RHO_OBS'          ,'O',414,
  'THETA_OBS'        ,'O',413,
  'SHW_OBS'          ,'O',  5,
@@ -1028,6 +1011,6 @@
  'VZE'              ,'O',113,
  'PBLH'             ,'O',401,
  'HKM'              ,'O',200,
- 'HEAD0'            ,'O',419,
  'SHW_HCONV'        ,'O',303,
  'SHV_HCONV'        ,'O',303,
+ 'CLDNUM'           ,'O', 62,

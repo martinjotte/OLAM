@@ -339,7 +339,10 @@ do k = nlev_sfcwater,1,-1
 
 enddo
 
-head1 = .001 * wfree1
+! 11 Feb 2015: Define head1 from total sfcwater_mass (but leaf4_soil will
+! still allow no more than wfree1 to actually enter soil on current timestep
+
+head1 = .001 * sum(sfcwater_mass(1:nlev_sfcwater))
 
 if (iwl == iwl_print) then
 

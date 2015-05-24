@@ -315,9 +315,8 @@ call grndvap(iwl,              nlev_sfcwater,          &
 !-----------------------------------------------------------------------------
 
 ! Call land patch plot routine for selected iwl values.
-! Use '(iwl == 0)' to turn off this plot call.
 
-if (iwl == 0)  &
+if (iwl == iwl_print)  &
    call leaf_plot(iwl,                                 &
                   nlev_sfcwater,                       &
                   linit            = 1,                &

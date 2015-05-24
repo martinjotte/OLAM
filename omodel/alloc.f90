@@ -54,17 +54,14 @@ subroutine olam_mem_alloc()
                        
   use leaf_coms,   only: mwl, isfcl
   use sea_coms,    only: mws
-  use mem_plot,    only: alloc_plot
-
-  use cgrid_defn,  only: alloc_cgrid, filltab_cgrid
-
-  use mem_megan,   only: alloc_megan, filltab_megan
-
-  use mem_timeavg, only: alloc_timeavg, filltab_timeavg
 
   use mem_flux_accum, only: alloc_flux_accum, filltab_flux_accum
 
   use mem_average_vars, only: alloc_average_vars
+
+  use cgrid_defn,  only: alloc_cgrid, filltab_cgrid
+
+  use mem_megan,   only: alloc_megan, filltab_megan
 
   implicit none 
 
@@ -88,10 +85,7 @@ subroutine olam_mem_alloc()
   call alloc_turb(mza,mwa,nsw_max,idiffk(1),mrls)
   call filltab_turb()
 
-  call alloc_timeavg(mza,mwa)
-  call filltab_timeavg()
-
-  call alloc_flux_accum(mza,mwa,mwl,mws)
+  call alloc_flux_accum(mza,mva,mwa,mwl,mws)
   call filltab_flux_accum()
 
   if (do_chem == 1) then
@@ -138,10 +132,6 @@ subroutine olam_mem_alloc()
 ! Extra memory for Thuburn's monotonic advection
 
   call alloc_thuburn(nl%iscal_monot, mza, mva, mwa)
-
-! Memory for storing past values for plotting
-
-  call alloc_plot()
 
 ! Extra memory if nudging ozone. Must be called after scalar tables are set up
 

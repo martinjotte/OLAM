@@ -251,6 +251,20 @@ do jfile = 1,jfiles
          endif
 
          fname = trim(ofn2)//title1//title2//'.h5'
+
+!D Modification for reading Amazon deforestation OGE files
+
+!D         if (trim(iaction) == 'leaf_class') then
+!D            if (title1//title2 == '00N060W' .or. &
+!D                title1//title2 == '00N090W' .or. &
+!D                title1//title2 == '30S060W' .or. &
+!D                title1//title2 == '30S090W') then
+
+!D  fname = '../../olamdatah5/BAU_SoaresFilho/2050/OGE2_'//title1//title2//'.h5'
+
+!D            endif
+!D         endif
+
          inquire(file=fname,exist=l1,opened=l2)
 
 ! Read file

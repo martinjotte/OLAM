@@ -882,7 +882,7 @@ subroutine oge_leafclass(ioge,leafclass)
   integer, intent(in)  :: ioge
   integer, intent(out) :: leafclass
 
-  integer :: catb(0:100)
+  integer :: catb(0:101)
 
 ! Olson Global Ecosystems dataset OGE_2 (96 classes) mapped to LEAF-3 classes
 ! (see leaf3_document).
@@ -898,7 +898,8 @@ subroutine oge_leafclass(ioge,leafclass)
              5, 4,11,12, 0, 0, 0, 0, 3, 2, & ! 60
              3,20, 0,17,17,17, 4,14, 7, 3, & ! 70
              3, 3, 3, 3, 3, 3, 8,12, 7, 6, & ! 80
-            18,15,15,15, 4, 5, 0, 0, 0, 0  / ! 90  ! 97 & 98 not used
+            18,15,15,15, 4, 5, 0, 0, 0, 0, & ! 90  ! 97 & 98 not used
+            21                             / !
 !--------------------------------------------!     ! 99 is Goode Homolosine 
                                                    !    empty space
 !            1  2  3  4  5  6  7  8  9 10          ! 100 is missing data
@@ -1184,7 +1185,7 @@ subroutine landfile_write()
   use leaf_coms,  only: nzg, nwl, landusefile, slz
   use mem_leaf,   only: land, itab_wl
   use hdf5_utils, only: shdf5_open, shdf5_orec, shdf5_close
-  use misc_coms,  only: io6, ngrids, nxp
+  use misc_coms,  only: io6
 
   implicit none
 
@@ -1195,11 +1196,13 @@ subroutine landfile_write()
 
   character(pathlen) :: flnm
 
-! Write land file header information
+! Open landfile
 
-  flnm=trim(landusefile)//'-S'//'.h5'
+  flnm = trim(landusefile)//'.h5'
 
   call shdf5_open(flnm,'W',iclobber1)
+
+! Write land grid quantities to landfile
 
   ndims = 1
   idims(1) = 1
@@ -1207,14 +1210,12 @@ subroutine landfile_write()
   call shdf5_orec(ndims, idims, 'nwl'   , ivars=nwl)
   call shdf5_orec(ndims, idims, 'nzg'   , ivars=nzg)
 
-! Write arrays to land file
-
   ndims = 1
   idims(1) = nzg
 
   call shdf5_orec(ndims, idims, 'slz', rvara=slz)
 
-idims(1) = nwl
+  idims(1) = nwl
 
   call shdf5_orec(ndims, idims, 'iw'        , ivara=itab_wl(:)%iw)
   call shdf5_orec(ndims, idims, 'kw'        , ivara=itab_wl(:)%kw)
@@ -1276,7 +1277,7 @@ subroutine seafile_write()
   use sea_coms,   only: nws, seafile
   use mem_sea,    only: sea, itab_ws
   use hdf5_utils, only: shdf5_open, shdf5_orec, shdf5_close
-  use misc_coms,  only: io6, ngrids, nxp
+  use misc_coms,  only: io6
 
   implicit none
 
@@ -1287,18 +1288,18 @@ subroutine seafile_write()
 
   character(pathlen) :: flnm
 
-! Write sea file header information
+! Open seafile
 
-  flnm=trim(seafile)//'-S'//'.h5'
+  flnm=trim(seafile)//'.h5'
 
   call shdf5_open(flnm,'W',iclobber1)
+
+! Write sea grid quantities to seafile
 
   ndims = 1
   idims(1) = 1
 
   call shdf5_orec(ndims, idims, 'nws'   , ivars=nws)
-
-! Write arrays to sea file
 
   ndims = 1
   idims(1) = nws
@@ -1365,18 +1366,18 @@ subroutine landfile_read()
   real, allocatable  :: rscr(:,:)
 
 !-------------------------------------------------------------------------------
-! STEP 1: Open land file and read 2 array dimensions
+! STEP 1: Open landfile and read 2 array dimensions
 !-------------------------------------------------------------------------------
 
-  flnm = trim(landusefile)//'-S'//'.h5'
+  flnm = trim(landusefile)//'.h5'
 
-  write(io6,*) 'Checking leaf file ',trim(flnm)
+  write(io6,*) 'Checking landfile ',flnm
 
   inquire(file=flnm, exist=there)
 
   if (.not. there) then
-     write(io6,*) 'Land file was not found - stopping run'
-     stop 'stop: no land file'
+     write(io6,*) 'Landfile was not found - stopping run'
+     stop 'stop: no landfile'
   endif
 
   call shdf5_open(flnm,'R')
@@ -1389,7 +1390,7 @@ subroutine landfile_read()
   call shdf5_irec(ndims, idims, 'nzg', ivars=nzg)
 
   write(io6, '(/,a)')   '==============================================='
-  write(io6, '(a)')     'Reading from land file:'
+  write(io6, '(a)')     'Reading from landfile:'
   write(io6, '(a,4i8)') '  nwl, nzg = ', nwl, nzg
   write(io6, '(a,/)')   '==============================================='
 
@@ -1401,7 +1402,7 @@ subroutine landfile_read()
   allocate (rscr(maxnlspoly,nwl))
 
 !-------------------------------------------------------------------------------
-! STEP 3: Read arrays from land file
+! STEP 3: Read arrays from landfile
 !-------------------------------------------------------------------------------
 
   ndims = 1
@@ -1409,7 +1410,7 @@ subroutine landfile_read()
 
   call shdf5_irec(ndims, idims, 'slz', rvara=slz)
 
-! Read arrays from land file
+! Read arrays from landfile
 
   idims(1) = nwl
 
@@ -1488,15 +1489,15 @@ subroutine seafile_read()
 ! STEP 1: Open SEAFILE and read 1 array dimension
 !-------------------------------------------------------------------------------
 
-  flnm = trim(seafile)//'-S'//'.h5'
+  flnm = trim(seafile)//'.h5'
 
-  write(io6,*) 'Checking sea file ', trim(flnm)
+  write(io6,*) 'Checking seafile ', trim(flnm)
 
   inquire(file=flnm, exist=there)
 
   if (.not. there) then
-     write(io6,*) 'SEA file was not found - stopping run'
-     stop 'stop: no sea file'
+     write(io6,*) 'SEAFILE was not found - stopping run'
+     stop 'stop: no seafile'
   endif
 
   call shdf5_open(flnm,'R')
@@ -1507,7 +1508,7 @@ subroutine seafile_read()
   call shdf5_irec(ndims, idims, 'nws', ivars=nws)
 
   write(io6, '(/,a)')   '====================================='
-  write(io6, '(a)')     'Reading from sea file:'
+  write(io6, '(a)')     'Reading from seafile:'
   write(io6, '(a,3i8)') '  nws = ', nws
   write(io6, '(a,/)')   '====================================='
 
@@ -1518,7 +1519,7 @@ subroutine seafile_read()
   call alloc_sea_grid(nws)
 
 !-------------------------------------------------------------------------------
-! STEP 3: Read arrays from sea file
+! STEP 3: Read arrays from seafile
 !-------------------------------------------------------------------------------
 
   ndims = 1
@@ -1572,3 +1573,113 @@ subroutine seafile_read()
   mws = nws
 
 end subroutine seafile_read
+
+!==========================================================================
+
+subroutine landfile_read_oldgrid()
+
+  use max_dims,   only: maxnlspoly, pathlen
+  use leaf_coms,  only: landusefile
+  use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
+  use misc_coms,  only: io6
+  use mem_addgrid,only: nwl_og, nzg_og, xewl_og, yewl_og, zewl_og, ntext_soil_og
+
+  implicit none
+
+  integer            :: ndims, idims(2)
+  character(pathlen) :: flnm
+  logical            :: there
+  integer            :: iwl_og
+
+  flnm = trim(landusefile)//'-OG'//'.h5'
+
+  write(io6,*) 'Checking OLD landfile ',trim(flnm)
+
+  inquire(file=flnm, exist=there)
+
+  if (.not. there) then
+     write(io6,*) 'OLD Landfile was not found - stopping run'
+     stop 'stop: no old landfile'
+  endif
+
+  call shdf5_open(flnm,'R')
+
+  ndims = 1
+  idims(1) = 1
+  idims(2) = 1
+
+  call shdf5_irec(ndims, idims, 'nwl', ivars=nwl_og)
+  call shdf5_irec(ndims, idims, 'nzg', ivars=nzg_og)
+
+  allocate (xewl_og(nwl_og))
+  allocate (yewl_og(nwl_og))
+  allocate (zewl_og(nwl_og))
+
+  allocate (ntext_soil_og(nzg_og,nwl_og))
+
+  ndims = 1
+  idims(1) = nwl_og
+
+  call shdf5_irec(ndims, idims, 'xewl', rvara=xewl_og)
+  call shdf5_irec(ndims, idims, 'yewl', rvara=yewl_og)
+  call shdf5_irec(ndims, idims, 'zewl', rvara=zewl_og)
+
+  ndims = 2
+  idims(1) = nzg_og
+  idims(2) = nwl_og
+
+  call shdf5_irec(ndims, idims, 'ntext_soil', ivara=ntext_soil_og)
+
+  call shdf5_close()
+
+end subroutine landfile_read_oldgrid
+
+!==========================================================================
+
+subroutine seafile_read_oldgrid()
+
+  use max_dims,   only: maxnlspoly, pathlen
+  use sea_coms,   only: seafile
+  use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
+  use misc_coms,  only: io6
+  use mem_addgrid,only: nws_og, xews_og, yews_og, zews_og
+
+  implicit none
+
+  integer            :: ndims, idims(2)
+  character(pathlen) :: flnm
+  logical            :: there
+  integer            :: iws
+
+  flnm = trim(seafile)//'-OG'//'.h5'
+
+  write(io6,*) 'Checking OLD seafile ', trim(flnm)
+
+  inquire(file=flnm, exist=there)
+
+  if (.not. there) then
+     write(io6,*) 'OLD SEAFILE was not found - stopping run'
+     stop 'stop: no old seafile'
+  endif
+
+  call shdf5_open(flnm,'R')
+
+  ndims = 1
+  idims(1) = 1
+  idims(2) = 1
+
+  call shdf5_irec(ndims, idims, 'nws', ivars=nws_og)
+
+  allocate (xews_og(nws_og))
+  allocate (yews_og(nws_og))
+  allocate (zews_og(nws_og))
+
+  idims(1) = nws_og
+
+  call shdf5_irec(ndims, idims, 'xews', rvara=xews_og)
+  call shdf5_irec(ndims, idims, 'yews', rvara=yews_og)
+  call shdf5_irec(ndims, idims, 'zews', rvara=zews_og)
+
+  call shdf5_close()
+
+end subroutine seafile_read_oldgrid

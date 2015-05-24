@@ -1171,22 +1171,24 @@ do ibox = 1,clrtab(itab)%nvals
       write (number,'(f7.1)') clrtab(itab)%vals(ibox)
    elseif (ifmt ==  0 .or.  &
            ifmt == 10 .or.  &
-           ifmt == 20) then
+           ifmt == 20 .or.  &
+           ifmt == 30) then
       write (number,'(f7.0)') clrtab(itab)%vals(ibox)
    elseif (ifmt == -1) then
-      write (number,'(e8.1)') clrtab(itab)%vals(ibox)
+      write (number,'(es7.0)') clrtab(itab)%vals(ibox)
+!      write (number,'(e8.1)') clrtab(itab)%vals(ibox)
    elseif (ifmt == -2) then
-      write (number,'(e9.2)') clrtab(itab)%vals(ibox)
+      write (number,'(es8.1)') clrtab(itab)%vals(ibox)
    elseif (ifmt == -3) then
-      write (number,'(e10.3)') clrtab(itab)%vals(ibox)
+      write (number,'(es9.2)') clrtab(itab)%vals(ibox)
    elseif (ifmt == -4) then
-      write (number,'(e11.4)') clrtab(itab)%vals(ibox)
+      write (number,'(es10.3)') clrtab(itab)%vals(ibox)
    elseif (ifmt == -5) then
-      write (number,'(e12.5)') clrtab(itab)%vals(ibox)
+      write (number,'(es11.4)') clrtab(itab)%vals(ibox)
    elseif (ifmt == -6) then
-      write (number,'(e13.6)') clrtab(itab)%vals(ibox)
+      write (number,'(es12.5)') clrtab(itab)%vals(ibox)
    else
-      write (number,'(e14.7)') clrtab(itab)%vals(ibox)
+      write (number,'(es13.6)') clrtab(itab)%vals(ibox)
    endif
 
    numbr = adjustl(number)

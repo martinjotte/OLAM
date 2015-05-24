@@ -44,7 +44,7 @@ Module oname_coms
    ! Derived type to hold the components of the plot specification fields
 
    Type oname_plot
-      character(20) :: fldname    = ''
+      character(30) :: fldname    = ''
       character(1)  :: projectn   = ''
       integer       :: icolortab  = 0
       character(20) :: pltspec2   = 'N'
@@ -94,8 +94,9 @@ Module oname_coms
 
 !!    NESTED GRID DEFINITION
 
-      integer :: ngrids   = 1
-      integer :: nconcave = 1
+      integer :: ngrids     = 1
+      integer :: ngrids_old = 1
+      integer :: nconcave   = 3
 
       integer :: ngrdll(maxgrds) = 0
       real    :: grdrad(maxgrds) = 0.0
@@ -271,9 +272,6 @@ Module oname_coms
 
       real :: slz(nzgmax) = (/ -1.00, -.85, -.70, -.60, -.50, -.40, &
            -.30, -.20, -.15, -.10, -.05, (0.0, i=12,nzgmax) /)
-
-      real :: slmstr(nzgmax) = (/ .35, .35, .35, .35, .35, .35, .35, &
-           .35, .35, .35, .35, (0.0, i=12,nzgmax) /)
 
       character(pathlen) :: topo_database   = ''
       character(pathlen) :: veg_database    = ''
