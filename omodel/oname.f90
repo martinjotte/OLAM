@@ -72,51 +72,51 @@ end subroutine read_nl
 
 subroutine copy_nl()
 
-use max_dims,    only: maxgrds, nzgmax, maxisdirs
-use oname_coms,  only: nl
-use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
-                       nacoust, idiffk, zkhkm, xkhkm, csz, csx, akmin, &
-                       dtlong, initial, zonclim, topo_database, &
-                       gridfile, hfilin, ioutput, hfilepref, iclobber, &
-                       frqstate, naddsc, icorflg, ilwrtyp, iswrtyp, radfrq, &
-                       icfrac, cfracrh1, cfracrh2, cfraccup, nqparm, confrq, &
-                       nsndg, ipsflg, itsflg, irtsflg, iusflg, &
-                       hs, p_sfc, us, vs, ts, ps, rts, &
-                       itime1, idate1, imonth1, iyear1, ngrids, ngrids_old, &
-                       nzp, mdomain, itopoflg, nxp, &
-                       ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
-                       current_time, debug_fp, init_nans, &
-                       do_chem, chem_mech
+  use max_dims,    only: maxgrds, nzgmax, maxisdirs
+  use consts_coms, only: r8
+  use oname_coms,  only: nl
+  use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
+                         nacoust, idiffk, zkhkm, xkhkm, csz, csx, akmin, &
+                         dtlong, initial, zonclim, topo_database, &
+                         gridfile, hfilin, ioutput, hfilepref, iclobber, &
+                         frqstate, naddsc, icorflg, ilwrtyp, iswrtyp, radfrq, &
+                         icfrac, cfracrh1, cfracrh2, cfraccup, nqparm, confrq, &
+                         nsndg, ipsflg, itsflg, irtsflg, iusflg, &
+                         hs, p_sfc, us, vs, ts, ps, rts, &
+                         itime1, idate1, imonth1, iyear1, ngrids, ngrids_old, &
+                         nzp, mdomain, itopoflg, nxp, &
+                         ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
+                         current_time, debug_fp, init_nans, do_chem
 
-use micro_coms,  only: level, icloud, idriz, irain, ipris, &
-                       isnow, iaggr, igraup, ihail, iccnlev, &
-                       cparm, dparm, rparm, pparm, sparm, &
-                       aparm, gparm, hparm, cnparm, gnparm
+  use micro_coms,  only: level, icloud, idriz, irain, ipris, &
+                         isnow, iaggr, igraup, ihail, iccnlev, &
+                         cparm, dparm, rparm, pparm, sparm, &
+                         aparm, gparm, hparm, cnparm, gnparm
 
-use leaf_coms,   only: nvgcon, nslcon, isoilflg, ndviflg, &
-                       isfcl, ivegflg, nzg, nzs, slz, &
-                       veg_database, soil_database, &
-                       ndvi_database, iupdndvi, landusefile, &
-                       isoilstateinit, isoildepthflg, iwatertabflg, &
-                       soilstate_db, soildepth_db, watertab_db
+  use leaf_coms,   only: nvgcon, nslcon, isoilflg, ndviflg, &
+                         isfcl, ivegflg, nzg, nzs, slz, &
+                         veg_database, soil_database, &
+                         ndvi_database, iupdndvi, landusefile, &
+                         isoilstateinit, isoildepthflg, iwatertabflg, &
+                         soilstate_db, soildepth_db, watertab_db
 
-use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst, &
-                       iseaiceflg, seaice_database, seaice, iupdseaice, &
-                       iseagrid
+  use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst, &
+                         iseaiceflg, seaice_database, seaice, iupdseaice, &
+                         iseagrid
 
-use oplot_coms,  only: op
-use isan_coms,   only: iapr
-use mem_nudge,   only: tnudcent, nudflag, nudnxp,  &
-                       o3nudflag, tnudi_o3, o3nudpress
-use mem_rayf,    only: rayf_zmin,    rayf_distim,   rayf_expon,    &
-                       rayfw_zmin,   rayfw_distim,   rayfw_expon,  &
-                       rayfdiv_zmin, rayfdiv_distim, rayfdiv_expon
-use ed_misc_coms, only: ed2_active, ed2_namelist
+  use oplot_coms,  only: op
+  use isan_coms,   only: iapr
+  use mem_nudge,   only: tnudcent, nudflag, nudnxp,  &
+                         o3nudflag, tnudi_o3, o3nudpress
+  use mem_rayf,    only: rayf_zmin,    rayf_distim,   rayf_expon,    &
+                         rayfw_zmin,   rayfw_distim,   rayfw_expon,  &
+                         rayfdiv_zmin, rayfdiv_distim, rayfdiv_expon
+  use ed_misc_coms, only: ed2_active, ed2_namelist
 
-implicit none
+  implicit none
 
-integer :: i,j
-real(kind=8) :: tfact
+  integer  :: i,j
+  real(r8) :: tfact
 
 ! The variables in this section are always copied from the namelist for any
 ! RUNTYPE.  This allows some model options to be changed on a history start.
@@ -129,10 +129,10 @@ real(kind=8) :: tfact
 !----------------------------------------------------------
 ! Convert timmax8 units to seconds if necessary
 
-  if (timeunit == 'd' .or. timeunit == 'D') tfact = 86400.d0
-  if (timeunit == 'h' .or. timeunit == 'H') tfact = 3600.d0
-  if (timeunit == 'm' .or. timeunit == 'M') tfact = 60.d0
-  if (timeunit == 's' .or. timeunit == 'S') tfact = 1.d0
+  if (timeunit == 'd' .or. timeunit == 'D') tfact = 86400.0_r8
+  if (timeunit == 'h' .or. timeunit == 'H') tfact =  3600.0_r8
+  if (timeunit == 'm' .or. timeunit == 'M') tfact =    60.0_r8
+  if (timeunit == 's' .or. timeunit == 'S') tfact =     1.0_r8
 
   timmax8 = timmax8 * tfact
 !----------------------------------------------------------
@@ -239,9 +239,8 @@ real(kind=8) :: tfact
   ndviflg       = nl%ndviflg
 
   do_chem       = nl%do_chem
-  chem_mech     = nl%chem_mech
   o3nudflag     = nl%o3nudflag
-  tnudi_o3      = 1.0 / max( nl%o3tnudcent, nl%dtlong )
+  tnudi_o3      = 1.0 / max( nl%o3tnudcent, real(nl%dtlong) )
   o3nudpress    = nl%o3nudpress * 100.0  ! mb to Pa
 
   iapr(1:maxisdirs) = nl%iapr(1:maxisdirs)

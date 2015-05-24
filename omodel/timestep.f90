@@ -34,9 +34,9 @@ subroutine timestep()
 
 use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, time_bias, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, dtlm, &
-                       iparallel, s1900_init, s1900_sim
+                       iparallel, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
-use mem_nudge,   only: nudflag, nudnxp
+use mem_nudge,   only: nudflag, nudnxp, o3nudflag, io3
 use mem_grid,    only: mza, mva, mwa
 use micro_coms,  only: level
 use leaf_coms,   only: isfcl
@@ -50,6 +50,10 @@ use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
+use mem_megan,   only: megan_avg_temp
+use emis_defn,   only: get_emis
+use depv_defn,   only: get_depv
+use sedv_defn,   only: aero_sedi
 
 implicit none
 
@@ -94,6 +98,11 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
    if (mrl > 0) then
       call comp_alpha_press(mrl, alpha_press)
       call surface_turb_flux(mrl)
+      if (do_chem == 1) then
+         call aero_sedi( mrl )
+         call get_emis ( mrl )
+         call get_depv ( mrl )
+      endif
    endif
 
 ! call check_nans(1)
@@ -146,6 +155,12 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       endif
    endif
 
+! Nudging of ozone if it is a variable in the scalar table
+
+   if (initial == 2 .and. o3nudflag == 1 .and. io3 > 0) then
+      call obs_nudge_o3()
+   endif
+
 ! call check_nans(10)
 
    mrl = mrl_begl(istp)
@@ -159,10 +174,24 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
 ! call check_nans(12)
 
+   mrl = mrl_endl(istp)
+   if (nl%split_scalars > 0 .and. mrl > 0) then
+      call predtr_split(mrl,rho_old)
+      if (iparallel == 1) call mpi_send_w(mrl, scalars='S')
+   endif
+
    call timeavg_momsc(vmsc,wmsc)
 
 ! call check_nans(13)
-   
+
+   mrl = mrl_endl(istp)
+   if (nl%split_scalars > 0 .and. mrl > 0) then
+      if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')
+      do n = 1, nvar_par
+         call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
+      enddo
+   endif
+
    if (mrl_endl(istp) > 0) then
       call scalar_transport(vmsc,wmsc,rho_old)
    endif
@@ -216,9 +245,14 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
 ! Bypass all processes except microphyics if running parcel test 901 or 902
 
-if (nl%test_case == 901 .or. nl%test_case == 902) go to 1312
+   if (nl%test_case == 901 .or. nl%test_case == 902) go to 1312
 
 ! call check_nans(17)
+
+   ! Call atmospheric chemistry here
+   
+   mrl = mrl_endl(istp)
+   if (do_chem == 1 .and. mrl > 0) call cmaq_driver(mrl)
 
    call trsets()  
 
@@ -287,6 +321,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1312
    if (leafstep(istp) > 0) then
       call leaf4()
       call seacells()
+      if (do_chem == 1) call megan_avg_temp()
    endif
 
    call flux_accum()
@@ -701,4 +736,46 @@ integer :: iw,i,j,k
 return
 end subroutine bubble
 
+!==========================================================================
+
+subroutine predtr_split(mrl,rho_old)
+
+  use var_tables,  only: num_scalar, scalar_tab
+  use mem_ijtabs,  only: istp, jtab_w, itab_w, jtw_prog
+  use mem_grid,    only: mza, mwa, lpw
+  use misc_coms,   only: io6, dtlm
+  use consts_coms, only: r8
+
+  implicit none
+
+  integer,  intent(in) :: mrl
+  real(r8), intent(in) :: rho_old(mza,mwa)
+  integer              :: iw, j, n, k
+  real                 :: dtl
+
+  ! Step scalars from  t  to  t+1 in a time-split sub step
+
+  if (mrl > 0) then
+
+   ! Skip n=1 which is THIL and computed elsewhere
+
+     !$omp parallel do private(iw,n,k,dtl)
+     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+        dtl = dtlm(itab_w(iw)%mrlw)
+
+        do n = 2, num_scalar
+           do k = lpw(iw), mza-1
+              scalar_tab(n)%var_p(k,iw) = scalar_tab(n)%var_p(k,iw)  &
+                                        + dtl * scalar_tab(n)%var_t(k,iw) / rho_old(k,iw)
+              scalar_tab(n)%var_t(k,iw) = 0.0
+           enddo
+        enddo
+     enddo
+     !$omp end parallel do
+
+  endif
+
+  ! TODO: check if updated scalars are positive-definite??
+
+end subroutine predtr_split
 

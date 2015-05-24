@@ -111,6 +111,10 @@ Module mem_grid
 
         zwgt_top, zwgt_bot      ! weights for interpolating T levels to W
 
+   real, allocatable, dimension(:,:) ::  &
+
+        gxps_coef, gyps_coef    ! combined weights for grad_t3d
+
 Contains
 
 !===============================================================================
@@ -255,9 +259,10 @@ Contains
    subroutine alloc_grid_other()
      
      use consts_coms, only: r8
+     use mem_ijtabs,  only: itab_w
      implicit none
      
-     integer :: iw, iv, k
+     integer :: iw, iv, k, n1, n2
 
      ! This routine allocates and defines grid arrays that were not computed
      ! during the MAKEGRID stage
@@ -317,6 +322,25 @@ Contains
         vnzo2(iv) = vnz(iv) * 0.5
      enddo
      !$omp end parallel do
+
+     allocate(gxps_coef(mwa,7))
+     allocate(gyps_coef(mwa,7))
+
+     !$omp parallel do
+     do iw = 2, mwa
+        do n1 = 1, itab_w(iw)%npoly
+
+           if (n1 == 1) then
+              n2 = itab_w(iw)%npoly
+           else
+              n2 = n1 - 1
+           endif
+
+           gxps_coef(iw,n1) = itab_w(iw)%gxps1(n1) + itab_w(iw)%gxps2(n2)
+           gyps_coef(iw,n1) = itab_w(iw)%gyps1(n1) + itab_w(iw)%gyps2(n2)
+
+        enddo
+     enddo
 
    end subroutine alloc_grid_other
 

@@ -26,6 +26,9 @@
 ## DEBUG:
 #F_OPTS= -g  -pc 64 -Mfree  -Mbyteswapio -Mbounds
 #
+## EXTRA OPTIONS FOR FIXED-SOURCE CODE
+#FIXED_SRC_FLAGS=-ffixed-form -ffixed-line-length-132
+
 ## FORTRAN FLAGS FOR BIG FILES WHICH WOULD HAVE EXCESSIVE COMPILATION TIME
 #SLOW_FFLAGS=-O1 -g
 #
@@ -74,6 +77,9 @@ F_OPTS=-xHost -O3 -fno-alias -ip -openmp -traceback
 # DEBUG:
 #F_OPTS=-g -fp-model precise -check bounds -traceback \
 #        -debug extended -check uninit -ftrapuv
+
+# EXTRA OPTIONS FOR FIXED-SOURCE CODE
+FIXED_SRC_FLAGS=-fixed -132
 
 # FORTRAN FLAGS FOR BIG FILES WHICH WOULD HAVE EXCESSIVE COMPILATION TIME
 SLOW_FFLAGS=-O1 -g -no-ip -traceback
@@ -138,6 +144,9 @@ USE_HDF5=1
 ##F_OPTS=-O2 -g -C -qflttrap -qfullpath -qsuffix=cpp=F90:f=f90 \
 ##       -q64 -qwarn64 -qfloat=fenv -qinitauto=7fbfffff -qsigtrap \
 ##       -qarch=auto -qtune=auto -qcache=auto -qstrict
+#
+## EXTRA OPTIONS FOR FIXED-SOURCE CODE
+#FIXED_SRC_FLAGS=-qfixed=132
 #
 ## FORTRAN FLAGS FOR BIG FILES WHICH WOULD HAVE EXCESSIVE COMPILATION TIME
 #SLOW_FFLAGS=-O1 -g
