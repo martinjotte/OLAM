@@ -2868,7 +2868,7 @@ C***big gamma = pg 16,290 equation 22
 !        ENDIF
       
 !        LAM(I) = SQRT( GAM1*GAM1 - GAM2*GAM2 )
-         LAM(I) = SQRT( max( GAM1*GAM1 - GAM2*GAM2 ), 0.0 )
+         LAM(I) = SQRT( max( GAM1*GAM1 - GAM2*GAM2, 0.0 ) )
 
          IF( ABS( GAM2 ) .LE. SMALLEST )THEN 
 C***adjustment based on NCAR TUV model
