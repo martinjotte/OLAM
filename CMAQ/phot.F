@@ -103,6 +103,8 @@ C...modules
       USE AERO_DATA            ! describes aerosol distribution
       USE PHOT_MOD             ! photolysis in-line module
       USE RXNS_DATA
+
+      use hrdata,      only: rj
       use misc_coms,   only: current_time
       use mem_grid,    only: mwa, mza, glatw, glonw, zt, zm, lpw, dzt
       use cgrid_defn
@@ -818,8 +820,6 @@ C...set pointer to species O3 and NO2 in CGRID
             XMSG = 'Could not find ' // VARNM // 'in species table'
             CALL M3EXIT ( PNAME, 0, 0, XMSG, XSTAT3 )
          END IF
-
-         allocate( rj (nphotab, mza, mwa) )
 
       END IF  ! firstime
 

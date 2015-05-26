@@ -253,7 +253,7 @@ SOURCE_FILES= \
              $(CMAQ)/EMIS_DEFN.F \
              $(CMAQ)/findex.f \
              $(CMAQ)/gas_depv_map.F \
-             $(CMAQ)/geia_emis.f90 \
+             $(CMAQ)/geia_emis.F90 \
              $(CMAQ)/getalpha.F \
              $(CMAQ)/getpar.f \
              $(CMAQ)/hlconst.F \

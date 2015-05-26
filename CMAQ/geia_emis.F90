@@ -19,6 +19,8 @@ subroutine geia_init()
   use mpi
 #endif
 
+  implicit none
+
   integer, parameter :: nlon = 360
   integer, parameter :: nlat = 180
 
@@ -26,11 +28,12 @@ subroutine geia_init()
   integer, parameter :: njo = nlat + 4
 
   real, parameter :: year2sec = 365. * 24. * 3600.
-  real, parameter :: cl_mwhgt = 35.5
+  real, parameter :: cl_mwght = 35.5
 
   logical :: exists
-  integer :: j, iw
+  integer :: j, iw, ier
   integer :: ndims, idims(2)
+  real    :: grx, gry
 
   real :: buffer(nlon, nlat, 2)
 

@@ -199,8 +199,6 @@ C***     pp 283-297, 2000.
 
       REAL :: OPTT                ! variable needed for acetone
 
-      real, allocatable :: rj(:,:,:)
-
       integer, parameter :: I_CH3CHO    =  1
       integer, parameter :: I_ALDEHYDES =  2
       integer, parameter :: I_MVK       =  3

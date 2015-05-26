@@ -146,6 +146,7 @@
          RETURN
        END FUNCTION FALLOFF_T11
        REAL( 8 ) FUNCTION HALOGEN_FALLOFF(PRESS,A1,B1,A2,B2)
+         IMPLICIT NONE 
          REAL( 8 ), INTENT( IN ) :: PRESS
          REAL( 8 ), INTENT( IN ) :: A1
          REAL( 8 ), INTENT( IN ) :: B1
@@ -249,7 +250,7 @@
         REAL( 8 ) :: RFACT         ! cm^3/(molec*min) to 1/(ppm*min)
         REAL      :: H2O           ! Cell H2O mixing ratio (ppmV)
 
-        RKI(1:numcells,:) = 0.0D0 
+        RKI = 0.0D0 
 
 ! All rate constants converted from  molec/cm3 to ppm
 ! and 1/sec to 1/min
@@ -862,8 +863,7 @@
 ! Purpose find or test the CGRID Index, Species Type, and Conversion Factor
 ! for the Mechanism against the CMAQ namelists
 
-!           USE UTILIO_DEFN
-            use misc_coms, only: io6
+            USE UTILIO_DEFN
             USE CGRID_SPCS
             USE RXNS_DATA
 
@@ -900,8 +900,7 @@
             IF( INITIALIZED )RETURN
 
             INITIALIZED = .TRUE.
-!           LOGDEV      =  INIT3()
-            LOGDEV      =  io6
+            LOGDEV      =  INIT3()
             SUCCESS     = .TRUE.
 
 
