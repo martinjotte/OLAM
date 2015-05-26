@@ -161,6 +161,7 @@ contains
 
   subroutine edgar_42_init(nvars3d_emis, vname3d_emis, units3d_emis)
     use mem_grid,  only: mwa, mza
+    use geia_emis, only: geia_init
     implicit none
     
     integer,                    intent(inout) :: nvars3d_emis
@@ -183,6 +184,7 @@ contains
     call emis_overlap(nx_e42, ny_e42)
     call interp_to_olam()
     call comp_vert_facts()
+    call geia_init()
 
     i = ico
     vname3d_emis(i) = 'CO'
@@ -706,6 +708,7 @@ contains
     use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
     use mem_grid,   only: glonw, lsw, lpw
     use mem_turb,   only: frac_sfc
+    use geia_emis,  only: cl_emis, hcl_emis
 
     implicit none
 
@@ -720,6 +723,9 @@ contains
          0.000143, 0.000229, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.000202, 0.0 /)
 
     real, parameter :: gpkg = 1.0e3
+
+    integer, parameter ::  cl_sec = 13
+    integer, parameter :: hcl_sec =  1
 
     integer, external :: day_of_week
 
@@ -760,7 +766,7 @@ contains
        do j = 1, n_co
           n = co_sects(j)
 
-         if (edgar42_vars(iw)%co(j) > 1.e-16) then
+         if (edgar42_vars(iw)%co(j) > 1.e-20) then
 
              fact2 = emiscnvt(ico) * timefac(n) * edgar42_vars(iw)%co(j)
 
@@ -783,7 +789,7 @@ contains
        do j = 1, n_nox
           n = nox_sects(j)
 
-          if (edgar42_vars(iw)%nox(j) > 1.e-16) then
+          if (edgar42_vars(iw)%nox(j) > 1.e-20) then
 
              fact2 = emiscnvt(ino) * timefac(n) * edgar42_vars(iw)%nox(j)
 
@@ -808,7 +814,7 @@ contains
        do j = 1, n_nh3
           n = nh3_sects(j)
 
-          if (edgar42_vars(iw)%nh3(j) > 1.e-16) then
+          if (edgar42_vars(iw)%nh3(j) > 1.e-20) then
 
              fact2 = emiscnvt(inh3) * timefac(n) * edgar42_vars(iw)%nh3(j)
 
@@ -832,7 +838,7 @@ contains
        do j = 1, n_so2
           n = so2_sects(j)
 
-          if (edgar42_vars(iw)%so2(j) > 1.e-16) then
+          if (edgar42_vars(iw)%so2(j) > 1.e-20) then
 
              fact2 = emiscnvt(iso2) * timefac(n) * edgar42_vars(iw)%so2(j)
 
@@ -857,7 +863,7 @@ contains
        do j = 1, n_nmvoc
           n = nmvoc_sects(j)
 
-          if (edgar42_vars(iw)%nmvoc(j) > 1.e-16) then
+          if (edgar42_vars(iw)%nmvoc(j) > 1.e-20) then
 
              fact1 = timefac(n) * edgar42_vars(iw)%nmvoc(j)
 
@@ -890,7 +896,7 @@ contains
        do j = 1, n_pm10
           n = pm10_sects(j)
 
-          if (edgar42_vars(iw)%pm10(j) > 1.e-16) then
+          if (edgar42_vars(iw)%pm10(j) > 1.e-20) then
 
              fact2 = gpkg * timefac(n) * edgar42_vars(iw)%pm10(j)
 
@@ -914,7 +920,7 @@ contains
        do j = 1, n_pm2_5
           n = pm2_5_sects(j)
 
-          if (edgar42_vars(iw)%pm2_5(j) > 1.e-16) then
+          if (edgar42_vars(iw)%pm2_5(j) > 1.e-20) then
 
              fact2 = gpkg * timefac(n) * edgar42_vars(iw)%pm2_5(j)
 
@@ -936,6 +942,48 @@ contains
              enddo
           endif
        enddo
+
+!       if (jw == 1) write(io6,*) "Processing HCL from geia..."
+
+       n = hcl_sec
+       if (hcl_emis(iw) > 1.e-20) then
+
+          fact2 = timefac(n) * hcl_emis(iw)
+
+          do ns = 1, lsw(iw)
+             ka = lpw(iw) + ns - 1
+
+             fact3 = fact2 * frac_sfc(ns,iw)
+
+             do ks = 1, vinterp(n,ka)%nlevs
+                k  = ks + ka - 1
+                edgar42_emis(k,iw,ihcl) = edgar42_emis(k,iw,ihcl) &
+                                        + vinterp(n,ka)%facts(ks) * fact3
+             enddo
+
+          enddo
+       endif
+
+!       if (jw == 1) write(io6,*) "Processing particulate CL from geia..."
+
+       n = cl_sec
+       if (cl_emis(iw) > 1.e-20) then
+
+          fact2 = timefac(n) * cl_emis(iw)
+
+          do ns = 1, lsw(iw)
+             ka = lpw(iw) + ns - 1
+
+             fact3 = fact2 * frac_sfc(ns,iw)
+
+             do ks = 1, vinterp(n,ka)%nlevs
+                k  = ks + ka - 1
+                edgar42_emis(k,iw,ipcl) = edgar42_emis(k,iw,ipcl) &
+                                        + vinterp(n,ka)%facts(ks) * fact3
+             enddo
+
+          enddo
+       endif
 
     enddo
 

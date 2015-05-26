@@ -300,6 +300,7 @@ Module oname_coms
       integer            :: chem_frq  =  1
       integer            :: phot_frq  =  1
       character(pathlen) :: emis_dir  = '../../olamdatah5/edgar42'
+      character(pathlen) :: geia_emis_file = '../etc/geia_emis.nc4'
 
       integer :: o3nudflag  = 0
       real    :: o3nudpress = 150.0
