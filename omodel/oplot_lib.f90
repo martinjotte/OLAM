@@ -803,8 +803,27 @@ case(4) ! 'VC'
 
    if (.not. allocated(vc)) go to 1000
 
-   fldval = wtbot * vc(k ,i) &
-          + wttop * vc(kp,i)
+   if (k >= lpv(i)) then
+
+      fldval = wtbot * vc(k ,i) &
+             + wttop * vc(kp,i)
+
+   else
+
+      iw1 = itab_v(i)%iw(1)
+      iw2 = itab_v(i)%iw(2)
+
+      if (k >= lpw(iw1)) then
+         fldval = vnx(i) * vxe(k,iw1) &
+                + vny(i) * vye(k,iw1) &
+                + vnz(i) * vze(k,iw1)
+      elseif (k >= lpw(iw2)) then
+         fldval = vnx(i) * vxe(k,iw2) &
+                + vny(i) * vye(k,iw2) &
+                + vnz(i) * vze(k,iw2)
+      endif
+
+   endif
 
 case(5) ! 'WC'
 

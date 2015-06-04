@@ -1443,7 +1443,9 @@ subroutine contslab_vert_tw(iplt)
                                 valw(2),notavail)
                  if (notavail > 0) cycle 
 
-                 if (k < lpw(iw2)) then
+                 if (op%stagpt == 'T' .and. k < lpw(iw2)) then
+                    valw2(2) = valw(2)
+                 elseif (op%stagpt == 'W' .and. k < lpw(iw2)-1) then
                     valw2(2) = valw(2)
                  else
                     call oplot_lib(k,iw2,'VALUE',op%fldname(iplt),wtbot,wttop, &
@@ -1457,7 +1459,9 @@ subroutine contslab_vert_tw(iplt)
                                 valw(1),notavail)
                  if (notavail > 0) cycle 
 
-                 if (k-1 < lpw(iw2)) then
+                 if (op%stagpt == 'T' .and. k-1 < lpw(iw2)) then
+                    valw2(1) = valw(1)
+                 elseif (op%stagpt == 'W' .and. k-1 < lpw(iw2)-1) then
                     valw2(1) = valw(1)
                  else
                     call oplot_lib(k-1,iw2,'VALUE',op%fldname(iplt),wtbot,wttop, &
@@ -1477,7 +1481,9 @@ subroutine contslab_vert_tw(iplt)
               if (itri == 1) then
 
                  if (k < mza+1) then
-                    if (k < lpw(iw1)) then
+                    if (op%stagpt == 'T' .and. k < lpw(iw1)) then
+                       valw1(2) = valw(2)
+                    elseif (op%stagpt == 'W' .and. k-1 < lpw(iw1)-1) then
                        valw1(2) = valw(2)
                     else
                        call oplot_lib(k,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
@@ -1487,7 +1493,9 @@ subroutine contslab_vert_tw(iplt)
                  endif
 
                  if (k > lpw(iw) .or. op%stagpt == 'W') then
-                    if (k-1 < lpw(iw1)) then
+                    if (op%stagpt == 'T' .and. k-1 < lpw(iw1)) then
+                       valw1(1) = valw(1)
+                    elseif (op%stagpt == 'W' .and. k-1 < lpw(iw1)-1) then
                        valw1(1) = valw(1)
                     else
                        call oplot_lib(k-1,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
@@ -1519,7 +1527,9 @@ subroutine contslab_vert_tw(iplt)
               else
 
                  if (k < mza+1) then
-                    if (k < lpw(iw3)) then
+                    if (op%stagpt == 'T' .and. k < lpw(iw3)) then
+                       valw3(2) = valw(2)
+                    elseif (op%stagpt == 'W' .and. k-1 < lpw(iw3)-1) then
                        valw3(2) = valw(2)
                     else
                        call oplot_lib(k,iw3,'VALUE',op%fldname(iplt),wtbot,wttop, &
@@ -1529,7 +1539,9 @@ subroutine contslab_vert_tw(iplt)
                  endif
 
                  if (k > lpw(iw) .or. op%stagpt == 'W') then
-                    if (k-1 < lpw(iw3)) then
+                    if (op%stagpt == 'T' .and. k-1 < lpw(iw3)) then
+                       valw3(1) = valw(1)
+                    elseif (op%stagpt == 'W' .and. k-1 < lpw(iw3)-1) then
                        valw3(1) = valw(1)
                     else
                        call oplot_lib(k-1,iw3,'VALUE',op%fldname(iplt),wtbot,wttop, &

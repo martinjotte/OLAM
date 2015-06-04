@@ -464,8 +464,8 @@ subroutine plot_index(iplt)
   use oplot_coms, only: op
   use mem_grid,   only: mma, mva, mwa, xem, yem, zem, &
                         xev, yev, zev, xew, yew, zew
-  use mem_ijtabs, only: itab_w, jtab_w, jtw_prog, &
-                        itab_v, jtab_v, jtv_prog, &
+  use mem_ijtabs, only: itab_w, jtab_w, jtw_wadj, &
+                        itab_v, jtab_v, jtv_wadj, &
                         itab_m, jtab_m, jtm_vadj
   use sea_coms,   only: mws, mus
   use mem_sea,    only: sea, itab_ws
@@ -528,8 +528,11 @@ subroutine plot_index(iplt)
        trim(op%stagpt)  == 'M' .or.  &
        trim(op%stagpt)  == 'P' ) then
 
-     do jm = 1, jtab_m(jtm_vadj)%jend(1)
-        im  = jtab_m(jtm_vadj)%im(jm)
+!     do jm = 1, jtab_m(jtm_vadj)%jend(1)
+!        im  = jtab_m(jtm_vadj)%im(jm)
+
+        do im = 2,mma
+
         img = itab_m(im)%imglobe
 
         call oplot_transform(iplt,xem(im),yem(im),zem(im),hpt,vpt)
@@ -567,8 +570,10 @@ subroutine plot_index(iplt)
        trim(op%stagpt)  == 'V' .or.  &
        trim(op%stagpt)  == 'N' ) then
 
-     do jv = 1, jtab_v(jtv_prog)%jend(1)
-        iv  = jtab_v(jtv_prog)%iv(jv)
+!     do jv = 1, jtab_v(jtv_wadj)%jend(1)
+!        iv  = jtab_v(jtv_wadj)%iv(jv)
+        do iv = 2,mva
+
         ivg = itab_v(iv)%ivglobe
 
         call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hpt,vpt)
@@ -606,8 +611,10 @@ subroutine plot_index(iplt)
        trim(op%stagpt)  == 'W' .or.  &
        trim(op%stagpt)  == 'T' ) then
 
-     do jw = 1, jtab_w(jtw_prog)%jend(1)
-        iw  = jtab_w(jtw_prog)%iw(jw)
+!     do jw = 1, jtab_w(jtw_wadj)%jend(1)
+!        iw  = jtab_w(jtw_wadj)%iw(jw)
+        do iw = 1,mwa
+
         iwg = itab_w(iw)%iwglobe
 
         call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
@@ -1008,7 +1015,7 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
 
         k = 2
 
-        do while (k < mza+1 .and. zm(k) < op%slabloc(iplt))
+        do while (k < mza .and. zm(k) < op%slabloc(iplt))
            k = k + 1
         enddo
 
@@ -1648,11 +1655,12 @@ subroutine plot_grid(iplt)
        op%projectn(iplt) == 'O'  .or.  &
        op%projectn(iplt) == 'Z') then   ! Horizontal cross section
 
-     do jv = 1, jvmax
+!     do jv = 1, jvmax
+     do iv = 2, mva
 
         ! Get tile plot coordinates.
 
-        iv  = jtab_v(jtv_wadj)%iv(jv)
+!        iv  = jtab_v(jtv_wadj)%iv(jv)
         im1 = itab_v(iv)%im(1)
         im2 = itab_v(iv)%im(2)
 
@@ -1746,9 +1754,11 @@ subroutine plot_grid(iplt)
 
      ! First, draw vertical lines
 
-     do jv = 1, jvmax
+!     do jv = 1, jvmax
+         do iv = 1,mva
 
-        iv  = jtab_v(jtv_wadj)%iv(jv)
+!        iv  = jtab_v(jtv_wadj)%iv(jv)
+        
         im1 = itab_v(iv)%im(1)
         im2 = itab_v(iv)%im(2)
 

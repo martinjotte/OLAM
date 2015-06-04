@@ -91,8 +91,9 @@ subroutine tileslab_horiz_mp(iplt,action)
 
   ! Loop over M points
 
-  mloop: do jm = 1, jtab_m(jtm_vadj)%jend(1)
-            im = jtab_m(jtm_vadj)%im(jm)
+!  mloop: do jm = 1, jtab_m(jtm_vadj)%jend(1)
+!            im = jtab_m(jtm_vadj)%im(jm)
+  mloop: do im = 2,mma
 
      ! For now, skip pts that don't read in topm
 
@@ -290,7 +291,7 @@ subroutine tileslab_horiz_tw(iplt,action)
 
   use oplot_coms, only: op, xepc, yepc, zepc
   use mem_grid,   only: mza, mwa, zm, zt, xew, yew, zew, xem, yem, zem, lpw, arw0
-  use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
+  use mem_ijtabs, only: itab_w, jtab_w, jtw_wadj
   use misc_coms,  only: io6, iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
@@ -362,8 +363,8 @@ subroutine tileslab_horiz_tw(iplt,action)
 
   ! Loop over W points
 
-  wloop: do jw = 1, jtab_w(jtw_prog)%jend(1)
-     iw = jtab_w(jtw_prog)%iw(jw)
+  wloop: do jw = 1, jtab_w(jtw_wadj)%jend(1)
+     iw = jtab_w(jtw_wadj)%iw(jw)
 
      npoly = itab_w(iw)%npoly
 
@@ -379,6 +380,10 @@ subroutine tileslab_horiz_tw(iplt,action)
      ! Get tile plot coordinates.  
 
      call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
+
+     ! If only printing value, skip polygon section
+
+     if (action == 'P' .and. npoly < 5) go to 50
 
      do j = 1,npoly
 
@@ -400,6 +405,8 @@ subroutine tileslab_horiz_tw(iplt,action)
 
      if ( all(htpn(1:npoly) < op%xmin) .or. all(htpn(1:npoly) > op%xmax) .or.  &
           all(vtpn(1:npoly) < op%ymin) .or. all(vtpn(1:npoly) > op%ymax) ) cycle wloop
+
+     50 continue
 
      ! Get cell value and plot if 'available'
 
@@ -541,7 +548,7 @@ subroutine tileslab_horiz_vn(iplt,action)
   use oplot_coms, only: op
   use mem_grid,   only: mza, mva, mwa, zm, xev, yev, zev, &
                         xem, yem, zem, xew, yew, zew, lpw
-  use mem_ijtabs, only: itab_v, jtab_v, jtv_prog
+  use mem_ijtabs, only: itab_v, jtab_v, jtv_wadj
   use misc_coms,  only: io6, iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
@@ -601,11 +608,12 @@ subroutine tileslab_horiz_vn(iplt,action)
 
   ! Loop over V points
 
-  do jv = 1, jtab_v(jtv_prog)%jend(1)
+!  do jv = 1, jtab_v(jtv_wadj)%jend(1)
+     do iv = 1,mva
 
      ! Transform tile plot X and Y coordinates.  
 
-     iv  = jtab_v(jtv_prog)%iv(jv)
+!     iv  = jtab_v(jtv_wadj)%iv(jv)
      call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hpt,vpt)
 
      im1 = itab_v(iv)%im(1)
@@ -1214,11 +1222,7 @@ subroutine tileslab_vert_tw(iplt,action)
      if (op%projectn(iplt) == 'C') then
         call coneplot_w(iw,iv1,iv2,topo1,topo2,iok,htpn)
      elseif (op%projectn(iplt)(1:1) == 'V') then
-
-        ! The following call was designed for triangle grid; 
-        ! need to make xyplot_w version for hexagons   
-        ! call xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
-
+        call xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
      endif
 
      hpt = .5 * (htpn(1) + htpn(2))
@@ -1402,7 +1406,7 @@ subroutine tileslab_vert_v(iplt,action)
      if (op%projectn(iplt) == 'C') then
         call coneplot_w(iw,iv1,iv2,topo1,topo2,iok,hcpn)
      elseif (op%projectn(iplt)(1:1) == 'V') then
-        call xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,hcpn) ! need to fix for hex??
+        call xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,hcpn)
      endif
 
      ! Jump out of loop if this IW point does not intersect plot cone
@@ -1912,9 +1916,9 @@ end subroutine celltile
 subroutine xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
 
   ! This subroutine finds points of intersection between vertical plot slab and
-  ! triangular (prism) grid cells
+  ! hexagonal grid cells
 
-  use oplot_coms,  only: op
+  use oplot_coms,  only: op, xepc, yepc
   use mem_grid,    only: xem, yem, topm
   use mem_ijtabs,  only: itab_w
   use consts_coms, only: pio180
@@ -1931,9 +1935,7 @@ subroutine xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
   real, intent(out) :: htpn(4)
   real, intent(out) :: topo1,topo2
 
-  integer :: im1,im2,im3
-  integer :: iu1,iu2,iu3
-  integer :: iuc1,iuc2,iuc3
+  integer :: npoly,j,jm1,jm2,jmin,jv,im,im1,im2,iv
 
   real :: s1,s2,s3
   real :: sc1,sc2,sc3
@@ -1943,33 +1945,35 @@ subroutine xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
   real :: y1,y2
   real :: sinvaz,cosvaz
 
-  real :: xemc(3),yemc(3)  ! Coords of 3 M points
-  real :: topmc(3) ! Topo height of 3 M points
-
-  im1 = itab_w(iw)%im(1)
-  im2 = itab_w(iw)%im(2)
-  im3 = itab_w(iw)%im(3)
-
-! iu1 = itab_w(iw)%iu(1)  [%iu not defined in hex grid]
-! iu2 = itab_w(iw)%iu(2)
-! iu3 = itab_w(iw)%iu(3)
+  real :: sm(7),sm1,sm2
+  real :: topm1,topm2 ! Topo height of 2 M points
+  real :: xem1, xem2, yem1, yem2
 
   sinvaz = sin((90. - op%viewazim) * pio180)
   cosvaz = cos((90. - op%viewazim) * pio180)
 
-  ! Location of 3 M points along line perpendicular to plot slab
+  smin =  1.e9
+  smax = -1.e9
 
-  s1 = (xem(im1) - nl%plotspecs(iplt)%plotcoord1) * cosvaz  &
-     + (yem(im1) - nl%plotspecs(iplt)%plotcoord2) * sinvaz
+  npoly = itab_w(iw)%npoly
 
-  s2 = (xem(im2) - nl%plotspecs(iplt)%plotcoord1) * cosvaz  &
-     + (yem(im2) - nl%plotspecs(iplt)%plotcoord2) * sinvaz
+! Loop over neighbor M points for this IW cell
 
-  s3 = (xem(im3) - nl%plotspecs(iplt)%plotcoord1) * cosvaz  &
-     + (yem(im3) - nl%plotspecs(iplt)%plotcoord2) * sinvaz
+  do j = 1,npoly
+     im = itab_w(iw)%im(j)
 
-  smin = min(s1,s2,s3)
-  smax = max(s1,s2,s3)
+    sm(j) = (xem(im) - nl%plotspecs(iplt)%plotcoord1) * cosvaz  &
+          + (yem(im) - nl%plotspecs(iplt)%plotcoord2) * sinvaz
+
+    if (smin > sm(j)) then
+       jmin = j
+       smin = sm(j) 
+    endif
+
+    if (smax < sm(j)) then
+       smax = sm(j)
+    endif
+  enddo
 
   ! Return with iok = 0 if iw column is not intersected by plot slab
 
@@ -1979,151 +1983,114 @@ subroutine xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
 
   iok = 1  ! Since we got here, IW column is intersected by plot cone
 
-  ! Find IM point that has lowest S coordinate and copy to temporary M point #1
-  ! Fill other 2 points in cyclic order
+! Fill arrays of values at M points in cyclic order around IW column, beginning
+! with M point that is closest to cone axis
 
-  if (s1 <= s2 .and. s1 <= s3) then  ! m1 has lowest S value
+  do j = 1,npoly
+     jm1 = j + jmin - 1
+     jm2 = jm1 + 1
 
-     xemc(1)  = xem(im1)
-     yemc(1)  = yem(im1)
-     topmc(1) = topm(im1)
-
-     xemc(2)  = xem(im2)
-     yemc(2)  = yem(im2)
-     topmc(2) = topm(im2)
-
-     xemc(3)  = xem(im3)
-     yemc(3)  = yem(im3)
-     topmc(3) = topm(im3)
-
-     sc1 = s1
-     sc2 = s2
-     sc3 = s3
-
-     iuc1 = iu1
-     iuc2 = iu2
-     iuc3 = iu3
-
-  elseif (s2 <= s1 .and. s2 <= s3) then  ! m2 has lowest S value
-
-     xemc(1)  = xem(im2)
-     yemc(1)  = yem(im2)
-     topmc(1) = topm(im2)
-
-     xemc(2)  = xem(im3)
-     yemc(2)  = yem(im3)
-     topmc(2) = topm(im3)
-
-     xemc(3)  = xem(im1)
-     yemc(3)  = yem(im1)
-     topmc(3) = topm(im1)
-
-     sc1 = s2
-     sc2 = s3
-     sc3 = s1
-
-     iuc1 = iu2
-     iuc2 = iu3
-     iuc3 = iu1
-
-  elseif (s3 <= s1 .and. s3 <= s2) then  ! m3 has lowest S value
-
-     xemc(1)  = xem(im3)
-     yemc(1)  = yem(im3)
-     topmc(1) = topm(im3)
-
-     xemc(2)  = xem(im1)
-     yemc(2)  = yem(im1)
-     topmc(2) = topm(im1)
-
-     xemc(3)  = xem(im2)
-     yemc(3)  = yem(im2)
-     topmc(3) = topm(im2)
-
-     sc1 = s3
-     sc2 = s1
-     sc3 = s2
-
-     iuc1 = iu3
-     iuc2 = iu1
-     iuc3 = iu2
-
-  endif
+     if (jm1 > npoly) jm1 = jm1 - npoly
+     if (jm2 > npoly) jm2 = jm2 - npoly
    
-  ! Find two points of intersection between current IW triangle and X slab
+     im1 = itab_w(iw)%im(jm1)
+     im2 = itab_w(iw)%im(jm2)
 
-  if (sc2 > op%slabloc(iplt)) then
+     jv = jm2
+     iv  = itab_w(iw)%iv(jv)
+      
+     xem1 = xem(im1)
+     yem1 = yem(im1)
 
-     wt2 = (op%slabloc(iplt) - sc1) / (sc2 - sc1)
-     wt1 = 1. - wt2
-
-     x2    = wt1 * xemc(1)  + wt2 * xemc(2)  ! x coord of htpn(2)
-     y2    = wt1 * yemc(1)  + wt2 * yemc(2)  ! y coord of htpn(2)
-     topo2 = wt1 * topmc(1) + wt2 * topmc(2) ! topo height(2)
-
-     htpn(2) = (x2 - nl%plotspecs(iplt)%plotcoord1) * sinvaz  &
-             - (y2 - nl%plotspecs(iplt)%plotcoord2) * cosvaz
-           
-     iv2 = iuc3
+     xem2 = xem(im2)
+     yem2 = yem(im2)
    
-     if (sc3 > op%slabloc(iplt)) then
+     topm1 = topm(im1)
+     topm2 = topm(im2)
+   
+     sm1 = sm(jm1)
+     sm2 = sm(jm2)
 
-        wt2 = (op%slabloc(iplt) - sc1) / (sc3 - sc1)
+! Find two points of intersection between current IW polygon and slab
+
+     if (sm1 <= op%slabloc(iplt) .and. sm2 >= op%slabloc(iplt)) then
+
+! This interval touches slab
+
+        if (sm1 == sm2) then
+
+! This interval is tangent to slab      
+
+           if (jm1 == 1 .or. jm2 == 1) then
+
+! This interval is on minimum side of polygon
+
+              xepc(1) = xem1
+              yepc(1) = yem1
+              topo1   = topm1
+              iv1     = iv
+
+              xepc(2) = xem2
+              yepc(2) = yem2
+              topo2   = topm2
+              iv2     = iv
+
+           else
+
+! This interval is on maximum side of polygon
+
+              xepc(1) = xem2
+              yepc(1) = yem2
+              topo1   = topm2
+              iv1     = iv
+
+              xepc(2) = xem1
+              yepc(2) = yem1
+              topo2   = topm1
+              iv2     = iv
+
+           endif
+
+           exit
+
+        else
+         
+! This interval touches slab at 1 point
+
+           wt2 = (op%slabloc(iplt) - sm1) / (sm2 - sm1)
+           wt1 = 1. - wt2
+
+           xepc(2) = wt1 * xem1  + wt2 * xem2
+           yepc(2) = wt1 * yem1  + wt2 * yem2
+           topo2   = wt1 * topm1 + wt2 * topm2
+           iv2     = iv
+
+        endif
+      
+     elseif (sm1 > op%slabloc(iplt) .and. sm2 <= op%slabloc(iplt)) then
+
+! This interval touches slab at 1 point
+
+        wt2 = (op%slabloc(iplt) - sm2) / (sm1 - sm2)
         wt1 = 1. - wt2
 
-        x1    = wt1 * xemc(1)  + wt2 * xemc(3)  ! x coord of htpn(1)
-        y1    = wt1 * yemc(1)  + wt2 * yemc(3)  ! y coord of htpn(1)
-        topo1 = wt1 * topmc(1) + wt2 * topmc(3) ! topo height(1)
+        xepc(1) = wt1 * xem2  + wt2 * xem1
+        yepc(1) = wt1 * yem2  + wt2 * yem1
+        topo1   = wt1 * topm2 + wt2 * topm1
+        iv1     = iv
 
-        htpn(1) = (x1 - nl%plotspecs(iplt)%plotcoord1) * sinvaz  &
-                - (y1 - nl%plotspecs(iplt)%plotcoord2) * cosvaz
-   
-        iv1 = iuc2
-      
-     else
-
-        wt2 = (op%slabloc(iplt) - sc3) / (sc2 - sc3)
-        wt1 = 1. - wt2
-
-        x1    = wt1 * xemc(3)  + wt2 * xemc(2)  ! x coord of htpn(1)
-        y1    = wt1 * yemc(3)  + wt2 * yemc(2)  ! y coord of htpn(1)
-        topo1 = wt1 * topmc(3) + wt2 * topmc(2) ! topo height(1)
-
-        htpn(1) = (x1 - nl%plotspecs(iplt)%plotcoord1) * sinvaz  &
-                - (y1 - nl%plotspecs(iplt)%plotcoord2) * cosvaz
-   
-        iv1 = iuc1
-      
      endif
 
-  else
+  enddo
 
-     wt2 = (op%slabloc(iplt) - sc2) / (sc3 - sc2)
-     wt1 = 1. - wt2
+! Transform horizontal point coordinates
 
-     x2    = wt1 * xemc(2)  + wt2 * xemc(3)  ! x coord of htpn(2)
-     y2    = wt1 * yemc(2)  + wt2 * yemc(3)  ! y coord of htpn(2)
-     topo2 = wt1 * topmc(2) + wt2 * topmc(3) ! topo height(2)
+  htpn(1) = (xepc(1) - nl%plotspecs(iplt)%plotcoord1) * sinvaz  &
+          - (yepc(1) - nl%plotspecs(iplt)%plotcoord2) * cosvaz
 
-     htpn(2) = (x2 - nl%plotspecs(iplt)%plotcoord1) * sinvaz  &
-            - (y2 - nl%plotspecs(iplt)%plotcoord2) * cosvaz
-   
-     iv2 = iuc1
-
-     wt2 = (op%slabloc(iplt) - sc1) / (sc3 - sc1)
-     wt1 = 1. - wt2
-
-     x1    = wt1 * xemc(1)  + wt2 * xemc(3)  ! x coord of htpn(1)
-     y1    = wt1 * yemc(1)  + wt2 * yemc(3)  ! y coord of htpn(1)
-     topo1 = wt1 * topmc(1) + wt2 * topmc(3) ! topo height(1)
-
-     htpn(1) = (x1 - nl%plotspecs(iplt)%plotcoord1) * sinvaz  &
-             - (y1 - nl%plotspecs(iplt)%plotcoord2) * cosvaz
-
-     iv1 = iuc2
-
-  endif
-
+  htpn(2) = (xepc(2) - nl%plotspecs(iplt)%plotcoord1) * sinvaz  &
+          - (yepc(2) - nl%plotspecs(iplt)%plotcoord2) * cosvaz
+           
   htpn(3) = htpn(2)
   htpn(4) = htpn(1)
 

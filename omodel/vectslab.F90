@@ -34,7 +34,7 @@ subroutine vectslab_horiz_v(iplt)
   use oplot_coms,  only: op
   use mem_grid,    only: mza, mva, mwa, zm, lpw, unx, uny, unz, vnx, vny, vnz, &
                          xev, yev, zev
-  use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtv_prog
+  use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtv_wadj
   use consts_coms, only: eradi
   use misc_coms,   only: io6, mdomain, iparallel
   use mem_para,    only: myrank, mgroupsize, nbytes_int, nbytes_real
@@ -74,7 +74,7 @@ subroutine vectslab_horiz_v(iplt)
   op%stagpt = 'V'
   call horizplot_k(iplt,mva,ktf,kv,wtbot,wttop)
 
-  jvmax = jtab_v(jtv_prog)%jend(1)
+  jvmax = jtab_v(jtv_wadj)%jend(1)
 
   nu   = 0
   ipos = 0
@@ -93,7 +93,7 @@ subroutine vectslab_horiz_v(iplt)
 
   do jv = 1, jvmax
 
-     iv  = jtab_v(jtv_prog)%iv(jv)
+     iv  = jtab_v(jtv_wadj)%iv(jv)
 
      im1 = itab_v(iv)%im(1)
      im2 = itab_v(iv)%im(2)
