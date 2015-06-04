@@ -34,7 +34,7 @@ subroutine spring_dynamics(ngr)
 
 use mem_ijtabs,  only: itab_md, itab_ud, itab_wd
 use mem_grid,    only: nma, nua, nwa, xem, yem, zem, impent, mrows
-use consts_coms, only: pi2, erad, erador5
+use consts_coms, only: pi2, erad, erador5, r8
 use misc_coms,   only: io6, nxp, ngrids, ngrids_old, mdomain, deltax
 use oplot_coms,  only: op
 
@@ -79,6 +79,12 @@ character(10) :: string
 integer :: movem(nma)
 integer :: moveall(ngrids)
 
+real(r8) :: xem8(nma),yem8(nma),zem8(nma)
+
+xem8(:) = real(xem(:),r8)
+yem8(:) = real(yem(:),r8)
+zem8(:) = real(zem(:),r8)
+
 !--------------------------------------------------------------
 ! SPECIAL CODE TO BE MODIFIED FOR DYNAMIC NESTS
 
@@ -99,7 +105,7 @@ endif
 ! subsequent HISTADDGRID run.  This will preserve grid cell location, size,
 ! and shape everywhere outside NEW refinement region.
 
-niter = 2000 
+niter = 2000
              
 ! For the case where NEW local mesh refinements are being added in preparation
 ! for a HISTADDGRID history restart, do NOT move M points outside the current
@@ -267,9 +273,9 @@ do iter = 1, niter
       if ( movem(im1) == 0 .and. movem(im2) == 0 .and. &
            movem(im3) == 0 .and. movem(im4) == 0 ) cycle
 
-      dist(iu) = sqrt( (xem(im1) - xem(im2)) ** 2 &
-                     + (yem(im1) - yem(im2)) ** 2 &
-                     + (zem(im1) - zem(im2)) ** 2 )
+      dist(iu) = sqrt( (xem8(im1) - xem8(im2)) ** 2 &
+                     + (yem8(im1) - yem8(im2)) ** 2 &
+                     + (zem8(im1) - zem8(im2)) ** 2 )
    enddo
    !$omp end do
    
@@ -315,9 +321,9 @@ do iter = 1, niter
 
 ! Compute components of displacement that gives dist0
 
-      dx(iu) = (xem(im2) - xem(im1)) * frac_change
-      dy(iu) = (yem(im2) - yem(im1)) * frac_change
-      dz(iu) = (zem(im2) - zem(im1)) * frac_change
+      dx(iu) = (xem8(im2) - xem8(im1)) * frac_change
+      dy(iu) = (yem8(im2) - yem8(im1)) * frac_change
+      dz(iu) = (zem8(im2) - zem8(im1)) * frac_change
 
    enddo
    !$omp end do
@@ -341,78 +347,84 @@ do iter = 1, niter
       npoly = itab_md(im)%npoly
       do j = 1, npoly
          iu = itab_md(im)%iu(j)
-         xem(im) = xem(im) + dirs(im,j) * dx(iu)
-         yem(im) = yem(im) + dirs(im,j) * dy(iu)
-         zem(im) = zem(im) + dirs(im,j) * dz(iu)
+         xem8(im) = xem8(im) + dirs(im,j) * dx(iu)
+         yem8(im) = yem8(im) + dirs(im,j) * dy(iu)
+         zem8(im) = zem8(im) + dirs(im,j) * dz(iu)
       enddo
 
 ! Push M point coordinates out to earth radius
       
       if (mdomain < 2) then
-         expansion = erad / sqrt(xem(im) ** 2 + yem(im) ** 2 + zem(im) ** 2)
-         xem(im) = xem(im) * expansion
-         yem(im) = yem(im) * expansion
-         zem(im) = zem(im) * expansion
+         expansion = erad / sqrt(xem8(im) ** 2 + yem8(im) ** 2 + zem8(im) ** 2)
+         xem8(im) = xem8(im) * expansion
+         yem8(im) = yem8(im) * expansion
+         zem8(im) = zem8(im) * expansion
       endif
 
    enddo
    !$omp end do
+   !$omp end parallel
 
 ! Section for plotting grid at intermediate stages of spring dynamics adjustment
 
-!plt   if (ngr > 1 .and. mod(iter,20) == 1) then
-!plt
-!plt! Plot grid lines
-!plt
+!plt   if (ngr == 14 .and. mod(iter,100) == 1) then
+
+!plt      xem(:) = real(xem8(:))
+!plt      yem(:) = real(yem8(:))
+!plt      zem(:) = real(zem8(:))
+
+! Plot grid lines
+
 !plt      call o_reopnwk()
 !plt      call plotback()
-!plt
+
 !plt      call oplot_set(1)
-!plt 
+ 
 !plt      do iu = 2,nua
 !plt         im1 = itab_ud(iu)%im(1)
 !plt         im2 = itab_ud(iu)%im(2)
-!plt
+
 !plt         call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
 !plt         call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
-!plt
+
 !plt         call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
-!plt
+
 !plt         if (iskip == 1) cycle
-!plt
+
 !plt         call o_frstpt (xq1,yq1)
 !plt         call o_vector (xq2,yq2)
 !plt      enddo
-!plt
-!plt! print mrow values
-!plt
+
+! print mrow values
+
 !plt      do iw = 2, nwa
 !plt         im1 = itab_wd(iw)%im(1)
 !plt         im2 = itab_wd(iw)%im(2)
 !plt         im3 = itab_wd(iw)%im(3)
-!plt
+
 !plt         call oplot_transform(1, (xem(im1)+xem(im2)+xem(im3))/3., &
 !plt                                 (yem(im1)+yem(im2)+yem(im3))/3., &
 !plt                                 (zem(im1)+zem(im2)+zem(im3))/3., &
 !plt                                 xp1, yp1                         )
-!plt
+
 !plt         if ( xp1 < op%xmin .or.  &
 !plt              xp1 > op%xmax .or.  &
 !plt              yp1 < op%ymin .or.  &
 !plt              yp1 > op%ymax ) cycle
-!plt
+
 !plt         write(string,'(I0)') itab_wd(iw)%mrow
 !plt         call o_plchlq (xp1,yp1,trim(adjustl(string)),0.01,0.,0.)
 !plt      enddo
-!plt
+
 !plt      call o_frame()
 !plt      call o_clswk()
-!plt
-!plt   endif ! mod(iter,*)
 
-   !$omp end parallel
+!plt   endif ! mod(iter,*)
 
 enddo ! iter
 
-return
+xem(:) = real(xem8(:))
+yem(:) = real(yem8(:))
+zem(:) = real(zem8(:))
+
 end subroutine spring_dynamics

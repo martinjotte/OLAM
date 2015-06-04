@@ -420,13 +420,9 @@ subroutine makesfc2()
           'leaf_class', &
           idatq=landsea_grid(:)%idatq)
 
-
-
-
      do iwls = 2,nwls
         call oge_leafclass(landsea_grid(iwls)%idatq, leafclass)
         landsea_grid(iwls)%leaf_class = leafclass
-
      enddo
 
   endif
@@ -442,7 +438,7 @@ subroutine makesfc2()
 
 ! If area of land/sea cell is below threshold, skip cell
 
-     if (landsea_grid(iwls)%area < 1.e2) cycle
+!!     if (landsea_grid(iwls)%area < 1.e2) cycle
 
 ! Count up individual land & sea cells and assign indices to them.
 ! Flag M and U points for association with land and/or sea cells.
