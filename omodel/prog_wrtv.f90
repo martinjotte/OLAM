@@ -30,7 +30,7 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine prog_wrtv(vmsc,wmsc,alpha_press,rhot)
+subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 
 ! This dynamic core version for hexagonal cells combines the Perot (2002)
 ! finite-volume method for evaluating momentum advective and diffusive flux
@@ -41,10 +41,11 @@ use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, istp, itab_w, jtab_m, itab_m, &
                         mrl_begl, mrl_begs, mrl_ends, mrl_endl, &
                         jtm_vadj, jtv_prog, jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp
 use mem_basic,    only: rho, thil, theta, wc, press, wmc, vmp, vmc, vp, vc, &
+                        vxe2, vye2, vze2, &
                         sh_w, sh_v, vxe, vye, vze, strict_wvt_donorpoint
-use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, &
+use mem_grid,     only: mza, mma, mva, mwa, nsw_max, lpm, lpv, lpw, lsw, &
                         zt, zm, dzim, zfacit, dzm, dzt, dnv, dnu, arm0, arv, &
-                        vnx, vny, vnz, volt
+                        vnx, vny, vnz, volt, glatw, glonw
 use mem_tend,     only: vmt, vmxet, vmyet, vmzet, sh_wt
 use misc_coms,    only: io6, iparallel, time8, dtlm, rinit
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
@@ -57,10 +58,14 @@ implicit none
 real, intent(inout) :: vmsc(mza,mva)
 real, intent(inout) :: wmsc(mza,mwa)
 
+real, intent(inout) :: vxesc(mza,mwa)
+real, intent(inout) :: vyesc(mza,mwa)
+real, intent(inout) :: vzesc(mza,mwa)
+
 real, intent(in)    :: alpha_press(mza,mwa)
 real, intent(inout) :: rhot       (mza,mwa)
 
-integer :: j, iv, k, ka, kb, mrl, kbv, kd
+integer :: j, iv, k, ka, kb, mrl, kbv, kd, ksw
 integer :: iw, iw1, iw2, iwp, ivp
 
 ! automatic arrays
@@ -272,9 +277,9 @@ if (strict_wvt_donorpoint) then
    if (mrl > 0) then
 
       ! Diagnose 3D velocity at T points for BEGS using half-future vcf
-      ! and current wc
+      ! and current wc (assume not necessary to extrapolate vxe2,vye2,vze2)
 
-      call vel_t3d_hex(mrl, vcf, wc, vxef, vyef, vzef)
+      call vel_t3d_hex(mrl, vcf, wc, vxef, vyef, vzef, vxe2, vye2, vze2)
 
       ! MPI send of VXE, VYE, VZE
 
@@ -432,6 +437,7 @@ if (mrl > 0) then
       if (iparallel == 1) then
          call mpi_send_w(mrl, rvara1=div2d)
       endif
+      call lbcopy_w(mrl, a1=div2d)
 
    endif ! dorayfdiv
 
@@ -449,7 +455,6 @@ if (mrl > 0) then
 
       if (dorayfdiv) then
          call mpi_recv_w(mrl, rvara1=div2d)
-         call lbcopy_w(mrl, a1=div2d)
       endif
 
       call mpi_send_w(mrl, &
@@ -553,14 +558,16 @@ endif
 !----------------------------------------------------------------------
 mrl = mrl_begs(istp)
 if (mrl > 0) then
-!$omp parallel do private(iw) 
+!$omp parallel do private(iw,ksw) 
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
-   call prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,     &
-                       vxe, vye, vmxet, vmyet, vmzet, thil_s, &
-                       thil_upv, vxe_upv, vye_upv, vze_upv,   &
-                       thil_upw, vxe_upw, vye_upw, vze_upw    )
+! Prognose vertical velocity, density, thil, and diagnose pressure
+
+   call prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot, thil_s, &
+                       thil_upv, vxe_upv, vye_upv, vze_upv,       &
+                       thil_upw, vxe_upw, vye_upw, vze_upw,       &
+                       vxesc, vyesc, vzesc                        )
 
 enddo
 !$omp end parallel do 
@@ -620,7 +627,7 @@ use mem_basic,   only: wmc, rho, thil, wc, vc, theta, vxe, vye, vze
 use misc_coms,   only: io6, initial, dn01d, th01d, &
                        deltax, nxp, mdomain, time8, dtlm
 use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, dniv, volt, volti, &
-                       xew, vnx, vny, wnxo2, wnyo2, wnzo2
+                       xew, vnx, vny, vnz, wnxo2, wnyo2, wnzo2
 use mem_turb,    only: hkm
 use mem_rayf,    only: rayf_cof, rayf_cofw, dorayf, dorayfw, krayf_bot, krayfw_bot
 
@@ -629,9 +636,9 @@ implicit none
 integer, intent(in) :: iw
 real,    intent(in) :: rhot(mza,mwa)
 
-integer :: iv, iwn, k, ka, kb, npoly, jv
+integer :: iv, iwn, k, ka, kbv, npoly, jv, ksw
 real    :: fracx, rayfx
-real    :: arvkodx, hdniv
+real    :: arvkodx, hdniv, vmt1
 
 ! Automatic arrays:
 
@@ -639,7 +646,7 @@ real :: hdiff_vxe(mza)
 real :: hdiff_vye(mza)
 real :: hdiff_vze(mza)
 
-kb = lpw(iw)
+ka = lpw(iw)
 
 ! Number of edges of this IW polygon
 
@@ -654,12 +661,12 @@ hdiff_vze(:) = 0.
 do jv = 1,npoly
    iv  = itab_w(iw)%iv(jv)
    iwn = itab_w(iw)%iw(jv)
-   ka  = lpv(iv)
+   kbv  = lpv(iv)
    hdniv = .5 * dniv(iv)
 
 ! Vertical loop over T levels
 
-   do k = ka, mza
+   do k = kbv, mza
 
 ! Horizontal diffusive flux coefficient
 
@@ -677,7 +684,9 @@ enddo
 
 ! Vertical loop over T levels
 
-do k = kb,mza
+do k = ka,mza
+
+! Evaluate momentum tendency in T cell from horizontal turbulent transport
 
    vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) * hdiff_vxe(k) &
                + vxe(k,iw) * rhot(k,iw)
@@ -690,7 +699,7 @@ enddo
 
 ! Vertical loop over W levels
 
-do k = kb,mza-1
+do k = ka,mza-1
 
 ! Update WM tendency from turbulent fluxes
 
@@ -708,7 +717,7 @@ if (dorayfw) then
 !! fracx = abs(xew(iw)) / (real(nxp-1) * .866 * deltax) ! ENDS OF CYC DOMAIN
 !! rayfx = .2 * (-2. + 3. * fracx) * rayf_cofw(mza-1)
 !! rayfx = 0.   ! Default: no extra RAYF
-!! do k = kb, mza-1
+!! do k = ka, mza-1
 !!    wmt(k,iw) = wmt(k,iw) - max(rayf_cofw(k),rayfx) * wmc(k,iw)
 !! enddo
 !! END SPECIAL
@@ -729,7 +738,7 @@ if (dorayf) then
 !!    fracx = abs(xew(iw)) / (real(nxp-1) * .866 * deltax) ! ENDS OF CYC DOMAIN
 !!    rayfx = .2 * (-2. + 3. * fracx) * rayf_cof(mza)
 !!    rayfx = 0.   ! Default: no extra RAYF
-!!    do k = kb, mza
+!!    do k = ka, mza
 !!       thilt(k,iw) = thilt(k,iw) + max(rayf_cof(k),rayfx)  & 
 !!                   * dn01d(k) * (th01d(k) - theta(k,iw))
 !!    enddo
@@ -751,19 +760,21 @@ end subroutine prog_wrt_begl
 
 !=========================================================================
 
-subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,     &
-                          vxe, vye, vmxet, vmyet, vmzet, thil_s, &
-                          thil_upv, vxe_upv, vye_upv, vze_upv,   &
-                          thil_upw, vxe_upw, vye_upw, vze_upw    )  
+subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot, thil_s, &
+                          thil_upv, vxe_upv, vye_upv, vze_upv,       &
+                          thil_upw, vxe_upw, vye_upw, vze_upw,       &  
+                          vxesc, vyesc, vzesc                        )
 
-use mem_tend,    only: thilt, wmt
+use mem_tend,    only: thilt, wmt, vmxet, vmyet, vmzet
 use mem_ijtabs,  only: itab_w
-use mem_basic,   only: wmc, rho, thil, wc, vc, theta, press
+use mem_basic,   only: wmc, rho, thil, wc, vc, theta, press, &
+                       vxe, vye, vze, vxe2, vye2, vze2
 use misc_coms,   only: io6, dtsm, initial, dn01d, th01d, deltax, nxp, &
                        mdomain, time8, icorflg
 use consts_coms, only: cpocv, grav, omega2, pi1, pio180, r8
-use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, arw, volt, volti, &
-                       dzim, dzt, xew, wnxo2, wnyo2, wnzo2, glatw, glonw, &
+use mem_grid,    only: mza, mva, mwa, nsw_max, lpv, lpw, lsw, arv, arw, &
+                       vnx, vny, vnz, wnx, wny, wnz, wnxo2, wnyo2, wnzo2, &
+                       xew, dzim, dzt, volt, volti, glatw, glonw, &
                        dzt_top, dzt_bot, zwgt_top, zwgt_bot
 use tridiag,     only: tridiffo
 use oname_coms,  only: nl
@@ -777,13 +788,6 @@ real, intent(inout) :: wmsc(mza,mwa)
 real, intent(in) :: alpha_press(mza,mwa)
 real, intent(in) :: rhot(mza,mwa)
 
-real, intent(in) :: vxe(mza,mwa)
-real, intent(in) :: vye(mza,mwa)
-
-real, intent(out) :: vmxet(mza,mwa)
-real, intent(out) :: vmyet(mza,mwa)
-real, intent(out) :: vmzet(mza,mwa)
-
 real, intent(in) :: thil_s(mza,mwa)
 
 real, intent(in) :: thil_upv(mza,mva)
@@ -796,15 +800,18 @@ real, intent(in) :: vxe_upw (mza,mwa)
 real, intent(in) :: vye_upw (mza,mwa)
 real, intent(in) :: vze_upw (mza,mwa)
 
+real, intent(inout) :: vxesc(mza,mwa)
+real, intent(inout) :: vyesc(mza,mwa)
+real, intent(inout) :: vzesc(mza,mwa)
 
 integer :: jv, iv, iwn
-integer :: k, ka, kbv, kp
+integer :: k, ka, kbv, kp, ksw
 integer :: npoly
 
 real :: dts
 real :: c6, c7, c8, c9, c10
 real :: dirv, vmarv
-real :: del_rhothil
+real :: del_rhothil, vmt1
 real :: rad0_swtc, rad_swtc, topo_swtc
 
 ! Vertical implicit scheme weighting parameters
@@ -846,6 +853,14 @@ real :: b1(mza),b2(mza),b3(mza),b5(mza),b6(mza),b10(mza)
 real :: b7(mza),b8(mza),b9(mza),b11(mza),b12(mza),b13(mza),b14(mza)
 real :: b21(mza),b22(mza),b23(mza),b24(mza),b25(mza),b26(mza)
 real :: b31(mza),b32(mza),b33(mza),b34(mza)
+
+real :: vmxe1(mza)
+real :: vmye1(mza)
+real :: vmze1(mza)
+
+real :: vxe1(mza)
+real :: vye1(mza)
+real :: vze1(mza)
 
 ka = lpw(iw)
 
@@ -965,6 +980,11 @@ do k = ka,mza
    rhothil(k) = rho(k,iw) * thil_s(k,iw)
    press_t(k) = alpha_press(k,iw) * rhothil(k) ** cpocv
 
+! Compute current T cell momentum and store in temp array
+
+   vmxe1(k) = vxe(k,iw) * rho(k,iw)
+   vmye1(k) = vye(k,iw) * rho(k,iw)
+   vmze1(k) = vze(k,iw) * rho(k,iw)
 enddo
 
 ! Loop over W levels for update of DELEX_WM
@@ -1100,6 +1120,43 @@ do k = ka,mza
    vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) * (vflux_vye(k-1) - vflux_vye(k))
    vmzet(k,iw) = vmzet(k,iw) + volti(k,iw) * (vflux_vze(k-1) - vflux_vze(k))
 
+! Update velocity in T cells, and add half-forward value to scalar arrays
+
+   vxe1(k) = (vmxe1(k) + dts * vmxet(k,iw)) / rho(k,iw)
+   vye1(k) = (vmye1(k) + dts * vmyet(k,iw)) / rho(k,iw)
+   vze1(k) = (vmze1(k) + dts * vmzet(k,iw)) / rho(k,iw)
+
+   vxesc(k,iw) = vxesc(k,iw) + .5 * (vxe(k,iw) + vxe1(k))
+   vyesc(k,iw) = vyesc(k,iw) + .5 * (vye(k,iw) + vye1(k))
+   vzesc(k,iw) = vzesc(k,iw) + .5 * (vze(k,iw) + vze1(k))
+enddo
+
+! Zero out vxe2, vye2, vze2 prior to new diagnosis
+
+do ksw = 1,lsw(iw)
+   k = ka + ksw - 1
+
+   vxe2(ksw,iw) = 0.
+   vye2(ksw,iw) = 0.
+   vze2(ksw,iw) = 0.
+
+! Loop over adjacent V faces
+
+   do jv = 1, npoly
+      iv  = itab_w(iw)%iv(jv)
+
+! Project vxe1, vye1, vze1 onto V faces that are below ground, and then
+! project back to vxe2, vye2, vze2
+
+      if (lpv(iv) > k) then
+         vmt1 = vnx(iv) * vxe1(k) + vny(iv) * vye1(k) + vnz(iv) * vze1(k)
+
+         vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vmt1
+         vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vmt1
+         vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vmt1
+      endif
+   enddo
+
 enddo
 
 ! For shallow water test cases 2 & 5, rho & press are
@@ -1135,8 +1192,10 @@ enddo
 
 ! Set top & bottom values of WC
 
-wc(1:ka-1,iw) = wc(ka,iw)
-wc(mza,iw) = 0.
+wc(ka-1,iw) = wnx(iw) * vxe1(ka) + wny(iw) * vye1(ka) + wnz(iw) * vze1(ka)
+
+wc(1:ka-2,iw) = 0.
+wc(mza   ,iw) = 0.
 
 return
 end subroutine prog_wrt_begs
@@ -1147,7 +1206,7 @@ subroutine prog_v_begs(iv,vmxet,vmyet,vmzet,div2d)
 
 use mem_tend,    only: vmt
 use mem_ijtabs,  only: itab_v, itab_w
-use mem_basic,   only: vp, vc, press, vmp, vmc, rho
+use mem_basic,   only: vc, press, vmp, vmc, rho
 use misc_coms,   only: io6, dtsm, initial, mdomain, u01d, v01d, dn01d, &
                        deltax, nxp
 use consts_coms, only: erad, eradi, gravo2
@@ -1275,8 +1334,6 @@ do k = kb,mza
    vc(k,iv) = 2.0 * vmc(k,iv) / (rho(k,iw1) + rho(k,iw2))
 
 enddo
-
-vc(1:kb-1,iv) = vc(kb,iv)
 
 return
 end subroutine prog_v_begs

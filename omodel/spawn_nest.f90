@@ -106,8 +106,6 @@ mrows = 3
 
 do ngr = 2, ngrids  ! Loop over nested grids
 
-   mrows = 3
-
 ! Allocate temporary tables
 
    allocate (nest_ud(nua), nest_wd(nwa))  ! Nest relations
@@ -192,7 +190,7 @@ do ngr = 2, ngrids  ! Loop over nested grids
             imbeg = im
             exit
          elseif (minside == 2 .and. &
-              ltab_md(im)%mrlm == ltab_md(imcent)%mrlm) then
+            ltab_md(im)%mrlm == ltab_md(imcent)%mrlm) then
 
             impen = im
          endif
@@ -1348,6 +1346,7 @@ enddo
 
 return
 end subroutine pent_urows
+
 !==============================================================================
 
 subroutine perim_map2(npts,nper2,imper,iuper,npolyper,nwdivper,nearpent)
@@ -1619,7 +1618,7 @@ do irow = 2,10  ! First row already done above
                    ,itab_wd(iw2)%mrow &
                    ,itab_wd(iw3)%mrow)
 
-         if (mrow > 0)  mrow_temp (iw) = mrow + jrow
+         if (mrow > 0) mrow_temp (iw) = mrow + jrow
 
 ! Check for negative mrow values
 
@@ -1627,7 +1626,7 @@ do irow = 2,10  ! First row already done above
                    ,itab_wd(iw2)%mrow &
                    ,itab_wd(iw3)%mrow)
 
-         if (mrow < 0)  mrow_temp (iw) = mrow - jrow
+         if (mrow < 0) mrow_temp (iw) = mrow - jrow
 
       endif
 

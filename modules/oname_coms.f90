@@ -96,7 +96,6 @@ Module oname_coms
 
       integer :: ngrids     = 1
       integer :: ngrids_old = 1
-      integer :: nconcave   = 3
 
       integer :: ngrdll(maxgrds) = 0
       real    :: grdrad(maxgrds) = 0.0

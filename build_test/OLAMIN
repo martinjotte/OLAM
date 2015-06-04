@@ -71,16 +71,16 @@
  ! Horizontal grid specifications
  !--------------------------------------------------------------------------
 
-   NL%MDOMAIN = 0       ! Model domain specification:
-                        !    0 = global spherical
-                        !    3 = 2D Cartesian channel with cyclic boundaries
-                        !    5 = Horizontally-periodic cartesian domain
+   NL%MDOMAIN = 0     ! Model domain specification:
+                      !    0 = global spherical
+                      !    4 = Horizontally-periodic long/narrow Cartesian domain
+                      !    5 = Horizontally-periodic hexagonal Cartesian domain
 
-   NL%NXP  = 36        ! Number of grid points spanning one side of
-                        !  any icosahedral triangle when MDOMAIN = 0 
-                        ! or spanning X direction when MDOMAIN = 3
+   NL%NXP = 36        ! Number of grid points spanning one side of
+                      !  any icosahedral triangle when MDOMAIN = 0 
+                      ! or spanning X direction when MDOMAIN = 3
 
-   NL%DELTAX  = 1000.   ! Coarse grid horizontal spacing (used if MDOMAIN > 0)
+   NL%DELTAX = 1000.  ! Coarse grid horizontal spacing (used if MDOMAIN > 0)
 
  !--------------------------------------------------------------------------
  ! Horizontal grid refinement ("nested grid") definition
@@ -299,7 +299,7 @@
    NL%QXTRANS = 1,        ! 0 = no transport of rain/graupel/hail internal energy
                           ! 1 = transport rain/graupel/hail internal energy 
 
-   NL%CPARM   = 0.        ! Cloud concen (#/kg_air) if ICLOUD = 4, but if
+   NL%CPARM   = 0.e6      ! Cloud concen (#/kg_air) if ICLOUD = 4, but if
                           !    CPARM < 1.e6, OLAM uses geographically-distributed
                           !    mean cloud droplet concentrations
                           ! CCN concen (#/kg_air) if ICLOUD = 5

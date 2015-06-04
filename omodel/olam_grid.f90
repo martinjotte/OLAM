@@ -145,7 +145,7 @@ real :: xin(6),yin(6)
   elseif (mdomain == 4) then
 
      write(io6,'(/,a)') 'gridinit calling cartesian_3d'
-     call cartesian_3d()    ! 3D cartesian channel domain; calls 2 allocs
+     call cart4_hex()    ! 3D cartesian channel domain; calls 2 allocs
 
   elseif (mdomain == 5) then
 
@@ -173,20 +173,18 @@ real :: xin(6),yin(6)
 
   endif
 
-  call voronoi()
-  call pcvt()
+  if (mdomain /= 4) then
+
+     call voronoi()
+     call pcvt()
+
+  endif
 
 ! Allocate remaining GRID FOOTPRINT arrays for full domain
 
   write(io6,'(/,a)') 'gridinit calling alloc_grid1 for full domain'
 
   call alloc_grid1(nma, nva, nwa)
-
-! Fill remaining GRID FOOTPRINT geometry for full domain
-
-  write(io6,'(/,a)') 'gridinit calling grid_geometry'
-
-  call grid_geometry_hex()
 
 ! Initialize dtlm, dtsm, ndtrat, and nacoust,
 ! and compute the timestep schedule for all grid operations.
@@ -198,6 +196,12 @@ real :: xin(6),yin(6)
   write(io6,'(/,a)') 'gridinit calling fill_jtabs'
 
   call fill_jtabs(nma,nva,nwa,0)
+
+! Fill remaining GRID FOOTPRINT geometry for full domain
+
+  write(io6,'(/,a)') 'gridinit calling grid_geometry'
+
+  call grid_geometry_hex()
 
 ! Set up topographic surface and its intersection of the 3D atmospheric grid.
 

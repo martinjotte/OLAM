@@ -69,7 +69,7 @@ subroutine olam_mem_alloc()
 
   call alloc_grid_other()
 
-  call alloc_basic(mza,mva,mwa)
+  call alloc_basic(mza,mva,mwa,nsw_max)
   call filltab_basic()
 
   call alloc_cuparm(mza, mwa, mrls, nqparm)

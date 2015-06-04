@@ -578,7 +578,7 @@ real :: gx1,gx2,gy1,gy2
 real :: xem1, xem2, yem1, yem2, zem1, zem2
 
 real :: xq1, yq1, xq2, yq2, psiz, vsprd
-integer :: iskip, iwp, ivp
+integer :: iskip, iwp, ivp, imp
 logical :: dops
 
 real :: quarter_kite(2,nva)
@@ -752,6 +752,20 @@ do iv = 2, nva
 
    arw0(iw1) = arw0(iw1) + quarter_kite(1,iv) + quarter_kite(2,iv)
    arw0(iw2) = arw0(iw2) + quarter_kite(1,iv) + quarter_kite(2,iv)
+enddo
+
+! Lateral boundary copy of arw0
+
+do iw = 2,nwa
+   iwp = itab_w(iw)%iwp
+   if (iw /= iwp) arw0(iw) = arw0(iwp)
+enddo
+
+! Lateral boundary copy of arm0
+
+do im = 2,nma
+   imp = itab_m(im)%imp
+   if (im /= imp) arm0(im) = arm0(imp)
 enddo
 
 !$omp parallel
@@ -1242,6 +1256,17 @@ real, allocatable :: area_kw_sum(:,:)
      enddo
   enddo
 
+! Lateral boundary copy of ARW, VOLT
+
+!----------------------------------------------------------------------
+  do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+     iwp = itab_w(iw)%iwp
+!----------------------------------------------------------------------
+
+     arw (:,iw) = arw (:,iwp)
+     volt(:,iw) = volt(:,iwp)
+  enddo
+
 ! ARV
 
   write(io6,*) 'Defining control volume areas'
@@ -1517,7 +1542,7 @@ real, allocatable :: area_kw_sum(:,:)
 
 ! Increase LSW if K-1 W level intersects topography in this cell
 
-        if (arw(k,iw) > 0. .and. arw(k,iw) < .999 * arw0(iw)) then
+        if (arw(k,iw) > 0. .and. arw(k,iw) < .999 * arw0(iw) * zfacm(k)**2) then
            lsw(iw) = lsw(iw) + 1
         endif
 
@@ -1613,6 +1638,7 @@ real, allocatable :: area_kw_sum(:,:)
      arw  (:,iw) = arw  (:,iwp)
      volt (:,iw) = volt (:,iwp)
      volti(:,iw) = volti(:,iwp)
+     lpw    (iw) = lpw    (iwp)
      lsw    (iw) = lsw    (iwp)
 
   enddo
@@ -1639,6 +1665,7 @@ real, allocatable :: area_kw_sum(:,:)
 !----------------------------------------------------------------------
 
      arv(:,iv) = arv(:,ivp)
+     lpv(iv) = lpv(ivp)
 
   enddo
 

@@ -55,6 +55,10 @@ Module mem_basic
   real, allocatable, target :: vye  (:,:) ! earth-relative y velocity at T point [m/s]
   real, allocatable, target :: vze  (:,:) ! earth-relative z velocity at T point [m/s]
 
+  real, allocatable, target :: vxe2 (:,:) ! earth-relative x velocity at T point [m/s]
+  real, allocatable, target :: vye2 (:,:) ! earth-relative y velocity at T point [m/s]
+  real, allocatable, target :: vze2 (:,:) ! earth-relative z velocity at T point [m/s]
+
   real(r8), allocatable, target :: press(:,:) ! air pressure [Pa]
   real(r8), allocatable, target :: rho  (:,:) ! total air density [kg/m^3]
 
@@ -69,11 +73,13 @@ Contains
 
 !===============================================================================
 
-  subroutine alloc_basic(mza,mva,mwa)
+  subroutine alloc_basic(mza,mva,mwa,nsw_max)
+
     use misc_coms, only: rinit, rinit8
+
     implicit none
 
-    integer, intent(in) :: mza,mva,mwa
+    integer, intent(in) :: mza,mva,mwa,nsw_max
 
 !   Allocate basic memory needed for 'INITIAL' or 'HISTORY' runs
 !   and initialize allocated arrays to zero
@@ -101,6 +107,10 @@ Contains
     allocate (vye  (mza,mwa)) ; vye   = rinit
     allocate (vze  (mza,mwa)) ; vze   = rinit
 
+    allocate (vxe2 (nsw_max,mwa)) ; vxe2 = rinit
+    allocate (vye2 (nsw_max,mwa)) ; vye2 = rinit
+    allocate (vze2 (nsw_max,mwa)) ; vze2 = rinit
+
   end subroutine alloc_basic
 
 !===============================================================================
@@ -124,6 +134,9 @@ Contains
     if (allocated(vxe))   deallocate (vxe)
     if (allocated(vye))   deallocate (vye)
     if (allocated(vze))   deallocate (vze)
+    if (allocated(vxe2))  deallocate (vxe2)
+    if (allocated(vye2))  deallocate (vye2)
+    if (allocated(vze2))  deallocate (vze2)
 
   end subroutine dealloc_basic
 
@@ -159,6 +172,12 @@ Contains
     if (allocated(rho))   call increment_vtable('RHO',  'AW', dvar2=rho)
 
     if (allocated(press)) call increment_vtable('PRESS','AW', dvar2=press)
+
+    if (allocated(vxe2))  call increment_vtable('VXE2', 'AW', rvar2=vxe2)
+
+    if (allocated(vye2))  call increment_vtable('VYE2', 'AW', rvar2=vye2)
+
+    if (allocated(vze2))  call increment_vtable('VZE2', 'AW', rvar2=vze2)
 
   end subroutine filltab_basic
 

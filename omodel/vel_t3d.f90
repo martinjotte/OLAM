@@ -32,53 +32,58 @@
 !===============================================================================
 subroutine diagvel_t3d(mrl)
 
-  use mem_basic, only: vc, wc, vxe, vye, vze
+  use mem_basic, only: vc, wc, vxe, vye, vze, vxe2, vye2, vze2
   implicit none
 
   integer, intent(in) :: mrl
 
-  call vel_t3d_hex(mrl, vc, wc, vxe, vye, vze)
+  call vel_t3d_hex(mrl, vc, wc, vxe, vye, vze, vxe2, vye2, vze2)
 
   return
 end subroutine diagvel_t3d
 
 !===============================================================================
 
-subroutine vel_t3d_hex(mrl, vs, ws, vxe, vye, vze)
+subroutine vel_t3d_hex(mrl, vs, ws, vxe, vye, vze, vxe2, vye2, vze2)
 
 use mem_ijtabs, only: jtab_w, itab_v, itab_w, jtw_prog
-use mem_grid,   only: mza, mva, mwa, lpw, lpv, vnx, vny, vnz, wnx, wny, wnz
+use mem_grid,   only: mza, mva, mwa, nsw_max, lpw, lsw, lpv, &
+                      vnx, vny, vnz, wnx, wny, wnz
 use misc_coms,  only: io6
 
 implicit none
 
 integer, intent(in) :: mrl
 
-real, intent(in)  :: vs(mza,mva)
-real, intent(in)  :: ws(mza,mwa)
+real, intent(in) :: vs(mza,mva)
+real, intent(in) :: ws(mza,mwa)
 
-real, intent(out) :: vxe(mza,mwa)
-real, intent(out) :: vye(mza,mwa)
-real, intent(out) :: vze(mza,mwa)
+real, intent(inout) :: vxe(mza,mwa)
+real, intent(inout) :: vye(mza,mwa)
+real, intent(inout) :: vze(mza,mwa)
 
-integer :: j,iw,npoly,kb,k,jv,iv
-real    :: farv2, wst
+real, intent(in) :: vxe2(nsw_max,mwa)
+real, intent(in) :: vye2(nsw_max,mwa)
+real, intent(in) :: vze2(nsw_max,mwa)
+
+integer :: j,iw,npoly,ka,k,jv,iv,ksw,kbv
+real    :: wst
 
 if (mrl == 0) return
 
 ! Horizontal loop over W columns
 
 !----------------------------------------------------------------------
-!$omp parallel do private(iw,npoly,kb,k,jv,iv,wst) 
+!$omp parallel do private(iw,npoly,ka,k,jv,iv,kbv,ksw,wst) 
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
    npoly = itab_w(iw)%npoly
-   kb = lpw(iw)
+   ka = lpw(iw)
 
 ! Vertical loop over T levels
 
-   do k = kb, mza
+   do k = ka, mza
 
 ! Diagnose 3D earth-velocity vector at T points; W contribution first
 
@@ -90,32 +95,103 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
    enddo
 
+! Effective contribution from submerged V faces
+
+   do ksw = 1,lsw(iw)
+      k = ka + ksw - 1
+
+      vxe(k,iw) = vxe(k,iw) + vxe2(ksw,iw) 
+      vye(k,iw) = vye(k,iw) + vye2(ksw,iw) 
+      vze(k,iw) = vze(k,iw) + vze2(ksw,iw) 
+   enddo
+
 ! Loop over V neighbors of this W cell
 
    do jv = 1, npoly
 
-      iv = itab_w(iw)%iv(jv)
+      iv  = itab_w(iw)%iv(jv)
+      kbv = lpv(iv)
 
-! Vertical loop over T levels
+! Vertical loop over V levels that are above ground
 
-      do k = kb, mza
+      do k = kbv, mza
 
 ! Diagnose 3D earth-velocity vector at T points; VC contribution
 
          vxe(k,iw) = vxe(k,iw) + itab_w(iw)%ecvec_vx(jv) * vs(k,iv)
          vye(k,iw) = vye(k,iw) + itab_w(iw)%ecvec_vy(jv) * vs(k,iv)
          vze(k,iw) = vze(k,iw) + itab_w(iw)%ecvec_vz(jv) * vs(k,iv)
-
       enddo
-      
+
    enddo
    
-   vxe(1:kb-1,iw) = vxe(kb,iw)
-   vye(1:kb-1,iw) = vye(kb,iw)
-   vze(1:kb-1,iw) = vze(kb,iw)
+   vxe(1:ka-1,iw) = vxe(ka,iw)
+   vye(1:ka-1,iw) = vye(ka,iw)
+   vze(1:ka-1,iw) = vze(ka,iw)
 
 enddo
 !$omp end parallel do
 
 return
 end subroutine vel_t3d_hex
+
+!===============================================================================
+
+subroutine diagvel_t3d_init(mrl)
+
+use mem_basic,  only: vc, vxe2, vye2, vze2
+use mem_ijtabs, only: jtab_w, itab_v, itab_w, jtw_prog
+use mem_grid,   only: mza, mva, mwa, nsw_max, lpw, lsw, lpv, &
+                      vnx, vny, vnz, wnx, wny, wnz
+use misc_coms,  only: io6
+
+implicit none
+
+integer, intent(in) :: mrl
+
+integer :: j,iw,npoly,ka,k,jv,iv,ksw,kbv
+
+if (mrl == 0) return
+
+! Horizontal loop over W columns
+
+!----------------------------------------------------------------------
+!$omp parallel do private(iw,npoly,ka,k,jv,iv,kbv,ksw) 
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+!----------------------------------------------------------------------
+
+   npoly = itab_w(iw)%npoly
+   ka = lpw(iw)
+
+   vxe2(:,iw) = 0.
+   vye2(:,iw) = 0.
+   vze2(:,iw) = 0.
+
+! Loop over adjacent V faces
+
+   do jv = 1, npoly
+
+      iv  = itab_w(iw)%iv(jv)
+      kbv = lpv(iv)
+
+! Check if any V faces are below ground
+
+      if (ka < kbv) then
+         do k = ka,kbv-1
+            ksw = k - ka + 1
+
+! Project INITIAL VC from below-ground V faces back to (vxe2, vye2, vze2)
+
+            vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vc(k,iv)
+            vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vc(k,iv)
+            vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vc(k,iv)
+         enddo
+      endif
+
+   enddo
+
+enddo
+!$omp end parallel do
+
+return
+end subroutine diagvel_t3d_init

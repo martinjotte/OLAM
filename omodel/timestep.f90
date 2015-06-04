@@ -37,12 +37,12 @@ use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, time_bias, &
                        iparallel, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag, io3
-use mem_grid,    only: mza, mva, mwa
+use mem_grid,    only: mza, mva, mwa, nsw_max
 use micro_coms,  only: level
 use leaf_coms,   only: isfcl
 use mem_para,    only: myrank
 use mem_turb,    only: hkm
-use mem_basic,   only: vmc, vc, vxe, vye, vze, thil, rho, wmc, wc
+use mem_basic,   only: vmc, vc, vxe, vye, vze, vxe2, vye2, vze2, thil, rho, wmc, wc
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 use var_tables,  only: nvar_par, vtab_r, nptonv
 use obnd,        only: trsets, lbcopy_v, lbcopy_w
@@ -66,6 +66,9 @@ real     :: wmsc       (mza,mwa) ! W face momentum for scalar advection
 real(r8) :: rho_old    (mza,mwa) ! density at beginning of timestep [kg/m^3]
 real     :: alpha_press(mza,mwa) ! coefficient for computing pressure
 real     :: rhot       (mza,mwa) ! grid-cell total mass tendency [kg/s]
+real     :: vxesc      (mza,mwa)
+real     :: vyesc      (mza,mwa)
+real     :: vzesc      (mza,mwa)
 
 ! +----------------------------------------------------------------------------+
 ! |  Each call to subroutine timestep drives all steps in advancing by dtlong  |
@@ -135,7 +138,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
 ! call check_nans(5)
 
-   call zero_momsc(vmsc,wmsc,rho_old)
+   call zero_momsc(vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
 
 ! MPI Recv and LBC copy of K's
 
@@ -170,7 +173,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
 ! call check_nans(11)
 
-   call prog_wrtv(vmsc,wmsc,alpha_press,rhot)
+   call prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 
 ! call check_nans(12)
 
@@ -180,7 +183,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       if (iparallel == 1) call mpi_send_w(mrl, scalars='S')
    endif
 
-   call timeavg_momsc(vmsc,wmsc)
+   call timeavg_momsc(vmsc,wmsc,vxesc,vyesc,vzesc)
 
 ! call check_nans(13)
 
@@ -193,7 +196,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
    endif
 
    if (mrl_endl(istp) > 0) then
-      call scalar_transport(vmsc,wmsc,rho_old)
+      call scalar_transport(vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
    endif
 
 ! call check_nans(14)
@@ -299,7 +302,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
    if (iparallel == 1) then
       call mpi_send_v(mrl, rvara1=vmc, rvara2=vc)
-      call mpi_recv_v(mrl ,rvara1=vmc, rvara2=vc)
+      call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
    endif
    call lbcopy_v(1, vmc=vmc, vc=vc)
 
@@ -315,6 +318,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
       call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
    endif
+   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
 ! call check_nans(21)
 
@@ -778,4 +782,3 @@ subroutine predtr_split(mrl,rho_old)
   ! TODO: check if updated scalars are positive-definite??
 
 end subroutine predtr_split
-

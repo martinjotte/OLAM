@@ -341,6 +341,7 @@ subroutine olam_run(name_name)
 
   if (runtype == 'INITIAL') then
      mrl = 1
+     call diagvel_t3d_init(mrl)
      call diagvel_t3d(mrl)
 
      if (iparallel == 1) then
@@ -363,7 +364,7 @@ subroutine olam_run(name_name)
   ! A good place to initialize added scalars
 
   !-------------------------------------------------------------------------------
-  if (runtype == "INITIAL") then
+  if (runtype == 'INITIAL') then
      if (init_hurr_step > 0) call hurricane_init()
   endif
   !-------------------------------------------------------------------------------

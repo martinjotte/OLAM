@@ -497,3 +497,675 @@ endif
 
 end subroutine cart_hex
 
+!===============================================================================
+
+subroutine cart4_hex()
+
+use mem_ijtabs, only: itab_m, itab_v, itab_w, mrls, alloc_itabs, &
+                      jtm_grid, jtv_grid, jtw_grid, &
+                      jtm_init, jtv_init, jtw_init, &
+                      jtm_prog, jtv_prog, jtw_prog, &
+                      jtm_lbcp, jtv_lbcp, jtw_lbcp, &
+                      jtm_wadj, jtv_wadj, jtw_wadj, &
+                      jtm_wstn, jtv_wstn, jtw_wstn, &
+                      jtm_vadj, jtv_wall, jtw_vadj
+
+use mem_grid,   only: nma, nua, nva, nwa, mma, mua, mva, mwa, &
+                      xem, yem, zem, xew, yew, zew, &
+                      alloc_xyzem, alloc_xyzew
+
+use misc_coms,  only: io6, nxp, deltax
+
+implicit none
+
+integer :: i, j, iw, im, iv
+integer :: jw(11), jaw(11), jzw(11)
+integer :: jm(29), jam(29), jzm(29)
+integer :: jv(28), jav(28), jzv(28)
+
+real :: centx, unit_dist
+
+character(10) :: string
+
+! Constructs hexagon grid directly (not beginning from triangle grid), and
+! therefore is not succeeded by calls to tri_neighbors, voronoi and pcvt.
+! However, grid_geometry_hex IS called after this subroutine.
+
+! Channel width = 4 allocated IW rows with cyclic repeat distance 2 rows wide
+! THIS CASE APPLIES FOR MDOMAIN = 4 (cyclic x bnds & cyclic y bnds)
+
+! Channel length is NXP, and cyclic repeat distance is NXP * UNIT_DIST
+! (unit_dist defined below).  NXP MUST BE AT LEAST 2.
+
+  if (nxp < 2) then
+     print*, 'nxp must be at least 2 when mdomain = 4. '
+     stop 'stop1 cart4_hex'
+  endif
+
+  mrls = 1  ! Default value
+
+! Use nxp to count hexagons
+
+  nwa =  4 * nxp + 7  ! Includes index=1 point
+  nma =  8 * nxp + 11 ! Includes index=1 point
+  nva = 10 * nxp + 10 ! Includes index=1 point
+  nua = nva
+
+  mma = nma
+  mwa = nwa
+  mva = nva
+  mua = nua
+
+! Allocate itab and earth-coordinate arrays
+
+  call alloc_itabs(nma,nva,nwa,0)
+
+  call alloc_xyzew(nwa)
+  call alloc_xyzem(nma)
+
+  zew(:) = 0.
+  zem(:) = 0.
+
+  do iw = 2,nwa
+     itab_w(iw)%iwglobe   = iw
+     itab_w(iw)%mrlw      = 1
+     itab_w(iw)%mrlw_orig = 1
+     itab_w(iw)%ngr = 1
+  enddo
+
+  do im = 2,nma
+     itab_m(im)%imglobe   = im
+     itab_m(im)%mrlm      = 1
+     itab_m(im)%mrlm_orig = 1
+     itab_m(im)%ngr = 1
+  enddo
+
+  do iv = 2,nva
+     itab_v(iv)%ivglobe   = iv
+     itab_v(iv)%mrlv      = 1
+  enddo
+
+! DELTAX, whose value is defined in OLAMIN, is a measure of the
+! horizontal grid spacing.  Here, it is defined as the square root
+! of the area of a regular hexagonal grid cell on the plane.
+
+! Based on the above definition of DELTAX, calculate unit_dist,
+! which is the distance between the centers of adjacent hexagons, or
+! equivalently, the length of an edge on the regular triangle grid.
+
+  unit_dist = sqrt(sqrt(4./3.)) * deltax  ! approx = 1.07457 * deltax
+
+! Loop along channel length, covering a full transverse row at each step
+
+  do i = 1,nxp
+
+! Fill grid point index values in stencil for given i value
+
+! JW stencil points used: 2,3,4,5,6,7,8,9,10,11
+! JM stencil points used: 2,4,7,9,10,11,12,13,14,15,16,18,19,20,21,22,23,29
+! JV stencil points used: 2,5,9,11,12,13,14,15,16,17,18,19,20,23,24,25,26,27,28
+
+     do j = 1,11
+        jw(j) =  4 * i + j -  4
+     enddo
+
+     do j = 1,29
+        jm(j) =  8 * i + j - 12
+     enddo
+
+     do j = 1,28
+        jv(j) = 10 * i + j - 16
+     enddo
+
+! Set unused stencil indices to 1
+
+     jw(1) = 1
+
+     jm(1 :5 :2) = 1
+     jm(6 :8 :2) = 1
+     jm(17     ) = 1
+     jm(24:28  ) = 1
+
+     jv( 1   ) = 1
+     jv( 3: 4) = 1
+     jv( 6: 8) = 1
+     jv(10   ) = 1
+     jv(21:22) = 1
+
+! Modify M and V indices at ends of channel (no modification needed for W)
+
+     if (i == 1) then
+
+        jm(2) = 2
+        jm(4) = 3
+        jm(7) = 4
+
+        jv(2) = 2
+        jv(5) = 3
+        jv(9) = 4
+
+        jaw(:) = jw(:)
+        jam(:) = jm(:)
+        jav(:) = jv(:)
+
+     elseif (i == nxp) then
+
+        jm(18:23) = jm(18:23) - 1
+        jm(29   ) = jm(29   ) - 6
+
+        jv(23:28) = jv(23:28) - 2
+
+        jzw(:) = jw(:)
+        jzm(:) = jm(:)
+        jzv(:) = jv(:)
+
+     endif
+
+     centx = (2 * i - nxp - 1) * 0.5 * unit_dist
+
+     xew(jw( 3     )) = centx - 1.25 * unit_dist
+     xew(jw( 2: 4:2)) = centx - 0.75 * unit_dist
+     xew(jw( 5: 7:2)) = centx - 0.25 * unit_dist
+     xew(jw( 6: 8:2)) = centx + 0.25 * unit_dist
+     xew(jw( 9:11:2)) = centx + 0.75 * unit_dist
+     xew(jw(10     )) = centx + 1.25 * unit_dist
+
+     yew(jw(5 : 9:4)) =  2.25 * unit_dist / sqrt(3.)
+     yew(jw(2 :10:4)) =  0.75 * unit_dist / sqrt(3.)
+     yew(jw(3 :11:4)) = -0.75 * unit_dist / sqrt(3.)
+     yew(jw(4 : 8:4)) = -2.25 * unit_dist / sqrt(3.)
+
+     xem(jm( 4: 7: 3)) = centx - 1.25 * unit_dist
+     xem(jm( 2      )) = centx - 0.75 * unit_dist
+     xem(jm(13:14   )) = centx - 0.75 * unit_dist
+     xem(jm(11:12   )) = centx - 0.25 * unit_dist
+     xem(jm(15:16   )) = centx - 0.25 * unit_dist
+     xem(jm( 9:10   )) = centx + 0.25 * unit_dist
+     xem(jm(21:22   )) = centx + 0.25 * unit_dist
+     xem(jm(19:20   )) = centx + 0.75 * unit_dist
+     xem(jm(23      )) = centx + 0.75 * unit_dist
+     xem(jm(18:29:11)) = centx + 1.25 * unit_dist
+
+     yem(jm( 9     )) =  2.75 * unit_dist / sqrt(3.) 
+     yem(jm( 2:18:8)) =  1.75 * unit_dist / sqrt(3.) 
+     yem(jm(11:19:8)) =  1.25 * unit_dist / sqrt(3.) 
+     yem(jm( 4:20:8)) =  0.25 * unit_dist / sqrt(3.) 
+     yem(jm(13:29:8)) = -0.25 * unit_dist / sqrt(3.) 
+     yem(jm(14:22:8)) = -1.25 * unit_dist / sqrt(3.) 
+     yem(jm( 7:23:8)) = -1.75 * unit_dist / sqrt(3.)
+     yem(jm(16     )) = -2.75 * unit_dist / sqrt(3.) 
+
+     call wloopf('f',jw(5), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
+     call wloopf('f',jw(6), jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
+     call wloopf('f',jw(7), jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
+     call wloopf('f',jw(8), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
+
+     itab_w(jw(5))%iwp   = jw(7)
+
+     itab_w(jw(6))%npoly = 6
+     itab_w(jw(6))%iwp   = jw(6)
+
+     itab_w(jw(6))%iw(1) = jw(11)
+     itab_w(jw(6))%iw(2) = jw(10)
+     itab_w(jw(6))%iw(3) = jw(9)
+     itab_w(jw(6))%iw(4) = jw(5)
+     itab_w(jw(6))%iw(5) = jw(2)
+     itab_w(jw(6))%iw(6) = jw(7)
+
+     itab_w(jw(6))%im(1) = jm(20)
+     itab_w(jw(6))%im(2) = jm(19)
+     itab_w(jw(6))%im(3) = jm(10)
+     itab_w(jw(6))%im(4) = jm(11)
+     itab_w(jw(6))%im(5) = jm(12)
+     itab_w(jw(6))%im(6) = jm(21)
+
+     itab_w(jw(6))%iv(1) = jv(26)
+     itab_w(jw(6))%iv(2) = jv(24)
+     itab_w(jw(6))%iv(3) = jv(12)
+     itab_w(jw(6))%iv(4) = jv(13)
+     itab_w(jw(6))%iv(5) = jv(14)
+     itab_w(jw(6))%iv(6) = jv(15)
+
+     itab_w(jw(6))%dirv(1:3) = -1.0
+     itab_w(jw(6))%dirv(4:6) =  1.0
+
+     itab_w(jw(7))%npoly = 6
+     itab_w(jw(7))%iwp   = jw(7)
+
+     itab_w(jw(7))%iw(1) = jw(8)
+     itab_w(jw(7))%iw(2) = jw(11)
+     itab_w(jw(7))%iw(3) = jw(6)
+     itab_w(jw(7))%iw(4) = jw(2)
+     itab_w(jw(7))%iw(5) = jw(3)
+     itab_w(jw(7))%iw(6) = jw(4)
+
+     itab_w(jw(7))%im(1) = jm(22)
+     itab_w(jw(7))%im(2) = jm(21)
+     itab_w(jw(7))%im(3) = jm(12)
+     itab_w(jw(7))%im(4) = jm(13)
+     itab_w(jw(7))%im(5) = jm(14)
+     itab_w(jw(7))%im(6) = jm(15)
+
+     itab_w(jw(7))%iv(1) = jv(19)
+     itab_w(jw(7))%iv(2) = jv(27)
+     itab_w(jw(7))%iv(3) = jv(15)
+     itab_w(jw(7))%iv(4) = jv(16)
+     itab_w(jw(7))%iv(5) = jv(17)
+     itab_w(jw(7))%iv(6) = jv(18)
+
+     itab_w(jw(7))%dirv(1:3) = -1.0
+     itab_w(jw(7))%dirv(4:6) =  1.0
+
+     itab_w(jw(8))%iwp = jw(6)
+
+     call mloopf('f',jm(10), jtm_lbcp, jtm_grid, 0, 0, 0, 0)
+     call mloopf('f',jm(11), jtm_grid, jtm_vadj, 0, 0, 0, 0)
+     call mloopf('f',jm(12), jtm_grid, jtm_vadj, 0, 0, 0, 0)
+     call mloopf('f',jm(13), jtm_grid, jtm_vadj, 0, 0, 0, 0)
+     call mloopf('f',jm(14), jtm_grid, jtm_vadj, 0, 0, 0, 0)
+     call mloopf('f',jm(15), jtm_grid, jtm_vadj, 0, 0, 0, 0)
+     call mloopf('f',jm(16), jtm_lbcp, 0, 0, 0, 0, 0)
+
+     itab_m(jm(9))%npoly = 1
+     itab_m(jm(9))%imp   = jm(21) ! corrected later for jmz row
+     itab_m(jm(9))%iv(1) = jv(11)
+
+     itab_m(jm(10))%npoly = 3
+     itab_m(jm(10))%imp   = jm(22) ! corrected later for jmz row
+     itab_m(jm(10))%iw(1) = jw(6)
+     itab_m(jm(10))%iw(2) = jw(9)
+     itab_m(jm(10))%iw(3) = jw(5)
+     itab_m(jm(10))%iv(1) = jv(11)
+     itab_m(jm(10))%iv(2) = jv(13)
+     itab_m(jm(10))%iv(3) = jv(12)
+
+     itab_m(jm(11))%npoly = 3
+     itab_m(jm(11))%imp   = jm(15)
+     itab_m(jm(11))%iw(1) = jw(5)
+     itab_m(jm(11))%iw(2) = jw(2)
+     itab_m(jm(11))%iw(3) = jw(6)
+     itab_m(jm(11))%iv(1) = jv(14)
+     itab_m(jm(11))%iv(2) = jv(13)
+     itab_m(jm(11))%iv(3) = jv(2)
+
+     itab_m(jm(12))%npoly = 3
+     itab_m(jm(12))%imp   = jm(12)
+     itab_m(jm(12))%iw(1) = jw(7)
+     itab_m(jm(12))%iw(2) = jw(6)
+     itab_m(jm(12))%iw(3) = jw(2)
+     itab_m(jm(12))%iv(1) = jv(14)
+     itab_m(jm(12))%iv(2) = jv(16)
+     itab_m(jm(12))%iv(3) = jv(15)
+
+     itab_m(jm(13))%npoly = 3
+     itab_m(jm(13))%imp   = jm(13)
+     itab_m(jm(13))%iw(1) = jw(2)
+     itab_m(jm(13))%iw(2) = jw(3)
+     itab_m(jm(13))%iw(3) = jw(7)
+     itab_m(jm(13))%iv(1) = jv(17)
+     itab_m(jm(13))%iv(2) = jv(16)
+     itab_m(jm(13))%iv(3) = jv(5)
+
+     itab_m(jm(14))%npoly = 3
+     itab_m(jm(14))%imp   = jm(14)
+     itab_m(jm(14))%iw(1) = jw(4)
+     itab_m(jm(14))%iw(2) = jw(7)
+     itab_m(jm(14))%iw(3) = jw(3)
+     itab_m(jm(14))%iv(1) = jv(17)
+     itab_m(jm(14))%iv(2) = jv(9)
+     itab_m(jm(14))%iv(3) = jv(18)
+
+     itab_m(jm(15))%npoly = 3
+     itab_m(jm(15))%imp   = jm(15)
+     itab_m(jm(15))%iw(1) = jw(7)
+     itab_m(jm(15))%iw(2) = jw(4)
+     itab_m(jm(15))%iw(3) = jw(8)
+     itab_m(jm(15))%iv(1) = jv(20)
+     itab_m(jm(15))%iv(2) = jv(19)
+     itab_m(jm(15))%iv(3) = jv(18)
+
+     itab_m(jm(16))%npoly = 1
+     itab_m(jm(16))%imp   = jm(12)
+     itab_m(jm(16))%iv(1) = jv(20)
+
+     call vloopf('f',jv(11), jtv_lbcp, 0, 0, 0, 0, 0)
+     call vloopf('f',jv(12), jtv_grid, jtv_lbcp, jtv_wadj, jtv_wstn, 0, 0)
+     call vloopf('f',jv(13), jtv_grid, jtv_lbcp, jtv_wadj, jtv_wstn, 0, 0)
+     call vloopf('f',jv(14), jtv_grid, jtv_init, jtv_prog, jtv_wadj, jtv_wstn, 0)
+     call vloopf('f',jv(15), jtv_grid, jtv_init, jtv_prog, jtv_wadj, jtv_wstn, 0)
+     call vloopf('f',jv(16), jtv_grid, jtv_init, jtv_prog, jtv_wadj, jtv_wstn, 0)
+     call vloopf('f',jv(17), jtv_grid, jtv_init, jtv_prog, jtv_wadj, jtv_wstn, 0)
+     call vloopf('f',jv(18), jtv_grid, jtv_init, jtv_prog, jtv_wadj, jtv_wstn, 0)
+     call vloopf('f',jv(19), jtv_grid, jtv_init, jtv_prog, jtv_wadj, jtv_wstn, 0)
+     call vloopf('f',jv(20), jtv_lbcp, 0, 0, 0, 0, 0)
+
+     itab_v(jv(11))%ivp   = jv(27) ! corrected later for jzv row
+     itab_v(jv(11))%iw(1) = jw(5)
+     itab_v(jv(11))%iw(2) = jw(9)
+     itab_v(jv(11))%im(1) = jm(10)
+     itab_v(jv(11))%im(2) = jm(9)
+
+     itab_v(jv(12))%ivp   = jv(28) ! corrected later for jzv row
+     itab_v(jv(12))%iw(1) = jw(6)
+     itab_v(jv(12))%iw(2) = jw(9)
+     itab_v(jv(12))%iw(3) = jw(10)
+     itab_v(jv(12))%iw(4) = jw(5)
+     itab_v(jv(12))%im(1) = jm(19)
+     itab_v(jv(12))%im(2) = jm(10)
+     itab_v(jv(12))%im(3) = jm(20)
+     itab_v(jv(12))%im(4) = jm(18)
+     itab_v(jv(12))%im(5) = jm(11)
+     itab_v(jv(12))%im(6) = jm(9)
+     itab_v(jv(12))%iv(1) = jv(24)
+     itab_v(jv(12))%iv(2) = jv(23)
+     itab_v(jv(12))%iv(3) = jv(13)
+     itab_v(jv(12))%iv(4) = jv(11)
+
+     itab_v(jv(13))%ivp   = jv(19)
+     itab_v(jv(13))%iw(1) = jw(5)
+     itab_v(jv(13))%iw(2) = jw(6)
+     itab_v(jv(13))%iw(3) = jw(2)
+     itab_v(jv(13))%iw(4) = jw(9)
+     itab_v(jv(13))%im(1) = jm(11)
+     itab_v(jv(13))%im(2) = jm(10)
+     itab_v(jv(13))%im(3) = jm(2)
+     itab_v(jv(13))%im(4) = jm(12)
+     itab_v(jv(13))%im(5) = jm(9)
+     itab_v(jv(13))%im(6) = jm(19)
+     itab_v(jv(13))%iv(1) = jv(2)
+     itab_v(jv(13))%iv(2) = jv(14)
+     itab_v(jv(13))%iv(3) = jv(11)
+     itab_v(jv(13))%iv(4) = jv(12)
+
+     itab_v(jv(14))%ivp   = jv(14)
+     itab_v(jv(14))%iw(1) = jw(2)
+     itab_v(jv(14))%iw(2) = jw(6)
+     itab_v(jv(14))%iw(3) = jw(7)
+     itab_v(jv(14))%iw(4) = jw(5)
+     itab_v(jv(14))%im(1) = jm(12)
+     itab_v(jv(14))%im(2) = jm(11)
+     itab_v(jv(14))%im(3) = jm(13)
+     itab_v(jv(14))%im(4) = jm(21)
+     itab_v(jv(14))%im(5) = jm(2)
+     itab_v(jv(14))%im(6) = jm(10)
+     itab_v(jv(14))%iv(1) = jv(16)
+     itab_v(jv(14))%iv(2) = jv(15)
+     itab_v(jv(14))%iv(3) = jv(2)
+     itab_v(jv(14))%iv(4) = jv(13)
+
+     itab_v(jv(15))%ivp   = jv(15)
+     itab_v(jv(15))%iw(1) = jw(7)
+     itab_v(jv(15))%iw(2) = jw(6)
+     itab_v(jv(15))%iw(3) = jw(11)
+     itab_v(jv(15))%iw(4) = jw(2)
+     itab_v(jv(15))%im(1) = jm(21)
+     itab_v(jv(15))%im(2) = jm(12)
+     itab_v(jv(15))%im(3) = jm(22)
+     itab_v(jv(15))%im(4) = jm(20)
+     itab_v(jv(15))%im(5) = jm(13)
+     itab_v(jv(15))%im(6) = jm(11)
+     itab_v(jv(15))%iv(1) = jv(27)
+     itab_v(jv(15))%iv(2) = jv(26)
+     itab_v(jv(15))%iv(3) = jv(16)
+     itab_v(jv(15))%iv(4) = jv(14)
+
+     itab_v(jv(16))%ivp   = jv(16)
+     itab_v(jv(16))%iw(1) = jw(2)
+     itab_v(jv(16))%iw(2) = jw(7)
+     itab_v(jv(16))%iw(3) = jw(3)
+     itab_v(jv(16))%iw(4) = jw(6)
+     itab_v(jv(16))%im(1) = jm(13)
+     itab_v(jv(16))%im(2) = jm(12)
+     itab_v(jv(16))%im(3) = jm(4)
+     itab_v(jv(16))%im(4) = jm(14)
+     itab_v(jv(16))%im(5) = jm(11)
+     itab_v(jv(16))%im(6) = jm(21)
+     itab_v(jv(16))%iv(1) = jv(5)
+     itab_v(jv(16))%iv(2) = jv(17)
+     itab_v(jv(16))%iv(3) = jv(14)
+     itab_v(jv(16))%iv(4) = jv(15)
+
+     itab_v(jv(17))%ivp   = jv(17)
+     itab_v(jv(17))%iw(1) = jw(3)
+     itab_v(jv(17))%iw(2) = jw(7)
+     itab_v(jv(17))%iw(3) = jw(4)
+     itab_v(jv(17))%iw(4) = jw(2)
+     itab_v(jv(17))%im(1) = jm(14)
+     itab_v(jv(17))%im(2) = jm(13)
+     itab_v(jv(17))%im(3) = jm(7)
+     itab_v(jv(17))%im(4) = jm(15)
+     itab_v(jv(17))%im(5) = jm(4)
+     itab_v(jv(17))%im(6) = jm(12)
+     itab_v(jv(17))%iv(1) = jv(9)
+     itab_v(jv(17))%iv(2) = jv(18)
+     itab_v(jv(17))%iv(3) = jv(5)
+     itab_v(jv(17))%iv(4) = jv(16)
+
+     itab_v(jv(18))%ivp   = jv(18)
+     itab_v(jv(18))%iw(1) = jw(4)
+     itab_v(jv(18))%iw(2) = jw(7)
+     itab_v(jv(18))%iw(3) = jw(8)
+     itab_v(jv(18))%iw(4) = jw(3)
+     itab_v(jv(18))%im(1) = jm(15)
+     itab_v(jv(18))%im(2) = jm(14)
+     itab_v(jv(18))%im(3) = jm(16)
+     itab_v(jv(18))%im(4) = jm(22)
+     itab_v(jv(18))%im(5) = jm(7)
+     itab_v(jv(18))%im(6) = jm(13)
+     itab_v(jv(18))%iv(1) = jv(20)
+     itab_v(jv(18))%iv(2) = jv(19)
+     itab_v(jv(18))%iv(3) = jv(9)
+     itab_v(jv(18))%iv(4) = jv(17)
+
+     itab_v(jv(19))%ivp   = jv(19)
+     itab_v(jv(19))%iw(1) = jw(7)
+     itab_v(jv(19))%iw(2) = jw(8)
+     itab_v(jv(19))%iw(3) = jw(4)
+     itab_v(jv(19))%iw(4) = jw(11)
+     itab_v(jv(19))%im(1) = jm(15)
+     itab_v(jv(19))%im(2) = jm(22)
+     itab_v(jv(19))%im(3) = jm(14)
+     itab_v(jv(19))%im(4) = jm(16)
+     itab_v(jv(19))%im(5) = jm(21)
+     itab_v(jv(19))%im(6) = jm(23)
+     itab_v(jv(19))%iv(1) = jv(18)
+     itab_v(jv(19))%iv(2) = jv(20)
+     itab_v(jv(19))%iv(3) = jv(27)
+     itab_v(jv(19))%iv(4) = jv(28)
+
+     itab_v(jv(20))%ivp   = jv(14)
+     itab_v(jv(20))%iw(1) = jw(4)
+     itab_v(jv(20))%iw(2) = jw(8)
+     itab_v(jv(20))%im(1) = jm(16)
+     itab_v(jv(20))%im(2) = jm(15)
+
+  enddo
+
+  call wloopf('f',jaw( 2), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
+  call wloopf('f',jaw( 3), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
+  call wloopf('f',jaw( 4), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
+  call wloopf('f',jzw( 9), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
+  call wloopf('f',jzw(10), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
+  call wloopf('f',jzw(11), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
+
+  itab_w(jaw( 2))%iwp = jzw(6)
+  itab_w(jaw( 3))%iwp = jzw(7)
+  itab_w(jaw( 4))%iwp = jzw(6)
+  itab_w(jzw( 9))%iwp = jaw(7)
+  itab_w(jzw(10))%iwp = jaw(6)
+  itab_w(jzw(11))%iwp = jaw(7)
+
+  call mloopf('f',jam( 2), jtm_lbcp, 0, 0, 0, 0, 0)
+  call mloopf('f',jam( 4), jtm_lbcp, 0, 0, 0, 0, 0)
+  call mloopf('f',jam( 7), jtm_lbcp, 0, 0, 0, 0, 0)
+  call mloopf('f',jzm(18), jtm_lbcp, 0, 0, 0, 0, 0)
+  call mloopf('f',jzm(19), jtm_lbcp, jtm_grid, 0, 0, 0, 0)
+  call mloopf('f',jzm(20), jtm_lbcp, jtm_grid, 0, 0, 0, 0)
+  call mloopf('f',jzm(21), jtm_lbcp, jtm_grid, jtm_vadj, 0, 0, 0)
+  call mloopf('f',jzm(22), jtm_lbcp, jtm_grid, jtm_vadj, 0, 0, 0)
+  call mloopf('f',jzm(23), jtm_lbcp, 0, 0, 0, 0, 0)
+  call mloopf('f',jzm(29), jtm_lbcp, 0, 0, 0, 0, 0)
+
+  itab_m(jam(2))%npoly  = 1
+  itab_m(jam(2))%imp    = jam(14)
+  itab_m(jam(2))%iv(1)  = jav(2)
+
+  itab_m(jam(4))%npoly  = 1
+  itab_m(jam(4))%imp    = jzm(12)
+  itab_m(jam(4))%iv(1)  = jav(5)
+
+  itab_m(jam(7))%npoly  = 1
+  itab_m(jam(7))%imp    = jzm(15)
+  itab_m(jam(7))%iv(1)  = jav(9)
+
+  itab_m(jzm(9))%imp    = jam(13)
+
+  itab_m(jzm(10))%imp   = jam(14)
+
+  itab_m(jzm(18))%npoly = 1
+  itab_m(jzm(18))%imp   = jam(22)
+  itab_m(jzm(18))%iv(1) = jzv(23)
+
+  itab_m(jzm(19))%npoly = 3
+  itab_m(jzm(19))%imp   = jam(15)
+  itab_m(jzm(19))%iw(1) = jzw(9)
+  itab_m(jzm(19))%iw(2) = jzw(6)
+  itab_m(jzm(19))%iw(3) = jzw(10)
+  itab_m(jzm(19))%iv(1) = jzv(24)
+  itab_m(jzm(19))%iv(2) = jzv(23)
+  itab_m(jzm(19))%iv(3) = jzv(12)
+
+  itab_m(jzm(20))%npoly = 3
+  itab_m(jzm(20))%imp   = jam(12)
+  itab_m(jzm(20))%iw(1) = jzw(11)
+  itab_m(jzm(20))%iw(2) = jzw(10)
+  itab_m(jzm(20))%iw(3) = jzw(6)
+  itab_m(jzm(20))%iv(1) = jzv(24)
+  itab_m(jzm(20))%iv(2) = jzv(26)
+  itab_m(jzm(20))%iv(3) = jzv(25)
+
+  itab_m(jzm(21))%npoly = 3
+  itab_m(jzm(21))%imp   = jam(13)
+  itab_m(jzm(21))%iw(1) = jzw(6)
+  itab_m(jzm(21))%iw(2) = jzw(7)
+  itab_m(jzm(21))%iw(3) = jzw(11)
+  itab_m(jzm(21))%iv(1) = jzv(27)
+  itab_m(jzm(21))%iv(2) = jzv(26)
+  itab_m(jzm(21))%iv(3) = jzv(15)
+
+  itab_m(jzm(22))%npoly = 3
+  itab_m(jzm(22))%imp   = jam(14)
+  itab_m(jzm(22))%iw(1) = jzw(8)
+  itab_m(jzm(22))%iw(2) = jzw(11)
+  itab_m(jzm(22))%iw(3) = jzw(7)
+  itab_m(jzm(22))%iv(1) = jzv(27)
+  itab_m(jzm(22))%iv(2) = jzv(19)
+  itab_m(jzm(22))%iv(3) = jzv(28)
+
+  itab_m(jzm(23))%npoly = 1
+  itab_m(jzm(23))%imp   = jam(15)
+  itab_m(jzm(23))%iv(1) = jzv(28)
+
+  itab_m(jzm(29))%npoly = 1
+  itab_m(jzm(29))%imp   = jam(21)
+  itab_m(jzm(29))%iv(1) = jzv(25)
+
+  call vloopf('f',jav( 2), jtv_lbcp, 0, 0, 0, 0, 0)
+  call vloopf('f',jav( 5), jtv_lbcp, 0, 0, 0, 0, 0)
+  call vloopf('f',jav( 9), jtv_lbcp, 0, 0, 0, 0, 0)
+  call vloopf('f',jzv(23), jtv_lbcp, 0, 0, 0, 0, 0)
+  call vloopf('f',jzv(24), jtv_grid, jtv_lbcp, jtv_wadj, jtv_wstn, 0, 0)
+  call vloopf('f',jzv(25), jtv_lbcp, 0, 0, 0, 0, 0)
+  call vloopf('f',jzv(26), jtv_grid, jtv_lbcp, jtv_wadj, jtv_wstn, 0, 0)
+  call vloopf('f',jzv(27), jtv_grid, jtv_lbcp, jtv_wadj, jtv_wstn, 0, 0)
+  call vloopf('f',jzv(28), jtv_lbcp, 0, 0, 0, 0, 0)
+
+  itab_v(jav(2))%ivp   = jav(18)
+  itab_v(jav(2))%iw(1) = jaw(2)
+  itab_v(jav(2))%iw(2) = jaw(5)
+  itab_v(jav(2))%im(1) = jam(11)
+  itab_v(jav(2))%im(2) = jam(2)
+
+  itab_v(jav(5))%ivp   = jzv(15)
+  itab_v(jav(5))%iw(1) = jaw(3)
+  itab_v(jav(5))%iw(2) = jaw(2)
+  itab_v(jav(5))%im(1) = jam(13)
+  itab_v(jav(5))%im(2) = jam(4)
+
+  itab_v(jav(9))%ivp   = jzv(19)
+  itab_v(jav(9))%iw(1) = jaw(3)
+  itab_v(jav(9))%iw(2) = jaw(4)
+  itab_v(jav(9))%im(1) = jam(7)
+  itab_v(jav(9))%im(2) = jam(14)
+
+  itab_v(jzv(11))%ivp  = jav(17)
+
+  itab_v(jzv(12))%ivp  = jav(18)
+
+  itab_v(jzv(23))%ivp   = jav(19)
+  itab_v(jzv(23))%iw(1) = jzw(9)
+  itab_v(jzv(23))%iw(2) = jzw(10)
+  itab_v(jzv(23))%im(1) = jzm(19)
+  itab_v(jzv(23))%im(2) = jzm(18)
+
+  itab_v(jzv(24))%ivp   = jav(14)
+  itab_v(jzv(24))%iw(1) = jzw(6)
+  itab_v(jzv(24))%iw(2) = jzw(10)
+  itab_v(jzv(24))%iw(3) = jzw(11)
+  itab_v(jzv(24))%iw(4) = jzw(9)
+  itab_v(jzv(24))%im(1) = jzm(20)
+  itab_v(jzv(24))%im(2) = jzm(19)
+  itab_v(jzv(24))%im(3) = jzm(21)
+  itab_v(jzv(24))%im(4) = jzm(29)
+  itab_v(jzv(24))%im(5) = jzm(10)
+  itab_v(jzv(24))%im(6) = jzm(18)
+  itab_v(jzv(24))%iv(1) = jzv(26)
+  itab_v(jzv(24))%iv(2) = jzv(25)
+  itab_v(jzv(24))%iv(3) = jzv(12)
+  itab_v(jzv(24))%iv(4) = jzv(23)
+
+  itab_v(jzv(25))%ivp   = jav(15)
+  itab_v(jzv(25))%iw(1) = jzw(11)
+  itab_v(jzv(25))%iw(2) = jzw(10)
+  itab_v(jzv(25))%im(1) = jzm(29)
+  itab_v(jzv(25))%im(2) = jzm(20)
+
+  itab_v(jzv(26))%ivp   = jav(16)
+  itab_v(jzv(26))%iw(1) = jzw(6)
+  itab_v(jzv(26))%iw(2) = jzw(11)
+  itab_v(jzv(26))%iw(3) = jzw(7)
+  itab_v(jzv(26))%iw(4) = jzw(10)
+  itab_v(jzv(26))%im(1) = jzm(21)
+  itab_v(jzv(26))%im(2) = jzm(20)
+  itab_v(jzv(26))%im(3) = jzm(12)
+  itab_v(jzv(26))%im(4) = jzm(22)
+  itab_v(jzv(26))%im(5) = jzm(19)
+  itab_v(jzv(26))%im(6) = jzm(29)
+  itab_v(jzv(26))%iv(1) = jzv(15)
+  itab_v(jzv(26))%iv(2) = jzv(27)
+  itab_v(jzv(26))%iv(3) = jzv(24)
+  itab_v(jzv(26))%iv(4) = jzv(25)
+
+  itab_v(jzv(27))%ivp   = jav(17)
+  itab_v(jzv(27))%iw(1) = jzw(7)
+  itab_v(jzv(27))%iw(2) = jzw(11)
+  itab_v(jzv(27))%iw(3) = jzw(8)
+  itab_v(jzv(27))%iw(4) = jzw(6)
+  itab_v(jzv(27))%im(1) = jzm(22)
+  itab_v(jzv(27))%im(2) = jzm(21)
+  itab_v(jzv(27))%im(3) = jzm(15)
+  itab_v(jzv(27))%im(4) = jzm(23)
+  itab_v(jzv(27))%im(5) = jzm(12)
+  itab_v(jzv(27))%im(6) = jzm(20)
+  itab_v(jzv(27))%iv(1) = jzv(19)
+  itab_v(jzv(27))%iv(2) = jzv(28)
+  itab_v(jzv(27))%iv(3) = jzv(15)
+  itab_v(jzv(27))%iv(4) = jzv(26)
+
+  itab_v(jzv(28))%ivp   = jav(18)
+  itab_v(jzv(28))%iw(1) = jzw(8)
+  itab_v(jzv(28))%iw(2) = jzw(11)
+  itab_v(jzv(28))%im(1) = jzm(23)
+  itab_v(jzv(28))%im(2) = jzm(22)
+
+end subroutine cart4_hex

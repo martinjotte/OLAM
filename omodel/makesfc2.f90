@@ -38,9 +38,9 @@ subroutine makesfc2()
                          xem, yem, zem, xev, yev, zev, xew, yew, zew, &
                          arw0, glatw, glonw, glatm, glonm, topm, topw
 
-  use mem_ijtabs,  only: itab_w
+  use mem_ijtabs,  only: itab_w, jtab_w, jtw_grid, jtw_lbcp
 
-  use mem_grid,    only: xem, xev, xew, dnu, dnv, arw0
+  use mem_grid,    only: xem, yem, zem, xev, xew, yew, zew, dnu, dnv, arw0
 
   use misc_coms,   only: io6, itopoflg, rinit, topo_database
 
@@ -64,7 +64,7 @@ subroutine makesfc2()
 
   implicit none
 
-  integer :: k, im, iw, im1, im2, iq, jm, jv, jm1, jm2, iv, ipat
+  integer :: k, im, iw, im1, im2, iq, j, jm, jv, jm1, jm2, iv, ipat
   integer :: ndims, idims(1)
   integer :: npoly
   integer :: nwls, nwls_old, nwls_est, nwls_inc, ifsize
@@ -92,6 +92,7 @@ subroutine makesfc2()
   integer :: kwpat(nza),lpoly(nza),npat
 
   real, allocatable :: qlat(:),qlon(:),topq(:)
+  real, allocatable :: xeq(:),yeq(:),zeq(:)
 
   type(itab_wls_vars), allocatable :: itab_wls(:), itab_wls_temp(:)
   type(landsea_grid_vars), allocatable :: landsea_grid(:), landsea_grid_temp(:)
@@ -113,12 +114,21 @@ subroutine makesfc2()
   nqa = nma + nwa - 1
 
   allocate (qlat(nqa), qlon(nqa), topq(nqa))
+  allocate ( xeq(nqa),  yeq(nqa),  zeq(nqa))
 
   qlat(1:nma) = glatm(1:nma)
   qlon(1:nma) = glonm(1:nma)
 
+  xeq(1:nma) = xem(1:nma)
+  yeq(1:nma) = yem(1:nma)
+  zeq(1:nma) = zem(1:nma)
+
   qlat(nma+1:nqa) = glatw(2:nma)
   qlon(nma+1:nqa) = glonw(2:nma)
+
+  xeq(nma+1:nqa) = xew(2:nma)
+  yeq(nma+1:nqa) = yew(2:nma)
+  zeq(nma+1:nqa) = zew(2:nma)
 
 ! Interpolate TOPO from database or initialize from customizable topo_init
 
@@ -126,7 +136,7 @@ subroutine makesfc2()
      call land_database_read(nqa, qlat, qlon, &
         topo_database, topo_database, 'topo', datq=topq)
   else
-     call topo_init(nqa,topq,qlat,qlon) !,xeq,yeq,zeq)
+     call topo_init(nqa,topq,qlat,qlon,xeq,yeq,zeq)
   endif
 
 ! Prevent TOPQ lower than lowest model level zm(1)
@@ -173,14 +183,15 @@ subroutine makesfc2()
   topw(2:nwa) = topq(nma+1:nqa)
 
   deallocate (qlat, qlon, topq)
+  deallocate (xeq, yeq, zeq)
 
 ! Initialize land/sea surface index
 
   nwls = 1
 
-! Loop over all Hex W points
+! Loop over Hex W points
 
-  do iw = 2,nwa
+  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
      npoly = itab_w(iw)%npoly
 
 ! Constrain TOPW to lie within the max/min range of adjacent TOPM values
@@ -572,7 +583,7 @@ end subroutine makesfc2
 
 !===============================================================================
 
-subroutine topo_init(nqa,topq,glatq,glonq) !,xeq,yeq,zeq)
+subroutine topo_init(nqa,topq,glatq,glonq,xeq,yeq,zeq)
 
 use misc_coms,   only: io6, deltax
 use consts_coms, only: pi1, pio180
@@ -580,7 +591,7 @@ use consts_coms, only: pi1, pio180
 implicit none
 
 integer, intent(in) :: nqa
-real, intent(in) :: glatq(nqa),glonq(nqa) !,xeq(nqa),yeq(nqa),zeq(nqa)
+real, intent(in) :: glatq(nqa),glonq(nqa),xeq(nqa),yeq(nqa),zeq(nqa)
 
 real, intent(out) :: topq(nqa)
 
@@ -603,7 +614,7 @@ hfwid = 10000.
 r0 = pi1 / 9.
 
 ! dudhia expts
-! hfwid = 5. * .866 * deltax
+! hfwid = 5. * deltax
 
 ! hgt = 405.
 ! hgt = 1012.
