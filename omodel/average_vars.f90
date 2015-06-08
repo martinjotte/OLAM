@@ -175,9 +175,9 @@ subroutine inc_davg_vars()
                          rlongup_top, albedt
 
   use leaf_coms, only: nzg, mwl, slcpd
-  use mem_leaf,  only: land, itabg_wl, itab_wl
+  use mem_leaf,  only: land, itab_wl
   use sea_coms,  only: mws
-  use mem_sea,   only: sea, itabg_ws, itab_ws
+  use mem_sea,   only: sea, itab_ws
   use mem_para,  only: myrank
 
   implicit none
@@ -378,7 +378,6 @@ subroutine norm_davg_vars()
   ni = 1. / npoints_davg
 
   do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
-
         press_davg(iw) =    press_davg(iw) * ni
           vxe_davg(iw) =      vxe_davg(iw) * ni
           vye_davg(iw) =      vye_davg(iw) * ni
@@ -392,7 +391,6 @@ subroutine norm_davg_vars()
   enddo
 
   do iwl = 2, mwl
-     if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
      airtempk_l_davg(iwl) = airtempk_l_davg(iwl) * ni
      cantempk_l_davg(iwl) = cantempk_l_davg(iwl) * ni
        vegtempk_davg(iwl) =   vegtempk_davg(iwl) * ni
@@ -402,7 +400,6 @@ subroutine norm_davg_vars()
   enddo
 
   do iws = 2, mws
-     if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
      airtempk_s_davg(iws) = airtempk_s_davg(iws) * ni
      cantempk_s_davg(iws) = cantempk_s_davg(iws) * ni
        sfluxt_s_davg(iws) =   sfluxt_s_davg(iws) * ni
@@ -453,7 +450,6 @@ subroutine write_mavg_vars(outyear,outmonth)
   ! Compute total water
 
   do iwl = 2, mwl
-     if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
      wstorage(iwl) = sum(land%sfcwater_mass(1:nzs,iwl)) +   &
           land%veg_water(iwl) +   &
           land%rhos(iwl) * land%can_depth(iwl) * land%canshv(iwl)

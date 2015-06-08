@@ -42,14 +42,9 @@ Module mem_sea
 
    type (itab_wls_vars), allocatable, target :: itab_ws(:)
 
-! DERIVED TYPES TO HOLD GLOBAL GRID INDICES FOR A PARALLEL RUN
+! VARIABLE TO HOLD IW INDEX DURING MODEL STARTUP
 
-   Type itabg_ws_vars
-      integer :: iws_myrank = -1
-      integer :: irank      = -1
-   End Type itabg_ws_vars
-
-   type (itabg_ws_vars), allocatable, target :: itabg_ws(:)
+   integer, allocatable :: itab_ws_pd_iw(:)
 
 ! SEA SURFACE MODEL VARIABLES
 
@@ -66,6 +61,7 @@ Module mem_sea
       real, allocatable :: topw (:) ! topographic height of sea cell W points
 
       integer, allocatable :: leaf_class (:) ! sea cell leaf class
+      integer, allocatable :: olson_oge  (:) ! Olson global ecosystem class
 
 ! Atmospheric near-surface properties
 
@@ -197,6 +193,7 @@ Contains
      allocate (sea%topw      (mws)) ; sea%topw       = rinit
 
      allocate (sea%leaf_class(mws)) ; sea%leaf_class = 0
+     allocate (sea%olson_oge (mws)) ; sea%olson_oge  = 0
 
    end subroutine alloc_sea_grid
 

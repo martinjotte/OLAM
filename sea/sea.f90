@@ -68,10 +68,6 @@ subroutine seacells()
 !$omp parallel do
   do iws = 2, mws
 
-! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
-
-     if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
-
 ! Update SEATC and seaice fraction
 
      sea%seatc(iws) = sea%seatp(iws) + &

@@ -134,7 +134,6 @@ Contains
    allocate (zfact (mza));  zfact (:) = 0.
    allocate (zfacit(mza));  zfacit(:) = 0.
 
-   return
    end subroutine alloc_gridz
    
 !===============================================================================
@@ -149,7 +148,6 @@ Contains
    allocate (yem(lma));  yem(1:lma) = 0.
    allocate (zem(lma));  zem(1:lma) = 0.
 
-   return
    end subroutine alloc_xyzem
    
 !===============================================================================
@@ -164,7 +162,6 @@ Contains
    allocate (yew(lwa));  yew(1:lwa) = 0.
    allocate (zew(lwa));  zew(1:lwa) = 0.
 
-   return
    end subroutine alloc_xyzew
    
 !===============================================================================
@@ -218,15 +215,14 @@ Contains
 
    write(io6,*) 'finishing alloc_grid1'
             
-   return
-  
    end subroutine alloc_grid1
 
 !===============================================================================
 
    subroutine alloc_grid2(lma, lva, lwa)
 
-   use misc_coms, only: io6
+   use consts_coms, only: r8
+   use misc_coms,   only: io6
 
    implicit none
 
@@ -236,21 +232,15 @@ Contains
 
    write(io6,*) 'alloc_grid2 ',lma,lva,lwa
 
-   allocate (lpv(lva));  lpv(1:lva) = 0
+   allocate (lpv(lva)); lpv(1:lva) = 0
+   allocate (lpm(lma)); lpm(1:lma) = 0
+   allocate (lpw(lwa)); lpw(1:lwa) = 0
 
    allocate (arv  (mza,lva));  arv  (1:mza,1:lva) = 0.
-
-   allocate (lpm(lma));  lpm(1:lma) = 0  ! In vtables
-   allocate (lpw(lwa));  lpw(1:lwa) = 0  ! In vtables
-
    allocate (arw  (mza,lwa));  arw  (1:mza,1:lwa) = 0.
-
-   allocate (volt (mza,lwa));  volt (1:mza,1:lwa) = 0.
-   allocate (volti(mza,lwa));  volti(1:mza,1:lwa) = 0.
+   allocate (volt (mza,lwa));  volt (1:mza,1:lwa) = 0._r8
             
    write(io6,*) 'finishing alloc_grid2'
-            
-   return
   
    end subroutine alloc_grid2
 
@@ -266,7 +256,9 @@ Contains
 
      ! This routine allocates and defines grid arrays that were not computed
      ! during the MAKEGRID stage
-     
+
+     ! Allocate and define 1D variables defined at T levels
+
      allocate(dzt_top(mza))
      allocate(dzt_bot(mza))
 
@@ -278,6 +270,8 @@ Contains
         dzt_top(k) = zm(k) - zt(k)
         dzt_bot(k) = zt(k) - zm(k-1)
      enddo
+
+     ! Allocate and define 1D variables defined at M levels
 
      allocate(zwgt_top(mza))
      allocate(zwgt_bot(mza))
@@ -291,21 +285,7 @@ Contains
      zwgt_top(mza) = zwgt_top(mza-1)
      zwgt_bot(mza) = zwgt_bot(mza-1)
 
-     allocate(wnxo2(mwa))
-     allocate(wnyo2(mwa))
-     allocate(wnzo2(mwa))
-     
-     wnxo2(1) = 0.0
-     wnyo2(1) = 0.0
-     wnzo2(1) = 0.0
-
-     !$omp parallel do
-     do iw = 2, mwa
-        wnxo2(iw) = wnx(iw) * 0.5
-        wnyo2(iw) = wny(iw) * 0.5
-        wnzo2(iw) = wnz(iw) * 0.5
-     enddo
-     !$omp end parallel do
+     ! Allocate and define variables defined at V faces
 
      allocate(vnxo2(mva))
      allocate(vnyo2(mva))
@@ -323,13 +303,31 @@ Contains
      enddo
      !$omp end parallel do
 
+     ! Allocate and define variables defined at W columns
+
+     allocate(wnxo2    (mwa))
+     allocate(wnyo2    (mwa))
+     allocate(wnzo2    (mwa))
+     allocate(volti(mza,mwa))
      allocate(gxps_coef(mwa,7))
      allocate(gyps_coef(mwa,7))
 
-     !$omp parallel do
-     do iw = 2, mwa
-        do n1 = 1, itab_w(iw)%npoly
+     wnxo2  (1) = 0.0
+     wnyo2  (1) = 0.0
+     wnzo2  (1) = 0.0
+     volti(:,1) = 0.0_r8
 
+     !$omp parallel do private(n1,n2)
+     do iw = 2, mwa
+
+        wnxo2(iw) = wnx(iw) * 0.5
+        wnyo2(iw) = wny(iw) * 0.5
+        wnzo2(iw) = wnz(iw) * 0.5
+
+        volti(1:lpw(iw)-1,iw) = 0.0_r8
+        volti(lpw(iw):mza,iw) = 1.0_r8 / volt(lpw(iw):mza,iw)
+
+        do n1 = 1, itab_w(iw)%npoly
            if (n1 == 1) then
               n2 = itab_w(iw)%npoly
            else
@@ -338,9 +336,10 @@ Contains
 
            gxps_coef(iw,n1) = itab_w(iw)%gxps1(n1) + itab_w(iw)%gxps2(n2)
            gyps_coef(iw,n1) = itab_w(iw)%gyps1(n1) + itab_w(iw)%gyps2(n2)
-
         enddo
+
      enddo
+     !$omp end parallel do
 
    end subroutine alloc_grid_other
 

@@ -62,8 +62,8 @@ use sea_coms,    only: mws
 use mem_ijtabs,  only: itab_w, itabg_w, jtab_w, jtw_prog, jtw_wstn
 use misc_coms,   only: io6, iparallel, isubdomain, dtlm, mdomain
 use mem_grid,    only: mza, mwa, lsw, lpw, zt, zm, arw
-use mem_sea,     only: sea, itabg_ws, itab_ws
-use mem_leaf,    only: land, itabg_wl, itab_wl
+use mem_sea,     only: sea, itab_ws
+use mem_leaf,    only: land, itab_wl
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, sxfer_tk, sxfer_rk, &
                        ustar, wstar, wtv0, pblh
 use mem_basic,   only: press, rho, theta, tair, sh_v, vxe, vye, vze

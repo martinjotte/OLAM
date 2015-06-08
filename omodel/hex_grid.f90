@@ -47,9 +47,8 @@ implicit none
 integer :: im1,im2
 integer :: iw1,iw2,iw3,im,iw
 integer :: nmad,nuad,nwad
-integer :: iwd,iv,iud,iud1,iud2,imd,imd1,imd2,npoly,j,j1
-
-real :: expansion
+integer :: iwd,iv,iud,iud1,iud2,imd,npoly,j,j1
+real    :: expansion
 
 ! Interchange grid dimensions
 
@@ -317,8 +316,6 @@ integer :: jm,jm1,iw,im,iw1,iw2,iw3,iter,npoly
 
 real :: xm(7),ym(7)
 real :: raxis,glatw,glonw,area,xc,yc,xec,yec,zec,expansion
-real :: onmx,onmy,onmz
-
 real :: xebc,yebc,zebc
 real :: glatbc,glonbc
 real :: x1,x2,x3,y1,y2,y3
@@ -537,63 +534,28 @@ use mem_para,    only: myrank
 
 implicit none
 
-integer :: im,iv,iw
-integer :: im1,im2
-integer :: iw1,iw2,iw3
-integer :: itpn,npoly
-integer :: j,jj,jmax,jmaxneg,jminpos,jn
-
-real :: expansion
-real :: raxis
-real :: hper
-
-real :: xiw,yiw,ziw
-real :: xij(6),yij(6),zij(6)
-real :: x1,x2,x3,y1,y2,y3
-real :: scalprod,scalprod_max
-real :: vecjx,vecjy,vecjz
-real :: vecmx,vecmy,vecmz
-real :: vecmjx,vecmjy,vecmjz
-real :: xi,yi,xj(6),yj(6)
-real :: vecprodz,vecprodz_maxneg,vecprodz_minpos
-
-real :: ef,x12,y12,z12,x34,y34,z34
-real :: b11,b21,b31,b12,b22,b32,b13,b23,b33 &
-       ,c11,c21,c31,c12,c22,c32,c13,c23,c33 &
-       ,d11,d21,d31,d12,d22,d32,d13,d23,d33
-real :: s1, s2, s3
-
-real :: dwm1,dwm2,dwv,dvm1,dvm2,swm1,swm2,swv,svm1,svm2,angw1,angw2,angm1,angm2
-
-integer :: jm,jv,j1,j2
-
-integer :: iv_w
-integer :: npoly1,npoly2,npolym,jw_m,iw_m,np
-
-real :: xm1,xm2,xv,xw,ym1,ym2,yv,yw,frac,accum_kite,alpha
-
-real :: xw1,xw2,yw1,yw2
-real :: gx1,gx2,gy1,gy2
-
-real :: xem1, xem2, yem1, yem2, zem1, zem2
-
-real :: xq1, yq1, xq2, yq2, psiz, vsprd
-integer :: iskip, iwp, ivp, imp
-logical :: dops
-
-real :: quarter_kite(2,nva)
-
-character(10) :: string
-
+integer            :: im,iv,iw
+integer            :: im1,im2
+integer            :: iw1,iw2
+integer            :: j,npoly
+real               :: expansion
+real               :: raxis
+real               :: dvm1,dvm2
+integer            :: j1,j2
+integer            :: npoly1,npoly2,np
+real               :: xm1,xm2,xv,ym1,ym2,yv,frac,alpha
+real               :: xw1,xw2,yw1,yw2
+real               :: xq1, yq1, xq2, yq2, psiz, vsprd
+integer            :: iskip, iwp, ivp, imp
+logical            :: dops
+real               :: quarter_kite(2,nva)
+character(10)      :: string
 integer, parameter :: lwork = 200
 real               :: work(lwork)
 integer            :: info
 real               :: vdotw, vmag, fact
 real               :: b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7), vrot_x(7), vrot_y(7)
 real, allocatable  :: a(:,:)
-
-ef = 1.01  ! radial expansion factor (from earth center) for defining 
-           ! auxiliary point for computing unit normal to U face
 
 ! Loop over all M points
 
@@ -1199,29 +1161,31 @@ end subroutine grid_geometry_hex
 
 subroutine ctrlvols_hex()
 
-use mem_ijtabs,  only: jtab_m, jtab_v, jtab_w, itab_m, itab_v, itab_w, &
-                       jtm_grid, jtv_grid, jtv_wall, jtv_lbcp, &
-                       jtw_grid, jtw_lbcp
-use misc_coms,   only: io6, mdomain, itopoflg
-use consts_coms, only: erad
-use mem_grid,    only: nsw_max, nza, nma, nva, nwa, lpm, lpv, lpw, lsw, &
-                       topm, topw, zm, dzt, zt, zfacm, zfact, dnu, dniu, dnv, &
-                       arm0, arw0, arv, arw, volt, volti, &
-                       xem, yem, zem, xew, yew, zew, glatw, glonw, glatm, glonm
-use leaf_coms,   only: isfcl,nwl
-use sea_coms,    only: nws
-use mem_leaf,    only: land, itab_wl
-use mem_sea,     only: sea, itab_ws
-use land_db,     only: land_database_read
+  use mem_ijtabs,  only: jtab_m, jtab_v, jtab_w, itab_m, itab_v, itab_w, &
+                         jtm_grid, jtv_grid, jtv_wall, jtv_lbcp, &
+                         jtw_grid, jtw_lbcp
+  use misc_coms,   only: io6, mdomain, itopoflg
+  use consts_coms, only: erad, r8
+  use mem_grid,    only: nsw_max, nza, nma, nva, nwa, lpm, lpv, lpw, lsw, &
+                         topm, topw, zm, dzt, zt, zfacm, zfact, dnu, dniu, dnv, &
+                         arm0, arw0, arv, arw, volt, &
+                         xem, yem, zem, xew, yew, zew, glatw, glonw, glatm, glonm
+  use leaf_coms,   only: isfcl,nwl
+  use sea_coms,    only: nws
+  use mem_leaf,    only: land, itab_wl
+  use mem_sea,     only: sea, itab_ws
+  use land_db,     only: land_database_read
+  use olam_mpi_atm,only: olam_stop
 
-implicit none
+  implicit none
 
-integer :: j,jw,iw,iwp,iv,ivp,im1,im2,k,km,im, &
-           iu1,iu2,iw1,iw2,iw3,kp,ka,ks
-integer :: iws,iwl,kw,npoly,jv,iv1,iv2,iv3
+  integer :: j,iw,iwp,iv,ivp,im1,im2,k,km,im,iw1,iw2,iw3
+  integer :: iws,iwl,kw,ks,npoly,jv,iv1,iv2,iv3
+  real    :: hmin,hmax,topc,facw
+  real(r8):: area
+  integer :: status
 
-real :: hmin,hmax,sum1,sumk,w1,w2,hm,farw1,farw2,topc, area, facw
-real, allocatable :: area_kw_sum(:,:)
+  real(r8), allocatable :: area_sum(:,:)
 
 ! Loop over all land and sea cells, and sum information from them to compute
 ! ARW and VOLT
@@ -1388,52 +1352,47 @@ real, allocatable :: area_kw_sum(:,:)
 
         if (volt(k,iw) < 1.e-9) then
 
-!           print*, 'closing arw(k,iw) since volt(k,iw) is zero ',k,iw
+!          print*, 'closing arw(k,iw) since volt(k,iw) is zero ',k,iw
 
            arw (k,iw) = 0.
            volt(k,iw) = 1.e-9
         endif
 
 !xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-!go to 1
 ! Option for stability: expand volt if too small relative to any grid cell face
 
         volt(k,iw) = max(volt(k,iw), &
-                     0.5_8 * real(dzt(k) * (arw(k,iw) + arw(k-1,iw)), 8))
+                     0.5_r8 * real(dzt(k) * (arw(k,iw) + arw(k-1,iw)), r8))
 
 ! Loop over faces of IW polygon
 
-        facw = 0.0_8
+        facw = 0.0
 
         do jv = 1,npoly
            iv = itab_w(iw)%iv(jv)
 
-           ! new way: each V face contributes to open up its fraction farv 
+           ! Each V face contributes to open up its fraction farv
            ! of the current polygon:
            facw = facw + itab_w(iw)%farv(jv) * arv(k,iv) / (dnu(iv) * dzt(k))
 
-           ! old way: each V face contributes to open up the entire polygon
-           ! v_height = arv(k,iv) / dnu(iv)
-           ! volt(k,iw) = max( volt(k,iw), real(arw0(iw),8) * v_height)
         enddo
 
-        facw = max( min(facw,1.0_8), 0.0_8)
-        volt(k,iw) = max( volt(k,iw), facw * real(arw0(iw),8) * real(dzt(k),8) )
+        facw = max( min(facw,1.0), 0.0)
+        volt(k,iw) = max( volt(k,iw), real(arw0(iw) * dzt(k) * facw, r8) )
 
 ! Reset arw(k,iw) if we increased volt to avoid hollow box
 
-        if (volt(k,iw) > 1.e-9) then
-           arw(k,iw) = max( arw(k,iw), real( volt(k,iw) / dzt(k)))
+        if (k < nza .and. volt(k,iw) > 1.e-9) then
+           arw(k,iw) = max( arw(k,iw), real( volt(k,iw) / dzt(k)) )
         endif
 
 ! Make sure arw increases with height if we have adjusted it
 
         if (k < nza-1) then
-           arw(k+1,iw) = max( arw(k+1,iw), arw(k,iw))
+           arw(k+1,iw) = max( arw(k+1,iw), arw(k,iw) )
         endif
 
-1 continue
-
+! End option for stability
 !xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
      enddo  ! k
@@ -1538,12 +1497,14 @@ real, allocatable :: area_kw_sum(:,:)
 
 ! Loop over vertical levels from top to bottom
 
-     do k = nza,2,-1
+     do k = nza-1, lpw(iw), -1
 
 ! Increase LSW if K-1 W level intersects topography in this cell
 
-        if (arw(k,iw) > 0. .and. arw(k,iw) < .999 * arw0(iw) * zfacm(k)**2) then
+        if (arw(k,iw) < .999 * arw0(iw)) then
            lsw(iw) = lsw(iw) + 1
+        else
+           arw(k,iw) = arw0(iw)
         endif
 
     enddo  ! k
@@ -1558,46 +1519,71 @@ real, allocatable :: area_kw_sum(:,:)
 ! transfer the sea and land cell values to KW = LPW(IW).
 ! Also compute fractional sea and land cell areas per vertical level
 
-  allocate(area_kw_sum(nza,nwa))
-  area_kw_sum(:,:) = 0.0
+  allocate(area_sum(nsw_max,nwa), stat=status)
+  if (status /= 0) then
+     call olam_stop( "Error allocating memory in hex_grid." )
+  endif
+
+  area_sum(:,:) = 0.0
 
   do iws = 2,nws
      iw = itab_ws(iws)%iw
      kw = itab_ws(iws)%kw
 
-     if (kw < lpw(iw)) itab_ws(iws)%kw = lpw(iw)
+     if (kw < lpw(iw))               itab_ws(iws)%kw = lpw(iw)
      if (kw > lpw(iw) + lsw(iw) - 1) itab_ws(iws)%kw = lpw(iw) + lsw(iw) - 1
 
-     kw = itab_ws(iws)%kw
-     area_kw_sum(kw,iw) = area_kw_sum(kw,iw) + sea%area(iws)
+     ks = itab_ws(iws)%kw - lpw(iw) + 1
+     area_sum(ks,iw) = area_sum(ks,iw) + sea%area(iws)
   enddo
 
   do iwl = 2,nwl
      iw = itab_wl(iwl)%iw
      kw = itab_wl(iwl)%kw
 
-     if (kw < lpw(iw)) itab_wl(iwl)%kw = lpw(iw)
+     if (kw < lpw(iw))               itab_wl(iwl)%kw = lpw(iw)
      if (kw > lpw(iw) + lsw(iw) - 1) itab_wl(iwl)%kw = lpw(iw) + lsw(iw) - 1
 
-     kw = itab_wl(iwl)%kw
-     area_kw_sum(kw,iw) = area_kw_sum(kw,iw) + land%area(iwl)
+     ks = itab_wl(iwl)%kw - lpw(iw) + 1
+     area_sum(ks,iw) = area_sum(ks,iw) + land%area(iwl)
   enddo
+
+  do iws = 2,nws
+     iw = itab_ws(iws)%iw
+     kw = itab_ws(iws)%kw
+     ks = kw - lpw(iw) + 1
+     sea%area(iws) = sea%area(iws) * (arw(kw,iw) - arw(kw-1,iw)) / area_sum(ks,iw)
+  enddo
+
+  do iwl = 2,nwl
+     iw = itab_wl(iwl)%iw
+     kw = itab_wl(iwl)%kw
+     ks = kw - lpw(iw) + 1
+     land%area(iwl) = land%area(iwl) * (arw(kw,iw) - arw(kw-1,iw)) / area_sum(ks,iw)
+  enddo
+
+  deallocate(area_sum)
+
+! Compute sea and land area fractions and expand surface areas with height
+! for spherical geometry
 
   do iws = 2, nws
      kw = itab_ws(iws)%kw
      iw = itab_ws(iws)%iw
-     itab_ws(iws)%arf_kw = sea%area(iws) / area_kw_sum(kw,iw)
+     itab_ws(iws)%arf_iw = sea%area(iws) / arw0(iw)
+     itab_ws(iws)%arf_kw = sea%area(iws) / (arw(kw,iw) - arw(kw-1,iw))
+     if (mdomain < 2) sea%area(iws) = sea%area(iws) * zfacm(kw-1)**2
   enddo
 
   do iwl = 2, nwl
      kw = itab_wl(iwl)%kw
      iw = itab_wl(iwl)%iw
-     itab_wl(iwl)%arf_kw = land%area(iwl) / area_kw_sum(kw,iw)
+     itab_wl(iwl)%arf_iw = land%area(iwl) / arw0(iw)
+     itab_wl(iwl)%arf_kw = land%area(iwl) / (arw(kw,iw) - arw(kw-1,iw))
+     if (mdomain < 2) land%area(iwl) = land%area(iwl) * zfacm(kw-1)**2
   enddo
 
-  deallocate(area_kw_sum)
-
-! Expand ARW and VOLT with height for spherical geometry, and compute VOLTI
+! Expand ARW and VOLT with height for spherical geometry
 
 !----------------------------------------------------------------------
   do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
@@ -1617,8 +1603,6 @@ real, allocatable :: area_kw_sum(:,:)
            volt(k,iw) = 1.e-9
         endif
 
-        volti(k,iw) = 1. / volt(k,iw)
-
      enddo  ! k
 
 ! Set arw = 0 for bottom (k = 1) and wall-on-top (k = nza) levels
@@ -1628,7 +1612,7 @@ real, allocatable :: area_kw_sum(:,:)
 
   enddo
 
-! Lateral boundary copy of ARW, VOLT, VOLTI, LSW
+! Lateral boundary copy of ARW, VOLT, LPW, and LSW
 
 !----------------------------------------------------------------------
   do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
@@ -1637,7 +1621,6 @@ real, allocatable :: area_kw_sum(:,:)
 
      arw  (:,iw) = arw  (:,iwp)
      volt (:,iw) = volt (:,iwp)
-     volti(:,iw) = volti(:,iwp)
      lpw    (iw) = lpw    (iwp)
      lsw    (iw) = lsw    (iwp)
 

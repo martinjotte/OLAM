@@ -34,8 +34,8 @@ subroutine radiate()
 
 use mem_tend,    only: thilt
 use mem_ijtabs,  only: jtab_w, itabg_w, mrl_begl, istp, jtw_prog
-use mem_leaf,    only: land, itabg_wl, itab_wl
-use mem_sea,     only: sea, itabg_ws, itab_ws
+use mem_leaf,    only: land, itab_wl
+use mem_sea,     only: sea, itab_ws
 use leaf_coms,   only: nzg, nzs, mwl
 use sea_coms,    only: mws, nzi
 use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,          &
@@ -134,12 +134,6 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 !$omp parallel do private (sea_cosz)
    do iws = 2,mws
 
-! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
-
-      if (isubdomain == 1) then
-         if (itab_ws(iws)%irank /= myrank) cycle
-      endif
-
 ! Get surface radiative properties (albedos and rlongup) for each sea cell. 
 ! Compute solar zenith angle for sea cells
 
@@ -195,12 +189,6 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 
 !$omp parallel do
    do iwl = 2,mwl
-
-! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
-
-      if (isubdomain == 1) then
-         if (itab_wl(iwl)%irank /= myrank) cycle
-      endif
 
 ! Get surface radiative properties (albedos and rlongup) for each land cell.
 
@@ -368,12 +356,6 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
    !$omp parallel do
    do iws = 2, mws
 
-      ! If current IWS sea cell is not prognosed on this rank, skip to next cell
-
-      if (isubdomain == 1) then
-         if (itab_ws(iws)%irank /= myrank) cycle
-      endif
-
       call sfcrad_seaice_2( sea%ice_net_rshort(iws), &
                             sea%ice_net_rlong (iws), &
                             sea%nlev_seaice   (iws), &
@@ -390,10 +372,6 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 
 !$omp parallel do
    do iwl = 2,mwl
-
-! If current IWL land cell is not prognosed on this rank, skip to next cell
-
-      if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
 
       if (land%ed_flag(iwl) == 0) then
 

@@ -594,7 +594,7 @@ subroutine gridfile_write()
        unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
        dnu, dniu, dnv, dniv, arw0, arm0, &
        glatw, glonw, glatm, glonm, glatv, glonv, &
-       arv, arw, volt, volti
+       arv, arw, volt
   use leaf_coms,  only: isfcl
 
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
@@ -758,7 +758,6 @@ subroutine gridfile_write()
 
   call shdf5_orec(ndims, idims, 'ARW'  , rvara=arw)
   call shdf5_orec(ndims, idims, 'VOLT' , dvara=volt)
-  call shdf5_orec(ndims, idims, 'VOLTI', dvara=volti)
 
   ! Write ITAB_M SCALARS
 
@@ -1444,7 +1443,7 @@ real,    allocatable :: rscr(:,:)
 
   call shdf5_close()
 
-  write(io6,*) 'end of gridfile_read '
+  write(io6,*) 'end of gridfile_read_pd '
 
 end subroutine gridfile_read_pd
 
@@ -1468,7 +1467,7 @@ use mem_grid,   only: nza, &
                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
                       dnu, dniu, dnv, dniv, arw0, arm0, &
                       glatw, glonw, glatm, glonm, glatv, glonv, &
-                      arv, arw, volt, volti
+                      arv, arw, volt
 use leaf_coms,  only: isfcl
 
 use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
@@ -1622,7 +1621,6 @@ integer, pointer :: lgwnud(:)
 
   call shdf5_irec(ndims, idims, 'ARW'  , rvara=arw, points=lgwa)
   call shdf5_irec(ndims, idims, 'VOLT' , dvara=volt, points=lgwa)
-  call shdf5_irec(ndims, idims, 'VOLTI', dvara=volti, points=lgwa)
    
 ! Read ITAB_M SCALARS
 

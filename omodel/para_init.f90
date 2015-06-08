@@ -64,7 +64,7 @@ use mem_nudge,  only: nudflag, nudnxp, nwnud, mwnud, itab_wnud, itabg_wnud, &
 
 implicit none
 
-integer :: j,k,imn,ivn,iwn,jnud
+integer :: j,imn,ivn,iwn,jnud
 integer :: im,iv,iw,iw1,iw2,iwnud,iwnud1,iwnud2,iwnud3
 integer :: imp,ivp,iwp
 integer :: iws,iwl,ipass,nland,nsea
@@ -86,11 +86,6 @@ logical :: myrankflag_wnud(nwnud)  ! Flag that ITABW(IW)%IWNUD(1:3) exist on
 logical :: myrankflag_wnud1(nwnud) ! Flag that ITABW(IW)%IWNUD(1) exists on
                                    ! this rank (for IW primary on this rank)
 
-logical :: seaflag(nws)
-logical :: landflag(nwl)
-
-integer :: ierr
-
 ! Allocate send & recv counter arrays and initialize to zero
 
 allocate (nsends_v(mrls)) ; nsends_v(1:mrls) = 0
@@ -106,11 +101,6 @@ allocate (nrecvs_m(mrls)) ; nrecvs_m(1:mrls) = 0
 nrecvs_wnud = 0
 
 ! Initialize myrank flag arrays to .false.
-
-if (isfcl == 1) then
-   landflag(:) = .false.
-   seaflag (:) = .false.
-endif
 
 myrankflag_m(:) = .false.
 myrankflag_v(:) = .false.
@@ -740,27 +730,8 @@ enddo
 
 if (isfcl == 1) then
 
-! Land and sea cells are included on this node if the corresponding
-! atmospheric cell is primary on this node
-
-   do iws = 2, nws
-      iw = itab_ws(iws)%iw
-
-      if (itabg_w(iw)%irank == myrank) then
-         seaflag(iws) = .true.
-      endif
-   enddo
-
-   do iwl = 2, nwl
-      iw = itab_wl(iwl)%iw
-
-      if (itabg_w(iw)%irank == myrank) then
-         landflag(iwl) = .true.
-      endif
-   enddo
-   
-   call para_init_sea (seaflag)
-   call para_init_land(landflag)
+   call para_init_sea ()
+   call para_init_land()
 
 ! Do two passes through the following code to build lists of attached land
 ! and sea cells for each IW column
@@ -827,7 +798,6 @@ call compute_primary_points()
 
 deallocate (itab_m_pd, itab_v_pd, itab_w_pd)
 
-return
 end subroutine para_init
 
 !===============================================================================
@@ -1141,11 +1111,11 @@ subroutine compute_primary_points()
   enddo
 
   do i = 2, mwl
-     if (itab_wl(i)%irank == myrank) mwl_primary = mwl_primary + 1
+     mwl_primary = mwl_primary + 1
   enddo
 
   do i = 2, mws
-     if (itab_ws(i)%irank == myrank) mws_primary = mws_primary + 1
+     mws_primary = mws_primary + 1
   enddo
 
   do i = 2, mwnud
@@ -1254,11 +1224,9 @@ subroutine compute_primary_points()
   ia = istart
 
   do i = 2, mwl
-     if (itab_wl(i)%irank == myrank) then
-        ia = ia + 1
-        iwl_globe_primary(ia) = itab_wl(i)%iwglobe
-        iwl_local_primary(ia) = i
-     endif
+     ia = ia + 1
+     iwl_globe_primary(ia) = itab_wl(i)%iwglobe
+     iwl_local_primary(ia) = i
   enddo
 
   if (ia /= mwl_primary) stop "error computing number of primary points4"
@@ -1266,11 +1234,9 @@ subroutine compute_primary_points()
   ia = istart
 
   do i = 2, mws
-     if (itab_ws(i)%irank == myrank) then
-        ia = ia + 1
-        iws_globe_primary(ia) = itab_ws(i)%iwglobe
-        iws_local_primary(ia) = i
-     endif
+     ia = ia + 1
+     iws_globe_primary(ia) = itab_ws(i)%iwglobe
+     iws_local_primary(ia) = i
   enddo
 
   if (ia /= mws_primary) stop "error computing number of primary points5"

@@ -45,12 +45,6 @@ use mem_nudge,  only: nudflag, nudnxp, nwnud, itabg_wnud, itab_wnud, &
 
 use mem_grid,   only: nma, nua, nva, nwa, xem, yem, zem, xew, yew, zew
 
-use leaf_coms,  only: nwl, isfcl
-use mem_leaf,   only: itab_wl, itabg_wl
-
-use sea_coms,   only: nws
-use mem_sea,    only: itab_ws, itabg_ws
-
 implicit none
 
 integer :: im,iu,iv,iw,iwl,iws
@@ -101,11 +95,6 @@ allocate (itabg_w(nwa))
 
 if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
    allocate (itabg_wnud(nwnud))
-endif
-
-if (isfcl == 1) then
-   allocate (itabg_wl(nwl))
-   allocate (itabg_ws(nws))
 endif
 
 ! Allocate temporary "ewm" coordinate arrays
@@ -445,20 +434,4 @@ do im = 2, nma
    itabg_m(im)%irank = itabg_v( itab_m_pd(im)%iv(1) )%irank
 enddo
 
-! Determine rank of LAND & SEA cells directly from (single) 
-! atmospheric cell to which land/sea cell is coupled
-
-if (isfcl == 1) then
-   do iwl = 2,nwl
-      iw  = itab_wl(iwl)%iw
-      itabg_wl(iwl)%irank = itabg_w(iw)%irank
-   enddo
-
-   do iws = 2,nws
-      iw  = itab_ws(iws)%iw
-      itabg_ws(iws)%irank = itabg_w(iw)%irank
-   enddo
-endif
-
-return
 end subroutine para_decomp

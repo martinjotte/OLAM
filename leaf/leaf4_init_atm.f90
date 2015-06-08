@@ -33,7 +33,7 @@
 
 subroutine leaf4_init_atm()
 
-  use mem_leaf,    only: land, itabg_wl, itab_wl
+  use mem_leaf,    only: land, itab_wl
 
   use leaf_coms,   only: mwl, nzg, nzs, &
                          veg_ht, soilcp, slmsts, slcpd, soil_rough, &
@@ -56,15 +56,11 @@ subroutine leaf4_init_atm()
   integer :: ntext
   integer :: iw
   integer :: kw
-  integer :: ilf
   integer :: iwl
   integer :: leaf_class
   integer :: nlsw1 ! maximum of (1,nlev_sfcwater)
-  integer :: mrl
-  integer :: j
 
   real :: timefac_ndvi
-  real :: arf_land
   real :: wq, wq_added
   real :: headp_phi  ! Inverse of derivative of hydraulic pressure head
                    ! wrt soil water
@@ -277,10 +273,6 @@ subroutine leaf4_init_atm()
 
   do iwl = 2,mwl
 
-     ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
-
-     if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
-
      ! Leaf classes 17 and 20 represent persistent wetlands (bogs, marshes, fens,
      ! swamps).  Initialize these areas with saturated soil, and with 0.1 m of standing
      ! surface water (sfcwater) added to whatever is already present (e.g., from obs).
@@ -389,6 +381,15 @@ subroutine leaf4_init_atm()
                   land%canshv               (iwl), &
                   land%surface_ssh          (iwl), &
                   land%ground_shv           (iwl)  )
+
+     ! Initialize snowfac
+
+     land%snowfac(iwl) = 0.
+     do k = 1,land%nlev_sfcwater(iwl)
+        land%snowfac(iwl) = land%snowfac(iwl) + land%sfcwater_depth(k,iwl)
+     enddo
+     land%snowfac(iwl) = land%snowfac(iwl) / max(.001,land%veg_height(iwl))
+     if (land%snowfac(iwl) > 0.9) land%snowfac(iwl) = 1.0
 
   enddo
 

@@ -50,7 +50,7 @@ subroutine makesfc2()
                          isfcl, ivegflg, landusefile, isoilflg, &
                          soil_database, veg_database
 
-  use consts_coms, only: erad, piu180
+  use consts_coms, only: erad, piu180, r8
 
   use land_db,     only: land_database_read
 
@@ -65,21 +65,16 @@ subroutine makesfc2()
   implicit none
 
   integer :: k, im, iw, im1, im2, iq, j, jm, jv, jm1, jm2, iv, ipat
-  integer :: ndims, idims(1)
   integer :: npoly
   integer :: nwls, nwls_old, nwls_est, nwls_inc, ifsize
-  integer :: iwls, imls, jmls
-  integer :: iws, ims
-  integer :: iwl, iml
+  integer :: iwls
+  integer :: iws
+  integer :: iwl
   integer :: leafclass, datsoil
 
   real :: expansion, raxis
-  real :: fracdist, fracz, ef, efw, efm1, efm2
+  real :: fracz, efw, efm1, efm2
   real :: pnx, pny, pnz, dvm1, dvm2, topv
-  real :: wnx1, wny1, wnz1
-  real :: wnx2, wny2, wnz2
-  real :: wnx3, wny3, wnz3
-  real :: xp(maxnlspoly), yp(maxnlspoly)
   real :: area, xc, yc
 
   integer :: nqa, jp1, jp2
@@ -97,7 +92,7 @@ subroutine makesfc2()
   type(itab_wls_vars), allocatable :: itab_wls(:), itab_wls_temp(:)
   type(landsea_grid_vars), allocatable :: landsea_grid(:), landsea_grid_temp(:)
 
-  integer :: ii,iii
+  real(r8), allocatable :: tot_area(:)
 
 ! Estimate required array size and increment, and allocate arrays
 
@@ -389,8 +384,6 @@ subroutine makesfc2()
            itab_wls(nwls)%kw    = kwpat(ipat)
            itab_wls(nwls)%npoly = lpoly(ipat)
 
-           itab_wls(nwls)%arf_iw = area / arw0(iw)
-
         enddo  ! ipat
 
      enddo   ! jv
@@ -432,13 +425,15 @@ subroutine makesfc2()
   nws = 1
   nwl = 1
 
+  allocate(tot_area(nwa))
+  tot_area(:) = 0.0_r8
+
 ! Loop over all land/sea cells
 
   do iwls = 2,nwls
+     iw = itab_wls(iwls)%iw
 
-! If area of land/sea cell is below threshold, skip cell
-
-!!     if (landsea_grid(iwls)%area < 1.e2) cycle
+     tot_area(iw) = tot_area(iw) + landsea_grid(iwls)%area
 
 ! Count up individual land & sea cells and assign indices to them.
 ! Flag M and U points for association with land and/or sea cells.
@@ -453,6 +448,15 @@ subroutine makesfc2()
 
   enddo
 
+! Scale land and sea areas slightly so they sum almost exactly to arw0 within a column
+  
+  do iwls = 2,nwls
+     iw = itab_wls(iwls)%iw
+     landsea_grid(iwls)%area = landsea_grid(iwls)%area * arw0(iw) / tot_area(iw)
+  enddo
+
+  deallocate(tot_area)
+
 ! Now that final nws and nwl values are determined, 
 ! allocate separate sea and land cell arrays.  Copy data from temporary 
 ! arrays to these.
@@ -466,6 +470,7 @@ subroutine makesfc2()
 ! Copy data from combined land + sea arrays to individual land & sea arrays.
 
   do iwls = 2,nwls
+     iw = itab_wls(iwls)%iw
 
      if (landsea_grid(iwls)%leaf_class <= 1) then
 
@@ -483,12 +488,11 @@ subroutine makesfc2()
         sea%zew       (iws) = landsea_grid(iwls)%zew
         sea%topw      (iws) = landsea_grid(iwls)%topw
         sea%leaf_class(iws) = landsea_grid(iwls)%leaf_class
+        sea%olson_oge (iws) = landsea_grid(iwls)%idatq
         
         itab_ws(iws)%iw     = itab_wls(iwls)%iw
         itab_ws(iws)%kw     = itab_wls(iwls)%kw
         itab_ws(iws)%npoly  = itab_wls(iwls)%npoly
-        itab_ws(iws)%arf_iw = itab_wls(iwls)%arf_iw
-        itab_ws(iws)%arf_kw = itab_wls(iwls)%arf_kw
 
         itab_ws(iws)%xem(1:maxnlspoly) = itab_wls(iwls)%xem(1:maxnlspoly)
         itab_ws(iws)%yem(1:maxnlspoly) = itab_wls(iwls)%yem(1:maxnlspoly)
@@ -513,12 +517,11 @@ subroutine makesfc2()
         land%wny       (iwl) = landsea_grid(iwls)%wny
         land%wnz       (iwl) = landsea_grid(iwls)%wnz
         land%leaf_class(iwl) = landsea_grid(iwls)%leaf_class
+        land%olson_oge (iwl) = landsea_grid(iwls)%idatq
 
         itab_wl(iwl)%iw     = itab_wls(iwls)%iw
         itab_wl(iwl)%kw     = itab_wls(iwls)%kw
         itab_wl(iwl)%npoly  = itab_wls(iwls)%npoly
-        itab_wl(iwl)%arf_iw = itab_wls(iwls)%arf_iw
-        itab_wl(iwl)%arf_kw = itab_wls(iwls)%arf_kw
 
         itab_wl(iwl)%xem(1:maxnlspoly) = itab_wls(iwls)%xem(1:maxnlspoly)
         itab_wl(iwl)%yem(1:maxnlspoly) = itab_wls(iwls)%yem(1:maxnlspoly)
@@ -894,6 +897,105 @@ subroutine oge_leafclass(ioge,leafclass)
 ! Olson Global Ecosystems dataset OGE_2 (96 classes) mapped to LEAF-3 classes
 ! (see leaf3_document).
 
+!   1 Urban
+!   2 Low Sparse Grassland
+!   3 Coniferous Forest
+!   4 Deciduous Conifer Forest
+!   5 Deciduous Broadleaf Forest
+!   6 Evergreen Broadleaf Forests
+!   7 Tall Grasses and Shrubs
+!   8 Bare Desert
+!   9 Upland Tundra
+!  10 Irrigated Grassland
+!  11 Semi Desert
+!  12 Glacier Ice
+!  13 Wooded Wet Swamp
+!  14 Inland Water
+!  15 Sea Water
+!  16 Shrub Evergreen
+!  17 Shrub Deciduous
+!  18 Mixed Forest and Field
+!  19 Evergreen Forest and Fields
+!  20 Cool Rain Forest
+!  21 Conifer Boreal Forest
+!  22 Cool Conifer Forest
+!  23 Cool Mixed Forest
+!  24 Mixed Forest
+!  25 Cool Broadleaf Forest
+!  26 Deciduous Broadleaf Forest
+!  27 Conifer Forest
+!  28 Montane Tropical Forests
+!  29 Seasonal Tropical Forest
+!  30 Cool Crops and Towns
+!  31 Crops and Town
+!  32 Dry Tropical Woods
+!  33 Tropical Rainforest
+!  34 Tropical Degraded Forest
+!  35 Corn and Beans Cropland
+!  36 Rice Paddy and Field
+!  37 Hot Irrigated Cropland
+!  38 Cool Irrigated Cropland
+!  39 Cold Irrigated Cropland
+!  40 Cool Grasses and Shrubs
+!  41 Hot and Mild Grasses and Shrubs
+!  42 Cold Grassland
+!  43 Savanna (Woods)
+!  44 Mire, Bog, Fen
+!  45 Marsh Wetland
+!  46 Mediterranean Scrub
+!  47 Dry Woody Scrub
+!  48 Dry Evergreen Woods
+!  49 Volcanic Rock
+!  50 Sand Desert
+!  51 Semi Desert Shrubs
+!  52 Semi Desert Sage
+!  53 Barren Tundra
+!  54 Cool Southern Hemisphere Mixed Forests
+!  55 Cool Fields and Woods
+!  56 Forest and Field
+!  57 Cool Forest and Field
+!  58 Fields and Woody Savanna
+!  59 Succulent and Thorn Scrub
+!  60 Small Leaf Mixed Woods
+!  61 Deciduous and Mixed Boreal Forest
+!  62 Narrow Conifers
+!  63 Wooded Tundra
+!  64 Heath Scrub
+!  65 Coastal Wetland, NW
+!  66 Coastal Wetland, NE
+!  67 Coastal Wetland, SE
+!  68 Coastal Wetland, SW
+!  69 Polar and Alpine Desert
+!  70 Glacier Rock
+!  71 Salt Playas
+!  72 Mangrove
+!  73 Water and Island Fringe
+!  74 Land, Water, and Shore (see Note 1)
+!  75 Land and Water, Rivers (see Note 1)
+!  76 Crop and Water Mixtures
+!  77 Southern Hemisphere Conifers
+!  78 Southern Hemisphere Mixed Forest
+!  79 Wet Sclerophylic Forest
+!  80 Coastline Fringe
+!  81 Beaches and Dunes
+!  82 Sparse Dunes and Ridges
+!  83 Bare Coastal Dunes
+!  84 Residual Dunes and Beaches
+!  85 Compound Coastlines
+!  86 Rocky Cliffs and Slopes
+!  87 Sandy Grassland and Shrubs
+!  88 Bamboo
+!  89 Moist Eucalyptus
+!  90 Rain Green Tropical Forest
+!  91 Woody Savanna
+!  92 Broadleaf Crops
+!  93 Grass Crops
+!  94 Crops, Grass, Shrubs
+!  95 Evergreen Tree Crop
+!  96 Deciduous Tree Crop
+!  99 Interrupted Areas (Goodes Homolosine Projection)
+! 100 Missing Data
+
 !--------------------------------------------!
   data catb/ 0,                            & !
             19, 8, 4, 5, 6, 7, 9, 3,11,16, & !  0
@@ -906,9 +1008,8 @@ subroutine oge_leafclass(ioge,leafclass)
              3,20, 0,17,17,17, 4,14, 7, 3, & ! 70
              3, 3, 3, 3, 3, 3, 8,12, 7, 6, & ! 80
             18,15,15,15, 4, 5, 0, 0, 0, 0, & ! 90  ! 97 & 98 not used
-            21                             / !
-!--------------------------------------------!     ! 99 is Goode Homolosine 
-                                                   !    empty space
+            21                             / !     ! 99 is Goode Homolosine
+!--------------------------------------------!     !    empty space
 !            1  2  3  4  5  6  7  8  9 10          ! 100 is missing data
                                                    ! Map all of these to ocean
                                                    ! (leafclass=0)
@@ -1104,8 +1205,6 @@ subroutine combine_sea_cells()
         ltab_ws(jws)%iw     = itab_ws(iws)%iw
         ltab_ws(jws)%kw     = itab_ws(iws)%kw
         ltab_ws(jws)%npoly  = itab_ws(iws)%npoly
-        ltab_ws(jws)%arf_iw = itab_ws(iws)%arf_iw
-        ltab_ws(jws)%arf_kw = itab_ws(iws)%arf_kw
 
         do jpoly = 1,itab_ws(iws)%npoly
            ltab_ws(jws)%xem(jpoly) = itab_ws(iws)%xem(jpoly)
@@ -1140,8 +1239,6 @@ subroutine combine_sea_cells()
         ltab_ws(jws)%iw     = itab_ws(iws)%iw
         ltab_ws(jws)%kw     = itab_ws(iws)%kw
         ltab_ws(jws)%npoly  = itab_w(iw)%npoly
-        ltab_ws(jws)%arf_iw = 1.0
-        ltab_ws(jws)%arf_kw = 1.0
 
         do jpoly = 1,itab_w(iw)%npoly
            im = itab_w(iw)%im(jpoly)
@@ -1241,6 +1338,7 @@ subroutine landfile_write()
   call shdf5_orec(ndims, idims, 'wnyl'      , rvara=land%wny)
   call shdf5_orec(ndims, idims, 'wnzl'      , rvara=land%wnz)
   call shdf5_orec(ndims, idims, 'leaf_class', ivara=land%leaf_class)
+  call shdf5_orec(ndims, idims, 'oge'       , ivara=land%olson_oge)
 
   ndims = 2
   idims(1) = nzg
@@ -1325,6 +1423,7 @@ subroutine seafile_write()
   call shdf5_orec(ndims, idims, 'zews'      , rvara=sea%zew)
   call shdf5_orec(ndims, idims, 'topws'     , rvara=sea%topw)
   call shdf5_orec(ndims, idims, 'leaf_class', ivara=sea%leaf_class)
+  call shdf5_orec(ndims, idims, 'oge'       , ivara=sea%olson_oge)
 
   ndims = 2
   idims(1) = maxnlspoly
@@ -1356,11 +1455,11 @@ end subroutine seafile_write
 
 !==========================================================================
 
-subroutine landfile_read()
+subroutine landfile_read_pd()
 
-  use max_dims,   only: maxnlspoly, pathlen
-  use leaf_coms,  only: nzg, nwl, mwl, landusefile, slz
-  use mem_leaf,   only: land, itab_wl, alloc_land_grid
+  use max_dims,   only: pathlen
+  use leaf_coms,  only: nwl, mwl, nzg, landusefile
+  use mem_leaf,   only: itab_wl_pd_iw
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
   use misc_coms,  only: io6
 
@@ -1370,11 +1469,6 @@ subroutine landfile_read()
   character(pathlen) :: flnm
   logical            :: there
   integer            :: iwl
-  real, allocatable  :: rscr(:,:)
-
-!-------------------------------------------------------------------------------
-! STEP 1: Open landfile and read 2 array dimensions
-!-------------------------------------------------------------------------------
 
   flnm = trim(landusefile)//'.h5'
 
@@ -1396,91 +1490,122 @@ subroutine landfile_read()
   call shdf5_irec(ndims, idims, 'nwl', ivars=nwl)
   call shdf5_irec(ndims, idims, 'nzg', ivars=nzg)
 
-  write(io6, '(/,a)')   '==============================================='
-  write(io6, '(a)')     'Reading from landfile:'
-  write(io6, '(a,4i8)') '  nwl, nzg = ', nwl, nzg
-  write(io6, '(a,/)')   '==============================================='
+  write(io6, '(/,a)')    '==============================================='
+  write(io6, '(a)')      'Reading from landfile:'
+  write(io6, '(2(a,i0))')'  nwl = ', nwl, ', nzg = ', nzg
+  write(io6, '(a,/)')    '==============================================='
 
-!-------------------------------------------------------------------------------
-! STEP 2: Allocate land grid arrays
-!-------------------------------------------------------------------------------
+  allocate (itab_wl_pd_iw(nwl))
 
-  call alloc_land_grid(nwl,nzg)
-  allocate (rscr(maxnlspoly,nwl))
+  ndims = 1
+  idims(1) = nwl
 
-!-------------------------------------------------------------------------------
-! STEP 3: Read arrays from landfile
-!-------------------------------------------------------------------------------
+  call shdf5_irec(ndims, idims, 'iw', ivara=itab_wl_pd_iw)
+  call shdf5_close()
+
+  mwl = nwl
+
+end subroutine landfile_read_pd
+
+!==========================================================================
+
+subroutine landfile_read()
+
+  use max_dims,   only: maxnlspoly, pathlen
+  use leaf_coms,  only: nzg, mwl, landusefile, slz
+  use mem_leaf,   only: land, itab_wl
+  use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
+  use misc_coms,  only: io6
+
+  implicit none
+
+  integer            :: ndims, idims(2)
+  character(pathlen) :: flnm
+  logical            :: there
+  integer            :: iwl
+  real, allocatable  :: rscr(:,:)
+
+  flnm = trim(landusefile)//'.h5'
+
+  write(io6,*) 'Checking landfile ',flnm
+
+  inquire(file=flnm, exist=there)
+
+  if (.not. there) then
+     write(io6,*) 'Landfile was not found - stopping run'
+     stop 'stop: no landfile'
+  endif
+
+  call shdf5_open(flnm,'R')
+
+  allocate (rscr(maxnlspoly,mwl))
 
   ndims = 1
   idims(1) = nzg
 
   call shdf5_irec(ndims, idims, 'slz', rvara=slz)
 
-! Read arrays from landfile
+  ndims = 1
+  idims(1) = mwl
 
-  idims(1) = nwl
+  call shdf5_irec(ndims, idims, 'kw'        , ivara=itab_wl(:)%kw, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'nlpoly'    , ivara=itab_wl(:)%npoly, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'arf_iw'    , rvara=itab_wl(:)%arf_iw, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'arf_kw'    , rvara=itab_wl(:)%arf_kw, points=itab_wl%iwglobe)
 
-  call shdf5_irec(ndims, idims, 'iw'        , ivara=itab_wl(:)%iw)
-  call shdf5_irec(ndims, idims, 'kw'        , ivara=itab_wl(:)%kw)
-  call shdf5_irec(ndims, idims, 'nlpoly'    , ivara=itab_wl(:)%npoly)
-  call shdf5_irec(ndims, idims, 'arf_iw'    , rvara=itab_wl(:)%arf_iw)
-  call shdf5_irec(ndims, idims, 'arf_kw'    , rvara=itab_wl(:)%arf_kw)
-
-  call shdf5_irec(ndims, idims, 'land_area' , rvara=land%area)
-  call shdf5_irec(ndims, idims, 'glatwl'    , rvara=land%glatw)
-  call shdf5_irec(ndims, idims, 'glonwl'    , rvara=land%glonw)
-  call shdf5_irec(ndims, idims, 'xewl'      , rvara=land%xew)
-  call shdf5_irec(ndims, idims, 'yewl'      , rvara=land%yew)
-  call shdf5_irec(ndims, idims, 'zewl'      , rvara=land%zew)
-  call shdf5_irec(ndims, idims, 'topwl'     , rvara=land%topw)
-  call shdf5_irec(ndims, idims, 'wnxl'      , rvara=land%wnx)
-  call shdf5_irec(ndims, idims, 'wnyl'      , rvara=land%wny)
-  call shdf5_irec(ndims, idims, 'wnzl'      , rvara=land%wnz)
-  call shdf5_irec(ndims, idims, 'leaf_class', ivara=land%leaf_class)
+  call shdf5_irec(ndims, idims, 'land_area' , rvara=land%area, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'glatwl'    , rvara=land%glatw, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'glonwl'    , rvara=land%glonw, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'xewl'      , rvara=land%xew, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'yewl'      , rvara=land%yew, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'zewl'      , rvara=land%zew, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'topwl'     , rvara=land%topw, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'wnxl'      , rvara=land%wnx, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'wnyl'      , rvara=land%wny, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'wnzl'      , rvara=land%wnz, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'leaf_class', ivara=land%leaf_class, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'oge'       , ivara=land%olson_oge, points=itab_wl%iwglobe)
 
   ndims = 2
   idims(1) = nzg
-  idims(2) = nwl
+  idims(2) = mwl
 
-  call shdf5_irec(ndims, idims, 'ntext_soil', ivara=land%ntext_soil)
+  call shdf5_irec(ndims, idims, 'ntext_soil', ivara=land%ntext_soil, points=itab_wl%iwglobe)
 
   ndims = 2
   idims(1) = maxnlspoly
-  idims(2) = nwl
+  idims(2) = mwl
 
-  call shdf5_irec(ndims,idims,'itab_wl%xem',rvara=rscr)
+  call shdf5_irec(ndims,idims,'itab_wl%xem',rvara=rscr, points=itab_wl%iwglobe)
 
-  do iwl = 1,nwl
+  do iwl = 1,mwl
      itab_wl(iwl)%xem(1:maxnlspoly) = rscr(1:maxnlspoly,iwl)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wl%yem',rvara=rscr)
+  call shdf5_irec(ndims,idims,'itab_wl%yem',rvara=rscr, points=itab_wl%iwglobe)
 
-  do iwl = 1,nwl
+  do iwl = 1,mwl
      itab_wl(iwl)%yem(1:maxnlspoly) = rscr(1:maxnlspoly,iwl)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wl%zem',rvara=rscr)
+  call shdf5_irec(ndims,idims,'itab_wl%zem',rvara=rscr, points=itab_wl%iwglobe)
 
-  do iwl = 1,nwl
+  do iwl = 1,mwl
      itab_wl(iwl)%zem(1:maxnlspoly) = rscr(1:maxnlspoly,iwl)
   enddo
 
   call shdf5_close()
   deallocate(rscr)
 
-  mwl = nwl
-
 end subroutine landfile_read
 
 !==========================================================================
 
-subroutine seafile_read()
+subroutine seafile_read_pd()
 
-  use max_dims,   only: maxnlspoly, pathlen
-  use sea_coms,   only: nws, mws, seafile, iseagrid
-  use mem_sea,    only: sea, itab_ws, alloc_sea_grid
+  use max_dims,   only: pathlen
+  use sea_coms,   only: nws, mws, seafile
+  use mem_sea,    only: itab_ws_pd_iw
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
   use misc_coms,  only: io6
 
@@ -1490,11 +1615,6 @@ subroutine seafile_read()
   character(pathlen) :: flnm
   logical            :: there
   integer            :: iws
-  real, allocatable  :: rscr(:,:)
-
-!-------------------------------------------------------------------------------
-! STEP 1: Open SEAFILE and read 1 array dimension
-!-------------------------------------------------------------------------------
 
   flnm = trim(seafile)//'.h5'
 
@@ -1516,68 +1636,99 @@ subroutine seafile_read()
 
   write(io6, '(/,a)')   '====================================='
   write(io6, '(a)')     'Reading from seafile:'
-  write(io6, '(a,3i8)') '  nws = ', nws
+  write(io6, '(a,i0)') '  nws = ', nws
   write(io6, '(a,/)')   '====================================='
 
-!-------------------------------------------------------------------------------
-! STEP 2: Allocate SEA grid arrays
-!-------------------------------------------------------------------------------
-
-  call alloc_sea_grid(nws)
-
-!-------------------------------------------------------------------------------
-! STEP 3: Read arrays from seafile
-!-------------------------------------------------------------------------------
+  allocate (itab_ws_pd_iw(nws))
 
   ndims = 1
   idims(1) = nws
 
-  call shdf5_irec(ndims, idims, 'iw'        , ivara=itab_ws(:)%iw)
-  call shdf5_irec(ndims, idims, 'kw'        , ivara=itab_ws(:)%kw)
-  call shdf5_irec(ndims, idims, 'nspoly'    , ivara=itab_ws(:)%npoly)
-  call shdf5_irec(ndims, idims, 'arf_iw'    , rvara=itab_ws(:)%arf_iw)
-  call shdf5_irec(ndims, idims, 'arf_kw'    , rvara=itab_ws(:)%arf_kw)
+  call shdf5_irec(ndims, idims, 'iw', ivara=itab_ws_pd_iw)
+  call shdf5_close()
 
-  call shdf5_irec(ndims, idims, 'sea_area'  , rvara=sea%area)
-  call shdf5_irec(ndims, idims, 'glatws'    , rvara=sea%glatw)
-  call shdf5_irec(ndims, idims, 'glonws'    , rvara=sea%glonw)
-  call shdf5_irec(ndims, idims, 'xews'      , rvara=sea%xew)
-  call shdf5_irec(ndims, idims, 'yews'      , rvara=sea%yew)
-  call shdf5_irec(ndims, idims, 'zews'      , rvara=sea%zew)
-  call shdf5_irec(ndims, idims, 'topws'     , rvara=sea%topw)
-  call shdf5_irec(ndims, idims, 'leaf_class', ivara=sea%leaf_class)
+  mws = nws
 
-  allocate (rscr(maxnlspoly,nws))
+end subroutine seafile_read_pd
+
+!==========================================================================
+
+subroutine seafile_read()
+
+  use max_dims,   only: maxnlspoly, pathlen
+  use sea_coms,   only: mws, seafile
+  use mem_sea,    only: sea, itab_ws
+  use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
+  use misc_coms,  only: io6
+
+  implicit none
+
+  integer            :: ndims, idims(2)
+  character(pathlen) :: flnm
+  logical            :: there
+  integer            :: iws
+  real, allocatable  :: rscr(:,:)
+
+  flnm = trim(seafile)//'.h5'
+
+  write(io6,*) 'Checking seafile ', trim(flnm)
+
+  inquire(file=flnm, exist=there)
+
+  if (.not. there) then
+     write(io6,*) 'SEAFILE was not found - stopping run'
+     stop 'stop: no seafile'
+  endif
+
+  call shdf5_open(flnm,'R')
+
+  ndims = 1
+  idims(1) = mws
+
+  call shdf5_irec(ndims, idims, 'kw'        , ivara=itab_ws(:)%kw, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'nspoly'    , ivara=itab_ws(:)%npoly, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'arf_iw'    , rvara=itab_ws(:)%arf_iw, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'arf_kw'    , rvara=itab_ws(:)%arf_kw, points=itab_ws%iwglobe)
+
+  call shdf5_irec(ndims, idims, 'sea_area'  , rvara=sea%area, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'glatws'    , rvara=sea%glatw, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'glonws'    , rvara=sea%glonw, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'xews'      , rvara=sea%xew, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'yews'      , rvara=sea%yew, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'zews'      , rvara=sea%zew, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'topws'     , rvara=sea%topw, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'leaf_class', ivara=sea%leaf_class, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'oge'       , ivara=sea%olson_oge, points=itab_ws%iwglobe)
+
+  allocate (rscr(maxnlspoly,mws))
 
   ndims = 2
   idims(1) = maxnlspoly
-  idims(2) = nws
+  idims(2) = mws
 
   rscr(:,:) = 0
 
-  call shdf5_irec(ndims, idims, 'itab_ws%xem', rvara=rscr)
+  call shdf5_irec(ndims, idims, 'itab_ws%xem', rvara=rscr, points=itab_ws%iwglobe)
 
-  do iws = 1,nws
+  do iws = 1,mws
      itab_ws(iws)%xem(1:maxnlspoly) = rscr(1:maxnlspoly,iws)
   enddo
 
-  call shdf5_irec(ndims, idims, 'itab_ws%yem', rvara=rscr)
+  call shdf5_irec(ndims, idims, 'itab_ws%yem', rvara=rscr, points=itab_ws%iwglobe)
 
-  do iws = 1,nws
+  do iws = 1,mws
      itab_ws(iws)%yem(1:maxnlspoly) = rscr(1:maxnlspoly,iws)
   enddo
 
-  call shdf5_irec(ndims, idims, 'itab_ws%zem', rvara=rscr)
+  call shdf5_irec(ndims, idims, 'itab_ws%zem', rvara=rscr, points=itab_ws%iwglobe)
 
-  do iws = 1,nws
+  do iws = 1,mws
      itab_ws(iws)%zem(1:maxnlspoly) = rscr(1:maxnlspoly,iws)
   enddo
 
   deallocate(rscr)
 
   call shdf5_close()
-
-  mws = nws
 
 end subroutine seafile_read
 
@@ -1596,7 +1747,6 @@ subroutine landfile_read_oldgrid()
   integer            :: ndims, idims(2)
   character(pathlen) :: flnm
   logical            :: there
-  integer            :: iwl_og
 
   flnm = trim(landusefile)//'-OG'//'.h5'
 
@@ -1656,7 +1806,6 @@ subroutine seafile_read_oldgrid()
   integer            :: ndims, idims(2)
   character(pathlen) :: flnm
   logical            :: there
-  integer            :: iws
 
   flnm = trim(seafile)//'-OG'//'.h5'
 

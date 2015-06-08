@@ -209,14 +209,11 @@ subroutine olam_run(name_name)
 
   call gridfile_read_pd()
 
-  ! If land & sea models are active, read entire LANDFILE and SEAFILE
+  ! If land & sea models are active, read LANDFILE and SEAFILE iw point
 
   if (isfcl == 1) then
-     write(io6,'(/,a)') 'olam_run calling landfile_read'
-     call landfile_read()
-
-     write(io6,'(/,a)') 'olam_run calling seafile_read'
-     call seafile_read()
+     call landfile_read_pd()
+     call seafile_read_pd()
   endif
 
   ! If run is parallel, assign each grid cell (ATM and, if ISFCL = 1, LAND and SEA)
@@ -431,18 +428,6 @@ subroutine olam_run(name_name)
 
   endif
 
-! Initialize emissions/deposition if doing chemistry
-
-  if (do_chem == 1) then
-     write(io6,'(/,1x,a)') 'Initializing chemical emissions/deposition'
-     call emis_init()
-     call depv_init()
-
-     if (isfcl > 0) then
-        call megan_init()
-     endif
-  endif
-
   ! If using variable initialization and polygon nudging, read most recent
   ! and next observational analyses, and fill nudging polygons for both
 
@@ -466,6 +451,18 @@ subroutine olam_run(name_name)
   ! Initialize PBL quantities
 
   call pbl_init()
+
+! Initialize emissions/deposition if doing chemistry
+
+  if (do_chem == 1) then
+     write(io6,'(/,1x,a)') 'Initializing chemical emissions/deposition'
+     call emis_init()
+     call depv_init()
+
+     if (isfcl > 0) then
+        call megan_init()
+     endif
+  endif
 
 ! Memory for storing past values for plotting
 

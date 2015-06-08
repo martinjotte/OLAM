@@ -62,14 +62,9 @@ endif
 !$omp parallel do
 do iwl = 2,mwl
 
-! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
-
-   if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
-
    if (land%ed_flag(iwl) == 0) then 
 
 ! Update LAND CELL
-
 
    call landcell(iwl                 ,                                 &
       land%nlev_sfcwater        (iwl), land%leaf_class          (iwl), &

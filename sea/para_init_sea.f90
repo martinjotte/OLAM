@@ -30,133 +30,59 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine para_init_sea(seaflag)
+subroutine para_init_sea()
 
-use max_dims,   only: maxnlspoly
-use misc_coms,  only: io6
+  use misc_coms,  only: io6
+  use mem_ijtabs, only: itabg_w
+  use mem_para,   only: myrank
+  use sea_coms,   only: mws, nws
+  use mem_sea,    only: itab_ws, alloc_sea_grid, itab_ws_pd_iw
 
-use mem_ijtabs, only: itabg_w, mrls
+  implicit none
 
-use mem_para,   only: mgroupsize, myrank
-
-use sea_coms,   only: mws, nws, iseagrid
-
-use mem_sea,    only: itab_ws, itabg_ws, sea_vars, sea, alloc_sea_grid
-
-use mem_mksfc,  only: itab_wls_vars
-
-implicit none
-
-logical, intent(in) :: seaflag(nws)
-
-integer :: j,jsend
-integer :: iw,iws
-integer :: isf
-
-integer :: iws_myrank = 1 ! Counter for WS points to be included on this rank
-
-! Automatic arrays
-
-logical :: myrankflag_ws(nws) ! Flag for WS points existing on this rank
-
-! Temporary datatypes
-
-type(itab_wls_vars), allocatable :: ltab_ws(:)
-type(sea_vars)                   :: sea_t
-
-! Move data to temporary data structures, nullifying the old datatype
-
-call move_alloc(itab_ws, ltab_ws)
-
-call move_alloc (sea%leaf_class, sea_t%leaf_class)
-
-call move_alloc (sea%area , sea_t%area )
-call move_alloc (sea%glatw, sea_t%glatw)
-call move_alloc (sea%glonw, sea_t%glonw)
-call move_alloc (sea%xew  , sea_t%xew  )
-call move_alloc (sea%yew  , sea_t%yew  )
-call move_alloc (sea%zew  , sea_t%zew  )
-call move_alloc (sea%topw , sea_t%topw )
-
-! Initialize myrank flag arrays to .false.
-
-myrankflag_ws(:) = .false.
-
-! Loop over all WS points, and for each whose seaflag value is .true., flag
-! the WS point for inclusion on this rank.
-
-do iws = 2,nws
-   if (seaflag(iws)) then
-      myrankflag_ws(iws) = .true.
-   endif
-enddo
+  integer :: iw, iws
+  integer :: iws_myrank ! Counter for WS points to be included on this rank
 
 ! Loop over all WS points and count the ones that have been flagged
 ! for inclusion on this rank.
 
-do iws = 2,nws
-   if (myrankflag_ws(iws)) then
-      iws_myrank = iws_myrank + 1
-   endif
-enddo
+! Land and sea cells are included on this node if the corresponding
+! atmospheric cell is primary on this node
 
-mws = iws_myrank
+  iws_myrank = 1
 
-! Re-allocate itab data structures and main grid coordinate arrays
+  do iws = 2,nws
+     iw = itab_ws_pd_iw(iws)
+     if (itabg_w(iw)%irank == myrank) then
+        iws_myrank = iws_myrank + 1
+     endif
+  enddo
 
-call alloc_sea_grid(mws)
+  mws = iws_myrank
 
-! Reset point counts to 1
+  ! Allocate itab data structures and sea grid coordinate arrays
 
-iws_myrank = 1
+  call alloc_sea_grid(mws)
 
-! Store new myrank WS indices in itabg data structures
+  iws_myrank = 1
+  itab_ws(1)%iwglobe = 1
+  itab_ws(1)%iw      = 1
 
-do iws = 2,nws
-   if (myrankflag_ws(iws)) then
-      iws_myrank = iws_myrank + 1
+  do iws = 2,nws
+     iw = itab_ws_pd_iw(iws)
+     if (itabg_w(iw)%irank == myrank) then
+        iws_myrank = iws_myrank + 1
+        itab_ws(iws_myrank)%iwglobe = iws
+        itab_ws(iws_myrank)%iw      = iw
+     endif
+  enddo
 
-      itabg_ws(iws)%iws_myrank = iws_myrank
-   endif
-enddo
+  ! Read sea grid information
 
-! Memory copy to main tables
+  call seafile_read()
 
-do iws = 2,nws
-   if (myrankflag_ws(iws)) then
-      iws_myrank = itabg_ws(iws)%iws_myrank
+  ! Deallocate temporary arrays
 
-      itab_ws(iws_myrank)%irank   = itabg_ws(iws)%irank
-      itab_ws(iws_myrank)%iwglobe = iws
-      itab_ws(iws_myrank)%iw      = ltab_ws(iws)%iw
-      itab_ws(iws_myrank)%kw      = ltab_ws(iws)%kw
-      itab_ws(iws_myrank)%npoly   = ltab_ws(iws)%npoly
-      itab_ws(iws_myrank)%arf_iw  = ltab_ws(iws)%arf_iw
-      itab_ws(iws_myrank)%arf_kw  = ltab_ws(iws)%arf_kw
-
-      itab_ws(iws_myrank)%xem(1:maxnlspoly)  = ltab_ws(iws)%xem(1:maxnlspoly)
-      itab_ws(iws_myrank)%yem(1:maxnlspoly)  = ltab_ws(iws)%yem(1:maxnlspoly)
-      itab_ws(iws_myrank)%zem(1:maxnlspoly)  = ltab_ws(iws)%zem(1:maxnlspoly)
-
-      sea%area (iws_myrank) = sea_t%area (iws)
-      sea%glatw(iws_myrank) = sea_t%glatw(iws)
-      sea%glonw(iws_myrank) = sea_t%glonw(iws)
-      sea%xew  (iws_myrank) = sea_t%xew  (iws)
-      sea%yew  (iws_myrank) = sea_t%yew  (iws)
-      sea%zew  (iws_myrank) = sea_t%zew  (iws)
-      sea%topw (iws_myrank) = sea_t%topw (iws)
-
-      sea%leaf_class(iws_myrank) = sea_t%leaf_class(iws)
-   endif
-enddo
-
-! Deallocate temporary data structures and arrays
-
-deallocate (ltab_ws)
-
-deallocate (sea_t%leaf_class)
-
-deallocate (sea_t%area, sea_t%xew, sea_t%yew, sea_t%zew)
-deallocate (sea_t%glatw, sea_t%glonw)
-
+  deallocate(itab_ws_pd_iw)
+  
 end subroutine para_init_sea

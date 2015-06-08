@@ -391,10 +391,6 @@ subroutine read_soil_analysis(soil_tempc)
 
   do iwl = 2, mwl
 
-     ! Skip this cell if running in parallel and primary rank of IWL /= MYRANK
-
-     if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
-
      ! fractional x/y indices in pressure data arrays at current iw point location 
  
      gry = (land%glatw(iwl) - xswlat) / gdatdy + 3.

@@ -1086,6 +1086,7 @@ if (tai_max(leaf_class) < .1) then
    veg_rough = 0.
    veg_albedo = 0.
    veg_fracarea = 0.
+   veg_ndvic = 0.
 
 else
 

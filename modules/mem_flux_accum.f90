@@ -268,9 +268,9 @@ subroutine flux_accum()
   use consts_coms, only: r8
 
   use sea_coms,    only: mws
-  use mem_sea,     only: sea, itabg_ws, itab_ws
+  use mem_sea,     only: sea, itab_ws
 
-  use mem_leaf,    only: land, itabg_wl, itab_wl
+  use mem_leaf,    only: land, itab_wl
 
   use mem_grid,    only: mza, lpv, lpw
 

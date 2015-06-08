@@ -46,9 +46,9 @@ use mem_grid,    only: mza, mva, mwa, lpm, lpv, lpw, lsw, &
                        topm, topw, glatm, glonm, glatv, glonv, glatw, glonw, &
                        unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz
 
-use mem_leaf,    only: land, itab_wl, itabg_wl
+use mem_leaf,    only: land, itab_wl
 
-use mem_sea,     only: sea, itab_ws, itabg_ws
+use mem_sea,     only: sea, itab_ws
 
 use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &

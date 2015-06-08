@@ -39,7 +39,6 @@ Module mem_mksfc
 ! DATA STRUCTURES TO HOLD THE MKSFC GRID INFORMATION FOR ALL LAND/SEA CELLS
 
   Type itab_wls_vars
-     integer :: irank = -1
      integer :: iwglobe = 1  ! = iwlglobe or iwsglobe
      integer :: iw = 1
      integer :: kw = 1

@@ -366,6 +366,8 @@ subroutine tileslab_horiz_tw(iplt,action)
   wloop: do jw = 1, jtab_w(jtw_wadj)%jend(1)
      iw = jtab_w(jtw_wadj)%iw(jw)
 
+     if (itab_w(iw)%irank /= myrank) cycle wloop
+
      npoly = itab_w(iw)%npoly
 
      ! For hexagon grid (in limited-area domain), do not tile plot
@@ -383,30 +385,30 @@ subroutine tileslab_horiz_tw(iplt,action)
 
      ! If only printing value, skip polygon section
 
-     if (action == 'P' .and. npoly < 5) go to 50
+     if (.not. (action == 'P' .and. npoly < 5) ) then
 
-     do j = 1,npoly
+        do j = 1,npoly
 
-        im = itab_w(iw)%im(j)
-      
-        call oplot_transform(iplt,xem(im),yem(im),zem(im),htpn(j),vtpn(j))
+           im = itab_w(iw)%im(j)
 
-        ! Avoid wrap-around for lat-lon plot
+           call oplot_transform(iplt,xem(im),yem(im),zem(im),htpn(j),vtpn(j))
 
-        if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(j))
+           ! Avoid wrap-around for lat-lon plot
 
-        ! Jump out of loop if cell corner is on other side of earth
+           if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(j))
 
-        if (htpn(j) > 1.e11) cycle wloop
+           ! Jump out of loop if cell corner is on other side of earth
 
-     enddo
+           if (htpn(j) > 1.e11) cycle wloop
 
-     ! Jump out of loop if entire cell is outside plot window
+        enddo
 
-     if ( all(htpn(1:npoly) < op%xmin) .or. all(htpn(1:npoly) > op%xmax) .or.  &
-          all(vtpn(1:npoly) < op%ymin) .or. all(vtpn(1:npoly) > op%ymax) ) cycle wloop
+        ! Jump out of loop if entire cell is outside plot window
 
-     50 continue
+        if ( all(htpn(1:npoly) < op%xmin) .or. all(htpn(1:npoly) > op%xmax) .or.  &
+             all(vtpn(1:npoly) < op%ymin) .or. all(vtpn(1:npoly) > op%ymax) ) cycle wloop
+
+     endif  ! (.not. (action == 'P' .and. npoly < 5))
 
      ! Get cell value and plot if 'available'
 
@@ -794,7 +796,7 @@ subroutine tileslab_horiz_s(iplt,action)
 
   use max_dims,   only: maxnlspoly
   use oplot_coms, only: op
-  use mem_sea,    only: sea, itab_ws, itabg_ws
+  use mem_sea,    only: sea, itab_ws
   use sea_coms,   only: mws, iseagrid
   use misc_coms,  only: io6, isubdomain, iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
@@ -846,10 +848,6 @@ subroutine tileslab_horiz_s(iplt,action)
   endif
 
   do iws = 2, mws
-
-     ! Skip IWS cell if running in parallel and primary rank of IWS /= MYRANK
-
-     if (isubdomain == 1 .and. itab_ws(iws)%irank /= myrank) cycle
 
      nspoly = itab_ws(iws)%npoly
 
@@ -976,7 +974,7 @@ subroutine tileslab_horiz_l(iplt,action)
 
   use max_dims,   only: maxnlspoly
   use oplot_coms, only: op
-  use mem_leaf,   only: land, itab_wl, itabg_wl
+  use mem_leaf,   only: land, itab_wl
   use leaf_coms,  only: mwl, nzg, nzs
   use misc_coms,  only: io6, isubdomain, iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
@@ -1040,10 +1038,6 @@ subroutine tileslab_horiz_l(iplt,action)
 
   do iwl = 2, mwl
 
-     ! Skip IWL cell if running in parallel and primary rank of IWL /= MYRANK
-
-     if (isubdomain == 1 .and. itab_wl(iwl)%irank /= myrank) cycle
-
      nlpoly = itab_wl(iwl)%npoly
 
      ! Get tile plot coordinates.  
@@ -1073,7 +1067,6 @@ subroutine tileslab_horiz_l(iplt,action)
      call oplot_lib(k,iwl,'VALUE',op%fldname(iplt),wtbot,wttop, &
                     fldval,notavail)    
      if (notavail > 0) cycle 
-
 
      arealand_tot = arealand_tot + land%area(iwl)
      field_tot    = field_tot + fldval * land%area(iwl)

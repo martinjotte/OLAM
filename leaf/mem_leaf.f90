@@ -42,14 +42,9 @@ Module mem_leaf
 
    type (itab_wls_vars), target, allocatable :: itab_wl(:)
 
-! DERIVED TYPES TO HOLD GLOBAL GRID INDICES FOR A PARALLEL RUN
+! VARIABLE TO HOLD IW INDEX DURING MODEL STARTUP
 
-   Type itabg_wl_vars
-      integer :: iwl_myrank = -1
-      integer :: irank      = -1
-   End Type itabg_wl_vars
-
-   type (itabg_wl_vars), allocatable, target :: itabg_wl(:)
+   integer, allocatable :: itab_wl_pd_iw(:)
 
 ! LAND SURFACE MODEL VARIABLES
 
@@ -70,6 +65,7 @@ Module mem_leaf
 
       integer, allocatable :: leaf_class  (:)  ! leaf ("vegetation") class
       integer, allocatable :: ntext_soil(:,:)  ! soil textural class
+      integer, allocatable :: olson_oge   (:)  ! Olson global ecosystem class
 
 ! Atmospheric near-surface properties
 
@@ -204,6 +200,7 @@ Contains
 
      allocate (land%leaf_class    (mwl)) ; land%leaf_class = 0
      allocate (land%ntext_soil(nzg,mwl)) ; land%ntext_soil = 0
+     allocate (land%olson_oge     (mwl)) ; land%olson_oge  = 0
 
    end subroutine alloc_land_grid
 

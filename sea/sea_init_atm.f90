@@ -32,7 +32,7 @@
 !===============================================================================
 subroutine sea_init_atm()
 
-  use mem_sea,     only: sea, itabg_ws, itab_ws
+  use mem_sea,     only: sea, itab_ws
   use sea_coms,    only: mws, iupdsst, s1900_sst, isstfile, nsstfiles, dt_sea,  &
                          iupdseaice, s1900_seaice, iseaicefile, nseaicefiles, nzi
   use mem_basic,   only: rho, press, vxe, vye, vze, tair, sh_v
@@ -45,15 +45,12 @@ subroutine sea_init_atm()
 
   implicit none
 
-  integer :: isf
   integer :: iw
   integer :: kw
   integer :: iws
-  integer :: j
 
   real :: timefac_sst
   real :: timefac_seaice
-  real :: arf_sea
   real :: dum1, dum2
 
   real, external :: rhovsl, rhovsil
