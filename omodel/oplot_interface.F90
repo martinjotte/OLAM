@@ -1263,6 +1263,7 @@ subroutine plot_underground_w(iplt,ktzone)
   integer :: nu, ier, buffsize, ipos, lpwiw
   integer :: nus(mgroupsize)
   integer, parameter :: itag = 40
+  integer :: iflag180
 
 ! This subroutine plots the W control volumes that are underground, whether
 ! they be triangles or hexagons.
@@ -1287,6 +1288,10 @@ subroutine plot_underground_w(iplt,ktzone)
 
         if (ktzone(iw) /= 1) cycle
 
+        ! Initialize iflag180
+     
+        iflag180 = 0
+
         ! Get tile plot coordinates
 
         if (op%projectn(iplt) == 'L') then   ! For wrap-around direction
@@ -1300,9 +1305,14 @@ subroutine plot_underground_w(iplt,ktzone)
 
            call oplot_transform(iplt,xem(im),yem(im),zem(im),htpn(j),vtpn(j))
 
-           ! Avoid wrap-around
+           ! Avoid wrap-around and set iflag180
 
-           if (op%projectn(iplt) == 'L') call ll_unwrap(xpt,htpn(j))
+           if (op%projectn(iplt) == 'L') then
+              call ll_unwrap(xpt,htpn(j))
+              if (htpn(j) < -180.001) iflag180 =  1
+              if (htpn(j) >  180.001) iflag180 = -1
+           endif
+
         enddo
 
         ! Jump out of loop if any cell corner is on other side of earth
@@ -1325,12 +1335,38 @@ subroutine plot_underground_w(iplt,ktzone)
 
 #ifdef OLAM_MPI
            nu = nu + 1
-           call MPI_Pack(npoly, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(htpn,  7, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(vtpn,  7, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(npoly, 1,     MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(htpn,  npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vtpn,  npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
+
+        ! If this polygon crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+        ! at other end
+
+        if (iflag180 /= 0) then
+
+           do j = 1,npoly
+              htpn(j) = htpn(j) + 360. * iflag180
+           enddo
+
+           if (myrank == 0) then
+
+              call fillpolyg(npoly,htpn,vtpn,op%icigrnd)
+
+           else
+
+#ifdef OLAM_MPI
+              nu = nu + 1
+              call MPI_Pack(npoly, 1,     MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+              call MPI_Pack(htpn,  npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+              call MPI_Pack(vtpn,  npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
+
+           endif
+
+        endif ! iflag180
 
      enddo
 
@@ -1356,14 +1392,14 @@ subroutine plot_underground_w(iplt,ktzone)
                  ipos = 0
 
                  do j = 1, nus(n)
-               
-                    call MPI_Unpack(buffer, buffsize, ipos, npoly, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-                    call MPI_Unpack(buffer, buffsize, ipos, htpn,  7, MPI_REAL,    MPI_COMM_WORLD, ier)
-                    call MPI_Unpack(buffer, buffsize, ipos, vtpn,  7, MPI_REAL,    MPI_COMM_WORLD, ier)
+
+                    call MPI_Unpack(buffer, buffsize, ipos, npoly, 1,     MPI_INTEGER, MPI_COMM_WORLD, ier)
+                    call MPI_Unpack(buffer, buffsize, ipos, htpn,  npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
+                    call MPI_Unpack(buffer, buffsize, ipos, vtpn,  npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
 
                     ! Tile-plot cell with underground color
                     call fillpolyg(npoly,htpn,vtpn,op%icigrnd)
-               
+
                  enddo
 
               endif

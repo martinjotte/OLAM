@@ -34,7 +34,7 @@ subroutine tileslab_horiz_mp(iplt,action)
   use oplot_coms, only: op
   use mem_grid,   only: mza, mma, mwa, lpw, zm, zt, xem, yem, zem, &
                         xev, yev, zev, xew, yew, zew
-  use mem_ijtabs, only: itab_m, jtab_m, jtm_vadj
+  use mem_ijtabs, only: itab_m, itabg_m, jtab_m, jtm_vadj
   use misc_coms,  only: io6, iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
@@ -47,7 +47,7 @@ subroutine tileslab_horiz_mp(iplt,action)
   integer,      intent(in) :: iplt
   character(1), intent(in) :: action
 
-  integer :: j, jm, jn, jnn, im, iw, npoly, iv1, iv2
+  integer :: j, jn, jnn, jj, im, iw, npoly, iv1, iv2
   integer :: notavail, navail
 
   real :: hpt, vpt
@@ -63,6 +63,7 @@ subroutine tileslab_horiz_mp(iplt,action)
   integer :: nu, ier, buffsize, ipos, base, inc, n
   integer :: nus(mgroupsize)
   integer, parameter :: itag = 40
+  integer :: iflag180
 
   ! Find cell K indices on the given plot surface
 
@@ -95,6 +96,8 @@ subroutine tileslab_horiz_mp(iplt,action)
 !            im = jtab_m(jtm_vadj)%im(jm)
   mloop: do im = 2,mma
 
+     if (itabg_m( itab_m(im)%imglobe )%irank /= myrank) cycle mloop
+
      ! For now, skip pts that don't read in topm
 
      if (.not. itab_m(im)%loop(1)) cycle mloop
@@ -105,9 +108,10 @@ subroutine tileslab_horiz_mp(iplt,action)
 
      npoly = itab_m(im)%npoly
 
-     ! Initialize navail counter
+     ! Initialize navail counter and iflag180
 
-     navail = 0
+     navail   = 0
+     iflag180 = 0
 
      do j = 1,npoly
 
@@ -120,9 +124,13 @@ subroutine tileslab_horiz_mp(iplt,action)
 
         call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),htpn(j),vtpn(j))
 
-        ! Avoid wrap-around for lat-lon plot
+        ! Avoid wrap-around for lat-lon plot and set iflag180
 
-        if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(j))
+        if (op%projectn(iplt) == 'L') then
+           call ll_unwrap(hpt,htpn(j))
+           if (htpn(j) < -180.001) iflag180 =  1
+           if (htpn(j) >  180.001) iflag180 = -1
+        endif
 
         ! Jump out of loop if any cell corner is on other side of earth
 
@@ -180,13 +188,51 @@ subroutine tileslab_horiz_mp(iplt,action)
 #endif
 
         endif
+        
+        ! If this polygon crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+        ! at other end
 
-        ! If any surrounding T cell is unavailable, plot M cell by avalable sectors
+        if (iflag180 /= 0) then
 
-     else
+           do j = 1,npoly
+              htpn(j) = htpn(j) + 360. * iflag180
+           enddo
+
+           if (myrank == 0) then
+
+              call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,fldval,action)
+
+           else
+
+#ifdef OLAM_MPI
+              nu = nu + 1
+              if (buffsize < ipos + base) then
+                 allocate( bcopy (buffsize + inc * base) )
+                 bcopy(1:buffsize) = buffer
+                 call move_alloc(bcopy, buffer)
+                 buffsize = size(buffer)
+              endif
+
+              call MPI_Pack(npoly,  1,     MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+              call MPI_Pack(htpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+              call MPI_Pack(vtpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+              call MPI_Pack(hpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+              call MPI_Pack(vpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+              call MPI_Pack(fldval, 1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
+
+           endif
+
+        endif ! iflag180
+
+        ! If any surrounding T cell is unavailable, plot M cell by available sectors
+
+     else  ! navail /= npoly
 
         hqpn(1) = hpt
         vqpn(1) = vpt
+
+        iflag180 = 0
 
         do j = 1,npoly
 
@@ -209,6 +255,16 @@ subroutine tileslab_horiz_mp(iplt,action)
 
               call oplot_transform(iplt,xev(iv1),yev(iv1),zev(iv1),hqpn(2),vqpn(2))
               call oplot_transform(iplt,xev(iv2),yev(iv2),zev(iv2),hqpn(4),vqpn(4))
+
+              ! Avoid wrap-around for lat-lon plot and set iflag180
+
+              if (op%projectn(iplt) == 'L') then
+                 do jj = 1, 4
+                    call ll_unwrap(hpt,hqpn(jj))
+                    if (hqpn(jj) < -180.001) iflag180 =  1
+                    if (hqpn(jj) >  180.001) iflag180 = -1
+                 enddo
+              endif
 
               if (myrank == 0) then
 
@@ -235,9 +291,44 @@ subroutine tileslab_horiz_mp(iplt,action)
 
               endif
 
+              ! If this polygon crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+              ! at other end
+
+              if (iflag180 /= 0) then
+
+                 do jj = 1, 4
+                    hqpn(jj) = hqpn(jj) + 360. * iflag180
+                 enddo
+
+                 if (myrank == 0) then
+
+                    call celltile(iplt,4,hqpn,vqpn,hpt,vpt,fldval,action)
+
+                 else
+
+#ifdef OLAM_MPI
+                    nu = nu + 1
+                    if (buffsize < ipos + base) then
+                       allocate( bcopy (buffsize + inc * base) )
+                       bcopy(1:buffsize) = buffer
+                       call move_alloc(bcopy, buffer)
+                       buffsize = size(buffer)
+                    endif
+
+                    call MPI_Pack(4,      1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+                    call MPI_Pack(hqpn,   4, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+                    call MPI_Pack(vqpn,   4, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+                    call MPI_Pack(hpt,    1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+                    call MPI_Pack(vpt,    1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+                    call MPI_Pack(fldval, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
+
+                 endif
+
+              endif ! iflag180
            endif
         enddo
-     endif
+     endif ! navail == npoly
 
   enddo mloop
 
@@ -328,6 +419,7 @@ subroutine tileslab_horiz_tw(iplt,action)
   integer :: nu, ier, buffsize, ipos, base, inc, n
   integer :: nus(mgroupsize)
   integer, parameter :: itag = 40
+  integer :: iflag180
 
   ! Find cell K indices on the given plot surface
 
@@ -379,6 +471,10 @@ subroutine tileslab_horiz_tw(iplt,action)
 
      if (ktf(iw) /= 0) cycle wloop
 
+     ! Initialize iflag180
+     
+     iflag180 = 0
+
      ! Get tile plot coordinates.  
 
      call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
@@ -393,9 +489,13 @@ subroutine tileslab_horiz_tw(iplt,action)
 
            call oplot_transform(iplt,xem(im),yem(im),zem(im),htpn(j),vtpn(j))
 
-           ! Avoid wrap-around for lat-lon plot
+           ! Avoid wrap-around for lat-lon plot and set iflag180
 
-           if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(j))
+           if (op%projectn(iplt) == 'L') then
+              call ll_unwrap(hpt,htpn(j))
+              if (htpn(j) < -180.001) iflag180 =  1
+              if (htpn(j) >  180.001) iflag180 = -1
+           endif
 
            ! Jump out of loop if cell corner is on other side of earth
 
@@ -471,6 +571,51 @@ subroutine tileslab_horiz_tw(iplt,action)
         endif
      endif
 #endif
+
+     ! If this polygon crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+     ! at other end
+
+     if (iflag180 /= 0) then
+
+        do j = 1,npoly
+           htpn(j) = htpn(j) + 360. * iflag180
+        enddo
+
+        if (myrank == 0) then
+
+           call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,fldval,action)
+
+        else
+
+#ifdef OLAM_MPI
+           nu = nu + 1
+           if (buffsize < ipos + base) then
+              allocate( bcopy (buffsize + inc * base) )
+              bcopy(1:buffsize) = buffer
+              call move_alloc(bcopy, buffer)
+              buffsize = size(buffer)
+           endif
+
+           call MPI_Pack(npoly,  1,     MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(htpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vtpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(hpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(fldval, 1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+
+           if (op%pltcone(iplt) == 'C' .and. action == 'T') then
+              call MPI_Pack(iok, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+
+              if (iok == 1) then
+                 call MPI_Pack(xq, 2, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+                 call MPI_Pack(yq, 2, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+              endif
+           endif
+#endif
+
+        endif
+            
+     endif ! iflag180
 
   enddo wloop
 
@@ -582,6 +727,7 @@ subroutine tileslab_horiz_vn(iplt,action)
   integer :: nu, ier, buffsize, ipos, base, inc, n, j
   integer :: nus(mgroupsize)
   integer, parameter :: itag = 40
+  integer :: iflag180
 
   ! Find cell K indices on the given plot surface
 
@@ -610,8 +756,10 @@ subroutine tileslab_horiz_vn(iplt,action)
 
   ! Loop over V points
 
-!  do jv = 1, jtab_v(jtv_wadj)%jend(1)
-     do iv = 1,mva
+! do jv = 1, jtab_v(jtv_wadj)%jend(1)
+  do iv = 1,mva
+
+     if (itab_v(iv)%irank /= myrank) cycle 
 
      ! Transform tile plot X and Y coordinates.  
 
@@ -626,6 +774,10 @@ subroutine tileslab_horiz_vn(iplt,action)
      ! Skip this V point if both its W neighbors are below ground
 
      if (ktf(iw1) /= 0 .and. ktf(iw2) /= 0) cycle
+
+     ! Initialize iflag180
+
+     iflag180 = 0
 
      if (im1 > 1) then
         call oplot_transform(iplt,xem(im1),yem(im1),zem(im1),htpn(1),vtpn(1))
@@ -672,13 +824,6 @@ subroutine tileslab_horiz_vn(iplt,action)
      if ( all(htpn(1:4) < op%xmin) .or. all(htpn(1:4) > op%xmax) .or.  &
           all(vtpn(1:4) < op%ymin) .or. all(vtpn(1:4) > op%ymax)) cycle
 
-     ! Save copy of 2nd and 4th htpn,vtpn pts
-
-     htpn2 = htpn(2)
-     htpn4 = htpn(4)
-     vtpn2 = vtpn(2)
-     vtpn4 = vtpn(4)
-   
      ! Get cell value and 'available' flag
 
      call oplot_lib(kv(iv),iv,'VALUE',op%fldname(iplt),wtbot(iv),wttop(iv), &
@@ -690,44 +835,40 @@ subroutine tileslab_horiz_vn(iplt,action)
 
      if (ktf(iw1) == 0 .and. ktf(iw2) == 0) then
 
-        if (myrank == 0) then
-           call celltile(iplt,4,htpn,vtpn,hpt,vpt,fldval,action)
-        endif
-      
         ! Else, check if IW1 is above ground
 
      elseif (ktf(iw1) == 0) then
 
         ! Plot IW1 half of cell with tile color
 
-        htpn(4) = htpn4
-        vtpn(4) = vtpn4
-
         htpn(2) = htpn(3)
         vtpn(2) = vtpn(3)
-
-        if (myrank == 0) then
-           call celltile(iplt,4,htpn,vtpn,hpt,vpt,fldval,action)
-        endif
 
      else
 
         ! Plot IW2 half of cell with tile color
 
-        htpn(2) = htpn2
-        vtpn(2) = vtpn2
-
         htpn(4) = htpn(3)
         vtpn(4) = vtpn(3)
 
-        if (myrank == 0) then
-           call celltile(iplt,4,htpn,vtpn,hpt,vpt,fldval,action)
-        endif
-
      endif
 
+     ! Set iflag180
+        
+     if (op%projectn(iplt) == 'L') then
+        do itpn = 1,4
+           if (htpn(itpn) < -180.001) iflag180 =  1
+           if (htpn(itpn) >  180.001) iflag180 = -1
+        enddo
+     endif
+
+     if (myrank == 0) then
+
+        call celltile(iplt,4,htpn,vtpn,hpt,vpt,fldval,action)
+        
+     else
+
 #ifdef OLAM_MPI
-     if (myrank /= 0) then
         nu = nu + 1
         if (buffsize < ipos + base) then
            allocate( bcopy (buffsize + inc * base) )
@@ -741,9 +882,44 @@ subroutine tileslab_horiz_vn(iplt,action)
         call MPI_Pack(hpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
         call MPI_Pack(vpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
         call MPI_Pack(fldval, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
 
      endif
+
+     ! If this polygon crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+     ! at other end
+
+     if (iflag180 /= 0) then
+
+        do itpn = 1, 4
+           htpn(itpn) = htpn(itpn) + 360. * iflag180
+        enddo
+
+        if (myrank == 0) then
+
+           call celltile(iplt,4,htpn,vtpn,hpt,vpt,fldval,action)
+
+        else
+
+#ifdef OLAM_MPI
+           nu = nu + 1
+           if (buffsize < ipos + base) then
+              allocate( bcopy (buffsize + inc * base) )
+              bcopy(1:buffsize) = buffer
+              call move_alloc(bcopy, buffer)
+              buffsize = size(buffer)
+           endif
+
+           call MPI_Pack(htpn,   4, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vtpn,   4, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(hpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(fldval, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
+
+        endif
+
+     endif ! iflag180
 
   enddo
 
@@ -827,6 +1003,7 @@ subroutine tileslab_horiz_s(iplt,action)
   integer :: nu, ier, buffsize, ipos, base, inc, n, j, nr
   integer :: nus(mgroupsize)
   integer, parameter :: itag = 40
+  integer :: iflag180
 
   areasea_tot = 0.
   field_tot   = 0.
@@ -855,13 +1032,21 @@ subroutine tileslab_horiz_s(iplt,action)
 
      call oplot_transform(iplt,sea%xew(iws),sea%yew(iws),sea%zew(iws),hpt,vpt)
 
+     ! Initialize iflag180
+
+     iflag180 = 0
+
      do jms = 1,nspoly      
         call oplot_transform(iplt, itab_ws(iws)%xem(jms), itab_ws(iws)%yem(jms), &
                                    itab_ws(iws)%zem(jms), htpn(jms), vtpn(jms))
 
-        ! Avoid wrap-around for lat-lon plot
+        ! Avoid wrap-around for lat-lon plot and set iflag180
 
-        if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(jms))
+        if (op%projectn(iplt) == 'L') then
+           call ll_unwrap(hpt,htpn(jms))
+           if (htpn(jms) < -180.001) iflag180 =  1
+           if (htpn(jms) >  180.001) iflag180 = -1
+        endif
      enddo
 
      ! Jump out of loop if any cell corner is on other side of earth
@@ -906,6 +1091,42 @@ subroutine tileslab_horiz_s(iplt,action)
 #endif
 
      endif
+
+     ! If this polygon crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+     ! at other end
+
+     if (iflag180 /= 0) then
+
+        do jms = 1,nspoly
+           htpn(jms) = htpn(jms) + 360. * iflag180
+        enddo
+
+        if (myrank == 0) then
+
+           call celltile(iplt,nspoly,htpn,vtpn,hpt,vpt,fldval,action)
+
+        else
+
+#ifdef OLAM_MPI
+           nu = nu + 1
+           if (buffsize < ipos + base) then
+              allocate( bcopy (buffsize + inc * base) )
+              bcopy(1:buffsize) = buffer
+              call move_alloc(bcopy, buffer)
+              buffsize = size(buffer)
+           endif
+
+           call MPI_Pack(nspoly, 1,      MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(htpn,   nspoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vtpn,   nspoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(hpt,    1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vpt,    1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(fldval, 1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
+
+        endif
+
+     endif ! iflag180
 
   enddo
 
@@ -1006,6 +1227,7 @@ subroutine tileslab_horiz_l(iplt,action)
   integer :: nu, ier, buffsize, ipos, base, inc, n, j, nr
   integer :: nus(mgroupsize)
   integer, parameter :: itag = 40
+  integer :: iflag180
 
   arealand_tot = 0.
   field_tot    = 0.
@@ -1044,13 +1266,21 @@ subroutine tileslab_horiz_l(iplt,action)
 
      call oplot_transform(iplt,land%xew(iwl),land%yew(iwl),land%zew(iwl),hpt,vpt)
 
+     ! Initialize iflag180
+     
+     iflag180 = 0
+
      do jml = 1,nlpoly
         call oplot_transform(iplt, itab_wl(iwl)%xem(jml), itab_wl(iwl)%yem(jml), &
                                    itab_wl(iwl)%zem(jml), htpn(jml), vtpn(jml))
 
-        ! Avoid wrap-around for lat-lon plots
+        ! Avoid wrap-around for lat-lon plots and set iflag180
 
-        if (op%projectn(iplt) == 'L') call ll_unwrap(hpt,htpn(jml))
+        if (op%projectn(iplt) == 'L') then
+           call ll_unwrap(hpt,htpn(jml))
+           if (htpn(jml) < -180.001) iflag180 =  1
+           if (htpn(jml) >  180.001) iflag180 = -1
+        endif
      enddo
 
      ! Jump out of loop if any cell corner is on other side of earth
@@ -1095,6 +1325,42 @@ subroutine tileslab_horiz_l(iplt,action)
 #endif
 
      endif
+
+     ! If this polygon crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+     ! at other end
+
+     if (iflag180 /= 0) then
+
+        do jml = 1,nlpoly
+           htpn(jml) = htpn(jml) + 360. * iflag180
+        enddo
+
+        if (myrank == 0) then
+
+           call celltile(iplt,nlpoly,htpn,vtpn,hpt,vpt,fldval,action)
+
+        else
+
+#ifdef OLAM_MPI
+           nu = nu + 1
+           if (buffsize < ipos + base) then
+              allocate( bcopy (buffsize + inc * base) )
+              bcopy(1:buffsize) = buffer
+              call move_alloc(bcopy, buffer)
+              buffsize = size(buffer)
+           endif
+
+           call MPI_Pack(nlpoly, 1,      MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(htpn,   nlpoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vtpn,   nlpoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(hpt,    1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vpt,    1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(fldval, 1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
+
+        endif
+
+     endif ! iflag180
 
   enddo
 
