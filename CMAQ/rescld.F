@@ -101,20 +101,20 @@ C Number of species in CGRID
       INTEGER, SAVE :: MXSPCS
 
 C...........Arguments:
+      integer, intent(in)  :: mrl
+      INTEGER, intent(in)  :: N_SPC_WDEP        ! # of wet deposition species
+      INTEGER, intent(in)  :: WDEP_MAP( : )     ! wet deposition map to CGRID
+      REAL,    intent(out) :: DEP  ( :,: )      ! depositions (etc.)
+
 !     REAL          CGRID( NCOLS,NROWS,NLAYS,* )  !  concentrations
 !     REAL       :: CGRID( :,:,:,: )    ! concentrations
 !     REAL, POINTER :: CGRID( :,:,:,: )    ! concentrations
       INTEGER       JDATE               ! current model date, coded YYYYDDD
       INTEGER       JTIME               ! current model time, coded HHMMSS
 !     INTEGER       TSTEP( 3 )          ! model time step, coded H*MMSS
-      INTEGER       N_SPC_WDEP          ! # of wet deposition species
 !     INTEGER       WDEP_MAP( * )       ! wet deposition map to CGRID
-      INTEGER       WDEP_MAP( : )       ! wet deposition map to CGRID
 !     REAL          DEP  ( NCOLS,NROWS,* )  ! depositions (etc.)
-      REAL       :: DEP  ( :,: )        ! depositions (etc.)
 !     REAL       :: RESTRANS( :,: )
-
-      integer, intent(in) :: mrl
 
 C...........Local Variables:
 

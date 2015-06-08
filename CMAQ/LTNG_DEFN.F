@@ -607,13 +607,12 @@ C statement function for ERF approximation
             if (column_ltng_no(iw) .ge. 1.e-16) then
 
                kbot = lpw(iw)
-               ktop = min(mza, kcutop(iw)+1)
+               ktop = min(mza-1, kcutop(iw)+1)
 
                do k = kbot, ktop
                   prs(k) = (press(k,iw) + press(k+1,iw)) * 0.005
                enddo
                prs(kbot-1) = 2.0 * prs(kbot) - prs(kbot+1)
-
 
                SUM_FRAC = 0.0  
                LTEMIS   = 0.0     ! array assignment

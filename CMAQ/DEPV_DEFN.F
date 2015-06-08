@@ -170,7 +170,7 @@ C-----------------------------------------------------------------------
 C Includes:
 !        INCLUDE 'RXCM.EXT'      ! Mechanism reaction common block (for MECHNAME)
          INCLUDE 'CONST.EXT'     ! constants
-         INCLUDE 'FILES_CTM.EXT' ! file name parameters
+!        INCLUDE 'FILES_CTM.EXT' ! file name parameters
 
 C Arguments:
          INTEGER JDATE, JTIME, TSTEP( 3 )
@@ -752,9 +752,9 @@ C-----------------------------------------------------------------------
          use mem_grid,   only: lpw, lsw, volt
          use mem_ijtabs, only: itab_w
          use leaf_coms,  only: mwl
-         use mem_leaf,   only: land, itabg_wl, itab_wl
+         use mem_leaf,   only: land, itab_wl
          use sea_coms,   only: mws
-         use mem_sea,    only: sea, itabg_ws, itab_ws
+         use mem_sea,    only: sea, itab_ws
          use mem_ijtabs, only: itabg_w, jtab_w, jtw_prog
          use mem_basic,  only: rho
          use cgrid_defn, only: cgrid, sxfer_gc, sxfer_nr, sxfer_ae

@@ -677,7 +677,6 @@ C Miscellaneous variables
          CHARACTER( 16 ), SAVE :: PNAME = 'GET_AERO_EMIS'
          INTEGER :: N, S  ! Loop indices
          integer :: j, k, iw, iws, iwl, jws, jwl, kw
-         real    :: arf_kw
 
 #ifdef Verbose2
          real sumem
@@ -1042,7 +1041,6 @@ C *** ADD SEA SALT EMSISSIONS
 
                 iws    = itab_w(iw)%isea(jws)
                 k      = itab_ws(iws)%kw
-                arf_kw = itab_ws(iws)%arf_kw
 
 C *** Get grid cell values for sea salt emission rates
 C     Convert units of SSOUTM from [g/m3/s] to [ug/m3/s], and
@@ -1060,13 +1058,13 @@ C     [m2/mol/s].  Save results in the VDEMIS_AE array.
                       IF ( EM_MAP( S,N ) .GT. 0 .and. SS_MAP( S,N ) .NE. 0 ) THEN
                          VDEMIS_AE( k,iw,EM_MAP( S,N ) ) = VDEMIS_AE( k,iw,EM_MAP( S,N ) )
      &                        + SSOUTM( SS_MAP( S,N ),N,iws ) * MGPG * EM_FAC( S,N )
-     &                        * ( CONVM / AEROSPC_MW( S ) ) * arf_kw
+     &                        * ( CONVM / AEROSPC_MW( S ) )
                       END IF
                    END DO
                    VDEMIS_AE( k,iw,NUM_MAP( N ) ) = VDEMIS_AE( k,iw,NUM_MAP( N ) )
-     &                                            + SSOUTN( N,iws ) * NUM_FAC( N ) * CONVN * arf_kw
+     &                                            + SSOUTN( N,iws ) * NUM_FAC( N ) * CONVN
                    VDEMIS_AE( k,iw,SRF_MAP( N ) ) = VDEMIS_AE( k,iw,SRF_MAP( N ) ) 
-     &                                            + SSOUTS( N,iws ) * SRF_FAC( N ) * CONVS * arf_kw
+     &                                            + SSOUTS( N,iws ) * SRF_FAC( N ) * CONVS
                 END DO
 
              enddo
@@ -1077,7 +1075,6 @@ C *** ADD DUST EMSISSIONS
 
                 iwl    = itab_w(iw)%iland(jwl)
                 k      = itab_wl(iwl)%kw
-                arf_kw = itab_wl(iwl)%arf_kw
 
 C *** Get grid cell values for sea salt emission rates
 C     Convert units of SSOUTM from [g/m3/s] to [ug/m3/s], and
@@ -1086,23 +1083,27 @@ C     the vertical diffusion routines.  Mass and number emissions are
 C     converted to [ppmv/s].  Surface area emissions are converted to 
 C     [m2/mol/s].  Save results in the VDEMIS_AE array.
 
-                CONVM = MWAIR / GPKG / rho(k,iw) ! [m3/mol]
-                CONVN = CONVM * RAVO * 1.0E+06 ! 10^6 * [m3]
-                CONVS = CONVM   ! [m3/mol]
+                if (dust_em(iwl) > 1.e-25) then
 
-                DO N = 1, N_MODE
-                   DO S = 1, N_AEROSPC
-                      IF ( EM_MAP( S,N ) .GT. 0 .and. DUST_MAP( S,N ) .NE. 0 ) THEN
-                         VDEMIS_AE( k,iw,EM_MAP( S,N ) ) = VDEMIS_AE( k,iw,EM_MAP( S,N ) )
-     &                        + DUSTOUTM( DUST_MAP( S,N ),N,iwl ) * MGPG * EM_FAC( S,N )
-     &                        * ( CONVM / AEROSPC_MW( S ) ) * arf_kw
-                      END IF
+                   CONVM = MWAIR / GPKG / rho(k,iw) ! [m3/mol]
+                   CONVN = CONVM * RAVO * 1.0E+06 ! 10^6 * [m3]
+                   CONVS = CONVM ! [m3/mol]
+
+                   DO N = 1, N_MODE
+                      DO S = 1, N_AEROSPC
+                         IF ( EM_MAP( S,N ) .GT. 0 .and. DUST_MAP( S,N ) .NE. 0 ) THEN
+                            VDEMIS_AE( k,iw,EM_MAP( S,N ) ) = VDEMIS_AE( k,iw,EM_MAP( S,N ) )
+     &                           + DUSTOUTM( DUST_MAP( S,N ),N,iwl ) * MGPG * EM_FAC( S,N )
+     &                           * ( CONVM / AEROSPC_MW( S ) )
+                         END IF
+                      END DO
+                      VDEMIS_AE( k,iw,NUM_MAP( N ) ) = VDEMIS_AE( k,iw,NUM_MAP( N ) )
+     &                                               + DUSTOUTN( N,iwl ) * NUM_FAC( N ) * CONVN
+                      VDEMIS_AE( k,iw,SRF_MAP( N ) ) = VDEMIS_AE( k,iw,SRF_MAP( N ) ) 
+     &                                               + DUSTOUTS( N,iwl ) * SRF_FAC( N ) * CONVS
                    END DO
-                   VDEMIS_AE( k,iw,NUM_MAP( N ) ) = VDEMIS_AE( k,iw,NUM_MAP( N ) )
-     &                                            + DUSTOUTN( N,iwl ) * NUM_FAC( N ) * CONVN * arf_kw
-                   VDEMIS_AE( k,iw,SRF_MAP( N ) ) = VDEMIS_AE( k,iw,SRF_MAP( N ) ) 
-     &                                            + DUSTOUTS( N,iwl ) * SRF_FAC( N ) * CONVS * arf_kw
-                END DO
+
+                endif
 
              enddo
 
@@ -1131,4 +1132,3 @@ C     [m2/mol/s].  Save results in the VDEMIS_AE array.
          END SUBROUTINE GET_AERO_EMIS
 
       END MODULE AERO_EMIS
-

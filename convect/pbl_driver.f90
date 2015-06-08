@@ -38,8 +38,7 @@ subroutine pbl_driver(mrl)
   use mem_tend,       only: thilt, sh_wt
   use mem_basic,      only: vxe, vye, vze, thil, theta, tair, sh_w, sh_v, rho
   use mem_turb,       only: hkm, sxfer_tk, sxfer_rk, ustar, wstar, wtv0, &
-                            frac_urb, frac_land, frac_sfc, pblh, kpblh, &
-                            fthpbl, fqtpbl
+                            frac_sfc, pblh, kpblh, fthpbl, fqtpbl
   use consts_coms,    only: grav, vonk, eps_virt, alvlocp
   use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
   use mem_radiate,    only: fthrd_sw, fthrd_lw
@@ -176,47 +175,73 @@ end subroutine pbl_driver
 
 subroutine pbl_init()
 
-  use mem_grid,      only: lsw, lpw, mza, mwa, arw
+  use mem_grid,      only: lsw, lpw, mza, mwa, arw, arw0, zfacm
   use mem_ijtabs,    only: itab_w, jtab_w, jtw_prog, itabg_w
-  use mem_turb,      only: frac_urb, frac_land, frac_sfc, ustar, wstar, wtv0, &
-                           pblh, kpblh, fthpbl, fqtpbl
-  use mem_leaf,      only: land, itab_wl, itabg_wl
+  use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, frac_sfc, &
+                           ustar, wstar, wtv0, pblh, kpblh, fthpbl, fqtpbl
+  use mem_leaf,      only: land, itab_wl
+  use mem_sea,       only: sea, itab_ws
   use mem_basic,     only: vxe, vye, vze, theta, tair, sh_v
-  use misc_coms,     only: io6, isubdomain, runtype
+  use misc_coms,     only: io6, isubdomain, runtype, iparallel
   use module_bl_acm2,only: acm2_pblhgt
   use leaf_coms,     only: mwl, isfcl
+  use sea_coms,      only: mws
   use consts_coms,   only: eps_virt, alvlocp
-  
+  use obnd,          only: lbcopy_w1d
+  use olam_mpi_atm,  only: mpi_send_w, mpi_recv_w
+
   implicit none
 
-  integer :: j, ilf, iw, iwl, k
+  integer :: j, iw, iwl, iws, k, km, ks
   real    :: thlv(mza)
 
   if (allocated(fthpbl)) fthpbl(:,:) = 0.0
   if (allocated(fqtpbl)) fqtpbl(:,:) = 0.0
 
-! Populate urban and land fraction arrays if used
+! Populate urban and land, sea, and lake fraction arrays
   
-  if (allocated(frac_urb )) frac_urb (:) = 0.0
-  if (allocated(frac_land)) frac_land(:) = 0.0
+  frac_urb (:) = 0.0
+  frac_land(:) = 0.0
+  frac_sea (:) = 0.0
+  frac_lake(:) = 0.0
 
   if (isfcl > 0) then
-     do iwl = 2,mwl
+
+     do iwl = 2, mwl
         iw  = itab_wl(iwl)%iw   ! global index
         if (isubdomain == 1) then
-           iw  = itabg_w (iw )%iw_myrank  ! local index
+           iw = itabg_w(iw)%iw_myrank  ! local index
         endif
    
-        if (allocated(frac_urb)) then
-           if (any(land%leaf_class(iwl) == (/ 19, 21 /))) then
-              frac_urb(iw) = frac_urb(iw) + itab_wl(iwl)%arf_iw
-           endif
+        if (any(land%leaf_class(iwl) == (/ 19, 21 /))) then
+           frac_urb(iw) = frac_urb(iw) + itab_wl(iwl)%arf_iw
         endif
        
-        if (allocated(frac_land)) then
-           frac_land(iw) = frac_land(iw) + itab_wl(iwl)%arf_iw
+        frac_land(iw) = frac_land(iw) + itab_wl(iwl)%arf_iw
+     enddo
+
+     do iws = 2, mws
+        iw  = itab_ws(iws)%iw   ! global index
+        if (isubdomain == 1) then
+           iw  = itabg_w(iw)%iw_myrank  ! local index
+        endif
+   
+        if (sea%leaf_class(iws) == 0) then
+           frac_sea (iw) = frac_sea (iw) + itab_ws(iws)%arf_iw
+        else
+           frac_lake(iw) = frac_lake(iw) + itab_ws(iws)%arf_iw
         endif
      enddo
+
+     if (iparallel == 1) then
+        call mpi_send_w(1, r1dvara1=frac_urb, r1dvara2=frac_land, &
+                           r1dvara3=frac_sea, r1dvara4=frac_lake  )
+        call mpi_recv_w(1, r1dvara1=frac_urb, r1dvara2=frac_land, &
+                           r1dvara3=frac_sea, r1dvara4=frac_lake  )
+     endif
+
+     call lbcopy_w1d(1, a1=frac_urb, a2=frac_land, a3=frac_sea, a4=frac_lake)
+     
   endif
 
 ! Store the fraction of the total surface that intersects with each layer
@@ -225,9 +250,11 @@ subroutine pbl_init()
      if (lsw(iw) == 1) then
         frac_sfc(1,iw) = 1.0
      else
-        do k = 1, lsw(iw)
-           frac_sfc(k,iw) = (arw(lpw(iw)+k-1,iw) - arw(lpw(iw)+k-2,iw)) &
-                          / arw(lpw(iw)+lsw(iw)-1,iw)
+        do ks = 1, lsw(iw)
+           k  = lpw(iw) + ks - 1
+           km = k - 1
+           frac_sfc(ks,iw) = &
+                (arw(k,iw) / zfacm(k)**2 - arw(km,iw) / zfacm(km)**2) / arw0(iw)
         enddo
      endif
   enddo

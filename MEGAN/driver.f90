@@ -456,7 +456,7 @@ contains
     use mem_basic,   only: vxe, vye, vze, press
     use misc_coms,   only: io6, isubdomain, current_time
     use mem_ijtabs,  only: itabg_w
-    use mem_leaf,    only: land, itab_wl, itabg_wl
+    use mem_leaf,    only: land, itab_wl
     use leaf_coms,   only: mwl
     use consts_coms, only: pio180
     use mem_radiate, only: rshort

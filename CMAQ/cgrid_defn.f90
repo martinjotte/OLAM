@@ -19,6 +19,8 @@ module cgrid_defn
   integer :: ns_no2 = 0
   integer :: ns_o3  = 0
 
+  character(16), allocatable :: cgrid_names(:)
+
 contains
 
   subroutine alloc_cgrid(mza, mwa)
@@ -64,12 +66,15 @@ contains
     allocate( sxfer_nr( nsw_max, mwa, n_nr_depv ) )
     sxfer_nr = rinit
 
+    allocate(cgrid_names(nspcsd))
+    cgrid_names = ''
+
   end subroutine alloc_cgrid
 
 
   subroutine filltab_cgrid()
 
-    use var_tables, only: vtab_r, num_var, increment_vtable
+    use var_tables, only: increment_vtable
     use misc_coms,  only: io6
     use cgrid_spcs
     implicit none
@@ -83,17 +88,17 @@ contains
     do n = 1, n_gc_spc
        ns = gc_strt - 1 + n
 
+       cgrid_names(ns) = gc_spc(n)
+
        if (any( n == gc_trns_map(1:n_gc_trns) )) then
 
           ! transported species need to be communicated and saved
-          call increment_vtable( gc_spc(n), 'AW', mpt1=.true.)
-          vtab_r(num_var)%rvar2_p => cgrid(:,:,ns)
+          call increment_vtable( gc_spc(n), 'AW', rvar2=cgrid(:,:,ns), mpt1=.true.)
 
        else
 
           ! non-transported species only need to be saved
-          call increment_vtable( gc_spc(n), 'AW')
-          vtab_r(num_var)%rvar2_p => cgrid(:,:,ns)
+          call increment_vtable( gc_spc(n), 'AW', rvar2=cgrid(:,:,ns))
 
        endif
     enddo
@@ -101,17 +106,17 @@ contains
     do n = 1, n_ae_spc
        ns = ae_strt - 1 + n
 
+       cgrid_names(ns) = ae_spc(n)
+
        if (any( n == ae_trns_map(1:n_ae_trns) )) then
 
           ! transported species need to be communicated and saved
-          call increment_vtable( ae_spc(n), 'AW', mpt1=.true.)
-          vtab_r(num_var)%rvar2_p => cgrid(:,:,ns)
+          call increment_vtable( ae_spc(n), 'AW', rvar2=cgrid(:,:,ns), mpt1=.true.)
 
        else
 
           ! non-transported species only need to be saved
-          call increment_vtable( ae_spc(n), 'AW')
-          vtab_r(num_var)%rvar2_p => cgrid(:,:,ns)
+          call increment_vtable( ae_spc(n), 'AW', rvar2=cgrid(:,:,ns))
 
        endif
     enddo
@@ -119,17 +124,17 @@ contains
     do n = 1, n_nr_spc
        ns = nr_strt - 1 + n
        
+       cgrid_names(ns) = nr_spc(n)
+
        if (any( n == nr_trns_map(1:n_nr_trns) )) then
           
           ! transported species need to be communicated and saved
-          call increment_vtable( nr_spc(n), 'AW', mpt1=.true.)
-          vtab_r(num_var)%rvar2_p => cgrid(:,:,ns)
+          call increment_vtable( nr_spc(n), 'AW', rvar2=cgrid(:,:,ns), mpt1=.true.)
 
        else
 
           ! non-transported species only need to be saved
-          call increment_vtable( nr_spc(n), 'AW')
-          vtab_r(num_var)%rvar2_p => cgrid(:,:,ns)
+          call increment_vtable( nr_spc(n), 'AW', rvar2=cgrid(:,:,ns))
 
        endif
     enddo
@@ -160,24 +165,24 @@ contains
           call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
                                emis   = vdemis_gc(:,:,indxe),             &
                                sxfer  = sxfer_gc(:,:,indxd),              &
-                               cu_mix = .true.)
+                               cu_mix = .true. )
 
        elseif (indxe > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
                                emis   = vdemis_gc(:,:,indxe),             &
-                               cu_mix = .true.)
+                               cu_mix = .true. )
 
        elseif (indxd > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
                                sxfer  = sxfer_gc(:,:,indxd),              &
-                               cu_mix = .true.)
+                               cu_mix = .true. )
 
        else
 
           call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
-                               cu_mix = .true.)
+                               cu_mix = .true. )
 
        endif
 
@@ -195,22 +200,26 @@ contains
        if (indxe > 0 .and. indxd > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), ae_tend(:,:,n), ae_trns(n), &
-                               emis = vdemis_ae(:,:,indxe),               &
-                               sxfer = sxfer_ae(:,:,indxd) )
+                               emis   = vdemis_ae(:,:,indxe),             &
+                               sxfer  = sxfer_ae(:,:,indxd),              &
+                               cu_mix = .true. )
 
        elseif (indxe > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), ae_tend(:,:,n), ae_trns(n), &
-                               emis = vdemis_ae(:,:,indxe) )
+                               emis   = vdemis_ae(:,:,indxe),             &
+                               cu_mix = .true. )
 
        elseif (indxd > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), ae_tend(:,:,n), ae_trns(n), &
-                               sxfer = sxfer_ae(:,:,indxd) )
+                               sxfer  = sxfer_ae(:,:,indxd),              &
+                               cu_mix = .true. )
 
        else
 
-          call vtables_scalar( cgrid(:,:,nc), ae_tend(:,:,n), ae_trns(n) )
+          call vtables_scalar( cgrid(:,:,nc), ae_tend(:,:,n), ae_trns(n), &
+                               cu_mix = .true. )
 
        endif
 
@@ -228,22 +237,26 @@ contains
        if (indxe > 0 .and. indxd > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), nr_tend(:,:,n), nr_trns(n), &
-                               emis = vdemis_nr(:,:,indxe),               &
-                               sxfer = sxfer_nr(:,:,indxd) )
+                               emis   = vdemis_nr(:,:,indxe),             &
+                               sxfer  = sxfer_nr(:,:,indxd),              &
+                               cu_mix = .true. )
 
        elseif (indxe > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), nr_tend(:,:,n), nr_trns(n), &
-                               emis = vdemis_nr(:,:,indxe) )
+                               emis   = vdemis_nr(:,:,indxe),             &
+                               cu_mix = .true. )
 
        elseif (indxd > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), nr_tend(:,:,n), nr_trns(n), &
-                               sxfer = sxfer_nr(:,:,indxd) )
+                               sxfer  = sxfer_nr(:,:,indxd),              &
+                               cu_mix = .true. )
 
        else
 
-          call vtables_scalar( cgrid(:,:,nc), nr_tend(:,:,n), nr_trns(n) )
+          call vtables_scalar( cgrid(:,:,nc), nr_tend(:,:,n), nr_trns(n), &
+                               cu_mix = .true. )
 
        endif
 

@@ -53,6 +53,8 @@ Module mem_turb
   integer, allocatable, target :: kpblh(:)
 
   real,    allocatable      :: frac_land (:)
+  real,    allocatable      :: frac_sea  (:)
+  real,    allocatable      :: frac_lake (:)
   real,    allocatable      :: frac_urb  (:)
   real,    allocatable      :: frac_sfc(:,:)
 
@@ -95,6 +97,8 @@ Contains
     allocate (kpblh    (mwa)) ; kpblh     = 1
     allocate (frac_urb (mwa)) ; frac_urb  = 0.0 
     allocate (frac_land(mwa)) ; frac_land = 0.0
+    allocate (frac_lake(mwa)) ; frac_lake = 0.0
+    allocate (frac_sea (mwa)) ; frac_sea  = 0.0
 
     if ( any(nqparm(1:mrls) == 1) .or. any(nqparm(1:mrls) == 2) .or. &
          any(nqparm(1:mrls) == 5) ) then

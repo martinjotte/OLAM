@@ -49,7 +49,7 @@ C Sea-Salt Emissions Rates
       REAL, ALLOCATABLE, SAVE :: SSOUTN( :,:   )    ! number emission rates [1/m3/s]
       REAL, ALLOCATABLE, SAVE :: SSOUTS( :,:   )    ! surface-area emisrates [m2/m3/s]
 
-      PUBLIC NSSSPC, SSOUTM, SSOUTN, SSOUTS, SSSPC_MAP, SSEMIS_INIT, GET_SSEMIS
+      PUBLIC NSSSPC, SSOUTM, SSOUTN, SSOUTS, SSSPC_MAP, SSEMIS_INIT, GET_SSEMIS, szone
       PRIVATE
 
 C Position of H2O in sea-salt emission arrays
@@ -62,7 +62,7 @@ C Variables for the sea-salt diagnostic file
       INTEGER :: NSSDIAG                ! number of species in sea-salt
                                         ! diagnostic emission file
       REAL,    ALLOCATABLE       :: SSOUTD( : )   ! emission rates
-      LOGICAL, SAVE              :: SSEMDIAG      ! flag for SSEMIS diagnostic file
+      LOGICAL, SAVE              :: SSEMDIAG ! flag for SSEMIS diagnostic file
       REAL,    ALLOCATABLE, SAVE :: SSBF( :,:,: ) ! seasalt emiss accumulator
       REAL,    ALLOCATABLE, SAVE :: WRSS( :,: )   ! seasalt emiss write buffer
       INTEGER, SAVE              :: SDATE, STIME  ! scenario start date & time
@@ -272,9 +272,14 @@ C   11 May 11 D.Wong: incorporated twoway model implementation
 
             USE UTILIO_DEFN
             USE AERO_DATA
-            use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
-            use mem_grid,   only: mwa
-            use sea_coms,   only: mws
+            use mem_ijtabs,   only: itab_w, jtab_w, jtw_prog
+            use mem_grid,     only: mwa, arw0, dnu
+            use mem_sea,      only: sea
+            use sea_coms,     only: mws
+            use mem_turb,     only: frac_land, frac_sea
+            use misc_coms,    only: iparallel
+            use obnd,         only: lbcopy_w1d
+            use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
 
             IMPLICIT NONE
 
@@ -295,8 +300,9 @@ C Local Variables:
             CHARACTER( 16 ), SAVE :: PNAME = 'SSEMIS_INIT'
             CHARACTER( 80 ) :: VARDESC
             CHARACTER( 96 ) :: XMSG = ' '
-            INTEGER STATUS
-            INTEGER S, N, L, j, iw, np
+            INTEGER :: STATUS
+            INTEGER :: S, N, L, j, iw, np, iwp, iv
+            real    :: sea_area
 
 C-----------------------------------------------------------------------
 
@@ -346,20 +352,51 @@ C Allocate SS arrays using NSSSPC value
                SUCCESS = .FALSE.; RETURN
             END IF
 
-! Surf zone
+C Surf zone estimate
+
             allocate( szone( mwa ) ) ; szone(:) = 0.0
             
             do j = 1, jtab_w(jtw_prog)%jend(1)
                iw = jtab_w(jtw_prog)%iw(j)
                np = itab_w(iw)%npoly
+
+               ! are any patches water?
                if (itab_w(iw)%nsea > 0) then
-                  if (itab_w(iw)%nland > 0) then
-                     szone(iw) = 1.0
-                  elseif (any( itab_w( itab_w(iw)%iw(1:np) )%nland > 0 ) ) then
-                     szone(iw) = real(count(itab_w( itab_w(iw)%iw(1:np) )%nland > 0)) / real(np)
+
+                  ! are any water cells ocean/sea?
+                  if ( any( sea%leaf_class( itab_w(iw)%isea(1:itab_w(iw)%nsea) ) == 0 ) ) then
+
+                     ! if any land patches in current cell
+                     if (itab_w(iw)%nland > 0) then
+
+                        sea_area  = sum( sea%area( itab_w(iw)%isea(1:itab_w(iw)%nsea) ) )
+                        szone(iw) = min( 50.0 / sqrt(sea_area), 0.2 )
+
+                     ! if cell is all water but any surrounding cells are not sea
+                     else
+
+                        do n = 1, np
+                           iwp = itab_w(iw)%iw(n)
+                           iv  = itab_w(iw)%iv(n)
+                           if (frac_sea(iwp) < 0.1) then
+                              szone(iw) = szone(iw) + 50.0 * dnu(iv) * (1.0-10.*frac_sea(iwp))
+                           endif
+                        enddo
+                           
+                        sea_area  = arw0(iw)
+                        szone(iw) = min( szone(iw) / sea_area, 0.1 )
+
+                     endif
                   endif
                endif
             enddo
+
+            if (iparallel == 1) then
+               call mpi_send_w(1, r1dvara1=szone)
+               call mpi_recv_w(1, r1dvara1=szone)
+            endif
+
+            call lbcopy_w1d(1, a1=szone)
 
 C Get sea-salt-emission diagnostic output file flag.
 
@@ -608,8 +645,8 @@ C-----------------------------------------------------------------------
             use sea_coms,   only: mws
             use mem_sea,    only: sea, itab_ws
             use mem_ijtabs, only: itabg_w
-            use misc_coms,  only: io6, isubdomain
-            use mem_grid,   only: dzit
+            use misc_coms,  only: isubdomain
+            use mem_grid,   only: volti
             use mem_basic,  only: press, tair, sh_v, rho
 
             IMPLICIT NONE
@@ -630,7 +667,7 @@ C Local Variables:
 !           REAL    :: BLKQV              ! H2O mass mixing ratio [ kg/kg ]
             REAL    :: U10                ! wind speed at 10m [m/s]
             REAL    :: RLAY1HT            ! reciprocal of layer-1 height [1/m]
-            REAL    :: AIRVOL             ! grid-cell volume [m3]
+!           REAL    :: AIRVOL             ! grid-cell volume [m3]
             REAL    :: SST                ! sea surface temperature[C]
 
             CHARACTER( 16 ), SAVE :: PNAME = 'GET_SSEMIS'
@@ -716,14 +753,14 @@ C Variables for calculating dry surface-area emission rate for accum mode
             REAL      :: WET_M3K, DRY_M3K ! wet & dry 3rd moment emis rates [m3/m3/s] 
             REAL      :: WET_M2K, DRY_M2K ! wet & dry 2nd moment emis rates [m3/m3/s] 
 
-            INTEGER, SAVE     :: WSTEP  = 0    ! local write counter
-            INTEGER           :: MDATE, MTIME  ! SSEMIS write date&time
+!           INTEGER, SAVE     :: WSTEP  = 0    ! local write counter
+!           INTEGER           :: MDATE, MTIME  ! SSEMIS write date&time
 
 C Mathematical constants; statement function for ERF approximation
             REAL, PARAMETER :: ONE3 = 1.0 / 3.0
             REAL, PARAMETER :: TWO3 = 2.0 / 3.0
-            REAL            :: ERF        ! ERF approx. statement function
-            REAL            :: X          ! dummy argument for ERF
+            REAL            :: ERF ! ERF approx. statement function
+            REAL            :: X ! dummy argument for ERF
             ERF( X ) = SIGN( 1.0, X ) * SQRT( 1.0 - EXP( -4.0 * X * X / PI ) )
 
             integer :: iw, iws, kw
@@ -746,16 +783,16 @@ C Initialize sea-salt output buffer
                kw = itab_ws(iws)%kw
 
                OFRAC   = 1.0 - sea%seaicec(iws)
-               SFRAC   = SZONE(iw)
+               SFRAC   = SZONE(iw) * OFRAC
 
-               if ( sea%leaf_class(iws) == 0 .and. ofrac+sfrac > 0.02) then
+               if ( sea%leaf_class(iws) == 0 .and. ofrac > 0.02) then
 
                   BLKPRS  = press(kw,iw)
                   BLKTA   = tair(kw,iw)
                   blkrh   = sh_v(kw,iw) * rho(kw,iw) / rhovsl(blkta - 273.15)
                   U10     = sea%vels(iws)
                   SST     = max( sea%seatc(iws) - 273.15, 0.0 )
-                  RLAY1HT = dzit(kw)
+                  RLAY1HT = sea%area(iws) * volti(kw,iw)
 
 C Calculate fractional relative humidity in the grid cell
 C Follow the same methodology as in other portions of the code just for the 10m RH
@@ -810,11 +847,10 @@ C multiply by 4 to get wet diameter at 80% RH
                   DPMINO = 2.0E-8 / REAL( C80, 4 )
                   DPMAXO = MIN( DPMAX, DPMAX / REAL( C80, 4 ) )
 
-
 C deLeeuw flux function is valid from 1.6-20 um diameter at formation
 !                 DPMINS = 1.6E-6 / C0 
 !                 DPMAXS = MIN( DPMAX, DPMAX / C0 )
-            
+
 C Calculate scaling factors to correct the tabulated fluxes for the 10m
 C wind speed in this cell.  Note: tabulated values are based on 1 m/s.
                   WDSCALO = MIN( U10, 20.0 ) ** 3.41        ! Gong-Monahan flux function
@@ -825,7 +861,7 @@ C linearized by Ovadnevaite et al. (2014)
                   SSTSCALO = 0.38 + 0.054 * SST
 
 C Calculate whitecap coverage fraction 
-                  WCAP = 3.84E-6 * WDSCALO ! Eq. 5, Clarke et al. (2006) JGR
+                  WCAP = 3.84E-6 * max(WDSCALO, 1.0) ! Eq. 5, Clarke et al. (2006) JGR
 
 C Find position in the data arrays that corresponds to ambient RH in this
 C grid cell and set the appropriate data values
@@ -847,7 +883,7 @@ C grid cell and set the appropriate data values
                   FNKRH  = FNK  ( IPOS )
 
                   VFLXRH = VFLUX( IPOS ) * ( OFRAC * SSTSCALO
-     &            + (SFRAC * 0.5) / WCAP )
+     &                   + (SFRAC * 0.5) / WCAP )
 
 C Save certain functions of the geometric standard deviations for later use
                   LNSGJ  = LOG( SIGJRH )

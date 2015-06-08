@@ -144,9 +144,9 @@ C-------------------------------------------------------------------------------
       use misc_coms,   only: io6, isubdomain
       use mem_ijtabs,  only: itabg_w
       use leaf_coms,   only: mwl
-      use mem_leaf,    only: land, itabg_wl, itab_wl
+      use mem_leaf,    only: land, itab_wl
       use sea_coms,    only: mws
-      use mem_sea,     only: sea,  itabg_ws, itab_ws
+      use mem_sea,     only: sea,  itab_ws
       use mem_grid,    only: dzt, volti
       use mem_basic,   only: sh_v, theta, rho
       use mem_turb,    only: pblh
@@ -158,7 +158,7 @@ C-------------------------------------------------------------------------------
 C Includes:
 
       INCLUDE 'CONST.EXT'     ! constants
-      INCLUDE 'FILES_CTM.EXT' ! file name parameters
+!     INCLUDE 'FILES_CTM.EXT' ! file name parameters
 
 C Arguments:
 

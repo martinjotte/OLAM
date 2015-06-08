@@ -440,7 +440,7 @@ C combined gas emssions conversion factor
          use consts_coms,  only: r8
          use misc_coms,    only: time8, timmax8, initial, s1900_sim, isubdomain
          use leaf_coms,    only: mwl, isfcl
-         use mem_leaf,     only: land, itabg_wl, itab_wl
+         use mem_leaf,     only: land, itab_wl
          use mem_grid,     only: mza, volti, lpw
          use mem_ijtabs,   only: itabg_w, itab_w, jtab_w, jtw_prog
          use mem_basic,    only: rho

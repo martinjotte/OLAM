@@ -64,7 +64,7 @@ C Sea-Salt Emissions Rates
       real, allocatable, save :: dustouts( :,: )    ! surface-area emisrates [m2/m**3/s]
 
       public ndust_spc, dustoutm, dustoutn, dustouts, dust_spc,
-     &       dust_emis_init, get_dust_emis
+     &       dust_emis_init, get_dust_emis, dust_em
       private
 
       real, allocatable, save :: dust_em( : )  ! total dust emissions [g/s]
@@ -617,8 +617,7 @@ C    w` = 0.0014(%clay)**2 + 0.17(%clay)
 C    Fecan et al. 1999 Annales Geophys.,17,144-157.
 !              wmax( c,r ) = ( 0.0014 * clayc( j ) + 0.17 ) * clayc( j ) <-error
 C clayc in [Kg/Kg] -> wmax in [Kg/Kg]
-!              wmax( iwl ) = ( 0.14 * clayc( j ) + 0.17 ) * clayc( j )
-               wmax( iwl ) = 2.0 * ( 0.14 * clayc( j ) + 0.17 ) * clayc( j )
+               wmax( iwl ) = ( 0.14 * clayc( j ) + 0.17 ) * clayc( j )
 
 C    log(F/G) = 0.134(%clay)-6
 C    F/G (vertical to horizontal flux) ratio is a function of clay content 0~20%
@@ -788,8 +787,9 @@ C=======================================================================
          use aero_data
          use leaf_coms,  only: mwl, nzg, slmsts
          use mem_leaf,   only: land, itab_wl
-         use mem_grid,   only: dzit
-         use misc_coms,  only: io6
+         use mem_grid,   only: volti
+         use misc_coms,  only: isubdomain
+         use mem_ijtabs, only: itabg_w
 
 C       8/18/11 D.Wong: incorporated twoway model implementation and change
 C                       RC -> RCA and RN -> RNA and made it backward compatible
@@ -816,8 +816,8 @@ C Parameters:
          real, parameter :: z0s = 0.00001  ! Surface roughness for dust [m],
                                            ! Ref. Marticorena et al. JGR 1997
 
-!        real, parameter :: amen = 2.8     ! values are from 0 to 3.5, mean 2.8
-         real, parameter :: amen = 32.0    ! values adjusted based on Dale's MNORT measurements
+         real, parameter :: amen = 2.8     ! values are from 0 to 3.5, mean 2.8
+!        real, parameter :: amen = 32.0    ! values adjusted based on Dale's MNORT measurements
          real, parameter :: radg = 122.87  ! g*s**2/m**4 122.87->120.8
 !        real, parameter :: fdsa = 0.5     ! factor of dust source area 1/.1/.01
          real, parameter :: fdsa = 1.0     ! factor of dust source area 1/.1/.01
@@ -830,7 +830,7 @@ C Parameters:
 !        character( 16 ) :: pname = 'GET_DUST_EMIS   '
 !        character( 16 ) :: vname
 !        character( 96 ) :: xmsg
-         integer j, v, iwl, kw, indx
+         integer j, v, iwl, kw, indx, iw
 
 !         integer, save   :: wstep = 0      ! local write counter
 !         integer         :: mdate, mtime   ! diagnostic file write date&time
@@ -861,7 +861,6 @@ C Parameters:
 !         real       :: wrbuf ( ncols,nrows )        ! diagnositc write buffer
 
          real       :: edust( n_mode )  ! mass emis rate [g/s] per mode (only accum & coarse)
-!        real       :: rlay1hgt         ! reciprocal of layer-1 height [1/m]
          real       :: m3j              ! 3rd moment accumulation (J) mode emis rates [m3/m3/s]
          real       :: m3k              ! 3rd moment coarse mode (K) emis rates [m3/m3/s]
 
@@ -1113,6 +1112,10 @@ C-----------------------------------------------------------------------
          do iwl = 2, mwl
 
             kw = itab_wl(iwl)%kw
+            iw = itab_wl(iwl)%iw
+            if (isubdomain == 1) then
+               iw = itabg_w(iw)%iw_myrank
+            endif
 
             dust_em     (iwl) = 0.0
             dustoutn  (:,iwl) = 0.0
@@ -1129,11 +1132,11 @@ C-----------------------------------------------------------------------
 
             ! Skip if top of soil is near saturation
                
-            if ( land%soil_water(nzg,iwl) > slmsts(land%ntext_soil(nzg,iwl)) - 0.001 ) cycle
+            if ( land%soil_water(nzg,iwl) > slmsts(land%ntext_soil(nzg,iwl)) - 0.01 ) cycle
 
             ! Convert layer-average U* into surface local U*
             ! -> U*t has to be surface values from measurements.
-            !
+
             ! zi = sc * land%rough(iwl)
             ! ustar = land%ustar(iwl) * log( zi / land%rough(iwl) ) / log( zi / z0s )
 
@@ -1193,7 +1196,7 @@ C Dust possiblity if not over water and rain < 1/100 in. (1 in. = 2.540 cm)
             if ( ustar .le. utstar ) cycle
 
             utem = ustar * ( ustar * ustar - utstar * utstar )
-            qam  = cfac * kvh(iwl) * utem * sd_ep(iwl) * dzit(kw) * dmsk( ladut(iwl) )
+            qam  = cfac * kvh(iwl) * utem * sd_ep(iwl) * dmsk( ladut(iwl) ) * land%area(iwl) * volti(kw,iw)
 
             ! Dust removal by surrounding vegetation <-???
             ! Adjust dust emissions for transport factors
@@ -1411,4 +1414,3 @@ C 2nd moment multiplied by PI to obtain the surface area emissions rate.
 c-----------------------------------------------------------------------
 
       end module dust_emis
-
