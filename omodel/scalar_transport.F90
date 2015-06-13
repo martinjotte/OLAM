@@ -285,11 +285,12 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   if (nl%iscal_monot == 1) then
 
      !$omp parallel 
-     !$omp do private(iv,k,iwr)
+     !$omp do private(iv,kbv,k,iwr)
      do j = 1, jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+        kbv = lpv(iv)
 
         ! Loop over T/V levels
-        do k = lpv(iv), mza
+        do k = kbv, mza
            iwr = iwrecv(k,iv)
 
            kdepv(k,iv) = merge( min(k+1,mza), max(k-1,kbv), dzps_v(k,iv) >= 0.0)
@@ -304,18 +305,18 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
         dtl = dtlm(itab_w(iw)%mrlw)
-      
+
         ! Loop over W/M levels
-        do k = lpw(iw)+1, mza-1
+        do k = lpw(iw), mza-1
            kr = krecw(k,iw)
            cfl_win(k,iw) = abs(wmsca(k,iw)) * dtl * volti(kr,iw) &
                          / rho_old(kr,iw)
         enddo
 
-        cfl_win(lpw(iw),iw) = 0.0
         cfl_win(mza,iw) = 0.0
 
-        do k = kb, mza
+        ! Loop over T levels
+        do k = lpw(iw), mza
            tfact(k,iw) = rho(k,iw) / rho_old(k,iw)
 
            ! if we don't have future rho (for thil, vxe, vye, vze):

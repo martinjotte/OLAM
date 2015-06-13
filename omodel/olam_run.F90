@@ -36,12 +36,12 @@ subroutine olam_run(name_name)
   use, intrinsic :: ieee_arithmetic
 #endif
 
-  use misc_coms,   only: io6, time8, time_istp8, iflag, runtype, hfilin, nzp,    &
+  use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, iflag,     &
                          expnme, mdomain, ngrids, initial, iswrtyp, ilwrtyp,     &
-                         timmax8, alloc_misc, iparallel,                         &
+                         runtype, hfilin, nzp, timmax8, alloc_misc, iparallel,   &
                          iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
                          time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
-                         isubdomain, do_chem
+                         isubdomain, do_chem, time_bias, dtlong
 
   use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, &
                          alloc_mpi_sndrcv_bufs
@@ -102,7 +102,6 @@ subroutine olam_run(name_name)
   iflag = 0
   istp  = 1
   time8 = 0.0_r8
-  time_istp8 = time8
 
   ! Read, check, and copy namelist variables
 
@@ -129,6 +128,13 @@ subroutine olam_run(name_name)
      hfilin = op%plt_files(1)
      call history_start('COMMIO')
   endif
+
+  ! Initialize time variables
+
+  time_bias   = 1.e-9_r8 * dtlong   ! A number small compared to the timestep
+  time8p      = time8 + time_bias   ! Slightly forward biased time
+  time_istp8  = time8
+  time_istp8p = time8p              ! Slightly forward biased time
 
   ! Set constants for initializing model arrays to zeros or, if supported, NANs
   ! depending on namelist variable init_nans
@@ -311,18 +317,20 @@ subroutine olam_run(name_name)
   ! Initialize primary atmospheric fields
 
   if (initial == 1) then
-     write(io6,'(/,a)') 'olam_run calling inithh'
-     call inithh()            ! Horizontally-homogeneous initialization
+     if (runtype == 'INITIAL') then
+        write(io6,'(/,a)') 'olam_run calling inithh'
+        call inithh()            ! Horizontally-homogeneous initialization
+     endif
   elseif (initial == 2) then
-     write(io6,'(/,a)') 'olam_run calling isan driver(0)'
-     call isan_driver(0) 
-  ! (If in future, initialization is not automatically done for history restart,
-  !  isan_driver(0) will still need to be called when nudging is to be done in 
-  !  order to set current value of IFGFILE.)
-
+     if ((runtype == 'INITIAL') .or. (nudflag == 1 .or. o3nudflag == 1)) then
+        write(io6,'(/,a)') 'olam_run calling isan driver(0)'
+        call isan_driver(0) 
+     endif
   elseif (initial == 3) then
-     write(io6,'(/,a)') 'olam_run calling fldslhi'
-     call fldslhi()           ! Longitudinally-homogeneous initialization
+     if (runtype == 'INITIAL') then
+        write(io6,'(/,a)') 'olam_run calling fldslhi'
+        call fldslhi()           ! Longitudinally-homogeneous initialization
+     endif
   endif
 
   !------------------------------------------------------------
@@ -355,7 +363,7 @@ subroutine olam_run(name_name)
      mrl = 1
      write(io6,'(/,1x,a)') 'Initializing chemical concentrations'
      call init_cgrid()
-     call conv_cgrid(mrl) ! convert aerosol species from densities to concentrations
+     call conv_cgrid(mrl) ! convert aerosol species from densities to mixing ratios
   endif
 
   ! A good place to initialize added scalars
@@ -411,7 +419,7 @@ subroutine olam_run(name_name)
      endif
 #endif
 
-  ! Initialize leaf fields that depend on atmosphere
+  ! Initialize leaf fields
 
      write(io6,'(/,a)') 'olam_run calling leaf4_init_atm'
      call leaf4_init_atm()
@@ -422,6 +430,8 @@ subroutine olam_run(name_name)
         call ed_driver(2)
      endif
 #endif
+
+  ! Initialize ocean fields
 
      write(io6,'(/,a)') 'olam_run calling sea_init_atm'
      call sea_init_atm()
@@ -667,8 +677,6 @@ subroutine model()
   ! Start the timesteps
 
   mstp   = 0
-  time_bias = 1.e-7_r8 * dtlm(1) ! A number small compared to the timestep
-  time8p = time8 + time_bias     ! Slightly forward biased time
 
   do while (time8p < timmax8)
 
@@ -686,9 +694,9 @@ subroutine model()
 
      mstp = mstp + 1
      time8       = time8 + dtlm(1)
-     time8p      = time8 + time_bias       ! Slightly forward biased time
+     time8p      = time8 + time_bias   ! Slightly forward biased time
      time_istp8  = time8
-     time_istp8p = time_istp8 + time_bias  ! Slightly forward biased time
+     time_istp8p = time8p              ! Slightly forward biased time
 
      s1900_sim = s1900_init + time8
 
