@@ -104,7 +104,7 @@ SOURCE_FILES= \
              $(OMODEL)/para_decomp.f90 \
              $(OMODEL)/para_init.f90 \
              $(OMODEL)/prog_wrtv.f90 \
-             $(OMODEL)/scalar_transport.f90 \
+             $(OMODEL)/scalar_transport.F90 \
              $(OMODEL)/spawn_nest.f90 \
              $(OMODEL)/spring_dynamics.f90 \
              $(OMODEL)/surface_fluxes.F90 \

@@ -36,7 +36,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
                           jtv_wadj, jtw_prog
   use mem_grid,     only: mza, mva, mwa, nsw_max, lpv, lpw, lsw, zt, zm, dzim, &
                           dniv, volt, arv, arw, dzim, volti
-  use misc_coms,    only: io6, dtlm, iparallel
+  use misc_coms,    only: io6, dtlm, iparallel, time8p
   use var_tables,   only: num_scalar, scalar_tab
   use mem_turb,     only: vkh, hkm, sxfer_rk, fqtpbl
   use mem_basic,    only: rho
@@ -46,6 +46,11 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   use obnd,         only: lbcopy_w
   use consts_coms,  only: r8
   use mem_thuburn
+  use mem_para,     only: mgroupsize
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
 
   implicit none
 
@@ -100,8 +105,9 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
 ! Extra variables for Thuburn scheme
   
-  real :: scp_vin_min(mza), scp_vin_max(mza)
-  real :: cfl_vout, cfl_wout
+  real    :: scp_vin_min(mza), scp_vin_max(mza)
+  real    :: cfl_max, cfl_maxs(mgroupsize)
+  integer :: ier, inode, imax(3), imaxs(3,mgroupsize)
 
 ! Return if this is not the end of the long timestep on any MRL
 
@@ -128,8 +134,8 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
         wsc  (k,iw) = 2.0 * wmsc(k,iw) / (rho_old(k,iw) + rho_old(k+1,iw))
         wmsca(k,iw) = wmsc(k,iw) * arw(k,iw)
      enddo
-   
-     wsc  (kb-1,iw) = wsc(kb,iw)
+
+     wsc  (kb-1,iw) = 0.0
      wmsca(kb-1,iw) = 0.0
 
      wsc  (mza,iw) = 0.0
@@ -182,82 +188,145 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   call donorpointv(1, mrl, vsc, vxesc, vyesc, vzesc, iwdepv, iwrecv, &
                    dxps_v, dyps_v, dzps_v)
 
+! Diagnose CFL number for stability check; also used by Thuburn limiter
+
+  !$omp parallel 
+  !$omp workshare
+  cfl_out_sum(:,:) = 0.0
+  !$omp end workshare 
+
+  !$omp do private(iv,k,iwd)
+  do j = 1, jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+
+     ! Loop over T/V level
+     do k = lpv(iv), mza
+        iwd = iwdepv(k,iv)
+        cfl_out_sum(k,iwd) = cfl_out_sum(k,iwd) + abs(vmsca(k,iv))
+     enddo
+
+  enddo
+  !$omp end do
+
+  !$omp do private(iw,dtl,k,kd)
+  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  
+     dtl = dtlm(itab_w(iw)%mrlw)
+
+     ! Loop over W/M level
+     do k = lpw(iw), mza-1
+        kd = kdepw(k,iw)
+        cfl_out_sum(kd,iw) = cfl_out_sum(kd,iw) + abs(wmsca(k,iw))
+     enddo
+     
+     ! Loop over T/V level
+      do k = lpw(iw), mza
+        cfl_out_sum(k,iw) = cfl_out_sum(k,iw) &
+                          * dtl * volti(k,iw) / rho_old(k,iw)
+     enddo
+  enddo
+  !$omp end do
+  !$omp end parallel
+
+! Find the max CFL number on each node, and print an error message
+! if the CFL number is greater than 1
+
+  cfl_max = -1.0
+
+  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     do k = lpw(iw), mza
+
+        if (cfl_out_sum(k,iw) > cfl_max) then
+           cfl_max = cfl_out_sum(k,iw)
+           imax    = (/ k, iw, itab_w(iw)%iwglobe /)
+        endif
+
+        if (cfl_out_sum(k,iw) > 1.0) then
+           npoly = itab_w(iw)%npoly
+           write(*,*)
+           write(*,'(4(A,I0),/,2(A,f0.3),A,7(f0.3,1x))')                     &
+                "!!! CFL VIOLATION at node ", myrank,                        &
+                ", iw=", iw, ", iwglobe=", itab_w(iw)%iwglobe, ", k=", k,    &
+                "!!! CFL = ", cfl_out_sum(k,iw),                             &
+                ", W = ", wsc(k,iw), ", VSC = ", vsc(k,itab_w(iw)%iv(1:npoly))
+        endif
+
+     enddo
+  enddo
+
+! Print the global max CFL number
+
+  if (nl%cfl_prtfrq > 1.d-12) then
+     if (mod(time8p,nl%cfl_prtfrq) < dtlm(1)) then
+
+#ifdef OLAM_MPI
+        if (iparallel == 1) then
+           call MPI_Gather(cfl_max, 1, MPI_REAL, cfl_maxs, 1, MPI_REAL, &
+                           0, MPI_COMM_WORLD, ier)
+           call MPI_Gather(imax, 3, MPI_INTEGER, imaxs, 3, MPI_INTEGER, &
+                           0, MPI_COMM_WORLD, ier)
+        endif
+#endif
+
+        if (myrank == 0) then
+           inode = 0
+           if (iparallel == 1) then
+              inode    = maxloc(cfl_maxs, dim=1)
+              cfl_max  = cfl_maxs(inode)
+              imax(:)  = imaxs(:,inode)
+           endif
+           write(*,'(5x,A,f0.3,3(A,I0))') "Max CFL# = ", cfl_max,  &
+                " at node ", inode, ", iwglobe=", imax(3), ", k=", imax(1)
+        endif
+     endif
+  endif
+
 ! Diagnose CFL numbers at V and W interfaces for Thuburn flux limiter
 
   if (nl%iscal_monot == 1) then
 
-     ! Begin OpenMP parallel block
      !$omp parallel 
-
-     !$omp workshare
-     cfl_out_sum(:,:) = 0.0
-   ! cfl_in_sum (:,:) = 0.0
-     !$omp end workshare 
-
-     !$omp do private(iv,k,kbv,iwr,iwd,cfl_vout)
+     !$omp do private(iv,k,iwr)
      do j = 1, jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-        kbv = lpv(iv)
-      
-        do k = kbv, mza
+
+        ! Loop over T/V levels
+        do k = lpv(iv), mza
            iwr = iwrecv(k,iv)
-           iwd = iwdepv(k,iv)
 
            kdepv(k,iv) = merge( min(k+1,mza), max(k-1,kbv), dzps_v(k,iv) >= 0.0)
 
            cfl_vin(k,iv) = abs(vmsca(k,iv)) * dtlm(itab_w(iwr)%mrlw) &
                            * volti(k,iwr) / rho_old(k,iwr) 
-
-           cfl_vout      = abs(vmsca(k,iv)) * dtlm(itab_w(iwd)%mrlw) &
-                           * volti(k,iwd) / rho_old(k,iwd) 
-
-         ! Not needed for scalars  
-         ! cfl_in_sum (k,iwr) = cfl_in_sum (k,iwr) + cfl_vin(k,iv)
-
-           cfl_out_sum(k,iwd) = cfl_out_sum(k,iwd) + cfl_vout
         enddo
      enddo
      !$omp end do
 
-     !$omp do private(iw,kb,dtl,k,kd,kr,cfl_wout)
+     !$omp do private(iw,dtl,k,kr)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-        kb = lpw(iw)
 
-        ! note: use dtsm for short time step
         dtl = dtlm(itab_w(iw)%mrlw)
       
-        do k = kb, mza-1
-           kd = kdepw(k,iw)
+        ! Loop over W/M levels
+        do k = lpw(iw)+1, mza-1
            kr = krecw(k,iw)
-
            cfl_win(k,iw) = abs(wmsca(k,iw)) * dtl * volti(kr,iw) &
-                           / rho_old(kr,iw)
-
-           cfl_wout      = abs(wmsca(k,iw)) * dtl * volti(kd,iw) &
-                           / rho_old(kd,iw)
-
-         ! Not needed for scalars
-         ! cfl_in_sum (kr,iw) = cfl_in_sum (kr,iw) + cfl_win(k,iw)
-
-           cfl_out_sum(kd,iw) = cfl_out_sum(kd,iw) + cfl_wout
+                         / rho_old(kr,iw)
         enddo
 
+        cfl_win(lpw(iw),iw) = 0.0
         cfl_win(mza,iw) = 0.0
 
         do k = kb, mza
            tfact(k,iw) = rho(k,iw) / rho_old(k,iw)
 
-         ! if we don't have future rho (for thil, vxe, vye, vze):
-         ! tfact(k,iw) = 1.0 + cfl_in_sum(k,iw) - cfl_out_sum(k,iw)
+           ! if we don't have future rho (for thil, vxe, vye, vze):
+           ! tfact(k,iw) = 1.0 + cfl_in_sum(k,iw) - cfl_out_sum(k,iw)
 
            ! cfl_out_sum is reused as 1 / cfl_out_sum
-           ! cfl_out_sum(k,iw) = 1.0 / max( cfl_out_sum(k,iw), 1.e-6)
            cfl_out_sum(k,iw) = 0.999999 / max( cfl_out_sum(k,iw), 1.e-6)
         enddo
 
      enddo
      !$omp end do
-
-     ! End OpenMP parallel block
      !$omp end parallel
 
   endif ! monotonic
@@ -302,9 +371,8 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
         c_scp_in_min_sum(:,:) = 0.0
         !$omp end workshare
 
-! Expand inflow bounds at each W level based on the transverse cells 
-! in the upstream neighborhood of each W level. 
-! Loop over all immediate V neighbors of each primary W/T columns:
+! Expand inflow bounds of each cell based on the upstream neighbors
+! Loop over all immediate V neighbors of each primary W/T column:
 
         !$omp do private(iv,k,iwd,iwr)
         do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)

@@ -631,19 +631,22 @@ real function walltime(wstart)
   implicit none
 
   real, intent(in) :: wstart
-  integer :: ii,ir,im
-  integer, save :: previous = 0
-  integer, save :: adjustOverflow = 0.0
 
-  call system_clock(count=ii,count_rate=ir,count_max=im)
+  integer       :: ii
+  integer, save :: previous = 0
+  integer       :: imax
+  real          :: rate
+  real,    save :: adjustOverflow = 0.0
+
+  call system_clock(count=ii, count_rate=rate, count_max=imax)
 
   if (ii < previous) then
-    adjustOverflow = adjustOverflow + real(im)/real(ir)
+    adjustOverflow = adjustOverflow + real(imax)/rate
   end if
 
   previous = ii
 
-  walltime=adjustOverflow + real(ii)/real(ir) - wstart
+  walltime = adjustOverflow + real(ii)/rate - wstart
 
 end function walltime
 

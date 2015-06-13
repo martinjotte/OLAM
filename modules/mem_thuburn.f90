@@ -58,11 +58,12 @@ Contains
     
     integer, intent(in) :: imonot, mza, mva, mwa
 
+    allocate( cfl_out_sum(mza,mwa)) ; cfl_out_sum = rinit
+
     if (imonot == 1) then
        
        allocate( scp_local_min   (mza,mwa)) ; scp_local_min    = rinit
        allocate( scp_local_max   (mza,mwa)) ; scp_local_max    = rinit
-       allocate( cfl_out_sum     (mza,mwa)) ; cfl_out_sum      = rinit
        allocate( cfl_vin         (mza,mva)) ; cfl_vin          = rinit
        allocate( c_scp_in_max_sum(mza,mwa)) ; c_scp_in_max_sum = rinit
        allocate( c_scp_in_min_sum(mza,mwa)) ; c_scp_in_min_sum = rinit

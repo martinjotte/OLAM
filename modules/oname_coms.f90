@@ -35,7 +35,7 @@ Module oname_coms
    use max_dims,    only: nzgmax, maxsndg, maxgrds, maxisdirs, maxnplt,  &
                           maxpltfiles, maxngrdll, pathlen, maxlite
    use consts_coms, only: r8
-        
+
    ! Do not re-export symbols from other modules
 
    private :: nzgmax, maxsndg, maxgrds, maxisdirs, maxnplt, &
@@ -151,6 +151,7 @@ Module oname_coms
       integer :: split_scalars = 0
       logical :: debug_fp    = .false.
       logical :: init_nans   = .false.
+      real(r8):: cfl_prtfrq  = 0.0_r8
 
 !!    RAYLEIGH FRICTION PARAMETERS
 

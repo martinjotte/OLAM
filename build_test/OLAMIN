@@ -128,11 +128,9 @@
  ! Timestep and timestep ratios (One ratio for each Mesh Refinement Level (MRL))
  !------------------------------------------------------------------------------
 
-   NL%DTLONG  = 60.      ! Coarse grid long timestep
+   NL%DTLONG  = 60.                 ! Long timestep
 
-   NL%NDTRAT   = 1,1,1,1,1,1,1,1,1   ! # long MRL timesteps per long MRL-1 timestep
-   NL%NACOUST  = 2,2,2,2,2,2,2,2,2   ! # acoustic timesteps per long timestep
-
+   NL%NACOUST  = 2,2,2,2,2,2,2,2,2  ! # acoustic timesteps per long timestep
 
  !--------------------------------------------------------------------------
  ! Variable initialization input
@@ -193,6 +191,9 @@
 
    NL%SPLIT_SCALARS = 0   ! time split scalar physics from advection
                           ! 0 = off, 1 = on
+
+   NL%CFL_PRTFRQ = 900.   ! Frequency (s) to print maximum CFL number
+                          ! in entire model domain (0 disables printing)
 
    NL%DEBUG_FP  = .false. ! Detect floating point errors such as overflows,
                           ! INFs, divide-by-zeros, and NANs (best if code is
