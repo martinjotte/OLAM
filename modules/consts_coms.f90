@@ -32,9 +32,15 @@
 !===============================================================================
 Module consts_coms
 
-! Portable single (real*4) and double (real*8) precision kinds:
+! Single (real*4) and double (real*8) precision real kinds:
 integer, parameter :: r4 = selected_real_kind(6,37)
 integer, parameter :: r8 = selected_real_kind(13,300)
+
+! 1 byte, 2 byte, 4 byte, and 8 byte integer (and logical) types
+integer, parameter :: i1 = selected_int_kind(2)
+integer, parameter :: i2 = selected_int_kind(4)
+integer, parameter :: i4 = selected_int_kind(8)
+integer, parameter :: i8 = selected_int_kind(16)
 
 real, parameter :: rdry     = 287.               ! dry air gas constant [J/(kg K)]
 real, parameter :: cp       = 1004.              ! dry air spec heat at const P [J/(kg K)]

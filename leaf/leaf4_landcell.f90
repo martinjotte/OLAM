@@ -279,7 +279,7 @@ call soil(iwl,               nlev_sfcwater,      &
           psi,               head,               &
           head0,             head1,              &
           wfree1,            qwfree1,            &
-          dwfree1,           transp,             &
+          transp,                                &
           glatw,             glonw               )
 
 ! Inventory sfcwater layer(s) and adjust thicknesses if more than one

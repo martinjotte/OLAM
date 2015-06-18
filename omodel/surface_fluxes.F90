@@ -61,7 +61,7 @@ use leaf_coms,   only: mwl, isfcl
 use sea_coms,    only: mws
 use mem_ijtabs,  only: itab_w, itabg_w, jtab_w, jtw_prog, jtw_wstn
 use misc_coms,   only: io6, iparallel, isubdomain, dtlm, mdomain
-use mem_grid,    only: mza, mwa, lsw, lpw, zt, zm, arw
+use mem_grid,    only: mza, mwa, lsw, lpw, dzt_bot, arw
 use mem_sea,     only: sea, itab_ws
 use mem_leaf,    only: land, itab_wl
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, sxfer_tk, sxfer_rk, &
@@ -121,7 +121,7 @@ if (isfcl == 0) then
          sxfer_tk(ks,iw) = 0.
          sxfer_rk(ks,iw) = 0.
 
-         exneri = 1. / ((p00i * press(kw,iw)) ** rocp)
+         exneri = theta(kw,iw) / tair(kw,iw)
 
          sxfer_tk(ks,iw) = dtlm(1) * shflx * exneri &
                          * (arw(kw,iw) - arw(kw-1,iw))
@@ -197,7 +197,7 @@ do iws = 2,mws
 
 ! Sea (open water) component always computed
 
-   call stars(zt(kw)-zm(kw-1),      &
+   call stars(dzt_bot        (kw),  &
               sea%sea_rough  (iws), &
               sea%vels       (iws), &
               sea%rhos       (iws), &
@@ -217,19 +217,19 @@ do iws = 2,mws
 
    if (sea%nlev_seaice(iws) > 0) then
 
-      call stars(zt(kw)-zm(kw-1),     &
-                sea%ice_rough  (iws), &
-                sea%vels       (iws), &
-                sea%rhos       (iws), &
-                sea%airtemp    (iws), &
-                sea%airshv     (iws), &
-                sea%ice_cantemp(iws), &
-                sea%ice_canshv (iws), &
-                sea%ice_vkmsfc (iws), &
-                sea%ice_sfluxt (iws), &
-                sea%ice_sfluxr (iws), &
-                sea%ice_ustar  (iws), &
-                sea%ice_ggaer  (iws)  )
+      call stars(dzt_bot        (kw),  &
+                 sea%ice_rough  (iws), &
+                 sea%vels       (iws), &
+                 sea%rhos       (iws), &
+                 sea%airtemp    (iws), &
+                 sea%airshv     (iws), &
+                 sea%ice_cantemp(iws), &
+                 sea%ice_canshv (iws), &
+                 sea%ice_vkmsfc (iws), &
+                 sea%ice_sfluxt (iws), &
+                 sea%ice_sfluxr (iws), &
+                 sea%ice_ustar  (iws), &
+                 sea%ice_ggaer  (iws)  )
 
       sea%vkmsfc(iws) = (1.0 - sea%seaicec(iws)) * sea%sea_vkmsfc(iws) &
                              + sea%seaicec(iws)  * sea%ice_vkmsfc(iws)
@@ -349,19 +349,19 @@ do iwl = 2,mwl
 
    if (land%ed_flag(iwl) == 0) then
 
-      call stars(zt(kw)-zm(kw-1), &
-               land%rough  (iwl), &
-               land%vels   (iwl), &
-               land%rhos   (iwl), &
-               land%airtemp(iwl), &
-               land%airshv (iwl), &
-               land%cantemp(iwl), &
-               land%canshv (iwl), &
-               land%vkmsfc (iwl), &
-               land%sfluxt (iwl), &
-               land%sfluxr (iwl), & 
-               land%ustar  (iwl), &
-               land%ggaer  (iwl)  )
+      call stars(dzt_bot     (kw),  &
+                 land%rough  (iwl), &
+                 land%vels   (iwl), &
+                 land%rhos   (iwl), &
+                 land%airtemp(iwl), &
+                 land%airshv (iwl), &
+                 land%cantemp(iwl), &
+                 land%canshv (iwl), &
+                 land%vkmsfc (iwl), &
+                 land%sfluxt (iwl), &
+                 land%sfluxr (iwl), & 
+                 land%ustar  (iwl), &
+                 land%ggaer  (iwl)  )
 
       land%sfluxc (iwl) = 0.
       land%ed_zeta(iwl) = 0.
@@ -374,7 +374,8 @@ do iwl = 2,mwl
       ! Someday we may track CO2 in OLAM...
       call get_ed2_atm_co2(iwl,my_co2)
 
-      call ed_stars_wrapper(iwl, zt(kw)-zm(kw-1), &
+      call ed_stars_wrapper(iwl, 
+           dzt_bot     (kw),  &
            land%vels   (iwl), &
            land%rhos   (iwl), &
            land%airtemp(iwl), &

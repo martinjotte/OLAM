@@ -38,11 +38,11 @@ subroutine soil(iwl, nlev_sfcwater, ktrans, ntext_soil,            &
                 soil_water, soil_energy, soil_tempk, soil_fracliq, &
                 sfcwater_mass, sfcwater_energy, sfcwater_depth,    &
                 energy_per_m2, psi, head, head0, head1,            &
-                wfree1, qwfree1, dwfree1, transp, glatw, glonw     )
+                wfree1, qwfree1, transp, glatw, glonw              )
 
 use leaf_coms, only: nzg, nzs, dslz, dslzi, slzt, dslzo2, dt_leaf, &
-                     slcons1, soilcp, slbs, slpots, slmsts, kroot, slcpd, &
-                     soilcond0, soilcond1, soilcond2, &
+                     slreso2, soilcp, slbs, slpots, slmsts, kroot, slcpd, &
+                     soilcond0, soilcond1, soilcond2, slmstsi, headp_ph, &
                      water_frac_ph0, water_def_ph0, slpott
 
 use consts_coms, only: cliq1000, cice1000, alli1000, alvi
@@ -76,7 +76,6 @@ real, intent(inout) :: head0   ! LBC total hydraulic head [m]
 real, intent(inout) :: head1   ! UBC total hydraulic head [m]
 real, intent(inout) :: wfree1  ! UBC free water mass [kg/m^2]
 real, intent(inout) :: qwfree1 ! UBC free water energy [J/m^2]
-real, intent(inout) :: dwfree1 ! UBC free water depth [m]
 real, intent(in)    :: transp  ! transpiration loss [kg/m^2]
 real, intent(in)    :: glatw   ! Latitude of land cell 'center' [deg]
 real, intent(in)    :: glonw   ! Longitude of land cell 'center' [deg]
@@ -93,6 +92,8 @@ real :: water_fraci   (nzg) ! Inverse fractional water content in layer
 real :: hydresist_bot (nzg)
 real :: hydresist_top (nzg)
 real :: soil_rfactor  (nzg) ! soil thermal resistance
+real :: hrterm_top    (nzg)
+real :: hrterm_bot    (nzg)
 
 ! Defined at bottom face of soil layers & of sfcwater layer 1
 
@@ -102,7 +103,6 @@ real :: xfercoef      (nzg+1)
 ! Defined at soil layer centers
 
 real :: headp   (nzg)  ! Derivative of soil water tension head wrt soil water 
-real :: headp_ph(nzg)  ! Derivative of hydraulic pressure head wrt soil water
 
 real :: vctr5 (nzg+1)
 real :: vctr6 (nzg+1)
@@ -111,14 +111,9 @@ real :: vctr8 (nzg+1)
 
 integer :: k     ! vertical index over soil layers
 integer :: nts   ! soil textural class
-integer :: linit, lframe
 
 real :: wloss    ! soil water loss from transpiration [vol_water/vol_tot]
 real :: qwloss   ! soil energy loss from transpiration [J/vol_tot]
-real :: runoff   ! runoff loss [kg/m^2]
-real :: total_water
-real :: total_energy
-real :: soil_tempc
 real :: soilcond  ! soil thermal conductivity [W/(K m)]
 
 integer, parameter :: iwl_print = 0
@@ -145,7 +140,7 @@ do k = 1,nzg
 
 ! Fractional water content and its inverse in middle of soil layer
 
-   water_frac(k)  = soil_water(k) / slmsts(nts)
+   water_frac(k)  = soil_water(k) * slmstsi(nts)
    water_fraci(k) = 1.0 / water_frac(k)
 
 ! Fractional water content at W levels
@@ -208,6 +203,23 @@ enddo
 ! moisture midway between the layers is higher, and would therefore bias the fluxes
 ! toward excessively high values if used for computing hydraulic conductivity.
 
+do k = 1, nzg
+   nts = ntext_soil(k)
+   hrterm_bot(k) = water_frac_bnd(k) ** (-2. * slbs(nts) - 3.)
+enddo
+
+do k = 1, nzg-1
+   nts = ntext_soil(k)
+   if (nts == ntext_soil(k+1)) then
+      hrterm_top(k) = hrterm_bot(k+1)
+   else
+      hrterm_top(k) = water_frac_bnd(k+1) ** (-2. * slbs(nts) - 3.)
+   endif
+enddo
+
+nts = ntext_soil(nzg)
+hrterm_top(nzg) = water_frac_bnd(nzg+1) ** (-2. * slbs(nts) - 3.)
+
 ! Loop over soil T levels
 
 do k = 1,nzg
@@ -215,11 +227,9 @@ do k = 1,nzg
 
 ! Hydraulic resistance of top and bottom half of each soil layer
 
-   hydresist_bot(k) = dslzo2(k) / &
-      (slcons1(k,nts) * water_frac_bnd(k)   ** (2. * slbs(nts) + 3.))
+   hydresist_bot(k) = slreso2(k,nts) * hrterm_bot(k)
 
-   hydresist_top(k) = dslzo2(k) / &
-      (slcons1(k,nts) * water_frac_bnd(k+1) ** (2. * slbs(nts) + 3.))
+   hydresist_top(k) = slreso2(k,nts) * hrterm_top(k)
 
 ! Molecular water potential in middle of soil layer [m]
 
@@ -231,20 +241,19 @@ do k = 1,nzg
 ! condition of specified total head.  
 
    head(k) = psi(k) + slzt(k)
-   headp(k) = -psi(k) * slbs(nts) * water_fraci(k) / slmsts(nts)
+   headp(k) = -psi(k) * slbs(nts) * water_fraci(k) * slmstsi(nts)
    
 ! If soil layer is nearly full, compute additional head that simulates 
 ! pressure contribution
 
    if (water_frac(k) > water_frac_ph0) then
 
-     headp_ph(k) = (10. - slpott(nts)) / (water_def_ph0 * slmsts(nts))
      head(k)  = head(k)  &
-              + headp_ph(k) * (water_frac(k) - water_frac_ph0) * slmsts(nts)
+              + headp_ph(nts) * (water_frac(k) - water_frac_ph0) * slmsts(nts)
 
 ! headp_ph addition to headp
 
-      headp(k) = headp(k) + headp_ph(k)
+      headp(k) = headp(k) + headp_ph(nts)
 
    endif
 

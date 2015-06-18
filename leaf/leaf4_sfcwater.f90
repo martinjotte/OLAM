@@ -42,7 +42,7 @@ subroutine sfcwater(iwl, icomb, nlev_sfcwater, ntext_soil,             &
                     snowmin_expl                                       )
 
 use leaf_coms,   only: nzg, nzs, dt_leaf, slz, dslz, dslzi, dslzo2,  &
-                       slmsts, soilcond0, soilcond1, soilcond2, slcpd
+                       slmstsi, soilcond0, soilcond1, soilcond2, slcpd
                        
 use consts_coms, only: alvi, cice, cliq, alli
 use misc_coms,   only: io6
@@ -176,7 +176,7 @@ if (nlev_sfcwater > 0 .and. icomb == 0) then
 
 ! Compute heat resistance of top HALF of top soil layer (soil_rfactor).
 
-   waterfrac = soil_water(nzg) / slmsts(ntext_soil(nzg))
+   waterfrac = soil_water(nzg) * slmstsi(ntext_soil(nzg))
    soilcond =        soilcond0(ntext_soil(nzg))  &
       + waterfrac * (soilcond1(ntext_soil(nzg))  &
       + waterfrac *  soilcond2(ntext_soil(nzg))  )
