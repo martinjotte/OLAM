@@ -48,16 +48,14 @@ Contains
                    transp, stom_resist, ggaero, snowmin_expl,         &
                    glatw, glonw                                       ) 
 
- use leaf_coms, only: nzg, soil_rough, dt_leaf, dslz, dslzi, &
-                      slpots, slmsts, slmstsh0, slbs, kroot, rcmin, soilcp, &
-                      slcpd, slcons
-
- use consts_coms, only: cp, vonk, eps_vap, alvl, cliq, cice, alli, rvap, r8
-
- use misc_coms, only: io6
- use mem_leaf,  only: itab_wl
-
+ use leaf_coms,      only: nzg, soil_rough, dt_leaf, dslz, dslzi, &
+                           slpots, slmsts, slmstsh0, slbs, kroot, &
+                           rcmin, soilcp, slcpd, slcons
+ use consts_coms,    only: cp, vonk, alvl, cliq, cice, alli, rvap, r8
+ use misc_coms,      only: io6
+ use mem_leaf,       only: itab_wl
  use leaf4_sfcwater, only: sfcwater_soil_comb
+ use matrix,         only: matrix_2x2, matrix_3x3, matrix_4x4
 
  implicit none
 
@@ -236,9 +234,9 @@ Contains
  real :: h1, h2, h3, h4, h5, h6, h7, h23
  real :: specvol
 
- real(r8) :: aa2(2,2), xx2(2),   yy2(2)  ! 2x2 matrix equation terms
- real(r8) :: aa3(3,3), xx3(3,3), yy3(3)  ! 3x3 matrix equation terms
- real(r8) :: aa4(4,4), xx4(4,6), yy4(4)  ! 4x4 matrix equation terms
+ real :: aa2(2,2), xx2(2),   yy2(2)  ! 2x2 matrix equation terms
+ real :: aa3(3,3), xx3(3,3), yy3(3)  ! 3x3 matrix equation terms
+ real :: aa4(4,4), xx4(4,6), yy4(4)  ! 4x4 matrix equation terms
 
  logical :: sing
 
@@ -659,7 +657,7 @@ Contains
 
     yy2(2) = a6 * y5
 
-    call matrix8_NxN(2,AA2,YY2,XX2,sing)
+    call matrix_2x2(AA2,YY2,XX2,sing)
 
     if (sing) call sing_print(iwl,1,2,aa2,yy2,glatw,glonw)
 
@@ -678,7 +676,7 @@ Contains
 
     yy2(1) = a5 * y3
 
-    call matrix8_NxN(2,AA2,YY2,XX2,sing)
+    call matrix_2x2(AA2,YY2,XX2,sing)
 
     if (sing) call sing_print(iwl,2,2,aa2(:,2),yy2,glatw,glonw)
 
@@ -839,7 +837,7 @@ Contains
 
 ! Solve 4x4 matrix equation
 
-       call matrix8_NxN(4,AA4,YY4,XX4(:,ieqn),sing)
+       call matrix_4x4(AA4,YY4,XX4(:,ieqn),sing)
 
        if (sing) call sing_print(iwl,ieqn,4,aa4,yy4,glatw,glonw)
 
@@ -861,7 +859,7 @@ Contains
           yy3(2) = yy4(3)
           yy3(3) = yy4(4)
                 
-          call matrix8_NxN(3,AA3,YY3,XX3(:,ieqn-3),sing)
+          call matrix_3x3(AA3,YY3,XX3(:,ieqn-3),sing)
 
           if (sing) call sing_print(iwl,ieqn,3,aa3,yy3,glatw,glonw)
 
@@ -1143,8 +1141,8 @@ end subroutine vegndvi
 
  integer, intent(in) :: iwl, ieqn, nsize
 
- real(r8), intent(in) :: aa(nsize,nsize), yy(nsize)
- real,     intent(in) :: glatw, glonw
+ real, intent(in) :: aa(nsize,nsize), yy(nsize)
+ real, intent(in) :: glatw, glonw
 
  integer :: irow
 
