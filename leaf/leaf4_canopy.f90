@@ -55,7 +55,7 @@ Contains
  use misc_coms,      only: io6
  use mem_leaf,       only: itab_wl
  use leaf4_sfcwater, only: sfcwater_soil_comb
- use matrix,         only: matrix_2x2, matrix_3x3, matrix_4x4
+ use matrix,         only: matrix8_2x2, matrix8_3x3, matrix8_4x4
 
  implicit none
 
@@ -234,9 +234,9 @@ Contains
  real :: h1, h2, h3, h4, h5, h6, h7, h23
  real :: specvol
 
- real :: aa2(2,2), xx2(2),   yy2(2)  ! 2x2 matrix equation terms
- real :: aa3(3,3), xx3(3,3), yy3(3)  ! 3x3 matrix equation terms
- real :: aa4(4,4), xx4(4,6), yy4(4)  ! 4x4 matrix equation terms
+ real(r8) :: aa2(2,2), xx2(2),   yy2(2)  ! 2x2 matrix equation terms
+ real(r8) :: aa3(3,3), xx3(3,3), yy3(3)  ! 3x3 matrix equation terms
+ real(r8) :: aa4(4,4), xx4(4,6), yy4(4)  ! 4x4 matrix equation terms
 
  logical :: sing
 
@@ -645,23 +645,21 @@ Contains
 
 ! WSC row
 
-    aa2(1,1) = 1. + a5 * (h2 * alvl + h4)
-    aa2(1,2) = a5 * h2
-
-    yy2(1) = a5 * y2
+    aa2(1,1) = 1._r8 + a5 * (h2 * alvl + h4)
+    aa2(1,2) =         a5 * h2
+    yy2(1)   =         a5 * y2
 
 ! HSC row
 
-    aa2(2,1) = a6 * h6 * alvl
-    aa2(2,2) = 1. + a6 * (h6 + h7)
+    aa2(2,1) =         a6 * h6 * alvl
+    aa2(2,2) = 1._r8 + a6 * (h6 + h7)
+    yy2(2)   =         a6 * y5
 
-    yy2(2) = a6 * y5
-
-    call matrix_2x2(AA2,YY2,XX2,sing)
+    call matrix8_2x2(AA2,YY2,XX2,sing)
 
     if (sing) call sing_print(iwl,1,2,aa2,yy2,glatw,glonw)
 
-    if (iwetsfc == 1 .or. xx2(1) <= 0.) then
+    if (iwetsfc == 1 .or. xx2(1) <= 0._r8) then
        wxfersc = xx2(1)
        hxfersc = xx2(2)
 
@@ -671,16 +669,15 @@ Contains
 
 ! Test 2 for DRY SURFACE EVAPORATION
 
-    aa2(1,1) = 1. + a5 * (h3 * alvl + h4)
-    aa2(1,2) = a5 * h3
+    aa2(1,1) = 1._r8 + a5 * (h3 * alvl + h4)
+    aa2(1,2) =         a5 * h3
+    yy2(1)   =         a5 * y3
 
-    yy2(1) = a5 * y3
-
-    call matrix_2x2(AA2,YY2,XX2,sing)
+    call matrix8_2x2(AA2,YY2,XX2,sing)
 
     if (sing) call sing_print(iwl,2,2,aa2(:,2),yy2,glatw,glonw)
 
-    if (xx2(1) >= 0.) then
+    if (xx2(1) >= 0._r8) then
        wxfersc = xx2(1)
        hxfersc = xx2(2)
 
@@ -790,11 +787,11 @@ Contains
        if (ieqn == 2 .or. ieqn == 5) a134 = a3 + a4
        if (ieqn == 3 .or. ieqn == 6) a134 = a4
 
-       aa4(1,1) = 1. + a134 * (h1 * alvl + h4)
-       aa4(1,2) = a134 * h4
-       aa4(1,3) = a134 * h1
-       aa4(1,4) = 0.
-       yy4(1)   = a134 * y1
+       aa4(1,1) = 1._r8 + a134 * (h1 * alvl + h4)
+       aa4(1,2) =         a134 * h4
+       aa4(1,3) =         a134 * h1
+       aa4(1,4) = 0._r8
+       yy4(1)   =         a134 * y1
 
        ! WSC row
 
@@ -807,11 +804,11 @@ Contains
              y23 = y3
           endif
         
-          aa4(2,1) = a5 * h4
-          aa4(2,2) = 1. + a5 * (h23 * alvl + h4)
-          aa4(2,3) = 0.
-          aa4(2,4) = a5 * h23
-          yy4(2)   = a5 * y23
+          aa4(2,1) =         a5 * h4
+          aa4(2,2) = 1._r8 + a5 * (h23 * alvl + h4)
+          aa4(2,3) = 0._r8
+          aa4(2,4) =         a5 * h23
+          yy4(2)   =         a5 * y23
 
        endif
 
@@ -819,25 +816,25 @@ Contains
 
        ! HVC row
 
-          aa4(3,1) = a2 * h5 * alvl
-          aa4(3,2) = 0.
-          aa4(3,3) = 1. + a2 * (h5 + h7)
-          aa4(3,4) = a2 * h7
-          yy4(3)   = a2 * y4
+          aa4(3,1) =         a2 * h5 * alvl
+          aa4(3,2) = 0._r8
+          aa4(3,3) = 1._r8 + a2 * (h5 + h7)
+          aa4(3,4) =         a2 * h7
+          yy4(3)   =         a2 * y4
 
        ! HSC row
 
-          aa4(4,1) = 0.
-          aa4(4,2) = a6 * h6 * alvl
-          aa4(4,3) = a6 * h7
-          aa4(4,4) = 1. + a6 * (h6 + h7)
-          yy4(4)   = a6 * y5
+          aa4(4,1) = 0._r8
+          aa4(4,2) =         a6 * h6 * alvl
+          aa4(4,3) =         a6 * h7
+          aa4(4,4) = 1._r8 + a6 * (h6 + h7)
+          yy4(4)   =         a6 * y5
 
        endif
 
 ! Solve 4x4 matrix equation
 
-       call matrix_4x4(AA4,YY4,XX4(:,ieqn),sing)
+       call matrix8_4x4(AA4,YY4,XX4(:,ieqn),sing)
 
        if (sing) call sing_print(iwl,ieqn,4,aa4,yy4,glatw,glonw)
 
@@ -859,7 +856,7 @@ Contains
           yy3(2) = yy4(3)
           yy3(3) = yy4(4)
                 
-          call matrix_3x3(AA3,YY3,XX3(:,ieqn-3),sing)
+          call matrix8_3x3(AA3,YY3,XX3(:,ieqn-3),sing)
 
           if (sing) call sing_print(iwl,ieqn,3,aa3,yy3,glatw,glonw)
 
@@ -1141,8 +1138,8 @@ end subroutine vegndvi
 
  integer, intent(in) :: iwl, ieqn, nsize
 
- real, intent(in) :: aa(nsize,nsize), yy(nsize)
- real, intent(in) :: glatw, glonw
+ real(r8), intent(in) :: aa(nsize,nsize), yy(nsize)
+ real,     intent(in) :: glatw, glonw
 
  integer :: irow
 
