@@ -33,36 +33,40 @@
 
 subroutine pbl_driver(mrl)
 
-  use mem_grid,       only: mwa, mza, lpw, lsw
-  use misc_coms,      only: io6, idiffk
+  use mem_grid,       only: mwa, mza, lpw, lsw,lpv, arv, volt, dniv
+  use misc_coms,      only: io6, idiffk, dtlm, iparallel
   use mem_tend,       only: thilt, sh_wt
   use mem_basic,      only: vxe, vye, vze, thil, theta, tair, sh_w, sh_v, rho
-  use mem_turb,       only: hkm, sxfer_tk, sxfer_rk, ustar, wstar, wtv0, &
-                            frac_sfc, pblh, kpblh, fthpbl, fqtpbl
-  use consts_coms,    only: grav, vonk, eps_virt, alvlocp
-  use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
+  use mem_turb,       only: hkm, hkh, sxfer_tk, sxfer_rk, ustar, wstar, wtv0, &
+                            frac_sfc, pblh, kpblh, fthpbl, fqtpbl, akmodx, akhodx
+  use consts_coms,    only: grav, vonk, eps_virt, alvlocp, r8
+  use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog, jtab_v, jtv_wadj, itab_v
   use mem_radiate,    only: fthrd_sw, fthrd_lw
   use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx, acm2
   use smagorinsky,    only: turb_k
   use mem_micro,      only: sh_c
   use mem_grid,       only: zm
-  
+  use olam_mpi_atm,   only: mpi_send_w, mpi_recv_w  
+  use obnd,           only: lbcopy_w
+
   implicit none
 
   integer, intent(in) :: mrl
-  integer :: j, k, ka, iw, mrlw, ks
+  integer :: j, k, ka, iw, mrlw, ks, iw1, iw2, iv
 
-  real    :: qc    (mza)
-  real    :: thlv  (mza)
-  real    :: vkh   (mza)
-  real    :: vkm   (mza)
-  real    :: fthrd (mza)
-  real    :: moli
+  real     :: qc    (mza)
+  real     :: thlv  (mza)
+  real     :: vkh   (mza)
+  real     :: vkm   (mza)
+  real     :: fthrd (mza)
+  real     :: moli
+  real(r8) :: fact1, fact2
+  real     :: tempm, temph, stab1, stab2
 
 ! Loop over all W/T points where PBL parameterization may be done
 
 !----------------------------------------------------------------------
-!$omp parallel do private(iw,mrlw,ka,k,ks,qc,thlv,moli,vkh,vkm,fthrd) 
+  !$omp parallel do private(iw,mrlw,ka,k,qc,thlv,moli,vkh,vkm,fthrd) 
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -71,28 +75,14 @@ subroutine pbl_driver(mrl)
      mrlw = itab_w(iw)%mrlw
      ka   = lpw(iw)
 
-     do k = ka-1, mza
-        hkm(k,iw) = 0.
-!       vkm(k,iw) = 0.
-!       vkh(k,iw) = 0.
-     enddo
-
      ! Save input tendencies of theta and qt for later determining PBL tendencies
 
-     if (allocated(fthpbl)) then
-        do k = ka, mza
-           fthpbl(k,iw) = thilt(k,iw)
-        enddo
-     endif
+     do k = ka, mza
+        fthpbl(k,iw) = thilt(k,iw)
+        fqtpbl(k,iw) = sh_wt(k,iw)
+     enddo
 
-     if (allocated(fqtpbl)) then
-        do k = ka, mza
-           fqtpbl(k,iw) = sh_wt(k,iw)
-        enddo
-     endif
-
-     ! Buoyancy variable: use cloud-water virtual potential temperature
-     ! for diagnosing stability
+     ! Define a cloud-water virtual potential temperature for diagnosing buoyancy
 
      if (allocated(sh_c)) then
         do k = ka, mza
@@ -130,20 +120,36 @@ subroutine pbl_driver(mrl)
 
         call acm2( iw, moli, ustar(iw), pblh(iw), kpblh(iw), vkh )
 
-        ! get horizontal diffusion coefficient from vkh
-        
+        ! temporarily get horizontal diffusion coefficient from vkh
+
         hkm(ka,iw) = vkh(ka)
-        do k = ka, mza
+        hkh(ka,iw) = hkm(ka,iw)
+        do k = ka+1, mza
            hkm(k,iw) = 0.5 * (vkh(k-1) + vkh(k))
+           hkh(k,iw) = hkm(k,iw)
         enddo
 
      else if (idiffk(mrlw) == 2 .or. idiffk(mrlw) == 3) then
-   
+
         ! Smagorinsky scheme
 
         call turb_k(iw, mrlw, thlv, vkh, vkm)
 
      endif
+
+  enddo
+  !$omp end parallel do
+
+  ! Parallel send of horizontal K's
+
+  if (iparallel == 1) then
+     call mpi_send_w(mrl, rvara1=hkm, rvara2=hkh)
+  endif
+
+!----------------------------------------------------------------------
+  !$omp parallel do private(iw,ks,k)
+  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+!----------------------------------------------------------------------
 
      ! Zero out sxfer arrays now that they have been transferred to the atm
      
@@ -154,20 +160,46 @@ subroutine pbl_driver(mrl)
 
      ! Save PBL tendencies of theta and qt needed by some convective schemes
 
-     if (allocated(fthpbl)) then
-        do k = ka, mza
-           fthpbl(k,iw) = (thilt(k,iw) - fthpbl(k,iw)) / rho(k,iw)
-        enddo
-     endif
-
-     if (allocated(fqtpbl)) then
-        do k = ka, mza
-           fqtpbl(k,iw) = (sh_wt(k,iw) - fqtpbl(k,iw)) / rho(k,iw)
-        enddo
-     endif
+     do k = lpw(iw), mza
+        fthpbl(k,iw) = (thilt(k,iw) - fthpbl(k,iw)) / rho(k,iw)
+        fqtpbl(k,iw) = (sh_wt(k,iw) - fqtpbl(k,iw)) / rho(k,iw)
+     enddo
 
   enddo
-!$omp end parallel do
+  !$omp end parallel do
+
+! MPI Recv and LBC copy of K's
+
+  if (iparallel == 1) then
+     call mpi_recv_w(mrl, rvara1=hkm, rvara2=hkh)
+  endif
+  call lbcopy_w(mrl, a1=hkm, a2=hkh)
+
+! Loop over V columns to compute ARV * K / DX, and make sure
+! horizontal diffusion is stable over the long timestep
+
+!----------------------------------------------------------------------
+  !$omp do private(iv,iw1,iw2,fact1,fact2,k,tempm,temph,stab1,stab2)
+  do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+!----------------------------------------------------------------------
+
+     iw1 = itab_v(iv)%iw(1)
+     iw2 = itab_v(iv)%iw(2)
+
+     fact1 = 1.0_r8 / ( dtlm(itab_w(iw1)%mrlw) * itab_w(iw1)%npoly )
+     fact2 = 1.0_r8 / ( dtlm(itab_w(iw2)%mrlw) * itab_w(iw2)%npoly )
+
+     do k = lpv(iv), mza
+        tempm = 0.5 * dniv(iv) * arv(k,iv) * (hkm(k,iw1) + hkm(k,iw2))
+        temph = 0.5 * dniv(iv) * arv(k,iv) * (hkh(k,iw1) + hkh(k,iw2))
+        stab1 = rho(k,iw1) * volt(k,iw1) * fact1
+        stab2 = rho(k,iw2) * volt(k,iw2) * fact2
+        akmodx(k,iv) = min( tempm, stab1, stab2 )
+        akhodx(k,iv) = min( temph, stab1, stab2 )
+     enddo
+
+  enddo
+  !$omp end parallel do
 
 end subroutine pbl_driver
 

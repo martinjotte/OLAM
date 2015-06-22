@@ -82,7 +82,7 @@ subroutine olam_mem_alloc()
   call alloc_radiate(mza,mwa,ilwrtyp,iswrtyp)
   call filltab_radiate()
 
-  call alloc_turb(mza,mwa,nsw_max,idiffk(1),mrls)
+  call alloc_turb(mza,mwa,mva,nsw_max,idiffk,mrls)
   call filltab_turb()
 
   call alloc_flux_accum(mza,mva,mwa,mwl,mws)

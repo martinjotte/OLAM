@@ -61,7 +61,7 @@ use mem_radiate, only: fthrd_lw, fthrd_sw, rshort, rlong, rlongup, albedt, &
                        rshort_top, rshortup_top, rlongup_top
 use mem_addsc,   only: addsc
 use mem_tend,    only: vmt, wmt
-use mem_turb,    only: vkm, vkm_sfc, sfluxw, sfluxt, sfluxr, pblh, hkm
+use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, pblh, hkm, hkh, ustar, wstar
 use mem_nudge,   only: rho_obs, theta_obs, shw_obs, uzonal_obs, umerid_obs, &
                        rho_sim, theta_sim, shw_sim, uzonal_sim, umerid_sim
 
@@ -250,7 +250,7 @@ data fldlib(1:4,  1:34)/ &
  'CON_IFN'       ,'T3' ,'IFN NUMBER CONCEN',' (# kg:S2:-1  )'                / !p 34
 
 data fldlib(1:4, 35:56)/ &
- 'VKM'           ,'W3' ,'VERT TURB MOMENTUM K',' (N s m:S2:-2  )'           ,& !p 35
+ 'HKM'           ,'T3' ,'HORIZ TURB MOMENTUM K',' (N s m:S2:-2  )'          ,& !p 35
  'FTHRD'         ,'T3' ,'RADIATIVE THETA TENDENCY',' (K s:S2:-1  )'         ,& !p 36
  'SPEEDW'        ,'T3' ,'WIND SPEED AT W',' (m s:S2:-1  )'                  ,& !p 37
  'AZIMW'         ,'T3' ,'WIND AZIMUTH AT W',' (deg)'                        ,& !p 38
@@ -275,7 +275,7 @@ data fldlib(1:4, 35:56)/ &
 
 ! ATMOSPHERE - 2D
 
-data fldlib(1:4, 62:94)/ &
+data fldlib(1:4, 62:95)/ &
  'RSHORT_TOP'    ,'T2' ,'TOP DOWN SHORTWV FLX',' (W m:S2:-2  )'             ,& !  62
  'RSHORTUP_TOP'  ,'T2' ,'TOP UP SHORTWV FLX',' (W m:S2:-2  )'               ,& !  63
  'RLONGUP_TOP'   ,'T2' ,'TOP UP LONGWV FLX',' (W m:S2:-2  )'                ,& !  64
@@ -288,7 +288,7 @@ data fldlib(1:4, 62:94)/ &
  'RLONGUP'       ,'T2' ,'SFC UP LONGWV FLX',' (W m:S2:-2  )'                ,& !  68
  'ALBEDT'        ,'T2' ,'NET GRID COLUMN SFC ALBEDO',' ( )'                 ,& !  69
  'VKM_SFC'       ,'T2' ,'SFC TURB K FOR MOMENTUM',' (N s m:S2:-2  )'        ,& !  70
- 'SFLUXW'        ,'T2' ,'SFC W MOMENTUM FLUX',' (N m:S2:-2  )'              ,& !  71
+ 'USTAR'         ,'T2' ,'SFC FRICTION VELOCITY',' (m s:S2:-1  )'            ,& !  71
  'SENSFLUX'      ,'T2' ,'ATM SFC SENSIBLE HEAT FLUX',' (W m:S2:-2  )'       ,& !  72
  'VAPFLUX'       ,'T2' ,'ATM SFC VAPOR FLUX',' (kg m:S2:-2   s:S2:-1  )'    ,& !  73
  'LATFLUX'       ,'T2' ,'ATM SFC LATENT HEAT FLUX',' (W m:S2:-2  )'         ,& !  74
@@ -311,7 +311,8 @@ data fldlib(1:4, 62:94)/ &
  'ACCPH'         ,'T2' ,'ACCUM HAIL',' (kg m:S2:-2  )'                      ,& !  91
  'ACCPMIC'       ,'T2' ,'ACCUM MICPHYS PCP',' (kg m:S2:-2  )'               ,& !  92
  'ACCPCON'       ,'T2' ,'ACCUM CONV PCP',' (kg m:S2:-2  )'                  ,& !  93
- 'ACCPBOTH'      ,'T2' ,'ACCUM MICPHYS + CONV PCP',' (kg m:S2:-2  )'         / !  94
+ 'ACCPBOTH'      ,'T2' ,'ACCUM MICPHYS + CONV PCP',' (kg m:S2:-2  )'        ,& !  94
+ 'WSTAR'         ,'T2' ,'PBL CONVECTIVE VELOCITY',' (m s:S2:-1  )'           / !  95
 
 ! ATMOSPHERE DIF2 fields (3D & 2D)
 
@@ -637,7 +638,7 @@ data fldlib(1:4,471:493)/ &
  'VYE'           ,'T3' ,'EARTH CARTESIAN Y WIND',' (m s:S2:-1  )'           ,& ! 487
  'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'           ,& ! 488
  'PBLH'          ,'T2' ,'PBL HEIGHT',' (m)'                                 ,& ! 489
- 'HKM'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 490
+ 'HKH'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 490
  'SHW_HCONV'     ,'T2' ,'TOTAL WATER HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 491
  'SHV_HCONV'     ,'T2' ,'WATER VAPOR HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 492
  'CLDNUM'        ,'T2' ,'CLOUD # CONCEN (GEOG)',' (# mg:S2:-1  )'            / ! 493
@@ -1019,10 +1020,10 @@ case(34) ! 'CON_IFN'
    fldval = wtbot * con_ifn(k ,i) &
           + wttop * con_ifn(kp,i)
 
-case(35) ! 'VKM'
+case(35) ! 'HKM'
 
-   fldval = wtbot * vkm(k ,i) &
-          + wttop * vkm(kp,i)
+   fldval = wtbot * hkm(k ,i) &
+          + wttop * hkm(kp,i)
 
 case(36) ! 'FTHRD'
 
@@ -1275,9 +1276,9 @@ case(70) ! 'VKM_SFC'
 
    fldval = vkm_sfc(1,i)
 
-case(71) ! 'SFLUXW'
+case(71) ! 'USTAR'
 
-   fldval = sfluxw(i)
+   fldval = ustar(i)
 
 case(72) ! 'SENSFLUX'
 
@@ -1440,6 +1441,10 @@ case(94) ! 'ACCPBOTH'
    if (allocated(accpg)) fldval = fldval + real(accpg(i))
    if (allocated(accph)) fldval = fldval + real(accph(i))
    if (allocated(aconpr)) fldval = fldval + real(aconpr(i))
+
+case(95) ! 'WSTAR'
+
+   fldval = wstar(i)
 
 !-----------------------------------------
 ! ATMOSPHERE DIF2 fields - (3D & 2D)
@@ -3349,12 +3354,12 @@ case(489) ! 'PBLH'
 
    fldval = pblh(i)
 
-case(490) ! 'HKM'
+case(490) ! 'HKH'
 
-   if (.not. allocated(hkm)) go to 1000
+   if (.not. allocated(hkh)) go to 1000
 
-   fldval = wtbot * hkm(k ,i) / rho(k ,i) &
-          + wttop * hkm(kp,i) / rho(kp,i)
+   fldval = wtbot * hkh(k ,i) / rho(k ,i) &
+          + wttop * hkh(kp,i) / rho(kp,i)
 
 case(491) ! 'SHW_HCONV'
 

@@ -41,7 +41,6 @@ use mem_grid,    only: mza, mva, mwa, nsw_max
 use micro_coms,  only: level
 use leaf_coms,   only: isfcl
 use mem_para,    only: myrank
-use mem_turb,    only: hkm
 use mem_basic,   only: vmc, vc, vxe, vye, vze, vxe2, vye2, vze2, thil, rho, wmc, wc
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 use var_tables,  only: nvar_par, vtab_r, nptonv
@@ -127,26 +126,12 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
    mrl = mrl_begl(istp)
    if (mrl > 0) then
-
       call pbl_driver(mrl)
-
-      if (iparallel == 1) then
-         call mpi_send_w(mrl, rvara1=hkm)  ! Send K's
-      endif
-
    endif
 
 ! call check_nans(5)
 
    call zero_momsc(vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
-
-! MPI Recv and LBC copy of K's
-
-   mrl = mrl_begl(istp)
-   if (mrl > 0) then
-      if (iparallel == 1) call mpi_recv_w(mrl, rvara1=hkm)
-      call lbcopy_w(mrl, a1=hkm)
-   endif
 
 ! Compute nudging tendencies
 

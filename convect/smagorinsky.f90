@@ -47,7 +47,7 @@ contains
 
   subroutine turb_k(iw, mrlw, thetav, vkh, vkm)
 
-    use mem_turb,    only: hkm, vkm_sfc, sxfer_rk
+    use mem_turb,    only: hkm, hkh, vkm_sfc, sxfer_rk
     use mem_ijtabs,  only: istp, jtab_w, itab_w, mrl_begl
     use mem_grid,    only: mza, mwa, lpv, lpw, dzim, zt, zm, volt, arw, lsw, volti
     use misc_coms,   only: io6, idiffk, csx, csz, zkhkm, akmin, dtlm
@@ -237,19 +237,20 @@ contains
       
     ! Zero values for top and bottom boundaries   
    
-    vkm(ka-1)  = 0.
-    vkh(ka-1)  = 0.
-    vkm(mza) = 0.
-    vkh(mza) = 0.
+    vkm(ka-1) = 0.
+    vkh(ka-1) = 0.
+    vkm(mza)  = 0.
+    vkh(mza)  = 0.
 
     ! Horizontal diffusion coefficient (current version)
 
-    bkmin = akmin(1) * .075 * arw0(iw) ** .666667
+    bkmin = akmin(1) * .075 * arw0(iw) ** .66666666
 
     ! akmin hardwired for "grid 1" value for now
 
     do k = ka,mza
        hkm(k,iw) = max(vkm(k-1), vkm(k), bkmin * real(rho(k,iw)))
+       hkh(k,iw) = max(vkh(k-1), vkh(k), bkmin * real(rho(k,iw)))
     enddo
 
 !!!!!

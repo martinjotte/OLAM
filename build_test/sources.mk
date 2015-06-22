@@ -4,6 +4,7 @@ SOURCE_FILES= \
              $(CONVECT)/acmcld.f90 \
              $(CONVECT)/cuparm_driver.f90 \
              $(CONVECT)/mem_cuparm.f90 \
+             $(CONVECT)/mem_turb.f90 \
              $(CONVECT)/module_bl_acm2.f90 \
              $(CONVECT)/module_cu_emanuel.f90 \
              $(CONVECT)/module_cu_g3.f90 \
@@ -47,7 +48,6 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_rayf.f90 \
              $(MODEL_MODS)/mem_tend.f90 \
              $(MODEL_MODS)/mem_thuburn.f90 \
-             $(MODEL_MODS)/mem_turb.f90 \
              $(MODEL_MODS)/mem_zonavg.f90 \
              $(MODEL_MODS)/micro_coms.f90 \
              $(MODEL_MODS)/misc_coms.f90 \

@@ -30,55 +30,50 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
+
 Module mem_turb
 
-  real, allocatable, target :: tkep    (:,:)
-  real, allocatable, target :: epsp    (:,:)
-  real, allocatable, target :: hkm     (:,:)
-  real, allocatable, target :: hkh     (:,:)
-  real, allocatable, target :: vkm     (:,:)
-  real, allocatable, target :: vkh     (:,:)
-  real, allocatable, target :: sxfer_tk(:,:)
-  real, allocatable, target :: sxfer_rk(:,:)
+  real,    allocatable, target :: tkep    (:,:)
+  real,    allocatable, target :: epsp    (:,:)
+  real,    allocatable, target :: hkm     (:,:)
+  real,    allocatable, target :: hkh     (:,:)
+  real,    allocatable, target :: sxfer_tk(:,:)
+  real,    allocatable, target :: sxfer_rk(:,:)
+  real,    allocatable, target :: vkm_sfc (:,:)
 
-  real, allocatable, target :: vkm_sfc (:,:)
-  real, allocatable, target :: sfluxw  (:)
-  real, allocatable, target :: sfluxt  (:)
-  real, allocatable, target :: sfluxr  (:)
-  real, allocatable, target :: ustar   (:)
-  real, allocatable, target :: wstar   (:)
-  real, allocatable, target :: wtv0    (:)
-  real, allocatable, target :: pblh    (:)
+  real,    allocatable, target :: sfluxt(:)
+  real,    allocatable, target :: sfluxr(:)
+  real,    allocatable, target :: ustar (:)
+  real,    allocatable, target :: wstar (:)
+  real,    allocatable, target :: wtv0  (:)
+  real,    allocatable, target :: pblh  (:)
+  integer, allocatable, target :: kpblh (:)
 
-  integer, allocatable, target :: kpblh(:)
+  real,    allocatable, target :: fthpbl(:,:)
+  real,    allocatable, target :: fqtpbl(:,:)
 
-  real,    allocatable      :: frac_land (:)
-  real,    allocatable      :: frac_sea  (:)
-  real,    allocatable      :: frac_lake (:)
-  real,    allocatable      :: frac_urb  (:)
-  real,    allocatable      :: frac_sfc(:,:)
+  real,    allocatable         :: frac_land (:)
+  real,    allocatable         :: frac_sea  (:)
+  real,    allocatable         :: frac_lake (:)
+  real,    allocatable         :: frac_urb  (:)
+  real,    allocatable         :: frac_sfc(:,:)
 
-  real, allocatable, target :: fthpbl(:,:)
-  real, allocatable, target :: fqtpbl(:,:)
+  real,    allocatable         :: akmodx(:,:)
+  real,    allocatable         :: akhodx(:,:)
 
 Contains
 
 !===============================================================================
 
-  subroutine alloc_turb(mza, mwa, nsw_max, idiffk, mrls)
+  subroutine alloc_turb(mza, mwa, mva, nsw_max, idiffk, mrls)
 
-    use misc_coms, only: rinit, nqparm
+    use misc_coms, only: rinit
     implicit none
 
-    integer, intent(in) :: mza, mwa, nsw_max, idiffk, mrls
+    integer, intent(in) :: mza, mwa, mva, nsw_max, idiffk(:), mrls
 
 !   Allocate arrays based on options (if necessary)
 !   Initialize arrays to zero
-
-    allocate (hkm(mza,mwa)) ; hkm = rinit
-!   allocate (hkh(mza,mwa)) ; hkh = rinit
-!   allocate (vkm(mza,mwa)) ; vkm = rinit
-!   allocate (vkh(mza,mwa)) ; vkh = rinit
 
     allocate (sxfer_tk(nsw_max,mwa)) ; sxfer_tk = 0.0
     allocate (sxfer_rk(nsw_max,mwa)) ; sxfer_rk = 0.0
@@ -86,25 +81,25 @@ Contains
     allocate (vkm_sfc (nsw_max,mwa)) ; vkm_sfc  = rinit
     allocate (frac_sfc(nsw_max,mwa)) ; frac_sfc = rinit
 
-    allocate (sfluxt  (mwa)) ; sfluxt   = rinit
-    allocate (sfluxr  (mwa)) ; sfluxr   = rinit
-!   allocate (sfluxw  (mwa)) ; sfluxw   = rinit
+    allocate (hkm   (mza,mwa)) ; hkm       = rinit
+    allocate (hkh   (mza,mwa)) ; hkh       = rinit
+    allocate (fthpbl(mza,mwa)) ; fthpbl    = 0.0
+    allocate (fqtpbl(mza,mwa)) ; fqtpbl    = 0.0
 
-    allocate (ustar    (mwa)) ; ustar     = rinit
-    allocate (wstar    (mwa)) ; wstar     = rinit
-    allocate (wtv0     (mwa)) ; wtv0      = rinit
-    allocate (pblh     (mwa)) ; pblh      = rinit
-    allocate (kpblh    (mwa)) ; kpblh     = 1
-    allocate (frac_urb (mwa)) ; frac_urb  = 0.0 
-    allocate (frac_land(mwa)) ; frac_land = 0.0
-    allocate (frac_lake(mwa)) ; frac_lake = 0.0
-    allocate (frac_sea (mwa)) ; frac_sea  = 0.0
+    allocate (sfluxt    (mwa)) ; sfluxt    = rinit
+    allocate (sfluxr    (mwa)) ; sfluxr    = rinit
+    allocate (ustar     (mwa)) ; ustar     = rinit
+    allocate (wstar     (mwa)) ; wstar     = rinit
+    allocate (wtv0      (mwa)) ; wtv0      = rinit
+    allocate (pblh      (mwa)) ; pblh      = rinit
+    allocate (kpblh     (mwa)) ; kpblh     = 1
+    allocate (frac_urb  (mwa)) ; frac_urb  = 0.0 
+    allocate (frac_land (mwa)) ; frac_land = 0.0
+    allocate (frac_lake (mwa)) ; frac_lake = 0.0
+    allocate (frac_sea  (mwa)) ; frac_sea  = 0.0
 
-    if ( any(nqparm(1:mrls) == 1) .or. any(nqparm(1:mrls) == 2) .or. &
-         any(nqparm(1:mrls) == 5) ) then
-       allocate (fthpbl(mza,mwa)) ; fthpbl = 0.0
-       allocate (fqtpbl(mza,mwa)) ; fqtpbl = 0.0
-    endif
+    allocate (akmodx(mza,mva)) ; akmodx    = rinit
+    allocate (akhodx(mza,mva)) ; akmodx    = rinit
 
   end subroutine alloc_turb
   
@@ -118,10 +113,7 @@ Contains
     if (allocated(epsp))    deallocate (epsp)
     if (allocated(hkm))     deallocate (hkm)
     if (allocated(hkh))     deallocate (hkh)
-    if (allocated(vkm))     deallocate (vkm)
-    if (allocated(vkh))     deallocate (vkh)
     if (allocated(vkm_sfc)) deallocate (vkm_sfc)
-    if (allocated(sfluxw))  deallocate (sfluxw)
     if (allocated(sfluxt))  deallocate (sfluxt)
     if (allocated(sfluxr))  deallocate (sfluxr)
     if (allocated(ustar))   deallocate (ustar)
@@ -131,6 +123,8 @@ Contains
     if (allocated(kpblh))   deallocate (kpblh)
     if (allocated(fthpbl))  deallocate (fthpbl)
     if (allocated(fqtpbl))  deallocate (fqtpbl)
+    if (allocated(akmodx))  deallocate (akmodx)
+    if (allocated(akhodx))  deallocate (akhodx)
 
   end subroutine dealloc_turb
 
@@ -149,17 +143,11 @@ Contains
 
     if (allocated(hkh))      call increment_vtable('HKH',     'AW', rvar2=hkh)
 
-    if (allocated(vkm))      call increment_vtable('VKM',     'AW', rvar2=vkm)
-
-    if (allocated(vkh))      call increment_vtable('VKH',     'AW', rvar2=vkh)
-
     if (allocated(sxfer_tk)) call increment_vtable('SXFER_TK','AW', rvar2=sxfer_tk)
 
     if (allocated(sxfer_rk)) call increment_vtable('SXFER_RK','AW', rvar2=sxfer_rk)
 
     if (allocated(vkm_sfc))  call increment_vtable('VKM_SFC', 'AW', rvar2=vkm_sfc)
-
-    if (allocated(sfluxw))   call increment_vtable('SFLUXW',  'AW', rvar1=sfluxw)
 
     if (allocated(sfluxt))   call increment_vtable('SFLUXT',  'AW', rvar1=sfluxt)
 

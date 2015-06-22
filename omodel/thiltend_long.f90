@@ -64,7 +64,7 @@ subroutine thiltend_long0(iw)
 use mem_ijtabs,  only: itab_w
 use misc_coms,   only: io6, dtlm
 use mem_basic,   only: rho, thil
-use mem_turb,    only: vkh, hkm, sxfer_tk, sxfer_rk
+use mem_turb,    only: hkm, sxfer_tk, sxfer_rk
 use mem_tend,    only: thilt
 use mem_grid,    only: mza, mwa, arw, dzim, volt, volti, arv, dniv, lpv
 

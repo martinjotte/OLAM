@@ -30,6 +30,7 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
+
 subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
   use mem_ijtabs,   only: istp, jtab_v, jtab_w, mrl_endl, itab_v, itab_w, &
@@ -38,7 +39,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
                           dniv, volt, arv, arw, dzim, volti
   use misc_coms,    only: io6, dtlm, iparallel, time8p
   use var_tables,   only: num_scalar, scalar_tab
-  use mem_turb,     only: vkh, hkm, sxfer_rk, fqtpbl
+  use mem_turb,     only: akhodx
   use mem_basic,    only: rho
   use mem_para,     only: myrank
   use oname_coms,   only: nl
@@ -75,7 +76,6 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
   real :: vmsca(mza,mva)
   real :: wmsca(mza,mwa)
-  real :: akodx(mza,mva)
 
   real :: gxps_scp(mza,mwa)
   real :: gyps_scp(mza,mwa)
@@ -153,13 +153,11 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
      iw1 = itab_v(iv)%iw(1)
      iw2 = itab_v(iv)%iw(2)
-
-     kb = lpv(iv)
+     kb  = lpv(iv)
 
      do k = kb, mza
         vsc  (k,iv) = 2.0 * vmsc(k,iv) / ( rho_old(k,iw1) + rho_old(k,iw2) )
         vmsca(k,iv) = vmsc(k,iv) * arv(k,iv)
-        akodx(k,iv) = 0.5 * dniv(iv) * arv(k,iv) * (hkm(k,iw1) + hkm(k,iw2))
      enddo
 
      vmsca(2:kb-1,iv) = 0.0
@@ -643,7 +641,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
               hfluxadv(k) = hfluxadv(k) + dirv * vmsca(k,iv) * scp_upv(k,iv)
 
-              hfluxdif(k) = hfluxdif(k) + akodx(k,iv) * (scp(k,iwn) - scp(k,iw))
+              hfluxdif(k) = hfluxdif(k) + akhodx(k,iv) * (scp(k,iwn) - scp(k,iw))
            enddo
         enddo
 
