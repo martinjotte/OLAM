@@ -30,7 +30,6 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-
 subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
   use mem_ijtabs,   only: istp, jtab_v, jtab_w, mrl_endl, itab_v, itab_w, &
@@ -41,17 +40,12 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   use var_tables,   only: num_scalar, scalar_tab
   use mem_turb,     only: akhodx
   use mem_basic,    only: rho
-  use mem_para,     only: myrank
   use oname_coms,   only: nl
+  use mem_thuburn,  only: comp_cfl1, comp_cfl2, comp_vert_limits, &
+                          comp_horiz_limits, apply_flux_limiters
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use obnd,         only: lbcopy_w
   use consts_coms,  only: r8
-  use mem_thuburn
-  use mem_para,     only: mgroupsize
-
-#ifdef OLAM_MPI
-  use mpi
-#endif
 
   implicit none
 
@@ -64,10 +58,9 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
   real(r8), intent(in) :: rho_old(mza,mwa)
 
-  integer :: j,iw,iw1,iw2,iw3,iw4,iwd,iwr,mrl
-  integer :: n,k,kb,kbv,kd,kr,iv,iwn,jv,npoly
-  real    :: dtl,dtli
-  real    :: dirv
+  integer  :: j,iw,iw1,iw2,iw3,iw4,iwd,iwr,mrl
+  integer  :: n,k,kb,kbv,kd,kr,iv,iwn,jv,npoly
+  real     :: dirv
 
 ! Automatic arrays:
 
@@ -102,12 +95,6 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
   real, pointer :: scp(:,:)
   real, pointer :: sct(:,:)
-
-! Extra variables for Thuburn scheme
-  
-  real    :: scp_vin_min(mza), scp_vin_max(mza)
-  real    :: cfl_max, cfl_maxs(mgroupsize)
-  integer :: ier, inode, imax(3), imaxs(3,mgroupsize)
 
 ! Return if this is not the end of the long timestep on any MRL
 
@@ -154,7 +141,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
      iw1 = itab_v(iv)%iw(1)
      iw2 = itab_v(iv)%iw(2)
      kb  = lpv(iv)
-
+     
      do k = kb, mza
         vsc  (k,iv) = 2.0 * vmsc(k,iv) / ( rho_old(k,iw1) + rho_old(k,iw2) )
         vmsca(k,iv) = vmsc(k,iv) * arv(k,iv)
@@ -186,149 +173,18 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   call donorpointv(1, mrl, vsc, vxesc, vyesc, vzesc, iwdepv, iwrecv, &
                    dxps_v, dyps_v, dzps_v)
 
-! Diagnose CFL number for stability check; also used by Thuburn limiter
+  ! Compute outflow CFL numbers for long timestep stability check;
+  ! also needed by Thuburn monotonic scheme
 
-  !$omp parallel 
-  !$omp workshare
-  cfl_out_sum(:,:) = 0.0
-  !$omp end workshare 
+  call comp_cfl1( mrl, dtlm, vmsca, wmsca, vsc, wsc, rho_old, &
+                  iwdepv, kdepw, do_check=.true. )
 
-  !$omp do private(iv,k,iwd)
-  do j = 1, jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-
-     ! Loop over T/V level
-     do k = lpv(iv), mza
-        iwd = iwdepv(k,iv)
-        cfl_out_sum(k,iwd) = cfl_out_sum(k,iwd) + abs(vmsca(k,iv))
-     enddo
-
-  enddo
-  !$omp end do
-
-  !$omp do private(iw,dtl,k,kd)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-  
-     dtl = dtlm(itab_w(iw)%mrlw)
-
-     ! Loop over W/M level
-     do k = lpw(iw), mza-1
-        kd = kdepw(k,iw)
-        cfl_out_sum(kd,iw) = cfl_out_sum(kd,iw) + abs(wmsca(k,iw))
-     enddo
-     
-     ! Loop over T/V level
-      do k = lpw(iw), mza
-        cfl_out_sum(k,iw) = cfl_out_sum(k,iw) &
-                          * dtl * volti(k,iw) / rho_old(k,iw)
-     enddo
-  enddo
-  !$omp end do
-  !$omp end parallel
-
-! Find the max CFL number on each node, and print an error message
-! if the CFL number is greater than 1
-
-  cfl_max = -1.0
-
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-     do k = lpw(iw), mza
-
-        if (cfl_out_sum(k,iw) > cfl_max) then
-           cfl_max = cfl_out_sum(k,iw)
-           imax    = (/ k, iw, itab_w(iw)%iwglobe /)
-        endif
-
-        if (cfl_out_sum(k,iw) > 1.0) then
-           npoly = itab_w(iw)%npoly
-           write(*,*)
-           write(*,'(4(A,I0),/,2(A,f0.3),A,7(f0.3,1x))')                     &
-                "!!! CFL VIOLATION at node ", myrank,                        &
-                ", iw=", iw, ", iwglobe=", itab_w(iw)%iwglobe, ", k=", k,    &
-                "!!! CFL = ", cfl_out_sum(k,iw),                             &
-                ", W = ", wsc(k,iw), ", VSC = ", vsc(k,itab_w(iw)%iv(1:npoly))
-        endif
-
-     enddo
-  enddo
-
-! Print the global max CFL number
-
-  if (nl%cfl_prtfrq > 1.d-12) then
-     if (mod(time8p,nl%cfl_prtfrq) < dtlm(1)) then
-
-#ifdef OLAM_MPI
-        if (iparallel == 1) then
-           call MPI_Gather(cfl_max, 1, MPI_REAL, cfl_maxs, 1, MPI_REAL, &
-                           0, MPI_COMM_WORLD, ier)
-           call MPI_Gather(imax, 3, MPI_INTEGER, imaxs, 3, MPI_INTEGER, &
-                           0, MPI_COMM_WORLD, ier)
-        endif
-#endif
-
-        if (myrank == 0) then
-           inode = 0
-           if (iparallel == 1) then
-              inode    = maxloc(cfl_maxs, dim=1)
-              cfl_max  = cfl_maxs(inode)
-              imax(:)  = imaxs(:,inode)
-           endif
-           write(*,'(5x,A,f0.3,3(A,I0))') "Max CFL# = ", cfl_max,  &
-                " at node ", inode, ", iwglobe=", imax(3), ", k=", imax(1)
-        endif
-     endif
-  endif
-
-! Diagnose CFL numbers at V and W interfaces for Thuburn flux limiter
+  ! Diagnose inlfow CFL numbers at V and W interfaces for Thuburn monotonic scheme
 
   if (nl%iscal_monot == 1) then
-
-     !$omp parallel 
-     !$omp do private(iv,kbv,k,iwr)
-     do j = 1, jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-        kbv = lpv(iv)
-
-        ! Loop over T/V levels
-        do k = kbv, mza
-           iwr = iwrecv(k,iv)
-
-           kdepv(k,iv) = merge( min(k+1,mza), max(k-1,kbv), dzps_v(k,iv) >= 0.0)
-
-           cfl_vin(k,iv) = abs(vmsca(k,iv)) * dtlm(itab_w(iwr)%mrlw) &
-                           * volti(k,iwr) / rho_old(k,iwr) 
-        enddo
-     enddo
-     !$omp end do
-
-     !$omp do private(iw,dtl,k,kr)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-        dtl = dtlm(itab_w(iw)%mrlw)
-
-        ! Loop over W/M levels
-        do k = lpw(iw), mza-1
-           kr = krecw(k,iw)
-           cfl_win(k,iw) = abs(wmsca(k,iw)) * dtl * volti(kr,iw) &
-                         / rho_old(kr,iw)
-        enddo
-
-        cfl_win(mza,iw) = 0.0
-
-        ! Loop over T levels
-        do k = lpw(iw), mza
-           tfact(k,iw) = rho(k,iw) / rho_old(k,iw)
-
-           ! if we don't have future rho (for thil, vxe, vye, vze):
-           ! tfact(k,iw) = 1.0 + cfl_in_sum(k,iw) - cfl_out_sum(k,iw)
-
-           ! cfl_out_sum is reused as 1 / cfl_out_sum
-           cfl_out_sum(k,iw) = 0.999999 / max( cfl_out_sum(k,iw), 1.e-6)
-        enddo
-
-     enddo
-     !$omp end do
-     !$omp end parallel
-
-  endif ! monotonic
+     call comp_cfl2( mrl, dtlm, vmsca, wmsca, rho_old, rho, dzps_v, &
+                     iwrecv, krecw )
+  endif
 
 ! LOOP OVER SCALARS HERE
 ! (skip n=1 which is THIL and computed elsewhere)
@@ -351,97 +207,36 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
                              rvara3=gzps_scp)
      endif
 
-! Compute bounds on the scalar values at each W level for the Thuburn
-! flux limiter (can be done before gradient communication is finished)
-
-     ! Begin OpenMP parallel block
-     !$omp parallel
-
-     if (nl%iscal_monot == 1) then
-
-        !$omp workshare
-        scp_local_min(:,:) = scp(:,:)
-        scp_local_max(:,:) = scp(:,:)
-
-        scp_in_max(:,:) = scp(:,:)
-        scp_in_min(:,:) = scp(:,:)
-
-        c_scp_in_max_sum(:,:) = 0.0
-        c_scp_in_min_sum(:,:) = 0.0
-        !$omp end workshare
-
-! Expand inflow bounds of each cell based on the upstream neighbors
-! Loop over all immediate V neighbors of each primary W/T column:
-
-        !$omp do private(iv,k,iwd,iwr)
-        do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-           do k = lpv(iv), mza
-              iwd = iwdepv(k,iv)
-              iwr = iwrecv(k,iv)
-              scp_in_max(k,iwr) = max(scp_in_max(k,iwr), scp(k,iwd))
-              scp_in_min(k,iwr) = min(scp_in_min(k,iwr), scp(k,iwd))
-           enddo
-        enddo
-        !$omp end do
-
-     endif ! monotonic
-
 ! Horizontal loop over all primary W columns to compute the
 ! upwinded scalar value at each W interface. This can be 
 ! computed before scalar gradients are received at the borders
 
 ! Loop over all primary W/T columns:
 
-     !$omp do private(iw,k,kr,kd)
+     !$omp parallel do private(iw,k,kd)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-        do k = lpw(iw), mza
+        ! Loop over W levels
+        do k = lpw(iw), mza-1
            kd = kdepw(k,iw)
 
            ! First-order upstream:
            ! scp_upw(k,iw) = scp(kd,iw)
 
-           scp_upw(k,iw) = scp(kd,iw)                       &
+           scp_upw(k,iw) = scp(kd,iw)                     &
                          + dxps_w(k,iw) * gxps_scp(kd,iw) &
                          + dyps_w(k,iw) * gyps_scp(kd,iw) &
                          + dzps_w(k,iw) * gzps_scp(kd,iw)
         enddo
-
-        if (nl%iscal_monot == 1) then
-
-! Make sure the upwinded scalar value at each W level is properly bounded
-
-           do k = lpw(iw), mza
-              kr = krecw(k,iw)
-              kd = kdepw(k,iw)
-              scp_upw(k,iw) = min( scp_upw(k,iw), max( scp_in_max(kd,iw), scp(kr,iw)))
-              scp_upw(k,iw) = max( scp_upw(k,iw), min( scp_in_min(kd,iw), scp(kr,iw)))
-           enddo
-
-! Compute the W contribution to the max/min allowed values in each grid box, and
-! the sum of the max and min inputs to each grid box
-
-           do k = lpw(iw), mza
-              kr = krecw(k,iw)
-              kd = kdepw(k,iw)
-
-              scp_local_min(kr,iw) = min( scp_local_min(kr,iw), scp_in_min(kd,iw))
-              scp_local_max(kr,iw) = max( scp_local_max(kr,iw), scp_in_max(kd,iw))
-
-              c_scp_in_max_sum(kr,iw) = c_scp_in_max_sum(kr,iw) + cfl_win(k,iw) * &
-                                        max( scp_in_max(kd,iw), scp_upw(k,iw))
-
-              c_scp_in_min_sum(kr,iw) = c_scp_in_min_sum(kr,iw) + cfl_win(k,iw) * &
-                                        min( scp_in_min(kd,iw), scp_upw(k,iw))
-           enddo
-
-        endif ! monotonic
-
      enddo
-     !$omp end do
+     !$omp end parallel do
 
-     ! End OpenMP parallel block
-     !$omp end parallel
+! Compute bounds on the scalar values at each W level for the Thuburn
+! flux limiter (can be done before gradient communication is finished)
+     
+     if (nl%iscal_monot == 1) then
+        call comp_vert_limits(mrl, scp, scp_upw, iwdepv, iwrecv, kdepw, krecw)
+     endif
 
 ! MPI recv of SCP gradient components
 
@@ -455,11 +250,10 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! Horizontal loop over all V points surrounding primary W/T columns
 ! to compute upwinded scalar value at the V points
 
-     !$omp parallel do private(iv,k,kd,kbv,iwd,iwr,iw3,iw4,scp_vin_min,scp_vin_max)
+     !$omp parallel do private(iv,k,iwd)
      do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
-        kbv = lpv(iv)
-        do k = kbv, mza
+        do k = lpv(iv), mza
            iwd = iwdepv(k,iv)
 
            ! 1st-ORDER UPWIND:         
@@ -472,170 +266,44 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
                            + dzps_v(k,iv) * gzps_scp(k,iwd)
 
         enddo
+     enddo
 
 ! Compute bounds on the scalar values at each V interface 
 ! for the Thuburn flux limiter
 
-        if (nl%iscal_monot == 1) then
+     if (nl%iscal_monot == 1) then
+        call comp_horiz_limits(mrl, scp, scp_upv, iwdepv, iwrecv)
+     endif
 
-           iw3 = itab_v(iv)%iw(3)
-           iw4 = itab_v(iv)%iw(4)
 
-           ! Compute inflow bounds at each V interface. Here we include the 
-           ! immediate upwind cell and vertically upstream-diagonal neighbor
-
-           do k = kbv, mza
-              iwd = iwdepv(k,iv)
-              kd  =  kdepv(k,iv)
-              scp_vin_min(k) = min( scp(k,iwd), scp(kd,iwd))
-              scp_vin_max(k) = max( scp(k,iwd), scp(kd,iwd))
-           enddo
-
-           ! Include contribution of lateral neighbor iw3 to inflow bounds
-      
-           do k = max(lpw(iw3),kbv), mza
-              scp_vin_min(k) = min( scp_vin_min(k), scp(k,iw3))
-              scp_vin_max(k) = max( scp_vin_max(k), scp(k,iw3))
-           enddo
-
-           ! Include contribution of lateral neighbor iw4 to inflow bounds
-      
-           do k = max(lpw(iw4),kbv), mza
-              scp_vin_min(k) = min( scp_vin_min(k), scp(k,iw4))
-              scp_vin_max(k) = max( scp_vin_max(k), scp(k,iw4))
-           enddo
-
-           ! Make sure the upwinded scalar value at each V interface is properly bounded
-
-           do k = kbv, mza
-              iwr = iwrecv(k,iv)
-              scp_upv(k,iv) = min(scp_upv(k,iv), max(scp_vin_max(k), scp(k,iwr)))
-              scp_upv(k,iv) = max(scp_upv(k,iv), min(scp_vin_min(k), scp(k,iwr)))
-           enddo
-
-           ! Compute the V contribution to the max/min allowed values in each grid box
-           ! and the sum of the max and min inputs to each grid box
-
-           do k = kbv, mza
-              iwr = iwrecv(k,iv)
-
-              scp_local_min(k,iwr) = min(scp_local_min(k,iwr), scp_vin_min(k))
-              scp_local_max(k,iwr) = max(scp_local_max(k,iwr), scp_vin_max(k))
-         
-              c_scp_in_max_sum(k,iwr) = c_scp_in_max_sum(k,iwr) + cfl_vin(k,iv) * &
-                                        max( scp_vin_max(k), scp_upv(k,iv))
-
-              c_scp_in_min_sum(k,iwr) = c_scp_in_min_sum(k,iwr) + cfl_vin(k,iv) * &
-                                        min( scp_vin_min(k), scp_upv(k,iv))
-           enddo
-
-        endif ! monotonic
-
-     enddo
-     !$omp end parallel do
-
-!  Thuburn limiter: compute scalar out min,max for each cell
-!  Horizontal loop over all primary W/T columns
+! Limit the advective fluxes if using monotonic advection
 
      if (nl%iscal_monot == 1) then
-
-        !$omp parallel do private(iw,k)
-        do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-           ! Vertical loop over T levels
-           do k = lpw(iw), mza
-
-              scp_out_min(k,iw) = (scp(k,iw) + c_scp_in_max_sum(k,iw) - &
-                   scp_local_max(k,iw) * tfact(k,iw)) * cfl_out_sum(k,iw)
-
-              scp_out_max(k,iw) = (scp(k,iw) + c_scp_in_min_sum(k,iw) - &
-                   scp_local_min(k,iw) * tfact(k,iw)) * cfl_out_sum(k,iw)
-
-           enddo
-
-        enddo
-        !$omp end parallel do
-
-        ! MPI send of scalar max/min outflow values
-
-        if (iparallel == 1) then
-           call mpi_send_w(mrl, rvara1=scp_out_min, rvara2=scp_out_max)
-        endif
-
-! Limit the vertical fluxes based on the computed scalar outgoing max/min values
-! Can be done before outgoing max/mins are received at the boundary cells
-! Horizontal loop over all primary W/T columns
-      
-        !$omp parallel do private(iw,kd,k)
-        do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-           ! Vertical loop over W levels
-           do k = lpw(iw), mza-1
-              kd = kdepw(k,iw)
-              scp_upw(k,iw) = min( scp_upw(k,iw), scp_out_max(kd,iw))
-              scp_upw(k,iw) = max( scp_upw(k,iw), scp_out_min(kd,iw))
-           enddo
-
-        enddo
-        !$omp end parallel do
-      
-! MPI receive of scalar max/min outflow values
-
-        if (iparallel == 1) then
-           call mpi_recv_w(mrl, rvara1=scp_out_min, rvara2=scp_out_max)
-        endif
-
-        call lbcopy_w(mrl, a1=scp_out_min, a2=scp_out_max)
-
-! Limit the horizontal fluxes based on the computed scalar outgoing max/min
-! Horizontal loop over all V points bordering primary W/T columns
-
-        !$omp parallel do private(iv,iwd,k) 
-        do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-
-           ! Vertical loop over T levels
-           do k = lpv(iv), mza
-              iwd = iwdepv(k,iv)
-
-              scp_upv(k,iv) = min( scp_upv(k,iv), scp_out_max(k,iwd) )
-              scp_upv(k,iv) = max( scp_upv(k,iv), scp_out_min(k,iwd) )
-
-           enddo
-
-        enddo
-        !$omp end parallel do
-
-     endif ! monotonic
+        call apply_flux_limiters(mrl, kdepw, iwdepv, scp_upw, scp_upv)
+     endif
 
 ! Horizontal loop over W/T points
 
-     !$omp parallel do private (iw, kb, dtl, dtli, npoly, hfluxadv, hfluxdif, & 
-     !$omp                      jv, iv, iwn, kbv, dirv, k, vfluxadv    )
+     !$omp parallel do private (iw, kb, hfluxadv, hfluxdif, jv, iv, iwn, &
+     !$omp                      dirv, k, vfluxadv)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
         kb = lpw(iw)
 
-        dtl = dtlm(itab_w(iw)%mrlw)
-        dtli = 1. / dtl
-   
 ! Loop over neighbor V points of this W cell
-
-        npoly = itab_w(iw)%npoly
 
         hfluxadv(1:mza) = 0.
         hfluxdif(1:mza) = 0.
 
-        do jv = 1, npoly
-           iv  = itab_w(iw)%iv(jv)
-           iwn = itab_w(iw)%iw(jv)
+        do jv = 1, itab_w(iw)%npoly
 
-           kbv = lpv(iv)
-
+           iv   = itab_w(iw)%iv(jv)
+           iwn  = itab_w(iw)%iw(jv)
            dirv = itab_w(iw)%dirv(jv)
 
 ! Vertical loop over T levels 
 
-           do k = kbv, mza
+           do k = lpv(iv), mza
 
 ! Horizontal advective and diffusive scalar fluxes
 
@@ -648,15 +316,13 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! Vertical loop over W levels
 
         do k = kb, mza-1
-
            vfluxadv(k) = wmsca(k,iw) * scp_upw(k,iw)
-
         enddo
 
 ! Set bottom & top vertical advective fluxes to zero
 
-        vfluxadv(kb-1)  = 0.
-        vfluxadv(mza) = 0.
+        vfluxadv(kb-1) = 0.
+        vfluxadv(mza)  = 0.
 
 ! Vertical loop over T levels
 
@@ -666,8 +332,8 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! advection and diffusion
 
            sct(k,iw) = sct(k,iw) + volti(k,iw) &
-                     * (hfluxadv(k) + vfluxadv(k-1) - vfluxadv(k) &
-                        + hfluxdif(k))
+                     * ( hfluxadv(k) + vfluxadv(k-1) - vfluxadv(k) &
+                       + hfluxdif(k) )
         enddo
 
      enddo

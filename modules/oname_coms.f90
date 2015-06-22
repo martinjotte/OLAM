@@ -151,7 +151,7 @@ Module oname_coms
       integer :: split_scalars = 0
       logical :: debug_fp    = .false.
       logical :: init_nans   = .false.
-      real(r8):: cfl_prtfrq  = 0.0_r8
+      real(r8):: cfl_prtfrq  = 900.0_r8
 
 !!    RAYLEIGH FRICTION PARAMETERS
 

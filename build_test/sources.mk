@@ -47,7 +47,6 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_plot.f90 \
              $(MODEL_MODS)/mem_rayf.f90 \
              $(MODEL_MODS)/mem_tend.f90 \
-             $(MODEL_MODS)/mem_thuburn.f90 \
              $(MODEL_MODS)/mem_zonavg.f90 \
              $(MODEL_MODS)/micro_coms.f90 \
              $(MODEL_MODS)/misc_coms.f90 \
@@ -104,13 +103,14 @@ SOURCE_FILES= \
              $(OMODEL)/para_decomp.f90 \
              $(OMODEL)/para_init.f90 \
              $(OMODEL)/prog_wrtv.f90 \
-             $(OMODEL)/scalar_transport.F90 \
+             $(OMODEL)/scalar_transport.f90 \
              $(OMODEL)/spawn_nest.f90 \
              $(OMODEL)/spring_dynamics.f90 \
              $(OMODEL)/surface_fluxes.F90 \
              $(OMODEL)/thiltend_long.f90 \
              $(OMODEL)/tileslab.F90 \
              $(OMODEL)/timestep.f90 \
+             $(OMODEL)/thuburn_module.F90 \
              $(OMODEL)/triangle_utils.f90 \
              $(OMODEL)/vectslab.F90 \
              $(OMODEL)/vel_t3d.f90 \
