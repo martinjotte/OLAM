@@ -1443,7 +1443,7 @@ subroutine ctrlvols_hex()
 
         if (arv(k,iv1) < .005 * dnu(iv1) * dzt(k)) exit
         if (arv(k,iv2) < .005 * dnu(iv2) * dzt(k)) exit
-        if (arv(k,iv2) < .005 * dnu(iv2) * dzt(k)) exit
+        if (arv(k,iv3) < .005 * dnu(iv3) * dzt(k)) exit
 
         if (k < nza) then
            if (arw(k,iw1) < .001 * arw0(iw1)) exit
