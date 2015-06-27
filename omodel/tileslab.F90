@@ -694,7 +694,7 @@ subroutine tileslab_horiz_vn(iplt,action)
 
   use oplot_coms, only: op
   use mem_grid,   only: mza, mva, mwa, zm, xev, yev, zev, &
-                        xem, yem, zem, xew, yew, zew, lpw
+                        xem, yem, zem, xew, yew, zew, lpw, lpv
   use mem_ijtabs, only: itab_v, jtab_v, jtv_wadj
   use misc_coms,  only: io6, iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
@@ -736,6 +736,18 @@ subroutine tileslab_horiz_vn(iplt,action)
   ! If field is 3d, first plot underground points with underground color
 
   if (action == 'T' .and. op%dimens == '3') then
+
+     ! Plot any W neighbors of underground V faces as underground. Any above
+     ! ground V points will overplot this later
+
+     do j = 1, jtab_v(jtv_wadj)%jend(1)
+        iv = jtab_v(jtv_wadj)%iv(j)
+        if (kv(iv) < lpv(iv)) then
+           ktf( itab_v(iv)%iw(1) ) = 1
+           ktf( itab_v(iv)%iw(2) ) = 1
+        endif
+     enddo
+
      call plot_underground_w(iplt,ktf)
   endif
 
@@ -757,7 +769,7 @@ subroutine tileslab_horiz_vn(iplt,action)
   ! Loop over V points
 
 ! do jv = 1, jtab_v(jtv_wadj)%jend(1)
-  do iv = 1,mva
+  do iv = 2,mva
 
      if (itab_v(iv)%irank /= myrank) cycle 
 
@@ -771,10 +783,9 @@ subroutine tileslab_horiz_vn(iplt,action)
      iw1 = itab_v(iv)%iw(1)
      iw2 = itab_v(iv)%iw(2)
 
-     ! Skip this V point if both its W neighbors are below ground
-
-     if (ktf(iw1) /= 0 .and. ktf(iw2) /= 0) cycle
-
+     ! Skip this V point if it is underground
+     if (kv(iv) < lpv(iv)) cycle
+     
      ! Initialize iflag180
 
      iflag180 = 0
@@ -830,28 +841,6 @@ subroutine tileslab_horiz_vn(iplt,action)
                     fldval,notavail)    
 
      if (notavail > 0) cycle 
-
-     ! If both W neighbors are above ground, plot full cell
-
-     if (ktf(iw1) == 0 .and. ktf(iw2) == 0) then
-
-        ! Else, check if IW1 is above ground
-
-     elseif (ktf(iw1) == 0) then
-
-        ! Plot IW1 half of cell with tile color
-
-        htpn(2) = htpn(3)
-        vtpn(2) = vtpn(3)
-
-     else
-
-        ! Plot IW2 half of cell with tile color
-
-        htpn(4) = htpn(3)
-        vtpn(4) = vtpn(3)
-
-     endif
 
      ! Set iflag180
         

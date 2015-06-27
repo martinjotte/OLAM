@@ -1265,6 +1265,8 @@ subroutine plot_underground_w(iplt,ktzone)
   integer, parameter :: itag = 40
   integer :: iflag180
 
+  if (op%noundrg(iplt) == 'u') return
+
 ! This subroutine plots the W control volumes that are underground, whether
 ! they be triangles or hexagons.
 

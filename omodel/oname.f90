@@ -320,6 +320,8 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'2') > 0) op%panel(i) = '2'
      if (index(nl%plotspecs(i)%pltspec2,'3') > 0) op%panel(i) = '3'
      if (index(nl%plotspecs(i)%pltspec2,'4') > 0) op%panel(i) = '4'
+
+     if (index(nl%plotspecs(i)%pltspec2,'u') > 0) op%noundrg(i) = 'u'
   enddo
 
   do i = 1,op%nplt_files

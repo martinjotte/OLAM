@@ -90,7 +90,8 @@ Type oplot_vars
       ,colorbar = 'N'        & ! Print colorbar ['c','N']
       ,labelbar = 'N'        & ! Print title, title + info block ['t','i','N']
       ,pltlev = 'N'          & ! Plot on const press level or near sfc ['p','s','N']
-      ,ext = 'N'               ! Flag indicating "external" plot field ['e','N']
+      ,ext = 'N'             & ! Flag indicating "external" plot field ['e','N']
+      ,noundrg = 'N'           ! Suppress masking underground cells ['u','N']
 
    real :: slabloc(maxnplt) ! Z-coord of plot slab in x/y/z or lat/lon/z space
 

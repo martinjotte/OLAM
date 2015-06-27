@@ -598,8 +598,8 @@
  !              \               e       = flag indicating "external" field
  !               \              f       = frameoff (no frame call)
  !                \             1,2,3,4 = panel number in frame window
- !                 \            N       = No extras
- !                  \           |                                      
+ !                 \            u       = Do not mask out underground cells
+ !                  \           N       = No extras
  !                   |          |                                      view azim
  !                   |          |      plot center   coneang,  window   for 'C'
  !                   |  color   |        lon/lat      height,  width     or 'V'
