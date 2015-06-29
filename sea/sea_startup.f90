@@ -59,7 +59,13 @@ call filltab_sea()
 ! STEP 2a: Fill sst values
 !-------------------------------------------------------------------------------
 
-if (isstflg == 0) then
+if ( (iupdsst /= 1) .and. &
+     (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') ) then
+
+! Do nothing if we are restarting and keeping SST constant.
+! It will be read in from the history file
+
+elseif (isstflg == 0) then
 
 ! Default initialization of SST
 
@@ -116,7 +122,13 @@ endif
 ! STEP 2b: Fill sea ice values
 !-------------------------------------------------------------------------------
 
-if (iseaiceflg == 0) then
+if ( (iupdseaice /= 1) .and. &
+     (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') ) then
+
+! Do nothing if we are restarting and keeping SEAICE constant.
+! It will be read in from the history file.
+
+elseif (iseaiceflg == 0) then
 
 ! Default initialization of SEAICE
 

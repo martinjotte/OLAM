@@ -34,7 +34,7 @@
 subroutine leaf4_startup()
 
   use leaf_coms, only: nzg, nzs, landusefile, mml, mul, mwl, &
-                       alloc_leafcol, isoildepthflg, ndviflg
+                       alloc_leafcol, isoildepthflg, ndviflg, iupdndvi
   use mem_leaf,  only: alloc_leaf, filltab_ED, filltab_leaf, land
   use misc_coms, only: io6, runtype
 
@@ -76,7 +76,13 @@ subroutine leaf4_startup()
   ! STEP 5: Fill ndvi values
   !-------------------------------------------------------------------------------
 
-  if (ndviflg == 2) then
+if ( (iupdndvi /= 1) .and. &
+     (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') ) then
+
+! Do nothing if we are restarting and keeping NDVI constant.
+! It will be read in from the history file
+
+elseif (ndviflg == 2) then
 
   ! Default initialization of NDVI
 

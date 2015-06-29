@@ -39,7 +39,8 @@ Module isan_coms
   integer :: iyear, imonth, idate, ihour, ipoffset
   integer :: npd,lzon_bot,kzonoff
 
-  integer :: nfgfiles, ifgfile
+  integer :: nfgfiles = -1
+  integer :: ifgfile  =  0
 
   character(pathlen) :: iapr(maxisdirs)
   character(pathlen) :: innpr

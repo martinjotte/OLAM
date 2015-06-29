@@ -38,6 +38,10 @@ subroutine read_seaice_analysis(iaction)
 
   if (iaction == 0) then
 
+     ! Get the listing of analysis files if the inventory was
+     ! never called
+     if (nfgfiles < 0) call isan_file_inv()
+
      ! Loop over analysis files and search for the one that corresponds
      ! to the model start time
 
@@ -91,8 +95,8 @@ subroutine read_seaice_analysis(iaction)
   inquire(file=fname, exist=exists)
   if (.not. exists) then
      write(io6,'(A)') " read_seaice: Error opening analysis file " // trim(fname)
-     write(io6,'(A)') " Using default soil initialization instead."
-     return
+     write(io6,'(A)') " Stopping model."
+     stop 'stop: no future analysis file for sst/seaice file'
   endif
 
   write(io6,'(A)') ' read_seaice: opening ' // trim(fname)

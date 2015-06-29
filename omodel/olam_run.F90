@@ -46,9 +46,8 @@ subroutine olam_run(name_name)
   use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, &
                          alloc_mpi_sndrcv_bufs
 
-  use leaf_coms,   only: nzg, nzs, isfcl, nwl, mwl
-  use sea_coms,    only: nws, mws
-
+  use leaf_coms,   only: nzg, nzs, isfcl, nwl, mwl, iupdndvi
+  use sea_coms,    only: nws, mws, iupdsst, iupdseaice
   use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_v, itab_w
   use oplot_coms,  only: op
   use mem_grid,    only: nma, nva, nwa, mma, mva, mwa, mza, zm, zt
@@ -66,6 +65,8 @@ subroutine olam_run(name_name)
   use mem_plot,    only: alloc_plot, copy_plot
   use lite_vars,   only: prepare_lite, lite_write
   use mem_addgrid, only: init_addgrid
+  use mem_leaf,    only: land
+  use mem_sea,     only: sea
   use vel_t3d,     only: diagvel_t3d, diagvel_t3d_init
 
   use cgrid_spcs,  only: cgrid_spcs_init
@@ -423,8 +424,10 @@ subroutine olam_run(name_name)
 
   ! Initialize leaf fields
 
-     write(io6,'(/,a)') 'olam_run calling leaf4_init_atm'
-     call leaf4_init_atm()
+     if (runtype == 'INITIAL') then
+        write(io6,'(/,a)') 'olam_run calling leaf4_init_atm'
+        call leaf4_init_atm()
+     endif
 
 #ifdef USE_ED2
      if (ed2_active == 1) then
@@ -435,8 +438,10 @@ subroutine olam_run(name_name)
 
   ! Initialize ocean fields
 
-     write(io6,'(/,a)') 'olam_run calling sea_init_atm'
-     call sea_init_atm()
+     if (runtype == 'INITIAL') then
+        write(io6,'(/,a)') 'olam_run calling sea_init_atm'
+        call sea_init_atm()
+     endif
 
   endif
 
@@ -595,6 +600,25 @@ subroutine olam_run(name_name)
      endif
 
      call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
+
+     ! If not updating SST/SEAICE/NDVI, copy the curent values to 
+     ! the past and future arrays
+     
+     if (iupdsst /= 1) then
+        sea%seatp(:) = sea%seatc(:)
+        sea%seatf(:) = sea%seatc(:)
+     endif
+     
+     if (iupdseaice /= 1) then
+        sea%seaicep(:) = sea%seaicec(:)
+        sea%seaicef(:) = sea%seaicec(:)
+     endif
+
+     if (iupdndvi /= 1) then
+        land%veg_ndvip(:) = land%veg_ndvic(:)
+        land%veg_ndvif(:) = land%veg_ndvic(:)
+     endif
+
   endif
 
   write(io6,'(/,a)') 'olam_run calling plot_fields'
