@@ -1168,7 +1168,7 @@ subroutine ctrlvols_hex()
   use consts_coms, only: erad, r8
   use mem_grid,    only: nsw_max, nza, nma, nva, nwa, lpm, lpv, lpw, lsw, &
                          topm, topw, zm, dzt, zt, zfacm, zfact, dnu, dniu, dnv, &
-                         arm0, arw0, arv, arw, volt, &
+                         arm0, arw0, arv, arw, volt, lve2, nve2_max, &
                          xem, yem, zem, xew, yew, zew, glatw, glonw, glatm, glonm
   use leaf_coms,   only: isfcl,nwl
   use sea_coms,    only: nws
@@ -1467,7 +1467,8 @@ subroutine ctrlvols_hex()
 
 ! Close all T cells that are below LPW
 
-  nsw_max = 1
+  nsw_max  = 1
+  nve2_max = 1
 
 !----------------------------------------------------------------------
   do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
@@ -1491,9 +1492,10 @@ subroutine ctrlvols_hex()
      arw(1,iw) = 0.   
      arw(nza,iw) = 0.   
 
-! Initialize LSW(IW)
+! Initialize LSW(IW) and LVE2
 
-     lsw(iw) = 1
+     lsw (iw) = 1
+     lve2(iw) = 1
 
 ! Loop over vertical levels from top to bottom
 
@@ -1508,10 +1510,18 @@ subroutine ctrlvols_hex()
         endif
 
     enddo  ! k
+    
+! Compute number of underground v[xyz]e2 levels in this column
+    
+    do jv = 1, npoly
+       iv = itab_w(iw)%iv(jv)
+       lve2(iw) = max(lve2(iw), lpv(iv) - lpw(iw))
+    enddo
 
-! Increase nsw_max if necessary
+! Increase nsw_max and nve2_max if necessary
 
-   if (lsw(iw) > nsw_max) nsw_max = lsw(iw)
+   if (lsw (iw) > nsw_max ) nsw_max  = lsw (iw)
+   if (lve2(iw) > nve2_max) nve2_max = lve2(iw)
 
   enddo
 

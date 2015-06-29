@@ -29,7 +29,12 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
+module vel_t3d
+
+contains
+
 !===============================================================================
+
 subroutine diagvel_t3d(mrl)
 
   use mem_basic, only: vc, wc, vxe, vye, vze, vxe2, vye2, vze2
@@ -39,7 +44,6 @@ subroutine diagvel_t3d(mrl)
 
   call vel_t3d_hex(mrl, vc, wc, vxe, vye, vze, vxe2, vye2, vze2)
 
-  return
 end subroutine diagvel_t3d
 
 !===============================================================================
@@ -47,24 +51,20 @@ end subroutine diagvel_t3d
 subroutine vel_t3d_hex(mrl, vs, ws, vxe, vye, vze, vxe2, vye2, vze2)
 
 use mem_ijtabs, only: jtab_w, itab_v, itab_w, jtw_prog
-use mem_grid,   only: mza, mva, mwa, nsw_max, lpw, lsw, lpv, &
-                      vnx, vny, vnz, wnx, wny, wnz
+use mem_grid,   only: mza, lpw, lve2, lpv, vnx, vny, vnz, wnx, wny, wnz
 use misc_coms,  only: io6
 
 implicit none
 
-integer, intent(in) :: mrl
-
-real, intent(in) :: vs(mza,mva)
-real, intent(in) :: ws(mza,mwa)
-
-real, intent(inout) :: vxe(mza,mwa)
-real, intent(inout) :: vye(mza,mwa)
-real, intent(inout) :: vze(mza,mwa)
-
-real, intent(in) :: vxe2(nsw_max,mwa)
-real, intent(in) :: vye2(nsw_max,mwa)
-real, intent(in) :: vze2(nsw_max,mwa)
+integer, intent(in)    :: mrl
+real,    intent(in)    :: vs  (:,:)
+real,    intent(in)    :: ws  (:,:)
+real,    intent(inout) :: vxe (:,:)
+real,    intent(inout) :: vye (:,:)
+real,    intent(inout) :: vze (:,:)
+real,    intent(in)    :: vxe2(:,:)
+real,    intent(in)    :: vye2(:,:)
+real,    intent(in)    :: vze2(:,:)
 
 integer :: j,iw,npoly,ka,k,jv,iv,ksw,kbv
 real    :: wst
@@ -97,7 +97,7 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
 ! Effective contribution from submerged V faces
 
-   do ksw = 1,lsw(iw)
+   do ksw = 1,lve2(iw)
       k = ka + ksw - 1
 
       vxe(k,iw) = vxe(k,iw) + vxe2(ksw,iw) 
@@ -124,7 +124,7 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
       enddo
 
    enddo
-   
+
    vxe(1:ka-1,iw) = vxe(ka,iw)
    vye(1:ka-1,iw) = vye(ka,iw)
    vze(1:ka-1,iw) = vze(ka,iw)
@@ -132,7 +132,6 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 enddo
 !$omp end parallel do
 
-return
 end subroutine vel_t3d_hex
 
 !===============================================================================
@@ -141,8 +140,7 @@ subroutine diagvel_t3d_init(mrl)
 
 use mem_basic,  only: vc, vxe2, vye2, vze2
 use mem_ijtabs, only: jtab_w, itab_v, itab_w, jtw_prog
-use mem_grid,   only: mza, mva, mwa, nsw_max, lpw, lsw, lpv, &
-                      vnx, vny, vnz, wnx, wny, wnz
+use mem_grid,   only: lpw, lve2, lpv
 use misc_coms,  only: io6
 
 implicit none
@@ -177,14 +175,14 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 ! Check if any V faces are below ground
 
       if (ka < kbv) then
-         do k = ka,kbv-1
+         do k = ka, kbv-1
             ksw = k - ka + 1
 
 ! Project INITIAL VC from below-ground V faces back to (vxe2, vye2, vze2)
 
-            vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vc(k,iv)
-            vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vc(k,iv)
-            vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vc(k,iv)
+            vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vc(kbv,iv)
+            vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vc(kbv,iv)
+            vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vc(kbv,iv)
          enddo
       endif
 
@@ -193,5 +191,4 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 enddo
 !$omp end parallel do
 
-return
 end subroutine diagvel_t3d_init

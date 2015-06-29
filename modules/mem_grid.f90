@@ -41,6 +41,7 @@ Module mem_grid
 
       nza           &  ! Vertical number of all points
      ,nsw_max       &  ! Max # vert atm levels in IW column with sfc flux
+     ,nve2_max      &  ! Max # underground v[xyz]e2 levels in IW column
      ,nma,nua,nva,nwa  ! Horiz number of all M,U,V,W points in full domain
 
    integer :: &
@@ -51,7 +52,8 @@ Module mem_grid
    integer, allocatable, dimension(:) ::  &
 
       lpm,lpv,lpw   &  ! Lowest prognosed M,V,W/T
-     ,lsw              ! number of W/T levels in contact with surface
+     ,lsw           &  ! number of W/T levels in contact with surface
+     ,lve2             ! number of v[xyz]e2 levels in contact with surface
 
    real, allocatable, dimension(:) ::  &
 
@@ -176,7 +178,8 @@ Contains
    
 ! Allocate and initialize arrays (xem, yem, zem are already allocated)
 
-   allocate (lsw(lwa));  lsw(1:lwa) = 0
+   allocate (lsw (lwa));  lsw (1:lwa) = 0
+   allocate (lve2(lwa));  lve2(1:lwa) = 0
 
    allocate (xev(lva));  xev(1:lva) = 0.
    allocate (yev(lva));  yev(1:lva) = 0.

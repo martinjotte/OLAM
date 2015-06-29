@@ -136,9 +136,10 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
       vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
    enddo
 
-! For below-ground points, set VC to LPV value.
+! For below-ground points, set VC to 0
 
-   vc(1:ka-1,iv) = vc(ka,iv)
+   vc (1:ka-1,iv) = 0.
+   vmc(1:ka-1,iv) = 0.
 
 enddo
    

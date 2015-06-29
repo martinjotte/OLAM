@@ -588,7 +588,7 @@ subroutine gridfile_write()
   use mem_grid,   only: nza, nma, nua, nva, nwa, nsw_max, &
        zm, zt, dzm, dzt, dzim, dzit, &
        zfacm, zfact, zfacim, zfacit, &
-       lpm, lpv, lpw, lsw, &
+       lpm, lpv, lpw, lsw, lve2, nve2_max, &
        topm, topw, xem, yem, zem, &
        xev, yev, zev, xew, yew, zew, &
        unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
@@ -678,6 +678,7 @@ subroutine gridfile_write()
   call shdf5_orec(ndims, idims, 'NVA'     , ivars=nva)
   call shdf5_orec(ndims, idims, 'NWA'     , ivars=nwa)
   call shdf5_orec(ndims, idims, 'NSW_MAX' , ivars=nsw_max)
+  call shdf5_orec(ndims, idims, 'NVE2_MAX', ivars=nve2_max)
   call shdf5_orec(ndims, idims, 'MRLS'    , ivars=mrls)
   call shdf5_orec(ndims, idims, 'NWNUD'   , ivars=nwnud)
 
@@ -735,6 +736,7 @@ subroutine gridfile_write()
 
   call shdf5_orec(ndims, idims, 'LPW'  , ivara=lpw)
   call shdf5_orec(ndims, idims, 'LSW'  , ivara=lsw)
+  call shdf5_orec(ndims, idims, 'LVE2' , ivara=lve2)
   call shdf5_orec(ndims, idims, 'XEW'  , rvara=xew)
   call shdf5_orec(ndims, idims, 'YEW'  , rvara=yew)
   call shdf5_orec(ndims, idims, 'ZEW'  , rvara=zew)
@@ -1076,7 +1078,7 @@ use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp, &
 use mem_ijtabs, only: mloops, mrls,  &
                       itab_m_pd, itab_v_pd, itab_w_pd, alloc_itabs_pd
 use mem_grid,   only: nza, nma, nua, nva, nwa, &
-                      mza, mma, mua, mva, mwa, nsw_max, &
+                      mza, mma, mua, mva, mwa, nsw_max, nve2_max, &
                       xem, yem, zem, xew, yew, zew, &
                       alloc_xyzem, alloc_xyzew
 use leaf_coms,  only: isfcl
@@ -1276,14 +1278,15 @@ real,    allocatable :: rscr(:,:)
   ndims    = 1
   idims(1) = 1
 
-  call shdf5_irec(ndims, idims, 'NZA'    , ivars=nza)
-  call shdf5_irec(ndims, idims, 'NMA'    , ivars=nma)
-  call shdf5_irec(ndims, idims, 'NUA'    , ivars=nua)
-  call shdf5_irec(ndims, idims, 'NVA'    , ivars=nva)
-  call shdf5_irec(ndims, idims, 'NWA'    , ivars=nwa)
-  call shdf5_irec(ndims, idims, 'NSW_MAX', ivars=nsw_max)
-  call shdf5_irec(ndims, idims, 'MRLS'   , ivars=mrls)
-  call shdf5_irec(ndims, idims, 'NWNUD'  , ivars=nwnud)
+  call shdf5_irec(ndims, idims, 'NZA'     , ivars=nza)
+  call shdf5_irec(ndims, idims, 'NMA'     , ivars=nma)
+  call shdf5_irec(ndims, idims, 'NUA'     , ivars=nua)
+  call shdf5_irec(ndims, idims, 'NVA'     , ivars=nva)
+  call shdf5_irec(ndims, idims, 'NWA'     , ivars=nwa)
+  call shdf5_irec(ndims, idims, 'NSW_MAX' , ivars=nsw_max)
+  call shdf5_irec(ndims, idims, 'NVE2_MAX', ivars=nve2_max)
+  call shdf5_irec(ndims, idims, 'MRLS'    , ivars=mrls)
+  call shdf5_irec(ndims, idims, 'NWNUD'   , ivars=nwnud)
 
 ! Copy grid dimensions
 
@@ -1458,10 +1461,10 @@ use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp, &
 use mem_ijtabs, only: mloops, mrls, &
                       itab_m, itab_v, itab_w
 use mem_grid,   only: nza, &
-                      mza, mma, mua, mva, mwa, nsw_max, &
+                      mza, mma, mua, mva, mwa, &
                       zm, zt, dzm, dzt, dzim, dzit, &
                       zfacm, zfact, zfacim, zfacit, &
-                      lpm, lpv, lpw, lsw, &
+                      lpm, lpv, lpw, lsw, lve2, &
                       topm, topw, &
                       xem, yem, zem, xev, yev, zev, xew, yew, zew, &
                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
@@ -1598,6 +1601,7 @@ integer, pointer :: lgwnud(:)
 
   call shdf5_irec(ndims, idims, 'LPW'  , ivara=lpw, points=lgwa)
   call shdf5_irec(ndims, idims, 'LSW'  , ivara=lsw, points=lgwa)
+  call shdf5_irec(ndims, idims, 'LVE2' , ivara=lve2, points=lgwa)
   call shdf5_irec(ndims, idims, 'XEW'  , rvara=xew, points=lgwa)
   call shdf5_irec(ndims, idims, 'YEW'  , rvara=yew, points=lgwa)
   call shdf5_irec(ndims, idims, 'ZEW'  , rvara=zew, points=lgwa)

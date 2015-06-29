@@ -478,9 +478,9 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
 
    enddo      
 
-! For below-ground points, set VC to LPV value.
+! For below-ground points, set VC to 0
 
-   vc (1:ka-1,iv) = vc(ka,iv)
+   vc (1:ka-1,iv) = 0.0
    vmc(1:ka-1,iv) = 0.0
 
 enddo

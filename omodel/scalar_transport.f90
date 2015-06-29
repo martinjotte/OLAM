@@ -35,7 +35,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   use mem_ijtabs,   only: istp, jtab_v, jtab_w, mrl_endl, itab_v, itab_w, &
                           jtv_wadj, jtw_prog
   use mem_grid,     only: mza, mva, mwa, nsw_max, lpv, lpw, lsw, zt, zm, dzim, &
-                          dniv, volt, arv, arw, dzim, volti
+                          volt, arv, arw, dzim, volti
   use misc_coms,    only: io6, dtlm, iparallel, time8p
   use var_tables,   only: num_scalar, scalar_tab
   use mem_turb,     only: akhodx
@@ -147,7 +147,8 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
         vmsca(k,iv) = vmsc(k,iv) * arv(k,iv)
      enddo
 
-     vmsca(2:kb-1,iv) = 0.0
+     vsc  (1:kb-1,iv) = 0.0
+     vmsca(1:kb-1,iv) = 0.0
 
   enddo
   !$omp end do
@@ -716,7 +717,7 @@ if (mrl > 0) then
    do iw = 2, mwa
 !----------------------------------------------------------------------
 
-      wmsc(:,iw) = 0.0
+      wmsc (:,iw) = 0.0
 
       vxesc(:,iw) = 0.0
       vyesc(:,iw) = 0.0

@@ -772,7 +772,7 @@ use mem_basic,   only: wmc, rho, thil, wc, vc, theta, press, &
 use misc_coms,   only: io6, dtsm, initial, dn01d, th01d, deltax, nxp, &
                        mdomain, time8, icorflg
 use consts_coms, only: cpocv, grav, omega2, pi1, pio180, r8
-use mem_grid,    only: mza, mva, mwa, nsw_max, lpv, lpw, lsw, arv, arw, &
+use mem_grid,    only: mza, mva, mwa, nsw_max, lpv, lpw, lve2, arv, arw, &
                        vnx, vny, vnz, wnx, wny, wnz, wnxo2, wnyo2, wnzo2, &
                        xew, dzim, dzt, volt, volti, glatw, glonw, &
                        dzt_top, dzt_bot, zwgt_top, zwgt_bot
@@ -811,7 +811,7 @@ integer :: npoly
 real :: dts
 real :: c6, c7, c8, c9, c10
 real :: dirv, vmarv
-real :: del_rhothil, vmt1
+real :: del_rhothil, vmt1, wmt1
 real :: rad0_swtc, rad_swtc, topo_swtc
 
 ! Vertical implicit scheme weighting parameters
@@ -1131,31 +1131,42 @@ do k = ka,mza
    vzesc(k,iw) = vzesc(k,iw) + .5 * (vze(k,iw) + vze1(k))
 enddo
 
-! Zero out vxe2, vye2, vze2 prior to new diagnosis
+! Contribution of surface W face to v[xyz]e2
 
-do ksw = 1,lsw(iw)
-   k = ka + ksw - 1
+wmt1 = wnx(iw) * vxe1(ka) + wny(iw) * vye1(ka) + wnz(iw) * vze1(ka)
 
-   vxe2(ksw,iw) = 0.
-   vye2(ksw,iw) = 0.
-   vze2(ksw,iw) = 0.
+vxe2(1,iw) = wmt1 * wnxo2(iw)
+vye2(1,iw) = wmt1 * wnyo2(iw)
+vze2(1,iw) = wmt1 * wnzo2(iw)
+
+! Zero out v[xyz]e2 values about lpw
+
+if (lve2(iw) > 1) then
+   do ksw = 2, lve2(iw)
+      vxe2(ksw,iw) = 0.
+      vye2(ksw,iw) = 0.
+      vze2(ksw,iw) = 0.
+   enddo
+endif
 
 ! Loop over adjacent V faces
 
-   do jv = 1, npoly
-      iv  = itab_w(iw)%iv(jv)
+do jv = 1, npoly
+   iv = itab_w(iw)%iv(jv)
 
 ! Project vxe1, vye1, vze1 onto V faces that are below ground, and then
 ! project back to vxe2, vye2, vze2
 
-      if (lpv(iv) > k) then
+   if (lpv(iv) > ka) then
+      do k = ka, lpv(iv) - 1
+         ksw = k - ka + 1
          vmt1 = vnx(iv) * vxe1(k) + vny(iv) * vye1(k) + vnz(iv) * vze1(k)
 
          vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vmt1
          vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vmt1
          vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vmt1
-      endif
-   enddo
+      enddo
+   endif
 
 enddo
 
@@ -1192,10 +1203,8 @@ enddo
 
 ! Set top & bottom values of WC
 
-wc(ka-1,iw) = wnx(iw) * vxe1(ka) + wny(iw) * vye1(ka) + wnz(iw) * vze1(ka)
-
-wc(1:ka-2,iw) = 0.
-wc(mza   ,iw) = 0.
+wc(ka-1,iw) = 0.
+wc(mza ,iw) = 0.
 
 return
 end subroutine prog_wrt_begs

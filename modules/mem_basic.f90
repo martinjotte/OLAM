@@ -73,13 +73,13 @@ Contains
 
 !===============================================================================
 
-  subroutine alloc_basic(mza,mva,mwa,nsw_max)
+  subroutine alloc_basic(mza,mva,mwa,nve2_max)
 
     use misc_coms, only: rinit, rinit8
 
     implicit none
 
-    integer, intent(in) :: mza,mva,mwa,nsw_max
+    integer, intent(in) :: mza,mva,mwa,nve2_max
 
 !   Allocate basic memory needed for 'INITIAL' or 'HISTORY' runs
 !   and initialize allocated arrays to zero
@@ -107,9 +107,9 @@ Contains
     allocate (vye  (mza,mwa)) ; vye   = rinit
     allocate (vze  (mza,mwa)) ; vze   = rinit
 
-    allocate (vxe2 (nsw_max,mwa)) ; vxe2 = rinit
-    allocate (vye2 (nsw_max,mwa)) ; vye2 = rinit
-    allocate (vze2 (nsw_max,mwa)) ; vze2 = rinit
+    allocate (vxe2 (nve2_max,mwa)) ; vxe2 = rinit
+    allocate (vye2 (nve2_max,mwa)) ; vye2 = rinit
+    allocate (vze2 (nve2_max,mwa)) ; vze2 = rinit
 
   end subroutine alloc_basic
 
