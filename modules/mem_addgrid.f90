@@ -45,6 +45,7 @@ Module mem_addgrid
   integer :: itopoflg_og
   integer :: ndz_og
   integer :: nzg_og
+  integer :: nve2_max_og
 
   real :: deltax_og
 
@@ -60,7 +61,8 @@ Module mem_addgrid
   integer :: nwl_og
   integer :: nws_og
 
-  integer, allocatable :: lpw_og(:) ! (nwa_og)
+  integer, allocatable :: lpw_og(:)  ! (nwa_og)
+  integer, allocatable :: lve2_og(:) ! (nwa_og)
 
   real, allocatable :: wnx_og(:) ! (nwa_og)
   real, allocatable :: wny_og(:) ! (nwa_og)
@@ -86,6 +88,10 @@ Module mem_addgrid
   real, allocatable :: vxe_og(:,:) ! (nza_og,nwa_og)
   real, allocatable :: vye_og(:,:) ! (nza_og,nwa_og)
   real, allocatable :: vze_og(:,:) ! (nza_og,nwa_og)
+
+  real, allocatable :: vxe2_og(:,:) ! (nza_og,nwa_og)
+  real, allocatable :: vye2_og(:,:) ! (nza_og,nwa_og)
+  real, allocatable :: vze2_og(:,:) ! (nza_og,nwa_og)
 
   real, allocatable :: soil_water_og (:,:) ! (nzg_og,nwl_og)
   real, allocatable :: soil_energy_og(:,:) ! (nzg_og,nwl_og)
@@ -593,7 +599,7 @@ Contains
 
   implicit none
 
-  integer :: iw_og, npoly, kb_og, k_og, jv, iv_og
+  integer :: iw_og, npoly, kb_og, k_og, jv, iv_og, ksw
   real    :: wst
 
 ! Horizontal loop over W columns
@@ -609,13 +615,27 @@ Contains
 
 ! Diagnose 3D earth-velocity vector at T points; W contribution first
 
-        wst = 0.5 * (wc_og(k_og-1,iw_og) + wc_og(k_og,iw_og))
+        if (k_og == kb_og) then
+           wst = 0.5 * wc_og(k_og,iw_og)
+        else
+           wst = 0.5 * (wc_og(k_og-1,iw_og) + wc_og(k_og,iw_og))
+        endif
 
         vxe_og(k_og,iw_og) = wst * wnx_og(iw_og)
         vye_og(k_og,iw_og) = wst * wny_og(iw_og)
         vze_og(k_og,iw_og) = wst * wnz_og(iw_og)
 
      enddo
+
+! Effective contribution from submerged V faces
+
+   do ksw = 1, lve2_og(iw_og)
+      k_og = kb_og + ksw - 1
+
+      vxe_og(k_og,iw_og) = vxe_og(k_og,iw_og) + vxe2_og(ksw,iw_og) 
+      vye_og(k_og,iw_og) = vye_og(k_og,iw_og) + vye2_og(ksw,iw_og) 
+      vze_og(k_og,iw_og) = vze_og(k_og,iw_og) + vze2_og(ksw,iw_og) 
+   enddo
 
 ! Loop over V neighbors of this W cell
 
@@ -647,5 +667,94 @@ Contains
   enddo
 
   end subroutine vel_t3d_hex_oldgrid
+
+
+!===============================================================================
+
+
+  subroutine diagvel_t3d_init_addgrid()
+
+  use mem_basic,  only: wc, vc, vxe2, vye2, vze2
+  use mem_ijtabs, only: jtab_w, itab_v, itab_w, jtw_prog
+  use mem_grid,   only: lpw, lve2, lpv, wnxo2, wnyo2, wnzo2
+  use misc_coms,  only: io6
+
+  implicit none
+
+  integer :: j,iw,npoly,ka,k,jv,iv,ksw,kbv,iw_og
+
+! Horizontal loop over W columns
+
+  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+
+     npoly = itab_w(iw)%npoly
+     ka = lpw(iw)
+
+     vxe2(:,iw) = 0.
+     vye2(:,iw) = 0.
+     vze2(:,iw) = 0.
+
+! Check ngr value of current IW point
+
+     if (itab_w(iw)%ngr <= ngrids_og) then
+
+! This IW point should be identical between OLD and NEW grids, so set its
+! OLD grid index to NEW grid iwglobe value
+
+        iw_og = itab_w(iw)%iwglobe
+
+! Compare IW coordinates of OLD and NEW grids to make sure they are identical
+
+        if ( lve2_og(iw_og) /= lve2(iw) ) then
+
+           print*, 'diagvel_t3d_init_addgrid: grid changed'
+           print*, 'lve2   ',iw,lve2(iw)
+           print*, 'ive2_og',iw_og,lve2(iw_og)
+           stop 'stop diagvel_t3d_init_addgrid'
+        endif
+
+! Copy values from OLD grid to NEW grid
+
+        vxe2(1:lve2(iw),iw) = vxe2_og(1:lve2_og(iw_og),iw_og)
+        vye2(1:lve2(iw),iw) = vye2_og(1:lve2_og(iw_og),iw_og)
+        vze2(1:lve2(iw),iw) = vze2_og(1:lve2_og(iw_og),iw_og)
+
+     else
+
+! This IW point is located within new mesh refinement, so vxe2, vye2, and vze2
+! must be reinitialized from the local VC and WC winds
+
+        vxe2(1,iw) = wnxo2(iw) * wc(ka,iw)
+        vye2(1,iw) = wnyo2(iw) * wc(ka,iw)
+        vze2(1,iw) = wnzo2(iw) * wc(ka,iw)
+
+! Loop over adjacent V faces
+
+        do jv = 1, npoly
+
+           iv  = itab_w(iw)%iv(jv)
+           kbv = lpv(iv)
+
+! Check if any V faces are below ground
+
+           if (ka < kbv) then
+              do k = ka, kbv-1
+                 ksw = k - ka + 1
+
+! Project INITIAL VC from below-ground V faces back to (vxe2, vye2, vze2)
+
+                 vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vc(kbv,iv)
+                 vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vc(kbv,iv)
+                 vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vc(kbv,iv)
+              enddo
+           endif
+
+        enddo
+
+     endif
+
+  enddo
+
+  end subroutine diagvel_t3d_init_addgrid
 
 End Module mem_addgrid

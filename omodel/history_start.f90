@@ -225,10 +225,10 @@ end subroutine hist_read
 subroutine hist_read_addgrid()
 
   use mem_grid,    only: nwa, nva, nma, mwa, mva, mma, mza, lpv, &
-                         vnx, vny, vnz
+                         vnx, vny, vnz, lpw
   use mem_ijtabs,  only: itab_w, itab_v, itab_m, jtab_v, jtv_prog
   use misc_coms,   only: io6, runtype, iparallel
-  use mem_basic,   only: vc, vp, vmc, vmp, rho, vxe, vye, vze
+  use mem_basic,   only: vc, vp, vmc, vmp, wc, wmc, rho, vxe, vye, vze
   use var_tables,  only: num_var, vtab_r, get_vtab_dims
   use hdf5_utils,  only: shdf5_info, shdf5_irec
   use mem_leaf,    only: itab_wl, land
@@ -247,13 +247,15 @@ subroutine hist_read_addgrid()
                          nza_og, nwa_og, nva_og, nma_og, nwl_og, nws_og, &
                          nzg_og, ngrids_og, lpw_og, itab_wladd, &
                          vc_og, wc_og, vc_accum_og, vxe_og, vye_og, vze_og, &
-                         soil_water_og, soil_energy_og
+                         soil_water_og, soil_energy_og, &
+                         vxe2_og, vye2_og, vze2_og, nve2_max_og, &
+                         diagvel_t3d_init_addgrid
 
   use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 
   implicit none
 
-  integer :: j, iw1, iw2, iv, nv, kb, k, mrl
+  integer :: j, iw, iw1, iw2, iv, nv, kb, k, mrl
   integer :: nvcnt, ndims, idims(3), jdims(3)
   character(32) :: varn
   character (2) :: stagpt
@@ -271,9 +273,6 @@ subroutine hist_read_addgrid()
   real(r8), allocatable :: dscr1(:)
   real(r8), allocatable :: dscr2(:,:)
 
-
-print*, 'land06 ',land%leaf_class(80863),land%veg_fracarea(80863)
-
 ! Allocate temporary OLD grid velocity [and momentum] arrays
 
   allocate (vc_og(nza_og,nva_og))
@@ -283,6 +282,10 @@ print*, 'land06 ',land%leaf_class(80863),land%veg_fracarea(80863)
 
   allocate (soil_water_og (nzg_og,nwl_og))
   allocate (soil_energy_og(nzg_og,nwl_og))
+
+  allocate (vxe2_og(nve2_max_og,nwa_og))
+  allocate (vye2_og(nve2_max_og,nwa_og))
+  allocate (vze2_og(nve2_max_og,nwa_og))
 
   nvcnt =  0
 
@@ -449,7 +452,7 @@ print*, 'land06 ',land%leaf_class(80863),land%veg_fracarea(80863)
 
      call shdf5_info(varn, ndims, idims)
 
-print*, 'varn ',varn
+     print*, 'varn ',varn
 
      ! Skip to next variable if the current one is not in the history file
 
@@ -503,10 +506,14 @@ print*, 'varn ',varn
                             rvara1=rscr1, rvarb1=vtab_r(nv)%rvar1_p)
         deallocate(rscr1)
      elseif (associated(vtab_r(nv)%rvar2_p)) then
+
         allocate(rscr2(idims(1),idims(2)))
         call shdf5_irec(ndims, idims, varn, rvara=rscr2)
-        call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
-                            rvara2=rscr2, rvarb2=vtab_r(nv)%rvar2_p)
+        
+        if (varn /= 'VXE2' .and. varn /= 'VYE2' .and. varn /= 'VZE2') then
+           call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
+                               rvara2=rscr2, rvarb2=vtab_r(nv)%rvar2_p)
+        endif
 
 ! Horizontal velocity at IV points that are inside new mesh refinement area
 ! cannot be copied or interpolated.  Instead, vxe, vye, vze are first 
@@ -525,9 +532,16 @@ print*, 'varn ',varn
            soil_water_og = rscr2
         elseif (varn == 'LAND%SOIL_ENERGY') then
            soil_energy_og = rscr2
+        elseif (varn == 'VXE2') then
+           vxe2_og = rscr2
+        elseif (varn == 'VYE2') then
+           vye2_og = rscr2
+        elseif (varn == 'VZE2') then
+           vze2_og = rscr2
         endif
 
         deallocate(rscr2)
+
      elseif (associated(vtab_r(nv)%dvar1_p)) then
         allocate(dscr1(idims(1)))
         call shdf5_irec(ndims, idims, varn, dvara=dscr1)
@@ -611,6 +625,11 @@ print*, 'varn ',varn
 
      endif
 
+     vc (1:kb-1,iv) = 0.
+     vmc(1:kb-1,iv) = 0.
+     vmp(1:kb-1,iv) = 0.
+     if (allocated(vp)) vp(1:kb-1,iv) = 0.
+
   enddo
 
   ! MPI parallel send/recv of V group
@@ -625,6 +644,17 @@ print*, 'varn ',varn
      endif
   endif
 
+! Now set underground W momentum/velocity to 0
+
+  do iw = 2, mwa
+     wmc(1:lpw(iw)-1,iw) = 0.
+     wc (1:lpw(iw)-1,iw) = 0.
+  enddo
+
+! Reset VXE2, VYE2, and VZE2 in new mesh area where terrain has changed
+
+  call diagvel_t3d_init_addgrid()
+
 ! Diagnose OLD grid vxe_accum_og, vye_accum_og, vze_accum_og
 
   do iw_og = 2,nwa_og
@@ -636,7 +666,10 @@ print*, 'varn ',varn
      vc_og(1:kb_og-1,iw_og) = vc_og(kb_og,iw_og)
   enddo
 
-  wc_og = 0.
+  wc_og   = 0.
+  vxe2_og = 0.
+  vye2_og = 0.
+  vze2_og = 0.
 
   call vel_t3d_hex_oldgrid()
 
@@ -652,6 +685,7 @@ print*, 'varn ',varn
   call interp_addgrid(ndims, idims, jdims, varn, 'AW', rvara2=vye_og, rvarb2=vye)
   call interp_addgrid(ndims, idims, jdims, varn, 'AW', rvara2=vze_og, rvarb2=vze)
 
+  deallocate (vxe2_og, vye2_og, vze2_og)
   deallocate (vc_og, wc_og, vc_accum_og, vxe_og, vye_og, vze_og)
 
 ! Do MPI communication of vxe_accum, vye_accum, vze_accum between parallel processes

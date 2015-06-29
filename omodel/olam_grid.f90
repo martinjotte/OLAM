@@ -1947,7 +1947,7 @@ use mem_addgrid,only: nzp_og, nxp_og, mdomain_og, ngrids_og, isfcl_og, &
                       itopoflg_og, ndz_og, deltax_og, hdz_og, dz_og, &
                       nza_og, nma_og, nua_og, nva_og, nwa_og, mrls_og, &
                       xew_og, yew_og, zew_og, wnx_og, wny_og, wnz_og, &
-                      itab_wog, lpw_og
+                      itab_wog, lpw_og, lve2_og, nve2_max_og
 
 implicit none
 
@@ -2101,14 +2101,16 @@ logical :: exans
   idims(1) = 1
   idims(2) = 1
 
-  call shdf5_irec(ndims, idims, 'NZA'    , ivars=nza_og)
-  call shdf5_irec(ndims, idims, 'NMA'    , ivars=nma_og)
-  call shdf5_irec(ndims, idims, 'NUA'    , ivars=nua_og)
-  call shdf5_irec(ndims, idims, 'NVA'    , ivars=nva_og)
-  call shdf5_irec(ndims, idims, 'NWA'    , ivars=nwa_og)
-  call shdf5_irec(ndims, idims, 'MRLS'   , ivars=mrls_og)
+  call shdf5_irec(ndims, idims, 'NZA'     , ivars=nza_og)
+  call shdf5_irec(ndims, idims, 'NMA'     , ivars=nma_og)
+  call shdf5_irec(ndims, idims, 'NUA'     , ivars=nua_og)
+  call shdf5_irec(ndims, idims, 'NVA'     , ivars=nva_og)
+  call shdf5_irec(ndims, idims, 'NWA'     , ivars=nwa_og)
+  call shdf5_irec(ndims, idims, 'MRLS'    , ivars=mrls_og)
+  call shdf5_irec(ndims, idims, 'NVE2_MAX', ivars=nve2_max_og)
 
   allocate (lpw_og(nwa_og))
+  allocate (lve2_og(nwa_og))
 
   allocate (xew_og(nwa_og))
   allocate (yew_og(nwa_og))
@@ -2122,7 +2124,8 @@ logical :: exans
 
   idims(1) = nwa_og
 
-  call shdf5_irec(ndims, idims, 'LPW', ivara=lpw_og)
+  call shdf5_irec(ndims, idims, 'LPW',  ivara=lpw_og)
+  call shdf5_irec(ndims, idims, 'LVE2', ivara=lve2_og)
 
   call shdf5_irec(ndims, idims, 'XEW', rvara=xew_og)
   call shdf5_irec(ndims, idims, 'YEW', rvara=yew_og)
