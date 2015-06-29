@@ -66,6 +66,8 @@ subroutine olam_run(name_name)
   use mem_plot,    only: alloc_plot, copy_plot
   use lite_vars,   only: prepare_lite, lite_write
   use mem_addgrid, only: init_addgrid
+  use vel_t3d,     only: diagvel_t3d, diagvel_t3d_init
+
   use cgrid_spcs,  only: cgrid_spcs_init
   use emis_defn,   only: emis_init
   use depv_defn,   only: depv_init

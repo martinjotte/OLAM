@@ -49,6 +49,8 @@ use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
+use vel_t3d,     only: diagvel_t3d
+
 use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv

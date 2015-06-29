@@ -192,3 +192,5 @@ enddo
 !$omp end parallel do
 
 end subroutine diagvel_t3d_init
+
+end module vel_t3d

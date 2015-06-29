@@ -52,6 +52,7 @@ use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
 use oplot_coms,   only: op
 use obnd,         only: lbcopy_m, lbcopy_w
 use mem_rayf,     only: dorayfdiv, krayfdiv_bot
+use vel_t3d,      only: vel_t3d_hex
 
 implicit none
 

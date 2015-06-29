@@ -857,6 +857,7 @@ Contains
   use misc_coms
   use mem_grid
   use consts_coms
+  use vel_t3d,      only: diagvel_t3d
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                           mpi_send_v, mpi_recv_v 
 
@@ -1623,6 +1624,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                           mpi_send_v, mpi_recv_v 
   use obnd,         only: lbcopy_v, lbcopy_w
+  use vel_t3d,      only: diagvel_t3d
 
   implicit none
 
