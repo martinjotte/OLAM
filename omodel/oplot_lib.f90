@@ -61,6 +61,7 @@ use mem_radiate, only: fthrd_lw, fthrd_sw, rshort, rlong, rlongup, albedt, &
                        rshort_top, rshortup_top, rlongup_top
 use mem_addsc,   only: addsc
 use mem_tend,    only: vmt, wmt
+use mem_para,    only: myrank
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, pblh, hkm, hkh, ustar, wstar
 use mem_nudge,   only: rho_obs, theta_obs, shw_obs, uzonal_obs, umerid_obs, &
                        rho_sim, theta_sim, shw_sim, uzonal_sim, umerid_sim
@@ -662,7 +663,7 @@ if (infotyp == 'UNITS') then
 
 ! Print field name to be plotted
 
-   write(io6,*) 'oplib ',trim(fldname0)
+   if (myrank == 0) write(io6,*) 'oplib ',trim(fldname0)
 
 ! Default values
 

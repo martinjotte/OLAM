@@ -1303,7 +1303,7 @@ end subroutine contslab_vert_v
 
 !===============================================================================
 
-subroutine contslab_vert_tw(iplt)
+subroutine contslab_vert_t(iplt)
 
   use oplot_coms, only: op
   use mem_grid,   only: mwa, mza, lpw, zm, zt, &
@@ -1321,11 +1321,14 @@ subroutine contslab_vert_tw(iplt)
 
   integer, intent(in) :: iplt
 
+  integer :: ilev
   integer :: k,iw,iw1,iw2,iw3,iv2,im1,im2,jv1,jv2,jv3,jw
   integer :: npoly,iok,notavail,itri
+  integer :: ka, ka1, ka2, ka3
   real :: radcone
   real :: hcpn(4), vcpn(4), fldvals(4)
-  real :: valw(2), valw1(2), valw2(2), valw3(2), valm1(2), valm2(2), valv2(2)
+  real :: valw(mza), valw1(mza), valw2(mza), valw3(mza)
+  real :: val1(mza), val2(mza), val3(mza)
   real :: wta1, wta2, wta3, wtb1, wtb2, wtb3
 
   real, parameter :: wtbot = 1., wttop = 0.
@@ -1374,6 +1377,11 @@ subroutine contslab_vert_tw(iplt)
         iw2 = itab_w(iw)%iw(jv2)
         iw3 = itab_w(iw)%iw(jv3)
 
+        ka  = lpw(iw)
+        ka1 = lpw(iw1)
+        ka2 = lpw(iw2)
+        ka3 = lpw(iw3)
+
         ! Loop over both triangles in current JV sector
 
         do itri = 1,2
@@ -1389,7 +1397,7 @@ subroutine contslab_vert_tw(iplt)
                    xev(iv2),yev(iv2),zev(iv2),xem(im2),yem(im2),zem(im2), &
                    wta1,wta2,wta3,wtb1,wtb2,wtb3,iok,hcpn)
            endif
-                             
+
            ! Jump to end of loop if cone surface does not intersect triangle
 
            if (iok /= 1) cycle
@@ -1408,169 +1416,428 @@ subroutine contslab_vert_tw(iplt)
            if ( (hcpn(1) < op%xmin .and. hcpn(2) < op%xmin) .or.  &
                 (hcpn(1) > op%xmax .and. hcpn(2) > op%xmax) ) cycle         
 
-           do k = lpw(iw),mza+1   ! Loop is over T levels
+           ! Fill arrays with field points
 
-              ! Use k = mza+1 level only for contouring field values defined at T points
-              ! (in which case the top half of the mza cell is contoured)
+           do k = ka,mza
+              call oplot_lib(k,iw,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                             valw(k),notavail)
+           enddo
 
-              if (k == mza+1 .and. op%stagpt == 'W') cycle
+           do k = ka2,mza
+              call oplot_lib(k,iw2,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                             valw2(k),notavail)
+           enddo
 
-              ! Define vertical plot coordinates depending on whether field values
-              ! are defined at T or W points
+           if (itri == 1) then
+              do k = ka1,mza
+                 call oplot_lib(k,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                                valw1(k),notavail)
+              enddo
+           else
+              do k = ka3,mza
+                 call oplot_lib(k,iw3,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                                valw3(k),notavail)
+              enddo
+           endif
 
-              if (op%stagpt == 'T') then
-                 vcpn(1:2) = zt(k-1)
-                 if (k == lpw(iw)) vcpn(1:2) = zm(k-1)
-                 if (k == mza+1) then
-                    vcpn(3:4) = zm(k-1)
+           do k = ka-1,mza
+              val1(k) = valw(max(k,ka))
+
+              if (itri == 1) then
+                 if (k >= ka .and. k >= ka1 .and. k >= ka2) then
+                    val2(k) = (valw(k) + valw1(k) + valw2(k)) / 3.
+                 elseif (k >= ka .and. k >= ka1) then
+                    val2(k) = (valw(k) + valw1(k)) / 2.
+                 elseif (k >= ka .and. k >= ka2) then
+                    val2(k) = (valw(k) + valw2(k)) / 2.
+                 elseif (k >= ka1 .and. k >= ka2) then
+                    val2(k) = (valw1(k) + valw2(k)) / 2.
+                 elseif (k >= ka) then
+                    val2(k) = valw(k)
+                 elseif (k >= ka1) then
+                    val2(k) = valw1(k)
+                 elseif (k >= ka2) then
+                    val2(k) = valw2(k)
+                 elseif (ka == ka1 .and. ka == ka2) then
+                    val2(k) = (valw(k+1) + valw1(k+1) + valw2(k+1)) / 3.
+                 elseif (ka == ka1) then
+                    val2(k) = (valw(k+1) + valw1(k+1)) / 2.
+                 elseif (ka == ka2) then
+                    val2(k) = (valw(k+1) + valw2(k+1)) / 2.
                  else
+                    val2(k) = valw(k+1)
+                 endif
+
+                 if (k >= ka .and. k >= ka2) then
+                    val3(k) = (valw(k) + valw2(k)) / 2.
+                 elseif (k >= ka) then
+                    val3(k) = valw(k)
+                 elseif (k >= ka2) then
+                    val3(k) = valw2(k)
+                 elseif (ka == ka2) then
+                    val3(k) = (valw(k+1) + valw2(k+1)) / 2.
+                 else
+                    val3(k) = valw(k+1)
+                 endif
+
+              else
+
+                 if (k >= ka .and. k >= ka2) then
+                    val2(k) = (valw(k) + valw2(k)) / 2.
+                 elseif (k >= ka) then
+                    val2(k) = valw(k)
+                 elseif (k >= ka2) then
+                    val2(k) = valw2(k)
+                 elseif (ka == ka2) then
+                    val2(k) = (valw(k+1) + valw2(k+1)) / 2.
+                 else
+                    val2(k) = valw(k+1)
+                 endif
+
+                 if (k >= ka .and. k >= ka2 .and. k >= ka3) then
+                    val3(k) = (valw(k) + valw2(k) + valw3(k)) / 3.
+                 elseif (k >= ka .and. k >= ka2) then
+                    val3(k) = (valw(k) + valw2(k)) / 2.
+                 elseif (k >= ka .and. k >= ka3) then
+                    val3(k) = (valw(k) + valw3(k)) / 2.
+                 elseif (k >= ka2 .and. k >= ka3) then
+                    val3(k) = (valw2(k) + valw3(k)) / 2.
+                 elseif (k >= ka) then
+                    val3(k) = valw(k)
+                 elseif (k >= ka2) then
+                    val3(k) = valw2(k)
+                 elseif (k >= ka3) then
+                    val3(k) = valw3(k)
+                 elseif (ka == ka2 .and. ka == ka3) then
+                    val3(k) = (valw(k+1) + valw2(k+1) + valw3(k+1)) / 3.
+                 elseif (ka == ka2) then
+                    val3(k) = (valw(k+1) + valw2(k+1)) / 2.
+                 elseif (ka == ka3) then
+                    val3(k) = (valw(k+1) + valw3(k+1)) / 2.
+                 else
+                    val3(k) = valw(k+1)
+                 endif
+
+              endif
+
+           enddo
+
+           do k = ka,mza   ! Loop is over T levels
+
+              do ilev = 1,2
+
+              ! Define vertical plot coordinates depending on whether top or bottom half
+              ! (ilev = 1 or 2) of T cell is being contoured
+
+                 if (ilev == 1) then
+
+                    vcpn(1:2) = zm(k-1)
                     vcpn(3:4) = zt(k)
+
+                    fldvals(1) = wta1 * val1(k-1) + wta2 * val2(k-1) + wta3 * val3(k-1)
+                    fldvals(2) = wtb1 * val1(k-1) + wtb2 * val2(k-1) + wtb3 * val3(k-1)
+                    fldvals(3) = wtb1 * val1(k  ) + wtb2 * val2(k  ) + wtb3 * val3(k  )
+                    fldvals(4) = wta1 * val1(k  ) + wta2 * val2(k  ) + wta3 * val3(k  )
+
+                    fldvals(1) = 0.5 * (fldvals(1) + fldvals(4))
+                    fldvals(2) = 0.5 * (fldvals(2) + fldvals(3))
+
+                 else ! ilev = 2
+
+                    vcpn(1:2) = zt(k)
+                    vcpn(3:4) = zm(k)
+
+                    fldvals(1) = wta1 * val1(k) + wta2 * val2(k) + wta3 * val3(k)
+                    fldvals(2) = wtb1 * val1(k) + wtb2 * val2(k) + wtb3 * val3(k)
+
+                    if (k < mza) then
+                       fldvals(3) = wtb1 * val1(k+1) + wtb2 * val2(k+1) + wtb3 * val3(k+1)
+                       fldvals(4) = wta1 * val1(k+1) + wta2 * val2(k+1) + wta3 * val3(k+1)
+
+                       fldvals(3) = 0.5 * (fldvals(3) + fldvals(2))
+                       fldvals(4) = 0.5 * (fldvals(4) + fldvals(1))
+                    else
+                       fldvals(3) = fldvals(2)
+                       fldvals(4) = fldvals(1)
+                    endif
+
+                 endif
+
+              ! Skip this triangle if entire cell is above or below plot window
+
+                 if ( all(vcpn(1:4) < op%ymin) .or. &
+                      all(vcpn(1:4) > op%ymax) ) cycle
+
+                 if (myrank == 0) then
+
+                    ! Contour plot cell around current M point
+                    call contpolyg(op%icolortab(iplt),op%ifill,4,hcpn,vcpn,fldvals)
+
+                 else
+
+#ifdef OLAM_MPI
+                    nu = nu + 1
+                    if (buffsize < ipos + base) then
+                       allocate( bcopy (buffsize + inc * base) )
+                       bcopy(1:buffsize) = buffer
+                       call move_alloc(bcopy, buffer)
+                       buffsize = size(buffer)
+                    endif
+
+                    call MPI_Pack(hcpn,    4, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+                    call MPI_Pack(vcpn,    4, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+                    call MPI_Pack(fldvals, 4, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
+
+                 endif
+
+              enddo ! ilev
+
+           enddo ! K
+
+        enddo ! ITRI
+
+     enddo ! JV
+
+  enddo ! IW
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     call MPI_Gather(nu, 1, MPI_INTEGER, nus, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+
+     if (myrank > 0 .and. nu > 0) then
+        call MPI_Send(buffer, ipos, MPI_PACKED, 0, itag, MPI_COMM_WORLD, ier)
+     endif
+
+     if (myrank == 0) then
+
+        buffsize = maxval(nus(2:mgroupsize)) * base
+        allocate( buffer( buffsize ) )
+
+        do n = 2, mgroupsize
+
+           if (nus(n) > 0) then
+
+              call MPI_Recv( buffer, buffsize, MPI_PACKED, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+
+              ipos = 0
+
+              do j = 1, nus(n)
+               
+                 call MPI_Unpack(buffer, buffsize, ipos, hcpn,    4, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, vcpn,    4, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, fldvals, 4, MPI_REAL, MPI_COMM_WORLD, ier)
+
+                 ! Contour plot cell around current M point
+                 call contpolyg(op%icolortab(iplt),op%ifill,4,hcpn,vcpn,fldvals)
+              enddo
+
+           endif
+        enddo
+     endif
+        
+     deallocate(buffer)
+  endif
+#endif
+
+  ! Now plot underground T cells with underground color
+  call plot_underground_w(iplt,(/0/))
+
+end subroutine contslab_vert_t
+
+!===============================================================================
+
+subroutine contslab_vert_w(iplt)
+
+  use oplot_coms, only: op
+  use mem_grid,   only: mwa, mza, lpw, zm, zt, &
+                        xem, yem, zem, xev, yev, zev, xew, yew, zew
+  use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
+  use misc_coms,  only: io6, mdomain, iparallel
+  use consts_coms,only: erad, pio180
+  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
+  implicit none
+
+  integer, intent(in) :: iplt
+
+  integer :: k,iw,iw1,iw2,iw3,iv2,im1,im2,jv1,jv2,jv3,jw
+  integer :: npoly,iok,notavail,itri
+  integer :: ka, ka1, ka2, ka3, kaw, kaw1, kaw2, kaw3
+  real :: radcone
+  real :: hcpn(4), vcpn(4), fldvals(4)
+  real :: valw(mza), valw1(mza), valw2(mza), valw3(mza)
+  real :: val1(mza), val2(mza), val3(mza)
+  real :: wta1, wta2, wta3, wtb1, wtb2, wtb3
+
+  real, parameter :: wtbot = 1., wttop = 0.
+
+  integer, allocatable :: buffer(:), bcopy(:)
+  integer :: nu, ier, buffsize, ipos, base, inc, n, j
+  integer :: nus(mgroupsize)
+  integer, parameter :: itag = 40
+
+  nu   = 0
+  ipos = 0
+
+  base = 12 * nbytes_real
+  inc = ceiling( real(mwa) / 10. ) * mza
+
+  if (myrank > 0) then
+     buffsize = inc * base
+     allocate( buffer( buffsize ) )
+  endif
+
+  ! Loop is over W for contouring W points
+  ! Limit to primary W point or else we will go out of bounds for a parallel run
+
+  do jw = 1, jtab_w(jtw_prog)%jend(1)
+     iw = jtab_w(jtw_prog)%iw(jw)
+
+     npoly = itab_w(iw)%npoly
+
+     ! Loop over U/V neighbors of W, and for each, get indices for
+     ! M endpoints and opposite W neighbor
+
+     do jv2 = 1,npoly
+
+        jv1 = jv2 - 1
+        if (jv2 == 1) jv1 = npoly
+
+        jv3 = jv2 + 1
+        if (jv2 == npoly) jv3 = 1
+
+        iv2 = itab_w(iw)%iv(jv2)
+
+        im1 = itab_w(iw)%im(jv1) ! check these
+        im2 = itab_w(iw)%im(jv2) ! check these
+
+        iw1 = itab_w(iw)%iw(jv1)
+        iw2 = itab_w(iw)%iw(jv2)
+        iw3 = itab_w(iw)%iw(jv3)
+
+        ka  = lpw(iw)
+        ka1 = lpw(iw1)
+        ka2 = lpw(iw2)
+        ka3 = lpw(iw3)
+
+        kaw  = lpw(iw)  - 1
+        kaw1 = lpw(iw1) - 1
+        kaw2 = lpw(iw2) - 1
+        kaw3 = lpw(iw3) - 1
+
+        ! Loop over both triangles in current JV sector
+
+        do itri = 1,2
+
+           ! Check for intersection of cone surface and current triangle
+
+           if (itri == 1) then
+              call coneplot_tri(iplt,iw,xew(iw),yew(iw),zew(iw), &
+                   xem(im1),yem(im1),zem(im1),xev(iv2),yev(iv2),zev(iv2), &
+                   wta1,wta2,wta3,wtb1,wtb2,wtb3,iok,hcpn)
+           else
+              call coneplot_tri(iplt,iw,xew(iw),yew(iw),zew(iw), &
+                   xev(iv2),yev(iv2),zev(iv2),xem(im2),yem(im2),zem(im2), &
+                   wta1,wta2,wta3,wtb1,wtb2,wtb3,iok,hcpn)
+           endif
+
+           ! Jump to end of loop if cone surface does not intersect triangle
+
+           if (iok /= 1) cycle
+
+           ! Skip triangle if it crosses +/- 180 degree point along cone circle
+           ! (In future, maybe re-program to truncate cells)
+
+           if (mdomain < 2 .and. op%projectn(iplt) == 'C') then
+              radcone = erad * sin(op%coneang * pio180)
+
+              if (abs(hcpn(2) - hcpn(1)) > 3. * radcone) cycle
+           endif
+
+           ! Skip this triangle if entire cell is outside plot window
+
+           if ( (hcpn(1) < op%xmin .and. hcpn(2) < op%xmin) .or.  &
+                (hcpn(1) > op%xmax .and. hcpn(2) > op%xmax) ) cycle         
+
+           ! Fill arrays with field points
+
+           do k = kaw2,mza
+              call oplot_lib(k,iw2,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                             valw2(k),notavail)
+           enddo
+
+           if (itri == 1) then
+              do k = kaw1,mza
+                 call oplot_lib(k,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                                valw1(k),notavail)
+              enddo
+           else
+              do k = kaw3,mza
+                 call oplot_lib(k,iw3,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                                valw3(k),notavail)
+              enddo
+           endif
+
+           do k = kaw,mza
+              call oplot_lib(k,iw,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                             valw(k),notavail)
+
+              val1(k) = valw(k)
+
+              if (itri == 1) then
+                 if (k >= kaw1 .and. k >= kaw2) then
+                    val2(k) = (valw(k) + valw1(k) + valw2(k)) / 3.
+                    val3(k) = (valw(k) + valw2(k)) / 2.
+                 elseif (k >= kaw1) then
+                    val2(k) = (valw(k) + valw1(k)) / 2.
+                    val3(k) =  valw(k)
+                 elseif (k >= kaw2) then
+                    val2(k) = (valw(k) + valw2(k)) / 2.
+                    val3(k) = (valw(k) + valw2(k)) / 2.
+                 else
+                    val2(k) = valw(k)
+                    val3(k) = valw(k)
                  endif
               else
-                 vcpn(1:2) = zm(k-1)
-                 vcpn(3:4) = zm(k)
+                 if (k >= kaw2 .and. k >= kaw3) then
+                    val2(k) = (valw(k) + valw2(k)) / 2.
+                    val3(k) = (valw(k) + valw2(k) + valw3(k)) / 3.
+                 elseif (k >= kaw2) then
+                    val2(k) = (valw(k) + valw2(k)) / 2.
+                    val3(k) = (valw(k) + valw2(k)) / 2.
+                 elseif (k >= kaw3) then
+                    val2(k) =  valw(k)
+                    val3(k) = (valw(k) + valw3(k)) / 2.
+                 else
+                    val2(k) = valw(k)
+                    val3(k) = valw(k)
+                 endif
               endif
+           enddo
+
+           do k = ka,mza   ! Loop is over T levels
+
+              ! Define vertical plot coordinates
+
+              vcpn(1:2) = zm(k-1)
+              vcpn(3:4) = zm(k)
 
               ! Skip this triangle if entire cell is above or below plot window
 
               if ( all(vcpn(1:4) < op%ymin) .or. &
                    all(vcpn(1:4) > op%ymax) ) cycle
+                    
+              ! W values interpolated to A and B points for plotting
 
-              ! Fill field values at two adjacent vertical levels at each of three IW pts
-
-              if (k < mza+1) then
-                 call oplot_lib(k,iw,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                                valw(2),notavail)
-                 if (notavail > 0) cycle 
-
-                 if (op%stagpt == 'T' .and. k < lpw(iw2)) then
-                    valw2(2) = valw(2)
-                 elseif (op%stagpt == 'W' .and. k < lpw(iw2)-1) then
-                    valw2(2) = valw(2)
-                 else
-                    call oplot_lib(k,iw2,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                                   valw2(2),notavail)
-                    if (notavail > 0) cycle
-                 endif
-              endif
-
-              if (k > lpw(iw) .or. op%stagpt == 'W') then
-                 call oplot_lib(k-1,iw,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                                valw(1),notavail)
-                 if (notavail > 0) cycle 
-
-                 if (op%stagpt == 'T' .and. k-1 < lpw(iw2)) then
-                    valw2(1) = valw(1)
-                 elseif (op%stagpt == 'W' .and. k-1 < lpw(iw2)-1) then
-                    valw2(1) = valw(1)
-                 else
-                    call oplot_lib(k-1,iw2,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                                   valw2(1),notavail)
-                    if (notavail > 0) cycle
-                 endif
-              else
-                 valw (1) = valw (2)
-                 valw2(1) = valw2(2) 
-              endif
-
-              ! W values interpolated to V2
-
-              valv2(1) = .5 * (valw(1) + valw2(1))
-              valv2(2) = .5 * (valw(2) + valw2(2))
-
-              if (itri == 1) then
-
-                 if (k < mza+1) then
-                    if (op%stagpt == 'T' .and. k < lpw(iw1)) then
-                       valw1(2) = valw(2)
-                    elseif (op%stagpt == 'W' .and. k-1 < lpw(iw1)-1) then
-                       valw1(2) = valw(2)
-                    else
-                       call oplot_lib(k,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                                      valw1(2),notavail)
-                       if (notavail > 0) cycle 
-                    endif
-                 endif
-
-                 if (k > lpw(iw) .or. op%stagpt == 'W') then
-                    if (op%stagpt == 'T' .and. k-1 < lpw(iw1)) then
-                       valw1(1) = valw(1)
-                    elseif (op%stagpt == 'W' .and. k-1 < lpw(iw1)-1) then
-                       valw1(1) = valw(1)
-                    else
-                       call oplot_lib(k-1,iw1,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                                      valw1(1),notavail)
-                       if (notavail > 0) cycle 
-                    endif
-                 else
-                    valw1(1) = valw1(2) 
-                 endif
-
-                 if (k == mza+1) then
-                    valw (2) = valw (1)
-                    valw1(2) = valw1(1)
-                    valw2(2) = valw2(1)
-                 endif
-
-                 ! W values interpolated to M1: For now, take simple average
-
-                 valm1(1) = .3333333 * (valw(1) + valw1(1) + valw2(1))
-                 valm1(2) = .3333333 * (valw(2) + valw1(2) + valw2(2))
-
-                 ! W values interpolated to A and B points for plotting
-
-                 fldvals(1) = wta1 * valw(1) + wta2 * valm1(1) + wta3 * valv2(1)
-                 fldvals(2) = wtb1 * valw(1) + wtb2 * valm1(1) + wtb3 * valv2(1)
-                 fldvals(3) = wtb1 * valw(2) + wtb2 * valm1(2) + wtb3 * valv2(2)
-                 fldvals(4) = wta1 * valw(2) + wta2 * valm1(2) + wta3 * valv2(2)
-
-              else
-
-                 if (k < mza+1) then
-                    if (op%stagpt == 'T' .and. k < lpw(iw3)) then
-                       valw3(2) = valw(2)
-                    elseif (op%stagpt == 'W' .and. k-1 < lpw(iw3)-1) then
-                       valw3(2) = valw(2)
-                    else
-                       call oplot_lib(k,iw3,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                                      valw3(2),notavail)
-                       if (notavail > 0) cycle 
-                    endif
-                 endif
-
-                 if (k > lpw(iw) .or. op%stagpt == 'W') then
-                    if (op%stagpt == 'T' .and. k-1 < lpw(iw3)) then
-                       valw3(1) = valw(1)
-                    elseif (op%stagpt == 'W' .and. k-1 < lpw(iw3)-1) then
-                       valw3(1) = valw(1)
-                    else
-                       call oplot_lib(k-1,iw3,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                                      valw3(1),notavail)
-                    endif
-                    if (notavail > 0) cycle
-                 else
-                    valw3(1) = valw3(2) 
-                 endif
-
-                 if (k == mza+1) then
-                    valw (2) = valw (1)
-                    valw2(2) = valw2(1)
-                    valw3(2) = valw3(1)
-                 endif
-
-                 ! W values interpolated to M2: For now, take simple average
-
-                 valm2(1) = .3333333 * (valw(1) + valw2(1) + valw3(1))
-                 valm2(2) = .3333333 * (valw(2) + valw2(2) + valw3(2))
-
-                 ! W values interpolated to A and B points for plotting
-
-                 fldvals(1) = wta1 * valw(1) + wta2 * valv2(1) + wta3 * valm2(1)
-                 fldvals(2) = wtb1 * valw(1) + wtb2 * valv2(1) + wtb3 * valm2(1)
-                 fldvals(3) = wtb1 * valw(2) + wtb2 * valv2(2) + wtb3 * valm2(2)
-                 fldvals(4) = wta1 * valw(2) + wta2 * valv2(2) + wta3 * valm2(2)
-
-              endif ! itri
+              fldvals(1) = wta1 * valw(k-1) + wta2 * val2(k-1) + wta3 * val3(k-1)
+              fldvals(2) = wtb1 * valw(k-1) + wtb2 * val2(k-1) + wtb3 * val3(k-1)
+              fldvals(3) = wtb1 * valw(k  ) + wtb2 * val2(k  ) + wtb3 * val3(k  )
+              fldvals(4) = wta1 * valw(k  ) + wta2 * val2(k  ) + wta3 * val3(k  )
 
               if (myrank == 0) then
 
@@ -1645,4 +1912,4 @@ subroutine contslab_vert_tw(iplt)
   ! Now plot underground T cells with underground color
   call plot_underground_w(iplt,(/0/))
 
-end subroutine contslab_vert_tw
+end subroutine contslab_vert_w

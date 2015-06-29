@@ -396,8 +396,10 @@ subroutine slab(iplt)
 
      else
 
-        if     (op%stagpt == 'T' .or. op%stagpt == 'W') then
-           call contslab_vert_tw(iplt)
+        if     (op%stagpt == 'T') then
+           call contslab_vert_t(iplt)
+        elseif (op%stagpt == 'W') then
+           call contslab_vert_w(iplt)
         elseif (op%stagpt == 'V') then
            call contslab_vert_v(iplt)
         endif
@@ -613,7 +615,7 @@ subroutine plot_index(iplt)
 
 !     do jw = 1, jtab_w(jtw_wadj)%jend(1)
 !        iw  = jtab_w(jtw_wadj)%iw(jw)
-        do iw = 1,mwa
+        do iw = 2,mwa
 
         iwg = itab_w(iw)%iwglobe
 
