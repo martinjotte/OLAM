@@ -78,8 +78,8 @@ Contains
     allocate (sxfer_tk(nsw_max,mwa)) ; sxfer_tk = 0.0
     allocate (sxfer_rk(nsw_max,mwa)) ; sxfer_rk = 0.0
 
-    allocate (vkm_sfc (nsw_max,mwa)) ; vkm_sfc  = rinit
-    allocate (frac_sfc(nsw_max,mwa)) ; frac_sfc = rinit
+    allocate (vkm_sfc (nsw_max,mwa)) ; vkm_sfc  = 0.0
+    allocate (frac_sfc(nsw_max,mwa)) ; frac_sfc = 0.0
 
     allocate (hkm   (mza,mwa)) ; hkm       = rinit
     allocate (hkh   (mza,mwa)) ; hkh       = rinit

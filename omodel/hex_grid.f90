@@ -1182,13 +1182,17 @@ subroutine ctrlvols_hex()
   integer :: j,iw,iwp,iv,ivp,im1,im2,k,km,im,iw1,iw2,iw3
   integer :: iws,iwl,kw,ks,npoly,jv,iv1,iv2,iv3
   real    :: hmin,hmax,topc,facw
-  real(r8):: area
+  real(r8):: area, arw8, arw8m
   integer :: status
 
   real(r8), allocatable :: area_sum(:,:)
 
+  write(io6,*) 'Defining control volume areas'
+
 ! Loop over all land and sea cells, and sum information from them to compute
 ! ARW and VOLT
+
+  arw (:,:) = 0.
 
   do iwl = 2,nwl
      iw = itab_wl(iwl)%iw
@@ -1232,8 +1236,6 @@ subroutine ctrlvols_hex()
   enddo
 
 ! ARV
-
-  write(io6,*) 'Defining control volume areas'
 
 !----------------------------------------------------------------------
   !$omp parallel do private(iv,im1,im2,iw1,iw2,k,hmin,hmax,km)
@@ -1439,7 +1441,7 @@ subroutine ctrlvols_hex()
 
      do k = nza,2,-1
 
-        if (topm(im) >= zm(k)) exit
+        ! if (topm(im) >= zm(k)) exit
 
         if (arv(k,iv1) < .005 * dnu(iv1) * dzt(k)) exit
         if (arv(k,iv2) < .005 * dnu(iv2) * dzt(k)) exit
@@ -1534,7 +1536,7 @@ subroutine ctrlvols_hex()
      call olam_stop( "Error allocating memory in hex_grid." )
   endif
 
-  area_sum(:,:) = 0.0
+  area_sum(:,:) = 0.0_r8
 
   do iws = 2,nws
      iw = itab_ws(iws)%iw
@@ -1542,6 +1544,19 @@ subroutine ctrlvols_hex()
 
      if (kw < lpw(iw))               itab_ws(iws)%kw = lpw(iw)
      if (kw > lpw(iw) + lsw(iw) - 1) itab_ws(iws)%kw = lpw(iw) + lsw(iw) - 1
+
+     ! If adjacent layers have the same ARWs, move sea cell down to the next
+     ! level that intersects terrain
+
+     kw = itab_ws(iws)%kw
+     if (kw > lpw(iw) .and. arw(kw,iw) - arw(kw-1,iw) < spacing(arw(kw,iw))) then
+        do k = kw-2, lpw(iw)-1, -1
+           if (arw(kw,iw) - arw(k,iw) >= spacing(arw(kw,iw))) then
+              itab_ws(iws)%kw = k + 1
+              exit
+           endif
+        enddo
+     endif
 
      ks = itab_ws(iws)%kw - lpw(iw) + 1
      area_sum(ks,iw) = area_sum(ks,iw) + sea%area(iws)
@@ -1554,22 +1569,45 @@ subroutine ctrlvols_hex()
      if (kw < lpw(iw))               itab_wl(iwl)%kw = lpw(iw)
      if (kw > lpw(iw) + lsw(iw) - 1) itab_wl(iwl)%kw = lpw(iw) + lsw(iw) - 1
 
+     ! If adjacent layers have the same ARWs, move land cell down to the next
+     ! level that intersects terrain
+
+     kw = itab_wl(iwl)%kw
+     if (kw > lpw(iw) .and. arw(kw,iw) - arw(kw-1,iw) < spacing(arw(kw,iw))) then
+        do k = kw-2, lpw(iw)-1, -1
+           if (arw(kw,iw) - arw(k,iw) >= spacing(arw(kw,iw))) then
+              itab_wl(iwl)%kw = k + 1
+              exit
+           endif
+        enddo
+     endif
+
      ks = itab_wl(iwl)%kw - lpw(iw) + 1
      area_sum(ks,iw) = area_sum(ks,iw) + land%area(iwl)
   enddo
+
+! Also ensure that the land and sea surface areas still equal the grid areas
 
   do iws = 2,nws
      iw = itab_ws(iws)%iw
      kw = itab_ws(iws)%kw
      ks = kw - lpw(iw) + 1
-     sea%area(iws) = sea%area(iws) * (arw(kw,iw) - arw(kw-1,iw)) / area_sum(ks,iw)
+
+     arw8  = arw(kw,  iw)
+     arw8m = arw(kw-1,iw)
+     area  = arw8 - arw8m
+     sea%area(iws) = sea%area(iws) * area / area_sum(ks,iw)
   enddo
 
   do iwl = 2,nwl
      iw = itab_wl(iwl)%iw
      kw = itab_wl(iwl)%kw
      ks = kw - lpw(iw) + 1
-     land%area(iwl) = land%area(iwl) * (arw(kw,iw) - arw(kw-1,iw)) / area_sum(ks,iw)
+
+     arw8  = arw(kw,  iw)
+     arw8m = arw(kw-1,iw)
+     area  = arw8 - arw8m
+     land%area(iwl) = land%area(iwl) * area / area_sum(ks,iw)
   enddo
 
   deallocate(area_sum)
@@ -1580,16 +1618,26 @@ subroutine ctrlvols_hex()
   do iws = 2, nws
      kw = itab_ws(iws)%kw
      iw = itab_ws(iws)%iw
+
+     arw8  = arw(kw,  iw)
+     arw8m = arw(kw-1,iw)
+     area  = arw8 - arw8m
+
      itab_ws(iws)%arf_iw = sea%area(iws) / arw0(iw)
-     itab_ws(iws)%arf_kw = sea%area(iws) / (arw(kw,iw) - arw(kw-1,iw))
+     itab_ws(iws)%arf_kw = sea%area(iws) / max(real(area), sea%area(iws))
      if (mdomain < 2) sea%area(iws) = sea%area(iws) * zfacm(kw-1)**2
   enddo
 
   do iwl = 2, nwl
      kw = itab_wl(iwl)%kw
      iw = itab_wl(iwl)%iw
+
+     arw8  = arw(kw,  iw)
+     arw8m = arw(kw-1,iw)
+     area  = arw8 - arw8m
+
      itab_wl(iwl)%arf_iw = land%area(iwl) / arw0(iw)
-     itab_wl(iwl)%arf_kw = land%area(iwl) / (arw(kw,iw) - arw(kw-1,iw))
+     itab_wl(iwl)%arf_kw = land%area(iwl) / max(real(area), land%area(iwl))
      if (mdomain < 2) land%area(iwl) = land%area(iwl) * zfacm(kw-1)**2
   enddo
 
@@ -1599,27 +1647,19 @@ subroutine ctrlvols_hex()
   do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 !----------------------------------------------------------------------
 
-! Loop over vertical levels
-
-     do k = 2,nza
-
-        if (volt(k,iw) > 1.e-9) then
-           if (mdomain < 2) then
-              arw (k,iw) = arw (k,iw) * zfacm(k)**2
-              volt(k,iw) = volt(k,iw) * zfact(k)**2
-           endif
-        else
-           arw (k,iw) = 0.
-           volt(k,iw) = 1.e-9
-        endif
-
-     enddo  ! k
+     if (mdomain < 2) then
+        do k = lpw(iw), nza
+           arw (k,iw) = arw (k,iw) * zfacm(k)**2
+           volt(k,iw) = volt(k,iw) * zfact(k)**2
+        enddo
+     endif
 
 ! Set arw = 0 for bottom (k = 1) and wall-on-top (k = nza) levels
 
-     arw(1,iw) = 0.   
-     arw(nza,iw) = 0.   
+     arw (1:lpw(iw)-1,iw) = 0.   
+     volt(1:lpw(iw)-1,iw) = 1.e-9
 
+     arw(nza,iw) = 0.   
   enddo
 
 ! Lateral boundary copy of ARW, VOLT, LPW, and LSW
@@ -1643,10 +1683,12 @@ subroutine ctrlvols_hex()
 !----------------------------------------------------------------------
 
      if (mdomain < 2) then
-        do k = 2,nza
+        do k = lpv(iv), nza
            arv(k,iv) = arv(k,iv) * zfact(k)
         enddo
-   endif
+     endif
+
+     arv(1:lpv(iv)-1,iv) = 0.
 
   enddo
 
