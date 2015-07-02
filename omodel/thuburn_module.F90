@@ -107,7 +107,7 @@ Contains
     ! Diagnose outflow CFL number; also used for advection CFL stability check
 
     use mem_ijtabs,  only: jtab_v, jtv_wadj, jtab_w, jtw_prog, itab_w
-    use mem_grid,    only: lpv, lpw, mza, volti
+    use mem_grid,    only: lpv, lpw, mza, volti, glatw, glonw
     use consts_coms, only: r8
     use oname_coms,  only: nl
     use misc_coms,   only: io6, iparallel, time8p
@@ -130,7 +130,7 @@ Contains
     integer,           intent(in) :: kdepw(:,:)
     logical, optional, intent(in) :: do_check
 
-    integer :: j, iv, k, kd, iw, iwd, npoly
+    integer :: j, iv, k, kd, iw, iwd, npoly, n
     real    :: cfl_max, cfl_maxs(mgroupsize)
     integer :: ier, inode, imax(3), imaxs(3,mgroupsize)
 
@@ -188,11 +188,12 @@ Contains
           if (cfl_out_sum(k,iw) > 1.0) then
              npoly = itab_w(iw)%npoly
              write(*,*)
-             write(*,'(4(A,I0),/,2(A,f0.3),A,7(f0.3,1x))')                     &
+             write(*,'(4(A,I0),2(A,f0.3),/,2(A,f0.3),A,7(f0.3,1x))')           &
                   "!!! CFL VIOLATION at node ", myrank,                        &
                   ", iw=", iw, ", iwglobe=", itab_w(iw)%iwglobe, ", k=", k,    &
+                  " lat=", glatw(iw), " lon=", glonw(iw),                      &
                   "!!! CFL = ", cfl_out_sum(k,iw),                             &
-                  ", W = ", wc(k,iw), ", VSC = ", vc(k,itab_w(iw)%iv(1:npoly))
+                  ", W = ", wc(k,iw), ", VC = ", vc(k,itab_w(iw)%iv(1:npoly))
           endif
 
        enddo
@@ -220,7 +221,7 @@ Contains
                 imax(:)  = imaxs(:,inode)
              endif
              write(*,'(5x,A,f0.3,3(A,I0))') "Max CFL# = ", cfl_max,  &
-                  " at node ", inode, ", iwglobe=", imax(3), ", k=", imax(1)
+                  " at node ", inode-1, ", iwglobe=", imax(3), ", k=", imax(1)
           endif
        endif
     endif
