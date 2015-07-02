@@ -10,29 +10,24 @@ contains
 
     ! SERIAL TRIDIAGONAL SOLVER
 
-    integer, intent(in) :: m1,ka,kz
-    real, intent(in) :: cim1(m1),ci(m1),cip1(m1),rhs(m1)
-    real, intent(out) :: soln(m1)
-    real :: scr1(m1)  ! automatic array
-    real :: scr2(m1)  ! automatic array
+    integer, intent(in)  :: m1, ka, kz
+    real,    intent(in)  :: cim1(m1), ci(m1), cip1(m1), rhs(m1)
+    real,    intent(out) :: soln(m1)
+    real                 :: scr1(ka:kz)  ! automatic array
+    integer              :: k
+    real                 :: cji
 
-    integer :: k
-    real    :: cji
+    cji      = 1.0 / ci(ka)
+    soln(ka) = rhs(ka) * cji
 
-    scr1(ka) = cip1(ka) / ci(ka)
-    scr2(ka) = rhs(ka) / ci(ka)
-
-    do k = ka+1,kz
-       soln(k) = ci(k) - cim1(k) * scr1(k-1)
-       cji = 1. / soln(k)
-       scr1(k) = cip1(k) * cji
-       scr2(k) = (rhs(k) - cim1(k) * scr2(k-1)) * cji
+    do k = ka+1, kz
+       scr1(k) = cji * cip1(k-1)
+       cji     = 1.0 / ( ci(k) - cim1(k) * scr1(k))
+       soln(k) = cji * (rhs(k) - cim1(k) * soln(k-1))
     enddo
-    
-    soln(kz) = scr2(kz)
 
-    do k = kz-1,ka,-1
-       soln(k) = scr2(k) - scr1(k) * soln(k+1)
+    do k = kz-1, ka, -1
+       soln(k) = soln(k) - scr1(k+1) * soln(k+1)
     enddo
 
   end subroutine tridiffo
