@@ -1470,7 +1470,7 @@ subroutine ctrlvols_hex()
 ! Close all T cells that are below LPW
 
   nsw_max  = 1
-  nve2_max = 1
+  nve2_max = 0
 
 !----------------------------------------------------------------------
   do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
@@ -1497,7 +1497,7 @@ subroutine ctrlvols_hex()
 ! Initialize LSW(IW) and LVE2
 
      lsw (iw) = 1
-     lve2(iw) = 1
+     lve2(iw) = 0
 
 ! Loop over vertical levels from top to bottom
 

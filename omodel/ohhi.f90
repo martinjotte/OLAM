@@ -349,13 +349,14 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
 ! Fill arrays prior to iteration
 
+   wc (1:mza,iw) = 0.
+   wmc(1:mza,iw) = 0.
+
    do k = ka,mza
       theta(k,iw) = th01d(k)
       thil(k,iw)  = theta(k,iw)
       press(k,iw) = pr01d(k)
       rho(k,iw)   = dn01d(k)
-      wc(k,iw)    = 0.
-      wmc(k,iw)   = 0.
       
       if (level == 0) then
          sh_w(k,iw) = 0.

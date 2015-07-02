@@ -51,20 +51,21 @@ end subroutine diagvel_t3d
 subroutine vel_t3d_hex(mrl, vs, ws, vxe, vye, vze, vxe2, vye2, vze2)
 
 use mem_ijtabs, only: jtab_w, itab_v, itab_w, jtw_prog
-use mem_grid,   only: mza, lpw, lve2, lpv, vnx, vny, vnz, wnx, wny, wnz
+use mem_grid,   only: mza, lpw, lve2, lpv, vnx, vny, vnz, wnx, wny, wnz, &
+                      mva, mwa, nve2_max
 use misc_coms,  only: io6
 
 implicit none
 
 integer, intent(in)    :: mrl
-real,    intent(in)    :: vs  (:,:)
-real,    intent(in)    :: ws  (:,:)
-real,    intent(inout) :: vxe (:,:)
-real,    intent(inout) :: vye (:,:)
-real,    intent(inout) :: vze (:,:)
-real,    intent(in)    :: vxe2(:,:)
-real,    intent(in)    :: vye2(:,:)
-real,    intent(in)    :: vze2(:,:)
+real,    intent(in)    :: vs  (mza,mva)
+real,    intent(in)    :: ws  (mza,mwa)
+real,    intent(inout) :: vxe (mza,mwa)
+real,    intent(inout) :: vye (mza,mwa)
+real,    intent(inout) :: vze (mza,mwa)
+real,    intent(in)    :: vxe2(nve2_max,mwa)
+real,    intent(in)    :: vye2(nve2_max,mwa)
+real,    intent(in)    :: vze2(nve2_max,mwa)
 
 integer :: j,iw,npoly,ka,k,jv,iv,ksw,kbv
 real    :: wst
@@ -97,13 +98,15 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
 ! Effective contribution from submerged V faces
 
-   do ksw = 1,lve2(iw)
-      k = ka + ksw - 1
+   if (lve2(iw) > 0) then
+      do ksw = 1,lve2(iw)
+         k = ka + ksw - 1
 
-      vxe(k,iw) = vxe(k,iw) + vxe2(ksw,iw) 
-      vye(k,iw) = vye(k,iw) + vye2(ksw,iw) 
-      vze(k,iw) = vze(k,iw) + vze2(ksw,iw) 
-   enddo
+         vxe(k,iw) = vxe(k,iw) + vxe2(ksw,iw) 
+         vye(k,iw) = vye(k,iw) + vye2(ksw,iw) 
+         vze(k,iw) = vze(k,iw) + vze2(ksw,iw) 
+      enddo
+   endif
 
 ! Loop over V neighbors of this W cell
 
@@ -165,28 +168,31 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    vye2(:,iw) = 0.
    vze2(:,iw) = 0.
 
+   if (lve2(iw) > 0) then
+
 ! Loop over adjacent V faces
 
-   do jv = 1, npoly
+      do jv = 1, npoly
 
-      iv  = itab_w(iw)%iv(jv)
-      kbv = lpv(iv)
+         iv  = itab_w(iw)%iv(jv)
+         kbv = lpv(iv)
 
 ! Check if any V faces are below ground
 
-      if (ka < kbv) then
-         do k = ka, kbv-1
-            ksw = k - ka + 1
+         if (ka < kbv) then
+            do k = ka, kbv-1
+               ksw = k - ka + 1
 
 ! Project INITIAL VC from below-ground V faces back to (vxe2, vye2, vze2)
 
-            vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vc(kbv,iv)
-            vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vc(kbv,iv)
-            vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vc(kbv,iv)
-         enddo
-      endif
+               vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vc(kbv,iv)
+               vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vc(kbv,iv)
+               vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vc(kbv,iv)
+            enddo
+         endif
 
-   enddo
+      enddo
+   endif
 
 enddo
 !$omp end parallel do
