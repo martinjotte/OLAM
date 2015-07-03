@@ -102,16 +102,17 @@ Contains
 
 !===============================================================================
 
-  subroutine comp_cfl1(mrl, dtm, vmca, wmca, vc, wc, rho_old, iwdepv, kdepw, do_check)
+  subroutine comp_cfl1(mrl, dtm, vmca, wmca, vs, ws, rho_old, iwdepv, kdepw, do_check)
 
     ! Diagnose outflow CFL number; also used for advection CFL stability check
 
     use mem_ijtabs,  only: jtab_v, jtv_wadj, jtab_w, jtw_prog, itab_w
-    use mem_grid,    only: lpv, lpw, mza, volti, glatw, glonw
+    use mem_grid,    only: lpv, lpw, volti, glatw, glonw, mza, mva, mwa
     use consts_coms, only: r8
     use oname_coms,  only: nl
     use misc_coms,   only: io6, iparallel, time8p
     use mem_para,    only: myrank, mgroupsize
+    use max_dims,    only: maxgrds
 
 #ifdef OLAM_MPI
     use mpi
@@ -120,14 +121,14 @@ Contains
     implicit none
 
     integer,           intent(in) :: mrl
-    real,              intent(in) :: vmca(:,:)
-    real,              intent(in) :: wmca(:,:)
-    real,              intent(in) :: vc(:,:)
-    real,              intent(in) :: wc(:,:)
-    real(r8),          intent(in) :: dtm(:)
-    real(r8),          intent(in) :: rho_old(:,:)
-    integer,           intent(in) :: iwdepv(:,:)
-    integer,           intent(in) :: kdepw(:,:)
+    real,              intent(in) :: vmca   (mza,mva)
+    real,              intent(in) :: wmca   (mza,mwa)
+    real,              intent(in) :: vs     (mza,mva)
+    real,              intent(in) :: ws     (mza,mwa)
+    real(r8),          intent(in) :: dtm    (maxgrds)
+    real(r8),          intent(in) :: rho_old(mza,mwa)
+    integer,           intent(in) :: iwdepv (mza,mva)
+    integer,           intent(in) :: kdepw  (mza,mwa)
     logical, optional, intent(in) :: do_check
 
     integer :: j, iv, k, kd, iw, iwd, npoly, n
@@ -180,12 +181,14 @@ Contains
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
        do k = lpw(iw), mza
 
-          if (cfl_out_sum(k,iw) > cfl_max) then
+          if ( cfl_out_sum(k,iw) > cfl_max  .or.  &
+               cfl_out_sum(k,iw) /= cfl_out_sum(k,iw) ) then
              cfl_max = cfl_out_sum(k,iw)
              imax    = (/ k, iw, itab_w(iw)%iwglobe /)
           endif
 
-          if (cfl_out_sum(k,iw) > 1.0) then
+          if ( cfl_out_sum(k,iw) > 1.0  .or.  &
+               cfl_out_sum(k,iw) /= cfl_out_sum(k,iw) ) then
              npoly = itab_w(iw)%npoly
              write(*,*)
              write(*,'(4(A,I0),2(A,f0.3),/,2(A,f0.3),A,7(f0.3,1x))')           &
@@ -193,7 +196,7 @@ Contains
                   ", iw=", iw, ", iwglobe=", itab_w(iw)%iwglobe, ", k=", k,    &
                   " lat=", glatw(iw), " lon=", glonw(iw),                      &
                   "!!! CFL = ", cfl_out_sum(k,iw),                             &
-                  ", W = ", wc(k,iw), ", VC = ", vc(k,itab_w(iw)%iv(1:npoly))
+                  ", W = ", ws(k,iw), ", VC = ", vs(k,itab_w(iw)%iv(1:npoly))
           endif
 
        enddo
@@ -216,9 +219,20 @@ Contains
           if (myrank == 0) then
              inode = 0
              if (iparallel == 1) then
-                inode    = maxloc(cfl_maxs, dim=1)
-                cfl_max  = cfl_maxs(inode)
-                imax(:)  = imaxs(:,inode)
+                if (any( cfl_maxs(:) /= cfl_maxs(:) )) then
+                   do n = 1, mgroupsize
+                      if (cfl_maxs(n) /= cfl_maxs(n)) then
+                         inode = n
+                         cfl_max = cfl_maxs(inode)
+                         imax(:) = imaxs(:,inode)
+                         exit
+                      endif
+                   enddo
+                else
+                   inode    = maxloc(cfl_maxs, dim=1)
+                   cfl_max  = cfl_maxs(inode)
+                   imax(:)  = imaxs(:,inode)
+                endif
              endif
              write(*,'(5x,A,f0.3,3(A,I0))') "Max CFL# = ", cfl_max,  &
                   " at node ", inode-1, ", iwglobe=", imax(3), ", k=", imax(1)
@@ -235,11 +249,12 @@ Contains
     ! Diagnose inflow CFL numbers
 
     use mem_ijtabs,  only: jtab_v, jtv_wadj, jtab_w, jtw_prog, itab_w
-    use mem_grid,    only: lpv, lpw, mza, volti
+    use mem_grid,    only: lpv, lpw, volti, mza, mva, mwa
     use consts_coms, only: r8
     use oname_coms,  only: nl
     use misc_coms,   only: io6, iparallel, time8p
     use mem_para,    only: myrank, mgroupsize
+    use max_dims,    only: maxgrds
 
 #ifdef OLAM_MPI
     use mpi
@@ -248,14 +263,14 @@ Contains
     implicit none
 
     integer,  intent(in) :: mrl
-    real,     intent(in) :: vmca(:,:)
-    real,     intent(in) :: wmca(:,:)
-    real(r8), intent(in) :: dtm(:)
-    real(r8), intent(in) :: rho_old(:,:)
-    real(r8), intent(in) :: rho(:,:)
-    real,     intent(in) :: dzps_v(:,:)
-    integer,  intent(in) :: iwrecv(:,:)
-    integer,  intent(in) :: krecw(:,:)
+    real,     intent(in) :: vmca   (mza,mva)
+    real,     intent(in) :: wmca   (mza,mwa)
+    real(r8), intent(in) :: dtm    (maxgrds)
+    real(r8), intent(in) :: rho_old(mza,mwa)
+    real(r8), intent(in) :: rho    (mza,mwa)
+    real,     intent(in) :: dzps_v (mza,mva)
+    integer,  intent(in) :: iwrecv (mza,mva)
+    integer,  intent(in) :: krecw  (mza,mwa)
 
     integer :: j, iv, k, kr, iw, iwr
 
@@ -306,17 +321,17 @@ Contains
   subroutine comp_vert_limits(mrl, scp, scp_upw, iwdepv, iwrecv, kdepw, krecw)
 
     use mem_ijtabs,   only: jtab_v, jtv_wadj, itab_v, jtab_w, jtw_prog
-    use mem_grid,     only: lpv, lpw, mza
+    use mem_grid,     only: lpv, lpw, mza, mva, mwa
 
     implicit none
 
-    integer, intent(in) :: mrl
-    real,    intent(in) :: scp    (:,:)
-    real,    intent(inout) :: scp_upw(:,:)
-    integer, intent(in) :: iwdepv (:,:)
-    integer, intent(in) :: iwrecv (:,:)
-    integer, intent(in) :: kdepw  (:,:)
-    integer, intent(in) :: krecw  (:,:)
+    integer, intent(in)    :: mrl
+    real,    intent(in)    :: scp    (mza,mwa)
+    real,    intent(inout) :: scp_upw(mza,mwa)
+    integer, intent(in)    :: iwdepv (mza,mva)
+    integer, intent(in)    :: iwrecv (mza,mva)
+    integer, intent(in)    :: kdepw  (mza,mwa)
+    integer, intent(in)    :: krecw  (mza,mwa)
 
     integer :: j, iv, k, kr, kd, iw, iwd, iwr
     real    :: scp_win_min, scp_win_max
@@ -387,16 +402,16 @@ Contains
 
     use mem_ijtabs,   only: jtab_v, jtv_wadj, itab_v, jtab_w, jtw_prog
     use olam_mpi_atm, only: mpi_send_w
-    use mem_grid,     only: lpv, lpw, mza
+    use mem_grid,     only: lpv, lpw, mza, mva, mwa
     use misc_coms,    only: iparallel
 
     implicit none
 
     integer, intent(in)    :: mrl
-    real,    intent(in)    :: scp    (:,:)
-    real,    intent(inout) :: scp_upv(:,:)
-    integer, intent(in)    :: iwdepv (:,:)
-    integer, intent(in)    :: iwrecv (:,:)
+    real,    intent(in)    :: scp    (mza,mwa)
+    real,    intent(inout) :: scp_upv(mza,mva)
+    integer, intent(in)    :: iwdepv (mza,mva)
+    integer, intent(in)    :: iwrecv (mza,mva)
 
     integer :: j, iv, k, kr, kd, iw, iwd, iwr
     real    :: scp_vin_min, scp_vin_max
@@ -471,7 +486,7 @@ Contains
   subroutine apply_flux_limiters(mrl, kdepw, iwdepv, scp_upw, scp_upv)
 
     use mem_ijtabs,   only: jtab_v, jtv_wadj, itab_v, jtab_w, jtw_prog
-    use mem_grid,     only: lpv, lpw, mza
+    use mem_grid,     only: lpv, lpw, mza, mva, mwa
     use olam_mpi_atm, only: mpi_recv_w
     use misc_coms,    only: iparallel
     use obnd,         only: lbcopy_w
@@ -479,10 +494,10 @@ Contains
     implicit none
 
     integer, intent(in)    :: mrl
-    integer, intent(in)    :: kdepw (:,:)
-    integer, intent(in)    :: iwdepv (:,:)
-    real,    intent(inout) :: scp_upw(:,:)
-    real,    intent(inout) :: scp_upv(:,:)
+    integer, intent(in)    :: kdepw  (mza,mwa)
+    integer, intent(in)    :: iwdepv (mza,mva)
+    real,    intent(inout) :: scp_upw(mza,mwa)
+    real,    intent(inout) :: scp_upv(mza,mva)
 
   integer :: j, iv, k, kd, iw, iwd
     

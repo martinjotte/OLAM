@@ -35,7 +35,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   use mem_ijtabs,   only: istp, jtab_v, jtab_w, mrl_endl, itab_v, itab_w, &
                           jtv_wadj, jtw_prog
   use mem_grid,     only: mza, mva, mwa, nsw_max, lpv, lpw, lsw, zt, zm, dzim, &
-                          volt, arv, arw, dzim, volti
+                          volt, arv, arw, dzim, volti, zwgt_bot, zwgt_top
   use misc_coms,    only: io6, dtlm, iparallel, time8p
   use var_tables,   only: num_scalar, scalar_tab
   use mem_turb,     only: akhodx
@@ -118,7 +118,8 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
      kb = lpw(iw)
 
      do k = kb, mza-1
-        wsc  (k,iw) = 2.0 * wmsc(k,iw) / (rho_old(k,iw) + rho_old(k+1,iw))
+        wsc  (k,iw) = wmsc(k,iw) &
+                    / (zwgt_bot(k) * rho_old(k,iw) + zwgt_top(k) * rho_old(k+1,iw))
         wmsca(k,iw) = wmsc(k,iw) * arw(k,iw)
      enddo
 
