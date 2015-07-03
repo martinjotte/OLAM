@@ -787,19 +787,19 @@ subroutine gridfile_write()
   deallocate (lscr)
 
   ndims    = 2
-  idims(1) = 7
+  idims(1) = 3
   idims(2) = nma
 
-  allocate (iscr(7,nma)) ; iscr = 0
+  allocate (iscr(3,nma)) ; iscr = 0
   do im = 1,nma
-     iscr(1:7,im) = itab_m(im)%iv(1:7)
+     iscr(1:3,im) = itab_m(im)%iv(1:3)
   enddo
   call shdf5_orec(ndims,idims,'itab_m%iv',ivara=iscr)
   deallocate (iscr)
 
-  allocate (iscr(7,nma)) ; iscr = 0
+  allocate (iscr(3,nma)) ; iscr = 0
   do im = 1,nma
-     iscr(1:7,im) = itab_m(im)%iw(1:7)
+     iscr(1:3,im) = itab_m(im)%iw(1:3)
   enddo
   call shdf5_orec(ndims,idims,'itab_m%iw',ivara=iscr)
   deallocate (iscr)
@@ -899,7 +899,6 @@ subroutine gridfile_write()
   call shdf5_orec(ndims,idims,'itab_w%iwp'      ,ivara=itab_w(:)%iwp)
   call shdf5_orec(ndims,idims,'itab_w%mrlw'     ,ivara=itab_w(:)%mrlw)
   call shdf5_orec(ndims,idims,'itab_w%mrlw_orig',ivara=itab_w(:)%mrlw_orig)
-  call shdf5_orec(ndims,idims,'itab_w%mrow'     ,ivara=itab_w(:)%mrow)
   call shdf5_orec(ndims,idims,'itab_w%ngr'      ,ivara=itab_w(:)%ngr)
 
   call shdf5_orec(ndims,idims,'itab_w%unx_w' ,rvara=itab_w(:)%unx_w)
@@ -1322,19 +1321,19 @@ real,    allocatable :: rscr(:,:)
 
   ndims    = 2
   idims(2) = nma
-  idims(1) = 7
+  idims(1) = 3
 
-  allocate (iscr(7,nma))
+  allocate (iscr(3,nma))
   call shdf5_irec(ndims,idims,'itab_m%iv',ivara=iscr)
   do im = 1,nma
-     itab_m_pd(im)%iv(1:7) = iscr(1:7,im)
+     itab_m_pd(im)%iv(1:3) = iscr(1:3,im)
   enddo
   deallocate (iscr)
 
-  allocate (iscr(7,nma))
+  allocate (iscr(3,nma))
   call shdf5_irec(ndims,idims,'itab_m%iw',ivara=iscr)
   do im = 1,nma
-     itab_m_pd(im)%iw(1:7) = iscr(1:7,im)
+     itab_m_pd(im)%iw(1:3) = iscr(1:3,im)
   enddo
   deallocate (iscr)
 
@@ -1651,19 +1650,19 @@ integer, pointer :: lgwnud(:)
   enddo
   deallocate (lscr)
 
-  idims(1) = 7
+  idims(1) = 3
 
-  allocate (iscr(7,mma))
+  allocate (iscr(3,mma))
   call shdf5_irec(ndims,idims,'itab_m%iv',ivara=iscr, points=lgma)
   do im = 1,mma
-     itab_m(im)%iv(1:7) = iscr(1:7,im)
+     itab_m(im)%iv(1:3) = iscr(1:3,im)
   enddo
   deallocate (iscr)
 
-  allocate (iscr(7,mma))
+  allocate (iscr(3,mma))
   call shdf5_irec(ndims,idims,'itab_m%iw',ivara=iscr, points=lgma)
   do im = 1,mma
-     itab_m(im)%iw(1:7) = iscr(1:7,im)
+     itab_m(im)%iw(1:3) = iscr(1:3,im)
   enddo
   deallocate (iscr)
 
@@ -1761,7 +1760,6 @@ integer, pointer :: lgwnud(:)
   call shdf5_irec(ndims,idims,'itab_w%iwp'      ,ivara=itab_w(:)%iwp, points=lgwa)
   call shdf5_irec(ndims,idims,'itab_w%mrlw'     ,ivara=itab_w(:)%mrlw, points=lgwa)
   call shdf5_irec(ndims,idims,'itab_w%mrlw_orig',ivara=itab_w(:)%mrlw_orig, points=lgwa)
-  call shdf5_irec(ndims,idims,'itab_w%mrow'     ,ivara=itab_w(:)%mrow, points=lgwa)
   call shdf5_irec(ndims,idims,'itab_w%ngr'      ,ivara=itab_w(:)%ngr, points=lgwa)
 
   call shdf5_irec(ndims,idims,'itab_w%unx_w' ,rvara=itab_w(:)%unx_w, points=lgwa)

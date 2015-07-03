@@ -42,7 +42,7 @@ subroutine makesfc2()
 
   use mem_grid,    only: xem, yem, zem, xev, xew, yew, zew, dnu, dnv, arw0
 
-  use misc_coms,   only: io6, itopoflg, rinit, topo_database
+  use misc_coms,   only: io6, itopoflg, rinit, topo_database, mdomain
 
   use sea_coms,    only: nws, seafile, iseagrid
 
@@ -332,11 +332,13 @@ subroutine makesfc2()
               zem1 = zew(iw) + xm1 * (zem(im1) - zem(im2)) / dnu(iv)  &
                              + ym1 * (zev(iv ) - zew(iw )) / (0.5 * dnv(iv))
 
-              expansion = erad / sqrt(xem1**2 + yem1**2 + zem1**2)
+              if (mdomain < 2) then
+                 expansion = erad / sqrt(xem1**2 + yem1**2 + zem1**2)
 
-              itab_wls(nwls)%xem(jp1) = xem1 * expansion
-              itab_wls(nwls)%yem(jp1) = yem1 * expansion
-              itab_wls(nwls)%zem(jp1) = zem1 * expansion
+                 itab_wls(nwls)%xem(jp1) = xem1 * expansion
+                 itab_wls(nwls)%yem(jp1) = yem1 * expansion
+                 itab_wls(nwls)%zem(jp1) = zem1 * expansion
+              endif
 
            enddo
 
@@ -355,20 +357,30 @@ subroutine makesfc2()
            topc = topw(iw) + xc * (topm(im1) - topm(im2)) / dnu(iv) &
                            + yc * (topv - topw(iw )) / (0.5 * dnv(iv))
 
-           expansion = erad / sqrt(xec**2 + yec**2 + zec**2)
+           if (mdomain < 2) then
 
-           xec = xec * expansion
-           yec = yec * expansion
-           zec = zec * expansion
+              expansion = erad / sqrt(xec**2 + yec**2 + zec**2)
+
+              xec = xec * expansion
+              yec = yec * expansion
+              zec = zec * expansion
 
 ! Compute latitude and longitude of centroid; catalogue sfc cell variables
 
-           raxis = sqrt(xec**2 + yec**2)
+              raxis = sqrt(xec**2 + yec**2)
+
+              landsea_grid(nwls)%glatw = atan2(zec,raxis) * piu180
+              landsea_grid(nwls)%glonw = atan2(yec,xec) * piu180
+
+           else
+
+              landsea_grid(nwls)%glatw = 0.  ! want it this way?
+              landsea_grid(nwls)%glonw = 0.  ! want it this way?
+
+           endif
+
 
            landsea_grid(nwls)%area = area
-
-           landsea_grid(nwls)%glatw = atan2(zec,raxis) * piu180
-           landsea_grid(nwls)%glonw = atan2(yec,xec) * piu180
 
            landsea_grid(nwls)%xew = xec
            landsea_grid(nwls)%yew = yec

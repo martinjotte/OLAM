@@ -128,7 +128,7 @@ do iv = 2,nva
    itab_v(iv)%loop(1:mloops)  = itab_ud(iud)%loop(1:mloops)
 
    itab_v(iv)%ivp      = itab_ud(iud)%iup
-   itab_v(iv)%ivglobe  = itab_ud(iud)%iuglobe
+   itab_v(iv)%ivglobe  = iv
    itab_v(iv)%mrlv     = itab_ud(iud)%mrlu
 
    itab_v(iv)%im(1:6)  = itab_ud(iud)%iw(1:6)
@@ -255,7 +255,7 @@ do im = 2,nma
    endif
 
    itab_m(im)%npoly     = itab_wd(iwd)%npoly
-   itab_m(im)%imglobe   = itab_wd(iwd)%iwglobe
+   itab_m(im)%imglobe   = im
 
    itab_m(im)%mrlm      = itab_wd(iwd)%mrlw
    itab_m(im)%ngr       = itab_wd(iwd)%ngr
@@ -437,10 +437,12 @@ do iter = 1,niter
 
 ! Determine latitude and longitude of W point
 
-      raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+      if (mdomain <= 1) then
+         raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
-      glatw = atan2(zew(iw),raxis)   * piu180
-      glonw = atan2(yew(iw),xew(iw)) * piu180
+         glatw = atan2(zew(iw),raxis)   * piu180
+         glonw = atan2(yew(iw),xew(iw)) * piu180
+      endif
 
 ! Loop over all M points adjacent to current W point
 

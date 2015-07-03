@@ -539,7 +539,7 @@ data fldlib(1:4,351:358)/  &
 
 ! ITAB_W MEMBERS - 2D
 
-data fldlib(1:4,361:376)/ &
+data fldlib(1:4,361:375)/ &
 
  'ITAB_W_NPOLY'  ,'W2' ,'ITAB_W_NPOLY',' ( )'                               ,& ! 361
  'ITAB_W_IWP'    ,'W2' ,'ITAB_W_IWP',' ( )'                                 ,& ! 362
@@ -547,16 +547,15 @@ data fldlib(1:4,361:376)/ &
  'ITAB_W_IWGLOBE','W2' ,'ITAB_W_IWGLOBE',' ( )'                             ,& ! 364
  'ITAB_W_MRLW'   ,'W2' ,'ITAB_W_MRLW',' ( )'                                ,& ! 365
  'ITAB_W_MRLW_OR','W2' ,'ITAB_W_MRLW_ORIG',' ( )'                           ,& ! 366
- 'ITAB_W_MROW'   ,'W2' ,'ITAB_W_MROW',' ( )'                                ,& ! 367
- 'ITAB_W_NGR'    ,'W2' ,'ITAB_W_NGR',' ( )'                                 ,& ! 368
- 'ITAB_W_IM'     ,'W2' ,'ITAB_W_IM',' ( )'                                  ,& ! 369
- 'ITAB_W_IV'     ,'W2' ,'ITAB_W_IV',' ( )'                                  ,& ! 370
- 'ITAB_W_IW'     ,'W2' ,'ITAB_W_IW',' ( )'                                  ,& ! 371
- 'ITAB_W_DIRV'   ,'W2' ,'ITAB_W_DIRV',' ( )'                                ,& ! 372
- 'ITAB_W_FARM'   ,'W2' ,'ITAB_W_FARM',' ( )'                                ,& ! 373
- 'ITAB_W_FARV'   ,'W2' ,'ITAB_W_FARV',' ( )'                                ,& ! 374
- 'ITAB_W_IWNUD'  ,'W2' ,'ITAB_W_IWNUD',' ( )'                               ,& ! 375
- 'ITAB_W_FNUD'   ,'W2' ,'ITAB_W_FNUD',' ( )'                                 / ! 376
+ 'ITAB_W_NGR'    ,'W2' ,'ITAB_W_NGR',' ( )'                                 ,& ! 367
+ 'ITAB_W_IM'     ,'W2' ,'ITAB_W_IM',' ( )'                                  ,& ! 368
+ 'ITAB_W_IV'     ,'W2' ,'ITAB_W_IV',' ( )'                                  ,& ! 369
+ 'ITAB_W_IW'     ,'W2' ,'ITAB_W_IW',' ( )'                                  ,& ! 370
+ 'ITAB_W_DIRV'   ,'W2' ,'ITAB_W_DIRV',' ( )'                                ,& ! 371
+ 'ITAB_W_FARM'   ,'W2' ,'ITAB_W_FARM',' ( )'                                ,& ! 372
+ 'ITAB_W_FARV'   ,'W2' ,'ITAB_W_FARV',' ( )'                                ,& ! 373
+ 'ITAB_W_IWNUD'  ,'W2' ,'ITAB_W_IWNUD',' ( )'                               ,& ! 374
+ 'ITAB_W_FNUD'   ,'W2' ,'ITAB_W_FNUD',' ( )'                                 / ! 375
 
 ! Monthly and Daily averaged fields; daily min & max fields - 2D
 
@@ -2739,25 +2738,23 @@ case(365) ! 'ITAB_W_MRLW'
    fldval = itab_w(i)%mrlw
 case(366) ! 'ITAB_W_MRLW_OR'
    fldval = itab_w(i)%mrlw_orig
-case(367) ! 'ITAB_W_MROW'
-   fldval = itab_w(i)%mrow
-case(368) ! 'ITAB_W_NGR'
+case(367) ! 'ITAB_W_NGR'
    fldval = itab_w(i)%ngr
-case(369) ! 'ITAB_W_IM'
+case(368) ! 'ITAB_W_IM'
    fldval = itab_w(i)%im(indp)
-case(370) ! 'ITAB_W_IV'
+case(369) ! 'ITAB_W_IV'
    fldval = itab_w(i)%iv(indp)
-case(371) ! 'ITAB_W_IW'
+case(370) ! 'ITAB_W_IW'
    fldval = itab_w(i)%iw(indp)
-case(372) ! 'ITAB_W_DIRV'
+case(371) ! 'ITAB_W_DIRV'
    fldval = itab_w(i)%dirv(indp)
-case(373) ! 'ITAB_W_FARM'
+case(372) ! 'ITAB_W_FARM'
    fldval = itab_w(i)%farm(indp)
-case(374) ! 'ITAB_W_FARV'
+case(373) ! 'ITAB_W_FARV'
    fldval = itab_w(i)%farv(indp)
-case(375) ! 'ITAB_W_IWNUD'
+case(374) ! 'ITAB_W_IWNUD'
    fldval = itab_w(i)%iwnud(indp)
-case(376) ! 'ITAB_W_FNUD'
+case(375) ! 'ITAB_W_FNUD'
    fldval = itab_w(i)%fnud(indp)
 
 ! Time-averaged fields

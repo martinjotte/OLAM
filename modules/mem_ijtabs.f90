@@ -94,22 +94,9 @@ Module mem_ijtabs
       integer :: mrlm_orig = 0   ! original MRL of this M pt (hex only)
       integer :: mrow = 0        ! Full row number outside nest
       integer :: ngr = 0         ! Grid number
-      integer :: im(7) = 1       ! array of M neighbors of this M pt (Del or Vor)
-      integer :: iu(7) = 1       ! array of U neighbors of this M pt (Delaunay)
-      integer :: iv(7) = 1       ! array of V neighbors of this M pt (Voronoi)
-      integer :: iw(7) = 1       ! array of W neighbors of this M pt (Del or Vor)
+      integer :: iv(3) = 1       ! array of V neighbors of this M pt
+      integer :: iw(3) = 1       ! array of W neighbors of this M pt
    End Type itab_m_vars
-
-   Type itab_u_vars             ! data structure for U pts (individual rank)
-      logical, allocatable :: loop(:) ! flag to perform each DO loop at this M pt
-
-      integer :: iup = 1       ! U pt from which to copy this U pt's values
-      integer :: iuglobe = 1   ! global index of this U pt (in parallel case)
-      integer :: mrlu = 0      ! mesh refinement level of this U pt
-      integer :: im(2) = 1     ! neighbor M pts of this U pt
-      integer :: iu(12) = 1    ! neighbor U pts
-      integer :: iw(6) = 1     ! neighbor W pts
-   End Type itab_u_vars
 
    Type itab_v_vars             ! data structure for V pts (individual rank)
       logical, allocatable :: loop(:) ! flag to perform each DO loop at this V pt
@@ -140,14 +127,12 @@ Module mem_ijtabs
       integer :: iwglobe = 1   ! global index of this W pt (in parallel run)
       integer :: mrlw = 0      ! mesh refinement level of this W pt
       integer :: mrlw_orig = 0 ! original MRL of this W pt
-      integer :: mrow = 0      ! Full row number outside nest (Delaunay)
       integer :: ngr = 0       ! Grid number
-      integer :: im(7) = 1     ! neighbor M pts of this W pt (Voronoi)
-      integer :: iu(3) = 1     ! neighbor U pts (Delaunay)
-      integer :: iv(7) = 1     ! neighbor V pts (Voronoi)
-      integer :: iw(9) = 1     ! neighbor W pts (9 Delaunay, 7 Voronoi)
+      integer :: im(7) = 1     ! neighbor M pts
+      integer :: iv(7) = 1     ! neighbor V pts
+      integer :: iw(7) = 1     ! neighbor W pts
 
-      real :: dirv(7) = 0.     ! pos direction of V neighbors (Voronoi)
+      real :: dirv(7) = 0.     ! pos direction of V neighbors
 
       real :: farm(7) = 0.     ! Fraction of arw0 in each M point sector 
       real :: farv(7) = 0.     ! Fraction of arw0 in each V point sector 
@@ -178,6 +163,46 @@ Module mem_ijtabs
       integer, allocatable :: iland(:) ! indices of attached land cells
       integer, allocatable :: isea(:)  ! indices of attached sea cells
    End Type itab_w_vars
+
+   Type itab_md_vars             ! data structure for M pts (individual rank)
+                                 ! on the Delaunay mesh
+      logical, allocatable :: loop(:) ! flag to perform each DO loop at this M pt
+
+      integer :: npoly = 0       ! number of V/W neighbors of this M pt
+      integer :: imp = 1         ! M point from which to copy this M pt's values
+      integer :: mrlm = 0        ! mesh refinement level of this M pt
+      integer :: mrlm_orig = 0   ! original MRL of this M pt (hex only)
+      integer :: ngr = 0         ! Grid number
+      integer :: im(7) = 1       ! array of M neighbors of this M pt
+      integer :: iu(7) = 1       ! array of U neighbors of this M pt
+      integer :: iw(7) = 1       ! array of W neighbors of this M pt
+   End Type itab_md_vars
+
+   Type itab_ud_vars             ! data structure for U pts (individual rank)
+                                 ! on the Delaunay mesh
+      logical, allocatable :: loop(:) ! flag to perform each DO loop at this M pt
+
+      integer :: iup = 1       ! U pt from which to copy this U pt's values
+      integer :: mrlu = 0      ! mesh refinement level of this U pt
+      integer :: im(2) = 1     ! neighbor M pts of this U pt
+      integer :: iu(12) = 1    ! neighbor U pts
+      integer :: iw(6) = 1     ! neighbor W pts
+   End Type itab_ud_vars
+
+   Type itab_wd_vars             ! data structure for W pts (individual rank)
+                                 ! on the Delaunay mesh
+      logical, allocatable :: loop(:) ! flag to perform each DO loop at this W pt
+
+      integer :: npoly = 0     ! number of M/V neighbors of this W pt
+      integer :: iwp = 1       ! W pt from which to copy this W pt's values
+      integer :: mrlw = 0      ! mesh refinement level of this W pt
+      integer :: mrlw_orig = 0 ! original MRL of this W pt
+      integer :: mrow = 0      ! Full row number outside nest
+      integer :: ngr = 0       ! Grid number
+      integer :: im(3) = 1     ! neighbor M pts
+      integer :: iu(3) = 1     ! neighbor U pts
+      integer :: iw(9) = 1     ! neighbor W pts
+   End Type itab_wd_vars
 
    Type itabg_m_vars            ! data structure for M pts (global)
       integer :: im_myrank = -1 ! local (parallel subdomain) index of this M pt
@@ -223,10 +248,9 @@ Module mem_ijtabs
 
    Type itab_m_pd_vars      ! data structure for M pts (individual rank) on para_(decomp,init)
       integer :: npoly = 0  ! number of V/W neighbors of this M pt
-      integer :: imp = 1    ! M point from which to copy this M pt's value
-      integer :: iu(7) = 1  ! array of U neighbors of this M pt (Delaunay)
-      integer :: iv(7) = 1  ! array of V neighbors of this M pt (Voronoi)
-      integer :: iw(7) = 1  ! array of W neighbors of this M pt (Del or Vor)
+      integer :: imp   = 1  ! M point from which to copy this M pt's value
+      integer :: iv(3) = 1  ! array of V neighbors of this M pt
+      integer :: iw(3) = 1  ! array of W neighbors of this M pt
    End Type itab_m_pd_vars
 
    Type itab_v_pd_vars      ! data structure for V pts (individual rank) on para_(decomp,init)
@@ -245,9 +269,9 @@ Module mem_ijtabs
       integer :: iwnud(3) = 1  ! local nudpoly pts
    End Type itab_w_pd_vars
 
-   type (itab_m_vars), allocatable :: itab_md(:)
-   type (itab_u_vars), allocatable :: itab_ud(:)
-   type (itab_w_vars), allocatable :: itab_wd(:)
+   type (itab_md_vars), allocatable :: itab_md(:)
+   type (itab_ud_vars), allocatable :: itab_ud(:)
+   type (itab_wd_vars), allocatable :: itab_wd(:)
 
    type (itab_m_vars),  allocatable, target :: itab_m(:)
    type (itab_v_vars),  allocatable, target :: itab_v(:)
@@ -257,9 +281,9 @@ Module mem_ijtabs
    type (itab_v_pd_vars), allocatable, target :: itab_v_pd(:)
    type (itab_w_pd_vars), allocatable, target :: itab_w_pd(:)
 
-   type (itab_m_vars), allocatable :: ltab_md(:)
-   type (itab_u_vars), allocatable :: ltab_ud(:)
-   type (itab_w_vars), allocatable :: ltab_wd(:)
+   type (itab_md_vars), allocatable :: ltab_md(:)
+   type (itab_ud_vars), allocatable :: ltab_ud(:)
+   type (itab_wd_vars), allocatable :: ltab_wd(:)
 
    type (itabg_m_vars), allocatable, target :: itabg_m(:)
    type (itabg_v_vars), allocatable, target :: itabg_v(:)
