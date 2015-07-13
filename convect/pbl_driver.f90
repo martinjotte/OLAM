@@ -179,7 +179,7 @@ subroutine pbl_driver(mrl)
 ! horizontal diffusion is stable over the long timestep
 
 !----------------------------------------------------------------------
-  !$omp do private(iv,iw1,iw2,fact1,fact2,k,tempm,temph,stab1,stab2)
+  !$omp parallel do private(iv,iw1,iw2,fact1,fact2,k,tempm,temph,stab1,stab2)
   do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 !----------------------------------------------------------------------
 

@@ -1085,10 +1085,31 @@ case(41:43) ! 'RVORTZM','TVORTZM','RVORTZM_P'
    do j = 1,itab_m(i)%npoly
 
 
-       iv = itab_m(i)%iv(j)
+      iv = itab_m(i)%iv(j)
 
-       vcc = wtbot * vc(k ,iv) &
-           + wttop * vc(kp,iv)
+      if (k >= lpv(iv)) then
+
+         vcc = wtbot * vc(k ,iv) &
+             + wttop * vc(kp,iv)
+
+      else
+
+         iw1 = itab_v(iv)%iw(1)
+         iw2 = itab_v(iv)%iw(2)
+
+         if (k >= lpw(iw1)) then
+            vcc = vnx(iv) * vxe(k,iw1) &
+                + vny(iv) * vye(k,iw1) &
+                + vnz(iv) * vze(k,iw1)
+         elseif (k >= lpw(iw2)) then
+            vcc = vnx(iv) * vxe(k,iw2) &
+                + vny(iv) * vye(k,iw2) &
+                + vnz(iv) * vze(k,iw2)
+         else
+            vcc = 0.
+         endif
+
+      endif
 
       if (fldname == 'RVORTZM_P') then
 

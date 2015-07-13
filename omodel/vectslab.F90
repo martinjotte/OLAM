@@ -33,7 +33,7 @@ subroutine vectslab_horiz_v(iplt)
 
   use oplot_coms,  only: op
   use mem_grid,    only: mza, mva, mwa, zm, lpw, unx, uny, unz, vnx, vny, vnz, &
-                         xev, yev, zev, lpv
+                         xev, yev, zev
   use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtv_wadj
   use consts_coms, only: eradi
   use misc_coms,   only: io6, mdomain, iparallel
@@ -124,9 +124,10 @@ subroutine vectslab_horiz_v(iplt)
      if ( pointx < op%xmin .or. pointx > op%xmax .or.  &
           pointy < op%ymin .or. pointy > op%ymax ) cycle
 
-     ! Is this V location above ground?
+     ! Check if both neighboring W cells are above ground
+     ! (Is this what we want to do here?)
 
-     if (kv(iv) >= lpv(iv)) then
+     if (ktf(iw1) == 0 .or. ktf(iw2) == 0) then
 
         ! Cell is above ground 
 
