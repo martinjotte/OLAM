@@ -26,7 +26,7 @@
       contains
 
 ! --------------------------------------------------------------------
-      subroutine reftra_sw(nlayers, lrtchk, pgg, prmuz, ptau, pw, &
+      subroutine reftra_sw(nlayers, lrtchk, pgg, prmuz, prmuzm1, ptau, pw, &
                            pref, prefd, ptra, ptrad)
 ! --------------------------------------------------------------------
   
@@ -89,6 +89,7 @@
       real(kind=rb), intent(in) :: pw(:)                       ! single scattering albedo 
                                                                !   Dimensions: (nlayers)
       real(kind=rb), intent(in) :: prmuz                       ! cosine of solar zenith angle
+      real(kind=rb), intent(in) :: prmuzm1                     ! cosine of solar zenith angle
 
 ! ------- Output -------
 
@@ -171,7 +172,7 @@
 ! Homogeneous reflectance and transmittance,
 ! collimated beam
 
-               ze1 = min ( zto1 / prmuz , 500._rb)
+               ze1 = min ( zto1 * prmuzm1 , 500._rb)
 !               ze2 = exp( -ze1 )
 
 ! Use exponential lookup table for transmittance, or expansion of 
@@ -234,7 +235,7 @@
 ! Homogeneous reflectance and transmittance
 
                ze1 = min ( zrk * zto1, 500._rb)
-               ze2 = min ( zto1 / prmuz , 500._rb)
+               ze2 = min ( zto1 * prmuzm1 , 500._rb)
 !
 ! Original
 !              zep1 = exp( ze1 )

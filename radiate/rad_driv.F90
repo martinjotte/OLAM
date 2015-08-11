@@ -43,7 +43,8 @@ use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,          &
                        albedt_diffuse, fthrd_sw, rshort, rlong, fthrd_lw, &
                        rshort_top, rshortup_top, rshort_diffuse,          &
                        rshort_clr, rshortup_clr,                          &
-                       rshort_top_clr, rshortup_top_clr
+                       rshort_top_clr, rshortup_top_clr,                  &
+                       par, par_diffuse, uva, uvb, uvc
 
 use mem_basic,   only: rho
 use micro_coms,  only: level
@@ -116,7 +117,7 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
       rshort_diffuse(iw) = 0.
       rshort_top    (iw) = 0.
       rshortup_top  (iw) = 0.
-      
+
       rshort_clr      (iw) = 0.
       rshortup_clr    (iw) = 0.
       rshort_top_clr  (iw) = 0.
@@ -125,6 +126,12 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
       do k = lpw(iw), mza
          fthrd_sw(k,iw) = 0.
       enddo
+
+      par(iw) = 0.
+      par_diffuse(iw) = 0.
+      uva(iw) = 0.
+      uvb(iw) = 0.
+      uvc(iw) = 0.
 
    enddo
 !$omp end parallel do

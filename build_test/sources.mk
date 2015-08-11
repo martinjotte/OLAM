@@ -165,14 +165,10 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_lw/rrlw_vsn.f90 \
              $(RADIATE)/rrtmg_lw/rrlw_wvn.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_cldprmc.f90 \
-             $(RADIATE)/rrtmg_lw/rrtmg_lw_cldprop.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_init.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_rad.f90 \
-             $(RADIATE)/rrtmg_lw/rrtmg_lw_rad_nomcica.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_read_h5.f90 \
-             $(RADIATE)/rrtmg_lw/rrtmg_lw_rtrn.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_rtrnmc.f90 \
-             $(RADIATE)/rrtmg_lw/rrtmg_lw_rtrnmr.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_setcoef.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_taumol.f90 \
              $(RADIATE)/rrtmg_sw/mcica_subcol_gen_sw.f90 \
@@ -200,17 +196,13 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_sw/rrsw_vsn.f90 \
              $(RADIATE)/rrtmg_sw/rrsw_wvn.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_cldprmc.f90 \
-             $(RADIATE)/rrtmg_sw/rrtmg_sw_cldprop.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_init.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_rad.f90 \
-             $(RADIATE)/rrtmg_sw/rrtmg_sw_rad_nomcica.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_read_h5.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_reftra.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_setcoef.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_spcvmc.f90 \
-             $(RADIATE)/rrtmg_sw/rrtmg_sw_spcvrt.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_taumol.f90 \
-             $(RADIATE)/rrtmg_sw/rrtmg_sw_vrtqdr.f90 \
              $(SEA)/mem_sea.f90 \
              $(SEA)/para_init_sea.f90 \
              $(SEA)/read_seaice_analysis.F90 \

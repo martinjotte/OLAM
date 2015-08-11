@@ -1,7 +1,7 @@
       module rrlw_wvn
 
       use parkind, only : im => kind_im, rb => kind_rb
-      use parrrtm, only : nbndlw, mg, ngptlw, maxinpx
+      use parrrtm, only : nbndlw, mg, ngptlw, maxinpx, maxxsec
 
       implicit none
       save
@@ -57,9 +57,14 @@
 ! ixindx :  integer: Flag for active cross-sections in calculation
 !------------------------------------------------------------------
 
-      integer(kind=im) :: ng(nbndlw)
-      integer(kind=im) :: nspa(nbndlw)
-      integer(kind=im) :: nspb(nbndlw)
+      integer(kind=im), parameter :: ng(nbndlw) = &
+           (/16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16/)
+
+      integer(kind=im), parameter :: nspa(nbndlw) = &
+           (/1,1,9,9,9,1,9,1,9,1,1,9,9,1,9,9/)
+
+      integer(kind=im), parameter :: nspb(nbndlw) = &
+           (/1,1,5,5,5,0,1,1,1,1,1,0,0,1,0,0/)
 
       real(kind=rb) :: wavenum1(nbndlw)
       real(kind=rb) :: wavenum2(nbndlw)
@@ -71,16 +76,77 @@
       real(kind=rb) :: totplnkderiv(181,nbndlw)
       real(kind=rb) :: totplk16deriv(181)
 
-      integer(kind=im) :: ngc(nbndlw)
-      integer(kind=im) :: ngs(nbndlw)
-      integer(kind=im) :: ngn(ngptlw)
-      integer(kind=im) :: ngb(ngptlw)
-      integer(kind=im) :: ngm(nbndlw*mg)
+      integer(kind=im), parameter :: ngc(nbndlw) = &
+           (/10,12,16,14,16,8,12,8,12,6,8,8,4,2,2,2/)
 
-      real(kind=rb) :: wt(mg)
+      integer(kind=im), parameter :: ngs(nbndlw) = &
+           (/10,22,38,52,68,76,88,96,108,114,122,130,134,136,138,140/)
+
+      integer(kind=im), parameter :: ngn(ngptlw) = &
+           (/1,1,2,2,2,2,2,2,1,1, &                       ! band 1
+             1,1,1,1,1,1,1,1,2,2,2,2, &                   ! band 2
+             1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, &           ! band 3
+             1,1,1,1,1,1,1,1,1,1,1,1,1,3, &               ! band 4
+             1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, &           ! band 5
+             2,2,2,2,2,2,2,2, &                           ! band 6
+             2,2,1,1,1,1,1,1,1,1,2,2, &                   ! band 7
+             2,2,2,2,2,2,2,2, &                           ! band 8
+             1,1,1,1,1,1,1,1,2,2,2,2, &                   ! band 9
+             2,2,2,2,4,4, &                               ! band 10
+             1,1,2,2,2,2,3,3, &                           ! band 11
+             1,1,1,1,2,2,4,4, &                           ! band 12
+             3,3,4,6, &                                   ! band 13
+             8,8, &                                       ! band 14
+             8,8, &                                       ! band 15
+             4,12/)                                       ! band 16
+
+      integer(kind=im), parameter :: ngb(ngptlw) = &
+           (/1,1,1,1,1,1,1,1,1,1, &                       ! band 1
+             2,2,2,2,2,2,2,2,2,2,2,2, &                   ! band 2
+             3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3, &           ! band 3
+             4,4,4,4,4,4,4,4,4,4,4,4,4,4, &               ! band 4
+             5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5, &           ! band 5
+             6,6,6,6,6,6,6,6, &                           ! band 6
+             7,7,7,7,7,7,7,7,7,7,7,7, &                   ! band 7
+             8,8,8,8,8,8,8,8, &                           ! band 8
+             9,9,9,9,9,9,9,9,9,9,9,9, &                   ! band 9
+             10,10,10,10,10,10, &                         ! band 10
+             11,11,11,11,11,11,11,11, &                   ! band 11
+             12,12,12,12,12,12,12,12, &                   ! band 12
+             13,13,13,13, &                               ! band 13
+             14,14, &                                     ! band 14
+             15,15, &                                     ! band 15
+             16,16/)                                      ! band 16
+
+      integer(kind=im), parameter :: ngm(nbndlw*mg) = &
+           (/1,2,3,3,4,4,5,5,6,6,7,7,8,8,9,10, &          ! band 1
+             1,2,3,4,5,6,7,8,9,9,10,10,11,11,12,12, &     ! band 2
+             1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16, &    ! band 3
+             1,2,3,4,5,6,7,8,9,10,11,12,13,14,14,14, &    ! band 4
+             1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16, &    ! band 5
+             1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8, &           ! band 6
+             1,1,2,2,3,4,5,6,7,8,9,10,11,11,12,12, &      ! band 7
+             1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8, &           ! band 8
+             1,2,3,4,5,6,7,8,9,9,10,10,11,11,12,12, &     ! band 9
+             1,1,2,2,3,3,4,4,5,5,5,5,6,6,6,6, &           ! band 10
+             1,2,3,3,4,4,5,5,6,6,7,7,7,8,8,8, &           ! band 11
+             1,2,3,4,5,5,6,6,7,7,7,7,8,8,8,8, &           ! band 12
+             1,1,1,2,2,2,3,3,3,3,4,4,4,4,4,4, &           ! band 13
+             1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2, &           ! band 14
+             1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2, &           ! band 15
+             1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2/)            ! band 16
+
+      real(kind=rb), parameter :: wt(mg) = &
+           (/ 0.1527534276_rb, 0.1491729617_rb, 0.1420961469_rb, &
+              0.1316886544_rb, 0.1181945205_rb, 0.1019300893_rb, &
+              0.0832767040_rb, 0.0626720116_rb, 0.0424925000_rb, &
+              0.0046269894_rb, 0.0038279891_rb, 0.0030260086_rb, &
+              0.0022199750_rb, 0.0014140010_rb, 0.0005330000_rb, &
+              0.0000750000_rb/)
+
       real(kind=rb) :: rwgt(nbndlw*mg)
 
-      integer(kind=im) :: nxmol
-      integer(kind=im) :: ixindx(maxinpx)
+      integer(kind=im), parameter :: nxmol = maxxsec
+      integer(kind=im), parameter :: ixindx(maxxsec) = (/1, 2, 3, 4/)
 
       end module rrlw_wvn

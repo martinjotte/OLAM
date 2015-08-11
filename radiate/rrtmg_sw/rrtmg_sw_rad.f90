@@ -78,16 +78,17 @@
 !------------------------------------------------------------------
 
       subroutine rrtmg_sw &
-            (ncol    ,nlay    ,icld    ,iaer    , &
-             play    ,plev    ,tlay    ,tlev    ,tsfc   , &
-             h2ovmr , o3vmr   ,co2vmr  ,ch4vmr  ,n2ovmr ,o2vmr , &
-             asdir   ,asdif   ,aldir   ,aldif   , &
-             coszen  ,adjes   ,dyofyr  ,scon    , &
-             inflgsw ,iceflgsw,liqflgsw,cldfmcl , &
-             taucmcl ,ssacmcl ,asmcmcl ,fsfcmcl , &
-             ciwpmcl ,clwpmcl ,reicmcl ,relqmcl , &
-             tauaer  ,ssaaer  ,asmaer  ,ecaer   , &
-             swuflx  ,swdflx  ,swhr    ,swuflxc ,swdflxc ,swhrc)
+            (ncol    ,nlay    ,icld    ,iaer    ,                  &
+             play    ,plev    ,tlay    ,tlev    ,tsfc    ,         &
+             h2ovmr  ,o3vmr   ,co2vmr  ,ch4vmr  ,n2ovmr  ,o2vmr ,  &
+             asdir   ,asdif   ,aldir   ,aldif   ,                  &
+             coszen  ,adjes   ,dyofyr  ,scon    ,                  &
+             inflgsw ,iceflgsw,liqflgsw,cldfmcl ,                  &
+             taucmcl ,ssacmcl ,asmcmcl ,fsfcmcl ,                  &
+             ciwpmcl ,clwpmcl ,reicmcl ,relqmcl ,                  &
+             tauaer  ,ssaaer  ,asmaer  ,ecaer   ,                  &
+             swuflx  ,swdflx  ,swhr    ,swuflxc ,swdflxc  ,swhrc,  &
+             zbbfu   ,zbbfd   ,zbbcu   ,zbbcd   ,zbbfddir ,zbbcddir)
 
 ! ------- Description -------
 
@@ -185,7 +186,7 @@
       use parrrsw, only : nbndsw, ngptsw, naerec, nstr, nmol, mxmol, &
                           jpband, jpb1, jpb2
       use rrsw_aer, only : rsrtaua, rsrpiza, rsrasya
-      use rrsw_con, only : heatfac, oneminus, pi
+      use rrsw_con, only : heatfac, oneminus, pi, zepsec, zepzen
       use rrsw_wvn, only : wavenum1, wavenum2
 
 ! ------- Declarations
@@ -304,6 +305,13 @@
       real(kind=rb), intent(out) :: swhrc(:,:)        ! Clear sky shortwave radiative heating rate (K/d)
                                                       !    Dimensions: (ncol,nlay)
 
+      real(kind=rb), intent(out) :: zbbfu   (:,:)     ! upward shortwave flux by band (w/m2)
+      real(kind=rb), intent(out) :: zbbfd   (:,:)     ! downward shortwave flux by band (w/m2)
+      real(kind=rb), intent(out) :: zbbcu   (:,:)     ! clear sky upward shortwave flux by band (w/m2)
+      real(kind=rb), intent(out) :: zbbcd   (:,:)     ! clear sky downward shortwave flux by band (w/m2)
+      real(kind=rb), intent(out) :: zbbfddir(:,:)     ! downward direct shortwave flux by band (w/m2)
+      real(kind=rb), intent(out) :: zbbcddir(:,:)     ! clear sky downward direct shortwave flux by band (w/m2)
+
 ! ----- Local -----
 
 ! Control
@@ -325,7 +333,6 @@
       integer(kind=im) :: ims                 ! value for changing mcica permute seed
       integer(kind=im) :: imca                ! flag for mcica [0=off, 1=on]
 
-      real(kind=rb) :: zepsec, zepzen         ! epsilon
       real(kind=rb) :: zdpgcp                 ! flux to heating conversion ratio
 
 ! Atmosphere
@@ -427,32 +434,26 @@
       real(kind=rb) :: zasycmc(nlay+1,ngptsw)   ! cloud asymmetry parameter [mcica] 
       real(kind=rb) :: zomgcmc(nlay+1,ngptsw)   ! cloud single scattering albedo [mcica]
 
-      real(kind=rb) :: zbbfu(nlay+2)          ! temporary upward shortwave flux (w/m2)
-      real(kind=rb) :: zbbfd(nlay+2)          ! temporary downward shortwave flux (w/m2)
-      real(kind=rb) :: zbbcu(nlay+2)          ! temporary clear sky upward shortwave flux (w/m2)
-      real(kind=rb) :: zbbcd(nlay+2)          ! temporary clear sky downward shortwave flux (w/m2)
-      real(kind=rb) :: zbbfddir(nlay+2)       ! temporary downward direct shortwave flux (w/m2)
-      real(kind=rb) :: zbbcddir(nlay+2)       ! temporary clear sky downward direct shortwave flux (w/m2)
-      real(kind=rb) :: zuvfd(nlay+2)          ! temporary UV downward shortwave flux (w/m2)
-      real(kind=rb) :: zuvcd(nlay+2)          ! temporary clear sky UV downward shortwave flux (w/m2)
-      real(kind=rb) :: zuvfddir(nlay+2)       ! temporary UV downward direct shortwave flux (w/m2)
-      real(kind=rb) :: zuvcddir(nlay+2)       ! temporary clear sky UV downward direct shortwave flux (w/m2)
-      real(kind=rb) :: znifd(nlay+2)          ! temporary near-IR downward shortwave flux (w/m2)
-      real(kind=rb) :: znicd(nlay+2)          ! temporary clear sky near-IR downward shortwave flux (w/m2)
-      real(kind=rb) :: znifddir(nlay+2)       ! temporary near-IR downward direct shortwave flux (w/m2)
-      real(kind=rb) :: znicddir(nlay+2)       ! temporary clear sky near-IR downward direct shortwave flux (w/m2)
+!      real(kind=rb) :: zuvfd(nlay+2)          ! temporary UV downward shortwave flux (w/m2)
+!      real(kind=rb) :: zuvcd(nlay+2)          ! temporary clear sky UV downward shortwave flux (w/m2)
+!      real(kind=rb) :: zuvfddir(nlay+2)       ! temporary UV downward direct shortwave flux (w/m2)
+!      real(kind=rb) :: zuvcddir(nlay+2)       ! temporary clear sky UV downward direct shortwave flux (w/m2)
+!      real(kind=rb) :: znifd(nlay+2)          ! temporary near-IR downward shortwave flux (w/m2)
+!      real(kind=rb) :: znicd(nlay+2)          ! temporary clear sky near-IR downward shortwave flux (w/m2)
+!      real(kind=rb) :: znifddir(nlay+2)       ! temporary near-IR downward direct shortwave flux (w/m2)
+!      real(kind=rb) :: znicddir(nlay+2)       ! temporary clear sky near-IR downward direct shortwave flux (w/m2)
 
 ! Optional output fields 
       real(kind=rb) :: swnflx(nlay+2)         ! Total sky shortwave net flux (W/m2)
       real(kind=rb) :: swnflxc(nlay+2)        ! Clear sky shortwave net flux (W/m2)
       real(kind=rb) :: dirdflux(nlay+2)       ! Direct downward shortwave surface flux
       real(kind=rb) :: difdflux(nlay+2)       ! Diffuse downward shortwave surface flux
-      real(kind=rb) :: uvdflx(nlay+2)         ! Total sky downward shortwave flux, UV/vis  
-      real(kind=rb) :: nidflx(nlay+2)         ! Total sky downward shortwave flux, near-IR 
-      real(kind=rb) :: dirdnuv(nlay+2)        ! Direct downward shortwave flux, UV/vis
-      real(kind=rb) :: difdnuv(nlay+2)        ! Diffuse downward shortwave flux, UV/vis
-      real(kind=rb) :: dirdnir(nlay+2)        ! Direct downward shortwave flux, near-IR
-      real(kind=rb) :: difdnir(nlay+2)        ! Diffuse downward shortwave flux, near-IR
+!     real(kind=rb) :: uvdflx(nlay+2)         ! Total sky downward shortwave flux, UV/vis  
+!     real(kind=rb) :: nidflx(nlay+2)         ! Total sky downward shortwave flux, near-IR 
+!     real(kind=rb) :: dirdnuv(nlay+2)        ! Direct downward shortwave flux, UV/vis
+!     real(kind=rb) :: difdnuv(nlay+2)        ! Diffuse downward shortwave flux, UV/vis
+!     real(kind=rb) :: dirdnir(nlay+2)        ! Direct downward shortwave flux, near-IR
+!     real(kind=rb) :: difdnir(nlay+2)        ! Diffuse downward shortwave flux, near-IR
 
 ! Output - inactive
 !      real(kind=rb) :: zuvfu(nlay+2)         ! temporary upward UV shortwave flux (w/m2)
@@ -470,11 +471,6 @@
 
 
 ! Initializations
-
-      zepsec = 1.e-06_rb
-      zepzen = 1.e-10_rb
-      oneminus = 1.0_rb - zepsec
-      pi = 2._rb * asin(1._rb)
 
       istart = jpb1
       iend = jpb2
@@ -673,22 +669,22 @@
 
 ! Call the 2-stream radiation transfer model
 
-         do i=1,nlayers+1
-            zbbcu(i) = 0._rb
-            zbbcd(i) = 0._rb
-            zbbfu(i) = 0._rb
-            zbbfd(i) = 0._rb
-            zbbcddir(i) = 0._rb
-            zbbfddir(i) = 0._rb
-            zuvcd(i) = 0._rb
-            zuvfd(i) = 0._rb
-            zuvcddir(i) = 0._rb
-            zuvfddir(i) = 0._rb
-            znicd(i) = 0._rb
-            znifd(i) = 0._rb
-            znicddir(i) = 0._rb
-            znifddir(i) = 0._rb
-         enddo
+!!         do i=1,nlayers+1
+!!            zbbcu(i) = 0._rb
+!!            zbbcd(i) = 0._rb
+!!            zbbfu(i) = 0._rb
+!!            zbbfd(i) = 0._rb
+!!            zbbcddir(i) = 0._rb
+!!            zbbfddir(i) = 0._rb
+!!            zuvcd(i) = 0._rb
+!!            zuvfd(i) = 0._rb
+!!            zuvcddir(i) = 0._rb
+!!            zuvfddir(i) = 0._rb
+!!            znicd(i) = 0._rb
+!!            znifd(i) = 0._rb
+!!            znicddir(i) = 0._rb
+!!            znifddir(i) = 0._rb
+!!         enddo
 
 
          call spcvmc_sw &
@@ -700,44 +696,44 @@
               co2mult, colch4, colco2, colh2o, colmol, coln2o, colo2, colo3, &
               fac00, fac01, fac10, fac11, &
               selffac, selffrac, indself, forfac, forfrac, indfor, &
-              zbbfd, zbbfu, zbbcd, zbbcu, zuvfd, zuvcd, znifd, znicd, &
-              zbbfddir, zbbcddir, zuvfddir, zuvcddir, znifddir, znicddir)
+              zbbfd, zbbfu, zbbcd, zbbcu, &
+              zbbfddir, zbbcddir)
 
 ! Transfer up and down, clear and total sky fluxes to output arrays.
 ! Vertical indexing goes from bottom to top; reverse here for GCM if necessary.
 
          do i = 1, nlayers+1
-            swuflxc(iplon,i) = zbbcu(i)
-            swdflxc(iplon,i) = zbbcd(i)
-            swuflx(iplon,i) = zbbfu(i)
-            swdflx(iplon,i) = zbbfd(i)
-            uvdflx(i) = zuvfd(i)
-            nidflx(i) = znifd(i)
+            swuflxc(iplon,i) = sum(zbbcu(i,1:nbndsw))
+            swdflxc(iplon,i) = sum(zbbcd(i,1:nbndsw))
+            swuflx (iplon,i) = sum(zbbfu(i,1:nbndsw))
+            swdflx (iplon,i) = sum(zbbfd(i,1:nbndsw))
+!            uvdflx(i) = zuvfd(i)
+!            nidflx(i) = znifd(i)
 !  Direct/diffuse fluxes
-            dirdflux(i) = zbbfddir(i)
-            difdflux(i) = swdflx(iplon,i) - dirdflux(i)
+!            dirdflux(i) = zbbfddir(i)
+!            difdflux(i) = swdflx(iplon,i) - dirdflux(i)
 !  UV/visible direct/diffuse fluxes
-            dirdnuv(i) = zuvfddir(i)
-            difdnuv(i) = zuvfd(i) - dirdnuv(i)
+!            dirdnuv(i) = zuvfddir(i)
+!            difdnuv(i) = zuvfd(i) - dirdnuv(i)
 !  Near-IR direct/diffuse fluxes
-            dirdnir(i) = znifddir(i)
-            difdnir(i) = znifd(i) - dirdnir(i)
+!            dirdnir(i) = znifddir(i)
+!            difdnir(i) = znifd(i) - dirdnir(i)
          enddo
 
 !  Total and clear sky net fluxes
          do i = 1, nlayers+1
             swnflxc(i) = swdflxc(iplon,i) - swuflxc(iplon,i)
-            swnflx(i) = swdflx(iplon,i) - swuflx(iplon,i)
+            swnflx(i)  = swdflx (iplon,i) - swuflx (iplon,i)
          enddo
 
 !  Total and clear sky heating rates
          do i = 1, nlayers
             zdpgcp = heatfac / pdp(i)
             swhrc(iplon,i) = (swnflxc(i+1) - swnflxc(i)) * zdpgcp
-            swhr(iplon,i) = (swnflx(i+1) - swnflx(i)) * zdpgcp
+            swhr (iplon,i) = (swnflx (i+1) - swnflx (i)) * zdpgcp
          enddo
          swhrc(iplon,nlayers) = 0._rb
-         swhr(iplon,nlayers) = 0._rb
+         swhr (iplon,nlayers) = 0._rb
 
 ! End longitude loop
       enddo

@@ -841,9 +841,9 @@
          amttl = amttl + coldry(l)+wkl(1,l)
          wvttl = wvttl + wkl(1,l)
          do ix = 1,maxxsec
-            if (ixindx(ix) .ne. 0) then
+!            if (ixindx(ix) .ne. 0) then
                wx(ixindx(ix),l) = coldry(l) * wx(ix,l) * 1.e-20_rb
-            endif
+!            endif
          enddo
       enddo
 

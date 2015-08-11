@@ -10,7 +10,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          albedt_beam, albedt_diffuse, rshort_diffuse, &
                          rlong_albedo, solfac, cloud_frac, rshort_clr, &
                          rshortup_clr, rshort_top_clr, rshortup_top_clr, &
-                         rlong_clr, rlongup_clr, rlongup_top_clr
+                         rlong_clr, rlongup_clr, rlongup_top_clr, &
+                         par, par_diffuse, uva, uvb, uvc
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab
   use mem_ijtabs,  only: itab_w
   use mem_cuparm,  only: kcutop, kcubot, cbmf, qwcon, conprr
@@ -22,17 +23,12 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   use mem_ijtabs,  only: itab_w
   use clouds_gno,  only: cu_cldfrac
 
-  use parrrtm,              only: nbndlw, ngptlw
-  use parrrsw,              only: nbndsw, ngptsw
-  use rrtmg_sw_rad,         only: rrtmg_sw
-  use rrtmg_lw_rad,         only: rrtmg_lw
-  use mcica_subcol_gen_sw,  only: mcica_subcol_sw
-  use mcica_subcol_gen_lw,  only: mcica_subcol_lw
-
-! use rrtmg_sw_rad_nomcica, only: rrtmg_sw_nomcica
-! use rrtmg_lw_rad_nomcica, only: rrtmg_lw_nomcica
-! use rrsw_cld,             only: extliq1, ssaliq1, asyliq1, extice2, ssaice2, asyice2
-! use rrlw_cld,             only: absliq1, absice2
+  use parrrtm,             only: nbndlw, ngptlw
+  use parrrsw,             only: nbndsw, ngptsw
+  use rrtmg_sw_rad,        only: rrtmg_sw
+  use rrtmg_lw_rad,        only: rrtmg_lw
+  use mcica_subcol_gen_sw, only: mcica_subcol_sw
+  use mcica_subcol_gen_lw, only: mcica_subcol_lw
 
   implicit none
 
@@ -135,6 +131,14 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: swdflxc(ncol, nrad+1)
   real :: swhrc  (ncol, nrad  )
 
+  real :: swuflxt_band    (nrad+1,nbndsw)
+  real :: swdflxt_band    (nrad+1,nbndsw)
+  real :: swdflxt_band_dir(nrad+1,nbndsw)
+
+  real :: swuflxc_band    (nrad+1,nbndsw)
+  real :: swdflxc_band    (nrad+1,nbndsw)
+  real :: swdflxc_band_dir(nrad+1,nbndsw)
+
   real :: lwuflx (ncol, nrad+1) 
   real :: lwdflx (ncol, nrad+1)
   real :: lwhr   (ncol, nrad  )
@@ -207,7 +211,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 !                                  15.  snow needles
 !                                  16.  snow rosettes
 
-integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
+  integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
 
 ! Set some surface values needed by RRTMg
 
@@ -673,44 +677,64 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      permuteseed = 1
      ntim = nint(time8/dtlm(1))
 
-     call mcica_subcol_sw(iw, ntim, iplon, ncol, nrad, icloud, permuteseed, irng, play, &
-                          cldfr, cicewp, cliqwp, reice, reliq,  &
-                          tauclds, ssaclds, asmclds, fsfclds, &
-                          cldfmcl, ciwpmcl, clwpmcl, reicmcl, relqmcl, &
-                          taucmcl, ssacmcl, asmcmcl, fsfcmcl)
+     if (any(cloud_frac(ka:mza,iw) >= 0.001)) then
+     
+        call mcica_subcol_sw(iw, ntim, iplon, ncol, nrad, icloud, &
+                             permuteseed, irng, play, &
+                             cldfr, cicewp, cliqwp, reice, reliq,  &
+                             tauclds, ssaclds, asmclds, fsfclds, &
+                             cldfmcl, ciwpmcl, clwpmcl, reicmcl, relqmcl, &
+                             taucmcl, ssacmcl, asmcmcl, fsfcmcl)
+     else
 
-     call rrtmg_sw(ncol    ,nrad    ,icloud  ,iaeros  ,                &
-                   play    ,plev    ,tlay    ,tlev    ,tsfc   ,        &
-                   h2ovmr  ,o3vmr   ,co2vmr  ,ch4vmr  ,n2ovmr ,o2vmr , &
-                   asdir   ,asdif   ,aldir   ,aldif   ,                &
-                   coszen  ,solfac  ,dyofyr  ,solar   ,                &
-                   inflg   ,iceflg  ,liqflg  ,cldfmcl ,                &
-                   taucmcl ,ssacmcl ,asmcmcl ,fsfcmcl ,                &
-                   ciwpmcl ,clwpmcl ,reicmcl ,relqmcl ,                &
-                   tauaers ,ssaaers ,asmaers ,ecaer   ,                &
-                   swuflx  ,swdflx  ,swhr    ,swuflxc ,swdflxc ,swhrc  )
+        cldfmcl(1:ngptsw, 1, 1:nrad) = 0.0
+        clwpmcl(1:ngptsw, 1, 1:nrad) = 0.0
+        ciwpmcl(1:ngptsw, 1, 1:nrad) = 0.0
+        relqmcl          (1, 1:nrad) = 0.0
+        reicmcl          (1, 1:nrad) = 0.0
+        taucmcl(1:ngptsw, 1, 1:nrad) = 0.0
+        ssacmcl(1:ngptsw, 1, 1:nrad) = 1.0
+        asmcmcl(1:ngptsw, 1, 1:nrad) = 0.0
+        fsfcmcl(1:ngptsw, 1, 1:nrad) = 0.0
 
-!!   call rrtmg_sw_nomcica( ncol   , nrad   , icloud , iaeros ,                &
-!!                          play   , plev   , tlay   , tlev   , tsfc   ,       &
-!!                          h2ovmr , o3vmr  , co2vmr , ch4vmr , n2ovmr , o2vmr,&
-!!                          asdir  , asdif  , aldir  , aldif  ,                &
-!!                          coszen , solfac , dyofyr , solar  ,                &
-!!                          inflg  , iceflg , liqflg , cldfr  ,                &
-!!                          tauclds, ssaclds, asmclds, fsfclds,                &
-!!                          cicewp , cliqwp , reice  , reliq  ,                &
-!!                          tauaers, ssaaers, asmaers, ecaer  ,                &
-!!                          swuflx , swdflx , swhr   , swuflxc, swdflxc, swhrc )
+     endif
+
+     call rrtmg_sw(ncol    ,nrad    ,icloud  ,iaeros  ,                 &
+                   play    ,plev    ,tlay    ,tlev    ,tsfc   ,         &
+                   h2ovmr  ,o3vmr   ,co2vmr  ,ch4vmr  ,n2ovmr ,o2vmr   ,&
+                   asdir   ,asdif   ,aldir   ,aldif   ,                 &
+                   coszen  ,solfac  ,dyofyr  ,solar   ,                 &
+                   inflg   ,iceflg  ,liqflg  ,cldfmcl ,                 &
+                   taucmcl ,ssacmcl ,asmcmcl ,fsfcmcl ,                 &
+                   ciwpmcl ,clwpmcl ,reicmcl ,relqmcl ,                 &
+                   tauaers ,ssaaers ,asmaers ,ecaer   ,                 &
+                   swuflx  ,swdflx  ,swhr    ,swuflxc ,swdflxc ,swhrc  ,&
+                   swuflxt_band     ,swdflxt_band     ,swuflxc_band    ,& 
+                   swdflxc_band     ,swdflxt_band_dir ,swdflxc_band_dir)
 
      rshort        (iw) = swdflx(1,1)
-!!   rshort_diffuse(iw) = flx_diff
-     rshort_top    (iw) = swdflx(1,nrad)
-     rshortup_top  (iw) = swuflx(1,nrad)
+     rshort_diffuse(iw) = swdflx(1,1) - sum(swdflxt_band_dir(1,1:nbndsw))
+     rshort_top    (iw) = swdflx(1,nrad+1)
+     rshortup_top  (iw) = swuflx(1,nrad+1)
      albedt        (iw) = swuflx(1,1) / swdflx(1,1)
 
      rshort_clr      (iw) = swdflxc(1,1)
      rshortup_clr    (iw) = swuflxc(1,1)
-     rshort_top_clr  (iw) = swdflxc(1,nrad)
-     rshortup_top_clr(iw) = swuflxc(1,nrad)
+     rshort_top_clr  (iw) = swdflxc(1,nrad+1)
+     rshortup_top_clr(iw) = swuflxc(1,nrad+1)
+
+     par(iw) = 0.5268*swdflxt_band(1, 9) + swdflxt_band(1,10) &
+             + 0.4724*swdflxt_band(1,11)
+
+     par_diffuse(iw) = par(iw) - ( 0.5268*swdflxt_band_dir(1, 9) &
+                                 +        swdflxt_band_dir(1,10) &
+                                 + 0.4724*swdflxt_band_dir(1,11) )
+
+     uva(iw) = 0.5276*swdflxt_band(1,11) + 0.3932*swdflxt_band(1,12)
+
+     uvb(iw) = 0.3708*swdflxt_band(1,12)
+
+     uvc(iw) = 0.2360*swdflxt_band(1,12) + swdflxt_band(1,13)
 
      do k = ka, mza
         krad = k - koff
@@ -729,10 +753,23 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      irng = 0
      permuteseed = 150
 
-     call mcica_subcol_lw(iw, ntim, iplon     , ncol      , nrad      , icloud, permuteseed, irng   , play, &
-                          cldfr     , cicewp    , cliqwp    , reice , reliq      , taucldl,       &
-                          cldfmcl_lw, ciwpmcl_lw, clwpmcl_lw,                                     &
-                          reicmcl   , relqmcl   , taucmcl_lw                                      )
+     if (any(cloud_frac(ka:mza,iw) >= 0.001)) then
+     
+        call mcica_subcol_lw(iw     , ntim       , iplon     , ncol      , nrad  , &
+                             icloud , permuteseed, irng      , play      ,         &
+                             cldfr  , cicewp     , cliqwp    , reice     , reliq , &
+                             taucldl, cldfmcl_lw , ciwpmcl_lw, clwpmcl_lw,         &
+                             reicmcl, relqmcl    , taucmcl_lw                      )
+     else
+
+        cldfmcl_lw(1:ngptlw, 1, 1:nrad) = 0.0
+        clwpmcl_lw(1:ngptlw, 1, 1:nrad) = 0.0
+        ciwpmcl_lw(1:ngptlw, 1, 1:nrad) = 0.0
+        relqmcl             (1, 1:nrad) = 0.0
+        reicmcl             (1, 1:nrad) = 0.0
+        taucmcl_lw(1:ngptlw, 1, 1:nrad) = 0.0
+
+     endif
 
      call rrtmg_lw(ncol       ,nrad       ,icloud     ,idrv       ,                  &
                    play       ,plev       ,tlay       ,tlev       ,tsfc    ,         & 
@@ -743,23 +780,13 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
                    lwuflx     ,lwdflx     ,lwhr       ,lwuflxc    ,lwdflxc ,lwhrc  , &
                    duflx_dt   ,duflxc_dt                                             )
 
-!!     call rrtmg_lw_nomcica( ncol    , nrad    , icloud  , idrv    ,                 &
-!!                            play    , plev    , tlay    , tlev    , tsfc  ,         &
-!!                            h2ovmr  , o3vmr   , co2vmr  , ch4vmr  , n2ovmr, o2vmr,  &
-!!                            cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr , emis  ,         &
-!!                            inflg   , iceflg  , liqflg  , cldfr   ,                 &
-!!                            taucldl , cicewp  , cliqwp  , reice   , reliq ,         &
-!!                            tauaerl , &
-!!                            lwuflx  , lwdflx  , lwhr    , lwuflxc , lwdflxc, lwhrc, &
-!!                            duflx_dt, duflxc_dt                                     )
-
      rlong      (iw) = lwdflx(1,1)
      rlongup    (iw) = lwuflx(1,1)
-     rlongup_top(iw) = lwuflx(1,nrad)
+     rlongup_top(iw) = lwuflx(1,nrad+1)
 
      rlong_clr      (iw) = lwdflxc(1,1)
      rlongup_clr    (iw) = lwuflxc(1,1)
-     rlongup_top_clr(iw) = lwuflxc(1,nrad)
+     rlongup_top_clr(iw) = lwuflxc(1,nrad+1)
 
      do k = ka, mza
         krad = k - koff
