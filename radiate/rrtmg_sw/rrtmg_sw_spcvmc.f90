@@ -805,11 +805,12 @@
 !               zgamma3= (1._rb - zsr3 * zg * prmuz ) * 0.5_rb
 !            end if
             zgamma4= 1._rb - zgamma3
-    
+
 ! Recompute original s.s.a. to test for conservative solution
 
-            zwo= zw / (1._rb - (1._rb - zw) * (zg / (1._rb - zg))**2)
-    
+!           zwo= zw / (1._rb - (1._rb - zw) * (zg / (1._rb - zg))**2)
+            zwo= zw * (1._rb - zg)**2 / ( 1._rb - 2._rb*zg + zw*zg**2 )
+
             if (zwo >= zwcrit) then
 ! Conservative scattering
 

@@ -199,7 +199,6 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_init.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_rad.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_read_h5.f90 \
-             $(RADIATE)/rrtmg_sw/rrtmg_sw_reftra.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_setcoef.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_spcvmc.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_taumol.f90 \
