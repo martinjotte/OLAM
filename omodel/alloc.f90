@@ -62,6 +62,7 @@ subroutine olam_mem_alloc()
   use cgrid_defn,  only: alloc_cgrid, filltab_cgrid
 
   use mem_megan,   only: alloc_megan, filltab_megan
+  use soil_nox,    only: alloc_soil_nox, filltab_soil_nox
 
   implicit none 
 
@@ -95,6 +96,9 @@ subroutine olam_mem_alloc()
      if (isfcl > 0) then
         call alloc_megan(mwl,mwa)
         call filltab_megan()
+
+        call alloc_soil_nox()
+        call filltab_soil_nox()
      endif
   endif
 
