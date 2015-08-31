@@ -264,8 +264,9 @@ SOURCE_FILES= \
              $(CMAQ)/isocom.f \
              $(CMAQ)/isofwd.f \
              $(CMAQ)/isorev.f \
-             $(CMAQ)/LTNG_DEFN.F \
+             $(CMAQ)/LTNG_DEFN.f90 \
              $(CMAQ)/m3dry.f \
+             $(CMAQ)/oplot_chem_lib.f90 \
              $(CMAQ)/phot.F \
              $(CMAQ)/PHOT_MOD.F \
              $(CMAQ)/PRECURSOR_DATA.F \
@@ -274,6 +275,7 @@ SOURCE_FILES= \
              $(CMAQ)/sedv_defn.f90 \
              $(CMAQ)/setup_logdev.F \
              $(CMAQ)/SOA_DEFN.F \
+             $(CMAQ)/soil_nox.f90 \
              $(CMAQ)/SSEMIS.F \
              $(CMAQ)/UTILIO_DEFN.F \
              $(MEGAN)/canopy.f90 \
