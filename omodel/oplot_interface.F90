@@ -150,7 +150,7 @@ subroutine plot_fields(id)
      endif
 #endif
 
-     if (notavail > 2) then
+     if (notavail == 3) then
         if (myrank == 0) then
            write(io6,*) 'FIELD ',trim(op%fldname(iplt)),' NOT AVAILABLE IN THIS RUN.'
            call oplot_panel(op%panel(iplt),op%colorbar(iplt),1.,op%projectn(iplt))

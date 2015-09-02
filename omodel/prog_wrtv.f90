@@ -41,11 +41,11 @@ use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, istp, itab_w, jtab_m, itab_m, &
                         mrl_begl, mrl_begs, mrl_ends, mrl_endl, &
                         jtm_vadj, jtv_prog, jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp
 use mem_basic,    only: rho, thil, theta, wc, press, wmc, vmp, vmc, vp, vc, &
-                        vxe2, vye2, vze2, &
-                        sh_w, sh_v, vxe, vye, vze, strict_wvt_donorpoint
+                        vxe, vye, vze, vxe2, vye2, vze2, &
+                        sh_w, sh_v, strict_wvt_donorpoint
 use mem_grid,     only: mza, mma, mva, mwa, nsw_max, lpm, lpv, lpw, lsw, &
-                        zt, zm, dzim, zfacit, dzm, dzt, dnv, dnu, arm0, arv, &
-                        vnx, vny, vnz, volt, glatw, glonw
+                        zt, zm, dzim, zfact, zfacit, zfacim, dzm, dzt, dnv, dniv, dnu, &
+                        arm0, arv, vnx, vny, vnz, volt, glatw, glonw
 use mem_tend,     only: vmt, vmxet, vmyet, vmzet, sh_wt
 use misc_coms,    only: io6, iparallel, time8, dtlm, rinit
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
@@ -53,6 +53,7 @@ use oplot_coms,   only: op
 use obnd,         only: lbcopy_m, lbcopy_w
 use mem_rayf,     only: dorayfdiv, krayfdiv_bot
 use vel_t3d,      only: vel_t3d_hex
+use oname_coms, only: nl
 
 implicit none
 
@@ -109,8 +110,13 @@ real :: gzps_vze(mza,mwa) ! Z component in PS projection of VZE gradient
 
 real :: thil_s(mza,mwa)
 
-real :: vortp(mza,mma)
-real :: div2d(mza,mwa)
+real :: vortp  (mza,mma)
+real :: vortn  (mza,mva)
+real :: vortp_t(mza,mwa)
+real :: div2d  (mza,mwa)
+
+real :: vmx_cor(mza,mwa)
+real :: vmy_cor(mza,mwa)
 
 real :: thil_upv(mza,mva) ! Upstreamed THIL at each V interface
 real :: vxe_upv (mza,mva) ! Upstreamed VXE  at each V interface
@@ -123,13 +129,20 @@ real :: vye_upw (mza,mwa) ! Upstreamed VYE  at each W level
 real :: vze_upw (mza,mwa) ! Upstreamed VZE  at each W level
 
 integer :: iv1,iv2,iv3,iv4,im,npoly,jv,im1,im2,im3,im4,im5,im6,iwd
+integer :: jm, kbm
 real :: c1,c2,vort_big1,vort_big2
 real :: arm0i
 
 ! Parameters for vorticity diffusion
 
-real, parameter :: tvort = 3600.
-real, parameter :: c0 = .125 / tvort
+real, parameter :: akm = 0.8 ! corresponds to akmin in Smagorinsky
+!real, parameter :: akm = 1.2 ! corresponds to akmin in Smagorinsky
+real, parameter :: c0 = akm * 0.075
+
+logical :: rotational
+
+rotational = .false.
+if (nl%expnme(1:1) == 'R') rotational = .true.
 
 vortp = rinit
 
@@ -149,7 +162,6 @@ thil_s(:,:) = thil(:,:)
 vmcf(:,1) = 0.
 
 ! First compute long timestep tendencies
-! Maybe move to a separate subroutine veltend_long_hex?
 
 mrl = mrl_begl(istp)
 if (mrl > 0) then
@@ -168,19 +180,31 @@ if (mrl > 0) then
       enddo
 
       call prog_wrt_begl(iw,rhot)
-   
+
    enddo
    !$omp end parallel do
 
-! MPI SEND of VMXET, VMYET, VMZET
+! MPI SEND/RECV of VMXET, VMYET, VMZET
 
    if (iparallel == 1) then
       call mpi_send_w(mrl, rvara1=vmxet, rvara2=vmyet, rvara3=vmzet)
+      call mpi_recv_w(mrl, rvara1=vmxet, rvara2=vmyet, rvara3=vmzet)
    endif
 
-! Horizontal loop over M/P columns for BEGL; Diagnose vertical vorticity
-! in preparation for horizontal filter
+   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
 
+endif ! mrl = mrl_begl(istp) > 0
+
+! Horizontal loop over M/P columns for computing vertical vorticity.  Always do this
+! on BEGL timestep; if using rotational method, also do this on BEGS timestep
+
+if (rotational) then
+   mrl = mrl_begs(istp)
+else
+   mrl = mrl_begl(istp)
+endif
+
+if (mrl > 0) then
 !----------------------------------------------------------------------
    !$omp parallel do private(im,npoly,kb,jv,iv,k,arm0i)
    do j = 1,jtab_m(jtm_vadj)%jend(mrl); im = jtab_m(jtm_vadj)%im(j)
@@ -225,19 +249,77 @@ if (mrl > 0) then
    enddo
    !$omp end parallel do 
 
-! Parallel send of vortp
+! Parallel send/recv of vortp
 
    if (iparallel == 1) call mpi_send_m(mrl, rvara1=vortp)
+   if (iparallel == 1) call mpi_recv_m(mrl, rvara1=vortp)
 
-! MPI RECV of VMXET, VMYET, VMZET
+   call lbcopy_m(mrl, a1=vortp)
 
-   if (iparallel == 1) then
-      call mpi_recv_w(mrl, rvara1=vmxet, rvara2=vmyet, rvara3=vmzet)
-   endif
+endif ! mrl > 0
 
-   call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet)
+if (rotational) then
+   mrl = mrl_begs(istp)
+   if (mrl > 0) then
 
-endif ! mrl = mrl_begl(istp) > 0
+! Horizontal loop over W/T columns
+
+   !----------------------------------------------------------------------
+   !$omp parallel do private(iw,npoly,kb,k,jm,im)
+   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+   !----------------------------------------------------------------------
+
+      npoly = itab_w(iw)%npoly
+      kb = lpw(iw)
+
+      vortp_t(:,iw) = 0.
+
+! Loop over M neighbors of W
+
+      do jm = 1,npoly
+         im = itab_w(iw)%im(jv)
+
+! Vertical loop over T levels; average vorticity from P points to T point.
+
+         do k = kb,mza
+            vortp_t(k,iw) = vortp_t(k,iw) + itab_w(iw)%farm(jv) * vortp(k,im)
+         enddo
+      enddo
+
+   enddo
+   !$omp end parallel do 
+
+   if (iparallel == 1) call mpi_send_w(mrl, rvara1=vortp_t)
+   if (iparallel == 1) call mpi_recv_w(mrl, rvara1=vortp_t)
+
+   call lbcopy_w(mrl, a1=vortp_t)
+
+! Horizontal loop over V/N columns
+
+!----------------------------------------------------------------------
+   !$omp parallel do private(iv,iw1,iw2,k,kb) 
+   do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
+   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+   !----------------------------------------------------------------------
+
+      kb = lpv(iv)
+
+! Vertical loop over N levels; compute horizontal relative vorticity 
+! and vertical velocity at N points (at time T)
+
+      do k = kb,mza-1
+         vortn(k,iv) = zfacim(k) * ((wc(k,iw1) - wc(k,iw2)) * dniv(iv) &
+                     + (vc(k+1,iv) * zfact(k+1) - vc(k,iv) * zfact(k)) * dzim(k))
+      enddo
+
+      vortn(1:kb-1,iv) = 0.
+      vortn(mza,iv) = 0.
+
+   enddo
+   !$omp end parallel do 
+   endif ! mrl > 0
+
+endif ! rotational
 
 ! Horizontal loop over V/N columns
 
@@ -328,11 +410,6 @@ endif  ! strict_wvt_donorpoint
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 
-! MPI RECV and LBC of VORTP
-
-   if (iparallel == 1) call mpi_recv_m(mrl, rvara1=vortp)
-   call lbcopy_m(mrl, a1=vortp)
-
 ! Horizontal loop over V columns for PROG_V_BEGL
 
 !----------------------------------------------------------------------
@@ -371,11 +448,11 @@ if (mrl > 0) then
       iv2  = itab_v(iv)%iv(2)
       iv3  = itab_v(iv)%iv(3)
       iv4  = itab_v(iv)%iv(4)
-   
-      c1 = -c0 * arm0(im1) * dnu(iv1) * dnu(iv2) / (dnu(iv1) * dnu(iv2) * dnv(iv) &
+
+      c1 = -c0 * arm0(im1)**(2./3.) * dnu(iv1) * dnu(iv2) / (dnu(iv1) * dnu(iv2) * dnv(iv) &
          + dnu(iv) * dnu(iv2) * dnv(iv1) + dnu(iv) * dnu(iv1) * dnv(iv2))
 
-      c2 = c0 * arm0(im2) * dnu(iv3) * dnu(iv4) / (dnu(iv3) * dnu(iv4) * dnv(iv) &
+      c2 = c0 * arm0(im2)**(2./3.) * dnu(iv3) * dnu(iv4) / (dnu(iv3) * dnu(iv4) * dnv(iv) &
          + dnu(iv) * dnu(iv4) * dnv(iv3) + dnu(iv) * dnu(iv3) * dnv(iv4))
 
 ! Vertical loop over V levels (for now, don't check for k >= lpm, etc.)
@@ -568,7 +645,7 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    call prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot, thil_s, &
                        thil_upv, vxe_upv, vye_upv, vze_upv,       &
                        thil_upw, vxe_upw, vye_upw, vze_upw,       &
-                       vxesc, vyesc, vzesc                        )
+                       vxesc, vyesc, vzesc, vmx_cor, vmy_cor )
 
 enddo
 !$omp end parallel do 
@@ -578,11 +655,13 @@ endif
 ! PRESS, RHO, VMXET, VMYET, and VMZET
 
 if (iparallel == 1) then
+
    call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
                    rvara1=vmxet, rvara2=vmyet, rvara3=vmzet)
 
    call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
                    rvara1=vmxet, rvara2=vmyet, rvara3=vmzet)
+
 endif
 
 call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, a4=wmc, &
@@ -597,7 +676,8 @@ if (mrl > 0) then
 do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 !----------------------------------------------------------------------
 
-   call prog_v_begs(iv,vmxet,vmyet,vmzet,div2d)
+   call prog_v_begs(iv,vmxet,vmyet,vmzet,div2d,vmx_cor,vmy_cor, &
+                    vortp,vortn,vortp_t,rotational)
 
 enddo
 !$omp end parallel do 
@@ -764,7 +844,7 @@ end subroutine prog_wrt_begl
 subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot, thil_s, &
                           thil_upv, vxe_upv, vye_upv, vze_upv,       &
                           thil_upw, vxe_upw, vye_upw, vze_upw,       &  
-                          vxesc, vyesc, vzesc                        )
+                          vxesc, vyesc, vzesc, vmx_cor, vmy_cor )
 
 use mem_tend,    only: thilt, wmt, vmxet, vmyet, vmzet
 use mem_ijtabs,  only: itab_w
@@ -805,11 +885,14 @@ real, intent(inout) :: vxesc(mza,mwa)
 real, intent(inout) :: vyesc(mza,mwa)
 real, intent(inout) :: vzesc(mza,mwa)
 
+real, intent(inout) :: vmx_cor(mza,mwa)
+real, intent(inout) :: vmy_cor(mza,mwa)
+
 integer :: jv, iv, iwn
 integer :: k, ka, kbv, kp, ksw
 integer :: npoly
 
-real :: dts
+real :: dts, omeg2
 real :: c6, c7, c8, c9, c10
 real :: dirv, vmarv
 real :: del_rhothil, vmt1
@@ -831,9 +914,6 @@ real :: delex_wm     (mza)
 real :: delex_rhothil(mza)
 real :: del_wm       (mza)
 real :: fwdel_wm     (mza)
-
-real :: vmx_cor(mza)
-real :: vmy_cor(mza)
 
 real :: hflux_rho(mza)
 real :: hflux_thil(mza)
@@ -946,23 +1026,20 @@ enddo
 ! Coriolis force
 
 if (icorflg == 1) then
-   do k = ka, mza
-      vmx_cor(k) =  omega2 * vye(k,iw) * rho(k,iw)
-      vmy_cor(k) = -omega2 * vxe(k,iw) * rho(k,iw)
-   enddo
+   omeg2 = omega2
 else
-   do k = ka, mza
-      vmx_cor(k) = 0.0
-      vmy_cor(k) = 0.0
-   enddo
+   omeg2 = 0.
 endif
 
 ! Loop over T levels
 
 do k = ka,mza
 
-! Prognostic changes from long-timestep tendencies, explicit advective fluxes,
-! and Coriolis force
+! Prognostic changes from long-timestep tendencies and explicit advective fluxes.
+! Compute Coriolis force
+
+   vmx_cor(k,iw) =  omeg2 * vye(k,iw) * rho(k,iw)
+   vmy_cor(k,iw) = -omeg2 * vxe(k,iw) * rho(k,iw)
 
    delex_rho(k) = dts * (rhot(k,iw) &
       + volti(k,iw) * (hflux_rho(k) + wmarw(k-1) - wmarw(k)))
@@ -970,11 +1047,11 @@ do k = ka,mza
    delex_rhothil(k) = dts * (thilt(k,iw) + thil(k,iw) * rhot(k,iw) &
       + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
 
-   vmxet(k,iw) = volti(k,iw) * (hflux_vxe(k) + vflux_vxe(k-1) - vflux_vxe(k)) &
-               + vmx_cor(k)
-   vmyet(k,iw) = volti(k,iw) * (hflux_vye(k) + vflux_vye(k-1) - vflux_vye(k)) &
-               + vmy_cor(k)
-   vmzet(k,iw) = volti(k,iw) * (hflux_vze(k) + vflux_vze(k-1) - vflux_vze(k))
+! VMXET, VMYET, VMZET are not yet multiplied by VOLTI
+
+   vmxet(k,iw) = hflux_vxe(k) + vflux_vxe(k-1) - vflux_vxe(k)
+   vmyet(k,iw) = hflux_vye(k) + vflux_vye(k-1) - vflux_vye(k)
+   vmzet(k,iw) = hflux_vze(k) + vflux_vze(k-1) - vflux_vze(k)
 
 ! RHOTHIL(t) and PRESS(t)
 
@@ -992,8 +1069,8 @@ enddo
 
 do k = ka,mza-1
 
-! Change in WM from EXPLICIT terms (long timestep tendency, 3 horizontal
-! advective fluxes, 2 vertical advective fluxes, vertical pgf, gravity)
+! Change in WM from EXPLICIT terms (long timestep tendency, 3 horizontal advective
+! fluxes, 2 vertical advective fluxes, vertical pgf, gravity, Coriolis force)
 
    delex_wm(k) = dts * (wmt(k,iw) &
 
@@ -1001,11 +1078,18 @@ do k = ka,mza-1
 
       - grav * (dzt_top(k) * rho(k,iw) + dzt_bot(k+1) * rho(k+1,iw))) &
 
-! In the following, do we want to use unequal weights between k and k+1 T levels?
+! Average Coriolis force in vertical between T levels
 
-      + wnxo2(iw) * (vmxet(k,iw) + vmxet(k+1,iw)) &
-      + wnyo2(iw) * (vmyet(k,iw) + vmyet(k+1,iw)) &
-      + wnzo2(iw) * (vmzet(k,iw) + vmzet(k+1,iw)))
+      + wnxo2(iw) * (vmx_cor(k,iw) + vmx_cor(k+1,iw)) &
+      + wnyo2(iw) * (vmy_cor(k,iw) + vmy_cor(k+1,iw)) &
+
+! ADD volume-weighted VMXET, VMYET, VMZET over both T levels and divide by
+! combined VOLT of those T levels
+
+      + (wnx(iw) * (vmxet(k,iw) + vmxet(k+1,iw)) &
+      +  wny(iw) * (vmyet(k,iw) + vmyet(k+1,iw)) &
+      +  wnz(iw) * (vmzet(k,iw) + vmzet(k+1,iw))) &
+      / (volt(k,iw) + volt(k+1,iw)) )
 
 enddo
 
@@ -1115,21 +1199,25 @@ do k = ka,mza
 
    thil(k,iw) = (rhothil(k) + del_rhothil) / rho(k,iw)
 
-! Update velocity tendencies at T due to change in fluxes
+! Update volume-weighted velocity tendencies at T due to change in fluxes
+! and then volume-unweight them
 
-   vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) * (vflux_vxe(k-1) - vflux_vxe(k))
-   vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) * (vflux_vye(k-1) - vflux_vye(k))
-   vmzet(k,iw) = vmzet(k,iw) + volti(k,iw) * (vflux_vze(k-1) - vflux_vze(k))
+   vmxet(k,iw) = volti(k,iw) * (vmxet(k,iw) + vflux_vxe(k-1) - vflux_vxe(k))               
+   vmyet(k,iw) = volti(k,iw) * (vmyet(k,iw) + vflux_vye(k-1) - vflux_vye(k))               
+   vmzet(k,iw) = volti(k,iw) * (vmzet(k,iw) + vflux_vze(k-1) - vflux_vze(k))
 
-! Update velocity in T cells, and add half-forward value to scalar arrays
+! Estimate velocity in T cells at (t+1) by prognostic method
 
-   vxe1(k) = (vmxe1(k) + dts * vmxet(k,iw)) / rho(k,iw)
-   vye1(k) = (vmye1(k) + dts * vmyet(k,iw)) / rho(k,iw)
-   vze1(k) = (vmze1(k) + dts * vmzet(k,iw)) / rho(k,iw)
+   vxe1(k) = (vmxe1(k) + dts * (vmxet(k,iw) + vmx_cor(k,iw))) / rho(k,iw)
+   vye1(k) = (vmye1(k) + dts * (vmyet(k,iw) + vmy_cor(k,iw))) / rho(k,iw)
+   vze1(k) = (vmze1(k) + dts * (vmzet(k,iw)                )) / rho(k,iw)
+
+! Add half-forward T cell velocity to scalar arrays
 
    vxesc(k,iw) = vxesc(k,iw) + .5 * (vxe(k,iw) + vxe1(k))
    vyesc(k,iw) = vyesc(k,iw) + .5 * (vye(k,iw) + vye1(k))
    vzesc(k,iw) = vzesc(k,iw) + .5 * (vze(k,iw) + vze1(k))
+
 enddo
 
 if (lve2(iw) > 0) then
@@ -1147,8 +1235,8 @@ if (lve2(iw) > 0) then
    do jv = 1, npoly
       iv = itab_w(iw)%iv(jv)
 
-! Project vxe1, vye1, vze1 onto V faces that are below ground, and then
-! project back to vxe2, vye2, vze2
+! Project full-forward-time vxe1, vye1, vze1 onto V faces that are below ground,
+! and then project back to vxe2, vye2, vze2
 
       if (lpv(iv) > ka) then
          do k = ka, lpv(iv) - 1
@@ -1197,26 +1285,28 @@ enddo
 
 ! Set top & bottom values of WC
 
-wc(ka-1,iw) = wnx(iw) * vxe1(ka) + wny(iw) * vye1(ka) + wnz(iw) * vze1(ka)
+!wc(ka-1,iw) = wnx(iw) * vxe1(ka) + wny(iw) * vye1(ka) + wnz(iw) * vze1(ka)
+wc(ka-1,iw) = wc(ka,iw)
 
 wc(1:ka-2,iw) = 0.
 wc(mza   ,iw) = 0.
 
-return
 end subroutine prog_wrt_begs
 
 !============================================================================
 
-subroutine prog_v_begs(iv,vmxet,vmyet,vmzet,div2d)
+subroutine prog_v_begs(iv,vmxet,vmyet,vmzet,div2d,vmx_cor,vmy_cor, &
+                       vortp,vortn,vortp_t,rotational)
 
 use mem_tend,    only: vmt
 use mem_ijtabs,  only: itab_v, itab_w
-use mem_basic,   only: vc, press, vmp, vmc, rho
+use mem_basic,   only: vc, wc, press, vmp, vmc, rho, vxe, vye, vze
 use misc_coms,   only: io6, dtsm, initial, mdomain, u01d, v01d, dn01d, &
                        deltax, nxp
 use consts_coms, only: erad, eradi, gravo2
-use mem_grid,    only: lpv, lpw, volt, xev, yev, zev, &
-                       vnxo2, vnyo2, vnzo2, mza, mva, mwa, dniv, arw0, dnu
+use mem_grid,    only: mza, mma, mva, mwa, lpv, lpw, volt, xev, yev, zev, &
+                       unx, uny, unz, vnx, vny, vnz, vnxo2, vnyo2, vnzo2, &
+                       dniu, dniv, arw0, dnu, xem, yem, zem
 use mem_rayf,    only: dorayf, rayf_cof, vc03d, dn03d, krayf_bot, &
                        dorayfdiv, krayfdiv_bot, rayf_cofdiv
 use oname_coms,  only: nl
@@ -1229,15 +1319,24 @@ real, intent(in) :: vmxet(mza,mwa)
 real, intent(in) :: vmyet(mza,mwa)
 real, intent(in) :: vmzet(mza,mwa)
 real, intent(in) :: div2d(mza,mwa)
+real, intent(in) :: vmx_cor(mza,mwa)
+real, intent(in) :: vmy_cor(mza,mwa)
+real, intent(in) :: vortp  (mza,mma)
+real, intent(in) :: vortn  (mza,mva)
+real, intent(in) :: vortp_t(mza,mwa)
+
+logical, intent(in) :: rotational
 
 integer :: jv,ivn,k,kb,npoly
 
-integer :: iw1,iw2
+integer :: iw1,iw2,im1,im2
 
 real :: sum1,sum2,vmp_eqdiv
 
 real :: dts,raxis,uv01dr,uv01dx,uv01dy,uv01dz,vcref
 real :: fracx, rayfx
+real :: vx, vy, vz, uc, watv, tke1, tke2, vortp_v, dtso2dnu, dtso2dnv
+real :: d1, d2, wt1, wt2
 
 ! Automatic arrays
 
@@ -1247,6 +1346,7 @@ real :: pgf     (mza)
 ! Extract neighbor indices and coefficients for this point in the U stencil
 
 iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2)
 
 dts = dtsm(itab_v(iv)%mrlv)
 
@@ -1325,20 +1425,73 @@ if (nl%test_case == 2 .or. nl%test_case == 5) then
    enddo
 endif
 
-! Vertical loop over V points
+! Update VMC.  If using rotational form, vmxet and vmyet only include Coriolis
+! term, and vmzet is zero.  Otherwise, vmxet, vmyet, and vmzet include both 
+! Coriolis and momentum advection terms.
 
-do k = kb,mza
+if (.not. rotational) then
 
-! Update VM from long timestep tendencies, advection, and pressure gradient force
+   do k = kb,mza
+      vmc(k,iv) = vmc(k,iv) + dts * (vmt(k,iv) + vmt_rayf(k) + pgf(k) &
+                + vnxo2(iv) * (vmx_cor(k,iw1) + vmx_cor(k,iw2)) &
+                + vnyo2(iv) * (vmy_cor(k,iw1) + vmy_cor(k,iw2)) &
+                + (vnx(iv) * (volt(k,iw1) * vmxet(k,iw1) + volt(k,iw2) * vmxet(k,iw2)) &
+                +  vny(iv) * (volt(k,iw1) * vmyet(k,iw1) + volt(k,iw2) * vmyet(k,iw2)) &
+                +  vnz(iv) * (volt(k,iw1) * vmzet(k,iw1) + volt(k,iw2) * vmzet(k,iw2)) ) &
+                / (volt(k,iw1)+volt(k,iw2)) )
 
-   vmc(k,iv) = vmc(k,iv) + dts * (vmt(k,iv) + vmt_rayf(k) + pgf(k) &
-             + vnxo2(iv) * (vmxet(k,iw1) + vmxet(k,iw2)) &
-             + vnyo2(iv) * (vmyet(k,iw1) + vmyet(k,iw2)) &
-             + vnzo2(iv) * (vmzet(k,iw1) + vmzet(k,iw2)) )
+      vc(k,iv) = 2.0 * vmc(k,iv) / (rho(k,iw1) + rho(k,iw2))
+   enddo
 
-   vc(k,iv) = 2.0 * vmc(k,iv) / (rho(k,iw1) + rho(k,iw2))
+! If using rotational form:
 
-enddo
+else
 
-return
+   dtso2dnu = 0.5 * dts * dniu(iv)
+   dtso2dnv = 0.5 * dts * dniv(iv)
+
+! Vertical loop over V levels
+
+   do k = kb,mza
+      vx = .5 * (vxe(k,iw1) + vxe(k,iw2))
+      vy = .5 * (vye(k,iw1) + vye(k,iw2)) 
+      vz = .5 * (vze(k,iw1) + vze(k,iw2)) 
+
+      uc =    unx(iv) * vx + uny(iv) * vy + unz(iv) * vz
+      watv = (xev(iv) * vx + yev(iv) * vy + zev(iv) * vz) * eradi
+
+      tke1 = .5 * (vxe(k,iw1)**2 + vye(k,iw1)**2 + vze(k,iw1)**2)
+      tke2 = .5 * (vxe(k,iw2)**2 + vye(k,iw2)**2 + vze(k,iw2)**2)
+
+      d1 = sqrt((xem(im1)-xev(iv))**2 &
+              + (yem(im1)-yev(iv))**2 &
+              + (zem(im1)-zev(iv))**2)
+
+      d2 = sqrt((xem(im2)-xev(iv))**2 &
+              + (yem(im2)-yev(iv))**2 &
+              + (zem(im2)-zev(iv))**2)
+
+
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@A1
+      vortp_v = .5 * (vortp(k,im1) + vortp(k,im2)) !q &
+
+! APVM method (Ringler et al. 2010) to obtain upwinded vortp at V        
+
+!q              + dtso2dnu * uc       * (vortp(k,im1) - vortp(k,im2)) &
+!q              + dtso2dnv * vc(k,iv) * (vortp_t(k,iw1) - vortp_t(k,iw2))
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@A2
+
+      vmc(k,iv) = vmc(k,iv) + dts * (vmt(k,iv) + vmt_rayf(k) + pgf(k) &
+                + vnxo2(iv) * (vmx_cor(k,iw1) + vmx_cor(k,iw2)) &
+                + vnyo2(iv) * (vmy_cor(k,iw1) + vmy_cor(k,iw2)) &
+                + .5 * (rho(k,iw1) + rho(k,iw2)) &
+                * (dniv(iv) * (tke1 - tke2) &
+                + uc * vortp_v &
+                - watv * .5 * (vortn(k-1,iv) + vortn(k,iv))))
+
+      vc(k,iv) = 2.0 * vmc(k,iv) / (rho(k,iw1) + rho(k,iw2))
+   enddo
+
+endif
+
 end subroutine prog_v_begs
