@@ -250,11 +250,11 @@ C for INTERPX
       CHARACTER( 80 )         :: LAND_SCHEME
       INTEGER                 :: NUMB_LANDUSE
 
-      REAL, ALLOCATABLE       :: FRACTION_LANDUSE( :,:,: ) ! fractional cover for a landuse
-      REAL, ALLOCATABLE       :: BUFFER  ( :,: )           ! temp array for reading inputs
-      REAL, ALLOCATABLE       :: LANDMASK( :,: )           ! land-water mask: 1 for land and 0 for water
-      INTEGER, ALLOCATABLE    :: ALBMAP_TO_REF( : )        ! map from reference to used landuse for albedo
-      REAL, ALLOCATABLE       :: ALBFAC_TO_REF( : )        ! factor from reference to used landuse for albedo
+!      REAL, ALLOCATABLE       :: FRACTION_LANDUSE( :,:,: ) ! fractional cover for a landuse
+!      REAL, ALLOCATABLE       :: BUFFER  ( :,: )           ! temp array for reading inputs
+!      REAL, ALLOCATABLE       :: LANDMASK( :,: )           ! land-water mask: 1 for land and 0 for water
+!      INTEGER, ALLOCATABLE    :: ALBMAP_TO_REF( : )        ! map from reference to used landuse for albedo
+!      REAL, ALLOCATABLE       :: ALBFAC_TO_REF( : )        ! factor from reference to used landuse for albedo
 
       REAL, ALLOCATABLE, SAVE :: SURFACE_ALBEDO ( :,:,: ) ! time dependent surface albedo
       REAL, ALLOCATABLE, SAVE :: ALBEDO_ANNUAL  ( :,:,: ) ! annual average of surface albedo
@@ -820,6 +820,11 @@ C...set pointer to species O3 and NO2 in CGRID
             XMSG = 'Could not find ' // VARNM // 'in species table'
             CALL M3EXIT ( PNAME, 0, 0, XMSG, XSTAT3 )
          END IF
+
+         if (.not. allocated(rj)) then
+            allocate( rj( nphotab, mza, mwa ) )
+            rj(:,:,:) = 0.0
+         endif
 
       END IF  ! firstime
 

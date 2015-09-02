@@ -152,20 +152,20 @@ use mem_plot, only: &
            tair_accum_prev0,         tair_accum_prev1, &
            sh_v_accum_prev0,         sh_v_accum_prev1, &
          vels_l_accum_prev0,       vels_l_accum_prev1, &
-      airtemp_l_accum_prev0,    airtemp_l_accum_prev1, &
+      airtemp_l_accum_prev0,    airtemp_l_accum_prev1,  airtemp_l_accum_prev2,  airtemp_l_accum_prev3, &
        airshv_l_accum_prev0,     airshv_l_accum_prev1, &
-      cantemp_l_accum_prev0,    cantemp_l_accum_prev1, &
+      cantemp_l_accum_prev0,    cantemp_l_accum_prev1,  cantemp_l_accum_prev2,  cantemp_l_accum_prev3, &
        canshv_l_accum_prev0,     canshv_l_accum_prev1, &
-     skintemp_l_accum_prev0,   skintemp_l_accum_prev1, &
+     skintemp_l_accum_prev0,   skintemp_l_accum_prev1, skintemp_l_accum_prev2, skintemp_l_accum_prev3, &
        sfluxt_l_accum_prev0,     sfluxt_l_accum_prev1, &
        sfluxr_l_accum_prev0,     sfluxr_l_accum_prev1, &
        wxfer1_l_accum_prev0,     wxfer1_l_accum_prev1, &
          vels_s_accum_prev0,       vels_s_accum_prev1, &
-      airtemp_s_accum_prev0,    airtemp_s_accum_prev1, &
+      airtemp_s_accum_prev0,    airtemp_s_accum_prev1,  airtemp_s_accum_prev2,  airtemp_s_accum_prev3, &
        airshv_s_accum_prev0,     airshv_s_accum_prev1, &
-      cantemp_s_accum_prev0,    cantemp_s_accum_prev1, &
+      cantemp_s_accum_prev0,    cantemp_s_accum_prev1,  cantemp_s_accum_prev2,  cantemp_s_accum_prev3, &
        canshv_s_accum_prev0,     canshv_s_accum_prev1, &
-     skintemp_s_accum_prev0,   skintemp_s_accum_prev1, &
+     skintemp_s_accum_prev0,   skintemp_s_accum_prev1, skintemp_s_accum_prev2, skintemp_s_accum_prev3, &
        sfluxt_s_accum_prev0,     sfluxt_s_accum_prev1, &
        sfluxr_s_accum_prev0,     sfluxr_s_accum_prev1
 
@@ -198,7 +198,7 @@ real :: area_sum
 real :: vcc
 real :: vcc_init, vx_init, vy_init, vz_init, u_init, v_init
 real :: accpboth_prev0, accpboth_prev1, accpboth_prev2, accpboth_prev3
-real :: denom
+real :: denom, fldval1, fldval2
 
 integer :: isf, ilf
 integer, save :: icall = 0
@@ -475,6 +475,13 @@ data fldlib(1:4,281:289)/ &
  'ALS_SENSFLUX_DIF2' ,'T2' ,'ALS SENS HEAT FLUX DIF2',' (W m:S2:-2  )'       ,& ! 287
  'ALS_LATFLUX_DIF2'  ,'T2' ,'ALS LAT HEAT FLUX DIF2',' (W m:S2:-2  )'        ,& ! 288
  'ALS_VAPFLUX_DIF2'  ,'T2' ,'ALS VAP FLUX DIF2',' (kg m:S2:-2   s:S2:-1  )'   / ! 289
+
+! LAND AND SEA CELLS - ATM averages of DIF4 fields
+
+data fldlib(1:4,290:292)/ &
+ 'ALS_AIRTEMPK_DIF4' ,'T2' ,'ALS ATM TEMP DIF4',' (K)'                       ,& ! 290
+ 'ALS_CANTEMPK_DIF4' ,'T2' ,'ALS CANOPY AIR TEMP DIF4',' (K)'                ,& ! 291
+ 'ALS_SKINTEMPK_DIF4','T2' ,'ALS VEG/GROUND/SFCWATER/SEA TEMP DIF4',' (K)'    / ! 292
 
 ! GRID GEOMETRY - 3D
 
@@ -1781,12 +1788,25 @@ case(127) ! 'PCPMIC_DIF4'
 ! Compute differences involving 3 previously-stored fields
 ! Convert to mm/day if time interval >= 1 second
 
-   fldval =  accpmic_prev0(i) - accpmic_prev1(i) &
-          - (accpmic_prev2(i) - accpmic_prev3(i))
+   fldval1 = accpmic_prev0(i) - accpmic_prev1(i)
+   fldval2 = accpmic_prev2(i) - accpmic_prev3(i)
 
-   if (abs(time8_prev0 - time8_prev2) > .99) then
-      fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
+   if (abs(time8_prev0 - time8_prev1) > .99) then
+      fldval1 = fldval1 * 86400. / (time8_prev0 - time8_prev1)
    endif
+
+   if (abs(time8_prev2 - time8_prev3) > .99) then
+      fldval2 = fldval2 * 86400. / (time8_prev2 - time8_prev3)
+   endif
+
+   fldval = fldval1 - fldval2
+
+!   fldval =  accpmic_prev0(i) - accpmic_prev1(i) &
+!          - (accpmic_prev2(i) - accpmic_prev3(i))
+
+!   if (abs(time8_prev0 - time8_prev2) > .99) then
+!      fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
+!   endif
 
 case(128) ! 'PCPCON_DIF4'
 
@@ -1795,12 +1815,25 @@ case(128) ! 'PCPCON_DIF4'
 ! Compute differences involving 3 previously-stored fields
 ! Convert to mm/day if time interval >= 1 second
 
-   fldval =  accpcon_prev0(i) - accpcon_prev1(i) &
-          - (accpcon_prev2(i) - accpcon_prev3(i))
+   fldval1 = accpcon_prev0(i) - accpcon_prev1(i)
+   fldval2 = accpcon_prev2(i) - accpcon_prev3(i)
 
-   if (abs(time8_prev0 - time8_prev2) > .99) then
-      fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
+   if (abs(time8_prev0 - time8_prev1) > .99) then
+      fldval1 = fldval1 * 86400. / (time8_prev0 - time8_prev1)
    endif
+
+   if (abs(time8_prev2 - time8_prev3) > .99) then
+      fldval2 = fldval2 * 86400. / (time8_prev2 - time8_prev3)
+   endif
+
+   fldval = fldval1 - fldval2
+
+!   fldval =  accpcon_prev0(i) - accpcon_prev1(i) &
+!          - (accpcon_prev2(i) - accpcon_prev3(i))
+
+!   if (abs(time8_prev0 - time8_prev2) > .99) then
+!      fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
+!   endif
 
 case(129) ! 'PCPBOTH_DIF4'
 
@@ -1812,12 +1845,25 @@ case(129) ! 'PCPBOTH_DIF4'
    accpboth_prev2 = accpmic_prev2(i) + accpcon_prev2(i)
    accpboth_prev3 = accpmic_prev3(i) + accpcon_prev3(i)
 
-   fldval =  accpboth_prev0 - accpboth_prev1 &
-          - (accpboth_prev2 - accpboth_prev3)
+   fldval1 = accpboth_prev0 - accpboth_prev1
+   fldval2 = accpboth_prev2 - accpboth_prev3
 
-   if (abs(time8_prev0 - time8_prev2) > .99) then
-      fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
+   if (abs(time8_prev0 - time8_prev1) > .99) then
+      fldval1 = fldval1 * 86400. / (time8_prev0 - time8_prev1)
    endif
+
+   if (abs(time8_prev2 - time8_prev3) > .99) then
+      fldval2 = fldval2 * 86400. / (time8_prev2 - time8_prev3)
+   endif
+
+   fldval = fldval1 - fldval2
+
+!   fldval =  accpboth_prev0 - accpboth_prev1 &
+!          - (accpboth_prev2 - accpboth_prev3)
+
+!   if (abs(time8_prev0 - time8_prev2) > .99) then
+!      fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
+!   endif
 
 case(130) ! 'PCPMIC_REL4'
 
@@ -2638,6 +2684,75 @@ case(281:289) ! 'ALS_VELS_DIF2',       'ALS_AIRTEMPK_DIF2', 'ALS_AIRSHV_DIF2',
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
+
+!-------------------------------------------------
+! LAND AND SEA CELLS - ATM averages of DIF4 fields
+!-------------------------------------------------
+
+case(290:292) ! 'ALS_AIRTEMPK_DIF4', 'ALS_CANTEMPK_DIF4', 'ALS_SKINTEMPK_DIF4'
+
+   fldval1 = 0.
+   fldval2 = 0.
+   area_sum = 0.
+
+   do jland = 1,itab_w(i)%nland
+      iland = itab_w(i)%iland(jland)
+
+      if     (trim(fldname) == 'ALS_AIRTEMPK_DIF4') then
+         if (.not. allocated(airtemp_l_accum)) go to 1000
+         fldval1 = fldval1 + (airtemp_l_accum_prev0(iland) - airtemp_l_accum_prev1(iland)) * land%area(iland)
+         fldval2 = fldval2 + (airtemp_l_accum_prev2(iland) - airtemp_l_accum_prev3(iland)) * land%area(iland)
+      elseif (trim(fldname) == 'ALS_CANTEMPK_DIF4') then
+         if (.not. allocated(cantemp_l_accum)) go to 1000
+         fldval1 = fldval1 + (cantemp_l_accum_prev0(iland) - cantemp_l_accum_prev1(iland)) * land%area(iland)
+         fldval2 = fldval2 + (cantemp_l_accum_prev2(iland) - cantemp_l_accum_prev3(iland)) * land%area(iland)
+      elseif (trim(fldname) == 'ALS_SKINTEMPK_DIF4') then
+         if (.not. allocated(skintemp_l_accum)) go to 1000
+         fldval1 = fldval1 + (skintemp_l_accum_prev0(iland) - skintemp_l_accum_prev1(iland)) * land%area(iland)
+         fldval2 = fldval2 + (skintemp_l_accum_prev2(iland) - skintemp_l_accum_prev3(iland)) * land%area(iland)
+      else
+         cycle
+      endif
+
+      area_sum = area_sum + land%area(iland)
+   enddo
+
+   do jsea = 1,itab_w(i)%nsea
+      isea = itab_w(i)%isea(jsea)
+
+      if     (trim(fldname) == 'ALS_AIRTEMPK_DIF4' ) then
+         if (.not. allocated(airtemp_s_accum)) go to 1000
+         fldval1 = fldval1 + (airtemp_s_accum_prev0(isea) - airtemp_s_accum_prev1(isea)) * sea%area(isea)
+         fldval2 = fldval2 + (airtemp_s_accum_prev2(isea) - airtemp_s_accum_prev3(isea)) * sea%area(isea)
+      elseif (trim(fldname) == 'ALS_CANTEMPK_DIF4' ) then
+         if (.not. allocated(cantemp_s_accum)) go to 1000
+         fldval1 = fldval1 + (cantemp_s_accum_prev0(isea) - cantemp_s_accum_prev1(isea)) * sea%area(isea)
+         fldval2 = fldval2 + (cantemp_s_accum_prev2(isea) - cantemp_s_accum_prev3(isea)) * sea%area(isea)
+      elseif (trim(fldname) == 'ALS_SKINTEMPK_DIF4') then
+         if (.not. allocated(skintemp_s_accum)) go to 1000
+         fldval1 = fldval1 + (skintemp_s_accum_prev0(isea) - skintemp_s_accum_prev1(isea)) * sea%area(isea)
+         fldval2 = fldval2 + (skintemp_s_accum_prev2(isea) - skintemp_s_accum_prev3(isea)) * sea%area(isea)
+      else
+         cycle
+      endif
+
+      area_sum = area_sum + sea%area(isea)
+   enddo
+
+   if (area_sum > 1.e-3) then
+      fldval1 = fldval1 / area_sum
+      fldval2 = fldval2 / area_sum
+   endif
+
+   if (abs(time8_prev0 - time8_prev1) > .99) then
+      fldval1 = fldval1 / (time8_prev0 - time8_prev1)
+   endif
+
+   if (abs(time8_prev2 - time8_prev3) > .99) then
+      fldval2 = fldval2 / (time8_prev2 - time8_prev3)
+   endif
+
+   fldval = fldval1 - fldval2
 
 ! GRID GEOMETRY - 3D
 
