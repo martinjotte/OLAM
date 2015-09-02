@@ -493,8 +493,9 @@
 
    NL%DO_CHEM   =  0
 
-   NL%LTNG_NOX  =  1
-   NL%PHOT_FRQ  =  600.
+   NL%LTNG_NOX  =  0
+   NL%CHEM_FRQ  =  1
+   NL%PHOT_FRQ  =  1
    NL%EMIS_DIR  = '../../olamdatah5/edgar42'
    NL%GEIA_EMIS_FILE = '../etc/geia_emis.nc4'
 

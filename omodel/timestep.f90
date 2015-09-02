@@ -34,7 +34,7 @@ subroutine timestep()
 
 use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, time_bias, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, dtlm, &
-                       iparallel, s1900_init, s1900_sim, do_chem, mstp
+                       iparallel, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag, io3
 use mem_grid,    only: mza, mva, mwa, nsw_max
@@ -122,12 +122,6 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
    if (ilwrtyp + iswrtyp > 0) then
       call radiate()
-   endif
-
-   if ( do_chem == 1 .and. istp == 1 ) then
-      if ( mod(time8p, nl%phot_frq) < dtlm(1) .or. mstp == 0 ) then
-         call phot(1)
-      endif
    endif
 
 ! call check_nans(3)

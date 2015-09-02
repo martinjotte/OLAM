@@ -292,7 +292,7 @@ C.. Get fractional surf-zone coverage from the OCEAN file.
 !     &             RJ  ( NCOLS, NROWS, NLAYS, NPHOTAB ),
 !     &             SEAICE( NCOLS, NROWS ) )
 
-!        allocate( rj( nphotab, mza, mwa ) )
+         allocate( rj( nphotab, mza, mwa ) )
 
          LFIRST = .FALSE.
 
@@ -375,7 +375,7 @@ C.. Get pressure in Pascals
 
 C.. Get photolysis rates in /min
 !     CALL PHOT ( MIDDATE, MIDTIME, JDATE, JTIME, TSTEP, RJ )
-!     CALL PHOT ( mrl )
+      CALL PHOT ( mrl )
 
 C.. Get Heteorogeneous rats
 !     CALL HETCHEM_RATES( TA, PRES, QV, CGRID )
