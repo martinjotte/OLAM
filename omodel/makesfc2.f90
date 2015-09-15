@@ -1752,7 +1752,8 @@ subroutine landfile_read_oldgrid()
   use leaf_coms,  only: landusefile
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
   use misc_coms,  only: io6
-  use mem_addgrid,only: nwl_og, nzg_og, xewl_og, yewl_og, zewl_og, ntext_soil_og
+  use mem_addgrid,only: nwl_og, nzg_og, xewl_og, yewl_og, zewl_og, &
+                        ntext_soil_og, leaf_class_og
 
   implicit none
 
@@ -1784,6 +1785,8 @@ subroutine landfile_read_oldgrid()
   allocate (yewl_og(nwl_og))
   allocate (zewl_og(nwl_og))
 
+  allocate (leaf_class_og(nwl_og))
+
   allocate (ntext_soil_og(nzg_og,nwl_og))
 
   ndims = 1
@@ -1792,6 +1795,8 @@ subroutine landfile_read_oldgrid()
   call shdf5_irec(ndims, idims, 'xewl', rvara=xewl_og)
   call shdf5_irec(ndims, idims, 'yewl', rvara=yewl_og)
   call shdf5_irec(ndims, idims, 'zewl', rvara=zewl_og)
+
+  call shdf5_irec(ndims, idims, 'leaf_class', ivara=leaf_class_og)
 
   ndims = 2
   idims(1) = nzg_og

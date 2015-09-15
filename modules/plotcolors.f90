@@ -149,7 +149,7 @@ data clrtab(6)%vals(1:22)/ &
 ! Table 7 (moderate specific humidities(g/kg))
 
 data clrtab(7)%nvals/46/  
-data clrtab(7)%ifmt(1:2)/0,6/
+data clrtab(7)%ifmt(1:2)/1,6/
 data clrtab(7)%ipal(1:46)/ &
    100,101,102,103,104,105,106,107,108,109, &
    110,111,112,113,114,115,116,117,118,119, &
@@ -230,7 +230,7 @@ data clrtab(11)%vals(1:46)/ &
 ! Table 12 (specialized theta)
 
 data clrtab(12)%nvals/22/
-data clrtab(12)%ifmt(1:2)/0,4/
+data clrtab(12)%ifmt(1:2)/1,4/
 data clrtab(12)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -256,7 +256,7 @@ data clrtab(13)%vals(1:22)/ &
 ! Table 14 (specialized press)
 
 data clrtab(14)%nvals/22/
-data clrtab(14)%ifmt(1:2)/1,3/
+data clrtab(14)%ifmt(1:2)/0,3/
 data clrtab(14)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -269,7 +269,7 @@ data clrtab(14)%vals(1:22)/ &
 ! Table 15 (specialized rho)
 
 data clrtab(15)%nvals/22/
-data clrtab(15)%ifmt(1:2)/5,6/
+data clrtab(15)%ifmt(1:2)/4,6/
 data clrtab(15)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -331,7 +331,7 @@ data clrtab(18)%vals(1:46)/ &
 ! Table 19 (specialized THETA for Kansas LES)
 
 data clrtab(19)%nvals/46/ 
-data clrtab(19)%ifmt(1:2)/0,3/
+data clrtab(19)%ifmt(1:2)/1,3/
 data clrtab(19)%ipal(1:46)/ &
    100,101,102,103,104,105,106,107,108,109, &
    110,111,112,113,114,115,116,117,118,119, &
@@ -365,7 +365,7 @@ data clrtab(20)%vals(1:46)/ &
 ! Table 21 (AIRTEMPK for 10 meter mtn - heat bubble)
 
 data clrtab(21)%nvals/22/
-data clrtab(21)%ifmt(1:2)/2,5/
+data clrtab(21)%ifmt(1:2)/0,5/
 data clrtab(21)%ipal(1:22)/ &
    100,101,102,103,104,105,106,107,108,109, &
    110,111,112,113,114,115,116,117,118,119, &
@@ -378,7 +378,7 @@ data clrtab(21)%vals(1:22)/ &
 ! Table 22 (specialized press - frances)
 
 data clrtab(22)%nvals/15/
-data clrtab(22)%ifmt(1:2)/1,3/
+data clrtab(22)%ifmt(1:2)/0,3/
 data clrtab(22)%ipal(1:15)/ &
    255,254,253,252,251,250,249,248,247,246, &
    245,244,243,242,241                      /
@@ -652,7 +652,7 @@ data clrtab(39)%vals(1:21)/ &
 ! Table 40 (TEMP for HS)
 
 data clrtab(40)%nvals/30/
-data clrtab(40)%ifmt(1:2)/3,5/
+data clrtab(40)%ifmt(1:2)/0,5/
 data clrtab(40)%ipal(1:30)/ &
    141,141,141,141,141,  7,  7,  7,  7,  7, &
      7,  7,  7,  7,  7,  7,  7,  7,  7,  7, &
@@ -665,7 +665,7 @@ data clrtab(40)%vals(1:30)/ &
 ! Table 41 (specialized press)
 
 data clrtab(41)%nvals/12/
-data clrtab(41)%ifmt(1:2)/1,3/
+data clrtab(41)%ifmt(1:2)/0,3/
 data clrtab(41)%ipal(1:12)/ &
     29, 28, 27, 25, 24, 23, &
     21, 51, 53, 55, 57, 59  /
@@ -676,7 +676,7 @@ data clrtab(41)%vals(1:12)/ &
 ! Table 42 (specialized AIRTEMPK)
 
 data clrtab(42)%nvals/22/
-data clrtab(42)%ifmt(1:2)/2,5/
+data clrtab(42)%ifmt(1:2)/3,5/
 data clrtab(42)%ipal(1:22)/ &
    100,101,102,103,104,105,106,107,108,109, &
    110,111,112,113,114,115,116,117,118,119, &
@@ -700,7 +700,7 @@ data clrtab(43)%vals(1:14)/ &
 ! Table 44 (specialized AIRTEMPK)
 
 data clrtab(44)%nvals/14/
-data clrtab(44)%ifmt(1:2)/2,5/
+data clrtab(44)%ifmt(1:2)/0,5/
 data clrtab(44)%ipal(1:14)/ &
    100,102,104,106,108,109,111, &
    113,115,117,118,119,120,121  /
@@ -711,7 +711,7 @@ data clrtab(44)%vals(1:14)/ &
 ! Table 45 (specialized AIRTEMPK)
 
 data clrtab(45)%nvals/26/
-data clrtab(45)%ifmt(1:2)/2,5/
+data clrtab(45)%ifmt(1:2)/0,5/
 data clrtab(45)%ipal(1:26)/ &
    230,231,232,233,234,235,236,237,238,239, &
    240,241,242,243,244,245,246,247,248,249, &
@@ -724,7 +724,7 @@ data clrtab(45)%vals(1:26)/ &
 ! Table 46 (Airtempk near surface - cases 1-2)
 
 data clrtab(46)%nvals/26/
-data clrtab(46)%ifmt(1:2)/1,6/
+data clrtab(46)%ifmt(1:2)/0,6/
 data clrtab(46)%ipal(1:26)/ &
    230,231,232,233,234,235,236,237,238,239, &
    240,241,242,243,244,245,246,247,248,249, &
@@ -737,7 +737,7 @@ data clrtab(46)%vals(1:26)/ &
 ! Table 47 (Surface P cases 1-2,4)
 
 data clrtab(47)%nvals/26/
-data clrtab(47)%ifmt(1:2)/1,6/
+data clrtab(47)%ifmt(1:2)/0,6/
 data clrtab(47)%ipal(1:26)/ &
    230,231,232,233,234,235,236,237,238,239, &
    240,241,242,243,244,245,246,247,248,249, &
@@ -750,7 +750,7 @@ data clrtab(47)%vals(1:26)/ &
 ! Table 48 (Z850 cases 1-2)
 
 data clrtab(48)%nvals/26/
-data clrtab(48)%ifmt(1:2)/1,6/
+data clrtab(48)%ifmt(1:2)/0,6/
 data clrtab(48)%ipal(1:26)/ &
    230,231,232,233,234,235,236,237,238,239, &
    240,241,242,243,244,245,246,247,248,249, &
@@ -763,7 +763,7 @@ data clrtab(48)%vals(1:26)/ &
 ! Table 49 (T850 case 4)
 
 data clrtab(49)%nvals/26/
-data clrtab(49)%ifmt(1:2)/1,6/
+data clrtab(49)%ifmt(1:2)/2,6/
 data clrtab(49)%ipal(1:26)/ &
    230,231,232,233,234,235,236,237,238,239, &
    240,241,242,243,244,245,246,247,248,249, &
@@ -776,7 +776,7 @@ data clrtab(49)%vals(1:26)/ &
 ! Table 50 (Z500 case 4)
 
 data clrtab(50)%nvals/26/
-data clrtab(50)%ifmt(1:2)/1,6/
+data clrtab(50)%ifmt(1:2)/0,6/
 data clrtab(50)%ipal(1:26)/ &
    230,231,232,233,234,235,236,237,238,239, &
    240,241,242,243,244,245,246,247,248,249, &
@@ -789,7 +789,7 @@ data clrtab(50)%vals(1:26)/ &
 ! Table 51 (Surface P cases 1-2,4)
 
 data clrtab(51)%nvals/21/
-data clrtab(51)%ifmt(1:2)/1,6/
+data clrtab(51)%ifmt(1:2)/0,6/
 data clrtab(51)%ipal(1:21)/ &
    230,231,232,233,234,235,236,237,238,239, &
    240,241,242,243,244,245,246,247,248,249, &
@@ -802,7 +802,7 @@ data clrtab(51)%vals(1:21)/ &
 ! Table 52 (Z700 case 5)
 
 data clrtab(52)%nvals/15/
-data clrtab(52)%ifmt(1:2)/1,6/
+data clrtab(52)%ifmt(1:2)/0,6/
 data clrtab(52)%ipal(1:15)/ &
    235,236,237,238,239,240,241,242,243,244, &
    245,246,247,248,249   /
@@ -813,7 +813,7 @@ data clrtab(52)%vals(1:15)/ &
 ! Table 53 (T700 case 5)
 
 data clrtab(53)%nvals/15/
-data clrtab(53)%ifmt(1:2)/1,6/
+data clrtab(53)%ifmt(1:2)/0,6/
 data clrtab(53)%ipal(1:15)/ &
    235,236,237,238,239,240,241,242,243,244, &
    245,246,247,248,249   /
@@ -906,7 +906,7 @@ data clrtab(58)%vals(1:46)/ &
 ! Range: 0-140 knots = 0-72 m/s
 
 data clrtab(59)%nvals/30/
-data clrtab(59)%ifmt(1:2)/0,2/
+data clrtab(59)%ifmt(1:2)/3,2/
 data clrtab(59)%ipal(1:30)/ &
    201, 201, 202, 203, 204, 205, 206, 207, 208, 209, &
    210, 211, 212, 213, 214, 215, 216, 217, 218, 219, &
@@ -1225,7 +1225,7 @@ data clrtab(109)%vals(1:22)/ &
 ! Table 110 (very small U,W)
 
 data clrtab(110)%nvals/22/
-data clrtab(110)%ifmt(1:2)/2,5/
+data clrtab(110)%ifmt(1:2)/1,5/
 data clrtab(110)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -1238,15 +1238,15 @@ data clrtab(110)%vals(1:22)/ &
 ! Table 111 (triangle coefficients)
 
 data clrtab(111)%nvals/22/
-data clrtab(111)%ifmt(1:2)/3,5/
+data clrtab(111)%ifmt(1:2)/1,5/
 data clrtab(111)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
     59,133                                  /
 data clrtab(111)%vals(1:22)/ &
-   -2.0,-1.8,-1.6,-1.4,-1.2,-1.0, -.8, -.6, -.4,- .2, &
-     0.,  .2,  .4,  .6,  .8, 1.0, 1.2, 1.4, 1.6, 1.8, &
-    2.0, 2.2                                          /
+   -3.0,-2.7,-2.4,-2.1,-1.8,-1.5,-1.2, -.9, -.6,- .3, &
+     0.,  .3,  .6,  .9, 1.2, 1.5, 1.8, 2.1, 2.4, 2.7, &
+    3.0, 3.3                                          /
     
 ! Table 112 (designed for TEMP/THETA in C - full range at surface)
 
@@ -1300,7 +1300,7 @@ data clrtab(114)%vals(1:40)/ &
 ! Table 115 
 
 data clrtab(115)%nvals/22/
-data clrtab(115)%ifmt(1:2)/-1,-4/
+data clrtab(115)%ifmt(1:2)/0,4/
 data clrtab(115)%ipal(1:22)/ &
     39, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -1395,7 +1395,7 @@ data clrtab(121)%vals(1:22)/ &
 ! Table 122 (W for 20 meter mtn)
 
 data clrtab(122)%nvals/22/
-data clrtab(122)%ifmt(1:2)/3,5/
+data clrtab(122)%ifmt(1:2)/2,5/
 data clrtab(122)%ipal(1:22)/ &
    142,142,142,142,142,142,142,142,142,142, &
    142,  7,  7,  7,  7,  7,  7,  7,  7,  7, &
@@ -1440,7 +1440,7 @@ data clrtab(124)%vals(1:49)/ &
 ! Table 125 (Merid wind for WM2)
 
 data clrtab(125)%nvals/22/
-data clrtab(125)%ifmt(1:2)/3,5/
+data clrtab(125)%ifmt(1:2)/2,5/
 data clrtab(125)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20,  7, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -1453,7 +1453,7 @@ data clrtab(125)%vals(1:22)/ &
 ! Table 126 (HERROR for WM2)
 
 data clrtab(126)%nvals/11/
-data clrtab(126)%ifmt(1:2)/3,5/
+data clrtab(126)%ifmt(1:2)/2,5/
 data clrtab(126)%ipal(1:11)/ &
    141,29,27,25,23,21,51,53,55,57, &
     59                             /
@@ -1490,7 +1490,7 @@ data clrtab(128)%vals(1:22)/ &
 ! Table 129
 
 data clrtab(129)%nvals/22/
-data clrtab(129)%ifmt(1:2)/-2,5/
+data clrtab(129)%ifmt(1:2)/0,5/
 data clrtab(129)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -1533,7 +1533,7 @@ data clrtab(131)%vals(1:22)/ &
 ! Table 132 (U_ZONAL for HS)
 
 data clrtab(132)%nvals/22/
-data clrtab(132)%ifmt(1:2)/3,5/
+data clrtab(132)%ifmt(1:2)/2,5/
 data clrtab(132)%ipal(1:22)/ &
    142,142,142,142,142,142,142,142,142,142, &
    142,  7,  7,  7,  7,  7,  7,  7,  7,  7, &
@@ -1546,7 +1546,7 @@ data clrtab(132)%vals(1:22)/ &
 ! Table 133 (U_MERID for HS)
 
 data clrtab(133)%nvals/22/
-data clrtab(133)%ifmt(1:2)/3,5/
+data clrtab(133)%ifmt(1:2)/1,5/
 data clrtab(133)%ipal(1:22)/ &
    142,142,142,142,142,142,142,142,142,142, &
    142,  7,  7,  7,  7,  7,  7,  7,  7,  7, &
@@ -1559,7 +1559,7 @@ data clrtab(133)%vals(1:22)/ &
 ! Table 134 (TEMP2 for HS)
 
 data clrtab(134)%nvals/22/
-data clrtab(134)%ifmt(1:2)/3,5/
+data clrtab(134)%ifmt(1:2)/2,5/
 data clrtab(134)%ipal(1:22)/ &
    142,142,142,142,142,142,142,142,142,142, &
    142,  7,  7,  7,  7,  7,  7,  7,  7,  7, &
@@ -1572,7 +1572,7 @@ data clrtab(134)%vals(1:22)/ &
 ! Table 135 (small +/-) 
 
 data clrtab(135)%nvals/18/
-data clrtab(135)%ifmt(1:2)/-2,-4/
+data clrtab(135)%ifmt(1:2)/1,4/
 data clrtab(135)%ipal(1:18)/ &
     39, 28, 26, 24, 22, &
     20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -1624,7 +1624,7 @@ data clrtab(138)%vals(1:26)/ &
 ! Table 139 (PS perturbation cases 6-0-0, 6-1-0, 6-2-0)
 
 data clrtab(139)%nvals/26/
-data clrtab(139)%ifmt(1:2)/1,6/
+data clrtab(139)%ifmt(1:2)/2,6/
 data clrtab(139)%ipal(1:26)/ &
    230,231,232,233,234,235,236,237,238,239, &
    240,241,242,243,244,245,246,247,248,249, &
@@ -1643,9 +1643,9 @@ data clrtab(140)%ipal(1:26)/ &
    240,241,242,243,244,245,246,247,248,249, &
    250,251,252,253,254,255                  /
 data clrtab(140)%vals(1:26)/ &
-   -7.50, -7.00, -6.50, -6.00, -5.50, -5.00, -4.50, -4.00, -3.50, -3.00, &
-   -2.50, -2.00, -1.50, -1.00, -0.50,  0.00,  0.50,  1.00,  1.50,  2.00, &
-    2.50,  3.00,  3.50,  4.00,  4.50,  5.00e2                            /
+   -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0, -3.5, -3.0, &
+   -2.5, -2.0, -1.5, -1.0, -0.5,  0.0,  0.5,  1.0,  1.5,  2.0, &
+    2.5,  3.0,  3.5,  4.0,  4.5,  5.0e2                            /
     
 ! Table 141 (Scalar fields)
 
@@ -1663,7 +1663,7 @@ data clrtab(141)%vals(1:26)/ &
 ! Table 142 (Wind)
 
 data clrtab(142)%nvals/26/
-data clrtab(142)%ifmt(1:2)/1,6/
+data clrtab(142)%ifmt(1:2)/0,6/
 data clrtab(142)%ipal(1:26)/ &
    230,231,232,233,234,235,236,237,238,239, &
    240,241,242,243,244,245,246,247,248,249, &
@@ -1687,7 +1687,7 @@ data clrtab(143)%vals(1:15)/ &
 ! Table 144 (Wind)
 
 data clrtab(144)%nvals/26/
-data clrtab(144)%ifmt(1:2)/1,6/
+data clrtab(144)%ifmt(1:2)/0,6/
 data clrtab(144)%ipal(1:26)/ &
    230,231,232,233,234,235,236,237,238,239, &
    240,241,242,243,244,245,246,247,248,249, &
@@ -1700,7 +1700,7 @@ data clrtab(144)%vals(1:26)/ &
 ! Table 145 (Wind)
 
 data clrtab(145)%nvals/19/
-data clrtab(145)%ifmt(1:2)/1,6/
+data clrtab(145)%ifmt(1:2)/0,6/
 data clrtab(145)%ipal(1:19)/ &
    234,235,236,237,238,239,240,241,242,243, &
    244,245,246,247,248,249,250,251,252      /
@@ -1724,7 +1724,7 @@ data clrtab(146)%vals(1:22)/ &
 ! Table 147 (very small U,W)
 
 data clrtab(147)%nvals/22/
-data clrtab(147)%ifmt(1:2)/2,5/
+data clrtab(147)%ifmt(1:2)/1,5/
 data clrtab(147)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -1774,7 +1774,7 @@ data clrtab(150)%vals(1:16)/ &
 ! Table 151 (Merid wind for WM2)
 
 data clrtab(151)%nvals/22/
-data clrtab(151)%ifmt(1:2)/3,5/
+data clrtab(151)%ifmt(1:2)/2,5/
 data clrtab(151)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20,  7, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -1787,7 +1787,7 @@ data clrtab(151)%vals(1:22)/ &
 ! Table 152 (Press for nested WM2)
 
 data clrtab(152)%nvals/22/
-data clrtab(152)%ifmt(1:2)/3,5/
+data clrtab(152)%ifmt(1:2)/1,5/
 data clrtab(152)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20,  7, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -1800,7 +1800,7 @@ data clrtab(152)%vals(1:22)/ &
 ! Table 153 ( )
 
 data clrtab(153)%nvals/22/
-data clrtab(153)%ifmt(1:2)/3,5/
+data clrtab(153)%ifmt(1:2)/2,5/
 data clrtab(153)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20,  7, 51, 52, 53, 54, 55, 56, 57, 58, &
@@ -1965,7 +1965,7 @@ data clrtab(165)%vals(1:22)/ &
 ! Table 166 (pcp for Chapman - comparison with WRF [mm/day])
 
 data clrtab(166)%nvals/15/
-data clrtab(166)%ifmt(1:2)/1,6/
+data clrtab(166)%ifmt(1:2)/0,6/
 data clrtab(166)%ipal(1:15)/ &
    241,241,242,243,244,245,246,247,248,249, &
    250,251,252,253,254                      /
@@ -2271,7 +2271,7 @@ data clrtab(400)%vals(1:46)/ &
 ! Table 401 (TOPM - nonuniform contouring and green land at low elev)
 
 data clrtab(401)%nvals/40/
-data clrtab(401)%ifmt(1:2)/0,2/
+data clrtab(401)%ifmt(1:2)/1,2/
 data clrtab(401)%ipal(1:40)/ &
    151,152,153,154,155,156,157,158,159,160, &
    161,162,163,164,165,166,167,168,169,170, &
@@ -2286,7 +2286,7 @@ data clrtab(401)%vals(1:40)/ &
 ! Table 402 (TOPM - nonuniform contouring and green land at low elev)
 
 data clrtab(402)%nvals/40/
-data clrtab(402)%ifmt(1:2)/0,2/
+data clrtab(402)%ifmt(1:2)/1,2/
 data clrtab(402)%ipal(1:40)/ &
    191,192,193,194,195,196,197,198,199,200, &
    201,202,203,204,205,206,207,208,209,210, &
@@ -2301,7 +2301,7 @@ data clrtab(402)%vals(1:40)/ &
 ! Table 403 (specialized rho)
 
 data clrtab(403)%nvals/22/
-data clrtab(403)%ifmt(1:2)/5,5/
+data clrtab(403)%ifmt(1:2)/3,5/
 data clrtab(403)%ipal(1:22)/ &
    141, 29, 28, 27, 26, 25, 24, 23, 22, 21, &
     20, 50, 51, 52, 53, 54, 55, 56, 57, 58, &

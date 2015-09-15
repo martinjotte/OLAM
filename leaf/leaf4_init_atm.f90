@@ -73,9 +73,7 @@ subroutine leaf4_init_atm()
 
   real, external :: rhovsl
 
-  if (runtype /= "INITIAL") return
-
-  ! If not a history restart, initialize leaf quantities 
+  ! Initialize leaf quantities that do not depend on atmospheric conditions
 
   timefac_ndvi = 0.
 
@@ -98,18 +96,8 @@ subroutine leaf4_init_atm()
 
   endif
 
-  !$omp parallel do private (iw,kw,leaf_class,k,ntext,headp_phi,psi)
+  !$omp parallel do private (leaf_class)
   do iwl = 2,mwl
-
-     iw = itab_wl(iwl)%iw  ! global index
-
-     ! If run is parallel, convert iw to local domain
-
-     if (isubdomain == 1) then
-        iw = itabg_w(iw)%iw_myrank
-     endif
-
-     kw = itab_wl(iwl)%kw
 
      ! Set vegetation parameters
 
@@ -176,6 +164,27 @@ subroutine leaf4_init_atm()
 
      endif
 
+  enddo  ! iwl
+
+  ! End of initialization that does not depend on atmospheric conditions
+
+  if (runtype /= "INITIAL") return
+
+  ! Initialize leaf quantities that depend on atmospheric conditions
+
+  !$omp parallel do private (iw,kw,k,ntext,headp_phi,psi)
+  do iwl = 2,mwl
+
+     iw = itab_wl(iwl)%iw  ! global index
+
+     ! If run is parallel, convert iw to local domain
+
+     if (isubdomain == 1) then
+        iw = itabg_w(iw)%iw_myrank
+     endif
+
+     kw = itab_wl(iwl)%kw
+
      ! Transfer atmospheric properties to each land cell
 
      land%rhos     (iwl) = rho (kw,iw)
@@ -236,7 +245,7 @@ subroutine leaf4_init_atm()
 
      enddo
 
-  enddo
+  enddo  ! iwl
   !$omp end parallel do
 
   ! Overwrite the default soil initialization with observed data if specified

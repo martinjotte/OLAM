@@ -424,10 +424,8 @@ subroutine olam_run(name_name)
 
   ! Initialize leaf fields
 
-     if (runtype == 'INITIAL') then
-        write(io6,'(/,a)') 'olam_run calling leaf4_init_atm'
-        call leaf4_init_atm()
-     endif
+     write(io6,'(/,a)') 'olam_run calling leaf4_init_atm'
+     call leaf4_init_atm()
 
 #ifdef USE_ED2
      if (ed2_active == 1) then
@@ -438,10 +436,8 @@ subroutine olam_run(name_name)
 
   ! Initialize ocean fields
 
-     if (runtype == 'INITIAL') then
-        write(io6,'(/,a)') 'olam_run calling sea_init_atm'
-        call sea_init_atm()
-     endif
+     write(io6,'(/,a)') 'olam_run calling sea_init_atm'
+     call sea_init_atm()
 
   endif
 

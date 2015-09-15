@@ -33,7 +33,7 @@
 
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ! Bob notes 9/24/2014: Subroutine cldnuc2 begun as alternative to subroutine
-! cldnud.  Cldnuc2 intended to interface with subroutine ccnbin, the new
+! cldnuc.  Cldnuc2 intended to interface with subroutine ccnbin, the new
 ! "on-line" code for nucleating CCN during a model run.  Suspended development
 ! until further considering Lagrangian parcel formulation, which is the 
 ! correct way to consider nucleation and environmental forcing rates.  Code

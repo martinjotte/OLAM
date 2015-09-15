@@ -98,6 +98,8 @@ Module mem_addgrid
 
   integer, allocatable :: ntext_soil_og(:,:) ! (nzg_og,nwl_og)
 
+  integer, allocatable :: leaf_class_og(:) ! (nwl_og)
+
   Type itab_wog_vars          ! data structure for OLD grid IW pts (global domain)
      integer :: npoly = 0     ! number of W neighbors of this W pt
      integer :: iv(7)         ! neighbor V pts
@@ -147,7 +149,7 @@ Contains
   real :: dist, dist_min, dist_max, xi, yi
   real :: xin(7),yin(7)
 
-  integer :: iw, iw_og, iwn_og, npoly, j, jmaxneg, jminpos
+  integer :: iw, iw_og, iwn, iwn_og, npoly, j, jmaxneg, jminpos, ngrw
   integer :: iwl, iws, iwl_og, iws_og
 
   allocate(itab_wadd(mwa))
@@ -164,7 +166,14 @@ Contains
 
 ! Skip points that do not need to be interpolated
 
-     if (itab_w(iw)%ngr <= ngrids_og) cycle
+     ngrw = 0
+     do j = 1,itab_w(iw)%npoly
+        iwn = itab_w(iw)%iw(j)
+
+        if (ngrw < itab_w(iwn)%ngr) ngrw = itab_w(iwn)%ngr
+     enddo
+
+     if (itab_w(iw)%ngr <= ngrids_og .and. ngrw <= ngrids_og) cycle
 
 ! Initialize minimum distance variable
 
@@ -394,7 +403,7 @@ Contains
   real,     optional, intent(inout) :: rvarb1(jdims(1)), rvarb2(jdims(1),jdims(2))
   real(r8), optional, intent(inout) :: dvarb1(jdims(1)), dvarb2(jdims(1),jdims(2))
 
-  integer :: iw, iv, iw1, iw2, iwl, iws, k
+  integer :: iw, iv, iw1, iw2, iwl, iws, k, j, iwn, ngrw
   integer :: iw_og, iw_og1, iw_og2, iw_og3, iv_og, iwl_og, iws_og, ka_og
   real :: f_og1, f_og2, f_og3, cof
 
@@ -437,7 +446,14 @@ Contains
 
 ! Check ngr value of current IW point
 
-        if (itab_w(iw)%ngr <= ngrids_og) then
+        ngrw = 0
+        do j = 1,itab_w(iw)%npoly
+           iwn = itab_w(iw)%iw(j)
+
+           if (ngrw < itab_w(iwn)%ngr) ngrw = itab_w(iwn)%ngr
+        enddo
+
+        if (itab_w(iw)%ngr <= ngrids_og .and. ngrw <= ngrids_og) then
 
 ! This IW point should be identical between OLD and NEW grids, so set its
 ! OLD grid index to NEW grid iwglobe value
@@ -681,7 +697,7 @@ Contains
 
   implicit none
 
-  integer :: j,iw,npoly,ka,k,jv,iv,ksw,kbv,iw_og
+  integer :: j,iw,npoly,ka,k,jv,iv,ksw,kbv,iw_og, jn, iwn, ngrw
 
 ! Horizontal loop over W columns
 
@@ -696,7 +712,14 @@ Contains
 
 ! Check ngr value of current IW point
 
-     if (itab_w(iw)%ngr <= ngrids_og) then
+     ngrw = 0
+     do jn = 1,npoly
+        iwn = itab_w(iw)%iw(jn)
+
+        if (ngrw < itab_w(iwn)%ngr) ngrw = itab_w(iwn)%ngr
+     enddo
+
+     if (itab_w(iw)%ngr <= ngrids_og .and. ngrw <= ngrids_og) then
 
 ! This IW point should be identical between OLD and NEW grids, so set its
 ! OLD grid index to NEW grid iwglobe value
@@ -709,7 +732,7 @@ Contains
 
            print*, 'diagvel_t3d_init_addgrid: grid changed'
            print*, 'lve2   ',iw,lve2(iw)
-           print*, 'ive2_og',iw_og,lve2(iw_og)
+           print*, 'lve2_og',iw_og,lve2_og(iw_og)
            stop 'stop diagvel_t3d_init_addgrid'
         endif
 

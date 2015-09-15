@@ -1862,12 +1862,12 @@ case(129) ! 'PCPBOTH_DIF4'
 case(130) ! 'PCPMIC_REL4'
 
 ! Compute relative differences involving 3 previously-stored fields
-! [fldval=runB_end; prev1=runA_end; prev2=runB_beg; prev3=runA_beg]
+! [fldval=runB_end; prev1=runB_beg; prev2=runA_end; prev3=runA_beg]
 
-   denom  =  accpmic_prev0(i) + accpmic_prev1(i) &
-          - (accpmic_prev2(i) + accpmic_prev3(i))
+   denom  = (accpmic_prev0(i) - accpmic_prev1(i)) &
+          + (accpmic_prev2(i) - accpmic_prev3(i))
 
-   fldval =  accpmic_prev0(i) - accpmic_prev1(i) &
+   fldval = (accpmic_prev0(i) - accpmic_prev1(i)) &
           - (accpmic_prev2(i) - accpmic_prev3(i))
 
    if (abs(denom) > 1.e-3) then
@@ -1882,10 +1882,10 @@ case(131) ! 'PCPCON_REL4'
 
 ! Compute relative differences involving 3 previously-stored fields
 
-   denom  =  accpcon_prev0(i) + accpcon_prev1(i) &
-          - (accpcon_prev2(i) + accpcon_prev3(i))
+   denom  = (accpcon_prev0(i) - accpcon_prev1(i)) &
+          + (accpcon_prev2(i) - accpcon_prev3(i))
 
-   fldval =  accpcon_prev0(i) - accpcon_prev1(i) &
+   fldval = (accpcon_prev0(i) - accpcon_prev1(i)) &
           - (accpcon_prev2(i) - accpcon_prev3(i))
 
    if (abs(denom) > 1.e-3) then
@@ -1903,10 +1903,10 @@ case(132) ! 'PCPBOTH_REL4'
    accpboth_prev2 = accpmic_prev2(i) + accpcon_prev2(i)
    accpboth_prev3 = accpmic_prev3(i) + accpcon_prev3(i)
 
-   denom  =  accpboth_prev0 + accpboth_prev1 &
-          - (accpboth_prev2 + accpboth_prev3)
+   denom  = (accpboth_prev0 - accpboth_prev1) &
+          + (accpboth_prev2 - accpboth_prev3)
 
-   fldval =  accpboth_prev0 - accpboth_prev1 &
+   fldval = (accpboth_prev0 - accpboth_prev1) &
           - (accpboth_prev2 - accpboth_prev3)
 
    if (abs(denom) > 1.e-3) then
