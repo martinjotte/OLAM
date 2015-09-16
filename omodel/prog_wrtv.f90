@@ -657,15 +657,17 @@ endif
 if (iparallel == 1) then
 
    call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
-                   rvara1=vmxet, rvara2=vmyet, rvara3=vmzet)
+                   rvara1=vmxet, rvara2=vmyet, rvara3=vmzet, &
+                   rvara4=vmx_cor, rvara5=vmy_cor)
 
    call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
-                   rvara1=vmxet, rvara2=vmyet, rvara3=vmzet)
+                   rvara1=vmxet, rvara2=vmyet, rvara3=vmzet, &
+                   rvara4=vmx_cor, rvara5=vmy_cor)
 
 endif
 
-call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, a4=wmc, &
-                   a5=thil,  a6=wc,    d1=press, d2=rho)
+call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, &
+              a4=vmx_cor, a5=vmy_cor, d1=press, d2=rho)
 
 ! Horizontal loop over V points to update VMC
 

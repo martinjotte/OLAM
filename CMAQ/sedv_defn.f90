@@ -201,7 +201,7 @@ contains
     use soa_defn            ! gas soa data
     use aeromet_data        ! Includes CONST.EXT
     use mem_grid,  only: mza, lpw
-    use mem_basic, only: tair, press
+    use mem_basic, only: tair, press, rho
 
     implicit none
 
@@ -240,6 +240,7 @@ contains
 
        airtemp = tair ( l,iw )
        airpres = press( l,iw )
+       airdens = rho  ( l,iw )
 
        ! extract grid cell concentrations of aero species from CGRID
        ! into aerospc_conc in aero_data module
