@@ -23,7 +23,7 @@ extern int nx, ny;
 
 int f_fix_ncep(ARG0) {
     unsigned char *p;
-    int unit, n, type;
+    int n, type;
     unsigned int u, NAve;
     int year, month, day, hour, minute, second;
     unsigned int units, p1_units;
@@ -35,7 +35,7 @@ int f_fix_ncep(ARG0) {
 
     if (GB2_Center(sec) != NCEP) return 0;		// only NCEP
     if (GB2_ProdDefTemplateNo(sec) != 8) return 0;	// pdt == 4.8 only
-    if ((unit = code_table_4_4(sec)) < 0) return -1;	// time unit must be defined
+    if (code_table_4_4(sec) < 0) return -1;		// time unit must be defined
 
     p = sec[4];
     n = (int) p[41];					// number of loops

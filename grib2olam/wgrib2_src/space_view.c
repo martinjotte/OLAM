@@ -49,7 +49,7 @@ extern enum output_order_type output_order;
 
 int space_view2ll(unsigned char **sec, double **lat, double **lon) {
     double major, minor, r_eq, r_pol, sat_height;
-    double lap, lop, orient_angle, angular_size, rad_factor;
+    double lap, lop, orient_angle, angular_size;
     double xp, yp, dx, dy, rx, ry, x, y;
     double cos_x, cos_y, sin_x, sin_y;
     double factor_1, factor_2, tmp1, Sd, Sn, Sxy, S1, S2, S3;
@@ -69,9 +69,6 @@ fprintf(stderr,"ALPHA: experimental space_view2ll scan=%d\n", nscan >> 4);
 
     r_eq = major * 0.001;
     r_pol = minor * 0.001;
-    rad_factor = (r_eq*r_eq - r_pol*r_pol) / (r_eq * r_eq);
-
-//fprintf(stderr,">> r_eq %lf r_pol %lf rad_factor %lf \n",r_eq, r_pol, rad_factor);
 
     angular_size = 2.0 * asin(1e6/ uint4(sec[3]+68));
     sat_height = uint4(sec[3]+68) * 1e-6 * r_eq;

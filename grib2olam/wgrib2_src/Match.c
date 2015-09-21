@@ -32,11 +32,11 @@ extern int match;			/* run matching routines */
 extern int match_flag;
 extern int use_ext_name;
 
-static int match_count = 0;
+int match_count;
 static regex_t preg[MATCH_MAX];
 static int type[MATCH_MAX];
 static int match_val[MATCH_MAX];
-static int regex_type = 0;
+int regex_type;
 
 /*
  *  match, if use extended regex library call (like in egrep)
@@ -104,8 +104,12 @@ int f_match(ARG1)  {
         if (regcomp(&(preg[match_count]), s, REG_EXTENDED | REG_NOSUB | REG_NEWLINE)) 
             fatal_error("bad regular expression \"%s\"", arg1);
         type[match_count] = 1;
+	*local = &(preg[match_count]);	// pattern buffer to free at end
         match_count++;
         free(s);
+    }
+    else if (mode == -2) {
+	regfree(*local);		// free patter buffer
     }
     return 0;
 }
@@ -122,8 +126,12 @@ int f_not(ARG1)  {
         if (regcomp(&(preg[match_count]), s, REG_EXTENDED | REG_NOSUB | REG_NEWLINE)) 
             fatal_error("bad regular expression \"%s\"", arg1);
         type[match_count] = 0;
+	*local = &(preg[match_count]);	// pattern buffer to free at end
         match_count++;
 	free(s);
+    }
+    else if (mode == -2) {
+	regfree(*local);		// free patter buffer
     }
     return 0;
 }
@@ -135,10 +143,10 @@ int f_not(ARG1)  {
 int f_if(ARG1)  {
     struct local_struct {
         int match_cnt;
+        regex_t *preg;
     };
     struct local_struct *save;
     char *s;
-
 
     if (mode == -1) {
         if (match_count >= MATCH_MAX) fatal_error("too many -match, -not -if options","");
@@ -151,8 +159,14 @@ int f_if(ARG1)  {
 
         *local = save = (struct local_struct *) malloc( sizeof(struct local_struct));
         if (save == NULL) fatal_error("memory allocation f_if","");
-        save -> match_cnt = match_count;
+        save->match_cnt = match_count;
+        save->preg = &(preg[match_count]);
         match_count++;
+    }
+    else if (mode == -2) {
+	save = (struct local_struct *) *local;
+        regfree(save->preg);
+	free(save);
     }
     else if (mode >= 0) {
 	save = (struct local_struct *) *local;
@@ -162,12 +176,13 @@ int f_if(ARG1)  {
 }
 
 /*
- * HEADER:100:not_if:misc:1:if not X (regular expression) matches, conditional execution until next output/fi
+ * HEADER:100:not_if:misc:1:if X (regular expression) does not match, conditional execution until next output/fi
  */
 
 int f_not_if(ARG1)  {
     struct local_struct {
         int match_cnt;
+        regex_t *preg;
     };
     struct local_struct *save;
     char *s;
@@ -183,8 +198,14 @@ int f_not_if(ARG1)  {
 
         *local = save = (struct local_struct *) malloc( sizeof(struct local_struct));
         if (save == NULL) fatal_error("memory allocation f_if","");
-        save -> match_cnt = match_count;
+        save->match_cnt = match_count;
+        save->preg = &(preg[match_count]);
         match_count++;
+    }
+    else if (mode == -2) {
+	save = (struct local_struct *) *local;
+        regfree(save->preg);
+	free(save);
     }
     else if (mode >= 0) {
         save = (struct local_struct*) *local;
@@ -200,26 +221,31 @@ int f_not_if(ARG1)  {
  * is_match
  *
  * return codes
- *     1                      ignore
- *     0                      process
+ *     1                      ignore grib message
+ *     0                      continue process
  */
 
 
-int is_match(char *s) {
+int is_match(const char *s) {
     int i, j;
 
-    /* process  if-tests */
-
-    for (i = 0; i < match_count; i++) {
-        if (type[i] == 2) match_val[i] = regexec(&(preg[i]), s, (size_t) 0, NULL, 0);
-    } 
     /* process match and not tests */
 
+    /* typically # -match and -not is small .. tests show openmp doesn't help */
     for (i = 0; i < match_count; i++) {
         if (type[i] == 2) continue;
 	j = regexec(&(preg[i]), s, (size_t) 0, NULL, 0) != 0;
 	if (j == type[i]) return 1;
     }
+
+    /* no need to process if-tests if no match */
+
+    /* process  if-tests, regexec is thread safe by POSIX standard */
+#pragma omp parallel for private(i)
+    for (i = 0; i < match_count; i++) {
+        if (type[i] == 2) match_val[i] = regexec(&(preg[i]), s, (size_t) 0, NULL, 0);
+    } 
+
     return 0;
 }
 
@@ -287,42 +313,71 @@ extern const char *item_deliminator;
 int f_match_inv(ARG0) {
 
     if (mode >= 0) {
-        f_t(CALL_ARG0);
+        f_t(call_ARG0(inv_out,NULL));
         strcat(inv_out,":");
         inv_out += strlen(inv_out);
 
-        if (use_ext_name) f_ext_name(CALL_ARG0);
-	else f_var(CALL_ARG0);
+        if (use_ext_name) f_ext_name(call_ARG0(inv_out,NULL));
+	else f_var(call_ARG0(inv_out,NULL));
 	
         strcat(inv_out,":");
         inv_out += strlen(inv_out);
 
-        f_lev(CALL_ARG0);
+        f_lev(call_ARG0(inv_out,NULL));
         strcat(inv_out,":");
         inv_out += strlen(inv_out);
 
-        f_ftime(CALL_ARG0);
+        f_ftime(call_ARG0(inv_out,NULL));
         strcat(inv_out,":");
         inv_out += strlen(inv_out);
 
-        /* removed 7/10 f_ens(CALL_ARG0); */
-	f_misc(CALL_ARG0);
+	f_misc(call_ARG0(inv_out,NULL));
         strcat(inv_out,":");
         inv_out += strlen(inv_out);
 
 	/* added 11/2010 */
 	if (use_ext_name == 0) {
-	    f_ext_name(CALL_ARG0);
+	    f_ext_name(call_ARG0(inv_out,NULL));
             strcat(inv_out,":");
             inv_out += strlen(inv_out);
 	}
 
 	/* added 4/2011 */
-	f_n(CALL_ARG0);
+	f_n(call_ARG0(inv_out,NULL));
         strcat(inv_out,":");
         inv_out += strlen(inv_out);
 
-        f_vt(CALL_ARG0);
+	/* added 1/2014 */
+	f_npts(call_ARG0(inv_out,NULL));
+        strcat(inv_out,":");
+        inv_out += strlen(inv_out);
+
+	/* added 1/2015 */
+        f_varX(call_ARG0(inv_out,NULL));
+        strcat(inv_out,":");
+        inv_out += strlen(inv_out);
+
+	/* added 2/2015 */
+        f_pdt(call_ARG0(inv_out,NULL));
+        strcat(inv_out,":");
+        inv_out += strlen(inv_out);
+
+	/* added 1/2015 */
+        f_T(call_ARG0(inv_out,NULL));
+        strcat(inv_out,":");
+        inv_out += strlen(inv_out);
+
+	/* added 1/2015 */
+        f_start_FT(call_ARG0(inv_out,NULL));
+        strcat(inv_out,":");
+        inv_out += strlen(inv_out);
+
+	/* added 1/2015 */
+        f_end_FT(call_ARG0(inv_out,NULL));
+        strcat(inv_out,":");
+        inv_out += strlen(inv_out);
+
+        f_vt(call_ARG0(inv_out,NULL));
         strcat(inv_out,":");
         inv_out += strlen(inv_out);
     }

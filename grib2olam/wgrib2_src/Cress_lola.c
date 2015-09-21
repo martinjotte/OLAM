@@ -148,12 +148,14 @@ fprintf(stderr,"nRadius=%d nx=%d ny=%d\n",save->nRadius, nx, ny);
         return 0;
     }
 
-    if (mode < 0) return 0;
+    save = (struct local_struct *) *local;
+    if (mode == -2) {
+	ffclose(save->out);
+        return 0;
+    }
 
     /* processing phase */
 fprintf(stderr,">>processing\n");
-
-    save = (struct local_struct *) *local;
 
     nx = save->nlon;
     ny = save->nlat;

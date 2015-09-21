@@ -1,6 +1,6 @@
---- wgrib.c.orig	2010-07-06 09:06:35.000000000 -0400
-+++ wgrib.c	2010-07-06 09:09:46.000000000 -0400
-@@ -704,10 +704,14 @@
+--- wgrib.c.orig	2015-09-18 11:03:09.000000000 -0700
++++ wgrib.c	2015-09-18 11:07:01.000000000 -0700
+@@ -712,10 +712,14 @@
  	open_parm[0] = append ? 'a' : 'w'; open_parm[1] = 'b'; open_parm[2] = '\0';
  	if (output_type == TEXT) open_parm[1] = '\0';
  
@@ -17,7 +17,7 @@
  	if (header == dwd && output_type == GRIB) wrtieee_header(0, dump_file);
      }
  
-@@ -857,7 +861,7 @@
+@@ -865,7 +869,7 @@
          }
  #endif
   
@@ -26,7 +26,7 @@
  	    printf("%ld:%lu:d=", count, pos);
  	    PDS_date(pds,year_4,v_time);
  	    printf(":%s:", k5toa(pds));
-@@ -876,7 +880,7 @@
+@@ -884,7 +888,7 @@
  	    if (gds && (print_GDS || print_GDS10)) print_gds(gds, print_GDS, print_GDS10, verbose);
              printf("\n");
         }
@@ -35,7 +35,7 @@
  	    printf("%ld:%lu:D=", count, pos);
              PDS_date(pds, 1, v_time);
  	    printf(":%s:", k5toa(pds));
-@@ -893,7 +897,7 @@
+@@ -901,7 +905,7 @@
  	    if (gds && (print_GDS || print_GDS10)) print_gds(gds, print_GDS, print_GDS10, verbose);
              printf("\n");
  	}
@@ -44,3 +44,12 @@
  	    printf("rec %ld:%lu:date ", count, pos);
  	    PDS_date(pds, 1, v_time);
  	    printf(" %s kpds5=%d kpds6=%d kpds7=%d levels=(%d,%d) grid=%d ", 
+@@ -1166,7 +1170,7 @@
+ 	    if (verbose > 0) printf("\n");
+ 	}
+ 
+-	if (output_type != NONE) fflush(dump_file);
++	if (output_type != NONE && dump_file != stdout) fflush(dump_file);
+ 	fflush(stdout);
+ 	    
+         pos += len_grib;

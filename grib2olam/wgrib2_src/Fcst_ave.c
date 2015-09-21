@@ -13,12 +13,16 @@
  *  v 0.1 experimental
  *
  * based on Ave_test.c 4/2010 (public domain Wesley Ebisuzaki)
+ * v 0.2 4/2013 added PDT=4.1
+ * v 0.3 12/2014 set use_scale = 0, optimize
+ * v 0.4 1/2015 remove set use_scale = 0
  * 
  */
 
 // #define DEBUG
 
 extern int decode, file_append, nx, ny, save_translation;
+extern int *translation;
 extern int flush_mode;
 extern int use_scale, dec_scale, bin_scale, wanted_bits, max_bits;
 extern enum output_grib_type grib_type;
@@ -91,20 +95,29 @@ printf(" init ");
 static int add_to_ave_struct(struct ave_struct *save, unsigned char **sec, float *data, int ndata,int missing) {
 
     int i;
-#ifdef DEBUG
-printf(" add ");
-#endif
+
     if (save->n_sum != ndata) fatal_error("add_to_ave: dimension mismatch","");
-    for (i = 0; i < ndata; i++) {
-        if (DEFINED_VAL(data[i]) && DEFINED_VAL(save->sum[i])) {
-	    save->sum[i] += data[i];
-	    save->n[i]++;
-	}
-#ifdef DEBUG
-        if (i < 10) printf("data[%d]=%lf n[%d]=%d, sum[%d]=%lf\n",
-	    i,data[i],i,save->n[i],i,save->sum[i]);
-#endif
+
+   /* the data needs to be translated from we:sn to raw, need to
+       do it now, translation[] may be different if called from finalized phase */
+
+    if (translation == NULL) {
+        for (i = 0; i < ndata; i++) {
+            if (DEFINED_VAL(data[i]) && DEFINED_VAL(save->sum[i])) {
+                save->sum[i] += data[i];
+                save->n[i]++;
+            }
+        }
     }
+    else {
+        for (i = 0; i < ndata; i++) {
+            if (DEFINED_VAL(data[i]) && DEFINED_VAL(save->sum[i])) {
+                save->sum[translation[i]] += data[i];
+                save->n[translation[i]]++;
+            }
+        }
+    }
+
     save->n_fields += 1;
     if (save->n_fields == 1) {
 	save->nx = nx;
@@ -157,7 +170,7 @@ printf(" ave nfields=%d missing=%d\n",save->n_fields,save->n_missing);
 
     if (pdt == 0) {
         sec4 = (unsigned char *) malloc(58 * sizeof(unsigned char));
-	if (sec4 == NULL) fatal_error("ave: memory allocation","");
+	if (sec4 == NULL) fatal_error("fcst_ave: memory allocation","");
 	for (i = 0; i < 34; i++) {
 	    sec4[i] = save->first_sec[4][i];
 	}
@@ -173,6 +186,28 @@ printf(" ave nfields=%d missing=%d\n",save->n_fields,save->n_missing);
 	uint_char(save->dt*(save->n_fields+save->n_missing-1), sec4+49);
 	sec4[53] = save->dt_unit;					// time step
 	uint_char(save->dt, sec4+54);
+    }
+
+    // average of an ensemble forecast, use pdt 4.11
+
+    else if (pdt == 1) {
+        sec4 = (unsigned char *) malloc(61 * sizeof(unsigned char));
+        if (sec4 == NULL) fatal_error("fcst_ave: memory allocation","");
+        for (i = 0; i < 37; i++) {
+            sec4[i] = save->first_sec[4][i];
+        }
+        uint_char((unsigned int) 61, sec4);             // length
+        sec4[8] = 11;                    // pdt
+        // verification time
+        save_time(save->year2,save->month2,save->day2,save->hour2,save->minute2,save->second2, sec4+37);
+        sec4[44] = 1;                                   // 1 time range
+        uint_char(save->n_missing, sec4+45);
+        sec4[49] = 0;                                   // average
+        sec4[50] = 2;                                   // rt=constant, ft++
+        sec4[51] = save->dt_unit;                                       // total length of stat processing
+        uint_char(save->dt*(save->n_fields+save->n_missing-1), sec4+52);
+        sec4[56] = save->dt_unit;                                       // time step
+        uint_char(save->dt, sec4+57);
     }
 
     // average of an average or accumulation
@@ -247,7 +282,6 @@ int f_fcst_ave(ARG2) {
     int tyear, tmonth, tday, thour, tminute, tsecond;
     int missing;
     char string[10];
-    float *data_tmp;
 
     // initialization
 
@@ -260,6 +294,7 @@ int f_fcst_ave(ARG2) {
         if (save == NULL) fatal_error("memory allocation fcst_ave","");
 
 	i = sscanf(arg1, "%d%2s", &save->dt,string);
+	if (i != 2) fatal_error("fcst_ave: delta-time: (int)(2 characters) %s", arg1);
 	save->dt_unit = -1;
 	if (strcmp(string,"hr") == 0) save->dt_unit = 1;
 	else if (strcmp(string,"dy") == 0) save->dt_unit = 2;
@@ -286,32 +321,26 @@ int f_fcst_ave(ARG2) {
 	if (save->has_val == 1) {
 	    do_ave(save);
 	}
+	ffclose(save->output);
 	free_ave_struct(save);
 	return 0;
     }
 
     // if data
-
     if (mode >= 0) {
+	// 1/2015 use_scale = 0;
 	pdt = GB2_ProdDefTemplateNo(sec);
 
 if (mode == 98) fprintf(stderr,"fcst_ave: pdt=%d\n",pdt);
-	// only support pdt == 0 and pdt == 8
-	if (pdt != 0 && pdt != 8) return 0;
-
-	// want the data in raw order because the translation tables may change
-	// come time to write out the data
-    
-        if ((data_tmp = (float *) malloc(ndata * sizeof(float))) == NULL)
-               fatal_error("fcst_ave: memory allocation","");
-        undo_output_order(data, data_tmp, ndata);
+	// only support pdt == 0, 1 and 8
+	if (pdt != 0 && pdt != 1 && pdt != 8) return 0;
 
 	// first time through .. save data and return
 
 
 	if (save->has_val == 0) {		// new data: write and save
 	    init_ave_struct(save,ndata);
-	    add_to_ave_struct(save, sec, data_tmp, ndata, 0);
+	    add_to_ave_struct(save, sec, data, ndata, 0);
 
 	    // copy sec
             copy_sec(sec, save->first_sec);
@@ -331,7 +360,6 @@ if (mode == 98) fprintf(stderr,"fcst_ave: pdt=%d\n",pdt);
 	    }
 
 	    save->has_val = 1;
-	    free(data_tmp);
 	    return 0;
 	}
 
@@ -420,8 +448,7 @@ if (mode == 98) fprintf(stderr, "fcst_ave ave: before update_sum  new_type %d\n"
 
 	if (new_type == 0) {		// update sum
 if (mode == 98) fprintf(stderr, "fcst_ave: update sum\n");
-	    add_to_ave_struct(save, sec, data_tmp, ndata, missing);
-	    free(data_tmp);
+	    add_to_ave_struct(save, sec, data, ndata, missing);
 	    return 0;
 	}
 
@@ -429,7 +456,7 @@ if (mode == 98) fprintf(stderr, "fcst_ave: update sum\n");
 
 	do_ave(save);
         init_ave_struct(save, ndata);
-	add_to_ave_struct(save, sec, data_tmp, ndata, 0);
+	add_to_ave_struct(save, sec, data, ndata, 0);
         copy_sec(sec, save->first_sec);
         copy_sec(sec, save->next_sec);
 
@@ -446,7 +473,6 @@ if (mode == 98) fprintf(stderr, "fcst_ave: update sum\n");
         }
 
         save->has_val = 1;
-        free(data_tmp);
 	return 0;
     }
     return 0;

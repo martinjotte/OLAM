@@ -24,6 +24,9 @@
  * need to check if all scan modes are handled
  * 10/2010 rotated lat-lon (experimental)
  * 1/2012 regional Gaussian grid
+ * 12/2013 added staggering to regular2ll .. adds to rotated lat-lon grids
+ * 02/2014 added staggering to lambert2ll 
+ * 04/2014 add the new args to stagger()
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,7 +53,7 @@
 #endif
 
 extern double *lat, *lon;
-extern int  nx, ny;
+extern int  scan, nx, ny;
 extern int *variable_dim;
 extern enum output_order_type output_order;
 
@@ -64,7 +67,6 @@ int regular2ll(unsigned char **sec, double **lat, double **lon) {
     double e, w, n, s, dx, dy;
  
     int i, j;
-    unsigned int k;
     double *llat, *llon;
     unsigned char *gds;
     int nnx, nny, nres, nscan;
@@ -107,6 +109,7 @@ int regular2ll(unsigned char **sec, double **lat, double **lon) {
     if (lon1 > 360.0 || lon2 > 360.0) fatal_error("BAD grid definition lon >= 360","");
     if (lat1 < -90.0 || lat2 < -90.0 || lat1 > 90.0 || lat2 > 90.0) fatal_error("BAD grid definition lat","");
 
+
     /* find S latitude and dy */
     if (GDS_Scan_y(nscan)) {
         s = lat1;
@@ -118,10 +121,16 @@ int regular2ll(unsigned char **sec, double **lat, double **lon) {
     }
     if (s > n) fatal_error("lat-lon grid: lat1 and lat2 inconsistent with scan order","");
 
-    dy = (n - s) / (nny - 1);
-    if (nres & 64) { /* lat increment is valid */
-        if (fabs(dy - dlat) > 0.001) fatal_error("lat-lon grid: dlat is inconsistent","");
+    if (nny != 1) {
+        dy = (n - s) / (nny - 1);
+        if (nres & 16) { /* lat increment is valid */
+            if (fabs(dy - dlat) > 0.001) fatal_error("lat-lon grid: dlat is inconsistent","");
+        }
     }
+    else { 
+        dy = 0.0;
+    }
+// fprintf(stderr,">>> geo:  dy %lf dlat %lf nres %d has dy %d has dx %d\n", dy, dlat, nres, nres & 16, nres & 32);
 
     /* find W latitude and dx */
 
@@ -152,43 +161,52 @@ int regular2ll(unsigned char **sec, double **lat, double **lon) {
 
     /* lat-lon should be in a WE:SN order */
 
-    llat = *lat;
-    if (nnx >= 0) {        /* regular grid */
-        for (j = 0; j < nny; j++) {
-            for (i = 0; i < nnx; i++) {
-                *llat++ = s + j*dy;
-            }
+    if (nnx > 0 && nny > 0) {			/* non-thinned, potentially staggered grid */
+	/* put x[] and y[] values in lon[] and lat[] */
+        llat = *lat;
+        llon = *lon;
+	if (stagger(sec, nnpnts,llon,llat)) fatal_error("geo: stagger problem","");
+
+        if (nnx != 1) {
+	    dx = (e-w) / (nnx - 1);
+	    dx = fabs(dx);
+            if (nres & 32) { /* lon increment is valid */
+                if (fabs(dx - fabs(dlon)) > 0.001) fatal_error("lat-lon grid: dlon is inconsistent","");
+	    }
         }
+        else {
+	    dx = 0.0;
+	}
+	dy = fabs(dy);
+
+#pragma omp parallel for private(j)
+	for (j = 0; j < nnpnts; j++) {
+            llon[j] = lon1 + llon[j]*dx;
+	    llon[j] = llon[j] >= 360.0 ? llon[j] - 360.0 : llon[j];
+	    llon[j] = llon[j] < 0.0 ? llon[j] + 360.0 : llon[j];
+	    llat[j] = lat1 + llat[j]*dy;
+	}
+	return 0;
     }
-    else {                /* quasi-regular grid */
+
+    /* must be thinned grid */
+
+    llat = *lat;
+        /* quasi-regular grid */
         for (j = 0; j < nny; j++) {
             for (i = 0; i < variable_dim[j];  i++) {
                 *llat++ = s + j*dy;
             }
         }
-    }
 
     llon = *lon;
-    if (nnx >= 0) {                /* regular grid */
-        dx = (e-w) / (nnx-1);
-        if (nres & 128) { /* lon increment is valid */
-            if (fabs(dx - dlon) > 0.001) fatal_error("lat-lon grid: dlon is inconsistent","");
-        }
-        for (i = 0; i < nnx; i++) {
-            llon[i] = w + i*dx >= 360.0 ? w + i*dx - 360.0 : w + i*dx;
-        }
-        for (k = nnx; k < nnpnts; k++) {
-            llon[k] = llon[k-nnx];
-        }
-    }
-    else {                        /* quasi-regular grid */
+        /* quasi-regular grid */
         for (j = 0; j < nny; j++) {
             dx = (e-w) / (variable_dim[j]-1);
             for (i = 0; i < variable_dim[j]; i++) {
                 *llon++ = w + i*dx >= 360.0 ? w + i*dx - 360.0: w + i*dx;
             }
         }
-    }
     return 0;
 } /* end regular2ll() */ 
 
@@ -323,20 +341,21 @@ int polar2ll(unsigned char **sec, double **llat, double **llon) {
     }
 
     de2 = de*de;
+#pragma omp parallel for private(iy,ix,di,dj,dr2,tmp)
     for (iy = 0; iy < nny; iy++) {
         for (ix = 0; ix < nnx; ix++) {
             di = (ix - xp) * dx;
             dj = (iy - yp) * dy;
             dr2 = di*di + dj*dj;
             if (dr2 < de2*1e-6) {
-                *lon++ = 0.0;
-                *lat++ = h*90.0;
+                lon[ix+iy*nx] = 0.0;
+                lat[ix+iy*nx] = h*90.0;
             } else {
                 tmp = (orient+h*atan2(di,-dj))*(180.0/M_PI);
                 if (tmp < 0.0) tmp += 360.0;
                 if (tmp > 360.0) tmp -= 360.0;
-                *lon++ = tmp;
-                *lat++ = h*asin((de2-dr2)/(de2+dr2))*(180.0/M_PI);
+                lon[ix+iy*nx] = tmp;
+                lat[ix+iy*nx] = h*asin((de2-dr2)/(de2+dr2))*(180.0/M_PI);
             }
         }
     }
@@ -353,7 +372,7 @@ int lambert2ll(unsigned char **sec, double **llat, double **llon) {
     double dx, dy, lat1r, lon1r, lon2d, lon2r, latin1r, latin2r;
     double lond, latd, d_lon;
     double f, rho, rhoref, theta, startx, starty;
-    int i,j,m, nnx, nny, nres, nscan;
+    int j, nnx, nny, nres, nscan;
     double x, y, tmp;
     unsigned char *gds;
     double latDr;
@@ -361,6 +380,11 @@ int lambert2ll(unsigned char **sec, double **llat, double **llon) {
     unsigned int nnpnts;
 
     get_nxny(sec, &nnx, &nny, &nnpnts, &nres, &nscan);
+
+    if (nnx <= 0 || nny <= 0) {
+        fprintf(stderr,"Sorry code does not handle variable nx/ny yet\n");
+        return 0;
+    }
 
     earth_radius = radius_earth(sec);
     gds = sec[3];
@@ -407,22 +431,11 @@ int lambert2ll(unsigned char **sec, double **llat, double **llon) {
     d_lon = lon1r - lon2r;
     if (d_lon > M_PI) d_lon -= 2*M_PI;
     if (d_lon < -M_PI) d_lon += 2*M_PI;
-
     theta = n * d_lon; 
     // 2/2009 theta = n * (lon1r - lon2r); 
 
-
     startx = rho * sin(theta);
     starty = rhoref - rho * cos(theta);
-
-//  12/11
-    if (GDS_Scan_x(nscan) == 0) startx = startx - (nnx-1)*dx;
-    if (GDS_Scan_y(nscan) == 0) starty = starty - (nny-1)*dy;
-
-    if (nnx <= 0 || nny <= 0) {
-        fprintf(stderr,"Sorry code does not handle variable nx/ny yet\n");
-        return 0;
-    }
 
     if ((*llat = (double *) malloc(nnpnts * sizeof(double))) == NULL) {
         fatal_error("lambert2ll memory allocation failed","");
@@ -433,31 +446,27 @@ int lambert2ll(unsigned char **sec, double **llat, double **llon) {
     lat = *llat;
     lon = *llon;
 
-//    m = 0;
-    y = starty;
+    /* put x[] and y[] values in lon[] and lat[] */
+    if (stagger(sec, nnpnts, lon, lat)) fatal_error("geo: stagger problem","");
 
-#pragma omp parallel for private(i,j,x,y,tmp,theta,rho,lond,latd)
-    for (j = 0; j < nny; j++) {
-      y = starty + j*dy;
-      tmp = rhoref - y;
-      for (i = 0; i < nnx; i++) {
-        x = startx + i*dx;
-        theta = atan(x / tmp); 
+    dx = fabs(dx);
+    dy = fabs(dy);
+
+#pragma omp parallel for private(j,x,y,tmp,theta,rho,lond,latd)
+    for (j = 0; j < nnpnts; j++) {
+	y = starty + lat[j]*dy;
+        x = startx + lon[j]*dx;
+	tmp = rhoref - y;
+	theta = atan(x / tmp);
         rho = sqrt(x * x + tmp*tmp);
         rho = n > 0 ? rho : -rho;
         lond = lon2d + todegrees(theta/n);
         latd = todegrees(2.0 * atan(pow(earth_radius * f/rho,1.0/n)) - M_PI_2);
-        if ( lond >= 360.0) lond = lond - 360.0;
-        if ( lond < 0.0) lond = lond + 360.0;
-//        lon[m] = lond;
-//        lat[m] = latd;
-//        m++;
-        lon[i+j*nnx] = lond;
-        lat[i+j*nnx] = latd;
-      }
+	lond = lond >= 360.0 ? lond - 360.0 : lond;
+	lond = lond < 0.0 ? lond + 360.0 : lond;
+        lon[j] = lond;
+        lat[j] = latd;
     }
-
-
     return 0;
 } /* end lambert2ll() */
 
@@ -495,7 +504,7 @@ int mercator2ll(unsigned char **sec, double **lat, double **lon) {
     }
 
     if (nnx == -1 || nny == -1) {
-        fprintf(stderr,"Sorry code does not handle variable nx/ny yet\n");
+        fprintf(stderr,"Sorry geo/mercator code does not handle variable nx/ny yet\n");
         return 0;
     }
 
@@ -803,9 +812,11 @@ int gauss2ll(unsigned char **sec, double **llat, double **llon) {
 
     n = 0;
     if (nnx >= 0) {        /* regular grid */
-        for (j = 0; j < nny; j++) {
+
+#pragma omp parallel for private(i,j)
+	for (j = 0; j < nny; j++) {
             for (i = 0; i < nnx; i++) {
-                lat[n++] = ylat[j+isouth];
+                lat[i+j*nnx] = ylat[j+isouth];
             }
         }
     }
@@ -841,12 +852,20 @@ int gauss2ll(unsigned char **sec, double **llat, double **llon) {
 
     if (nnx >= 0) {
         dx = (w-e) / (nnx-1);
-        for (j = 0; j < nnx; j++ ) {
-            lon[j] = e + (dx * j) >= 360.0 ?  e + (dx * j) - 360.0 : e + (dx * j);  
-        }
-        for (k = nnx; k < nnpnts; k++) {
-            lon[k] = lon[k-nnx];
-        }
+
+#pragma omp parallel
+{
+#pragma omp for private(i)
+	for (i = 0; i < nnx; i++) {
+            lon[i] = e + (dx * i) >= 360.0 ?  e + (dx * i) - 360.0 : e + (dx * i);  
+	}
+#pragma omp for private(i,j)
+	for (j = 1; j < nny; j++) {
+	    for (i = 0; i < nnx; i++) {
+		lon[i+j*nnx] = lon[i];
+	    }
+	}
+}
     }
     else {
         n = 0;
@@ -874,25 +893,26 @@ extern int use_gctpc;
 
 int closest_init(unsigned char **sec) {
 
-   int i, nnpts;
-   double s, c;
-   int grid_type;
+    int i, nnpts;
+    double s, c;
+    int grid_type;
 
-   /*
-   if (use_gctpc && output_order == wesn && nx > 0 && ny > 0) {
-      if (gctpc_ll2xy_init(sec, lon, lat) == 0) return 0;
-   }
-   */
+    /*
+    if (use_gctpc && output_order == wesn && nx > 0 && ny > 0) {
+       if (gctpc_ll2xy_init(sec, lon, lat) == 0) return 0;
+    }
+    */
 
+    grid_type = code_table_3_1(sec);
 
-   grid_type = code_table_3_1(sec);
+    if  (!GDS_Scan_staggered(scan) && nx > 0 && ny > 0) {
+        /* if grids with (lat,lon) -> (i,j) insert code here */
+        if (grid_type == 0 && output_order == wesn) return latlon_init(sec, nx, ny);
+        if (grid_type == 90 && output_order == wesn) return space_view_init(sec);
+    }
 
-   /* if grids with (lat,lon) -> (i,j) insert code here */
-   if (grid_type == 0 && nx > 0 && ny > 0 && output_order == wesn) return latlon_init(sec, nx, ny);
-   if (grid_type == 90 && nx > 0 && ny > 0 && output_order == wesn) return space_view_init(sec);
-
-   nnpts = (int) GB2_Sec3_npts(sec);
-   if (x) {
+    nnpts = (int) GB2_Sec3_npts(sec);
+    if (x) {
         free(x);
         free(y);
         free(z);

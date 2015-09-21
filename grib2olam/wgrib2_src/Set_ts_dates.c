@@ -17,13 +17,12 @@
  */
 
 /*
- * HEADER:100:set_ts_dates:misc:3:changes date code for time series X=YYYYMMDDHH(mmss) Y=dtime Z=block size
+ * HEADER:100:set_ts_dates:misc:3:changes date code for time series X=YYYYMMDDHH(mmss) Y=dtime Z=#msgs/date
  */
 
 int f_set_ts_dates(ARG3) {
 
     int year, month, day, hour, minute, second, i, j, units, n;
-    int pdt;
     unsigned int dtime;
     struct local_struct {
         int year, month, day, hour, minute, second;
@@ -60,7 +59,7 @@ int f_set_ts_dates(ARG3) {
 	else fatal_error("set_ts_date: could not understand time unit %s", arg2);
 
 	save->block_size = atoi(arg3);
-	if (save->block_size <= 0) fatal_error("set_ts_dates: blocksize must be >= 1","");
+	if (save->block_size <= 0) fatal_error("set_ts_dates: #msgs/date code must be >= 1","");
 
 	return 0;
     }
@@ -90,19 +89,10 @@ int f_set_ts_dates(ARG3) {
     /* set reference time */
     save_time(year,month,day,hour,minute,second, sec[1]+12);
 
-    pdt = code_table_4_0(sec);
-    j = 0;
-    if (pdt == 8) j = 34;
-    else if (pdt == 9) j = 47;
-    else if (pdt == 10) j = 35;
-    else if (pdt == 11) j = 37;
-    else if (pdt == 12) j = 36;
-    else if (pdt == 13) j = 68;
-    else if (pdt == 14) j = 64;
-
-    if (j == 0) return 0;
-
-    n = sec[4][j+7];            // number of stat proc elements
+    j = stat_proc_n_time_ranges_index(sec);
+    if (j == -1) return 0;
+    n = sec[4][j];              // number of stat proc elements
+    j = j - 7;			// j is now the index to the start of end date code
 
     // add forecast time to time
 

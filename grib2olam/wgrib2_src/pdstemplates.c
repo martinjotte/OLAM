@@ -384,7 +384,9 @@ gtemplate *extpdstemplate(g2int number,g2int *list)
                  new->ext[l+11]=1;
                  new->ext[l+12]=1;
               }
-             if ( list[28] = 1 ) {
+//             if ( list[28] = 1 ) {
+// fixed Dusan Jovic
+             if ( list[28] == 1 ) {
                  new->ext[l]=1;
                  new->ext[l+1]=1;
                  new->ext[l+2]=1;

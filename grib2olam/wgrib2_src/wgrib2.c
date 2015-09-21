@@ -17,62 +17,75 @@
 #include <sys/stat.h>
 #include <errno.h>
 
+#ifdef CALLABLE_WGRIB2
+#include <setjmp.h>
+jmp_buf fatal_err;
+#endif
+
 #include "grb2.h"
 #include "wgrib2.h"
 #include "fnlist.h"
+
+#ifdef USE_G2CLIB
 #include "grib2.h"
+gribfield *grib_data;
+int free_gribfield;			// flag for allocated gribfield
+#endif
+
+int initial_call = 1;
 
 /* #define DEBUG */
+// #define DEBUG
 #define CHECK
 
 /* global variables .. can be modified by funtions */
 
-int mode=0;             /* -2=finalize, -1=initialize,  0 .. N is verbosity mode */
-int header=1;           /* file header flag */
-int flush_mode = 0;	/* flush of output 1 = yes */
-int seq_input = 1;	/* sequential input mode */
-int WxText = 0;		/* decode NDFD keys */
+int mode; 		/* -2=finalize, -1=initialize,  0 .. N is verbosity mode */
+int header;		/* file header flag */
+int flush_mode;		/* flush of output 1 = yes */
+int WxText;		/* decode NDFD keys */
 
-int save_translation = 0;
-int use_g2clib = USE_G2CLIB;	/* use g2clib code for decoding */
-int use_gctpc = 0;
-int fix_ncep_2_flag = 0;	
-int fix_ncep_3_flag = 0;	
-int fix_ncep_4_flag = 0;
+int save_translation;
+int use_g2clib;		/* use g2clib/emulation code for decoding */
+int use_gctpc;		/* use gctpc for geolocation */
+int use_proj4;		/* use Proj4 for geolocation */
 
-int for_mode = 0, for_start, for_end, for_step;
-int for_n_mode = 0, for_n_start, for_n_end, for_n_step;
+int fix_ncep_2_flag;	
+int fix_ncep_3_flag;	
+int fix_ncep_4_flag;
 
-#ifdef USE_REGEX
-int match = 0;
-#endif
+int for_mode, for_start, for_end, for_step;
+int for_n_mode, for_n_start, for_n_end, for_n_step;
+
+int match, match_fs;
 int match_flag;
 
-int last_message = 0;	/* last message to process if set */
+int last_message;	/* last message to process if set */
 
 FILE *inv_file;
+FILE *rd_inventory_input;
 
 
-enum input_type input = all_mode;
-enum output_order_type output_order = wesn, output_order_wanted = wesn;
+enum input_type input;
+enum output_order_type output_order, output_order_wanted;
 
-char inv_out[INV_BUFFER]; 		/* inv functions write to this buffer */
+extern char *inv_out;			/* all functions write to this buffer */
 
-int only_submsg = 0;    /* if only_submsg > 0 .. only process submsg number (only_submsg) */
+int only_submsg;    /* if only_submsg > 0 .. only process submsg number (only_submsg) */
 
 
 
 /* output file variables */
 
-int file_append = 0;
-int dump_msg = 0, dump_submsg = 0;
-int ieee_little_endian = 0;
+int file_append;
+int dump_msg, dump_submsg;
+int ieee_little_endian;
 
-int decode = 0;		/* decode grib file flag */
+int decode;		/* decode grib file flag */
 
-const char *item_deliminator = ":";
-const char *nl = "\n\t";
-const char *end_inv = "\n";	/* string to write after end of inventory */
+const char *item_deliminator;
+const char *nl;
+const char *end_inv;	/* string to write after end of inventory */
 
 /* current grib location */
 long int pos;
@@ -81,20 +94,17 @@ int submsg, msg_no, inv_no;
 
 /* lat lon array .. used by Latlon.c to store location information */
 double *lat = NULL, *lon = NULL;
-int latlon = 0;
-int GDS_change_no = 0;
-int old_GDS_size = 0;
-int GDS_max_size = 100;
+int latlon;
+int GDS_change_no;
+int old_GDS_size;
+int GDS_max_size = 0;
 unsigned char *old_gds;
 int nx, ny, res, scan;
 unsigned int npnts;
-int use_scale = 0, dec_scale, bin_scale,  max_bits = 16, wanted_bits = 12;
-enum output_grib_type grib_type = simple;
-
-
-/* may disappear in future versions  grib2 decoder variables */
-gribfield *grib_data;
-int free_gribfield = 0;			// flag for allocated gribfield
+int use_scale, dec_scale, bin_scale,  max_bits, wanted_bits;
+enum output_grib_type grib_type;
+int user_gribtable_enabled = 0;		/* potential user gribtable has been enabled */
+int use_bitmap;		/* use bitmap when doing complex packing */
 
 /*
  * wgrib2
@@ -102,40 +112,83 @@ int free_gribfield = 0;			// flag for allocated gribfield
  * simple wgrib for GRIB2 files
  *
  */
-
+#ifndef CALLABLE_WGRIB2
 
 int main(int argc, char **argv) {
-    FILE *in;
-    unsigned char *msg, *sec[9];
-    long int last_pos;
-    struct stat stat_buf;  /* for type of grib input file */
 
-    int file_arg, i, j, ii, num_submsgs;
+#else
+
+int wgrib2(int argc, char **argv) {
+
+#endif
+
+
+//WNE    FILE *in;
+    struct seq_file in_file;
+    unsigned char *msg, *sec[10];	/* sec[9] = last valid bitmap */
+    long int last_pos;
+
+    int file_arg, i, j, num_submsgs;
     int n_arg;
     unsigned int k, ndata;
-    float *data, missing_c_val_1, missing_c_val_2;
+    float *data;
     double *ddata, ref;
+
+#ifdef USE_G2CLIB
+    float missing_c_val_1, missing_c_val_2;
     g2int *bitmap, has_bitmap;
     g2float *g2_data;
+    int ii;
+#endif
 
     struct ARGLIST arglist[N_ARGLIST];
-    int narglist = 0;
+    int narglist;
     const char *new_argv[N_ARGLIST];
     void *local[N_ARGLIST];
     int has_inv_option, last_submsg;
-    int err, new_GDS, gdt, pdt;
+    int err, new_GDS, gdt, pdt, center;
+    unsigned char dscale[2];
+
+    init_globals();
+    init_inv_out();
+//WNE    in = NULL;
+    ndata = 0;
+
+    if (initial_call) {		/* only done 1st time */
+
+#ifdef CALLABLE_WGRIB2
+        if (setjmp(fatal_err)) {
+	    if (ndata) free(data);
+	    ndata=0;
+            return 1;
+        }
+#endif
+
+	setup_user_gribtable();
+//      jas_init();
+//      gctpc initialiation
+//      init(-1,-1,"gctpc_1,txt", "gctpc_2.txt");
+        initial_call = 0;
+    }
 
     inv_file = stdout;
-//    jas_init();
 
-//  gctpc initialiation
-//    init(-1,-1,"gctpc_1,txt", "gctpc_2.txt");
+    narglist = 0;
+    dscale[0] = 0;
+    dscale[1] = 0;
+    mode = 0;
+    rd_inventory_input = stdin;
+    data = NULL;
+    ddata = NULL;
 
     /* no arguments .. help screen */
     if (argc == 1) {
-	f_help(-1,NULL,NULL,0,inv_out,local,"most");
+	mode = -1;
+	inv_out[0] = 0;
+	f_h(call_ARG0(inv_out,NULL));
 	fprintf(inv_file, "%s\n", inv_out);
-	exit(8);
+	err_bin(1); err_string(1);
+        return 8;
     }
 
     /* copy argv */
@@ -148,35 +201,6 @@ int main(int argc, char **argv) {
     has_inv_option = 0;
     file_arg = 0;
     for (i = 1; i < argc; i++) {
-	if (new_argv[i][0] != '-') {
-	    /* must be filename */
-            file_arg = i;
-            continue;
-        }
-	/* must be an option */
-	for (j = 0; j < nfunctions; j++) {
-	    if (strcmp(&(new_argv[i][1]),functions[j].name) == 0) {
-	        if (functions[j].type == inv) has_inv_option = 1;
-		i += functions[j].nargs;
-                break;
-            }
-        }
-    }
-
-    /* if no inv option, use default inventory .. put it at end */
-
-    if (has_inv_option == 0) {
-	for (i = 0; i < argc; i++) {
-	    new_argv[i] = new_argv[i];
-	}
-	new_argv[argc++] = "-s";
-    } 
-
-
-    /* parse parameters */
-    file_arg = 0;
-    for (i = 1; i < argc; i++) {
-
 	if (new_argv[i][0] != '-' || (strcmp(new_argv[i],"-") == 0) ) {
 	    /* must be filename */
 	    if (file_arg == 0) {
@@ -186,44 +210,69 @@ int main(int argc, char **argv) {
 		fatal_error("too many grib files .. 2nd=%s", new_argv[i]);
 	    }
 	}
+	/* must be an option */
+	for (j = 0; j < nfunctions; j++) {
+	    if (strcmp(&(new_argv[i][1]),functions[j].name) == 0) {
+	        if (functions[j].type == inv) has_inv_option = 1;
+		i += functions[j].nargs;
+                break;
+            }
+        }
+    }
+    /* if no inv option, use default inventory .. put it at end */
+
+    if (has_inv_option == 0) {
+	for (i = 0; i < argc; i++) {
+	    new_argv[i] = new_argv[i];
+	}
+	new_argv[argc++] = "-s";
+    } 
+
+    /* try opening the input file */
+    in_file.file_type = NOT_OPEN;
+    if (file_arg != 0) {
+	ffopen_file(&in_file, new_argv[file_arg],"rb");
+//WNE        in = in_file.input;
+    }
+
+    /* "compile" options */
+
+    for (i = 1; i < argc; i++) {
+
+	/* if filename skip */
+	if (new_argv[i][0] != '-' || (strcmp(new_argv[i],"-") == 0))  continue;
 
 	/* must be an option */
 
 	for (j = 0; j < nfunctions; j++) {
-	    if (strcmp(&(new_argv[i][1]),functions[j].name) == 0) {
-#ifdef DEBUG
-		fprintf(stderr,"match .. -%s %d args\n",  functions[j].name, functions[j].nargs);
-#endif
-                /* add to function argument list */
-		arglist[narglist].fn = j;
-		arglist[narglist].i_argc = i+1;
-
-	        if (functions[j].type == inv) has_inv_option = 1;
-
-		i += functions[j].nargs;
-		if (i >= argc) fatal_error("missing arguments option=%s",functions[j].name);
-		narglist++;
-		break;
-	    }
+	    if (strcmp(&(new_argv[i][1]),functions[j].name) == 0) break;
 	}
 
 	if (j == nfunctions) {
 	    fatal_error("unknown option %s", new_argv[i]);
 	}
-    }
 
-    if (has_inv_option == 0) {
-        fatal_error("missing arguments on last option","");
-    }
+        /* add to function argument list */
+	arglist[narglist].fn = j;
+	arglist[narglist].i_argc = i+1;
 
-    /* initialize options mode = -1 */
+	if (functions[j].type == inv) has_inv_option = 1;
+
+	i += functions[j].nargs;
+	if (i >= argc) fatal_error("missing arguments option=%s",functions[j].name);
+	narglist++;
+
+    }
+    if (has_inv_option == 0) fatal_error("missing arguments on last option","");
+
+    /* initialize options,  mode = -1 */
 
 #ifdef DEBUG
     fprintf(stderr,"init options narglist %d\n",narglist);
 #endif
 
     for (j = 0; j < narglist; j++) {
-	inv_out[0] = 0;
+	new_inv_out();	/* inv_out[0] = 0; */
 	n_arg = functions[arglist[j].fn].nargs;
         err = 0;
         if (n_arg == 0) err = functions[arglist[j].fn].fn(-1,NULL,NULL,0, inv_out,local+j);
@@ -256,75 +305,40 @@ int main(int argc, char **argv) {
 		new_argv[arglist[j].i_argc+6], new_argv[arglist[j].i_argc+7]);
 
         if(inv_out[0] != 0)  fprintf(inv_file, "%s", inv_out);
-        if (err) exit(8);
+        if (err) {
+	    err_bin(1); err_string(1);
+	    // cleanup
+            return 8;
+	}
     }
 
-    if (file_arg == 0 && argc > 1) fatal_error("no input file", "");
+    /* error and EOF handlers have been initialized */
+
+    if (has_inv_option == 0) fatal_error("missing arguments on last option","");
+    if (in_file.file_type == NOT_OPEN) fatal_error("no input file","");
+
     if (latlon == 1 && output_order_wanted != wesn) 
            fatal_error("latitude-longitude information is only available with -order we:sn","");
 
-    /* open input file */
+    if (in_file.file_type != DISK && input == inv_mode) fatal_error("wgrib2 cannot random access grib input file","");
 
-    seq_input = 0;
-    if (strcmp(new_argv[file_arg],"-") == 0) {
-	seq_input = 1;
-        in = stdin;
-        if (mode == 98) fprintf(stderr, "grib input is stdin\n");
-    }
-    else { 
-        if (stat(new_argv[file_arg], &stat_buf) != -1) {
-	    if (S_ISREG(stat_buf.st_mode)) {
-                if (mode == 98) fprintf(stderr, "grib input is a regular file\n");
-	    }
-	    else if (S_ISDIR(stat_buf.st_mode)) {
-	        fatal_error("grib input is a directory: %s",new_argv[file_arg]);
-	    }
-	    else if (S_ISCHR(stat_buf.st_mode)) {
-	        seq_input = 1;
-                 if (mode == 98) fprintf(stderr, "grib input is a char device\n");
-	    }
-	    else if (S_ISBLK(stat_buf.st_mode)) {
-	        seq_input = 1;
-                if (mode == 98) fprintf(stderr, "grib input is a block device\n");
-	    }
-	    else if (S_ISFIFO(stat_buf.st_mode)) {
-	        seq_input = 1;
-	        if (mode == 98) fprintf(stderr, "grib input is a fifo device\n");
-	    }
-	    else {
-	        if (mode == 98) fprintf(stderr, "grib input has an unknown type\n");
-	    }
-	}
-
-	if ((in = fopen(new_argv[file_arg],"rb")) == NULL) {
-            fatal_error("could not open file: %s", new_argv[file_arg]);
-	}
-    }
-
-    /* sequential input - can not do random access */
-    if (seq_input && input == inv_mode) fatal_error("wgrib2 cannot random access grib input file","");
-
-    ndata = 0;
-    data = NULL;
-    ddata = NULL;
     msg_no = 1;
     inv_no = 0;
     len = pos = 0;
     submsg = 0;
     msg = NULL;
 
-    if ((old_gds = (unsigned char *) malloc(GDS_max_size * sizeof(char)) ) == NULL) {
-	fatal_error("memory allocation problem old_gds in wgrib2.main","");
-    }
-    
     last_pos = -1;
     last_submsg = -1;
 
     /* if dump mode .. position io stream */
     if (input == dump_mode) {
         while (msg_no < dump_msg) {
-	    msg = seq_input ?  rd_grib2_msg_seq(in, &pos, &len, &num_submsgs) :
-	            rd_grib2_msg(in, &pos, &len, &num_submsgs);
+// //	    if (in_file.file_type == PIPE) msg = rd_grib2_msg_seq(sec, in, &pos, &len, &num_submsgs);
+//	    if (in_file.file_type == PIPE) msg = rd_grib2_msg_seq_file(sec, &in_file, &pos, &len, &num_submsgs);
+//	    else if (in_file.file_type == DISK) msg = rd_grib2_msg(sec, in, &pos, &len, &num_submsgs);
+
+	    msg = rd_grib2_msg_seq_file(sec, &in_file, &pos, &len, &num_submsgs);
             if (msg == NULL) fatal_error_i("record %d not found", dump_msg);
             last_pos = pos;
             pos += len;
@@ -348,7 +362,8 @@ int main(int argc, char **argv) {
         /* need position and submessage number of message */
         if (input == inv_mode || input == dump_mode) {
             if (input == inv_mode) {
-                if (rd_inventory(&msg_no,&submsg, &pos)) break;
+                if (rd_inventory(&msg_no,&submsg, &pos, rd_inventory_input)) break;
+		if (ffseek_file(&in_file, pos) != 0) fatal_error("ffseek_file failed","");
             }
             else if (input == dump_mode) {
                 if (dump_msg == -1) break;
@@ -357,8 +372,10 @@ int main(int argc, char **argv) {
 	    }
 
             if (pos != last_pos) {
-		msg = seq_input ?  rd_grib2_msg_seq(in, &pos, &len, &num_submsgs) :
-	            rd_grib2_msg(in, &pos, &len, &num_submsgs);
+// //	        if (in_file.file_type == PIPE) msg = rd_grib2_msg_seq(sec, in, &pos, &len, &num_submsgs);
+//	        if (in_file.file_type == PIPE) msg = rd_grib2_msg_seq_file(sec, &in_file, &pos, &len, &num_submsgs);
+//		else if (in_file.file_type == DISK) msg = rd_grib2_msg(sec, in, &pos, &len, &num_submsgs);
+	        msg = rd_grib2_msg_seq_file(sec, &in_file, &pos, &len, &num_submsgs);
 	        if (msg == NULL) {
                     fatal_error_i("grib message #%d not found", msg_no);
                     break;
@@ -391,16 +408,20 @@ int main(int argc, char **argv) {
 	}
         else if (input == all_mode) {
 	    if (submsg == 0) {
-		msg = seq_input ?  rd_grib2_msg_seq(in, &pos, &len, &num_submsgs) :
-	            rd_grib2_msg(in, &pos, &len, &num_submsgs);
+// //	        if (in_file.file_type == PIPE) msg = rd_grib2_msg_seq(sec, in, &pos, &len, &num_submsgs);
+//	        if (in_file.file_type == PIPE) msg = rd_grib2_msg_seq_file(sec, &in_file, &pos, &len, &num_submsgs);
+//		else if (in_file.file_type == DISK) msg = rd_grib2_msg(sec, in, &pos, &len, &num_submsgs);
+	        msg = rd_grib2_msg_seq_file(sec, &in_file, &pos, &len, &num_submsgs);
 		if (msg == NULL) break;
                 submsg = 1;
 	    }
 	    else if (submsg > num_submsgs) {
 		pos += len;
                 msg_no++;
-		msg = seq_input ?  rd_grib2_msg_seq(in, &pos, &len, &num_submsgs) :
-	            rd_grib2_msg(in, &pos, &len, &num_submsgs);
+// //	        if (in_file.file_type == PIPE) msg = rd_grib2_msg_seq(sec, in, &pos, &len, &num_submsgs);
+//	        if (in_file.file_type == PIPE) msg = rd_grib2_msg_seq_file(sec, &in_file, &pos, &len, &num_submsgs);
+//		else if (in_file.file_type == DISK) msg = rd_grib2_msg(sec, in, &pos, &len, &num_submsgs);
+	        msg = rd_grib2_msg_seq_file(sec, &in_file, &pos, &len, &num_submsgs);
 		if (msg == NULL) break;
                 submsg = 1;
 	    }
@@ -428,11 +449,11 @@ int main(int argc, char **argv) {
 	    }
 	}
 
-#ifdef USE_REGEX
 
 	/* move inv_no++ before match_inv is made */
 	inv_no++;
-        if (match) {
+
+        if (match || match_fs) {
 	   inv_out[0] = 0;
 	   if (num_submsgs > 1) {
 	       sprintf(inv_out,"%d.%d:", msg_no, submsg);
@@ -441,14 +462,23 @@ int main(int argc, char **argv) {
 	       sprintf(inv_out,"%d:", msg_no);
 	   }
 
-           f_match_inv(0, sec, NULL, 0, inv_out+strlen(inv_out), NULL);
+           f_match_inv(call_ARG0(inv_out+strlen(inv_out), NULL));
+
+           if (is_match_fs(inv_out) != 0) {
+              submsg++;
+	      inv_no--;
+              continue;
+           }
+
+#ifdef USE_REGEX
            if (is_match(inv_out) != 0) {
               submsg++;
 	      inv_no--;
               continue;
            }
-        }
 #endif
+
+        }
 	match_flag = 0;
 
         if (for_n_mode) {
@@ -473,8 +503,8 @@ int main(int argc, char **argv) {
 	if (new_GDS) {
 	    GDS_change_no++;
 	    if (i > GDS_max_size) {
-		free(old_gds);
-		GDS_max_size = i;
+		if (GDS_max_size) free(old_gds);
+		GDS_max_size = i + 100;		/* add 100 just to avoid excessive memory allocations */
     		if ((old_gds = (unsigned char *) malloc(GDS_max_size) ) == NULL) {
 			fatal_error("memory allocation problem old_gds in wgrib2.main","");
 		}
@@ -489,10 +519,21 @@ int main(int argc, char **argv) {
 
             if (latlon) {
 		i = 1;
-//		if (use_gctpc && output_order == wesn) {		/* use gctpc to get lat lon values */
-//		   i = gctpc_get_latlon(sec, &lon, &lat);
-//		}
-		if (i) get_latlon(sec, &lon, &lat);			 /* get lat lon of grid points */
+
+		/* if (use_gctpc && i != 0) {				/\* use gctpc to get lat lon values *\/ */
+		/*     i = gctpc_get_latlon(sec, &lon, &lat); */
+		/*     if (i == 0) fprintf(stderr,"gctpc_get_lat used\n"); */
+		/* } */
+
+#ifdef USE_PROJ4
+		if (use_proj4 && i != 0) {
+		    i = proj4_get_latlon(sec, &lon, &lat);
+		    if (i == 0) fprintf(stderr,"proj4_get_lat used\n");
+		}
+#endif
+		
+		if (i != 0) get_latlon(sec, &lon, &lat);			 /* get lat lon of grid points */
+
 	    }
 	}
 
@@ -506,19 +547,19 @@ int main(int argc, char **argv) {
 
 #ifdef CHECK
 	j = code_table_5_0(sec);		// type of compression
+
 	/* yes this can be simplified but want to split it up in case other decoders have problems */
 	if (j == 0 && sec[5][19] == 0 && int2(sec[5] + 17) != 0 && ieee2flt(sec[5]+11) != 0.0) 
-		fprintf(stderr,"Warning: g2lib/g2clib/grib-api simple deocde may differ from WMO standard, use -g2clib 0 for WMO standard\n");
+		fprintf(stderr,"Warning: g2lib/g2clib/grib-api simple decode may differ from WMO standard, use -g2clib 0 for WMO standard\n");
 	if ((j == 2 || j == 3) && int2(sec[5]+17) != 0 && int4(sec[5] + 31) == 0 && ieee2flt(sec[5]+11) != 0.0) 
-		fprintf(stderr,"Warning: g2lib/g2clib complex deocde may differ from WMO standard, use -g2clib 0 for WMO standard\n");
+		fprintf(stderr,"Warning: g2lib/g2clib complex decode may differ from WMO standard, use -g2clib 0 for WMO standard\n");
 	if (j == 40 && sec[5][19] == 0 && int2(sec[5] + 17) != 0 && ieee2flt(sec[5]+11) != 0.0) 
 		fprintf(stderr,"Warning: g2lib/g2clib jpeg deocde may differ from WMO standard, use use -g2clib 0 for WMO standard\n");
 	if (j == 41 && sec[5][19] == 0 && int2(sec[5] + 17) != 0 && ieee2flt(sec[5]+11) != 0.0) 
-		fprintf(stderr,"Warning: g2lib/g2clib/grib-api png deocde may differ from WMO standard, use -g2clib 0 for WMO standard\n");
+		fprintf(stderr,"Warning: g2lib/g2clib/grib-api png decode may differ from WMO standard, use -g2clib 0 for WMO standard\n");
 #endif
 
 #ifdef CHECK
-
 	/* check the size of Section 7 */
 	/* code to check the other sizes needs to be placed in decode routines */
 
@@ -561,12 +602,12 @@ int main(int argc, char **argv) {
 
             /* allocate data */
             if (GB2_Sec3_npts(sec) != ndata) {
-                if (ndata) free(data);
+		if (ndata) free(data);
                 ndata = GB2_Sec3_npts(sec);
-                if (ndata) {
+		if (ndata) {
                     data = (float *) malloc(ndata * sizeof(float));
                     if (data == NULL) fatal_error("main: memory allocation failed data","");
-                }
+		}
                 else { data = NULL; }
             }
 
@@ -574,75 +615,79 @@ int main(int argc, char **argv) {
 	    gdt = code_table_3_1(sec);		// grid type
             pdt = GB2_ProdDefTemplateNo(sec);   // product defintion template
 
-	    if ((j == 4 || j == 200) || ( (use_g2clib == 0) && (j == 0 || 
-			j == 4 || j == 2 || j == 3 || j == 40 || j == 41 || 
-                       j == 40000)) || gdt == 130 || pdt == 44 || pdt == 48 ) {
-		err = unpk_grib(sec, data);
-                if (err != 0) {
-                    fprintf(stderr,"Fatal decode packing type %d\n",j);
-                    exit(8);
-		}
-	    }
-            else {
-  	        /* unpack grib field using g2clib */
+            /* USE G2CLIB */
 
-//	        if (use_g2clib == 0 && (j == 2 || j == 3) &&
-//			uint4(sec[5]+31) == 0 && int2(sec[5]+17) != 0) {
-		    // change reference value so NCEP routines handle constant field correctly
-		    // reference = reference * 10**-dec_scale
-		    // dec_scale = 0
-//		    flt2ieee(
-//			ieee2flt(sec[5]+11)*Int_Power(10.0,-int2(sec[5]+17)),
-//			sec[5]+11);
-//		    sec[5][17] = sec[5][18] = 0;
-//		}
+#ifdef USE_G2CLIB
+            if (use_g2clib == 2) {
+                err = g2_getfld(msg,submsg,1,1,&grib_data);
+                if (err != 0) fatal_error_ii("Fatal g2clib decode err=%d msg=%d", err, msg_no);
+                free_gribfield = 1;
 
-	        err = g2_getfld(msg,submsg,1,1,&grib_data);
-                if (err != 0) {
-                    fprintf(stderr,"Fatal decode err=%d msg %d.%d\n",err, msg_no, submsg);
-		    if (use_g2clib == 1) fprintf(stderr,"Try the wgrib2 option: -g2clib 0\n");
-                    exit(8);
+                has_bitmap = grib_data->ibmap;
+                g2_data = &(grib_data->fld[0]);
+                if (has_bitmap == 0 || has_bitmap == 254) {
+                    bitmap = grib_data->bmap;
+                    for (i = 0; i < ndata; i++) {
+                         data[i] = (bitmap[i] == 0) ? UNDEFINED : g2_data[i];
+                    }
                 }
-		free_gribfield = 1;
+                else {
+                    for (i = 0; i < ndata; i++) {
+                        data[i] = g2_data[i];
+                    }
+                }
 
-	        has_bitmap = grib_data->ibmap;
-	        g2_data = &(grib_data->fld[0]);
-	        if (has_bitmap == 0 || has_bitmap == 254) {
-		    bitmap = grib_data->bmap;
-#pragma omp parallel for schedule(static) private(i)
-		    for (i = 0; i < ndata; i++) {
-		         data[i] = (bitmap[i] == 0) ? UNDEFINED : g2_data[i];
-		    }
-	        }
-	        else {
-#pragma omp parallel for schedule(static) private(i)
-		    for (i = 0; i < ndata; i++) {
-		        data[i] = g2_data[i];
-		    }
-	        }
+                /* complex packing uses special values for undefined */
+                ii = sub_missing_values(sec, &missing_c_val_1, &missing_c_val_2);
+                if (ii == 1) {
+                    for (i = 0; i < ndata; i++) {
+                        if (data[i] == missing_c_val_1) data[i] = UNDEFINED;
+                    }
+                }
+                else if (ii == 2) {
+                    for (i = 0; i < ndata; i++) {
+                        if (data[i] == missing_c_val_1) data[i] = UNDEFINED;
+                        if (data[i] == missing_c_val_2) data[i] = UNDEFINED;
+                    }
+                }
+            }
+#endif
 
-	        /* complex packing uses special values for undefined */
-		ii = sub_missing_values(sec, &missing_c_val_1, &missing_c_val_2);
-		if (ii == 1) {
-#pragma omp parallel for schedule(static) private(i)
-		    for (i = 0; i < ndata; i++) {
-		        if (data[i] == missing_c_val_1) data[i] = UNDEFINED;
-		    }
+            /* USE INTERNAL DECODER */
+
+            if (use_g2clib != 2) {
+                center = GB2_Center(sec);
+                if (use_g2clib == 1) {	// introduce g2clib constant field error
+		    /* g2clib ignores decimal scaling for constant fields make internal decoders look like g2clib*/
+                    if ( (j == 0 && sec[5][19] == 0) || ((j == 2 || j == 3) && int4(sec[5] + 31) == 0) ||
+                         (j == 40 && sec[5][19] == 0) || (j == 41 && sec[5][19] == 0) ||
+                         (center == NCEP && j == 40000 && sec[5][19] == 0) || 
+                         (center == NCEP && j == 40010 && sec[5][19] == 0)  ) {
+			dscale[0] = sec[5][17];
+			dscale[1] = sec[5][18];
+			sec[5][17] = sec[5][18] = 0;
+                    }
 		}
-  	        else if (ii == 2) {
-#pragma omp parallel for schedule(static) private(i)
-		    for (i = 0; i < ndata; i++) {
-		        if (data[i] == missing_c_val_1) data[i] = UNDEFINED;
-		        if (data[i] == missing_c_val_2) data[i] = UNDEFINED;
-		    }
-	        }
 
+		err = unpk_grib(sec, data);
+                if (err != 0) fatal_error_i("Fatal decode packing type %d",err);
+
+		if (use_g2clib == 1) {  // fix up data 
+		    /* restore decimal scaling */
+                    if ( (j == 0 && sec[5][19] == 0) || ((j == 2 || j == 3) && int4(sec[5] + 31) == 0) ||
+                         (j == 40 && sec[5][19] == 0) || (j == 41 && sec[5][19]) ||
+                         (center == NCEP && j == 40000 && sec[5][19] == 0) || 
+                         (center == NCEP && j == 40010 && sec[5][19] == 0)  ) {
+			sec[5][17] = dscale[0];
+			sec[5][18] = dscale[1];
+                    }
+		}
             }
 
 	    /* convert to standard output order we:sn */
 
-	    if (output_order_wanted == wesn) to_we_sn_scan(data);
-	    else if (output_order_wanted == wens) to_we_ns_scan(data);
+	    if (output_order_wanted == wesn) to_we_sn_scan(data, scan, npnts, nx, ny, save_translation);
+	    else if (output_order_wanted == wens) to_we_ns_scan(data, scan, npnts, nx, ny, save_translation);
 	}
         else {
 	    if (ndata) free(data);
@@ -675,7 +720,7 @@ int main(int argc, char **argv) {
             // if (functions[arglist[j].fn].type == inv) fprintf(inv_file, item_deliminator);
             if (functions[arglist[j].fn].type == inv) fprintf(inv_file, "%s", item_deliminator);
             if (functions[arglist[j].fn].type != setup) {
-		inv_out[0] = 0;
+		new_inv_out();	// inv_out[0] = 0;
 	        n_arg = functions[arglist[j].fn].nargs;
 		if (n_arg == 0) 
                     functions[arglist[j].fn].fn(mode, sec, data, ndata, inv_out, local+j);
@@ -736,10 +781,11 @@ int main(int argc, char **argv) {
 	}
 #endif
 
-
 	submsg++;
 
+#ifdef USE_G2CLIB
 	if (free_gribfield) { g2_free(grib_data); free_gribfield = 0;}
+#endif
 
 	// fprintf(inv_file, "\n");
 	fprintf(inv_file, "%s",end_inv);
@@ -750,9 +796,9 @@ int main(int argc, char **argv) {
     /* finalize all functions, call with mode = -2 */
 
     for (j = 0; j < narglist; j++) {
-        if (functions[arglist[j].fn].type != setup) {
+//        if (functions[arglist[j].fn].type != setup) {
 	    n_arg = functions[arglist[j].fn].nargs;
-	    inv_out[0] = 0;
+	    new_inv_out();	// inv_out[0] = 0;
 	    if (n_arg == 0) 
                 functions[arglist[j].fn].fn(-2, NULL, NULL, 0, inv_out, local+j);
 	    else if (n_arg == 1)
@@ -793,65 +839,18 @@ int main(int argc, char **argv) {
 			new_argv[arglist[j].i_argc+6], new_argv[arglist[j].i_argc+7]);
             // if (inv_out[0]) fprintf(stderr, "%s\n", inv_out);
             if (inv_out[0]) fprintf(stderr, "%s%s", inv_out, end_inv);
-        }
+//        }
     }
-    exit(0);
-}
-
-/*
- * reads inventory and pulls out the address of the record
- * and submessage number
- */
-
-int rd_inventory(int *rec_num, int *submsg, long int *pos) {
-
-    long int tmp;
-    int c, i;
-
-    /* format: [digits].[submessage]:[pos]: or digits]:[pos]: */
-
-    i = 0;
-
-    c=getchar();
-    while (c == ' ') c = getchar();
-    if (c == EOF) return 1;
-    if (!isdigit(c)) {
-	fatal_error_i("bad inventory on line: %d",*rec_num);
+    err_bin(0); err_string(0);
+//WNE    ffclose(in);
+    ffclose_file(&in_file);
+    if (ndata) {
+	ndata = 0;
+	free(data);
     }
-
-    /* record number */
-    while (isdigit(c) ) {
-	i = 10*i + c - '0';
-        c=getchar();
-    }
-
-    *rec_num = i;
-
-    if (c == '.') {
-        i = 0;
-	while (isdigit(c = getchar()) ) {
-	    i = 10*i + c - '0';
-	}
-	*submsg = i;
-    }
-    else {
-        *submsg = 1;
-    }
-
-    if (c != ':') fatal_error_i("bad inventory on line: %d",*rec_num);
-
-    tmp = 0;
-    while (isdigit(c = getchar()) ) {
-        tmp = 10*tmp + c - '0';
-    }
-
-    /* if (c != ':') fatal_error_i("bad inventory on line: %d",*rec_num); */
-
-    /* read the rest of the line */
-    while (c != EOF && c != '\n') {
-	c = getchar();
-    }
-    *pos = tmp;
+#ifdef DEBUG    
+    ffclose_finished();
+#endif
     return 0;
 }
 

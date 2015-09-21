@@ -14,6 +14,7 @@
  *
  * 3/2009: Public Domain: Wesley Ebisuzaki
  *
+ * v 0.2 9/2013 Wesley Ebisuzaki, add support for more PDTs (only PDT=8 in v 0.1)
  */
 
 extern int decode, file_append, nx, ny, save_translation;
@@ -38,12 +39,13 @@ int f_ncep_norm(ARG1) {
     };
     struct local_struct *save;
 
-    int j, pdt, fhr_1, fhr_2,  dt1, dt2, new_type, is_ave;
+    int idx, j, fhr_1, fhr_2,  dt1, dt2, new_type, is_ave;
     unsigned int i;
     float *d1, *data_tmp;
 
     if (mode == -1) {			// initialization
         save_translation = decode = 1;
+        // 1/2015 use_scale = 0;
 
 	// allocate static variables
 
@@ -61,57 +63,46 @@ int f_ncep_norm(ARG1) {
     save = (struct local_struct *) *local;
 
     if (mode == -2) {			// cleanup
+	ffclose(save->output);
 	if (save->has_val == 1) {
 	    free(save->val);
 	    free_sec(save->clone_sec);
-	    free(save);
 	}
+	free(save);
 	return 0;
     }
 
     if (mode >= 0) {			// processing
 
-	// only hande PDT = 8 
-	pdt = GB2_ProdDefTemplateNo(sec);
-	if (pdt != 8) return 0;
+	idx = stat_proc_n_time_ranges_index(sec);
+
+	// only process stat processed fields
+	if (idx < 0) return 0;
+
+	// n_time_ranges has to be one
+	if (sec[4][idx] != 1) return 0;
 
 	// only process averages or accumulations
-
-	// check for code table 4.8
-
 	j = code_table_4_10(sec);
 	if (mode == 99) fprintf(stderr,"\nncep_norm: code table 4.10 (ave/acc/etc)=%d\n",j);
 	if (j == 0) is_ave = 1;			// average
 	else if (j == 1) is_ave = 0;		// accumulation
 	else return 0;				// only process average or accumulations
 
-	
-	// only process when fcst time units == ave/acc time units
-        if (sec[4][17] != sec[4][48]) {
-            if (int4(sec[4]+18) != 0) {
-		return 0;
-	    }
-	}
-
-        fhr_2 = int4(sec[4]+18);			// start time
-        dt2 = int4(sec[4]+49);				// delta-time
+        fhr_2 = forecast_time_in_units(sec);		// start time
+        dt2 = int4(sec[4]+idx+50-42);			// delta-time
+	if (mode == 99) fprintf(stderr,"\nncep_norm: fhr_2=%d dt2=%d index of dt2=%d\n",fhr_2, dt2, idx+50-42);
 	if (dt2 == 0) return 0;	 			// dt == 0
+
+	// units of fcst and stat proc should be the same if fcst time != 0
+	if (fhr_2 != 0 && code_table_4_4(sec) != sec[4][49-42+idx]) return 0;
 
 	if (save->has_val == 0) {			// new data: write and save
             if ((data_tmp = (float *) malloc(ndata * sizeof(float))) == NULL)
                 fatal_error("memory allocation - data_tmp","");
             undo_output_order(data, data_tmp, ndata);
-
             grib_wrt(sec, data_tmp, ndata, nx, ny, use_scale, dec_scale, bin_scale,
                 wanted_bits, max_bits, grib_type, save->output);
-/*
-            if (grib_type == simple) grib_out(sec, data_tmp, ndata, save->output);
-            else if (grib_type == jpeg) jpeg_grib_out(sec, data_tmp, ndata, nx,
-                     ny, use_scale, dec_scale, bin_scale, save->output);
-            else if (grib_type == ieee) ieee_grib_out(sec, data_tmp, ndata,
-                save->output);
-	    else fatal_error("NCEP_norm: unsupported grib type output","");
-*/
 
             if (flush_mode) fflush(save->output);
             free(data_tmp);
@@ -127,11 +118,10 @@ int f_ncep_norm(ARG1) {
             return 0;
         }
 
-
         new_type = 0;
 
-        fhr_1 = int4(save->clone_sec[4]+18);             // start time of save message
-        dt1 = int4(save->clone_sec[4]+49);               // delta time
+        fhr_1 = forecast_time_in_units(save->clone_sec);		// start_time of save message
+        dt1 = int4(save->clone_sec[4]+idx+50-42);			// delta-time
 
 	if (mode == 99) fprintf(stderr,"ncep_norm: is_ave = %d\n fhr_1 %d dt1 %d fhr_2 %d dt2 %d\n",is_ave,
 		fhr_1, dt1, fhr_2, dt2);
@@ -143,24 +133,21 @@ int f_ncep_norm(ARG1) {
             same_sec1(sec,save->clone_sec) == 0 ||
             same_sec3(sec,save->clone_sec) == 0 ||
             same_sec4_diff_ave_period(sec,save->clone_sec) == 0) {
+	
+               if (mode == 99) fprintf(stderr,"ncep_norm: new_type sec test %d %d %d %d\n",
+  		same_sec0(sec,save->clone_sec), same_sec1(sec,save->clone_sec), same_sec3(sec,save->clone_sec),
+	            same_sec4_diff_ave_period(sec,save->clone_sec));
                 new_type = 1;
 	    }
         }
+	if (mode == 99) fprintf(stderr,"ncep_norm: new_type=%d write and save\n",new_type);
 
         if (new_type == 1) {                    // fields dont match: write and save
             if ((data_tmp = (float *) malloc(ndata * sizeof(float))) == NULL)
                 fatal_error("memory allocation - data_tmp","");
             undo_output_order(data, data_tmp, ndata);
-
             grib_wrt(sec, data_tmp, ndata, nx, ny, use_scale, dec_scale, bin_scale,
                 wanted_bits, max_bits, grib_type, save->output);
-/*
-            if (grib_type == simple) grib_out(sec, data_tmp, ndata, save->output);
-            else if (grib_type == jpeg) jpeg_grib_out(sec, data_tmp, ndata, nx,
-                     ny, use_scale, dec_scale, bin_scale, save->output);
-            else if (grib_type == ieee) ieee_grib_out(sec, data_tmp, ndata,
-                save->output);
-*/
 
             if (flush_mode) fflush(save->output);
             free(data_tmp);
@@ -182,11 +169,13 @@ int f_ncep_norm(ARG1) {
 
         // change metadata
 
-        int_char(dt2-dt1, save->clone_sec[4]+49);		//  dt = dt2 - dt1
-        save->clone_sec[4][17] = sec[4][48];                    // new forecast time unit
-        int_char(dt1+fhr_1, save->clone_sec[4]+18);             // fhr = fhr + dt1
+        int_char(dt2-dt1, save->clone_sec[4]+50-42+idx);	//  dt = dt2 - dt1
 
-        for (i = 34; i < 41; i++) {                             // ending time from pds2
+        save->clone_sec[4][17] = sec[4][49-42+idx];             // new forecast time unit
+        int_char(dt1+fhr_1, save->clone_sec[4]+18);             // fhr = fhr + dt1
+        if (mode == 99) fprintf(stderr,"ncep_norm new fcst time %d + %d\n", dt1,fhr_1);
+
+        for (i = idx-7; i < idx; i++) {                             // ending time from pds2
             save->clone_sec[4][i] = sec[4][i];
         }
 
@@ -218,23 +207,8 @@ int f_ncep_norm(ARG1) {
         if ((data_tmp = (float *) malloc(ndata * sizeof(float))) == NULL)
                 fatal_error("memory allocation - data_tmp","");
         undo_output_order(save->val, data_tmp, ndata);
-
         grib_wrt(save->clone_sec, data_tmp, ndata, nx, ny, use_scale, dec_scale, bin_scale,
             wanted_bits, max_bits, grib_type, save->output);
-/*
-        if (grib_type == simple) grib_out(save->clone_sec, data_tmp, ndata, save->output);
-        else if (grib_type == jpeg) jpeg_grib_out(save->clone_sec, data_tmp, ndata, nx,
-                     ny, use_scale, dec_scale, bin_scale, save->output);
-        else if (grib_type == ieee) ieee_grib_out(save->clone_sec, data_tmp, ndata,
-                save->output);
-        else if (grib_type == complex1) complex_grib_out(save->clone_sec, data_tmp, ndata, 
-		use_scale, dec_scale, bin_scale, wanted_bits, max_bits, 1, save->output);
-        else if (grib_type == complex2) complex_grib_out(save->clone_sec, data_tmp, ndata, 
-		use_scale, dec_scale, bin_scale, wanted_bits, max_bits, 2, save->output);
-        else if (grib_type == complex3) complex_grib_out(save->clone_sec, data_tmp, ndata, 
-		use_scale, dec_scale, bin_scale, wanted_bits, max_bits, 3, save->output);
-	else fatal_error("NCEP_norm: unsupported grib output type","");
-*/
 
         if (flush_mode) fflush(save->output);
         free(data_tmp);

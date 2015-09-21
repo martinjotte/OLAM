@@ -14,6 +14,7 @@
  * HEADER:-1:cyclic:inv:0:is grid cyclic? (not for for mercator and thinned grids)
  */
 
+extern enum output_order_type output_order;
 int f_cyclic(ARG0) {
     if (mode >= 0) {
 	sprintf(inv_out,cyclic(sec) ? "cyclic" : "not cyclic");
@@ -25,17 +26,17 @@ int f_cyclic(ARG0) {
  * cyclic: return 0/1 if cyclic in longitude
  *
  * v1.1 add gaussian (not thinned)
+ * v1.2 dx has to be defined, added mercator
  */
 
 int cyclic(unsigned char **sec) {
     int grid_template, nx, ny, res, scan, flag_3_3, no_dx, basic_ang, sub_ang;
     unsigned int npnts;
     unsigned char *gds;
-    double dlon, units;
+    double dlon, units, lon1, lon2;
 
     get_nxny(sec, &nx, &ny, &npnts, &res, &scan);
-    if ((unsigned) (nx * ny) != npnts) return 0;
-    if (nx <= 0 || ny <= 0) return 0;
+    if (nx <= 1 || ny <= 0) return 0;
 
     grid_template = code_table_3_1(sec);
     gds = sec[3];
@@ -45,6 +46,7 @@ int cyclic(unsigned char **sec) {
     if (flag_3_3 != -1) {
         if ((flag_3_3 & 0x20) == 0) no_dx = 1;
     }
+    if (no_dx) return 0;
 
     if (grid_template == 0) {
 
@@ -52,11 +54,17 @@ int cyclic(unsigned char **sec) {
         sub_ang = GDS_LatLon_sub_ang(gds);
         units = basic_ang == 0 ?  0.000001 : (double) basic_ang / (double) sub_ang;
 
+	/* dlon has to be defined */
         dlon = units * GDS_LatLon_dlon(gds);
-        if (no_dx) dlon = 0.0;
-
-	dlon = nx * dlon;
-	return (fabs(dlon-360.0) < ERROR);
+	return (fabs(nx*dlon-360.0) < ERROR);
+    }
+    if (grid_template == 10) {
+	if (output_order != wesn) return 0;		// only works with we:sn order
+	lon1 = GDS_Mercator_lon1(gds);
+	lon2 = GDS_Mercator_lon2(gds);
+	if (lon2 < lon1) lon2 += 360.0;
+	dlon = (lon2-lon1)*nx/(nx-1.0);
+        return (fabs(dlon-360.0) < ERROR);
     }
 
     if (grid_template == 40) {
@@ -65,14 +73,10 @@ int cyclic(unsigned char **sec) {
         sub_ang = GDS_Gaussian_sub_ang(gds);
         units = basic_ang == 0 ?  0.000001 : (double) basic_ang / (double) sub_ang;
 
+	/* dlon has to be defined */
         dlon = units * GDS_Gaussian_dlon(gds);
-        if (no_dx) dlon = 0.0;
-        dlon = nx * dlon;
-        return (fabs(dlon-360.0) < ERROR);
+        return (fabs(nx*dlon-360.0) < ERROR);
     }
-
-
-// Mercator needs to be added
 
 
     return 0;

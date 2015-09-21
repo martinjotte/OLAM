@@ -19,6 +19,7 @@
  */
 
 extern enum output_order_type output_order;
+
 int f_grid_id(ARG0) {
     int i;
     double r_major;                           /* major axis                   */

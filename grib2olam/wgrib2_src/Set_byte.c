@@ -16,7 +16,7 @@
  */
 
 /*
- * HEADER:100:set_byte:misc:3:set bytes in Section X, location Y (1..N), bytes Z (a|a:b:c)
+ * HEADER:100:set_byte:misc:3:set bytes in Section X, Octet Y, bytes Z (a|a:b:c)
  */
 
 int f_set_byte(ARG3) {
@@ -45,7 +45,7 @@ int f_set_byte(ARG3) {
 }
 
 /*
- * HEADER:100:set_hex:misc:3:set bytes in Section X, location Y (1..N), bytes Z (a|a:b:c) in hexadecimal
+ * HEADER:100:set_hex:misc:3:set bytes in Section X, Octet Y, bytes Z (a|a:b:c) in hexadecimal
  */
 
 int f_set_hex(ARG3) {
@@ -77,7 +77,7 @@ int f_set_hex(ARG3) {
 
 
 /*
- * HEADER:100:set_int:misc:3:set 4-byte ints in Section X, location Y (1..N), signed integers Z (a|a:b:c)
+ * HEADER:100:set_int:misc:3:set 4-byte ints in Section X, Octet Y, signed integers Z (a|a:b:c)
  */
 
 int f_set_int(ARG3) {
@@ -86,7 +86,7 @@ int f_set_int(ARG3) {
 
     i = atoi(arg1);
     if (mode < 0) {
-        if (i < 0 || i > 8) fatal_error("set_byte - bad section number %s", arg1);
+        if (i < 0 || i > 8) fatal_error("set_int - bad section number %s", arg1);
         return 0;
     }
     j = atoi(arg2);
@@ -106,6 +106,67 @@ int f_set_int(ARG3) {
     return 0;
 }
 
+/*
+ * HEADER:100:set_int2:misc:3:set 2-byte ints in Section X, Octet Y, signed integers Z (a|a:b:c)
+ */
+
+int f_set_int2(ARG3) {
+
+    int i, j, k, m, val, seclen;
+
+    i = atoi(arg1);
+    if (mode < 0) {
+        if (i < 0 || i > 8) fatal_error("set_int2 - bad section number %s", arg1);
+        return 0;
+    }
+    j = atoi(arg2);
+
+    if (i == 0) seclen = GB2_Sec0_size;
+    else if (i == 8)  seclen = GB2_Sec8_size;
+    else seclen = uint4(sec[i]);
+
+    k = sscanf(arg3, "%d%n", &val, &m);
+    while (k == 1) {
+        if (j+1 > seclen) fatal_error("set_int2 out of bounds section %s",arg1);
+        int2_char(val, sec[i]+j-1);
+        j += 2;
+        arg3 += m;
+        k = sscanf(arg3, ":%d%n", &val, &m);
+    }
+    return 0;
+}
+
+/*
+ * HEADER:100:set_ieee:misc:3:set ieee float in Section X, Octet Y, floats Z (a|a:b:c)
+ */
+
+int f_set_ieee(ARG3) {
+
+    int i, j, k, m, seclen;
+    float val;
+
+    i = atoi(arg1);
+    if (mode < 0) {
+        if (i < 0 || i > 8) fatal_error("set_ieee - bad section number %s", arg1);
+        return 0;
+    }
+    j = atoi(arg2);
+
+    if (i == 0) seclen = GB2_Sec0_size;
+    else if (i == 8)  seclen = GB2_Sec8_size;
+    else seclen = uint4(sec[i]);
+
+    k = sscanf(arg3, "%f%n", &val, &m);
+    while (k == 1) {
+        if (j+3 > seclen) fatal_error("set_int out of bounds section %s",arg1);
+        flt2ieee(val, sec[i]+j-1);
+        j += 4;
+        arg3 += m;
+        k = sscanf(arg3, ":%f%n", &val, &m);
+    }
+    return 0;
+}
+
 
 /*
  * get_byte
@@ -118,7 +179,7 @@ int f_set_int(ARG3) {
 
 
 /*
- * HEADER:100:get_byte:inv:3:get bytes in Section X, location Y (1..N), number of bytes Z (decimal format)
+ * HEADER:100:get_byte:inv:3:get bytes in Section X, Octet Y, number of bytes Z (decimal format)
  */
 
 int f_get_byte(ARG3) {
@@ -162,7 +223,7 @@ int f_get_byte(ARG3) {
 }
 
 /*
- * HEADER:100:get_hex:inv:3:get bytes in Section X, location Y (1..N), number of bytes Z (bytes in hexadecimal format)
+ * HEADER:100:get_hex:inv:3:get bytes in Section X, Octet Y, number of bytes Z (bytes in hexadecimal format)
  */
 
 int f_get_hex(ARG3) {
@@ -203,7 +264,7 @@ int f_get_hex(ARG3) {
 }
 
 /*
- * HEADER:100:get_int:inv:3:get 4-byte ints in Section X, location Y (byte), number of ints Z
+ * HEADER:100:get_int:inv:3:get 4-byte ints in Section X, Octet Y, number of ints Z
  */
 
 int f_get_int(ARG3) {
@@ -238,3 +299,78 @@ int f_get_int(ARG3) {
     }
     return 0;
 }
+
+/*
+ * HEADER:100:get_int2:inv:3:get 2-byte ints in Section X, Octet Y, number of ints Z
+ */
+
+int f_get_int2(ARG3) {
+    int i, j, k, m, seclen, len;
+    double tot;
+
+    i = atoi(arg1);
+    if (mode < 0) {
+        if (i < 0 || i > 8) fatal_error("get_int2 - bad section number %s", arg1);
+        return 0;
+    }
+    j = atoi(arg2);
+    k = atoi(arg3);
+
+    if (i == 0) seclen = GB2_Sec0_size;
+    else if (i == 8)  seclen = GB2_Sec8_size;
+    else seclen = uint4(sec[i]);
+
+    if (2*k+j-1 > seclen) fatal_error("get_int2 - query out of range","");
+    sprintf(inv_out,"%d-%d=%d",i,j,int2(sec[i]+j-1));
+    tot = (len = strlen(inv_out));
+    inv_out += len;
+
+    for (m = 1; m < k; m++) {
+        sprintf(inv_out,",%d", int2(sec[i]+j-1+2*m));
+        tot += (len = strlen(inv_out));
+        inv_out += len;
+        if (tot > INV_BUFFER - 1000) {
+            sprintf(inv_out,"... too many numbers");
+            return 0;
+        }
+    }
+    return 0;
+}
+
+/*
+ * HEADER:100:get_ieee:inv:3:get ieee float in Section X, Octet Y, number of floats Z
+ */
+
+int f_get_ieee(ARG3) {
+    int i, j, k, m, seclen, len;
+    double tot;
+
+    i = atoi(arg1);
+    if (mode < 0) {
+        if (i < 0 || i > 8) fatal_error("get_ieee - bad section number %s", arg1);
+        return 0;
+    }
+    j = atoi(arg2);
+    k = atoi(arg3);
+
+    if (i == 0) seclen = GB2_Sec0_size;
+    else if (i == 8)  seclen = GB2_Sec8_size;
+    else seclen = uint4(sec[i]);
+
+    if (4*k+j-1 > seclen) fatal_error("get_int - query out of range","");
+    sprintf(inv_out,"%d-%d=%lf",i,j,(double) ieee2flt(sec[i]+j-1));
+    tot = (len = strlen(inv_out));
+    inv_out += len;
+
+    for (m = 1; m < k; m++) {
+        sprintf(inv_out,",%lf", (double) ieee2flt(sec[i]+j-1+4*m));
+        tot += (len = strlen(inv_out));
+        inv_out += len;
+        if (tot > INV_BUFFER - 1000) {
+            sprintf(inv_out,"... too many numbers");
+            return 0;
+        }
+    }
+    return 0;
+}
+

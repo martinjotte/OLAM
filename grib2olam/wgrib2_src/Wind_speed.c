@@ -65,6 +65,8 @@ int f_wind_speed(ARG1) {
 	    free(save->val);
 	    free_sec(save->clone_sec);
 	}
+	ffclose(save->output);
+	free(save);
 	return 0;
     }
 
@@ -76,10 +78,11 @@ int f_wind_speed(ARG1) {
         mastertab = GB2_MasterTable(sec);
         parmcat = GB2_ParmCat(sec);
         parmnum = GB2_ParmNum(sec);
+	// use_scale = 0;
 
 	if (mode == 99) fprintf(stderr,"-wind_speed %d %d %d %d\n",mastertab,discipline,parmcat,parmnum);
 
-	is_u = (mastertab <= 6) && (discipline == 0) && (parmcat == 2) && (parmnum == 2);
+	is_u = (mastertab != 255) && (discipline == 0) && (parmcat == 2) && (parmnum == 2);
 	if (mode == 99 && is_u) fprintf(stderr,"\n-wind_speed: is u\n");
 
 	if (is_u) {		// save data
@@ -122,7 +125,6 @@ int f_wind_speed(ARG1) {
             if ((data_tmp = (float *) malloc(ndata * sizeof(float))) == NULL)
                 fatal_error("memory allocation - data_tmp","");
             undo_output_order(save->val, data_tmp, ndata);
-
             grib_wrt(save->clone_sec, data_tmp, ndata, nx, ny, use_scale, dec_scale, 
 		bin_scale, wanted_bits, max_bits, grib_type, save->output);
 

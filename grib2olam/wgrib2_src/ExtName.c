@@ -34,9 +34,7 @@
  */
 int f_misc(ARG0) {
 
-    char *p;
     const char *string;
-    char cbuffer[STRING_SIZE];
     int need_space = 0;
     int pdt, val;
     static int error_count = 0;
@@ -45,72 +43,73 @@ int f_misc(ARG0) {
 
     pdt = GB2_ProdDefTemplateNo(sec);
     inv_out += strlen(inv_out);
-    p = inv_out;
 
-    *cbuffer = 0;
-    inv_out = cbuffer;
-    f_ens(CALL_ARG0);
+    f_ens(call_ARG0(inv_out,NULL) );
     if (strlen(inv_out)) {
-	if (need_space) strcat(p,":");
-	strcat(p,inv_out);
+	if (need_space) strcat(inv_out,":");
 	need_space = 1;
     }
+    inv_out += strlen(inv_out);
 
-    inv_out[0] = 0;
-    f_prob(CALL_ARG0);
+    f_prob(call_ARG0(inv_out,NULL));
     if (strlen(inv_out)) {
-	if (need_space) strcat(p,":");
-	strcat(p,inv_out);
+	if (need_space) strcat(inv_out,":");
 	need_space = 1;
     }
+    inv_out += strlen(inv_out);
 
-    inv_out[0] = 0;
-    f_spatial_proc(CALL_ARG0);
+    
+    f_spatial_proc(call_ARG0(inv_out,NULL));
     if (strlen(inv_out)) {
-	if (need_space) strcat(p,":");
-	strcat(p,inv_out);
+	if (need_space) strcat(inv_out,":");
 	need_space = 1;
     }
+    inv_out += strlen(inv_out);
 
-    inv_out[0] = 0;
-    f_wave_partition(CALL_ARG0);
+    f_wave_partition(call_ARG0(inv_out,NULL) );
     if (strlen(inv_out)) {
-	if (need_space) strcat(p,":");
-	strcat(p,inv_out);
+	if (need_space) strcat(inv_out,":");
 	need_space = 1;
     }
+    inv_out += strlen(inv_out);
 
     val = code_table_4_3(sec);
-    if (val == 6 || val == 7) {
-	if (need_space) strcat(p,":");
-	strcat(p,"analysis/forecast error");
-	need_space = 1;
+    if (val == 5) {
+	if (need_space) strcat(inv_out,":");
+	strcat(inv_out,"probability forecast");
     }
     else if (val == 6 || val == 7) {
-	if (need_space) strcat(p,":");
-	strcat(p,"climatological");
+	if (need_space) strcat(inv_out,":");
+	strcat(inv_out,"analysis/forecast error");
+	need_space = 1;
+    }
+    else if (val == 9) {
+	if (need_space) strcat(inv_out,":");
+	strcat(inv_out,"climatological");
 	need_space = 1;
     }
     else if (GB2_Center(sec) == 7 && val == 192) {
-	if (need_space) strcat(p,":");
-	strcat(p,"Confidence Indicator");
+	if (need_space) strcat(inv_out,":");
+	strcat(inv_out,"Confidence Indicator");
 	need_space = 1;
     }
 
+
     if (pdt == 7) {
-	if (need_space) strcat(p,":");
-	strcat(p,"analysis/forecast error");
+	if (need_space) strcat(inv_out,":");
+	strcat(inv_out,"analysis/forecast error");
 	need_space = 1;
     }
-    else if (pdt == 10) {
-	if (need_space) strcat(p,":");
-	strcat(p,"percent probability");
+    else if (pdt == 6 || pdt == 10) {
+	if (need_space) strcat(inv_out,":");
+        f_percent(call_ARG0(inv_out,NULL) );
+	strcat(inv_out," level");
 	need_space = 1;
    }
-//   else if (pdt == 40) {
+
    if ( (val = code_table_4_230(sec)) != -1) {
-	if (need_space) strcat(p,":");
-	strcat(p,"chemical=");
+	if (need_space) strcat(inv_out,":");
+	strcat(inv_out,"chemical=");
         val = code_table_4_230(sec);
         if (val >= 0) {
             if (GB2_MasterTable(sec) <= 4) {
@@ -130,49 +129,46 @@ int f_misc(ARG0) {
             if (GB2_MasterTable(sec) <= 4 && GB2_Center(sec) == ECMWF) {
                 string = NULL;
             }
-            if (string != NULL)  strcat(p,string);
+            if (string != NULL)  strcat(inv_out,string);
             else {
-		p += strlen(p);
-		sprintf(p,"chemical_%d",val);
+		inv_out += strlen(inv_out);
+		sprintf(inv_out,"chemical_%d",val);
 	    }
 	}
 	need_space = 1;
     }
 
     if ( (val = code_table_4_233(sec)) != -1) {
-	if (need_space) strcat(p,":");
-	strcat(p,"aerosol=");
+	if (need_space) strcat(inv_out,":");
+	strcat(inv_out,"aerosol=");
         val = code_table_4_233(sec);
         if (val >= 0) {
             string = NULL;
             switch(val) {
 #include "CodeTable_4.233.dat"
             }
-            if (string != NULL)  strcat(p,string);
+            if (string != NULL)  strcat(inv_out,string);
             else {
-                p += strlen(p);
-                sprintf(p,"chemical_%d",val);
+                inv_out += strlen(inv_out);
+                sprintf(inv_out,"chemical_%d",val);
             }
         }
         need_space = 1;
     }
 
     if (pdt == 44) {
-	if (need_space) strcat(p,":");
-        inv_out[0] = 0;
-        f_aerosol_size(CALL_ARG0);
-	strcat(p,inv_out);
+	if (need_space) strcat(inv_out,":");
+	inv_out += strlen(inv_out);
+        f_aerosol_size(call_ARG0(inv_out,NULL));
 	need_space = 1;
     }
     if (pdt == 48) {
-	if (need_space) strcat(p,":");
-        inv_out[0] = 0;
-        f_aerosol_size(CALL_ARG0);
-	strcat(p,inv_out);
-        strcat(p,":");
-        inv_out[0] = 0;
-        f_aerosol_wavelength(CALL_ARG0);
-	strcat(p,inv_out);
+	if (need_space) strcat(inv_out,":");
+	inv_out += strlen(inv_out);
+        f_aerosol_size(call_ARG0(inv_out,NULL));
+        strcat(inv_out,":");
+	inv_out += strlen(inv_out);
+        f_aerosol_wavelength(call_ARG0(inv_out,NULL));
 	need_space = 1;
     }
     return 0;
@@ -182,7 +178,7 @@ int f_misc(ARG0) {
  * HEADER:400:set_ext_name:setup:1:X=0/1 extended name on/off
  */
 
-int use_ext_name = 0;
+int use_ext_name;
 
 int f_set_ext_name(ARG1) {
     use_ext_name = atoi(arg1);
@@ -219,7 +215,7 @@ int f_ext_name(ARG0) {
 int getExtName(unsigned char **sec, int mode, char *inv_out, char *name, char *desc, char *units,
    const char *delim, const char *space) {
 
-    char *save_inv_out, misc_string[STRING_SIZE], *p;
+    char misc_string[STRING_SIZE], *p;
     int i;
 
     if (sec == NULL) return 1;
@@ -227,17 +223,13 @@ int getExtName(unsigned char **sec, int mode, char *inv_out, char *name, char *d
     /* arguments for ARG0 */
     float *data = NULL;
     unsigned int ndata = 0;
-    void **local = NULL;
 
     getName(sec, mode, inv_out, name, desc, units);
 
     if (use_ext_name == 0) return 0;
 
-    save_inv_out = inv_out;
     misc_string[0] = 0;
-    inv_out = misc_string;
-    f_misc(CALL_ARG0);
-    inv_out = save_inv_out;
+    f_misc(call_ARG0(misc_string,NULL));
 
     p = name + strlen(name);
     if (strlen(misc_string) > 0) *p++ = '.';
@@ -262,7 +254,7 @@ int f_full_name(ARG0) {
 	inv_out += strlen(inv_out);
 	*inv_out++ = '.';
 	*inv_out = 0;
-	f_lev(CALL_ARG0);
+	f_lev(call_ARG0(inv_out,NULL));
 	for (i = 0; inv_out[i]; i++) {
 	    if (inv_out[i] == ' ') inv_out[i] = '_';
 	}

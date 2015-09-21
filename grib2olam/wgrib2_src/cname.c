@@ -5,15 +5,14 @@
 #include "wgrib2.h"
 #include "grb2.h"
 
+extern struct gribtable_s gribtable[];
+extern struct gribtable_s *user_gribtable;
 
-
-extern struct gribtab_s gribtab[];
-
-static struct gribtab_s *search_gribtab(struct gribtab_s *gribtab, unsigned char **sec);
+static struct gribtable_s *search_gribtable(struct gribtable_s *gribtable, unsigned char **sec);
 
 #ifdef USE_TIGGE
 extern int tigge;
-extern struct gribtab_s tigge_gribtab[];
+extern struct gribtable_s tigge_gribtable[];
 #endif
 /*
  * get the name information
@@ -25,6 +24,7 @@ extern struct gribtab_s tigge_gribtab[];
  * v1.2 Wesley Ebisuzaki 4/2007 multiple table support
  * v1.3 Wesley Ebisuzaki 6/2011 make parameter cat >= 192 local
  * v1.4 Wesley Ebisuzaki 2/2012 fixed search_gribtab for local tables
+ * v1.5 Wesley Ebisuzaki 4/2013 gribtab -> gribtable, added user_gribtable
  */
 
 
@@ -32,18 +32,19 @@ int getName(unsigned char **sec, int mode, char *inv_out, char *name, char *desc
 
     int discipline, center, mastertab, localtab, parmcat, parmnum;
     int pdt;
-    struct gribtab_s *p;
+    struct gribtable_s *p;
     const char *p_unit;
 
     p = NULL;
+    if (user_gribtable != NULL) p = search_gribtable(user_gribtable, sec);
 
 #ifdef USE_TIGGE
-    if (tigge) p = search_gribtab(tigge_gribtab, sec);		/* tigge is default table */
+    if (tigge && p == NULL) p = search_gribtable(tigge_gribtable, sec);		/* tigge is default table */
 #endif
-    if (p == NULL) p = search_gribtab(gribtab, sec);
+    if (p == NULL) p = search_gribtable(gribtable, sec);
 #ifdef USE_TIGGE
     /* if undefined and a tigge file */
-    if (p == NULL && !tigge && (code_table_1_3(sec) == 4 || code_table_1_3(sec) == 5)) p = search_gribtab(tigge_gribtab, sec);
+    if (p == NULL && !tigge && (code_table_1_3(sec) == 4 || code_table_1_3(sec) == 5)) p = search_gribtable(tigge_gribtable, sec);
 #endif
 
     p_unit = "unit";
@@ -51,7 +52,6 @@ int getName(unsigned char **sec, int mode, char *inv_out, char *name, char *desc
         p_unit = p->unit;
         pdt = code_table_4_0(sec);
 	if (pdt == 5 || pdt == 9) p_unit = "prob";
-	else if (pdt == 6 || pdt == 10) p_unit = "%";
     }
 
     if (p) {
@@ -96,11 +96,13 @@ int getName(unsigned char **sec, int mode, char *inv_out, char *name, char *desc
  * search the grib table
  */
 
-static struct gribtab_s *search_gribtab(struct gribtab_s *p, unsigned char **sec){
+static struct gribtable_s *search_gribtable(struct gribtable_s *p, unsigned char **sec){
 
     int discipline, center, mastertab, localtab, parmcat, parmnum;
     int use_local_table;
     static int count = 0;
+
+    if (p == NULL) return NULL;
 
     discipline = GB2_Discipline(sec);
     center = GB2_Center(sec);
@@ -109,8 +111,8 @@ static struct gribtab_s *search_gribtab(struct gribtab_s *p, unsigned char **sec
     parmcat = GB2_ParmCat(sec);
     parmnum = GB2_ParmNum(sec);
 
-    // if (mastertab == 0) mastertab = 1;
-    if (mastertab >= 0 && mastertab <= 8) mastertab = 1;
+//    // if (mastertab == 0) mastertab = 1;
+//    if (mastertab >= 0 && mastertab <= 10) mastertab = 1;
 
     use_local_table = (mastertab == 255) ? 1 : 0;
     if (parmnum >= 192 || parmcat >= 192) use_local_table = 1;
@@ -125,7 +127,7 @@ static struct gribtab_s *search_gribtab(struct gribtab_s *p, unsigned char **sec
 
     if (! use_local_table) {
         for (; p->disc >= 0; p++) {
-            if (discipline == p->disc && (mastertab == p->mtab || p->mtab == -1) &&
+            if (discipline == p->disc && (mastertab >= p->mtab_low) && (mastertab <= p->mtab_high) &&
                 parmcat == p->pcat && parmnum == p->pnum) {
                 return p;
             }

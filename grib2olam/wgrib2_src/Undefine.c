@@ -18,7 +18,7 @@
 
 extern int decode, latlon;
 extern double *lat, *lon;
-extern int nx, ny;
+extern int nx, ny, scan;
 
 /*
  * HEADER:100:undefine:misc:3:sets grid point values to undefined X=(in-box|out-box) Y=lon0:lon1 Z=lat0:lat1
@@ -149,6 +149,8 @@ int f_ijundefine(ARG3) {
     x1 = save->ix1;
     y0 = save->iy0;
     y1 = save->iy1;
+
+    if (GDS_Scan_staggered(scan)) fatal_error("ijundefine does not support staggered grids","");
 
     nxx = nx > 0 ? nx : 1;
     nyy = ny > 0 ? ny : 1;

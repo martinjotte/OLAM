@@ -10,3 +10,5 @@
  * HEADER:-1:quit=f_end:misc:0:stop after first (sub)message (save time)
  * HEADER:200:process=f_code_table_4_3:inv:0:Process (code table 4.3)
  */
+
+// removed   2/2015 * HEADER:200:pdt=f_code_table_4_0:inv:0:product definition template (PDT)

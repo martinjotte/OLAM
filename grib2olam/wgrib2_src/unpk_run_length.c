@@ -14,8 +14,7 @@
 //
 // 8/2009 preliminary version, based on readrdr
 // 9/2009 fixed typo in bitmap section
-//
-
+// 12/2014: David Binderman fixed line: while (vals[i] > mv && i < nvals) {
 
 int unpk_run_length(unsigned char **sec, float *data, unsigned int ndata) {
 
@@ -70,11 +69,11 @@ int unpk_run_length(unsigned char **sec, float *data, unsigned int ndata) {
     printf("\n");
 #endif
 
-    rd_bitstream(sec[7]+5, vals, n_bits, nvals);
+    rd_bitstream(sec[7]+5, 0, vals, n_bits, nvals);
 
     ncheck = i = 0;
     range = (1 << n_bits) - 1 - mv;
-    if (range <= 0) fatal_error("test rlp range error","");
+    if (range <= 0) fatal_error("unpk_running_length: range error","");
 
     j = 0;
     mask_pointer = sec[6] + 6;
@@ -87,7 +86,8 @@ int unpk_run_length(unsigned char **sec, float *data, unsigned int ndata) {
 	v = vals[i++];
 	n = 1;
 	factor = 1;
-	while (vals[i] > mv && i < nvals) {
+	// 12/2014 while (vals[i] > mv && i < nvals) {
+	while (i < nvals && vals[i] > mv) {
 	    n += factor * (vals[i]-mv-1);
 	    factor = factor * range;
 	    i++;

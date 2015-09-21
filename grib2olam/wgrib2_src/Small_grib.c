@@ -22,7 +22,7 @@ extern enum output_order_type output_order;
 extern int use_scale, dec_scale, bin_scale, wanted_bits, max_bits;
 extern enum output_grib_type grib_type;
 extern double *lat, *lon;
-extern int npts, nx, ny;
+extern int npts, nx, ny, scan;
 
 static unsigned int idx(int ix, int iy, int nx, int ny, int cyclic_grid);
 
@@ -54,15 +54,16 @@ int f_ijsmall_grib(ARG3) {
 	if (save->iy0 <= 0) fatal_error_i("ijsmall_grib: iy0=%d <= 0", save->iy0);
 	if (save->iy0 > save->iy1) fatal_error("ijsmall_grib: iy0 > iy1","");
 	if (save->ix0 > save->ix1) fatal_error("ijsmall_grib: ix0 > ix1","");
-
     }
     else if (mode == -2) {
-	free(*local);
-	return 0;
+	save = (struct local_struct *) *local;
+	ffclose(save->out);
+	free(save);
     }
     else if (mode >= 0) {
 	save = (struct local_struct *) *local;
         if (output_order != wesn) fatal_error("ijsmall_grib: data must be in we:sn order","");
+	if (GDS_Scan_staggered(scan)) fatal_error("ijsmall_grib: does not work for staggered grids","");
 	small_grib(sec,mode,data,lon,lat, ndata,save->ix0,save->ix1,save->iy0,save->iy1,save->out);
     }
     return 0;
@@ -106,7 +107,7 @@ int small_grib(unsigned char **sec, int mode, float *data, double *lon, double *
     int can_subset, grid_template;
     int nx, ny, res, scan, new_nx, new_ny, i, j;
     unsigned int sec3_len, new_ndata, k, npnts;
-    unsigned char *sec3, *new_sec[8];
+    unsigned char *sec3, *new_sec[9];
     double units;
     int basic_ang, sub_ang, cyclic_grid;
     float *new_data;
@@ -128,6 +129,7 @@ int small_grib(unsigned char **sec, int mode, float *data, double *lon, double *
     new_sec[5] = sec[5];
     new_sec[6] = sec[6];
     new_sec[7] = sec[7];
+//    new_sec[8] = sec[8];  not needed by writing routines
 
     can_subset = 1;
     if (lat == NULL || lon == NULL) can_subset = 0;
@@ -285,11 +287,14 @@ int f_small_grib(ARG3) {
 
     }
     else if (mode == -2) {
-	free(*local);
+        save = (struct local_struct *) *local;
+	ffclose(save->out);
+	free(save);
 	return 0;
     }
     else if (mode >= 0) {
         save = (struct local_struct *) *local;
+	if (GDS_Scan_staggered(scan)) fatal_error("small_grib: does not work for staggered grids","");
 	small_domain(sec, save->lonW,save->lonE,save->latS,save->latN,
 		&ix0, &ix1, &iy0, &iy1);
         if (output_order != wesn) fatal_error("small_grib: data must be in we:sn order","");
@@ -313,6 +318,8 @@ int small_domain(unsigned char **sec, double lonW, double lonE, double latS, dou
 #ifdef DEBUG
 printf("\n>> small_domain: lon lat %f:%f %f:%f\n", lonW, lonE, latS, latN);
 #endif
+
+    if (GDS_Scan_staggered(scan)) fatal_error("small_domain: does not work for staggered grids","");
 
     if (lat == NULL || lon == NULL) {		// no lat-lon information return full grid
 	*ix0 = 1;

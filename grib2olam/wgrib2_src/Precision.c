@@ -33,23 +33,3 @@ int f_scale(ARG0) {
     return 0;
 }
 
-
-int scaling(unsigned char **sec, double *base, int *decimal, int *binary, int *nbits) {
-    int pack;
-    unsigned char *p;
-
-    pack = (int) code_table_5_0(sec);
-    p = sec[5];
-    if (pack == 0 || pack == 1 || pack == 2 || pack == 3 || pack == 40 || pack == 40000 || 
-		pack == 50 || pack == 40010) {
-       *base = ieee2flt(p+11);
-       *binary = int2(p+15);
-       *decimal = -int2(p+17);
-       *nbits = p[19];
-    }
-    else {
-      return 1;
-    }
-    return 0;
-}
-

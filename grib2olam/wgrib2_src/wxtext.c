@@ -20,8 +20,8 @@
  */
 
 
-char *WxTable = NULL, **WxKeys = NULL;
-int WxNum = 0;
+char *WxTable, **WxKeys;
+int WxNum;
 
 const char *WxLabel(float f) {
     int j;
@@ -33,7 +33,7 @@ const char *WxLabel(float f) {
 
 int mk_WxKeys(unsigned char **sec) {
 
-    int template, n_bits, field_type, i, j, ok;
+    int template, n_bits, i, j, ok;
     unsigned int n;
     double ref_val, dec_scale, bin_scale;
     float *dat;
@@ -63,7 +63,6 @@ int mk_WxKeys(unsigned char **sec) {
     bin_scale = Int_Power(2.0, int2(sec[2]+16));
 
     n_bits = (int) sec[2][18];
-    field_type = (int) sec[2][19];
 
     dat = (float *) malloc(n * sizeof(float));
     WxTable = (char *) malloc((n + 1) * sizeof(char));

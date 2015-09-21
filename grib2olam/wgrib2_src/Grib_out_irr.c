@@ -3,12 +3,9 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
-#include <jasper/jasper.h>
 #include "grb2.h"
 #include "wgrib2.h"
 #include "fnlist.h"
-
-#include "grib2.h"
 
 /*
  * Grib_out_irr
@@ -40,8 +37,13 @@ int f_grib_out_irr(ARG2) {
 	if (strcmp(arg1,"defined") && strcmp(arg1,"all")) fatal_error("grib_out_irr: %s should be all or defined", arg1);
 	*local = (void *) ffopen(arg2, file_append? "ab" : "wb" );
         if (*local == NULL) fatal_error("Could not open %s", arg2);
+	return 0;
     }
-    if (mode < 0) return 0;
+
+    if (mode == -2) {
+	ffclose((FILE *) *local);
+	return 0;
+    }
 
     if (lat == NULL || lon == NULL) fatal_error("grid_out_irr: failed, no lat-lon information","");
 

@@ -16,33 +16,61 @@
  * v1.3 2/99 fixed (typo) error in wrtieee_header found by
  *     Bob Farquhar
  * v1.4 3/2008 w. ebisuzaki added little-endian output
+ * v1.5 11/2013 w. ebisuzaki remove h4[] to cleanup not ititialized warning
+ *                use OpenMP
  */
 
 /* BSIZ MUST be a multiple of 4 */
 
-#define BSIZ (1024*4)
+#define BSIZ (4*1024*4)
+
 
 extern int ieee_little_endian;
 
 int wrtieee(float *array, unsigned int n, int header, FILE *output) {
 
 	unsigned int l;
-	unsigned int i, nbuf;
+	unsigned int nbuf;
 	unsigned char buff[BSIZ];
-	unsigned char h4[4];
+	int i, j, lim1, lim2;
 
 	nbuf = 0;
+	l = n * 4;
 	if (header) {
-		l = n * 4;
-		for (i = 0; i < 4; i++) {
-			h4[i] = l & 255;
-			l >>= 8;
-		}
-		buff[nbuf++] = h4[3];
-		buff[nbuf++] = h4[2];
-		buff[nbuf++] = h4[1];
-		buff[nbuf++] = h4[0];
+		buff[nbuf  ] = (l >> 24) & 255;
+		buff[nbuf+1] = (l >> 16) & 255;
+		buff[nbuf+2] = (l >>  8) & 255;
+		buff[nbuf+3] = l         & 255;
+		nbuf += 4;
 	}
+
+	i = 0;
+
+#pragma omp parallel
+	while (i < n) {
+#pragma omp single
+{
+	    if (nbuf >= BSIZ) {
+		if (ieee_little_endian) swap_buffer(buff, BSIZ);
+		fwrite(buff, 1, BSIZ, output);
+		nbuf = 0;
+	    }
+	    lim1 = (n - i); 
+	    lim2 = (BSIZ - nbuf) >> 2; 
+	    lim1 = lim1 < lim2 ? lim1 : lim2;
+
+	    i += lim1;
+	    nbuf += lim1*4;
+}
+
+#pragma omp for schedule(static) private(j)
+	    for (j = 0; j < lim1; j++) {
+		flt2ieee(array[i - lim1 + j], buff + nbuf - lim1*4 + j*4 );
+	    }
+
+	}
+
+/* old code
 	for (i = 0; i < n; i++) {
 		if (nbuf >= BSIZ) {
 		    if (ieee_little_endian) swap_buffer(buff, BSIZ);
@@ -52,20 +80,29 @@ int wrtieee(float *array, unsigned int n, int header, FILE *output) {
 		flt2ieee(array[i], buff + nbuf);
 		nbuf += 4;
 	}
+*/
+	if (nbuf >= BSIZ) {
+	    if (ieee_little_endian) swap_buffer(buff, BSIZ);
+	    fwrite(buff, 1, BSIZ, output);
+	    nbuf = 0;
+	}
+
 	if (header) {
 		if (nbuf == BSIZ) {
 		    if (ieee_little_endian) swap_buffer(buff, BSIZ);
 		    fwrite(buff, 1, BSIZ, output);
 		    nbuf = 0;
 		}
-		buff[nbuf++] = h4[3];
-		buff[nbuf++] = h4[2];
-		buff[nbuf++] = h4[1];
-		buff[nbuf++] = h4[0];
+		buff[nbuf  ] = (l >> 24) & 255;
+		buff[nbuf+1] = (l >> 16) & 255;
+		buff[nbuf+2] = (l >>  8) & 255;
+		buff[nbuf+3] = l         & 255;
+		nbuf += 4;
 	}
 	if (nbuf) {
 	    if (ieee_little_endian) swap_buffer(buff, nbuf);
 	    fwrite(buff, 1, nbuf, output);
 	}
+
 	return 0;
 }

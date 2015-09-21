@@ -14,6 +14,7 @@ extern const char *item_deliminator;
 extern FILE *inv_file;
 extern const char *nl;
 extern const char *end_inv;
+extern FILE *rd_inventory_input;
 
 extern int use_g2clib;
 
@@ -21,8 +22,20 @@ extern int use_g2clib;
  * HEADER:100:i:setup:0:read Inventory from stdin
  */
 int f_i(ARG0) {
-
     if (mode == -1) input = inv_mode;
+    return 0;
+}
+
+/*
+ * HEADER:100:i_file:setup:1:read Inventory from file
+ */
+int f_i_file(ARG1) {
+    if (mode == -1) {
+        input = inv_mode;
+	if ((rd_inventory_input = ffopen(arg1, "r")) == NULL) 
+	    fatal_error("i_file, error openeing %s", arg1);
+    }
+    else if (mode == -2) ffclose(rd_inventory_input);
     return 0;
 }
 
@@ -101,26 +114,41 @@ int f_nl(ARG0) {
 }
 
 /*
- * HEADER:100:nl_out:inv:1:write new line in file X
+ * HEADER:100:nl_out:inv_output:1:write new line in file X
  */
 int f_nl_out(ARG1) {
     if (mode == -1) {
         if ((*local = (void *) ffopen(arg1,file_append ? "a" : "w")) == NULL)
                 fatal_error("Could not open %s", arg1);
-        return 0;
     }
-    if (mode >= 0) {
+    else if (mode == -2) {
+	ffclose((FILE *) *local);
+    }
+    else if (mode >= 0) {
         fprintf((FILE *) *local, "\n");
     }
     return 0;
 }
 
 /*
- * HEADER:100:print:inv:1:inserts string into inventory
+ * HEADER:100:print:inv:1:inserts string (X) into inventory
  */
 
 int f_print(ARG1) {
     if (mode >= 0) sprintf(inv_out,"%s", arg1);
+    return 0;
+}
+
+/*
+ * HEADER:100:print_out:inv_output:2:prints string (X) in file (Y)
+ */
+int f_print_out(ARG2) {
+    if (mode == -1) {
+        if ((*local = (void *) ffopen(arg2,file_append ? "a" : "w")) == NULL)
+                fatal_error("Could not open %s", arg1);
+    }
+    else if (mode == -2) ffclose((FILE *) *local);
+    else if (mode >= 0) fprintf((FILE *) *local, "%s", arg1);
     return 0;
 }
 
@@ -176,6 +204,9 @@ int f_inv(ARG1) {
             fatal_error("Could not open %s", arg1);
         inv_file = (FILE *) *local;
     }
+    else if (mode == -2) {
+	ffclose((FILE *) *local);
+    }
     else if (mode > 0) {
         inv_file = (FILE *) *local;
     }
@@ -200,10 +231,16 @@ int f_big_endian(ARG0) {
 }
 
 /*
- * HEADER:100:g2clib:setup:1:X=0/1 use g2clib for decoding grib
+ * HEADER:100:g2clib:setup:1:X=0/1/2 0=WMO std 1=emulate g2clib 2=use g2clib
  */
 int f_g2clib(ARG1) {
     use_g2clib = atoi(arg1);
+    if (use_g2clib == 0 || use_g2clib == 1) return 0;
+#ifdef USE_G2CLIB
+    if (use_g2clib == 2) return 0;
+#endif
+    if (use_g2clib == 2) fatal_error("g2clib not installed","");
+    fatal_error("illegal g2clib option %s", arg1);
     return 0;
 }
 

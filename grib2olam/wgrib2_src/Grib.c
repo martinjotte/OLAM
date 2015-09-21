@@ -3,16 +3,15 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
-#include <jasper/jasper.h>
 #include "grb2.h"
 #include "wgrib2.h"
 #include "fnlist.h"
 
+
+#ifdef USE_JASPER
 #include "grib2.h"
-
-int enc_jpeg2000(unsigned char *cin, g2int width,g2int height,g2int nbits, g2int ltype, 
-   g2int ratio, g2int retry, char *outjpc, g2int jpclen);
-
+#include <jasper/jasper.h>
+#endif
 /*
  * Grib_out
  *
@@ -28,6 +27,7 @@ extern enum output_order_type output_order;
 extern int use_scale, dec_scale, bin_scale, max_bits, wanted_bits;
 extern int save_translation;
 extern enum output_grib_type grib_type;
+extern int use_bitmap;
 
 /*
  * HEADER:100:set_grib_type:misc:1:set grib type = jpeg, simple, ieee, complex(1|2|3), same
@@ -37,8 +37,8 @@ int f_set_grib_type(ARG1) {
     int pack;
     if (strcmp(arg1,"jpeg") == 0) grib_type = jpeg;
     else if (strcmp(arg1,"j") == 0) grib_type = jpeg;
-    else if (strcmp(arg1,"ieee") == 0) grib_type = ieee;
-    else if (strcmp(arg1,"i") == 0) grib_type = ieee;
+    else if (strcmp(arg1,"ieee") == 0) grib_type = ieee_packing;
+    else if (strcmp(arg1,"i") == 0) grib_type = ieee_packing;
     else if (strcmp(arg1,"simple") == 0) grib_type = simple;
     else if (strcmp(arg1,"s") == 0) grib_type = simple;
     else if (strcmp(arg1,"complex1") == 0) grib_type = complex1;
@@ -56,7 +56,7 @@ int f_set_grib_type(ARG1) {
 	        if (code_table_5_6(sec) == 1) grib_type = complex2;
 	        else grib_type = complex3;
 	    }
-	    else if (pack == 4) grib_type = ieee;
+	    else if (pack == 4) grib_type = ieee_packing;
 	    else if (pack == 40) grib_type = jpeg;
 	    // cannot duplicate output grib type
 	    else grib_type = complex1;
@@ -64,6 +64,16 @@ int f_set_grib_type(ARG1) {
 	else grib_type = complex1;
     }
     else fatal_error("set_grib_type: bad type %s", arg1);
+    return 0;
+}
+
+/*
+ * HEADER:100:set_bitmap:misc:1:use bitmap when creating complex packed files X=1/0
+ */
+int f_set_bitmap(ARG1) {
+    if (mode >= -1) {
+	use_bitmap = atoi(arg1);
+    }
     return 0;
 }
  
@@ -79,6 +89,9 @@ int f_grib_out(ARG1) {
         save_translation = decode = 1;
 	*local = file_append ? (void *) ffopen(arg1, "ab") : (void *) ffopen(arg1, "wb");
         if (*local == NULL) fatal_error("Could not open %s", arg1);
+    }
+    else if (mode == -2) {
+	ffclose((FILE *) *local);
     }
     else if (mode >= 0) {
 	if ((data_tmp = (float *) malloc(ndata * sizeof(float))) == NULL)
@@ -103,14 +116,14 @@ int grib_wrt(unsigned char **sec, float *data, unsigned int ndata, int nx, int n
 	int bin_scale, int wanted_bits, int max_bits, enum output_grib_type grib_type, FILE *out) {
 
     if (grib_type == simple) simple_grib_out(sec, data, ndata, use_scale, dec_scale, bin_scale, wanted_bits, max_bits, out); 
-    else if (grib_type == ieee) ieee_grib_out(sec, data, ndata, out);
+    else if (grib_type == ieee_packing) ieee_grib_out(sec, data, ndata, out);
     else if (grib_type == jpeg) jpeg2000_grib_out(sec, data, ndata, nx, ny, use_scale, dec_scale, bin_scale, wanted_bits, max_bits, out);
     else if (grib_type == complex1) complex_grib_out(sec, data, ndata, use_scale, dec_scale, bin_scale, wanted_bits, 
-	max_bits, 1, out); 
+	max_bits, 1, use_bitmap, out); 
     else if (grib_type == complex2) complex_grib_out(sec, data, ndata, use_scale, dec_scale, bin_scale, wanted_bits, 
-	max_bits, 2, out); 
+	max_bits, 2, use_bitmap, out); 
     else if (grib_type == complex3) complex_grib_out(sec, data, ndata, use_scale, dec_scale, bin_scale, wanted_bits, 
-	max_bits, 3, out); 
+	max_bits, 3, use_bitmap, out); 
 
     return 0;
 }
@@ -136,7 +149,7 @@ int f_set_grib_max_bits(ARG1) {
  *
  * public domain 12/2007 Wesley Ebisuzaki
  *
- * note: data[] is changed
+ * note: data[] is changed (undefined values are eliminated)
  */
 
 unsigned char *mk_bms(float *data, unsigned int *ndata) {
@@ -263,10 +276,7 @@ void flist2bitstream(float *list, unsigned char *bitstream, unsigned int ndata, 
     if (nbits == 0) {
 	return;
     }
-    if (nbits < 0) {
-	fprintf(stderr,"nbits < 0!  nbits = %d\n", nbits);
-	exit(0);
-    }
+    if (nbits < 0) fatal_error_i( "flist2bitstream nbits < 0!  nbits = %d", nbits);
 
     cbits = 8;
     c = 0;

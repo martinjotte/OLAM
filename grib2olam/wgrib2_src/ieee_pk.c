@@ -8,8 +8,6 @@
 #include "wgrib2.h"
 #include "fnlist.h"
 
-#include "grib2.h"
-
 /*
  * write grib-2 ieee file
  * public domain 2008 Wesley Ebisuzaki

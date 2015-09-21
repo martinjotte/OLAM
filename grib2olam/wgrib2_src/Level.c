@@ -136,8 +136,8 @@ const char *level_table[192] = {
 /* 110 */ "reserved",
 /* 111 */ "%g Eta level",
 /* 112 */ "reserved",
-/* 113 */ "reserved",
-/* 114 */ "reserved",
+/* 113 */ "logarithmic hybrid level",
+/* 114 */ "snow level",
 /* 115 */ "reserved",
 /* 116 */ "reserved",
 /* 117 */ "mixed layer depth",
@@ -173,7 +173,7 @@ const char *level_table[192] = {
 /* 147 */ "reserved",
 /* 148 */ "reserved",
 /* 149 */ "reserved",
-/* 150 */ "reserved",
+/* 150 */ "%g generalized vertical height coordinate",
 /* 151 */ "reserved",
 /* 152 */ "reserved",
 /* 153 */ "reserved",
@@ -184,13 +184,13 @@ const char *level_table[192] = {
 /* 158 */ "reserved",
 /* 159 */ "reserved",
 /* 160 */ "%g m below sea level",
-/* 161 */ "reserved",
-/* 162 */ "reserved",
-/* 163 */ "reserved",
-/* 164 */ "reserved",
-/* 165 */ "reserved",
-/* 166 */ "reserved",
-/* 167 */ "reserved",
+/* 161 */ "%g m below water surface",
+/* 162 */ "lake or river bottom",
+/* 163 */ "bottom of sediment layer",
+/* 164 */ "bottom of thermally active sediment layer",
+/* 165 */ "bottom of sediment layer penetrated by thermal wave",
+/* 166 */ "maxing layer",
+/* 167 */ "bottom of root zone",
 /* 168 */ "reserved",
 /* 169 */ "reserved",
 /* 170 */ "reserved",
@@ -346,7 +346,7 @@ int level1(int mode, int type, int undef_val, float val, int center, int subcent
     // no numeric information
     if (type == 255) return 8;
 
-    if (type <= 192) {
+    if (type < 192) {
 	sprintf(inv_out,level_table[type], val);
     }
     else if (center == NCEP){

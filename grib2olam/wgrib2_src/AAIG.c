@@ -76,11 +76,7 @@ int f_AAIG(ARG0) {
         return 0;
     }
 
-    save_inv_out = inv_out;
-
-    inv_out = level;
-    f_lev(CALL_ARG0);
-    inv_out = save_inv_out;
+    f_lev(call_ARG0(level,NULL));
 
     save_inv_out = level;
     while (*save_inv_out) {
@@ -105,7 +101,7 @@ int f_AAIG(ARG0) {
 		name,level,year0,month0,day0,hour0,year,month,day,hour);
     }
 
-    if ((out = fopen(file,"w")) == NULL) {
+    if ((out = ffopen(file,"w")) == NULL) {
         fprintf(stderr,"f_AAIG could not open raster file %s\n",file);
         return 0;
     }

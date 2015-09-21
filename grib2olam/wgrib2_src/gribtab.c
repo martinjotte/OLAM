@@ -37,7 +37,9 @@ Ebisuzaki).
 
 /*
   int disc;   Section 0 Discipline
-  int mtab;   Section 1 Master Tables Version Number
+  int mtab_set;   Section 1 Master Tables Version Number
+  int mtab_low;   Section 1 Master Tables Version Number
+  int mtab_high;   Section 1 Master Tables Version Number
   int cntr;   Section 1 originating centre, used for local tables
   int ltab;   Section 1 Local Tables Version Number
   int pcat;   Section 4 Template 4.0 Parameter category
@@ -47,24 +49,24 @@ Ebisuzaki).
   const char *unit;
 */
 
-struct gribtab_s gribtab[] = {
+struct gribtable_s gribtable[] = {
 
-#include "gribtab.dat"
-#include "misc_gribtab.dat"
-#include "NDFD_gribtab.dat"
+#include "gribtable.dat"
+#include "misc_gribtable.dat"
+#include "NDFD_gribtable.dat"
 
   /* END MARKER */
-  { -1, -1, -1, -1, -1, -1, NULL, NULL, NULL }
+  { -1, -1, -1, -1, -1, -1, -1, -1, NULL, NULL, NULL }
 
 };
 
 #ifdef USE_TIGGE
 
-struct gribtab_s tigge_gribtab[] = {
+struct gribtable_s tigge_gribtable[] = {
 
-#include "tigge_gribtab.dat"
+#include "tigge_gribtable.dat"
   /* END MARKER */
-  { -1, -1, -1, -1, -1, -1, NULL, NULL, NULL }
+  { -1, -1, -1, -1, -1, -1, -1, -1, NULL, NULL, NULL }
 
 };
 

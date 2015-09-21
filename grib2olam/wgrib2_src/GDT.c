@@ -5,8 +5,9 @@
 #include "wgrib2.h"
 #include "fnlist.h"
 
-#include "grib2.h"
+#ifdef USE_G2CLIB
 
+#include "grib2.h"
 g2int g2_unpack3(unsigned char *,g2int *,g2int **,g2int **,
                         g2int *,g2int **,g2int *);
 
@@ -20,7 +21,7 @@ g2int g2_unpack3(unsigned char *,g2int *,g2int **,g2int **,
  */
 
 /*
- * HEADER:200:gdt:inv:0:contents of Grid Definition Template
+ * HEADER:200:gdt:inv:0:contents of Grid Definition Template (g2c)
  */
 
 int f_gdt(ARG0) {
@@ -58,3 +59,10 @@ int f_gdt(ARG0) {
    }
    return 0;
 }
+
+#else
+int f_gdt(ARG0) {
+   fatal_error("GDT needs g2clib which was not installed","");
+   return 1;
+}
+#endif

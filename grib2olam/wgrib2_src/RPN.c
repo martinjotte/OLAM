@@ -32,8 +32,9 @@
  *
  *    yrev - swap grids, north <-> south
  *    alt_x_scan - for Glahn packing
+ *    xave
  *
- *    print_(X):  X=max, min, rms, corr, ave
+ *    print_(X):  X=max, min, rms, corr, ave, diff
  *
  * at the end of rpn, the top of the stack is saved to data unless clr done first
  */
@@ -59,7 +60,8 @@ static float *stack[STACK_SIZE];
 #endif
 
 int push(int top, unsigned int ndata, int type, float f, float *ff, double *d);
-
+static void augmentg(double *val, double *wt, float *data, int i, int j, int nx, int ny, double wt0);
+static void augmentr(double *val, double *wt, float *data, int i, int j, int nx, int ny, double wt0);
 
 /*
  * HEADER:100:rpn:misc:1:reverse polish notation calculator (beta)
@@ -113,10 +115,10 @@ int f_rpn(ARG1) {
     // initialize stack
 
     if (data == NULL) fatal_error("-rpn: decode failed","");
+    use_scale = 0;
 
     for (i = 0; i < STACK_SIZE; i++) stack[i] = NULL;
     top = push(-1, ndata, VECTOR, 0.0, data, NULL);
-    use_scale = 0;
 
     if (mode == 98) fprintf(stderr,"RPN: arg=%s\n",arg1);
 
@@ -267,7 +269,6 @@ int f_rpn(ARG1) {
                 }
                 else stack[top][i] = UNDEFINED;
             }
-            top--;
         }
 
 	// exp
@@ -390,7 +391,7 @@ int f_rpn(ARG1) {
 
 	// sto_N
 	else if (string[0] == 's' && string[1] == 't' && string[2] == 'o' && string[3] == '_' 
-		&& isdigit(string[4]) && (string[5] == 0 || (isdigit(string[5]) && string[6] == 0) )) {
+		&& isdigit((unsigned char) string[4]) && (string[5] == 0 || (isdigit((unsigned char) string[5]) && string[6] == 0) )) {
 	    if (top < 0) fatal_error("-rpn: sto","");
 	    j = atoi(string+4);
 	    if (j >= N_REGS || j < 0) fatal_error("-rpn: bad register number in %s", string);
@@ -407,7 +408,7 @@ int f_rpn(ARG1) {
 
 	// rcl_N
 	else if (string[0] == 'r' && string[1] == 'c' && string[2] == 'l' && string[3] == '_'
-		&& isdigit(string[4]) && (string[5] == 0 || (isdigit(string[5]) && string[6] == 0) )) {
+		&& isdigit((unsigned char) string[4]) && (string[5] == 0 || (isdigit((unsigned char) string[5]) && string[6] == 0) )) {
 	    j = atoi(string+4);
 	    if (j >= N_REGS || j < 0) fatal_error("-rpn: bad register number in %s", string);
 
@@ -423,7 +424,7 @@ int f_rpn(ARG1) {
 
 	// clr_N
 	else if (string[0] == 'c' && string[1] == 'l' && string[2] == 'r' && string[3] == '_'
-		&& isdigit(string[4]) && (string[5] == 0 || (isdigit(string[5]) && string[6] == 0) )) {
+		&& isdigit((unsigned char) string[4]) && (string[5] == 0 || (isdigit((unsigned char) string[5]) && string[6] == 0) )) {
 	    j = atoi(string+4);
 	    if (j >= N_REGS || j < 0) fatal_error("-rpn: bad register number in %s", string);
 	    if (rpn_data[j]) {
@@ -523,7 +524,7 @@ int f_rpn(ARG1) {
                 else stack[j][i] = UNDEFINED;
             }
             top--;
-        }
+	}
         else if (strcmp(string,"<=") == 0) {
             if (top <= 0) fatal_error("-rpn: bad <= expression","");
             j = top-1;
@@ -566,10 +567,68 @@ int f_rpn(ARG1) {
 	    }
 	}
 
+	// smth9 - like in GrADS  smth9g - global field
+        else if (strcmp(string,"smth9g") == 0) {
+            if (mode == 98) fprintf(stderr," smth9");
+	    if (top < 0) fatal_error("-rpn: smth9 needs field","");
+
+            get_nxny(sec, &nx, &ny, &npnts, &res, &scan);
+	    if (nx <= 0 || ny <= 0) fatal_error("-rpn: yrev only on nx x ny grids","");
+ 	    if ((scan >> 4) != 0 && (scan >> 4) != 4) 
+		fatal_error("-rpn: smth9 only appropriate for we:ns and we:sn grids","");
+
+            top = push(top,ndata,VECTOR,0.0,stack[top],NULL);
+	    for (j = 0; j < ny; j++) {
+	        for (i = 0; i < nx; i++) {
+		    wt = sum1 = 0.0;
+		    augmentg(&sum1, &wt, stack[top], i-1, j-1, nx, ny,0.3);
+		    augmentg(&sum1, &wt, stack[top], i  , j-1, nx, ny,0.5);
+		    augmentg(&sum1, &wt, stack[top], i+1, j-1, nx, ny,0.3);
+		    augmentg(&sum1, &wt, stack[top], i-1, j  , nx, ny,0.5);
+		    augmentg(&sum1, &wt, stack[top], i  , j  , nx, ny,1.0);
+		    augmentg(&sum1, &wt, stack[top], i+1, j  , nx, ny,0.5);
+		    augmentg(&sum1, &wt, stack[top], i-1, j+1, nx, ny,0.3);
+		    augmentg(&sum1, &wt, stack[top], i  , j+1, nx, ny,0.5);
+		    augmentg(&sum1, &wt, stack[top], i+1, j+1, nx, ny,0.3);
+		    stack[top-1][i + j*nx] = wt > 0.0 ? sum1/wt : UNDEFINED;
+	        }
+	    }
+	    top--;
+        }
+
+	// smth9 - like in GrADS  smth9g - regional field
+        else if (strcmp(string,"smth9r") == 0) {
+            if (mode == 98) fprintf(stderr," smth9");
+            if (top < 0) fatal_error("-rpn: smth9 needs field","");
+
+            get_nxny(sec, &nx, &ny, &npnts, &res, &scan);
+            if (nx <= 0 || ny <= 0) fatal_error("-rpn: yrev only on nx x ny grids","");
+            if ((scan >> 4) != 0 && (scan >> 4) != 4)
+                fatal_error("-rpn: smth9 only appropriate for we:ns and we:sn grids","");
+
+            top = push(top,ndata,VECTOR,0.0,stack[top],NULL);
+            for (j = 0; j < ny; j++) {
+                for (i = 0; i < nx; i++) {
+                    wt = sum1 = 0.0;
+                    augmentg(&sum1, &wt, stack[top], i-1, j-1, nx, ny,0.3);
+                    augmentg(&sum1, &wt, stack[top], i  , j-1, nx, ny,0.5);
+                    augmentg(&sum1, &wt, stack[top], i+1, j-1, nx, ny,0.3);
+                    augmentg(&sum1, &wt, stack[top], i-1, j  , nx, ny,0.5);
+                    augmentg(&sum1, &wt, stack[top], i  , j  , nx, ny,1.0);
+                    augmentg(&sum1, &wt, stack[top], i+1, j  , nx, ny,0.5);
+                    augmentg(&sum1, &wt, stack[top], i-1, j+1, nx, ny,0.3);
+                    augmentg(&sum1, &wt, stack[top], i  , j+1, nx, ny,0.5);
+                    augmentg(&sum1, &wt, stack[top], i+1, j+1, nx, ny,0.3);
+                    stack[top-1][i + j*nx] = wt > 0.0 ? sum1/wt : UNDEFINED;
+                }
+            }
+            top--;
+        }
+
 	else if (strcmp(string,"alt_x_scan") == 0) {
 	    if (top < 0) fatal_error("-rpn: yrev needs field","");
             get_nxny(sec, &nx, &ny, &npnts, &res, &scan);
-	    if (nx <= 0 || ny <= 0) fatal_error("-rpn: alt_x_scan only on nx x ny grids","");
+	    if (nx <= 0 || ny <= 0) fatal_error("-rpn: alt_x_scan only works on nx x ny grids","");
 	    for (k = 1; k < ny; k += 2) {
 		p1 = stack[top] + nx*k;
 		p2 = p1 + nx - 1;
@@ -580,6 +639,29 @@ int f_rpn(ARG1) {
 		}
 	    }
 	}
+
+        else if (strcmp(string,"xave") == 0) {
+            if (top < 0) fatal_error("-rpn: xave needs field","");
+            get_nxny(sec, &nx, &ny, &npnts, &res, &scan);
+            if (nx <= 0 || ny <= 0) fatal_error("-rpn: xave only works on nx x ny grids","");
+	    for (k = 0; k < npnts; k += nx) {
+		sum1 = 0.0;
+		i = 0;
+		for (j = 0; j < nx; j++) {
+		    if (DEFINED_VAL(stack[top][k+j])) {
+			sum1 += stack[top][k+j];
+			i++;
+		    }
+		}
+		tmp = i ? sum1 / (double) i : 0.0;
+		for (j = 0; j < nx; j++) {
+		    if (DEFINED_VAL(stack[top][k+j])) {
+			stack[top][k+j] = tmp;
+		    }
+		}
+	    }
+	}
+
 
 	// change to rcl-data, rcl-lat, rcl-lon
 
@@ -604,6 +686,19 @@ int f_rpn(ARG1) {
 	// pi: stack(++top) = pi
 	else if (strcmp(string,"pi") == 0) {
 	    top = push(top,ndata,SCALAR,(float) M_PI,NULL,NULL);
+	}
+
+	// rand: stack(++top) = random number from 0..1
+        // note: rand() is not thread safe, do not OpenMP
+        // srand(seed) could be called first to set up seed
+        // since srand is not called, seed is 1
+
+	else if (strcmp(string,"rand") == 0) {
+	    if (mode == 98) fprintf(stderr," rand");
+	    top = push(top,ndata,SCALAR,(float) 0.0f,NULL,NULL);
+	    for (i = 0; i < ndata; i++) {
+		stack[top][i] = (double) rand() / (double) RAND_MAX;
+            }
 	}
 
 	else if (strcmp(string,"days_in_ref_month") == 0) {
@@ -701,6 +796,31 @@ int f_rpn(ARG1) {
             inv_out += strlen(inv_out);
 	}
 
+        // print_ave: prints out cosine weighted ave
+
+        else if (strcmp(string,"print_ave") == 0) {
+            if (top < 0) fatal_error("-rpn: bad print_ave expression","");
+            if (lat == NULL) fatal_error("-rpn: print_ave .. no latitudes defined","");
+            last_lat = 0;
+            cos_lat = 1.0;
+            sum1 = wt = 0.0;
+            for (i = 0; i < ndata; i++) {
+                if (DEFINED_VAL(stack[top][i])) {
+                    if (lat && last_lat != lat[i]) {
+                        cos_lat = cos(lat[i]*M_PI/180.0);
+                        last_lat = lat[i];
+                    }
+                    sum1 +=  stack[top][i] * cos_lat;
+                    wt += cos_lat;
+                }
+            }
+            if (wt != 0.0)  sprintf(inv_out,"%srpn_ave=%g",item_deliminator,sum1/wt);
+            else sprintf(inv_out,"%srpn_ave=undefined",item_deliminator);
+            inv_out += strlen(inv_out);
+        }
+
+
+
 	// print_corr: prints cosine(lat) weighted spatial correlation
 
         else if (strcmp(string,"print_corr") == 0) {
@@ -747,7 +867,7 @@ int f_rpn(ARG1) {
 
 	// number:  stack(++top) = number
 
-	else if (string[0] == '+' || string[0] == '-' || isdigit(string[0])) {
+	else if (string[0] == '+' || string[0] == '-' || isdigit((unsigned char) string[0])) {
 	    f = atof(string);
 	    top = push(top,ndata,SCALAR,f,NULL,NULL);
 	    if (mode == 98) fprintf(stderr," constant=%f", f);
@@ -812,7 +932,7 @@ int f_if_reg(ARG1) {
 	for (j = 1; j <= i; j++) {
 	    list[j] = atoi(p);
 	    if (list[j] >= N_REGS || list[j] < 0) fatal_error_i("if_reg: bad register %d", list[j]);
-	    while (isdigit(*p)) p++;
+	    while (isdigit((unsigned char) *p)) p++;
 	    if (*p == ':') p++;
 	}
     }
@@ -829,4 +949,29 @@ int f_if_reg(ARG1) {
 	}
     }
     return 0;
+}
+
+static void augmentg(double *sum, double *wt, float *data, int i, int j, int nx, int ny, double wt0) {
+    float t;
+
+    i = (i == -1) ? nx-1 : i;
+    i = (i == nx) ? 0 : i;
+    if (i < 0 || i >= nx || j < 0 || j >= ny) return;
+
+    t = data[i + j*nx];
+    if (UNDEFINED_VAL(t)) return;
+    *wt = *wt + wt0;
+    *sum = *sum + t*wt0;
+    return;
+}
+
+static void augmentr(double *sum, double *wt, float *data, int i, int j, int nx, int ny, double wt0) {
+    float t;
+
+    if (i < 0 || i >= nx || j < 0 || j >= ny) return;
+    t = data[i + j*nx];
+    if (UNDEFINED_VAL(t)) return;
+    *wt = *wt + wt0;
+    *sum = *sum + t*wt0;
+    return;
 }

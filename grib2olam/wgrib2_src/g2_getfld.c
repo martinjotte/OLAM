@@ -395,6 +395,8 @@ g2int g2_getfld(unsigned char *cgrib,g2int ifldnum,g2int unpack,g2int expand,
             lgfld->numoct_opt=igds[2];
             lgfld->interp_opt=igds[3];
             lgfld->igdtnum=igds[4];
+// fixed memory leak Dusan Jovic
+	    free(igds);
           }
           else {
             ierr=10;

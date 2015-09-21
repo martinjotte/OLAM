@@ -1,23 +1,42 @@
-Instructions for building dgrib (GRIB to RALPH converter)
+Instructions for building and running grib2olam (GRIB to HDF5 converter)
+
+1. First edit include.mk to match your computer system. 
+
+As with OLAM, a recent version of HDF5 with Fortran 90 wrappers is required.
+When compiled with Fortran support, HDF5 installs a script called "h5fc" or
+"h5pfc" that calls the Fortran compiler and links in the proper HDF5 library
+and Fortran modules. This should be used for the Fortran compiler F_COMP.
+
+Wgrib2 needs the Jasper and PNG libraries, which are available on most LINUX
+systems. Modify include.mk to point to the location where these are installed.
+
+The variables HDF5_LIBS and HDF5_INCS should be left empty when using the HDF5
+wrapper script "h5fc" or "h5pfc". HDF5_LIBS and HDF5_INCS are only needed if
+F_COMP has been set to a Fortran compiler (such as "ifort"), in which case you
+will have to manually set the necessary HDF5 libraries and the location of the
+HDF5 Fortran modules.
 
 
-1. First compile rams_wgrib.c with you favorite C compiler. 
-      For example, using Linux:
+2. Compile the executables by simplying typing "make". This compiles grib2olam,
+the grib decoder "wgrib", and the grib2 decoder "wgrib2". Each can be compiled
+separately by typing "make grib2olam", "make wgrib", and "make wgrib2".
 
-   gcc -o rams_wgrib rams_wgrib.c
+Wgrib and Wgrib2 were obtained from NCEP from:
+ftp://ftp.cpc.ncep.noaa.gov/wd51we/
 
-   rams_wgrib is virtually unchanged from the standard wgrib, except
-      a small change was made to allow 'dump' to write to stdout.
-      Make sure that rams_wgrib is in your path if not running
-      from the compiled directory.
+Wgrib was modified slightly to allow easier piping of the grib data into
+grib2olam. The version of wgrib included here is required for grib2olam.
 
-2. Edit the Makefile for your system and run make. An executable 
-   called "grib2olam" should be created.
+Although grib2olam can use the standard wgrib2 executable, in order to make
+the compilation easier the wgrib2 included here was modified slightly to
+remove some unneeded features and external libraries. If wgrib2 is already
+available on your machine, you can use an external wgrib2 by setting the
+variable wgrib2_exe in the namelist DGRIB_IN.
 
 
-For running dgrib:
+3. For running grib2olam:
 
-1. Type grib2olam -? for help:
+ Type grib2olam -? for help:
 
  Usage: grib2olam [-f namelist_file] [-g gribfile] [-t yyyymmddhh] [-h hh]
         namelist file name defaults to DGRIB_IN
@@ -31,8 +50,7 @@ For running dgrib:
        Command line arguments will override the namelist!
 
 
-
-2. Edit DGRIB_IN (or a namelist file by any other name) to choose 
+4. Edit DGRIB_IN (or a namelist file by any other name) to choose 
    the variables from the grib file you want to process.
    
    For the NCEP Reanalysis files, the 3D variables are typically:
@@ -51,7 +69,7 @@ For running dgrib:
    rams_wgrib -s "grib-file-name"
    
    
-3. Run "grib2olam". If you use the command line arguments, these will override 
+5. Run "grib2olam". If you use the command line arguments, these will override 
    the settings in the namelist.
 
 

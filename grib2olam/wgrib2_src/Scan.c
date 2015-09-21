@@ -4,14 +4,15 @@
 #include "wgrib2.h"
 #include "fnlist.h"
 
-extern int nx, ny, scan;
-extern unsigned int npnts;
+// extern int nx, ny, scan;
+// extern unsigned int npnts;
+// extern int save_translation;
+
 extern int *raw_variable_dim;
 extern enum output_order_type output_order_wanted, output_order;
-extern int save_translation;
 
 static unsigned int n_translation = 0;
-static int *translation = NULL;
+int *translation = NULL;
 
 /*
  * undo the scan mode madness
@@ -25,12 +26,15 @@ static int *translation = NULL;
  * 3/2008 public domain Wesley Ebisuzaki
  * 3/2008 bug fix Manfred Schwarb
  * 7/2009 bug fix Reinoud Bokhorst 
+ * 12/2014 more arguments to  to_we_sn_scan(), to_we_ns_scan(), ij2p()
+ *         old int to_we_sn_scan(float *data);
+ *         ij2p: "if (scan == -1)" becomes "if (scan_mode == -1)"
  */
 
-int ij2p(int i, int j, int scan_mode) {
+int ij2p(int i, int j, int scan_mode, int nx, int ny) {
 
     if (i < 0 || j < 0) return -1;
-    if (scan == -1) return -1;
+    if (scan_mode == -1) return -1;
 
     /* regular grid */
     if (nx > 0 && ny > 0) {
@@ -55,7 +59,7 @@ int ij2p(int i, int j, int scan_mode) {
  *    default for binary and text output
  */
 
-int to_we_sn_scan(float *data) {
+int to_we_sn_scan(float *data, int scan, unsigned int npnts, int nx, int ny, int save_translation) {
 
     float *data2;
     int ix, iy, i, dx;
@@ -114,12 +118,16 @@ int to_we_sn_scan(float *data) {
 	return 0;
     }
 
-    if (nx == -1 || ny == -1) fatal_error("not handled by to_we_sn_scan","");
+    if (nx == -1 || ny == -1) {
+	free(data2);
+	fatal_error("not handled by to_we_sn_scan","");
+	return 1;
+    }
 
     p0 = data2;
     for (iy = 0; iy < ny; iy++) {
-	p1 = data + ij2p(0,iy,scan);
-	p2 = data + ij2p(1,iy,scan);
+	p1 = data + ij2p(0,iy,scan,nx,ny);
+	p2 = data + ij2p(1,iy,scan,nx,ny);
 	dx = p2 - p1;
 	for (ix = 0; ix < nx; ix++) {
 	    if (save_translation) translation[p0 - data2] = p1 - data;
@@ -137,7 +145,7 @@ int to_we_sn_scan(float *data) {
  *    this routine converts scanning order to standard we:ns
  */
 
-int to_we_ns_scan(float *data) {
+int to_we_ns_scan(float *data, int scan, unsigned int npnts, int nx, int ny, int save_translation) {
 
     float *data2;
     int ix, iy, i, dx;
@@ -179,7 +187,11 @@ int to_we_ns_scan(float *data) {
         return 0;
     }
 
-    if (nx == -1 || ny == -1) fatal_error("not handled by to_we_ns_scan","");
+    if (nx == -1 || ny == -1) {
+        free(data2);
+	fatal_error("not handled by to_we_ns_scan","");
+	return 1;
+    }
 
     if (lscan == 0 && nx == -1 && ny > 0) { /* quasi-regular grid: convert from we:sn to we:ns */
         p0 = data;
@@ -200,8 +212,8 @@ int to_we_ns_scan(float *data) {
 
     p0 = data2;
     for (iy = ny-1; iy >= 0; iy--) {
-        p1 = data + ij2p(0,iy,scan);
-        p2 = data + ij2p(1,iy,scan);
+        p1 = data + ij2p(0,iy,scan,nx,ny);
+        p2 = data + ij2p(1,iy,scan,nx,ny);
         dx = p2 - p1;
         for (ix = 0; ix < nx; ix++) {
 	    if (save_translation) translation[p0 - data2] = p1 - data;

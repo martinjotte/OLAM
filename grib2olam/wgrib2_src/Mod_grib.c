@@ -69,8 +69,10 @@ if (mode == 99) fprintf(stderr,"set_lev: pdt=%d arg=%s\n", pdt, arg1);
 
         else if (n_percent == 1) {
             // add %n to the format given by level_table[i]
-            strcpy(string,level_table[i]);
-            strcat(string,"%n");
+            strncpy(string,level_table[i],100-20);
+	    string[100-20] = 0;
+            strncat(string,"%n",19);
+	    string[100-1] = 0;
             if (n = -1, sscanf(arg1,string,&val1,&n), n == len_arg1) {
                  dval1 = (double) val1;
                  p1[0] = i;
@@ -197,69 +199,7 @@ if (mode == 99) fprintf(stderr,"in set_lev arg1=%s\n", arg1);
 }
 
 
-/*
- * HEADER:100:set_date:misc:1:changes date code .. keep old date code if not specified completely
- */
-
-int f_set_date(ARG1) {
-
-    int year, month, day, hour, minute, second, i, j, units, n;
-    int pdt;
-
-    unsigned int dtime;
-
-    if (mode == -1) {
-	return 0;
-    }
-    if (mode < 0) return 0;
-
-    reftime(sec, &year, &month, &day, &hour, &minute, &second);
-
-    i=strlen(arg1);
-    if (i < 4 || i % 2 == 1) fatal_error("set_date: bad date code %s",arg1); 
-
-    i = sscanf(arg1,"%4d%2d%2d%2d%2d%2d" , &year, &month, &day, &hour, &minute, &second);
-    if (i < 1) fatal_error("set_date: bad date code %s",arg1); 
-
-    if (check_datecode(year, month, day) != 0 || hour < 0 || hour >= 24 ||
-	minute < 0 || minute >= 60 || second < 0 || second >= 60) 
-		fatal_error("set_date: bad date code %s",arg1);
-
-    // set reference time
-    save_time(year,month,day,hour,minute,second, sec[1]+12);
-
-    pdt = code_table_4_0(sec);
-    j = 0;
-    if (pdt == 8) j = 34;
-    else if (pdt == 9) j = 47;
-    else if (pdt == 10) j = 35;
-    else if (pdt == 11) j = 37;
-    else if (pdt == 12) j = 36;
-    else if (pdt == 13) j = 68;
-    else if (pdt == 14) j = 64;
-
-    if (j == 0) return 0;
-
-    n = sec[4][j+7];		// number of stat proc elements
-
-    // add forecast time to time
-
-    units = code_table_4_4(sec);
-    dtime = forecast_time_in_units(sec);
-    add_time(&year, &month, &day, &hour, &minute, &second, dtime, units);
-
-    for (i = 0; i < n; i++) {
-        // add statistical processing time to time
-        units = (int) sec[4][48-34+j+i*12];
-        dtime = uint4(sec[4]+49-34+j+i*12);
-       add_time(&year, &month, &day, &hour, &minute, &second, dtime, units);
-    }
-
-    save_time(year,month,day,hour,minute,second, sec[4]+j);
-    return 0;
-}	
-
-extern struct gribtab_s gribtab[];
+extern struct gribtable_s gribtable[], *user_gribtable;
 
 /*
  * HEADER:100:set_var:misc:1:changes variable name
@@ -273,22 +213,40 @@ extern struct gribtab_s gribtab[];
 
 
 int f_set_var(ARG1) {
-    struct gribtab_s *p;
+    struct gribtable_s *p;
     int center;
 
-    if (mode >= 0) {
+    if (mode < 0) return 0;
+
+        p = NULL;
+        /* try user table */
+
+        if (user_gribtable != NULL) {
+            p = user_gribtable;
+            center = GB2_Center(sec);
+            while (p->disc != -1) {
+                if (strcmp(arg1,p->name) == 0) {
+                    if (center == p->cntr) break;
+                    if (p->disc < 192 && p->pcat < 192 && p->pnum < 192) break;
+                }
+                p++;
+             }
+        }
 
         /* search for non-local table match first */
-        p = gribtab;
-        while (p->disc != -1) {
-	    if (p->disc < 192 && p->pcat < 192 && p->pnum < 192 && strcmp(arg1,p->name) == 0) {
-                break;
+	if (p == NULL || p->disc == -1) {
+	    p = gribtable;
+            while (p->disc != -1) {
+	        if (p->disc < 192 && p->pcat < 192 && p->pnum < 192 && strcmp(arg1,p->name) == 0) {
+                    break;
+                }
+                p++;
             }
-            p++;
-        }
+	}
+
         /* try local tables */
         if (p->disc == -1) {
-            p = gribtab;
+            p = gribtable;
 	    center = GB2_Center(sec);
             while (p->disc != -1) {
                 if (center == p->cntr && strcmp(arg1,p->name) == 0) {
@@ -300,11 +258,11 @@ int f_set_var(ARG1) {
 
         if (p->disc == -1) fatal_error("set_var: could not find %s", arg1);
         sec[0][6] = p->disc;
-        sec[1][9] = p->mtab;
+        sec[1][9] = p->mtab_set;
         sec[1][10] = p->ltab;
         sec[4][9] = p->pcat;
         sec[4][10] = p->pnum;
-    }
+
     return 0;
 }
 
@@ -330,12 +288,15 @@ int f_set_center(ARG1) {
  */
 
 static const char *set_options="discipline, center, subcenter, master_table, local_table, background_process_id, "
-        "analysis_or_forecast_process_id, table_1.2, table_1.3, table_1.4, table_3.0, table_3.1/GDT, table_3.2" 
-	", table_3.3, table_3.4, table_4.0/PDT, table_4.1, table_4.2, table_4.6, table_4.10, table_4.11, table_5.0/DRT, table_6.0";
+        "analysis_or_forecast_process_id, model_version_date, table_1.2, table_1.3, table_1.4, "
+        "table_3.0, table_3.1/GDT, table_3.2, " 
+	"table_3.3, table_3.4, table_4.0/PDT, table_4.1, table_4.2, table_4.3, table_4.6, table_4.7, table_4.8, table_4.10, "
+        "table_4.11, table_5.0/DRT, table_6.0, %";
 
 
 int f_set(ARG2) {
     int i;
+    int year,mon,day,hr,minute,second;
     unsigned char *p;
 
     if (mode == -1) {
@@ -349,15 +310,15 @@ int f_set(ARG2) {
     if (mode >= 0) {
 
 	i = atoi(arg2);
-	if (strcmp(arg1,"discipline") == 0) {
+	if (strcmp(arg1,"discipline") == 0 || strcmp(arg1,"table_0.0") == 0) {
 	    sec[1][10] = (unsigned char) i;
 	    return 0;
 	}
-	if (strcmp(arg1,"local_table") == 0) {
+	if (strcmp(arg1,"local_table") == 0 || strcmp(arg1,"table_1.1") == 0) {
 	    sec[1][10] = (unsigned char) i;
 	    return 0;
 	}
-	if (strcmp(arg1,"master_table") == 0) {
+	if (strcmp(arg1,"master_table") == 0 || strcmp(arg1,"table_1.0") == 0) {
 	    sec[1][9] = (unsigned char) i;
 	    return 0;
 	}
@@ -379,6 +340,21 @@ int f_set(ARG2) {
 	    if (p) *p = (unsigned char) i;
 	    return 0;
 	}
+	if (strcmp(arg1,"model_version_date") == 0) {
+            p = year_of_model_version_date_location(sec);
+            if (p) {
+                i = sscanf(arg2,"%4d%2d%2d%2d%2d%2d", &year,&mon,&day,&hr,&minute,&second);
+		if (i != 6) fatal_error("set model_version_date YYYYMMDDHHmmSS","");
+                uint2_char(year, p);
+		p += 2;
+		*p++ = mon;
+		*p++ = day;
+		*p++ = hr;
+		*p++ = minute;
+		*p++ = second;
+            }
+	    return 0;
+        }
 	if (strcmp(arg1,"table_1.2") == 0) {
 	    sec[1][11] = (unsigned char) i;
 	    return 0;
@@ -422,8 +398,23 @@ int f_set(ARG2) {
 	    sec[4][10] = (unsigned char) i;
 	    return 0;
 	}
+	if (strcmp(arg1,"table_4.3") == 0) {
+	    p = code_table_4_3_location(sec);
+	    if (p) *p = (unsigned char) i;
+	    return 0;
+	}     
 	if (strcmp(arg1,"table_4.6") == 0) {
 	    p = code_table_4_6_location(sec);
+	    if (p) *p = (unsigned char) i;
+	    return 0;
+	}
+	if (strcmp(arg1,"table_4.7") == 0) {
+	    p = code_table_4_7_location(sec);
+	    if (p) *p = (unsigned char) i;
+	    return 0;
+	}
+	if (strcmp(arg1,"table_4.8") == 0) {
+	    p = code_table_4_8_location(sec);
 	    if (p) *p = (unsigned char) i;
 	    return 0;
 	}
@@ -445,70 +436,17 @@ int f_set(ARG2) {
 	    sec[6][5] = (unsigned char) i;
 	    return 0;
 	}
+	if (strcmp(arg1,"%") == 0) {
+	    p = percentile_value_location(sec);
+	    if (p) *p = (unsigned char) i;
+	    return 0;
+	}
+
 	fatal_error("set: allowed values: %s", set_options);
 
 	return 1;
     }
     return 0;
-}
-
-/*
- * HEADER:100:set_ftime:misc:1:set ftime .. only on pdt=4.0 only anl/fcst
- */
-
-int f_set_ftime(ARG1) {
-    int pdt, n, unit, len;
-    char string[STRING_SIZE];
-    char string2[STRING_SIZE];
-
-    if (mode < 0) return 0;
-
-    pdt = GB2_ProdDefTemplateNo(sec);
-    n = 0;
-    unit = -1;
-    if (strcmp(arg1 ,"anl") == 0) {
-	n = 0;
-	unit = 1;
-    }
-    else {
-        if (sscanf(arg1,"%d %s %s%n", &n , string, string2, &len) == 3 &&  len == strlen(arg1)) {
-    	    if (strcmp(string2,"forecast") == 0 || strcmp(string2,"fcst") == 0) {
-		unit = a2time_range(string);
-	    }
-	}
-    }
-    if (unit == -1) fatal_error("set_ftime: unknown option %s", arg1);
-    if (pdt == 0 || pdt == 1 || pdt == 2) {
-        sec[4][17] = (unsigned char) unit;
-        int_char(n,sec[4]+18);
-	// significance of reference time
-	// type of grib data
-	if (n == 0) {
-	    sec[1][11] = 0;		// analysis time
-	    sec[1][20] = 0;		// analysis product
-	}
-	else {
-	    sec[1][11] = 1;		// start of forecast 
-// fixed 10/11	    sec[1][21] = 0;		// analysis forecast
-	    sec[1][20] = 1;		// forecast product
-	}
-        return 0;
-    }
-    if (pdt == 52) {
-        sec[4][20] = (unsigned char) unit;
-        int_char(n,sec[4]+21);
-	if (n == 0) {
-	    sec[1][11] = 0;		// analysis time
-	    sec[1][20] = 0;		// analysis product
-        }
-        else {
-	    sec[1][11] = 1;		// start of forecast 
-	    sec[1][20] = 1;		// forecast product
-	}
-        return 0;
-    }
-    fatal_error("set_ftime: only works on pdt 0,1,2,52","");
-    return -1;
 }
 
 /*
@@ -924,22 +862,26 @@ fprintf(stderr,">>> need to check out climo1\n");
  */
 
 int f_set_metadata(ARG1) {
+
     char line[STRING_SIZE];
     char date[STRING_SIZE];
     char var[STRING_SIZE];
     char lev[STRING_SIZE];
     char string[STRING_SIZE];
     char ftime[STRING_SIZE];
-    const char *arg2;
     char *p;
     int i, len, len_arg1, n, j, i0, i1;
     /* to alter field dimension .. need to alter sscanf format too */
     char field[5][100], str1[100],str2[100];
+    double value1, value2;
 
     if (mode == -1) {
         if ((*local = (void *) ffopen(arg1,"r")) == NULL) {
             fatal_error("Could not open %s", arg1);
         }
+    }
+    else if (mode == -2) {
+        ffclose((FILE *) *local);
     }
     else if (mode >= 0) {
 	if (fgets(line, STRING_SIZE, (FILE *)*local) == NULL) {
@@ -950,34 +892,34 @@ int f_set_metadata(ARG1) {
 	n = sizeof(field) / i;
 	for (j = 0; j < n; j++) field[j][i-1] = 0;
 
-        i = sscanf(line, "%*[^:]:%*[^:]:d=%99[^:]:%[^:]:%[^:]:%[^:]:%99[^:]:%99[^:]:%99[^:]:%99[^:]", 
-		date, var, lev, ftime,field[0],field[1],field[2],field[3]);
+//12/2014
+//      i = sscanf(line, "%*[^:]:%*[^:]:d=%99[^:]:%[^:]:%[^:]:%[^:]:%99[^:]:%99[^:]:%99[^:]:%99[^:]", 
+//		date, var, lev, ftime,field[0],field[1],field[2],field[3]);
+        i = sscanf(line, "%*[^:]:%*[^:]:d=%99[^:]:%[^:]:%[^:]:%[^:]:%99[^:]:%99[^:]:%99[^:]:%99[^:]:%99[^:]", 
+		date, var, lev, ftime,field[0],field[1],field[2],field[3],field[4]);
 	if (i < 4) fatal_error("set_metadata: bad input %s",line);
 	n = i - 4;
 
 	if (mode == 99) fprintf(stderr,"set_metadata: ftime %s, f0=%s f1=%s\n",ftime,field[0],field[1]);
 
 	if (strlen(date)) {
-	arg1 = date;
-	if (f_set_date(CALL_ARG1) != 0) return 1;
+	   if (f_set_date(call_ARG1(inv_out, NULL, date)) != 0) return 1;
 	}
-
 	if (strlen(var)) {
-	arg1 = var;
-	if (f_set_var(CALL_ARG1) != 0) return 1;
+  	    if (f_set_var(call_ARG1(inv_out,NULL,var)) != 0) return 1;
 	}
 
 	if (strlen(lev)) {
-	arg1 = lev;
-	if (f_set_lev(CALL_ARG1) != 0) return 1;
+	    if (f_set_lev(call_ARG1(inv_out,NULL,lev)) != 0) return 1;
 	}
 
-	if (strlen(ftime)) {
-	arg1 = ftime;
-	len_arg1 = strlen(arg1);
-	if (strcmp(arg1,"anl") == 0) f_set_ftime(CALL_ARG1);
-	else if ((i = sscanf(arg1,"%*d %*s %s%n", string, &len)) == 1 &&  len == len_arg1) f_set_ftime(CALL_ARG1);
-        else f_set_ave(CALL_ARG1);
+	if ((len_arg1 = strlen(ftime))) {
+	    // if "anl" or "(number) %s %s" call set_ftime
+	    // else call set_ave
+	    if (strcmp(ftime,"anl") == 0) f_set_ftime(call_ARG1(inv_out,NULL,ftime));
+	    else if ( ((i = sscanf(ftime,"%*d %*s %s%n", string, &len)) == 1) && len == len_arg1) 
+                    f_set_ftime(call_ARG1(inv_out,NULL,ftime));
+            else f_set_ave(call_ARG1(inv_out,NULL,ftime));
 	}
 
 
@@ -1001,18 +943,77 @@ int f_set_metadata(ARG1) {
 
 	    j = sscanf(p,"packing=%s", string);
 	    if (j == 1) {
-                arg1=string;
-                f_set_grib_type(CALL_ARG1);
+                f_set_grib_type(call_ARG1(inv_out,NULL,string) );
 		continue;
 	    }
 
-	    // see if -set X T will work
-	    j = sscanf(p,"%[^=]=%s",str1, str2);
-	    if (j == 2) {
-	        arg1 = str1;
-	        arg2 = str2;
-	        if (f_set(CALL_ARG2) == 0) continue;
+	    // percentile   N% level note: ignores characters after level
+	    i1 = 0;
+	    j = sscanf(p, "%d%% level%n", &i0, &i1);
+	    if (i1 > 0) {
+		sprintf(str1,"%d", i0);
+		f_set_percentile(call_ARG1(inv_out,NULL,str1));
+		continue;
 	    }
+
+	    // probability
+	    j = sscanf(p,"prob <%lf",&value1);
+	    if (j == 1) {
+		sprintf(str1,"%lg", value1);
+		f_set_prob(call_ARG5(inv_out,NULL,"255","255","0", str1, str1));
+		continue;
+	    }
+	    j = sscanf(p,"prob >%lf",&value1);
+	    if (j == 1) {
+		sprintf(str1,"%lg", value1);
+		f_set_prob(call_ARG5(inv_out,NULL,"255","255","1", str1, str1));
+		continue;
+	    }
+	    j = sscanf(p,"prob =%lf",&value1);
+	    if (j == 1) {
+		sprintf(str1,"%lg", value1);
+		f_set_prob(call_ARG5(inv_out,NULL,"255","255","2", str1, str1));
+		continue;
+	    }
+	    j = sscanf(p,"prob >=%lf <%lf",&value1, &value2);
+	    if (j == 2) {
+		sprintf(str1,"%lg", value1);
+		sprintf(str2,"%lg", value2);
+		f_set_prob(call_ARG5(inv_out,NULL,"255","255","2", str1, str2));
+		continue;
+	    }
+
+	    // ensemble
+	    j = sscanf(p,"ENS=%s", str1);
+	    if (j == 1) {
+	        // if (strcmp(str1,"hi-res ctl") == 0) {
+	        if (strcmp(str1,"hi-res") == 0) {
+		    f_set_ens_num(call_ARG3(inv_out,NULL,"0", str1, "-1"));
+		    continue;
+		}
+	        // if (strcmp(str1,"low-res ctl") == 0) {
+	        if (strcmp(str1,"low-res") == 0) {
+		    f_set_ens_num(call_ARG3(inv_out,NULL,"1", str1, "-1"));
+		    continue;
+		}
+	        j = sscanf(p,"ENS=+%[0-9]", str1);
+	        if (j == 1) {
+		    f_set_ens_num(call_ARG3(inv_out,NULL,"3", str1, "-1"));
+		    continue;
+	        }
+	        j = sscanf(p,"ENS=-%[0-9]", str1);
+	        if (j == 1) {
+		    f_set_ens_num(call_ARG3(inv_out,NULL,"2", str1, "-1"));
+		    continue;
+	        }
+		fatal_error("set_metadata: unknown ENS=%s", str1);
+	    }
+	    j = sscanf(p,"%[0-9] ens members", str1);
+	    if (j == 1) {
+		f_set_ens_num(call_ARG3(inv_out,NULL,"-1", "-1", str1));
+		continue;
+	    }
+
 
 	    /* do better
 	    j = sscanf(p,"background generating process=%d forecast generating process=%d", &i0, &i1);
@@ -1024,6 +1025,12 @@ int f_set_metadata(ARG1) {
 		continue;
 	    }
 	    */
+
+	    // see if -set X T will work
+	    j = sscanf(p,"%[^=]=%s",str1, str2);
+	    if (j == 2) {
+	        if (f_set(call_ARG2(inv_out,NULL,str1,str2)) == 0) continue;
+	    }
 
 	    fatal_error("set_metadata: field not understood = %s", p);
 	}

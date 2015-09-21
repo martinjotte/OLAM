@@ -22,8 +22,11 @@
  */
 int f_config(ARG0) {
 
+    char *filename;
+    FILE *input;
+
     inv_out[0] = 0;
-    strcat(inv_out, "wgrib2 " VERSION "\n\n");
+    strcat(inv_out, "wgrib2 " WGRIB2_VERSION "\n    " BUILD_COMMENTS "\n\n");
 
     inv_out += strlen(inv_out);
     sprintf(inv_out,"Compiled on %s %s\n\n",__TIME__,__DATE__);
@@ -71,9 +74,14 @@ int f_config(ARG0) {
     strcat(inv_out, "UDF package is not installed\n");
 #endif
 
+#ifdef N_ARGLIST
     inv_out += strlen(inv_out);
     sprintf(inv_out, "maximum number of arguments on command line: %d\n",
 	N_ARGLIST);
+#else
+    inv_out += strlen(inv_out);
+    sprintf(inv_out, "maximum number of arguments on command line: limited by shell/OS\n");
+#endif
 
 #ifdef USE_REGEX
     inv_out += strlen(inv_out);
@@ -83,9 +91,44 @@ int f_config(ARG0) {
     inv_out += strlen(inv_out);
     sprintf(inv_out, "stdout buffer length: %d\n", INV_BUFFER);
 
-    strcat(inv_out, USE_G2CLIB ? 
-       "g2clib is the default decoder\n" :
-       "g2clib is not the default decoder\n");
+#if (DEFAULT_G2CLIB == 0)
+    strcat(inv_out, "default decoding: WMO standard\n");
+#endif
+#if (DEFAULT_G2CLIB == 1)
+    strcat(inv_out, "default decoding: g2clib emulation\n");
+#endif
+#if (DEFAULT_G2CLIB == 2)
+    strcat(inv_out, "default decoding: g2clib\n");
+#endif
+
+#if (DEFAULT_GCTPC == 0)
+    strcat(inv_out, "default geolocation: spherical\n");
+#else
+    strcat(inv_out, "default geolocation: gctpc\n");
+#endif
+
+
+#ifdef USE_G2CLIB
+    strcat(inv_out, "g2clib decoders are installed\n");
+#else
+    strcat(inv_out, "g2clib decoders are not installed\n");
+#endif
+
+#ifndef USE_PNG
+    strcat(inv_out, "png compression not supported\n");
+#endif
+#ifndef USE_JASPER
+    strcat(inv_out, "jpeg2000 compression not supported\n");
+#endif
+
+    filename = getenv("GRIB2TABLE");
+    if (filename == NULL) filename = getenv("grib2table");
+    if (filename == NULL) filename = "grib2table";
+    input = fopen(filename,"r");
+    inv_out += strlen(inv_out);
+    sprintf(inv_out, "user gribtable: %s\n", input == NULL ? "(none)" : filename);
+    if (input) fclose(input);
+
 
 #ifdef CC
     strcat(inv_out,"C compiler: " CC "\n");
@@ -96,9 +139,9 @@ int f_config(ARG0) {
 #endif
 
 #ifdef USE_OPENMP
-    strcat(inv_out,"OpenMP: yes\n");
+    strcat(inv_out,"OpenMP: control number of threads with environment variable OMP_NUM_THREADS\n");
 #else
-    strcat(inv_out,"OpenMP: no\n");
+    strcat(inv_out,"OpenMP: not used\n");
 #endif
     inv_out += strlen(inv_out);
 

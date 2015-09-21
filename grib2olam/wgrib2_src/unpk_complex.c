@@ -107,105 +107,110 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 	d += extra_octets;
     }
 
-
-#pragma omp sections
-{
-    
-
-#pragma omp section
-{
-    // read the group reference values
-    rd_bitstream_offset(d, 0, group_refs, nbits, ngroups);
-}
-
-
-#pragma omp section
-{
-    // read the group widths
-
-    rd_bitstream_offset(d+(nbits*ngroups+7)/8,0,group_widths,nbit_group_width,ngroups);
-    for (i = 0; i < ngroups; i++) group_widths[i] += ref_group_width;
-}
-
-
-#pragma omp section
-{
-    // read the group lengths
-
-    if (ctable_5_4 == 1) {
-	rd_bitstream_offset(d+(nbits*ngroups+7)/8+(ngroups*nbit_group_width+7)/8,
-	0,group_lengths, nbits_group_len, ngroups-1);
-
-	for (i = 0; i < ngroups-1; i++) {
-	    group_lengths[i] = group_lengths[i] * group_length_factor + ref_group_length;
-	}
-	group_lengths[ngroups-1] = len_last;
-    }
-}
-
-}
-
     if (ctable_5_4 != 1) fatal_error_i("internal decode does not support code table 5.4=%d",
 		ctable_5_4);
 
-    d += (nbits*ngroups + 7)/8 +
-         (ngroups * nbit_group_width + 7) / 8 +
-         (ngroups * nbits_group_len + 7) / 8;
+#pragma omp parallel
+{
+#pragma omp sections
+    {
+    
 
-    // do a check for number of grid points and size
-    clocation = offset = n = j = 0;
+#pragma omp section
+        {
+           // read the group reference values
+   	   rd_bitstream(d, 0, group_refs, nbits, ngroups);
+	}
+
+
+#pragma omp section
+	{
+	    int i;
+	    // read the group widths
+
+	    rd_bitstream(d+(nbits*ngroups+7)/8,0,group_widths,nbit_group_width,ngroups);
+	    for (i = 0; i < ngroups; i++) group_widths[i] += ref_group_width;
+	}
+
+
+#pragma omp section
+	{
+	    int i;
+	    // read the group lengths
+
+	    if (ctable_5_4 == 1) {
+		rd_bitstream(d+(nbits*ngroups+7)/8+(ngroups*nbit_group_width+7)/8,
+		0,group_lengths, nbits_group_len, ngroups-1);
+
+		for (i = 0; i < ngroups-1; i++) {
+		    group_lengths[i] = group_lengths[i] * group_length_factor + ref_group_length;
+		}
+		group_lengths[ngroups-1] = len_last;
+	    }
+	}
+
+    }
+
+
+#pragma omp single
+    {
+        d += (nbits*ngroups + 7)/8 +
+             (ngroups * nbit_group_width + 7) / 8 +
+             (ngroups * nbits_group_len + 7) / 8;
+
+	// do a check for number of grid points and size
+	clocation = offset = n = j = 0;
+    }
 
 #pragma omp sections
-{
+    {
 
 
 #pragma omp section
-    {
-        for (i = 0; i < ngroups; i++) {
-	    group_location[i] = j;
-	    j += group_lengths[i];
-	    n += group_lengths[i]*group_widths[i];
+        {
+	    int i;
+            for (i = 0; i < ngroups; i++) {
+	        group_location[i] = j;
+	        j += group_lengths[i];
+	        n += group_lengths[i]*group_widths[i];
+            }
         }
-    }
 
 #pragma omp section
-    {
-        for (i = 0; i < ngroups; i++) {
-	    group_clocation[i] = clocation;
-	    clocation = clocation + group_lengths[i]*(group_widths[i]/8) +
+	{
+	    int i;
+            for (i = 0; i < ngroups; i++) {
+	        group_clocation[i] = clocation;
+	        clocation = clocation + group_lengths[i]*(group_widths[i]/8) +
 	              (group_lengths[i]/8)*(group_widths[i] % 8);
+            }
         }
-    }
 
 #pragma omp section
-    {
-        for (i = 0; i < ngroups; i++) {
-	    group_offset[i] = offset;
-	    offset += (group_lengths[i] % 8)*(group_widths[i] % 8);
-	}
+        {
+	    int i;
+            for (i = 0; i < ngroups; i++) {
+	        group_offset[i] = offset;
+	        offset += (group_lengths[i] % 8)*(group_widths[i] % 8);
+	    }
+        }
     }
 }
 
-    if (j != npnts) fatal_error("bad complex packing: n points","");
+    if (j != npnts) fatal_error_i("bad complex packing: n points %d",j);
     if (d + (n+7)/8 - sec[7] != GB2_Sec7_size(sec))
         fatal_error("complex unpacking size mismatch old test","");
 
 
     if (d + clocation + (offset + 7)/8 - sec[7] != GB2_Sec7_size(sec)) fatal_error("complex unpacking size mismatch","");
 
-#pragma omp parallel for private(i)
+#pragma omp parallel for private(i) schedule(static)
     for (i = 0; i < ngroups; i++) {
 	group_clocation[i] += (group_offset[i] / 8);
 	group_offset[i] = (group_offset[i] % 8);
-    }
 
-    // set nbits of each data point
-
-
-
-#pragma omp parallel for private(i) schedule(static)
-    for (i = 0; i < ngroups; i++) {
-	rd_bitstream_offset(d + group_clocation[i], group_offset[i], udata+group_location[i], group_widths[i], group_lengths[i]);
+	rd_bitstream(d + group_clocation[i], group_offset[i], udata+group_location[i], 
+		group_widths[i], group_lengths[i]);
     }
 
     // handle substitute, missing values and reference value
