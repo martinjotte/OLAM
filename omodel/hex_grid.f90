@@ -704,6 +704,7 @@ enddo
 !$omp end do
 !$omp end parallel
 
+!dir$ novector
 do iv = 2, nva
    im1 = itab_v(iv)%im(1)
    im2 = itab_v(iv)%im(2)

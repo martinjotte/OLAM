@@ -171,7 +171,7 @@ enddo
 ! 3. Store fluxes and atmospheric properties in SEA cells
 
 !----------------------------------------------------------------------
-
+!dir$ novector
 !$omp parallel do private(iw,kw)
 do iws = 2,mws
 
@@ -211,7 +211,7 @@ do iws = 2,mws
               sea%sea_ustar  (iws), &
               sea%sea_ggaer  (iws)  )
 
-    sea%sfluxc(iws) = 0.
+   sea%sfluxc(iws) = 0.
 
 ! Include fractional seaice component if seaice layers exist
 
@@ -304,8 +304,8 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
       exneri = theta(kw,iw) / tair(kw,iw)
 
       ustar      (iw) = ustar      (iw) + arf_iw  * sea%ustar (iws) 
-       sfluxt    (iw) = sfluxt     (iw) + arf_iw  * sea%sfluxt(iws) * exneri
-       sfluxr    (iw) = sfluxr     (iw) + arf_iw  * sea%sfluxr(iws)
+      sfluxt     (iw) = sfluxt     (iw) + arf_iw  * sea%sfluxt(iws) * exneri
+      sfluxr     (iw) = sfluxr     (iw) + arf_iw  * sea%sfluxr(iws)
       vkm_sfc (ks,iw) = vkm_sfc (ks,iw) + arf_kw  * sea%vkmsfc(iws)
       sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dt * sea%sfluxt(iws) * exneri
       sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dt * sea%sfluxr(iws)
@@ -321,6 +321,7 @@ enddo
 
 !----------------------------------------------------------------------
 
+!dir$ novector
 !$omp parallel do private(iw,kw,my_co2)
 do iwl = 2,mwl
 
@@ -483,9 +484,8 @@ real, intent(in) :: vels      ! atmos near-surface wind speed [m/s]
 real, intent(in) :: airtemp   ! atmos near-surface temp [K]
 real, intent(in) :: sh_vs     ! atmos near-surface vapor spec hum [kg_vap/m^3]
 real, intent(in) :: cantemp   ! canopy air temp [K]
-real, intent(in) :: canshv   ! canopy air vapor spec hum [kg_vap/m^3]
-
-real, intent(in) :: rhos  ! atmos near-surface density [kg/m^3]
+real, intent(in) :: canshv    ! canopy air vapor spec hum [kg_vap/m^3]
+real, intent(in) :: rhos      ! atmos near-surface density [kg/m^3]
 
 ! Output variables
 
@@ -551,7 +551,7 @@ rstar = c3 * (sh_vs - canshv)
 
 vtscr = ustar0 * rhos
 
-vkmsfc = vtscr * ustar0 * zts / vels0
+vkmsfc =   vtscr * ustar0 * zts / vels0
 sfluxt = - vtscr * tstar
 sfluxr = - vtscr * rstar
 
