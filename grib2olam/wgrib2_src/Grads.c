@@ -42,6 +42,7 @@ int f_ctl_inv(ARG0) {
     int stat_proc, pdt;
     unsigned char *sec4, *p;
     const char *string;
+    char limit1[30], limit2[30];
 
     if (mode < 0) return 0;
     pdt = code_table_4_0(sec);
@@ -67,21 +68,26 @@ int f_ctl_inv(ARG0) {
         p = code_table_4_9_location(sec);
         if (p == NULL) return 0;
 
-        j = int4(p+2);
-        k = int4(p+7);
+	j =  int4(p+2);
+	k =  int4(p+7);
 
-	while (j != 0 && j % 10 == 0) { j /=  10 ; }
-	while (k != 0 && k % 10 == 0) { k /=  10 ; }
+	itoshort_a(limit1, j);
+	itoshort_a(limit2, k);
 
-        if (i == 0) sprintf(inv_out,"%dLT", j);
-        else if (i == 1) sprintf(inv_out,"%dGT", k);
+        if (i == 0) sprintf(inv_out,"%sLT", limit1);
+        else if (i == 1) sprintf(inv_out,"%sGT", limit2);
         else if (i == 2) {
-	     if (j != k) sprintf(inv_out,"%dTO%d", j,k);
-	     else sprintf(inv_out,"%dEQ", j);
+	     if (j != k) sprintf(inv_out,"%sTO%s", limit1, limit2);
+	     else sprintf(inv_out,"%sEQ", limit1);
 	}
-        else if (i == 3) sprintf(inv_out,"%dGT", j);
-        else if (i == 4) sprintf(inv_out,"%dLT", k);
-        else sprintf(inv_out,"%d%d%d",i,j,k);
+        else if (i == 3) sprintf(inv_out,"%sGT", limit1);
+        else if (i == 4) sprintf(inv_out,"%sLT", limit2);
+        else sprintf(inv_out,"%d%s%s",i,limit1,limit2);
+        inv_out += strlen(inv_out);
+    }
+
+    if (pdt == 6 || pdt == 10) {         /* percentile */
+        sprintf(inv_out,"%dPC",percentile_value(sec));
         inv_out += strlen(inv_out);
     }
 
@@ -93,18 +99,20 @@ int f_ctl_inv(ARG0) {
         if (i != 255) {
             j = int4(sec4+15);
             k = int4(sec4+20);
-	    while (j != 0 && j % 10 == 0) { j /=  10 ; }
-	    while (k != 0 && k % 10 == 0) { k /=  10 ; }
-            sprintf(inv_out,"%d%d%d",i,j,k);
+	    itoshort_a(limit1, j);
+	    itoshort_a(limit2, k);
+
+            sprintf(inv_out,"%d%s%s",i,limit1,limit2);
             inv_out += strlen(inv_out);
         }
         i = code_table_4_91b(sec);
         if (i != 255) {
             j = int4(sec4+26);
             k = int4(sec4+31);
-	    while (j != 0 && j % 10 == 0) { j /=  10 ; }
-	    while (k != 0 && k % 10 == 0) { k /=  10 ; }
-            sprintf(inv_out,"%d%d%d",i,j,k);
+	    itoshort_a(limit1, j);
+	    itoshort_a(limit2, k);
+
+            sprintf(inv_out,"%d%s%s",i,limit1,limit2);
             inv_out += strlen(inv_out);
         }
     }
@@ -147,9 +155,14 @@ int f_ctl_inv(ARG0) {
         inv_out += strlen(inv_out);
 	if (i == 0 || i == 3) sprintf(inv_out,",%g", scaled2flt(INT1(p[1]), int4(p+2)));
 	else if (i == 1 || i == 4) sprintf(inv_out,",%g", scaled2flt(INT1(p[6]), int4(p+7)));
-        else if (i == 2) sprintf(inv_out,",%g,%g", scaled2flt(INT1(p[1]), int4(p+2)), scaled2flt(INT1(p[1]), int4(p+2)));
+        else if (i == 2) sprintf(inv_out,",%g,%g", scaled2flt(INT1(p[1]), int4(p+2)), scaled2flt(INT1(p[6]), int4(p+7)));
         inv_out += strlen(inv_out);
     }
+
+    if (pdt == 6 || pdt == 10) {		/* percentiles */
+        sprintf(inv_out," a%d", percentile_value(sec));
+        inv_out += strlen(inv_out);
+    } 
 
     if (pdt == 48) {			/* dust */
         sprintf(inv_out,",a%d", code_table_4_233(sec));
@@ -187,7 +200,12 @@ int f_ctl_inv(ARG0) {
     if (stat_proc != -1 && stat_proc != 255) {
         sprintf(inv_out,",%d", stat_proc);
         inv_out += strlen(inv_out);
+	if (pdt == 15) {
+            sprintf(inv_out,",%d", code_table_4_15(sec));
+            inv_out += strlen(inv_out);
+	}
     }
+
 
     /* add stat processing term to description */
     if (stat_proc != -1) {
@@ -203,18 +221,18 @@ int f_ctl_inv(ARG0) {
     /* add prob term to description */
 
     if (pdt == 5 || pdt == 9) {
-        f_prob(CALL_ARG0);
+        f_prob(call_ARG0(inv_out,NULL));
         inv_out += strlen(inv_out);
         sprintf(inv_out," ");
         inv_out += strlen(inv_out);
     }
 
     if (pdt == 48) {
-        f_aerosol_size(CALL_ARG0);
+        f_aerosol_size(call_ARG0(inv_out,NULL));
         inv_out += strlen(inv_out);
         sprintf(inv_out," ");
         inv_out += strlen(inv_out);
-        f_aerosol_wavelength(CALL_ARG0);
+        f_aerosol_wavelength(call_ARG0(inv_out,NULL));
         inv_out += strlen(inv_out);
         sprintf(inv_out," ");
         inv_out += strlen(inv_out);
@@ -377,7 +395,8 @@ int f_domain(ARG0) {
     }
     if (mode < -1) return 0;
 
-    if (output_order != wesn) fatal_error("-domain requires WESN order","");
+    if (output_order != wesn) fatal_error("domain: requires WESN order","");
+
     if (lat == NULL || lon == NULL) return -1;
 
     // find the n and s extrema
@@ -456,17 +475,13 @@ int f_domain(ARG0) {
  */
 
 int f_ctl_ens(ARG0) {
-    int pdt, typefcst, type, n;
+    int type, n;
     if (mode >= 0) {
-        pdt = code_table_4_0(sec);
-        typefcst = code_table_4_7(sec);
-        if (pdt == 1 || pdt == 11) {
+        type = code_table_4_6(sec);
+	if (type >= 0) {
             type = code_table_4_6(sec);
-            n = sec[4][35];
+            n = perturbation_number(sec);
 	    sprintf(inv_out,"ens=%d,%d", type, n);
-	}
-	else if (pdt == 2  || pdt == 12) {
-	    sprintf(inv_out,"ens=%d", typefcst);
 	}
     }
     return 0;

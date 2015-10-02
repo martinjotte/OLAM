@@ -20,6 +20,7 @@ static char *cbuffer = NULL;
 
 char *save_string(char *string) {
     int len;
+    char *cbuffer_old;
 
     len = strlen(string);
 
@@ -31,9 +32,12 @@ char *save_string(char *string) {
         }
 	else {
 	    csize_max += csize_max;
-	    cbuffer = realloc(cbuffer, csize_max);
+	    cbuffer = realloc(cbuffer_old=cbuffer, csize_max);
+	    if (cbuffer == NULL) {
+	        free(cbuffer_old);
+	        fatal_error_i("save_string: memory allocation failed, %d bytes", csize);
+	    }
 	}
-        if (cbuffer == NULL) fatal_error_i("save_string: memory allocation failed, %d bytes", csize);
     }
     strncpy(cbuffer+csize,string,len+1);
     csize += len + 1;

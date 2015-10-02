@@ -74,10 +74,18 @@ int f_irr_grid(ARG3) {
 
 	if (sscanf(arg2,"%lf",&(save->radius)) != 1) fatal_error("irr_grid: radius %s", arg2);
         if ((save->out = ffopen(arg3, file_append ? "ab" : "wb" )) == NULL) fatal_error("irr_grid could not open file %s", arg3);
+	return 0;
     }
-    if (mode < 0) return 0;
 
     save = (struct local_struct *) *local;
+    if (mode == -2) {
+	ffclose(save->out);
+	free(save->iptr);
+	free(save->lon_lat_list);
+	free(save);
+	return 0;
+    }
+    
 
     if (save->last_GDS_change_no != GDS_change_no) {
         save->last_GDS_change_no = GDS_change_no;

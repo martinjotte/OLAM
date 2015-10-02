@@ -14,6 +14,8 @@
  * 12/2006 Public Domain Wesley Ebisuzaki
  * 1/2007 M. Schwarb
  * 1/2008 S. Varlamov fixed to code_table_5.5
+ * 5/2013 W. Ebisuzaki fixed code table 0.0 in response to error report M. Foster
+ * 7/2013 W. Ebisuzaki added more *_location() functions, needed by set_pdt()
  */
 
 /*
@@ -36,7 +38,7 @@ int f_code_table_0_0(ARG0) {
     return 0;
 }
 int code_table_0_0(unsigned char **sec) {
-    return  (int) sec[0][9];
+    return  (int) sec[0][6];
 }
 
 /*
@@ -66,7 +68,14 @@ int f_code_table_1_1(ARG0) {
     return 0;
 }
 int code_table_1_1(unsigned char **sec) {
-    return  (int) sec[1][10];
+    unsigned char *p;
+    p = code_table_1_1_location(sec);
+    if (p == NULL) return -1;
+    return (int) *p;
+}
+
+unsigned char *code_table_1_1_location(unsigned char **sec) {
+   return sec[1] + 10;
 }
 
 
@@ -88,8 +97,16 @@ int f_code_table_1_2(ARG0) {
     }
     return 0;
 }
+
 int code_table_1_2(unsigned char **sec) {
-    return  (int) sec[1][11];
+    unsigned char *p;
+    p = code_table_1_2_location(sec);
+    if (p == NULL) return -1;
+    return (int) *p;
+}
+
+unsigned char *code_table_1_2_location(unsigned char **sec) {
+   return sec[1] + 11;
 }
 
 /*
@@ -112,7 +129,13 @@ int f_code_table_1_3(ARG0) {
     return 0;
 }
 int code_table_1_3(unsigned char **sec) {
-    return  (int) sec[1][19];
+    unsigned char *p;
+    p = code_table_1_3_location(sec);
+    if (p == NULL) return -1;
+    return (int) *p;
+}
+unsigned char *code_table_1_3_location(unsigned char **sec) {
+   return sec[1] + 19;
 }
 
 
@@ -135,8 +158,67 @@ int f_code_table_1_4(ARG0) {
     return 0;
 }
 int code_table_1_4(unsigned char **sec) {
-    return  (int) sec[1][20];
+    unsigned char *p;
+    p = code_table_1_4_location(sec);
+    if (p == NULL) return -1;
+    return (int) *p;
 }
+unsigned char *code_table_1_4_location(unsigned char **sec) {
+   return sec[1] + 20;
+}
+
+
+/*
+ * HEADER:-1:code_table_1.5:inv:0:Identification template number
+ */
+
+int f_code_table_1_5(ARG0) {
+    int val;
+    if (mode >= 0) {
+        val = code_table_1_5(sec);
+        if (val >= 0) sprintf(inv_out,"code table 1.5=%d", val);
+    }
+    return 0;
+}
+
+int code_table_1_5(unsigned char **sec) {
+    unsigned char *p;
+    p = code_table_1_5_location(sec);
+    if (p == NULL) return -1;
+    return (int) uint2(p);
+}
+
+unsigned char *code_table_1_5_location(unsigned char **sec) {
+    return  (GB2_Sec1_size(sec) >= 23) ?  sec[1] + 21 : NULL;
+}
+
+/*
+ * HEADER:-1:code_table_1.6:inv:0:calendar
+ */
+
+int f_code_table_1_6(ARG0) {
+    int val;
+    if (mode >= 0) {
+        val = code_table_1_6(sec);
+        if (val >= 0) sprintf(inv_out,"code table 1.6=%d", val);
+    }
+    return 0;
+}
+
+int code_table_1_6(unsigned char **sec) {
+    unsigned char *p;
+    p = code_table_1_6_location(sec);
+    if (p == NULL) return -1;
+    return (int) *p;
+}
+unsigned char *code_table_1_6_location(unsigned char **sec) {
+    return  (GB2_Sec1_size(sec) >= 24 && sec[1][21] == 0 && sec[1][22] == 0) 
+	?  sec[1] + 23 : NULL;
+}
+
+
+
+
 
 /*
  * HEADER:-1:code_table_3.0:inv:0:code table 3.0 Source of grid definition
@@ -210,10 +292,25 @@ int code_table_3_2(unsigned char **sec) {
 unsigned char *code_table_3_2_location(unsigned char **sec) {
     int grid_def;
     grid_def = code_table_3_1(sec);
-    if (grid_def < 50 || grid_def == 90 || grid_def == 110 || grid_def == 130 || grid_def == 204 ||
-        grid_def == 1000 || grid_def == 1100 ||
-         (grid_def == 32768 && GB2_Center(sec) == NCEP) 
-         || (grid_def == 32769 && GB2_Center(sec) == NCEP) ) return sec[3]+14;
+
+    if (grid_def < 50) return sec[3]+14;
+
+    switch (grid_def) {
+        case 90:
+        case 110:
+        case 130:
+        case 140:
+        case 204:
+        case 1000:
+        case 1100:
+            return sec[3]+14; break;
+        default: break;
+    }
+
+    if (GB2_Center(sec) == NCEP) {
+        if (grid_def == 32768 || (grid_def == 32769)) return sec[3]+14;
+    }
+
     return  NULL;
 }
 
@@ -342,6 +439,41 @@ int code_table_3_15(unsigned char **sec) {
 }
 
 /*
+ * HEADER:-1:code_table_3.20:inv:0:code table 3.20 Type of Horizontal line
+ */
+int f_code_table_3_20(ARG0) {
+    int val;
+    const char *string;
+    if (mode >= 0) {
+        val = code_table_3_20(sec);
+        if (val >= 0) {
+            string = NULL;
+            switch(val) {
+#include "CodeTable_3.20.dat"
+            }
+            if (string == NULL) sprintf(inv_out,"code table 3.20=%d", val);
+            else sprintf(inv_out,"code table 3.20=%d %s", val, string);
+        }
+    }
+    return 0;
+}
+
+int code_table_3_20(unsigned char **sec) {
+    unsigned char *p;
+    p = code_table_3_20_location(sec);
+    if (p == NULL) return -1;
+    return (int) *p;
+}
+
+unsigned char *code_table_3_20_location(unsigned char **sec) {
+    int grid_def;
+    grid_def = code_table_3_1(sec);
+    if (grid_def == 1000) return sec[3]+59;
+    if (grid_def == 1100) return sec[3]+59;
+    return NULL;
+}
+
+/*
  * HEADER:-1:code_table_3.21:inv:0:code table 3.21 Vertical Dimension coordinate values defn
  */
 int f_code_table_3_21(ARG0) {
@@ -405,8 +537,9 @@ int f_code_table_4_1(ARG0) {
 int code_table_4_1(unsigned char **sec) {
     int p;
     p = GB2_ProdDefTemplateNo(sec);
-    if (p <= 15 || p == 20 || (p >= 30 && p <= 32) || (p >= 40 && p <= 48) ||  p == 51 || p == 52 || p == 91 ||
-           p == 254 || p == 1000 || p == 1001 || p == 1002 || p == 1100 || p == 1101) return (int) sec[4][9];
+    if (p <= 15 || p == 20 || (p >= 30 && p <= 32) || (p >= 40 && p <= 48) || (p >= 50 && p <= 52) || 
+           p == 60 || p == 61 || p == 91 ||
+           p == 254 || (p >= 1000 && p <= 1002) || p == 1100 || p == 1101) return (int) sec[4][9];
     return -1;
 }
 
@@ -425,8 +558,9 @@ int f_code_table_4_2(ARG0) {
 int code_table_4_2(unsigned char **sec) {
     int p;
     p = GB2_ProdDefTemplateNo(sec);
-    if (p <= 15 || p == 20 || (p >= 30 && p <= 32) || (p >= 40 && p <= 48) ||  p == 51 || p == 52 || p == 91 ||
-           p == 254 || p == 1000 || p == 1001 || p == 1002 || p == 1100 || p == 1101) 
+    if (p <= 15 || p == 20 || (p >= 30 && p <= 32) || (p >= 40 && p <= 48) ||  (p >= 50 && p <= 52) || 
+           p == 60 || p == 61 || p == 91 ||
+           p == 254 || (p >= 1000 && p <= 1002) || p == 1100 || p == 1101) 
         return (int) sec[4][10];
     return -1;
 }
@@ -480,6 +614,8 @@ unsigned char *code_table_4_3_location(unsigned char **sec) {
     case 20:
     case 30:
     case 31:
+    case 60:
+    case 61:
     case 1000:
     case 1001:
     case 1002:
@@ -521,14 +657,73 @@ int f_code_table_4_4(ARG0) {
     return 0;
 }
 int code_table_4_4(unsigned char **sec) {
-    int p;
-    p = GB2_ProdDefTemplateNo(sec);
-    if (p <= 15 || p == 1000 || p == 1001 || p == 1002 || p == 1100 || p == 1101) 
-	return (int) sec[4][17];
-    if (p >= 40 && p <= 43) return (int) sec[4][19];
-    if (p == 48) return (int) sec[4][41];
-    if (p == 52) return (int) sec[4][20];
-    return -1;
+    unsigned char *p;
+    p = code_table_4_4_location(sec);
+    if (p == NULL) return -1;
+    return (int) *p;
+}
+unsigned char *code_table_4_4_location(unsigned char **sec) {
+    int pdt;
+    pdt = GB2_ProdDefTemplateNo(sec);
+
+    switch(pdt) {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    case 5:
+    case 6:
+    case 7:
+    case 8:
+    case 9:
+    case 10:
+    case 11:
+    case 12:
+    case 13:
+    case 14:
+    case 15:
+    case 32:
+    case 60:
+    case 61:
+    case 51:
+    case 91:
+    case 1000:
+    case 1001:
+    case 1002:
+	return sec[4] + 17;
+    case 40:
+    case 41:
+    case 42:
+    case 43:
+	return sec[4] + 19;
+    case 44:
+    case 45:
+    case 46:
+    case 47:
+	return sec[4] + 30;
+    case 48:
+	return sec[4] + 41;
+    case 52:
+	return sec[4] + 20;
+   }
+   return NULL;
+}
+
+/*
+ * code table 4.4 can be
+ *   1. defined
+ *   2. to be defined
+ *   3. not used (example radar or satellite images)
+ *
+ *   returns 1 if code table 4.4 is not used
+ */ 
+
+int code_table_4_4_not_used(unsigned char **sec) {
+    int pdt;
+    pdt = GB2_ProdDefTemplateNo(sec);
+    if (pdt == 20 || pdt == 30 || pdt == 31) return 1;
+    return 0;
 }
 
 /*
@@ -546,7 +741,7 @@ int code_table_4_5a(unsigned char **sec) {
     unsigned char *p;
     p = code_table_4_5a_location(sec);
     if (p == NULL) return -1;
-    return *p;
+    return (int) *p;
 }
 unsigned char *code_table_4_5a_location(unsigned char **sec) {
     int pdt;
@@ -569,6 +764,8 @@ unsigned char *code_table_4_5a_location(unsigned char **sec) {
     case 13:
     case 14:
     case 15:
+    case 60:
+    case 61:
     case 1100:
     case 1101:
          return sec[4]+22; break;
@@ -637,6 +834,8 @@ unsigned char *code_table_4_5b_location(unsigned char **sec) {
     case 13:
     case 14:
     case 15:
+    case 60:
+    case 61:
     case 1100:
     case 1101:
         return sec[4]+28; break;
@@ -687,7 +886,7 @@ int code_table_4_6(unsigned char **sec) {
 unsigned char *code_table_4_6_location(unsigned char **sec) {
     int p;
     p = GB2_ProdDefTemplateNo(sec);
-    if (p == 1 || p == 11) return  sec[4]+34;
+    if (p == 1 || p == 11|| p == 60 || p == 61) return  sec[4]+34;
     if (p >= 40 && p <= 43) return sec[4]+36;
     return NULL;
 }
@@ -697,14 +896,30 @@ unsigned char *code_table_4_6_location(unsigned char **sec) {
  * HEADER:-1:code_table_4.7:inv:0:code table 4.7 derived forecast
  */
 int f_code_table_4_7(ARG0) {
-    int val;
+    int val, center;
+    const char *string;
     if (mode >= 0) {
 	val = code_table_4_7(sec);
-	if (val >= 0) sprintf(inv_out,"code table 4.7=%d", val);
+	center = GB2_Center(sec);
+        if (val >= 0) {
+            string = NULL;
+            switch(val) {
+#include "CodeTable_4.7.dat"
+            }
+            if (string == NULL) sprintf(inv_out,"code table 4.7=%d", val);
+            else sprintf(inv_out,"code table 4.7=%d %s", val, string);
+        }
     }
     return 0;
 }
 int code_table_4_7(unsigned char **sec) {
+    unsigned char *p;
+    p = code_table_4_7_location(sec);
+    if (p)  return (int) *p;
+    return -1;
+}
+
+unsigned char *code_table_4_7_location(unsigned char **sec) {
     int pdt;
     pdt = GB2_ProdDefTemplateNo(sec);
     switch (pdt) {
@@ -712,10 +927,50 @@ int code_table_4_7(unsigned char **sec) {
 	case 3:
 	case 4:
 	case 12:
-		return (int) sec[4][34]; break;
+		return sec[4]+34; break;
     }
+    return NULL;
+}
+
+/*
+ * HEADER:-1:code_table_4.8:inv:0:code table 4.7 derived forecast
+ */
+int f_code_table_4_8(ARG0) {
+    int val, center;
+    const char *string;
+    if (mode >= 0) {
+        val = code_table_4_8(sec);
+        center = GB2_Center(sec);
+        if (val >= 0) {
+            string = NULL;
+            switch(val) {
+#include "CodeTable_4.8.dat"
+            }
+            if (string == NULL) sprintf(inv_out,"code table 4.8=%d", val);
+            else sprintf(inv_out,"code table 4.8=%d %s", val, string);
+        }
+    }
+    return 0;
+}
+
+int code_table_4_8(unsigned char **sec) {
+    unsigned char *p;
+    p = code_table_4_8_location(sec);
+    if (p)  return (int) *p;
     return -1;
 }
+unsigned char *code_table_4_8_location(unsigned char **sec) {
+    int pdt;
+    pdt = GB2_ProdDefTemplateNo(sec);
+    switch (pdt) {
+	case 3:
+	case 13:
+		return sec[4]+34; break;
+    }
+    return NULL;
+}
+
+
 /*
  * HEADER:-1:code_table_4.9:inv:0:code table 4.9 Probability Type
  */
@@ -808,7 +1063,7 @@ unsigned char *code_table_4_10_location(unsigned char **sec) {
 
 
 /*
- * HEADER:-1:code_table_4.11:inv:0:code table 4.11 type of time intervals
+ * HEADER:-1:code_table_4.11:inv:0:code table 4.11 (first) type of time intervals
  */
 int f_code_table_4_11(ARG0) {
     int val;
@@ -823,6 +1078,27 @@ int f_code_table_4_11(ARG0) {
             if (string == NULL) sprintf(inv_out,"code table 4.11=%d", val);
             else sprintf(inv_out,"code table 4.11=%d %s", val, string);
         }
+    }
+    return 0;
+}
+
+/*
+ * HEADER:-1:code_table_4.11s:inv:0:code table 4.11 (all) type of time intervals
+ */
+
+int f_code_table_4_11s(ARG0) {
+    int n, i, val;
+    unsigned char *p;
+    if (mode < 0) return 0;
+    n = (int) sec[4][stat_proc_n_time_ranges_index(sec)];
+    if (n < 1) return 0;
+    p = code_table_4_11_location(sec);
+    if (p == NULL) return 0;
+    for (i = 0; i < n; i++) {
+	val = (int) p[i*12];
+	if (i == 0) sprintf(inv_out,"code table 4.11=%d",val);
+	else sprintf(inv_out,",%d", val);
+	inv_out += strlen(inv_out);
     }
     return 0;
 }

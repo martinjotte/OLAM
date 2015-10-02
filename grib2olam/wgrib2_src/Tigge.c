@@ -12,7 +12,7 @@
  *
  */
 
-int tigge = 0;
+int tigge;
 
 /*
  * HEADER:100:tigge:setup:0:use modified-TIGGE grib table

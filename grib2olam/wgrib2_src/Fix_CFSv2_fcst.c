@@ -21,7 +21,7 @@
  */
 int f_fix_CFSv2_fcst(ARG3) {
 
-    int subcenter, pdt, n_time_ranges, fcst_time_0, fcst_time_1, i;
+    int subcenter, n_time_ranges, fcst_time_0, fcst_time_1, i;
     int dtime, unit, id;
 
     int ref_year, ref_month, ref_day, ref_hour, ref_minute, ref_second;
@@ -85,7 +85,7 @@ int f_fix_CFSv2_fcst(ARG3) {
     if (id != 82 && id != 98) return 0;
 
     // product defn table must be 8 (fcst average)
-    if ( (pdt = code_table_4_0(sec)) != 8) return 0;
+    if ( code_table_4_0(sec) != 8) return 0;
 
     // n_time_ranges should be 1
     if ( (n_time_ranges = sec[4][41]) != 1) {

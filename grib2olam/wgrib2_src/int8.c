@@ -50,9 +50,8 @@ unsigned long int uint8(unsigned char *p) {
 
 #if (ULONG_MAX == 4294967295UL) 
 	if (p[0] || p[1] || p[2] || p[3]) {
-		fprintf(stderr,"unsigned value (8 byte integer) too large for machine\n");
-		fprintf(stderr,"fatal error .. run on 64-bit machine\n");
-		exit(8);
+		fatal_error("unsigned value (8 byte integer) too large for machine\n" 
+		   "fatal error .. run on 64-bit machine","");
 	}
 	return  ((unsigned long int)p[4] << 24) + ((unsigned long int)p[5] << 16) + 
                 ((unsigned long int)p[6] << 8) + (unsigned long int)p[7];
@@ -193,12 +192,14 @@ int best_scaled_value(double val, int *scale_factor, int *scale_value) {
 	return 0;
     }
 
-    while (fabs(val*10.0) < INT_MAX) {
+    while (fabs(val*10.0) < INT_MAX && (val-floor(val)) != 0.0) {
+/* removed 3/2014 WNE
 	if (fabs( floor(val+0.5) - val)  < 0.00001*fabs(val) ) {
 	    *scale_factor = n;
             *scale_value = floor(val + 0.5);
 	    return 0;
 	}
+*/
 	n++;
 	val *= 10.0;
     }

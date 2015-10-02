@@ -79,7 +79,7 @@ int f_prob(ARG0) {
 	}
 	if (mode == 99) {
 	    inv_out += strlen(inv_out);
-	    sprintf(inv_out, " LOWER LIMIT scale=%d, val= 0x%u 0x%u 0x%u 0x%u", 
+            sprintf(inv_out, " LOWER LIMIT scale=%d, val= 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
 		INT1(p[1]), p[2], p[3], p[4], p[5]);
 	}
     }

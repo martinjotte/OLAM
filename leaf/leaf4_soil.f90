@@ -248,7 +248,7 @@ do k = 1,nzg
 
    if (water_frac(k) > water_frac_ph0) then
 
-     head(k)  = head(k)  &
+      head(k) = head(k)  &
               + headp_ph(nts) * (water_frac(k) - water_frac_ph0) * slmsts(nts)
 
 ! headp_ph addition to headp
@@ -357,15 +357,6 @@ endif
 
 do k = 1,nzg
 
-! Limit wxfer fluxes so that none exceeds half of the water content of
-! the current donor cell
-
-   if (wxfer(k) > 0. .and. k > 1) then
-      wxfer(k) = min(wxfer(k),soil_water(k-1) * dslzo2(k-1))
-   elseif (wxfer(k) < 0.) then
-      wxfer(k) = max(wxfer(k),-soil_water(k) * dslzo2(k))
-   endif
-
 ! Compute q transfers between soil layers (qwxfer) [J/m2]
 
    if (wxfer(k) < 0.) then
@@ -409,7 +400,6 @@ do k = 1,nzg
    soil_water(k) = max(soilcp(nts),soil_water(k) &
       + dslzi(k) * (wxfer(k) - wxfer(k+1)))
    soil_energy(k) = soil_energy(k) + dslzi(k) * (qwxfer(k) - qwxfer(k+1))
-
 enddo
 
 ! Add bottom water flux to accumulation array

@@ -68,7 +68,10 @@ int get_nxny(unsigned char **sec, int *nx, int *ny, unsigned int *npnts, int *re
         case 1:
         case 2:
         case 3:
+        case 4:
+        case 5:
         case 10:
+        case 12:
         case 20:
         case 30:
         case 31:
@@ -79,6 +82,7 @@ int get_nxny(unsigned char **sec, int *nx, int *ny, unsigned int *npnts, int *re
         case 44:
         case 90:
         case 110:
+        case 140:
         case 204:
                 *nx = uint4_missing(gds+30); *ny = uint4_missing(gds+34); break;
         case 51:
@@ -134,12 +138,14 @@ int get_nxny(unsigned char **sec, int *nx, int *ny, unsigned int *npnts, int *re
     if (n_var_dim) {
 
         if (n_variable_dim != n_var_dim) {
-            free(variable_dim);
-            free(raw_variable_dim);
+            if (variable_dim) free(variable_dim);
+            if (raw_variable_dim) free(raw_variable_dim);
+fprintf(stderr,">>> malloc variable_dim\n");
             variable_dim = (int *) malloc(n_var_dim * sizeof(int));
-            if (variable_dim == NULL) fatal_error("ran out of memory","");
             raw_variable_dim = (int *) malloc(n_var_dim * sizeof(int));
-            if (raw_variable_dim == NULL) fatal_error("ran out of memory","");
+
+            if (variable_dim == NULL || raw_variable_dim == NULL) 
+		fatal_error("ran out of memory","");
             n_variable_dim = n_var_dim;
         }
         n_octets = (int) gds[10];        /* number of octets per integer */
@@ -166,8 +172,9 @@ int get_nxny(unsigned char **sec, int *nx, int *ny, unsigned int *npnts, int *re
     }
     else if (*nx > 0 && *ny > 0) npoints = (unsigned) *nx * *ny;
     *npnts = GB2_Sec3_npts(sec);
-    
-    if ((*nx != -1 || *ny != -1) && GB2_Sec3_npts(sec) != npoints) {
+
+//    if ((*nx != -1 || *ny != -1) && GB2_Sec3_npts(sec) != npoints) {
+    if ((*nx != -1 || *ny != -1) && GB2_Sec3_npts(sec) != npoints && GDS_Scan_staggered_storage(*scan) == 0) {
         fprintf(stderr,"two values for number of points %u (GDS) %u (calculated)\n",
                       GB2_Sec3_npts(sec), npoints);
     }
@@ -399,6 +406,46 @@ int f_grid(ARG0) {
                         inv_out += strlen(inv_out);
                     }
                 }
+                inv_out += strlen(inv_out);
+                if (GDS_Scan_staggered(scan)) sprintf(inv_out,"%sstagger %d offset(even_x:%s odd_x:%s y:%s) storage %s",
+                   nl, scan & 15,
+                   scan & 8 ? "dx/2" : "0" , scan & 4 ? "dx/2" : "0",
+                   scan & 2 ? "dy/2" : "0" , scan & 1 ? "trim" : "nxny");
+                break;
+            case 4:
+            case 5:
+                sprintf(inv_out,"%sVaraible Resolution %sLatitude/Longitude grid: (%d x %d) input %s output %s res %d%s",
+                         nl, grid_template == 5 ? "Rotated " : "", nx, ny, scan_order[scan>>4], output_order_name(), res, nl);
+
+                basic_ang = GDS_LatLon_basic_ang(gds);
+                sub_ang = GDS_LatLon_sub_ang(gds);
+                units = basic_ang == 0 ?  0.000001 : (float) basic_ang / (float) sub_ang;
+
+                // don't print too many coordinates
+                j = (npnts > 300 ? 300 : npnts);
+
+                sprintf(inv_out,"%slat=", grid_template == 4 ? "" : "rotated ");
+                inv_out += strlen(inv_out);
+	        offset = grid_template == 4 ? 48 + 4*npnts : 60 + 4*npnts;
+                for (i = 0; i < j; i++) {
+                    sprintf(inv_out,"%lf ",units*int4(gds+30+i*8));
+                    inv_out += strlen(inv_out);
+                }
+                if (j < npnts) {
+                    sprintf(inv_out,"... (list truncated)");
+                    inv_out += strlen(inv_out);
+		}
+
+                sprintf(inv_out,"%slon=", grid_template == 4 ? "" : "rotated ");
+	        offset = grid_template == 4 ? 48 : 60;
+                for (i = 0; i < j; i++) {
+                    sprintf(inv_out,"%lf ",units*int4(gds+30+i*8));
+                    inv_out += strlen(inv_out);
+                }
+                if (j < npnts) {
+                    sprintf(inv_out,"... (list truncated)");
+                    inv_out += strlen(inv_out);
+		}
                 break;
 
             case 10: sprintf(inv_out,"%sMercator grid: (%d x %d) LatD %lf input %s output %s res %d%s",nl,
@@ -417,8 +464,14 @@ int f_grid(ARG0) {
 
                 if (lon1 < 0.0 || lon2 < 0.0 || lon1 > 360.0 || lon2 > 360.0)
                       fprintf(stderr,"BAD GDS:lon1=%lf lon2=%lf should be 0..360\n",lon1,lon2);
+                inv_out += strlen(inv_out);
+                if (GDS_Scan_staggered(scan)) sprintf(inv_out,"%sstagger %d offset(even_x:%s odd_x:%s y:%s) storage %s",
+                   nl, scan & 15,
+                   scan & 8 ? "dx/2" : "0" , scan & 4 ? "dx/2" : "0",
+                   scan & 2 ? "dy/2" : "0" , scan & 1 ? "trim" : "nxny");
                 break;
-
+	    case 12: sprintf(inv_out,"%sTransverse Mercator grid:%s", nl, nl);
+                break;
             case 20: sprintf(inv_out,"%spolar stereographic grid: (%d x %d) input %s output %s res %d%s",nl,
                         nx, ny, scan_order[scan>>4],output_order_name(), res,nl);
                 inv_out += strlen(inv_out);
@@ -454,6 +507,12 @@ int f_grid(ARG0) {
                     GDS_Lambert_LatSP(gds), GDS_Lambert_LonSP(gds), nl,
                     GDS_Lambert_NP(gds) ? "North Pole": "South Pole",
                     nx, ny, dlon, dlat, res);
+                inv_out += strlen(inv_out);
+                if (GDS_Scan_staggered(scan)) sprintf(inv_out,"%sstagger %d offset(even_x:%s odd_x:%s y:%s) storage %s",
+                   nl, scan & 15,
+                   scan & 8 ? "dx/2" : "0" , scan & 4 ? "dx/2" : "0",
+                   scan & 2 ? "dy/2" : "0" , scan & 1 ? "trim" : "nxny");
+
                 break;
 
             case 31:
@@ -474,6 +533,11 @@ int f_grid(ARG0) {
                     GDS_Lambert_LatSP(gds), GDS_Lambert_LonSP(gds), nl,
                     GDS_Lambert_NP(gds) ? "North Pole": "South Pole",
                     nx, ny, dlon, dlat, res);
+                inv_out += strlen(inv_out);
+                if (GDS_Scan_staggered(scan)) sprintf(inv_out,"%sstagger %d offset(even_x:%s odd_x:%s y:%s) storage %s",
+                   nl, scan & 15,
+                   scan & 8 ? "dx/2" : "0" , scan & 4 ? "dx/2" : "0",
+                   scan & 2 ? "dy/2" : "0" , scan & 1 ? "trim" : "nxny");
                 break;
             case 40: 
             case 41:
@@ -680,7 +744,20 @@ int f_grid(ARG0) {
             case 204:
                   sprintf(inv_out,"Curvilinear Orthogonal grid: see lat lon fields in this grib file");
                   break;
-            case 1000: sprintf(inv_out,"Cross-section, points equal spaced on horizontal");
+            case 1000: sprintf(inv_out,"Cross-section, points equal spaced on horizontal%s",nl);
+		  inv_out += strlen(inv_out);
+                  basic_ang = GDS_CrossSec_basic_ang(gds);
+                  sub_ang = GDS_CrossSec_sub_ang(gds);
+                  units = basic_ang == 0 ?  0.000001 : (float) basic_ang / (float) sub_ang;
+                  lat1 = units * GDS_CrossSec_lat1(gds);
+                  lon1 = units * GDS_CrossSec_lon1(gds);
+                  lat2 = units * GDS_CrossSec_lat2(gds);
+                  lon2 = units * GDS_CrossSec_lon2(gds);
+		  sprintf(inv_out, "lon %g to %g%s", lon1, lon2,nl);
+		  inv_out += strlen(inv_out);
+		  sprintf(inv_out, "lat %g to %g", lat1, lat2);
+		  inv_out += strlen(inv_out);
+
                   break;
             case 1100: sprintf(inv_out,"Hovmoller diagram, equal spaced on horizontal");
                   break;

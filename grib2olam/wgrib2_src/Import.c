@@ -32,6 +32,9 @@ int f_import_text(ARG1) {
             fatal_error("import_text: Could not open %s", arg1);
         decode = 1; 
     }
+    else if (mode == -2) {
+	ffclose((FILE *) *local);
+    }
     else if (mode >= 0) {
 	if (header) {
 	    if (fscanf((FILE *) *local, "%d %d", &ix, &iy) != 2) {
@@ -66,6 +69,9 @@ int f_import_ieee(ARG1) {
             fatal_error("import_ieee: Could not open %s", arg1);
         decode = 1;
     }
+    else if (mode == -2) {
+	ffclose((FILE *) *local);
+    }
     else if (mode >= 0) {
 	i = rdieee_file(data, ndata, header, (FILE *) *local);
         if (i) fatal_error_i("import_ieee, error %d", i);
@@ -86,15 +92,18 @@ int f_import_bin(ARG1) {
         }
         decode = 1;
     }
-    if (mode >= 0) {
+    else if (mode == -2) {
+	ffclose((FILE *) *local);
+    }
+    else if (mode >= 0) {
         if (header) {
             if (fread((void *) &i, sizeof(int), 1, (FILE *) *local) != 1)
                 fatal_error("set_bin: read error header","");
             if (i != sizeof(float) * ndata)
-                fatal_error_i("import_bin: trailer record size wrong, %u", i);
+                fatal_error_ii("import_bin: header record size wrong, %u expected %u", i, sizeof(float) * ndata);
         }
         j = fread(data, sizeof(float), ndata, (FILE *) *local);
-        if (j != ndata) fatal_error_i("import_bin: read error ndata = %u", i);
+        if (j != ndata) fatal_error_ii("import_bin: read error read %u words, expected %u", j, ndata);
         if (header) {
             if (fread((void *) &i, sizeof(int), 1, (FILE *) *local) != 1)
                 fatal_error("set_bin: read error trailer","");
@@ -105,5 +114,3 @@ int f_import_bin(ARG1) {
     }
     return 0;
 }
-
-

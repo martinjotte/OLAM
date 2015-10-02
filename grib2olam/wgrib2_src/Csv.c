@@ -24,7 +24,7 @@ extern int decode, latlon;
 
 int f_csv(ARG1) {
 
-    char *save_inv_out, new_inv_out[STRING_SIZE];
+    char new_inv_out[STRING_SIZE];
     char name[100], desc[100], unit[100];
     FILE *out;
 
@@ -43,7 +43,10 @@ int f_csv(ARG1) {
 
     /* cleanup phase */
 
-    if (mode == -2) return 0;
+    if (mode == -2) {
+	ffclose((FILE *) *local);
+	return 0;
+    }
 
     /* processing phase */
 
@@ -66,11 +69,8 @@ int f_csv(ARG1) {
 
     /*Get levels, parameter name, description and unit*/
 
-    save_inv_out = inv_out;
     *new_inv_out = 0;
-    inv_out = new_inv_out;
-    f_lev(CALL_ARG0);
-    inv_out = save_inv_out;
+    f_lev(call_ARG0(new_inv_out,NULL));
 
     if (strcmp(new_inv_out, "reserved")==0) return 0;
 //    getName(sec, mode, NULL, name, desc, unit);

@@ -6,7 +6,7 @@
 
 
 /*
- * HEADER:-1:radius:inv:0:radius of Earth
+ * HEADER:100:radius:inv:0:radius of Earth
  */
 
 int f_radius(ARG0) {
@@ -32,6 +32,7 @@ int f_radius(ARG0) {
 	    case 2: sprintf(inv_out, "IAU 1965 ave radius=%.1lf m", radius); break;
 	    case 4: sprintf(inv_out,"IAG-GRS80 ave radius=%.1lf m", radius); break;
 	    case 5: sprintf(inv_out,"WGS84 ave radius=%.1lf m", radius); break;
+	    case 9: sprintf(inv_out,"OSGB-1936 Airy 1830 ave radius=%.1lf m", radius); break;
 	    case 3:
 	    case 7:
 	        /* get major axis */
@@ -59,10 +60,12 @@ int f_radius(ARG0) {
 }
 
 /*
- * HEADER:-1:set_radius:misc:1:set radius of Earth  X= 0,2,4,5,6,8 (Code Table 3.2)
+ * HEADER:100:set_radius:misc:1:set radius of Earth  X= 0,2,4,5,6,8,9 (Code Table 3.2), 1:radius , 7:major:minor
  */
 int f_set_radius(ARG1) {
     unsigned char *p;
+    int i, v3_2, scale, val;
+    double major, minor;
     if (mode >= 0) {
         p = code_table_3_2_location(sec);
 	if (p == NULL) {
@@ -75,7 +78,31 @@ int f_set_radius(ARG1) {
 	if (strcmp(arg1,"5") == 0) { *p  = 5; return 0; }
 	if (strcmp(arg1,"6") == 0) { *p  = 6; return 0; }
 	if (strcmp(arg1,"8") == 0) { *p  = 8; return 0; }
-	fatal_error("set_radius: variable radius is not supported yet","");
+	if (strcmp(arg1,"9") == 0) { *p  = 9; return 0; }
+	i = sscanf(arg1,"%d:%lf:%lf", &v3_2, &major, &minor);
+	if (i == 2 && v3_2 == 1) {
+	    /* sphere with user define radius */
+	    *p = 1;
+	    if (major > 6400000.0 || major < 6300000.0) fatal_error("set_radius: radius must be in meters","");
+	    best_scaled_value(major,&scale,&val);
+	    p[1] = scale & 255;
+	    uint_char(val, p+2);
+	    return 0;
+	}
+	if (i == 3 && (v3_2 == 3 || v3_2 == 7)) {
+	    *p = 7;
+	    if (major > 6400000.0 || major < 6300000.0) fatal_error("set_radius: major must be in meters","");
+	    if (minor > 6400000.0 || minor < 6300000.0) fatal_error("set_radius: minor must be in meters","");
+	    if (major < minor) fatal_error("set_radius: minor must be less than major","");
+	    best_scaled_value(major,&scale,&val);
+	    p[6] = scale & 255;
+	    uint_char(val, p+7);
+	    best_scaled_value(minor,&scale,&val);
+	    p[11] = scale & 255;
+	    uint_char(val, p+12);
+	    return 0;
+	}
+	fatal_error("set_radius: unknown argument %s",arg1);
 	return 1;
     }
     return 0;
@@ -132,6 +159,10 @@ int axes_earth(unsigned char **sec, double *major , double *minor) {
     }
     else if (table_3_2 == 6)  *major = *minor = 6371.2290 * 1000.0;
     else if (table_3_2 == 8)  *major = *minor = 6371.200 * 1000.0;
+    else if (table_3_2 == 9) {
+	*major = 6377563.396;
+	*minor = 6356256.909;
+    }
 
     return 0;
 }
@@ -182,6 +213,8 @@ double radius_earth(unsigned char **sec) {
     else if (table_3_2 == 5)  radius = (6378.137 + 6356.752)*0.5 * 1000.0;
     else if (table_3_2 == 6)  radius = 6371.2290 * 1000.0;
     else if (table_3_2 == 8)  radius = 6371.200 * 1000.0;
+    else if (table_3_2 == 9)  radius = (6377563.396 + 6356256.909)*0.5;
+
     return radius;
 }
 

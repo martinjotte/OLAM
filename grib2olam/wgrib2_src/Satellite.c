@@ -13,10 +13,9 @@
  * HEADER:400:spectral:inv:0:show spectral bands
  */
 int f_spectral(ARG0) {
-    int pdtsize, nb;
+    int nb;
     if (mode >= 0 && GB2_ProdDefTemplateNo(sec)) {
 	nb = (int) sec[4][13];
-	pdtsize =  prod_def_temp_size(sec);
         sprintf(inv_out,"num spectral bands=%d", nb);
 	inv_out += strlen(inv_out);
     }

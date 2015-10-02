@@ -43,23 +43,28 @@ int f_grib_ieee(ARG1) {
         if (save == NULL) fatal_error("grib_ieee memory allocation ","");
 	if (strlen(arg1) > STRING_SIZE-6) fatal_error("filename is too long",arg1);
 
-	strcpy(filename, arg1);
-	strcat(filename, ".grb");
+	strncpy(filename, arg1,STRING_SIZE-6);
+	filename[STRING_SIZE-7] = 0;
+	strncat(filename, ".grb",5);
+
 	if (( save->grib = ffopen(filename, "wb") ) == NULL)
 		fatal_error("Could not open %s", filename);
 
-	strcpy(filename, arg1);
-	strcat(filename, ".head");
+	strncpy(filename, arg1,STRING_SIZE-6);
+	filename[STRING_SIZE-7] = 0;
+	strncat(filename, ".head",6);
 	if ((save->head = ffopen(filename, "wb") ) == NULL)
 		fatal_error("Could not open %s", filename);
 
-	strcpy(filename, arg1);
-	strcat(filename, ".tail");
+	strncpy(filename, arg1, STRING_SIZE-6);
+	filename[STRING_SIZE-7] = 0;
+	strncat(filename, ".tail",6);
 	if ((save->tail = ffopen(filename, "wb") ) == NULL)
 		fatal_error("Could not open %s", filename);
 
-	strcpy(filename, arg1);
-	strcat(filename, ".h");
+	strncpy(filename, arg1,STRING_SIZE-6);
+	filename[STRING_SIZE-7] = 0;
+	strncat(filename, ".h",3);
 	if ((save->c = ffopen(filename, "wb") ) == NULL)
 		fatal_error("Could not open %s", filename);
     }
@@ -68,7 +73,14 @@ int f_grib_ieee(ARG1) {
         grib_ieee(sec, data, ndata, save->grib, save->head, save->tail, save->c);
         last_message = 1;
     }
-    else if (mode == -2) free(*local);
+    else if (mode == -2) {
+        save = *local;
+	ffclose(save->grib);
+	ffclose(save->head);
+	ffclose(save->tail);
+	ffclose(save->c);
+	free(*local);
+    }
     return 0;
 }
 
@@ -228,7 +240,7 @@ int grib_ieee(unsigned char **sec, float *data, unsigned int ndata, FILE *out, F
         fprintf(c,"#define PRODUCTDEFTEMPLATENUM %d\n",i+7);
         fprintf(c,"#define PRODUCTDEFTEMPLATE %d\n",i+9);
         fprintf(c,"#define PRODUCTCATEGORY %d\n",i+9);
-        fprintf(c,"#define PRODUCTNUMBER %d\n",i+9);
+        fprintf(c,"#define PRODUCTNUMBER %d\n",i+10);
 
 	i = i +  uint4(sec4);
     }

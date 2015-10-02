@@ -16,6 +16,7 @@
  */
 
 extern char *scan_order[];
+extern char *stagger_description[];
 
 /*
  * HEADER:-1:flag_table_3.3:inv:0:flag table 3.3, resolution and component flags
@@ -61,9 +62,13 @@ unsigned char *flag_table_3_3_location(unsigned char **sec) {
         case 41:
         case 42:
         case 43:
+	case 140:
         case 204:
               return gds+54; break;
+        case 4:
+        case 5:
         case 10:
+        case 12:
         case 20:
         case 30:
         case 31:
@@ -148,7 +153,12 @@ unsigned char *flag_table_3_4_location(unsigned char **sec) {
         case 42:
         case 43:
                  return gds+71; break;
-        case 10: return gds+59; break;
+	case 4:
+	case 5:
+                 return gds+47; break;
+        case 10: 
+        case 12: 
+                 return gds+59; break;
         case 20: return gds+64; break;
         case 30:
         case 31: return gds+64; break;
@@ -158,7 +168,9 @@ unsigned char *flag_table_3_4_location(unsigned char **sec) {
         case 53:
                  /* spectral modes don't have scan order */
                  return NULL; break;
-        case 90: return gds+63; break;
+        case 90: 
+        case 140: 
+		  return gds+63; break;
         case 110: return gds+56; break;
         case 190: 
 	case 120: return gds+38; break;

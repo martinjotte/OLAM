@@ -27,8 +27,8 @@ extern double *lat, *lon;
 extern int WxText, WxNum;
 
 /* parameters for text mode */
-const char *text_format = "%g";
-int text_column = 1;
+const char *text_format;
+int text_column;
 extern const char *nl;
 
 /*
@@ -36,17 +36,21 @@ extern const char *nl;
  */
 
 int f_bin(ARG1) {
-    unsigned int i;
+    unsigned int i, j;
     if (mode == -1) {
         if ((*local = (void *) ffopen(arg1, file_append ? "ab" : "wb")) == NULL) {
 	    fatal_error("Could not open %s", arg1);
 	}
         decode = 1;
     }
+    else if (mode == -2) {
+	ffclose((FILE *) *local);
+    }
     else if (mode >= 0) {
         i = ndata * sizeof(float);
         if (header) fwrite((void *) &i, sizeof(int),1, (FILE *) *local);
-        fwrite((void *) data, sizeof(float), ndata, (FILE *) *local);
+        j = fwrite((void *) data, sizeof(float), ndata, (FILE *) *local);
+	if (j != ndata) fatal_error_i("bin: error writing grid point written=%d", j);
         if (header) fwrite((void *) &i, sizeof(int),1, (FILE *) *local);
         if (flush_mode) fflush((FILE *) *local);
     }
@@ -65,6 +69,9 @@ int f_ieee(ARG1) {
 	    fatal_error("Could not open %s", arg1);
 	}
         decode = 1;
+    }
+    else if (mode == -2) {
+	ffclose((FILE *) *local);
     }
     else if (mode >= 0) {
 	wrtieee(data, ndata, header, (FILE *) *local);
@@ -103,6 +110,9 @@ int f_text(ARG1) {
 	        fatal_error("Could not open %s", arg1);
         decode = 1;
     }
+    else if (mode == -2) {
+	ffclose((FILE *) *local);
+    }
     else if (mode >= 0) {
         if (header == 1) {
 	    fprintf((FILE *) *local,"%d %d\n", nx, ny);
@@ -127,19 +137,22 @@ int f_spread(ARG1) {
 	        fatal_error("Could not open %s", arg1);
         WxText = latlon = decode = 1;
     }
+    else if (mode == -2) {
+	ffclose((FILE *) *local);
+    }
     else if (mode >= 0) {
 	if (lat == NULL || lon == NULL || data == NULL) {
 	    fprintf(stderr,"no code to determine lat-lon information, no spread sheet output\n");
 	    return 0;
 	}
 	set_mode(0);
-	f_var(CALL_ARG0);
+	f_var(call_ARG0(inv_out,NULL));
 	fprintf((FILE *) *local,"lon,lat,%s",inv_out);
-	f_lev(CALL_ARG0);
+	f_lev(call_ARG0(inv_out,NULL));
 	fprintf((FILE *) *local," %s", inv_out);
-	f_t(CALL_ARG0);
+	f_t(call_ARG0(inv_out,NULL));
 	fprintf((FILE *) *local," %s", inv_out);
-	f_ftime(CALL_ARG0);
+	f_ftime(call_ARG0(inv_out,NULL));
 	fprintf((FILE *) *local," %s\n", inv_out);
 
 	if (WxNum > 0) {
@@ -175,6 +188,9 @@ int f_GRIB(ARG1) {
 	    fatal_error("Could not open %s", arg1);
 	}
     }
+    else if (mode == -2) {
+	ffclose((FILE *) *local);
+    }
     else if (mode >= 0) {
         /* figure out size of grib file */
         size = uint8(sec[0]+8);
@@ -200,6 +216,9 @@ int f_grib(ARG1) {
 	    fatal_error("Could not open %s", arg1);
 	}
     }
+    else if (mode == -2) {
+	ffclose((FILE *) *local);
+    }
     else if (mode >= 0) {
         /* figure out size of grib file */
         size = (unsigned long int) GB2_Sec0_size + GB2_Sec1_size(sec) + GB2_Sec2_size(sec) + 
@@ -224,3 +243,39 @@ int f_grib(ARG1) {
     }
     return 0;
 }
+
+/*
+ * HEADER:100:persistent_file:setup:1:makes file persistent if already opened, X=filename CW2
+ *   only useful when wgrib is called as a subroutine, no error if failure
+ */
+
+int f_persistent_file(ARG1) {
+    if (mode == -1) {
+	mk_file_persistent(arg1);
+    }
+    return 0;
+}
+
+/*
+ * HEADER:100:close_persistent_file:setup:1:close persistent file, X=filename CW2
+ *   only useful when wgrib is called as a subroutine, no error if failure
+ */
+
+int f_close_persistent_file(ARG1) {
+    if (mode == -1) {
+	mk_file_transient(arg1);
+    }
+    return 0;
+}
+
+/*
+ * HEADER:100:rewind_file:setup:1:rewinds file if already opened, X=filename, CW2
+ *   only useful when wgrib is called as a subroutine, no error if failure
+ */
+int f_rewind_file(ARG1) {
+    if (mode == -1) {
+	rewind_file(arg1);
+    }
+    return 0;
+}
+

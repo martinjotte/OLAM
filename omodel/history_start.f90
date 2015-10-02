@@ -234,7 +234,8 @@ subroutine hist_read_addgrid()
   use mem_leaf,    only: itab_wl, land
   use leaf_coms,   only: mwl, nzg, &
                          slzt, slmsts, slpots, slbs, slpott, soilcp, slcpd, &
-                         water_frac_ph0, water_def_ph0
+                         water_frac_ph0, water_def_ph0, headp_ph, tai_max, &
+                         soil_rough, snow_rough
   use mem_sea,     only: itab_ws
   use sea_coms,    only: nws, mws
   use mem_para,    only: myrank
@@ -247,7 +248,8 @@ subroutine hist_read_addgrid()
                          nza_og, nwa_og, nva_og, nma_og, nwl_og, nws_og, &
                          nzg_og, ngrids_og, lpw_og, itab_wladd, &
                          vc_og, wc_og, vc_accum_og, vxe_og, vye_og, vze_og, &
-                         soil_water_og, soil_energy_og, &
+                         soil_water_og, soil_energy_og, ntext_soil_og, &
+                         leaf_class_og, &
                          vxe2_og, vye2_og, vze2_og, nve2_max_og, &
                          diagvel_t3d_init_addgrid
 
@@ -261,8 +263,8 @@ subroutine hist_read_addgrid()
   character (2) :: stagpt
 
   integer :: iwl, iwl_og, nts, nts_og, kb_og, iw_og, k_og
-  real :: water_frac, water_fraci, psi, head, headp_ph, headp_phi
-  real :: soil_tempk, soil_tempc, soil_fracliq
+  real :: water_frac, water_fraci, psi, head
+  real :: soil_tempk, soil_tempc, soil_fracliq, tai, tai_og
 
 ! Scratch arrays for copying input
 
@@ -305,15 +307,9 @@ subroutine hist_read_addgrid()
      stagpt  = vtab_r(nv)%stagpt
 
 ! In a HISTADDGRID restart, the following fields need not or should not be read
-! from the OLD grid history file.  They are initialized or computed elsewhere,
-! no later than on the first timestep of the history restart.  With one
-! exception, they are diagnostic or auxiliary variables, not prognostic
-! variables.  The exception is LAND%VEG_WATER, which is prognostic.  This
-! quantity is difficult to interpolate or copy from OLD grid to NEW grid land
-! cells because vegetation capacity to hold water varies considerably between
-! land cells, as does the presence of vegetation itself.  Since VEG_WATER is
-! always small relative to water storage capacity of the soil and atmosphere,
-! we simply let its reset to zero stand on a HISTADDGRID restart.
+! from the OLD grid history file.  They are diagnostic or auxiliary variables,
+! and are initialized or computed elsewhere, no later than on the first
+! timestep of the history restart.
 
      if (trim(varn) == 'THSRC'               .or. &
          trim(varn) == 'RTSRC'               .or. &
@@ -396,9 +392,7 @@ subroutine hist_read_addgrid()
          trim(varn) == 'LAND%VEG_HEIGHT'     .or. &
          trim(varn) == 'LAND%VEG_ALBEDO'     .or. &
          trim(varn) == 'LAND%VEG_TAI'        .or. &
-         trim(varn) == 'LAND%VEG_WATER'      .or. &
          trim(varn) == 'LAND%VEG_NDVIC'      .or. &
-         trim(varn) == 'LAND%STOM_RESIST'    .or. &
          trim(varn) == 'LAND%SNOWFAC'        .or. &
          trim(varn) == 'LAND%VF'             .or. &
          trim(varn) == 'SEA%RHOS'            .or. &
@@ -728,16 +722,21 @@ subroutine hist_read_addgrid()
 
   enddo
 
-! Transfer soil_water and soil_energy from OLD grid to NEW grid under the
-! constraint that soil water HEAD, TEMPERATURE, and FRACLIQ are held constant.
+
+! Loop over all land cells on NEW grid, and on each, find index of identical
+! or nearest land cell on OLD grid.
 
   do iwl = 2,mwl
      iwl_og = itab_wladd(iwl)%iwl_og
 
+! Transfer soil_water and soil_energy from OLD grid to NEW grid under the
+! constraint that soil water HEAD (gravity contribution excluded), TEMPERATURE,
+! and FRACLIQ are held constant.
+
      do k = 1,nzg
 
         nts    = land%ntext_soil(k,iwl)
-        nts_og = land%ntext_soil(k,iwl_og)
+        nts_og = ntext_soil_og(k,iwl_og)
 
 ! Fractional water content and its inverse in middle of soil layer
 
@@ -748,33 +747,25 @@ subroutine hist_read_addgrid()
 
         psi = slpots(nts_og) * water_fraci ** slbs(nts_og)
 
-! [5/14/09] Compute total hydraulic head and its derivative with respect to 
-! water content in each soil layer.  This is used for (1) solving water fluxes
-! implicitly between layers and (2) utilizing utilize new soil bottom boundary
-! condition of specified total head.  
-
-        head = psi + slzt(k)
-   
 ! If soil layer is nearly full, compute additional head that simulates 
 ! pressure contribution
 
         if (water_frac > water_frac_ph0) then
-           headp_ph = (10. - slpott(nts_og)) / (water_def_ph0 * slmsts(nts_og))
-           head     = head  &
-                    + headp_ph * (water_frac - water_frac_ph0) * slmsts(nts_og)
+           head = psi &
+                + headp_ph(nts_og) * (water_frac - water_frac_ph0) * slmsts(nts_og)
+        else
+           head = psi
         endif
 
         ! If head exceeds slpott, estimate soil_water based on total
         ! head (molecular plus hydraulic)       
 
-        if (head - slzt(k) > slpott(nts)) then
+        if (head > slpott(nts)) then
       
-           headp_phi = (water_def_ph0 * slmsts(nts)) / (10. - slpott(nts))
-
            ! First estimate using slpott in place of psi
 
            land%soil_water(k,iwl) = water_frac_ph0 * slmsts(nts) &
-              + (head - slzt(k) - slpott(nts)) * headp_phi 
+              + (head - slpott(nts)) / headp_ph(nts) 
 
            ! Evaluate molecular water potential from soil water estimate
 
@@ -784,15 +775,16 @@ subroutine hist_read_addgrid()
            ! Correction using psi
 
            land%soil_water(k,iwl) = water_frac_ph0 * slmsts(nts) &
-              + (head - slzt(k) - psi) * headp_phi
+              + (head - psi) / headp_ph(nts)
             
         else
 
            ! If initial head does not exceed slpott, estimate soil_water based on
            ! molecular head alone       
 
+           psi = head
            land%soil_water(k,iwl) = max(soilcp(nts),slmsts(nts) &
-              * (slpots(nts) / (head - slzt(k))) ** (1./slbs(nts)))
+              * (slpots(nts) / psi) ** (1./slbs(nts)))
 
         endif
 
@@ -822,13 +814,31 @@ subroutine hist_read_addgrid()
               + soil_fracliq * land%soil_water(k,iwl) * alli1000
              
         endif
+
      enddo
 
+! Transfer veg_water from OLD grid to NEW grid, but reduce it proportionally if
+! the total area index is lower in the NEW grid than in the OLD grid.
+
+     tai = tai_max(land%leaf_class(iwl))
+     tai_og = max(.01,tai_max(leaf_class_og(iwl_og)))
+
+     if (tai < tai_og) then
+        land%veg_water(iwl) = land%veg_water(iwl) * tai / tai_og
+     endif
+
+! Diagnose land%snowfac and land%rough
+
+     land%snowfac(iwl) = 0.
+     do k = 1,land%nlev_sfcwater(iwl)
+        land%snowfac(iwl) = land%snowfac(iwl) + land%sfcwater_depth(k,iwl)
+     enddo
+     land%snowfac(iwl) = land%snowfac(iwl) / max(.001,land%veg_height(iwl))
+     if (land%snowfac(iwl) > 0.9) land%snowfac(iwl) = 1.0
+
+     land%rough(iwl) = max(soil_rough,land%veg_rough(iwl)) &
+                     * (1. - land%snowfac(iwl)) + snow_rough
+
   enddo
-
-
-
-print*, 'land07 ',land%leaf_class(80863),land%veg_fracarea(80863)
-
 
 end subroutine hist_read_addgrid

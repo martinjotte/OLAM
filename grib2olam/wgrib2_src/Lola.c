@@ -97,13 +97,17 @@ int f_lola(ARG4) {
         return 0;
     }
 
+    save = (struct local_struct *) *local;
+
     /* cleanup phase */
 
-    if (mode == -2) return 0;
+    if (mode == -2) {
+	ffclose(save->out);
+	return 0;
+    }
 
     /* processing phase */
 
-    save = (struct local_struct *) *local;
     nx = save->nlon;
     ny = save->nlat;
     nxny = nx*ny;

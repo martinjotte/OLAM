@@ -35,7 +35,7 @@ int rdieee_file(float *array, int n, int header, FILE *input) {
     p = array;
     while (n > 0) {
 	j =  n < BSIZ ? n : BSIZ;
-	fread(buff,1,j,input);
+	if (fread(buff,1,j,input) != j) fatal_error("rdieee: data read","");
 	if (ieee_little_endian) swap_buffer(buff, j);
 	for (i = 0; i < j; i += 4) {
 	    *p++ = ieee2flt(buff + i);

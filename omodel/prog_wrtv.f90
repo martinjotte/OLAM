@@ -142,7 +142,7 @@ real, parameter :: c0 = akm * 0.075
 logical :: rotational
 
 rotational = .false.
-if (nl%expnme(1:1) == 'R') rotational = .true.
+!if (nl%expnme(1:1) == 'R') rotational = .true.
 
 vortp = rinit
 
@@ -657,15 +657,17 @@ endif
 if (iparallel == 1) then
 
    call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
-                   rvara1=vmxet, rvara2=vmyet, rvara3=vmzet)
+                   rvara1=vmxet, rvara2=vmyet, rvara3=vmzet, &
+                   rvara4=vmx_cor, rvara5=vmy_cor)
 
    call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
-                   rvara1=vmxet, rvara2=vmyet, rvara3=vmzet)
+                   rvara1=vmxet, rvara2=vmyet, rvara3=vmzet, &
+                   rvara4=vmx_cor, rvara5=vmy_cor)
 
 endif
 
-call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, a4=wmc, &
-                   a5=thil,  a6=wc,    d1=press, d2=rho)
+call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, &
+              a4=vmx_cor, a5=vmy_cor, d1=press, d2=rho)
 
 ! Horizontal loop over V points to update VMC
 
@@ -1336,7 +1338,7 @@ real :: sum1,sum2,vmp_eqdiv
 real :: dts,raxis,uv01dr,uv01dx,uv01dy,uv01dz,vcref
 real :: fracx, rayfx
 real :: vx, vy, vz, uc, watv, tke1, tke2, vortp_v, dtso2dnu, dtso2dnv
-real :: d1, d2, wt1, wt2
+real :: wt1, wt2
 
 ! Automatic arrays
 
@@ -1425,9 +1427,7 @@ if (nl%test_case == 2 .or. nl%test_case == 5) then
    enddo
 endif
 
-! Update VMC.  If using rotational form, vmxet and vmyet only include Coriolis
-! term, and vmzet is zero.  Otherwise, vmxet, vmyet, and vmzet include both 
-! Coriolis and momentum advection terms.
+! Update VMC
 
 if (.not. rotational) then
 
@@ -1463,22 +1463,13 @@ else
       tke1 = .5 * (vxe(k,iw1)**2 + vye(k,iw1)**2 + vze(k,iw1)**2)
       tke2 = .5 * (vxe(k,iw2)**2 + vye(k,iw2)**2 + vze(k,iw2)**2)
 
-      d1 = sqrt((xem(im1)-xev(iv))**2 &
-              + (yem(im1)-yev(iv))**2 &
-              + (zem(im1)-zev(iv))**2)
-
-      d2 = sqrt((xem(im2)-xev(iv))**2 &
-              + (yem(im2)-yev(iv))**2 &
-              + (zem(im2)-zev(iv))**2)
-
-
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@A1
-      vortp_v = .5 * (vortp(k,im1) + vortp(k,im2)) !q &
+      vortp_v = .5 * (vortp(k,im1) + vortp(k,im2)) &
 
 ! APVM method (Ringler et al. 2010) to obtain upwinded vortp at V        
 
-!q              + dtso2dnu * uc       * (vortp(k,im1) - vortp(k,im2)) &
-!q              + dtso2dnv * vc(k,iv) * (vortp_t(k,iw1) - vortp_t(k,iw2))
+              + dtso2dnu * uc       * (vortp(k,im1) - vortp(k,im2)) &
+              + dtso2dnv * vc(k,iv) * (vortp_t(k,iw1) - vortp_t(k,iw2))
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@A2
 
       vmc(k,iv) = vmc(k,iv) + dts * (vmt(k,iv) + vmt_rayf(k) + pgf(k) &

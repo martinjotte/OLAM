@@ -15,6 +15,7 @@
 
  */
 
+#ifndef DISABLE_TIMEZONE
 time_t my_timegm(struct tm *tm);
 
 
@@ -71,3 +72,12 @@ time_t my_timegm(struct tm *tm)
 	tzset();
 	return ret;
 }
+
+#else
+
+int f_unix_time(ARG0) {
+   if (mode == -1) {fprintf(stderr,"unix_time was not installed\n"); return 1;}
+   return 1;
+}
+
+#endif

@@ -219,7 +219,8 @@ int f_mysql_dump(ARG7) {
     strcpy(save->validtime,vt);
 	
     /*Get levels, parameter name, description and unit*/
-    f_lev(mode, sec, data, ndata, level_buf, local);
+    // f_lev(mode, sec, data, ndata, level_buf, local);
+    f_lev(call_ARG0(level_buf,NULL));
     if (ndata != save->npts && save->npts>0) fprintf(stderr,"ERROR: fields do not contain equally many gridpoints, %d , %d \n",save->npts,ndata);
  	   
     if (strcmp(level_buf, "reserved")==0) return(0);

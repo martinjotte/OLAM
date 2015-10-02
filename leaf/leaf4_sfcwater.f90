@@ -342,7 +342,11 @@ enddo
 ! 11 Feb 2015: Define head1 from total sfcwater_mass (but leaf4_soil will
 ! still allow no more than wfree1 to actually enter soil on current timestep
 
-head1 = .001 * sum(sfcwater_mass(1:nlev_sfcwater))
+! Sept 2015: Limit head1 to 1 meter so that head values inside soil are not
+! forced to high values. (Head0 must not be set above its normal upper limit
+! of 0.1 meter with this limit on head1.)
+
+head1 = min(1.0,.001 * sum(sfcwater_mass(1:nlev_sfcwater)))
 
 if (iwl == iwl_print) then
 

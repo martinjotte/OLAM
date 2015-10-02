@@ -23,13 +23,13 @@ int f_d(ARG1) {
         input = dump_mode;
         s = arg1;
         dump_msg = 0;
-        while (isdigit(*s)) {
+        while (isdigit((unsigned char) *s)) {
             dump_msg = 10*dump_msg + *s++ - '0';
         }
         if (*s == '.') {
             dump_submsg = 0;
             s++;
-            while (isdigit(*s)) {
+            while (isdigit((unsigned char) *s)) {
                 dump_submsg = 10*dump_submsg + *s++ - '0';
             }
         }

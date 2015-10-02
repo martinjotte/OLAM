@@ -35,18 +35,17 @@
 
 extern int file_append;
 
-struct local_struct {
-	int has_U;
-        unsigned char *sec[9];
-        FILE *output;
-};
-
-
 /*
  * HEADER:111:ncep_uv:output:1:combine U and V fields into one message like NCEP operations
  */
 
 int f_ncep_uv(ARG1) {
+
+    struct local_struct {
+	int has_U;
+        unsigned char *sec[9];
+        FILE *output;
+    };
 
     struct local_struct *save;
     int i, is_u, is_v;
@@ -59,10 +58,10 @@ int f_ncep_uv(ARG1) {
         // allocate static structure
 
         *local = save = (struct local_struct *) malloc( sizeof(struct local_struct) );
-        if (save == NULL) fatal_error("memory allocation f_combine_UV","");
+        if (save == NULL) fatal_error("NCEP_uv: memory allocation","");
 
         if ((save->output = ffopen(arg1, file_append ? "ab" : "wb")) == NULL) {
-            fatal_error("f_combine_secV: could not open file %s", arg1);
+            fatal_error("NCEP_uv: could not open file %s", arg1);
         }
 	save->has_U = 0;
         init_sec(save->sec);
@@ -75,11 +74,11 @@ int f_ncep_uv(ARG1) {
 	if (save->has_U) {
 	   i = wrt_sec(save->sec[0], save->sec[1], save->sec[2], save->sec[3], 
 		save->sec[4], save->sec[5], save->sec[6], save->sec[7], save->output);
-	   if (i) fatal_error_i("combine_secV, last record problem %i",i);
-	   fclose(save->output);
+	   if (i) fatal_error_i("NCEP_uv: last record problem %i",i);
            free_sec(save->sec);
-           free(save);
 	}
+	ffclose(save->output);
+        free(save);
 	return 0;
     }
 
@@ -95,7 +94,8 @@ int f_ncep_uv(ARG1) {
 	    i = GB2_ParmNum(sec);
 	    if (i != 3) is_v = 0;
 	    GB2_ParmNum(sec) = 2;
-            if (same_sec3(sec,save->sec) == 0) is_v = 0;
+            // 1/2015 if (same_sec3(sec,save->sec) == 0) is_v = 0;
+            if (same_sec4(sec,save->sec) == 0) is_v = 0;
 	    GB2_ParmNum(sec) = i;
 	}
 
@@ -175,7 +175,7 @@ int f_ncep_uv(ARG1) {
 	if (save->has_U) {
 	   i = wrt_sec(save->sec[0], save->sec[1], save->sec[2], save->sec[3], 
 		save->sec[4], save->sec[5], save->sec[6], save->sec[7], save->output);
-	   if (i) fatal_error_i("combine_secV, last record problem %i",i);
+	   if (i) fatal_error_i("NCEP_uv: last field problem %i",i);
 	   free_sec(save->sec);
 	   save->has_U = 0;
 	}
@@ -188,7 +188,7 @@ int f_ncep_uv(ARG1) {
 	}
 
 	i = wrt_sec(sec[0], sec[1], sec[2], sec[3], sec[4], sec[5], sec[6], sec[7], save->output);
-	if (i) fatal_error_i("combine_UV,write problem %i",i);
+	if (i) fatal_error_i("NCEP_uv: write problem %i",i);
 	return 0;
     }
     return 0;

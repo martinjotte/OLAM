@@ -16,9 +16,10 @@
 int f_h(ARG0) {
     const char *arg1 = "most";
     mode = -1;
-    f_help(CALL_ARG1); 
-    printf("%s\n", inv_out);
-    exit(8);
+    f_help(call_ARG1(inv_out, NULL, arg1)); 
+    // printf("%s\n", inv_out);
+    err_bin(1); err_string(1);
+    return 1;
 }
 
 /*
@@ -30,13 +31,13 @@ const char *nc_strstr(const char *s, const char *t) {
 
     ns = strlen(s);
     nt = strlen(t);
-    t0 = tolower(t[0]);
+    t0 = tolower((unsigned char) t[0]);
 
     for (i = 0; i < ns - nt; i++) {
-        if (tolower(s[i]) == t0) {
+        if (tolower((unsigned char) s[i]) == t0) {
             if (nt == 1) return s+i;
 	    for (j = 1; j < nt; j++) {
-		if (tolower(s[i+j]) != tolower(t[j])) break;
+		if (tolower((unsigned char) s[i+j]) != tolower((unsigned char) t[j])) break;
 	    }
             if (j == nt) return s+i;
         }
@@ -60,7 +61,7 @@ int f_help(ARG1) {
     most = strcmp(str,"most") == 0;
     all = strcmp(str,"all") == 0;
     
-    sprintf(inv_out, "wgrib2 " VERSION "\n");
+    sprintf(inv_out, "wgrib2 " WGRIB2_VERSION "\n   " BUILD_COMMENTS "\n");
     inv_out += strlen(inv_out);
     for (i = 0; i < nfunctions; i++) {
         /* do no list sort -1 for "most" lists */
@@ -115,7 +116,7 @@ int f_help(ARG1) {
 
 int f_version(ARG0) {
     if (mode != -2) {
-	sprintf(inv_out, "%s\n", VERSION);
+	sprintf(inv_out, "%s\n", WGRIB2_VERSION);
     }
     return 1;
 }

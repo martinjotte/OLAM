@@ -7,16 +7,18 @@
 #include <math.h>
 #include <string.h>
 #include <stddef.h>
-#include <jasper/jasper.h>
-#include <png.h>
 
 #include "wgrib2.h"
 #include "grb2.h"
 
-
-#include "grib2.h"
-int dec_png(unsigned char *,g2int *,g2int *,char *);
-
+#ifdef USE_PNG
+   #include <png.h>
+   #include "grib2.h"
+   int dec_png(unsigned char *,g2int *,g2int *,char *);
+#endif
+#ifdef USE_JASPER
+   #include <jasper/jasper.h>
+#endif
 
 /*
  * unpack grib -- only some formats (code table 5.0) are supported
@@ -37,13 +39,17 @@ int unpk_grib(unsigned char **sec, float *data) {
     float reference, tmp;
     double bin_scale, dec_scale, b;
 
+#ifdef USE_PNG
     g2int width, height;
+#endif
 
+#ifdef USE_JASPER
     jas_image_t *image;
     char *opts;
     jas_stream_t *jpcstream;
     jas_image_cmpt_t *pcmpt;
     jas_matrix_t *jas_data;
+#endif
 
     packing = code_table_5_0(sec);
     ndata = (int) GB2_Sec3_npts(sec);
@@ -124,7 +130,7 @@ int unpk_grib(unsigned char **sec, float *data) {
 		bin_scale,dec_scale);
 
 	if (packing == 61) {		// remove log prescaling
-#pragma omp parallel for private(i) schedule(static)
+// #pragma omp parallel for private(i) schedule(static)
             for (i = 0; i < ndata; i++) {
                 if (DEFINED_VAL(data[i])) data[i] = exp(data[i]) - b;
             }
@@ -138,7 +144,7 @@ int unpk_grib(unsigned char **sec, float *data) {
     else if (packing == 200) {				// run length
 	return unpk_run_length(sec, data, ndata);
     }
-
+#ifdef USE_JASPER
     else if (packing == 40 ||  packing == 40000) {		// jpeg2000
 	p = sec[5];
 	reference = ieee2flt(p+11);
@@ -186,7 +192,7 @@ int unpk_grib(unsigned char **sec, float *data) {
 
 	k = ndata - pcmpt->height_ * pcmpt->width_;
 
-#pragma omp parallel for private(i,j) schedule(static)
+// #pragma omp parallel for private(i,j)
         for (i=0;i<pcmpt->height_;i++) {
             for (j=0;j<pcmpt->width_;j++) {
 //		data[k++] = (((jas_data->rows_[i][j])*bin_scale)+reference)*dec_scale;
@@ -212,6 +218,8 @@ int unpk_grib(unsigned char **sec, float *data) {
 	jas_image_destroy(image);
 	return 0;
     }
+#endif
+#ifdef USE_PNG
     else if (packing == 41) {		// png
 	p = sec[5];
 	reference = ieee2flt(p+11);
@@ -265,6 +273,7 @@ int unpk_grib(unsigned char **sec, float *data) {
 	free(c);
 	return 0;
     }
+#endif
 
     fatal_error_i("packing type %d not supported", packing);
     return 1;

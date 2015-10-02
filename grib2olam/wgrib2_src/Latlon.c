@@ -20,7 +20,7 @@ extern double *lat, *lon;
 extern int latlon;
 extern int WxNum, WxText;
 
-extern int nx, ny, GDS_change_no;
+extern int scan, nx, ny, GDS_change_no;
 extern unsigned int npnts;
 
 
@@ -29,7 +29,6 @@ extern unsigned int npnts;
  */
 
 int f_ij(ARG2) {
-
     struct local_struct {
         int ix, iy, iptr, last_GDS_change_no;
     };
@@ -43,17 +42,20 @@ int f_ij(ARG2) {
         save->iy = atoi(arg2);
         save->iptr = -1;
 	save->last_GDS_change_no = 0;
-
+    }
+    else if (mode == -2) {
+	free(*local);
     }
     if (mode < 0) return 0;
+
     save = (struct local_struct *) *local;
 
 //    if (new_GDS) {
     if (save->last_GDS_change_no != GDS_change_no) {
         save->last_GDS_change_no = GDS_change_no;
-        if (output_order != wesn) {
-            fatal_error("ij only works in we:sn order","");
-        }
+        if (output_order != wesn) fatal_error("ij only works in we:sn order","");
+	if (GDS_Scan_staggered(scan)) fatal_error("ij does not support staggered grids","");
+    
         if (save->ix <= 0 || save->ix > nx || save->iy <= 0 || save->iy > ny) {
             fatal_error("invalid i, j values","");
         }
@@ -93,17 +95,19 @@ int f_ijlat(ARG2) {
         save->iptr = -1;
 	save->last_GDS_change_no = 0;
     }
+    else if (mode == -2) {
+	free(*local);
+    }
     if (mode < 0) return 0;
     save = (struct local_struct *) *local;
 
 //    if (new_GDS) {
     if (save->last_GDS_change_no != GDS_change_no) {
         save->last_GDS_change_no = GDS_change_no;
-        if (output_order != wesn) {
-            fatal_error("ijlat only works in we:sn order","");
-        }
+        if (output_order != wesn) fatal_error("ijlat only works in we:sn order","");
+	if (GDS_Scan_staggered(scan)) fatal_error("ijlat does not support staggered grids","");
         if (lat == NULL || lon == NULL || data == NULL) {
-            fatal_error("no lat/lon in ijlat","");
+            fatal_error("ijlat: found no lat/lon","");
         }
 
         if (save->ix <= 0 || save->ix > nx || save->iy <= 0 || save->iy > ny) {
@@ -140,6 +144,9 @@ int f_ilat(ARG1) {
         if (save == NULL) fatal_error("memory allocation f_ilat","");
         save->ix = atoi(arg1);
 	save->last_GDS_change_no = 0;
+    }
+    else if (mode == -2) {
+	free(*local);
     }
     if (mode < 0) return 0;
 
@@ -188,6 +195,9 @@ int f_lon(ARG2) {
         save->plat = atof(arg2);
         save->iptr = -1;
 	save->last_GDS_change_no = 0;
+    }
+    else if (mode == -2) {
+	free(*local);
     }
     if (mode < 0) return 0;
     save = (struct local_struct *) *local;

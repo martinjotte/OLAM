@@ -95,7 +95,7 @@ int mk_sec5and7(float *data, unsigned int n, unsigned char **sec5, unsigned char
             dec_factor = Int_Power(10.0, -dec_scale);
             min_val *= dec_factor;
             max_val *= dec_factor;
-#pragma omp parallel for
+// #pragma omp parallel for
             for (i = 0; i < (int) n; i++) {
                 data[i] *= dec_factor;
             }
@@ -113,13 +113,13 @@ int mk_sec5and7(float *data, unsigned int n, unsigned char **sec5, unsigned char
     }
     if (binary_scale) {
         scale = ldexp(1.0, -binary_scale);
-#pragma omp parallel for
+// #pragma omp parallel for
         for (i = 0; i < (int) n; i++) {
             data[i] = (data[i] - ref)*scale;
         }
     }
     else {
-#pragma omp parallel for
+// #pragma omp parallel for
         for (i = 0; i < (int) n; i++) {
             data[i] = data[i] - ref;
         }
@@ -134,7 +134,7 @@ int mk_sec5and7(float *data, unsigned int n, unsigned char **sec5, unsigned char
     p[4] = 7;
 
 //    flist2bitstream(data,p + 5,n,nbits);
-#pragma omp parallel for private (j,k)
+// #pragma omp parallel for private (j,k)
     for (j = 0; j < ((int) n + 255) / 256; j++) {
 	k = n - j*256;
 	if (k > 256) k = 256;

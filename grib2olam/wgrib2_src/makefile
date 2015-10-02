@@ -19,6 +19,7 @@ h:=grb2.h  wgrib2.h fnlist.h config.h
 options=$(wildcard [A-Z]*.c)
 CODE_TABLE_DAT=$(wildcard CodeTable_[0-9].[0-9]*.dat)
 FLAGS=${CPPFLAGS} ${CFLAGS}
+ARFLAGS=-ruv
 
 wgrib2: $h ${all}
 	${CC} -o wgrib2 ${FLAGS} ${all} ${LDFLAGS}
@@ -29,11 +30,19 @@ wgrib2: $h ${all}
 #	${CC} -o wgrib2 ${FLAGS} ${all} ${LDFLAGS}
 #	rm Config.o
 
-# fnlist.c:	${options}
-# 	./function.sh 
-# 
-# fnlist.h:	${options}
-# 	./function.sh
+#lib:	$h ${all} fnlist.c
+#	touch libwgrib2.a ; rm libwgrib2.a
+#	${CC} -c ${FLAGS} -DCALLABLE_WGRIB2 wgrib2.c
+#	${CC} -c ${FLAGS} -DCALLABLE_WGRIB2 fatal_error.c
+#	${CC} -c ${FLAGS} -DCALLABLE_WGRIB2 Mem.c
+#	ar ${ARFLAGS} libwgrib2.a *.o
+#	rm wgrib2.o fatal_error.o Mem.o
+
+#fnlist.c:	${options}
+#	./function.sh 
+
+#fnlist.h:	${options}
+#	./function.sh
 
 Help.o:	Help.c wgrib2.h
 	${CC} -c ${FLAGS} Help.c
@@ -51,7 +60,7 @@ gribtab.o:	gribtab.c gribtab.dat misc_gribtab.dat NDFD_gribtab.dat
 	${CC} -c ${FLAGS} gribtab.c
 
 Mod_grib.o:	Mod_grib.c NCEP_local_levels_test.h
-	${CC} -c ${CFLAGS} Mod_grib.c
+	${CC} -c ${FLAGS} Mod_grib.c
 
 
 .c.o:	$(*).c

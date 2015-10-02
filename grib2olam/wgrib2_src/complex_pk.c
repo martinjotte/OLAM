@@ -26,7 +26,8 @@
 // #define LEN_SEC_MAX 63
 // #define LEN_BITS 6
 
-static int find_nbits(int i) {
+static int find_nbits(unsigned int i) {
+#if !defined __GNUC__ || __GNUC__ < 4
 	int j;
 	j = 0;
 
@@ -34,23 +35,26 @@ static int find_nbits(int i) {
 	    i = i >> 16;
 	    j += 16;
 	}
+	// i = 16 bits
 	if (i > 255) {
 	    i = i >> 8;
 	    j += 8;
 	}
+	// i = 8 bits
 	if (i > 15) {
 	    i = i >> 4;
 	    j += 4;
 	}
+	// i = 4 bits
 	if (i > 3) {
 	    i = i >> 2;
 	    j += 2;
         }
-	while (i > 0) {
-	    i = i >> 1;
-	    j++;
-	}
-	return j;
+	// i = 2 bits
+	return (i >= 2) ? j + 2 : j + i;
+#else
+        return (i == 0) ? 0 : 8 * sizeof(unsigned int) - __builtin_clz(i);
+#endif
 }
 
 
@@ -255,6 +259,7 @@ static void exchange(struct section *s, int *v, int has_undef, int LEN_SEC_MAX) 
 	    else nbit_t = find_nbits(t->mx - t->mn + has_undef);
 
 	    if (nbit_s == nbit_t) { s = t; continue; }
+
 	    val0 = v[s->i1];
 	    val1 = v[t->i0]; 
 
@@ -278,83 +283,16 @@ static void exchange(struct section *s, int *v, int has_undef, int LEN_SEC_MAX) 
 
 //	    if (s->missing == 1 || t->missing == 1) { s=t; continue; }
 
-	    val0 = v[s->i1];
-	    val1 = v[t->i0];
+// 3/2014   val0 = v[s->i1];
+// 3/2014   val1 = v[t->i0];
+
 	    if (nbit_s < nbit_t && (s->i1-s->i0) < LEN_SEC_MAX &&
 		val1 >= s->mn && val1 <= s->mx) {
 		move_one_left(s, v);
-/*
-		s->i1 += 1;
-		t->i0 += 1;
-		if (t->i0 > t->i1) {
-		    s->tail = t->tail;
-		    t = s->tail;
-		    if (t) t->head = s;
-		}
-		else {	// redo t->mx, t->mn
-		   if (val1 == t->mx) {
-			k = INT_MAX;
-			for (j = 0, i = t->i0; i <= t->i1; i++) {
-			    if (j == 0)  {
-				k = v[i];
-	    			j++;
-			    }	
-			    else k = k < v[i] ? v[i] : k;
-			}
-			t->mx = k;
-		    }
-		    if (val1 == t->mn) {
-			k = INT_MAX;
-			for (j = 0, i = t->i0; i <= t->i1; i++) {
-			    if (j == 0)  {
-				k = v[i];
-	    			j++;
-			    }	
-			    else k = k > v[i] ? v[i] : k;
-			}
-			t->mn = k;
-		    }
-		}
-*/
 	    }
 	    else if (nbit_s > nbit_t && (t->i1-t->i0) < LEN_SEC_MAX &&
 		val0 >= t->mn && val0 <= t->mx) {
-
 		move_one_right(s, v);
-/*
-		s->i1 -= 1;
-		t->i0 -= 1;
-		if (s->i0 > s->i1) {
-		    t->head = s->head;
-		    s = t;
-		    t = s->head;
-		    if (t) t->tail = s;
-		}
-                else {  // redo s->mx, s->mn
-                   if (val0 == s->mx) {
-                        k = INT_MAX;
-                        for (j = 0, i = s->i0; i <= s->i1; i++) {
-                            if (j == 0)  {
-                                k = v[i];
-                                j++;
-                            }
-                            else k = k < v[i] ? v[i] : k;
-                        }
-			s->mx = k;
-                    }
-                    if (val0 == t->mn) {
-                        k = INT_MAX;
-                        for (j = 0, i = s->i0; i <= s->i1; i++) {
-                            if (j == 0)  {
-                                k = v[i];
-                                j++;
-                            }
-                            else k = k > v[i] ? v[i] : k;
-                        }
-			s->mn = k;
-                    }
-                }
-*/
 	    }
 	    else s = s->tail;
 	}
@@ -463,7 +401,7 @@ static void merge_j(struct section *h, int ref_bits, int width_bits, int has_und
 
 int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata, 
    int use_scale, int dec_scale, int bin_scale, int wanted_bits, int max_bits, 
-   int packing_mode, FILE *out) {
+   int packing_mode, int use_bitmap, FILE *out) {
 
     int j,j0, k, *u, *v, binary_scale, nbits, has_undef, extra_0, extra_1;
     unsigned int i, first;
@@ -471,19 +409,21 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
     unsigned char *sec0, *sec1, *sec2 , *sec3, *sec4, *sec5, *sec6, *sec7;
     double max_val, min_val, ref, frange, dec_factor, scale;
     struct section start, *list, *list_backup,  *s;
-    int ngroups, grefmx, glenmn, glenmx, gwidmn, gwidmx, len_last;
+    int ngroups, grefmx, glenmn, glenmx, gwidmn, gwidmx, len_last, nstruct;
     int size_sec7;
 //    int glefind_nbits;
-    int *refs, *lens, *widths;
+    int *refs, *lens, *widths, *igrp;
     // int est_group_width = 12;
     int est_group_width = 6;
+    int ndef,nndata ;
 
      int LEN_SEC_MAX = 127;
      int LEN_BITS = 7;
 
-//    unsigned int mask;
-
-//    fatal_error("complex gribout not available","");
+    ndef = 0;
+    for (j = 0; j < ndata; j++) {
+        if (DEFINED_VAL(data[j])) ndef++;
+    }
 
     /* required passed sections */
     sec0 = sec[0];
@@ -492,19 +432,7 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
     sec3 = sec[3];
     sec4 = sec[4];
 
-    // no bitmap is used
-    sec6 = (unsigned char *) malloc(6 * sizeof(unsigned char));
-    if (sec6 == NULL) fatal_error("complex_grib_out memory allocation sec6","");
-    uint_char(6, sec6);			// size of sec 6
-    sec6[4] = 6;			// section 6
-    sec6[5] = 255;			// no bitmap
-
-    // see if field is completely undefined
-    for (first = 0; first < ndata; first++) {
-	if (DEFINED_VAL(data[first])) break;
-    }
-
-    if (first == ndata) {	// all undefined values
+    if (ndef == 0) {	// all undefined values
         sec5 = (unsigned char *) malloc(47 * sizeof(unsigned char));
         if (sec5 == NULL) fatal_error("complex_grib_out memory allocation sec5","");
         uint_char(47, sec5);
@@ -528,6 +456,12 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
         uint_char(ndata,sec5+42);		// len of last group
 	sec5[46] = 8;				// group lenght width
 
+        // no bitmap is used
+        sec6 = (unsigned char *) malloc(6 * sizeof(unsigned char));
+        if (sec6 == NULL) fatal_error("complex_grib_out memory allocation sec6","");
+        uint_char(6, sec6);			// size of sec 6
+        sec6[4] = 6;			// section 6
+
         sec7 = (unsigned char *) malloc(8);
         if (sec7 == NULL) fatal_error("complex_grib_out memory allocation sec7","");
         uint_char(8, sec7);			// size of section
@@ -544,27 +478,57 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
 	return k;
     }	
 
+    /* compute bitmap section */
+    if (use_bitmap == 0 || ndef == ndata) {
+        // no bitmap is used
+        sec6 = (unsigned char *) malloc(6 * sizeof(unsigned char));
+        if (sec6 == NULL) fatal_error("complex_bitmap_grib_out memory allocation sec6","");
+        uint_char(6, sec6);                             // size of sec 6
+        sec6[4] = 6;                                    // section 6
+        sec6[5] = 255;                                  // no bitmap
+    }
+    else {
+	i = ndata;
+        sec6 = mk_bms(data, &i);
+        if (i != ndef) fatal_error("complex_grib_out prog error 1","");
+    }
 
-    u = (int *) malloc(ndata * sizeof(int));
-    v = (int *) malloc(ndata * sizeof(int));
+    /* if bitmap is used:
+       data[0..ndef-1] has grid point values, no undefined values
+       if bitmap is not used:
+       data[0..ndata] has grid point values, possible undefined values
+     */
+
+    nndata = use_bitmap ? ndef : ndata;
+    has_undef = use_bitmap ? 0 : ndata != ndef;
+
+    for (first = 0; first < nndata; first++) {
+	if (DEFINED_VAL(data[first])) break;
+    }
+
+    u = (int *) malloc(nndata * sizeof(int));
+    v = (int *) malloc(nndata * sizeof(int));
     sec5 = (unsigned char *) malloc(packing_mode == 1 ? 47 : 49);
     
     if (u == NULL || v == NULL || sec5 == NULL) fatal_error("complex_grib_out memory allocation data","");
 
     max_val = min_val = data[first];
-    for (i = first; i < ndata; i++) {
-	if (DEFINED_VAL(data[i])) {
-            if (min_val > data[i]) min_val = data[i];
-            if (max_val < data[i]) max_val = data[i];
+    if (has_undef) {
+        for (i = first+1; i < nndata; i++) {
+	    if (DEFINED_VAL(data[i])) {
+                min_val = (min_val > data[i]) ? data[i] : min_val;
+                max_val = (max_val < data[i]) ? data[i] : max_val;
+   	    }
+        }
+    }
+    else {
+        for (i = 1; i < nndata; i++) {
+            min_val = (min_val > data[i]) ? data[i] : min_val;
+            max_val = (max_val < data[i]) ? data[i] : max_val;
 	}
     }
 
 // printf("min val %lf max val %lf\n",min_val,max_val);
-
-    has_undef = 0;
-    for (i = 0; i < ndata; i++) {
-	if (! DEFINED_VAL(data[i])) { has_undef = 1; break; }
-    }
 
     binary_scale = bin_scale;
 
@@ -591,9 +555,16 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
             dec_factor = Int_Power(10.0, -dec_scale);
             min_val *= dec_factor;
             max_val *= dec_factor;
-            for (i = 0; i < ndata; i++) {
-		if (DEFINED_VAL(data[i])) data[i] *= dec_factor;
+	    if (has_undef) {
+                for (i = 0; i < nndata; i++) {
+		    if (DEFINED_VAL(data[i])) data[i] *= dec_factor;
+                }
             }
+	    else {
+                for (i = 0; i < nndata; i++) {
+		    data[i] *= dec_factor;
+                }
+	    }
         }
         scale = ldexp(1.0, -binary_scale);
         // ref = floor(min_val*scale)/scale;
@@ -609,18 +580,41 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
 
     if (binary_scale) {
         scale = ldexp(1.0, -binary_scale);
-        for (i = 0; i < ndata; i++) {
-	    if (DEFINED_VAL(data[i])) u[i] = floor((data[i] - ref)*scale + 0.5);
-	    else u[i] = INT_MAX;
-        }
+	if (has_undef) {
+            for (i = 0; i < nndata; i++) {
+	        if (DEFINED_VAL(data[i])) {
+		    u[i] = floor((data[i] - ref)*scale + 0.5);
+		    u[i] = u[i] >= 0 ? u[i] : 0;
+		}
+	        else u[i] = INT_MAX;
+            }
+	}
+	else {
+            for (i = 0; i < nndata; i++) {
+	        u[i] = floor((data[i] - ref)*scale + 0.5);
+		u[i] = u[i] >= 0 ? u[i] : 0;
+	    }
+	}
     }
     else {
 	scale = 1.0;
-        for (i = 0; i < ndata; i++) {
-	    if (DEFINED_VAL(data[i])) u[i] = floor(data[i] - ref + 0.5);
-	    else u[i] = INT_MAX;
-        }
+	if (has_undef) {
+            for (i = 0; i < nndata; i++) {
+	        if (DEFINED_VAL(data[i])) {
+		    u[i] = floor(data[i] - ref + 0.5);
+		    u[i] = u[i] >= 0 ? u[i] : 0;
+		}
+	        else u[i] = INT_MAX;
+            }
+	}
+	else {
+            for (i = 0; i < nndata; i++) {
+		u[i] = floor(data[i] - ref + 0.5);
+		u[i] = u[i] >= 0 ? u[i] : 0;
+            }
+	}
     }
+
 // printf("bin scale %d scale %lf ndata %d first %d\n", binary_scale, scale,ndata,first);
 
 	// preprocessing
@@ -632,10 +626,10 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
 
 	// copy data to v[] and find min/max
 
-	for (i = 0; i < ndata; i++) v[i] = u[i];
+	for (i = 0; i < nndata; i++) v[i] = u[i];
 
 	vmx = vmn = 0;
-        for (j = i = 0; i < ndata; i++) {
+        for (j = i = 0; i < nndata; i++) {
   	    if (v[i] != INT_MAX) {
 		if (j == 0) {
 		    vmx = vmn = v[i];
@@ -653,7 +647,7 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
 	// copy data to v[] and find min/max
 
 	vmx = vmn = i = 0;
-	while (i < ndata) {
+	while (i < nndata) {
             if (u[i] == INT_MAX) v[i++] = INT_MAX;
             else {
                 extra_0 = last = u[i];
@@ -661,7 +655,7 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
 		break;
 	   }
 	}
-	while (i < ndata) {
+	while (i < nndata) {
             if (u[i] == INT_MAX) v[i++] = INT_MAX;
 	    else {
                 v[i] = u[i] - last;
@@ -677,7 +671,7 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
 	// copy data to v[] and find min/max
 
 	vmx = vmn = i = 0;
-        while (i < ndata) {
+        while (i < nndata) {
             if (u[i] == INT_MAX) v[i++] = INT_MAX;
             else {
                 extra_0 = penultimate = u[i];
@@ -685,7 +679,7 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
                 break;
            }
         }
-        while (i < ndata) {
+        while (i < nndata) {
             if (u[i] == INT_MAX) v[i++] = INT_MAX;
             else {
                 extra_1 = last = u[i];
@@ -693,7 +687,7 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
                 break;
            }
         }
-	while (i < ndata) {
+	while (i < nndata) {
             if (u[i] == INT_MAX) v[i++] = INT_MAX;
 	    else {
                 v[i] = u[i] - 2*last + penultimate;
@@ -706,18 +700,32 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
     }
     else fatal_error_i("complex packing unknown mode %d", packing_mode);
 
+    /* u[] no longer needed */
+    free(u);
 
 #ifdef DEBUG
 printf("2: vmx %d vmn %d nbits %d\n", vmx, vmn, find_nbits(vmx-vmn+has_undef));
 #endif
 
-    for (i = 0; i < ndata; i++) {
-	if (v[i] != INT_MAX) v[i] -= vmn;
+    for (i = 0; i < nndata; i++) {
+	v[i] = (v[i] != INT_MAX) ? v[i] - vmn : INT_MAX;
     }
     vmx = vmx-vmn;
     vbits = find_nbits(vmx+has_undef);
 
-    list = (struct section *) malloc(ndata * sizeof(struct section));
+    /* size of merged struct */
+
+    j = 0;
+    nstruct = 1;
+    for (i = 1; i < nndata; i++) {
+        if (((i - j + 1) > LEN_SEC_MAX) || (v[i] != v[j])) {
+	    nstruct++;
+	    j = i;
+	}
+    }
+// fprintf(stderr,">> saved %d\n",ndata-nstruct);
+    
+    list = (struct section *) malloc(nstruct * sizeof(struct section));
     if (list == NULL) fatal_error("complex_grib_out: memory allocation of list failed","");
 
     // initialize linked list
@@ -726,7 +734,7 @@ printf("2: vmx %d vmn %d nbits %d\n", vmx, vmn, find_nbits(vmx-vmn+has_undef));
     list[0].mn = list[0].mx = v[0];
     list[0].missing = (v[0] == INT_MAX);
     list[0].i0 = list[0].i1 = 0;
-    for (i = 1; i < ndata; i++) {
+    for (i = 1; i < nndata; i++) {
 	// join last section
         if ((i - list[j].i0 < LEN_SEC_MAX) && (v[i] == list[j].mn)) {
 	    list[j].i1 = i;
@@ -742,6 +750,9 @@ printf("2: vmx %d vmn %d nbits %d\n", vmx, vmn, find_nbits(vmx-vmn+has_undef));
     list[0].head = NULL;
     list[j].tail = NULL;
     start.tail = &list[0];
+
+    if (nstruct != j+1) fatal_error_ii("complex_pk, nstruct=%d wanted %d",nstruct,j+1);
+
     for (k = 0; k < j; k++) {
         list[k+1].head = &list[k];
 	list[k].tail = &list[k+1];
@@ -763,7 +774,7 @@ printf("2: vmx %d vmn %d nbits %d\n", vmx, vmn, find_nbits(vmx-vmn+has_undef));
 
 //  try making segment sizes larger
 
-    list_backup = (struct section *) malloc(ndata * sizeof(struct section));
+    list_backup = (struct section *) malloc(nstruct * sizeof(struct section));
     if (list_backup == NULL) fatal_error("complex_grib_out: memory allocation of list_backup failed","");
 
     j = size_all(start.tail, vbits, LEN_BITS+est_group_width,has_undef);
@@ -775,14 +786,14 @@ printf("2: vmx %d vmn %d nbits %d\n", vmx, vmn, find_nbits(vmx-vmn+has_undef));
 	j0 = j;
 	LEN_BITS++;
 	LEN_SEC_MAX = LEN_SEC_MAX + LEN_SEC_MAX + 1;
-        memcpy(list_backup,list, ndata*sizeof(struct section));
+        memcpy(list_backup,list, nstruct*sizeof(struct section));
         merge_j(start.tail, vbits, LEN_BITS+est_group_width, has_undef, k, LEN_SEC_MAX);
         j = size_all(start.tail, vbits, LEN_BITS+est_group_width,has_undef);
 #ifdef DEBUG
         printf(" complex inc segments size size0 %d size1 %d segsize %d\n",j0,j,LEN_SEC_MAX);
 #endif
 	if (j > j0) {
-	    memcpy(list,list_backup,ndata*sizeof(struct section));
+	    memcpy(list,list_backup,nstruct*sizeof(struct section));
 	    LEN_BITS--;
 	    LEN_SEC_MAX = (LEN_SEC_MAX - 1) / 2;
 	}
@@ -840,9 +851,8 @@ printf("extra bytes %d val %d %d\n", sec5[48], extra_0, extra_1);
     // scale the linked list
     s = start.tail;
     if (s == NULL) fatal_error("complex grib_out: program error 1","");
-
     ngroups = 0;				// number  of groups
-    s = start.tail;
+
     while (s) {
 	ngroups++;
 	s = s->tail;
@@ -851,6 +861,8 @@ printf("extra bytes %d val %d %d\n", sec5[48], extra_0, extra_1);
     lens = (int *) malloc(ngroups *sizeof(int));
     widths = (int *) malloc(ngroups *sizeof(int));
     refs = (int *) malloc(ngroups *sizeof(int));
+    igrp = (int *) malloc(ngroups * sizeof(int));
+
     if (lens == NULL || widths == NULL || refs == NULL) fatal_error("complex grib_out: memory allocation","");
 // printf("linked list ngroups=%d\n", ngroups);
 
@@ -862,23 +874,20 @@ printf("extra bytes %d val %d %d\n", sec5[48], extra_0, extra_1);
        else if (s->mn == s->mx) widths[k] = s->missing;
        else widths[k] = find_nbits(s->mx-s->mn+has_undef);
     }
-    if (i != ndata) fatal_error("complex grib_out: program error 2","");
+    if (i != nndata) fatal_error("complex grib_out: program error 2","");
 
     // group lengths
     len_last = lens[ngroups-1];			// length of last segment
 
     glenmn = glenmx = lens[0];
     gwidmx = gwidmn = widths[0];
+    grefmx = 0;
 
     for (k = 1; k < ngroups; k++) {
-       glenmx = glenmx >= lens[k] ? glenmx : lens[k];
-       glenmn = glenmn <= lens[k] ? glenmn : lens[k];
-       gwidmx = gwidmx >= widths[k] ? gwidmx : widths[k];
-       gwidmn = gwidmn <= widths[k] ? gwidmn : widths[k];
-    }
-//    glefind_nbits = find_nbits(glenmx-glenmn);
-    grefmx = 0;
-    for (k = 0; k < ngroups; k++) {
+        glenmx = glenmx >= lens[k] ? glenmx : lens[k];
+        glenmn = glenmn <= lens[k] ? glenmn : lens[k];
+        gwidmx = gwidmx >= widths[k] ? gwidmx : widths[k];
+        gwidmn = gwidmn <= widths[k] ? gwidmn : widths[k];
 	if (refs[k] != INT_MAX &&  refs[k] > grefmx) grefmx = refs[k];
     }
     sec5[19] = find_nbits(grefmx+has_undef);
@@ -886,16 +895,16 @@ printf("extra bytes %d val %d %d\n", sec5[48], extra_0, extra_1);
    // sec5 definitions
 
     sec5[4] = 5;					// section 5
-    uint_char(ndata, sec5+5);				// number of points
+    uint_char(nndata, sec5+5);				// number of points
     if (packing_mode == 1) uint2_char(2,sec5+9);	// data template 2
     else uint2_char(3,sec5+9);				// data template 2
 
    // same as grid template 5.0
 
-   flt2ieee((float) ref,sec5+11);                       // reference value
-   int2_char(binary_scale,sec5+15);                     // binary scaling
-   int2_char(-dec_scale,sec5+17);                       // decimal scaling
-   sec5[20] = 0;                                        // original = float
+    flt2ieee((float) ref,sec5+11);                       // reference value
+    int2_char(binary_scale,sec5+15);                     // binary scaling
+    int2_char(-dec_scale,sec5+17);                       // decimal scaling
+    sec5[20] = 0;                                        // original = float
 
    // same as grid template 5.2
 
@@ -968,20 +977,21 @@ printf("size of sec7 %d\n", size_sec7);
 #ifdef DEBUG
 printf("sec5[36] = %d\n", sec5[19]);
 #endif
+
     for (k = 0; k < ngroups; k++) {
-	u[k] = (refs[k] != INT_MAX) ? refs[k] :  ONES;
+	refs[k] = (refs[k] != INT_MAX) ? refs[k] :  ONES;
     }
-    add_many_bitstream(u, ngroups, sec5[19]);
+    add_many_bitstream(refs, ngroups, sec5[19]);
     finish_bitstream();
 
     // write the group widths
-    for (k = 0; k < ngroups; k++) u[k] = widths[k] - gwidmn;
-    add_many_bitstream(u, ngroups, sec5[36]);
+    for (k = 0; k < ngroups; k++) igrp[k] = widths[k] - gwidmn;
+    add_many_bitstream(igrp, ngroups, sec5[36]);
     finish_bitstream();
 
     // write the group lengths
-    for (k = 0; k < ngroups; k++) u[k] = lens[k] - glenmn;
-    add_many_bitstream(u, ngroups, sec5[46]);
+    for (k = 0; k < ngroups; k++) igrp[k] = lens[k] - glenmn;
+    add_many_bitstream(igrp, ngroups, sec5[46]);
     finish_bitstream();
    
     // write the data
@@ -991,7 +1001,6 @@ printf("sec5[36] = %d\n", sec5[19]);
 	if (widths[k]) {
 //	    mask = (1 << widths[k]) - 1;
 	    for (j = 0; j < lens[k]; j++) {
-//		v[j+s->i0] = (v[j+s->i0] == INT_MAX) ? mask : v[j+s->i0] - s->mn;
 		v[j+s->i0] = (v[j+s->i0] == INT_MAX) ? ONES : v[j+s->i0] - s->mn;
 	    }
             add_many_bitstream(v+s->i0, lens[k], widths[k]);
@@ -1006,11 +1015,11 @@ printf("sec5[36] = %d\n", sec5[19]);
     free(sec7);
 
     free(list);
-    free(u);
     free(v);
     free(lens);
     free(widths);
     free(refs);
+    free(igrp);
 
     return k;
 }

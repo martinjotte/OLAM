@@ -37,7 +37,7 @@
 extern int decode, flush_mode;
 extern int file_append;
 
-extern int nx, ny, GDS_change_no;
+extern int nx, ny, GDS_change_no, scan;
 
 extern int header;
 extern char *text_format;
@@ -124,9 +124,18 @@ int f_ijbox(ARG4) {
     if ((self->out = ffopen(arg3,open_mode)) == NULL)
 	fatal_error("ijbox could not open output file %s", arg3);
     self->last_GDS_change_no = 0;
+    return 0;
   }
 
-  if (mode < 0) return 0;
+  self = (struct Bbox *) *local;
+
+  if (mode == -2) {
+    ffclose(self->out);
+    free(self->iptr);
+    free(self);
+    return 0;
+  }
+
 
 
   /*                      ---------------- 
@@ -135,7 +144,6 @@ int f_ijbox(ARG4) {
   */
 
 
-    self = (struct Bbox *) *local;
     i1 = self->i1; i2=self->i2; di=self->di; ni=self->ni;
     j1 = self->j1; j2=self->j2; dj=self->dj; nj=self->nj;
 
@@ -149,7 +157,8 @@ int f_ijbox(ARG4) {
       self->last_GDS_change_no = GDS_change_no;
 
       if (data == NULL) fatal_error("ijbox: no data","");
-      
+      if (GDS_Scan_staggered(scan)) fatal_error("ijbox does not support staggered grids","");
+        
       /* record pointers, with wrapping */
       k = 0;
       /* Note: (i,j) are fortran-style 1-offset arrays */

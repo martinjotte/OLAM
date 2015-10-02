@@ -47,14 +47,10 @@ int f_sys(ARG1) {
     /* if gid != egid - then setgid on file .. security concern */
     /* check if euid and eguid are same as uid and gid */
 
-//    if (mode < 0) {
-	if (getuid() != geteuid()) 
-		fatal_error("sys: setuid bit should not be set","");
-	if (getgid() != getegid()) 
-		fatal_error("sys: setgid bit should not be set","");
-//    }
-
     if (mode >= 0) {
+	if (getuid() != geteuid()) fatal_error("sys: setuid bit should not be set","");
+	if (getgid() != getegid()) fatal_error("sys: setgid bit should not be set","");
+
 	fp = popen(arg1,"r");
 	if (fp == NULL) fatal_error("sys: popen failed","");
 	p = inv_out;
@@ -75,7 +71,7 @@ int f_udf_arg(ARG2) {
     FILE *out;
     int ibuf[3];
     int i;
-    char string[STRING_SIZE], *ptmp;
+    char string[STRING_SIZE];
 
     if (mode == -1) {
         decode = 1;
@@ -87,17 +83,14 @@ int f_udf_arg(ARG2) {
     if ((out = fopen(arg1,"ab")) == NULL) fatal_error("udf_arg: problem opening file ", arg1);
 
     if (strcmp(arg2,"-") == 0) {
-	ptmp = inv_out;
 	*string = 0;
-	inv_out = string;
-	f_full_name(CALL_ARG0);
+	f_full_name(call_ARG0(string,NULL) );
 	arg2 = string;
-	inv_out = ptmp;
     }
 
     ibuf[0] = strlen(arg2) + 1;
     ibuf[1] = npnts;
-    ibuf[1] = 256 + sizeof(float) ;
+    ibuf[2] = 256 + sizeof(float) ;
     i = 3 * sizeof(int);
     if (header) fwrite((void *) &i, sizeof(int),1,out);
     fwrite((void *) &(ibuf[0]), sizeof(int), 3, out);
@@ -109,9 +102,9 @@ int f_udf_arg(ARG2) {
     if (header) fwrite((void *) &i, sizeof(int),1,out);
 
     i = npnts * sizeof(float);
-    if (header) fwrite((void *) &i, sizeof(int),1,out);
+    if (header) fwrite((void *) &i, sizeof(float),1,out);
     fwrite((void *) data, sizeof(float), npnts, out);
-    if (header) fwrite((void *) &i, sizeof(int),1,out);
+    if (header) fwrite((void *) &i, sizeof(float),1,out);
 
     fclose(out);
     return 0;
@@ -128,13 +121,13 @@ int f_udf(ARG2) {
 
     if (mode == -1) {
         decode = 1;
-        f_sys(CALL_ARG1);
+        // f_sys(call_ARG1(inv_out,NULL,arg1));
     }
 
     if (mode >= 0) {
         /* run udf */
-        f_sys(CALL_ARG1);
-	remove(arg1);
+        f_sys(call_ARG1(inv_out,NULL,arg1));
+	// remove(arg1);
 
 	out = fopen(arg2,"rb");
 	if (out == NULL) fatal_error("udf: could not open file ", arg2);
@@ -153,9 +146,8 @@ int f_udf(ARG2) {
             if (i != sizeof(float) * ndata)
                 fatal_error_i("udf: trailer record size wrong, %u", i);
         }
-
+        fclose(out);
     }
-    fclose(out);
     return 0;
 }
 

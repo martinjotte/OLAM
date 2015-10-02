@@ -531,12 +531,12 @@ Contains
 ! commented out for most applications.  Uncommenting them provides the ability
 ! to sum precipitation values from multiple history files into a single
 ! accpmic_prev0 or accpcon_prev0 value, before later differencing between 
-! prev0, prev1, prev2, and prev3 groupings.  For example, the first application
+! prev0, prev1, prev2, and prev3 groupings.  For example, the second application
 ! of this capability was to sum the accumulated precipitation of 'Simulation A'
 ! each March 1 over 5 consecutive years and store the sum in the prev0 arrays,
-! copy the prev0 sum into prev1 and then sum the March 1 precipitation totals
-! for 'Simulation B' into prev0, copy the forgoing into prev2 and prev1,
-! respectively, and sum June 1 totals for 'Simulation A' into prev0, and finaly
+! copy the prev0 sum into prev1 and then sum the June 1 precipitation totals
+! for 'Simulation A' into prev0, copy the forgoing into prev2 and prev1,
+! respectively, and sum March 1 totals for 'Simulation B' into prev0, and finaly
 ! copy the foregoing into prev3, prev2, and prev1, respectively, and sum June 1
 ! totals from 'Simulation B' into prev0.  Oplot_lib then plotted differences of
 ! the above 4 totals to get the difference in springtime precipitation

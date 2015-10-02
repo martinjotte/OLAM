@@ -56,9 +56,12 @@ int mk_kgds(unsigned char **sec, int *kgds) {
 
     int nx, ny, res, scan;
     unsigned int npnts;
+    char name[NAMELEN];
 
     get_nxny(sec, &nx, &ny, &npnts, &res, &scan);
     if (scan & 16) fatal_error_i("mk_kgds: unsupported scan mode %d", scan);
+    if (GDS_Scan_staggered(scan)) fatal_error("mk_kgds: staggered grid flags are not supported","");
+
     radius = radius_earth(sec);
     gds = sec[3];
 
@@ -208,12 +211,20 @@ int mk_kgds(unsigned char **sec, int *kgds) {
         kgds[2]= ny;
         kgds[3]= floor(lat1*1000.0+0.5);
         kgds[4]= floor(lon1*1000.0+0.5);
-        kgds[5]= 128;                   // resolution flag - winds N/S
+	// resolution flag, keep wind orientation
+        kgds[5]= 128 | (flag_table_3_3(sec) & 8);
         kgds[6]= floor(tph0d*1000.0+0.5);
         kgds[7]= floor(tlm0d*1000.0+0.5);
         kgds[8]= floor(dlon*1000.0+0.5);
         kgds[9]= floor(dlat*1000.0+0.5);
+
         kgds[10]= scan;
+
+	/* bit 9 of kpds(11) is 0 for mass fields and 1 for wind fields (U/V) */
+        i = getName(sec, 0, NULL, name, NULL, NULL);
+	if (strcmp(name,"UGRD") == 0 || strcmp(name,"VGRD") == 0) {
+            kgds[10]= scan | 256;
+	}
     }
 
     // Rotated Latitude/Longitude (Arakawa B Staggered grid)
@@ -241,7 +252,8 @@ int mk_kgds(unsigned char **sec, int *kgds) {
         kgds[2]= ny;
         kgds[3]= floor(lat1*1000.0+0.5);
         kgds[4]= floor(lon1*1000.0+0.5);
-        kgds[5]= 128;                   // resolution flag - winds N/S
+	// resolution flag, keep wind orientation
+        kgds[5]= 128 | (flag_table_3_3(sec) & 8);
         kgds[6]= floor(tph0d*1000.0+0.5);
         kgds[7]= floor(tlm0d*1000.0+0.5);
         kgds[8]= floor(dlon*1000.0+0.5);
@@ -254,6 +266,7 @@ int mk_kgds(unsigned char **sec, int *kgds) {
     else {
 	fatal_error_i("mk_kgds: unsupported input grid code table 3.1=%d", gdt);
     }
+// fprintf(stderr,"kgpds[5] = resol flag = %d\n", kgds[5]);
     return 0;
 }
 

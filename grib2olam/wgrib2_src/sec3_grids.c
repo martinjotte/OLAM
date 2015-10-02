@@ -216,6 +216,7 @@ unsigned char *sec3_mercator(double lad, int nx, double x0, double dx, double xn
 
 /*
  * create the grib2 sec3 for lambert conformal (conic) grid
+ * x0, y0 are lon/lat for first grid point, ie grid(1,1)
  */
 
 unsigned char *sec3_lc(double lov, double lad, double latin1, double latin2, int proj,
@@ -279,6 +280,12 @@ unsigned char *sec3_lc(double lov, double lad, double latin1, double latin2, int
 
     return gds;
 }
+
+
+
+
+
+
 
 /*
  * create the grib2 sec3 for polar stereographic

@@ -58,15 +58,15 @@ int f_tosubmsg(ARG1) {
     if (mode == -1) {
         *local = save = (struct submsg *) malloc( sizeof(struct submsg));
         if (save == NULL) fatal_error("memory allocation tosubmsg","");
-        init_tosubmsg(CALL_ARG1, save);
+        init_tosubmsg(call_ARG1(inv_out,local,arg1), save);
     }
     else if (mode >= 0) {
         save = (struct submsg *) *local;
-        write_tosubmsg(CALL_ARG1, save);
+        write_tosubmsg(call_ARG1(inv_out,local,arg1), save);
     }
     else if (mode == -2) {
         save = (struct submsg *) *local;
-        cleanup_tosubmsg(CALL_ARG1, save);
+        cleanup_tosubmsg(call_ARG1(inv_out,local,arg1), save);
     }
     return 0;
 }
@@ -81,7 +81,7 @@ int init_tosubmsg(ARG1, struct submsg *save) {
     /* Note that we have to use rb+ instead of ab in append mode, otherwise we cannot
        overwrite section 0 somewhere in the middle of the file */
 
-    if ((save->output  = fopen(arg1, file_append ? "rb+" : "wb")) == NULL) {
+    if ((save->output  = ffopen(arg1, file_append ? "rb+" : "wb")) == NULL) {
         fatal_error("Tosubmsg: Could not open %s", arg1);
     }
     if (file_append) {
@@ -208,6 +208,7 @@ static int cleanup_tosubmsg(ARG1, struct submsg *save) {
                   "- Kbytes written         : %ld\n"
                         ,save->written_count, save->saved_space/1024, save->written_bytes/1024);
 
+    ffclose(save->output);
     free_sec(save->last_sec);
     return 0;
 }

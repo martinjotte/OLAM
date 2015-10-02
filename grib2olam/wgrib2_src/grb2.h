@@ -170,14 +170,25 @@
 #define GDS_AzRan_dx(gds)		(uint4(gds+30)*1e-3)
 #define GDS_AzRan_dstart(gds)		(uint4(gds+34)*1e-3)
 
+#define GDS_CrossSec_basic_ang(gds)	int4(gds+34)
+#define GDS_CrossSec_sub_ang(gds)	int4(gds+38)
+#define GDS_CrossSec_lat1(gds)		int4(gds+42)
+#define GDS_CrossSec_lon1(gds)		uint4(gds+46)
+#define GDS_CrossSec_lat2(gds)		int4(gds+51)
+#define GDS_CrossSec_lon2(gds)		uint4(gds+55)
+
 /* GDS_Scan_x -> +ve x scanning */
 #define GDS_Scan_x(scan)		((scan & 128) == 0)
 /* GDS_Scan_y -> +ve y scanning */
 #define GDS_Scan_y(scan)		((scan & 64) == 64)
-/* GDS_Scan_fortran -> fortran storeage order */
+/* GDS_Scan_fortran -> fortran storage order */
 #define GDS_Scan_fortran(scan)		((scan & 32) == 32)
 /* GDS_Scan_row_rev -> row reversing order */
 #define GDS_Scan_row_rev(scan)		((scan & 16) == 16)
+/* GDS_Scan_staggered test for staggered grid*/
+#define GDS_Scan_staggered(scan)	(((scan) & 15) != 0)
+/* GDS_Scan_staggered_storage test for grid size != nx*ny */
+#define GDS_Scan_staggered_storage(scan)	(((scan) & (1)) != 0)
 
 /* Section 4 */
 #define GB2_Sec4_size(sec)		(sec[4] ? uint4(sec[4]+0) : 0)

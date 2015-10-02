@@ -58,9 +58,9 @@ Module leaf_coms
 ! Parameters for soil
 
   real, parameter :: refdepth       = -2.0
-  real, parameter :: water_frac_ph0 =  0.99   ! water fraction at onset of
+  real, parameter :: water_frac_ph0 =  0.95   ! water fraction at onset of
                                               ! hydraulic pressure head
-  real, parameter :: water_def_ph0  =  1.03 - water_frac_ph0
+  real, parameter :: water_def_ph0  =  1.05 - water_frac_ph0
    
   character(pathlen) :: landusefile
   character(pathlen) :: veg_database

@@ -3,16 +3,17 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
-#include <jasper/jasper.h>
 #include "grb2.h"
 #include "wgrib2.h"
 #include "fnlist.h"
 
+#ifdef USE_JASPER
+
 #include "grib2.h"
+#include <jasper/jasper.h>
 
 int enc_jpeg2000(unsigned char *cin, g2int width,g2int height,g2int nbits, g2int ltype, 
    g2int ratio, g2int retry, char *outjpc, g2int jpclen);
-static int packing_nx(float *data, int nx, int ny, unsigned int ndata);
 
 
 /*
@@ -40,23 +41,17 @@ int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata,
     sec3 = sec[3];
     sec4 = sec[4];
 
-    /* figure out nx and ny */
-    ix = packing_nx(data, nx, ny, ndata);
-
     /* make a sections 5-7 */
     n_defined = ndata;
-    sec6 = mk_bms(data, &n_defined);                    // make bitmap section
+    sec6 = mk_bms(data, &n_defined);                    // make bitmap section, eliminate undefined grid values
 
     if ((unsigned int) (nx*ny) == n_defined) {
         ix = nx;
         iy = ny;
     }
     else {
-	iy = n_defined / ix;
-	if ((unsigned int) (ix*iy) != n_defined) {
-	    ix = n_defined;
- 	    iy = 1;
-	}
+	ix = n_defined;
+ 	iy = 1;
     }
 
     for (max_val = min_val = data[0], j = 1; j < n_defined; j++) {
@@ -120,6 +115,7 @@ int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata,
     if (nbits > 0 && n_defined > 0) {
 
         nbytes = (nbits + 7) / 8;
+        if (nbytes > 4) fatal_error_i("jpeg2000_grib_out number of bytes is %d > 4", nbytes);
 
         /* Pack integers into bytes */
 
@@ -215,22 +211,13 @@ int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata,
     return i;
 }
 
-/*
- * tries to find an appropriate nx for jpeg2000 packing
- */
 
-static int packing_nx(float *data, int nx, int ny, unsigned int ndata) {
+#else
 
-    unsigned int i, j;
-
-    for (i = 0; i < ndata; i++) {
-	if (data[i] < UNDEFINED_LOW || data[i] > UNDEFINED_HIGH) break;
-    }
-    if (i == ndata) return 1;
-    for (j = i+1; j < ndata; j++) {
-	if (data[j] >= UNDEFINED_LOW && data[j] <= UNDEFINED_HIGH) break;
-    }
-    return j-i;
-
+int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata, 
+  int nx, int ny, int use_scale, int dec_scale, int bin_scale, int wanted_bits, int max_bits, FILE *out) {
+	fatal_error("grib_out jpeg2000 write: Jasper library not installed","");
+         return 0;
 }
 
+#endif
