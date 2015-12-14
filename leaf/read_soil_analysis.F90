@@ -2,7 +2,8 @@ subroutine read_soil_analysis(soil_tempc)
 
   use misc_coms,  only: io6, s1900_sim, s1900_init, isubdomain, iparallel
   use leaf_coms,  only: nzg, mwl, slzt, soilcp, slmsts, slcpd, soilstate_db, &
-                        slpott, dt_leaf
+                        slpott_high1, dt_leaf, &
+                        soilcp_vg, slmsts_vg, slpott_high1_vg
   use mem_leaf,   only: land, itab_wl
   use consts_coms,only: pio180, piu180, erad, cliq1000, alli1000, cice,   &
                          cice1000, r8
@@ -483,8 +484,14 @@ subroutine read_soil_analysis(soil_tempc)
 
            do k = 1, nzg
               ntext = land%ntext_soil(k,iwl)
-              if (land%head0(iwl) - slzt(k) < slpott(ntext)) then
-                 land%soil_water(k,iwl) = max( soilcp(ntext), min( wprof(k), slmsts(ntext) ))
+              if (land%flag_vg(iwl)) then
+                 if (land%head0(iwl) - slzt(k) < slpott_high1_vg(ntext)) then
+                    land%soil_water(k,iwl) = max( soilcp_vg(ntext), min( wprof(k), slmsts_vg(ntext) ))
+                 endif
+              else
+                 if (land%head0(iwl) - slzt(k) < slpott_high1(ntext)) then
+                    land%soil_water(k,iwl) = max( soilcp(ntext), min( wprof(k), slmsts(ntext) ))
+                 endif
               endif
            enddo
 

@@ -38,12 +38,14 @@ subroutine soil(iwl, nlev_sfcwater, ktrans, ntext_soil,            &
                 soil_water, soil_energy, soil_tempk, soil_fracliq, &
                 sfcwater_mass, sfcwater_energy, sfcwater_depth,    &
                 energy_per_m2, psi, head, head0, head1,            &
-                wfree1, qwfree1, transp, glatw, glonw              )
+                wfree1, qwfree1, transp, glatw, glonw, flag_vg     )
 
-use leaf_coms, only: nzg, nzs, dslz, dslzi, slzt, dslzo2, dt_leaf, &
-                     slreso2, soilcp, slbs, slpots, slmsts, kroot, slcpd, &
-                     soilcond0, soilcond1, soilcond2, slmstsi, headp_ph, &
-                     water_frac_ph0, water_def_ph0, slpott
+use leaf_coms, only: nzg, nzs, slz, dslz, dslzi, slzt, dslzo2, dt_leaf, &
+                     slreso2, soilcp, slbs, kroot, slcpd, &
+                     soilcond0, soilcond1, soilcond2, &
+                     wfrac_high1, &
+                     soilcp_vg, slreso2_vg, &
+                     em_vg, emi_vg, slcons, slcons_vg
 
 use consts_coms, only: cliq1000, cice1000, alli1000, alvi
 use misc_coms,   only: io6
@@ -79,21 +81,29 @@ real, intent(inout) :: qwfree1 ! UBC free water energy [J/m^2]
 real, intent(in)    :: transp  ! transpiration loss [kg/m^2]
 real, intent(in)    :: glatw   ! Latitude of land cell 'center' [deg]
 real, intent(in)    :: glonw   ! Longitude of land cell 'center' [deg]
+logical, intent(in) :: flag_vg ! flag for van Genuchten model
+                               ! (instead of Clapp & Hornberger)
 
 ! Local variables
+
+real ::   soilcpk(nzg) ! copy of soilcp or soilcp_vg to soil column
+real ::   slconsk(nzg) ! copy of slcons or slcons_vg to soil column
+real ::  slreso2k(nzg) ! copy of slreso2 or slreso2_vg to soil column
+real ::       emk(nzg) ! copy of em_vg to soil column
+real ::      emik(nzg) ! copy of emi_vg to soil column
+real ::     slbsk(nzg) ! copy of slbs to soil column
 
 real :: hxferg(nzg+1) ! soil internal heat xfer (J/m^2]
 real :: wxfer (nzg+1) ! soil water xfer [m]
 real :: qwxfer(nzg+1) ! soil energy xfer from water xfer [J/m^2] 
 
 real :: soil_wat_avail(nzg) ! liq water in soil layer available for transport [m]
-real :: water_frac    (nzg) ! Fractional water content in layer
+real :: water_frac_ul (nzg) ! Fractional water content in layer [unlimited]
+real :: water_frac    (nzg) ! Fractional water content in layer [limited to (0,1)]
 real :: water_fraci   (nzg) ! Inverse fractional water content in layer
-real :: hydresist_bot (nzg)
-real :: hydresist_top (nzg)
+real :: hydresist_bot (nzg) ! hydraulic resistance of bottom half of layer [s]
+real :: hydresist_top (nzg) ! hydraulic resistance of top half of layer [s]
 real :: soil_rfactor  (nzg) ! soil thermal resistance
-real :: hrterm_top    (nzg)
-real :: hrterm_bot    (nzg)
 
 ! Defined at bottom face of soil layers & of sfcwater layer 1
 
@@ -102,19 +112,23 @@ real :: xfercoef      (nzg+1)
 
 ! Defined at soil layer centers
 
-real :: headp   (nzg)  ! Derivative of soil water tension head wrt soil water 
+real :: headp(nzg)  ! Derivative of soil water tension head wrt soil water 
 
-real :: vctr5 (nzg+1)
-real :: vctr6 (nzg+1)
-real :: vctr7 (nzg+1)
-real :: vctr8 (nzg+1)
+real :: vctr5(nzg+1)
+real :: vctr6(nzg+1)
+real :: vctr7(nzg+1)
+real :: vctr8(nzg+1)
 
-integer :: k     ! vertical index over soil layers
-integer :: nts   ! soil textural class
+integer :: k, kk, km ! vertical index over soil layers
+integer :: nts       ! soil textural class
 
 real :: wloss    ! soil water loss from transpiration [vol_water/vol_tot]
 real :: qwloss   ! soil energy loss from transpiration [J/vol_tot]
-real :: soilcond  ! soil thermal conductivity [W/(K m)]
+real :: soilcond ! soil thermal conductivity [W/(K m)]
+real :: flxlim   ! water flux limiter (prior to implicit solution)
+
+real :: aspect, scalelab, xmin, xmax, xinc, ymin, ymax, yinc
+real :: wfrac, wfraci
 
 integer, parameter :: iwl_print = 0
 
@@ -138,43 +152,54 @@ endif
 do k = 1,nzg
    nts = ntext_soil(k)
 
-! Fractional water content and its inverse in middle of soil layer
+   ! Get water fraction; soil water potential & derivative
 
-   water_frac(k)  = soil_water(k) * slmstsi(nts)
-   water_fraci(k) = 1.0 / water_frac(k)
+   call soil_wat2pot(iwl, nts, flag_vg, soil_water(k), slzt(k), &
+                     water_frac_ul(k), water_frac(k), psi(k), head(k), headp(k))
 
-! Fractional water content at W levels
+   if (flag_vg) then ! van Genuchten form
 
-   if (k == 1) then
-      water_frac_bnd(k) = water_frac(k)
-   else
-      water_frac_bnd(k) = .5 * (water_frac(k-1) + water_frac(k))
+       slreso2k(k) =  slreso2_vg(k,nts)
+        soilcpk(k) =   soilcp_vg(nts)
+        slconsk(k) =   slcons_vg(nts)
+            emk(k) =       em_vg(nts)
+           emik(k) =      emi_vg(nts)
+
+   else              ! Clapp & Hornberger form
+
+       slreso2k(k) =  slreso2(k,nts)
+        soilcpk(k) =   soilcp(nts)
+        slconsk(k) =   slcons(nts)
+          slbsk(k) =     slbs(nts)
+
    endif
 
-! Soil heat resistance times HALF layer depth (soil_rfactor).
+   ! Soil heat resistance times HALF layer depth (soil_rfactor).
 
-   soilcond =            soilcond0(ntext_soil(k)) &
-      + water_frac(k) * (soilcond1(ntext_soil(k)) &
-      + water_frac(k) *  soilcond2(ntext_soil(k)) )
+   soilcond =            soilcond0(nts) &
+      + water_frac(k) * (soilcond1(nts) &
+      + water_frac(k) *  soilcond2(nts) )
 
    soil_rfactor(k) = dslzo2(k) / soilcond
-
 enddo
 
-! Fractional water content at top (surface) W level
-! (Assume mean between cell center value and saturation)
+! Loop over soil W levels - fractional water content and heat transfer
 
+do k = 2,nzg
+   water_frac_bnd(k) = .5 * (water_frac(k-1) + water_frac(k))
+   hxferg(k) = dt_leaf * (soil_tempk(k-1) - soil_tempk(k)) &
+             / (soil_rfactor(k-1) + soil_rfactor(k))      
+enddo
+
+! At top, water_frac_bnd assumes mean between nzg cell value and saturation
+
+water_frac_bnd(1)     = water_frac(1)
 water_frac_bnd(nzg+1) = .5 * (1.0 + water_frac(nzg))
 
 ! Soil bottom, top, and internal sensible heat xfers [J/m2]
 
 hxferg(1) = 0.
 hxferg(nzg+1) = 0.
-
-do k = 2,nzg
-   hxferg(k) = dt_leaf * (soil_tempk(k-1) - soil_tempk(k)) &
-             / (soil_rfactor(k-1) + soil_rfactor(k))      
-enddo
 
 ! Update soil_energy values [J/m3] at all levels from internal heat conduction
 
@@ -203,72 +228,53 @@ enddo
 ! moisture midway between the layers is higher, and would therefore bias the fluxes
 ! toward excessively high values if used for computing hydraulic conductivity.
 
-do k = 1, nzg
-   nts = ntext_soil(k)
-   hrterm_bot(k) = water_frac_bnd(k) ** (-2. * slbs(nts) - 3.)
-enddo
+if (flag_vg) then ! van Genuchten form
 
-do k = 1, nzg-1
-   nts = ntext_soil(k)
-   if (nts == ntext_soil(k+1)) then
-      hrterm_top(k) = hrterm_bot(k+1)
-   else
-      hrterm_top(k) = water_frac_bnd(k+1) ** (-2. * slbs(nts) - 3.)
-   endif
-enddo
+   ! Loop over soil T levels
 
-nts = ntext_soil(nzg)
-hrterm_top(nzg) = water_frac_bnd(nzg+1) ** (-2. * slbs(nts) - 3.)
+   do k = 1, nzg
 
-! Loop over soil T levels
+      ! Hydraulic resistance of top and bottom half of each soil layer
 
-do k = 1,nzg
-   nts = ntext_soil(k)
+      hydresist_bot(k) = slreso2k(k) / (sqrt(water_frac_bnd(k)) &
+                       * (1. - (1. - water_frac_bnd(k)**emik(k))**emk(k))**2)
 
-! Hydraulic resistance of top and bottom half of each soil layer
+      hydresist_top(k) = slreso2k(k) / (sqrt(water_frac_bnd(k+1)) &
+                       * (1. - (1. - water_frac_bnd(k+1)**emik(k))**emk(k))**2)
 
-   hydresist_bot(k) = slreso2(k,nts) * hrterm_bot(k)
 
-   hydresist_top(k) = slreso2(k,nts) * hrterm_top(k)
+      ! Soil water available for transport in middle of soil layer (lesser of
+      ! excess soil water above minimum value and unfrozen portion of water)
 
-! Molecular water potential in middle of soil layer [m]
+      soil_wat_avail(k) = dslz(k) &
+         * min(soil_water(k) - soilcpk(k) , soil_water(k) * soil_fracliq(k))
 
-   psi(k) = slpots(nts) * water_fraci(k) ** slbs(nts)
+   enddo
 
-! [5/14/09] Compute total hydraulic head and its derivative with respect to 
-! water content in each soil layer.  This is used for (1) solving water fluxes
-! implicitly between layers and (2) utilizing utilize new soil bottom boundary
-! condition of specified total head.  
+else          ! Clapp & Hornberger form
 
-   head(k) = psi(k) + slzt(k)
-   headp(k) = -psi(k) * slbs(nts) * water_fraci(k) * slmstsi(nts)
-   
-! If soil layer is nearly full, compute additional head that simulates 
-! pressure contribution
+   ! Loop over soil T levels
 
-   if (water_frac(k) > water_frac_ph0) then
+   do k = 1, nzg
 
-      head(k) = head(k)  &
-              + headp_ph(nts) * (water_frac(k) - water_frac_ph0) * slmsts(nts)
+      ! Hydraulic resistance of top and bottom half of each soil layer
 
-! headp_ph addition to headp
+      hydresist_bot(k) = slreso2k(k) * water_frac_bnd(k  ) ** (-2. * slbsk(k) - 3.)
+      hydresist_top(k) = slreso2k(k) * water_frac_bnd(k+1) ** (-2. * slbsk(k) - 3.)
 
-      headp(k) = headp(k) + headp_ph(nts)
+      ! Soil water available for transport in middle of soil layer (lesser of
+      ! excess soil water above minimum value and unfrozen portion of water)
 
-   endif
+      soil_wat_avail(k) = dslz(k) &
+         * min(soil_water(k) - soilcpk(k) , soil_water(k) * soil_fracliq(k))
 
-! Soil water available for transport in middle of soil layer (lesser of
-! excess soil water above minimum value and unfrozen portion of water)
+   enddo
 
-   soil_wat_avail(k) = dslz(k) &
-      * min(soil_water(k) - soilcp(nts) , soil_water(k) * soil_fracliq(k))
-
-enddo
+endif  ! van Genuchten vs. Clapp & Hornberger
 
 ! Set up quantities for implicit solution
 
 do k = 2,nzg
-
    xfercoef(k) = dt_leaf                                    &
                * .5 * (soil_fracliq(k) + soil_fracliq(k-1)) &
                / (hydresist_top(k-1) + hydresist_bot(k))
@@ -277,15 +283,22 @@ do k = 2,nzg
    vctr7(k) = -xfercoef(k) * headp(k  ) * dslzi(k  )
    vctr6(k) = 1. - vctr5(k) - vctr7(k)
    vctr8(k) = xfercoef(k) * (head(k-1) - head(k))
-
 enddo
 
-! Hydraulic head (head0) is specified as constant in time at bottom of 
-! soil level k = 1.
+! Compute bottom transfer coefficient assuming that hydraulic head (head0)
+! applies at bottom of soil level k = 1.
 
 xfercoef(1) = dt_leaf         &
             * soil_fracliq(1) &
             / hydresist_bot(1)
+
+! If water table is below bottom of soil model, reduce bottom transfer
+! coefficient by re-assigning the effective depth at which head0 applies
+! to be that of the water table itself.
+
+if (head0 < slz(1)) then
+   xfercoef(1) = xfercoef(1) * dslzo2(1) / (slzt(1) - head0)
+endif
 
 vctr5(1) = 0.
 vctr7(1) = -xfercoef(1) * headp(1) * dslzi(1)
@@ -304,48 +317,70 @@ vctr7(nzg+1) = 0.
 vctr6(nzg+1) = 1. - vctr5(nzg+1) + xfercoef(nzg+1)
 vctr8(nzg+1) = xfercoef(nzg+1) * (head(nzg) - head1)
 
+! Limit estimated fluxes in case vertical gradient of water potential
+! temporarily becomes large
+
+do k = 1,nzg+1
+   km = max(1,k-1)
+   kk = min(nzg,k)
+   flxlim = .5 * (slconsk(km) + slconsk(kk)) * dt_leaf
+   if     (vctr8(k) >  flxlim) then
+           vctr8(k) =  flxlim + 0.1 * (vctr8(k) - flxlim)
+   elseif (vctr8(k) < -flxlim * 2.) then
+           vctr8(k) = -flxlim * 2. + 0.1 * (vctr8(k) + flxlim * 2.)
+   endif
+enddo
+
 ! Get first trial implicit fluxes (loop from 1 to nzg+1)
 
 call tridiffo(nzg+1,1,nzg+1,vctr5,vctr6,vctr7,vctr8,wxfer)
 
-! Check sign and magnitude of wxfer(nzg+1)
-
 if (wxfer(nzg+1) >= 0.) then
 
-! If wxfer(nzg+1) is positive or zero, compute qwxfer(nzg+1) based on
-! soil energy at nzg
+   ! If wxfer(nzg+1) is positive or zero, compute qwxfer(nzg+1) based on
+   ! soil energy at nzg
 
    qwxfer(nzg+1) = wxfer(nzg+1) * (cliq1000 * (soil_tempk(nzg) - 273.15) + alli1000)
 
 else
 
-! wxfer(nzg+1) was computed as negative in tridiffo
+   ! wxfer(nzg+1) was computed as negative in tridiffo
 
    if (wxfer(nzg+1) > -1.e-3 * wfree1) then
 
-! If wxfer(nzg+1) is negative but does not deplete all of free 
-! sfcwater in level 1 (wfree1), compute qwxfer(nzg+1) based on sfcwater
-! energy at k = 1.  Apply full magnitude of wxfer(nzg+1).  
-! (Factor of 1.e-3 converts from kg/m^2 to m depth.)
+      ! If wxfer(nzg+1) is negative but does not deplete all of free 
+      ! sfcwater in level 1 (wfree1), compute qwxfer(nzg+1) based on sfcwater
+      ! energy at k = 1.  Apply full magnitude of wxfer(nzg+1).  
+      ! (Factor of 1.e-3 converts from kg/m^2 to m depth.)
 
       qwxfer(nzg+1) = wxfer(nzg+1) * (1000. * qwfree1 / wfree1)
 
    else
 
-! If wxfer(nzg+1) is negative and can deplete more than available free water
-! in level 1 (wfree1), set wxfer(nzg+1) and qwxfer(nzg+1) based on the free
-! water limits. (Factor of 1.e-3 converts from kg/m^2 to m depth.)
+      ! If wxfer(nzg+1) is negative and can deplete more than available free
+      ! water (wfree1), set wxfer(nzg+1) and qwxfer(nzg+1) based on the free
+      ! water limits. (Factor of 1.e-3 converts from kg/m^2 to m depth.)
 
       wxfer (nzg+1) = -.001 * wfree1
       qwxfer(nzg+1) = -qwfree1
 
-! vctr5(nzg) and vctr6(nzg) are correct for this as set in the k loop above
+      ! vctr5(nzg) and vctr6(nzg) are correct here as set in the k loop above
 
       vctr7(nzg) = 0.
       vctr8(nzg) = xfercoef(nzg) &
          * (head(nzg-1) - head(nzg) - headp(nzg) * .001 * wfree1 * dslzi(nzg))
 
-! Get second-time implicit fluxes (loop from 1 to nzg)
+      ! Limit estimated fluxes in case vertical gradient of water potential
+      ! temporarily becomes large
+
+      flxlim = slconsk(nzg) * dt_leaf
+      if     (vctr8(nzg) >  flxlim) then
+              vctr8(nzg) =  flxlim + 0.1 * (vctr8(nzg) - flxlim)
+      elseif (vctr8(nzg) < -flxlim * 2.) then
+              vctr8(nzg) = -flxlim * 2. + 0.1 * (vctr8(nzg) + flxlim * 2.)
+      endif
+
+      ! Get second-time implicit fluxes (loop from 1 to nzg)
 
       call tridiffo(nzg,1,nzg,vctr5,vctr6,vctr7,vctr8,wxfer)
 
@@ -357,7 +392,7 @@ endif
 
 do k = 1,nzg
 
-! Compute q transfers between soil layers (qwxfer) [J/m2]
+   ! Compute q transfers between soil layers (qwxfer) [J/m2]
 
    if (wxfer(k) < 0.) then
       qwxfer(k) = wxfer(k) * (cliq1000 * (soil_tempk(k) - 273.15) + alli1000)
@@ -392,15 +427,14 @@ if (iwl == iwl_print)             &
 
 ! Loop over soil T levels
 
-do k = 1,nzg
-   nts = ntext_soil(k)
-
 ! Update soil water (impose minimum value of soilcp) and energy.
 
-   soil_water(k) = max(soilcp(nts),soil_water(k) &
+do k = 1,nzg
+   soil_water(k) = max(soilcpk(k),soil_water(k) &
       + dslzi(k) * (wxfer(k) - wxfer(k+1)))
    soil_energy(k) = soil_energy(k) + dslzi(k) * (qwxfer(k) - qwxfer(k+1))
 enddo
+
 
 ! Add bottom water flux to accumulation array
 
@@ -416,13 +450,13 @@ sfcwater_depth = sfcwater_depth + wxfer (nzg+1)
 
 if (sfcwater_mass > 1.e-6) then
 
-! Sfcwater mass is above minimum
+   ! Sfcwater mass is above minimum
 
    nlev_sfcwater = max(1,nlev_sfcwater)
 
    sfcwater_energy = energy_per_m2 / sfcwater_mass
 
-! Check sfcwater_energy.  If message ever gets printed, investigate reasons.
+   ! Check sfcwater_energy.  If message ever gets printed, investigate reasons.
 
    if (sfcwater_energy > 6.e5 .or. sfcwater_energy < -2.5e5) then
 
@@ -440,7 +474,7 @@ if (sfcwater_mass > 1.e-6) then
 
 else
 
-! If insufficient sfcwater mass remains, transfer residual mass and energy to soil
+   ! If insufficient sfcwater mass remains, transfer residual mass and energy to soil
 
    soil_water (nzg) = soil_water (nzg) + dslzi(nzg) * sfcwater_mass * .001
    soil_energy(nzg) = soil_energy(nzg) + dslzi(nzg) * energy_per_m2
@@ -454,7 +488,237 @@ else
 
 endif
 
-return
 end subroutine soil
+
+!===============================================================================
+
+subroutine soil_wat2pot(iwl,nts,flag_vg,soil_water, slzt, &
+                        water_frac_ul, water_frac, psi, head, headp)
+
+  use leaf_coms, only: soilcp, slmsts, slmstsi, slpots, slbs, &
+                       wfrac_high1, slpott_high1, headp_high, &
+                       soilcp_vg, slmsts_vg, alphai_vg, emi_vg, eni_vg, &
+                       slpott_high1_vg, headp_high_vg, &
+                       wfrac_low2, slpott_low2_vg, headp_low_vg
+
+  implicit none
+
+  integer, intent(in) :: iwl
+  integer, intent(in) :: nts
+  logical, intent(in) :: flag_vg
+
+  real, intent(in) :: soil_water
+  real, intent(in) :: slzt
+
+  real, intent(inout) :: water_frac_ul
+  real, intent(inout) :: water_frac
+  real, intent(inout) :: psi
+  real, intent(inout) :: head
+  real, intent(inout) :: headp
+
+  real :: wfiemi
+
+  if (flag_vg) then ! van Genuchten soil model
+
+     ! Compute "unlimited" water fractional content in soil, which allows small
+     ! exceedence of upper and lower bounds
+
+     water_frac_ul = (soil_water - soilcp_vg(nts)) & ! "unlimited"
+                   / (slmsts_vg(nts) - soilcp_vg(nts))
+
+     ! Apply upper and lower limits to water fractional content
+
+     water_frac = max(.001,min(.999,water_frac_ul))
+
+     ! Compute soil water potential based on limited water fraction.  This
+     ! value will be used to evaluate hydraulic head only if unlimited water
+     ! fraction is within these limits, and in fact within even stricter ones.
+
+     wfiemi = water_frac**(-emi_vg(nts))
+     psi = alphai_vg(nts) * (wfiemi - 1.)**eni_vg(nts)
+
+     ! [5/14/09] Compute total hydraulic head and its derivative with 
+     ! respect towater content in each soil layer.  This is used for (1)
+     ! solving water fluxes implicitly between layers and (2) utilizing
+     ! utilize new soil bottom boundary condition of specified total head.
+
+     if (water_frac_ul >= wfrac_high1) then
+
+        ! For water fraction greater than or equal to wfrac_high1, use
+        ! linear head model to represent confinement pressure
+
+        headp = headp_high_vg(nts)
+
+        head = slpott_high1_vg(nts) &
+             + headp * (slmsts_vg(nts) - soilcp_vg(nts)) * (water_frac_ul - wfrac_high1) &
+             + slzt
+
+     elseif (water_frac_ul <= wfrac_low2) then
+
+        ! For water fraction less than or equal to wfrac_low2, use
+        ! linear head model to represent confinement pressure
+
+        headp = headp_low_vg(nts)
+
+        head = slpott_low2_vg(nts) &
+             + headp * (slmsts_vg(nts) - soilcp_vg(nts)) * (water_frac_ul - wfrac_low2) &
+             + slzt
+
+     else
+
+        ! For water fraction other than extremely high or low, use standard
+        ! water potential formula
+
+        headp = psi * eni_vg(nts) * emi_vg(nts) * wfiemi &
+              / ((wfiemi - 1.) * (soilcp_vg(nts) - soil_water))
+
+        head = psi + slzt
+
+     endif
+
+  else              ! Clapp & Hornberger model
+
+     ! Compute "unlimited" water fractional content in soil, which allows small
+     ! exceedence of upper bound
+
+     water_frac_ul = soil_water * slmstsi(nts) ! "unlimited"
+
+     ! Apply upper and lower limits to water fractional content
+
+     water_frac = max(.001,min(.999,water_frac_ul))
+
+     ! Compute soil water potential based on limited water fraction.  This
+     ! value will be used to evaluate hydraulic head only if unlimited water
+     ! fraction is within upper limit, and in fact within even a stricter one.
+
+     psi = slpots(nts) * water_frac ** (-slbs(nts))
+
+     ! [5/14/09] Compute total hydraulic head and its derivative with 
+     ! respect towater content in each soil layer.  This is used for (1)
+     ! solving water fluxes implicitly between layers and (2) utilizing
+     ! utilize new soil bottom boundary condition of specified total head.
+
+     if (water_frac_ul >= wfrac_high1) then
+
+        ! For water fraction greater than or equal to wfrac_high1, use
+        ! linear head model to represent confinement pressure
+
+        headp = headp_high(nts)
+
+        head = slpott_high1(nts) &
+             + headp * slmsts(nts) * (water_frac_ul - wfrac_high1) &
+             + slzt
+
+     else
+
+        ! For water fraction other than extremely high or low, use standard
+        ! water potential formula
+
+        headp = -psi * slbs(nts) / (water_frac * slmsts(nts))
+
+        head = psi + slzt
+
+     endif
+
+  endif  ! van Genuchten model vs Clapp & Hornberger model
+
+end subroutine soil_wat2pot
+
+!===============================================================================
+
+subroutine soil_pot2wat(iwl, nts, flag_vg, head, slzt, &
+                        water_frac_ul, soil_water)
+
+  use leaf_coms, only: soilcp, slmsts, slpots, slbs, &
+                       wfrac_high1, slpott_high1, headp_high, &
+                       soilcp_vg, slmsts_vg, alpha_vg, em_vg, en_vg, &
+                       slpott_high1_vg, headp_high_vg, &
+                       wfrac_low2, slpott_low2_vg, headp_low_vg
+
+  implicit none
+
+  integer, intent(in) :: iwl
+  integer, intent(in) :: nts
+  logical, intent(in) :: flag_vg
+
+  real, intent(in) :: head
+  real, intent(in) :: slzt
+
+  real, intent(inout) :: water_frac_ul
+  real, intent(inout) :: soil_water
+
+  real :: head_z
+
+  head_z = head - slzt
+
+  if (flag_vg) then
+
+     ! Using van Genuchten soil water model for this land cell
+
+     if (head_z >= slpott_high1_vg(nts)) then
+      
+        ! If initial head exceeds slpott_high1_vg, estimate soil_water from
+        ! high-end linear water potential equation       
+
+        water_frac_ul = wfrac_high1 &
+           + (head_z - slpott_high1_vg(nts)) &
+           / (headp_high_vg(nts) * (slmsts_vg(nts) - soilcp_vg(nts)))
+
+        soil_water = soilcp_vg(nts) &
+                   + water_frac_ul * (slmsts_vg(nts) - soilcp_vg(nts))
+
+     elseif (head_z <= slpott_low2_vg(nts)) then
+      
+        ! If initial head is less than slpott_low2_vg, estimate soil_water from
+        ! low-end linear water potential equation       
+
+        water_frac_ul = wfrac_low2 &
+           + (head_z - slpott_low2_vg(nts)) &
+           / (headp_low_vg(nts) * (slmsts_vg(nts) - soilcp_vg(nts)))
+
+        soil_water = soilcp_vg(nts) &
+           + water_frac_ul * (slmsts_vg(nts) - soilcp_vg(nts))
+
+     else
+
+        ! If initial head does not exceed slpott_high1_vg, estimate soil_water
+        ! from nonlinear water potential equation       
+
+        water_frac_ul = ((head_z * alpha_vg(nts))**en_vg(nts) + 1.)**(-em_vg(nts))
+
+        soil_water = soilcp_vg(nts) &
+           + water_frac_ul * (slmsts_vg(nts) - soilcp_vg(nts))
+
+     endif
+
+  else
+
+     ! Using Clapp & Hornberger soil water model for this land cell
+
+     if (head_z >= slpott_high1(nts)) then
+      
+        ! If initial head exceeds slpott, estimate soil_water from
+        ! linear water potential equation       
+
+        water_frac_ul = wfrac_high1 &
+           + (head_z - slpott_high1(nts)) &
+           / (headp_high(nts) * slmsts(nts))
+
+        soil_water = water_frac_ul * slmsts(nts)
+
+     else
+
+        ! If initial head does not exceed slpott, estimate soil_water
+        ! from nonlinear water potential equation       
+
+        water_frac_ul = (slpots(nts) / head_z) ** (1./slbs(nts))
+
+        soil_water = water_frac_ul * slmsts(nts)
+
+     endif
+
+  endif
+
+end subroutine soil_pot2wat
 
 End Module leaf4_soil

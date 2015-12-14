@@ -233,9 +233,8 @@ subroutine hist_read_addgrid()
   use hdf5_utils,  only: shdf5_info, shdf5_irec
   use mem_leaf,    only: itab_wl, land
   use leaf_coms,   only: mwl, nzg, &
-                         slzt, slmsts, slpots, slbs, slpott, soilcp, slcpd, &
-                         water_frac_ph0, water_def_ph0, headp_ph, tai_max, &
-                         soil_rough, snow_rough
+                         slzt, slcpd, tai_max, soil_rough, snow_rough
+  use leaf4_soil,  only: soil_wat2pot, soil_pot2wat
   use mem_sea,     only: itab_ws
   use sea_coms,    only: nws, mws
   use mem_para,    only: myrank
@@ -263,7 +262,7 @@ subroutine hist_read_addgrid()
   character (2) :: stagpt
 
   integer :: iwl, iwl_og, nts, nts_og, kb_og, iw_og, k_og
-  real :: water_frac, water_fraci, psi, head
+  real :: water_frac_ul, water_frac, psi, head, headp
   real :: soil_tempk, soil_tempc, soil_fracliq, tai, tai_og
 
 ! Scratch arrays for copying input
@@ -738,55 +737,18 @@ subroutine hist_read_addgrid()
         nts    = land%ntext_soil(k,iwl)
         nts_og = ntext_soil_og(k,iwl_og)
 
-! Fractional water content and its inverse in middle of soil layer
+        ! Get water fraction and head [Assume that old grid value of "flag_vg_og",
+        ! which has not been implemented yet, is the same as the new grid value,
+        ! flag_vg, for each transfer of soil water from old grid to new grid.
+        ! Thus, flag_vg is passed to subroutine soilwatpot in place of flag_vg_og.]
 
-        water_frac  = soil_water_og(k,iwl_og) / slmsts(nts_og)
-        water_fraci = 1.0 / water_frac
+        call soil_wat2pot(iwl_og,nts_og,land%flag_vg(iwl),soil_water_og(k,iwl_og), slzt(k), &
+           water_frac_ul, water_frac, psi, head, headp)
 
-! Molecular water potential in middle of soil layer [m]
+        ! Diagnose soil water from given head0, nts, flag_vg, and slzt
 
-        psi = slpots(nts_og) * water_fraci ** slbs(nts_og)
-
-! If soil layer is nearly full, compute additional head that simulates 
-! pressure contribution
-
-        if (water_frac > water_frac_ph0) then
-           head = psi &
-                + headp_ph(nts_og) * (water_frac - water_frac_ph0) * slmsts(nts_og)
-        else
-           head = psi
-        endif
-
-        ! If head exceeds slpott, estimate soil_water based on total
-        ! head (molecular plus hydraulic)       
-
-        if (head > slpott(nts)) then
-      
-           ! First estimate using slpott in place of psi
-
-           land%soil_water(k,iwl) = water_frac_ph0 * slmsts(nts) &
-              + (head - slpott(nts)) / headp_ph(nts) 
-
-           ! Evaluate molecular water potential from soil water estimate
-
-           psi = slpots(nts) &
-               * (slmsts(nts) / land%soil_water(k,iwl)) ** slbs(nts)
-
-           ! Correction using psi
-
-           land%soil_water(k,iwl) = water_frac_ph0 * slmsts(nts) &
-              + (head - psi) / headp_ph(nts)
-            
-        else
-
-           ! If initial head does not exceed slpott, estimate soil_water based on
-           ! molecular head alone       
-
-           psi = head
-           land%soil_water(k,iwl) = max(soilcp(nts),slmsts(nts) &
-              * (slpots(nts) / psi) ** (1./slbs(nts)))
-
-        endif
+        call soil_pot2wat(iwl, nts, land%flag_vg(iwl), head, slzt(k), &
+                          water_frac_ul, land%soil_water(k,iwl))
 
         ! Diagnose temperature and liquid fraction of OLD grid soil water
 

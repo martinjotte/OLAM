@@ -46,15 +46,17 @@ Contains
                    snowfac, vf, surface_ssh, ground_shv,              &
                    veg_water, veg_temp, cantemp, canshv,              &
                    transp, stom_resist, ggaero, snowmin_expl,         &
-                   glatw, glonw                                       ) 
+                   glatw, glonw, flag_vg                              ) 
 
- use leaf_coms,      only: nzg, soil_rough, dt_leaf, dslz, dslzi, &
-                           slpots, slmsts, slmstsh0, slbs, kroot, &
-                           rcmin, soilcp, slcpd, slcons
+ use leaf_coms, only: nzg, soil_rough, dt_leaf, dslz, dslzi, slzt, &
+                      slmstsh0, kroot, &
+                      rcmin, slcpd, slcons, slcons_vg, slmstsh0_vg
+
  use consts_coms,    only: cp, vonk, alvl, cliq, cice, alli, rvap, r8
  use misc_coms,      only: io6
  use mem_leaf,       only: itab_wl
  use leaf4_sfcwater, only: sfcwater_soil_comb
+ use leaf4_soil,     only: soil_wat2pot
  use matrix,         only: matrix8_2x2, matrix8_3x3, matrix8_4x4
 
  implicit none
@@ -115,6 +117,8 @@ Contains
  real, intent(in)  :: snowmin_expl ! min sfcwater mass for explicit heat xfer [kg/m^2]
  real, intent(in)  :: glatw        ! Latitude of land cell 'center' [deg]
  real, intent(in)  :: glonw        ! Longitude of land cell 'center' [deg]
+
+ logical, intent(in) :: flag_vg
 
 ! Local parameters
 
@@ -178,7 +182,6 @@ Contains
  real :: sigmaw      ! fractional coverage of leaf surface by veg_water
  real :: slai        ! effective veg lai uncovered by surface water (snowcover)
  real :: stai        ! effective veg tai uncovered by surface water (snowcover)
- real :: slpotv      ! soil water potential [m]
  real :: swp         ! soil water potential factor for stomatal control
  real :: tvegc       ! vegetation temperature (deg C)
  real :: tvegk       ! vegetation temperature (K)
@@ -228,6 +231,12 @@ Contains
  real :: waterfrac   ! Fraction of water saturation of top soil layer
  real :: vw          ! same as veg_water (shorter word)
  real :: vwm         ! minimum value of vw
+
+ real :: water_frac_ul
+ real :: water_frac
+ real :: head        ! soil water potential [m]
+
+ real :: psi, headp  ! unused but required subroutine arguments
 
  real :: a1, a2, a3, a4, a5, a6, a134
  real :: y1, y2, y3, y4, y5, y23
@@ -354,17 +363,13 @@ Contains
 
 ! Soil water potential
 
-       slpotv = slpots(nts) * (slmsts(nts) / soil_water(k)) ** slbs(nts)
+       call soil_wat2pot(iwl,nts,flag_vg,soil_water(k), slzt(k), &
+                         water_frac_ul, water_frac, psi, head, headp)
 
-! Multiply by liquid fraction (ice is unavailable for transpiration)
+! Find layer in root zone with highest head (unless mostly ice)
 
-       slpotv = slpotv * soil_fracliq(k)
-
-! Find layer in root zone with highest slpotv AND soil_water above minimum soilcp
-! Set ktrans to this layer
-
-       if (slpotv > swp .and. soil_water(k) > soilcp(nts)) then
-          swp = slpotv
+       if (swp < head .and. soil_fracliq(k) > .5) then 
+          swp = head
           ktrans = k
        endif
     enddo
@@ -468,9 +473,13 @@ Contains
 ! over-evaporation of sfcwater; for simplicity, evaporation is not strictly
 ! limited to available sfcwater mass in matrix solution below.
 
-    wcap_soil = dslz(nzg) * (slmstsh0(nts) - soil_water(nzg)) * 1000. ! [kg/m^2]
-    
-    wcap_rate = dt_leaf * slcons(nts) * 1000.                       ! [kg/m^2]
+    if (flag_vg) then
+       wcap_soil = dslz(nzg) * (slmstsh0_vg(nts) - soil_water(nzg)) * 1000. ! [kg/m^2]
+       wcap_rate = dt_leaf * slcons_vg(nts) * 1000.                         ! [kg/m^2]
+    else
+       wcap_soil = dslz(nzg) * (slmstsh0(nts) - soil_water(nzg)) * 1000. ! [kg/m^2]
+       wcap_rate = dt_leaf * slcons(nts) * 1000.                       ! [kg/m^2]
+    endif
 
     wcap_both = min(wcap_soil, wcap_rate)                           ! [kg/m^2]
 

@@ -1506,7 +1506,7 @@ end subroutine oplot_xy2
 
 !===============================================================================
 
-subroutine oplot_xy2log10(panel,colorbar0,aspect,scalelab,linecolor, &
+subroutine oplot_xy2log10(panel,colorbar0,aspect,scalelab,linecolor,ndashes, &
    n,xval,yval,xlab,ylab, &
    xmin,xmax,xinc,labincx  ,logymin,logymax)
  
@@ -1521,7 +1521,7 @@ implicit none
 
 character(len=1), intent(in) :: panel,colorbar0
 real, intent(in) :: aspect,scalelab
-integer, intent(in) :: n,labincx,linecolor
+integer, intent(in) :: n,labincx,linecolor,ndashes
 real, intent(in) :: xval(n),yval(n)
 character(len=*), intent(in) :: xlab,ylab
 real, intent(in) :: xmin,xmax,xinc
@@ -1530,6 +1530,9 @@ integer, intent(in) :: logymin,logymax
 integer :: i,itick,jtick
 real :: xl,yl,dx,dy,tickval,xmargin,ymargin,sizelab,xlabx,ylaby,yminlog,ymaxlog
 character(len=20)  :: numbr
+
+integer :: icyc
+real :: dashlen, dist, remain, step, xfac, yfac, asp2, x, y, eps, yy
 
 ! Set plot color (black)
 
@@ -1636,9 +1639,9 @@ do while (jtick <= logymax)
 
 ! Encode and plot current Y tick label
 
-         write (numbr,'(i3)') jtick
+         write (numbr,'(i4)') jtick
          numbr = adjustl(numbr)
-         numbr = '10:S3:'//trim(numbr)//'        '
+         numbr = '10:S4:'//trim(numbr)//'        '
          call o_plchhq(op%ytlabx,tickval,trim(adjustl(numbr)),sizelab,0.,1.)
       else                                          ! Only for short ticks
          dx = .010
@@ -1676,10 +1679,77 @@ call o_gstxci(linecolor)
 yminlog = real(logymin)
 ymaxlog = real(logymax)
 
-call o_frstpt(xval(1),min(ymaxlog,max(yminlog,log10(yval(1)))))
-do i = 2,n
-   call o_vector(xval(i),min(ymaxlog,max(yminlog,log10(yval(i)))))
-enddo
+if (ndashes <= 0) then
+
+   call o_frstpt(xval(1),min(ymaxlog,max(yminlog,log10(yval(1)))))
+   do i = 2,n
+      call o_vector(xval(i),min(ymaxlog,max(yminlog,log10(yval(i)))))
+   enddo
+
+else
+
+   eps = 1.e-6 * (xmax - xmin)
+
+   xfac = (op%h2 - op%h1) / (xmax - xmin)
+   yfac = (op%v2 - op%v1) / real(logymax - logymin)
+
+   asp2 = (yfac / xfac)**2
+
+   dashlen = (xmax - xmin) / real(2 * ndashes)
+   remain = dashlen
+
+   x = xval(1)
+   y = min(ymaxlog,max(yminlog,log10(yval(1))))
+
+   call o_frstpt(x,y)
+
+   icyc = 1
+   i = 2
+
+   do while (i < n)
+
+      yy = min(ymaxlog,max(yminlog,log10(yval(i))))
+      dist = sqrt((xval(i) - x)**2 + asp2 * (yy - y)**2) 
+
+      if (remain > dist + eps) then
+
+         step = dist
+
+         x = xval(i)
+         y = yy
+
+         if (icyc > 0) then
+            call o_vector(x,y)
+         else
+            call o_frstpt(x,y)
+         endif
+
+         remain = remain - step
+         i = i + 1
+
+      else
+
+         step = remain
+
+         x = x + (xval(i) - x) * step / dist
+         y = y + (yy - y) * step / dist
+
+         if (icyc > 0) then
+            call o_vector(x,y)
+         else
+            call o_frstpt(x,y)
+         endif
+
+         remain = dashlen
+         icyc = -icyc
+
+      endif
+
+   enddo
+
+endif
+
+
 
 return
 end subroutine oplot_xy2log10

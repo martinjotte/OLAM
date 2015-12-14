@@ -45,9 +45,9 @@ subroutine landcell(iwl, nlev_sfcwater, leaf_class, ntext_soil,             &
                     surface_ssh, ground_shv, veg_water, veg_temp,           &
                     cantemp, canshv, stom_resist, veg_ndvip, veg_ndvif,     &
                     veg_ndvic, veg_albedo, rough, ggaero, head0, head1,     &
-                    glatw, glonw, timefac_ndvi                              )
+                    glatw, glonw, flag_vg, timefac_ndvi                     )
                               
-use leaf_coms,         only: nzg, nzs, soil_rough, snow_rough, slcpd, dt_leaf, slmsts
+use leaf_coms,         only: nzg, nzs, soil_rough, snow_rough, slcpd, dt_leaf
 use misc_coms,         only: io6
 use leaf4_canopy,      only: canopy, vegndvi
 use leaf4_sfcwater,    only: sfcwater, sfcwater_adjust, remove_runoff
@@ -60,6 +60,9 @@ integer, intent(in   ) :: iwl               ! current land cell index
 integer, intent(inout) :: nlev_sfcwater     ! # active levels of surface water
 integer, intent(in   ) :: leaf_class        ! leaf ("vegetation") class
 integer, intent(in   ) :: ntext_soil  (nzg) ! soil textural class
+
+logical, intent(in   ) :: flag_vg           ! flag for van Genuchten model
+                                            ! (instead of Clapp & Hornberger)
 
 real, intent(inout) :: soil_water     (nzg) ! soil water [vol_water/vol_tot]
 real, intent(inout) :: soil_energy    (nzg) ! soil energy [J/m^3]
@@ -248,7 +251,8 @@ call canopy(iwl,                   nlsw1,                   &
             cantemp,               canshv,                  & 
             transp,                stom_resist,             &
             ggaero,                snowmin_expl,            &
-            glatw,                 glonw                    )
+            glatw,                 glonw,                   &
+            flag_vg                                         )
 
 
 ! CALL SFCWATER:
@@ -267,7 +271,8 @@ call sfcwater(iwl,              icomb,           &
               sfcwater_fracliq, energy_per_m2,   &
               head1,            vf,              &
               wfree1,           qwfree1,         &
-              dwfree1,          snowmin_expl     )
+              dwfree1,          snowmin_expl,    &
+              flag_vg                            )
 
 
 call soil(iwl,               nlev_sfcwater,      &
@@ -280,7 +285,8 @@ call soil(iwl,               nlev_sfcwater,      &
           head0,             head1,              &
           wfree1,            qwfree1,            &
           transp,                                &
-          glatw,             glonw               )
+          glatw,             glonw,              &
+          flag_vg                                )
 
 ! Inventory sfcwater layer(s) and adjust thicknesses if more than one
 
@@ -301,7 +307,8 @@ call grndvap(iwl,              nlev_sfcwater,          &
              ntext_soil (nzg), soil_water     (nzg),   &
              soil_energy(nzg), sfcwater_energy(nlsw1), &
              rhos,             canshv,                 &
-             surface_ssh,      ground_shv              )
+             surface_ssh,      ground_shv,             &
+             flag_vg                                   )
              
 !-----------------------------------------------------------------------------
 ! TEMPORARY UNTIL FULL LEAF-HYDRO MODEL IS COMPLETED WITH STREAM/RIVER RUNOFF:

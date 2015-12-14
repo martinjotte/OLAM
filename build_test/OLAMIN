@@ -128,9 +128,10 @@
  ! Timestep and timestep ratios (One ratio for each Mesh Refinement Level (MRL))
  !------------------------------------------------------------------------------
 
-   NL%DTLONG  = 60.                 ! Long timestep
+   NL%DTLONG  = 60.      ! Long timestep
 
-   NL%NACOUST  = 2,2,2,2,2,2,2,2,2  ! # acoustic timesteps per long timestep
+   NL%NACOUST  = 2,2,2,2,2,2,2,2,2   ! # acoustic timesteps per long timestep
+
 
  !--------------------------------------------------------------------------
  ! Variable initialization input
@@ -421,6 +422,9 @@
                           ! 1 -- read from NCEP/NCAR netcdf reanalysis
                           ! 2 -- read from initial analysis files
 
+   NL%ISOILDEPTHFLG  = 0  ! 0 -- use NZG, SLZ for each grid cell
+                          ! 1 -- read file to get soil depth for each grid cell
+
    NL%IWATERTABFLG   = 1  ! 0 -- use default for each landuse class
                           ! 1 -- read from file
 
@@ -431,6 +435,7 @@
    NL%SOIL_DATABASE   = '../../olamdatah5/fao/FAO_'
    NL%NDVI_DATABASE   = '../../olamdatah5/ndvi/NDVI'
    NL%SOILSTATE_DB    = './dp_etc/STW-'
+   NL%SOILDEPTH_DB    = '../../olamdatah5/SOIL_DEPTHS.h5'
    NL%WATERTAB_DB     = '../../olamdatah5/wtd/WTD'
 
  ! These point to a .txt listing of sst/seaice files, and are used only

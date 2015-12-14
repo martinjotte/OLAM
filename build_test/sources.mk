@@ -26,8 +26,8 @@ SOURCE_FILES= \
              $(LEAF)/leaf4_soil.f90 \
              $(LEAF)/leaf4_startup.f90 \
              $(LEAF)/mem_leaf.f90 \
-             $(LEAF)/para_init_land.f90 \
              $(LEAF)/ndvi_database_read.f90 \
+             $(LEAF)/para_init_land.f90 \
              $(LEAF)/read_soil_analysis.F90 \
              $(MODEL_MODS)/consts_coms.f90 \
              $(MODEL_MODS)/ke_coms.f90 \
@@ -108,9 +108,9 @@ SOURCE_FILES= \
              $(OMODEL)/spring_dynamics.f90 \
              $(OMODEL)/surface_fluxes.F90 \
              $(OMODEL)/thiltend_long.f90 \
+             $(OMODEL)/thuburn_module.F90 \
              $(OMODEL)/tileslab.F90 \
              $(OMODEL)/timestep.f90 \
-             $(OMODEL)/thuburn_module.F90 \
              $(OMODEL)/triangle_utils.f90 \
              $(OMODEL)/vectslab.F90 \
              $(OMODEL)/vel_t3d.f90 \

@@ -92,7 +92,7 @@ do iwl = 2,mwl
       land%rough                (iwl), land%ggaer               (iwl), &
       land%head0                (iwl), land%head1               (iwl), &
       land%glatw                (iwl), land%glonw               (iwl), &
-      timefac_ndvi                                                     )
+      land%flag_vg              (iwl), timefac_ndvi                    )
 
    elseif(land%ed_flag(iwl) == 1)then
 
@@ -119,9 +119,9 @@ end subroutine leaf4
 !===============================================================================
 
 subroutine grndvap(iwl, nlev_sfcwater, nts, soil_water, soil_energy, &
-                   sfcwater_energy, rhos, canshv, surface_ssh, ground_shv)
+                   sfcwater_energy, rhos, canshv, surface_ssh, ground_shv, flag_vg)
 
-use leaf_coms,   only: nstyp, slbs, slmsts, slpots, slcpd, nzg
+use leaf_coms,   only: nstyp, slcpd, nzg
 use consts_coms, only: grav, rvap
 use misc_coms,   only: io6
 
@@ -138,6 +138,7 @@ real, intent(in)  :: rhos            ! air density [kg/m^3]
 real, intent(in)  :: canshv          ! canopy vapor spec hum [kg_vap/kg_air]
 real, intent(out) :: surface_ssh     ! surface (saturation) spec hum [kg_vap/kg_air]
 real, intent(out) :: ground_shv      ! ground equilibrium spec hum [kg_vap/kg_air]
+logical, intent(in) :: flag_vg
 
 ! Local variables
 
@@ -149,42 +150,43 @@ real :: gnd_rhov  ! ground sfc evaporative vapor density [kg_vap/m^3]
 
 real, external :: rhovsil  ! function to compute sat vapor density (over ice or liq)
 
-can_rhov = canshv * rhos
+  can_rhov = canshv * rhos
 
-if (nlev_sfcwater > 0) then
+  if (nlev_sfcwater > 0) then
 
-! sfc_rhovs is the saturation vapor density of the top soil or snow surface
-! and is used for dew formation and snow evaporation.
+  ! sfc_rhovs is the saturation vapor density of the top soil or snow surface
+  ! and is used for dew formation and snow evaporation.
 
-   call qtk(sfcwater_energy,tempk,fracliq)
-   sfc_rhovs = rhovsil(tempk-273.15)
-   surface_ssh = sfc_rhovs / rhos
+     call qtk(sfcwater_energy,tempk,fracliq)
+     sfc_rhovs = rhovsil(tempk-273.15)
+     surface_ssh = sfc_rhovs / rhos
 
-else
+  else
 
-! Without snowcover, gnd_rhov is the effective saturation vapor density
-! of soil and is used for soil evaporation.
+  ! Without snowcover, gnd_rhov is the effective saturation vapor density
+  ! of soil and is used for soil evaporation.
 
-   call qwtk(soil_energy,soil_water*1.e3,slcpd(nts),tempk,fracliq)
-   sfc_rhovs = rhovsil(tempk-273.15)
+     call qwtk(soil_energy,soil_water*1.e3,slcpd(nts),tempk,fracliq)
+     sfc_rhovs = rhovsil(tempk-273.15)
 
-   call grndvap_ab(iwl,nts,tempk,soil_water,can_rhov,sfc_rhovs,gnd_rhov)
+     call grndvap_ab(iwl,nts,tempk,soil_water,can_rhov,sfc_rhovs,gnd_rhov,flag_vg)
 
-   surface_ssh = sfc_rhovs / rhos
-   ground_shv  = gnd_rhov  / rhos
+     surface_ssh = sfc_rhovs / rhos
+     ground_shv  = gnd_rhov  / rhos
 
-endif
+  endif
 
-return
 end subroutine grndvap
 
 !===============================================================================
 
-subroutine grndvap_ab(iwl,nts,tempk,soil_water,can_rhov,sfc_rhovs,gnd_rhov)
+subroutine grndvap_ab(iwl,nts,tempk,soil_water,can_rhov,sfc_rhovs,gnd_rhov,flag_vg)
 
-use leaf_coms,   only: nstyp, slbs, slmsts, slpots, slcpd, nzg
+use leaf_coms, only: nstyp, nzg, slzt
+
 use consts_coms, only: grav, rvap
 use misc_coms,   only: io6
+ use leaf4_soil, only: soil_wat2pot
 
 implicit none
 
@@ -196,6 +198,7 @@ real, intent(in)  :: soil_water  ! soil water content [vol_water/vol_tot]
 real, intent(in)  :: can_rhov    ! canopy vapor density [kg_vap/m^3]
 real, intent(in)  :: sfc_rhovs   ! surface saturation vapor density [kg_vap/m^3]
 real, intent(out) :: gnd_rhov    ! ground equilibrium vapor density [kg_vap/m^3]
+logical, intent(in) :: flag_vg
 
 ! Local parameter
 
@@ -207,20 +210,26 @@ real :: slpotvn ! soil water potential [m]
 real :: alpha   ! "alpha" term in Lee and Pielke (1993)
 real :: beta    ! "beta" term in Lee and Pielke (1993)
 real, save :: sfldcap(nstyp)  ! soil water field capacity [vol_water/vol_tot]
+real :: water_frac_ul
+real :: water_frac
+real :: psi
+real :: head ! soil water potential [m]
+real :: headp
 
 data sfldcap/.135,.150,.195,.255,.240,.255,.322,.325,.310,.370,.367,.535/
 
-! Without snowcover, gnd_rhov is the effective saturation mixing
-! ratio of soil and is used for soil evaporation.  First, compute the
-! "alpha" term or soil "relative humidity" and the "beta" term.
+  ! Without snowcover, gnd_rhov is the effective saturation mixing
+  ! ratio of soil and is used for soil evaporation.  First, compute the
+  ! "alpha" term or soil "relative humidity" and the "beta" term.
 
-slpotvn = slpots(nts) * (slmsts(nts) / soil_water) ** slbs(nts)
-alpha = exp(gorvap * slpotvn / tempk)
-beta = .25 * (1. - cos (min(1.,soil_water / sfldcap(nts)) * 3.14159)) ** 2
+  call soil_wat2pot(iwl,nts,flag_vg,soil_water,slzt(nzg), &
+                  water_frac_ul, water_frac, psi, head, headp)
 
-gnd_rhov = sfc_rhovs * alpha * beta + (1. - beta) * can_rhov
+  alpha = exp(gorvap * head / tempk)
+  beta = .25 * (1. - cos (min(1.,soil_water / sfldcap(nts)) * 3.14159)) ** 2
 
-return
+  gnd_rhov = sfc_rhovs * alpha * beta + (1. - beta) * can_rhov
+
 end subroutine grndvap_ab
 
 !===============================================================================
@@ -233,9 +242,9 @@ subroutine sfcrad_land(iwl, leaf_class, ntext_soil, nlev_sfcwater,      &
                        rshort_s, rshort_g, rshort_v,                    &
                        rlong_g, rlong_s, rlong_v,                       &
                        rlongup, rlong_albedo, albedo_beam, snowfac, vf, &
-                       cosz, xewl, yewl, zewl, wnxl, wnyl, wnzl         )
+                       cosz, xewl, yewl, zewl, wnxl, wnyl, wnzl, flag_vg)
 
-use leaf_coms,   only: nzs, slcpd, slmsts, emisv, emisg
+use leaf_coms,   only: nzs, slcpd, slmsts, emisv, emisg, slmsts_vg
 use consts_coms, only: stefan, eradi
 use misc_coms,   only: io6
 use mem_radiate, only: sunx, suny, sunz
@@ -263,6 +272,8 @@ real, intent(in) :: zewl         ! land cell earth z coordinate [m]
 real, intent(in) :: wnxl         ! land cell norm unit vec x comp [m]
 real, intent(in) :: wnyl         ! land cell norm unit vec y comp [m]
 real, intent(in) :: wnzl         ! land cell norm unit vec z comp [m]
+
+logical, intent(in) :: flag_vg   ! van Genuchten flag
 
 real, intent(out) :: rshort_s(nzs) ! s/w net rad flux to sfc water [W/m^2]
 real, intent(out) :: rshort_g ! s/w net rad flux to soil [W/m^2]
@@ -354,7 +365,11 @@ if (nlev_sfcwater == 0) then
 
 ! Shortwave radiation calculations
 
-   fc50 = min(.50, soil_water / slmsts(ntext_soil))
+   if (flag_vg) then
+      fc50 = min(.50, soil_water / slmsts_vg(ntext_soil))
+   else
+      fc50 = min(.50, soil_water / slmsts(ntext_soil))
+   endif
 
    if (leaf_class == 2) then
 
@@ -482,6 +497,5 @@ else
 
 endif
 
-return
 end subroutine sfcrad_land
 

@@ -36,11 +36,10 @@ subroutine leaf4_init_atm()
   use mem_leaf,    only: land, itab_wl
 
   use leaf_coms,   only: mwl, nzg, nzs, &
-                         veg_ht, soilcp, slmsts, slcpd, soil_rough, &
+                         slzt, veg_ht, slcpd, soil_rough, &
                          iupdndvi, s1900_ndvi, indvifile, nndvifiles, &
-                         dt_leaf, isoilstateinit, iwatertabflg, watertab_db, &
-                         water_frac_ph0, water_def_ph0, slpott, slpots, slbs, slzt
-                      
+                         dt_leaf, isoilstateinit, iwatertabflg, watertab_db
+
   use mem_basic,    only: rho, press, vxe, vye, vze, tair, sh_v
   use misc_coms,    only: io6, time8, s1900_sim, iparallel, isubdomain, &
                           runtype, initial
@@ -49,11 +48,12 @@ subroutine leaf4_init_atm()
   use mem_para,     only: myrank
   use leaf4_canopy, only: vegndvi
   use land_db,      only: land_database_read
+  use leaf4_soil,   only: soil_pot2wat
 
   implicit none
 
   integer :: k
-  integer :: ntext
+  integer :: nts
   integer :: iw
   integer :: kw
   integer :: iwl
@@ -62,10 +62,9 @@ subroutine leaf4_init_atm()
 
   real :: timefac_ndvi
   real :: wq, wq_added
-  real :: headp_phi  ! Inverse of derivative of hydraulic pressure head
-                   ! wrt soil water
   real :: psi
   real :: wcap_min   ! minimum surface water water [kg/m^2]
+  real :: water_frac_ul
 
   real :: soil_tempc(nzg,mwl)  ! initial soil temperature (C)
   real :: fracliq(nzg,mwl)     ! initial soil liquid fraction (0-1)
@@ -73,7 +72,7 @@ subroutine leaf4_init_atm()
 
   real, external :: rhovsl
 
-  ! Initialize leaf quantities that do not depend on atmospheric conditions
+  ! Leaf quantities that get initialized at the start of any model run
 
   timefac_ndvi = 0.
 
@@ -98,6 +97,10 @@ subroutine leaf4_init_atm()
 
   !$omp parallel do private (leaf_class)
   do iwl = 2,mwl
+
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+!     land%flag_vg(iwl) = .true.
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
      ! Set vegetation parameters
 
@@ -166,13 +169,13 @@ subroutine leaf4_init_atm()
 
   enddo  ! iwl
 
-  ! End of initialization that does not depend on atmospheric conditions
+  ! End of leaf quantities that are initialized on any run
 
   if (runtype /= "INITIAL") return
 
-  ! Initialize leaf quantities that depend on atmospheric conditions
+  ! Leaf quantities that are initialized only on 'INITIAL' run
 
-  !$omp parallel do private (iw,kw,k,ntext,headp_phi,psi)
+  !$omp parallel do private (iw,kw,k,nts,water_frac_ul)
   do iwl = 2,mwl
 
      iw = itab_wl(iwl)%iw  ! global index
@@ -209,40 +212,12 @@ subroutine leaf4_init_atm()
      ! Loop over soil layers
 
      do k = 1,nzg
-        ntext = land%ntext_soil(k,iwl)
+        nts = land%ntext_soil(k,iwl)
 
-        ! If initial head exceeds slpott, estimate soil_water based on total
-        ! head (molecular plus hydraulic)       
+        ! Diagnose soil water from given head0, nts, flag_vg, and slzt
 
-        if (land%head0(iwl) - slzt(k) > slpott(ntext)) then
-      
-           headp_phi = (water_def_ph0 * slmsts(ntext)) / (10. - slpott(ntext))
-
-           ! First estimate using slpott in place of psi
-
-           land%soil_water(k,iwl) = water_frac_ph0 * slmsts(ntext) &
-              + (land%head0(iwl) - slzt(k) - slpott(ntext)) * headp_phi 
-
-           ! Evaluate molecular water potential from soil water estimate
-
-           psi = slpots(ntext) &
-               * (slmsts(ntext) / land%soil_water(k,iwl)) ** slbs(ntext)
-
-           ! Correction using psi
-
-           land%soil_water(k,iwl) = water_frac_ph0 * slmsts(ntext) &
-              + (land%head0(iwl) - slzt(k) - psi) * headp_phi
-            
-        else
-
-           ! If initial head does not exceed slpott, estimate soil_water based on
-           ! molecular head alone       
-
-           land%soil_water(k,iwl) = max(soilcp(ntext),slmsts(ntext) &
-              * (slpots(ntext) / (land%head0(iwl) - slzt(k))) ** (1./slbs(ntext)))
-
-        endif
-
+        call soil_pot2wat(iwl, nts, land%flag_vg(iwl), land%head0(iwl), slzt(k), &
+                          water_frac_ul, land%soil_water(k,iwl))
      enddo
 
   enddo  ! iwl
@@ -267,27 +242,55 @@ subroutine leaf4_init_atm()
 
   endif
 
-  !--------------------------------------------------------------------------------
-  ! ADD A METHOD HERE TO INITIALIZE FRACTION OF SOIL WATER THAT IS LIQUID (FRACLIQ)
-  ! BASED ON MODEL OBSERVED AND/OR MODEL CLIMATOLOGY
-  !--------------------------------------------------------------------------------
-
   ! Loop over all LAND cells
 
   do iwl = 2,mwl
 
-     ! Leaf classes 17 and 20 represent persistent wetlands (bogs, marshes, fens,
-     ! swamps).  Initialize these areas with saturated soil, and with 0.1 m of standing
-     ! surface water (sfcwater) added to whatever is already present (e.g., from obs).
+     !--------------------------------------------------------------------------------
+     ! ADD A METHOD HERE TO INITIALIZE FRACTION OF SOIL WATER THAT IS LIQUID (FRACLIQ)
+     ! BASED ON MODEL OBSERVED AND/OR MODEL CLIMATOLOGY
+     !--------------------------------------------------------------------------------
+
+     ! If leaf_class of this IWL land cell is ice cap or glacier, assume that 
+     ! all 'soil' water is in ice phase and that soil_tempc is at or below 0.
+     ! (Soil will be replaced by firn model in the future.)
+
+     if (land%leaf_class(iwl) == 2) then
+
+        soil_tempc(1:nzg,iwl) = min(0.,soil_tempc(1:nzg,iwl))
+        fracliq(1:nzg,iwl) = 0.
+
+     endif
+
+     ! Initialize soil energy [J/m^3] from given soil textural class, temperature, 
+     ! total water content, and liquid fraction (as opposed to ice fraction) of the 
+     ! soil water that is present.  
+
+     do k = 1,nzg
+        nts = land%ntext_soil(k,iwl)
+
+        if (soil_tempc(k,iwl) > 0.) then
+
+           land%soil_energy(k,iwl)                                      &
+               = soil_tempc(k,iwl) * slcpd(nts)                         &
+               + soil_tempc(k,iwl) * land%soil_water(k,iwl) * cliq1000  &
+               + fracliq(k,iwl)    * land%soil_water(k,iwl) * alli1000
+             
+        else
+      
+           land%soil_energy(k,iwl)                                       &
+              = soil_tempc(k,iwl) * slcpd(nts)                           &
+              + soil_tempc(k,iwl) * land%soil_water(k,iwl) * cice1000    &
+              + fracliq(k,iwl)    * land%soil_water(k,iwl) * alli1000
+             
+        endif
+     enddo
+
+     ! Leaf classes 17 and 20 represent persistent wetlands (bogs, marshes, 
+     ! fens, swamps).  Initialize these areas with 0.1 m of standing surface
+     ! water (sfcwater) added to whatever is already present (e.g., from obs).
 
      if (land%leaf_class(iwl) == 17 .or. land%leaf_class(iwl) == 20) then
-
-        ! Vertical loop over soil layers: saturate soil layers
-
-        do k = 1,nzg
-           ntext = land%ntext_soil(k,iwl)
-           land%soil_water(k,iwl) = slmsts(ntext)
-        enddo
 
         ! Since sfcwater_energy has units of J/kg, first convert to J/m^2 before adding
         ! wetland sfcwater.
@@ -307,52 +310,13 @@ subroutine leaf4_init_atm()
 
         wq_added = 100.  &  ! 100 kg/m^2 added mass
                  * ((land%cantemp(iwl) - 273.15) * cliq + alli) ! J/kg of added
-                                                               ! liquid water
+                                                                ! liquid water
         ! Diagnose new sfcwater energy
 
         land%sfcwater_energy(1,iwl) = (wq + wq_added) / land%sfcwater_mass(1,iwl)
       
-        ! Set head0 to maintain 10 cm of surface water
-
-        land%head0(iwl) = .10
-
      endif
    
-     ! If leaf_class of this IWL land cell is ice cap or glacier, assume that 
-     ! all 'soil' water is in ice phase and that soil_tempc is at or below 0.
-     ! (Soil will be replaced by firn model in the future.)
-
-     if (land%leaf_class(iwl) == 2) then
-
-        soil_tempc(1:nzg,iwl) = min(0.,soil_tempc(1:nzg,iwl))
-        fracliq(1:nzg,iwl) = 0.
-
-     endif
-
-     ! Initialize soil energy [J/m^3] from given soil textural class, temperature, 
-     ! total water content, and liquid fraction (as opposed to ice fraction) of the 
-     ! soil water that is present.  
-
-     do k = 1,nzg
-        ntext = land%ntext_soil(k,iwl)
-
-        if (soil_tempc(k,iwl) > 0.) then
-
-           land%soil_energy(k,iwl)                                      &
-               = soil_tempc(k,iwl) * slcpd(ntext)                       &
-               + soil_tempc(k,iwl) * land%soil_water(k,iwl) * cliq1000  &
-               + fracliq(k,iwl)    * land%soil_water(k,iwl) * alli1000
-             
-        else
-      
-           land%soil_energy(k,iwl)                                       &
-              = soil_tempc(k,iwl) * slcpd(ntext)                         &
-              + soil_tempc(k,iwl) * land%soil_water(k,iwl) * cice1000    &
-              + fracliq(k,iwl)    * land%soil_water(k,iwl) * alli1000
-             
-        endif
-     enddo
-
      ! Determine active number of surface water levels
 
      wcap_min = dt_leaf * 1.e-6  ! same as in leaf4_sfcwater
@@ -383,7 +347,8 @@ subroutine leaf4_init_atm()
                   land%rhos                 (iwl), &
                   land%canshv               (iwl), &
                   land%surface_ssh          (iwl), &
-                  land%ground_shv           (iwl)  )
+                  land%ground_shv           (iwl), &
+                  land%flag_vg              (iwl)  )
 
      ! Initialize snowfac
 
@@ -403,7 +368,8 @@ end subroutine leaf4_init_atm
 subroutine read_soil_moist_temp(soil_tempc)
 
   use misc_coms, only: io6, iyear1, imonth1, idate1, itime1
-  use leaf_coms, only: nzg, mwl, slz, soilcp, slmsts, slcpd, soilstate_db
+  use leaf_coms, only: nzg, mwl, slz, soilcp, slmsts, slcpd, soilstate_db, &
+                       soilcp_vg, slmsts_vg
   use mem_leaf,  only: land, itab_wl
   use consts_coms, only: pio180, piu180, erad, cliq1000, alli1000, cice,   &
        cice1000
@@ -546,7 +512,6 @@ subroutine read_soil_moist_temp(soil_tempc)
               ! Vertical loop over soil layers
 
               do k = 1,nzg
-
                  ntext = land%ntext_soil(k,iwl)
 
                  ! Determine if this layer corresponds to the first 
@@ -554,12 +519,18 @@ subroutine read_soil_moist_temp(soil_tempc)
 
                  if (abs(slz(k)) < 0.1) then
                     soil_tempc(k,iwl) = soilt1(i) - 273.15
-                    land%soil_water(k,iwl) = max(soilcp(ntext),   &
-                         soilw1(i) * slmsts(ntext))
+                    land%soil_water(k,iwl) = soilw1(i)
                  else
                     soil_tempc(k,iwl) = soilt2(i) - 273.15
-                    land%soil_water(k,iwl) = max(soilcp(ntext),   &
-                         soilw2(i) * slmsts(ntext))
+                    land%soil_water(k,iwl) = soilw2(i)
+                 endif
+
+                 if (land%flag_vg(iwl)) then
+                    land%soil_water(k,iwl) = max(soilcp_vg(ntext), &
+                    land%soil_water(k,iwl) * slmsts_vg(ntext))
+                 else
+                    land%soil_water(k,iwl) = max(soilcp(ntext), &
+                    land%soil_water(k,iwl) * slmsts(ntext))
                  endif
 
               enddo

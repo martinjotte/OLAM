@@ -47,7 +47,7 @@ Module leaf_coms
   integer, parameter :: nstyp = 12    ! total # of soil textural classes
   integer, parameter :: nvtyp = 21    ! total # of leaf ("veg") classes
 
-! Parameters for subroutine vegndvi
+  ! Parameters for subroutine vegndvi
 
   real, parameter :: sr_min     = 1.081  ! Minimum simple ratio
   real, parameter :: fpar_min   =  .001  ! Minimum fpar
@@ -55,13 +55,30 @@ Module leaf_coms
   real, parameter :: soil_rough =  .050  ! soil roughness height
   real, parameter :: snow_rough =  .010  ! snowcover roughness height
 
-! Parameters for soil
+  ! Parameters for soil...
 
-  real, parameter :: refdepth       = -2.0
-  real, parameter :: water_frac_ph0 =  0.95   ! water fraction at onset of
-                                              ! hydraulic pressure head
-  real, parameter :: water_def_ph0  =  1.05 - water_frac_ph0
-   
+  ! At the higher end of the range of soil water content in both the van
+  ! Genuchten and Clapp & Hornberger models for soil water potential (head),
+  ! water potential is modified to represent a linear increase with water
+  ! content so that a positive confinement pressure can be represented.  The
+  ! constant gradient is defined using two values of water fraction,
+  ! wfrac_high1 and wfrac_high2, along with corresponding head values for each.
+
+  real, parameter :: wfrac_high1 =  0.95 ! Soil water fraction values at high
+  real, parameter :: wfrac_high2 =  1.05 ! and low ends of normal range used to
+
+  ! At the lower end of the range of soil water content in the van Genuchten
+  ! model for soil water potential (head), water potential becomes singular.
+  ! To avoid computational problems associated with the singularity and nearby
+  ! steepness of the potential curve, water potential is modified to represent
+  ! a linear increase with water.  The constant gradient is defined using two
+  ! values of water fraction, wfrac_low1 and wfrac_low2, along with
+  ! corresponding head values for each.
+
+  real, parameter :: wfrac_low1  =  0.009 ! define zones of constant potential
+  real, parameter :: wfrac_low2  =  0.010 ! (or head) gradient with respect to
+                                         ! soil water content
+  
   character(pathlen) :: landusefile
   character(pathlen) :: veg_database
   character(pathlen) :: soil_database
@@ -102,28 +119,46 @@ Module leaf_coms
 
   real :: dt_leaf     ! leaf timestep [s]
    
-  real :: slpden   (nstyp) ! soil particle density [kg/m3]
-  real :: slcpd    (nstyp) ! dry soil volumetric heat capacity [J/(m^3 K)]
-  real :: slbs     (nstyp) ! b exponent [dimensionless]
-  real :: slcons   (nstyp) ! sat soil hydraulic conductivity [m/s]
-  real :: slmsts   (nstyp) ! sat volumetric moist content (porosity) [m^3_wat/m^3_tot]
-  real :: slmstsh0 (nstyp) ! nzg volumetric moist content at head = 0 [m^3_wat/m^3_tot]
-  real :: slpots   (nstyp) ! sat moisture potential [m]
-  real :: slpott   (nstyp) ! moisture potential [m] at threshold of added hydraul head
-  real :: soilcp   (nstyp) ! minimum soil moisture [m^3_wat/m^3_tot]
-  real :: emisg    (nstyp) ! soil infrared emissivity
-  real :: slcons0  (nstyp) ! surface value for slcons [m/s]
-  real :: fhydraul (nstyp) ! vertically varying hydraulic conductivity factor
-  real :: xsand    (nstyp) ! soil fractional sand content
-  real :: xclay    (nstyp) ! soil fractional clay content
-  real :: xorgan   (nstyp) ! soil fractional organic content
-  real :: robulk   (nstyp) ! soil dry bulk density [kg/m^3]
-  real :: soilwilt (nstyp) ! vol moist content at wilting point [m^3_wat/m^3_tot]
-  real :: soilcond0(nstyp) ! New soil cond (8/17/00)
-  real :: soilcond1(nstyp) ! New soil cond (8/17/00)
-  real :: soilcond2(nstyp) ! New soil cond (8/17/00)
-  real :: slmstsi  (nstyp) ! 1 / porosity
-  real :: headp_ph (nstyp) ! Derivative of hydraulic pressure head wrt soil water
+  real :: slpden      (nstyp) ! soil particle density [kg/m3]
+  real :: slcpd       (nstyp) ! dry soil volumetric heat capacity [J/(m^3 K)]
+  real :: slbs        (nstyp) ! b exponent [dimensionless]
+  real :: slcons      (nstyp) ! sat soil hydraulic conductivity [m/s]
+  real :: slmsts      (nstyp) ! sat volumetric moist content (porosity) [m^3_wat/m^3_tot]
+  real :: slmstsh0    (nstyp) ! nzg volumetric moist content at head = 0 [m^3_wat/m^3_tot]
+  real :: slpots      (nstyp) ! sat moisture potential [m]
+  real :: soilcp      (nstyp) ! minimum soil moisture [m^3_wat/m^3_tot]
+  real :: emisg       (nstyp) ! soil infrared emissivity
+  real :: slcons0     (nstyp) ! surface value for slcons [m/s]
+  real :: xsand       (nstyp) ! soil fractional sand content
+  real :: xclay       (nstyp) ! soil fractional clay content
+  real :: xorgan      (nstyp) ! soil fractional organic content
+  real :: robulk      (nstyp) ! soil dry bulk density [kg/m^3]
+  real :: soilwilt    (nstyp) ! vol moist content at wilting point [m^3_wat/m^3_tot]
+  real :: soilcond0   (nstyp) ! New soil cond (8/17/00)
+  real :: soilcond1   (nstyp) ! New soil cond (8/17/00)
+  real :: soilcond2   (nstyp) ! New soil cond (8/17/00)
+  real :: slmstsi     (nstyp) ! 1 / porosity
+  real :: headp_high  (nstyp) ! Gradient of soil water potential at high water content
+  real :: slpott_high1(nstyp) ! soil water potential [m] at wfrac_high1
+  real :: slpott_high2(nstyp) ! soil water potential [m] at wfrac_high2
+
+! Parameters for van Genuchten model (an alternative to Clapp & Hornberger) 
+  real ::       slmsts_vg(nstyp) ! sat volumetric moist content (porosity) [m^3_wat/m^3_tot]
+  real ::     slmstsh0_vg(nstyp) ! nzg volumetric moist content at head = 0 [m^3_wat/m^3_tot]
+  real ::       soilcp_vg(nstyp) ! minimum soil moisture [m^3_wat/m^3_tot]
+  real ::       slcons_vg(nstyp) ! sat soil hydraulic conductivity [m/s]
+  real ::        alpha_vg(nstyp) ! alpha parameter [1/m]
+  real ::       alphai_vg(nstyp) ! 1/alpha parameter [m]; ROUGHLY equivalent to slpots
+  real ::           en_vg(nstyp) ! n parameter [ ]
+  real ::          eni_vg(nstyp) ! 1/n parameter [ ]
+  real ::           em_vg(nstyp) ! m parameter [ ]
+  real ::          emi_vg(nstyp) ! 1/m parameter [ ]
+  real ::   headp_high_vg(nstyp) ! Gradient of soil water potential at high water content
+  real ::    headp_low_vg(nstyp) ! Gradient of soil water potential at low water content
+  real :: slpott_high1_vg(nstyp) ! soil water potential [m] at wfrac_high1
+  real :: slpott_high2_vg(nstyp) ! soil water potential [m] at wfrac_high2
+  real ::  slpott_low1_vg(nstyp) ! soil water potential [m] at wfrac_low1
+  real ::  slpott_low2_vg(nstyp) ! soil water potential [m] at wfrac_low2
 
   integer :: kroot  (nvtyp)  ! k index of soil layer of lowest roots
 
@@ -143,7 +178,8 @@ Module leaf_coms
    
   real :: slz   (nzgmax)  ! Depth (neg height value) of bottom of each soil layer [m]
 
-  real, save, allocatable :: slreso2(:,:) ! z-dependent soil sat hydraul res [s]
+  real, save, allocatable :: slreso2   (:,:) ! z-dependent soil sat hydraul resist [s]
+  real, save, allocatable :: slreso2_vg(:,:) ! z-dependent soil sat hydraul resist [s]
   real, save, allocatable :: dslz     (:) ! soil layer thickness at T pt [m]
   real, save, allocatable :: dslzo2   (:) ! HALF soil layer thickness at T pt [m]
   real, save, allocatable :: dslzi    (:) ! inverse soil layer thickness at T pt [1/m]
@@ -161,7 +197,8 @@ Contains
 
 ! Allocate leaf column arrays
 
-    allocate (slreso2 (nzg,nstyp))
+    allocate (slreso2   (nzg,nstyp))
+    allocate (slreso2_vg(nzg,nstyp))
     allocate (dslz    (nzg))
     allocate (dslzo2  (nzg))
     allocate (dslzi   (nzg))
