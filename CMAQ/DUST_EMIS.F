@@ -785,7 +785,7 @@ C=======================================================================
 !        use grid_conf           ! horizontal & vertical domain specifications
          use utilio_defn
          use aero_data
-         use leaf_coms,  only: mwl, nzg, slmsts
+         use leaf_coms,  only: mwl, nzg, slmsts_ch, slmsts_vg
          use mem_leaf,   only: land, itab_wl
          use mem_grid,   only: volti
          use misc_coms,  only: isubdomain
@@ -843,6 +843,7 @@ C Parameters:
          real :: utem   ! U term = U*(U**2-Ut**2) [(m/s)**3]
          real :: qam    ! emis for landuse type [g/m**/s]
          real :: tfa    ! transport fraction above canopy
+         real :: slmsts_top
 
                        ! automatic arrays
 !         real       :: fmoit ( ncols,nrows )        
@@ -1131,8 +1132,14 @@ C-----------------------------------------------------------------------
             if ( land%nlev_sfcwater(iwl) > 0 ) cycle
 
             ! Skip if top of soil is near saturation
+
+            if ( land%flag_vg(iwl) ) then
+               slmsts_top = slmsts_vg(land%ntext_soil(nzg,iwl))
+            else
+               slmsts_top = slmsts_ch(land%ntext_soil(nzg,iwl))
+            endif
                
-            if ( land%soil_water(nzg,iwl) > slmsts(land%ntext_soil(nzg,iwl)) - 0.01 ) cycle
+            if ( land%soil_water(nzg,iwl) > slmsts_top - 0.01 ) cycle
 
             ! Convert layer-average U* into surface local U*
             ! -> U*t has to be surface values from measurements.

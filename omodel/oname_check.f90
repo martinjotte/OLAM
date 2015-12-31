@@ -481,6 +481,7 @@ if (nl%isfcl == 1) then
 
    call ichk_bnds( nl%isoilstateinit, "ISOILSTATEINIT", 0, 2, 0, nfatal,nwarn )
    call ichk_bnds( nl%isoildepthflg,  "ISOILDEPTHFLG",  0, 1, 0, nfatal,nwarn )
+   call ichk_bnds( nl%isoilmodel,     "ISOILMODEL",     0, 1, 0, nfatal,nwarn )
 
    call ichk_bnds( nl%iupdndvi,  "IUPDNDVI",    0, 1, 0, nfatal, nwarn )
    call ichk_bnds( nl%iupdsst,   "IUPDSST",     0, 1, 0, nfatal, nwarn )

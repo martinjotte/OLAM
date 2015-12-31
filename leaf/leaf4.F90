@@ -244,7 +244,7 @@ subroutine sfcrad_land(iwl, leaf_class, ntext_soil, nlev_sfcwater,      &
                        rlongup, rlong_albedo, albedo_beam, snowfac, vf, &
                        cosz, xewl, yewl, zewl, wnxl, wnyl, wnzl, flag_vg)
 
-use leaf_coms,   only: nzs, slcpd, slmsts, emisv, emisg, slmsts_vg
+use leaf_coms,   only: nzs, slcpd, slmstsi_ch, emisv, emisg, slmstsi_vg
 use consts_coms, only: stefan, eradi
 use misc_coms,   only: io6
 use mem_radiate, only: sunx, suny, sunz
@@ -366,9 +366,9 @@ if (nlev_sfcwater == 0) then
 ! Shortwave radiation calculations
 
    if (flag_vg) then
-      fc50 = min(.50, soil_water / slmsts_vg(ntext_soil))
+      fc50 = min(.50, soil_water * slmstsi_vg(ntext_soil))
    else
-      fc50 = min(.50, soil_water / slmsts(ntext_soil))
+      fc50 = min(.50, soil_water * slmstsi_ch(ntext_soil))
    endif
 
    if (leaf_class == 2) then

@@ -70,7 +70,7 @@ use misc_coms,   only: io6, pr01d, dn01d, th01d, time8, isubdomain, &
                        naddsc, mdomain
 use oplot_coms,  only: op
 use consts_coms, only: p00i, rocp, erad, piu180, cp, alvl, grav, omega2
-use leaf_coms,   only: slcpd, nzg, slmsts, slz, dslz, mwl, dt_leaf
+use leaf_coms,   only: slcpd, nzg, slmstsi_ch, slmstsi_vg, slz, dslz, mwl, dt_leaf
 use sea_coms,    only: mws
 use mem_flux_accum, only:     rshort_accum,         rshortup_accum, &
                                rlong_accum,          rlongup_accum, &
@@ -1945,7 +1945,11 @@ case(154) ! 'SOIL_FRACLIQ'
 
 case(155) ! 'SOIL_WATER'
 
-   fldval = land%soil_water(k,i) / slmsts(land%ntext_soil(k,i))
+   if (land%flag_vg(i)) then
+      fldval = land%soil_water(k,i) * slmstsi_vg(land%ntext_soil(k,i))
+   else
+      fldval = land%soil_water(k,i) * slmstsi_ch(land%ntext_soil(k,i))
+   endif
 
 case(156) ! 'SFWAT_MASS'
 

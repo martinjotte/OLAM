@@ -114,21 +114,29 @@ end subroutine leaf4_startup
 
 subroutine sfcdata()
 
-  use leaf_coms, only: slz, nstyp, nvtyp, nzg, slcons0, slmstsi,   &
-                       slreso2, slpots, slmsts, slbs, slcons, slcpd, slpden, &
-                       xsand, xclay, xorgan, robulk, soilcond0, soilcond1,   &
-                       soilcond2, emisg, soilcp, albv_green, albv_brown,     &
-                       emisv, sr_max, tai_max, sai, veg_clump, veg_frac,     &
-                       veg_ht, dead_frac, rcmin, glai_max, dfpardsr,         &
-                       fpar_max, fpar_min, sr_min, kroot, soilwilt,          &
-                       dt_leaf, dslz, dslzo2, dslzi,                         &
-                       dslzidt, slzt, dslzt, dslzti, dslztidt,               &
-                       wfrac_high1, wfrac_high2, wfrac_low1, wfrac_low2,     &
-                       slpott_high1, slpott_high2, headp_high, slmstsh0,       &
-                       slpott_high1_vg, slpott_high2_vg, slpott_low1_vg,     &
-                       slpott_low2_vg, headp_high_vg, headp_low_vg,          &
-                       slmsts_vg, soilcp_vg, slcons_vg, alpha_vg, alphai_vg, &
-                       en_vg, eni_vg, em_vg, emi_vg, slreso2_vg, slmstsh0_vg
+  use leaf_coms, only: slz, nstyp, nvtyp, nzg, slbs_ch, slcpd, slpden,     &
+                       slreso2_ch, slreso2_vg, slpots_ch,                  &
+                       slmsts_ch, slmsts_vg, slcons_ch, slcons_vg,         &
+                       xsand, xclay, xorgan, soilcond0, soilcond1,         &
+                       soilcond2, emisg, soilcp_ch, soilcp_vg,             &
+                       albv_green, albv_brown,                             &
+                       emisv, sr_max, tai_max, sai, veg_clump, veg_frac,   &
+                       veg_ht, dead_frac, rcmin, glai_max, dfpardsr,       &
+                       fpar_max, fpar_min, sr_min, kroot, soilwilt,        &
+                       dt_leaf, dslz, dslzo2, dslzi,                       &
+                       dslzidt, slzt, dslzt, dslzti, dslztidt,             &
+                       wfrac_high1, wfrac_high2, wfrac_low1, wfrac_low2,   &
+                       slpott_high1_ch, slpott_high1_vg,                   &
+                       slpott_high2_ch, slpott_high2_vg,                   &
+                       slmstsh0_ch, slmstsh0_vg, robulk_ch, robulk_vg,     &
+                       headp_high_ch, headp_high_vg,                       &
+                       slpott_low1_vg, slpott_low2_vg, headp_low_vg,       &
+                       alpha_vg, alphai_vg, en_vg, eni_vg, em_vg, emi_vg,  &
+                       slmstsi_ch, slmstsi_vg, slbsi_ch,                   &
+                       headp_highi_ch, headp_highi_vg,  headp_lowi_vg,     &
+                       slmsts_mscp_vg, slmsts_mscpi_vg
+
+
   use misc_coms, only: io6
 
   implicit none
@@ -144,18 +152,18 @@ subroutine sfcdata()
 !  Soil Characteristics (see Clapp & Hornberger, 1978; McCumber & Pielke,
 !                        1981; Pielke, 1984; Tremback & Kessler, 1985)
 !
-!  slpots  - sat moisture potential [m]
-!  slmsts  - sat volumetric moisture content (soil porosity) [m^3_wat/m^3_tot]
-!  slbs    - b exponent [dimensionless]
-!  slcons  - saturation soil hydraulic conductivity [m/s]
-!  slcons0 - surface value for slcons [m/s]
-!  slcpd   - dry soil volumetric heat capacity [J/(m^3 K)]
-!  slpden  - dry soil density [kg/m3]
+!  slpots_ch  - sat moisture potential [m]
+!  slmsts_ch  - sat volumetric moisture content (soil porosity) [m^3_wat/m^3_tot]
+!  slbs_ch    - b exponent [dimensionless]
+!  slcons_ch  - saturation soil hydraulic conductivity [m/s]
+!  slcons0_ch - surface value for slcons [m/s]
+!  slcpd      - dry soil volumetric heat capacity [J/(m^3 K)]
+!  slpden     - dry soil density [kg/m3]
 
   real, parameter :: soilparms1(7,nstyp) = reshape( (/ &
       !------------------------------------------------------------------------
-      !slpots        slbs          slcons0          slpden      USDA SOIL CLASS
-      !       slmsts       slcons           slcpd               # AND NAME
+      !slpots_ch    slbs_ch      slcons0_ch        slpden      USDA SOIL CLASS
+      !      slmsts_ch    slcons_ch         slcpd               # AND NAME
       !------------------------------------------------------------------------
        -.121, .395,  4.05, .18e-3, .50e-3, 1465.e3, 2650.,  & !  1 sand
        -.090, .410,  4.38, .16e-3, .60e-3, 1407.e3, 2650.,  & !  2 loamy sand
@@ -277,14 +285,11 @@ subroutine sfcdata()
 ! Soil constants
 
   do nnn = 1,nstyp
-     slpots   (nnn) = soilparms1(1,nnn)
-     slmsts   (nnn) = soilparms1(2,nnn)
-     slbs     (nnn) = soilparms1(3,nnn)
-     slcons   (nnn) = soilparms1(4,nnn)
-     slcons0  (nnn) = soilparms1(5,nnn)
+
+     ! Soil parameters independent of soil model
+
      slcpd    (nnn) = soilparms1(6,nnn)
      slpden   (nnn) = soilparms1(7,nnn)
-
      xsand    (nnn) = soilparms2(1,nnn)
      xclay    (nnn) = soilparms2(2,nnn)
      xorgan   (nnn) = soilparms2(3,nnn)
@@ -292,36 +297,58 @@ subroutine sfcdata()
      soilcond0(nnn) = soilparms2(5,nnn)
      soilcond1(nnn) = soilparms2(6,nnn)
      soilcond2(nnn) = soilparms2(7,nnn)
+     emisg    (nnn) = .98
 
-     slmstsi     (nnn) = 1.0 / slmsts(nnn)
-     slpott_high1(nnn) = slpots(nnn) * (1./wfrac_high1) ** slbs(nnn)
-     slpott_high2(nnn) = 10.
-     emisg       (nnn) = .98
-     soilcp      (nnn) = 0.1 - 0.07 * xsand(nnn)
-     robulk      (nnn) = slpden(nnn) * (1.0 - slmsts(nnn))
-     headp_high  (nnn) = (slpott_high2(nnn) - slpott_high1(nnn)) &
-                       / ((wfrac_high2 - wfrac_high1) * slmsts(nnn))
-     slmstsh0    (nnn) = slmsts(nnn) * (wfrac_high1 &
-                       + (wfrac_high2 - wfrac_high1) * (-slpott_high1(nnn) - slz(nzg)) &
-                       / (slpott_high2(nnn) - slpott_high1(nnn)))
+     ! Clapp & Hornberger soil model parameters
+
+     slpots_ch      (nnn) = soilparms1(1,nnn)
+     slmsts_ch      (nnn) = soilparms1(2,nnn)
+     slbs_ch        (nnn) = soilparms1(3,nnn)
+     slcons_ch      (nnn) = soilparms1(4,nnn)
+
+     robulk_ch      (nnn) = slpden(nnn) * (1.0 - slmsts_ch(nnn))
+     soilcp_ch      (nnn) = 0.1 - 0.07 * xsand(nnn)
+     slbsi_ch       (nnn) = 1.0 / slbs_ch(nnn)
+     slmstsi_ch     (nnn) = 1.0 / slmsts_ch(nnn)
+     slpott_high1_ch(nnn) = slpots_ch(nnn) * (1./wfrac_high1) ** slbs_ch(nnn)
+     slpott_high2_ch(nnn) = 10.
+
+     headp_high_ch  (nnn) = (slpott_high2_ch(nnn) - slpott_high1_ch(nnn)) &
+                          / ((wfrac_high2 - wfrac_high1) * slmsts_ch(nnn))
+     headp_highi_ch (nnn) = 1.0 / headp_high_ch(nnn)
+
+     slmstsh0_ch    (nnn) = slmsts_ch(nnn) * (wfrac_high1 &
+                          + (wfrac_high2 - wfrac_high1) * (-slpott_high1_ch(nnn) - slz(nzg)) &
+                          / (slpott_high2_ch(nnn) - slpott_high1_ch(nnn)))
+
+     ! van Genuchten soil model parameters
 
            slmsts_vg(nnn) =  soilparms3(1,nnn)
            soilcp_vg(nnn) =  soilparms3(2,nnn)
            slcons_vg(nnn) =  soilparms3(3,nnn)
             alpha_vg(nnn) = -soilparms3(4,nnn)
                en_vg(nnn) =  soilparms3(5,nnn)
+          slmstsi_vg(nnn) = 1. / slmsts_vg(nnn)
            alphai_vg(nnn) = 1. / alpha_vg(nnn)
               eni_vg(nnn) = 1. / en_vg(nnn)
                em_vg(nnn) = 1. - eni_vg(nnn)
               emi_vg(nnn) = 1. / em_vg(nnn)
+           robulk_vg(nnn) = slpden(nnn) * (1.0 - slmsts_vg(nnn))
+
      slpott_high1_vg(nnn) = alphai_vg(nnn) &
                           * (wfrac_high1**(-emi_vg(nnn)) - 1.)**eni_vg(nnn)
      slpott_high2_vg(nnn) = 10.
+
        headp_high_vg(nnn) = (slpott_high2_vg(nnn) - slpott_high1_vg(nnn)) &
                           / ((wfrac_high2 - wfrac_high1) * (slmsts_vg(nnn) - soilcp_vg(nnn)))
+      headp_highi_vg(nnn) = 1.0 / headp_high_vg(nnn)
+
          slmstsh0_vg(nnn) = slmsts_vg(nnn) * (wfrac_high1 &
                           + (wfrac_high2 - wfrac_high1) * (-slpott_high1_vg(nnn) - slz(nzg)) &
                           / (slpott_high2_vg(nnn) - slpott_high1_vg(nnn)))
+
+      slmsts_mscp_vg(nnn) = slmsts_vg(nnn) - soilcp_vg(nnn)
+     slmsts_mscpi_vg(nnn) = 1.0 / slmsts_mscp_vg(nnn)
 
   ! Construct constant head gradient at lower limit of van Genuchten soil moisture
   ! curve to avoid singularity.
@@ -331,17 +358,19 @@ subroutine sfcdata()
        slpott_low1_vg(nnn) = alphai_vg(nnn) * (wfiemi1 - 1.)**eni_vg(nnn)
        slpott_low2_vg(nnn) = alphai_vg(nnn) * (wfiemi2 - 1.)**eni_vg(nnn)
 
-     headp_low_vg(nnn) = (slpott_low2_vg(nnn) - slpott_low1_vg(nnn)) &
-                       / ((wfrac_low2 - wfrac_low1) * (slmsts_vg(nnn) - soilcp_vg(nnn)))
+         headp_low_vg(nnn) = (slpott_low2_vg(nnn) - slpott_low1_vg(nnn)) &
+                           / ((wfrac_low2 - wfrac_low1) * (slmsts_vg(nnn) - soilcp_vg(nnn)))
 
   ! Increase headp_low_vg as necessary so that head is at or below -1.e5 m
   ! at wfrac = 0. 
 
-     headp_low_vg(nnn) = max(headp_low_vg(nnn), &
-                         (slpott_low2_vg(nnn) + 1.e5) / wfrac_low2)
+         headp_low_vg(nnn) = max(headp_low_vg(nnn), &
+                             (slpott_low2_vg(nnn) + 1.e5) / wfrac_low2)
+
+        headp_lowi_vg(nnn) = 1.0 / headp_low_vg(nnn)
 
      do k = 1,nzg
-        slreso2   (k,nnn) = dslzo2(k) / slcons   (nnn)
+        slreso2_ch(k,nnn) = dslzo2(k) / slcons_ch(nnn)
         slreso2_vg(k,nnn) = dslzo2(k) / slcons_vg(nnn)
      enddo
   enddo

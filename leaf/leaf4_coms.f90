@@ -118,32 +118,49 @@ Module leaf_coms
   integer :: mrl_leaf ! mesh refinement level at which leaf is updated
 
   real :: dt_leaf     ! leaf timestep [s]
-   
+
+! Soil parameters
+
   real :: slpden      (nstyp) ! soil particle density [kg/m3]
   real :: slcpd       (nstyp) ! dry soil volumetric heat capacity [J/(m^3 K)]
-  real :: slbs        (nstyp) ! b exponent [dimensionless]
-  real :: slcons      (nstyp) ! sat soil hydraulic conductivity [m/s]
-  real :: slmsts      (nstyp) ! sat volumetric moist content (porosity) [m^3_wat/m^3_tot]
-  real :: slmstsh0    (nstyp) ! nzg volumetric moist content at head = 0 [m^3_wat/m^3_tot]
-  real :: slpots      (nstyp) ! sat moisture potential [m]
-  real :: soilcp      (nstyp) ! minimum soil moisture [m^3_wat/m^3_tot]
+! real :: slcons      (nstyp) ! sat soil hydraulic conductivity [m/s]
+! real :: slmsts      (nstyp) ! sat volumetric moist content (porosity) [m^3_wat/m^3_tot]
+! real :: slmstsh0    (nstyp) ! nzg volumetric moist content at head = 0 [m^3_wat/m^3_tot]
+! real :: soilcp      (nstyp) ! minimum soil moisture [m^3_wat/m^3_tot]
   real :: emisg       (nstyp) ! soil infrared emissivity
-  real :: slcons0     (nstyp) ! surface value for slcons [m/s]
+! real :: slcons0     (nstyp) ! surface value for slcons [m/s]
   real :: xsand       (nstyp) ! soil fractional sand content
   real :: xclay       (nstyp) ! soil fractional clay content
   real :: xorgan      (nstyp) ! soil fractional organic content
-  real :: robulk      (nstyp) ! soil dry bulk density [kg/m^3]
+! real :: robulk      (nstyp) ! soil dry bulk density [kg/m^3]
   real :: soilwilt    (nstyp) ! vol moist content at wilting point [m^3_wat/m^3_tot]
   real :: soilcond0   (nstyp) ! New soil cond (8/17/00)
   real :: soilcond1   (nstyp) ! New soil cond (8/17/00)
   real :: soilcond2   (nstyp) ! New soil cond (8/17/00)
-  real :: slmstsi     (nstyp) ! 1 / porosity
-  real :: headp_high  (nstyp) ! Gradient of soil water potential at high water content
-  real :: slpott_high1(nstyp) ! soil water potential [m] at wfrac_high1
-  real :: slpott_high2(nstyp) ! soil water potential [m] at wfrac_high2
+! real :: slmstsi     (nstyp) ! 1 / porosity
+!  real :: headp_high  (nstyp) ! Gradient of soil water potential at high water content
+!  real :: slpott_high1(nstyp) ! soil water potential [m] at wfrac_high1
+!  real :: slpott_high2(nstyp) ! soil water potential [m] at wfrac_high2
 
-! Parameters for van Genuchten model (an alternative to Clapp & Hornberger) 
+! Parameters for Clapp & Hornberger model
+
+  real :: slpots_ch      (nstyp) ! sat moisture potential [m]
+  real :: slmsts_ch      (nstyp) ! sat volumetric moist content (porosity) [m^3_wat/m^3_tot]
+  real :: slmstsi_ch     (nstyp) ! 1 / porosity [m^3_tot/m^3_wat]
+  real :: slmstsh0_ch    (nstyp) ! nzg volumetric moist content at head = 0 [m^3_wat/m^3_tot]
+  real :: soilcp_ch      (nstyp) ! minimum soil moisture [m^3_wat/m^3_tot]
+  real :: slcons_ch      (nstyp) ! sat soil hydraulic conductivity [m/s]
+  real :: headp_high_ch  (nstyp) ! Gradient of soil water potential at high water content
+  real :: headp_highi_ch (nstyp) ! Gradient of soil water potential at high water content
+  real :: slpott_high1_ch(nstyp) ! soil water potential [m] at wfrac_high1
+  real :: slpott_high2_ch(nstyp) ! soil water potential [m] at wfrac_high2
+  real :: slbs_ch        (nstyp) ! b exponent [dimensionless]
+  real :: slbsi_ch       (nstyp) ! 1 / b exponent [dimensionless]
+  real :: robulk_ch      (nstyp) ! soil dry bulk density [kg/m^3]
+
+! Parameters for van Genuchten model
   real ::       slmsts_vg(nstyp) ! sat volumetric moist content (porosity) [m^3_wat/m^3_tot]
+  real ::      slmstsi_vg(nstyp) ! 1 / porosity [m^3_tot/m^3_wat]
   real ::     slmstsh0_vg(nstyp) ! nzg volumetric moist content at head = 0 [m^3_wat/m^3_tot]
   real ::       soilcp_vg(nstyp) ! minimum soil moisture [m^3_wat/m^3_tot]
   real ::       slcons_vg(nstyp) ! sat soil hydraulic conductivity [m/s]
@@ -154,11 +171,16 @@ Module leaf_coms
   real ::           em_vg(nstyp) ! m parameter [ ]
   real ::          emi_vg(nstyp) ! 1/m parameter [ ]
   real ::   headp_high_vg(nstyp) ! Gradient of soil water potential at high water content
+  real ::  headp_highi_vg(nstyp) ! 1/headp_high
   real ::    headp_low_vg(nstyp) ! Gradient of soil water potential at low water content
+  real ::   headp_lowi_vg(nstyp) ! 1/headp_low_vg
   real :: slpott_high1_vg(nstyp) ! soil water potential [m] at wfrac_high1
   real :: slpott_high2_vg(nstyp) ! soil water potential [m] at wfrac_high2
   real ::  slpott_low1_vg(nstyp) ! soil water potential [m] at wfrac_low1
   real ::  slpott_low2_vg(nstyp) ! soil water potential [m] at wfrac_low2
+  real ::  slmsts_mscp_vg(nstyp) ! porosity - soil capacity [m^3_wat/m^3_tot]
+  real :: slmsts_mscpi_vg(nstyp) ! 1 / (porosity - soil capacity) [m^3_tot/m^3_wat]
+  real ::       robulk_vg(nstyp) ! soil dry bulk density [kg/m^3]
 
   integer :: kroot  (nvtyp)  ! k index of soil layer of lowest roots
 
@@ -175,19 +197,19 @@ Module leaf_coms
   real :: dead_frac (nvtyp)  ! vegetation dead-material fraction
   real :: rcmin     (nvtyp)  ! vegetation minimum stomatal resistance [s/m]
   real :: dfpardsr  (nvtyp)  ! rate of change of fpar with simple ratio (for using NDVI)
-   
+
   real :: slz   (nzgmax)  ! Depth (neg height value) of bottom of each soil layer [m]
 
-  real, save, allocatable :: slreso2   (:,:) ! z-dependent soil sat hydraul resist [s]
+  real, save, allocatable :: slreso2_ch(:,:) ! z-dependent soil sat hydraul resist [s]
   real, save, allocatable :: slreso2_vg(:,:) ! z-dependent soil sat hydraul resist [s]
-  real, save, allocatable :: dslz     (:) ! soil layer thickness at T pt [m]
-  real, save, allocatable :: dslzo2   (:) ! HALF soil layer thickness at T pt [m]
-  real, save, allocatable :: dslzi    (:) ! inverse soil layer thickness at T pt [1/m]
-  real, save, allocatable :: dslzidt  (:) ! dtll / soil layer thickness at T pt [s/m]
-  real, save, allocatable :: slzt     (:) ! soil depth at T pt [m]
-  real, save, allocatable :: dslzt    (:) ! soil layer thickness at M pt [m]
-  real, save, allocatable :: dslzti   (:) ! inverse soil layer thickness at M pt [1/m]
-  real, save, allocatable :: dslztidt (:) ! dtll / soil layer thickness at M pt [s/m]
+  real, save, allocatable :: dslz      (:)   ! soil layer thickness at T pt [m]
+  real, save, allocatable :: dslzo2    (:)   ! HALF soil layer thickness at T pt [m]
+  real, save, allocatable :: dslzi     (:)   ! inverse soil layer thickness at T pt [1/m]
+  real, save, allocatable :: dslzidt   (:)   ! dtll / soil layer thickness at T pt [s/m]
+  real, save, allocatable :: slzt      (:)   ! soil depth at T pt [m]
+  real, save, allocatable :: dslzt     (:)   ! soil layer thickness at M pt [m]
+  real, save, allocatable :: dslzti    (:)   ! inverse soil layer thickness at M pt [1/m]
+  real, save, allocatable :: dslztidt  (:)   ! dtll / soil layer thickness at M pt [s/m]
 
 Contains
 
@@ -197,7 +219,7 @@ Contains
 
 ! Allocate leaf column arrays
 
-    allocate (slreso2   (nzg,nstyp))
+    allocate (slreso2_ch(nzg,nstyp))
     allocate (slreso2_vg(nzg,nstyp))
     allocate (dslz    (nzg))
     allocate (dslzo2  (nzg))

@@ -460,7 +460,7 @@ contains
     use leaf_coms,   only: mwl
     use consts_coms, only: pio180
     use mem_radiate, only: rshort
-    use leaf_coms,   only: nzg, slmsts, slcpd
+    use leaf_coms,   only: nzg, slmstsi_ch, slmstsi_vg, slcpd
 
     implicit none
 
@@ -580,9 +580,16 @@ contains
 
           enddo
 
-          ! Determine top-layer soil temperature and moisture
+          ! Top soil layer moisture
 
-          soilm = land%soil_water(nzg,iwl) / slmsts(land%ntext_soil(nzg,iwl))
+          if (land%flag_vg(iwl)) then
+             soilm = land%soil_water(nzg,iwl) * slmstsi_vg(land%ntext_soil(nzg,iwl))
+          else
+             soilm = land%soil_water(nzg,iwl) * slmstsi_vg(land%ntext_soil(nzg,iwl))
+          endif
+
+          ! Top soil layer temperature
+
           call qwtk( land%soil_energy(nzg,iwl),land%soil_water(nzg,iwl)*1.e3, &
                       slcpd(land%ntext_soil(nzg,iwl)), soilt, xm )
 

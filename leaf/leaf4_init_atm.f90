@@ -35,7 +35,7 @@ subroutine leaf4_init_atm()
 
   use mem_leaf,    only: land, itab_wl
 
-  use leaf_coms,   only: mwl, nzg, nzs, &
+  use leaf_coms,   only: mwl, nzg, nzs, slmsts_vg, slmsts_ch, &
                          slzt, veg_ht, slcpd, soil_rough, &
                          iupdndvi, s1900_ndvi, indvifile, nndvifiles, &
                          dt_leaf, isoilstateinit, iwatertabflg, watertab_db
@@ -49,6 +49,7 @@ subroutine leaf4_init_atm()
   use leaf4_canopy, only: vegndvi
   use land_db,      only: land_database_read
   use leaf4_soil,   only: soil_pot2wat
+  use oname_coms,   only: nl
 
   implicit none
 
@@ -98,9 +99,17 @@ subroutine leaf4_init_atm()
   !$omp parallel do private (leaf_class)
   do iwl = 2,mwl
 
-!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-!     land%flag_vg(iwl) = .true.
-!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+     ! Set the soil hydrology model
+
+     if (nl%isoilmodel == 0) then
+        land%flag_vg(iwl) = .false.
+     else
+        land%flag_vg(iwl) = .true.
+     endif
+
+     ! This would be a good place to overwrite the soil model
+     ! for specific land cells
+     ! if (iwl == 100) land%flag_vg(iwl) = .false.
 
      ! Set vegetation parameters
 
@@ -368,8 +377,8 @@ end subroutine leaf4_init_atm
 subroutine read_soil_moist_temp(soil_tempc)
 
   use misc_coms, only: io6, iyear1, imonth1, idate1, itime1
-  use leaf_coms, only: nzg, mwl, slz, soilcp, slmsts, slcpd, soilstate_db, &
-                       soilcp_vg, slmsts_vg
+  use leaf_coms, only: nzg, mwl, slz, slcpd, soilstate_db, &
+                       soilcp_ch, soilcp_vg, slmsts_ch, slmsts_vg
   use mem_leaf,  only: land, itab_wl
   use consts_coms, only: pio180, piu180, erad, cliq1000, alli1000, cice,   &
        cice1000
@@ -529,8 +538,8 @@ subroutine read_soil_moist_temp(soil_tempc)
                     land%soil_water(k,iwl) = max(soilcp_vg(ntext), &
                     land%soil_water(k,iwl) * slmsts_vg(ntext))
                  else
-                    land%soil_water(k,iwl) = max(soilcp(ntext), &
-                    land%soil_water(k,iwl) * slmsts(ntext))
+                    land%soil_water(k,iwl) = max(soilcp_ch(ntext), &
+                    land%soil_water(k,iwl) * slmsts_ch(ntext))
                  endif
 
               enddo

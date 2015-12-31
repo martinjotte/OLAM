@@ -40,12 +40,10 @@ subroutine soil(iwl, nlev_sfcwater, ktrans, ntext_soil,            &
                 energy_per_m2, psi, head, head0, head1,            &
                 wfree1, qwfree1, transp, glatw, glonw, flag_vg     )
 
-use leaf_coms, only: nzg, nzs, slz, dslz, dslzi, slzt, dslzo2, dt_leaf, &
-                     slreso2, soilcp, slbs, kroot, slcpd, &
-                     soilcond0, soilcond1, soilcond2, &
-                     wfrac_high1, &
-                     soilcp_vg, slreso2_vg, &
-                     em_vg, emi_vg, slcons, slcons_vg
+use leaf_coms, only: nzg, nzs, slz, dslz, dslzi, slzt, dslzo2, dt_leaf,     &
+                     slreso2_ch, slreso2_vg, soilcp_ch, soilcp_vg, slbs_ch, &
+                     kroot, slcpd, soilcond0, slcons_ch, slcons_vg,         &
+                     soilcond1, soilcond2, wfrac_high1, em_vg, emi_vg
 
 use consts_coms, only: cliq1000, cice1000, alli1000, alvi
 use misc_coms,   only: io6
@@ -86,9 +84,9 @@ logical, intent(in) :: flag_vg ! flag for van Genuchten model
 
 ! Local variables
 
-real ::   soilcpk(nzg) ! copy of soilcp or soilcp_vg to soil column
-real ::   slconsk(nzg) ! copy of slcons or slcons_vg to soil column
-real ::  slreso2k(nzg) ! copy of slreso2 or slreso2_vg to soil column
+real ::   soilcpk(nzg) ! copy of soilcp_ch or soilcp_vg to soil column
+real ::   slconsk(nzg) ! copy of slcons_ch or slcons_vg to soil column
+real ::  slreso2k(nzg) ! copy of slreso2_ch or slreso2_vg to soil column
 real ::       emk(nzg) ! copy of em_vg to soil column
 real ::      emik(nzg) ! copy of emi_vg to soil column
 real ::     slbsk(nzg) ! copy of slbs to soil column
@@ -160,17 +158,17 @@ do k = 1,nzg
    if (flag_vg) then ! van Genuchten form
 
        slreso2k(k) =  slreso2_vg(k,nts)
-        soilcpk(k) =   soilcp_vg(nts)
-        slconsk(k) =   slcons_vg(nts)
-            emk(k) =       em_vg(nts)
-           emik(k) =      emi_vg(nts)
+        soilcpk(k) =   soilcp_vg  (nts)
+        slconsk(k) =   slcons_vg  (nts)
+            emk(k) =       em_vg  (nts)
+           emik(k) =      emi_vg  (nts)
 
    else              ! Clapp & Hornberger form
 
-       slreso2k(k) =  slreso2(k,nts)
-        soilcpk(k) =   soilcp(nts)
-        slconsk(k) =   slcons(nts)
-          slbsk(k) =     slbs(nts)
+       slreso2k(k) =  slreso2_ch(k,nts)
+        soilcpk(k) =   soilcp_ch  (nts)
+        slconsk(k) =   slcons_ch  (nts)
+          slbsk(k) =     slbs_ch  (nts)
 
    endif
 
@@ -492,14 +490,20 @@ end subroutine soil
 
 !===============================================================================
 
-subroutine soil_wat2pot(iwl,nts,flag_vg,soil_water, slzt, &
-                        water_frac_ul, water_frac, psi, head, headp)
+subroutine soil_wat2pot( iwl, nts, flag_vg, soil_water, slzt,        &
+                         water_frac_ul, water_frac, psi, head, headp )
 
-  use leaf_coms, only: soilcp, slmsts, slmstsi, slpots, slbs, &
-                       wfrac_high1, slpott_high1, headp_high, &
-                       soilcp_vg, slmsts_vg, alphai_vg, emi_vg, eni_vg, &
-                       slpott_high1_vg, headp_high_vg, &
-                       wfrac_low2, slpott_low2_vg, headp_low_vg
+  use leaf_coms, only: soilcp_ch, soilcp_vg,             &
+                       slmsts_ch, slmsts_vg,             &
+                       slpots_ch, slbs_ch,               &
+                       slpott_high1_ch, slpott_high1_vg, &
+                       headp_high_ch, headp_high_vg,     &
+                       alphai_vg, emi_vg, eni_vg,        &
+                       slpott_low2_vg, headp_low_vg,     &
+                       wfrac_high1, wfrac_low2,          &
+                       slmsts_mscp_vg, slmsts_mscpi_vg,  &
+                       slmsts_ch, slmstsi_ch
+         
 
   implicit none
 
@@ -524,7 +528,7 @@ subroutine soil_wat2pot(iwl,nts,flag_vg,soil_water, slzt, &
      ! exceedence of upper and lower bounds
 
      water_frac_ul = (soil_water - soilcp_vg(nts)) & ! "unlimited"
-                   / (slmsts_vg(nts) - soilcp_vg(nts))
+                   * slmsts_mscpi_vg(nts)
 
      ! Apply upper and lower limits to water fractional content
 
@@ -550,7 +554,7 @@ subroutine soil_wat2pot(iwl,nts,flag_vg,soil_water, slzt, &
         headp = headp_high_vg(nts)
 
         head = slpott_high1_vg(nts) &
-             + headp * (slmsts_vg(nts) - soilcp_vg(nts)) * (water_frac_ul - wfrac_high1) &
+             + headp * slmsts_mscp_vg(nts) * (water_frac_ul - wfrac_high1) &
              + slzt
 
      elseif (water_frac_ul <= wfrac_low2) then
@@ -561,7 +565,7 @@ subroutine soil_wat2pot(iwl,nts,flag_vg,soil_water, slzt, &
         headp = headp_low_vg(nts)
 
         head = slpott_low2_vg(nts) &
-             + headp * (slmsts_vg(nts) - soilcp_vg(nts)) * (water_frac_ul - wfrac_low2) &
+             + headp * slmsts_mscp_vg(nts) * (water_frac_ul - wfrac_low2) &
              + slzt
 
      else
@@ -581,7 +585,7 @@ subroutine soil_wat2pot(iwl,nts,flag_vg,soil_water, slzt, &
      ! Compute "unlimited" water fractional content in soil, which allows small
      ! exceedence of upper bound
 
-     water_frac_ul = soil_water * slmstsi(nts) ! "unlimited"
+     water_frac_ul = soil_water * slmstsi_ch(nts) ! "unlimited"
 
      ! Apply upper and lower limits to water fractional content
 
@@ -591,7 +595,7 @@ subroutine soil_wat2pot(iwl,nts,flag_vg,soil_water, slzt, &
      ! value will be used to evaluate hydraulic head only if unlimited water
      ! fraction is within upper limit, and in fact within even a stricter one.
 
-     psi = slpots(nts) * water_frac ** (-slbs(nts))
+     psi = slpots_ch(nts) * water_frac ** (-slbs_ch(nts))
 
      ! [5/14/09] Compute total hydraulic head and its derivative with 
      ! respect towater content in each soil layer.  This is used for (1)
@@ -603,10 +607,10 @@ subroutine soil_wat2pot(iwl,nts,flag_vg,soil_water, slzt, &
         ! For water fraction greater than or equal to wfrac_high1, use
         ! linear head model to represent confinement pressure
 
-        headp = headp_high(nts)
+        headp = headp_high_ch(nts)
 
-        head = slpott_high1(nts) &
-             + headp * slmsts(nts) * (water_frac_ul - wfrac_high1) &
+        head = slpott_high1_ch(nts) &
+             + headp * slmsts_ch(nts) * (water_frac_ul - wfrac_high1) &
              + slzt
 
      else
@@ -614,7 +618,7 @@ subroutine soil_wat2pot(iwl,nts,flag_vg,soil_water, slzt, &
         ! For water fraction other than extremely high or low, use standard
         ! water potential formula
 
-        headp = -psi * slbs(nts) / (water_frac * slmsts(nts))
+        headp = -psi * slbs_ch(nts) / (water_frac * slmsts_ch(nts))
 
         head = psi + slzt
 
@@ -626,14 +630,20 @@ end subroutine soil_wat2pot
 
 !===============================================================================
 
-subroutine soil_pot2wat(iwl, nts, flag_vg, head, slzt, &
-                        water_frac_ul, soil_water)
+subroutine soil_pot2wat( iwl, nts, flag_vg, head, slzt, &
+                         water_frac_ul, soil_water      )
 
-  use leaf_coms, only: soilcp, slmsts, slpots, slbs, &
-                       wfrac_high1, slpott_high1, headp_high, &
-                       soilcp_vg, slmsts_vg, alpha_vg, em_vg, en_vg, &
-                       slpott_high1_vg, headp_high_vg, &
-                       wfrac_low2, slpott_low2_vg, headp_low_vg
+  use leaf_coms, only: soilcp_ch, soilcp_vg,             &
+                       slmsts_ch, slmsts_vg,             &
+                       slpots_ch, slbsi_ch,              &
+                       slpott_high1_ch, slpott_high1_vg, &
+                       headp_highi_ch, headp_highi_vg,   &
+                       alpha_vg, em_vg, en_vg,           &
+                       slpott_low2_vg, headp_low_vg,     &
+                       wfrac_high1, wfrac_low2,          &
+                       slmsts_mscp_vg, slmsts_mscpi_vg,  &
+                       slmsts_ch, slmstsi_ch,            &
+                       headp_lowi_vg
 
   implicit none
 
@@ -661,11 +671,8 @@ subroutine soil_pot2wat(iwl, nts, flag_vg, head, slzt, &
         ! high-end linear water potential equation       
 
         water_frac_ul = wfrac_high1 &
-           + (head_z - slpott_high1_vg(nts)) &
-           / (headp_high_vg(nts) * (slmsts_vg(nts) - soilcp_vg(nts)))
-
-        soil_water = soilcp_vg(nts) &
-                   + water_frac_ul * (slmsts_vg(nts) - soilcp_vg(nts))
+                      + (head_z - slpott_high1_vg(nts)) &
+                      * headp_highi_vg(nts) * slmsts_mscpi_vg(nts)
 
      elseif (head_z <= slpott_low2_vg(nts)) then
       
@@ -673,11 +680,8 @@ subroutine soil_pot2wat(iwl, nts, flag_vg, head, slzt, &
         ! low-end linear water potential equation       
 
         water_frac_ul = wfrac_low2 &
-           + (head_z - slpott_low2_vg(nts)) &
-           / (headp_low_vg(nts) * (slmsts_vg(nts) - soilcp_vg(nts)))
-
-        soil_water = soilcp_vg(nts) &
-           + water_frac_ul * (slmsts_vg(nts) - soilcp_vg(nts))
+                      + (head_z - slpott_low2_vg(nts)) &
+                      * headp_lowi_vg(nts) * slmsts_mscpi_vg(nts)
 
      else
 
@@ -686,36 +690,33 @@ subroutine soil_pot2wat(iwl, nts, flag_vg, head, slzt, &
 
         water_frac_ul = ((head_z * alpha_vg(nts))**en_vg(nts) + 1.)**(-em_vg(nts))
 
-        soil_water = soilcp_vg(nts) &
-           + water_frac_ul * (slmsts_vg(nts) - soilcp_vg(nts))
-
      endif
+
+     soil_water = soilcp_vg(nts) + water_frac_ul * slmsts_mscp_vg(nts)
 
   else
 
      ! Using Clapp & Hornberger soil water model for this land cell
 
-     if (head_z >= slpott_high1(nts)) then
+     if (head_z >= slpott_high1_ch(nts)) then
       
         ! If initial head exceeds slpott, estimate soil_water from
         ! linear water potential equation       
 
         water_frac_ul = wfrac_high1 &
-           + (head_z - slpott_high1(nts)) &
-           / (headp_high(nts) * slmsts(nts))
-
-        soil_water = water_frac_ul * slmsts(nts)
+                      + (head_z - slpott_high1_ch(nts)) &
+                      * headp_highi_ch(nts) * slmstsi_ch(nts)
 
      else
 
         ! If initial head does not exceed slpott, estimate soil_water
         ! from nonlinear water potential equation       
 
-        water_frac_ul = (slpots(nts) / head_z) ** (1./slbs(nts))
-
-        soil_water = water_frac_ul * slmsts(nts)
+        water_frac_ul = (slpots_ch(nts) / head_z) ** slbsi_ch(nts)
 
      endif
+
+     soil_water = water_frac_ul * slmsts_ch(nts)
 
   endif
 

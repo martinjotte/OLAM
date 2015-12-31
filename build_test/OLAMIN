@@ -444,12 +444,17 @@
    NL%SST_DATABASE    = '../../olamdatah5/sst7100/sstfiles.txt'
    NL%SEAICE_DATABASE = '../../olamdatah5/ice8100/icefiles.txt'
 
+ ! Soil model
+
+   NL%ISOILMODEL = 0     ! 0 -- Clapp & Hornberger
+                         ! 1 -- van Genuchten
+
  ! Update flags for surface data
 
    NL%IUPDNDVI   = 1  ! 0/1 = No/Yes update of NDVI values during run
    NL%IUPDSST    = 1  ! 0/1 = No/Yes update of SST values during run
    NL%IUPDSEAICE = 1  ! 0/1 = No/Yes update of SEAICE values during run
- 
+
    NL%SEATMP   = 280.0   ! Water surface temperature (K) if ISSTFLG = 0
    NL%SEAICE   =   0.0   ! Seaice fraction (0 - 1) if ISEAICEFLG = 0
 

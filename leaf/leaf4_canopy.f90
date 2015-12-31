@@ -49,8 +49,8 @@ Contains
                    glatw, glonw, flag_vg                              ) 
 
  use leaf_coms, only: nzg, soil_rough, dt_leaf, dslz, dslzi, slzt, &
-                      slmstsh0, kroot, &
-                      rcmin, slcpd, slcons, slcons_vg, slmstsh0_vg
+                      slmstsh0_ch, slmstsh0_vg, kroot, rcmin,      &
+                      slcpd, slcons_ch, slcons_vg
 
  use consts_coms,    only: cp, vonk, alvl, cliq, cice, alli, rvap, r8
  use misc_coms,      only: io6
@@ -477,8 +477,8 @@ Contains
        wcap_soil = dslz(nzg) * (slmstsh0_vg(nts) - soil_water(nzg)) * 1000. ! [kg/m^2]
        wcap_rate = dt_leaf * slcons_vg(nts) * 1000.                         ! [kg/m^2]
     else
-       wcap_soil = dslz(nzg) * (slmstsh0(nts) - soil_water(nzg)) * 1000. ! [kg/m^2]
-       wcap_rate = dt_leaf * slcons(nts) * 1000.                       ! [kg/m^2]
+       wcap_soil = dslz(nzg) * (slmstsh0_ch(nts) - soil_water(nzg)) * 1000. ! [kg/m^2]
+       wcap_rate = dt_leaf * slcons_ch(nts) * 1000.                         ! [kg/m^2]
     endif
 
     wcap_both = min(wcap_soil, wcap_rate)                           ! [kg/m^2]
