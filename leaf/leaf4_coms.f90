@@ -119,28 +119,18 @@ Module leaf_coms
 
   real :: dt_leaf     ! leaf timestep [s]
 
-! Soil parameters
+! General soil parameters
 
   real :: slpden      (nstyp) ! soil particle density [kg/m3]
   real :: slcpd       (nstyp) ! dry soil volumetric heat capacity [J/(m^3 K)]
-! real :: slcons      (nstyp) ! sat soil hydraulic conductivity [m/s]
-! real :: slmsts      (nstyp) ! sat volumetric moist content (porosity) [m^3_wat/m^3_tot]
-! real :: slmstsh0    (nstyp) ! nzg volumetric moist content at head = 0 [m^3_wat/m^3_tot]
-! real :: soilcp      (nstyp) ! minimum soil moisture [m^3_wat/m^3_tot]
   real :: emisg       (nstyp) ! soil infrared emissivity
-! real :: slcons0     (nstyp) ! surface value for slcons [m/s]
   real :: xsand       (nstyp) ! soil fractional sand content
   real :: xclay       (nstyp) ! soil fractional clay content
   real :: xorgan      (nstyp) ! soil fractional organic content
-! real :: robulk      (nstyp) ! soil dry bulk density [kg/m^3]
   real :: soilwilt    (nstyp) ! vol moist content at wilting point [m^3_wat/m^3_tot]
   real :: soilcond0   (nstyp) ! New soil cond (8/17/00)
   real :: soilcond1   (nstyp) ! New soil cond (8/17/00)
   real :: soilcond2   (nstyp) ! New soil cond (8/17/00)
-! real :: slmstsi     (nstyp) ! 1 / porosity
-!  real :: headp_high  (nstyp) ! Gradient of soil water potential at high water content
-!  real :: slpott_high1(nstyp) ! soil water potential [m] at wfrac_high1
-!  real :: slpott_high2(nstyp) ! soil water potential [m] at wfrac_high2
 
 ! Parameters for Clapp & Hornberger model
 
@@ -159,6 +149,7 @@ Module leaf_coms
   real :: robulk_ch      (nstyp) ! soil dry bulk density [kg/m^3]
 
 ! Parameters for van Genuchten model
+
   real ::       slmsts_vg(nstyp) ! sat volumetric moist content (porosity) [m^3_wat/m^3_tot]
   real ::      slmstsi_vg(nstyp) ! 1 / porosity [m^3_tot/m^3_wat]
   real ::     slmstsh0_vg(nstyp) ! nzg volumetric moist content at head = 0 [m^3_wat/m^3_tot]
@@ -182,6 +173,8 @@ Module leaf_coms
   real :: slmsts_mscpi_vg(nstyp) ! 1 / (porosity - soil capacity) [m^3_tot/m^3_wat]
   real ::       robulk_vg(nstyp) ! soil dry bulk density [kg/m^3]
 
+! Leaf vegetation parameters
+
   integer :: kroot  (nvtyp)  ! k index of soil layer of lowest roots
 
   real :: albv_green(nvtyp)  ! green vegetation albedo
@@ -197,6 +190,8 @@ Module leaf_coms
   real :: dead_frac (nvtyp)  ! vegetation dead-material fraction
   real :: rcmin     (nvtyp)  ! vegetation minimum stomatal resistance [s/m]
   real :: dfpardsr  (nvtyp)  ! rate of change of fpar with simple ratio (for using NDVI)
+
+! Height-dependendent soil parameters
 
   real :: slz   (nzgmax)  ! Depth (neg height value) of bottom of each soil layer [m]
 
