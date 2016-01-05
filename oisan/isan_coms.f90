@@ -64,4 +64,6 @@ Module isan_coms
   real    :: xswlon, xswlat, gdatdx, gdatdy
   real    :: pnpr(maxpr)
 
+  real, allocatable :: glat(:)
+
 End module isan_coms

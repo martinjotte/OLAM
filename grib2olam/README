@@ -51,7 +51,9 @@ variable wgrib2_exe in the namelist DGRIB_IN.
 
 
 4. Edit DGRIB_IN (or a namelist file by any other name) to choose 
-   the variables from the grib file you want to process.
+   the variables from the grib file you want to process. Example
+   namelists that should work for the NCEP GFS model, CFSR reanalysis,
+   and the ECMWF ERA reanalysis are provided.
    
    For the NCEP Reanalysis files, the 3D variables are typically:
    
@@ -60,8 +62,12 @@ variable wgrib2_exe in the namelist DGRIB_IN.
    For some formats of ECMWF files:
    
    nvar3d=5, var3d='U','V','T','Z','R',
-   
-   2-dimensional variables are not necessary at this time for RAMS.
+
+   There are sections in the namelist for providing the variables in
+   the grib file that correspond to SST, seaice, land/sea mask, snow mass, and
+   soil temperature and water. The landmask variable is optional and
+   only makes the degribbing process easier. If a variable string is
+   empty, then that surface field will not be degribbed.
    
    If you are uncertain which variables are on the file, use:
    
