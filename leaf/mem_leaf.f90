@@ -67,6 +67,8 @@ Module mem_leaf
       integer, allocatable :: ntext_soil(:,:)  ! soil textural class
       integer, allocatable :: olson_oge   (:)  ! Olson global ecosystem class
 
+      logical, allocatable :: flag_vg(:) ! If true, do van Genuchten, not Clapp & Hornberger
+
 ! Atmospheric near-surface properties
 
       real, allocatable :: rhos   (:) ! air density [kg_air/m^3]
@@ -201,6 +203,8 @@ Contains
      allocate (land%leaf_class    (mwl)) ; land%leaf_class = 0
      allocate (land%ntext_soil(nzg,mwl)) ; land%ntext_soil = 0
      allocate (land%olson_oge     (mwl)) ; land%olson_oge  = 0
+
+     allocate (land%flag_vg       (mwl)) ; land%flag_vg = .false.
 
    end subroutine alloc_land_grid
 

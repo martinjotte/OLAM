@@ -222,7 +222,7 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
             land%cosz          (      iwl), land%xew            (      iwl), &
             land%yew           (      iwl), land%zew            (      iwl), &
             land%wnx           (      iwl), land%wny            (      iwl), &
-            land%wnz           (      iwl)                                 )
+            land%wnz           (      iwl), land%flag_vg        (      iwl))
 
 ! For LEAF land cells, there is no distinction between beam and 
 ! diffuse radiation.
@@ -400,7 +400,7 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
             land%cosz          (      iwl), land%xew            (      iwl), &
             land%yew           (      iwl), land%zew            (      iwl), &
             land%wnx           (      iwl), land%wny            (      iwl), &
-            land%wnz           (      iwl)                                   )
+            land%wnz           (      iwl), land%flag_vg        (      iwl))
 
       endif
 

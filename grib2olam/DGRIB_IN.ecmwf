@@ -10,26 +10,26 @@ c_date='99999999', c_hr='99999999',
 ! 3D atmospheric fields
 
 nvar3d = 5,
-var3d  = 'UGRD', 'VGRD', 'TMP',  'HGT', 'RH',
-out3d  = 'UE',   'VE',   'TEMP', 'GEO', 'RH',
+var3d  = 'U',  'V',  'T',    'Z',   'Q',
+out3d  = 'UE', 'VE', 'TEMP', 'GEO', 'SHV',
 
 ! Miscellaneous surface fields (currently unused in OLAM)
 
 nvarsfc = 2,
-varsfc = 'PRES', 'TMP', 
+varsfc = 'SP',   '2T', 
 outsfc = 'PSFC', 'TSFC',
 
 ! SST / SEAICE
 
-sstvar   = 'TMP'
-icevar   = 'ICEC'
-landmask = 'LAND'
+sstvar   = 'SSTK'
+icevar   = 'CI'
+landmask = ''
 
 ! Soil and snow cover fields
 
-soilw_var = 'SOILW'
-soilt_var = 'TMP'
-snow_var  = 'WEASD'
+soilw_var = 'SWVL#'
+soilt_var = 'STL#'
+snow_var  = 'SD'
 
 /
 

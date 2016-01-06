@@ -1,4 +1,4 @@
-F_COMP=h5pfc
+F_COMP=h5fc
 
 F_OPTS=-O3
 

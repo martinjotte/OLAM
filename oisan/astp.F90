@@ -36,7 +36,7 @@ use isan_coms,  only: iyear, nprz, levpr, ivertcoord, secondlat, cntlon, &
                       cntlat, xnelon, xnelat, itinc, inproj, gdatdy, gdatdx, &
                       xswlat, xswlon, npry, nprx, ihh, idd, imm, &
                       iyy, isversion, marker, innpr, imonth, idate, ihour, &
-                      ipoffset
+                      ipoffset, glat
 use misc_coms,  only: io6, iparallel
 use hdf5_utils, only: shdf5_open, shdf5_irec
 use mem_para,   only: myrank, nbytes_int, nbytes_real
@@ -52,7 +52,7 @@ character(len=3), intent(inout) :: fform
 character(len=16) :: ext
 
 logical :: exists
-integer :: lv, n, ier, igloberr
+integer :: lv, n, ier, igloberr, ipry
 integer :: ndims, idims(2)
 integer :: bytes, isize
 
@@ -147,6 +147,14 @@ elseif (fform == 'HD5') then
       idims(1) = nprz
       call shdf5_irec(ndims, idims, 'levels' ,ivara=levpr)
 
+      if (inproj == 2) then
+         if (allocated(glat)) deallocate(glat)
+         allocate(glat(npry))
+
+         idims(1) = npry
+         call shdf5_irec(ndims, idims, 'glat' ,rvara=glat)
+      endif
+
 #ifdef OLAM_MPI
       if (iparallel == 1) then
          call MPI_Pack(isversion , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
@@ -205,6 +213,14 @@ elseif (fform == 'HD5') then
 
       call MPI_Bcast(levpr, nprz, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
 
+      if (inproj == 2) then
+         if (myrank /= 0) then
+            if (allocated(glat)) deallocate(glat)
+            allocate(glat(npry))
+         endif
+         call MPI_Bcast(glat, npry, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+      endif
+
       deallocate(buffer)
 
    endif
@@ -226,50 +242,108 @@ if (iyy /= iyear .or. imm /= imonth .or. idd /= idate .or. ihh /= ihour) then
    stop 'pr_dates'
 endif
 
-! Check pressure data domain size and location
+! Check pressure data domain size, location, and type
 
-if (inproj /= 1) then
-   write(io6,*) 'You must input a lat-lon pressure grid '
-   stop 'glob-no-press'
-endif
+if (inproj == 1) then
 
-! We make the requirement that a full global domain of pressure-level data
-! be read in.  Check this here.  Following the convention for the NCEP/DOE
-! Reanalysis2 data, it is assumed that nprx * gdatdx should equal 360 degrees
-! (of longitude).  If this is not the case, this check will stop execution.
+   ! INPROJ = 1 denotes an input gridded atmospheric dataset defined on a
+   ! latitude-longitude grid, with uniformly-spaced latitude and longitude,
+   ! defined by parameters (nprx, npry, nprz, gdatdx, gdatdy, xswlat, xswlon)
 
-igloberr = 0
+   ! We make the requirement that a full global domain of pressure-level data
+   ! be read in.  Check this here.  Following the convention for the NCEP/DOE
+   ! Reanalysis2 data, it is assumed that nprx * gdatdx should equal 360 degrees
+   ! (of longitude).  If this is not the case, this check will stop execution.
 
-if (abs(nprx * gdatdx - 360.) > .1) igloberr = 1
+   igloberr = 0
 
-! Data points may be defined at latitudinal coordinates that include both
-! geographic poles (-90. and 90. degrees), in which (npry-1) * gdatdy should
-! equal 180 degrees, or data points may be offset by 1/2 gdatdy from polar
-! locations, in which case npry * gdatdy should equal 180 degrees.  Both
-! possibilities are checked here, and if neither is satisfied, this check
-! will stop execution.  For either case, the beginning latitude of the dataset
-! is checked for consistency.
+   if (abs(nprx * gdatdx - 360.) > .1) igloberr = 1
 
-if (abs((npry-1) * gdatdy - 180.) < .1) then
-   if (abs(xswlat + 90.) > .1) igloberr = 1
-elseif (abs(npry * gdatdy - 180.) < .1) then
-   if (abs(xswlat - 0.5 * gdatdy + 90.) > .1) igloberr = 1
+   ! Data points may be defined at latitudinal coordinates that include both
+   ! geographic poles (-90. and 90. degrees), in which (npry-1) * gdatdy should
+   ! equal 180 degrees, or data points may be offset by 1/2 gdatdy from polar
+   ! locations, in which case npry * gdatdy should equal 180 degrees.  Both
+   ! possibilities are checked here, and if neither is satisfied, this check
+   ! will stop execution.  For either case, the beginning latitude of the dataset
+   ! is checked for consistency.
+
+   if (abs((npry-1) * gdatdy - 180.) < .1) then
+      if (abs(xswlat + 90.) > .1) igloberr = 1
+   elseif (abs(npry * gdatdy - 180.) < .1) then
+      if (abs(xswlat - 0.5 * gdatdy + 90.) > .1) igloberr = 1
+   else
+      igloberr = 1
+   endif
+
+   if (igloberr == 1) then
+      write(io6,*) 'INPROJ = ',inproj
+      write(io6,*) 'Gridded pressure level data must have global coverage'
+      write(io6,*) 'nprx,npry = ',nprx,npry
+      write(io6,*) 'gdatdx,gdatdy = ',gdatdx,gdatdy
+      write(io6,*) 'xswlat,xswlon= ',xswlat,xswlon
+      stop 'astp stop1 - non-global domain in input pressure data'
+   endif
+
+   ! Compute longitudinal offset index for copying input data to the expanded
+   ! isan pressure arrays.
+
+   ipoffset = int((xswlon + 180.) / gdatdx) + 2
+
+elseif (inproj == 2) then
+
+   ! INPROJ = 2 denotes an input gridded atmospheric dataset defined on a
+   ! latitude-longitude grid, with uniformly-spaced longitude and variable
+   ! latitudinal spacing, and defined by parameters (nprx, npry, nprz, gdatdx,
+   ! xswlon) and glat, an array of specified latitudes.
+
+   ! We make the requirement that a full global domain of pressure-level data
+   ! be read in.  Check this here.  Following the convention for the NCEP/DOE
+   ! Reanalysis2 data, it is assumed that nprx * gdatdx should equal 360 degrees
+   ! (of longitude).  If this is not the case, this check will stop execution.
+
+   igloberr = 0
+
+   if (abs(nprx * gdatdx - 360.) > .1) igloberr = 1
+
+   ! Data points may be defined at latitudinal coordinates that include both
+   ! geographic poles (-90. and 90. degrees) or data points may be offset by
+   ! (approximately) 1/2 gdatdy from polar locations.  Here, we check that at
+   ! least one of these possibilities is satisfied.  If not, this check will
+   ! stop execution.
+
+   if (glat(1) - (glat(2) - glat(1)) > -90.) igloberr = 1
+   if (glat(npry) + (glat(npry) - glat(npry-1)) < 90.) igloberr = 1
+
+   if (igloberr == 1) then
+      write(io6,*) 'INPROJ = ',inproj
+      write(io6,*) 'Gridded pressure level data must have global coverage'
+      write(io6,*) 'nprx,npry = ',nprx,npry
+      write(io6,*) 'gdatdx = ',gdatdx
+      write(io6,*) 'xswlat,xswlon= ',xswlat,xswlon
+      do ipry = 1,npry
+         write(io6,*) 'ipry, glat = ',ipry,glat(ipry)
+      enddo
+      stop 'astp stop2 - non-global domain in input pressure data'
+   endif
+
+   ! Compute longitudinal offset index for copying input data to the expanded
+   ! isan pressure arrays.
+
+   ipoffset = int((xswlon + 180.) / gdatdx) + 2
+
 else
-   igloberr = 1
+
+   write(io6,*) 'The input gridded atmospheric dataset does not conform '
+   write(io6,*) 'to currently-implemented formats, which are: '
+   write(io6,*) '(iproj=1) latitude-longitude with uniform spacing '
+   write(io6,*) '(iproj=2) latitude-longitude with specified variable '
+   write(io6,*) '          latitude and uniformly-spaced longitude '
+   write(io6,*) ' '
+   write(io6,*) 'Other formats will require additional coding.'
+
+   stop 'astp stop - input atmospheric dataset format'
+
 endif
-
-if (igloberr == 1) then
-    write(io6,*) 'Gridded pressure level data must have global coverage'
-    write(io6,*) 'nprx,npry = ',nprx,npry
-    write(io6,*) 'gdatdx,gdatdy = ',gdatdx,gdatdy
-    write(io6,*) 'xswlat,xswlon= ',xswlat,xswlon
-    stop 'astp - non-global domain in input pressure data'
-endif
-
-! Compute longitudinal offset index for copying input data to the expanded
-! isan pressure arrays.
-
-ipoffset = int((xswlon + 180.) / gdatdx) + 2
 
 end subroutine read_press_header
 
@@ -838,7 +912,7 @@ end subroutine get_press
 
 subroutine prfill (nprx,npry,xx,dn)
 
-use isan_coms,  only: gdatdy, xswlat, ipoffset
+use isan_coms,  only: gdatdy, xswlat, ipoffset, inproj
 
 implicit none
 
@@ -863,7 +937,7 @@ enddo
 
 ! Fill in N/S boundary rows, based on whether xswlat = -90. or -90. + gdatdy/2.
 
-if (abs(xswlat + 90.) < .1) then
+if (inproj==1 .and. abs(xswlat + 90.) < .1) then
 
    do i = 1,nprxo2
       dn(i,1)      = dn(i+nprxo2,5)
@@ -879,7 +953,7 @@ if (abs(xswlat + 90.) < .1) then
       dn(i,npry+4) = dn(i-nprxo2,npry)
    enddo
 
-elseif (abs(xswlat - .5 * gdatdy + 90.) < .1) then
+elseif (inproj==2 .or. (inproj==1 .and. abs(xswlat - .5 * gdatdy + 90.) < .1)) then
 
    do i = 1,nprxo2
       dn(i,1)      = dn(i+nprxo2,4)
@@ -905,7 +979,7 @@ end subroutine prfill
 
 subroutine prfill3 (nprx,npry,nprz,xx,dn)
 
-use isan_coms,  only: gdatdy, xswlat, ipoffset
+use isan_coms,  only: gdatdy, xswlat, ipoffset, inproj
 
 implicit none
 
@@ -931,7 +1005,7 @@ do k = 1,nprz
 
 ! Fill in N/S boundary rows, based on whether xswlat = -90. or -90. + gdatdy/2.
 
-   if (abs(xswlat + 90.) < .1) then
+   if (inproj==1 .and. abs(xswlat + 90.) < .1) then
 
       do i = 1,nprxo2
          dn(i,1,k)      = dn(i+nprxo2,5,k)
@@ -947,7 +1021,7 @@ do k = 1,nprz
          dn(i,npry+4,k) = dn(i-nprxo2,npry,k)
       enddo
 
-   elseif (abs(xswlat - .5 * gdatdy + 90.) < .1) then
+   elseif (inproj==2 .or. (inproj==1 .and. abs(xswlat - .5 * gdatdy + 90.) < .1)) then
 
       do i = 1,nprxo2
          dn(i,1,k)      = dn(i+nprxo2,4,k)

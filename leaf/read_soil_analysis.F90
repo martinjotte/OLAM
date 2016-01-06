@@ -1,13 +1,15 @@
 subroutine read_soil_analysis(soil_tempc)
 
   use misc_coms,  only: io6, s1900_sim, s1900_init, isubdomain, iparallel
-  use leaf_coms,  only: nzg, mwl, slzt, soilcp, slmsts, slcpd, soilstate_db, &
-                        slpott, dt_leaf
+  use leaf_coms,  only: nzg, mwl, slzt, soilcp_ch, soilcp_vg, &
+                        slmsts_ch, slmsts_vg,                 &
+                        slpott_high1_ch,  slpott_high1_vg,    &
+                        slcpd, soilstate_db, dt_leaf
   use mem_leaf,   only: land, itab_wl
   use consts_coms,only: pio180, piu180, erad, cliq1000, alli1000, cice,   &
                          cice1000, r8
   use max_dims,   only: pathlen
-  use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, &
+  use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, glat, &
                         inproj, xswlat, xswlon, gdatdx, gdatdy, ipoffset
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
   use mem_para,   only: myrank, nbytes_int, nbytes_real
@@ -30,7 +32,7 @@ subroutine read_soil_analysis(soil_tempc)
   integer            :: nio, njo, ngnd
   integer            :: iwl, i, j, k, kk, ntext
   logical            :: has_snow, has_soilt, has_soilw
-  integer            :: bytes, isize, ier
+  integer            :: bytes, isize, ier, igloberr, ilat, ipry
 
   real, allocatable  :: snow (:,:)   ! snow mass  [kg/m2]
   real, allocatable  :: soilt(:,:,:) ! soil temp  [K]
@@ -42,6 +44,7 @@ subroutine read_soil_analysis(soil_tempc)
   real               :: wcap_min     ! minimum surface water water [kg/m^2]
 
   integer, allocatable :: buffer(:)
+  real,    allocatable :: plat(:)
 
   has_snow  = .false.
   has_soilt = .false.
@@ -123,6 +126,14 @@ subroutine read_soil_analysis(soil_tempc)
      call shdf5_irec(ndims, idims, 'dx'   , rvars=gdatdx)
      call shdf5_irec(ndims, idims, 'dy'   , rvars=gdatdy)
 
+     if (inproj == 2) then
+        if (allocated(glat)) deallocate(glat)
+        allocate(glat(npry))
+
+        idims(1) = npry
+        call shdf5_irec(ndims, idims, 'glat' ,rvara=glat)
+     endif
+
      ! Check if ngnd, the # of soil levels, is in the analysis file and read it
 
      ngnd = 0
@@ -181,6 +192,15 @@ subroutine read_soil_analysis(soil_tempc)
      endif
 
      if (ngnd > 0) call MPI_Bcast(zcol, ngnd, MPI_REAL, 0, MPI_COMM_WORLD, ier)
+
+     if (inproj == 2) then
+        if (myrank /= 0) then
+           if (allocated(glat)) deallocate(glat)
+           allocate(glat(npry))
+        endif
+        call MPI_Bcast(glat, npry, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+     endif
+
      deallocate(buffer)
 
   endif
@@ -192,33 +212,110 @@ subroutine read_soil_analysis(soil_tempc)
      write(io6,*)
   endif
 
-  ! Check data domain size and location
+  ! Check data domain size, location, and type
 
-  if (inproj /= 1) then
-     write(io6,*) 'You must input a lat-lon grid for soil initialization.'
-     write(io6,*) "Using default soil initialization instead."
-     if (myrank == 0) call shdf5_close()
-     return
+  if (inproj == 1) then
+
+     ! INPROJ = 1 denotes an input gridded atmospheric dataset defined on a
+     ! latitude-longitude grid, with uniformly-spaced latitude and longitude,
+     ! defined by parameters (nprx, npry, nprz, gdatdx, gdatdy, xswlat, xswlon)
+
+     ! We make the requirement that a full global domain of pressure-level data
+     ! be read in.  Check this here.  Following the convention for the NCEP/DOE
+     ! Reanalysis2 data, it is assumed that nprx * gdatdx should equal 360 degrees
+     ! (of longitude).  If this is not the case, this check will stop execution.
+
+     igloberr = 0
+
+     if (abs(nprx * gdatdx - 360.) > .1) igloberr = 1
+
+     ! Data points may be defined at latitudinal coordinates that include both
+     ! geographic poles (-90. and 90. degrees), in which (npry-1) * gdatdy should
+     ! equal 180 degrees, or data points may be offset by 1/2 gdatdy from polar
+     ! locations, in which case npry * gdatdy should equal 180 degrees.  Both
+     ! possibilities are checked here, and if neither is satisfied, this check
+     ! will stop execution.  For either case, the beginning latitude of the dataset
+     ! is checked for consistency.
+
+     if (abs((npry-1) * gdatdy - 180.) < .1) then
+        if (abs(xswlat + 90.) > .1) igloberr = 1
+     elseif (abs(npry * gdatdy - 180.) < .1) then
+        if (abs(xswlat - 0.5 * gdatdy + 90.) > .1) igloberr = 1
+     else
+        igloberr = 1
+     endif
+
+     if (igloberr == 1) then
+        write(io6,*) 'INPROJ = ',inproj
+        write(io6,*) 'Gridded pressure level data must have global coverage'
+        write(io6,*) 'nprx,npry = ',nprx,npry
+        write(io6,*) 'gdatdx,gdatdy = ',gdatdx,gdatdy
+        write(io6,*) 'xswlat,xswlon= ',xswlat,xswlon
+        if (myrank == 0) call shdf5_close()
+        stop 'astp stop1 - non-global domain in input soil data'
+     endif
+
+     ! Compute longitudinal offset index for copying input data to the expanded
+     ! isan pressure arrays.
+
+     ipoffset = int((xswlon + 180.) / gdatdx) + 2
+
+  elseif (inproj == 2) then
+
+     ! INPROJ = 2 denotes an input gridded atmospheric dataset defined on a
+     ! latitude-longitude grid, with uniformly-spaced longitude and variable
+     ! latitudinal spacing, and defined by parameters (nprx, npry, nprz, gdatdx,
+     ! xswlon) and glat, an array of specified latitudes.
+
+     ! We make the requirement that a full global domain of pressure-level data
+     ! be read in.  Check this here.  Following the convention for the NCEP/DOE
+     ! Reanalysis2 data, it is assumed that nprx * gdatdx should equal 360 degrees
+     ! (of longitude).  If this is not the case, this check will stop execution.
+
+     igloberr = 0
+
+     if (abs(nprx * gdatdx - 360.) > .1) igloberr = 1
+
+     ! Data points may be defined at latitudinal coordinates that include both
+     ! geographic poles (-90. and 90. degrees) or data points may be offset by
+     ! (approximately) 1/2 gdatdy from polar locations.  Here, we check that at
+     ! least one of these possibilities is satisfied.  If not, this check will
+     ! stop execution.
+
+     if (glat(1) - (glat(2) - glat(1)) > -90.) igloberr = 1
+     if (glat(npry) + (glat(npry) - glat(npry-1)) < 90.) igloberr = 1
+
+     if (igloberr == 1) then
+        write(io6,*) 'INPROJ = ',inproj
+        write(io6,*) 'Gridded soil data must have global coverage'
+        write(io6,*) 'nprx,npry = ',nprx,npry
+        write(io6,*) 'gdatdx = ',gdatdx
+        write(io6,*) 'xswlat,xswlon= ',xswlat,xswlon
+        do ipry = 1,npry
+           write(io6,*) 'ipry, glat = ',ipry,glat(ipry)
+        enddo
+        stop 'astp stop2 - non-global domain in input soil data'
+     endif
+
+     ! Compute longitudinal offset index for copying input data to the expanded
+     ! isan pressure arrays.
+
+     ipoffset = int((xswlon + 180.) / gdatdx) + 2
+
+  else
+
+     write(io6,*) 'The input gridded atmospheric dataset does not conform '
+     write(io6,*) 'to currently-implemented formats, which are: '
+     write(io6,*) '(iproj=1) latitude-longitude with uniform spacing '
+     write(io6,*) '(iproj=2) latitude-longitude with specified variable '
+     write(io6,*) '          latitude and uniformly-spaced longitude '
+     write(io6,*) ' '
+     write(io6,*) 'Other formats will require additional coding.'
+
+     stop 'astp stop - input soil dataset format'
+
   endif
 
-  ! We make the requirement that a full global domain of data be
-  ! read in.  Check this here.  Following the convention for the NCEP/DOE
-  ! Reanalysis2 data, assume that data exists at both latitudinal boundaries
-  ! (-90. and 90. degrees) but that the longitudinal boundary is not repeated.
-  ! If either is not the case, this check will stop execution. 
-
-  if (abs(nprx      * gdatdx - 360.) > .1 .or. &
-      abs ((npry-1) * gdatdy - 180.) > .1) then
-     write(io6,*) 'Gridded soil data does not have global coverage.'
-     write(io6,*) "Using default soil initialization instead."
-     if (myrank == 0) call shdf5_close()
-     return
-  endif
-
-  ! Compute longitudinal offset index, which is the index in the expanded
-  ! arrays where the first input data point (at xswlon) is located.
-
-  ipoffset = int((xswlon + 180.) / gdatdx) + 2
   nio = nprx + 4
   njo = npry + 4
 
@@ -387,14 +484,53 @@ subroutine read_soil_analysis(soil_tempc)
   allocate(tcol(ngnd))
   allocate(wcol(ngnd))
 
+  if (inproj == 2) then
+     allocate(plat(npry+4))
+
+     do ilat = 1,npry
+        plat(ilat+2) = glat(ilat)
+     enddo
+
+     plat(2) = plat(3) - (plat(4) - plat(3))
+     plat(1) = plat(2) - (plat(3) - plat(2))
+
+     plat(npry+3) = plat(npry+2) + (plat(npry+2) - plat(npry+1))
+     plat(npry+4) = plat(npry+3) + (plat(npry+3) - plat(npry+2))
+  endif
+
   ! Fill soil arrays
 
   do iwl = 2, mwl
 
      ! fractional x/y indices in pressure data arrays at current iw point location 
  
-     gry = (land%glatw(iwl) - xswlat) / gdatdy + 3.
-     grx = (land%glonw(iwl) - xswlon) / gdatdx + 1. + real(ipoffset) 
+     if (inproj == 1) then
+ 
+        gry = (land%glatw(iwl) - xswlat) / gdatdy + 3.
+        grx = (land%glonw(iwl) - xswlon) / gdatdx + 1. + real(ipoffset)
+
+     elseif (inproj == 2) then
+
+        ! estimate latitude index assuming uniform spacing of plat
+
+        ilat = 2 + npry * int((land%glatw(iwl) - plat(2)) / 180.)
+
+        ! find correct latitude index
+
+        if (plat(ilat) > land%glatw(iwl)) then
+           do while(plat(ilat) > land%glatw(iwl))
+              ilat = ilat - 1
+           enddo
+        elseif (plat(ilat+1) < land%glatw(iwl)) then
+           do while(plat(ilat+1) < land%glatw(iwl))
+              ilat = ilat + 1
+           enddo
+        endif
+
+        gry = (land%glatw(iwl) - plat(ilat)) / (plat(ilat+1) - plat(ilat)) + real(ilat)
+        grx = (land%glonw(iwl) - xswlon) / gdatdx + 1. + real(ipoffset) 
+
+     endif
 
      ! Interpolate snow depth to this land cell if any of the 4 closest
      ! analysis points have non-missing snow data
@@ -483,8 +619,14 @@ subroutine read_soil_analysis(soil_tempc)
 
            do k = 1, nzg
               ntext = land%ntext_soil(k,iwl)
-              if (land%head0(iwl) - slzt(k) < slpott(ntext)) then
-                 land%soil_water(k,iwl) = max( soilcp(ntext), min( wprof(k), slmsts(ntext) ))
+              if (land%flag_vg(iwl)) then
+                 if (land%head0(iwl) - slzt(k) < slpott_high1_vg(ntext)) then
+                    land%soil_water(k,iwl) = max( soilcp_vg(ntext), min( wprof(k), slmsts_vg(ntext) ))
+                 endif
+              else
+                 if (land%head0(iwl) - slzt(k) < slpott_high1_ch(ntext)) then
+                    land%soil_water(k,iwl) = max( soilcp_ch(ntext), min( wprof(k), slmsts_ch(ntext) ))
+                 endif
               endif
            enddo
 

@@ -39,10 +39,11 @@ subroutine sfcwater(iwl, icomb, nlev_sfcwater, ntext_soil,             &
                     sfcwater_mass, sfcwater_energy, sfcwater_depth,    &
                     sfcwater_tempk, sfcwater_fracliq, energy_per_m2,   &
                     head1, vf, wfree1, qwfree1, dwfree1,               &
-                    snowmin_expl                                       )
+                    snowmin_expl, flag_vg                              )
 
-use leaf_coms,   only: nzg, nzs, dt_leaf, slz, dslz, dslzi, dslzo2,  &
-                       slmstsi, soilcond0, soilcond1, soilcond2, slcpd
+use leaf_coms,   only: nzg, nzs, dt_leaf, slz, dslz, dslzi, dslzo2, &
+                       soilcond0, soilcond1, soilcond2, slcpd,      &
+                       slmstsi_ch, slmstsi_vg
                        
 use consts_coms, only: alvi, cice, cliq, alli
 use misc_coms,   only: io6
@@ -73,6 +74,8 @@ real, intent(out)   :: wfree1  ! free liquid in lowest sfcwater layer [kg/m^2]
 real, intent(out)   :: qwfree1 ! energy carried by wfree1 [J/m^2]
 real, intent(out)   :: dwfree1 ! depth carried by wfree1 [m]
 real, intent(in)    :: snowmin_expl ! min sfcwater mass for explicit heat xfer [kg/m^2]
+
+logical, intent(in) :: flag_vg
 
 ! Local variables
 
@@ -106,6 +109,7 @@ real :: flmin     ! lower bound on sfcwater_fracliq(1) in balance with soil
 real :: flmax     ! upper bound on sfcwater_fracliq(1) in balance with soil
 real :: specvol   ! specific volume of sfcwater involved in vapor xfer [m^3/kg]
 real :: wcap_min  ! minimum surface water water [kg/m^2]
+real :: waterfrac_ul
 
 ! Local parameters
 
@@ -176,7 +180,14 @@ if (nlev_sfcwater > 0 .and. icomb == 0) then
 
 ! Compute heat resistance of top HALF of top soil layer (soil_rfactor).
 
-   waterfrac = soil_water(nzg) * slmstsi(ntext_soil(nzg))
+   if (flag_vg) then
+      waterfrac_ul = soil_water(nzg) * slmstsi_vg(ntext_soil(nzg)) ! "unlimited"
+      waterfrac = max(.001,min(.999,waterfrac_ul))
+   else
+      waterfrac_ul = soil_water(nzg) * slmstsi_ch(ntext_soil(nzg)) ! "unlimited"
+      waterfrac = max(.001,min(.999,waterfrac_ul))
+   endif
+
    soilcond =        soilcond0(ntext_soil(nzg))  &
       + waterfrac * (soilcond1(ntext_soil(nzg))  &
       + waterfrac *  soilcond2(ntext_soil(nzg))  )
@@ -342,11 +353,11 @@ enddo
 ! 11 Feb 2015: Define head1 from total sfcwater_mass (but leaf4_soil will
 ! still allow no more than wfree1 to actually enter soil on current timestep
 
-! Sept 2015: Limit head1 to 1 meter so that head values inside soil are not
+! Sept 2015: Limit head1 to 5 meters so that head values inside soil are not
 ! forced to high values. (Head0 must not be set above its normal upper limit
 ! of 0.1 meter with this limit on head1.)
 
-head1 = min(1.0,.001 * sum(sfcwater_mass(1:nlev_sfcwater)))
+head1 = min(5.0,.001 * sum(sfcwater_mass(1:nlev_sfcwater)))
 
 if (iwl == iwl_print) then
 

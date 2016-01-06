@@ -39,47 +39,47 @@ module grib_get_mod
 
   character(4) :: sdunit
 
+  real, allocatable :: alats(:)
+
+  real, parameter :: amiss  = -2.e20
+  real, parameter :: amiss0 = -1.e20
+
 contains
 
 !*****************************************************************
 
-  subroutine grib_get_recf(filein,inrec,a,nxy)
+  subroutine grib_get_recf(filein,inrec,a,nx,ny)
 
     implicit none
 
-    integer,      intent( in) :: nxy
-    real,         intent(out) :: a(nxy)
-    character(*), intent( in) :: filein,inrec
+    integer,      intent( in) :: nx, ny
+    real,         intent(out) :: a(nx,ny)
+    character(*), intent( in) :: filein, inrec
     integer                   :: isize
 
     if (grib_ver == 1) then
-
-!      cmd = trim(wgrib_exe) // " -d " // trim(inrec) // &
-!            " -text -nh -o - " // trim(filein) // char(0)
 
        cmd = trim(wgrib_exe) // " -d " // trim(inrec) // &
              " -bin -nh -o - " // trim(filein) // char(0)
 
     elseif (grib_ver == 2) then
 
-!      cmd = trim(wgrib_exe) // " -d " // trim(inrec) // &
-!            " -text - -no_header -inv /dev/null -order we:sn "// trim(filein) // char(0)
-
        cmd = trim(wgrib_exe) // " -d " // trim(inrec) // &
              " -bin - -no_header -inv /dev/null -order we:sn "// trim(filein) // char(0)
 
-       iscan = 1   ! switch output order to s-n
+       iscan = 1   ! wgrib2 always defaults to s-n
     endif
 
-    isize = nxy * 4
+    isize = nx * ny * 4
     call ir_popen(isize, a, cmd, lenout)
 
-end subroutine grib_get_recf
+  end subroutine grib_get_recf
 
 !*****************************************************************
 
   subroutine grib_get_proj(filein)
 
+    use gaussian, only: gauaw
     implicit none
 
     character(*), intent(in) :: filein
@@ -111,6 +111,9 @@ end subroutine grib_get_recf
        call tokenize_ws(lines(5),tokens,ntok)
        read(tokens(1),*) projection
 
+       ne = len_trim(projection)
+       if (projection(ne:ne) == ':') projection = projection(1:ne-1)
+
        if(projection(1:5) == 'polar') then
           call tokenize_ws(lines(5),tokens,ntok)
           read(tokens(4),*) alat1
@@ -136,10 +139,19 @@ end subroutine grib_get_recf
        elseif(projection(1:5) == 'latlo') then
           call tokenize_ws(lines(5),tokens,ntok)
           read(tokens(3),*) alat1
-          read(tokens(7),*) dx
+          read(tokens(7),*) dy
           call tokenize_ws(lines(6),tokens,ntok)
           read(tokens(2),*) alon1
-          read(tokens(6),*) dy
+          read(tokens(6),*) dx
+          read(tokens(11),*) iscan
+       elseif(projection(1:5) == 'gauss') then
+          allocate(alats(ny))
+          call gauaw(alats, ny)
+          alat1 = alats(1)
+          dy = 180.0 / ny
+          call tokenize_ws(lines(6),tokens,ntok)
+          read(tokens(2),*) alon1
+          read(tokens(6),*) dx
           read(tokens(11),*) iscan
        endif
 
@@ -153,18 +165,21 @@ end subroutine grib_get_recf
           lines(n) = buffer(istart:iend)
           istart=iend+2
        enddo
+
+       iscan = 1
    
-       tokens = ' '
-       call tokenize_ws(lines(1),tokens,ntok)
-       nb = len_trim(tokens(1))
-       ne = len_trim(tokens(1))
-       read(tokens(1)(nb:ne),*) iscan
+!!       tokens = ' '
+!!       call tokenize_ws(lines(1),tokens,ntok)
+!!       nb = len_trim(tokens(1))
+!!       ne = len_trim(tokens(1))
+!!       read(tokens(1)(nb:ne),*) iscan
    
        tokens = ' '
        call tokenize_ws(lines(2),tokens,ntok)
        read(tokens(1),*) projection
        noff=0
-       if (projection(1:7) == 'Lambert') noff = 1
+       if (projection(1:7) == 'Lambert')  noff = 1
+       if (projection(1:8) == 'Gaussian') noff = 1
        nb = index(tokens(2+noff),'(')+1
        ne = len_trim(tokens(2+noff))
        read(tokens(2+noff)(nb:ne),*) nx
@@ -186,7 +201,7 @@ end subroutine grib_get_recf
           read(tokens(1),*) cpole
           read(tokens(7),*) dx
           read(tokens(9),*) dy
-          read(tokens(11),*) iscan
+!         read(tokens(11),*) iscan
        elseif(projection(1:7) == 'Lambert') then
           !print*,'3--'//trim(lines(3))//'--'
           tokens = ' '
@@ -205,17 +220,27 @@ end subroutine grib_get_recf
           !print*,'5--'//trim(tokens(1)), len_trim(tokens(1)),ichar(tokens(1))
           read(tokens(7),*) dx
           read(tokens(9),*) dy
-          read(tokens(11),*) iscan
+!         read(tokens(11),*) iscan
        elseif(projection(1:7) == 'lat-lon') then
           projection = 'latlon'
           tokens = ' '
           call tokenize_ws(lines(3),tokens,ntok)
           read(tokens(2),*) alat1
-          read(tokens(6),*) dx
+          read(tokens(6),*) dy
           tokens = ' '
           call tokenize_ws(lines(4),tokens,ntok)
           read(tokens(2),*) alon1
-          read(tokens(6),*) dy
+          read(tokens(6),*) dx
+       elseif(projection(1:7) == 'Gaussian') then
+          projection = 'gaussian'
+          tokens = ' '
+          allocate(alats(ny))
+          call gauaw(alats, ny)
+          alat1 = alats(1)
+          dy = 180.0 / ny
+          call tokenize_ws(lines(5),tokens,ntok)
+          read(tokens(2),*) alon1
+          read(tokens(6),*) dx
        else
           print*,'unknown projection:', '+'//trim(projection)//'+'
           stop 'bad proj'

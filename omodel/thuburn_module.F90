@@ -217,7 +217,7 @@ Contains
 #endif
 
           if (myrank == 0) then
-             inode = 0
+             inode = 1
              if (iparallel == 1) then
                 if (any( cfl_maxs(:) /= cfl_maxs(:) )) then
                    do n = 1, mgroupsize

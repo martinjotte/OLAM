@@ -308,6 +308,8 @@ end subroutine shdf5_orec
 
 !================================================================
 
+#ifdef OLAM_MPI
+
 subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
                                            ivars,rvars,cvars,dvars,lvars,  &
                                            nglobe, lpoints, gpoints,       &
@@ -574,6 +576,8 @@ subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
   call fh5_close_write2(hdferr)
 
 end subroutine shdf5_orec2
+
+#endif
 
 !===============================================================================
 
@@ -888,6 +892,8 @@ end subroutine shdf5_orec_ll
 
 !===============================================================================
 
+#ifdef OLAM_MPI
+
 subroutine shdf5_orec_ll2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
                                               ivars,rvars,cvars,dvars,lvars,  &
                                               gpoints,                        &
@@ -1095,5 +1101,7 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
   call fh5_close_write2(hdferr)
 
 end subroutine shdf5_orec_ll2
+
+#endif
 
 end module

@@ -36,8 +36,8 @@ subroutine isnstage(p_u, p_v, p_t, p_z, p_r, p_o, &
 
 use max_dims,     only: maxpr
 use isan_coms,    only: nprz, npry, nprx, nprz_rh, haso3, nbot_o3, &
-                        xswlat, xswlon, gdatdx, gdatdy, &
-                        npd, kzonoff, levpr, lzon_bot, ipoffset
+                        xswlat, xswlon, gdatdx, gdatdy, glat, &
+                        npd, kzonoff, levpr, lzon_bot, ipoffset, inproj
 use mem_grid,     only: glatw, glonw, mza, mwa, mva, lpv, lpw, &
                         xev, yev, zev, unx, uny, unz, vnx, vny, vnz
 use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, jtv_init, jtw_init
@@ -78,6 +78,8 @@ real :: pcol_v    (maxpr+2)
 real :: pcol_rt   (maxpr+2)
 real :: pcol_exner(maxpr+2)
 real :: pcol_o3   (maxpr+2)
+
+real :: plat(npry+4)
 
 real :: pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc
 
@@ -121,14 +123,55 @@ do k = 1, npd
    pcol_exner(k) = cp * (pcol_p(k) * p00i)**rocp
 enddo
 
+! For INPROJ = 2, where latitudes are specified, fill expanded latitude array
+
+if (inproj == 2) then
+
+   do ilat = 1,npry
+      plat(ilat+2) = glat(ilat)
+   enddo
+
+   plat(2) = plat(3) - (plat(4) - plat(3))
+   plat(1) = plat(2) - (plat(3) - plat(2))
+
+   plat(npry+3) = plat(npry+2) + (plat(npry+2) - plat(npry+1))
+   plat(npry+4) = plat(npry+3) + (plat(npry+3) - plat(npry+2))
+
+endif
+
 !----------------------------------------------------------------------
 do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 
 ! fractional x/y indices in pressure data arrays at current iw point location 
 
-   gry = (glatw(iw) - xswlat) / gdatdy + 3.
-   grx = (glonw(iw) - xswlon) / gdatdx + 1. + real(ipoffset) 
+   if (inproj == 1) then
+
+      gry = (glatw(iw) - xswlat) / gdatdy + 3.
+      grx = (glonw(iw) - xswlon) / gdatdx + 1. + real(ipoffset) 
+
+   elseif (inproj == 2) then
+
+      ! estimate latitude index assuming uniform spacing of plat
+
+      ilat = 2 + npry * int((glatw(iw) - plat(2)) / 180.)
+
+      ! find correct latitude index
+
+      if (plat(ilat) > glatw(iw)) then
+         do while(plat(ilat) > glatw(iw))
+            ilat = ilat - 1
+         enddo
+      elseif (plat(ilat+1) < glatw(iw)) then
+         do while(plat(ilat+1) < glatw(iw))
+            ilat = ilat + 1
+         enddo
+      endif
+
+      gry = (glatw(iw) - plat(ilat)) / (plat(ilat+1) - plat(ilat)) + real(ilat)
+      grx = (glonw(iw) - xswlon) / gdatdx + 1. + real(ipoffset) 
+
+   endif
 
 ! Horizontally interpolate gridded pressure-level data to column
 ! at location of current W point
