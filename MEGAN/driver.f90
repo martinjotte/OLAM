@@ -585,7 +585,7 @@ contains
           if (land%flag_vg(iwl)) then
              soilm = land%soil_water(nzg,iwl) * slmstsi_vg(land%ntext_soil(nzg,iwl))
           else
-             soilm = land%soil_water(nzg,iwl) * slmstsi_vg(land%ntext_soil(nzg,iwl))
+             soilm = land%soil_water(nzg,iwl) * slmstsi_ch(land%ntext_soil(nzg,iwl))
           endif
 
           ! Top soil layer temperature

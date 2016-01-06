@@ -35,8 +35,7 @@ subroutine leaf4_init_atm()
 
   use mem_leaf,    only: land, itab_wl
 
-  use leaf_coms,   only: mwl, nzg, nzs, slmsts_vg, slmsts_ch, &
-                         slzt, veg_ht, slcpd, soil_rough, &
+  use leaf_coms,   only: mwl, nzg, nzs, slzt, veg_ht, slcpd, soil_rough, &
                          iupdndvi, s1900_ndvi, indvifile, nndvifiles, &
                          dt_leaf, isoilstateinit, iwatertabflg, watertab_db
 

@@ -164,6 +164,8 @@ Contains
 
   do iw = 2,mwa
 
+     if (mod(iw,100000) == 0) write(io6,*) 'init_addgrid iw, mwa ',iw,mwa
+
 ! Skip points that do not need to be interpolated
 
      ngrw = 0
@@ -300,8 +302,11 @@ Contains
 ! Loop through all NEW grid land cells, find the nearest land cell on the
 ! OLD grid, and attach its index to the NEW grid land cell.
 
+     !$omp parallel do private(iw,iwl_og,dist_min,dist)
      do iwl = 2,mwl
         iw = itab_wl(iwl)%iw
+
+        if (mod(iwl,100000) == 0) write(io6,*) 'init_addgrid iwl,mwl ',iwl,mwl
 
 ! Initialize minimum distance variable
 
@@ -333,12 +338,15 @@ Contains
         enddo  ! iwl_og
 
      enddo  ! iwl
+     !$omp end parallel do
 
 ! Loop through all NEW grid sea cells, find the nearest sea cell on the
 ! OLD grid, and attach its index to the NEW grid sea cell.
 
      do iws = 2,mws
         iw = itab_ws(iws)%iw
+
+        if (mod(iws,100000) == 0) write(io6,*) 'init_addgrid iws,mws ',iws,mws
 
 ! Initialize minimum distance variable
 
