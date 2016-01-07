@@ -67,7 +67,7 @@ contains
 
   subroutine get_soil_nox(mrl)
 
-    use leaf_coms,   only: mwl, nzg, slmstsi
+    use leaf_coms,   only: mwl, nzg, slmstsi_vg, slmstsi_ch
     use mem_leaf,    only: land, itab_wl
     use mem_ijtabs,  only: itabg_w
     use consts_coms, only: t00
@@ -135,7 +135,13 @@ contains
 
        ! Get fraction of saturation (water-filled pore space)
 
-       wfps = land%soil_water(nzg,iwl) * slmstsi( land%ntext_soil(nzg,iwl) )
+       if (land%flag_vg(iwl)) then
+          wfps = land%soil_water(nzg,iwl) &
+               * slmstsi_vg( land%ntext_soil(nzg,iwl) )
+       else
+          wfps = land%soil_water(nzg,iwl) &
+               * slmstsi_ch( land%ntext_soil(nzg,iwl) )
+       endif
 
        ! If desert type, mark soil as arid
 
@@ -227,7 +233,7 @@ contains
 
     
   subroutine soil_nox_init()
-    use leaf_coms,   only: mwl, slmstsi, nzg
+    use leaf_coms,   only: mwl, slmstsi_ch, slmstsi_vg, nzg
     use mem_leaf,    only: land
     use utilio_defn, only: index1, m3exit, xstat1
     use cgrid_spcs,  only: n_gc_emis, gc_emis
@@ -248,7 +254,13 @@ contains
           pfactor(iwl) = 1.0
           soilnox(iwl) = 0.0
 
-          wfps = land%soil_water(nzg,iwl) * slmstsi( land%ntext_soil(nzg,iwl) )
+          if (land%flag_vg(iwl)) then
+             wfps = land%soil_water(nzg,iwl) &
+                  * slmstsi_vg( land%ntext_soil(nzg,iwl) )
+          else
+             wfps = land%soil_water(nzg,iwl) &
+                  * slmstsi_ch( land%ntext_soil(nzg,iwl) )
+          endif
 
           if (wfps >= 0.5) then
              drytime(iwl) = 0.0
