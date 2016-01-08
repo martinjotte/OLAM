@@ -568,8 +568,8 @@ Contains
 
 ! Reduced saturation vapor density and gradient of soil during evaporation
 
- call grndvap_ab(iwl,nts,sfc_tempk, soil_water(nzg),can_rhov,sfc_rhovs, gnd_rhov)
- call grndvap_ab(iwl,nts,sfc_tempk1,soil_water(nzg),can_rhov,sfc_rhovs1,gnd_rhov1)
+ call grndvap_ab(iwl,nts,sfc_tempk, soil_water(nzg),can_rhov,sfc_rhovs, gnd_rhov, flag_vg)
+ call grndvap_ab(iwl,nts,sfc_tempk1,soil_water(nzg),can_rhov,sfc_rhovs1,gnd_rhov1,flag_vg)
 
  gnd_rhovp = gnd_rhov1 - gnd_rhov
 
