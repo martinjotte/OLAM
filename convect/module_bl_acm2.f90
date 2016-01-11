@@ -408,9 +408,6 @@ contains
     REAL, PARAMETER :: RLAM   = 80.0
     REAL, PARAMETER :: GAMH   = 16.0  !  Holtslag and Boville (1993)
     REAL, PARAMETER :: BETAH  = 5.0   !  Holtslag and Boville (1993)
-    
-!   REAL, PARAMETER :: FHMIN = 0.01  ! Minimum value of f(Ri)
-    REAL, PARAMETER :: FHMIN = 0.0
 
     REAL, PARAMETER :: EDYZ0  = 0.0   ! New Min Kz
 !   REAL, PARAMETER :: EDYZ0  = 0.01  ! New Min Kz
@@ -506,27 +503,21 @@ contains
 
        zagl = zm(k) - zm(kbot-1)
        zk   = 0.4 * zagl
-            
+       sql = ( zk * rlam / (rlam + zk) )**2       
+
        if (ri >= 0.0) then
 
-        ! if (zagl < pblh .and. wtv0 < 0.0) then
-        !    fh  = max( (1. - zagl/pblh)**2, fhmin) * phih(k)**(-2)
-        !    sql = zk**2
-        ! else
-             fh  = ( max( 1.0 - ri/rc, fhmin) )**2
-             sql = ( zk * rlam / (rlam + zk) )**2
-        ! endif
-
-             edyr(k) = kzo + sqrt(ss) * fh * sql
-       !     pran(k) = pr0 / ( 1.0 - (1.0 - pr0) * min(ri,rc) / rc )
+          fh = 1.0 + ri * ( 10.0 + ri * ( 50.0 + 5000.0 * ri * ri ) )
+          fh = 0.0012 + 1.0 / fh  ! pleim5
+          edyr(k) = kzo + sqrt(ss) * fh * sql
 
        else
 
-          sql     = ( zk * rlam / (rlam + zk) )**2
           edyr(k) = kzo + sqrt(ss * (1.0 - 18.0 * ri)) * sql
-       !  pran(k) = pr0 / ( 1.0 - (1.0 - pr0) * min(ri,rc) / rc )
 
        endif
+
+       ! pran(k) = pr0 / ( 1.0 - (1.0 - pr0) * min(ri,rc) / rc )
 
     enddo
 
