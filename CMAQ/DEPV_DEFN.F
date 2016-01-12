@@ -158,7 +158,7 @@ C-----------------------------------------------------------------------
          USE UTILIO_DEFN
 !        USE MOSAIC_MOD, Only: Init_Mosaic
 !        USE LSM_MOD, Only: Init_LSM, n_lufrac
-!        USE BIDI_MOD, Only: Init_Bidi
+!        USE BIDI_MOD, Only: Init_Bidi, HgBidi
          USE RXNS_DATA
 
          use cgrid_defn, only: cgrid
@@ -480,7 +480,7 @@ C Mosaic method to get land-use specific deposition velocities?
 !               END IF
 !            END IF
             
-!            IF ( ABFLUX ) CALL INIT_BIDI( ABFLUX )
+!            CALL INIT_BIDI( ABFLUX )
 !            IF ( MOSAIC .OR. ABFLUX ) THEN
 !               CALL INIT_LSM( JDATE, JTIME )
 !               CALL INIT_MOSAIC( JDATE, JTIME, LTOTG, MOSAIC, ABFLUX )

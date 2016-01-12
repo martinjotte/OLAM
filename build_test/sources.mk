@@ -225,6 +225,7 @@ SOURCE_FILES= \
              $(CMAQ)/aero_subs.F \
              $(CMAQ)/AEROMET_DATA.F \
              $(CMAQ)/AEROSOL_CHEMISTRY.F \
+             $(CMAQ)/AOD_DEFN.F \
              $(CMAQ)/AQ_DATA.F \
              $(CMAQ)/aq_map.F \
              $(CMAQ)/aqchem.F \

@@ -40,7 +40,7 @@ C           28 Aug 2014  G. Sarwar: added deposition for CLNO2
 C-----------------------------------------------------------------------
 
       INTEGER, PARAMETER :: LDDEP = 4
-      INTEGER, PARAMETER :: LTOTG = 63
+      INTEGER, PARAMETER :: LTOTG = 65
       INTEGER, PARAMETER :: LCMP  = 8
       CHARACTER( 16 )    :: DEPV_METHOD
 
@@ -147,6 +147,8 @@ C-------------------------------------------------------------------------------
          DEPSPC( 61 ) = 'NTRPX           '
          DEPSPC( 62 ) = 'PROPNN          '
          DEPSPC( 63 ) = 'CLNO2           '
+         DEPSPC( 64 ) = 'ISOPNN          '
+         DEPSPC( 65 ) = 'MTNO3           '
 
          N_USE_DEPSPC = 0
          USE_DEPSPC = .FALSE.   ! array
