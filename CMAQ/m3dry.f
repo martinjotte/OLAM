@@ -169,7 +169,6 @@ C Arguments:
 C Local Variables:
 
       REAL,            PARAMETER :: a0         = 8.0     ! [dim'less]
-      INTEGER                    :: c
       REAL,            PARAMETER :: d3         = 1.38564e-2 ! [dim'less]
                                                ! k*sqrt(rhoair/rhowater) from Slinn 78
       real                       :: delta
@@ -198,7 +197,6 @@ C Local Variables:
       integer                    :: iw
       integer                    :: iwl
       integer                    :: iws
-      integer                    :: j
       REAL,            PARAMETER :: kvis       = 0.132   ! [cm^2 / s] at 273.15K
       REAL                       :: kvisw      ! kinematic viscosity of water [cm^2/s]
       INTEGER                    :: kw
@@ -209,7 +207,6 @@ C Local Variables:
       CHARACTER( 16 ), PARAMETER :: pname      = 'M3DRY'
       REAL,            PARAMETER :: pr         = 0.709   ! [dim'less]
       real                       :: pvd
-      INTEGER                    :: r
       real                       :: ra                   ! cell aerodynamic resistance
       real                       :: raice                ! aerodynamic resistance over ice
       real                       :: raw                  ! aerodynamic resistance over water
@@ -255,15 +252,15 @@ C Local Variables:
       REAL                       :: ustarw               ! friction velocity over water
       REAL                       :: vegfr                ! cell veg coverage fraction
       REAL                       :: vegfrac              ! cell veg coverage fraction including snow
-      CHARACTER( 16 )            :: vname
       real                       :: wrcr
       REAL                       :: wrmax
       REAL                       :: wstar
       REAL                       :: wtv0
       REAL                       :: xm                   ! liquid water mass frac
       REAL                       :: xt                   ! liquid water mass frac
+      real                       :: rh_func              ! RH function for the development of a water
+                                                         !      film on leaf cuticles
       CHARACTER( 96 )            :: xmsg = ' '
-      CHARACTER( 16 ), SAVE      :: vname_ra, vname_rc, vname_rn, vname_rs
 
       INTEGER, SAVE              :: n_spc_m3dry = ltotg       ! from DEPVVARS module
 
@@ -277,7 +274,6 @@ C Local Variables:
 
       CHARACTER( 16 )            :: subname  ( ltotg )        ! for subroutine HLCONST
       integer, save              :: hlspc    ( ltotg )        ! species index in hlconst
-      INTEGER                    :: SPC
 
 C-------------------------------------------------------------------------------
 C For ozone exchange over the ocean
@@ -393,7 +389,7 @@ C-------------------------------------------------------------------------------
       DATA subname( 2), dif0( 2), ar( 2), meso( 2), lebas( 2) / 'SULFATE         ', 0.0001,    0.0,      0.0,  49.0/
       DATA subname( 3), dif0( 3), ar( 3), meso( 3), lebas( 3) / 'NO2             ', 0.1361,    2.0,      0.1,  21.0/
       DATA subname( 4), dif0( 4), ar( 4), meso( 4), lebas( 4) / 'NO              ', 0.1802,    2.0,      0.0,  14.0/
-      DATA subname( 5), dif0( 5), ar( 5), meso( 5), lebas( 5) / 'O3              ', 0.1444,    8.0,      1.0,  21.0/
+      DATA subname( 5), dif0( 5), ar( 5), meso( 5), lebas( 5) / 'O3              ', 0.1444,   12.0,      1.0,  21.0/
       DATA subname( 6), dif0( 6), ar( 6), meso( 6), lebas( 6) / 'HNO3            ', 0.1067, 8000.0,      0.0,  35.0/
       DATA subname( 7), dif0( 7), ar( 7), meso( 7), lebas( 7) / 'H2O2            ', 0.1300,   30.0,      1.0,  28.0/
       DATA subname( 8), dif0( 8), ar( 8), meso( 8), lebas( 8) / 'ACETALDEHYDE    ', 0.1111,   10.0,      0.0,  56.0/
@@ -621,7 +617,11 @@ C-------------------------------------------------------------------------------
                   rwet = rcw0 / heff ! wet cuticle
                ELSE
                   ! Set RCW/LAI = 200 s/m on basis of Keysburg exp for O3
-                  rwet = 1250.0 ! s/m
+                  ! rwet = 1250.0    ! s/m
+                  ! rwet = MAX( 200.0, 200.0 * laicr ) ! s/m
+                  ! Average of 2002 and 2003 from Table 1. of
+                  ! Altimir et al 2006 doi:10.5194/bg-3-209-2006
+                  rwet = 385.0 ! s/m
                END IF
 
                rgw  = rgwet0 / heff ! wet ground
@@ -640,12 +640,14 @@ C-------------------------------------------------------------------------------
 
          ! Dry cuticle resistance.
 
-!              IF ( depspc( l ) .NE. 'NH3' ) THEN
-               IF ( l .NE. l_nh3 ) THEN
+               if ( l == l_o3 ) then
+                  rh_func = max( 0.0, (rh_air - 70.0) / 30.0 )
+                  rcut = rcut0 * a0 / ar( l ) * ( 1.0 - rh_func ) + rwet * rh_func
+               else if ( l == l_nh3 ) then
+                  rcut = 4000.0 * exp( -0.054 * rh_air )
+               else
                   rcut = rcut0 * a0 / ar( l )
-               ELSE
-                  rcut = 4000.0 * EXP( -0.054 * rh_air )
-               END IF
+               endif
 
          ! Dry ground resistance.  (revised according to Erisman)
 
