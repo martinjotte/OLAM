@@ -154,7 +154,6 @@ C...........EXTERNAL FUNCTIONS
 
       INTERFACE
          SUBROUTINE RESCLD ( mrl, N_SPC_WDEP, WDEP_MAP, DEP )
-            IMPLICIT NONE
             integer, intent( in )  :: mrl
             INTEGER, INTENT( IN )  :: N_SPC_WDEP
             INTEGER, INTENT( IN )  :: WDEP_MAP( : )
@@ -162,7 +161,6 @@ C...........EXTERNAL FUNCTIONS
          END SUBROUTINE RESCLD
 !         SUBROUTINE CONVCLD_ACM ( CGRID, JDATE, JTIME, TSTEP,
 !     &                            N_SPC_WDEP, WDEP_MAP, DEP, SUBTRANS )
-!            IMPLICIT NONE
 !            REAL, POINTER          :: CGRID( :,:,:,: )
 !            INTEGER, INTENT( IN )  :: JDATE, JTIME, TSTEP( 3 )
 !            INTEGER, INTENT( IN )  :: N_SPC_WDEP

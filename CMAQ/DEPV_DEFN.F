@@ -229,10 +229,6 @@ C environment variable for diagnostic mosaic DEPV file
 !     &                               N_GDEPV_NAMES, GDEPV_NAMES,
 !     &                               N_ADEPV_NAMES, ADEPV_NAMES )
 !!    &                               N_SDEPV_NAMES, SDEPV_NAMES )
-!               USE HGRD_DEFN
-!               USE DEPVVARS
-!               USE UTILIO_DEFN
-!               IMPLICIT NONE
 !               INTEGER,         INTENT( IN ) :: JDATE, JTIME, TSTEP
 !               INTEGER,         INTENT( IN ) :: N_GDEPV_NAMES
 !               CHARACTER( 16 ), INTENT( IN ) :: GDEPV_NAMES( : )
@@ -245,10 +241,6 @@ C environment variable for diagnostic mosaic DEPV file
 !     &                              N_GDEPV_NAMES, GDEPV_NAMES,
 !     &                              N_ADEPV_NAMES, ADEPV_NAMES )
 !!    &                              N_SDEPV_NAMES, SDEPV_NAMES )
-!               USE HGRD_DEFN
-!               USE DEPVVARS
-!               USE UTILIO_DEFN
-!               IMPLICIT NONE
 !               INTEGER,         INTENT( IN ) :: JDATE, JTIME, TSTEP
 !               INTEGER,         INTENT( IN ) :: N_GDEPV_NAMES
 !               CHARACTER( 16 ), INTENT( IN ) :: GDEPV_NAMES( : )
@@ -261,10 +253,6 @@ C environment variable for diagnostic mosaic DEPV file
 !     &                              N_GDEPV_NAMES, GDEPV_NAMES,
 !     &                              N_ADEPV_NAMES, ADEPV_NAMES )
 !!    &                              N_SDEPV_NAMES, SDEPV_NAMES )
-!               USE HGRD_DEFN
-!               USE DEPVVARS
-!               USE UTILIO_DEFN
-!               IMPLICIT NONE
 !               INTEGER,         INTENT( IN ) :: JDATE, JTIME, TSTEP
 !               INTEGER,         INTENT( IN ) :: N_GDEPV_NAMES
 !               CHARACTER( 16 ), INTENT( IN ) :: GDEPV_NAMES( : )
@@ -274,10 +262,6 @@ C environment variable for diagnostic mosaic DEPV file
 !!              CHARACTER( 16 ), INTENT( IN ) :: SDEPV_NAMES( : )
 !            END SUBROUTINE OPDEPV_FST
             SUBROUTINE GAS_DEPV_MAP ( N_DEPV_NAMES, DEPV_NAMES, DEPV_SUR )
-             !  USE CGRID_SPCS
-             !  USE DEPVVARS
-             !  USE UTILIO_DEFN
-               IMPLICIT NONE
                INTEGER,         INTENT( IN )    :: N_DEPV_NAMES
                CHARACTER( 16 ), INTENT( INOUT ) :: DEPV_NAMES( : )
                INTEGER,         INTENT( OUT )   :: DEPV_SUR( : )
@@ -811,18 +795,10 @@ C-----------------------------------------------------------------------
 !
          INTERFACE
 !            SUBROUTINE RDDEPV ( JDATE, JTIME, DEPV )
-!             ! USE HGRD_DEFN
-!             ! USE CGRID_SPCS
-!             ! USE UTILIO_DEFN
-!               IMPLICIT NONE
 !               INTEGER, INTENT( IN )            :: JDATE, JTIME
 !               REAL, INTENT( OUT )              :: DEPV( :,:,: )
 !            END SUBROUTINE RDDEPV            
 !            SUBROUTINE CGRID_DEPV( GAS_DEPV_FOUND, GAS_DEPV_SUR, CGRID, CGRIDL1 )
-!             ! USE HGRD_DEFN
-!             ! USE CGRID_SPCS
-!             ! USE UTILIO_DEFN
-!               IMPLICIT NONE
 !               LOGICAL, INTENT( IN )  :: GAS_DEPV_FOUND( : )
 !               INTEGER, INTENT( IN )  :: GAS_DEPV_SUR( : )
 !               REAL,    POINTER       :: CGRID( :,:,:,: )
@@ -836,16 +812,6 @@ C-----------------------------------------------------------------------
 
 !            SUBROUTINE M3DRY ( JDATE, JTIME, TSTEP, ABFLUX, SFC_HONO, MOSAIC, FST, 
 !     &                         CGRIDL1, DEPVEL_GAS, PVD, CMP )
-!             ! USE HGRD_DEFN
-!             ! USE DEPVVARS
-!             ! USE VGRD_DEFN
-!             ! USE UTILIO_DEFN   
-!             ! USE SUBST_MODULES
-!             ! Use ABFlux_Mod  ! bidi NH3 exchange routines
-!             ! Use LSM_Mod     ! land surface model variables needed for mosaic and bidi
-!             ! Use Mosaic_Mod      ! contains mosaic routines
-!             ! Use Bidi_Mod, Only: lufrac
-!               IMPLICIT NONE
 !               INTEGER, INTENT( IN )  :: JDATE, JTIME, TSTEP(3)
 !               LOGICAL, INTENT( IN )  :: ABFLUX, SFC_HONO, MOSAIC, FST
 !               REAL,    INTENT( IN )  :: CGRIDL1( :,:,: )
@@ -856,15 +822,6 @@ C-----------------------------------------------------------------------
                INTEGER, INTENT( IN )  :: mrl
             END SUBROUTINE AERO_DEPV
 !            SUBROUTINE AERO_DEPV ( CGRID, JDATE, JTIME, TSTEP, MOSAIC, ADEPV )
-!             ! USE GRID_CONF
-!             ! USE CGRID_SPCS
-!             ! USE UTILIO_DEFN
-!             ! USE AERO_DATA
-!             ! USE SOA_DEFN
-!             ! USE AEROMET_DATA
-!             ! Use Mosaic_Mod, Only: ADEPVJ, USTARJ, RAJ ! contains mosaic routines
-!             ! Use LSM_MOD, Only: N_LUFRAC
-!               IMPLICIT NONE
 !               REAL, POINTER          :: CGRID( :,:,:,: )
 !               INTEGER, INTENT( IN )  :: JDATE, JTIME, TSTEP
 !               LOGICAL, INTENT( IN )  :: MOSAIC

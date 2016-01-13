@@ -67,7 +67,7 @@ C Sea-Salt Emissions Rates
      &       dust_emis_init, get_dust_emis, dust_em
       private
 
-      real, allocatable, save :: dust_em( : )  ! total dust emissions [g/s]
+      real, allocatable, save :: dust_em( : )  ! total dust emissions [g/m**3/s]
 
 C number of lognormal modes in windblown dust aerosol = n_mode (from aero_data)
 C - only accumulation and coarse modes used
@@ -346,17 +346,11 @@ C Local variables:
 !         interface
 
 !            subroutine cropcal ( jdate, jtime, agland )
-!!           use hgrd_defn
-!!           use utilio_defn
-!            implicit none
 !            integer, intent( in )  :: jdate, jtime
 !            real,    intent( out ) :: agland( :,: )
 !            end subroutine cropcal
 !
 !            subroutine tfbelow ( jdate, jtime, uland, tfb )
-!!           use hgrd_defn
-!!           use utilio_defn
-!            implicit none
 !            integer, intent( in )  :: jdate, jtime
 !            real,    intent( out ) :: uland( :,:,: )
 !            real,    intent( out ) :: tfb( :,: )
@@ -968,8 +962,6 @@ C water and lamda = 1.0, 3.5, 5.0
 
 !         interface
 !            subroutine tfabove ( ustar, swind, uland, tfa )
-!            use hgrd_defn
-!            implicit none
 !            real,    intent( in )  :: ustar( :,: )
 !            real,    intent( in )  :: swind( :,: )
 !            real,    intent( in )  :: uland( :,:,: )
