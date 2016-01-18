@@ -22,6 +22,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   use mem_para,    only: myrank
   use mem_ijtabs,  only: itab_w
   use clouds_gno,  only: cu_cldfrac
+  use mem_mclat,   only: rad_mclat
 
   use parrrtm,             only: nbndlw, ngptlw
   use parrrsw,             only: nbndsw, ngptsw

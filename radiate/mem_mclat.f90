@@ -32,16 +32,19 @@
 !===============================================================================
 Module mem_mclat
 
-real :: wtjan
-real :: wtjul
+  private
+  public :: slat, mclat, ypp_mclat
+  public :: mclat_spline, rad_mclat
 
-real :: slat(13)
-real :: sslat(13)
-real :: mcdat(33,9,6)
-real :: mclat(13,33,6)
-real :: ypp_mclat(13,33,6)  ! Expanded arrays for spline intp
+  real :: wtjan
+  real :: wtjul
 
-data slat/-135.,-120.,-90.,-60.,-45.,-25.,0.,25.,45.,60.,90.,120.,135./
+  real, parameter :: slat(13) = (/-135.,-120.,-90.,-60.,-45.,-25.,0. &
+                                   ,25.,  45., 60., 90.,120.,135.  /)
+  real :: sslat(13)
+  real :: mcdat(33,9,6)
+  real :: mclat(13,33,6)
+  real :: ypp_mclat(13,33,6)  ! Expanded arrays for spline intp
 
 !---------------------------------------------------------------------
 !  arctic winter
@@ -50,7 +53,7 @@ data slat/-135.,-120.,-90.,-60.,-45.,-25.,0.,25.,45.,60.,90.,120.,135./
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
-data ((mcdat(ilev,1,ifld),ifld=1,6),ilev=1,11)/  &
+  data ((mcdat(ilev,1,ifld),ifld=1,6),ilev=1,11)/  &
        0., 101350.0,    249.1,  .1201E-02,  .4105E-07,  .1417E+01,  &
     1000.,  88416.0,    252.2,  .1190E-02,  .4067E-07,  .1221E+01,  &
     2000.,  77213.0,    250.9,  .1014E-02,  .4036E-07,  .1072E+01,  &
@@ -62,7 +65,7 @@ data ((mcdat(ilev,1,ifld),ifld=1,6),ilev=1,11)/  &
     8000.,  32171.0,    217.9,  .1248E-04,  .8508E-07,  .5139E+00,  &
     9000.,  27435.0,    214.9,  .7875E-05,  .1505E-06,  .4448E+00,  &
    10000.,  23398.0,    214.4,  .5161E-05,  .2248E-06,  .3802E+00/
-data ((mcdat(ilev,1,ifld),ifld=1,6),ilev=12,22)/  &
+  data ((mcdat(ilev,1,ifld),ifld=1,6),ilev=12,22)/  &
    11000.,  19951.0,    213.9,  .3533E-05,  .2983E-06,  .3249E+00,  &
    12000.,  17008.0,    213.2,  .2393E-05,  .3988E-06,  .2779E+00,  &
    13000.,  14490.0,    212.4,  .1538E-05,  .4330E-06,  .2376E+00,  &
@@ -74,7 +77,7 @@ data ((mcdat(ilev,1,ifld),ifld=1,6),ilev=12,22)/  &
    19000.,   5475.0,    207.7,  .3307E-06,  .5208E-06,  .9185E-01,  &
    20000.,   4648.0,    207.6,  .2800E-06,  .4809E-06,  .7797E-01,  &
    21000.,   3945.0,    207.6,  .2373E-06,  .4337E-06,  .6619E-01/
-data ((mcdat(ilev,1,ifld),ifld=1,6),ilev=23,33)/  &
+  data ((mcdat(ilev,1,ifld),ifld=1,6),ilev=23,33)/  &
    22000.,   3349.0,    207.6,  .2014E-06,  .3961E-06,  .5619E-01,  &
    23000.,   2843.0,    207.6,  .1705E-06,  .3594E-06,  .4770E-01,  &
    24000.,   2414.0,    207.6,  .1443E-06,  .2986E-06,  .4050E-01,  &
@@ -94,7 +97,7 @@ data ((mcdat(ilev,1,ifld),ifld=1,6),ilev=23,33)/  &
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
-data ((mcdat(ilev,2,ifld),ifld=1,6),ilev=1,11)/  &
+  data ((mcdat(ilev,2,ifld),ifld=1,6),ilev=1,11)/  &
        0., 101250.0,    278.1,  .9164E-02,  .4935E-07,  .1265E+01,  &
     1000.,  89502.0,    275.5,  .5963E-02,  .5366E-07,  .1129E+01,  &
     2000.,  79020.0,    272.9,  .4173E-02,  .5564E-07,  .1007E+01,  &
@@ -106,7 +109,7 @@ data ((mcdat(ilev,2,ifld),ifld=1,6),ilev=1,11)/  &
     8000.,  35349.0,    235.9,  .1262E-03,  .7668E-07,  .5221E+00,  &
     9000.,  30525.0,    229.4,  .4040E-04,  .1063E-06,  .4636E+00,  &
    10000.,  26261.0,    226.7,  .1681E-04,  .1249E-06,  .4036E+00/
-data ((mcdat(ilev,2,ifld),ifld=1,6),ilev=12,22)/  &
+  data ((mcdat(ilev,2,ifld),ifld=1,6),ilev=12,22)/  &
    11000.,  22598.0,    227.7,  .8268E-05,  .1739E-06,  .3458E+00,  &
    12000.,  19460.0,    228.6,  .4072E-05,  .2036E-06,  .2965E+00,  &
    13000.,  16770.0,    229.6,  .2006E-05,  .2532E-06,  .2544E+00,  &
@@ -118,7 +121,7 @@ data ((mcdat(ilev,2,ifld),ifld=1,6),ilev=12,22)/  &
    19000.,   5950.0,    230.1,  .3198E-06,  .3085E-06,  .9007E-01,  &
    20000.,   5232.0,    230.1,  .2823E-06,  .3016E-06,  .7769E-01,  &
    21000.,   4428.0,    230.1,  .2395E-06,  .2746E-06,  .6702E-01/
-data ((mcdat(ilev,2,ifld),ifld=1,6),ilev=23,33)/  &
+  data ((mcdat(ilev,2,ifld),ifld=1,6),ilev=23,33)/  &
    22000.,   3819.0,    230.1,  .2071E-06,  .2454E-06,  .5781E-01,  &
    23000.,   3295.0,    230.7,  .1788E-06,  .2312E-06,  .4976E-01,  &
    24000.,   2845.0,    231.9,  .1538E-06,  .2176E-06,  .4274E-01,  &
@@ -138,7 +141,7 @@ data ((mcdat(ilev,2,ifld),ifld=1,6),ilev=23,33)/  &
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
-data ((mcdat(ilev,3,ifld),ifld=1,6),ilev=1,11)/  &
+  data ((mcdat(ilev,3,ifld),ifld=1,6),ilev=1,11)/  &
        0., 101300.0,    257.1,  .1200E-02,  .4100E-07,  .1372E+01,  &
     1000.,  88780.0,    259.1,  .1200E-02,  .4100E-07,  .1193E+01,  &
     2000.,  77750.0,    256.4,  .1030E-02,  .4100E-07,  .1058E+01,  &
@@ -150,7 +153,7 @@ data ((mcdat(ilev,3,ifld),ifld=1,6),ilev=1,11)/  &
     8000.,  33080.0,    220.4,  .1320E-04,  .9000E-07,  .5226E+00,  &
     9000.,  28290.0,    217.1,  .8370E-05,  .1600E-06,  .4538E+00,  &
    10000.,  24180.0,    217.1,  .5510E-05,  .2400E-06,  .3879E+00/
-data ((mcdat(ilev,3,ifld),ifld=1,6),ilev=12,22)/  &
+  data ((mcdat(ilev,3,ifld),ifld=1,6),ilev=12,22)/  &
    11000.,  20670.0,    217.1,  .3790E-05,  .3200E-06,  .3315E+00,  &
    12000.,  17660.0,    217.1,  .2580E-05,  .4300E-06,  .2834E+00,  &
    13000.,  15100.0,    217.1,  .1670E-05,  .4700E-06,  .2422E+00,  &
@@ -162,7 +165,7 @@ data ((mcdat(ilev,3,ifld),ifld=1,6),ilev=12,22)/  &
    19000.,   5875.0,    214.9,  .3810E-06,  .6000E-06,  .9529E-01,  &
    20000.,   5014.0,    214.3,  .3260E-06,  .5600E-06,  .8155E-01,  &
    21000.,   4277.0,    213.7,  .2790E-06,  .5100E-06,  .6976E-01/
-data ((mcdat(ilev,3,ifld),ifld=1,6),ilev=23,33)/  &
+  data ((mcdat(ilev,3,ifld),ifld=1,6),ilev=23,33)/  &
    22000.,   3647.0,    213.1,  .2390E-06,  .4700E-06,  .5966E-01,  &
    23000.,   3109.0,    212.5,  .2040E-06,  .4300E-06,  .5100E-01,  &
    24000.,   2649.0,    212.0,  .1740E-06,  .3600E-06,  .4358E-01,  &
@@ -182,7 +185,7 @@ data ((mcdat(ilev,3,ifld),ifld=1,6),ilev=23,33)/  &
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
-data ((mcdat(ilev,4,ifld),ifld=1,6),ilev=1,11)/  &
+  data ((mcdat(ilev,4,ifld),ifld=1,6),ilev=1,11)/  &
        0., 101000.0,    287.0,  .9100E-02,  .4900E-07,  .1220E+01,  &
     1000.,  89600.0,    281.7,  .6000E-02,  .5400E-07,  .1110E+01,  &
     2000.,  79290.0,    276.4,  .4200E-02,  .5600E-07,  .9971E+00,  &
@@ -194,7 +197,7 @@ data ((mcdat(ilev,4,ifld),ifld=1,6),ilev=1,11)/  &
     8000.,  35900.0,    238.8,  .1300E-03,  .7900E-07,  .5231E+00,  &
     9000.,  31070.0,    231.8,  .4180E-04,  .1100E-06,  .4663E+00,  &
    10000.,  26770.0,    225.6,  .1750E-04,  .1300E-06,  .4142E+00/
-data ((mcdat(ilev,4,ifld),ifld=1,6),ilev=12,22)/  &
+  data ((mcdat(ilev,4,ifld),ifld=1,6),ilev=12,22)/  &
    11000.,  23000.0,    225.0,  .8560E-05,  .1800E-06,  .3559E+00,  &
    12000.,  19770.0,    225.0,  .4200E-05,  .2100E-06,  .3059E+00,  &
    13000.,  17000.0,    225.0,  .2060E-05,  .2600E-06,  .2630E+00,  &
@@ -206,7 +209,7 @@ data ((mcdat(ilev,4,ifld),ifld=1,6),ilev=12,22)/  &
    19000.,   6860.0,    225.0,  .4250E-06,  .4100E-06,  .1062E+00,  &
    20000.,   5890.0,    225.0,  .3650E-06,  .3900E-06,  .9128E-01,  &
    21000.,   5070.0,    225.0,  .3140E-06,  .3600E-06,  .7849E-01/
-data ((mcdat(ilev,4,ifld),ifld=1,6),ilev=23,33)/  &
+  data ((mcdat(ilev,4,ifld),ifld=1,6),ilev=23,33)/  &
    22000.,   4360.0,    225.1,  .2700E-06,  .3200E-06,  .6750E-01,  &
    23000.,   3750.0,    225.5,  .2320E-06,  .3000E-06,  .5805E-01,  &
    24000.,   3227.0,    226.6,  .1980E-06,  .2800E-06,  .4963E-01,  &
@@ -226,7 +229,7 @@ data ((mcdat(ilev,4,ifld),ifld=1,6),ilev=23,33)/  &
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
-data ((mcdat(ilev,5,ifld),ifld=1,6),ilev=1,11)/  &
+  data ((mcdat(ilev,5,ifld),ifld=1,6),ilev=1,11)/  &
        0., 101800.0,    272.2,  .3500E-02,  .6000E-07,  .1301E+01,  &
     1000.,  89730.0,    268.7,  .2500E-02,  .5400E-07,  .1162E+01,  &
     2000.,  78970.0,    265.2,  .1800E-02,  .4900E-07,  .1037E+01,  &
@@ -238,7 +241,7 @@ data ((mcdat(ilev,5,ifld),ifld=1,6),ilev=1,11)/  &
     8000.,  34730.0,    231.6,  .3500E-04,  .9000E-07,  .5222E+00,  &
     9000.,  29920.0,    225.6,  .1600E-04,  .1200E-06,  .4619E+00,  &
    10000.,  25680.0,    220.6,  .7500E-05,  .1600E-06,  .4072E+00/
-data ((mcdat(ilev,5,ifld),ifld=1,6),ilev=12,22)/  &
+  data ((mcdat(ilev,5,ifld),ifld=1,6),ilev=12,22)/  &
    11000.,  21990.0,    219.2,  .4440E-05,  .2100E-06,  .3496E+00,  &
    12000.,  18820.0,    218.7,  .2720E-05,  .2600E-06,  .2999E+00,  &
    13000.,  16100.0,    218.2,  .1720E-05,  .3000E-06,  .2572E+00,  &
@@ -250,7 +253,7 @@ data ((mcdat(ilev,5,ifld),ifld=1,6),ilev=12,22)/  &
    19000.,   6280.0,    215.4,  .4060E-06,  .4300E-06,  .1017E+00,  &
    20000.,   5370.0,    215.2,  .3040E-06,  .4500E-06,  .8690E-01,  &
    21000.,   4580.0,    215.2,  .2970E-06,  .4300E-06,  .7421E-01/
-data ((mcdat(ilev,5,ifld),ifld=1,6),ilev=23,33)/  &
+  data ((mcdat(ilev,5,ifld),ifld=1,6),ilev=23,33)/  &
    22000.,   3910.0,    215.2,  .2530E-06,  .4300E-06,  .6338E-01,  &
    23000.,   3340.0,    215.2,  .2160E-06,  .3900E-06,  .5415E-01,  &
    24000.,   2860.0,    215.2,  .1850E-06,  .3600E-06,  .4624E-01,  &
@@ -270,7 +273,7 @@ data ((mcdat(ilev,5,ifld),ifld=1,6),ilev=23,33)/  &
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
-data ((mcdat(ilev,6,ifld),ifld=1,6),ilev=1,11)/  &
+  data ((mcdat(ilev,6,ifld),ifld=1,6),ilev=1,11)/  &
        0., 101300.0,    294.0,  .1400E-01,  .6000E-07,  .1191E+01,  &
     1000.,  90200.0,    290.0,  .9300E-02,  .6000E-07,  .1080E+01,  &
     2000.,  80200.0,    285.0,  .5850E-02,  .6000E-07,  .9757E+00,  &
@@ -282,7 +285,7 @@ data ((mcdat(ilev,6,ifld),ifld=1,6),ilev=1,11)/  &
     8000.,  37200.0,    248.2,  .2100E-03,  .7900E-07,  .5225E+00,  &
     9000.,  32400.0,    241.7,  .1180E-03,  .8600E-07,  .4669E+00,  &
    10000.,  28100.0,    235.2,  .6430E-04,  .9000E-07,  .4159E+00/
-data ((mcdat(ilev,6,ifld),ifld=1,6),ilev=12,22)/  &
+  data ((mcdat(ilev,6,ifld),ifld=1,6),ilev=12,22)/  &
    11000.,  24300.0,    228.8,  .2190E-04,  .1100E-06,  .3693E+00,  &
    12000.,  20900.0,    222.3,  .6460E-05,  .1200E-06,  .3269E+00,  &
    13000.,  17900.0,    216.9,  .1660E-05,  .1500E-06,  .2882E+00,  &
@@ -294,7 +297,7 @@ data ((mcdat(ilev,6,ifld),ifld=1,6),ilev=12,22)/  &
    19000.,   6950.0,    217.0,  .4460E-06,  .3200E-06,  .1110E+00,  &
    20000.,   5950.0,    218.2,  .3800E-06,  .3400E-06,  .9453E-01,  &
    21000.,   5100.0,    219.4,  .3240E-06,  .3600E-06,  .8056E-01/
-data ((mcdat(ilev,6,ifld),ifld=1,6),ilev=23,33)/  &
+  data ((mcdat(ilev,6,ifld),ifld=1,6),ilev=23,33)/  &
    22000.,   4370.0,    220.6,  .2760E-06,  .3600E-06,  .6872E-01,  &
    23000.,   3760.0,    221.8,  .2360E-06,  .3400E-06,  .5867E-01,  &
    24000.,   3220.0,    223.0,  .2010E-06,  .3200E-06,  .5014E-01,  &
@@ -314,7 +317,7 @@ data ((mcdat(ilev,6,ifld),ifld=1,6),ilev=23,33)/  &
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
-data ((mcdat(ilev,7,ifld),ifld=1,6),ilev=1,11)/  &
+  data ((mcdat(ilev,7,ifld),ifld=1,6),ilev=1,11)/  &
        0., 102100.0,    287.1,  .1125E-01,  .5800E-07,  .1233E+01,  &
     1000.,  90659.0,    284.2,  .7750E-02,  .5500E-07,  .1107E+01,  &
     2000.,  80378.0,    281.2,  .5545E-02,  .5150E-07,  .9934E+00,  &
@@ -326,7 +329,7 @@ data ((mcdat(ilev,7,ifld),ifld=1,6),ilev=1,11)/  &
     8000.,  36786.0,    242.3,  .1425E-03,  .6450E-07,  .5289E+00,  &
     9000.,  31906.0,    235.8,  .6850E-04,  .7950E-07,  .4713E+00,  &
    10000.,  27563.0,    229.3,  .2825E-04,  .9950E-07,  .4187E+00/
-data ((mcdat(ilev,7,ifld),ifld=1,6),ilev=12,22)/  &
+  data ((mcdat(ilev,7,ifld),ifld=1,6),ilev=12,22)/  &
    11000.,  23716.0,    222.9,  .1117E-04,  .1255E-06,  .3707E+00,  &
    12000.,  20315.0,    216.4,  .4400E-05,  .1515E-06,  .3270E+00,  &
    13000.,  17344.0,    213.7,  .1755E-05,  .1725E-06,  .2828E+00,  &
@@ -338,7 +341,7 @@ data ((mcdat(ilev,7,ifld),ifld=1,6),ilev=12,22)/  &
    19000.,   6480.0,    205.4,  .3880E-06,  .2850E-06,  .1099E+00,  &
    20000.,   5498.0,    207.9,  .3060E-06,  .3200E-06,  .9213E-01,  &
    21000.,   4676.0,    210.4,  .2770E-06,  .3350E-06,  .7743E-01/
-data ((mcdat(ilev,7,ifld),ifld=1,6),ilev=23,33)/  &
+  data ((mcdat(ilev,7,ifld),ifld=1,6),ilev=23,33)/  &
    22000.,   3984.0,    212.9,  .2345E-06,  .3550E-06,  .6520E-01,  &
    23000.,   3401.0,    214.9,  .1995E-06,  .3550E-06,  .5512E-01,  &
    24000.,   2907.0,    216.9,  .1700E-06,  .3500E-06,  .4669E-01,  &
@@ -358,7 +361,7 @@ data ((mcdat(ilev,7,ifld),ifld=1,6),ilev=23,33)/  &
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
-data ((mcdat(ilev,8,ifld),ifld=1,6),ilev=1,11)/  &
+  data ((mcdat(ilev,8,ifld),ifld=1,6),ilev=1,11)/  &
        0., 101350.0,    301.1,  .1650E-01,  .5800E-07,  .1159E+01,  &
     1000.,  90464.0,    293.7,  .1115E-01,  .5800E-07,  .1066E+01,  &
     2000.,  80504.0,    288.2,  .7570E-02,  .5700E-07,  .9686E+00,  &
@@ -370,7 +373,7 @@ data ((mcdat(ilev,8,ifld),ifld=1,6),ilev=1,11)/  &
     8000.,  37913.0,    252.3,  .2300E-03,  .5900E-07,  .5233E+00,  &
     9000.,  33068.0,    245.3,  .1195E-03,  .6250E-07,  .4694E+00,  &
    10000.,  28729.0,    238.4,  .5665E-04,  .6450E-07,  .4198E+00/
-data ((mcdat(ilev,8,ifld),ifld=1,6),ilev=12,22)/  &
+  data ((mcdat(ilev,8,ifld),ifld=1,6),ilev=12,22)/  &
    11000.,  24858.0,    231.4,  .1990E-04,  .7550E-07,  .3742E+00,  &
    12000.,  21414.0,    224.4,  .6270E-05,  .8150E-07,  .3324E+00,  &
    13000.,  18359.0,    217.5,  .1725E-05,  .9750E-07,  .2941E+00,  &
@@ -382,7 +385,7 @@ data ((mcdat(ilev,8,ifld),ifld=1,6),ilev=12,22)/  &
    19000.,   6868.0,    209.6,  .4080E-06,  .2300E-06,  .1142E+00,  &
    20000.,   5846.0,    211.8,  .3440E-06,  .2650E-06,  .9618E-01,  &
    21000.,   4986.0,    213.9,  .2905E-06,  .3000E-06,  .8119E-01/
-data ((mcdat(ilev,8,ifld),ifld=1,6),ilev=23,33)/  &
+  data ((mcdat(ilev,8,ifld),ifld=1,6),ilev=23,33)/  &
    22000.,   4258.0,    215.9,  .2460E-06,  .3200E-06,  .6870E-01,  &
    23000.,   3643.0,    217.9,  .2095E-06,  .3300E-06,  .5823E-01,  &
    24000.,   3121.0,    219.9,  .1780E-06,  .3300E-06,  .4944E-01,  &
@@ -402,7 +405,7 @@ data ((mcdat(ilev,8,ifld),ifld=1,6),ilev=23,33)/  &
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
-data ((mcdat(ilev,9,ifld),ifld=1,6),ilev=1,11)/  &
+  data ((mcdat(ilev,9,ifld),ifld=1,6),ilev=1,11)/  &
        0., 101300.0,    300.0,  .1900E-01,  .5600E-07,  .1167E+01,  &
     1000.,  90400.0,    294.1,  .1300E-01,  .5600E-07,  .1064E+01,  &
     2000.,  80500.0,    288.4,  .9290E-02,  .5400E-07,  .9689E+00,  &
@@ -414,7 +417,7 @@ data ((mcdat(ilev,9,ifld),ifld=1,6),ilev=1,11)/  &
     8000.,  37800.0,    250.6,  .2500E-03,  .3900E-07,  .5258E+00,  &
     9000.,  32900.0,    243.8,  .1210E-03,  .3900E-07,  .4708E+00,  &
    10000.,  28600.0,    237.2,  .4900E-04,  .3900E-07,  .4202E+00/
-data ((mcdat(ilev,9,ifld),ifld=1,6),ilev=12,22)/  &
+  data ((mcdat(ilev,9,ifld),ifld=1,6),ilev=12,22)/  &
    11000.,  24700.0,    230.4,  .1790E-04,  .4100E-07,  .3740E+00,  &
    12000.,  21300.0,    223.8,  .6080E-05,  .4300E-07,  .3316E+00,  &
    13000.,  18200.0,    217.0,  .1790E-05,  .4500E-07,  .2929E+00,  &
@@ -426,7 +429,7 @@ data ((mcdat(ilev,9,ifld),ifld=1,6),ilev=12,22)/  &
    19000.,   6660.0,    203.6,  .3700E-06,  .1400E-06,  .1145E+00,  &
    20000.,   5650.0,    207.6,  .3080E-06,  .1900E-06,  .9515E-01,  &
    21000.,   4800.0,    211.5,  .2570E-06,  .2400E-06,  .7938E-01/
-data ((mcdat(ilev,9,ifld),ifld=1,6),ilev=23,33)/  &
+  data ((mcdat(ilev,9,ifld),ifld=1,6),ilev=23,33)/  &
    22000.,   4090.0,    214.6,  .2160E-06,  .2800E-06,  .6645E-01,  &
    23000.,   3500.0,    216.9,  .1830E-06,  .3200E-06,  .5618E-01,  &
    24000.,   3000.0,    219.1,  .1550E-06,  .3400E-06,  .4763E-01,  &
@@ -443,76 +446,188 @@ Contains
 
 !===============================================================================
 
-   subroutine mclat_copy(jday)
+  subroutine mclat_copy(jday)
 
-   implicit none
+    implicit none
    
-   integer, intent(in) :: jday
+    integer, intent(in) :: jday
 
-   integer :: lv
-   integer :: lf
+    integer :: lv
+    integer :: lf
 
-   real :: fjday
+    real :: fjday
    
 ! Interpolate arctic, sub-arctic, mid-latitude, and subtropical, Mclatchy
 ! soundings between summer and winter values by time of year using cosine
 ! function.  Assume that extreme values occur on January 16 and 1/2 year later.
 
-   fjday = float(jday)
-   wtjan = .5 * (1. + cos(6.283185 * (fjday-16.) / 365.))
-   wtjul = 1. - wtjan
+    fjday = float(jday)
+    wtjan = .5 * (1. + cos(6.283185 * (fjday-16.) / 365.))
+    wtjul = 1. - wtjan
 
-   do lv = 1,33
-      do lf = 1,6
-         mclat( 3,lv,lf) = wtjan * mcdat(lv,2,lf) + wtjul * mcdat(lv,1,lf)
-         mclat( 4,lv,lf) = wtjan * mcdat(lv,4,lf) + wtjul * mcdat(lv,3,lf)
-         mclat( 5,lv,lf) = wtjan * mcdat(lv,6,lf) + wtjul * mcdat(lv,5,lf)
-         mclat( 6,lv,lf) = wtjan * mcdat(lv,8,lf) + wtjul * mcdat(lv,7,lf)
-         mclat( 7,lv,lf) =         mcdat(lv,9,lf)
-         mclat( 8,lv,lf) = wtjan * mcdat(lv,7,lf) + wtjul * mcdat(lv,8,lf)
-         mclat( 9,lv,lf) = wtjan * mcdat(lv,5,lf) + wtjul * mcdat(lv,6,lf)
-         mclat(10,lv,lf) = wtjan * mcdat(lv,3,lf) + wtjul * mcdat(lv,4,lf)
-         mclat(11,lv,lf) = wtjan * mcdat(lv,1,lf) + wtjul * mcdat(lv,2,lf)
+    do lv = 1,33
+       do lf = 1,6
+          mclat( 3,lv,lf) = wtjan * mcdat(lv,2,lf) + wtjul * mcdat(lv,1,lf)
+          mclat( 4,lv,lf) = wtjan * mcdat(lv,4,lf) + wtjul * mcdat(lv,3,lf)
+          mclat( 5,lv,lf) = wtjan * mcdat(lv,6,lf) + wtjul * mcdat(lv,5,lf)
+          mclat( 6,lv,lf) = wtjan * mcdat(lv,8,lf) + wtjul * mcdat(lv,7,lf)
+          mclat( 7,lv,lf) =         mcdat(lv,9,lf)
+          mclat( 8,lv,lf) = wtjan * mcdat(lv,7,lf) + wtjul * mcdat(lv,8,lf)
+          mclat( 9,lv,lf) = wtjan * mcdat(lv,5,lf) + wtjul * mcdat(lv,6,lf)
+          mclat(10,lv,lf) = wtjan * mcdat(lv,3,lf) + wtjul * mcdat(lv,4,lf)
+          mclat(11,lv,lf) = wtjan * mcdat(lv,1,lf) + wtjul * mcdat(lv,2,lf)
 
-         mclat( 1,lv,lf) = mclat( 5,lv,lf)
-         mclat( 2,lv,lf) = mclat( 4,lv,lf)
-         mclat(12,lv,lf) = mclat(10,lv,lf)
-         mclat(13,lv,lf) = mclat( 9,lv,lf)
-      enddo
-   enddo
+          mclat( 1,lv,lf) = mclat( 5,lv,lf)
+          mclat( 2,lv,lf) = mclat( 4,lv,lf)
+          mclat(12,lv,lf) = mclat(10,lv,lf)
+          mclat(13,lv,lf) = mclat( 9,lv,lf)
+       enddo
+    enddo
 
-   return
-   end subroutine mclat_copy
+  end subroutine mclat_copy
 
 !===============================================================================
 
-   subroutine mclat_spline(jday)
+  subroutine mclat_spline(jday)
 
-   implicit none
-   
-   integer, intent(in) :: jday
-   
-   integer :: lv
-   integer :: lf
-
-   call mclat_copy(jday)
-
-   ! Obtain coefficients for latitudinal spline interpolation.
-
-   sslat(1:13) = slat(1:13)
-   
-   ! Make tropical profile follow ITCZ by adjusting latitude of tropical profile
+    implicit none
     
-   sslat(7) = wtjan * (-5.) + wtjul * (10.)
+    integer, intent(in) :: jday
 
-   do lv = 1,33
-      do lf = 1,6
-         call spline1(13,slat,mclat(:,lv,lf),ypp_mclat(:,lv,lf))
-      enddo
-   enddo
+    integer :: lv
+    integer :: lf
 
-   return
-   end subroutine mclat_spline
+    call mclat_copy(jday)
+
+    ! Obtain coefficients for latitudinal spline interpolation.
+
+    sslat(1:13) = slat(1:13)
+
+    ! Make tropical profile follow ITCZ by adjusting latitude of tropical profile
+
+    sslat(7) = wtjan * (-5.) + wtjul * (10.)
+
+    do lv = 1,33
+       do lf = 1,6
+          call spline1(13,slat,mclat(:,lv,lf),ypp_mclat(:,lv,lf))
+       enddo
+    enddo
+
+  end subroutine mclat_spline
+
+!===============================================================================
+
+  subroutine rad_mclat(iw,nrad,koff,glat,dl,pl,rl,tl,o3l,zml,ztl,dzl,o3col)
+
+    use mem_radiate, only: nadd_rad, zmrad
+    use consts_coms, only: gordry
+    use mem_grid,    only: mza, zm
+    use misc_coms,   only: io6
+
+    implicit none
+
+    integer, intent(in) :: iw       ! current column index
+    integer, intent(in) :: nrad     ! # of vertical radiation levels
+    integer, intent(in) :: koff     ! offset between model and radiation levels
+
+    real, intent(in) :: glat
+
+    real, intent(inout) :: dl (nrad)
+    real, intent(inout) :: pl (nrad)
+    real, intent(inout) :: rl (nrad)
+    real, intent(inout) :: tl (nrad)
+    real, intent(inout) :: o3l(nrad)
+    real, intent(inout) :: zml(nrad)
+    real, intent(inout) :: ztl(nrad)
+    real, intent(inout) :: dzl(nrad)
+
+    logical, optional, intent(in) :: o3col
+
+    ! Local array
+    real :: mcol(33,6)
+
+    integer :: lv, lf, k, kadd
+    real    :: deltaz, tavg
+    logical :: do_o3col
+
+! Before this subroutine is called, McClatchey soundings have been interpolated
+! in time between summer and winter values, and spline coefficients for latitudinal
+! interpolation have been pre-computed.
+!
+! The following call to spline2 completes the latitudinal spline interpolation 
+! of a complete vertical column for a specific latitude.
+! The result is in mcol(lv,lf).
+
+    do lv = 1,33    ! Loop over number of vertical levels
+       do lf = 1,6  ! Loop over number of data types
+          call spline2(13,sslat,mclat(:,lv,lf),ypp_mclat(:,lv,lf),glat,mcol(lv,lf))
+       enddo
+    enddo
+
+! Model values of dl, pl, tl, rl, zml, and ztl were filled in harr_radcomp
+! from k = 1 to k = mza - koff
+
+    if (nadd_rad > 0) then
+
+       if (zmrad < zm(mza)) then
+          write(io6,*) 'Error - top of radiation grid is below the model grid'
+          stop         'in rad_mclat'
+       endif
+
+       ! Compute heights of added levels for this column.
+
+       deltaz = (zmrad - zm(mza)) / real(nadd_rad)
+
+       do k = mza+1-koff, nrad
+          zml(k) = zml(k-1) + deltaz
+          ztl(k) = .5 * (zml(k) + zml(k-1))
+          dzl(k) = deltaz
+       enddo
+
+    endif
+
+    ! Do we want the full ozone column? It defaults to true.
+
+    if (present(o3col)) then
+       do_o3col = o3col
+    else
+       do_o3col = .true.
+    endif
+    
+    ! If we want ozone column, interpolate O3 from Mclatchy sounding 
+    ! to all levels in the radiation column.
+
+    if (do_o3col) then
+       call hintrp_cc(33, mcol(1,5), mcol(1,1), nrad, o3l, ztl)
+    endif
+
+    if (nadd_rad > 0) then
+
+       ! Interpolate other variables (temperature, density, vapor mixing ratio)
+       ! to added levels.
+
+       kadd = mza + 1 - koff
+       call hintrp_cc(33, mcol(1,3), mcol(1,1), nadd_rad, tl(kadd), ztl(kadd))
+       call hintrp_cc(33, mcol(1,4), mcol(1,1), nadd_rad, rl(kadd), ztl(kadd))
+       call hintrp_cc(33, mcol(1,6), mcol(1,1), nadd_rad, dl(kadd), ztl(kadd))
+
+       ! If we don't want the entire ozone column, just interpolate ozone
+       ! above the model top.
+
+       if (.not. do_o3col) then
+          call hintrp_cc(33, mcol(1,5), mcol(1,1), nadd_rad, o3l(kadd), ztl(kadd))
+       endif
+
+       ! Compute pressure of added levels by hydrostatic integration.
+   
+       do k = kadd, nrad
+          tavg = 0.5 * (tl(k)+tl(k-1))
+          pl(k) = pl(k-1) * exp( -gordry * (ztl(k) - ztl(k-1)) / tavg )
+       enddo
+
+    endif
+
+  end subroutine rad_mclat
 
 End Module mem_mclat
 
