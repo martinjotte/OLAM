@@ -269,13 +269,13 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
      ccl4vmr (1,krad) = ccl4
   enddo
 
-! Convert water vapor to molar mixing ratio, pressure to mb, and
-! ozone to molar mixing ratio
+! Convert water vapor from density to molar mixing ratio, pressure to mb,
+! and ozone from density to molar mixing ratio
 
   do krad = 1, nrad
      h2ovmr(1,krad) = h2ovmr(1,krad) * eps_vapi / dl(krad)
      play  (1,krad) = play  (1,krad) * 0.01
-     o3vmr (1,krad) = o3vmr (1,krad) * amdo3
+     o3vmr (1,krad) = o3vmr (1,krad) * amdo3 / dl(krad)
   enddo
 
 ! surface pressure and temperature
