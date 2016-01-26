@@ -350,69 +350,73 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
 ! Walko's linear forms with inclusion of cloud and pristine ice condensate... 
 
-  elseif (icfrac == 2) then
+  else
 
 ! Use adjustable lower and upward RH thresholds from namelist
 
-     cfrh1 = cfracrh1
-     cfrh2 = cfracrh2
+     if (icfrac == 2) then
 
-  else
+        cfrh1 = cfracrh1
+        cfrh2 = cfracrh2
+
+     else
 
 ! Latitudinal and land/sea variation of cloud fraction parameters
 
-     abslat = abs(glatw(iw))
+        abslat = abs(glatw(iw))
 
-     if     (abslat < 20.) then
-        wt60 = 0.
-     elseif (abslat > 60.) then
-        wt60 = 1.
-     else
-        wt60 = (abslat - 20.) / 20.
-     endif
+        if     (abslat < 20.) then
+           wt60 = 0.
+        elseif (abslat > 60.) then
+           wt60 = 1.
+        else
+           wt60 = (abslat - 20.) / 20.
+        endif
 
-     wt20 = 1. - wt60
+        wt20 = 1. - wt60
 
 ! Select set of parameters with namelist flag icfrac
 
-     if (icfrac == 3) then
+        if (icfrac == 3) then
 
-        if (fland > 0.5) then
-           cfrh1 = wt20 * 0.90 + wt60 * 0.90  ! land set 1
-           cfrh2 = wt20 * 1.40 + wt60 * 1.40  ! land set 1
-        else
-           cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 1
-           cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 1
-        endif
+           if (fland > 0.5) then
+              cfrh1 = wt20 * 0.90 + wt60 * 0.90  ! land set 1
+              cfrh2 = wt20 * 1.40 + wt60 * 1.40  ! land set 1
+           else
+              cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 1
+              cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 1
+           endif
 
-     elseif (icfrac == 4) then
+        elseif (icfrac == 4) then
 
-        if (fland > 0.5) then
-           cfrh1 = wt20 * 0.80 + wt60 * 0.90  ! land set 2
-           cfrh2 = wt20 * 1.05 + wt60 * 1.40  ! land set 2
-        else
-           cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 2
-           cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 2
-        endif
+           if (fland > 0.5) then
+              cfrh1 = wt20 * 0.80 + wt60 * 0.90  ! land set 2
+              cfrh2 = wt20 * 1.05 + wt60 * 1.40  ! land set 2
+           else
+              cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 2
+              cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 2
+           endif
 
-     elseif (icfrac == 5) then
+        elseif (icfrac == 5) then
 
-        if (fland > 0.5) then
-           cfrh1 = wt20 * 0.85 + wt60 * 0.90  ! land set 3
-           cfrh2 = wt20 * 1.00 + wt60 * 1.40  ! land set 3
-        else
-           cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 3
-           cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 3
-        endif
+           if (fland > 0.5) then
+              cfrh1 = wt20 * 0.85 + wt60 * 0.90  ! land set 3
+              cfrh2 = wt20 * 1.00 + wt60 * 1.40  ! land set 3
+           else
+              cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 3
+              cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 3
+           endif
 
-     elseif (icfrac == 6) then
+        elseif (icfrac == 6) then
 
-        if (fland > 0.5) then
-           cfrh1 = wt20 * 0.80 + wt60 * 0.90  ! land set 4
-           cfrh2 = wt20 * 1.00 + wt60 * 1.40  ! land set 4
-        else
-           cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 4
-           cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 4
+           if (fland > 0.5) then
+              cfrh1 = wt20 * 0.80 + wt60 * 0.90  ! land set 4
+              cfrh2 = wt20 * 1.00 + wt60 * 1.40  ! land set 4
+           else
+              cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 4
+              cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 4
+           endif
+
         endif
 
      endif
