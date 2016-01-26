@@ -202,14 +202,23 @@ subroutine hist_read()
         call shdf5_irec(ndims, idims, varn, ivara=vtab_r(nv)%ivar1_p, points=ilocal)
      elseif (associated(vtab_r(nv)%ivar2_p)) then
         call shdf5_irec(ndims, idims, varn, ivara=vtab_r(nv)%ivar2_p, points=ilocal)
+     elseif (associated(vtab_r(nv)%ivar3_p)) then
+        call shdf5_irec(ndims, idims, varn, ivara=vtab_r(nv)%ivar3_p, points=ilocal)
+
      elseif (associated(vtab_r(nv)%rvar1_p)) then
         call shdf5_irec(ndims, idims, varn, rvara=vtab_r(nv)%rvar1_p, points=ilocal)
      elseif (associated(vtab_r(nv)%rvar2_p)) then
         call shdf5_irec(ndims, idims, varn, rvara=vtab_r(nv)%rvar2_p, points=ilocal)
+     elseif (associated(vtab_r(nv)%rvar3_p)) then
+        call shdf5_irec(ndims, idims, varn, rvara=vtab_r(nv)%rvar3_p, points=ilocal)
+
      elseif (associated(vtab_r(nv)%dvar1_p)) then
         call shdf5_irec(ndims, idims, varn, dvara=vtab_r(nv)%dvar1_p, points=ilocal)
      elseif (associated(vtab_r(nv)%dvar2_p)) then
         call shdf5_irec(ndims, idims, varn, dvara=vtab_r(nv)%dvar2_p, points=ilocal)
+     elseif (associated(vtab_r(nv)%dvar3_p)) then
+        call shdf5_irec(ndims, idims, varn, dvara=vtab_r(nv)%dvar3_p, points=ilocal)
+
      endif
 
      nvcnt = nvcnt + 1
@@ -269,10 +278,15 @@ subroutine hist_read_addgrid()
 
   integer,  allocatable :: iscr1(:)
   integer,  allocatable :: iscr2(:,:)
+  integer,  allocatable :: iscr3(:,:,:)
+
   real,     allocatable :: rscr1(:)
   real,     allocatable :: rscr2(:,:)
+  real,     allocatable :: rscr3(:,:,:)
+
   real(r8), allocatable :: dscr1(:)
   real(r8), allocatable :: dscr2(:,:)
+  real(r8), allocatable :: dscr3(:,:,:)
 
 ! Allocate temporary OLD grid velocity [and momentum] arrays
 
@@ -481,23 +495,37 @@ subroutine hist_read_addgrid()
      endif
 
      if     (associated(vtab_r(nv)%ivar1_p)) then
+
         allocate(iscr1(idims(1)))
         call shdf5_irec(ndims, idims, varn, ivara=iscr1)
         call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
                             ivara1=iscr1, ivarb1=vtab_r(nv)%ivar1_p)
         deallocate(iscr1)
+
      elseif (associated(vtab_r(nv)%ivar2_p)) then
+
         allocate(iscr2(idims(1),idims(2)))
         call shdf5_irec(ndims, idims, varn, ivara=iscr2)
         call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
                             ivara2=iscr2, ivarb2=vtab_r(nv)%ivar2_p)
         deallocate(iscr2)
+
+     elseif (associated(vtab_r(nv)%ivar3_p)) then
+
+        allocate(iscr3(idims(1),idims(2),idims(3)))
+        call shdf5_irec(ndims, idims, varn, ivara=iscr3)
+        call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
+                            ivara3=iscr3, ivarb3=vtab_r(nv)%ivar3_p)
+        deallocate(iscr3)
+
      elseif (associated(vtab_r(nv)%rvar1_p)) then
+
         allocate(rscr1(idims(1)))
         call shdf5_irec(ndims, idims, varn, rvara=rscr1)
         call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
                             rvara1=rscr1, rvarb1=vtab_r(nv)%rvar1_p)
         deallocate(rscr1)
+
      elseif (associated(vtab_r(nv)%rvar2_p)) then
 
         allocate(rscr2(idims(1),idims(2)))
@@ -535,18 +563,38 @@ subroutine hist_read_addgrid()
 
         deallocate(rscr2)
 
+     elseif (associated(vtab_r(nv)%rvar3_p)) then
+
+        allocate(rscr3(idims(1),idims(2),idims(3)))
+        call shdf5_irec(ndims, idims, varn, rvara=rscr3)
+        call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
+                            rvara3=rscr3, rvarb3=vtab_r(nv)%rvar3_p)
+        deallocate(rscr3)
+
      elseif (associated(vtab_r(nv)%dvar1_p)) then
+
         allocate(dscr1(idims(1)))
         call shdf5_irec(ndims, idims, varn, dvara=dscr1)
         call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
                             dvara1=dscr1, dvarb1=vtab_r(nv)%dvar1_p)
         deallocate(dscr1)
+
      elseif (associated(vtab_r(nv)%dvar2_p)) then
+
         allocate(dscr2(idims(1),idims(2)))
         call shdf5_irec(ndims, idims, varn, dvara=dscr2)
         call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
                             dvara2=dscr2, dvarb2=vtab_r(nv)%dvar2_p)
         deallocate(dscr2)
+
+     elseif (associated(vtab_r(nv)%dvar3_p)) then
+
+        allocate(dscr3(idims(1),idims(2),idims(3)))
+        call shdf5_irec(ndims, idims, varn, dvara=dscr3)
+        call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
+                            dvara3=dscr3, dvarb3=vtab_r(nv)%dvar3_p)
+        deallocate(dscr3)
+
      endif
 
      nvcnt = nvcnt + 1

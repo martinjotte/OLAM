@@ -386,8 +386,8 @@ Contains
 !=========================================================================
 
   subroutine interp_addgrid(ndims, idims, jdims, varn, stagpt, &
-                            ivara1,ivara2,rvara1,rvara2,dvara1,dvara2, &
-                            ivarb1,ivarb2,rvarb1,rvarb2,dvarb1,dvarb2  )
+                            ivara1,ivara2,ivara3,rvara1,rvara2,rvara3,dvara1,dvara2,dvara3, &
+                            ivarb1,ivarb2,ivarb3,rvarb1,rvarb2,rvarb3,dvarb1,dvarb2,dvarb3  )
 
   use mem_grid,    only: nwa, nva, nma, mwa, mva, mma, mza, &
                          zt, xew, yew, zew, glatw, glonw
@@ -404,12 +404,29 @@ Contains
   character(*),  intent(in) :: varn ! Variable label
   character (2), intent(in) :: stagpt
 
-  integer,  optional, intent(inout) :: ivara1(idims(1)), ivara2(idims(1),idims(2))
-  real,     optional, intent(inout) :: rvara1(idims(1)), rvara2(idims(1),idims(2))
-  real(r8), optional, intent(inout) :: dvara1(idims(1)), dvara2(idims(1),idims(2))
-  integer,  optional, intent(inout) :: ivarb1(jdims(1)), ivarb2(jdims(1),jdims(2))
-  real,     optional, intent(inout) :: rvarb1(jdims(1)), rvarb2(jdims(1),jdims(2))
-  real(r8), optional, intent(inout) :: dvarb1(jdims(1)), dvarb2(jdims(1),jdims(2))
+  integer,  optional, intent(inout) :: ivara1(idims(1))
+  integer,  optional, intent(inout) :: ivara2(idims(1),idims(2))
+  integer,  optional, intent(inout) :: ivara3(idims(1),idims(2),idims(3))
+
+  real,     optional, intent(inout) :: rvara1(idims(1))
+  real,     optional, intent(inout) :: rvara2(idims(1),idims(2))
+  real,     optional, intent(inout) :: rvara3(idims(1),idims(2),idims(3))
+
+  real(r8), optional, intent(inout) :: dvara1(idims(1))
+  real(r8), optional, intent(inout) :: dvara2(idims(1),idims(2))
+  real(r8), optional, intent(inout) :: dvara3(idims(1),idims(2),idims(3))
+
+  integer,  optional, intent(inout) :: ivarb1(idims(1))
+  integer,  optional, intent(inout) :: ivarb2(idims(1),idims(2))
+  integer,  optional, intent(inout) :: ivarb3(idims(1),idims(2),idims(3))
+
+  real,     optional, intent(inout) :: rvarb1(idims(1))
+  real,     optional, intent(inout) :: rvarb2(idims(1),idims(2))
+  real,     optional, intent(inout) :: rvarb3(idims(1),idims(2),idims(3))
+
+  real(r8), optional, intent(inout) :: dvarb1(idims(1))
+  real(r8), optional, intent(inout) :: dvarb2(idims(1),idims(2))
+  real(r8), optional, intent(inout) :: dvarb3(idims(1),idims(2),idims(3))
 
   integer :: iw, iv, iw1, iw2, iwl, iws, k, j, iwn, ngrw
   integer :: iw_og, iw_og1, iw_og2, iw_og3, iv_og, iwl_og, iws_og, ka_og
@@ -425,7 +442,7 @@ Contains
      do iw_og = 2,nwa_og
         ka_og = lpw_og(iw_og)
 
-        if (present(ivara2)) then
+        if     (present(ivara2)) then
            ivara2(1:ka_og-1,iw_og) = ivara2(ka_og,iw_og)
         elseif (present(rvara2)) then
            rvara2(1:ka_og-1,iw_og) = rvara2(ka_og,iw_og)
@@ -445,6 +462,18 @@ Contains
            else
               dvara2(1:ka_og-1,iw_og) = dvara2(ka_og,iw_og)
            endif
+        elseif (present(ivara3)) then
+           do k = 1, ka_og-1
+              ivara3(k,:,iw_og) = ivara3(ka_og,:,iw_og)
+           enddo
+        elseif (present(rvara3)) then
+           do k = 1, ka_og-1
+              rvara3(k,:,iw_og) = rvara3(ka_og,:,iw_og)
+           enddo
+        elseif (present(dvara3)) then
+           do k = 1, ka_og-1
+              dvara3(k,:,iw_og) = dvara3(ka_og,:,iw_og)
+           enddo
         endif
      enddo
 
@@ -486,10 +515,12 @@ Contains
               ivarb1(iw) = ivara1(iw_og)
            elseif (present(ivara2)) then
               ivarb2(:,iw) = ivara2(:,iw_og)
+
            elseif (present(rvara1)) then
               rvarb1(iw) = rvara1(iw_og)
            elseif (present(rvara2)) then
               rvarb2(:,iw) = rvara2(:,iw_og)
+
            elseif (present(dvara1)) then
               dvarb1(iw) = dvara1(iw_og)
            elseif (present(dvara2)) then
@@ -509,6 +540,9 @@ Contains
               ivarb1(iw) = ivara1(iw_og1)
            elseif (present(ivara2)) then
               ivarb2(:,iw) = ivara2(:,iw_og1)
+           elseif (present(ivara3)) then
+              ivarb3(:,:,iw) = ivara3(:,:,iw_og1)
+
            elseif (present(rvara1)) then
               rvarb1(iw) = f_og1 * rvara1(iw_og1) &
                          + f_og2 * rvara1(iw_og2) &
@@ -517,6 +551,11 @@ Contains
               rvarb2(:,iw) = f_og1 * rvara2(:,iw_og1) &
                            + f_og2 * rvara2(:,iw_og2) &
                            + f_og3 * rvara2(:,iw_og3)
+           elseif (present(rvara3)) then
+              rvarb3(:,:,iw) = f_og1 * rvara3(:,:,iw_og1) &
+                             + f_og2 * rvara3(:,:,iw_og2) &
+                             + f_og3 * rvara3(:,:,iw_og3)
+
            elseif (present(dvara1)) then
               dvarb1(iw) = f_og1 * dvara1(iw_og1) &
                          + f_og2 * dvara1(iw_og2) &
@@ -525,6 +564,10 @@ Contains
               dvarb2(:,iw) = f_og1 * dvara2(:,iw_og1) &
                            + f_og2 * dvara2(:,iw_og2) &
                            + f_og3 * dvara2(:,iw_og3)
+           elseif (present(dvara3)) then
+              dvarb3(:,:,iw) = f_og1 * dvara3(:,:,iw_og1) &
+                             + f_og2 * dvara3(:,:,iw_og2) &
+                             + f_og3 * dvara3(:,:,iw_og3)
            endif
 
         endif
