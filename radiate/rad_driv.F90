@@ -68,14 +68,8 @@ integer :: ka
 integer :: koff
 integer :: nrad
 integer :: mrl
-
-real :: water_albedo
-real :: arf_iw
-real :: flux
-real :: sea_cosz
-
-integer, external :: julday
-integer :: jday
+real    :: arf_iw
+real    :: sea_cosz
 
 ! Check whether it is time to update radiative fluxes and heating rates
 
@@ -467,7 +461,6 @@ integer :: outhour  ! current simulation hour/min/sec (6 digits)
 integer :: ihour2   ! current simulation hour
 integer :: imin2    ! current simulation min
 integer :: isec2    ! current simulation sec
-integer :: is       ! counter over solar bands in Harrington radiation
 
 real :: t1             ! 2 pi times fraction of year elapsed
 real :: t2             ! 2 pi times fraction of year elapsed with offset

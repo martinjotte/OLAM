@@ -3,7 +3,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   use mem_grid,    only: mza, zm, zt, glatw, glonw, dzt, dzim
   use mem_basic,   only: rho, press, theta, tair, sh_v, sh_w, thil, wc
   use misc_coms,   only: io6, iswrtyp, ilwrtyp, time8, nqparm, dtlm, &
-                         icfrac, cfracrh1, cfracrh2, cfraccup
+                         icfrac, cfracrh1, cfracrh2, cfraccup, do_chem
   use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, t00
   use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
                          rshort_top, rshortup_top, rlongup_top, fthrd_sw, &
@@ -21,8 +21,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h
   use mem_para,    only: myrank
   use mem_ijtabs,  only: itab_w
-  use clouds_gno,  only: cu_cldfrac
   use mem_mclat,   only: rad_mclat
+  use cgrid_defn,  only: acflux_dir_dn_tot, acflux_dif_dn_tot, acflux_dif_up_tot, &
+                         acflux_dir_dn_clr, acflux_dif_dn_clr, acflux_dif_up_clr
 
   use parrrtm,             only: nbndlw, ngptlw
   use parrrsw,             only: nbndsw, ngptsw
@@ -56,8 +57,6 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   integer :: jhcat(mza,ncat)  ! hydrom category table with ice habits
 
   real :: rhov (mza)       ! vapor density [kg_vap/m^3]
-  real :: rhoc (mza)       ! bulk cloud water density [kg_cld/m^3]
-  real :: rhop (mza)       ! bulk pristine ice density [kg_pris/m^3]
   real :: rx   (mza,ncat)  ! hydrom bulk spec dens [kg_hyd/kg_air]
   real :: cx   (mza,ncat)  ! hydrom bulk number [num_hyd/kg_air]
   real :: emb  (mza,ncat)  ! hydrom mean particle mass [kg/particle]
@@ -73,7 +72,6 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: zsfc
   real :: emiss
   real :: p1, p2, tc, rh
-  real :: rhl, rhi, fracl, fraci, dcfracrhi
   real :: fland
 
   real :: plev(ncol, nrad+1)
@@ -158,22 +156,15 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: asmaers(ncol, nrad, nbndsw)
   real :: ecaer  (ncol, nrad, nbndsw)
 
-  integer :: k, krad, icloud, iaeros, index, ib, mrlw, ig
+  integer :: k, krad, icloud, iaeros, index, ib, ig, n
   integer :: iplon, irng, permuteseed, ns, nt
   integer :: mc, mcat, ih, l, num, ntim, ngbmsw, ngbmlw
+  logical :: iconv
 
-  real :: tau, ssa, asm, rh00
+  real :: tau, ssa, asm
   real :: r_ef, dmean, watp, rstart, rend, rscale, fint0, fint1
-  real :: abslat, wt20, wt60, cfrh1, cfrh2, dcfrhi
 
-  logical :: iconv, ideep
-
-  real :: rh_tot(mza)
-  real :: qc_sub(mza)
-  real :: cu_cldf(mza)
   real :: frac(mza)
-  real :: qsub(mza)
-  real :: qsat
 
   real, external :: rhovsl, rhovsi
 
@@ -242,12 +233,6 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
      krad = k - koff
 
      rhov(k) = max(0.,sh_v(k,iw)) * rho(k,iw)
-     rhoc(k) = max(0.,sh_c(k,iw)) * rho(k,iw)
-     if (allocated(sh_p)) then
-        rhop(k) = max(0.,sh_p(k,iw)) * rho(k,iw)
-     else
-        rhop(k) = 0.
-     endif
 
      play  (1,krad) = press(k,iw)
      tlay  (1,krad) = tair (k,iw)
@@ -325,175 +310,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 ! The cloud fraction estimated here will only be applied later in this routine
 ! if there are any resolved hydrometeors.
 
-  frac(:) = 0.
-
-  if (icfrac == 1) then
-
-! Fractional cloudiness based on RH from Mocko and Cotton (1995).
-
-     if (fland > 0.5) then
-        rh00 = 0.85
-     else
-        rh00 = 0.75
-     endif
-
-     do k = ka, mza
-        tc = tair(k,iw) - t00
-        if (tc > -10.0) then
-           rh = rhov(k) / rhovsl(tc)
-        else
-           rh = rhov(k) / rhovsi(tc)
-        endif
-        rh = min(rh, 1.0)
-        frac(k) = max( 1.0 - sqrt(( 1.0 - rh ) / ( 1.0 - rh00)), 0.0)
-     enddo
-
-! Walko's linear forms with inclusion of cloud and pristine ice condensate... 
-
-  else
-
-! Use adjustable lower and upward RH thresholds from namelist
-
-     if (icfrac == 2) then
-
-        cfrh1 = cfracrh1
-        cfrh2 = cfracrh2
-
-     else
-
-! Latitudinal and land/sea variation of cloud fraction parameters
-
-        abslat = abs(glatw(iw))
-
-        if     (abslat < 20.) then
-           wt60 = 0.
-        elseif (abslat > 60.) then
-           wt60 = 1.
-        else
-           wt60 = (abslat - 20.) / 20.
-        endif
-
-        wt20 = 1. - wt60
-
-! Select set of parameters with namelist flag icfrac
-
-        if (icfrac == 3) then
-
-           if (fland > 0.5) then
-              cfrh1 = wt20 * 0.90 + wt60 * 0.90  ! land set 1
-              cfrh2 = wt20 * 1.40 + wt60 * 1.40  ! land set 1
-           else
-              cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 1
-              cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 1
-           endif
-
-        elseif (icfrac == 4) then
-
-           if (fland > 0.5) then
-              cfrh1 = wt20 * 0.80 + wt60 * 0.90  ! land set 2
-              cfrh2 = wt20 * 1.05 + wt60 * 1.40  ! land set 2
-           else
-              cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 2
-              cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 2
-           endif
-
-        elseif (icfrac == 5) then
-
-           if (fland > 0.5) then
-              cfrh1 = wt20 * 0.85 + wt60 * 0.90  ! land set 3
-              cfrh2 = wt20 * 1.00 + wt60 * 1.40  ! land set 3
-           else
-              cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 3
-              cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 3
-           endif
-
-        elseif (icfrac == 6) then
-
-           if (fland > 0.5) then
-              cfrh1 = wt20 * 0.80 + wt60 * 0.90  ! land set 4
-              cfrh2 = wt20 * 1.00 + wt60 * 1.40  ! land set 4
-           else
-              cfrh1 = wt20 * 1.00 + wt60 * 0.95  ! sea set 4
-              cfrh2 = wt20 * 1.20 + wt60 * 1.20  ! sea set 4
-           endif
-
-        endif
-
-     endif
-
-     dcfrhi = 1. / max(1.e-6, cfrh2-cfrh1)
-
-     do k = ka, mza
-        tc = tair(k,iw) - t00
-        rhl = (rhov(k) + rhoc(k) + rhop(k)) / rhovsl(tc)
-        rhi = (rhov(k) +           rhop(k)) / rhovsi(tc)
-
-        fracl = (rhl - cfrh1) * dcfrhi
-        fraci = (rhi - cfrh1) * dcfrhi
-
-        frac(k) = min(1.0, max(0.0, fracl, fraci))
-     enddo
-
-  endif
-
-! Determine if subgrid convection is active and the type (shallow or deep)
-
-  iconv = .false.
-  ideep = .false.
-  qsub(:) = 0.0
- 
-  mrlw = itab_w(iw)%mrlw
-
-  if (nqparm(mrlw) > 0 .and. cbmf(iw) > 1.e-12 .and. kcubot(iw) >= ka) then
-     iconv = .true.
-     if (conprr(iw) > 1.e-12) ideep = .true.
-  endif
-
-! If there is subgrid convection, modify the estimated cloud fraction to include
-! the convective clouds from the cumulus scheme
-
-  if (iconv) then
-
-     ! This section estimates the cloud fraction from subgrid cumulus and 
-     ! any resolved clouds based on a lookup table of the scheme of 
-     ! Bony and Emanuel (2001, JAS)
-
-     do k = kcubot(iw), kcutop(iw)
-        qsub(k) = max(qwcon(k,iw), 1.e-5)
-
-        tc = tair(k,iw) - t00
-        if (tc > -10.0) then
-           qsat = rhovsl(tc) / rho(k,iw)
-        else
-           qsat = rhovsi(tc) / rho(k,iw)
-        endif
-
-        rh_tot(k) = sh_w(k,iw) / qsat
-        qc_sub(k) = sqrt(  qsub(k) / sh_w(k,iw) )
-     enddo
-
-     call cu_cldfrac(kcubot(iw), kcutop(iw), rh_tot, qc_sub, cu_cldf)
-
-     ! Do we want to overwrite the resolved cloud fraction or merge the two?
-     do k = kcubot(iw), kcutop(iw)
-        frac(k) = max( min(cu_cldf(k), 0.99), 0.01 )
-     enddo
-
-     ! If there is deep convection, limit the resolved cloud fraction below and just
-     ! above the cumulus to create some breaks
-
-     if (ideep) then
-        do k = ka, kcubot(iw) - 1
-           frac(k) = min(frac(k), cfraccup)
-        enddo
-        frac(kcutop(iw)+1) = min(frac(k), cfraccup)
-     endif
-
-     ! TODO: Add an option to use the CAM scheme that estimates and combines 
-     ! resolved and subgrid cloud fractions based on the convective updraft 
-     ! velocity. Also add an option to turn off fractional clouds (0 or 1)
-
-  endif
+  call get_cloud_frac(iw, ka, frac)
 
 ! Get optical properties of resolved clouds
 
@@ -520,7 +337,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
            r_ef = 1.e6 * reffcof(ih) * emb(k,mc) ** pwmasi(ih)
            r_ef = max(rstart, min(rend, r_ef))
 
-           ! ice or liquid water path in g/m^s
+           ! ice or liquid water path in g/m^2
            watp = rx(k,mc) * dl(krad) * 1000. * dzt(k)
            watp = watp / frac(k)
 
@@ -570,11 +387,12 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
      do k = kcubot(iw), kcutop(iw)
         krad = k - koff
 
-        if (frac(k) > 1.e-12 .and. qsub(k) > 1.e-12) then
+        if (frac(k) > 1.e-10) then
               
            cldfr(1,krad) = frac(k)
 
-           watp = qwcon(k,iw) * rho(k,iw) * 1000. * dzt(k)
+           ! water path in g/m^2
+           watp = max(qwcon(k,iw),1.e-5) * rho(k,iw) * 1000. * dzt(k)
            tc   = tair(k,iw) - t00
               
            if (tc > -10.0) then
@@ -782,6 +600,24 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
         fthrd_sw(k,iw) = swhr(1,krad) * exl(krad) / 86400.0
      enddo
 
+     if (do_chem == 1) then
+        call rrtmg_to_cmaq()
+     endif
+
+  else
+
+     if (do_chem == 1) then
+        do n = 1, 7
+           acflux_dir_dn_tot(:,:,iw) = 0.0
+           acflux_dif_dn_tot(:,:,iw) = 0.0
+           acflux_dif_up_tot(:,:,iw) = 0.0
+
+           acflux_dir_dn_clr(:,:,iw) = 0.0
+           acflux_dif_dn_clr(:,:,iw) = 0.0
+           acflux_dif_up_clr(:,:,iw) = 0.0
+        enddo
+     endif
+
   endif
 
   ! Compute the longwave fluxes and heating rates
@@ -866,5 +702,67 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
      enddo
 
   endif
+
+
+contains
+
+
+  subroutine rrtmg_to_cmaq()
+
+    implicit none
+
+    real,    parameter :: mu1 = 2.0
+
+    integer, parameter :: nb(6) = (/ 12, 12, 12, 12, 12, 11 /)
+    real,    parameter :: cc(6) = (/ 0.080617, 0.111306, 0.064996, 0.107632, 0.388907, 0.663493 /)
+
+    integer, parameter :: n7(4) = (/ 8, 9, 10, 11 /)
+    real,    parameter :: c7(4) = (/ 0.231458, 1.000000, 1.000000, 0.336507 /)
+    
+    real               :: mu
+    integer            :: k, n
+    real               :: irr_dir_dn_tot(7)
+    real               :: irr_dif_dn_tot(7)
+    real               :: irr_dif_up_tot(7)
+    real               :: irr_dir_dn_clr(7)
+    real               :: irr_dif_dn_clr(7)
+    real               :: irr_dif_up_clr(7)
+
+    mu = 1.0 / cosz(iw)
+
+    do k = 1, mza-koff
+
+       do n = 1, 6
+          irr_dir_dn_tot(n) = cc(n) * swdflxt_band_dir(k,nb(n))
+          irr_dif_dn_tot(n) = cc(n) * (swdflxt_band(k,nb(n)) - swdflxt_band_dir(k,nb(n)))
+          irr_dif_up_tot(n) = cc(n) * swuflxt_band(k,nb(n))
+
+          irr_dir_dn_clr(n) = cc(n) * swdflxc_band_dir(k,nb(n))
+          irr_dif_dn_clr(n) = cc(n) * (swdflxc_band(k,nb(n)) - swdflxc_band_dir(k,nb(n)))
+          irr_dif_up_clr(n) = cc(n) * swuflxc_band(k,nb(n))
+       enddo
+
+       irr_dir_dn_tot(7) = sum( c7(:) * swdflxt_band_dir(k,n7(:)) )
+       irr_dif_dn_tot(7) = sum( c7(:) * (swdflxt_band(k,n7(:)) - swdflxt_band_dir(k,n7(:))) )
+       irr_dif_up_tot(7) = sum( c7(:) * swuflxt_band(k,n7(:)) )
+
+       irr_dir_dn_clr(7) = sum( c7(:) * swdflxc_band_dir(k,n7(:)) )
+       irr_dif_dn_clr(7) = sum( c7(:) * (swdflxc_band(k,n7(:)) - swdflxc_band_dir(k,n7(:))) )
+       irr_dif_up_clr(7) = sum( c7(:) * swuflxc_band(k,n7(:)) )
+
+       do n = 1, 7
+          acflux_dir_dn_tot(k,n,iw) = irr_dir_dn_tot(n) * mu
+          acflux_dif_dn_tot(k,n,iw) = irr_dif_dn_tot(n) * mu1
+          acflux_dif_up_tot(k,n,iw) = irr_dif_up_tot(n) * mu1
+
+          acflux_dir_dn_clr(k,n,iw) = irr_dir_dn_clr(n) * mu
+          acflux_dif_dn_clr(k,n,iw) = irr_dif_dn_clr(n) * mu1
+          acflux_dif_up_clr(k,n,iw) = irr_dif_up_clr(n) * mu1
+       enddo
+
+    enddo
+
+  end subroutine rrtmg_to_cmaq
+
 
 end subroutine rrtmg_raddriv

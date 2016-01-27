@@ -81,6 +81,7 @@ C Local Variables:
       Real,      Parameter :: one3  = 1.0 / 3.0
       Real,      Parameter :: dgmin = 1.0E-09   ! minimum particle diameter [ m ]
       Real,      Parameter :: densmin = 1.0E03  ! minimum particle density [ kg/m**3 ]
+      real,      parameter :: dgmax(n_mode) = def_diam * 100.
 
       Real( 8 ) :: minl2sg( n_mode )   ! min value of ln(sg)**2 for each mode
       Real( 8 ) :: maxl2sg( n_mode )   ! max value of ln(sg)**2 for each mode
@@ -162,6 +163,8 @@ C *** Aitken Mode:
          ES36 = Exp( 4.5 * l2sg )
          aeromode_diam( n ) = Max( dgmin, ( moment3_conc( n )
      &                      / ( moment0_conc( n ) * es36 ) ) ** one3 )
+
+         aeromode_diam( n ) = min( dgmax(n), aeromode_diam(n) )
 
       End Do
 

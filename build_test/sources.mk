@@ -39,7 +39,6 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_flux_accum.f90 \
              $(MODEL_MODS)/mem_grid.f90 \
              $(MODEL_MODS)/mem_ijtabs.f90 \
-             $(MODEL_MODS)/mem_mclat.f90 \
              $(MODEL_MODS)/mem_micro.f90 \
              $(MODEL_MODS)/mem_mksfc2.f90 \
              $(MODEL_MODS)/mem_nudge.f90 \
@@ -130,11 +129,12 @@ SOURCE_FILES= \
              $(OUTILS)/string_lib.f90 \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \
+             $(RADIATE)/cloud_frac.f90 \
              $(RADIATE)/cloudprep_rad.f90 \
              $(RADIATE)/clouds_gno.f90 \
+             $(RADIATE)/mem_mclat.f90 \
              $(RADIATE)/mem_radiate.f90 \
              $(RADIATE)/rad_driv.F90 \
-             $(RADIATE)/rad_mclat.f90 \
              $(RADIATE)/rrtmg_cloud_optics.f90 \
              $(RADIATE)/rrtmg_raddriv.f90 \
              $(RADIATE)/rrtmg_lw/mcica_random_numbers.f90 \
@@ -221,7 +221,7 @@ SOURCE_FILES= \
              $(CMAQ)/aero_depv.F \
              $(CMAQ)/aero_driver.F \
              $(CMAQ)/AERO_EMIS.F \
-             $(CMAQ)/aero_photdata.F \
+             $(CMAQ)/AERO_PHOTDATA.F \
              $(CMAQ)/aero_subs.F \
              $(CMAQ)/AEROMET_DATA.F \
              $(CMAQ)/AEROSOL_CHEMISTRY.F \
@@ -269,6 +269,7 @@ SOURCE_FILES= \
              $(CMAQ)/m3dry.f \
              $(CMAQ)/oplot_chem_lib.f90 \
              $(CMAQ)/phot.F \
+             $(CMAQ)/phot_albedo.f90 \
              $(CMAQ)/PHOT_MOD.F \
              $(CMAQ)/PRECURSOR_DATA.F \
              $(CMAQ)/rescld.F \
@@ -278,6 +279,7 @@ SOURCE_FILES= \
              $(CMAQ)/SOA_DEFN.F \
              $(CMAQ)/soil_nox.f90 \
              $(CMAQ)/SSEMIS.F \
+             $(CMAQ)/twoway_rrtmg_aero_optics.F90 \
              $(CMAQ)/UTILIO_DEFN.F \
              $(MEGAN)/canopy.f90 \
              $(MEGAN)/driver.f90
