@@ -31,7 +31,7 @@ subroutine get_cloud_frac(iw, ka, frac)
   real    :: qc_sub(mza)
   real    :: cu_cldf(mza)
   real    :: qsub(mza)
-  real    :: qsat
+  real    :: qsat, qw
 
   real, external :: rhovsl, rhovsi
 
@@ -199,8 +199,10 @@ subroutine get_cloud_frac(iw, ka, frac)
            qsat = rhovsi(tc) / rho(k,iw)
         endif
 
-        rh_tot(k) = sh_w(k,iw) / qsat
-        qc_sub(k) = sqrt(  qsub(k) / sh_w(k,iw) )
+        qw = max( sh_w(k,iw), 1.e-8 )
+
+        rh_tot(k) = qw / qsat
+        qc_sub(k) = sqrt(  qsub(k) / qw )
      enddo
 
      call cu_cldfrac(kcubot(iw), kcutop(iw), rh_tot, qc_sub, cu_cldf)

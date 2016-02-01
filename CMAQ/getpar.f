@@ -66,30 +66,28 @@ C  aeromode_diam  geometric mean diameter [ m ]
 C  aeromode_sdev  log of geometric standard deviation
 
 C Local Variables:
-      Real( 8 ) :: xxm0        ! temporary storage of moment 0 conc's
-      Real( 8 ) :: xxm2        ! temporary storage of moment 2 conc's
-      Real( 8 ) :: xxm3        ! temporary storage of moment 3 conc's
-      Real( 8 ) :: xfsum       ! (ln(M0)+2ln(M3))/3; used in Sg calcs
-      Real( 8 ) :: lxfm2       ! ln(M2); used in Sg calcs
-      Real( 8 ) :: l2sg        ! square of ln(Sg); used in diameter calcs
-      Real      :: es36        ! exp(4.5*l2sg); used in diameter calcs
-      Real      :: m3augm      ! temp variable for wet 3rd moment calcs
+      Real :: xfsum       ! (ln(M0)+2ln(M3))/3; used in Sg calcs
+      Real :: lxfm2       ! ln(M2); used in Sg calcs
+      Real :: l2sg        ! square of ln(Sg); used in diameter calcs
+      Real :: es36        ! exp(4.5*l2sg); used in diameter calcs
 
-      Real( 8 ), Parameter :: one3d = 1.0D0 / 3.0D0
-      Real( 8 ), Parameter :: two3d = 2.0D0 / 3.0D0
+      Real, Parameter :: one3  = 1.0 / 3.0
+      Real, Parameter :: two3  = 2.0 / 3.0
+      Real, Parameter :: dgmin = 1.0E-09   ! minimum particle diameter [ m ]
+      Real, Parameter :: densmin = 1.0E03  ! minimum particle density [ kg/m**3 ]
 
-      Real,      Parameter :: one3  = 1.0 / 3.0
-      Real,      Parameter :: dgmin = 1.0E-09   ! minimum particle diameter [ m ]
-      Real,      Parameter :: densmin = 1.0E03  ! minimum particle density [ kg/m**3 ]
-      real,      parameter :: dgmax(n_mode) = def_diam * 100.
+      real, parameter :: dgmax(n_mode) = def_diam * 100.
+      real, parameter :: factor_m3(n_aerospc) = 1.0E-9 * f6pi / aerospc%density
+      Real, parameter :: minl2sg_l( n_mode ) = Log( min_sigma_g ) ** 2
+      Real, parameter :: maxl2sg_l( n_mode ) = Log( max_sigma_g ) ** 2
 
-      Real( 8 ) :: minl2sg( n_mode )   ! min value of ln(sg)**2 for each mode
-      Real( 8 ) :: maxl2sg( n_mode )   ! max value of ln(sg)**2 for each mode
+      Real :: minl2sg( n_mode )   ! min value of ln(sg)**2 for each mode
+      Real :: maxl2sg( n_mode )   ! max value of ln(sg)**2 for each mode
 
-      Real      :: factor
       Real( 8 ) :: sumM3
       Real( 8 ) :: sumMass
       Integer   :: n, spc   ! loop counters
+
 
 C-----------------------------------------------------------------------
 
@@ -99,35 +97,32 @@ C *** Set bounds for ln(Sg)**2
          minl2sg = aeromode_sdev ** 2
          maxl2sg = aeromode_sdev ** 2
       Else
-         minl2sg = Log( min_sigma_g ) ** 2
-         maxl2sg = Log( max_sigma_g ) ** 2
+         minl2sg = minl2sg_l
+         maxl2sg = maxl2sg_l
       End If
 
 C *** Calculate aerosol 3rd moment concentrations [ m**3 / m**3 ]
 
       Do n = 1, n_mode
-         sumM3 = 0.0
-         sumMass = 0.0
+         sumM3   = 0.0_8
+         sumMass = 0.0_8
 
          Do spc = 1, n_aerospc
             If ( aerospc( spc )%tracer .Or. aero_missing(spc,n) .Or. 
      &         ( aerospc( spc )%no_M2Wet .AND. .Not. m3_wet_flag ) ) Cycle
-
-            factor = 1.0E-9 * f6pi / aerospc( spc )%density
-            sumM3  = sumM3 + factor * aerospc_conc( spc,n )
+            sumM3   = sumM3 + factor_m3(spc) * aerospc_conc( spc,n )
             sumMass = sumMass + aerospc_conc( spc,n )
          End Do
 
-         moment3_conc( n )  = Max (sumM3, Real( aeromode( n )%min_m3conc, 8 ) )
+         moment3_conc ( n ) = Max( Real(sumM3), aeromode( n )%min_m3conc )
          aeromode_mass( n ) = sumMass
       End Do
 
 
 C *** Calculate modal average particle densities [ kg/m**3 ]
-      aeromode_dens = 1.0E-9 * f6pi * aeromode_mass / moment3_conc
-      Where( aeromode_dens .Lt. densmin )
-         aeromode_dens = densmin
-      End Where
+      do n = 1, n_mode
+         aeromode_dens(n) = max(1.0E-9 * f6pi * aeromode_mass(n) / moment3_conc(n), densmin)
+      enddo
 
 C *** Calculate geometric standard deviations as follows:
 c        ln^2(Sg) = 1/3*ln(M0) + 2/3*ln(M3) - ln(M2)
@@ -144,13 +139,9 @@ c         below the minimum limit.
 C *** Aitken Mode:
 
       Do n = 1, n_mode
-         xxm0 = moment0_conc( n )
-         xxm2 = moment2_conc( n )
-         xxm3 = moment3_conc( n )
+         xfsum = one3 * Log( moment0_conc( n ) ) + two3 * Log( moment3_conc( n ) )
 
-         xfsum = one3d * Log( xxm0 ) + two3d * Log( xxm3 )
-
-         lxfm2 = Log( xxm2 )
+         lxfm2 = Log( moment2_conc( n ) )
          l2sg = xfsum - lxfm2
 
          l2sg = Max( l2sg, minl2sg( n ) )
@@ -168,6 +159,4 @@ C *** Aitken Mode:
 
       End Do
 
-      Return
       End Subroutine getpar
-

@@ -1259,7 +1259,7 @@ C
       STKOFL  =.FALSE.
       DO 60 I=1,NERRMX
          ERRSTK(I) =-999
-         ERRMSG(I) = 'MESSAGE N/A'
+!        ERRMSG(I) = 'MESSAGE N/A'
    60 CONTINUE
 C
 C *** END OF SUBROUTINE INIT1 *******************************************
@@ -1557,7 +1557,7 @@ C
       STKOFL  =.FALSE.
       DO 60 I=1,NERRMX
          ERRSTK(I) =-999
-         ERRMSG(I) = 'MESSAGE N/A'
+!        ERRMSG(I) = 'MESSAGE N/A'
    60 CONTINUE
 C
 C *** END OF SUBROUTINE INIT2 *******************************************
@@ -1930,7 +1930,7 @@ C
       STKOFL  =.FALSE.
       DO 60 I=1,NERRMX
          ERRSTK(I) =-999
-         ERRMSG(I) = 'MESSAGE N/A'
+!        ERRMSG(I) = 'MESSAGE N/A'
    60 CONTINUE
 C
 C *** END OF SUBROUTINE ISOINIT3 *******************************************
@@ -2469,7 +2469,7 @@ C
       STKOFL  =.FALSE.
       DO 60 I=1,NERRMX
          ERRSTK(I) =-999
-         ERRMSG(I) = 'MESSAGE N/A'
+!        ERRMSG(I) = 'MESSAGE N/A'
    60 CONTINUE
 C
 C *** END OF SUBROUTINE INIT4 *******************************************

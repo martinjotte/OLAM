@@ -26,13 +26,14 @@ module cgrid_conv
   logical,              save :: firstime = .true.
   integer,              save :: logdev
 
-  integer,              save :: nqae       ! number of micro-grams/m**3 species
-  integer,              save :: nnae       ! number of #/m**3 species
-  integer,              save :: nsae       ! number of m**2/m**3 species
-  integer, allocatable, save :: qae  ( : ) ! CGRID pointer to micro-grams/m**3 species
-  integer, allocatable, save :: nae  ( : ) ! CGRID pointer to #/m**3 species
-  integer, allocatable, save :: sae  ( : ) ! CGRID pointer to m**2/m**3 species
-  real,    allocatable, save :: molwt( : ) ! only for "QAE" species
+  integer,              save :: nqae        ! number of micro-grams/m**3 species
+  integer,              save :: nnae        ! number of #/m**3 species
+  integer,              save :: nsae        ! number of m**2/m**3 species
+  integer, allocatable, save :: qae   ( : ) ! CGRID pointer to micro-grams/m**3 species
+  integer, allocatable, save :: nae   ( : ) ! CGRID pointer to #/m**3 species
+  integer, allocatable, save :: sae   ( : ) ! CGRID pointer to m**2/m**3 species
+  real,    allocatable, save :: molwt ( : ) ! only for "QAE" species
+  real,    allocatable, save :: molwti( : ) ! only for "QAE" species
 
   real, parameter :: gpkg = 1.0e+03        ! g/kg
   real, parameter :: maogpkg = mwair / gpkg
@@ -65,10 +66,11 @@ contains
        ! create aerosol species pointers to distinguish micro-grams/m**3,
        ! #/m**3 (number density), and m**2/m**3 (surface area) species
 
-       allocate ( qae  ( n_ae_spc ), &
-                  nae  ( n_ae_spc ), &
-                  sae  ( n_ae_spc ), &
-                  molwt( n_ae_spc ), stat = ios )
+       allocate ( qae   ( n_ae_spc ), &
+                  nae   ( n_ae_spc ), &
+                  sae   ( n_ae_spc ), &
+                  molwt ( n_ae_spc ), &
+                  molwti( n_ae_spc ), stat = ios )
 
        if ( ios .ne. 0 ) then
           xmsg = 'Failure allocating QAE, NAE, SAE, or MOLWT'
@@ -89,8 +91,9 @@ contains
              sae( nsae ) = off + s
           else
              nqae = nqae + 1
-             qae( nqae ) = off + s
-             molwt( nqae ) = ae_molwt( s )
+             qae   ( nqae ) = off + s
+             molwt ( nqae ) = ae_molwt ( s )
+             molwti( nqae ) = ae_molwti( s )
           end if
        end do
 
@@ -141,10 +144,10 @@ contains
 
        do v = 1, nspcs
           n = qae( v )
-          fac = maogpkg / molwt(v)
+          fac = maogpkg * molwti(v)
           do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * fac / rho(k,iw)
+                cgrid(k,iw,n) = cgrid(k,iw,n) * fac / real(rho(k,iw))
              enddo
           enddo
        enddo
@@ -161,7 +164,7 @@ contains
           n = nae( v )
           do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * MAOAVO1000 / rho(k,iw)
+                cgrid(k,iw,n) = cgrid(k,iw,n) * MAOAVO1000 / real(rho(k,iw))
              enddo
           enddo
        enddo
@@ -177,7 +180,7 @@ contains
           n = sae( v )
           do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * MAOGPKG / rho(k,iw)
+                cgrid(k,iw,n) = cgrid(k,iw,n) * MAOGPKG / real(rho(k,iw))
              enddo
           enddo
        enddo
@@ -234,7 +237,7 @@ contains
           fac = gpkgoma * molwt( v )
           do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * fac * rho(k,iw)
+                cgrid(k,iw,n) = cgrid(k,iw,n) * fac * real(rho(k,iw))
              enddo
           enddo
        enddo
@@ -251,7 +254,7 @@ contains
           n = nae( v )
           do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * AVOOMA_001 * rho(k,iw)
+                cgrid(k,iw,n) = cgrid(k,iw,n) * AVOOMA_001 * real(rho(k,iw))
              enddo
           enddo
        enddo
@@ -265,7 +268,7 @@ contains
           n = sae( v )
           do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * GPKGOMA * rho(k,iw)
+                cgrid(k,iw,n) = cgrid(k,iw,n) * GPKGOMA * real(rho(k,iw))
              enddo
           enddo
        enddo
@@ -303,11 +306,16 @@ contains
     integer :: nspcs, off
     integer :: k, n, v
     real    :: conv, fac
+    real    :: rhoi(mza)
 
     if ( firstime ) then
        firstime = .false.
        call setup_conv()
     endif
+
+    do k = lpw(iw), mza
+       rhoi(k) = 1.0 / real(rho(k,iw))
+    enddo
 
     ! Gas - no conversion
 
@@ -332,9 +340,9 @@ contains
 
        do v = 1, nspcs
           n = qae( v )
-          fac = maogpkg / molwt(v)
+          fac = maogpkg * molwti(v)
           do k = lpw(iw), mza
-             cngrd(k,n) = cgrid(k,iw,n) * fac / rho(k,iw)
+             cngrd(k,n) = cgrid(k,iw,n) * fac * rhoi(k)
           enddo
        enddo
          
@@ -349,7 +357,7 @@ contains
        do v = 1, nspcs
           n = nae( v )
           do k = lpw(iw), mza
-             cngrd(k,n) = cgrid(k,iw,n) * MAOAVO1000 / rho(k,iw)
+             cngrd(k,n) = cgrid(k,iw,n) * MAOAVO1000 * rhoi(k)
           enddo
        enddo
          
@@ -363,7 +371,7 @@ contains
        do v = 1, nspcs
           n = sae( v )
           do k = lpw(iw), mza
-             cngrd(k,n) = cgrid(k,iw,n) * MAOGPKG / rho(k,iw)
+             cngrd(k,n) = cgrid(k,iw,n) * MAOGPKG * rhoi(k)
           enddo
        enddo
 
@@ -443,7 +451,7 @@ contains
           n = qae( v )
           fac = gpkgoma * molwt( v )
           do k = lpw(iw), mza
-             cngrd(k,n) = cgrid(k,iw,n) * fac * rho(k,iw)
+             cngrd(k,n) = cgrid(k,iw,n) * fac * real(rho(k,iw))
           enddo
        enddo
          
@@ -458,7 +466,7 @@ contains
        do v = 1, nspcs
           n = nae( v )
           do k = lpw(iw), mza
-             cngrd(k,n) = cgrid(k,iw,n) * AVOOMA_001 * rho(k,iw)
+             cngrd(k,n) = cgrid(k,iw,n) * AVOOMA_001 * real(rho(k,iw))
           enddo
        enddo
          
@@ -472,7 +480,7 @@ contains
        do v = 1, nspcs
           n = sae( v )
           do k = lpw(iw), mza
-             cngrd(k,n) = cgrid(k,iw,n) * GPKGOMA * rho(k,iw)
+             cngrd(k,n) = cgrid(k,iw,n) * GPKGOMA * real(rho(k,iw))
           enddo
        enddo
 

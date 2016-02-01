@@ -1026,7 +1026,7 @@ C     [m2/mol/s].  Save results in the VDEMIS_AE array.
                      DO S = 1, N_AEROSPC
                         IF ( EM_MAP( S,N ) .GT. 0 ) THEN
                            vdemis_ae( k,iw,EM_MAP(S,N) ) = EM_PART( S,N ) * EM_FAC( S,N )
-     &                                                   * CONVM / AEROSPC_MW( S )
+     &                                                   * CONVM * AEROSPC_MWI( S )
                         END IF
                      END DO
                      VDEMIS_AE( k,iw,NUM_MAP( N ) ) = EM_NUM( N ) * NUM_FAC( N ) * CONVN
@@ -1058,7 +1058,7 @@ C     [m2/mol/s].  Save results in the VDEMIS_AE array.
                       IF ( EM_MAP( S,N ) .GT. 0 .and. SS_MAP( S,N ) .NE. 0 ) THEN
                          VDEMIS_AE( k,iw,EM_MAP( S,N ) ) = VDEMIS_AE( k,iw,EM_MAP( S,N ) )
      &                        + SSOUTM( SS_MAP( S,N ),N,iws ) * MGPG * EM_FAC( S,N )
-     &                        * ( CONVM / AEROSPC_MW( S ) )
+     &                        * CONVM * AEROSPC_MWI( S )
                       END IF
                    END DO
                    VDEMIS_AE( k,iw,NUM_MAP( N ) ) = VDEMIS_AE( k,iw,NUM_MAP( N ) )
@@ -1094,7 +1094,7 @@ C     [m2/mol/s].  Save results in the VDEMIS_AE array.
                          IF ( EM_MAP( S,N ) .GT. 0 .and. DUST_MAP( S,N ) .NE. 0 ) THEN
                             VDEMIS_AE( k,iw,EM_MAP( S,N ) ) = VDEMIS_AE( k,iw,EM_MAP( S,N ) )
      &                           + DUSTOUTM( DUST_MAP( S,N ),N,iwl ) * MGPG * EM_FAC( S,N )
-     &                           * ( CONVM / AEROSPC_MW( S ) )
+     &                           * CONVM * AEROSPC_MWI( S )
                          END IF
                       END DO
                       VDEMIS_AE( k,iw,NUM_MAP( N ) ) = VDEMIS_AE( k,iw,NUM_MAP( N ) )

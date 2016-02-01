@@ -450,8 +450,8 @@ C *** 2nd and 3rd moments before equilibration (without H2O)
           ALLOCATE(      YCLNO2K( mza, mwa ) )
        END IF
 
-       INV_MWCL  = REAL( 1.0 / aerospc_mw( ACL_IDX ), 8 )
-       MWCLH2O   = aerospc_mw( ACL_IDX ) / aerospc_mw( AH2O_IDX )
+       INV_MWCL  = aerospc_mwi( ACL_IDX )
+       MWCLH2O   = aerospc_mw( ACL_IDX ) * aerospc_mwi( AH2O_IDX )
        MWH2OCL   = 1.0 / MWCLH2O
        CLNO2_IDX = INDEX1( 'CLNO2', NUMB_MECH_SPC, CHEMISTRY_SPC )
        
@@ -1265,9 +1265,9 @@ C *** It calculates N2O5_GAMMA based on Bertran and Thornton, 2009
   
             INV_VOL = 1.0E-9 * f6pi / REAL( ( WET_M3( 1 ) + WET_M3( 2 ) ), 4 )
         
-            AH2OM = AH2OF * INV_VOL / aerospc_mw( AH2O_IDX )
-            ACLM  = ACLF  * INV_VOL / aerospc_mw( ACL_IDX )
-            ANO3M = ANO3F * INV_VOL / aerospc_mw( ANO3_IDX )
+            AH2OM = AH2OF * INV_VOL * aerospc_mwi( AH2O_IDX )
+            ACLM  = ACLF  * INV_VOL * aerospc_mwi( ACL_IDX )
+            ANO3M = ANO3F * INV_VOL * aerospc_mwi( ANO3_IDX )
             
             K2FP =  BETA_BT - BETA_BT * EXP( -DELTA * AH2OM )
           
@@ -1288,9 +1288,9 @@ C     It calculates N2O5_GAMMA based on Bertran and Thornton, 2009
 
             INV_VOL = 1.0E-9 * f6pi / REAL( WET_M3( 3 ), 4 )
         
-            AH2OM = AH2OK * INV_VOL / aerospc_mw( AH2O_IDX )
-            ACLM  = ACLK  * INV_VOL / aerospc_mw( ACL_IDX )
-            ANO3M = ANO3K * INV_VOL / aerospc_mw( ANO3_IDX )
+            AH2OM = AH2OK * INV_VOL * aerospc_mwi( AH2O_IDX )
+            ACLM  = ACLK  * INV_VOL * aerospc_mwi( ACL_IDX )
+            ANO3M = ANO3K * INV_VOL * aerospc_mwi( ANO3_IDX )
             
             K2FP =  BETA_BT - BETA_BT * EXP( -DELTA * AH2OM )
           
@@ -1342,9 +1342,9 @@ C     Eq 14 by Davis et al (2008).
             ELSE
 C *** Compute mole-fractional-composition of particles based on Eq 11 by
 C     Davis et al (2008).
-               NNO3 = ANO3 / aerospc_mw( ANO3_IDX )
-               NSO4 = ASO4 / aerospc_mw( ASO4_IDX )
-               NNH4 = ANH4 / aerospc_mw( ANH4_IDX )
+               NNO3 = ANO3 * aerospc_mwi( ANO3_IDX )
+               NSO4 = ASO4 * aerospc_mwi( ASO4_IDX )
+               NNH4 = ANH4 * aerospc_mwi( ANH4_IDX )
                NANI = NNO3 + NSO4
          
                X3 = NNO3 / NANI
@@ -1476,11 +1476,11 @@ C     calculation can be avoided when RH > 35.1%.
 
 C *** calculate total particle-phase composition [micromoles/m3]
       NNO3 = ( aerospc_conc( ANO3_IDX,1 ) + aerospc_conc( ANO3_IDX,2 ) )
-     &     / aerospc_mw( ANO3_IDX )
+     &     * aerospc_mwi( ANO3_IDX )
       NSO4 = ( aerospc_conc( ASO4_IDX,1 ) + aerospc_conc( ASO4_IDX,2 ) )
-     &     / aerospc_mw( ASO4_IDX )
+     &     * aerospc_mwi( ASO4_IDX )
       NNH4 = ( aerospc_conc( ANH4_IDX,1 ) + aerospc_conc( ANH4_IDX,2 ) )
-     &     / aerospc_mw( ANH4_IDX )
+     &     * aerospc_mwi( ANH4_IDX )
 
 C *** calculate total anion and cation concentrations
       NCAT = MAX( NNH4, 2.0 * NSO4 + NNO3 )
@@ -1737,7 +1737,7 @@ C-----------------------------------------------------------------------
       endif
 
 C *** Determine H+ acid concentration of j mode [mol/m3]
-      eqlbh = aerospc_conc( ah3op_idx, 2 ) / aerospc_mw( ah3op_idx ) * 1.0d-6
+      eqlbh = aerospc_conc( ah3op_idx, 2 ) * aerospc_mwi( ah3op_idx ) * 1.0d-6
       acidmolconc( hacid_idx ) = Max( eqlbh, 0.0d0 ) 
 
 C *** Calculate HSO4 by charge balance
@@ -1748,8 +1748,9 @@ C     in catalyzing the ring-opening)
       Do i = 1, n_aerospc
          If ( aerospc( i )%tracer ) Cycle
          If ( aero_missing(i,2) ) Cycle
+         if ( aerospc( i )%charge == 0) Cycle
          charge = charge - aerospc( i )%charge * aerospc_conc( i,2 )
-     &          / aerospc_mw( i )
+     &          * aerospc_mwi( i )
       End Do
       acidmolconc( hso4acid_idx ) = Max( ( charge*1.0d-6 - acidmolconc( hacid_idx ) ), 0.0d0 ) 
 
@@ -1772,7 +1773,7 @@ C     and calculate rate of particle phase reaction
 
 C        Find J-mode nucleophile concentration in ug/m3 and convert to mol/m3
          nuc = aerospc_conc( acid_nucmap_idx(i), 2 ) 
-     &       /  aerospc_mw( acid_nucmap_idx(i) ) * 1.0d-6
+     &       * aerospc_mwi( acid_nucmap_idx(i) ) * 1.0d-6
 
          acid = acidmolconc( acid_nuc_pairs(i)%idx_acid ) ! mol/m3
 

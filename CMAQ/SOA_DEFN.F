@@ -950,9 +950,9 @@ C hard-coded values.
 
       totorgsw = ( aerospc_conc( apoc_idx,1 ) + aerospc_conc( apoc_idx,2 ) ) / mwpoa
       Do i = 1, n_aerospc
-         If(  aerospc( i )%tracer )cycle
+         If ( aerospc( i )%tracer ) cycle
          If ( aerospc( i )%nonVol_soa ) Then
-            totorgsw = totorgsw + aerospc_conc( i,2 ) / aerospc_mw( i )
+            totorgsw = totorgsw + aerospc_conc( i,2 ) * aerospc_mwi( i )
          End If
       End Do
 
@@ -1090,9 +1090,10 @@ C be inherited from include or namelist files to avoid hard-coded values.
 
       hplus = 0.0
       Do i = 1, n_aerospc
-         if(  aerospc( i )%tracer )cycle
+         if ( aerospc( i )%tracer ) cycle
+         if ( aerospc( i )%charge == 0 ) cycle
          hplus = hplus - 1000.0 * aerospc( i )%charge * aerospc_conc( i,2 )
-     &         / aerospc_mw( i )
+     &         * aerospc_mwi( i )
       End Do
       hplus = Min( 530.0, Max ( 0.0, hplus ) ) ! restrict extrapolation
 

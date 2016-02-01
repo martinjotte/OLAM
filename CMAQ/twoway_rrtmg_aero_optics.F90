@@ -17,7 +17,7 @@
          integer, parameter :: real_16 = dp
 
 !       integer, parameter :: real_16 = selected_real_kind(p=16, r=60)
-        integer, parameter :: zero = 0_dp
+!       integer, parameter :: zero = 0_dp
 
         type complex_number
           real(kind=dp) :: real_part, imag_part
@@ -50,20 +50,20 @@
         contains
 
 ! --------------------------------------------------------------------------
-        type (complex_number) function c_set (x, y)
+!        type (complex_number) function c_set (x, y)
 
 ! initialize a complex number
 
-        real*8, intent(in)    :: x, y
+!        real*8, intent(in)    :: x, y
 
-        character (len = 80) :: str
+!        character (len = 80) :: str
 
-        write (str, *) x
-        read(str, *) c_set%real_part
-        write (str, *) y
-        read(str, *) c_set%imag_part
+!        write (str, *) x
+!        read(str, *) c_set%real_part
+!        write (str, *) y
+!        read(str, *) c_set%imag_part
 
-        end function c_set
+!        end function c_set
 
 ! --------------------------------------------------------------------------
         type (complex_number) function c_add_cc (z1, z2)
@@ -125,7 +125,7 @@
         real*8, intent(in)                :: num2
 
         c_sub_rc%real_part = num2 - z2%real_part
-        c_sub_rc%imag_part = - z2%imag_part
+        c_sub_rc%imag_part =      - z2%imag_part
 
         end function c_sub_rc
 
@@ -157,8 +157,8 @@
 
         real(kind=real_16) :: denom
 
-        denom = 1.0 / (  z2%real_part * z2%real_part &
-                       + z2%imag_part * z2%imag_part)
+        denom = 1.0_dp / (  z2%real_part * z2%real_part &
+                          + z2%imag_part * z2%imag_part)
         c_div_cc%real_part = (  z1%real_part * z2%real_part          &
                               + z1%imag_part * z2%imag_part) * denom
         c_div_cc%real_part = sign(max(abs(c_div_cc%real_part),       &
@@ -185,8 +185,8 @@
         temp = sign(max(abs(temp), min_val), temp)
 
         denom = num / temp
-        c_div_rc%real_part = z1%real_part * denom
-        c_div_rc%imag_part = -1.0 * z1%imag_part * denom
+        c_div_rc%real_part =   z1%real_part * denom
+        c_div_rc%imag_part = - z1%imag_part * denom
 
         end function c_div_rc
 
@@ -207,21 +207,33 @@
 
         type (complex_number), intent(in) :: z1
 
-        c_cos%real_part = cos(z1%real_part) * cosh(z1%imag_part)
-        c_cos%imag_part = -1.0 * sin(z1%real_part) * sinh(z1%imag_part)
+        c_cos%real_part =   cos(z1%real_part) * cosh(z1%imag_part)
+        c_cos%imag_part = - sin(z1%real_part) * sinh(z1%imag_part)
 
         end function c_cos
 
 ! --------------------------------------------------------------------------
         real*8 function c_abs (z1)
 
-! computer absolute value of a complex number
+! compute absolute value of a complex number
 
         type (complex_number), intent(in) :: z1
 
         c_abs = sqrt(z1%real_part**2 + z1%imag_part**2)
 
         end function c_abs
+
+! --------------------------------------------------------------------------
+
+        real*8 function c_abs_sq (z1)
+
+! compute the square of the absolute value of a complex number
+
+        type (complex_number), intent(in) :: z1
+
+        c_abs_sq = z1%real_part**2 + z1%imag_part**2
+
+        end function c_abs_sq
 
         end module complex_number_module
 
@@ -1650,7 +1662,7 @@ contains
 
        real    :: QEXT, QSCA, QBACK, G_MIE
        real    :: xx1
-       character (len = 20) :: mystr1, mystr2, mystr3, mystr4
+!      character (len = 20) :: mystr1, mystr2, mystr3, mystr4
 
        xx1    = 1.0 / YY
 
@@ -1697,7 +1709,8 @@ contains
 
 ! Local variables:
      
-       real*8, parameter     :: DEL = 1.0D-08  
+!      real*8, parameter     :: DEL = 1.0D-08
+       real*8, parameter     :: DEL = 1.0D-06
        real*8, parameter     :: ONE = 1.0D0, TWO = 2.0D0 
 !      complex*16, save :: II
 !      data II/(0.D0,1.D0)/
@@ -1705,7 +1718,7 @@ contains
 
        integer :: IFLAG,N,NSTOP
 
-       character (len = 100) :: mystr
+!      character (len = 100) :: mystr
 
 !         -----------------------------------------------------------
 !              del is the inner sphere convergence criterion
@@ -1770,21 +1783,22 @@ contains
 
        SUCCESS = .TRUE.      
 
-       II = c_set(0.0D0, 1.0D0)
+!      II = c_set(0.0D0, 1.0D0)
+       II = complex_number(0.0_dp, 1.0_dp)
 
 ! this technique will make the second 4 byte in the 8 byte variable be 0
 ! rather than arbitrary digits to increase accuracy
-       write (mystr, *) xx, yy, real(RRFRL1), aimag(RRFRL1), real(RRFRL2), aimag(RRFRL2)
-       read  (mystr, *) x,  y,  RFREL1, RFREL2
+!       write (mystr, *) xx, yy, real(RRFRL1), aimag(RRFRL1), real(RRFRL2), aimag(RRFRL2)
+!       read  (mystr, *) x,  y,  RFREL1, RFREL2
 
-!      X      = XX
-!      Y      = YY
+       X      = XX
+       Y      = YY
        RY     = ONE / Y
        RYY    = RY * RY
-!      RFREL1%real_part = real(RRFRL1)
-!      RFREL1%imag_part = aimag(RRFRL1)
-!      RFREL2%real_part = real(RRFRL2)
-!      RFREL2%imag_part = aimag(RRFRL2)
+       RFREL1%real_part = real(RRFRL1)
+       RFREL1%imag_part = aimag(RRFRL1)
+       RFREL2%real_part = real(RRFRL2)
+       RFREL2%imag_part = aimag(RRFRL2)
        x1     = c_mul(x, rfrel1)
        x2     = c_mul(x, rfrel2)
        y2     = c_mul(y, rfrel2)
@@ -1792,7 +1806,7 @@ contains
        RCX2   = c_div(ONE, X2)
        RCY2   = c_div(ONE, Y2)
        refrel = c_div(rfrel2, rfrel1)
-       ystop  = y + 4.0 * y**0.3333 + 2.0
+       ystop  = y + 4.0 * y**0.33333333 + 2.0
        nstop  = ystop
 
 !         -----------------------------------------------------------
@@ -1819,7 +1833,8 @@ contains
        qsca   = 0.0d0
        qext   = 0.0d0
        GSCA   = 0.0d0
-       xback  = c_set(0.0d0, 0.0d0)
+!      xback  = c_set(0.0d0, 0.0d0)
+       xback  = complex_number(0.0_dp, 0.0_dp)
        iflag  = 0
        factor = 1.0d0
 
@@ -1878,8 +1893,10 @@ contains
                 (c_ABS(amess3) .LE. del*c_ABS(d1y2)) .AND.                          &
                 (c_ABS(amess4) .LE. del)                ) THEN
 !               convergence for inner sphere        
-                brack = c_set(0.0D0,0.0D0)
-                crack = c_set(0.0D0,0.0D0)
+!               brack = c_set(0.0D0,0.0D0)
+!               crack = c_set(0.0D0,0.0D0)
+                brack = complex_number(0.0_dp,0.0_dp)
+                crack = complex_number(0.0_dp,0.0_dp)
                 iflag = 1
 !         ELSE
 ! no convergence yet
@@ -1910,17 +1927,17 @@ contains
           bn = c_div(bn, c_sub(c_mul(FAC2, xiy), xi1y))
       
 ! *** Calculate sums for qsca, qext, xback      
-          qsca  = qsca + (TWO_N_P_ONE) * (c_ABS(an)**2 + c_ABS(bn)**2)
+          qsca  = qsca + TWO_N_P_ONE * (c_abs_sq(an) + c_abs_sq(bn))
       
           qext  = qext + TWO_N_P_ONE * (an%real_part + bn%real_part)
       
 ! DW        XBACK = XBACK +  (TWO_N_P_ONE) * (-1.)**N * (AN-BN)
-          FACTOR = FACTOR * (-1.0D0)
+          FACTOR = - FACTOR
           XBACK = c_add(XBACK, c_mul(TWO_N_P_ONE * FACTOR, c_sub(AN, BN)))
 
 ! FSB calculate the sum for the asymmetry factor 
 
-          GSCA = GSCA + ((TWO_N_P_ONE)/(RN* (RN + ONE)))*                     &
+          GSCA = GSCA + ( TWO_N_P_ONE / (RN * (RN + ONE) ) ) *                     &
                  (an%real_part*bn%real_part + an%imag_part*bn%imag_part)
  
           IF (n .GT. 1) THEN
@@ -1945,7 +1962,7 @@ contains
           d0x2   = d1x2
           d0y2   = d1y2
        END DO  ! end of main loop 
-  
+
 !*** Have summed sufficient terms.
 !    Now compute QQSCA,QQEXT,QBACK,and GSCA
        GGSCA = TWO * GSCA / qsca  

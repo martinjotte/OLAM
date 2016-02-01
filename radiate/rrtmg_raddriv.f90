@@ -1,9 +1,8 @@
 subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
-  use mem_grid,    only: mza, zm, zt, glatw, glonw, dzt, dzim
-  use mem_basic,   only: rho, press, theta, tair, sh_v, sh_w, thil, wc
-  use misc_coms,   only: io6, iswrtyp, ilwrtyp, time8, nqparm, dtlm, &
-                         icfrac, cfracrh1, cfracrh2, cfraccup, do_chem
+  use mem_grid,    only: mza, zm, zt, glatw, dzt
+  use mem_basic,   only: rho, press, theta, tair, sh_v
+  use misc_coms,   only: io6, iswrtyp, ilwrtyp, time8, nqparm, dtlm, do_chem
   use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, t00
   use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
                          rshort_top, rshortup_top, rlongup_top, fthrd_sw, &
@@ -14,12 +13,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          par, par_diffuse, uva, uvb, uvc
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab
   use mem_ijtabs,  only: itab_w
-  use mem_cuparm,  only: kcutop, kcubot, cbmf, qwcon, conprr
-  use oname_coms,  only: nl
+  use mem_cuparm,  only: kcutop, kcubot, cbmf, qwcon
   use rrtmg_cloud, only: cloud_props
-  use mem_turb,    only: frac_land, pblh, kpblh, wtv0, hkm
-  use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h
-  use mem_para,    only: myrank
+  use mem_turb,    only: frac_land
   use mem_ijtabs,  only: itab_w
   use mem_mclat,   only: rad_mclat
   use cgrid_defn,  only: acflux_dir_dn_tot, acflux_dif_dn_tot, acflux_dif_up_tot, &
@@ -156,10 +152,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: asmaers(ncol, nrad, nbndsw)
   real :: ecaer  (ncol, nrad, nbndsw)
 
-  integer :: k, krad, icloud, iaeros, index, ib, ig, n
-  integer :: iplon, irng, permuteseed, ns, nt
+  integer :: k, krad, icloud, iaeros, index, ib, ig
+  integer :: iplon, irng, permuteseed, ns, nt, n
   integer :: mc, mcat, ih, l, num, ntim, ngbmsw, ngbmlw
-  logical :: iconv
 
   real :: tau, ssa, asm
   real :: r_ef, dmean, watp, rstart, rend, rscale, fint0, fint1
@@ -382,7 +377,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   ! Now include the optical properties of subgrid convective clouds
 
-  if (iconv) then
+  if ( nqparm(itab_w(iw)%mrlw) > 0 .and. cbmf(iw) > 1.e-12 .and. kcubot(iw) >= ka ) then
 
      do k = kcubot(iw), kcutop(iw)
         krad = k - koff

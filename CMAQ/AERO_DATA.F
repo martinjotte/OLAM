@@ -284,7 +284,8 @@ C Indices of required species
 C Indices of Optional species
       Integer :: aphgj_idx
 
-      Real :: aerospc_mw( n_aerospc )          ! aero species M.W. (from AE_SPC.EXT) [ g/mol ]
+      Real :: aerospc_mw ( n_aerospc )          ! aero species M.W. (from AE_SPC.EXT) [ g/mol ]
+      Real :: aerospc_mwi( n_aerospc )          ! aero species M.W. (from AE_SPC.EXT) [ g/mol ]
       Real :: aerospc_conc( n_aerospc,n_mode ) ! aero species concentration [ ug/m^3 ]
 
 C Common factors
@@ -399,7 +400,8 @@ C Local Variables:
 
       if ( mapped ) Return
 
-      aerospc_mw = 0.0
+      aerospc_mw  = 0.0
+      aerospc_mwi = 0.0
       aerospc_map = 0
 
 C build mapping to CGRID for each aero spc
@@ -419,7 +421,8 @@ C build mapping to CGRID for each aero spc
                End If
                aerospc_map( spc,m ) = ae_strt - 1 + n
                If ( aerospc_mw( spc ) .Lt. 0.5 ) Then  ! mw=0 means a new species
-                  aerospc_mw( spc ) = ae_molwt( n )
+                  aerospc_mw ( spc ) = ae_molwt ( n )
+                  aerospc_mwi( spc ) = ae_molwti( n )
                Else If ( aerospc_mw( spc ) .Ne. ae_molwt( n ) ) Then
                   xmsg = 'molecular weight of ' // Trim( aerospc( spc )%name( m ) )
      &                 // ' is different from that of the same species'

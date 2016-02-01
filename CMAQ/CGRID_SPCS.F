@@ -37,8 +37,9 @@ c-----------------------------------------------------------------------
 
 c main CGRID table
       integer,                      save :: n_gc_spc = 0, n_ae_spc = 0, n_nr_spc = 0, n_tr_spc = 0
-      character( 16 ), allocatable, save :: gc_spc( : ),  ae_spc( : ),  nr_spc( : ),  tr_spc( : )
-      real, allocatable,            save :: gc_molwt( : ), ae_molwt( : ), nr_molwt( : ), tr_molwt( : )
+      character( 16 ), allocatable, save :: gc_spc   ( : ),  ae_spc  ( : ), nr_spc   ( : ),  tr_spc  ( : )
+      real, allocatable,            save :: gc_molwt ( : ), ae_molwt ( : ), nr_molwt ( : ), tr_molwt ( : )
+      real, allocatable,            save :: gc_molwti( : ), ae_molwti( : ), nr_molwti( : ), tr_molwti( : )
 
       integer,                      save :: n_gc_spcd = 0
 
@@ -241,6 +242,7 @@ c from namelist files
             open( file = gc_matrix, unit = dev_gc_nml,
      &            status = 'old', position = 'rewind' )
             read( nml = GC_nml, unit = dev_gc_nml ) 
+            close( dev_gc_nml )
 
 c create the surr1 table from the namelist header
             surr1( 1 ) = 'EMIS'; surr1_ndx( 1 ) = index( type_header, trim( surr1( 1 ) ) )
@@ -276,7 +278,7 @@ c establish ctrl order in the namelist header (ctrl possibly rearranged)
 
 c the surrogate and ctrl arrays active dimensions not known a priori
             allocate ( 
-     &      gc_spc( spc_dim ), gc_molwt( spc_dim ),
+     &      gc_spc ( spc_dim ), gc_molwt   ( spc_dim ), gc_molwti  ( spc_dim ),
      &      gc_emis( spc_dim ), gc_emis_map( spc_dim ), gc_emis_fac( spc_dim ),
      &      gc_icbc( spc_dim ), gc_icbc_map( spc_dim ), gc_icbc_fac( spc_dim ),
      &      gc_depv( spc_dim ), gc_depv_map( spc_dim ), gc_depv_fac( spc_dim ),
@@ -289,7 +291,7 @@ c the surrogate and ctrl arrays active dimensions not known a priori
      &      gc_conc( spc_dim ), gc_conc_map( spc_dim ),
      &      stat = ios )
 
-            gc_spc = bl; gc_molwt = 0.0                        !  .
+            gc_spc  = bl; gc_molwt  = 0.0; gc_molwti   = 0.0   !  .
             gc_emis = bl; gc_emis_map = 0; gc_emis_fac = 0.0   !  .
             gc_icbc = bl; gc_icbc_map = 0; gc_icbc_fac = 0.0   !  .
             gc_depv = bl; gc_depv_map = 0; gc_depv_fac = 0.0   !  .
@@ -324,8 +326,9 @@ c the surrogate and ctrl arrays active dimensions not known a priori
                call get_list( icall, type_matrix( i ), mc_base,
      &                        n_surr1, mc_surr1, n_surr2, mc_surr2,
      &                        n_ctrl, mc_ctrl )
-               gc_spc( i ) = mc_base%name
-               gc_molwt( i ) = mc_base%mw
+               gc_spc   ( i ) = mc_base%name
+               gc_molwt ( i ) = mc_base%mw
+               gc_molwti( i ) = 1.0 / mc_base%mw
 
                if ( emis_ndx .gt. 0 ) then
                   if ( mc_surr1( emis_ndx )%name .ne. bl ) then
@@ -451,6 +454,7 @@ c the surrogate and ctrl arrays active dimensions not known a priori
             open( file = ae_matrix, unit = dev_ae_nml,
      &            status = 'old', position = 'rewind' )
             read( nml = AE_nml, unit = dev_ae_nml ) 
+            close( dev_ae_nml )
 
 c create the surr1 table from the namelist header
             surr1( 1 ) = 'EMIS'; surr1_ndx( 1 ) = index( type_header, trim( surr1( 1 ) ) )
@@ -483,7 +487,7 @@ c establish ctrl order in the namelist header (ctrl possibly rearranged)
 
 c the surrogate and ctrl arrays active dimensions not known a priori
             allocate ( 
-     &      ae_spc( spc_dim ), ae_molwt( spc_dim ),
+     &      ae_spc ( spc_dim ), ae_molwt   ( spc_dim ), ae_molwti  ( spc_dim ),
      &      ae_emis( spc_dim ), ae_emis_map( spc_dim ), ae_emis_fac( spc_dim ),
      &      ae_icbc( spc_dim ), ae_icbc_map( spc_dim ), ae_icbc_fac( spc_dim ),
      &      ae_depv( spc_dim ), ae_depv_map( spc_dim ), ae_depv_fac( spc_dim ),
@@ -495,7 +499,7 @@ c the surrogate and ctrl arrays active dimensions not known a priori
      &      ae_conc( spc_dim ), ae_conc_map( spc_dim ),
      &      stat = ios )
 
-            ae_spc = bl; ae_molwt = 0.0                        !  .
+            ae_spc  = bl; ae_molwt  = 0.0; ae_molwti   = 0.0   !  .
             ae_emis = bl; ae_emis_map = 0; ae_emis_fac = 0.0   !  .
             ae_icbc = bl; ae_icbc_map = 0; ae_icbc_fac = 0.0   !  .
             ae_depv = bl; ae_depv_map = 0; ae_depv_fac = 0.0   !  .
@@ -530,8 +534,9 @@ c the surrogate and ctrl arrays active dimensions not known a priori
                call get_list( icall, type_matrix( i ), mc_base,
      &                        n_surr1, mc_surr1, n_surr2, mc_surr2,
      &                        n_ctrl, mc_ctrl )
-               ae_spc( i ) = mc_base%name
-               ae_molwt( i ) = mc_base%mw
+               ae_spc   ( i ) = mc_base%name
+               ae_molwt ( i ) = mc_base%mw
+               ae_molwti( i ) = 1.0 / mc_base%mw
 
                if ( emis_ndx .ne. 0 ) then
                   if ( mc_surr1( emis_ndx )%name .ne. bl ) then
@@ -647,6 +652,7 @@ c the surrogate and ctrl arrays active dimensions not known a priori
             open( file = nr_matrix, unit = dev_nr_nml,
      &            status = 'old', position = 'rewind' )
             read( nml = NR_nml, unit = dev_nr_nml ) 
+            close( dev_nr_nml )
 
 c create the surr1 table from the namelist header
             surr1( 1 ) = 'EMIS'; surr1_ndx( 1 ) = index( type_header, trim( surr1( 1 ) ) )
@@ -682,7 +688,7 @@ c establish ctrl order in the namelist header (ctrl possibly rearranged)
 
 c the surrogate and ctrl arrays active dimensions not known a priori
             allocate ( 
-     &      nr_spc( spc_dim ), nr_molwt( spc_dim ),
+     &      nr_spc ( spc_dim ), nr_molwt   ( spc_dim ), nr_molwti  ( spc_dim ),
      &      nr_emis( spc_dim ), nr_emis_map( spc_dim ), nr_emis_fac( spc_dim ),
      &      nr_icbc( spc_dim ), nr_icbc_map( spc_dim ), nr_icbc_fac( spc_dim ),
      &      nr_depv( spc_dim ), nr_depv_map( spc_dim ), nr_depv_fac( spc_dim ),
@@ -695,7 +701,7 @@ c the surrogate and ctrl arrays active dimensions not known a priori
      &      nr_conc( spc_dim ), nr_conc_map( spc_dim ),
      &      stat = ios )
 
-            nr_spc = bl; nr_molwt = 0.0                        !  .
+            nr_spc  = bl; nr_molwt  = 0.0; nr_molwt    = 0.0   !  .
             nr_emis = bl; nr_emis_map = 0; nr_emis_fac = 0.0   !  .
             nr_icbc = bl; nr_icbc_map = 0; nr_icbc_fac = 0.0   !  .
             nr_depv = bl; nr_depv_map = 0; nr_depv_fac = 0.0   !  .
@@ -731,8 +737,9 @@ c the surrogate and ctrl arrays active dimensions not known a priori
                call get_list( icall, type_matrix( i ), mc_base,
      &                        n_surr1, mc_surr1, n_surr2, mc_surr2,
      &                        n_ctrl, mc_ctrl )
-               nr_spc( i ) = mc_base%name
-               nr_molwt( i ) = mc_base%mw
+               nr_spc   ( i ) = mc_base%name
+               nr_molwt ( i ) = mc_base%mw
+               nr_molwti( i ) = 1.0 / mc_base%mw
 
                if ( emis_ndx .gt. 0 ) then
                   if ( mc_surr1( emis_ndx )%name .ne. bl ) then
@@ -895,7 +902,7 @@ c establish ctrl order in the namelist header (ctrl possibly rearranged)
 
 c the surrogate and ctrl arrays active dimensions not known a priori
             allocate (
-     &      tr_spc( spc_dim ), tr_molwt( spc_dim ),
+     &      tr_spc ( spc_dim ), tr_molwt   ( spc_dim ), tr_molwti  ( spc_dim ),
      &      tr_emis( spc_dim ), tr_emis_map( spc_dim ), tr_emis_fac( spc_dim ),
      &      tr_icbc( spc_dim ), tr_icbc_map( spc_dim ), tr_icbc_fac( spc_dim ),
      &      tr_depv( spc_dim ), tr_depv_map( spc_dim ), tr_depv_fac( spc_dim ),
@@ -909,7 +916,7 @@ c the surrogate and ctrl arrays active dimensions not known a priori
      &      tr_conc( spc_dim ), tr_conc_map( spc_dim ),
      &      stat = ios )
 
-            tr_spc = bl; tr_molwt = 0.0                        !  .
+            tr_spc = bl ; tr_molwt  = 0.0; tr_molwti   = 0.0   !  .
             tr_emis = bl; tr_emis_map = 0; tr_emis_fac = 0.0   !  .
             tr_icbc = bl; tr_icbc_map = 0; tr_icbc_fac = 0.0   !  .
             tr_depv = bl; tr_depv_map = 0; tr_depv_fac = 0.0   !  .
@@ -945,8 +952,9 @@ c the surrogate and ctrl arrays active dimensions not known a priori
                call get_list( icall, type_matrix( i ), mc_base,
      &                        n_surr1, mc_surr1, n_surr2, mc_surr2,
      &                        n_ctrl, mc_ctrl )
-               tr_spc( i ) = mc_base%name
-               tr_molwt( i ) = mc_base%mw
+               tr_spc   ( i ) = mc_base%name
+               tr_molwt ( i ) = mc_base%mw
+               tr_molwti( i ) = 1.0 / mc_base%mw
 
                if ( emis_ndx .gt. 0 ) then
                   if ( mc_surr1( emis_ndx )%name .ne. bl ) then

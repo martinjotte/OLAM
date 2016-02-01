@@ -110,7 +110,8 @@ C Indices of required species
       Integer :: OH_idx
       Integer :: PHGRXN_idx
 
-      Real( 8 ) :: precursor_mw( n_precursor )   ! mol wt from cgrid_spcs [g/mol]
+      Real( 8 ) :: precursor_mw ( n_precursor )   ! mol wt from cgrid_spcs [g/mol]
+      Real( 8 ) :: precursor_mwi( n_precursor )   ! 1 / mol wt from cgrid_spcs [mol/g]
 
       Real( 8 ) :: precursor_conc( n_precursor ) ! precursor concentration [ug/m^3]
 
@@ -153,19 +154,22 @@ C Local Variables:
 
       logdev = setup_logdev()
 
-      precursor_mw = 0.0d0
+      precursor_mw  = 0.0d0
+      precursor_mwi = 0.0d0
       precursor_map = 0
 
 C Build mapping to CGRID for each precursor species
       Do spc = 1, n_precursor
          n = index1( precursor( spc )%name, n_gc_g2ae, gc_g2ae )
          If ( n .Ne. 0 ) Then
-            precursor_mw( spc ) = real( gc_molwt( gc_g2ae_map( n ) ), 8 )
+            precursor_mw ( spc ) = real( gc_molwt( gc_g2ae_map( n ) ), 8 )
+            precursor_mwi( spc ) = 1.d0 / precursor_mw ( spc )
             precursor_map( spc ) = gc_strt - 1 + gc_g2ae_map( n )
          Else
             n = index1( precursor( spc )%name, n_nr_n2ae, nr_n2ae )
             If ( n .Ne. 0 ) Then
-               precursor_mw( spc ) = real( nr_molwt( nr_n2ae_map( n ) ), 8 )
+               precursor_mw ( spc ) = real( nr_molwt( nr_n2ae_map( n ) ), 8 )
+               precursor_mwi( spc ) = 1.d0 / precursor_mw ( spc )
                precursor_map( spc ) = nr_strt - 1 + nr_n2ae_map( n )
             Else
                xmsg = 'Species ' // Trim( precursor( spc )%name ) //

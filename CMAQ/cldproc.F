@@ -642,12 +642,11 @@ C...  convert to moles of aerosol per mole of air by volume
       FINI = NQAE
       DO VAR = STRT, FINI
          SPC = QAE( VAR )
+         FAC = CNV1 * AE_MOLWTI( SPC - AE_STRT + 1 )
          do j = 1, jtab_w(jtw_prog)%jend(mrl)
             iw = jtab_w(jtw_prog)%iw(j)
             do k = lpw(iw), mza
-               FAC = CNV1 / rho( k, iw ) / AE_MOLWT( SPC - AE_STRT + 1 )
-               CCMIN = MAX(CGRID( k, iw, SPC ), 1.0E-30/FAC)
-               CGRID( k, iw, SPC ) = FAC * CCMIN
+               CGRID( k, iw, SPC ) = MAX( FAC * CGRID( k, iw, SPC ) / real(rho(k,iw)), 1.0E-30 )
             END DO
          END DO
       END DO
@@ -662,12 +661,7 @@ C...    convert to # per mole of air by volume
          do j = 1, jtab_w(jtw_prog)%jend(mrl)
             iw = jtab_w(jtw_prog)%iw(j)
             do k = lpw(iw), mza
-!              CGRID( k, iw, SPC ) = CGRID( k, iw, SPC )
-!    &                             * MWAIR / ( 1000.0
-!    &                             * RHO( k, iw ) )
-               FAC = CNV3 / RHO( k, iw )
-               CCMIN = MAX(CGRID( k, iw, SPC ), 1.0E-30/FAC)
-               CGRID( k, iw, SPC ) = FAC * CCMIN
+               CGRID( k, iw, SPC ) = MAX( CNV3 * CGRID( k, iw, SPC ) / real(RHO(k,iw)), 1.0E-30 )
             END DO
          END DO
       END DO
@@ -682,9 +676,7 @@ C...    convert to m2 per mole of air by volume
          do j = 1, jtab_w(jtw_prog)%jend(mrl)
             iw = jtab_w(jtw_prog)%iw(j)
             do k = lpw(iw), mza
-               FAC = CNV2 / RHO( k, iw )
-               CCMIN = MAX(CGRID( k, iw, SPC ), 1.0E-30/FAC)
-               CGRID( k, iw, SPC ) = FAC * CCMIN
+               CGRID( k, iw, SPC ) = MAX( CNV2 * CGRID( k, iw, SPC ) / real(RHO(k,iw)), 1.0E-30 )
             END DO
          END DO
       END DO
@@ -697,8 +689,7 @@ C...determine no. of moles of non-reactive gas per moles of air by volume
          do j = 1, jtab_w(jtw_prog)%jend(mrl)
             iw = jtab_w(jtw_prog)%iw(j)
             do k = lpw(iw), mza
-               CGRID( k, iw, SPC ) = MAX(CGRID( k, iw, SPC )
-     &                                  * 1.0E-6, 1.0E-30)
+               CGRID( k, iw, SPC ) = MAX( CGRID( k, iw, SPC ) * 1.0E-6, 1.0E-30 )
             END DO
          END DO
       END DO
@@ -817,12 +808,11 @@ C...convert to ug/m3 of aerosol mass
       FINI = NQAE
       DO VAR = STRT, FINI
          SPC = QAE( VAR )
+         FAC =  CNV1I * AE_MOLWT( SPC - AE_STRT + 1 )
          do j = 1, jtab_w(jtw_prog)%jend(mrl)
             iw = jtab_w(jtw_prog)%iw(j)
             do k = lpw(iw), mza
-               FAC = CNV1I * RHO( k, iw )
-               CGRID( k, iw, SPC ) = FAC * CGRID( k, iw, SPC )
-     &                                   * AE_MOLWT( SPC - AE_STRT + 1 )
+               CGRID( k, iw, SPC ) = FAC * real(RHO( k, iw )) * CGRID( k, iw, SPC )
             END DO
          END DO
       END DO
@@ -836,11 +826,7 @@ C...convert to #/m3 of aerosol number
          do j = 1, jtab_w(jtw_prog)%jend(mrl)
             iw = jtab_w(jtw_prog)%iw(j)
             do k = lpw(iw), mza
-!              CGRID( k, iw, SPC ) = CGRID( k, iw, SPC )
-!    &                                     * RHO( k, iw )
-!    &                                     * 1000.0 / MWAIR
-               FAC = CNV3I * RHO( k, iw )
-               CGRID( k, iw, SPC ) = FAC * CGRID( k, iw, SPC )
+               CGRID( k, iw, SPC ) = CNV3I * real(RHO( k, iw )) * CGRID( k, iw, SPC )
             END DO
          END DO
       END DO
@@ -854,7 +840,7 @@ C...convert to m2/m3 of aerosol surface area
          do j = 1, jtab_w(jtw_prog)%jend(mrl)
             iw = jtab_w(jtw_prog)%iw(j)
             do k = lpw(iw), mza
-               CGRID( k, iw, SPC ) = FAC * CGRID( k, iw, SPC )
+               CGRID( k, iw, SPC ) = CNV2I * REAL(RHO( K, IW )) * CGRID( k, iw, SPC )
             END DO
          END DO
       END DO
