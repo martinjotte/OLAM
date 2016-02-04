@@ -207,7 +207,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 !                                  15.  snow needles
 !                                  16.  snow rosettes
 
-integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
+                                      ! 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+  integer, parameter :: kradcat(16) = (/1,3,6,6,5,4,4,2,8, 8, 7, 9, 8, 8, 7, 9/)
 
 ! Set some surface values needed by RRTMg
 
@@ -462,7 +463,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
         endif
 
         rh_tot(k) = sh_w(k,iw) / qsat
-        qc_sub(k) = sqrt(  qsub(k) / sh_w(k,iw) )
+        qc_sub(k) = sqrt( qsub(k) / max(sh_w(k,iw), 1.e-8) )
      enddo
 
      call cu_cldfrac(kcubot(iw), kcutop(iw), rh_tot, qc_sub, cu_cldf)
@@ -567,7 +568,7 @@ integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
               
            cldfr(1,krad) = frac(k)
 
-           watp = qwcon(k,iw) * rho(k,iw) * 1000. * dzt(k)
+           watp = qsub(k) * rho(k,iw) * 1000. * dzt(k)
            tc   = tair(k,iw) - t00
               
            if (tc > -10.0) then
