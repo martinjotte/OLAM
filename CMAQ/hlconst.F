@@ -237,6 +237,8 @@ C...  Atmospheric Chemistry and Physics, 1997
       DATA B( LHCL   ), D( LHCL   ) / 1.74E+06,  6.90E+03 /  ! HCL <=> H + CL       : Marsh and McElroy (1985)
       DATA B( LHYDRAZINE), D( LHYDRAZINE) / 1.11E-08,  0.00E+00 /  ! HYDRAZINE <=> HYDRAZINE+ + OH-  : Moliner and Street (1989)
 
+      logical, SAVE :: NOE( MXSPCS ) = .FALSE.
+      logical, save :: firstime      = .true.
 
       contains
 
@@ -249,10 +251,21 @@ C...  Atmospheric Chemistry and Physics, 1997
       CHARACTER(*), intent(in)  :: CNAME ! name of substance
       integer,      intent(out) :: spc   ! species index in hlconst table
 
-      INTEGER       S                   ! loop index
+      INTEGER ::    S                   ! loop index
       CHARACTER( 120 ) :: XMSG = ' '    ! exit status message string
-      CHARACTER( 16 ), SAVE :: PNAME = 'HLCONST_INIT'  ! program name
+      CHARACTER( 16 ), parameter :: PNAME = 'HLCONST_INIT'  ! program name
 
+      if (firstime) then
+         firstime = .false.
+         do s = 1, mxspcs
+            if (e(s) < 1.e-3) then
+               noe(s) = .true.
+            else
+               noe(s) = .false.
+            endif
+         enddo
+      endif
+      
       if (cname == 'SULFATE') then
          spc = 0
          return
@@ -394,9 +407,14 @@ C...error if species not found in table
 
 C...compute the Henry's Law Constant
 
-      TFAC = ( 298.0 - TEMP) / ( 298.0 * TEMP )
-      KH = A( SPC ) * EXP( E( SPC ) * TFAC )
-      HLCONST = KH
+      if ( noe( spc ) ) then
+         kh = a( spc )
+         hlconst = kh
+      else
+         TFAC = ( 298.0 - TEMP) / ( 298.0 * TEMP )
+         KH = A( SPC ) * EXP( E( SPC ) * TFAC )
+         HLCONST = KH
+      endif
 
 C...compute the effective Henry's law constants
 
@@ -469,7 +487,7 @@ C...assign a value for clminus.  use 2.0 mM based on Lin and Pehkonene, 1998, JG
         CASE (I_HO2)            ! HO2(aq) <=> H+ + O2-
 !       CASE ('HO2')            ! HO2(aq) <=> H+ + O2-
 
-          AKEQ1 = B( LHO2 ) * EXP( D( LHO2 ) * TFAC )
+          AKEQ1 = B( LHO2 ) !* EXP( D( LHO2 ) * TFAC )
           HLCONST = KH * ( 1.0 + AKEQ1 * HPLUSI )
 
         CASE (I_NH3)            ! NH4OH <=> NH4+ + OH-
@@ -483,7 +501,8 @@ C...assign a value for clminus.  use 2.0 mM based on Lin and Pehkonene, 1998, JG
         CASE (I_HYDRAZINE)      ! HYDRAZINE <=> HYDRAZINE+ + OH-
 !       CASE ('HYDRAZINE')      ! HYDRAZINE <=> HYDRAZINE+ + OH-
 
-          AKEQ1 = B( LHYDRAZINE ) * EXP( D( LHYDRAZINE ) * TFAC )
+           TFAC = ( 298.0 - TEMP) / ( 298.0 * TEMP )
+          AKEQ1 = B( LHYDRAZINE ) !* EXP( D( LHYDRAZINE ) * TFAC )
           AKEQ2 = B( LH2O ) * EXP( D( LH2O ) * TFAC )
           OHION = AKEQ2 * HPLUSI
           HLCONST = KH * ( 1.0 + AKEQ1 / OHION )
@@ -492,15 +511,15 @@ C...assign a value for clminus.  use 2.0 mM based on Lin and Pehkonene, 1998, JG
 !       CASE ('ATRA', 'DATRA')  !     ATRA(aq)  <=>  ATRA- + H
                                 !  or DATRA(aq) <=> DATRA- + H
 
-          AKEQ1   = B( LATRA ) * EXP( D( LATRA ) * TFAC )
+          AKEQ1   = B( LATRA )  !* EXP( D( LATRA ) * TFAC )
           HLCONST = KH * ( 1.0 + AKEQ1 * HPLUSI )
 
         CASE ( I_CL2 )          ! CL2*H2O <=> HOCL + H + CL
 !       CASE ( 'CL2' )          ! CL2*H2O <=> HOCL + H + CL
                                 ! HOCL <=>H + OCL
 
-          AKEQ1   = B( LCL2 )  * EXP( D( LCL2 ) * TFAC )
-          AKEQ2   = B( LHOCL ) * EXP( D( LHOCL ) * TFAC )
+          AKEQ1   = B( LCL2 )  !* EXP( D( LCL2 ) * TFAC )
+          AKEQ2   = B( LHOCL ) !* EXP( D( LHOCL ) * TFAC )
           HLCONST = KH * ( 1.0 + AKEQ1 * HPLUSI * CLMINUSI
      &            + AKEQ1 * AKEQ2 * HPLUS2I * CLMINUSI )
 
@@ -513,7 +532,7 @@ C...assign a value for clminus.  use 2.0 mM based on Lin and Pehkonene, 1998, JG
         CASE ( I_HOCL )         ! HOCL <=> H+ + OCL-
 !       CASE ( 'HOCL' )         ! HOCL <=> H+ + OCL-
 
-          AKEQ1   = B( LHOCL ) * EXP( D( LHOCL ) * TFAC )
+          AKEQ1   = B( LHOCL ) !* EXP( D( LHOCL ) * TFAC )
           HLCONST = KH * ( 1.0 + AKEQ1 * HPLUSI )
 
         END SELECT CHECK_NAME

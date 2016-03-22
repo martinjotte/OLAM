@@ -27,7 +27,7 @@ C %W% %P% %G% %U%
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       SUBROUTINE SCAVWDEP ( JDATE, JTIME, WTBAR, WCBAR, TBARC, PBARC,
      &                      CTHK1, AIRM, PRATE1, TAUCLD, POLC, CEND,
-     &                      REMOV, REMOVAC, ALFA0, ALFA2, ALFA3 )
+     &                      REMOV, REMOVAC, ALFAC, RHOAIR )
 C-----------------------------------------------------------------------
 C  Description: Compute simplistic incloud scavenging and wet removal
  
@@ -112,13 +112,12 @@ C...........Arguments:
       REAL,    INTENT(  IN ) :: AIRM    ! total air mass (moles/m2) in cloudy air
       REAL,    INTENT(  IN ) :: PRATE1  ! storm rainfall rate (mm/hr)
       REAL,    INTENT(  IN ) :: TAUCLD  ! cloud lifetime
-      REAL,    INTENT( OUT ) :: ALFA0   ! scav coef for aitken aerosol number
-      REAL,    INTENT( OUT ) :: ALFA2   ! scav coef for aitken aerosol sfc area
-      REAL,    INTENT( OUT ) :: ALFA3   ! scav coef for aitken aerosol mass
+      REAL,    INTENT( OUT ) :: ALFAC   ! scav coef for aerosol
       REAL,    INTENT( OUT ) :: REMOVAC ! variable storing H+ deposition
       REAL,    INTENT(  IN ) :: POLC ( : )  ! avg vert conc incloud (moles/mole)
       REAL,    INTENT( OUT ) :: CEND ( : )  ! ending incloud conc (moles/mole)
       REAL,    INTENT( OUT ) :: REMOV( : )  ! moles/m2 or mm*mol/lit scavenged
+      REAL,    INTENT(  IN ) :: RHOAIR      ! air density in kg/m3
 
 C...........Local Variables:
 
@@ -148,11 +147,16 @@ C...........Local Variables:
       REAL          MASAKN              ! Total Aitken mode mass (ug/m3)
       REAL          SRFAKN
       REAL          ONE_OVER_TWASH      ! 1 / TWASH
-      REAL,    SAVE :: HPLUS = 1.0E-4   ! typical value hydrogen ion concentration [mol/l]
-      REAL          RHOAIR              ! air density in kg/m3
       REAL          RTCH                ! chemical gas const times temp
       REAL          TWASH               ! washout time for clouds (sec) with low liq wat content
       REAL          TWF                 ! washout scaling factor (mol/l/atm)
+
+      REAL, PARAMETER :: HPLUS = 1.0E-4 ! typical value hydrogen ion concentration [mol/l]
+
+      REAL :: EALFAC
+      REAL :: EALFAZ
+      REAL :: EALFA
+      logical :: do_rainout
 
       logical, allocatable, save :: cgrid_scav_isnum( : )
       logical, allocatable, save :: cgrid_scav_issrf( : )
@@ -163,7 +167,6 @@ C...........Local Variables:
 C...........External Functions:
 
       INTEGER, EXTERNAL :: INDEXN
-!     REAL,    EXTERNAL :: HLCONST
 
 C-----------------------------------------------------------------------
 
@@ -174,7 +177,7 @@ C...  event-statistics variables.  Open output files.
 
         FIRSTIME = .FALSE.
 
-        N_CGRID_SCAV = N_GC_SCAV + N_AE_SCAV + N_NR_SCAV + N_TR_SCAV
+        N_CGRID_SCAV = N_GC_SCAV + N_AE_SCAV + N_NR_SCAV
 
 C...first check to make sure that some species in CGRID were specified
 C...  for scavenging, otherwise notify the user and return
@@ -239,15 +242,12 @@ C...  load the CGRID to scavenged species pointers for the non-reactives
           call hlconst_spcs_init( cgrid_scav( SPC ), hlspc_map( SPC ) )
         END DO
 
-C...  load the CGRID to scavenged species pointers for the tracers
-
-        DO VAR=1, N_TR_SCAV
-          SPC = SPC + 1
-          CGRID_SCAV( SPC ) = TR_SCAV( VAR )
-          CGRID_SCAV_MAP( SPC ) = TR_SCAV_MAP( VAR ) + TR_STRT - 1
-          CGRID_SCAV_FAC( SPC ) = TR_SCAV_FAC( VAR )
-          call hlconst_spcs_init( cgrid_scav( SPC ), hlspc_map( SPC ) )
-        END DO
+        do spc = 1, n_cgrid_scav
+           if ( abs( CGRID_SCAV_FAC(SPC) - 1.0 ) > 1.e-7 ) then
+              XMSG = 'Code assumes cgrid_scav_fac = 1'
+              CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+           END IF
+        enddo
 
 C...create the pointers from CGRID to the species needed by AQCHEM
 
@@ -283,15 +283,12 @@ C...  specified, otherwise there is no need to perform scavenging
       END IF
 
       RTCH = ( MOLVOL / STDTEMP ) * TBARC
-      TWASH = WTBAR * 1000.0 * CTHK1 * 3600.0
-     &      / ( H2ODENS * AMAX1( 1.0E-20, PRATE1 ) )
-ccc          TWASH = AMAX1( TWASH, TAUCLD / 60.0 )   ! <different units?sec&min
-      TWASH = AMAX1( TWASH, TAUCLD )
-      ONE_OVER_TWASH = 1.0 / TWASH
+      ONE_OVER_TWASH = PRATE1 / (WTBAR * CTHK1 * 3600.0)
+      ONE_OVER_TWASH = MIN( ONE_OVER_TWASH, 1.0 / TAUCLD )
       TWF = H2ODENS / ( WTBAR * RTCH )
       REMOVAC = 0.0
 
-      RHOAIR = ( AIRM / CTHK1 ) * MWAIR * KGPG
+      do_rainout = (ONE_OVER_TWASH * taucld > 1.e-7)
 
 C...compute total Aitken mode number (#/m3)
 
@@ -334,91 +331,57 @@ C...         therefore, no ice phase scavenging is considered at this
 C...         time, but it should be added in the future!
 
       CALL GETALPHA ( NUMAKN, MASAKN, SRFAKN, WCBAR, TBARC, PBARC,
-     &                RHOAIR, ALFA0, ALFA2, ALFA3 )
+     &                RHOAIR, ALFAC )
 
 C...gas scavenging and wet deposition
 
-      SPC = 0
-
-      DO VAR = 1, N_GC_SCAV
-        SPC = SPC + 1
-        PNTR = CGRID_SCAV_MAP( SPC )
-        KH = HLCONST( TBARC, .TRUE., HPLUS, hlspc_map( spc ) )
-!        IF ( KH .GT. 0.0 ) THEN
-!          ALFA = CGRID_SCAV_FAC( SPC ) * ONE_OVER_TWASH / ( 1.0 + TWF / KH )
-          ALFA = CGRID_SCAV_FAC( SPC ) * ONE_OVER_TWASH * KH / ( KH + TWF )
-          CEND ( PNTR ) = POLC( PNTR ) * EXP( -ALFA * TAUCLD )
-          REMOV( PNTR ) = ( POLC( PNTR ) - CEND( PNTR ) ) * AIRM
-!        ELSE
-!          ALFA = 0.0
-!          CEND ( PNTR ) = POLC( PNTR )
-!          REMOV( PNTR ) = 0.0
-!        END IF
-      END DO
+      IF (DO_RAINOUT) THEN
+         DO VAR = 1, N_GC_SCAV
+            SPC = VAR
+            PNTR = CGRID_SCAV_MAP( SPC )
+            KH = HLCONST( TBARC, .TRUE., HPLUS, hlspc_map( spc ) )
+            ALFA = ONE_OVER_TWASH * KH / ( KH + TWF )
+            CEND ( PNTR ) = POLC( PNTR ) * EXP( -ALFA * TAUCLD )
+            REMOV( PNTR ) = ( POLC( PNTR ) - CEND( PNTR ) ) * AIRM
+         END DO
+      ENDIF
 
 C...aerosol scavenging and wet deposition
 
+      EALFAC = EXP( -ALFAC * TAUCLD )
+      if (do_rainout) then
+         EALFAZ = EXP( -ONE_OVER_TWASH * TAUCLD )
+      else
+         EALFAZ = 1.0
+      endif
+
       DO VAR = 1, N_AE_SCAV
-        SPC = SPC + 1
+        SPC = N_GC_SCAV + VAR
 
         PNTR = CGRID_SCAV_MAP( SPC )
 
         IF ( cgrid_scav_isaik( SPC ) ) THEN
-          IF ( cgrid_scav_isnum( SPC ) ) THEN
-            ALFA = CGRID_SCAV_FAC( SPC ) * ALFA0
-          ELSE IF ( cgrid_scav_issrf( SPC ) ) THEN
-            ALFA = CGRID_SCAV_FAC( SPC ) * ALFA2
-          ELSE
-            ALFA = CGRID_SCAV_FAC( SPC ) * ALFA3
-          END IF
+           EALFA = EALFAC
         ELSE
-csjr          IF ( INDEX( CGRID_SCAV( SPC ), 'SRF' ) .EQ. 0 ) THEN
-            ALFA = CGRID_SCAV_FAC( SPC ) * ONE_OVER_TWASH
-csjr          ELSE
-csjr            ALFA = CGRID_SCAV_FAC( SPC ) * TWOTHIRDS * ONE_OVER_TWASH
-csjr          END IF
+           EALFA = EALFAZ
         END IF
 
-        CEND ( PNTR ) = POLC( PNTR ) * EXP( -ALFA * TAUCLD )
+        CEND ( PNTR ) = POLC( PNTR ) * EALFA
         REMOV( PNTR ) = ( POLC( PNTR ) - CEND( PNTR ) ) * AIRM
 
       END DO
 
 C...non-reactive scavenging and wet deposition
 
-      DO VAR = 1, N_NR_SCAV
-        SPC = SPC + 1
-        PNTR = CGRID_SCAV_MAP( SPC )
-        KH = HLCONST( TBARC, .TRUE., HPLUS, hlspc_map( spc ) )
-!       IF ( KH .GT. 0.0 ) THEN
-!         ALFA = CGRID_SCAV_FAC( SPC ) * ONE_OVER_TWASH / ( 1.0 + TWF / KH )
-          ALFA = CGRID_SCAV_FAC( SPC ) * ONE_OVER_TWASH * KH / ( KH + TWF )
-          CEND ( PNTR ) = POLC( PNTR ) * EXP( -ALFA * TAUCLD )
-          REMOV( PNTR ) = ( POLC( PNTR ) - CEND( PNTR ) ) * AIRM
-!        ELSE
-!          ALFA = 0.0
-!          CEND ( PNTR ) = POLC( PNTR )
-!          REMOV( PNTR ) = 0.0
-!        END IF
-      END DO
+      IF (DO_RAINOUT) THEN
+         DO VAR = 1, N_NR_SCAV
+            SPC = N_GC_SCAV + N_AE_SCAV + VAR
+            PNTR = CGRID_SCAV_MAP( SPC )
+            KH = HLCONST( TBARC, .TRUE., HPLUS, hlspc_map( spc ) )
+            ALFA = ONE_OVER_TWASH * KH / ( KH + TWF )
+            CEND ( PNTR ) = POLC( PNTR ) * EXP( -ALFA * TAUCLD )
+            REMOV( PNTR ) = ( POLC( PNTR ) - CEND( PNTR ) ) * AIRM
+         END DO
+      ENDIF
 
-C...tracer scavenging and wet deposition
-
-      DO VAR = 1, N_TR_SCAV
-        SPC = SPC + 1
-        PNTR = CGRID_SCAV_MAP( SPC )
-        KH = HLCONST( TBARC, .TRUE., HPLUS, hlspc_map( spc ) )
-!        IF ( KH .GT. 0.0 ) THEN
-!          ALFA = CGRID_SCAV_FAC( SPC ) * ONE_OVER_TWASH / ( 1.0 + TWF / KH )
-          ALFA = CGRID_SCAV_FAC( SPC ) * ONE_OVER_TWASH * KH / ( KH + TWF )
-          CEND ( PNTR ) = POLC( PNTR ) * EXP( -ALFA * TAUCLD )
-          REMOV( PNTR ) = ( POLC( PNTR ) - CEND( PNTR ) ) * AIRM
-!        ELSE
-!          ALFA = 0.0
-!          CEND ( PNTR ) = POLC( PNTR )
-!          REMOV( PNTR ) = 0.0
-!        END IF
-      END DO
-
-      RETURN
       END

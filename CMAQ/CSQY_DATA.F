@@ -1457,6 +1457,7 @@ C-----------------------------------------------------------------------
 
       RETURN
       END FUNCTION INDEXR
+
       SUBROUTINE GET_CSQY ( nrad, nrad_model, nrad_chem, nrad_max, TEMP, DENS, CSZ, QYZ )
 !-----------------------------------------------------------------------
 !  Purpose: Calculate values of absorption cross
@@ -1566,7 +1567,7 @@ C-----------------------------------------------------------------------
 !***  reference temperature, then use the value at the minimum reference temperature
                   CSZ( LAYS, IWL, IPHOT ) = XXCS( IT+1, IWL, IPHOT )
                   QYZ( LAYS, IWL, IPHOT ) = XXQY( IT+1, IWL, IPHOT )
-               ELSE IF ( IT .GE. 1 .AND. IT .LT. IREFTEMPS ) THEN
+               ELSE IF ( IT .LT. IREFTEMPS ) THEN
 !***for the next case use linear interpolation
                   YTEMP = ( XTEMP - RTEMP_S( IT, IPHOT ) )
      &                  *   DELTA_REFTI( IT, IPHOT )
@@ -1593,22 +1594,22 @@ C-----------------------------------------------------------------------
                
         SELECT CASE (  CSQY_ADJUST( IPHOT ) )
            CASE ( ACETALDEHYDE )      ! 'CH3CHO -> CH3 + HCO'
-               FORALL( IWL = 1:NWL_REF )
-                  FORALL( LAYS = 1:NRAD_CHEM, QYZ( LAYS, IWL, IPHOT ) .GT. 1.0E-5 ) 
-                     QYZ( LAYS, IWL, IPHOT ) = 1.0
-     &                                       / ( 1.0 + ( 1.0 / QYZ( LAYS, IWL, IPHOT ) - 1.0 ) * DENS( LAYS ) * 4.0568E-20 )
+              DO IWL = 1, NWL_REF
+                 DO LAYS = 1, NRAD_CHEM
+                    QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT )
+     &                   / ( QYZ( LAYS, IWL, IPHOT ) + (1.0 - QYZ( LAYS, IWL, IPHOT )) * DENS( LAYS ) * 4.0568E-20 )
                      QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
-                  END FORALL
-               END FORALL
+                  END DO
+               END DO
            CASE ( HIGHER_ALDEHYDES )  ! C3 and higher aldehydes
 ***density correction to quantum yield
-               FORALL( IWL = 1:NWL_REF )
-                  FORALL( LAYS = 1:NRAD_CHEM, QYZ( LAYS, IWL, IPHOT ) .GT. 1.0E-5 ) 
-                     QYZ( LAYS, IWL, IPHOT ) = 1.0
-     &                                       / ( 1.0 + ( 1.0 / QYZ( LAYS, IWL, IPHOT ) - 1.0 ) * DENS( LAYS ) * 4.0568E-20 )
-                     QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
-                  END FORALL
-               END FORALL
+              DO IWL = 1, NWL_REF
+                 DO LAYS = 1, NRAD_CHEM
+                    QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT )
+     &                   / ( QYZ( LAYS, IWL, IPHOT ) + (1.0 - QYZ( LAYS, IWL, IPHOT )) * DENS( LAYS ) * 4.0568E-20 )
+                    QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
+                 END DO
+              END DO
            CASE ( METHYL_VINYL_KETONE )
 !***quantum yield from
 !***  Gierczak, T., J. B. Burkholder, R. K. Talukdar, A. Mellouki, S. B. Barone,
@@ -1619,11 +1620,13 @@ C-----------------------------------------------------------------------
 !***  number density coefficient is five times higher.
 !***density correction to quantum yield
 !***remove wavelength dependence
-              FORALL( LAYS = 1:NRAD_CHEM, IWL = 1:NWL_REF )
-                     QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT ) *  118.4 
-     &                                       / ( 5.5 + 4.6E-19 * DENS( LAYS ) )
-                     QYZ( LAYS, IWL, IPHOT ) = MAX(0.0, MIN( QYZ( LAYS, IWL, IPHOT ), 1.0 ) )
-              END FORALL
+              DO IWL = 1, NWL_REF
+                 DO LAYS = 1, NRAD_CHEM
+                    QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT ) * 118.4 
+     &                                      / ( 5.5 + 4.6E-19 * DENS( LAYS ) )
+                    QYZ( LAYS, IWL, IPHOT ) = MAX(0.0, MIN( QYZ( LAYS, IWL, IPHOT ), 1.0 ) )
+                 END DO
+              END DO
            CASE ( METHYL_ACROLEIN )
 !***quantum yield based on 2.76 times MVK from
 !***  Gierczak, T., J. B. Burkholder, R. K. Talukdar, A. Mellouki, S. B. Barone,
@@ -1634,11 +1637,13 @@ C-----------------------------------------------------------------------
 !***  number density coefficient is five times higher.
 !***density correction to quantum yield
 !***remove wavelength dependence
-              FORALL( LAYS = 1:NRAD_CHEM, IWL = 1:NWL_REF )
-                 QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT ) * 118.4 
-     &                                   / ( 5.5 + 4.6E-19 * DENS( LAYS ) )
-                 QYZ( LAYS, IWL, IPHOT ) = MAX(0.0, MIN( QYZ( LAYS, IWL, IPHOT ), 1.0 ) )
-              END FORALL
+              DO IWL = 1, NWL_REF
+                 DO LAYS = 1, NRAD_CHEM
+                    QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT ) * 118.4 
+     &                                      / ( 5.5 + 4.6E-19 * DENS( LAYS ) )
+                    QYZ( LAYS, IWL, IPHOT ) = MAX(0.0, MIN( QYZ( LAYS, IWL, IPHOT ), 1.0 ) )
+                 END DO
+              END DO
            CASE ( METHYL_ETHYL_KETONE )
 !***Quantum Yields from
 !***  Raber, W.H. (1992) PhD Thesis, Johannes Gutenberg-Universitaet, Mainz, Germany.
@@ -1647,8 +1652,8 @@ C-----------------------------------------------------------------------
 !***  Ttemperature/Density correction to quantum yield in
 !***  Stern-Volmer form :  1/phi = 0.96 + 2.22e-3*P(torr)
 !***  Using relative correction to quantum yields based on above formula
-               FORALL( IWL = 1:NWL_REF )
-                   FORALL( LAYS = 1:NRAD_CHEM, QYZ( LAYS, IWL, IPHOT ) .LT. 1.0 )
+              DO IWL = 1, NWL_REF
+                 DO LAYS = 1, NRAD_CHEM
 ! skips SAPRC07T cases where qy is set to one and photolysis rate is scaled in mech.def
 !***  Carter adjusted to 0.175 based on chamber tests and sets the values in
 !***  mechanism definition file. The photolysis data submitted for SAPRC07T sets this 
@@ -1662,17 +1667,16 @@ C-----------------------------------------------------------------------
 !                     ELSE
 !                        QYZ( LAYS, IWL, IPHOT ) =  1.0 / ( 0.96 + 2.22E-3 * PRESSURE )
 !                     END IF
-                     QYZ( LAYS, IWL, IPHOT ) =  QYZ( LAYS, IWL, IPHOT )
-     &                                       * ( 0.96 + 5.66639E-03 * TEMP( LAYS ) ) 
-     &                                       / ( 0.96 + 2.29874E-22 * DENS( LAYS ) * TEMP( LAYS ) )
-                     QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) ) 
-                   END FORALL
-               END FORALL
+                    QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT )
+     &                                      * ( 0.96 + 5.66639E-03 * TEMP( LAYS ) )
+     &                                      / ( 0.96 + 2.29874E-22 * DENS( LAYS ) * TEMP( LAYS ) )
+                    QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) ) 
+                 END DO
+              END DO
            CASE ( METHYL_GLYOXAL_IUPAC04 )
-               DO IWL = 1, NWL_REF
-                   IF( WAVELENGTH( IWL ) .GE. 500.0 .OR. WAVELENGTH( IWL ) .LE. 240.0 )CYCLE
-                   DO LAYS = 1, NRAD_CHEM
-                        IF( QYZ( LAYS, IWL, IPHOT ) .LE. 0.0 )CYCLE
+              DO IWL = 1, NWL_REF
+                 IF( WAVELENGTH( IWL ) .GE. 500.0 .OR. WAVELENGTH( IWL ) .LE. 240.0 )CYCLE
+                 DO LAYS = 1, NRAD_CHEM
 ! Replaced the following method used in CMAQ 5.01                   
 !***  Pressure dependence based on Koch and Moortgat (1998),
 !***  J. Phys. Chem. A, vol 102, pages 9142. The application contradicts
@@ -1686,41 +1690,40 @@ C-----------------------------------------------------------------------
 !     &                                         / ( QYZ( LAYS, IWL, IPHOT ) + 1.36E8 * PRESSURE )
 ! by using the relative correction recommended in NASA JPL (2011).  Note that linearily interpolated 
 ! values are assumed to be at air number density equal to 2.465E19 molecules/cm3. Pressure units are Torrs.
-                       PRESSURE = 1.03547E-19 * TEMP( LAYS ) * DENS( LAYS )
-                       FACTOR   = 2.5524 * TEMP( LAYS ) ! pressure for dens at 2.465e19 molec/cm3
-                       IF( WAVELENGTH( IWL ) .LE. 370.0 )THEN 
-                           PRESSURE = MAX( 400.0, PRESSURE )
-                           FACTOR   = MAX( 400.0, FACTOR   )
-                       END IF
-                       QYZ( LAYS, IWL, IPHOT ) =  QYZ( LAYS, IWL, IPHOT )
-     &                                         * ( IPHI0_MGLY( IWL ) + KMGLY( IWL ) * FACTOR ) 
-     &                                         / ( IPHI0_MGLY( IWL ) + KMGLY( IWL ) * PRESSURE ) 
-                       QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
-                   END DO
-               END DO
+                    PRESSURE = 1.03547E-19 * TEMP( LAYS ) * DENS( LAYS )
+                    FACTOR   = 2.5524 * TEMP( LAYS ) ! pressure for dens at 2.465e19 molec/cm3
+                    IF( WAVELENGTH( IWL ) .LE. 370.0 )THEN 
+                       PRESSURE = MAX( 400.0, PRESSURE )
+                       FACTOR   = MAX( 400.0, FACTOR   )
+                    END IF
+                    QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT )
+     &                                      * ( IPHI0_MGLY( IWL ) + KMGLY( IWL ) * FACTOR ) 
+     &                                      / ( IPHI0_MGLY( IWL ) + KMGLY( IWL ) * PRESSURE ) 
+                    QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
+                 END DO
+              END DO
            CASE (  ACROLEIN )
 !***density correction quantum yield
-               DO IWL = 1, NWL_REF
-                   DO LAYS = 1, NRAD_CHEM
+              DO IWL = 1, NWL_REF
+                 DO LAYS = 1, NRAD_CHEM
 !***Number density dependence based on Gardner et. al (1987),
 !***  J. Phys. Chem., vol 91, pages 1922. The application uses
 !***  the quantum yields set in in cross-section file. 
 !***  For SAPRC07T CSQY data, yields set approximately four times NASA (2006)
 !***  because the mechanism developer sums over all possible channels and
 !***  Gardner et. al may support this conclusion.
-                     IF ( DENS( LAYS ) .GE. 8.0E+17 ) THEN
-                        QYZ( LAYS, IWL, IPHOT ) = 153.5 * QYZ( LAYS, IWL, IPHOT )
-     &                                          * ( 4.0E-3 + 1.0 / ( 8.6E-2 + 1.613E-17 * DENS( LAYS ) ) )                       
-                     ELSE IF ( DENS( LAYS ) .LT. 8.0E+17 ) THEN
-                        QYZ( LAYS, IWL, IPHOT ) = 12.431 * QYZ( LAYS, IWL, IPHOT )
-                     END IF
-
-                     QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
-                   END DO
-               END DO
+                    IF ( DENS( LAYS ) .GE. 8.0E+17 ) THEN
+                       QYZ( LAYS, IWL, IPHOT ) = 153.5 * QYZ( LAYS, IWL, IPHOT )
+     &                                         * ( 4.0E-3 + 1.0 / ( 8.6E-2 + 1.613E-17 * DENS( LAYS ) ) )                       
+                    ELSE IF ( DENS( LAYS ) .LT. 8.0E+17 ) THEN
+                       QYZ( LAYS, IWL, IPHOT ) = 12.431 * QYZ( LAYS, IWL, IPHOT )
+                    END IF
+                    QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
+                 END DO
+              END DO
            CASE ( FORMALDEHYDE_MOLECULAR )  ! 'CH2O -> H2 + CO'
 !***temperature/density correction to quantum yield
-              IF ( LHCHOR_06 .LE. 0 )CYCLE
+              IF ( LHCHOR_06 .NE. 0 ) THEN
               DO IWL = 1, NWL_REF
                  IF ( WAVELENGTH( IWL ) .LE. 329.0 ) CYCLE
                  DO LAYS = 1, NRAD_CHEM
@@ -1749,6 +1752,7 @@ C-----------------------------------------------------------------------
                     QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
                  END DO
               END DO
+              ENDIF
            CASE (  ACETONE ) ! 'CH3COCH3 -> products'
 !***temperature/density correction to quantum yield
               IF ( IPHOT .EQ. LACETONE .AND. NWL .EQ. NWL_ACETONE_FJX ) THEN
@@ -1758,64 +1762,56 @@ C-----------------------------------------------------------------------
 !***  Cameron-Smith, P., Incorporation of non-linear effective cross section
 !***  parameterization into a fast photolysis computation  code (Fast-J)
 !***  Journal of Atmospheric Chemistry, Vol. 37, pp 283-297, 2000.
-                 FORALL( LAYS = 1:NRAD_CHEM, IWL = 1:NWL_REF )
+                 DO IWL = 1, NWL_REF
+                    DO LAYS = 1, NRAD_CHEM
                        CSZ( LAYS, IWL, LACETONE ) = ( ( TTX2 - TEMP( LAYS ) ) * OP0( 1, IWL )
      &                                            + ( TEMP( LAYS ) - TTX1 ) * OP0( 2, IWL ) )
      &                                            / ( DTTX * ( 1.0 + YY30( IWL ) * DENS( LAYS ) ) )
                        QYZ( LAYS, IWL, LACETONE ) = 1.0
-                 END FORALL
-             ELSE
+                    END DO
+                 END DO   
+              ELSE
                  DO IWL = 1, NWL_REF
-                      DO LAYS = 1, NRAD_CHEM
-                        QYZ( LAYS, IWL, IPHOT ) = QUANTUM_ACETONE( TEMP( LAYS ), DENS( LAYS ), WAVELENGTH( IWL ) )
-!                        QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
-                   END DO
-                END DO
-             END IF
+                    DO LAYS = 1, NRAD_CHEM
+                       QYZ( LAYS, IWL, IPHOT ) = QUANTUM_ACETONE( TEMP( LAYS ), DENS( LAYS ), WAVELENGTH( IWL ) )
+                    END DO
+                 END DO
+              END IF
          CASE (  KETONE_LEGACY  )
-             FORALL( LAYS = 1:NRAD_CHEM, IWL = 1:NWL_REF )
-                 CSZ( LAYS, IWL, IPHOT ) = CSZ( LAYS, IWL, IPHOT ) / ( 1.0 + 0.80E-19 * DENS( LAYS ) )
-             END FORALL
+            DO IWL = 1, NWL_REF
+               DO LAYS = 1, NRAD_CHEM
+                  CSZ( LAYS, IWL, IPHOT ) = CSZ( LAYS, IWL, IPHOT ) / ( 1.0 + 0.80E-19 * DENS( LAYS ) )
+               END DO
+            END DO
          CASE ( KETONE_RACM2 ) ! Ketone treatement from W. Stockwell sbox
-             FORALL( IWL = 1:NWL_REF )
-                FORALL( LAYS = 1:NRAD_CHEM, QYZ( LAYS, IWL, IPHOT ) .GT. 1.0E-5 .AND. QYZ( LAYS, IWL, IPHOT ) .LT. 0.9999 ) 
-                   QYZ( LAYS, IWL, IPHOT ) =  1.0 
-     &                                     / (1.0 + 4.057E-20 * DENS( LAYS ) * ( 1.0 / QYZ(LAYS, IWL, IPHOT ) - 1.0 ))
-                   QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
-                END FORALL
-             END FORALL 
+            DO IWL = 1, NWL_REF
+               DO LAYS = 1, NRAD_CHEM
+                  QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT )
+     &                 / ( QYZ( LAYS, IWL, IPHOT ) + (1.0 - QYZ( LAYS, IWL, IPHOT )) * DENS( LAYS ) * 4.057E-20 )
+                  QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
+               END DO
+            END DO
          CASE ( GLYOXAL_RACM2  ) ! glyoxal treatement from W. Stockwell sbox
-             FORALL( IWL = 1:NWL_REF )
-                FORALL( LAYS = 1:NRAD_CHEM, QYZ( LAYS, IWL, IPHOT ) .GT. 1.0E-5 .AND. QYZ( LAYS, IWL, IPHOT ) .LT. 0.9999 )  
-                   QYZ( LAYS, IWL, IPHOT ) =  1.0 
-     &                                     / ( 1.0 + 4.057E-20 * DENS( LAYS ) * ( 1.0 / QYZ(LAYS, IWL, IPHOT ) - 1.0 ))
-                   QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
-                END FORALL
-             END FORALL                      
+            DO IWL = 1, NWL_REF
+               DO LAYS = 1, NRAD_CHEM
+                  QYZ( LAYS, IWL, IPHOT ) = QYZ(LAYS, IWL, IPHOT )
+     &                 / ( QYZ( LAYS, IWL, IPHOT ) + (1.0 - QYZ( LAYS, IWL, IPHOT )) * DENS( LAYS ) * 4.057E-20 )
+                  QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
+               END DO
+            END DO
          CASE (  METHYL_GLYOXAL_LEGACY )
-             FORALL( LAYS = 1:NRAD_CHEM, IWL = 1:NWL_REF )
-                   CSZ( LAYS, IWL, IPHOT ) = CSZ( LAYS, IWL, IPHOT ) / ( 1.0 + 1.67E-19 * DENS( LAYS ) )
-             END FORALL
+            DO IWL = 1, NWL_REF
+               DO LAYS = 1, NRAD_CHEM
+                  CSZ( LAYS, IWL, IPHOT ) = CSZ( LAYS, IWL, IPHOT ) / ( 1.0 + 1.67E-19 * DENS( LAYS ) )
+               END DO
+            END DO
+
          END SELECT
  
-!         IF ( FIRSTCALL )THEN
-!
-!         END IF
       END DO   ! loop on IPHOT   
 
-!      IF ( FIRSTCALL )THEN 
-!          DO IPHOT = 1, MECHANISM_RATES
-!             DO LAYS = 1, NRAD_CHEM
-!                WRITE(CSQY_DATA_LOG, 99951)'CSZ for ', PHOTOLYSIS_RATE( IPHOT ),(CSZ( LAYS, IWL, IPHOT ),IWL=1,NWL_REF)
-!                WRITE(CSQY_DATA_LOG, 99951)'QYZ for ', PHOTOLYSIS_RATE( IPHOT ),(QYZ( LAYS, IWL, IPHOT ),IWL=1,NWL_REF)
-!             END DO
-!          END DO
-!          FIRSTCALL = .FALSE.
-!      END IF
-      
-99951 FORMAT(A9,A16,40(1X,ES12.4))
-      RETURN
       END SUBROUTINE GET_CSQY
+
       SUBROUTINE DEFINE_CSQY_ADJUST()
 ! Purpose determine whether a phototlysis rate uses specific corrections to 
 ! CSQY data 
@@ -1873,6 +1869,7 @@ C-----------------------------------------------------------------------
                END DO
               RETURN
       END SUBROUTINE DEFINE_CSQY_ADJUST
+
       REAL FUNCTION QUANTUM_ACETONE( TEMP, DENS_NUMB, LAMBDA )
 
 C-----------------------------------------------------------------------
@@ -1974,4 +1971,5 @@ C-----------------------------------------------------------------------
 
       RETURN
       END FUNCTION QUANTUM_ACETONE                  
+
       END MODULE CSQY_DATA

@@ -1,4 +1,4 @@
-subroutine get_cloud_frac(iw, ka, frac)
+subroutine get_cloud_frac(iw, ka, frac, iconv, ideep)
 
   use mem_grid,    only: mza, zm, zt, glatw, glonw, dzt, dzim
   use misc_coms,   only: icfrac, cfracrh1, cfracrh2, cfraccup
@@ -16,6 +16,8 @@ subroutine get_cloud_frac(iw, ka, frac)
   integer, intent(in)    :: iw
   integer, intent(in)    :: ka
   real   , intent(inout) :: frac(mza)
+  logical, intent(out)   :: iconv
+  logical, intent(out)   :: ideep
 
   real    :: rhov (mza)       ! vapor density [kg_vap/m^3]
   real    :: rhoc (mza)       ! bulk cloud water density [kg_cld/m^3]
@@ -26,7 +28,6 @@ subroutine get_cloud_frac(iw, ka, frac)
   integer :: k, mrlw
   real    :: rh00
   real    :: abslat, wt20, wt60, cfrh1, cfrh2, dcfrhi
-  logical :: iconv, ideep
   real    :: rh_tot(mza)
   real    :: qc_sub(mza)
   real    :: cu_cldf(mza)
@@ -40,8 +41,6 @@ subroutine get_cloud_frac(iw, ka, frac)
   else
      fland = 1.0
   endif
-
-! Copy column values from model to radiation memory space
 
   do k = ka, mza
 
@@ -177,7 +176,7 @@ subroutine get_cloud_frac(iw, ka, frac)
 
   if (nqparm(mrlw) > 0 .and. cbmf(iw) > 1.e-12 .and. kcubot(iw) >= ka) then
      iconv = .true.
-     if (conprr(iw) > 1.e-12) ideep = .true.
+     ideep = (conprr(iw) > 1.e-12)
   endif
 
 ! If there is subgrid convection, modify the estimated cloud fraction to include
@@ -202,7 +201,7 @@ subroutine get_cloud_frac(iw, ka, frac)
         qw = max( sh_w(k,iw), 1.e-8 )
 
         rh_tot(k) = qw / qsat
-        qc_sub(k) = sqrt(  qsub(k) / qw )
+        qc_sub(k) = sqrt( qsub(k) / qw )
      enddo
 
      call cu_cldfrac(kcubot(iw), kcutop(iw), rh_tot, qc_sub, cu_cldf)
@@ -211,6 +210,15 @@ subroutine get_cloud_frac(iw, ka, frac)
      do k = kcubot(iw), kcutop(iw)
         frac(k) = max( min(cu_cldf(k), 0.99), 0.01 )
      enddo
+
+     ! If there is deep convection, include subgrid clouds below convective
+     ! cloud base
+
+     if (ideep) then
+        do k = ka, kcubot(iw) -1
+           frac(k) = max(frac(k), frac(kcubot(iw)))
+        enddo
+     endif
 
      ! If there is deep convection, limit the resolved cloud fraction below and just
      ! above the cumulus to create some breaks

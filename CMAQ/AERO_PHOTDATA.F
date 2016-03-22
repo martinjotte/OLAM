@@ -41,6 +41,9 @@
       REAL, ALLOCATABLE :: AERO_EXTI_COEF( :,: ) ! aerosol modal averaged extinction coeff.
       REAL, ALLOCATABLE :: AERO_SCAT_COEF( :,: ) ! aerosol modal averaged scattering coeff.
  
+      real, allocatable :: ri_r( :,:,: )
+      real, allocatable :: ri_i( :,:,: )
+
       LOGICAL           :: CORE_SHELL
       LOGICAL           :: MIE_CALC
 
@@ -345,6 +348,17 @@ C ***    Create map for refactive index for each species
             INV_LAMBDA(v) = 1.0E+9 / WAVELENGTH( V )
          enddo
 
+         allocate(ri_r(nwl,NUM_REFRACTIVE,n_mode))
+         allocate(ri_i(nwl,NUM_REFRACTIVE,n_mode))
+         do m = 1, n_mode
+            do n = 1, NUM_REFRACTIVE
+               do v = 1, nwl
+                  ri_r(v,n,m) = REFRACTIVE_INDEX( n )%REAL_PART( m,v )
+                  ri_i(v,n,m) = REFRACTIVE_INDEX( n )%IMAG_PART( m,v )
+               enddo
+            enddo
+         enddo
+
       RETURN
 
 5000  FORMAT(2X,'NR_',I3.3,7X,'NI_',I3.3,5X)
@@ -495,9 +509,9 @@ C-----------------------------------------------------------------------
 
          MODE_LOOP: DO MODE = 1, N_MODE
 
-           if (moment3_conc(mode) < 1.e4 * aeromode( mode )%min_m3conc) cycle mode_loop
-           if (moment2_conc(mode) < 1.e4 * aeromode( mode )%min_m2conc * one_over_pi) cycle mode_loop
-           if (moment0_conc(mode) < 1.e4 * aeromode( mode )%min_numconc) cycle mode_loop
+           if (moment3_conc(mode) < 1.e5 * aeromode( mode )%min_m3conc) cycle mode_loop
+           if (moment2_conc(mode) < 1.e5 * aeromode( mode )%min_m2conc * one_over_pi) cycle mode_loop
+           if (moment0_conc(mode) < 1.e5 * aeromode( mode )%min_numconc) cycle mode_loop
 
             AE_NR_SHELL(1:NWL) = 0.0
             AE_NI_SHELL(1:NWL) = 0.0
@@ -514,7 +528,7 @@ C-----------------------------------------------------------------------
                if ( AERO_MISSING( SPC,MODE ) ) CYCLE spc_loop
 
                ! neglect species with small concentration
-               if ( AEROSPC_CONC( SPC,MODE ) < 1.e-24 ) cycle spc_loop
+               if ( AEROSPC_CONC( SPC,MODE ) < 1.e-23 ) cycle spc_loop
 
                MOMENT3_PORTION  = M3_FACTOR( SPC ) * AEROSPC_CONC( SPC,MODE )
 
@@ -524,20 +538,16 @@ C-----------------------------------------------------------------------
 
                   CORE_MOMENT3 = CORE_MOMENT3 + MOMENT3_PORTION
                   DO V = 1, NWL
-                     AE_NR_CORE(v) = AE_NR_CORE(v) + MOMENT3_PORTION
-     &                             * REFRACTIVE_INDEX( M )%REAL_PART( MODE,V )
-                     AE_NI_CORE(v) = AE_NI_CORE(v) + MOMENT3_PORTION
-     &                             * REFRACTIVE_INDEX( M )%IMAG_PART( MODE,V )
+                     AE_NR_CORE(v) = AE_NR_CORE(v) + MOMENT3_PORTION * ri_r(v,m,mode)
+                     AE_NI_CORE(v) = AE_NI_CORE(v) + MOMENT3_PORTION * ri_i(v,m,mode)
                   ENDDO
 
                ELSE
 
                   SHELL_MOMENT3 = SHELL_MOMENT3 + MOMENT3_PORTION
                   DO V = 1, NWL
-                     AE_NR_SHELL(v) = AE_NR_SHELL(v) + MOMENT3_PORTION
-     &                              * REFRACTIVE_INDEX( M )%REAL_PART( MODE,V )
-                     AE_NI_SHELL(v) = AE_NI_SHELL(v) + MOMENT3_PORTION
-     &                              * REFRACTIVE_INDEX( M )%IMAG_PART( MODE,V )
+                     AE_NR_SHELL(v) = AE_NR_SHELL(v) + MOMENT3_PORTION * ri_r(v,m,mode)
+                     AE_NI_SHELL(v) = AE_NI_SHELL(v) + MOMENT3_PORTION * ri_i(v,m,mode)
                   ENDDO
 
                END IF 
@@ -546,7 +556,7 @@ C-----------------------------------------------------------------------
 
             moment3_portion = CORE_MOMENT3 + SHELL_MOMENT3
 
-            if (moment3_portion < 1.e4 * aeromode( mode )%min_m3conc) cycle mode_loop
+            if (moment3_portion < 1.e5 * aeromode( mode )%min_m3conc) cycle mode_loop
 
             vol = PI6 * moment3_portion
             LSG = AEROMODE_SDEV( MODE )

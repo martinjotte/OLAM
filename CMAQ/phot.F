@@ -845,7 +845,7 @@ C...calculate the solar information.
 !..calculate needed aerosol properties in column
 
 !              IF ( CORE_SHELL ) THEN
-                  CALL GET_AERO_DATA ( iw, NLAYS_olam, koff )
+                  CALL GET_AERO_DATA ( iw, NLAYS_chem, koff )
 !              ELSE
 !                 CALL AERO_OPTICS_INTERNAL( COL,ROW, NLAYS, CGRID )
 !              END IF

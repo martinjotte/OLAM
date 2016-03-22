@@ -11,9 +11,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          rshortup_clr, rshort_top_clr, rshortup_top_clr, &
                          rlong_clr, rlongup_clr, rlongup_top_clr, &
                          par, par_diffuse, uva, uvb, uvc
-  use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab
+  use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab, emb2
   use mem_ijtabs,  only: itab_w
-  use mem_cuparm,  only: kcutop, kcubot, cbmf, qwcon
+  use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr
   use rrtmg_cloud, only: cloud_props
   use mem_turb,    only: frac_land
   use mem_ijtabs,  only: itab_w
@@ -154,12 +154,12 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   integer :: k, krad, icloud, iaeros, index, ib, ig
   integer :: iplon, irng, permuteseed, ns, nt, n
-  integer :: mc, mcat, ih, l, num, ntim, ngbmsw, ngbmlw
+  integer :: mc, mcat, ih, l, ntim, ngbmsw, ngbmlw
 
-  real :: tau, ssa, asm
-  real :: r_ef, dmean, watp, rstart, rend, rscale, fint0, fint1
+  real :: r_ef, dmean, watp, twc, prate
 
   real :: frac(mza)
+  logical :: iconv, ideep, dosnow
 
   real, external :: rhovsl, rhovsi
 
@@ -200,7 +200,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 !                                  15.  snow needles
 !                                  16.  snow rosettes
 
-  integer, parameter :: kradcat(16) = (/1,8,6,6,5,4,4,2,8,8,7,9,8,8,7,9/)
+                                      ! 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+  integer, parameter :: kradcat(16) = (/1,3,6,6,5,4,4,2,8, 8, 7, 9, 8, 8, 7, 9/)
 
 ! Set some surface values needed by RRTMg
 
@@ -303,9 +304,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
 ! Compute fractional cloudiness for the resolved microphysics moisture fields. 
 ! The cloud fraction estimated here will only be applied later in this routine
-! if there are any resolved hydrometeors.
+! if there are any resolved hydrometeors or subgrid cumulus
 
-  call get_cloud_frac(iw, ka, frac)
+  call get_cloud_frac(iw, ka, frac, iconv, ideep)
 
 ! Get optical properties of resolved clouds
 
@@ -316,153 +317,141 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
         if (rx(k,mc) >= rxmin(mc) .and. emb(k,mc) >= emb0(mc)) then
 
-! Set lower bound on frac(k) because there is condensate
-
-           frac(k) = max(frac(k),0.1)
-
+           ! Set lower bound on frac(k) because there is condensate
+           frac(k)       = max(frac(k),0.1)
            cldfr(1,krad) = frac(k)
 
+           ! lookup table category
            ih = jhcat(k,mc)
            l  = kradcat(ih)
 
-           num    = cloud_props(l)%num
-           rstart = cloud_props(l)%start
-           rend   = cloud_props(l)%end
-
+           ! effective radius in microns
            r_ef = 1.e6 * reffcof(ih) * emb(k,mc) ** pwmasi(ih)
-           r_ef = max(rstart, min(rend, r_ef))
 
            ! ice or liquid water path in g/m^2
            watp = rx(k,mc) * dl(krad) * 1000. * dzt(k)
            watp = watp / frac(k)
 
-           rscale = (r_ef - rstart) / cloud_props(l)%delr
-           index  = max(1, min(num-1, int(rscale) + 1))
-           fint1  = rscale - real(index-1)
-           fint0  = 1.0 - fint1
+           call lookup_rrtmg_cld_optics( l, r_ef, watp, krad )
 
-           if (iswrtyp > 0 .and. cosz(iw) >= 0.03) then
-
-              do ib = 1, nbndsw
-                 tau = ( fint0 * cloud_props(l)%extsw(ib, index  ) &
-                       + fint1 * cloud_props(l)%extsw(ib, index+1) ) * watp
-
-                 ssa = fint0 * cloud_props(l)%ssasw(ib, index  ) &
-                     + fint1 * cloud_props(l)%ssasw(ib, index+1)
-
-                 asm = fint0 * cloud_props(l)%asysw(ib, index  ) &
-                     + fint1 * cloud_props(l)%asysw(ib, index+1)
-
-                 tauclds(ib,1,krad) = tauclds(ib,1,krad) + tau
-                 ssaclds(ib,1,krad) = ssaclds(ib,1,krad) + tau * ssa
-                 asmclds(ib,1,krad) = asmclds(ib,1,krad) + tau * ssa * asm
-
-              enddo
-
-           endif
-
-           if (ilwrtyp > 0) then
-
-              do ib = 1, nbndlw
-                 tau = ( fint0 * cloud_props(l)%abslw(ib, index  ) &
-                       + fint1 * cloud_props(l)%abslw(ib, index+1) ) * watp
-
-                 taucldl(ib,1,krad) = taucldl(ib,1,krad) + tau
-              enddo
-
-           endif
         endif
      enddo
   enddo
 
-  ! Now include the optical properties of subgrid convective clouds
+  ! Include the optical properties of subgrid convective clouds
 
-  if ( nqparm(itab_w(iw)%mrlw) > 0 .and. cbmf(iw) > 1.e-12 .and. kcubot(iw) >= ka ) then
-
+  if ( iconv ) then
      do k = kcubot(iw), kcutop(iw)
         krad = k - koff
 
-        if (frac(k) > 1.e-10) then
-              
-           cldfr(1,krad) = frac(k)
+        ! Set lower bound on frac(k) because there is condensate
+        frac(k)       = max(frac(k), 0.1)
+        cldfr(1,krad) = frac(k)
 
-           ! water path in g/m^2
-           watp = max(qwcon(k,iw),1.e-5) * rho(k,iw) * 1000. * dzt(k)
-           tc   = tair(k,iw) - t00
-              
-           if (tc > -10.0) then
+        ! water path in g/m^2
+        watp = max(qwcon(k,iw),1.e-5) * real(rho(k,iw)) * 1000. * dzt(k)
+        watp = watp / max( frac(k), 0.2 )
 
-              ! Add convective cloud water to cloud drops if warmer then 10C
-              l = kradcat(1)
+        tc = tair(k,iw) - t00
 
-              ! Hardwire droplet effective radius to 14 over land 
-              ! and 8 over sea following CAM physics
-              r_ef = rliqland + (rliqocean-rliqland) * fland
+        if (tc > -10.0) then
 
+           ! Add convective cloud water to cloud drops if warmer then 10C
+           l = kradcat(1)
+
+           ! Hardwire droplet effective radius to 14 over land 
+           ! and 8 over sea following CAM physics
+           r_ef = rliqland + (rliqocean-rliqland) * fland
+
+        else
+
+           ! Add convective cloud water to pristine ice. Diagnose habit
+           ! from temperature and humidity
+           rh = min( 1., rhov(k) / rhovsl(tc) )
+           ns = max( 1, nint(100. * rh) )
+           nt = max( 1, min(31,-nint(tc)) )
+           ih = jhabtab(nt,ns,1)
+           l  = kradcat(ih)
+
+           ! Mean maximum dimension of ice crystals as a function of T
+           ! (see Kristjansson et al., 2000, JGR)
+           dmean = 1030.7 * exp(0.05522*(tair(k,iw)-279.5))
+
+           ! Convert mean diameter to an effective radius using the 
+           ! microphysics power laws
+           r_ef = reffcof(ih) / dmncof(ih) * dmean
+
+        endif
+
+        call lookup_rrtmg_cld_optics( l, r_ef, watp, krad )
+
+     enddo
+  endif
+
+  ! Now include the optical properties of convective rain/snow
+
+  if (ideep) then
+
+     prate = conprr(iw) * 3600.0          ! precip rate mm / hr
+     twc   = 0.06 * prate**0.846 / 1000.0 ! tot wat cont kg / m3
+
+     ! if entire cloud is below freezing, map to snow
+     dosnow = all(tair(kcubot(iw):kcutop(iw),iw) < 273.)
+
+     do k = ka, kcutop(iw)
+        krad = k - koff
+
+        tc = tair(k,iw) - t00
+
+        ! Set lower bound on frac(k) because there is condensate
+        frac(k)       = max( frac(k), 0.1)
+        cldfr(1,krad) = frac(k)
+
+        if (dosnow) then
+
+           if (tc > 0.0) then
+              ! rain
+              mc = 2
+              ih = 2
            else
-
-              ! Add convective cloud water to pristine ice. Diagnose habit
-              ! from temperature and humidity
+              ! snow
+              mc = 4
               rh = min( 1., rhov(k) / rhovsl(tc) )
               ns = max( 1, nint(100. * rh) )
               nt = max( 1, min(31,-nint(tc)) )
-              ih = jhabtab(nt,ns,1)
-              l  = kradcat(ih)
-
-              ! Mean maximum dimension of ice crystals as a function of T
-              ! (see Kristjansson et al., 2000, JGR)
-              dmean = 1030.7 * exp(0.05522*(tair(k,iw)-279.5))
-
-              ! Convert mean diameter to an effective radius using the 
-              ! microphysics power laws
-              r_ef = reffcof(ih) / dmncof(ih) * dmean
-
+              ih = jhabtab(nt,ns,2)
            endif
 
-           num    = cloud_props(l)%num
-           rstart = cloud_props(l)%start
-           rend   = cloud_props(l)%end
-   
-           r_ef = max(rstart, min(rend, r_ef))
+        else
 
-           rscale = (r_ef - rstart) / cloud_props(l)%delr
-           index  = max(1, min(num-1, int(rscale) + 1))
-           fint1  = rscale - real(index-1)
-           fint0  = 1.0 - fint1
-
-           if (iswrtyp > 0 .and. cosz(iw) >= 0.03) then
-
-              do ib = 1, nbndsw
-                 tau = ( fint0 * cloud_props(l)%extsw(ib, index  ) &
-                       + fint1 * cloud_props(l)%extsw(ib, index+1) ) * watp
-
-                 ssa = fint0 * cloud_props(l)%ssasw(ib, index  ) &
-                     + fint1 * cloud_props(l)%ssasw(ib, index+1)
-
-                 asm = fint0 * cloud_props(l)%asysw(ib, index  ) &
-                     + fint1 * cloud_props(l)%asysw(ib, index+1)
-
-                 tauclds(ib,1,krad) = tauclds(ib,1,krad) + tau
-                 ssaclds(ib,1,krad) = ssaclds(ib,1,krad) + tau * ssa
-                 asmclds(ib,1,krad) = asmclds(ib,1,krad) + tau * ssa * asm
-              enddo
-
-           endif
-
-           if (ilwrtyp > 0) then
-
-              do ib = 1, nbndlw
-                 tau = ( fint0 * cloud_props(l)%abslw(ib, index  ) &
-                       + fint1 * cloud_props(l)%abslw(ib, index+1) ) * watp
-
-                 taucldl(ib,1,krad) = taucldl(ib,1,krad) + tau
-              enddo
-
+           if (tc > -10.) then
+              ! rain
+              mc = 2
+              ih = 2
+           else
+              ! hail
+              mc = 7
+              ih = 7
            endif
 
         endif
+
+        ! cloud optics category
+        l  = kradcat(ih)
+
+        ! effective radius in microns
+        r_ef = 1.e6 * reffcof(ih) * emb2(mc) ** pwmasi(ih)
+
+        ! water path in g/m^2
+        watp = twc * 1000. * dzt(k)
+        watp = watp / max( frac(k), 0.2 )
+           
+        call lookup_rrtmg_cld_optics( l, r_ef, watp, krad )
+
      enddo
+
   endif
+
 
   ! Save cloud fraction in 3D variable for output or plotting
 
@@ -700,6 +689,63 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
 
 contains
+
+
+  subroutine lookup_rrtmg_cld_optics( l, r_ef, watp, krad )
+
+    integer, intent(in) :: l     ! lookup table category
+    real,    intent(in) :: r_ef  ! effective radius (um)
+    real,    intent(in) :: watp  ! ice or liquid water path (g/m^2)
+    integer, intent(in) :: krad
+
+    integer :: num
+    real    :: rstart, rend, rscale, reff
+    real    :: fint0, fint1
+    real    :: tau, ssa, asm
+
+    num    = cloud_props(l)%num
+    rstart = cloud_props(l)%start
+    rend   = cloud_props(l)%end
+
+    reff   = max(rstart, min(rend, r_ef))
+
+    rscale = (reff - rstart) / cloud_props(l)%delr
+    index  = max(1, min(num-1, int(rscale) + 1))
+    fint1  = rscale - real(index-1)
+    fint0  = 1.0 - fint1
+
+    if (iswrtyp > 0 .and. cosz(iw) >= 0.03) then
+
+       do ib = 1, nbndsw
+          tau = ( fint0 * cloud_props(l)%extsw(ib, index  ) &
+              + fint1 * cloud_props(l)%extsw(ib, index+1) ) * watp
+
+          ssa = fint0 * cloud_props(l)%ssasw(ib, index  ) &
+              + fint1 * cloud_props(l)%ssasw(ib, index+1)
+
+          asm = fint0 * cloud_props(l)%asysw(ib, index  ) &
+              + fint1 * cloud_props(l)%asysw(ib, index+1)
+
+          tauclds(ib,1,krad) = tauclds(ib,1,krad) + tau
+          ssaclds(ib,1,krad) = ssaclds(ib,1,krad) + tau * ssa
+          asmclds(ib,1,krad) = asmclds(ib,1,krad) + tau * ssa * asm
+
+       enddo
+
+    endif
+
+    if (ilwrtyp > 0) then
+
+       do ib = 1, nbndlw
+          tau = ( fint0 * cloud_props(l)%abslw(ib, index  ) &
+              + fint1 * cloud_props(l)%abslw(ib, index+1) ) * watp
+
+          taucldl(ib,1,krad) = taucldl(ib,1,krad) + tau
+       enddo
+
+    endif
+
+  end subroutine lookup_rrtmg_cld_optics
 
 
   subroutine rrtmg_to_cmaq()

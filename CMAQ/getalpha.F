@@ -25,8 +25,7 @@ C what(1) key, module and SID; SCCS file; date and time of last delta:
 C %W% %P% %G% %U%
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      SUBROUTINE GETALPHA ( NUMI, MASSI, SURFI,
-     &                      LWC, T, P, RHOAIR, ALFA0, ALFA2, ALFA3 )
+      SUBROUTINE GETALPHA ( NUMI, MASSI, SURFI, LWC, T, P, RHOAIR, ALFA )
 
 C-----------------------------------------------------------------------
 C  Description:
@@ -91,9 +90,7 @@ C...........Arguments:
       REAL          T          ! average cloud temperature [ K ]
       REAL          P          ! average cloud pressure [ Pa ]
       REAL          RHOAIR     ! average cloud density [ kg/m**3 ]
-      REAL          ALFA0      ! scavenging coefficient for number [ 1/s ]
-      REAL          ALFA2      ! scavenging coefficient for surface area [ 1/s ]
-      REAL          ALFA3      ! scavenging coefficient for mass [ 1/s ]
+      REAL          ALFA       ! scavenging coefficient [ 1/s ]
 
 C...........Local Variables (scalars):
 
@@ -143,16 +140,9 @@ c *** ranges for acceptable values of LOG( sigma_g).
       REAL          MU         ! dynamic viscosity [ kg/(m*s) ]
       REAL          NU         ! kinematic viscosity [ m**2/s ]
 
-      REAL          CUBRT      ! cube root
-      REAL          XX         ! dummy arguement for cube root
-
       REAL, SAVE :: CLCONST    !
 
       LOGICAL, SAVE :: FIRSTIME = .TRUE.   ! flag for first pass thru
-
-C...........Statement Functions:
-
-      CUBRT( XX ) = EXP( ONE3 * LOG( XX ) )
 
 C-----------------------------------------------------------------------
 C     begin body of subroutine GETALPHA
@@ -191,9 +181,7 @@ C     AM3 is no smaller than 1.0e-18
       IF ( ( NUMI .LE. 0.0 ) .OR. ( MASSI .LE. 1.0e-6 ) .OR.
      &     ( LWC  .LE. 0.0 ) ) THEN
 !cc     &     ( SURFI .LE. 0.0 ) .OR. ( LWC  .LE. 0.0 ) ) THEN
-        ALFA0 = 0.0
-        ALFA2 = 0.0
-        ALFA3 = 0.0
+        ALFA = 0.0
         RETURN
       END IF
 
@@ -216,7 +204,7 @@ C...calculate the total number concentration of cloud droplets.
 
 C...calculate dgc
 
-      DGC =  CUBRT( CLCONST * LWC / NC )
+      DGC = ( CLCONST * LWC / NC ) ** ONE3
 
 C...get m0c cloud droplet number and 1st and 2nd moments
 C...  of cloud droplet distribution
@@ -271,7 +259,7 @@ C...  of Aitken mode distribution
 
 C...calculate dgni from numi and m3i
 
-      DGNI = CUBRT( AM3 / ( AM0 * ESG36 ) )
+      DGNI = ( AM3 / ( AM0 * ESG36 ) ) ** ONE3
       DG2  = DGNI  * DGNI
 
 C...now get other aerosol moments
@@ -335,9 +323,6 @@ C...  including convective enhancement
 !cc
 !cc      ALFA0 = COEF4 * DIFF0 * ( 1.0 + 0.5 * CUBRT( PE0 ) )
 !cc      ALFA2 = COEF4 * DIFF2 * ( 1.0 + 0.5 * CUBRT( PE2 ) )
-      ALFA3 = COEF4 * DIFF3 * ( 1.0 + 0.5 * CUBRT( PE3 ) )
-      ALFA0 = ALFA3
-      ALFA2 = ALFA3
+      ALFA  = COEF4 * DIFF3 * ( 1.0 + 0.5 * PE3**ONE3 )
 
-      RETURN
       END

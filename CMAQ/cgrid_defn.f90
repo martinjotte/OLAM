@@ -14,8 +14,6 @@ module cgrid_defn
   real, allocatable, target :: sxfer_ae(:,:,:)
   real, allocatable, target :: sxfer_nr(:,:,:)
 
-  real, allocatable         :: cldfrac_3d(:,:)
-
   real, allocatable, target :: acflux_dir_dn_tot(:,:,:)
   real, allocatable, target :: acflux_dif_dn_tot(:,:,:)
   real, allocatable, target :: acflux_dif_up_tot(:,:,:)
@@ -78,9 +76,6 @@ contains
 
     allocate(cgrid_names(nspcsd))
     cgrid_names = ''
-
-    allocate(cldfrac_3d(mza,mwa))
-    cldfrac_3d = rinit
 
     allocate(acflux_dir_dn_tot(mza,7,mwa))
     acflux_dir_dn_tot = rinit
