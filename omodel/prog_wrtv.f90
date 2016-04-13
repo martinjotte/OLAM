@@ -277,12 +277,12 @@ if (rotational) then
 ! Loop over M neighbors of W
 
       do jm = 1,npoly
-         im = itab_w(iw)%im(jv)
+         im = itab_w(iw)%im(jm)
 
 ! Vertical loop over T levels; average vorticity from P points to T point.
 
          do k = kb,mza
-            vortp_t(k,iw) = vortp_t(k,iw) + itab_w(iw)%farm(jv) * vortp(k,im)
+            vortp_t(k,iw) = vortp_t(k,iw) + itab_w(iw)%farm(jm) * vortp(k,im)
          enddo
       enddo
 
