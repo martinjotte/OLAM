@@ -42,6 +42,7 @@ contains
     use tridiag,    only: tridv, acm_matrix
     use var_tables, only: num_scalar, scalar_tab, sxfer_map, num_sxfer, &
                           emis_map, num_emis
+    use oname_coms, only: nl
 
     implicit none
 
@@ -208,7 +209,14 @@ contains
     do n = 1, num_scalar
        do k = kbot, ktop
           ks = k - kbot + 1
-          rhs(ks,n) = scalar_tab(n)%var_p(k,iw)
+             
+          if (nl%split_scalars > 0) then
+             rhs(ks,n) = scalar_tab(n)%var_p(k,iw)  &
+                       + dtl * scalar_tab(n)%var_t(k,iw) / rho(k,iw)
+          else
+             rhs(ks,n) = scalar_tab(n)%var_p(k,iw)
+          endif
+
        enddo
     enddo
 
@@ -446,7 +454,7 @@ contains
 
           ! Stable PBL:
           phih(k) = betah + zovl
-          
+
        endif
 
        zfunc = zagl * (1.0 - zagl / pblh)**2
@@ -460,8 +468,6 @@ contains
 
     if (kpblh > kbot) then
 
-       deltar = 0.0
-    
        if (ql(kpblh) > 1.e-6 .or. ql(kpblh-1) > 1.e-6) then
        
           deltar = fthrd(kpblh-1) * dzt(kpblh-1) * tair(kpblh-1) / theta(kpblh-1) &
@@ -493,7 +499,7 @@ contains
 
 !! Louis's Richardson-number dependent eddy diffusivity
 !! Vertical loop over W levels
-      
+
     do k = kbot, ktop-1
 
        ss = ( (vx(k+1) - vx(k))**2 &
@@ -506,7 +512,7 @@ contains
 
        zagl = zm(k) - zm(kbot-1)
        zk   = 0.4 * zagl
-            
+
        if (ri >= 0.0) then
 
         ! if (zagl < pblh .and. wtv0 < 0.0) then
@@ -517,13 +523,13 @@ contains
              sql = ( zk * rlam / (rlam + zk) )**2
         ! endif
 
-             edyr(k) = kzo + sqrt(ss) * fh * sql
+             edyr(k) = sqrt(ss) * fh * sql
        !     pran(k) = pr0 / ( 1.0 - (1.0 - pr0) * min(ri,rc) / rc )
 
        else
 
           sql     = ( zk * rlam / (rlam + zk) )**2
-          edyr(k) = kzo + sqrt(ss * (1.0 - 18.0 * ri)) * sql
+          edyr(k) = sqrt(ss * (1.0 - 18.0 * ri)) * sql
        !  pran(k) = pr0 / ( 1.0 - (1.0 - pr0) * min(ri,rc) / rc )
 
        endif

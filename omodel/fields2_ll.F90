@@ -303,7 +303,7 @@ subroutine fields2_ll()
 
      init = 1
 
-     if (myrank == 0) write(io6,'(/,a)') "Initializing lat/lon overlaps..."
+     if (myrank == 0) write(io6,'(/,a)') "Initializing overlaps for lat/lon outputs..."
 
      ! Compute latitude and longitude of output grid points (assuming uniform spacing)
 
