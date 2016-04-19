@@ -785,7 +785,7 @@ subroutine plot_index(iplt)
      endif
 #endif
 
-     call o_sflush()
+     if (myrank == 0) call o_sflush()
   endif
 
   ! Plot WS point indices
@@ -886,7 +886,7 @@ subroutine plot_index(iplt)
      endif
 #endif
 
-     call o_sflush()
+     if (myrank == 0) call o_sflush()
 
   endif
 
