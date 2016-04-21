@@ -45,7 +45,7 @@ Contains
                    rlong_v, rlong_s, rlong_g, sxfer_t, sxfer_r,       &
                    snowfac, vf, surface_ssh, ground_shv,              &
                    veg_water, veg_temp, cantemp, canshv,              &
-                   transp, stom_resist, ggaero, snowmin_expl,         &
+                   transp, stom_resist, snowmin_expl,                 &
                    glatw, glonw, flag_vg                              ) 
 
  use leaf_coms, only: nzg, soil_rough, dt_leaf, dslz, dslzi, slzt, &
@@ -113,7 +113,6 @@ Contains
  real, intent(inout) :: stom_resist ! veg stomatal resistance [s/m]
 
  real, intent(out) :: transp       ! transpiration xfer this LEAF timestep [kg_vap/m^2]
- real, intent(in)  :: ggaero       ! canopy-atmosphere aerodynamic conductance [m/s]
  real, intent(in)  :: snowmin_expl ! min sfcwater mass for explicit heat xfer [kg/m^2]
  real, intent(in)  :: glatw        ! Latitude of land cell 'center' [deg]
  real, intent(in)  :: glonw        ! Longitude of land cell 'center' [deg]
@@ -284,9 +283,7 @@ Contains
     aux    = exp(exar * (1. - (zdisp + zoveg) / zveg))
     rasveg = factv * zveg / (exar * (zveg - zdisp)) * (exp(exar) - aux)
     wtveg  = max(0.,min(1., 1.1 * veg_tai / covr))
-
     rdi    = ustar / (5. * (1. - wtveg) + ustar * rasveg * wtveg)
-!   rdi    = ggaero / ((1. - wtveg) + ggaero * rasveg * wtveg)
    
 ! TAI and LAI reduced by ground snowcover (for low vegetation)
 
@@ -430,7 +427,6 @@ Contains
 ! Aerodynamic conductance for bare soil or snow based on Garratt.
 
     rdi = .2 * ustar
-!    rdi = ggaero
 
     wshed  = 0.
     qwshed = 0.

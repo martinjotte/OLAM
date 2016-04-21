@@ -188,7 +188,7 @@
    NL%ICORFLG   = 1       ! Coriolis flag/2D v-component: 0 = off, 1 = on
    
    NL%ISCAL_MONOT = 0     ! Monotonic advection for scalars (including moisture)
-                          ! 0 = off, 1 = on
+                          ! 0 = off, 1 = monotonic, 2 = positive-definite
 
    NL%SPLIT_SCALARS = 0   ! time split scalar physics from advection
                           ! 0 = off, 1 = on

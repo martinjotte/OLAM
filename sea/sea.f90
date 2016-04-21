@@ -34,19 +34,21 @@ subroutine seacells()
 
   use sea_coms,  only: mws, nzi, iupdsst, s1900_sst, isstfile, nsstfiles,  &
                        iupdseaice, s1900_seaice, iseaicefile, nseaicefiles
-
+  use mem_ijtabs,only: itabg_w
   use mem_sea,   only: sea, itab_ws
   use misc_coms, only: io6, time8, s1900_sim, isubdomain
   use mem_para,  only: myrank
-!$use omp_lib
+  use mem_basic, only: rho
 
   implicit none
 
 ! Local variables
 
   integer :: iws      ! sea cell loop counter
+  integer :: iw, kw
   real    :: timefac_sst   ! fraction of elapsed time from past to future SST obs
   real    :: timefac_seaice   ! fraction of elapsed time from past to future SEA ICE obs
+  real    :: rhos
 
 ! Time interpolation factors for updating SST and SEA ICE
 
@@ -65,8 +67,15 @@ subroutine seacells()
 
 ! Loop over ALL SEA CELLS
 
-!$omp parallel do
+  !$omp parallel do private(iw,kw,rhos)
   do iws = 2, mws
+
+     iw = itab_ws(iws)%iw  ! global index
+     if (isubdomain == 1) then
+        iw = itabg_w(iw)%iw_myrank
+     endif
+
+     kw = itab_ws(iws)%kw
 
 ! Update SEATC and seaice fraction
 
@@ -76,12 +85,13 @@ subroutine seacells()
      sea%seaicec(iws) = sea%seaicep(iws) + &
                         timefac_seaice * (sea%seaicef(iws) - sea%seaicep(iws))
 
+     rhos = rho(kw,iw)
+
 ! Update SEA fields
 
      call seacell(iws                 ,  &
-                  sea%rhos       (iws),  &
+                  rhos                ,  &
                   sea%sea_ustar  (iws),  &
-                  sea%sea_ggaer  (iws),  &
                   sea%sea_sxfer_t(iws),  &
                   sea%sea_sxfer_r(iws),  &
                   sea%can_depth  (iws),  &
@@ -113,6 +123,8 @@ subroutine seacells()
                       sea%ice_ustar          (iws), &
                       sea%sea_ggaer          (iws), &
                       sea%ice_ggaer          (iws), &
+                      sea%sea_wthv           (iws), &
+                      sea%ice_wthv           (iws), &
                       sea%ice_sxfer_t        (iws), &
                       sea%ice_sxfer_r        (iws)  )
 
@@ -125,9 +137,8 @@ subroutine seacells()
                     sea%nlev_seaice        (iws), &
                     sea%ice_net_rshort     (iws), &
                     sea%ice_net_rlong      (iws), &
-                    sea%rhos               (iws), &
+                    rhos                        , &
                     sea%ice_ustar          (iws), &
-                    sea%ice_ggaer          (iws), &
                     sea%can_depth          (iws), &
                     sea%ice_cantemp        (iws), &
                     sea%ice_canshv         (iws), &
@@ -158,26 +169,27 @@ subroutine seacells()
 ! Zero out SEA%SXFER_T(IWS) and SEA%SXFER_R(IWS) now that they have 
 ! been applied to the canopy
 
-   sea%sxfer_t(iws) = 0.
-   sea%sxfer_r(iws) = 0.
-   sea%sxfer_c(iws) = 0.
+     sea%sxfer_t(iws) = 0.
+     sea%sxfer_r(iws) = 0.
+   ! sea%sxfer_c(iws) = 0.
 
-   sea%sea_sxfer_t(iws) = 0.
-   sea%sea_sxfer_r(iws) = 0.
+     sea%sea_sxfer_t(iws) = 0.
+     sea%sea_sxfer_r(iws) = 0.
+   ! sea%sea_sxfer_c(iws) = 0.
 
-   sea%ice_sxfer_t(iws) = 0.
-   sea%ice_sxfer_r(iws) = 0.
-                   
-enddo
-!$omp end parallel do
+     sea%ice_sxfer_t(iws) = 0.
+     sea%ice_sxfer_r(iws) = 0.
+   ! sea%ice_sxfer_c(iws) = 0.
 
-return
+  enddo
+  !$omp end parallel do
+
 end subroutine seacells
 
 !===============================================================================
 
-subroutine seacell( iws, rhos, ustar, ggaer, sxfer_t, sxfer_r, can_depth, &
-                    seatc, cantemp, canshv, surface_ssh, rough           )
+subroutine seacell( iws, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
+                    seatc, cantemp, canshv, surface_ssh, rough     )
 
   use sea_coms,    only: dt_sea
   use consts_coms, only: cp, grav
@@ -188,7 +200,6 @@ subroutine seacell( iws, rhos, ustar, ggaer, sxfer_t, sxfer_r, can_depth, &
   integer, intent(in)    :: iws         ! current sea cell index
   real,    intent(in)    :: rhos        ! air density [kg/m^3]
   real,    intent(in)    :: ustar       ! friction velocity [m/s]
-  real,    intent(in)    :: ggaer       ! sfc. aerodynamic conductance [m/s]
   real,    intent(in)    :: sxfer_t     ! can_air to atm heat xfer this step [kg_air K/m^2]
   real,    intent(in)    :: sxfer_r     ! can_air to atm vapor xfer this step (kg_vap/m^2]
   real,    intent(in)    :: can_depth   ! "canopy" depth for heat and vap capacity [m]
@@ -219,12 +230,9 @@ subroutine seacell( iws, rhos, ustar, ggaer, sxfer_t, sxfer_r, can_depth, &
 
 ! Update temperature and vapor specific humidity of "canopy" from
 ! divergence of xfers with water surface and atmosphere.  rdi = ustar/5
-! is the viscous sublayer conductivity derived from Garratt (1992), or
-! we can use the bare surface aerodynamic conductance ggaer computed
-! from the surface layer similarity relationships
+! is the viscous sublayer conductivity derived from Garratt (1992)
 
   rdi = .2 * ustar
-! rdi = ggaer
 
   hxfergc = dt_sea * cp * rhos * rdi * (seatc - cantemp)
   wxfergc = dt_sea *      rhos * rdi * (surface_ssh - canshv)

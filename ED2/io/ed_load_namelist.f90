@@ -40,7 +40,7 @@ subroutine override_ed2_with_olam()
   use ename_coms, only: nl
   use misc_coms, only: iyear1, imonth1, idate1, itime1, simtime, timmax8, &
        expnme, runtype, dtlong, radfrq
-  use leaf_coms, only: nzg, nzs, isoilflg, nslcon, slz, slmstr, veg_database, &
+  use leaf_coms, only: nzg, nzs, isoilflg, nslcon, slz, veg_database, &
        soil_database, soilstate_db, soildepth_db, isoilstateinit, isoildepthflg
   implicit none
 
@@ -63,7 +63,7 @@ subroutine override_ed2_with_olam()
   mytime%date = idate1
   mytime%time = int(itime1*0.01)*3600.0 + (itime1-100*int(itime1*0.01))*60.
 
-  call update_model_time(mytime,real(timmax8))
+  call update_model_time(mytime,timmax8)
 
   nl%iyearz = mytime%year
   nl%imonthz = mytime%month
@@ -81,7 +81,7 @@ subroutine override_ed2_with_olam()
   nl%isoilflg = isoilflg
   nl%nslcon = nslcon
   nl%slz = slz
-  nl%slmstr = slmstr
+! nl%slmstr = slmstr
   nl%stgoff = 0.
 
   nl%veg_database = veg_database

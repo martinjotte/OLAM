@@ -28,7 +28,7 @@ subroutine acmcld_uvmix( iw, dtl )
 
 ! Local variables
 
-  integer :: k, kt, kb, nl, kc
+  integer :: k, kt, kb, nlev, kc
 
   real :: ai(mza,1), bi(mza), ci(mza), ei(mza)
   real :: di(mza,2), ui(mza,2)
@@ -64,7 +64,7 @@ subroutine acmcld_uvmix( iw, dtl )
 
   endif
 
-  nl = kt - kb + 1
+  nlev = kt - kb + 1
   dtheta = theta(kt,iw) - theta(kt-1,iw)
 
 ! Estimate overshoot/entrainment at top
@@ -145,7 +145,7 @@ subroutine acmcld_uvmix( iw, dtl )
   bi(1) = bi(1) + dtom(kb) * massflx_acm(kb)
   ci(2) = ci(2) + ai(2,1)
 
-  call acm_matrix( ai, bi, ci, di, ei, ui, nl, 2, 1 )
+  call acm_matrix( ai, bi, ci, di, ei, ui, nlev, 2, 1 )
 
 ! Now, soln contains future(t+1) values. Compute fluxes
   
@@ -219,6 +219,7 @@ subroutine acmcld_tracermix( iw, dtl )
   use mem_ijtabs,  only: itab_w
   use tridiag,     only: acm_matrix
   use var_tables,  only: num_cumix, cumix_map, scalar_tab
+  use oname_coms,  only: nl
 
   implicit none
 
@@ -229,7 +230,7 @@ subroutine acmcld_tracermix( iw, dtl )
 
 ! Local variables
 
-  integer :: k, kt, kb, nl, kc, ns, nc
+  integer :: k, kt, kb, nlev, kc, ns, nc
 
   real :: ai(mza,1), bi(mza), ci(mza), ei(mza)
   real :: di(mza,num_cumix), ui(mza,num_cumix)
@@ -266,7 +267,7 @@ subroutine acmcld_tracermix( iw, dtl )
 
   endif
 
-  nl = kt - kb + 1
+  nlev = kt - kb + 1
   dtheta = theta(kt,iw) - theta(kt-1,iw)
 
 ! Estimate overshoot/entrainment at top
@@ -313,10 +314,17 @@ subroutine acmcld_tracermix( iw, dtl )
 
   do nc = 1, num_cumix
      ns = cumix_map(nc)
-     do k = kb, kt
-        kc = k - kb + 1
-        di(kc,nc) = scalar_tab(ns)%var_p(k,iw)
-     enddo
+     if (nl%split_scalars > 0) then
+        do k = kb, kt
+           kc = k - kb + 1
+           di(kc,nc) = scalar_tab(ns)%var_p(k,iw) + dtl * scalar_tab(ns)%var_t(k,iw) / rho(k,iw)
+        enddo
+     else
+        do k = kb, kt
+           kc = k - kb + 1
+           di(kc,nc) = scalar_tab(ns)%var_p(k,iw)
+        enddo
+     endif
   enddo
 
   ! Loop over T levels
@@ -333,7 +341,7 @@ subroutine acmcld_tracermix( iw, dtl )
   bi(1) = bi(1) + dtom(kb) * massflx_acm(kb)
   ci(2) = ci(2) + ai(2,1)
 
-  call acm_matrix( ai, bi, ci, di, ei, ui, nl, num_cumix, 1 )
+  call acm_matrix( ai, bi, ci, di, ei, ui, nlev, num_cumix, 1 )
 
 ! Now, soln contains future(t+1) values. Compute fluxes
 

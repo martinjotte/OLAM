@@ -46,6 +46,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use obnd,         only: lbcopy_w
   use consts_coms,  only: r8
+  use pdtrans,      only: dtom, comp_and_apply_pd_lims
 
   implicit none
 
@@ -128,6 +129,12 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
      wsc  (mza,iw) = 0.0
      wmsca(mza,iw) = 0.0
+
+     if (nl%iscal_monot == 2) then
+        do k = kb, mza
+           dtom(k,iw) = dtlm(itab_w(iw)%mrlw) * volti(k,iw) / rho_old(k,iw)
+        enddo
+     endif
 
   enddo
   !$omp end do
@@ -229,6 +236,8 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
                          + dxps_w(k,iw) * gxps_scp(kd,iw) &
                          + dyps_w(k,iw) * gyps_scp(kd,iw) &
                          + dzps_w(k,iw) * gzps_scp(kd,iw)
+
+           if (nl%iscal_monot == 2) scp_upw(k,iw) = max(scp_upw(k,iw), 0.0)
         enddo
      enddo
      !$omp end parallel do
@@ -267,21 +276,22 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
                            + dyps_v(k,iv) * gyps_scp(k,iwd) &
                            + dzps_v(k,iv) * gzps_scp(k,iwd)
 
+           if (nl%iscal_monot == 2) scp_upv(k,iv) = max(scp_upv(k,iv), 0.0)
         enddo
      enddo
 
-! Compute bounds on the scalar values at each V interface 
-! for the Thuburn flux limiter
+! If using Thuburn monotonic flux limiter, compute scalar bounds at each
+! V interface, and then apply the flux limiters
 
      if (nl%iscal_monot == 1) then
         call comp_horiz_limits(mrl, scp, scp_upv, iwdepv, iwrecv)
+        call apply_flux_limiters(mrl, kdepw, iwdepv, scp_upw, scp_upv)
      endif
 
+! Compute the positive-definite flux limiters and then apply them
 
-! Limit the advective fluxes if using monotonic advection
-
-     if (nl%iscal_monot == 1) then
-        call apply_flux_limiters(mrl, kdepw, iwdepv, scp_upw, scp_upv)
+     if (nl%iscal_monot == 2) then
+        call comp_and_apply_pd_lims(scp, scp_upv, scp_upw, iwdepv, kdepw, vmsca, wmsca, mrl)
      endif
 
 ! Horizontal loop over W/T points

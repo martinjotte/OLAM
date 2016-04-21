@@ -36,7 +36,7 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
                         ice_albedo, ice_rlongup, rshort_i, rlong_i,   &
                         rshort, rlong, rough, sea_canshv, ice_canshv, &
                         sea_ustar, ice_ustar, sea_ggaer, ice_ggaer,   &
-                        sxfer_t, sxfer_r                              )
+                        sea_wthv, ice_wthv, sxfer_t, sxfer_r          )
 
   use consts_coms, only: cice, t00
   use sea_coms,    only: nzi, t00sea
@@ -63,6 +63,8 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
   real,    intent(out)   :: ice_ustar
   real,    intent(in)    :: sea_ggaer
   real,    intent(out)   :: ice_ggaer
+  real,    intent(in)    :: sea_wthv
+  real,    intent(out)   :: ice_wthv
   real,    intent(out)   :: sxfer_t
   real,    intent(out)   :: sxfer_r
   integer                :: k
@@ -85,6 +87,7 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
      rough            = 0.0
      ice_ustar        = 0.0
      ice_ggaer        = 0.0
+     ice_wthv         = 0.0
      sxfer_t          = 0.0
      sxfer_r          = 0.0
 
@@ -115,6 +118,7 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
      ice_canshv  = sea_canshv
      ice_ustar   = sea_ustar
      ice_ggaer   = sea_ggaer
+     ice_wthv    = sea_wthv
      sxfer_t     = 0.0
      sxfer_r     = 0.0
 
@@ -162,9 +166,9 @@ end subroutine prep_seaice
 
 
 
-subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,          &
-                   rshort_i, rlong_i, rhos, ustar, ggaer, can_depth,  &
-                   cantemp, canshv, surface_ssh, sxfer_t, sxfer_r   )
+subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,      &
+                   rshort_i, rlong_i, rhos, ustar, can_depth,     &
+                   cantemp, canshv, surface_ssh, sxfer_t, sxfer_r )
 
   use consts_coms, only: alvi, cice, t00, cp, alli
   use sea_coms,    only: dt_sea, t00sea, nzi
@@ -179,7 +183,6 @@ subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,          &
   real,    intent(in)    :: rlong_i     ! l/w net rad flux to seaice [W/m^2]
   real,    intent(in)    :: rhos        ! air density [kg/m^3]
   real,    intent(in)    :: ustar       ! friction velocity [m/s]
-  real,    intent(in)    :: ggaer       ! surface aerodynamic conductance [m/s]
   real,    intent(in)    :: can_depth   ! "canopy" depth for heat and vap capacity [m]
   real,    intent(inout) :: cantemp     ! ice "canopy" air temp [K]
   real,    intent(inout) :: canshv      ! ice "canopy" air vapor spec hum [kg_vap/kg_air]
@@ -224,12 +227,9 @@ subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,          &
 
 ! Update temperature and vapor specific humidity of "canopy" from
 ! divergence of xfers with water surface and atmosphere.  rdi = ustar/5
-! is the viscous sublayer conductivity derived from Garratt (1992), or
-! we can use the bare surface aerodynamic conductance ggaer computed
-! from the surface layer similarity relationships
+! is the viscous sublayer conductivity derived from Garratt (1992)
 
   rdi = .2 * ustar
-! rdi = ggaer
 
   hxferic = dt_sea * cp * rhos * rdi * (seaice_tempk(nlev_seaice) - cantemp)
   wxferic = dt_sea *      rhos * rdi * (surface_ssh - canshv)

@@ -155,16 +155,13 @@ iwl = cgrid%iwl(ipy)
 !===========
 ! OVERRIDE FOR OLAM-ED COUPLING
 !===========
-integration_buff%initp%ustar = dble(land%ustar(iwl))
-integration_buff%initp%qstar = dble(- land%sxfer_r(iwl) / (land%ustar(iwl) *   &
-      land%rhos(iwl) * land%area(iwl) * dtlsm))
-integration_buff%initp%tstar = dble(- land%sxfer_t(iwl) / (land%ustar(iwl) *   &
-      land%rhos(iwl) * land%area(iwl) * dtlsm))
-integration_buff%initp%estar = 0.d0 !dble(integration_buff%initp%tstar) ! not currently used.
-integration_buff%initp%cstar = dble(- land%sxfer_c(iwl) / (land%ustar(iwl) *   &
-      land%rhos(iwl) * land%area(iwl) * dtlsm))
-integration_buff%initp%zeta = dble(land%ed_zeta(iwl))
-integration_buff%initp%ribulk = dble(land%ed_rib(iwl))
+integration_buff%initp%ustar  = dble(land%ustar(iwl))
+integration_buff%initp%qstar  = dble(-land%sfluxr(iwl) / (land%ustar(iwl) * cmet%rhos))
+integration_buff%initp%tstar  = dble(-land%sfluxt(iwl) / (land%ustar(iwl) * cmet%rhos))
+integration_buff%initp%estar  = 0.d0 !dble(integration_buff%initp%tstar) ! not currently used.
+integration_buff%initp%cstar  = dble(-land%sfluxc(iwl) / (land%ustar(iwl) * cmet%rhos))
+integration_buff%initp%zeta   = dble(land%zeta (iwl))
+integration_buff%initp%ribulk = dble(land%rib  (iwl))
 integration_buff%initp%ggbare = dble(land%ggaer(iwl))
 !===========
 ! END OVERRIDE FOR OLAM-ED COUPLING

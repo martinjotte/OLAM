@@ -53,7 +53,7 @@ use oplot_coms,   only: op
 use obnd,         only: lbcopy_m, lbcopy_w
 use mem_rayf,     only: dorayfdiv, krayfdiv_bot
 use vel_t3d,      only: vel_t3d_hex
-use oname_coms, only: nl
+use oname_coms,   only: nl
 
 implicit none
 
@@ -277,12 +277,12 @@ if (rotational) then
 ! Loop over M neighbors of W
 
       do jm = 1,npoly
-         im = itab_w(iw)%im(jv)
+         im = itab_w(iw)%im(jm)
 
 ! Vertical loop over T levels; average vorticity from P points to T point.
 
          do k = kb,mza
-            vortp_t(k,iw) = vortp_t(k,iw) + itab_w(iw)%farm(jv) * vortp(k,im)
+            vortp_t(k,iw) = vortp_t(k,iw) + itab_w(iw)%farm(jm) * vortp(k,im)
          enddo
       enddo
 
@@ -1046,8 +1046,13 @@ do k = ka,mza
    delex_rho(k) = dts * (rhot(k,iw) &
       + volti(k,iw) * (hflux_rho(k) + wmarw(k-1) - wmarw(k)))
 
-   delex_rhothil(k) = dts * (thilt(k,iw) + thil(k,iw) * rhot(k,iw) &
-      + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
+   if (nl%iscal_monot == 1) then
+      delex_rhothil(k) = dts * (thil(k,iw) * rhot(k,iw) &
+           + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
+   else
+      delex_rhothil(k) = dts * (thilt(k,iw) + thil(k,iw) * rhot(k,iw) &
+           + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
+   endif
 
 ! VMXET, VMYET, VMZET are not yet multiplied by VOLTI
 

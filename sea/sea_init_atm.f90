@@ -35,11 +35,12 @@ subroutine sea_init_atm()
   use mem_sea,     only: sea, itab_ws
   use sea_coms,    only: mws, iupdsst, s1900_sst, isstfile, nsstfiles, dt_sea,  &
                          iupdseaice, s1900_seaice, iseaicefile, nseaicefiles, nzi
-  use mem_basic,   only: rho, press, vxe, vye, vze, tair, sh_v
+  use mem_basic,   only: rho, press, vxe, vye, vze, tair, sh_v, theta
   use misc_coms,   only: io6, time8, s1900_sim, iparallel, isubdomain, runtype
   use mem_ijtabs,  only: itabg_w
   use mem_para,    only: myrank
-  use consts_coms, only: t00
+  use consts_coms, only: t00, p00i, grav, rocp
+  use mem_grid,    only: dzt_bot
 
   implicit none
 
@@ -50,6 +51,7 @@ subroutine sea_init_atm()
   real :: timefac_sst
   real :: timefac_seaice
   real :: dum1, dum2
+  real :: prss
 
   real, external :: rhovsl, rhovsil
 
@@ -102,13 +104,13 @@ subroutine sea_init_atm()
 
 ! Transfer atmospheric properties to sea cells
 
-     sea%rhos   (iws) = rho (kw,iw)
-     sea%vels   (iws) = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
-     sea%prss   (iws) = press(kw,iw)
-     sea%airtemp(iws) = tair(kw,iw)
-     sea%airshv (iws) = sh_v(kw,iw)
-     sea%cantemp(iws) = tair(kw,iw)
+     prss             = press(kw,iw) + dzt_bot(kw) * rho(kw,iw) * grav
+!    sea%cantemp(iws) = tair(kw,iw)
+     sea%cantemp(iws) = theta(kw,iw) * (prss * p00i)**rocp
      sea%canshv (iws) = sh_v(kw,iw)
+     sea%ustar  (iws) = 0.1
+     sea%ggaer  (iws) = 0.0
+     sea%wthv   (iws) = 0.0
 
      sea%nlev_seaice(iws) = 0
 
@@ -117,7 +119,10 @@ subroutine sea_init_atm()
      sea%sea_rough  (iws) = .001
      sea%sea_cantemp(iws) = sea%cantemp(iws)
      sea%sea_canshv (iws) = sea%canshv(iws)
-     sea%sea_sfc_ssh(iws) = rhovsl(sea%seatc(iws)-t00) / sea%rhos(iws)
+     sea%sea_sfc_ssh(iws) = rhovsl(sea%seatc(iws)-t00) / rho(kw,iw)
+     sea%sea_ustar  (iws) = 0.1
+     sea%sea_ggaer  (iws) = 0.0
+     sea%sea_wthv   (iws) = 0.0
 
      ! Seaice quantities
    
@@ -141,13 +146,15 @@ subroutine sea_init_atm()
                       sea%ice_ustar          (iws), &
                       sea%sea_ggaer          (iws), &
                       sea%ice_ggaer          (iws), &
+                      sea%sea_wthv           (iws), &
+                      sea%ice_wthv           (iws), &
                       sea%ice_sxfer_t        (iws), &
-                      sea%ice_sxfer_r        (iws)  )
+                      sea%ice_sxfer_r        (iws)  )     
 
      if (sea%nlev_seaice(iws) > 0) then
 
         sea%ice_sfc_ssh(iws) = rhovsil(sea%seaice_tempk(sea%nlev_seaice(iws),iws)) &
-                             / sea%rhos(iws)
+                             / rho(kw,iw)
 
         sea%rough      (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_rough  (iws) + &
                                       sea%seaicec(iws)  * sea%ice_rough  (iws)

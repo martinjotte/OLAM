@@ -42,6 +42,7 @@ contains
     use tridiag,    only: tridv, acm_matrix
     use var_tables, only: num_scalar, scalar_tab, sxfer_map, num_sxfer, &
                           emis_map, num_emis
+    use oname_coms, only: nl
 
     implicit none
 
@@ -208,7 +209,14 @@ contains
     do n = 1, num_scalar
        do k = kbot, ktop
           ks = k - kbot + 1
+             
+          if (nl%split_scalars > 0) then
+             rhs(ks,n) = scalar_tab(n)%var_p(k,iw)  &
+                       + dtl * scalar_tab(n)%var_t(k,iw) / rho(k,iw)
+          else
           rhs(ks,n) = scalar_tab(n)%var_p(k,iw)
+          endif
+
        enddo
     enddo
 
@@ -457,8 +465,6 @@ contains
 
     if (kpblh > kbot) then
 
-       deltar = 0.0
-    
        if (ql(kpblh) > 1.e-6 .or. ql(kpblh-1) > 1.e-6) then
        
           deltar = fthrd(kpblh-1) * dzt(kpblh-1) * tair(kpblh-1) / theta(kpblh-1) &

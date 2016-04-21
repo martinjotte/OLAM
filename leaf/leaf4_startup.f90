@@ -35,7 +35,7 @@ subroutine leaf4_startup()
 
   use leaf_coms, only: nzg, nzs, landusefile, mml, mul, mwl, &
                        alloc_leafcol, isoildepthflg, ndviflg, iupdndvi
-  use mem_leaf,  only: alloc_leaf, filltab_ED, filltab_leaf, land
+  use mem_leaf,  only: alloc_leaf, filltab_leaf, land
   use misc_coms, only: io6, runtype
 
   implicit none

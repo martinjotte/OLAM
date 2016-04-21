@@ -58,6 +58,7 @@ contains
     use var_tables,  only: num_scalar, scalar_tab, sxfer_map, num_sxfer, &
                            emis_map, num_emis
     use tridiag,     only: tridv
+    use oname_coms,  only: nl
 
     implicit none
 
@@ -85,7 +86,7 @@ contains
     real :: vctr9a(mza),vctr9b(mza),vctr9c(mza)
 
     real :: rhs(mza,max(3,num_scalar)), soln(mza,max(3,num_scalar))
-    real :: del_scp(mza)
+    real :: del_scp(mza), varp(mza)
     real :: vctr2(mza,3)
 
     real :: gxps_vxe(mza), gxps_vye(mza), gxps_vze(mza)
@@ -348,11 +349,28 @@ contains
        vctr5(k) = -akodz(k) * dtomass(k)
        vctr7(k) = -akodz(k) * dtomass(k+1)
        vctr6(k) = 1. - vctr5(k) - vctr7(k)
+    enddo
+
+    if (nl%split_scalars > 0) then
 
        do n = 1, num_scalar
-          rhs(k,n) =  akodz(k) * (scalar_tab(n)%var_p(k,iw) - scalar_tab(n)%var_p(k+1,iw))
+          do k = ka, mza
+             varp(k) = scalar_tab(n)%var_p(k,iw) + dtl * scalar_tab(n)%var_t(k,iw) / rho(k,iw)
+          enddo
+          do k = ka, mza-1
+             rhs(k,n) = akodz(k) * (varp(k) - varp(k+1))
+          enddo
        enddo
-    enddo
+
+    else
+
+       do n = 1, num_scalar
+          do k = ka, mza-1
+             rhs(k,n) = akodz(k) * (scalar_tab(n)%var_p(k,iw) - scalar_tab(n)%var_p(k+1,iw))
+          enddo
+       enddo
+
+    endif
 
     ! APPLY SURFACE HEAT AND MOISTURE FLUXES DIRECTLY TO TENDENCY ARRAYS, AND
     ! INCLUDE THE CHANGES IN THE FUTURE FLUXES DUE TO SURFACE TRANSFER

@@ -1473,7 +1473,7 @@ subroutine ctrlvols_hex()
 ! Close all T cells that are below LPW
 
   nsw_max  = 1
-  nve2_max = 0
+  nve2_max = 1
 
 !----------------------------------------------------------------------
   do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)

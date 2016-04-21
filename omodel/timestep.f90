@@ -44,13 +44,13 @@ use mem_para,    only: myrank
 use mem_basic,   only: vmc, vc, vxe, vye, vze, vxe2, vye2, vze2, thil, rho, wmc, wc
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 use var_tables,  only: nvar_par, vtab_r, nptonv
-use obnd,        only: trsets, lbcopy_v, lbcopy_w
+use obnd,        only: trsets, lbcopy_v, lbcopy_w, botset, latsett
 use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
 use vel_t3d,     only: diagvel_t3d
-
+use var_tables,  only: num_scalar, scalar_tab
 use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
@@ -162,6 +162,17 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
 ! call check_nans(11)
 
+   mrl = mrl_ends(istp)
+   if (nl%split_scalars > 0 .and. mrl > 0) then
+      call split_thil(mrl)
+      call botset(thil)
+      if (iparallel == 1) then
+         call mpi_send_w(mrl, rvara1=thil)
+         call mpi_recv_w(mrl, rvara1=thil)
+      endif
+      call lbcopy_w(mrl, a1=thil)
+   endif
+
    call prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 
 ! call check_nans(12)
@@ -169,6 +180,10 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
    mrl = mrl_endl(istp)
    if (nl%split_scalars > 0 .and. mrl > 0) then
       call predtr_split(mrl,rho_old)
+      do n = 2, num_scalar
+         call latsett(scalar_tab(n)%var_p)
+         call botset (scalar_tab(n)%var_p)
+      enddo
       if (iparallel == 1) call mpi_send_w(mrl, scalars='S')
    endif
 
@@ -179,9 +194,6 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
    mrl = mrl_endl(istp)
    if (nl%split_scalars > 0 .and. mrl > 0) then
       if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')
-      do n = 1, nvar_par
-         call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
-      enddo
    endif
 
    if (mrl_endl(istp) > 0) then
@@ -246,7 +258,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
    mrl = mrl_endl(istp)
    if (do_chem == 1 .and. mrl > 0) call cmaq_driver(mrl)
 
-   call trsets()  
+   call trsets()
 
 ! call check_nans(18)
 
@@ -746,18 +758,18 @@ subroutine predtr_split(mrl,rho_old)
   integer              :: iw, j, n, k
   real                 :: dtl
 
-  ! Step scalars from  t  to  t+1 in a time-split sub step
+  ! Step scalars from  t  to  t+1 in a process-split sub step
 
   if (mrl > 0) then
 
-   ! Skip n=1 which is THIL and computed elsewhere
+     ! Skip n=1 which is THIL and computed elsewhere
 
-     !$omp parallel do private(iw,n,k,dtl)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-        dtl = dtlm(itab_w(iw)%mrlw)
+     !$omp parallel do collapse(2) private(n,j,iw,dtl,k)
+     do n = 2, num_scalar
+        do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+           dtl = dtlm(itab_w(iw)%mrlw)
 
-        do n = 2, num_scalar
-           do k = lpw(iw), mza-1
+           do k = lpw(iw), mza
               scalar_tab(n)%var_p(k,iw) = scalar_tab(n)%var_p(k,iw)  &
                                         + dtl * scalar_tab(n)%var_t(k,iw) / rho_old(k,iw)
               scalar_tab(n)%var_t(k,iw) = 0.0
@@ -771,3 +783,41 @@ subroutine predtr_split(mrl,rho_old)
   ! TODO: check if updated scalars are positive-definite??
 
 end subroutine predtr_split
+
+!==========================================================================
+
+subroutine split_thil(mrl)
+
+  use mem_ijtabs,  only: jtab_w, itab_w, jtw_prog
+  use mem_grid,    only: mza, mwa, lpw
+  use misc_coms,   only: io6, dtsm
+  use consts_coms, only: r8
+  use mem_basic,   only: thil, rho
+  use mem_tend,    only: thilt
+
+  implicit none
+
+  integer, intent(in) :: mrl
+  integer             :: iw, j, k
+  real                :: dts
+
+  ! Step thil from  t  to  t+1 in a process-split sub step
+
+  if (mrl > 0) then
+
+     !$omp parallel do private(iw,k,dts)
+     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+        dts = dtsm(itab_w(iw)%mrlw)
+
+        do k = lpw(iw), mza
+           thil (k,iw) = thil(k,iw) + dts * thilt(k,iw) / rho(k,iw)
+        enddo
+
+     enddo
+     !$omp end parallel do
+
+  endif
+
+end subroutine split_thil
+

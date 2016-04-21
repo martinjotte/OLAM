@@ -44,7 +44,7 @@ subroutine landcell(iwl, nlev_sfcwater, leaf_class, ntext_soil,             &
                     sxfer_t, sxfer_r, ustar, snowfac, vf,                   &
                     surface_ssh, ground_shv, veg_water, veg_temp,           &
                     cantemp, canshv, stom_resist, veg_ndvip, veg_ndvif,     &
-                    veg_ndvic, veg_albedo, rough, ggaero, head0, head1,     &
+                    veg_ndvic, veg_albedo, rough, head0, head1,             &
                     glatw, glonw, flag_vg, timefac_ndvi                     )
                               
 use leaf_coms,         only: nzg, nzs, soil_rough, snow_rough, slcpd, dt_leaf
@@ -111,7 +111,6 @@ real, intent(inout) :: head0        ! LBC total hydraulic head [m]
 real, intent(inout) :: head1        ! UBC total hydraulic head [m]
 real, intent(in   ) :: glatw        ! Latitude of land cell 'center' [deg]
 real, intent(in   ) :: glonw        ! Longitude of land cell 'center' [deg]
-real, intent(in   ) :: ggaero       ! canopy-atmosphere aerodynamic conductance [m/s]
 
 ! Local arrays
 
@@ -250,7 +249,7 @@ call canopy(iwl,                   nlsw1,                   &
             veg_water,             veg_temp,                &
             cantemp,               canshv,                  & 
             transp,                stom_resist,             &
-            ggaero,                snowmin_expl,            &
+            snowmin_expl,                                   &
             glatw,                 glonw,                   &
             flag_vg                                         )
 

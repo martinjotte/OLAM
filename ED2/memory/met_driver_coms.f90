@@ -149,6 +149,7 @@ module met_driver_coms
       real :: geoht
       real :: atm_co2
       real :: pptnorm
+      real :: rhos
    end type met_driv_state
    !---------------------------------------------------------------------------------------!
 

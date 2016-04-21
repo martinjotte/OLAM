@@ -487,18 +487,13 @@ C-------------------------------------------------------------------------------
          endif
          kw = itab_wl(iwl)%kw
 
-         ! If run is parallel, get local rank indices
-
          glat  = land%glatw(iwl)
          glon  = land%glonw(iwl)
+
          ustar = land%ustar(iwl)
          zf    = dzt(kw)
-
          ra    = 1.0 / land%ggaer(iwl)
-
-         wtv0  = land%sfluxt(iwl) * (1. + .61 * sh_v(kw,iw))
-     &         + land%sfluxr(iwl) * .61 * theta(kw,iw)
-
+         wtv0  = land%wthv(iwl)
          lai   = land%veg_lai(iwl)
          vegfr = land%veg_fracarea(iwl)
          wrcr  = land%veg_water(iwl) * 1000.0  ! kg/m^2 -> m
@@ -828,9 +823,7 @@ C-------------------------------------------------------------------------------
 
          sst   = sea%seatc(iws)
          tw    = sea%sea_cantemp(iws) ! water surface film temperature
-         
-         wtv0  = sea%sfluxt(iws) * (1. + .61 * sh_v(kw,iw))
-     &         + sea%sfluxr(iws) * .61 * theta(kw,iw)
+         wtv0  = sea%wthv(iws)
 
          if (wtv0 > 0.0) then
             wstar = (grav * pblh(iw) * wtv0 / theta(kw,iw)) ** 0.33333333

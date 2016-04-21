@@ -2225,26 +2225,47 @@ case(208) ! 'LS_ROUGH'
 case(209) ! 'LS_VELS'
 
    if (op%stagpt == 'S') then
-      fldval = sea%vels(i)
+      iw = itab_ws(i)%iw
+      kw = itab_ws(i)%kw
    elseif (op%stagpt == 'L') then
-      fldval = land%vels(i)
+      iw = itab_wl(i)%iw
+      kw = itab_wl(i)%kw
    endif
+
+   if (isubdomain == 1) then
+      iw = itabg_w(iw)%iw_myrank
+   endif
+   fldval = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
 
 case(210) ! 'LS_AIRTEMPK'
 
    if (op%stagpt == 'S') then
-      fldval = sea%airtemp(i)
+      iw = itab_ws(i)%iw
+      kw = itab_ws(i)%kw
    elseif (op%stagpt == 'L') then
-      fldval = land%airtemp(i)
+      iw = itab_wl(i)%iw
+      kw = itab_wl(i)%kw
    endif
+
+   if (isubdomain == 1) then
+      iw = itabg_w(iw)%iw_myrank
+   endif
+   fldval = tair(kw,iw)
 
 case(211) ! 'LS_AIRSHV'
 
    if (op%stagpt == 'S') then
-      fldval = sea%airshv(i) * 1.e3
+      iw = itab_ws(i)%iw
+      kw = itab_ws(i)%kw
    elseif (op%stagpt == 'L') then
-      fldval = land%airshv(i) * 1.e3
+      iw = itab_wl(i)%iw
+      kw = itab_wl(i)%kw
    endif
+
+   if (isubdomain == 1) then
+      iw = itabg_w(iw)%iw_myrank
+   endif
+   fldval = sh_v(kw,iw) * 1.e3
 
 case(212) ! 'LS_CANTEMPK'
 
@@ -2515,12 +2536,14 @@ case(261:269) ! 'ALS_VELS',       'ALS_AIRTEMPK', 'ALS_AIRSHV',
    do jland = 1,itab_w(i)%nland
       iland = itab_w(i)%iland(jland)
 
+      kw = itab_wl(iland)%kw
+
       if     (trim(fldname) == 'ALS_VELS'    ) then
-         fldval = fldval + land%vels   (iland) * land%area(iland)
+         fldval = fldval + sqrt(vxe(kw,i)**2+vye(kw,i)**2+vze(kw,i)**2) * land%area(iland)
       elseif (trim(fldname) == 'ALS_AIRTEMPK') then
-         fldval = fldval + land%airtemp(iland) * land%area(iland) 
+         fldval = fldval + tair(kw,i) * land%area(iland) 
       elseif (trim(fldname) == 'ALS_AIRSHV'  ) then
-         fldval = fldval + land%airshv (iland) * land%area(iland) * 1.e3
+         fldval = fldval + sh_v(kw,i) * land%area(iland) * 1.e3
       elseif (trim(fldname) == 'ALS_CANTEMPK') then
          fldval = fldval + land%cantemp(iland) * land%area(iland)
       elseif (trim(fldname) == 'ALS_CANSHV'  ) then
@@ -2556,12 +2579,14 @@ case(261:269) ! 'ALS_VELS',       'ALS_AIRTEMPK', 'ALS_AIRSHV',
    do jsea = 1,itab_w(i)%nsea
       isea = itab_w(i)%isea(jsea)
 
+      kw = itab_ws(isea)%kw
+
       if     (trim(fldname) == 'ALS_VELS   '  ) then
-         fldval = fldval + sea%vels   (isea) * sea%area(isea)
+         fldval = fldval + sqrt(vxe(kw,i)**2+vye(kw,i)**2+vze(kw,i)**2) * sea%area(isea)
       elseif (trim(fldname) == 'ALS_AIRTEMPK' ) then
-         fldval = fldval + sea%airtemp(isea) * sea%area(isea)
+         fldval = fldval + tair(kw,i) * sea%area(isea)
       elseif (trim(fldname) == 'ALS_AIRSHV'   ) then
-         fldval = fldval + sea%airshv (isea) * sea%area(isea) * 1.e3
+         fldval = fldval + sh_v(kw,i) * sea%area(isea) * 1.e3
       elseif (trim(fldname) == 'ALS_CANTEMPK' ) then
          fldval = fldval + sea%cantemp(isea) * sea%area(isea)
       elseif (trim(fldname) == 'ALS_CANSHV'   ) then

@@ -69,14 +69,6 @@ Module mem_leaf
 
       logical, allocatable :: flag_vg(:) ! If true, do van Genuchten, not Clapp & Hornberger
 
-! Atmospheric near-surface properties
-
-      real, allocatable :: rhos   (:) ! air density [kg_air/m^3]
-      real, allocatable :: vels   (:) ! wind speed [m/s]
-      real, allocatable :: prss   (:) ! air pressure [Pa]
-      real, allocatable :: airtemp(:) ! air temperature [K]
-      real, allocatable :: airshv (:) ! air specific humidity[kg_vap/kg_air]
-
 ! Canopy to atmosphere turbulent flux quantities
 
       real, allocatable :: ustar (:) ! friction velocity [m/s]
@@ -85,13 +77,14 @@ Module mem_leaf
       real, allocatable :: sfluxr(:)
       real, allocatable :: sfluxc(:)
 
-      real, allocatable :: sxfer_t   (:) ! canair-to-atm heat xfer this step [kg_air K/m^2]
-      real, allocatable :: sxfer_r   (:) ! canair-to-atm vapor xfer this step [kg_vap/m^2]
-      real, allocatable :: sxfer_c   (:) ! canair-to-atm CO2 xfer this step [ppm/m^2]
+      real, allocatable :: sxfer_t(:) ! canair-to-atm heat xfer this step [kg_air K/m^2]
+      real, allocatable :: sxfer_r(:) ! canair-to-atm vapor xfer this step [kg_vap/m^2]
+      real, allocatable :: sxfer_c(:) ! canair-to-atm CO2 xfer this step [ppm/m^2]
 
-      real, allocatable :: ggaer  (:) ! canopy-atmosphere aerodynamic conductance [m/s]
-      real, allocatable :: ed_zeta(:)
-      real, allocatable :: ed_rib (:)
+      real, allocatable :: ggaer(:) ! canopy-atmosphere aerodynamic conductance [m/s]
+      real, allocatable :: zeta (:) ! canopy z / M-O length [ ]
+      real, allocatable :: rib  (:) ! canopy bulk Richardson number [ ]
+      real, allocatable :: wthv (:) ! surface buoyancy flux [K m/s]
 
 ! Radiative flux quantities
 
@@ -157,15 +150,6 @@ Module mem_leaf
       integer, allocatable :: ed_flag (:) ! if ED is being run in this cell (0 or 1)
       integer, allocatable :: ed_ifm  (:) ! if ED is being run in this cell (0 or 1)
       integer, allocatable :: ed_ipy  (:) ! if ED is being run in this cell (0 or 1)
-      real, allocatable :: gpp        (:) ! Gross primary productivity (umol/m2/s)
-      real, allocatable :: rh         (:) ! Heterotrophic respiration (umol/m2/s)
-      real, allocatable :: nep        (:) ! Net ecosystem productivity (umol/m2/s)
-      real, allocatable :: agb        (:) ! Site above ground biomass (kgC/m2)
-      real, allocatable :: basal_area (:) ! Basal area (m2/ha)
-      real, allocatable :: agb_growth (:) ! Net plant growth rate [kgC/m2/y]
-      real, allocatable :: agb_mort   (:) ! Net plant mortality rate [kgC/m2/y]
-      real, allocatable :: agb_cut    (:) ! Net plant cut rate [kgC/m2/y]
-      real, allocatable :: agb_recruit(:) ! Net plant recruitment rate [kgC/m2/y]
 
    End Type land_vars
 
@@ -218,12 +202,6 @@ Contains
 
 !    Allocate and initialize land arrays
 
-     allocate (land%rhos               (mwl)) ; land%rhos            = rinit
-     allocate (land%vels               (mwl)) ; land%vels            = rinit
-     allocate (land%prss               (mwl)) ; land%prss            = rinit
-     allocate (land%airtemp            (mwl)) ; land%airtemp         = rinit
-     allocate (land%airshv             (mwl)) ; land%airshv          = rinit
-
      allocate (land%ustar              (mwl)) ; land%ustar           = rinit
      allocate (land%vkmsfc             (mwl)) ; land%vkmsfc          = rinit
      allocate (land%sfluxt             (mwl)) ; land%sfluxt          = rinit
@@ -235,8 +213,9 @@ Contains
      allocate (land%sxfer_c            (mwl)) ; land%sxfer_c         = 0.0
 
      allocate (land%ggaer              (mwl)) ; land%ggaer           = 0.0
-     allocate (land%ed_zeta            (mwl)) ; land%ed_zeta         = 0.0
-     allocate (land%ed_rib             (mwl)) ; land%ed_rib          = 0.0
+     allocate (land%zeta               (mwl)) ; land%zeta            = 0.0
+     allocate (land%rib                (mwl)) ; land%rib             = 0.0
+     allocate (land%wthv               (mwl)) ; land%wthv            = 0.0
 
      allocate (land%albedo_beam        (mwl)) ; land%albedo_beam     = rinit
      allocate (land%albedo_diffuse     (mwl)) ; land%albedo_diffuse  = rinit
@@ -293,15 +272,6 @@ Contains
      allocate (land%ed_flag            (mwl)) ; land%ed_flag         = 0
      allocate (land%ed_ifm             (mwl)) ; land%ed_ifm          = 0
      allocate (land%ed_ipy             (mwl)) ; land%ed_ipy          = 0
-     allocate (land%gpp                (mwl)) ; land%gpp             = rinit
-     allocate (land%rh                 (mwl)) ; land%rh              = rinit
-     allocate (land%nep                (mwl)) ; land%nep             = rinit
-     allocate (land%agb                (mwl)) ; land%agb             = rinit
-     allocate (land%basal_area         (mwl)) ; land%basal_area      = rinit
-     allocate (land%agb_growth         (mwl)) ; land%agb_growth      = rinit
-     allocate (land%agb_mort           (mwl)) ; land%agb_mort        = rinit
-     allocate (land%agb_cut            (mwl)) ; land%agb_cut         = rinit
-     allocate (land%agb_recruit        (mwl)) ; land%agb_recruit     = rinit
 
    end subroutine alloc_leaf
 
@@ -311,16 +281,6 @@ Contains
 
      use var_tables, only: increment_vtable
      implicit none
-
-     if (allocated(land%rhos)) call increment_vtable('LAND%RHOS', 'LW', rvar1=land%rhos)
-
-     if (allocated(land%vels)) call increment_vtable('LAND%VELS', 'LW', rvar1=land%vels)
-
-     if (allocated(land%prss)) call increment_vtable('LAND%PRSS', 'LW', rvar1=land%prss)
-
-     if (allocated(land%airtemp)) call increment_vtable('LAND%AIRTEMP', 'LW', rvar1=land%airtemp)
-
-     if (allocated(land%airshv)) call increment_vtable('LAND%AIRSHV', 'LW', rvar1=land%airshv)
 
      if (allocated(land%ustar)) call increment_vtable('LAND%USTAR', 'LW', rvar1=land%ustar)
 
@@ -338,11 +298,11 @@ Contains
 
      if (allocated(land%sxfer_c)) call increment_vtable('LAND%SXFER_C', 'LW', rvar1=land%sxfer_c)
 
-     if (allocated(land%ggaer)) call increment_vtable('LAND%ED_GGAER', 'LW', rvar1=land%ggaer)
+     if (allocated(land%ggaer)) call increment_vtable('LAND%GGAER', 'LW', rvar1=land%ggaer)
 
-     if (allocated(land%ed_zeta)) call increment_vtable('LAND%ED_ZETA', 'LW', rvar1=land%ed_zeta)
+     if (allocated(land%zeta)) call increment_vtable('LAND%ZETA', 'LW', rvar1=land%zeta)
 
-     if (allocated(land%ed_rib)) call increment_vtable('LAND%ED_RIB', 'LW', rvar1=land%ed_rib)
+     if (allocated(land%rib)) call increment_vtable('LAND%RIB', 'LW', rvar1=land%rib)
 
      if (allocated(land%albedo_beam)) call increment_vtable('LAND%ALBEDO_BEAM', 'LW', rvar1=land%albedo_beam)
 
@@ -433,30 +393,5 @@ Contains
      if (allocated(land%vf)) call increment_vtable('LAND%VF', 'LW', rvar1=land%vf)
 
    end subroutine filltab_leaf
-
-!=========================================================================
-
-   subroutine filltab_ED()
-     use var_tables, only: increment_EDtab, num_ED, vtab_ED
-     implicit none
-
-     if (allocated(land%gpp)) call increment_EDtab('LAND%GPP', hist=.true., mavg=.true., yavg=.true., rvar1=land%gpp)
-
-     if (allocated(land%rh)) call increment_EDtab('LAND%RH', hist=.true., mavg=.true., yavg=.true., rvar1=land%rh)
-
-     if (allocated(land%nep)) call increment_EDtab('LAND%NEP', hist=.true., mavg=.true., yavg=.true., rvar1=land%nep)
-
-     if (allocated(land%agb)) call increment_EDtab('LAND%AGB', yavg=.true., rvar1=land%agb)
-
-     if (allocated(land%basal_area)) call increment_EDtab('LAND%BASAL_AREA', yavg=.true., rvar1=land%basal_area)
-
-     if (allocated(land%agb_growth)) call increment_EDtab('LAND%AGB_GROWTH', yavg=.true., rvar1=land%agb_growth)
-
-     if (allocated(land%agb_mort)) call increment_EDtab('LAND%AGB_MORT', yavg=.true., rvar1=land%agb_mort)
-
-     if (allocated(land%agb_cut)) call increment_EDtab('LAND%AGB_CUT', yavg=.true., rvar1=land%agb_cut)
-
-     if (allocated(land%agb_recruit)) call increment_EDtab('LAND%AGB_RECRUIT', yavg=.true., rvar1=land%agb_recruit)
-   end subroutine filltab_ED
 
 End Module mem_leaf
