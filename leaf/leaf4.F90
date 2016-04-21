@@ -33,20 +33,22 @@
 
 subroutine leaf4()
 
-use leaf_coms, only: nzg, nzs, mwl, iupdndvi, s1900_ndvi, indvifile, nndvifiles
-
-use mem_leaf,  only: land, itab_wl
-use misc_coms, only: io6, s1900_sim, isubdomain
-
-use leaf4_landcell,    only: landcell
-use mem_para,          only: myrank
+use leaf_coms,      only: nzg, nzs, mwl, iupdndvi, s1900_ndvi,  &
+                          indvifile, nndvifiles
+use mem_ijtabs,     only: itabg_w
+use mem_leaf,       only: land, itab_wl
+use misc_coms,      only: io6, s1900_sim, isubdomain
+use leaf4_landcell, only: landcell
+use mem_para,       only: myrank
+use mem_basic,      only: rho, press, vxe, vye, vze
 
 implicit none
 
 ! Local variables
 
-integer :: iwl
-real :: timefac_ndvi  ! fraction of elapsed time from past to future NDVI obs
+integer :: iwl, iw, kw
+real    :: timefac_ndvi  ! fraction of elapsed time from past to future NDVI obs
+real    :: rhos, prss, vels
 
 ! Time interpolation factor for updating NDVI
 
@@ -59,12 +61,23 @@ endif
 
 ! Loop over ALL LAND CELLS
 
-!$omp parallel do
+!$omp parallel do private(iw,kw,rhos,prss,vels)
 do iwl = 2,mwl
+   iw = itab_wl(iwl)%iw         ! global index
+   kw = itab_wl(iwl)%kw
+
+   ! If run is parallel, get local rank indices
+   if (isubdomain == 1) then
+      iw = itabg_w(iw)%iw_myrank
+   endif
 
    if (land%ed_flag(iwl) == 0) then 
 
 ! Update LAND CELL
+
+   rhos = rho(kw,iw)
+   prss = press(kw,iw)
+   vels = sqrt(vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2)
 
    call landcell(iwl                 ,                                 &
       land%nlev_sfcwater        (iwl), land%leaf_class          (iwl), &
@@ -78,8 +91,8 @@ do iwl = 2,mwl
       land%veg_rough            (iwl), land%veg_tai             (iwl), &
       land%veg_lai              (iwl), land%veg_fracarea        (iwl), &
       land%hcapveg              (iwl), land%can_depth           (iwl), &
-      land%rhos                 (iwl), land%vels                (iwl), &
-      land%prss                 (iwl), land%pcpg                (iwl), &
+      rhos                           , vels                          , &
+      prss                           , land%pcpg                (iwl), &
       land%qpcpg                (iwl), land%dpcpg               (iwl), &
       land%sxfer_t              (iwl), land%sxfer_r             (iwl), &
       land%ustar                (iwl), land%snowfac             (iwl), &
@@ -89,7 +102,7 @@ do iwl = 2,mwl
       land%canshv               (iwl), land%stom_resist         (iwl), &
       land%veg_ndvip            (iwl), land%veg_ndvif           (iwl), &
       land%veg_ndvic            (iwl), land%veg_albedo          (iwl), &
-      land%rough                (iwl), land%ggaer               (iwl), &
+      land%rough                (iwl),                                 &
       land%head0                (iwl), land%head1               (iwl), &
       land%glatw                (iwl), land%glonw               (iwl), &
       land%flag_vg              (iwl), timefac_ndvi                    )

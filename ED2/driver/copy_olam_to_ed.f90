@@ -1,15 +1,18 @@
 subroutine olam2ed_state_init(cgrid)
 
-  use ed_state_vars, only: edtype, polygontype
+  use ed_state_vars,  only: edtype, polygontype
   use ed_consts_coms, only: cp, p00i, rocp, rdry, p00
-  use mem_leaf, only: land
-  use sp_therm_lib, only: thetaeiv
+  use mem_leaf,       only: land, itab_wl
+  use sp_therm_lib,   only: thetaeiv
+  use misc_coms,      only: isubdomain
+  use mem_basic,      only: rho
+  use mem_ijtabs,     only: itabg_w
 
   implicit none
 
   type(edtype), target :: cgrid
   type(polygontype), pointer :: cpoly
-  integer :: ipy, iwl, isi
+  integer :: ipy, iwl, isi, iw, kw
   real :: rvaux
   real, parameter :: initial_co2=370.0
 !  integer, save :: first_call=1
@@ -17,6 +20,14 @@ subroutine olam2ed_state_init(cgrid)
 
   do ipy = 1, cgrid%npolygons
      iwl = cgrid%iwl(ipy)
+
+     iw = itab_wl(iwl)%iw         ! global index
+     kw = itab_wl(iwl)%kw
+
+     ! If run is parallel, get local rank indices
+     if (isubdomain == 1) then
+        iw = itabg_w(iw)%iw_myrank
+     endif
 
 !     if(first_call == 1)then
 !        first_call = 0
@@ -26,13 +37,14 @@ subroutine olam2ed_state_init(cgrid)
 !        enddo
 !     endif
      
-     cgrid%met(ipy)%prss = land%rhos(iwl) * rdry * land%can_temp(iwl) *   &
-          (1.0 + 0.61 * land%can_shv(iwl))
+     cgrid%met(ipy)%prss = rho(kw,iw) * rdry * land%cantemp(iwl) *   &
+          (1.0 + 0.61 * land%canshv(iwl))
      cgrid%met(ipy)%exner = cp * (p00i * cgrid%met(ipy)%prss)**rocp
-     cgrid%met(ipy)%atm_shv = land%can_shv(iwl)
-     cgrid%met(ipy)%atm_theta = land%can_temp(iwl) * (p00/cgrid%met(ipy)%prss)**rocp
+     cgrid%met(ipy)%atm_shv = land%canshv(iwl)
+     cgrid%met(ipy)%atm_theta = land%cantemp(iwl) * (p00/cgrid%met(ipy)%prss)**rocp
      cgrid%met(ipy)%atm_co2 = initial_co2
-     cgrid%met(ipy)%atm_tmp = land%can_temp(iwl)
+     cgrid%met(ipy)%atm_tmp = land%cantemp(iwl)
+     cgrid%met(ipy)%rhos = rho(kw,iw)
 
      !------------------------------------------------------------------------------------!     
      !    We now find the equivalent potential temperature.                               !     
@@ -75,16 +87,19 @@ end subroutine olam2ed_state_init
 !==========================================================================================
 subroutine olam2ed_state(cgrid)
 
-  use ed_state_vars, only: edtype, polygontype
+  use ed_state_vars,  only: edtype, polygontype
   use ed_consts_coms, only: cp, p00i, rocp!, rdry, p00
-  use mem_leaf, only: land
-!  use sp_therm_lib, only: thetaeiv
+  use mem_leaf,       only: land, itab_wl
+  use misc_coms,      only: isubdomain
+  use mem_basic,      only: press, rho, vxe, vye, vze
+  use mem_ijtabs,     only: itabg_w
+! use sp_therm_lib,   only: thetaeiv
 
   implicit none
 
   type(edtype), target :: cgrid
   type(polygontype), pointer :: cpoly
-  integer :: ipy, iwl, isi
+  integer :: ipy, iwl, isi, iw, kw
 
 !  real :: rvaux
 
@@ -92,14 +107,23 @@ subroutine olam2ed_state(cgrid)
   do ipy = 1, cgrid%npolygons
      iwl = cgrid%iwl(ipy)
 
-     cgrid%met(ipy)%prss = land%prss(iwl)
-     cgrid%met(ipy)%exner = cp * (p00i * cgrid%met(ipy)%prss)**rocp
-     cgrid%met(ipy)%vels = land%vels(iwl)
+     iw = itab_wl(iwl)%iw         ! global index
+     kw = itab_wl(iwl)%kw
 
-!     cgrid%met(ipy)%atm_shv = land%can_shv(iwl)
-!     cgrid%met(ipy)%atm_theta = land%can_temp(iwl) * (p00/cgrid%met(ipy)%prss)**rocp
+     ! If run is parallel, get local rank indices
+     if (isubdomain == 1) then
+        iw = itabg_w(iw)%iw_myrank
+     endif
+
+     cgrid%met(ipy)%prss = press(kw,iw)
+     cgrid%met(ipy)%exner = cp * (p00i * cgrid%met(ipy)%prss)**rocp
+     cgrid%met(ipy)%vels = sqrt(vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2)
+     cgrid%met(ipy)%rhos = rho(kw,iw)
+
+!     cgrid%met(ipy)%atm_shv = land%canshv(iwl)
+!     cgrid%met(ipy)%atm_theta = land%cantemp(iwl) * (p00/cgrid%met(ipy)%prss)**rocp
 !     cgrid%met(ipy)%atm_co2 = initial_co2
-!     cgrid%met(ipy)%atm_tmp = land%can_temp(iwl)
+!     cgrid%met(ipy)%atm_tmp = land%cantemp(iwl)
 
      !------------------------------------------------------------------------------------!     
      !    We now find the equivalent potential temperature.                               !     

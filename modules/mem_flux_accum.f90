@@ -253,7 +253,7 @@ subroutine flux_accum()
   use mem_ijtabs,  only: istp, itab_v, itab_w, itabg_w, jtab_v, jtab_w, &
                          jtv_prog, jtw_prog, mrl_begl, mrl_begs, mrl_endl
 
-  use mem_basic,   only: vc, wc, press, tair, sh_v
+  use mem_basic,   only: vc, wc, press, tair, sh_v, vxe, vye, vze
 
   use mem_radiate, only: albedt, rshort, rlong, rlongup, &
                          rshort_top, rshortup_top, rlongup_top, &
@@ -276,9 +276,9 @@ subroutine flux_accum()
 
   implicit none
 
-  integer :: mrl, j, iv, iw, iwl, iws, k, nls
+  integer :: mrl, j, iv, iw, iwl, iws, k, nls, kw
 
-  real :: tempk, fracliq, fldval
+  real :: tempk, fracliq, fldval, wind
 
   real(r8) :: dta
 
@@ -288,7 +288,7 @@ subroutine flux_accum()
   mrl = mrl_begs(istp)
   if (mrl > 0) then
 
-!$omp parallel do private(iv,dta,k)
+     !$omp parallel do private(iv,dta,k)
      do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 !----------------------------------------------------------------------
 
@@ -303,7 +303,7 @@ subroutine flux_accum()
         enddo
 
      enddo
-!$omp end parallel do
+     !$omp end parallel do
 
   endif
 
@@ -311,7 +311,7 @@ subroutine flux_accum()
   mrl = mrl_begs(istp)
   if (mrl > 0) then
 
-!$omp parallel do private(iw,dta,k)
+     !$omp parallel do private(iw,dta,k)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -327,7 +327,7 @@ subroutine flux_accum()
         enddo
 
      enddo
-!$omp end parallel do
+     !$omp end parallel do
 
   endif
 
@@ -337,7 +337,7 @@ subroutine flux_accum()
   mrl = mrl_endl(istp)
   if (mrl > 0) then
 
-!$omp parallel do private(iw,dta,k)
+     !$omp parallel do private(iw,dta,k)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -353,7 +353,7 @@ subroutine flux_accum()
         enddo
 
      enddo
-!$omp end parallel do
+     !$omp end parallel do
 
   endif
 
@@ -365,7 +365,7 @@ subroutine flux_accum()
 
      if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
 
-!$omp parallel do private(iw,dta)
+     !$omp parallel do private(iw,dta)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -378,7 +378,7 @@ subroutine flux_accum()
         sfluxt_accum(iw) = sfluxt_accum(iw) + dta * real(sfluxt(iw),r8)
         sfluxr_accum(iw) = sfluxr_accum(iw) + dta * real(sfluxr(iw),r8)
      enddo
-!$omp end parallel do
+     !$omp end parallel do
 
   endif
 
@@ -387,7 +387,8 @@ subroutine flux_accum()
 !----------------------------------------------------------------------
   mrl = mrl_begl(istp)
   if (mrl > 0 .and. ilwrtyp + iswrtyp > 0) then
-!$omp parallel do private(iw,dta)
+
+     !$omp parallel do private(iw,dta)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -420,7 +421,7 @@ subroutine flux_accum()
         endif
 
      enddo
-!$omp end parallel do
+     !$omp end parallel do
   endif
 
 ! Update accumulations of LAND cells
@@ -431,9 +432,10 @@ subroutine flux_accum()
 
      if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
 
-!$omp parallel do private(iw,dta,nls,tempk,fracliq,fldval)
+     !$omp parallel do private(iw,kw,dta,wind,nls,tempk,fracliq,fldval)
      do iwl = 2,mwl
         iw = itab_wl(iwl)%iw         ! global index
+        kw = itab_wl(iwl)%kw
 
 ! If run is parallel, get local rank indices
 
@@ -445,11 +447,13 @@ subroutine flux_accum()
 ! the frequency that each IW cell is processed in this loop should be 
 ! consistent with (inversely proportional to) that DTA.
 
-        dta = dtlm(itab_w(iw)%mrlw)
+        dta  = dtlm(itab_w(iw)%mrlw)
+        wind = sqrt(vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2)
 
-           vels_l_accum(iwl) =    vels_l_accum(iwl) + dta * real(land%vels   (iwl),r8)
-        airtemp_l_accum(iwl) = airtemp_l_accum(iwl) + dta * real(land%airtemp(iwl),r8)
-         airshv_l_accum(iwl) =  airshv_l_accum(iwl) + dta * real(land%airshv (iwl),r8)
+           vels_l_accum(iwl) =    vels_l_accum(iwl) + dta * real(wind,r8)
+        airtemp_l_accum(iwl) = airtemp_l_accum(iwl) + dta * real(tair(kw,iw),r8)
+         airshv_l_accum(iwl) =  airshv_l_accum(iwl) + dta * real(sh_v(kw,iw),r8)
+
         cantemp_l_accum(iwl) = cantemp_l_accum(iwl) + dta * real(land%cantemp(iwl),r8)
          canshv_l_accum(iwl) =  canshv_l_accum(iwl) + dta * real(land%canshv (iwl),r8)
          sfluxt_l_accum(iwl) =  sfluxt_l_accum(iwl) + dta * real(land%sfluxt (iwl),r8)
@@ -472,6 +476,8 @@ subroutine flux_accum()
         skintemp_l_accum(iwl) = skintemp_l_accum(iwl) + dta * real(fldval,r8)
 
      enddo
+     !$omp end parallel do 
+
   endif
 
 ! Update accumulations of SEA cells
@@ -482,9 +488,10 @@ subroutine flux_accum()
 
      if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
 
-!$omp parallel do private(iw,dta,nls,fldval)
+     !$omp parallel do private(iw,kw,dta,wind,nls,fldval)
      do iws = 2,mws
         iw = itab_ws(iws)%iw         ! global index
+        kw = itab_ws(iws)%kw
 
 ! If run is parallel, get local rank indices
 
@@ -496,18 +503,20 @@ subroutine flux_accum()
 ! the frequency that each IW cell is processed in this loop should be 
 ! consistent with (inversely proportional to) that DTA.
 
-        dta = dtlm(itab_w(iw)%mrlw)
+        dta  = dtlm(itab_w(iw)%mrlw)
+        wind = vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2
 
-           vels_s_accum(iws) =    vels_s_accum(iws) + dta * real(sea%vels   (iws),r8)
-        airtemp_s_accum(iws) = airtemp_s_accum(iws) + dta * real(sea%airtemp(iws),r8)
-         airshv_s_accum(iws) =  airshv_s_accum(iws) + dta * real(sea%airshv (iws),r8)
+           vels_s_accum(iws) =    vels_s_accum(iws) + dta * real(wind,r8)
+        airtemp_s_accum(iws) = airtemp_s_accum(iws) + dta * real(tair(kw,iw),r8)
+         airshv_s_accum(iws) =  airshv_s_accum(iws) + dta * real(sh_v(kw,iw),r8)
+
         cantemp_s_accum(iws) = cantemp_s_accum(iws) + dta * real(sea%cantemp(iws),r8)
          canshv_s_accum(iws) =  canshv_s_accum(iws) + dta * real(sea%canshv (iws),r8)
          sfluxt_s_accum(iws) =  sfluxt_s_accum(iws) + dta * real(sea%sfluxt (iws),r8)
          sfluxr_s_accum(iws) =  sfluxr_s_accum(iws) + dta * real(sea%sfluxr (iws),r8)
 
         nls = sea%nlev_seaice(iws)
-      
+
         if (nls > 0) then
            fldval = (1.0 - sea%seaicec(iws)) * sea%seatc(iws) &
                   +        sea%seaicec(iws)  * sea%seaice_tempk(nls,iws)
@@ -517,6 +526,8 @@ subroutine flux_accum()
 
         skintemp_s_accum(iws) =  skintemp_s_accum(iws) + dta * real(fldval,r8)
      enddo
+     !$omp end parallel do 
+
   endif
 
 end subroutine flux_accum

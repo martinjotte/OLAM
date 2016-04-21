@@ -50,7 +50,7 @@ subroutine inc_mavg_vars()
   use mem_basic,   only: wc, sh_v, sh_w, tair, press, rho, vxe, vye, vze
   use consts_coms, only: alvl, cp
   use mem_turb,    only: sfluxr, sfluxt
-  use misc_coms,   only: io6, dtlong, time8
+  use misc_coms,   only: io6, dtlong, time8, isubdomain
   use mem_cuparm,  only: conprr
   use mem_micro,   only: pcpgr
   use mem_radiate, only: rshort, rshort_top, rshortup_top, rlong, rlongup, &
@@ -59,7 +59,7 @@ subroutine inc_mavg_vars()
 
   implicit none
 
-  integer :: iw, k, dhr, kll, j
+  integer :: iw, k, dhr, kll, j, kw
   real(kind=8) :: dsec
   real :: windspeed
   integer, dimension(nz_avg-1) :: level_list = (/ 8, 13, 18, 26, 30, 34 /)
@@ -73,6 +73,7 @@ subroutine inc_mavg_vars()
 
 ! Horizontal loop over all prognostic W/T points
 
+  !$omp parallel do private(iw,k,kll,windspeed)
   do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
 ! Loop over k levels from level_list table
@@ -141,8 +142,8 @@ subroutine inc_mavg_vars()
      endif
 
   enddo
+  !$omp end parallel do
 
-  return
 end subroutine inc_mavg_vars
 
 !========================================================================
@@ -181,15 +182,18 @@ subroutine inc_davg_vars()
   use mem_para,  only: myrank
 
   implicit none
-  
+
   integer :: j, iw, k, iwl, iws, kw
   real :: airtempk, cantempk, vegtempk, soiltempk, fracliq
   integer, dimension(nz_avg-1) :: level_list = (/ 8, 13, 18, 26, 30, 34 /)
 
   npoints_davg = npoints_davg + 1
 
+  !$omp parallel
+
 ! Horizontal loop over all prognostic W/T points
 
+  !$omp do private (iw,k)
   do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
 ! Accumulate of sums for 2D surface quantities
@@ -217,12 +221,21 @@ subroutine inc_davg_vars()
        vze_ul_davg(iw) =   vze_ul_davg(iw) + vze(level_list(5),iw)
 
   enddo
+  !$omp end do
 
 ! Horizontal loop over all land cells
 
+  !$omp do private(iw,kw,airtempk,cantempk,vegtempk,soiltempk,fracliq)
   do iwl = 2, mwl
+     iw = itab_wl(iwl)%iw         ! global index
+     kw = itab_wl(iwl)%kw
 
-     airtempk = land%airtemp (iwl)
+     ! If run is parallel, get local rank indices
+     if (isubdomain == 1) then
+        iw = itabg_w(iw)%iw_myrank
+     endif
+
+     airtempk = tair(kw,iw)
      cantempk = land%cantemp(iwl)
      vegtempk = land%veg_temp(iwl)
 
@@ -250,12 +263,21 @@ subroutine inc_davg_vars()
      if (soiltempk_dmin(iwl) > soiltempk) soiltempk_dmin(iwl) = soiltempk
      if (soiltempk_dmax(iwl) < soiltempk) soiltempk_dmax(iwl) = soiltempk
   enddo
+  !$omp end do nowait
 
 ! Horizontal loop over all sea cells
 
+  !$omp do private(iw,kw,airtempk,cantempk)
   do iws = 2, mws
+     iw = itab_ws(iws)%iw         ! global index
+     kw = itab_ws(iws)%kw
 
-     airtempk = sea%airtemp (iws)
+     ! If run is parallel, get local rank indices
+     if (isubdomain == 1) then
+        iw = itabg_w(iw)%iw_myrank
+     endif
+
+     airtempk = tair(kw,iw)
      cantempk = sea%cantemp(iws)
 
      airtempk_s_davg(iws) = airtempk_s_davg(iws) + airtempk
@@ -269,8 +291,9 @@ subroutine inc_davg_vars()
      if (cantempk_s_dmin(iws) > cantempk) cantempk_s_dmin(iws) = cantempk
      if (cantempk_s_dmax(iws) < cantempk) cantempk_s_dmax(iws) = cantempk
   enddo
+  !$omp end do nowait
 
-  return
+  !$omp end parallel
 end subroutine inc_davg_vars
 
 !========================================================================
@@ -312,7 +335,8 @@ subroutine norm_mavg_vars()
     vye_mavg =   vye_mavg * ni
     vze_mavg =   vze_mavg * ni
 
-    do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+  !$omp parallel do private(iw,ih)
+  do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
            rshort_mavg(iw) =       rshort_mavg(iw) * ni
        rshort_top_mavg(iw) =   rshort_top_mavg(iw) * ni
@@ -345,8 +369,8 @@ subroutine norm_mavg_vars()
      enddo
 
   enddo
+  !$omp end parallel do
 
-  return
 end subroutine norm_mavg_vars
 
 !========================================================================
@@ -377,6 +401,9 @@ subroutine norm_davg_vars()
 
   ni = 1. / npoints_davg
 
+  !$omp parallel
+
+  !$omp do private(iw)
   do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
         press_davg(iw) =    press_davg(iw) * ni
           vxe_davg(iw) =      vxe_davg(iw) * ni
@@ -389,7 +416,9 @@ subroutine norm_davg_vars()
        vye_ul_davg(iw) =   vye_ul_davg(iw) * ni
        vze_ul_davg(iw) =   vze_ul_davg(iw) * ni
   enddo
+  !$omp end do nowait
 
+  !$omp do
   do iwl = 2, mwl
      airtempk_l_davg(iwl) = airtempk_l_davg(iwl) * ni
      cantempk_l_davg(iwl) = cantempk_l_davg(iwl) * ni
@@ -398,14 +427,18 @@ subroutine norm_davg_vars()
        sfluxt_l_davg(iwl) =   sfluxt_l_davg(iwl) * ni
        sfluxr_l_davg(iwl) =   sfluxr_l_davg(iwl) * ni
   enddo
+  !$omp end do nowait
 
+  !$omp do
   do iws = 2, mws
      airtempk_s_davg(iws) = airtempk_s_davg(iws) * ni
      cantempk_s_davg(iws) = cantempk_s_davg(iws) * ni
        sfluxt_s_davg(iws) =   sfluxt_s_davg(iws) * ni
        sfluxr_s_davg(iws) =   sfluxr_s_davg(iws) * ni
   enddo
+  !$omp end do nowait
 
+  !$omp end parallel
 end subroutine norm_davg_vars
 
 !===============================================================
@@ -433,12 +466,14 @@ subroutine write_mavg_vars(outyear,outmonth)
   use mem_grid,   only: mwa, nwa
   use leaf_coms,  only: mwl, nzg, nzs, dslz
   use mem_leaf,   only: land, itab_wl
+  use mem_basic,  only: rho
+  use mem_ijtabs, only: itabg_w
 
   implicit none
 
   integer, intent(in) :: outyear, outmonth
   character(len=128) :: hnamel
-  integer :: lenl, iwl, k
+  integer :: lenl, iwl, k, kw, iw
   logical exans
   character(len=32) :: varn
   integer :: ndims, idims(2), month_use, year_use
@@ -450,9 +485,17 @@ subroutine write_mavg_vars(outyear,outmonth)
   ! Compute total water
 
   do iwl = 2, mwl
+     iw = itab_wl(iwl)%iw         ! global index
+     kw = itab_wl(iwl)%kw
+
+     ! If run is parallel, get local rank indices
+     if (isubdomain == 1) then
+        iw = itabg_w(iw)%iw_myrank
+     endif
+
      wstorage(iwl) = sum(land%sfcwater_mass(1:nzs,iwl)) +   &
           land%veg_water(iwl) +   &
-          land%rhos(iwl) * land%can_depth(iwl) * land%canshv(iwl)
+          rho(kw,iw) * land%can_depth(iwl) * land%canshv(iwl)
      tot_soil_water = 0.0
      do k = 1, nzg
         tot_soil_water = tot_soil_water +   &

@@ -790,6 +790,7 @@ C=======================================================================
          use mem_grid,   only: volti
          use misc_coms,  only: isubdomain
          use mem_ijtabs, only: itabg_w
+         use mem_basic,  only: vxe, vye, vze
 
 C       8/18/11 D.Wong: incorporated twoway model implementation and change
 C                       RC -> RCA and RN -> RNA and made it backward compatible
@@ -844,6 +845,7 @@ C Parameters:
          real :: qam    ! emis for landuse type [g/m**/s]
          real :: tfa    ! transport fraction above canopy
          real :: slmsts_top
+         real :: vels
 
                        ! automatic arrays
 !         real       :: fmoit ( ncols,nrows )        
@@ -1208,11 +1210,13 @@ C Dust possiblity if not over water and rain < 1/100 in. (1 in. = 2.540 cm)
             ! Dust removal by surrounding vegetation <-???
             ! Adjust dust emissions for transport factors
 
-            if      ( land%vels(iwl) .le. 2.0 ) then ! surface wind [0-2] range
+            vels = sqrt(vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2)
+
+            if      ( vels .le. 2.0 ) then  ! surface wind [0-2] range
                indx = 3
-            else if ( land%vels(iwl) .lt. 7.0 ) then ! surface wind (2-7) range
+            else if ( vels .lt. 7.0 ) then  ! surface wind (2-7) range
                indx = 2
-            else                                     ! surface wind [7-^) range
+            else                            ! surface wind [7-^) range
                indx = 1
             end if
 

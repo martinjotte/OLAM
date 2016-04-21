@@ -39,16 +39,18 @@ subroutine leaf4_init_atm()
                          iupdndvi, s1900_ndvi, indvifile, nndvifiles, &
                          dt_leaf, isoilstateinit, iwatertabflg, watertab_db
 
-  use mem_basic,    only: rho, press, vxe, vye, vze, tair, sh_v
+  use mem_basic,    only: rho, press, vxe, vye, vze, tair, sh_v, theta
   use misc_coms,    only: io6, time8, s1900_sim, iparallel, isubdomain, &
                           runtype, initial
   use mem_ijtabs,   only: itabg_w
-  use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000
+  use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000, &
+                          grav, p00i, rocp
   use mem_para,     only: myrank
   use leaf4_canopy, only: vegndvi
   use land_db,      only: land_database_read
   use leaf4_soil,   only: soil_pot2wat
   use oname_coms,   only: nl
+  use mem_grid,     only: dzt_bot
 
   implicit none
 
@@ -69,6 +71,8 @@ subroutine leaf4_init_atm()
   real :: soil_tempc(nzg,mwl)  ! initial soil temperature (C)
   real :: fracliq(nzg,mwl)     ! initial soil liquid fraction (0-1)
   real :: wtd(mwl)             ! watertable depth from database
+  real :: rhos
+  real :: prss
 
   real, external :: rhovsl
 
@@ -183,9 +187,10 @@ subroutine leaf4_init_atm()
 
   ! Leaf quantities that are initialized only on 'INITIAL' run
 
-  !$omp parallel do private (iw,kw,k,nts,water_frac_ul)
+  !$omp parallel do private (kw,iw,k,nts,water_frac_ul)
   do iwl = 2,mwl
 
+     kw = itab_wl(iwl)%kw
      iw = itab_wl(iwl)%iw  ! global index
 
      ! If run is parallel, convert iw to local domain
@@ -194,19 +199,18 @@ subroutine leaf4_init_atm()
         iw = itabg_w(iw)%iw_myrank
      endif
 
-     kw = itab_wl(iwl)%kw
-
      ! Transfer atmospheric properties to each land cell
 
-     land%rhos     (iwl) = rho (kw,iw)
-     land%vels     (iwl) = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
-     land%prss     (iwl) = press(kw,iw)
-     land%airtemp  (iwl) = tair(kw,iw)
-     land%airshv   (iwl) = sh_v(kw,iw)
-     land%cantemp  (iwl) = tair(kw,iw)
+     prss                = press(kw,iw) + dzt_bot(kw) * rho(kw,iw) * grav
+!    land%cantemp  (iwl) = tair(kw,iw)
+     land%cantemp  (iwl) = theta(kw,iw) * (prss * p00i)**rocp
      land%canshv   (iwl) = sh_v(kw,iw)
      land%veg_temp (iwl) = land%cantemp(iwl)
      land%veg_water(iwl) = 0.
+     land%ustar    (iwl) = 0.1
+     land%sfluxt   (iwl) = 0.
+     land%sfluxr   (iwl) = 0.
+     land%wthv     (iwl) = 0.
 
      ! Default initialization of sfcwater_mass, soil_tempc, and soil_water
 
@@ -252,7 +256,16 @@ subroutine leaf4_init_atm()
 
   ! Loop over all LAND cells
 
+  !$omp parallel do private(kw,iw,k,nts,wq,wq_added,wcap_min,nlsw1,rhos)
   do iwl = 2,mwl
+
+     kw = itab_wl(iwl)%kw
+     iw = itab_wl(iwl)%iw  ! global index
+
+     ! If run is parallel, get local rank indices
+     if (isubdomain == 1) then
+        iw = itabg_w(iw)%iw_myrank
+     endif
 
      !--------------------------------------------------------------------------------
      ! ADD A METHOD HERE TO INITIALIZE FRACTION OF SOIL WATER THAT IS LIQUID (FRACLIQ)
@@ -346,13 +359,15 @@ subroutine leaf4_init_atm()
 
      nlsw1 = max(1,land%nlev_sfcwater(iwl))
    
+     rhos = rho(kw,iw)
+
      call grndvap(iwl,                             &
                   land%nlev_sfcwater        (iwl), &
                   land%ntext_soil       (nzg,iwl), &
                   land%soil_water       (nzg,iwl), &
                   land%soil_energy      (nzg,iwl), &
                   land%sfcwater_energy(nlsw1,iwl), &
-                  land%rhos                 (iwl), &
+                  rhos                           , &
                   land%canshv               (iwl), &
                   land%surface_ssh          (iwl), &
                   land%ground_shv           (iwl), &

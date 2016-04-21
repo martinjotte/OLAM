@@ -300,26 +300,31 @@ end subroutine update_olam_land_rad
   
 !======================================================================
 
-subroutine ed_stars_wrapper(iwl, zts, vels, rhos, airtemp, sh_vs, atmco2, &
-     vkmsfc, sfluxt, sfluxr, sfluxc, ustar0, zeta, rib, ggbare)
+subroutine ed_stars_wrapper(iwl, zts, vels, rhos, ufree, &
+                            airtheta, airthetav, airshv, atmco2, &
+                            vkmsfc, sfluxt, sfluxr, sfluxc, &
+                            ustar0, rib, ggbare, wthv, zeta)
 
-  use grid_coms, only: ngrids
-  use ed_state_vars, only: edgrid_g, polygontype, edtype, sitetype
-  use mem_leaf, only: land
+  use grid_coms,      only: ngrids
+  use ed_state_vars,  only: edgrid_g, polygontype, edtype, sitetype
+  use mem_leaf,       only: land
+  use ed_consts_coms, only: epim1, grav, vonk
 
   implicit none
 
   type(edtype), pointer :: cgrid
   type(polygontype), pointer :: cpoly
   type(sitetype), pointer :: csite
-  integer, intent(in) :: iwl
-  real, intent(in) :: zts, vels, rhos, airtemp, sh_vs, atmco2
-  real, intent(out) :: vkmsfc, sfluxt, sfluxr, ustar0, sfluxc, &
-       zeta, rib, ggbare
+
+  integer, intent(in)  :: iwl
+  real,    intent(in)  :: zts, vels, rhos, ufree
+  real,    intent(in)  :: airtheta, airthetav, airshv, atmco2
+  real,    intent(out) :: vkmsfc, sfluxt, sfluxr, sfluxc
+  real,    intent(out) :: ustar0, rib, ggbare, wthv, zeta
 
   integer :: ifm, ipy, isi, ipa
-  real :: patch_vkmsfc, patch_sfluxt, patch_sfluxr, patch_ustar0, &
-       patch_sfluxc, patch_zeta, patch_rib, patch_ggbare
+  real :: patch_vkmsfc, patch_sfluxt, patch_sfluxr, patch_ustar0, can_thetav, &
+       patch_sfluxc, patch_zeta, patch_rib, patch_ggbare, patch_wthv
 
   ifm = land%ed_ifm(iwl)
   ipy = land%ed_ipy(iwl)
@@ -332,26 +337,42 @@ subroutine ed_stars_wrapper(iwl, zts, vels, rhos, airtemp, sh_vs, atmco2, &
   sfluxr = 0.
   sfluxc = 0.
   ustar0 = 0.
-  zeta = 0.
-  rib = 0.
+  zeta   = 0.
+  rib    = 0
   ggbare = 0.
+  wthv   = 0.
 
   do isi = 1, cpoly%nsites
      csite => cpoly%site(isi)
      do ipa = 1, csite%npatches
-        call stars_co2(zts, csite%veg_rough(ipa), vels, rhos, airtemp, &
-             sh_vs, atmco2, csite%can_temp(ipa), csite%can_shv(ipa), &
-             csite%can_co2(ipa), patch_vkmsfc, patch_sfluxt, patch_sfluxr,   &
-             patch_sfluxc, patch_ustar0, patch_zeta, patch_rib, patch_ggbare)
+
+        can_thetav = csite%can_theta(ipa) * (1. + epim1 * csite%can_shv(ipa))
+
+        call stars(zts, csite%veg_rough(ipa), vels, rhos, ufree, &
+                   airtheta, airthetav, airshv, &
+                   csite%can_theta(ipa), can_thetav, csite%can_shv(ipa), &
+                   patch_vkmsfc, patch_sfluxt, patch_sfluxr, &
+                   patch_ustar0, patch_rib, patch_ggbare)
+
+        patch_sfluxc = rhos * patch_ggbare * (csite%can_co2(ipa) - atmco2)
+
+        patch_wthv   = ( patch_sfluxt * (1.0 + epim1 * airshv) &
+                       + patch_sfluxr * epim1 * airtheta ) / rhos
+
+        patch_zeta   = zts * grav * vonk * patch_wthv &
+                     / (airthetav * patch_ustar0 ** 3 )
+
         vkmsfc = vkmsfc + patch_vkmsfc * csite%area(ipa) * cpoly%area(isi)
         sfluxt = sfluxt + patch_sfluxt * csite%area(ipa) * cpoly%area(isi)
         sfluxr = sfluxr + patch_sfluxr * csite%area(ipa) * cpoly%area(isi)
         sfluxc = sfluxc + patch_sfluxc * csite%area(ipa) * cpoly%area(isi)
         ustar0 = ustar0 + patch_ustar0 * csite%area(ipa) * cpoly%area(isi)
-        zeta = zeta + patch_zeta * csite%area(ipa) * cpoly%area(isi)
-        rib = rib + patch_rib * csite%area(ipa) * cpoly%area(isi)
+        zeta   = zeta   + patch_zeta   * csite%area(ipa) * cpoly%area(isi)
+        rib    = rib    + patch_rib    * csite%area(ipa) * cpoly%area(isi)
         ggbare = ggbare + patch_ggbare * csite%area(ipa) * cpoly%area(isi)
+        wthv   = wthv   + patch_wthv   * csite%area(ipa) * cpoly%area(isi)
      enddo
+
 !     cpoly%met(isi)%vels = vels
      cpoly%met(isi)%geoht = zts
 !     cpoly%met(isi)%vels_unstab = vels
@@ -799,121 +820,8 @@ subroutine format_soil_energy_for_olam(csite,ipa,ntext_soil)
 end subroutine format_soil_energy_for_olam
 
 
-
-!=============================================================================== 
-
-subroutine stars_co2(zts, rough, vels, rhos, airtemp, sh_vs, atmco2,       &
-                 cantemp, can_shv, can_co2, vkmsfc, sfluxt, sfluxr, sfluxc, &
-                 ustar0, ed_zeta, ed_rib, ed_ggbare)
-
-! Subroutine stars computes surface heat and vapor fluxes and momentum drag
-! coefficient from Louis (1981) equations
-
-use consts_coms, only: vonk, grav
-use misc_coms,   only: io6
-
-implicit none
-
-! Input variables
-
-real, intent(in) :: zts       ! height above surface of {vels, ths, sh_vs} [m]
-real, intent(in) :: rough     ! surface roughness height [m]
-real, intent(in) :: vels      ! atmos near-surface wind speed [m/s]
-real, intent(in) :: airtemp   ! atmos near-surface temp [K]
-real, intent(in) :: sh_vs     ! atmos near-surface vapor spec hum [kg_vap/m^3]
-real, intent(in) :: cantemp   ! canopy air temp [K]
-real, intent(in) :: can_shv   ! canopy air vapor spec hum [kg_vap/m^3]
-
-real, intent(in) :: atmco2    ! atmos near-surface CO2 [ppm]
-real, intent(in) :: can_co2   ! canopy co2 [ppm]
-
-real(kind=8), intent(in) :: rhos  ! atmos near-surface density [kg/m^3]
-
-! Output variables
-
-real, intent(out) :: vkmsfc   ! surface drag coefficient for this flux cell
-real, intent(out) :: sfluxt   ! surface sensible heat flux for this flux cell
-real, intent(out) :: sfluxr   ! surface vapor flux for this flux cell
-real, intent(out) :: sfluxc   ! surface CO2 flux for this flux cell
-real, intent(out) :: ustar0   ! surface friction velocity for this flux cell
-
-real, intent(out) :: ed_zeta
-real, intent(out) :: ed_rib
-real, intent(out) :: ed_ggbare
-
-! Local parameters
-
-real, parameter :: b = 5.
-real, parameter :: csm = 7.5
-real, parameter :: csh = 5.
-real, parameter :: d = 5.
-real, parameter :: ustmin = .1  ! lower bound on ustar (friction velocity)
-real, parameter :: ubmin = .25  ! lower bound on wind speed (should use 1.0 for
-                                !   convec case and 0.1 for stable case)
-! Local variables
-
-real :: vels0  ! wind speed with minimum imposed [m/s]
-real :: a2     ! drag coefficient in neutral conditions, here same for h/m
-real :: c1
-real :: c2
-real :: c3
-real :: cm
-real :: ch
-real :: fm
-real :: fh
-real :: ri     ! bulk richardson numer, eq. 3.45 in Garratt
-real :: tstar  !
-real :: rstar  !
-real :: cstar  !
-real :: vtscr  ! ustar0 times density             
-
-! Routine to compute Louis (1981) surface layer parameterization.
-
-vels0 = max(vels,ubmin)
-
-a2 = (vonk / log(zts / rough)) ** 2
-c1 = a2 * vels0
-ri = grav * zts * (airtemp - cantemp)  &
-   / (.5 * (airtemp + cantemp) * vels0 * vels0)
-
-ed_rib = ri
-
-if (airtemp - cantemp > 0.) then   ! STABLE CASE
-
-   fm = 1. / (1. + (2. * b * ri / sqrt(1. + d * ri)))
-   fh = 1. / (1. + (3. * b * ri * sqrt(1. + d * ri)))
-
-else                            ! UNSTABLE CASE
-
-   c2 = b * a2 * sqrt(zts / rough * (abs(ri)))
-   cm = csm * c2
-   ch = csh * c2
-   fm = (1. - 2. * b * ri / (1. + 2. * cm))
-   fh = (1. - 3. * b * ri / (1. + 3. * ch))
-
-endif
-
-ustar0 = max(ustmin,sqrt(c1 * vels0 * fm))
-c3 = c1 * fh / ustar0
-tstar = c3 * (airtemp - cantemp)
-rstar = c3 * (sh_vs - can_shv)
-cstar = c3 * (atmco2 - can_co2)
-
-ed_zeta = grav * vonk * c3 * (airtemp-cantemp)  &
-     /(airtemp * ustar0 * ustar0)
-ed_ggbare = c3 * ustar0
-
-vtscr = ustar0 * rhos
-
-vkmsfc = vtscr * ustar0 * zts / vels0
-sfluxt = - vtscr * tstar
-sfluxr = - vtscr * rstar
-sfluxc = - vtscr * cstar
-
-return
-end subroutine stars_co2
-
 !===============================================================================
+
 
 subroutine get_ed2_atm_co2(iwl,co2)
   
