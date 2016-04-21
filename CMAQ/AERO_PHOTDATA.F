@@ -657,10 +657,10 @@ C-----------------------------------------------------------------------
                   ELSE 
 
                      ! use old fast optics method
-                     CALL FAST_OPTICS2( AE_NR_SHELL(v), AE_NI_SHELL(v), 
-     &                                  WAVELENGTH(V), XXLSG, lsg, mie_parameter, 
-     &                                  expfac2, expfac3, 
-     &                                  BEXT_MODE, BSCAT_MODE, GBAR_MODE )
+                     CALL FAST_OPTICS( AE_NR_SHELL(v), AE_NI_SHELL(v), 
+     &                                 WAVELENGTH(V), XXLSG, lsg, mie_parameter, 
+     &                                 expfac2, expfac3, 
+     &                                 BEXT_MODE, BSCAT_MODE, GBAR_MODE )
                      VFAC = VOL * INV_LAMBDA(v)
 
                   ENDIF
@@ -689,8 +689,8 @@ C-----------------------------------------------------------------------
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-      SUBROUTINE FAST_OPTICS2( NR, NI, LAMBDA, SIGMA_G, XLNSIG, MIE_PAR, 
-     &                         expfac2, expfac3, BETA_EXT, BETA_SCAT, G )
+      SUBROUTINE FAST_OPTICS( NR, NI, LAMBDA, SIGMA_G, XLNSIG, MIE_PAR, 
+     &                        expfac2, expfac3, BETA_EXT, BETA_SCAT, G )
 C-----------------------------------------------------------------------
 C  A parameterization of the aerosol extinction and scattering code
 C     Coded by Dr. Francis S. Binkowski
@@ -1162,6 +1162,6 @@ C     Very large sphere limit from fit to Irvine (1965).
 C Simple and gross fix if appromation exceed realistic bounds
       G = MAX( -0.9999, MIN( G, 0.9999))
 
-      END SUBROUTINE FAST_OPTICS2
+      END SUBROUTINE FAST_OPTICS
 
       END MODULE AERO_PHOTDATA

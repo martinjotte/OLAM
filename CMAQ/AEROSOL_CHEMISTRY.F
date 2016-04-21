@@ -493,7 +493,7 @@ C *** 2nd and 3rd moments before equilibration (without H2O)
             c = k
             r = iw
 
-            if (press(iw,k) >= 100.d2) then
+            if (press(k,iw) >= 100.d2) then
 
 #ifdef verbose_aerosol_chemistry        
                IF ( L .EQ. 1 .AND. R .EQ. INT(MY_NROWS/2)+1 .AND.

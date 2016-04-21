@@ -1016,16 +1016,17 @@ C...return an error if the pH is not in range
 C...Make those concentration calculations which can be made outside
 C...  of the function.
 
-        SO2L = SO2H * PSO2F
-        AC = exp( mln10 * real(bb) )
-!       AC = 10.0D0 ** ( -BB )
-        SIV = SO3 + HSO3 + SO2L
 
         phclf  = phclfoa1   * a1
         phno3f = phno3foa1  * a1
         pfoaf  = pfoafoa1   * a1
         pso2f  = pso2foa1a2 * a1a2
         pco2f  = pco2foa1a2 * a1a2
+
+        SO2L = SO2H * PSO2F
+        AC = exp( mln10 * real(bb) )
+!       AC = 10.0D0 ** ( -BB )
+        SIV = SO3 + HSO3 + SO2L
 
 C...Calculate final gas phase concentrations of oxidants (atm)
 
