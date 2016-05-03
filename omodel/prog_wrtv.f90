@@ -711,7 +711,7 @@ use misc_coms,   only: io6, initial, dn01d, th01d, &
                        deltax, nxp, mdomain, time8, dtlm
 use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, dniv, volt, volti, &
                        xew, vnx, vny, vnz, wnxo2, wnyo2, wnzo2
-use mem_turb,    only: hkm
+use mem_turb,    only: akmodx
 use mem_rayf,    only: rayf_cof, rayf_cofw, dorayf, dorayfw, krayf_bot, krayfw_bot
 
 implicit none
@@ -745,21 +745,16 @@ do jv = 1,npoly
    iv  = itab_w(iw)%iv(jv)
    iwn = itab_w(iw)%iw(jv)
    kbv  = lpv(iv)
-   hdniv = .5 * dniv(iv)
 
 ! Vertical loop over T levels
 
    do k = kbv, mza
 
-! Horizontal diffusive flux coefficient
-
-      arvkodx = hdniv * arv(k,iv) * (hkm(k,iwn) + hkm(k,iw))
-
 ! Compute and sum horizontal diffusive flux across this V neighbor
 
-      hdiff_vxe(k) = hdiff_vxe(k) + arvkodx * (vxe(k,iwn) - vxe(k,iw))
-      hdiff_vye(k) = hdiff_vye(k) + arvkodx * (vye(k,iwn) - vye(k,iw))
-      hdiff_vze(k) = hdiff_vze(k) + arvkodx * (vze(k,iwn) - vze(k,iw))
+      hdiff_vxe(k) = hdiff_vxe(k) + akmodx(k,iv) * (vxe(k,iwn) - vxe(k,iw))
+      hdiff_vye(k) = hdiff_vye(k) + akmodx(k,iv) * (vye(k,iwn) - vye(k,iw))
+      hdiff_vze(k) = hdiff_vze(k) + akmodx(k,iv) * (vze(k,iwn) - vze(k,iw))
 
    enddo
 

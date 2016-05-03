@@ -75,9 +75,7 @@ contains
     use mem_radiate, only: cosz, rshort, rshort_clr
     use mem_cuparm,  only: conprr
     use mem_micro,   only: pcpgr
-
-    use mem_grid,     only: arw0
-    use edgar_42_emis,only: edgar42_vars
+    use mem_basic,   only: rho, vxe, vye, vze
 
     implicit none
 
@@ -91,13 +89,13 @@ contains
     integer :: iwl, iw, kw
     integer :: kb
     real    :: wfps, pcprate, ts_emis
-    real    :: lai, tempc, tempk, rho
+    real    :: lai, tempc, tempk, rhos
     real    :: tsfcwater, liqfrac, cfrac
     real    :: snfac, sndepth, r_canopy, windsqr
     integer :: nlev_sfcwater
 
     real    :: a_biom, a_fert
-    real    :: temp_term, wet_term, pulse
+    real    :: temp_term, wet_term
     real    :: crf_term
 
     do iwl = 2, mwl
@@ -112,7 +110,7 @@ contains
        lai   = land%veg_lai(iwl) * (1. - snfac)
        tempk = land%cantemp(iwl)
        tempc = land%cantemp(iwl) - t00
-       rho   = land%rhos   (iwl)
+       rhos  = rho(kw,iw)
 
        nlev_sfcwater = land%nlev_sfcwater(iwl)
 
@@ -181,12 +179,12 @@ contains
           cfrac = 0.0
        endif
 
-       r_canopy = get_canopy_nox( tempk, rho, kb, lai,        &
+       r_canopy = get_canopy_nox( tempk, rhos, kb, lai,       &
                                   rshort(iw), cosz(iw), cfrac )
 
        ! Canopy reduction factor
 
-       windsqr  = land%vels(iwl) * land%vels(iwl)
+       windsqr  = vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2
        crf_term = soilcrf( kb, lai, r_canopy, windsqr, cosz(iw) )
 
        ! Soil NOx emissions

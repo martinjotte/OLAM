@@ -76,7 +76,7 @@ subroutine copy_nl()
   use consts_coms, only: r8
   use oname_coms,  only: nl
   use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
-                         nacoust, idiffk, zkhkm, xkhkm, csz, csx, akmin, &
+                         nacoust, idiffk, csz, csx, akmin, &
                          dtlong, initial, zonclim, topo_database, &
                          gridfile, hfilin, ioutput, hfilepref, iclobber, &
                          frqstate, naddsc, icorflg, ilwrtyp, iswrtyp, radfrq, &
@@ -141,8 +141,6 @@ subroutine copy_nl()
      ndtrat(i)  = nl%ndtrat(i)
      nacoust(i) = nl%nacoust(i)
      idiffk(i)  = nl%idiffk(i)
-     zkhkm(i)   = nl%zkhkm(i)
-     xkhkm(i)   = nl%xkhkm(i)
      csz(i)     = nl%csz(i)
      csx(i)     = nl%csx(i)
      akmin(i)   = nl%akmin(i)

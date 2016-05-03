@@ -264,8 +264,6 @@
 
    NL%CSX    = .2,.2,.2,.2,.2,.2,.2,.2,.2  ! Horizontal length scale coefficient
    NL%CSZ    = .2,.2,.2,.2,.2,.2,.2,.2,.2  ! Vertical length scale coefficient
-   NL%XKHKM  = 3.,3.,3.,3.,3.,3.,3.,3.,3.  ! Ratio of horiz K_h to K_m 
-   NL%ZKHKM  = 3.,3.,3.,3.,3.,3.,3.,3.,3.  ! Ratio of vert K_h to K_m
    NL%AKMIN  = 0.,0.,0.,0.,0.,0.,0.,0.,0.  ! Ratio of minimum horizontal eddy
                                            !  viscosity coefficient to typical
                                            !  value from deformation K

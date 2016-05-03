@@ -61,6 +61,7 @@ Module mem_radiate
   real, allocatable         :: uva           (:)
   real, allocatable         :: uvb           (:)
   real, allocatable         :: uvc           (:)
+  real, allocatable         :: pbl_cld_forc  (:)
 
   ! clear-sky values
 
@@ -114,6 +115,7 @@ Contains
        allocate (uva           (mwa)) ; uva            = 0.0
        allocate (uvb           (mwa)) ; uvb            = 0.0
        allocate (uvc           (mwa)) ; uvc            = 0.0
+       allocate (pbl_cld_forc  (mwa)) ; pbl_cld_forc   = 0.0
 
        allocate (rlong_albedo  (mwa)) ; rlong_albedo   = rinit
        allocate (albedt        (mwa)) ; albedt         = rinit
@@ -173,6 +175,7 @@ Contains
     if (allocated(uva))              deallocate (uva)
     if (allocated(uvb))              deallocate (uvb)
     if (allocated(uvc))              deallocate (uvc)
+    if (allocated(pbl_cld_forc))     deallocate (pbl_cld_forc)
 
   end subroutine dealloc_radiate
 
@@ -218,6 +221,8 @@ Contains
     if (allocated(rlongup_clr))      call increment_vtable('RLONGUP_CLR',     'AW', rvar1=rlongup_clr)
 
     if (allocated(rlongup_top_clr))  call increment_vtable('RLONGUP_TOP_CLR', 'AW', rvar1=rlongup_top_clr)
+
+    if (allocated(pbl_cld_forc))     call increment_vtable('PBL_CLD_FORC',    'AW', rvar1=pbl_cld_forc)
 
   end subroutine filltab_radiate
 

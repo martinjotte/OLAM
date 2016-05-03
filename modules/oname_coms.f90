@@ -192,8 +192,8 @@ Module oname_coms
 
       integer :: idiffk(maxgrds) = 2
 
-      real :: zkhkm(maxgrds) = 3.0
-      real :: xkhkm(maxgrds) = 3.0
+      real :: zkhkm(maxgrds) = 3.0 ! not used
+      real :: xkhkm(maxgrds) = 3.0 ! not used
       real :: csx  (maxgrds) = 0.2
       real :: csz  (maxgrds) = 0.2
       real :: akmin(maxgrds) = 0.0

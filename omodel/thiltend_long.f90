@@ -64,7 +64,7 @@ subroutine thiltend_long0(iw)
 use mem_ijtabs,  only: itab_w
 use misc_coms,   only: io6, dtlm
 use mem_basic,   only: rho, thil
-use mem_turb,    only: hkm, sxfer_tk, sxfer_rk
+use mem_turb,    only: akhodx
 use mem_tend,    only: thilt
 use mem_grid,    only: mza, mwa, arw, dzim, volt, volti, arv, dniv, lpv
 
@@ -74,17 +74,8 @@ integer, intent(in) :: iw
 
 integer :: k,ka,ks
 integer :: j, iv, iwn, npoly
-
-real :: dtl,dtli
-real :: hdniv, hflux
-
-! Automatic arrays:
-
-real, dimension(mza) :: akodz,dtomass,vctr1,vctr5  &
-                       ,vctr6,vctr7,vctr8,vctr9,del_thil
-
-dtl  = dtlm(itab_w(iw)%mrlw)
-dtli = 1. / dtl
+real    :: hflux
+real    :: vctr1(mza)
 
 ! Sum horizontal diffusive fluxes 
 
@@ -100,16 +91,9 @@ do j = 1, npoly
    iwn = itab_w(iw)%iw(j)
    ka  = lpv(iv)
 
-   hdniv = .5 * dniv(iv)  ! use this 1/dx form now - it seems better than A/V
-
    do k = ka, mza
-
-! Horizontal turbulent flux across ARV
-
-      hflux = arv(k,iv) * (hkm(k,iwn) + hkm(k,iw))  &
-            * hdniv * (thil(k,iwn) - thil(k,iw))
-
-      vctr1(k) = vctr1(k) + hflux
+      ! Horizontal turbulent flux across ARV
+      vctr1(k) = vctr1(k) + akhodx(k,iv) * (thil(k,iwn) - thil(k,iw))
    enddo
 enddo
 

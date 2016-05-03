@@ -44,7 +44,7 @@ use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,          &
                        rshort_top, rshortup_top, rshort_diffuse,          &
                        rshort_clr, rshortup_clr,                          &
                        rshort_top_clr, rshortup_top_clr,                  &
-                       par, par_diffuse, uva, uvb, uvc
+                       par, par_diffuse, uva, uvb, uvc, pbl_cld_forc
 
 use mem_basic,   only: rho
 use micro_coms,  only: level
@@ -127,6 +127,7 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
       uvb(iw) = 0.
       uvc(iw) = 0.
 
+      pbl_cld_forc(iw) = 0.
    enddo
 !$omp end parallel do
 

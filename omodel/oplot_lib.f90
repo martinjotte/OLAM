@@ -62,7 +62,7 @@ use mem_radiate, only: fthrd_lw, fthrd_sw, rshort, rlong, rlongup, albedt, &
 use mem_addsc,   only: addsc
 use mem_tend,    only: vmt, wmt
 use mem_para,    only: myrank
-use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, pblh, hkm, hkh, ustar, wstar
+use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, pblh, vkm, vkh, ustar, wstar
 use mem_nudge,   only: rho_obs, theta_obs, shw_obs, uzonal_obs, umerid_obs, &
                        rho_sim, theta_sim, shw_sim, uzonal_sim, umerid_sim
 
@@ -251,7 +251,7 @@ data fldlib(1:4,  1:34)/ &
  'CON_IFN'       ,'T3' ,'IFN NUMBER CONCEN',' (# kg:S2:-1  )'                / !p 34
 
 data fldlib(1:4, 35:56)/ &
- 'HKM'           ,'T3' ,'HORIZ TURB MOMENTUM K',' (N s m:S2:-2  )'          ,& !p 35
+ 'VKM'           ,'T3' ,'VERT TURB MOMENTUM K',' (N s m:S2:-2  )'           ,& !p 35
  'FTHRD'         ,'T3' ,'RADIATIVE THETA TENDENCY',' (K s:S2:-1  )'         ,& !p 36
  'SPEEDW'        ,'T3' ,'WIND SPEED AT W',' (m s:S2:-1  )'                  ,& !p 37
  'AZIMW'         ,'T3' ,'WIND AZIMUTH AT W',' (deg)'                        ,& !p 38
@@ -645,7 +645,7 @@ data fldlib(1:4,471:493)/ &
  'VYE'           ,'T3' ,'EARTH CARTESIAN Y WIND',' (m s:S2:-1  )'           ,& ! 487
  'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'           ,& ! 488
  'PBLH'          ,'T2' ,'PBL HEIGHT',' (m)'                                 ,& ! 489
- 'HKH'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 490
+ 'VKH'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 490
  'SHW_HCONV'     ,'T2' ,'TOTAL WATER HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 491
  'SHV_HCONV'     ,'T2' ,'WATER VAPOR HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 492
  'CLDNUM'        ,'T2' ,'CLOUD # CONCEN (GEOG)',' (# mg:S2:-1  )'            / ! 493
@@ -1033,10 +1033,10 @@ case(34) ! 'CON_IFN'
    fldval = wtbot * con_ifn(k ,i) &
           + wttop * con_ifn(kp,i)
 
-case(35) ! 'HKM'
+case(35) ! 'VKM'
 
-   fldval = wtbot * hkm(k ,i) &
-          + wttop * hkm(kp,i)
+   fldval = wtbot * vkm(k ,i) &
+          + wttop * vkm(kp,i)
 
 case(36) ! 'FTHRD'
 
@@ -3523,12 +3523,12 @@ case(489) ! 'PBLH'
 
    fldval = pblh(i)
 
-case(490) ! 'HKH'
+case(490) ! 'VKH'
 
-   if (.not. allocated(hkh)) go to 1000
+   if (.not. allocated(vkh)) go to 1000
 
-   fldval = wtbot * hkh(k ,i) / rho(k ,i) &
-          + wttop * hkh(kp,i) / rho(kp,i)
+   fldval = wtbot * vkh(k ,i) / rho(k ,i) &
+          + wttop * vkh(kp,i) / rho(kp,i)
 
 case(491) ! 'SHW_HCONV'
 

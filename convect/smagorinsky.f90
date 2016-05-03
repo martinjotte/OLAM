@@ -47,11 +47,11 @@ contains
 
   subroutine turb_k(iw, mrlw, thetav, vkh, vkm)
 
-    use mem_turb,    only: hkm, hkh, vkm_sfc, sxfer_rk
-    use mem_ijtabs,  only: istp, jtab_w, itab_w, mrl_begl
-    use mem_grid,    only: mza, mwa, lpv, lpw, dzim, zt, zm, volt, arw, lsw, volti
-    use misc_coms,   only: io6, idiffk, csx, csz, zkhkm, akmin, dtlm
-    use mem_basic,   only: rho, thil, theta, sh_v, vxe, vye, vze, sh_w
+    use mem_turb,    only: vkm_sfc
+    use mem_ijtabs,  only: itab_w
+    use mem_grid,    only: mza, lpv, lpw, dzim, zm, volt, arw, lsw, volti
+    use misc_coms,   only: io6, idiffk, csx, csz, dtlm
+    use mem_basic,   only: rho, vxe, vye, vze
     use consts_coms, only: vonk, grav2
     use mem_grid,    only: mza, lpw, arw0, dzm, dzim, zm
     use mem_tend,    only: vmxet, vmyet, vmzet
@@ -67,23 +67,20 @@ contains
     real,    intent(inout) :: vkh(mza)
     real,    intent(inout) :: vkm(mza)
 
-    integer :: j, npoly, jw1, jw2, iw1, iw2, iv1, iv2, n, ns, k, ka, ks, kmax
+    integer :: npoly, jw1, jw2, iw1, iw2, iv1, iv2, n, ns, k, ka, ks
 
-    real :: richnum,ambda,ambda2,hill_term,richnum_term,sbf
-    real :: scalen_asympt,scalen_vert,scalen_horiz,bkmin
-
+    real :: richnum,ambda,ambda2,hill_term,richnum_term
+    real :: scalen_asympt,scalen_vert,scalen_horiz
+    real :: prinv
     real :: strain2(mza), strain2h(mza)
     real :: bvfreq2(mza)
     real :: vkz2(mza)
     real :: dzim2 (mza)
-    real :: dtl, dtl2, dtli
-    real :: s1, s2
+    real :: dtl, dtli
     real :: gxps1, gyps1, gxps2, gyps2
 
     real :: akodz(mza), dtomass(mza)
     real :: vctr3(mza),vctr5(mza),vctr6(mza),vctr7(mza)
-    real :: vctr8a(mza),vctr8b(mza),vctr8c(mza)
-    real :: vctr9a(mza),vctr9b(mza),vctr9c(mza)
 
     real :: rhs(mza,max(3,num_scalar)), soln(mza,max(3,num_scalar))
     real :: del_scp(mza), varp(mza)
@@ -94,7 +91,11 @@ contains
 
     real, parameter :: rchmax =    3.   ! Test with new asympt vert scale length
     real, parameter :: rmin   = -100.
-    real, parameter :: rmax   = 1. / 3. ! 1. / zkhkm(mrl)
+    real, parameter :: rmax   = 1. / 3. ! Critical Ri number
+    real, parameter :: rmaxi  = 1. / rmax
+
+    real, parameter :: pri0   = 1.43    ! Inverse Prandtl number at neutral
+    real, parameter :: fact   = (pri0 - 1.0) / rmax
 
 !!!!!
 !!
@@ -211,7 +212,7 @@ contains
        !  Compute Richardson number and Lilly Richardson-number term
 
        richnum = max(rmin,min(rmax,bvfreq2(k) / max(strain2(k),1.e-15)))
-       richnum_term = min(rchmax,sqrt(max(0.,(1.-zkhkm(mrlw)*richnum))))
+       richnum_term = min(rchmax,sqrt(max(0.,(1.-rmaxi*richnum))))
 
        ! Compute vertical and net scale lengths: scalen_vert & ambda
 
@@ -232,7 +233,15 @@ contains
               * (sqrt(strain2(k)) + hill_term)        & ! strain rate + Hill term
               * richnum_term                            ! Lilly Richnum term
 
-       vkh(k) = vkm(k) * zkhkm(mrlw)  ! Need to change this factor later
+       ! Subgrid Prandl number from Mason and Brown (1998, JAS)
+
+       if (richnum >= 0.0) then
+          prinv = pri0 - fact * richnum
+       else
+          prinv = pri0 * sqrt((1.-40.*richnum) / (1.-16.*richnum))
+       endif
+
+       vkh(k) = vkm(k) * prinv
       
     enddo
       
@@ -242,17 +251,6 @@ contains
     vkh(ka-1) = 0.
     vkm(mza)  = 0.
     vkh(mza)  = 0.
-
-    ! Horizontal diffusion coefficient (current version)
-
-    bkmin = akmin(1) * .075 * arw0(iw) ** .66666666
-
-    ! akmin hardwired for "grid 1" value for now
-
-    do k = ka,mza
-       hkm(k,iw) = max(vkm(k-1), vkm(k), bkmin * real(rho(k,iw)))
-       hkh(k,iw) = max(vkh(k-1), vkh(k), bkmin * real(rho(k,iw)))
-    enddo
 
 !!!!!
 !!

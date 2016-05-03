@@ -6,7 +6,8 @@ module module_bl_acm2
                          eps_virt, & ! used in virtual temperature equation
                          grav,     & ! gravitational acceleration
                          grav2,    & ! 2 * grav
-                         vonk        ! von Karman's constant
+                         vonk,     & ! von Karman's constant
+                         cpi         ! 1 / specific heat
 
   use mem_grid,    only: dzt,      & ! Layer thickness at T (half-layer)
                          dzit,     & ! Inverse Layer thickness at t
@@ -31,10 +32,10 @@ contains
 
 !=======================================================================
 
-  subroutine acm2( iw, moli, ustar, pblh, kpblh, zkh )
+  subroutine acm2( iw, moli, ustar, pblh, kpblh, zkh, zkm )
 
-    use mem_grid,   only: arw, volt, volti, lpw, lsw, nsw_max, mwa, zfacm
-    use mem_turb,   only: vkm_sfc, frac_sfc, sxfer_rk
+    use mem_grid,   only: arw, volti, lpw, lsw, nsw_max
+    use mem_turb,   only: vkm_sfc, frac_sfc
     use mem_basic,  only: vxe, vye, vze, rho, sh_w
     use mem_tend,   only: vmxet, vmyet, vmzet
     use mem_ijtabs, only: itab_w
@@ -51,6 +52,7 @@ contains
     real,    intent(in)    :: ustar
     real,    intent(in)    :: moli
     real,    intent(in)    :: zkh(:)
+    real,    intent(in)    :: zkm(:)
 
     logical :: cnvct
     real :: massflx(mza)
@@ -122,18 +124,13 @@ contains
 
     ! EDDY DIFFUSIVITY TERMS FOR SEMI-IMPLICIT SOLVER - MOMENTUM
 
-    akodz(kbot-1)     = 0.0
-    aflux(kbot-1,1:3) = 0.0
+    akodz(kbot-1) = 0.0
 
     do k = kbot, ktop-1
-       akodz(k)   = arw(k,iw) * zkh(k) * dzim(k)
-       aflux(k,1) = akodz(k) * (vxe(k,iw) - vxe(k+1,iw))
-       aflux(k,2) = akodz(k) * (vye(k,iw) - vye(k+1,iw))
-       aflux(k,3) = akodz(k) * (vze(k,iw) - vze(k+1,iw))
+       akodz(k) = arw(k,iw) * zkm(k) * dzim(k)
     enddo
 
-    akodz(ktop    ) = 0.0
-    aflux(ktop,1:3) = 0.0
+    akodz(ktop) = 0.0
 
     do k = kbot, ktop
        dtom(k)  = dtl * volti(k,iw) / rho(k,iw)
@@ -170,7 +167,7 @@ contains
     ! Set bottom and top internal fluxes to zero
     
     aflux(kbot-1,1:3) = 0.
-    aflux(mza, 1:3) = 0.
+    aflux(mza,   1:3) = 0.
 
     ! Compute tendencies due to internal turbulent fluxes
 
@@ -192,7 +189,7 @@ contains
     ! EDDY DIFFUSIVITY TERMS FOR SEMI-IMPLICIT SOLVER - SCALARS
 
     do k = kbot, ktop - 1
-       akodz(k)   = arw(k,iw) * seddy(k) * dzim(k)
+       akodz(k) = arw(k,iw) * seddy(k) * dzim(k)
     enddo
 
     akodz(kbot-1) = 0.0
@@ -214,7 +211,7 @@ contains
              rhs(ks,n) = scalar_tab(n)%var_p(k,iw)  &
                        + dtl * scalar_tab(n)%var_t(k,iw) / rho(k,iw)
           else
-          rhs(ks,n) = scalar_tab(n)%var_p(k,iw)
+             rhs(ks,n) = scalar_tab(n)%var_p(k,iw)
           endif
 
        enddo
@@ -359,8 +356,8 @@ contains
     
 !=======================================================================
 
-  subroutine acm2_eddyx(iw, moli, ustar, pblh, kpblh, kbot, ktop, zkh, &
-       vx, vy, vz, qw, qv, ql, thil, theta, thetav, tair, fthrd, rho)
+  subroutine acm2_eddyx(iw, moli, ustar, wstar, pblh, kpblh, kbot, ktop, zkm, &
+       zkh, vx, vy, vz, qw, qv, ql, thil, theta, thetav, tair, delr, rho)
 
     ! THREE METHODS FOR COMPUTING KZ:
     !   1. Boundary scaling similar to Holtslag and Boville (1993)
@@ -369,11 +366,12 @@ contains
     !   3. Cloud-top radiational cooling scaling, Lock et al. (2000)
 
     implicit none
-    
+
     ! INPUT VARIABLES
-    
+
     real,    intent(in) :: moli      ! inverse Monin-Obukhov length
     real,    intent(in) :: ustar     ! u* surface-layer velocity scale
+    real,    intent(in) :: wstar     ! w* convective PBL velocity scale
     real,    intent(in) :: pblh      ! PBL height
     integer, intent(in) :: kpblh     ! level corresponding to PBL height
     integer, intent(in) :: kbot      ! lowest model level
@@ -388,116 +386,128 @@ contains
     real,    intent(in) :: theta (:) ! potential temperature profile
     real,    intent(in) :: thetav(:) ! virtual potential temperature profile
     real,    intent(in) :: tair  (:) ! air temperature profile
-    real,    intent(in) :: fthrd (:) ! radiational heating/cooling profile
+    real,    intent(in) :: delr      ! cloud top cooling at PBL top (W/m^2)
     real(8), intent(in) :: rho   (:) ! air density
     integer, intent(in) :: iw
 
     ! OUTPUT VARIABLES
 
+    real, intent(out) :: zkm(:) ! eddy diffusivity for momentum
     real, intent(out) :: zkh(:) ! eddy diffusivity for scalars
-!   real, intent(out) :: zkm(:) ! eddy diffusivity for momentum
 
     ! LOCAL VARIABLES
 
-    integer :: k
-    real    :: zagl, deltar, wcloud, zoh, buoy
-    real    :: zovl, zsol, zfunc, ss
-    real    :: ri, zk, sql, kzo, fh
+    integer :: k, kpblm1, kpblp1, kb
+    real    :: zagl, zoh, zsol
+    real    :: buoy, ss, kprof, rlam
+    real    :: ri, zk, sql, fh, fm, pr
+    real    :: phimi, phihi
+    real    :: we, dthv, deltar, wcloud
 
-    real :: phih(mza) ! M-O similarity nondimensional scalar gradient
-    real :: edyz(mza) ! Holtslag's K-profile eddy diffusivity
-    real :: edyc(mza) ! Lock et al. (2000) cloud-top driven K-profile
-    real :: edyr(mza) ! Richardson-number eddy diffusivity
+    real :: edyzh(mza) ! K-profile eddy diffusivity within PBL
+    real :: edyzm(mza) ! K-profile eddy diffusivity within PBL 
+    real :: edyrh(mza) ! Richardson-number eddy diffusivity 
+    real :: edyrm(mza) ! Richardson-number eddy diffusivity 
+    real :: kzo  (mza) ! background eddy diffusivity
 
     ! PARAMETERS
 
-    REAL, PARAMETER :: RV     = 461.5
-    REAL, PARAMETER :: RC     = 0.25
-    REAL, PARAMETER :: RLAM   = 80.0
-    REAL, PARAMETER :: GAMH   = 16.0  !  Holtslag and Boville (1993)
-    REAL, PARAMETER :: BETAH  = 5.0   !  Holtslag and Boville (1993)
+    REAL, PARAMETER :: RLAM_stab =  30.0
+    REAL, PARAMETER :: RLAM_unst = 150.0
+    REAL, PARAMETER :: GAMH      =  16.0 ! Holtslag and Boville (1993)
 
     REAL, PARAMETER :: EDYZ0  = 0.0   ! New Min Kz
 !   REAL, PARAMETER :: EDYZ0  = 0.01  ! New Min Kz
 
-    kzo = edyz0
+    kzo  (:) = edyz0
+    edyzh(:) = 0.0
+    edyzm(:) = 0.0
+    edyrh(:) = 0.0
+    edyrm(:) = 0.0
 
-!! Holtslag's Eddy-Diffusivity Profile Within the PBL
+!! Holtslag's Eddy-Diffusivity Profile Within the convective PBL
 
-    edyz(:) = 0.0
+    if (moli <= 0.0) then
 
-    ! Vertical loop over W levels
-    do k = kbot, kpblh-1
-            
-       zagl = zm(k) - zm(kbot-1)
-       zovl = zagl * moli
-
-       if (zovl < 0.0) then
-
-          ! Convective PBL:
-          if (zagl < 0.1 * pblh) then
-             phih(k) = 1.0 / sqrt(1.0 - gamh * zovl)
-          else
-             zsol = 0.1 * pblh * moli
-             phih(k) = 1.0 / sqrt(1.0 - gamh * zsol)
-          endif
-
-       elseif (zovl > 1.0) then
-
-          ! Very stable PBL:
-          phih(k) = 1.0 + betah * zovl
-
-       else
-
-          ! Stable PBL:
-          phih(k) = betah + zovl
+       ! Vertical loop over W levels
+       do k = kbot, kpblh-1
+          zagl     = zm(k) - zm(kbot-1)
+          zsol     = min(0.1 * pblh, zagl) * moli
           
-       endif
+          phimi    =     (1.0 - gamh * zsol)**0.25
+          phihi    = sqrt(1.0 - gamh * zsol)
 
-       zfunc = zagl * (1.0 - zagl / pblh)**2
-       edyz(k) = vonk * ustar * zfunc / phih(k)
+          kprof    = vonk * ustar * zagl * (1.0 - zagl/pblh)**2
+          edyzh(k) = kprof * phihi
+          edyzm(k) = kprof * phimi
+       enddo
 
-    enddo
+    endif
 
 !! Lock's Cloud-Top Driven Eddy-Diffusivity Profile
 
-    edyc(:) = 0.0
+    wcloud  = 0.0
+    kpblm1  = max(kpblh-1, kbot)
 
-    if (kpblh > kbot) then
-
-       if (ql(kpblh) > 1.e-6 .or. ql(kpblh-1) > 1.e-6) then
-       
-          deltar = fthrd(kpblh-1) * dzt(kpblh-1) * tair(kpblh-1) / theta(kpblh-1) &
-                 + fthrd(kpblh  ) * dzt(kpblh  ) * tair(kpblh  ) / theta(kpblh  )
-       else
-          
-          deltar = 0.0
-
-       endif
-
-       if (deltar < -1.e-6) then
-
-          wcloud = (- grav / thetav(kpblh) * pblh * deltar)**0.33333333
-
-          do k = kbot, kpblh-1
-             zagl    = zm(k) - zm(kbot-1)
-             zoh     = zagl / pblh
-               
-           ! If cloud effects limited to just cloud layer
-           ! (see ECMWF physics technote):
-           ! zagl    = max(zm(k) - zm(kbot-1) - zbase, 0.0)
-           ! zoh     = zagl / (pblh - zbase)
-
-             edyc(k) = 0.85 * vonk * wcloud * zagl * zoh * sqrt(1.0 - zoh)
-          enddo
-            
-       endif
+    if (ql(kpblh) > 1.e-8 .or. ql(kpblm1) > 1.e-8) then
+       deltar = max( delr / rho(kpblh) * cpi, 0.0 )
+    else
+       deltar = 0.0
     endif
 
-!! Louis's Richardson-number dependent eddy diffusivity
-!! Vertical loop over W levels
+    if (deltar > 1.e-9) then
+
+       wcloud = (grav / thetav(kpblh) * pblh * deltar)**0.33333333
+
+       do k = kbot, kpblh-1
+          zagl    = zm(k) - zm(kbot-1)
+          zoh     = zagl / pblh
+               
+        ! If cloud effects limited to just cloud layer
+        ! (see ECMWF physics technote):
+        ! zagl    = max(zm(k) - zm(kbot-1) - zbase, 0.0)
+        ! zoh     = zagl / (pblh - zbase)
+
+          kprof    = 0.85 * vonk * wcloud * zagl * zoh * sqrt(1.0 - zoh)
+          edyzh(k) = edyzh(k) +        kprof
+          edyzm(k) = edyzm(k) + 0.75 * kprof
+       enddo
+
+    endif
+
+!! Explicit inclusion of entrainment
+
+    if (deltar >= 1.e-9 .or. moli <= 0.0) then
+
+       kpblp1 = min(kpblh+1, ktop)
+       kpblm1 = max(kpblh-1, kbot)
+
+       dthv = max(thetav(kpblp1) - thetav(kpblm1), 0.5)
+       we   = 0.2 * (wstar**3 + wcloud**3 + 5.0*ustar**3) * thetav(kpblh) &
+            / (grav * pblh * dthv)
+
+       edyzh(kpblh)   =        we * dzm(kpblh)
+       edyzm(kpblh)   = 0.75 * we * dzm(kpblh)
+
+       edyzh(kpblm1) = max(       we * dzm(kpblm1), edyzh(kpblm1))
+       edyzm(kpblm1) = max(0.75 * we * dzm(kpblm1), edyzm(kpblm1))
+
+    endif
+
+!! Louis's Richardson-number dependent eddy diffusivity; used everywhere
+!! except for within the unstable PBL
+
+    edyrh(:) = 0.0
+    edyrm(:) = 0.0
+
+    if (moli <= 0.0) then
+       kb = kpblh
+    else
+       kb = kbot
+    endif
       
-    do k = kbot, ktop-1
+    ! Vertical loop over W levels
+    do k = kb, ktop-1
 
        ss = ( (vx(k+1) - vx(k))**2 &
             + (vy(k+1) - vy(k))**2 &
@@ -508,22 +518,36 @@ contains
        ri = grav2 / (thetav(k+1) + thetav(k)) * buoy / ss
 
        zagl = zm(k) - zm(kbot-1)
-       zk   = 0.4 * zagl
-       sql = ( zk * rlam / (rlam + zk) )**2       
+       zk   = vonk * zagl
 
        if (ri >= 0.0) then
 
-          fh = 1.0 + ri * ( 10.0 + ri * ( 50.0 + 5000.0 * ri * ri ) )
-          fh = 0.0012 + 1.0 / fh  ! pleim5
-          edyr(k) = kzo + sqrt(ss) * fh * sql
+          if (k < kpblh) then
+             rlam = max(0.1 * pblh, rlam_stab)
+          else
+             rlam = rlam_stab
+          endif
+
+          pr = min(1.0 + 3.7 * ri, 3.0)
+          fh = 1.0 / (1.0 + ri * ( 10.0 + ri * ( 50.0 + 5000.0 * ri * ri ) ) )
+          fm = fh / pr
+
+          sql = (zk * rlam / (rlam + zk))**2       
+
+          edyrm(k) = sqrt(ss) * sql * fm
+          edyrh(k) = sqrt(ss) * sql * fh
 
        else
 
-          edyr(k) = kzo + sqrt(ss * (1.0 - 18.0 * ri)) * sql
+          sql = (zk * rlam / (rlam_unst + zk))**2
+
+          phimi =     (1.0 - 16.0 * ri)**0.25
+          phihi = sqrt(1.0 - 16.0 * ri)
+
+          edyrm(k) = sql * phimi * phimi * sqrt(ss)
+          edyrh(k) = sql * phimi * phihi * sqrt(ss)
 
        endif
-
-       ! pran(k) = pr0 / ( 1.0 - (1.0 - pr0) * min(ri,rc) / rc )
 
     enddo
 
@@ -531,13 +555,20 @@ contains
 !! and Richardson-number eddy diffusivity
 
     do k = kbot, mza-1
-       zkh(k) = max( edyr(k), edyz(k) + edyc(k), kzo )
+       zkh(k) = max( edyrh(k), edyzh(k), kzo(k) )
        zkh(k) = min( zkh(k), 1000.0 )
        zkh(k) = 0.5 * (rho(k+1) + rho(k)) * zkh(k)
+
+       zkm(k) = max( edyrm(k), edyzm(k), kzo(k) )
+       zkm(k) = min( zkm(k), 1000.0 )
+       zkm(k) = 0.5 * (rho(k+1) + rho(k)) * zkm(k)
     enddo
 
     zkh(1:kbot-1) = 0.0
-    zkh(mza)    = 0.0
+    zkh(mza)      = 0.0
+
+    zkm(1:kbot-1) = 0.0
+    zkm(mza)      = 0.0
 
   end subroutine acm2_eddyx
 

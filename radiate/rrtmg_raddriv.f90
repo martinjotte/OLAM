@@ -10,13 +10,11 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          rlong_albedo, solfac, cloud_frac, rshort_clr, &
                          rshortup_clr, rshort_top_clr, rshortup_top_clr, &
                          rlong_clr, rlongup_clr, rlongup_top_clr, &
-                         par, par_diffuse, uva, uvb, uvc
+                         par, par_diffuse, uva, uvb, uvc, pbl_cld_forc
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab, emb2
-  use mem_ijtabs,  only: itab_w
   use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr
   use rrtmg_cloud, only: cloud_props
-  use mem_turb,    only: frac_land
-  use mem_ijtabs,  only: itab_w
+  use mem_turb,    only: frac_land, kpblh
   use mem_mclat,   only: rad_mclat
   use cgrid_defn,  only: acflux_dir_dn_tot, acflux_dif_dn_tot, acflux_dif_up_tot, &
                          acflux_dir_dn_clr, acflux_dif_dn_clr, acflux_dif_up_clr
@@ -152,8 +150,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: asmaers(ncol, nrad, nbndsw)
   real :: ecaer  (ncol, nrad, nbndsw)
 
-  integer :: k, krad, icloud, iaeros, index, ib, ig
-  integer :: iplon, irng, permuteseed, ns, nt, n
+  integer :: k, krad, icloud, iaeros, index, ib, ig, krad1, krad2
+  integer :: iplon, irng, permuteseed, ns, nt
   integer :: mc, mcat, ih, l, ntim, ngbmsw, ngbmlw
 
   real :: r_ef, dmean, watp, twc, prate
@@ -588,18 +586,20 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
         call rrtmg_to_cmaq()
      endif
 
+     krad1 = max(kpblh(iw) - koff - 1, 1)
+     krad2 = min(kpblh(iw) - koff + 1, nrad+1)
+     pbl_cld_forc(iw) = (swdflx(1,krad1) - swdflxc(1,krad1)) - (swdflx(1,krad2) - swdflxc(1,krad2)) &
+                      + (swuflx(1,krad2) - swuflxc(1,krad2)) - (swuflx(1,krad1) - swuflxc(1,krad1))
+
   else
 
      if (do_chem == 1) then
-        do n = 1, 7
-           acflux_dir_dn_tot(:,:,iw) = 0.0
-           acflux_dif_dn_tot(:,:,iw) = 0.0
-           acflux_dif_up_tot(:,:,iw) = 0.0
-
-           acflux_dir_dn_clr(:,:,iw) = 0.0
-           acflux_dif_dn_clr(:,:,iw) = 0.0
-           acflux_dif_up_clr(:,:,iw) = 0.0
-        enddo
+        acflux_dir_dn_tot(:,:,iw) = 0.0
+        acflux_dif_dn_tot(:,:,iw) = 0.0
+        acflux_dif_up_tot(:,:,iw) = 0.0
+        acflux_dir_dn_clr(:,:,iw) = 0.0
+        acflux_dif_dn_clr(:,:,iw) = 0.0
+        acflux_dif_up_clr(:,:,iw) = 0.0
      endif
 
   endif
@@ -685,6 +685,11 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
         fthrd_lw(k,iw) = lwhr(1,krad) * exl(krad) / 86400.0
      enddo
 
+     krad1 = max(kpblh(iw) - koff - 1, 1)
+     krad2 = min(kpblh(iw) - koff + 1, nrad+1)
+     pbl_cld_forc(iw) = pbl_cld_forc(iw) &
+                      + (lwdflx(1,krad1) - lwdflxc(1,krad1)) - (lwdflx(1,krad2) - lwdflxc(1,krad2)) &
+                      + (lwuflx(1,krad2) - lwuflxc(1,krad2)) - (lwuflx(1,krad1) - lwuflxc(1,krad1))
   endif
 
 
