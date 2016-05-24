@@ -1014,7 +1014,7 @@ do k = ka,mza
    delex_rho(k) = dts * (rhot(k,iw) &
       + volti(k,iw) * (hflux_rho(k) + wmarw(k-1) - wmarw(k)))
 
-   if (nl%iscal_monot == 1) then
+   if (nl%split_scalars == 1) then
       delex_rhothil(k) = dts * (thil(k,iw) * rhot(k,iw) &
            + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
    else
