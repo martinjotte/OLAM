@@ -38,14 +38,14 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 ! and the Walko and Avissar (2008a,b) time differencing method.
 
 use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, istp, itab_w, jtab_m, itab_m, &
-                        mrl_begl, mrl_begs, mrl_ends, mrl_endl, &
+                        mrl_begl, mrl_begs, mrl_ends, &
                         jtm_vadj, jtv_prog, jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp
-use mem_basic,    only: rho, thil, theta, wc, press, wmc, vmp, vmc, vp, vc, &
+use mem_basic,    only: rho, thil, wc, press, vmp, vmc, vp, vc, &
                         vxe, vye, vze, vxe2, vye2, vze2, &
-                        sh_w, sh_v, strict_wvt_donorpoint
-use mem_grid,     only: mza, mma, mva, mwa, nsw_max, lpm, lpv, lpw, lsw, &
-                        zt, zm, dzim, zfact, zfacit, zfacim, dzm, dzt, dnv, dniv, dnu, &
-                        arm0, arv, vnx, vny, vnz, volt, glatw, glonw
+                        strict_wvt_donorpoint
+use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, &
+                        dzim, zfact, zfacit, zfacim, dnv, dniv, dnu, &
+                        arm0, vnx, vny, vnz
 use mem_tend,     only: vmt, vmxet, vmyet, vmzet, sh_wt
 use misc_coms,    only: io6, iparallel, time8, dtlm, rinit
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
@@ -67,7 +67,7 @@ real, intent(inout) :: vzesc(mza,mwa)
 real, intent(in)    :: alpha_press(mza,mwa)
 real, intent(inout) :: rhot       (mza,mwa)
 
-integer :: j, iv, k, ka, kb, mrl, kbv, kd, ksw
+integer :: j, iv, k, kb, mrl, kbv, kd
 integer :: iw, iw1, iw2, iwp, ivp
 
 ! automatic arrays
@@ -249,18 +249,19 @@ if (mrl > 0) then
    enddo
    !$omp end parallel do 
 
-! Parallel send/recv of vortp
+! Parallel send of vortp
 
    if (iparallel == 1) call mpi_send_m(mrl, rvara1=vortp)
-   if (iparallel == 1) call mpi_recv_m(mrl, rvara1=vortp)
-
-   call lbcopy_m(mrl, a1=vortp)
 
 endif ! mrl > 0
 
 if (rotational) then
    mrl = mrl_begs(istp)
    if (mrl > 0) then
+
+      ! Parallel recv of vortp
+      if (iparallel == 1) call mpi_recv_m(mrl, rvara1=vortp)
+      call lbcopy_m(mrl, a1=vortp)
 
 ! Horizontal loop over W/T columns
 
@@ -409,6 +410,12 @@ endif  ! strict_wvt_donorpoint
 
 mrl = mrl_begl(istp)
 if (mrl > 0) then
+
+   if (.not. rotational) then
+      ! Parallel recv of vortp
+      if (iparallel == 1) call mpi_recv_m(mrl, rvara1=vortp)
+      call lbcopy_m(mrl, a1=vortp)
+   endif
 
 ! Horizontal loop over V columns for PROG_V_BEGL
 
@@ -711,7 +718,6 @@ use misc_coms,   only: io6, initial, dn01d, th01d, &
                        deltax, nxp, mdomain, time8, dtlm
 use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, dniv, volt, volti, &
                        xew, vnx, vny, vnz, wnxo2, wnyo2, wnzo2
-use mem_turb,    only: akmodx
 use mem_rayf,    only: rayf_cof, rayf_cofw, dorayf, dorayfw, krayf_bot, krayfw_bot
 
 implicit none
@@ -721,57 +727,18 @@ real,    intent(in) :: rhot(mza,mwa)
 
 integer :: iv, iwn, k, ka, kbv, npoly, jv, ksw
 real    :: fracx, rayfx
-real    :: arvkodx, hdniv, vmt1
-
-! Automatic arrays:
-
-real :: hdiff_vxe(mza)
-real :: hdiff_vye(mza)
-real :: hdiff_vze(mza)
 
 ka = lpw(iw)
-
-! Number of edges of this IW polygon
-
-npoly = itab_w(iw)%npoly
-
-hdiff_vxe(:) = 0.
-hdiff_vye(:) = 0.
-hdiff_vze(:) = 0.
-
-! Loop over V neighbors of this W cell
-
-do jv = 1,npoly
-   iv  = itab_w(iw)%iv(jv)
-   iwn = itab_w(iw)%iw(jv)
-   kbv  = lpv(iv)
-
-! Vertical loop over T levels
-
-   do k = kbv, mza
-
-! Compute and sum horizontal diffusive flux across this V neighbor
-
-      hdiff_vxe(k) = hdiff_vxe(k) + akmodx(k,iv) * (vxe(k,iwn) - vxe(k,iw))
-      hdiff_vye(k) = hdiff_vye(k) + akmodx(k,iv) * (vye(k,iwn) - vye(k,iw))
-      hdiff_vze(k) = hdiff_vze(k) + akmodx(k,iv) * (vze(k,iwn) - vze(k,iw))
-
-   enddo
-
-enddo
 
 ! Vertical loop over T levels
 
 do k = ka,mza
 
-! Evaluate momentum tendency in T cell from horizontal turbulent transport
+! Include density changes to conserve momentum
 
-   vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) * hdiff_vxe(k) &
-               + vxe(k,iw) * rhot(k,iw)
-   vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) * hdiff_vye(k) &
-               + vye(k,iw) * rhot(k,iw)
-   vmzet(k,iw) = vmzet(k,iw) + volti(k,iw) * hdiff_vze(k) &
-               + vze(k,iw) * rhot(k,iw)
+   vmxet(k,iw) = vmxet(k,iw) + vxe(k,iw) * rhot(k,iw)
+   vmyet(k,iw) = vmyet(k,iw) + vye(k,iw) * rhot(k,iw)
+   vmzet(k,iw) = vmzet(k,iw) + vze(k,iw) * rhot(k,iw)
 
 enddo
 
@@ -856,6 +823,7 @@ use mem_grid,    only: mza, mva, mwa, nsw_max, lpv, lpw, lve2, arv, arw, &
                        dzt_top, dzt_bot, zwgt_top, zwgt_bot
 use tridiag,     only: tridiffo
 use oname_coms,  only: nl
+use mem_turb,    only: akmodx, akhodx
 
 implicit none
 
@@ -997,6 +965,7 @@ do jv = 1,npoly
    iv   = itab_w(iw)%iv(jv)
    kbv  = lpv(iv)
    dirv = itab_w(iw)%dirv(jv)
+   iwn  = itab_w(iw)%iw(jv)
 
 ! Loop over T levels
 
@@ -1008,13 +977,17 @@ do jv = 1,npoly
 
       hflux_rho(k)  = hflux_rho(k)  + vmarv
 
-      hflux_thil(k) = hflux_thil(k) + vmarv * thil_upv(k,iv)
+      hflux_thil(k) = hflux_thil(k) + vmarv * thil_upv(k,iv) &
+                                    + akhodx(k,iv) * (thil(k,iwn) - thil(k,iw))
 
-      hflux_vxe(k)  = hflux_vxe(k)  + vmarv * vxe_upv(k,iv)
+      hflux_vxe(k)  = hflux_vxe(k)  + vmarv * vxe_upv(k,iv)  &
+                                    + akmodx(k,iv) * (vxe(k,iwn) - vxe(k,iw))
 
-      hflux_vye(k)  = hflux_vye(k)  + vmarv * vye_upv(k,iv)
+      hflux_vye(k)  = hflux_vye(k)  + vmarv * vye_upv(k,iv)  &
+                                    + akmodx(k,iv) * (vye(k,iwn) - vye(k,iw))
 
-      hflux_vze(k)  = hflux_vze(k)  + vmarv * vze_upv(k,iv)
+      hflux_vze(k)  = hflux_vze(k)  + vmarv * vze_upv(k,iv)  &
+                                    + akmodx(k,iv) * (vze(k,iwn) - vze(k,iw))
 
    enddo
 
@@ -1306,9 +1279,9 @@ use mem_basic,   only: vc, wc, press, vmp, vmc, rho, vxe, vye, vze
 use misc_coms,   only: io6, dtsm, initial, mdomain, u01d, v01d, dn01d, &
                        deltax, nxp
 use consts_coms, only: erad, eradi, gravo2
-use mem_grid,    only: mza, mma, mva, mwa, lpv, lpw, volt, xev, yev, zev, &
-                       unx, uny, unz, vnx, vny, vnz, vnxo2, vnyo2, vnzo2, &
-                       dniu, dniv, arw0, dnu, xem, yem, zem
+use mem_grid,    only: mza, mma, mva, mwa, lpv, volt, xev, yev, zev, &
+                       unx, uny, unz, vnx, vny, vnz, vnxo2, vnyo2, &
+                       dniu, dniv, arw0, dnu
 use mem_rayf,    only: dorayf, rayf_cof, vc03d, dn03d, krayf_bot, &
                        dorayfdiv, krayfdiv_bot, rayf_cofdiv
 use oname_coms,  only: nl
@@ -1329,16 +1302,12 @@ real, intent(in) :: vortp_t(mza,mwa)
 
 logical, intent(in) :: rotational
 
-integer :: jv,ivn,k,kb,npoly
-
+integer :: k, kb
 integer :: iw1,iw2,im1,im2
-
 real :: sum1,sum2,vmp_eqdiv
-
-real :: dts,raxis,uv01dr,uv01dx,uv01dy,uv01dz,vcref
+real :: dts
 real :: fracx, rayfx
 real :: vx, vy, vz, uc, watv, tke1, tke2, vortp_v, dtso2dnu, dtso2dnv
-real :: wt1, wt2
 
 ! Automatic arrays
 

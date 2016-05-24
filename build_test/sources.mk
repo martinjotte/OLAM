@@ -107,7 +107,6 @@ SOURCE_FILES= \
              $(OMODEL)/spawn_nest.f90 \
              $(OMODEL)/spring_dynamics.f90 \
              $(OMODEL)/surface_fluxes.F90 \
-             $(OMODEL)/thiltend_long.f90 \
              $(OMODEL)/thuburn_module.F90 \
              $(OMODEL)/tileslab.F90 \
              $(OMODEL)/timestep.f90 \
