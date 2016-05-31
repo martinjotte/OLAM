@@ -959,7 +959,7 @@ subroutine prepfield(a,nx,ny,projection,type)
      write(*,*) 'Converting RH from percent to fraction'
      where (a > amiss0) a = a / 100.
 
-  elseif (type(1:4)=='SPFH') then
+  elseif (type=='SPFH' .or. type=='Q') then
 
      write(*,*) 'Converting spec hum to g/kg'
      where (a > amiss0) a = a * 1000.
