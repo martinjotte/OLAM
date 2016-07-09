@@ -364,7 +364,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
         elseif (abslat > 60.) then
            wt60 = 1.
         else
-           wt60 = (abslat - 20.) / 20.
+           wt60 = (abslat - 20.) / 40.
         endif
 
         wt20 = 1. - wt60
