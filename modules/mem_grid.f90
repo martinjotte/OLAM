@@ -87,6 +87,9 @@ Module mem_grid
 
      ,topm, topw          ! Topography height at M,W point
 
+   real, allocatable :: gravm(:) ! gravity at M levels
+   real, allocatable :: gravt(:) ! gravity at T levels
+
    real, allocatable, dimension(:,:) ::  &
 
       arv, arw            ! Aperture area of V,W face
@@ -136,6 +139,9 @@ Contains
    allocate (zfact (mza));  zfact (:) = 0.
    allocate (zfacit(mza));  zfacit(:) = 0.
 
+   allocate (gravm (mza));  gravm (:) = 0.
+   allocate (gravt (mza));  gravt (:) = 0.
+   
    end subroutine alloc_gridz
    
 !===============================================================================

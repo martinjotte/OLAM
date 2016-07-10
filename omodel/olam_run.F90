@@ -56,7 +56,7 @@ subroutine olam_run(name_name)
   use mem_nudge,   only: nudflag, nudnxp, fill_jnudge, o3nudflag
   use mem_rayf,    only: rayf_init
   use mem_para,    only: myrank
-  use consts_coms, only: r8
+  use consts_coms, only: r8, init_consts
   use oname_coms,  only: nl
   use ed_misc_coms,only: ed2_active, ed2_namelist
   use hcane_rz,    only: init_hurr_step, hurricane_init
@@ -106,10 +106,16 @@ subroutine olam_run(name_name)
   istp  = 1
   time8 = 0.0_r8
 
-  ! Read, check, and copy namelist variables
+  ! Read namelist variables
 
   write(io6,'(/,a)') 'olam_run calling namelist read'
   call read_nl(name_name)
+
+  ! Set remaining physical constants
+
+  call init_consts(nl%test_case)
+
+  ! Check and copy namelist variables
 
   write(io6,'(/,a)') 'olam_run checking namelist values'
   call oname_check()
@@ -241,6 +247,7 @@ subroutine olam_run(name_name)
 
   write(io6,'(/,a)') 'olam_run after para_init'
 
+  call grav_init()
   call gridset_print()
 
   mwa_prog = 0
@@ -344,6 +351,13 @@ subroutine olam_run(name_name)
      call swtc_init()
   endif
   !------------------------------------------------------------
+
+  !----------------------------------------------------------------------
+  ! Call NCAR interface with zero (i.e., initial) time.  This initializes
+  ! both momentum and scalars
+
+  ! if (nl%test_case > 7 .and. nl%test_case < 500) call olam_dcmip_init()
+  !----------------------------------------------------------------------
 
   ! Diagnose earth-coordinate velocities
 

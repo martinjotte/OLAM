@@ -512,6 +512,25 @@ do k = 1,nza
    if (mdomain < 2) then
       zfacm(k) = (erad + zm(k)) / erad
       zfact(k) = (erad + zt(k)) / erad
+
+!-------------------------------------------
+! DCMIP modifications [may not be required in some of these cases]
+      if (nl%test_case ==  11 .or. &
+          nl%test_case ==  12 .or. &
+          nl%test_case ==  13 .or. &
+          nl%test_case ==  20 .or. &
+          nl%test_case ==  31 .or. &
+          nl%test_case ==  42 .or. &
+          nl%test_case ==  43 .or. &
+          nl%test_case ==  51 .or. &
+        ! nl%test_case == 131 .or. & ! First using deep atmos for this case; try shallow later
+          nl%test_case ==  52) then
+
+         zfacm(k) = 1.
+         zfact(k) = 1.
+     endif
+!-------------------------------------------
+
    else
       zfacm(k) = 1.
       zfact(k) = 1.
@@ -524,6 +543,33 @@ enddo
 deallocate (zmvec,ztvec)
 
 end subroutine gridset2
+
+!===============================================================================
+
+subroutine grav_init()
+
+  use mem_grid,    only: mza, zfacim, zfacit, gravm, gravt
+  use consts_coms, only: grav
+  use oname_coms,  only: nl
+
+  implicit none
+   
+  ! Currently, variable gravity only for DCMIP 2016 baroclinic wave test case;
+  ! later adopt for general case
+
+  if (nl%test_case == 111 .or. &
+      nl%test_case == 112 .or. &
+      nl%test_case == 113 .or. &
+      nl%test_case == 114) then
+
+     gravm(:) = grav * zfacim(:)**2
+     gravt(:) = grav * zfacit(:)**2
+  else
+     gravm(:) = grav
+     gravt(:) = grav
+  endif
+
+end subroutine grav_init
 
 !===============================================================================
 
