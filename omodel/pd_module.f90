@@ -40,8 +40,7 @@ contains
     real,    intent(in)    :: vmsca  (mza,mva)
     real,    intent(in)    :: wmsca  (mza,mwa)
     integer, intent(in)    :: mrl
-    integer                :: iw, j, iv, jv, k, iwd, kd, iwn, km, kp
-    real                   :: scp_min(mza)
+    integer                :: iw, j, iv, jv, k, iwd, kd, km, kp
 
     !$omp parallel
 
@@ -52,29 +51,22 @@ contains
 
        do k = lpw(iw), mza
           kp = min(k+1,mza)
-
           beta(k,iw) = max(wmsca(k,  iw),0.0) * scp_upw(k,  iw)  &
                      - min(wmsca(k-1,iw),0.0) * scp_upw(k-1,iw)
-
-          scp_min(k) = min(scp(k-1,iw), scp(k,iw), scp(kp,iw))
        enddo
 
        do jv = 1, itab_w(iw)%npoly
-          iwn = itab_w(iw)%iw(jv)
           iv  = itab_w(iw)%iv(jv)
 
           do k = lpv(iv), mza
              kp = min(k+1,mza)
-
              beta(k,iw) = beta(k,iw) - min(itab_w(iw)%dirv(jv) * vmsca(k,iv), 0.0) * scp_upv(k,iv)
-
-             scp_min(k) = min(scp_min(k), scp(k-1,iwn), scp(k,iwn), scp(kp,iwn))
           enddo
+
        enddo
 
        do k = lpw(iw), mza
-          beta(k,iw) = 0.999999 * (scp(k,iw) - scp_min(k)) &
-                     / (dtom(k,iw) * max(beta(k,iw),1.e-15))
+          beta(k,iw) = 0.999998 * scp(k,iw) / (dtom(k,iw) * max(beta(k,iw),1.e-15))
           beta(k,iw) = min(1.0, max(beta(k,iw), 0.0))
        enddo
 

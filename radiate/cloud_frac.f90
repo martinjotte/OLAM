@@ -100,7 +100,7 @@ subroutine get_cloud_frac(iw, ka, frac, iconv, ideep)
         elseif (abslat > 60.) then
            wt60 = 1.
         else
-           wt60 = (abslat - 20.) / 20.
+           wt60 = (abslat - 20.) / 40.
         endif
 
         wt20 = 1. - wt60

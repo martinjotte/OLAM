@@ -71,7 +71,8 @@ subroutine fields2_ll()
 
   use consts_coms, only: p00, rocp, piu180, erad, eradi, pio180, cp, alvl, rvap, r8
 
-  use hdf5_utils,  only: shdf5_open, shdf5_orec, shdf5_orec_ll, shdf5_close
+  use hdf5_utils,  only: shdf5_open, shdf5_orec, shdf5_orec_ll, shdf5_close, &
+                         shdf5_write_global_attribute
 
   use max_dims,    only: pathlen
   use oname_coms,  only: nl
@@ -265,6 +266,7 @@ subroutine fields2_ll()
 
 ! SEIGEL 2013 - Added for ll interp writeout
   character(pathlen) :: hnamel
+  character(20)      :: ofrq
 
   integer,  save :: npts
   integer,  save :: init = 0
@@ -855,7 +857,16 @@ subroutine fields2_ll()
      call makefnam(hnamel, hfilepref, current_time, 'LL', '$', 'h5')
      call shdf5_open(hnamel,'W',iclobber) 
 
-! First write coordinate variables to disk (lat, lon, height)
+! Write any global attributes to file
+
+     write(ofrq,'(I0,A1)') nint(nl%frqlatlon), 's'
+
+     call shdf5_write_global_attribute("Conventions",    cvalue = "CF-1.0")
+     call shdf5_write_global_attribute("model",          cvalue = "OLAM")
+     call shdf5_write_global_attribute("time_frequency", cvalue = trim(ofrq))
+     call shdf5_write_global_attribute("grid",           cvalue = "hexagonal")
+
+! Write coordinate variables to disk (lat, lon, height)
 
      ndims    = 1
      idims(2) = 1

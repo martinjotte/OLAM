@@ -56,12 +56,18 @@ real, parameter :: pi2      = 3.1415927 * 2.
 real, parameter :: pi4      = 3.1415927 * 4.      
 real, parameter :: pio2     = 3.1415927 * .5      
 real, parameter :: pio4     = 3.1415927 * .25     
-real, parameter :: erad     = 6371.22e3          ! Earth radius [m]
-real, parameter :: erad2    = erad * 2.            
-real, parameter :: erad4    = erad * 4.           
-real, parameter :: eradsq   = erad * erad         
-real, parameter :: erador5  = erad * .4472135955 ! second factor is sqrt(.2)
-real, parameter :: eradi    = 1. / erad           
+!real, parameter :: erad     = 6371.22e3          ! Earth radius [m]
+!real, parameter :: erad2    = erad * 2.            
+!real, parameter :: erad4    = erad * 4.           
+!real, parameter :: eradsq   = erad * erad         
+!real, parameter :: erador5  = erad * .4472135955 ! second factor is sqrt(.2)
+!real, parameter :: eradi    = 1. / erad           
+real            :: erad
+real            :: erad2
+real            :: erad4
+real            :: eradsq
+real            :: erador5
+real            :: eradi
 real, parameter :: vonk     = 0.40               ! von Karman constant
 real, parameter :: nu       = 1.568e-5           ! kinematic viscosity of air [m^2/s]
 real, parameter :: tkmin    = 5.e-4              ! minimum allowed TKE
@@ -78,8 +84,11 @@ real, parameter :: cice1000 = cice * 1000.       ! spec heat of ice [J/(1000 kg 
 real, parameter :: solar    = 1368.22            ! solar constant [W/m^2]
 real, parameter :: stefan   = 5.6696e-8          ! Stefan-Boltzmann constant
 real, parameter :: dlat     = 111120.            ! Earth 1-latitude-degree dist [m]
-real, parameter :: omega    = 7.29212e-5           ! Earth rotational angular velocity
-real, parameter :: omega2   = 7.29212e-5 * 2.      ! omega * 2
+!real, parameter :: omega    = 7.29212e-5           ! Earth rotational angular velocity
+!real, parameter :: omega2   = 7.29212e-5 * 2.      ! omega * 2
+real            :: omega
+real            :: omega2
+real            :: xscale
 real, parameter :: p00i     = 1. / p00            
 real, parameter :: rocp     = rdry / cp           
 real, parameter :: cpor     = cp / rdry           
@@ -110,5 +119,69 @@ real, parameter :: p00k     = 26.870941          ! = p00 ** rocp
 real, parameter :: p00ki    = 1. / p00k           
 real, parameter :: pc1      = .9967937e-2        ! pc1 = (1./p00) ** rocv
                                       ! old form:  pc1 = (1./p00) ** rocp
+Contains
+
+!===============================================================================
+
+  subroutine init_consts(test_case)
+
+    implicit none
+
+    integer, intent(in) :: test_case
+
+    ! Standard (Earth) values
+
+    erad   = 6371.22e3          ! Earth radius [m]
+    omega  = 7.29212e-5         ! Earth rotational angular velocity
+    xscale = 1.0
+
+    ! Alternate values depending on test case
+
+    if     (test_case == 200) then
+       omega = 0.
+    elseif (test_case == 201) then
+       xscale = 500.
+       erad = erad / xscale
+       omega = 0.
+    elseif (test_case == 21 ) then
+       xscale = 500.
+       erad = erad / xscale
+       omega = 0.
+    elseif (test_case == 22 ) then
+       xscale = 500.
+       erad = erad / xscale
+       omega = 0.
+    elseif (test_case == 31 ) then
+       xscale = 125.
+       erad = erad / xscale
+       omega = 0.
+    elseif (test_case == 411) then
+       xscale = 10.
+       erad = erad / xscale
+       omega = omega * xscale
+    elseif (test_case == 412) then
+       xscale = 100.
+       erad = erad / xscale
+       omega = omega * xscale
+    elseif (test_case == 413) then
+       xscale = 1000.
+       erad = erad / xscale
+       omega = omega * xscale
+    elseif (test_case == 131) then
+       xscale = 120.
+       erad = erad / xscale
+       omega = 0.
+    endif
+
+    ! Secondary values
+
+    erad2    = erad * 2.            
+    erad4    = erad * 4.           
+    eradsq   = erad * erad         
+    erador5  = erad * .4472135955 ! second factor is sqrt(.2)
+    eradi    = 1. / erad           
+    omega2   = omega * 2.
+
+  end subroutine init_consts
 
 End Module

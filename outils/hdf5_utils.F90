@@ -1104,4 +1104,29 @@ end subroutine shdf5_orec_ll2
 
 #endif
 
+subroutine shdf5_write_global_attribute(name, ivalue, rvalue, dvalue, cvalue)
+
+  use hdf5_f2f,    only: fh5f_write_global_attribute
+  use consts_coms, only: r8
+
+  implicit none
+
+  character(*),           intent(in) :: name
+  integer,      optional, intent(in) :: ivalue
+  real,         optional, intent(in) :: rvalue
+  real(r8),     optional, intent(in) :: dvalue
+  character(*), optional, intent(in) :: cvalue
+
+  if (present(ivalue)) then
+     call fh5f_write_global_attribute(name, ivalue=ivalue)
+  elseif (present(rvalue)) then
+     call fh5f_write_global_attribute(name, rvalue=rvalue)
+  elseif (present(dvalue)) then
+     call fh5f_write_global_attribute(name, dvalue=dvalue)
+  elseif (present(cvalue)) then
+     call fh5f_write_global_attribute(name, cvalue=cvalue)
+  endif
+
+end subroutine shdf5_write_global_attribute
+
 end module

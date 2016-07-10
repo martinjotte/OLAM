@@ -30,7 +30,156 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
+
 subroutine gdtost(a,ix,iy,stax,stay,staval)
+  implicit none
+  integer, intent(in)  :: ix,iy
+  real,    intent(in)  :: a(ix,iy), stax, stay
+  real,    intent(out) :: staval
+
+  !  SUBROUTINE TO RETURN STATIONS BACK-INTERPOLATED VALUES(STAVAL)
+  !  FROM UNIFORM GRID POINTS USING OVERLAPPING-QUADRATICS.
+  !  GRIDDED VALUES OF INPUT ARRAY A DIMENSIONED A(IX,IY),WHERE
+  !  IX=GRID POINTS IN X, IY = GRID POINTS IN Y .  STATION
+  !  LOCATION GIVEN IN TERMS OF GRID RELATIVE STATION X (STAX)
+  !  AND STATION COLUMN.
+  !  VALUES GREATER THAN 1.0E30 INDICATE MISSING DATA.
+
+  integer        :: iy1,iy2,ix1,ix2,ii,i,jj,j
+  real           :: fiym2,fixm2,yy,xx
+  real           :: r(4), scr(4)
+  real, external :: quad_avg
+
+  iy1 = int(stay) - 1
+  iy2 = iy1 + 3
+
+  ix1 = int(stax)-1
+  ix2 = ix1+3
+
+  fiym2=real(iy1 - 1)
+  fixm2=real(ix1 - 1)
+
+  yy = stay - fiym2
+  xx = stax - fixm2
+
+  do i  = ix1, ix2
+     ii = i - ix1 + 1
+
+     if (i < 1 .or. i > ix) then
+
+        scr(ii) = 1.e30
+
+     else
+
+        do j  = iy1, iy2
+           jj = j - iy1 + 1
+
+           if (j < 1 .or. j > iy) then
+              r(jj) = 1.e30
+           else
+              r(jj) = a(i,j)
+           endif
+        enddo
+
+        scr(ii) = quad_avg(yy, 1., 2., 3., 4., r(1), r(2), r(3), r(4) )
+
+     endif
+
+  enddo
+
+  staval = quad_avg(xx,  1., 2., 3., 4., scr(1),scr(2),scr(3),scr(4))
+
+end subroutine gdtost
+
+
+!===============================================================================
+
+
+real function quad_avg ( x , x0, x1, x2, x3, y0, y1, y2, y3 )
+
+  implicit none
+
+  real, external :: quad
+  real :: x , x0, x1, x2, x3, y0, y1, y2, y3, q1, q2
+
+  !  Since there are three points required for a quadratic, we compute it twice 
+  !  (once with x0, x1, x2 and once with x1, x2, x3), and then average those.
+  !  This will reduce overshoot. The "x" point is where we are interpolating to.
+
+  !        x0         x1    x    x2
+  !                   x1    x    x2         x3
+
+  q1 = quad ( x , x0, x1, x2,     y0, y1, y2     )
+  q2 = quad ( x ,     x1, x2, x3,     y1, y2, y3 )
+
+  if (abs(q1) < 1.e30 .and. abs(q2) < 1.e30) then
+
+     quad_avg = ( quad ( x , x0, x1, x2,     y0, y1, y2     ) * ( x2 - x  ) + &
+                  quad ( x ,     x1, x2, x3,     y1, y2, y3 ) * ( x  - x1 ) ) &
+              / ( x2 - x1 )
+
+  elseif (abs(q1) < 1.e30) then
+
+     quad_avg = q1
+
+  elseif (abs(q2) < 1.e30) then
+
+     quad_avg = q2
+
+  else
+
+     quad_avg = 1.e30
+
+  endif
+
+end function quad_avg
+
+
+!===============================================================================
+
+
+real function quad ( x , x0, x1, x2, y0, y1, y2 )
+
+  implicit none 
+
+  real    :: x , x0, x1, x2, y0, y1, y2, ymax, ymin
+  integer :: n
+
+  n = count( abs( (/y0, y1, y2/) ) < 1.e30 )
+
+  if (n == 0) then
+     quad = 1.e30
+     return
+  elseif (n == 1 .or. n == 2) then
+     quad = sum( (/y0, y1, y2/), mask = abs( (/y0, y1, y2/) ) < 1.e30 ) / real(n)
+     return
+  endif
+
+  !  Lagrange = sum     prod    ( x  - xj )
+  !             i=0,n ( j=0,n    ---------  * yi )
+  !                     j<>i    ( xi - xj ) 
+     
+  !  For a quadratic, in the above equation, we are setting n=2. Three points
+  !  required for a quadratic, points x0, x1, x2 (hence n=2).
+
+  quad = (x-x1)*(x-x2)*y0 / ( (x0-x1)*(x0-x2) ) + &
+         (x-x0)*(x-x2)*y1 / ( (x1-x0)*(x1-x2) ) + &
+         (x-x0)*(x-x1)*y2 / ( (x2-x0)*(x2-x1) )
+
+  ! Should we bound the quadratic interpolants?
+
+  ymax = max(y0, y1, y2)
+  ymin = min(y0, y1, y2)
+
+  quad = min( max( quad, ymin ), ymax )
+
+end function quad
+
+
+!===============================================================================
+
+
+subroutine gdtost2(a,ix,iy,stax,stay,staval)
 implicit none
 integer :: ix,iy
 real :: a(ix,iy),r(4),scr(4),stax,stay,staval
@@ -75,7 +224,9 @@ call binom(1.,2.,3.,4.,scr(1),scr(2),scr(3),scr(4),xx,staval)
 return
 end
 
+
 !===============================================================================
+
 
 subroutine binom(x1,x2,x3,x4,y1,y2,y3,y4,xxx,yyy)
 

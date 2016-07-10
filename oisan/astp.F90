@@ -374,9 +374,9 @@ real, intent(inout) :: p_prsfc(nprx+4,npry+4)
 real, intent(inout) :: p_tsfc (nprx+4,npry+4)
 real, intent(inout) :: p_shsfc(nprx+4,npry+4)
 
-real :: thmax,thmin,vapor_press
+real :: thmax,thmin,vapor_press,qmax
 integer :: i,j,k,iunit
-logical :: isrh
+logical :: isrh, doconvert
 
 real, external :: eslf
 
@@ -404,20 +404,41 @@ call get_press (fform, iunit, p_u, p_v, p_t, p_z, p_r, p_o, &
 
 if (.not. isrh) then
 
-   ! Convert specific humidity to kg/kg units
+   ! Old RALPH files should have specific humidity in g/kg
+   doconvert = .true.
+   
+   ! New HDF files should also be in g/kg, but if the grib file had a 
+   ! nonstandard name for humidity, grib2olam might not have converted
+   ! the units properly. Check the magnitude of humdity to guess the units.
+   ! This will be changed when we write the units to the degribbed file!
 
-   write(io6, *) ''
-   write(io6, *) 'Converting specific humidity to kg/kg'
+   if (fform == 'HD5') then
 
-   do k = 1,nprz
-      do j = 1,npry+4
-         do i = 1,nprx+4
+      ! Level 1 should always the lowest level!
+      qmax = maxval(p_r(1:nprx+4, 1:npry+4, 1))
 
-            p_r(i,j,k) = .001 * p_r(i,j,k)
+      ! If all specific humidities at lowest level are less than 1,
+      ! assume it is alread kg/kg
+      if (qmax < 1.0) doconvert = .false.
 
+   endif
+
+   if (doconvert) then
+
+      ! Convert specific humidity to kg/kg units
+
+      write(io6, *) ''
+      write(io6, *) 'Converting specific humidity to kg/kg'
+
+      do k = 1,nprz
+         do j = 1,npry+4
+            do i = 1,nprx+4
+               p_r(i,j,k) = .001 * p_r(i,j,k)
+            enddo
          enddo
       enddo
-   enddo
+
+   endif
 
 else
 

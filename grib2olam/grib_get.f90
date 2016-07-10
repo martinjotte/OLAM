@@ -20,7 +20,7 @@ module grib_get_mod
   integer, allocatable :: levs(:),idates(:),ifhrs(:)
   character(len=20), allocatable :: fields(:),irecs(:)
   character(len=20) :: projection,cpole
-  real :: alat1,alon1,alov,aorient,dx,dy,reflat1,reflat2
+  real :: alat1,alat2,alon1,alov,aorient,dx,dy,reflat1,reflat2
 
   integer :: lenout
 
@@ -226,6 +226,10 @@ contains
           tokens = ' '
           call tokenize_ws(lines(3),tokens,ntok)
           read(tokens(2),*) alat1
+          read(tokens(4),*) alat2
+          ! wgrib2 always outputs data S to N, regardless of how it is stored
+          ! in the grib file. So, the south lat can either be alat1 or alat2!
+          alat1 = min(alat1,alat2)
           read(tokens(6),*) dy
           tokens = ' '
           call tokenize_ws(lines(4),tokens,ntok)

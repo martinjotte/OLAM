@@ -252,7 +252,7 @@ subroutine acmcld_tracermix( iw, dtl )
   if ( kcubot(iw) >= lpw(iw) .and. kcutop(iw) > kcubot(iw) .and. &
          cbmf(iw) > 1.e-6 ) then
 
-     kb = kcubot(iw) - 1
+     kb = max( kcubot(iw) - 1, lpw(iw) )
      kt = kcutop(iw)
 
      ! For some schemes, mixing extends 1 level above cloud
@@ -268,24 +268,11 @@ subroutine acmcld_tracermix( iw, dtl )
   endif
 
   nlev = kt - kb + 1
-  dtheta = theta(kt,iw) - theta(kt-1,iw)
 
-! Estimate overshoot/entrainment at top
+  ! Assume cloud extends to middle of top layer  
+  clddepth = zt(kt) - zm(kb)
 
-  if (dtheta < 1.e-5) then
-     dztop = dzt(kt)
-     clddepth = zm(kt) - zm(kb)
-  elseif (thsrc(kt,iw) > 0.0) then
-     dztop = zt(kt) - zm(kt-1)
-     clddepth = zt(kt) - zm(kb)
-  else
-     dztop = -1.5e4 * dzt(kt) * thsrc(kt,iw) / dtheta
-     dztop = min(dztop, dzt(kt))
-     dztop = max(dztop, 0.0)
-     clddepth = dztop + zm(kt-1) - zm(kb)
-  endif
-
-! Compute ACM missing rates
+  ! Compute ACM missing rates
 
   massflx_acm(kb-1) = 0.0
   massflx_acm(kb)   = ef * cbmf(iw) * arw0(iw)
@@ -293,7 +280,6 @@ subroutine acmcld_tracermix( iw, dtl )
 
   ! Loop over W (flux) levels
   do k = kb+1, kt-1
-
      massflx_acm(k) = massflx_acm(kb) * rho(k,iw) / rho(kb,iw) * &
                   (clddepth - (zm(k) - zm(kb))) / clddepth
   enddo

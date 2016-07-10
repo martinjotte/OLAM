@@ -699,7 +699,6 @@ if (strict_wvt_donorpoint) then
    deallocate(vzef)
 endif
 
-return
 end subroutine prog_wrtv
 
 !=========================================================================
@@ -800,7 +799,6 @@ if (dorayf) then
 
 endif ! (dorayf)
 
-return
 end subroutine prog_wrt_begl
 
 !=========================================================================
@@ -816,11 +814,11 @@ use mem_basic,   only: wmc, rho, thil, wc, vc, theta, press, &
                        vxe, vye, vze, vxe2, vye2, vze2
 use misc_coms,   only: io6, dtsm, initial, dn01d, th01d, deltax, nxp, &
                        mdomain, time8, icorflg
-use consts_coms, only: cpocv, grav, omega2, pi1, pio180, r8
+use consts_coms, only: cpocv, omega2, pi1, pio180, r8
 use mem_grid,    only: mza, mva, mwa, nsw_max, lpv, lpw, lve2, arv, arw, &
                        vnx, vny, vnz, wnx, wny, wnz, wnxo2, wnyo2, wnzo2, &
                        xew, dzim, dzt, volt, volti, glatw, glonw, &
-                       dzt_top, dzt_bot, zwgt_top, zwgt_bot
+                       dzt_top, dzt_bot, zwgt_top, zwgt_bot, gravm
 use tridiag,     only: tridiffo
 use oname_coms,  only: nl
 use mem_turb,    only: akmodx, akhodx
@@ -1014,13 +1012,8 @@ do k = ka,mza
    delex_rho(k) = dts * (rhot(k,iw) &
       + volti(k,iw) * (hflux_rho(k) + wmarw(k-1) - wmarw(k)))
 
-   if (nl%split_scalars == 1) then
-      delex_rhothil(k) = dts * (thil(k,iw) * rhot(k,iw) &
-           + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
-   else
-      delex_rhothil(k) = dts * (thilt(k,iw) + thil(k,iw) * rhot(k,iw) &
-           + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
-   endif
+   delex_rhothil(k) = dts * (thilt(k,iw) + thil(k,iw) * rhot(k,iw) &
+      + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
 
 ! VMXET, VMYET, VMZET are not yet multiplied by VOLTI
 
@@ -1051,7 +1044,7 @@ do k = ka,mza-1
 
       + dzim(k) * (press_t(k) - press_t(k+1) &
 
-      - grav * (dzt_top(k) * rho(k,iw) + dzt_bot(k+1) * rho(k+1,iw))) &
+      - gravm(k) * (dzt_top(k) * rho(k,iw) + dzt_bot(k+1) * rho(k+1,iw))) &
 
 ! Average Coriolis force in vertical between T levels
 
@@ -1071,7 +1064,7 @@ enddo
 c6  = dts * .5 * fw
 c7  = dts * .25 * fw
 c8  = dts * pc2
-c9  =-dts * fr * grav
+c9  =-dts * fr
 c10 = dts * fw
 
 ! Fill matrix coefficients for implicit update of WM
@@ -1092,7 +1085,7 @@ do k = ka,mza-1
 
    b7(k)  = c7     * b3(k)        ! W pts
    b8(k)  = c8     * dzim(k)      ! W pts
-   b9(k)  = c9     * dzim(k)      ! W pts
+   b9(k)  = c9     * dzim(k) * gravm(k) ! W pts
    b11(k) = b8(k)  * b5(k)        ! W pts
    b12(k) = b8(k)  * b5(k+1)      ! W pts
    b13(k) = b9(k)  * dzt_top(k)   ! W pts

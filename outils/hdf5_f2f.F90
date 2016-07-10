@@ -1195,4 +1195,91 @@ contains
 
 !===============================================================================
 
+  subroutine fh5f_write_global_attribute(name, ivalue, rvalue, dvalue, cvalue)
+    implicit none
+
+    character(*),           intent(in) :: name
+    integer,      optional, intent(in) :: ivalue
+    real,         optional, intent(in) :: rvalue
+    real(r8),     optional, intent(in) :: dvalue
+    character(*), optional, intent(in) :: cvalue
+
+    integer(hid_t)   :: space_id, attr_id, atype_id, grp_id
+    integer(hsize_t) :: dims(1)
+    integer(size_t)  :: attrlen
+
+    integer          :: ndims
+    integer          :: hdferr
+
+    if ( (.not. present(ivalue))  .and. &
+         (.not. present(rvalue))  .and. &
+         (.not. present(dvalue))  .and. &
+         (.not. present(cvalue)) ) return
+
+    ! Open the root group of the HDF5 file
+    call H5Gopen_f(fileid, '/', grp_id, hdferr)
+
+    ndims = 1
+    dims  = 1
+
+    ! Create the data space for the attribute
+    call H5Screate_simple_f(ndims, dims, space_id, hdferr)
+
+    if     (present(ivalue)) then
+
+       ! Create an attribute for this dataset
+       call H5Acreate_f(grp_id, name, H5T_NATIVE_INTEGER, space_id, attr_id, hdferr)
+
+       ! write attribute to file
+       call H5Awrite_f(attr_id, H5T_NATIVE_INTEGER, ivalue, dims, hdferr)
+
+    elseif (present(rvalue)) then
+
+       ! Create an attribute for this dataset
+       call H5Acreate_f(grp_id, name, H5T_NATIVE_REAL, space_id, attr_id, hdferr)
+
+       ! write attribute to file
+       call H5Awrite_f(attr_id, H5T_NATIVE_REAL, rvalue, dims, hdferr)
+
+    elseif (present(dvalue)) then
+
+       ! Create an attribute for this dataset
+       call H5Acreate_f(grp_id, name, H5T_NATIVE_DOUBLE, space_id, attr_id, hdferr)
+
+       ! write attribute to file
+       call H5Awrite_f(attr_id, H5T_NATIVE_DOUBLE, dvalue, dims, hdferr)
+
+    elseif (present(cvalue)) then
+
+       ! Create a type for fortran strings by expanding a native character
+       attrlen = len_trim(cvalue) + 1
+
+       call h5tcopy_f(H5T_NATIVE_CHARACTER, atype_id, hdferr)
+       CALL h5tset_size_f(atype_id, attrlen, hdferr)              
+
+       ! Write null-terminated strings ("C-style")
+       call H5Tset_strpad_f(atype_id, H5T_STR_NULLTERM_F, hdferr)
+
+       ! Create an attribute for this dataset
+       call H5Acreate_f(grp_id, name, atype_id, space_id, attr_id, hdferr)
+
+       ! write attribute to file
+       call H5Awrite_f(attr_id, atype_id, trim(cvalue)//char(0), dims, hdferr)
+
+       ! close character type
+       CALL h5tclose_f(atype_id, hdferr) 
+    endif
+
+    ! Close the attribute
+
+    call H5Sclose_f(space_id, hdferr)
+    call H5Aclose_f(attr_id,  hdferr)
+
+    ! Close the root group
+    call H5Gclose_f(grp_id, hdferr)
+ 
+  end subroutine fh5f_write_global_attribute
+
+!===============================================================================
+
 end module hdf5_f2f

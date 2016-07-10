@@ -205,14 +205,16 @@ Contains
 
     endif
 
-    if (nl%test_case == 42 .or. &
-        nl%test_case == 43 .or. &
-        nl%test_case == 51 .or. &
-        nl%test_case == 52) then
+    if (nl%test_case > 10) then ! Encompasses DCMIP & parcel cases (March/2016)
 
-       if (.not. allocated(pcpgr)) then
-          allocate (pcpgr (mwa)) ; pcpgr  = rinit
-       endif
+       if (.not. allocated(sh_c))   allocate (sh_c(mza,mwa)) ; sh_c  = rinit
+       if (.not. allocated(sh_r))   allocate (sh_r(mza,mwa)) ; sh_r  = rinit
+       if (.not. allocated(q2))     allocate (q2  (mza,mwa)) ; q2    = rinit
+       if (.not. allocated(accpr))  allocate (accpr   (mwa)) ; accpr = 0.0_r8
+       if (.not. allocated(pcprr))  allocate (pcprr   (mwa)) ; pcprr = rinit
+       if (.not. allocated(pcpgr))  allocate (pcpgr   (mwa)) ; pcpgr = rinit
+       if (.not. allocated(qpcpgr)) allocate (qpcpgr  (mwa)) ; qpcpgr = rinit
+       if (.not. allocated(dpcpgr)) allocate (dpcpgr  (mwa)) ; dpcpgr = rinit
 
     endif
 
