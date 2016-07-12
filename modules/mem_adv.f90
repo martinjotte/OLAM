@@ -185,7 +185,7 @@ contains
        xy_h(4,1:np,iw) = xw(1:np) * yw(1:np) - xy0(iw)
        xy_h(5,1:np,iw) = yw(1:np) * yw(1:np) - yy0(iw)
 
-       at = matmul( xy_h(:,1:np,iw), transpose(xy_h(1:np,:,iw)) )
+       at = matmul( xy_h(:,1:np,iw), transpose(xy_h(:,1:np,iw)) )
        call ludcmp(at, 5)
 
        a_h(:,:,iw) = transpose(at)

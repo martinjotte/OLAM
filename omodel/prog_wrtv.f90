@@ -377,7 +377,7 @@ if (strict_wvt_donorpoint) then
          call donorpointv  (1, mrl, vcf, vxef, vyef, vzef, iwdepv, iwrecv)
       else
          call donorpointv_3(1, mrl, vcf, vxef, vyef, vzef, iwdepv, iwrecv)
-   endif
+      endif
 
    endif
 
@@ -394,7 +394,7 @@ else
       else
          call donorpointw_3(1, mrl, wc, vxe, vye, vze, kdepw,  krecw)
          call donorpointv_3(1, mrl, vc, vxe, vye, vze, iwdepv, iwrecv)
-   endif
+      endif
 
    endif
 
@@ -593,20 +593,20 @@ if (mrl > 0) then
                            + dyps_w(k,iw) * gyps_scp(kd,iw) &
                            + dzps_w(k,iw) * gzps_scp(kd,iw)
 
-         vxe_upw(k,iw)  = vxe(kd,iw)                     &
-                        + dxps_w(k,iw) * gxps_vxe(kd,iw) &
-                        + dyps_w(k,iw) * gyps_vxe(kd,iw) &
-                        + dzps_w(k,iw) * gzps_vxe(kd,iw)
-
             vxe_upw(k,iw)  = vxe(kd,iw)                     &
                            + dxps_w(k,iw) * gxps_vxe(kd,iw) &
                            + dyps_w(k,iw) * gyps_vxe(kd,iw) &
                            + dzps_w(k,iw) * gzps_vxe(kd,iw)
 
-         vze_upw(k,iw)  = vze(kd,iw)                     &
-                        + dxps_w(k,iw) * gxps_vze(kd,iw) &
-                        + dyps_w(k,iw) * gyps_vze(kd,iw) &
-                        + dzps_w(k,iw) * gzps_vze(kd,iw)
+            vye_upw(k,iw)  = vye(kd,iw)                     &
+                           + dxps_w(k,iw) * gxps_vye(kd,iw) &
+                           + dyps_w(k,iw) * gyps_vye(kd,iw) &
+                           + dzps_w(k,iw) * gzps_vye(kd,iw)
+
+            vze_upw(k,iw)  = vze(kd,iw)                     &
+                           + dxps_w(k,iw) * gxps_vze(kd,iw) &
+                           + dyps_w(k,iw) * gyps_vze(kd,iw) &
+                           + dzps_w(k,iw) * gzps_vze(kd,iw)
          else
 
             thil_upw(k,iw) = thil(kd,iw)                                                       &
@@ -684,11 +684,6 @@ if (mrl > 0) then
 
          if (nl%adv_order <= 2) then
 
-         thil_upv(k,iv) = thil(k,iwd)                     &
-                           + dxps_v(k,iv) * gxps_scp(k,iwd) &
-                           + dyps_v(k,iv) * gyps_scp(k,iwd) &
-                           + dzps_v(k,iv) * gzps_scp(k,iwd)
-
             thil_upv(k,iv) = thil(k,iwd)                    &
                            + dxps_v(k,iv) * gxps_scp(k,iwd) &
                            + dyps_v(k,iv) * gyps_scp(k,iwd) &
@@ -698,43 +693,43 @@ if (mrl > 0) then
                            + dxps_v(k,iv) * gxps_vxe(k,iwd) &
                            + dyps_v(k,iv) * gyps_vxe(k,iwd) &
                            + dzps_v(k,iv) * gzps_vxe(k,iwd)
-         
+
             vye_upv(k,iv)  = vye(k,iwd)                     &
                            + dxps_v(k,iv) * gxps_vye(k,iwd) &
                            + dyps_v(k,iv) * gyps_vye(k,iwd) &
                            + dzps_v(k,iv) * gzps_vye(k,iwd)
-         
-         vze_upv(k,iv)  = vze(k,iwd)                     &
-                        + dxps_v(k,iv) * gxps_vze(k,iwd) &
-                        + dyps_v(k,iv) * gyps_vze(k,iwd) &
-                        + dzps_v(k,iv) * gzps_vze(k,iwd)
+
+            vze_upv(k,iv)  = vze(k,iwd)                     &
+                           + dxps_v(k,iv) * gxps_vze(k,iwd) &
+                           + dyps_v(k,iv) * gyps_vze(k,iwd) &
+                           + dzps_v(k,iv) * gzps_vze(k,iwd)
          else
-         
+
             thil_upv(k,iv) = thil(k,iwd)                                                       &
-                           + dxps_w(k,iw) * gxps_scp(kd,iw) + dxxps_w(k,iw) * gxxps_scp(kd,iw) &
-                                                            + dxyps_w(k,iw) * gxyps_scp(kd,iw) &
-                           + dyps_w(k,iw) * gyps_scp(kd,iw) + dyyps_w(k,iw) * gyyps_scp(kd,iw) &
-                           + dzps_w(k,iw) * gzps_scp(kd,iw) + dzzps_w(k,iw) * gzzps_scp(kd,iw)
+                           + dxps_v(k,iv) * gxps_scp(k,iwd) + dxxps_v(k,iv) * gxxps_scp(k,iwd) &
+                                                            + dxyps_v(k,iv) * gxyps_scp(k,iwd) &
+                           + dyps_v(k,iv) * gyps_scp(k,iwd) + dyyps_v(k,iv) * gyyps_scp(k,iwd) &
+                           + dzps_v(k,iv) * gzps_scp(k,iwd) + dzzps_v(k,iv) * gzzps_scp(k,iwd)
 
             vxe_upv(k,iv) = vxe(k,iwd)                                                         &
-                           + dxps_w(k,iw) * gxps_vxe(kd,iw) + dxxps_w(k,iw) * gxxps_vxe(kd,iw) &
-                                                            + dxyps_w(k,iw) * gxyps_vxe(kd,iw) &
-                           + dyps_w(k,iw) * gyps_vxe(kd,iw) + dyyps_w(k,iw) * gyyps_vxe(kd,iw) &
-                           + dzps_w(k,iw) * gzps_vxe(kd,iw) + dzzps_w(k,iw) * gzzps_vxe(kd,iw)
+                           + dxps_v(k,iv) * gxps_vxe(k,iwd) + dxxps_v(k,iv) * gxxps_vxe(k,iwd) &
+                                                            + dxyps_v(k,iv) * gxyps_vxe(k,iwd) &
+                           + dyps_v(k,iv) * gyps_vxe(k,iwd) + dyyps_v(k,iv) * gyyps_vxe(k,iwd) &
+                           + dzps_v(k,iv) * gzps_vxe(k,iwd) + dzzps_v(k,iv) * gzzps_vxe(k,iwd)
 
             vye_upv(k,iv) = vye(k,iwd)                                                         &
-                           + dxps_w(k,iw) * gxps_vye(kd,iw) + dxxps_w(k,iw) * gxxps_vye(kd,iw) &
-                                                            + dxyps_w(k,iw) * gxyps_vye(kd,iw) &
-                           + dyps_w(k,iw) * gyps_vye(kd,iw) + dyyps_w(k,iw) * gyyps_vye(kd,iw) &
-                           + dzps_w(k,iw) * gzps_vye(kd,iw) + dzzps_w(k,iw) * gzzps_vye(kd,iw)
+                           + dxps_v(k,iv) * gxps_vye(k,iwd) + dxxps_v(k,iv) * gxxps_vye(k,iwd) &
+                                                            + dxyps_v(k,iv) * gxyps_vye(k,iwd) &
+                           + dyps_v(k,iv) * gyps_vye(k,iwd) + dyyps_v(k,iv) * gyyps_vye(k,iwd) &
+                           + dzps_v(k,iv) * gzps_vye(k,iwd) + dzzps_v(k,iv) * gzzps_vye(k,iwd)
 
             vze_upv(k,iv) = vze(k,iwd)                                                         &
-                           + dxps_w(k,iw) * gxps_vze(kd,iw) + dxxps_w(k,iw) * gxxps_vze(kd,iw) &
-                                                            + dxyps_w(k,iw) * gxyps_vze(kd,iw) &
-                           + dyps_w(k,iw) * gyps_vze(kd,iw) + dyyps_w(k,iw) * gyyps_vze(kd,iw) &
-                           + dzps_w(k,iw) * gzps_vze(kd,iw) + dzzps_w(k,iw) * gzzps_vze(kd,iw)
+                           + dxps_v(k,iv) * gxps_vze(k,iwd) + dxxps_v(k,iv) * gxxps_vze(k,iwd) &
+                                                            + dxyps_v(k,iv) * gxyps_vze(k,iwd) &
+                           + dyps_v(k,iv) * gyps_vze(k,iwd) + dyyps_v(k,iv) * gyyps_vze(k,iwd) &
+                           + dzps_v(k,iv) * gzps_vze(k,iwd) + dzzps_v(k,iv) * gzzps_vze(k,iwd)
          endif
-         
+
       enddo
 
    enddo
@@ -754,8 +749,8 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 ! Prognose vertical velocity, density, thil, and diagnose pressure
 
    call prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,    &
-                       thil_upv, vxe_upv, vye_upv, vze_upv,       &
-                       thil_upw, vxe_upw, vye_upw, vze_upw,       &
+                       thil_upv, vxe_upv, vye_upv, vze_upv,  &
+                       thil_upw, vxe_upw, vye_upw, vze_upw,  &
                        vxesc, vyesc, vzesc, vmx_cor, vmy_cor )
 
 enddo
@@ -908,8 +903,8 @@ end subroutine prog_wrt_begl
 !=========================================================================
 
 subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,    &
-                          thil_upv, vxe_upv, vye_upv, vze_upv,       &
-                          thil_upw, vxe_upw, vye_upw, vze_upw,       &  
+                          thil_upv, vxe_upv, vye_upv, vze_upv,  &
+                          thil_upw, vxe_upw, vye_upw, vze_upw,  &  
                           vxesc, vyesc, vzesc, vmx_cor, vmy_cor )
 
 use mem_tend,    only: thilt, wmt, vmxet, vmyet, vmzet
@@ -1173,7 +1168,7 @@ c10 = dts * fw
 
 do k = ka,mza
    kp = min(k+1,mza)
-   b1(k)  = wc(k,iw) + wc(k-1,iw)            ! T pts
+   b1(k)  = wc(k,iw) + wc(k-1,iw)           ! T pts
    b2(k)  = thil(k,iw) + thil(kp,iw)        ! W pts
    b3(k)  = 2. / (volt(k,iw) + volt(kp,iw)) ! W pts [b3 replaces volwi]
    b5(k)  = press_t(k) / rhothil(k)         ! T pts

@@ -539,13 +539,13 @@ contains
 
        else
 
-          sql = (zk * rlam / (rlam_unst + zk))**2
+          sql = (zk * rlam_unst / (rlam_unst + zk))**2
 
           phimi =     (1.0 - 16.0 * ri)**0.25
           phihi = sqrt(1.0 - 16.0 * ri)
 
-          edyrm(k) = sql * phimi * phimi * sqrt(ss)
-          edyrh(k) = sql * phimi * phihi * sqrt(ss)
+          edyrm(k) = sqrt(ss) * sql * phimi * phimi
+          edyrh(k) = sqrt(ss) * sql * phimi * phihi
 
        endif
 
