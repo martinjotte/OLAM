@@ -149,6 +149,7 @@ Module oname_coms
       integer :: iwind_monot = 0
       integer :: iscal_monot = 0
       integer :: split_scalars = 0
+      integer :: adv_order   = 2
       logical :: debug_fp    = .false.
       logical :: init_nans   = .false.
       real(r8):: cfl_prtfrq  = 900.0_r8

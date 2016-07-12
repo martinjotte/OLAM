@@ -202,8 +202,9 @@ end subroutine lbcopy_v
 
 !===============================================================================
 
-subroutine lbcopy_w(mrl, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, &
-                         d1, d2)
+subroutine lbcopy_w(mrl, a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, &
+                         a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, &
+                         d1,  d2)
 
 use mem_ijtabs, only: jtab_w, itab_w, jtw_lbcp
 use mem_grid,   only: mza, mwa
@@ -225,6 +226,14 @@ real, optional, intent(inout) :: a9 (mza,mwa)
 real, optional, intent(inout) :: a10(mza,mwa)
 real, optional, intent(inout) :: a11(mza,mwa)
 real, optional, intent(inout) :: a12(mza,mwa)
+real, optional, intent(inout) :: a13(mza,mwa)
+real, optional, intent(inout) :: a14(mza,mwa)
+real, optional, intent(inout) :: a15(mza,mwa)
+real, optional, intent(inout) :: a16(mza,mwa)
+real, optional, intent(inout) :: a17(mza,mwa)
+real, optional, intent(inout) :: a18(mza,mwa)
+real, optional, intent(inout) :: a19(mza,mwa)
+real, optional, intent(inout) :: a20(mza,mwa)
 
 real(8), optional, intent(inout) :: d1(mza,mwa)
 real(8), optional, intent(inout) :: d2(mza,mwa)
@@ -239,20 +248,29 @@ do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
    iwp = itab_w(iw)%iwp
 !----------------------------------------------------------------------
 
-   if (present(a1 )) a1 (:,iw) = a1 (:,iwp) 
-   if (present(a2 )) a2 (:,iw) = a2 (:,iwp) 
-   if (present(a3 )) a3 (:,iw) = a3 (:,iwp) 
-   if (present(a4 )) a4 (:,iw) = a4 (:,iwp) 
-   if (present(a5 )) a5 (:,iw) = a5 (:,iwp) 
-   if (present(a6 )) a6 (:,iw) = a6 (:,iwp) 
-   if (present(a7 )) a7 (:,iw) = a7 (:,iwp) 
-   if (present(a8 )) a8 (:,iw) = a8 (:,iwp) 
-   if (present(a9 )) a9 (:,iw) = a9 (:,iwp) 
-   if (present(a10)) a10(:,iw) = a10(:,iwp) 
-   if (present(a11)) a11(:,iw) = a11(:,iwp) 
-   if (present(a12)) a12(:,iw) = a12(:,iwp) 
+   if (present(a1 )) a1 (:,iw) = a1 (:,iwp)
+   if (present(a2 )) a2 (:,iw) = a2 (:,iwp)
+   if (present(a3 )) a3 (:,iw) = a3 (:,iwp)
+   if (present(a4 )) a4 (:,iw) = a4 (:,iwp)
+   if (present(a5 )) a5 (:,iw) = a5 (:,iwp)
+   if (present(a6 )) a6 (:,iw) = a6 (:,iwp)
+   if (present(a7 )) a7 (:,iw) = a7 (:,iwp)
+   if (present(a8 )) a8 (:,iw) = a8 (:,iwp)
+   if (present(a9 )) a9 (:,iw) = a9 (:,iwp)
+   if (present(a10)) a10(:,iw) = a10(:,iwp)
+   if (present(a11)) a11(:,iw) = a11(:,iwp)
+   if (present(a12)) a12(:,iw) = a12(:,iwp)
+   if (present(a13)) a13(:,iw) = a13(:,iwp)
+   if (present(a14)) a14(:,iw) = a14(:,iwp)
+   if (present(a15)) a15(:,iw) = a15(:,iwp)
+   if (present(a16)) a16(:,iw) = a16(:,iwp)
+   if (present(a17)) a17(:,iw) = a17(:,iwp)
+   if (present(a18)) a18(:,iw) = a18(:,iwp)
+   if (present(a19)) a19(:,iw) = a19(:,iwp)
+   if (present(a20)) a20(:,iw) = a20(:,iwp)
+
    if (present(d1 )) d1 (:,iw) = d1 (:,iwp) 
-   if (present(d2 )) d2 (:,iw) = d2 (:,iwp) 
+   if (present(d2 )) d2 (:,iw) = d2 (:,iwp)
 
 enddo
 endif

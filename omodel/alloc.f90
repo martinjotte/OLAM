@@ -46,6 +46,7 @@ subroutine olam_mem_alloc()
   use oname_coms,  only: nl
   use mem_thuburn, only: alloc_thuburn
   use pdtrans,     only: alloc_pdtrans
+  use mem_adv,     only: alloc_adv
 
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
                          nqparm, dtsm, do_chem
@@ -89,6 +90,8 @@ subroutine olam_mem_alloc()
 
   call alloc_flux_accum(mza,mva,mwa,mwl,mws)
   call filltab_flux_accum()
+
+  call alloc_adv()
 
   if (do_chem == 1) then
      call alloc_cgrid(mza,mwa)

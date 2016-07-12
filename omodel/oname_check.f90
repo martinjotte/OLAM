@@ -252,6 +252,7 @@ call ichk_bnds( nl%icorflg, "ICORFLG", 0,    1, 0, nfatal, nwarn )
 call ichk_bnds( nl%ithil_monot, "ITHIL_MONOT", 0, 1, 0, nfatal, nwarn )
 call ichk_bnds( nl%iwind_monot, "IWIND_MONOT", 0, 1, 0, nfatal, nwarn )
 call ichk_bnds( nl%iscal_monot, "ISCAL_MONOT", 0, 2, 0, nfatal, nwarn )
+call ichk_bnds( nl%adv_order  , "ADV_ORDER",   2, 3, 2, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! RAYLEIGH FRICTION PARAMETERS
