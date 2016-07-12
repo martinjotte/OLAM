@@ -25,7 +25,7 @@ C what( 1 ) key, module and SID; SCCS file; date and time of last delta:
 C %W% %P% %G% %U%
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      SUBROUTINE RESCLD ( mrl, N_SPC_WDEP, WDEP_MAP, DEP )
+      SUBROUTINE RESCLD ( mrl )
 
 C-----------------------------------------------------------------------
 C  FUNCTION: Resolved-scale CLOUD processor Models-3 science process:
@@ -78,10 +78,11 @@ C-----------------------------------------------------------------------
       use mem_micro,  only: pcpgr, sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7
       use micro_coms, only: jnmb, rxmin
       use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
-      use mem_grid,   only: mwa, mza, lpw, zt, zm, dzt
-      use mem_cuparm, only: cbmf, kcubot, kcutop, qwcon, conprr
-      use misc_coms,  only: dtlm, nqparm, io6
+      use mem_grid,   only: mwa, mza, lpw, dzt
+      use mem_cuparm, only: kcubot, kcutop, qwcon, conprr
+      use misc_coms,  only: dtlm, io6
       use mem_basic,  only: tair, rho, press
+      use aq_data,    only: tot_wdep
 
       IMPLICIT NONE
 
@@ -90,21 +91,21 @@ C...........Includes:
       INCLUDE 'CONST.EXT'                ! constants
 !     INCLUDE 'FILES.EXT'                ! file name parameters
 
-      CHARACTER( 120 ) :: XMSG  = ' '    ! Exit status message
+C...........Arguments:
+      integer, intent(in)  :: mrl
 
 C...........Parameters:
       REAL, PARAMETER :: GPKG = 1.0E+03  ! g/kg
       REAL, PARAMETER :: M2PHA = 1.0E+04 ! 1 hectare = 1.0e4 m**2
       REAL, PARAMETER :: M2PHA_OVER_GPKG = M2PHA / GPKG
+      REAL, PARAMETER :: CNV4 = 1.E-6 * AVO
+      REAL, PARAMETER :: CNV4I = 1.0 / CNV4
 
 C Number of species in CGRID
       INTEGER, SAVE :: MXSPCS
 
-C...........Arguments:
-      integer, intent(in)  :: mrl
-      INTEGER, intent(in)  :: N_SPC_WDEP        ! # of wet deposition species
-      INTEGER, intent(in)  :: WDEP_MAP( : )     ! wet deposition map to CGRID
-      REAL,    intent(out) :: DEP  ( :,: )      ! depositions (etc.)
+      INTEGER,             save  :: N_SPC_WDEP    ! # of wet deposition species
+      INTEGER, ALLOCATABLE, SAVE :: WDEP_MAP( : ) ! wet deposition map to CGRID
 
 !     REAL          CGRID( NCOLS,NROWS,NLAYS,* )  !  concentrations
 !     REAL       :: CGRID( :,:,:,: )    ! concentrations
@@ -123,7 +124,9 @@ C...........Local Variables:
 !      LOGICAL, SAVE :: QI_AVAIL = .TRUE.   ! flag for QI available on file
 !      LOGICAL, SAVE :: QS_AVAIL = .TRUE.   ! flag for QS available on file
 
-      CHARACTER( 16 ), SAVE :: PNAME = 'RESCLD'    ! process name
+
+      CHARACTER( 120 ) :: XMSG           ! Exit status message
+      CHARACTER( 16 ), parameter :: PNAME = 'RESCLD'    ! process name
 !     CHARACTER( 16 ) ::  VARNM               ! variable name for IOAPI to get
 !     CHARACTER( 16 ), SAVE ::  VNAME_RN
 
@@ -144,18 +147,15 @@ C...........Local Variables:
       INTEGER       ALLOCSTAT           ! memory allocation status
 
       REAL          AIRM                ! total airmass (mol/m2) in cloudy air
-      REAL          ALFA0               ! aitken mode number scavenging coef
-      REAL          ALFA2               ! aitken mode sfc area scavenging coef
-      REAL          ALFA3               ! aitken mode mass scavenging coef
+      REAL          ALFAC               ! aerosol scavenging coef
       REAL          CTHK1               ! cloud thickness (m)
 !     REAL          METSTEP             ! timestep on the met file (hr)
 !     SAVE          METSTEP
       REAL          PBARC               ! mean cloud pressure (Pa)
       REAL          PRATE1              ! storm rainfall rate (mm/hr)
-      REAL          QCRGCOL             ! vert column integrated liquid water content
-      REAL          QCRISGCOL           ! vert column integrated total water content
-      REAL          QRSGCOL             ! vert column integrated precip content
-      REAL          QCICOL              ! vert column integrated cloud content
+      REAL          QCRCOL              ! vert column integrated liquid water content
+      REAL          QCRISCOL            ! vert column integrated total water content
+      REAL          QRSCOL              ! vert column integrated precip content
       REAL          RAIN                ! non-conv rainfall rate (mm/hr)
       REAL          REMOVAC             ! variable storing H+ deposition
       REAL          TAUCLD              ! cloud lifetime (sec)
@@ -163,7 +163,7 @@ C...........Local Variables:
       REAL          WCBAR               ! liq water content of cloud (kg/m3)
       REAL          WPBAR               ! precipitation water content (kg/m3)
       REAL          WTBAR               ! total water content of cloud (kg/m3)
-!      REAL          LWP, CLOD
+      REAL          rhoair
 
       REAL, ALLOCATABLE, SAVE :: POLC ( : )   ! incloud conc (mol/mol)
       REAL, ALLOCATABLE, SAVE :: CEND ( : )   ! ending conc (mol/mol)
@@ -182,6 +182,7 @@ C...........Local Variables:
 !     REAL          TA   ( NCOLS, NROWS, NLAYS )  ! air temperature (K)
 !     REAL          ZH   ( NCOLS, NROWS, NLAYS )  ! mid-layer height (m)
 !     REAL          ZF   ( NCOLS, NROWS, NLAYS )  ! level/layer-face height (m)
+      real       :: frac ( mza )                  ! cloud fraction
 
 !     INTEGER      GXOFF, GYOFF              ! global origin offset from file
 C for INTERPX
@@ -195,8 +196,10 @@ C Latitude and longitude for zenith angle calculation: Golam Sarwar * July 1, 20
       REAL          COSZ                            ! local cosine of zenith angle
       LOGICAL       DARK                            ! DARK = TRUE is night,  DARK = FALSE is day
 
-      real    :: tc, fracliq, prate, frac, f, twc
+      real    :: tc, fracliq, prate, twc, qcu
       integer :: k, j, iw, mrlw
+
+      logical :: iconv, ideep
 
       logical, allocatable, save :: isnum_spc(:)
       logical, allocatable, save :: issrf_spc(:)
@@ -206,27 +209,27 @@ C...........External Functions:
       INTERFACE
         SUBROUTINE SCAVWDEP ( JDATE, JTIME, WTBAR, WCBAR, TBARC, PBARC,
      &                        CTHK1, AIRM, PRATE1, TAUCLD, POLC, CEND,
-     &                        REMOV, REMOVAC, ALFA0, ALFA2, ALFA3 )
-           IMPLICIT NONE
+     &                        REMOV, REMOVAC, ALFAC, RHOAIR )
            INTEGER, INTENT( IN )  :: JDATE, JTIME
            REAL,    INTENT( IN )  :: WTBAR, WCBAR, TBARC, PBARC,
      &                               CTHK1, AIRM, PRATE1, TAUCLD
            REAL,    INTENT( IN )  :: POLC ( : )
            REAL,    INTENT( OUT ) :: REMOVAC
            REAL,    INTENT( OUT ) :: CEND( : ), REMOV( : )
-           REAL,    INTENT( OUT ) :: ALFA0, ALFA2, ALFA3
+           REAL,    INTENT( OUT ) :: ALFAC
+           REAL,    INTENT( IN )  :: RHOAIR
+           
         END SUBROUTINE SCAVWDEP
         SUBROUTINE AQ_MAP( JDATE, JTIME, WTBAR, WCBAR, TBARC, PBARC,
      &                     CTHK1, AIRM, PRATE1, TAUCLD, POLC, CEND,
-     &                     REMOV, REMOVAC, ALFA0, ALFA2, ALFA3, DARK )
-           IMPLICIT NONE
+     &                     REMOV, REMOVAC, ALFAC, DARK )
            INTEGER, INTENT( IN )    :: JDATE, JTIME
            REAL,    INTENT( IN )    :: WTBAR, WCBAR, TBARC, PBARC,
      &                                 CTHK1, AIRM, PRATE1, TAUCLD
            REAL,    INTENT( IN )    :: POLC ( : )
            REAL,    INTENT( INOUT ) :: REMOVAC
            REAL,    INTENT( INOUT ) :: CEND( : ), REMOV( : )
-           REAL,    INTENT( IN )    :: ALFA0, ALFA2, ALFA3
+           REAL,    INTENT( IN )    :: ALFAC
            LOGICAL, INTENT( IN )    :: DARK                                 !Golam Sarwar, July 1, 2011
         END SUBROUTINE AQ_MAP
       END INTERFACE
@@ -335,6 +338,52 @@ C...  the met timestep in hours
 !        CALL SUBHFILE ( MET_CRO_3D, GXOFF, GYOFF,
 !     &                  STRTCOLMC3, ENDCOLMC3, STRTROWMC3, ENDROWMC3 )
 
+        N_SPC_WDEP = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP
+        ALLOCATE ( WDEP_MAP( N_SPC_WDEP ), STAT = ALLOCSTAT )
+
+        IF ( ALLOCSTAT .NE. 0 ) THEN
+          XMSG = 'Failure allocating WDEP_MAP'
+          CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+        END IF
+
+        IF ( N_SPC_WDEP .LE. 0 ) THEN
+           XMSG = 'No species were specified for wet deposition ' //
+     &            'tracking'
+           CALL M3WARN ( PNAME, JDATE, JTIME, XMSG )
+        END IF
+
+        SPC = 0
+        STRT = 1
+        FINI = N_GC_WDEP
+        DO VAR = STRT, FINI
+          SPC = SPC + 1
+          WDEP_MAP( VAR ) = GC_STRT - 1 + GC_WDEP_MAP( SPC )
+        END DO
+
+        SPC = 0
+        STRT = N_GC_WDEP + 1
+        FINI = N_GC_WDEP + N_AE_WDEP
+        DO VAR = STRT, FINI
+          SPC = SPC + 1
+          WDEP_MAP( VAR ) = AE_STRT - 1 + AE_WDEP_MAP( SPC )
+        END DO
+
+        SPC = 0
+        STRT = N_GC_WDEP + N_AE_WDEP + 1
+        FINI = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP
+        DO VAR = STRT, FINI
+          SPC = SPC + 1
+          WDEP_MAP( VAR ) = NR_STRT - 1 + NR_WDEP_MAP( SPC )
+        END DO
+
+        SPC = 0
+        STRT = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP + 1
+        FINI = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP + N_TR_WDEP
+        DO VAR = STRT, FINI
+          SPC = SPC + 1
+          WDEP_MAP( VAR ) = TR_STRT - 1 + TR_WDEP_MAP( SPC )
+        END DO
+
         MXSPCS = N_GC_SPCD + N_AE_SPC + N_NR_SPC + N_TR_SPC
 
         ALLOCATE ( CEND ( MXSPCS ),
@@ -345,8 +394,8 @@ C...  the met timestep in hours
           CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
         END IF
 
-        allocate(isnum_spc(n_ae_spc))
-        allocate(issrf_spc(n_ae_spc))
+        allocate(isnum_spc(mxspcs)); isnum_spc(:) = .false.
+        allocate(issrf_spc(mxspcs)); issrf_spc(:) = .false.
 
         SPC = 0
         STRT = AE_STRT
@@ -356,6 +405,13 @@ C...  the met timestep in hours
            isnum_spc( spc ) = ( INDEX( AE_SPC( SPC ), 'NUM' ) .GT. 0 )
            issrf_spc( spc ) = ( INDEX( AE_SPC( SPC ), 'SRF' ) .GT. 0 )
         ENDDO
+
+        ALLOCATE ( TOT_WDEP ( mwa, N_SPC_WDEP+1 ),
+     &             STAT = ALLOCSTAT )
+        IF ( ALLOCSTAT .NE. 0 ) THEN
+          XMSG = 'Failure allocating TOT_WDEP'
+          CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+        END IF
 
       END IF  ! FIRSTIME
 
@@ -578,12 +634,18 @@ C...Get nonconvective precipitation amount (cm)
 !        CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
 !      END IF
 
+      TOT_WDEP = 0.0
+
 C...Loop through all grid cells
 
       do j = 1, jtab_w(jtw_prog)%jend(mrl)
 
          iw   = jtab_w(jtw_prog)%iw(j)
          mrlw = itab_w(iw)%mrlw
+
+! Diagnose cloud fraction
+
+         call get_cloud_frac(iw, lpw(iw), frac, iconv, ideep)
 
 C...Convert the rainfall into a rainfall rate (mm/hr)
 
@@ -693,10 +755,7 @@ C... include layer thickness in the column integration
 
          ! convective clouds
 
-         if (nqparm(mrlw) /= 0 .and. cbmf(iw) > 1.e-12 .and. kcubot(iw) >= lpw(iw)) then
-
-            prate = conprr(iw) * 3600.0
-            rain  = rain + prate
+         if (iconv) then
 
             do k = kcubot(iw), kcutop(iw)
                if (tair(k,iw) < 255.15) then
@@ -707,52 +766,50 @@ C... include layer thickness in the column integration
                   fracliq = 1.0
                endif
 
-               qc(k) = qc(k) + qwcon(k,iw) * fracliq
-               qi(k) = qi(k) + qwcon(k,iw) * (1. - fracliq)
+               qcu = max( qwcon(k,iw), 1.1e-5 )
+               qc(k) = qc(k) + qcu * fracliq
+               qi(k) = qi(k) + qcu * (1. - fracliq)
             enddo
 
-            frac = 1.0
-            twc = ( 0.067 * prate**( 0.846 ) ) / ( frac * 1000.0 ) ! tot wat cont kg/m3
+            if (ideep) then
 
-            do k = lpw(iw), kcutop(iw)
-               if (tair(k,iw) < 255.15) then
-                  fracliq = 0.0
-               elseif (tair(k,iw) < 273.15) then
-                  fracliq = (tair(k,iw) - 273.15) / 18.0
-               else
-                  fracliq = 1.0
-               endif
+               prate = conprr(iw) * 3600.0
+               rain  = rain + prate
 
-               if (k < kcubot(iw)) then
-                  f = 1.0
-               else
-                  f = (zt(k) - zm(kcubot(iw)-1)) / (zm(kcutop(iw)) - zm(kcubot(iw)-1))
-               endif
+               twc = 0.06 * prate**0.846 / 1000.0 ! tot wat cont kg/m3
 
-               qr(k) = qr(k) + f * twc / rho(k,iw) * fracliq
-               qs(k) = qs(k) + f * twc / rho(k,iw) * (1. - fracliq)
-            enddo
+               do k = lpw(iw), kcutop(iw)-1
+                  if (tair(k,iw) < 255.15) then
+                     fracliq = 0.0
+                  elseif (tair(k,iw) < 273.15) then
+                     fracliq = (tair(k,iw) - 273.15) / 18.0
+                  else
+                     fracliq = 1.0
+                  endif
+
+                  qr(k) = qr(k) + twc / real(rho(k,iw)) * fracliq
+                  qs(k) = qs(k) + twc / real(rho(k,iw)) * (1. - fracliq)
+               enddo
+
+            endif
 
          endif
 
-         QCRGCOL   = 0.0
-         QCRISGCOL = 0.0
-         QRSGCOL   = 0.0
-         QCICOL    = 0.0
+         QCRCOL   = 0.0
+         QCRISCOL = 0.0
+         QRSCOL   = 0.0
 
          do k = lpw(iw), mza
 
-            QCRGCOL   = QCRGCOL   + rho( k, iw ) * dzt( k )
-     &                * ( QC( K ) + QR( K ) )
+            QCRCOL   = QCRCOL   + real( rho( k, iw ) ) * dzt( k )
+     &               * ( QC( K ) + QR( K ) )
 
-            QCRISGCOL = QCRISGCOL + rho( k, iw ) * dzt( k )
-     &                * ( QC( K ) + QR( K ) + QI( K ) + QS( K ) )
+            QCRISCOL = QCRISCOL + real( rho( k, iw ) ) * dzt( k )
+     &               * ( QC( K ) + QR( K ) + QI( K ) + QS( K ) )
 
-            QRSGCOL   = QRSGCOL   + rho( k, iw ) * dzt( k )
-     &                * ( QR( K ) + QS( K ) )
+            QRSCOL   = QRSCOL   + real( rho( k, iw ) ) * dzt( k )
+     &               * ( QR( K ) + QS( K ) )
 
-            QCICOL    = QCICOL    + rho( k, iw ) * dzt( k )
-     &                * ( QC( K ) + QI( K ) )
          end do
 
 C...Calculate the cloud optical depth using a formula derived from
@@ -778,12 +835,14 @@ C...  path is >= 10 g/m2
 
 C...loop through layers
 
-         IF ( QCRGCOL .GT. 0.0 ) THEN
+         IF ( QCRCOL .GT. 1.e-9 ) THEN
             DO k = lpw(iw), mza
 
 C...Compute cloud quantities
 
-               IF ( ( QC( K ) + QR( K ) ) .GT. 0.00005 .and. press(k,iw) > 100.d2) THEN
+               IF ( ( QC( K ) + QR( K ) ) > 1.e-5 .and. press(k,iw) > 100.d2) THEN
+
+                  frac = max(frac, 0.05)
 
                   TBARC = tair( k, iw )
 
@@ -791,28 +850,36 @@ C...Compute cloud quantities
 
                   CTHK1 = dzt( K )
 
-                  AIRM = PBARC * CTHK1 * 1.0E3 / ( RDGAS * MWAIR * TBARC )
+                  rhoair = rho( k, iw )
 
-                  WCBAR = ( QC( K ) + QR( K ) ) * rho( k, iw )
+                  airm = rhoair * cthk1 / mwair * 1000.
+
+                  WCBAR = ( QC( K ) + QR( K ) ) * rhoair / max(frac(k), 0.2)
 
                   WTBAR = ( QC( K ) + QR( K )
-     &                  +   QI( K ) + QS( K ) ) * rho( k, iw )
+     &                  +   QI( K ) + QS( K ) ) * rhoair / max(frac(k), 0.2)
 
 C...Compute precipitation flux
 C...  include layer thickness in the calculation
 
-                  IF ( QRSGCOL .GT. 1.e-5 ) THEN
-                     WPBAR = ( QR( K ) + QS( K ) ) * rho( k, iw )
-                     PRATE1 = RAIN * WPBAR * CTHK1 / QRSGCOL   ! convert to mm/hr
-                  ELSE
-                     PRATE1 = RAIN * WTBAR * CTHK1 / QCRISGCOL ! convert to mm/hr
-                  END IF
+!                 IF ( QRSGCOL .GT. 1.e-5 ) THEN
+!                    WPBAR = ( QR( K ) + QS( K ) ) * rho( k, iw )
+!                    PRATE1 = RAIN * WPBAR * CTHK1 / QRSCOL    ! convert to mm/hr
+!                 ELSE
+                     PRATE1 = RAIN * WTBAR * CTHK1 / QCRISCOL  ! convert to mm/hr
+!                 END IF
+
+!                    write(*,*) k, prate1 / wtbar, RAIN * ( QR( K ) + QS( K ) ) * real(rho( k, iw )) * CTHK1 / QRSCOL / wtbar
 
 C...Finally, get in-cloud pollutant concentrations in moles sp
 C...  per mole air
 
                   DO SPC = 1, NSPCSD
-                     POLC ( SPC ) = CGRID( k, iw, SPC )
+                     if ( isnum_spc(spc) ) then
+                        polc ( spc ) = max( cgrid( k, iw, spc ) * cnv4,  1.e-36 )
+                     else
+                        POLC ( SPC ) = max( CGRID( k, iw, SPC ) * 1.e-6, 1.e-36 )
+                     endif
                      CEND ( SPC ) = POLC( SPC )
                      REMOV( SPC ) = 0.0
                   END DO
@@ -823,32 +890,28 @@ C...  that were scavenged or that participated in cloud chemistry
 
                   CALL SCAVWDEP ( JDATE, JTIME, WTBAR, WCBAR, TBARC,
      &                            PBARC, CTHK1, AIRM, PRATE1, TAUCLD,
-     &                            POLC, CEND, REMOV, REMOVAC, ALFA0,
-     &                            ALFA2, ALFA3 )
+     &                            POLC, CEND, REMOV, REMOVAC, 
+     &                            ALFAC, RHOAIR )
 
 C...if the liquid water content is above the specified threshold
 C...  then perform the aqueous chemistry within the cloud and
 C...  re-adjust the ending and removed amounts for those species
 C...  that participated in cloud chemistry
 
-                  IF ( WCBAR .GT. 0.00001 ) THEN
-
 C...  calculate cosine of zenith angle for the cell and determine day or night; Golam Sarwar 
 
-                     COSZ = COSZEN( iw )
+                  COSZ = COSZEN( iw )
 
-                     IF ( COSZ .LE. 0.0 ) THEN
-                        DARK = .TRUE.  ! night
-                     ELSE
-                        DARK = .FALSE. ! day
-                     END IF
-
-                     CALL AQ_MAP ( JDATE, JTIME, WTBAR, WCBAR, TBARC,
-     &                             PBARC, CTHK1, AIRM, PRATE1, TAUCLD,
-     &                             POLC, CEND, REMOV, REMOVAC, ALFA0,
-     &                             ALFA2, ALFA3, DARK )
-
+                  IF ( COSZ .LE. 0.003 ) THEN
+                     DARK = .TRUE. ! night
+                  ELSE
+                     DARK = .FALSE. ! day
                   END IF
+
+                  CALL AQ_MAP ( JDATE, JTIME, WTBAR, WCBAR, TBARC,
+     &                          PBARC, CTHK1, AIRM, PRATE1, TAUCLD,
+     &                          POLC, CEND, REMOV, REMOVAC, ALFAC, 
+     &                          DARK )
 
 C...convert from moles/m**2 to kg/m**2 and kg/m**2 to kg/hectare
 
@@ -870,8 +933,6 @@ C...  for aerosols
                   FINI = AE_STRT - 1 + N_AE_SPC
                   DO VAR = STRT, FINI
                      SPC = SPC + 1
-!                    IF (( INDEX( AE_SPC( SPC ), 'NUM' ) .EQ. 0 ) .AND.
-!    &                   ( INDEX( AE_SPC( SPC ), 'SRF' ) .EQ. 0 )) THEN
                      IF ( (.not. isnum_spc( spc )) .AND.
      &                    (.not. issrf_spc( spc )) ) THEN
                         REMOV( VAR ) = REMOV( VAR ) * AE_MOLWT( SPC )
@@ -892,33 +953,28 @@ C...  for non-reactives
      &                            * M2PHA_OVER_GPKG
                   END DO
 
-C...  for tracers
-
-!                  SPC = 0
-!                  STRT = TR_STRT
-!                  FINI = TR_STRT - 1 + N_TR_SPC
-!                  DO VAR = STRT, FINI
-!                     SPC = SPC + 1
-!                     REMOV( VAR ) = REMOV( VAR ) * TR_MOLWT( SPC )
-!     &                            * M2PHA_OVER_GPKG
-!                  END DO
-
 C...load deposition amounts into the DEP array
 
                   DO VAR = 1, N_SPC_WDEP
-                     DEP( iw, VAR ) = DEP( iw, VAR )
-     &                                    + REMOV( WDEP_MAP( VAR ) )
+                     TOT_WDEP( iw, VAR ) = TOT_WDEP( iw, VAR )
+     &                                   + REMOV( WDEP_MAP( VAR ) ) * frac(k)
                   END DO
 
 C...load H+ concentration into the deposition array as well
 
-                  DEP( iw, N_SPC_WDEP+1 ) =
-     &                 DEP( iw, N_SPC_WDEP+1 ) + REMOVAC
+                  TOT_WDEP( iw, N_SPC_WDEP+1 ) = TOT_WDEP( iw, N_SPC_WDEP+1 )
+     &                                         + REMOVAC * frac(k)
 
 C...set cgrid to the ending concentrations
 
                   DO SPC = 1, NSPCSD
-                     CGRID( k, iw, SPC ) = CEND( SPC )
+                     if ( isnum_spc(spc) ) then
+                        CGRID( k, iw, SPC ) = ( POLC( SPC ) * (1.0 - frac(k))
+     &                                        + CEND( SPC ) * frac(k) ) * cnv4i
+                     else
+                        CGRID( k, iw, SPC ) = ( POLC( SPC ) * (1.0 - frac(k))
+     &                                        + CEND( SPC ) * frac(k) ) * 1.e6
+                     endif
                   END DO
 
                END IF
@@ -927,5 +983,4 @@ C...set cgrid to the ending concentrations
 
       END DO
 
-      RETURN
-      END
+      END SUBROUTINE RESCLD

@@ -26,9 +26,8 @@ C %W% %P% %G% %U%
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       SUBROUTINE AQCHEM ( JDATE, JTIME, TEMP, PRES_PA, TAUCLD, PRCRATE,
-     &                    WCAVG, WTAVG, AIRM, ALFA0, ALFA2, ALFA3, GAS,
-     &                    AEROSOL, GASWDEP, AERWDEP, HPWDEP, BETASO4, DARK )
-
+     &                    WCAVG, WTAVG, AIRM, ALFAC, GAS, AEROSOL, 
+     &                    GASWDEP, AERWDEP, HPWDEP, BETASO4, DARK, cthk1 )
 C-----------------------------------------------------------------------
 C  Description:
 C    Compute concentration changes in cloud due to aqueous chemistry,
@@ -112,8 +111,10 @@ C                       removed from the calculation of the estimate for doublin
 C                       the time step based on sulfur oxidized < 5%.
 C   28 Nov 12 G.Sarwar: Sulfate inhibition effect is implemented in the metal catalysis pathway
 C   07 Jul 14 B.Hutzell: replaced mechanism include file(s) with fortran module
-C   12 FEb 15 B.Hutzell: reduced number of exp(...) calculations for scavenging aitken aerosols to
-C                        improve efficiency
+C   12 Feb 15 B.Hutzell: reduced number of exp(...) calculations for scavenging aitken
+C                        aerosols to improve efficiency
+C   15 Jun 15 J.Young:  Fixed bug found by Martin Otte in calculations for scavenging
+C                       aitken aerosols
 C
 C  References:
 C     Walcek & Taylor, 1986, A theoretical Method for computing
@@ -167,15 +168,17 @@ C...........Parameters:
       REAL( 8 ), PARAMETER :: H2ODENS = 1000.0D0   ! water density at 20 C and 1 ATM (kg/m3)
       REAL( 8 ), PARAMETER :: SEC2HR = 1.0D0 / 3600.0D0 ! convert seconds to hours
 
+      real(8), parameter :: twothird = 2.0d0 / 3.0d0
+      real,    parameter ::  ln10 =  log(10.0)
+      real,    parameter :: mln10 = -log(10.0)
+
 C...........Arguments:
 
       INTEGER,   INTENT( IN )  :: JDATE  ! current model date, coded YYYYDDD
       INTEGER,   INTENT( IN )  :: JTIME  ! current model time, coded HHMMSS
 
       REAL,      INTENT( IN )  :: AIRM      ! total air mass in cloudy layers (mol/m2)
-      REAL,      INTENT( IN )  :: ALFA0     ! scav coef for aitken aerosol number
-      REAL,      INTENT( IN )  :: ALFA2     ! scav coef for aitken aerosol sfc area
-      REAL,      INTENT( IN )  :: ALFA3     ! scav coef for aitken aerosol mass
+      REAL,      INTENT( IN )  :: ALFAC     ! scav coef for aerosols
       REAL,      INTENT( OUT ) :: HPWDEP    ! hydrogen wet deposition (mm mol/liter)
       REAL( 8 ), INTENT( OUT ) :: BETASO4  
       REAL,      INTENT( IN )  :: PRCRATE   ! precip rate (mm/hr)
@@ -185,10 +188,13 @@ C...........Arguments:
       REAL,      INTENT( IN )  :: WCAVG     ! liquid water content (kg/m3)
       REAL,      INTENT( IN )  :: WTAVG     ! total water content (kg/m3)
       LOGICAL,   INTENT( IN )  :: DARK      ! DARK = TRUE is night,  DARK = FALSE is day     
+      REAL,      INTENT( IN )  :: CTHK1     ! cloud thickness (m)
+
       REAL( 8 ), INTENT( INOUT ) :: GAS    ( NGAS )         ! gas phase concentrations (mol/molV)
       REAL( 8 ), INTENT( INOUT ) :: AEROSOL( NAER, NMODES ) ! aerosol concentrations (mol/molV)
       REAL( 8 ), INTENT( INOUT ) :: GASWDEP( NGAS )         ! gas phase wet deposition array (mm mol/liter)
       REAL( 8 ), INTENT( INOUT ) :: AERWDEP( NAER, NMODES ) ! aerosol wet deposition array (mm mol/liter)
+
 
 C...........Local Variables (scalars):
 
@@ -229,7 +235,6 @@ C...........Local Variables (scalars):
       REAL( 8 ) :: CO21H           ! CO2H*CO21
       REAL( 8 ) :: CO2L            ! CO2 conc in cloudwater (mol/liter)
       REAL( 8 ) :: CO3             ! CO3= conc in cloudwater (mol/liter)
-      REAL( 8 ) :: CTHK1           ! cloud thickness (m)
       REAL( 8 ) :: DSIV_SCALE      ! mass conservation scale factor for S(IV)
       REAL( 8 ) :: DTRMV           !
       REAL( 8 ) :: DTS6            !
@@ -264,7 +269,7 @@ C...........Local Variables (scalars):
       REAL( 8 ) :: GM1             !
       REAL( 8 ) :: GM1LOG          !
       REAL( 8 ) :: GM2             ! activity correction factor
-      REAL( 8 ) :: GM2LOG          !
+!     REAL( 8 ) :: GM2LOG          !
       REAL( 8 ) :: HA              !
       REAL( 8 ) :: HB              !
       REAL( 8 ) :: H2OW            !
@@ -335,8 +340,8 @@ C...........Local Variables (scalars):
 !     REAL( 8 ) :: PRIMCOR         ! PRIMARY coarse aerosol in cloudwater (mol/liter)
       REAL( 8 ) :: PSO2F           ! gas only SO2 partial pressure (atm)
 !     REAL( 8 ) :: RATE            !
-      REAL( 8 ) :: RECIPA1         !
-      REAL( 8 ) :: RECIPA2         !
+!     REAL( 8 ) :: RECIPA1         !
+!     REAL( 8 ) :: RECIPA2         !
       REAL( 8 ) :: RECIPAP1        ! one over pressure (/atm)
       REAL( 8 ) :: RGLY3           ! liter/(mol sec)
       REAL( 8 ) :: RH2O2           !
@@ -429,6 +434,9 @@ C...........Local Variables (arrays):
 
       REAL( 8 ) :: ONE_OVER_TEMP     ! 1.0 / TEMP
 
+      real( 8 ) :: a1, a2, phclfoa1, phno3foa1, pfoafoa1
+      real( 8 ) :: PSO2Foa1a2, PCO2Foa1a2, a1a2
+
 C...........External Functions:
 
 !     REAL, EXTERNAL :: HLCONST
@@ -494,7 +502,7 @@ C...initialize counters and compute several conversion factors
       DSIV_SCALE = 1.0D0
       RT         = ( MOLVOL / STDTEMP ) * TEMP         ! R * T (liter atm / mol)
       PRES_ATM   = PRES_PA /  STDATMPA                 ! pressure (atm)
-      CTHK1      = AIRM * RT / ( PRES_ATM * 1000.0D0 ) ! cloud thickness (m)
+!     CTHK1      = AIRM * RT / ( PRES_ATM * 1000.0D0 ) ! cloud thickness (m)
       XL         = WCAVG * RT / H2ODENS                ! conversion factor (l-atm/mol)
       ONE_OVER_XL      = 1.0D0 / XL
       PRES_ATM_OVER_XL = PRES_ATM / XL
@@ -508,8 +516,8 @@ C...initialize counters and compute several conversion factors
       XC1       = 1.0D0 / ( WCAVG * CTHK1 )
       XC2       = RT / ( 1000.0D0 * CTHK1 )
       FRACLIQ   = WCAVG / WTAVG
-      TWASH     = WTAVG * 1000.0D0 * CTHK1 * 3600.0D0
-     &          / ( H2ODENS * MAX( 1.0D-20, REAL( PRCRATE,8 ) ) )
+      TWASH     = WTAVG * CTHK1 * 3600.0D0 / MAX( 1.0E-20, PRCRATE )
+      TWASH     = MAX( TWASH, REAL(TAUCLD,8) )
 
 C...set equilibrium constants as a function of temperature
 C...   Henry`s law constants
@@ -665,10 +673,12 @@ C...loop If kinetic calculations are made, return to this point
 
 C...set aitken-mode aerosol loading (mol/liter)
 
-        SCAVENGED = PRES_ATM_OVER_XL - PRES_ATM_OVER_XL * EXP( MAX( -REAL( ALFA3, 8 ) * TIMEW, 1.0D-8 ) )
-        DO ISPC = 1, NAER
-          LOADING( ISPC, AKN ) = AEROSOL( ISPC, AKN ) * SCAVENGED
-        END DO
+        if (i20c > 1) then
+           SCAVENGED = PRES_ATM_OVER_XL * ( 1.0D0 - EXP( -ALFAC * TIMEW ) )
+           DO ISPC = 1, NAER
+              LOADING( ISPC, AKN ) = AEROSOL( ISPC, AKN ) * SCAVENGED
+           END DO
+        endif
 
 C...Initial gas phase partial pressures (atm)
 C...   = initial partial pressure - amount deposited partial pressure
@@ -810,41 +820,44 @@ C...  bisections Make initial guesses for pH:   between .01  to  10.
 
           HA = MAX( HA - 0.8D0, 0.1D0 )
           HB = MIN( HB + 0.8D0, 9.9D0 )
-          AE = 10.0D0 ** ( -HA )
 
-          RECIPA1 = 1.0D0 / ( AE * ACT1 )
-          RECIPA2 = 1.0D0 / ( AE * AE * ACT2 )
+          ae = exp( mln10 * real(ha) )
+!         AE = 10.0D0 ** ( -HA )
+
+          A1   = AE * ACT1
+          A2   = AE * AE * ACT2
+          a1a2 = a1 * a2
 
 C...calculate final gas phase partial pressure of SO2, NH3, HNO3
 C...  HCOOH, and CO2 (atm)
 
-          PSO2F = INITGAS( LSO2 ) / ( 1.0D0 + XLSO2 * ( 1.0D0 + SO21 * RECIPA1
-     &          + SO212 * RECIPA2 ) )
+          PSO2Foa1a2 = INITGAS( LSO2 ) / ( a1a2 + XLSO2
+     &         * ( a1a2 + SO21 * a2 + SO212 * a1 ) )
 
           PNH3F = INITGAS( LNH3 ) / ( 1.0D0 + XLNH3 * ( 1.0D0 + NH3DH20 * AE ) )
 
-          PHCLF = INITGAS( LHCL ) / ( 1.0D0 + XLHCL *  ( 1.0D0 + HCL1 * RECIPA1 ) )
+          PHCLFoA1 = INITGAS( LHCL ) / ( A1 + XLHCL * ( A1 + HCL1 ) )
 
-          PFOAF = INITGAS( LFOA ) / ( 1.0D0 + XL * ( FOAH + FOA1H * RECIPA1 ) )
+          PHNO3FoA1 = INITGAS( LHNO3 ) / ( A1 + XLHNO3 * ( A1 + HNO31 ) )
 
-          PHNO3F = INITGAS( LHNO3 ) / ( 1.0D0 + XLHNO3 * ( 1.0D0 + HNO31 * RECIPA1 ) )
+          PFOAFoA1 = INITGAS( LFOA ) / ( A1 + XL * ( FOAH * A1 + FOA1H ) )
 
-          PCO2F = INITGAS( LCO2 ) / ( 1.0D0 + XLCO2 * ( 1.0D0 + CO21 * RECIPA1
-     &          + CO212 * RECIPA2 ) )
+          PCO2Foa1a2 = INITGAS( LCO2 ) / ( a1a2 + XLCO2
+     &         * ( a1a2 + CO21 * a2 + CO212 * a1 ) )
 
 C...calculate liquid phase concentrations (moles/liter)
 
           SO4  = SK6TS6 / ( AE * GM2 + SK6 )
           HSO4 = TS6 - SO4
-          SO3  = SO212H  * PSO2F  * RECIPA2
-          HSO3 = SO21H   * PSO2F  * RECIPA1
-          CO3  = CO212H  * PCO2F  * RECIPA2
-          HCO3 = CO21H   * PCO2F  * RECIPA1
-          OH   = H2OW    * RECIPA1
+          SO3  = SO212H  * PSO2FoA1A2 * A1
+          HSO3 = SO21H   * PSO2FoA1A2 * A2
+          CO3  = CO212H  * PCO2FoA1A2 * A1
+          HCO3 = CO21H   * PCO2FoA1A2 * A2
+          OH   = H2OW    / A1
           NH4  = NH31HDH * PNH3F  * AE
-          HCO2 = FOA1H   * PFOAF  * RECIPA1
-          NO3  = HNO31H  * PHNO3F * RECIPA1
-          CL   = HCL1H   * PHCLF  * RECIPA1 ! new for sea salt
+          HCO2 = FOA1H   * PFOAFoA1
+          NO3  = HNO31H  * PHNO3FoA1
+          CL   = HCL1H   * PHCLFoA1 ! new for sea salt
 
 C...compute functional value
 
@@ -862,7 +875,9 @@ C...Start iteration and bisection ****************<<<<<<<
             END IF
 
             BB = ( HA + HB ) / 2.0D0
-            AE = 10.0D0 ** ( -BB )
+
+            ae = exp( mln10 * real(bb) )
+!           AE = 10.0D0 ** ( -BB )
 
             ICNTAQ = ICNTAQ + 1
             IF ( ICNTAQ .GE. 60000 ) THEN
@@ -870,39 +885,40 @@ C...Start iteration and bisection ****************<<<<<<<
               CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
             END IF
 
-            RECIPA1 = 1.0D0 / ( AE * ACT1 )
-            RECIPA2 = 1.0D0 / ( AE * AE * ACT2 )
+            A1   = AE * ACT1
+            A2   = AE * AE * ACT2
+            a1a2 = a1 * a2
 
 C...calculate final gas phase partial pressure of SO2, NH3, HCL, HNO3
 C...  HCOOH, and CO2 (atm)
 
-            PSO2F = INITGAS( LSO2 ) / ( 1.0D0 + XLSO2
-     &            * ( 1.0D0 + SO21 * RECIPA1 + SO212 * RECIPA2 ) )
+            PSO2Foa1a2 = INITGAS( LSO2 ) / ( a1a2 + XLSO2
+     &            * ( a1a2 + SO21 * a2 + SO212 * a1 ) )
 
             PNH3F = INITGAS( LNH3 ) / ( 1.0D0 + XLNH3 * ( 1.0D0 + NH3DH20 * AE ) )
 
-            PHCLF = INITGAS( LHCL ) / ( 1.0D0 + XLHCL *  ( 1.0D0 + HCL1 * RECIPA1 ) )
+            PHCLFoA1 = INITGAS( LHCL ) / ( A1 + XLHCL * ( A1 + HCL1 ) )
 
-            PHNO3F = INITGAS( LHNO3 ) / ( 1.0D0 + XLHNO3 * ( 1.0D0 + HNO31 * RECIPA1 ) )
+            PHNO3FoA1 = INITGAS( LHNO3 ) / ( A1 + XLHNO3 * ( A1 + HNO31 ) )
 
-            PFOAF = INITGAS( LFOA ) / ( 1.0D0 + XL * ( FOAH + FOA1H * RECIPA1 ) )
+            PFOAFoA1 = INITGAS( LFOA ) / ( A1 + XL * ( FOAH * A1 + FOA1H ) )
 
-            PCO2F = INITGAS( LCO2 ) / ( 1.0D0 + XLCO2 * ( 1.0D0 + CO21 * RECIPA1
-     &            + CO212 * RECIPA2 ) )
+            PCO2Foa1a2 = INITGAS( LCO2 ) / ( a1a2 + XLCO2
+     &            * ( a1a2 + CO21 * a2 + CO212 * a1 ) )
 
 C...calculate liquid phase concentrations (moles/liter)
 
             SO4  = SK6TS6 / ( AE * GM2 + SK6 )
             HSO4 = TS6 - SO4
-            SO3  = SO212H  * PSO2F  * RECIPA2
-            HSO3 = SO21H   * PSO2F  * RECIPA1
-            CO3  = CO212H  * PCO2F  * RECIPA2
-            HCO3 = CO21H   * PCO2F  * RECIPA1
-            OH   = H2OW    * RECIPA1
+            SO3  = SO212H  * PSO2FoA1A2 * A1
+            HSO3 = SO21H   * PSO2FoA1A2 * A2
+            CO3  = CO212H  * PCO2FoA1A2 * A1
+            HCO3 = CO21H   * PCO2FoA1A2 * A2
+            OH   = H2OW    / A1
             NH4  = NH31HDH * PNH3F  * AE
-            HCO2 = FOA1H   * PFOAF  * RECIPA1
-            NO3  = HNO31H  * PHNO3F * RECIPA1
-            CL   = HCL1H   * PHCLF  * RECIPA1 ! new for sea salt
+            HCO2 = FOA1H   * PFOAFoA1
+            NO3  = HNO31H  * PHNO3FoA1
+            CL   = HCL1H   * PHCLFoA1          ! new for sea salt
 
 C...compute functional value
 !           FB = AE + NH4 + NA + 2.0D0 * ( CA + MG - CO3 - SO3 - SO4 )
@@ -938,9 +954,11 @@ C     &              + 4.0D0 * ( SO4 + CO3 + SO3 + CA + MG + MN )
 C     &              + NO3 + HSO4 + 9.0D0 * FE + NA + K + CL + A + B + HCO2 )
           GM1LOG = -0.509D0 * ( SQRT( STION )
      &           / ( 1.0D0 + SQRT( STION ) ) - 0.2D0 * STION )
-          GM2LOG = GM1LOG * 4.0D0
-          GM1  = 10.0D0 ** GM1LOG
-          GM2  = MAX( 10.0D0 ** GM2LOG, 1.0D-30 )
+!         GM2LOG = GM1LOG * 4.0D0
+          gm1 = exp( ln10 * real(gm1log) )
+          gm2 = max( gm1*gm1*gm1*gm1, 1.0d-30 )
+!         GM1  = 10.0D0 ** GM1LOG
+!         GM2  = MAX( 10.0D0 ** GM2LOG, 1.0D-30 )
           ACTB = ACT1
           ACT1 = MAX( GM1 * GM1, 1.0D-30 )
           ACT2 = MAX( GM1 * GM1 * GM2, 1.0D-30 )
@@ -971,7 +989,7 @@ C     &              + NO3 + HSO4 + 9.0D0 * FE + NA + K + CL + A + B + HCO2 )
              write( logdev,'( 5x, a, e10.3 )' ) 'B:    ', b
              write( logdev,'( 5x, a, e10.3 )' ) 'HCO2: ', hco2
              write( logdev,'( 5x, a, e10.3 )' ) 'gm1log:', gm1log
-             write( logdev,'( 5x, a, e10.3 )' ) 'gm2log:', gm2log
+!            write( logdev,'( 5x, a, e10.3 )' ) 'gm2log:', gm2log
              write( logdev,'( 5x, a, e10.3 )' ) 'gm1:   ', gm1
              write( logdev,'( 5x, a, e10.3 )' ) 'gm2:   ', gm2
              write( logdev,'( 5x, a, e10.3 )' ) 'actb:  ', actb
@@ -998,8 +1016,16 @@ C...return an error if the pH is not in range
 C...Make those concentration calculations which can be made outside
 C...  of the function.
 
+
+        phclf  = phclfoa1   * a1
+        phno3f = phno3foa1  * a1
+        pfoaf  = pfoafoa1   * a1
+        pso2f  = pso2foa1a2 * a1a2
+        pco2f  = pco2foa1a2 * a1a2
+
         SO2L = SO2H * PSO2F
-        AC = 10.0D0 ** ( -BB )
+        AC = exp( mln10 * real(bb) )
+!       AC = 10.0D0 ** ( -BB )
         SIV = SO3 + HSO3 + SO2L
 
 C...Calculate final gas phase concentrations of oxidants (atm)
@@ -1156,7 +1182,7 @@ C...Implement sulfate inhibition based on Martin and Good, 1991
         DSIVDT( 3 ) = - ( 750.0D0  * MN_OX * SIV +                 ! GS 4May2011
      &                    2600.0D0 * FE_OX * SIV +                 ! GS 4May2011
      &                    1.0D10   * MN_OX * FE_OX * SIV )         ! GS 4May2011
-     &                / ( 1.0D0 + 75.0D0 *( TS6**0.67D0 ))         ! GS 28Nov2012     
+     &                / ( 1.0D0 + 75.0D0 * ( TS6**twothird ))      ! GS 28Nov2012     
 
         IF ( ( DSIVDT( 3 ) .EQ. 0.0D0 ) .OR. ( TSIV .LE. CONMIN ) ) THEN
           DTW( 3 ) = DTRMV
@@ -1353,16 +1379,17 @@ C...  scavenging aerosol number in the accumulation mode
 
       DEPSUM = ( WETDEP( LSO4ACCL ) + WETDEP( LHSO4ACCL ) ) * XC1
 
-      IF ( ( LOADING( LSO4, ACC ) + LOADING( LSO4, AKN ) - DS4( 0 ) ) .NE. 0.0D0 ) THEN
+      IF ( ( LOADING( LSO4, ACC ) + LOADING( LSO4, AKN ) - DS4( 0 ) ) .gt. 1.0D-30 ) THEN
         BETASO4 = DEPSUM / ( ( LOADING( LSO4, ACC ) + LOADING( LSO4, AKN ) - DS4( 0 ) ) * TAUCLD )
+        EBETASO4T = EXP( -BETASO4 * TAUCLD )
       ELSE
-        BETASO4 = 0.0D0
+        BETASO4   = 0.0D0
+        EBETASO4T = 1.0D0
       END IF
 
-      EBETASO4T = EXP( -BETASO4 * TAUCLD )
-      EALFA0T   = EXP( -ALFA0 * TAUCLD )
-      EALFA2T   = EXP( -ALFA2 * TAUCLD )
-      EALFA3T   = EXP( -ALFA3 * TAUCLD )
+      EALFA0T   = EXP( -ALFAC * TAUCLD )
+      EALFA2T   = EALFA0T
+      EALFA3T   = EALFA0T
 
 C...Compute the output concentrations and wet deposition amounts
 

@@ -344,7 +344,8 @@ subroutine hist_read_addgrid()
          trim(varn) == 'RLONGUP_TOP'         .or. &
          trim(varn) == 'ALBEDT'              .or. &
          trim(varn) == 'COSZ'                .or. &
-         trim(varn) == 'HKM'                 .or. &
+         trim(varn) == 'VKM'                 .or. &
+         trim(varn) == 'VKH'                 .or. &
          trim(varn) == 'SXFER_TK'            .or. &
          trim(varn) == 'SXFER_RK'            .or. &
          trim(varn) == 'VKM_SFC'             .or. &

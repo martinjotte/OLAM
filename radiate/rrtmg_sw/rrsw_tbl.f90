@@ -34,8 +34,8 @@
       real(kind=rb) :: tau_tbl
       real(kind=rb) , dimension(0:ntbl) :: exp_tbl
 
-      real(kind=rb), parameter :: pade = 0.278_rb
-      real(kind=rb) :: bpade
+      real(kind=rb), parameter :: pade  = 0.278_rb
+      real(kind=rb), parameter :: bpade = 1.0_rb / pade
 
       end module rrsw_tbl
 

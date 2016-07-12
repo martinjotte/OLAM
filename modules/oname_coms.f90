@@ -149,6 +149,7 @@ Module oname_coms
       integer :: iwind_monot = 0
       integer :: iscal_monot = 0
       integer :: split_scalars = 0
+      integer :: adv_order   = 2
       logical :: debug_fp    = .false.
       logical :: init_nans   = .false.
       real(r8):: cfl_prtfrq  = 900.0_r8
@@ -192,8 +193,8 @@ Module oname_coms
 
       integer :: idiffk(maxgrds) = 2
 
-      real :: zkhkm(maxgrds) = 3.0
-      real :: xkhkm(maxgrds) = 3.0
+      real :: zkhkm(maxgrds) = 3.0 ! not used
+      real :: xkhkm(maxgrds) = 3.0 ! not used
       real :: csx  (maxgrds) = 0.2
       real :: csz  (maxgrds) = 0.2
       real :: akmin(maxgrds) = 0.0

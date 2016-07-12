@@ -34,12 +34,12 @@ SOURCE_FILES= \
              $(MODEL_MODS)/max_dims.f90 \
              $(MODEL_MODS)/mem_addgrid.f90 \
              $(MODEL_MODS)/mem_addsc.f90 \
+             $(MODEL_MODS)/mem_adv.f90 \
              $(MODEL_MODS)/mem_average_vars.f90 \
              $(MODEL_MODS)/mem_basic.f90 \
              $(MODEL_MODS)/mem_flux_accum.f90 \
              $(MODEL_MODS)/mem_grid.f90 \
              $(MODEL_MODS)/mem_ijtabs.f90 \
-             $(MODEL_MODS)/mem_mclat.f90 \
              $(MODEL_MODS)/mem_micro.f90 \
              $(MODEL_MODS)/mem_mksfc2.f90 \
              $(MODEL_MODS)/mem_nudge.f90 \
@@ -108,7 +108,6 @@ SOURCE_FILES= \
              $(OMODEL)/spawn_nest.f90 \
              $(OMODEL)/spring_dynamics.f90 \
              $(OMODEL)/surface_fluxes.F90 \
-             $(OMODEL)/thiltend_long.f90 \
              $(OMODEL)/thuburn_module.F90 \
              $(OMODEL)/tileslab.F90 \
              $(OMODEL)/timestep.f90 \
@@ -128,14 +127,16 @@ SOURCE_FILES= \
              $(OUTILS)/o_ncar.f90 \
              $(OUTILS)/polygon_overlap.f90 \
              $(OUTILS)/read_cdc.f90 \
+             $(OUTILS)/quadrature.f90 \
              $(OUTILS)/string_lib.f90 \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \
+             $(RADIATE)/cloud_frac.f90 \
              $(RADIATE)/cloudprep_rad.f90 \
              $(RADIATE)/clouds_gno.f90 \
+             $(RADIATE)/mem_mclat.f90 \
              $(RADIATE)/mem_radiate.f90 \
              $(RADIATE)/rad_driv.F90 \
-             $(RADIATE)/rad_mclat.f90 \
              $(RADIATE)/rrtmg_cloud_optics.f90 \
              $(RADIATE)/rrtmg_raddriv.f90 \
              $(RADIATE)/rrtmg_lw/mcica_random_numbers.f90 \
@@ -166,14 +167,10 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_lw/rrlw_vsn.f90 \
              $(RADIATE)/rrtmg_lw/rrlw_wvn.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_cldprmc.f90 \
-             $(RADIATE)/rrtmg_lw/rrtmg_lw_cldprop.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_init.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_rad.f90 \
-             $(RADIATE)/rrtmg_lw/rrtmg_lw_rad_nomcica.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_read_h5.f90 \
-             $(RADIATE)/rrtmg_lw/rrtmg_lw_rtrn.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_rtrnmc.f90 \
-             $(RADIATE)/rrtmg_lw/rrtmg_lw_rtrnmr.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_setcoef.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_taumol.f90 \
              $(RADIATE)/rrtmg_sw/mcica_subcol_gen_sw.f90 \
@@ -201,17 +198,12 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_sw/rrsw_vsn.f90 \
              $(RADIATE)/rrtmg_sw/rrsw_wvn.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_cldprmc.f90 \
-             $(RADIATE)/rrtmg_sw/rrtmg_sw_cldprop.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_init.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_rad.f90 \
-             $(RADIATE)/rrtmg_sw/rrtmg_sw_rad_nomcica.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_read_h5.f90 \
-             $(RADIATE)/rrtmg_sw/rrtmg_sw_reftra.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_setcoef.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_spcvmc.f90 \
-             $(RADIATE)/rrtmg_sw/rrtmg_sw_spcvrt.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_taumol.f90 \
-             $(RADIATE)/rrtmg_sw/rrtmg_sw_vrtqdr.f90 \
              $(SEA)/mem_sea.f90 \
              $(SEA)/para_init_sea.f90 \
              $(SEA)/read_seaice_analysis.F90 \
@@ -231,16 +223,16 @@ SOURCE_FILES= \
              $(CMAQ)/aero_depv.F \
              $(CMAQ)/aero_driver.F \
              $(CMAQ)/AERO_EMIS.F \
-             $(CMAQ)/aero_photdata.F \
+             $(CMAQ)/AERO_PHOTDATA.F \
              $(CMAQ)/aero_subs.F \
              $(CMAQ)/AEROMET_DATA.F \
              $(CMAQ)/AEROSOL_CHEMISTRY.F \
+             $(CMAQ)/AOD_DEFN.F \
              $(CMAQ)/AQ_DATA.F \
              $(CMAQ)/aq_map.F \
              $(CMAQ)/aqchem.F \
              $(CMAQ)/cb05tucl_ae6_aq/RXNS_DATA_MODULE.F90 \
              $(CMAQ)/cb05tucl_ae6_aq/RXNS_FUNC_MODULE.F90 \
-             $(CMAQ)/cldproc.F \
              $(CMAQ)/cmaq_driver.f90 \
              $(CMAQ)/coags.f \
              $(CMAQ)/conv_cgrid.f90 \
@@ -274,9 +266,11 @@ SOURCE_FILES= \
              $(CMAQ)/isocom.f \
              $(CMAQ)/isofwd.f \
              $(CMAQ)/isorev.f \
-             $(CMAQ)/LTNG_DEFN.F \
+             $(CMAQ)/LTNG_DEFN.f90 \
              $(CMAQ)/m3dry.f \
+             $(CMAQ)/oplot_chem_lib.f90 \
              $(CMAQ)/phot.F \
+             $(CMAQ)/phot_albedo.f90 \
              $(CMAQ)/PHOT_MOD.F \
              $(CMAQ)/PRECURSOR_DATA.F \
              $(CMAQ)/rescld.F \
@@ -284,7 +278,9 @@ SOURCE_FILES= \
              $(CMAQ)/sedv_defn.f90 \
              $(CMAQ)/setup_logdev.F \
              $(CMAQ)/SOA_DEFN.F \
+             $(CMAQ)/soil_nox.f90 \
              $(CMAQ)/SSEMIS.F \
+             $(CMAQ)/twoway_rrtmg_aero_optics.F90 \
              $(CMAQ)/UTILIO_DEFN.F \
              $(MEGAN)/canopy.f90 \
              $(MEGAN)/driver.f90

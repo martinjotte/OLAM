@@ -46,7 +46,7 @@ C-----------------------------------------------------------------------
       Integer, Parameter :: naer = n_aerospc + naddaer  ! number of aerosol surrogate species for AQCHEM
       Integer, Parameter :: nliqs = 51  ! number of liquid-phase species in AQCHEM
       Integer, Parameter :: nmodes = 3  ! number of aerosol modes
-      Integer, Parameter :: mxsrg = 25  ! maximum number of species for surrogate
+      Integer, Parameter :: mxsrg = 35  ! maximum number of species for surrogate
 
       integer, parameter :: akn = 1     ! number for Aitken mode
       Integer, Parameter :: acc = 2     ! number for Accumulation mode
@@ -123,6 +123,7 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
          Character( 16 ) :: name( nmodes )     ! surrogate name
          Real            :: backgnd            ! background value
          Real            :: molwt              ! molecular weight
+         Real            :: molwti             ! 1 / molecular weight
          Real            :: density            ! density (kg/m^3) 
       End Type sur_aer_type
 
@@ -130,15 +131,15 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
 C... Additional Aerosol surrogate species to add to aerosol list
       Type ( sur_aer_type ), private :: addsrgaer( naddaer ) = (/
-C                        Aitken        Accum        Coarse      Background   MolWt  Density
-C                      ----------    ----------   ----------    ----------  ------  -------
-!    & sur_aer_type((/'          ', '          ', 'CACO3     '/),   0.0,     100.1,  2200.0),
-!    & sur_aer_type((/'          ', '          ', 'MGCO3     '/),   0.0,      84.3,  2200.0),
-!    & sur_aer_type((/'          ', '          ', 'A3FE      '/),   0.0,      55.8,  2000.0),
-!    & sur_aer_type((/'          ', '          ', 'B2MN      '/),   0.0,      54.9,  2000.0),
-!    & sur_aer_type((/'          ', '          ', 'K         '/),   0.0,      39.1,  2200.0),
-     & sur_aer_type((/'NUM_AITKEN', 'NUM_ACCUM ', 'NUM_COARSE'/),   0.0,       0.0,     1.0),
-     & sur_aer_type((/'SRF_AITKEN', 'SRF_ACCUM ', 'SRF_COARSE'/),   0.0,       0.0,     1.0)/)
+C                        Aitken        Accum        Coarse      Background   MolWt  MolWtInv Density
+C                      ----------    ----------   ----------    ----------  ------  -------  -------
+!    & sur_aer_type((/'          ', '          ', 'CACO3     '/),   0.0,     100.1, 1./100., 2200.0),
+!    & sur_aer_type((/'          ', '          ', 'MGCO3     '/),   0.0,      84.3, 1./84.3, 2200.0),
+!    & sur_aer_type((/'          ', '          ', 'A3FE      '/),   0.0,      55.8, 1./55.8, 2000.0),
+!    & sur_aer_type((/'          ', '          ', 'B2MN      '/),   0.0,      54.9, 1./54.9, 2000.0),
+!    & sur_aer_type((/'          ', '          ', 'K         '/),   0.0,      39.1, 1./39.1, 2200.0),
+     & sur_aer_type((/'NUM_AITKEN', 'NUM_ACCUM ', 'NUM_COARSE'/),   0.0,       0.0,     0.0,    1.0),
+     & sur_aer_type((/'SRF_AITKEN', 'SRF_ACCUM ', 'SRF_COARSE'/),   0.0,       0.0,     0.0,    1.0)/)
 
 C...Required aerosol species
       Character( 16 ), Parameter, Private :: req_aso4   = 'SO4_ACCUM'
@@ -267,6 +268,8 @@ C...Pointers for the AQCHEM arrays LIQUID and WETDEP
       Integer, Private, Save :: logdev
       Integer, Private, External :: setup_logdev
 
+      real, allocatable :: tot_wdep(:,:)
+
       Contains
  
 C------------------------------------------------------------------------
@@ -347,7 +350,7 @@ C...Map aero species
       Call map_aero()
 
       Do spc = 1, n_aerospc
-         srgaer( spc ) = sur_aer_type( (/' ',' ',' '/), 0.0, 0.0, 0.0 )
+         srgaer( spc ) = sur_aer_type( (/' ',' ',' '/), 0.0, 0.0, 0.0, 0.0 )
 
          ! Skip H2O, H2OP, and SOIL species
          If ( spc .Eq. ah2o_idx .Or. spc .Eq. ah3op_idx ) Cycle
@@ -367,7 +370,8 @@ C...Map aero species
                If ( new ) Then
                   srgaer( spc )%name( mode ) = ae_a2aq( n )
                   srgaer( spc )%density = aerospc( spc )%density
-                  srgaer( spc )%molwt = aerospc_mw( spc )
+                  srgaer( spc )%molwt   = aerospc_mw( spc )
+                  srgaer( spc )%molwti  = aerospc_mwi( spc )
                End If
             End If
 
@@ -686,7 +690,7 @@ C..Local Variables:
             If ( .NOT. aero_missing(n,m) ) Then
                spc = index1( aerospc( n )%name( m ), n_ae_spc, ae_spc )
                If ( spc .Ne. 0 ) Then
-                  aeconcmin( spc ) = aerospc( n )%min_conc( m ) * mwair * 1.0E-9 / ae_molwt( spc )
+                  aeconcmin( spc ) = aerospc( n )%min_conc( m ) * mwair * 1.0E-9 * ae_molwti( spc )
                   aeconcmin( spc ) = Max( aeconcmin( spc ), cmin )
                End If
             End If

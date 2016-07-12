@@ -56,6 +56,12 @@ Module mem_radiate
   real, allocatable, target :: cosz          (:)
   real, allocatable         :: rlong_albedo  (:)
   real, allocatable         :: rshort_diffuse(:)
+  real, allocatable         :: par           (:)
+  real, allocatable         :: par_diffuse   (:)
+  real, allocatable         :: uva           (:)
+  real, allocatable         :: uvb           (:)
+  real, allocatable         :: uvc           (:)
+  real, allocatable         :: pbl_cld_forc  (:)
 
   ! clear-sky values
 
@@ -103,6 +109,14 @@ Contains
        allocate (rshortup_top  (mwa)) ; rshortup_top   = 0.0
        allocate (rlongup_top   (mwa)) ; rlongup_top    = 0.0
        allocate (rshort_diffuse(mwa)) ; rshort_diffuse = 0.0
+
+       allocate (par           (mwa)) ; par            = 0.0
+       allocate (par_diffuse   (mwa)) ; par_diffuse    = 0.0
+       allocate (uva           (mwa)) ; uva            = 0.0
+       allocate (uvb           (mwa)) ; uvb            = 0.0
+       allocate (uvc           (mwa)) ; uvc            = 0.0
+       allocate (pbl_cld_forc  (mwa)) ; pbl_cld_forc   = 0.0
+
        allocate (rlong_albedo  (mwa)) ; rlong_albedo   = rinit
        allocate (albedt        (mwa)) ; albedt         = rinit
        allocate (albedt_beam   (mwa)) ; albedt_beam    = rinit
@@ -156,6 +170,13 @@ Contains
     if (allocated(rlongup_clr))      deallocate (rlongup_clr)
     if (allocated(rlongup_top_clr))  deallocate (rlongup_top_clr)
 
+    if (allocated(par))              deallocate (par)
+    if (allocated(par_diffuse))      deallocate (par_diffuse)
+    if (allocated(uva))              deallocate (uva)
+    if (allocated(uvb))              deallocate (uvb)
+    if (allocated(uvc))              deallocate (uvc)
+    if (allocated(pbl_cld_forc))     deallocate (pbl_cld_forc)
+
   end subroutine dealloc_radiate
 
 !===============================================================================
@@ -200,6 +221,8 @@ Contains
     if (allocated(rlongup_clr))      call increment_vtable('RLONGUP_CLR',     'AW', rvar1=rlongup_clr)
 
     if (allocated(rlongup_top_clr))  call increment_vtable('RLONGUP_TOP_CLR', 'AW', rvar1=rlongup_top_clr)
+
+    if (allocated(pbl_cld_forc))     call increment_vtable('PBL_CLD_FORC',    'AW', rvar1=pbl_cld_forc)
 
   end subroutine filltab_radiate
 

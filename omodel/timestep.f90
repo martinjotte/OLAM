@@ -104,8 +104,6 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       call surface_turb_flux(mrl)
       if (do_chem == 1) then
          call aero_sedi( mrl )
-         call get_emis ( mrl )
-         call get_depv ( mrl )
       endif
    endif
 
@@ -128,6 +126,10 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
    mrl = mrl_begl(istp)
    if (mrl > 0) then
+      if (do_chem == 1) then
+         call get_emis ( mrl )
+         call get_depv ( mrl )
+      endif
       call pbl_driver(mrl)
    endif
 
@@ -153,13 +155,6 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
 ! call check_nans(10)
 
-   mrl = mrl_begl(istp)
-   if (mrl > 0) then
-      call thiltend_long(mrl)
-   endif
-
-! call check_nans(11)
-
    mrl = mrl_ends(istp)
    if (nl%split_scalars > 0 .and. mrl > 0) then
       call split_thil(mrl)
@@ -170,6 +165,8 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       endif
       call lbcopy_w(mrl, a1=thil)
    endif
+
+! call check_nans(11)
 
    call prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 

@@ -38,14 +38,14 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 ! and the Walko and Avissar (2008a,b) time differencing method.
 
 use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, istp, itab_w, jtab_m, itab_m, &
-                        mrl_begl, mrl_begs, mrl_ends, mrl_endl, &
+                        mrl_begl, mrl_begs, mrl_ends, &
                         jtm_vadj, jtv_prog, jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp
-use mem_basic,    only: rho, thil, theta, wc, press, wmc, vmp, vmc, vp, vc, &
+use mem_basic,    only: rho, thil, wc, press, vmp, vmc, vp, vc, &
                         vxe, vye, vze, vxe2, vye2, vze2, &
-                        sh_w, sh_v, strict_wvt_donorpoint
-use mem_grid,     only: mza, mma, mva, mwa, nsw_max, lpm, lpv, lpw, lsw, &
-                        zt, zm, dzim, zfact, zfacit, zfacim, dzm, dzt, dnv, dniv, dnu, &
-                        arm0, arv, vnx, vny, vnz, volt, glatw, glonw
+                        strict_wvt_donorpoint
+use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, &
+                        dzim, zfact, zfacit, zfacim, dnv, dniv, dnu, &
+                        arm0, vnx, vny, vnz
 use mem_tend,     only: vmt, vmxet, vmyet, vmzet, sh_wt
 use misc_coms,    only: io6, iparallel, time8, dtlm, rinit
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
@@ -54,6 +54,18 @@ use obnd,         only: lbcopy_m, lbcopy_w
 use mem_rayf,     only: dorayfdiv, krayfdiv_bot
 use vel_t3d,      only: vel_t3d_hex
 use oname_coms,   only: nl
+use mem_adv,      only: dxps_w, dyps_w, dzps_w, &
+                        dxyps_w, dxxps_w, dyyps_w, dzzps_w, &
+                        dxps_v, dyps_v, dzps_v, &
+                        dxyps_v, dxxps_v, dyyps_v, dzzps_v, &
+                        gxps_scp, gyps_scp, gzps_scp, &
+                        gxyps_scp, gxxps_scp, gyyps_scp, gzzps_scp, &
+                        gxps_vxe, gyps_vxe, gzps_vxe, &
+                        gxyps_vxe, gxxps_vxe, gyyps_vxe, gzzps_vxe, &
+                        gxps_vye, gyps_vye, gzps_vye, &
+                        gxyps_vye, gxxps_vye, gyyps_vye, gzzps_vye, &
+                        gxps_vze, gyps_vze, gzps_vze, &
+                        gxyps_vze, gxxps_vze, gyyps_vze, gzzps_vze
 
 implicit none
 
@@ -67,7 +79,7 @@ real, intent(inout) :: vzesc(mza,mwa)
 real, intent(in)    :: alpha_press(mza,mwa)
 real, intent(inout) :: rhot       (mza,mwa)
 
-integer :: j, iv, k, ka, kb, mrl, kbv, kd, ksw
+integer :: j, iv, k, kb, mrl, kbv, kd
 integer :: iw, iw1, iw2, iwp, ivp
 
 ! automatic arrays
@@ -77,38 +89,12 @@ integer :: iwrecv(mza,mva) ! recvr cell IW index for V face
 integer :: kdepw(mza,mwa)  ! donor cell K index for W face
 integer :: krecw(mza,mwa)  ! recvr cell K index for W face
 
-real :: dxps_v(mza,mva) ! X component in PS projection of displacement for V face
-real :: dyps_v(mza,mva) ! Y component in PS projection of displacement for V face
-real :: dzps_v(mza,mva) ! Z component in PS projection of displacement for V face
-
-real :: dxps_w(mza,mwa) ! X component in PS projection of displacement for W face
-real :: dyps_w(mza,mwa) ! Y component in PS projection of displacement for W face
-real :: dzps_w(mza,mwa) ! Z component in PS projection of displacement for W face
-
 real :: vmcf(mza,mva) ! Time-extrapolated VMC
 
 real, allocatable :: vcf (:,:) ! Time-extrapolated VC
 real, allocatable :: vxef(:,:) ! Time-extrapolated XE velocity component at T point
 real, allocatable :: vyef(:,:) ! Time-extrapolated YE velocity component at T point
 real, allocatable :: vzef(:,:) ! Time-extrapolated ZE velocity component at T point
-
-real :: gxps_thil(mza,mwa) ! X component in PS projection of THIL gradient 
-real :: gyps_thil(mza,mwa) ! Y component in PS projection of THIL gradient 
-real :: gzps_thil(mza,mwa) ! Z component in PS projection of THIL gradient 
-
-real :: gxps_vxe(mza,mwa) ! X component in PS projection of VXE gradient
-real :: gyps_vxe(mza,mwa) ! Y component in PS projection of VXE gradient
-real :: gzps_vxe(mza,mwa) ! Z component in PS projection of VXE gradient
-
-real :: gxps_vye(mza,mwa) ! X component in PS projection of VYE gradient
-real :: gyps_vye(mza,mwa) ! Y component in PS projection of VYE gradient
-real :: gzps_vye(mza,mwa) ! Z component in PS projection of VYE gradient
-
-real :: gxps_vze(mza,mwa) ! X component in PS projection of VZE gradient
-real :: gyps_vze(mza,mwa) ! Y component in PS projection of VZE gradient
-real :: gzps_vze(mza,mwa) ! Z component in PS projection of VZE gradient
-
-real :: thil_s(mza,mwa)
 
 real :: vortp  (mza,mma)
 real :: vortn  (mza,mva)
@@ -154,10 +140,6 @@ if (strict_wvt_donorpoint) then
    allocate(vyef(mza,mwa)) ; vyef = 0.0
    allocate(vzef(mza,mwa)) ; vzef = 0.0
 endif
-
-! Save copy of thil
-
-thil_s(:,:) = thil(:,:)
 
 vmcf(:,1) = 0.
 
@@ -249,18 +231,19 @@ if (mrl > 0) then
    enddo
    !$omp end parallel do 
 
-! Parallel send/recv of vortp
+! Parallel send of vortp
 
    if (iparallel == 1) call mpi_send_m(mrl, rvara1=vortp)
-   if (iparallel == 1) call mpi_recv_m(mrl, rvara1=vortp)
-
-   call lbcopy_m(mrl, a1=vortp)
 
 endif ! mrl > 0
 
 if (rotational) then
    mrl = mrl_begs(istp)
    if (mrl > 0) then
+
+      ! Parallel recv of vortp
+      if (iparallel == 1) call mpi_recv_m(mrl, rvara1=vortp)
+      call lbcopy_m(mrl, a1=vortp)
 
 ! Horizontal loop over W/T columns
 
@@ -373,8 +356,11 @@ if (strict_wvt_donorpoint) then
       ! Diagnose advective donor point locations for all primary W faces
       ! No parallel communication is necessary to compute this
 
-      call donorpointw(0, mrl, wc, vxef, vyef, vzef, kdepw, krecw, &
-                       dxps_w, dyps_w, dzps_w)
+      if (nl%adv_order <= 2) then
+         call donorpointw  (1, mrl, wc, vxef, vyef, vzef, kdepw, krecw)
+      else
+         call donorpointw_3(1, mrl, wc, vxef, vyef, vzef, kdepw, krecw)
+      endif
 
       ! Finish MPI recv of VXE, VYE, VZE and do a LBC copy
 
@@ -387,28 +373,41 @@ if (strict_wvt_donorpoint) then
       ! Diagnose advective donor point locations for the V faces surrounding all
       ! primary W points. Communication of velocities must have been completed
 
-      call donorpointv(0, mrl, vcf, vxef, vyef, vzef, iwdepv, iwrecv, &
-                       dxps_v, dyps_v, dzps_v)
+      if (nl%adv_order <= 2) then
+         call donorpointv  (1, mrl, vcf, vxef, vyef, vzef, iwdepv, iwrecv)
+      else
+         call donorpointv_3(1, mrl, vcf, vxef, vyef, vzef, iwdepv, iwrecv)
+      endif
+
    endif
 
 else
 
 ! Compute donor point locations using current velocities.
-   
+
    mrl = mrl_begs(istp)
-
    if (mrl > 0) then
-      call donorpointw(0, mrl, wc, vxe, vye, vze, kdepw, krecw, &
-                       dxps_w, dyps_w, dzps_w)
 
-      call donorpointv(0, mrl, vc, vxe, vye, vze, iwdepv, iwrecv, &
-                       dxps_v, dyps_v, dzps_v)
+      if (nl%adv_order <= 2) then
+         call donorpointw  (1, mrl, wc, vxe, vye, vze, kdepw,  krecw)
+         call donorpointv  (1, mrl, vc, vxe, vye, vze, iwdepv, iwrecv)
+      else
+         call donorpointw_3(1, mrl, wc, vxe, vye, vze, kdepw,  krecw)
+         call donorpointv_3(1, mrl, vc, vxe, vye, vze, iwdepv, iwrecv)
+      endif
+
    endif
 
 endif  ! strict_wvt_donorpoint
 
 mrl = mrl_begl(istp)
 if (mrl > 0) then
+
+   if (.not. rotational) then
+      ! Parallel recv of vortp
+      if (iparallel == 1) call mpi_recv_m(mrl, rvara1=vortp)
+      call lbcopy_m(mrl, a1=vortp)
+   endif
 
 ! Horizontal loop over V columns for PROG_V_BEGL
 
@@ -519,12 +518,23 @@ if (mrl > 0) then
 
    endif ! dorayfdiv
 
-! Evaluate T3D gradients of THIL, VXE, VYE, and VZE for BEGS
+! Evaluate horizontal gradients of THIL, VXE, VYE, and VZE for BEGS
 
-   call grad_t3d(mrl,thil,gxps_thil,gyps_thil,gzps_thil)
-   call grad_t3d(mrl,vxe,gxps_vxe,gyps_vxe,gzps_vxe)
-   call grad_t3d(mrl,vye,gxps_vye,gyps_vye,gzps_vye)
-   call grad_t3d(mrl,vze,gxps_vze,gyps_vze,gzps_vze)
+  if (nl%adv_order <= 2) then
+     call grad_t2d  (mrl, thil, gxps_scp,  gyps_scp)
+     call grad_t2d  (mrl, vxe,  gxps_vxe,  gyps_vxe)
+     call grad_t2d  (mrl, vye,  gxps_vye,  gyps_vye)
+     call grad_t2d  (mrl, vze,  gxps_vze,  gyps_vze)
+  else
+     call grad_t2d_3(mrl, thil, gxps_scp,  gyps_scp,  &
+                                gxxps_scp, gxyps_scp, gyyps_scp)
+     call grad_t2d_3(mrl, vxe,  gxps_vxe,  gyps_vxe,  &
+                                gxxps_vxe, gxyps_vxe, gyyps_vxe)
+     call grad_t2d_3(mrl, vye,  gxps_vye,  gyps_vye,  &
+                                gxxps_vye, gxyps_vye, gyyps_vye)
+     call grad_t2d_3(mrl, vze,  gxps_vze,  gyps_vze,  &
+                                gxxps_vze, gxyps_vze, gyyps_vze)
+  endif
 
 ! Finish MPI RECV of DIV2D, and MPI SEND of THIL, VXE, VYE, and VZE 
 ! gradient components (12 in all)
@@ -535,12 +545,36 @@ if (mrl > 0) then
          call mpi_recv_w(mrl, rvara1=div2d)
       endif
 
-      call mpi_send_w(mrl, &
-         rvara1 =gxps_thil, rvara2 =gyps_thil, rvara3 =gzps_thil, &
-         rvara4 =gxps_vxe,  rvara5 =gyps_vxe,  rvara6 =gzps_vxe,  &
-         rvara7 =gxps_vye,  rvara8 =gyps_vye,  rvara9 =gzps_vye,  &
-         rvara10=gxps_vze,  rvara11=gyps_vze,  rvara12=gzps_vze   )
+      if (nl%adv_order <= 2) then
+         call mpi_send_w(mrl, rvara1=gxps_scp, rvara2=gyps_scp, &
+                              rvara3=gxps_vxe, rvara4=gyps_vxe, &
+                              rvara5=gxps_vye, rvara6=gyps_vye, &
+                              rvara7=gxps_vze, rvara8=gyps_vze  )
+      else
+         call mpi_send_w(mrl, rvara1=gxps_scp,   rvara2=gyps_scp,                      &
+                              rvara3=gxxps_scp,  rvara4=gxyps_scp,  rvara5=gyyps_scp,  &
+                              rvara6=gxps_vxe,   rvara7=gyps_vxe,                      &
+                              rvara8=gxxps_vxe,  rvara9=gxyps_vxe,  rvara10=gyyps_vxe, &
+                              rvara11=gxps_vye,  rvara12=gyps_vye,                     &
+                              rvara13=gxxps_vye, rvara14=gxyps_vye, rvara15=gyyps_vye, &
+                              rvara16=gxps_vze,  rvara17=gyps_vze,                     &
+                              rvara18=gxxps_vze, rvara19=gxyps_vze, rvara20=gyyps_vze  )
+      endif
 
+   endif
+
+! Evaluate vertical gradient of THIL, VXE, VYE, and VZE for BEGS
+
+   if (nl%adv_order <= 2) then
+      call grad_z  (mrl, thil, gzps_scp)
+      call grad_z  (mrl, vxe,  gzps_vxe)
+      call grad_z  (mrl, vye,  gzps_vye)
+      call grad_z  (mrl, vze,  gzps_vze)
+   else
+      call grad_z_3(mrl, thil, gzps_scp, gzzps_scp)
+      call grad_z_3(mrl, vxe,  gzps_vxe, gzzps_vxe)
+      call grad_z_3(mrl, vye,  gzps_vye, gzzps_vye)
+      call grad_z_3(mrl, vze,  gzps_vze, gzzps_vze)
    endif
 
 !  Horizontal loop over all primary W columns
@@ -552,25 +586,50 @@ if (mrl > 0) then
 
          kd = kdepw(k,iw)
 
-         thil_upw(k,iw) = thil_s(kd,iw)                   &
-                        + dxps_w(k,iw) * gxps_thil(kd,iw) &
-                        + dyps_w(k,iw) * gyps_thil(kd,iw) &
-                        + dzps_w(k,iw) * gzps_thil(kd,iw)
+         if (nl%adv_order <= 2) then
 
-         vxe_upw(k,iw)  = vxe(kd,iw)                     &
-                        + dxps_w(k,iw) * gxps_vxe(kd,iw) &
-                        + dyps_w(k,iw) * gyps_vxe(kd,iw) &
-                        + dzps_w(k,iw) * gzps_vxe(kd,iw)
+            thil_upw(k,iw) = thil(kd,iw)                    &
+                           + dxps_w(k,iw) * gxps_scp(kd,iw) &
+                           + dyps_w(k,iw) * gyps_scp(kd,iw) &
+                           + dzps_w(k,iw) * gzps_scp(kd,iw)
 
-         vye_upw(k,iw)  = vye(kd,iw)                     &
-                        + dxps_w(k,iw) * gxps_vye(kd,iw) &
-                        + dyps_w(k,iw) * gyps_vye(kd,iw) &
-                        + dzps_w(k,iw) * gzps_vye(kd,iw)
+            vxe_upw(k,iw)  = vxe(kd,iw)                     &
+                           + dxps_w(k,iw) * gxps_vxe(kd,iw) &
+                           + dyps_w(k,iw) * gyps_vxe(kd,iw) &
+                           + dzps_w(k,iw) * gzps_vxe(kd,iw)
 
-         vze_upw(k,iw)  = vze(kd,iw)                     &
-                        + dxps_w(k,iw) * gxps_vze(kd,iw) &
-                        + dyps_w(k,iw) * gyps_vze(kd,iw) &
-                        + dzps_w(k,iw) * gzps_vze(kd,iw)
+            vye_upw(k,iw)  = vye(kd,iw)                     &
+                           + dxps_w(k,iw) * gxps_vye(kd,iw) &
+                           + dyps_w(k,iw) * gyps_vye(kd,iw) &
+                           + dzps_w(k,iw) * gzps_vye(kd,iw)
+
+            vze_upw(k,iw)  = vze(kd,iw)                     &
+                           + dxps_w(k,iw) * gxps_vze(kd,iw) &
+                           + dyps_w(k,iw) * gyps_vze(kd,iw) &
+                           + dzps_w(k,iw) * gzps_vze(kd,iw)
+         else
+
+            thil_upw(k,iw) = thil(kd,iw)                                                       &
+                           + dxps_w(k,iw) * gxps_scp(kd,iw) + dxxps_w(k,iw) * gxxps_scp(kd,iw) &
+                                                            + dxyps_w(k,iw) * gxyps_scp(kd,iw) &
+                           + dyps_w(k,iw) * gyps_scp(kd,iw) + dyyps_w(k,iw) * gyyps_scp(kd,iw) &
+                           + dzps_w(k,iw) * gzps_scp(kd,iw) + dzzps_w(k,iw) * gzzps_scp(kd,iw)
+
+            vxe_upw(k,iw)  = vxe(kd,iw)                                                        &
+                           + dxps_w(k,iw) * gxps_vxe(kd,iw) + dxxps_w(k,iw) * gxxps_vxe(kd,iw) &
+                           + dyps_w(k,iw) * gyps_vxe(kd,iw) + dxyps_w(k,iw) * gxyps_vxe(kd,iw) &
+                           + dzps_w(k,iw) * gzps_vxe(kd,iw) + dzzps_w(k,iw) * gzzps_vxe(kd,iw)
+
+            vye_upw(k,iw)  = vye(kd,iw)                                                        &
+                           + dxps_w(k,iw) * gxps_vye(kd,iw) + dxxps_w(k,iw) * gxxps_vye(kd,iw) &
+                           + dyps_w(k,iw) * gyps_vye(kd,iw) + dxyps_w(k,iw) * gxyps_vye(kd,iw) &
+                           + dzps_w(k,iw) * gzps_vye(kd,iw) + dzzps_w(k,iw) * gzzps_vye(kd,iw)
+
+            vze_upw(k,iw)  = vze(kd,iw)                                                        &
+                           + dxps_w(k,iw) * gxps_vze(kd,iw) + dxxps_w(k,iw) * gxxps_vze(kd,iw) &
+                           + dyps_w(k,iw) * gyps_vze(kd,iw) + dxyps_w(k,iw) * gxyps_vze(kd,iw) &
+                           + dzps_w(k,iw) * gzps_vze(kd,iw) + dzzps_w(k,iw) * gzzps_vze(kd,iw)
+         endif
 
       enddo
 
@@ -578,19 +637,38 @@ if (mrl > 0) then
    !$omp end parallel do
 
    if (iparallel == 1) then
-
-      call mpi_recv_w(mrl, &
-         rvara1 =gxps_thil, rvara2 =gyps_thil, rvara3 =gzps_thil, &
-         rvara4 =gxps_vxe,  rvara5 =gyps_vxe,  rvara6 =gzps_vxe,  &
-         rvara7 =gxps_vye,  rvara8 =gyps_vye,  rvara9 =gzps_vye,  &
-         rvara10=gxps_vze,  rvara11=gyps_vze,  rvara12=gzps_vze   )
-
+      if (nl%adv_order <= 2) then
+         call mpi_recv_w(mrl, rvara1=gxps_scp, rvara2=gyps_scp, &
+                              rvara3=gxps_vxe, rvara4=gyps_vxe, &
+                              rvara5=gxps_vye, rvara6=gyps_vye, &
+                              rvara7=gxps_vze, rvara8=gyps_vze  )
+      else
+         call mpi_recv_w(mrl, rvara1=gxps_scp,   rvara2=gyps_scp,                      &
+                              rvara3=gxxps_scp,  rvara4=gxyps_scp,  rvara5=gyyps_scp,  &
+                              rvara6=gxps_vxe,   rvara7=gyps_vxe,                      &
+                              rvara8=gxxps_vxe,  rvara9=gxyps_vxe,  rvara10=gyyps_vxe, &
+                              rvara11=gxps_vye,  rvara12=gyps_vye,                     &
+                              rvara13=gxxps_vye, rvara14=gxyps_vye, rvara15=gyyps_vye, &
+                              rvara16=gxps_vze,  rvara17=gyps_vze,                     &
+                              rvara18=gxxps_vze, rvara19=gxyps_vze, rvara20=gyyps_vze  )
+      endif
    endif
 
-   call lbcopy_w(mrl, a1 =gxps_thil, a2 =gyps_thil, a3 =gzps_thil, &
-                      a4 =gxps_vxe,  a5 =gyps_vxe,  a6 =gzps_vxe,  &
-                      a7 =gxps_vye,  a8 =gyps_vye,  a9 =gzps_vye,  &
-                      a10=gxps_vze,  a11=gyps_vze,  a12=gzps_vze   )
+   if (nl%adv_order <= 2) then
+      call lbcopy_w(mrl, a1=gxps_scp, a2=gyps_scp, &
+                         a3=gxps_vxe, a4=gyps_vxe, &
+                         a5=gxps_vye, a6=gyps_vye, &
+                         a7=gxps_vze, a8=gyps_vze  )
+   else
+      call lbcopy_w(mrl, a1=gxps_scp,   a2=gyps_scp,                  &
+                         a3=gxxps_scp,  a4=gxyps_scp,  a5=gyyps_scp,  &
+                         a6=gxps_vxe,   a7=gyps_vxe,                  &
+                         a8=gxxps_vxe,  a9=gxyps_vxe,  a10=gyyps_vxe, &
+                         a11=gxps_vye,  a12=gyps_vye,                 &
+                         a13=gxxps_vye, a14=gxyps_vye, a15=gyyps_vye, &
+                         a16=gxps_vze,  a17=gyps_vze,                 &
+                         a18=gxxps_vze, a19=gxyps_vze, a20=gyyps_vze  )
+   endif
 
 !  Horizontal loop over V
 
@@ -604,26 +682,54 @@ if (mrl > 0) then
 
          iwd = iwdepv(k,iv)
 
-         thil_upv(k,iv) = thil(k,iwd)                     &
-                        + dxps_v(k,iv) * gxps_thil(k,iwd) &
-                        + dyps_v(k,iv) * gyps_thil(k,iwd) &
-                        + dzps_v(k,iv) * gzps_thil(k,iwd)
+         if (nl%adv_order <= 2) then
 
-         vxe_upv(k,iv)  = vxe(k,iwd)                     &
-                        + dxps_v(k,iv) * gxps_vxe(k,iwd) &
-                        + dyps_v(k,iv) * gyps_vxe(k,iwd) &
-                        + dzps_v(k,iv) * gzps_vxe(k,iwd)
-         
-         vye_upv(k,iv)  = vye(k,iwd)                     &
-                        + dxps_v(k,iv) * gxps_vye(k,iwd) &
-                        + dyps_v(k,iv) * gyps_vye(k,iwd) &
-                        + dzps_v(k,iv) * gzps_vye(k,iwd)
-         
-         vze_upv(k,iv)  = vze(k,iwd)                     &
-                        + dxps_v(k,iv) * gxps_vze(k,iwd) &
-                        + dyps_v(k,iv) * gyps_vze(k,iwd) &
-                        + dzps_v(k,iv) * gzps_vze(k,iwd)
-         
+            thil_upv(k,iv) = thil(k,iwd)                    &
+                           + dxps_v(k,iv) * gxps_scp(k,iwd) &
+                           + dyps_v(k,iv) * gyps_scp(k,iwd) &
+                           + dzps_v(k,iv) * gzps_scp(k,iwd)
+
+            vxe_upv(k,iv)  = vxe(k,iwd)                     &
+                           + dxps_v(k,iv) * gxps_vxe(k,iwd) &
+                           + dyps_v(k,iv) * gyps_vxe(k,iwd) &
+                           + dzps_v(k,iv) * gzps_vxe(k,iwd)
+
+            vye_upv(k,iv)  = vye(k,iwd)                     &
+                           + dxps_v(k,iv) * gxps_vye(k,iwd) &
+                           + dyps_v(k,iv) * gyps_vye(k,iwd) &
+                           + dzps_v(k,iv) * gzps_vye(k,iwd)
+
+            vze_upv(k,iv)  = vze(k,iwd)                     &
+                           + dxps_v(k,iv) * gxps_vze(k,iwd) &
+                           + dyps_v(k,iv) * gyps_vze(k,iwd) &
+                           + dzps_v(k,iv) * gzps_vze(k,iwd)
+         else
+
+            thil_upv(k,iv) = thil(k,iwd)                                                       &
+                           + dxps_v(k,iv) * gxps_scp(k,iwd) + dxxps_v(k,iv) * gxxps_scp(k,iwd) &
+                                                            + dxyps_v(k,iv) * gxyps_scp(k,iwd) &
+                           + dyps_v(k,iv) * gyps_scp(k,iwd) + dyyps_v(k,iv) * gyyps_scp(k,iwd) &
+                           + dzps_v(k,iv) * gzps_scp(k,iwd) + dzzps_v(k,iv) * gzzps_scp(k,iwd)
+
+            vxe_upv(k,iv) = vxe(k,iwd)                                                         &
+                           + dxps_v(k,iv) * gxps_vxe(k,iwd) + dxxps_v(k,iv) * gxxps_vxe(k,iwd) &
+                                                            + dxyps_v(k,iv) * gxyps_vxe(k,iwd) &
+                           + dyps_v(k,iv) * gyps_vxe(k,iwd) + dyyps_v(k,iv) * gyyps_vxe(k,iwd) &
+                           + dzps_v(k,iv) * gzps_vxe(k,iwd) + dzzps_v(k,iv) * gzzps_vxe(k,iwd)
+
+            vye_upv(k,iv) = vye(k,iwd)                                                         &
+                           + dxps_v(k,iv) * gxps_vye(k,iwd) + dxxps_v(k,iv) * gxxps_vye(k,iwd) &
+                                                            + dxyps_v(k,iv) * gxyps_vye(k,iwd) &
+                           + dyps_v(k,iv) * gyps_vye(k,iwd) + dyyps_v(k,iv) * gyyps_vye(k,iwd) &
+                           + dzps_v(k,iv) * gzps_vye(k,iwd) + dzzps_v(k,iv) * gzzps_vye(k,iwd)
+
+            vze_upv(k,iv) = vze(k,iwd)                                                         &
+                           + dxps_v(k,iv) * gxps_vze(k,iwd) + dxxps_v(k,iv) * gxxps_vze(k,iwd) &
+                                                            + dxyps_v(k,iv) * gxyps_vze(k,iwd) &
+                           + dyps_v(k,iv) * gyps_vze(k,iwd) + dyyps_v(k,iv) * gyyps_vze(k,iwd) &
+                           + dzps_v(k,iv) * gzps_vze(k,iwd) + dzzps_v(k,iv) * gzzps_vze(k,iwd)
+         endif
+
       enddo
 
    enddo
@@ -642,9 +748,9 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
 ! Prognose vertical velocity, density, thil, and diagnose pressure
 
-   call prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot, thil_s, &
-                       thil_upv, vxe_upv, vye_upv, vze_upv,       &
-                       thil_upw, vxe_upw, vye_upw, vze_upw,       &
+   call prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,    &
+                       thil_upv, vxe_upv, vye_upv, vze_upv,  &
+                       thil_upw, vxe_upw, vye_upw, vze_upw,  &
                        vxesc, vyesc, vzesc, vmx_cor, vmy_cor )
 
 enddo
@@ -710,7 +816,6 @@ use misc_coms,   only: io6, initial, dn01d, th01d, &
                        deltax, nxp, mdomain, time8, dtlm
 use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, dniv, volt, volti, &
                        xew, vnx, vny, vnz, wnxo2, wnyo2, wnzo2
-use mem_turb,    only: hkm
 use mem_rayf,    only: rayf_cof, rayf_cofw, dorayf, dorayfw, krayf_bot, krayfw_bot
 
 implicit none
@@ -720,62 +825,18 @@ real,    intent(in) :: rhot(mza,mwa)
 
 integer :: iv, iwn, k, ka, kbv, npoly, jv, ksw
 real    :: fracx, rayfx
-real    :: arvkodx, hdniv, vmt1
-
-! Automatic arrays:
-
-real :: hdiff_vxe(mza)
-real :: hdiff_vye(mza)
-real :: hdiff_vze(mza)
 
 ka = lpw(iw)
-
-! Number of edges of this IW polygon
-
-npoly = itab_w(iw)%npoly
-
-hdiff_vxe(:) = 0.
-hdiff_vye(:) = 0.
-hdiff_vze(:) = 0.
-
-! Loop over V neighbors of this W cell
-
-do jv = 1,npoly
-   iv  = itab_w(iw)%iv(jv)
-   iwn = itab_w(iw)%iw(jv)
-   kbv  = lpv(iv)
-   hdniv = .5 * dniv(iv)
-
-! Vertical loop over T levels
-
-   do k = kbv, mza
-
-! Horizontal diffusive flux coefficient
-
-      arvkodx = hdniv * arv(k,iv) * (hkm(k,iwn) + hkm(k,iw))
-
-! Compute and sum horizontal diffusive flux across this V neighbor
-
-      hdiff_vxe(k) = hdiff_vxe(k) + arvkodx * (vxe(k,iwn) - vxe(k,iw))
-      hdiff_vye(k) = hdiff_vye(k) + arvkodx * (vye(k,iwn) - vye(k,iw))
-      hdiff_vze(k) = hdiff_vze(k) + arvkodx * (vze(k,iwn) - vze(k,iw))
-
-   enddo
-
-enddo
 
 ! Vertical loop over T levels
 
 do k = ka,mza
 
-! Evaluate momentum tendency in T cell from horizontal turbulent transport
+! Include density changes to conserve momentum
 
-   vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) * hdiff_vxe(k) &
-               + vxe(k,iw) * rhot(k,iw)
-   vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) * hdiff_vye(k) &
-               + vye(k,iw) * rhot(k,iw)
-   vmzet(k,iw) = vmzet(k,iw) + volti(k,iw) * hdiff_vze(k) &
-               + vze(k,iw) * rhot(k,iw)
+   vmxet(k,iw) = vmxet(k,iw) + vxe(k,iw) * rhot(k,iw)
+   vmyet(k,iw) = vmyet(k,iw) + vye(k,iw) * rhot(k,iw)
+   vmzet(k,iw) = vmzet(k,iw) + vze(k,iw) * rhot(k,iw)
 
 enddo
 
@@ -841,9 +902,9 @@ end subroutine prog_wrt_begl
 
 !=========================================================================
 
-subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot, thil_s, &
-                          thil_upv, vxe_upv, vye_upv, vze_upv,       &
-                          thil_upw, vxe_upw, vye_upw, vze_upw,       &  
+subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,    &
+                          thil_upv, vxe_upv, vye_upv, vze_upv,  &
+                          thil_upw, vxe_upw, vye_upw, vze_upw,  &  
                           vxesc, vyesc, vzesc, vmx_cor, vmy_cor )
 
 use mem_tend,    only: thilt, wmt, vmxet, vmyet, vmzet
@@ -859,6 +920,7 @@ use mem_grid,    only: mza, mva, mwa, nsw_max, lpv, lpw, lve2, arv, arw, &
                        dzt_top, dzt_bot, zwgt_top, zwgt_bot, gravm
 use tridiag,     only: tridiffo
 use oname_coms,  only: nl
+use mem_turb,    only: akmodx, akhodx
 
 implicit none
 
@@ -868,8 +930,6 @@ real, intent(in) :: vmcf(mza,mva)
 real, intent(inout) :: wmsc(mza,mwa)
 real, intent(in) :: alpha_press(mza,mwa)
 real, intent(in) :: rhot(mza,mwa)
-
-real, intent(in) :: thil_s(mza,mwa)
 
 real, intent(in) :: thil_upv(mza,mva)
 real, intent(in) :: vxe_upv (mza,mva)
@@ -1000,6 +1060,7 @@ do jv = 1,npoly
    iv   = itab_w(iw)%iv(jv)
    kbv  = lpv(iv)
    dirv = itab_w(iw)%dirv(jv)
+   iwn  = itab_w(iw)%iw(jv)
 
 ! Loop over T levels
 
@@ -1011,13 +1072,17 @@ do jv = 1,npoly
 
       hflux_rho(k)  = hflux_rho(k)  + vmarv
 
-      hflux_thil(k) = hflux_thil(k) + vmarv * thil_upv(k,iv)
+      hflux_thil(k) = hflux_thil(k) + vmarv * thil_upv(k,iv) &
+                                    + akhodx(k,iv) * (thil(k,iwn) - thil(k,iw))
 
-      hflux_vxe(k)  = hflux_vxe(k)  + vmarv * vxe_upv(k,iv)
+      hflux_vxe(k)  = hflux_vxe(k)  + vmarv * vxe_upv(k,iv)  &
+                                    + akmodx(k,iv) * (vxe(k,iwn) - vxe(k,iw))
 
-      hflux_vye(k)  = hflux_vye(k)  + vmarv * vye_upv(k,iv)
+      hflux_vye(k)  = hflux_vye(k)  + vmarv * vye_upv(k,iv)  &
+                                    + akmodx(k,iv) * (vye(k,iwn) - vye(k,iw))
 
-      hflux_vze(k)  = hflux_vze(k)  + vmarv * vze_upv(k,iv)
+      hflux_vze(k)  = hflux_vze(k)  + vmarv * vze_upv(k,iv)  &
+                                    + akmodx(k,iv) * (vze(k,iwn) - vze(k,iw))
 
    enddo
 
@@ -1055,7 +1120,7 @@ do k = ka,mza
 
 ! RHOTHIL(t) and PRESS(t)
 
-   rhothil(k) = rho(k,iw) * thil_s(k,iw)
+   rhothil(k) = rho(k,iw) * thil(k,iw)
    press_t(k) = alpha_press(k,iw) * rhothil(k) ** cpocv
 
 ! Compute current T cell momentum and store in temp array
@@ -1103,12 +1168,12 @@ c10 = dts * fw
 
 do k = ka,mza
    kp = min(k+1,mza)
-   b1(k)  = wc(k,iw) + wc(k-1,iw)            ! T pts
-   b2(k)  = thil_s(k,iw) + thil_s(kp,iw)    ! W pts
+   b1(k)  = wc(k,iw) + wc(k-1,iw)           ! T pts
+   b2(k)  = thil(k,iw) + thil(kp,iw)        ! W pts
    b3(k)  = 2. / (volt(k,iw) + volt(kp,iw)) ! W pts [b3 replaces volwi]
-   b5(k)  = press_t(k) / rhothil(k)          ! T pts
-   b6(k)  = c6 * volti(k,iw)                 ! T pts
-   b10(k) = c10 * volti(k,iw)                ! T pts
+   b5(k)  = press_t(k) / rhothil(k)         ! T pts
+   b6(k)  = c6 * volti(k,iw)                ! T pts
+   b10(k) = c10 * volti(k,iw)               ! T pts
 enddo
 b2(ka-1) = b2(ka)
 b3(ka)   = 1. / (volt(ka,iw) + .5 * volt(ka+1,iw))
@@ -1304,9 +1369,9 @@ use mem_basic,   only: vc, wc, press, vmp, vmc, rho, vxe, vye, vze
 use misc_coms,   only: io6, dtsm, initial, mdomain, u01d, v01d, dn01d, &
                        deltax, nxp
 use consts_coms, only: erad, eradi, gravo2
-use mem_grid,    only: mza, mma, mva, mwa, lpv, lpw, volt, xev, yev, zev, &
-                       unx, uny, unz, vnx, vny, vnz, vnxo2, vnyo2, vnzo2, &
-                       dniu, dniv, arw0, dnu, xem, yem, zem
+use mem_grid,    only: mza, mma, mva, mwa, lpv, volt, xev, yev, zev, &
+                       unx, uny, unz, vnx, vny, vnz, vnxo2, vnyo2, &
+                       dniu, dniv, arw0, dnu
 use mem_rayf,    only: dorayf, rayf_cof, vc03d, dn03d, krayf_bot, &
                        dorayfdiv, krayfdiv_bot, rayf_cofdiv
 use oname_coms,  only: nl
@@ -1327,16 +1392,12 @@ real, intent(in) :: vortp_t(mza,mwa)
 
 logical, intent(in) :: rotational
 
-integer :: jv,ivn,k,kb,npoly
-
+integer :: k, kb
 integer :: iw1,iw2,im1,im2
-
 real :: sum1,sum2,vmp_eqdiv
-
-real :: dts,raxis,uv01dr,uv01dx,uv01dy,uv01dz,vcref
+real :: dts
 real :: fracx, rayfx
 real :: vx, vy, vz, uc, watv, tke1, tke2, vortp_v, dtso2dnu, dtso2dnv
-real :: wt1, wt2
 
 ! Automatic arrays
 

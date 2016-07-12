@@ -35,8 +35,8 @@ Module mem_turb
 
   real,    allocatable, target :: tkep    (:,:)
   real,    allocatable, target :: epsp    (:,:)
-  real,    allocatable, target :: hkm     (:,:)
-  real,    allocatable, target :: hkh     (:,:)
+  real,    allocatable, target :: vkm     (:,:)
+  real,    allocatable, target :: vkh     (:,:)
   real,    allocatable, target :: sxfer_tk(:,:)
   real,    allocatable, target :: sxfer_rk(:,:)
   real,    allocatable, target :: vkm_sfc (:,:)
@@ -81,8 +81,8 @@ Contains
     allocate (vkm_sfc (nsw_max,mwa)) ; vkm_sfc  = 0.0
     allocate (frac_sfc(nsw_max,mwa)) ; frac_sfc = 0.0
 
-    allocate (hkm   (mza,mwa)) ; hkm       = rinit
-    allocate (hkh   (mza,mwa)) ; hkh       = rinit
+    allocate (vkm   (mza,mwa)) ; vkm       = rinit
+    allocate (vkh   (mza,mwa)) ; vkh       = rinit
     allocate (fthpbl(mza,mwa)) ; fthpbl    = 0.0
     allocate (fqtpbl(mza,mwa)) ; fqtpbl    = 0.0
 
@@ -111,8 +111,8 @@ Contains
 
     if (allocated(tkep))    deallocate (tkep)
     if (allocated(epsp))    deallocate (epsp)
-    if (allocated(hkm))     deallocate (hkm)
-    if (allocated(hkh))     deallocate (hkh)
+    if (allocated(vkm))     deallocate (vkm)
+    if (allocated(vkh))     deallocate (vkh)
     if (allocated(vkm_sfc)) deallocate (vkm_sfc)
     if (allocated(sfluxt))  deallocate (sfluxt)
     if (allocated(sfluxr))  deallocate (sfluxr)
@@ -139,9 +139,9 @@ Contains
 
     if (allocated(epsp))     call increment_vtable('EPSP',    'AW', rvar2=epsp, mpt1=.true.)
 
-    if (allocated(hkm))      call increment_vtable('HKM',     'AW', rvar2=hkm)
+    if (allocated(vkm))      call increment_vtable('VKM',     'AW', rvar2=vkm)
 
-    if (allocated(hkh))      call increment_vtable('HKH',     'AW', rvar2=hkh)
+    if (allocated(vkh))      call increment_vtable('VKH',     'AW', rvar2=vkh)
 
     if (allocated(sxfer_tk)) call increment_vtable('SXFER_TK','AW', rvar2=sxfer_tk)
 

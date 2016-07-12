@@ -185,7 +185,7 @@ contains
 
   !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-  subroutine aero_sedv ( iw, conc, vsed_ae )
+  subroutine aero_sedv ( iw, cgrd, vsed_ae )
 
     !-----------------------------------------------------------------------
     ! Get accum. and coarse mode grav. settling vel
@@ -207,7 +207,7 @@ contains
 
     ! Arguments
     integer, intent( in )  :: iw
-    real,    intent( in )  :: conc( :,: )     ! cgrid subsection (layers,species)
+    real,    intent( in )  :: cgrd( :,: )     ! cgrid subsection (layers,species)
     real,    intent( out ) :: vsed_ae( :,: )  ! settling velocities [ m/s ]
 
     ! Parameters
@@ -245,17 +245,17 @@ contains
        ! extract grid cell concentrations of aero species from CGRID
        ! into aerospc_conc in aero_data module
 
-       call extract_aero( conc( l,: ), .true. )  ! set minimum floor
+       call extract_aero( cgrd( l,: ), .true. )  ! set minimum floor
 
        ! extract soa concentrations from cgrid
 
-       call extract_soa( conc( l,: ) )
+       call extract_soa( cgrd( l,: ) )
 
        ! Calculate aerosol surface area to 2nd moment. 
 
        do s = 2, n_mode
           n = aerosrf_map( s )
-          moment2_conc( s ) = conc( l,n ) / pi
+          moment2_conc( s ) = cgrd( l,n ) / pi
        end do
 
        ! Get the geometric mean diameters and standard deviations of the

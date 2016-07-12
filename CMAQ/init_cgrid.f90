@@ -44,7 +44,9 @@ subroutine init_cgrid ()
   !   21 Jun 10 J.Young: convert for Namelist redesign
   !   16 Feb 11 S.Roselle: replaced I/O API include files with UTILIO_DEFN;
   !                        removed deprecated TRIMLEN
-  !   11 May 11 D.Wong: incorporated twoway model implementation
+  !    2 Sep 11 J.Young: change ICBC_FAC policy to always assigning factor,
+  !                      if specified, not just if a surrogate is also specified 
+  !   11 Sep 15 B.Murphy: add condition for no surrogate name
   !-----------------------------------------------------------------------
 
   use utilio_defn
@@ -220,9 +222,10 @@ contains
     CHARACTER( 16 ) :: PNAME = 'LOAD_CGRID'
     CHARACTER( 16 ) :: VNAME
     CHARACTER( 16 ) :: CONCMIN
-    CHARACTER( 23 ) :: ESTR1 = '     No IC for species '
-    CHARACTER( 96 ) :: ESTR2 = ''
     CHARACTER( 96 ) :: XMSG  = ''
+    CHARACTER( 24 ) :: ESTR1 = 'No IC for species '
+    CHARACTER( 34 ) :: ESTR2 = ''
+    CHARACTER( 34 ) :: ESTR3 = ''
 
     INTEGER :: INDX    ( MAX( N_GC_SPC, N_AE_SPC, N_NR_SPC ) ) ! Variable indices for all IC species
     REAL    :: ICBC_FAC( MAX( N_GC_SPC, N_AE_SPC, N_NR_SPC ) ) ! Factor to be applied to ICs
@@ -236,13 +239,17 @@ contains
     ! => Change this for ICBC:
     ! First check if there's a surrogate name in the Namelist and use it (and the
     ! corresponding scale factor) if it exists. If it's not on the IC file, which it
-    ! wouldn`t be if it were blank, then look for the Namelist species name.
+    ! wouldn`t be if it were blank, e.g., then look for the Namelist species name. If
+    ! that name is found on the IC file, then the default scale factor is applied
+    ! (default = 1.0). To use a scale factor other that 1.0, there must be a name in
+    ! the surrogate slot; it could be the same as the Namelist main species name.
 
     indx    (:) = 0
     icbc_fac(:) = 0.0
 
     WRITE( CONCMIN,'(1PE9.2)' ) CMIN
-    ESTR2 = ' in ' // TRIM( FNAME ) // '; set to ' // TRIM( adjustl(CONCMIN) )
+    ESTR2 = ' in ' // TRIM( FNAME ) // '; Look for '
+    ESTR3 = ' in ' // TRIM( FNAME ) // '; set to ' // TRIM( CONCMIN )
 
     IF ( SPC_CAT .EQ. 'GC' ) THEN
 
@@ -257,6 +264,7 @@ contains
 
           ! is there a surrogate name?
           ISUR = FINDEX ( SPC, N_GC_ICBC, GC_ICBC_MAP )
+          NDX  = 0
 
           IF ( ISUR .NE. 0 ) THEN
 
@@ -267,20 +275,23 @@ contains
                 INDX( SPC ) = NDX   ! index in the IC file
                 ICBC_FAC( SPC ) = GC_ICBC_FAC( ISUR )
              ELSE
-                XMSG = ESTR1 // TRIM( GC_SPC( SPC ) ) // ESTR2
+                XMSG = ESTR1 // TRIM( GC_ICBC( ISUR ) ) // ESTR2 &
+                     // TRIM( GC_SPC( SPC ) )
                 write( logdev, '(a)') xmsg
              END IF
 
-          ELSE
+          END IF
 
-             ! is the (main) species name on the IC file?
+          ! Cannot find a surrogate, look for the (main) species name on the IC file
+          IF ( ISUR .EQ. 0 .OR. NDX .EQ. 0 ) THEN
+
              NDX = INDEX1( GC_SPC( SPC ), NVARS3D, VNAME3D )
 
              IF ( NDX .NE. 0 ) THEN
-                INDX( SPC ) = NDX
+                INDX( SPC ) = NDX   ! index in the IC file
                 ICBC_FAC( SPC ) = 1.0
              ELSE
-                XMSG = ESTR1 // TRIM( GC_SPC( SPC ) ) // ESTR2
+                XMSG = ESTR1 // TRIM( GC_SPC( SPC ) ) // ESTR3
                 write( logdev, '(a)') xmsg
              END IF
 
@@ -303,6 +314,7 @@ contains
 
           ! is there a surrogate name?
           ISUR = FINDEX ( SPC, N_AE_ICBC, AE_ICBC_MAP )
+          NDX  = 0
 
           IF ( ISUR .NE. 0 ) THEN
 
@@ -313,20 +325,23 @@ contains
                 INDX( SPC ) = NDX   ! index in the IC file
                 ICBC_FAC( SPC ) = AE_ICBC_FAC( ISUR )
              ELSE
-                XMSG = ESTR1 // TRIM( AE_SPC( SPC ) ) // ESTR2
+                XMSG = ESTR1 // TRIM( AE_ICBC( ISUR ) ) // ESTR2 &
+                     // TRIM( AE_SPC( SPC ) )
                 write( logdev, '(a)') xmsg
              END IF
 
-          ELSE
+          END IF
 
-             ! is the (main) species name on the IC file?
+          ! Cannot find a surrogate, look for the (main) species name on the IC file
+          IF ( ISUR .EQ. 0 .OR. NDX .EQ. 0 ) THEN
+
              NDX = INDEX1( AE_SPC( SPC ), NVARS3D, VNAME3D )
 
              IF ( NDX .NE. 0 ) THEN
                 INDX( SPC ) = NDX
                 ICBC_FAC( SPC ) = 1.0
              ELSE
-                XMSG = ESTR1 // TRIM( AE_SPC( SPC ) ) // ESTR2
+                XMSG = ESTR1 // TRIM( AE_SPC( SPC ) ) // ESTR3
                 write( logdev, '(a)') xmsg
              END IF
           END IF
@@ -347,6 +362,7 @@ contains
 
           ! is there a surrogate name?
           ISUR = FINDEX ( SPC, N_NR_ICBC, NR_ICBC_MAP )
+          NDX  = 0
           
           IF ( ISUR .NE. 0 ) THEN
 
@@ -357,20 +373,23 @@ contains
                 INDX( SPC ) = NDX   ! index in the IC file
                 ICBC_FAC( SPC ) = NR_ICBC_FAC( ISUR )
              ELSE
-                XMSG = ESTR1 // TRIM( NR_SPC( SPC ) ) // ESTR2
+                XMSG = ESTR1 // TRIM( NR_ICBC( ISUR ) ) // ESTR2 &
+                     // TRIM( NR_SPC( SPC ) )
                 write( logdev, '(a)') xmsg
              END IF
 
-          ELSE
+          END IF
 
-             ! is the (main) species name on the IC file?
+          ! Cannot find a surrogate, look for the (main) species name on the IC file
+          IF ( ISUR .EQ. 0 .OR. NDX .EQ. 0 ) THEN
+
              NDX = INDEX1( NR_SPC( SPC ), NVARS3D, VNAME3D )
            
              IF ( NDX .NE. 0 ) THEN
                 INDX( SPC ) = NDX
                 ICBC_FAC( SPC ) = 1.0
              ELSE
-                XMSG = ESTR1 // TRIM( NR_SPC( SPC ) ) // ESTR2
+                  XMSG = ESTR1 // TRIM( NR_SPC( SPC ) ) // ESTR3
                 write( logdev, '(a)') xmsg
              END IF
 

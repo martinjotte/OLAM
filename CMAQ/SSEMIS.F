@@ -45,9 +45,9 @@ C Number of chemical species in fresh sea-salt aerosol
       INTEGER :: NSSSPC
 
 C Sea-Salt Emissions Rates
-      REAL, ALLOCATABLE, SAVE :: SSOUTM( :,:,:   )  ! mass emission rates [ug/m3/s]
-      REAL, ALLOCATABLE, SAVE :: SSOUTN( :,:   )    ! number emission rates [1/m3/s]
-      REAL, ALLOCATABLE, SAVE :: SSOUTS( :,:   )    ! surface-area emisrates [m2/m3/s]
+      REAL, ALLOCATABLE, SAVE :: SSOUTM( :,:,: )  ! mass emission rates [ug/m3/s]
+      REAL, ALLOCATABLE, SAVE :: SSOUTN( :,:   )  ! number emission rates [1/m3/s]
+      REAL, ALLOCATABLE, SAVE :: SSOUTS( :,:   )  ! surface-area emisrates [m2/m3/s]
 
       PUBLIC NSSSPC, SSOUTM, SSOUTN, SSOUTS, SSSPC_MAP, SSEMIS_INIT, GET_SSEMIS, szone
       PRIVATE
@@ -67,34 +67,24 @@ C Variables for the sea-salt diagnostic file
       REAL,    ALLOCATABLE, SAVE :: WRSS( :,: )   ! seasalt emiss write buffer
       INTEGER, SAVE              :: SDATE, STIME  ! scenario start date & time
 
+C Surf zone fraction
+      real, allocatable, save :: szone(:)
+      
 C Species names in the speciated sea-salt-emissions
       CHARACTER( 16 ), ALLOCATABLE :: WRSS_SPC( : )  ! species names
 
-C Lognormal parameters fit to the open-ocean flux function
-      REAL,    SAVE :: DGNJ( 136 )     ! geom mean diam of accum-mode [um]
-      REAL,    SAVE :: DGNK( 136 )     ! geom mean diam of coarse-mode [um]
-      REAL,    SAVE :: SIGJ( 136 )     ! geom std deviation of accum-mode flux
-      REAL,    SAVE :: SIGK( 136 )     ! geom std deviation of coarse-mode flux
-      REAL,    SAVE :: FNJ ( 136 )     ! magnitude of accum-mode flux [1/m2/s]
-      REAL,    SAVE :: FNK ( 136 )     ! magnitude of coarse-mode flux [1/m2/s]
-
-C Open-ocean flux numerically integrated over size range of interest
-      REAL,    SAVE :: VFLUX( 136 )    ! total particle volume flux [m3/m2/s]
-
 C Polycoeffs from Zhang et al. (2005)
-      REAL( 8 ), SAVE :: C0_COEFF( 6 )   ! Eq 8
-      REAL( 8 ), SAVE :: X_COEFF( 6 )    ! Eq 1
+      real, parameter :: c0_coeff(6) = ! Eq 8
+     &     (/ 28.376, -205.44, 653.37, -1031.7, 803.18, -247.08 /)
 
-      real, allocatable, save :: szone(:)
-      
-      INTEGER I
+      real, parameter :: x_coeff (6) = ! Eq 1
+     &     (/ 3.1657, -19.079,  55.72, -83.998, 63.436, -19.248 /)
 
-C-------------------------- Data Statements ----------------------------
-
+C Lognormal parameters fit to the open-ocean flux function
 C RH-dependent values calculated using MATLAB for THETA = 8 from Gong (2003)
 
 C Geometric mean diameter of accumulation mode [um]
-      DATA ( DGNJ( I ), I = 1, 136 ) /
+      real, parameter :: dgnj(136) = (/
      &      0.0913, 0.0917, 0.0921, 0.0925, 0.0929, 0.0933, 0.0938, 0.0942,
      &      0.0946, 0.0951, 0.0956, 0.0961, 0.0967, 0.0972, 0.0977, 0.0984,
      &      0.0990, 0.0996, 0.1002, 0.1010, 0.1017, 0.1024, 0.1032, 0.1040,
@@ -111,10 +101,10 @@ C Geometric mean diameter of accumulation mode [um]
      &      0.1914, 0.1929, 0.1945, 0.1961, 0.1978, 0.1995, 0.2013, 0.2032,
      &      0.2052, 0.2072, 0.2093, 0.2115, 0.2138, 0.2162, 0.2188, 0.2214,
      &      0.2243, 0.2272, 0.2304, 0.2336, 0.2371, 0.2409, 0.2449, 0.2492,
-     &      0.2538, 0.2587, 0.2641, 0.2702, 0.2765, 0.2837, 0.2918, 0.3009 /
+     &      0.2538, 0.2587, 0.2641, 0.2702, 0.2765, 0.2837, 0.2918, 0.3009 /)
 
 C Geometric mean diameter of coarse mode [um]
-      DATA ( DGNK( I ), I = 1, 136 ) /
+      real, parameter :: dgnk(136) = (/
      &      1.7786, 1.8180, 1.8254, 1.8330, 1.8408, 1.8489, 1.8891, 1.8979,
      &      1.9069, 1.9163, 1.9259, 1.9673, 1.9778, 1.9887, 2.0000, 2.0425,
      &      2.0549, 2.0677, 2.0812, 2.1252, 2.1400, 2.1554, 2.2009, 2.2180,
@@ -131,10 +121,10 @@ C Geometric mean diameter of coarse mode [um]
      &      4.5732, 4.5965, 4.6340, 4.6728, 4.6974, 4.7390, 4.7640, 4.8087,
      &      4.8552, 4.8827, 4.9330, 4.9618, 5.0166, 5.0472, 5.1071, 5.1403,
      &      5.2062, 5.2426, 5.3158, 5.3566, 5.3985, 5.4852, 5.5338, 5.5844,
-     &      5.6378, 5.6944, 5.7547, 5.8867, 5.8898, 5.9665, 6.0510, 6.1446 /
+     &      5.6378, 5.6944, 5.7547, 5.8867, 5.8898, 5.9665, 6.0510, 6.1446 /)
 
 C Geometric standard deviation of accumulation mode
-      DATA ( SIGJ( I ), I = 1, 136 ) /
+      real, parameter :: sigj(136) = (/
      &      2.1420, 2.1442, 2.1442, 2.1442, 2.1442, 2.1442, 2.1464, 2.1464,
      &      2.1464, 2.1464, 2.1464, 2.1485, 2.1485, 2.1485, 2.1485, 2.1506,
      &      2.1506, 2.1506, 2.1506, 2.1526, 2.1526, 2.1526, 2.1545, 2.1545,
@@ -151,10 +141,10 @@ C Geometric standard deviation of accumulation mode
      &      2.1745, 2.1739, 2.1739, 2.1739, 2.1731, 2.1731, 2.1723, 2.1723,
      &      2.1723, 2.1713, 2.1713, 2.1703, 2.1703, 2.1691, 2.1691, 2.1679,
      &      2.1679, 2.1665, 2.1665, 2.1651, 2.1636, 2.1636, 2.1619, 2.1602,
-     &      2.1584, 2.1566, 2.1546, 2.1546, 2.1506, 2.1484, 2.1462, 2.1440 /
+     &      2.1584, 2.1566, 2.1546, 2.1546, 2.1506, 2.1484, 2.1462, 2.1440 /)
 
 C Geometric standard deviation of coarse mode
-      DATA ( SIGK( I ), I = 1, 136 ) /
+      real, parameter :: sigk(136) = (/
      &      2.1083, 2.0900, 2.0900, 2.0900, 2.0900, 2.0900, 2.0725, 2.0725,
      &      2.0725, 2.0725, 2.0725, 2.0558, 2.0558, 2.0558, 2.0558, 2.0399,
      &      2.0399, 2.0399, 2.0399, 2.0248, 2.0248, 2.0248, 2.0103, 2.0103,
@@ -171,10 +161,10 @@ C Geometric standard deviation of coarse mode
      &      1.8737, 1.8788, 1.8788, 1.8788, 1.8850, 1.8850, 1.8923, 1.8923,
      &      1.8923, 1.9009, 1.9009, 1.9108, 1.9108, 1.9221, 1.9221, 1.9351,
      &      1.9351, 1.9497, 1.9497, 1.9662, 1.9849, 1.9849, 2.0058, 2.0295,
-     &      2.0560, 2.0859, 2.1197, 2.1197, 2.2014, 2.2510, 2.3080, 2.3740 /
+     &      2.0560, 2.0859, 2.1197, 2.1197, 2.2014, 2.2510, 2.3080, 2.3740 /)
 
 C Number flux in accumulation mode at 1 m/s [1/m2/s]
-            DATA ( FNJ( I ), I = 1, 136 ) /
+      real, parameter :: fnj(136) = (/
      &      1249.0821, 1248.2831, 1248.2831, 1248.2831, 1248.2831, 1248.2831,
      &      1247.4863, 1247.4863, 1247.4863, 1247.4863, 1247.4863, 1246.6948,
      &      1246.6948, 1246.6948, 1246.6948, 1245.9114, 1245.9114, 1245.9114,
@@ -197,10 +187,10 @@ C Number flux in accumulation mode at 1 m/s [1/m2/s]
      &      1237.3498, 1237.7807, 1237.7807, 1238.2480, 1238.2480, 1238.7491,
      &      1238.7491, 1239.2812, 1239.2812, 1239.8412, 1240.4256, 1240.4256,
      &      1241.0307, 1241.6543, 1242.2878, 1242.9282, 1243.5702, 1243.5702,
-     &      1244.8344, 1245.4428, 1246.0247, 1246.5734 /
+     &      1244.8344, 1245.4428, 1246.0247, 1246.5734 /)
 
 C Number flux in coarse mode at 1 m/s [1/m2/s]
-      DATA ( FNK( I ), I = 1, 136 ) /
+      real, parameter :: fnk(136) = (/
      &      11.2976, 11.1324, 11.1324, 11.1324, 11.1324, 11.1324, 10.9787,
      &      10.9787, 10.9787, 10.9787, 10.9787, 10.8356, 10.8356, 10.8356,
      &      10.8356, 10.7024, 10.7024, 10.7024, 10.7024, 10.5785, 10.5785,
@@ -218,10 +208,10 @@ C Number flux in coarse mode at 1 m/s [1/m2/s]
      &      9.5247, 9.5608, 9.5608, 9.6036, 9.6036, 9.6036, 9.6536, 9.6536,
      &      9.7112, 9.7112, 9.7773, 9.7773, 9.8524, 9.8524, 9.9376, 9.9376,
      &      10.0336, 10.1418, 10.1418, 10.2634, 10.4001, 10.5533, 10.7252,
-     &      10.9184, 10.9184, 11.3807, 11.6576, 11.9718, 12.3303 /
+     &      10.9184, 10.9184, 11.3807, 11.6576, 11.9718, 12.3303 /)
 
 C Volume flux at 1 m/s numerically integrated over full size range [m3/m2/s]
-      DATA ( VFLUX( I ), I = 1, 136 ) /
+      real, parameter :: vflux(136) = (/
      &      3.5750e-16, 3.5600e-16, 3.6036e-16, 3.6489e-16, 3.6960e-16,
      &      3.7449e-16, 3.7367e-16, 3.7889e-16, 3.8434e-16, 3.9002e-16,
      &      3.9596e-16, 3.9603e-16, 4.0243e-16, 4.0913e-16, 4.1615e-16,
@@ -249,12 +239,7 @@ C Volume flux at 1 m/s numerically integrated over full size range [m3/m2/s]
      &      2.9126e-15, 2.9689e-15, 3.0950e-15, 3.1640e-15, 3.2387e-15,
      &      3.3973e-15, 3.4912e-15, 3.5945e-15, 3.7089e-15, 3.8366e-15,
      &      3.9802e-15, 4.2603e-15, 4.3308e-15, 4.5485e-15, 4.8050e-15,
-     &      5.1124e-15 /
-
-
-C Polynomial coefficients from Zhang et al. (2005)         
-      DATA C0_COEFF / 28.376D0, -205.44D0, 653.37D0, -1031.7D0, 803.18D0, -247.08D0 /
-      DATA X_COEFF  / 3.1657D0, -19.079D0,  55.72D0, -83.998D0, 63.436D0, -19.248D0 /
+     &      5.1124e-15 /)
 
       INTEGER, SAVE :: LOGDEV
 
@@ -684,15 +669,14 @@ C Variables for calculating ambient RH as done in the aerosol module
 
 C Variables for calculating solute mass fraction & size-correction factors
             REAL      :: RH               ! BLKRH constrained to 45-99% range
-            REAL( 8 ) :: DRH              ! double precision RH
-            REAL( 8 ) :: C0               ! (Diam @ formation) / (Diam @ ambient RH)
-            REAL( 8 ) :: C80              ! (Diam @ 80% RH) / (Diam @ ambient RH)    
-            REAL( 8 ) :: XSW              ! fractional solute weight fraction
+            REAL      :: C0               ! (Diam @ formation) / (Diam @ ambient RH)
+            REAL      :: C80              ! (Diam @ 80% RH) / (Diam @ ambient RH)    
+            REAL      :: XSW              ! fractional solute weight fraction
 
 C Density of dry sea salt [kg/m3] using volume additivity
-            REAL( 8 ) :: RHOSSDRY 
-            REAL( 8 ) :: RHOSW            ! sea-salt particle density at ambient RH [g/m3]
-            REAL( 8 ) :: RHSUM       
+            REAL      :: RHOSW            ! sea-salt particle density at ambient RH [g/m3]
+            REAL      :: specvol          ! specific volume of dry sea salt [m3/kg]
+                                          ! using volume additivity
 
 C Maximum and minimum diameters for emission-flux integrations [m]
             REAL, PARAMETER :: DPMAX = 20.0E-6 ! upper limit used for the
@@ -740,8 +724,8 @@ C Variables for calculating fraction of mass emissions assigned to each mode
             REAL      :: FRACMK           ! mass fraction assigned to coarse mode
 
 C Mode-specific sea-salt mass emission rates [g/m3/s]
-            REAL( 8 ) :: ESEASJ           ! accumulation mode
-            REAL( 8 ) :: ESEASK           ! coarse mode
+            REAL      :: ESEASJ           ! accumulation mode
+            REAL      :: ESEASK           ! coarse mode
 
 C 3rd moment emission rates [m3/m3/s]
             REAL      :: M3J              ! accumulation mode, 3rd moment
@@ -756,12 +740,8 @@ C Variables for calculating dry surface-area emission rate for accum mode
 !           INTEGER, SAVE     :: WSTEP  = 0    ! local write counter
 !           INTEGER           :: MDATE, MTIME  ! SSEMIS write date&time
 
-C Mathematical constants; statement function for ERF approximation
             REAL, PARAMETER :: ONE3 = 1.0 / 3.0
             REAL, PARAMETER :: TWO3 = 2.0 / 3.0
-            REAL            :: ERF ! ERF approx. statement function
-            REAL            :: X ! dummy argument for ERF
-            ERF( X ) = SIGN( 1.0, X ) * SQRT( 1.0 - EXP( -4.0 * X * X / PI ) )
 
             integer :: iw, iws, kw
             real, external :: rhovsl
@@ -809,43 +789,40 @@ C using equations from Zhang et al. (2005), which are valid over the
 C 45-99% RH range.  Store powers of RH for polynomial calculations.
                   RH = BLKRH
                   RH = MAX( 0.45, MIN( 0.99, RH ) )
-                  DRH = REAL( RH, 8 )
 
 C Calculate size-correction factors from Equation 3 of Lewis & Schwartz 2006 and Zhang et al 2006 equation 2. 
-                  C0  = 3.70D0 * ( (1.0D0-DRH) / (2.0D0-DRH) ) ** (1.0D0/3.0D0)
-                  C80 = 1.82D0 * ( (1.0D0-DRH) / (2.0D0-DRH) ) ** (1.0D0/3.0D0)
+                  C0  = 3.70 * ( (1.0-RH) / (2.0-RH) ) ** one3
+                  C80 = 1.82 * ( (1.0-RH) / (2.0-RH) ) ** one3
 
 C Calculate solute mass fraction using Equation 1 of Zhang et al.
-                  XSW =         X_COEFF( 1 )
-     &                + DRH * ( X_COEFF( 2 )
-     &                + DRH * ( X_COEFF( 3 )
-     &                + DRH * ( X_COEFF( 4 )
-     &                + DRH * ( X_COEFF( 5 )
-     &                + DRH * ( X_COEFF( 6 ) ) ) ) ) )
+                  XSW =        X_COEFF( 1 )
+     &                + RH * ( X_COEFF( 2 )
+     &                + RH * ( X_COEFF( 3 )
+     &                + RH * ( X_COEFF( 4 )
+     &                + RH * ( X_COEFF( 5 )
+     &                + RH * ( X_COEFF( 6 ) ) ) ) ) )
 
 C Calculate dry sea-salt [kg/m3]
-                  RHSUM = 0.0D0
+                  specvol = 0.0
                   DO S = 1, NSSSPC
                      IF ( S .EQ. KH2O ) CYCLE     !! do not include Water
-                     RHSUM = RHSUM
-     &                     + REAL( ( AEROSPC_SSF( 2,SSSPC_MAP( S ) ) 
-     &                             / AEROSPC( SSSPC_MAP( S ) )%DENSITY ), 8 )
+                     SPECVOL = SPECVOL
+     &                     + AEROSPC_SSF( 2,SSSPC_MAP( S ) )
+     &                     / AEROSPC( SSSPC_MAP( S ) )%DENSITY
                   END DO
-                  RHOSSDRY = 1.0D0 / RHSUM    
 
 C Calculate sea-salt-particle density [g/m3] at ambient RH, assuming
 C volume additivity of dry salt plus water
-                  RHOSW = 1.0D+3 / ( XSW / RHOSSDRY
-     &                  + ( 1.0D0 - XSW )
-     &                  / REAL( AEROSPC( AH2O_IDX )%DENSITY, 8 ) )
+                  RHOSW = 1.0e3 / ( XSW * specvol + 
+     &                              (1.0 - XSW) / AEROSPC( AH2O_IDX )%DENSITY )
 
 C Set minimum and maximum diameters for integration using the size-
 C correction factors of Zhang et al. (2005)
 
 C Gong-Monahan flux function is valid from 0.005-5.0 um dry radius;
 C multiply by 4 to get wet diameter at 80% RH
-                  DPMINO = 2.0E-8 / REAL( C80, 4 )
-                  DPMAXO = MIN( DPMAX, DPMAX / REAL( C80, 4 ) )
+                  DPMINO = 2.0E-8 / C80
+                  DPMAXO = MIN( DPMAX, DPMAX / C80 )
 
 C deLeeuw flux function is valid from 1.6-20 um diameter at formation
 !                 DPMINS = 1.6E-6 / C0 
@@ -916,26 +893,26 @@ C scaling for wind speed, dividing by grid-cell height, and multiplying
 C by particle density.  Multiply by chemical speciation factors to
 C obtain speciated mass emissions.
 
-                  ESEASJ = VFLXRH * FRACMJ * WDSCALO * RLAY1HT * REAL( RHOSW, 4 )
+                  ESEASJ = VFLXRH * FRACMJ * WDSCALO * RLAY1HT * RHOSW
 
-                  ESEASK = VFLXRH * FRACMK * WDSCALO * RLAY1HT * REAL( RHOSW, 4 )
+                  ESEASK = VFLXRH * FRACMK * WDSCALO * RLAY1HT * RHOSW
 
                   DO S = 1, NSSSPC
                      SSOUTM( S,1,iws ) = 0.0
                      IF ( S .EQ. KH2O ) THEN    ! Water
-                        SSOUTM( S,2,iws ) = ESEASJ * REAL( ( 1.0D0 - XSW ), 4 )
-                        SSOUTM( S,3,iws ) = ESEASK * REAL( ( 1.0D0 - XSW ), 4 )
+                        SSOUTM( S,2,iws ) = ESEASJ * ( 1.0 - XSW )
+                        SSOUTM( S,3,iws ) = ESEASK * ( 1.0 - XSW )
                      ELSE
-                        SSOUTM( S,2,iws ) = ESEASJ * REAL( XSW, 4 )
+                        SSOUTM( S,2,iws ) = ESEASJ * XSW
      &                                    * AEROSPC_SSF( 2,SSSPC_MAP( S ) )
-                        SSOUTM( S,3,iws ) = ESEASK * REAL( XSW, 4 )
+                        SSOUTM( S,3,iws ) = ESEASK * XSW
      &                                    * AEROSPC_SSF( 3,SSSPC_MAP( S ) )
                      END IF
                   END DO
 
 C Calculate mode-specific 3rd moment emission rates [m3/m3/s]
-                  M3J = ESEASJ * F6PI / REAL( RHOSW, 4 )
-                  M3K = ESEASK * F6PI / REAL( RHOSW, 4 )
+                  M3J = ESEASJ * F6PI / RHOSW
+                  M3K = ESEASK * F6PI / RHOSW
 
 C Calculate factors for converting 3rd moment emission rates into number
 C and 2nd moment emission rates.  See Equations 7b and 7c of Binkowski &
@@ -1052,8 +1029,16 @@ C Then reset the sea-salt emissions array and local write counter.
 !
 !            END IF  ! SSEMDIAG
 
-            RETURN
+            contains
+
+            pure real function erf( x )
+            implicit none
+            real, intent(in) :: x
+
+            ERF = SIGN( 1.0, X ) * SQRT( 1.0 - EXP( -4.0 * X * X / PI ) )
+
+            end function erf
             
-         END SUBROUTINE GET_SSEMIS
+      END SUBROUTINE GET_SSEMIS
 
       END MODULE SSEMIS

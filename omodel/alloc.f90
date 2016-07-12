@@ -46,6 +46,7 @@ subroutine olam_mem_alloc()
   use oname_coms,  only: nl
   use mem_thuburn, only: alloc_thuburn
   use pdtrans,     only: alloc_pdtrans
+  use mem_adv,     only: alloc_adv
 
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
                          nqparm, dtsm, do_chem
@@ -63,6 +64,7 @@ subroutine olam_mem_alloc()
   use cgrid_defn,  only: alloc_cgrid, filltab_cgrid
 
   use mem_megan,   only: alloc_megan, filltab_megan
+  use soil_nox,    only: alloc_soil_nox, filltab_soil_nox
 
   implicit none 
 
@@ -89,6 +91,8 @@ subroutine olam_mem_alloc()
   call alloc_flux_accum(mza,mva,mwa,mwl,mws)
   call filltab_flux_accum()
 
+  call alloc_adv()
+
   if (do_chem == 1) then
      call alloc_cgrid(mza,mwa)
      call filltab_cgrid()
@@ -96,6 +100,9 @@ subroutine olam_mem_alloc()
      if (isfcl > 0) then
         call alloc_megan(mwl,mwa)
         call filltab_megan()
+
+        call alloc_soil_nox()
+        call filltab_soil_nox()
      endif
   endif
 

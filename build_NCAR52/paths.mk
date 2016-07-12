@@ -4,7 +4,7 @@ OLAM_ROOT=..
 
 # Versions.
 
-OLAM_VERSION=4.12.2
+OLAM_VERSION=5.0.0
 
 # Source directories.
 
@@ -14,7 +14,6 @@ OISAN=$(OLAM_ROOT)/oisan
 CONVECT=$(OLAM_ROOT)/convect
 LEAF=$(OLAM_ROOT)/leaf
 SEA=$(OLAM_ROOT)/sea
-ED=$(OLAM_ROOT)/ed
 ED2DYN=$(OLAM_ROOT)/ED2/dynamics
 ED2DRIV=$(OLAM_ROOT)/ED2/driver
 ED2INIT=$(OLAM_ROOT)/ED2/init
@@ -26,3 +25,5 @@ OUTILS=$(OLAM_ROOT)/outils
 RADIATE=$(OLAM_ROOT)/radiate
 HURRICANE=$(OLAM_ROOT)/hurricane
 TEST_CASES=$(OLAM_ROOT)/test_cases
+CMAQ=$(OLAM_ROOT)/CMAQ
+MEGAN=$(OLAM_ROOT)/MEGAN

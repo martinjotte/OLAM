@@ -34,6 +34,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/max_dims.f90 \
              $(MODEL_MODS)/mem_addgrid.f90 \
              $(MODEL_MODS)/mem_addsc.f90 \
+             $(MODEL_MODS)/mem_adv.f90 \
              $(MODEL_MODS)/mem_average_vars.f90 \
              $(MODEL_MODS)/mem_basic.f90 \
              $(MODEL_MODS)/mem_flux_accum.f90 \
@@ -127,6 +128,7 @@ SOURCE_FILES= \
              $(OUTILS)/o_ncar.f90 \
              $(OUTILS)/polygon_overlap.f90 \
              $(OUTILS)/read_cdc.f90 \
+             $(OUTILS)/quadrature.f90 \
              $(OUTILS)/string_lib.f90 \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \

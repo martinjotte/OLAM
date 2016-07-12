@@ -27,7 +27,7 @@ C %W% %P% %G% %U%
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       SUBROUTINE AQ_MAP ( JDATE, JTIME, WTBAR, WCBAR, TBARC, PBARC,
      &                    CTHK1, AIRM, PRATE1, TAUCLD, POLC, CEND,
-     &                    REMOV, REMOVAC, ALFA0, ALFA2, ALFA3, DARK )
+     &                    REMOV, REMOVAC, ALFAC, DARK )
 
 C-----------------------------------------------------------------------
 C  DESCRIPTION:  This is an interface processor between the cloud dynamics
@@ -68,9 +68,7 @@ C    POLC       real     input  ave vert conc incloud (moles sp/ mole air)
 C    CEND       real    output  ending incloud conc (moles/mole)
 C    REMOV      real    output  moles/m2 or mm*mol/lit scavenged
 C    REMOVAC    real    output  variable storing H+ deposition
-C    ALFA0      real     input  scav coef for aitken aerosol number
-C    ALFA2      real     input  scav coef for aitken aerosol surface area
-C    ALFA3      real     input  scav coef for aitken aerosol mass
+C    ALFAC      real     input  scav coef for aerosol
 C    DARK       logical  input DARK = TRUE is night,  DARK = FALSE is day
 C-----------------------------------------------------------------------
 
@@ -107,9 +105,7 @@ C Arguments:
       REAL,    INTENT( INOUT ) :: CEND ( : )  ! ending incloud conc (moles/mole)
       REAL,    INTENT( INOUT ) :: REMOV( : )  ! moles/m2 or mm*mol/lit scavenged
       REAL,    INTENT( INOUT ) :: REMOVAC   ! variable storing H+ deposition
-      REAL,    INTENT( IN )    :: ALFA0     ! scav coef for aitken aerosol number
-      REAL,    INTENT( IN )    :: ALFA2     ! scav coef for aitken aerosol sfc area
-      REAL,    INTENT( IN )    :: ALFA3     ! scav coef for aitken aerosol mass
+      REAL,    INTENT( IN )    :: ALFAC     ! scav coef for aerosols
       LOGICAL, INTENT( IN )    :: DARK      ! DARK = TRUE is night,  DARK = FALSE is day
 
 C Local Variables (scalars):
@@ -126,10 +122,11 @@ C Local Variables (scalars):
       INTEGER       SPC                 ! liquid species loop counter
 
       REAL( 8 )  :: BETASO4
-      REAL       :: EALFA2T             ! EXP( -ALFA2 * TAUCLD )
+      REAL       :: EALFA2T             ! EXP( -ALFAC * TAUCLD )
       REAL( 8 )  :: M3NEW( NMODES )     ! modal mass at time t
       REAL( 8 )  :: M3OLD( NMODES )     ! modal mass at time 0
 
+      real       :: airm1                         
       REAL       :: HPWDEP                        ! hydrogen wet dep (mm mol/liter)
       REAL( 8 )  :: GAS    ( NGAS )               ! gas phase conc (mol/mol)
       REAL( 8 )  :: GASWDEP( NGAS )               ! gas phase wet dep array (mm mol/liter)
@@ -170,13 +167,15 @@ C...load gas-phase concentrations
 
         DO ISRG = 1, NSRGGAS( IGAS )
           PNTR = CGRID2AQ_MAP( LSRGGAS( IGAS, ISRG ) )
-          GAS( IGAS ) = GAS( IGAS ) + REAL( POLC( PNTR ), 8 )
+          GAS( IGAS ) = GAS( IGAS ) + POLC( PNTR )
         END DO
 
-        IF ( GAS( IGAS ) .GT. 0.0D0 ) THEN
+        IF (NSRGGAS(IGAS) == 1) THEN
+           WSRGGAS(IGAS,1) = 1.0D0
+        ELSEIF ( GAS( IGAS ) .GT. 0.0D0 ) THEN
           DO ISRG = 1, NSRGGAS( IGAS )
             PNTR = CGRID2AQ_MAP( LSRGGAS( IGAS, ISRG ) )
-            WSRGGAS( IGAS, ISRG ) = REAL( POLC( PNTR ), 8 ) / GAS( IGAS )
+            WSRGGAS( IGAS, ISRG ) = POLC( PNTR ) / GAS( IGAS )
           END DO
         ELSE
           DO ISRG = 1, NSRGGAS( IGAS )
@@ -194,6 +193,8 @@ C...set background values for gases if no surrogates were specified
 
 C...load aerosol concentrations
 
+      airm1 = 1.0 / airm
+
       DO IAER = 1, NAER
         DO IMODE = 1, NMODES
 
@@ -203,14 +204,15 @@ C...load aerosol concentrations
 
             DO ISRG = 1, NSRGAER( IAER, IMODE )
               PNTR = CGRID2AQ_MAP( LSRGAER( IAER, IMODE, ISRG ) )
-              AEROSOL( IAER, IMODE ) = AEROSOL( IAER, IMODE ) + REAL( POLC( PNTR ), 8 )
+              AEROSOL( IAER, IMODE ) = AEROSOL( IAER, IMODE ) + POLC( PNTR )
             END DO
 
-            IF ( AEROSOL( IAER, IMODE ) .GT. 0.0D0 ) THEN
+            IF (NSRGAER(IAER,IMODE) == 1) THEN
+                WSRGAER( IAER, IMODE, 1 ) = 1.0D0
+            ELSEIF ( AEROSOL( IAER, IMODE ) .GT. 0.0D0 ) THEN
               DO ISRG = 1, NSRGAER( IAER, IMODE )
                 PNTR = CGRID2AQ_MAP( LSRGAER( IAER, IMODE, ISRG ) )
-                WSRGAER( IAER, IMODE, ISRG ) = REAL( POLC( PNTR ), 8 )
-     &                                       / REAL( AEROSOL( IAER, IMODE ), 8 )
+                WSRGAER( IAER, IMODE, ISRG ) = POLC( PNTR ) / AEROSOL( IAER, IMODE )
               END DO
             ELSE
               DO ISRG = 1, NSRGAER( IAER, IMODE )
@@ -221,11 +223,11 @@ C...load aerosol concentrations
 C...set background values for aerosols if no surrogates were specified
 
             IF ( NSRGAER( IAER, IMODE ) .EQ. 0 ) THEN
-              IF ( SRGAER( IAER )%MOLWT .GT. 0.0 ) THEN
+              IF ( SRGAER( IAER )%MOLWT .GT. 1.e-30 ) THEN
                 AEROSOL( IAER, IMODE ) = REAL( SRGAER( IAER )%BACKGND * 1.0E-6 * CTHK1, 8 )
-     &                                 / REAL( SRGAER( IAER )%MOLWT * AIRM, 8 )
+     &                                 * REAL( SRGAER( IAER )%MOLWTI * AIRM1, 8 )
               ELSE
-                AEROSOL( IAER, IMODE ) = REAL( SRGAER( IAER )%BACKGND * CTHK1 / AIRM, 8 )
+                AEROSOL( IAER, IMODE ) = REAL( SRGAER( IAER )%BACKGND * CTHK1 * AIRM1, 8 )
               END IF
             END IF
           END IF
@@ -256,11 +258,11 @@ C *** Calculate pseudo aerosol 3rd moment (ignore factors that cancel in the div
 C...perform aqueous-phase chemistry calculations
 
       CALL AQCHEM ( JDATE, JTIME, TBARC, PBARC, TAUCLD, PRATE1,
-     &              WCBAR, WTBAR, AIRM, ALFA0, ALFA2, ALFA3, GAS,
-     &              AEROSOL, GASWDEP, AERWDEP, HPWDEP, BETASO4, DARK )
+     &              WCBAR, WTBAR, AIRM, ALFAC, GAS, AEROSOL, 
+     &              GASWDEP, AERWDEP, HPWDEP, BETASO4, DARK, cthk1 )
 
 C...  compute the scavenging coefficient
-      EALFA2T = EXP( -ALFA2 * TAUCLD )
+      EALFA2T = EXP( -ALFAC * TAUCLD )
 
 C...store the amount of hydrogen deposition
 

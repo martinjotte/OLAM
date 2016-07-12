@@ -119,9 +119,10 @@ C-----------------------------------------------------------------------
          USE AERO_EMIS           ! inherits GRID_CONF
          USE AERO_DATA, ONLY: MAP_PMEMIS  ! access subroutine map_pmemis
 
-         use misc_coms, only: s1900_sim, idate1, imonth1, iyear1, itime1
-         use mem_grid,  only: mwa, mza
+         use misc_coms,     only: s1900_sim, idate1, imonth1, iyear1, itime1
+         use mem_grid,      only: mwa, mza
          use edgar_42_emis, only: edgar_42_init
+         use soil_nox,      only: soil_nox_init
 
          IMPLICIT NONE
 
@@ -138,7 +139,7 @@ C Parameters:
 
 C Local Variables:
 
-         REAL    DX1, DX2        ! CX x1- and x2-cell widths
+!        REAL    DX1, DX2        ! CX x1- and x2-cell widths
 
          CHARACTER( 16 ), SAVE :: CTM_EMLAYS = 'CTM_EMLAYS'    ! env var for no. of
                                                                ! emiss. layers
@@ -153,8 +154,8 @@ C Local Variables:
          real, parameter :: CNVTE = CMLMR * CONVEM * MWAIR ! conversion from moles / sec
                                                            ! to rho ppmV Vol / sec
 
-         integer :: n, s
-         real :: timefac_emis
+         integer :: n
+!        real :: timefac_emis
          integer, external :: julday
 
 !#ifdef Verbose2
@@ -411,6 +412,8 @@ C combined gas emssions conversion factor
 !        STRT_TR = N_GC_EMIS + NEMIS_AE + N_NR_EMIS + 1
 !        FINI_TR = N_GC_EMIS + NEMIS_AE + N_NR_EMIS + N_TR_EMIS
 
+         call soil_nox_init()
+
 !        SUCCESS = .TRUE.; RETURN
 
          END subroutine emis_init
@@ -446,7 +449,7 @@ C combined gas emssions conversion factor
          use mem_basic,    only: rho
          use mem_megan,    only: megan_driver, megan_emis, mgn_2_gc_map !, mgn_2_nr_map
          use edgar_42_emis,only: process_edgar_emis, edgar42_emis
-
+         use soil_nox,     only: get_soil_nox, sn_map, soilnox
 
          IMPLICIT NONE
 !
@@ -472,7 +475,7 @@ C combined gas emssions conversion factor
 !         REAL,    SAVE :: CNVTP         ! intermediate combined conv. factor
 !         REAL             DELT          ! interpolation factor
 
-         INTEGER          C, R, L, N, S, V
+         INTEGER          N, S, V
          integer :: j, k, ke, kw, ktop, iw, iwl               ! loop induction variables
 
 !        real, parameter :: convpa = 1.0
@@ -589,7 +592,7 @@ C beis
 !
 !         END IF
 
-! lightning NO
+! Lightning NOx
 
          IF ( LTNG_NO ) THEN
             CALL GET_LTNG ( mrl )
@@ -607,6 +610,28 @@ C beis
                enddo
             enddo
          ENDIF
+
+! Soil NOX
+
+         call get_soil_nox (mrl)
+
+         V = SN_MAP
+         CNVTI = CNVTE * GC_EMIS_FAC( V )
+
+         do iwl = 2, mwl
+
+            iw = itab_wl(iwl)%iw
+            if (isubdomain == 1) then
+               iw = itabg_w(iw)%iw_myrank
+            endif
+
+            kw = itab_wl(iwl)%kw
+               
+            ! convert mol/ sec emissions to ppmV / sec
+            cnvtc = cnvti * volti(kw,iw) / rho(kw,iw)
+            vdemis_gc(kw,iw,v) = vdemis_gc(kw,iw,v) + soilnox(iwl) * cnvtc
+
+         enddo
 
 !            DO R = 1, MY_NROWS
 !               DO C = 1, MY_NCOLS

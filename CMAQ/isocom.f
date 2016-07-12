@@ -1259,7 +1259,7 @@ C
       STKOFL  =.FALSE.
       DO 60 I=1,NERRMX
          ERRSTK(I) =-999
-         ERRMSG(I) = 'MESSAGE N/A'
+!        ERRMSG(I) = 'MESSAGE N/A'
    60 CONTINUE
 C
 C *** END OF SUBROUTINE INIT1 *******************************************
@@ -1557,7 +1557,7 @@ C
       STKOFL  =.FALSE.
       DO 60 I=1,NERRMX
          ERRSTK(I) =-999
-         ERRMSG(I) = 'MESSAGE N/A'
+!        ERRMSG(I) = 'MESSAGE N/A'
    60 CONTINUE
 C
 C *** END OF SUBROUTINE INIT2 *******************************************
@@ -1930,7 +1930,7 @@ C
       STKOFL  =.FALSE.
       DO 60 I=1,NERRMX
          ERRSTK(I) =-999
-         ERRMSG(I) = 'MESSAGE N/A'
+!        ERRMSG(I) = 'MESSAGE N/A'
    60 CONTINUE
 C
 C *** END OF SUBROUTINE ISOINIT3 *******************************************
@@ -2469,7 +2469,7 @@ C
       STKOFL  =.FALSE.
       DO 60 I=1,NERRMX
          ERRSTK(I) =-999
-         ERRMSG(I) = 'MESSAGE N/A'
+!        ERRMSG(I) = 'MESSAGE N/A'
    60 CONTINUE
 C
 C *** END OF SUBROUTINE INIT4 *******************************************
@@ -4792,9 +4792,10 @@ C
 C
       REAL EX10
       REAL G0(6,4),ZPL,ZMI,AGAMA,SION,H,CH,F1(6),F2A(4),F2B(4)
-      DOUBLE PRECISION MPL, XIJ, YJI, LN10
+      DOUBLE PRECISION MPL, XIJ, YJI
       DATA G0/24*0D0/
-      PARAMETER (LN10=2.30258509299404568402D0)
+!     PARAMETER (LN10=2.30258509299404568402D0)
+      real, parameter :: ln10 = log(10.0)
 
 C
       GA(I,J)= (F1(I)/Z(I) + F2A(J)/Z(J+3)) / (Z(I)+Z(J+3)) - H
@@ -4859,8 +4860,8 @@ C
             CH    = 0.25*(ZPL+ZMI)*(ZPL+ZMI)/IONIC
             XIJ   = CH*MPL
             YJI   = CH*MOLAL(J+3)/WATER
-            F1(I) = F1(I) + SNGL(YJI*(G0(I,J) + ZPL*ZMI*H))
-            F2A(J) = F2A(J) + SNGL(XIJ*(G0(I,J) + ZPL*ZMI*H))
+            F1(I) = F1(I) + YJI*(G0(I,J) + ZPL*ZMI*H)
+            F2A(J) = F2A(J) + XIJ*(G0(I,J) + ZPL*ZMI*H)
 110   CONTINUE
 C
       DO 330 I=4,6
@@ -4876,8 +4877,8 @@ C
             CH    = 0.25*(ZPL+ZMI)*(ZPL+ZMI)/IONIC
             XIJ   = CH*MPL
             YJI   = CH*MOLAL(J+3)/WATER
-            F1(I) = F1(I) + SNGL(YJI*(G0(I,J) + ZPL*ZMI*H))
-            F2B(J) = F2B(J) + SNGL(XIJ*(G0(I,J) + ZPL*ZMI*H))
+            F1(I) = F1(I) + YJI*(G0(I,J) + ZPL*ZMI*H)
+            F2B(J) = F2B(J) + XIJ*(G0(I,J) + ZPL*ZMI*H)
 330   CONTINUE
 
 C
@@ -4912,9 +4913,11 @@ C
 C *** CONVERT LOG (GAMA) COEFFICIENTS TO GAMA **************************
 C
       DO 200 I=1,NPAIR
-         GAMA(I)=MAX(-5.0d0, MIN(GAMA(I),5.0d0) ) ! F77 LIBRARY ROUTINE
+!        GAMA(I)=MAX(-5.0d0, MIN(GAMA(I),5.0d0) ) ! F77 LIBRARY ROUTINE
+         agama = MAX(-5.0d0, MIN(GAMA(I),5.0d0) ) ! F77 LIBRARY ROUTINE
 C         GAMA(I)=10.0**GAMA(I)
-         GAMA(I)=EXP(LN10*GAMA(I))
+!        GAMA(I)=EXP(LN10*GAMA(I))
+         GAMA(I) = EXP( LN10 * agama )
 CC         GAMA(I)=EX10(SNGL(GAMA(I)), 5.0)    ! CUTOFF SET TO [-5,5]
   200 CONTINUE
 C
@@ -4967,10 +4970,11 @@ C
 C
       REAL EX10, URF
       REAL G0(6,4),ZPL,ZMI,AGAMA,SION,H,CH,F1(3),F2(4)
-      DOUBLE PRECISION MPL, XIJ, YJI, LN10
+      DOUBLE PRECISION MPL, XIJ, YJI
       PARAMETER (URF=0.5)
       DATA G0/24*0D0/
-      PARAMETER (LN10=2.30258509299404568402D0)
+!     PARAMETER (LN10=2.30258509299404568402D0)
+      real, parameter :: ln10 = log(10.0)
 C
       G(I,J)= (F1(I)/Z(I) + F2(J)/Z(J+3)) / (Z(I)+Z(J+3)) - H
 C
@@ -5030,8 +5034,8 @@ C
             CH    = 0.25*(ZPL+ZMI)*(ZPL+ZMI)/IONIC
             XIJ   = CH*MPL
             YJI   = CH*MOLAL(J+3)/WATER
-            F1(I) = F1(I) + SNGL(YJI*(G0(I,J) + ZPL*ZMI*H))
-            F2(J) = F2(J) + SNGL(XIJ*(G0(I,J) + ZPL*ZMI*H))
+            F1(I) = F1(I) + YJI*(G0(I,J) + ZPL*ZMI*H)
+            F2(J) = F2(J) + XIJ*(G0(I,J) + ZPL*ZMI*H)
 110   CONTINUE
 C
 C *** LOG10 OF ACTIVITY COEFFICIENTS ***********************************
@@ -5055,9 +5059,11 @@ C
 C *** CONVERT LOG (GAMA) COEFFICIENTS TO GAMA **************************
 C
       DO 200 I=1,13
-         GAMA(I)=MAX(-5.0d0, MIN(GAMA(I),5.0d0) ) ! F77 LIBRARY ROUTINE
+!        GAMA(I)=MAX(-5.0d0, MIN(GAMA(I),5.0d0) ) ! F77 LIBRARY ROUTINE
+         agama = MAX(-5.0d0, MIN(GAMA(I),5.0d0) ) ! F77 LIBRARY ROUTINE
 C         GAMA(I)=10.0**GAMA(I)
-         GAMA(I)=EXP(LN10*GAMA(I))
+!        GAMA(I)=EXP(LN10*GAMA(I))
+         GAMA(I) = EXP( LN10 * agama )
 CC         GAMA(I)=EX10(SNGL(GAMA(I)), 5.0)    ! CUTOFF SET TO [-5,5]
 C         GAMA(I) = GAMIN(I)*(1.0-URF) + URF*GAMA(I)  ! Under-relax GAMA's
   200 CONTINUE
@@ -5111,10 +5117,11 @@ C
 C
       REAL EX10, URF
       REAL G0(6,4),ZPL,ZMI,AGAMA,SION,H,CH,F1(3),F2(4)
-      DOUBLE PRECISION MPL, XIJ, YJI, LN10
+      DOUBLE PRECISION MPL, XIJ, YJI
       PARAMETER (URF=0.5)
       DATA G0/24*0D0/
-      PARAMETER (LN10=2.30258509299404568402D0)
+!     PARAMETER (LN10=2.30258509299404568402D0)
+      real, parameter :: ln10 = log(10.0)
 C
       G(I,J)= (F1(I)/Z(I) + F2(J)/Z(J+3)) / (Z(I)+Z(J+3)) - H
 C
@@ -5181,8 +5188,8 @@ C
             CH    = 0.25*(ZPL+ZMI)*(ZPL+ZMI)/IONIC
             XIJ   = CH*MPL
             YJI   = CH*MOLAL(J+3)/WATER
-            F1(I) = F1(I) + SNGL(YJI*(G0(I,J) + ZPL*ZMI*H))
-            F2(J) = F2(J) + SNGL(XIJ*(G0(I,J) + ZPL*ZMI*H))
+            F1(I) = F1(I) + YJI*(G0(I,J) + ZPL*ZMI*H)
+            F2(J) = F2(J) + XIJ*(G0(I,J) + ZPL*ZMI*H)
 110   CONTINUE
 C
 C *** LOG10 OF ACTIVITY COEFFICIENTS ***********************************
@@ -5206,28 +5213,36 @@ C
 C *** CONVERT LOG (GAMA) COEFFICIENTS TO GAMA **************************
 C
       DO 200 I=7,10
-         GAMA(I)=MAX(-5.0d0, MIN(GAMA(I),5.0d0) ) ! F77 LIBRARY ROUTINE
+!        GAMA(I)=MAX(-5.0d0, MIN(GAMA(I),5.0d0) ) ! F77 LIBRARY ROUTINE
+         agama = MAX(-5.0d0, MIN(GAMA(I),5.0d0) ) ! F77 LIBRARY ROUTINE
 C         GAMA(I)=10.0**GAMA(I)
-         GAMA(I)=EXP(LN10*GAMA(I))
+!        GAMA(I)=EXP(LN10*GAMA(I))
+         GAMA(I) = EXP( LN10 * agama )
 CC         GAMA(I)=EX10(SNGL(GAMA(I)), 5.0)    ! CUTOFF SET TO [-5,5]
 C         GAMA(I) = GAMIN(I)*(1.0-URF) + URF*GAMA(I)  ! Under-relax GAMA's
   200 CONTINUE
 C
-      GAMA(4)=MAX(-5.0d0, MIN(GAMA(4),5.0d0) ) ! F77 LIBRARY ROUTINE
+!     GAMA(4)=MAX(-5.0d0, MIN(GAMA(4),5.0d0) ) ! F77 LIBRARY ROUTINE
+      agama = MAX(-5.0d0, MIN(GAMA(4),5.0d0) ) ! F77 LIBRARY ROUTINE
 C         GAMA(4)=10.0**GAMA(4)
-         GAMA(4)=EXP(LN10*GAMA(4))
+!        GAMA(4)=EXP(LN10*GAMA(4))
+         GAMA(4) = EXP( LN10 * agama )
 CC         GAMA(I)=EX10(SNGL(GAMA(I)), 5.0)    ! CUTOFF SET TO [-5,5]
 C         GAMA(4) = GAMIN(4)*(1.0-URF) + URF*GAMA(4)  ! Under-relax GAMA's
 C
-      GAMA(5)=MAX(-5.0d0, MIN(GAMA(5),5.0d0) ) ! F77 LIBRARY ROUTINE
+!     GAMA(5)=MAX(-5.0d0, MIN(GAMA(5),5.0d0) ) ! F77 LIBRARY ROUTINE
+      agama = MAX(-5.0d0, MIN(GAMA(5),5.0d0) ) ! F77 LIBRARY ROUTINE
 C         GAMA(5)=10.0**GAMA(5)
-         GAMA(5)=EXP(LN10*GAMA(5))
+!        GAMA(5)=EXP(LN10*GAMA(5))
+         GAMA(5) = EXP( LN10 * agama )
 CC         GAMA(I)=EX10(SNGL(GAMA(I)), 5.0)    ! CUTOFF SET TO [-5,5]
 C         GAMA(5) = GAMIN(5)*(1.0-URF) + URF*GAMA(I)  ! Under-relax GAMA's
 C
-      GAMA(13)=MAX(-5.0d0, MIN(GAMA(13),5.0d0) ) ! F77 LIBRARY ROUTINE
+!      GAMA(13)=MAX(-5.0d0, MIN(GAMA(13),5.0d0) ) ! F77 LIBRARY ROUTINE
+      agama = MAX(-5.0d0, MIN(GAMA(13),5.0d0) )
 C         GAMA(13)=10.0**GAMA(13)
-         GAMA(13)=EXP(LN10*GAMA(13))
+!        GAMA(13)=EXP(LN10*GAMA(13))
+         GAMA(13) = EXP( LN10 * agama )
 CC         GAMA(I)=EX10(SNGL(GAMA(I)), 5.0)    ! CUTOFF SET TO [-5,5]
 C         GAMA(13) = GAMIN(13)*(1.0-URF) + URF*GAMA(13)  ! Under-relax GAMA's
 C
@@ -5287,10 +5302,12 @@ C
 C
       REAL EX10, URF
       REAL G0(6,4),ZPL,ZMI,AGAMA,SION,H,CH,F1(3),F2(4)
-      DOUBLE PRECISION MPL, XIJ, YJI, LN10
+      DOUBLE PRECISION MPL, XIJ, YJI
       PARAMETER (URF=0.5)
       DATA G0/24*0D0/
-      PARAMETER (LN10=2.30258509299404568402D0)
+!     PARAMETER (LN10=2.30258509299404568402D0)
+      real, parameter :: ln10 = log(10.0)
+
 C
       G(I,J)= (F1(I)/Z(I) + F2(J)/Z(J+3)) / (Z(I)+Z(J+3)) - H
 C
@@ -5358,8 +5375,8 @@ C
             CH    = 0.25*(ZPL+ZMI)*(ZPL+ZMI)/IONIC
             XIJ   = CH*MPL
             YJI   = CH*MOLAL(J+3)/WATER
-            F1(I) = F1(I) + SNGL(YJI*(G0(I,J) + ZPL*ZMI*H))
-            F2(J) = F2(J) + SNGL(XIJ*(G0(I,J) + ZPL*ZMI*H))
+            F1(I) = F1(I) + YJI*(G0(I,J) + ZPL*ZMI*H)
+            F2(J) = F2(J) + XIJ*(G0(I,J) + ZPL*ZMI*H)
 110   CONTINUE
 C
 C *** LOG10 OF ACTIVITY COEFFICIENTS ***********************************
@@ -5384,16 +5401,20 @@ C
 C *** CONVERT LOG (GAMA) COEFFICIENTS TO GAMA **************************
 C
       DO 200 I=7,9
-         GAMA(I)=MAX(-5.0d0, MIN(GAMA(I),5.0d0) ) ! F77 LIBRARY ROUTINE
+!        GAMA(I)=MAX(-5.0d0, MIN(GAMA(I),5.0d0) ) ! F77 LIBRARY ROUTINE
+         agama = MAX(-5.0d0, MIN(GAMA(I),5.0d0) )
 C         GAMA(I)=10.0**GAMA(I)
-         GAMA(I)=EXP(LN10*GAMA(I))
+!        GAMA(I)=EXP(LN10*GAMA(I))
+         gama(i) = exp( ln10 * agama )
 CC         GAMA(I)=EX10(SNGL(GAMA(I)), 5.0)    ! CUTOFF SET TO [-5,5]
 C         GAMA(I) = GAMIN(I)*(1.0-URF) + URF*GAMA(I)  ! Under-relax GAMA's
   200 CONTINUE
 C
-      GAMA(4)=MAX(-5.0d0, MIN(GAMA(4),5.0d0) ) ! F77 LIBRARY ROUTINE
+!     GAMA(4)=MAX(-5.0d0, MIN(GAMA(4),5.0d0) ) ! F77 LIBRARY ROUTINE
+      agama = MAX(-5.0d0, MIN(GAMA(4),5.0d0) )
 C         GAMA(4)=10.0**GAMA(4)
-         GAMA(4)=EXP(LN10*GAMA(4))
+!         GAMA(4)=EXP(LN10*GAMA(4))
+         GAMA(4) = EXP( LN10 * agama )
 CC         GAMA(I)=EX10(SNGL(GAMA(I)), 5.0)    ! CUTOFF SET TO [-5,5]
 C         GAMA(4) = GAMIN(4)*(1.0-URF) + URF*GAMA(4)  ! Under-relax GAMA's
 C
@@ -5403,9 +5424,11 @@ CC         GAMA(I)=EXP(LN10*GAMA(I))
 CCC         GAMA(I)=EX10(SNGL(GAMA(I)), 5.0)    ! CUTOFF SET TO [-5,5]
 C         GAMA(5) = GAMIN(5)*(1.0-URF) + URF*GAMA(I)  ! Under-relax GAMA's
 C
-      GAMA(13)=MAX(-5.0d0, MIN(GAMA(13),5.0d0) ) ! F77 LIBRARY ROUTINE
+!      GAMA(13)=MAX(-5.0d0, MIN(GAMA(13),5.0d0) ) ! F77 LIBRARY ROUTINE
+      agama = MAX(-5.0d0, MIN(GAMA(13),5.0d0) )
 C         GAMA(13)=10.0**GAMA(13)
-         GAMA(13)=EXP(LN10*GAMA(13))
+!        GAMA(13)=EXP(LN10*GAMA(13))
+         GAMA(13) = EXP( LN10 * agama )
 CC         GAMA(I)=EX10(SNGL(GAMA(I)), 5.0)    ! CUTOFF SET TO [-5,5]
 C         GAMA(13) = GAMIN(13)*(1.0-URF) + URF*GAMA(13)  ! Under-relax GAMA's
 C
