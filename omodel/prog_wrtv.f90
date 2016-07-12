@@ -45,7 +45,7 @@ use mem_basic,    only: rho, thil, wc, press, vmp, vmc, vp, vc, &
                         strict_wvt_donorpoint
 use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, &
                         dzim, zfact, zfacit, zfacim, dnv, dniv, dnu, &
-                        arm0, vnx, vny, vnz
+                        arm0, vnx, vny, vnz, c1, c2
 use mem_tend,     only: vmt, vmxet, vmyet, vmzet, sh_wt
 use misc_coms,    only: io6, iparallel, time8, dtlm, rinit
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
@@ -114,16 +114,11 @@ real :: vxe_upw (mza,mwa) ! Upstreamed VXE  at each W level
 real :: vye_upw (mza,mwa) ! Upstreamed VYE  at each W level
 real :: vze_upw (mza,mwa) ! Upstreamed VZE  at each W level
 
-integer :: iv1,iv2,iv3,iv4,im,npoly,jv,im1,im2,im3,im4,im5,im6,iwd
+integer :: im,npoly,jv,im1,im2,im3,im4,im5,im6,iwd
 integer :: jm, kbm
-real :: c1,c2,vort_big1,vort_big2
+real :: vort_big1,vort_big2
 real :: arm0i
-
-! Parameters for vorticity diffusion
-
-real, parameter :: akm = 0.8 ! corresponds to akmin in Smagorinsky
-!real, parameter :: akm = 1.2 ! corresponds to akmin in Smagorinsky
-real, parameter :: c0 = akm * 0.075
+real, parameter :: onethird = 1./3.
 
 logical :: rotational
 
@@ -412,8 +407,8 @@ if (mrl > 0) then
 ! Horizontal loop over V columns for PROG_V_BEGL
 
 !----------------------------------------------------------------------
-   !$omp parallel do private(iv,iw1,iw2,im1,im2,im3,im4,im5,im6,iv1,iv2,iv3,iv4, &
-   !$omp                     kb,k,c1,c2,vort_big1,vort_big2) 
+   !$omp parallel do private(iv,iw1,iw2,im1,im2,im3,im4,im5,im6, &
+   !$omp                     kb,k,vort_big1,vort_big2) 
    do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
@@ -443,27 +438,16 @@ if (mrl > 0) then
       im5  = itab_v(iv)%im(5)
       im6  = itab_v(iv)%im(6)
 
-      iv1  = itab_v(iv)%iv(1)
-      iv2  = itab_v(iv)%iv(2)
-      iv3  = itab_v(iv)%iv(3)
-      iv4  = itab_v(iv)%iv(4)
-
-      c1 = -c0 * arm0(im1)**(2./3.) * dnu(iv1) * dnu(iv2) / (dnu(iv1) * dnu(iv2) * dnv(iv) &
-         + dnu(iv) * dnu(iv2) * dnv(iv1) + dnu(iv) * dnu(iv1) * dnv(iv2))
-
-      c2 = c0 * arm0(im2)**(2./3.) * dnu(iv3) * dnu(iv4) / (dnu(iv3) * dnu(iv4) * dnv(iv) &
-         + dnu(iv) * dnu(iv4) * dnv(iv3) + dnu(iv) * dnu(iv3) * dnv(iv4))
-
 ! Vertical loop over V levels (for now, don't check for k >= lpm, etc.)
 
       do k = kb,mza
    
-         vort_big1 = .3333333 * (vortp(k,im2) + vortp(k,im3) + vortp(k,im4))
-         vort_big2 = .3333333 * (vortp(k,im1) + vortp(k,im5) + vortp(k,im6))
+         vort_big1 = onethird * (vortp(k,im2) + vortp(k,im3) + vortp(k,im4))
+         vort_big2 = onethird * (vortp(k,im1) + vortp(k,im5) + vortp(k,im6))
    
          vmt(k,iv) = vmt(k,iv) + (rho(k,iw1) + rho(k,iw2)) &
-            * ((vort_big1 - vortp(k,im1)) * c1 + (vort_big2 - vortp(k,im2)) * c2)
-
+                               * ( (vort_big1 - vortp(k,im1)) * c1(iv) &
+                                 + (vort_big2 - vortp(k,im2)) * c2(iv) )
       enddo
 
 ! END - HORIZONTAL FILTER FOR VERTICAL VORTICITY

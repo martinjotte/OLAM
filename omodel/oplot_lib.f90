@@ -662,10 +662,12 @@ if (icall /= 1) then
    allocate (aux(mwa))
 endif
 
-if ( fldname0(1:5) == 'CHEM_' .or. &
-     fldname0(1:5) == 'chem_' ) then
-   call oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
-   return
+if (len_trim(fldname0) >= 5) then
+   if ( fldname0(1:5) == 'CHEM_' .or. &
+        fldname0(1:5) == 'chem_' ) then
+      call oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
+      return
+   endif
 endif
 
 k = kk

@@ -295,31 +295,14 @@ contains
             a(i,j) = sum
          enddo
 
-!!        amax = 0.0
          do i = j, n
             sum = a(i,j)
             do k = 1, j-1
                sum = sum - a(i,k)*a(k,j) 
             enddo
             a(i,j) = sum
-!!            dum = vv(i)*abs(sum)
-!!            if (dum >= amax) then
-!!               imax = i
-!!               amax = dum
-!!            end if
          enddo
    
-!!         if (j /= imax) then
-!!            do k = 1, n
-!!               dum = a(imax,k)
-!!               a(imax,k) = a(j,k)
-!!               a(j,k) = dum
-!!            end do ! k loop
-!!            vv(imax) = vv(j)
-!!         end if
-!!
-!!         indx(j) = imax
-
          if (j /= n) then
             dum = 1.0 / a(j,j)
             do i=j+1,n
@@ -332,6 +315,7 @@ contains
       do i = 1, n
          a(i,i) = 1.0 / a(i,i)
       enddo
+
     end subroutine ludcmp
 
 
