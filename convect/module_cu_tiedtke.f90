@@ -74,12 +74,10 @@ CONTAINS
 
    subroutine cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
 
-   use mem_grid,    only: mza, mwa, lpv, lpw, zt, dzm, xew, yew, zew, &
-                          wnx, wny, wnz, arv, arw, volt, arw0
-   use misc_coms,   only: io6
+   use mem_grid,    only: mza, lpv, lpw, zt, xew, yew, zew, arv, arw, volt
    use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc, &
                           kcubot, kcutop, cbmf, qwcon
-   use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc, &
+   use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, &
                           vmc, wmc
    use mem_turb,    only: frac_land, sfluxt, sfluxr, fqtpbl
    use consts_coms, only: eradi, gravo2

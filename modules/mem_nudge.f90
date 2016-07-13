@@ -267,8 +267,6 @@ Contains
 
    subroutine fill_jnudge()
 
-   use misc_coms,  only: io6
-
    implicit none
 
    integer :: iwnud, iloop, jend

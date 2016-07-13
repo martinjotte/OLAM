@@ -39,7 +39,6 @@ subroutine trsets()
 use var_tables, only: num_scalar, scalar_tab
 use mem_basic,  only: theta, sh_v
 use micro_coms, only: level
-use misc_coms,  only: io6
 
 implicit none
 
@@ -75,7 +74,6 @@ subroutine latsett(sclr)
 
 use mem_ijtabs, only: jtab_w, itab_w, istp, mrl_endl, jtw_lbcp
 use mem_grid,   only: mza, mwa, lpw
-use misc_coms,  only: io6
 
 implicit none
 
@@ -140,7 +138,6 @@ subroutine lbcopy_m(mrl, a1)
 
 use mem_ijtabs, only: jtab_m, itab_m, jtm_lbcp
 use mem_grid,   only: mza, mma
-use misc_coms,  only: io6
 
 implicit none
 
@@ -172,7 +169,6 @@ subroutine lbcopy_v(mrl, vmc, vc)
 
 use mem_ijtabs, only: jtab_v, itab_v, jtv_lbcp
 use mem_grid,   only: mza, mva
-use misc_coms,  only: io6
 
 implicit none
 
@@ -208,7 +204,6 @@ subroutine lbcopy_w(mrl, a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, &
 
 use mem_ijtabs, only: jtab_w, itab_w, jtw_lbcp
 use mem_grid,   only: mza, mwa
-use misc_coms,  only: io6
 
 implicit none
 
@@ -282,9 +277,8 @@ end subroutine lbcopy_w
 
 subroutine lbcopy_w1d(mrl, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, d1)
 
-use mem_ijtabs, only: jtab_w, itab_w, jtw_lbcp
-use mem_grid,   only: mwa
-use misc_coms,  only: io6
+use mem_ijtabs,  only: jtab_w, itab_w, jtw_lbcp
+use mem_grid,    only: mwa
 use consts_coms, only: r8
 
 implicit none

@@ -116,7 +116,7 @@ contains
     real(r8) :: absc(n), wght(n)
     real(r8) :: u21, u31, v21, v31
     real(r8) :: save1, save2, save3, save4, save5, save6
-    real(r8) :: x, y, xx, yy, absjac, temp, hold1, hold2
+    real(r8) :: x, y, xx, yy, absjac, temp
     integer  :: nnp1, itest, l, m
 
     nnp1   = n + 1
@@ -221,7 +221,7 @@ contains
 
     integer  :: m, i, it, k
     real(r8) :: e1, t, x0, pk, pkm1, t1, pkp1, den, d1
-    real(r8) :: dp1, dpn, d2pn, d3pn, d4pn, u, v, h, p, dp, fx
+    real(r8) :: dpn, d2pn, d3pn, d4pn, u, v, h, p, dp, fx
 
     real(r8), parameter :: zero  = 0.0_r8
     real(r8), parameter :: one   = 1.0_r8

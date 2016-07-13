@@ -26,7 +26,7 @@ CONTAINS
                             gravi, alvlocp, r8
      use mem_radiate, only: rshort, fthrd_sw, fthrd_lw
      use mem_grid,    only: mza, lpw, arw0, zm, zt, xew, yew, zew, &
-                            glatw, glonw, dzt, arw, lpv, arv, volt
+                            dzt, arw, lpv, arv, volt
      use mem_ijtabs,  only: itab_w
      use mem_basic,   only: wmc, vmc, theta, tair, press, rho, sh_v, &
                             vxe, vye, vze
@@ -636,22 +636,22 @@ CONTAINS
      real,    dimension (its:ite) ::                                   &
        aa3_0,aa3,hkb3,qkb3,pwav3,bu3,xaa3,xhkb3,                       &
        hkb3_0,edt,edto,edtx,AA1,AA0,XAA0,HKB,                          &
-       HKBO,aad,XHKB,QKB,QKBO,edt3,                                    &
+       HKBO,aad,XHKB,edt3,                                             &
        XPWAV,XPWEV,PWAV,PWEV,PWAVO,                                    &
        PWEVO,BU,BUO,cap_max,xland1,                                    &
        cap_max_increment,closure_n,cap_max3
-     real,    dimension (its:ite,1:ens4) ::                                   &
+     real,    dimension (its:ite,1:ens4) ::                            &
         axx
      integer,    dimension (its:ite) ::                                &
-       kzdown,KDET,KB,JMIN,kstabi,kstabm,K22x,jmin3,kdet3,             &   !-lxz
-       KBCONx,KBx,KTOPx,ierr,ierr2,ierr3,KBMAX,ierr5,ierr5_0 
+       kzdown,KDET,JMIN,kstabi,kstabm,K22x,jmin3,kdet3,                &
+       KBCONx,ierr,ierr2,ierr3,KBMAX,ierr5,ierr5_0 
 
      integer                              ::                           &
-       nall,iedt,nens,nens3,ki,I,K,KK
+       nall,iedt,nens,nens3,ki,I,K
      real                                 ::                           &
-      day,dz,mbdt,mbdt_s,entr_rate,radius,entrd_rate,mentr_rate,mentrd_rate,  &
+      day,dz,mbdt,mbdt_s,entr_rate,radius,mentr_rate,mentrd_rate,      &
       zcutdown,edtmax,edtmin,depth_min,zkbmax,z_detr,zktop,            &
-      massfld,dh,cap_maxs,trash,entr_rate3,mentr_rate3
+      dh,cap_maxs,trash,entr_rate3,mentr_rate3
 
      integer :: jmini
      logical :: keep_going
@@ -2180,7 +2180,7 @@ CONTAINS
 !
 
       integer i,k,kstart
-      real detdo1,detdo2,entdo,dp,dz,subin,detdo,entup,                &
+      real entdo,dp,dz,subin,detdo,entup,                            &
       detup,subdown,entdoj,entupk,detupk,totmas
 !
       i=ipr
@@ -2626,7 +2626,7 @@ CONTAINS
      integer                              ::                           &
        i,k,nall,n,ne,nens,nens3
      real                                 ::                           &
-       fens4,a1,a_ave,a_max,a_min,xff0,xff00,xxx,xomg
+       fens4,a1,a_ave,a_max,a_min,xff0,xxx,xomg
 
      integer :: nall2,ixxx
      integer,  dimension (12) :: seed
@@ -3309,9 +3309,9 @@ CONTAINS
 !
 
      integer                              ::                           &
-        i,k,n,ncount
+        i,k,n
      real                                 ::                           &
-        outtes,ddtes,dtt,dtq,dtqc,dtpw,tuning,prerate,clos_wei,xmbhelp
+        ddtes,dtt,dtq,dtqc,dtpw,tuning,clos_wei
      real                                 ::                           &
         dtts,dtqs
      real,    dimension (its:ite)         ::                           &
@@ -3323,7 +3323,7 @@ CONTAINS
      real,    dimension (its:ite,jts:jte)::                           &
                pr_gr,pr_w,pr_mc,pr_st,pr_as,pr_capma,     &
                pr_capme,pr_capmi
-     real, dimension (5) :: weight,wm,wm1,wm2,wm3
+     real, dimension (5) :: weight,wm
      real, dimension (its:ite,5) :: xmb_w
 
 !
@@ -3690,7 +3690,7 @@ CONTAINS
      integer                              ::                           &
         iall,i,k
      real                                 ::                           &
-        dh,qrch,c0,dz,radius
+        dh,qrch,c0,dz
 !
         iall=0
         c0=.002
@@ -3880,8 +3880,6 @@ CONTAINS
      real, dimension (its:ite , 1:maxens  )       ::                          &
            x_ave_cap
 
-
-      integer, dimension (1:maxens3) :: nc1
       integer :: i,k
       integer :: num,kk,num2,iedt
       real :: a3,a4

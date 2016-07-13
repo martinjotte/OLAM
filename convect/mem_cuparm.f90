@@ -54,8 +54,7 @@ Contains
 
   subroutine alloc_cuparm(mza, mwa, mrls, nqparm)
 
-    use misc_coms,  only: rinit
-    use oname_coms, only: nl
+    use oname_coms,  only: nl
     use consts_coms, only: r8
 
     implicit none

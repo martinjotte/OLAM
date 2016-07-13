@@ -22,11 +22,9 @@ CONTAINS
 
 SUBROUTINE cuparm_emanuel(iw, dtlong)
 
-  use mem_grid,    only: mwa, lpw, volt, zm, zt, xew, yew, zew, dzt
-  use mem_tend,    only: thilt, sh_wt
+  use mem_grid,    only: lpw, zm, zt, xew, yew, zew, dzt
   use mem_basic,   only: theta, tair, press, rho, sh_v, vxe, vye, vze
   use consts_coms, only: t00, grav, eradi
-  use misc_coms,   only: confrq
   use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc, &
                          kcutop, kcubot, qwcon
   use oname_coms,  only: nl
@@ -301,12 +299,12 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
   real,    intent(inout) :: cbmf
 
   real :: ad, afac, ahmax, ahmin, alt, altem, am, amde, amp1, anum, asij, &
-       awat, b6, bf2, bsum, by, byp, c6, cape, capem, chi, coeff, &
-       cpinv, cwat, damps, dbo, dbosum, defrac, dei, delm, delp, delt0, &
+       awat, b6, bf2, bsum, by, c6, cape, capem, chi, coeff, &
+       cpinv, cwat, dbo, dbosum, defrac, dei, delm, delp, &
        delti, denom, dhdp, dpinv, dtma, dtmin, dtpbl, elacrit, epmax, &
-       fac, fqold, frac, ftold, ftraold, fuold, fvold, plcl, qp1, &
+       fac, fqold, frac, ftold, fuold, fvold, plcl, qp1, &
        qsm, qstm, qti, rat, revap, rh, scrit, sigt, sjmax, sjmin, smid, &
-       smin, stemp, tca, traav, tvaplcl, tvpplcl, wdtrain
+       smin, stemp, tca, tvaplcl, tvpplcl, wdtrain
 
   integer :: i, ihmin, inb1, j, jtt, k
 

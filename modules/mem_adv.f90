@@ -41,8 +41,8 @@ contains
 
     implicit none
     
-    integer  :: k, j, iw, iwn, np, n, i, im, iv, iw1, iw2, im1, im2, km
-    real     :: temp(7,5), xw(7), yw(7), xm(7), ym(7), at(5,5)
+    integer  :: k, j, iw, iwn, np, n, iv, iw1, iw2, im1, im2, km
+    real     :: xw(7), yw(7), at(5,5)
     real(r8) :: fint
     real     :: z1(2), z2(2), az(2,2)
 

@@ -80,7 +80,7 @@ real, intent(in)    :: alpha_press(mza,mwa)
 real, intent(inout) :: rhot       (mza,mwa)
 
 integer :: j, iv, k, kb, mrl, kbv, kd
-integer :: iw, iw1, iw2, iwp, ivp
+integer :: iw, iw1, iw2
 
 ! automatic arrays
 
@@ -115,7 +115,7 @@ real :: vye_upw (mza,mwa) ! Upstreamed VYE  at each W level
 real :: vze_upw (mza,mwa) ! Upstreamed VZE  at each W level
 
 integer :: im,npoly,jv,im1,im2,im3,im4,im5,im6,iwd
-integer :: jm, kbm
+integer :: jm
 real :: vort_big1,vort_big2
 real :: arm0i
 real, parameter :: onethird = 1./3.
@@ -794,12 +794,10 @@ subroutine prog_wrt_begl(iw,rhot)
 ! All diffusive tendencies are evaluated at T points
 
 use mem_tend,    only: thilt, wmt, vmxet, vmyet, vmzet
-use mem_ijtabs,  only: istp, itab_w, mrl_begl, mrl_begr, mrl_begs, mrl_endr
-use mem_basic,   only: wmc, rho, thil, wc, vc, theta, vxe, vye, vze
+use mem_basic,   only: wmc, theta, vxe, vye, vze
 use misc_coms,   only: io6, initial, dn01d, th01d, &
-                       deltax, nxp, mdomain, time8, dtlm
-use mem_grid,    only: mza, mva, mwa, lpv, lpw, arv, dniv, volt, volti, &
-                       xew, vnx, vny, vnz, wnxo2, wnyo2, wnzo2
+                       deltax, nxp, mdomain, time8
+use mem_grid,    only: mza, mwa, lpw, wnxo2, wnyo2, wnzo2
 use mem_rayf,    only: rayf_cof, rayf_cofw, dorayf, dorayfw, krayf_bot, krayfw_bot
 
 implicit none
@@ -807,7 +805,7 @@ implicit none
 integer, intent(in) :: iw
 real,    intent(in) :: rhot(mza,mwa)
 
-integer :: iv, iwn, k, ka, kbv, npoly, jv, ksw
+integer :: k, ka
 real    :: fracx, rayfx
 
 ka = lpw(iw)
@@ -893,7 +891,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,    &
 
 use mem_tend,    only: thilt, wmt, vmxet, vmyet, vmzet
 use mem_ijtabs,  only: itab_w
-use mem_basic,   only: wmc, rho, thil, wc, vc, theta, press, &
+use mem_basic,   only: wmc, rho, thil, wc, press, &
                        vxe, vye, vze, vxe2, vye2, vze2
 use misc_coms,   only: io6, dtsm, initial, dn01d, th01d, deltax, nxp, &
                        mdomain, time8, icorflg

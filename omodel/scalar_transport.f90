@@ -34,9 +34,9 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
   use mem_ijtabs,   only: istp, jtab_v, jtab_w, mrl_endl, itab_v, itab_w, &
                           jtv_wadj, jtw_prog
-  use mem_grid,     only: mza, mva, mwa, nsw_max, lpv, lpw, lsw, zt, zm, dzim, &
-                          volt, arv, arw, dzim, volti, zwgt_bot, zwgt_top
-  use misc_coms,    only: io6, dtlm, iparallel, time8p
+  use mem_grid,     only: mza, mva, mwa, lpv, lpw, arv, arw, volti, &
+                          zwgt_bot, zwgt_top
+  use misc_coms,    only: dtlm, iparallel
   use var_tables,   only: num_scalar, scalar_tab
   use mem_turb,     only: akhodx
   use mem_basic,    only: rho
@@ -64,8 +64,8 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
   real(r8), intent(in) :: rho_old(mza,mwa)
 
-  integer  :: j,iw,iw1,iw2,iw3,iw4,iwd,iwr,mrl
-  integer  :: n,k,kb,kbv,kd,kr,iv,iwn,jv,npoly
+  integer  :: j,iw,iw1,iw2,iwd,mrl
+  integer  :: n,k,kb,kd,iv,iwn,jv
   real     :: dirv
 
 ! Automatic arrays:
@@ -464,7 +464,7 @@ end subroutine grad_t2d
 subroutine grad_t2d_3(mrl, scp, gxps, gyps, gxxps, gxyps, gyyps)
 
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
-  use mem_grid,   only: mza, mwa, lpw, lpv, gxps_coef, gyps_coef
+  use mem_grid,   only: mza, mwa, lpw, lpv
   use mem_adv,    only: xy_h, a_h
 
   implicit none
@@ -532,7 +532,7 @@ end subroutine grad_t2d_3
 
 subroutine grad_z(mrl, scp, gzps)
 
-  use mem_ijtabs, only: jtab_w, itab_w, jtw_wadj
+  use mem_ijtabs, only: jtab_w, jtw_wadj
   use mem_grid,   only: mza, mwa, lpw, dzim
 
   implicit none
@@ -581,7 +581,7 @@ end subroutine grad_z
 
 subroutine grad_z_3(mrl, scp, gzps, gzzps)
 
-  use mem_ijtabs, only: jtab_w, itab_w, jtw_wadj
+  use mem_ijtabs, only: jtab_w, jtw_wadj
   use mem_grid,   only: mza, mwa, lpw, dzm
   use mem_adv,    only: zzt, zzb, a_v
 
@@ -638,9 +638,8 @@ end subroutine grad_z_3
 subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv)
 
   use mem_ijtabs,  only: jtab_v, itab_v, jtv_wadj
-  use mem_grid,    only: mza, mva, mwa, lpv, unx, uny, unz, xev, yev, zev, &
-                         dzto4, dztsqo4
-  use misc_coms,   only: io6, dtlm, dtsm, mdomain
+  use mem_grid,    only: mza, mva, mwa, lpv, unx, uny, unz, xev, yev, zev
+  use misc_coms,   only: dtlm, dtsm, mdomain
   use consts_coms, only: eradi
   use max_dims,    only: maxgrds
   use mem_adv,     only: dxps_v, dyps_v, dzps_v
@@ -768,8 +767,8 @@ subroutine donorpointv_3(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv)
 
   use mem_ijtabs,  only: jtab_v, itab_v, jtv_wadj
   use mem_grid,    only: mza, mva, mwa, lpv, unx, uny, unz, xev, yev, zev, &
-                         dzto4, dztsqo4
-  use misc_coms,   only: io6, dtlm, dtsm, mdomain
+                         dzto4
+  use misc_coms,   only: dtlm, dtsm, mdomain
   use consts_coms, only: eradi
   use max_dims,    only: maxgrds
   use mem_adv,     only: dxps_v, dyps_v, dzps_v, &
@@ -939,8 +938,8 @@ end subroutine donorpointv_3
 subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw)
 
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
-  use mem_grid,   only: mza, mwa, lpw, dzt_top, dzt_bot, dzto2, dzt, dztsqo2, dztsqo6
-  use misc_coms,  only: io6, dtlm, dtsm
+  use mem_grid,   only: mza, mwa, lpw, dzt_top, dzt_bot
+  use misc_coms,  only: dtlm, dtsm
   use max_dims,   only: maxgrds
   use mem_adv,    only: dxps_w, dyps_w, dzps_w
 
@@ -1050,8 +1049,8 @@ end subroutine donorpointw
 subroutine donorpointw_3(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw)
 
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
-  use mem_grid,   only: mza, mwa, lpw, dzt_top, dzt_bot, dzto2, dzt, dztsqo2, dztsqo6
-  use misc_coms,  only: io6, dtlm, dtsm
+  use mem_grid,   only: mza, mwa, lpw, dzto2, dzt, dztsqo6
+  use misc_coms,  only: dtlm, dtsm
   use max_dims,   only: maxgrds
   use mem_adv,    only: dxps_w, dyps_w, dzps_w, &
                         dxyps_w, dxxps_w, dyyps_w, dzzps_w
@@ -1172,10 +1171,9 @@ end subroutine donorpointw_3
 
 subroutine zero_momsc(vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
 
-use mem_ijtabs, only: jtab_v, jtab_w, istp, mrl_begl, jtv_wstn, jtw_wstn
+use mem_ijtabs, only: istp, mrl_begl, jtv_wstn, jtw_wstn
 use mem_grid,   only: mza, mva, mwa, lpw
 use mem_basic,  only: rho
-use misc_coms,  only: io6
 use consts_coms,only: r8
 
 implicit none
@@ -1240,10 +1238,9 @@ end subroutine zero_momsc
 
 subroutine timeavg_momsc(vmsc,wmsc,vxesc,vyesc,vzesc)
 
-use mem_ijtabs, only: jtab_v, itab_v, jtab_w, itab_w, istp, mrl_endl, &
-                      jtv_prog, jtw_prog
-use mem_grid,   only: mza, mva, mwa, nsw_max, lpv, lpw
-use misc_coms,  only: io6, nacoust
+use mem_ijtabs, only: itab_v, itab_w, istp, mrl_endl, jtv_prog, jtw_prog
+use mem_grid,   only: mza, mva, mwa, lpw
+use misc_coms,  only: nacoust
 
 implicit none
 

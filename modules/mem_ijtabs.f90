@@ -397,14 +397,12 @@ Contains
 
    subroutine fill_jtabs(mma, mva, mwa, input)
 
-   use misc_coms,  only: io6, nqparm
-
    implicit none
 
    integer, intent(in) :: mma, mva, mwa, input
 
-   integer :: iw,iu,iv,im,k,nl,mrl
-   integer :: iloop,iw1,iw2,mrl0,jend
+   integer :: iw, iv, im, mrl
+   integer :: iloop, jend
    integer :: nlm, nlv, nlw
 
    if (input == 0) then

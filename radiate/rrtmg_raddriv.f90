@@ -2,7 +2,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   use mem_grid,    only: mza, zm, zt, glatw, dzt
   use mem_basic,   only: rho, press, theta, tair, sh_v
-  use misc_coms,   only: io6, iswrtyp, ilwrtyp, time8, nqparm, dtlm, do_chem
+  use misc_coms,   only: io6, iswrtyp, ilwrtyp, time8, dtlm, do_chem
   use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, t00
   use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
                          rshort_top, rshortup_top, rlongup_top, fthrd_sw, &
@@ -11,7 +11,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          rshortup_clr, rshort_top_clr, rshortup_top_clr, &
                          rlong_clr, rlongup_clr, rlongup_top_clr, &
                          par, par_diffuse, uva, uvb, uvc, pbl_cld_forc
-  use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab, emb2
+  use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab, &
+                         emb2, level
   use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr
   use rrtmg_cloud, only: cloud_props
   use mem_turb,    only: frac_land, kpblh
@@ -352,10 +353,10 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
         tc = tair(k,iw) - t00
 
-        if (tc > -10.0) then
+        if (tc > -10.0 .or. level < 3) then
 
            ! Add convective cloud water to cloud drops if warmer then 10C
-           l = kradcat(1)
+           l = 1
 
            ! Hardwire droplet effective radius to 14 over land 
            ! and 8 over sea following CAM physics
@@ -405,40 +406,50 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
         frac(k)       = max( frac(k), 0.1)
         cldfr(1,krad) = frac(k)
 
-        if (dosnow) then
+        if (level > 2) then
 
-           if (tc > 0.0) then
-              ! rain
-              mc = 2
-              ih = 2
+           if (dosnow) then
+
+              if (tc > 0.0) then
+                 ! rain
+                 mc = 2
+                 ih = 2
+              else
+                 ! snow
+                 mc = 4
+                 rh = min( 1., rhov(k) / rhovsl(tc) )
+                 ns = max( 1, nint(100. * rh) )
+                 nt = max( 1, min(31,-nint(tc)) )
+                 ih = jhabtab(nt,ns,2)
+              endif
+
            else
-              ! snow
-              mc = 4
-              rh = min( 1., rhov(k) / rhovsl(tc) )
-              ns = max( 1, nint(100. * rh) )
-              nt = max( 1, min(31,-nint(tc)) )
-              ih = jhabtab(nt,ns,2)
+
+              if (tc > -10.) then
+                 ! rain
+                 mc = 2
+                 ih = 2
+              else
+                 ! hail
+                 mc = 7
+                 ih = 7
+              endif
+
            endif
+
+           ! cloud optics category
+           l  = kradcat(ih)
+
+           ! effective radius in microns
+           r_ef = 1.e6 * reffcof(ih) * emb2(mc) ** pwmasi(ih)
 
         else
 
-           if (tc > -10.) then
-              ! rain
-              mc = 2
-              ih = 2
-           else
-              ! hail
-              mc = 7
-              ih = 7
-           endif
+           ! With no microphysics, just map convective precip to rain
+           l = 2
+           r_ef = 1000.0
 
         endif
-
-        ! cloud optics category
-        l  = kradcat(ih)
-
-        ! effective radius in microns
-        r_ef = 1.e6 * reffcof(ih) * emb2(mc) ** pwmasi(ih)
 
         ! water path in g/m^2
         watp = twc * 1000. * dzt(k)

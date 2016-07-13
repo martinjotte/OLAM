@@ -16,7 +16,6 @@ subroutine acmcld_uvmix( iw, dtl )
   use mem_cuparm,  only: kcutop, kcubot, vxsrc, vysrc, vzsrc, cbmf, thsrc
   use mem_basic,   only: vxe, vye, vze, rho, theta
   use consts_coms, only: eradi
-  use mem_ijtabs,  only: itab_w
   use tridiag,     only: acm_matrix
 
   implicit none
@@ -212,11 +211,9 @@ subroutine acmcld_tracermix( iw, dtl )
 !   realistic gradual subsidence.
 !-----------------------------------------------------------------------
 
-  use mem_grid,    only: mza, zm, zt, xew, yew, zew, arw0, volti, lpw, dzt
-  use mem_cuparm,  only: kcutop, kcubot, vxsrc, vysrc, vzsrc, cbmf, thsrc
-  use mem_basic,   only: vxe, vye, vze, rho, theta
-  use consts_coms, only: eradi
-  use mem_ijtabs,  only: itab_w
+  use mem_grid,    only: mza, zm, zt, arw0, volti, lpw
+  use mem_cuparm,  only: kcutop, kcubot, cbmf, thsrc
+  use mem_basic,   only: rho
   use tridiag,     only: acm_matrix
   use var_tables,  only: num_cumix, cumix_map, scalar_tab
   use oname_coms,  only: nl
@@ -238,7 +235,6 @@ subroutine acmcld_tracermix( iw, dtl )
   real :: massflx_acm(mza), massflx_loc(mza), massflx_tot(mza)
   real :: clddepth
   real :: dtom(mza)
-  real :: dtheta, dztop
 
   real, parameter :: ef = 1.0  ! mixing efficiency for tracers
   real, parameter :: fl = 0.5  ! extra local mixing

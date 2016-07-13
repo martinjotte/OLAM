@@ -36,7 +36,7 @@ contains
 
     use mem_grid,   only: arw, volti, lpw, lsw, nsw_max
     use mem_turb,   only: vkm_sfc, frac_sfc
-    use mem_basic,  only: vxe, vye, vze, rho, sh_w
+    use mem_basic,  only: vxe, vye, vze, rho
     use mem_tend,   only: vmxet, vmyet, vmzet
     use mem_ijtabs, only: itab_w
     use misc_coms,  only: dtlm, io6

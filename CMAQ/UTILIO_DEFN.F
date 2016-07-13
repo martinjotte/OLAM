@@ -203,7 +203,16 @@ C   begin body of subroutine  M3EXIT
          write(*,'(1x,A)') trim(msgtxt)
       endif
 
-      stop
+      if     (exitstat == 1) then
+         stop 1
+      elseif (exitstat == 2) then
+         stop 2
+      elseif (exitstat == 3) then
+         stop 3
+      else
+         stop
+      endif
+
       END SUBROUTINE M3EXIT
 
 

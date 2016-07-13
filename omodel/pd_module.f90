@@ -15,8 +15,8 @@ contains
     integer, intent(in) :: imonot, mza, mwa
 
     if (imonot == 2) then
-       allocate(beta(mza,mwa))
-       allocate(dtom(mza,mwa))
+       allocate(beta(mza,mwa)) ; beta = rinit
+       allocate(dtom(mza,mwa)) ; dtom = rinit
     endif
 
   end subroutine alloc_pdtrans
@@ -40,26 +40,22 @@ contains
     real,    intent(in)    :: vmsca  (mza,mva)
     real,    intent(in)    :: wmsca  (mza,mwa)
     integer, intent(in)    :: mrl
-    integer                :: iw, j, iv, jv, k, iwd, kd, km, kp
+    integer                :: iw, j, iv, jv, k, iwd, kd
 
     !$omp parallel
 
-    !$omp do private(iw,k,kd)
+    !$omp do private(iw,k,jv,iv)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-       beta(1:lpw(iw)-1,iw) = 0.0
-
        do k = lpw(iw), mza
-          kp = min(k+1,mza)
           beta(k,iw) = max(wmsca(k,  iw),0.0) * scp_upw(k,  iw)  &
                      - min(wmsca(k-1,iw),0.0) * scp_upw(k-1,iw)
        enddo
 
        do jv = 1, itab_w(iw)%npoly
-          iv  = itab_w(iw)%iv(jv)
+          iv = itab_w(iw)%iv(jv)
 
           do k = lpv(iv), mza
-             kp = min(k+1,mza)
              beta(k,iw) = beta(k,iw) - min(itab_w(iw)%dirv(jv) * vmsca(k,iv), 0.0) * scp_upv(k,iv)
           enddo
 

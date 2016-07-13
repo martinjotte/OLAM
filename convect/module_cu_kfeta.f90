@@ -32,12 +32,11 @@ CONTAINS
 
    subroutine cuparm_kfeta(iw,dtlong4)
 
-   use mem_grid,    only: mza, lpw, zt, dzt, xew, yew, zew, &
-                          unx, uny, unz, vnx, vny, vnz, arw0
+   use mem_grid,    only: mza, lpw, zt, dzt, xew, yew, zew, arw0
    use misc_coms,   only: io6
    use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, qwcon
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc
-   use mem_ijtabs,  only: itab_w, jtab_w
+   use mem_ijtabs,  only: itab_w
    use consts_coms, only: erad
 
    implicit none

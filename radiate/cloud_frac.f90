@@ -4,7 +4,7 @@ subroutine get_cloud_frac(iw, ka, frac, iconv, ideep)
   use misc_coms,   only: icfrac, cfracrh1, cfracrh2, cfraccup
   use consts_coms, only: t00
   use mem_basic,   only: rho, tair, sh_v, sh_w
-  use misc_coms, only: nqparm
+  use misc_coms,   only: nqparm
   use mem_ijtabs,  only: itab_w
   use mem_cuparm,  only: kcutop, kcubot, cbmf, qwcon, conprr
   use mem_turb,    only: frac_land
@@ -45,7 +45,12 @@ subroutine get_cloud_frac(iw, ka, frac, iconv, ideep)
   do k = ka, mza
 
      rhov(k) = max(0.,sh_v(k,iw)) * rho(k,iw)
-     rhoc(k) = max(0.,sh_c(k,iw)) * rho(k,iw)
+
+     if (allocated(sh_c)) then
+        rhoc(k) = max(0.,sh_c(k,iw)) * rho(k,iw)
+     else
+        rhoc(k) = 0.
+     endif
 
      if (allocated(sh_p)) then
         rhop(k) = max(0.,sh_p(k,iw)) * rho(k,iw)
@@ -174,9 +179,11 @@ subroutine get_cloud_frac(iw, ka, frac, iconv, ideep)
  
   mrlw = itab_w(iw)%mrlw
 
-  if (nqparm(mrlw) > 0 .and. cbmf(iw) > 1.e-12 .and. kcubot(iw) >= ka) then
-     iconv = .true.
-     ideep = (conprr(iw) > 1.e-12)
+  if (nqparm(mrlw) > 0) then
+     if (cbmf(iw) > 1.e-12 .and. kcubot(iw) >= ka) then
+        iconv = .true.
+        ideep = (conprr(iw) > 1.e-12)
+     endif
   endif
 
 ! If there is subgrid convection, modify the estimated cloud fraction to include

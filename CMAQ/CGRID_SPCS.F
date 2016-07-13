@@ -150,8 +150,8 @@ c !! NO   and to populate the allocated arrays from the stnd gc_spc.ext  !!! NO
             integer icall
             character(  1 ), parameter :: bl = ' '
             integer, parameter :: spc_dim = 200
-            logical :: order = .true., found = .true.
-            character( 120 ) :: xmsg
+!           logical :: order = .true., found = .true.
+!           character( 120 ) :: xmsg
 
 c namelist variables
 
@@ -171,7 +171,7 @@ c namelist variables
             character( pathlen ) :: gc_matrix
             character( pathlen ) :: ae_matrix
             character( pathlen ) :: nr_matrix
-            character( pathlen ) :: tr_matrix
+!           character( pathlen ) :: tr_matrix
             logical              :: exists
 
 c intialize the surr1 table

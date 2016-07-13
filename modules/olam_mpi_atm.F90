@@ -148,12 +148,11 @@ subroutine olam_alloc_mpi(mza, mrls)
 
   use mem_ijtabs, only: jtab_v, jtab_w, jtab_m, mloops
   use mem_nudge,  only: jtab_wnud
-  use mem_para,   only: myrank,   nbytes_int, nbytes_real, nbytes_real8,&
-                        nrecvs_v, nrecvs_w,   nrecvs_m,    nrecvs_wnud, &
-                        nsends_v, nsends_w,   nsends_m,    nsends_wnud, &
-                        recv_v,   recv_w,     recv_m,      recv_wnud,   &
-                        send_v,   send_w,     send_m,      send_wnud
-  use misc_coms,  only: io6
+  use mem_para,   only: nbytes_int, nbytes_real, nbytes_real8,              &
+                        nrecvs_v,   nrecvs_w,    nrecvs_m,     nrecvs_wnud, &
+                        nsends_v,   nsends_w,    nsends_m,     nsends_wnud, &
+                        recv_v,     recv_w,      recv_m,       recv_wnud,   &
+                        send_v,     send_w,      send_m,       send_wnud
   use var_tables, only: nvar_par
 
   implicit none
@@ -163,7 +162,6 @@ subroutine olam_alloc_mpi(mza, mrls)
 
 #ifdef OLAM_MPI
 
-  integer :: nbytes_per_iu
   integer :: nbytes_per_iv
   integer :: nbytes_per_iw
   integer :: nbytes_per_im
@@ -179,7 +177,6 @@ subroutine olam_alloc_mpi(mza, mrls)
   integer :: jrecv
   integer :: jtmp
 
-  integer :: nupts, nvpts, nwpts, nwnudpts
   integer :: nv
   integer :: mrl
 
@@ -480,10 +477,8 @@ subroutine mpi_send_v(mrl, rvara1, rvara2, rvara3, rvara4)
 #endif
 
 use mem_para,   only: send_v, recv_v, nsends_v, nrecvs_v, itagv
-
-use mem_ijtabs, only: itab_v, jtab_v, mrl_begs, istp, mloops
+use mem_ijtabs, only: itab_v, jtab_v, mloops
 use mem_grid,   only: mza, mva
-use misc_coms,  only: io6
 
 implicit none
 
@@ -496,8 +491,8 @@ real, optional, intent(in) :: rvara4(mza,mva)
 
 #ifdef OLAM_MPI
 
-integer :: ierr,ipos
-integer :: jrecv,jsend,ivar
+integer :: ierr, ipos
+integer :: jrecv, jsend
 integer :: j
 integer :: iv
 integer :: ivglobe
@@ -573,7 +568,6 @@ subroutine mpi_send_m(mrl, rvara1, rvara2)
   use mpi
 #endif
   
-  use misc_coms,  only: io6
   use mem_para,   only: nrecvs_m, nsends_m, recv_m, send_m, itagm
   use mem_ijtabs, only: jtab_m, itab_m, mloops
   use mem_grid,   only: mza, mma
@@ -587,7 +581,7 @@ subroutine mpi_send_m(mrl, rvara1, rvara2)
 #ifdef OLAM_MPI
 
   integer :: ierr, ipos
-  integer :: jrecv, jsend, ivar
+  integer :: jrecv, jsend
   integer :: j
   integer :: im
   integer :: imglobe
@@ -659,10 +653,9 @@ subroutine mpi_send_w(mrl, scalars, dvara1, dvara2,                    &
   use mpi
 #endif
 
-use var_tables, only: nvar_par, vtab_r, num_scalar, nptonv
-use mem_ijtabs, only: jtab_w, itab_w, mrl_begs, mrl_begl, mrl_endl, istp, mloops
+use var_tables, only: nvar_par, vtab_r, nptonv
+use mem_ijtabs, only: jtab_w, itab_w, mloops
 use mem_grid,   only: mza, mwa
-use misc_coms,  only: io6
 use consts_coms,only: r8
 use mem_para,   only: nrecvs_w, nsends_w, recv_w, send_w, itagw
 
@@ -704,8 +697,8 @@ real, optional, intent(in) :: r1dvara5(mwa)
 
 #ifdef OLAM_MPI
 
-integer :: ierr,ipos
-integer :: jrecv,jsend,ivar
+integer :: ierr, ipos
+integer :: jrecv, jsend, ivar
 integer :: i, j
 integer :: iw
 integer :: iwglobe
@@ -906,7 +899,6 @@ subroutine mpi_send_wnud(rvara1, rvara2, rvara3, rvara4, rvara5, rvara6)
   use mpi
 #endif
   
-  use misc_coms,  only: io6
   use mem_para,   only: nrecvs_wnud, nsends_wnud, recv_wnud, send_wnud, itagwnud
   use mem_grid,   only: mza
   use mem_nudge,  only: mwnud, jtab_wnud, itab_wnud
@@ -923,7 +915,7 @@ subroutine mpi_send_wnud(rvara1, rvara2, rvara3, rvara4, rvara5, rvara6)
 #ifdef OLAM_MPI
 
   integer :: ierr, ipos
-  integer :: jrecv, jsend, ivar
+  integer :: jrecv, jsend
   integer :: j
   integer :: iwnud
   integer :: iwnudglobe
@@ -1008,10 +1000,9 @@ subroutine mpi_recv_v(mrl, rvara1, rvara2, rvara3, rvara4)
   use mpi
 #endif
 
-use mem_para,   only: send_v, recv_v, nsends_v, nrecvs_v, mgroupsize
-use mem_ijtabs, only: itabg_v, mrl_begs, istp, mloops
+use mem_para,   only: send_v, recv_v, nsends_v, nrecvs_v
+use mem_ijtabs, only: itabg_v, mloops
 use mem_grid,   only: mza, mva
-use misc_coms,  only: io6
 
 implicit none
 
@@ -1024,8 +1015,8 @@ real, optional, intent(inout) :: rvara4(mza,mva)
 
 #ifdef OLAM_MPI
 
-integer :: ierr,ipos
-integer :: jrecv,jsend,ivar,jtmp
+integer :: ierr, ipos
+integer :: jrecv, jtmp
 integer :: nvpts
 integer :: j
 integer :: iv
@@ -1104,7 +1095,6 @@ subroutine mpi_recv_m(mrl, rvara1, rvara2)
   use mem_para,   only: send_m, recv_m, nsends_m, nrecvs_m
   use mem_ijtabs, only: itabg_m
   use mem_grid,   only: mza, mma
-  use misc_coms,  only: io6
 
   implicit none
 
@@ -1114,8 +1104,8 @@ subroutine mpi_recv_m(mrl, rvara1, rvara2)
 
 #ifdef OLAM_MPI
 
-  integer :: ierr,ipos
-  integer :: jrecv,jsend,ivar,jtmp
+  integer :: ierr, ipos
+  integer :: jrecv, jtmp
   integer :: nmpts
   integer :: j
   integer :: im
@@ -1150,6 +1140,11 @@ subroutine mpi_recv_m(mrl, rvara1, rvara2)
            rvara1(1,im),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
         endif
 
+        if (present(rvara2)) then
+           call MPI_Unpack(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,ipos, &
+           rvara2(1,im),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+        endif
+
      enddo
 
   enddo
@@ -1179,11 +1174,10 @@ subroutine mpi_recv_w(mrl, scalars, dvara1, dvara2,                    &
   use mpi
 #endif
 
-use var_tables, only: vtab_r, nvar_par, num_scalar, nptonv
-use mem_para,   only: nrecvs_w, nsends_w, recv_w, send_w, mgroupsize
-use mem_ijtabs, only: itabg_w, mrl_begs, mrl_begl, mrl_endl, istp, mloops
+use var_tables, only: vtab_r, nvar_par, nptonv
+use mem_para,   only: nrecvs_w, nsends_w, recv_w, send_w
+use mem_ijtabs, only: itabg_w, mloops
 use mem_grid,   only: mza, mwa
-use misc_coms,  only: io6
 use consts_coms,only: r8
 
 implicit none
@@ -1224,8 +1218,8 @@ real, optional, intent(inout) :: r1dvara5(mwa)
 
 #ifdef OLAM_MPI
 
-integer :: ierr,ipos
-integer :: jrecv,jsend,ivar,jtmp
+integer :: ierr, ipos
+integer :: jrecv, ivar, jtmp
 integer :: nwpts
 integer :: i, j
 integer :: iw
@@ -1429,7 +1423,6 @@ subroutine mpi_recv_wnud(rvara1, rvara2, rvara3, rvara4, rvara5, rvara6)
   use mem_para,  only: send_wnud, recv_wnud, nsends_wnud, nrecvs_wnud
   use mem_grid,  only: mza
   use mem_nudge, only: mwnud, itabg_wnud
-  use misc_coms, only: io6
 
   implicit none
 
@@ -1444,8 +1437,8 @@ subroutine mpi_recv_wnud(rvara1, rvara2, rvara3, rvara4, rvara5, rvara6)
 
 #ifdef OLAM_MPI
 
-  integer :: ierr,ipos
-  integer :: jrecv,jsend,ivar,jtmp
+  integer :: ierr, ipos
+  integer :: jrecv, jtmp
   integer :: nwnudpts
   integer :: j
   integer :: iwnud

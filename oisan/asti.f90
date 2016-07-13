@@ -39,7 +39,7 @@ use isan_coms,    only: nprz, npry, nprx, nprz_rh, haso3, nbot_o3, &
                         xswlat, xswlon, gdatdx, gdatdy, glat, &
                         npd, kzonoff, levpr, lzon_bot, ipoffset, inproj
 use mem_grid,     only: glatw, glonw, mza, mwa, mva, lpv, lpw, &
-                        xev, yev, zev, unx, uny, unz, vnx, vny, vnz
+                        xev, yev, zev, vnx, vny, vnz
 use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, jtv_init, jtw_init
 use mem_zonavg,   only: zonp_vect, zont, zonz, zonr, zonu, zono
 use consts_coms,  only: r8, eradi, rocp, p00i, cp
