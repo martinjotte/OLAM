@@ -46,7 +46,6 @@ use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc, &
                             kcutop, kcubot, qwcon
 use mem_tend,         only: thilt, sh_wt, vmxet, vmyet, vmzet
 use mem_basic,        only: rho, sh_w
-use consts_coms,      only: r8
 use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
 use oname_coms,       only: nl
 use var_tables,       only: num_cumix
@@ -54,12 +53,12 @@ use smagorinsky,      only: turb_k
 
 implicit none
 
-real(r8), parameter :: cptime = 0.0
+!real(r8), parameter :: cptime = 0.0
 integer             :: j, iw, k, mrl, mrlw
 integer, save       :: init_kf = 0
 
-real(r8) :: qpos, qadd, fact
-real     :: qtest, rt(mza)
+real :: qpos, qadd, fact, dq
+real :: qtest, rt(mza)
 
 real    :: dthmax, ftcon, dtlong4, confrq4, confrq4i
 integer :: iwqmax, kqmax, km, km1
@@ -158,7 +157,7 @@ endif
 ! If model run has been initialized from observational data, avoid cumulus
 ! parameterization during an initial period to allow gravity waves to settle.
 
-if ((initial == 2) .and. (time_istp8 < cptime)) return
+!if ((initial == 2) .and. (time_istp8 < cptime)) return
 
 dtlong4  = real(dtlong)
 
@@ -176,20 +175,24 @@ if ((istp == 1 .and. mod(time_istp8p, confrq) < dtlong) .or. &
    confrq4  = real(confrq)
    confrq4i = 1. / confrq4
 
-   thsrc_distrib(:,:) = 0.0
-   thsrc        (:,:) = 0.0
-   rtsrc        (:,:) = 0.0
-   conprr         (:) = 0.0
-   qwcon        (:,:) = 0.0
+   !$omp parallel do
+   do iw = 1, mwa
+      thsrc_distrib(:,iw) = 0.0
+      thsrc        (:,iw) = 0.0
+      rtsrc        (:,iw) = 0.0
+      qwcon        (:,iw) = 0.0
 
-   if (nl%conv_uv_mix > 0) then
-      vxsrc(:,:) = 0.0
-      vysrc(:,:) = 0.0
-      vzsrc(:,:) = 0.0
-   endif
+      if (nl%conv_uv_mix > 0) then
+         vxsrc(:,iw) = 0.0
+         vysrc(:,iw) = 0.0
+         vzsrc(:,iw) = 0.0
+      endif
 
-   kcutop(:) = -1
-   kcubot(:) = -1
+      conprr(iw) = 0.0
+      kcutop(iw) = -1
+      kcubot(iw) = -1
+   enddo
+   !$omp end parallel do
 
 ! Loop over all IW grid cells where cumulus parameterization may be done
 
@@ -360,14 +363,15 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    ! First modify humidity tendencies so that we don't create negative
    ! sh_w's, and keep track of how much water we added in variable qadd
 
-   qadd = 0.0_r8
+   qadd = 0.0
 
    do k = lpw(iw), mza
       qtest = max(sh_w(k,iw),0.0) + rtsrc(k,iw) * dtlong
 
       if (qtest < 0. .and. rtsrc(k,iw) < 0.) then
-         rt(k) = rtsrc(k,iw) - qtest / dtlong
-         qadd  = qadd - qtest / dtlong * rho(k,iw) * dzt(k)
+         dq = qtest / dtlong * 1.000002
+         rt(k) = rtsrc(k,iw) - dq
+         qadd  = qadd - dq * rho(k,iw) * dzt(k)
       else
          rt(k) = rtsrc(k,iw)
       endif
@@ -376,10 +380,10 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    ! If we added any water, remove it from positive tendency areas so
    ! that there is no net change over the whole column
 
-   if (qadd > 1.e-20_r8) then
+   if (qadd > 1.e-20) then
 
       ! qpos is sum of positive tendencies that we can borrow from
-      qpos = 0.0_r8
+      qpos = 0.0
 
       do k = lpw(iw), mza
          if (rtsrc(k,iw) > 0.) then
@@ -387,9 +391,9 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
          endif
       enddo
 
-      fact = 1.0 - min(qadd, qpos) / (qpos + 1.e-20_r8)
-      fact = min(fact, 1.0_r8)
-      fact = max(fact, 0.0_r8)
+      fact = 1.0 - min(qadd, qpos) / (qpos + 1.e-20)
+      fact = min(fact, 1.0)
+      fact = max(fact, 0.0)
 
       ! now borrow water from positive tendency areas to balance qadd
       do k = lpw(iw), mza
@@ -401,20 +405,17 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
    ! Now copy the tendencies
 
-   aconpr(iw) = aconpr(iw) + real(conprr(iw),r8) * dtlong
+   aconpr(iw) = aconpr(iw) + conprr(iw) * dtlong
 
    do k = lpw(iw), mza
       thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * rho(k,iw)
-
       sh_wt(k,iw) = sh_wt(k,iw) +    rt(k)    * rho(k,iw)
    enddo
 
    if (nl%conv_uv_mix > 0) then
       do k = lpw(iw), mza
          vmxet(k,iw) = vmxet(k,iw) + vxsrc(k,iw) * rho(k,iw)
-
          vmyet(k,iw) = vmyet(k,iw) + vysrc(k,iw) * rho(k,iw)
-
          vmzet(k,iw) = vmzet(k,iw) + vzsrc(k,iw) * rho(k,iw)
       enddo
    endif
