@@ -39,7 +39,7 @@ subroutine olam_mem_alloc()
   use mem_addsc,   only: alloc_addsc, filltab_addsc
   use mem_tend,    only: alloc_tend, filltab_tend
   use mem_turb,    only: alloc_turb, filltab_turb
-  use mem_grid,    only: alloc_grid_other, mza, nsw_max, mma, mva, mwa, nve2_max
+  use mem_grid,    only: alloc_grid_other, mza, nsw_max, mva, mwa, nve2_max
   use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge, &
                          o3nudflag, alloc_nudge_o3, filltab_nudge_o3
   use mem_ijtabs,  only: mrls
@@ -49,9 +49,9 @@ subroutine olam_mem_alloc()
   use mem_adv,     only: alloc_adv
 
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
-                         nqparm, dtsm, do_chem
+                         nqparm, do_chem
 
-  use micro_coms,  only: level, ncat, jnmb, &
+  use micro_coms,  only: level, ncat, &
                          icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail
                        
   use leaf_coms,   only: mwl, isfcl
@@ -139,7 +139,7 @@ subroutine olam_mem_alloc()
 
 ! Extra memory for Thuburn's monotonic advection or positive definite scheme
 
-  call alloc_thuburn(nl%iscal_monot, mza, mva, mwa)
+  call alloc_thuburn(nl%iscal_monot, mza, mwa)
   call alloc_pdtrans(nl%iscal_monot, mza, mwa)
 
 ! Extra memory if nudging ozone. Must be called after scalar tables are set up

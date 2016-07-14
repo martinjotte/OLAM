@@ -47,7 +47,7 @@ use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, &
                         dzim, zfact, zfacit, zfacim, dnv, dniv, dnu, &
                         arm0, vnx, vny, vnz, c1, c2
 use mem_tend,     only: vmt, vmxet, vmyet, vmzet, sh_wt
-use misc_coms,    only: io6, iparallel, time8, dtlm, rinit
+use misc_coms,    only: iparallel, time8, dtlm, rinit
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
 use oplot_coms,   only: op
 use obnd,         only: lbcopy_m, lbcopy_w
@@ -85,9 +85,7 @@ integer :: iw, iw1, iw2
 ! automatic arrays
 
 integer :: iwdepv(mza,mva) ! donor cell IW index for V face
-integer :: iwrecv(mza,mva) ! recvr cell IW index for V face
 integer :: kdepw(mza,mwa)  ! donor cell K index for W face
-integer :: krecw(mza,mwa)  ! recvr cell K index for W face
 
 real :: vmcf(mza,mva) ! Time-extrapolated VMC
 
@@ -352,9 +350,9 @@ if (strict_wvt_donorpoint) then
       ! No parallel communication is necessary to compute this
 
       if (nl%adv_order <= 2) then
-         call donorpointw  (1, mrl, wc, vxef, vyef, vzef, kdepw, krecw)
+         call donorpointw  (1, mrl, wc, vxef, vyef, vzef, kdepw)
       else
-         call donorpointw_3(1, mrl, wc, vxef, vyef, vzef, kdepw, krecw)
+         call donorpointw_3(1, mrl, wc, vxef, vyef, vzef, kdepw)
       endif
 
       ! Finish MPI recv of VXE, VYE, VZE and do a LBC copy
@@ -369,9 +367,9 @@ if (strict_wvt_donorpoint) then
       ! primary W points. Communication of velocities must have been completed
 
       if (nl%adv_order <= 2) then
-         call donorpointv  (1, mrl, vcf, vxef, vyef, vzef, iwdepv, iwrecv)
+         call donorpointv  (1, mrl, vcf, vxef, vyef, vzef, iwdepv)
       else
-         call donorpointv_3(1, mrl, vcf, vxef, vyef, vzef, iwdepv, iwrecv)
+         call donorpointv_3(1, mrl, vcf, vxef, vyef, vzef, iwdepv)
       endif
 
    endif
@@ -384,11 +382,11 @@ else
    if (mrl > 0) then
 
       if (nl%adv_order <= 2) then
-         call donorpointw  (1, mrl, wc, vxe, vye, vze, kdepw,  krecw)
-         call donorpointv  (1, mrl, vc, vxe, vye, vze, iwdepv, iwrecv)
+         call donorpointw  (1, mrl, wc, vxe, vye, vze, kdepw)
+         call donorpointv  (1, mrl, vc, vxe, vye, vze, iwdepv)
       else
-         call donorpointw_3(1, mrl, wc, vxe, vye, vze, kdepw,  krecw)
-         call donorpointv_3(1, mrl, vc, vxe, vye, vze, iwdepv, iwrecv)
+         call donorpointw_3(1, mrl, wc, vxe, vye, vze, kdepw)
+         call donorpointv_3(1, mrl, vc, vxe, vye, vze, iwdepv)
       endif
 
    endif
@@ -795,8 +793,8 @@ subroutine prog_wrt_begl(iw,rhot)
 
 use mem_tend,    only: thilt, wmt, vmxet, vmyet, vmzet
 use mem_basic,   only: wmc, theta, vxe, vye, vze
-use misc_coms,   only: io6, initial, dn01d, th01d, &
-                       deltax, nxp, mdomain, time8
+use misc_coms,   only: initial, dn01d, th01d, &
+                       deltax, nxp, mdomain
 use mem_grid,    only: mza, mwa, lpw, wnxo2, wnyo2, wnzo2
 use mem_rayf,    only: rayf_cof, rayf_cofw, dorayf, dorayfw, krayf_bot, krayfw_bot
 
@@ -893,12 +891,12 @@ use mem_tend,    only: thilt, wmt, vmxet, vmyet, vmzet
 use mem_ijtabs,  only: itab_w
 use mem_basic,   only: wmc, rho, thil, wc, press, &
                        vxe, vye, vze, vxe2, vye2, vze2
-use misc_coms,   only: io6, dtsm, initial, dn01d, th01d, deltax, nxp, &
-                       mdomain, time8, icorflg
+use misc_coms,   only: dtsm, initial, dn01d, th01d, deltax, nxp, &
+                       mdomain, icorflg
 use consts_coms, only: cpocv, omega2, pi1, pio180, r8
-use mem_grid,    only: mza, mva, mwa, nsw_max, lpv, lpw, lve2, arv, arw, &
-                       vnx, vny, vnz, wnx, wny, wnz, wnxo2, wnyo2, wnzo2, &
-                       xew, dzim, dzt, volt, volti, glatw, glonw, &
+use mem_grid,    only: mza, mva, mwa, lpv, lpw, lve2, arv, arw, &
+                       vnx, vny, vnz, wnx, wny, wnz, wnxo2, wnyo2, &
+                       dzim, volt, volti, glatw, glonw, &
                        dzt_top, dzt_bot, zwgt_top, zwgt_bot, gravm
 use tridiag,     only: tridiffo
 use oname_coms,  only: nl
@@ -1346,11 +1344,11 @@ subroutine prog_v_begs(iv,vmxet,vmyet,vmzet,div2d,vmx_cor,vmy_cor, &
                        vortp,vortn,vortp_t,rotational)
 
 use mem_tend,    only: vmt
-use mem_ijtabs,  only: itab_v, itab_w
-use mem_basic,   only: vc, wc, press, vmp, vmc, rho, vxe, vye, vze
-use misc_coms,   only: io6, dtsm, initial, mdomain, u01d, v01d, dn01d, &
+use mem_ijtabs,  only: itab_v
+use mem_basic,   only: vc, press, vmp, vmc, rho, vxe, vye, vze
+use misc_coms,   only: dtsm, initial, mdomain, u01d, v01d, dn01d, &
                        deltax, nxp
-use consts_coms, only: erad, eradi, gravo2
+use consts_coms, only: eradi, gravo2
 use mem_grid,    only: mza, mma, mva, mwa, lpv, volt, xev, yev, zev, &
                        unx, uny, unz, vnx, vny, vnz, vnxo2, vnyo2, &
                        dniu, dniv, arw0, dnu

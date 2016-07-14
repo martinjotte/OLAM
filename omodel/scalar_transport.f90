@@ -34,19 +34,19 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
   use mem_ijtabs,   only: istp, jtab_v, jtab_w, mrl_endl, itab_v, itab_w, &
                           jtv_wadj, jtw_prog
-  use mem_grid,     only: mza, mva, mwa, lpv, lpw, arv, arw, volti, &
+  use mem_grid,     only: mza, mva, mwa, lpv, lpw, arv, arw, volt, volti, &
                           zwgt_bot, zwgt_top
   use misc_coms,    only: dtlm, iparallel
   use var_tables,   only: num_scalar, scalar_tab
   use mem_turb,     only: akhodx
   use mem_basic,    only: rho
   use oname_coms,   only: nl
-  use mem_thuburn,  only: comp_cfl1, comp_cfl2, comp_vert_limits, &
-                          comp_horiz_limits, apply_flux_limiters
+  use mem_thuburn,  only: comp_cfl1, comp_cfl2, comp_and_apply_monot_limits, &
+                          scp_max, scp_min, find_max_min
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use obnd,         only: lbcopy_w
   use consts_coms,  only: r8
-  use pdtrans,      only: dtom, comp_and_apply_pd_lims
+  use pdtrans,      only: modt, comp_and_apply_pd_lims
   use mem_adv,      only: dxps_w, dyps_w, dzps_w, &
                           dxyps_w, dxxps_w, dyyps_w, dzzps_w, &
                           dxps_v, dyps_v, dzps_v, &
@@ -77,10 +77,8 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   real :: wmsca(mza,mwa)
 
   integer :: iwdepv(mza,mva)
-  integer :: iwrecv(mza,mva)
 
   integer :: kdepw(mza,mwa)
-  integer :: krecw(mza,mwa)
 
   real :: scp_upv(mza,mva)
   real :: scp_upw(mza,mwa)
@@ -125,7 +123,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
      if (nl%iscal_monot == 2) then
         do k = kb, mza
-           dtom(k,iw) = dtlm(itab_w(iw)%mrlw) * volti(k,iw) / rho_old(k,iw)
+           modt(k,iw) = 0.999998 * volt(k,iw) * rho_old(k,iw) / dtlm(itab_w(iw)%mrlw)
         enddo
      endif
 
@@ -159,9 +157,9 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! No parallel communication is necessary to compute this
 
   if (nl%adv_order <= 2) then
-     call donorpointw  (1, mrl, wsc, vxesc, vyesc, vzesc, kdepw, krecw)
+     call donorpointw  (1, mrl, wsc, vxesc, vyesc, vzesc, kdepw)
   else
-     call donorpointw_3(1, mrl, wsc, vxesc, vyesc, vzesc, kdepw, krecw)
+     call donorpointw_3(1, mrl, wsc, vxesc, vyesc, vzesc, kdepw)
   endif
 
 ! Complete MPI recv of VXESC, VYESC, VZESC and do LBC copy
@@ -176,22 +174,20 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! primary W points. Communication of velocities must have been completed
 
   if (nl%adv_order <= 2) then
-     call donorpointv(1, mrl, vsc, vxesc, vyesc, vzesc, iwdepv, iwrecv)
+     call donorpointv(1, mrl, vsc, vxesc, vyesc, vzesc, iwdepv)
   else
-     call donorpointv_3(1, mrl, vsc, vxesc, vyesc, vzesc, iwdepv, iwrecv)
+     call donorpointv_3(1, mrl, vsc, vxesc, vyesc, vzesc, iwdepv)
   endif
 
   ! Compute outflow CFL numbers for long timestep stability check;
   ! also needed by Thuburn monotonic scheme
 
-  call comp_cfl1( mrl, dtlm, vmsca, wmsca, vsc, wsc, rho_old, &
-                  iwdepv, kdepw, do_check=.true. )
+  call comp_cfl1( mrl, dtlm, vmsca, wmsca, vsc, wsc, rho_old, do_check=.true. )
 
   ! Diagnose inlfow CFL numbers at V and W interfaces for Thuburn monotonic scheme
 
   if (nl%iscal_monot == 1) then
-     call comp_cfl2( mrl, dtlm, vmsca, wmsca, rho_old, rho, dzps_v, &
-                     iwrecv, krecw )
+     call comp_cfl2( mrl, dtlm, vmsca, wmsca, rho_old, rho )
   endif
 
 ! LOOP OVER SCALARS HERE
@@ -204,12 +200,30 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
      scp => scalar_tab(n)%var_p(:,:)
      sct => scalar_tab(n)%var_t(:,:)
 
+! Evaluate and MPI send scalar lacal max/min
+
+     if (nl%iscal_monot == 1) then
+        call find_max_min(mrl, scp)
+        if (iparallel == 1) then
+           call mpi_send_w(mrl, rvara1=scp_min,  rvara2=scp_max)
+        endif
+     endif
+
 ! Evaluate and MPI send of horizontal gradients of scalar field
 
      if (nl%adv_order <= 2) then
         call grad_t2d  (mrl, scp, gxps_scp, gyps_scp)
      else
         call grad_t2d_3(mrl, scp, gxps_scp, gyps_scp, gxxps_scp, gxyps_scp, gyyps_scp)
+     endif
+
+! MPI recv scalar lacal max/min
+     
+     if (nl%iscal_monot == 1) then
+        if (iparallel == 1) then
+           call mpi_recv_w(mrl, rvara1=scp_min,  rvara2=scp_max)
+        endif
+        call lbcopy_w(mrl, a1=scp_min,  a2=scp_max)
      endif
 
 ! MPI send of SCP gradient components
@@ -266,17 +280,15 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
                             + dzps_w(k,iw) * gzps_scp(kd,iw) + dzzps_w(k,iw) * gzzps_scp(kd,iw)
            endif
 
-           if (nl%iscal_monot == 2) scp_upw(k,iw) = max(scp_upw(k,iw), 0.0)
+           if     (nl%iscal_monot == 1) then
+              scp_upw(k,iw) = max(scp_min(kd,iw), min(scp_upw(k,iw), scp_max(kd,iw)))
+           elseif (nl%iscal_monot == 2) then
+              scp_upw(k,iw) = max(scp_upw(k,iw), 0.0)
+           endif
+
         enddo
      enddo
      !$omp end parallel do
-
-! Compute bounds on the scalar values at each W level for the Thuburn
-! flux limiter (can be done before gradient communication is finished)
-
-     if (nl%iscal_monot == 1) then
-        call comp_vert_limits(mrl, scp, scp_upw, iwdepv, iwrecv, kdepw, krecw)
-     endif
 
 ! MPI recv of SCP gradient components
 
@@ -325,21 +337,20 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
                             + dzps_v(k,iv) * gzps_scp(k,iwd) + dzzps_v(k,iv) * gzzps_scp(k,iwd)
            endif
 
-           if (nl%iscal_monot == 2) scp_upv(k,iv) = max(scp_upv(k,iv), 0.0)
+           if     (nl%iscal_monot == 1) then
+              scp_upv(k,iv) = max(scp_min(k,iwd), min(scp_upv(k,iv), scp_max(k,iwd)))
+           elseif (nl%iscal_monot == 2) then
+              scp_upv(k,iv) = max(scp_upv(k,iv), 0.0)
+           endif
+
         enddo
      enddo
 
-! If using Thuburn monotonic flux limiter, compute scalar bounds at each
-! V interface, and then apply the flux limiters
+! Compute the monotonic or positive-definite flux limiters and then apply them
 
      if (nl%iscal_monot == 1) then
-        call comp_horiz_limits(mrl, scp, scp_upv, iwdepv, iwrecv)
-        call apply_flux_limiters(mrl, kdepw, iwdepv, scp_upw, scp_upv)
-     endif
-
-! Compute the positive-definite flux limiters and then apply them
-
-     if (nl%iscal_monot == 2) then
+        call comp_and_apply_monot_limits(mrl, scp, scp_upw, scp_upv, kdepw, iwdepv)
+     elseif (nl%iscal_monot == 2) then
         call comp_and_apply_pd_lims(scp, scp_upv, scp_upw, iwdepv, kdepw, vmsca, wmsca, mrl)
      endif
 
@@ -635,7 +646,7 @@ end subroutine grad_z_3
 !===============================================================================
 
 
-subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv)
+subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv)
 
   use mem_ijtabs,  only: jtab_v, itab_v, jtv_wadj
   use mem_grid,    only: mza, mva, mwa, lpv, unx, uny, unz, xev, yev, zev
@@ -653,7 +664,6 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv)
   real,    intent(in)  :: vze(mza,mwa)
 
   integer, intent(out) :: iwdepv(mza,mva)
-  integer, intent(out) :: iwrecv(mza,mva)
 
   real :: dto2
   real :: dxps1, dyps1, dxps2, dyps2
@@ -737,16 +747,12 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv)
         if (vs(k,iv) > 0.0) then
 
            iwdepv(k,iv) = iw1
-           iwrecv(k,iv) = iw2
-
            dxps_v(k,iv) = -dto2 * (vs(k,iv) * cosv1 - ufacev(k) * sinv1) + dxps1
            dyps_v(k,iv) = -dto2 * (vs(k,iv) * sinv1 + ufacev(k) * cosv1) + dyps1
 
         else
 
            iwdepv(k,iv) = iw2
-           iwrecv(k,iv) = iw1
-
            dxps_v(k,iv) = -dto2 * (vs(k,iv) * cosv2 - ufacev(k) * sinv2) + dxps2
            dyps_v(k,iv) = -dto2 * (vs(k,iv) * sinv2 + ufacev(k) * cosv2) + dyps2
 
@@ -763,7 +769,7 @@ end subroutine donorpointv
 !===============================================================================
 
 
-subroutine donorpointv_3(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv)
+subroutine donorpointv_3(ldt, mrl, vs, vxe, vye, vze, iwdepv)
 
   use mem_ijtabs,  only: jtab_v, itab_v, jtv_wadj
   use mem_grid,    only: mza, mva, mwa, lpv, unx, uny, unz, xev, yev, zev, &
@@ -784,7 +790,6 @@ subroutine donorpointv_3(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv)
   real,    intent(in)  :: vze(mza,mwa)
 
   integer, intent(out) :: iwdepv(mza,mva)
-  integer, intent(out) :: iwrecv(mza,mva)
 
   real :: dto2, zp
   real :: dxps1, dyps1, dxps2, dyps2
@@ -877,7 +882,6 @@ subroutine donorpointv_3(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv)
         if (vs(k,iv) > 0.0) then
 
            iwdepv(k,iv) = iw1
-           iwrecv(k,iv) = iw2
 
            dxo2 = -dto2 * (vs(k,iv) * cosv1 - ufacev(k) * sinv1)
            dx   = 2.0 * dxo2
@@ -901,7 +905,6 @@ subroutine donorpointv_3(ldt, mrl, vs, vxe, vye, vze, iwdepv, iwrecv)
         else
 
            iwdepv(k,iv) = iw2
-           iwrecv(k,iv) = iw1
            
            dxo2 = -dto2 * (vs(k,iv) * cosv2 - ufacev(k) * sinv2)
            dx   = 2.0 * dxo2
@@ -935,7 +938,7 @@ end subroutine donorpointv_3
 !===============================================================================
 
 
-subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw)
+subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw)
 
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
   use mem_grid,   only: mza, mwa, lpw, dzt_top, dzt_bot
@@ -952,7 +955,6 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw)
   real,    intent(in)  :: vze(mza,mwa)
 
   integer, intent(out) :: kdepw(mza,mwa)
-  integer, intent(out) :: krecw(mza,mwa)
 
   real :: dto2
   real :: unx_w, uny_w, vnx_w, vny_w, vnz_w
@@ -1018,15 +1020,11 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw)
         if (ws(k,iw) > 0.0) then
 
            kdepw(k,iw) = k
-           krecw(k,iw) = k + 1
-
            dzps_w(k,iw) = max( -dto2 * ws(k,iw) + dzt_top(k), 0.0)
 
         else
 
            kdepw(k,iw) = k + 1
-           krecw(k,iw) = k
-
            dzps_w(k,iw) = min( -dto2 * ws(k,iw) - dzt_bot(k+1), 0.0)
 
         endif
@@ -1034,7 +1032,6 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw)
      enddo
    
      kdepw (mza,iw) = mza
-     krecw (mza,iw) = mza
      dzps_w(mza,iw) = dzt_top(mza)
 
   enddo
@@ -1046,7 +1043,7 @@ end subroutine donorpointw
 !===============================================================================
 
 
-subroutine donorpointw_3(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw)
+subroutine donorpointw_3(ldt, mrl, ws, vxe, vye, vze, kdepw)
 
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
   use mem_grid,   only: mza, mwa, lpw, dzto2, dzt, dztsqo6
@@ -1064,7 +1061,6 @@ subroutine donorpointw_3(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw)
   real,    intent(in)  :: vze(mza,mwa)
 
   integer, intent(out) :: kdepw(mza,mwa)
-  integer, intent(out) :: krecw(mza,mwa)
 
   real :: dto2, zp, dt
   real :: unx_w, uny_w, vnx_w, vny_w, vnz_w
@@ -1138,15 +1134,11 @@ subroutine donorpointw_3(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw)
         if (ws(k,iw) > 0.0) then
 
            kdepw(k,iw) = k
-           krecw(k,iw) = k + 1
-
            dzps_w(k,iw) = max( -dto2 * ws(k,iw) + dzto2(k), 0.0)
 
         else
 
            kdepw(k,iw) = k + 1
-           krecw(k,iw) = k
-
            dzps_w(k,iw) = min( -dto2 * ws(k,iw) - dzto2(k+1), 0.0)
 
         endif
@@ -1156,9 +1148,7 @@ subroutine donorpointw_3(ldt, mrl, ws, vxe, vye, vze, kdepw, krecw)
 
      enddo
    
-     kdepw (mza,iw) = mza
-     krecw (mza,iw) = mza
-
+     kdepw  (mza,iw) = mza
      dzps_w (mza,iw) = dzto2(mza)
      dzzps_w(mza,iw) = dztsqo6(mza)
 

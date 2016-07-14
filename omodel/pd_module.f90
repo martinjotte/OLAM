@@ -2,7 +2,7 @@ module pdtrans
   implicit none
 
   real, allocatable :: beta(:,:)
-  real, allocatable :: dtom(:,:)
+  real, allocatable :: modt(:,:)
 
 
 contains
@@ -16,7 +16,7 @@ contains
 
     if (imonot == 2) then
        allocate(beta(mza,mwa)) ; beta = rinit
-       allocate(dtom(mza,mwa)) ; dtom = rinit
+       allocate(modt(mza,mwa)) ; modt = rinit
     endif
 
   end subroutine alloc_pdtrans
@@ -62,7 +62,7 @@ contains
        enddo
 
        do k = lpw(iw), mza
-          beta(k,iw) = 0.999998 * scp(k,iw) / (dtom(k,iw) * max(beta(k,iw),1.e-15))
+          beta(k,iw) = scp(k,iw) * modt(k,iw) / max(beta(k,iw),1.e-12)
           beta(k,iw) = min(1.0, max(beta(k,iw), 0.0))
        enddo
 
