@@ -105,7 +105,7 @@ Contains
     use max_dims,    only: maxgrds
 
 #ifdef OLAM_MPI
-    use mpi, only: mpi_gather, mpi_real, mpi_integer, mpi_comm_world
+    use mpi
 #endif
 
     implicit none
