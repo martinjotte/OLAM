@@ -1089,8 +1089,13 @@ do k = ka,mza
    delex_rho(k) = dts * (rhot(k,iw) &
       + volti(k,iw) * (hflux_rho(k) + wmarw(k-1) - wmarw(k)))
 
-   delex_rhothil(k) = dts * (thilt(k,iw) + thil(k,iw) * rhot(k,iw) &
-      + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
+   if (nl%split_scalars == 1) then
+      delex_rhothil(k) = dts * (thil(k,iw) * rhot(k,iw) &
+           + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
+   else
+      delex_rhothil(k) = dts * (thilt(k,iw) + thil(k,iw) * rhot(k,iw) &
+           + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
+   endif
 
 ! VMXET, VMYET, VMZET are not yet multiplied by VOLTI
 
