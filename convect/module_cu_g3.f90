@@ -22,7 +22,7 @@ CONTAINS
   SUBROUTINE grell_driver(iw, dtlong)
 
      use mem_turb,    only: kpblh, frac_land, fthpbl, fqtpbl
-     use consts_coms, only: cp, alvl, grav, p00i, rocp, rvap, erad, &
+     use consts_coms, only: cp, alvl, grav, p00i, rocp, rvap, eradi, &
                             gravi, alvlocp, r8
      use mem_radiate, only: rshort, fthrd_sw, fthrd_lw
      use mem_grid,    only: mza, lpw, arw0, zm, zt, xew, yew, zew, &
@@ -113,7 +113,7 @@ CONTAINS
 
      ! local variables
      integer :: k, ka, kc, npoly, n, iwn, jv, iv
-     real    :: raxis, omega_ave, dirv, flx
+     real    :: raxis, raxisi, omega_ave, dirv, flx
      real    :: exner(mza)
      real    :: vflux(mza), vflux_the(mza), vflux_vap(mza)
      real    :: hflux, hflux_the, hflux_vap
@@ -158,7 +158,9 @@ CONTAINS
         xland = 1.0
      endif
 
-     raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+     raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+     raxisi = 1.0 / max(raxis, 1.e-12)
+
 
      ! Vertical advective theta and water vapor fluxes (W levels)
 
@@ -251,10 +253,10 @@ CONTAINS
 
         ! U and V winds
         if (raxis > 1.e3) then
-           us(1,kc) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) / raxis
+           us(1,kc) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
 
-           vs(1,kc) = vze(k,iw) * raxis / erad  &
-                - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) * zew(iw) / (raxis * erad)  
+           vs(1,kc) = vze(k,iw) * raxis * eradi  &
+                - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) * zew(iw) * eradi * raxisi
         else
            us(1,kc) = vxe(k,iw)
            vs(1,kc) = vye(k,iw)
@@ -268,7 +270,7 @@ CONTAINS
         ! Shallow convection uses current T and Q plus PBL tendencies
         tshall(1,kc) = t(1,kc) + fthpbl(k,iw) * dtlong * exner(k)
         qshall(1,kc) = q(1,kc) + fqtpbl(k,iw) * dtlong
-        dhdt  (1,kc) = cp * fthpbl(k,iw) + alvl * fqtpbl(k,iw)
+        dhdt  (1,kc) = cp * exner(k) * fthpbl(k,iw) + alvl * fqtpbl(k,iw)
         
         ! Set area ensembles of omega, T, and Q
         do n = 1, npoly
