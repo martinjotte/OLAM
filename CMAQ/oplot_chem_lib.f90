@@ -12,6 +12,9 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
   use mem_sea,      only: itab_ws, sea
   use soil_nox,     only: soilnox, pfactor, drytime
   use ltng_defn,    only: column_ltng_no, vdemis_lt
+  use depv_defn,    only: depvel_gas_land, depvel_gas_sea, n_gas_depv, gas_depv_sur
+  use cgrid_spcs,   only: gc_spc, gc_depv_map
+
 
   implicit none
 
@@ -25,11 +28,13 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
                                         ! 3 - field not available in this run
                                         ! 4 - field not available in current grid cell
                                         !     (e.g., no sfcwater fracliq when no sfcwater)
-  integer, parameter :: nfields = 8
+  integer, parameter :: nfields = 10
   character(40)      :: fldlib(4,nfields)
   character(40)      :: fldname
-  integer            :: i, k, ifield, kp
+  integer            :: i, k, ifield, kp, n
   integer, save      :: icase
+
+  integer, save      :: io3_depv = -1
 
 !  fldname    stagpt/dimens      field description & units                 field #
 !---------------------------------------------------------------------------------
@@ -49,11 +54,25 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
     'LTNGNOX_TOT'   ,'T2' ,'LTNG NOX COLUMN TOTAL', ' [g(N) km:S:-2:N: s:S:-1:N:]' ,& !  7
     'LTNGNOX'       ,'T3' ,'LTNG NOX', ' [mol (N) s:S:-1:N:]'                       / !  8
 
-  
+  ! Deposition velocities
+  data fldlib(1:4,  9:10) / &
+    'O3_DEPV'       ,'B2' ,'OZONE DEPOSITION VELOCITY', ' [cm s:S2:-1:]' ,& !  9
+    'O3_DEPV_W'     ,'T2' ,'OZONE DEPOSITION VELOCITY', ' [cm s:S2:-1:]'  / ! 10
+
   if (do_chem /= 1) then
      write(*,*) 'Plot field ',trim(fldname0),' not available; chemistry not selected.'
      notavail = 3
      return
+  endif
+
+  if (io3_depv < 0) then
+     io3_depv = 0
+     do n = 1, n_gas_depv
+        if (gc_spc(gc_depv_map(n)) == 'O3') then
+           io3_depv = gas_depv_sur(n)
+           exit
+        endif
+     enddo
   endif
 
   k = kk
@@ -167,6 +186,27 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
 
      if (.not. allocated(vdemis_lt)) goto 1000
      fldval = vdemis_lt(k,i)
+
+  case(9)
+
+     if (io3_depv < 1) goto 1000
+     if (.not. allocated(DEPVEL_GAS_sea)) goto 1000
+     if (.not. allocated(DEPVEL_GAS_land)) goto 1000
+
+     if (op%stagpt == 'S') then
+        fldval = DEPVEL_GAS_sea (i,io3_depv) * 100.0
+     elseif (op%stagpt == 'L') then
+        fldval = DEPVEL_GAS_land(i,io3_depv) * 100.0
+     endif
+
+  case(10)
+
+     if (io3_depv < 1) goto 1000
+     if (.not. allocated(DEPVEL_GAS_sea)) goto 1000
+     if (.not. allocated(DEPVEL_GAS_land)) goto 1000
+
+     fldval = ( average_land(i,DEPVEL_GAS_land(:,io3_depv)) &
+              + average_sea (i,DEPVEL_GAS_sea (:,io3_depv)) ) * 100.0
 
   end select
 

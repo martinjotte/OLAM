@@ -27,7 +27,7 @@ C %W% %P% %G% %U%
       module hlconst_mod
 
       private
-      public :: hlconst_spcs_init, hlconst
+      public :: hlconst_spcs_init, hlconst, is_effect_spc
 
       INTEGER, PARAMETER :: MXSPCS = 146   ! Number of substances
       INTEGER, PARAMETER :: MXDSPCS = 17   ! Number of dissociating species
@@ -237,6 +237,22 @@ C...  Atmospheric Chemistry and Physics, 1997
       DATA B( LHCL   ), D( LHCL   ) / 1.74E+06,  6.90E+03 /  ! HCL <=> H + CL       : Marsh and McElroy (1985)
       DATA B( LHYDRAZINE), D( LHYDRAZINE) / 1.11E-08,  0.00E+00 /  ! HYDRAZINE <=> HYDRAZINE+ + OH-  : Moliner and Street (1989)
 
+      integer, parameter :: I_HO2         =   2
+      integer, parameter :: I_H2O2        =   3
+      integer, parameter :: I_NH3         =   4
+      integer, parameter :: I_HNO2        =   9
+      integer, parameter :: I_HNO3        =  10
+      integer, parameter :: I_SO2         =  12
+      integer, parameter :: I_FORMALDEHYDE=  35
+      integer, parameter :: I_FORMIC_ACID =  40
+      integer, parameter :: I_CO2         =  44
+      integer, parameter :: I_ATRA        =  56
+      integer, parameter :: I_DATRA       =  57
+      integer, parameter :: I_CL2         =  80
+      integer, parameter :: I_HOCL        =  81
+      integer, parameter :: I_HCL         =  82
+      integer, parameter :: I_HYDRAZINE   = 111
+
       logical, SAVE :: NOE( MXSPCS ) = .FALSE.
       logical, save :: firstime      = .true.
 
@@ -370,23 +386,6 @@ C...........SCRATCH LOCAL VARIABLES and their descriptions:
       REAL          AKEQ2               ! temp var for dissociation constant
       REAL          OHION               ! OH ion concentration
       REAL          KH                  ! temp var for henry's law constant
-
-
-      integer, parameter :: I_SO2         =  12
-      integer, parameter :: I_HNO2        =   9
-      integer, parameter :: I_HNO3        =  10
-      integer, parameter :: I_CO2         =  44
-      integer, parameter :: I_H2O2        =   3
-      integer, parameter :: I_FORMALDEHYDE=  35
-      integer, parameter :: I_FORMIC_ACID =  40
-      integer, parameter :: I_HO2         =   2
-      integer, parameter :: I_NH3         =   4
-      integer, parameter :: I_HYDRAZINE   = 111
-      integer, parameter :: I_ATRA        =  56
-      integer, parameter :: I_DATRA       =  57
-      integer, parameter :: I_CL2         =  80
-      integer, parameter :: I_HCL         =  82
-      integer, parameter :: I_HOCL        =  81
 
 !-------------------------------------------------------------------------------
 ! Note for dissociation constant for equation 14: CL2*H2O <=> HOCL + H + CL
@@ -539,7 +538,34 @@ C...assign a value for clminus.  use 2.0 mM based on Lin and Pehkonene, 1998, JG
 
       END IF
 
-      RETURN
       END FUNCTION HLCONST
+
+
+      logical function is_effect_spc( spc )
+      implicit none
+
+      integer, intent(in) :: spc
+
+      if (any( spc == (/ I_HO2,
+     &                   I_H2O2,
+     &                   I_NH3,
+     &                   I_HNO2,
+     &                   I_HNO3,
+     &                   I_SO2,
+     &                   I_FORMALDEHYDE,
+     &                   I_FORMIC_ACID,
+     &                   I_CO2,
+     &                   I_ATRA,
+     &                   I_DATRA,
+     &                   I_CL2,
+     &                   I_HOCL,
+     &                   I_HCL,
+     &                   I_HYDRAZINE /) ) ) then
+         is_effect_spc = .true.
+      else
+         is_effect_spc = .false.
+      endif
+
+      end function is_effect_spc
 
       end module hlconst_mod

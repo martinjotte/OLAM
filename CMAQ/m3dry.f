@@ -138,8 +138,6 @@ C-------------------------------------------------------------------------------
       use depvvars
       use depv_defn,   only: depvel_gas_land, depvel_gas_sea, ie_hono, ic_no2
       use utilio_defn
-!     Use ABFlux_Mod
-!     Use Bidi_Mod,    only: lufrac
       use cgrid_defn,  only: cgrid, vdemis_gc
       use misc_coms,   only: io6, isubdomain
       use mem_ijtabs,  only: itabg_w
@@ -148,10 +146,12 @@ C-------------------------------------------------------------------------------
       use sea_coms,    only: mws
       use mem_sea,     only: sea,  itab_ws
       use mem_grid,    only: dzt, volti
-      use mem_basic,   only: sh_v, theta, rho
+      use mem_basic,   only: theta, rho
       use mem_turb,    only: pblh
       use leaf_coms,   only: nzg, slcpd
-      use hlconst_mod, only: hlconst, hlconst_spcs_init
+      use hlconst_mod, only: hlconst, hlconst_spcs_init, is_effect_spc
+      use micro_coms,  only: cparm
+      use mem_micro,   only: cldnum
 
       IMPLICIT NONE
 
@@ -171,73 +171,68 @@ C Local Variables:
       REAL,            PARAMETER :: a0         = 8.0     ! [dim'less]
       REAL,            PARAMETER :: d3         = 1.38564e-2 ! [dim'less]
                                                ! k*sqrt(rhoair/rhowater) from Slinn 78
-      real                       :: delta
       real                       :: d_ice      ! dep. vel. over ice
       REAL                       :: dw
-      REAL                       :: dw25       ! diffusivity of water at 298.15 k
       REAL,            PARAMETER :: dwat       = 0.2178  ! [cm^2/s] at 273.15K
       LOGICAL                    :: effective  ! true=compute effective Henry's Law const
 
       LOGICAL, SAVE              :: first_call = .TRUE.
-      real                       :: glat
-      real                       :: glon
       REAL                       :: heff                 ! effective Henry's Law constant
       REAL                       :: heff_ap              ! Henry's Law constant for leaf apoplast M/atm
-!     REAL,            EXTERNAL  :: hlconst              ! [M / atm]
       REAL                       :: hplus
-      REAL,            PARAMETER :: hplus_ap   = 1.0e-6  ! pH=6.0 leaf apoplast solution Ph (Massad et al 2008)
-      REAL,            PARAMETER :: hplus_def  = 1.0e-5  ! pH=5.0
-      REAL,            PARAMETER :: hplus_east = 1.0e-5  ! pH=5.0
-      REAL,            PARAMETER :: hplus_h2o  = 7.94328e-9 ! 10.0**(-8.1)
-      REAL,            PARAMETER :: hplus_west = 3.16228e-6 ! 10.0**(-5.5)
+      REAL,            PARAMETER :: hplus_ap    = 1.0e-6     ! pH=6.0 leaf apoplast solution Ph (Massad et al 2008)
+      REAL,            PARAMETER :: hplus_dirty = 1.0e-5     ! pH=5.0
+      REAL,            PARAMETER :: hplus_clean = 3.16228e-6 ! 10.0**(-5.5)
+      REAL,            PARAMETER :: hplus_h2o   = 7.94328e-9 ! 10.0**(-8.1)
+      REAL,            PARAMETER :: hplus_def   = 1.0e-5     ! pH=5.0
       real                       :: hveg
       LOGICAL                    :: ifurban
-      LOGICAL                    :: ifsnow
       LOGICAL                    :: isocean
       integer                    :: iw
       integer                    :: iwl
       integer                    :: iws
       REAL,            PARAMETER :: kvis       = 0.132   ! [cm^2 / s] at 273.15K
-      REAL                       :: kvisw      ! kinematic viscosity of water [cm^2/s]
+      REAL                       :: kviswi      ! 1 / kinematic viscosity of water [s/cm^2]
       INTEGER                    :: kw
       INTEGER                    :: l
-      REAL                       :: lai                ! cell leaf area index
+      REAL                       :: lai                ! leaf area index
+      REAL                       :: tai                ! total area index
       INTEGER                    :: n
       INTEGER                    :: nlev_water
       CHARACTER( 16 ), PARAMETER :: pname      = 'M3DRY'
       REAL,            PARAMETER :: pr         = 0.709   ! [dim'less]
       real                       :: pvd
-      real                       :: ra                   ! cell aerodynamic resistance
-      real                       :: raice                ! aerodynamic resistance over ice
-      real                       :: raw                  ! aerodynamic resistance over water
-      REAL                       :: rac
-      REAL                       :: rbc
-      REAL                       :: rbsulf
-      REAL                       :: rbw
+      real                       :: rai                  ! cell aerodynamic resistance
+      real                       :: raicei               ! aerodynamic resistance over ice
+      real                       :: rawi                 ! aerodynamic resistance over water
+      REAL                       :: rbci
+      REAL                       :: rbsulfi
       REAL                       :: rci
-      REAL                       :: rcut
-      REAL,            PARAMETER :: rcut0      = 3000.0  ! [s/m]
-      REAL,            PARAMETER :: rcw0       = 125000.0 ! acc'd'g to Padro and
-                                                          ! adapted from Slinn 78
+      REAL,            PARAMETER :: rcut0      = 3000.0   ! [s/m]
+      REAL,            PARAMETER :: rcw0       = 125000.0 ! adapted from Slinn 78
+      REAL,            PARAMETER :: rcw0i      = 1.0 / rcw0
+
       REAL,            PARAMETER :: rg0        = 1000.0  ! [s/m]
-      REAL                       :: rgnd
-      REAL                       :: rgndc
-      REAL                       :: rgw                  ! resist for water-covered sfc
-      REAL,            PARAMETER :: rgwet0     = 25000.0 ! [s/m]
+      REAL                       :: rgndi
+      REAL                       :: rgwi                 ! resist for water-covered sfc
+
+      real, parameter :: cwetO3 = 1.0 / 385.0  ! O3 wet cuticle conductance, Altimir et al 2006
+
+      REAL,            PARAMETER :: rgwet0     = 25000.0      ! [s/m]
+      REAL,            PARAMETER :: rgwet0i    = 1.0 / rgwet0 ! m/s]
+
       REAL                       :: rh_air               ! rel humidity (air)
-      REAL                       :: rh_grnd              ! rel humidity (ground)
       REAL,            external  :: rhovsil
-      REAL                       :: rinc
-      REAL                       :: rs                   ! stomatal resistance [s/m]
+      REAL                       :: rinc                 ! resitanced from ground through canopy
+      REAL                       :: rsi                  ! stomatal resistance [s/m]
       REAL,            PARAMETER :: rsndiff    = 10.0    ! snow diffusivity fac
-      REAL                       :: rsnow
+      REAL                       :: rsnowi
       REAL,            PARAMETER :: rsnow0     = 1000.0
       REAL                       :: rstomi
-      REAL                       :: rsurf
-      REAL                       :: rwet                 ! wet sfc resist (cuticle or grnd)
-      REAL                       :: rwetsfc
+      REAL                       :: rsurfi
+      REAL                       :: rweti                ! wet sfc resist (cuticle or grnd)
+      REAL                       :: rwetsfci
       REAL                       :: scw_pr_23            ! (scw/pr)**2/3
-      real                       :: snowfac
       real                       :: sst
       REAL,            PARAMETER :: svp2       = 17.67   ! from MM5 and WRF
       REAL,            PARAMETER :: svp3       = 29.65   ! from MM5 and WRF
@@ -246,13 +241,13 @@ C Local Variables:
       REAL                       :: tempgr               ! cell ground temp
       REAL                       :: tice
       REAL                       :: tw
-      REAL,            PARAMETER :: twothirds  = 2.0 / 3.0
+      REAL,            PARAMETER :: onethird   = 1.0 / 3.0
+      REAL,            PARAMETER :: twothird   = 2.0 / 3.0
       REAL                       :: ustar                ! cell friction velocity
       REAL                       :: ustari               ! friction velocity over ice
       REAL                       :: ustarw               ! friction velocity over water
       REAL                       :: vegfr                ! cell veg coverage fraction
-      REAL                       :: vegfrac              ! cell veg coverage fraction including snow
-      real                       :: wrcr
+      real                       :: wrcr                 ! vegetation water (kg/m^2)
       REAL                       :: wrmax
       REAL                       :: wstar
       REAL                       :: wtv0
@@ -260,17 +255,33 @@ C Local Variables:
       REAL                       :: xt                   ! liquid water mass frac
       real                       :: rh_func              ! RH function for the development of a water
                                                          !      film on leaf cuticles
-      CHARACTER( 96 )            :: xmsg = ' '
 
-      INTEGER, SAVE              :: n_spc_m3dry = ltotg       ! from DEPVVARS module
+      real :: tempvg
+      real :: deltag, liqfrg
+      real :: deltav, liqfrv
+      real :: fact
+      real :: rgliqi
+      real :: rdryi
+      real :: rcuti
+      real :: rgdi
+      real :: rgndci
+      real :: rmesoi
 
-      REAL                       :: ar       ( ltotg )        ! reactivity relative to HNO3
-      REAL                       :: dif0     ( ltotg )        ! molecular diffusivity [cm2/s]
-      REAL                       :: lebas    ( ltotg )        ! Le Bas molar volume [cm3/mol ]
-      REAL                       :: meso     ( ltotg )        ! Exception for species that 
+      INTEGER, PARAMETER         :: n_spc_m3dry = ltotg       ! from DEPVVARS module
+
+      REAL, save                 :: ar       ( ltotg )        ! reactivity relative to HNO3
+      REAL, save                 :: dif0     ( ltotg )        ! molecular diffusivity [cm2/s]
+      REAL, save                 :: ddif0    ( ltotg )        ! molecular diffusivity / dwat
+      REAL, save                 :: lebas    ( ltotg )        ! Le Bas molar volume [cm3/mol ]
+      REAL, save                 :: meso     ( ltotg )        ! Exception for species that 
                                                               ! react with cell walls. fo in 
                                                               ! Wesely 1989 eq 6.
-      REAL, SAVE                 :: scc_pr_23( ltotg )        ! (SCC/PR)**2/3, fn of DIF0
+      REAL, SAVE                 :: scc_pr_23( ltotg )        ! 0.2(PR/SCC)**2/3, fn of DIF0
+      real, save                 :: csnow    ( ltotg )
+      real, save                 :: cgnd     ( ltotg )
+      real, save                 :: ccut     ( ltotg )
+      REAL, save                 :: dw25     ( ltotg )     ! diffusivity of water at 25C
+
 
       CHARACTER( 16 )            :: subname  ( ltotg )        ! for subroutine HLCONST
       integer, save              :: hlspc    ( ltotg )        ! species index in hlconst
@@ -386,20 +397,20 @@ C    formulas.  W. Hutzell (04/08)
 C-------------------------------------------------------------------------------
 
       DATA subname( 1), dif0( 1), ar( 1), meso( 1), lebas( 1) / 'SO2             ', 0.1089,   10.0,      0.0,  35.0/
-      DATA subname( 2), dif0( 2), ar( 2), meso( 2), lebas( 2) / 'SULFATE         ', 0.0001,    0.0,      0.0,  49.0/
-      DATA subname( 3), dif0( 3), ar( 3), meso( 3), lebas( 3) / 'NO2             ', 0.1361,    2.0,      0.1,  21.0/
+      DATA subname( 2), dif0( 2), ar( 2), meso( 2), lebas( 2) / 'SULFATE         ', 0.0001,    0.1,      0.0,  49.0/
+      DATA subname( 3), dif0( 3), ar( 3), meso( 3), lebas( 3) / 'NO2             ', 0.1361,    2.0,     10.0,  21.0/
       DATA subname( 4), dif0( 4), ar( 4), meso( 4), lebas( 4) / 'NO              ', 0.1802,    2.0,      0.0,  14.0/
-      DATA subname( 5), dif0( 5), ar( 5), meso( 5), lebas( 5) / 'O3              ', 0.1444,   12.0,      1.0,  21.0/
+      DATA subname( 5), dif0( 5), ar( 5), meso( 5), lebas( 5) / 'O3              ', 0.1444,   12.0,    100.0,  21.0/
       DATA subname( 6), dif0( 6), ar( 6), meso( 6), lebas( 6) / 'HNO3            ', 0.1067, 8000.0,      0.0,  35.0/
-      DATA subname( 7), dif0( 7), ar( 7), meso( 7), lebas( 7) / 'H2O2            ', 0.1300,   30.0,      1.0,  28.0/
+      DATA subname( 7), dif0( 7), ar( 7), meso( 7), lebas( 7) / 'H2O2            ', 0.1300,   30.0,    100.0,  28.0/
       DATA subname( 8), dif0( 8), ar( 8), meso( 8), lebas( 8) / 'ACETALDEHYDE    ', 0.1111,   10.0,      0.0,  56.0/
       DATA subname( 9), dif0( 9), ar( 9), meso( 9), lebas( 9) / 'FORMALDEHYDE    ', 0.1554,   10.0,      0.0,  35.0/
-      DATA subname(10), dif0(10), ar(10), meso(10), lebas(10) / 'METHYLHYDROPEROX', 0.1179,   10.0,      0.1,  49.0/
-      DATA subname(11), dif0(11), ar(11), meso(11), lebas(11) / 'PEROXYACETIC_ACI', 0.0868,   20.0,      0.1,  70.0/
+      DATA subname(10), dif0(10), ar(10), meso(10), lebas(10) / 'METHYLHYDROPEROX', 0.1179,   10.0,     10.0,  49.0/
+      DATA subname(11), dif0(11), ar(11), meso(11), lebas(11) / 'PEROXYACETIC_ACI', 0.0868,   20.0,     10.0,  70.0/
       DATA subname(12), dif0(12), ar(12), meso(12), lebas(12) / 'ACETIC_ACID     ', 0.0944,   20.0,      0.0,  63.0/
       DATA subname(13), dif0(13), ar(13), meso(13), lebas(13) / 'NH3             ', 0.1978,   20.0,      0.0,  28.0/
-      DATA subname(14), dif0(14), ar(14), meso(14), lebas(14) / 'PAN             ', 0.0687,   16.0,      0.1,  91.0/
-      DATA subname(15), dif0(15), ar(15), meso(15), lebas(15) / 'HNO2            ', 0.1349,   20.0,      0.1,  28.0/
+      DATA subname(14), dif0(14), ar(14), meso(14), lebas(14) / 'PAN             ', 0.0687,   16.0,     10.0,  91.0/
+      DATA subname(15), dif0(15), ar(15), meso(15), lebas(15) / 'HNO2            ', 0.1349,   20.0,     10.0,  28.0/
       DATA subname(16), dif0(16), ar(16), meso(16), lebas(16) / 'CO              ', 0.1807,    5.0,      0.0,  14.0/
       DATA subname(17), dif0(17), ar(17), meso(17), lebas(17) / 'METHANOL        ', 0.1329,    2.0,      0.0,  42.0/
       DATA subname(18), dif0(18), ar(18), meso(18), lebas(18) / 'N2O5            ', 0.0808, 5000.0,      0.0,  49.0/
@@ -437,29 +448,30 @@ C-------------------------------------------------------------------------------
       DATA subname(50), dif0(50), ar(50), meso(50), lebas(50) / 'MALEIC_ANHYDRIDE', 0.0950,   10.0,      0.0,  70.0/
       DATA subname(51), dif0(51), ar(51), meso(51), lebas(51) / '24-TOLUENE_DIIS ', 0.0610,   10.0,      0.0, 154.0/
       DATA subname(52), dif0(52), ar(52), meso(52), lebas(52) / 'TRIETHYLAMINE   ', 0.0881,   20.0,      0.0, 154.0/
-      DATA subname(53), dif0(53), ar(53), meso(53), lebas(53) / 'ORG_NTR         ', 0.0607,   16.0,      0.1, 160.0/  ! assumes 58.2% C5H11O4N and 41.8% C5H11O3N
-      DATA subname(54), dif0(54), ar(54), meso(54), lebas(54) / 'HYDROXY_NITRATES', 0.0609,   16.0,      0.1, 156.1/
-      DATA subname(55), dif0(55), ar(55), meso(55), lebas(55) / 'MPAN            ', 0.0580,   16.0,      0.1, 133.0/
-      DATA subname(56), dif0(56), ar(56), meso(56), lebas(56) / 'PPN             ', 0.0631,   16.0,      0.1, 118.2/
-      DATA subname(57), dif0(57), ar(57), meso(57), lebas(57) / 'MVK             ', 0.0810,    8.0,      1.0,  88.8/
+      DATA subname(53), dif0(53), ar(53), meso(53), lebas(53) / 'ORG_NTR         ', 0.0607,   16.0,     10.0, 160.0/  ! assumes 58.2% C5H11O4N and 41.8% C5H11O3N
+      DATA subname(54), dif0(54), ar(54), meso(54), lebas(54) / 'HYDROXY_NITRATES', 0.0609,   16.0,     10.0, 156.1/
+      DATA subname(55), dif0(55), ar(55), meso(55), lebas(55) / 'MPAN            ', 0.0580,   16.0,     10.0, 133.0/
+      DATA subname(56), dif0(56), ar(56), meso(56), lebas(56) / 'PPN             ', 0.0631,   16.0,     10.0, 118.2/
+      DATA subname(57), dif0(57), ar(57), meso(57), lebas(57) / 'MVK             ', 0.0810,    8.0,    100.0,  88.8/
       DATA subname(58), dif0(58), ar(58), meso(58), lebas(58) / 'DINTR           ', 0.0810,    8.0,      0.0,  88.8/
       DATA subname(59), dif0(59), ar(59), meso(59), lebas(59) / 'NTR_ALK         ', 0.0810,    8.0,      0.0,  88.8/
       DATA subname(60), dif0(60), ar(60), meso(60), lebas(60) / 'NTR_OH          ', 0.0810,    8.0,      0.0,  88.8/
       DATA subname(61), dif0(61), ar(61), meso(61), lebas(61) / 'NTR_PX          ', 0.0810,    8.0,      0.0,  88.8/
       DATA subname(62), dif0(62), ar(62), meso(62), lebas(62) / 'PROPNN          ', 0.0810,    8.0,      0.0,  88.8/
       DATA subname(63), dif0(63), ar(63), meso(63), lebas(63) / 'NITRYL_CHLORIDE ', 0.0888,    8.0,      0.0,  45.5/   ! dif0 estimated following Erickson III et al., JGR, 104, D7, 8347-8372, 1999
-      DATA subname(64), dif0(64), ar(64), meso(64), lebas(64) / 'ISOPNN          ',0.0457,    8.0,      0.0,  206.8/  
-      DATA subname(65), dif0(65), ar(65), meso(65), lebas(65) / 'MTNO3           ',0.0453,    8.0,      0.0,  251.2/  
+      DATA subname(64), dif0(64), ar(64), meso(64), lebas(64) / 'ISOPNN          ', 0.0457,    8.0,      0.0,  206.8/  
+      DATA subname(65), dif0(65), ar(65), meso(65), lebas(65) / 'MTNO3           ', 0.0453,    8.0,      0.0,  251.2/  
 
       IF ( first_call ) THEN
          first_call = .FALSE.
 
          DO l = 1, n_spc_m3dry
-            IF ( dif0( l ) > 0.0 ) THEN
-               scc_pr_23( l ) = ( ( kvis / dif0( l ) ) / pr ) ** twothirds
-            ELSE
-               scc_pr_23( l ) = 0.0
-            END IF
+            scc_pr_23( l ) = 0.2 * ( dif0( l ) * pr / kvis ) ** twothird
+            ddif0    ( l ) = dif0( l ) / dwat
+            csnow    ( l ) = ar( l ) / ( a0 * rsnow0 )
+            cgnd     ( l ) = ar( l ) / ( a0 * rg0 ) 
+            ccut     ( l ) = ar( l ) / ( a0 * rcut0 )
+            dw25     ( l ) = 13.26e-5 / ( 0.8904**1.14 * lebas( l )**0.589 )
          END DO
 
          ! Set up Henry's law species indices
@@ -487,242 +499,78 @@ C-------------------------------------------------------------------------------
          endif
          kw = itab_wl(iwl)%kw
 
-         glat  = land%glatw(iwl)
-         glon  = land%glonw(iwl)
-
          ustar = land%ustar(iwl)
          zf    = dzt(kw)
-         ra    = 1.0 / land%ggaer(iwl)
+         rai   = land%ggaer(iwl)
          wtv0  = land%wthv(iwl)
          lai   = land%veg_lai(iwl)
+         tai   = land%veg_tai(iwl)
          vegfr = land%veg_fracarea(iwl)
-         wrcr  = land%veg_water(iwl) * 1000.0  ! kg/m^2 -> m
+         wrcr  = land%veg_water(iwl)
          hveg  = land%veg_height(iwl)
-         rs    = land%stom_resist(iwl)
+         rsi   = 1.0 / land%stom_resist(iwl)
 
+         tempvg = land%veg_temp(iwl)
          tempcr = land%cantemp(iwl)
-         rh_air = 100.0 * land%canshv(iwl) * rho(kw,iw) / rhovsil( land%cantemp(iwl) - 273.15 )
+         rh_air = 100.0 * land%canshv(iwl) * real(rho(kw,iw)) / rhovsil( land%cantemp(iwl) - 273.15 )
          rh_air = min( 100.0, max( rh_air, 0.0 ) )
 
-         nlev_water = land%nlev_sfcwater(iwl)
-         if (nlev_water > 0) then
-            snowfac = land%snowfac(iwl)
-         else
-            snowfac = 0.0
-         endif
-
-         ifurban   = ( any(land%leaf_class(iwl) == (/ 19, 21 /)) )
+         ifurban = ( any(land%leaf_class(iwl) == (/ 19, 21 /)) )
 
          if (wtv0 > 0.0) then
-            wstar  = (grav * pblh(iw) * wtv0 / theta(kw,iw)) ** 0.33333333
+            wstar  = (grav * pblh(iw) * wtv0 / theta(kw,iw)) ** onethird
          else
             wstar  = 0.0
          endif
 
-         if ( nlev_water > 0 ) then
+         if ( land%nlev_sfcwater(iwl) > 0 ) then
 
-           ! Determine sfcwater temperature and liquid water mass fraction (0.0 to 0.5)
-            call qtk( land%sfcwater_energy(nlev_water,iwl), tempgr, xm )
+            ! Surface wetness factor
+            deltag = min( 1.0, (sum(land%sfcwater_mass(1:nlev_water,iwl)) / 0.2)**2 ) ** onethird
 
-            if (xm < 0.9) then
+            ! Determine sfcwater temperature and liquid water mass fraction
+            call qtk( land%sfcwater_energy(nlev_water,iwl), tempgr, liqfrg )
 
-               ifsnow = .true.
-               xm = MIN (xm, 0.5)
-               xm = MAX (xm, 0.0)
-
-            else
-               
-               ifsnow = .false.
-               xm     = 1.0
-
-            endif
+            tai  = tai  * (1.0 - land%snowfac(iwl))
+            lai  = lai  * (1.0 - land%snowfac(iwl))
+            hveg = hveg * (1.0 - land%snowfac(iwl))
 
          else
+
+            liqfrg  = 0.0
+            deltag  = 0.0
 
             ! Determine the bare ground temperature
             call qwtk( land%soil_energy(nzg,iwl),land%soil_water(nzg,iwl)*1.e3,
      &                 slcpd(land%ntext_soil(nzg,iwl)), tempgr, xm )
 
-            ifsnow = .false.
-            xm     = 0.0
-
          endif
+
+         ! Canopy resisance
+
+         rinc   = 14.0 * tai * hveg / ustar
 
          ! Canopy Wetness
 
-         wrmax = 0.2e-3 * vegfr * lai ! [m]
-         IF ( wrcr .LE. 0.0 ) THEN
-            delta  = 0.0
-         ELSE
-            delta = wrcr / wrmax  ! refer to SiB model
-            delta = MIN( delta, 1.0 )
-         END IF
+         wrmax  = 0.2 * max(tai,1.e-10)
+         deltav = min( 1.0, (wrcr / wrmax)**2 ) ** onethird
+         liqfrv = merge(0.0, 1.0, tempvg < 273.16)
 
-         ! Assign a pH for rain water based on longitude if US simulation.
-         ! Otherwise use default pH.  Use pH value in HPLUS calculation.
+         ! PH of canopy/ground water
 
-         IF ( ( glat .GE.   30.0 ) .AND. ( glat .LE.  45.0 ) .AND.
-     &        ( glon .GE. -120.0 ) .AND. ( glon .LE. -70.0 ) ) THEN
+         if (cparm < 1.e6) then
 
-            IF ( glon .GT. -100.0 ) THEN
-               hplus = hplus_east
-            ELSE
-               hplus = hplus_west
-            ENDIF
-         ELSE
+            fact = 0.05 * (cldnum(iw) * 1.e-7 - 10.0)
+            fact = min( max(fact, 0.0), 1.0 )
+            hplus = fact * hplus_dirty + (1.0 - fact) * hplus_clean
+
+         else
+
             hplus = hplus_def
-         ENDIF
 
-         ! Loop over species to calculate dry deposition velocities.
+         endif
 
-         depvel_gas_land( iwl,: ) = 0.0  ! initialize for this time period
-
-         n = 0
-         dloopl: DO l = 1, n_spc_m3dry
-         
-            IF ( .NOT. use_depspc( l ) ) CYCLE dloopl
-
-            n = n + 1
-
-!           IF ( depspc( l ) .EQ. 'SULF' ) THEN  ! Sulfate (SULF)
-            IF ( l .EQ. l_sulf ) THEN  ! Sulfate (SULF)
-
-         ! Sulfate calculation follows Wesely (1985), Eqn. 11.
-
-               rbsulf = 500. * ustar / (ustar**2 + 0.24 * wstar**2)
-               depvel_gas_land( iwl,n ) =  1.0 / ( ra + rbsulf )
-               
-            else
-
-         ! Use CMAQ function for calculating the effective Henry's Law
-         ! constant.  Note that original M3DRY wants inverse,
-         ! non-dimensional Henry's Law (caq/cg).
-
-               heff  = hlconst( tempcr, effective, hplus, hlspc( l ) )
-
-         ! Make Henry's Law constant non-dimensional.
-               
-               heff  = heff * 0.08205 * tempcr
-
-         ! Wet surface resistance.  (Note DELTA = CWC in ADOM lingo.)
-         ! This now applies to cuticle and ground.
-
-!              IF ( depspc( l ) .NE. 'O3' ) THEN
-               IF ( l .NE. l_o3 ) THEN
-                  rwet = rcw0 / heff ! wet cuticle
-               ELSE
-                  ! Set RCW/LAI = 200 s/m on basis of Keysburg exp for O3
-                  ! rwet = 1250.0    ! s/m
-                  ! rwet = MAX( 200.0, 200.0 * laicr ) ! s/m
-                  ! Average of 2002 and 2003 from Table 1. of
-                  ! Altimir et al 2006 doi:10.5194/bg-3-209-2006
-                  rwet = 385.0 ! s/m
-               END IF
-
-               rgw  = rgwet0 / heff ! wet ground
-
-         ! Dry snow resistance.
-
-               rsnow = rsnow0 * a0 / ar( l )
-
-         ! If the surface is cold and wet, use dry snow.
-
-               IF ( tempgr .LT. stdtemp ) THEN
-                  rwetsfc = rsnow
-               ELSE
-                  rwetsfc = rwet
-               END IF
-
-         ! Dry cuticle resistance.
-
-               if ( l == l_o3 ) then
-                  rh_func = max( 0.0, (rh_air - 70.0) / 30.0 )
-                  rcut = rcut0 * a0 / ar( l ) * ( 1.0 - rh_func ) + rwet * rh_func
-               else if ( l == l_nh3 ) then
-                  rcut = 4000.0 * exp( -0.054 * rh_air )
-               else
-                  rcut = rcut0 * a0 / ar( l )
-               endif
-
-         ! Dry ground resistance.  (revised according to Erisman)
-
-               rinc  = 14.0 * lai * hveg / ustar
-               rgnd  = rg0 * a0 / ar( l )
-               rgndc = 1.0 / ( ( 1.0 - delta ) / rgnd + delta / rgw )
-     &               + rinc          ! Add in-canopy part
-
-         ! Bulk stomatal resistance; include mesophyll resistance.
-
-               heff_ap = hlconst( tempcr, effective, hplus_ap, hlspc( l ) )
-
-!              rstom = rs * dwat / dif0( l )
-!    &               + 1.0 / ( heff_ap / 3000.0 + 100.0 * meso( l ) ) / lai
-
-               rstomi = lai / ( lai * rs * dwat / dif0( l ) 
-     &                          + 1.0 / ( heff_ap / 3000.0 + 100.0 * meso( l ) ) )
-
-         ! Bulk surface resistance.
-
-!                  rci = vegfr
-!     &                * ( 1.0/rstom + (1.0-delta( c,r ) ) * lai / rcut
-!     &                +   ( delta( c,r ) * lai / rwetsfc ) + 1.0 / rgndc )
-!     &                + real( 1-ifsnow ) * ( (1.0 - vegfr) * ( (1.0-delta( c,r ) ) /
-!     &                                  rgnd + delta( c,r ) / rgw ) )
-!     &                + real( ifsnow ) * ( (1.0 - xm) / rsnow + xm / (rsndiff + rgw) )
-
-               vegfrac = vegfr * (1.0 - snowfac)
-
-               rci = vegfrac * ( rstomi + (1.0-delta ) * lai / rcut +
-     &                    delta * lai / rwetsfc + 1.0 / rgndc )
-
-               if ( ifsnow ) then
-                  rci = rci + (1.0 - vegfrac) * ( (1.0-xm) / rsnow + xm / (rsndiff + rgw) )
-               else
-                  rci = rci + (1.0 - vegfrac) * ( (1.0-delta) / rgnd + delta / rgw )
-               endif
-
-               rsurf = 1.0 / rci
-
-         ! Compute dry deposition velocity.
-
-               rbc = 5.0 / ustar * scc_pr_23( l )
-               rac = ra + rbc
-
-               depvel_gas_land( iwl,n ) = 1.0 / ( rsurf + rac )
-
-! TODO: SURFACE SOURCE OF AMMONIA
-!
-!              IF ( abflux ) THEN   ! Ammonia Bidirectional Flux
-!
-!                  IF ( depspc( l ) .EQ. 'NH3' ) THEN
-!                    cnh3  = cgridl1( n,c,r )
-!
-!                    CALL Get_Flux( tempgcr,rh_air,cnh3,rwetsfc,rgw,wg(c,r),w2(c,r),
-!     &                                 sltyp(c,r),dif0(l),r,c,l,tpvd,lnh3,
-!     &                                 f_stom,f_cut,f_soil,f_emis,f_dep,f_ag,f_nat, f_wat,
-!     &                                 dt(2) )
-!                    pvd( n,c,r ) = tpvd
-!                    depvel_gas( n,c,r ) = lnh3
-!                    cmp(1,c,r) = f_emis
-!                    cmp(2,c,r) = f_dep
-!                    cmp(3,c,r) = f_stom
-!                    cmp(4,c,r) = f_cut
-!                    cmp(5,c,r) = f_soil
-!                    cmp(6,c,r) = f_ag
-!                    cmp(7,c,r) = f_nat
-!                    cmp(8,c,r) = f_wat
-!                 END IF   ! 'NH3'
-!              END IF   ! abflux
-
-               IF ( sfc_hono ) THEN
-
-! HONO production via heterogeneous reaction on ground surfaces,
-! 2NO2 = HONO + HNO3
-! Rate constant for the reaction = (3.0E-3/60)* (A/V),
-! where A/V is surface area/volume ratio
-! HONO is produced and released into the atmosphere
-! NO2 is lost via chemical reaction
-! HNO3 is sticky and stays on the surfaces
+         IF ( sfc_hono ) THEN
 
 ! Calculate A/V for leaves.
 ! LAI was multiplied by 2 to account for the fact that surface area
@@ -730,7 +578,7 @@ C-------------------------------------------------------------------------------
 ! Matthews Jones, Ammonia deposition to semi-natural vegetation,
 ! PhD dissertation, University of Dundee, Scotland, 2006
 
-                  surf_leaf = 2.0 * lai / zf
+            surf_leaf = 2.0 * tai / zf
 
 ! Calculate A/V for buildings and other structures.
 ! Buildings and other structures can provide additional surfaces in
@@ -743,23 +591,146 @@ C-------------------------------------------------------------------------------
 ! as purb(c,r)*(0.2/100.0); Cai et al. (2006) used a value of 1.0 for their
 ! study at New York (total A/V)
 
-                  if ( ifurban ) then
-                     surf_bldg = 0.2
-                  else
-                     surf_bldg = 0.0
-                  endif
+            if ( ifurban ) then
+               surf_bldg = 0.2
+            else
+               surf_bldg = 0.0
+            endif
 
 ! Calculate rate constant for the reaction (psudeo-first order reaction,
 ! unit per second). Calculate pseudo-first order rate constant using Eq 1
 ! of Vogel et al. (2003).  Unit of KNO2 is in 1/min in the paper; divide it
 ! by 60 to convert it into 1/sec.
 
-                  kno2 = MAX( 0.0, 5.0E-5 * (surf_leaf + surf_bldg) )
+            kno2 = MAX( 0.0, 5.0E-5 * (surf_leaf + surf_bldg) )
+
+         endif
+
+
+         ! Loop over species to calculate dry deposition velocities.
+
+         depvel_gas_land( iwl,: ) = 0.0  ! initialize for this time period
+
+         n = 0
+         dloopl: DO l = 1, n_spc_m3dry
+         
+            IF ( .NOT. use_depspc( l ) ) CYCLE dloopl
+
+            n = n + 1
+
+            IF ( l .EQ. l_sulf ) THEN  ! Sulfate (SULF)
+
+         ! Sulfate calculation follows Wesely (1985), Eqn. 11.
+
+               rbsulfi = 0.002 * (ustar**2 + 0.24 * wstar**2) / ustar
+               depvel_gas_land( iwl,n ) =  rai * rbsulfi / ( rai + rbsulfi )
+               
+            else
+
+         ! Use CMAQ function for calculating the effective Henry's Law
+         ! constant.  Note that original M3DRY wants inverse,
+         ! non-dimensional Henry's Law (caq/cg).
+
+               heff  = hlconst( tempcr, effective, hplus, hlspc( l ) )
+               
+               if ( is_effect_spc( hlspc( l ) ) ) then
+                  heff_ap = hlconst( tempcr, effective, hplus_ap, hlspc( l ) )
+               else
+                  heff_ap = heff
+               endif
+
+         ! Make Henry's Law constant non-dimensional.
+               
+               heff  = heff * 0.08205 * tempcr
+
+         ! Wet cuticle resistance.
+
+               IF ( l .NE. l_o3 ) THEN
+                  rweti = heff * rcw0i
+               ELSE
+                  ! Average of 2002 and 2003 from Table 1. of
+                  ! Altimir et al 2006 doi:10.5194/bg-3-209-2006
+                  rweti = cweto3
+               END IF
+
+         ! snow / wet surface conductance
+
+               rgliqi = heff * rgwet0i    ! wet ground conductance
+               rsnowi = csnow( l )        ! snow conductance
+
+         ! wet / dry ground conductances
+
+               rgwi = (1.0 - liqfrg) * rsnowi + liqfrg * rgliqi
+               rgdi = cgnd( l )
+
+         ! Wet cuticle resitance with snow/ice
+
+               rwetsfci = ( 1.0 - liqfrv) * rsnowi + liqfrv * rweti
+
+         ! Dry cuticle resistance
+
+               if ( l == l_nh3 ) then
+                  rdryi = 0.00025 * exp( 0.054 * rh_air )
+               else
+                  rdryi = ccut( l )
+                  if ( l == l_o3 ) then
+                     rh_func = max( 0.0, (rh_air - 70.0) / 30.0 )
+                     rdryi = ( 1.0 - rh_func ) * rdryi + rh_func * rwetsfci
+                  endif
+               endif
+
+         ! Total cuticle conductance
+
+               rcuti = tai * ( (1.0 - deltav) * rdryi + deltav * rwetsfci )
+
+         ! Bare ground conductance
+
+               rgndi  = ( 1.0 - deltag ) * rgdi + deltag * rgwi
+
+         ! Ground conductance under canopy vegetation
+
+               rgndci = rgndi / (1.0 + rgndi * rinc)
+
+         ! Bulk stomatal resistance annd mesophyll conductance
+
+               rstomi = ddif0( l ) * rsi
+               rmesoi = heff_ap / 3000. + meso( l )
+
+          ! Total bulk stomatal conductance
+
+               rstomi = lai * rmesoi * rstomi / (rstomi + rmesoi)
+
+         ! Bulk surface conductance
+
+               rci =  vegfr * (rstomi + rcuti + rgndci) + (1.0 - vegfr) * rgndi
+
+         ! Compute dry deposition velocity.
+
+               rbci = ustar * scc_pr_23( l )
+
+               depvel_gas_land( iwl,n ) = rci * rai * rbci / (rci*rai + rci * rbci + rai * rbci)
+
+!               if ( l == l_o3 ) then
+!  !                 if (itab_wl(iwl)%iwglobe == 73976) then
+!                  if (itab_wl(iwl)%iwglobe == 74263) then
+!                     write(*,*) depvel_gas_land( iwl,n ), rci, rai, rbci
+!                     write(*,*) vegfr, rgndi, rsnowi, rgliqi, rgdi
+!                     write(*,*) liqfrg, deltag, land%nlev_sfcwater(iwl)
+!                     write(*,*) rstomi, rcuti, rgndci
+!                  endif
+!               endif
+
+! HONO production via heterogeneous reaction on ground surfaces,
+! 2NO2 = HONO + HNO3
+! Rate constant for the reaction = (3.0E-3/60)* (A/V),
+! where A/V is surface area/volume ratio
+! HONO is produced and released into the atmosphere
+! NO2 is lost via chemical reaction
+! HNO3 is sticky and stays on the surfaces
 
 ! Determine NO2 concentration needed for HONO production term.
 
-!                 IF ( depspc( l ) .EQ. 'NO2' ) THEN
-                  IF ( l .EQ. l_no2 ) THEN
+               IF ( sfc_hono .and. l .EQ. l_no2 ) THEN
 
 ! Loss of NO2 via the heterogeneous reaction is accounted as additional
 ! depositional loss. Add the loss of NO2 via the heterogeneous reaction
@@ -768,37 +739,25 @@ C-------------------------------------------------------------------------------
 ! original value in vdiffacm2 after NO2 conc is reduced but before calculating
 ! depositional loss.
 
-                     depvel_gas_land( iwl,n ) = depvel_gas_land( iwl,n ) + 2.0 * kno2 * zf
+                  depvel_gas_land( iwl,n ) = depvel_gas_land( iwl,n ) + 2.0 * kno2 * zf
 
-                  END IF
+               END IF
 
-!                 IF ( depspc( l ) .EQ. 'HONO' ) then
-                  IF ( l .EQ. l_hono ) then
+               IF ( sfc_hono .and. l .EQ. l_hono ) then
 
 C Calculate production (pvd) for HONO; unit = ppm * m/s
                      
-                     pvd = kno2 * cgrid(kw,iw,ic_no2) * zf
+                  pvd = kno2 * cgrid(kw,iw,ic_no2) * zf
                      
 ! Add this to the HONO emissions for now when we apply it in vertical diffusion
 
-                     vdemis_gc(kw,iw,ie_hono) = vdemis_gc(kw,iw,ie_hono) + pvd * land%area(iwl) * volti(kw,iw)
+                  vdemis_gc(kw,iw,ie_hono) = vdemis_gc(kw,iw,ie_hono) + pvd * land%area(iwl) *
+     &                 volti(kw,iw)
 
-                  ENDIF
-
-               END IF   ! sfc_hono
+               ENDIF
                
             END IF   ! special condition for sulfate (SULF)
 
-            ! Check for negative values or NaN's
-
-            IF ( depvel_gas_land( iwl,n ) .LT. 0.0 .OR.
-     &           depvel_gas_land( iwl,n ) .NE. depvel_gas_land( iwl,n ) ) then
-
-               xmsg = 'NEGATIVE or UNDEFINED Dry Deposition Velocity for ' // trim(depspc(l))
-               call m3exit( pname, 0, 0, xmsg, xstat1 )
-
-            END IF
-            
          END DO dloopl   ! (l = 1, n_spc_m3dry)
 
       enddo   ! land
@@ -819,28 +778,27 @@ C-------------------------------------------------------------------------------
 
          ustar  = sea%ustar(iws)
          ustarw = sea%sea_ustar(iws)
-         raw    = 1.0 / sea%sea_ggaer(iws)
+         rawi   = sea%sea_ggaer(iws)
 
          sst   = sea%seatc(iws)
          tw    = sea%sea_cantemp(iws) ! water surface film temperature
          wtv0  = sea%wthv(iws)
 
          if (wtv0 > 0.0) then
-            wstar = (grav * pblh(iw) * wtv0 / theta(kw,iw)) ** 0.33333333
+            wstar = (grav * pblh(iw) * wtv0 / theta(kw,iw)) ** onethird
          else
             wstar = 0.0
          endif
 
+         kviswi = EXP( 0.025 * ( tw - stdtemp ) ) / 0.017
+
          if  (sea%nlev_seaice(iws) > 0 ) then
             ustari = sea%ice_ustar(iws)
-            raice  = 1.0 / sea%ice_ggaer(iws)
+            raicei = sea%ice_ggaer(iws)
             tice   = sea%ice_cantemp(iws) ! ice surface film temperature
 
-            ! Determine the seaice liquid water mass fraction (0.0 to 0.5).
-
+            ! Determine the seaice liquid water mass fraction
             call qtk_sea( sea%seaice_energy(sea%nlev_seaice(iws),iws), xt, xm)
-            xm = MIN (xm, 0.5)
-            xm = MAX (xm, 0.0)
          endif
 
          ! Loop over species to calculate dry deposition velocities.
@@ -855,14 +813,13 @@ C-------------------------------------------------------------------------------
 
             n = n + 1
 
-!           IF ( depspc( l ) .EQ. 'SULF' ) THEN  ! Sulfate (SULF)
             IF ( l .EQ. l_sulf ) THEN  ! Sulfate (SULF)
 
          ! Sulfate calculation follows Wesely (1985), Eqn. 11.
 
-               rbsulf = 500. * ustar / (ustar**2 + 0.24 * wstar**2)
-               depvel_gas_sea( iws, n ) =  1.0 / ( raw + rbsulf )
-               
+               rbsulfi = 0.002 * (ustar**2 + 0.24 * wstar**2) / ustar
+               depvel_gas_sea( iws,n ) = rawi * rbsulfi / ( rawi + rbsulfi )
+
             else
 
          ! Use CMAQ function for calculating the effective Henry's Law
@@ -878,10 +835,8 @@ C-------------------------------------------------------------------------------
 
          ! from Hayduk and Laudie
 
-               dw25      = 13.26e-5 / ( 0.8904**1.14 * lebas( l )**0.589 )
-               kvisw     = 0.017 * EXP( -0.025 * ( tw - stdtemp ) )
-               dw        = dw25 * ( tw * rt25inK ) * ( 0.009025 / kvisw )
-               scw_pr_23 = ( ( kvisw / dw ) / pr ) ** twothirds
+               dw        = dw25( l ) * ( tw * rt25inK ) * ( 0.009025 * kviswi )
+               scw_pr_23 = d3 * ( (dw * pr * kviswi)**2 ) ** onethird
 
                if (l == l_o3) then !implement Chang et al(2004)
                   
@@ -889,8 +844,8 @@ c        pChang is a/H or alpha/H which would be 1/H in current model
 c        note that in Chang et al (2004) and Garland et al (1980) their H is Cair/Cwater with is
 c        the inverse of heff
 
-                  pChang = 1.75
-                  kwChang = d3 * ustarw / scw_pr_23
+                  pChang  = 1.75
+                  kwChang = ustarw * scw_pr_23
 
 c        If a file of chlorophyll concentrations is provided, Iodide concentration are estimated from
 c        a fit to the Rebello et al 1990 data. The slope and correlation are given in the paper
@@ -908,19 +863,20 @@ c                    Iodide in sea-water based on SST  (mol /dm-3)
                      qiodide = 0.0
                   endif
 
-                  rsurf   = 1.0 / ( pChang * kwchang + qiodide )
+                  rsurfi = pChang * kwchang + qiodide
+                  if (itab_ws(iws)%iwglobe == 16146) write(*,*) rsurfi
 
-               else  ! ozone
+               else  ! not ozone
 
-                  rsurf = scw_pr_23 / ( heff * d3 * ustarw )
+                  rsurfi = heff * ustarw * scw_pr_23
 
                endif
 
          ! Compute dry deposition velocity over sea
 
-               rbc = 5.0 / ustarw * scc_pr_23( l )
-
-               depvel_gas_sea( iws,n ) = 1.0 / ( rsurf + raw + rbc )
+               rbci = ustarw * scc_pr_23( l )
+               
+               depvel_gas_sea( iws,n ) = rsurfi * rawi * rbci / ( rsurfi * rawi + rsurfi * rbci + rawi * rbci )
 
          ! Include fractional contribution of seaice if present
                
@@ -938,20 +894,17 @@ c                    Iodide in sea-water based on SST  (mol /dm-3)
 
          ! Wet surface resistance
 
-                  rgw  = rgwet0 / heff
-            
-         ! Dry snow resistance
-
-                  rsnow = rsnow0 * a0 / ar( l )
+                  rgwi  = rgwet0i * heff
 
          ! Assume seaice behaves similarly to snowcover
-                  
-                  rsurf = 1.0 / ( (1.0 - xm) / rsnow + xm / (rsndiff + rgw) )
+
+                  rsurfi = (1.0 - xm) * csnow(l) + xm * rgwi
 
          ! Compute dry deposition velocity contribution from seaice
 
-                  rbc   = 5.0 / ustari * scc_pr_23( l )
-                  d_ice = 1.0 / ( rsurf + raice + rbc )
+                  rbci  = ustari * scc_pr_23( l )
+
+                  d_ice = rsurfi * raicei * rbci / ( rsurfi * raicei + rsurfi * rbci + raicei * rbci )
 
                   depvel_gas_sea( iws,n ) = (1.0 - sea%seaicec(iws)) * depvel_gas_sea( iws,n )
      &                                    +        sea%seaicec(iws)  * d_ice
@@ -960,16 +913,6 @@ c                    Iodide in sea-water based on SST  (mol /dm-3)
                
             endif  ! special condition for sulfate (SULF)
 
-         ! Check for negative values or NaN's
-
-            IF ( depvel_gas_sea( iws,n ) .LT. 0.0 .OR.
-     &           depvel_gas_sea( iws,n ) .NE. depvel_gas_sea( iws,n ) ) then
-
-               xmsg = 'NEGATIVE or UNDEFINED Dry Deposition Velocity for ' // trim(depspc(l))
-               call m3exit( pname, 0, 0, xmsg, xstat1 )
-
-            END IF
-            
          END DO dloops   ! (l = 1, n_spc_m3dry)
 
       enddo   ! sea
