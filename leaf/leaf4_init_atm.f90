@@ -44,7 +44,7 @@ subroutine leaf4_init_atm()
                           runtype, initial
   use mem_ijtabs,   only: itabg_w
   use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000, &
-                          grav, p00i, rocp
+                          grav, p00i, rocp, t00
   use mem_para,     only: myrank
   use leaf4_canopy, only: vegndvi
   use land_db,      only: land_database_read
@@ -63,7 +63,7 @@ subroutine leaf4_init_atm()
   integer :: nlsw1 ! maximum of (1,nlev_sfcwater)
 
   real :: timefac_ndvi
-  real :: wq, wq_added
+  real :: wq, wq_added, snowdens
   real :: psi
   real :: wcap_min   ! minimum surface water water [kg/m^2]
   real :: water_frac_ul
@@ -202,7 +202,6 @@ subroutine leaf4_init_atm()
      ! Transfer atmospheric properties to each land cell
 
      prss                = press(kw,iw) + dzt_bot(kw) * rho(kw,iw) * grav
-!    land%cantemp  (iwl) = tair(kw,iw)
      land%cantemp  (iwl) = theta(kw,iw) * (prss * p00i)**rocp
      land%canshv   (iwl) = sh_v(kw,iw)
      land%veg_temp (iwl) = land%cantemp(iwl)
@@ -237,15 +236,12 @@ subroutine leaf4_init_atm()
 
   ! Overwrite the default soil initialization with observed data if specified
 
-  if (isoilstateinit == 1) then
+  ! read sfcwater mass, soil_tempc, and soil_water from the 2 X 2.5 degree
+  ! NCEP/NCAR reanalysis in netcdf format, obtained from
+  ! ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis/surface_gauss/
+  ! call read_soil_moist_temp(soil_tempc)
 
-     ! read sfcwater mass, soil_tempc, and soil_water from the 2 X 2.5 degree
-     ! NCEP/NCAR reanalysis in netcdf format, obtained from
-     ! ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis/surface_gauss/
-
-     call read_soil_moist_temp(soil_tempc)
-
-  elseif (isoilstateinit == 2 .and. initial == 2) then
+  if (isoilstateinit > 1 .and. initial == 2) then
 
      ! read sfcwater mass, soil_tempc, and soil_water saved in the initial
      ! degribbed analysis files
@@ -256,7 +252,7 @@ subroutine leaf4_init_atm()
 
   ! Loop over all LAND cells
 
-  !$omp parallel do private(kw,iw,k,nts,wq,wq_added,wcap_min,nlsw1,rhos)
+  !$omp parallel do private(kw,iw,k,nts,wq,wq_added,snowdens,wcap_min,nlsw1,rhos)
   do iwl = 2,mwl
 
      kw = itab_wl(iwl)%kw
@@ -337,7 +333,30 @@ subroutine leaf4_init_atm()
         land%sfcwater_energy(1,iwl) = (wq + wq_added) / land%sfcwater_mass(1,iwl)
       
      endif
-   
+
+     ! Leaf classes 2 represents persistent ice/snow (icecap, glacier).
+     ! Initialize these areas with at least 100 kg/m^2 of frozen surface
+     ! water (sfcwater).
+
+     if (land%leaf_class(iwl) == 2) then
+
+        ! Add wetland sfcwater mass
+        land%sfcwater_mass(1,iwl) = min(land%sfcwater_mass(1,iwl), 100.)
+
+        ! Snow is frozen at canopy temperature
+        land%sfcwater_energy(1,iwl) = min(0., (land%cantemp(iwl) - t00) * cice)
+
+        ! Snow density calculation comes from CLM3.0 documentation,
+        ! which is based on Anderson 1975 NWS Technical Doc # 19 
+        if (land%cantemp(iwl) > 258.15) then
+           snowdens = 50.0 + 1.5 * (land%cantemp(iwl) - 258.15)**1.5
+        else
+           snowdens = 50.0
+        endif
+        land%sfcwater_depth(1,iwl) = land%sfcwater_mass(1,iwl) / snowdens
+
+     endif
+
      ! Determine active number of surface water levels
 
      wcap_min = dt_leaf * 1.e-6  ! same as in leaf4_sfcwater
@@ -385,184 +404,3 @@ subroutine leaf4_init_atm()
   enddo
 
 end subroutine leaf4_init_atm
-
-!=====================================================================
-
-subroutine read_soil_moist_temp(soil_tempc)
-
-  use misc_coms, only: io6, iyear1, imonth1, idate1, itime1
-  use leaf_coms, only: nzg, mwl, slz, slcpd, soilstate_db, &
-                       soilcp_ch, soilcp_vg, slmsts_ch, slmsts_vg
-  use mem_leaf,  only: land, itab_wl
-  use consts_coms, only: pio180, piu180, erad, cliq1000, alli1000, cice,   &
-       cice1000
-
-  implicit none
-
-  real, intent(inout) :: soil_tempc(nzg,mwl)
-
-  integer :: ilatd
-  integer :: ilond
-  integer :: i
-  real, dimension(144*73) :: soilt1 ! soil temperature, 0-10 cm
-  real, dimension(144*73) :: soilt2 ! soil temperature, 10-200cm
-  real, dimension(144*73) :: soilw1 ! soil water, 0-10 cm
-  real, dimension(144*73) :: soilw2 ! soil water, 10-200cm
-  real, dimension(144*73) :: snow ! snow depth [kg/m2]
-  integer, dimension(144*73) :: miss_flag
-  real :: latd
-  real :: lond
-  real :: best_dist
-  integer :: ilatdd
-  integer :: ilondd
-  real :: latdd
-  real :: londd
-  integer :: ii
-  real :: dist
-  integer :: iwl
-  real :: glat
-  real :: glon
-  real :: snowdens
-  integer :: k
-  integer :: ntext
-
-  ! Acquire soil temperature, moisture, and snow depth from reanalysis.
-  ! Input data is on a 2.5 x 2.5 degree grid.  Latitudes start at 90N, 
-  ! longitudes at 1.25 E.
-
-  call cdc_stw(iyear1, imonth1, idate1, itime1,   &
-       trim(soilstate_db)//char(0), soilt1, soilt2, soilw1, soilw2, snow)
-
-  ! Determine which grid cells have missing data.  
-
-  do ilatd = 1,73
-     do ilond = 1,144
-        i = 144 * (ilatd-1) + ilond
-
-        ! Make sure there are values for soil temp, moist.  There may
-        ! be nans in NCEP.
-
-        if (soilt1(i) == soilt1(i) .and. soilt2(i) == soilt2(i) .and.  &
-            soilw1(i) == soilw1(i) .and. soilw2(i) == soilw2(i)) then
-
-           if (soilt1(i) > 0.0 .and. soilt2(i) > 0.0 .and.  &
-               soilw1(i) > 0.0 .and. soilw2(i) > 0.0) then
-              miss_flag(i) = 0
-           else
-              miss_flag(i) = 1
-           endif
-        else
-           miss_flag(i) = 1
-        endif
-
-     enddo
-  enddo
-
-  ! Now fill missing data with nearest neighbor
-
-  do ilatd = 1,73
-     latd = pio180 * (92.5 - ilatd *2.5)
-     do ilond = 1, 144
-        lond = pio180 * (2.5 * ilond - 1.25)
-        i = 144 * (ilatd-1) + ilond 
-        if(miss_flag(i) == 1)then
-           ! Find nearest neighbor with viable data
-           best_dist = 1.0e30
-           do ilatdd = 1, 73
-              latdd = pio180 * (92.5 - ilatdd *2.5)
-              do ilondd = 1, 144
-                 londd = pio180 * (2.5 * ilondd - 1.25)
-                 ii = 144 * (ilatdd-1) + ilondd 
-                 ! Make sure we are comparing to a viable datum
-                 if(miss_flag(ii) == 0)then
-                    dist = sqrt((cos(latdd)*cos(londd)-cos(latd)*  &
-                         cos(lond))**2+(cos(latdd)*sin(londd)-cos(latd)* &
-                         sin(lond))**2+(sin(latd)-sin(latdd))**2)
-                    if(dist < best_dist)then
-                       best_dist = dist
-                       soilt1(i) = soilt1(ii)
-                       soilt2(i) = soilt2(ii)
-                       soilw1(i) = soilw1(ii)
-                       soilw2(i) = soilw2(ii)
-                    endif
-                 endif
-              enddo
-           enddo
-        endif
-     enddo
-  enddo
-  
-  ! Now, fill the land% arrays.
-  do ilatd = 1,73
-     do ilond = 1,144
-        i = 144 * (ilatd-1) + ilond 
-
-        ! Loop over land points
-        do iwl = 2,mwl
-           
-           ! Land point lat, lon
-
-           glat = land%glatw(iwl)
-           glon = land%glonw(iwl)
-           
-           if (glon < 0.0) glon = glon + 360.0
-           
-           ! Find reanalysis point corresponding to this land point
-
-           if (glat >= 0.0) then
-              ilatdd = nint((90.0 - glat)/2.5) + 1
-           else
-              ilatdd = 73 - nint((90.0 - abs(glat))/2.5)
-           endif
-           ilondd = int(glon/2.5) + 1
-           
-           ! If there we are at the right point, fill the array
-
-           if (ilatdd == ilatd .and. ilondd == ilond) then
-              
-              if (snow(i) > 1.0e-3 .and. snow(i) == snow(i)) then
-                 land%sfcwater_mass(1,iwl) = snow(i)
-                 land%sfcwater_energy(1,iwl) = min(0.,   &
-                      (land%cantemp(iwl) - 273.15) * cice) 
-                 ! snow density calculation comes from CLM3.0 documentation 
-                 ! which is based on Anderson 1975 NWS Technical Doc # 19 
-                 snowdens = 50.0
-                 if (land%cantemp(iwl) > 258.15) snowdens =   &
-                      50.0 + 1.5 * (land%cantemp(iwl) - 258.15)**1.5
-                 land%sfcwater_depth(1,iwl) = land%sfcwater_mass(1,iwl) / snowdens
-              endif
-
-              ! Vertical loop over soil layers
-
-              do k = 1,nzg
-                 ntext = land%ntext_soil(k,iwl)
-
-                 ! Determine if this layer corresponds to the first 
-                 ! or second 'data' layer.
-
-                 if (abs(slz(k)) < 0.1) then
-                    soil_tempc(k,iwl) = soilt1(i) - 273.15
-                    land%soil_water(k,iwl) = soilw1(i)
-                 else
-                    soil_tempc(k,iwl) = soilt2(i) - 273.15
-                    land%soil_water(k,iwl) = soilw2(i)
-                 endif
-
-                 if (land%flag_vg(iwl)) then
-                    land%soil_water(k,iwl) = max(soilcp_vg(ntext), &
-                    land%soil_water(k,iwl) * slmsts_vg(ntext))
-                 else
-                    land%soil_water(k,iwl) = max(soilcp_ch(ntext), &
-                    land%soil_water(k,iwl) * slmsts_ch(ntext))
-                 endif
-
-              enddo
-              
-           endif
-           
-        enddo
-
-     enddo
-  enddo
-
-end subroutine read_soil_moist_temp

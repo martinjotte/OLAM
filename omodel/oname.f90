@@ -97,8 +97,8 @@ subroutine copy_nl()
                          isfcl, ivegflg, nzg, nzs, slz, &
                          veg_database, soil_database, &
                          ndvi_database, iupdndvi, landusefile, &
-                         isoilstateinit, isoildepthflg, iwatertabflg, &
-                         soilstate_db, soildepth_db, watertab_db
+                         isoilstateinit, soilstate_db, &
+                         iwatertabflg, watertab_db
 
   use sea_coms,    only: isstflg, sst_database, seatmp, seafile, iupdsst, &
                          iseaiceflg, seaice_database, seaice, iupdseaice, &
@@ -155,7 +155,6 @@ subroutine copy_nl()
   ndvi_database = nl%ndvi_database
 
   soilstate_db = nl%soilstate_db
-  soildepth_db = nl%soildepth_db
   watertab_db  = nl%watertab_db
 
   ed2_active = nl%ed2_active
@@ -232,7 +231,6 @@ subroutine copy_nl()
   iseaiceflg    = nl%iseaiceflg
   isoilflg      = nl%isoilflg
   isoilstateinit= nl%isoilstateinit
-  isoildepthflg = nl%isoildepthflg
   iwatertabflg  = nl%iwatertabflg
   ndviflg       = nl%ndviflg
 

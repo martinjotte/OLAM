@@ -42,9 +42,6 @@
 #HDF5_LIBS=-L/usr/local/lib64 -lhdf5 -lz -lm
 #HDF5_INCS=-I/usr/local/include
 #
-#NETCDF_LIBS=-L/usr/local/lib64 -lnetcdf
-#NETCDF_INCS=-I/usr/local/include
-#
 #LOADER=$(F_COMP)
 #LOADER_OPTS=-v -Wl,-static $(F_OPTS)
 #LIBS=
@@ -63,20 +60,21 @@ OLAM_MPI=yes
 # If parallel hdf5 is supported, uncomment the next line
 OLAM_PARALLEL_HDF5=yes
 
-# If you use the ED2 model, uncomment the next line
+# If using the ED2 model, uncomment the next line
 #USE_ED2=yes
 
-#MPI_PATH=/usr/local/mpich
-PAR_INCS=
-PAR_LIBS=
+# If you don't use a MPI compiler wrapper script, specify MPI
+# includes and libraries here if OLAM_MPI=yes
+#PAR_INCS=-I/usr/local/mpich/include
+#PAR_LIBS=-L/usr/local/mpich/lib -lmpich
 
 # OPTIMIZED:
 F_OPTS=-xHost -O3 -fno-alias -ip -openmp -traceback
 #F_OPTS=-g -O3 -xHost -traceback
 
 # DEBUG:
-#F_OPTS=-g -fp-model precise -check bounds -traceback \
-#        -debug extended -check uninit -ftrapuv
+#F_OPTS=-g -fp-model source -check bounds -traceback -inline-level=0 \
+#        -debug extended -check pointers -check uninit -warn interfaces,unused
 
 # EXTRA OPTIONS FOR FIXED-SOURCE CODE
 FIXED_SRC_FLAGS=-fixed -132
@@ -85,18 +83,16 @@ FIXED_SRC_FLAGS=-fixed -132
 SLOW_FFLAGS=-O1 -g -no-ip -traceback
 
 C_COMP=gcc
-#C_COMP=mpicc
 C_OPTS=-O3 -DUNDERSCORE -DLITTLE
 
 NCARG_DIR=/data/local/lib
 LIBNCARG=-L$(NCARG_DIR) -lncarg -lncarg_gks -lncarg_c \
           -L/usr/lib64 -lX11 -ldl -lpng -lpthread -lgfortran
 
-HDF5_LIBS=
-HDF5_INCS=
-
-#NETCDF_LIBS=-L/usr/local/lib64 -lnetcdf
-#NETCDF_INCS=-I/usr/local/include
+# IF you don't use a HDF5 compiler wrapper script, specify HDF5
+# includes and libraries here
+#HDF5_INCS=-I/usr/local/hdf5/include
+#HDF5_LIBS=-L/usr/local/hdf5/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lz -lm
 
 LOADER=$(F_COMP)
 LOADER_OPTS=-static-intel $(F_OPTS)
@@ -106,9 +102,6 @@ LOADER_OPTS=-static-intel $(F_OPTS)
 
 # to allow ifort compiler to link with pg-compiled ncar graphics:
 # LIBS=-z muldefs -L/opt/pgi/linux86-64/5.2/lib -lpgftnrtl -lpgc
-
-## IMPORTANT:  Need to specify this flag in ED2
-USE_HDF5=1
 
 #----------------- IBM xlf/xlc ---------------------------------
 #F_COMP=xlf95_r       # without MPI
@@ -160,9 +153,6 @@ USE_HDF5=1
 #
 #HDF5_LIBS=-L/contrib/hdf5/lib64/r4i4 -lhdf5 -lsz -lz
 #HDF5_INCS=-I/contrib/hdf5/include/hdf5-64
-#
-#NETCDF_LIBS=-L/usr/local/apps/netcdf-3.6.2/lib -lnetcdf
-#NETCDF_INCS=-I/usr/local/apps/netcdf-3.6.2/include
 #
 #LOADER=$(F_COMP)
 #LOADER_OPTS=$(F_OPTS)

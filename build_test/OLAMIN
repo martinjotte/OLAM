@@ -418,14 +418,10 @@
    NL%ISEAICEFLG = 1      ! 1 -- read data from standard database file
                           ! 2 -- read from degribbed analysis files
  
-   NL%ISOILSTATEINIT = 0  ! 0 -- default initialization based on landuse
-                          ! 1 -- read from NCEP/NCAR netcdf reanalysis
-                          ! 2 -- read from initial analysis files
+   NL%ISOILSTATEINIT = 0  ! 0   -- default initialization based on landuse
+                          ! 1,2 -- read from degribbed analysis file
 
-   NL%ISOILDEPTHFLG  = 0  ! 0 -- use NZG, SLZ for each grid cell
-                          ! 1 -- read file to get soil depth for each grid cell
-
-   NL%IWATERTABFLG   = 1  ! 0 -- use default for each landuse class
+   NL%IWATERTABFLG   = 0  ! 0 -- use default for each landuse class
                           ! 1 -- read from file
 
  ! Surface database file paths and names

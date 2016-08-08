@@ -84,7 +84,6 @@ Module leaf_coms
   character(pathlen) :: soil_database
   character(pathlen) :: ndvi_database
   character(pathlen) :: soilstate_db
-  character(pathlen) :: soildepth_db
   character(pathlen) :: watertab_db
 
   integer            :: nndvifiles, indvifile
@@ -99,7 +98,6 @@ Module leaf_coms
   integer :: iupdndvi
 
   integer :: isoilstateinit
-  integer :: isoildepthflg
   integer :: iwatertabflg
 
   integer :: nzg      ! # of soil layers
