@@ -31,7 +31,7 @@ CONTAINS
      use mem_basic,   only: wmc, vmc, theta, tair, press, rho, sh_v, &
                             vxe, vye, vze
      use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
-                            qwcon
+                            qwcon, iactcu
 
      implicit none
 
@@ -353,8 +353,6 @@ CONTAINS
      pr_ens = 0.0
      sub_mas = 0.0
 
-     cbmf(iw) = 0.0
-
      call  CUP_enss_3d(iw,OUTQC,J,AAEQ,T,Q,Z1,sub_mas,                    &
               TN,QO,PO,PRE,P,OUTT,OUTQ,DTIME,ktau,tkmax,PSUR,US,VS,    &
               TCRIT,tx,qx,                                             &
@@ -373,8 +371,8 @@ CONTAINS
 
         kcutop(iw) = ktop (1) + ka - 1
         kcubot(iw) = kbcon(1) + ka - 1
-
-        cbmf(iw) = xmb(1)
+        iactcu(iw) = 1
+        cbmf  (iw) = xmb(1)
 
         do kc = 1, ktf
            k  = kc + ka - 1
@@ -413,8 +411,8 @@ CONTAINS
 
         kcutop(iw) = ktop3 (1) + ka - 1
         kcubot(iw) = kbcon3(1) + ka - 1
-
-        cbmf(iw) = xmb3(1)
+        iactcu(iw) = 1
+        cbmf  (iw) = xmb3(1)
 
         ! Slightly modify tendencies to ensure heat and moisture conservation
 
@@ -1008,11 +1006,11 @@ CONTAINS
            endif
          endif
       enddo
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !    NEXT section for shallow convection
 !
-      if(ishallow_g3.eq.1)then
-!     write(0,*)'now do shallow for j = ',j
+      if (ishallow_g3.eq.1 .and. ierr(1) .ne. 0) then
 
       call cup_env(iw,z3,qes3,he3,hes3,tshall,qshall,po,z1, &
            psur,ierr5,tcrit,0,xl,cp,   &

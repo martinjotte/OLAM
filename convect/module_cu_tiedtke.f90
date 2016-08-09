@@ -76,7 +76,7 @@ CONTAINS
 
    use mem_grid,    only: mza, lpv, lpw, zt, xew, yew, zew, arv, arw, volt
    use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc, &
-                          kcubot, kcutop, cbmf, qwcon
+                          kcubot, kcutop, cbmf, qwcon, iactcu
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, &
                           vmc, wmc
    use mem_turb,    only: frac_land, sfluxt, sfluxr, fqtpbl
@@ -278,8 +278,6 @@ CONTAINS
    psdiss = 0.0
    psmelt = 0.0
 
-   cbmf(iw) = 0.0
-
    ! Tiedtke convective parameterization for one IW column
 
    CALL CUMASTR_NEW(                                   &
@@ -299,8 +297,8 @@ CONTAINS
 
       kcutop(iw) = mza - ictop + 1
       kcubot(iw) = mza - icbot + 1
-
-      cbmf(iw) = zmfu(icbot)
+      iactcu(iw) = 1
+      cbmf  (iw) = zmfu(icbot)
 
       do k = ka, mza
          kt = mza + 1 - k

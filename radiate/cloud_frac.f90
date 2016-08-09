@@ -1,4 +1,4 @@
-subroutine get_cloud_frac(iw, ka, frac, iconv, ideep)
+subroutine get_cloud_frac(iw, ka, frac)
 
   use mem_grid,    only: mza, zm, zt, glatw, glonw, dzt, dzim
   use misc_coms,   only: icfrac, cfracrh1, cfracrh2, cfraccup
@@ -6,7 +6,7 @@ subroutine get_cloud_frac(iw, ka, frac, iconv, ideep)
   use mem_basic,   only: rho, tair, sh_v, sh_w
   use misc_coms,   only: nqparm
   use mem_ijtabs,  only: itab_w
-  use mem_cuparm,  only: kcutop, kcubot, cbmf, qwcon, conprr
+  use mem_cuparm,  only: iactcu, kcubot, kcutop, qwcon, conprr
   use mem_turb,    only: frac_land
   use mem_micro,   only: sh_c, sh_p
   use clouds_gno,  only: cu_cldfrac
@@ -16,8 +16,6 @@ subroutine get_cloud_frac(iw, ka, frac, iconv, ideep)
   integer, intent(in)    :: iw
   integer, intent(in)    :: ka
   real   , intent(inout) :: frac(mza)
-  logical, intent(out)   :: iconv
-  logical, intent(out)   :: ideep
 
   real    :: rhov (mza)       ! vapor density [kg_vap/m^3]
   real    :: rhoc (mza)       ! bulk cloud water density [kg_cld/m^3]
@@ -171,25 +169,12 @@ subroutine get_cloud_frac(iw, ka, frac, iconv, ideep)
 
   endif
 
-! Determine if subgrid convection is active and the type (shallow or deep)
-
-  iconv = .false.
-  ideep = .false.
   qsub(:) = 0.0
- 
-  mrlw = itab_w(iw)%mrlw
 
-  if (nqparm(mrlw) > 0) then
-     if (cbmf(iw) > 1.e-12 .and. kcubot(iw) >= ka) then
-        iconv = .true.
-        ideep = (conprr(iw) > 1.e-12)
-     endif
-  endif
+  ! If there is subgrid convection, modify the estimated cloud fraction to include
+  ! the convective clouds from the cumulus scheme
 
-! If there is subgrid convection, modify the estimated cloud fraction to include
-! the convective clouds from the cumulus scheme
-
-  if (iconv) then
+  if (iactcu(iw) == 1) then
 
      ! This section estimates the cloud fraction from subgrid cumulus and 
      ! any resolved clouds based on a lookup table of the scheme of 
@@ -218,28 +203,24 @@ subroutine get_cloud_frac(iw, ka, frac, iconv, ideep)
         frac(k) = max( min(cu_cldf(k), 0.99), 0.01 )
      enddo
 
-     ! If there is deep convection, include subgrid clouds below convective
-     ! cloud base
+     if (conprr(iw) > 1.e-12) then
 
-     if (ideep) then
+        ! If there is deep (precipitating) convection, 
+        ! include subgrid clouds below convective cloud base
+
         do k = ka, kcubot(iw) -1
            frac(k) = max(frac(k), frac(kcubot(iw)))
         enddo
-     endif
 
-     ! If there is deep convection, limit the resolved cloud fraction below and just
-     ! above the cumulus to create some breaks
+        ! If there is deep convection, limit the resolved cloud fraction 
+        ! below and just above the cumulus to create some breaks
 
-     if (ideep) then
         do k = ka, kcubot(iw) - 1
            frac(k) = min(frac(k), cfraccup)
         enddo
         frac(kcutop(iw)+1) = min(frac(k), cfraccup)
-     endif
 
-     ! TODO: Add an option to use the CAM scheme that estimates and combines 
-     ! resolved and subgrid cloud fractions based on the convective updraft 
-     ! velocity. Also add an option to turn off fractional clouds (0 or 1)
+     endif
 
   endif
 

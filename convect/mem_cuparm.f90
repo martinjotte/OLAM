@@ -47,6 +47,7 @@ Module mem_cuparm
    real,    allocatable, target :: cbmf  (:)
    integer, allocatable, target :: kcutop(:)
    integer, allocatable, target :: kcubot(:)
+   integer, allocatable, target :: iactcu(:)
 
 Contains
 
@@ -87,7 +88,9 @@ Contains
        allocate(kcubot(mwa)) ; kcubot = -1
 
     endif
-       
+
+    allocate(iactcu(mwa)) ; iactcu = 0
+
   end subroutine alloc_cuparm
 
 !===============================================================================
@@ -103,6 +106,7 @@ Contains
     if (allocated(cbmf))    deallocate (cbmf)
     if (allocated(kcutop))  deallocate (kcutop)
     if (allocated(kcubot))  deallocate (kcubot)
+    if (allocated(iactcu))  deallocate (iactcu)
     if (allocated(vxsrc))   deallocate (vxsrc)
     if (allocated(vysrc))   deallocate (vysrc)
     if (allocated(vzsrc))   deallocate (vzsrc)
@@ -131,6 +135,8 @@ Contains
      if (allocated(kcutop)) call increment_vtable('KCUTOP','AW', ivar1=kcutop)
 
      if (allocated(kcubot)) call increment_vtable('KCUBOT','AW', ivar1=kcubot)
+
+     if (allocated(iactcu)) call increment_vtable('IACTCU','AW', ivar1=iactcu)
 
      if (allocated(vxsrc))  call increment_vtable('VXSRC', 'AW', rvar2=vxsrc)
 

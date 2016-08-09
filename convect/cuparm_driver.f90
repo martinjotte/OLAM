@@ -42,7 +42,7 @@ subroutine cuparm_driver()
                               dtlong, mstp, runtype
   use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
   use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc, &
-                              kcutop, kcubot, qwcon
+                              kcutop, kcubot, qwcon, iactcu, cbmf
   use mem_tend,         only: thilt, sh_wt, vmxet, vmyet, vmzet
   use mem_basic,        only: rho, sh_w
   use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
@@ -95,9 +95,11 @@ subroutine cuparm_driver()
            vzsrc(:,iw) = 0.0
         endif
 
-        conprr(iw) = 0.0
+        conprr(iw) =  0.0
         kcutop(iw) = -1
         kcubot(iw) = -1
+        iactcu(iw) =  0
+        cbmf  (iw) =  0.0
      enddo
      !$omp end parallel do
 
@@ -153,7 +155,7 @@ subroutine cuparm_driver()
 
         if ( nl%conv_uv_mix > 0 .and. nqparm(mrlw) /= 0 .and. &
              nqparm(mrlw) /= 1  .and. nqparm(mrlw) /= 4 .and. &
-             nqparm(mrlw) /= 5 ) then
+             nqparm(mrlw) /= 5  .and. iactcu(iw) == 1 ) then
 
            call acmcld_uvmix(iw, dtlong4)
 
@@ -192,14 +194,13 @@ subroutine cuparm_driver()
   mrl = mrl_begl(istp)
   if (mrl > 0) then
 
-     !$omp parallel do private(iw,mrlw,qadd,k,qtest,dq,rt,qpos,fact)
+     !$omp parallel do private(iw,qadd,k,qtest,dq,rt,qpos,fact)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
         ! Skip if no convection in this column
 
-        mrlw = itab_w(iw)%mrlw
-        if (nqparm(mrlw) < 1) cycle
+        if (iactcu(iw) /= 1) cycle
 
         ! Slight adjustment of water vapor tendencies to ensure that
         ! convection does not produce negative sh_w. This may happen

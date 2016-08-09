@@ -71,7 +71,7 @@ CONTAINS
                            vxe, vye, vze
     use oname_coms,  only: nl
     use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
-                           qwcon, vxsrc, vysrc, vzsrc
+                           qwcon, vxsrc, vysrc, vzsrc, iactcu
     implicit none
 
     integer, intent(in)  :: iw
@@ -293,8 +293,6 @@ CONTAINS
     ktop = 0
     cupclw = 0.0
 
-    cbmf(iw) = 0.0
-
     outt (1,:) = 0.0
     outq (1,:) = 0.0
     outqc(1,:) = 0.0
@@ -315,8 +313,8 @@ CONTAINS
 
        kcutop(iw) = ktop (1) + ka - 1
        kcubot(iw) = kbcon(1) + ka - 1
-
-       cbmf(iw) = xmb(1)
+       iactcu(iw) = 1
+       cbmf  (iw) = xmb(1)
 
        do kc = 1, ktf
           k  = kc + ka - 1
@@ -403,8 +401,8 @@ CONTAINS
 
           kcutop(iw) = ktop (1) + ka - 1
           kcubot(iw) = kbcon(1) + ka - 1
-
-          cbmf(iw) = xmb(1)
+          iactcu(iw) = 1
+          cbmf  (iw) = xmb(1)
 
           ! Slightly modify tendencies to ensure heat and moisture conservation
 

@@ -34,7 +34,8 @@ CONTAINS
 
    use mem_grid,    only: mza, lpw, zt, dzt, xew, yew, zew, arw0
    use misc_coms,   only: io6
-   use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, qwcon
+   use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
+                          qwcon, iactcu
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc
    use mem_ijtabs,  only: itab_w
    use consts_coms, only: erad
@@ -127,8 +128,6 @@ CONTAINS
       enddo
    enddo
 
-   cbmf(iw) = 0.0
-
    CALL KF_eta_PARA(mza,IW,io6,kte, &
       U1D,V1D,T1D,QV1D,P1D,DZ1D,W0AVG1D,    &
       DT,DX,DXSQ,RHO1D,                     &
@@ -140,8 +139,8 @@ CONTAINS
 
       kcutop(iw) = cutop + lpw(iw) - 1
       kcubot(iw) = cubot + lpw(iw) - 1
-
-      cbmf(iw) = massflx(cubot) / dxsq
+      iactcu(iw) = 1
+      cbmf  (iw) = massflx(cubot) / dxsq
       
       do kt = 1, kte
          k  = kt + lpw(iw) - 1

@@ -13,7 +13,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          par, par_diffuse, uva, uvb, uvc, pbl_cld_forc
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab, &
                          emb2, level
-  use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr
+  use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr, iactcu
   use rrtmg_cloud, only: cloud_props
   use mem_turb,    only: frac_land, kpblh
   use mem_mclat,   only: rad_mclat
@@ -158,7 +158,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: r_ef, dmean, watp, twc, prate
 
   real :: frac(mza)
-  logical :: iconv, ideep, dosnow
+  logical :: dosnow
 
   real, external :: rhovsl, rhovsi
 
@@ -305,7 +305,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 ! The cloud fraction estimated here will only be applied later in this routine
 ! if there are any resolved hydrometeors or subgrid cumulus
 
-  call get_cloud_frac(iw, ka, frac, iconv, ideep)
+  call get_cloud_frac(iw, ka, frac)
 
 ! Get optical properties of resolved clouds
 
@@ -339,7 +339,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   ! Include the optical properties of subgrid convective clouds
 
-  if ( iconv ) then
+  if (iactcu(iw) == 1) then
+
      do k = kcubot(iw), kcutop(iw)
         krad = k - koff
 
@@ -385,82 +386,82 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
         call lookup_rrtmg_cld_optics( l, r_ef, watp, krad )
 
      enddo
-  endif
 
-  ! Now include the optical properties of convective rain/snow
+     ! Also include the optical properties of convective rain/snow
 
-  if (ideep) then
+     if (conprr(iw) > 1.e-10) then
 
-     prate = conprr(iw) * 3600.0          ! precip rate mm / hr
-     twc   = 0.06 * prate**0.846 / 1000.0 ! tot wat cont kg / m3
+        ! Estimate rain/snow from parameterization used in EPA's CMAQ model
 
-     ! if entire cloud is below freezing, map to snow
-     dosnow = all(tair(kcubot(iw):kcutop(iw),iw) < 273.)
+        prate = conprr(iw) * 3600.0          ! precip rate: mm / hr
+        twc   = 0.06 * prate**0.846          ! tot wat: g / m3
+        watp  = twc * dzt(k)                 ! water/ice path: g / m^2
+        watp  = watp / max( frac(k), 0.2 )   ! scale by cloud fraction
 
-     do k = ka, kcutop(iw)
-        krad = k - koff
+        ! if entire cloud is below freezing, map to snow
+        dosnow = all(tair(kcubot(iw):kcutop(iw),iw) < 273.)
 
-        tc = tair(k,iw) - t00
+        do k = ka, kcutop(iw)
+           krad = k - koff
 
-        ! Set lower bound on frac(k) because there is condensate
-        frac(k)       = max( frac(k), 0.1)
-        cldfr(1,krad) = frac(k)
+           tc = tair(k,iw) - t00
 
-        if (level > 2) then
+           ! Set lower bound on frac(k) because there is condensate
+           frac(k)       = max( frac(k), 0.1)
+           cldfr(1,krad) = frac(k)
 
-           if (dosnow) then
+           if (level > 2) then
 
-              if (tc > 0.0) then
-                 ! rain
-                 mc = 2
-                 ih = 2
+              if (dosnow) then
+
+                 if (tc > 0.0) then
+                    ! rain
+                    mc = 2
+                    ih = 2
+                 else
+                    ! snow
+                    mc = 4
+                    rh = min( 1., rhov(k) / rhovsl(tc) )
+                    ns = max( 1, nint(100. * rh) )
+                    nt = max( 1, min(31,-nint(tc)) )
+                    ih = jhabtab(nt,ns,2)
+                 endif
+
               else
-                 ! snow
-                 mc = 4
-                 rh = min( 1., rhov(k) / rhovsl(tc) )
-                 ns = max( 1, nint(100. * rh) )
-                 nt = max( 1, min(31,-nint(tc)) )
-                 ih = jhabtab(nt,ns,2)
+
+                 if (tc > -10.) then
+                    ! rain
+                    mc = 2
+                    ih = 2
+                 else
+                    ! hail
+                    mc = 7
+                    ih = 7
+                 endif
+ 
               endif
+
+              ! cloud optics category
+              l  = kradcat(ih)
+
+              ! effective radius in microns
+              r_ef = 1.e6 * reffcof(ih) * emb2(mc) ** pwmasi(ih)
 
            else
 
-              if (tc > -10.) then
-                 ! rain
-                 mc = 2
-                 ih = 2
-              else
-                 ! hail
-                 mc = 7
-                 ih = 7
-              endif
+              ! With no microphysics, just map convective precip to rain
+              l = 2
+              r_ef = 1000.0
 
            endif
-
-           ! cloud optics category
-           l  = kradcat(ih)
-
-           ! effective radius in microns
-           r_ef = 1.e6 * reffcof(ih) * emb2(mc) ** pwmasi(ih)
-
-        else
-
-           ! With no microphysics, just map convective precip to rain
-           l = 2
-           r_ef = 1000.0
-
-        endif
-
-        ! water path in g/m^2
-        watp = twc * 1000. * dzt(k)
-        watp = watp / max( frac(k), 0.2 )
            
-        call lookup_rrtmg_cld_optics( l, r_ef, watp, krad )
+           call lookup_rrtmg_cld_optics( l, r_ef, watp, krad )
 
-     enddo
+        enddo
 
-  endif
+     endif  ! convective rain/snow
 
+  endif  ! convective clouds
 
   ! Save cloud fraction in 3D variable for output or plotting
 

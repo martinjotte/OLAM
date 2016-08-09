@@ -26,7 +26,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   use mem_basic,   only: theta, tair, press, rho, sh_v, vxe, vye, vze
   use consts_coms, only: t00, grav, eradi
   use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc, &
-                         kcutop, kcubot, qwcon
+                         kcutop, kcubot, qwcon, iactcu
   use oname_coms,  only: nl
 
   implicit none
@@ -120,7 +120,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
 
      kcutop(iw) = kctop  + ka - 1
      kcubot(iw) = kcbase + ka - 1
-
+     iactcu(iw) = 1
      conprr(iw) = pcprate
 
      do kc = 1, nd
