@@ -62,7 +62,7 @@ subroutine pbl_driver(mrl)
 ! Loop over all W/T points where PBL parameterization may be done
 
 !----------------------------------------------------------------------
-  !$omp parallel do private(iw,mrlw,ka,k,qc,thlv,moli,vkh,vkm)
+  !$omp parallel do private(iw,mrlw,ka,k,qc,thlv,moli)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 

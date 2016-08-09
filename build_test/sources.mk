@@ -218,6 +218,18 @@ SOURCE_FILES= \
              $(TEST_CASES)/mem_swtc5_refsoln_cubic.f90 \
              $(TEST_CASES)/swtc_init.f90 \
              $(TEST_CASES)/diagn_global_swtc.F90 \
+             $(TEST_CASES)/dcmip_initial_conditions_test_1_2_3_v5.f90 \
+             $(TEST_CASES)/dcmip_initial_conditions_test_4_v2_1.f90 \
+             $(TEST_CASES)/test2xdeep.f90 \
+             $(TEST_CASES)/test41alt.f90 \
+             $(TEST_CASES)/DCMIP2016/baroclinic_wave_test.f90 \
+             $(TEST_CASES)/DCMIP2016/diagn_global_dcmip.F90 \
+             $(TEST_CASES)/DCMIP2016/kessler.f90 \
+             $(TEST_CASES)/DCMIP2016/olam_dcmip3.f90 \
+             $(TEST_CASES)/DCMIP2016/dcmip_physics_z_v1.f90 \
+             $(TEST_CASES)/DCMIP2016/supercell_test.f90 \
+             $(TEST_CASES)/DCMIP2016/Terminator.f90 \
+             $(TEST_CASES)/DCMIP2016/tropical_cyclone_test.f90 \
              $(CMAQ)/AERO_DATA.F \
              $(CMAQ)/aero_depv.F \
              $(CMAQ)/aero_driver.F \

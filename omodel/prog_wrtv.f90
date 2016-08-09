@@ -40,18 +40,21 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, istp, itab_w, jtab_m, itab_m, &
                         mrl_begl, mrl_begs, mrl_ends, &
                         jtm_vadj, jtv_prog, jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp
-use mem_basic,    only: rho, thil, wc, press, vmp, vmc, vp, vc, &
+use mem_basic,    only: rho, thil, theta, wc, wmc, press, vmp, vmc, vp, vc, &
                         vxe, vye, vze, vxe2, vye2, vze2, &
                         strict_wvt_donorpoint
 use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, &
                         dzim, zfact, zfacit, zfacim, dnv, dniv, dnu, &
-                        arm0, vnx, vny, vnz, c1, c2
-use mem_tend,     only: vmt, vmxet, vmyet, vmzet, sh_wt
-use misc_coms,    only: iparallel, time8, dtlm, rinit
+                        arm0, vnx, vny, vnz, c1, c2, wnxo2, wnyo2, wnzo2
+use mem_tend,     only: thilt, vmt, wmt, vmxet, vmyet, vmzet, sh_wt
+use misc_coms,    only: iparallel, time8, dtlm, rinit, initial, dn01d, th01d, &
+                        deltax, nxp, mdomain
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
 use oplot_coms,   only: op
 use obnd,         only: lbcopy_m, lbcopy_w
-use mem_rayf,     only: dorayfdiv, krayfdiv_bot
+use mem_rayf,     only: dorayf, dorayfw, dorayfdiv, krayfdiv_bot, &
+                        rayf_cof, rayf_cofw, krayf_bot, krayfw_bot
+
 use vel_t3d,      only: vel_t3d_hex
 use oname_coms,   only: nl
 use mem_adv,      only: dxps_w, dyps_w, dzps_w, &
@@ -79,7 +82,7 @@ real, intent(inout) :: vzesc(mza,mwa)
 real, intent(in)    :: alpha_press(mza,mwa)
 real, intent(inout) :: rhot       (mza,mwa)
 
-integer :: j, iv, k, kb, mrl, kbv, kd
+integer :: j, iv, k, ka, kb, mrl, kbv, kd
 integer :: iw, iw1, iw2
 
 ! automatic arrays
@@ -117,6 +120,7 @@ integer :: jm
 real :: vort_big1,vort_big2
 real :: arm0i
 real, parameter :: onethird = 1./3.
+real    :: fracx, rayfx
 
 logical :: rotational
 
@@ -141,20 +145,88 @@ vmcf(:,1) = 0.
 mrl = mrl_begl(istp)
 if (mrl > 0) then
 
-! Horizontal loop over W columns for BEGL
+   ! Horizontal loop over W columns for BEGL
 
-!----------------------------------------------------------------------
-   !$omp parallel do private(iw,k) 
+   !----------------------------------------------------------------------
+   !$omp parallel do private(iw,ka,k) 
    do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-!----------------------------------------------------------------------
+   !----------------------------------------------------------------------
 
-! Include moisture changes in total density tendency
+      ka = lpw(iw)
 
-      do k = lpw(iw), mza
+      ! Vertical loop over T levels
+
+      do k = ka, mza
+
+         ! Include moisture changes in total density tendency
+
          rhot(k,iw) = rhot(k,iw) + sh_wt(k,iw)
+
+         ! Include density changes to conserve momentum
+
+         vmxet(k,iw) = vmxet(k,iw) + vxe(k,iw) * rhot(k,iw)
+         vmyet(k,iw) = vmyet(k,iw) + vye(k,iw) * rhot(k,iw)
+         vmzet(k,iw) = vmzet(k,iw) + vze(k,iw) * rhot(k,iw)
+
       enddo
 
-      call prog_wrt_begl(iw,rhot)
+      ! Vertical loop over W levels
+
+      do k = ka,mza-1
+
+         ! Update WM tendency from turbulent fluxes
+
+         wmt(k,iw) = wmt(k,iw)                                   &
+                   + ( wnxo2(iw) * (vmxet(k,iw) + vmxet(k+1,iw)) &
+                     + wnyo2(iw) * (vmyet(k,iw) + vmyet(k+1,iw)) &
+                     + wnzo2(iw) * (vmzet(k,iw) + vmzet(k+1,iw)) )
+      enddo
+
+      ! RAYLEIGH FRICTION ON WM
+
+      if (dorayfw) then
+
+      !! SPECIAL - EXTRA RAYF AT ENDS OF CYCLIC DOMAIN
+      !! fracx = abs(xew(iw)) / (real(nxp-1) * .866 * deltax) ! ENDS OF CYC DOMAIN
+      !! rayfx = .2 * (-2. + 3. * fracx) * rayf_cofw(mza-1)
+      !! rayfx = 0.   ! Default: no extra RAYF
+      !! do k = ka, mza-1
+      !!    wmt(k,iw) = wmt(k,iw) - max(rayf_cofw(k),rayfx) * wmc(k,iw)
+      !! enddo
+      !! END SPECIAL
+
+         do k = krayfw_bot, mza-1
+            wmt(k,iw) = wmt(k,iw) - rayf_cofw(k) * wmc(k,iw)
+         enddo
+
+      endif ! (dorayfw)
+
+      ! RAYLEIGH FRICTION ON THIL
+
+      if (dorayf) then
+
+         if (initial == 1) then   ! HHI case
+
+            !! SPECIAL - EXTRA RAYF AT ENDS OF CYCLIC DOMAIN
+            !!    fracx = abs(xew(iw)) / (real(nxp-1) * .866 * deltax) ! ENDS OF CYC DOMAIN
+            !!    rayfx = .2 * (-2. + 3. * fracx) * rayf_cof(mza)
+            !!    rayfx = 0.   ! Default: no extra RAYF
+            !!    do k = ka, mza
+            !!       thilt(k,iw) = thilt(k,iw) + max(rayf_cof(k),rayfx)  & 
+            !!                   * dn01d(k) * (th01d(k) - theta(k,iw))
+            !!    enddo
+            !! END SPECIAL
+
+            do k = krayf_bot, mza
+               thilt(k,iw) = thilt(k,iw) &
+                           + rayf_cof(k) * dn01d(k) * (th01d(k) - theta(k,iw))
+            enddo
+
+         else                     ! LHI/VARI case
+            ! Need implementation for LHI/VARI (use vartp for merid. variation?)
+         endif
+
+      endif ! (dorayf)
 
    enddo
    !$omp end parallel do
@@ -724,7 +796,7 @@ endif
 !----------------------------------------------------------------------
 mrl = mrl_begs(istp)
 if (mrl > 0) then
-!$omp parallel do private(iw,ksw) 
+!$omp parallel do private(iw) 
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -781,104 +853,6 @@ if (strict_wvt_donorpoint) then
 endif
 
 end subroutine prog_wrtv
-
-!=========================================================================
-
-subroutine prog_wrt_begl(iw,rhot)
-
-! This version includes turbulent fluxes of VXE, VYE, VZE through V faces
-! Vertical mixing is computed in subroutine pbl_driver
-
-! All diffusive tendencies are evaluated at T points
-
-use mem_tend,    only: thilt, wmt, vmxet, vmyet, vmzet
-use mem_basic,   only: wmc, theta, vxe, vye, vze
-use misc_coms,   only: initial, dn01d, th01d, &
-                       deltax, nxp, mdomain
-use mem_grid,    only: mza, mwa, lpw, wnxo2, wnyo2, wnzo2
-use mem_rayf,    only: rayf_cof, rayf_cofw, dorayf, dorayfw, krayf_bot, krayfw_bot
-
-implicit none
-
-integer, intent(in) :: iw
-real,    intent(in) :: rhot(mza,mwa)
-
-integer :: k, ka
-real    :: fracx, rayfx
-
-ka = lpw(iw)
-
-! Vertical loop over T levels
-
-do k = ka,mza
-
-! Include density changes to conserve momentum
-
-   vmxet(k,iw) = vmxet(k,iw) + vxe(k,iw) * rhot(k,iw)
-   vmyet(k,iw) = vmyet(k,iw) + vye(k,iw) * rhot(k,iw)
-   vmzet(k,iw) = vmzet(k,iw) + vze(k,iw) * rhot(k,iw)
-
-enddo
-
-! Vertical loop over W levels
-
-do k = ka,mza-1
-
-! Update WM tendency from turbulent fluxes
-
-   wmt(k,iw) = wmt(k,iw)                                   &
-             + ( wnxo2(iw) * (vmxet(k,iw) + vmxet(k+1,iw)) &
-               + wnyo2(iw) * (vmyet(k,iw) + vmyet(k+1,iw)) &
-               + wnzo2(iw) * (vmzet(k,iw) + vmzet(k+1,iw)) )
-enddo
-
-! RAYLEIGH FRICTION ON WM
-
-if (dorayfw) then
-
-!! SPECIAL - EXTRA RAYF AT ENDS OF CYCLIC DOMAIN
-!! fracx = abs(xew(iw)) / (real(nxp-1) * .866 * deltax) ! ENDS OF CYC DOMAIN
-!! rayfx = .2 * (-2. + 3. * fracx) * rayf_cofw(mza-1)
-!! rayfx = 0.   ! Default: no extra RAYF
-!! do k = ka, mza-1
-!!    wmt(k,iw) = wmt(k,iw) - max(rayf_cofw(k),rayfx) * wmc(k,iw)
-!! enddo
-!! END SPECIAL
-
-   do k = krayfw_bot, mza-1
-      wmt(k,iw) = wmt(k,iw) - rayf_cofw(k) * wmc(k,iw)
-   enddo
-
-endif ! (dorayfw)
-
-! RAYLEIGH FRICTION ON THIL
-
-if (dorayf) then
-
-   if (initial == 1) then   ! HHI case
-
-!! SPECIAL - EXTRA RAYF AT ENDS OF CYCLIC DOMAIN
-!!    fracx = abs(xew(iw)) / (real(nxp-1) * .866 * deltax) ! ENDS OF CYC DOMAIN
-!!    rayfx = .2 * (-2. + 3. * fracx) * rayf_cof(mza)
-!!    rayfx = 0.   ! Default: no extra RAYF
-!!    do k = ka, mza
-!!       thilt(k,iw) = thilt(k,iw) + max(rayf_cof(k),rayfx)  & 
-!!                   * dn01d(k) * (th01d(k) - theta(k,iw))
-!!    enddo
-!! END SPECIAL
-
-      do k = krayf_bot, mza
-         thilt(k,iw) = thilt(k,iw) + &
-                       rayf_cof(k) * dn01d(k) * (th01d(k) - theta(k,iw))
-      enddo
-
-   else                     ! LHI/VARI case
-! Need implementation for LHI/VARI (use vartp for merid. variation?)
-   endif
-
-endif ! (dorayf)
-
-end subroutine prog_wrt_begl
 
 !=========================================================================
 
@@ -948,14 +922,18 @@ real, parameter :: pc2 = fp * cpocv
 
 ! Automatic arrays
 
-real :: wmarw        (mza)
-real :: del_wmarw    (mza)
+real(r8) :: wmarw    (mza)
+real(r8) :: del_wmarw(mza)
+real(r8) :: hflux_rho(mza)
+real(r8) :: delex_rho(mza)
+real(r8) :: rhothil  (mza)
+real(r8) :: press_t  (mza)
+
 real :: delex_wm     (mza)
 real :: delex_rhothil(mza)
 real :: del_wm       (mza)
 real :: fwdel_wm     (mza)
 
-real :: hflux_rho(mza)
 real :: hflux_thil(mza)
 real :: hflux_vxe(mza)
 real :: hflux_vye(mza)
@@ -965,10 +943,6 @@ real :: vflux_thil(mza)
 real :: vflux_vxe(mza)
 real :: vflux_vye(mza)
 real :: vflux_vze(mza)
-
-real(r8) :: delex_rho(mza)
-real(r8) :: rhothil  (mza)
-real(r8) :: press_t  (mza)
 
 real :: b1(mza),b2(mza),b3(mza),b5(mza),b6(mza),b10(mza)
 real :: b7(mza),b8(mza),b9(mza),b11(mza),b12(mza),b13(mza),b14(mza)

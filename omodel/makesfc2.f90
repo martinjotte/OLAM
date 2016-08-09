@@ -404,7 +404,6 @@ subroutine makesfc2()
 
 ! Initialize leaf_class
 
-
   if (ivegflg == 2) then
 
 ! If ivegflg == 2, fill sea/land cell areas and IW values, plus
@@ -596,8 +595,20 @@ end subroutine makesfc2
 
 subroutine topo_init(nqa,topq,glatq,glonq,xeq,yeq,zeq)
 
+! Subroutine topo_init fills the TOPQ array with topography height.  TOPQ and
+! its corresponding horizontal coordinates (GLATQ, GLONQ) or (XEQ, YEQ, ZEQ)
+! are composite arrays that include both M and W horizontal stagger points
+! in the OLAM hexagonal grid.
+
 use misc_coms,   only: io6, deltax
-use consts_coms, only: pi1, pio180
+use consts_coms, only: pi1, pio180, grav
+
+use oname_coms, only: nl
+
+use dcmip_initial_conditions_test_1_2_3, only: &
+   test1_advection_orography, &
+   test2_steady_state_mountain, &
+   test2_schaer_mountain
 
 implicit none
 
@@ -611,54 +622,145 @@ integer :: iq
 real :: hfwid
 real :: hgt
 real :: hfwid2
+real :: hoffset
 
 real :: r, r0
 
-! Fill the TOPQ array with a default value of 0 or modify it as desired.
-! If itopoflg is set to 1, these values will be overridden in the call to
-! topo_database, which inputs a standard OLAM topography dataset.
+!-------------------------------------------------------------------
+! Variables for NCAR DCMIP 2012 TEST CASES
 
-topq(:) = 0.
+real(8) :: zm0, rhom0, u0, v0, wm0
+real(8) :: lon,lat,p,t,phis,ps,q,q1,q2,q3,q4
+real(8) :: hyam, hybm, gc
+real(8) :: time0   = 0.0d0
+integer :: zcoords = 1.0d0
+integer :: cfv = 0
+integer :: shear = 0
+logical :: hybrid_eta = .false.
+!-------------------------------------------------------------------
 
-hfwid = 10000.
+  ! By default, the TOPQ array is filled with a value of 0.
 
-r0 = pi1 / 9.
+  topq(:) = 0.
 
-! dudhia expts
-! hfwid = 5. * deltax
+  ! The remainder of this subroutine is for re-defining topography, and a few
+  ! commonly used options are given below.  However, if itopoflg is set to 1 in
+  ! OLAMIN, topography values set in this subroutine will be overridden in
+  ! subroutine topo_database, which interpolates topography to the OLAM grid
+  ! from a standard topography dataset.
 
-! hgt = 405.
-! hgt = 1012.
-! end dudhia expts
+  ! Horizontal loop over all land topography points
 
-hfwid2 = hfwid**2
+  do iq = 2,nqa
 
-do iq = 2,nqa
-   topq(iq) = 0.
+     !=============================================================================
+     ! WITCH OF AGNESI MOUNTAIN
+     !=============================================================================
 
-!   topq(iq) = 200. * mod(iq,4)
+     ! Half-width and height commonly used for "10-meter-mountain" test
 
-! SPECIAL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   topq(iq) = max(0.,hgt * hfwid2 / (hfwid2 + xeq(iq)**2) - 1.)
-!   write(io6,*) 'topq ',iq,xeq(iq),topq(iq)
-! TOPQ = 0 AT LARGE DISTANCE FROM HILL
-! END SPECIAL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     ! hfwid = 10000.
+     ! hgt = 10.0
+     ! hoffset = 0.
 
-! SPECIAL WM5 EXPT !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Find lat/lon of current M point
+     ! Half-width and height used for Dudhia simulations
 
-!   r = sqrt((glonq(iq) * pio180 + 0.5 * pi1) ** 2 &
-!          + (glatq(iq) * pio180 - pi1 / 6.) ** 2)
+     ! hfwid = 5. * deltax ! Value for Dudhia simulations
+     ! hgt = 405.          ! Value for Dudhia simulations
+     ! hgt = 1012.         ! Value for Dudhia simulations
+     ! hoffset = 1.
 
-!   topq(iq) = max(0., 2000. * (1. - r / r0))
+     hfwid2 = hfwid**2
 
-!   print*, 'topoinit ',iq,r,r0,topq(iq)
+     ! The following form (with a nonzero hoffset value subtracted) gives zero
+     ! topography at large distance from mountain top.
 
-! END SPECIAL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     ! topq(iq) = max(0.,hgt * hfwid2 / (hfwid2 + xeq(iq)**2) - hoffset) 
 
-enddo
+     ! write(io6,*) 'topq ',iq,xeq(iq),topq(iq)
 
-return
+     !=============================================================================
+     ! SHALLOW WATER TEST CASE 5
+     !=============================================================================
+
+     if (nl%test_case == 5) then
+        r0 = pi1 / 9.
+
+        r = sqrt((glonq(iq) * pio180 + 0.5 * pi1) ** 2 &
+          + (glatq(iq) * pio180 - pi1 / 6.) ** 2)
+
+        topq(iq) = max(0., 2000. * (1. - r / r0))
+
+        print*, 'topoinit ',iq,r,r0,topq(iq)
+     endif
+
+     !=============================================================================
+     ! NCAR DCMIP 2012 TEST CASES
+     !=============================================================================
+
+     if (nl%test_case ==  13 .or. &
+         nl%test_case == 200 .or. &
+         nl%test_case == 201 .or. &
+         nl%test_case ==  21 .or. &
+         nl%test_case ==  22) then
+
+        lon = pio180 * glonq(iq)
+        lat = pio180 * glatq(iq)
+
+        if (glonq(iq) < 0.) lon = pio180 * (glonq(iq) + 360.)
+
+        p = 1.0d0
+        zm0 = 0.0d0
+
+        if (nl%test_case == 13) then
+
+           !===================================================================
+           ! DCMIP-2012 TEST CASE 13 - HORIZONTAL ADVECTION OF THIN
+           ! CLOUD-LIKE TRACERS IN THE PRESENCE OF OROGRAPHY
+           !===================================================================
+
+           call test1_advection_orography(lon,lat,p,zm0,zcoords, &
+              cfv,hybrid_eta,hyam,hybm,gc,u0,v0,wm0, &
+              t,phis,ps,rhom0,q,q1,q2,q3,q4)
+
+           topq(iq) = phis / grav
+
+        elseif (nl%test_case == 200 .or. &
+                nl%test_case == 201) then
+
+           !==================================================================
+           ! DCMIP-2012 TEST CASES 200, 201 - STEADY STATE ATMOSPHERE AT REST
+           ! IN THE PRESENCE OF OROGRAPHY
+           !==================================================================
+
+           call test2_steady_state_mountain(lon,lat,p,zm0,zcoords, &
+              hybrid_eta,hyam,hybm,u0,v0,wm0, &
+              t,phis,ps,rhom0,q)
+
+           topq(iq) = phis / grav
+
+        elseif (nl%test_case == 21 .or. &
+                nl%test_case == 22) then
+
+           !==================================================================
+           ! DCMIP-2012 Tests 2-1 and 2-2:  Non-hydrostatic Mountain Waves
+           ! over a Schaer-type Mountain
+           !==================================================================
+
+           call test2_schaer_mountain(lon,lat,p,zm0,zcoords, &
+              hybrid_eta,hyam,hybm,shear,u0,v0,wm0, &
+              t,phis,ps,rhom0,q)
+
+           topq(iq) = phis / grav
+
+        endif
+
+        print*, 'topodefn ',iq,topq(iq)
+
+     endif
+
+  enddo
+
 end subroutine topo_init
 
 !===============================================================================

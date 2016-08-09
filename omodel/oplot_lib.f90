@@ -40,7 +40,7 @@ use mem_basic,   only: vmc, wmc, vmp, vc, wc, rho, press, &
 use mem_cuparm,  only: conprr, aconpr, qwcon
 
 use mem_grid,    only: mza, mva, mwa, lpm, lpv, lpw, lsw, &
-                       zm, zt, dnu, dnv, arw0, arm0, arv, arw, volt, &
+                       zm, zt, dzt, dnu, dnv, arw0, arm0, arv, arw, volt, &
                        volti, xem, yem, zem, &
                        xev, yev, zev, xew, yew, zew, &
                        topm, topw, glatm, glonm, glatv, glonv, glatw, glonw, &
@@ -269,7 +269,7 @@ data fldlib(1:4, 35:56)/ &
  'AIRTEMPK_P'    ,'T3' ,'AIR TEMP PERT',' (K)'                              ,& !p 50
  'VMT'           ,'V3' ,'V-NORM MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'  ,& !  51
  'WMT'           ,'W3' ,'W MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'       ,& !  52
- 'ADDSC'         ,'T3' ,'ADDED SCALAR AMOUNT PER KG AIR',' '                ,& !p 53
+ 'ADDSC'         ,'T3' ,'ADDED SCALAR AMOUNT PER KG AIR','( )'              ,& !p 53
  'ADDSCP'        ,'T3' ,'SCALAR PERTURBATION',' ( )'                        ,& !  54
  'ZPLEV'         ,'T3' ,'HEIGHT OF CONST P SFC',' (m)'                      ,& !p 55
  'QWCON'         ,'T3' ,'CUPARM CONDENSATE SPEC DENSITY',' (g kg:S2:-1  )'   / !p 56
@@ -625,7 +625,7 @@ data fldlib(1:4,401:454)/ &
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,471:493)/ &
+data fldlib(1:4,471:496)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 471
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 472
  'SHW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 473
@@ -648,7 +648,10 @@ data fldlib(1:4,471:493)/ &
  'VKH'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 490
  'SHW_HCONV'     ,'T2' ,'TOTAL WATER HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 491
  'SHV_HCONV'     ,'T2' ,'WATER VAPOR HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 492
- 'CLDNUM'        ,'T2' ,'CLOUD # CONCEN (GEOG)',' (# mg:S2:-1  )'            / ! 493
+ 'CLDNUM'        ,'T2' ,'CLOUD # CONCEN (GEOG)',' (# mg:S2:-1  )'           ,& ! 493
+ 'ADDSC1_ZINT'   ,'T2' ,'VERTICAL INTEGRAL OF ADDED SCALAR 1',' ( )'        ,& ! 494
+ 'ADDSC2_ZINT'   ,'T2' ,'VERTICAL INTEGRAL OF ADDED SCALAR 2',' ( )'        ,& ! 495
+ 'ADDSC1P2_ZINT' ,'T2' ,'VERTICAL INTEGRAL OF ADDED SCALARS 1+2',' ( )'      / ! 496
 
 ! External fields
 
@@ -3575,6 +3578,70 @@ case(492) ! 'SHV_HCONV'
 case(493) ! 'CLDNUM'
 
    fldval = cldnum(i) * 1.e-6
+
+case(494) ! 'ADDSC1_ZINT'
+
+   if (naddsc < 1) go to 1000
+   if (.not. allocated(addsc(1)%sclp)) go to 1000
+
+   ! Vertical integral of addsc1
+
+   fldval = 0.
+   denom = 0.
+
+   do k = lpw(i),mza-1
+      fldval = fldval + addsc(1)%sclp(k,i) * dzt(k) * rho(k,i)
+      denom = denom + dzt(k) * rho(k,i)
+   enddo
+
+   fldval = fldval / denom
+
+   ! special for dcmip 2016:
+
+   fldval = fldval / 4.0e-6
+
+case(495) ! 'ADDSC2_ZINT'
+
+   if (naddsc < 2) go to 1000
+   if (.not. allocated(addsc(2)%sclp)) go to 1000
+
+   ! Vertical integral of addsc2
+
+   fldval = 0.
+   denom = 0.
+
+   do k = lpw(i),mza-1
+      fldval = fldval + addsc(2)%sclp(k,i) * dzt(k) * rho(k,i)
+      denom = denom + dzt(k) * rho(k,i)
+   enddo
+
+   fldval = fldval / denom
+
+   ! special for dcmip 2016:
+
+   fldval = fldval / 4.0e-6
+
+
+case(496) ! 'ADDSC1P2_ZINT'
+
+   if (naddsc < 2) go to 1000
+   if (.not. allocated(addsc(2)%sclp)) go to 1000
+
+   ! Vertical integral of (addsc1 + 2 * addsc2) - SHOULD WE USE RHO WEIGHTING FOR DCMIP 2016?
+
+   fldval = 0.
+   denom = 0.
+
+   do k = lpw(i),mza-1
+      fldval = fldval + (addsc(1)%sclp(k,i) + 2. * addsc(2)%sclp(k,i)) * dzt(k) ! * rho(k,i)
+      denom = denom + dzt(k) ! * rho(k,i)
+   enddo
+
+   fldval = fldval / denom
+
+   ! special for dcmip 2016:
+
+   fldval = fldval / 4.0e-6
 
 case default
 

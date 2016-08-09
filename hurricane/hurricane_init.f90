@@ -34,14 +34,56 @@ module hcane_rz
 
 implicit none
 
-!----------------------------------------------------------------
-! SET INIT_HURR_STEP HERE TO PERFORM THE FOLLOWING:
+!------------------------------------------------------------------------------
+! The purpose of module hcane_rz is to restore the intensity and eyewall
+! diameter of a hurricane that is under-resolved in the initial conditions
+! of an OLAM simulation.  This situation commonly arises when the only
+! gridded initialization dataset is of low resolution (for a hurricane), such
+! as the CFS global gridded reanalysis.  The procedure consists of one or more
+! dynamic initialization cycles in which (1) OLAM is first initialized by
+! interpolation from the CFS (or other) gridded dataset, (2) the user adds a
+! perturbation axisymmetric tangential wind field to the under-resolved
+! vortex such that the sum is close to in-situ observations of tangential winds
+! and the eyewall diameter, (3) OLAM adds a compensating potential temperature
+! perturbation field that approximately maintains hydrostatic and gradient wind
+! balance with the strengthened tangential winds, (4) OLAM is integrated forward
+! in time a few hours to allow the hurricane to more completely adjust to the
+! added perturbation fields and to develop internal dynamic, thermodynamic, and
+! moisture structures, and (5) the simulated hurricane is remapped from its
+! final simulated location back to the grid cells at its initial location in
+! preparation for the next cycle, but the result is only written to a file.
 !
-! 0 = no hurricane initialization; no tracking
-! 1 = initialize for first dynamic initialization cycle, track hurricane
-! 2 = initialize for subsequent dynamic initialization cycles; track hurricane
-! 3 = initialize for simulation; do not track hurricane
-!----------------------------------------------------------------
+! Each cycle is performed as a separate OLAM run, and the user should compare
+! plots from each run against in-situ hurricane measurements in order to
+! determine how to construct or modify the perturbation to be added in the 
+! subsequent cycle.  For each of these runs, or to run simulations without
+! dynamic initialization, the parameter INIT_HURR_STEP must be set as follows:
+!
+! 0 = No hurricane enhancement or tracking; use for most OLAM simulations.
+! 1 = For FIRST CYCLE of dynamic initialization procedure.
+!     OLAM initial fields are interpolated from CFSR (or other) dataset.
+!     An axisymmetric perturbation tangential wind field is added by the user.   
+!     OLAM runs short (e.g. 6 hrs) forward integration while tracking hurricane location every timestep.
+!     Axisymmetric hurricane fields are diagnosed and plotted at hourly intervals.
+!     3D hurricane fields are remapped at hourly intervals from grid cells at present
+!     location to grid cells at initial location, but are only written to files.
+! 2 = For SUBSEQUENT CYCLES of dynamic initialization procedure.
+!     OLAM initial fields are interpolated from CFSR (or other) dataset.
+!     Remapped 3D wind fields from previous cycle are read from files and replace 
+!     fields interpolated from CFSR where the hurricane is located.
+!     An axisymmetric perturbation tangential wind field is added by the user.   
+!     OLAM runs short (e.g. 6 hrs) forward integration while tracking hurricane location every timestep.
+!     Axisymmetric hurricane fields are diagnosed and plotted at hourly intervals.
+!     3D hurricane fields are remapped at hourly intervals from grid cells at present
+!     location to grid cells at initial location, but are only written to files.
+! 3 = For HURRICANE SIMULATION after completion of dynamic initialization cycles.
+!     OLAM initial fields are interpolated from CFSR (or other) dataset.
+!     Remapped 3D wind fields from previous cycle are read from files and replace 
+!     fields interpolated from CFSR where the hurricane is located.
+!     OLAM simulation proceeds normally with no hurricane tracking.
+!
+! Comments in subroutine hurricane_init (below) provide additional details.
+!------------------------------------------------------------------------------
 
 integer, parameter :: init_hurr_step = 0
 
@@ -59,6 +101,12 @@ integer :: nzz
 real :: hlat0, hlon0, hlat, hlon
 
 real :: circ_avg(nr)
+
+! radius_ax is an array of radial distances of the radial-height grid on which
+! axisymmetric hurricane fields are diagnosed and modified by perturbations
+! defined by the user.  The radial spacing between these values needs to be at
+! least twice the grid spacing of the OLAM hexagonal grid where the hurricane
+! is located.
 
 real :: radius_ax(nr) = (/ &
    0.e3,   5.e3,  10.e3,  15.e3,  20.e3,  25.e3,  30.e3,  35.e3,  40.e3,  45.e3, &
@@ -95,87 +143,113 @@ Contains
 
   integer :: k
 
-! If this is first call to hurricane_init, initialize hurricane location
-! and find nzz level 
+! If this is first call to hurricane_init for this model run, count number
+! of model levels that are below the chosen maximum height for the dynamic
+! initialization procedure (e.g. 20 km).
 
   if (newcall /= 1) then
      newcall = 1
 
      do k = 2,mza
         nzz = k
-        if (zt(k) > 25000.) exit
+        if (zt(k) > 20000.) exit
      enddo
   endif
 
   if (runtype /= 'INITIAL') return
 
+  ! Each cycle of a hurricane dynamic initialization procedure is performed 
+  ! as a separate run of the model, with RUNTYPE set to 'INITIAL'.  At this
+  ! stage of each run, OLAM fields have been interpolated from CFSR or other
+  ! gridded data, and they contain that dataset's low resolution representation
+  ! of the hurricane, but no additional enhancement has yet been added.
+
   if (init_hurr_step == 1) then
 
-! Diagnose vortex as it exists in initial (CFSR) data prior to adding pert.
+     ! For the first cycle of the dynamic initialization procedure, 
+     ! init_hurr_step is set to 1.
+
+     ! hcentlat and hcentlon are observed coordinates of hurricane that are set
+     ! by the user in a parameter statement above; copy these to hlat and hlon.
 
      hlat = hcentlat
      hlon = hcentlon
 
+     ! Diagnose vortex center location as it is represented on the OLAM grid
+     ! after initial interpolation from CFSR or other dataset.  This usually
+     ! gives (slighly) different values of hlat and hlon.
+
      call vortex_center_diagnose()
+
+     ! Copy hlat and hlon to hlat0 and hlon0, which will permanently save
+     ! initial hurricane location based on CFSR data interpolated to OLAM grid.
 
      hlat0 = hlat
      hlon0 = hlon
 
+  elseif (init_hurr_step == 2 .or. init_hurr_step == 3) then
+
+     ! For the second and subsequent dynamic initialization cycles, 
+     ! init_hurr_step is set to 2, while for the beginning of the model
+     ! simulation after all cycles are completed, init_hurr_step is set to 3.
+
+     ! Read interpolated 3D hurricane fields from one of the files that were 
+     ! written during the forward integration of the previous dynamic
+     ! initialization cycle, and relocate the fields to the initial position
+     ! of the hurricane, specified by hlat0 and hlon0 which are also read from
+     ! the file.  The user must first decide which of the files to read from
+     ! and must modify subroutine hurricane_init2C so that it reads that file.
+
+     call hurricane_init2C()
+
+     ! Set hlat and hlon to the initial hurricane location.
+
+     hlat = hlat0
+     hlon = hlon0
+
+  endif  
+
+  if (init_hurr_step == 1 .or. init_hurr_step == 2) then
+  
+     ! For either the first or subsequent dynamic initialization cycles,
+     ! perform azimuthal average of tangential, radial, and vertical velocity
+     ! components, potential temperature, and moisture and plot each in
+     ! radial-height cross section.
+
      call vortex_diagnose()
 
-! Add first-guess perturbation for first initialization cycle
+     ! Add axisymmetric tangential wind field to increase vortex intensity
+     ! and/or to change its radius of maximum wind.  Subroutine
+     ! hurricane_init1B requires user modification to specify the desired
+     ! radial-height profile of the added perturbation, and the subroutine
+     ! then adds a potential temperature perturbation that balances the
+     ! increased tangential winds through hydrostatic and gradient wind
+     ! balances.
 
      call hurricane_init1B()
 
-     call vortex_diagnose()
-
-  elseif (init_hurr_step == 2) then
-
-! Add perturbations for second and subsequent initialization cycles
-
-     call hurricane_init2C()
-
-     hlat = hlat0
-     hlon = hlon0
+     ! Following the addition of the perturbations, re-diagnose and plot
+     ! the azimuthally-averaged fields.
 
      call vortex_diagnose()
 
-  elseif (init_hurr_step == 3) then
+     ! Based on what is seen in the plotted azimuthally-averaged fields and
+     ! how they compare to in-situ measurements of the hurricane, the user
+     ! may want to re-run the current cycle of the dynamic initialization
+     ! procedure with a different wind perturbation profile in subroutine 
+     ! hurricane_init1B.  If the user sets timmax = 0., the model will stop
+     ! at this point, allowing this comparison and decision to be made.
 
-! Initialize for actual simulation
-
-     call hurricane_init2C()
-
-     hlat = hlat0
-     hlon = hlon0
-
-     call vortex_diagnose()
+     ! Otherwise, if timmax is set to a positive value (typically 6 hours), 
+     ! the model will proceed next with the forward integration phase of
+     ! the current dynamic initialization cycle, during which it will track
+     ! the hurricane location and, at regular intervals (usually chosen to be
+     ! hourly), output hurricane fields.  See comments in subroutine
+     ! hurricane_track for more explanation of this process.
 
   endif
 
   end subroutine hurricane_init
-
-!==================================================================================
-
-  subroutine hurricane_track(itype)
-
-  implicit none
-
-  integer, intent(in) :: itype
-
-! Get updated hurricane center location
-
-  call vortex_center_diagnose()
-
-  if (itype == 2) then
-     call vortex_diagnose()
-     call vortex_reloc3d()  ! sometimes this is only done for itype = 3
-  elseif (itype == 3) then
-     call vortex_diagnose()
-     call vortex_reloc3d()
-  endif
-
-  end subroutine hurricane_track
 
 !==================================================================================
 
@@ -404,246 +478,6 @@ Contains
 
   return
   end subroutine vortex_diagnose
-
-!==================================================================================
-
-  subroutine vortex_diagnose0(thil_ax, theta_ax, shw_ax, shv_ax, vtan_ax, &
-                              vrad_ax,     w_ax)
-
-  use mem_ijtabs
-  use mem_basic
-  use mem_micro
-  use misc_coms
-  use mem_grid
-  use consts_coms
-
-  implicit none
-
-  real, intent(out) ::  thil_ax(nz,nr) ! ice-liquid potential temperature (K)
-  real, intent(out) :: theta_ax(nz,nr) ! potential temperature (K)
-  real, intent(out) ::   shw_ax(nz,nr) ! total water specific density (kg/kg)
-  real, intent(out) ::   shv_ax(nz,nr) ! vapor specific density (kg/kg)
-  real, intent(out) ::  vtan_ax(nz,nr) ! tangential wind (m/s)
-  real, intent(out) ::  vrad_ax(nz,nr) ! radial wind (m/s)
-  real, intent(out) ::     w_ax(nz,nr) ! vertical wind (m/s)
-
-  integer :: iw,i,j,k,ngr,iu,iv,iw1,iw2
-  real :: zeh,reh,xeh,yeh
-  real :: wnxh,wnyh,wnzh
-  real :: unxrad,unyrad,unzrad,unxtan,unytan,unztan
-  real :: vnxrad,vnyrad,vnzrad,vnxtan,vnytan,vnztan
-
-  real :: rad,rrad,wrad1,wrad2
-  real :: vtan_ax0,vrad_ax0
-
-  integer :: irad,ir
-
-  real :: weight_t(nz,nr)   ! weight array for T points
-  real :: weight_v(nz,nr)   ! weight array for V points
-
-! Find "earth" coordinates of hurricane center
-
-  zeh = erad * sin(hlat * pio180)
-  reh = erad * cos(hlat * pio180)  ! distance from earth axis
-  xeh = reh  * cos(hlon * pio180)
-  yeh = reh  * sin(hlon * pio180)
-
-! Components of unit vector outward normal to earth surface at hurricane center
-
-  wnxh = xeh / erad
-  wnyh = yeh / erad
-  wnzh = zeh / erad
-
-! Initialize axixymmetric arrays to zero prior to summation
-
-   thil_ax(:,:) = 0.
-  theta_ax(:,:) = 0.
-    shw_ax(:,:) = 0.
-    shv_ax(:,:) = 0.
-   vtan_ax(:,:) = 0.
-   vrad_ax(:,:) = 0.
-      w_ax(:,:) = 0.
-
-  weight_t(:,:) = 0.
-
-!----------------------------------------------------------------------
-  do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)  ! jend(1) = hardwired for mrl 1
-!----------------------------------------------------------------------
-
-! Distance of this IW point from eye center
-
-     rad = sqrt((xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2)
-   
-! Skip hurricane assimilation for all points outside specified radius
-
-     if (rad >= radius_ax(nr) - 1.) cycle
-
-! Determine interpolation point in radial dimension
-
-     irad = 1
-     do while (rad > radius_ax(irad+1))
-        irad = irad + 1
-     enddo
-
-     wrad2 = (rad - radius_ax(irad)) / (radius_ax(irad+1) - radius_ax(irad))
-     wrad1 = 1. - wrad2
-   
-! Vertical loop over T levels
-
-     do k = lpw(iw),nzz
-
-        weight_t(k,irad)   = weight_t(k,irad)   + wrad1
-        weight_t(k,irad+1) = weight_t(k,irad+1) + wrad2
-
-! Diagnose axisymmetric component of model's own vortex
-
-         thil_ax(k,irad)   =  thil_ax(k,irad)   + wrad1 *  thil(k,iw)
-         thil_ax(k,irad+1) =  thil_ax(k,irad+1) + wrad2 *  thil(k,iw)
-
-        theta_ax(k,irad)   = theta_ax(k,irad)   + wrad1 * theta(k,iw)
-        theta_ax(k,irad+1) = theta_ax(k,irad+1) + wrad2 * theta(k,iw)
-
-          shw_ax(k,irad)   =   shw_ax(k,irad)   + wrad1 *  sh_w(k,iw)
-          shw_ax(k,irad+1) =   shw_ax(k,irad+1) + wrad2 *  sh_w(k,iw)
-
-          shv_ax(k,irad)   =   shv_ax(k,irad)   + wrad1 *  sh_v(k,iw)
-          shv_ax(k,irad+1) =   shv_ax(k,irad+1) + wrad2 *  sh_v(k,iw)
-
-            w_ax(k,irad)   =     w_ax(k,irad)   + wrad1 *    wc(k,iw)
-            w_ax(k,irad+1) =     w_ax(k,irad+1) + wrad2 *    wc(k,iw)
-
-     enddo
-
-  enddo
-
-! Convert sums to averages
-
-  do irad = nr,1,-1
-
-     do k = 2,nzz
-
-        if (weight_t(k,irad) < 1.e-6) then
-
-           if (irad == nr) stop 'stop irad T'
-
-            thil_ax(k,irad) =  thil_ax(k,irad+1)
-           theta_ax(k,irad) = theta_ax(k,irad+1)
-             shw_ax(k,irad) =   shw_ax(k,irad+1)
-             shv_ax(k,irad) =   shv_ax(k,irad+1)
-               w_ax(k,irad) =     w_ax(k,irad+1)
-
-        else
-
-            thil_ax(k,irad) =  thil_ax(k,irad) / weight_t(k,irad)
-           theta_ax(k,irad) = theta_ax(k,irad) / weight_t(k,irad)
-             shw_ax(k,irad) =   shw_ax(k,irad) / weight_t(k,irad)
-             shv_ax(k,irad) =   shv_ax(k,irad) / weight_t(k,irad)
-               w_ax(k,irad) =     w_ax(k,irad) / weight_t(k,irad)
-
-        endif
-
-     enddo
-
-  enddo
-
-  weight_v(:,:) = 0.
-
-!----------------------------------------------------------------------
-  do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)  ! jend(1) = hardwired for mrl 1
-     iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-!----------------------------------------------------------------------
- 
-! Distance of this point from eye center
-
-     rad = sqrt((xev(iv)-xeh)**2 + (yev(iv)-yeh)**2 + (zev(iv)-zeh)**2)
-
-! Skip hurricane assimilation for all points outside specified radius
-
-     if (rad >= radius_ax(nr) - 1.) cycle
-
-! Determine interpolation point in radial dimension
-
-     irad = 1
-     do while (rad > radius_ax(irad+1))
-        irad = irad + 1
-     enddo
-
-     wrad2 = (rad - radius_ax(irad)) / (radius_ax(irad+1) - radius_ax(irad))
-     wrad1 = 1. - wrad2
-
-! Unit normal vector components from hurricane center to current IV point
-
-     vnxrad = (xev(iv) - xeh) / rad
-     vnyrad = (yev(iv) - yeh) / rad
-     vnzrad = (zev(iv) - zeh) / rad
-
-! Unit vector components in direction of tangential vortex wind
-
-     vnxtan = wnyh * vnzrad - wnzh * vnyrad
-     vnytan = wnzh * vnxrad - wnxh * vnzrad
-     vnztan = wnxh * vnyrad - wnyh * vnxrad
-
-! Vertical loop over T levels
-
-     do k = lpv(iv),nzz
-
-        weight_v(k,irad)   = weight_v(k,irad)   + wrad1
-        weight_v(k,irad+1) = weight_v(k,irad+1) + wrad2
-
-! Diagnose axisymmetric component of model's own vortex
-
-        vtan_ax0 = vc(k,iv) &
-                 * (vnx(iv) * vnxtan + vny(iv) * vnytan + vnz(iv) * vnztan) !&
-!why here?                 + uc(k,iv) &
-!why here?                 * (unx(iv) * vnxtan + uny(iv) * vnytan + unz(iv) * vnztan)
-
-        vrad_ax0 = vc(k,iv) &
-                 * (vnx(iv) * vnxrad + vny(iv) * vnyrad + vnz(iv) * vnzrad) !&
-!why here?                 + uc(k,iv) &
-!why here?                 * (unx(iv) * vnxrad + uny(iv) * vnyrad + unz(iv) * vnzrad)
-
-        vtan_ax(k,irad)   = vtan_ax(k,irad)   + wrad1 * vtan_ax0
-        vtan_ax(k,irad+1) = vtan_ax(k,irad+1) + wrad2 * vtan_ax0
-
-        vrad_ax(k,irad)   = vrad_ax(k,irad)   + wrad1 * vrad_ax0
-        vrad_ax(k,irad+1) = vrad_ax(k,irad+1) + wrad2 * vrad_ax0
-
-     enddo
-
-  enddo
-
-! Convert sums to averages
-
-  do irad = nr,2,-1
-
-     do k = 2,nzz
-
-        if (weight_v(k,irad) < 1.e-6) then
-
-           if (irad == nr) stop 'stop irad V'
-
-           vtan_ax(k,irad) = vtan_ax(k,irad+1) &
-                           * radius_ax(irad) / radius_ax(irad+1)
-
-           vrad_ax(k,irad) = vrad_ax(k,irad+1) &
-                           * radius_ax(irad) / radius_ax(irad+1)
-
-        else
-
-           vtan_ax(k,irad) = vtan_ax(k,irad) / weight_v(k,irad)
-           vrad_ax(k,irad) = vrad_ax(k,irad) / weight_v(k,irad)
-
-        endif
-
-     enddo
-
-  enddo
-
-  vtan_ax(:,1) = 0.
-  vrad_ax(:,1) = 0.
-
-  return
-  end subroutine vortex_diagnose0
 
 !==================================================================================
 

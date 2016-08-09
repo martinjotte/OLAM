@@ -8,8 +8,21 @@
 
  !--------------------------------------------------------------------------
  ! FLAG FOR STANDARD TEST CASE SIMULATIONS
- ! (SHALLOW WATER, NCAR DCMIP 2012, PARCEL)
+ ! (SHALLOW WATER, NCAR DCMIP 2012 & 2016, PARCEL)
  !--------------------------------------------------------------------------
+ !
+ ! DCMIP 2016 Moist Baroclinic Wave 
+ ! 111 -    exponential perturbation, no PBL or surface fluxes
+ ! 112 -    exponential perturbation, Reed & Jablonowski PBL
+ ! 113 - streamfunction perturbation, no PBL or surface fluxes
+ ! 114 - streamfunction perturbation, Reed & Jablonowski PBL
+ !
+ ! DCMIP 2016 Tropical Cyclone 
+ ! 121 - Reed & Jablonowski PBL
+ ! 122 - George Bryan PBL
+ !
+ ! DCMIP 2016 Supercell
+ ! 131
 
    NL%TEST_CASE = 0
 

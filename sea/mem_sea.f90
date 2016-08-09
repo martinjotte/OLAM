@@ -235,8 +235,8 @@ Contains
      allocate (sea%ice_sfluxr    (mws)) ; sea%ice_sfluxr     = rinit
 
    ! allocate (sea%sfluxc        (mws)) ; sea%sfluxc         = rinit
-   ! allocate (sea%ssea_fluxc    (mws)) ; sea%sfluxc         = rinit
-   ! allocate (sea%ice_sfluxc    (mws)) ; sea%sfluxc         = rinit
+   ! allocate (sea%sea_sfluxc    (mws)) ; sea%sea_sfluxc     = rinit
+   ! allocate (sea%ice_sfluxc    (mws)) ; sea%ice_sfluxc     = rinit
 
      allocate (sea%sxfer_t       (mws)) ; sea%sxfer_t        = 0.0
      allocate (sea%sea_sxfer_t   (mws)) ; sea%sea_sxfer_t    = 0.0
@@ -254,13 +254,13 @@ Contains
      allocate (sea%sea_ggaer     (mws)) ; sea%sea_ggaer      = rinit
      allocate (sea%ice_ggaer     (mws)) ; sea%ice_ggaer      = rinit
 
-     allocate (sea%zeta          (mws)) ; sea%zeta           = rinit
-     allocate (sea%sea_zeta      (mws)) ; sea%sea_zeta       = rinit
-     allocate (sea%ice_zeta      (mws)) ; sea%ice_zeta       = rinit
-
      allocate (sea%rib           (mws)) ; sea%rib            = rinit
      allocate (sea%sea_rib       (mws)) ; sea%sea_rib        = rinit
      allocate (sea%ice_rib       (mws)) ; sea%ice_rib        = rinit
+
+     allocate (sea%zeta          (mws)) ; sea%zeta           = rinit
+     allocate (sea%sea_zeta      (mws)) ; sea%sea_zeta       = rinit
+     allocate (sea%ice_zeta      (mws)) ; sea%ice_zeta       = rinit
 
      allocate (sea%wthv          (mws)) ; sea%wthv           = rinit
      allocate (sea%sea_wthv      (mws)) ; sea%sea_wthv       = rinit
@@ -354,13 +354,21 @@ Contains
      if (allocated(sea%sea_sxfer_r)) call increment_vtable('SEA%SEA_SXFER_R', 'SW', rvar1=sea%sea_sxfer_r)
      if (allocated(sea%ice_sxfer_r)) call increment_vtable('SEA%ICE_SXFER_R', 'SW', rvar1=sea%ice_sxfer_r)
 
-     if (allocated(sea%wthv))     call increment_vtable('SEA%WTHV',     'SW', rvar1=sea%wthv)
-     if (allocated(sea%sea_wthv)) call increment_vtable('SEA%SEA_WTHV', 'SW', rvar1=sea%sea_wthv)
-     if (allocated(sea%ice_wthv)) call increment_vtable('SEA%ICE_WTHV', 'SW', rvar1=sea%ice_wthv)
-
      if (allocated(sea%sxfer_c))     call increment_vtable('SEA%SXFER_C',     'SW', rvar1=sea%sxfer_c)
      if (allocated(sea%sea_sxfer_c)) call increment_vtable('SEA%SEA_SXFER_C', 'SW', rvar1=sea%sea_sxfer_c)
      if (allocated(sea%ice_sxfer_c)) call increment_vtable('SEA%ICE_SXFER_C', 'SW', rvar1=sea%ice_sxfer_c)
+
+     if (allocated(sea%rib))      call increment_vtable('SEA%RIB',      'SW', rvar1=sea%rib)
+     if (allocated(sea%sea_rib))  call increment_vtable('SEA%SEA_RIB',  'SW', rvar1=sea%sea_rib)
+     if (allocated(sea%ice_rib))  call increment_vtable('SEA%ICE_RIB',  'SW', rvar1=sea%ice_rib)
+
+     if (allocated(sea%zeta))     call increment_vtable('SEA%ZETA',     'SW', rvar1=sea%zeta)
+     if (allocated(sea%sea_zeta)) call increment_vtable('SEA%SEA_ZETA', 'SW', rvar1=sea%sea_zeta)
+     if (allocated(sea%ice_zeta)) call increment_vtable('SEA%ICE_ZETA', 'SW', rvar1=sea%ice_zeta)
+
+     if (allocated(sea%wthv))     call increment_vtable('SEA%WTHV',     'SW', rvar1=sea%wthv)
+     if (allocated(sea%sea_wthv)) call increment_vtable('SEA%SEA_WTHV', 'SW', rvar1=sea%sea_wthv)
+     if (allocated(sea%ice_wthv)) call increment_vtable('SEA%ICE_WTHV', 'SW', rvar1=sea%ice_wthv)
 
      if (allocated(sea%albedo_beam)) call increment_vtable('SEA%ALBEDO_BEAM', 'SW', rvar1=sea%albedo_beam)
 

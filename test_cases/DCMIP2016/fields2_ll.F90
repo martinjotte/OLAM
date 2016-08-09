@@ -51,23 +51,34 @@ subroutine fields2_ll()
 ! fields, or selected processes such as hdf5 output and plotting, may be
 ! disabled by commenting out lines of code.
 
-  use mem_ijtabs,  only: itab_w, itabg_w
+  use mem_ijtabs,  only: itab_w, itab_v, itabg_w
   use mem_basic,   only: vc, wc, rho, press, theta, sh_w, sh_v, &
                          vxe, vye, vze, tair
-  use mem_grid,    only: mza, mwa, lpw, xew, yew, zew, topw, zt, &
-                         wnx, wny, wnz, dzt
+
+  use mem_grid,    only: mza, mva, mwa, lpv, lpw, &
+                         xem, yem, zem, xev, yev, zev, xew, yew, zew, &
+                         topw, glatm, glonm, glatw, glonw, zm, zt, &
+                         vnx, vny, vnz, wnx, wny, wnz, dzt
+
   use mem_leaf,    only: land
-  use leaf_coms,   only: dslz
+
+  use leaf_coms,   only: dslz, isfcl
+
   use mem_sea,     only: sea
+
   use misc_coms,   only: io6, current_time, hfilepref, iclobber, iparallel, &
-                         mdomain, time8
-  use consts_coms, only: p00, rocp, piu180, erad, eradi, pio180, cp, alvl, &
-                         rvap, r8
+                         mdomain, time8, nxp, ngrids
+
+  use consts_coms, only: p00, rocp, piu180, erad, eradi, pio180, cp, alvl, rvap, r8
+
   use hdf5_utils,  only: shdf5_open, shdf5_orec, shdf5_orec_ll, shdf5_close, &
                          shdf5_write_global_attribute
+
   use max_dims,    only: pathlen
+  use mem_addsc,   only: addsc
   use oname_coms,  only: nl
-  use mem_para,    only: myrank, mgroupsize
+  use mem_para,    only: mgroupsize, myrank
+  use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
 
 #ifdef OLAM_MPI
   use mpi
@@ -81,7 +92,9 @@ subroutine fields2_ll()
 ! as the difference between the flux integrals in two different history files
 ! divided by the difference in simulation times when the files were written.
 
-  use mem_micro,  only: accpd, accpr, accpp, accps, accpa, accpg, accph
+  use mem_micro,  only: accpd, accpr, accpp, accps, accpa, accpg, accph, &
+                        pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
+                        sh_c, sh_r
 
   use mem_cuparm, only: aconpr
 
@@ -119,25 +132,25 @@ subroutine fields2_ll()
 !--------------------------------------------------------------------------------
 
 ! Global domain:
-  real   , parameter :: beglon = -180.   ! minimum (westernmost) longitude (deg)
-  real   , parameter :: endlon =  180.   ! maximum (easternmost) longitude (deg)
-  real   , parameter :: beglat =  -90.   ! minimum (southernmost) latitude (deg)
-  real   , parameter :: endlat =   90.   ! maximum (northernmost) latitude (deg)
-  integer, parameter :: rf = 1           ! horiz resolution factor (pts per deg)
+!  real   , parameter :: beglon = -180.   ! minimum (westernmost) longitude (deg)
+!  real   , parameter :: endlon =  180.   ! maximum (easternmost) longitude (deg)
+!  real   , parameter :: beglat =  -90.   ! minimum (southernmost) latitude (deg)
+!  real   , parameter :: endlat =   90.   ! maximum (northernmost) latitude (deg)
+!  integer, parameter :: rf = 1           ! horiz resolution factor (pts per deg)
 
-! Regional domain:
-! real   , parameter :: beglon = -92.   ! minimum (westernmost) longitude (deg)
-! real   , parameter :: endlon = -72.   ! maximum (easternmost) longitude (deg)
-! real   , parameter :: beglat =  23.   ! minimum (southernmost) latitude (deg)
-! real   , parameter :: endlat =  35.   ! maximum (northernmost) latitude (deg)
-! integer, parameter :: rf = 30         ! horiz resolution factor (pts per deg)
+!Regional domain:
+!  real   , parameter :: beglon = -92.   ! minimum (westernmost) longitude (deg)
+!  real   , parameter :: endlon = -72.   ! maximum (easternmost) longitude (deg)
+!  real   , parameter :: beglat =  23.   ! minimum (southernmost) latitude (deg)
+!  real   , parameter :: endlat =  35.   ! maximum (northernmost) latitude (deg)
+!  integer, parameter :: rf = 30         ! horiz resolution factor (pts per deg)
 
 ! DCMIP Global domain:
-! real, parameter :: beglon = -179.5 ! minimum (westernmost) longitude (deg)
-! real, parameter :: endlon =  179.5 ! maximum (easternmost) longitude (deg)
-! real, parameter :: beglat =  -89.5 ! minimum (southernmost) latitude (deg)
-! real, parameter :: endlat =   89.5 ! maximum (northernmost) latitude (deg)
-! integer, parameter :: rf = 1       ! horiz resolution factor (pts per deg)
+  real, parameter :: beglon = -179.5 ! minimum (westernmost) longitude (deg)
+  real, parameter :: endlon =  179.5 ! maximum (easternmost) longitude (deg)
+  real, parameter :: beglat =  -89.5 ! minimum (southernmost) latitude (deg)
+  real, parameter :: endlat =   89.5 ! maximum (northernmost) latitude (deg)
+  integer, parameter :: rf = 1       ! horiz resolution factor (pts per deg)
 
 ! NLON and NLAT are the number of longitude and latitude points in the lat-lon
 ! arrays that get filled by interpolation from the native OLAM grid.  They may
@@ -163,11 +176,10 @@ subroutine fields2_ll()
 ! 1D FIELDS
 !----------
 
-  real, allocatable, save :: alat(:)  ! latitudes of grid points (deg)
-  real, allocatable, save :: alon(:)  ! longitudes of grid points (deg)
-  real, allocatable, save :: zlev(:)  ! heights above sea level of grid points (m)
+  real, allocatable, save ::  alat(:) ! latitudes of grid points (deg)
+  real, allocatable, save ::  alon(:) ! longitudes of grid points (deg)
+  real, allocatable, save ::  zlev(:) ! heights above sea level of grid points (m)
   real, allocatable       :: value(:) ! longitudinal average of a field
-  real, allocatable       :: arr_ll(:,:)
 
 !----------
 ! 2D FIELDS
@@ -177,10 +189,11 @@ subroutine fields2_ll()
   real, allocatable :: u_lpw_ll             (:) ! lpw zonal wind component (m/s)
   real, allocatable :: v_lpw_ll             (:) ! lpw meridional wind component (m/s)
   real, allocatable :: t_lpw_ll             (:) ! lpw air temperature (K)
-  real, allocatable :: r_lpw_ll             (:) ! lpw water vapor specific density (kg/kg)
+  real, allocatable :: shv_lpw_ll           (:) ! lpw water vapor specific density (kg/kg)
   real, allocatable :: pvap_lpw_ll          (:) ! lpw vapor pressure (Pa)
   real, allocatable :: slp_ll               (:) ! sea level pressure (Pa)
 
+  real, allocatable :: pcprmic_ll           (:) ! microphysics precip rate (kg/(m^2 s))
   real, allocatable :: accpmic_ll           (:) ! accum microphysics precip (kg/m^2)
   real, allocatable :: accpcon_ll           (:) ! accum convective precip (kg/m^2)
   real, allocatable :: vapflux_accum_ll     (:) ! accum sfc vapor (kg/m^2)
@@ -233,19 +246,30 @@ subroutine fields2_ll()
 ! 3D FIELDS
 !----------
 
-  real, allocatable :: u_ll (:,:) ! zonal wind component (m/s)
-  real, allocatable :: v_ll (:,:) ! meridional wind component (m/s)
-  real, allocatable :: w_ll (:,:) ! vertical wind component (m/s)
-  real, allocatable :: t_ll (:,:) ! air temperature (K)
-  real, allocatable :: r_ll (:,:) ! water vapor specific density (kg/kg)
-  real, allocatable :: p_ll (:,:) ! air pressure (Pa)
+  real, allocatable ::     u_ll (:,:) ! zonal wind component (m/s)
+  real, allocatable ::     v_ll (:,:) ! meridional wind component (m/s)
+  real, allocatable ::     w_ll (:,:) ! vertical wind component (m/s)
+  real, allocatable :: theta_ll (:,:) ! air potential temperature (K)
+  real, allocatable ::     t_ll (:,:) ! air temperature (K)
+  real, allocatable ::   shv_ll (:,:) ! water vapor specific density (kg/kg)
+  real, allocatable ::   shc_ll (:,:) ! cloud water specific density (kg/kg)
+  real, allocatable ::   shr_ll (:,:) ! rain specific density (kg/kg)
+  real, allocatable ::     p_ll (:,:) ! air pressure (Pa)
 
-  real, allocatable :: u_accum_ll (:,:) ! zonal wind component accum (m/s)
-  real, allocatable :: v_accum_ll (:,:) ! meridional wind component accum (m/s)
-  real, allocatable :: w_accum_ll (:,:) ! vertical wind component accum (m/s)
-  real, allocatable :: t_accum_ll (:,:) ! air temperature accum (K)
-  real, allocatable :: r_accum_ll (:,:) ! water vapor specific density accum (kg/kg)
-  real, allocatable :: p_accum_ll (:,:) ! air pressure accum (Pa)
+  real, allocatable :: q1_ll (:,:) ! added scalar #1
+  real, allocatable :: q2_ll (:,:) ! added scalar #2
+  real, allocatable :: q3_ll (:,:) ! added scalar #3
+  real, allocatable :: q4_ll (:,:) ! added scalar #4
+  real, allocatable :: q5_ll (:,:) ! added scalar #5
+
+  real, allocatable ::   u_accum_ll (:,:) ! zonal wind component accum (m/s)
+  real, allocatable ::   v_accum_ll (:,:) ! meridional wind component accum (m/s)
+  real, allocatable ::   w_accum_ll (:,:) ! vertical wind component accum (m/s)
+  real, allocatable ::   t_accum_ll (:,:) ! air temperature accum (K)
+  real, allocatable :: shv_accum_ll (:,:) ! water vapor specific density accum (kg/kg)
+  real, allocatable ::   p_accum_ll (:,:) ! air pressure accum (Pa)
+
+  real, allocatable ::       scr_ll (:,:) ! scratch array
 
   integer       :: k, iw, ilat, ilon, n, kb, ip, ier, np
   integer       :: iland, jland, isea, jsea, iv, jv, npoly, klev
@@ -262,12 +286,13 @@ subroutine fields2_ll()
   real :: scr2a(mza,mwa), scr2b(mza,mwa)
   real, allocatable :: scr2_ll(:), scr3_ll(:,:)
 
-  real :: timefac
+  real :: timedifi
   real :: aspect, scalelab, ymin, ymax, yinc, alatinc
 
 ! SEIGEL 2013 - Added for ll interp writeout
   character(pathlen) :: hnamel
   character(20)      :: ofrq
+  character(3)       :: levs
 
   integer,  save :: npts
   integer,  save :: init = 0
@@ -287,11 +312,8 @@ subroutine fields2_ll()
 
   ! These switches control which lat/lon interpolations are performed
 
-  logical, parameter :: dosfc   = .true.
-  logical, parameter :: doaccum = .false.
-  logical, parameter :: dodifs  = .false.
-  logical, parameter :: do3d    = .false.
   logical, parameter :: dopress = .false. ! TODO!
+  logical, parameter :: latplot = .false.
 
 !------------------------------------------------------
 ! 3D FIELDS - interpolation to pressure levels (TODO!)
@@ -302,11 +324,7 @@ subroutine fields2_ll()
 
   if (nl%ioutput_latlon /= 1 .and. nl%latlonplot /= 1) return
 
-  if (.not. (dosfc .or. doaccum .or. dodifs .or. do3d .or. dopress)) return
-
   if (init == 0) then
-
-     init = 1
 
      if (myrank == 0) write(io6,'(/,a)') "Initializing overlaps for lat/lon outputs..."
 
@@ -331,13 +349,21 @@ subroutine fields2_ll()
         if (nlon < 2) stop 'stop: nlon < 2 in fields2_ll '
         dlon = (endlon + 360. - beglon) / real(nlon-1)
      endif
-
+     
      allocate(alon(nlon))
 
      do ilon = 1, nlon
         alon(ilon) = beglon + dlon * real(ilon-1)
         if (alon(ilon) > 180.) alon(ilon) = alon(ilon) - 360.
      enddo
+
+     ! Print lat-lon grid information
+
+     if (myrank == 0) then
+        write(io6,'(/,a)')          'fields2_ll lat-lon grid information '
+        write(io6,'(/,a,3f9.3,i5)') 'beglat,endlat,dlat,nlat ',beglat,endlat,dlat,nlat
+        write(io6,'(/,a,3f9.3,i5)') 'beglon,endlon,dlon,nlon ',beglon,endlon,dlon,nlon
+     endif
 
      allocate(iws_ll(nlon,nlat,3))
      allocate(wts_ll(nlon,nlat,3))
@@ -349,9 +375,9 @@ subroutine fields2_ll()
      do k = 2, mza
         zlev(k-1) = zt(k)
      enddo
-
+     
      ! Find the 3 IW points and weights for interpolation to each lat/lon point
-
+     
      call find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
      ! Compute number of lat/lon points
@@ -398,7 +424,7 @@ subroutine fields2_ll()
         enddo
 
      endif
-
+     
      ! Store node-local copies of the interpolation IW indices and weights
 
      allocate(iws_loc(npts,3)); iws_loc = 0  ! local iw points for interpolating each lat/lon point
@@ -420,91 +446,131 @@ subroutine fields2_ll()
      deallocate(iws_ll)
      deallocate(wts_ll)
 
-     if (dodifs) then
-        allocate( pcpmic_dif2_ll      (npts) ) ; pcpmic_dif2_ll       = 0.
-        allocate( pcpcon_dif2_ll      (npts) ) ; pcpcon_dif2_ll       = 0.
-        allocate( pcpboth_dif2_ll     (npts) ) ; pcpboth_dif2_ll      = 0.
-        allocate( rshort_dif2_ll      (npts) ) ; rshort_dif2_ll       = 0.
-        allocate( rshortup_dif2_ll    (npts) ) ; rshortup_dif2_ll     = 0.
-        allocate( rlong_dif2_ll       (npts) ) ; rlong_dif2_ll        = 0.
-        allocate( rlongup_dif2_ll     (npts) ) ; rlongup_dif2_ll      = 0.
-        allocate( rshort_top_dif2_ll  (npts) ) ; rshort_top_dif2_ll   = 0.
-        allocate( rshortup_top_dif2_ll(npts) ) ; rshortup_top_dif2_ll = 0.
-        allocate( rlongup_top_dif2_ll (npts) ) ; rlongup_top_dif2_ll  = 0.
-        allocate( sensflux_dif2_ll    (npts) ) ; sensflux_dif2_ll     = 0.
-        allocate( latflux_dif2_ll     (npts) ) ; latflux_dif2_ll      = 0.
-     endif
-
   endif
 
 ! Initialize latitude-longitude arrays to zero prior to interpolation.
 ! For certain applications, zero should be replaced with "missing value".
 
-  if (dosfc) then
-     allocate( topo_ll              (npts) ) ; topo_ll               = rmissing
-     allocate( u_lpw_ll             (npts) ) ; u_lpw_ll              = rmissing
-     allocate( v_lpw_ll             (npts) ) ; v_lpw_ll              = rmissing
-     allocate( t_lpw_ll             (npts) ) ; t_lpw_ll              = rmissing
-     allocate( r_lpw_ll             (npts) ) ; r_lpw_ll              = rmissing
-     allocate( pvap_lpw_ll          (npts) ) ; pvap_lpw_ll           = rmissing
-     allocate( slp_ll               (npts) ) ; slp_ll                = rmissing
+!  allocate( topo_ll              (npts) ) ; topo_ll               = rmissing
+!  allocate( u_lpw_ll             (npts) ) ; u_lpw_ll              = rmissing
+!  allocate( v_lpw_ll             (npts) ) ; v_lpw_ll              = rmissing
+!  allocate( t_lpw_ll             (npts) ) ; t_lpw_ll              = rmissing
+!  allocate( shv_lpw_ll           (npts) ) ; shv_lpw_ll            = rmissing
+!  allocate( pvap_lpw_ll          (npts) ) ; pvap_lpw_ll           = rmissing
+  allocate( slp_ll               (npts) ) ; slp_ll                = rmissing
+
+  allocate( pcprmic_ll           (npts) ) ; pcprmic_ll            = rmissing
+  allocate( accpmic_ll           (npts) ) ; accpmic_ll            = rmissing
+!  allocate( accpcon_ll           (npts) ) ; accpcon_ll            = rmissing
+!  allocate( vapflux_accum_ll     (npts) ) ; vapflux_accum_ll      = rmissing
+!  allocate( sensflux_accum_ll    (npts) ) ; sensflux_accum_ll     = rmissing
+!  allocate( latflux_accum_ll     (npts) ) ; latflux_accum_ll      = rmissing
+!  allocate( rshort_accum_ll      (npts) ) ; rshort_accum_ll       = rmissing
+!  allocate( rshortup_accum_ll    (npts) ) ; rshortup_accum_ll     = rmissing
+!  allocate( rlong_accum_ll       (npts) ) ; rlong_accum_ll        = rmissing
+!  allocate( rlongup_accum_ll     (npts) ) ; rlongup_accum_ll      = rmissing
+!  allocate( rshort_top_accum_ll  (npts) ) ; rshort_top_accum_ll   = rmissing
+!  allocate( rshortup_top_accum_ll(npts) ) ; rshortup_top_accum_ll = rmissing
+!  allocate( rlongup_top_accum_ll (npts) ) ; rlongup_top_accum_ll  = rmissing
+
+!  allocate( rshort_clr_accum_ll      (npts) ) ; rshort_clr_accum_ll       = rmissing
+!  allocate( rshortup_clr_accum_ll    (npts) ) ; rshortup_clr_accum_ll     = rmissing
+!  allocate( rlong_clr_accum_ll       (npts) ) ; rlong_clr_accum_ll        = rmissing
+!  allocate( rlongup_clr_accum_ll     (npts) ) ; rlongup_clr_accum_ll      = rmissing
+!  allocate( rshort_top_clr_accum_ll  (npts) ) ; rshort_top_clr_accum_ll   = rmissing
+!  allocate( rshortup_top_clr_accum_ll(npts) ) ; rshortup_top_clr_accum_ll = rmissing
+!  allocate( rlongup_top_clr_accum_ll (npts) ) ; rlongup_top_clr_accum_ll  = rmissing
+
+  if (isfcl == 1) then
+!     allocate( al_sfcwater_tot_ll  (npts) ) ; al_sfcwater_tot_ll   = rmissing
+!     allocate( al_soil_water_tot_ll(npts) ) ; al_soil_water_tot_ll = rmissing
+
+!     allocate( als_vels_accum_ll     (npts) ) ; als_vels_accum_ll      = rmissing
+!     allocate( als_airtempk_accum_ll (npts) ) ; als_airtempk_accum_ll  = rmissing
+!     allocate( als_airshv_accum_ll   (npts) ) ; als_airshv_accum_ll    = rmissing
+!     allocate( als_cantempk_accum_ll (npts) ) ; als_cantempk_accum_ll  = rmissing
+!     allocate( als_canshv_accum_ll   (npts) ) ; als_canshv_accum_ll    = rmissing
+!     allocate( als_skintempk_accum_ll(npts) ) ; als_skintempk_accum_ll = rmissing
+!     allocate( als_sensflux_accum_ll (npts) ) ; als_sensflux_accum_ll  = rmissing
+!     allocate( als_latflux_accum_ll  (npts) ) ; als_latflux_accum_ll   = rmissing
+!     allocate( als_vapflux_accum_ll  (npts) ) ; als_vapflux_accum_ll   = rmissing
+!     allocate( al_wxfer1_accum_ll    (npts) ) ; al_wxfer1_accum_ll     = rmissing
   endif
 
-  if (doaccum .or. dodifs) then
-     allocate( accpmic_ll           (npts) ) ; accpmic_ll            = rmissing
-     allocate( accpcon_ll           (npts) ) ; accpcon_ll            = rmissing
-     allocate( vapflux_accum_ll     (npts) ) ; vapflux_accum_ll      = rmissing
-     allocate( sensflux_accum_ll    (npts) ) ; sensflux_accum_ll     = rmissing
-     allocate( latflux_accum_ll     (npts) ) ; latflux_accum_ll      = rmissing
-     allocate( rshort_accum_ll      (npts) ) ; rshort_accum_ll       = rmissing
-     allocate( rshortup_accum_ll    (npts) ) ; rshortup_accum_ll     = rmissing
-     allocate( rlong_accum_ll       (npts) ) ; rlong_accum_ll        = rmissing
-     allocate( rlongup_accum_ll     (npts) ) ; rlongup_accum_ll      = rmissing
-     allocate( rshort_top_accum_ll  (npts) ) ; rshort_top_accum_ll   = rmissing
-     allocate( rshortup_top_accum_ll(npts) ) ; rshortup_top_accum_ll = rmissing
-     allocate( rlongup_top_accum_ll (npts) ) ; rlongup_top_accum_ll  = rmissing
-  endif
+!  allocate(   u_accum_ll(npts,mza-1) ) ;   u_accum_ll = rmissing
+!  allocate(   v_accum_ll(npts,mza-1) ) ;   v_accum_ll = rmissing
+!  allocate(   w_accum_ll(npts,mza-1) ) ;   w_accum_ll = rmissing
+!  allocate(   t_accum_ll(npts,mza-1) ) ;   t_accum_ll = rmissing
+!  allocate( shv_accum_ll(npts,mza-1) ) ; shv_accum_ll = rmissing
+!  allocate(   p_accum_ll(npts,mza-1) ) ;   p_accum_ll = rmissing
 
-  if (doaccum) then
-     allocate( rshort_clr_accum_ll      (npts) ) ; rshort_clr_accum_ll       = rmissing
-     allocate( rshortup_clr_accum_ll    (npts) ) ; rshortup_clr_accum_ll     = rmissing
-     allocate( rlong_clr_accum_ll       (npts) ) ; rlong_clr_accum_ll        = rmissing
-     allocate( rlongup_clr_accum_ll     (npts) ) ; rlongup_clr_accum_ll      = rmissing
-     allocate( rshort_top_clr_accum_ll  (npts) ) ; rshort_top_clr_accum_ll   = rmissing
-     allocate( rshortup_top_clr_accum_ll(npts) ) ; rshortup_top_clr_accum_ll = rmissing
-     allocate( rlongup_top_clr_accum_ll (npts) ) ; rlongup_top_clr_accum_ll  = rmissing
+  allocate(     u_ll(npts,mza-1) ) ;     u_ll = rmissing
+  allocate(     v_ll(npts,mza-1) ) ;     v_ll = rmissing
+  allocate(     w_ll(npts,mza-1) ) ;     w_ll = rmissing
+  allocate( theta_ll(npts,mza-1) ) ; theta_ll = rmissing
+!  allocate(     t_ll(npts,mza-1) ) ;     t_ll = rmissing
+  allocate(   shv_ll(npts,mza-1) ) ;   shv_ll = rmissing
+  allocate(   shc_ll(npts,mza-1) ) ;   shc_ll = rmissing
+  allocate(   shr_ll(npts,mza-1) ) ;   shr_ll = rmissing
+  allocate(     p_ll(npts,mza-1) ) ;     p_ll = rmissing
 
-     allocate( al_sfcwater_tot_ll  (npts) ) ; al_sfcwater_tot_ll   = rmissing
-     allocate( al_soil_water_tot_ll(npts) ) ; al_soil_water_tot_ll = rmissing
+  allocate( q1_ll(npts,mza-1) ) ; q1_ll = rmissing
+  allocate( q2_ll(npts,mza-1) ) ; q2_ll = rmissing
+!  allocate( q3_ll(npts,mza-1) ) ; q3_ll = rmissing
+!  allocate( q4_ll(npts,mza-1) ) ; q4_ll = rmissing
+!  allocate( q5_ll(npts,mza-1) ) ; q5_ll = rmissing
 
-     allocate( als_vels_accum_ll     (npts) ) ; als_vels_accum_ll      = rmissing
-     allocate( als_airtempk_accum_ll (npts) ) ; als_airtempk_accum_ll  = rmissing
-     allocate( als_airshv_accum_ll   (npts) ) ; als_airshv_accum_ll    = rmissing
-     allocate( als_cantempk_accum_ll (npts) ) ; als_cantempk_accum_ll  = rmissing
-     allocate( als_canshv_accum_ll   (npts) ) ; als_canshv_accum_ll    = rmissing
-     allocate( als_skintempk_accum_ll(npts) ) ; als_skintempk_accum_ll = rmissing
-     allocate( als_sensflux_accum_ll (npts) ) ; als_sensflux_accum_ll  = rmissing
-     allocate( als_latflux_accum_ll  (npts) ) ; als_latflux_accum_ll   = rmissing
-     allocate( als_vapflux_accum_ll  (npts) ) ; als_vapflux_accum_ll   = rmissing
-     allocate( al_wxfer1_accum_ll    (npts) ) ; al_wxfer1_accum_ll     = rmissing
-  endif
+  if (init == 0) then
+     if (allocated(accpmic_ll)) then
+         allocate( pcpmic_dif2_ll(npts) )       ; pcpmic_dif2_ll = 0.
+     endif
 
-  if (doaccum .and. do3d) then
-     allocate( u_accum_ll(npts,mza-1) ) ; u_accum_ll = rmissing
-     allocate( v_accum_ll(npts,mza-1) ) ; v_accum_ll = rmissing
-     allocate( w_accum_ll(npts,mza-1) ) ; w_accum_ll = rmissing
-     allocate( t_accum_ll(npts,mza-1) ) ; t_accum_ll = rmissing
-     allocate( r_accum_ll(npts,mza-1) ) ; r_accum_ll = rmissing
-     allocate( p_accum_ll(npts,mza-1) ) ; p_accum_ll = rmissing
-  endif
+     if (allocated(accpcon_ll)) then
+         allocate( pcpcon_dif2_ll(npts) )       ; pcpcon_dif2_ll = 0.
+     endif
 
-  if (do3d) then
-     allocate( u_ll(npts,mza-1) ) ; u_ll = rmissing
-     allocate( v_ll(npts,mza-1) ) ; v_ll = rmissing
-     allocate( w_ll(npts,mza-1) ) ; w_ll = rmissing
-     allocate( t_ll(npts,mza-1) ) ; t_ll = rmissing
-     allocate( r_ll(npts,mza-1) ) ; r_ll = rmissing
-     allocate( p_ll(npts,mza-1) ) ; p_ll = rmissing
+     if (allocated(pcpmic_dif2_ll) .and. &
+         allocated(pcpcon_dif2_ll)) then
+         allocate( pcpboth_dif2_ll(npts) )      ; pcpboth_dif2_ll = 0.
+     endif
+
+     if (allocated(rshort_accum_ll)) then
+         allocate( rshort_dif2_ll(npts) )       ; rshort_dif2_ll = 0.
+     endif
+
+     if (allocated(rshortup_accum_ll)) then
+         allocate( rshortup_dif2_ll(npts) )     ; rshortup_dif2_ll = 0.
+     endif
+
+     if (allocated(rlong_accum_ll)) then
+         allocate( rlong_dif2_ll(npts) )        ; rlong_dif2_ll = 0.
+     endif
+
+     if (allocated(rlongup_accum_ll)) then
+         allocate( rlongup_dif2_ll(npts) )      ; rlongup_dif2_ll = 0.
+     endif
+
+     if (allocated(rshort_top_accum_ll)) then
+         allocate( rshort_top_dif2_ll(npts) )   ; rshort_top_dif2_ll = 0.
+     endif
+
+     if (allocated(rshortup_top_accum_ll)) then
+         allocate( rshortup_top_dif2_ll(npts) ) ; rshortup_top_dif2_ll = 0.
+     endif
+
+     if (allocated(rlongup_top_accum_ll)) then
+         allocate( rlongup_top_dif2_ll(npts) )  ; rlongup_top_dif2_ll = 0.
+     endif
+
+     if (allocated(sensflux_accum_ll)) then
+         allocate( sensflux_dif2_ll(npts) )     ; sensflux_dif2_ll = 0.
+     endif
+
+     if (allocated(latflux_accum_ll)) then
+         allocate( latflux_dif2_ll(npts) )      ; latflux_dif2_ll = 0.
+     endif
+
+     init = 1
   endif
 
   ! scratch arrays
@@ -517,8 +583,8 @@ subroutine fields2_ll()
 ! Interpolate topography height
 !------------------------------------------------------------
 
-  if (dosfc) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,topw,topo_ll)
-  
+  if (allocated(topo_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,topw,topo_ll)
+
 !------------------------------------------------------------
 ! Compute zonal and meridional wind components on OLAM grid
 ! and copy their values at lowest prognosed model level to
@@ -535,9 +601,12 @@ subroutine fields2_ll()
 
         do k = kb, mza
            if (raxis > 1.e3) then
-              scr2a(k,iw) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) / raxis
+
               scr2b(k,iw) = vze(k,iw) * raxis * eradi &
                           - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) * zew(iw) / (raxis * erad)
+
+              scr2a(k,iw) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) / raxis
+
            else
               scr2a(k,iw) = 0.
               scr2b(k,iw) = 0.
@@ -563,11 +632,11 @@ subroutine fields2_ll()
 ! near-surface values
 !------------------------------------------------------------
 
-  if (do3d)  call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,u_ll)
-  if (do3d)  call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2b,v_ll)
+  if (allocated(u_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,u_ll)
+  if (allocated(v_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2b,v_ll)
 
-  if (dosfc) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,u_lpw_ll)
-  if (dosfc) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1b,v_lpw_ll)
+  if (allocated(u_lpw_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,u_lpw_ll)
+  if (allocated(v_lpw_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1b,v_lpw_ll)
 
 !------------------------------------------------------------
 ! Compute temperature on OLAM grid and copy its value at 
@@ -576,20 +645,21 @@ subroutine fields2_ll()
 ! prognosed model level. 
 !------------------------------------------------------------
 
-     do iw = 2, mwa
-        kb = lpw(iw)
-        scr1a(iw) = tair(kb,iw)
-        scr1b(iw) = press(kb,iw) &
-                  * (1. - .0065 * zt(kb) / (tair(kb,iw) + .0065 * zt(kb)))**(-5.257)
-     enddo
+  do iw = 2, mwa
+     kb = lpw(iw)
+     scr1a(iw) = tair(kb,iw)
+     scr1b(iw) = press(kb,iw) &
+               * (1. - .0065 * zt(kb) / (tair(kb,iw) + .0065 * zt(kb)))**(-5.257)
+  enddo
 
 !------------------------------------------------------------
-! Interpolate temperature, its surface value, and sea level pressure
+! Interpolate potential temperature, temperature, its surface value, and sea level pressure
 !------------------------------------------------------------
 
-  if (do3d)  call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,tair,t_ll)
-  if (dosfc) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,t_lpw_ll)
-  if (dosfc) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1b,slp_ll)
+  if (allocated(theta_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,theta,theta_ll)
+  if (allocated(t_ll))     call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,tair,t_ll)
+  if (allocated(t_lpw_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,t_lpw_ll)
+  if (allocated(slp_ll))   call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1b,slp_ll)
 
 !------------------------------------------------------------
 ! Copy vapor specific density at lowest prognosed model level
@@ -614,10 +684,12 @@ subroutine fields2_ll()
 ! and the surface value of vapor pressure
 !------------------------------------------------------------
 
-  if (do3d)  call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,w_ll)
-  if (do3d)  call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,sh_v,r_ll)
-  if (dosfc) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,r_lpw_ll)
-  if (dosfc) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1b,pvap_lpw_ll)
+  if (allocated(w_ll))        call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,w_ll)
+  if (allocated(shv_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,sh_v,shv_ll)
+  if (allocated(shc_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,sh_c,shc_ll)
+  if (allocated(shr_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,sh_r,shr_ll)
+  if (allocated(shv_lpw_ll))  call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,shv_lpw_ll)
+  if (allocated(pvap_lpw_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1b,pvap_lpw_ll)
 
 !------------------------------------------------------------
 ! Interpolate atmospheric pressure
@@ -630,95 +702,147 @@ subroutine fields2_ll()
      scr2a(lpw(iw):mza,iw) = real(press(lpw(iw):mza,iw))
   enddo
 
-  if (do3d) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,p_ll)
+  if (allocated(p_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,p_ll)
 
 !------------------------------------------------------------
-! Compute total (resolved + parameterized) accumulated
-! precipitation on OLAM grid
+! Interpolate added scalars
 !------------------------------------------------------------
 
-  if (doaccum .or. dodifs) then
+  if (allocated(q1_ll) .and. nl%naddsc >= 1) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,addsc(1)%sclp,q1_ll)
+  if (allocated(q2_ll) .and. nl%naddsc >= 2) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,addsc(2)%sclp,q2_ll)
+  if (allocated(q3_ll) .and. nl%naddsc >= 3) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,addsc(3)%sclp,q3_ll)
+  if (allocated(q4_ll) .and. nl%naddsc >= 4) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,addsc(4)%sclp,q4_ll)
+  if (allocated(q5_ll) .and. nl%naddsc >= 5) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,addsc(5)%sclp,q5_ll)
 
-     do iw = 2, mwa
-        scr1a(iw) = 0.
+!------------------------------------------------------------
+! Sum precipitation rates and accumulations over all microphysics species
+!------------------------------------------------------------
 
-        if (allocated(accpd))  scr1a(iw) = scr1a(iw) + real(accpd(iw))
-        if (allocated(accpr))  scr1a(iw) = scr1a(iw) + real(accpr(iw))
-        if (allocated(accpp))  scr1a(iw) = scr1a(iw) + real(accpp(iw))
-        if (allocated(accps))  scr1a(iw) = scr1a(iw) + real(accps(iw))
-        if (allocated(accpa))  scr1a(iw) = scr1a(iw) + real(accpa(iw))
-        if (allocated(accpg))  scr1a(iw) = scr1a(iw) + real(accpg(iw))
-        if (allocated(accph))  scr1a(iw) = scr1a(iw) + real(accph(iw))
-     enddo
+  do iw = 2, mwa
+     scr1a(iw) = 0.
+     scr1b(iw) = 0.
+
+     if (allocated(pcprd))  scr1a(iw) = scr1a(iw) + real(pcprd(iw))
+     if (allocated(pcprr))  scr1a(iw) = scr1a(iw) + real(pcprr(iw))
+     if (allocated(pcprp))  scr1a(iw) = scr1a(iw) + real(pcprp(iw))
+     if (allocated(pcprs))  scr1a(iw) = scr1a(iw) + real(pcprs(iw))
+     if (allocated(pcpra))  scr1a(iw) = scr1a(iw) + real(pcpra(iw))
+     if (allocated(pcprg))  scr1a(iw) = scr1a(iw) + real(pcprg(iw))
+     if (allocated(pcprh))  scr1a(iw) = scr1a(iw) + real(pcprh(iw))
+
+     if (allocated(accpd))  scr1b(iw) = scr1b(iw) + real(accpd(iw))
+     if (allocated(accpr))  scr1b(iw) = scr1b(iw) + real(accpr(iw))
+     if (allocated(accpp))  scr1b(iw) = scr1b(iw) + real(accpp(iw))
+     if (allocated(accps))  scr1b(iw) = scr1b(iw) + real(accps(iw))
+     if (allocated(accpa))  scr1b(iw) = scr1b(iw) + real(accpa(iw))
+     if (allocated(accpg))  scr1b(iw) = scr1b(iw) + real(accpg(iw))
+     if (allocated(accph))  scr1b(iw) = scr1b(iw) + real(accph(iw))
+
+     ! For DCMIP 2016, convert precip rate to m/s and accum precip to m
+
+     scr1a(iw) = scr1a(iw) * 1.e3 ! converting precip rate to m/s for DCMIP 2016
+     scr1b(iw) = scr1b(iw) * 1.e3 ! converting accum precip to m for DCMIP 2016
+
+  enddo
 
 !-------------------------------------------------------------
-! Compute and interpolate accumulated precipitation and fluxes
+! Compute and interpolate precipitation and fluxes
 !-------------------------------------------------------------
 
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,accpmic_ll)
+  if (allocated(pcprmic_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,pcprmic_ll)
+  if (allocated(accpmic_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1b,accpmic_ll)
 
-     if (allocated(aconpr)) then
-        scr1a(:) = real(aconpr(:))
-        call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,accpcon_ll)
-     endif
-
-     scr1a(:) = real(sfluxr_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,vapflux_accum_ll)
-
-     scr1a(:) = real(sfluxt_accum(:)) * cp
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,sensflux_accum_ll)
-
-     scr1a(:) = real(sfluxr_accum(:)) * alvl
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,latflux_accum_ll)
-
-     scr1a(:) = real(rshort_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshort_accum_ll)
-
-     scr1a(:) = real(rshortup_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshortup_accum_ll)
-
-     scr1a(:) = real(rlong_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlong_accum_ll)
-
-     scr1a(:) = real(rlongup_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_accum_ll)
-
-     scr1a(:) = real(rshort_top_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshort_top_accum_ll)
-
-     scr1a(:) = real(rshortup_top_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshortup_top_accum_ll)
-
-     scr1a(:) = real(rlongup_top_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_top_accum_ll)
-
+  if (allocated(accpcon_ll) .and. allocated(aconpr)) then
+     scr1a(:) = real(aconpr(:))
+     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,accpcon_ll)
   endif
 
-  if (doaccum) then
+  if (allocated(vapflux_accum_ll)) then
+     scr1a(:) = real(sfluxr_accum(:))
+     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,vapflux_accum_ll)
+  endif
 
+  if (allocated(sensflux_accum_ll)) then
+     scr1a(:) = real(sfluxt_accum(:)) * cp
+     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,sensflux_accum_ll)
+  endif
+
+  if (allocated(latflux_accum_ll)) then
+     scr1a(:) = real(sfluxr_accum(:)) * alvl
+     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,latflux_accum_ll)
+  endif
+
+  if (allocated(rshort_accum_ll)) then
+     scr1a(:) = real(rshort_accum(:))
+     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshort_accum_ll)
+  endif
+
+  if (allocated(rshortup_accum_ll)) then
+     scr1a(:) = real(rshortup_accum(:))
+     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshortup_accum_ll)
+  endif
+
+  if (allocated(rlong_accum_ll)) then
+     scr1a(:) = real(rlong_accum(:))
+     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlong_accum_ll)
+  endif
+
+  if (allocated(rlongup_accum_ll)) then
+     scr1a(:) = real(rlongup_accum(:))
+     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_accum_ll)
+  endif
+
+  if (allocated(rshort_top_accum_ll)) then
+     scr1a(:) = real(rshort_top_accum(:))
+     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshort_top_accum_ll)
+  endif
+
+  if (allocated(rshortup_top_accum_ll)) then
+     scr1a(:) = real(rshortup_top_accum(:))
+     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshortup_top_accum_ll)
+  endif
+
+  if (allocated(rlongup_top_accum_ll)) then
+     scr1a(:) = real(rlongup_top_accum(:))
+     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_top_accum_ll)
+  endif
+
+  if (allocated(rshort_clr_accum_ll)) then
      scr1a(:) = real(rshort_clr_accum(:))
      call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshort_clr_accum_ll)
+  endif
 
+  if (allocated(rshortup_clr_accum_ll)) then
      scr1a(:) = real(rshortup_clr_accum(:))
      call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshortup_clr_accum_ll)
+  endif
 
+  if (allocated(rlong_clr_accum_ll)) then
      scr1a(:) = real(rlong_clr_accum(:))
      call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlong_clr_accum_ll)
+  endif
 
+  if (allocated(rlongup_clr_accum_ll)) then
      scr1a(:) = real(rlongup_clr_accum(:))
      call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_clr_accum_ll)
+  endif
 
+  if (allocated(rshort_top_clr_accum_ll)) then
      scr1a(:) = real(rshort_top_clr_accum(:))
      call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshort_top_clr_accum_ll)
+  endif
 
+  if (allocated(rshortup_top_clr_accum_ll))then
      scr1a(:) = real(rshortup_top_clr_accum(:))
      call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshortup_top_clr_accum_ll)
+  endif
 
+  if (allocated(rlongup_top_clr_accum_ll)) then
      scr1a(:) = real(rlongup_top_clr_accum(:))
      call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_top_clr_accum_ll)
+  endif
 
-     scr1a(:) = real(rlongup_top_clr_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_top_clr_accum_ll)
+  if (isfcl == 1) then
 
      do iw = 2, mwa
         scr1a(iw) = 0.
@@ -775,15 +899,15 @@ subroutine fields2_ll()
         enddo
 
         if (area_land_sum + area_sea_sum > 1.e0) then
-           scr1a(iw) = scr1a(iw) / (area_land_sum + area_sea_sum)
-           scr1b(iw) = scr1b(iw) / (area_land_sum + area_sea_sum)
-           scr1c(iw) = scr1c(iw) / (area_land_sum + area_sea_sum)
-           scr1d(iw) = scr1d(iw) / (area_land_sum + area_sea_sum)
-           scr1e(iw) = scr1e(iw) / (area_land_sum + area_sea_sum)
-           scr1f(iw) = scr1f(iw) / (area_land_sum + area_sea_sum)
-           scr1g(iw) = scr1g(iw) / (area_land_sum + area_sea_sum)
-           scr1h(iw) = scr1h(iw) / (area_land_sum + area_sea_sum)
-           scr1i(iw) = scr1i(iw) / (area_land_sum + area_sea_sum)
+             scr1a(iw) = scr1a(iw) / (area_land_sum + area_sea_sum)
+             scr1b(iw) = scr1b(iw) / (area_land_sum + area_sea_sum)
+             scr1c(iw) = scr1c(iw) / (area_land_sum + area_sea_sum)
+             scr1d(iw) = scr1d(iw) / (area_land_sum + area_sea_sum)
+             scr1e(iw) = scr1e(iw) / (area_land_sum + area_sea_sum)
+             scr1f(iw) = scr1f(iw) / (area_land_sum + area_sea_sum)
+             scr1g(iw) = scr1g(iw) / (area_land_sum + area_sea_sum)
+             scr1h(iw) = scr1h(iw) / (area_land_sum + area_sea_sum)
+             scr1i(iw) = scr1i(iw) / (area_land_sum + area_sea_sum)
         endif
 
         if (area_land_sum > 1.e0) then
@@ -794,108 +918,206 @@ subroutine fields2_ll()
 
      enddo
 
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,als_vels_accum_ll)
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1b,als_airtempk_accum_ll)
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1c,als_airshv_accum_ll)
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1d,als_cantempk_accum_ll)
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1e,als_canshv_accum_ll)
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1f,als_skintempk_accum_ll)
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1g,als_sensflux_accum_ll)
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1h,als_latflux_accum_ll)
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1i,als_vapflux_accum_ll)
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1j,al_wxfer1_accum_ll)
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1k,al_sfcwater_tot_ll)
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1l,al_soil_water_tot_ll)
+     if (allocated(als_vels_accum_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,als_vels_accum_ll)
+     if (allocated(als_airtempk_accum_ll))  call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1b,als_airtempk_accum_ll)
+     if (allocated(als_airshv_accum_ll))    call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1c,als_airshv_accum_ll)
+     if (allocated(als_cantempk_accum_ll))  call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1d,als_cantempk_accum_ll)
+     if (allocated(als_canshv_accum_ll))    call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1e,als_canshv_accum_ll)
+     if (allocated(als_skintempk_accum_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1f,als_skintempk_accum_ll)
+     if (allocated(als_sensflux_accum_ll))  call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1g,als_sensflux_accum_ll)
+     if (allocated(als_latflux_accum_ll))   call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1h,als_latflux_accum_ll)
+     if (allocated(als_vapflux_accum_ll))   call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1i,als_vapflux_accum_ll)
+     if (allocated(al_wxfer1_accum_ll))     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1j,al_wxfer1_accum_ll)
+     if (allocated(al_sfcwater_tot_ll))     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1k,al_sfcwater_tot_ll)
+     if (allocated(al_soil_water_tot_ll))   call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1l,al_soil_water_tot_ll)
 
-     if (do3d) then
-
-        do iw = 2, mwa
-           npoly = itab_w(iw)%npoly
-
-           do k = lpw(iw), mza
-
-              vx = 0.5 * real(wc_accum(k-1,iw) + wc_accum(k,iw)) * wnx(iw)
-              vy = 0.5 * real(wc_accum(k-1,iw) + wc_accum(k,iw)) * wny(iw)
-              vz = 0.5 * real(wc_accum(k-1,iw) + wc_accum(k,iw)) * wnz(iw)
-
-              do jv = 1, npoly
-                 iv = itab_w(iw)%iv(jv)
-
-                 vx = vx + itab_w(iw)%ecvec_vx(jv) * real(vc_accum(k,iv))
-                 vy = vy + itab_w(iw)%ecvec_vy(jv) * real(vc_accum(k,iv))
-                 vz = vz + itab_w(iw)%ecvec_vz(jv) * real(vc_accum(k,iv))
-              enddo
-
-              if (mdomain < 2) then
-
-                 raxis = sqrt(xew(iw)**2 + yew(iw)**2)  ! dist from earth axis
-
-                 if (raxis > 1.e3) then
-                    scr2a(k,iw) = (vy * xew(iw) - vx * yew(iw)) / raxis
-                    scr2b(k,iw) = vz * raxis / erad &
-                       - (vx * xew(iw) + vy * yew(iw)) * zew(iw) / (raxis * erad) 
-                 else
-                    scr2a(k,iw) = 0.
-                    scr2b(k,iw) = 0.
-                 endif
-
-              else
-                 scr2a(k,iw) = vx
-                 scr2b(k,iw) = vy
-              endif
-
-           enddo
-        enddo
-
-        call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,u_accum_ll)
-        call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2b,v_accum_ll)
-
-        do iw = 2,mwa
-           kb = lpw(iw)
-
-           do k = kb,mza
-              scr2a(k,iw) = 0.5 * real(wc_accum(k,iw) + wc_accum(k-1,iw))
-              scr2b(k,iw) = real(press_accum(k,iw))
-           enddo
-        enddo
-
-        call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,w_accum_ll)
-        call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2b,p_accum_ll)
-
-        do iw = 2,mwa
-           kb = lpw(iw)
-
-           do k = kb,mza
-              scr2a(k,iw) = real(tair_accum(k,iw))
-              scr2b(k,iw) = real(sh_v_accum(k,iw))
-           enddo
-        enddo
-
-        call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,t_accum_ll)
-        call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2b,r_accum_ll)
-
-     endif
   endif
 
-! HDF5 write
+  if (allocated(u_accum_ll) .or. allocated(v_accum_ll)) then
+     do iw = 2, mwa
+        npoly = itab_w(iw)%npoly
+
+        do k = lpw(iw), mza
+
+           vx = 0.5 * real(wc_accum(k-1,iw) + wc_accum(k,iw)) * wnx(iw)
+           vy = 0.5 * real(wc_accum(k-1,iw) + wc_accum(k,iw)) * wny(iw)
+           vz = 0.5 * real(wc_accum(k-1,iw) + wc_accum(k,iw)) * wnz(iw)
+
+           do jv = 1, npoly
+              iv = itab_w(iw)%iv(jv)
+
+              vx = vx + itab_w(iw)%ecvec_vx(jv) * real(vc_accum(k,iv))
+              vy = vy + itab_w(iw)%ecvec_vy(jv) * real(vc_accum(k,iv))
+              vz = vz + itab_w(iw)%ecvec_vz(jv) * real(vc_accum(k,iv))
+           enddo
+
+           if (mdomain < 2) then
+
+              raxis = sqrt(xew(iw)**2 + yew(iw)**2)  ! dist from earth axis
+
+              if (raxis > 1.e3) then
+                 scr2a(k,iw) = (vy * xew(iw) - vx * yew(iw)) / raxis
+                 scr2b(k,iw) = vz * raxis / erad &
+                    - (vx * xew(iw) + vy * yew(iw)) * zew(iw) / (raxis * erad) 
+              else
+                 scr2a(k,iw) = 0.
+                 scr2b(k,iw) = 0.
+              endif
+
+           else
+              scr2a(k,iw) = vx
+              scr2b(k,iw) = vy
+           endif
+
+        enddo
+     enddo
+
+     if (allocated(u_accum_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,u_accum_ll)
+     if (allocated(v_accum_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2b,v_accum_ll)
+  endif
+
+  if (allocated(w_accum_ll) .or. allocated(p_accum_ll)) then
+     do iw = 2,mwa
+        kb = lpw(iw)
+
+        do k = kb,mza
+           scr2a(k,iw) = 0.5 * real(wc_accum(k,iw) + wc_accum(k-1,iw))
+           scr2b(k,iw) = real(press_accum(k,iw))
+        enddo
+     enddo
+
+     if (allocated(w_accum_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,w_accum_ll)
+     if (allocated(p_accum_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2b,p_accum_ll)
+  endif
+
+  if (allocated(t_accum_ll) .or. allocated(shv_accum_ll)) then
+     do iw = 2,mwa
+        kb = lpw(iw)
+
+        do k = kb,mza
+           scr2a(k,iw) = real(tair_accum(k,iw))
+           scr2b(k,iw) = real(sh_v_accum(k,iw))
+        enddo
+     enddo
+
+     if (allocated(t_accum_ll))   call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,t_accum_ll)
+     if (allocated(shv_accum_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2b,shv_accum_ll)
+  endif
+
+  timedifi = 1.0
+  if (abs(time8 - time8_prev) > .99) then
+     timedifi = 1.0 / real(time8 - time8_prev)
+  endif
+
+  ! Compute difference fields
+
+   if (allocated(pcpmic_dif2_ll)) &
+      pcpmic_dif2_ll(:) =                  (accpmic_ll(:) -       pcpmic_dif2_ll(:)) * timedifi
+   if (allocated(pcpcon_dif2_ll)) &
+      pcpcon_dif2_ll(:) =                  (accpcon_ll(:) -       pcpcon_dif2_ll(:)) * timedifi
+
+!--------------------------------------------------------------------------------------
+   if (allocated(pcpmic_dif2_ll)) &
+      pcpmic_dif2_ll(:) = pcpmic_dif2_ll(:) * 1.e-3 ! converting to m/s for DCMIP 2016
+   if (allocated(pcpcon_dif2_ll)) &
+      pcpcon_dif2_ll(:) = pcpcon_dif2_ll(:) * 1.e-3 ! converting to m/s for DCMIP 2016
+!--------------------------------------------------------------------------------------
+ 
+   if (allocated(pcpboth_dif2_ll)) &
+      pcpboth_dif2_ll(:) =              pcpmic_dif2_ll(:) +       pcpcon_dif2_ll(:)
+   if (allocated(rshort_dif2_ll)) &
+      rshort_dif2_ll(:) =             (rshort_accum_ll(:) -       rshort_dif2_ll(:)) * timedifi
+   if (allocated(rshortup_dif2_ll)) &
+      rshortup_dif2_ll(:) =         (rshortup_accum_ll(:) -     rshortup_dif2_ll(:)) * timedifi
+   if (allocated(rlong_dif2_ll)) &
+      rlong_dif2_ll(:) =               (rlong_accum_ll(:) -        rlong_dif2_ll(:)) * timedifi
+   if (allocated(rlongup_dif2_ll)) &
+      rlongup_dif2_ll(:) =           (rlongup_accum_ll(:) -      rlongup_dif2_ll(:)) * timedifi
+   if (allocated(rshort_top_dif2_ll)) &
+      rshort_top_dif2_ll(:) =     (rshort_top_accum_ll(:) -   rshort_top_dif2_ll(:)) * timedifi
+   if (allocated(rshortup_top_dif2_ll)) &
+      rshortup_top_dif2_ll(:) = (rshortup_top_accum_ll(:) - rshortup_top_dif2_ll(:)) * timedifi
+   if (allocated(rlongup_top_dif2_ll)) &
+      rlongup_top_dif2_ll(:) =   (rlongup_top_accum_ll(:) -  rlongup_top_dif2_ll(:)) * timedifi
+   if (allocated(sensflux_dif2_ll)) &
+      sensflux_dif2_ll(:) =         (sensflux_accum_ll(:) -     sensflux_dif2_ll(:)) * timedifi
+   if (allocated(latflux_dif2_ll)) &
+      latflux_dif2_ll(:) =           (latflux_accum_ll(:) -      latflux_dif2_ll(:)) * timedifi
+
+  ! HDF5 write
 
   if (nl%ioutput_latlon == 1) then
 
      if (myrank == 0) write(io6,'(/,a)') "Writing lat/lon fields to disk..."
 
-     call makefnam(hnamel, hfilepref, current_time, 'LL', '$', 'h5')
+!!  model.experiment_id.horizontal_resolution.levels.grid.equation.description.variable.nc
+
+!!  olam.163.r25.L30.voronoi.nonhydro.variable_220_25km.PS.nc
+
+     call makefnam(hnamel, hfilepref, current_time, 'DLL', '$', 'h5')
      call shdf5_open(hnamel,'W',iclobber) 
 
-! Write any global attributes to file
+     ! Write any global attributes to file
 
-     write(ofrq,'(I0,A1)') nint(nl%frqlatlon), 's'
+     write (levs, '(a1,i2)') 'L',mza-1
 
-     call shdf5_write_global_attribute("Conventions",    cvalue = "CF-1.0")
-     call shdf5_write_global_attribute("model",          cvalue = "OLAM")
-     call shdf5_write_global_attribute("time_frequency", cvalue = trim(ofrq))
-     call shdf5_write_global_attribute("grid",           cvalue = "hexagonal")
+     call shdf5_write_global_attribute("Conventions",           cvalue = "CF-1.0")
+     call shdf5_write_global_attribute("project_id",            cvalue = "DCMIP2016")
+     call shdf5_write_global_attribute("institute_id",          cvalue = "University of Miami")
+     call shdf5_write_global_attribute("model_id",              cvalue = "olam")
+     call shdf5_write_global_attribute("modeling_realm",        cvalue = "atmos")
+     call shdf5_write_global_attribute("grid",                  cvalue = "voronoi")
+     call shdf5_write_global_attribute("equation",              cvalue = "nonhydro")
+     call shdf5_write_global_attribute("levels",                cvalue = trim(levs))
 
-! Write coordinate variables to disk (lat, lon, height)
+
+     if     (nl%test_case == 111) then
+        call shdf5_write_global_attribute("experiment_id",      cvalue = "161-preciponly") 
+        call shdf5_write_global_attribute("frequency",          cvalue = "1day")
+     elseif (nl%test_case == 112) then
+        call shdf5_write_global_attribute("experiment_id",      cvalue = "161") 
+        call shdf5_write_global_attribute("frequency",          cvalue = "1day") 
+     elseif (nl%test_case == 121) then
+        call shdf5_write_global_attribute("experiment_id",      cvalue = "162-rjpbl") 
+        call shdf5_write_global_attribute("frequency",          cvalue = "6hr") 
+     elseif (nl%test_case == 122) then
+        call shdf5_write_global_attribute("experiment_id",      cvalue = "162-bryanpbl") 
+        call shdf5_write_global_attribute("frequency",          cvalue = "6hr") 
+     elseif (nl%test_case == 131) then
+        call shdf5_write_global_attribute("experiment_id",      cvalue = "163") 
+        call shdf5_write_global_attribute("frequency",          cvalue = "300s") 
+     endif
+
+     if     (nxp < 40 .and. ngrids == 1) then
+        call shdf5_write_global_attribute("horizontal resolution", cvalue = "r200")
+        call shdf5_write_global_attribute("description",           cvalue = "")
+     elseif (nxp < 80 .and. ngrids == 1) then
+        call shdf5_write_global_attribute("horizontal resolution", cvalue = "r100")
+        call shdf5_write_global_attribute("description",           cvalue = "")
+     elseif (nxp < 160 .and. ngrids == 1) then
+        call shdf5_write_global_attribute("horizontal resolution", cvalue = "r50")
+        call shdf5_write_global_attribute("description",           cvalue = "")
+     elseif (nxp < 40 .and. ngrids == 2) then
+        call shdf5_write_global_attribute("horizontal resolution", cvalue = "r100")
+        call shdf5_write_global_attribute("description",           cvalue = "variable_200_100km")
+     elseif (nxp < 80 .and. ngrids == 2) then
+        call shdf5_write_global_attribute("horizontal resolution", cvalue = "r50")
+        call shdf5_write_global_attribute("description",           cvalue = "variable_100_50km")
+     elseif (nxp < 160 .and. ngrids == 2) then
+        call shdf5_write_global_attribute("horizontal resolution", cvalue = "r25")
+        call shdf5_write_global_attribute("description",           cvalue = "variable_50_25km")
+     elseif (nxp < 40 .and. ngrids == 3) then
+        call shdf5_write_global_attribute("horizontal resolution", cvalue = "r50")
+        call shdf5_write_global_attribute("description",           cvalue = "variable_200_50km")
+     elseif (nxp < 80 .and. ngrids == 3) then
+        call shdf5_write_global_attribute("horizontal resolution", cvalue = "r25")
+        call shdf5_write_global_attribute("description",           cvalue = "variable_100_25km")
+     elseif (nxp < 160 .and. ngrids == 3) then
+        call shdf5_write_global_attribute("horizontal resolution", cvalue = "r12")
+        call shdf5_write_global_attribute("description",           cvalue = "variable_50_12km")
+     endif
+
+     ! Write coordinate variables to disk (lat, lon, height)
 
      ndims    = 1
      idims(2) = 1
@@ -911,19 +1133,19 @@ subroutine fields2_ll()
      idims(1) = nlat
 
      CALL shdf5_orec(ndims, idims, 'lat', rvara=alat, isdim=.true., &
-                  long_name = "latitude",                        &
-                  standard_name = "latitude",                    &
-                  units = "degrees_east"                         )
+                     long_name = "latitude",                        &
+                     standard_name = "latitude",                    &
+                     units = "degrees_east"                         )
 
-  idims(1) = mza-1
+     idims(1) = mza-1
 
-  CALL shdf5_orec(ndims, idims, 'z', rvara=zlev, isdim=.true., &
+     CALL shdf5_orec(ndims, idims, 'z', rvara=zlev, isdim=.true., &
                      long_name = "height above mean sea level",   &
                      standard_name = "altitude",                  &
                      units = "m",                                 &
                      positive = "up"                              )
 
-  ! If we ever output data on pressure levels:
+     ! If we ever output data on pressure levels:
 
      if (dopress) then
 
@@ -936,8 +1158,8 @@ subroutine fields2_ll()
                         positive = "down"                               )
      endif
 
-! Now write lat/lon interpolated variables to disk.  
-! THESE WRITES NEED THE ROUTINE SHDF5_OREC_LL TO WORK IN PARALLEL!!
+     ! Now write lat/lon interpolated variables to disk.  
+     ! THESE WRITES NEED THE ROUTINE SHDF5_OREC_LL TO WORK IN PARALLEL!!
 
      ndims    = 2
      idims(1) = nlon
@@ -945,10 +1167,9 @@ subroutine fields2_ll()
      dimnames(1) = 'lon'
      dimnames(2) = 'lat'
 
-! Surface Quantities
+     ! Surface Quantities
 
-     if (dosfc) then
-
+     if (allocated(topo_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'TOPO_LL', rvara=topo_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                     &
                            long_name = "topography height",                         &
@@ -956,20 +1177,23 @@ subroutine fields2_ll()
                            units = "m",                                             &
                            rmissing = rmissing                                      )
 
+     if (allocated(u_lpw_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'U_LPW_LL', rvara=u_lpw_ll, gpoints=lls_loc,       &
                            dimnames = dimnames,                                             &
                            long_name = "eastward wind at lowest model layer above surface", &
                            standard_name = "eastward_wind",                                 &
-                           units = "m s-1",                                                 &
+                           units = "m/s",                                                   &
                            rmissing = rmissing                                              )
 
+     if (allocated(v_lpw_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'V_LPW_LL', rvara=v_lpw_ll, gpoints=lls_loc,        &
                            dimnames = dimnames,                                              &
                            long_name = "northward wind at lowest model layer above surface", &
                            standard_name = "northward_wind",                                 &
-                           units = "m s-1",                                                  &
+                           units = "m/s",                                                    &
                            rmissing = rmissing                                               )
 
+     if (allocated(t_lpw_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'T_LPW_LL', rvara=t_lpw_ll, gpoints=lls_loc,         &
                            dimnames = dimnames,                                               &
                            long_name = "air temperature at lowest model layer above surface", &
@@ -977,39 +1201,54 @@ subroutine fields2_ll()
                            units = "K",                                                       &
                            rmissing = rmissing                                                )
 
-        CALL shdf5_orec_ll(ndims, idims, 'R_LPW_LL', rvara=r_lpw_ll, gpoints=lls_loc,                      &
+     if (allocated(shv_lpw_ll)) &
+        CALL shdf5_orec_ll(ndims, idims, 'SHV_LPW_LL', rvara=shv_lpw_ll, gpoints=lls_loc,                  &
                            dimnames = dimnames,                                                            &
                            long_name = "water vapor specific density at lowest model layer above surface", &
                            standard_name = "vapor_specific_density",                                       &
-                           units = "kg kg-1",                                                              &
+                           units = "kg/kg",                                                                &
                            rmissing = rmissing                                                             )
 
-        CALL shdf5_orec_ll(ndims, idims, 'SLP_LL', rvara=slp_ll, gpoints=lls_loc,    &
+     if (allocated(slp_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'SLP_LL', rvara=slp_ll, gpoints=lls_loc,    &
+        CALL shdf5_orec_ll(ndims, idims, 'PS',     rvara=slp_ll, gpoints=lls_loc,    &
                            dimnames = dimnames,                                      &
                            long_name = "surface pressure reduced to mean sea level", &
                            standard_name = "surface_air_pressure_at_sea_level",      &
                            units = "Pa",                                             &
                            rmissing = rmissing                                       )
 
+     if (allocated(pvap_lpw_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'PVAP_LPW_LL', rvara=pvap_lpw_ll, gpoints=lls_loc,        &
                            dimnames = dimnames,                                                    &
                            long_name = "water vapor pressure at lowest model layer above surface", &
                            standard_name = "water_vapor_partial_pressure_in_air",                  &
                            units = "Pa",                                                           &
                            rmissing = rmissing                                                     )
-     endif
 
-  ! Accumulated precipitation/water vapor at surface
+     ! Accumulated precipitation/water vapor at surface
 
-     if (doaccum) then
+     if (allocated(pcprmic_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'PCPRMIC_LL', rvara=pcprmic_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'PRECL',      rvara=pcprmic_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                           &
+                           long_name = "Resolved precipitation rate",                     &
+                           standard_name = "large_scale_precipitation_rate",              &
+!                          units = "kg m-2 s-1",                                          &
+                           units = "m/s",                                                 &
+                           rmissing = rmissing                                            )
 
-        CALL shdf5_orec_ll(ndims, idims, 'ACCPMIC_LL', rvara=accpmic_ll, gpoints=lls_loc, &
+     if (allocated(accpmic_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'ACCPMIC_LL', rvara=accpmic_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'PRECT',   rvara=accpmic_ll, gpoints=lls_loc,    &
                            dimnames = dimnames,                                           &
                            long_name = "Accumulated resolved precipitation",              &
                            standard_name = "large_scale_precipitation_amount",            &
-                           units = "kg m-2",                                              &
+!                          units = "kg m-2",                                              &
+                           units = "m",                                                   &
                            rmissing = rmissing                                            )
 
+     if (allocated(accpcon_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'ACCPCON_LL', rvara=accpcon_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                           &
                            long_name = "Accumulated convective precipitation",            &
@@ -1017,6 +1256,7 @@ subroutine fields2_ll()
                            units = "kg m-2",                                              &
                            rmissing = rmissing                                            )
 
+     if (allocated(vapflux_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'VAPFLUX_ACCUM_LL', rvara=vapflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                       &
                            long_name = "Accumulated water vapor at surface",                          &
@@ -1024,8 +1264,9 @@ subroutine fields2_ll()
                            units = "kg m-2",                                                          &
                            rmissing = rmissing                                                        )
 
-! Accumulated sensible/latent heat fluxes at surface
+     ! Accumulated sensible/latent heat fluxes at surface
 
+     if (allocated(sensflux_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'SENSFLUX_ACCUM_LL', rvara=sensflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                         &
                            long_name = "Accumulated upward sensible heat flux at surface",              &
@@ -1033,6 +1274,7 @@ subroutine fields2_ll()
                            units = "J m-2",                                                             &
                            rmissing = rmissing                                                          )
 
+     if (allocated(latflux_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'LATFLUX_ACCUM_LL', rvara=latflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                        &
                            long_name = "Accumulated upward latent heat flux at surface",               &
@@ -1040,8 +1282,9 @@ subroutine fields2_ll()
                            units = "J m-2",                                                            &
                            rmissing = rmissing                                                         )
 
-! Accumulated longwave and shortwave radiative fluxes at surface
+     ! Accumulated longwave and shortwave radiative fluxes at surface
 
+     if (allocated(rshort_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RSHORT_ACCUM_LL', rvara=rshort_accum_ll, gpoints=lls_loc,   &
                            dimnames = dimnames,                                                       &
                            long_name = "Accumulated downwelling shortwave flux at surface",           &
@@ -1049,13 +1292,15 @@ subroutine fields2_ll()
                            units = "J m-2",                                                           &
                            rmissing = rmissing                                                        )
 
+     if (allocated(rshortup_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_ACCUM_LL', rvara=rshortup_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                         &
                            long_name = "Accumulated upwelling shortwave flux at surface",               &
                            standard_name = "integral_of_surface_upwelling_shortwave_flux_wrt_time",     &
                            units = "J m-2",                                                             &
                            rmissing = rmissing                                                          )
-                    
+                  
+     if (allocated(rlong_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RLONG_ACCUM_LL', rvara=rlong_accum_ll, gpoints=lls_loc,    &
                            dimnames = dimnames,                                                      &
                            long_name = "Accumulated downwelling longwave flux at surface",           &
@@ -1063,6 +1308,7 @@ subroutine fields2_ll()
                            units = "J m-2",                                                          &
                            rmissing = rmissing                                                       )
 
+     if (allocated(rlongup_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_ACCUM_LL', rvara=rlongup_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                       &
                            long_name = "Accumulated upwelling longwave flux at surface",              &
@@ -1070,9 +1316,10 @@ subroutine fields2_ll()
                            units = "J m-2",                                                           &
                            rmissing = rmissing                                                        )
 
-! Accumulated longwave and shortwave radiative fluxes at top-of-atmosphere
-! Note: at TOA "incoming" and "outgoing" are used in place of "downwelling" and "upwelling"
+     ! Accumulated longwave and shortwave radiative fluxes at top-of-atmosphere
+     ! Note: at TOA "incoming" and "outgoing" are used in place of "downwelling" and "upwelling"
 
+     if (allocated(rshort_top_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RSHORT_TOP_ACCUM_LL', rvara=rshort_top_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                             &
                            long_name = "Accumulated incoming shortwave flux at TOA",                        &
@@ -1080,6 +1327,7 @@ subroutine fields2_ll()
                            units = "J m-2",                                                                 &
                            rmissing = rmissing                                                              )
 
+     if (allocated(rshortup_top_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_TOP_ACCUM_LL', rvara=rshortup_top_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                 &
                            long_name = "Accumulated outgoing shortwave flux at TOA",                            &
@@ -1087,6 +1335,7 @@ subroutine fields2_ll()
                            units = "J m-2",                                                                     &
                            rmissing = rmissing                                                                  )
 
+     if (allocated(rlongup_top_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_TOP_ACCUM_LL' , rvara=rlongup_top_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                &
                            long_name = "Accumulated outgoing longwave flux at TOA",                            &
@@ -1094,8 +1343,9 @@ subroutine fields2_ll()
                            units = "J m-2",                                                                    &
                            rmissing = rmissing                                                                 )
 
-! Accumulated longwave and shortwave clear-air radiative fluxes at surface
+     ! Accumulated longwave and shortwave clear-air radiative fluxes at surface
 
+     if (allocated(rshort_clr_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RSHORT_CLR_ACCUM_LL', rvara=rshort_clr_accum_ll, gpoints=lls_loc,     &
                            dimnames = dimnames,                                                                 &
                            long_name = "Accumulated downwelling clear-air shortwave flux at surface",           &
@@ -1103,6 +1353,7 @@ subroutine fields2_ll()
                            units = "J m-2",                                                                     &
                            rmissing = rmissing                                                                  )
 
+     if (allocated(rshortup_clr_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_CLR_ACCUM_LL', rvara=rshortup_clr_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                 &
                            long_name = "Accumulated upwelling clear-air shortwave flux at surface",             &
@@ -1110,6 +1361,7 @@ subroutine fields2_ll()
                            units = "J m-2",                                                                     &
                            rmissing = rmissing                                                                  )
                     
+     if (allocated(rlong_clr_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RLONG_CLR_ACCUM_LL', rvara=rlong_clr_accum_ll, gpoints=lls_loc,      &
                            dimnames = dimnames,                                                                &
                            long_name = "Accumulated downwelling clear-air longwave flux at surface",           &
@@ -1117,6 +1369,7 @@ subroutine fields2_ll()
                            units = "J m-2",                                                                    &
                            rmissing = rmissing                                                                 )
 
+     if (allocated(rlongup_clr_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_CLR_ACCUM_LL', rvara=rlongup_clr_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                               &
                            long_name = "Accumulated upwelling clear-air longwave flux at surface",            &
@@ -1124,16 +1377,18 @@ subroutine fields2_ll()
                            units = "J m-2",                                                                   &
                            rmissing = rmissing                                                                )
 
-! Accumulated longwave and shortwave clear-air radiative fluxes at top-of-atmosphere
-! Note: at TOA "incoming" and "outgoing" are used in place of "downwelling" and "upwelling"
+     ! Accumulated longwave and shortwave clear-air radiative fluxes at top-of-atmosphere
+     ! Note: at TOA "incoming" and "outgoing" are used in place of "downwelling" and "upwelling"
 
+     if (allocated(rshort_top_clr_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RSHORT_TOP_CLR_ACCUM_LL', rvara=rshort_top_clr_accum_ll, gpoints=lls_loc, &
-                           dimnames = dimnames,                                                                     &
-                           long_name = "Accumulated incoming clear-air shortwave flux at TOA",                      &
-                           standard_name = "integral_of_toa_incoming_clear_air_shortwave_flux_wrt_time",            &
-                           units = "J m-2",                                                                         &
-                           rmissing = rmissing                                                                      )
+                              dimnames = dimnames,                                                                     &
+                              long_name = "Accumulated incoming clear-air shortwave flux at TOA",                      &
+                              standard_name = "integral_of_toa_incoming_clear_air_shortwave_flux_wrt_time",            &
+                              units = "J m-2",                                                                         &
+                              rmissing = rmissing                                                                      )
 
+     if (allocated(rshortup_top_clr_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_TOP_CLR_ACCUM_LL', rvara=rshortup_top_clr_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                         &
                            long_name = "Accumulated outgoing clear-air shortwave flux at TOA",                          &
@@ -1141,6 +1396,7 @@ subroutine fields2_ll()
                            units = "J m-2",                                                                             &
                            rmissing = rmissing                                                                          )
 
+     if (allocated(rlongup_top_clr_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_TOP_CLR_ACCUM_LL' , rvara=rlongup_top_clr_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                        &
                            long_name = "Accumulated outgoing clear-air longwave flux at TOA",                          &
@@ -1148,8 +1404,9 @@ subroutine fields2_ll()
                            units = "J m-2",                                                                            &
                            rmissing = rmissing                                                                         )
 
-! 'ALS' quantities are area-weighted averages of land & sea cell quantities over a single atmosphere column
+     ! 'ALS' quantities are area-weighted averages of land & sea cell quantities over a single atmosphere column
 
+     if (allocated(als_vels_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'ALS_VELS_ACCUM_LL' , rvara=als_vels_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                          &
                            long_name = "ALS average of accumulated atmosphere surface wind speed",       &
@@ -1157,6 +1414,7 @@ subroutine fields2_ll()
                            units = "m",                                                                  &
                            rmissing = rmissing                                                           )
 
+     if (allocated(als_airtempk_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'ALS_AIRTEMPK_ACCUM_LL' , rvara=als_airtempk_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                  &
                            long_name = "ALS average of accumulated atmosphere temperature",                      &
@@ -1164,6 +1422,7 @@ subroutine fields2_ll()
                            units = "K s",                                                                        &
                            rmissing = rmissing                                                                   )
 
+     if (allocated(als_airshv_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'ALS_AIRSHV_ACCUM_LL' , rvara=als_airshv_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                              &
                            long_name = "ALS average of accumulated atmosphere vapor specific density",       &
@@ -1171,6 +1430,7 @@ subroutine fields2_ll()
                            units = "kg s kg-1",                                                              &
                            rmissing = rmissing                                                               )
 
+     if (allocated(als_cantempk_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'ALS_CANTEMPK_ACCUM_LL' , rvara=als_cantempk_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                  &
                            long_name = "ALS average of accumulated canopy air temperature",                      &
@@ -1178,13 +1438,15 @@ subroutine fields2_ll()
                            units = "K s",                                                                        &
                            rmissing = rmissing                                                                   )
 
-        CALL shdf5_orec_ll(ndims, idims, 'ALS_CANSHV_ACCUM_LL' , rvara=als_canshv_accum_ll, gpoints=lls_loc,         &
+     if (allocated(als_canshv_accum_ll)) &
+        CALL shdf5_orec_ll(ndims, idims, 'ALS_CANSHV_ACCUM_LL' , rvara=als_canshv_accum_ll, gpoints=lls_loc,        &
                            dimnames = dimnames,                                                                     &
                            long_name = "ALS average of accumulated canopy air vapor specific density",              &
                            standard_name = "als_average_of_integral_of_canopy_air_vapor_specific_density_wrt_time", &
                            units = "kg s kg-1",                                                                     &
                            rmissing = rmissing                                                                      )
 
+     if (allocated(als_skintempk_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'ALS_SKINTEMPK_ACCUM_LL' , rvara=als_skintempk_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                    &
                            long_name = "ALS average of accumulated skin temperature",                              &
@@ -1192,6 +1454,7 @@ subroutine fields2_ll()
                            units = "J m-2",                                                                        &
                            rmissing = rmissing                                                                     )
    
+     if (allocated(als_sensflux_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'ALS_SENSFLUX_ACCUM_LL' , rvara=als_sensflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                  &
                            long_name = "ALS average of accumulated sensible heat flux",                          &
@@ -1199,6 +1462,7 @@ subroutine fields2_ll()
                            units = "J m-2",                                                                      &
                            rmissing = rmissing                                                                   )
 
+     if (allocated(als_latflux_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'ALS_LATFLUX_ACCUM_LL' , rvara=als_latflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                &
                            long_name = "ALS average of accumulated latent heat flux",                          &
@@ -1206,6 +1470,7 @@ subroutine fields2_ll()
                            units = "J m-2",                                                                    &
                            rmissing = rmissing                                                                 )
 
+     if (allocated(als_vapflux_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'ALS_VAPFLUX_ACCUM_LL' , rvara=als_vapflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                &
                            long_name = "ALS average of accumulated vapor flux",                                &
@@ -1213,8 +1478,9 @@ subroutine fields2_ll()
                            units = "kg m-2",                                                                   &
                            rmissing = rmissing                                                                 )
 
-! 'AL' quantities are area-weighted averages of land cell quantities over a single atmosphere column
+     ! 'AL' quantities are area-weighted averages of land cell quantities over a single atmosphere column
 
+     if (allocated(al_wxfer1_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'AL_WXFER1_ACCUM_LL' , rvara=al_wxfer1_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                            &
                            long_name = "AL average of accumulated soil bottom water flux",                 &
@@ -1222,6 +1488,7 @@ subroutine fields2_ll()
                            units = "m",                                                                    &
                            rmissing = rmissing                                                             )
 
+     if (allocated(al_sfcwater_tot_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'AL_SFCWATER_TOT_LL' , rvara=al_sfcwater_tot_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                            &
                            long_name = "AL average of total surface water",                                &
@@ -1229,6 +1496,7 @@ subroutine fields2_ll()
                            units = "kg m-2",                                                               &
                            rmissing = rmissing                                                             )
 
+     if (allocated(al_soil_water_tot_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'AL_SOIL_WATER_TOT_LL' , rvara=al_soil_water_tot_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                &
                            long_name = "AL average of total soil water",                                       &
@@ -1236,66 +1504,7 @@ subroutine fields2_ll()
                            units = "m",                                                                        &
                            rmissing = rmissing                                                                 )
 
-! 3D accumulated atmospheric fields
-
-        ndims = 3
-        idims(1) = nlon
-        idims(2) = nlat
-        idims(3) = mza-1
-        dimnames(1) = 'lon'
-        dimnames(2) = 'lat'
-        dimnames(3) = 'z'
-
-        if (do3d) then
-
-           CALL shdf5_orec_ll(ndims, idims, 'U_ACCUM_LL', rvara=u_accum_ll, gpoints=lls_loc, &
-                              dimnames = dimnames,                                           &
-                              long_name = "Accumulated eastward wind",                       &
-                              standard_name = "integral_of_eastward_wind_wrt_time",          &
-                              units = "m",                                                   &
-                              rmissing=rmissing                                              )
-
-           CALL shdf5_orec_ll(ndims, idims, 'V_ACCUM_LL', rvara=v_accum_ll, gpoints=lls_loc, &
-                              dimnames = dimnames,                                           &
-                              long_name = "Accumulated northward wind",                      &
-                              standard_name = "integral_of_northward_wind_wrt_time",         &
-                              units = "m",                                                   &
-                              rmissing=rmissing                                              )
-
-           CALL shdf5_orec_ll(ndims, idims, 'W_ACCUM_LL', rvara=w_accum_ll, gpoints=lls_loc, &
-                              dimnames = dimnames,                                           &
-                              long_name = "Accumulated upward wind",                         &
-                              standard_name = "integral_of_upward_wind_wrt_time",            &
-                              units = "m",                                                   &
-                              rmissing=rmissing                                              )
-
-           CALL shdf5_orec_ll(ndims, idims, 'T_ACCUM_LL', rvara=t_accum_ll, gpoints=lls_loc, &
-                              dimnames = dimnames,                                           &
-                              long_name = "Accumulated air temperature",                     &
-                              standard_name = "integral_of_air_temperature_wrt_time",        &
-                              units = "K s",                                                 &
-                              rmissing=rmissing                                              )
-
-           CALL shdf5_orec_ll(ndims, idims, 'R_ACCUM_LL', rvara=r_accum_ll, gpoints=lls_loc, &
-                              dimnames = dimnames,                                           &
-                              long_name = "Accumulated water vapor specific density ratio",  &
-                              standard_name = "integral_of_vapor_specific_density_wrt_time", &
-                              units = "kg s kg-1",                                           &
-                              rmissing=rmissing                                              )
-
-           CALL shdf5_orec_ll(ndims, idims, 'P_ACCUM_LL', rvara=p_accum_ll, gpoints=lls_loc, &
-                              dimnames = dimnames,                                           &
-                              long_name = "Accumulated air pressure",                        &
-                              standard_name = "integral_of_air_pressure_wrt_time",           &
-                              units = "Pa s",                                                &
-                              rmissing=rmissing                                              )
-
-        endif
-
-     endif
-
-
-! 3D atmospheric fields
+     ! 3D accumulated atmospheric fields
 
      ndims = 3
      idims(1) = nlon
@@ -1305,29 +1514,101 @@ subroutine fields2_ll()
      dimnames(2) = 'lat'
      dimnames(3) = 'z'
 
-     if (do3d) then
+     if (allocated(u_accum_ll)) &
+        CALL shdf5_orec_ll(ndims, idims, 'U_ACCUM_LL', rvara=u_accum_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                           &
+                           long_name = "Accumulated eastward wind",                       &
+                           standard_name = "integral_of_eastward_wind_wrt_time",          &
+                           units = "m",                                                   &
+                           rmissing=rmissing                                              )
 
-        CALL shdf5_orec_ll(ndims, idims, 'U_LL', rvara=u_ll, gpoints=lls_loc, &
+     if (allocated(v_accum_ll)) &
+        CALL shdf5_orec_ll(ndims, idims, 'V_ACCUM_LL', rvara=v_accum_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                           &
+                           long_name = "Accumulated northward wind",                      &
+                           standard_name = "integral_of_northward_wind_wrt_time",         &
+                           units = "m",                                                   &
+                           rmissing=rmissing                                              )
+
+     if (allocated(w_accum_ll)) &
+        CALL shdf5_orec_ll(ndims, idims, 'W_ACCUM_LL', rvara=w_accum_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                           &
+                           long_name = "Accumulated upward wind",                         &
+                           standard_name = "integral_of_upward_wind_wrt_time",            &
+                           units = "m",                                                   &
+                           rmissing=rmissing                                              )
+
+     if (allocated(t_accum_ll)) &
+        CALL shdf5_orec_ll(ndims, idims, 'T_ACCUM_LL', rvara=t_accum_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                           &
+                           long_name = "Accumulated air temperature",                     &
+                           standard_name = "integral_of_air_temperature_wrt_time",        &
+                           units = "K s",                                                 &
+                           rmissing=rmissing                                              )
+
+     if (allocated(shv_accum_ll)) &
+        CALL shdf5_orec_ll(ndims, idims, 'SHV_ACCUM_LL', rvara=shv_accum_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                           &
+                           long_name = "Accumulated water vapor specific density ratio",  &
+                           standard_name = "integral_of_vapor_specific_density_wrt_time", &
+                           units = "kg s kg-1",                                           &
+                           rmissing=rmissing                                              )
+
+     if (allocated(p_accum_ll)) &
+        CALL shdf5_orec_ll(ndims, idims, 'P_ACCUM_LL', rvara=p_accum_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                           &
+                           long_name = "Accumulated air pressure",                        &
+                           standard_name = "integral_of_air_pressure_wrt_time",           &
+                           units = "Pa s",                                                &
+                           rmissing=rmissing                                              )
+
+     ! 3D atmospheric fields
+
+     ndims = 3
+     idims(1) = nlon
+     idims(2) = nlat
+     idims(3) = mza-1
+     dimnames(1) = 'lon'
+     dimnames(2) = 'lat'
+     dimnames(3) = 'z'
+
+     if (allocated(u_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'U_LL', rvara=u_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'U',    rvara=u_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                               &
                            long_name = "eastward wind",                       &
                            standard_name = "eastward_wind",                   &
-                           units = "m s-1",                                   &
+                           units = "m/s",                                     &
                            rmissing=rmissing                                  )
 
-        CALL shdf5_orec_ll(ndims, idims, 'V_LL', rvara=v_ll, gpoints=lls_loc, &
+     if (allocated(v_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'V_LL', rvara=v_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'V',    rvara=v_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                               &
                            long_name = "northward wind",                      &
                            standard_name = "northward_wind",                  &
-                           units = "m s-1",                                   &
+                           units = "m/s",                                      &
                            rmissing=rmissing                                  )
 
-        CALL shdf5_orec_ll(ndims, idims, 'W_LL', rvara=w_ll, gpoints=lls_loc, &
+     if (allocated(w_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'W_LL', rvara=w_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'W',    rvara=w_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                               &
                            long_name = "upward wind",                         &
                            standard_name = "upward_wind",                     &
-                           units = "m s-1",                                   &
+                           units = "m/s",                                     &
                            rmissing=rmissing                                  )
 
+     if (allocated(theta_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'THETA_LL', rvara=theta_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'THETA',    rvara=theta_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                       &
+                           long_name = "air potential temperature",                   &
+                           standard_name = "air_potential_temperature",               &
+                           units = "K",                                               &
+                           rmissing=rmissing                                          )
+
+     if (allocated(t_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'T_LL', rvara=t_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                               &
                            long_name = "air temperature",                     &
@@ -1335,21 +1616,93 @@ subroutine fields2_ll()
                            units = "K",                                       &
                            rmissing=rmissing                                  )
 
-        CALL shdf5_orec_ll(ndims, idims, 'R_LL', rvara=r_ll, gpoints=lls_loc, &
-                           dimnames = dimnames,                               &
-                           long_name = "water vapor specific density ratio",            &
-                           standard_name = "vapor_specific_density",           &
-                           units = "kg kg-1",                                 &
-                           rmissing=rmissing                                  )
+     if (allocated(shv_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'SHV_LL', rvara=shv_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Qv',     rvara=shv_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                   &
+                           long_name = "water vapor specific density ratio",      &
+                           standard_name = "vapor_specific_density",              &
+                           units = "kg/kg",                                       &
+                           rmissing=rmissing                                      )
 
-        CALL shdf5_orec_ll(ndims, idims, 'P_LL', rvara=p_ll, gpoints=lls_loc, &
+     if (allocated(shc_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'SHC_LL', rvara=shc_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Qc',     rvara=shc_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                   &
+                           long_name = "cloud water specific density ratio",      &
+                           standard_name = "cloud_water_specific_density",        &
+                           units = "kg/kg",                                       &
+                           rmissing=rmissing                                      )
+
+     if (allocated(shr_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'SHR_LL', rvara=shr_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Qr',     rvara=shr_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                   &
+                           long_name = "rain specific density ratio",             &
+                           standard_name = "rain_specific_density",               &
+                           units = "kg/kg",                                       &
+                           rmissing=rmissing                                      )
+
+     if (allocated(p_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'P_LL', rvara=p_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'P',    rvara=p_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                               &
                            long_name = "air pressure",                        &
                            standard_name = "air_pressure",                    &
                            units = "Pa",                                      &
                            rmissing=rmissing                                  )
 
-     endif
+     if (allocated(q1_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'Q1_LL', rvara=q1_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Q1',    rvara=q1_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                 &
+                           long_name = "Added Scalar 1",                        &
+                           standard_name = "Added Scalar 1",                    &
+                           units = "kg/kg",                                     &
+                           rmissing=rmissing                                    )
+
+     if (allocated(q2_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'Q2_LL', rvara=q2_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Q2',    rvara=q2_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                 &
+                           long_name = "Added Scalar 2",                        &
+                           standard_name = "Added Scalar 2",                    &
+                           units = "kg/kg",                                     &
+                           rmissing=rmissing                                    )
+
+     if (allocated(q3_ll)) &
+        CALL shdf5_orec_ll(ndims, idims, 'Q3_LL', rvara=q3_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                 &
+                           long_name = "Added Scalar 3",                        &
+                           standard_name = "Added Scalar 3",                    &
+                           units = "kg/kg",                                     &
+                           rmissing=rmissing                                    )
+
+     if (allocated(q4_ll)) &
+        CALL shdf5_orec_ll(ndims, idims, 'Q4_LL', rvara=q4_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                 &
+                           long_name = "Added Scalar 4",                        &
+                           standard_name = "Added Scalar 4",                    &
+                           units = "kg/kg",                                     &
+                           rmissing=rmissing                                    )
+
+     if (allocated(q5_ll)) &
+        CALL shdf5_orec_ll(ndims, idims, 'Q5_LL', rvara=q5_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                 &
+                           long_name = "Added Scalar 5",                        &
+                           standard_name = "Added Scalar 5",                    &
+                           units = "kg/kg",                                     &
+                           rmissing=rmissing                                    )
+
+     if (allocated(pcpmic_dif2_ll)) &
+!       CALL shdf5_orec_ll(ndims, idims, 'PCPMIC_DIF2_LL', rvara=pcpmic_dif2_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'PRECTAV',        rvara=pcpmic_dif2_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                                   &
+                           long_name = "Time-interval resolved precipitation",                    &
+                           standard_name = "time_interval_large_scale_precipitation_rate",        &
+!                          units = "kg m-2",                                                      &
+                           units = "m/s",                                                         &
+                           rmissing = rmissing                                                    )
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! TODO: output variables on pressure levels???
@@ -1381,217 +1734,295 @@ subroutine fields2_ll()
   if (myrank == 0) call o_reopnwk()
   if (myrank == 0) write(io6,'(/,a)') "Plotting interpolated lat/lon fields..."
 
-  if (dosfc) then
+  if (allocated(topo_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,topo_ll,402, &
                       "Topography Height", "(m)", rmissing)
 
+  if (allocated(u_lpw_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,u_lpw_ll,113, &
                       "Zonal wind at lpw", "(m/s)", rmissing)
 
+  if (allocated(v_lpw_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,v_lpw_ll,113, &
                       "Meridional wind at lpw", "(m/s)", rmissing)
 
+  if (allocated(t_lpw_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,t_lpw_ll,4, &
                       "Air temperature at lpw", "(K)", rmissing)
 
+  if (allocated(shv_lpw_ll)) then
      ! Preserve missing values
-     where( abs(r_lpw_ll(:) - rmissing) > 1.e-7 )
-        scr2_ll(:) = r_lpw_ll(:) * 1000.
+     where( abs(shv_lpw_ll(:) - rmissing) > 1.e-7 )
+        scr2_ll(:) = shv_lpw_ll(:) * 1000.
      elsewhere
         scr2_ll(:) = rmissing
      endwhere
 
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,scr2_ll,5, &
                       "Water vapor specific density at lpw", "(g/kg)", rmissing)
+  endif
 
+  if (allocated(slp_ll)) then
      ! Preserve missing values
      where( abs(slp_ll(:) - rmissing) > 1.e-7 )
-        scr2_ll(:) =  slp_ll(:) * .01 
+       scr2_ll(:) =  slp_ll(:) * .01 
      elsewhere
         scr2_ll(:) = rmissing
      endwhere
 
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,scr2_ll,17, &
                       "Sea level pressure at suface", "(mb)", rmissing)
-
-     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,pvap_lpw_ll,35, &
-                      "Water vapor pressure at lpw", "(mb)", rmissing)
   endif
 
-  if (doaccum) then
+  if (allocated(pvap_lpw_ll)) &
+     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,pvap_lpw_ll,35, &
+                      "Water vapor pressure at lpw", "(mb)", rmissing)
+
+  if (allocated(pcprmic_ll)) &
+     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,pcprmic_ll,204, &
+                      "Microphysics precip rate", "(kg/m^2/s)", rmissing)
+
+  if (allocated(accpmic_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,accpmic_ll,204, &
                       "Accum microphysics precip", "(kg/m^2)", rmissing)
 
+  if (allocated(accpcon_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,accpcon_ll,204, &
                       "Accum convective precip", "(kg/m^2)", rmissing)
 
+  if (allocated(vapflux_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,vapflux_accum_ll,304, &
                       "Accum surface vapor", "(kg/m^2)", rmissing)
 
+  if (allocated(sensflux_accum_ll)) then
      scr2_ll(:) = sensflux_accum_ll(:) * 1.e-6 
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,scr2_ll,304, &
                       "Accum surface sensible heat", "(MJ/m^2)", rmissing)
+  endif
 
+  if (allocated(latflux_accum_ll)) then
      scr2_ll(:) = latflux_accum_ll(:) * 1.e-6 
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,scr2_ll,304, &
                       "Accum surface latent heat", "(MJ/m^2)", rmissing)
+  endif
 
+  if (allocated(rshort_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshort_accum_ll,204, &
                       "Accum surface downward s/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rshortup_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshortup_accum_ll,204, &
                       "Accum surface upward s/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rlong_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlong_accum_ll,204, &
                       "Accum surface downward l/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rlongup_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlongup_accum_ll,204, &
                       "Accum surface upward l/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rshort_top_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshort_top_accum_ll,204, &
                       "Accum TOA downward s/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rshortup_top_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshortup_top_accum_ll,204, &
                       "Accum TOA upward s/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rlongup_top_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlongup_top_accum_ll,204, &
                       "Accum TOA upward l/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rshort_clr_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshort_clr_accum_ll,204, &
                       "Accum surface downward clear-air s/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rshortup_clr_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshortup_clr_accum_ll,204, &
                       "Accum surface upward clear-air s/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rlong_clr_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlong_clr_accum_ll,204, &
                       "Accum surface downward clear-air l/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rlongup_clr_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlongup_clr_accum_ll,204, &
                       "Accum surface upward clear-air l/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rshort_top_clr_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshort_top_clr_accum_ll,204, &
                       "Accum TOA downward clear-air s/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rshortup_top_clr_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshortup_top_clr_accum_ll,204, &
                       "Accum TOA upward clear-air s/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(rlongup_top_clr_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlongup_top_clr_accum_ll,204, &
                       "Accum TOA upward clear-air l/w radiation", "(J/m^2)", rmissing)
 
+  if (allocated(als_vels_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,als_vels_accum_ll,204, &
                       "als accum wind speed", "(m)", rmissing)
 
+  if (allocated(als_airtempk_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,als_airtempk_accum_ll,204, &
                       "als accum atmosphere temperature", "(K s)", rmissing)
 
+  if (allocated(als_airshv_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,als_airshv_accum_ll,204, &
                       "als accum atmosphere vapor specific density", "(kg s / kg)", rmissing)
 
+  if (allocated(als_cantempk_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,als_cantempk_accum_ll,204, &
                       "als accum canopy air temperature", "(K s)", rmissing)
 
+  if (allocated(als_canshv_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,als_canshv_accum_ll,204, &
                       "als accum canopy air vapor specific density", "(kg s / kg)", rmissing)
 
+  if (allocated(als_skintempk_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,als_skintempk_accum_ll,204, &
                       "als accum skin temperature", "(K s)", rmissing)
 
+  if (allocated(als_sensflux_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,als_sensflux_accum_ll,304, &
                       "als accum sensible heat flux", "(J/m^2)", rmissing)
 
+  if (allocated(als_latflux_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,als_latflux_accum_ll,304, &
                       "als accum latent heat flux", "(J/m^2)", rmissing)
 
+  if (allocated(als_vapflux_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,als_vapflux_accum_ll,304, &
                       "als accum vapor flux", "(kg/m^2)", rmissing)
 
+  if (allocated(al_wxfer1_accum_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,al_wxfer1_accum_ll,304, &
                       "als accum soil bottom water flux", "(m)", rmissing)
 
+  if (allocated(al_sfcwater_tot_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,al_sfcwater_tot_ll,200, &
                       "als total surface water", "(kg/m^2)", rmissing)
 
+  if (allocated(al_soil_water_tot_ll)) &
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,al_soil_water_tot_ll,3, &
                       "als total soil water", "(m)", rmissing)
 
-!------------------------------------------------------------
-! Contour plot or tile plot 2D slices of 3D lat-lon fields
-!------------------------------------------------------------
+  !------------------------------------------------------------
+  ! Contour plot or tile plot 2D slices of 3D lat-lon fields
+  !------------------------------------------------------------
 
-     if (do3d) then
+  ! klev = vertical level to plot in 3D fields
 
-        ! klev = vertical level to plot in 3D fields
+  klev = min(23,mza)
 
-        klev = min(23,mza)
+  if (allocated(u_accum_ll)) &
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,u_accum_ll,304, &
+                      "Accumulated zonal wind", "(m)", rmissing)
 
-        call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,u_accum_ll,304, &
-                         "Accumulated zonal wind", "(m)", rmissing)
+  if (allocated(v_accum_ll)) &
+      call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,v_accum_ll,304, &
+                       "Accumulated meridional wind", "(m)", rmissing)
 
-        call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,v_accum_ll,304, &
-                         "Accumulated meridional wind", "(m)", rmissing)
+  if (allocated(w_accum_ll)) &
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,w_accum_ll,304, &
+                      "Accumulated vertical wind", "(m)", rmissing)
 
-        call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,w_accum_ll,304, &
-                         "Accumulated vertical wind", "(m)", rmissing)
+  if (allocated(t_accum_ll)) &
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,t_accum_ll,204, &
+                      "Accumulated temperature", "(K s)", rmissing)
 
-        call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,t_accum_ll,204, &
-                         "Accumulated temperature", "(K s)", rmissing)
+  if (allocated(shv_accum_ll)) then
+     ! Preserve missing values
+     where( abs(shv_ll(:,:) - rmissing) > 1.e-7 )
+        scr3_ll(:,:) = shv_accum_ll(:,:) * 1000.
+     elsewhere
+        scr3_ll(:,:) = rmissing
+     endwhere
 
-        ! Preserve missing values
-        where( abs(r_ll(:,:) - rmissing) > 1.e-7 )
-           scr3_ll(:,:) = r_accum_ll(:,:) * 1000.
-        elsewhere
-           scr3_ll(:,:) = rmissing
-        endwhere
-
-        call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,scr3_ll,204, &
-             "Accumulated water vapor specific density", "(g s/kg)", rmissing)
-
-        ! Preserve missing values
-        where( abs(p_ll(:,:) - rmissing) > 1.e-7 )
-           scr3_ll(:,:) = p_accum_ll(:,:) * 0.01
-        elsewhere
-           scr3_ll(:,:) = rmissing
-        endwhere
-
-        call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,scr3_ll,204, &
-             "Accumulated air pressure", "(hPa s)", rmissing)
-
-     endif
-
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,scr3_ll,204, &
+                      "Accumulated water vapor specific density", "(g s/kg)", rmissing)
   endif
 
-!------------------------------------------------------------
-! Contour plot or tile plot 2D slices of 3D lat-lon fields
-!------------------------------------------------------------
+  if (allocated(p_accum_ll)) then
+     ! Preserve missing values
+     where( abs(p_ll(:,:) - rmissing) > 1.e-7 )
+        scr3_ll(:,:) = p_accum_ll(:,:) * 0.01
+     elsewhere
+        scr3_ll(:,:) = rmissing
+     endwhere
 
-  if (do3d) then
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,scr3_ll,204, &
+                      "Accumulated air pressure", "(hPa s)", rmissing)
+  endif
 
-     ! klev = vertical level to plot in 3D fields
+  !------------------------------------------------------------
+  ! Contour plot or tile plot 2D slices of 3D lat-lon fields
+  !------------------------------------------------------------
 
-     klev = min(23,mza)
+  ! klev = vertical level to plot in 3D fields
 
+  klev = min(23,mza)
+
+  if (allocated(u_ll)) &
      call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,u_ll,113, &
                       "Zonal wind", "(m/s)", rmissing)
 
+  if (allocated(v_ll)) &
      call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,v_ll,113, &
                       "Meridional wind", "(m/s)", rmissing)
 
+  if (allocated(w_ll)) &
      call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,w_ll,125, &
                       "Vertical wind", "(m/s)", rmissing)
 
+  if (allocated(theta_ll)) &
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,theta_ll,4, &
+                      "Potential Temperature", "(K)", rmissing)
+
+  if (allocated(t_ll)) &
      call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,t_ll,4, &
                       "Temperature", "(K)", rmissing)
 
+  if (allocated(shv_ll)) then
      ! Preserve missing values
-     where( abs(r_ll(:,:) - rmissing) > 1.e-7 )
-        scr3_ll(:,:) = r_ll(:,:) * 1000.
+     where( abs(shv_ll(:,:) - rmissing) > 1.e-7 )
+        scr3_ll(:,:) = shv_ll(:,:) * 1000.
      elsewhere
         scr3_ll(:,:) = rmissing
      endwhere
 
      call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,scr3_ll,5, &
-          "Water vapor specific density", "(g/kg)", rmissing)
+                      "Water vapor specific density", "(g/kg)", rmissing)
+  endif
 
+  if (allocated(shc_ll)) then
+     ! Preserve missing values
+     where( abs(shc_ll(:,:) - rmissing) > 1.e-7 )
+        scr3_ll(:,:) = shc_ll(:,:) * 1000.
+     elsewhere
+        scr3_ll(:,:) = rmissing
+     endwhere
+
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,scr3_ll,5, &
+                      "Cloud water specific density", "(g/kg)", rmissing)
+  endif
+
+  if (allocated(shr_ll)) then
+     ! Preserve missing values
+     where( abs(shr_ll(:,:) - rmissing) > 1.e-7 )
+        scr3_ll(:,:) = shr_ll(:,:) * 1000.
+     elsewhere
+        scr3_ll(:,:) = rmissing
+     endwhere
+
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,scr3_ll,5, &
+                      "Rain specific density", "(g/kg)", rmissing)
+  endif
+
+  if (allocated(p_ll)) then
      ! Preserve missing values
      where( abs(p_ll(:,:) - rmissing) > 1.e-7 )
         scr3_ll(:,:) = p_ll(:,:) * 0.01
@@ -1600,40 +2031,39 @@ subroutine fields2_ll()
      endwhere
 
      call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,scr3_ll,415, &
-          "Air Pressure", "(mb)", rmissing)
-
+                      "Air Pressure", "(mb)", rmissing)
   endif
 
-  if (dodifs) then
+  if (allocated(q1_ll)) &
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,q1_ll,5, &
+                      "Added scalar 1", "(kg/kg)", rmissing)
+
+  if (allocated(q2_ll)) &
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,q2_ll,5, &
+                      "Added scalar 2", "(kg/kg)", rmissing)
+
+  if (allocated(q3_ll)) &
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,q3_ll,5, &
+                      "Added scalar 3", "(kg/kg)", rmissing)
+
+  if (allocated(q4_ll)) &
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,q4_ll,5, &
+                      "Added scalar 4", "(kg/kg)", rmissing)
+
+  if (allocated(q5_ll)) &
+     call tileplot_ll(nlon,nlat,mza-1,klev,alon,alat,npts,lls_loc,q5_ll,5, &
+                      "Added scalar 5", "(kg/kg)", rmissing)
+
+  if (allocated(pcpmic_dif2_ll)) &
+     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,pcpmic_dif2_ll,204, &
+                      "Time-interval accum microphysics precip", "(kg/m^2)", rmissing)
 
 !---------------------------------------------------------------------------
 ! Contour plot 1D arrays that are longitudinal averages of 2D lat-lon fields
 ! This will only work for serial runs that have the entire lat/lon memory
 !---------------------------------------------------------------------------
 
-     if (iparallel == 1 .or. npts /= nlon*nlat) then
-        ! For a parallel run, close graphics and return to program
-        if (myrank == 0) call o_clswk()
-        return
-     endif
-
-     timefac = 1.0
-     if (abs(time8 - time8_prev) > .99) then
-        timefac = 1.0 / real(time8 - time8_prev)
-     endif
-
-           pcpmic_dif2_ll(:) = (           accpmic_ll(:) -       pcpmic_dif2_ll(:)) * timefac * 86400.
-           pcpcon_dif2_ll(:) = (           accpcon_ll(:) -       pcpcon_dif2_ll(:)) * timefac * 86400.
-          pcpboth_dif2_ll(:) =         pcpmic_dif2_ll(:) +       pcpcon_dif2_ll(:)
-           rshort_dif2_ll(:) = (      rshort_accum_ll(:) -       rshort_dif2_ll(:)) * timefac
-         rshortup_dif2_ll(:) = (    rshortup_accum_ll(:) -     rshortup_dif2_ll(:)) * timefac
-            rlong_dif2_ll(:) = (       rlong_accum_ll(:) -        rlong_dif2_ll(:)) * timefac
-          rlongup_dif2_ll(:) = (     rlongup_accum_ll(:) -      rlongup_dif2_ll(:)) * timefac
-       rshort_top_dif2_ll(:) = (  rshort_top_accum_ll(:) -   rshort_top_dif2_ll(:)) * timefac
-     rshortup_top_dif2_ll(:) = (rshortup_top_accum_ll(:) - rshortup_top_dif2_ll(:)) * timefac
-      rlongup_top_dif2_ll(:) = ( rlongup_top_accum_ll(:) -  rlongup_top_dif2_ll(:)) * timefac
-         sensflux_dif2_ll(:) = (    sensflux_accum_ll(:) -     sensflux_dif2_ll(:)) * timefac
-          latflux_dif2_ll(:) = (     latflux_accum_ll(:) -      latflux_dif2_ll(:)) * timefac
+  if (latplot .and. iparallel == 0 .and. npts == nlon*nlat) then
 
      aspect = .7
      scalelab = .012
@@ -1642,7 +2072,7 @@ subroutine fields2_ll()
      call plotback()
 
      allocate(value(nlat))
-     allocate(arr_ll(nlon,nlat))
+     allocate(scr_ll(nlon,nlat))
 
 !---------------------------------------------------------------
 
@@ -1650,8 +2080,8 @@ subroutine fields2_ll()
      ymax = 10.
      yinc = 1.
 
-     arr_ll = reshape( pcpmic_dif2_ll, (/nlon,nlat/) )
-     value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
+     scr_ll = reshape( pcpmic_dif2_ll, (/nlon,nlat/) )
+     value(1:nlat) = sum(scr_ll(:,1:nlat),1) / real(nlon)
 
      call oplot_xy2('1','N',aspect,scalelab,8,0,   &
                     nlat, alat, value,             &
@@ -1659,8 +2089,8 @@ subroutine fields2_ll()
                     alat(1),alat(nlat),alatinc,3,  &
                     ymin, ymax, yinc, 5            )
 
-     arr_ll = reshape(pcpcon_dif2_ll, (/nlon,nlat/) )
-     value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
+     scr_ll = reshape(pcpcon_dif2_ll, (/nlon,nlat/) )
+     value(1:nlat) = sum(scr_ll(:,1:nlat),1) / real(nlon)
 
      call oplot_xy2('1','N',aspect,scalelab,1,0,  &
                     nlat, alat, value,            &
@@ -1668,8 +2098,8 @@ subroutine fields2_ll()
                     alat(1),alat(nlat),alatinc,3, &
                     ymin, ymax, yinc, 5           )
 
-     arr_ll = reshape(pcpboth_dif2_ll, (/nlon,nlat/) )
-     value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
+     scr_ll = reshape(pcpboth_dif2_ll, (/nlon,nlat/) )
+     value(1:nlat) = sum(scr_ll(:,1:nlat),1) / real(nlon)
 
      call oplot_xy2('1','N',aspect,scalelab,11,0, &
                     nlat, alat, value,            &
@@ -1683,41 +2113,49 @@ subroutine fields2_ll()
      ymax = 500.
      yinc = 10.
 
-     arr_ll = reshape(rshort_dif2_ll, (/nlon,nlat/) )
-     value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
+     if (allocated(rshort_dif2_ll)) then
+        scr_ll = reshape(rshort_dif2_ll, (/nlon,nlat/) )
+        value(1:nlat) = sum(scr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('2','N',aspect,scalelab,8,0,  &
-                    nlat, alat, value,            &
-                    'latitude','SFC RAD (W/m^2)', &
-                    alat(1),alat(nlat),alatinc,3, &
-                    ymin, ymax, yinc, 5           )
+        call oplot_xy2('2','N',aspect,scalelab,8,0,  &
+                       nlat, alat, value,            &
+                       'latitude','SFC RAD (W/m^2)', &
+                       alat(1),alat(nlat),alatinc,3, &
+                       ymin, ymax, yinc, 5           )
+     endif
 
-     arr_ll = reshape(rshortup_dif2_ll, (/nlon,nlat/) )
-     value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
+     if (allocated(rshortup_dif2_ll)) then
+        scr_ll = reshape(rshortup_dif2_ll, (/nlon,nlat/) )
+        value(1:nlat) = sum(scr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('2','N',aspect,scalelab,8,40, &
-                    nlat, alat, value,            &
-                    'latitude',' ',               &
-                    alat(1),alat(nlat),alatinc,3, &
-                    ymin, ymax, yinc, 5           )
+        call oplot_xy2('2','N',aspect,scalelab,8,40, &
+                       nlat, alat, value,            &
+                       'latitude',' ',               &
+                       alat(1),alat(nlat),alatinc,3, &
+                       ymin, ymax, yinc, 5           )
+     endif
 
-     arr_ll = reshape(rlong_dif2_ll, (/nlon,nlat/) )
-     value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
+     if (allocated(rlong_dif2_ll)) then
+        scr_ll = reshape(rlong_dif2_ll, (/nlon,nlat/) )
+        value(1:nlat) = sum(scr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('2','N',aspect,scalelab,1,0,  &
-                    nlat, alat, value,            &
-                    'latitude','',                &
-                    alat(1),alat(nlat),alatinc,3, &
-                    ymin, ymax, yinc, 5           )
+        call oplot_xy2('2','N',aspect,scalelab,1,0,  &
+                       nlat, alat, value,            &
+                       'latitude','',                &
+                       alat(1),alat(nlat),alatinc,3, &
+                       ymin, ymax, yinc, 5           )
+     endif
 
-     arr_ll = reshape(rlongup_dif2_ll, (/nlon,nlat/) )
-     value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
+     if (allocated(rlongup_dif2_ll)) then
+        scr_ll = reshape(rlongup_dif2_ll, (/nlon,nlat/) )
+        value(1:nlat) = sum(scr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('2','N',aspect,scalelab,1,40, &
-                    nlat, alat, value,            &
-                    'latitude',' ',               &
-                    alat(1),alat(nlat),alatinc,3, &
-                    ymin, ymax, yinc, 5           )
+        call oplot_xy2('2','N',aspect,scalelab,1,40, &
+                       nlat, alat, value,            &
+                       'latitude',' ',               &
+                       alat(1),alat(nlat),alatinc,3, &
+                       ymin, ymax, yinc, 5           )
+     endif
 
 ! Plot reference lines
 
@@ -1751,60 +2189,66 @@ subroutine fields2_ll()
 
 !---------------------------------------------------------------
 
-     arr_ll = reshape(rshort_top_dif2_ll, (/nlon,nlat/) )
-     value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
+     if (allocated(rshort_top_dif2_ll)) then
+        scr_ll = reshape(rshort_top_dif2_ll, (/nlon,nlat/) )
+        value(1:nlat) = sum(scr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('3','N',aspect,scalelab,8,0,   &
-                    nlat, alat, value,             &
-                    'latitude','TOA RAD (W/m^2) ', &
-                    alat(1),alat(nlat),alatinc,3,  &
-                    ymin, ymax, yinc, 5            )
+        call oplot_xy2('3','N',aspect,scalelab,8,0,   &
+                       nlat, alat, value,             &
+                       'latitude','TOA RAD (W/m^2) ', &
+                       alat(1),alat(nlat),alatinc,3,  &
+                       ymin, ymax, yinc, 5            )
+     endif
 
-     arr_ll = reshape(rshortup_top_dif2_ll, (/nlon,nlat/) )
-     value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
+     if (allocated(rshortup_top_dif2_ll)) then
+        scr_ll = reshape(rshortup_top_dif2_ll, (/nlon,nlat/) )
+        value(1:nlat) = sum(scr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('3','N',aspect,scalelab,8,40, &
-                    nlat, alat, value,            &
-                    'latitude',' ',               &
-                    alat(1),alat(nlat),alatinc,3, &
-                    ymin, ymax, yinc, 5           )
+        call oplot_xy2('3','N',aspect,scalelab,8,40, &
+                       nlat, alat, value,            &
+                       'latitude',' ',               &
+                       alat(1),alat(nlat),alatinc,3, &
+                       ymin, ymax, yinc, 5           )
+     endif
 
-     arr_ll = reshape(rlongup_top_dif2_ll, (/nlon,nlat/) )
-     value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
+     if (allocated(rlongup_top_dif2_ll)) then
+        scr_ll = reshape(rlongup_top_dif2_ll, (/nlon,nlat/) )
+        value(1:nlat) = sum(scr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('3','N',aspect,scalelab,1,40, &
-                    nlat, alat, value,            &
-                    'latitude',' ',               &
-                    alat(1),alat(nlat),alatinc,3, &
-                    ymin, ymax, yinc, 5           )
+        call oplot_xy2('3','N',aspect,scalelab,1,40, &
+                       nlat, alat, value,            &
+                       'latitude',' ',               &
+                       alat(1),alat(nlat),alatinc,3, &
+                       ymin, ymax, yinc, 5           )
+     endif
 
 ! Plot reference lines
 
      value(1:nlat) = 100.
      call oplot_xy2('3','N',aspect,scalelab,10,0, &
                     nlat, alat, value,            &
-                    ' ',' ',               &
+                    ' ',' ',                      &
                     alat(1),alat(nlat),alatinc,3, &
                     ymin, ymax, yinc, 5           )
 
      value(1:nlat) = 200.
      call oplot_xy2('3','N',aspect,scalelab,10,0, &
                     nlat, alat, value,            &
-                    ' ',' ',               &
+                    ' ',' ',                      &
                     alat(1),alat(nlat),alatinc,3, &
                     ymin, ymax, yinc, 5           )
 
      value(1:nlat) = 300.
      call oplot_xy2('3','N',aspect,scalelab,10,0, &
                     nlat, alat, value,            &
-                    ' ',' ',               &
+                    ' ',' ',                      &
                     alat(1),alat(nlat),alatinc,3, &
                     ymin, ymax, yinc, 5           )
 
      value(1:nlat) = 400.
      call oplot_xy2('3','N',aspect,scalelab,10,0, &
                     nlat, alat, value,            &
-                    ' ',' ',               &
+                    ' ',' ',                      &
                     alat(1),alat(nlat),alatinc,3, &
                     ymin, ymax, yinc, 5           )
 
@@ -1814,45 +2258,49 @@ subroutine fields2_ll()
      ymax = 200.
      yinc = 10.
 
-     arr_ll = reshape(sensflux_dif2_ll, (/nlon,nlat/) )
-     value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
+     if (allocated(sensflux_dif2_ll)) then
+        scr_ll = reshape(sensflux_dif2_ll, (/nlon,nlat/) )
+        value(1:nlat) = sum(scr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('4','N',aspect,scalelab,17,0,      &
-                    nlat, alat, value,                 &
-                    'latitude','SFC S/L FLUX (W/m^2)', &
-                    alat(1),alat(nlat),alatinc,3,      &
-                    ymin, ymax, yinc, 5                )
+        call oplot_xy2('4','N',aspect,scalelab,17,0,      &
+                       nlat, alat, value,                 &
+                       'latitude','SFC S/L FLUX (W/m^2)', &
+                       alat(1),alat(nlat),alatinc,3,      &
+                       ymin, ymax, yinc, 5                )
+     endif
 
-     arr_ll = reshape(latflux_dif2_ll, (/nlon,nlat/) )
-     value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
+     if (allocated(latflux_dif2_ll)) then
+        scr_ll = reshape(latflux_dif2_ll, (/nlon,nlat/) )
+        value(1:nlat) = sum(scr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('4','N',aspect,scalelab,9,0,  &
-                    nlat, alat, value,            &
-                    'latitude',' ',               &
-                    alat(1),alat(nlat),alatinc,3, &
-                    ymin, ymax, yinc, 5           )
-
-!---------------------------------------------------------------
+        call oplot_xy2('4','N',aspect,scalelab,9,0,  &
+                       nlat, alat, value,            &
+                       'latitude',' ',               &
+                       alat(1),alat(nlat),alatinc,3, &
+                       ymin, ymax, yinc, 5           )
+     endif
 
      call o_frame()
 
-     call o_clswk()
-
-           pcpmic_dif2_ll(:) =            accpmic_ll(:)
-           pcpcon_dif2_ll(:) =            accpcon_ll(:)
-           rshort_dif2_ll(:) =       rshort_accum_ll(:)
-         rshortup_dif2_ll(:) =     rshortup_accum_ll(:)
-            rlong_dif2_ll(:) =        rlong_accum_ll(:)
-          rlongup_dif2_ll(:) =      rlongup_accum_ll(:)
-       rshort_top_dif2_ll(:) =   rshort_top_accum_ll(:)
-     rshortup_top_dif2_ll(:) = rshortup_top_accum_ll(:)
-      rlongup_top_dif2_ll(:) =  rlongup_top_accum_ll(:)
-         sensflux_dif2_ll(:) =     sensflux_accum_ll(:)
-          latflux_dif2_ll(:) =      latflux_accum_ll(:)
-
-                  time8_prev = time8
+!---------------------------------------------------------------
 
   endif
+
+  call o_clswk()
+
+  if (allocated(      pcpmic_dif2_ll))       pcpmic_dif2_ll(:) =            accpmic_ll(:)
+  if (allocated(      pcpcon_dif2_ll))       pcpcon_dif2_ll(:) =            accpcon_ll(:)
+  if (allocated(      rshort_dif2_ll))       rshort_dif2_ll(:) =       rshort_accum_ll(:)
+  if (allocated(    rshortup_dif2_ll))     rshortup_dif2_ll(:) =     rshortup_accum_ll(:)
+  if (allocated(       rlong_dif2_ll))        rlong_dif2_ll(:) =        rlong_accum_ll(:)
+  if (allocated(     rlongup_dif2_ll))      rlongup_dif2_ll(:) =      rlongup_accum_ll(:)
+  if (allocated(  rshort_top_dif2_ll))   rshort_top_dif2_ll(:) =   rshort_top_accum_ll(:)
+  if (allocated(rshortup_top_dif2_ll)) rshortup_top_dif2_ll(:) = rshortup_top_accum_ll(:)
+  if (allocated( rlongup_top_dif2_ll))  rlongup_top_dif2_ll(:) =  rlongup_top_accum_ll(:)
+  if (allocated(    sensflux_dif2_ll))     sensflux_dif2_ll(:) =     sensflux_accum_ll(:)
+  if (allocated(     latflux_dif2_ll))      latflux_dif2_ll(:) =      latflux_accum_ll(:)
+
+  time8_prev = time8
 
 end subroutine fields2_ll
 
@@ -2094,7 +2542,9 @@ end subroutine tileplot_ll
 
 subroutine contplot_ll(nlon,nlat,nlev,ilev,alon,alat,fld,itab)
 
+  use plotcolors, only: clrtab
   use oplot_coms, only: op
+
   implicit none
 
   integer, intent(in) :: nlon,nlat,nlev,ilev,itab
@@ -2151,6 +2601,7 @@ subroutine contplot_ll(nlon,nlat,nlev,ilev,alon,alat,fld,itab)
 
   call o_frame()
 
+  return
 end subroutine contplot_ll
 
 !==========================================================================
@@ -2158,6 +2609,8 @@ end subroutine contplot_ll
 subroutine mkmap_ll()
 
   use oplot_coms,  only: op
+  use consts_coms, only: erad, erad2
+  use misc_coms,   only: io6
   use mem_para,    only: myrank
 
   implicit none

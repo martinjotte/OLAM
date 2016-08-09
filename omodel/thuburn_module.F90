@@ -332,7 +332,7 @@ Contains
     integer :: j, iw, ka, k, jv, iv, iwn, kd, iwd
     real    :: c_scp_in_max_sum(mza), c_scp_in_min_sum(mza)
 
-    !$omp do private(iw,k,ka,jv,iv,iwn,c_scp_in_max_sum,c_scp_in_min_sum)
+    !$omp parallel do private(iw,k,ka,jv,iv,iwn,c_scp_in_max_sum,c_scp_in_min_sum)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        ka = lpw(iw)

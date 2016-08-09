@@ -356,7 +356,7 @@ subroutine olam_run(name_name)
   ! Call NCAR interface with zero (i.e., initial) time.  This initializes
   ! both momentum and scalars
 
-  ! if (nl%test_case > 7 .and. nl%test_case < 500) call olam_dcmip_init()
+   if (nl%test_case > 7 .and. nl%test_case < 500) call olam_dcmip_init()
   !----------------------------------------------------------------------
 
   ! Diagnose earth-coordinate velocities
@@ -373,6 +373,12 @@ subroutine olam_run(name_name)
 
      call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
   endif
+
+  !----------------------------------------------------------------------
+  ! For NCAR DCMIP supercell test case, save initial velocity and thil fields
+
+  if (nl%test_case == 131) call dcmip_save_initfields()
+  !----------------------------------------------------------------------
 
 ! Initialize CMAQ chemical species
 
@@ -788,7 +794,8 @@ subroutine olam_output()
   use consts_coms, only: r8
   use oname_coms,  only: nl
   use mem_plot,    only: copy_plot
-  use hcane_rz,    only: init_hurr_step, hurricane_track
+  use hcane_rz,    only: init_hurr_step, vortex_center_diagnose, &
+                         vortex_diagnose, vortex_reloc3d
   use lite_vars,   only: lite_write
   use mem_megan,   only: megan_store_lai
 
@@ -801,13 +808,16 @@ subroutine olam_output()
 
   !-------------------- SPECIAL - HURRICANE TRACKING ------------------
   if (init_hurr_step == 1 .or. init_hurr_step == 2) then
-      if (time8p > timmax8) then
-         call hurricane_track(3)
-      elseif (mod( time8p, 3600.0_r8) < dtlm(1)) then
-         call hurricane_track(2)
-      else
-         call hurricane_track(1)
-      endif
+     call vortex_center_diagnose() ! Track location of hurricane every timestep
+
+     if (mod( time8p, 3600.0_r8) < dtlm(1)) then ! Do at hourly intervals...
+
+        call vortex_diagnose() ! Diagnose and plot axisymmetric hurricane fields
+
+        call vortex_reloc3d()  ! Remap 3D hurricane fields from grid cells at
+                               ! present location to grid cells at initial
+                               ! location, but only write result to a file. 
+     endif
   endif
   !-------------------------------------------------------------------
 

@@ -56,18 +56,6 @@ real, parameter :: pi2      = 3.1415927 * 2.
 real, parameter :: pi4      = 3.1415927 * 4.      
 real, parameter :: pio2     = 3.1415927 * .5      
 real, parameter :: pio4     = 3.1415927 * .25     
-!real, parameter :: erad     = 6371.22e3          ! Earth radius [m]
-!real, parameter :: erad2    = erad * 2.            
-!real, parameter :: erad4    = erad * 4.           
-!real, parameter :: eradsq   = erad * erad         
-!real, parameter :: erador5  = erad * .4472135955 ! second factor is sqrt(.2)
-!real, parameter :: eradi    = 1. / erad           
-real            :: erad
-real            :: erad2
-real            :: erad4
-real            :: eradsq
-real            :: erador5
-real            :: eradi
 real, parameter :: vonk     = 0.40               ! von Karman constant
 real, parameter :: nu       = 1.568e-5           ! kinematic viscosity of air [m^2/s]
 real, parameter :: tkmin    = 5.e-4              ! minimum allowed TKE
@@ -83,12 +71,6 @@ real, parameter :: cliq1000 = cliq * 1000.       ! spec heat of liquid [J/(1000 
 real, parameter :: cice1000 = cice * 1000.       ! spec heat of ice [J/(1000 kg K)]
 real, parameter :: solar    = 1368.22            ! solar constant [W/m^2]
 real, parameter :: stefan   = 5.6696e-8          ! Stefan-Boltzmann constant
-real, parameter :: dlat     = 111120.            ! Earth 1-latitude-degree dist [m]
-!real, parameter :: omega    = 7.29212e-5           ! Earth rotational angular velocity
-!real, parameter :: omega2   = 7.29212e-5 * 2.      ! omega * 2
-real            :: omega
-real            :: omega2
-real            :: xscale
 real, parameter :: p00i     = 1. / p00            
 real, parameter :: rocp     = rdry / cp           
 real, parameter :: cpor     = cp / rdry           
@@ -118,7 +100,18 @@ real, parameter :: eps_virt = (rvap - rdry) / rdry
 real, parameter :: p00k     = 26.870941          ! = p00 ** rocp  
 real, parameter :: p00ki    = 1. / p00k           
 real, parameter :: pc1      = .9967937e-2        ! pc1 = (1./p00) ** rocv
-                                      ! old form:  pc1 = (1./p00) ** rocp
+
+real            :: dlat                          ! Earth 1-latitude-degree dist [m]
+real            :: omega                         ! Earth rotational angular velocity
+real            :: omega2                        ! omega * 2
+real            :: xscale                        ! erad scaling factor (for NCAR DCMIP test cases)
+real            :: erad                          ! Earth radius [m]
+real            :: erad2
+real            :: erad4
+real            :: eradsq
+real            :: erador5
+real            :: eradi
+
 Contains
 
 !===============================================================================
@@ -175,11 +168,12 @@ Contains
 
     ! Secondary values
 
-    erad2    = erad * 2.            
-    erad4    = erad * 4.           
-    eradsq   = erad * erad         
+    erad2    = erad * 2.
+    erad4    = erad * 4.
+    eradsq   = erad * erad
     erador5  = erad * .4472135955 ! second factor is sqrt(.2)
-    eradi    = 1. / erad           
+    eradi    = 1. / erad
+    dlat     = erad * pio180
     omega2   = omega * 2.
 
   end subroutine init_consts
