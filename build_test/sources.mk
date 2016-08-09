@@ -123,7 +123,7 @@ SOURCE_FILES= \
              $(OUTILS)/lapack.f90 \
              $(OUTILS)/map_proj.f90 \
              $(OUTILS)/matrix.f90 \
-             $(OUTILS)/olam_interp_ll.F90 \
+             $(OUTILS)/olam_interp_ll.f90 \
              $(OUTILS)/o_ncar.f90 \
              $(OUTILS)/polygon_overlap.f90 \
              $(OUTILS)/quadrature.f90 \
