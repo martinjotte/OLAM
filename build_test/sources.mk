@@ -278,7 +278,7 @@ SOURCE_FILES= \
              $(CMAQ)/isofwd.f \
              $(CMAQ)/isorev.f \
              $(CMAQ)/LTNG_DEFN.f90 \
-             $(CMAQ)/m3dry.f \
+             $(CMAQ)/m3dry.f90 \
              $(CMAQ)/oplot_chem_lib.f90 \
              $(CMAQ)/phot.F \
              $(CMAQ)/phot_albedo.f90 \
