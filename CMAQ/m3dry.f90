@@ -196,7 +196,6 @@ SUBROUTINE m3dry ( mrl, abflux, sfc_hono )
   REAL                       :: lai                ! leaf area index
   REAL                       :: tai                ! total area index
   INTEGER                    :: n
-  INTEGER                    :: nlev_water
   CHARACTER( 16 ), PARAMETER :: pname      = 'M3DRY'
   REAL,            PARAMETER :: pr         = 0.709   ! [dim'less]
   real                       :: pvd
@@ -522,10 +521,10 @@ SUBROUTINE m3dry ( mrl, abflux, sfc_hono )
      if ( land%nlev_sfcwater(iwl) > 0 ) then
 
         ! Surface wetness factor
-        deltag = min( 1.0, (sum(land%sfcwater_mass(1:nlev_water,iwl)) / 0.2)**2 ) ** onethird
+        deltag = min( 1.0, (sum(land%sfcwater_mass(1:land%nlev_sfcwater(iwl),iwl)) / 0.2)**2 ) ** onethird
 
         ! Determine sfcwater temperature and liquid water mass fraction
-        call qtk( land%sfcwater_energy(nlev_water,iwl), tempgr, liqfrg )
+        call qtk( land%sfcwater_energy(land%nlev_sfcwater(iwl),iwl), tempgr, liqfrg )
 
         tai  = tai  * (1.0 - land%snowfac(iwl))
         lai  = lai  * (1.0 - land%snowfac(iwl))

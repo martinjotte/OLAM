@@ -271,7 +271,7 @@ subroutine fields2_ll()
 
   real, allocatable ::       scr_ll (:,:) ! scratch array
 
-  integer       :: k, iw, ilat, ilon, n, kb, ip, ier, np
+  integer       :: k, iw, ilat, ilon, n, kb, ier, np
   integer       :: iland, jland, isea, jsea, iv, jv, npoly, klev
   integer       :: ndims, idims(3)
   character(30) :: dimnames(3)
@@ -299,13 +299,10 @@ subroutine fields2_ll()
   real,     save :: dlon, dlat
   real(r8), save :: time8_prev
 
-  integer, allocatable ::  iws_l (:)
-  integer, allocatable ::  iws_gl(:,:)
-  integer, allocatable ::  iws_ll(:,:,:)
-  
-  real, allocatable :: wts_l (:)
-  real, allocatable :: wts_gl(:,:)
-  real, allocatable :: wts_ll(:,:,:)
+  integer, allocatable :: iws_l (:)
+  integer, allocatable :: iws_gl(:,:)
+  integer, allocatable :: iws_ll(:,:,:)
+  real,    allocatable :: wts_ll(:,:,:)
 
   integer, allocatable, save :: iws_loc(:,:), lls_loc(:)
   real,    allocatable, save :: wts_loc(:,:)
@@ -365,8 +362,8 @@ subroutine fields2_ll()
         write(io6,'(/,a,3f9.3,i5)') 'beglon,endlon,dlon,nlon ',beglon,endlon,dlon,nlon
      endif
 
-     allocate(iws_ll(nlon,nlat,3))
-     allocate(wts_ll(nlon,nlat,3))
+     allocate(iws_ll(nlon,nlat,3)) ; iws_ll = 1
+     allocate(wts_ll(nlon,nlat,3)) ; wts_ll = 0.0
 
      ! Allocate and fill zlev with model grid levels
 
@@ -393,35 +390,32 @@ subroutine fields2_ll()
      ! in order to eliminate duplicates.
 
         allocate (iws_l(nlon),iws_gl(nlon,mgroupsize))
-        allocate (wts_l(nlon),wts_gl(nlon,mgroupsize))
 
         do ilat = 1,nlat
-           do ip = 1,3  ! Loop over 3 IW interpolation points
-              iws_l(:) = iws_ll(:,ilat,ip)
-              wts_l(:) = wts_ll(:,ilat,ip)
+
+           iws_l(:) = itab_w( iws_ll(:,ilat,1) )%iwglobe
 
 #ifdef OLAM_MPI
-              call MPI_Allgather(iws_l, nlon, MPI_INTEGER, iws_gl, nlon, MPI_INTEGER, MPI_COMM_WORLD, ier)
-              call MPI_Allgather(wts_l, nlon, MPI_REAL,    wts_gl, nlon, MPI_REAL,    MPI_COMM_WORLD, ier)
+           call MPI_Allgather(iws_l, nlon, MPI_INTEGER, iws_gl, nlon, MPI_INTEGER, MPI_COMM_WORLD, ier)
 #endif
+
+           do ilon = 1, nlon
 
               ! In case of multiple matches in parallel, select the cell with
               ! the lowest global rank to match the single-processor result
 
-              do ilon = 1, nlon
-                 np = minloc(iws_gl(ilon,:), mask=iws_gl(ilon,:)>1, dim=1)
-                 iws_ll(ilon,ilat,ip) = iws_gl(ilon,np)
-                 wts_ll(ilon,ilat,ip) = wts_gl(ilon,np)
-              enddo
+              if ( count(iws_gl(ilon,:)>1) > 1 ) then
+                 np = minloc(iws_gl(ilon,:), mask=iws_gl(ilon,:)>1, dim=1) - 1
+                 if (myrank /= np) then
+                    iws_ll(ilon,ilat,:) = 1
+                    wts_ll(ilon,ilat,:) = 0.0
+                 endif
+              endif
+
            enddo
         enddo
 
-        npts = 0
-        do ilat = 1, nlat
-           do ilon = 1, nlon
-              if (itabg_w(iws_ll(ilon,ilat,1))%irank == myrank) npts = npts + 1
-           enddo
-        enddo
+        npts = count(iws_ll(:,:,1) > 1)
 
      endif
      
@@ -434,7 +428,7 @@ subroutine fields2_ll()
      n = 0
      do ilat = 1, nlat
         do ilon = 1, nlon
-           if (itabg_w(iws_ll(ilon,ilat,1))%irank == myrank) then
+           if (iws_ll(ilon,ilat,1) > 1) then
               n = n + 1
               iws_loc(n,1:3) = iws_ll(ilon,ilat,1:3) 
               wts_loc(n,1:3) = wts_ll(ilon,ilat,1:3) 

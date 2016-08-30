@@ -33,17 +33,24 @@
 
 subroutine interp_htw_ll(npts,iws_loc,wts_loc,nlevin,nlevout,field,field_ll)
 
-  use mem_grid, only: mwa
+  use mem_grid,     only: mwa
+  use misc_coms,    only: iparallel
+  use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
 
   implicit none
 
   integer, intent(in)    :: npts, nlevin, nlevout
   integer, intent(in)    :: iws_loc(npts,3)
   real,    intent(in)    :: wts_loc(npts,3)
-  real,    intent(in)    :: field(nlevin,mwa)
+  real,    intent(inout) :: field(nlevin,mwa)
   real,    intent(inout) :: field_ll(npts,nlevout)
 
   integer :: ipt, kin, kout
+
+  if (iparallel == 1) then
+     call mpi_send_w(1,svara=field)
+     call mpi_recv_w(1,svara=field)
+  endif
 
   do ipt = 1, npts
      do kout = 1, nlevout
@@ -152,7 +159,7 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
            ! Skip this lat/lon point if its nearest IW point has already been found
 
-           if (iws_ll(ilon,ilat,1) > 0) cycle
+           if (iws_ll(ilon,ilat,1) > 1) cycle
 
            ! Skip this lat/lon point if any of its earth coordinates differs from
            ! lat/lon point by more than dnvmax
@@ -196,8 +203,6 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
            ! Store IW index for the lat/lon point and transform lat/lon point
            ! to PS coordinates tangent at IW point.
 
-           iws_ll(ilon,ilat,1) = iw
-
            dxe = xea(ilon,ilat) - xew(iw)
            dye = yea(ilon,ilat) - yew(iw)
            dze = zea(ilat)      - zew(iw)
@@ -223,6 +228,7 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
                  ! lat/lon point is inside current triangle; store indices of
                  ! both IWN neighbors
 
+                 iws_ll(ilon,ilat,1) = iw
                  iws_ll(ilon,ilat,2) = itab_w(iw)%iw(j1)
                  iws_ll(ilon,ilat,3) = itab_w(iw)%iw(j2)
 

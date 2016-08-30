@@ -639,7 +639,7 @@ end subroutine mpi_send_m
 
 !=============================================================================
 
-subroutine mpi_send_w(mrl, scalars, dvara1, dvara2,                    &
+subroutine mpi_send_w(mrl, scalars, dvara1, dvara2, svara,             &
                       rvara1,   rvara2,   rvara3,   rvara4,   rvara5,  &
                       rvara6,   rvara7,   rvara8,   rvara9,   rvara10, &
                       rvara11,  rvara12,  rvara13,  rvara14,  rvara15, &
@@ -667,6 +667,8 @@ character(1), optional, intent(in) :: scalars
 
 real(r8), optional, intent(in) :: dvara1 (mza,mwa)
 real(r8), optional, intent(in) :: dvara2 (mza,mwa)
+
+real, optional, intent(in) :: svara(:,:)
 
 real, optional, intent(in) :: rvara1 (mza,mwa)
 real, optional, intent(in) :: rvara2 (mza,mwa)
@@ -741,6 +743,11 @@ do jsend = 1,nsends_w(mrl)
       if (present(dvara2)) then
          call MPI_Pack(dvara2(1,iw),mza,MPI_REAL8, &
          send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(svara)) then
+         call MPI_Pack(svara(1,iw),size(svara,1),MPI_REAL, &
+            send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
       endif
 
       if (present(rvara1)) then
@@ -1160,7 +1167,7 @@ end subroutine mpi_recv_m
 
 !=============================================================================
 
-subroutine mpi_recv_w(mrl, scalars, dvara1, dvara2,                    &
+subroutine mpi_recv_w(mrl, scalars, dvara1, dvara2, svara,             &
                       rvara1,   rvara2,   rvara3,   rvara4,   rvara5,  &
                       rvara6,   rvara7,   rvara8,   rvara9,   rvara10, &
                       rvara11,  rvara12,  rvara13,  rvara14,  rvara15, &
@@ -1188,6 +1195,8 @@ character(1), optional, intent(in) :: scalars
 
 real(r8), optional, intent(inout) :: dvara1 (mza,mwa)
 real(r8), optional, intent(inout) :: dvara2 (mza,mwa)
+
+real, optional, intent(inout) :: svara(:,:)
 
 real, optional, intent(inout) :: rvara1 (mza,mwa)
 real, optional, intent(inout) :: rvara2 (mza,mwa)
@@ -1260,6 +1269,11 @@ do jtmp = 1,nrecvs_w(mrl)
             dvara2(1,iw),mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
       endif
 
+      if (present(svara)) then
+         call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+            svara(1,iw),size(svara,1),MPI_REAL,MPI_COMM_WORLD,ierr)
+      endif
+      
       if (present(rvara1)) then
          call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
             rvara1(1,iw),mza,MPI_REAL,MPI_COMM_WORLD,ierr)

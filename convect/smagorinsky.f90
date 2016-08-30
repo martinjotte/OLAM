@@ -233,7 +233,7 @@ contains
               * (sqrt(strain2(k)) + hill_term)        & ! strain rate + Hill term
               * richnum_term                            ! Lilly Richnum term
 
-       ! Subgrid Prandl number from Mason and Brown (1998, JAS)
+       ! Subgrid Prandl number from Mason and Brown (1999, JAS)
 
        if (richnum >= 0.0) then
           prinv = pri0 - fact * richnum

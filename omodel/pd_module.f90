@@ -47,10 +47,14 @@ contains
     !$omp do private(iw,k,jv,iv)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-       do k = lpw(iw), mza
+       beta(lpw(iw),iw) = max(wmsca(lpw(iw),iw),0.0) * scp_upw(lpw(iw),iw)
+
+       do k = lpw(iw)+1, mza-1
           beta(k,iw) = max(wmsca(k,  iw),0.0) * scp_upw(k,  iw)  &
                      - min(wmsca(k-1,iw),0.0) * scp_upw(k-1,iw)
        enddo
+
+       beta(mza,iw) = -min(wmsca(mza-1,iw),0.0) * scp_upw(mza-1,iw)
 
        do jv = 1, itab_w(iw)%npoly
           iv = itab_w(iw)%iv(jv)
@@ -62,7 +66,7 @@ contains
        enddo
 
        do k = lpw(iw), mza
-          beta(k,iw) = scp(k,iw) * modt(k,iw) / max(beta(k,iw),1.e-12)
+          beta(k,iw) = scp(k,iw) * modt(k,iw) / max(beta(k,iw),1.e-15)
           beta(k,iw) = min(1.0, max(beta(k,iw), 0.0))
        enddo
 
