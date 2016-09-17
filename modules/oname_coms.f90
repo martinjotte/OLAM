@@ -95,7 +95,7 @@ Module oname_coms
 !!    NESTED GRID DEFINITION
 
       integer :: ngrids     = 1
-      integer :: ngrids_old = 1
+      integer :: ngrids_old = 0
 
       integer :: ngrdll(maxgrds) = 0
       real    :: grdrad(maxgrds) = 0.0

@@ -161,6 +161,14 @@ subroutine cuparm_driver()
 
         endif
 
+! Specify a minimum value of convective cloud water
+        
+        if (iactcu(iw) == 1) then
+           do k = kcubot(iw), kcutop(iw)
+              qwcon(k,iw) = max(qwcon(k,iw),1.e-5)
+           enddo
+        endif
+
      enddo
      !$omp end parallel do
 

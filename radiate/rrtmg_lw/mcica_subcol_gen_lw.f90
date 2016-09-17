@@ -45,7 +45,7 @@
 ! Public subroutines
 !------------------------------------------------------------------
 
-      subroutine mcica_subcol_lw(iw, ntim, iplon, ncol, nlay, icld, permuteseed, irng, play, &
+      subroutine mcica_subcol_lw(iw, ntim, iplon, ncol, nlay, icld, permuteseed, irng, &
                        cldfrac, ciwp, clwp, rei, rel, tauc, cldfmcl, &
                        ciwpmcl, clwpmcl, reicmcl, relqmcl, taucmcl)
 
@@ -63,10 +63,6 @@
       integer(kind=im), intent(inout) :: irng         ! flag for random number generator
                                                       !  0 = kissvec
                                                       !  1 = Mersenne Twister
-
-! Atmosphere
-      real(kind=rb), intent(in) :: play(:,:)          ! layer pressures (mb) 
-                                                      !    Dimensions: (ncol,nlay)
 
 ! Atmosphere/clouds - cldprop
       real(kind=rb), intent(in) :: cldfrac(:,:)       ! layer cloud fraction
@@ -111,7 +107,6 @@
       integer(kind=im), parameter :: nsubclw = ngptlw ! number of sub-columns (g-point intervals)
       integer(kind=im) :: ilev                        ! loop index
 
-      real(kind=rb) :: pmid(ncol, nlay)               ! layer pressures (Pa) 
 !      real(kind=rb) :: pdel(ncol, nlay)              ! layer pressure thickness (Pa) 
 !      real(kind=rb) :: qi(ncol, nlay)                ! ice water (specific humidity)
 !      real(kind=rb) :: ql(ncol, nlay)                ! liq water (specific humidity)
@@ -131,7 +126,6 @@
 
       reicmcl(:ncol,:nlay) = rei(:ncol,:nlay)
       relqmcl(:ncol,:nlay) = rel(:ncol,:nlay)
-      pmid(:ncol,:nlay) = play(:ncol,:nlay)*1.e2_rb
 
 ! Convert input ice and liquid cloud water paths to specific humidity ice and liquid components 
 
@@ -149,14 +143,14 @@
 !      enddo
 
 !  Generate the stochastic subcolumns of cloud optical properties for the longwave;
-      call generate_stochastic_clouds (iw, ntim, ncol, nlay, nsubclw, icld, irng, pmid, cldfrac, clwp, ciwp, tauc, &
+      call generate_stochastic_clouds (iw, ntim, ncol, nlay, nsubclw, icld, irng, cldfrac, clwp, ciwp, tauc, &
                                cldfmcl, clwpmcl, ciwpmcl, taucmcl, permuteseed)
 
       end subroutine mcica_subcol_lw
 
 
 !-------------------------------------------------------------------------------------------------
-      subroutine generate_stochastic_clouds(iw, ntim, ncol, nlay, nsubcol, icld, irng, pmid, cld, clwp, ciwp, tauc, &
+      subroutine generate_stochastic_clouds(iw, ntim, ncol, nlay, nsubcol, icld, irng, cld, clwp, ciwp, tauc, &
                                    cld_stoch, clwp_stoch, ciwp_stoch, tauc_stoch, changeSeed) 
 !-------------------------------------------------------------------------------------------------
 
@@ -234,8 +228,6 @@
       integer(kind=im), optional, intent(in) :: changeSeed     ! allows permuting seed
 
 ! Column state (cloud fraction, cloud water, cloud ice) + variables needed to read physics state 
-      real(kind=rb), intent(in) :: pmid(:,:)          ! layer pressure (Pa)
-                                                      !    Dimensions: (ncol,nlay)
       real(kind=rb), intent(in) :: cld(:,:)           ! cloud fraction 
                                                       !    Dimensions: (ncol,nlay)
       real(kind=rb), intent(in) :: clwp(:,:)          ! in-cloud liquid water path

@@ -29,7 +29,6 @@ subroutine get_cloud_frac(iw, ka, frac)
   real    :: rh_tot(mza)
   real    :: qc_sub(mza)
   real    :: cu_cldf(mza)
-  real    :: qsub(mza)
   real    :: qsat, qw
 
   real, external :: rhovsl, rhovsi
@@ -57,8 +56,6 @@ subroutine get_cloud_frac(iw, ka, frac)
      endif
 
   enddo
-
-  frac(:) = 0.
 
   if (icfrac == 1) then
 
@@ -169,8 +166,6 @@ subroutine get_cloud_frac(iw, ka, frac)
 
   endif
 
-  qsub(:) = 0.0
-
   ! If there is subgrid convection, modify the estimated cloud fraction to include
   ! the convective clouds from the cumulus scheme
 
@@ -181,8 +176,6 @@ subroutine get_cloud_frac(iw, ka, frac)
      ! Bony and Emanuel (2001, JAS)
 
      do k = kcubot(iw), kcutop(iw)
-        qsub(k) = max(qwcon(k,iw), 1.e-5)
-
         tc = tair(k,iw) - t00
         if (tc > -10.0) then
            qsat = rhovsl(tc) / rho(k,iw)
@@ -193,14 +186,14 @@ subroutine get_cloud_frac(iw, ka, frac)
         qw = max( sh_w(k,iw), 1.e-8 )
 
         rh_tot(k) = qw / qsat
-        qc_sub(k) = sqrt( qsub(k) / qw )
+        qc_sub(k) = sqrt( qwcon(k,iw) / qw )
      enddo
 
      call cu_cldfrac(kcubot(iw), kcutop(iw), rh_tot, qc_sub, cu_cldf)
 
      ! Do we want to overwrite the resolved cloud fraction or merge the two?
      do k = kcubot(iw), kcutop(iw)
-        frac(k) = max( min(cu_cldf(k), 0.99), 0.01 )
+        frac(k) = max( min(cu_cldf(k), 1.0), 0.0 )
      enddo
 
      if (conprr(iw) > 1.e-12) then

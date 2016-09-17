@@ -251,13 +251,13 @@ implicit none
 
   call micinit_gam()
 
+  call tabhab()
+
   if (level < 3) return
 
   call haznuc()
 
   call tabmelt()
-
-  call tabhab()
 
   call alloc_sedimtab(mza)
   call mksedim_tab(mza,zm,dzt,dzit)
@@ -423,7 +423,7 @@ do lcat = 1,ncat
    rxmin(lcat) = dstprms(9,lcat)
 enddo
 
-if (level < 3) RETURN
+!if (level < 3) RETURN
 
 ! Initialize constants for vapor diffusion
 

@@ -3,7 +3,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   use mem_grid,    only: mza, zm, zt, glatw, dzt
   use mem_basic,   only: rho, press, theta, tair, sh_v
   use misc_coms,   only: io6, iswrtyp, ilwrtyp, time8, dtlm, do_chem
-  use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, t00
+  use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, t00, r8
   use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
                          rshort_top, rshortup_top, rlongup_top, fthrd_sw, &
                          albedt_beam, albedt_diffuse, rshort_diffuse, &
@@ -12,11 +12,13 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          rlong_clr, rlongup_clr, rlongup_top_clr, &
                          par, par_diffuse, uva, uvb, uvc, pbl_cld_forc
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab, &
-                         emb2, level
+                         emb2, jnmb, parm
   use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr, iactcu
   use rrtmg_cloud, only: cloud_props
   use mem_turb,    only: frac_land, kpblh
   use mem_mclat,   only: rad_mclat
+  use mem_ijtabs,  only: itab_w
+  use mem_micro,   only: cldnum
   use cgrid_defn,  only: acflux_dir_dn_tot, acflux_dif_dn_tot, acflux_dif_up_tot, &
                          acflux_dir_dn_clr, acflux_dif_dn_clr, acflux_dif_up_clr
 
@@ -152,7 +154,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: ecaer  (ncol, nrad, nbndsw)
 
   integer :: k, krad, icloud, iaeros, index, ib, ig, krad1, krad2
-  integer :: iplon, irng, permuteseed, ns, nt
+  integer :: iplon, irng, permuteseed, ns, nt, iseed
   integer :: mc, mcat, ih, l, ntim, ngbmsw, ngbmlw
 
   real :: r_ef, dmean, watp, twc, prate
@@ -349,19 +351,19 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
         cldfr(1,krad) = frac(k)
 
         ! water path in g/m^2
-        watp = max(qwcon(k,iw),1.e-5) * real(rho(k,iw)) * 1000. * dzt(k)
+        watp = qwcon(k,iw) * real(rho(k,iw)) * 1000. * dzt(k)
         watp = watp / max( frac(k), 0.2 )
 
         tc = tair(k,iw) - t00
 
-        if (tc > -10.0 .or. level < 3) then
+        if (tc > -10.0) then
 
-           ! Add convective cloud water to cloud drops if warmer then 10C
-           l = 1
+           ! Add convective cloud water to cloud drops if warmer then -10C
+           ih = 1
+           l  = kradcat(ih)
 
-           ! Hardwire droplet effective radius to 14 over land 
-           ! and 8 over sea following CAM physics
-           r_ef = rliqland + (rliqocean-rliqland) * fland
+           ! effective radius in microns
+           r_ef = 1.e6 * reffcof(ih) * (qwcon(k,iw) / cldnum(iw)) ** pwmasi(ih)
 
         else
 
@@ -395,8 +397,6 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
         prate = conprr(iw) * 3600.0          ! precip rate: mm / hr
         twc   = 0.06 * prate**0.846          ! tot wat: g / m3
-        watp  = twc * dzt(k)                 ! water/ice path: g / m^2
-        watp  = watp / max( frac(k), 0.2 )   ! scale by cloud fraction
 
         ! if entire cloud is below freezing, map to snow
         dosnow = all(tair(kcubot(iw):kcutop(iw),iw) < 273.)
@@ -410,51 +410,48 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
            frac(k)       = max( frac(k), 0.1)
            cldfr(1,krad) = frac(k)
 
-           if (level > 2) then
+           watp  = twc * dzt(k)                 ! water/ice path: g / m^2
+           watp  = watp / max( frac(k), 0.2 )   ! scale by cloud fraction
 
-              if (dosnow) then
+           if (dosnow) then
 
-                 if (tc > 0.0) then
-                    ! rain
-                    mc = 2
-                    ih = 2
-                 else
-                    ! snow
-                    mc = 4
-                    rh = min( 1., rhov(k) / rhovsl(tc) )
-                    ns = max( 1, nint(100. * rh) )
-                    nt = max( 1, min(31,-nint(tc)) )
-                    ih = jhabtab(nt,ns,2)
-                 endif
-
+              if (tc > 0.0) then
+                 ! rain
+                 mc = 2
+                 ih = 2
               else
-
-                 if (tc > -10.) then
-                    ! rain
-                    mc = 2
-                    ih = 2
-                 else
-                    ! hail
-                    mc = 7
-                    ih = 7
-                 endif
- 
+                 ! snow
+                 mc = 4
+                 rh = min( 1., rhov(k) / rhovsl(tc) )
+                 ns = max( 1, nint(100. * rh) )
+                 nt = max( 1, min(31,-nint(tc)) )
+                 ih = jhabtab(nt,ns,2)
               endif
-
-              ! cloud optics category
-              l  = kradcat(ih)
-
-              ! effective radius in microns
-              r_ef = 1.e6 * reffcof(ih) * emb2(mc) ** pwmasi(ih)
 
            else
 
-              ! With no microphysics, just map convective precip to rain
-              l = 2
-              r_ef = 1000.0
+              if (tc > -10.) then
+                 ! rain
+                 mc = 2
+                 ih = 2
+              else
+                 ! hail
+                 mc = 7
+                 ih = 7
+              endif
 
            endif
-           
+
+           ! cloud optics category
+           l  = kradcat(ih)
+
+           ! effective radius in microns
+           if (jnmb(mc) == 4) then
+              r_ef = 1.e6 * reffcof(ih) * (twc / real(rho(k,iw)) / parm(mc)) ** pwmasi(ih)
+           else
+              r_ef = 1.e6 * reffcof(ih) * emb2(mc) ** pwmasi(ih)
+           endif
+
            call lookup_rrtmg_cld_optics( l, r_ef, watp, krad )
 
         enddo
@@ -492,16 +489,17 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
      icloud = icld
      iaeros = iaer
      iplon = 1
-     irng = 0
+     irng = 1
      permuteseed = 1
-     ntim = nint(time8/dtlm(1))
+     iseed = itab_w(iw)%iwglobe
+     ntim = 1 + nint( mod(time8/dtlm(1), 1.e8_r8) )
 
-     if ( any( cloud_frac(ka:mza,iw) >= 0.001 .and. cloud_frac(ka:mza,iw) <= 0.999 ) ) then
+     if ( any( cloud_frac(ka:mza,iw) > 0.01 .and. cloud_frac(ka:mza,iw) < 0.99 ) ) then
      
         ! Subgrid (fractional) cloudiness present
 
-        call mcica_subcol_sw(iw, ntim, iplon, ncol, nrad, icloud, &
-                             permuteseed, irng, play, &
+        call mcica_subcol_sw(iseed, ntim, iplon, ncol, nrad, icloud, &
+                             permuteseed, irng, &
                              cldfr, cicewp, cliqwp, reice, reliq,  &
                              tauclds, ssaclds, asmclds, fsfclds, &
                              cldfmcl, ciwpmcl, clwpmcl, reicmcl, relqmcl, &
@@ -623,15 +621,17 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
      icloud = icld
      iaeros = iaer
      iplon = 1
-     irng = 0
+     irng = 1
      permuteseed = 150
+     iseed = itab_w(iw)%iwglobe
+     ntim = 1 + nint( mod(time8/dtlm(1), 1.e8_r8) )
 
-     if ( any( cloud_frac(ka:mza,iw) >= 0.001 .and. cloud_frac(ka:mza,iw) <= 0.999 ) ) then
+     if ( any( cloud_frac(ka:mza,iw) > 0.01 .and. cloud_frac(ka:mza,iw) < 0.99 ) ) then
      
         ! Subgrid (fractional) cloudiness present
 
-        call mcica_subcol_lw(iw     , ntim       , iplon     , ncol      , nrad  , &
-                             icloud , permuteseed, irng      , play      ,         &
+        call mcica_subcol_lw(iseed  , ntim       , iplon     , ncol      , nrad  , &
+                             icloud , permuteseed, irng      ,                     &
                              cldfr  , cicewp     , cliqwp    , reice     , reliq , &
                              taucldl, cldfmcl_lw , ciwpmcl_lw, clwpmcl_lw,         &
                              reicmcl, relqmcl    , taucmcl_lw                      )

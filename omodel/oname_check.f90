@@ -473,7 +473,7 @@ if (nl%isfcl == 1) then
 
    call ichk_bnds( nl%nzs, "NZS", 0, 10, 0, nfatal, nwarn )
 
-   call ichk_bnds( nl%iseagrid,    "ISEAGRID",    1, 3, 0, nfatal, nwarn )
+   call ichk_bnds( nl%iseagrid,    "ISEAGRID",    0, 1, 0, nfatal, nwarn )
    call ichk_bnds( nl%ivegflg,     "IVEGFLG",     1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%isoilflg,    "ISOILFLG",    1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%ndviflg,     "NDVIFLG",     1, 2, 0, nfatal, nwarn )
