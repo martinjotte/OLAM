@@ -292,6 +292,8 @@ CONTAINS
     kbcon = 0
     ktop = 0
     cupclw = 0.0
+    ierr = 0
+    ierrc = ""
 
     outt (1,:) = 0.0
     outq (1,:) = 0.0
@@ -735,20 +737,20 @@ CONTAINS
          entr_rate  = 1.e-3
          mentrd_rate= 0.3*entr_rate
       else
-         entr_rate  = 1.e-4 !-21/10/2015 7.0e-5
-         mentrd_rate= 2.0*entr_rate
+         entr_rate  = 2.0e-4
+         mentrd_rate= entr_rate
       endif
 
       radius =.2/entr_rate
       radiusd=.2/mentrd_rate
-      frh =3.14*radius*radius/dx/dx
-      frhd=3.14*radiusd*radiusd/dx/dx
-      if(frh .gt. 0.55)then !srf orig: 0.7
-         frh=.55            !srf orig: 0.7
+      frh =3.14159*radius*radius/dx/dx
+      frhd=3.14159*radiusd*radiusd/dx/dx
+      if (frh .gt. 0.7) then
+         frh=.7
          radius=sqrt(frh*dx*dx/3.14)
          entr_rate=.2/radius
       endif
-      if(frhd .gt. 0.7)then
+      if (frhd .gt. 0.7) then
          frhd=.7
          radiusd=sqrt(frhd*dx*dx/3.14)
          mentrd_rate=.2/radiusd
@@ -757,7 +759,6 @@ CONTAINS
          sig(i)=(1.-frh)**2
          sigd(i)=1.
 !        sigd(i)=sig(i)/(1.-frhd)**2
-!        if(imid.eq.0)sig(i)=sig(i)
       enddo
 !
 !--- entrainment of mass
