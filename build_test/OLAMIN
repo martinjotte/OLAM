@@ -164,9 +164,12 @@
    NL%NUDFLAG = 0        ! 4DDA nudging flag: 0 = no nudging
                          !                    1 = nudge from isan files
 
-   NL%NUDNXP = 0         ! NXP value for defining nudging grid
+   NL%MAX_NUD_MRL = 5    ! Highest MRL at which gridpoint nudging is performed
 
-   NL%TNUDCENT = 21600.   ! 4DDA nudging time scale (s)
+   NL%NUDNXP = 0         ! NXP value for defining nudging grid for spectral nudging
+                         ! (0 turns off spectral nudging)
+
+   NL%TNUDCENT = 43200.0 ! 4DDA nudging time scale (s)
 
  !--------------------------------------------------------------------------
  ! History file, Month-average, and Day-average I/O

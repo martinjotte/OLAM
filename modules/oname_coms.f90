@@ -115,9 +115,10 @@ Module oname_coms
 
 !!    NUDGING PARAMETERS
 
-      integer :: nudflag  = 0
-      integer :: nudnxp   = 0
-      real    :: tnudcent = 0.0
+      integer :: nudflag     = 0
+      integer :: max_nud_mrl = maxgrds
+      integer :: nudnxp      = 0
+      real    :: tnudcent    = 86400.0
 
 !!    HISTORY/OUTPUT FILES
 

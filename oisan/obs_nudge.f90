@@ -116,11 +116,12 @@ use mem_nudge, only:   tnudcent,                                       &
 use mem_basic,   only: rho, theta, sh_w, vxe, vye, vze
 use mem_grid,    only: mza, mwa, lpw, xew, yew, zew
 use misc_coms,   only: s1900_sim
-use mem_ijtabs,  only: istp, jtab_w, mrl_begl, jtw_prog
+use mem_ijtabs,  only: istp, itab_w, jtab_w, mrl_begl, jtw_prog
 use consts_coms, only: eradi
 use mem_tend,    only: thilt, sh_wt, vmxet, vmyet, vmzet
 use isan_coms,   only: ifgfile, s1900_fg
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
+use oname_coms,  only: nl
 
 implicit none
 
@@ -195,10 +196,14 @@ tp = 1. - tf
 ! Horizontal loop over W columns
 
 !----------------------------------------------------------------------
-!$omp parallel do private(iw,raxis,raxisi,k,uzonal,umerid,tnudi,tnudirho,
-!$omp                     umzonalt,ummeridt,uvtr)
+!$omp parallel do private(iw,raxis,raxisi,k,uzonal,umerid,&
+!$omp                     tnudi,tnudirho,umzonalt,ummeridt,uvtr)
 do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !---------------------------------------------------------------------
+
+! Skip obs nudging if mrl of this column is greater than max nudging mrl
+
+   if (itab_w(iw)%mrlw > nl%max_nud_mrl) cycle
 
 ! Reconstruct UZONAL(k) and UMERID(k) from VXE, VYE, VZE
 

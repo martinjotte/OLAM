@@ -211,6 +211,7 @@ if (nl%initial == 2) then
 
    if (nl%nudflag == 1) then
 
+      call ichk_bnds( nl%max_nud_mrl, "MAX_NUD_MRL", 1, maxgrds, 2, nfatal, nwarn )
       call ichk_bnds( nl%nudnxp, "NUDNXP", 0, 10000, 2, nfatal, nwarn )
       call rchk_bnds( nl%tnudcent, "TNUDCENT", dtlong4, r_huge, 2, nfatal, &
                       nwarn, msgmin="Nudging time must be larger than dtlong")
