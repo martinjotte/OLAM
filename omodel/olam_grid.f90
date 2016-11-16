@@ -1149,6 +1149,7 @@ integer :: ngr, i
 integer :: ndims, idims(2)
 
 integer :: ngrids0, mdomain0, nxp0, nzp0, itopoflg0, isfcl0, ndz0
+integer :: nudflag0, nudnxp0
 
 real    :: deltax0
 
@@ -1213,8 +1214,10 @@ real,    allocatable :: rscr(:,:)
 
   call shdf5_irec(ndims, idims, 'NDZ'     , ivars=ndz0)
 
-  call shdf5_irec(ndims, idims, 'NUDFLAG' , ivars=nudflag)
-  call shdf5_irec(ndims, idims, 'NUDNXP'  , ivars=nudnxp)
+  if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+     call shdf5_irec(ndims, idims, 'NUDFLAG' , ivars=nudflag0)
+     call shdf5_irec(ndims, idims, 'NUDNXP'  , ivars=nudnxp0)
+  endif
 
   allocate( ngrdll0 (ngrids0) )
   allocate( grdrad0 (ngrids0) )
@@ -1272,6 +1275,11 @@ real,    allocatable :: rscr(:,:)
      if (abs(dz0 (idz) - dz (idz)) > 1.e1 ) ierr = 1
   enddo
 
+  if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+     if (nudflag0 /= nudflag) ierr = 1
+     if (nudnxp0  /= nudnxp ) ierr = 1
+  endif
+
   if (ierr == 1) then
 
      write(io6,*) 'GRIDFILE mismatch with OLAMIN namelist: Stopping model run'
@@ -1298,6 +1306,11 @@ real,    allocatable :: rscr(:,:)
      write(io6, '(a,20f12.1)') 'grdrad0:  ',grdrad0 (1:ngrids)
      write(io6, '(a,20f12.1)') 'grdrad:   ',grdrad  (1:ngrids)
      write(io6,*) ' '
+
+     if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+        write(io6,*)              'nudflag:  ',nudflag0 ,nudflag
+        write(io6,*)              'nudnxp:   ',nudnxp0  ,nudnxp
+     endif
 
      do ngr = 2, min(ngrids0,ngrids)
         write(io6, '(a,i5)') 'ngr: ',ngr
