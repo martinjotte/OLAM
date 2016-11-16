@@ -32,17 +32,16 @@
 !===============================================================================
 subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
 
-use mem_nudge,   only: nudflag, nudnxp, mwnud, &
+use mem_nudge,   only: mwnud, &
                        rho_obsp, theta_obsp, shw_obsp, &
                        rho_obsf, theta_obsf, shw_obsf, &
                        uzonal_obsp, umerid_obsp, &
                        uzonal_obsf, umerid_obsf
 
-use mem_grid,    only: mza, mva, mwa, lpw, vnx, vny, vnz, &
-                       xev, yev, zev, xew, yew, zew, volt
-use misc_coms,   only: io6, iparallel, runtype
+use mem_grid,    only: mza, mwa, volt
+use misc_coms,   only: iparallel
 use mem_ijtabs,  only: jtab_w, itab_w, jtw_init
-use olam_mpi_atm, only: mpi_send_wnud, mpi_recv_wnud
+use olam_mpi_atm,only: mpi_send_wnud, mpi_recv_wnud
 use consts_coms, only: r8
 
 implicit none
@@ -55,10 +54,8 @@ real,     intent(in) :: o_shv   (mza,mwa)
 real,     intent(in) :: o_uzonal(mza,mwa)
 real,     intent(in) :: o_umerid(mza,mwa)
 
-integer :: j,iw,k,ka,iv,iw1,iw2,ivp,iwnud,iwnud1
-integer :: npoly,kb,jv
-
-real :: volwnudi
+integer :: j,iw,k,iwnud,iwnud1
+real    :: volwnudi
 
 ! Automatic arrays
 
@@ -149,22 +146,19 @@ end subroutine nudge_prep_spec
 
 subroutine spec_nudge(rhot)
 
-use mem_nudge, only: nudnxp, tnudcent, mwnud,                          &
+use mem_nudge, only:   tnudcent,      mwnud,                           &
                         rho_sim,    rho_obs,    rho_obsp,    rho_obsf, &
                       theta_sim,  theta_obs,  theta_obsp,  theta_obsf, &
                         shw_sim,    shw_obs,    shw_obsp,    shw_obsf, &
                      uzonal_sim, uzonal_obs, uzonal_obsp, uzonal_obsf, &
                      umerid_sim, umerid_obs, umerid_obsp, umerid_obsf
 
-use mem_basic,   only: vc, rho, theta, sh_w, vxe, vye, vze
-use mem_grid,    only: mza, mwa, lpv, lpw, &
-                       xev, yev, zev, xew, yew, zew, &
-                       unx, uny, unz, vnx, vny, vnz, volt, glatw, glonw
-use misc_coms,   only: io6, time8, s1900_sim, iparallel
-use mem_ijtabs,  only: istp, jtab_v, jtab_w, itab_v, itab_w, &
-                       mrl_begl, jtv_prog, jtw_prog
+use mem_basic,   only: rho, theta, sh_w, vxe, vye, vze
+use mem_grid,    only: mza, mwa, lpw, xew, yew, zew, volt
+use misc_coms,   only: s1900_sim, iparallel
+use mem_ijtabs,  only: istp, jtab_w, itab_w, mrl_begl, jtv_prog, jtw_prog
 use consts_coms, only: eradi
-use mem_tend,    only: vmt, thilt, sh_wt
+use mem_tend,    only: thilt, sh_wt, vmxet, vmyet, vmzet
 use isan_coms,   only: ifgfile, s1900_fg
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_wnud, mpi_recv_wnud
 
@@ -175,49 +169,47 @@ implicit none
 
 real, intent(inout) :: rhot(mza,mwa)
 
-integer :: iwnud,k,j,jv,iv,iw,iwnud1,iwnud2,iwnud3,iw1,iw2,mrl,npoly,kb
+integer :: iwnud,k,j,iw,iwnud1,iwnud2,iwnud3,mrl,kb
 
 real :: volwnud (mza,mwnud)
-real :: umzonalt (mza,mwa)
-real :: ummeridt (mza,mwa)
-real :: uzonal(mza),umerid(mza)
+real :: umzonalt(mza)
+real :: ummeridt(mza)
+real :: uzonal  (mza)
+real :: umerid  (mza)
 
 real :: volwnudi,tp,tf,tnudi,tnudirho
-real :: raxis,raxisi
-real :: umgt,vmgt,uvmgrt,uvmgxt,uvmgyt,uvmgzt
+real :: raxis,raxisi,uvtr
 real :: fnud1,fnud2,fnud3
-
-real :: um, uz
 
 !----------------------------------------------------------------------
 ! EXAMPLE - DEFINE OPTIONAL SPATIAL NUDGING MASK
-
-integer, save :: icall = 0
-real, save, allocatable :: wtnud(:)
-real :: xw,yw,dist
-
-if (icall /= 1) then
-   icall = 1
-   
-   allocate (wtnud(mwa))
-   
-! Horizontal loop over T points
-
-   do iw = 2,mwa
-
-! Default: Uniform nudging weight = 1
-
-      wtnud(iw) = 1.
-
-! Sample code for modifying nudging weight
-      
-! Transform current IW point to polar stereographic coordinates using specified
-! pole point location (pole point lat/lon = 4th & 5th arguments of e_ps)
-   
+!
+!integer, save :: icall = 0
+!real, save, allocatable :: wtnud(:)
+!real :: xw,yw,dist
+!
+!if (icall /= 1) then
+!   icall = 1
+!   
+!   allocate (wtnud(mwa))
+!   
+!! Horizontal loop over T points
+!
+!   do iw = 2,mwa
+!
+!! Default: Uniform nudging weight = 1
+!
+!      wtnud(iw) = 1.
+!
+!! Sample code for modifying nudging weight
+!      
+!! Transform current IW point to polar stereographic coordinates using specified
+!! pole point location (pole point lat/lon = 4th & 5th arguments of e_ps)
+!   
 !      call e_ps(xew(iw),yew(iw),zew(iw),37.,-117.,xw,yw)
-
+!
 !      dist = sqrt(xw ** 2 + yw ** 2)
-
+!
 !      if (dist > 5000.e3) then
 !         wtnud(iw) = 1.
 !      elseif (dist < 3600.e3) then
@@ -225,10 +217,10 @@ if (icall /= 1) then
 !      else
 !         wtnud(iw) = ((dist - 3600.e3) / 1400.e3) ** 2
 !      endif
-
-   enddo
-
-endif
+!
+!   enddo
+!
+!endif
 !----------------------------------------------------------------------
 
 ! Check whether it is time to nudge
@@ -355,7 +347,8 @@ enddo
 
 !----------------------------------------------------------------------
 !$omp parallel do private(iw,iwnud1,iwnud2,iwnud3,k,tnudi,tnudirho, &
-!$omp                     fnud1,fnud2,fnud3)
+!$omp                     fnud1,fnud2,fnud3,umzonalt,ummeridt,uvtr, &
+!$omp                     raxis,raxisi)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    iwnud1 = itab_w(iw)%iwnud(1);  fnud1 = itab_w(iw)%fnud(1)
    iwnud2 = itab_w(iw)%iwnud(2);  fnud2 = itab_w(iw)%fnud(2)
@@ -365,9 +358,10 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 ! Inverse of nudging time scale
 ! Use spatial nudging mask defined above in this subroutine
 
-   tnudi = wtnud(iw) / tnudcent
+!  tnudi = wtnud(iw) / tnudcent
+   tnudi = 1.0 / tnudcent
 
-   do k = lpw(iw),mza
+   do k = lpw(iw), mza
 
             tnudirho = tnudi * rho(k,iw)
 
@@ -386,59 +380,28 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
                      + fnud2 * (shw_obs(k,iwnud2) - shw_sim(k,iwnud2)) &
                      + fnud3 * (shw_obs(k,iwnud3) - shw_sim(k,iwnud3)) )
 
-      umzonalt(k,iw) = tnudirho * ( &
+      umzonalt(k)    = tnudirho * ( &
                        fnud1 * (uzonal_obs(k,iwnud1) - uzonal_sim(k,iwnud1)) &
                      + fnud2 * (uzonal_obs(k,iwnud2) - uzonal_sim(k,iwnud2)) &
                      + fnud3 * (uzonal_obs(k,iwnud3) - uzonal_sim(k,iwnud3)) )
 
-      ummeridt(k,iw) = tnudirho * ( &
+      ummeridt(k)    = tnudirho * ( &
                        fnud1 * (umerid_obs(k,iwnud1) - umerid_sim(k,iwnud1)) &
                      + fnud2 * (umerid_obs(k,iwnud2) - umerid_sim(k,iwnud2)) &
                      + fnud3 * (umerid_obs(k,iwnud3) - umerid_sim(k,iwnud3)) )
-
    enddo
 
-enddo
-!$omp end parallel do
-
-if (iparallel == 1) then
-   call mpi_send_w(mrl, rvara1=umzonalt, rvara2=ummeridt)
-   call mpi_recv_w(mrl, rvara1=umzonalt, rvara2=ummeridt)
-endif
-
-! VMT
-
-!----------------------------------------------------------------------
-!$omp parallel do private(iv,iw1,iw2,k, &
-!$omp                     raxis,raxisi,umgt,vmgt,uvmgrt,uvmgxt,uvmgyt,uvmgzt)
-do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-!----------------------------------------------------------------------
-
-   raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
+   raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
    if (raxis > 1.e3) then
-      
       raxisi = 1. / raxis
 
-! Average momentum tendencies to V point and rotate at V point
-
-      do k = lpv(iv),mza
-         umgt = .5 * (umzonalt(k,iw1) + umzonalt(k,iw2))
-
-         vmgt = .5 * (ummeridt(k,iw1) + ummeridt(k,iw2))
-
-         uvmgrt = -vmgt * zev(iv) * eradi  ! radially outward from axis
-
-         uvmgxt = (-umgt * yev(iv) + uvmgrt * xev(iv)) * raxisi 
-         uvmgyt = ( umgt * xev(iv) + uvmgrt * yev(iv)) * raxisi 
-         uvmgzt =   vmgt * raxis * eradi 
-
-         vmt(k,iv) = vmt(k,iv) &
-                   + uvmgxt * vnx(iv) + uvmgyt * vny(iv) + uvmgzt * vnz(iv)
-
+      do k = lpw(iw), mza
+         uvtr = -ummeridt(k) * zew(iw) * eradi
+         vmxet(k,iw) = vmxet(k,iw) + (-umzonalt(k) * yew(iw) + uvtr * xew(iw)) * raxisi
+         vmyet(k,iw) = vmyet(k,iw) + ( umzonalt(k) * xew(iw) + uvtr * yew(iw)) * raxisi
+         vmzet(k,iw) = vmzet(k,iw) +   ummeridt(k) * raxis * eradi 
       enddo
-
    endif
 
 enddo
