@@ -38,7 +38,7 @@ use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, time_bias, &
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag, io3
 use mem_grid,    only: mza, mva, mwa, nsw_max
-use micro_coms,  only: level
+use micro_coms,  only: miclevel
 use leaf_coms,   only: isfcl
 use mem_para,    only: myrank
 use mem_basic,   only: vmc, vc, vxe, vye, vze, vxe2, vye2, vze2, thil, rho, wmc, wc
@@ -60,11 +60,9 @@ implicit none
 
 integer :: jstp, mrl, n
 
-! automatic arrays
-
 real     :: vmsc       (mza,mva) ! V face momentum for scalar advection
 real     :: wmsc       (mza,mwa) ! W face momentum for scalar advection
-real(r8) :: rho_old    (mza,mwa) ! density at beginning of timestep [kg/m^3]
+real(r8) :: rho_old    (mza,mwa) ! density at beginning of long timestep [kg/m^3]
 real     :: alpha_press(mza,mwa) ! coefficient for computing pressure
 real     :: rhot       (mza,mwa) ! grid-cell total mass tendency [kg/s]
 real     :: vxesc      (mza,mwa)
@@ -76,25 +74,24 @@ real     :: vzesc      (mza,mwa)
 ! +----------------------------------------------------------------------------+
 
 if (time_istp8 < 1.e-3_r8) then
-!   call bubble()
+   !   call bubble()
 
-! For shallow water test cases, compute error norms at initial time
-! if run is not parallel
+   ! For shallow water test cases, compute error norms at initial time
+   ! if run is not parallel
 
-!   if (iparallel == 0) then
-      if (nl%test_case == 2 .or. nl%test_case == 5) then
-         call diagn_global_swtc()
-      endif
-!   endif
-
+   !   if (iparallel == 0) then
+         if (nl%test_case == 2 .or. nl%test_case == 5) then
+            call diagn_global_swtc()
+        endif
+   !   endif
 endif
 
 do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    istp = jstp
 
-! Bypass all processes except microphyics if running parcel test 901 or 902
+   ! Bypass all processes except microphyics if running parcel test 901 or 902
 
-if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
+   if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
    call tend0(rhot)
 
@@ -102,12 +99,14 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
    if (mrl > 0) then
       call comp_alpha_press(mrl, alpha_press)
       call surface_turb_flux(mrl)
+      call sea_spray(mrl)
+      call dust_src(mrl)
       if (do_chem == 1) then
          call aero_sedi( mrl )
       endif
    endif
 
-! call check_nans(1)
+   ! call check_nans(1)
 
    if (any( nqparm(1:mrls) > 0 )) then
       call cuparm_driver()
@@ -116,13 +115,13 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       endif
    endif
 
-! call check_nans(2)
+   ! call check_nans(2)
 
    if (ilwrtyp + iswrtyp > 0) then
       call radiate()
    endif
 
-! call check_nans(3)
+   ! call check_nans(3)
 
    mrl = mrl_begl(istp)
    if (mrl > 0) then
@@ -133,11 +132,11 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       call pbl_driver(mrl)
    endif
 
-! call check_nans(5)
+   ! call check_nans(5)
 
    call zero_momsc(vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
 
-! Compute nudging tendencies
+   ! Compute nudging tendencies
 
    if (initial == 2 .and. nudflag == 1) then
       if (nudnxp == 0) then
@@ -147,13 +146,13 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       endif
    endif
 
-! Nudging of ozone if it is a variable in the scalar table
+   ! Nudging of ozone if it is a variable in the scalar table
 
    if (initial == 2 .and. o3nudflag == 1 .and. io3 > 0) then
       call obs_nudge_o3()
    endif
 
-! call check_nans(10)
+   ! call check_nans(10)
 
    mrl = mrl_ends(istp)
    if (nl%split_scalars > 0 .and. mrl > 0) then
@@ -166,11 +165,11 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       call lbcopy_w(mrl, a1=thil)
    endif
 
-! call check_nans(11)
+   ! call check_nans(11)
 
    call prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 
-! call check_nans(12)
+   ! call check_nans(12)
 
    mrl = mrl_endl(istp)
    if (nl%split_scalars > 0 .and. mrl > 0) then
@@ -184,7 +183,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
    call timeavg_momsc(vmsc,wmsc,vxesc,vyesc,vzesc)
 
-! call check_nans(13)
+   ! call check_nans(13)
 
    mrl = mrl_endl(istp)
    if (nl%split_scalars > 0 .and. mrl > 0) then
@@ -195,58 +194,54 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       call scalar_transport(vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
    endif
 
-! call check_nans(14)
+   ! call check_nans(14)
 
    call predtr(rho_old)
 
-! call check_nans(15)
+   ! call check_nans(15)
 
-   if (level /= 3) then
+   if (miclevel /= 3) then
       call thermo()
    endif
 
-! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
-!if (mod(time8,op%frqplt) < dtlm(1) .and. istp == nstp+1000) then
-!
-!   allocate (op%extfld(mza,mwa))
-!   op%extfld(:,:) = thil(:,:)
-!   op%extfldname = 'THIL'
-!   call plot_fields(1)
-!   deallocate (op%extfld)
-!
-!   allocate (op%extfld(mza,mwa))
-!   op%extfld(:,:) = theta(:,:)
-!   op%extfldname = 'THETA'
-!   call plot_fields(2)
-!   deallocate (op%extfld)
-!
-!   allocate (op%extfld(mza,mwa))
-!   op%extfld(:,:) = (sh_w(:,:) - sh_v(:,:)) * 1.e3
-!   op%extfldname = 'SH_TOTCOND'
-!   call plot_fields(3)
-!   deallocate (op%extfld)
-!
-!endif
-! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
+   ! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
+   !if (mod(time8,op%frqplt) < dtlm(1) .and. istp == nstp+1000) then
+   !
+   !   allocate (op%extfld(mza,mwa))
+   !   op%extfld(:,:) = thil(:,:)
+   !   op%extfldname = 'THIL'
+   !   call plot_fields(1)
+   !   deallocate (op%extfld)
+   !
+   !   allocate (op%extfld(mza,mwa))
+   !   op%extfld(:,:) = theta(:,:)
+   !   op%extfldname = 'THETA'
+   !   call plot_fields(2)
+   !   deallocate (op%extfld)
+   !
+   !   allocate (op%extfld(mza,mwa))
+   !   op%extfld(:,:) = (sh_w(:,:) - sh_v(:,:)) * 1.e3
+   !   op%extfldname = 'SH_TOTCOND'
+   !   call plot_fields(3)
+   !   deallocate (op%extfld)
+   !
+   !endif
+   ! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
 
-! call check_nans(16)
+   ! call check_nans(16)
 
-1311 continue
+   1311 continue
 
    mrl = mrl_endl(istp)
-   if (level == 3 .and. mrl > 0) then
+   if (miclevel == 3 .and. mrl > 0) then
       call micro()  ! maybe later make freq. uniform
-
-      if (isfcl == 1) then
-         call surface_precip_flux()
-      endif
    endif
 
-! Bypass all processes except microphyics if running parcel test 901 or 902
+   ! Bypass all processes except microphyics if running parcel test 901 or 902
 
    if (nl%test_case == 901 .or. nl%test_case == 902) go to 1312
 
-! call check_nans(17)
+   ! call check_nans(17)
 
    ! Call atmospheric chemistry here
    
@@ -255,7 +250,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
    call trsets()
 
-! call check_nans(18)
+   ! call check_nans(18)
 
    mrl = mrl_ends(istp)
 
@@ -273,14 +268,14 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
       call lbcopy_w(mrl, a1=thil, a2=wmc, a3=wc)
    endif
 
-! call check_nans(19)
+   ! call check_nans(19)
 
    mrl = mrl_endl(istp)
    if (mrl > 0) then
 
       if (iparallel == 1) call mpi_send_w(mrl, scalars='S')  ! Send scalars
 
-      if (level == 3) call omic_update_v_mom(mrl)
+      if (miclevel == 3) call omic_update_v_mom(mrl)
 
       if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')  ! Recv scalars
 
@@ -290,9 +285,9 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
    endif
 
-! call check_nans(20)
+   ! call check_nans(20)
 
-! MPI send/recv and lbc copy of VMC, VC
+   ! MPI send/recv and lbc copy of VMC, VC
 
    mrl = mrl_ends(istp)
 
@@ -302,13 +297,13 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
    endif
    call lbcopy_v(1, vmc=vmc, vc=vc)
 
-! Compute earth cartesian velocities
+   ! Compute earth cartesian velocities
 
    if (mrl > 0) then
       call diagvel_t3d(mrl)
    endif
 
-! MPI send/recv of vxe, vye, vze
+   ! MPI send/recv of vxe, vye, vze
 
    if (iparallel == 1) then
       call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
@@ -316,7 +311,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
    endif
    call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
-! call check_nans(21)
+   ! call check_nans(21)
 
    if (leafstep(istp) > 0) then
       call leaf4()
@@ -326,9 +321,9 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
    call flux_accum()
 
-! call check_nans(22)
+   ! call check_nans(22)
 
-1312 continue
+   1312 continue
 
    time_istp8  = time8 + istp * dtsm(mrls)  ! Update precise time
    time_istp8p = time_istp8 + time_bias
@@ -336,7 +331,6 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
 
 enddo
 
-return
 end subroutine timestep
 
 !===============================================================================
@@ -464,7 +458,6 @@ enddo
 
 dt_sea = dt_leaf
 
-return
 end subroutine modsched
 
 !==========================================================================
@@ -474,7 +467,7 @@ subroutine tend0(rhot)
 use mem_ijtabs, only: jtab_w, jtab_v, istp, mrl_begl, jtv_wstn, jtw_wstn
 use var_tables, only: scalar_tab, num_scalar
 use mem_grid,   only: mza, mwa, mva, lpv, lpw
-use mem_tend,   only: wmt, vmt, thilt, vmxet, vmyet, vmzet
+use mem_tend,   only: thilt, vmxet, vmyet, vmzet
 use misc_coms,  only: io6
 
 implicit none
@@ -504,7 +497,6 @@ if (mrl > 0) then
 do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
    do k = lpw(iw),mza
-      wmt  (k,iw) = 0.0
       vmxet(k,iw) = 0.0
       vmyet(k,iw) = 0.0
       vmzet(k,iw) = 0.0
@@ -513,22 +505,6 @@ enddo
 !$omp end parallel do
 endif
 
-! SET V MOMENTUM TENDENCY TO ZERO
-
-!----------------------------------------------------------------------
-mrl = mrl_begl(istp)
-if (mrl > 0) then
-!$omp parallel do private(iv,k)
-do j = 1,jtab_v(jtv_wstn)%jend(mrl); iv = jtab_v(jtv_wstn)%iv(j)
-!----------------------------------------------------------------------
-   do k = lpv(iv),mza
-      vmt(k,iv) = 0.
-   enddo
-enddo
-!$omp end parallel do
-endif
-
-return
 end subroutine tend0
 
 !==========================================================================
@@ -559,7 +535,6 @@ enddo
 !$omp end parallel do
 endif
 
-return
 end subroutine tnd0
 
 !==========================================================================
@@ -599,7 +574,6 @@ if (mrl > 0) then
 
 endif
 
-return
 end subroutine predtr
 
 !==========================================================================
@@ -637,7 +611,6 @@ enddo
 !$omp end parallel do
 endif
 
-return
 end subroutine o_update
 
 !==========================================================================
@@ -711,7 +684,6 @@ implicit none
 
 integer :: iw,i,j,k
 
-
    do k = 2,2
       thil(k,17328) = thil(k,17328) + 5. 
       theta(k,17328) = theta(k,17328) + 5. 
@@ -732,8 +704,6 @@ integer :: iw,i,j,k
       theta(k,17336) = theta(k,17336) + 5. 
    enddo
 
-
-return
 end subroutine bubble
 
 !==========================================================================

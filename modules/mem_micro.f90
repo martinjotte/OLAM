@@ -53,10 +53,6 @@ Module mem_micro
   real, allocatable, target :: con_g(:,:) ! graupel number conc [#_graup/kg_air]
   real, allocatable, target :: con_h(:,:) ! hail number conc [#_hail/kg_air]
 
-  real, allocatable, target :: con_ccn (:,:) ! CCN number conc [#_ccn/kg_air]
-  real, allocatable, target :: con_gccn(:,:) ! GCCN number conc [#_gccn/kg_air]
-  real, allocatable, target :: con_ifn (:,:) ! IFN number conc [#_ifn/kg_air]
-
   real, allocatable, target :: q2(:,:) ! rain internal energy [J/kg]
   real, allocatable, target :: q6(:,:) ! graupel internal energy [J/kg]
   real, allocatable, target :: q7(:,:) ! hail internal energy [J/kg]
@@ -77,18 +73,23 @@ Module mem_micro
   real, allocatable, target :: pcprg (:) ! sfc graupel pcp rate [kg/(m^2 s)]
   real, allocatable, target :: pcprh (:) ! sfc hail pcp rate [kg/(m^2 s)]
 
-  real, allocatable, target :: pcpgr (:) ! sfc total pcp RATE [kg/(m^2 s)]
-  real, allocatable, target :: qpcpgr(:) ! sfc total pcp energy FLUX [J/(m^2 s)]
-  real, allocatable, target :: dpcpgr(:) ! sfc total pcp depth accum RATE [m/s]
-
   real, allocatable, target :: cldnum(:) ! cloud drop number conc (climatology) [#_cld/kg_air]
+
+  real, allocatable, target :: con_gccn(:,:)   ! GCCN number conc [#_gccn/kg_air]
+  real, allocatable, target :: con_ifn (:,:)   ! IFN  number conc [#_ifn/kg_air]
+
+  Type ccntyp_vars   
+     real, allocatable :: con_ccn (:,:) ! CCN  number conc [#_ccn/kg_air]
+     real, allocatable :: con_ccnt(:,:) ! CCN  number tendency [#_ccn/(m^3 s)]
+  End Type ccntyp_vars
+   
+  type (ccntyp_vars), allocatable, target :: ccntyp(:)
 
 Contains
 
 !===============================================================================
 
-  subroutine alloc_micro(mza,mwa,level,ncat, &
-       icloud,idriz,irain,ipris,isnow,iaggr,igraup,ihail)
+  subroutine alloc_micro(mza,mwa,miclevel,ncat,nccntyp,iccn,igccn,iifn,jnmb)
 
     use misc_coms, only: rinit
     use oname_coms, only: nl
@@ -96,112 +97,102 @@ Contains
 
     implicit none
 
-    integer, intent(in) :: mza,mwa,level,ncat
-    integer, intent(in) :: icloud,idriz,irain,ipris,isnow,iaggr,igraup,ihail
+    integer, intent(in) :: mza,mwa,miclevel,ncat,nccntyp,iccn,igccn,iifn
+    integer, intent(in) :: jnmb(ncat)
+    integer :: ic
 
     ! Allocate arrays based on options
     ! Initialize arrays to zero
 
     allocate(cldnum(mwa)); cldnum = 0.
 
-    if (level >= 2) then
+    if (miclevel >= 2) then
        allocate (sh_c(mza,mwa)) ; sh_c = rinit
     endif
 
-    if (level >= 3) then
+    if (miclevel >= 3) then
 
-       if (idriz >= 1)  then
+       if (jnmb(1) == 5) then
+          allocate (con_c(mza,mwa)) ; con_c = rinit
+       endif
+
+       if (jnmb(3) == 5) then
+          allocate (con_p(mza,mwa)) ; con_p = rinit
+          allocate (sh_p(mza,mwa)) ; sh_p  = rinit
+          allocate (accpp   (mwa)) ; accpp = 0.0_r8
+          allocate (pcprp   (mwa)) ; pcprp = rinit
+       endif
+
+       if (jnmb(8) == 5) then
+          allocate (con_d(mza,mwa)) ; con_d = rinit
           allocate (sh_d(mza,mwa)) ; sh_d  = rinit
           allocate (accpd   (mwa)) ; accpd = 0.0_r8
           allocate (pcprd   (mwa)) ; pcprd = rinit
        endif
 
-       if (irain >= 1)  then
+       if (jnmb(2) >= 1)  then
+          if (jnmb(2) == 5) then
+             allocate (con_r(mza,mwa)) ; con_r = rinit
+          endif
           allocate (sh_r(mza,mwa)) ; sh_r  = rinit
           allocate (q2  (mza,mwa)) ; q2    = rinit
           allocate (accpr   (mwa)) ; accpr = 0.0_r8
           allocate (pcprr   (mwa)) ; pcprr = rinit
        endif
 
-       if (ipris >= 1)  then
-          allocate (sh_p(mza,mwa)) ; sh_p  = rinit
-          allocate (accpp   (mwa)) ; accpp = 0.0_r8
-          allocate (pcprp   (mwa)) ; pcprp = rinit
-       endif
-
-       if (isnow >= 1)  then
+       if (jnmb(4) >= 1)  then
+          if (jnmb(4) == 5) then
+             allocate (con_s(mza,mwa)) ; con_s = rinit
+          endif
           allocate (sh_s(mza,mwa)) ; sh_s  = rinit
           allocate (accps   (mwa)) ; accps = 0.0_r8
           allocate (pcprs   (mwa)) ; pcprs = rinit
        endif
 
-       if (iaggr >= 1)  then
+       if (jnmb(5) >= 1)  then
+          if (jnmb(5) == 5) then
+             allocate (con_a(mza,mwa)) ; con_a = rinit
+          endif
           allocate (sh_a(mza,mwa)) ; sh_a  = rinit
           allocate (accpa   (mwa)) ; accpa = 0.0_r8
           allocate (pcpra   (mwa)) ; pcpra = rinit
        endif
 
-       if (igraup >= 1) then
+       if (jnmb(6) >= 1) then
+          if (jnmb(6) == 5) then
+             allocate (con_g(mza,mwa)) ; con_g = rinit
+          endif
           allocate (sh_g(mza,mwa)) ; sh_g  = rinit
           allocate (q6  (mza,mwa)) ; q6    = rinit
           allocate (accpg   (mwa)) ; accpg = 0.0_r8
           allocate (pcprg   (mwa)) ; pcprg = rinit
        endif
 
-       if (ihail >= 1) then
+       if (jnmb(7) >= 1) then
+          if (jnmb(7) == 5) then
+             allocate (con_h(mza,mwa)) ; con_h = rinit
+          endif
           allocate (sh_h(mza,mwa)) ; sh_h  = rinit
           allocate (q7  (mza,mwa)) ; q7    = rinit
           allocate (accph   (mwa)) ; accph = 0.0_r8
           allocate (pcprh   (mwa)) ; pcprh = rinit
        endif
 
-       if (icloud >= 5) then
-          allocate (con_c(mza,mwa)) ; con_c = rinit
+       allocate (ccntyp(nccntyp))
+
+       if (iccn >= 2) then
+          do ic = 1,nccntyp
+             allocate (ccntyp(ic)%con_ccn(mza,mwa)) ; ccntyp(ic)%con_ccn = rinit
+          enddo
        endif
 
-       if (idriz >= 5) then
-          allocate (con_d(mza,mwa)) ; con_d = rinit
-       endif
-
-       if (irain == 5) then
-          allocate (con_r(mza,mwa)) ; con_r = rinit
-       endif
-
-       if (ipris >= 5) then
-          allocate (con_p(mza,mwa)) ; con_p = rinit
-       endif
-
-       if (isnow == 5) then
-          allocate (con_s(mza,mwa)) ; con_s = rinit
-       endif
-
-       if (iaggr == 5) then
-          allocate (con_a(mza,mwa)) ; con_a = rinit
-       endif
-
-       if (igraup == 5) then
-          allocate (con_g(mza,mwa)) ; con_g = rinit
-       endif
-
-       if (ihail == 5) then
-          allocate (con_h(mza,mwa)) ; con_h = rinit
-       endif
-
-       if (icloud == 7) then
-          allocate (con_ccn(mza,mwa)) ; con_ccn = rinit
-       endif
-
-       if (idriz == 7) then
+       if (igccn == 2) then
           allocate (con_gccn(mza,mwa)) ; con_gccn = rinit
        endif
 
-       if (ipris == 7) then
+       if (iifn == 2) then
           allocate (con_ifn(mza,mwa)) ; con_ifn = rinit
        endif
-
-       allocate (pcpgr (mwa)) ; pcpgr  = rinit
-       allocate (qpcpgr(mwa)) ; qpcpgr = rinit
-       allocate (dpcpgr(mwa)) ; dpcpgr = rinit
 
     endif
 
@@ -212,9 +203,6 @@ Contains
        if (.not. allocated(q2))     allocate (q2  (mza,mwa)) ; q2    = rinit
        if (.not. allocated(accpr))  allocate (accpr   (mwa)) ; accpr = 0.0_r8
        if (.not. allocated(pcprr))  allocate (pcprr   (mwa)) ; pcprr = rinit
-       if (.not. allocated(pcpgr))  allocate (pcpgr   (mwa)) ; pcpgr = rinit
-       if (.not. allocated(qpcpgr)) allocate (qpcpgr  (mwa)) ; qpcpgr = rinit
-       if (.not. allocated(dpcpgr)) allocate (dpcpgr  (mwa)) ; dpcpgr = rinit
 
     endif
 
@@ -222,8 +210,12 @@ Contains
 
 !===============================================================================
 
-  subroutine dealloc_micro()
+  subroutine dealloc_micro(nccntyp)
+
     implicit none
+
+    integer, intent(in) :: nccntyp
+    integer :: ic
 
     if (allocated(sh_c))    deallocate (sh_c)
     if (allocated(sh_d))    deallocate (sh_d)
@@ -243,9 +235,16 @@ Contains
     if (allocated(con_g))   deallocate (con_g)
     if (allocated(con_h))   deallocate (con_h)
 
-    if (allocated(con_ccn)) deallocate (con_ccn)
     if (allocated(con_gccn))deallocate (con_gccn)
     if (allocated(con_ifn)) deallocate (con_ifn)
+
+    if (allocated(ccntyp)) then
+       do ic = 1,nccntyp
+          if (allocated(ccntyp(ic)%con_ccn)) deallocate (ccntyp(ic)%con_ccn)
+       enddo
+
+       deallocate(ccntyp)
+    endif
 
     if (allocated(q2))      deallocate (q2)
     if (allocated(q6))      deallocate (q6)
@@ -267,18 +266,20 @@ Contains
     if (allocated(pcprg))   deallocate (pcprg)
     if (allocated(pcprh))   deallocate (pcprh)
 
-    if (allocated(pcpgr))   deallocate (pcpgr)
-    if (allocated(qpcpgr))  deallocate (qpcpgr)
-    if (allocated(dpcpgr))  deallocate (dpcpgr)
-
   end subroutine dealloc_micro
 
 !===============================================================================
 
-  subroutine filltab_micro()
+  subroutine filltab_micro(nccntyp)
 
     use var_tables, only: increment_vtable
+
     implicit none
+
+    integer, intent(in) :: nccntyp
+
+    integer :: ic
+    character(10) :: sname
 
     if (allocated(sh_c)) call increment_vtable('SH_C', 'AW', mpt1=.true., rvar2=sh_c)
 
@@ -312,11 +313,16 @@ Contains
 
     if (allocated(con_h)) call increment_vtable('CON_H', 'AW', mpt1=.true., rvar2=con_h)
 
-    if (allocated(con_ccn)) call increment_vtable('CON_CCN', 'AW', mpt1=.true., rvar2=con_ccn)
-
     if (allocated(con_gccn)) call increment_vtable('CON_GCCN', 'AW', mpt1=.true., rvar2=con_gccn)
 
     if (allocated(con_ifn)) call increment_vtable('CON_IFN', 'AW', mpt1=.true., rvar2=con_ifn)
+
+    do ic = 1,nccntyp
+       if (allocated (ccntyp(ic)%con_ccn)) then
+          write(sname,'(a7,i3.3)') 'CON_CCN', ic
+          call increment_vtable(sname, 'AW', mpt1=.true., rvar2=ccntyp(ic)%con_ccn)
+       endif
+    enddo
 
     if (allocated(q2)) call increment_vtable('Q2', 'AW', mpt1=.true., rvar2=q2)
 
@@ -351,12 +357,6 @@ Contains
     if (allocated(pcprg)) call increment_vtable('PCPRG', 'AW', rvar1=pcprg)
 
     if (allocated(pcprh)) call increment_vtable('PCPRH', 'AW', rvar1=pcprh)
-
-    if (allocated(pcpgr)) call increment_vtable('PCPGR',  'AW', rvar1=pcpgr)
-
-    if (allocated(qpcpgr)) call increment_vtable('QPCPGR', 'AW', rvar1=qpcpgr)
-
-    if (allocated(dpcpgr)) call increment_vtable('DPCPGR', 'AW', rvar1=dpcpgr)
 
   end subroutine filltab_micro
 

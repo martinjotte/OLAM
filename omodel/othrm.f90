@@ -33,7 +33,7 @@
 subroutine thermo()
 
 use mem_ijtabs, only: jtab_w, istp, mrl_endl, jtw_prog
-use micro_coms, only: level
+use micro_coms, only: miclevel
 use misc_coms,  only: io6
 
 implicit none
@@ -49,14 +49,14 @@ if (mrl > 0) then
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !-------------------------------------------------------------------------
 
-   if (level <= 1) then
+   if (miclevel <= 1) then
       call drythrm(iw)
-   elseif (level == 2) then
+   elseif (miclevel == 2) then
       call satadjst(iw)
-   elseif (level == 3) then
+   elseif (miclevel == 3) then
       call wetthrm3(iw)
    else
-      stop 'Thermo option not supported...LEVEL out of bounds'
+      stop 'Thermo option not supported...MICLEVEL out of bounds'
    endif
 
 enddo
@@ -74,7 +74,7 @@ subroutine drythrm(iw)
 ! allowed.
 
 use mem_basic,  only: theta, thil, tair, sh_v, sh_w, press
-use micro_coms, only: level
+use micro_coms, only: miclevel
 use mem_grid,   only: lpw, mza
 use misc_coms,  only: io6
 use consts_coms,only: p00i, rocp
@@ -90,7 +90,7 @@ do k = lpw(iw),mza
    tair (k,iw) = thil(k,iw) * (press(k,iw) * p00i) ** rocp
 enddo
 
-if (level == 1) then
+if (miclevel == 1) then
    do k = lpw(iw),mza
       sh_v(k,iw) = sh_w(k,iw)
    enddo
@@ -144,7 +144,7 @@ end subroutine satadjst
 
 subroutine wetthrm3(iw)
 
-! This routine calculates theta and sh_v for "level 3 microphysics"
+! This routine calculates theta and sh_v for "miclevel 3 microphysics"
 ! given prognosed theta_il, cloud, drizzle, rain, pristine ice, snow, 
 ! aggregates, graupel, hail, q6, and q7.
 

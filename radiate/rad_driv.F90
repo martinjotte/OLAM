@@ -47,7 +47,6 @@ use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,          &
                        par, par_diffuse, uva, uvb, uvc, pbl_cld_forc
 
 use mem_basic,   only: rho
-use micro_coms,  only: level
 use consts_coms, only: stefan, pio180, eradi, r8
 use misc_coms,   only: io6, time8p, time_istp8, radfrq, itime1, ilwrtyp, &
                        iswrtyp, dtlong, current_time, iparallel, isubdomain, &

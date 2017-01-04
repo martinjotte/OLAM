@@ -63,6 +63,7 @@ Module mem_grid
      
      ,zfacm ,zfact     &  ! expansion factor of delta_x with height at M,T point
      ,zfacim,zfacit    &  ! inverse of zfacm, zfact
+     ,zfacm2,zfacim2   &  ! expansion factor of arw with height, and its inverse
 
      ,xem ,yem, zem    &  ! XE,YE,ZE coordinates of M point
      ,xev ,yev, zev    &  ! XE,YE,ZE coordinates of V point
@@ -145,6 +146,8 @@ Contains
    allocate (zfacim(mza));  zfacim(:) = 0.
    allocate (zfact (mza));  zfact (:) = 0.
    allocate (zfacit(mza));  zfacit(:) = 0.
+   allocate (zfacm2 (mza)); zfacm2 (:) = 0.
+   allocate (zfacim2(mza)); zfacim2(:) = 0.
 
    allocate (gravm (mza));  gravm (:) = 0.
    allocate (gravt (mza));  gravt (:) = 0.

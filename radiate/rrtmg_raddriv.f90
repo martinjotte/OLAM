@@ -12,7 +12,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          rlong_clr, rlongup_clr, rlongup_top_clr, &
                          par, par_diffuse, uva, uvb, uvc, pbl_cld_forc
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab, &
-                         emb2, jnmb, parm
+                         emb2, jnmb
   use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr, iactcu
   use rrtmg_cloud, only: cloud_props
   use mem_turb,    only: frac_land, kpblh
@@ -445,12 +445,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
            ! cloud optics category
            l  = kradcat(ih)
 
-           ! effective radius in microns
-           if (jnmb(mc) == 4) then
-              r_ef = 1.e6 * reffcof(ih) * (twc / real(rho(k,iw)) / parm(mc)) ** pwmasi(ih)
-           else
-              r_ef = 1.e6 * reffcof(ih) * emb2(mc) ** pwmasi(ih)
-           endif
+           ! effective radius of convctive rain/snow
+           r_ef = 1.e6 * reffcof(ih) * emb2(mc) ** pwmasi(ih)
 
            call lookup_rrtmg_cld_optics( l, r_ef, watp, krad )
 

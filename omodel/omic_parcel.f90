@@ -38,8 +38,7 @@ subroutine parcel_env(iw)
   use mem_basic,   only: thil, press, wc, rho, sh_w, sh_v, theta
 
   use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
-                         q2, q6, q7, con_ccn, con_gccn, con_ifn, &
-                         con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h
+                         q2, q6, q7
 
   use misc_coms,   only: time8, timmax8, dtlm
   use micro_coms,  only: cfmasi, pwmasi, rxmin
@@ -70,9 +69,9 @@ subroutine parcel_env(iw)
 ! cloud-cloud and cloud-drizzle for cases where drizzle is included) because
 ! of the imposed absence of most hydrometeor categories.
 
-! OLAMIN microphysics settings are: ICLOUD = 4, IDRIZ = 4, IRAIN = 0,
+! OLAMIN microphysics settings are: ICLOUD = 4, IDRIZ = 5, IRAIN = 0,
 ! IPRIS = 5, ISNOW = 0, IAGGR = 0, IGRAUP = 0, IHAIL = 0,
-! CPARM = 1000.E6, DPARM = 10.
+! CCNPARM = 1000.E6, GCCNPARM = 0.
 ! Sounding levels are:
 !                 0.0,   15.0,   80.0,   0.0,   0.0,  ! P1
 !              1000.0,    8.5,   80.0,   0.0,   0.0,  ! P1
@@ -100,9 +99,9 @@ subroutine parcel_env(iw)
 ! in subroutine micphys.)  The internal energy of hail is initially 0 J/kg,
 ! representing a temperature of 0 deg C and 1000% ice content.
 
-! OLAMIN microphysics settings are: ICLOUD = 4, IDRIZ = 4, IRAIN = 2,
+! OLAMIN microphysics settings are: ICLOUD = 4, IDRIZ = 5, IRAIN = 2,
 ! IPRIS = 0, ISNOW = 0, IAGGR = 0, IGRAUP = 0, IHAIL = 2, 
-! CPARM = 1000.E6, DPARM = 10., HPARM = 2.0e-3
+! CCNPARM = 1000.E6, GCCNPARM = 10., HPARM = 2.0e-3
 ! Sounding levels are:
 !               0.0,   20.0,   30.0,   0.0,   0.0,  ! P2
 !            1000.0,   13.5,   30.0,   0.0,   0.0,  ! P2
@@ -146,10 +145,8 @@ end subroutine parcel_env
 
 subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
     press0,thil0,theta0,tairc,rhovslair,rhovsiair,rhov,rhoi,rhoa,rhow, &
-    rnuc_vc,rnuc_vd,rnuc_cp_hom,rnuc_dp_hom, &
-    rnuc_cp_cont,rnuc_dp_cont,rnuc_vp_haze,rnuc_vp_depcond, &
-    cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom, &
-    cnuc_cp_cont,cnuc_dp_cont,cnuc_vp_haze,cnuc_vp_depcond, &
+    rnuc_vc,rnuc_vd,rnuc_cp_hom,rnuc_dp_hom,rnuc_vp_haze,rnuc_vp_immers, &
+    cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom,cnuc_vp_haze,cnuc_vp_immers, &
     rpsxfer,epsxfer, &
     r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
     r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
@@ -166,8 +163,9 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
     e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
     e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000)
 
-  use misc_coms,  only: time8, timmax8, dtlm
-  use micro_coms, only: cfmasi, pwmasi, rxmin
+  use consts_coms, only: r8
+  use misc_coms,   only: time8, timmax8, dtlm
+  use micro_coms,  only: cfmasi, pwmasi, rxmin
 
   implicit none
 
@@ -193,27 +191,22 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
   real, intent(in) :: rhov     (mza0)
   real, intent(in) :: rhoi     (mza0)
 
-  real(kind=8), intent(in) :: rhoa(mza0)
-  real(kind=8), intent(in) :: rhow(mza0)
+  real(r8), intent(in) :: rhoa(mza0)
+  real(r8), intent(in) :: rhow(mza0)
 
-  real, intent(in) :: rnuc_vc(mza0)
-  real, intent(in) :: rnuc_vd(mza0)
-  real, intent(in) :: cnuc_vc(mza0)
-  real, intent(in) :: cnuc_vd(mza0)
+  real, intent(in) :: rnuc_vc       (mza0)
+  real, intent(in) :: rnuc_vd       (mza0)
+  real, intent(in) :: rnuc_cp_hom   (mza0)
+  real, intent(in) :: rnuc_dp_hom   (mza0)
+  real, intent(in) :: rnuc_vp_haze  (mza0)
+  real, intent(in) :: rnuc_vp_immers(mza0)
 
-  real, intent(in) :: rnuc_cp_hom (mza0)
-  real, intent(in) :: rnuc_dp_hom (mza0)
-  real, intent(in) :: rnuc_cp_cont(mza0)
-  real, intent(in) :: rnuc_dp_cont(mza0)
-  real, intent(in) :: cnuc_cp_hom (mza0)
-  real, intent(in) :: cnuc_dp_hom (mza0)
-  real, intent(in) :: cnuc_cp_cont(mza0)
-  real, intent(in) :: cnuc_dp_cont(mza0)
-
-  real, intent(in) :: rnuc_vp_haze   (mza0)
-  real, intent(in) :: rnuc_vp_depcond(mza0)
-  real, intent(in) :: cnuc_vp_haze   (mza0)
-  real, intent(in) :: cnuc_vp_depcond(mza0)
+  real, intent(in) :: cnuc_vc       (mza0)
+  real, intent(in) :: cnuc_vd       (mza0)
+  real, intent(in) :: cnuc_cp_hom   (mza0)
+  real, intent(in) :: cnuc_dp_hom   (mza0)
+  real, intent(in) :: cnuc_vp_haze  (mza0)
+  real, intent(in) :: cnuc_vp_immers(mza0)
 
   real, intent(in) :: rpsxfer(mza0)
   real, intent(in) :: epsxfer(mza0)
@@ -270,17 +263,13 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
 
   real, save, allocatable :: rnuc_cp_hom_s (:)
   real, save, allocatable :: rnuc_dp_hom_s (:)
-  real, save, allocatable :: rnuc_cp_cont_s(:)
-  real, save, allocatable :: rnuc_dp_cont_s(:)
   real, save, allocatable :: cnuc_cp_hom_s (:)
   real, save, allocatable :: cnuc_dp_hom_s (:)
-  real, save, allocatable :: cnuc_cp_cont_s(:)
-  real, save, allocatable :: cnuc_dp_cont_s(:)
 
-  real, save, allocatable :: rnuc_vp_haze_s   (:)
-  real, save, allocatable :: rnuc_vp_depcond_s(:)
-  real, save, allocatable :: cnuc_vp_haze_s   (:)
-  real, save, allocatable :: cnuc_vp_depcond_s(:)
+  real, save, allocatable :: rnuc_vp_haze_s  (:)
+  real, save, allocatable :: rnuc_vp_immers_s(:)
+  real, save, allocatable :: cnuc_vp_haze_s  (:)
+  real, save, allocatable :: cnuc_vp_immers_s(:)
 
   real, save, allocatable :: rpsxfer_s(:)
   real, save, allocatable :: epsxfer_s(:)
@@ -349,24 +338,19 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
      allocate (rhi_s      (ntim))
      allocate (hcat_s     (ntim))
 
-     allocate (rnuc_vc_s  (ntim))
-     allocate (rnuc_vd_s  (ntim))
-     allocate (cnuc_vc_s  (ntim))
-     allocate (cnuc_vd_s  (ntim))
+     allocate (rnuc_vc_s       (ntim))
+     allocate (rnuc_vd_s       (ntim))
+     allocate (rnuc_cp_hom_s   (ntim))
+     allocate (rnuc_dp_hom_s   (ntim))
+     allocate (rnuc_vp_haze_s  (ntim))
+     allocate (rnuc_vp_immers_s(ntim))
 
-     allocate (rnuc_cp_hom_s (ntim))
-     allocate (rnuc_dp_hom_s (ntim))
-     allocate (rnuc_cp_cont_s(ntim))
-     allocate (rnuc_dp_cont_s(ntim))
-     allocate (cnuc_cp_hom_s (ntim))
-     allocate (cnuc_dp_hom_s (ntim))
-     allocate (cnuc_cp_cont_s(ntim))
-     allocate (cnuc_dp_cont_s(ntim))
-
-     allocate (rnuc_vp_haze_s   (ntim))
-     allocate (rnuc_vp_depcond_s(ntim))
-     allocate (cnuc_vp_haze_s   (ntim))
-     allocate (cnuc_vp_depcond_s(ntim))
+     allocate (cnuc_vc_s       (ntim))
+     allocate (cnuc_vd_s       (ntim))
+     allocate (cnuc_cp_hom_s   (ntim))
+     allocate (cnuc_dp_hom_s   (ntim))
+     allocate (cnuc_vp_haze_s  (ntim))
+     allocate (cnuc_vp_immers_s(ntim))
 
      allocate (rpsxfer_s(ntim))
      allocate (epsxfer_s(ntim))
@@ -436,24 +420,19 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
      rhovsiair_s(ncnt) = rhovslair_s(ncnt)
   endif
 
-  rnuc_vc_s(ncnt) = rnuc_vc(k) * rhoi(k) * 1.e6  ! converts to mg/kg from kg/m^3
-  rnuc_vd_s(ncnt) = rnuc_vd(k) * rhoi(k) * 1.e6  ! converts to mg/kg from kg/m^3
-  cnuc_vc_s(ncnt) = cnuc_vc(k) * rhoi(k) * 1.e-6 ! converts to #/mg from #/m^3
-  cnuc_vd_s(ncnt) = cnuc_vd(k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
+  rnuc_vc_s       (ncnt) = rnuc_vc       (k) * rhoi(k) * 1.e6 ! converts to mg/kg from kg/m^3
+  rnuc_vd_s       (ncnt) = rnuc_vd       (k) * rhoi(k) * 1.e6 ! converts to mg/kg from kg/m^3
+  rnuc_cp_hom_s   (ncnt) = rnuc_cp_hom   (k) * rhoi(k) * 1.e3 ! converts to g/kg from kg/m^3
+  rnuc_dp_hom_s   (ncnt) = rnuc_dp_hom   (k) * rhoi(k) * 1.e3 ! converts to g/kg from kg/m^3
+  rnuc_vp_haze_s  (ncnt) = rnuc_vp_haze  (k) * rhoi(k) * 1.e3 ! converts to g/kg from kg/m^3
+  rnuc_vp_immers_s(ncnt) = rnuc_vp_immers(k) * rhoi(k) * 1.e3 ! converts to g/kg from kg/m^3
 
-  rnuc_cp_hom_s (ncnt) = rnuc_cp_hom (k) * rhoi(k) * 1.e3 ! converts to g/kg from kg/m^3
-  rnuc_dp_hom_s (ncnt) = rnuc_dp_hom (k) * rhoi(k) * 1.e3 ! converts to g/kg from kg/m^3
-  rnuc_cp_cont_s(ncnt) = rnuc_cp_cont(k) * rhoi(k) * 1.e3 ! converts to g/kg from kg/m^3
-  rnuc_dp_cont_s(ncnt) = rnuc_dp_cont(k) * rhoi(k) * 1.e3 ! converts to g/kg from kg/m^3
-  cnuc_cp_hom_s (ncnt) = cnuc_cp_hom (k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
-  cnuc_dp_hom_s (ncnt) = cnuc_dp_hom (k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
-  cnuc_cp_cont_s(ncnt) = cnuc_cp_cont(k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
-  cnuc_dp_cont_s(ncnt) = cnuc_dp_cont(k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
-
-  rnuc_vp_haze_s   (ncnt) = rnuc_vp_haze   (k) * rhoi(k) * 1.e3 ! converts to g/kg from kg/m^3
-  rnuc_vp_depcond_s(ncnt) = rnuc_vp_depcond(k) * rhoi(k) * 1.e3 ! converts to g/kg from kg/m^3
-  cnuc_vp_haze_s   (ncnt) = cnuc_vp_haze   (k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
-  cnuc_vp_depcond_s(ncnt) = cnuc_vp_depcond(k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
+  cnuc_vc_s       (ncnt) = cnuc_vc       (k) * rhoi(k) * 1.e-6 ! converts to #/mg from #/m^3
+  cnuc_vd_s       (ncnt) = cnuc_vd       (k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
+  cnuc_cp_hom_s   (ncnt) = cnuc_cp_hom   (k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
+  cnuc_dp_hom_s   (ncnt) = cnuc_dp_hom   (k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
+  cnuc_vp_haze_s  (ncnt) = cnuc_vp_haze  (k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
+  cnuc_vp_immers_s(ncnt) = cnuc_vp_immers(k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
 
   rpsxfer_s(ncnt) = rpsxfer(k) * rhoi(k) * 1.e3  ! converts to g/kg from kg/m^3
   epsxfer_s(ncnt) = epsxfer(k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
@@ -1193,16 +1172,11 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
 
      call bdline (1,ntim,rnuc_dp_hom_s(1:ntim))
 
-     call plotpar(3,ntim,time,'RNUC CONT & DC','(g/kg)',0.,1.,.2)
+     call plotpar(3,ntim,time,'RNUC_VP_immers','(g/kg)',0.,1.,.2)
 
-     call bdline (1,ntim,rnuc_cp_cont_s(1:ntim))
-     call bdline (2,ntim,rnuc_vp_depcond_s(1:ntim))
+     call bdline (1,ntim,rnuc_vp_immers_s(1:ntim))
 
-     call plotpar(4,ntim,time,'RNUC_DP_CONT','(g/kg)',0.,1.,.2)
-
-     call bdline (1,ntim,rnuc_dp_cont_s(1:ntim))
-
-     call plotpar(5,ntim,time,'RNUC_VP_HAZE','(g/kg)',0.,1.,.2)
+     call plotpar(4,ntim,time,'RNUC_VP_HAZE','(g/kg)',0.,1.,.2)
 
      call bdline (1,ntim,rnuc_vp_haze_s(1:ntim))
 
@@ -1220,17 +1194,11 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
 
      call bdline (1,ntim,cnuc_dp_hom_s(1:ntim))
 
-     call plotpar(3,ntim,time,'CNUC CONT & DC','(#/g)',0.,1.,.2)
+     call plotpar(3,ntim,time,'CNUC_VP_immers','(#/g)',0.,1.,.2)
 
-     call bdline (1,ntim,cnuc_cp_cont_s(1:ntim))
+     call bdline (1,ntim,cnuc_vp_immers_s(1:ntim))
 
-     call bdline (2,ntim,cnuc_vp_depcond_s(1:ntim))
-
-     call plotpar(4,ntim,time,'CNUC_DP_CONT','(#/g)',0.,1.,.2)
-
-     call bdline (1,ntim,cnuc_dp_cont_s(1:ntim))
-
-     call plotpar(5,ntim,time,'CNUC_VP_HAZE','(#/g)',0.,1.,.2)
+     call plotpar(4,ntim,time,'CNUC_VP_HAZE','(#/g)',0.,1.,.2)
 
      call bdline (1,ntim,cnuc_vp_haze_s(1:ntim))
 

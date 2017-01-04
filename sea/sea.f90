@@ -181,6 +181,13 @@ subroutine seacells()
      sea%ice_sxfer_r(iws) = 0.
    ! sea%ice_sxfer_c(iws) = 0.
 
+   ! At this point, any precipitation has been added to sea & ice components,
+   ! (a future model development) so zero out precipitation variables
+
+     sea%pcpg(iws)  = 0.
+     sea%qpcpg(iws) = 0.
+     sea%dpcpg(iws) = 0.
+
   enddo
   !$omp end parallel do
 

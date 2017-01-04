@@ -149,7 +149,7 @@ SUBROUTINE m3dry ( mrl, abflux, sfc_hono )
   use mem_turb,    only: pblh
   use leaf_coms,   only: nzg, slcpd
   use hlconst_mod, only: hlconst, hlconst_spcs_init, is_effect_spc
-  use micro_coms,  only: cparm
+  use micro_coms,  only: ccnparm
   use mem_micro,   only: cldnum
 
   implicit none
@@ -552,7 +552,7 @@ SUBROUTINE m3dry ( mrl, abflux, sfc_hono )
 
      ! PH of canopy/ground water
 
-     if (cparm < 1.e6) then
+     if (ccnparm < 1.e6) then
 
         fact = 0.05 * (cldnum(iw) * 1.e-7 - 10.0)
         fact = min( max(fact, 0.0), 1.0 )

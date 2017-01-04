@@ -35,7 +35,7 @@ subroutine fldslhi()
 use mem_basic,   only: theta, thil, tair, rho, press, sh_w, sh_v,  &
                        wc, wmc, vc, vp, vmc, vmp
 use mem_micro,   only: sh_c
-use micro_coms,  only: level
+use micro_coms,  only: miclevel
 use mem_ijtabs,  only: jtab_w, jtab_v, itab_v, &
                        jtv_init, jtw_init
 use consts_coms, only: p00, p00i, rocp, cvocp, p00k, rdry, rvap, alvl, cp, grav
@@ -153,9 +153,9 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
          theta(k,iw) = vctr2(k) * (p00 / press(k,iw)) ** rocp
          thil(k,iw) = theta(k,iw)
 
-         if (level == 0) then
+         if (miclevel == 0) then
             rho(k,iw) = press(k,iw) ** cvocp * p00k / (rdry * theta(k,iw))
-         elseif (level == 1) then
+         elseif (miclevel == 1) then
             rho(k,iw) = press(k,iw) ** cvocp * p00k  &
                / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
          else

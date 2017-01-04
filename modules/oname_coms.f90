@@ -202,28 +202,29 @@ Module oname_coms
                         
 !!    MICROPHYSICS PARAMETERS
 
-      integer :: level  = 1
+      integer :: miclevel  = 1
       integer :: icloud = 4
-      integer :: idriz  = 4
-      integer :: irain  = 2
+      integer :: idriz  = 5
       integer :: ipris  = 5
+      integer :: irain  = 2
       integer :: isnow  = 2
       integer :: iaggr  = 2
       integer :: igraup = 2
       integer :: ihail  = 2
-      integer :: iccnlev = 0
-      integer :: qxtrans = 0
-      
-      real :: cparm  = 300.e6 ! [#/kg]
-      real :: dparm  = 1.e1   ! [#/kg]
+
+      integer :: iccn   = 1
+      integer :: igccn  = 1
+      integer :: iifn   = 1
+
       real :: rparm  = .001   ! [m]
-      real :: pparm  = 1.e5   ! [#/kg]
       real :: sparm  = .003   ! [m]
       real :: aparm  = .003   ! [m]
       real :: gparm  = .003   ! [m]
       real :: hparm  = .01    ! [m]
-      real :: cnparm = .04e-6 ! [m]
-      real :: gnparm = 3.0e-6 ! [m]
+
+      real :: ccnparm  = 300.e6 ! [#/kg]
+      real :: gccnparm =   3.e0 ! [#/kg]
+      real :: ifnparm  =   0.e0 ! [#/kg]
       
 !!    SOUNDING SPECIFICATION
 

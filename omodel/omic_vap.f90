@@ -34,7 +34,7 @@ subroutine thrmstr(iw0,lpw0,k1,k2, &
    press0,thil0,rhow,rhoi,exner0,tair,theta0,rhov,rhovstr,tairstrc,rx,qx,sa)
 
 use micro_coms,  only: mza0, ncat
-use consts_coms, only: p00i, rocp, alvl, alvi, cpi4, cpi, cp253i
+use consts_coms, only: r8, p00i, rocp, alvl, alvi, cpi4, cpi, cp253i
 use misc_coms,   only: io6
 
 implicit none
@@ -54,7 +54,7 @@ real, intent(inout) :: rhov    (mza0)
 real, intent(out)   :: rhovstr (mza0)
 real, intent(out)   :: tairstrc(mza0)
 
-real(kind=8), intent(in) :: rhow(mza0)
+real(r8), intent(in) :: rhow(mza0)
 
 real, intent(in) :: rx(mza0,ncat)
 real, intent(in) :: qx(mza0,ncat)
@@ -180,7 +180,6 @@ do k = k1(11),k2(11)
      
 enddo
 
-return
 end subroutine thrmstr
 
 !===============================================================================
@@ -189,9 +188,10 @@ subroutine diffprep(iw0,lcat,k1,k2, &
    pi4dt,jhcat,sa,sb,sd,se,sf,sg,sh,sm,ss,su,sw,sy,sz, &
    rx,cx,qr,emb,rhoa,rhov,rhovsrefp,rdynvsci,vapdif,thrmcon,sumuy,sumuz)
 
-use micro_coms, only: rxmin, frefac1, pwmasi, frefac2, cdp1, sl, sj, sc, sk, &
-                      mza0, ncat
-use misc_coms,  only: io6
+use micro_coms,  only: rxmin, frefac1, pwmasi, frefac2, cdp1, sl, sj, sc, sk, &
+                       mza0, ncat
+use misc_coms,   only: io6
+use consts_coms, only: r8
 
 implicit none
 
@@ -230,7 +230,7 @@ real, intent(in) :: rdynvsci (mza0)
 real, intent(in) :: vapdif   (mza0)
 real, intent(in) :: thrmcon  (mza0)
 
-real(kind=8), intent(in) :: rhoa(mza0)
+real(r8), intent(in) :: rhoa(mza0)
 
 real, intent(inout) :: sumuy(mza0)
 real, intent(inout) :: sumuz(mza0)
@@ -313,7 +313,6 @@ do k = k1(lcat),k2(lcat)
 
 enddo
 
-return
 end subroutine diffprep
 
 !===============================================================================
@@ -339,16 +338,15 @@ do k = j1,j2
    rhov(k) = (rhovstr(k) + sumuy(k)) / (1.0 + sumuz(k))
 enddo
 
-return
 end subroutine vapdiff
 
 !===============================================================================
 
 subroutine vapflux(iw0,lcat,k1,k2, &
    jhcat,sa,sd,se,sf,sg,sm,ss,su,sw,sy,sz,rx,cx,qx,qr,tx,vap, &
-   rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr,con_ccnx,con_gccnx)
+   rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr)
 
-use micro_coms, only: mza0, ncat, rxmin, sc, sk, jnmb, enmlttab, iccnlev
+use micro_coms, only: mza0, ncat, rxmin, sc, sk, enmlttab
 use misc_coms,  only: io6
 
 implicit none
@@ -386,23 +384,9 @@ real, intent(in)    :: rhovstr  (mza0)
 real, intent(inout) :: sumuy    (mza0)
 real, intent(inout) :: sumuz    (mza0)
 real, intent(inout) :: sumvr    (mza0)
-real, intent(inout) :: con_ccnx (mza0)
-real, intent(inout) :: con_gccnx(mza0)
 
 integer :: k,if1,if4
-real :: rxx
-
-!-----------------------------------------------------------------------
-! Variables for aerosol restoration upon droplet evaporation
-
-integer :: rgccn1,rgb,ic,ct
-real :: cnnum,cnmass,jrg1,jrg2,fracmass,cxloss,rg
-
-real :: rg_ccn(14) ! Given median radius of CCN spectra for mass calculation
-
-data rg_ccn / 0.01e-4,0.015e-4,0.02e-4,0.03e-4,0.04e-4,0.06e-4,0.08e-4 &
-             ,0.12e-4,0.160e-4,0.24e-4,0.32e-4,0.48e-4,0.64e-4,0.96e-4 /
-!-----------------------------------------------------------------------
+real :: rxx,fracmass,cxloss
 
 ! UPDATES MIXING RATIO AND HEAT DUE TO FLUX OF VAPOR
 ! ALSO LINKED TO WALKO ET AL 2000
@@ -456,22 +440,10 @@ do k = k1(lcat),k2(lcat)
 
       vap(k,lcat) = - rx(k,lcat)
       tx(k,lcat) = 0.
+      cx(k,lcat) = 0.
       rx(k,lcat) = 0.
       qx(k,lcat) = 0.
       qr(k,lcat) = 0.
-
-! If we are doing nucleation scavenging, return ccn or gccn when complete
-! evaporation occurs
-
-      if (iccnlev == 1) then
-         if (lcat == 1 .or. (lcat == 8 .and. jnmb(lcat) < 5)) &
-            con_ccnx(k) = con_ccnx(k) + cx(k,lcat)
-
-         if (lcat == 8 .and. jnmb(lcat) >= 5) &
-            con_gccnx(k) = con_gccnx(k) + cx(k,lcat)
-      endif
-
-      cx(k,lcat) = 0.
 
    else
 
@@ -479,17 +451,6 @@ do k = k1(lcat),k2(lcat)
          fracmass = min(1.,-vap(k,lcat) / rx(k,lcat))
          cxloss = cx(k,lcat) * enmlttab( int(200.*fracmass)+1, jhcat(k,lcat) )
          cx(k,lcat) = cx(k,lcat) - cxloss
-
-! If we are doing nucleation scavenging, return ccn or gccn when partial
-! evaporation occurs
-
-         if (iccnlev == 1) then
-            if (lcat == 1 .or. (lcat == 8 .and. jnmb(lcat) < 5)) &
-               con_ccnx(k) = con_ccnx(k) + cxloss
-
-            if (lcat == 8 .and. jnmb(lcat) >= 5) &
-               con_gccnx(k) = con_gccnx(k) + cxloss
-         endif
       endif
 
       rx(k,lcat) = rxx
@@ -498,7 +459,6 @@ do k = k1(lcat),k2(lcat)
 
 enddo
 
-return
 end subroutine vapflux
 
 !===============================================================================
@@ -598,7 +558,6 @@ do k = k1,k2
 
 enddo
 
-return
 end subroutine psxfer
 
 !===============================================================================
@@ -639,5 +598,4 @@ do k = j1,j2
    rhovsiair(k) = rhovsi(tairc(k))
 enddo
 
-return
 end subroutine newtemp

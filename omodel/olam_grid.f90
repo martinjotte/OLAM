@@ -372,7 +372,7 @@ subroutine gridset2()
 
 use mem_grid,    only: nza, mza, &
                        zm, zt, dzm, dzt, dzim, dzit, &
-                       zfacm, zfact, zfacim, zfacit, &
+                       zfacm, zfact, zfacim, zfacit, zfacm2, zfacim2, &
                        alloc_gridz
 use misc_coms,   only: io6, nzp, ndz, hdz, dz, mdomain
 use consts_coms, only: erad
@@ -536,8 +536,11 @@ do k = 1,nza
       zfact(k) = 1.
    endif
 
-   zfacim(k) = 1. / zfacm(k)
-   zfacit(k) = 1. / zfact(k)
+   zfacm2(k) = zfacm(k)**2
+
+   zfacim (k) = 1. / zfacm (k)
+   zfacit (k) = 1. / zfact (k)
+   zfacim2(k) = 1. / zfacm2(k)
 enddo
 
 deallocate (zmvec,ztvec)
@@ -633,7 +636,7 @@ subroutine gridfile_write()
        itab_m, itab_v, itab_w
   use mem_grid,   only: nza, nma, nua, nva, nwa, nsw_max, &
        zm, zt, dzm, dzt, dzim, dzit, &
-       zfacm, zfact, zfacim, zfacit, &
+       zfacm, zfact, zfacim, zfacit, zfacm2, zfacim2, &
        lpm, lpv, lpw, lsw, lve2, nve2_max, &
        topm, topw, xem, yem, zem, &
        xev, yev, zev, xew, yew, zew, &
@@ -743,6 +746,8 @@ subroutine gridfile_write()
   call shdf5_orec(ndims, idims, 'ZFACT' , rvara=zfact)
   call shdf5_orec(ndims, idims, 'ZFACIM', rvara=zfacim)
   call shdf5_orec(ndims, idims, 'ZFACIT', rvara=zfacit)
+  call shdf5_orec(ndims, idims, 'ZFACM2' , rvara=zfacm2)
+  call shdf5_orec(ndims, idims, 'ZFACIM2', rvara=zfacim2)
 
   ndims    = 1
   idims(1) = nma
@@ -1521,7 +1526,7 @@ use mem_ijtabs, only: mloops, mrls, &
 use mem_grid,   only: nza, &
                       mza, mma, mua, mva, mwa, &
                       zm, zt, dzm, dzt, dzim, dzit, &
-                      zfacm, zfact, zfacim, zfacit, &
+                      zfacm, zfact, zfacim, zfacit, zfacm2, zfacim2, &
                       lpm, lpv, lpw, lsw, lve2, &
                       topm, topw, &
                       xem, yem, zem, xev, yev, zev, xew, yew, zew, &
@@ -1621,6 +1626,8 @@ integer, pointer :: lgwnud(:)
   call shdf5_irec(ndims, idims, 'ZFACT' , rvara=zfact)
   call shdf5_irec(ndims, idims, 'ZFACIM', rvara=zfacim)
   call shdf5_irec(ndims, idims, 'ZFACIT', rvara=zfacit)
+  call shdf5_irec(ndims, idims, 'ZFACM2' , rvara=zfacm2)
+  call shdf5_irec(ndims, idims, 'ZFACIM2', rvara=zfacim2)
 
   ndims    = 1
   idims(1) = mma

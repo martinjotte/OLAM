@@ -227,7 +227,7 @@ use misc_coms,   only: io6, nsndg, hs, thds, us, vs, rts, ps,  &
                        pr01d, dn01d, rt01d, th01d, u01d, v01d
 use consts_coms, only: cvocp, p00k, rdry, eps_virt, grav, gravo2
 use mem_grid,    only: mza, zm, zt, dzt_top, dzt_bot
-use micro_coms,  only: level
+use micro_coms,  only: miclevel
 
 implicit none
 
@@ -246,7 +246,7 @@ endif
 call htint(nsndg,thds,hs,mza,th01d,zt)
 call htint(nsndg,  us,hs,mza, u01d,zt)
 call htint(nsndg,  vs,hs,mza, v01d,zt)
-if (level >= 1) then
+if (miclevel >= 1) then
    call htint(nsndg,rts,hs,mza,rt01d,zt)
 else
    rt01d(1:mza) = 0.
@@ -306,7 +306,7 @@ subroutine fldshhi()
 use mem_basic,   only: theta, thil, tair, press, rho, wc, wmc, &
                        vc, vp, vmp, vmc, sh_w, sh_v
 use mem_micro,   only: sh_c
-use micro_coms,  only: level
+use micro_coms,  only: miclevel
 use mem_ijtabs,  only: jtab_w, jtab_v, itab_w, itab_v, &
                        jtv_init, jtw_init, jtv_wall
 use misc_coms,   only: io6, mdomain, th01d, pr01d, dn01d, rt01d, u01d, v01d, &
@@ -358,10 +358,10 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       press(k,iw) = pr01d(k)
       rho(k,iw)   = dn01d(k)
       
-      if (level == 0) then
+      if (miclevel == 0) then
          sh_w(k,iw) = 0.
          sh_v(k,iw) = 0.
-      elseif (level == 1) then
+      elseif (miclevel == 1) then
          sh_w(k,iw) = rt01d(k) 
          sh_v(k,iw) = rt01d(k)
       else
@@ -372,13 +372,13 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    do iter = 1,100
 
-!  Compute density for all levels
+!  Compute density for all grid levels
 
       do k = ka,mza
 
-         if (level == 0) then
+         if (miclevel == 0) then
             rho(k,iw) = press(k,iw) ** cvocp * p00k / (rdry * theta(k,iw))
-         elseif (level == 1) then
+         elseif (miclevel == 1) then
             rho(k,iw) = press(k,iw) ** cvocp * p00k &
                / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
          else

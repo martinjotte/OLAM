@@ -38,7 +38,7 @@ subroutine trsets()
 
 use var_tables, only: num_scalar, scalar_tab
 use mem_basic,  only: theta, sh_v
-use micro_coms, only: level
+use micro_coms, only: miclevel
 
 implicit none
 
@@ -60,7 +60,7 @@ enddo
 call latsett(theta)
 call botset(theta)
 
-if (level >= 1) then
+if (miclevel >= 1) then
    call latsett(sh_v)
    call botset(sh_v)
 endif

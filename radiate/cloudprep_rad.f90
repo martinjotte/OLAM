@@ -39,8 +39,8 @@ subroutine cloudprep_rad(iw,ka,mcat,jhcat,rhov,rx,cx,emb)
 ! Arrays rx and cx are the bulk mass and number of hydrometeors PER KG OF AIR, 
 ! NOT PER M^3 AS IN THE ORIGINAL MICROPHYSICS SUBROUTINES.
 
-use micro_coms, only: ncat, jnmb, rxmin, jhabtab, level,  &
-                      emb0, emb1, emb2, parm
+use micro_coms, only: ncat, jnmb, rxmin, jhabtab, miclevel,  &
+                      emb0, emb1, emb2, zfactor_ccn
 
 use mem_micro,  only: sh_c, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, sh_d,  &
                       con_c, con_r, con_p, con_s, con_a, con_g, con_h, con_d, &
@@ -64,6 +64,8 @@ real, intent(out) :: rx (mza,ncat)  ! hydrom bulk spec dens [kg_hyd/kg_air]
 real, intent(out) :: cx (mza,ncat)  ! hydrom bulk number [num_hyd/kg_air]
 real, intent(out) :: emb(mza,ncat)  ! hydrom mean particle mass [kg/particle]
 
+real :: con_ccnx(mza)  ! Local array for CCN/cloud concentration [#/kg_air]
+
 integer :: k
 integer :: icat
 integer :: ihcat
@@ -73,13 +75,13 @@ integer :: nt
 real :: rhovslair
 real :: relhum
 real :: tairc
-real :: parmi
+
 
 real, external :: rhovsl
 
-! If level <= 1, there is no condensate of any type in this simulation.
+! If miclevel <= 1, there is no condensate of any type in this simulation.
 
-if (level <= 1) then
+if (miclevel <= 1) then
 
 ! Set mcat to 0 and return
 
@@ -87,9 +89,9 @@ if (level <= 1) then
    return
 endif
 
-! If level = 2, cloud water is the only form of condensate that may exist. 
+! If miclevel = 2, cloud water is the only form of condensate that may exist. 
 
-if (level == 2) then
+if (miclevel == 2) then
 
 ! Set mcat to 1
 
@@ -99,14 +101,13 @@ if (level == 2) then
 
    jnmb(1) = 1
    
-! In OLAM, with level = 2, cloud number concentration is specified in cldnuc.
+! In OLAM, with miclevel = 2, cloud number concentration is specified in cldnum.
 ! Diagnose cloud droplet mean mass.
 
-   parmi = 1. / cldnum(iw)
    do k = ka,mza
       rx(k,1) = sh_c(k,iw)
-      emb(k,1) = rx(k,1) * parmi
-      cx(k,1) = cldnum(iw)
+      cx(k,1) = cldnum(iw) * zfactor_ccn(k)
+      emb(k,1) = rx(k,1) / cx(k,1)
 
       jhcat(k,1) = 1
    enddo
@@ -117,9 +118,9 @@ if (level == 2) then
    
 endif
 
-! If level = 3, up to 8 forms of condensate that may exist.
+! If miclevel = 3, up to 8 forms of condensate that may exist.
 
-if (level == 3) then
+if (miclevel == 3) then
 
 ! Set mcat to 8.
 
@@ -145,7 +146,7 @@ if (level == 3) then
 
 ! If cloud water number concentration is prognosed, copy to cx.
 
-            if (jnmb(1) >= 5) cx(k,1) = con_c(k,iw)
+            if (jnmb(1) == 5) cx(k,1) = con_c(k,iw)
 
          endif
       enddo
@@ -163,7 +164,7 @@ if (level == 3) then
 
 ! If rain water number concentration is prognosed, copy to cx.
 
-            if (jnmb(2) >= 5) cx(k,2) = con_r(k,iw)
+            if (jnmb(2) == 5) cx(k,2) = con_r(k,iw)
 
          endif
       enddo
@@ -181,7 +182,7 @@ if (level == 3) then
 
 ! If pristine ice number concentration is prognosed, copy to cx.
 
-            if (jnmb(3) >= 5) cx(k,3) = con_p(k,iw)
+            if (jnmb(3) == 5) cx(k,3) = con_p(k,iw)
 
          endif
       enddo
@@ -199,7 +200,7 @@ if (level == 3) then
 
 ! If snow number concentration is prognosed, copy to cx.
 
-            if (jnmb(4) >= 5) cx(k,4) = con_s(k,iw)
+            if (jnmb(4) == 5) cx(k,4) = con_s(k,iw)
 
          endif
       enddo
@@ -217,7 +218,7 @@ if (level == 3) then
 
 ! If aggregates number concentration is prognosed, copy to cx.
 
-            if (jnmb(5) >= 5) cx(k,5) = con_a(k,iw)
+            if (jnmb(5) == 5) cx(k,5) = con_a(k,iw)
 
          endif
       enddo
@@ -235,7 +236,7 @@ if (level == 3) then
 
 ! If graupel number concentration is prognosed, copy to cx.
 
-            if (jnmb(6) >= 5) cx(k,6) = con_g(k,iw)
+            if (jnmb(6) == 5) cx(k,6) = con_g(k,iw)
 
          endif
       enddo
@@ -253,7 +254,7 @@ if (level == 3) then
 
 ! If hail number concentration is prognosed, copy to cx.
 
-            if (jnmb(7) >= 5) cx(k,7) = con_h(k,iw)
+            if (jnmb(7) == 5) cx(k,7) = con_h(k,iw)
 
          endif
       enddo
@@ -271,7 +272,7 @@ if (level == 3) then
 
 ! If drizzle number concentration is prognosed, copy to cx.
 
-            if (jnmb(8) >= 5) cx(k,8) = con_d(k,iw)
+            if (jnmb(8) == 5) cx(k,8) = con_d(k,iw)
 
          endif
       enddo
@@ -313,30 +314,23 @@ if (level == 3) then
       if (jnmb(icat) == 2) then
 
          do k = ka,mza
-!!          ihcat = jhcat(k,icat)
-!!          emb(k,icat) = emb2(ihcat)
             emb(k,icat) = emb2(icat)
             cx(k,icat) = rx(k,icat) / emb(k,icat)
          enddo
 
-      elseif (jnmb(icat) == 4) then
-
-         if (icat == 1) then
-            parmi = 1. / cldnum(iw)
-         else
-            parmi = 1. / parm(icat)
-         endif
+      elseif (jnmb(icat) == 4) then ! As of version 5.0.0, can only apply to cloud
 
          do k = ka,mza
-            emb(k,icat) = max(emb0(icat),min(emb1(icat),rx(k,icat) * parmi))
+            con_ccnx(k) = cldnum(iw) * zfactor_ccn(k)
+            emb(k,icat) = max(emb0(icat),min(emb1(icat),rx(k,icat) / con_ccnx(k)))
             cx(k,icat) = rx(k,icat) / emb(k,icat)
          enddo
 
-      elseif (jnmb(icat) >= 5) then
+      elseif (jnmb(icat) == 5) then
 
          do k = ka,mza
-            emb(k,icat) = max(emb0(icat),min(emb1(icat),rx(k,icat)  &
-                        / max(1.e-12,cx(k,icat))))
+            emb(k,icat) = max(emb0(icat), &
+                          min(emb1(icat),rx(k,icat) / max(1.e-12,cx(k,icat))))
             cx(k,icat) = rx(k,icat) / emb(k,icat)
          enddo
 

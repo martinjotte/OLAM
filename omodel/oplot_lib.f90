@@ -44,7 +44,8 @@ use mem_grid,    only: mza, mva, mwa, lpm, lpv, lpw, lsw, &
                        volti, xem, yem, zem, &
                        xev, yev, zev, xew, yew, zew, &
                        topm, topw, glatm, glonm, glatv, glonv, glatw, glonw, &
-                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz
+                       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
+                       wnxo2, wnyo2, wnzo2
 
 use mem_leaf,    only: land, itab_wl
 
@@ -52,15 +53,17 @@ use mem_sea,     only: sea, itab_ws
 
 use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
-                       con_ccn, con_gccn, con_ifn, &
+                       ccntyp, con_gccn, con_ifn, &
                        pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                        accpd, accpr, accpp, accps, accpa, accpg, accph, &
                        cldnum
-                      
+
+use ccnbin_coms, only: nccntyp
+
 use mem_radiate, only: fthrd_lw, fthrd_sw, rshort, rlong, rlongup, albedt, &
                        rshort_top, rshortup_top, rlongup_top
 use mem_addsc,   only: addsc
-use mem_tend,    only: vmt, wmt
+use mem_tend,    only: vmxet, vmyet, vmzet
 use mem_para,    only: myrank
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, pblh, vkm, vkh, ustar, wstar
 use mem_nudge,   only: rho_obs, theta_obs, shw_obs, uzonal_obs, umerid_obs, &
@@ -69,7 +72,7 @@ use mem_nudge,   only: rho_obs, theta_obs, shw_obs, uzonal_obs, umerid_obs, &
 use misc_coms,   only: io6, pr01d, dn01d, th01d, time8, isubdomain, &
                        naddsc, mdomain
 use oplot_coms,  only: op
-use consts_coms, only: p00i, rocp, erad, piu180, cp, alvl, grav, omega2
+use consts_coms, only: p00i, rocp, erad, eradi, piu180, cp, alvl, grav, omega2
 use leaf_coms,   only: slcpd, nzg, slmstsi_ch, slmstsi_vg, slz, dslz, mwl, dt_leaf
 use sea_coms,    only: mws
 use mem_flux_accum, only:     rshort_accum,         rshortup_accum, &
@@ -239,16 +242,16 @@ data fldlib(1:4,  1:34)/ &
  'SH_CP'         ,'T3' ,'CLOUD + PRIST ICE SPEC DENSITY',' (g kg:S2:-1  )'  ,& !p 22
  'SH_TOTCOND'    ,'T3' ,'CONDENSATE SPEC DENSITY',' (g kg:S2:-1  )'         ,& !p 23
  'CON_C'         ,'T3' ,'CLOUD DROPLET NUMBER CONCEN',' (# mg:S2:-1  )'     ,& !p 24
- 'CON_D'         ,'T3' ,'DRIZZLE NUMBER CONCEN',' (# mg:S2:-1  )'           ,& !p 25
+ 'CON_D'         ,'T3' ,'DRIZZLE NUMBER CONCEN',' (# g:S2:-1  )'            ,& !p 25
  'CON_R'         ,'T3' ,'RAIN NUMBER CONCEN',' (# kg:S2:-1  )'              ,& !p 26
- 'CON_P'         ,'T3' ,'PRISTINE ICE NUMBER CONCEN',' (# kg:S2:-1  )'      ,& !p 27
+ 'CON_P'         ,'T3' ,'PRISTINE ICE NUMBER CONCEN',' (# mg:S2:-1  )'      ,& !p 27
  'CON_S'         ,'T3' ,'SNOW NUMBER CONCEN',' (# kg:S2:-1  )'              ,& !p 28
  'CON_A'         ,'T3' ,'AGGREGATES NUMBER CONCEN',' (# kg:S2:-1  )'        ,& !p 29
  'CON_G'         ,'T3' ,'GRAUPEL NUMBER CONCEN',' (# kg:S2:-1  )'           ,& !p 30
  'CON_H'         ,'T3' ,'HAIL NUMBER CONCEN',' (# kg:S2:-1  )'              ,& !p 31
  'CON_CCN'       ,'T3' ,'CCN NUMBER CONCEN',' (# mg:S2:-1  )'               ,& !p 32
- 'CON_GCCN'      ,'T3' ,'GCCN NUMBER CONCEN',' (# mg:S2:-1  )'              ,& !p 33
- 'CON_IFN'       ,'T3' ,'IFN NUMBER CONCEN',' (# kg:S2:-1  )'                / !p 34
+ 'CON_GCCN'      ,'T3' ,'GCCN NUMBER CONCEN',' (# g:S2:-1  )'               ,& !p 33
+ 'CON_IFN'       ,'T3' ,'IFN NUMBER CONCEN',' (# g:S2:-1  )'                 / !p 34
 
 data fldlib(1:4, 35:56)/ &
  'VKM'           ,'T3' ,'VERT TURB MOMENTUM K',' (N s m:S2:-2  )'           ,& !p 35
@@ -973,7 +976,7 @@ case(25) ! 'CON_D'
    if (.not. allocated(con_d)) go to 1000
 
    fldval = (wtbot * con_d(k ,i) &
-          +  wttop * con_d(kp,i)) * 1.e-6
+          +  wttop * con_d(kp,i)) * 1.e-3
 
 case(26) ! 'CON_R'
 
@@ -986,8 +989,8 @@ case(27) ! 'CON_P'
 
    if (.not. allocated(con_p)) go to 1000
 
-   fldval = wtbot * con_p(k ,i) &
-          + wttop * con_p(kp,i)
+   fldval = (wtbot * con_p(k ,i) &
+          +  wttop * con_p(kp,i)) * 1.e-6
 
 case(28) ! 'CON_S'
 
@@ -1019,24 +1022,25 @@ case(31) ! 'CON_H'
 
 case(32) ! 'CON_CCN'
 
-   if (.not. allocated(con_ccn)) go to 1000
+   if (indp > nccntyp) go to 1000
+   if (.not. allocated(ccntyp(indp)%con_ccn)) go to 1000
 
-   fldval = (wtbot * con_ccn(k ,i) &
-          +  wttop * con_ccn(kp,i)) * 1.e-6
+   fldval = (wtbot * ccntyp(indp)%con_ccn(k ,i) &
+          +  wttop * ccntyp(indp)%con_ccn(kp,i)) * 1.e-6
 
 case(33) ! 'CON_GCCN'
 
    if (.not. allocated(con_gccn)) go to 1000
 
    fldval = (wtbot * con_gccn(k ,i) &
-          +  wttop * con_gccn(kp,i)) * 1.e-6
+          +  wttop * con_gccn(kp,i)) * 1.e-3
 
 case(34) ! 'CON_IFN'
 
    if (.not. allocated(con_ifn)) go to 1000
 
-   fldval = wtbot * con_ifn(k ,i) &
-          + wttop * con_ifn(kp,i)
+   fldval = (wtbot * con_ifn(k ,i) &
+          +  wttop * con_ifn(kp,i)) * 1.e-3
 
 case(35) ! 'VKM'
 
@@ -1222,11 +1226,19 @@ case(50) ! 'AIRTEMPK_P'
 
 case(51) ! 'VMT'
 
-   fldval = vmt(k,i)
+   iw1 = itab_v(i)%iw(1)
+   iw2 = itab_v(i)%iw(2)
+
+   fldval = .5 * (vnx(i) * (vmxet(k,iw1) + vmxet(k,iw2)) &
+               +  vny(i) * (vmyet(k,iw1) + vmyet(k,iw2)) &
+               +  vnz(i) * (vmzet(k,iw1) + vmzet(k,iw2)))
+
 
 case(52) ! 'WMT'
 
-   fldval = wmt(k,i)
+   fldval = ( wnxo2(i) * (vmxet(k,i) + vmxet(k+1,i)) &
+            + wnyo2(i) * (vmyet(k,i) + vmyet(k+1,i)) &
+            + wnzo2(i) * (vmzet(k,i) + vmzet(k+1,i)) )
 
 case(53) ! 'ADDSC'
 

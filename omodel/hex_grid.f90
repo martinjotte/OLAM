@@ -1170,7 +1170,7 @@ subroutine ctrlvols_hex()
   use misc_coms,   only: io6, mdomain, itopoflg
   use consts_coms, only: erad, r8
   use mem_grid,    only: nsw_max, nza, nma, nva, nwa, lpm, lpv, lpw, lsw, &
-                         topm, topw, zm, dzt, zt, zfacm, zfact, dnu, dniu, dnv, &
+                         topm, topw, zm, dzt, zt, zfacm, zfact, zfacm2, dnu, dniu, dnv, &
                          arm0, arw0, arv, arw, volt, lve2, nve2_max, &
                          xem, yem, zem, xew, yew, zew, glatw, glonw, glatm, glonm
   use leaf_coms,   only: isfcl,nwl
@@ -1628,7 +1628,7 @@ subroutine ctrlvols_hex()
 
      itab_ws(iws)%arf_iw = sea%area(iws) / arw0(iw)
      itab_ws(iws)%arf_kw = sea%area(iws) / max(real(area), sea%area(iws))
-     if (mdomain < 2) sea%area(iws) = sea%area(iws) * zfacm(kw-1)**2
+     if (mdomain < 2) sea%area(iws) = sea%area(iws) * zfacm2(kw-1)
   enddo
 
   do iwl = 2, nwl
@@ -1641,7 +1641,7 @@ subroutine ctrlvols_hex()
 
      itab_wl(iwl)%arf_iw = land%area(iwl) / arw0(iw)
      itab_wl(iwl)%arf_kw = land%area(iwl) / max(real(area), land%area(iwl))
-     if (mdomain < 2) land%area(iwl) = land%area(iwl) * zfacm(kw-1)**2
+     if (mdomain < 2) land%area(iwl) = land%area(iwl) * zfacm2(kw-1)
   enddo
 
 ! Expand ARW and VOLT with height for spherical geometry
@@ -1652,7 +1652,7 @@ subroutine ctrlvols_hex()
 
      if (mdomain < 2) then
         do k = lpw(iw), nza
-           arw (k,iw) = arw (k,iw) * zfacm(k)**2
+           arw (k,iw) = arw (k,iw) * zfacm2(k)
            volt(k,iw) = volt(k,iw) * zfact(k)**2
         enddo
      endif

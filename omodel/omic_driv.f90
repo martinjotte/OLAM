@@ -33,15 +33,23 @@
 subroutine micro()
 
 use mem_ijtabs, only: jtab_w, istp, mrl_endl, jtw_prog
-use micro_coms, only: level
+use micro_coms, only: miclevel
 use misc_coms,  only: io6
 use oname_coms, only: nl
+use mem_grid,   only: mwa
 
 implicit none
 
-integer :: j,iw,mrl
+integer :: j,iw,mrl,nbc
 
-if (level /= 3) return
+! The nbincall array stores the number of grid levels where subroutine ccnbin
+! is called for each IW.  It is for informational (printing) purposes only and
+! can be removed from the model once the performance of ccnbin is better
+! understood.
+
+integer :: nbincall(mwa)
+
+if (miclevel /= 3) return
 
 ! Section for parcel model simulation (only one grid cell is prognosed)
 
@@ -52,7 +60,7 @@ if (nl%test_case == 901 .or. nl%test_case == 902) then
    iw = 3
 
    call parcel_env(iw)
-   call micphys(iw)
+   call micphys(iw,nbincall(iw))
 
    RETURN
 endif
@@ -64,21 +72,28 @@ if (mrl > 0) then
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
-   call micphys(iw)
+   call micphys(iw,nbincall(iw))
 
 enddo
 !$omp end parallel do
 endif
 
-return
+!nbc = 0
+!do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+!   nbc = nbc + nbincall(iw)
+!enddo
+!
+!print*, 'nbincall ',nbc
+
 end subroutine micro
 
 !===============================================================================
 
-subroutine micphys(iw)
+subroutine micphys(iw,nbincall)
 
-use micro_coms,  only: mza0, ncat, cfvt, jnmb, emb2, rxmin, neff, nhcat, emb1
-use consts_coms, only: pi4
+use micro_coms,  only: mza0, ncat, nhcat, neff, cfvt, jnmb, emb2, rxmin, emb1
+use ccnbin_coms, only: nccntyp, nnuc
+use consts_coms, only: r8, pi4
 use misc_coms,   only: io6, dtlm, time_istp8, timmax8
 use mem_ijtabs,  only: itab_w
 use mem_grid,    only: lpw,glatw,glonw
@@ -87,6 +102,7 @@ use oname_coms,  only: nl
 implicit none
 
 integer, intent(in) :: iw
+integer, intent(inout) :: nbincall
 
 integer :: k,jflag,jcat,lcat,j1,j2
 
@@ -97,12 +113,11 @@ integer :: k35,k36,k37,k45,k46,k47,k56,k57,k67,k82,k84,k85,k86,k87
 
 integer :: lpw0,iw0,mrl0
 
-real :: pcpg0,qpcpg0,dpcpg0,dtl0,dtli0
+real :: dtl0,dtli0
 
 real :: pi4dt  ! delta_t * pi * 4
 
 real :: frac
-real :: cldnumx  ! Replacement for cparm and parm(1); can vary geographically
 
 ! Automatic arrays
 
@@ -117,6 +132,11 @@ real :: cx  (mza0,ncat)
 real :: qx  (mza0,ncat)
 real :: qr  (mza0,ncat)
 real :: emb (mza0,ncat)
+real :: dmb (mza0,ncat)
+real :: pcpvel  (mza0,ncat)
+real :: pcpfluxc(mza0,ncat)
+real :: pcpfluxr(mza0,ncat)
+real :: pcpfluxq(mza0,ncat)
 real :: tx  (mza0,ncat)
 real :: vap (mza0,ncat)
 real :: sb  (mza0,ncat)
@@ -142,6 +162,7 @@ integer :: k1(11)
 integer :: k2(11)
 integer :: k3(11)
 
+real :: voa   (mza0)
 real :: thil0 (mza0)
 real :: theta0(mza0)
 real :: press0(mza0)
@@ -164,7 +185,7 @@ real :: denfac   (mza0)
 real :: sumuy    (mza0)
 real :: sumuz    (mza0)
 real :: sumvr    (mza0)
-real :: con_ccnx (mza0)
+real :: con_ccnx (mza0,nccntyp)
 real :: con_gccnx(mza0)
 real :: con_ifnx (mza0)
 real :: totcond  (mza0)
@@ -172,23 +193,19 @@ real :: totcond  (mza0)
 ! New arrays (2/25/2012) to retain mass and number amounts of each
 ! cloud and ice nucleation type (for plotting)
 
-real :: rnuc_vc        (mza0)
-real :: rnuc_vd        (mza0)
-real :: rnuc_cp_hom    (mza0)
-real :: rnuc_dp_hom    (mza0)
-real :: rnuc_cp_cont   (mza0)
-real :: rnuc_dp_cont   (mza0)
-real :: rnuc_vp_haze   (mza0)
-real :: rnuc_vp_depcond(mza0)
+real :: rnuc_vc       (mza0)
+real :: rnuc_vd       (mza0)
+real :: rnuc_cp_hom   (mza0)
+real :: rnuc_dp_hom   (mza0)
+real :: rnuc_vp_haze  (mza0)
+real :: rnuc_vp_immers(mza0)
 
-real :: cnuc_vc        (mza0)
-real :: cnuc_vd        (mza0)
-real :: cnuc_cp_hom    (mza0)
-real :: cnuc_dp_hom    (mza0)
-real :: cnuc_cp_cont   (mza0)
-real :: cnuc_dp_cont   (mza0)
-real :: cnuc_vp_haze   (mza0)
-real :: cnuc_vp_depcond(mza0)
+real :: cnuc_vc       (mza0)
+real :: cnuc_vd       (mza0)
+real :: cnuc_cp_hom   (mza0)
+real :: cnuc_dp_hom   (mza0)
+real :: cnuc_vp_haze  (mza0)
+real :: cnuc_vp_immers(mza0)
 
 ! New transfer arrays for subroutine psxfer
 
@@ -237,8 +254,8 @@ real :: &
   e2557(mza0),e2622(mza0),e2627(mza0),e2666(mza0),e2667(mza0), &
   e2722(mza0),e2727(mza0),e2777(mza0),e0000(mza0)
 
-real(kind=8) :: rhoa(mza0)
-real(kind=8) :: rhow(mza0)
+real(r8) :: rhoa(mza0)
+real(r8) :: rhow(mza0)
 
 real :: tref     (mza0,2)
 real :: rhovsref (mza0,2)
@@ -276,6 +293,11 @@ cx  (:,:) = 0.
 qx  (:,:) = 0.
 qr  (:,:) = 0.
 emb (:,:) = 0.
+dmb (:,:) = 0.
+pcpvel  (:,:) = 0.
+pcpfluxc(:,:) = 0.
+pcpfluxr(:,:) = 0.
+pcpfluxq(:,:) = 0.
 tx  (:,:) = 0.
 vap (:,:) = 0.
 sb  (:,:) = 0.
@@ -301,6 +323,7 @@ k1(:) = 0
 k2(:) = 0
 k3(:) = 0
 
+voa   (:) = 0.
 thil0 (:) = 0.
 theta0(:) = 0.
 press0(:) = 0.
@@ -323,28 +346,24 @@ denfac   (:) = 0.
 sumuy    (:) = 0.
 sumuz    (:) = 0.
 sumvr    (:) = 0.
-con_ccnx (:) = 0.
+con_ccnx (:,:) = 0.
 con_gccnx(:) = 0.
 con_ifnx (:) = 0.
 totcond  (:) = 0.
 
- rnuc_vc        (:) = 0.
- rnuc_vd        (:) = 0.
- rnuc_cp_hom    (:) = 0.
- rnuc_dp_hom    (:) = 0.
- rnuc_cp_cont   (:) = 0.
- rnuc_dp_cont   (:) = 0.
- rnuc_vp_haze   (:) = 0.
- rnuc_vp_depcond(:) = 0.
+ rnuc_vc       (:) = 0.
+ rnuc_vd       (:) = 0.
+ rnuc_cp_hom   (:) = 0.
+ rnuc_dp_hom   (:) = 0.
+ rnuc_vp_haze  (:) = 0.
+ rnuc_vp_immers(:) = 0.
 
- cnuc_vc        (:) = 0.
- cnuc_vd        (:) = 0.
- cnuc_cp_hom    (:) = 0.
- cnuc_dp_hom    (:) = 0.
- cnuc_cp_cont   (:) = 0.
- cnuc_dp_cont   (:) = 0.
- cnuc_vp_haze   (:) = 0.
- cnuc_vp_depcond(:) = 0.
+ cnuc_vc       (:) = 0.
+ cnuc_vd       (:) = 0.
+ cnuc_cp_hom   (:) = 0.
+ cnuc_dp_hom   (:) = 0.
+ cnuc_vp_haze  (:) = 0.
+ cnuc_vp_immers(:) = 0.
 
  rpsxfer(:) = 0.
  epsxfer(:) = 0.
@@ -393,9 +412,9 @@ accpx(:) = 0.
 ! Copy hydrometeor bulk mass and number concentration from main model arrays
 ! to microphysics column arrays
 
-call mic_copy(iw0,lpw0,thil0,press0,wc0,rhoa,rhow,rhoi, &
+ call mic_copy(iw0,lpw0,voa,thil0,press0,wc0,rhoa,rhow,rhoi, &
    theta0,exner0,rhov, &
-   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr,cldnumx)
+   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 ! Loop over all vertical levels
 
@@ -481,7 +500,6 @@ call each_column(lpw0,iw0,k1,k2,dtl0,                          &
    colfac,colfac2,sumuy,sumuz,sumvr,                           &
    tx,sh,sm,sa,tref,rhovsref,rhovsrefp)
 
-
 ! USEFUL SAMPLE PRINTS FOR EXAMINING A SINGLE IW0 COLUMN BEFORE
 ! MAIN MICROPHYSICS COMPUTATIONS ARE DONE
 
@@ -529,36 +547,28 @@ call each_column(lpw0,iw0,k1,k2,dtl0,                          &
 jflag = 1
 
 if (k1(1) <= k2(1)) &
-   call enemb(1,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(1,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(2) <= k2(2)) &
-   call enemb(2,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(2,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(3) <= k2(3)) &
-   call enemb(3,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(3,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(4) <= k2(4)) &
-   call enemb(4,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(4,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(5) <= k2(5)) &
-   call enemb(5,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(5,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(6) <= k2(6)) &
-   call enemb(6,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(6,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(7) <= k2(7)) &
-   call enemb(7,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(7,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(8) <= k2(8)) &
-   call enemb(8,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(8,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 ! Set up matrix for heat/vapor diffusion computation
 
@@ -611,42 +621,42 @@ call vapdiff(k1(11),k2(11),rhov,rhovstr,sumuy,sumuz)
 if (k1(1) <= k2(1)) &
    call vapflux(iw0,1,k1,k2, &
       jhcat,sa,sd,se,sf,sg,sm,ss,su,sw,sy,sz,rx,cx,qx,qr,tx,vap, &
-      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr,con_ccnx,con_gccnx)
+      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr)
 
 if (k1(8) <= k2(8)) &
    call vapflux(iw0,8,k1,k2, &
       jhcat,sa,sd,se,sf,sg,sm,ss,su,sw,sy,sz,rx,cx,qx,qr,tx,vap, &
-      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr,con_ccnx,con_gccnx)
+      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr)
 
 if (k1(3) <= k2(3)) &
    call vapflux(iw0,3,k1,k2, &
       jhcat,sa,sd,se,sf,sg,sm,ss,su,sw,sy,sz,rx,cx,qx,qr,tx,vap, &
-      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr,con_ccnx,con_gccnx)
+      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr)
 
 if (k1(4) <= k2(4)) &
    call vapflux(iw0,4,k1,k2, &
       jhcat,sa,sd,se,sf,sg,sm,ss,su,sw,sy,sz,rx,cx,qx,qr,tx,vap, &
-      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr,con_ccnx,con_gccnx)
+      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr)
 
 if (k1(5) <= k2(5)) &
    call vapflux(iw0,5,k1,k2, &
       jhcat,sa,sd,se,sf,sg,sm,ss,su,sw,sy,sz,rx,cx,qx,qr,tx,vap, &
-      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr,con_ccnx,con_gccnx)
+      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr)
 
 if (k1(2) <= k2(2)) &
    call vapflux(iw0,2,k1,k2, &
       jhcat,sa,sd,se,sf,sg,sm,ss,su,sw,sy,sz,rx,cx,qx,qr,tx,vap, &
-      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr,con_ccnx,con_gccnx)
+      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr)
 
 if (k1(6) <= k2(6)) &
    call vapflux(iw0,6,k1,k2, &
       jhcat,sa,sd,se,sf,sg,sm,ss,su,sw,sy,sz,rx,cx,qx,qr,tx,vap, &
-      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr,con_ccnx,con_gccnx)
+      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr)
 
 if (k1(7) <= k2(7)) &
    call vapflux(iw0,7,k1,k2, &
       jhcat,sa,sd,se,sf,sg,sm,ss,su,sw,sy,sz,rx,cx,qx,qr,tx,vap, &
-      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr,con_ccnx,con_gccnx)
+      rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr)
 
 ! Conversion between pristine ice and snow due to vapor flux
 
@@ -670,36 +680,28 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1411
 jflag = 2
 
 if (k1(1) <= k2(1)) &
-   call enemb(1,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(1,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(2) <= k2(2)) &
-   call enemb(2,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(2,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(3) <= k2(3)) &
-   call enemb(3,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(3,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(4) <= k2(4)) &
-   call enemb(4,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(4,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(5) <= k2(5)) &
-   call enemb(5,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(5,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(6) <= k2(6)) &
-   call enemb(6,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(6,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(7) <= k2(7)) &
-   call enemb(7,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(7,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (k1(8) <= k2(8)) &
-   call enemb(8,jflag,k1,k2,cldnumx, &
-      ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(8,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 ! Determine coalescence efficiencies
 
@@ -942,15 +944,16 @@ endif
     e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
     e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
     e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
-    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000)
+    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000, &
+    con_ccnx)
 
 1411 continue
 
 ! Nucleation of cloud droplets
 
 if (jnmb(1) >= 1) &
-   call cldnuc(iw0,lpw0,dtli0, &
-               cldnumx,rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa, &
+   call cldnuc(iw0,lpw0,dtli0,nbincall, &
+               rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa,press0, &
                tair,tairc,wc0,rhovslair,rnuc_vc,rnuc_vd,cnuc_vc,cnuc_vd)
 
 ! Rediagnose k2(1) and k3(1) because of possible new cloud nucleation
@@ -992,10 +995,10 @@ k1(8) = k
 jflag = 1
 
 if (jnmb(1) >= 3 .and. k1(1) <= k2(1)) &
-   call enemb(1,jflag,k1,k2,cldnumx,ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(1,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 if (jnmb(8) >= 3 .and. k1(8) <= k2(8)) &
-   call enemb(8,jflag,k1,k2,cldnumx,ict1,ict2,wct1,wct2,rx,cx,emb,vap,rhoa,rhoi)
+   call enemb(8,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
 
 ! Nucleation of ice crystals
 
@@ -1003,10 +1006,8 @@ if (jnmb(3) >= 1) &
    call icenuc(k1,k2,lpw0,mrl0,iw0, &
       rx,cx,qr,qx,emb,vap,tx,rhov,rhoa,press0,dynvisc,thrmcon, &
       tair,tairc,rhovslair,rhovsiair,con_ccnx,con_ifnx,dtl0, &
-      rnuc_cp_hom,rnuc_dp_hom,rnuc_cp_cont,rnuc_dp_cont, &
-      cnuc_cp_hom,cnuc_dp_hom,cnuc_cp_cont,cnuc_dp_cont, &
-      rnuc_vp_haze,rnuc_vp_depcond, &
-      cnuc_vp_haze,cnuc_vp_depcond)
+      rnuc_cp_hom,rnuc_dp_hom,rnuc_vp_haze,rnuc_vp_immers, &
+      cnuc_cp_hom,cnuc_dp_hom,cnuc_vp_haze,cnuc_vp_immers)
 
 ! Rediagnose k2(3) and k3(3) because of possible new ice nucleation
 
@@ -1025,97 +1026,70 @@ do while (k <= k2(3) .and. rx(k,3) < rxmin(3))
 enddo
 k1(3) = k
 
+! Max height for any liquid, any ice, and any of either
+
+k2(9)  = max(k2(1),k2(2),k2(8))
+k2(10) = max(k2(3),k2(4),k2(5),k2(6),k2(7))
+k2(11) = max(k2(9),k2(10))
+
 ! Do not change order of the following x02 calls
 
 if (jnmb(3) >= 1) &
-   call x02(iw0,lpw0,3,k1,k2,cldnumx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
+   call x02(iw0,lpw0,3,k1,k2,con_ccnx, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
 
 if (jnmb(1) >= 1) &
-   call x02(iw0,lpw0,1,k1,k2,cldnumx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
+   call x02(iw0,lpw0,1,k1,k2,con_ccnx, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
 
 if (jnmb(8) >= 1) &
-   call x02(iw0,lpw0,8,k1,k2,cldnumx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
+   call x02(iw0,lpw0,8,k1,k2,con_ccnx, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
 
 if (jnmb(4) >= 1) &
-   call x02(iw0,lpw0,4,k1,k2,cldnumx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
+   call x02(iw0,lpw0,4,k1,k2,con_ccnx, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
 
 if (jnmb(5) >= 1) &
-   call x02(iw0,lpw0,5,k1,k2,cldnumx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
+   call x02(iw0,lpw0,5,k1,k2,con_ccnx, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
 
 if (jnmb(6) >= 1) &
-   call x02(iw0,lpw0,6,k1,k2,cldnumx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
+   call x02(iw0,lpw0,6,k1,k2,con_ccnx, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
 
 if (jnmb(7) >= 1) &
-   call x02(iw0,lpw0,7,k1,k2,cldnumx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
+   call x02(iw0,lpw0,7,k1,k2,con_ccnx, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
 
 if (jnmb(2) >= 1) &
-   call x02(iw0,lpw0,2,k1,k2,cldnumx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap,rhoa,rhoi)
+   call x02(iw0,lpw0,2,k1,k2,con_ccnx, &
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
 
-! Zero out surface precip arrays (for leaf, will need to coordinate w/new leaf4)
+  accpx(1:ncat) = 0.
+  pcprx(1:ncat) = 0.
 
-pcpg0  = 0.
-qpcpg0 = 0.
-dpcpg0 = 0.
-
-accpx(1:ncat) = 0.
-pcprx(1:ncat) = 0.
-
-! Zero out array for accumulating sedim changes to thil 
-
-dsed_thil(lpw0:mza0) = 0.
-
-! No sedimentation if running parcel test 901 or 902
+! No sedimentation, dry nuclei deposition, or precipitation scavenging of
+! nuclei if running parcel test 901 or 902
 
 if (nl%test_case == 901 .or. nl%test_case == 902) go to 1412
 
 ! Compute sedimentation for all 7 precipitating categories
 
-if (k1(2) <= k2(2)) &
-   call sedim(2,iw0,lpw0,k1,k2,.001, &
-   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
+  dsed_thil(lpw0:mza0) = 0.
 
-if (k1(3) <= k2(3)) &
-   call sedim(3,iw0,lpw0,k1,k2,.010, &
-   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
+  call sedim2(iw0,lpw0,k1,k2,jhcat,dtl0, &
+   voa, denfac, tair, thil0, theta0, dsed_thil, rhoi, rhoa, rhow, &
+   cx, rx, qx, qr, emb, dmb, pcpvel, pcpfluxc, pcpfluxr, pcpfluxq, accpx, pcprx)
 
-if (k1(4) <= k2(4)) &
-   call sedim(4,iw0,lpw0,k1,k2,.010, &
-   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
+  ! Apply change to thil from sedim of all categories
 
-if (k1(5) <= k2(5)) &
-   call sedim(5,iw0,lpw0,k1,k2,.010, &
-   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
+  thil0(lpw0:mza0) = thil0(lpw0:mza0) + dsed_thil(lpw0:mza0)
 
-if (k1(6) <= k2(6)) &
-   call sedim(6,iw0,lpw0,k1,k2,.003, &
-   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
-
-if (k1(7) <= k2(7)) &
-   call sedim(7,iw0,lpw0,k1,k2,.001, &
-   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
-
-if (k1(8) <= k2(8)) &
-   call sedim(8,iw0,lpw0,k1,k2,.001, &
-   dtli0,accpx,pcprx,pcpg0,qpcpg0,dpcpg0,jhcat, &
-   rx,cx,qx,qr,emb,thil0,theta0,tair,denfac,rhoi,rhoa,rhow,dsed_thil,ch1)
-
-! Apply change to thil from sedim of all categories
-
-thil0(lpw0:mza0) = thil0(lpw0:mza0) + dsed_thil(lpw0:mza0)
+  if (nnuc > 0) &
+     call nuclei_deposition(iw0, k1, k2, dtl0, voa, rhoa, press0, tair, &
+        tairc, dynvisc, rhov, rhovslair, dmb, pcpvel, pcpfluxr, con_ccnx, &
+        con_gccnx, con_ifnx)
 
 1412 continue
 
@@ -1126,10 +1100,8 @@ if (nl%test_case == 901 .or. nl%test_case == 902) then
 
    call parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
       press0,thil0,theta0,tairc,rhovslair,rhovsiair,rhov,rhoi,rhoa,rhow, &
-      rnuc_vc,rnuc_vd,rnuc_cp_hom,rnuc_dp_hom, &
-      rnuc_cp_cont,rnuc_dp_cont,rnuc_vp_haze,rnuc_vp_depcond, &
-      cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom, &
-      cnuc_cp_cont,cnuc_dp_cont,cnuc_vp_haze,cnuc_vp_depcond, &
+      rnuc_vc,rnuc_vd,rnuc_cp_hom,rnuc_dp_hom,rnuc_vp_haze,rnuc_vp_immers, &
+      cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom,cnuc_vp_haze,cnuc_vp_immers, &
       rpsxfer,epsxfer, &
       r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
       r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
@@ -1152,34 +1124,41 @@ endif
 ! from microphysics column arrays to main model arrays
 
  call mic_copyback(iw0,lpw0,k1,k2,k3, &
-    pcpg0,qpcpg0,dpcpg0,dtli0,accpx,pcprx,thil0,theta0,tair,rhoa,rhow,rhov,rhoi, &
+    dtli0,accpx,pcprx,thil0,theta0,tair,rhoa,rhow,rhov,rhoi, &
     con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
-return
 end subroutine micphys
 
 !===============================================================================
 
-subroutine mic_copy(iw0,lpw0,thil0,press0,wc0,rhoa,rhow,rhoi, &
+subroutine mic_copy(iw0,lpw0,voa,thil0,press0,wc0,rhoa,rhow,rhoi, &
    theta0,exner0,rhov, &
-   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr,cldnumx)
+   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
-use micro_coms, only: mza0, ncat, jnmb, rxmin
+use micro_coms, only: mza0, ncat, iccn, igccn, iifn, jnmb, rxmin, &
+                      ccnparm, gccnparm, ifnparm, &
+                      zfactor_ccn, zfactor_gccn, zfactor_ifn
+
+use ccnbin_coms, only: nccntyp
+
+use mem_grid,   only: zfacm2, zfacim2, arw0, arw, volt
+
 use mem_basic,  only: thil, press, wc, rho, sh_w, sh_v, theta
 
 use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
-                      q2, q6, q7, con_ccn, con_gccn, con_ifn, &
+                      q2, q6, q7, ccntyp, con_gccn, con_ifn, &
                       con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
                       cldnum
 
 use misc_coms,  only: io6, time_istp8
-use consts_coms, only: p00i, rocp, cpi
+use consts_coms, only: r8, p00i, rocp, cpi
 
 implicit none
 
 integer, intent(in) :: iw0
 integer, intent(in) :: lpw0
 
+real, intent(inout) :: voa   (mza0)
 real, intent(inout) :: thil0 (mza0)
 real, intent(inout) :: press0(mza0)
 real, intent(inout) :: wc0   (mza0)
@@ -1187,20 +1166,26 @@ real, intent(inout) :: rhoi  (mza0)
 real, intent(inout) :: theta0(mza0)
 real, intent(inout) :: exner0(mza0)
 real, intent(inout) :: rhov  (mza0)
-real, intent(inout) :: con_ccnx (mza0)
+real, intent(inout) :: con_ccnx (mza0,nccntyp)
 real, intent(inout) :: con_gccnx(mza0)
 real, intent(inout) :: con_ifnx (mza0)
 
-real(kind=8), intent(inout) :: rhoa(mza0)
-real(kind=8), intent(inout) :: rhow(mza0)
+real(r8), intent(inout) :: rhoa(mza0)
+real(r8), intent(inout) :: rhow(mza0)
 
 real, intent(inout) :: rx(mza0,ncat)
 real, intent(inout) :: cx(mza0,ncat)
 real, intent(inout) :: qx(mza0,ncat)
 real, intent(inout) :: qr(mza0,ncat)
-real, intent(inout) :: cldnumx
 
-integer :: k
+integer :: k, ic
+
+! Ratio of grid cell volume to top horizontal area arw projected onto W(k-1) level
+
+voa(mza0) = volt(mza0,iw0) / (arw0(iw0) * zfacm2(mza0-1))
+do k = lpw0,mza0-1
+   voa(k) = volt(k,iw0) / (arw(k,iw0) * zfacim2(k) * zfacm2(k-1))
+enddo
 
 ! copy atmospheric variables to micphys column vectors
 
@@ -1220,9 +1205,7 @@ enddo
 
 ! Cloud water
 
- cldnumx = cldnum(iw0)
-
-if (jnmb(1) >= 5) then
+if (jnmb(1) == 5) then
 
    do k = lpw0,mza0
 
@@ -1264,7 +1247,7 @@ endif
 
 ! Rain
 
-if (jnmb(2) >= 5) then
+if (jnmb(2) == 5) then
 
    do k = lpw0,mza0
 
@@ -1311,7 +1294,7 @@ endif
 
 ! Pristine ice
 
-if (jnmb(3) >= 5) then
+if (jnmb(3) == 5) then
 
    do k = lpw0,mza0
 
@@ -1334,26 +1317,11 @@ if (jnmb(3) >= 5) then
 
    enddo
 
-elseif (jnmb(3) >= 1) then
-
-   do k = lpw0,mza0
-
-! If pristine ice bulk density is sufficiently abundant, copy to rx.
-! Otherwise, if pristine ice bulk density is negative, set to zero.
-
-      if (sh_p(k,iw0) >= rxmin(3)) then
-         rx(k,3) = sh_p(k,iw0) * rhoa(k)
-      elseif (sh_p(k,iw0) < 0.) then
-         sh_p(k,iw0) = 0.
-      endif
-
-   enddo
-
 endif
 
 ! Snow
 
-if (jnmb(4) >= 5) then
+if (jnmb(4) == 5) then
 
    do k = lpw0,mza0
 
@@ -1395,7 +1363,7 @@ endif
 
 ! Aggregates
 
-if (jnmb(5) >= 5) then
+if (jnmb(5) == 5) then
 
    do k = lpw0,mza0
 
@@ -1418,7 +1386,7 @@ if (jnmb(5) >= 5) then
 
    enddo
 
-elseif (jnmb(5) >= 1) then
+elseif (jnmb(5) == 1) then
 
    do k = lpw0,mza0
 
@@ -1437,7 +1405,7 @@ endif
 
 ! Graupel
 
-if (jnmb(6) >= 5) then
+if (jnmb(6) == 5) then
 
    do k = lpw0,mza0
 
@@ -1484,7 +1452,7 @@ endif
 
 ! Hail
 
-if (jnmb(7) >= 5) then
+if (jnmb(7) == 5) then
 
    do k = lpw0,mza0
 
@@ -1531,7 +1499,7 @@ endif
 
 ! Drizzle
 
-if (jnmb(8) >= 5) then
+if (jnmb(8) == 5) then
 
    do k = lpw0,mza0
 
@@ -1542,7 +1510,7 @@ if (jnmb(8) >= 5) then
 ! If drizzle bulk density is sufficiently abundant, copy to rx
 ! and copy drizzle number concentration to cx.
 ! Otherwise, make sure drizzle bulk density is positive-definite
-! and set drizle number concentration to zero.
+! and set drizzle number concentration to zero.
 
       if (sh_d(k,iw0) >= rxmin(8)) then
          rx(k,8) = sh_d (k,iw0) * rhoa(k)
@@ -1554,64 +1522,72 @@ if (jnmb(8) >= 5) then
 
    enddo
 
-elseif (jnmb(8) >= 1) then
-
-   do k = lpw0,mza0
-
-! If drizzle bulk density is sufficiently abundant, copy to rx.
-! Otherwise, if drizzle bulk density is negative, set to zero.
-
-      if (sh_d(k,iw0) >= rxmin(8)) then
-         rx(k,8) = sh_d(k,iw0) * rhoa(k)
-      elseif (sh_d(k,iw0) < 0.) then
-         sh_d(k,iw0) = 0.
-      endif
-
-   enddo
-
 endif
 
-! Copy CCN number concentration to con_ccnx 
+! Fill column CCN values [#/m^3] 
 
-if (jnmb(1) == 7) then
-   do k = lpw0,mza0
-      con_ccnx(k) = con_ccn(k,iw0) * rhoa(k)
+if (iccn == 1) then
+   if (ccnparm > 1.e6) then
+      do k = lpw0,mza0
+         con_ccnx(k,1) = ccnparm * zfactor_ccn(k) * rhoa(k)
+      enddo
+   else
+      do k = lpw0,mza0
+         con_ccnx(k,1) = cldnum(iw0) * zfactor_ccn(k) * rhoa(k)
+      enddo
+   endif
+else
+   do ic = 1,nccntyp
+      do k = lpw0,mza0
+         ccntyp(ic)%con_ccn(k,iw0) = max(0.,ccntyp(ic)%con_ccn(k,iw0))
+         con_ccnx(k,ic) = ccntyp(ic)%con_ccn(k,iw0) * rhoa(k)
+      enddo
    enddo
 endif
 
-! Copy GCCN number concentration to con_gccnx 
+! Fill column GCCN values [#/m^3] 
 
-if (jnmb(8) == 7) then
+if (igccn == 1) then
    do k = lpw0,mza0
+      con_gccnx(k) = gccnparm * zfactor_gccn(k) * rhoa(k)
+   enddo
+else
+   do k = lpw0,mza0
+      con_gccn(k,iw0) = max(0.,con_gccn(k,iw0))
       con_gccnx(k) = con_gccn(k,iw0) * rhoa(k)
    enddo
 endif
 
-! Copy IFN number concentration to con_ifnx 
+! Fill column IFN values [#/m^3] 
 
-if (jnmb(3) == 7) then
+if (iifn == 1) then
    do k = lpw0,mza0
+      con_ifnx(k) = ifnparm * zfactor_ifn(k) * rhoa(k)
+   enddo
+else
+   do k = lpw0,mza0
+      con_ifn(k,iw0) = max(0.,con_ifn(k,iw0))
       con_ifnx(k) = con_ifn(k,iw0) * rhoa(k)
    enddo
 endif
 
-return
 end subroutine mic_copy
 
 !===============================================================================
 
 subroutine mic_copyback(iw0,lpw0,k1,k2,k3, &
-   pcpg0,qpcpg0,dpcpg0,dtli0,accpx,pcprx,thil0,theta0,tair0,rhoa,rhow,rhov,rhoi, &
+   dtli0,accpx,pcprx,thil0,theta0,tair0,rhoa,rhow,rhov,rhoi, &
    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
-use micro_coms, only: mza0, ncat, jnmb
+use micro_coms, only: mza0, ncat, jnmb, iccn, igccn, iifn
+use ccnbin_coms, only: nccntyp
 use mem_basic,  only: thil, theta, tair, rho, sh_w, sh_v, wmc, wc
 use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
-                      q2, q6, q7, pcpgr, qpcpgr, dpcpgr, &
+                      q2, q6, q7, &
                       con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
                       accpd, accpr, accpp, accps, accpa, accpg, accph, &
                       pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
-                      con_ccn, con_gccn, con_ifn
+                      ccntyp, con_gccn, con_ifn
 use misc_coms,  only: io6
 use consts_coms,only: r8
 use mem_grid,   only: zwgt_bot, zwgt_top
@@ -1627,9 +1603,6 @@ integer, intent(in) :: k1(11)
 integer, intent(in) :: k2(11)
 integer, intent(in) :: k3(11)
 
-real, intent(in) :: pcpg0
-real, intent(in) :: qpcpg0
-real, intent(in) :: dpcpg0
 real, intent(in) :: dtli0
 
 real, intent(in) :: accpx(ncat)
@@ -1641,10 +1614,10 @@ real, intent(in)  :: tair0(mza0)
 real, intent(in)  :: rhov(mza0)
 real, intent(out) :: rhoi(mza0)
 
-real(kind=8), intent(in) :: rhoa(mza0)
-real(kind=8), intent(in) :: rhow(mza0)
+real(r8), intent(in) :: rhoa(mza0)
+real(r8), intent(in) :: rhow(mza0)
 
-real, intent(in) :: con_ccnx (mza0)
+real, intent(in) :: con_ccnx (mza0,nccntyp)
 real, intent(in) :: con_gccnx(mza0)
 real, intent(in) :: con_ifnx (mza0)
 
@@ -1653,13 +1626,7 @@ real, intent(in) :: cx(mza0,ncat)
 real, intent(in) :: qx(mza0,ncat)
 
 real     :: rfact(mza0)
-integer  :: k, kk, n
-
-! Convert surface precipitation from amount to rate
-
-pcpgr (iw0) = pcpg0 * dtli0
-qpcpgr(iw0) = qpcpg0 * dtli0
-dpcpgr(iw0) = dpcpg0 * dtli0
+integer  :: k, n, ic
 
 ! Copy base thermodynamic variables
 
@@ -1776,7 +1743,7 @@ endif
 
 ! Copy cloud water number concentration back to main array
 
-if (jnmb(1) >= 5) then
+if (jnmb(1) == 5) then
    do k = lpw0,k3(1)
       con_c(k,iw0) = cx(k,1) * rhoi(k)
    enddo
@@ -1792,7 +1759,7 @@ endif
 
 ! Copy pristine ice number concentration back to main array
 
-if (jnmb(3) >= 5) then
+if (jnmb(3) == 5) then
    do k = lpw0,k3(3)
       con_p(k,iw0) = cx(k,3) * rhoi(k)
    enddo
@@ -1832,7 +1799,7 @@ endif
 
 ! Copy drizzle number concentration back to main array
 
-if (jnmb(8) >= 5) then
+if (jnmb(8) == 5) then
    do k = lpw0,k3(8)
       con_d(k,iw0) = cx(k,8) * rhoi(k)
    enddo
@@ -1840,15 +1807,17 @@ endif
 
 ! Copy CCN number concentration back to main array
 
-if (jnmb(1) == 7) then
-   do k = lpw0,mza0
-      con_ccn(k,iw0) = con_ccnx(k) * rhoi(k)
+if (iccn >= 2) then
+   do ic = 1,nccntyp
+      do k = lpw0,mza0
+         ccntyp(ic)%con_ccn(k,iw0) = con_ccnx(k,ic) * rhoi(k)
+      enddo
    enddo
 endif
 
 ! Copy GCCN number concentration back to main array
 
-if (jnmb(8) == 7) then
+if (igccn == 2) then
    do k = lpw0,mza0
       con_gccn(k,iw0) = con_gccnx(k) * rhoi(k)
    enddo
@@ -1856,11 +1825,10 @@ endif
 
 ! Copy IFN number concentration back to main array
 
-if (jnmb(3) == 7) then
+if (iifn == 2) then
    do k = lpw0,mza0
       con_ifn(k,iw0) = con_ifnx(k) * rhoi(k)
    enddo
 endif
 
-return
 end subroutine mic_copyback

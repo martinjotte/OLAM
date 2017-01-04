@@ -405,7 +405,7 @@ subroutine coneplot_w(iw,iv1,iv2,topo1,topo2,iok,htpn)
 use oplot_coms,  only: op, xepc, yepc, zepc
 use mem_grid,    only: xem, yem, zem, topm
 use mem_ijtabs,  only: itab_w
-use consts_coms, only: pio180, erad, piu180, pi2
+use consts_coms, only: pio180, erad, piu180, pi2, pi1
 use misc_coms,   only: io6
 
 implicit none
@@ -691,7 +691,7 @@ ange2 = atan2(-valy,valx)  ! Angle increases clockwise
 
 ! Avoid wrap_around
 
-if (ange2 < ange1) ange2 = ange2 + pi2
+if (ange2 + pi1 < ange1) ange2 = ange2 + pi2
 
 ! Scale angles to htpn coordinates (in meters along cone circle)
 
@@ -700,5 +700,4 @@ htpn(2) = ange2 * radcone
 htpn(3) = htpn(2)
 htpn(4) = htpn(1)
 
-return
 end subroutine coneplot_w

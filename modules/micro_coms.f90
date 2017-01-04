@@ -76,7 +76,7 @@ real, parameter :: &
 real, parameter :: ddn_ngam  = 5.e-6
 real, parameter :: ddni_ngam = 1. / ddn_ngam
 
-integer :: level  ! microphysics complexity level read from namelist
+integer :: miclevel  ! microphysics complexity level read from namelist
 integer :: icloud ! cloud control flag read from namelist
 integer :: idriz  ! drizzle control flag read from namelist
 integer :: irain  ! rain control flag read from namelist
@@ -86,9 +86,11 @@ integer :: iaggr  ! aggregates control flag read from namelist
 integer :: igraup ! graupel control flag read from namelist
 integer :: ihail  ! hail control flag read from namelist
    
-integer :: iccnlev ! CCN flag
+integer :: iccn   ! CCN flag read from namelist
+integer :: igccn  ! GCCN flag read from namelist
+integer :: iifn   ! IFN flag read from namelist
 
-integer :: mza0  ! micphys copy of number of model vertical levels (excludes top bnd)
+integer :: mza0  ! micphys copy of number of model vertical levels
 
 integer :: jnmb(ncat)  ! category control parameter for each category
 
@@ -97,17 +99,15 @@ integer :: lcat_lhcat(nhcat) = (/1,2,3,4,5,6,7,8,3,3,3,3,4,4,4,4/)
 
 integer :: jhabtab(31,100,2)
 
-real :: cparm ! cloud parameter read from namelist
-real :: dparm ! drizzle parameter read from namelist
 real :: rparm ! rain parameter read from namelist
-real :: pparm ! pristine ice parameter read from namelist (obsolete)
 real :: sparm ! snow parameter read from namelist
 real :: aparm ! aggregates parameter read from namelist
 real :: gparm ! graupel parameter read from namelist
 real :: hparm ! hail parameter read from namelist
 
-real :: cnparm ! Median radius of the CCN dist [m]
-real :: gnparm ! Median radius of the GCCN dist [m]
+real :: ccnparm  ! CCN concentration [#/kg] read from namelist
+real :: gccnparm ! GCCN concentration [#/kg] read from namelist
+real :: ifnparm  ! IFN concentration [#/kg] read from namelist
 
 real :: rictmin ! minimum diameter-index for collection table lookup
 real :: rictmax ! maximum diameter-index for collection table lookup
@@ -116,12 +116,11 @@ real :: dps2    ! square of dps
 
 real :: sedtime0 ! min generalized timestep considered in sedimentation table
 real :: sedtime1 ! max generalized timestep considered in sedimentation table
-   
+
 real :: emb0     (ncat) ! minimum mean mass for each category
 real :: emb1     (ncat) ! maximum mean mass for each category
 real :: emb2     (ncat) ! mean hydrometeor mass for each category for case when jnmb(lcat) = 2
 real :: gnu      (ncat) ! gamma distribution width parameter for each category
-real :: parm     (ncat) ! namelist hydrometeor parameter for each category
 real :: emb0log  (ncat) ! log of emb0
 real :: emb1log  (ncat) ! log of emb1
 real :: dict     (ncat) ! log-mass increment of each category in collection tables
@@ -178,6 +177,10 @@ real :: shedtab(ninc,ndns)   ! shedding table
 
 real :: sc(2),sk(2),sl(2) ! specific heats, latent heats
 real :: sj(ncat)          ! flag for rain, graupel, hail
+
+real, allocatable :: zfactor_ccn(:)  ! height-based CCN concentration weight factor (when ICCN = 1)
+real, allocatable :: zfactor_gccn(:) ! height-based GCCN concentration weight factor (when IGCCN = 1)
+real, allocatable :: zfactor_ifn(:)  ! height-based IFN concentration weight factor (when IIFN = 1)
 
 ! Sedimentation table section
 
@@ -500,26 +503,43 @@ Contains
 
 !===============================================================================
 
+   subroutine init_nuc_zfactors(mza,zt)
+
+   implicit none
+
+   integer, intent(in) :: mza
+   real, intent(in) :: zt(mza)
+   
+   allocate (zfactor_ccn (mza)) ! height-based CCN concentration weight factor (when ICCN = 1)
+   allocate (zfactor_gccn(mza)) ! height-based GCCN concentration weight factor (when IGCCN = 1)
+   allocate (zfactor_ifn (mza)) ! height-based IFN concentration weight factor (when IIFN = 1)
+
+   ! Initialize height-based multipliers for concentrations [#/kg_air] of
+   ! nucleating aerosols, used when ICCN, IGCCN, and/or IIFN are set to 1  
+
+   ! The following profile decays exponentially with given scale height
+
+   zfactor_ccn (:) = exp(min(0.,-zt(:) / 8000.))
+   zfactor_gccn(:) = exp(min(0.,-zt(:) / 8000.)) 
+   zfactor_ifn (:) = exp(min(0.,-zt(:) / 8000.)) 
+
+   end subroutine init_nuc_zfactors
+
+!===============================================================================
+
    subroutine alloc_sedimtab(mza)
 
    implicit none
-   integer :: mza
+
+   integer, intent(in) :: mza
    
-   mza0 = mza
+   allocate (zmf  (2-maxkfall:mza))
+   allocate (dztf (2-maxkfall:mza))
+   allocate (dzitf(2-maxkfall:mza))
+   allocate (pcpfillc(mza,maxkfall,nembfall,nhcat))
+   allocate (pcpfillr(mza,maxkfall,nembfall,nhcat))
 
-   allocate (zmf  (2-maxkfall:mza0))
-   allocate (dztf (2-maxkfall:mza0))
-   allocate (dzitf(2-maxkfall:mza0))
-   allocate (pcpfillc(mza0,maxkfall,nembfall,nhcat))
-   allocate (pcpfillr(mza0,maxkfall,nembfall,nhcat))
-
-   return
-   end subroutine
+   end subroutine alloc_sedimtab
 
 End Module micro_coms
-
-
-
-
-
 

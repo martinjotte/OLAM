@@ -30,198 +30,55 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine micinit_fields()
+subroutine jnmbinit()
 
-use mem_basic,   only: rho
-
-use mem_micro,   only: sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
-                       accpd, accpr, accpp, accps, accpa, accpg, accph, &
-                       pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
-                       con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
-                       con_ccn, con_gccn, con_ifn, q2, q6, q7, &
-                       pcpgr, qpcpgr, dpcpgr, cldnum
-
-use misc_coms,   only: io6, runtype
-use mem_ijtabs,  only: jtab_w, jtw_init
-use mem_grid,    only: mza, glatw, glonw
-use consts_coms, only: r8
-
-use micro_coms,  only: level, icloud, idriz, irain, ipris, isnow, iaggr, &
-                       igraup, ihail, jnmb, cparm, dparm, pparm
+use micro_coms, only: miclevel, jnmb, icloud, idriz, irain, ipris, isnow, iaggr, &
+                      igraup, ihail
+use misc_coms,  only: io6
 
 implicit none
 
-integer :: j, iw
-integer :: ilat1, ilon1, ilat2, ilon2
-real :: qlat, qlon, rlat, rlon, wlat1, wlon1, wlat2, wlon2
+if (miclevel /= 3) then
 
-! Geographic map of cloud droplet concentration [*1.e7/m^3]
+   if (miclevel <= 1) then
+      jnmb(1) = 0
+   else
+      jnmb(1) = 4
+   endif
 
-integer :: numcld(37,19)
+   jnmb(2) = 0
+   jnmb(3) = 0
+   jnmb(4) = 0
+   jnmb(5) = 0
+   jnmb(6) = 0
+   jnmb(7) = 0
+   jnmb(8) = 0
 
-data ((numcld(ilon1,ilat1),ilon1=1,37),ilat1=19,1,-1)/    &
-  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, & !9
-  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, & !8
-  3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 3, 3, 3, 3, 3, 8, 8,13,18,18,18,18,18,18,18,13,13,13, 8, 8, 8, 8, 8, 8, 3, & !7
-  8, 8, 8, 8, 8,13,13,18,13, 8, 8, 8, 8, 8, 8, 8, 8,13,18,28,38,48,58,53,48,43,33,23,23,18,18,13,13, 8, 8, 8, 8, & !6
-  8, 8, 8, 8, 8, 8,13,18,18,23,23,18,18,13, 8, 8,13,13,23,53,58,58,58,48,43,43,38,33,28,28,33,33,28,18,13, 8, 8, & !5
-  8, 8, 8, 8, 8, 8,13,18,28,43,48,28,13,13, 8,13,13,18,28,38,43,43,38,28,28,33,33,23,33,58,93,58,38,18,13, 8, 8, & !4
-  8, 8, 8, 8, 8,13,13,18,23,33,28,13,13,13, 8,13,13,13,18,23,38,33,23,23,33,33,28,23,33,83,83,23,18,13, 8, 8, 8, & !3
-  8, 8, 8, 8, 8,13,13,18,23,13,13, 8, 8, 8, 8,13,13,13,18,23,28,28,33,33,28,23,33,23,33,43,23,13, 8, 8, 8, 8, 8, & !2
-  8, 8, 8, 8, 8, 8, 8,13,13,13,13,13,13, 8, 8, 8,13,18,23,23,23,23,18,18,13,13,18,13,13,13,13, 8, 8, 8, 8, 8, 8, & !1
-  8, 8, 8, 8, 8, 8,13,13,13,13,13, 8, 8, 8, 8, 8, 8, 8, 8,13,13,13,13, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, & !0
-  8, 8, 8, 8, 8, 8, 8, 8,13,13,13, 8, 8, 8, 8, 8, 8, 8, 8,13,18,18,13, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, & !1
-  3, 3, 3, 3, 3, 3, 3, 3, 8,13,13,23,13,13, 8, 3, 8, 8, 8,13,18,13, 8, 8, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, & !2
-  3, 3, 3, 3, 3, 3, 3, 3, 3, 8,13,18,13,13, 8, 3, 3, 3, 8, 8,18,18, 8, 8, 3, 3, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 8, & !3
-  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 8,13,13, 8, 8, 3, 3, 3, 3, 3, 8, 8, 8, 8, 3, 3, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 8, & !4
-  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 8, 8, 8, 8, 8, 8, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, & !5
-  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, & !6
-  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, & !7
-  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, & !8
-  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3  / !9
+else
 
-!18 17 16 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18
+   jnmb(1) = icloud
+   jnmb(2) = irain
+   jnmb(3) = ipris
+   jnmb(4) = isnow
+   jnmb(5) = iaggr
+   jnmb(6) = igraup
+   jnmb(7) = ihail
+   jnmb(8) = idriz
 
-! Initialize geographic-based cloud number concentration
+   if (irain == 5 .or. isnow == 5 .or. iaggr == 5 .or. &
+      igraup == 5 .or. ihail == 5) then
 
-!----------------------------------------------------------------------
-do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
-!----------------------------------------------------------------------
+      if (irain  >= 1) jnmb(2) = 5
+      if (isnow  >= 1) jnmb(4) = 5
+      if (iaggr  >= 1) jnmb(5) = 5
+      if (igraup >= 1) jnmb(6) = 5
+      if (ihail  >= 1) jnmb(7) = 5
 
-   qlon = max(-179.9999,min(179.9999,glonw(iw)))
-   qlat = max( -89.9999,min( 89.9999,glatw(iw)))
+   endif
 
-   rlon = 0.1 * (qlon + 180.) + 1.
-   rlat = 0.1 * (qlat +  90.) + 1.
+endif
 
-   ilon1 = int(rlon)
-   ilat1 = int(rlat)
-
-   wlon2 = rlon - real(ilon1)
-   wlat2 = rlat - real(ilat1)
-
-   ilon2 = ilon1 + 1
-   ilat2 = ilat1 + 1
-
-   wlon1 = 1. - wlon2
-   wlat1 = 1. - wlat2
-
-! Interpolate from 4 surrounding values
-
-   cldnum(iw) = wlon1 * wlat1 * real(numcld(ilon1,ilat1)) &
-              + wlon2 * wlat1 * real(numcld(ilon2,ilat1)) &
-              + wlon1 * wlat2 * real(numcld(ilon1,ilat2)) &
-              + wlon2 * wlat2 * real(numcld(ilon2,ilat2))
-
-   cldnum(iw) = cldnum(iw) * 1.e7
-
-   if (cparm > 1.e6) cldnum(iw) = cparm
-
-enddo
-
-! Initialize 3D and 2D microphysics fields
-
-if (runtype == 'INITIAL') then
-
-!----------------------------------------------------------------------
-   do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
-!----------------------------------------------------------------------
-
-      if (allocated(sh_d))  then
-         sh_d(1:mza,iw) = 0.
-         accpd(iw) = 0._r8
-         pcprd(iw) = 0.
-      endif
-
-      if (allocated(sh_r))  then
-         sh_r(1:mza,iw) = 0.
-         accpr(iw) = 0._r8
-         pcprr(iw) = 0.
-         q2(1:mza,iw) = 0.
-      endif
-   
-      if (allocated(sh_p))  then
-         sh_p(1:mza,iw) = 0.
-         accpp(iw) = 0._r8
-         pcprp(iw) = 0.
-      endif
-
-      if (allocated(sh_s))  then
-         sh_s(1:mza,iw) = 0.
-         accps(iw) = 0._r8
-         pcprs(iw) = 0.
-      endif
-
-      if (allocated(sh_a))  then
-         sh_a(1:mza,iw) = 0.
-         accpa(iw) = 0._r8
-         pcpra(iw) = 0.
-      endif
-
-      if (allocated(sh_g)) then
-         sh_g(1:mza,iw) = 0.
-         accpg(iw) = 0._r8
-         pcprg(iw) = 0.
-         q6(1:mza,iw) = 0.
-      endif
-
-      if (allocated(sh_h))  then
-         sh_h(1:mza,iw) = 0.
-         accph(iw) = 0._r8
-         pcprh(iw) = 0.
-         q7(1:mza,iw) = 0.
-      endif
-
-      if (allocated(con_c)) con_c(1:mza,iw) = 0.
-      if (allocated(con_r)) con_r(1:mza,iw) = 0.
-      if (allocated(con_p)) con_p(1:mza,iw) = 0.
-      if (allocated(con_s)) con_s(1:mza,iw) = 0.
-      if (allocated(con_a)) con_a(1:mza,iw) = 0.
-      if (allocated(con_g)) con_g(1:mza,iw) = 0.
-      if (allocated(con_h)) con_h(1:mza,iw) = 0.
-      if (allocated(con_d)) con_d(1:mza,iw) = 0.
-
-! Initialize CCN field if activated
-      
-      if (allocated(con_ccn)) then
-         con_ccn(1:mza,iw) = cparm  ! Default specification
-
-! Steve's example (changed to #/kg)
-
-!        con_ccn(k,iw) = max(100.e6,cparm * (1. - zt(k) / 4000.))
-
-      endif
-
-! Initialize GCCN field if activated
-
-      if (allocated(con_gccn)) then
-         con_gccn(1:mza,iw) = dparm  ! Default specification
-
-! Steve's example (changed to #/kg)
-
-!        con_gccn(k,iw) = max(10.,dparm * (1. - zt(k) / 4000.))
-
-      endif
-
-! Initialize IFN field if activated
-
-      if (allocated(con_ifn)) then
-         con_ifn (1:mza,iw) = pparm * rho(1:mza,iw) ** 5.4  ! Default specification
-      endif
-
-! Initialize accumulated precipitation for surface model
-
-      if (allocated(pcpgr)) then
-         pcpgr(iw)  = 0.
-         qpcpgr(iw) = 0.
-         dpcpgr(iw) = 0.
-      endif
-
-   enddo
-
-endif ! runtype == 'INITIAL'
-
-end subroutine micinit_fields
+end subroutine jnmbinit
 
 !===============================================================================
 
@@ -231,13 +88,15 @@ use mem_basic, only: rho
 
 use misc_coms,   only: io6, dtlm, runtype
 use mem_ijtabs,  only: jtab_w, mrls, jtw_init
-use mem_grid,    only: mza, zm, dzt, dzit
+use mem_grid,    only: mza, zm, zt, dzt, dzit
 use mem_para,    only: myrank
 
-use micro_coms,  only: level, jnmb, nembc, &
+use micro_coms,  only: mza0, miclevel, nembc, &
                        cfmas, pwmas, cfvt, pwvt, &
                        npairx, npairy, npairc, coltabx, coltaby, coltabc, &
-                       alloc_sedimtab
+                       alloc_sedimtab, init_nuc_zfactors
+
+use nuclei_coms, only: dust_src_init
 
 use hdf5_utils, only: shdf5_irec, shdf5_orec, shdf5_open, shdf5_close
 
@@ -249,15 +108,23 @@ implicit none
 
   logical :: exans
 
+  mza0 = mza
+
   call micinit_gam()
 
-  call tabhab()
+  call init_nuc_zfactors(mza,zt)
 
-  if (level < 3) return
+  call ccnbin_init()
+
+  call dust_src_init()
+
+  if (miclevel < 3) return
 
   call haznuc()
 
   call tabmelt()
+
+  call tabhab()
 
   call alloc_sedimtab(mza)
   call mksedim_tab(mza,zm,dzt,dzit)
@@ -343,13 +210,12 @@ end subroutine micinit_tabs
 
 subroutine micinit_gam()
 
-use micro_coms,  only: icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail, &
-                       parm, nhcat, shapefac, cfmas, pwmas, cfvt, pwvt, &
-                       ncat, emb0, emb1, gnu, rxmin, level, sl, sc, sj, &
-                       cparm, dparm, rparm, pparm, sparm, aparm, gparm, hparm, &
+use micro_coms,  only: nhcat, shapefac, cfmas, pwmas, cfvt, pwvt, &
+                       ncat, emb0, emb1, gnu, rxmin, miclevel, sl, sc, sj, &
+                       rparm, sparm, aparm, gparm, hparm, &
                        sk, dps, dps2, rictmin, rictmax, nembc, lcat_lhcat, &
                        emb0log, emb1log, emb2, cfmasi, pwmasi, pwen0, &
-                       pwemb0, ch3, cdp1, pwvtmasi, jnmb, cfemb0, cfen0, &
+                       pwemb0, ch3, cdp1, pwvtmasi, cfemb0, cfen0, &
                        dnfac, vtfac, frefac1, frefac2, sipfac, cfmasft, &
                        dict, dpsmi, gamm, gamn1, ngam, gam, gaminc, &
                        gamsip13, gamsip24, ddn_ngam, reffcof, dmncof
@@ -385,26 +251,6 @@ real :: dstprms(9,nhcat) = reshape( (/ &  ! Carver/Mitchell 1996 power laws
     .5,    .1001, 2.256,  125.7,  .716,    00.,     00., 00.,    00.  & !snow ros
     /), (/ 9,nhcat /) )
 
-! Initialize arrays based on microphysics namelist parameters
-
-parm(1) = cparm
-parm(2) = rparm
-parm(3) = pparm
-parm(4) = sparm
-parm(5) = aparm
-parm(6) = gparm
-parm(7) = hparm
-parm(8) = dparm
-
-if (icloud <= 1) parm(1) = .3e9
-if (irain  == 1) parm(2) = .1e-2
-if (ipris  == 1) parm(3) = 100. ! obsolete
-if (isnow  == 1) parm(4) = .1e-2
-if (iaggr  == 1) parm(5) = .1e-2
-if (igraup == 1) parm(6) = .1e-2
-if (ihail  == 1) parm(7) = .3e-2
-if (idriz  == 1) parm(8) = .1e6  !# per kg (mid-range avg from Feingold(99)
-
 ! Copy individual arrays from dstprms data table
 
 do lhcat = 1,nhcat
@@ -418,12 +264,17 @@ enddo
 do lcat = 1,ncat
    emb0 (lcat) = cfmas(lcat) * dstprms(6,lcat) ** pwmas(lcat)
    emb1 (lcat) = cfmas(lcat) * dstprms(7,lcat) ** pwmas(lcat)
-   emb2 (lcat) = cfmas(lcat) * parm(lcat) ** pwmas(lcat)
+   emb2 (lcat) = 0.
    gnu  (lcat) = dstprms(8,lcat)
    rxmin(lcat) = dstprms(9,lcat)
 enddo
+emb2(2) = cfmas(2) * rparm ** pwmas(2)
+emb2(4) = cfmas(4) * sparm ** pwmas(4)
+emb2(5) = cfmas(5) * aparm ** pwmas(5)
+emb2(6) = cfmas(6) * gparm ** pwmas(6)
+emb2(7) = cfmas(7) * hparm ** pwmas(7)
 
-!if (level < 3) RETURN
+if (miclevel < 3) RETURN
 
 ! Initialize constants for vapor diffusion
 
@@ -531,68 +382,197 @@ do igam = 1,ngam
    gamsip24(2,igam)= gammq(gnu(8),24.e-6/dnsip)
 enddo
 
-return
 end subroutine micinit_gam
 
 !===============================================================================
 
-subroutine jnmbinit()
+subroutine micinit_fields()
 
-use micro_coms, only: level, jnmb, icloud, idriz, irain, ipris, isnow, iaggr, &
-                      igraup, ihail
-use misc_coms,  only: io6
+use mem_basic,   only: rho
+
+use mem_micro,   only: sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
+                       accpd, accpr, accpp, accps, accpa, accpg, accph, &
+                       pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
+                       con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
+                       ccntyp, con_gccn, con_ifn, q2, q6, q7, cldnum
+
+use misc_coms,   only: io6, runtype
+use mem_ijtabs,  only: jtab_w, jtw_init
+use mem_grid,    only: mza, glatw, glonw
+use consts_coms, only: r8
+
+use micro_coms,  only: ccnparm, gccnparm, ifnparm, &
+                       zfactor_ccn, zfactor_gccn, zfactor_ifn
+
+use ccnbin_coms, only: nccntyp
 
 implicit none
 
-if (level /= 3) then
+integer :: j, iw, ic
+integer :: ilat1, ilon1, ilat2, ilon2
+real :: qlat, qlon, rlat, rlon, wlat1, wlon1, wlat2, wlon2
 
-   if (level <= 1) then
-      jnmb(1) = 0
-   else
-      jnmb(1) = 4
-   endif
+! Geographic map of cloud droplet concentration [*1.e7/m^3]
 
-   jnmb(2) = 0
-   jnmb(3) = 0
-   jnmb(4) = 0
-   jnmb(5) = 0
-   jnmb(6) = 0
-   jnmb(7) = 0
-   jnmb(8) = 0
+integer :: numcld(37,19)
 
-else
+data ((numcld(ilon1,ilat1),ilon1=1,37),ilat1=19,1,-1)/    &
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, & !9
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, & !8
+  3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 3, 3, 3, 3, 3, 8, 8,13,18,18,18,18,18,18,18,13,13,13, 8, 8, 8, 8, 8, 8, 3, & !7
+  8, 8, 8, 8, 8,13,13,18,13, 8, 8, 8, 8, 8, 8, 8, 8,13,18,28,38,48,58,53,48,43,33,23,23,18,18,13,13, 8, 8, 8, 8, & !6
+  8, 8, 8, 8, 8, 8,13,18,18,23,23,18,18,13, 8, 8,13,13,23,53,58,58,58,48,43,43,38,33,28,28,33,33,28,18,13, 8, 8, & !5
+  8, 8, 8, 8, 8, 8,13,18,28,43,48,28,13,13, 8,13,13,18,28,38,43,43,38,28,28,33,33,23,33,58,93,58,38,18,13, 8, 8, & !4
+  8, 8, 8, 8, 8,13,13,18,23,33,28,13,13,13, 8,13,13,13,18,23,38,33,23,23,33,33,28,23,33,83,83,23,18,13, 8, 8, 8, & !3
+  8, 8, 8, 8, 8,13,13,18,23,13,13, 8, 8, 8, 8,13,13,13,18,23,28,28,33,33,28,23,33,23,33,43,23,13, 8, 8, 8, 8, 8, & !2
+  8, 8, 8, 8, 8, 8, 8,13,13,13,13,13,13, 8, 8, 8,13,18,23,23,23,23,18,18,13,13,18,13,13,13,13, 8, 8, 8, 8, 8, 8, & !1
+  8, 8, 8, 8, 8, 8,13,13,13,13,13, 8, 8, 8, 8, 8, 8, 8, 8,13,13,13,13, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, & !0
+  8, 8, 8, 8, 8, 8, 8, 8,13,13,13, 8, 8, 8, 8, 8, 8, 8, 8,13,18,18,13, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, & !1
+  3, 3, 3, 3, 3, 3, 3, 3, 8,13,13,23,13,13, 8, 3, 8, 8, 8,13,18,13, 8, 8, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, & !2
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 8,13,18,13,13, 8, 3, 3, 3, 8, 8,18,18, 8, 8, 3, 3, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 8, & !3
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 8,13,13, 8, 8, 3, 3, 3, 3, 3, 8, 8, 8, 8, 3, 3, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 8, & !4
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 8, 8, 8, 8, 8, 8, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, & !5
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, & !6
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, & !7
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, & !8
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3  / !9
 
-   jnmb(1) = icloud
-   jnmb(2) = irain
-   jnmb(3) = ipris
-   jnmb(4) = isnow
-   jnmb(5) = iaggr
-   jnmb(6) = igraup
-   jnmb(7) = ihail
-   jnmb(8) = idriz
+!18 17 16 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18
 
-   if (icloud == 1) jnmb(1) = 4
-   if (irain  == 1) jnmb(2) = 2
-   if (ipris  == 1) jnmb(3) = 5
-   if (isnow  == 1) jnmb(4) = 2
-   if (iaggr  == 1) jnmb(5) = 2
-   if (igraup == 1) jnmb(6) = 2
-   if (ihail  == 1) jnmb(7) = 2
-   if (idriz  == 1) jnmb(8) = 4
+! Initialize geographic-based cloud number concentration
 
-   if (irain == 5 .or. isnow == 5 .or. iaggr == 5 .or. &
-      igraup == 5 .or. ihail == 5) then
+!----------------------------------------------------------------------
+do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+!----------------------------------------------------------------------
 
-      if (irain  >= 1) jnmb(2) = 5
-      if (isnow  >= 1) jnmb(4) = 5
-      if (iaggr  >= 1) jnmb(5) = 5
-      if (igraup >= 1) jnmb(6) = 5
-      if (ihail  >= 1) jnmb(7) = 5
+   qlon = max(-179.9999,min(179.9999,glonw(iw)))
+   qlat = max( -89.9999,min( 89.9999,glatw(iw)))
 
-   endif
+   rlon = 0.1 * (qlon + 180.) + 1.
+   rlat = 0.1 * (qlat +  90.) + 1.
 
-endif
+   ilon1 = int(rlon)
+   ilat1 = int(rlat)
 
-return
-end subroutine jnmbinit
+   wlon2 = rlon - real(ilon1)
+   wlat2 = rlat - real(ilat1)
+
+   ilon2 = ilon1 + 1
+   ilat2 = ilat1 + 1
+
+   wlon1 = 1. - wlon2
+   wlat1 = 1. - wlat2
+
+   ! Interpolate from 4 surrounding values
+
+   cldnum(iw) = wlon1 * wlat1 * real(numcld(ilon1,ilat1)) &
+              + wlon2 * wlat1 * real(numcld(ilon2,ilat1)) &
+              + wlon1 * wlat2 * real(numcld(ilon1,ilat2)) &
+              + wlon2 * wlat2 * real(numcld(ilon2,ilat2))
+
+   ! Multiply by 1.e7 to get [#/m^3], but then assume an air density of
+   ! 1.0 kg/m^3 so that cldnum units are effectively [#/kg_air], as they
+   ! are for ccnparm.
+
+   cldnum(iw) = cldnum(iw) * 1.e7
+
+enddo
+
+! Initialize 3D and 2D microphysics fields
+
+if (runtype == 'INITIAL') then
+
+!----------------------------------------------------------------------
+   do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+!----------------------------------------------------------------------
+
+      if (allocated(sh_d))  then
+         sh_d(1:mza,iw) = 0.
+         accpd(iw) = 0._r8
+         pcprd(iw) = 0.
+      endif
+
+      if (allocated(sh_r))  then
+         sh_r(1:mza,iw) = 0.
+         accpr(iw) = 0._r8
+         pcprr(iw) = 0.
+         q2(1:mza,iw) = 0.
+      endif
+   
+      if (allocated(sh_p))  then
+         sh_p(1:mza,iw) = 0.
+         accpp(iw) = 0._r8
+         pcprp(iw) = 0.
+      endif
+
+      if (allocated(sh_s))  then
+         sh_s(1:mza,iw) = 0.
+         accps(iw) = 0._r8
+         pcprs(iw) = 0.
+      endif
+
+      if (allocated(sh_a))  then
+         sh_a(1:mza,iw) = 0.
+         accpa(iw) = 0._r8
+         pcpra(iw) = 0.
+      endif
+
+      if (allocated(sh_g)) then
+         sh_g(1:mza,iw) = 0.
+         accpg(iw) = 0._r8
+         pcprg(iw) = 0.
+         q6(1:mza,iw) = 0.
+      endif
+
+      if (allocated(sh_h))  then
+         sh_h(1:mza,iw) = 0.
+         accph(iw) = 0._r8
+         pcprh(iw) = 0.
+         q7(1:mza,iw) = 0.
+      endif
+
+      if (allocated(con_c)) con_c(1:mza,iw) = 0.
+      if (allocated(con_r)) con_r(1:mza,iw) = 0.
+      if (allocated(con_p)) con_p(1:mza,iw) = 0.
+      if (allocated(con_s)) con_s(1:mza,iw) = 0.
+      if (allocated(con_a)) con_a(1:mza,iw) = 0.
+      if (allocated(con_g)) con_g(1:mza,iw) = 0.
+      if (allocated(con_h)) con_h(1:mza,iw) = 0.
+      if (allocated(con_d)) con_d(1:mza,iw) = 0.
+
+! Initialize CCN fields if activated
+! (Default initialization here should be replaced with observation-based
+! initialization dataset.)
+      
+      do ic = 1,nccntyp
+         if (allocated(ccntyp(ic)%con_ccn)) then
+            if (ccnparm > 1.e6) then
+               ccntyp(ic)%con_ccn(1:mza,iw) = ccnparm  * zfactor_ccn(1:mza)
+            else
+               ccntyp(ic)%con_ccn(1:mza,iw) = cldnum(iw) * zfactor_ccn(1:mza)
+            endif
+         endif
+      enddo
+
+! Initialize GCCN field if activated
+! (Default initialization here should be replaced with observation-based
+! initialization dataset.)
+
+      if (allocated(con_gccn)) then
+         con_gccn(1:mza,iw) = gccnparm * zfactor_gccn(1:mza)
+      endif
+
+! Initialize IFN field if activated
+! (Default initialization here should be replaced with observation-based
+! initialization dataset.)
+
+      if (allocated(con_ifn)) then
+         con_ifn (1:mza,iw) = ifnparm  * zfactor_ifn(1:mza)
+      endif
+
+   enddo
+
+endif ! runtype == 'INITIAL'
+
+end subroutine micinit_fields
 

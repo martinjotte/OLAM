@@ -915,7 +915,7 @@ Contains
 
         do k = nzz-1,1,-1
 
-!  Compute density - (ASSUME MICPHYS LEVEL = 1 FOR NOW)
+!  Compute density - (ASSUME MICLEVEL = 1 FOR NOW)
 
            rho(k,iw) = press(k,iw) ** cvocp * p00k  &
               / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
@@ -1622,7 +1622,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
         do k = nzz-1,1,-1
 
-!  Compute density - (ASSUME MICPHYS LEVEL = 1 FOR NOW)
+!  Compute density - (ASSUME MICLEVEL = 1 FOR NOW)
 
            rho(k,iw) = press(k,iw) ** cvocp * p00k  &
               / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))

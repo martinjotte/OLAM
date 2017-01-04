@@ -3,8 +3,7 @@ subroutine check_nans(icall)
   use mem_basic,  only: sh_w,rho,thil,sh_v,wc,wmc,press,vmc,vc
   use mem_micro,  only: sh_c,sh_r
   use mem_grid,   only: mza,mwa,lpw,volti,mva,lpv
-  use mem_tend,   only: thilt, vmt
-  use micro_coms, only: level
+  use mem_tend,   only: thilt
   use misc_coms,  only: io6, iparallel
   use mem_ijtabs, only: itab_v, itab_w
   use mem_para,   only: myrank

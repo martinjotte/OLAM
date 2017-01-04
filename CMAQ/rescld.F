@@ -75,7 +75,8 @@ C-----------------------------------------------------------------------
       USE UTILIO_DEFN
 
       use cgrid_defn, only: cgrid
-      use mem_micro,  only: pcpgr, sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7
+      use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7,
+     &                       pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh
       use micro_coms, only: jnmb, rxmin
       use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
       use mem_grid,   only: mwa, mza, lpw, dzt
@@ -344,9 +345,19 @@ C...Loop through all grid cells
          iw   = jtab_w(jtw_prog)%iw(j)
          mrlw = itab_w(iw)%mrlw
 
-C...Convert the rainfall into a rainfall rate (mm/hr)
+C...Sum microphysics precipitation rate over species and convert from (mm/s) to (mm/hr)
 
-         rain = pcpgr(iw) * 3600.0
+         rain = 0.
+
+         if (allocated(pcprd)) rain = rain + pcprd(iw)
+         if (allocated(pcprr)) rain = rain + pcprr(iw)
+         if (allocated(pcprp)) rain = rain + pcprp(iw)
+         if (allocated(pcprs)) rain = rain + pcprs(iw)
+         if (allocated(pcpra)) rain = rain + pcpra(iw)
+         if (allocated(pcprg)) rain = rain + pcprg(iw)
+         if (allocated(pcprh)) rain = rain + pcprh(iw)
+
+         rain = rain * 3600.
 
 C...calculate the integrated column cloud+rain water content
 C... JP & SJR:  treat graupel as rainwater until we have a more

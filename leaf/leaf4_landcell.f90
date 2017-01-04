@@ -377,14 +377,12 @@ if (iwl == iwl_print)  &
                   head             = head              )
 
 ! At this point, any precipitation has been added to vegetation and surface
-! water, so zero out precipitation variables prior to new contribution by
-! surface flux subroutines
+! water, so zero out precipitation variables.
 
 pcpg  = 0.
 qpcpg = 0.
 dpcpg = 0.
 
-return
 end subroutine landcell
 
 End Module leaf4_landcell

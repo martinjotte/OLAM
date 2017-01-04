@@ -32,9 +32,6 @@
 !===============================================================================
 Module mem_tend
 
-   real, allocatable :: vmt  (:,:) ! V-mom density tend [kg/(m^2 s^2)]
-   real, allocatable :: wmt  (:,:) ! W-mom density tend [kg/(m^2 s^2)]
-
    real, allocatable :: vmxet(:,:) ! Earth-cartesian x momentum tend [kg/(m^2 s^2)]
    real, allocatable :: vmyet(:,:) ! Earth-cartesian y momentum tend [kg/(m^2 s^2)]
    real, allocatable :: vmzet(:,:) ! Earth-cartesian z momentum tend [kg/(m^2 s^2)]
@@ -64,9 +61,8 @@ Module mem_tend
    real, target, allocatable :: q6t     (:,:) ! graupel internal energy tend [J/(kg s)]
    real, target, allocatable :: q7t     (:,:) ! hail internal energy tend [J/(kg s)]
 
-   real, target, allocatable :: con_ccnt(:,:) ! ccn number tend [#/(m^3 s)]
-   real, target, allocatable :: con_gccnt(:,:)! giant ccn number tend [#/(m^3 s)]
-   real, target, allocatable :: con_ifnt(:,:) ! ifn number tend [#/(m^3 s)]
+   real, target, allocatable :: con_gccnt(:,:) ! GCCN number tendency [#_gccn/(m^3 s)]
+   real, target, allocatable :: con_ifnt (:,:) ! IFN  number tendency [#_ifn/(m^3 s)]
 
    real, target, allocatable :: tket    (:,:) ! subgrid-scale turb KE tend [m^2/s^3]
    real, target, allocatable :: epst    (:,:) ! subgrid dissipation rate tend [m^2/s^4]
@@ -77,29 +73,28 @@ Contains
 
 !===============================================================================
 
-   subroutine alloc_tend(lza,lva,lwa,naddsc)
+   subroutine alloc_tend(lza,lva,lwa,naddsc,nccntyp)
 
    use mem_turb,   only: tkep, epsp
    use mem_basic,  only: vmc, wmc, thil, sh_w, vxe, vye, vze
    use mem_addsc,  only: addsc
    use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,        &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
-                         con_ccn, con_ifn, con_gccn, q2, q6, q7
+                         ccntyp, con_ifn, con_gccn, q2, q6, q7
    use misc_coms,  only: io6
    use oname_coms, only: nl
    
    implicit none
 
-   integer, intent(in) :: lza,lva,lwa,naddsc
+   integer, intent(in) :: lza,lva,lwa,naddsc,nccntyp
 
-   integer :: iaddsc
+   integer :: iaddsc, ic
+
+   logical :: qxtrans = .true. ! Deprecated namelist flag for optional Q2/Q6/Q7 transport
 
    write(io6,*) 'enter alloc_tend'
 
 ! Find the maximum number of grid points needed for any grid.
-
-   if (allocated(vmc))     allocate (vmt(lza,lva))
-   if (allocated(wmc))     allocate (wmt(lza,lwa))
 
    if (allocated(vxe))     allocate (vmxet(lza,lwa))
    if (allocated(vye))     allocate (vmyet(lza,lwa))
@@ -126,11 +121,16 @@ Contains
    if (allocated(con_h))   allocate (con_ht(lza,lwa))
    if (allocated(con_d))   allocate (con_dt(lza,lwa))
 
-   if (allocated(con_ccn)) allocate (con_ccnt (lza,lwa))
    if (allocated(con_gccn))allocate (con_gccnt(lza,lwa))
    if (allocated(con_ifn)) allocate (con_ifnt (lza,lwa))
 
-   if (nl%qxtrans > 0) then
+   do ic = 1,nccntyp
+      if       (allocated(ccntyp(ic)%con_ccn) .and.  &
+         (.not. allocated(ccntyp(ic)%con_ccnt)))      &
+                allocate (ccntyp(ic)%con_ccnt(lza,lwa))
+   enddo
+
+   if (qxtrans) then
       if (allocated(q2))   allocate (q2t(lza,lwa))
       if (allocated(q6))   allocate (q6t(lza,lwa))
       if (allocated(q7))   allocate (q7t(lza,lwa))
@@ -140,32 +140,28 @@ Contains
    if (allocated(epsp))    allocate (epst(lza,lwa))
 
    do iaddsc = 1,naddsc
-
       if       (allocated(addsc(iaddsc)%sclp) .and.  &
          (.not. allocated(addsc(iaddsc)%sclt)))      &
                 allocate (addsc(iaddsc)%sclt(lza,lwa))
    enddo
 
-   return
    end subroutine alloc_tend
 
 !===============================================================================
                
-   subroutine dealloc_tend(naddsc)
+   subroutine dealloc_tend(naddsc,nccntyp)
    
    use mem_addsc, only: addsc
+   use mem_micro, only: ccntyp
 
    implicit none
 
-   integer, intent(in) :: naddsc   
+   integer, intent(in) :: naddsc, nccntyp
    
-   integer :: iaddsc
+   integer :: iaddsc, ic
 
 ! Deallocate all tendency arrays
  
-   if (allocated(vmt))      deallocate (vmt)
-   if (allocated(wmt))      deallocate (wmt)
-
    if (allocated(vmxet))    deallocate (vmxet)
    if (allocated(vmyet))    deallocate (vmyet)
    if (allocated(vmzet))    deallocate (vmzet)
@@ -191,10 +187,13 @@ Contains
    if (allocated(con_ht))   deallocate (con_ht)
    if (allocated(con_dt))   deallocate (con_dt)
 
-   if (allocated(con_ccnt)) deallocate (con_ccnt)
    if (allocated(con_gccnt))deallocate (con_gccnt)
    if (allocated(con_ifnt)) deallocate (con_ifnt)
 
+   do ic = 1,nccntyp
+      if (allocated(ccntyp(ic)%con_ccn)) deallocate (ccntyp(ic)%con_ccn)
+   enddo
+        
    if (allocated(q2t))      deallocate (q2t)
    if (allocated(q6t))      deallocate (q6t)
    if (allocated(q7t))      deallocate (q7t)
@@ -205,30 +204,29 @@ Contains
    do iaddsc = 1,naddsc
       if (allocated(addsc(iaddsc)%sclt)) deallocate (addsc(iaddsc)%sclt)
    enddo
-        
-   return
+
    end subroutine dealloc_tend
 
 !===============================================================================
                
-   subroutine filltab_tend(naddsc)
+   subroutine filltab_tend(naddsc,nccntyp)
 
    use mem_turb,   only: tkep, epsp, sxfer_tk, sxfer_rk
    use mem_basic,  only: thil, sh_w
    use mem_addsc,  only: addsc
    use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,        &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
-                         con_ccn, con_ifn, con_gccn, q2, q6, q7
+                         ccntyp, con_ifn, con_gccn, q2, q6, q7
    use var_tables, only: vtables_scalar, num_var
    use misc_coms,  only: do_chem
    use cgrid_defn, only: cgrid_scalar_tabs
 
    implicit none
 
-   integer, intent(in) :: naddsc
+   integer, intent(in) :: naddsc, nccntyp
    
-   integer :: iaddsc
-   character (len=7) :: sname
+   integer :: iaddsc, ic
+   character (len=10) :: sname
 
 ! Fill pointers to scalar arrays into scalar tables
 
@@ -253,9 +251,16 @@ Contains
    if (allocated(con_ht))   call vtables_scalar (con_h, con_ht, 'CON_H')
    if (allocated(con_dt))   call vtables_scalar (con_d, con_dt, 'CON_D')
 
-   if (allocated(con_ccnt)) call vtables_scalar (con_ccn,  con_ccnt,  'CON_CCN',  cu_mix=.true.)
    if (allocated(con_gccnt))call vtables_scalar (con_gccn, con_gccnt, 'CON_GCCN', cu_mix=.true.)
    if (allocated(con_ifnt)) call vtables_scalar (con_ifn,  con_ifnt,  'CON_IFN',  cu_mix=.true.)
+
+   do ic = 1,nccntyp
+      write(sname,'(a7,i3.3)') 'CON_CCN',ic
+      
+      if (allocated(ccntyp(ic)%con_ccn)) then
+         call vtables_scalar (ccntyp(ic)%con_ccn, ccntyp(ic)%con_ccnt, sname, cu_mix=.true.)
+      endif
+   enddo
 
    if (allocated(q2t))      call vtables_scalar (q2, q2t, 'Q2')
    if (allocated(q6t))      call vtables_scalar (q6, q6t, 'Q6')
@@ -269,16 +274,13 @@ Contains
    if (do_chem == 1) call cgrid_scalar_tabs()
 
    do iaddsc = 1,naddsc
-
       write(sname,'(a4,i3.3)') 'SCLP',iaddsc
       
       if (allocated(addsc(iaddsc)%sclt)) then
-         call vtables_scalar (addsc(iaddsc)%sclp, addsc(iaddsc)%sclt, sname, cu_mix=.true.)
+         call vtables_scalar (addsc(iaddsc)%sclp, addsc(iaddsc)%sclt, trim(sname), cu_mix=.true.)
       endif
-
    enddo
 
-   return
    end subroutine filltab_tend
 
 End Module mem_tend

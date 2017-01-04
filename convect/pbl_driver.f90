@@ -204,7 +204,7 @@ end subroutine pbl_driver
 
 subroutine pbl_init()
 
-  use mem_grid,      only: lsw, lpw, mza, mwa, arw, arw0, zfacm
+  use mem_grid,      only: lsw, lpw, mza, mwa, arw, arw0, zfacim2
   use mem_ijtabs,    only: jtab_w, jtw_prog, itabg_w
   use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, frac_sfc, &
                            ustar, wstar, wtv0, pblh, kpblh, fthpbl, fqtpbl
@@ -283,7 +283,7 @@ subroutine pbl_init()
            k  = lpw(iw) + ks - 1
            km = k - 1
            frac_sfc(ks,iw) = &
-                (arw(k,iw) / zfacm(k)**2 - arw(km,iw) / zfacm(km)**2) / arw0(iw)
+                (arw(k,iw) * zfacim2(k) - arw(km,iw) * zfacim2(km)) / arw0(iw)
         enddo
      endif
   enddo

@@ -290,50 +290,45 @@
  ! Microphysics
  !--------------------------------------------------------------------------
 
-   NL%LEVEL   = 3  ! Moisture complexity level:
-                   !  0 = no moisture
-                   !  1 = vapor only
-                   !  2 = vapor and diagnosed cloud only
-                   !  3 = use bulk microphysics 
+   NL%MICLEVEL = 3  ! Moisture complexity level:
+                    !  0 = no moisture
+                    !  1 = vapor only
+                    !  2 = vapor and diagnosed cloud only
+                    !  3 = use bulk microphysics 
  
-                   ! Choices:
-                   !-----------!
-   NL%ICLOUD  = 4  ! 0,1,4,5,6,7 ! 0 = category off
-   NL%IDRIZ   = 4  ! 0,1,4,5,6,7 ! 1 for ICLOUD, IDRIZ = same as 4 but CPARM, 
-   NL%IRAIN   = 2  ! 0,1,2,5     !   DPARM are not used
-   NL%IPRIS   = 5  ! 0,5,6,7     ! 1 for IRAIN, ISNOW, IAGGR, IGRAUP, IHAIL 
-   NL%ISNOW   = 2  ! 0,1,2,5     !   = same as 2 but RPARM, SPARM, APARM, 
-   NL%IAGGR   = 2  ! 0,1,2,5     !     GPARM, HPARM not used
-   NL%IGRAUP  = 2  ! 0,1,2,5     ! 2 = diameter specified and concen diagnosed
-   NL%IHAIL   = 2  ! 0,1,2,5     ! 4 = concen specified and diameter diagnosed
-                                 ! 5,6,7 = concen prognosed and diameter diagnosed
-                           ! 5 = CCN, GCCN, IFN concen specified constant
-                           ! 6 = CCN, GCCN, IFN concen specified in vert profile
-                           ! 7 = CCN, GCCN, IFN prognosed (incomplete)
-                                
-   NL%ICCNLEV = 0,        ! CCN 0=no source or sink
-                          !     1=nucleation CCN sink, evaporation CCN source 
+                  ! Options !
+                  !---------!
+   NL%ICLOUD = 4  !  0,4,5  ! 0 = category off
+   NL%IDRIZ  = 5  !  0,  5  ! 2 = diameter specified and concen diagnosed
+   NL%IPRIS  = 5  !  0,  5  ! 4 = concen specified and diameter diagnosed
+   NL%IRAIN  = 2  !  0,2,5  ! 5 = concen prognosed and diameter diagnosed
+   NL%ISNOW  = 2  !  0,2,5  !
+   NL%IAGGR  = 2  !  0,2,5  ! If any of IRAIN, ISNOW, IAGGR, IGRAUP, IHAIL
+   NL%IGRAUP = 2  !  0,2,5  ! are set to 5, all others not set to 0 will
+   NL%IHAIL  = 2  !  0,2,5  ! be set to 5 as well (in code)
 
-   NL%QXTRANS = 1,        ! 0 = no transport of rain/graupel/hail internal energy
-                          ! 1 = transport rain/graupel/hail internal energy 
+   NL%ICCN   = 1  ! 1   = CCN concentration is specified in CCNPARM
+                  ! 2+  = CCN is prognosed (ICCN value ID's a set of CCN types)
 
-   NL%CPARM   = 0.e6      ! Cloud concen (#/kg_air) if ICLOUD = 4, but if
-                          !    CPARM < 1.e6, OLAM uses geographically-distributed
-                          !    mean cloud droplet concentrations
-                          ! CCN concen (#/kg_air) if ICLOUD = 5
+   NL%IGCCN  = 1  ! 1 = GCCN concentration is specified in GCCNPARM
+                  ! 2 = GCCN is prognosed using source/sink terms
 
-   NL%DPARM   = 10.       ! Drizzle concen ([#/kg_air) if IDRIZ = 4,
-                          ! GCCN concen (#/kg_air) if IDRIZ = 5
+   NL%IIFN   = 1  ! 1 = IFN concentration is specified in IFNPARM
+                  ! 2 = IFN is prognosed using source/sink terms
 
-   NL%RPARM   = 1.0e-3    ! Rain droplet mean diameter (m) if IRAIN = 2
-   NL%PPARM   = 0.0       ! Not used
-   NL%SPARM   = 1.0e-3    ! Snow mean diameter (m) if ISNOW = 2
-   NL%APARM   = 1.0e-3    ! Aggregates mean diameter (m) if IAGGR = 2
-   NL%GPARM   = 1.0e-3    ! Graupel mean diameter (m) if IGRAUP = 2
-   NL%HPARM   = 3.0e-3    ! Hail mean diameter (m) if IHAIL = 2
+   NL%RPARM   = 1.0e-3  ! Rain mean diameter (m);used  if IRAIN = 2
+   NL%SPARM   = 1.0e-3  ! Snow mean diameter (m); used if ISNOW = 2
+   NL%APARM   = 1.0e-3  ! Aggregates mean diameter (m); used if IAGGR = 2
+   NL%GPARM   = 1.0e-3  ! Graupel mean diameter (m); used if IGRAUP = 2
+   NL%HPARM   = 3.0e-3  ! Hail mean diameter (m); used if IHAIL = 2
 
-   NL%CNPARM  = .04e-6    ! Median radius of the CCN dist (m)
-   NL%GNPARM  = 3.0e-6    ! Median radius of the GCCN dist (m)
+   NL%CCNPARM = 0.e6    ! CCN concentration (#/kg_air); used if ICCN = 1
+                        ! [If CCNPARM < 1.e6, CCN concentration assigned
+                        ! from geospatial observed time-mean data]
+
+   NL%GCCNPARM = 10.e3  ! GCCN concentration (#/kg_air); used if IGCCN = 1
+
+   NL%IFNPARM = 100.e3  ! IFN concentration (#/kg_air); used if IIFN = 1
 
  !--------------------------------------------------------------------------
  ! Sounding specification

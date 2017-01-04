@@ -32,10 +32,9 @@
 !===============================================================================
 subroutine oname_check()
 
-! THIS ROUTINE CHECKS THE OPTION SPECIFICATIONS OF THE NAMELIST
-! FILE OLAMIN FOR CONSISTENCY, AND OVERRIDES THE SETTINGS OF ICLOUD,
-! IDRIZ, IRAIN, IPRIS, ISNOW, IAGGR, IGRAUP, IHAIL, AND ICCNLEV, SETTING THEM
-! ALL TO ZERO IF LEVEL IS LESS THAN 3.
+! THIS ROUTINE CHECKS THE OPTION SPECIFICATIONS OF THE NAMELIST FILE OLAMIN
+! FOR CONSISTENCY, AND OVERRIDES THE SETTINGS OF ICLOUD, IDRIZ, IRAIN, IPRIS,
+! ISNOW, IAGGR, IGRAUP, and IHAIL, SETTING THEM ALL TO ZERO IF MICLEVEL < 3.
 
 ! EACH ERROR WILL BE ASSIGNED A SEVERITY.  FATAL ERRORS WILL CAUSE
 ! THE RUN TO STOP IMMEDIATELY AND WARNING ERRORS WILL BE LISTED.
@@ -334,9 +333,9 @@ enddo
 ! MICROPHYSICS PARAMETERS
 !--------------------------------------------------------------------------
 
-call ichk_bnds( nl%level, "LEVEL", 0, 3, 0, nfatal, nwarn )
+call ichk_bnds( nl%miclevel, "MICLEVEL", 0, 3, 0, nfatal, nwarn )
 
-if (nl%level <= 2) then
+if (nl%miclevel <= 2) then
    nl%icloud  = 0
    nl%idriz   = 0
    nl%irain   = 0
@@ -345,67 +344,70 @@ if (nl%level <= 2) then
    nl%iaggr   = 0
    nl%igraup  = 0
    nl%ihail   = 0
-   nl%iccnlev = 0
-   nl%qxtrans = 0
 
-elseif (nl%level == 3) then
+elseif (nl%miclevel == 3) then
 
-   if (.not. any(nl%icloud == (/0, 1, 4, 5, 6, 7/) )) then
-      write(io6,*) 'FATAL - icloud must be set to 0, 1, 4, 5, 6, or 7.'
+   if (.not. any(nl%icloud == (/0, 4, 5/) )) then
+      write(io6,*) 'FATAL - icloud must be set to 0, 4, or 5.'
       nfatal = nfatal + 1
    endif
    
-   if (.not. any(nl%idriz == (/0, 1, 4, 5, 6, 7/) )) then
-      write(io6,*) 'FATAL - idriz must be set to 0, 1, 4, 5, 6, or 7.'
+   if (.not. any(nl%idriz == (/0, 5/) )) then
+      write(io6,*) 'FATAL - idriz must be set to 0 or 5.'
       nfatal = nfatal + 1
    endif
    
-   if (.not. any(nl%irain == (/0, 1, 2, 5/) )) then
-      write(io6,*) 'FATAL - irain must be set to 0, 1, 2, or 5.'
+   if (.not. any(nl%irain == (/0, 2, 5/) )) then
+      write(io6,*) 'FATAL - irain must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
    
-   if (.not. any(nl%ipris == (/0, 5, 6, 7/) )) then
-      write(io6,*) 'FATAL - ipris must be set to 0, 5, 6, or 7.'
+   if (.not. any(nl%ipris == (/0, 5/) )) then
+      write(io6,*) 'FATAL - ipris must be set to 0 or 5.'
       nfatal = nfatal + 1
    endif
    
-   if (.not. any(nl%isnow == (/0, 1, 2, 5/) )) then
-      write(io6,*) 'FATAL - isnow must be set to 0, 1, 2, or 5.'
+   if (.not. any(nl%isnow == (/0, 2, 5/) )) then
+      write(io6,*) 'FATAL - isnow must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
    
-   if (.not. any(nl%iaggr == (/0, 1, 2, 5/) )) then
-      write(io6,*) 'FATAL - iaggr must be set to 0, 1, 2, or 5.'
+   if (.not. any(nl%iaggr == (/0, 2, 5/) )) then
+      write(io6,*) 'FATAL - iaggr must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
    
-   if (.not. any(nl%igraup == (/0, 1, 2, 5/) )) then
-      write(io6,*) 'FATAL - igraup must be set to 0, 1, 2, or 5.'
+   if (.not. any(nl%igraup == (/0, 2, 5/) )) then
+      write(io6,*) 'FATAL - igraup must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
    
-   if (.not. any(nl%ihail == (/0, 1, 2, 5/) )) then
-      write(io6,*) 'FATAL - ihail must be set to 0, 1, 2, or 5.'
+   if (.not. any(nl%ihail == (/0, 2, 5/) )) then
+      write(io6,*) 'FATAL - ihail must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
 
-   if (.not. any(nl%iccnlev == (/0, 1/) )) then
-      write(io6,*) 'FATAL - iccnlev must be set to 0 or 1.'
+   if (.not. any(nl%iccn == (/1, 2, 3, 4, 5/) )) then
+      write(io6,*) 'FATAL - iccn must be set to 1, 2, 3, 4, or 5.'
       nfatal = nfatal + 1
    endif
 
-   if (.not. any(nl%qxtrans == (/0, 1/) )) then
-      write(io6,*) 'FATAL - qxtrans must be set to 0 or 1.'
+   if (.not. any(nl%igccn == (/1, 2/) )) then
+      write(io6,*) 'FATAL - igccn must be set to 1 or 2.'
       nfatal = nfatal + 1
    endif
 
-   if (any(nl%icloud == (/4, 5/) )) &   
-      call rchk_bnds( nl%cparm, "CPARM", 0., 1.e10, 0, nfatal, nwarn )
+   if (.not. any(nl%iifn == (/1, 2/) )) then
+      write(io6,*) 'FATAL - iifn must be set to 1 or 2.'
+      nfatal = nfatal + 1
+   endif
 
-   if (any(nl%idriz == (/4, 5/) )) &   
-      call rchk_bnds( nl%dparm, "DPARM", 0.,  1.e3, 0, nfatal, nwarn )
+   if (nl%icloud == 5 .and. nl%iccn < 2) then
+      write(io6,*) 'FATAL - if icloud = 5, iccn must be at least 2.'
+      nfatal = nfatal + 1
+   endif
 
+   
    if (nl%irain == 2) &
       call rchk_bnds( nl%rparm, "RPARM", 0., 1.e-2, 0, nfatal, nwarn )
 
@@ -421,8 +423,9 @@ elseif (nl%level == 3) then
    if (nl%ihail == 2) &
       call rchk_bnds( nl%hparm, "HPARM", 0., 3.e-2, 0, nfatal, nwarn )
 
-   call rchk_bnds( nl%cnparm, "CNPARM", 0., 1.e-7, 0, nfatal, nwarn )
-   call rchk_bnds( nl%gnparm, "GNPARM", 0., 1.e-5, 0, nfatal, nwarn )
+   call rchk_bnds( nl%ccnparm,  "CCNPARM",  0., 2000.e6, 0, nfatal, nwarn )
+   call rchk_bnds( nl%gccnparm, "GCCNPARM", 0., 100.e3, 0, nfatal, nwarn )
+   call rchk_bnds( nl%ifnparm,  "IFNPARM",  0., 100.e3, 0, nfatal, nwarn )
 
 endif
 
@@ -708,8 +711,8 @@ endif
   
 ! CONVECTIVE PARAMETERIZATION MUST HAVE AT LEAST WATER VAPOR
 
-if (any(nl%nqparm(1:nl%ngrids) > 0) .and. nl%level == 0) then
-   write(io6,*) ' FATAL - LEVEL must be at least 1 for the cumulus parameterization'
+if (any(nl%nqparm(1:nl%ngrids) > 0) .and. nl%miclevel == 0) then
+   write(io6,*) ' FATAL - MICLEVEL must be at least 1 for the cumulus parameterization'
    nfatal = nfatal + 1
 endif
 
@@ -731,8 +734,8 @@ endif
 
 ! MUST HAVE WATER VAPOR IF USING VARIABLE INITIALIZATION
 
-if (nl%initial == 2 .and. nl%level == 0) then
-   write(io6,*) 'FATAL - Moisture complexity LEVEL must be 1 or larger if'
+if (nl%initial == 2 .and. nl%miclevel == 0) then
+   write(io6,*) 'FATAL - Moisture complexity MICLEVEL must be 1 or larger if'
    write(io6,*) 'variable initialization is used (i.e., if INITIAL = 2).'
    nfatal = nfatal + 1
 endif

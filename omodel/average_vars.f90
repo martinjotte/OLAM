@@ -52,7 +52,7 @@ subroutine inc_mavg_vars()
   use mem_turb,    only: sfluxr, sfluxt
   use misc_coms,   only: io6, dtlong, time8, isubdomain
   use mem_cuparm,  only: conprr
-  use mem_micro,   only: pcpgr
+!obs  use mem_micro,   only: pcpgr
   use mem_radiate, only: rshort, rshort_top, rshortup_top, rlong, rlongup, &
                          rlongup_top, albedt
   use mem_ijtabs,  only: jtab_w, jtw_prog
@@ -113,7 +113,7 @@ subroutine inc_mavg_vars()
       sensflux_mavg(iw) =  sensflux_mavg(iw) + sfluxt(iw) * cp
      windspeed_mavg(iw) = windspeed_mavg(iw) + windspeed
 
-     accpmic_mtot(iw) = accpmic_mtot(iw) + pcpgr(iw) * dtlong
+!obs     accpmic_mtot(iw) = accpmic_mtot(iw) + pcpgr(iw) * dtlong
      if (allocated(conprr)) then
         accpcon_mtot(iw) = accpcon_mtot(iw) + conprr(iw) * dtlong
      endif
@@ -136,7 +136,7 @@ subroutine inc_mavg_vars()
       rlongup_top_avg24(dhr,iw) =  rlongup_top_avg24(dhr,iw) + rlongup_top(iw)
           latflux_avg24(dhr,iw) =      latflux_avg24(dhr,iw) + sfluxr(iw) * alvl
          sensflux_avg24(dhr,iw) =     sensflux_avg24(dhr,iw) + sfluxt(iw) * cp
-          accpmic_tot24(dhr,iw) =      accpmic_tot24(dhr,iw) + pcpgr (iw) * dtlong
+!obs          accpmic_tot24(dhr,iw) =      accpmic_tot24(dhr,iw) + pcpgr (iw) * dtlong
      if (allocated(conprr)) then
           accpcon_tot24(dhr,iw) =      accpcon_tot24(dhr,iw) + conprr(iw) * dtlong
      endif
@@ -171,7 +171,7 @@ subroutine inc_davg_vars()
   use mem_turb,    only: sfluxr, sfluxt
   use misc_coms,   only: io6, dtlong, time8, isubdomain
   use mem_cuparm,  only: conprr
-  use mem_micro,   only: pcpgr
+!obs  use mem_micro,   only: pcpgr
   use mem_radiate, only: rshort, rshort_top, rshortup_top, rlong, rlongup, &
                          rlongup_top, albedt
 
@@ -210,7 +210,7 @@ subroutine inc_davg_vars()
      if (tempk_dmin(iw) > tair(k,iw)) tempk_dmin(iw) = tair(k,iw)
      if (tempk_dmax(iw) < tair(k,iw)) tempk_dmax(iw) = tair(k,iw)
 
-     accpmic_dtot(iw) = accpmic_dtot(iw) + pcpgr(iw) * dtlong
+!obs     accpmic_dtot(iw) = accpmic_dtot(iw) + pcpgr(iw) * dtlong
      if (allocated(conprr)) then
         accpcon_dtot(iw) = accpcon_dtot(iw) + conprr(iw) * dtlong
      endif

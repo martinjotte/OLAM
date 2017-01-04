@@ -50,6 +50,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_zonavg.f90 \
              $(MODEL_MODS)/micro_coms.f90 \
              $(MODEL_MODS)/misc_coms.f90 \
+             $(MODEL_MODS)/nuclei_coms.f90 \
              $(MODEL_MODS)/olam_mpi_atm.F90 \
              $(MODEL_MODS)/oname_coms.f90 \
              $(MODEL_MODS)/oplot_coms.f90 \
@@ -78,6 +79,7 @@ SOURCE_FILES= \
              $(OMODEL)/icosahedron.f90 \
              $(OMODEL)/lite_vars.f90 \
              $(OMODEL)/makesfc2.f90 \
+             $(OMODEL)/nuclei_deposition.f90 \
              $(OMODEL)/obnd.f90 \
              $(OMODEL)/ocio.f90 \
              $(OMODEL)/ohhi.f90 \
@@ -104,6 +106,7 @@ SOURCE_FILES= \
              $(OMODEL)/para_init.f90 \
              $(OMODEL)/pd_module.f90 \
              $(OMODEL)/prog_wrtv.f90 \
+             $(OMODEL)/salt_dust_src.f90 \
              $(OMODEL)/scalar_transport.f90 \
              $(OMODEL)/spawn_nest.f90 \
              $(OMODEL)/spring_dynamics.f90 \

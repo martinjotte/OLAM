@@ -32,7 +32,7 @@
 !===============================================================================
 subroutine haznuc()
 
-use micro_coms,  only: nthz, dthz, nrhhz, drhhz, frachz, cnparm
+use micro_coms,  only: nthz, dthz, nrhhz, drhhz, frachz
 use misc_coms,   only: io6
 use consts_coms, only: r8
 
@@ -48,7 +48,7 @@ real, external :: gammln
 
 denccn = 1.769       !Density of ammonium sulfate
 gnuccn = 2.          !Saleeby(02-21-2007) Originally = 1.
-dnccn  = 2. * cnparm !Saleeby(02-21-2007) Originally = .075e-4 cm
+dnccn  = 2. * .04e-6 !units are [m]; Saleeby(02-21-2007) Originally = .075e-4 [cm] = .075e-6 [m]
 ddccn  = .005d-4     !Increment [cm] of CCN diameter in numerical integration
                      !   over gamma size distribution
 
@@ -456,7 +456,7 @@ end subroutine tabmelt
 
 subroutine mkcoltb_brute()
 
-use micro_coms, only: nhcat, lcat_lhcat, jnmb, nembc, gnu, &
+use micro_coms, only: nhcat, lcat_lhcat, nembc, gnu, &
                       pwmas, cfmasi, pwmasi, emb0, emb1, cfvt, pwvt, cfmas, &
                       ipair, coltabc, coltabx, coltaby
 use misc_coms,  only: io6

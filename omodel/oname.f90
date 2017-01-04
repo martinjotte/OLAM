@@ -88,10 +88,10 @@ subroutine copy_nl()
                          ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
                          current_time, debug_fp, init_nans, do_chem
 
-  use micro_coms,  only: level, icloud, idriz, irain, ipris, &
-                         isnow, iaggr, igraup, ihail, iccnlev, &
-                         cparm, dparm, rparm, pparm, sparm, &
-                         aparm, gparm, hparm, cnparm, gnparm
+  use micro_coms,  only: miclevel, icloud, idriz, irain, ipris, isnow, iaggr, &
+                         igraup, ihail, iccn, igccn, iifn, &
+                         rparm, sparm, aparm, gparm, hparm, &
+                         ccnparm, gccnparm, ifnparm
 
   use leaf_coms,   only: nvgcon, nslcon, isoilflg, ndviflg, &
                          isfcl, ivegflg, nzg, nzs, slz, &
@@ -199,7 +199,7 @@ subroutine copy_nl()
   confrq        = nl%confrq
   seatmp        = nl%seatmp
   seaice        = nl%seaice
-  level         = nl%level
+  miclevel      = nl%miclevel
   icloud        = nl%icloud
   idriz         = nl%idriz
   irain         = nl%irain
@@ -208,17 +208,17 @@ subroutine copy_nl()
   iaggr         = nl%iaggr
   igraup        = nl%igraup
   ihail         = nl%ihail
-  iccnlev       = nl%iccnlev
-  cparm         = nl%cparm
-  dparm         = nl%dparm
+  iccn          = nl%iccn
+  igccn         = nl%igccn
+  iifn          = nl%iifn
   rparm         = nl%rparm
-  pparm         = nl%pparm
   sparm         = nl%sparm
   aparm         = nl%aparm
   gparm         = nl%gparm
   hparm         = nl%hparm
-  cnparm        = nl%cnparm
-  gnparm        = nl%gnparm
+  ccnparm       = nl%ccnparm
+  gccnparm      = nl%gccnparm
+  ifnparm       = nl%ifnparm
   nvgcon        = nl%nvgcon
   nslcon        = nl%nslcon
   nsndg         = nl%nsndg

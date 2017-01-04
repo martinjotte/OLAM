@@ -37,7 +37,7 @@ use mem_basic,   only: vmc, vmp, vc, vp, thil, sh_w, sh_v, &
 use mem_grid,    only: mza, mva, mwa, lpv, lpw, zm, zt
 use misc_coms,   only: io6, deltax, iparallel, runtype
 use mem_micro,   only: sh_c
-use micro_coms,  only: level
+use micro_coms,  only: miclevel
 use mem_ijtabs,  only: jtab_v, jtab_w, itab_v, itab_w, jtv_init, jtw_init
 use consts_coms, only: r8, pc1, rdry, rvap, cpocv, rocp, p00i
 use var_tables,  only: num_var, vtab_r
@@ -76,7 +76,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
       thil(k,iw) = theta(k,iw)
       sh_w(k,iw) = sh_v(k,iw)   ! no condensate considered here
-      if (level > 1) then
+      if (miclevel > 1) then
          sh_c(k,iw) = 0.        ! no condensate considered here
       endif
 

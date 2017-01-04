@@ -73,8 +73,6 @@ contains
     use consts_coms, only: t00
     use misc_coms,   only: io6, isubdomain, dtlm
     use mem_radiate, only: cosz, rshort, rshort_clr
-    use mem_cuparm,  only: conprr
-    use mem_micro,   only: pcpgr
     use mem_basic,   only: rho, vxe, vye, vze
 
     implicit none
@@ -167,8 +165,9 @@ contains
        ! Cumulative multiplication factor (over baseline emissions) 
        ! that accounts for soil pulsing
 
-       pcprate = conprr(iw) + pcpgr(iw)
+       pcprate = land%pcpg(iwl) / dtlm(1)
        ts_emis = dtlm(1)
+
        call PULSING( wfps, ts_emis, pcprate, PFACTOR(iwl), drytime(iwl) )
 
        ! Compute NOx canopy resistance

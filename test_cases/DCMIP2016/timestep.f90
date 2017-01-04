@@ -38,7 +38,7 @@ use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, time_bias, &
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag, io3
 use mem_grid,    only: mza, mva, mwa, nsw_max
-use micro_coms,  only: level
+use micro_coms,  only: miclevel
 use leaf_coms,   only: isfcl
 use mem_para,    only: myrank
 use mem_basic,   only: vmc, vc, vxe, vye, vze, vxe2, vye2, vze2, thil, rho, wmc, wc
@@ -95,7 +95,6 @@ if (time_istp8 < 1.e-3_r8) then
          call diagn_global_dcmip()
       endif
    endif
-
 endif
 
 do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
@@ -111,6 +110,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    if (mrl > 0) then
       call comp_alpha_press(mrl, alpha_press)
       call surface_turb_flux(mrl)
+      call sea_spray(mrl)
+      call dust_src(mrl)
       if (do_chem == 1) then
          call aero_sedi( mrl )
       endif
@@ -306,7 +307,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
    !--------------------------------------
 
-   if (level /= 3) then
+   if (miclevel /= 3) then
       call thermo()
    endif
 
@@ -341,12 +342,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    1311 continue
 
    mrl = mrl_endl(istp)
-   if (level == 3 .and. mrl > 0) then
+   if (miclevel == 3 .and. mrl > 0) then
       call micro()  ! maybe later make freq. uniform
-
-      if (isfcl == 1) then
-         call surface_precip_flux()
-      endif
    endif
 
    ! Bypass all processes except microphyics if running parcel test 901 or 902
@@ -387,7 +384,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
       if (iparallel == 1) call mpi_send_w(mrl, scalars='S')  ! Send scalars
 
-      if (level == 3) call omic_update_v_mom(mrl)
+      if (miclevel == 3) call omic_update_v_mom(mrl)
 
       if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')  ! Recv scalars
 
@@ -588,7 +585,7 @@ subroutine tend0(rhot)
 use mem_ijtabs, only: jtab_w, jtab_v, istp, mrl_begl, jtv_wstn, jtw_wstn
 use var_tables, only: scalar_tab, num_scalar
 use mem_grid,   only: mza, mwa, mva, lpv, lpw
-use mem_tend,   only: wmt, vmt, thilt, vmxet, vmyet, vmzet
+use mem_tend,   only: thilt, vmxet, vmyet, vmzet
 use misc_coms,  only: io6
 
 implicit none
@@ -618,25 +615,9 @@ if (mrl > 0) then
 do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
    do k = lpw(iw),mza
-      wmt  (k,iw) = 0.0
       vmxet(k,iw) = 0.0
       vmyet(k,iw) = 0.0
       vmzet(k,iw) = 0.0
-   enddo
-enddo
-!$omp end parallel do
-endif
-
-! SET V MOMENTUM TENDENCY TO ZERO
-
-!----------------------------------------------------------------------
-mrl = mrl_begl(istp)
-if (mrl > 0) then
-!$omp parallel do private(iv,k)
-do j = 1,jtab_v(jtv_wstn)%jend(mrl); iv = jtab_v(jtv_wstn)%iv(j)
-!----------------------------------------------------------------------
-   do k = lpv(iv),mza
-      vmt(k,iv) = 0.
    enddo
 enddo
 !$omp end parallel do
@@ -872,7 +853,6 @@ subroutine predtr_split(mrl,rho_old)
            dtl = dtlm(itab_w(iw)%mrlw)
 
            do k = lpw(iw), mza
-
               scalar_tab(n)%var_p(k,iw) = scalar_tab(n)%var_p(k,iw)  &
                                         + dtl * scalar_tab(n)%var_t(k,iw) / rho_old(k,iw)
               scalar_tab(n)%var_t(k,iw) = 0.0

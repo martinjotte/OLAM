@@ -10,7 +10,7 @@ use misc_coms,   only: io6, iparallel
 use consts_coms, only: p00, p00i, p00k, rocp, alvl, cp, cvocp, rdry, rvap, &
                        xscale, pio180, erad
 use mem_micro,   only: sh_c
-use micro_coms,  only: level
+use micro_coms,  only: miclevel
 
 use dcmip_initial_conditions_test_1_2_3, only: &
    test1_advection_deformation, &
@@ -380,9 +380,9 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
       do k = ka,mza
       
-         if (level == 0) then
+         if (miclevel == 0) then
             rho(k,iw) = press(k,iw) ** cvocp * p00k / (rdry * theta(k,iw))
-         elseif (level == 1) then
+         elseif (miclevel == 1) then
             rho(k,iw) = press(k,iw) ** cvocp * p00k  &
                / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
          else
@@ -702,7 +702,6 @@ use mem_grid,   only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
 use mem_addsc,  only: addsc
 use consts_coms, only: p00, rocp, erad, pio180, p00i
 use misc_coms,  only: dtlong
-use mem_micro,  only: pcpgr
 
 use dcmip_initial_conditions_test_1_2_3, only: &
    test1_advection_deformation, &
@@ -877,7 +876,7 @@ use consts_coms, only: r8, p00, rocp, erad, pio180, p00i
 use misc_coms,  only: dtlong, time8p, dtlm, io6, iparallel
 use mem_micro,  only: pcprr, accpr, sh_c, sh_r
 
-use mem_tend,   only: thilt, sh_wt, sh_ct, sh_rt, vmt, wmt, vmxet, vmyet, vmzet
+use mem_tend,   only: thilt, sh_wt, sh_ct, sh_rt, vmxet, vmyet, vmzet
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                         mpi_send_v, mpi_recv_v 

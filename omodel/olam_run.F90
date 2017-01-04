@@ -290,9 +290,10 @@ subroutine olam_run(name_name)
 
   call alloc_misc(mza)
 
-  write(io6,'(/,a)') 'olam_run calling jnmbinit'
+  write(io6,'(/,a)') 'olam_run calling jnmbinit and micinit_tabs'
 
   call jnmbinit()
+  call micinit_tabs()
 
 ! Setup CMAQ chemical species
 
@@ -316,12 +317,11 @@ subroutine olam_run(name_name)
      call olam_alloc_mpi(mza,mrls)
   endif
 
-  ! Initialize 3d microphysics fields (if level = 3) and other microphysics
+  ! Initialize 3d microphysics fields (if miclevel = 3) and other microphysics
   ! quantities
 
-  write(io6,'(/,a)') 'olam_run calling micinit'
+  write(io6,'(/,a)') 'olam_run calling micinit_fields'
 
-  call micinit_tabs()
   call micinit_fields()
 
   ! Initialize primary atmospheric fields

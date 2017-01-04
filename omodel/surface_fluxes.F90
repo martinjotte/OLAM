@@ -335,12 +335,6 @@ do iws = 2,mws
  ! sea%sea_sxfer_c(iws) = dtlm(1) * sea%sea_sfluxc(iws)
  ! sea%ice_sxfer_c(iws) = dtlm(1) * sea%ice_sfluxc(iws)
 
-! Reset surface precipitation flux arrays
-
-   sea%pcpg (iws) = 0.
-   sea%qpcpg(iws) = 0.
-   sea%dpcpg(iws) = 0.
-
 enddo
 !$omp end parallel do
 
@@ -479,12 +473,6 @@ do iwl = 2,mwl
    land%sxfer_t(iwl) = dtlm(1) * land%sfluxt(iwl) * tair(kw,iw) / theta(kw,iw)
    land%sxfer_r(iwl) = dtlm(1) * land%sfluxr(iwl)
    land%sxfer_c(iwl) = dtlm(1) * land%sfluxc(iwl)
-
-! Reset surface precipitation flux arrays
-
-   land%pcpg (iwl) = 0.
-   land%qpcpg(iwl) = 0.
-   land%dpcpg(iwl) = 0.
 
 enddo
 !$omp end parallel do
@@ -748,80 +736,3 @@ endif
 
 end subroutine surface_cuparm_flux
 
-!===============================================================================
-
-subroutine surface_precip_flux()
-
-use mem_micro,   only: pcpgr, qpcpgr, dpcpgr
-use mem_leaf,    only: land, itab_wl
-use mem_sea,     only: sea, itab_ws
-use mem_ijtabs,  only: istp, mrl_endl, itabg_w
-use leaf_coms,   only: mwl, mrl_leaf
-use sea_coms,    only: mws
-use misc_coms,   only: io6, isubdomain, dtlm
-use ed_misc_coms,only: ed2_active
-
-implicit none
-
-integer :: iw
-integer :: iwl, iws
-integer :: mrl
-
-! Subroutine to transfer atmospheric microphysics parameterization 
-! precipitation flux to surface cells.
-
-! Land fluxes to be done for PRECIP 
-!    1. for mrl = 0, no fluxes 
-!    2. For mrl > mrl_leaf, do fluxes at end of long timestep at given mrl
-!    3. For mrl <= mrl_leaf, do fluxes at end of long timestep
-!                            for all points in mrl = 1
-
-mrl = mrl_endl(istp)
-if (mrl > 0) then
-
-! Transfer precipitation FLUX to leaf land cells
-
-   !$omp parallel do private(iw)
-   do iwl = 2, mwl
-
-      iw = itab_wl(iwl)%iw
-      if (isubdomain == 1) then
-         iw = itabg_w(iw)%iw_myrank
-      endif
-
-      land%pcpg (iwl) = land%pcpg (iwl) + dtlm(1) * pcpgr (iw)
-      land%qpcpg(iwl) = land%qpcpg(iwl) + dtlm(1) * qpcpgr(iw)
-      land%dpcpg(iwl) = land%dpcpg(iwl) + dtlm(1) * dpcpgr(iw)
-
-   enddo
-   !$omp end parallel do
-
-#ifdef USE_ED2
-   if (ed2_active == 1) then
-      call copy_micro_to_ed()
-   endif
-#endif
-
-! Transfer precipitation FLUX to sea cells
-
-   !$omp parallel do private(iw)
-   do iws = 2, mws
-
-      iw = itab_ws(iws)%iw
-      if (isubdomain == 1) then
-         iw = itabg_w(iw)%iw_myrank
-      endif
-
-      sea%pcpg (iws) = sea%pcpg (iws) + dtlm(1) * pcpgr (iw)
-      sea%qpcpg(iws) = sea%qpcpg(iws) + dtlm(1) * qpcpgr(iw)
-      sea%dpcpg(iws) = sea%dpcpg(iws) + dtlm(1) * dpcpgr(iw)
-
-   enddo
-   !$omp end parallel do
-
-endif
-
-! pcpgr, qpcpgr, dpcpgr have now been "transferred" to leaf cells.
-! No need to zero pcpgr, qpcpgr, dpcpgr since microphysics will replace them.
-
-end subroutine surface_precip_flux

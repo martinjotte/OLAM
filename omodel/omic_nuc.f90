@@ -30,17 +30,1259 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine cldnuc(iw0,lpw0,dtli0, &
-                  cldnumx,rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa, &
+Module ccnbin_coms
+
+  ! Physical parameters used in CCN nucleation calculations
+
+  real, parameter :: pi1  = 3.141592654
+  real, parameter :: pi2  = pi1 * 2.0
+  real, parameter :: pio2 = pi1 * 0.5
+  real, parameter :: pio4 = pi1 * 0.25
+  real, parameter :: pio6 = pi1 / 6.0
+  real, parameter :: grav = 9.8
+
+  real, parameter :: cp     = 1004.   ! dry air spec heat at const P [J/(kg K)]
+  real, parameter :: rdry   = 287.    ! dry air gas constant [J/(kg K)]
+  real, parameter :: rvap   = 461.    ! water vapor gas constant [J/(kg K)]
+  real, parameter :: alvl   = 2.50e6  ! latent heat of evaporation [J/kg]
+  real, parameter :: rhow   = 1.0e3   ! density of water [kg/m^3]
+  real, parameter :: afhh   = 2.25    ! Kumar et al. (2011) Eq. (4) parameter
+  real, parameter :: bfhh   = 1.2     ! Kumar et al. (2011) Eq. (4) parameter
+  real, parameter :: d2moli = 1.818e9 ! 1 / (2 * diam of h2o molecule) [m^-1]
+
+  real, parameter :: xalphac = 1. ! condens accomodation coeff {was 0.042 in GNF}
+
+  ! Petters and Kreidenweis (2007) used the following fixed values of temperature
+  ! and surface tension in determining kappa values for various aerosol types.
+  ! Kappa values may need to be re-calibrated if ever these values of tempkap
+  ! and sfctension are changed.
+
+  real, parameter :: tempkap = 298.15   ! [K]
+  real, parameter :: sfctension = 0.072 ! [N/m]
+
+  ! Memory for CCN bins
+
+  integer :: nccntyp    ! number of CCN types
+  integer :: nnuc       ! number of prognosed CCN + GCCN + IFN types
+  integer :: nbins      ! total number of CCN bins, summed over all CCN types
+  integer :: idust1 = 0 ! index for Fine Dust in ccntyp and nucx arrays
+  integer :: idust2 = 0 ! index for Coarse Dust in ccntyp and nucx arrays
+  integer :: isalt  = 0 ! index for sea salt (film mode) in ccntyp and nucx arrays
+  integer :: igccnx = 0 ! index for GCCN in nucx arrays
+  integer :: iifnx  = 0 ! index for IFN in nucx arrays
+
+  ! Arrays dimensioned by nccntype
+
+  character(40), allocatable :: ccntyp_name(:) ! ccn type name
+
+  integer, allocatable :: nbins_ccntyp(:) ! # of bins to allocate for ccn type
+
+  real, allocatable :: ccntyp_dmin (:) ! ccn type dry diam [m] in smallest-size bin
+  real, allocatable :: ccntyp_dmax (:) ! ccn type dry diam [m] in largest-size bin
+  real, allocatable :: ccntyp_dmed (:) ! ccn type median dry diam [m]
+  real, allocatable :: ccntyp_dsig (:) ! ccn type dry diam shape parameter []
+  real, allocatable :: ccntyp_kappa(:) ! ccn type kappa param []
+  real, allocatable :: ccntyp_alpha(:) ! Fraction of each CCN type that has IFN properties
+
+  ! Arrays dimensioned by nnuc = nccntyp + 1 (if GCCN prognosed) + 1 (if IFN prognosed)
+
+  real, allocatable ::    rho_nucx(:) ! CCN, GCCN, or IFN dry density [kg/m^3]
+  real, allocatable :: bkappa_nucx(:) ! CCN, GCCN, or IFN kappa parameter []
+  real, allocatable :: diam_nucx(:,:) ! CCN, GCCN, or IFN wet diameter [m] at 7 relhum
+                                      ! values, but diam_nucx(1,:) = dry diameter
+
+  ! Arrays dimensioned by nbins
+
+  character(40), allocatable :: ccnbin_name(:)
+  integer,       allocatable :: iccntyp    (:)
+  integer,       allocatable :: iccnjbin   (:)
+  integer,       allocatable :: ihyg       (:)
+
+  real, allocatable :: bkappa    (:)
+  real, allocatable :: relcon_bin(:)
+  real, allocatable :: drydiam   (:)
+  real, allocatable :: drydiam3  (:)
+  real, allocatable :: wetdiam099(:)
+  real, allocatable :: wetdiam100(:)
+  real, allocatable :: critdiam  (:)
+  real, allocatable :: critsat   (:)
+  real, allocatable :: d01sat    (:)
+  real, allocatable :: d10sat    (:)
+  real, allocatable :: d30sat    (:)
+  real, allocatable :: d50sat    (:)
+  real, allocatable :: crits     (:)
+
+  real :: dminprog, dmaxinit, dactivate
+
+end module ccnbin_coms
+
+!=============================================================================
+
+subroutine ccnbin_init()
+
+  use ccnbin_coms, only: pi2, rdry, rvap, cp, &
+                         rhow, tempkap, sfctension, xalphac, &
+                         nccntyp, nnuc, nbins, idust1, idust2, isalt, igccnx, iifnx, &
+                         ccntyp_name, nbins_ccntyp, ccntyp_dmin, ccntyp_dmax, &
+                         ccntyp_dmed, ccntyp_dsig, ccntyp_kappa, ccntyp_alpha, &
+                         bkappa, relcon_bin, drydiam, drydiam3, wetdiam099, &
+                         wetdiam100, critdiam, critsat, d01sat, d10sat, &
+                         d30sat, d50sat, crits, ccnbin_name, iccntyp, iccnjbin, ihyg, &
+                         dminprog, dmaxinit, dactivate, diam_nucx, rho_nucx, bkappa_nucx
+
+  use micro_coms,  only: iccn, igccn, iifn
+                         
+  implicit none
+
+  integer :: jbins, ic, jbin, ibin, inewt, i0, inuc
+  real :: d01, d10, d30, d50
+  real :: ax, sqrt2, dsiglog, dmedlog
+  real :: aux1, aux2, aux3, aux4, scal
+  real :: dbnd1, dbnd2
+  real :: ddlog, wetd, dwetd, satk, satkp, satkpp
+  real :: tot,tot_ifn, f0
+  
+  ! The value of ICCN determines a unique set of CCN types to be prognosed.
+  ! New sets may be added here by adding ELSEIF sections in the next two
+  ! IF-ENDIF blocks and filling with appropriate values.  The first IF-ENDIF
+  ! block defines the number of CCN types so that arrays can be dimensioned
+  ! to the proper size.
+
+  ! For ICCN = 1, in which case CCN are specified rather than diagnosed, 
+  ! set nccntyp to 1 so that ccntyp_alpha can be used.
+
+  if (iccn == 1) then
+     nccntyp = 1
+  elseif (iccn == 2) then
+     nccntyp = 1
+  elseif (iccn == 3) then
+     nccntyp = 1
+  elseif (iccn == 4) then
+     nccntyp = 3
+  elseif (iccn == 5) then
+     nccntyp = 8
+  endif
+
+  allocate (ccntyp_name (nccntyp))
+  allocate (nbins_ccntyp(nccntyp))
+  allocate (ccntyp_dmin (nccntyp))
+  allocate (ccntyp_dmax (nccntyp))
+  allocate (ccntyp_dmed (nccntyp))
+  allocate (ccntyp_dsig (nccntyp))
+  allocate (ccntyp_kappa(nccntyp))
+  allocate (ccntyp_alpha(nccntyp))
+
+  ! Sum number of prognosed CCN + GCCN + IFN types and allocate arrays to include all
+
+  nnuc = 0
+
+  if (iccn >= 2) nnuc = nccntyp
+  if (igccn == 2) then
+     nnuc = nnuc + 1
+     igccnx = nnuc
+  endif
+  if (iifn == 2) then
+     nnuc = nnuc + 1
+     iifnx = nnuc
+  endif
+
+  allocate (   diam_nucx(7,nnuc))
+  allocate (    rho_nucx  (nnuc))
+  allocate ( bkappa_nucx  (nnuc))
+
+  ! Fill information for each CCN type.  Kappa should be at least 0.005 for
+  ! kappa formulation to apply, and should not exceed 1.28, the highest known
+  ! value for any CCN (NaCl).  If kappa is below the minimum threshold, the
+  ! particle is assumed to be governed by the adsorption formula.
+  ! ccntyp_dmin must not be less than 0.001 micron or greater than 100 microns.
+
+  ! Set zero default values for idust1, idust2, isalt, and ccntyp_alpha(:)
+
+  idust1 = 0
+  idust2 = 0
+  isalt = 0
+  ccntyp_alpha(:) = 0.
+
+  if (iccn == 1) then  ! ICCN denotes diagnostic CCN type; ccntyp_alpha(1) is required
+
+     nbins_ccntyp(1) = 0
+     ccntyp_name (1) = 'Dust'
+     ccntyp_alpha(1) = 0.088
+
+  elseif (iccn == 2) then ! 1 prognostic CCN type: Fine Dust
+
+     idust1 = 1
+     ccntyp_name (1) = 'Fine Dust'
+     nbins_ccntyp(1) = 20
+     ccntyp_dmed (1) = 0.2e-6
+     ccntyp_dsig (1) = 2.0
+     ccntyp_kappa(1) = 0.00
+     diam_nucx (1,1) = 0.2e-6
+      rho_nucx   (1) = 2.5e3
+
+  elseif (iccn == 3) then ! 1 prognostic CCN type: Sea Salt.
+
+     isalt = 1
+     ccntyp_name (1) = 'Sea Salt'
+     nbins_ccntyp(1) = 20
+     ccntyp_dmed (1) = 0.15e-6
+     ccntyp_dsig (1) = 1.5
+     ccntyp_kappa(1) = 1.20
+     diam_nucx (1,1) = 0.15e-6
+      rho_nucx   (1) = 2.165e3
+
+  elseif (iccn == 4) then ! 3 prognostic CCN types: Fine Dust, Coarse Dust, Sea Salt
+
+     idust1 = 1
+     ccntyp_name (1) = 'Fine Dust'
+     nbins_ccntyp(1) = 20
+     ccntyp_dmed (1) = 0.2e-6
+     ccntyp_dsig (1) = 2.0
+     ccntyp_kappa(1) = 0.00
+     diam_nucx (1,1) = 0.2e-6
+      rho_nucx   (1) = 2.5e3
+
+     idust2 = 2
+     ccntyp_name (2) = 'Coarse Dust'
+     nbins_ccntyp(2) = 20
+     ccntyp_dmed (2) = 3.0e-6
+     ccntyp_dsig (2) = 2.0
+     ccntyp_kappa(2) = 0.00
+     diam_nucx (1,2) = 3.0e-6
+      rho_nucx   (2) = 2.65e3
+
+     isalt = 3
+     ccntyp_name (3) = 'Sea Salt'
+     nbins_ccntyp(3) = 20
+     ccntyp_dmed (3) = 0.15e-6
+     ccntyp_dsig (3) = 1.5
+     ccntyp_kappa(3) = 1.20
+     diam_nucx (1,3) = 0.15e-6
+      rho_nucx   (3) = 2.165e3
+
+  elseif (iccn == 5) then
+
+     ! ICCN = 5 denotes a set of the following 8 CCN types that were selected
+     ! for a study of aerosol impacts on tropical cyclones.  Source functions
+     ! for most of these CCN are derived from the GEOS-Chem model.
+
+     idust1 = 1
+     ccntyp_name (1) = 'Fine Dust'
+     nbins_ccntyp(1) = 20
+     ccntyp_dmed (1) = 0.2e-6
+     ccntyp_dsig (1) = 2.0
+     ccntyp_kappa(1) = 0.00
+     diam_nucx (1,1) = 0.2e-6
+      rho_nucx   (1) = 2.5e3
+
+     idust2 = 2
+     ccntyp_name (2) = 'Coarse Dust'
+     nbins_ccntyp(2) = 20
+     ccntyp_dmed (2) = 3.0e-6
+     ccntyp_dsig (2) = 2.0
+     ccntyp_kappa(2) = 0.00
+     diam_nucx (1,2) = 3.0e-6
+      rho_nucx   (2) = 2.65e3
+
+     isalt = 3
+     ccntyp_name (3) = 'Sea Salt'
+     nbins_ccntyp(3) = 20
+     ccntyp_dmed (3) = 0.15e-6
+     ccntyp_dsig (3) = 1.5
+     ccntyp_kappa(3) = 1.20
+     diam_nucx (1,3) = 0.15e-6
+      rho_nucx   (3) = 2.165e3
+
+     ccntyp_name (4) = 'SO4'
+     nbins_ccntyp(4) = 20
+     ccntyp_dmed (4) = 0.11e-6
+     ccntyp_dsig (4) = 1.6
+     ccntyp_kappa(4) = 1.0
+     diam_nucx (1,4) = 0.11e-6
+      rho_nucx   (4) = 2.5e3 !?
+
+     ccntyp_name (5) = 'NO3_NH4'
+     nbins_ccntyp(5) = 20
+     ccntyp_dmed (5) = 0.11e-6
+     ccntyp_dsig (5) = 1.6
+     ccntyp_kappa(5) = 1.00
+     diam_nucx (1,5) = 0.11e-6
+      rho_nucx   (5) = 2.5e3 !?
+
+     ccntyp_name (6) = 'Black Carbon' ! Combined Hydrophobic and Hydrophylic carbon from GEOS-Chem
+     nbins_ccntyp(6) = 20
+     ccntyp_dmed (6) = 0.02e-6
+     ccntyp_dsig (6) = 1.6
+     ccntyp_kappa(6) = 0.00
+     diam_nucx (1,6) = 0.02e-6
+      rho_nucx   (6) = 2.5e3 !?
+
+     ccntyp_name (7) = 'Hydrophilic Organic Carbon'
+     nbins_ccntyp(7) = 20
+     ccntyp_dmed (7) = 0.09e-6
+     ccntyp_dsig (7) = 1.6
+     ccntyp_kappa(7) = 0.10
+     diam_nucx (1,7) = 0.09e-6
+      rho_nucx   (7) = 2.5e3 !?
+
+     ccntyp_name (8) = 'Hydrophobic Organic Carbon'
+     nbins_ccntyp(8) = 20
+     ccntyp_dmed (8) = 0.09e-6
+     ccntyp_dsig (8) = 1.6
+     ccntyp_kappa(8) = 0.01
+     diam_nucx (1,8) = 0.09e-6
+      rho_nucx   (8) = 2.5e3 !?
+
+  endif
+
+  if (iccn >= 2) bkappa_nucx(1:nccntyp) = ccntyp_kappa(1:nccntyp)
+ 
+  if (igccn == 2) then
+       diam_nucx(1,igccnx) = 1.0e-6
+        rho_nucx(  igccnx) = 2.5e3
+     bkappa_nucx(  igccnx) = 1.20 ! Value for salt
+  endif
+
+  if (iifn == 2) then
+       diam_nucx(1,iifnx) = 1.0e-6 ! Only used for sedimentation velocity
+        rho_nucx(  iifnx) = 2.5e3
+     bkappa_nucx(  iifnx) = 0. ! Value for dust
+  endif
+
+  ! The minimum and maximum bin sizes, ccntyp_dmin and ccntyp_dmax, can be set
+  ! to about 1/5 of and 5 times ccntyp_dmed, respectively, as long as ccntyp_dsig is
+  ! set to 2.0 or less.  Using 20 bins, this results in the first and last bins each
+  ! holding about 1% of the population.  With ccntyp_dsig set to 1.5 and using
+  ! 20 bins, the first and last bins each hold less than 0.1% of the population.
+  ! Limit ccntyp_dmax to values no larger than 2 microns since GCCN are treated
+  ! separately in the model (as the GCCN category).  However, allow dust2 category
+  ! to have larger (unlimited) sizes to represent large mineral dust without 
+  ! significant solute content.
+
+  ccntyp_dmin(:) =     0.2 * ccntyp_dmed(:)
+  ccntyp_dmax(:) = min(5.0 * ccntyp_dmed(:), 2.0e-6)
+
+  if (idust2 > 0) then
+     ccntyp_dmax(idust2) = 5.0 * ccntyp_dmed(idust2)
+  endif
+
+! Count up total number of bins over all CCN types
+
+  nbins = sum(nbins_ccntyp(1:nccntyp))
+
+  if (nbins < 1) return
+
+  ! Allocate arrays for all size-bins of all CCN types
+
+  allocate (ccnbin_name(nbins))
+  allocate (iccntyp    (nbins))
+  allocate (iccnjbin   (nbins))
+  allocate (ihyg       (nbins))
+  allocate (bkappa     (nbins))
+  allocate (relcon_bin (nbins))
+  allocate (drydiam    (nbins))
+  allocate (drydiam3   (nbins))
+  allocate (wetdiam099 (nbins))
+  allocate (wetdiam100 (nbins))
+  allocate (critdiam   (nbins))
+  allocate (critsat    (nbins))
+  allocate (d01sat     (nbins))
+  allocate (d10sat     (nbins))
+  allocate (d30sat     (nbins))
+  allocate (d50sat     (nbins))
+  allocate (crits      (nbins))
+
+  dminprog =   3.e-6 ! minimum droplet diameter for prognosis
+  dmaxinit =  10.e-6 ! maximum droplet initial diameter (unless large drydiam)
+  dactivate = 20.e-6 ! minimum droplet diameter to guarantee activation
+
+  ! Initialize bins from input "ccntyp" arrays
+
+  sqrt2 = sqrt(2.)
+  jbins = 0
+  do ic = 1, nccntyp
+
+     ax = log(ccntyp_dmax(ic) / ccntyp_dmin(ic)) / (nbins_ccntyp(ic) * log(2.))
+     dbnd1 = ccntyp_dmin(ic)
+     tot = 0.
+     tot_ifn = 0.
+
+     do jbin = 1,nbins_ccntyp(ic)
+        ibin = jbins + jbin
+
+        ccnbin_name(ibin) = ccntyp_name(ic)
+        iccntyp    (ibin) = ic
+        iccnjbin   (ibin) = jbin
+
+        ! Set up the CCN size spectrum -- geometric progression of diameter
+
+        dbnd2 = ccntyp_dmin(ic) * 2.0**(jbin * ax)
+        drydiam (ibin) = 0.5 * (dbnd1 + dbnd2)
+        drydiam3(ibin) = drydiam(ibin)**3
+        bkappa  (ibin) = ccntyp_kappa(ic)
+
+        ! Set up initial aerosol distribution
+
+        dsiglog = log(ccntyp_dsig(ic))
+        dmedlog = log(ccntyp_dmed(ic))
+
+        aux1 = (log(dbnd1) - dmedlog)**2 
+        aux2 = (log(dbnd2) - dmedlog)**2 
+        aux1 = aux1 / (2. * dsiglog**2)
+        aux2 = aux2 / (2. * dsiglog**2)
+        aux3 = exp (-aux1)
+        aux4 = exp (-aux2)
+        aux3 = aux3 / (sqrt(pi2) * dbnd1 * dsiglog)
+        aux4 = aux4 / (sqrt(pi2) * dbnd2 * dsiglog)
+        relcon_bin(ibin) = 0.5 * (aux4 + aux3) * (dbnd2 - dbnd1)
+        tot = tot + relcon_bin(ibin)
+
+        if (dbnd1 >= 0.5e-6) then
+           tot_ifn = tot_ifn + relcon_bin(ibin)
+        elseif (dbnd2 > 0.5e-6) then
+           tot_ifn = tot_ifn + relcon_bin(ibin) &
+                   * (dbnd2 - 0.5e-6) / (dbnd2 - dbnd1)
+        endif
+
+        dbnd1 = dbnd2
+
+     enddo
+
+     ! For dust, determine ccntyp_alpha parameter based on fraction of CCN in
+     ! bins for sizes 0.5 microns and greater.  
+
+     if (ic == idust1) then
+        ccntyp_alpha(ic) = tot_ifn / tot
+        print*, 'ccntyp_alpha for idust1 ',ic,ccntyp_alpha(ic)
+     elseif (ic == idust2) then
+        ccntyp_alpha(ic) = tot_ifn / tot
+        print*, 'ccntyp_alpha for idust2 ',ic,ccntyp_alpha(ic)
+     endif
+
+     ! Rescale distribution to compensate for any accumulated errors
+
+     scal = 1. / tot
+
+     tot = 0.
+
+     do jbin = 1,nbins_ccntyp(ic)
+        ibin = jbins + jbin
+
+        relcon_bin(ibin) = relcon_bin(ibin) * scal
+        tot = tot + relcon_bin(ibin)
+
+        print*, 'filledb ',ic,jbin,ibin,drydiam(ibin),relcon_bin(ibin)
+
+     enddo
+
+     jbins = jbins + nbins_ccntyp(ic)
+
+  enddo
+
+  ! Loop over bins and for each one diagnose selected points on the Kohler curve
+  ! using calls to subroutine satkap
+
+  do ibin = 1,nbins
+
+     ! Choose initial wetd greater than drydiam to ensure and accelerate
+     ! convergence.  For absorption, factor of 1.01 is ok with bkappa in the
+     ! range (.001, 1.28) and drydiam in the range (.001, 100.) microns.
+     ! For adsorption (flagged by bkappa < .001), base wetd on drydiam.
+
+     if (bkappa(ibin) > 1.e-3) then  ! Absorption (kappa formula)
+        wetd = drydiam(ibin) * 1.01
+     else                            ! Adsorption (Kumar et al. formula)
+        ddlog = log(drydiam(ibin)) + 6.6
+        wetd = drydiam(ibin) * (1.33 + .0075 * ddlog**2)
+     endif
+
+     ! Diagnose critical diameter and saturation using Newton-Raphson method
+
+     do inewt = 1,50
+
+        call satkap(wetd, drydiam(ibin), drydiam3(ibin), bkappa(ibin), &
+                    satk, satkp, satkpp, 1)
+
+        if (satkpp < 0.) then
+           dwetd = -satkp / satkpp
+           if (abs(dwetd/wetd) < 1.e-6) exit
+           wetd = wetd + dwetd
+        else
+           print*, 'non-negative satkpp ',ibin,inewt, &
+           drydiam(ibin),wetd,satk,satkp,satkpp
+           stop
+        endif
+
+     enddo
+     critdiam(ibin) = wetd
+     critsat (ibin) = satk
+
+     ! Diagnose equilibrium diameter at satenv = 0.99 using Newton-Raphson method
+
+     if (bkappa(ibin) > 1.e-3) then
+        wetd = drydiam(ibin) * 1.0001
+     else
+        ddlog = log(drydiam(ibin)) + 8.6
+        wetd = drydiam(ibin) * (1.0005 + .00004 * ddlog**4)
+     endif
+
+     do inewt = 1,50
+        call satkap(wetd, drydiam(ibin), drydiam3(ibin), bkappa(ibin), &
+                    satk, satkp, satkpp, 1)
+
+        if (satkp > 0.) then
+           dwetd = - (satk - 0.99) / satkp
+           if (abs(dwetd/wetd) < 1.e-6) exit
+           wetd = wetd + dwetd
+        else
+           print*, 'non-positive satkp99 ',ibin,inewt,drydiam(ibin),wetd,satk,satkp
+           stop
+        endif
+     enddo
+     wetdiam099(ibin) = wetd
+
+     ! Diagnose equilibrium diameter at satenv = 1.00 using Newton-Raphson method
+
+     if (bkappa(ibin) > 1.e-3) then
+        wetd = drydiam(ibin) * 1.0001
+     else
+        ddlog = log(drydiam(ibin)) + 6.6
+        wetd = drydiam(ibin) * (1.07 + .003 * ddlog**2)
+     endif
+
+     do inewt = 1,50
+        call satkap(wetd, drydiam(ibin), drydiam3(ibin), bkappa(ibin), &
+                    satk, satkp, satkpp, 1)
+
+        if (satkp > 0.) then
+           dwetd = - (satk - 1.00) / satkp
+           if (abs(dwetd/wetd) < 1.e-6) exit
+           wetd = wetd + dwetd
+        else
+           print*, 'non-positive satkp100 ',ibin,inewt,drydiam(ibin),wetd,satk,satkp
+           stop
+        endif
+     enddo
+     wetdiam100(ibin) = wetd
+
+     ! Call to satkap for equilibrium saturation at d01, d10, d30, and d50
+     ! between wetdiam100 and critdiam
+
+     d01 = 0.99 * wetdiam100(ibin) + 0.01 * critdiam(ibin)
+     d10 = 0.90 * wetdiam100(ibin) + 0.10 * critdiam(ibin)
+     d30 = 0.70 * wetdiam100(ibin) + 0.30 * critdiam(ibin)
+     d50 = 0.50 * wetdiam100(ibin) + 0.50 * critdiam(ibin)
+
+     call satkap(d01, drydiam(ibin), drydiam3(ibin), bkappa(ibin), &
+                 satk, satkp, satkpp, 0)
+     d01sat(ibin) = satk
+
+     call satkap(d10, drydiam(ibin), drydiam3(ibin), bkappa(ibin), &
+                 satk, satkp, satkpp, 0)
+     d10sat(ibin) = satk
+
+     call satkap(d30, drydiam(ibin), drydiam3(ibin), bkappa(ibin), &
+                 satk, satkp, satkpp, 0)
+     d30sat(ibin) = satk
+
+     call satkap(d50, drydiam(ibin), drydiam3(ibin), bkappa(ibin), &
+                 satk, satkp, satkpp, 0)
+     d50sat(ibin) = satk
+
+  enddo
+
+  ! Rank all bins from lowest to highest critical saturation values.
+  ! Save this ordering in ihyg array.
+
+  do ibin = 1,nbins
+     crits(ibin) = critsat(ibin)
+     ihyg(ibin) = ibin
+  enddo
+
+  do ibin = 1,nbins-1
+     do jbin = ibin+1,nbins
+        if (crits(jbin) < crits(ibin)) then
+           f0 = crits(ibin)
+           crits(ibin) = crits(jbin)
+           crits(jbin) = f0
+
+           i0 = ihyg(ibin)
+           ihyg(ibin) = ihyg(jbin)
+           ihyg(jbin) = i0
+        endif
+     enddo
+  enddo
+
+! Special print to examine relative hygroscopicity of TC-project aerosols
+
+   do ibin = 1,nbins
+      jbin = ihyg(ibin)
+
+      write(6,'(a,3i7,3f10.6)') 'ibin,jbin,iccntyp(jbin) ', &
+            ibin,jbin,iccntyp(jbin),crits(ibin),critsat(jbin),drydiam(jbin)*1.e6
+  enddo
+
+  ! Loop over nnuc (number of CCN + GCCN + IFN types) and for a chosen particle
+  ! diameter characteristic of each type, diagnose selected points on the
+  ! Kohler curve using calls to subroutine satkap.  The diagnosed wet diameters
+  ! for different relative humidity values are used to compute gravitational
+  ! settling velocity for deposition. 
+
+  do inuc = 1,nnuc
+
+     ! Choose initial wetd greater than dry diameter, stored in diam_nucx(1,inuc),
+     ! to ensure and accelerate convergence.  For absorption, factor of 1.01
+     ! is ok with bkappa_nucx in the range (.001, 1.28) and dry diameter in the
+     ! range (.001, 100.) microns.  For adsorption (flagged by bkappa_nucx < .001),
+     ! base wetd on dry diameter.
+
+     ! Diagnose equilibrium diameter at satenv = 0.90 using Newton-Raphson method
+
+     if (bkappa_nucx(inuc) > 1.e-3) then
+        wetd = diam_nucx(1,inuc) * 1.0001
+     else
+        wetd = diam_nucx(1,inuc)
+        go to 10
+     endif
+
+     do inewt = 1,50
+        call satkap(wetd, diam_nucx(1,inuc), diam_nucx(1,inuc)**3, bkappa_nucx(inuc), &
+                    satk, satkp, satkpp, 1)
+
+        if (satkp > 0.) then
+           dwetd = - (satk - 0.90) / satkp
+           if (abs(dwetd/wetd) < 1.e-6) exit
+           wetd = wetd + dwetd
+        else
+           print*, 'non-positive satkp90 nucx ',inuc,inewt,diam_nucx(1,inuc),wetd,satk,satkp
+           stop
+        endif
+     enddo
+     10 continue
+     diam_nucx(2,inuc) = wetd
+
+     ! Diagnose equilibrium diameter at satenv = 0.97 using Newton-Raphson method
+
+     if (bkappa_nucx(inuc) > 1.e-3) then
+        wetd = diam_nucx(1,inuc) * 1.0001
+     else
+        ddlog = log(diam_nucx(1,inuc)) + 8.6
+        wetd = diam_nucx(1,inuc) * (1.0005 + .00004 * ddlog**4)
+     endif
+
+     do inewt = 1,50
+        call satkap(wetd, diam_nucx(1,inuc), diam_nucx(1,inuc)**3, bkappa_nucx(inuc), &
+                    satk, satkp, satkpp, 1)
+
+        if (satkp > 0.) then
+           dwetd = - (satk - 0.97) / satkp
+           if (abs(dwetd/wetd) < 1.e-6) exit
+           wetd = wetd + dwetd
+        else
+           print*, 'non-positive satkp97 nucx ',inuc,inewt,diam_nucx(1,inuc),wetd,satk,satkp
+           stop
+        endif
+     enddo
+     diam_nucx(3,inuc) = wetd
+
+     ! Diagnose equilibrium diameter at satenv = 0.99 using Newton-Raphson method
+
+     if (bkappa_nucx(inuc) > 1.e-3) then
+        wetd = diam_nucx(1,inuc) * 1.0001
+     else
+        ddlog = log(diam_nucx(1,inuc)) + 8.6
+        wetd = diam_nucx(1,inuc) * (1.0005 + .00004 * ddlog**4)
+     endif
+
+     do inewt = 1,50
+        call satkap(wetd, diam_nucx(1,inuc), diam_nucx(1,inuc)**3, bkappa_nucx(inuc), &
+                    satk, satkp, satkpp, 1)
+
+        if (satkp > 0.) then
+           dwetd = - (satk - 0.99) / satkp
+           if (abs(dwetd/wetd) < 1.e-6) exit
+           wetd = wetd + dwetd
+        else
+           print*, 'non-positive satkp99 nucx ',inuc,inewt,diam_nucx(1,inuc),wetd,satk,satkp
+           stop
+        endif
+     enddo
+     diam_nucx(4,inuc) = wetd
+
+     ! Diagnose equilibrium diameter at satenv = 0.997 using Newton-Raphson method
+
+     if (bkappa_nucx(inuc) > 1.e-3) then
+        wetd = diam_nucx(1,inuc) * 1.0001
+     else
+        ddlog = log(diam_nucx(1,inuc)) + 8.6
+        wetd = diam_nucx(1,inuc) * (1.0005 + .00004 * ddlog**4)
+     endif
+
+     do inewt = 1,50
+        call satkap(wetd, diam_nucx(1,inuc), diam_nucx(1,inuc)**3, bkappa_nucx(inuc), &
+                    satk, satkp, satkpp, 1)
+
+        if (satkp > 0.) then
+           dwetd = - (satk - 0.997) / satkp
+           if (abs(dwetd/wetd) < 1.e-6) exit
+           wetd = wetd + dwetd
+        else
+           print*, 'non-positive satkp997 nucx ',inuc,inewt,diam_nucx(1,inuc),wetd,satk,satkp
+           stop
+        endif
+     enddo
+     diam_nucx(5,inuc) = wetd
+
+     ! Diagnose equilibrium diameter at satenv = 0.999 using Newton-Raphson method
+
+     if (bkappa_nucx(inuc) > 1.e-3) then
+        wetd = diam_nucx(1,inuc) * 1.0001
+     else
+        ddlog = log(diam_nucx(1,inuc)) + 8.6
+        wetd = diam_nucx(1,inuc) * (1.0005 + .00004 * ddlog**4)
+     endif
+
+     do inewt = 1,50
+        call satkap(wetd, diam_nucx(1,inuc), diam_nucx(1,inuc)**3, bkappa_nucx(inuc), &
+                    satk, satkp, satkpp, 1)
+
+        if (satkp > 0.) then
+           dwetd = - (satk - 0.999) / satkp
+           if (abs(dwetd/wetd) < 1.e-6) exit
+           wetd = wetd + dwetd
+        else
+           print*, 'non-positive satkp999 nucx ',inuc,inewt,diam_nucx(1,inuc),wetd,satk,satkp
+           stop
+        endif
+     enddo
+     diam_nucx(6,inuc) = wetd
+
+     ! Diagnose equilibrium diameter at satenv = 1.00 using Newton-Raphson method
+
+     if (bkappa_nucx(inuc) > 1.e-3) then
+        wetd = diam_nucx(1,inuc) * 1.0001
+     else
+        ddlog = log(diam_nucx(1,inuc)) + 6.6
+        wetd = diam_nucx(1,inuc) * (1.07 + .003 * ddlog**2)
+     endif
+
+     do inewt = 1,50
+        call satkap(wetd, diam_nucx(1,inuc), diam_nucx(1,inuc)**3, bkappa_nucx(inuc), &
+                    satk, satkp, satkpp, 1)
+
+        if (satkp > 0.) then
+           dwetd = - (satk - 1.00) / satkp
+           if (abs(dwetd/wetd) < 1.e-6) exit
+           wetd = wetd + dwetd
+        else
+           print*, 'non-positive satkp100 nucx ',inuc,inewt,diam_nucx(1,inuc),wetd,satk,satkp
+           stop
+        endif
+     enddo
+     diam_nucx(7,inuc) = wetd
+
+  enddo
+
+  do inuc = 1,nnuc
+     write(6,'(a,i5,7f10.2)') 'diam_nucx ',inuc,1.e6 * diam_nucx(1,inuc), &
+                                   diam_nucx(2,inuc) / diam_nucx(1,inuc), &
+                                   diam_nucx(3,inuc) / diam_nucx(1,inuc), &
+                                   diam_nucx(4,inuc) / diam_nucx(1,inuc), &
+                                   diam_nucx(5,inuc) / diam_nucx(1,inuc), &
+                                   diam_nucx(6,inuc) / diam_nucx(1,inuc), &
+                                   diam_nucx(7,inuc) / diam_nucx(1,inuc)
+  enddo
+
+end subroutine ccnbin_init
+
+!=============================================================================
+
+! Subroutine CCNBIN simulates growth of water droplets on CCN in an environment
+! of increasing saturation.  CCN are sorted into bins, each of which represents
+! a particular hygroscopicity (represented by the kappa parameter; Petters and
+! Kreidenweis, 2007) and diameter.  For bins whose critical saturation is
+! exceeded by environmental saturation, the wetted CCN grow freely as small
+! cloud droplets, while most of the remainder (those that have not crossed the
+! energy barrier represented by the Kohler curve) remain in stable equilibrium
+! as unactivated haze particles.  An exception is made for very large CCN that
+! can take on substantial water before reaching the critical diameter at the
+! peak of the Kohler curve; these droplets are allowed to grow freely in the
+! manner of activated cloud droplets once they have exceeded a specified
+! threshold diameter.  The particular set of bins that develop into cloud
+! droplets is determined by the maximum supersaturation attained and is the
+! principal result of the simulation, along with the amount of water condensed
+! onto the CCN.  The simulation is stopped automatically when the point is
+! reached where enough new cloud drops have developed and grown to sufficient
+! size that they take on vapor at a rate that exceeds environmental production
+! of supersaturation.  However, a maximum duration of the simulation is
+! specified externally based on the particular application (such as the length
+! of a host model timestep) and need not be long enough for saturation to reach
+! a maximum and begin to decrease.
+
+! This code is adapted from earlier versions of program/subroutine PARCEL:
+! Michael Sabin, NCAR (5/20/88)
+! Larry Miloshevich, NCAR (10/16/90)
+! Graham Feingold, CIRES, CIRA (1991-2000)
+! Bob Walko, CSU (2000)
+! Steve Saleeby, CSU (2000-2011)
+! Dan Ward, CSU (2009)
+! Dave Lerach, CSU (2010)
+
+! The CSU developers used PARCEL to generate nucleation tables for RAMS (and
+! later, OLAM).  The Ward/Lerach developments introduced the kappa parameter as
+! a measure of hygroscopicity (Petters and Kreidenweis, 2007), while the
+! Walko/Saleeby version retained the original form without kappa.
+
+! The present CCNBIN code uses the kappa form and was adapted by Bob Walko
+! (2014) from the earlier Walko, Saleeby, and Ward/Lerach versions.  Major
+! restructuring and modification were done to make the code callable as
+! subroutines in OLAM.  This enables CCN activation to be represented during
+! simulation time without resorting to lookup tables.  The added computational
+! cost of a simulation is sometimes outweighed by the flexibility of
+! representing any mixture of different CCN types (kappas) and diameters,
+! including multiple size modes.  The present form of the code could also be
+! used to generate lookup tables, given an appropriate driver program, although
+! it is impractical for lookup tables to exploit the full range of CCN size and
+! kappa mixtures that can occur.
+
+! CCNBIN differs substantially from PARCEL in several ways:
+! (1) Prognostic equations for atmospheric vapor and droplet water content are
+!     reformulated as specific densities (relative to combined mass of all
+!     atmospheric constituents) instead of absolute densities (relative to
+!     volume), which simplifies their form and reduces computation.
+!     (In PARCEL, some terms that involved atmospheric density tendency
+!     cancelled anyway and thus did not need to be evaluated.)
+! (2) Subroutine ZZBREN, which used the bisection rule to find solutions
+!     involving the Kohler curve, was replaced by the Newton-Raphson method,
+!     which converges faster.
+! (3) Subroutine vode, which solved a system of ODEs in PARCEL, was found to
+!     be too slow, especially with a large number of bins, so it was replaced
+!     by a more direct in-line solver that exploits the known behavior of the
+!     physical system to gain efficiency.  Vode also would have required 
+!     restructuring (e.g., replacement of common blocks) for multi-threaded
+!     applications of OLAM.
+! (4) Very small (sub-micron size) unactivated droplets are in highly stable
+!     equilibrium with environmental saturation and respond extremely rapidly
+!     to changes in saturation with a small change in diameter.  It is more
+!     computationally efficient to diagnose, rather than prognose, droplet
+!     diameters in this regime in order to avoid the need for extremely short
+!     prognostic timesteps (or frequent evaluations of droplet surface
+!     saturation as was performed in PARCEL via subroutine vode).  Droplets of
+!     larger diameter are more efficiently prognosed.  We thus use a threshold
+!     wet diameter (of a few microns) to determine whether to diagnose or
+!     prognose a droplet.  In addition, diagnosis of unactivated droplet
+!     diameter is approximated by linear interpolation between selected droplet
+!     wet diameters where equilibrium saturation is first pre-diagnosed
+!     iteratively.  Interpolation is sufficiently accurate and is far more
+!     efficient than more precise diagnosis arrived at iteratively.
+
+subroutine ccnbin(iw0, k, ntim, timespan, &
+                  tempk0, press0, rhoa0, rhov0, sh_v0, satenv0, &
+                  tempk1, press1, rhoa1, rhov1, sh_v1, satenv1, &
+                  con_cp, con_ccny, satenvmax, cactivated, sh_wbc)
+
+  use ccnbin_coms, only: pi2, pio2, pio4, pio6, rdry, rvap, cp, &
+                         rhow, tempkap, sfctension, xalphac, &
+                         nccntyp, nbins, &
+                         nbins_ccntyp, ccntyp_dmin, ccntyp_dmax, ccntyp_dmed, &
+                         ccntyp_dsig, ccntyp_kappa, &
+                         bkappa, relcon_bin, drydiam, drydiam3, wetdiam099, &
+                         wetdiam100, critdiam, critsat, d01sat, d10sat, &
+                         d30sat, d50sat, crits, ihyg, &
+                         dminprog, dmaxinit, dactivate
+
+
+  implicit none
+
+  integer, intent(in) :: iw0         ! OLAM grid horizontal index
+  integer, intent(in) :: k           ! OLAM grid vertical index
+  integer, intent(in) :: ntim        ! # of timesteps to be run in parcel model
+
+  real, intent(in) :: timespan
+  real, intent(in) ::  tempk0,  tempk1 ! initial & final air temperatures [K]
+  real, intent(in) ::  press0,  press1 ! initial & final pressures [Pa]
+  real, intent(in) ::   rhoa0,   rhoa1 ! initial & final air densities   [kg_a/m^3]
+  real, intent(in) ::   rhov0,   rhov1 ! initial & final vapor densities [kg_v/m^3]
+  real, intent(in) ::   sh_v0,   sh_v1 ! initial & final vapor spec dens [kg_v/kg_a]
+  real, intent(in) :: satenv0, satenv1 ! initial & final saturation (env) [ ]
+  real, intent(inout) :: cactivated, sh_wbc
+  real, intent(inout) :: satenvmax
+  real, intent(in) :: con_cp           ! concentration of cloud + pristine ice [#/m^3]
+  real, intent(in) :: con_ccny(nccntyp)! prognosed concentration of each CCN type [#/m^3]
+
+! Local arrays
+
+  integer :: iprognose(nbins) ! bin prognose flag  (0 = no, 1 = yes)
+
+  real :: con_bin(nbins)
+  real :: wetdiam(nbins)
+
+  ! Local variables
+
+  integer :: ibin, ic, jbin, maxsat, itim, jbins
+
+  real :: dtim, tim, fractim, diagdiam, frac
+  real :: tot
+  real :: sh_wb
+  real :: satenv
+  real :: tempk, press, rhoa, rhov, sh_v, rhov_remain
+  real :: satk, satkp, satkpp
+  real :: rlv, pratio, rlambda, dvn, rkan, fdcfac, fkafac
+  real :: rad, rad2, dsv, fksa, t1, t2, t3, tn, td
+
+  real, external :: few, flhv, rhovsl
+
+  ! If critical saturation of all bins exceeds ending environmental saturation, return
+
+  if (all(critsat(1:nbins) > satenv1)) return
+
+  ! Initialize quantities before time loop
+
+  satenvmax = 0.
+  rlv = FLHV(tempk0)
+  maxsat = 0
+  iprognose(:) = 0
+
+  dtim = timespan / ntim
+  tim = 0.
+
+  wetdiam(1:nbins) = drydiam(1:nbins)
+
+  ! Fill con_bin values for current CCNBIN integration
+
+  jbins = 0
+  do ic = 1, nccntyp
+     do jbin = 1,nbins_ccntyp(ic)
+        ibin = jbins + jbin
+        con_bin(ibin) = relcon_bin(ibin) * con_ccny(ic)
+     enddo
+     jbins = jbins + nbins_ccntyp(ic)
+  enddo
+
+  ! If cloud droplets and/or pristine ice already exist in this parcel, assume
+  ! that they have nucleated from the most hygroscopic bins of CCN and that
+  ! those bins are therefore not currently available for nucleation.  Set bin 
+  ! concentrations to zero, beginning with the most hygroscopic, until reaching
+  ! the number of already-activated hydrometeors input to this routine.  (If 
+  ! pristine ice has nucleated from IN, its concentrations will be insignificant
+  ! compared to CCN, so the zeroing will have negligible effect.  If pristine
+  ! ice was homogeneously frozen from cloud droplets, it will be at high
+  ! concentration but zeroing of CCN bins is appropriate because of the cloud
+  ! droplet origin of the pristine ice.)
+
+  tot = 0.
+
+  do ibin = 1,nbins
+     jbin = ihyg(ibin)
+     tot = tot + con_bin(jbin)
+
+     if (tot < con_cp) then
+        con_bin(jbin) = 0.
+     else
+        con_bin(jbin) = max(0.,tot - con_cp)
+        exit
+     endif 
+  enddo
+
+  ! Start the time loop
+
+  do itim = 1,ntim 
+
+     tim = tim + dtim
+     fractim = tim / timespan
+
+     ! Sum water mixing ratio over all bins [kg_wb/kg_a]
+
+     sh_wb = rhow * pio6 &
+           * sum(con_bin(1:nbins) * (wetdiam(1:nbins)**3 - drydiam3(1:nbins)))
+
+     ! Update environmental variables
+
+     tempk = tempk0 + fractim * (tempk1 - tempk0) + rlv * sh_wb / cp
+     press = press0 + fractim * (press1 - press0)
+     rhoa  = rhoa0  + fractim * ( rhoa1 -  rhoa0)
+     rhov  = rhov0  + fractim * ( rhov1 -  rhov0)
+     sh_v  = sh_v0  + fractim * ( sh_v1 -  sh_v0)
+
+     ! Vapor density remaining after bin water uptake [kg_v/m^3]
+
+     rhov_remain = rhov * (1. - sh_wb / sh_v)
+
+     ! Saturation ratio; Latent heat of vaporization
+
+     satenv = rhov_remain / rhovsl(tempk-273.15)
+     rlv = FLHV(tempk)
+
+     ! Limit satenv on first 4 iterations to smooth sudden onset of latent heating
+
+     if (itim == 1) then
+        satenv = min(satenv,0.99)
+     elseif (itim == 2) then
+        satenv = min(satenv,0.995)
+     elseif (itim == 3) then
+        satenv = min(satenv,0.998)
+     elseif (itim == 4) then
+        satenv = min(satenv,0.999)
+     endif
+
+     ! Atmospheric properties used for computing droplet vapor diffusional growth
+
+     pratio  = 1.01325e5 / press
+     rlambda = 6.6e-8 * pratio * (tempk / 293.15)   ! mean free path P&K 10-106
+     dvn     = 0.211e-4 * pratio * (tempk / 273.15)**1.94   ! diffusivity P&K 13-3 but MKS
+     rkan    = 4.38e-3 + 7.118e-5 * tempk   ! therm cond P&K 13-16 but in MKS with K
+     fdcfac  = dvn * SQRT(pi2 / (rvap * tempk)) / xalphac
+     fkafac  = rkan * SQRT(pi2 / (rdry * tempk)) / (0.96 * cp * rhoa)
+
+     ! Loop over bins to update droplet diameters
+
+     do ibin = 1,nbins
+
+        ! For bins that have not yet been prognosed, diagnose diameter by
+        ! interpolation between pre-determined diameters
+
+        if (iprognose(ibin) == 0) then
+
+           if (satenv >= critsat(ibin)) then
+              diagdiam = max(dminprog,critdiam(ibin))
+           elseif (satenv >= d50sat(ibin)) then
+              frac = (satenv - d50sat(ibin)) / (critsat(ibin) - d50sat(ibin))
+              diagdiam = (.50 + .50 * frac) * critdiam(ibin) &
+                       + (.50 - .50 * frac) * wetdiam100(ibin)
+           elseif (satenv >= d30sat(ibin)) then
+              frac = (satenv - d30sat(ibin)) / (d50sat(ibin) - d30sat(ibin))
+              diagdiam = (.30 + .20 * frac) * critdiam(ibin) &
+                       + (.70 - .20 * frac) * wetdiam100(ibin)
+           elseif (satenv >= d10sat(ibin)) then
+              frac = (satenv - d10sat(ibin)) / (d30sat(ibin) - d10sat(ibin))
+              diagdiam = (.10 + .20 * frac) * critdiam(ibin) &
+                       + (.90 - .20 * frac) * wetdiam100(ibin)
+           elseif (satenv >= d01sat(ibin)) then
+              frac = (satenv - d01sat(ibin)) / (d10sat(ibin) - d01sat(ibin))
+              diagdiam = (.01 + .09 * frac) * critdiam(ibin) &
+                       + (.99 - .09 * frac) * wetdiam100(ibin)
+           elseif (satenv >= 1.00) then
+              frac = (satenv - 1.00) / (d01sat(ibin) - 1.00)
+              diagdiam = (       .01 * frac) * critdiam(ibin) &
+                       + (1.00 - .01 * frac) * wetdiam100(ibin)
+           elseif (satenv >= 0.99) then
+              frac = (satenv - 0.99) / 0.01
+              diagdiam = (       frac) * wetdiam100(ibin) &
+                       + (1.00 - frac) * wetdiam099(ibin)
+           else
+              diagdiam = wetdiam099(ibin)
+           endif
+
+           if (satenv >= 0.99) then
+              if (diagdiam >= dminprog * 0.999 .or. &
+                  drydiam(ibin)*1.1 >= dminprog) then
+
+                 wetdiam(ibin) = max(drydiam(ibin)*1.1, min(dmaxinit,diagdiam))
+                 iprognose(ibin) = 1
+              endif
+           endif
+
+        endif  ! iprognose(ibin) == 0
+
+        ! Prognose wet diameter for bins flagged for prognosis
+
+        if (iprognose(ibin) == 1) then
+
+           ! Time derivative of droplet diameter due to vapor diffusion.
+
+           rad  = wetdiam(ibin) * 0.5
+           rad2 = rad * rad / (rlambda + rad)
+           dsv  = dvn * rad / (rad2 + fdcfac) ! modified diffusivity P&K 13-13
+           fksa = rkan * rad / (rad2 + fkafac) ! modified therm cond P&K 13-20
+
+           t1 = rlv * rhow / (tempk * fksa) ! P&K 13-28 denom term 2A
+           t2 = rlv / (tempk * rvap) - 1.   ! P&K 13-28 denom term 2B
+           t3 = rhow * tempk * rvap / (dsv * FEW(tempk)) ! P&K 13-28 denom term 1
+
+           call satkap(wetdiam(ibin), drydiam(ibin), drydiam3(ibin), bkappa(ibin), &
+                       satk, satkp, satkpp, 0)
+
+           tn = satenv - satk
+           td = t3 + (t1 * t2)
+
+           ! Update of wet diameter.  To improve computational stability,
+           ! use volume tendency of growing drop and diameter tendency of
+           ! shrinking drop.
+
+           if (tn > 0.) then
+              wetdiam(ibin) = (wetdiam(ibin)**3 &
+                            + dtim * 12. * wetdiam(ibin) * tn / td)**(1./3.)
+           else
+              wetdiam(ibin) = max(drydiam(ibin) * 1.0001, wetdiam(ibin) &
+                            + dtim * 4. * tn / (wetdiam(ibin) * td))
+           endif
+
+        endif  ! iprognose(ibin) == 1
+
+     enddo  ! ibin
+
+     satenvmax = max(satenvmax,satenv)
+
+     ! If running ccnbin as part of OLAM (or other model), halt integration of
+     ! ccnbin once satenv has begun to decrease in time (due to newly activated
+     ! droplets consuming excess vapor faster than environmental production).  This
+     ! prevents newly activated droplets from consuming excess moisture (aided by
+     ! their solute effect) before they are introduced to the cloud droplet
+     ! population which has no solute effect. 
+
+     if (satenv < satenvmax - 0.00001) exit
+
+  enddo    ! itim
+
+  ! Sum number concentration [#_droplets/kg_a] and bulk specific density
+  ! [kg_wb/kg_a] of droplets over all ACTIVATED bins.  Define "activated" ccn
+  ! as those whose critical saturation has been exceeded by environmental
+  ! saturation and/or whose wet diameter exceeds dactivate.  Even though very
+  ! large CCN are often not truly activated (because there was insufficient
+  ! time for them to grow to their critical diameters), they are still more
+  ! amenable to continued growth than smaller truly-activated CCN and thus
+  ! qualify to become cloud droplets.
+
+  cactivated = 0.
+  sh_wbc = 0.
+
+  do ibin = 1,nbins
+
+     if (critsat(ibin) < satenvmax .or. wetdiam(ibin) > dactivate) then
+        cactivated = cactivated + con_bin(ibin)
+        sh_wbc = sh_wbc + rhow * pio6 &
+               * con_bin(ibin) * (wetdiam(ibin)**3 - drydiam3(ibin))
+     endif
+
+  enddo
+
+end subroutine ccnbin
+
+!=============================================================================
+
+real function FEW (t)
+
+! Function FEW calculates saturation vapor pressure [Pa] over water for
+! a given temperature [K].
+
+  data ts,sr /373.16, 3.0057166/ !log(1013.246)=3.0057166
+  ar  = ts/t
+  ar1 = ar - 1.
+  br  = 7.90298 * ar1
+  cr  = 5.02808 * LOG10(ar)
+  dw  = 1.3816e-7 * (10.**(11.344 * (ar1/ar)) - 1.)
+  er  = 8.1328e-3 * (10.**(-3.49149 * ar1) - 1.)
+  answer = 10.**(cr-dw+er+sr-br)
+  FEW = answer * 100.
+
+end function few
+
+!=============================================================================
+
+real function FLHV (t)
+
+!  purpose:  This function calculates the latent heat of vaporization for     
+!    water as per P&K eqn. 4-85a. The result is then converted to     
+!           J/kg.  T is deg K.                                             
+
+  rga  = 0.167 + (3.67e-4 * t)
+  rlhv  = 597.3 * (273.15 / t)**rga
+  FLHV = rlhv / 2.38844e-04
+
+!Bob:  A reasonable quadratic fit (in J/kg) is:
+!Bob:  flhv = 2500795. + tempc * (2.3 * tempc - 2453.)
+!Bob:  (Result is within 300 J/kg of above formula between +/- 40 deg C)
+
+end function flhv
+
+!=============================================================================
+
+! Subroutine satkap evaluates the saturation vapor mixing ratio at the surface
+! of an aerosol particle and its first and second derivatives with respect to
+! wet diameter.  For bkappa > 1.e-4, the aerosol is assumed to be sufficiently
+! soluble that wet growth is described by Eqn (6) of Petters and Kreidenweis
+! (2007) using the kappa parameter.  For bkappa < 1.e-4, the aerosol is assumed
+! to be insoluble with wet growth occuring by adsorption and described by
+! Eqn (4) of Kumar et al. (2011).
+
+subroutine satkap(wetdiam, drydiam, drydiam3, bkappa, satk, satkp, satkpp, ids)
+
+  use ccnbin_coms, only: rvap, rhow, tempkap, sfctension, &
+                         afhh, bfhh, d2moli
+
+  implicit none
+
+  real, intent(in)  :: drydiam, wetdiam, drydiam3, bkappa
+  real, intent(out) :: satk, satkp, satkpp
+
+  integer, intent(in) :: ids
+
+  real(kind=8) :: wetdiam2, wetdiam3, curvcof, curvterm
+  real(kind=8) :: actdenom, actterm, term1, term2, term3, term4, term5
+  real(kind=8) :: curv1, curv2, act1, act2, act3
+
+  curvcof  = 4.0 * sfctension / (rvap * tempkap * rhow)
+
+  if (bkappa > 1.e-4) then
+
+     wetdiam2 = wetdiam * wetdiam
+     wetdiam3 = wetdiam2 * wetdiam
+
+     curvterm = exp(curvcof / wetdiam)
+     actdenom = wetdiam3 - drydiam3 * (1 - bkappa)
+     actterm = (wetdiam3 - drydiam3) / actdenom
+
+     satk = real(actterm * curvterm)
+
+     if (ids == 0) return
+
+     term1 = 3. * curvterm * wetdiam2 / actdenom
+     term2 = term1 * actterm
+     term3 = curvcof * satk / wetdiam2
+
+     satkp = real(term1 - term2 - term3)
+
+     term4 = (6. / actdenom) * (1. - actterm) &
+           * (wetdiam - curvcof - 3.0 * wetdiam2**2 / actdenom)
+
+     term5 = (actterm * curvcof / wetdiam3) * (2. + curvcof / wetdiam)
+
+     satkpp = curvterm * real(term4 + term5) 
+
+  else
+
+     curv1 = curvcof / wetdiam
+     act1 = (wetdiam - drydiam) * d2moli
+     act2 = afhh * act1**(-bfhh)
+
+     satk = exp(real(curv1 - act2))
+
+     if (ids == 0) return
+
+     curv2 = curv1 / wetdiam
+     act3 = act2 * bfhh * d2moli / act1
+
+     satkp = satk * (-curv2 + act3)
+
+     satkpp = satkp * (-curv2 + act3) &
+            + satk * (2. * curv2 / wetdiam + act3 * (-bfhh - 1) * d2moli / act1)
+
+  endif
+
+end subroutine satkap
+
+!=============================================================================
+
+subroutine cldnuc(iw0,lpw0,dtli0,nbincall, &
+                  rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa,press0, &
                   tair,tairc,wc0,rhovslair,rnuc_vc,rnuc_vd,cnuc_vc,cnuc_vd)
 
-!BOB: Add i,j, or iw0 to arguments?
-
-use micro_coms,  only: jnmb, parm, emb0, emb1, cparm, mza0, ncat, &
-                       iccnlev, dparm, cnparm, gnparm, rxmin
-use misc_coms,   only: io6
+use micro_coms,  only: jnmb, emb0, emb1, mza0, ncat, &
+                       igccn, rxmin
+use ccnbin_coms, only: nccntyp
+use misc_coms,   only: io6, dtlm
 use mem_grid,    only: zt
-use consts_coms, only: rvap, grav, alvl, cp, cliq, alli, eps_vapi
+use consts_coms, only: r8, rvap, grav, alvl, cp, cliq, alli, eps_vapi
 
 implicit none
 
@@ -48,18 +1290,20 @@ integer, intent(in) :: iw0
 integer, intent(in) :: lpw0
 
 real, intent(in) :: dtli0
-real, intent(in) :: cldnumx
+
+integer, intent(inout) :: nbincall
 
 real, intent(inout) :: rx(mza0,ncat)
 real, intent(inout) :: cx(mza0,ncat)
 real, intent(inout) :: qr(mza0,ncat)
 real, intent(inout) :: qx(mza0,ncat)
 
-real, intent(inout) :: con_ccnx (mza0)
+real, intent(inout) :: con_ccnx (mza0,nccntyp)
 real, intent(inout) :: con_gccnx(mza0)
 
 real, intent(inout) :: rhov  (mza0)
 real, intent(in) :: rhoi     (mza0)
+real, intent(in) :: press0   (mza0)
 real, intent(in) :: tair     (mza0)
 real, intent(in) :: tairc    (mza0)
 real, intent(in) :: wc0      (mza0)
@@ -70,2186 +1314,217 @@ real, intent(inout) :: cnuc_vd(mza0)
 real, intent(inout) :: rnuc_vc(mza0)
 real, intent(inout) :: rnuc_vd(mza0)
 
-real(kind=8), intent(in) :: rhoa(mza0)
+real(r8), intent(in) :: rhoa(mza0)
 
-integer :: k,jtemp,jw,jcon,iw,iconc
+integer :: k
 
-real :: rnuc,cnuc,excessrhov,rhocnew,tab,concen_tab,cxadd, &
-   tairc_nuc,w_nuc,rjw,wtw2,wtw1,con_ccnk,con_gccnk,rjcon,wtcon2,wtcon1
+real :: excessrhov, excessnum
+real :: rnuc_vc_min, rnuc_vc_max
+real :: a1inv,w_pseudo
+real :: cactivated, sh_wbc, satenvmax
 
-real :: con_ccn_tab, con_gccn_tab, con_ccn_nuc, con_gccn_nuc, frac
+! CCNBIN variables
 
-integer :: ic,rgb,jrg,ct,ctc,maxct,sps
+  integer :: ntim
 
-real :: grat,crat,wtrg1,wtrg2,gvap,cvap,rg,rg1,rg2
-real :: vaprccn,vaprgccn,mult1,mult2,supsat,supsat_rate,a1inv,w_pseudo
+  real ::  tempkA,  tempkB ! initial & final air temperatures [K]
+  real ::  pressA,  pressB ! initial & final pressures [Pa]
+  real ::   rhoaA,   rhoaB ! initial & final air densities   [kg_a/m^3]
+  real ::   rhovA,   rhovB ! initial & final vapor densities [kg_v/m^3]
+  real ::   sh_vA,   sh_vB ! initial & final vapor spec dens [kg_v/kg_a]
+  real :: satenvA, satenvB
+  real :: timespan, con_cp
+  real :: con_ccny(nccntyp)
 
-!Saleeby (6/3/02)
-!The following tables are percent of prescibed CCN to activate.
-!Table dimensions are (updraft,concentration,temperature,median radius).
-!GCCN number are prescibed by the user and these automatically nucleate and
-! they have no lookup tables. 
-!CCN # usually is around 1000/cc and GCCN # usually around 10^-2/cc. Since the
-! relative numbers are so small for GCCN they're assumed to nucleate all of
-! them first and then the smaller CCN.
-!Median radius is in centimeters as is the parcel model.
-!These tables assume 10% or 50% hygroscopic material within each CCN
+  real, external :: rhovsl
 
-integer, parameter :: pctsol = 1 ! 1=10% solubility tables, 2=50% solubility tables
+  ntim = 50
 
-real :: cldnuctab10(9,7,7,14)
-real :: cldnuctab50(9,7,7,14)
+  ! Loop over all grid levels in column
 
-! FOR CCN MEDIAN RADIUS 0.01 MICRONS AND % TO SEND TO CLOUD
+  nbincall = 0
 
-data ((cldnuctab10(iw,iconc,1,1),iw=1,9),iconc=1,7)/    &
-0.023, 0.063, 0.153, 0.335, 0.604, 0.872, 0.872, 0.872, 0.872,  &
-0.015, 0.039, 0.105, 0.241, 0.477, 0.751, 0.872, 0.872, 0.872,  &
-0.008, 0.026, 0.069, 0.176, 0.369, 0.639, 0.872, 0.872, 0.872,  &
-0.005, 0.017, 0.048, 0.123, 0.271, 0.513, 0.792, 0.872, 0.872,  &
-0.003, 0.010, 0.032, 0.089, 0.201, 0.422, 0.689, 0.872, 0.872,  &
-0.002, 0.006, 0.021, 0.063, 0.153, 0.335, 0.568, 0.792, 0.872,  &
-0.001, 0.004, 0.015, 0.043, 0.114, 0.241, 0.404, 0.532, 0.721 /
+  do k = lpw0,mza0
 
-data ((cldnuctab10(iw,iconc,2,1),iw=1,9),iconc=1,7)/    &
-0.017, 0.048, 0.114, 0.256, 0.495, 0.779, 0.872, 0.872, 0.872,  &
-0.009, 0.026, 0.075, 0.176, 0.369, 0.639, 0.872, 0.872, 0.872,  &
-0.006, 0.017, 0.048, 0.123, 0.271, 0.513, 0.779, 0.872, 0.872,  &
-0.003, 0.010, 0.029, 0.082, 0.188, 0.404, 0.672, 0.872, 0.872,  &
-0.002, 0.006, 0.019, 0.058, 0.142, 0.302, 0.550, 0.817, 0.872,  &
-0.001, 0.004, 0.013, 0.039, 0.097, 0.227, 0.458, 0.721, 0.872,  &
-0.001, 0.002, 0.008, 0.026, 0.075, 0.176, 0.352, 0.568, 0.779 /
+     ! Diagnose excess of vapor density over saturation and number of drizzle
+     ! particles it can nucleate.  Cycle if not > 0.
 
-data ((cldnuctab10(iw,iconc,3,1),iw=1,9),iconc=1,7)/    &
-0.013, 0.036, 0.089, 0.201, 0.404, 0.689, 0.872, 0.872, 0.872,  &
-0.007, 0.021, 0.053, 0.132, 0.286, 0.532, 0.817, 0.872, 0.872,  &
-0.004, 0.012, 0.032, 0.089, 0.201, 0.404, 0.689, 0.872, 0.872,  &
-0.002, 0.006, 0.021, 0.058, 0.142, 0.302, 0.550, 0.817, 0.872,  &
-0.001, 0.004, 0.013, 0.036, 0.097, 0.227, 0.440, 0.721, 0.872,  &
-0.001, 0.002, 0.008, 0.023, 0.069, 0.164, 0.352, 0.604, 0.852,  &
-0.000, 0.002, 0.005, 0.017, 0.048, 0.123, 0.271, 0.495, 0.736 /
+     excessrhov = rhov(k) - 1.00001 * rhovslair(k) ! x rhoa
+     if (excessrhov <= 0.) cycle                   ! x rhoa
+     excessnum = excessrhov / emb0(8)
 
-data ((cldnuctab10(iw,iconc,4,1),iw=1,9),iconc=1,7)/    &
-0.010, 0.029, 0.075, 0.176, 0.352, 0.621, 0.872, 0.872, 0.872,  &
-0.006, 0.015, 0.043, 0.105, 0.241, 0.458, 0.736, 0.872, 0.872,  &
-0.003, 0.008, 0.026, 0.063, 0.153, 0.335, 0.586, 0.852, 0.872,  &
-0.002, 0.005, 0.015, 0.039, 0.105, 0.241, 0.458, 0.736, 0.872,  &
-0.001, 0.003, 0.009, 0.026, 0.069, 0.164, 0.352, 0.604, 0.862,  &
-0.001, 0.002, 0.006, 0.017, 0.048, 0.114, 0.256, 0.495, 0.765,  &
-0.000, 0.001, 0.003, 0.010, 0.032, 0.082, 0.201, 0.404, 0.656 /
+     ! Cotton (2016) pointed out that with GCCN, the solute effect accelerates
+     ! droplet growth sufficiently (even at zero supersaturation) to produce
+     ! fairly large droplets in a fairly short amount of time.  Accordingly, we
+     ! choose to nucleate GCCN directly to the drizzle category, and to do so
+     ! before CCN nucleation to cloud droplets.  With this choice, GCCN are NOT
+     ! included in the CCNBIN computation of nucleation (of cloud).
 
-data ((cldnuctab10(iw,iconc,5,1),iw=1,9),iconc=1,7)/    &
-0.009, 0.023, 0.063, 0.153, 0.318, 0.568, 0.829, 0.872, 0.872,  &
-0.004, 0.013, 0.036, 0.089, 0.201, 0.404, 0.689, 0.872, 0.872,  &
-0.002, 0.007, 0.021, 0.053, 0.132, 0.286, 0.532, 0.792, 0.872,  &
-0.001, 0.004, 0.012, 0.032, 0.082, 0.188, 0.387, 0.656, 0.872,  &
-0.001, 0.002, 0.006, 0.019, 0.053, 0.132, 0.286, 0.513, 0.792,  &
-0.000, 0.001, 0.004, 0.012, 0.036, 0.089, 0.201, 0.404, 0.672,  &
-0.000, 0.001, 0.002, 0.007, 0.023, 0.063, 0.142, 0.318, 0.568 /
+     ! If GCCN are not prognosed, repeated nucleation over successive timesteps
+     ! could lead to an over-abundance of drizzle particles unless the number
+     ! nucleated are limited in some manner based on the nucleation that
+     ! already occurred on previous time steps.  The number concentration of
+     ! drizzle [cx(k,8)] is used as a proxy for the number of GCCN previously
+     ! nucleated in the limiter below.
 
-data ((cldnuctab10(iw,iconc,6,1),iw=1,9),iconc=1,7)/    &
-0.008, 0.021, 0.058, 0.132, 0.286, 0.532, 0.805, 0.872, 0.872,  &
-0.004, 0.012, 0.032, 0.082, 0.188, 0.369, 0.639, 0.872, 0.872,  &
-0.002, 0.006, 0.017, 0.048, 0.114, 0.256, 0.477, 0.751, 0.872,  &
-0.001, 0.003, 0.009, 0.026, 0.069, 0.164, 0.335, 0.604, 0.852,  &
-0.001, 0.002, 0.006, 0.015, 0.043, 0.105, 0.241, 0.458, 0.721,  &
-0.000, 0.001, 0.003, 0.009, 0.026, 0.069, 0.164, 0.335, 0.586,  &
-0.000, 0.001, 0.002, 0.006, 0.017, 0.048, 0.114, 0.256, 0.477 /
+     ! if GCCN are prognosed, they are immediately scavenged upon nucleation to
+     ! drizzle.  This is necessary because drizzle droplets can be far more
+     ! numerous than GCCN when they arise from cloud droplet collisions, GCCN
+     ! scavenging from drizzle collisions and sedimentation is therefore not
+     ! feasible.
 
-data ((cldnuctab10(iw,iconc,7,1),iw=1,9),iconc=1,7)/    &
-0.007, 0.021, 0.053, 0.123, 0.271, 0.495, 0.779, 0.872, 0.872,  &
-0.004, 0.010, 0.029, 0.075, 0.164, 0.352, 0.604, 0.862, 0.872,  &
-0.002, 0.006, 0.015, 0.043, 0.105, 0.227, 0.440, 0.721, 0.872,  &
-0.001, 0.003, 0.008, 0.023, 0.063, 0.142, 0.302, 0.550, 0.817,  &
-0.000, 0.002, 0.005, 0.013, 0.036, 0.089, 0.214, 0.404, 0.672,  &
-0.000, 0.001, 0.002, 0.008, 0.021, 0.058, 0.142, 0.302, 0.532,  &
-0.000, 0.000, 0.001, 0.004, 0.013, 0.039, 0.097, 0.214, 0.422 /
+     if (igccn == 2) then ! GCCN are prognosed; nucleate and scavenge GCCN
+        cnuc_vd(k) = min(excessnum, con_gccnx(k))
+        con_gccnx(k) = con_gccnx(k) - cnuc_vd(k)
+     else                 ! GCCN NOT prognosed; limit nucleation by drizzle present
+        cnuc_vd(k) = min(excessnum, max(0., con_gccnx(k) - cx(k,8)))
+     endif
+
+     rnuc_vd(k) = cnuc_vd(k) * emb0(8)
+
+     ! Update vapor mass and drizzle concentration and mass from nucleation
+
+     rhov(k) = rhov(k) - rnuc_vd(k)
+     cx(k,8) = cx(k,8) + cnuc_vd(k) ! (#/m^3)  x rhoa
+     rx(k,8) = rx(k,8) + rnuc_vd(k) ! (kg/m^3) x rhoa
+     qr(k,8) = qr(k,8) + rnuc_vd(k) * (tairc(k) * cliq + alli) ! (x rhoa)
+
+     if (rx(k,8) >= rxmin(8)) qx(k,8) = qr(k,8) / rx(k,8)
+
+     ! Now that GCCN/DRIZZLE nucleation is complete, diagnose remaining excess
+     ! of vapor density over saturation; cycle if not > 0.
+
+     excessrhov = rhov(k) - 1.00001 * rhovslair(k) ! x rhoa
+     if (excessrhov <= 0.) cycle                   ! x rhoa
+
+     ! Check whether cloud droplet number (and CCN number) are prognosed
 
-! FOR CCN MEDIAN RADIUS 0.015 MICRONS AND % TO SEND TO CLOUD
+     if (jnmb(1) == 4) then
+
+        ! If NOT prognosing number concentration of cloud, use con_ccnx(k,1) as
+        ! the potential number concentration of cloud droplets.  Limit number
+        ! of newly nucleated cloud droplets by number of droplets already
+        ! present and by available supersaturation vapor (subject to the
+        ! minimum cloud droplet mass).
 
-data ((cldnuctab10(iw,iconc,1,2),iw=1,9),iconc=1,7)/    &
-0.053, 0.133, 0.287, 0.514, 0.779, 0.954, 0.966, 0.966, 0.966,  &
-0.036, 0.089, 0.201, 0.405, 0.673, 0.890, 0.966, 0.966, 0.966,  &
-0.023, 0.063, 0.153, 0.319, 0.550, 0.805, 0.962, 0.966, 0.966,  &
-0.015, 0.043, 0.105, 0.242, 0.459, 0.721, 0.914, 0.966, 0.966,  &
-0.009, 0.029, 0.076, 0.188, 0.369, 0.622, 0.852, 0.966, 0.966,  &
-0.006, 0.019, 0.053, 0.133, 0.287, 0.514, 0.751, 0.914, 0.966,  &
-0.003, 0.012, 0.036, 0.097, 0.201, 0.352, 0.495, 0.568, 0.792 /
+        cnuc_vc(k) = max(0., con_ccnx(k,1) - cx(k,1))
+        cnuc_vc(k) = min(cnuc_vc(k), excessrhov / emb0(1))
+
+        ! Assume that half of available supersaturation vapor is transferred to
+        ! newly-nucleated cloud droplets, subject however to limits on cloud 
+        ! droplet size and number nucleated.
+ 
+        rnuc_vc_min = cnuc_vc(k) * emb0(1)
+        rnuc_vc_max = cnuc_vc(k) * emb1(1)
+
+        rnuc_vc(k) = max(rnuc_vc_min, min(rnuc_vc_max, 0.5 * excessrhov))
+
+        ! Update vapor mass and cloud concentration and mass from nucleation
+
+        rhov(k) = rhov(k) - rnuc_vc(k)
+        cx(k,1) = cx(k,1) + cnuc_vc(k) ! (#/m^3)  x rhoa
+        rx(k,1) = rx(k,1) + rnuc_vc(k) ! (kg/m^3) x rhoa
+        qr(k,1) = qr(k,1) + rnuc_vc(k) * (tairc(k) * cliq + alli) ! (x rhoa)
+
+        if (rx(k,1) >= rxmin(1)) qx(k,1) = qr(k,1) / rx(k,1)
+
+     else   ! (jnmb(1) == 5)
+
+        ! If prognosing number concentration of cloud (and CCN), prepare CCN
+        ! fields and initial and final environmental fields for call to CCNBIN.
+
+        ! There are many options to explore regarding how to apply CCNBIN.
+        ! Ideally, the CCNBIN integration should follow a Lagrangian parcel
+        ! through its entire CCN nucleation phase.  In the OLAM Eulerian
+        ! formulation, Lagrangian parcels must be constructed, and it is an
+        ! open question whether to reconstruct them each timestep (as in a
+        ! semi-Lagriangian advection method) or whether to carry them through
+        ! multiple timesteps that span the entire CCN nucleation episode.  For
+        ! the present, we take the practical approach of performing the CCN
+        ! integration over time periods equal to the OLAM model long timestep
+        ! (DTLONG or DTL), in which case it is to be hoped that a lengthy
+        ! nucleation episode will be adequately represented over the time
+        ! series of integrations in Eulerian grid cells.  A true Lagrangian
+        ! approach remains to be investigated.
+
+        ! Use current conditions in grid cell as "final environmental state"
+        ! in ccnbin integration.  
+
+        con_cp = cx(k,1) + cx(k,3)
+        con_ccny(1:nccntyp) = con_ccnx(k,1:nccntyp)
+
+        tempkB  = tair(k)
+        pressB  = press0(k)
+        rhoaB   = rhoa(k)
+        rhovB   = rhov(k)
+        sh_vB   = rhovB / rhoaB
+        satenvB = rhov(k) / rhovslair(k)
+
+        ! For the present, it will be assumed that "initial environmental
+        ! state" conditions are identical with final environmental state
+        ! conditions, with the exception of vapor density, which is taken
+        ! to be the saturation value.  A more accurate representation of
+        ! the initial environmental state would account for parcel movement
+        ! and existing microphysical tendencies over the past timestep or,
+        ! as discussed above for a Lagrangian parcel, a longer preceding period.
+
+        ! In the future when Lagrangian methods are considered, the following
+        ! code may be useful:
+
+        !Lag   ! Compute pseudo vertical velocity based on supersaturation and its
+        !Lag   ! assumed production over 1 timestep, using inverse of A1 coefficient
+        !Lag   ! in Pruppacher and Klett Eqn. 13-31.  w_nuc is the larger of w_pseudo
+        !Lag   ! and wc0(k).  Eventually replace this with Lagrangian parcel
+        !Lag   ! supersaturation tendency.
+
+        !Lag   supsat = excessrhov / (1.00001 * rhovslair(k))
+        !Lag   supsat_rate = supsat * dtli0
+        !Lag   a1inv = (rvap * tair(k)) / (grav * (alvl / (cp * tair(k)) - eps_vapi))
+        !Lag   w_pseudo = a1inv * supsat_rate
+        !Lag   w_nuc = max(wc0(k),w_pseudo)
+
+        tempkA  = tempkB
+        pressA  = pressB
+        rhoaA   = rhoaB
+
+        rhovA   = rhovsl(tempkA - 273.15)
+        sh_vA   = rhovA / rhoaA
+        satenvA = rhovA / rhovsl(tempkA - 273.15)
+
+        timespan = dtlm(1)
+        satenvmax = 0.
+        cactivated = 0.
+        sh_wbc = 0.
+
+        nbincall = nbincall + 1
+
+        call ccnbin(iw0, k, ntim, timespan, &
+                    tempkA, pressA, rhoaA, rhovA, sh_vA, satenvA, &
+                    tempkB, pressB, rhoaB, rhovB, sh_vB, satenvB, &
+                    con_cp, con_ccny, satenvmax, cactivated, sh_wbc)
+
+        cnuc_vc(k) = cactivated * rhoa(k) ! [#/m^3]
+        rnuc_vc(k) = max(sh_wbc * rhoa(k), cnuc_vc(k) * emb0(1)) ! [kg_w/m^3]
+
+        cx(k,1) = cx(k,1) + cnuc_vc(k) ! [#/m^3]  x rhoa
+        rx(k,1) = rx(k,1) + rnuc_vc(k) ! [kg/m^3] x rhoa
+        qr(k,1) = qr(k,1) + rnuc_vc(k) * (tairc(k) * cliq + alli) ! (x rhoa)
+
+        if (rx(k,1) >= rxmin(1)) qx(k,1) = qr(k,1) / rx(k,1)
+
+! Save current environmental variables for next timestep (parcel run only)
+
+        !par    tempkA  = tempkB
+        !par    pressA  = pressB
+        !par    rhoaA   = rhoaB
+        !par    rhovA   = rhovB
+        !par    sh_vA   = sh_vB
+        !par    satenvA = satenvB
+
+     endif ! (jnmb(1) == 5)
+
+  enddo ! k
 
-data ((cldnuctab10(iw,iconc,2,2),iw=1,9),iconc=1,7)/    &
-0.036, 0.097, 0.214, 0.422, 0.689, 0.907, 0.966, 0.966, 0.966,  &
-0.023, 0.053, 0.153, 0.319, 0.550, 0.818, 0.966, 0.966, 0.966,  &
-0.015, 0.039, 0.105, 0.228, 0.440, 0.705, 0.914, 0.966, 0.966,  &
-0.009, 0.026, 0.069, 0.164, 0.352, 0.604, 0.841, 0.966, 0.966,  &
-0.006, 0.017, 0.048, 0.123, 0.271, 0.495, 0.751, 0.934, 0.966,  &
-0.004, 0.012, 0.036, 0.089, 0.214, 0.405, 0.656, 0.862, 0.966,  &
-0.002, 0.007, 0.023, 0.063, 0.153, 0.319, 0.532, 0.721, 0.890 /
-
-data ((cldnuctab10(iw,iconc,3,2),iw=1,9),iconc=1,7)/    &
-0.029, 0.069, 0.164, 0.335, 0.604, 0.852, 0.966, 0.966, 0.966,  &
-0.017, 0.043, 0.114, 0.242, 0.459, 0.721, 0.928, 0.966, 0.966,  &
-0.009, 0.029, 0.076, 0.176, 0.352, 0.604, 0.841, 0.966, 0.966,  &
-0.006, 0.017, 0.048, 0.123, 0.256, 0.495, 0.751, 0.934, 0.966,  &
-0.004, 0.012, 0.032, 0.089, 0.201, 0.387, 0.639, 0.872, 0.966,  &
-0.002, 0.007, 0.021, 0.063, 0.143, 0.303, 0.550, 0.792, 0.945,  &
-0.001, 0.004, 0.015, 0.043, 0.105, 0.242, 0.440, 0.689, 0.862 /
-
-data ((cldnuctab10(iw,iconc,4,2),iw=1,9),iconc=1,7)/    &
-0.021, 0.058, 0.143, 0.287, 0.532, 0.792, 0.958, 0.966, 0.966,  &
-0.013, 0.036, 0.089, 0.201, 0.387, 0.656, 0.881, 0.966, 0.966,  &
-0.007, 0.021, 0.058, 0.133, 0.287, 0.514, 0.779, 0.950, 0.966,  &
-0.004, 0.013, 0.036, 0.089, 0.201, 0.405, 0.656, 0.881, 0.966,  &
-0.002, 0.008, 0.023, 0.063, 0.143, 0.303, 0.550, 0.792, 0.950,  &
-0.002, 0.005, 0.015, 0.043, 0.105, 0.228, 0.440, 0.689, 0.899,  &
-0.001, 0.003, 0.009, 0.029, 0.076, 0.176, 0.352, 0.604, 0.818 /
-
-data ((cldnuctab10(iw,iconc,5,2),iw=1,9),iconc=1,7)/    &
-0.019, 0.048, 0.123, 0.256, 0.477, 0.751, 0.939, 0.966, 0.966,  &
-0.010, 0.029, 0.076, 0.164, 0.335, 0.586, 0.841, 0.966, 0.966,  &
-0.006, 0.017, 0.043, 0.105, 0.242, 0.440, 0.705, 0.921, 0.966,  &
-0.003, 0.009, 0.026, 0.069, 0.164, 0.335, 0.586, 0.830, 0.966,  &
-0.002, 0.006, 0.017, 0.048, 0.114, 0.242, 0.459, 0.721, 0.914,  &
-0.001, 0.004, 0.010, 0.029, 0.082, 0.176, 0.369, 0.604, 0.841,  &
-0.001, 0.002, 0.006, 0.021, 0.053, 0.133, 0.287, 0.514, 0.751 /
-
-data ((cldnuctab10(iw,iconc,6,2),iw=1,9),iconc=1,7)/    &
-0.017, 0.043, 0.105, 0.228, 0.440, 0.705, 0.921, 0.966, 0.966,  &
-0.009, 0.026, 0.063, 0.153, 0.303, 0.550, 0.805, 0.962, 0.966,  &
-0.005, 0.013, 0.039, 0.097, 0.201, 0.405, 0.656, 0.890, 0.966,  &
-0.003, 0.008, 0.023, 0.058, 0.143, 0.287, 0.514, 0.779, 0.950,  &
-0.002, 0.005, 0.013, 0.036, 0.089, 0.201, 0.405, 0.656, 0.872,  &
-0.001, 0.003, 0.008, 0.023, 0.063, 0.143, 0.303, 0.532, 0.779,  &
-0.000, 0.002, 0.005, 0.015, 0.043, 0.105, 0.228, 0.422, 0.673 /
-
-data ((cldnuctab10(iw,iconc,7,2),iw=1,9),iconc=1,7)/    &
-0.015, 0.039, 0.097, 0.214, 0.422, 0.689, 0.907, 0.966, 0.966,  &
-0.008, 0.023, 0.058, 0.133, 0.287, 0.514, 0.779, 0.954, 0.966,  &
-0.004, 0.012, 0.032, 0.082, 0.188, 0.369, 0.622, 0.862, 0.966,  &
-0.002, 0.007, 0.019, 0.053, 0.123, 0.256, 0.477, 0.736, 0.928,  &
-0.001, 0.004, 0.012, 0.032, 0.082, 0.176, 0.352, 0.604, 0.841,  &
-0.001, 0.002, 0.007, 0.019, 0.053, 0.123, 0.256, 0.477, 0.721,  &
-0.000, 0.001, 0.004, 0.012, 0.036, 0.082, 0.188, 0.369, 0.622 /
-
-! FOR CCN MEDIAN RADIUS 0.02 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab10(iw,iconc,1,3),iw=1,9),iconc=1,7)/    &
-0.094, 0.209, 0.398, 0.667, 0.887, 0.983, 0.990, 0.990, 0.990,  &
-0.061, 0.150, 0.313, 0.544, 0.801, 0.953, 0.990, 0.990, 0.990,  &
-0.042, 0.111, 0.237, 0.452, 0.700, 0.904, 0.987, 0.990, 0.990,  &
-0.028, 0.080, 0.184, 0.363, 0.598, 0.837, 0.965, 0.990, 0.990,  &
-0.018, 0.056, 0.129, 0.281, 0.507, 0.760, 0.925, 0.990, 0.990,  &
-0.011, 0.034, 0.094, 0.209, 0.416, 0.650, 0.848, 0.957, 0.990,  &
-0.005, 0.018, 0.056, 0.139, 0.266, 0.381, 0.489, 0.580, 0.848 /
-
-data ((cldnuctab10(iw,iconc,2,3),iw=1,9),iconc=1,7)/    &
-0.067, 0.150, 0.313, 0.562, 0.801, 0.961, 0.990, 0.990, 0.990,  &
-0.042, 0.102, 0.237, 0.434, 0.700, 0.904, 0.988, 0.990, 0.990,  &
-0.028, 0.073, 0.172, 0.346, 0.580, 0.826, 0.961, 0.990, 0.990,  &
-0.018, 0.051, 0.129, 0.266, 0.489, 0.731, 0.919, 0.990, 0.990,  &
-0.011, 0.034, 0.087, 0.209, 0.398, 0.650, 0.859, 0.974, 0.990,  &
-0.007, 0.023, 0.061, 0.150, 0.313, 0.544, 0.788, 0.937, 0.990,  &
-0.004, 0.011, 0.038, 0.102, 0.237, 0.416, 0.633, 0.814, 0.937 /
-
-data ((cldnuctab10(iw,iconc,3,3),iw=1,9),iconc=1,7)/    &
-0.046, 0.120, 0.251, 0.471, 0.731, 0.925, 0.990, 0.990, 0.990,  &
-0.031, 0.080, 0.184, 0.363, 0.598, 0.837, 0.971, 0.990, 0.990,  &
-0.018, 0.051, 0.129, 0.266, 0.489, 0.731, 0.925, 0.990, 0.990,  &
-0.013, 0.034, 0.087, 0.196, 0.381, 0.633, 0.859, 0.974, 0.990,  &
-0.008, 0.023, 0.061, 0.150, 0.297, 0.526, 0.774, 0.937, 0.990,  &
-0.005, 0.014, 0.042, 0.111, 0.237, 0.434, 0.684, 0.887, 0.979,  &
-0.002, 0.008, 0.025, 0.073, 0.172, 0.346, 0.580, 0.788, 0.932 /
-
-data ((cldnuctab10(iw,iconc,4,3),iw=1,9),iconc=1,7)/    &
-0.038, 0.094, 0.209, 0.398, 0.667, 0.887, 0.985, 0.990, 0.990,  &
-0.023, 0.061, 0.139, 0.297, 0.526, 0.774, 0.948, 0.990, 0.990,  &
-0.014, 0.038, 0.094, 0.209, 0.398, 0.650, 0.878, 0.981, 0.990,  &
-0.009, 0.025, 0.067, 0.150, 0.313, 0.544, 0.788, 0.943, 0.990,  &
-0.005, 0.016, 0.042, 0.111, 0.237, 0.434, 0.684, 0.887, 0.981,  &
-0.003, 0.010, 0.028, 0.080, 0.172, 0.346, 0.580, 0.814, 0.957,  &
-0.002, 0.006, 0.018, 0.051, 0.129, 0.281, 0.489, 0.731, 0.904 /
-
-data ((cldnuctab10(iw,iconc,5,3),iw=1,9),iconc=1,7)/    &
-0.031, 0.080, 0.184, 0.363, 0.616, 0.848, 0.977, 0.990, 0.990,  &
-0.018, 0.051, 0.120, 0.251, 0.471, 0.731, 0.919, 0.990, 0.990,  &
-0.011, 0.031, 0.073, 0.172, 0.346, 0.580, 0.826, 0.965, 0.990,  &
-0.007, 0.018, 0.051, 0.120, 0.251, 0.471, 0.715, 0.912, 0.988,  &
-0.004, 0.011, 0.031, 0.080, 0.184, 0.363, 0.598, 0.837, 0.965,  &
-0.002, 0.007, 0.020, 0.056, 0.139, 0.281, 0.507, 0.746, 0.919,  &
-0.001, 0.005, 0.013, 0.038, 0.094, 0.209, 0.416, 0.650, 0.859 /
-
-data ((cldnuctab10(iw,iconc,6,3),iw=1,9),iconc=1,7)/    &
-0.028, 0.073, 0.161, 0.330, 0.580, 0.826, 0.968, 0.990, 0.990,  &
-0.016, 0.042, 0.102, 0.223, 0.416, 0.684, 0.896, 0.987, 0.990,  &
-0.009, 0.025, 0.067, 0.150, 0.297, 0.544, 0.788, 0.948, 0.990,  &
-0.005, 0.016, 0.042, 0.102, 0.223, 0.416, 0.650, 0.878, 0.981,  &
-0.003, 0.010, 0.025, 0.067, 0.150, 0.313, 0.544, 0.774, 0.943,  &
-0.002, 0.005, 0.016, 0.046, 0.111, 0.237, 0.434, 0.667, 0.878,  &
-0.001, 0.004, 0.010, 0.028, 0.073, 0.172, 0.346, 0.580, 0.801 /
-
-data ((cldnuctab10(iw,iconc,7,3),iw=1,9),iconc=1,7)/    &
-0.025, 0.067, 0.150, 0.313, 0.544, 0.801, 0.957, 0.990, 0.990,  &
-0.014, 0.038, 0.094, 0.209, 0.398, 0.650, 0.878, 0.983, 0.990,  &
-0.008, 0.023, 0.056, 0.129, 0.281, 0.507, 0.746, 0.937, 0.990,  &
-0.005, 0.013, 0.034, 0.087, 0.196, 0.363, 0.616, 0.848, 0.971,  &
-0.003, 0.008, 0.023, 0.056, 0.129, 0.266, 0.489, 0.731, 0.919,  &
-0.002, 0.005, 0.013, 0.038, 0.087, 0.196, 0.381, 0.616, 0.837,  &
-0.001, 0.003, 0.009, 0.023, 0.061, 0.139, 0.297, 0.507, 0.746 /
-
-! FOR CCN MEDIAN RADIUS 0.03 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab10(iw,iconc,1,4),iw=1,9),iconc=1,7)/    &
-0.184, 0.364, 0.598, 0.837, 0.965, 0.998, 0.999, 0.999, 0.999,  &
-0.139, 0.282, 0.508, 0.746, 0.919, 0.990, 0.999, 0.999, 0.999,  &
-0.103, 0.223, 0.417, 0.650, 0.859, 0.971, 0.998, 0.999, 0.999,  &
-0.067, 0.161, 0.330, 0.562, 0.788, 0.943, 0.993, 0.999, 0.999,  &
-0.038, 0.103, 0.251, 0.471, 0.716, 0.896, 0.979, 0.999, 0.999,  &
-0.016, 0.056, 0.161, 0.347, 0.580, 0.788, 0.938, 0.988, 0.999,  &
-0.007, 0.025, 0.080, 0.184, 0.297, 0.364, 0.435, 0.417, 0.904 /
-
-data ((cldnuctab10(iw,iconc,2,4),iw=1,9),iconc=1,7)/    &
-0.139, 0.282, 0.508, 0.746, 0.925, 0.992, 0.999, 0.999, 0.999,  &
-0.095, 0.210, 0.399, 0.650, 0.859, 0.971, 0.998, 0.999, 0.999,  &
-0.067, 0.161, 0.313, 0.544, 0.775, 0.938, 0.992, 0.999, 0.999,  &
-0.046, 0.111, 0.251, 0.453, 0.684, 0.887, 0.979, 0.999, 0.999,  &
-0.025, 0.073, 0.184, 0.364, 0.598, 0.826, 0.953, 0.994, 0.999,  &
-0.013, 0.038, 0.111, 0.266, 0.489, 0.731, 0.912, 0.983, 0.999,  &
-0.005, 0.018, 0.056, 0.161, 0.330, 0.544, 0.746, 0.904, 0.981 /
-
-data ((cldnuctab10(iw,iconc,3,4),iw=1,9),iconc=1,7)/    &
-0.103, 0.223, 0.417, 0.667, 0.878, 0.981, 0.999, 0.999, 0.999,  &
-0.067, 0.161, 0.313, 0.544, 0.788, 0.943, 0.994, 0.999, 0.999,  &
-0.046, 0.111, 0.237, 0.453, 0.684, 0.887, 0.979, 0.999, 0.999,  &
-0.031, 0.080, 0.184, 0.364, 0.580, 0.814, 0.953, 0.995, 0.999,  &
-0.018, 0.051, 0.129, 0.282, 0.489, 0.731, 0.912, 0.985, 0.999,  &
-0.009, 0.028, 0.080, 0.197, 0.399, 0.650, 0.848, 0.965, 0.996,  &
-0.004, 0.013, 0.042, 0.120, 0.282, 0.508, 0.746, 0.904, 0.979 /
-
-data ((cldnuctab10(iw,iconc,4,4),iw=1,9),iconc=1,7)/    &
-0.080, 0.184, 0.364, 0.598, 0.837, 0.965, 0.998, 0.999, 0.999,  &
-0.051, 0.129, 0.266, 0.471, 0.716, 0.912, 0.988, 0.999, 0.999,  &
-0.035, 0.087, 0.197, 0.364, 0.598, 0.826, 0.961, 0.997, 0.999,  &
-0.023, 0.061, 0.139, 0.282, 0.508, 0.731, 0.912, 0.987, 0.999,  &
-0.014, 0.038, 0.095, 0.210, 0.399, 0.650, 0.848, 0.965, 0.997,  &
-0.007, 0.023, 0.061, 0.150, 0.313, 0.544, 0.775, 0.932, 0.990,  &
-0.003, 0.010, 0.031, 0.095, 0.223, 0.435, 0.684, 0.869, 0.968 /
-
-data ((cldnuctab10(iw,iconc,5,4),iw=1,9),iconc=1,7)/    &
-0.067, 0.161, 0.313, 0.544, 0.788, 0.948, 0.996, 0.999, 0.999,  &
-0.042, 0.103, 0.223, 0.417, 0.667, 0.878, 0.979, 0.999, 0.999,  &
-0.028, 0.067, 0.161, 0.313, 0.544, 0.775, 0.938, 0.993, 0.999,  &
-0.016, 0.046, 0.111, 0.237, 0.435, 0.667, 0.869, 0.974, 0.998,  &
-0.010, 0.028, 0.073, 0.172, 0.330, 0.562, 0.788, 0.938, 0.993,  &
-0.005, 0.016, 0.046, 0.120, 0.251, 0.471, 0.700, 0.887, 0.979,  &
-0.002, 0.008, 0.025, 0.073, 0.172, 0.364, 0.598, 0.826, 0.948 /
-
-data ((cldnuctab10(iw,iconc,6,4),iw=1,9),iconc=1,7)/    &
-0.061, 0.139, 0.282, 0.508, 0.761, 0.932, 0.994, 0.999, 0.999,  &
-0.038, 0.087, 0.197, 0.381, 0.616, 0.848, 0.968, 0.998, 0.999,  &
-0.023, 0.056, 0.129, 0.266, 0.489, 0.731, 0.912, 0.988, 0.999,  &
-0.014, 0.038, 0.087, 0.197, 0.364, 0.616, 0.826, 0.961, 0.997,  &
-0.009, 0.023, 0.061, 0.139, 0.282, 0.489, 0.731, 0.912, 0.987,  &
-0.005, 0.014, 0.038, 0.095, 0.210, 0.399, 0.633, 0.837, 0.961,  &
-0.002, 0.006, 0.020, 0.056, 0.139, 0.297, 0.526, 0.761, 0.919 /
-
-data ((cldnuctab10(iw,iconc,7,4),iw=1,9),iconc=1,7)/    &
-0.056, 0.129, 0.266, 0.471, 0.731, 0.919, 0.991, 0.999, 0.999,  &
-0.031, 0.080, 0.172, 0.347, 0.580, 0.826, 0.961, 0.997, 0.999,  &
-0.020, 0.051, 0.120, 0.251, 0.453, 0.684, 0.896, 0.983, 0.999,  &
-0.013, 0.031, 0.080, 0.172, 0.330, 0.562, 0.801, 0.948, 0.994,  &
-0.007, 0.020, 0.051, 0.120, 0.251, 0.453, 0.684, 0.878, 0.979,  &
-0.004, 0.011, 0.031, 0.087, 0.184, 0.347, 0.580, 0.801, 0.943,  &
-0.002, 0.006, 0.016, 0.046, 0.120, 0.266, 0.471, 0.700, 0.887 /
-
-! FOR CCN MEDIAN RADIUS 0.04 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab10(iw,iconc,1,5),iw=1,9),iconc=1,7)/    &
-0.292, 0.501, 0.741, 0.916, 0.988, 0.999, 1.000, 1.000, 1.000,  &
-0.218, 0.410, 0.645, 0.855, 0.967, 0.997, 1.000, 1.000, 1.000,  &
-0.157, 0.324, 0.556, 0.783, 0.936, 0.990, 1.000, 1.000, 1.000,  &
-0.100, 0.246, 0.465, 0.694, 0.884, 0.976, 0.998, 1.000, 1.000,  &
-0.049, 0.146, 0.341, 0.592, 0.822, 0.951, 0.993, 1.000, 1.000,  &
-0.020, 0.065, 0.192, 0.410, 0.662, 0.866, 0.967, 0.997, 1.000,  &
-0.008, 0.027, 0.085, 0.205, 0.292, 0.324, 0.324, 0.465, 0.909 /
-
-data ((cldnuctab10(iw,iconc,2,5),iw=1,9),iconc=1,7)/    &
-0.218, 0.410, 0.645, 0.855, 0.970, 0.998, 1.000, 1.000, 1.000,  &
-0.157, 0.324, 0.538, 0.770, 0.930, 0.990, 1.000, 1.000, 1.000,  &
-0.117, 0.246, 0.446, 0.678, 0.875, 0.976, 0.998, 1.000, 1.000,  &
-0.071, 0.180, 0.358, 0.592, 0.809, 0.946, 0.993, 1.000, 1.000,  &
-0.037, 0.108, 0.261, 0.483, 0.726, 0.909, 0.983, 0.999, 1.000,  &
-0.016, 0.049, 0.146, 0.358, 0.610, 0.833, 0.960, 0.994, 1.000,  &
-0.006, 0.020, 0.071, 0.192, 0.393, 0.592, 0.797, 0.936, 0.993 /
-
-data ((cldnuctab10(iw,iconc,3,5),iw=1,9),iconc=1,7)/    &
-0.168, 0.341, 0.556, 0.797, 0.946, 0.994, 1.000, 1.000, 1.000,  &
-0.117, 0.246, 0.446, 0.694, 0.884, 0.978, 0.999, 1.000, 1.000,  &
-0.085, 0.192, 0.358, 0.592, 0.809, 0.951, 0.994, 1.000, 1.000,  &
-0.054, 0.136, 0.276, 0.501, 0.726, 0.901, 0.983, 0.999, 1.000,  &
-0.027, 0.078, 0.192, 0.393, 0.645, 0.845, 0.960, 0.996, 1.000,  &
-0.011, 0.037, 0.117, 0.276, 0.520, 0.770, 0.923, 0.988, 0.999,  &
-0.004, 0.016, 0.049, 0.157, 0.358, 0.610, 0.833, 0.951, 0.993 /
-
-data ((cldnuctab10(iw,iconc,4,5),iw=1,9),iconc=1,7)/    &
-0.136, 0.276, 0.483, 0.741, 0.916, 0.988, 0.999, 1.000, 1.000,  &
-0.092, 0.205, 0.375, 0.610, 0.833, 0.964, 0.997, 1.000, 1.000,  &
-0.065, 0.146, 0.292, 0.501, 0.741, 0.916, 0.986, 0.999, 1.000,  &
-0.041, 0.100, 0.218, 0.410, 0.645, 0.845, 0.964, 0.997, 1.000,  &
-0.022, 0.060, 0.157, 0.324, 0.538, 0.770, 0.930, 0.989, 0.999,  &
-0.010, 0.030, 0.085, 0.218, 0.428, 0.678, 0.875, 0.973, 0.997,  &
-0.003, 0.012, 0.037, 0.117, 0.292, 0.538, 0.783, 0.936, 0.988 /
-
-data ((cldnuctab10(iw,iconc,5,5),iw=1,9),iconc=1,7)/    &
-0.117, 0.232, 0.446, 0.678, 0.884, 0.981, 0.999, 1.000, 1.000,  &
-0.078, 0.168, 0.324, 0.556, 0.783, 0.941, 0.993, 1.000, 1.000,  &
-0.049, 0.117, 0.246, 0.446, 0.678, 0.875, 0.976, 0.998, 1.000,  &
-0.030, 0.078, 0.180, 0.341, 0.574, 0.797, 0.941, 0.993, 1.000,  &
-0.017, 0.049, 0.126, 0.261, 0.465, 0.694, 0.884, 0.976, 0.998,  &
-0.008, 0.024, 0.071, 0.180, 0.358, 0.610, 0.822, 0.951, 0.993,  &
-0.003, 0.010, 0.030, 0.092, 0.232, 0.465, 0.726, 0.901, 0.981 /
-
-data ((cldnuctab10(iw,iconc,6,5),iw=1,9),iconc=1,7)/    &
-0.100, 0.205, 0.393, 0.645, 0.866, 0.973, 0.999, 1.000, 1.000,  &
-0.065, 0.146, 0.292, 0.501, 0.741, 0.923, 0.990, 1.000, 1.000,  &
-0.041, 0.100, 0.205, 0.393, 0.627, 0.845, 0.964, 0.997, 1.000,  &
-0.027, 0.065, 0.146, 0.292, 0.520, 0.741, 0.916, 0.986, 0.999,  &
-0.016, 0.041, 0.100, 0.218, 0.410, 0.645, 0.845, 0.964, 0.996,  &
-0.007, 0.020, 0.054, 0.146, 0.308, 0.538, 0.756, 0.923, 0.986,  &
-0.003, 0.008, 0.024, 0.071, 0.192, 0.410, 0.662, 0.866, 0.967 /
-
-data ((cldnuctab10(iw,iconc,7,5),iw=1,9),iconc=1,7)/    &
-0.092, 0.192, 0.375, 0.610, 0.845, 0.967, 0.998, 1.000, 1.000,  &
-0.060, 0.126, 0.261, 0.465, 0.710, 0.909, 0.986, 0.999, 1.000,  &
-0.037, 0.085, 0.192, 0.358, 0.592, 0.809, 0.951, 0.996, 1.000,  &
-0.022, 0.060, 0.136, 0.261, 0.465, 0.694, 0.893, 0.981, 0.999,  &
-0.012, 0.037, 0.085, 0.192, 0.358, 0.592, 0.809, 0.946, 0.993,  &
-0.006, 0.017, 0.049, 0.126, 0.261, 0.483, 0.710, 0.893, 0.978,  &
-0.002, 0.007, 0.022, 0.065, 0.168, 0.358, 0.610, 0.822, 0.951 /
-
-! FOR CCN MEDIAN RADIUS 0.06 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab10(iw,iconc,1,6),iw=1,9),iconc=1,7)/    &
-0.483, 0.711, 0.893, 0.979, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.375, 0.610, 0.822, 0.951, 0.993, 1.000, 1.000, 1.000, 1.000,  &
-0.261, 0.502, 0.741, 0.909, 0.983, 0.999, 1.000, 1.000, 1.000,  &
-0.136, 0.358, 0.628, 0.856, 0.964, 0.996, 1.000, 1.000, 1.000,  &
-0.060, 0.180, 0.447, 0.741, 0.923, 0.988, 0.999, 1.000, 1.000,  &
-0.022, 0.078, 0.232, 0.483, 0.741, 0.930, 0.989, 0.999, 1.000,  &
-0.010, 0.033, 0.092, 0.192, 0.232, 0.232, 0.308, 0.393, 0.885 /
-
-data ((cldnuctab10(iw,iconc,2,6),iw=1,9),iconc=1,7)/    &
-0.375, 0.610, 0.822, 0.951, 0.994, 1.000, 1.000, 1.000, 1.000,  &
-0.292, 0.520, 0.741, 0.909, 0.983, 0.999, 1.000, 1.000, 1.000,  &
-0.205, 0.411, 0.645, 0.856, 0.960, 0.996, 1.000, 1.000, 1.000,  &
-0.108, 0.277, 0.538, 0.770, 0.930, 0.988, 0.999, 1.000, 1.000,  &
-0.045, 0.146, 0.358, 0.662, 0.875, 0.970, 0.997, 1.000, 1.000,  &
-0.017, 0.060, 0.180, 0.447, 0.741, 0.930, 0.989, 0.999, 1.000,  &
-0.008, 0.024, 0.078, 0.219, 0.411, 0.592, 0.845, 0.960, 0.998 /
-
-data ((cldnuctab10(iw,iconc,3,6),iw=1,9),iconc=1,7)/    &
-0.308, 0.520, 0.756, 0.923, 0.988, 0.999, 1.000, 1.000, 1.000,  &
-0.232, 0.429, 0.662, 0.856, 0.964, 0.996, 1.000, 1.000, 1.000,  &
-0.157, 0.324, 0.556, 0.784, 0.930, 0.988, 0.999, 1.000, 1.000,  &
-0.085, 0.219, 0.447, 0.695, 0.875, 0.970, 0.997, 1.000, 1.000,  &
-0.037, 0.108, 0.292, 0.556, 0.810, 0.941, 0.992, 0.999, 1.000,  &
-0.014, 0.045, 0.146, 0.375, 0.678, 0.893, 0.979, 0.998, 1.000,  &
-0.008, 0.017, 0.060, 0.180, 0.411, 0.695, 0.901, 0.985, 0.999 /
-
-data ((cldnuctab10(iw,iconc,4,6),iw=1,9),iconc=1,7)/    &
-0.261, 0.447, 0.695, 0.885, 0.979, 0.998, 1.000, 1.000, 1.000,  &
-0.180, 0.358, 0.574, 0.797, 0.941, 0.993, 1.000, 1.000, 1.000,  &
-0.126, 0.261, 0.465, 0.711, 0.885, 0.976, 0.998, 1.000, 1.000,  &
-0.071, 0.180, 0.358, 0.610, 0.822, 0.946, 0.993, 1.000, 1.000,  &
-0.030, 0.085, 0.232, 0.483, 0.726, 0.901, 0.981, 0.998, 1.000,  &
-0.011, 0.037, 0.108, 0.292, 0.592, 0.834, 0.960, 0.994, 1.000,  &
-0.008, 0.014, 0.045, 0.136, 0.358, 0.662, 0.885, 0.979, 0.998 /
-
-data ((cldnuctab10(iw,iconc,5,6),iw=1,9),iconc=1,7)/    &
-0.219, 0.393, 0.628, 0.845, 0.967, 0.997, 1.000, 1.000, 1.000,  &
-0.157, 0.308, 0.520, 0.741, 0.916, 0.986, 0.999, 1.000, 1.000,  &
-0.100, 0.219, 0.411, 0.645, 0.845, 0.960, 0.996, 1.000, 1.000,  &
-0.060, 0.146, 0.308, 0.538, 0.756, 0.916, 0.985, 0.999, 1.000,  &
-0.024, 0.071, 0.192, 0.411, 0.662, 0.856, 0.964, 0.996, 1.000,  &
-0.009, 0.030, 0.092, 0.247, 0.502, 0.770, 0.930, 0.988, 0.999,  &
-0.008, 0.011, 0.037, 0.108, 0.292, 0.592, 0.845, 0.967, 0.996 /
-
-data ((cldnuctab10(iw,iconc,6,6),iw=1,9),iconc=1,7)/    &
-0.192, 0.358, 0.592, 0.822, 0.956, 0.996, 1.000, 1.000, 1.000,  &
-0.136, 0.261, 0.465, 0.711, 0.893, 0.981, 0.999, 1.000, 1.000,  &
-0.085, 0.192, 0.358, 0.592, 0.810, 0.946, 0.993, 1.000, 1.000,  &
-0.050, 0.126, 0.261, 0.465, 0.711, 0.885, 0.976, 0.998, 1.000,  &
-0.022, 0.060, 0.168, 0.358, 0.592, 0.810, 0.946, 0.992, 0.999,  &
-0.009, 0.024, 0.078, 0.205, 0.447, 0.711, 0.893, 0.979, 0.998,  &
-0.009, 0.010, 0.030, 0.092, 0.247, 0.520, 0.797, 0.946, 0.993 /
-
-data ((cldnuctab10(iw,iconc,7,6),iw=1,9),iconc=1,7)/    &
-0.180, 0.341, 0.556, 0.797, 0.946, 0.994, 1.000, 1.000, 1.000,  &
-0.117, 0.247, 0.429, 0.662, 0.875, 0.973, 0.998, 1.000, 1.000,  &
-0.078, 0.168, 0.324, 0.538, 0.770, 0.930, 0.989, 0.999, 1.000,  &
-0.045, 0.108, 0.232, 0.429, 0.662, 0.856, 0.967, 0.997, 1.000,  &
-0.020, 0.054, 0.146, 0.308, 0.538, 0.770, 0.923, 0.988, 0.999,  &
-0.009, 0.022, 0.065, 0.180, 0.393, 0.662, 0.866, 0.967, 0.996,  &
-0.009, 0.010, 0.027, 0.078, 0.219, 0.465, 0.756, 0.923, 0.988 /
-
-! FOR CCN MEDIAN RADIUS 0.08 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab10(iw,iconc,1,7),iw=1,9),iconc=1,7)/    &
-0.622, 0.830, 0.950, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.495, 0.736, 0.907, 0.982, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.319, 0.622, 0.852, 0.962, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.153, 0.405, 0.736, 0.921, 0.987, 0.999, 1.000, 1.000, 1.000,  &
-0.063, 0.201, 0.495, 0.818, 0.962, 0.996, 1.000, 1.000, 1.000,  &
-0.029, 0.089, 0.242, 0.495, 0.765, 0.950, 0.996, 1.000, 1.000,  &
-0.026, 0.044, 0.097, 0.188, 0.214, 0.228, 0.256, 0.352, 0.830 /
-
-data ((cldnuctab10(iw,iconc,2,7),iw=1,9),iconc=1,7)/    &
-0.514, 0.751, 0.914, 0.984, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.405, 0.656, 0.852, 0.962, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.256, 0.514, 0.765, 0.928, 0.986, 0.999, 1.000, 1.000, 1.000,  &
-0.123, 0.335, 0.639, 0.872, 0.969, 0.996, 1.000, 1.000, 1.000,  &
-0.048, 0.153, 0.422, 0.751, 0.934, 0.990, 0.999, 1.000, 1.000,  &
-0.026, 0.069, 0.201, 0.477, 0.805, 0.958, 0.996, 1.000, 1.000,  &
-0.023, 0.036, 0.089, 0.214, 0.387, 0.568, 0.792, 0.972, 0.999 /
-
-data ((cldnuctab10(iw,iconc,3,7),iw=1,9),iconc=1,7)/    &
-0.441, 0.673, 0.862, 0.966, 0.996, 1.000, 1.000, 1.000, 1.000,  &
-0.335, 0.568, 0.779, 0.934, 0.989, 0.999, 1.000, 1.000, 1.000,  &
-0.214, 0.441, 0.689, 0.881, 0.972, 0.997, 1.000, 1.000, 1.000,  &
-0.097, 0.271, 0.550, 0.805, 0.939, 0.990, 0.999, 1.000, 1.000,  &
-0.039, 0.123, 0.335, 0.656, 0.890, 0.978, 0.998, 1.000, 1.000,  &
-0.023, 0.053, 0.153, 0.405, 0.751, 0.939, 0.992, 0.999, 1.000,  &
-0.023, 0.029, 0.069, 0.188, 0.422, 0.705, 0.928, 0.991, 1.000 /
-
-data ((cldnuctab10(iw,iconc,4,7),iw=1,9),iconc=1,7)/    &
-0.369, 0.604, 0.818, 0.950, 0.993, 1.000, 1.000, 1.000, 1.000,  &
-0.271, 0.477, 0.721, 0.890, 0.978, 0.998, 1.000, 1.000, 1.000,  &
-0.176, 0.369, 0.604, 0.818, 0.950, 0.992, 1.000, 1.000, 1.000,  &
-0.082, 0.228, 0.477, 0.721, 0.907, 0.980, 0.998, 1.000, 1.000,  &
-0.032, 0.097, 0.271, 0.568, 0.830, 0.954, 0.994, 1.000, 1.000,  &
-0.026, 0.039, 0.123, 0.335, 0.673, 0.907, 0.984, 0.998, 1.000,  &
-0.026, 0.029, 0.053, 0.153, 0.387, 0.689, 0.921, 0.991, 0.999 /
-
-data ((cldnuctab10(iw,iconc,5,7),iw=1,9),iconc=1,7)/    &
-0.319, 0.532, 0.765, 0.928, 0.989, 0.999, 1.000, 1.000, 1.000,  &
-0.228, 0.422, 0.656, 0.852, 0.966, 0.996, 1.000, 1.000, 1.000,  &
-0.153, 0.319, 0.550, 0.765, 0.921, 0.986, 0.999, 1.000, 1.000,  &
-0.069, 0.188, 0.405, 0.656, 0.862, 0.966, 0.996, 1.000, 1.000,  &
-0.026, 0.082, 0.228, 0.495, 0.765, 0.928, 0.987, 0.999, 1.000,  &
-0.026, 0.032, 0.097, 0.271, 0.586, 0.852, 0.969, 0.996, 1.000,  &
-0.026, 0.029, 0.044, 0.123, 0.319, 0.639, 0.899, 0.984, 0.999 /
-
-data ((cldnuctab10(iw,iconc,6,7),iw=1,9),iconc=1,7)/    &
-0.287, 0.495, 0.721, 0.907, 0.984, 0.999, 1.000, 1.000, 1.000,  &
-0.201, 0.387, 0.604, 0.818, 0.954, 0.994, 1.000, 1.000, 1.000,  &
-0.133, 0.271, 0.495, 0.721, 0.899, 0.980, 0.998, 1.000, 1.000,  &
-0.063, 0.164, 0.352, 0.604, 0.818, 0.950, 0.992, 1.000, 1.000,  &
-0.029, 0.069, 0.201, 0.441, 0.705, 0.899, 0.978, 0.998, 1.000,  &
-0.029, 0.032, 0.082, 0.228, 0.514, 0.805, 0.950, 0.993, 1.000,  &
-0.026, 0.029, 0.036, 0.097, 0.271, 0.586, 0.862, 0.975, 0.998 /
-
-data ((cldnuctab10(iw,iconc,7,7),iw=1,9),iconc=1,7)/    &
-0.271, 0.459, 0.705, 0.890, 0.980, 0.998, 1.000, 1.000, 1.000,  &
-0.188, 0.352, 0.568, 0.792, 0.939, 0.992, 1.000, 1.000, 1.000,  &
-0.114, 0.256, 0.459, 0.689, 0.872, 0.972, 0.997, 1.000, 1.000,  &
-0.058, 0.143, 0.319, 0.550, 0.779, 0.934, 0.989, 0.999, 1.000,  &
-0.029, 0.063, 0.176, 0.387, 0.656, 0.872, 0.969, 0.996, 1.000,  &
-0.029, 0.032, 0.076, 0.201, 0.459, 0.765, 0.928, 0.987, 0.999,  &
-0.029, 0.032, 0.039, 0.089, 0.228, 0.514, 0.830, 0.962, 0.996 /
-
-! FOR CCN MEDIAN RADIUS 0.12 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab10(iw,iconc,1,8),iw=1,9),iconc=1,7)/    &
-0.779, 0.934, 0.989, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.639, 0.872, 0.972, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.387, 0.736, 0.939, 0.990, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.176, 0.459, 0.830, 0.972, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.105, 0.228, 0.532, 0.872, 0.987, 0.999, 1.000, 1.000, 1.000,  &
-0.097, 0.133, 0.256, 0.459, 0.721, 0.939, 0.998, 1.000, 1.000,  &
-0.090, 0.097, 0.143, 0.188, 0.214, 0.214, 0.287, 0.370, 0.765 /
-
-data ((cldnuctab10(iw,iconc,2,8),iw=1,9),iconc=1,7)/    &
-0.705, 0.890, 0.975, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.550, 0.806, 0.945, 0.991, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.319, 0.656, 0.890, 0.978, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.143, 0.387, 0.751, 0.945, 0.993, 0.999, 1.000, 1.000, 1.000,  &
-0.105, 0.176, 0.459, 0.830, 0.975, 0.998, 1.000, 1.000, 1.000,  &
-0.097, 0.123, 0.228, 0.477, 0.830, 0.980, 0.999, 1.000, 1.000,  &
-0.090, 0.105, 0.133, 0.228, 0.352, 0.496, 0.721, 0.939, 1.000 /
-
-data ((cldnuctab10(iw,iconc,3,8),iw=1,9),iconc=1,7)/    &
-0.622, 0.830, 0.954, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.477, 0.736, 0.907, 0.982, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.271, 0.569, 0.830, 0.958, 0.994, 1.000, 1.000, 1.000, 1.000,  &
-0.114, 0.319, 0.656, 0.907, 0.984, 0.998, 1.000, 1.000, 1.000,  &
-0.097, 0.143, 0.370, 0.751, 0.954, 0.995, 1.000, 1.000, 1.000,  &
-0.097, 0.114, 0.188, 0.441, 0.793, 0.975, 0.998, 1.000, 1.000,  &
-0.097, 0.105, 0.133, 0.214, 0.405, 0.673, 0.928, 0.996, 1.000 /
-
-data ((cldnuctab10(iw,iconc,4,8),iw=1,9),iconc=1,7)/    &
-0.550, 0.779, 0.928, 0.987, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.405, 0.673, 0.862, 0.966, 0.996, 1.000, 1.000, 1.000, 1.000,  &
-0.228, 0.496, 0.765, 0.928, 0.987, 0.999, 1.000, 1.000, 1.000,  &
-0.105, 0.256, 0.586, 0.852, 0.969, 0.996, 1.000, 1.000, 1.000,  &
-0.105, 0.114, 0.303, 0.673, 0.921, 0.989, 0.999, 1.000, 1.000,  &
-0.097, 0.114, 0.153, 0.370, 0.736, 0.954, 0.996, 1.000, 1.000,  &
-0.097, 0.105, 0.123, 0.188, 0.387, 0.689, 0.939, 0.996, 1.000 /
-
-data ((cldnuctab10(iw,iconc,5,8),iw=1,9),iconc=1,7)/    &
-0.496, 0.721, 0.899, 0.980, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.370, 0.604, 0.818, 0.950, 0.993, 0.999, 1.000, 1.000, 1.000,  &
-0.201, 0.441, 0.705, 0.899, 0.978, 0.998, 1.000, 1.000, 1.000,  &
-0.105, 0.228, 0.514, 0.806, 0.950, 0.992, 0.999, 1.000, 1.000,  &
-0.105, 0.114, 0.256, 0.586, 0.882, 0.978, 0.998, 1.000, 1.000,  &
-0.105, 0.114, 0.133, 0.303, 0.656, 0.928, 0.992, 0.999, 1.000,  &
-0.105, 0.105, 0.123, 0.176, 0.336, 0.656, 0.928, 0.995, 1.000 /
-
-data ((cldnuctab10(iw,iconc,6,8),iw=1,9),iconc=1,7)/    &
-0.459, 0.689, 0.882, 0.972, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.336, 0.569, 0.779, 0.934, 0.989, 0.999, 1.000, 1.000, 1.000,  &
-0.176, 0.387, 0.656, 0.862, 0.969, 0.996, 1.000, 1.000, 1.000,  &
-0.114, 0.201, 0.459, 0.751, 0.928, 0.987, 0.999, 1.000, 1.000,  &
-0.114, 0.123, 0.228, 0.514, 0.830, 0.962, 0.996, 1.000, 1.000,  &
-0.105, 0.114, 0.133, 0.256, 0.586, 0.890, 0.984, 0.999, 1.000,  &
-0.105, 0.114, 0.123, 0.153, 0.303, 0.604, 0.907, 0.992, 1.000 /
-
-data ((cldnuctab10(iw,iconc,7,8),iw=1,9),iconc=1,7)/    &
-0.423, 0.656, 0.852, 0.966, 0.996, 1.000, 1.000, 1.000, 1.000,  &
-0.303, 0.532, 0.751, 0.914, 0.986, 0.999, 1.000, 1.000, 1.000,  &
-0.165, 0.370, 0.622, 0.841, 0.958, 0.995, 1.000, 1.000, 1.000,  &
-0.114, 0.176, 0.423, 0.721, 0.907, 0.982, 0.998, 1.000, 1.000,  &
-0.114, 0.123, 0.201, 0.477, 0.793, 0.950, 0.993, 0.999, 1.000,  &
-0.114, 0.123, 0.143, 0.228, 0.532, 0.852, 0.975, 0.998, 1.000,  &
-0.114, 0.114, 0.133, 0.153, 0.271, 0.550, 0.872, 0.987, 0.999 /
-
-! FOR CCN MEDIAN RADIUS 0.16 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab10(iw,iconc,1,9),iw=1,9),iconc=1,7)/    &
-0.873, 0.973, 0.997, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.714, 0.934, 0.989, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.411, 0.796, 0.970, 0.997, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.227, 0.474, 0.862, 0.988, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.212, 0.277, 0.515, 0.862, 0.993, 0.999, 0.999, 0.999, 0.999,  &
-0.182, 0.212, 0.295, 0.432, 0.658, 0.903, 0.997, 0.999, 0.999,  &
-0.169, 0.182, 0.212, 0.277, 0.243, 0.243, 0.277, 0.411, 0.714 /
-
-data ((cldnuctab10(iw,iconc,2,9),iw=1,9),iconc=1,7)/    &
-0.810, 0.947, 0.992, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.638, 0.884, 0.976, 0.998, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.332, 0.714, 0.941, 0.992, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.212, 0.391, 0.796, 0.973, 0.998, 0.999, 0.999, 0.999, 0.999,  &
-0.212, 0.243, 0.474, 0.837, 0.988, 0.999, 0.999, 0.999, 0.999,  &
-0.197, 0.212, 0.277, 0.474, 0.796, 0.981, 0.999, 0.999, 0.999,  &
-0.182, 0.197, 0.212, 0.295, 0.352, 0.453, 0.658, 0.894, 0.999 /
-
-data ((cldnuctab10(iw,iconc,3,9),iw=1,9),iconc=1,7)/    &
-0.748, 0.912, 0.984, 0.998, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.557, 0.837, 0.957, 0.994, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.277, 0.638, 0.903, 0.984, 0.998, 0.999, 0.999, 0.999, 0.999,  &
-0.212, 0.332, 0.714, 0.947, 0.994, 0.999, 0.999, 0.999, 0.999,  &
-0.212, 0.243, 0.391, 0.780, 0.976, 0.998, 0.999, 0.999, 0.999,  &
-0.197, 0.227, 0.260, 0.453, 0.796, 0.984, 0.999, 0.999, 0.999,  &
-0.197, 0.197, 0.227, 0.277, 0.411, 0.598, 0.884, 0.995, 0.999 /
-
-data ((cldnuctab10(iw,iconc,4,9),iw=1,9),iconc=1,7)/    &
-0.677, 0.873, 0.970, 0.997, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.495, 0.780, 0.934, 0.989, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.243, 0.557, 0.850, 0.970, 0.996, 0.999, 0.999, 0.999, 0.999,  &
-0.212, 0.277, 0.618, 0.912, 0.988, 0.999, 0.999, 0.999, 0.999,  &
-0.212, 0.243, 0.332, 0.695, 0.952, 0.996, 0.999, 0.999, 0.999,  &
-0.212, 0.227, 0.260, 0.391, 0.731, 0.970, 0.999, 0.999, 0.999,  &
-0.197, 0.212, 0.227, 0.277, 0.411, 0.638, 0.920, 0.998, 0.999 /
-
-data ((cldnuctab10(iw,iconc,5,9),iw=1,9),iconc=1,7)/    &
-0.618, 0.837, 0.957, 0.995, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.432, 0.714, 0.903, 0.981, 0.998, 0.999, 0.999, 0.999, 0.999,  &
-0.227, 0.495, 0.810, 0.952, 0.993, 0.999, 0.999, 0.999, 0.999,  &
-0.227, 0.243, 0.557, 0.873, 0.979, 0.998, 0.999, 0.999, 0.999,  &
-0.227, 0.243, 0.295, 0.618, 0.920, 0.992, 0.999, 0.999, 0.999,  &
-0.212, 0.227, 0.260, 0.352, 0.658, 0.947, 0.997, 0.999, 0.999,  &
-0.212, 0.212, 0.227, 0.260, 0.391, 0.618, 0.912, 0.998, 0.999 /
-
-data ((cldnuctab10(iw,iconc,6,9),iw=1,9),iconc=1,7)/    &
-0.578, 0.810, 0.941, 0.992, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.411, 0.677, 0.873, 0.973, 0.997, 0.999, 0.999, 0.999, 0.999,  &
-0.227, 0.453, 0.765, 0.934, 0.989, 0.999, 0.999, 0.999, 0.999,  &
-0.227, 0.243, 0.495, 0.824, 0.966, 0.996, 0.999, 0.999, 0.999,  &
-0.227, 0.243, 0.277, 0.557, 0.884, 0.984, 0.999, 0.999, 0.999,  &
-0.227, 0.243, 0.260, 0.313, 0.598, 0.920, 0.994, 0.999, 0.999,  &
-0.227, 0.227, 0.243, 0.260, 0.352, 0.578, 0.894, 0.996, 0.999 /
-
-data ((cldnuctab10(iw,iconc,7,9),iw=1,9),iconc=1,7)/    &
-0.557, 0.780, 0.927, 0.989, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.371, 0.638, 0.850, 0.966, 0.996, 0.999, 0.999, 0.999, 0.999,  &
-0.243, 0.411, 0.731, 0.912, 0.984, 0.999, 0.999, 0.999, 0.999,  &
-0.243, 0.260, 0.453, 0.796, 0.952, 0.994, 0.999, 0.999, 0.999,  &
-0.243, 0.243, 0.277, 0.495, 0.850, 0.976, 0.998, 0.999, 0.999,  &
-0.227, 0.243, 0.260, 0.313, 0.557, 0.884, 0.989, 0.999, 0.999,  &
-0.227, 0.227, 0.243, 0.277, 0.332, 0.557, 0.862, 0.993, 0.999 /
-
-! FOR CCN MEDIAN RADIUS 0.24 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab10(iw,iconc,1,10),iw=1,9),iconc=1,7)/    &
-0.942, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.751, 0.970, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.477, 0.812, 0.988, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.435, 0.539, 0.852, 0.995, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.414, 0.456, 0.560, 0.812, 0.991, 1.000, 1.000, 1.000, 1.000,  &
-0.374, 0.394, 0.435, 0.539, 0.581, 0.783, 0.979, 1.000, 1.000,  &
-0.354, 0.374, 0.394, 0.456, 0.581, 0.316, 0.335, 0.456, 0.679 /
-
-data ((cldnuctab10(iw,iconc,2,10),iw=1,9),iconc=1,7)/    &
-0.904, 0.984, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.679, 0.947, 0.995, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.456, 0.751, 0.974, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.456, 0.497, 0.798, 0.988, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.435, 0.456, 0.539, 0.812, 0.992, 1.000, 1.000, 1.000, 1.000,  &
-0.394, 0.414, 0.456, 0.539, 0.716, 0.947, 1.000, 1.000, 1.000,  &
-0.394, 0.394, 0.414, 0.456, 0.560, 0.477, 0.581, 0.751, 0.979 /
-
-data ((cldnuctab10(iw,iconc,3,10),iw=1,9),iconc=1,7)/    &
-0.863, 0.970, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.621, 0.913, 0.988, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.456, 0.679, 0.947, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.456, 0.497, 0.734, 0.974, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.435, 0.456, 0.518, 0.767, 0.986, 1.000, 1.000, 1.000, 1.000,  &
-0.414, 0.435, 0.456, 0.539, 0.734, 0.974, 1.000, 1.000, 1.000,  &
-0.414, 0.414, 0.414, 0.456, 0.539, 0.581, 0.767, 0.958, 1.000 /
-
-data ((cldnuctab10(iw,iconc,4,10),iw=1,9),iconc=1,7)/    &
-0.812, 0.953, 0.994, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.560, 0.875, 0.979, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.456, 0.601, 0.921, 0.992, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.456, 0.477, 0.660, 0.953, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.456, 0.456, 0.518, 0.716, 0.970, 0.999, 1.000, 1.000, 1.000,  &
-0.435, 0.456, 0.477, 0.518, 0.716, 0.966, 1.000, 1.000, 1.000,  &
-0.414, 0.435, 0.435, 0.456, 0.518, 0.641, 0.839, 0.993, 1.000 /
-
-data ((cldnuctab10(iw,iconc,5,10),iw=1,9),iconc=1,7)/    &
-0.767, 0.935, 0.989, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.497, 0.826, 0.966, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.477, 0.539, 0.885, 0.984, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.477, 0.497, 0.581, 0.921, 0.994, 1.000, 1.000, 1.000, 1.000,  &
-0.456, 0.477, 0.518, 0.641, 0.942, 0.998, 1.000, 1.000, 1.000,  &
-0.456, 0.456, 0.477, 0.518, 0.679, 0.947, 0.999, 1.000, 1.000,  &
-0.435, 0.435, 0.456, 0.477, 0.518, 0.660, 0.852, 0.996, 1.000 /
-
-data ((cldnuctab10(iw,iconc,6,10),iw=1,9),iconc=1,7)/    &
-0.734, 0.913, 0.986, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.477, 0.798, 0.953, 0.994, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.477, 0.497, 0.852, 0.977, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.477, 0.497, 0.539, 0.885, 0.989, 0.999, 1.000, 1.000, 1.000,  &
-0.477, 0.477, 0.518, 0.601, 0.913, 0.996, 1.000, 1.000, 1.000,  &
-0.456, 0.477, 0.477, 0.518, 0.641, 0.921, 0.998, 1.000, 1.000,  &
-0.456, 0.456, 0.477, 0.477, 0.518, 0.641, 0.839, 0.994, 1.000 /
-
-data ((cldnuctab10(iw,iconc,7,10),iw=1,9),iconc=1,7)/    &
-0.698, 0.904, 0.982, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.497, 0.767, 0.942, 0.992, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.497, 0.518, 0.812, 0.966, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.497, 0.497, 0.539, 0.852, 0.984, 0.999, 1.000, 1.000, 1.000,  &
-0.477, 0.497, 0.518, 0.581, 0.875, 0.992, 1.000, 1.000, 1.000,  &
-0.477, 0.477, 0.497, 0.518, 0.621, 0.885, 0.996, 1.000, 1.000,  &
-0.456, 0.477, 0.477, 0.497, 0.518, 0.621, 0.812, 0.992, 1.000 /
-
-! FOR CCN MEDIAN RADIUS 0.32 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab10(iw,iconc,1,11),iw=1,9),iconc=1,7)/    &
-0.964, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.756, 0.983, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.647, 0.817, 0.991, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.608, 0.667, 0.830, 0.994, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.567, 0.587, 0.667, 0.788, 0.968, 1.000, 1.000, 1.000, 1.000,  &
-0.567, 0.567, 0.587, 0.667, 0.722, 0.739, 0.907, 0.999, 1.000,  &
-0.504, 0.504, 0.525, 0.546, 0.647, 0.830, 0.401, 0.504, 0.685 /
-
-data ((cldnuctab10(iw,iconc,2,11),iw=1,9),iconc=1,7)/    &
-0.937, 0.994, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.685, 0.968, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.647, 0.756, 0.983, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.628, 0.647, 0.802, 0.990, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.587, 0.608, 0.667, 0.802, 0.987, 1.000, 1.000, 1.000, 1.000,  &
-0.587, 0.587, 0.608, 0.647, 0.772, 0.888, 0.998, 1.000, 1.000,  &
-0.546, 0.567, 0.567, 0.608, 0.667, 0.772, 0.587, 0.722, 0.931 /
-
-data ((cldnuctab10(iw,iconc,3,11),iw=1,9),iconc=1,7)/    &
-0.907, 0.988, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.647, 0.944, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.647, 0.685, 0.964, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.628, 0.667, 0.756, 0.977, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.608, 0.628, 0.667, 0.788, 0.983, 1.000, 1.000, 1.000, 1.000,  &
-0.587, 0.608, 0.608, 0.667, 0.772, 0.937, 1.000, 1.000, 1.000,  &
-0.587, 0.587, 0.608, 0.628, 0.667, 0.772, 0.704, 0.898, 0.999 /
-
-data ((cldnuctab10(iw,iconc,4,11),iw=1,9),iconc=1,7)/    &
-0.867, 0.980, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.667, 0.907, 0.991, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.647, 0.685, 0.937, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.647, 0.667, 0.722, 0.959, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.628, 0.647, 0.667, 0.756, 0.964, 1.000, 1.000, 1.000, 1.000,  &
-0.608, 0.628, 0.628, 0.667, 0.756, 0.937, 1.000, 1.000, 1.000,  &
-0.608, 0.608, 0.608, 0.628, 0.667, 0.756, 0.788, 0.964, 1.000 /
-
-data ((cldnuctab10(iw,iconc,5,11),iw=1,9),iconc=1,7)/    &
-0.830, 0.968, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.667, 0.878, 0.985, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.667, 0.685, 0.907, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.647, 0.667, 0.704, 0.931, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.647, 0.647, 0.667, 0.739, 0.944, 0.999, 1.000, 1.000, 1.000,  &
-0.628, 0.628, 0.647, 0.667, 0.739, 0.923, 0.999, 1.000, 1.000,  &
-0.628, 0.628, 0.628, 0.647, 0.667, 0.739, 0.817, 0.980, 1.000 /
-
-data ((cldnuctab10(iw,iconc,6,11),iw=1,9),iconc=1,7)/    &
-0.802, 0.959, 0.995, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.667, 0.843, 0.977, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.667, 0.685, 0.867, 0.990, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.667, 0.667, 0.704, 0.898, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.647, 0.667, 0.685, 0.722, 0.907, 0.998, 1.000, 1.000, 1.000,  &
-0.647, 0.647, 0.667, 0.685, 0.739, 0.898, 0.998, 1.000, 1.000,  &
-0.628, 0.647, 0.647, 0.647, 0.667, 0.739, 0.843, 0.977, 1.000 /
-
-data ((cldnuctab10(iw,iconc,7,11),iw=1,9),iconc=1,7)/    &
-0.772, 0.949, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.685, 0.817, 0.971, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.685, 0.704, 0.843, 0.985, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.667, 0.685, 0.704, 0.867, 0.992, 1.000, 1.000, 1.000, 1.000,  &
-0.667, 0.667, 0.685, 0.722, 0.878, 0.996, 1.000, 1.000, 1.000,  &
-0.647, 0.667, 0.667, 0.685, 0.722, 0.878, 0.997, 1.000, 1.000,  &
-0.647, 0.647, 0.647, 0.667, 0.685, 0.739, 0.856, 0.971, 1.000 /
-
-! FOR CCN MEDIAN RADIUS 0.48 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab10(iw,iconc,1,12),iw=1,9),iconc=1,7)/    &
-0.975, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.869, 0.985, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.832, 0.869, 0.988, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.805, 0.819, 0.880, 0.978, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.790, 0.805, 0.819, 0.880, 0.924, 0.998, 1.000, 1.000, 1.000,  &
-0.741, 0.741, 0.758, 0.790, 0.880, 0.819, 0.845, 0.975, 1.000,  &
-0.650, 0.650, 0.650, 0.669, 0.706, 0.790, 0.955, 0.610, 0.724 /
-
-data ((cldnuctab10(iw,iconc,2,12),iw=1,9),iconc=1,7)/    &
-0.960, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.857, 0.972, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.845, 0.869, 0.980, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.819, 0.832, 0.869, 0.978, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.805, 0.819, 0.832, 0.880, 0.955, 1.000, 1.000, 1.000, 1.000,  &
-0.790, 0.790, 0.805, 0.819, 0.880, 0.908, 0.964, 1.000, 1.000,  &
-0.724, 0.724, 0.724, 0.741, 0.774, 0.857, 0.980, 0.741, 0.880 /
-
-data ((cldnuctab10(iw,iconc,3,12),iw=1,9),iconc=1,7)/    &
-0.932, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.857, 0.950, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.845, 0.869, 0.964, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.832, 0.845, 0.869, 0.968, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.819, 0.832, 0.832, 0.869, 0.960, 1.000, 1.000, 1.000, 1.000,  &
-0.805, 0.819, 0.819, 0.832, 0.880, 0.938, 0.994, 1.000, 1.000,  &
-0.774, 0.774, 0.774, 0.790, 0.819, 0.869, 0.978, 0.845, 0.975 /
-
-data ((cldnuctab10(iw,iconc,4,12),iw=1,9),iconc=1,7)/    &
-0.908, 0.994, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.857, 0.924, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.857, 0.869, 0.938, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.845, 0.845, 0.869, 0.950, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.832, 0.832, 0.845, 0.869, 0.950, 1.000, 1.000, 1.000, 1.000,  &
-0.832, 0.832, 0.832, 0.845, 0.869, 0.944, 0.997, 1.000, 1.000,  &
-0.805, 0.805, 0.805, 0.819, 0.832, 0.869, 0.950, 0.899, 0.996 /
-
-data ((cldnuctab10(iw,iconc,5,12),iw=1,9),iconc=1,7)/    &
-0.880, 0.990, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.869, 0.890, 0.995, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.857, 0.869, 0.908, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.845, 0.857, 0.869, 0.932, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.845, 0.845, 0.857, 0.869, 0.938, 0.999, 1.000, 1.000, 1.000,  &
-0.832, 0.845, 0.845, 0.857, 0.869, 0.938, 0.996, 1.000, 1.000,  &
-0.819, 0.819, 0.819, 0.832, 0.845, 0.869, 0.938, 0.938, 0.999 /
-
-data ((cldnuctab10(iw,iconc,6,12),iw=1,9),iconc=1,7)/    &
-0.880, 0.985, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.869, 0.890, 0.992, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.869, 0.880, 0.899, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.857, 0.869, 0.880, 0.917, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.857, 0.857, 0.857, 0.880, 0.924, 0.998, 1.000, 1.000, 1.000,  &
-0.845, 0.845, 0.857, 0.857, 0.880, 0.924, 0.994, 1.000, 1.000,  &
-0.832, 0.832, 0.832, 0.845, 0.845, 0.869, 0.932, 0.955, 1.000 /
-
-data ((cldnuctab10(iw,iconc,7,12),iw=1,9),iconc=1,7)/    &
-0.880, 0.980, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.880, 0.890, 0.988, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.869, 0.880, 0.899, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.869, 0.869, 0.880, 0.917, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.857, 0.857, 0.869, 0.880, 0.917, 0.996, 1.000, 1.000, 1.000,  &
-0.857, 0.857, 0.857, 0.869, 0.880, 0.917, 0.991, 1.000, 1.000,  &
-0.845, 0.845, 0.845, 0.845, 0.857, 0.880, 0.924, 0.972, 1.000 /
-
-! FOR CCN MEDIAN RADIUS 0.64 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab10(iw,iconc,1,13),iw=1,9),iconc=1,7)/    &
-0.973, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.934, 0.979, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.911, 0.934, 0.981, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.902, 0.911, 0.934, 0.976, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.883, 0.883, 0.902, 0.927, 0.987, 0.984, 1.000, 1.000, 1.000,  &
-0.823, 0.823, 0.836, 0.849, 0.893, 0.976, 0.861, 0.946, 1.000,  &
-0.730, 0.730, 0.730, 0.747, 0.763, 0.809, 0.911, 0.730, 0.795 /
-
-data ((cldnuctab10(iw,iconc,2,13),iw=1,9),iconc=1,7)/    &
-0.957, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.934, 0.966, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.919, 0.934, 0.976, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.911, 0.919, 0.934, 0.976, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.902, 0.911, 0.919, 0.934, 0.966, 0.998, 1.000, 1.000, 1.000,  &
-0.872, 0.872, 0.883, 0.893, 0.919, 0.981, 0.940, 0.997, 1.000,  &
-0.795, 0.795, 0.809, 0.809, 0.823, 0.872, 0.952, 0.809, 0.872 /
-
-data ((cldnuctab10(iw,iconc,3,13),iw=1,9),iconc=1,7)/    &
-0.946, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.934, 0.957, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.927, 0.940, 0.966, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.919, 0.927, 0.934, 0.969, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.919, 0.919, 0.927, 0.934, 0.969, 0.999, 1.000, 1.000, 1.000,  &
-0.893, 0.902, 0.902, 0.911, 0.934, 0.976, 0.976, 1.000, 1.000,  &
-0.849, 0.849, 0.849, 0.861, 0.872, 0.902, 0.966, 0.883, 0.946 /
-
-data ((cldnuctab10(iw,iconc,4,13),iw=1,9),iconc=1,7)/    &
-0.946, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.940, 0.952, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.934, 0.940, 0.961, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.927, 0.927, 0.940, 0.961, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.927, 0.927, 0.927, 0.940, 0.966, 0.999, 1.000, 1.000, 1.000,  &
-0.911, 0.911, 0.919, 0.927, 0.934, 0.969, 0.987, 1.000, 1.000,  &
-0.883, 0.883, 0.883, 0.883, 0.893, 0.919, 0.966, 0.969, 0.979 /
-
-data ((cldnuctab10(iw,iconc,5,13),iw=1,9),iconc=1,7)/    &
-0.946, 0.995, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.940, 0.952, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.940, 0.940, 0.957, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.934, 0.934, 0.940, 0.961, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.934, 0.934, 0.934, 0.940, 0.961, 0.998, 1.000, 1.000, 1.000,  &
-0.919, 0.927, 0.927, 0.927, 0.940, 0.961, 0.993, 1.000, 1.000,  &
-0.893, 0.893, 0.902, 0.902, 0.911, 0.927, 0.961, 0.992, 0.993 /
-
-data ((cldnuctab10(iw,iconc,6,13),iw=1,9),iconc=1,7)/    &
-0.946, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.946, 0.952, 0.995, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.940, 0.946, 0.957, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.940, 0.940, 0.946, 0.957, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.934, 0.934, 0.940, 0.946, 0.957, 0.996, 1.000, 1.000, 1.000,  &
-0.927, 0.927, 0.934, 0.934, 0.940, 0.961, 0.994, 1.000, 1.000,  &
-0.902, 0.902, 0.911, 0.911, 0.919, 0.927, 0.957, 0.994, 0.996 /
-
-data ((cldnuctab10(iw,iconc,7,13),iw=1,9),iconc=1,7)/    &
-0.952, 0.989, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.946, 0.957, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.946, 0.946, 0.957, 0.994, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.940, 0.946, 0.946, 0.957, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.940, 0.940, 0.940, 0.946, 0.957, 0.994, 1.000, 1.000, 1.000,  &
-0.934, 0.934, 0.934, 0.940, 0.946, 0.957, 0.992, 1.000, 1.000,  &
-0.911, 0.911, 0.911, 0.919, 0.919, 0.934, 0.957, 0.993, 0.997 /
-
-! FOR CCN MEDIAN RADIUS 0.96 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab10(iw,iconc,1,14),iw=1,9),iconc=1,7)/    &
-0.988, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.982, 0.989, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.976, 0.982, 0.988, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.966, 0.970, 0.976, 0.991, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.941, 0.947, 0.947, 0.962, 0.984, 1.000, 0.997, 1.000, 1.000,  &
-0.904, 0.904, 0.904, 0.912, 0.928, 0.957, 0.998, 0.947, 0.993,  &
-0.863, 0.863, 0.863, 0.863, 0.874, 0.884, 0.920, 0.966, 0.992 /
-
-data ((cldnuctab10(iw,iconc,2,14),iw=1,9),iconc=1,7)/    &
-0.988, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.984, 0.988, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.979, 0.982, 0.989, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.976, 0.976, 0.982, 0.989, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.962, 0.966, 0.966, 0.973, 0.989, 0.999, 1.000, 1.000, 1.000,  &
-0.935, 0.935, 0.935, 0.941, 0.952, 0.976, 1.000, 0.984, 1.000,  &
-0.884, 0.884, 0.884, 0.894, 0.894, 0.912, 0.941, 0.992, 0.928 /
-
-data ((cldnuctab10(iw,iconc,3,14),iw=1,9),iconc=1,7)/    &
-0.988, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.984, 0.988, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.982, 0.984, 0.989, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.979, 0.982, 0.984, 0.988, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.973, 0.973, 0.976, 0.979, 0.989, 0.999, 1.000, 1.000, 1.000,  &
-0.952, 0.957, 0.957, 0.957, 0.966, 0.984, 1.000, 0.997, 1.000,  &
-0.920, 0.920, 0.920, 0.920, 0.920, 0.935, 0.962, 0.996, 0.952 /
-
-data ((cldnuctab10(iw,iconc,4,14),iw=1,9),iconc=1,7)/    &
-0.988, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.986, 0.989, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.984, 0.986, 0.989, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.982, 0.984, 0.986, 0.988, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.979, 0.979, 0.982, 0.984, 0.989, 0.998, 1.000, 1.000, 1.000,  &
-0.966, 0.966, 0.966, 0.970, 0.976, 0.986, 0.999, 0.999, 1.000,  &
-0.935, 0.935, 0.935, 0.941, 0.941, 0.952, 0.970, 0.997, 0.973 /
-
-data ((cldnuctab10(iw,iconc,5,14),iw=1,9),iconc=1,7)/    &
-0.989, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.988, 0.989, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.986, 0.986, 0.989, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.984, 0.986, 0.986, 0.989, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.982, 0.982, 0.984, 0.986, 0.989, 0.998, 1.000, 1.000, 1.000,  &
-0.973, 0.973, 0.973, 0.976, 0.979, 0.986, 0.998, 1.000, 1.000,  &
-0.947, 0.947, 0.947, 0.952, 0.952, 0.957, 0.973, 0.995, 0.991 /
-
-data ((cldnuctab10(iw,iconc,6,14),iw=1,9),iconc=1,7)/    &
-0.989, 0.995, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.988, 0.989, 0.995, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.988, 0.988, 0.989, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.986, 0.986, 0.988, 0.989, 0.996, 1.000, 1.000, 1.000, 1.000,  &
-0.984, 0.984, 0.984, 0.986, 0.989, 0.997, 1.000, 1.000, 1.000,  &
-0.976, 0.976, 0.976, 0.979, 0.982, 0.988, 0.997, 1.000, 1.000,  &
-0.957, 0.957, 0.957, 0.957, 0.957, 0.962, 0.973, 0.994, 1.000 /
-
-data ((cldnuctab10(iw,iconc,7,14),iw=1,9),iconc=1,7)/    &
-0.991, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.989, 0.991, 0.995, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.988, 0.989, 0.991, 0.995, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.988, 0.988, 0.988, 0.991, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.986, 0.986, 0.986, 0.988, 0.989, 0.995, 1.000, 1.000, 1.000,  &
-0.979, 0.979, 0.979, 0.979, 0.982, 0.988, 0.996, 1.000, 1.000,  &
-0.957, 0.957, 0.957, 0.957, 0.962, 0.966, 0.973, 0.992, 1.000 /
-
-! FOR CCN MEDIAN RADIUS 0.01 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,1),iw=1,9),iconc=1,7)/    &
-0.068, 0.155, 0.311, 0.534, 0.779, 0.965, 0.965, 0.965, 0.965,  &
-0.045, 0.110, 0.225, 0.430, 0.675, 0.965, 0.965, 0.965, 0.965,  &
-0.028, 0.075, 0.167, 0.330, 0.576, 0.809, 0.965, 0.965, 0.965,  &
-0.019, 0.055, 0.131, 0.275, 0.471, 0.712, 0.965, 0.965, 0.965,  &
-0.013, 0.036, 0.091, 0.210, 0.389, 0.636, 0.836, 0.965, 0.965,  &
-0.007, 0.025, 0.068, 0.155, 0.311, 0.534, 0.746, 0.965, 0.965,  &
-0.004, 0.013, 0.040, 0.110, 0.210, 0.349, 0.471, 0.576, 0.794 /
-
-data ((cldnuctab50(iw,iconc,2,1),iw=1,9),iconc=1,7)/    &
-0.045, 0.110, 0.241, 0.451, 0.693, 0.965, 0.965, 0.965, 0.965,  &
-0.028, 0.075, 0.167, 0.330, 0.576, 0.809, 0.965, 0.965, 0.965,  &
-0.019, 0.050, 0.120, 0.258, 0.471, 0.712, 0.965, 0.965, 0.965,  &
-0.011, 0.036, 0.091, 0.195, 0.369, 0.616, 0.836, 0.965, 0.965,  &
-0.007, 0.022, 0.062, 0.142, 0.293, 0.513, 0.746, 0.965, 0.965,  &
-0.005, 0.015, 0.045, 0.110, 0.241, 0.430, 0.675, 0.861, 0.965,  &
-0.003, 0.009, 0.028, 0.075, 0.181, 0.349, 0.534, 0.729, 0.872 /
-
-data ((cldnuctab50(iw,iconc,3,1),iw=1,9),iconc=1,7)/    &
-0.036, 0.083, 0.195, 0.369, 0.616, 0.849, 0.965, 0.965, 0.965,  &
-0.022, 0.055, 0.131, 0.275, 0.492, 0.729, 0.965, 0.965, 0.965,  &
-0.013, 0.036, 0.091, 0.195, 0.389, 0.616, 0.836, 0.965, 0.965,  &
-0.007, 0.025, 0.062, 0.142, 0.293, 0.513, 0.746, 0.965, 0.965,  &
-0.005, 0.015, 0.040, 0.100, 0.225, 0.409, 0.656, 0.861, 0.965,  &
-0.003, 0.010, 0.028, 0.075, 0.167, 0.330, 0.555, 0.794, 0.965,  &
-0.002, 0.006, 0.019, 0.050, 0.131, 0.275, 0.471, 0.693, 0.861 /
-
-data ((cldnuctab50(iw,iconc,4,1),iw=1,9),iconc=1,7)/    &
-0.028, 0.068, 0.155, 0.311, 0.555, 0.794, 0.965, 0.965, 0.965,  &
-0.017, 0.045, 0.100, 0.225, 0.430, 0.675, 0.965, 0.965, 0.965,  &
-0.010, 0.028, 0.068, 0.155, 0.311, 0.534, 0.779, 0.965, 0.965,  &
-0.006, 0.017, 0.045, 0.110, 0.241, 0.430, 0.675, 0.872, 0.965,  &
-0.004, 0.010, 0.032, 0.075, 0.167, 0.330, 0.576, 0.794, 0.965,  &
-0.002, 0.006, 0.019, 0.055, 0.131, 0.258, 0.471, 0.712, 0.965,  &
-0.001, 0.004, 0.013, 0.036, 0.091, 0.210, 0.389, 0.616, 0.809 /
-
-data ((cldnuctab50(iw,iconc,5,1),iw=1,9),iconc=1,7)/    &
-0.025, 0.062, 0.142, 0.293, 0.513, 0.746, 0.965, 0.965, 0.965,  &
-0.013, 0.036, 0.091, 0.195, 0.369, 0.616, 0.836, 0.965, 0.965,  &
-0.007, 0.022, 0.055, 0.131, 0.275, 0.471, 0.729, 0.965, 0.965,  &
-0.004, 0.013, 0.036, 0.083, 0.195, 0.369, 0.596, 0.823, 0.965,  &
-0.003, 0.007, 0.022, 0.055, 0.142, 0.275, 0.492, 0.729, 0.965,  &
-0.002, 0.005, 0.015, 0.040, 0.100, 0.210, 0.389, 0.636, 0.836,  &
-0.001, 0.003, 0.009, 0.025, 0.068, 0.155, 0.311, 0.534, 0.763 /
-
-data ((cldnuctab50(iw,iconc,6,1),iw=1,9),iconc=1,7)/    &
-0.022, 0.055, 0.131, 0.258, 0.471, 0.729, 0.965, 0.965, 0.965,  &
-0.011, 0.032, 0.075, 0.167, 0.330, 0.576, 0.809, 0.965, 0.965,  &
-0.006, 0.017, 0.045, 0.110, 0.241, 0.430, 0.675, 0.965, 0.965,  &
-0.004, 0.010, 0.028, 0.075, 0.167, 0.330, 0.555, 0.779, 0.965,  &
-0.002, 0.006, 0.017, 0.050, 0.110, 0.241, 0.430, 0.675, 0.872,  &
-0.001, 0.004, 0.011, 0.032, 0.075, 0.167, 0.330, 0.555, 0.794,  &
-0.001, 0.002, 0.007, 0.019, 0.055, 0.131, 0.258, 0.471, 0.693 /
-
-data ((cldnuctab50(iw,iconc,7,1),iw=1,9),iconc=1,7)/    &
-0.019, 0.050, 0.120, 0.241, 0.451, 0.693, 0.965, 0.965, 0.965,  &
-0.010, 0.028, 0.068, 0.155, 0.311, 0.555, 0.794, 0.965, 0.965,  &
-0.006, 0.017, 0.040, 0.100, 0.210, 0.409, 0.656, 0.861, 0.965,  &
-0.003, 0.009, 0.025, 0.062, 0.142, 0.293, 0.513, 0.746, 0.965,  &
-0.002, 0.006, 0.015, 0.040, 0.100, 0.210, 0.389, 0.616, 0.849,  &
-0.001, 0.003, 0.010, 0.025, 0.068, 0.142, 0.293, 0.513, 0.746,  &
-0.001, 0.002, 0.006, 0.017, 0.045, 0.100, 0.225, 0.409, 0.636 /
-
-! FOR CCN MEDIAN RADIUS 0.015 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,2),iw=1,9),iconc=1,7)/    &
-0.144, 0.278, 0.495, 0.732, 0.912, 0.981, 0.981, 0.981, 0.981,  &
-0.102, 0.212, 0.412, 0.639, 0.850, 0.962, 0.981, 0.981, 0.981,  &
-0.069, 0.156, 0.314, 0.537, 0.765, 0.928, 0.981, 0.981, 0.981,  &
-0.051, 0.122, 0.260, 0.453, 0.677, 0.873, 0.981, 0.981, 0.981,  &
-0.029, 0.084, 0.197, 0.372, 0.599, 0.811, 0.947, 0.981, 0.981,  &
-0.015, 0.045, 0.133, 0.278, 0.495, 0.714, 0.873, 0.966, 0.981,  &
-0.006, 0.022, 0.069, 0.169, 0.296, 0.412, 0.516, 0.516, 0.838 /
-
-data ((cldnuctab50(iw,iconc,2,2),iw=1,9),iconc=1,7)/    &
-0.102, 0.212, 0.412, 0.639, 0.862, 0.981, 0.981, 0.981, 0.981,  &
-0.069, 0.156, 0.314, 0.537, 0.765, 0.928, 0.981, 0.981, 0.981,  &
-0.045, 0.111, 0.244, 0.433, 0.677, 0.873, 0.981, 0.981, 0.981,  &
-0.032, 0.084, 0.183, 0.352, 0.578, 0.796, 0.941, 0.981, 0.981,  &
-0.020, 0.056, 0.133, 0.278, 0.495, 0.714, 0.894, 0.981, 0.981,  &
-0.010, 0.032, 0.093, 0.212, 0.412, 0.639, 0.838, 0.952, 0.981,  &
-0.004, 0.015, 0.051, 0.133, 0.296, 0.495, 0.696, 0.838, 0.952 /
-
-data ((cldnuctab50(iw,iconc,3,2),iw=1,9),iconc=1,7)/    &
-0.076, 0.169, 0.333, 0.558, 0.796, 0.947, 0.981, 0.981, 0.981,  &
-0.051, 0.122, 0.244, 0.453, 0.696, 0.884, 0.981, 0.981, 0.981,  &
-0.032, 0.084, 0.183, 0.352, 0.578, 0.811, 0.947, 0.981, 0.981,  &
-0.022, 0.056, 0.133, 0.278, 0.495, 0.714, 0.894, 0.981, 0.981,  &
-0.013, 0.041, 0.102, 0.212, 0.392, 0.619, 0.838, 0.957, 0.981,  &
-0.008, 0.022, 0.062, 0.156, 0.314, 0.537, 0.765, 0.920, 0.981,  &
-0.004, 0.012, 0.036, 0.102, 0.228, 0.433, 0.658, 0.838, 0.947 /
-
-data ((cldnuctab50(iw,iconc,4,2),iw=1,9),iconc=1,7)/    &
-0.062, 0.144, 0.278, 0.495, 0.749, 0.920, 0.981, 0.981, 0.981,  &
-0.036, 0.093, 0.197, 0.392, 0.619, 0.838, 0.962, 0.981, 0.981,  &
-0.025, 0.062, 0.144, 0.296, 0.495, 0.732, 0.912, 0.981, 0.981,  &
-0.015, 0.041, 0.102, 0.212, 0.412, 0.639, 0.838, 0.962, 0.981,  &
-0.010, 0.029, 0.069, 0.169, 0.314, 0.537, 0.765, 0.920, 0.981,  &
-0.006, 0.017, 0.045, 0.122, 0.244, 0.453, 0.677, 0.873, 0.981,  &
-0.003, 0.009, 0.025, 0.076, 0.183, 0.352, 0.578, 0.796, 0.928 /
-
-data ((cldnuctab50(iw,iconc,5,2),iw=1,9),iconc=1,7)/    &
-0.051, 0.122, 0.244, 0.453, 0.696, 0.894, 0.981, 0.981, 0.981,  &
-0.032, 0.076, 0.169, 0.333, 0.558, 0.796, 0.947, 0.981, 0.981,  &
-0.020, 0.051, 0.122, 0.244, 0.433, 0.677, 0.873, 0.981, 0.981,  &
-0.012, 0.032, 0.076, 0.183, 0.352, 0.558, 0.796, 0.941, 0.981,  &
-0.008, 0.020, 0.056, 0.133, 0.260, 0.474, 0.696, 0.884, 0.981,  &
-0.004, 0.013, 0.036, 0.093, 0.197, 0.372, 0.599, 0.811, 0.947,  &
-0.002, 0.007, 0.020, 0.056, 0.144, 0.296, 0.516, 0.732, 0.894 /
-
-data ((cldnuctab50(iw,iconc,6,2),iw=1,9),iconc=1,7)/    &
-0.045, 0.102, 0.228, 0.412, 0.658, 0.873, 0.981, 0.981, 0.981,  &
-0.025, 0.069, 0.144, 0.296, 0.516, 0.765, 0.928, 0.981, 0.981,  &
-0.015, 0.041, 0.102, 0.212, 0.392, 0.639, 0.850, 0.966, 0.981,  &
-0.010, 0.025, 0.069, 0.144, 0.296, 0.516, 0.749, 0.912, 0.981,  &
-0.006, 0.017, 0.045, 0.102, 0.228, 0.412, 0.639, 0.838, 0.962,  &
-0.004, 0.010, 0.029, 0.069, 0.156, 0.314, 0.537, 0.765, 0.920,  &
-0.002, 0.006, 0.015, 0.045, 0.111, 0.244, 0.433, 0.658, 0.862 /
-
-data ((cldnuctab50(iw,iconc,7,2),iw=1,9),iconc=1,7)/    &
-0.041, 0.102, 0.212, 0.392, 0.639, 0.862, 0.981, 0.981, 0.981,  &
-0.022, 0.062, 0.133, 0.278, 0.495, 0.732, 0.920, 0.981, 0.981,  &
-0.013, 0.036, 0.084, 0.197, 0.372, 0.599, 0.825, 0.957, 0.981,  &
-0.009, 0.022, 0.056, 0.133, 0.260, 0.474, 0.714, 0.894, 0.981,  &
-0.005, 0.013, 0.036, 0.093, 0.197, 0.372, 0.599, 0.811, 0.947,  &
-0.003, 0.009, 0.022, 0.062, 0.133, 0.278, 0.474, 0.714, 0.894,  &
-0.001, 0.005, 0.013, 0.036, 0.093, 0.212, 0.392, 0.619, 0.825 /
-
-! FOR CCN MEDIAN RADIUS 0.02 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,3),iw=1,9),iconc=1,7)/    &
-0.233, 0.419, 0.645, 0.854, 0.963, 0.993, 0.993, 0.993, 0.993,  &
-0.174, 0.339, 0.544, 0.770, 0.923, 0.988, 0.993, 0.993, 0.993,  &
-0.125, 0.266, 0.460, 0.683, 0.877, 0.971, 0.993, 0.993, 0.993,  &
-0.079, 0.187, 0.378, 0.605, 0.815, 0.943, 0.993, 0.993, 0.993,  &
-0.042, 0.125, 0.284, 0.502, 0.737, 0.906, 0.977, 0.993, 0.993,  &
-0.018, 0.058, 0.174, 0.358, 0.605, 0.801, 0.930, 0.986, 0.993,  &
-0.007, 0.026, 0.079, 0.187, 0.284, 0.358, 0.439, 0.439, 0.906 /
-
-data ((cldnuctab50(iw,iconc,2,3),iw=1,9),iconc=1,7)/    &
-0.174, 0.320, 0.544, 0.770, 0.930, 0.993, 0.993, 0.993, 0.993,  &
-0.125, 0.249, 0.460, 0.683, 0.877, 0.971, 0.993, 0.993, 0.993,  &
-0.087, 0.187, 0.358, 0.585, 0.801, 0.943, 0.993, 0.993, 0.993,  &
-0.058, 0.136, 0.284, 0.502, 0.720, 0.897, 0.977, 0.993, 0.993,  &
-0.030, 0.087, 0.217, 0.398, 0.645, 0.842, 0.954, 0.993, 0.993,  &
-0.014, 0.047, 0.125, 0.302, 0.544, 0.770, 0.915, 0.982, 0.993,  &
-0.005, 0.018, 0.065, 0.174, 0.358, 0.565, 0.770, 0.897, 0.980 /
-
-data ((cldnuctab50(iw,iconc,3,3),iw=1,9),iconc=1,7)/    &
-0.125, 0.266, 0.460, 0.702, 0.897, 0.980, 0.993, 0.993, 0.993,  &
-0.087, 0.187, 0.378, 0.605, 0.815, 0.949, 0.993, 0.993, 0.993,  &
-0.058, 0.136, 0.284, 0.502, 0.720, 0.897, 0.980, 0.993, 0.993,  &
-0.042, 0.105, 0.217, 0.398, 0.626, 0.842, 0.954, 0.993, 0.993,  &
-0.023, 0.065, 0.160, 0.320, 0.544, 0.770, 0.915, 0.984, 0.993,  &
-0.011, 0.033, 0.096, 0.233, 0.439, 0.683, 0.866, 0.967, 0.993,  &
-0.004, 0.014, 0.047, 0.136, 0.320, 0.544, 0.770, 0.915, 0.980 /
-
-data ((cldnuctab50(iw,iconc,4,3),iw=1,9),iconc=1,7)/    &
-0.105, 0.217, 0.398, 0.645, 0.854, 0.967, 0.993, 0.993, 0.993,  &
-0.065, 0.148, 0.302, 0.523, 0.754, 0.923, 0.988, 0.993, 0.993,  &
-0.047, 0.105, 0.233, 0.419, 0.645, 0.854, 0.963, 0.993, 0.993,  &
-0.030, 0.079, 0.174, 0.339, 0.544, 0.770, 0.923, 0.986, 0.993,  &
-0.018, 0.047, 0.125, 0.249, 0.460, 0.683, 0.866, 0.967, 0.993,  &
-0.008, 0.026, 0.071, 0.174, 0.358, 0.585, 0.801, 0.937, 0.990,  &
-0.003, 0.011, 0.033, 0.105, 0.249, 0.481, 0.702, 0.887, 0.971 /
-
-data ((cldnuctab50(iw,iconc,5,3),iw=1,9),iconc=1,7)/    &
-0.087, 0.187, 0.358, 0.585, 0.815, 0.954, 0.993, 0.993, 0.993,  &
-0.052, 0.125, 0.266, 0.460, 0.702, 0.897, 0.980, 0.993, 0.993,  &
-0.038, 0.087, 0.187, 0.358, 0.585, 0.801, 0.943, 0.993, 0.993,  &
-0.023, 0.058, 0.136, 0.284, 0.481, 0.702, 0.887, 0.977, 0.993,  &
-0.014, 0.038, 0.096, 0.202, 0.378, 0.605, 0.815, 0.949, 0.993,  &
-0.007, 0.021, 0.058, 0.136, 0.302, 0.523, 0.737, 0.906, 0.980,  &
-0.003, 0.008, 0.026, 0.079, 0.202, 0.398, 0.645, 0.842, 0.954 /
-
-data ((cldnuctab50(iw,iconc,6,3),iw=1,9),iconc=1,7)/    &
-0.071, 0.160, 0.320, 0.565, 0.786, 0.943, 0.993, 0.993, 0.993,  &
-0.047, 0.115, 0.233, 0.419, 0.665, 0.866, 0.974, 0.993, 0.993,  &
-0.030, 0.071, 0.160, 0.320, 0.544, 0.770, 0.930, 0.988, 0.993,  &
-0.018, 0.047, 0.115, 0.233, 0.419, 0.665, 0.854, 0.967, 0.993,  &
-0.011, 0.030, 0.079, 0.174, 0.339, 0.544, 0.770, 0.923, 0.986,  &
-0.006, 0.016, 0.047, 0.115, 0.249, 0.439, 0.683, 0.866, 0.967,  &
-0.002, 0.007, 0.023, 0.065, 0.160, 0.339, 0.585, 0.786, 0.930 /
-
-data ((cldnuctab50(iw,iconc,7,3),iw=1,9),iconc=1,7)/    &
-0.071, 0.148, 0.302, 0.523, 0.770, 0.937, 0.993, 0.993, 0.993,  &
-0.042, 0.096, 0.217, 0.398, 0.626, 0.854, 0.967, 0.993, 0.993,  &
-0.026, 0.065, 0.148, 0.284, 0.502, 0.737, 0.915, 0.984, 0.993,  &
-0.016, 0.042, 0.096, 0.202, 0.378, 0.605, 0.829, 0.954, 0.993,  &
-0.009, 0.026, 0.065, 0.148, 0.302, 0.502, 0.720, 0.897, 0.980,  &
-0.005, 0.014, 0.042, 0.096, 0.217, 0.398, 0.626, 0.829, 0.954,  &
-0.002, 0.006, 0.018, 0.052, 0.136, 0.302, 0.523, 0.737, 0.906 /
-
-! FOR CCN MEDIAN RADIUS 0.03 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,4),iw=1,9),iconc=1,7)/    &
-0.401, 0.628, 0.831, 0.949, 0.992, 0.999, 0.999, 0.999, 0.999,  &
-0.304, 0.526, 0.756, 0.907, 0.980, 0.998, 0.999, 0.999, 0.999,  &
-0.219, 0.422, 0.667, 0.856, 0.959, 0.994, 0.999, 0.999, 0.999,  &
-0.127, 0.304, 0.567, 0.788, 0.931, 0.987, 0.999, 0.999, 0.999,  &
-0.053, 0.176, 0.401, 0.686, 0.878, 0.971, 0.996, 0.999, 0.999,  &
-0.021, 0.072, 0.219, 0.463, 0.704, 0.898, 0.980, 0.997, 0.999,  &
-0.008, 0.030, 0.088, 0.204, 0.235, 0.251, 0.323, 0.361, 0.916 /
-
-data ((cldnuctab50(iw,iconc,2,4),iw=1,9),iconc=1,7)/    &
-0.304, 0.526, 0.756, 0.916, 0.983, 0.999, 0.999, 0.999, 0.999,  &
-0.235, 0.422, 0.648, 0.856, 0.959, 0.995, 0.999, 0.999, 0.999,  &
-0.162, 0.342, 0.567, 0.773, 0.924, 0.985, 0.999, 0.999, 0.999,  &
-0.097, 0.235, 0.463, 0.704, 0.878, 0.968, 0.996, 0.999, 0.999,  &
-0.043, 0.127, 0.323, 0.588, 0.817, 0.944, 0.990, 0.999, 0.999,  &
-0.016, 0.059, 0.176, 0.401, 0.686, 0.889, 0.975, 0.996, 0.999,  &
-0.006, 0.021, 0.072, 0.204, 0.401, 0.588, 0.817, 0.955, 0.994 /
-
-data ((cldnuctab50(iw,iconc,3,4),iw=1,9),iconc=1,7)/    &
-0.251, 0.442, 0.667, 0.868, 0.968, 0.997, 0.999, 0.999, 0.999,  &
-0.176, 0.342, 0.567, 0.788, 0.931, 0.988, 0.999, 0.999, 0.999,  &
-0.127, 0.268, 0.463, 0.704, 0.878, 0.971, 0.996, 0.999, 0.999,  &
-0.072, 0.189, 0.381, 0.608, 0.817, 0.944, 0.990, 0.999, 0.999,  &
-0.034, 0.097, 0.251, 0.484, 0.740, 0.898, 0.978, 0.997, 0.999,  &
-0.012, 0.043, 0.138, 0.342, 0.608, 0.844, 0.955, 0.992, 0.999,  &
-0.004, 0.016, 0.059, 0.176, 0.401, 0.648, 0.856, 0.968, 0.996 /
-
-data ((cldnuctab50(iw,iconc,4,4),iw=1,9),iconc=1,7)/    &
-0.204, 0.381, 0.608, 0.817, 0.949, 0.994, 0.999, 0.999, 0.999,  &
-0.138, 0.286, 0.505, 0.722, 0.898, 0.980, 0.998, 0.999, 0.999,  &
-0.097, 0.219, 0.401, 0.628, 0.831, 0.949, 0.992, 0.999, 0.999,  &
-0.059, 0.150, 0.304, 0.526, 0.740, 0.907, 0.980, 0.998, 0.999,  &
-0.027, 0.080, 0.204, 0.401, 0.648, 0.856, 0.959, 0.993, 0.999,  &
-0.011, 0.034, 0.106, 0.268, 0.526, 0.773, 0.924, 0.985, 0.998,  &
-0.004, 0.012, 0.043, 0.127, 0.342, 0.608, 0.844, 0.959, 0.993 /
-
-data ((cldnuctab50(iw,iconc,5,4),iw=1,9),iconc=1,7)/    &
-0.176, 0.323, 0.547, 0.788, 0.938, 0.990, 0.999, 0.999, 0.999,  &
-0.116, 0.235, 0.442, 0.667, 0.868, 0.968, 0.997, 0.999, 0.999,  &
-0.080, 0.176, 0.342, 0.547, 0.773, 0.924, 0.987, 0.999, 0.999,  &
-0.048, 0.116, 0.251, 0.442, 0.686, 0.868, 0.968, 0.996, 0.999,  &
-0.024, 0.066, 0.162, 0.342, 0.588, 0.788, 0.931, 0.988, 0.999,  &
-0.008, 0.027, 0.080, 0.219, 0.442, 0.704, 0.889, 0.971, 0.996,  &
-0.003, 0.011, 0.034, 0.106, 0.268, 0.547, 0.803, 0.938, 0.988 /
-
-data ((cldnuctab50(iw,iconc,6,4),iw=1,9),iconc=1,7)/    &
-0.150, 0.304, 0.505, 0.740, 0.916, 0.987, 0.999, 0.999, 0.999,  &
-0.106, 0.219, 0.401, 0.628, 0.831, 0.959, 0.995, 0.999, 0.999,  &
-0.066, 0.150, 0.304, 0.505, 0.740, 0.907, 0.980, 0.998, 0.999,  &
-0.043, 0.097, 0.219, 0.401, 0.628, 0.831, 0.949, 0.993, 0.999,  &
-0.018, 0.053, 0.138, 0.304, 0.526, 0.740, 0.907, 0.980, 0.998,  &
-0.007, 0.024, 0.072, 0.176, 0.381, 0.628, 0.844, 0.955, 0.993,  &
-0.004, 0.008, 0.027, 0.088, 0.235, 0.484, 0.740, 0.916, 0.980 /
-
-data ((cldnuctab50(iw,iconc,7,4),iw=1,9),iconc=1,7)/    &
-0.138, 0.268, 0.484, 0.722, 0.907, 0.985, 0.999, 0.999, 0.999,  &
-0.088, 0.189, 0.361, 0.588, 0.817, 0.949, 0.993, 0.999, 0.999,  &
-0.059, 0.138, 0.268, 0.463, 0.704, 0.889, 0.975, 0.998, 0.999,  &
-0.034, 0.088, 0.189, 0.361, 0.588, 0.803, 0.938, 0.990, 0.999,  &
-0.016, 0.048, 0.127, 0.268, 0.463, 0.704, 0.878, 0.971, 0.997,  &
-0.007, 0.021, 0.059, 0.162, 0.342, 0.588, 0.803, 0.938, 0.988,  &
-0.004, 0.008, 0.024, 0.072, 0.189, 0.422, 0.686, 0.889, 0.971 /
-
-! FOR CCN MEDIAN RADIUS 0.04 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,5),iw=1,9),iconc=1,7)/    &
-0.533, 0.762, 0.910, 0.981, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.428, 0.673, 0.860, 0.961, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.292, 0.553, 0.793, 0.926, 0.985, 0.999, 1.000, 1.000, 1.000,  &
-0.154, 0.388, 0.673, 0.882, 0.969, 0.996, 1.000, 1.000, 1.000,  &
-0.061, 0.194, 0.470, 0.778, 0.940, 0.989, 0.999, 1.000, 1.000,  &
-0.025, 0.083, 0.240, 0.491, 0.745, 0.933, 0.990, 0.999, 1.000,  &
-0.015, 0.035, 0.100, 0.194, 0.224, 0.240, 0.257, 0.329, 0.882 /
-
-data ((cldnuctab50(iw,iconc,2,5),iw=1,9),iconc=1,7)/    &
-0.428, 0.673, 0.860, 0.965, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.348, 0.574, 0.793, 0.926, 0.987, 0.999, 1.000, 1.000, 1.000,  &
-0.224, 0.449, 0.692, 0.882, 0.969, 0.996, 1.000, 1.000, 1.000,  &
-0.119, 0.310, 0.574, 0.808, 0.940, 0.990, 0.999, 1.000, 1.000,  &
-0.049, 0.154, 0.388, 0.692, 0.901, 0.978, 0.997, 1.000, 1.000,  &
-0.019, 0.061, 0.194, 0.470, 0.762, 0.940, 0.990, 0.999, 1.000,  &
-0.013, 0.028, 0.083, 0.209, 0.388, 0.595, 0.835, 0.961, 0.998 /
-
-data ((cldnuctab50(iw,iconc,3,5),iw=1,9),iconc=1,7)/    &
-0.368, 0.595, 0.808, 0.940, 0.990, 0.999, 1.000, 1.000, 1.000,  &
-0.274, 0.491, 0.710, 0.892, 0.972, 0.997, 1.000, 1.000, 1.000,  &
-0.180, 0.368, 0.615, 0.822, 0.946, 0.990, 0.999, 1.000, 1.000,  &
-0.091, 0.240, 0.491, 0.728, 0.901, 0.978, 0.997, 1.000, 1.000,  &
-0.035, 0.119, 0.310, 0.595, 0.835, 0.956, 0.993, 0.999, 1.000,  &
-0.015, 0.049, 0.154, 0.388, 0.710, 0.910, 0.983, 0.998, 1.000,  &
-0.013, 0.019, 0.061, 0.180, 0.428, 0.692, 0.910, 0.983, 0.999 /
-
-data ((cldnuctab50(iw,iconc,4,5),iw=1,9),iconc=1,7)/    &
-0.310, 0.512, 0.745, 0.910, 0.983, 0.998, 1.000, 1.000, 1.000,  &
-0.224, 0.408, 0.635, 0.835, 0.956, 0.994, 1.000, 1.000, 1.000,  &
-0.154, 0.310, 0.533, 0.762, 0.910, 0.981, 0.998, 1.000, 1.000,  &
-0.075, 0.194, 0.408, 0.654, 0.860, 0.961, 0.994, 0.999, 1.000,  &
-0.031, 0.091, 0.257, 0.512, 0.778, 0.926, 0.985, 0.998, 1.000,  &
-0.013, 0.035, 0.119, 0.310, 0.615, 0.860, 0.965, 0.995, 1.000,  &
-0.013, 0.015, 0.049, 0.142, 0.368, 0.673, 0.892, 0.981, 0.998 /
-
-data ((cldnuctab50(iw,iconc,5,5),iw=1,9),iconc=1,7)/    &
-0.257, 0.449, 0.692, 0.882, 0.976, 0.997, 1.000, 1.000, 1.000,  &
-0.194, 0.348, 0.574, 0.793, 0.940, 0.990, 0.999, 1.000, 1.000,  &
-0.119, 0.257, 0.470, 0.692, 0.882, 0.972, 0.997, 1.000, 1.000,  &
-0.061, 0.167, 0.348, 0.595, 0.808, 0.940, 0.989, 0.999, 1.000,  &
-0.025, 0.075, 0.209, 0.449, 0.710, 0.892, 0.972, 0.997, 1.000,  &
-0.013, 0.031, 0.091, 0.257, 0.553, 0.808, 0.946, 0.990, 0.999,  &
-0.013, 0.015, 0.040, 0.119, 0.310, 0.615, 0.860, 0.972, 0.997 /
-
-data ((cldnuctab50(iw,iconc,6,5),iw=1,9),iconc=1,7)/    &
-0.224, 0.428, 0.654, 0.860, 0.969, 0.997, 1.000, 1.000, 1.000,  &
-0.167, 0.310, 0.533, 0.762, 0.918, 0.985, 0.999, 1.000, 1.000,  &
-0.109, 0.224, 0.408, 0.654, 0.848, 0.961, 0.995, 1.000, 1.000,  &
-0.055, 0.142, 0.310, 0.533, 0.762, 0.918, 0.983, 0.998, 1.000,  &
-0.022, 0.068, 0.180, 0.388, 0.654, 0.848, 0.961, 0.994, 0.999,  &
-0.015, 0.025, 0.083, 0.224, 0.470, 0.745, 0.918, 0.983, 0.998,  &
-0.015, 0.017, 0.031, 0.091, 0.257, 0.553, 0.822, 0.956, 0.994 /
-
-data ((cldnuctab50(iw,iconc,7,5),iw=1,9),iconc=1,7)/    &
-0.209, 0.388, 0.615, 0.835, 0.961, 0.995, 1.000, 1.000, 1.000,  &
-0.154, 0.292, 0.491, 0.728, 0.901, 0.981, 0.998, 1.000, 1.000,  &
-0.100, 0.209, 0.388, 0.615, 0.822, 0.946, 0.993, 0.999, 1.000,  &
-0.049, 0.130, 0.274, 0.491, 0.710, 0.892, 0.976, 0.997, 1.000,  &
-0.019, 0.061, 0.154, 0.348, 0.595, 0.808, 0.946, 0.990, 0.999,  &
-0.015, 0.022, 0.068, 0.194, 0.428, 0.710, 0.892, 0.976, 0.997,  &
-0.015, 0.017, 0.028, 0.083, 0.224, 0.491, 0.793, 0.940, 0.990 /
-
-! FOR CCN MEDIAN RADIUS 0.06 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,6),iw=1,9),iconc=1,7)/    &
-0.713, 0.893, 0.976, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.577, 0.824, 0.952, 0.992, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.370, 0.695, 0.903, 0.981, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.168, 0.452, 0.795, 0.957, 0.994, 0.999, 1.000, 1.000, 1.000,  &
-0.076, 0.211, 0.515, 0.849, 0.979, 0.998, 1.000, 1.000, 1.000,  &
-0.062, 0.111, 0.243, 0.473, 0.748, 0.957, 0.997, 1.000, 1.000,  &
-0.056, 0.069, 0.121, 0.182, 0.196, 0.196, 0.277, 0.390, 0.810 /
-
-data ((cldnuctab50(iw,iconc,2,6),iw=1,9),iconc=1,7)/    &
-0.637, 0.837, 0.952, 0.993, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.494, 0.748, 0.911, 0.981, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.294, 0.597, 0.849, 0.962, 0.994, 0.999, 1.000, 1.000, 1.000,  &
-0.132, 0.370, 0.713, 0.919, 0.986, 0.998, 1.000, 1.000, 1.000,  &
-0.062, 0.168, 0.431, 0.795, 0.962, 0.995, 1.000, 1.000, 1.000,  &
-0.062, 0.084, 0.211, 0.494, 0.824, 0.973, 0.998, 1.000, 1.000,  &
-0.056, 0.069, 0.111, 0.211, 0.370, 0.536, 0.764, 0.946, 0.999 /
-
-data ((cldnuctab50(iw,iconc,3,6),iw=1,9),iconc=1,7)/    &
-0.556, 0.780, 0.927, 0.986, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.411, 0.676, 0.861, 0.966, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.243, 0.515, 0.780, 0.927, 0.987, 0.999, 1.000, 1.000, 1.000,  &
-0.111, 0.294, 0.618, 0.873, 0.969, 0.996, 1.000, 1.000, 1.000,  &
-0.062, 0.132, 0.370, 0.713, 0.934, 0.989, 0.999, 1.000, 1.000,  &
-0.062, 0.069, 0.168, 0.431, 0.780, 0.962, 0.996, 1.000, 1.000,  &
-0.056, 0.069, 0.092, 0.196, 0.411, 0.695, 0.927, 0.994, 1.000 /
-
-data ((cldnuctab50(iw,iconc,4,6),iw=1,9),iconc=1,7)/    &
-0.473, 0.713, 0.893, 0.976, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.351, 0.597, 0.810, 0.940, 0.990, 0.999, 1.000, 1.000, 1.000,  &
-0.211, 0.452, 0.713, 0.893, 0.976, 0.997, 1.000, 1.000, 1.000,  &
-0.092, 0.243, 0.536, 0.810, 0.946, 0.990, 0.999, 1.000, 1.000,  &
-0.062, 0.111, 0.294, 0.637, 0.893, 0.979, 0.998, 1.000, 1.000,  &
-0.062, 0.069, 0.132, 0.351, 0.713, 0.940, 0.992, 0.999, 1.000,  &
-0.062, 0.069, 0.084, 0.168, 0.390, 0.695, 0.934, 0.994, 1.000 /
-
-data ((cldnuctab50(iw,iconc,5,6),iw=1,9),iconc=1,7)/    &
-0.431, 0.657, 0.849, 0.962, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.313, 0.536, 0.764, 0.919, 0.984, 0.998, 1.000, 1.000, 1.000,  &
-0.182, 0.390, 0.657, 0.849, 0.962, 0.995, 1.000, 1.000, 1.000,  &
-0.076, 0.211, 0.473, 0.748, 0.919, 0.984, 0.998, 1.000, 1.000,  &
-0.062, 0.092, 0.243, 0.556, 0.837, 0.962, 0.995, 1.000, 1.000,  &
-0.062, 0.069, 0.111, 0.294, 0.637, 0.903, 0.984, 0.998, 1.000,  &
-0.062, 0.069, 0.084, 0.143, 0.332, 0.657, 0.919, 0.992, 0.999 /
-
-data ((cldnuctab50(iw,iconc,6,6),iw=1,9),iconc=1,7)/    &
-0.390, 0.618, 0.824, 0.952, 0.994, 1.000, 1.000, 1.000, 1.000,  &
-0.277, 0.494, 0.713, 0.893, 0.979, 0.998, 1.000, 1.000, 1.000,  &
-0.155, 0.351, 0.597, 0.810, 0.946, 0.992, 0.999, 1.000, 1.000,  &
-0.069, 0.182, 0.431, 0.695, 0.893, 0.976, 0.997, 1.000, 1.000,  &
-0.069, 0.076, 0.211, 0.494, 0.795, 0.940, 0.990, 0.999, 1.000,  &
-0.069, 0.076, 0.092, 0.243, 0.556, 0.861, 0.973, 0.997, 1.000,  &
-0.069, 0.069, 0.084, 0.121, 0.294, 0.597, 0.893, 0.987, 0.999 /
-
-data ((cldnuctab50(iw,iconc,7,6),iw=1,9),iconc=1,7)/    &
-0.370, 0.577, 0.795, 0.940, 0.992, 0.999, 1.000, 1.000, 1.000,  &
-0.259, 0.452, 0.695, 0.873, 0.973, 0.997, 1.000, 1.000, 1.000,  &
-0.143, 0.332, 0.556, 0.780, 0.934, 0.987, 0.999, 1.000, 1.000,  &
-0.069, 0.168, 0.390, 0.657, 0.861, 0.966, 0.995, 1.000, 1.000,  &
-0.069, 0.076, 0.196, 0.452, 0.748, 0.919, 0.986, 0.999, 1.000,  &
-0.069, 0.076, 0.092, 0.211, 0.515, 0.824, 0.962, 0.995, 1.000,  &
-0.069, 0.076, 0.084, 0.111, 0.259, 0.536, 0.861, 0.979, 0.998 /
-
-! FOR CCN MEDIAN RADIUS 0.08 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,7),iw=1,9),iconc=1,7)/    &
-0.828, 0.954, 0.992, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.682, 0.905, 0.980, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.397, 0.769, 0.954, 0.993, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.186, 0.459, 0.841, 0.980, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.147, 0.248, 0.521, 0.865, 0.988, 0.999, 1.000, 1.000, 1.000,  &
-0.135, 0.160, 0.265, 0.438, 0.701, 0.922, 0.997, 1.000, 1.000,  &
-0.124, 0.135, 0.173, 0.232, 0.201, 0.216, 0.265, 0.377, 0.753 /
-
-data ((cldnuctab50(iw,iconc,2,7),iw=1,9),iconc=1,7)/    &
-0.753, 0.914, 0.982, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.584, 0.841, 0.963, 0.994, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.319, 0.682, 0.914, 0.984, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.147, 0.397, 0.769, 0.958, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.147, 0.201, 0.459, 0.828, 0.982, 0.999, 1.000, 1.000, 1.000,  &
-0.135, 0.160, 0.248, 0.480, 0.814, 0.980, 0.999, 1.000, 1.000,  &
-0.124, 0.135, 0.160, 0.248, 0.338, 0.480, 0.682, 0.914, 0.999 /
-
-data ((cldnuctab50(iw,iconc,3,7),iw=1,9),iconc=1,7)/    &
-0.682, 0.876, 0.967, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.521, 0.785, 0.936, 0.988, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.282, 0.604, 0.865, 0.971, 0.996, 1.000, 1.000, 1.000, 1.000,  &
-0.147, 0.319, 0.682, 0.929, 0.988, 0.999, 1.000, 1.000, 1.000,  &
-0.147, 0.160, 0.377, 0.769, 0.963, 0.996, 1.000, 1.000, 1.000,  &
-0.135, 0.160, 0.216, 0.438, 0.800, 0.977, 0.999, 1.000, 1.000,  &
-0.135, 0.147, 0.160, 0.248, 0.397, 0.644, 0.905, 0.996, 1.000 /
-
-data ((cldnuctab50(iw,iconc,4,7),iw=1,9),iconc=1,7)/    &
-0.604, 0.828, 0.948, 0.992, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.459, 0.719, 0.896, 0.977, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.232, 0.521, 0.814, 0.948, 0.992, 0.999, 1.000, 1.000, 1.000,  &
-0.147, 0.265, 0.604, 0.887, 0.977, 0.998, 1.000, 1.000, 1.000,  &
-0.147, 0.160, 0.319, 0.682, 0.936, 0.992, 0.999, 1.000, 1.000,  &
-0.147, 0.160, 0.186, 0.377, 0.736, 0.963, 0.997, 1.000, 1.000,  &
-0.135, 0.147, 0.160, 0.216, 0.397, 0.682, 0.929, 0.997, 1.000 /
-
-data ((cldnuctab50(iw,iconc,5,7),iw=1,9),iconc=1,7)/    &
-0.563, 0.785, 0.929, 0.988, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.397, 0.663, 0.865, 0.967, 0.996, 1.000, 1.000, 1.000, 1.000,  &
-0.201, 0.459, 0.753, 0.922, 0.986, 0.999, 1.000, 1.000, 1.000,  &
-0.147, 0.232, 0.542, 0.841, 0.963, 0.995, 1.000, 1.000, 1.000,  &
-0.147, 0.160, 0.265, 0.604, 0.896, 0.984, 0.999, 1.000, 1.000,  &
-0.147, 0.160, 0.186, 0.319, 0.663, 0.936, 0.994, 1.000, 1.000,  &
-0.147, 0.147, 0.173, 0.201, 0.357, 0.644, 0.922, 0.996, 1.000 /
-
-data ((cldnuctab50(iw,iconc,6,7),iw=1,9),iconc=1,7)/    &
-0.521, 0.736, 0.905, 0.982, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.357, 0.624, 0.828, 0.954, 0.993, 0.999, 1.000, 1.000, 1.000,  &
-0.186, 0.417, 0.701, 0.896, 0.980, 0.998, 1.000, 1.000, 1.000,  &
-0.160, 0.201, 0.480, 0.785, 0.948, 0.992, 0.999, 1.000, 1.000,  &
-0.160, 0.173, 0.232, 0.542, 0.853, 0.974, 0.997, 1.000, 1.000,  &
-0.160, 0.160, 0.186, 0.282, 0.584, 0.905, 0.990, 0.999, 1.000,  &
-0.147, 0.160, 0.173, 0.201, 0.319, 0.604, 0.905, 0.994, 1.000 /
-
-data ((cldnuctab50(iw,iconc,7,7),iw=1,9),iconc=1,7)/    &
-0.480, 0.719, 0.896, 0.977, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.338, 0.584, 0.800, 0.942, 0.991, 0.999, 1.000, 1.000, 1.000,  &
-0.173, 0.397, 0.663, 0.876, 0.971, 0.997, 1.000, 1.000, 1.000,  &
-0.160, 0.186, 0.438, 0.753, 0.929, 0.988, 0.999, 1.000, 1.000,  &
-0.160, 0.173, 0.201, 0.480, 0.814, 0.963, 0.996, 1.000, 1.000,  &
-0.160, 0.173, 0.186, 0.248, 0.521, 0.865, 0.982, 0.999, 1.000,  &
-0.160, 0.160, 0.173, 0.201, 0.300, 0.542, 0.876, 0.990, 0.999 /
-
-! FOR CCN MEDIAN RADIUS 0.12 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,8),iw=1,9),iconc=1,7)/    &
-0.915, 0.986, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.738, 0.959, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.420, 0.816, 0.982, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.360, 0.503, 0.855, 0.992, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.321, 0.360, 0.524, 0.843, 0.992, 1.000, 1.000, 1.000, 1.000,  &
-0.303, 0.321, 0.380, 0.483, 0.607, 0.830, 0.991, 1.000, 1.000,  &
-0.285, 0.285, 0.321, 0.380, 0.420, 0.267, 0.303, 0.420, 0.685 /
-
-data ((cldnuctab50(iw,iconc,2,8),iw=1,9),iconc=1,7)/    &
-0.867, 0.974, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.666, 0.930, 0.990, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.360, 0.738, 0.963, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.360, 0.441, 0.802, 0.982, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.340, 0.360, 0.503, 0.830, 0.991, 1.000, 1.000, 1.000, 1.000,  &
-0.321, 0.340, 0.380, 0.503, 0.738, 0.967, 1.000, 1.000, 1.000,  &
-0.285, 0.303, 0.321, 0.380, 0.462, 0.441, 0.587, 0.787, 0.991 /
-
-data ((cldnuctab50(iw,iconc,3,8),iw=1,9),iconc=1,7)/    &
-0.816, 0.954, 0.993, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.607, 0.888, 0.980, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.360, 0.666, 0.937, 0.992, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.360, 0.380, 0.721, 0.967, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.340, 0.360, 0.462, 0.771, 0.982, 0.999, 1.000, 1.000, 1.000,  &
-0.321, 0.340, 0.380, 0.483, 0.755, 0.980, 1.000, 1.000, 1.000,  &
-0.303, 0.321, 0.340, 0.380, 0.483, 0.566, 0.802, 0.977, 1.000 /
-
-data ((cldnuctab50(iw,iconc,4,8),iw=1,9),iconc=1,7)/    &
-0.771, 0.930, 0.988, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.524, 0.843, 0.963, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.360, 0.587, 0.898, 0.985, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.360, 0.380, 0.647, 0.937, 0.994, 1.000, 1.000, 1.000, 1.000,  &
-0.340, 0.360, 0.420, 0.703, 0.963, 0.998, 1.000, 1.000, 1.000,  &
-0.340, 0.340, 0.380, 0.462, 0.721, 0.971, 0.999, 1.000, 1.000,  &
-0.321, 0.340, 0.340, 0.380, 0.462, 0.607, 0.867, 0.996, 1.000 /
-
-data ((cldnuctab50(iw,iconc,5,8),iw=1,9),iconc=1,7)/    &
-0.721, 0.907, 0.980, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.483, 0.802, 0.949, 0.992, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.360, 0.524, 0.855, 0.974, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.360, 0.380, 0.566, 0.907, 0.990, 0.999, 1.000, 1.000, 1.000,  &
-0.360, 0.380, 0.420, 0.627, 0.937, 0.996, 1.000, 1.000, 1.000,  &
-0.340, 0.360, 0.380, 0.441, 0.666, 0.949, 0.999, 1.000, 1.000,  &
-0.340, 0.340, 0.360, 0.380, 0.462, 0.607, 0.878, 0.997, 1.000 /
-
-data ((cldnuctab50(iw,iconc,6,8),iw=1,9),iconc=1,7)/    &
-0.685, 0.878, 0.974, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.441, 0.755, 0.930, 0.988, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.380, 0.483, 0.816, 0.963, 0.996, 1.000, 1.000, 1.000, 1.000,  &
-0.380, 0.400, 0.524, 0.867, 0.982, 0.999, 1.000, 1.000, 1.000,  &
-0.360, 0.380, 0.420, 0.566, 0.907, 0.992, 1.000, 1.000, 1.000,  &
-0.360, 0.360, 0.380, 0.441, 0.627, 0.923, 0.997, 1.000, 1.000,  &
-0.360, 0.360, 0.360, 0.380, 0.441, 0.607, 0.855, 0.996, 1.000 /
-
-data ((cldnuctab50(iw,iconc,7,8),iw=1,9),iconc=1,7)/    &
-0.647, 0.855, 0.967, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.420, 0.721, 0.915, 0.985, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.380, 0.441, 0.787, 0.949, 0.993, 1.000, 1.000, 1.000, 1.000,  &
-0.380, 0.400, 0.483, 0.830, 0.974, 0.998, 1.000, 1.000, 1.000,  &
-0.380, 0.400, 0.420, 0.524, 0.867, 0.988, 0.999, 1.000, 1.000,  &
-0.380, 0.380, 0.400, 0.441, 0.587, 0.888, 0.994, 1.000, 1.000,  &
-0.360, 0.360, 0.380, 0.400, 0.441, 0.587, 0.830, 0.992, 1.000 /
-
-! FOR CCN MEDIAN RADIUS 0.16 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,9),iw=1,9),iconc=1,7)/    &
-0.952, 0.995, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.765, 0.976, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.557, 0.810, 0.989, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.515, 0.598, 0.837, 0.995, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.474, 0.515, 0.598, 0.780, 0.984, 0.999, 0.999, 0.999, 0.999,  &
-0.453, 0.474, 0.515, 0.598, 0.598, 0.748, 0.941, 0.999, 0.999,  &
-0.432, 0.432, 0.453, 0.495, 0.618, 0.432, 0.352, 0.453, 0.677 /
-
-data ((cldnuctab50(iw,iconc,2,9),iw=1,9),iconc=1,7)/    &
-0.920, 0.989, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.695, 0.957, 0.997, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.536, 0.748, 0.979, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.515, 0.578, 0.796, 0.989, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.495, 0.515, 0.598, 0.796, 0.991, 0.999, 0.999, 0.999, 0.999,  &
-0.474, 0.495, 0.515, 0.598, 0.695, 0.920, 0.999, 0.999, 0.999,  &
-0.453, 0.474, 0.474, 0.515, 0.598, 0.578, 0.557, 0.731, 0.962 /
-
-data ((cldnuctab50(iw,iconc,3,9),iw=1,9),iconc=1,7)/    &
-0.884, 0.981, 0.998, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.618, 0.927, 0.992, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.536, 0.677, 0.957, 0.997, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.536, 0.557, 0.731, 0.976, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.515, 0.536, 0.578, 0.780, 0.984, 0.999, 0.999, 0.999, 0.999,  &
-0.495, 0.515, 0.536, 0.578, 0.731, 0.957, 0.999, 0.999, 0.999,  &
-0.495, 0.495, 0.495, 0.515, 0.578, 0.677, 0.714, 0.927, 0.999 /
-
-data ((cldnuctab50(iw,iconc,4,9),iw=1,9),iconc=1,7)/    &
-0.837, 0.966, 0.996, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.557, 0.894, 0.986, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.557, 0.598, 0.927, 0.994, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.536, 0.557, 0.677, 0.952, 0.998, 0.999, 0.999, 0.999, 0.999,  &
-0.536, 0.536, 0.578, 0.731, 0.970, 0.999, 0.999, 0.999, 0.999,  &
-0.515, 0.515, 0.536, 0.578, 0.731, 0.957, 0.999, 0.999, 0.999,  &
-0.495, 0.515, 0.515, 0.536, 0.578, 0.695, 0.810, 0.984, 0.999 /
-
-data ((cldnuctab50(iw,iconc,5,9),iw=1,9),iconc=1,7)/    &
-0.796, 0.952, 0.994, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.557, 0.850, 0.976, 0.998, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.557, 0.578, 0.894, 0.989, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.557, 0.578, 0.618, 0.927, 0.995, 0.999, 0.999, 0.999, 0.999,  &
-0.536, 0.557, 0.578, 0.677, 0.941, 0.998, 0.999, 0.999, 0.999,  &
-0.536, 0.536, 0.557, 0.578, 0.695, 0.934, 0.999, 0.999, 0.999,  &
-0.515, 0.515, 0.536, 0.557, 0.578, 0.695, 0.824, 0.989, 0.999 /
-
-data ((cldnuctab50(iw,iconc,6,9),iw=1,9),iconc=1,7)/    &
-0.765, 0.941, 0.991, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.578, 0.824, 0.966, 0.997, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.557, 0.598, 0.862, 0.984, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.557, 0.578, 0.618, 0.894, 0.992, 0.999, 0.999, 0.999, 0.999,  &
-0.557, 0.557, 0.578, 0.658, 0.912, 0.997, 0.999, 0.999, 0.999,  &
-0.536, 0.557, 0.557, 0.598, 0.677, 0.903, 0.998, 0.999, 0.999,  &
-0.536, 0.536, 0.536, 0.557, 0.598, 0.677, 0.810, 0.991, 0.999 /
-
-data ((cldnuctab50(iw,iconc,7,9),iw=1,9),iconc=1,7)/    &
-0.731, 0.927, 0.988, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.578, 0.796, 0.957, 0.995, 0.999, 0.999, 0.999, 0.999, 0.999,  &
-0.578, 0.598, 0.824, 0.976, 0.998, 0.999, 0.999, 0.999, 0.999,  &
-0.578, 0.578, 0.618, 0.862, 0.988, 0.999, 0.999, 0.999, 0.999,  &
-0.557, 0.578, 0.598, 0.658, 0.884, 0.994, 0.999, 0.999, 0.999,  &
-0.557, 0.557, 0.578, 0.598, 0.658, 0.884, 0.997, 0.999, 0.999,  &
-0.557, 0.557, 0.557, 0.578, 0.598, 0.677, 0.810, 0.984, 0.999 /
-
-! FOR CCN MEDIAN RADIUS 0.24 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,10),iw=1,9),iconc=1,7)/    &
-0.974, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.812, 0.984, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.767, 0.839, 0.991, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.734, 0.767, 0.852, 0.988, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.716, 0.734, 0.767, 0.852, 0.935, 1.000, 1.000, 1.000, 1.000,  &
-0.679, 0.679, 0.698, 0.751, 0.863, 0.716, 0.852, 0.988, 1.000,  &
-0.581, 0.581, 0.601, 0.621, 0.679, 0.798, 0.497, 0.539, 0.679 /
-
-data ((cldnuctab50(iw,iconc,2,10),iw=1,9),iconc=1,7)/    &
-0.953, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.798, 0.970, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.767, 0.812, 0.982, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.751, 0.767, 0.839, 0.984, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.734, 0.734, 0.767, 0.839, 0.966, 1.000, 1.000, 1.000, 1.000,  &
-0.716, 0.716, 0.734, 0.767, 0.852, 0.852, 0.984, 1.000, 1.000,  &
-0.660, 0.660, 0.679, 0.698, 0.734, 0.852, 0.660, 0.716, 0.885 /
-
-data ((cldnuctab50(iw,iconc,3,10),iw=1,9),iconc=1,7)/    &
-0.928, 0.995, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.798, 0.947, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.783, 0.812, 0.966, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.767, 0.783, 0.826, 0.974, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.751, 0.751, 0.783, 0.826, 0.966, 1.000, 1.000, 1.000, 1.000,  &
-0.734, 0.734, 0.751, 0.767, 0.839, 0.904, 0.998, 1.000, 1.000,  &
-0.716, 0.716, 0.716, 0.734, 0.767, 0.852, 0.826, 0.852, 0.986 /
-
-data ((cldnuctab50(iw,iconc,4,10),iw=1,9),iconc=1,7)/    &
-0.895, 0.991, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.798, 0.921, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.783, 0.812, 0.942, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.767, 0.783, 0.812, 0.953, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.767, 0.767, 0.783, 0.826, 0.953, 1.000, 1.000, 1.000, 1.000,  &
-0.751, 0.751, 0.767, 0.783, 0.826, 0.921, 0.999, 1.000, 1.000,  &
-0.734, 0.734, 0.751, 0.751, 0.783, 0.826, 0.895, 0.921, 0.999 /
-
-data ((cldnuctab50(iw,iconc,5,10),iw=1,9),iconc=1,7)/    &
-0.863, 0.984, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.798, 0.885, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.798, 0.812, 0.904, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.783, 0.798, 0.812, 0.928, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.767, 0.783, 0.798, 0.826, 0.935, 0.999, 1.000, 1.000, 1.000,  &
-0.767, 0.767, 0.783, 0.783, 0.826, 0.921, 0.998, 1.000, 1.000,  &
-0.751, 0.751, 0.767, 0.767, 0.783, 0.826, 0.913, 0.942, 1.000 /
-
-data ((cldnuctab50(iw,iconc,6,10),iw=1,9),iconc=1,7)/    &
-0.839, 0.979, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.798, 0.863, 0.988, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.798, 0.812, 0.875, 0.994, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.798, 0.798, 0.826, 0.895, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.783, 0.783, 0.798, 0.826, 0.913, 0.998, 1.000, 1.000, 1.000,  &
-0.783, 0.783, 0.783, 0.798, 0.826, 0.913, 0.996, 1.000, 1.000,  &
-0.767, 0.767, 0.767, 0.783, 0.798, 0.826, 0.904, 0.953, 1.000 /
-
-data ((cldnuctab50(iw,iconc,7,10),iw=1,9),iconc=1,7)/    &
-0.812, 0.974, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.812, 0.826, 0.984, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.812, 0.826, 0.852, 0.991, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.798, 0.812, 0.826, 0.875, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.798, 0.798, 0.812, 0.826, 0.895, 0.996, 1.000, 1.000, 1.000,  &
-0.783, 0.798, 0.798, 0.798, 0.826, 0.895, 0.994, 1.000, 1.000,  &
-0.783, 0.783, 0.783, 0.783, 0.798, 0.826, 0.895, 0.958, 1.000 /
-
-! FOR CCN MEDIAN RADIUS 0.32 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,11),iw=1,9),iconc=1,7)/    &
-0.975, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.898, 0.983, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.867, 0.898, 0.985, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.856, 0.867, 0.898, 0.971, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.830, 0.843, 0.867, 0.907, 0.949, 0.991, 1.000, 1.000, 1.000,  &
-0.772, 0.788, 0.788, 0.817, 0.878, 0.985, 0.830, 0.954, 1.000,  &
-0.667, 0.667, 0.685, 0.685, 0.722, 0.788, 0.923, 0.628, 0.739 /
-
-data ((cldnuctab50(iw,iconc,2,11),iw=1,9),iconc=1,7)/    &
-0.959, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.898, 0.968, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.878, 0.898, 0.977, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.867, 0.878, 0.898, 0.975, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.856, 0.867, 0.878, 0.898, 0.964, 0.999, 1.000, 1.000, 1.000,  &
-0.830, 0.830, 0.843, 0.856, 0.907, 0.968, 0.949, 1.000, 1.000,  &
-0.756, 0.756, 0.756, 0.772, 0.788, 0.856, 0.968, 0.739, 0.867 /
-
-data ((cldnuctab50(iw,iconc,3,11),iw=1,9),iconc=1,7)/    &
-0.937, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.898, 0.949, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.888, 0.898, 0.959, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.878, 0.888, 0.907, 0.968, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.867, 0.878, 0.878, 0.898, 0.964, 1.000, 1.000, 1.000, 1.000,  &
-0.856, 0.856, 0.867, 0.878, 0.907, 0.964, 0.987, 1.000, 1.000,  &
-0.802, 0.802, 0.817, 0.817, 0.843, 0.888, 0.971, 0.843, 0.949 /
-
-data ((cldnuctab50(iw,iconc,4,11),iw=1,9),iconc=1,7)/    &
-0.907, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.898, 0.923, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.888, 0.907, 0.944, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.888, 0.888, 0.907, 0.954, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.878, 0.878, 0.888, 0.907, 0.954, 0.999, 1.000, 1.000, 1.000,  &
-0.867, 0.867, 0.878, 0.888, 0.907, 0.954, 0.991, 1.000, 1.000,  &
-0.843, 0.843, 0.843, 0.843, 0.867, 0.898, 0.964, 0.898, 0.988 /
-
-data ((cldnuctab50(iw,iconc,5,11),iw=1,9),iconc=1,7)/    &
-0.907, 0.992, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.907, 0.923, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.898, 0.907, 0.931, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.888, 0.898, 0.907, 0.944, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.888, 0.888, 0.898, 0.907, 0.944, 0.999, 1.000, 1.000, 1.000,  &
-0.878, 0.878, 0.888, 0.888, 0.907, 0.949, 0.991, 1.000, 1.000,  &
-0.856, 0.856, 0.856, 0.867, 0.878, 0.898, 0.954, 0.954, 0.997 /
-
-data ((cldnuctab50(iw,iconc,6,11),iw=1,9),iconc=1,7)/    &
-0.915, 0.990, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.907, 0.923, 0.994, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.907, 0.907, 0.931, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.898, 0.907, 0.915, 0.937, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.898, 0.898, 0.898, 0.907, 0.937, 0.997, 1.000, 1.000, 1.000,  &
-0.888, 0.888, 0.898, 0.898, 0.907, 0.944, 0.991, 1.000, 1.000,  &
-0.867, 0.867, 0.867, 0.878, 0.888, 0.898, 0.944, 0.983, 0.999 /
-
-data ((cldnuctab50(iw,iconc,7,11),iw=1,9),iconc=1,7)/    &
-0.915, 0.987, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.915, 0.923, 0.991, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.907, 0.915, 0.931, 0.994, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.907, 0.907, 0.915, 0.937, 0.995, 1.000, 1.000, 1.000, 1.000,  &
-0.898, 0.907, 0.907, 0.915, 0.937, 0.995, 1.000, 1.000, 1.000,  &
-0.898, 0.898, 0.898, 0.907, 0.915, 0.937, 0.990, 1.000, 1.000,  &
-0.878, 0.878, 0.878, 0.878, 0.888, 0.907, 0.937, 0.987, 0.999 /
-
-! FOR CCN MEDIAN RADIUS 0.48 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,12),iw=1,9),iconc=1,7)/    &
-0.980, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.968, 0.983, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.960, 0.964, 0.983, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.950, 0.955, 0.964, 0.987, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.924, 0.924, 0.932, 0.950, 0.985, 0.975, 0.999, 1.000, 1.000,  &
-0.869, 0.869, 0.869, 0.880, 0.908, 0.960, 1.000, 0.938, 0.996,  &
-0.790, 0.790, 0.790, 0.805, 0.805, 0.845, 0.899, 0.972, 0.845 /
-
-data ((cldnuctab50(iw,iconc,2,12),iw=1,9),iconc=1,7)/    &
-0.978, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.972, 0.980, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.964, 0.968, 0.983, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.960, 0.960, 0.968, 0.980, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.944, 0.950, 0.950, 0.964, 0.985, 0.994, 1.000, 1.000, 1.000,  &
-0.908, 0.908, 0.917, 0.924, 0.938, 0.975, 1.000, 0.985, 1.000,  &
-0.845, 0.845, 0.845, 0.845, 0.857, 0.880, 0.938, 0.997, 0.890 /
-
-data ((cldnuctab50(iw,iconc,3,12),iw=1,9),iconc=1,7)/    &
-0.978, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.972, 0.980, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.968, 0.972, 0.980, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.964, 0.968, 0.972, 0.980, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.955, 0.960, 0.960, 0.968, 0.983, 0.998, 1.000, 1.000, 1.000,  &
-0.938, 0.938, 0.938, 0.944, 0.955, 0.980, 0.999, 0.999, 1.000,  &
-0.890, 0.890, 0.890, 0.890, 0.899, 0.917, 0.960, 0.999, 0.938 /
-
-data ((cldnuctab50(iw,iconc,4,12),iw=1,9),iconc=1,7)/    &
-0.978, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.975, 0.980, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.968, 0.972, 0.980, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.968, 0.968, 0.972, 0.980, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.964, 0.964, 0.968, 0.972, 0.980, 0.998, 1.000, 1.000, 1.000,  &
-0.950, 0.950, 0.955, 0.955, 0.964, 0.980, 0.998, 1.000, 1.000,  &
-0.917, 0.917, 0.917, 0.917, 0.924, 0.938, 0.964, 0.999, 0.968 /
-
-data ((cldnuctab50(iw,iconc,5,12),iw=1,9),iconc=1,7)/    &
-0.978, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.975, 0.980, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.972, 0.975, 0.980, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.972, 0.972, 0.975, 0.980, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.968, 0.968, 0.972, 0.975, 0.980, 0.997, 1.000, 1.000, 1.000,  &
-0.960, 0.960, 0.960, 0.964, 0.968, 0.980, 0.997, 1.000, 1.000,  &
-0.932, 0.932, 0.932, 0.932, 0.938, 0.944, 0.968, 0.997, 0.983 /
-
-data ((cldnuctab50(iw,iconc,6,12),iw=1,9),iconc=1,7)/    &
-0.980, 0.994, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.978, 0.980, 0.995, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.975, 0.978, 0.980, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.975, 0.975, 0.975, 0.980, 0.996, 1.000, 1.000, 1.000, 1.000,  &
-0.972, 0.972, 0.972, 0.975, 0.980, 0.996, 1.000, 1.000, 1.000,  &
-0.964, 0.964, 0.964, 0.968, 0.972, 0.980, 0.996, 1.000, 1.000,  &
-0.938, 0.938, 0.938, 0.938, 0.944, 0.950, 0.968, 0.995, 0.993 /
-
-data ((cldnuctab50(iw,iconc,7,12),iw=1,9),iconc=1,7)/    &
-0.980, 0.991, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.978, 0.980, 0.992, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.978, 0.978, 0.980, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.975, 0.975, 0.978, 0.980, 0.994, 1.000, 1.000, 1.000, 1.000,  &
-0.975, 0.975, 0.975, 0.978, 0.980, 0.994, 1.000, 1.000, 1.000,  &
-0.964, 0.968, 0.968, 0.968, 0.972, 0.980, 0.994, 1.000, 1.000,  &
-0.944, 0.944, 0.944, 0.944, 0.950, 0.955, 0.968, 0.993, 0.999 /
-
-! FOR CCN MEDIAN RADIUS 0.64 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,13),iw=1,9),iconc=1,7)/    &
-0.993, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.989, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.986, 0.987, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.976, 0.979, 0.984, 0.992, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.952, 0.952, 0.957, 0.966, 0.984, 1.000, 0.994, 1.000, 1.000,  &
-0.911, 0.911, 0.919, 0.919, 0.934, 0.957, 0.995, 0.952, 0.990,  &
-0.883, 0.883, 0.883, 0.883, 0.883, 0.902, 0.927, 0.966, 0.986 /
-
-data ((cldnuctab50(iw,iconc,2,13),iw=1,9),iconc=1,7)/    &
-0.993, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.989, 0.993, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.987, 0.989, 0.992, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.984, 0.986, 0.987, 0.993, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.969, 0.973, 0.973, 0.979, 0.989, 1.000, 1.000, 1.000, 1.000,  &
-0.940, 0.940, 0.946, 0.946, 0.957, 0.976, 0.998, 0.981, 1.000,  &
-0.902, 0.902, 0.902, 0.902, 0.911, 0.919, 0.946, 0.986, 1.000 /
-
-data ((cldnuctab50(iw,iconc,3,13),iw=1,9),iconc=1,7)/    &
-0.993, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.990, 0.993, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.989, 0.990, 0.993, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.987, 0.987, 0.989, 0.993, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.981, 0.981, 0.984, 0.986, 0.992, 1.000, 1.000, 1.000, 1.000,  &
-0.961, 0.961, 0.966, 0.966, 0.973, 0.984, 0.999, 0.995, 1.000,  &
-0.927, 0.927, 0.927, 0.927, 0.934, 0.940, 0.961, 0.992, 1.000 /
-
-data ((cldnuctab50(iw,iconc,4,13),iw=1,9),iconc=1,7)/    &
-0.993, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.992, 0.993, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.990, 0.992, 0.993, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.989, 0.990, 0.990, 0.993, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.986, 0.986, 0.987, 0.989, 0.993, 0.999, 1.000, 1.000, 1.000,  &
-0.973, 0.973, 0.973, 0.976, 0.979, 0.987, 0.999, 0.999, 1.000,  &
-0.946, 0.946, 0.946, 0.946, 0.946, 0.957, 0.969, 0.994, 1.000 /
-
-data ((cldnuctab50(iw,iconc,5,13),iw=1,9),iconc=1,7)/    &
-0.994, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.993, 0.994, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.992, 0.992, 0.994, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.990, 0.992, 0.992, 0.993, 0.998, 1.000, 1.000, 1.000, 1.000,  &
-0.987, 0.987, 0.989, 0.990, 0.993, 0.998, 1.000, 1.000, 1.000,  &
-0.979, 0.979, 0.979, 0.981, 0.984, 0.989, 0.998, 1.000, 1.000,  &
-0.957, 0.957, 0.957, 0.957, 0.957, 0.961, 0.973, 0.993, 1.000 /
-
-data ((cldnuctab50(iw,iconc,6,13),iw=1,9),iconc=1,7)/    &
-0.994, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.993, 0.994, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.993, 0.993, 0.994, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.992, 0.992, 0.993, 0.994, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.989, 0.989, 0.990, 0.992, 0.994, 0.998, 1.000, 1.000, 1.000,  &
-0.981, 0.981, 0.984, 0.984, 0.986, 0.990, 0.997, 1.000, 1.000,  &
-0.961, 0.961, 0.961, 0.961, 0.966, 0.969, 0.976, 0.992, 1.000 /
-
-data ((cldnuctab50(iw,iconc,7,13),iw=1,9),iconc=1,7)/    &
-0.995, 0.996, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.994, 0.995, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.993, 0.994, 0.995, 0.997, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.993, 0.993, 0.993, 0.994, 0.997, 1.000, 1.000, 1.000, 1.000,  &
-0.990, 0.990, 0.990, 0.992, 0.994, 0.997, 1.000, 1.000, 1.000,  &
-0.984, 0.984, 0.984, 0.986, 0.987, 0.990, 0.997, 1.000, 1.000,  &
-0.966, 0.966, 0.966, 0.966, 0.966, 0.969, 0.976, 0.990, 1.000 /
-
-! FOR CCN MEDIAN RADIUS 0.96 MICRONS AND % TO SEND TO CLOUD
-
-data ((cldnuctab50(iw,iconc,1,14),iw=1,9),iconc=1,7)/    &
-0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.998, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.996, 0.997, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.991, 0.991, 0.992, 0.995, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.979, 0.979, 0.979, 0.982, 0.988, 0.997, 1.000, 1.000, 1.000,  &
-0.970, 0.970, 0.970, 0.970, 0.973, 0.979, 0.991, 0.999, 1.000,  &
-0.962, 0.962, 0.962, 0.962, 0.962, 0.966, 0.973, 0.982, 0.989 /
-
-data ((cldnuctab50(iw,iconc,2,14),iw=1,9),iconc=1,7)/    &
-0.998, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.998, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.998, 0.998, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.995, 0.995, 0.996, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.988, 0.988, 0.988, 0.989, 0.993, 0.998, 1.000, 1.000, 1.000,  &
-0.976, 0.976, 0.976, 0.976, 0.979, 0.984, 0.994, 1.000, 0.998,  &
-0.966, 0.966, 0.966, 0.966, 0.966, 0.970, 0.976, 0.988, 0.997 /
-
-data ((cldnuctab50(iw,iconc,3,14),iw=1,9),iconc=1,7)/    &
-0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.998, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.998, 0.998, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.997, 0.997, 0.998, 0.998, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.993, 0.993, 0.993, 0.994, 0.996, 0.999, 1.000, 1.000, 1.000,  &
-0.984, 0.984, 0.984, 0.984, 0.986, 0.989, 0.996, 1.000, 1.000,  &
-0.970, 0.973, 0.973, 0.973, 0.973, 0.976, 0.979, 0.989, 0.999 /
-
-data ((cldnuctab50(iw,iconc,4,14),iw=1,9),iconc=1,7)/    &
-0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.999, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.998, 0.999, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.998, 0.998, 0.998, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.995, 0.995, 0.995, 0.996, 0.997, 0.999, 1.000, 1.000, 1.000,  &
-0.988, 0.988, 0.988, 0.989, 0.991, 0.993, 0.997, 1.000, 1.000,  &
-0.976, 0.976, 0.976, 0.976, 0.976, 0.979, 0.984, 0.991, 1.000 /
-
-data ((cldnuctab50(iw,iconc,5,14),iw=1,9),iconc=1,7)/    &
-0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.999, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.999, 0.999, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.998, 0.998, 0.998, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.997, 0.997, 0.997, 0.997, 0.998, 0.999, 1.000, 1.000, 1.000,  &
-0.991, 0.991, 0.991, 0.992, 0.992, 0.994, 0.997, 1.000, 1.000,  &
-0.979, 0.979, 0.979, 0.982, 0.982, 0.982, 0.986, 0.992, 1.000 /
-
-data ((cldnuctab50(iw,iconc,6,14),iw=1,9),iconc=1,7)/    &
-0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.999, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.999, 0.999, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.998, 0.998, 0.999, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.997, 0.997, 0.997, 0.998, 0.998, 0.999, 1.000, 1.000, 1.000,  &
-0.993, 0.993, 0.993, 0.993, 0.993, 0.995, 0.998, 1.000, 1.000,  &
-0.982, 0.982, 0.982, 0.982, 0.984, 0.984, 0.986, 0.992, 0.999 /
-
-data ((cldnuctab50(iw,iconc,7,14),iw=1,9),iconc=1,7)/    &
-0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.999, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.999, 0.999, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000, 1.000,  &
-0.999, 0.999, 0.999, 0.999, 0.999, 1.000, 1.000, 1.000, 1.000,  &
-0.998, 0.998, 0.998, 0.998, 0.998, 0.999, 1.000, 1.000, 1.000,  &
-0.993, 0.993, 0.993, 0.994, 0.994, 0.995, 0.998, 1.000, 1.000,  &
-0.984, 0.984, 0.984, 0.984, 0.984, 0.986, 0.988, 0.992, 0.998 /
-
-! Given median radius of CCN spectra for mass calculation
-
-real, parameter :: rg_ccn(14) = (/                                   &
-     0.01e-4, 0.015e-4, 0.02e-4, 0.03e-4, 0.04e-4, 0.06e-4, 0.08e-4, &
-     0.12e-4, 0.160e-4, 0.24e-4, 0.32e-4, 0.48e-4, 0.64e-4, 0.96e-4 /)
-
-! If NOT prognosing number concentration of cloud
-
-if (jnmb(1) == 4) then
-
-! Loop over all levels in column
-
-   do k = lpw0,mza0
-
-! Diagnose excess of vapor density over saturation; cycle if not > 0.
-
-      excessrhov = rhov(k) - 1.00001 * rhovslair(k) ! x rhoa
-      if (excessrhov <= 0.) cycle                   ! x rhoa
-
-! cldnumx is specified cloud # per kg_air; use as upper bound on nucleation 
-
-      cnuc = cldnumx * rhoa(k)   ! #_nucleated / m^3
-      rnuc = cnuc * emb0(1)      ! kg_nucleated / m^3
-
-      rnuc_vc(k) = min(rnuc,.5 * excessrhov)   ! x rhoa
-      rx(k,1) = rx(k,1) + rnuc_vc(k)           ! x rhoa
-      rhov(k) = rhov(k) - rnuc_vc(k)           ! x rhoa
-
-      cnuc_vc(k) = min(cnuc,rx(k,1) / emb0(1)) ! x rhoa
-      cx(k,1) = cnuc_vc(k)
-      qr(k,1) = qr(k,1) + rnuc_vc(k) * (tairc(k) * cliq + alli) ! (x rhoa)
-
-   enddo
-
-! Saleeby(6/3/02) Prognosing number concentration of cloud and/or drizzle
-
-elseif (jnmb(1) >= 5) then
-
-! cloud number predicted from ccn field
-
-! Loop over all levels in column
-
-   do k = lpw0,mza0
-
-! Diagnose excess of vapor density over saturation; cycle if not > 0.
-
-      excessrhov = rhov(k) - 1.00001 * rhovslair(k) ! x rhoa
-      if (excessrhov <= 0.) cycle                   ! x rhoa
-
-      con_ccn_nuc = 0.
-
-! CCN concentration
-! (CON_CCNK HAS UNITS OF #/KG TO MATCH NUCLEATION PARAMETERIZATION)
-
-      if (jnmb(1) == 5) then
-
-! Constant in time and space CCN concentration
-
-         con_ccnk = cldnumx       ! cldnucx units are #/kg 
-
-      elseif (jnmb(1) == 6) then
-
-! Time-constant vertical profile of CCN (Example profile by Saleeby)
-
-         con_ccnk = max(100.e6,cldnumx * (1. - zt(k) / 4000.))
-
-      elseif (jnmb(1) == 7) then
-
-! Prognostic CCN field
-
-         con_ccnk = con_ccnx(k) * rhoi(k)   ! con_ccnx units are #/m^3
-
-      endif  
-
-! Do not allow con_ccnk to exceed upper limit
-
-      if (con_ccnk > 9999.e6) con_ccnk = 9999.e6
-      
-! Nucleate only if CON_CCNK concentration exceeds lower threshold (10/mg)
-
-      if (con_ccnk > 10.001e6) then
-
-! CCN mean radius
-
-         rg1 = cnparm   ! default
-         rg1 = max(.01001e-6,min(.95999e-6,rg1))
-
-! From Saleeby & Cotton 2004 Equation 10 for median radius approx.
-! Use avg solute density (1.967g/cm3) of NH42SO4=1.769,NaCl=2.165
-
-!        if (iccnlev == 2 .and. con_ccnx(k) > 0.) then
-
-! Diagnose CCN radius, apply limits, and in case limits changed CCN radius,
-! re-compute CCN bulk density
-
-!            rg1 = (0.02523 * rho_ccnx(k) / con_ccnx(k))**.3333
-!            rg1 = max(.01001e-6,min(.95999e-6,rg1))
-!            rho_ccn(k) = (rg1**3) * con_ccnx(k) / 0.02523
-
-!        endif
-
-! CCN RADIUS indices and weights for CCN nucleation table
-! (Determine interpolation point in rg_ccn table)         
-
-         jrg = 1
-
-         do while (rg1 > rg_ccn(jrg + 1))
-            jrg = jrg + 1
-         enddo
-
-         wtrg2 = (rg1 - rg_ccn(jrg)) / (rg_ccn(jrg + 1) - rg_ccn(jrg))
-         wtrg1 = 1. - wtrg2
-
-! CCN CONCENTRATION indices and weights for CCN nucleation table
-!---------------------------------------------------------------
-         rjcon = 2. * log10(1.e-7 * con_ccnk) + 1.
-
-         jcon = int(rjcon)
-         wtcon2 = rjcon - real(jcon)
-         wtcon1 = 1. - wtcon2
-
-! AIR TEMPERATURE index for CCN nucleation table 
-! (impose upper & lower bounds)
-!---------------------------------------------------------------
-
-         tairc_nuc = max(-30., min(30., tairc(k)))
-
-         jtemp = nint(.1 * (tairc_nuc + 30.)) + 1
-
-! VERTICAL VELOCITY indices and weights for CCN nucleation table
-! (impose upper & lower bounds)
-!---------------------------------------------------------------
-
-! Inverse of A1 coefficient in Pruppacher and Klett Eqn. 13-31.
-
-         a1inv = (rvap * tair(k)) / (grav * (alvl / (cp * tair(k)) - eps_vapi))
-
-! Pseudo vertical velocity based on supersaturation and its assumed 
-! production over 1 timestep
-
-         supsat = rhov(k) / (1.00001 * rhovslair(k)) - 1.0
-
-         supsat_rate = supsat * dtli0
-
-         w_pseudo = a1inv * supsat_rate
-
-! Make w_nuc the larger of wc0 and w_pseudo
-
-         w_nuc = max(wc0(k),w_pseudo)
-
-         if (w_nuc < .010001) then 
-            w_nuc = .010001
-         elseif (w_nuc > 99.99) then
-            w_nuc = 99.99
-         endif
-
-         rjw = 2. * log10(100. * w_nuc) + 1.
-         jw = int(rjw)
-         wtw2 = rjw - real(jw)
-         wtw1 = 1. - wtw2
-
-! If PCTSOL = 1, interpolate from CLDNUCTAB10 table
-
-         if (pctsol == 1) then
-
-            tab = &    ! Fraction of CCN to nucleate
-               wtw1*(wtcon1*(wtrg1*cldnuctab10(jw  ,jcon  ,jtemp,jrg   )  &
-                           + wtrg2*cldnuctab10(jw  ,jcon  ,jtemp,jrg+1))  &
-                   + wtcon2*(wtrg1*cldnuctab10(jw  ,jcon+1,jtemp,jrg   )  &
-                           + wtrg2*cldnuctab10(jw  ,jcon+1,jtemp,jrg+1))) &
-              +wtw2*(wtcon1*(wtrg1*cldnuctab10(jw+1,jcon  ,jtemp,jrg   )  &
-                           + wtrg2*cldnuctab10(jw+1,jcon  ,jtemp,jrg+1))  &
-                   + wtcon2*(wtrg1*cldnuctab10(jw+1,jcon+1,jtemp,jrg   )  &
-                           + wtrg2*cldnuctab10(jw+1,jcon+1,jtemp,jrg+1)))
-
-! If PCTSOL = 2, interpolate from CLDNUCTAB50 table
-
-         elseif (pctsol == 2) then
-
-            tab = &    ! Fraction of CCN to nucleate
-              wtw1*(wtcon1*(wtrg1*cldnuctab50(jw  ,jcon  ,jtemp,jrg   )  &
-                          + wtrg2*cldnuctab50(jw  ,jcon  ,jtemp,jrg+1))  &
-                  + wtcon2*(wtrg1*cldnuctab50(jw  ,jcon+1,jtemp,jrg   )  &
-                          + wtrg2*cldnuctab50(jw  ,jcon+1,jtemp,jrg+1))) &
-             +wtw2*(wtcon1*(wtrg1*cldnuctab50(jw+1,jcon  ,jtemp,jrg   )  &
-                          + wtrg2*cldnuctab50(jw+1,jcon  ,jtemp,jrg+1))  &
-                  + wtcon2*(wtrg1*cldnuctab50(jw+1,jcon+1,jtemp,jrg   )  &
-                          + wtrg2*cldnuctab50(jw+1,jcon+1,jtemp,jrg+1)))
-         endif
-
-! Get number to nucleate
-
-         con_ccn_tab = con_ccnk * tab * rhoa(k)   ! (#/m^3) (x rhoa)
-
-! If you're NOT depleting aerosols, reduce nucleatable CCN concentration 
-! by existing cloud concentration
-
-! Bob's comment (11/16/2009): This should apply in 2 cases: Not depleting aerosols
-! in nucleation or anywhere else, and not depleting aerosols in nucleation 
-! because you're depleting them in collisions.  (I think it is better to never
-! deplete aerosols in nucleation, but to deplete them in collisions instead.)
-
-         con_ccn_nuc = con_ccn_tab
-         if (iccnlev == 0) con_ccn_nuc = max(0.,con_ccn_tab - cx(k,1))
-
-      endif ! con_ccnk > 0
-
-! Vapor mass to nucleate to cloud droplets (subject to possible adjustment)
-
-      vaprccn = con_ccn_nuc * emb0(1)
-
-! If DRIZZLE number concentration is being predicted (which in the model
-! also means that DRIZZLE nucleation from GCCN is active), excess vapor 
-! must be shared between CLOUD and DRIZZLE nucleation.
-
-      vaprgccn = 0.
-
-      if (jnmb(8) >= 5) then
-
-! GCCN concentration
-
-         if (jnmb(8) == 5) then
-
-! Constant in time and space GCCN concentration
-
-            con_gccn_tab = dparm * rhoa(k)      ! dparm units are #/kg 
-
-         elseif (jnmb(8) == 6) then
-
-! Horizontally-homogeneous, time-constant vertical profile of GCCN
-! (Example profile by Saleeby)
-
-            con_gccn_tab = max(10.,dparm * (1. - zt(k) / 4000.)) * rhoa(k)
-
-         elseif (jnmb(8) == 7) then
-
-! Prognostic CCN field
-
-            con_gccn_tab = con_gccnx(k)   ! con_gccnx units are #/m^3
-
-         endif  
-
-! If you're NOT depleting aerosols, reduce nucleatable GCCN concentration 
-! by existing drizzle concentration
-
-! Bob's comment (11/16/2009): This should apply in 2 cases: Not depleting aerosols
-! in nucleation or anywhere else, and not depleting aerosols in nucleation 
-! because you're depleting them in collisions.  (I think it is better to never
-! deplete aerosols in nucleation, but to deplete them in collisions instead.)
-
-         con_gccn_nuc = con_gccn_tab
-         if (iccnlev == 0) con_gccn_nuc = max(0.,con_gccn_nuc - cx(k,8))
-
-! Vapor mass to nucleate to cloud droplets (subject to possible adjustment)
-
-         vaprgccn = con_gccn_nuc * emb0(8)
-
-      endif
-
-! If nucleation to cloud and/or drizzle is limited by available vapor,
-! reduce nucleation accordingly
-
-      if (vaprccn + vaprgccn > excessrhov) then
-
-         frac = excessrhov / (vaprccn + vaprgccn)
-
-         vaprccn  = vaprccn  * frac
-         vaprgccn = vaprgccn * frac
-
-         con_ccn_nuc  = vaprccn  / emb0(1)
-         con_gccn_nuc = vaprgccn / emb0(8)
-      endif
-
-! Update cloud concentration and mass from nucleation
-
-      if (vaprccn > 0.) then
-
-         cnuc_vc(k) = con_ccn_nuc
-         rnuc_vc(k) = vaprccn
-
-         cx(k,1) = cx(k,1) + cnuc_vc(k) ! (#/m^3)  x rhoa
-         rx(k,1) = rx(k,1) + rnuc_vc(k) ! (kg/m^3) x rhoa
-         qr(k,1) = qr(k,1) + rnuc_vc(k) * (tairc(k) * cliq + alli) ! (x rhoa)
-
-         if (rx(k,1) >= rxmin(1)) qx(k,1) = qr(k,1) / rx(k,1)
-
-! Update CCN concentration if doing optional nucleation scavenging
-
-         if (iccnlev == 1) con_ccnx(k) = con_ccnx(k) - con_ccn_nuc ! (#/m^3)
-
-      endif ! (vaprccn > 0)
-
-! Update drizzle concentration and mass from nucleation
-
-      if (jnmb(8) >= 5 .and. vaprgccn > 0.) then
-
-         cnuc_vd(k) = con_gccn_nuc
-         rnuc_vd(k) = vaprgccn
-
-         cx(k,8) = cx(k,8) + cnuc_vd(k) ! (#/m^3)  x rhoa
-         rx(k,8) = rx(k,8) + rnuc_vd(k) ! (kg/m^3) x rhoa
-         qr(k,8) = qr(k,8) + rnuc_vd(k) * (tairc(k) * cliq + alli) ! (x rhoa)
-
-         if (rx(k,8) >= rxmin(8)) qx(k,8) = qr(k,8) / rx(k,8)
-
-! Update GCCN concentration if doing optional nucleation scavenging
-
-         if (iccnlev == 1) con_gccnx(k) = con_gccnx(k) - con_gccn_nuc ! (#/m^3)
-
-      endif ! (jnmb(8) >= 5 .and. vaprgccn > 0.)
-
-! If nucleatable CCN concentration is positive, carry out nucleation
-
-!print*, ' '
-!write(6,'(a)') '         con_ccn_tab   con_ccn_nuc     cx(k,1)     vapr/con      emb0       rnuc_vc(k)    rx(k,1)    excessrhov'
-!write(6,'(a,9e13.3)') 'cldnuc4 ',con_ccn_tab,con_ccn_nuc,cx(k,1), &
-!   vaprccn/con_ccn_nuc,emb0(1),rnuc_vc(k),rx(k,1),excessrhov
-
-!if (con_gccn_nuc > 1.e-12) then
-!   write(6,'(a,9e13.3)') 'cldnuc5 ',con_gccn_tab,con_gccn_nuc,cx(k,8), &
-!      vaprgccn/con_gccn_nuc,emb0(8),rnuc_vd(k),rx(k,8),excessrhov
-!endif
-
-!print*, ' '
-
-   enddo ! Loop over k
-
-endif ! (jnmb(1) >= 5)
-
-return
 end subroutine cldnuc
 
 !===============================================================================
@@ -2257,441 +1532,349 @@ end subroutine cldnuc
 subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
    rx,cx,qr,qx,emb,vap,tx,rhov,rhoa,press0,dynvisc,thrmcon, &
    tair,tairc,rhovslair,rhovsiair,con_ccnx,con_ifnx,dtl0, &
-   rnuc_cp_hom,rnuc_dp_hom,rnuc_cp_cont,rnuc_dp_cont, &
-   cnuc_cp_hom,cnuc_dp_hom,cnuc_cp_cont,cnuc_dp_cont, &
-   rnuc_vp_haze,rnuc_vp_depcond, &
-   cnuc_vp_haze,cnuc_vp_depcond)
+   rnuc_cp_hom,rnuc_dp_hom,rnuc_vp_haze,rnuc_vp_immers, &
+   cnuc_cp_hom,cnuc_dp_hom,cnuc_vp_haze,cnuc_vp_immers)
 
-use micro_coms,  only: mza0, ncat, dnfac, pwmasi, rxmin, ndnc, ddnc, dtc, &
-                       fracc, drhhz, dthz, frachz, ipris, emb0, jnmb
-                      
-use consts_coms, only: cice, cliq, alli
-use misc_coms,   only: io6
+  use micro_coms,  only: mza0, ncat, dnfac, pwmasi, rxmin, ndnc, ddnc, dtc, &
+                         fracc, drhhz, dthz, frachz, emb0, jnmb, iccn, igccn
+  use ccnbin_coms, only: nccntyp, ccntyp_alpha
+  use consts_coms, only: r8, cice, cliq, alli
+  use misc_coms,   only: io6
 
-implicit none
+  implicit none
 
-integer, intent(inout) :: k1(11)
-integer, intent(inout) :: k2(11)
+  integer, intent(inout) :: k1(11)
+  integer, intent(inout) :: k2(11)
 
-integer, intent(in) :: lpw0
-integer, intent(in) :: mrl0
-integer, intent(in) :: iw0
+  integer, intent(in) :: lpw0
+  integer, intent(in) :: mrl0
+  integer, intent(in) :: iw0
 
-real, intent(inout) :: rx (mza0,ncat)
-real, intent(inout) :: cx (mza0,ncat)
-real, intent(inout) :: qr (mza0,ncat)
-real, intent(inout) :: qx (mza0,ncat)
-real, intent(in)    :: emb(mza0,ncat)
-real, intent(in)    :: vap(mza0,ncat)
-real, intent(in)    :: tx (mza0,ncat)
+  real, intent(inout) :: rx (mza0,ncat)
+  real, intent(inout) :: cx (mza0,ncat)
+  real, intent(inout) :: qr (mza0,ncat)
+  real, intent(inout) :: qx (mza0,ncat)
+  real, intent(in)    :: emb(mza0,ncat)
+  real, intent(in)    :: vap(mza0,ncat)
+  real, intent(in)    :: tx (mza0,ncat)
 
-real, intent(in) :: rhov     (mza0)
-real, intent(in) :: press0   (mza0)
-real, intent(in) :: dynvisc  (mza0)
-real, intent(in) :: thrmcon  (mza0)
-real, intent(in) :: tair     (mza0)
-real, intent(in) :: tairc    (mza0)
-real, intent(in) :: rhovslair(mza0)
-real, intent(in) :: rhovsiair(mza0)
-real, intent(in) :: con_ccnx (mza0)
-real, intent(in) :: con_ifnx (mza0)
+  real, intent(in) :: rhov     (mza0)
+  real, intent(in) :: press0   (mza0)
+  real, intent(in) :: dynvisc  (mza0)
+  real, intent(in) :: thrmcon  (mza0)
+  real, intent(in) :: tair     (mza0)
+  real, intent(in) :: tairc    (mza0)
+  real, intent(in) :: rhovslair(mza0)
+  real, intent(in) :: rhovsiair(mza0)
+  real, intent(in) :: con_ccnx (mza0,nccntyp)
+  real, intent(in) :: con_ifnx (mza0)
 
-real, intent(inout) :: rnuc_cp_hom (mza0)
-real, intent(inout) :: rnuc_dp_hom (mza0)
-real, intent(inout) :: rnuc_cp_cont(mza0)
-real, intent(inout) :: rnuc_dp_cont(mza0)
-real, intent(inout) :: cnuc_cp_hom (mza0)
-real, intent(inout) :: cnuc_dp_hom (mza0)
-real, intent(inout) :: cnuc_cp_cont(mza0)
-real, intent(inout) :: cnuc_dp_cont(mza0)
+  real, intent(inout) :: rnuc_cp_hom   (mza0)
+  real, intent(inout) :: rnuc_dp_hom   (mza0)
+  real, intent(inout) :: rnuc_vp_haze  (mza0)
+  real, intent(inout) :: rnuc_vp_immers(mza0)
 
-real, intent(inout) :: rnuc_vp_haze   (mza0)
-real, intent(inout) :: rnuc_vp_depcond(mza0)
-real, intent(inout) :: cnuc_vp_haze   (mza0)
-real, intent(inout) :: cnuc_vp_depcond(mza0)
+  real, intent(inout) :: cnuc_cp_hom   (mza0)
+  real, intent(inout) :: cnuc_dp_hom   (mza0)
+  real, intent(inout) :: cnuc_vp_haze  (mza0)
+  real, intent(inout) :: cnuc_vp_immers(mza0)
 
-real(kind=8), intent(in) :: rhoa(mza0)
+  real(r8), intent(in) :: rhoa(mza0)
 
-real, intent(in) :: dtl0
+  real, intent(in) :: dtl0
 
-integer :: k,idnc,itc,irhhz,ithz,nt,ns
+  integer :: k,idnc,itc,irhhz,ithz,nt,ns
 
-real :: dn1,dn8,fraccld,ridnc,wdnc2,tc,ritc,wtc2, &
-        pbvi,ptvi,pdvi,ptotvi,fracifn,cldnuc,cldnucr,rhhz,haznuc, &
-        rirhhz,wrhhz2,thz,rithz,wthz2,frachaz,ssi,diagni, &
-        vapnuc,vapnucr,availvap,emb0i3,fac,rnuc,cnuc,rnuc_new,cnuc_new
+  real :: dn1,dn8,fraccld,ridnc,wdnc2,tc,ritc,wtc2, &
+          ptotvi,fracifn,cldnuc,cldnucr,rhhz,haznuc, &
+          rirhhz,wrhhz2,thz,rithz,wthz2,frachaz,ssi,diagni, &
+          vapnuc,vapnucr,availvap,emb0i3,fac
+  real :: con_ifnx_sum
 
-! Define ssi0 to be maximum supersaturation with respect to ice for
-! determining total number of IFN that can nucleate in Meyers' formula
+  !---> D14 parameters
+  real, parameter :: d14a = 0., d14b = 1., d14c = 0.46, d14d = -11.6
+  real, parameter :: cf = 3., cfo1000 = cf / 1000.
 
-real, parameter :: ssi0 = 0.40
+  emb0i3 = 1. / emb0(3)
 
-emb0i3 = 1. / emb0(3)
+  ! FREEZING OF CLOUD DROPLETS: Loop from lowest to highest grid level
+  ! that may contain cloud water
 
-! implement paul's immersion freezing of rain here.  This would
-! replace mike's homogeneous freezing of rain which was in h03.
+  do k = k1(1),k2(1)
 
-do k = k1(1),k2(1)
+     ! Skip current grid level if cloud water is not present
 
-   if (rx(k,1) < rxmin(1)) cycle
+     if (rx(k,1) < rxmin(1)) cycle
 
-   dn1 = dnfac(1) * emb(k,1) ** pwmasi(1)
+     ! HOMOGENEOUS FREEZING OF CLOUD DROPLETS - needs air temperature below -30 C
 
-! CLOUD DROPLET HOMOGENEOUS ICE NUCLEATION
+     if (tairc(k) <= -30.01) then
 
-   if (tairc(k) <= -30.01) then
+        dn1 = dnfac(1) * emb(k,1) ** pwmasi(1) ! characteristic diameter
+        ridnc = max(1.,min(real(ndnc-1),dn1 / ddnc))
+        idnc = int(ridnc)
+        wdnc2 = ridnc - real(idnc)
 
-      ridnc = max(1.,min(real(ndnc-1),dn1 / ddnc))
-      idnc = int(ridnc)
-      wdnc2 = ridnc - real(idnc)
+        tc = max(-49.99,tairc(k))
+        ritc = (tc + 50.00) / dtc + 1.0
+        itc = int(ritc)
+        wtc2 = ritc - real(itc)
 
-      tc = max(-49.99,tairc(k))
-      ritc = (tc + 50.00) / dtc + 1.0
-      itc = int(ritc)
-      wtc2 = ritc - real(itc)
-      fraccld = (1.-wdnc2) * (1.-wtc2) * fracc(idnc  ,itc  ,mrl0) &
-              +     wdnc2  * (1.-wtc2) * fracc(idnc+1,itc  ,mrl0) &
-              + (1.-wdnc2) *     wtc2  * fracc(idnc  ,itc+1,mrl0) &
-              +     wdnc2  *     wtc2  * fracc(idnc+1,itc+1,mrl0)
+        fraccld = (1.-wdnc2) * (1.-wtc2) * fracc(idnc  ,itc  ,mrl0) &
+                +     wdnc2  * (1.-wtc2) * fracc(idnc+1,itc  ,mrl0) &
+                + (1.-wdnc2) *     wtc2  * fracc(idnc  ,itc+1,mrl0) &
+                +     wdnc2  *     wtc2  * fracc(idnc+1,itc+1,mrl0)
 
-! Saleeby(2009): Need separate homogeneous freezing options for
-! 1-moment and 2-moment cloud and drizzle droplet treatments
+        ! cnuc_cp_hom is the number of cloud droplets that are diagnosed to
+        ! homogeneously freeze at the given temperature of tairc.  The number
+        ! represents a fraction (fraccld) of the number concentration of cloud
+        ! droplets [cx(k,1)] present and does not depend on model time step
+        ! length.  Repeated application of homogeneous freezing over successive
+        ! timesteps would lead to freezing scavenging of (essentially) all cloud
+        ! droplets unless the number nucleated were limited in some manner based
+        ! on the freezing that already occurred on previous time steps.  The 
+        ! number concentration of pristine ice [cx(k,3)] is used as a proxy for
+        ! the number of cloud droplets previously frozen in the limiter below.
+        ! Saleeby (2009, RAMS) argued that this limit should not be used when
+        ! cloud number concentration and CCN are prognosed. 
 
-      if (jnmb(1) <  5) then
-         cnuc_cp_hom(k) = max(0.,fraccld * cx(k,1) - cx(k,3)) ! x rhoa
-      else
-         cnuc_cp_hom(k) = max(0.,fraccld * cx(k,1))           ! x rhoa
-      endif
+        if (jnmb(1) == 5 .and. iccn > 0) then
+           cnuc_cp_hom(k) = max(0.,fraccld * cx(k,1)) ! x rhoa
+        else
+           cnuc_cp_hom(k) = max(0.,fraccld * cx(k,1) - cx(k,3)) ! x rhoa
+        endif
 
-      rnuc_cp_hom(k) = cnuc_cp_hom(k) * emb(k,1) ! x rhoa
+        rnuc_cp_hom(k) = cnuc_cp_hom(k) * emb(k,1) ! x rhoa
 
-   endif
+     endif
 
-!--------------- PARCEL EXPTS: turn off hom nuc cld
+!--------------- PARCEL EXPTS: turn off hom frz cld
 !   cnuc_cp_hom(k) = 0.
 !   rnuc_cp_hom(k) = 0.
 !---------------------------------------------------
 
-!  Heterogeneous contact ice nucleation of cloud droplets by diffusio-
-!  phoresis, thermophoresis, and Brownian motion (transport of IN)
+     ! HETEROGENEOUS IMMERSION FREEZING (OF CLOUD DROPLETS) BASED ON DEMOTT (2014)
 
-   call contnuc (rx(k,1),cx(k,1),tx(k,1),vap(k,1),press0(k) &
-      ,dynvisc(k),thrmcon(k),tair(k),tairc(k) &
-      ,pbvi,ptvi,pdvi,ptotvi,dn1,dtl0,rxmin(1))
+     !----------------------------------------------------------------------
+     ! Code from Gustavo:
+     !----------------------------------------------------------------------
 
-! progIFN: Scale ptotvi returned from contnuc by prognosed IFN fraction
-!::later   ptotvi = ptotvi * fracifn
+     !if (cifnx(k) > 0.) .and. tairc(k) < 0.) then
+     !   ! saved as #/cm3 
+     !   N_0 = cifnx(k)
+  
+     !   aux1 = (cf * N_0) ** (-d14a*tairc(k) + d14b)    
+     !   aux2 = exp(-d14c*tairc(k) + d14d)
+     !   ! D14 result is  STP #/L 
+     !   N_a = aux1 * aux2 
+     !   N_a = N_a/1000.*(dn0(k)/dn0d10) !ambient per cm3
+  
+     !   N_a = min(N_0,N_a)
 
-   cnuc_cp_cont(k) = ptotvi
-   rnuc_cp_cont(k) = ptotvi * emb(k,1)
+     !   !from #/cc to #/kg
+     !   N_a = N_a * 1.0e6/dn0(k)  
+     !   if (N_a>1e-4) diagni = N_a
+     !endif
 
-! If nucleated mass exceeds available mass in cloud category, scale it back
-! proportionately between the two nucleation mechanisms
+     !---------------------------------------------------------------------------
+     ! Bob's code version of DeMott 2014 heterogeneous nucleation by immersion
+     ! freezing.  Gustavo provided code with parameter values d14a = 0 and
+     ! d14b = 1 (although d14b is 1.25 in parts of DeMott 2014, which seems
+     ! unjustified physically).  With Gustavo's values, the DeMott formula
+     ! simplifies and nucleated number concentration (cnuc_vp_immers) varies
+     ! linearly with ambient IFN number concentration (cifnx).  The DeMott
+     ! formula expresses ambient IFN number concentration in #/cm^3 and nucleated
+     ! number concentration in #/L, but both are #/m^3 in OLAM microphysics, so
+     ! a factor of .001 (part of cfo1000) is included here.  Based on discussions
+     ! with Bill Cotton, this immersion freezing parameterization requires that
+     ! cloud water be present, so this computation is grouped with homogeneous
+     ! freezing of cloud water for which the presence of cloud water is already
+     ! checked.  Although cloud water is required to initiate immersion freezing,
+     ! we assume that nucleated ice particles acquire (the majority of) their
+     ! mass from vapor and not from cloud water.  This is consistent with the
+     ! minimum ice crystal mass emb0(3) being much larger than the minimum cloud
+     ! droplet mass emb0(1).  In addition, we do not deplete cloud droplet number
+     ! when immersion freezing occurs.  This is justified from the fact that
+     ! concentrations of heterogeneous-nucleated ice crystals are typically
+     ! 3 or more orders of magnitude lower than cloud droplet concentrations.
+     !---------------------------------------------------------------------------
 
-   if (rnuc_cp_hom(k) + rnuc_cp_cont(k) > rx(k,1)) then
-      fac = rx(k,1) / (rnuc_cp_hom(k) + rnuc_cp_cont(k))
-      rnuc_cp_hom (k) = rnuc_cp_hom (k) * fac
-      rnuc_cp_cont(k) = rnuc_cp_cont(k) * fac
-   endif
+     if (tairc(k) < 0.) then
 
-   rnuc = rnuc_cp_hom(k) + rnuc_cp_cont(k)
-   cnuc = cnuc_cp_hom(k) + cnuc_cp_cont(k)
+        ! Regardless of whether CCN are prognosed or specified, assume that they
+        ! can contribute to immersion freezing according to ccntyp_alpha factor
 
-   rx(k,3) = rx(k,3) + rnuc ! x rhoa
-   rx(k,1) = rx(k,1) - rnuc ! x rhoa
-   cx(k,3) = cx(k,3) + cnuc ! x rhoa
-   cx(k,1) = cx(k,1) - cnuc ! x rhoa
-   qr(k,3) = qr(k,3) + rnuc * cice * tairc(k) ! (x rhoa)
-   qr(k,1) = qr(k,1) - rnuc * qx(k,1)         ! (x rhoa)
+        con_ifnx_sum = con_ifnx(k) &
+                     + sum(con_ccnx(k,1:nccntyp) * ccntyp_alpha(1:nccntyp))
 
-   if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
-   if (rx(k,1) >= rxmin(1)) qx(k,1) = qr(k,1) / rx(k,1)
+        cnuc_vp_immers(k) = con_ifnx_sum &
+                          * min(1.,cfo1000 * exp(-d14c*tairc(k) + d14d))
 
-! (Changes in qr1 and qr3 have different magnitudes; energy difference will be
-! accounted for in next theta diagnosis from theta_il and ice/liquid contents.)
+        ! cnuc_vp_immers is the number of IFN that are diagnosed to nucleate to
+        ! ice at the given temperature of tairc.  The number represents a
+        ! fraction of the IFN present [con_ifnx_sum] and does not depend on model
+        ! time step length.  Repeated application of heterogeneous freezing over
+        ! successive timesteps would lead to freezing scavenging of (essentially)
+        ! all IFN unless the number nucleated were limited in some manner based
+        ! on the freezing that already occurred on previous time steps.  The
+        ! number concentration of pristine ice [cx(k,3)] is used as a proxy for
+        ! the number of IFN previously nucleated in the limiter below.
 
-enddo
+        cnuc_vp_immers(k) = max(0.,cnuc_vp_immers(k) - cx(k,3)) ! x rhoa
+        rnuc_vp_immers(k) = cnuc_vp_immers(k) * emb0(3) ! x rhoa
+     endif
 
-! DEMOTT'S NEW SCHEME: In 4.3 and beyond, assume that it gives #/KG
+     ! Subtract homogeneous freezing number and mass from cloud water
 
-! DRIZZLE DROPLET HOMOGENEOUS ICE NUCLEATION
+     cx(k,1) = cx(k,1) - cnuc_cp_hom(k) ! x rhoa
+     rx(k,1) = rx(k,1) - rnuc_cp_hom(k) ! x rhoa
+     qr(k,1) = qr(k,1) - rnuc_cp_hom(k) * qx(k,1) ! (x rhoa)
 
-do k = k1(8),k2(8)
+     if (rx(k,1) >= rxmin(1)) qx(k,1) = qr(k,1) / rx(k,1)
 
-   if (rx(k,8) < rxmin(8)) cycle
+     ! Add homogeneous and heterogeneous freezing number and mass to pristine ice
 
-   dn8 = dnfac(8) * emb(k,8) ** pwmasi(8)
+     cx(k,3) = cx(k,3) +  cnuc_cp_hom(k) + cnuc_vp_immers(k) ! x rhoa
+     rx(k,3) = rx(k,3) +  rnuc_cp_hom(k) + rnuc_vp_immers(k) ! x rhoa
+     qr(k,3) = qr(k,3) + (rnuc_cp_hom(k) + rnuc_vp_immers(k)) * cice * tairc(k) ! (x rhoa)
 
-   if (tairc(k) <= -30.01) then
+     if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
 
-      ridnc = max(1.,min(real(ndnc-1),dn8 / ddnc))
-      idnc = int(ridnc)
-      wdnc2 = ridnc - real(idnc)
+     ! (Changes in qr1 and qr3 have different magnitudes; energy difference will be
+     ! accounted for in next theta diagnosis from theta_il and ice/liquid contents.)
 
-      tc = max(-49.99,tairc(k))
-      ritc = (tc + 50.00) / dtc + 1.0
-      itc = int(ritc)
-      wtc2 = ritc - real(itc)
+  enddo
 
-      fraccld = (1.-wdnc2) * (1.-wtc2) * fracc(idnc  ,itc  ,mrl0) &
-              +     wdnc2  * (1.-wtc2) * fracc(idnc+1,itc  ,mrl0) &
-              + (1.-wdnc2) *     wtc2  * fracc(idnc  ,itc+1,mrl0) &
-              +     wdnc2  *     wtc2  * fracc(idnc+1,itc+1,mrl0)
+  !  Homogeneous nucleation of haze: Loop over all grid levels
 
-! Saleeby(2009): Need separate homogeneous freezing options for
-! 1-moment and 2-moment cloud and drizzle droplet treatments
+  do k = lpw0,mza0
+     rhhz = rhov(k) / rhovslair(k)  ! stays the same
 
-      if (jnmb(8) <  5) then
-         cnuc_dp_hom(k) = max(0.,fraccld * cx(k,8) - cx(k,3)) ! x rhoa
-      else
-         cnuc_dp_hom(k) = max(0.,fraccld * cx(k,8))           ! x rhoa
-      endif
+     ! Skip current grid level if r.h. is less than 82% or temp is above -35.01 C
 
-      rnuc_dp_hom(k) = cnuc_dp_hom(k) * emb(k,8) ! x rhoa
+     if (rhhz < 0.82 .or. tairc(k) > -35.01) cycle
 
-   endif
+     rirhhz = min(0.1799,rhhz- 0.82) / drhhz + 1.0
+     irhhz = int(rirhhz)
+     wrhhz2 = rirhhz - real(irhhz)
 
-!--------------- PARCEL EXPTS: turn off homo nuc drizzle
-!   cnuc_dp_hom(k) = 0.
-!   rnuc_dp_hom(k) = 0.
-!---------------------------------------------------
+     thz = max(-59.99,tairc(k))
+     rithz = (thz + 60.00) / dthz + 1.0
+     ithz = int(rithz)
+     wthz2 = rithz - real(ithz)
 
-!  Heterogeneous contact ice nucleation of drizzle by diffusio-
-!  phoresis, thermophoresis, and Brownian motion (transport of IN)
+     frachaz = (1.-wrhhz2) * (1.-wthz2) * frachz(irhhz  ,ithz  ) &
+             +     wrhhz2  * (1.-wthz2) * frachz(irhhz+1,ithz  ) &
+             + (1.-wrhhz2) *     wthz2  * frachz(irhhz  ,ithz+1) &
+             +     wrhhz2  *     wthz2  * frachz(irhhz+1,ithz+1)
+     frachaz = 1. - exp(-frachaz * dtl0)
 
-   call contnuc (rx(k,8),cx(k,8),tx(k,8),vap(k,8),press0(k), &
-      dynvisc(k),thrmcon(k),tair(k),tairc(k), &
-      pbvi,ptvi,pdvi,ptotvi,dn8,dtl0,rxmin(8))
+     ! Saleeby (2009, RAMS) and Walko (2016) update: Scale the haze nuclei to
+     ! the CCN concentration.
 
-! progIFN: Scale ptotvi returned from contnuc by prognosed IFN fraction
-!::later   ptotvi = ptotvi * fracifn
+     ! cnuc_vp_haz is the number of haze particles that are diagnosed to
+     ! homogeneously freeze at the given temperature of tairc.  The number
+     ! represents a fraction (frachaz) of the number concentration of haze
+     ! particles present and does not depend on model time step length.
+     ! Repeated application of homogeneous freezing over successive time steps
+     ! would lead to freezing scavenging of (essentially) all haze particles
+     ! unless the number nucleated were limited in some manner based on the
+     ! freezing that already occurred on previous time steps.  The number
+     ! concentration of pristine ice [cx(k,3)] is used as a proxy for the
+     ! number of cloud droplets previously frozen in the limiter below.
+     ! Saleeby (2009, RAMS) argued that this limit should not be used when
+     ! cloud number concentration and CCN are prognosed. 
 
-   cnuc_dp_cont(k) = ptotvi
-   rnuc_dp_cont(k) = ptotvi * emb(k,8)
+     if (jnmb(1) == 5 .and. iccn > 0) then
+        cnuc_vp_haze(k) = max(0.,frachaz * con_ccnx(k,1)) ! x rhoa
+     else
+        cnuc_vp_haze(k) = max(0.,frachaz * con_ccnx(k,1) - cx(k,3)) ! x rhoa
+     endif
 
-! If nucleated mass exceeds available mass in drizzle category, scale it back
-! proportionately between the two nucleation mechanisms
-
-   if (rnuc_dp_hom(k) + rnuc_dp_cont(k) > rx(k,8)) then
-      fac = rx(k,8) / (rnuc_dp_hom(k) + rnuc_dp_cont(k))
-      rnuc_dp_hom (k) = rnuc_dp_hom (k) * fac
-      rnuc_dp_cont(k) = rnuc_dp_cont(k) * fac
-   endif
-
-   rnuc = rnuc_dp_hom(k) + rnuc_dp_cont(k)
-   cnuc = cnuc_dp_hom(k) + cnuc_dp_cont(k)
-
-   rx(k,3) = rx(k,3) + rnuc ! x rhoa
-   rx(k,8) = rx(k,8) - rnuc ! x rhoa
-   cx(k,3) = cx(k,3) + cnuc ! x rhoa
-   cx(k,8) = cx(k,8) - cnuc ! x rhoa
-   qr(k,3) = qr(k,3) + rnuc * cice * tairc(k)   ! (x rhoa)
-   qr(k,8) = qr(k,8) - rnuc * qx(k,8)           ! (x rhoa)
-
-   if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
-   if (rx(k,8) >= rxmin(8)) qx(k,8) = qr(k,8) / rx(k,8)
-
-enddo
-
-! DEMOTT'S NEW SCHEME: In 4.3 and beyond, assume that it gives #/KG
-
-!  Homogeneous nucleation of haze
-
-do k = lpw0,mza0
-   rhhz = rhov(k) / rhovslair(k)  ! stays the same
-
-   if (rhhz > 0.82 .and. tairc(k) <= -35.01) then
-
-      rirhhz = min(0.1799,rhhz-0.82) / drhhz + 1.0
-      irhhz = int(rirhhz)
-      wrhhz2 = rirhhz - real(irhhz)
-
-      thz = max(-59.99,tairc(k))
-      rithz = (thz + 60.00) / dthz + 1.0
-      ithz = int(rithz)
-      wthz2 = rithz - real(ithz)
-
-      frachaz = (1.-wrhhz2) * (1.-wthz2) * frachz(irhhz  ,ithz  ) &
-              +     wrhhz2  * (1.-wthz2) * frachz(irhhz+1,ithz  ) &
-              + (1.-wrhhz2) *     wthz2  * frachz(irhhz  ,ithz+1) &
-              +     wrhhz2  *     wthz2  * frachz(irhhz+1,ithz+1)
-      frachaz = 1. - exp(-frachaz * dtl0)
-
-! Saleeby(2009): Haze nuclei can be too plentiful here compared
-! to reality. For 2-moment cloud droplet prediction I scale the
-! haze nuclei to the CCN concentration. Need better option here.
-
-! con_ccnx units are #/m^3; 300.e6 represents #/kg_air
-
-      if (jnmb(1) >= 5) then
-         cnuc_vp_haze(k) = frachaz * con_ccnx(k)      ! x rhoa
-      else
-         cnuc_vp_haze(k) = frachaz * 300.e6 * rhoa(k) ! x rhoa
-      endif
-
-      rnuc_vp_haze(k) = cnuc_vp_haze(k) * emb0(3) ! x rhoa
-
-   endif
+     rnuc_vp_haze(k) = cnuc_vp_haze(k) * emb0(3) ! x rhoa
 
 !--------------- PARCEL EXPTS: turn off hom nuc haze
 !   cnuc_vp_haze(k) = 0.
 !   rnuc_vp_haze(k) = 0.
 !---------------------------------------------------
 
-!  Heterogeneous nucleation by deposition condensation freezing
-!  with deposition nuclei.  In 4.3 and beyond, assume that it gives #/kg.
+     rx(k,3) = rx(k,3) +  rnuc_vp_haze(k) + rnuc_vp_immers(k)
+     qr(k,3) = qr(k,3) + (rnuc_vp_haze(k) + rnuc_vp_immers(k)) * cice * tairc(k)
+     cx(k,3) = cx(k,3) +  cnuc_vp_haze(k) + cnuc_vp_immers(k)
 
-   ssi = min(ssi0,rhov(k) / rhovsiair(k) - 1.)
+     if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
 
-! Saleeby(2009): Meyers formula seems over-aggresive. DeMott formula based
-! on IFN measurement from SPL show much lower nucleation rate. Need better
-! IFN nucleation scheme, perhaps from ice parcel model.
+  enddo
 
-   if (ssi > 0. .and. tairc(k) <= -5.) then
+  ! HOMOGENEOUS FREEZING OF DRIZZLE (CLOUD2): Loop from lowest to highest grid level
+  ! that may contain drizzle
 
-! Meyers formula
+  do k = k1(8),k2(8)
 
-      fracifn = exp(12.96 * (ssi - ssi0))
+     ! Skip current grid cell if drizzle is not present or if temperature is above -30.01 C
 
-! DeMott SPL modification
+     if (rx(k,8) < rxmin(8) .or. tairc(k) > -30.01) cycle
 
-!     fracifn = (10 ** (-4.077421 * ssi + 0.097562)) * fracifn
+     dn8 = dnfac(8) * emb(k,8) ** pwmasi(8) ! characteristic diameter
+     ridnc = max(1.,min(real(ndnc-1),dn8 / ddnc))
+     idnc = int(ridnc)
+     wdnc2 = ridnc - real(idnc)
 
-   else
+     tc = max(-49.99,tairc(k))
+     ritc = (tc + 50.00) / dtc + 1.0
+     itc = int(ritc)
+     wtc2 = ritc - real(itc)
 
-      fracifn = 0.
+     fraccld = (1.-wdnc2) * (1.-wtc2) * fracc(idnc  ,itc  ,mrl0) &
+             +     wdnc2  * (1.-wtc2) * fracc(idnc+1,itc  ,mrl0) &
+             + (1.-wdnc2) *     wtc2  * fracc(idnc  ,itc+1,mrl0) &
+             +     wdnc2  *     wtc2  * fracc(idnc+1,itc+1,mrl0)
 
-   endif
+     ! cnuc_dp_hom is the number of drizzle droplets that are diagnosed to
+     ! homogeneously freeze at the given temperature of tairc.  The number
+     ! represents a fraction (fraccld) of the number concentration of drizzle
+     ! droplets [cx(k,8)] present and does not depend on model time step
+     ! length.  Repeated application of homogeneous freezing over successive
+     ! timesteps would lead to freezing scavenging of (essentially) all
+     ! drizzle unless the number nucleated were limited in some manner based
+     ! on the freezing that already occurred on previous time steps.  The 
+     ! number concentration of pristine ice [cx(k,3)] is used as a proxy for
+     ! the number of cloud droplets previously frozen in the limiter below.
+     ! Saleeby (2009, RAMS) argued that this limit should not be used when
+     ! GCCN are prognosed. 
 
-! Diagnose maximum number of IFN to activate based on ipris
-! con_ifnx units are #/m^3; 1.e5 represents #/kg_air
+     if (igccn == 2) then
+        cnuc_dp_hom(k) = max(0.,fraccld * cx(k,8)) ! x rhoa
+     else
+        cnuc_dp_hom(k) = max(0.,fraccld * cx(k,8) - cx(k,3)) ! x rhoa
+     endif
 
-   if (ipris == 5) then
-      cnuc_vp_depcond(k) = fracifn * rhoa(k) * 1.e5
-   elseif (ipris == 6) then
-      cnuc_vp_depcond(k) = fracifn * rhoa(k) ** 5.4 * 1.e5
-   elseif (ipris == 7) then
-      cnuc_vp_depcond(k) = fracifn * con_ifnx(k) ! [Steve had this option for ipris >= 5]
-   endif
+     rnuc_dp_hom(k) = cnuc_dp_hom(k) * emb(k,8) ! x rhoa
 
-! orig Meyers formula: diagni = exp(6.269 + 12.96 * ssi)
+!--------------- PARCEL EXPTS: turn off hom frz drizzle
+!   cnuc_dp_hom(k) = 0.
+!   rnuc_dp_hom(k) = 0.
+!---------------------------------------------------
 
-! The sum of haze and depcond nucleation is not to be interpreted as a new
-! amount nucleated in a timestep, but rather as the minimum number of ice
-! crystals that should exist in the given environment.  Therefore, reduce 
-! cnuc_vp_haze and cnuc_vp_depcond, which are the new quantities to be
-! nucleated in the current timestep, if ice particles already exist.
-! Reduction is proportionate between the two nucleation mechanisms, and will
-! halt nucleation if sufficient ice concentration is already present. 
+     ! Subtract homogeneous freezing number and mass from drizzle and add
+     ! to pristine ice
 
-! In addition, limit haze and depcond nucleation if they are found to over-deplete
-! available water vapor, defined to be half the amount in excess of saturation with
-! respect to ice.
+     rx(k,3) = rx(k,3) + rnuc_dp_hom(k) ! x rhoa
+     cx(k,3) = cx(k,3) + cnuc_dp_hom(k) ! x rhoa
+     qr(k,3) = qr(k,3) + rnuc_dp_hom(k) * cice * tairc(k) ! (x rhoa)
 
-   cnuc     = cnuc_vp_haze(k) + cnuc_vp_depcond(k)
-   cnuc_new = cnuc - cx(k,3)
+     if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
 
-   if (cnuc_new > 1.e-3) then ! 1.e-3 represents 1 ice particle per 1000 m^3
-      rnuc_new = cnuc_new * emb0(3)
-      availvap = .5 * (rhov(k) - rhovsiair(k))
+     rx(k,8) = rx(k,8) - rnuc_dp_hom(k) ! x rhoa
+     cx(k,8) = cx(k,8) - cnuc_dp_hom(k) ! x rhoa
+     qr(k,8) = qr(k,8) - rnuc_dp_hom(k) * qx(k,8) ! (x rhoa)
 
-      if (rnuc_new > availvap) then
-         rnuc_new = max(0.,availvap)
-         cnuc_new = rnuc_new * emb0i3
-      endif
+     if (rx(k,8) >= rxmin(8)) qx(k,8) = qr(k,8) / rx(k,8)
 
-      fac = cnuc_new / cnuc
-   else
-      fac = 0.
-   endif
+  enddo
 
-   cnuc_vp_haze   (k) = cnuc_vp_haze   (k) * fac
-   cnuc_vp_depcond(k) = cnuc_vp_depcond(k) * fac
+  ! Meyers did ice habit diagnosis here.  Option 1 is to use habit at cloud top.
+  ! Option 2 is to use new habit at each level.  Need to consider other options.
 
-   rnuc_vp_haze   (k) = cnuc_vp_haze   (k) * emb0(3)
-   rnuc_vp_depcond(k) = cnuc_vp_depcond(k) * emb0(3)
-
-!(Saleeby02-21-07) Note that we only want to subtract the portion
-!of IFN that contribute to ice nucleation. Don't remove the IFN until
-!we implement a restorative option. At that point, alter "vapnuc" above.
-!   if((haznuc > 0.0 .or. diagni > 0.0) .and. jnmb(3) >= 5) then
-!    diagni = (diagni/(haznuc+diagni))*vapnuc
-!    con_ifnx(k) = con_ifnx(k) - diagni
-!   endif
-
-   rx(k,3) = rx(k,3) +  rnuc_vp_haze(k) + rnuc_vp_depcond(k)
-   qr(k,3) = qr(k,3) + (rnuc_vp_haze(k) + rnuc_vp_depcond(k)) * cice * tairc(k)
-   cx(k,3) = cx(k,3) +  cnuc_vp_haze(k) + cnuc_vp_depcond(k)
-
-   if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
-
-enddo
-
-! here mike has the habit diagnosis. option 1 is to use habit
-! at cloud top, option 2 is to use new habit at each level.
-! need to consider other options.  how about method of formation?
-! my question about how much of habit is due to existing ice
-! structure, and how much is due to current growth environment
-! (temp and supsat). relevant supsat is wrt liquid?
-
-return
 end subroutine icenuc
 
-!===============================================================================
-
-subroutine contnuc(rx,cx,tx,vap,press, &
-   dynvisc,thrmcon,tair,tairc,pbvi,ptvi,pdvi,ptotvi,dn1,dtl,rxmin1)
-
-implicit none
-
-real, intent(in) :: rx,cx,tx,vap,press,dynvisc,thrmcon,tair,tairc
-real, intent(in) :: dn1,dtl,rxmin1
-real, intent(out) :: pbvi,ptvi,pdvi,ptotvi
-
-real :: ana,akn,dfar,f1,f2,ft
-
-real, parameter :: aka = 5.39e-3, raros = 3.e-7
-
-!  Heterogeneous contact ice nucleation of cloud droplets by diffusio-
-!  phoresis, thermophoresis, and Brownian motion (transport of IN)
-!
-!  aka   = thermal diffusivity of air 
-!  ana   = # IN per kg available for contact freezing (from Meyers et al. 1992
-!          where ana was interpreted as # per m^3)
-!  akn   = Knudsen number (Walko et al. 1995, Eq. 58)
-!          [2.28e-5 = mfp * p00 / 293.15]
-!  raros = aerosol radius = 3.e-7 m from Cotton et al. (1986)
-!  dfar  = aerosol diffusivity (Pruppacher and Klett Eq. 12-15)
-!          [7.32e-25 = Boltzmann constant / (6 pi)]
-!  f1    = "function 1" (Walko et al. 1995 Eq. 55) multiplied by delta t
-!          [#/m^3]
-!  f2    = "function 2" (Walko et al. 1995 Eq. 56)
-!  ft    = "function ft" (Walko et al. 1995 Eq. 57)
-!  pbvi  = Brownian motion nucleation amount this timestep [#/m^3]
-!  ptvi  = Thermophoretic nucleation amount this timestep [#/m^3]
-!  pdvi  = Diffusiophoretic nucleation amount this timestep [#/m^3],
-!          reformulated to use vapor diffusion directly.  Factor of 1.2
-!          is (1+sigma_va x_a) from Pruppacher and Klett Eq. 12-102
-!          divided by .622, the molecular weight ratio between water and air.
-
-ptotvi = 0.
-
-if (tx <= -2. .and. rx > rxmin1) then
-
-   ana = exp(4.11 - .262 * tx)
-   akn = 2.28e-5 * tair / (press * raros)
-   dfar = 7.32e-25 * tair * (1.+ akn) / (raros * dynvisc)
-   f1 = 6.28318 * dn1 * cx * ana * dtl  ! x rhoa
-   f2 = thrmcon * (tairc - tx) / press
-   ft = .4 * (1. + 1.45 * akn + .4 * akn * exp(-1. / akn)) &
-      * (thrmcon + 2.5 * akn * aka) &
-      / ((1. + 3. * akn) &
-      * (2. * thrmcon + 5. * aka * akn + aka))
-   pbvi = f1 * dfar                     ! x rhoa
-   ptvi = f1 * f2 * ft                  ! x rhoa
-   pdvi = 1.2 * ana * vap               ! x rhoa
-   ptotvi = max(0.,pbvi + ptvi + pdvi)  ! x rhoa
-
-endif
-return
-end subroutine contnuc

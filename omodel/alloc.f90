@@ -51,8 +51,8 @@ subroutine olam_mem_alloc()
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
                          nqparm, do_chem
 
-  use micro_coms,  only: level, ncat, &
-                         icloud, idriz, irain, ipris, isnow, iaggr, igraup, ihail
+  use micro_coms,  only: miclevel, ncat, jnmb, iccn, igccn, iifn
+  use ccnbin_coms, only: nccntyp
                        
   use leaf_coms,   only: mwl, isfcl
   use sea_coms,    only: mws
@@ -78,9 +78,8 @@ subroutine olam_mem_alloc()
   call alloc_cuparm(mza, mwa, mrls, nqparm)
   call filltab_cuparm() 
 
-  call alloc_micro(mza,mwa,level,ncat, &
-     icloud,idriz,irain,ipris,isnow,iaggr,igraup,ihail)
-  call filltab_micro()
+  call alloc_micro(mza,mwa,miclevel,ncat,nccntyp,iccn,igccn,iifn,jnmb)
+  call filltab_micro(nccntyp)
 
   call alloc_radiate(mza,mwa,ilwrtyp,iswrtyp)
   call filltab_radiate()
@@ -134,8 +133,8 @@ subroutine olam_mem_alloc()
 
   write(io6,*) 'start tendency alloc'
 
-  call alloc_tend(mza,mva,mwa,naddsc)
-  call filltab_tend(naddsc) 
+  call alloc_tend(mza,mva,mwa,naddsc,nccntyp)
+  call filltab_tend(naddsc,nccntyp) 
 
 ! Extra memory for Thuburn's monotonic advection or positive definite scheme
 

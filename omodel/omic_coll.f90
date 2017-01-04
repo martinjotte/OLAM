@@ -670,11 +670,10 @@ do k = j1,j2
 ! Saleeby(6/3/02): Hallett-Mossop is done for both cloud droplet modes, though
 ! contribution from the large droplet mode is minimal compared to the small
 ! droplet mode. Ice splintering is only done if number concentration is
-! prognostic for at least one of the two hydromet species involved. This is
-! specified above in the calculations for "colc".
+! prognostic for at least one of the two hydrometeor species involved.
 
    if (tcoal > -8.0 .and. tcoal < -3.0 .and. &
-      (jnmb(mx) >= 5 .or. jnmb(my) >= 5)) then  ! Steve, why this condition?
+      (jnmb(mx) == 5 .or. jnmb(my) == 5)) then  ! Steve, why this condition?
 
       area = cx(k,my) * sipfac(jhcaty) * emb(k,my) ** (2.*pwmasi(jhcaty)) ! remd rhoa
       it = max(1,nint(emb(k,mx) / emb1(mx) * ngam))
@@ -925,10 +924,12 @@ subroutine colxfers(k1,k2,rx,cx,qr, &
    e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
    e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
    e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
-   e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000)
+   e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000, &
+   con_ccnx)
 
-use micro_coms, only: mza0, ncat, jnmb
-use misc_coms,  only: io6
+use micro_coms,  only: mza0, ncat, jnmb
+use misc_coms,   only: io6
+use ccnbin_coms, only: nccntyp, nbins, relcon_bin, ihyg, iccntyp
 
 implicit none
 
@@ -970,12 +971,18 @@ real, intent(inout) :: &
   e2557(mza0),e2622(mza0),e2627(mza0),e2666(mza0),e2667(mza0), &
   e2722(mza0),e2727(mza0),e2777(mza0),e0000(mza0)
 
+real, intent(inout) :: con_ccnx(mza0,nccntyp)
+
 integer :: lcat,jcat,kd1,kd2,k
 real :: fac
 
 real ::  rloss(mza0,ncat)
 real :: qrloss(mza0,ncat)
 real :: enloss(mza0,ncat)
+
+integer :: ibin, jbin, jc
+real :: con_ccny(nccntyp)
+real :: ccnloss, tot, con_bin
 
 ! Limit rxfer and enxfer values so no hydrometeor category gets over-depleted.
 ! Limit the losses to each category without accounting for potential 
@@ -1558,7 +1565,45 @@ if (jnmb(8) >= 1) then
 
 endif
 
-return
+! Scavenge CCN in accordance with collisional losses of cloud number and
+! pristine ice number.  Loop through all bins, using ihyg array to reorder bins
+! from lowest to highest critical supersaturation (as used for activation).
+! Scavenge CCN in this order until the correct number to scavenge is reached. 
+
+! NOTE: GCCN are scavenged immediately when nucleated to drizzle.
+! Pure IFN are not currently scavenged in the model, but CCN that have
+! IFN properties are automatically scavenged here.
+
+do k = k1(11),k2(11)
+
+   ! Save a copy of CCN concentrations before scavenging
+
+   con_ccny(1:nccntyp) = con_ccnx(k,1:nccntyp)
+
+   ! Define ccnloss as sum of cloud droplet and pristine ice losses due to
+   ! collisions.  Perhaps it is better to be more selective in the types of
+   ! losses by summing individual contributions like e1411(k), e3533(k), etc.
+
+   ccnloss = enloss(k,1) + enloss(k,3)
+
+   tot = 0.
+
+   do ibin = 1,nbins
+      jbin = ihyg(ibin)
+      jc = iccntyp(jbin)
+      con_bin = relcon_bin(jbin) * con_ccny(jc)
+      tot = tot + con_bin
+
+      if (tot < ccnloss) then
+         con_ccnx(k,jc) = con_ccnx(k,jc) - con_bin
+      else
+         con_ccnx(k,jc) = con_ccnx(k,jc) - (tot - ccnloss)
+         exit
+      endif 
+   enddo
+
+enddo
+
 end subroutine colxfers
 
 
