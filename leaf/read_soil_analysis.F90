@@ -4,7 +4,7 @@ subroutine read_soil_analysis(soil_tempc)
   use leaf_coms,  only: nzg, mwl, slzt, soilcp_ch, soilcp_vg, &
                         slmsts_ch, slmsts_vg,                 &
                         slpott_high1_ch,  slpott_high1_vg,    &
-                        slcpd, soilstate_db, dt_leaf
+                        slcpd, dt_leaf
   use mem_leaf,   only: land, itab_wl
   use consts_coms,only: pio180, piu180, erad, cliq1000, alli1000, cice,   &
                          cice1000, r8

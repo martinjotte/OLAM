@@ -83,7 +83,6 @@ Module leaf_coms
   character(pathlen) :: veg_database
   character(pathlen) :: soil_database
   character(pathlen) :: ndvi_database
-  character(pathlen) :: soilstate_db
   character(pathlen) :: watertab_db
 
   integer            :: nndvifiles, indvifile

@@ -441,8 +441,6 @@
    NL%VEG_DATABASE    = '../../olamdatah5/oge2/OGE2_'
    NL%SOIL_DATABASE   = '../../olamdatah5/fao/FAO_'
    NL%NDVI_DATABASE   = '../../olamdatah5/ndvi/NDVI'
-   NL%SOILSTATE_DB    = './dp_etc/STW-'
-   NL%SOILDEPTH_DB    = '../../olamdatah5/SOIL_DEPTHS.h5'
    NL%WATERTAB_DB     = '../../olamdatah5/wtd/WTD'
 
  ! These point to a .txt listing of sst/seaice files, and are used only
