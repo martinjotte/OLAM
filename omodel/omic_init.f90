@@ -544,15 +544,17 @@ if (runtype == 'INITIAL') then
 ! (Default initialization here should be replaced with observation-based
 ! initialization dataset.)
       
-      do ic = 1,nccntyp
-         if (allocated(ccntyp(ic)%con_ccn)) then
-            if (ccnparm > 1.e6) then
-               ccntyp(ic)%con_ccn(1:mza,iw) = ccnparm  * zfactor_ccn(1:mza)
-            else
-               ccntyp(ic)%con_ccn(1:mza,iw) = cldnum(iw) * zfactor_ccn(1:mza)
+      if (allocated(ccntyp)) then
+         do ic = 1,nccntyp
+            if (allocated(ccntyp(ic)%con_ccn)) then
+               if (ccnparm > 1.e6) then
+                  ccntyp(ic)%con_ccn(1:mza,iw) = ccnparm  * zfactor_ccn(1:mza)
+               else
+                  ccntyp(ic)%con_ccn(1:mza,iw) = cldnum(iw) * zfactor_ccn(1:mza)
+               endif
             endif
-         endif
-      enddo
+         enddo
+      endif
 
 ! Initialize GCCN field if activated
 ! (Default initialization here should be replaced with observation-based

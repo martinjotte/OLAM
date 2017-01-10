@@ -124,11 +124,13 @@ Contains
    if (allocated(con_gccn))allocate (con_gccnt(lza,lwa))
    if (allocated(con_ifn)) allocate (con_ifnt (lza,lwa))
 
-   do ic = 1,nccntyp
-      if       (allocated(ccntyp(ic)%con_ccn) .and.  &
-         (.not. allocated(ccntyp(ic)%con_ccnt)))      &
-                allocate (ccntyp(ic)%con_ccnt(lza,lwa))
-   enddo
+   if (allocated(ccntyp)) then
+      do ic = 1,nccntyp
+         if       (allocated(ccntyp(ic)%con_ccn) .and.   &
+            (.not. allocated(ccntyp(ic)%con_ccnt)))      &
+                   allocate (ccntyp(ic)%con_ccnt(lza,lwa))
+      enddo
+   endif
 
    if (qxtrans) then
       if (allocated(q2))   allocate (q2t(lza,lwa))
@@ -190,9 +192,11 @@ Contains
    if (allocated(con_gccnt))deallocate (con_gccnt)
    if (allocated(con_ifnt)) deallocate (con_ifnt)
 
-   do ic = 1,nccntyp
-      if (allocated(ccntyp(ic)%con_ccn)) deallocate (ccntyp(ic)%con_ccn)
-   enddo
+   if (allocated(ccntyp)) then
+      do ic = 1,nccntyp
+         if (allocated(ccntyp(ic)%con_ccn)) deallocate (ccntyp(ic)%con_ccn)
+      enddo
+   endif
         
    if (allocated(q2t))      deallocate (q2t)
    if (allocated(q6t))      deallocate (q6t)
@@ -254,13 +258,14 @@ Contains
    if (allocated(con_gccnt))call vtables_scalar (con_gccn, con_gccnt, 'CON_GCCN', cu_mix=.true.)
    if (allocated(con_ifnt)) call vtables_scalar (con_ifn,  con_ifnt,  'CON_IFN',  cu_mix=.true.)
 
-   do ic = 1,nccntyp
-      write(sname,'(a7,i3.3)') 'CON_CCN',ic
-      
-      if (allocated(ccntyp(ic)%con_ccn)) then
-         call vtables_scalar (ccntyp(ic)%con_ccn, ccntyp(ic)%con_ccnt, sname, cu_mix=.true.)
-      endif
-   enddo
+   if (allocated(ccntyp)) then
+      do ic = 1,nccntyp
+         write(sname,'(a7,i3.3)') 'CON_CCN',ic
+         if (allocated(ccntyp(ic)%con_ccn)) then
+            call vtables_scalar (ccntyp(ic)%con_ccn, ccntyp(ic)%con_ccnt, sname, cu_mix=.true.)
+         endif
+      enddo
+   endif
 
    if (allocated(q2t))      call vtables_scalar (q2, q2t, 'Q2')
    if (allocated(q6t))      call vtables_scalar (q6, q6t, 'Q6')

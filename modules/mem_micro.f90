@@ -317,12 +317,14 @@ Contains
 
     if (allocated(con_ifn)) call increment_vtable('CON_IFN', 'AW', mpt1=.true., rvar2=con_ifn)
 
-    do ic = 1,nccntyp
-       if (allocated (ccntyp(ic)%con_ccn)) then
-          write(sname,'(a7,i3.3)') 'CON_CCN', ic
-          call increment_vtable(sname, 'AW', mpt1=.true., rvar2=ccntyp(ic)%con_ccn)
-       endif
-    enddo
+    if (allocated(ccntyp)) then
+       do ic = 1,nccntyp
+          if (allocated (ccntyp(ic)%con_ccn)) then
+             write(sname,'(a7,i3.3)') 'CON_CCN', ic
+             call increment_vtable(sname, 'AW', mpt1=.true., rvar2=ccntyp(ic)%con_ccn)
+          endif
+       enddo
+    endif
 
     if (allocated(q2)) call increment_vtable('Q2', 'AW', mpt1=.true., rvar2=q2)
 

@@ -349,6 +349,12 @@ subroutine ccnbin_init()
      bkappa_nucx(  iifnx) = 0. ! Value for dust
   endif
 
+! Count up total number of bins over all CCN types
+
+  nbins = sum(nbins_ccntyp(1:nccntyp))
+
+  if (nbins < 1) return
+
   ! The minimum and maximum bin sizes, ccntyp_dmin and ccntyp_dmax, can be set
   ! to about 1/5 of and 5 times ccntyp_dmed, respectively, as long as ccntyp_dsig is
   ! set to 2.0 or less.  Using 20 bins, this results in the first and last bins each
@@ -365,12 +371,6 @@ subroutine ccnbin_init()
   if (idust2 > 0) then
      ccntyp_dmax(idust2) = 5.0 * ccntyp_dmed(idust2)
   endif
-
-! Count up total number of bins over all CCN types
-
-  nbins = sum(nbins_ccntyp(1:nccntyp))
-
-  if (nbins < 1) return
 
   ! Allocate arrays for all size-bins of all CCN types
 
