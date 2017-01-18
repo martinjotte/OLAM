@@ -145,7 +145,6 @@ Module oname_coms
 !!    MODEL/NUMERICAL OPTIONS
 
       integer :: naddsc      = 0
-      integer :: icorflg     = 1
       integer :: ithil_monot = 0
       integer :: iwind_monot = 0
       integer :: iscal_monot = 0

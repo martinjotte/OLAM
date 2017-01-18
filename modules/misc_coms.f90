@@ -68,7 +68,6 @@ integer :: initial
 integer :: ngrids
 integer :: ngrids_old
 integer :: nzp
-integer :: icorflg
 integer :: ilwrtyp
 integer :: iswrtyp
 integer :: icfrac

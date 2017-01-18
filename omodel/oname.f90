@@ -79,7 +79,7 @@ subroutine copy_nl()
                          nacoust, idiffk, csz, csx, akmin, &
                          dtlong, initial, zonclim, topo_database, &
                          gridfile, hfilin, ioutput, hfilepref, iclobber, &
-                         frqstate, naddsc, icorflg, ilwrtyp, iswrtyp, radfrq, &
+                         frqstate, naddsc, ilwrtyp, iswrtyp, radfrq, &
                          icfrac, cfracrh1, cfracrh2, cfraccup, nqparm, confrq, &
                          nsndg, ipsflg, itsflg, irtsflg, iusflg, &
                          hs, p_sfc, us, vs, ts, ps, rts, &
@@ -174,7 +174,6 @@ subroutine copy_nl()
   iupdseaice    = nl%iupdseaice
   iupdndvi      = nl%iupdndvi
   naddsc        = nl%naddsc
-  icorflg       = nl%icorflg
   debug_fp      = nl%debug_fp
   init_nans     = nl%init_nans
   rayf_zmin     = nl%rayf_zmin

@@ -82,7 +82,7 @@ subroutine history_start(action)
 ! If adding new grids (new mesh refinements), read model fields from old
 ! history file and map them to new model grid
 
-           print*, 'calling hist_read_addgrid'
+           write(io6,*) 'calling hist_read_addgrid'
            call hist_read_addgrid()
 
         else
@@ -90,7 +90,7 @@ subroutine history_start(action)
 ! If NOT adding new grids (new mesh refinements), read model fields from
 ! standard history file
 
-           print*, 'calling hist_read'
+           write(io6,*) 'calling hist_read'
            call hist_read()
         endif
 
@@ -460,7 +460,7 @@ subroutine hist_read_addgrid()
 
      call shdf5_info(varn, ndims, idims)
 
-     print*, 'varn ',varn
+     write(io6,*) 'varn ',varn
 
      ! Skip to next variable if the current one is not in the history file
 

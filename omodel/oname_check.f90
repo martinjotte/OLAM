@@ -247,7 +247,6 @@ call ichk_bnds( nl%itopoflg, "ITOPOFLG", 1,  2, 0, nfatal, nwarn )
 !--------------------------------------------------------------------------
 
 call ichk_bnds( nl%naddsc,   "NADDSC", 0, 1000, 0, nfatal, nwarn )
-call ichk_bnds( nl%icorflg, "ICORFLG", 0,    1, 0, nfatal, nwarn )
 
 call ichk_bnds( nl%ithil_monot, "ITHIL_MONOT", 0, 1, 0, nfatal, nwarn )
 call ichk_bnds( nl%iwind_monot, "IWIND_MONOT", 0, 1, 0, nfatal, nwarn )

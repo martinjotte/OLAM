@@ -48,8 +48,8 @@ subroutine interp_htw_ll(npts,iws_loc,wts_loc,nlevin,nlevout,field,field_ll)
   integer :: ipt, kin, kout
 
   if (iparallel == 1) then
-     call mpi_send_w(1,svara=field)
-     call mpi_recv_w(1,svara=field)
+     call mpi_send_w(1,svara1=field)
+     call mpi_recv_w(1,svara1=field)
   endif
 
   do ipt = 1, npts

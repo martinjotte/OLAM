@@ -55,6 +55,7 @@ use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
 use sedv_defn,   only: aero_sedi
+use wrtv_mem,    only: prog_wrtv
 
 implicit none
 

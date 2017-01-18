@@ -618,6 +618,12 @@ contains
     real :: vxmix, vymix, vzmix, rib_sav
     integer :: k
 
+    if (kbot+1 >= ktop-1) then
+       kpblh = kbot
+       pblh  = dzt(kbot)
+       return
+    endif
+
     ! COMPUTE AN AVERAGE NEAR-SURFACE VIRTUAL POTENTIAL TEMPERATURE
 
     if (nsfc == 1) then
@@ -638,10 +644,11 @@ contains
 
     ! FIND FIRST LEVEL ABOVE THE MIXED LAYER, IF IT EXISTS
 
+    k = kbot+1
     do k = kbot+1, ktop-1
        if (thv(k) > thvsfc) exit
     enddo
-    kmix = k
+    kmix = min(k,ktop-1)
 
     ! IF MIXED-LAYER EXISTS; INTERPOLATE HEIGHT AND WIND VELOCITIES
     ! TO THE POINT WHERE THETAV EQUALS ITS SURFACE-LAYER VALUE
@@ -686,8 +693,7 @@ contains
 
     if (kpblh == ktop-1) then
 
-       ! write(*,*) "Warning: PBL extends to model top!!!"
-       pblh = zm(kpblh-1)
+       pblh = max( zm(kpblh) - zm(kbot-1), dzt(kbot) )
 
     else
 

@@ -200,7 +200,7 @@ end subroutine lbcopy_v
 
 subroutine lbcopy_w(mrl, a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, &
                          a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, &
-                         d1,  d2)
+                         d1,  d2,  s1,  s2)
 
 use mem_ijtabs, only: jtab_w, itab_w, jtw_lbcp
 use mem_grid,   only: mza, mwa
@@ -229,6 +229,10 @@ real, optional, intent(inout) :: a17(mza,mwa)
 real, optional, intent(inout) :: a18(mza,mwa)
 real, optional, intent(inout) :: a19(mza,mwa)
 real, optional, intent(inout) :: a20(mza,mwa)
+
+! For real 2D arrays where the size of the first dimension isn't mza
+real, optional, intent(inout) :: s1 (:,:)
+real, optional, intent(inout) :: s2 (:,:)
 
 real(8), optional, intent(inout) :: d1(mza,mwa)
 real(8), optional, intent(inout) :: d2(mza,mwa)
@@ -263,6 +267,9 @@ do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
    if (present(a18)) a18(:,iw) = a18(:,iwp)
    if (present(a19)) a19(:,iw) = a19(:,iwp)
    if (present(a20)) a20(:,iw) = a20(:,iwp)
+
+   if (present(s1 )) s1 (:,iw) = s1 (:,iwp) 
+   if (present(s2 )) s2 (:,iw) = s2 (:,iwp)
 
    if (present(d1 )) d1 (:,iw) = d1 (:,iwp) 
    if (present(d2 )) d2 (:,iw) = d2 (:,iwp)
