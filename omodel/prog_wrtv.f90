@@ -361,7 +361,7 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
         enddo
 
      enddo
-     !$omp end parallel
+     !$omp end parallel do
 
   endif  ! mrl > 0
 
@@ -785,7 +785,7 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
   !$omp end parallel do 
 
 ! MPI SEND/RECV and LBC copy of quantities needed for prog_v: 
-! PRESS, RHO, VMXET, VMYET, and VMZET
+! PRESS, RHO, VMXET_VOLT, VMYET_VOLT, and VMZET_VOLT
 
   if (iparallel == 1) then
 
@@ -794,12 +794,12 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
                      rvara4=vmx_cor, rvara5=vmy_cor)
 
      call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
-                    rvara1=vmxet_volt, rvara2=vmyet_volt, rvara3=vmzet_volt, &
-                    rvara4=vmx_cor, rvara5=vmy_cor)
+                     rvara1=vmxet_volt, rvara2=vmyet_volt, rvara3=vmzet_volt, &
+                     rvara4=vmx_cor, rvara5=vmy_cor)
 
   endif
 
-  call lbcopy_w(mrl, a1=vmxet, a2=vmyet, a3=vmzet, &
+  call lbcopy_w(mrl, a1=vmxet_volt, a2=vmyet_volt, a3=vmzet_volt, &
                 a4=vmx_cor, a5=vmy_cor, d1=press, d2=rho)
 
 ! MAIN LOOP OVER V POINTS TO UPDATE VMC AND VC
@@ -1016,17 +1016,17 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,    &
      vmye1(k) = vye(k,iw) * rho(k,iw)
      vmze1(k) = vze(k,iw) * rho(k,iw)
 
-   ! Coriolis force for T cell
+     ! Coriolis force for T cell
 
-   vmx_cor(k,iw) =  omega2 * vmye1(k)
-   vmy_cor(k,iw) = -omega2 * vmxe1(k)
+     vmx_cor(k,iw) =  omega2 * vmye1(k)
+     vmy_cor(k,iw) = -omega2 * vmxe1(k)
 
      ! Explicit density tendency
 
      delex_rho(k) = dts * (rhot(k,iw) &
                   + volti(k,iw) * (hflux_rho(k) + wmarw(k-1) - wmarw(k)))
 
-   ! Explicit density-thil tendency
+     ! Explicit density-thil tendency
 
      if (nl%split_scalars == 1) then
         delex_rhothil(k) = dts * (thil(k,iw) * rhot(k,iw) &
@@ -1037,7 +1037,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,    &
      endif
 
      ! Explicit momentum tendency from advective and horizontal turbulent transport
-     ! and Coriolis force (weighted by T cell volume)
+     ! (weighted by T cell volume)
 
      vmxet_volt(k,iw) = hflux_vxe(k) + vflux_vxe(k-1) - vflux_vxe(k)
      vmyet_volt(k,iw) = hflux_vye(k) + vflux_vye(k-1) - vflux_vye(k)
@@ -1096,8 +1096,8 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,    &
           + wnxo2(iw) * (vmx_cor(k,iw) + vmx_cor(k+1,iw)) &
           + wnyo2(iw) * (vmy_cor(k,iw) + vmy_cor(k+1,iw)) &
 
-          ! ADD volume-weighted VMXET, VMYET, VMZET over both T levels and divide by
-          ! combined VOLT of those T levels
+          ! ADD volume-weighted arrays VMXET_VOLT, VMYET_VOLT, VMZET_VOLT
+          ! over both T levels and divide by combined VOLT of those T levels
 
           + ( wnx(iw) * (vmxet_volt(k,iw) + vmxet_volt(k+1,iw)) &
             + wny(iw) * (vmyet_volt(k,iw) + vmyet_volt(k+1,iw)) &
@@ -1305,13 +1305,11 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt )
 
   use mem_ijtabs,  only: itab_v
   use mem_basic,   only: vc, press, vmp, vmc, rho, vxe, vye, vze
-  use misc_coms,   only: dtsm, initial, mdomain, u01d, v01d, dn01d, &
-                         deltax, nxp
+  use misc_coms,   only: dtsm, initial, mdomain, deltax, nxp
   use consts_coms, only: eradi, gravo2
   use mem_grid,    only: mza, mma, mva, mwa, lpv, volt, xev, yev, zev, &
                          unx, uny, unz, vnx, vny, vnz, vnxo2, vnyo2, vnzo2, &
                          dniu, dniv, arw0, dnu
-  use mem_tend,    only: vmxet, vmyet, vmzet
   use mem_rayf,    only: dorayf, rayf_cof, vc03d, dn03d, krayf_bot, &
                          dorayfdiv, krayfdiv_bot, rayf_cofdiv
   use oname_coms,  only: nl
@@ -1376,7 +1374,7 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt )
   if (dorayf .and. initial == 1) then
 
      ! Vertical loop over V points
-      
+
      do k = krayf_bot, mza
         vmt_rayf(k) = vmt_rayf(k) + rayf_cof(k) * dn03d(k,iv) * (vc03d(k,iv) - vc(k,iv))
      enddo
@@ -1392,7 +1390,7 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt )
      ! enddo
 
   endif ! (dorayf and initial == 1)
-   
+
   ! Vertical loop over V points
 
   do k = kb,mza
@@ -1455,11 +1453,8 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt )
         !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@A2
 
         vmc(k,iv) = vmc(k,iv) + dts * (vmt_rayf(k) + vmt_long(k,iv) + pgf(k) &
-                  + vnxo2(iv) * ( vmxet  (k,iw1) + vmxet  (k,iw2)   &
-                                + vmx_cor(k,iw1) + vmx_cor(k,iw2) ) &
-                  + vnyo2(iv) * ( vmyet  (k,iw1) + vmyet  (k,iw2)   &
-                                + vmy_cor(k,iw1) + vmy_cor(k,iw2) ) &
-                  + vnzo2(iv) * ( vmzet  (k,iw1) + vmzet  (k,iw2) ) &
+                  + vnxo2(iv) * ( vmx_cor(k,iw1) + vmx_cor(k,iw2) ) &
+                  + vnyo2(iv) * ( vmy_cor(k,iw1) + vmy_cor(k,iw2) ) &
                   + .5 * (rho(k,iw1) + rho(k,iw2)) &
                   * (dniv(iv) * (tke1 - tke2) &
                   + uc * vortp_v &

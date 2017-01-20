@@ -118,11 +118,58 @@ integer :: linit, lframe
 
 ! Initialize free water values to zero
 
-wfree1  = 0.
-qwfree1 = 0.
-dwfree1 = 0.
+wfree1   = 0.
+qwfree1  = 0.
+dwfree1  = 0.
 
-head1 = 0.
+head1    = 0.
+
+wcap_min = dt_leaf * 1.e-6 ! 1.e-6 is 1 mm pcp/dew in 11 days    [kg/m^2]
+
+! If there are multiple water layers and the top layer mass is below
+! threshold, iteratively transfer quantities to the layer below until
+! the threshold is reached
+
+if (nlev_sfcwater > 1) then
+   do while (nlev_sfcwater > 1 .and. sfcwater_mass(nlev_sfcwater) < wcap_min)
+      k = nlev_sfcwater
+
+      sfcwater_mass(k-1)  = sfcwater_mass(k-1)  + sfcwater_mass(k)
+      energy_per_m2(k-1)  = energy_per_m2(k-1)  + energy_per_m2(k)
+      sfcwater_depth(k-1) = sfcwater_depth(k-1) + sfcwater_depth(k)
+
+      sfcwater_mass   (k) = 0.
+      sfcwater_energy (k) = 0.
+      sfcwater_depth  (k) = 0.
+      energy_per_m2   (k) = 0.
+      sfcwater_fracliq(k) = 0.
+
+      nlev_sfcwater = nlev_sfcwater - 1
+   enddo
+endif
+
+! Take inventory of sfcwater_mass(1) now that exchange with canopy is
+! complete.  It is possible for sfcwater_mass(1) to be slightly negative
+! at this point.  If sfcwater_mass(1) is below threshold, transfer sfcwater
+! mass and energy to soil, set sfcwater quantities to zero and return.
+
+if (sfcwater_mass(1) < wcap_min) then
+
+   soil_water (nzg) = soil_water (nzg) + dslzi(nzg) * sfcwater_mass(1) * .001
+   soil_energy(nzg) = soil_energy(nzg) + dslzi(nzg) * energy_per_m2(1)
+
+   sfcwater_mass  (1) = 0.
+   sfcwater_energy(1) = 0.
+   sfcwater_depth (1) = 0.
+   energy_per_m2  (1) = 0.
+
+   sfcwater_tempk  (1) = soil_tempk(nzg)
+   sfcwater_fracliq(1) = 0.
+
+   nlev_sfcwater = 0
+
+   return
+endif
 
 ! If surface water was present at the beginning of this leaf step
 ! AND implicit heat balance between sfcwater(1) and soil(nzg) was NOT done,
@@ -205,35 +252,10 @@ if (nlev_sfcwater > 0 .and. icomb == 0) then
 
 endif
 
-! Take inventory of sfcwater_mass(1) now that exchange with canopy is
-! complete.  It is possible for sfcwater_mass(1) to be slightly negative
-! at this point.  If sfcwater_mass(1) is below threshold, transfer sfcwater
-! mass and energy to soil, set sfcwater quantities to zero and return.
+! If we are here sufficient sfcwater mass remains,
+! and if nlev_sfcwater is less than 1, set it to 1.
 
-wcap_min = dt_leaf * 1.e-6 ! 1.e-6 is 1 mm pcp/dew in 11 days    [kg/m^2]
-
-if (sfcwater_mass(1) < wcap_min) then
-
-   soil_water (nzg) = soil_water (nzg) + dslzi(nzg) * sfcwater_mass(1) * .001
-   soil_energy(nzg) = soil_energy(nzg) + dslzi(nzg) * energy_per_m2(1)
-
-   sfcwater_mass  (1) = 0.
-   sfcwater_energy(1) = 0.
-   sfcwater_depth (1) = 0.
-   energy_per_m2  (1) = 0.
-
-   sfcwater_tempk  (1) = soil_tempk(nzg)
-   sfcwater_fracliq(1) = 0.
-
-   nlev_sfcwater = 0
-
-   return
-
-elseif (nlev_sfcwater < 1) then
-
-! If sufficient sfcwater mass remains and nlev_sfcwater is less than 1,
-! set it to 1.
-
+if (nlev_sfcwater < 1) then
    nlev_sfcwater = 1
 endif
 

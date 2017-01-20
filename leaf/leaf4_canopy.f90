@@ -707,10 +707,10 @@ Contains
 
     canshv = canshv + (wxfersc - sxfer_r) * canairi
 
-    sfcwater_mass = sfcwater_mass - wxfersc
-
     specvol = .001
-    if (wxfersc > 0.) specvol = sfcwater_depth / sfcwater_mass
+    if (wxfersc > 0. .and. sfcwater_mass > 1.e-3) specvol = sfcwater_depth / sfcwater_mass
+
+    sfcwater_mass = sfcwater_mass - wxfersc
 
     sfcwater_depth = sfcwater_depth - wxfersc * specvol
 
@@ -1022,10 +1022,10 @@ Contains
 
     veg_water = max(0.,veg_water - wxfervc)
 
-    sfcwater_mass = sfcwater_mass - wxfersc
-
     specvol = .001
-    if (wxfersc > 0.) specvol = sfcwater_depth / sfcwater_mass
+    if (wxfersc > 0. .and. sfcwater_mass > 1.e-3) specvol = sfcwater_depth / sfcwater_mass
+
+    sfcwater_mass = sfcwater_mass - wxfersc
 
     sfcwater_depth = sfcwater_depth - wxfersc * specvol
 

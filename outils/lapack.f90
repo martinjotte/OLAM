@@ -8490,7 +8490,7 @@
 !*                    (Workspace: need 4*M, prefer 3*M+2*M*NB)
 !*
                      CALL DGEBRD( M, M, A, LDA, S, WORK( IE ), &
-                                  WORK( ITAUQ ), WORK( ITAUP ), & &
+                                  WORK( ITAUQ ), WORK( ITAUP ), &
                                   WORK( IWORK ), LWORK-IWORK+1, IERR )
 !*
 !*                    Multiply right vectors bidiagonalizing L by Q in VT
@@ -9351,7 +9351,7 @@
                CALL DLACPY( 'U', M, N, A, LDA, VT, LDVT )
                IF( WNTVA ) &
                   NRVT = N
-               IF( WNTVS ) & &
+               IF( WNTVS ) &
                   NRVT = M
                CALL DORGBR( 'P', NRVT, N, M, VT, LDVT, WORK( ITAUP ), &
                             WORK( IWORK ), LWORK-IWORK+1, IERR )

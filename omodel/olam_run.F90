@@ -526,56 +526,50 @@ subroutine olam_run(name_name)
 
         call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
-        if (runtype == 'PLOTONLY') then
+        ! If month-average or day-average plots are specified, do them when
+        ! iplt_file = 1 and then exit iplt_file do loop.  IT IS ASSUMED THAT
+        ! MONTH-AVERAGE AND DAY-AVERAGE FILES ARE SINGLE NON-PARALLEL FILES.
 
-  ! If month-average or day-average plots are specified, do them when
-  ! iplt_file = 1 and then exit iplt_file do loop.  IT IS ASSUMED THAT 
-  ! MONTH-AVERAGE AND DAY-AVERAGE FILES ARE SINGLE NON-PARALLEL FILES.
+        if (nl%ioutput_mavg == 1 .and. nl%nmavg_files > 0) then
+           do imavg_file = 1,nl%nmavg_files
+              mavgfile = nl%mavg_files(imavg_file)
+              call read_mavg_vars(mavgfile)
+              call plot_fields(0)
+           enddo
+           exit
+        endif
 
-           if (nl%ioutput_mavg == 1 .and. nl%nmavg_files > 0) then
-              do imavg_file = 1,nl%nmavg_files
-                 mavgfile = nl%mavg_files(imavg_file)
-                 call read_mavg_vars(mavgfile)
-                 call plot_fields(0)
-              enddo
-              exit
-           endif
+        if (nl%ioutput_davg == 1 .and. nl%ndavg_files > 0) then
+           do idavg_file = 1,nl%ndavg_files
+              davgfile = nl%davg_files(idavg_file)
+              call read_davg_vars(davgfile)
+              call plot_fields(0)
+           enddo
+           exit
+        endif
 
-           if (nl%ioutput_davg == 1 .and. nl%ndavg_files > 0) then
-              do idavg_file = 1,nl%ndavg_files
-                 davgfile = nl%davg_files(idavg_file)
-                 call read_davg_vars(davgfile)
-                 call plot_fields(0)
-              enddo
-              exit
-           endif
+        ! If month-average and day-average plots are NOT specified, do regular
+        ! plots from history files.  First, save a copy of some fields; used
+        ! later to plot difference fields 
 
-  ! If month-average and day-average plots are NOT specified, do regular plots
-  ! from history files.
-  ! First, save a copy of some fields; used later to plot difference fields 
+        call copy_plot(iplt_file)
 
-           call copy_plot(iplt_file)
+        ! The following commented-out IF block is a template for cases where
+        ! fields need not be plotted for every call to copy_plot
 
-  ! The following commented-out IF block is a template for cases where fields
-  ! need not be plotted for every call to copy_plot
-
-  !           if (iplt_file == 20 .or. &
-  !               iplt_file == 30 .or. &
-  !               iplt_file == 40 .or. &
-  !               iplt_file == 50) then
+        ! if (iplt_file == 20 .or. &
+        !     iplt_file == 30 .or. &
+        !     iplt_file == 40 .or. &
+        !     iplt_file == 50) then
  
-               call plot_fields(0)
-               call fields2_ll()
-  !           endif
+            call plot_fields(0)
+            call fields2_ll()
+        ! endif
 
-  ! For shallow water test cases, compute error norms
+        ! For shallow water test cases, compute error norms
 
-           if (nl%test_case == 2 .or. nl%test_case == 5) then
-              call diagn_global_swtc()
-           endif
-
-        else
-           call history_write('STATE')
+        if (nl%test_case == 2 .or. nl%test_case == 5) then
+           call diagn_global_swtc()
         endif
 
      enddo
