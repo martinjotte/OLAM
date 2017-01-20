@@ -80,6 +80,9 @@ subroutine sea_spray(mrl)
         iws = itab_w(iw)%isea(jws)
         kw = itab_ws(iws)%kw
 
+        ! Skip if not seawater
+        if (sea%leaf_class(iws) /= 0) cycle
+
         ! Diagnose wind speed in grid cell and at 10 m height, and limit the
         ! latter to a maximum of 20 m/s.
 
@@ -113,7 +116,7 @@ subroutine sea_spray(mrl)
            if (film_flux > 0.) then
                 ccntyp(isalt)%con_ccnt(kw,iw) &
               = ccntyp(isalt)%con_ccnt(kw,iw) &
-              + film_flux * sea%area(iws) * volti(kw,iw)
+              + film_flux * sea%area(iws) * volti(kw,iw) * (1.0 - sea%seaicec(iws))
            endif
         endif
 
@@ -123,7 +126,7 @@ subroutine sea_spray(mrl)
            if (jet_flux > 0.) then
                 con_gccnt(kw,iw) &
               = con_gccnt(kw,iw) &
-              + jet_flux * sea%area(iws) * volti(kw,iw)
+              + jet_flux * sea%area(iws) * volti(kw,iw) * (1.0 - sea%seaicec(iws))
            endif
         endif
 
