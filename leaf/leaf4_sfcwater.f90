@@ -594,15 +594,14 @@ enddo
 ! If total sfcwater mass is very small or zero, make it zero and return
 
 if (totsnow < 1.e-9) then
-
    nlev_sfcwater = 0
+endif
 
+if (nlev_sfcwater == 0) then
    sfcwater_mass  (1:nzs) = 0.
    sfcwater_energy(1:nzs) = 0.
    sfcwater_depth (1:nzs) = 0.
-
    return
-
 endif
 
 ! If more than one snowcover layer is allowed, perform adjustment of layers if needed
@@ -622,6 +621,8 @@ enddo
 ! nlev_sfcwater and one greater than icelayers, but no greater than maxlayers.
 
 nlev_new = min(nlev_sfcwater+1, icelayers+1, maxlayers)
+
+if (nlev_new == 1 .and. nlev_sfcwater == 1) return
 
 ! Set index for first old layer; set transfer weights for first old layer
 
@@ -704,6 +705,14 @@ do k = 1,nlev_new
    sfcwater_depth(k)  = depth_new(k)
 enddo
 
+if (nlev_new < nlev_sfcwater) then
+   do k = nlev_new+1, nlev_sfcwater
+      sfcwater_mass(k)   = 0.0
+      sfcwater_energy(k) = 0.0
+      sfcwater_depth(k)  = 0.0
+   enddo
+endif
+
 nlev_sfcwater = nlev_new
 
 ! Replace sfcwater energy limiter from earlier code versions with energy
@@ -719,8 +728,8 @@ do k = 1,nlev_sfcwater
       write(io6,*) 'p1',energy_new(k),sfcwater_mass(k),nlev_sfcwater,nlev_new
       write(io6,*) 'p2',kold, energy_per_m2(kold)
       stop 'stop sfcwater energy'
-   endif
 
+   endif
 enddo
 
 return
