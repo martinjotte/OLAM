@@ -559,7 +559,7 @@ subroutine sedim2(iw0,lpw0,k1,k2,jhcat,dtl0, &
    voa, denfac, tair, thil0, theta0, dsed_thil, rhoi, rhoa, rhow, &
    cx, rx, qx, qr, emb, dmb, pcpvel, pcpfluxc, pcpfluxr, pcpfluxq, accpx, pcprx)
 
-use micro_coms,  only: mza0, ncat, rxmin, cfmasi, pwmasi, cfvt, pwvt
+use micro_coms,  only: mza0, ncat, rxmin, cfmasi, pwmasi, cfvt, pwvt, jnmb, emb1
 use consts_coms, only: r8, cpi, alviocp
 use misc_coms,   only: io6
 use mem_grid,    only: zm, dzt, dzit, zfacm2, zfacim2, arw0, arw, volti
@@ -764,6 +764,8 @@ real    :: dispemb,riemb,rsfc,qrsfc
            rxnew(k,lcat) = 0.
            cxnew(k,lcat) = 0.
            qrnew(k,lcat) = 0.
+        elseif (jnmb(lcat) >= 5) then
+           cxnew(k,lcat) = max(cxnew(k,lcat), rxnew(k,lcat) / emb1(lcat))
         endif
 
         rhoa(k) = rhoa(k) + rxnew(k,lcat) - rx(k,lcat)

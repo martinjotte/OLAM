@@ -1386,7 +1386,7 @@ if (jnmb(5) == 5) then
 
    enddo
 
-elseif (jnmb(5) == 1) then
+elseif (jnmb(5) >= 1) then
 
    do k = lpw0,mza0
 

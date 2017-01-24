@@ -927,7 +927,7 @@ subroutine colxfers(k1,k2,rx,cx,qr, &
    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000, &
    con_ccnx)
 
-use micro_coms,  only: mza0, ncat, jnmb
+use micro_coms,  only: mza0, ncat, jnmb, iccn
 use misc_coms,   only: io6
 use ccnbin_coms, only: nccntyp, nbins, relcon_bin, ihyg, iccntyp
 
@@ -1008,7 +1008,7 @@ if (jnmb(1) >= 1) then
       if (rloss(k,1) > rx(k,1)) then
          fac = rx(k,1) / max(1.e-20,rloss(k,1))
 
-          rloss(k,1) =  rloss(k,1) * fac
+          rloss(k,1) =     rx(k,1)
          qrloss(k,1) = qrloss(k,1) * fac
 
          r1118(k,:) = r1118(k,:) * fac
@@ -1066,7 +1066,7 @@ if (jnmb(2) >= 1) then
       if (rloss(k,2) > rx(k,2)) then
          fac = rx(k,2) / max(1.e-20,rloss(k,2))
 
-          rloss(k,2) =  rloss(k,2) * fac
+          rloss(k,2) =     rx(k,2)
          qrloss(k,2) = qrloss(k,2) * fac
 
          r2327(k,:) = r2327(k,:) * fac
@@ -1113,7 +1113,7 @@ if (jnmb(3) >= 1) then
       if (rloss(k,3) > rx(k,3)) then
          fac = rx(k,3) / max(1.e-20,rloss(k,3))
 
-          rloss(k,3) =  rloss(k,3) * fac
+          rloss(k,3) =     rx(k,3)
          qrloss(k,3) = qrloss(k,3) * fac
 
          r3335(k,:) = r3335(k,:) * fac
@@ -1158,7 +1158,7 @@ if (jnmb(4) >= 1) then
       if (rloss(k,4) > rx(k,4)) then
          fac = rx(k,4) / max(1.e-20,rloss(k,4))
 
-          rloss(k,4) =  rloss(k,4) * fac
+          rloss(k,4) =     rx(k,4)
          qrloss(k,4) = qrloss(k,4) * fac
 
          r4445(k,:) = r4445(k,:) * fac
@@ -1203,7 +1203,7 @@ if (jnmb(5) >= 1) then
       if (rloss(k,5) > rx(k,5)) then
          fac = rx(k,5) / max(1.e-20,rloss(k,5))
 
-          rloss(k,5) =  rloss(k,5) * fac
+          rloss(k,5) =     rx(k,5)
          qrloss(k,5) = qrloss(k,5) * fac
 
          r5656(k,:) = r5656(k,:) * fac
@@ -1240,7 +1240,7 @@ if (jnmb(6) >= 1) then
       if (rloss(k,6) > rx(k,6)) then
          fac = rx(k,6) / max(1.e-20,rloss(k,6))
 
-          rloss(k,6) =  rloss(k,6) * fac
+          rloss(k,6) =     rx(k,6)
          qrloss(k,6) = qrloss(k,6) * fac
 
          r6767(k,:) = r6767(k,:) * fac
@@ -1273,7 +1273,7 @@ if (jnmb(7) >= 1) then
       if (rloss(k,7) > rx(k,7)) then
          fac = rx(k,7) / max(1.e-20,rloss(k,7))
 
-          rloss(k,7) =  rloss(k,7) * fac
+          rloss(k,7) =     rx(k,7)
          qrloss(k,7) = qrloss(k,7) * fac
 
          r2772(k,:) = r2772(k,:) * fac
@@ -1308,7 +1308,7 @@ if (jnmb(8) >= 1) then
       if (rloss(k,8) > rx(k,8)) then
          fac = rx(k,8) / max(1.e-20,rloss(k,8))
 
-          rloss(k,8) =  rloss(k,8) * fac
+          rloss(k,8) =     rx(k,8)
          qrloss(k,8) = qrloss(k,8) * fac
 
          r8882(k,:) = r8882(k,:) * fac
@@ -1544,7 +1544,7 @@ if (jnmb(8) >= 1) then
       cx(k,8) = cx(k,8) - enloss(k,8)
 
       rx(k,2) = rx(k,2) + r8882(k,1) + r8282(k,1)
-      rx(k,3) = rx(k,3) + r8483(k,1) + r8583(k,1) + r8683(k,1) + r8783(k,2)
+      rx(k,3) = rx(k,3) + r8483(k,1) + r8583(k,1) + r8683(k,1) + r8783(k,1)
       rx(k,4) = rx(k,4) + r8484(k,1)
       rx(k,5) = rx(k,5) + r8585(k,1) 
       rx(k,6) = rx(k,6) + r8486(k,1) + r8586(k,1) + r8686(k,1) 
@@ -1574,35 +1574,39 @@ endif
 ! Pure IFN are not currently scavenged in the model, but CCN that have
 ! IFN properties are automatically scavenged here.
 
-do k = k1(11),k2(11)
+if (iccn >= 2) then
 
-   ! Save a copy of CCN concentrations before scavenging
+   do k = k1(11),k2(11)
 
-   con_ccny(1:nccntyp) = con_ccnx(k,1:nccntyp)
+      ! Save a copy of CCN concentrations before scavenging
 
-   ! Define ccnloss as sum of cloud droplet and pristine ice losses due to
-   ! collisions.  Perhaps it is better to be more selective in the types of
-   ! losses by summing individual contributions like e1411(k), e3533(k), etc.
+      con_ccny(1:nccntyp) = con_ccnx(k,1:nccntyp)
 
-   ccnloss = enloss(k,1) + enloss(k,3)
+      ! Define ccnloss as sum of cloud droplet and pristine ice losses due to
+      ! collisions.  Perhaps it is better to be more selective in the types of
+      ! losses by summing individual contributions like e1411(k), e3533(k), etc.
 
-   tot = 0.
+      ccnloss = enloss(k,1) + enloss(k,3)
 
-   do ibin = 1,nbins
-      jbin = ihyg(ibin)
-      jc = iccntyp(jbin)
-      con_bin = relcon_bin(jbin) * con_ccny(jc)
-      tot = tot + con_bin
+      tot = 0.
 
-      if (tot < ccnloss) then
-         con_ccnx(k,jc) = con_ccnx(k,jc) - con_bin
-      else
-         con_ccnx(k,jc) = con_ccnx(k,jc) - (tot - ccnloss)
-         exit
-      endif 
+      do ibin = 1,nbins
+         jbin = ihyg(ibin)
+         jc = iccntyp(jbin)
+         con_bin = relcon_bin(jbin) * con_ccny(jc)
+         tot = tot + con_bin
+
+         if (tot < ccnloss) then
+            con_ccnx(k,jc) = con_ccnx(k,jc) - con_bin
+         else
+            con_ccnx(k,jc) = con_ccnx(k,jc) - (tot - ccnloss)
+            exit
+         endif
+      enddo
+
    enddo
 
-enddo
+endif
 
 end subroutine colxfers
 

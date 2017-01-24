@@ -99,8 +99,8 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
      raxis     = erad * cos(alat(ilat) * pio180)
 
      do ilon = 1, nlon
-        xea(ilon,ilat) = raxis * sin(alon(ilon) * pio180)
-        yea(ilon,ilat) = raxis * cos(alon(ilon) * pio180)
+        xea(ilon,ilat) = raxis * cos(alon(ilon) * pio180)
+        yea(ilon,ilat) = raxis * sin(alon(ilon) * pio180)
      enddo
   enddo
 
