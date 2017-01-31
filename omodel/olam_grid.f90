@@ -707,12 +707,12 @@ subroutine gridfile_write()
   idims(1) = ngrids
 
   call shdf5_orec(ndims, idims, 'NGRDLL' , ivara=ngrdll)
-  call shdf5_orec(ndims, idims, 'GRDRAD' , rvara=grdrad)
 
   ndims    = 2
   idims(1) = ngrids
   idims(2) = maxngrdll
 
+  call shdf5_orec(ndims, idims, 'GRDRAD' ,rvara=grdrad(1:ngrids,:))
   call shdf5_orec(ndims, idims, 'GRDLAT', rvara=grdlat(1:ngrids,:))
   call shdf5_orec(ndims, idims, 'GRDLON', rvara=grdlon(1:ngrids,:))
 
@@ -1161,7 +1161,7 @@ real    :: deltax0
 logical :: exans
 
 integer, allocatable :: ngrdll0(:)
-real,    allocatable :: grdrad0(:)
+real,    allocatable :: grdrad0(:,:)
 real,    allocatable :: grdlat0(:,:)
 real,    allocatable :: grdlon0(:,:)
 real,    allocatable :: hdz0(:)
@@ -1225,7 +1225,7 @@ real,    allocatable :: rscr(:,:)
   endif
 
   allocate( ngrdll0 (ngrids0) )
-  allocate( grdrad0 (ngrids0) )
+  allocate( grdrad0 (ngrids0, maxngrdll) )
   allocate( grdlat0 (ngrids0, maxngrdll) )
   allocate( grdlon0 (ngrids0, maxngrdll) )
   allocate( hdz0(ndz0))
@@ -1242,12 +1242,12 @@ real,    allocatable :: rscr(:,:)
   idims(1) = ngrids0
 
   call shdf5_irec(ndims, idims, 'NGRDLL' , ivara=ngrdll0)
-  call shdf5_irec(ndims, idims, 'GRDRAD' , rvara=grdrad0)
 
   ndims    = 2
   idims(1) = ngrids0
   idims(2) = maxngrdll
 
+  call shdf5_irec(ndims, idims, 'GRDRAD', rvara=grdrad0)
   call shdf5_irec(ndims, idims, 'GRDLAT', rvara=grdlat0)
   call shdf5_irec(ndims, idims, 'GRDLON', rvara=grdlon0)
 
@@ -1263,13 +1263,13 @@ real,    allocatable :: rscr(:,:)
   if (itopoflg0 /= itopoflg) ierr = 1 
   if (ndz0      /= ndz     ) ierr = 1 
 
-  if (abs(deltax0 - deltax) > 1.e-3) ierr = 1 
+  if (abs(deltax0 - deltax) > 1.e-3) ierr = 1
 
   do ngr = 2, min(ngrids0,ngrids)
-     if (abs(ngrdll0 (ngr) - ngrdll (ngr)) > 1.e1 ) ierr = 1
-     if (abs(grdrad0 (ngr) - grdrad (ngr)) > 1.e1 ) ierr = 1
+     if (ngrdll0(ngr) /= ngrdll(ngr)) ierr = 1
 
      do i = 1,ngrdll0(ngr)
+        if (abs(grdrad0(ngr,i) - grdrad(ngr,i)) > 1.e1 ) ierr = 1
         if (abs(grdlat0(ngr,i) - grdlat(ngr,i)) > 1.e-3) ierr = 1
         if (abs(grdlon0(ngr,i) - grdlon(ngr,i)) > 1.e-3) ierr = 1
      enddo
@@ -1308,8 +1308,6 @@ real,    allocatable :: rscr(:,:)
      write(io6, '(a,20i12)')   'ngrdll0:  ',ngrdll0 (1:ngrids)
      write(io6, '(a,20i12)')   'ngrdll:   ',ngrdll  (1:ngrids)
      write(io6,*) ' '
-     write(io6, '(a,20f12.1)') 'grdrad0:  ',grdrad0 (1:ngrids)
-     write(io6, '(a,20f12.1)') 'grdrad:   ',grdrad  (1:ngrids)
      write(io6,*) ' '
 
      if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
@@ -1319,6 +1317,9 @@ real,    allocatable :: rscr(:,:)
 
      do ngr = 2, min(ngrids0,ngrids)
         write(io6, '(a,i5)') 'ngr: ',ngr
+        write(io6,*) ' '
+        write(io6, '(a,20f12.1)') 'grdrad0:  ',grdrad0(ngr,1:ngrdll(ngr))
+        write(io6, '(a,20f12.1)') 'grdrad:   ',grdrad (ngr,1:ngrdll(ngr))
         write(io6,*) ' '
         write(io6, '(a,20f10.3)') 'grdlat0: ',grdlat0(ngr,1:ngrdll(ngr))
         write(io6, '(a,20f10.3)') 'grdlat:  ',grdlat (ngr,1:ngrdll(ngr))
@@ -1517,10 +1518,9 @@ end subroutine gridfile_read_pd
 
 subroutine gridfile_read()
 
-use max_dims,   only: maxngrdll, pathlen
+use max_dims,   only: pathlen
 use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp, &
-                      itopoflg, deltax, ndz, hdz, dz, &
-                      ngrdll, grdrad, grdlat, grdlon
+                      itopoflg, deltax, ndz, hdz, dz
 use mem_ijtabs, only: mloops, mrls, &
                       itab_m, itab_v, itab_w
 use mem_grid,   only: nza, &
@@ -2024,7 +2024,7 @@ integer :: ndims, idims(2)
 logical :: exans
 
   integer, allocatable :: ngrdll_og(:)
-  real,    allocatable :: grdrad_og(:)
+  real,    allocatable :: grdrad_og(:,:)
   real,    allocatable :: grdlat_og(:,:)
   real,    allocatable :: grdlon_og(:,:)
 
@@ -2082,7 +2082,7 @@ logical :: exans
   allocate( dz_og (ndz_og))
 
   allocate( ngrdll_og (ngrids_og) )
-  allocate( grdrad_og (ngrids_og) )
+  allocate( grdrad_og (ngrids_og, maxngrdll) )
   allocate( grdlat_og (ngrids_og, maxngrdll) )
   allocate( grdlon_og (ngrids_og, maxngrdll) )
 
@@ -2097,12 +2097,12 @@ logical :: exans
   idims(1) = ngrids_og
 
   call shdf5_irec(ndims, idims, 'NGRDLL' , ivara=ngrdll_og)
-  call shdf5_irec(ndims, idims, 'GRDRAD' , rvara=grdrad_og)
 
   ndims    = 2
   idims(1) = ngrids_og
   idims(2) = maxngrdll
 
+  call shdf5_irec(ndims, idims, 'GRDRAD', rvara=grdrad_og)
   call shdf5_irec(ndims, idims, 'GRDLAT', rvara=grdlat_og)
   call shdf5_irec(ndims, idims, 'GRDLON', rvara=grdlon_og)
 
@@ -2120,10 +2120,10 @@ logical :: exans
   if (abs(deltax_og - deltax) > 1.e-3) ierr = 1 
 
   do ngr = 2, min(ngrids_og,ngrids)
-     if (abs(ngrdll_og (ngr) - ngrdll (ngr)) > 1.e1 ) ierr = 1
-     if (abs(grdrad_og (ngr) - grdrad (ngr)) > 1.e1 ) ierr = 1
+     if (ngrdll_og(ngr) /= ngrdll(ngr)) ierr = 1
 
-     do i = 1,ngrdll_og(ngr)
+     do i = 1, ngrdll_og(ngr)
+        if (abs(grdrad_og(ngr,i) - grdrad(ngr,i)) > 1.e1 ) ierr = 1
         if (abs(grdlat_og(ngr,i) - grdlat(ngr,i)) > 1.e-3) ierr = 1
         if (abs(grdlon_og(ngr,i) - grdlon(ngr,i)) > 1.e-3) ierr = 1
      enddo

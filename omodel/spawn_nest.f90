@@ -51,7 +51,7 @@ use mem_ijtabs, only: itab_md, itab_ud, itab_wd, ltab_md, ltab_ud, ltab_wd, &
 use mem_grid,    only: nma, nua, nwa, xem, yem, zem, impent, &
                        alloc_xyzem, nrows, mrows
 use misc_coms,   only: io6, ngrids, mdomain, nxp, &
-                       ngrdll, grdrad, grdlat, grdlon
+                       ngrdll, grdlat, grdlon
 use consts_coms, only: pio180, erad, pi1, pi2
 use oname_coms,  only: nl
 
@@ -89,6 +89,10 @@ real :: reg, xeg, yeg, zeg, dist, distmin
 integer, allocatable :: npolyper(:) ! npoly at each perimeter M pt
 integer, allocatable :: nwdivper(:) ! # divided W pts at at each perimeter M pt
 integer, allocatable :: nearpent(:) ! flag = 1 if adjacent outside M pt is poly5
+
+!plt real :: xp1, xp2, xq1, xq2
+!plt real :: yp1, yp2, yq1, yq2
+!plt integer :: iskip
 
 ! Make duplicate of current grid dimensions
 
@@ -779,7 +783,7 @@ do ngr = 2, ngrids  ! Loop over nested grids
 !plt   call plotback()
 
 !plt   call oplot_set(1)
- 
+
 !plt   do iu = 2,nua
 !plt      im1 = itab_ud(iu)%im(1)
 !plt      im2 = itab_ud(iu)%im(2)
@@ -1651,88 +1655,119 @@ use misc_coms, only: io6, ngrdll, grdrad, grdlat, grdlon, mdomain
 
 implicit none
 
-integer, intent(in) :: ngr
+integer, intent(in ) :: ngr
 integer, intent(out) :: inside
-
-real, intent(in) :: x,y,z
+real   , intent(in ) :: x,y,z
 
 !-------------------------------------------------------------------------------
 ! New option introduced April 2010:  Define nested grid region as comprising the 
 ! W points adjacent to all M points that are within a specified distance of one
 ! or more connected line segments.
-
-real, external :: linesegdist
-
 integer :: ipt, jpt
 real :: seglat, seglon ! lat/lon of segment midpoint
 real :: xs(2),ys(2)    ! PS coordinates of segment endpoints
 real :: xm1, ym1, dist
+real :: t, gradius
 !-------------------------------------------------------------------------------
 
 inside = 0
 
-do ipt = 1,ngrdll(ngr)
-   jpt = min(ipt+1,ngrdll(ngr)) ! jpt used in case one wants to define
-                                ! only a single endpoint
+if (ngrdll(ngr) == 1) then
+   
+   if (mdomain < 2) then
+
+! Transform (x,y,z) location to PS space using the lat/lon of the refinement point
+
+      call e_ps(x,y,z,grdlat(ngr,1),grdlon(ngr,1),xm1,ym1)
+
+! If using Cartesian geometry, use direct mapping in Cartesian plane
+
+   else
+
+      xm1 = x - grdlon(ngr,1)
+      ym1 = y - grdlat(ngr,1)
+
+   endif
+
+   ! If (x,y,z) location is close enough to line segment, flag it for inclusion
+   ! in refined grid interior
+
+   dist = sqrt(xm1 * xm1 + ym1 * ym1)
+
+   if (dist < grdrad(ngr,1)) then
+      inside = 1
+   elseif (inside == 0 .and. dist < grdrad(ngr,1) * 1.2 ) then
+      inside = 2  ! larger radius when searching for ipent points
+   endif
+
+else
+
+   searchloop: do ipt = 1,ngrdll(ngr)-1
+      jpt = ipt+1
 
 ! If using spherical earth geometry (earth-Cartesian coordinates)...
 
-   if (mdomain < 2) then
+      if (mdomain < 2) then
 
 ! Transform segment endpoints to PS space using mean lat/lon of each segment
 
 ! (If multiple segments are used, none should be excessively long in order
 ! to avoid large PS transformation discontinuities at segment endpoints.)
 
-      seglat = .5 * (grdlat(ngr,ipt) + grdlat(ngr,jpt))
-      seglon = .5 * (grdlon(ngr,ipt) + grdlon(ngr,jpt))
+         seglat = .5 * (grdlat(ngr,ipt) + grdlat(ngr,jpt))
+         seglon = .5 * (grdlon(ngr,ipt) + grdlon(ngr,jpt))
 
 ! Correct seglon if segment crosses 180 W
 
-      if (abs(grdlon(ngr,ipt) - grdlon(ngr,jpt)) > 180.) then
-         if (seglon <= 0.) then
-            seglon = seglon + 180.
-         else
-            seglon = seglon - 180.
+         if (abs(grdlon(ngr,ipt) - grdlon(ngr,jpt)) > 180.) then
+            if (seglon <= 0.) then
+               seglon = seglon + 180.
+            else
+               seglon = seglon - 180.
+            endif
          endif
-      endif
 
-      call ll_xy (grdlat(ngr,ipt),grdlon(ngr,ipt), &
-         seglat,seglon,xs(1),ys(1))
+         call ll_xy (grdlat(ngr,ipt),grdlon(ngr,ipt), &
+              seglat,seglon,xs(1),ys(1))
 
-      call ll_xy (grdlat(ngr,jpt),grdlon(ngr,jpt), &
-         seglat,seglon,xs(2),ys(2))
+         call ll_xy (grdlat(ngr,jpt),grdlon(ngr,jpt), &
+              seglat,seglon,xs(2),ys(2))
 
 ! Transform (x,y,z) location to PS space using mean lat/lon of each segment
 
-      call e_ps(x,y,z,seglat,seglon,xm1,ym1)
+         call e_ps(x,y,z,seglat,seglon,xm1,ym1)
 
 ! If using Cartesian geometry, use direct mapping in Cartesian plane
 
-   else
+      else
 
-      xs(1) = grdlon(ngr,ipt)
-      ys(1) = grdlat(ngr,ipt)
-      xs(2) = grdlon(ngr,jpt)
-      ys(2) = grdlat(ngr,jpt)
+         xs(1) = grdlon(ngr,ipt)
+         ys(1) = grdlat(ngr,ipt)
+         xs(2) = grdlon(ngr,jpt)
+         ys(2) = grdlat(ngr,jpt)
 
-      xm1 = x
-      ym1 = y
+         xm1 = x
+         ym1 = y
 
-   endif
+      endif
 
 ! If (x,y,z) location is close enough to line segment, flag it for inclusion
 ! in refined grid interior
 
-   dist = linesegdist(xm1,ym1,xs(1),ys(1),xs(2),ys(2))
+      call linesegdist2(xm1,ym1,xs(1),ys(1),xs(2),ys(2),dist,t)
 
-   if (dist < grdrad(ngr)) then
-      inside = 1
-   elseif (inside == 0 .and. dist < grdrad(ngr) * 1.2 ) then
-      inside = 2  ! larger radius when searching for ipent points
-   endif
+      gradius = (1.0 - t) * grdrad(ngr,ipt) + t * grdrad(ngr,jpt)
 
-enddo
+      if (dist < gradius) then
+         inside = 1
+         exit searchloop
+      elseif (inside == 0 .and. dist < gradius * 1.2 ) then
+         inside = 2  ! larger radius when searching for ipent points
+      endif
+
+   enddo searchloop
+
+endif
 
 end subroutine ngr_area
       
@@ -1773,6 +1808,32 @@ else
 endif
 
 end function linesegdist
+
+!===========================================================================
+
+subroutine linesegdist2(x0,y0,x1,y1,x2,y2,dist,t)
+
+! Determine distance on 2D Cartesian plane between point (x0,y0) and line
+! segment [(x1,y1),(x2,y2)], and the closest point on the line segment
+
+  implicit none
+
+  real, intent(in ) :: x0,y0,x1,y1,x2,y2
+  real, intent(out) :: dist,t
+  real              :: dx, dy, xp, yp
+
+  dx = x2 - x1
+  dy = y2 - y1
+
+  xp = x0 - x1
+  yp = y0 - y1
+
+  t = (xp*dx + yp*dy) / (dx*dx + dy*dy)
+  t = max(0., min(1., t))
+
+  dist = sqrt( (xp - t * dx)**2 + (yp - t * dy)**2 )
+
+end subroutine linesegdist2
 
 !==============================================================================
 

@@ -112,30 +112,30 @@
 
  ! NGRDLL(NG) = Number of geographic points that you use to define the extent
  !              of grid NG
- ! GRDRAD(NG) = Radius of influence for grid NG.  Any grid point closer than
- !              this radius to any of the geographic points or to the line
- !              segments that connect consecutive points in the sequence will
- !              be included in the refined area.
+ ! GRDRAD(NG,:) = Radius of influence for grid NG.  Any grid point closer than
+ !                this radius to any of the geographic points or to the line
+ !                segments that connect consecutive points in the sequence will
+ !                be included in the refined area.
  ! GRDLAT(NG,:) = latitude/longitude of all geographic points in the
  ! GRDLON(NG,:)   sequence for grid NG
 
    ! Grid 2:
-   NL%NGRDLL(2)     =  1
-   NL%GRDRAD(2)     =  4000.e3
-   NL%GRDLAT(2,1:1) =  37.0,
-   NL%GRDLON(2,1:1) = -117.0,
+   NL%NGRDLL(2)   = 1
+   NL%GRDRAD(2,:) = 4000.e3,
+   NL%GRDLAT(2,:) =   37.00,
+   NL%GRDLON(2,:) = -117.00,
 
    ! Grid 3:
-   NL%NGRDLL(3)     =  1
-   NL%GRDRAD(3)     =  3000.e3
-   NL%GRDLAT(3,1:1) =  37.0,
-   NL%GRDLON(3,1:1) = -117.0,
+   NL%NGRDLL(3)   = 2
+   NL%GRDRAD(3,:) = 2000.e3, 2000.e3,
+   NL%GRDLAT(3,:) =   37.00,   37.00,
+   NL%GRDLON(3,:) = -115.00, -120.00,
 
    ! Grid 4:
-   NL%NGRDLL(4)     =  1
-   NL%GRDRAD(4)     =  2400.e3
-   NL%GRDLAT(4,1:1) =  37.0,
-   NL%GRDLON(4,1:1) = -117.0,
+   NL%NGRDLL(4)   = 2
+   NL%GRDRAD(4,:) = 1000.e3, 1000.e3,
+   NL%GRDLAT(4,:) =   37.00,   37.00,
+   NL%GRDLON(4,:) = -115.00, -120.00,
 
  !------------------------------------------------------------------------------
  ! Timestep and timestep ratios (One ratio for each Mesh Refinement Level (MRL))

@@ -42,7 +42,7 @@ subroutine oname_check()
 use max_dims,    only: nzgmax, maxgrds, maxsndg, maxnplt, maxisdirs, &
                        maxpltfiles, maxngrdll
 use oname_coms,  only: nl
-use consts_coms, only: erad, pi1, pi2, p00, r8
+use consts_coms, only: erad2, pi1, pi2, p00, r8
 use misc_coms,   only: io6
 
 implicit none
@@ -166,19 +166,17 @@ if (nl%mdomain < 2 .and. mod(nl%nxp,3) /= 0) then
 endif
 
 do ng = 2, nl%ngrids
-   call ichk_bnds(nl%ngrdll(ng),  "NGRDLL",    1, maxngrdll, 0, nfatal, nwarn )
-   call rchk_bnds(nl%grdrad(ng),  "GRDRAD", dzxmin, erad*2., 0, nfatal, nwarn )
+   call ichk_bnds(nl%ngrdll(ng), "NGRDLL", 1, maxngrdll, 0, nfatal, nwarn )
 enddo
 
 if (nl%mdomain < 2) then
-
-   do i = 1,nl%ngrdll(ng)
-      do ng = 2, nl%ngrids
-         call rchk_bnds( nl%grdlat(ng,i), "GRDLAT",  -90.,  90., 0, nfatal, nwarn )
-         call rchk_bnds( nl%grdlon(ng,i), "GRDLON", -180., 180., 0, nfatal, nwarn )
+   do ng = 2, nl%ngrids
+      do i = 1, nl%ngrdll(ng)
+         call rchk_bnds( nl%grdrad(ng,i), "GRDRAD", dzxmin, erad2, 0, nfatal, nwarn )
+         call rchk_bnds( nl%grdlat(ng,i), "GRDLAT",   -90.,   90., 0, nfatal, nwarn )
+         call rchk_bnds( nl%grdlon(ng,i), "GRDLON",  -180.,  180., 0, nfatal, nwarn )
       enddo
    enddo
-
 endif
 
 !--------------------------------------------------------------------------

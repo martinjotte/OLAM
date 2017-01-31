@@ -334,9 +334,9 @@ subroutine copy_nl()
 
      do i = 1,maxgrds
         ngrdll(i) = nl%ngrdll(i)
-        grdrad(i) = nl%grdrad(i)
 
         do j = 1,ngrdll(i)
+           grdrad(i,j) = nl%grdrad(i,j)
            grdlat(i,j) = nl%grdlat(i,j)
            grdlon(i,j) = nl%grdlon(i,j)
         enddo

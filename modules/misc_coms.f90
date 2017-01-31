@@ -119,7 +119,7 @@ real :: cfraccup
 
 integer :: ngrdll(maxgrds)
 
-real :: grdrad(maxgrds)
+real :: grdrad(maxgrds,maxngrdll)
 real :: grdlat(maxgrds,maxngrdll)
 real :: grdlon(maxgrds,maxngrdll)
 real :: cflxy (maxgrds)

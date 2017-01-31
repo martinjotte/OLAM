@@ -98,8 +98,8 @@ Module oname_coms
       integer :: ngrids_old = 0
 
       integer :: ngrdll(maxgrds) = 0
-      real    :: grdrad(maxgrds) = 0.0
 
+      real    :: grdrad(maxgrds,maxngrdll) = 0.0
       real    :: grdlat(maxgrds,maxngrdll) = 0.0
       real    :: grdlon(maxgrds,maxngrdll) = 0.0
 
