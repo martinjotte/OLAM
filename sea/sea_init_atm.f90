@@ -92,7 +92,7 @@ subroutine sea_init_atm()
 
   ! Initialize sea quantities that depend on atmospheric conditions
 
-  !$omp parallel do private (iw,kw,dum1,dum2)
+  !$omp parallel do private (iw,kw,prss,dum1,dum2)
   do iws = 2,mws
      
      iw = itab_ws(iws)%iw  ! global index

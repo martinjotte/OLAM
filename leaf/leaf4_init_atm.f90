@@ -187,7 +187,7 @@ subroutine leaf4_init_atm()
 
   ! Leaf quantities that are initialized only on 'INITIAL' run
 
-  !$omp parallel do private (kw,iw,k,nts,water_frac_ul)
+  !$omp parallel do private (kw,iw,prss,k,nts,water_frac_ul)
   do iwl = 2,mwl
 
      kw = itab_wl(iwl)%kw
