@@ -379,6 +379,8 @@ subroutine slab(iplt)
            call contslab_horiz_vn(iplt)
         elseif (op%stagpt == 'M' .or. op%stagpt == 'P') then
            call contslab_horiz_mp(iplt)
+        elseif (op%stagpt == 'H') then
+           call contslab_topmw(iplt)
         endif
 
      endif

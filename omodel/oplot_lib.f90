@@ -495,7 +495,7 @@ data fldlib(1:4,301:303)/ &
 
 ! GRID GEOMETRY - 2D
 
-data fldlib(1:4,311:336)/ &
+data fldlib(1:4,311:337)/ &
  'TOPM'          ,'M2' ,'TOPOGRAPHY HEIGHT',' (m)'                          ,& ! 311
  'TOPW'          ,'W2' ,'TOPOGRAPHY HEIGHT AT W',' (m)'                     ,& ! 312
  'GLATM'         ,'M2' ,'LATITUDE AT M',' (deg)'                            ,& ! 313
@@ -521,7 +521,8 @@ data fldlib(1:4,311:336)/ &
  'DNU'           ,'V2' ,'DNU',' (m)'                                        ,& ! 333
  'DNV'           ,'V2' ,'DNV',' (m)'                                        ,& ! 334
  'ARM0'          ,'W2' ,'SFC AREA OF M CELL',' (m:S2:2  )'                  ,& ! 335
- 'ARW0'          ,'W2' ,'SFC AREA OF W CELL',' (m:S2:2  )'                   / ! 336
+ 'ARW0'          ,'W2' ,'SFC AREA OF W CELL',' (m:S2:2  )'                  ,& ! 336
+ 'TOPMW'         ,'H2' ,'TOPOGRAPHY HEIGHT',' (m)'                           / ! 337
 
 ! ITAB_M MEMBERS - 2D
 
@@ -2871,6 +2872,8 @@ case(335) ! 'ARM0'
    fldval = arm0(i)
 case(336) ! 'ARW0'
    fldval = arw0(i)
+case(337) ! 'TOPMW'
+   ! fldval filled directly in subroutine contslab_topmw
 
 ! ITAB_M MEMBERS
 
