@@ -146,7 +146,6 @@ Module oname_coms
 
       integer :: naddsc      = 0
       integer :: ithil_monot = 0
-      integer :: iwind_monot = 0
       integer :: iscal_monot = 0
       integer :: split_scalars = 0
       integer :: adv_order   = 2
@@ -176,10 +175,10 @@ Module oname_coms
 
       character(pathlen) :: rrtmg_datadir = '../etc'
 
-      integer :: icfrac
-      real :: cfracrh1 = 0.8
-      real :: cfracrh2 = 1.1
-      real :: cfraccup = 0.7
+      integer :: icfrac   = 3
+      real    :: cfracrh1 = 0.8
+      real    :: cfracrh2 = 1.1
+      real    :: cfraccup = 0.7
 
 !!    CUMULUS PARAMETERIZATION PARAMETERS
 
@@ -192,12 +191,9 @@ Module oname_coms
 !!    EDDY DIFFUSION PARAMETERS
 
       integer :: idiffk(maxgrds) = 2
-
-      real :: zkhkm(maxgrds) = 3.0 ! not used
-      real :: xkhkm(maxgrds) = 3.0 ! not used
-      real :: csx  (maxgrds) = 0.2
-      real :: csz  (maxgrds) = 0.2
-      real :: akmin(maxgrds) = 0.0
+      real    :: csx   (maxgrds) = 0.2
+      real    :: csz   (maxgrds) = 0.2
+      real    :: akmin (maxgrds) = 0.0
                         
 !!    MICROPHYSICS PARAMETERS
 
@@ -260,9 +256,8 @@ Module oname_coms
       integer :: iseaiceflg = 0
 
       integer :: isoilstateinit = 0
-      integer :: isoildepthflg  = 0
       integer :: iwatertabflg   = 0
-      integer :: isoilmodel = 0
+      integer :: isoilmodel     = 0
 
       integer :: iupdndvi   = 0
       integer :: iupdsst    = 0
@@ -282,9 +277,6 @@ Module oname_coms
       character(pathlen) :: ndvi_database   = ''
       character(pathlen) :: sst_database    = ''
       character(pathlen) :: seaice_database = ''
-
-      character(pathlen) :: soilstate_db    = ''
-      character(pathlen) :: soildepth_db    = ''
       character(pathlen) :: watertab_db     = ''
 
 !!    ED MODEL VARIABLES

@@ -247,7 +247,6 @@ call ichk_bnds( nl%itopoflg, "ITOPOFLG", 1,  2, 0, nfatal, nwarn )
 call ichk_bnds( nl%naddsc,   "NADDSC", 0, 1000, 0, nfatal, nwarn )
 
 call ichk_bnds( nl%ithil_monot, "ITHIL_MONOT", 0, 1, 0, nfatal, nwarn )
-call ichk_bnds( nl%iwind_monot, "IWIND_MONOT", 0, 1, 0, nfatal, nwarn )
 call ichk_bnds( nl%iscal_monot, "ISCAL_MONOT", 0, 2, 0, nfatal, nwarn )
 call ichk_bnds( nl%adv_order  , "ADV_ORDER",   2, 3, 2, nfatal, nwarn )
 
@@ -321,8 +320,6 @@ do ng=1, nl%ngrids
    call ichk_bnds( nl%idiffk(ng), "IDIFFK", 0,     3, 0, nfatal, nwarn )
    call rchk_bnds( nl%csx(ng),    "CSX",    0.,  10., 0, nfatal, nwarn )
    call rchk_bnds( nl%csz(ng),    "CSZ",    0.,  10., 0, nfatal, nwarn )
-   call rchk_bnds( nl%zkhkm(ng),  "ZKHKM",  0., 100., 0, nfatal, nwarn )
-   call rchk_bnds( nl%xkhkm(ng),  "XKHKM",  0., 100., 0, nfatal, nwarn )
    call rchk_bnds( nl%akmin(ng),  "AKMIN",  0.,  10., 0, nfatal, nwarn )
 enddo
 
