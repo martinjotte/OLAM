@@ -42,11 +42,10 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   use mem_basic,    only: rho
   use oname_coms,   only: nl
   use mem_thuburn,  only: comp_cfl1, comp_cfl2, comp_and_apply_monot_limits, &
-                          scp_max, scp_min, find_max_min
+                          comp_and_apply_pd_limits, scp_max, scp_min, find_max_min
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use obnd,         only: lbcopy_w
-  use consts_coms,  only: r8
-  use pdtrans,      only: modt, comp_and_apply_pd_lims
+  use consts_coms,  only: r8, cice, t00
   use mem_adv,      only: dxps_w, dyps_w, dzps_w, &
                           dxyps_w, dxxps_w, dyyps_w, dzzps_w, &
                           dxps_v, dyps_v, dzps_v, &
@@ -68,6 +67,11 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   integer  :: n,k,kb,kd,iv,iwn,jv
   real     :: dirv
 
+  integer, save :: n2 = -1
+  integer, save :: n6 = -1
+  integer, save :: n7 = -1
+  logical, save :: firstime = .true.
+
 ! Automatic arrays:
 
   real :: vsc(mza,mva)
@@ -83,7 +87,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   real :: scp_upv(mza,mva)
   real :: scp_upw(mza,mwa)
 
-  real :: hfluxadv(mza), hfluxdif(mza), vfluxadv(mza)
+  real :: hflux(mza), vfluxadv(mza)
 
   real, pointer :: scp(:,:)
   real, pointer :: sct(:,:)
@@ -92,6 +96,17 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
   mrl = mrl_endl(istp)
   if (mrl == 0) return
+
+! Special for energy microphysics variables
+
+  if (firstime) then
+     firstime = .false.
+     do n = 2, num_scalar
+        if (scalar_tab(n)%name == 'Q2') n2 = n
+        if (scalar_tab(n)%name == 'Q6') n6 = n
+        if (scalar_tab(n)%name == 'Q7') n7 = n
+     enddo
+  endif
 
 ! MPI send of VXESC, VYESC, VZESC
 
@@ -120,12 +135,6 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
      wsc  (mza,iw) = 0.0
      wmsca(mza,iw) = 0.0
-
-     if (nl%iscal_monot == 2) then
-        do k = kb, mza
-           modt(k,iw) = 0.999998 * volt(k,iw) * rho_old(k,iw) / dtlm(itab_w(iw)%mrlw)
-        enddo
-     endif
 
   enddo
   !$omp end do
@@ -182,12 +191,12 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   ! Compute outflow CFL numbers for long timestep stability check;
   ! also needed by Thuburn monotonic scheme
 
-  call comp_cfl1( mrl, dtlm, vmsca, wmsca, vsc, wsc, rho_old, do_check=.true. )
+  call comp_cfl1( mrl, dtlm, vmsca, wmsca, vsc, wsc, rho_old, nl%iscal_monot, do_check=.true. )
 
   ! Diagnose inlfow CFL numbers at V and W interfaces for Thuburn monotonic scheme
 
-  if (nl%iscal_monot == 1) then
-     call comp_cfl2( mrl, dtlm, vmsca, wmsca, rho_old, rho )
+  if (nl%iscal_monot > 0) then
+     call comp_cfl2( mrl, dtlm, vmsca, wmsca, rho_old, rho, nl%iscal_monot )
   endif
 
 ! LOOP OVER SCALARS HERE
@@ -199,6 +208,14 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
      scp => scalar_tab(n)%var_p(:,:)
      sct => scalar_tab(n)%var_t(:,:)
+
+! Special for energy microphysics variables
+
+     if (nl%iscal_monot > 0) then
+        if (n == n2 .or. n == n6 .or. n == n7) then
+           scp = scp + cice * t00
+        endif
+     endif
 
 ! Evaluate and MPI send scalar lacal max/min
 
@@ -351,7 +368,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
      if (nl%iscal_monot == 1) then
         call comp_and_apply_monot_limits(mrl, scp, scp_upw, scp_upv, kdepw, iwdepv)
      elseif (nl%iscal_monot == 2) then
-        call comp_and_apply_pd_lims(scp, scp_upv, scp_upw, iwdepv, kdepw, vmsca, wmsca, mrl)
+        call comp_and_apply_pd_limits(mrl, scp, scp_upw, scp_upv, kdepw, iwdepv)
      endif
 
 ! Horizontal loop over W/T points
@@ -364,8 +381,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
 ! Loop over neighbor V points of this W cell
 
-        hfluxadv(1:mza) = 0.
-        hfluxdif(1:mza) = 0.
+        hflux(kb:mza) = 0.
 
         do jv = 1, itab_w(iw)%npoly
 
@@ -373,16 +389,27 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
            iwn  = itab_w(iw)%iw(jv)
            dirv = itab_w(iw)%dirv(jv)
 
-! Vertical loop over T levels 
+           if (nl%split_scalars < 1) then
 
-           do k = lpv(iv), mza
+              ! Horizontal advective and diffusive scalar fluxes
 
-! Horizontal advective and diffusive scalar fluxes
+              ! Vertical loop over T levels
+              do k = lpv(iv), mza
+                 hflux(k) = hflux(k) + dirv * vmsca(k,iv) * scp_upv(k,iv)    &
+                                     + akhodx(k,iv) * (scp(k,iwn) - scp(k,iw))
+              enddo
 
-              hfluxadv(k) = hfluxadv(k) + dirv * vmsca(k,iv) * scp_upv(k,iv)
+           else
 
-              hfluxdif(k) = hfluxdif(k) + akhodx(k,iv) * (scp(k,iwn) - scp(k,iw))
-           enddo
+              ! Horizontal advective fluxes
+
+              ! Vertical loop over T levels
+              do k = lpv(iv), mza
+                 hflux(k) = hflux(k) + dirv * vmsca(k,iv) * scp_upv(k,iv)
+              enddo
+
+           endif
+
         enddo
 
 ! Vertical loop over W levels
@@ -404,12 +431,20 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! advection and diffusion
 
            sct(k,iw) = sct(k,iw) + volti(k,iw) &
-                     * ( hfluxadv(k) + vfluxadv(k-1) - vfluxadv(k) &
-                       + hfluxdif(k) )
+                     * ( hflux(k) + vfluxadv(k-1) - vfluxadv(k) )
+
         enddo
 
      enddo
      !$omp end parallel do
+
+! Special for energy microphysics variables
+
+     if (nl%iscal_monot > 0) then
+        if (n == n2 .or. n == n6 .or. n == n7) then
+           scp = scp - cice * t00
+        endif
+     endif
 
   enddo ! n
 
@@ -1287,3 +1322,62 @@ endif
 
 return
 end subroutine timeavg_momsc
+
+
+
+subroutine scalar_hdiff_split(mrl)
+
+  use mem_grid,   only: mza, volti, lpw, lpv
+  use mem_turb,   only: akhodx
+  use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
+  use var_tables, only: num_scalar, scalar_tab
+  use misc_coms,  only: idiffk
+
+  implicit none
+
+  integer,  intent(in) :: mrl
+  real                 :: hflux(mza)
+  integer              :: n, j, iw, kb, mrlw, jv, iv, iwn, k
+
+  if (mrl > 0) then
+
+     ! Skip n=1 which is THIL and computed elsewhere
+
+     !$omp parallel do collapse(2) private(n,j,iw,kb,mrlw,hflux,jv,iv,iwn,k)
+     do n = 2, num_scalar
+
+        do j = 1,jtab_w(jtw_prog)%jend(mrl)
+           
+           iw   = jtab_w(jtw_prog)%iw(j)
+           kb   = lpw(iw)
+           mrlw = itab_w(iw)%mrlw
+
+           if (idiffk(mrlw) < 1) cycle
+
+           ! Loop over neighbor V points of this W cell
+
+           hflux(kb:mza) = 0.
+
+           do jv = 1, itab_w(iw)%npoly
+
+              iv  = itab_w(iw)%iv(jv)
+              iwn = itab_w(iw)%iw(jv)
+
+              ! Horizontal diffusive fluxes
+              do k = lpv(iv), mza
+                 hflux(k) = hflux(k) + akhodx(k,iv) * (scalar_tab(n)%var_p(k,iwn) - scalar_tab(n)%var_p(k,iw))
+              enddo
+
+           enddo
+
+           do k = kb,mza
+              scalar_tab(n)%var_t(k,iw) = volti(k,iw) * hflux(k)
+           enddo
+
+        enddo
+     enddo
+     !$omp end parallel do
+
+  endif
+
+end subroutine scalar_hdiff_split

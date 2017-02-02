@@ -209,9 +209,6 @@
 
    NL%ADV_ORDER = 2       ! Advection order (2 or 3)
 
-   NL%CFL_PRTFRQ = 900.   ! Frequency (s) to print maximum CFL number
-                          ! in entire model domain (0 disables printing)
-
    NL%DEBUG_FP  = .false. ! Detect floating point errors such as overflows,
                           ! INFs, divide-by-zeros, and NANs (best if code is
                           ! compiled with debug options too)

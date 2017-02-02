@@ -37,7 +37,7 @@ Module mem_thuburn
   real,    allocatable          :: scp_min(:,:)
   real,    allocatable          :: scp_max(:,:)
 
-  real,    allocatable, private :: cfl_out_sum(:,:)
+  real,    allocatable          :: cfl_out_sum(:,:)
   real,    allocatable, private :: cfl_vin(:,:,:)
 
   real,    allocatable, private :: scp_out_min(:,:)
@@ -59,13 +59,16 @@ Contains
     integer, intent(in) :: imonot, mza, mwa
 
     allocate( cfl_out_sum(mza,mwa)) ; cfl_out_sum = rinit
-
+    
     if (imonot == 1) then
        allocate( scp_min    (mza,mwa)) ; scp_min     = rinit
        allocate( scp_max    (mza,mwa)) ; scp_max     = rinit
        allocate( scp_out_min(mza,mwa)) ; scp_out_min = rinit
-       allocate( scp_out_max(mza,mwa)) ; scp_out_max = rinit
        allocate( tfact      (mza,mwa)) ; tfact       = rinit
+    endif
+
+    if (imonot > 0) then
+       allocate( scp_out_max(mza,mwa)) ; scp_out_max = rinit
        allocate( cfl_win_t  (mza,mwa)) ; cfl_win_t   = rinit
        allocate( cfl_win_b  (mza,mwa)) ; cfl_win_b   = rinit
        allocate( cfl_vin    (mza,7,mwa)) ; cfl_vin   = rinit
@@ -92,7 +95,7 @@ Contains
 
 !===============================================================================
 
-  subroutine comp_cfl1(mrl, dtm, vmsca, wmsca, vs, ws, rho_old, do_check)
+  subroutine comp_cfl1(mrl, dtm, vmsca, wmsca, vs, ws, rho_old, imonot, do_check)
 
     ! Diagnose outflow CFL number; also used for advection CFL stability check
 
@@ -103,6 +106,8 @@ Contains
     use misc_coms,   only: iparallel, time8p
     use mem_para,    only: myrank, mgroupsize
     use max_dims,    only: maxgrds
+    use mem_basic,   only: wc
+    use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
 
 #ifdef OLAM_MPI
     use mpi
@@ -117,11 +122,17 @@ Contains
     real,              intent(in) :: ws     (mza,mwa)
     real(r8),          intent(in) :: dtm    (maxgrds)
     real(r8),          intent(in) :: rho_old(mza,mwa)
+    integer,           intent(in) :: imonot
     logical, optional, intent(in) :: do_check
 
     integer :: j, jv, iv, k, iw, npoly, n
     real    :: cfl_max, cfl_maxs(mgroupsize)
-    integer :: ier, inode, imax(3), imaxs(3,mgroupsize)
+    real    :: w_max, w_maxs(mgroupsize)
+    integer :: ier, inode, imax(3), imaxs(3,mgroupsize), iwmax(3), iwmaxs(3,mgroupsize), iwnode
+    logical :: check
+
+    check = .false. 
+    if (present(do_check)) check = do_check
 
     !$omp parallel do private(iw,k,jv,iv)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
@@ -146,81 +157,125 @@ Contains
     enddo
     !$omp end parallel do
 
-    if (.not. present(do_check)) return
-    if (.not.         do_check)  return
+    if (check) then
 
-    ! Find the max CFL number on each node, and print an error message
-    ! if the CFL number is greater than 1
+       ! Find the max CFL number on each node, and print an error message
+       ! if the CFL number is greater than 1
 
-    cfl_max = -1.0
+       cfl_max = -1.0
+       w_max   =  0.0
 
-    do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-       do k = lpw(iw), mza
+       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+          do k = lpw(iw), mza
 
-          if ( cfl_out_sum(k,iw) > cfl_max  .or.  &
-               cfl_out_sum(k,iw) /= cfl_out_sum(k,iw) ) then
-             cfl_max = cfl_out_sum(k,iw)
-             imax    = (/ k, iw, itab_w(iw)%iwglobe /)
-          endif
+             if ( cfl_out_sum(k,iw) > cfl_max  .or.  &
+                  cfl_out_sum(k,iw) /= cfl_out_sum(k,iw) ) then
+                cfl_max = cfl_out_sum(k,iw)
+                imax    = (/ k, iw, itab_w(iw)%iwglobe /)
+             endif
 
-          if ( cfl_out_sum(k,iw) > 1.0  .or.  &
-               cfl_out_sum(k,iw) /= cfl_out_sum(k,iw) ) then
-             npoly = itab_w(iw)%npoly
-             write(*,*)
-             write(*,'(4(A,I0),2(A,f0.3),/,2(A,f0.3),A,7(f0.3,1x))')           &
-                  "!!! CFL VIOLATION at node ", myrank,                        &
-                  ", iw=", iw, ", iwglobe=", itab_w(iw)%iwglobe, ", k=", k,    &
-                  " lat=", glatw(iw), " lon=", glonw(iw),                      &
-                  "!!! CFL = ", cfl_out_sum(k,iw),                             &
-                  ", W = ", ws(k,iw), ", VC = ", vs(k,itab_w(iw)%iv(1:npoly))
-          endif
+             if ( abs(wc(k,iw)) > abs(w_max)  .or.  &
+                  wc(k,iw) /= wc(k,iw) ) then
+                w_max = wc(k,iw)
+                iwmax    = (/ k, iw, itab_w(iw)%iwglobe /)
+             endif
 
+             if ( cfl_out_sum(k,iw) > 1.0  .or.  &
+                  cfl_out_sum(k,iw) /= cfl_out_sum(k,iw) ) then
+                npoly = itab_w(iw)%npoly
+                write(*,*)
+                write(*,'(4(A,I0),2(A,f0.3),/,2(A,f0.3),A,7(f0.3,1x))')           &
+                     "!!! CFL VIOLATION at node ", myrank,                        &
+                     ", iw=", iw, ", iwglobe=", itab_w(iw)%iwglobe, ", k=", k,    &
+                     " lat=", glatw(iw), " lon=", glonw(iw),                      &
+                     "!!! CFL = ", cfl_out_sum(k,iw),                             &
+                     ", W = ", ws(k,iw), ", VC = ", vs(k,itab_w(iw)%iv(1:npoly))
+             endif
+
+          enddo
        enddo
-    enddo
 
-    ! Print the global max CFL number
-
-    if (nl%cfl_prtfrq > 1.d-12) then
-       if (mod(time8p,nl%cfl_prtfrq) < dtm(1)) then
+       ! Print the global max CFL number
 
 #ifdef OLAM_MPI
-          if (iparallel == 1) then
-             call MPI_Gather(cfl_max, 1, MPI_REAL, cfl_maxs, 1, MPI_REAL, &
-                             0, MPI_COMM_WORLD, ier)
-             call MPI_Gather(imax, 3, MPI_INTEGER, imaxs, 3, MPI_INTEGER, &
-                             0, MPI_COMM_WORLD, ier)
-          endif
+       if (iparallel == 1) then
+          call MPI_Gather(cfl_max, 1, MPI_REAL, cfl_maxs, 1, MPI_REAL, &
+                          0, MPI_COMM_WORLD, ier)
+          call MPI_Gather(imax, 3, MPI_INTEGER, imaxs, 3, MPI_INTEGER, &
+                          0, MPI_COMM_WORLD, ier)
+
+          call MPI_Gather(w_max, 1, MPI_REAL, w_maxs, 1, MPI_REAL, &
+                          0, MPI_COMM_WORLD, ier)
+          call MPI_Gather(iwmax, 3, MPI_INTEGER, iwmaxs, 3, MPI_INTEGER, &
+                          0, MPI_COMM_WORLD, ier)
+       endif
 #endif
 
-          if (myrank == 0) then
-             inode = 1
-             if (iparallel == 1) then
-                if (any( cfl_maxs(:) /= cfl_maxs(:) )) then
-                   do n = 1, mgroupsize
-                      if (cfl_maxs(n) /= cfl_maxs(n)) then
-                         inode = n
-                         cfl_max = cfl_maxs(inode)
-                         imax(:) = imaxs(:,inode)
-                         exit
-                      endif
-                   enddo
-                else
-                   inode    = maxloc(cfl_maxs, dim=1)
-                   cfl_max  = cfl_maxs(inode)
-                   imax(:)  = imaxs(:,inode)
-                endif
+       if (myrank == 0) then
+          inode = 1
+          if (iparallel == 1) then
+
+             if (any( cfl_maxs(:) /= cfl_maxs(:) )) then
+                do n = 1, mgroupsize
+                   if (cfl_maxs(n) /= cfl_maxs(n)) then
+                      inode   = n
+                      cfl_max = cfl_maxs(inode)
+                      imax(:) = imaxs(:,inode)
+                      exit
+                   endif
+                enddo
+             else
+                inode   = maxloc(cfl_maxs, dim=1)
+                cfl_max = cfl_maxs(inode)
+                imax(:) = imaxs(:,inode)
              endif
-             write(*,'(5x,A,f0.3,3(A,I0))') "Max CFL# = ", cfl_max,  &
-                  " at node ", inode-1, ", iwglobe=", imax(3), ", k=", imax(1)
+
+             if (any( w_maxs(:) /= w_maxs(:) )) then
+                do n = 1, mgroupsize
+                   if (w_maxs(n) /= w_maxs(n)) then
+                      iwnode   = n
+                      w_max    = w_maxs(iwnode)
+                      iwmax(:) = iwmaxs(:,iwnode)
+                      exit
+                   endif
+                enddo
+             else
+                iwnode   = maxloc(w_maxs, dim=1)
+                w_max    = w_maxs(iwnode)
+                iwmax(:) = iwmaxs(:,iwnode)
+             endif
           endif
+
+          write(*,'(5x,A,f0.3,3(A,I0))') "Max CFL = ", cfl_max,  &
+               " at node ", inode-1, ", iwglobe=", imax(3), ", k=", imax(1)
+
+          write(*,'(5x,A,f0.3,3(A,I0))') "Max  W  = ", w_max,  &
+               " at node ", iwnode-1, ", iwglobe=", iwmax(3), ", k=", iwmax(1)
        endif
+    endif
+
+    if (imonot > 0) then
+
+       ! cfl_out_sum is reused as 1 / cfl_out_sum
+
+       !$omp parallel do private(iw,k)
+       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+          do k = lpw(iw), mza
+             cfl_out_sum(k,iw) = 0.999998 / max( cfl_out_sum(k,iw), 1.e-7)
+          enddo
+       enddo
+       !$omp end parallel do
+    
+       call mpi_send_w(mrl, rvara1=cfl_out_sum)
+       call mpi_recv_w(mrl, rvara1=cfl_out_sum)
+
     endif
 
   end subroutine comp_cfl1
 
 !===============================================================================
 
-  subroutine comp_cfl2(mrl, dtm, vmca, wmca, rho_old, rho)
+  subroutine comp_cfl2(mrl, dtm, vmca, wmca, rho_old, rho, imonot)
 
     ! Diagnose inflow CFL numbers
 
@@ -237,6 +292,8 @@ Contains
     real(r8), intent(in) :: dtm    (maxgrds)
     real(r8), intent(in) :: rho_old(mza,mwa)
     real(r8), intent(in) :: rho    (mza,mwa)
+    integer,  intent(in) :: imonot
+
     integer              :: j, iw, k, jv, iv
     real                 :: fact(mza)
 
@@ -249,12 +306,13 @@ Contains
 
           cfl_win_t(k,iw) = -min(wmca(k,  iw),0.0) * fact(k)
           cfl_win_b(k,iw) =  max(wmca(k-1,iw),0.0) * fact(k)
-
-          tfact(k,iw) = rho(k,iw) / rho_old(k,iw)
-
-          ! cfl_out_sum is reused as 1 / cfl_out_sum
-          cfl_out_sum(k,iw) = 0.999999 / max( cfl_out_sum(k,iw), 1.e-6)
        enddo
+
+       if (imonot == 1) then
+          do k = lpw(iw), mza
+             tfact(k,iw) = rho(k,iw) / rho_old(k,iw)
+          enddo
+       endif
 
        do jv = 1, itab_w(iw)%npoly
           iv = itab_w(iw)%iv(jv)
@@ -317,8 +375,9 @@ Contains
     use mem_ijtabs,   only: jtab_v, jtv_wadj, jtab_w, jtw_prog, itab_w
     use mem_grid,     only: lpv, lpw, mza, mva, mwa
     use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
-    use misc_coms,    only: iparallel
+    use misc_coms,    only: iparallel, io6
     use obnd,         only: lbcopy_w
+    use var_tables
 
     implicit none
 
@@ -331,26 +390,33 @@ Contains
 
     integer :: j, iw, ka, k, jv, iv, iwn, kd, iwd
     real    :: c_scp_in_max_sum(mza), c_scp_in_min_sum(mza)
+    real    :: scpup, scp_up(mza)
 
-    !$omp parallel do private(iw,k,ka,jv,iv,iwn,c_scp_in_max_sum,c_scp_in_min_sum)
+    !$omp parallel do private(iw,ka,scp_up,scpup,k,jv,iv,iwn,&
+    !$omp                     c_scp_in_max_sum,c_scp_in_min_sum)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        ka = lpw(iw)
 
-       c_scp_in_max_sum(ka) = cfl_win_t(ka,iw) * max(scp(ka+1,iw),scp_upw(ka,iw))
-       c_scp_in_min_sum(ka) = cfl_win_t(ka,iw) * min(scp(ka+1,iw),scp_upw(ka,iw))
+       do k = ka, mza
+          scp_up(k) = scp(k,iw) * min(cfl_out_sum(k,iw),1.0)
+       enddo
+
+       c_scp_in_max_sum(ka) = cfl_win_t(ka,iw) * max(scp_up(ka+1),scp_upw(ka,iw))
+       c_scp_in_min_sum(ka) = cfl_win_t(ka,iw) * min(scp_up(ka+1),scp_upw(ka,iw))
 
        ! Loop over T levels
        do k = ka+1, mza-1
-          c_scp_in_max_sum(k) = cfl_win_t(k,iw) * max(scp(k+1,iw),scp_upw(k,iw)) &
-                              + cfl_win_b(k,iw) * max(scp(k-1,iw),scp_upw(k-1,iw))
 
-          c_scp_in_min_sum(k) = cfl_win_t(k,iw) * min(scp(k+1,iw),scp_upw(k,iw)) &
-                              + cfl_win_b(k,iw) * min(scp(k-1,iw),scp_upw(k-1,iw))
+          c_scp_in_max_sum(k) = cfl_win_t(k,iw) * max(scp_up(k+1),scp_upw(k  ,iw)) &
+                              + cfl_win_b(k,iw) * max(scp_up(k-1),scp_upw(k-1,iw))
+
+          c_scp_in_min_sum(k) = cfl_win_t(k,iw) * min(scp_up(k+1),scp_upw(k  ,iw)) &
+                              + cfl_win_b(k,iw) * min(scp_up(k-1),scp_upw(k-1,iw))
        enddo
 
-       c_scp_in_max_sum(mza) = cfl_win_b(mza,iw) * max(scp(mza-1,iw),scp_upw(mza-1,iw))
-       c_scp_in_min_sum(mza) = cfl_win_b(mza,iw) * min(scp(mza-1,iw),scp_upw(mza-1,iw))
+       c_scp_in_max_sum(mza) = cfl_win_b(mza,iw) * max(scp_up(mza-1),scp_upw(mza-1,iw))
+       c_scp_in_min_sum(mza) = cfl_win_b(mza,iw) * min(scp_up(mza-1),scp_upw(mza-1,iw))
 
        do jv = 1, itab_w(iw)%npoly
           iv  = itab_w(iw)%iv(jv)
@@ -358,21 +424,30 @@ Contains
 
           ! Loop over T levels
           do k = lpv(iv), mza
+
+             scpup = scp(k,iwn) * min(cfl_out_sum(k,iwn),1.0)
+
              c_scp_in_max_sum(k) = c_scp_in_max_sum(k) + cfl_vin(k,jv,iw) * &
-                                   max( scp(k,iwn), scp_upv(k,iv) )
+                                   max( scpup, scp_upv(k,iv) )
 
              c_scp_in_min_sum(k) = c_scp_in_min_sum(k) + cfl_vin(k,jv,iw) * &
-                                   min( scp(k,iwn), scp_upv(k,iv) )
+                                   min( scpup, scp_upv(k,iv) )
           enddo
        enddo
 
        ! Loop over T levels
        do k = ka, mza
+
           scp_out_min(k,iw) = (scp(k,iw) + c_scp_in_max_sum(k) - &
                scp_max(k,iw) * tfact(k,iw)) * cfl_out_sum(k,iw)
 
           scp_out_max(k,iw) = (scp(k,iw) + c_scp_in_min_sum(k) - &
                scp_min(k,iw) * tfact(k,iw)) * cfl_out_sum(k,iw)
+
+          scp_out_min(k,iw) = min(scp_out_min(k,iw), scp_up(k))
+
+          scp_out_max(k,iw) = max(scp_out_max(k,iw), scp_up(k))
+
        enddo
 
     enddo
@@ -421,5 +496,118 @@ Contains
     !$omp end parallel do
 
   end subroutine comp_and_apply_monot_limits
+
+
+!===============================================================================
+
+  subroutine comp_and_apply_pd_limits(mrl, scp, scp_upw, scp_upv, kdepw, iwdepv)
+
+    use mem_ijtabs,   only: jtab_v, jtv_wadj, jtab_w, jtw_prog, itab_w
+    use mem_grid,     only: lpv, lpw, mza, mva, mwa
+    use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
+    use misc_coms,    only: iparallel, io6
+    use obnd,         only: lbcopy_w
+    use var_tables
+
+    implicit none
+
+    integer, intent(in)    :: mrl
+    real,    intent(in)    :: scp    (mza,mwa)
+    real,    intent(inout) :: scp_upw(mza,mwa)
+    real,    intent(inout) :: scp_upv(mza,mva)
+    integer, intent(in)    :: iwdepv (mza,mva)
+    integer, intent(in)    :: kdepw  (mza,mwa)
+
+    integer :: j, iw, ka, k, jv, iv, iwn, kd, iwd
+    real    :: c_scp_in_min_sum(mza)
+    real    :: scpup, scp_up(mza)
+
+    !$omp parallel do private(iw,ka,scp_up,scpup,k,jv,iv,iwn,&
+    !$omp                     c_scp_in_max_sum,c_scp_in_min_sum)
+    do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+       ka = lpw(iw)
+
+       do k = ka, mza
+          scp_up(k) = scp(k,iw) * cfl_out_sum(k,iw)
+       enddo
+
+       c_scp_in_min_sum(ka) = cfl_win_t(ka,iw) * min(scp_up(ka+1),scp_upw(ka,iw))
+
+       ! Loop over T levels
+       do k = ka+1, mza-1
+
+          c_scp_in_min_sum(k) = cfl_win_t(k,iw) * min(scp_up(k+1),scp_upw(k  ,iw)) &
+                              + cfl_win_b(k,iw) * min(scp_up(k-1),scp_upw(k-1,iw))
+       enddo
+
+       c_scp_in_min_sum(mza) = cfl_win_b(mza,iw) * min(scp_up(mza-1),scp_upw(mza-1,iw))
+
+       do jv = 1, itab_w(iw)%npoly
+          iv  = itab_w(iw)%iv(jv)
+          iwn = itab_w(iw)%iw(jv)
+
+          ! Loop over T levels
+          do k = lpv(iv), mza
+
+             scpup = scp(k,iwn) * cfl_out_sum(k,iwn)
+
+             c_scp_in_min_sum(k) = c_scp_in_min_sum(k) + cfl_vin(k,jv,iw) * &
+                  min( scpup, scp_upv(k,iv) )
+          enddo
+       enddo
+
+       ! Loop over T levels
+       do k = ka, mza
+          scp_out_max(k,iw) = (scp(k,iw) + c_scp_in_min_sum(k)) * cfl_out_sum(k,iw)
+       enddo
+
+    enddo
+    !$omp end parallel do
+
+    ! MPI send of allowed scalar max/min outflow values
+
+    if (iparallel == 1) then
+       call mpi_send_w(mrl, rvara1=scp_out_max)
+    endif
+    
+    ! Limit the vertical fluxes based on the computed scalar outgoing max/min values
+    ! Can be done before outgoing max/mins are received at the boundary cells
+
+    !$omp parallel do private(iw,k,kd)
+    do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+       ! Vertical loop over W levels
+       do k = lpw(iw), mza-1
+          kd = kdepw(k,iw)
+          scp_upw(k,iw) = min(scp_upw(k,iw), scp_out_max(kd,iw))
+       enddo
+
+    enddo
+    !$omp end parallel do
+
+    ! MPI receive of allowed scalar max/min outflow values
+
+    if (iparallel == 1) then
+       call mpi_recv_w(mrl, rvara1=scp_out_max)
+    endif
+    call lbcopy_w(mrl, a1=scp_out_max)
+
+    ! Limit the horizontal fluxes based on the computed scalar outgoing max/min
+
+    !$omp parallel do private(iv,k,iwd) 
+    do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+
+       ! Vertical loop over T levels
+       do k = lpv(iv), mza
+          iwd = iwdepv(k,iv)
+          scp_upv(k,iv) = min(scp_upv(k,iv), scp_out_max(k,iwd))
+       enddo
+
+    enddo
+    !$omp end parallel do
+
+  end subroutine comp_and_apply_pd_limits
+
 
 End Module mem_thuburn

@@ -104,7 +104,6 @@ SOURCE_FILES= \
              $(OMODEL)/othrm.f90 \
              $(OMODEL)/para_decomp.f90 \
              $(OMODEL)/para_init.f90 \
-             $(OMODEL)/pd_module.f90 \
              $(OMODEL)/prog_wrtv.f90 \
              $(OMODEL)/salt_dust_src.f90 \
              $(OMODEL)/scalar_transport.f90 \

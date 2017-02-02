@@ -90,8 +90,6 @@ Contains
 
    integer :: iaddsc, ic
 
-   logical :: qxtrans = .true. ! Deprecated namelist flag for optional Q2/Q6/Q7 transport
-
    write(io6,*) 'enter alloc_tend'
 
 ! Find the maximum number of grid points needed for any grid.
@@ -132,14 +130,12 @@ Contains
       enddo
    endif
 
-   if (qxtrans) then
-      if (allocated(q2))   allocate (q2t(lza,lwa))
-      if (allocated(q6))   allocate (q6t(lza,lwa))
-      if (allocated(q7))   allocate (q7t(lza,lwa))
-   endif
+   if (allocated(q2))   allocate (q2t(lza,lwa))
+   if (allocated(q6))   allocate (q6t(lza,lwa))
+   if (allocated(q7))   allocate (q7t(lza,lwa))
 
-   if (allocated(tkep))    allocate (tket(lza,lwa))
-   if (allocated(epsp))    allocate (epst(lza,lwa))
+   if (allocated(tkep)) allocate (tket(lza,lwa))
+   if (allocated(epsp)) allocate (epst(lza,lwa))
 
    do iaddsc = 1,naddsc
       if       (allocated(addsc(iaddsc)%sclp) .and.  &

@@ -180,6 +180,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
          call botset (scalar_tab(n)%var_p)
       enddo
       if (iparallel == 1) call mpi_send_w(mrl, scalars='S')
+      ! call check_pos(1)
    endif
 
    call timeavg_momsc(vmsc,wmsc,vxesc,vyesc,vzesc)
@@ -198,6 +199,24 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    ! call check_nans(14)
 
    call predtr(rho_old)
+
+   if (nl%split_scalars > 0 .and. mrl > 0) then
+      
+      if (iparallel == 1) call mpi_send_w(mrl, scalars='S')
+      if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')
+
+      do n = 2, num_scalar
+         call latsett(scalar_tab(n)%var_p)
+         call botset (scalar_tab(n)%var_p)
+      enddo
+
+      call scalar_hdiff_split(mrl)
+      call predtr_split(mrl,rho)
+   endif
+
+   ! if (mrl_endl(istp) > 0) then
+   !    call check_pos(2)
+   ! endif
 
    ! call check_nans(15)
 
@@ -284,6 +303,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
          call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
       enddo
 
+      ! call check_pos(3)
    endif
 
    ! call check_nans(20)
