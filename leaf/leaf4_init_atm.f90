@@ -85,6 +85,36 @@ subroutine leaf4_init_atm()
                   / (s1900_ndvi(indvifile+1) - s1900_ndvi(indvifile))
   endif
 
+  ! Subgrid orographic roughness
+
+  land%slope_fact(1) = 1.0
+
+  if (nl%iorogslopeflg == 1 .and. len_trim(nl%orog_slope_db) > 0) then
+
+     call land_database_read(mwl, &
+          land%glatw,             &
+          land%glonw,             &
+          nl%orog_slope_db,       &
+          nl%orog_slope_db,       &
+          'orog',                 &
+          datq=wtd                )
+
+     !$omp parallel do
+     do iwl = 2, mwl
+        land%slope_fact(iwl) = 1.0 + 2.0 * wtd(iwl)
+     enddo
+     !$omp end parallel do
+
+  else
+
+     !$omp parallel do
+     do iwl = 2, mwl
+        land%slope_fact = 1.0
+     enddo
+     !$omp end parallel do
+
+  endif
+
   ! If iwatertabflg = 1, read water table depth from database; put into wtd array
 
   if (iwatertabflg == 1) then

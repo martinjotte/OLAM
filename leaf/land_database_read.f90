@@ -288,6 +288,8 @@ do jfile = 1,jfiles
                call shdf5_irec(ndims,idims,'ndvi',rvara=dato)
             elseif (trim(iaction) == 'wtd') then
                call shdf5_irec(ndims,idims,'WTD',rvara=dato)
+            elseif (iaction == 'orog') then
+               call shdf5_irec(ndims,idims,'orog',rvara=dato)
             else
                write(io6,*) 'incorrect action specified in leaf_database'
                write(io6,*) 'stopping run'
@@ -351,8 +353,9 @@ do jfile = 1,jfiles
             wio1 = 1. - wio2
             wjo1 = 1. - wjo2
 
-            if (trim(iaction) == 'topo' .or. &
-                trim(iaction) == 'ndvi') then
+            if (iaction == 'topo' .or. &
+                iaction == 'ndvi' .or. &
+                iaction == 'orog') then
 
 ! Interpolate from 4 surrounding values
 

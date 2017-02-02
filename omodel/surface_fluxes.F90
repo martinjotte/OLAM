@@ -499,7 +499,7 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
       wtv0       (iw) = wtv0       (iw) + arf_iw  * land%wthv  (iwl)
       sfluxt     (iw) = sfluxt     (iw) + arf_iw  * land%sfluxt(iwl)
       sfluxr     (iw) = sfluxr     (iw) + arf_iw  * land%sfluxr(iwl)
-      vkm_sfc (ks,iw) = vkm_sfc (ks,iw) + arf_kw  * land%vkmsfc(iwl)
+      vkm_sfc (ks,iw) = vkm_sfc (ks,iw) + arf_kw  * land%vkmsfc(iwl) * land%slope_fact(iwl)
       sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dt * land%sfluxt(iwl)
       sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dt * land%sfluxr(iwl)
 

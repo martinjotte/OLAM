@@ -421,22 +421,26 @@
    NL%NDVIFLG    = 1      ! 
 
    NL%ISSTFLG    = 1      ! 0 -- use default seatmp, seaice value set below
-   NL%ISEAICEFLG = 1      ! 1 -- read data from standard database file
+   NL%ISEAICEFLG = 1      ! 1 -- read climatological mean SST/SEAICE from file
                           ! 2 -- read from degribbed analysis files
  
-   NL%ISOILSTATEINIT = 0  ! 0   -- default initialization based on landuse
-                          ! 1,2 -- read from degribbed analysis file
+   NL%ISOILSTATEINIT = 0  ! 0 -- default initialization based on landuse
+                          ! 1 -- read from degribbed analysis file
 
    NL%IWATERTABFLG   = 0  ! 0 -- use default for each landuse class
                           ! 1 -- read from file
 
+   NL%IOROGSLOPEFLG  = 0  ! 0 -- no subgrid orographic roughness
+                          ! 1 -- read subgrid orographic roughness from file
+
  ! Surface database file paths and names
 
-   NL%TOPO_DATABASE   = '../../olamdatah5/dem30s/TM'
+   NL%TOPO_DATABASE   = '../../olamdatah5/gmted30s/TM'
    NL%VEG_DATABASE    = '../../olamdatah5/oge2/OGE2_'
    NL%SOIL_DATABASE   = '../../olamdatah5/fao/FAO_'
    NL%NDVI_DATABASE   = '../../olamdatah5/ndvi/NDVI'
    NL%WATERTAB_DB     = '../../olamdatah5/wtd/WTD'
+   NL%OROG_SLOPE_DB   = '../../olamdatah5/slope/ORO'
 
  ! These point to a .txt listing of sst/seaice files, and are used only
  ! if isstflg/iseaiceflg = 1

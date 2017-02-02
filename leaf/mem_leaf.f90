@@ -86,6 +86,8 @@ Module mem_leaf
       real, allocatable :: rib  (:) ! canopy bulk Richardson number [ ]
       real, allocatable :: wthv (:) ! surface buoyancy flux [K m/s]
 
+      real, allocatable :: slope_fact(:) ! orographic roughness parameter
+
 ! Radiative flux quantities
 
       real, allocatable :: albedo_beam   (:) ! net canopy/soil s/w beam albedo [0-1]
@@ -207,6 +209,7 @@ Contains
      allocate (land%sfluxt             (mwl)) ; land%sfluxt          = rinit
      allocate (land%sfluxr             (mwl)) ; land%sfluxr          = rinit
      allocate (land%sfluxc             (mwl)) ; land%sfluxc          = rinit
+     allocate (land%slope_fact         (mwl)) ; land%slope_fact      = 1.0
 
      allocate (land%sxfer_t            (mwl)) ; land%sxfer_t         = 0.0
      allocate (land%sxfer_r            (mwl)) ; land%sxfer_r         = 0.0

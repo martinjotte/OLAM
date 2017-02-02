@@ -359,7 +359,7 @@ data fldlib(1:4,101:132)/ &
 
 ! LAND_CELLS - 3D
 
-data fldlib(1:4,151:183)/ &
+data fldlib(1:4,151:184)/ &
  'SOIL_TEXT'     ,'L3G','SOIL TEXTURAL CLASS',' ( )'                        ,& ! 151
  'SOIL_ENERGY'   ,'L3G','SOIL ENERGY',' (J cm:S2:-3  )'                     ,& ! 152
  'SOIL_TEMPK'    ,'L3G','SOIL TEMP',' (K)'                                  ,& ! 153
@@ -407,7 +407,11 @@ data fldlib(1:4,151:183)/ &
  'SEATC'         ,'S2' ,'SEA SFC TEMP (CURRENT)',' (K)'                      ,& ! 180
  'SEAICEP'       ,'S2' ,'SEAICE FRACTION (PAST DATA)',' ( )'                 ,& ! 181
  'SEAICEF'       ,'S2' ,'SEAICE FRACTION (FUTURE DATA)',' ( )'               ,& ! 182
- 'SEAICEC'       ,'S2' ,'SEAICE FRACTION (CURRENT)',' ( )'                    / ! 183
+ 'SEAICEC'       ,'S2' ,'SEAICE FRACTION (CURRENT)',' ( )'                   ,& ! 183
+
+! OTHER LAND or SEA fields
+
+ 'SLOPE_FACT'    ,'L2' ,'SUBGRID OROGRAPHY SLOPE FACTOR',' ( )'               / ! 184
 
 ! LAND AND SEA CELLS - 2D
 
@@ -2171,6 +2175,14 @@ case(182) ! 'SEAICEF'
 case(183) ! 'SEAICEC'
 
    fldval = sea%seaicec(i)
+
+!-----------------------------------------
+! OTHER LAND or SEA fields
+!-----------------------------------------
+
+case(184) ! 'SLOPE_FACT'
+
+   fldval = land%slope_fact(i)
 
 !-----------------------------------------
 ! LAND AND SEA CELLS - 2D

@@ -258,6 +258,7 @@ Module oname_coms
       integer :: isoilstateinit = 0
       integer :: iwatertabflg   = 0
       integer :: isoilmodel     = 0
+      integer :: iorogslopeflg  = 0
 
       integer :: iupdndvi   = 0
       integer :: iupdsst    = 0
@@ -278,6 +279,7 @@ Module oname_coms
       character(pathlen) :: sst_database    = ''
       character(pathlen) :: seaice_database = ''
       character(pathlen) :: watertab_db     = ''
+      character(pathlen) :: orog_slope_db   = ''
 
 !!    ED MODEL VARIABLES
 
