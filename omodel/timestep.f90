@@ -33,7 +33,7 @@
 subroutine timestep()
 
 use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, time_bias, &
-                       nqparm, initial, ilwrtyp, iswrtyp, dtsm, dtlm, &
+                       idiffk, nqparm, initial, ilwrtyp, iswrtyp, dtsm, dtlm, &
                        iparallel, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag, io3
@@ -131,6 +131,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
          call get_depv ( mrl )
       endif
       call pbl_driver(mrl)
+      if (isfcl == 1) call lateral_friction(mrl)
    endif
 
    ! call check_nans(5)
@@ -200,18 +201,20 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call predtr(rho_old)
 
-   if (nl%split_scalars > 0 .and. mrl > 0) then
+   if (any( idiffk(1:mrls) > 0 )) then
+      if (nl%split_scalars > 0 .and. mrl > 0) then
       
-      if (iparallel == 1) call mpi_send_w(mrl, scalars='S')
-      if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')
+         if (iparallel == 1) call mpi_send_w(mrl, scalars='S')
+         if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')
 
-      do n = 2, num_scalar
-         call latsett(scalar_tab(n)%var_p)
-         call botset (scalar_tab(n)%var_p)
-      enddo
+         do n = 2, num_scalar
+            call latsett(scalar_tab(n)%var_p)
+            call botset (scalar_tab(n)%var_p)
+         enddo
 
-      call scalar_hdiff_split(mrl)
-      call predtr_split(mrl,rho)
+         call scalar_hdiff_split(mrl)
+         call predtr_split(mrl,rho)
+      endif
    endif
 
    ! if (mrl_endl(istp) > 0) then
