@@ -373,8 +373,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
 ! Horizontal loop over W/T points
 
-     !$omp parallel do private (iw, kb, hfluxadv, hfluxdif, jv, iv, iwn, &
-     !$omp                      dirv, k, vfluxadv)
+     !$omp parallel do private (iw, kb, hflux, jv, iv, iwn, dirv, k, vfluxadv)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
         kb = lpw(iw)

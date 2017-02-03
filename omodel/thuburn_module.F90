@@ -522,8 +522,7 @@ Contains
     real    :: c_scp_in_min_sum(mza)
     real    :: scpup, scp_up(mza)
 
-    !$omp parallel do private(iw,ka,scp_up,scpup,k,jv,iv,iwn,&
-    !$omp                     c_scp_in_max_sum,c_scp_in_min_sum)
+    !$omp parallel do private(iw,ka,scp_up,scpup,k,jv,iv,iwn,c_scp_in_min_sum)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        ka = lpw(iw)
