@@ -45,7 +45,6 @@ subroutine olam_mem_alloc()
   use mem_ijtabs,  only: mrls
   use oname_coms,  only: nl
   use mem_thuburn, only: alloc_thuburn
-  use pdtrans,     only: alloc_pdtrans
   use mem_adv,     only: alloc_adv
 
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
@@ -139,7 +138,6 @@ subroutine olam_mem_alloc()
 ! Extra memory for Thuburn's monotonic advection or positive definite scheme
 
   call alloc_thuburn(nl%iscal_monot, mza, mwa)
-  call alloc_pdtrans(nl%iscal_monot, mza, mwa)
 
 ! Extra memory if nudging ozone. Must be called after scalar tables are set up
 
