@@ -117,12 +117,12 @@ subroutine commio(action)
      ndims = 1
      idims(1) = ngrids
      call shdf5_io(action, ndims, idims, 'nl%ngrdll', ivara=ngrdll)
-     call shdf5_io(action, ndims, idims, 'nl%grdrad', rvara=grdrad)
 
      ndims = 2
      idims(1) = ngrids
      idims(2) = maxngrdll
 
+     call shdf5_io(action, ndims, idims, 'nl%grdrad', rvara=grdrad(1:ngrids,:))
      call shdf5_io(action, ndims, idims, 'nl%grdlat', rvara=grdlat(1:ngrids,:))
      call shdf5_io(action, ndims, idims, 'nl%grdlon', rvara=grdlon(1:ngrids,:))
 
