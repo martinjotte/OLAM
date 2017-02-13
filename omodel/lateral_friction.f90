@@ -27,7 +27,7 @@ subroutine lateral_friction(mrl)
 
      ! Find level of highest partially blocked lateral V face
 
-     do iv = 1, mva
+     do iv = 2, mva
         do k = lpv(iv), mza-1
            if ( arv(k,iv) > 0.999 * dnu(iv) * dzt(k) * zfact(k) ) exit
         enddo
