@@ -212,7 +212,8 @@ Contains
 #endif
 
        if (myrank == 0) then
-          inode = 1
+          inode  = 1
+          iwnode = 1
           if (iparallel == 1) then
 
              if (any( cfl_maxs(:) /= cfl_maxs(:) )) then
