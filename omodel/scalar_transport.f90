@@ -444,7 +444,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
      if (nl%iscal_monot > 0) then
         if (n == n2 .or. n == n6 .or. n == n7) then
            do iw = 2, mwa
-              scp(:,iw) = scp(:,iw) + cice * t00
+              scp(:,iw) = scp(:,iw) - cice * t00
            enddo
         endif
      endif

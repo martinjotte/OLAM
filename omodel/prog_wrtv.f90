@@ -50,6 +50,8 @@ module wrtv_mem
   real, allocatable :: vortp_t (:,:)
   real, allocatable :: vortn   (:,:)
 
+  real, allocatable :: thil_old(:,:)
+
   logical, save     :: rotational = .false.
   logical, save     :: firstime   = .true.
 
@@ -99,6 +101,8 @@ subroutine init_prog_wrtv_mem()
      allocate(vyef(mza,mwa)) ; vyef = 0.0
      allocate(vzef(mza,mwa)) ; vzef = 0.0
   endif
+
+  allocate(thil_old(mza,mwa))
 
 end subroutine init_prog_wrtv_mem
 
@@ -506,6 +510,14 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
      endif
 
   endif  ! strict_wvt_donorpoint
+
+! STORE PREVIOUS THIL
+
+  !$omp parallel do
+  do iw = 2, mwa
+     thil_old(2:mza,iw) = thil(2:mza,iw)
+  enddo
+  !$omp end parallel do
 
 ! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
 ! (Example of how to plot "external" field; one not available in module memory)
@@ -991,7 +1003,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,    &
         hflux_rho(k)  = hflux_rho(k)  + vmarv
 
         hflux_thil(k) = hflux_thil(k) + vmarv * thil_upv(k,iv) &
-                                      + akhodx(k,iv) * (thil(k,iwn) - thil(k,iw))
+                                      + akhodx(k,iv) * (thil_old(k,iwn) - thil_old(k,iw))
 
         hflux_vxe(k)  = hflux_vxe(k)  + vmarv * vxe_upv(k,iv)  &
                                       + akmodx(k,iv) * (vxe(k,iwn) - vxe(k,iw))
@@ -1001,7 +1013,6 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc, alpha_press, rhot,    &
 
         hflux_vze(k)  = hflux_vze(k)  + vmarv * vze_upv(k,iv)  &
                                       + akmodx(k,iv) * (vze(k,iwn) - vze(k,iw))
-
      enddo
 
   enddo
