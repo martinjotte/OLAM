@@ -113,10 +113,10 @@
                                                       !    Dimensions: (0:nlayers)
       real(kind=rb), intent(out) :: htrc(0:)          ! clear sky longwave heating rate (k/day)
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: dtotuflux_dt(0:)  ! change in upward longwave flux (w/m2/k)
+      real(kind=rb), intent(inout) :: dtotuflux_dt(0:)  ! change in upward longwave flux (w/m2/k)
                                                       ! with respect to surface temperature
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: dtotuclfl_dt(0:)  ! change in upward longwave flux (w/m2/k)
+      real(kind=rb), intent(inout) :: dtotuclfl_dt(0:)  ! change in upward longwave flux (w/m2/k)
                                                       ! with respect to surface temperature
                                                       !    Dimensions: (0:nlayers)
 
@@ -249,7 +249,7 @@
                0.414_rb,  0.00_rb,  0.00_rb,  0.00_rb, &
                 0.00_rb,  0.00_rb,  0.00_rb,  0.00_rb /
 
-      hvrrtc = '$Revision: 1.7 $'
+!     hvrrtc = '$Revision: 1.7 $'
 
       do ibnd = 1,nbndlw
          if (ibnd.eq.1 .or. ibnd.eq.4 .or. ibnd.ge.10) then
@@ -301,7 +301,7 @@
                odcld(lay,ig) = secdiff(ib) * taucmc(ig,lay)
                transcld = exp(-odcld(lay,ig))
                abscld(lay,ig) = 1._rb - transcld
-               efclfrac(lay,ig) = abscld(lay,ig) * cldfmc(ig,lay)
+               efclfrac(lay,ig) = abscld(lay,ig)
                icldlyr(lay) = 1
             else
                odcld(lay,ig) = 0.0_rb
@@ -345,7 +345,7 @@
                if (odepth .lt. 0.0_rb) odepth = 0.0_rb
 !  Cloudy layer
 !              if (icldlyr(lev).eq.1) then
-               if (cldfmc(igc,lev) > 0.999_rb) then
+               if (cldfmc(igc,lev) > 0.99_rb) then
                   iclddn = 1
                   odtot = odepth + odcld(lev,igc)
                   if (odtot .lt. 0.06_rb) then
@@ -359,7 +359,7 @@
                      bbd = plfrac*(blay+dplankdn*odepth_rec)
                      radld = radld - radld * (atrans(lev) + &
                          efclfrac(lev,igc) * (1. - atrans(lev))) + &
-                         gassrc + cldfmc(igc,lev) * &
+                         gassrc + &
                          (bbdtot * atot(lev) - gassrc)
                      drad(lev-1) = drad(lev-1) + radld
                   
@@ -381,7 +381,7 @@
 
                      radld = radld - radld * (atrans(lev) + &
                          efclfrac(lev,igc) * (1._rb - atrans(lev))) + &
-                         gassrc + cldfmc(igc,lev) * &
+                         gassrc + &
                          (bbdtot * atot(lev) - gassrc)
                      drad(lev-1) = drad(lev-1) + radld
 
@@ -407,7 +407,7 @@
 
                   radld = radld - radld * (atrans(lev) + &
                     efclfrac(lev,igc) * (1._rb - atrans(lev))) + &
-                    gassrc + cldfmc(igc,lev) * &
+                    gassrc + &
                     (bbdtot * atot(lev) - gassrc)
                   drad(lev-1) = drad(lev-1) + radld
                   bbugas(lev) = plfrac * (blay + tfacgas * dplankup)
@@ -476,11 +476,11 @@
          do lev = 1, nlayers
 !  Cloudy layer
 !           if (icldlyr(lev) .eq. 1) then
-            if (cldfmc(igc,lev) > 0.999_rb) then
+            if (cldfmc(igc,lev) > 0.99_rb) then
                gassrc = bbugas(lev) * atrans(lev)
                radlu = radlu - radlu * (atrans(lev) + &
                    efclfrac(lev,igc) * (1._rb - atrans(lev))) + &
-                   gassrc + cldfmc(igc,lev) * &
+                   gassrc + &
                    (bbutot(lev) * atot(lev) - gassrc)
                urad(lev) = urad(lev) + radlu
 !!               if (idrv .eq. 1) then

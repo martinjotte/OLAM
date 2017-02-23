@@ -78,7 +78,7 @@
 !------------------------------------------------------------------
 
       subroutine rrtmg_sw &
-            (ncol    ,nlay    ,icld    ,iaer    ,                  &
+            (ncol    ,nlay    ,icld    ,iaer    ,iout    ,         &
              play    ,plev    ,tlay    ,tlev    ,tsfc    ,         &
              h2ovmr  ,o3vmr   ,co2vmr  ,ch4vmr  ,n2ovmr  ,o2vmr ,  &
              asdir   ,asdif   ,aldir   ,aldif   ,                  &
@@ -206,6 +206,7 @@
                                                       !    6: ECMWF method
                                                       !    10:Input aerosol optical 
                                                       !       properties
+      integer(kind=im), intent(in) :: iout            ! output option flag
 
       real(kind=rb), intent(in) :: play(:,:)          ! Layer pressures (hPa, mb)
                                                       !    Dimensions: (ncol,nlay)
@@ -319,7 +320,7 @@
       integer(kind=im) :: istart              ! beginning band of calculation
       integer(kind=im) :: iend                ! ending band of calculation
       integer(kind=im) :: icpr                ! cldprop/cldprmc use flag
-      integer(kind=im) :: iout                ! output option flag
+!     integer(kind=im) :: iout                ! output option flag
       integer(kind=im) :: idelm               ! delta-m scaling flag
                                               ! [0 = direct and diffuse fluxes are unscaled]
                                               ! [1 = direct and diffuse fluxes are scaled]
@@ -474,7 +475,7 @@
 
       istart = jpb1
       iend = jpb2
-      iout = 0
+!     iout = 0
       icpr = 0
       ims = 2
 

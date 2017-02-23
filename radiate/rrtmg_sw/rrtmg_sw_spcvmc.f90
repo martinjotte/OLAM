@@ -209,27 +209,27 @@
       integer(kind=im) :: iw, jb, jg, jl, jk
 !      integer(kind=im), parameter :: nuv = ?? 
 !      integer(kind=im), parameter :: nvs = ?? 
-      integer(kind=im) :: itind
+!      integer(kind=im) :: itind
 
-      real(kind=rb) :: tblind, ze1
-      real(kind=rb) :: zclear, zcloud
-      real(kind=rb) :: zdbt(nlayers+1), zdbt_nodel(nlayers+1)
+!     real(kind=rb) :: tblind, ze1
+!     real(kind=rb) :: zclear, zcloud
+      real(kind=rb) :: zdbt(nlayers+1)!, zdbt_nodel(nlayers+1)
       real(kind=rb) :: zgc(nlayers), zgcc(nlayers), zgco(nlayers)
       real(kind=rb) :: zomc(nlayers), zomcc(nlayers), zomco(nlayers)
       real(kind=rb) :: zrdnd(nlayers+1), zrdndc(nlayers+1)
-      real(kind=rb) :: zref(nlayers+1), zrefc(nlayers+1), zrefo(nlayers+1)
-      real(kind=rb) :: zrefd(nlayers+1), zrefdc(nlayers+1), zrefdo(nlayers+1)
+      real(kind=rb) :: zref(nlayers+1), zrefc(nlayers+1)!, zrefo(nlayers+1)
+      real(kind=rb) :: zrefd(nlayers+1), zrefdc(nlayers+1)!, zrefdo(nlayers+1)
       real(kind=rb) :: zrup(nlayers+1), zrupd(nlayers+1)
       real(kind=rb) :: zrupc(nlayers+1), zrupdc(nlayers+1)
       real(kind=rb) :: zs1(nlayers+1)
       real(kind=rb) :: ztauc(nlayers), ztauo(nlayers)
       real(kind=rb) :: ztdn(nlayers+1), ztdnd(nlayers+1), ztdbt(nlayers+1)
       real(kind=rb) :: ztoc(nlayers), ztor(nlayers)
-      real(kind=rb) :: ztra(nlayers+1), ztrac(nlayers+1), ztrao(nlayers+1)
-      real(kind=rb) :: ztrad(nlayers+1), ztradc(nlayers+1), ztrado(nlayers+1)
+      real(kind=rb) :: ztra(nlayers+1), ztrac(nlayers+1)!, ztrao(nlayers+1)
+      real(kind=rb) :: ztrad(nlayers+1), ztradc(nlayers+1)!, ztrado(nlayers+1)
       real(kind=rb) :: zdbtc(nlayers+1), ztdbtc(nlayers+1)
-      real(kind=rb) :: zincflx(ngptsw), zdbtc_nodel(nlayers+1) 
-      real(kind=rb) :: ztdbt_nodel(nlayers+1), ztdbtc_nodel(nlayers+1)
+      real(kind=rb) :: zincflx(ngptsw)!, zdbtc_nodel(nlayers+1) 
+!     real(kind=rb) :: ztdbt_nodel(nlayers+1), ztdbtc_nodel(nlayers+1)
 
       real(kind=rb) :: zdbtmc, zdbtmo, zf, zgw, zreflect
       real(kind=rb) :: zwf, tauorig, ap
@@ -366,7 +366,7 @@
 ! Clear-sky    
 !   TOA direct beam    
             ztdbtc(1)=1.0_rb
-            ztdbtc_nodel(1)=1.0_rb
+!           ztdbtc_nodel(1)=1.0_rb
 !   Surface values
             zdbtc(klev+1) =0.0_rb
             ztrac(klev+1) =0.0_rb
@@ -378,15 +378,15 @@
            
 ! Cloudy-sky    
 !   Surface values
-            ztrao(klev+1) =0.0_rb
-            ztrado(klev+1)=0.0_rb
-            zrefo(klev+1) =palbp(ibm)
-            zrefdo(klev+1)=palbd(ibm)
+!            ztrao(klev+1) =0.0_rb
+!            ztrado(klev+1)=0.0_rb
+!            zrefo(klev+1) =palbp(ibm)
+!            zrefdo(klev+1)=palbd(ibm)
            
 ! Total sky    
 !   TOA direct beam    
             ztdbt(1)=1.0_rb
-            ztdbt_nodel(1)=1.0_rb
+!           ztdbt_nodel(1)=1.0_rb
 !   Surface values
             zdbt(klev+1) =0.0_rb
             ztra(klev+1) =0.0_rb
@@ -514,34 +514,38 @@
 ! End of layer loop
             enddo    
 
-! Clear sky reflectivities
+            ! Clear sky reflectivities
             call reftra_sw (klev, &
                             lrtchkclr, zgcc, prmu0, prmu0m1, ztauc, zomcc, &
-                            zrefc, zrefdc, ztrac, ztradc)
+                            zrefc, zrefdc, ztrac, ztradc, zdbtc)
 
-! Total sky reflectivities      
-            call reftra_sw (klev, &
-                            lrtchkcld, zgco, prmu0, prmu0m1, ztauo, zomco, &
-                            zrefo, zrefdo, ztrao, ztrado)
+            do jk = 1, klev
+               ztdbtc(jk+1) = zdbtc(jk)*ztdbtc(jk)
+            enddo
 
-            do jk=1,klev
+            ! Total sky reflectivities      
+            if (any(lrtchkcld(1:klev))) then
 
-               if (lrtchkcld(jk)) then
-! Combine clear and cloudy contributions for total sky
-                  ikl = klev+1-jk 
-                  zclear = 1.0_rb - pcldfmc(ikl,iw)
-                  zcloud = pcldfmc(ikl,iw)
+               call reftra_sw (klev, &
+                               lrtchkcld, zgco, prmu0, prmu0m1, ztauo, zomco, &
+                               zref, zrefd, ztra, ztrad, zdbt)
 
-                  zref(jk) = zclear*zrefc(jk) + zcloud*zrefo(jk)
-                  zrefd(jk)= zclear*zrefdc(jk) + zcloud*zrefdo(jk)
-                  ztra(jk) = zclear*ztrac(jk) + zcloud*ztrao(jk)
-                  ztrad(jk)= zclear*ztradc(jk) + zcloud*ztrado(jk)
-               else
-                  zref(jk) = zrefc(jk)
-                  zrefd(jk)= zrefdc(jk)
-                  ztra(jk) = ztrac(jk)
-                  ztrad(jk)= ztradc(jk)
-               endif
+               do jk = 1, klev
+                  ! Combine clear and cloudy contributions for total sky
+                  if (.not. lrtchkcld(jk)) then
+                     zref(jk) = zrefc(jk)
+                     zrefd(jk)= zrefdc(jk)
+                     ztra(jk) = ztrac(jk)
+                     ztrad(jk)= ztradc(jk)
+                     zdbt(jk) = zdbtc(jk)
+                  endif
+               enddo
+
+               do jk = 1, klev
+                  ztdbt(jk+1) = zdbt(jk)*ztdbt(jk)
+               enddo
+
+            endif
 
 ! Direct beam transmittance        
 
@@ -550,45 +554,41 @@
 
 ! Use exponential lookup table for transmittance, or expansion of 
 ! exponential for low tau
-               ze1 = ztauc(jk) * prmu0m1
-               if (ze1 .le. od_lo) then
-                  zdbtmc = 1._rb - ze1 + 0.5_rb * ze1 * ze1
-               else
-                  tblind = ze1 / (bpade + ze1)
-                  itind = tblint * tblind + 0.5_rb
-                  zdbtmc = exp_tbl(itind)
-               endif
-
-               zdbtc(jk) = zdbtmc
-               ztdbtc(jk+1) = zdbtc(jk)*ztdbtc(jk)
+!              ze1 = min( ztauc(jk) * prmu0m1, 500. )
+!              if (ze1 .le. od_lo) then
+!                 zdbtmc = 1._rb - ze1 + 0.5_rb * ze1 * ze1
+!              else
+!                 tblind = ze1 / (bpade + ze1)
+!                 itind = tblint * tblind + 0.5_rb
+!                 zdbtmc = exp_tbl(itind)
+!              endif
+!              zdbtc(jk) = zdbtmc
+!              ztdbtc(jk+1) = zdbtc(jk)*ztdbtc(jk)
 
 ! Clear + Cloud
 !                zdbtmo = exp(-ztauo(jk) / prmu0)
 
 ! Use exponential lookup table for transmittance, or expansion of 
 ! exponential for low tau
-               if (lrtchkcld(jk)) then
+!              if (lrtchkcld(jk)) then
 
-                  ze1 = ztauo(jk) * prmu0m1
-                  if (ze1 .le. od_lo) then
-                     zdbtmo = 1._rb - ze1 + 0.5_rb * ze1 * ze1
-                  else
-                     tblind = ze1 / (bpade + ze1)
-                     itind = tblint * tblind + 0.5_rb
-                     zdbtmo = exp_tbl(itind)
-                  endif
-
-                  zdbt(jk) = zclear*zdbtmc + zcloud*zdbtmo
-                  ztdbt(jk+1) = zdbt(jk)*ztdbt(jk)
-
-               else
-                  
-                  zdbt (jk)   = zdbtmc
-                  ztdbt(jk+1) = zdbt(jk)*ztdbt(jk)
-
-               endif
-        
-            enddo
+!                 ze1 = ztauo(jk) * prmu0m1
+!                 if (ze1 .le. od_lo) then
+!                    zdbtmo = 1._rb - ze1 + 0.5_rb * ze1 * ze1
+!                 else
+!                    tblind = ze1 / (bpade + ze1)
+!                    itind = tblint * tblind + 0.5_rb
+!                    zdbtmo = exp_tbl(itind)
+!                 endif
+!                 zdbt(jk) = zdbtmo
+!                 ztdbt(jk+1) = zdbt(jk)*ztdbt(jk)
+!
+!               else
+!                  
+!                 zdbt (jk)   = zdbtmc
+!                 ztdbt(jk+1) = zdbt(jk)*ztdbt(jk)
+!
+!               endif
                  
 ! Vertical quadrature for clear-sky fluxes
 
@@ -607,8 +607,11 @@
                               zfd, zfu)
             else
                
-               zfd(1:klev+1,iw) = zcd(1:klev+1,iw)
-               zfu(1:klev+1,iw) = zcu(1:klev+1,iw)
+               do jk = 1, klev+1
+                  zfd  (jk,iw) = zcd   (jk,iw)
+                  zfu  (jk,iw) = zcu   (jk,iw)
+                  ztdbt(jk)    = ztdbtc(jk)
+               enddo
 
             endif
 
@@ -672,10 +675,10 @@
 ! End loop on jb, spectral band
       enddo                    
 
-    contains
+    end subroutine spcvmc_sw
 
-      subroutine reftra_sw(nlayers, lrtchk, pgg, prmuz, prmuzm1, ptau, pw, &
-                           pref, prefd, ptra, ptrad)
+    subroutine reftra_sw(nlayers, lrtchk, pgg, prmuz, prmuzm1, ptau, pw, &
+                         pref, prefd, ptra, ptrad, pdbt)
 
 ! --------------------------------------------------------------------
 ! Purpose: computes the reflectivity and transmissivity of a clear or 
@@ -748,7 +751,8 @@
                                                                !   Dimensions: (nlayers+1)
       real(kind=rb), intent(inout) :: ptrad(:)                 ! diffuse beam transmissivity
                                                                !   Dimensions: (nlayers+1)
-
+      real(kind=rb), intent(inout) :: pdbt(:)                  ! total transmissivity
+                                                               !   Dimensions: (nlayers+1)
 ! ------- Local -------
 
       integer(kind=im) :: jk, jl, kmodts
@@ -771,19 +775,14 @@
 
 ! Initialize
 
-      hvrrft = '$Revision: 11661 $'
+!     hvrrft = '$Revision: 11661 $'
 
 !     zsr3=sqrt(3._rb)
 !     zwcrit=0.9999995_rb
 !     kmodts=2
 
       do jk=1, nlayers
-         if (.not.lrtchk(jk)) then
-            pref(jk) =0._rb
-            ptra(jk) =1._rb
-            prefd(jk)=0._rb
-            ptrad(jk)=1._rb
-         else
+         if (lrtchk(jk)) then
             zto1=ptau(jk)
             zw  =pw(jk)
             zg  =pgg(jk)  
@@ -822,7 +821,7 @@
 ! collimated beam
 
                ze1 = min ( zto1 * prmuzm1 , 500._rb)
-!               ze2 = exp( -ze1 )
+!              ze2 = exp( -ze1 )
 
 ! Use exponential lookup table for transmittance, or expansion of 
 ! exponential for low tau
@@ -833,8 +832,8 @@
                   itind = tblint * tblind + 0.5_rb
                   ze2 = exp_tbl(itind)
                endif
-!
 
+               pdbt(jk) = ze2
                pref(jk) = (zgt - za1 * (1._rb - ze2)) / (1._rb + zgt)
                ptra(jk) = 1._rb - pref(jk)
 
@@ -873,19 +872,18 @@
                zt1  = zrp1 * (za1 + zrk * zgamma4)
                zt2  = zrm1 * (za1 - zrk * zgamma4)
                zt3  = zrk2 * (zgamma4 + za1 * prmuz )
-               zt4  = zr4
-               zt5  = zr5
+!              zt4  = zr4
+!              zt5  = zr5
 
 ! mji - reformulated code to avoid potential floating point exceptions
-!               zbeta = - zr5 / zr4
+!              zbeta = - zr5 / zr4
                zbeta = (zgamma1 - zrk) / zrkg
-!!
         
 ! Homogeneous reflectance and transmittance
 
-               ze1 = min ( zrk * zto1, 500._rb)
-               ze2 = min ( zto1 * prmuzm1 , 500._rb)
-!
+              ze1 = min ( zrk * zto1, 500._rb)
+              ze2 = min ( zto1 * prmuzm1 , 500._rb)
+
 ! Original
 !              zep1 = exp( ze1 )
 !              zem1 = exp(-ze1 )
@@ -929,15 +927,21 @@
 !               ptra(jk) = zem2 - zem2 * zw * (zt1*zep1 - zt2*zem1 - zt3*zep2) / zdent
 
                zdenr = zr4*zep1 + zr5*zem1
-               zdent = zt4*zep1 + zt5*zem1
+!              zdent = zt4*zep1 + zt5*zem1
+               pdbt(jk) = zem2
+               
                if (zdenr .ge. -eps .and. zdenr .le. eps) then
                   pref(jk) = eps
                   ptra(jk) = zem2
                else 
                   pref(jk) = zw * (zr1*zep1 - zr2*zem1 - zr3*zem2) / zdenr
-                  ptra(jk) = zem2 - zem2 * zw * (zt1*zep1 - zt2*zem1 - zt3*zep2) / zdent
+!                 ptra(jk) = zem2 - zem2 * zw * (zt1*zep1 - zt2*zem1 - zt3*zep2) / zdent
+                  ptra(jk) = zem2 - zem2 * zw * (zt1*zep1 - zt2*zem1 - zt3*zep2) / zdenr
+               
+                  pref(jk) = max(pref(jk), 0.0 )
+                  ptra(jk) = min(ptra(jk), 1.0 )
+                  ptra(jk) = max(ptra(jk), zem2)
                endif
-!!
 
 ! diffuse beam
 
@@ -1078,8 +1082,6 @@
       enddo
 
       end subroutine vrtqdr_sw
-
-      end subroutine spcvmc_sw
 
       end module rrtmg_sw_spcvmc
 

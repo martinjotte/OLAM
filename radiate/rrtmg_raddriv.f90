@@ -2,8 +2,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   use mem_grid,    only: mza, zm, zt, glatw, dzt
   use mem_basic,   only: rho, press, theta, tair, sh_v
-  use misc_coms,   only: io6, iswrtyp, ilwrtyp, time8, dtlm, do_chem
-  use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, t00, r8
+  use misc_coms,   only: iswrtyp, ilwrtyp, time8, dtlm, do_chem
+  use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, &
+                         t00, r8
   use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
                          rshort_top, rshortup_top, rlongup_top, fthrd_sw, &
                          albedt_beam, albedt_diffuse, rshort_diffuse, &
@@ -12,7 +13,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          rlong_clr, rlongup_clr, rlongup_top_clr, &
                          par, par_diffuse, uva, uvb, uvc, pbl_cld_forc
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab, &
-                         emb2, jnmb
+                         emb2
   use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr, iactcu
   use rrtmg_cloud, only: cloud_props
   use mem_turb,    only: frac_land, kpblh
@@ -546,7 +547,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
      endif
 
-     call rrtmg_sw(ncol    ,nrad    ,icloud  ,iaeros  ,                 &
+     call rrtmg_sw(ncol    ,nrad    ,icloud  ,iaeros  ,iw     ,         &
                    play    ,plev    ,tlay    ,tlev    ,tsfc   ,         &
                    h2ovmr  ,o3vmr   ,co2vmr  ,ch4vmr  ,n2ovmr ,o2vmr   ,&
                    asdir   ,asdif   ,aldir   ,aldif   ,                 &
@@ -557,7 +558,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                    tauaers ,ssaaers ,asmaers ,ecaer   ,                 &
                    swuflx  ,swdflx  ,swhr    ,swuflxc ,swdflxc ,swhrc  ,&
                    swuflxt_band     ,swdflxt_band     ,swuflxc_band    ,& 
-                   swdflxc_band     ,swdflxt_band_dir ,swdflxc_band_dir)
+                   swdflxc_band     ,swdflxt_band_dir ,swdflxc_band_dir )
 
      rshort        (iw) = swdflx(1,1)
      rshort_diffuse(iw) = swdflx(1,1) - sum(swdflxt_band_dir(1,1:nbndsw))
@@ -671,7 +672,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
      endif
 
-     call rrtmg_lw(ncol       ,nrad       ,icloud     ,idrv       ,                  &
+     call rrtmg_lw(ncol       ,nrad       ,icloud     ,idrv       ,iaeros  ,iw     , &
                    play       ,plev       ,tlay       ,tlev       ,tsfc    ,         & 
                    h2ovmr     ,o3vmr      ,co2vmr     ,ch4vmr     ,n2ovmr  ,o2vmr  , &
                    cfc11vmr   ,cfc12vmr   ,cfc22vmr   ,ccl4vmr    ,emis    ,         &
@@ -788,20 +789,20 @@ contains
 
        do n = 1, 6
           irr_dir_dn_tot(n) = cc(n) * swdflxt_band_dir(k,nb(n))
-          irr_dif_dn_tot(n) = cc(n) * (swdflxt_band(k,nb(n)) - swdflxt_band_dir(k,nb(n)))
+          irr_dif_dn_tot(n) = cc(n) * max( swdflxt_band(k,nb(n)) - swdflxt_band_dir(k,nb(n)), 0.0)
           irr_dif_up_tot(n) = cc(n) * swuflxt_band(k,nb(n))
 
           irr_dir_dn_clr(n) = cc(n) * swdflxc_band_dir(k,nb(n))
-          irr_dif_dn_clr(n) = cc(n) * (swdflxc_band(k,nb(n)) - swdflxc_band_dir(k,nb(n)))
+          irr_dif_dn_clr(n) = cc(n) * max( swdflxc_band(k,nb(n)) - swdflxc_band_dir(k,nb(n)), 0.0)
           irr_dif_up_clr(n) = cc(n) * swuflxc_band(k,nb(n))
        enddo
 
        irr_dir_dn_tot(7) = sum( c7(:) * swdflxt_band_dir(k,n7(:)) )
-       irr_dif_dn_tot(7) = sum( c7(:) * (swdflxt_band(k,n7(:)) - swdflxt_band_dir(k,n7(:))) )
+       irr_dif_dn_tot(7) = sum( c7(:) * max( swdflxt_band(k,n7(:)) - swdflxt_band_dir(k,n7(:)), 0.0) )
        irr_dif_up_tot(7) = sum( c7(:) * swuflxt_band(k,n7(:)) )
 
        irr_dir_dn_clr(7) = sum( c7(:) * swdflxc_band_dir(k,n7(:)) )
-       irr_dif_dn_clr(7) = sum( c7(:) * (swdflxc_band(k,n7(:)) - swdflxc_band_dir(k,n7(:))) )
+       irr_dif_dn_clr(7) = sum( c7(:) * max( swdflxc_band(k,n7(:)) - swdflxc_band_dir(k,n7(:)), 0.0) )
        irr_dif_up_clr(7) = sum( c7(:) * swuflxc_band(k,n7(:)) )
 
        do n = 1, 7

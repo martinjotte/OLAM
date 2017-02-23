@@ -78,7 +78,7 @@
 !------------------------------------------------------------------
 
       subroutine rrtmg_lw &
-            (ncol    ,nlay    ,icld    ,idrv    , &
+            (ncol    ,nlay    ,icld    ,idrv    ,iaer    ,iout  , &
              play    ,plev    ,tlay    ,tlev    ,tsfc    , & 
              h2ovmr  ,o3vmr   ,co2vmr  ,ch4vmr  ,n2ovmr  ,o2vmr , &
              cfc11vmr,cfc12vmr,cfc22vmr,ccl4vmr ,emis    , &
@@ -207,6 +207,8 @@
                                                       !    0: Normal forward calculation
                                                       !    1: Normal forward calculation with
                                                       !       duflx_dt and duflxc_dt output
+      integer(kind=im), intent(in) :: iaer            ! aerosol option flag
+      integer(kind=im), intent(in) :: iout            ! output option flag (inactive)
 
       real(kind=rb), intent(in) :: play(:,:)          ! Layer pressures (hPa, mb)
                                                       !    Dimensions: (ncol,nlay)
@@ -318,8 +320,8 @@
       integer(kind=im) :: nlayers             ! total number of layers
       integer(kind=im) :: istart              ! beginning band of calculation
       integer(kind=im) :: iend                ! ending band of calculation
-      integer(kind=im) :: iout                ! output option flag (inactive)
-      integer(kind=im) :: iaer                ! aerosol option flag
+!     integer(kind=im) :: iout                ! output option flag (inactive)
+!     integer(kind=im) :: iaer                ! aerosol option flag
       integer(kind=im) :: iplon               ! column loop index
       integer(kind=im) :: imca                ! flag for mcica [0=off, 1=on]
       integer(kind=im) :: ims                 ! value for changing mcica permute seed
@@ -434,7 +436,7 @@
       fluxfac = pi * 2.e4_rb                  ! orig:   fluxfac = pi * 2.d4  
       istart = 1
       iend = 16
-      iout = 0
+!     iout = 0
       ims = 1
 
 ! Set imca to select calculation type:
@@ -453,7 +455,7 @@
 ! Set iaer to select aerosol option
 ! iaer = 0, no aerosols
 ! iaer = 10, input total aerosol optical depth (tauaer) directly
-      iaer = 0
+!     iaer = 0
 
 ! Call model and data initialization, compute lookup tables, perform
 ! reduction of g-points from 256 to 140 for input absorption coefficient 
