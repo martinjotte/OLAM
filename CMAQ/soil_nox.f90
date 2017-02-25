@@ -212,20 +212,15 @@ contains
     use var_tables, only: vtab_r, num_var, increment_vtable
     implicit none
 
-    if (allocated(soilnox)) then
-       call increment_vtable('SOILNOX', 'LW')
-       vtab_r(num_var)%rvar1_p => soilnox
-    endif
+!   if (allocated(soilnox)) &
+!        call increment_vtable('SOILNOX', 'LW', rvar1=soilnox, hist=.false.)
 
-    if (allocated(pfactor)) then
-       call increment_vtable('SNOX_PFACTOR', 'LW')
-       vtab_r(num_var)%rvar1_p => pfactor
-    endif
+    if (allocated(pfactor)) &
+         call increment_vtable('SNOX_PFACTOR', 'LW', rvar1=pfactor)
 
-    if (allocated(drytime)) then
-       call increment_vtable('SNOX_DRYTIME', 'LW')
-       vtab_r(num_var)%rvar1_p => drytime
-    endif
+    if (allocated(drytime)) &
+         call increment_vtable('SNOX_DRYTIME', 'LW', rvar1=drytime)
+
   end subroutine filltab_soil_nox
 
     

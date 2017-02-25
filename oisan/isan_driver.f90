@@ -165,6 +165,14 @@ real     :: o_umerid(mza,mwa)
 real     :: o_vc    (mza,mva) ! vc wind component
 real     :: o_ozone (mza,mwa)
 
+o_rho    = 0.0_r8
+o_theta  = 0.0
+o_shv    = 0.0
+o_uzonal = 0.0
+o_umerid = 0.0
+o_vc     = 0.0
+o_ozone  = 0.0
+
 ! Read in gridded pressure-level data and copy to isan arrays
 
 call pressure_stage(fform, p_u, p_v, p_t, p_z, p_r, p_o, &

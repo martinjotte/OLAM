@@ -251,15 +251,11 @@ Contains
     ! ozone currently only uses non-spectral nudging, which is only
     ! computed at W points
 
-    if (allocated(ozone_obsp)) then
-       call increment_vtable('OZONE_OBSP', 'AW', noread=.true.)
-       vtab_r(num_var)%rvar2_p => ozone_obsp
-    endif
+    if (allocated(ozone_obsp)) &
+         call increment_vtable('OZONE_OBSP', 'AW', noread=.true., rvar2=ozone_obsp)
 
-    if (allocated(ozone_obsf)) then
-       call increment_vtable('OZONE_OBSF', 'AW', noread=.true.)
-       vtab_r(num_var)%rvar2_p => ozone_obsf
-    endif
+    if (allocated(ozone_obsf)) &
+         call increment_vtable('OZONE_OBSF', 'AW', noread=.true., rvar2=ozone_obsf)
 
   end subroutine filltab_nudge_o3
 
