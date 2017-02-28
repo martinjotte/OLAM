@@ -85,8 +85,7 @@
              inflglw ,iceflglw,liqflglw,cldfmcl , &
              taucmcl ,ciwpmcl ,clwpmcl ,reicmcl ,relqmcl , &
              tauaer  , &
-             uflx    ,dflx    ,hr      ,uflxc   ,dflxc,  hrc, &
-             duflx_dt,duflxc_dt )
+             uflx    ,dflx    ,hr      ,uflxc   ,dflxc,  hrc)
 
 ! -------- Description --------
 
@@ -304,16 +303,6 @@
       real(kind=rb), intent(out) :: hrc(:,:)          ! Clear sky longwave radiative heating rate (K/d)
                                                       !    Dimensions: (ncol,nlay)
 
-! ----- Optional Output -----
-      real(kind=rb), intent(out), optional :: duflx_dt(:,:)     
-                                                      ! change in upward longwave flux (w/m2/K)
-                                                      ! with respect to surface temperature
-                                                      !    Dimensions: (ncol,nlay+1)
-      real(kind=rb), intent(out), optional :: duflxc_dt(:,:)    
-                                                      ! change in clear sky upward longwave flux (w/m2/K)
-                                                      ! with respect to surface temperature
-                                                      !    Dimensions: (ncol,nlay+1)
-
 ! ----- Local -----
 
 ! Control
@@ -423,10 +412,6 @@
       real(kind=rb) :: totdclfl(0:nlay+1)     ! clear sky downward longwave flux (w/m2)
       real(kind=rb) :: fnetc(0:nlay+1)        ! clear sky net longwave flux (w/m2)
       real(kind=rb) :: htrc(0:nlay+1)         ! clear sky longwave heating rate (k/day)
-      real(kind=rb) :: dtotuflux_dt(0:nlay+1) ! change in upward longwave flux (w/m2/k)
-                                              ! with respect to surface temperature
-      real(kind=rb) :: dtotuclfl_dt(0:nlay+1) ! change in clear sky upward longwave flux (w/m2/k)
-                                              ! with respect to surface temperature
 
 !
 ! Initializations
@@ -546,8 +531,7 @@
                      cldfmc, taucmc, planklay, planklev, plankbnd, &
                      pwvcm, fracs, taut, &
                      totuflux, totdflux, fnet, htr, &
-                     totuclfl, totdclfl, fnetc, htrc, &
-                     idrv, dplankbnd_dt, dtotuflux_dt, dtotuclfl_dt )
+                     totuclfl, totdclfl, fnetc, htrc)
 
 !  Transfer up and down fluxes and heating rate to output arrays.
 !  Vertical indexing goes from bottom to top; reverse here for GCM if necessary.
@@ -562,15 +546,6 @@
             hr(iplon,k+1) = htr(k)
             hrc(iplon,k+1) = htrc(k)
          enddo
-
-!  If idrv=1 option is active, transfer upward flux derivatives to output arrays.
-         
-         if (idrv .eq. 1) then 
-            do k = 0, nlayers
-               duflx_dt(iplon,k+1) = dtotuflux_dt(k)
-               duflxc_dt(iplon,k+1) = dtotuclfl_dt(k)
-            enddo
-         endif
 
 ! End longitude/column loop
       enddo

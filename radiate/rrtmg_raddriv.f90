@@ -145,9 +145,6 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: lwdflxc(ncol, nrad+1)
   real :: lwhrc  (ncol, nrad  )
 
-  real :: duflx_dt (ncol, nrad+1)
-  real :: duflxc_dt(ncol, nrad+1)
-
   real :: tauaerl(ncol, nrad, nbndlw)
   real :: tauaers(ncol, nrad, nbndsw)
   real :: ssaaers(ncol, nrad, nbndsw)
@@ -661,9 +658,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                  ib = ngb_lw(ig) - ngbmlw
 
                  cldfmcl_lw(ig,1,k) = 1.0
-                 clwpmcl_lw(ig,1,k) = cliqwp       (1,k)
-                 ciwpmcl_lw(ig,1,k) = cicewp       (1,k)
-                 taucmcl_lw(ig,1,k) = taucmcl_lw(ib,1,k)
+                 clwpmcl_lw(ig,1,k) = cliqwp    (1,k)
+                 ciwpmcl_lw(ig,1,k) = cicewp    (1,k)
+                 taucmcl_lw(ig,1,k) = taucldl(ib,1,k)
               enddo
 
            endif
@@ -678,8 +675,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                    cfc11vmr   ,cfc12vmr   ,cfc22vmr   ,ccl4vmr    ,emis    ,         &
                    inflg      ,iceflg     ,liqflg     ,cldfmcl_lw ,                  &
                    taucmcl_lw ,ciwpmcl_lw ,clwpmcl_lw ,reicmcl    ,relqmcl ,tauaerl, &
-                   lwuflx     ,lwdflx     ,lwhr       ,lwuflxc    ,lwdflxc ,lwhrc  , &
-                   duflx_dt   ,duflxc_dt                                             )
+                   lwuflx     ,lwdflx     ,lwhr       ,lwuflxc    ,lwdflxc ,lwhrc    )
 
      rlong      (iw) = lwdflx(1,1)
      rlongup    (iw) = lwuflx(1,1)
