@@ -154,15 +154,15 @@ implicit none
      idims(2) = nembc
      idims(3) = npairc
 
-     call shdf5_irec(ndims, idims, 'COLTABC', rvara=coltabc)
+     call shdf5_irec(ndims, idims, 'COLTABC', rvar3=coltabc)
 
      idims(3) = npairx
 
-     call shdf5_irec(ndims, idims, 'COLTABX', rvara=coltabx)
+     call shdf5_irec(ndims, idims, 'COLTABX', rvar3=coltabx)
 
      idims(3) = npairy
 
-     call shdf5_irec(ndims, idims, 'COLTABY', rvara=coltaby)
+     call shdf5_irec(ndims, idims, 'COLTABY', rvar3=coltaby)
 
 ! Close the collection table file
 
@@ -187,15 +187,15 @@ implicit none
         idims(2) = nembc
         idims(3) = npairc
 
-        call shdf5_orec(ndims, idims, 'COLTABC', rvara=coltabc)
+        call shdf5_orec(ndims, idims, 'COLTABC', rvar3=coltabc)
 
         idims(3) = npairx
 
-        call shdf5_orec(ndims, idims, 'COLTABX', rvara=coltabx)
+        call shdf5_orec(ndims, idims, 'COLTABX', rvar3=coltabx)
 
         idims(3) = npairy
 
-        call shdf5_orec(ndims, idims, 'COLTABY', rvara=coltaby)
+        call shdf5_orec(ndims, idims, 'COLTABY', rvar3=coltaby)
 
 ! Close the collection table file
 

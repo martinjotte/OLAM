@@ -308,7 +308,7 @@ subroutine sst_database_read(iaction)
   nio = idims(1)
   njo = idims(2)
   allocate(dato(nio,njo))
-  call shdf5_irec(ndims,idims,'sst',rvara=dato)
+  call shdf5_irec(ndims,idims,'sst',rvar2=dato)
   call shdf5_close()
 
 ! If data size is even, assume that it is offset 1/2 delta lat-lon from

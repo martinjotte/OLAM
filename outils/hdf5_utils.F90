@@ -32,9 +32,11 @@
 !===============================================================================
 Module hdf5_utils
 
-  use mem_para, only: myrank
+  use mem_para,    only: myrank
+  use consts_coms, only: r8
+
   character(1), save :: prevaccess = ''
-  private :: myrank, prevaccess
+  private            :: myrank, r8, prevaccess
 
 Contains
 
@@ -152,8 +154,11 @@ end subroutine shdf5_info
 
 !===============================================================================
 
-subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
-                                          ivars,rvars,cvars,dvars,lvars,  &
+subroutine shdf5_orec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars,  &
+                                          ivar1,rvar1,cvar1,dvar1,lvar1,  &
+                                          ivar2,rvar2,cvar2,dvar2,lvar2,  &
+                                          ivar3,rvar3,cvar3,dvar3,lvar3,  &
+                                          ivar4,rvar4,      dvar4,        &
                                           nglobe, lpoints, gpoints,       &
                                           units, long_name, positive,     &
                                           imissing, rmissing, dmissing,   &
@@ -164,7 +169,7 @@ subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
   use consts_coms, only: r8
   use misc_coms,   only: iparallel
   use hdf5_f2f
-    
+
   implicit none
 
   character(*), intent(in) :: dsetname ! Variable label
@@ -172,11 +177,11 @@ subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
   integer,      intent(in) :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer,      intent(in), optional :: ivara(*), ivars
-  real,         intent(in), optional :: rvara(*), rvars
-  character,    intent(in), optional :: cvara(*), cvars
-  real(r8),     intent(in), optional :: dvara(*), dvars
-  logical,      intent(in), optional :: lvara(*), lvars
+  integer,      intent(in), optional :: ivars, ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
+  real,         intent(in), optional :: rvars, rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
+  character,    intent(in), optional :: cvars, cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),     intent(in), optional :: dvars, dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
+  logical,      intent(in), optional :: lvars, lvar1(:), lvar2(:,:), lvar3(:,:,:)
 
 ! Optional arrays to determine cells for partial/parallel IO
   integer,      intent(in), optional :: lpoints(:), gpoints(:), nglobe
@@ -205,12 +210,14 @@ subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
   endif
 
 #if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
-  if ( ( present(ivara) .or. present(rvara) .or.         &
-         present(dvara) .or. present(lvara)      ) .and. &
-       present(gpoints) .and. iparallel == 1) then
+  if ( .not. present(ivars) .and. .not. present(rvars) .and. &
+       .not. present(cvars) .and. .not. present(dvars) .and. &
+       .not. present(lvars) .and. present(gpoints) .and. iparallel == 1 ) then
 
-     call shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
-                                          ivars,rvars,cvars,dvars,lvars,  &
+     call shdf5_orec2(ndims,dims,dsetname,ivar1,rvar1,cvar1,dvar1,lvar1,  &
+                                          ivar2,rvar2,cvar2,dvar2,lvar2,  &
+                                          ivar3,rvar3,cvar3,dvar3,lvar3,  &
+                                          ivar4,rvar4,      dvar4,        &
                                           nglobe, lpoints, gpoints,       &
                                           units, long_name, positive,     &
                                           imissing, rmissing, dmissing,   &
@@ -239,11 +246,29 @@ subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
   elseif (present(cvars)) then ; call fh5_write(cvars, dsetname, hdferr)
   elseif (present(dvars)) then ; call fh5_write(dvars, dsetname, hdferr)
   elseif (present(lvars)) then ; call fh5_write(lvars, dsetname, hdferr)
-  elseif (present(ivara)) then ; call fh5_write(ivara, dsetname, hdferr)
-  elseif (present(rvara)) then ; call fh5_write(rvara, dsetname, hdferr)
-  elseif (present(cvara)) then ; call fh5_write(cvara, dsetname, hdferr)
-  elseif (present(dvara)) then ; call fh5_write(dvara, dsetname, hdferr)
-  elseif (present(lvara)) then ; call fh5_write(lvara, dsetname, hdferr)
+
+  elseif (present(ivar1)) then ; call fh5_write(ivar1, dsetname, hdferr)
+  elseif (present(rvar1)) then ; call fh5_write(rvar1, dsetname, hdferr)
+  elseif (present(cvar1)) then ; call fh5_write(cvar1, dsetname, hdferr)
+  elseif (present(dvar1)) then ; call fh5_write(dvar1, dsetname, hdferr)
+  elseif (present(lvar1)) then ; call fh5_write(lvar1, dsetname, hdferr)
+
+  elseif (present(ivar2)) then ; call fh5_write(ivar2, dsetname, hdferr)
+  elseif (present(rvar2)) then ; call fh5_write(rvar2, dsetname, hdferr)
+  elseif (present(cvar2)) then ; call fh5_write(cvar2, dsetname, hdferr)
+  elseif (present(dvar2)) then ; call fh5_write(dvar2, dsetname, hdferr)
+  elseif (present(lvar2)) then ; call fh5_write(lvar2, dsetname, hdferr)
+
+  elseif (present(ivar3)) then ; call fh5_write(ivar3, dsetname, hdferr)
+  elseif (present(rvar3)) then ; call fh5_write(rvar3, dsetname, hdferr)
+  elseif (present(cvar3)) then ; call fh5_write(cvar3, dsetname, hdferr)
+  elseif (present(dvar3)) then ; call fh5_write(dvar3, dsetname, hdferr)
+  elseif (present(lvar3)) then ; call fh5_write(lvar3, dsetname, hdferr)
+
+  elseif (present(ivar4)) then ; call fh5_write(ivar4, dsetname, hdferr)
+  elseif (present(rvar4)) then ; call fh5_write(rvar4, dsetname, hdferr)
+  elseif (present(dvar4)) then ; call fh5_write(dvar4, dsetname, hdferr)
+
   else
      print*, 'Incorrect or missing data field argument in shdf5_orec'
      stop    'shdf5_orec: bad data field'
@@ -288,15 +313,15 @@ subroutine shdf5_orec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
      if (len_trim(positive) > 0) call fh5f_write_attribute("positive", cvalue=positive)
   endif
 
-  if ((present(ivars) .or. present(ivara)) .and. present(imissing)) then
+  if (present(imissing)) then
      call fh5f_write_attribute("missing_value", ivalue=imissing)
   endif
 
-  if ((present(rvars) .or. present(rvara)) .and. present(rmissing)) then
+  if (present(rmissing)) then
      call fh5f_write_attribute("missing_value", rvalue=rmissing)
   endif
 
-  if ((present(dvars) .or. present(dvara)) .and. present(dmissing)) then
+  if (present(dmissing)) then
      call fh5f_write_attribute("missing_value", dvalue=dmissing)
   endif
 
@@ -310,8 +335,10 @@ end subroutine shdf5_orec
 
 #ifdef OLAM_MPI
 
-subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
-                                           ivars,rvars,cvars,dvars,lvars,  &
+subroutine shdf5_orec2(ndims,dims,dsetname,ivar1,rvar1,cvar1,dvar1,lvar1,  &
+                                           ivar2,rvar2,cvar2,dvar2,lvar2,  &
+                                           ivar3,rvar3,cvar3,dvar3,lvar3,  &
+                                           ivar4,rvar4,      dvar4,        &
                                            nglobe, lpoints, gpoints,       &
                                            units, long_name, positive,     &
                                            imissing, rmissing, dmissing,   &
@@ -322,7 +349,6 @@ subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
   use consts_coms, only: r8
   use mem_para,    only: mgroupsize, myrank
   use hdf5_f2f
-
   use mpi
 
   implicit none
@@ -332,11 +358,11 @@ subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
   integer,      intent(in) :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer,      intent(in), optional :: ivara(*), ivars
-  real,         intent(in), optional :: rvara(*), rvars
-  character,    intent(in), optional :: cvara(*), cvars
-  real(r8),     intent(in), optional :: dvara(*), dvars
-  logical,      intent(in), optional :: lvara(*), lvars
+  integer,      intent(in), optional :: ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
+  real,         intent(in), optional :: rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
+  character,    intent(in), optional :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),     intent(in), optional :: dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
+  logical,      intent(in), optional :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
 
 ! Optional arrays to determine cells for partial/parallel IO
   integer,      intent(in), optional :: lpoints(:), gpoints(:), nglobe
@@ -390,10 +416,14 @@ subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
 
   if (myrank == 0) then
      allocate(points(base))
-     if     (present(ivara)) then ; allocate(ibuff(maxbuff))
-     elseif (present(rvara)) then ; allocate(rbuff(maxbuff))
-     elseif (present(dvara)) then ; allocate(dbuff(maxbuff))
-     elseif (present(lvara)) then ; allocate(lbuff(maxbuff))
+     if     (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
+        allocate(ibuff(maxbuff))
+     elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
+        allocate(rbuff(maxbuff))
+     elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
+        allocate(dbuff(maxbuff))
+     elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)                    ) then
+        allocate(lbuff(maxbuff))
      endif
   endif
 
@@ -401,7 +431,7 @@ subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
      
      call MPI_Send(gpoints, nu, MPI_INTEGER, 0, itag, MPI_COMM_WORLD, ier)
 
-     if (present(ivara)) then
+     if (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
 
         allocate(ibuff(locbuff))
         do n = 1, nu
@@ -410,11 +440,16 @@ subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
            else
               i = n
            endif
-           ibuff( (n-1)*is+1 : n*is) = ivara( (i-1)*is+1 : i*is )
+
+           if (present(ivar1)) ibuff( (n-1)*is+1 : n*is) =    ivar1(i)
+           if (present(ivar2)) ibuff( (n-1)*is+1 : n*is) = (/ ivar2(:,i)     /)
+           if (present(ivar3)) ibuff( (n-1)*is+1 : n*is) = (/ ivar3(:,:,i)   /)
+           if (present(ivar4)) ibuff( (n-1)*is+1 : n*is) = (/ ivar4(:,:,:,i) /)
+
         enddo
         call MPI_Send(ibuff, locbuff, MPI_INTEGER, 0, itag, MPI_COMM_WORLD, ier)
 
-     elseif (present(rvara)) then
+     elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
 
         allocate(rbuff(locbuff))
         do n = 1, nu
@@ -423,11 +458,16 @@ subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
            else
               i = n
            endif
-           rbuff( (n-1)*is+1 : n*is) = rvara( (i-1)*is+1 : i*is )
+
+           if (present(rvar1)) rbuff( (n-1)*is+1 : n*is) =    rvar1(i)
+           if (present(rvar2)) rbuff( (n-1)*is+1 : n*is) = (/ rvar2(:,i)     /)
+           if (present(rvar3)) rbuff( (n-1)*is+1 : n*is) = (/ rvar3(:,:,i)   /)
+           if (present(rvar4)) rbuff( (n-1)*is+1 : n*is) = (/ rvar4(:,:,:,i) /)
+
         enddo
         call MPI_Send(rbuff, locbuff, MPI_REAL, 0, itag, MPI_COMM_WORLD, ier)
 
-     elseif (present(dvara)) then
+     elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
 
         allocate(dbuff(locbuff))
         do n = 1, nu
@@ -436,11 +476,16 @@ subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
            else
               i = n
            endif
-           dbuff( (n-1)*is+1 : n*is) = dvara( (i-1)*is+1 : i*is )
+
+           if (present(dvar1)) dbuff( (n-1)*is+1 : n*is) =    dvar1(i)
+           if (present(dvar2)) dbuff( (n-1)*is+1 : n*is) = (/ dvar2(:,i)     /)
+           if (present(dvar3)) dbuff( (n-1)*is+1 : n*is) = (/ dvar3(:,:,i)   /)
+           if (present(dvar4)) dbuff( (n-1)*is+1 : n*is) = (/ dvar4(:,:,:,i) /)
+
         enddo
         call MPI_Send(dbuff, locbuff, MPI_REAL8, 0, itag, MPI_COMM_WORLD, ier)
 
-     elseif (present(lvara)) then
+     elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
 
         allocate(lbuff(locbuff))
         do n = 1, nu
@@ -449,7 +494,11 @@ subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
            else
               i = n
            endif
-           lbuff( (n-1)*is+1 : n*is) = lvara( (i-1)*is+1 : i*is )
+
+            if (present(lvar1)) lbuff( (n-1)*is+1 : n*is) =    lvar1(i)
+            if (present(lvar2)) lbuff( (n-1)*is+1 : n*is) = (/ lvar2(:,i)   /)
+            if (present(lvar2)) lbuff( (n-1)*is+1 : n*is) = (/ lvar3(:,:,i) /)
+
         enddo
         call MPI_Send(lbuff, locbuff, MPI_LOGICAL, 0, itag, MPI_COMM_WORLD, ier)
 
@@ -483,30 +532,45 @@ subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
 
      ! Write the dataset.
 
-     if (present(ivara)) then
+     if (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
         if (n == 1) then
-           call fh5_write(ivara, dsetname, hdferr)
+               if (present(ivar1)) then ; call fh5_write(ivar1, dsetname, hdferr)
+           elseif (present(ivar2)) then ; call fh5_write(ivar2, dsetname, hdferr)
+           elseif (present(ivar3)) then ; call fh5_write(ivar3, dsetname, hdferr)
+           elseif (present(ivar4)) then ; call fh5_write(ivar4, dsetname, hdferr)
+           endif
         else
            call MPI_Recv( ibuff, maxbuff, MPI_INTEGER, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
            call fh5_write(ibuff, dsetname, hdferr, n)
         endif
-     elseif (present(rvara)) then
+     elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
         if (n == 1) then
-           call fh5_write(rvara, dsetname, hdferr)
+               if (present(rvar1)) then ; call fh5_write(rvar1, dsetname, hdferr)
+           elseif (present(rvar2)) then ; call fh5_write(rvar2, dsetname, hdferr)
+           elseif (present(rvar3)) then ; call fh5_write(rvar3, dsetname, hdferr)
+           elseif (present(rvar4)) then ; call fh5_write(rvar4, dsetname, hdferr)
+           endif
         else
            call MPI_Recv( rbuff, maxbuff, MPI_REAL,    n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
            call fh5_write(rbuff, dsetname, hdferr, n)
         endif
-     elseif (present(dvara)) then
+     elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
         if (n == 1) then
-           call fh5_write(dvara, dsetname, hdferr)
+               if (present(dvar1)) then ; call fh5_write(dvar1, dsetname, hdferr)
+           elseif (present(dvar2)) then ; call fh5_write(dvar2, dsetname, hdferr)
+           elseif (present(dvar3)) then ; call fh5_write(dvar3, dsetname, hdferr)
+           elseif (present(dvar4)) then ; call fh5_write(dvar4, dsetname, hdferr)
+           endif
         else
            call MPI_Recv( dbuff, maxbuff, MPI_REAL8,   n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
            call fh5_write(dbuff, dsetname, hdferr, n)
         endif
-     elseif (present(lvara)) then
+     elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
         if (n == 1) then
-           call fh5_write(lvara, dsetname, hdferr)
+               if (present(lvar1)) then ; call fh5_write(lvar1, dsetname, hdferr)
+           elseif (present(lvar2)) then ; call fh5_write(lvar2, dsetname, hdferr)
+           elseif (present(lvar3)) then ; call fh5_write(lvar3, dsetname, hdferr)
+           endif
         else
            call MPI_Recv( lbuff, maxbuff, MPI_LOGICAL, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
            call fh5_write(lbuff, dsetname, hdferr, n)
@@ -559,15 +623,15 @@ subroutine shdf5_orec2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
      if (len_trim(positive) > 0) call fh5f_write_attribute("positive", cvalue=positive)
   endif
 
-  if ((present(ivars) .or. present(ivara)) .and. present(imissing)) then
+  if (present(imissing)) then
      call fh5f_write_attribute("missing_value", ivalue=imissing)
   endif
 
-  if ((present(rvars) .or. present(rvara)) .and. present(rmissing)) then
+  if (present(rmissing)) then
      call fh5f_write_attribute("missing_value", rvalue=rmissing)
   endif
 
-  if ((present(dvars) .or. present(dvara)) .and. present(dmissing)) then
+  if (present(dmissing)) then
      call fh5f_write_attribute("missing_value", dvalue=dmissing)
   endif
 
@@ -581,9 +645,12 @@ end subroutine shdf5_orec2
 
 !===============================================================================
 
-subroutine shdf5_irec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
-                                         ,ivars,rvars,cvars,dvars,lvars  &
-                                         ,points,start,counts)
+subroutine shdf5_irec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars,  &
+                                          ivar1,rvar1,cvar1,dvar1,lvar1,  &
+                                          ivar2,rvar2,cvar2,dvar2,lvar2,  &
+                                          ivar3,rvar3,cvar3,dvar3,lvar3,  &
+                                          ivar4,rvar4,      dvar4,        &
+                                          points, start, counts)
   use hdf5_f2f
   implicit none
 
@@ -592,11 +659,11 @@ subroutine shdf5_irec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
   integer,      intent(IN) :: dims(:)  ! Dataset dimensions
 
 ! Array and scalar arguments for different types. Only specify one in each call.
-  integer,      intent(OUT), optional :: ivara(*), ivars
-  real,         intent(OUT), optional :: rvara(*), rvars
-  character,    intent(OUT), optional :: cvara(*), cvars
-  real(kind=8), intent(OUT), optional :: dvara(*), dvars
-  logical,      intent(OUT), optional :: lvara(*), lvars
+  integer,      intent(inout), optional :: ivars, ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
+  real,         intent(inout), optional :: rvars, rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
+  character,    intent(inout), optional :: cvars, cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),     intent(inout), optional :: dvars, dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
+  logical,      intent(inout), optional :: lvars, lvar1(:), lvar2(:,:), lvar3(:,:,:)
 
 ! Optional arrays to determine cells for partial/parallel IO
   integer,      intent(IN),  optional :: points(:)
@@ -624,16 +691,34 @@ subroutine shdf5_irec(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
 
 ! Read data from hyperslab in the file into the hyperslab in memory.
 
-      if (present(ivars)) then ; call fh5d_read(ivars, hdferr)
-  elseif (present(rvars)) then ; call fh5d_read(rvars, hdferr)
-  elseif (present(cvars)) then ; call fh5d_read(cvars, hdferr)
-  elseif (present(dvars)) then ; call fh5d_read(dvars, hdferr)
-  elseif (present(lvars)) then ; call fh5d_read(lvars, hdferr)
-  elseif (present(ivara)) then ; call fh5d_read(ivara, hdferr)
-  elseif (present(rvara)) then ; call fh5d_read(rvara, hdferr)
-  elseif (present(cvara)) then ; call fh5d_read(cvara, hdferr)
-  elseif (present(dvara)) then ; call fh5d_read(dvara, hdferr)
-  elseif (present(lvara)) then ; call fh5d_read(lvara, hdferr)
+      if (present(ivars)) then ; call fh5_read(ivars, hdferr)
+  elseif (present(rvars)) then ; call fh5_read(rvars, hdferr)
+  elseif (present(cvars)) then ; call fh5_read(cvars, hdferr)
+  elseif (present(dvars)) then ; call fh5_read(dvars, hdferr)
+  elseif (present(lvars)) then ; call fh5_read(lvars, hdferr)
+
+  elseif (present(ivar1)) then ; call fh5_read(ivar1, hdferr)
+  elseif (present(rvar1)) then ; call fh5_read(rvar1, hdferr)
+  elseif (present(cvar1)) then ; call fh5_read(cvar1, hdferr)
+  elseif (present(dvar1)) then ; call fh5_read(dvar1, hdferr)
+  elseif (present(lvar1)) then ; call fh5_read(lvar1, hdferr)
+
+  elseif (present(ivar2)) then ; call fh5_read(ivar2, hdferr)
+  elseif (present(rvar2)) then ; call fh5_read(rvar2, hdferr)
+  elseif (present(cvar2)) then ; call fh5_read(cvar2, hdferr)
+  elseif (present(dvar2)) then ; call fh5_read(dvar2, hdferr)
+  elseif (present(lvar2)) then ; call fh5_read(lvar2, hdferr)
+
+  elseif (present(ivar3)) then ; call fh5_read(ivar3, hdferr)
+  elseif (present(rvar3)) then ; call fh5_read(rvar3, hdferr)
+  elseif (present(cvar3)) then ; call fh5_read(cvar3, hdferr)
+  elseif (present(dvar3)) then ; call fh5_read(dvar3, hdferr)
+  elseif (present(lvar3)) then ; call fh5_read(lvar3, hdferr)
+
+  elseif (present(ivar4)) then ; call fh5_read(ivar4, hdferr)
+  elseif (present(rvar4)) then ; call fh5_read(rvar4, hdferr)
+  elseif (present(dvar4)) then ; call fh5_read(dvar4, hdferr)
+
   else
      print*,'Incorrect or missing data field argument in shdf5_irec'
      print*, 'field = ', dsetname
@@ -673,58 +758,41 @@ end  subroutine shdf5_close
 
 !===============================================================================
 
-subroutine shdf5_io(action,ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara  &
-                                              ,ivars,rvars,cvars,dvars,lvars)
+subroutine shdf5_io(action,ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars, &
+                                               ivar1,rvar1,cvar1,dvar1,lvar1, &
+                                               ivar2,rvar2,cvar2,dvar2,lvar2, &
+                                               ivar3,rvar3,cvar3,dvar3,lvar3, &
+                                               ivar4,rvar4,      dvar4        )
+  use consts_coms, only: r8
   use hdf5_f2f
+
   implicit none
 
-  character(*), intent(in)              :: dsetname, action
-  integer,      intent(in)              :: ndims,    dims(:)
-  integer,      intent(inout), optional :: ivara(*), ivars
-  real,         intent(inout), optional :: rvara(*), rvars
-  character,    intent(inout), optional :: cvara(*), cvars
-  real(kind=8), intent(inout), optional :: dvara(*), dvars
-  logical,      intent(inout), optional :: lvara(*), lvars
+  character(*), intent(in)           :: dsetname, action
+  integer,      intent(in)           :: ndims,    dims(:)
+  integer,      intent(inout), optional :: ivars, ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
+  real,         intent(inout), optional :: rvars, rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
+  character,    intent(inout), optional :: cvars, cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),     intent(inout), optional :: dvars, dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
+  logical,      intent(inout), optional :: lvars, lvar1(:), lvar2(:,:), lvar3(:,:,:)
  
   ! THIS ROUTINE CALLS SHDF5_IREC OR SHDF5_OREC TO READ OR WRITE A VARIABLE
   ! DEPENDING ON WHETHER 'ACTION' EQUALS 'READ' OR 'WRITE'
 
   if (action == 'READ') then
      
-         if (present(ivars)) then ; call shdf5_irec(ndims, dims, dsetname, ivars=ivars)
-     elseif (present(rvars)) then ; call shdf5_irec(ndims, dims, dsetname, rvars=rvars)
-     elseif (present(cvars)) then ; call shdf5_irec(ndims, dims, dsetname, cvars=cvars)
-     elseif (present(dvars)) then ; call shdf5_irec(ndims, dims, dsetname, dvars=dvars)
-     elseif (present(lvars)) then ; call shdf5_irec(ndims, dims, dsetname, lvars=lvars)
-     elseif (present(ivara)) then ; call shdf5_irec(ndims, dims, dsetname, ivara=ivara)
-     elseif (present(rvara)) then ; call shdf5_irec(ndims, dims, dsetname, rvara=rvara)
-     elseif (present(cvara)) then ; call shdf5_irec(ndims, dims, dsetname, cvara=cvara)
-     elseif (present(dvara)) then ; call shdf5_irec(ndims, dims, dsetname, dvara=dvara)
-     elseif (present(lvara)) then ; call shdf5_irec(ndims, dims, dsetname, lvara=lvara)
-     else
-        print*,'Incorrect or missing data field argument in shdf5_io'
-        print*, 'field = ', dsetname
-        stop    'shdf5_io: bad data field'
-     endif
-     
+     call shdf5_irec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars, &
+                                         ivar1,rvar1,cvar1,dvar1,lvar1, &
+                                         ivar2,rvar2,cvar2,dvar2,lvar2, &
+                                         ivar3,rvar3,cvar3,dvar3,lvar3, &
+                                         ivar4,rvar4,      dvar4        )
   elseif (action == 'WRITE') then
      
-         if (present(ivars)) then ; call shdf5_orec(ndims, dims, dsetname, ivars=ivars)
-     elseif (present(rvars)) then ; call shdf5_orec(ndims, dims, dsetname, rvars=rvars)
-     elseif (present(cvars)) then ; call shdf5_orec(ndims, dims, dsetname, cvars=cvars)
-     elseif (present(dvars)) then ; call shdf5_orec(ndims, dims, dsetname, dvars=dvars)
-     elseif (present(lvars)) then ; call shdf5_orec(ndims, dims, dsetname, lvars=lvars)
-     elseif (present(ivara)) then ; call shdf5_orec(ndims, dims, dsetname, ivara=ivara)
-     elseif (present(rvara)) then ; call shdf5_orec(ndims, dims, dsetname, rvara=rvara)
-     elseif (present(cvara)) then ; call shdf5_orec(ndims, dims, dsetname, cvara=cvara)
-     elseif (present(dvara)) then ; call shdf5_orec(ndims, dims, dsetname, dvara=dvara)
-     elseif (present(lvara)) then ; call shdf5_orec(ndims, dims, dsetname, lvara=lvara)
-     else
-        print*,'Incorrect or missing data field argument in shdf5_io'
-        print*, 'field = ', dsetname
-        stop    'shdf5_io: bad data field'
-     endif
-
+     call shdf5_orec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars, &
+                                         ivar1,rvar1,cvar1,dvar1,lvar1, &
+                                         ivar2,rvar2,cvar2,dvar2,lvar2, &
+                                         ivar3,rvar3,cvar3,dvar3,lvar3, &
+                                         ivar4,rvar4,      dvar4        )
   else
      
      print *, "Illegal action in shdf5_io."
@@ -737,8 +805,9 @@ end subroutine shdf5_io
 
 !===============================================================================
 
-subroutine shdf5_orec_ll(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
-                                             ivars,rvars,cvars,dvars,lvars,  &
+subroutine shdf5_orec_ll(ndims,dims,dsetname,ivar1,rvar1,cvar1,dvar1,lvar1,  &
+                                             ivar2,rvar2,cvar2,dvar2,lvar2,  &
+                                             ivar3,rvar3,cvar3,dvar3,lvar3,  &
                                              gpoints,                        &
                                              units, long_name, positive,     &
                                              imissing, rmissing, dmissing,   &
@@ -757,11 +826,11 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
   integer,      intent(in) :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer,      intent(in), optional :: ivara(*), ivars
-  real,         intent(in), optional :: rvara(*), rvars
-  character,    intent(in), optional :: cvara(*), cvars
-  real(r8),     intent(in), optional :: dvara(*), dvars
-  logical,      intent(in), optional :: lvara(*), lvars
+  integer,      intent(in), optional :: ivar1(:), ivar2(:,:), ivar3(:,:,:)
+  real,         intent(in), optional :: rvar1(:), rvar2(:,:), rvar3(:,:,:)
+  character,    intent(in), optional :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),     intent(in), optional :: dvar1(:), dvar2(:,:), dvar3(:,:,:)
+  logical,      intent(in), optional :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
 
 ! Optional arrays to determine cells for partial/parallel IO
   integer,      intent(in), optional :: gpoints(:)
@@ -790,12 +859,11 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
   endif
      
 #if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
-  if ( ( present(ivara) .or. present(rvara) .or.         &
-         present(dvara) .or. present(lvara)      ) .and. &
-       present(gpoints) .and. iparallel == 1) then
+  if (present(gpoints) .and. iparallel == 1) then
 
-     call shdf5_orec_ll2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
-                                             ivars,rvars,cvars,dvars,lvars,  &
+     call shdf5_orec_ll2(ndims,dims,dsetname,ivar1,rvar1,cvar1,dvar1,lvar1,  &
+                                             ivar2,rvar2,cvar2,dvar2,lvar2,  &
+                                             ivar3,rvar3,cvar3,dvar3,lvar3,  &
                                              gpoints,                        &
                                              units, long_name, positive,     &
                                              imissing, rmissing, dmissing,   &
@@ -816,18 +884,25 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
      return
   endif
 
-! Write the dataset.
+! Write the dataset
 
-      if (present(ivars)) then ; call fh5_write(ivars, dsetname, hdferr)
-  elseif (present(rvars)) then ; call fh5_write(rvars, dsetname, hdferr)
-  elseif (present(cvars)) then ; call fh5_write(cvars, dsetname, hdferr)
-  elseif (present(dvars)) then ; call fh5_write(dvars, dsetname, hdferr)
-  elseif (present(lvars)) then ; call fh5_write(lvars, dsetname, hdferr)
-  elseif (present(ivara)) then ; call fh5_write(ivara, dsetname, hdferr)
-  elseif (present(rvara)) then ; call fh5_write(rvara, dsetname, hdferr)
-  elseif (present(cvara)) then ; call fh5_write(cvara, dsetname, hdferr)
-  elseif (present(dvara)) then ; call fh5_write(dvara, dsetname, hdferr)
-  elseif (present(lvara)) then ; call fh5_write(lvara, dsetname, hdferr)
+      if (present(ivar1)) then ; call fh5_write(ivar1, dsetname, hdferr)
+  elseif (present(rvar1)) then ; call fh5_write(rvar1, dsetname, hdferr)
+  elseif (present(cvar1)) then ; call fh5_write(cvar1, dsetname, hdferr)
+  elseif (present(dvar1)) then ; call fh5_write(dvar1, dsetname, hdferr)
+  elseif (present(lvar1)) then ; call fh5_write(lvar1, dsetname, hdferr)
+
+  elseif (present(ivar2)) then ; call fh5_write(ivar2, dsetname, hdferr)
+  elseif (present(rvar2)) then ; call fh5_write(rvar2, dsetname, hdferr)
+  elseif (present(cvar2)) then ; call fh5_write(cvar2, dsetname, hdferr)
+  elseif (present(dvar2)) then ; call fh5_write(dvar2, dsetname, hdferr)
+  elseif (present(lvar2)) then ; call fh5_write(lvar2, dsetname, hdferr)
+
+  elseif (present(ivar3)) then ; call fh5_write(ivar3, dsetname, hdferr)
+  elseif (present(rvar3)) then ; call fh5_write(rvar3, dsetname, hdferr)
+  elseif (present(cvar3)) then ; call fh5_write(cvar3, dsetname, hdferr)
+  elseif (present(dvar3)) then ; call fh5_write(dvar3, dsetname, hdferr)
+  elseif (present(lvar3)) then ; call fh5_write(lvar3, dsetname, hdferr)
   else
      print*, 'Incorrect or missing data field argument in shdf5_orec_ll'
      stop    'shdf5_orec_ll: bad data field'
@@ -872,15 +947,15 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
      if (len_trim(positive) > 0) call fh5f_write_attribute("positive", cvalue=positive)
   endif
 
-  if ((present(ivars) .or. present(ivara)) .and. present(imissing)) then
+  if (present(imissing)) then
      call fh5f_write_attribute("missing_value", ivalue=imissing)
   endif
 
-  if ((present(rvars) .or. present(rvara)) .and. present(rmissing)) then
+  if (present(rmissing)) then
      call fh5f_write_attribute("missing_value", rvalue=rmissing)
   endif
 
-  if ((present(dvars) .or. present(dvara)) .and. present(dmissing)) then
+  if (present(dmissing)) then
      call fh5f_write_attribute("missing_value", dvalue=dmissing)
   endif
 
@@ -894,8 +969,9 @@ end subroutine shdf5_orec_ll
 
 #ifdef OLAM_MPI
 
-subroutine shdf5_orec_ll2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
-                                              ivars,rvars,cvars,dvars,lvars,  &
+subroutine shdf5_orec_ll2(ndims,dims,dsetname,ivar1,rvar1,cvar1,dvar1,lvar1,  &
+                                              ivar2,rvar2,cvar2,dvar2,lvar2,  &
+                                              ivar3,rvar3,cvar3,dvar3,lvar3,  &
                                               gpoints,                        &
                                               units, long_name, positive,     &
                                               imissing, rmissing, dmissing,   &
@@ -904,7 +980,7 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
 
   use oname_coms,  only: nl
   use consts_coms, only: r8
-  use mem_para, only: mgroupsize, myrank
+  use mem_para,    only: mgroupsize, myrank
   use hdf5_f2f
   use mpi
 
@@ -915,11 +991,11 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
   integer,      intent(in) :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer,      intent(in), optional :: ivara(*), ivars
-  real,         intent(in), optional :: rvara(*), rvars
-  character,    intent(in), optional :: cvara(*), cvars
-  real(r8),     intent(in), optional :: dvara(*), dvars
-  logical,      intent(in), optional :: lvara(*), lvars
+  integer,      intent(in), optional :: ivar1(:), ivar2(:,:), ivar3(:,:,:)
+  real,         intent(in), optional :: rvar1(:), rvar2(:,:), rvar3(:,:,:)
+  character,    intent(in), optional :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),     intent(in), optional :: dvar1(:), dvar2(:,:), dvar3(:,:,:)
+  logical,      intent(in), optional :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
 
 ! Optional arrays to determine cells for partial/parallel IO
   integer,      intent(in), optional :: gpoints(:)
@@ -956,7 +1032,7 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
      print*, 'Dimension error in shdf5_orec_ll2:', ndims, dims(1:ndims)
      stop    'shdf5_orec_ll2: bad dims'
   endif
-     
+
   nu = size(gpoints)
   call MPI_Gather(nu, 1, MPI_INTEGER, nus, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
 
@@ -970,19 +1046,31 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
 
   if (myrank == 0) then
      allocate(points(base))
-     if     (present(ivara)) then ; allocate(ibuff(maxbuff))
-     elseif (present(rvara)) then ; allocate(rbuff(maxbuff))
-     elseif (present(dvara)) then ; allocate(dbuff(maxbuff))
-     elseif (present(lvara)) then ; allocate(lbuff(maxbuff))
+     if     (present(ivar1) .or. present(ivar2) .or. present(ivar3)) then ; allocate(ibuff(maxbuff))
+     elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3)) then ; allocate(rbuff(maxbuff))
+     elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3)) then ; allocate(dbuff(maxbuff))
+     elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then ; allocate(lbuff(maxbuff))
      endif
   endif
 
   if (myrank > 0 .and. nu > 0) then
      call MPI_Send(gpoints, nu, MPI_INTEGER, 0, itag, MPI_COMM_WORLD, ier)
-     if     (present(ivara)) then ; call MPI_Send(ivara, locbuff, MPI_INTEGER, 0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(rvara)) then ; call MPI_Send(rvara, locbuff, MPI_REAL,    0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(dvara)) then ; call MPI_Send(dvara, locbuff, MPI_REAL8,   0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(lvara)) then ; call MPI_Send(lvara, locbuff, MPI_LOGICAL, 0, itag, MPI_COMM_WORLD, ier)
+
+     if     (present(ivar1)) then ; call MPI_Send(ivar1, locbuff, MPI_INTEGER, 0, itag, MPI_COMM_WORLD, ier)
+     elseif (present(rvar1)) then ; call MPI_Send(rvar1, locbuff, MPI_REAL,    0, itag, MPI_COMM_WORLD, ier)
+     elseif (present(dvar1)) then ; call MPI_Send(dvar1, locbuff, MPI_REAL8,   0, itag, MPI_COMM_WORLD, ier)
+     elseif (present(lvar1)) then ; call MPI_Send(lvar1, locbuff, MPI_LOGICAL, 0, itag, MPI_COMM_WORLD, ier)
+
+     elseif (present(ivar2)) then ; call MPI_Send(ivar2, locbuff, MPI_INTEGER, 0, itag, MPI_COMM_WORLD, ier)
+     elseif (present(rvar2)) then ; call MPI_Send(rvar2, locbuff, MPI_REAL,    0, itag, MPI_COMM_WORLD, ier)
+     elseif (present(dvar2)) then ; call MPI_Send(dvar2, locbuff, MPI_REAL8,   0, itag, MPI_COMM_WORLD, ier)
+     elseif (present(lvar2)) then ; call MPI_Send(lvar2, locbuff, MPI_LOGICAL, 0, itag, MPI_COMM_WORLD, ier)
+
+     elseif (present(ivar3)) then ; call MPI_Send(ivar3, locbuff, MPI_INTEGER, 0, itag, MPI_COMM_WORLD, ier)
+     elseif (present(rvar3)) then ; call MPI_Send(rvar3, locbuff, MPI_REAL,    0, itag, MPI_COMM_WORLD, ier)
+     elseif (present(dvar3)) then ; call MPI_Send(dvar3, locbuff, MPI_REAL8,   0, itag, MPI_COMM_WORLD, ier)
+     elseif (present(lvar3)) then ; call MPI_Send(lvar3, locbuff, MPI_LOGICAL, 0, itag, MPI_COMM_WORLD, ier)
+
      endif
   endif
 
@@ -1008,31 +1096,43 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
 
      ! Write the dataset.
 
-     if (present(ivara)) then
+     if (present(ivar1) .or. present(ivar2) .or. present(ivar3)) then
         if (n == 1) then
-           call fh5_write(ivara, dsetname, hdferr)
+               if (present(ivar1)) then ; call fh5_write(ivar1, dsetname, hdferr)
+           elseif (present(ivar2)) then ; call fh5_write(ivar2, dsetname, hdferr)
+           elseif (present(ivar3)) then ; call fh5_write(ivar3, dsetname, hdferr)
+           endif
         else
            call MPI_Recv( ibuff, maxbuff, MPI_INTEGER, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
            call fh5_write(ibuff, dsetname, hdferr, n)
         endif
-     elseif (present(rvara)) then
+     elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3)) then
         if (n == 1) then
-           call fh5_write(rvara, dsetname, hdferr)
+               if (present(rvar1)) then ; call fh5_write(rvar1, dsetname, hdferr)
+           elseif (present(rvar2)) then ; call fh5_write(rvar2, dsetname, hdferr)
+           elseif (present(rvar3)) then ; call fh5_write(rvar3, dsetname, hdferr)
+           endif
         else
            call MPI_Recv( rbuff, maxbuff, MPI_REAL,    n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
            call fh5_write(rbuff, dsetname, hdferr, n)
         endif
-     elseif (present(dvara)) then
+     elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3)) then
         if (n == 1) then
-           call fh5_write(dvara, dsetname, hdferr)
+               if (present(dvar1)) then ; call fh5_write(dvar1, dsetname, hdferr)
+           elseif (present(dvar2)) then ; call fh5_write(dvar2, dsetname, hdferr)
+           elseif (present(dvar3)) then ; call fh5_write(dvar3, dsetname, hdferr)
+           endif
         else
            call MPI_Recv( dbuff, maxbuff, MPI_REAL8,   n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
            call fh5_write(dbuff, dsetname, hdferr, n)
         endif
-     elseif (present(lvara)) then
+     elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
         if (n == 1) then
-           call fh5_write(lvara, dsetname, hdferr)
-        else
+               if (present(lvar1)) then ; call fh5_write(lvar1, dsetname, hdferr)
+           elseif (present(lvar2)) then ; call fh5_write(lvar2, dsetname, hdferr)
+           elseif (present(lvar3)) then ; call fh5_write(lvar3, dsetname, hdferr)
+           endif
+       else
            call MPI_Recv( lbuff, maxbuff, MPI_LOGICAL, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
            call fh5_write(lbuff, dsetname, hdferr, n)
         endif
@@ -1084,15 +1184,15 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,ivara,rvara,cvara,dvara,lvara,  &
      if (len_trim(positive) > 0) call fh5f_write_attribute("positive", cvalue=positive)
   endif
 
-  if ((present(ivars) .or. present(ivara)) .and. present(imissing)) then
+  if (present(imissing)) then
      call fh5f_write_attribute("missing_value", ivalue=imissing)
   endif
 
-  if ((present(rvars) .or. present(rvara)) .and. present(rmissing)) then
+  if (present(rmissing)) then
      call fh5f_write_attribute("missing_value", rvalue=rmissing)
   endif
 
-  if ((present(dvars) .or. present(dvara)) .and. present(dmissing)) then
+  if (present(dmissing)) then
      call fh5f_write_attribute("missing_value", dvalue=dmissing)
   endif
 

@@ -63,8 +63,8 @@ subroutine geia_init()
      idims(1) = nlon
      idims(2) = nlat
 
-     call shdf5_irec(ndims, idims,  'CL', rvara=buffer(:,:,1))
-     call shdf5_irec(ndims, idims, 'HCL', rvara=buffer(:,:,2))
+     call shdf5_irec(ndims, idims,  'CL', rvar2=buffer(:,:,1))
+     call shdf5_irec(ndims, idims, 'HCL', rvar2=buffer(:,:,2))
 
      call shdf5_close()
   endif

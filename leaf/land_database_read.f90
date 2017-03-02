@@ -279,17 +279,17 @@ do jfile = 1,jfiles
             idims(2) = njo
 
             if     (trim(iaction) == 'topo') then
-               call shdf5_irec(ndims,idims,'topo',rvara=dato)
+               call shdf5_irec(ndims,idims,'topo',rvar2=dato)
             elseif (trim(iaction) == 'leaf_class') then
-               call shdf5_irec(ndims,idims,'oge2',ivara=idato)
+               call shdf5_irec(ndims,idims,'oge2',ivar2=idato)
             elseif (trim(iaction) == 'soil_text') then
-               call shdf5_irec(ndims,idims,'fao',ivara=idato)
+               call shdf5_irec(ndims,idims,'fao',ivar2=idato)
             elseif (trim(iaction) == 'ndvi') then
-               call shdf5_irec(ndims,idims,'ndvi',rvara=dato)
+               call shdf5_irec(ndims,idims,'ndvi',rvar2=dato)
             elseif (trim(iaction) == 'wtd') then
-               call shdf5_irec(ndims,idims,'WTD',rvara=dato)
+               call shdf5_irec(ndims,idims,'WTD',rvar2=dato)
             elseif (iaction == 'orog') then
-               call shdf5_irec(ndims,idims,'orog',rvara=dato)
+               call shdf5_irec(ndims,idims,'orog',rvar2=dato)
             else
                write(io6,*) 'incorrect action specified in leaf_database'
                write(io6,*) 'stopping run'

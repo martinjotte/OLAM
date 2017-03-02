@@ -25,26 +25,52 @@ module hdf5_f2f
           fh5_write_character_scalar, &
           fh5_write_real8_scalar,     &
           fh5_write_logical_scalar,   &
-          fh5_write_integer_array,    &
-          fh5_write_real_array,       &
-          fh5_write_character_array,  &
-          fh5_write_real8_array,      &
-          fh5_write_logical_array
+          fh5_write_integer_array1,   &
+          fh5_write_real_array1,      &
+          fh5_write_character_array1, &
+          fh5_write_real8_array1,     &
+          fh5_write_logical_array1,   &
+          fh5_write_integer_array2,   &
+          fh5_write_real_array2,      &
+          fh5_write_character_array2, &
+          fh5_write_real8_array2,     &
+          fh5_write_logical_array2,   &
+          fh5_write_integer_array3,   &
+          fh5_write_real_array3,      &
+          fh5_write_character_array3, &
+          fh5_write_real8_array3,     &
+          fh5_write_logical_array3,   &
+          fh5_write_integer_array4,   &
+          fh5_write_real_array4,      &
+          fh5_write_real8_array4
   end interface fh5_write
 
-  interface fh5d_read
+  interface fh5_read
      module procedure                  &
-          fh5d_read_integer_scalar,    &
-          fh5d_read_real_scalar,       &
-          fh5d_read_character_scalar,  &
-          fh5d_read_real8_scalar,      &
-          fh5d_read_logical_scalar,    &
-          fh5d_read_integer_array,     &
-          fh5d_read_real_array,        &
-          fh5d_read_character_array,   &
-          fh5d_read_real8_array,       &
-          fh5d_read_logical_array
-  end interface fh5d_read
+          fh5_read_integer_scalar,    &
+          fh5_read_real_scalar,       &
+          fh5_read_character_scalar,  &
+          fh5_read_real8_scalar,      &
+          fh5_read_logical_scalar,    &
+          fh5_read_integer_array1,    &
+          fh5_read_real_array1,       &
+          fh5_read_character_array1,  &
+          fh5_read_real8_array1,      &
+          fh5_read_logical_array1,    &
+          fh5_read_integer_array2,    &
+          fh5_read_real_array2,       &
+          fh5_read_character_array2,  &
+          fh5_read_real8_array2,      &
+          fh5_read_logical_array2,    &
+          fh5_read_integer_array3,    &
+          fh5_read_real_array3,       &
+          fh5_read_character_array3,  &
+          fh5_read_real8_array3,      &
+          fh5_read_logical_array3,    &
+          fh5_read_integer_array4,    &
+          fh5_read_real_array4,       &
+          fh5_read_real8_array4
+  end interface fh5_read
 
 contains
 
@@ -311,10 +337,10 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_integer_array(buf_integer, dname, hdferr, n)
+  subroutine fh5_write_integer_array1(buf_integer, dname, hdferr, n)
     implicit none
 
-    integer,      intent(IN)  :: buf_integer(*)
+    integer,      intent(IN)  :: buf_integer(:)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
     integer, optional, intent(in) :: n
@@ -331,14 +357,86 @@ contains
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid, dspcid, xferid)
 
-  end subroutine fh5_write_integer_array
+  end subroutine fh5_write_integer_array1
 
 !===============================================================================
 
-  subroutine fh5_write_real_array(buf_real, dname, hdferr, n)
+  subroutine fh5_write_integer_array2(buf_integer, dname, hdferr, n)
+    implicit none
+
+    integer,      intent(IN)  :: buf_integer(:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, hdferr, propid)
+    endif
+
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid, dspcid, xferid)
+
+  end subroutine fh5_write_integer_array2
+
+!===============================================================================
+
+  subroutine fh5_write_integer_array3(buf_integer, dname, hdferr, n)
+    implicit none
+
+    integer,      intent(IN)  :: buf_integer(:,:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, hdferr, propid)
+    endif
+
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid, dspcid, xferid)
+
+  end subroutine fh5_write_integer_array3
+
+!===============================================================================
+
+  subroutine fh5_write_integer_array4(buf_integer, dname, hdferr, n)
+    implicit none
+
+    integer,      intent(IN)  :: buf_integer(:,:,:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, hdferr, propid)
+    endif
+
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid, dspcid, xferid)
+
+  end subroutine fh5_write_integer_array4
+
+!===============================================================================
+
+  subroutine fh5_write_real_array1(buf_real, dname, hdferr, n)
     implicit none
  
-    real,         intent(IN)  :: buf_real(*)
+    real,         intent(IN)  :: buf_real(:)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
     integer, optional, intent(in) :: n
@@ -355,14 +453,86 @@ contains
     
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid, dspcid, xferid)
 
-  end subroutine fh5_write_real_array
+  end subroutine fh5_write_real_array1
 
 !===============================================================================
 
-  subroutine fh5_write_character_array(buf_character, dname, hdferr, n)
+  subroutine fh5_write_real_array2(buf_real, dname, hdferr, n)
+    implicit none
+ 
+    real,         intent(IN)  :: buf_real(:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, hdferr, propid)
+    endif
+    
+    call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid, dspcid, xferid)
+
+  end subroutine fh5_write_real_array2
+
+!===============================================================================
+
+  subroutine fh5_write_real_array3(buf_real, dname, hdferr, n)
+    implicit none
+ 
+    real,         intent(IN)  :: buf_real(:,:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, hdferr, propid)
+    endif
+    
+    call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid, dspcid, xferid)
+
+  end subroutine fh5_write_real_array3
+
+!===============================================================================
+
+  subroutine fh5_write_real_array4(buf_real, dname, hdferr, n)
+    implicit none
+ 
+    real,         intent(IN)  :: buf_real(:,:,:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, hdferr, propid)
+    endif
+    
+    call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid, dspcid, xferid)
+
+  end subroutine fh5_write_real_array4
+
+!===============================================================================
+
+  subroutine fh5_write_character_array1(buf_character, dname, hdferr, n)
     implicit none
 
-    character(*), intent(IN)  :: buf_character(*)
+    character(*), intent(IN)  :: buf_character(:)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
     integer, optional, intent(in) :: n
@@ -379,14 +549,62 @@ contains
 
     call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr, mspcid, dspcid, xferid)
 
-  end subroutine fh5_write_character_array
+  end subroutine fh5_write_character_array1
 
 !===============================================================================
 
-  subroutine fh5_write_real8_array(buf_real8, dname, hdferr, n)
+  subroutine fh5_write_character_array2(buf_character, dname, hdferr, n)
     implicit none
 
-    real(kind=8), intent(IN)  :: buf_real8(*)
+    character(*), intent(IN)  :: buf_character(:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, fspcid, dsetid, hdferr, propid)
+    endif
+
+    call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr, mspcid, dspcid, xferid)
+
+  end subroutine fh5_write_character_array2
+
+!===============================================================================
+
+  subroutine fh5_write_character_array3(buf_character, dname, hdferr, n)
+    implicit none
+
+    character(*), intent(IN)  :: buf_character(:,:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, fspcid, dsetid, hdferr, propid)
+    endif
+
+    call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr, mspcid, dspcid, xferid)
+
+  end subroutine fh5_write_character_array3
+
+!===============================================================================
+
+  subroutine fh5_write_real8_array1(buf_real8, dname, hdferr, n)
+    implicit none
+
+    real(kind=8), intent(IN)  :: buf_real8(:)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
     integer, optional, intent(in) :: n
@@ -403,14 +621,86 @@ contains
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
 
-  end subroutine fh5_write_real8_array
+  end subroutine fh5_write_real8_array1
 
 !===============================================================================
 
-  subroutine fh5_write_logical_array(buf_logical, dname, hdferr, n)
+  subroutine fh5_write_real8_array2(buf_real8, dname, hdferr, n)
     implicit none
 
-    logical,      intent(IN)  :: buf_logical(*)
+    real(kind=8), intent(IN)  :: buf_real8(:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, fspcid, dsetid, hdferr, propid)
+    endif
+
+    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
+
+  end subroutine fh5_write_real8_array2
+
+!===============================================================================
+
+  subroutine fh5_write_real8_array3(buf_real8, dname, hdferr, n)
+    implicit none
+
+    real(kind=8), intent(IN)  :: buf_real8(:,:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, fspcid, dsetid, hdferr, propid)
+    endif
+
+    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
+
+  end subroutine fh5_write_real8_array3
+
+!===============================================================================
+
+  subroutine fh5_write_real8_array4(buf_real8, dname, hdferr, n)
+    implicit none
+
+    real(kind=8), intent(IN)  :: buf_real8(:,:,:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_DOUBLE, fspcid, dsetid, hdferr, propid)
+    endif
+
+    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
+
+  end subroutine fh5_write_real8_array4
+
+!===============================================================================
+
+  subroutine fh5_write_logical_array1(buf_logical, dname, hdferr, n)
+    implicit none
+
+    logical,      intent(IN)  :: buf_logical(:)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
     integer,      allocatable :: buf_integer(:)
@@ -444,7 +734,100 @@ contains
 
     deallocate(buf_integer)
 
-  end subroutine fh5_write_logical_array
+  end subroutine fh5_write_logical_array1
+
+!===============================================================================
+
+  subroutine fh5_write_logical_array2(buf_logical, dname, hdferr, n)
+    implicit none
+
+    logical,      intent(IN)  :: buf_logical(:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer,      allocatable :: buf_integer(:,:)
+    integer                   :: i, j, is, js
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, hdferr, propid)
+    endif
+
+    ! converting logical to integer
+    is = size(buf_logical, dim=1)
+    js = size(buf_logical, dim=2)
+
+    allocate(buf_integer(is,js))
+    buf_integer = 0
+
+    do j = 1, js
+       do i = 1, is
+          if(buf_logical(i,j)) then
+             buf_integer(i,j) = -1
+          else
+             buf_integer(i,j) = 0
+          endif
+       enddo
+    enddo
+
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid, dspcid, xferid)
+
+    deallocate(buf_integer)
+
+  end subroutine fh5_write_logical_array2
+
+!===============================================================================
+
+  subroutine fh5_write_logical_array3(buf_logical, dname, hdferr, n)
+    implicit none
+
+    logical,      intent(IN)  :: buf_logical(:,:,:)
+    character(*), intent(IN)  :: dname
+    integer,      intent(OUT) :: hdferr
+    integer,      allocatable :: buf_integer(:,:,:)
+    integer                   :: i, j, k, is, js, ks
+    integer, optional, intent(in) :: n
+    logical :: create
+
+    create = .true.
+    if (present(n)) then
+       if (n > 1) create = .false.
+    endif
+
+    if (create) then
+       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, hdferr, propid)
+    endif
+
+    ! converting logical to integer
+    is = size(buf_logical, dim=1)
+    js = size(buf_logical, dim=2)
+    ks = size(buf_logical, dim=3)
+
+    allocate(buf_integer(is,js,ks))
+    buf_integer = 0
+
+    do k = 1, ks
+       do j = 1, js
+          do i = 1, is
+             if(buf_logical(i,j,k)) then
+                buf_integer(i,j,k) = -1
+             else
+                buf_integer(i,j,k) = 0
+             endif
+          enddo
+       enddo
+    enddo
+
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr, mspcid, dspcid, xferid)
+
+    deallocate(buf_integer)
+
+  end subroutine fh5_write_logical_array3
 
 !===============================================================================
 
@@ -636,62 +1019,205 @@ contains
 
 !===============================================================================
 
-  subroutine fh5d_read_integer_array(buf_integer, hdferr)
+  subroutine fh5_read_integer_array1(buf_integer, hdferr)
     implicit none
 
-    integer, intent(INOUT) :: buf_integer(*)
+    integer, intent(INOUT) :: buf_integer(:)
     integer, intent(OUT)   :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
-  end subroutine fh5d_read_integer_array
+  end subroutine fh5_read_integer_array1
 
 !===============================================================================
 
-  subroutine fh5d_read_real_array(buf_real, hdferr)
+  subroutine fh5_read_integer_array2(buf_integer, hdferr)
     implicit none
 
-    real,    intent(INOUT) :: buf_real(*)
+    integer, intent(INOUT) :: buf_integer(:,:)
+    integer, intent(OUT)   :: hdferr
+
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+  end subroutine fh5_read_integer_array2
+
+!===============================================================================
+
+  subroutine fh5_read_integer_array3(buf_integer, hdferr)
+    implicit none
+
+    integer, intent(INOUT) :: buf_integer(:,:,:)
+    integer, intent(OUT)   :: hdferr
+
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+  end subroutine fh5_read_integer_array3
+
+!===============================================================================
+
+  subroutine fh5_read_integer_array4(buf_integer, hdferr)
+    implicit none
+
+    integer, intent(INOUT) :: buf_integer(:,:,:,:)
+    integer, intent(OUT)   :: hdferr
+
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+  end subroutine fh5_read_integer_array4
+
+!===============================================================================
+
+  subroutine fh5_read_real_array1(buf_real, hdferr)
+    implicit none
+
+    real,    intent(INOUT) :: buf_real(:)
     integer, intent(OUT)   :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
-  end subroutine fh5d_read_real_array
+  end subroutine fh5_read_real_array1
 
 !===============================================================================
 
-  subroutine fh5d_read_character_array(buf_character, hdferr)
+  subroutine fh5_read_real_array2(buf_real, hdferr)
     implicit none
 
-    character, intent(INOUT) :: buf_character(*)
+    real,    intent(INOUT) :: buf_real(:,:)
+    integer, intent(OUT)   :: hdferr
+
+    call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+  end subroutine fh5_read_real_array2
+
+!===============================================================================
+
+  subroutine fh5_read_real_array3(buf_real, hdferr)
+    implicit none
+
+    real,    intent(INOUT) :: buf_real(:,:,:)
+    integer, intent(OUT)   :: hdferr
+
+    call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+  end subroutine fh5_read_real_array3
+
+!===============================================================================
+
+  subroutine fh5_read_real_array4(buf_real, hdferr)
+    implicit none
+
+    real,    intent(INOUT) :: buf_real(:,:,:,:)
+    integer, intent(OUT)   :: hdferr
+
+    call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+  end subroutine fh5_read_real_array4
+
+!===============================================================================
+
+  subroutine fh5_read_character_array1(buf_character, hdferr)
+    implicit none
+
+    character, intent(INOUT) :: buf_character(:)
     integer,   intent(OUT)   :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
-  end subroutine fh5d_read_character_array
+  end subroutine fh5_read_character_array1
 
 !===============================================================================
 
-  subroutine fh5d_read_real8_array(buf_real8, hdferr)
+  subroutine fh5_read_character_array2(buf_character, hdferr)
     implicit none
 
-    real(KIND=8), intent(INOUT) :: buf_real8(*)
+    character, intent(INOUT) :: buf_character(:,:)
+    integer,   intent(OUT)   :: hdferr
+
+    call h5dread_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+  end subroutine fh5_read_character_array2
+
+!===============================================================================
+
+  subroutine fh5_read_character_array3(buf_character, hdferr)
+    implicit none
+
+    character, intent(INOUT) :: buf_character(:,:,:)
+    integer,   intent(OUT)   :: hdferr
+
+    call h5dread_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+  end subroutine fh5_read_character_array3
+
+!===============================================================================
+
+  subroutine fh5_read_real8_array1(buf_real8, hdferr)
+    implicit none
+
+    real(KIND=8), intent(INOUT) :: buf_real8(:)
     integer,      intent(OUT)   :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
-  end subroutine fh5d_read_real8_array
+  end subroutine fh5_read_real8_array1
 
 !===============================================================================
 
-  subroutine fh5d_read_logical_array(buf_logical, hdferr)
+  subroutine fh5_read_real8_array2(buf_real8, hdferr)
     implicit none
 
-    logical, intent(INOUT) :: buf_logical(*)
+    real(KIND=8), intent(INOUT) :: buf_real8(:,:)
+    integer,      intent(OUT)   :: hdferr
+
+    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+  end subroutine fh5_read_real8_array2
+
+!===============================================================================
+
+  subroutine fh5_read_real8_array3(buf_real8, hdferr)
+    implicit none
+
+    real(KIND=8), intent(INOUT) :: buf_real8(:,:,:)
+    integer,      intent(OUT)   :: hdferr
+
+    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+  end subroutine fh5_read_real8_array3
+
+!===============================================================================
+
+  subroutine fh5_read_real8_array4(buf_real8, hdferr)
+    implicit none
+
+    real(KIND=8), intent(INOUT) :: buf_real8(:,:,:,:)
+    integer,      intent(OUT)   :: hdferr
+
+    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+  end subroutine fh5_read_real8_array4
+
+!===============================================================================
+
+  subroutine fh5_read_logical_array1(buf_logical, hdferr)
+    implicit none
+
+    logical, intent(INOUT) :: buf_logical(:)
     integer, intent(OUT)   :: hdferr
     integer, allocatable   :: buf_integer(:)
     integer                :: i, size
@@ -718,11 +1244,84 @@ contains
 
     deallocate(buf_integer)
 
-  end subroutine fh5d_read_logical_array
+  end subroutine fh5_read_logical_array1
 
 !===============================================================================
 
-  subroutine fh5d_read_integer_scalar(buf_integer, hdferr)
+  subroutine fh5_read_logical_array2(buf_logical, hdferr)
+    implicit none
+
+    logical, intent(INOUT) :: buf_logical(:,:)
+    integer, intent(OUT)   :: hdferr
+    integer, allocatable   :: buf_integer(:,:)
+    integer                :: i, j, is, js
+
+    hdferr = 1
+
+    is = size(buf_logical,dim=1)
+    js = size(buf_logical,dim=2)
+
+    allocate(buf_integer(is,js))
+
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+    ! converting integer to logical
+    do j = 1, js
+       do i = 1, is
+          if(buf_integer(i,j) == -1) then
+             buf_logical(i,j) = .true.
+          else
+             buf_logical(i,j) = .false.
+          endif
+       enddo
+    enddo
+
+    deallocate(buf_integer)
+
+  end subroutine fh5_read_logical_array2
+
+!===============================================================================
+
+  subroutine fh5_read_logical_array3(buf_logical, hdferr)
+    implicit none
+
+    logical, intent(INOUT) :: buf_logical(:,:,:)
+    integer, intent(OUT)   :: hdferr
+    integer, allocatable   :: buf_integer(:,:,:)
+    integer                :: i, j, k, is, js, ks
+
+    hdferr = 1
+
+    is = size(buf_logical,dim=1)
+    js = size(buf_logical,dim=2)
+    ks = size(buf_logical,dim=3)
+
+    allocate(buf_integer(is,js,ks))
+
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
+         hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+
+    ! converting integer to logical
+    do k = 1, ks
+       do j = 1, js
+          do i = 1, is
+             if(buf_integer(i,j,k) == -1) then
+                buf_logical(i,j,k) = .true.
+             else
+                buf_logical(i,j,k) = .false.
+             endif
+          enddo
+       enddo
+    enddo
+
+    deallocate(buf_integer)
+
+  end subroutine fh5_read_logical_array3
+
+!===============================================================================
+
+  subroutine fh5_read_integer_scalar(buf_integer, hdferr)
     implicit none
 
     integer, intent(INOUT) :: buf_integer
@@ -730,11 +1329,11 @@ contains
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr)
 
-  end subroutine fh5d_read_integer_scalar
+  end subroutine fh5_read_integer_scalar
 
 !===============================================================================
 
-  subroutine fh5d_read_real_scalar(buf_real, hdferr)
+  subroutine fh5_read_real_scalar(buf_real, hdferr)
     implicit none
 
     real,    intent(INOUT) :: buf_real
@@ -742,11 +1341,11 @@ contains
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr)
 
-  end subroutine fh5d_read_real_scalar
+  end subroutine fh5_read_real_scalar
 
 !===============================================================================
 
-  subroutine fh5d_read_character_scalar(buf_character, hdferr)
+  subroutine fh5_read_character_scalar(buf_character, hdferr)
     implicit none
 
     character, intent(INOUT) :: buf_character
@@ -754,11 +1353,11 @@ contains
 
     call h5dread_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr)
 
-  end subroutine fh5d_read_character_scalar
+  end subroutine fh5_read_character_scalar
 
 !===============================================================================
 
-  subroutine fh5d_read_real8_scalar(buf_real8, hdferr)
+  subroutine fh5_read_real8_scalar(buf_real8, hdferr)
     implicit none
 
     real(KIND=8), intent(INOUT) :: buf_real8
@@ -766,11 +1365,11 @@ contains
 
     call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, hdferr)
 
-  end subroutine fh5d_read_real8_scalar
+  end subroutine fh5_read_real8_scalar
 
 !===============================================================================
 
-  subroutine fh5d_read_logical_scalar(buf_logical, hdferr)
+  subroutine fh5_read_logical_scalar(buf_logical, hdferr)
     implicit none
 
     logical, intent(INOUT) :: buf_logical
@@ -784,7 +1383,7 @@ contains
     buf_logical = .false.
     if(buf_integer == -1) buf_logical = .true.
 
-  end subroutine fh5d_read_logical_scalar
+  end subroutine fh5_read_logical_scalar
 
 !===============================================================================
 

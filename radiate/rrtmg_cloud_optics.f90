@@ -88,13 +88,13 @@ contains
 
       allocate(t1(num, nbndsw))
 
-      call shdf5_irec( 2, (/num, nbndsw/), trim(name) // '_ext', rvara=t1 )
+      call shdf5_irec( 2, (/num, nbndsw/), trim(name) // '_ext', rvar2=t1 )
       extsw = transpose(t1)
 
-      call shdf5_irec( 2, (/num, nbndsw/), trim(name) // '_ssa', rvara=t1 )
+      call shdf5_irec( 2, (/num, nbndsw/), trim(name) // '_ssa', rvar2=t1 )
       ssasw = transpose(t1)
 
-      call shdf5_irec( 2, (/num, nbndsw/), trim(name) // '_asy', rvara=t1 )
+      call shdf5_irec( 2, (/num, nbndsw/), trim(name) // '_asy', rvar2=t1 )
       asysw = transpose(t1)
 
       deallocate(t1)
@@ -161,7 +161,7 @@ contains
       allocate(abslw(nbndlw, num))
       allocate(t1(num, nbndlw))
 
-      call shdf5_irec( 2, (/num, nbndlw/), trim(name) // '_abs', rvara=t1 )
+      call shdf5_irec( 2, (/num, nbndlw/), trim(name) // '_abs', rvar2=t1 )
       abslw = transpose(t1)
 
       deallocate(t1)

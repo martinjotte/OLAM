@@ -132,7 +132,7 @@ subroutine read_sst_analysis(iaction)
         allocate(glat(npry))
 
         idims(1) = npry
-        call shdf5_irec(ndims, idims, 'glat' ,rvara=glat)
+        call shdf5_irec(ndims, idims, 'glat' ,rvar1=glat)
      endif
 
 #ifdef OLAM_MPI
@@ -294,7 +294,7 @@ subroutine read_sst_analysis(iaction)
      if (ndims > 0) then
         allocate(a2d(nprx,npry))
 
-        call shdf5_irec(ndims, idims, 'SST', rvara = a2d)
+        call shdf5_irec(ndims, idims, 'SST', rvar2 = a2d)
         call prfill(nprx, npry, a2d, sst)
 
         has_sst = .true.

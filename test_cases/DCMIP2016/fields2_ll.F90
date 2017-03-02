@@ -1119,21 +1119,21 @@ subroutine fields2_ll()
 
      idims(1) = nlon
 
-     CALL shdf5_orec(ndims, idims, 'lon', rvara=alon, isdim=.true., &
+     CALL shdf5_orec(ndims, idims, 'lon', rvar1=alon, isdim=.true., &
                      long_name = "longitude",                       &
                      standard_name = "longitude",                   &
                      units = "degrees_north"                        )
 
      idims(1) = nlat
 
-     CALL shdf5_orec(ndims, idims, 'lat', rvara=alat, isdim=.true., &
+     CALL shdf5_orec(ndims, idims, 'lat', rvar1=alat, isdim=.true., &
                      long_name = "latitude",                        &
                      standard_name = "latitude",                    &
                      units = "degrees_east"                         )
 
      idims(1) = mza-1
 
-     CALL shdf5_orec(ndims, idims, 'z', rvara=zlev, isdim=.true., &
+     CALL shdf5_orec(ndims, idims, 'z', rvar1=zlev, isdim=.true., &
                      long_name = "height above mean sea level",   &
                      standard_name = "altitude",                  &
                      units = "m",                                 &
@@ -1145,7 +1145,7 @@ subroutine fields2_ll()
 
         idims(1) = npress
 
-        CALL shdf5_orec(ndims, idims, 'pres', rvara=plev, isdim=.true., &
+        CALL shdf5_orec(ndims, idims, 'pres', rvar1=plev, isdim=.true., &
                         long_name = "pressure",                         &
                         standard_name = "air_pressure",                 &
                         units = "hPa",                                  &
@@ -1164,7 +1164,7 @@ subroutine fields2_ll()
      ! Surface Quantities
 
      if (allocated(topo_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'TOPO_LL', rvara=topo_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'TOPO_LL', rvar2=topo_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                     &
                            long_name = "topography height",                         &
                            standard_name = "surface_altitude",                      &
@@ -1172,7 +1172,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                      )
 
      if (allocated(u_lpw_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'U_LPW_LL', rvara=u_lpw_ll, gpoints=lls_loc,       &
+        CALL shdf5_orec_ll(ndims, idims, 'U_LPW_LL', rvar2=u_lpw_ll, gpoints=lls_loc,       &
                            dimnames = dimnames,                                             &
                            long_name = "eastward wind at lowest model layer above surface", &
                            standard_name = "eastward_wind",                                 &
@@ -1180,7 +1180,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                              )
 
      if (allocated(v_lpw_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'V_LPW_LL', rvara=v_lpw_ll, gpoints=lls_loc,        &
+        CALL shdf5_orec_ll(ndims, idims, 'V_LPW_LL', rvar2=v_lpw_ll, gpoints=lls_loc,        &
                            dimnames = dimnames,                                              &
                            long_name = "northward wind at lowest model layer above surface", &
                            standard_name = "northward_wind",                                 &
@@ -1188,7 +1188,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                               )
 
      if (allocated(t_lpw_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'T_LPW_LL', rvara=t_lpw_ll, gpoints=lls_loc,         &
+        CALL shdf5_orec_ll(ndims, idims, 'T_LPW_LL', rvar2=t_lpw_ll, gpoints=lls_loc,         &
                            dimnames = dimnames,                                               &
                            long_name = "air temperature at lowest model layer above surface", &
                            standard_name = "surface_air_temperature",                         &
@@ -1196,7 +1196,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                )
 
      if (allocated(shv_lpw_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'SHV_LPW_LL', rvara=shv_lpw_ll, gpoints=lls_loc,                  &
+        CALL shdf5_orec_ll(ndims, idims, 'SHV_LPW_LL', rvar2=shv_lpw_ll, gpoints=lls_loc,                  &
                            dimnames = dimnames,                                                            &
                            long_name = "water vapor specific density at lowest model layer above surface", &
                            standard_name = "vapor_specific_density",                                       &
@@ -1204,8 +1204,8 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                             )
 
      if (allocated(slp_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'SLP_LL', rvara=slp_ll, gpoints=lls_loc,    &
-        CALL shdf5_orec_ll(ndims, idims, 'PS',     rvara=slp_ll, gpoints=lls_loc,    &
+!       CALL shdf5_orec_ll(ndims, idims, 'SLP_LL', rvar2=slp_ll, gpoints=lls_loc,    &
+        CALL shdf5_orec_ll(ndims, idims, 'PS',     rvar2=slp_ll, gpoints=lls_loc,    &
                            dimnames = dimnames,                                      &
                            long_name = "surface pressure reduced to mean sea level", &
                            standard_name = "surface_air_pressure_at_sea_level",      &
@@ -1213,7 +1213,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                       )
 
      if (allocated(pvap_lpw_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'PVAP_LPW_LL', rvara=pvap_lpw_ll, gpoints=lls_loc,        &
+        CALL shdf5_orec_ll(ndims, idims, 'PVAP_LPW_LL', rvar2=pvap_lpw_ll, gpoints=lls_loc,        &
                            dimnames = dimnames,                                                    &
                            long_name = "water vapor pressure at lowest model layer above surface", &
                            standard_name = "water_vapor_partial_pressure_in_air",                  &
@@ -1223,8 +1223,8 @@ subroutine fields2_ll()
      ! Accumulated precipitation/water vapor at surface
 
      if (allocated(pcprmic_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'PCPRMIC_LL', rvara=pcprmic_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'PRECL',      rvara=pcprmic_ll, gpoints=lls_loc, &
+!       CALL shdf5_orec_ll(ndims, idims, 'PCPRMIC_LL', rvar2=pcprmic_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'PRECL',      rvar2=pcprmic_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                           &
                            long_name = "Resolved precipitation rate",                     &
                            standard_name = "large_scale_precipitation_rate",              &
@@ -1233,8 +1233,8 @@ subroutine fields2_ll()
                            rmissing = rmissing                                            )
 
      if (allocated(accpmic_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'ACCPMIC_LL', rvara=accpmic_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'PRECT',   rvara=accpmic_ll, gpoints=lls_loc,    &
+!       CALL shdf5_orec_ll(ndims, idims, 'ACCPMIC_LL', rvar2=accpmic_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'PRECT',   rvar2=accpmic_ll, gpoints=lls_loc,    &
                            dimnames = dimnames,                                           &
                            long_name = "Accumulated resolved precipitation",              &
                            standard_name = "large_scale_precipitation_amount",            &
@@ -1243,7 +1243,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                            )
 
      if (allocated(accpcon_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'ACCPCON_LL', rvara=accpcon_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'ACCPCON_LL', rvar2=accpcon_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                           &
                            long_name = "Accumulated convective precipitation",            &
                            standard_name = "convective_precipitation_amount",             &
@@ -1251,7 +1251,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                            )
 
      if (allocated(vapflux_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'VAPFLUX_ACCUM_LL', rvara=vapflux_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'VAPFLUX_ACCUM_LL', rvar2=vapflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                       &
                            long_name = "Accumulated water vapor at surface",                          &
                            standard_name = "integral_of_surface_upward_water_vapor_flux_wrt_time",    &
@@ -1261,7 +1261,7 @@ subroutine fields2_ll()
      ! Accumulated sensible/latent heat fluxes at surface
 
      if (allocated(sensflux_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'SENSFLUX_ACCUM_LL', rvara=sensflux_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'SENSFLUX_ACCUM_LL', rvar2=sensflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                         &
                            long_name = "Accumulated upward sensible heat flux at surface",              &
                            standard_name = "integral_of_surface_upward_sensible_heat_flux_wrt_time",    &
@@ -1269,7 +1269,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                          )
 
      if (allocated(latflux_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'LATFLUX_ACCUM_LL', rvara=latflux_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'LATFLUX_ACCUM_LL', rvar2=latflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                        &
                            long_name = "Accumulated upward latent heat flux at surface",               &
                            standard_name = "integral_of_surface_upward_latent_heat_flux_wrt_time",     &
@@ -1279,7 +1279,7 @@ subroutine fields2_ll()
      ! Accumulated longwave and shortwave radiative fluxes at surface
 
      if (allocated(rshort_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RSHORT_ACCUM_LL', rvara=rshort_accum_ll, gpoints=lls_loc,   &
+        CALL shdf5_orec_ll(ndims, idims, 'RSHORT_ACCUM_LL', rvar2=rshort_accum_ll, gpoints=lls_loc,   &
                            dimnames = dimnames,                                                       &
                            long_name = "Accumulated downwelling shortwave flux at surface",           &
                            standard_name = "integral_of_surface_downwelling_shortwave_flux_wrt_time", &
@@ -1287,7 +1287,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                        )
 
      if (allocated(rshortup_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_ACCUM_LL', rvara=rshortup_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_ACCUM_LL', rvar2=rshortup_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                         &
                            long_name = "Accumulated upwelling shortwave flux at surface",               &
                            standard_name = "integral_of_surface_upwelling_shortwave_flux_wrt_time",     &
@@ -1295,7 +1295,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                          )
                   
      if (allocated(rlong_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RLONG_ACCUM_LL', rvara=rlong_accum_ll, gpoints=lls_loc,    &
+        CALL shdf5_orec_ll(ndims, idims, 'RLONG_ACCUM_LL', rvar2=rlong_accum_ll, gpoints=lls_loc,    &
                            dimnames = dimnames,                                                      &
                            long_name = "Accumulated downwelling longwave flux at surface",           &
                            standard_name = "integral_of_surface_downwelling_longwave_flux_wrt_time", &
@@ -1303,7 +1303,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                       )
 
      if (allocated(rlongup_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_ACCUM_LL', rvara=rlongup_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_ACCUM_LL', rvar2=rlongup_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                       &
                            long_name = "Accumulated upwelling longwave flux at surface",              &
                            standard_name = "integral_of_surface_upwelling_longwave_flux_wrt_time",    &
@@ -1314,7 +1314,7 @@ subroutine fields2_ll()
      ! Note: at TOA "incoming" and "outgoing" are used in place of "downwelling" and "upwelling"
 
      if (allocated(rshort_top_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RSHORT_TOP_ACCUM_LL', rvara=rshort_top_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'RSHORT_TOP_ACCUM_LL', rvar2=rshort_top_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                             &
                            long_name = "Accumulated incoming shortwave flux at TOA",                        &
                            standard_name = "integral_of_toa_incoming_shortwave_flux_wrt_time",              &
@@ -1322,7 +1322,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                              )
 
      if (allocated(rshortup_top_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_TOP_ACCUM_LL', rvara=rshortup_top_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_TOP_ACCUM_LL', rvar2=rshortup_top_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                 &
                            long_name = "Accumulated outgoing shortwave flux at TOA",                            &
                            standard_name = "integral_of_toa_outgoing_shortwave_flux_wrt_time",                  &
@@ -1330,7 +1330,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                                  )
 
      if (allocated(rlongup_top_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_TOP_ACCUM_LL' , rvara=rlongup_top_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_TOP_ACCUM_LL' , rvar2=rlongup_top_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                &
                            long_name = "Accumulated outgoing longwave flux at TOA",                            &
                            standard_name = "integral_of_toa_outgoing_longwave_flux_wrt_time",                  &
@@ -1340,7 +1340,7 @@ subroutine fields2_ll()
      ! Accumulated longwave and shortwave clear-air radiative fluxes at surface
 
      if (allocated(rshort_clr_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RSHORT_CLR_ACCUM_LL', rvara=rshort_clr_accum_ll, gpoints=lls_loc,     &
+        CALL shdf5_orec_ll(ndims, idims, 'RSHORT_CLR_ACCUM_LL', rvar2=rshort_clr_accum_ll, gpoints=lls_loc,     &
                            dimnames = dimnames,                                                                 &
                            long_name = "Accumulated downwelling clear-air shortwave flux at surface",           &
                            standard_name = "integral_of_surface_downwelling_clear_air_shortwave_flux_wrt_time", &
@@ -1348,7 +1348,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                                  )
 
      if (allocated(rshortup_clr_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_CLR_ACCUM_LL', rvara=rshortup_clr_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_CLR_ACCUM_LL', rvar2=rshortup_clr_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                 &
                            long_name = "Accumulated upwelling clear-air shortwave flux at surface",             &
                            standard_name = "integral_of_surface_upwelling_clear_air_shortwave_flux_wrt_time",   &
@@ -1356,7 +1356,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                                  )
                     
      if (allocated(rlong_clr_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RLONG_CLR_ACCUM_LL', rvara=rlong_clr_accum_ll, gpoints=lls_loc,      &
+        CALL shdf5_orec_ll(ndims, idims, 'RLONG_CLR_ACCUM_LL', rvar2=rlong_clr_accum_ll, gpoints=lls_loc,      &
                            dimnames = dimnames,                                                                &
                            long_name = "Accumulated downwelling clear-air longwave flux at surface",           &
                            standard_name = "integral_of_surface_downwelling_clear_air_longwave_flux_wrt_time", &
@@ -1364,7 +1364,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                                 )
 
      if (allocated(rlongup_clr_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_CLR_ACCUM_LL', rvara=rlongup_clr_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_CLR_ACCUM_LL', rvar2=rlongup_clr_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                               &
                            long_name = "Accumulated upwelling clear-air longwave flux at surface",            &
                            standard_name = "integral_of_surface_upwelling_clear_air_longwave_flux_wrt_time",  &
@@ -1375,7 +1375,7 @@ subroutine fields2_ll()
      ! Note: at TOA "incoming" and "outgoing" are used in place of "downwelling" and "upwelling"
 
      if (allocated(rshort_top_clr_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RSHORT_TOP_CLR_ACCUM_LL', rvara=rshort_top_clr_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'RSHORT_TOP_CLR_ACCUM_LL', rvar2=rshort_top_clr_accum_ll, gpoints=lls_loc, &
                               dimnames = dimnames,                                                                     &
                               long_name = "Accumulated incoming clear-air shortwave flux at TOA",                      &
                               standard_name = "integral_of_toa_incoming_clear_air_shortwave_flux_wrt_time",            &
@@ -1383,7 +1383,7 @@ subroutine fields2_ll()
                               rmissing = rmissing                                                                      )
 
      if (allocated(rshortup_top_clr_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_TOP_CLR_ACCUM_LL', rvara=rshortup_top_clr_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_TOP_CLR_ACCUM_LL', rvar2=rshortup_top_clr_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                         &
                            long_name = "Accumulated outgoing clear-air shortwave flux at TOA",                          &
                            standard_name = "integral_of_toa_outgoing_clear_air_shortwave_flux_wrt_time",                &
@@ -1391,7 +1391,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                                          )
 
      if (allocated(rlongup_top_clr_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_TOP_CLR_ACCUM_LL' , rvara=rlongup_top_clr_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_TOP_CLR_ACCUM_LL' , rvar2=rlongup_top_clr_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                        &
                            long_name = "Accumulated outgoing clear-air longwave flux at TOA",                          &
                            standard_name = "integral_of_toa_outgoing_clear_air_longwave_flux_wrt_time",                &
@@ -1401,7 +1401,7 @@ subroutine fields2_ll()
      ! 'ALS' quantities are area-weighted averages of land & sea cell quantities over a single atmosphere column
 
      if (allocated(als_vels_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'ALS_VELS_ACCUM_LL' , rvara=als_vels_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'ALS_VELS_ACCUM_LL' , rvar2=als_vels_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                          &
                            long_name = "ALS average of accumulated atmosphere surface wind speed",       &
                            standard_name = "als_average_of_integral_of_atm_wind_speed_wrt_time",         &
@@ -1409,7 +1409,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                           )
 
      if (allocated(als_airtempk_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'ALS_AIRTEMPK_ACCUM_LL' , rvara=als_airtempk_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'ALS_AIRTEMPK_ACCUM_LL' , rvar2=als_airtempk_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                  &
                            long_name = "ALS average of accumulated atmosphere temperature",                      &
                            standard_name = "als_average_of_integral_of_atm_temperature_wrt_time",                &
@@ -1417,7 +1417,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                                   )
 
      if (allocated(als_airshv_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'ALS_AIRSHV_ACCUM_LL' , rvara=als_airshv_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'ALS_AIRSHV_ACCUM_LL' , rvar2=als_airshv_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                              &
                            long_name = "ALS average of accumulated atmosphere vapor specific density",       &
                            standard_name = "als_average_of_integral_of_atm_vapor_specific_density_wrt_time", &
@@ -1425,7 +1425,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                               )
 
      if (allocated(als_cantempk_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'ALS_CANTEMPK_ACCUM_LL' , rvara=als_cantempk_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'ALS_CANTEMPK_ACCUM_LL' , rvar2=als_cantempk_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                  &
                            long_name = "ALS average of accumulated canopy air temperature",                      &
                            standard_name = "als_average_of_integral_of_canopy_air_temperature_wrt_time",         &
@@ -1433,7 +1433,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                                   )
 
      if (allocated(als_canshv_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'ALS_CANSHV_ACCUM_LL' , rvara=als_canshv_accum_ll, gpoints=lls_loc,        &
+        CALL shdf5_orec_ll(ndims, idims, 'ALS_CANSHV_ACCUM_LL' , rvar2=als_canshv_accum_ll, gpoints=lls_loc,        &
                            dimnames = dimnames,                                                                     &
                            long_name = "ALS average of accumulated canopy air vapor specific density",              &
                            standard_name = "als_average_of_integral_of_canopy_air_vapor_specific_density_wrt_time", &
@@ -1441,7 +1441,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                                      )
 
      if (allocated(als_skintempk_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'ALS_SKINTEMPK_ACCUM_LL' , rvara=als_skintempk_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'ALS_SKINTEMPK_ACCUM_LL' , rvar2=als_skintempk_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                    &
                            long_name = "ALS average of accumulated skin temperature",                              &
                            standard_name = "als_average_of_integral_of_skin_temperature_wrt_time",                 &
@@ -1449,7 +1449,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                                     )
    
      if (allocated(als_sensflux_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'ALS_SENSFLUX_ACCUM_LL' , rvara=als_sensflux_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'ALS_SENSFLUX_ACCUM_LL' , rvar2=als_sensflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                  &
                            long_name = "ALS average of accumulated sensible heat flux",                          &
                            standard_name = "als_average_of_integral_of_sensible_heat_flux_wrt_time",             &
@@ -1457,7 +1457,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                                   )
 
      if (allocated(als_latflux_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'ALS_LATFLUX_ACCUM_LL' , rvara=als_latflux_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'ALS_LATFLUX_ACCUM_LL' , rvar2=als_latflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                &
                            long_name = "ALS average of accumulated latent heat flux",                          &
                            standard_name = "als_average_of_integral_of_latent_heat_flux_wrt_time",             &
@@ -1465,7 +1465,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                                 )
 
      if (allocated(als_vapflux_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'ALS_VAPFLUX_ACCUM_LL' , rvara=als_vapflux_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'ALS_VAPFLUX_ACCUM_LL' , rvar2=als_vapflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                &
                            long_name = "ALS average of accumulated vapor flux",                                &
                            standard_name = "als_average_of_integral_of_vapor_flux_wrt_time",                   &
@@ -1475,7 +1475,7 @@ subroutine fields2_ll()
      ! 'AL' quantities are area-weighted averages of land cell quantities over a single atmosphere column
 
      if (allocated(al_wxfer1_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'AL_WXFER1_ACCUM_LL' , rvara=al_wxfer1_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'AL_WXFER1_ACCUM_LL' , rvar2=al_wxfer1_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                            &
                            long_name = "AL average of accumulated soil bottom water flux",                 &
                            standard_name = "al_average_of_integral_of_soil_bottom_water_flux_wrt_time",    &
@@ -1483,7 +1483,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                             )
 
      if (allocated(al_sfcwater_tot_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'AL_SFCWATER_TOT_LL' , rvara=al_sfcwater_tot_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'AL_SFCWATER_TOT_LL' , rvar2=al_sfcwater_tot_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                            &
                            long_name = "AL average of total surface water",                                &
                            standard_name = "al_average_of_total_surface_water",                            &
@@ -1491,7 +1491,7 @@ subroutine fields2_ll()
                            rmissing = rmissing                                                             )
 
      if (allocated(al_soil_water_tot_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'AL_SOIL_WATER_TOT_LL' , rvara=al_soil_water_tot_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'AL_SOIL_WATER_TOT_LL' , rvar2=al_soil_water_tot_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                &
                            long_name = "AL average of total soil water",                                       &
                            standard_name = "al_average_of_total_soil_water",                                   &
@@ -1509,7 +1509,7 @@ subroutine fields2_ll()
      dimnames(3) = 'z'
 
      if (allocated(u_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'U_ACCUM_LL', rvara=u_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'U_ACCUM_LL', rvar3=u_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                           &
                            long_name = "Accumulated eastward wind",                       &
                            standard_name = "integral_of_eastward_wind_wrt_time",          &
@@ -1517,7 +1517,7 @@ subroutine fields2_ll()
                            rmissing=rmissing                                              )
 
      if (allocated(v_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'V_ACCUM_LL', rvara=v_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'V_ACCUM_LL', rvar3=v_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                           &
                            long_name = "Accumulated northward wind",                      &
                            standard_name = "integral_of_northward_wind_wrt_time",         &
@@ -1525,7 +1525,7 @@ subroutine fields2_ll()
                            rmissing=rmissing                                              )
 
      if (allocated(w_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'W_ACCUM_LL', rvara=w_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'W_ACCUM_LL', rvar3=w_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                           &
                            long_name = "Accumulated upward wind",                         &
                            standard_name = "integral_of_upward_wind_wrt_time",            &
@@ -1533,7 +1533,7 @@ subroutine fields2_ll()
                            rmissing=rmissing                                              )
 
      if (allocated(t_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'T_ACCUM_LL', rvara=t_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'T_ACCUM_LL', rvar3=t_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                           &
                            long_name = "Accumulated air temperature",                     &
                            standard_name = "integral_of_air_temperature_wrt_time",        &
@@ -1541,7 +1541,7 @@ subroutine fields2_ll()
                            rmissing=rmissing                                              )
 
      if (allocated(shv_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'SHV_ACCUM_LL', rvara=shv_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'SHV_ACCUM_LL', rvar3=shv_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                           &
                            long_name = "Accumulated water vapor specific density ratio",  &
                            standard_name = "integral_of_vapor_specific_density_wrt_time", &
@@ -1549,7 +1549,7 @@ subroutine fields2_ll()
                            rmissing=rmissing                                              )
 
      if (allocated(p_accum_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'P_ACCUM_LL', rvara=p_accum_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'P_ACCUM_LL', rvar3=p_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                           &
                            long_name = "Accumulated air pressure",                        &
                            standard_name = "integral_of_air_pressure_wrt_time",           &
@@ -1567,8 +1567,8 @@ subroutine fields2_ll()
      dimnames(3) = 'z'
 
      if (allocated(u_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'U_LL', rvara=u_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'U',    rvara=u_ll, gpoints=lls_loc, &
+!       CALL shdf5_orec_ll(ndims, idims, 'U_LL', rvar3=u_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'U',    rvar3=u_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                               &
                            long_name = "eastward wind",                       &
                            standard_name = "eastward_wind",                   &
@@ -1576,8 +1576,8 @@ subroutine fields2_ll()
                            rmissing=rmissing                                  )
 
      if (allocated(v_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'V_LL', rvara=v_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'V',    rvara=v_ll, gpoints=lls_loc, &
+!       CALL shdf5_orec_ll(ndims, idims, 'V_LL', rvar3=v_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'V',    rvar3=v_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                               &
                            long_name = "northward wind",                      &
                            standard_name = "northward_wind",                  &
@@ -1585,8 +1585,8 @@ subroutine fields2_ll()
                            rmissing=rmissing                                  )
 
      if (allocated(w_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'W_LL', rvara=w_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'W',    rvara=w_ll, gpoints=lls_loc, &
+!       CALL shdf5_orec_ll(ndims, idims, 'W_LL', rvar3=w_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'W',    rvar3=w_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                               &
                            long_name = "upward wind",                         &
                            standard_name = "upward_wind",                     &
@@ -1594,8 +1594,8 @@ subroutine fields2_ll()
                            rmissing=rmissing                                  )
 
      if (allocated(theta_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'THETA_LL', rvara=theta_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'THETA',    rvara=theta_ll, gpoints=lls_loc, &
+!       CALL shdf5_orec_ll(ndims, idims, 'THETA_LL', rvar3=theta_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'THETA',    rvar3=theta_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                       &
                            long_name = "air potential temperature",                   &
                            standard_name = "air_potential_temperature",               &
@@ -1603,7 +1603,7 @@ subroutine fields2_ll()
                            rmissing=rmissing                                          )
 
      if (allocated(t_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'T_LL', rvara=t_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'T_LL', rvar3=t_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                               &
                            long_name = "air temperature",                     &
                            standard_name = "air_temperature",                 &
@@ -1611,8 +1611,8 @@ subroutine fields2_ll()
                            rmissing=rmissing                                  )
 
      if (allocated(shv_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'SHV_LL', rvara=shv_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'Qv',     rvara=shv_ll, gpoints=lls_loc, &
+!       CALL shdf5_orec_ll(ndims, idims, 'SHV_LL', rvar3=shv_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Qv',     rvar3=shv_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                   &
                            long_name = "water vapor specific density ratio",      &
                            standard_name = "vapor_specific_density",              &
@@ -1620,8 +1620,8 @@ subroutine fields2_ll()
                            rmissing=rmissing                                      )
 
      if (allocated(shc_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'SHC_LL', rvara=shc_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'Qc',     rvara=shc_ll, gpoints=lls_loc, &
+!       CALL shdf5_orec_ll(ndims, idims, 'SHC_LL', rvar3=shc_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Qc',     rvar3=shc_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                   &
                            long_name = "cloud water specific density ratio",      &
                            standard_name = "cloud_water_specific_density",        &
@@ -1629,8 +1629,8 @@ subroutine fields2_ll()
                            rmissing=rmissing                                      )
 
      if (allocated(shr_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'SHR_LL', rvara=shr_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'Qr',     rvara=shr_ll, gpoints=lls_loc, &
+!       CALL shdf5_orec_ll(ndims, idims, 'SHR_LL', rvar3=shr_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Qr',     rvar3=shr_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                   &
                            long_name = "rain specific density ratio",             &
                            standard_name = "rain_specific_density",               &
@@ -1638,8 +1638,8 @@ subroutine fields2_ll()
                            rmissing=rmissing                                      )
 
      if (allocated(p_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'P_LL', rvara=p_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'P',    rvara=p_ll, gpoints=lls_loc, &
+!       CALL shdf5_orec_ll(ndims, idims, 'P_LL', rvar3=p_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'P',    rvar3=p_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                               &
                            long_name = "air pressure",                        &
                            standard_name = "air_pressure",                    &
@@ -1647,8 +1647,8 @@ subroutine fields2_ll()
                            rmissing=rmissing                                  )
 
      if (allocated(q1_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'Q1_LL', rvara=q1_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'Q1',    rvara=q1_ll, gpoints=lls_loc, &
+!       CALL shdf5_orec_ll(ndims, idims, 'Q1_LL', rvar3=q1_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Q1',    rvar3=q1_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                 &
                            long_name = "Added Scalar 1",                        &
                            standard_name = "Added Scalar 1",                    &
@@ -1656,8 +1656,8 @@ subroutine fields2_ll()
                            rmissing=rmissing                                    )
 
      if (allocated(q2_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'Q2_LL', rvara=q2_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'Q2',    rvara=q2_ll, gpoints=lls_loc, &
+!       CALL shdf5_orec_ll(ndims, idims, 'Q2_LL', rvar3=q2_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Q2',    rvar3=q2_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                 &
                            long_name = "Added Scalar 2",                        &
                            standard_name = "Added Scalar 2",                    &
@@ -1665,7 +1665,7 @@ subroutine fields2_ll()
                            rmissing=rmissing                                    )
 
      if (allocated(q3_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'Q3_LL', rvara=q3_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Q3_LL', rvar3=q3_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                 &
                            long_name = "Added Scalar 3",                        &
                            standard_name = "Added Scalar 3",                    &
@@ -1673,7 +1673,7 @@ subroutine fields2_ll()
                            rmissing=rmissing                                    )
 
      if (allocated(q4_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'Q4_LL', rvara=q4_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Q4_LL', rvar3=q4_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                 &
                            long_name = "Added Scalar 4",                        &
                            standard_name = "Added Scalar 4",                    &
@@ -1681,7 +1681,7 @@ subroutine fields2_ll()
                            rmissing=rmissing                                    )
 
      if (allocated(q5_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'Q5_LL', rvara=q5_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'Q5_LL', rvar3=q5_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                 &
                            long_name = "Added Scalar 5",                        &
                            standard_name = "Added Scalar 5",                    &
@@ -1689,8 +1689,8 @@ subroutine fields2_ll()
                            rmissing=rmissing                                    )
 
      if (allocated(pcpmic_dif2_ll)) &
-!       CALL shdf5_orec_ll(ndims, idims, 'PCPMIC_DIF2_LL', rvara=pcpmic_dif2_ll, gpoints=lls_loc, &
-        CALL shdf5_orec_ll(ndims, idims, 'PRECTAV',        rvara=pcpmic_dif2_ll, gpoints=lls_loc, &
+!       CALL shdf5_orec_ll(ndims, idims, 'PCPMIC_DIF2_LL', rvar3=pcpmic_dif2_ll, gpoints=lls_loc, &
+        CALL shdf5_orec_ll(ndims, idims, 'PRECTAV',        rvar3=pcpmic_dif2_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                   &
                            long_name = "Time-interval resolved precipitation",                    &
                            standard_name = "time_interval_large_scale_precipitation_rate",        &

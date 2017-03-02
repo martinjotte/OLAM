@@ -131,7 +131,7 @@ subroutine read_soil_analysis(soil_tempc)
         allocate(glat(npry))
 
         idims(1) = npry
-        call shdf5_irec(ndims, idims, 'glat' ,rvara=glat)
+        call shdf5_irec(ndims, idims, 'glat' ,rvar1=glat)
      endif
 
      ! Check if ngnd, the # of soil levels, is in the analysis file and read it
@@ -146,7 +146,7 @@ subroutine read_soil_analysis(soil_tempc)
      if (ndims > 0) then
         if (ngnd == 0) ngnd = idims(1)
         allocate( ztmp(ngnd), zcol(ngnd) )
-        call shdf5_irec(ndims, idims, 'sdepths', rvara=ztmp)
+        call shdf5_irec(ndims, idims, 'sdepths', rvar1=ztmp)
      endif
 
      ! OLAM stores the soil arrays from bottom to top, so we need to reverse
@@ -330,7 +330,7 @@ subroutine read_soil_analysis(soil_tempc)
         allocate(a2d(nprx,npry))
         allocate(snow(nio,njo))
 
-        call shdf5_irec(ndims, idims, 'SNOWMASS', rvara = a2d)
+        call shdf5_irec(ndims, idims, 'SNOWMASS', rvar2 = a2d)
         call prfill(nprx, npry, a2d, snow)
 
         has_snow = .true.
@@ -348,7 +348,7 @@ subroutine read_soil_analysis(soil_tempc)
         if (ndims > 0) then
            allocate(soilt(nio,njo,ngnd))
 
-           call shdf5_irec(ndims, idims, 'SOILT', rvara = a3d)
+           call shdf5_irec(ndims, idims, 'SOILT', rvar3 = a3d)
            call prfill3(nprx, npry, ngnd, a3d, soilt)
            has_soilt = .true.
         endif
@@ -358,7 +358,7 @@ subroutine read_soil_analysis(soil_tempc)
         if (ndims > 0) then
            allocate(soilw(nio,njo,ngnd))
 
-           call shdf5_irec(ndims, idims, 'SOILW', rvara = a3d)
+           call shdf5_irec(ndims, idims, 'SOILW', rvar3 = a3d)
            call prfill3(nprx, npry, ngnd, a3d, soilw)
            has_soilw = .true.
         endif

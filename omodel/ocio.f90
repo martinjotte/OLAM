@@ -82,12 +82,12 @@ subroutine commio(action)
 
   ndims = 1
   idims(1) = ndz
-  call shdf5_io(action, ndims, idims, 'nl%hdz',    rvara=hdz)
-  call shdf5_io(action, ndims, idims, 'nl%dz',     rvara=dz)
+  call shdf5_io(action, ndims, idims, 'nl%hdz',    rvar1=hdz)
+  call shdf5_io(action, ndims, idims, 'nl%dz',     rvar1=dz)
 
   ndims=1
   idims(1) = nzg
-  call shdf5_io(action, ndims, idims, 'nl%slz', rvara=slz)
+  call shdf5_io(action, ndims, idims, 'nl%slz', rvar1=slz)
 
 ! The following are not namelist variables but are read from a history file
 ! anytime that subroutine commio is called.
@@ -116,15 +116,15 @@ subroutine commio(action)
 
      ndims = 1
      idims(1) = ngrids
-     call shdf5_io(action, ndims, idims, 'nl%ngrdll', ivara=ngrdll)
+     call shdf5_io(action, ndims, idims, 'nl%ngrdll', ivar1=ngrdll)
 
      ndims = 2
      idims(1) = ngrids
      idims(2) = maxngrdll
 
-     call shdf5_io(action, ndims, idims, 'nl%grdrad', rvara=grdrad(1:ngrids,:))
-     call shdf5_io(action, ndims, idims, 'nl%grdlat', rvara=grdlat(1:ngrids,:))
-     call shdf5_io(action, ndims, idims, 'nl%grdlon', rvara=grdlon(1:ngrids,:))
+     call shdf5_io(action, ndims, idims, 'nl%grdrad', rvar2=grdrad(1:ngrids,:))
+     call shdf5_io(action, ndims, idims, 'nl%grdlat', rvar2=grdlat(1:ngrids,:))
+     call shdf5_io(action, ndims, idims, 'nl%grdlon', rvar2=grdlon(1:ngrids,:))
 
   endif
 

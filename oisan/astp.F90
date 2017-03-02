@@ -145,14 +145,14 @@ elseif (fform == 'HD5') then
       call shdf5_irec(ndims, idims, 'reflat2',rvars=secondlat)
       
       idims(1) = nprz
-      call shdf5_irec(ndims, idims, 'levels' ,ivara=levpr)
+      call shdf5_irec(ndims, idims, 'levels' ,ivar1=levpr)
 
       if (inproj == 2) then
          if (allocated(glat)) deallocate(glat)
          allocate(glat(npry))
 
          idims(1) = npry
-         call shdf5_irec(ndims, idims, 'glat' ,rvara=glat)
+         call shdf5_irec(ndims, idims, 'glat' ,rvar1=glat)
       endif
 
 #ifdef OLAM_MPI
@@ -616,7 +616,7 @@ elseif (fform == 'HD5') then
    ! Read topography
 
       if (myrank == 0) then
-         call shdf5_irec(ndims, idims,'TOPO',rvara = as)
+         call shdf5_irec(ndims, idims,'TOPO',rvar2 = as)
          call prfill(nprx,npry,as,p_topo)
       endif
 
@@ -629,7 +629,7 @@ elseif (fform == 'HD5') then
    ! Read surface pressure
 
       if (myrank == 0) then
-         call shdf5_irec(ndims, idims,'PRSFC',rvara = as)
+         call shdf5_irec(ndims, idims,'PRSFC',rvar2 = as)
          call prfill(nprx,npry,as,p_prsfc)
       endif
 
@@ -642,7 +642,7 @@ elseif (fform == 'HD5') then
    ! Read surface temperature
 
       if (myrank == 0) then
-         call shdf5_irec(ndims, idims,'TSFC',rvara = as)
+         call shdf5_irec(ndims, idims,'TSFC',rvar2 = as)
          call prfill(nprx,npry,as,p_tsfc)
       endif
 
@@ -655,7 +655,7 @@ elseif (fform == 'HD5') then
    ! Read surface specific humidity
 
       if (myrank == 0) then
-         call shdf5_irec(ndims, idims,'SHSFC',rvara = as)
+         call shdf5_irec(ndims, idims,'SHSFC',rvar2 = as)
          call prfill(nprx,npry,as,p_shsfc)
       endif
 
@@ -691,7 +691,7 @@ elseif (fform == 'HD5') then
          call shdf5_info(varname, njdims, jdims)
       endif
 
-      call shdf5_irec(ndims, idims, varname, rvara = as3)
+      call shdf5_irec(ndims, idims, varname, rvar3 = as3)
       call prfill3(nprx,npry,nprz,as3,p_u)
 
    endif
@@ -719,7 +719,7 @@ elseif (fform == 'HD5') then
          call shdf5_info(varname, njdims, jdims)
       endif
 
-      call shdf5_irec(ndims, idims, varname, rvara = as3)
+      call shdf5_irec(ndims, idims, varname, rvar3 = as3)
       call prfill3(nprx,npry,nprz,as3,p_v)
 
    endif
@@ -734,7 +734,7 @@ elseif (fform == 'HD5') then
 
    if (myrank == 0) then
 
-      call shdf5_irec(ndims, idims,'TEMP',rvara = as3)
+      call shdf5_irec(ndims, idims,'TEMP',rvar3 = as3)
       call prfill3(nprx,npry,nprz,as3,p_t)
 
    endif
@@ -748,7 +748,7 @@ elseif (fform == 'HD5') then
    ! Read geopotential height
 
    if (myrank == 0) then
-      call shdf5_irec(ndims, idims,'GEO',rvara = as3)
+      call shdf5_irec(ndims, idims,'GEO',rvar3 = as3)
       call prfill3(nprx,npry,nprz,as3,p_z)
    endif
 
@@ -768,7 +768,7 @@ elseif (fform == 'HD5') then
       if (njdims > 0) then
 
          isrh = .false.
-         call shdf5_irec(ndims, idims,'SHV',rvara = as3)
+         call shdf5_irec(ndims, idims,'SHV',rvar3 = as3)
          call prfill3(nprx,npry,nprz,as3,p_r)
      
       else
@@ -784,7 +784,7 @@ elseif (fform == 'HD5') then
          endif
 
          isrh = .true.
-         call shdf5_irec(ndims, idims, varname, rvara = as3)
+         call shdf5_irec(ndims, idims, varname, rvar3 = as3)
          call prfill3(nprx,npry,nprz,as3,p_r)
 
       endif
@@ -807,7 +807,7 @@ elseif (fform == 'HD5') then
       if (njdims > 0) then
 
          haso3 = .true.
-         call shdf5_irec(ndims, idims, 'O3MR', rvara = as3)
+         call shdf5_irec(ndims, idims, 'O3MR', rvar3 = as3)
          call prfill3(nprx,npry,nprz,as3,p_o)
 
       endif
@@ -825,7 +825,7 @@ elseif (fform == 'HD5') then
    endif
 #endif
 
-!  if (ivertcoord == 3) call shdf5_irec('PRESS',rvara = p_p)
+!  if (ivertcoord == 3) call shdf5_irec('PRESS',rvar3 = p_p)
 
 !  print*,'uu max-min:', maxval(p_u), minval(p_u)
 !  print*,'vv max-min:', maxval(p_v), minval(p_v)
@@ -838,7 +838,7 @@ elseif (fform == 'HD5') then
 
 !   if (num_scvars > 0) then
 !      do nv = 1, num_scvars
-!         call shdf5_irec(trim(in_scvars(nv)),rvara = p_scalar(1,1,1,nv))
+!         call shdf5_irec(trim(in_scvars(nv)),rvar3 = p_scalar(:,:,:,nv))
 
 !         print*,trim(in_scvars(nv)),' max-min:', maxval(p_scalar(:,:,:,nv)), &
 !                      minval(p_scalar(:,:,:,nv))

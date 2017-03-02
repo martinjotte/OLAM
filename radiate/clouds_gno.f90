@@ -126,7 +126,7 @@ contains
     allocate(cldf_tab(n_qc, n_rh))
 
     ndims=2 ; idims(1:2) = (/ n_qc, n_rh /)
-    call shdf5_irec(ndims, idims, "cldfrac" , rvara=cldf_tab)
+    call shdf5_irec(ndims, idims, "cldfrac" , rvar2=cldf_tab)
 
     call shdf5_close()
 

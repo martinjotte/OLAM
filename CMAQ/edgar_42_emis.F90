@@ -1201,7 +1201,7 @@ contains
 !!             if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
 !!                write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " CH4"
 !!             else
-!!                call shdf5_irec(ndims, idims, 'emi_ch4', rvara=rawdata)
+!!                call shdf5_irec(ndims, idims, 'emi_ch4', rvar2=rawdata)
 !!             endif
 !!
 !!             call shdf5_close()
@@ -1258,7 +1258,7 @@ contains
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " CO"
              else
-                call shdf5_irec(ndims, idims, 'emi_co', rvara=rawdata)
+                call shdf5_irec(ndims, idims, 'emi_co', rvar2=rawdata)
              endif
 
              call shdf5_close()
@@ -1311,7 +1311,7 @@ contains
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NH3"
              else
-                call shdf5_irec(ndims, idims, 'emi_nh3', rvara=rawdata)
+                call shdf5_irec(ndims, idims, 'emi_nh3', rvar2=rawdata)
              endif
 
              call shdf5_close()
@@ -1365,7 +1365,7 @@ contains
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NMVOC"
              else
-                call shdf5_irec(ndims, idims, 'emi_nmvoc', rvara=rawdata)
+                call shdf5_irec(ndims, idims, 'emi_nmvoc', rvar2=rawdata)
              endif
 
              call shdf5_close()
@@ -1419,7 +1419,7 @@ contains
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NOX"
              else
-                call shdf5_irec(ndims, idims, 'emi_nox', rvara=rawdata)
+                call shdf5_irec(ndims, idims, 'emi_nox', rvar2=rawdata)
              endif
 
              call shdf5_close()
@@ -1472,7 +1472,7 @@ contains
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " PM2.5"
              else
-                call shdf5_irec(ndims, idims, 'emi_pm2.5', rvara=rawdata)
+                call shdf5_irec(ndims, idims, 'emi_pm2.5', rvar2=rawdata)
              endif
 
              call shdf5_close()
@@ -1526,7 +1526,7 @@ contains
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " PM10"
              else
-                call shdf5_irec(ndims, idims, 'emi_pm10', rvara=rawdata)
+                call shdf5_irec(ndims, idims, 'emi_pm10', rvar2=rawdata)
              endif
 
              call shdf5_close()
@@ -1578,7 +1578,7 @@ contains
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " SO2"
              else
-                call shdf5_irec(ndims, idims, 'emi_so2', rvara=rawdata)
+                call shdf5_irec(ndims, idims, 'emi_so2', rvar2=rawdata)
              endif
 
              call shdf5_close()

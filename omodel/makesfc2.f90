@@ -1431,34 +1431,34 @@ subroutine landfile_write()
   ndims = 1
   idims(1) = nzg
 
-  call shdf5_orec(ndims, idims, 'slz', rvara=slz)
+  call shdf5_orec(ndims, idims, 'slz', rvar1=slz)
 
   idims(1) = nwl
 
-  call shdf5_orec(ndims, idims, 'iw'        , ivara=itab_wl(:)%iw)
-  call shdf5_orec(ndims, idims, 'kw'        , ivara=itab_wl(:)%kw)
-  call shdf5_orec(ndims, idims, 'nlpoly'    , ivara=itab_wl(:)%npoly)
-  call shdf5_orec(ndims, idims, 'arf_iw'    , rvara=itab_wl(:)%arf_iw)
-  call shdf5_orec(ndims, idims, 'arf_kw'    , rvara=itab_wl(:)%arf_kw)
+  call shdf5_orec(ndims, idims, 'iw'        , ivar1=itab_wl(:)%iw)
+  call shdf5_orec(ndims, idims, 'kw'        , ivar1=itab_wl(:)%kw)
+  call shdf5_orec(ndims, idims, 'nlpoly'    , ivar1=itab_wl(:)%npoly)
+  call shdf5_orec(ndims, idims, 'arf_iw'    , rvar1=itab_wl(:)%arf_iw)
+  call shdf5_orec(ndims, idims, 'arf_kw'    , rvar1=itab_wl(:)%arf_kw)
 
-  call shdf5_orec(ndims, idims, 'land_area' , rvara=land%area)
-  call shdf5_orec(ndims, idims, 'glatwl'    , rvara=land%glatw)
-  call shdf5_orec(ndims, idims, 'glonwl'    , rvara=land%glonw)
-  call shdf5_orec(ndims, idims, 'xewl'      , rvara=land%xew)
-  call shdf5_orec(ndims, idims, 'yewl'      , rvara=land%yew)
-  call shdf5_orec(ndims, idims, 'zewl'      , rvara=land%zew)
-  call shdf5_orec(ndims, idims, 'topwl'     , rvara=land%topw)
-  call shdf5_orec(ndims, idims, 'wnxl'      , rvara=land%wnx)
-  call shdf5_orec(ndims, idims, 'wnyl'      , rvara=land%wny)
-  call shdf5_orec(ndims, idims, 'wnzl'      , rvara=land%wnz)
-  call shdf5_orec(ndims, idims, 'leaf_class', ivara=land%leaf_class)
-  call shdf5_orec(ndims, idims, 'oge'       , ivara=land%olson_oge)
+  call shdf5_orec(ndims, idims, 'land_area' , rvar1=land%area)
+  call shdf5_orec(ndims, idims, 'glatwl'    , rvar1=land%glatw)
+  call shdf5_orec(ndims, idims, 'glonwl'    , rvar1=land%glonw)
+  call shdf5_orec(ndims, idims, 'xewl'      , rvar1=land%xew)
+  call shdf5_orec(ndims, idims, 'yewl'      , rvar1=land%yew)
+  call shdf5_orec(ndims, idims, 'zewl'      , rvar1=land%zew)
+  call shdf5_orec(ndims, idims, 'topwl'     , rvar1=land%topw)
+  call shdf5_orec(ndims, idims, 'wnxl'      , rvar1=land%wnx)
+  call shdf5_orec(ndims, idims, 'wnyl'      , rvar1=land%wny)
+  call shdf5_orec(ndims, idims, 'wnzl'      , rvar1=land%wnz)
+  call shdf5_orec(ndims, idims, 'leaf_class', ivar1=land%leaf_class)
+  call shdf5_orec(ndims, idims, 'oge'       , ivar1=land%olson_oge)
 
   ndims = 2
   idims(1) = nzg
   idims(2) = nwl
 
-  call shdf5_orec(ndims, idims, 'ntext_soil', ivara=land%ntext_soil)
+  call shdf5_orec(ndims, idims, 'ntext_soil', ivar2=land%ntext_soil)
 
   ndims = 2
   idims(1) = maxnlspoly
@@ -1470,19 +1470,19 @@ subroutine landfile_write()
      rscr(1:maxnlspoly,iwl) = itab_wl(iwl)%xem(1:maxnlspoly)
   enddo
 
-  call shdf5_orec(ndims,idims,'itab_wl%xem',rvara=rscr)
+  call shdf5_orec(ndims,idims,'itab_wl%xem',rvar2=rscr)
 
   do iwl = 1,nwl
      rscr(1:maxnlspoly,iwl) = itab_wl(iwl)%yem(1:maxnlspoly)
   enddo
 
-  call shdf5_orec(ndims,idims,'itab_wl%yem',rvara=rscr)
+  call shdf5_orec(ndims,idims,'itab_wl%yem',rvar2=rscr)
 
   do iwl = 1,nwl
      rscr(1:maxnlspoly,iwl) = itab_wl(iwl)%zem(1:maxnlspoly)
   enddo
 
-  call shdf5_orec(ndims,idims,'itab_wl%zem',rvara=rscr)
+  call shdf5_orec(ndims,idims,'itab_wl%zem',rvar2=rscr)
 
   call shdf5_close()
 
@@ -1523,21 +1523,21 @@ subroutine seafile_write()
   ndims = 1
   idims(1) = nws
 
-  call shdf5_orec(ndims, idims, 'iw'        , ivara=itab_ws(:)%iw)
-  call shdf5_orec(ndims, idims, 'kw'        , ivara=itab_ws(:)%kw)
-  call shdf5_orec(ndims, idims, 'nspoly'    , ivara=itab_ws(:)%npoly)
-  call shdf5_orec(ndims, idims, 'arf_iw'    , rvara=itab_ws(:)%arf_iw)
-  call shdf5_orec(ndims, idims, 'arf_kw'    , rvara=itab_ws(:)%arf_kw)
+  call shdf5_orec(ndims, idims, 'iw'        , ivar1=itab_ws(:)%iw)
+  call shdf5_orec(ndims, idims, 'kw'        , ivar1=itab_ws(:)%kw)
+  call shdf5_orec(ndims, idims, 'nspoly'    , ivar1=itab_ws(:)%npoly)
+  call shdf5_orec(ndims, idims, 'arf_iw'    , rvar1=itab_ws(:)%arf_iw)
+  call shdf5_orec(ndims, idims, 'arf_kw'    , rvar1=itab_ws(:)%arf_kw)
 
-  call shdf5_orec(ndims, idims, 'sea_area'  , rvara=sea%area)
-  call shdf5_orec(ndims, idims, 'glatws'    , rvara=sea%glatw)
-  call shdf5_orec(ndims, idims, 'glonws'    , rvara=sea%glonw)
-  call shdf5_orec(ndims, idims, 'xews'      , rvara=sea%xew)
-  call shdf5_orec(ndims, idims, 'yews'      , rvara=sea%yew)
-  call shdf5_orec(ndims, idims, 'zews'      , rvara=sea%zew)
-  call shdf5_orec(ndims, idims, 'topws'     , rvara=sea%topw)
-  call shdf5_orec(ndims, idims, 'leaf_class', ivara=sea%leaf_class)
-  call shdf5_orec(ndims, idims, 'oge'       , ivara=sea%olson_oge)
+  call shdf5_orec(ndims, idims, 'sea_area'  , rvar1=sea%area)
+  call shdf5_orec(ndims, idims, 'glatws'    , rvar1=sea%glatw)
+  call shdf5_orec(ndims, idims, 'glonws'    , rvar1=sea%glonw)
+  call shdf5_orec(ndims, idims, 'xews'      , rvar1=sea%xew)
+  call shdf5_orec(ndims, idims, 'yews'      , rvar1=sea%yew)
+  call shdf5_orec(ndims, idims, 'zews'      , rvar1=sea%zew)
+  call shdf5_orec(ndims, idims, 'topws'     , rvar1=sea%topw)
+  call shdf5_orec(ndims, idims, 'leaf_class', ivar1=sea%leaf_class)
+  call shdf5_orec(ndims, idims, 'oge'       , ivar1=sea%olson_oge)
 
   ndims = 2
   idims(1) = maxnlspoly
@@ -1549,19 +1549,19 @@ subroutine seafile_write()
      rscr(1:maxnlspoly,iws) = itab_ws(iws)%xem(1:maxnlspoly)
   enddo
 
-  call shdf5_orec(ndims, idims, 'itab_ws%xem', rvara=rscr)
+  call shdf5_orec(ndims, idims, 'itab_ws%xem', rvar2=rscr)
 
   do iws = 1,nws
      rscr(1:maxnlspoly,iws) = itab_ws(iws)%yem(1:maxnlspoly)
   enddo
 
-  call shdf5_orec(ndims, idims, 'itab_ws%yem', rvara=rscr)
+  call shdf5_orec(ndims, idims, 'itab_ws%yem', rvar2=rscr)
 
   do iws = 1,nws
      rscr(1:maxnlspoly,iws) = itab_ws(iws)%zem(1:maxnlspoly)
   enddo
 
-  call shdf5_orec(ndims, idims, 'itab_ws%zem', rvara=rscr)
+  call shdf5_orec(ndims, idims, 'itab_ws%zem', rvar2=rscr)
 
   call shdf5_close()
 
@@ -1614,7 +1614,7 @@ subroutine landfile_read_pd()
   ndims = 1
   idims(1) = nwl
 
-  call shdf5_irec(ndims, idims, 'iw', ivara=itab_wl_pd_iw)
+  call shdf5_irec(ndims, idims, 'iw', ivar1=itab_wl_pd_iw)
   call shdf5_close()
 
   mwl = nwl
@@ -1657,52 +1657,52 @@ subroutine landfile_read()
   ndims = 1
   idims(1) = nzg
 
-  call shdf5_irec(ndims, idims, 'slz', rvara=slz)
+  call shdf5_irec(ndims, idims, 'slz', rvar1=slz)
 
   ndims = 1
   idims(1) = mwl
 
-  call shdf5_irec(ndims, idims, 'kw'        , ivara=itab_wl(:)%kw, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'nlpoly'    , ivara=itab_wl(:)%npoly, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'arf_iw'    , rvara=itab_wl(:)%arf_iw, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'arf_kw'    , rvara=itab_wl(:)%arf_kw, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'kw'        , ivar1=itab_wl(:)%kw, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'nlpoly'    , ivar1=itab_wl(:)%npoly, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'arf_iw'    , rvar1=itab_wl(:)%arf_iw, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'arf_kw'    , rvar1=itab_wl(:)%arf_kw, points=itab_wl%iwglobe)
 
-  call shdf5_irec(ndims, idims, 'land_area' , rvara=land%area, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'glatwl'    , rvara=land%glatw, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'glonwl'    , rvara=land%glonw, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'xewl'      , rvara=land%xew, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'yewl'      , rvara=land%yew, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'zewl'      , rvara=land%zew, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'topwl'     , rvara=land%topw, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'wnxl'      , rvara=land%wnx, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'wnyl'      , rvara=land%wny, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'wnzl'      , rvara=land%wnz, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'leaf_class', ivara=land%leaf_class, points=itab_wl%iwglobe)
-  call shdf5_irec(ndims, idims, 'oge'       , ivara=land%olson_oge, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'land_area' , rvar1=land%area, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'glatwl'    , rvar1=land%glatw, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'glonwl'    , rvar1=land%glonw, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'xewl'      , rvar1=land%xew, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'yewl'      , rvar1=land%yew, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'zewl'      , rvar1=land%zew, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'topwl'     , rvar1=land%topw, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'wnxl'      , rvar1=land%wnx, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'wnyl'      , rvar1=land%wny, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'wnzl'      , rvar1=land%wnz, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'leaf_class', ivar1=land%leaf_class, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'oge'       , ivar1=land%olson_oge, points=itab_wl%iwglobe)
 
   ndims = 2
   idims(1) = nzg
   idims(2) = mwl
 
-  call shdf5_irec(ndims, idims, 'ntext_soil', ivara=land%ntext_soil, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims, idims, 'ntext_soil', ivar2=land%ntext_soil, points=itab_wl%iwglobe)
 
   ndims = 2
   idims(1) = maxnlspoly
   idims(2) = mwl
 
-  call shdf5_irec(ndims,idims,'itab_wl%xem',rvara=rscr, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims,idims,'itab_wl%xem',rvar2=rscr, points=itab_wl%iwglobe)
 
   do iwl = 1,mwl
      itab_wl(iwl)%xem(1:maxnlspoly) = rscr(1:maxnlspoly,iwl)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wl%yem',rvara=rscr, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims,idims,'itab_wl%yem',rvar2=rscr, points=itab_wl%iwglobe)
 
   do iwl = 1,mwl
      itab_wl(iwl)%yem(1:maxnlspoly) = rscr(1:maxnlspoly,iwl)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wl%zem',rvara=rscr, points=itab_wl%iwglobe)
+  call shdf5_irec(ndims,idims,'itab_wl%zem',rvar2=rscr, points=itab_wl%iwglobe)
 
   do iwl = 1,mwl
      itab_wl(iwl)%zem(1:maxnlspoly) = rscr(1:maxnlspoly,iwl)
@@ -1758,7 +1758,7 @@ subroutine seafile_read_pd()
   ndims = 1
   idims(1) = nws
 
-  call shdf5_irec(ndims, idims, 'iw', ivara=itab_ws_pd_iw)
+  call shdf5_irec(ndims, idims, 'iw', ivar1=itab_ws_pd_iw)
   call shdf5_close()
 
   mws = nws
@@ -1799,20 +1799,20 @@ subroutine seafile_read()
   ndims = 1
   idims(1) = mws
 
-  call shdf5_irec(ndims, idims, 'kw'        , ivara=itab_ws(:)%kw, points=itab_ws%iwglobe)
-  call shdf5_irec(ndims, idims, 'nspoly'    , ivara=itab_ws(:)%npoly, points=itab_ws%iwglobe)
-  call shdf5_irec(ndims, idims, 'arf_iw'    , rvara=itab_ws(:)%arf_iw, points=itab_ws%iwglobe)
-  call shdf5_irec(ndims, idims, 'arf_kw'    , rvara=itab_ws(:)%arf_kw, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'kw'        , ivar1=itab_ws(:)%kw, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'nspoly'    , ivar1=itab_ws(:)%npoly, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'arf_iw'    , rvar1=itab_ws(:)%arf_iw, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'arf_kw'    , rvar1=itab_ws(:)%arf_kw, points=itab_ws%iwglobe)
 
-  call shdf5_irec(ndims, idims, 'sea_area'  , rvara=sea%area, points=itab_ws%iwglobe)
-  call shdf5_irec(ndims, idims, 'glatws'    , rvara=sea%glatw, points=itab_ws%iwglobe)
-  call shdf5_irec(ndims, idims, 'glonws'    , rvara=sea%glonw, points=itab_ws%iwglobe)
-  call shdf5_irec(ndims, idims, 'xews'      , rvara=sea%xew, points=itab_ws%iwglobe)
-  call shdf5_irec(ndims, idims, 'yews'      , rvara=sea%yew, points=itab_ws%iwglobe)
-  call shdf5_irec(ndims, idims, 'zews'      , rvara=sea%zew, points=itab_ws%iwglobe)
-  call shdf5_irec(ndims, idims, 'topws'     , rvara=sea%topw, points=itab_ws%iwglobe)
-  call shdf5_irec(ndims, idims, 'leaf_class', ivara=sea%leaf_class, points=itab_ws%iwglobe)
-  call shdf5_irec(ndims, idims, 'oge'       , ivara=sea%olson_oge, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'sea_area'  , rvar1=sea%area, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'glatws'    , rvar1=sea%glatw, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'glonws'    , rvar1=sea%glonw, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'xews'      , rvar1=sea%xew, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'yews'      , rvar1=sea%yew, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'zews'      , rvar1=sea%zew, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'topws'     , rvar1=sea%topw, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sea%leaf_class, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'oge'       , ivar1=sea%olson_oge, points=itab_ws%iwglobe)
 
   allocate (rscr(maxnlspoly,mws))
 
@@ -1822,19 +1822,19 @@ subroutine seafile_read()
 
   rscr(:,:) = 0
 
-  call shdf5_irec(ndims, idims, 'itab_ws%xem', rvara=rscr, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'itab_ws%xem', rvar2=rscr, points=itab_ws%iwglobe)
 
   do iws = 1,mws
      itab_ws(iws)%xem(1:maxnlspoly) = rscr(1:maxnlspoly,iws)
   enddo
 
-  call shdf5_irec(ndims, idims, 'itab_ws%yem', rvara=rscr, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'itab_ws%yem', rvar2=rscr, points=itab_ws%iwglobe)
 
   do iws = 1,mws
      itab_ws(iws)%yem(1:maxnlspoly) = rscr(1:maxnlspoly,iws)
   enddo
 
-  call shdf5_irec(ndims, idims, 'itab_ws%zem', rvara=rscr, points=itab_ws%iwglobe)
+  call shdf5_irec(ndims, idims, 'itab_ws%zem', rvar2=rscr, points=itab_ws%iwglobe)
 
   do iws = 1,mws
      itab_ws(iws)%zem(1:maxnlspoly) = rscr(1:maxnlspoly,iws)
@@ -1894,17 +1894,17 @@ subroutine landfile_read_oldgrid()
   ndims = 1
   idims(1) = nwl_og
 
-  call shdf5_irec(ndims, idims, 'xewl', rvara=xewl_og)
-  call shdf5_irec(ndims, idims, 'yewl', rvara=yewl_og)
-  call shdf5_irec(ndims, idims, 'zewl', rvara=zewl_og)
+  call shdf5_irec(ndims, idims, 'xewl', rvar1=xewl_og)
+  call shdf5_irec(ndims, idims, 'yewl', rvar1=yewl_og)
+  call shdf5_irec(ndims, idims, 'zewl', rvar1=zewl_og)
 
-  call shdf5_irec(ndims, idims, 'leaf_class', ivara=leaf_class_og)
+  call shdf5_irec(ndims, idims, 'leaf_class', ivar1=leaf_class_og)
 
   ndims = 2
   idims(1) = nzg_og
   idims(2) = nwl_og
 
-  call shdf5_irec(ndims, idims, 'ntext_soil', ivara=ntext_soil_og)
+  call shdf5_irec(ndims, idims, 'ntext_soil', ivar2=ntext_soil_og)
 
   call shdf5_close()
 
@@ -1951,9 +1951,9 @@ subroutine seafile_read_oldgrid()
 
   idims(1) = nws_og
 
-  call shdf5_irec(ndims, idims, 'xews', rvara=xews_og)
-  call shdf5_irec(ndims, idims, 'yews', rvara=yews_og)
-  call shdf5_irec(ndims, idims, 'zews', rvara=zews_og)
+  call shdf5_irec(ndims, idims, 'xews', rvar1=xews_og)
+  call shdf5_irec(ndims, idims, 'yews', rvar1=yews_og)
+  call shdf5_irec(ndims, idims, 'zews', rvar1=zews_og)
 
   call shdf5_close()
 
