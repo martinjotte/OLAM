@@ -33,9 +33,10 @@
 
 subroutine interp_htw_ll(npts,iws_loc,wts_loc,nlevin,nlevout,field,field_ll)
 
-  use mem_grid,     only: mwa
+  use mem_grid,     only: mwa, mza, lpw
   use misc_coms,    only: iparallel
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
+  use mem_ijtabs,   only: jtab_w, jtw_prog
 
   implicit none
 
@@ -45,13 +46,25 @@ subroutine interp_htw_ll(npts,iws_loc,wts_loc,nlevin,nlevout,field,field_ll)
   real,    intent(inout) :: field(nlevin,mwa)
   real,    intent(inout) :: field_ll(npts,nlevout)
 
-  integer :: ipt, kin, kout
+  integer :: ipt, kin, kout, j, iw, ka, k
+
+  if (nlevin == mza) then
+     !$omp parallel do private (iw,ka,k)
+     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+        ka = lpw(iw)
+        do k = ka-1, 1, -1
+           field(k,iw) = field(ka,iw)
+        enddo
+     enddo
+     !$omp end parallel do
+  endif
 
   if (iparallel == 1) then
      call mpi_send_w(1,svara1=field)
      call mpi_recv_w(1,svara1=field)
   endif
 
+  !$omp parallel do private (kout,kin)
   do ipt = 1, npts
      do kout = 1, nlevout
         kin = kout + nlevin - nlevout
@@ -60,6 +73,7 @@ subroutine interp_htw_ll(npts,iws_loc,wts_loc,nlevin,nlevout,field,field_ll)
                            + wts_loc(ipt,3) * field(kin,iws_loc(ipt,3))
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine interp_htw_ll
 
@@ -67,7 +81,7 @@ end subroutine interp_htw_ll
 
 subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
-  use mem_grid,   only: glatw, glonw, mwa, nwa, xew, yew, zew, dnv
+  use mem_grid,   only: glatw, glonw, mwa, xew, yew, zew, dnv
   use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
   use consts_coms,only: pio180, r8, erad
 
