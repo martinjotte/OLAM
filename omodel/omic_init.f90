@@ -118,13 +118,13 @@ implicit none
 
   call dust_src_init()
 
+  call tabhab()
+
   if (miclevel < 3) return
 
   call haznuc()
 
   call tabmelt()
-
-  call tabhab()
 
   call alloc_sedimtab(mza)
   call mksedim_tab(mza,zm,dzt,dzit)
@@ -273,8 +273,6 @@ emb2(4) = cfmas(4) * sparm ** pwmas(4)
 emb2(5) = cfmas(5) * aparm ** pwmas(5)
 emb2(6) = cfmas(6) * gparm ** pwmas(6)
 emb2(7) = cfmas(7) * hparm ** pwmas(7)
-
-if (miclevel < 3) RETURN
 
 ! Initialize constants for vapor diffusion
 

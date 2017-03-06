@@ -14,14 +14,6 @@ module cgrid_defn
   real, allocatable, target :: sxfer_ae(:,:,:)
   real, allocatable, target :: sxfer_nr(:,:,:)
 
-  real, allocatable, target :: acflux_dir_dn_tot(:,:,:)
-  real, allocatable, target :: acflux_dif_dn_tot(:,:,:)
-  real, allocatable, target :: acflux_dif_up_tot(:,:,:)
-    
-  real, allocatable, target :: acflux_dir_dn_clr(:,:,:)
-  real, allocatable, target :: acflux_dif_dn_clr(:,:,:)
-  real, allocatable, target :: acflux_dif_up_clr(:,:,:)
-
   integer :: ns_co  = 0
   integer :: ns_no  = 0
   integer :: ns_no2 = 0
@@ -76,24 +68,6 @@ contains
 
     allocate(cgrid_names(nspcsd))
     cgrid_names = ''
-
-    allocate(acflux_dir_dn_tot(mza,7,mwa))
-    acflux_dir_dn_tot = rinit
-
-    allocate(acflux_dif_dn_tot(mza,7,mwa))
-    acflux_dif_dn_tot = rinit
-
-    allocate(acflux_dif_up_tot(mza,7,mwa))
-    acflux_dif_up_tot = rinit
-
-    allocate(acflux_dir_dn_clr(mza,7,mwa))
-    acflux_dir_dn_clr = rinit
-
-    allocate(acflux_dif_dn_clr(mza,7,mwa))
-    acflux_dif_dn_clr = rinit
-
-    allocate(acflux_dif_up_clr(mza,7,mwa))
-    acflux_dif_up_clr = rinit
 
   end subroutine alloc_cgrid
 
@@ -164,14 +138,6 @@ contains
 
        endif
     enddo
-
-    call increment_vtable('ACFLUX_DIR_DN_TOT', 'AW', rvar3=acflux_dir_dn_tot)
-    call increment_vtable('ACFLUX_DIF_DN_TOT', 'AW', rvar3=acflux_dif_dn_tot)
-    call increment_vtable('ACFLUX_DIF_UP_TOT', 'AW', rvar3=acflux_dif_up_tot)
-
-    call increment_vtable('ACFLUX_DIR_DN_CLR', 'AW', rvar3=acflux_dir_dn_clr)
-    call increment_vtable('ACFLUX_DIF_DN_CLR', 'AW', rvar3=acflux_dif_dn_clr)
-    call increment_vtable('ACFLUX_DIF_UP_CLR', 'AW', rvar3=acflux_dif_up_clr)
 
   end subroutine filltab_cgrid
 

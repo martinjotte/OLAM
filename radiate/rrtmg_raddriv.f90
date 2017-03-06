@@ -2,7 +2,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   use mem_grid,    only: mza, zm, zt, glatw, dzt
   use mem_basic,   only: rho, press, theta, tair, sh_v
-  use misc_coms,   only: iswrtyp, ilwrtyp, time8, dtlm, do_chem
+  use misc_coms,   only: iswrtyp, ilwrtyp, time8, dtlm
   use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, &
                          t00, r8
   use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
@@ -13,15 +13,13 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          rlong_clr, rlongup_clr, rlongup_top_clr, &
                          par, par_diffuse, uva, uvb, uvc, pbl_cld_forc
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab, &
-                         emb2
+                         emb2, zfactor_ccn
   use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr, iactcu
   use rrtmg_cloud, only: cloud_props
   use mem_turb,    only: frac_land, kpblh
   use mem_mclat,   only: rad_mclat
   use mem_ijtabs,  only: itab_w
   use mem_micro,   only: cldnum
-  use cgrid_defn,  only: acflux_dir_dn_tot, acflux_dif_dn_tot, acflux_dif_up_tot, &
-                         acflux_dir_dn_clr, acflux_dif_dn_clr, acflux_dif_up_clr
 
   use parrrtm,             only: nbndlw, ngptlw
   use parrrsw,             only: nbndsw, ngptsw
@@ -151,7 +149,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: asmaers(ncol, nrad, nbndsw)
   real :: ecaer  (ncol, nrad, nbndsw)
 
-  integer :: k, krad, icloud, iaeros, index, ib, ig, krad1, krad2
+  integer :: k, krad, icloud, iaeros, ib, ig, krad1, krad2
   integer :: iplon, irng, permuteseed, ns, nt, iseed
   integer :: mc, mcat, ih, l, ntim, ngbmsw, ngbmlw
 
@@ -349,7 +347,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
         cldfr(1,krad) = frac(k)
 
         ! water path in g/m^2
-        watp = qwcon(k,iw) * real(rho(k,iw)) * 1000. * dzt(k)
+        watp = qwcon(k,iw) * dl(krad) * 1000. * dzt(k)
         watp = watp / max( frac(k), 0.2 )
 
         tc = tair(k,iw) - t00
@@ -361,7 +359,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
            l  = kradcat(ih)
 
            ! effective radius in microns
-           r_ef = 1.e6 * reffcof(ih) * (qwcon(k,iw) / cldnum(iw)) ** pwmasi(ih)
+           r_ef = 1.e6 * reffcof(ih) &
+                * ( qwcon(k,iw) / (cldnum(iw) * zfactor_ccn(k)) ) ** pwmasi(ih)
 
         else
 
@@ -586,26 +585,10 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
         fthrd_sw(k,iw) = swhr(1,krad) * exl(krad) / 86400.0
      enddo
 
-     if (do_chem == 1) then
-        call rrtmg_to_cmaq()
-     endif
-
      krad1 = max(kpblh(iw) - koff - 1, 1)
      krad2 = min(kpblh(iw) - koff + 1, nrad+1)
      pbl_cld_forc(iw) = (swdflx(1,krad1) - swdflxc(1,krad1)) - (swdflx(1,krad2) - swdflxc(1,krad2)) &
                       + (swuflx(1,krad2) - swuflxc(1,krad2)) - (swuflx(1,krad1) - swuflxc(1,krad1))
-
-  else
-
-     if (do_chem == 1) then
-        acflux_dir_dn_tot(:,:,iw) = 0.0
-        acflux_dif_dn_tot(:,:,iw) = 0.0
-        acflux_dif_up_tot(:,:,iw) = 0.0
-        acflux_dir_dn_clr(:,:,iw) = 0.0
-        acflux_dif_dn_clr(:,:,iw) = 0.0
-        acflux_dif_up_clr(:,:,iw) = 0.0
-     endif
-
   endif
 
   ! Compute the longwave fluxes and heating rates
@@ -708,7 +691,7 @@ contains
     real,    intent(in) :: watp  ! ice or liquid water path (g/m^2)
     integer, intent(in) :: krad
 
-    integer :: num
+    integer :: num, index
     real    :: rstart, rend, rscale, reff
     real    :: fint0, fint1
     real    :: tau, ssa, asm
@@ -728,7 +711,7 @@ contains
 
        do ib = 1, nbndsw
           tau = ( fint0 * cloud_props(l)%extsw(ib, index  ) &
-              + fint1 * cloud_props(l)%extsw(ib, index+1) ) * watp
+                + fint1 * cloud_props(l)%extsw(ib, index+1) ) * watp
 
           ssa = fint0 * cloud_props(l)%ssasw(ib, index  ) &
               + fint1 * cloud_props(l)%ssasw(ib, index+1)
@@ -748,7 +731,7 @@ contains
 
        do ib = 1, nbndlw
           tau = ( fint0 * cloud_props(l)%abslw(ib, index  ) &
-              + fint1 * cloud_props(l)%abslw(ib, index+1) ) * watp
+                + fint1 * cloud_props(l)%abslw(ib, index+1) ) * watp
 
           taucldl(ib,1,krad) = taucldl(ib,1,krad) + tau
        enddo
@@ -756,64 +739,6 @@ contains
     endif
 
   end subroutine lookup_rrtmg_cld_optics
-
-
-  subroutine rrtmg_to_cmaq()
-
-    implicit none
-
-    real,    parameter :: mu1 = 2.0
-
-    integer, parameter :: nb(6) = (/ 12, 12, 12, 12, 12, 11 /)
-    real,    parameter :: cc(6) = (/ 0.080617, 0.111306, 0.064996, 0.107632, 0.388907, 0.663493 /)
-
-    integer, parameter :: n7(4) = (/ 8, 9, 10, 11 /)
-    real,    parameter :: c7(4) = (/ 0.231458, 1.000000, 1.000000, 0.336507 /)
-    
-    real               :: mu
-    integer            :: k, n
-    real               :: irr_dir_dn_tot(7)
-    real               :: irr_dif_dn_tot(7)
-    real               :: irr_dif_up_tot(7)
-    real               :: irr_dir_dn_clr(7)
-    real               :: irr_dif_dn_clr(7)
-    real               :: irr_dif_up_clr(7)
-
-    mu = 1.0 / cosz(iw)
-
-    do k = 1, mza-koff
-
-       do n = 1, 6
-          irr_dir_dn_tot(n) = cc(n) * swdflxt_band_dir(k,nb(n))
-          irr_dif_dn_tot(n) = cc(n) * max( swdflxt_band(k,nb(n)) - swdflxt_band_dir(k,nb(n)), 0.0)
-          irr_dif_up_tot(n) = cc(n) * swuflxt_band(k,nb(n))
-
-          irr_dir_dn_clr(n) = cc(n) * swdflxc_band_dir(k,nb(n))
-          irr_dif_dn_clr(n) = cc(n) * max( swdflxc_band(k,nb(n)) - swdflxc_band_dir(k,nb(n)), 0.0)
-          irr_dif_up_clr(n) = cc(n) * swuflxc_band(k,nb(n))
-       enddo
-
-       irr_dir_dn_tot(7) = sum( c7(:) * swdflxt_band_dir(k,n7(:)) )
-       irr_dif_dn_tot(7) = sum( c7(:) * max( swdflxt_band(k,n7(:)) - swdflxt_band_dir(k,n7(:)), 0.0) )
-       irr_dif_up_tot(7) = sum( c7(:) * swuflxt_band(k,n7(:)) )
-
-       irr_dir_dn_clr(7) = sum( c7(:) * swdflxc_band_dir(k,n7(:)) )
-       irr_dif_dn_clr(7) = sum( c7(:) * max( swdflxc_band(k,n7(:)) - swdflxc_band_dir(k,n7(:)), 0.0) )
-       irr_dif_up_clr(7) = sum( c7(:) * swuflxc_band(k,n7(:)) )
-
-       do n = 1, 7
-          acflux_dir_dn_tot(k,n,iw) = irr_dir_dn_tot(n) * mu
-          acflux_dif_dn_tot(k,n,iw) = irr_dif_dn_tot(n) * mu1
-          acflux_dif_up_tot(k,n,iw) = irr_dif_up_tot(n) * mu1
-
-          acflux_dir_dn_clr(k,n,iw) = irr_dir_dn_clr(n) * mu
-          acflux_dif_dn_clr(k,n,iw) = irr_dif_dn_clr(n) * mu1
-          acflux_dif_up_clr(k,n,iw) = irr_dif_up_clr(n) * mu1
-       enddo
-
-    enddo
-
-  end subroutine rrtmg_to_cmaq
 
 
 end subroutine rrtmg_raddriv

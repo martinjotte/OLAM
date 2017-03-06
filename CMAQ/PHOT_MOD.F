@@ -148,9 +148,6 @@ C-----------------------------------------------------------------------
 !     USE CLOUD_OPTICS         ! data and routines for optics of cloud hydrometeors
       USE AERO_PHOTDATA
 
-      use cgrid_defn,  only: acflux_dir_dn_tot, acflux_dif_dn_tot, acflux_dif_up_tot,
-     &                       acflux_dir_dn_clr, acflux_dif_dn_clr, acflux_dif_up_clr
-
       IMPLICIT NONE
 
 !***arguments
@@ -765,20 +762,9 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
          DO L = 1, NLAYS_MODEL
             II = NLAYS_MODEL + 1 - L
 
-!           FSUM( L ) = FDIR( II ) + FDN( II ) + FUP( II ) ! actinic flux
-
-            FSUM( L ) = FDIR( II ) * max(acflux_dir_dn_tot(l,iwl,iw),1.e-6) / max(acflux_dir_dn_clr(l,iwl,iw),1.e-6)
-     &                + FDN ( II ) * max(acflux_dif_dn_tot(l,iwl,iw),1.e-6) / max(acflux_dif_dn_clr(l,iwl,iw),1.e-6)
-     &                + FUP ( II ) * max(acflux_dif_up_tot(l,iwl,iw),1.e-6) / max(acflux_dif_up_clr(l,iwl,iw),1.e-6)
+            FSUM( L ) = FDIR( II ) + FDN( II ) + FUP( II ) ! actinic flux
 
             ESUM( L ) = EDIR( II ) + EDN( II )             ! downward irradiance
-
-!            write(*,*) l, iwl, iw, FDIR( II ) + FDN( II ) + FUP( II ), fsum(l)
-!            write(*,*) l, iwl, iw, acflux_dir_dn_tot(l,iwl,iw), acflux_dir_dn_clr(l,iwl,iw)
-!            write(*,*) l, iwl, acflux_dir_dn_tot(l,iwl,iw) / max(acflux_dir_dn_clr(l,iwl,iw),0.001),
-!     &                         acflux_dif_dn_tot(l,iwl,iw) / max(acflux_dif_dn_clr(l,iwl,iw),0.001),
-!     &                         acflux_dif_up_tot(l,iwl,iw) / max(acflux_dif_up_clr(l,iwl,iw),0.001)
-
          END DO                 ! loop over layers
 
 ! add diffusion and direct components for calculating reflectivity and transmissivity
