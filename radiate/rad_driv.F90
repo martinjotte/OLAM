@@ -44,8 +44,8 @@ use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,          &
                        rshort_top, rshortup_top, rshort_diffuse,          &
                        rshort_clr, rshortup_clr,                          &
                        rshort_top_clr, rshortup_top_clr,                  &
-                       par, par_diffuse, uva, uvb, uvc, pbl_cld_forc
-
+                       par, par_diffuse, uva, uvb, uvc, pbl_cld_forc,     &
+                       ppfd, ppfd_diffuse
 use mem_basic,   only: rho
 use consts_coms, only: stefan, pio180, eradi, r8
 use misc_coms,   only: io6, time8p, time_istp8, radfrq, itime1, ilwrtyp, &
@@ -122,6 +122,8 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 
       par(iw) = 0.
       par_diffuse(iw) = 0.
+      ppfd(iw) = 0.
+      ppfd_diffuse(iw) = 0.
       uva(iw) = 0.
       uvb(iw) = 0.
       uvc(iw) = 0.

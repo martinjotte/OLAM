@@ -11,7 +11,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          rlong_albedo, solfac, cloud_frac, rshort_clr, &
                          rshortup_clr, rshort_top_clr, rshortup_top_clr, &
                          rlong_clr, rlongup_clr, rlongup_top_clr, &
-                         par, par_diffuse, uva, uvb, uvc, pbl_cld_forc
+                         par, par_diffuse, uva, uvb, uvc, pbl_cld_forc, &
+                         ppfd, ppfd_diffuse
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab, &
                          emb2, zfactor_ccn
   use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr, iactcu
@@ -573,6 +574,14 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
      par_diffuse(iw) = par(iw) - ( 0.5268*swdflxt_band_dir(1, 9) &
                                  +        swdflxt_band_dir(1,10) &
                                  + 0.4724*swdflxt_band_dir(1,11) )
+
+     ppfd(iw) = 2.9156 * swdflxt_band(1, 9) &
+              + 4.4568 * swdflxt_band(1,10) &
+              + 1.6614 * swdflxt_band(1,11)
+
+     ppfd_diffuse(iw) = ppfd(iw) - ( 2.9156 * swdflxt_band_dir(1, 9) &
+                                   + 4.4568 * swdflxt_band_dir(1,10) &
+                                   + 1.6614 * swdflxt_band_dir(1,11) )
 
      uva(iw) = 0.5276*swdflxt_band(1,11) + 0.3932*swdflxt_band(1,12)
 

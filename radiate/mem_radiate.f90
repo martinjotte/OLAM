@@ -58,6 +58,8 @@ Module mem_radiate
   real, allocatable         :: rshort_diffuse(:)
   real, allocatable         :: par           (:)
   real, allocatable         :: par_diffuse   (:)
+  real, allocatable         :: ppfd          (:)
+  real, allocatable         :: ppfd_diffuse  (:)
   real, allocatable         :: uva           (:)
   real, allocatable         :: uvb           (:)
   real, allocatable         :: uvc           (:)
@@ -112,6 +114,8 @@ Contains
 
        allocate (par           (mwa)) ; par            = 0.0
        allocate (par_diffuse   (mwa)) ; par_diffuse    = 0.0
+       allocate (ppfd          (mwa)) ; ppfd           = 0.0
+       allocate (ppfd_diffuse  (mwa)) ; ppfd_diffuse   = 0.0
        allocate (uva           (mwa)) ; uva            = 0.0
        allocate (uvb           (mwa)) ; uvb            = 0.0
        allocate (uvc           (mwa)) ; uvc            = 0.0
@@ -172,6 +176,8 @@ Contains
 
     if (allocated(par))              deallocate (par)
     if (allocated(par_diffuse))      deallocate (par_diffuse)
+    if (allocated(ppfd))             deallocate (ppfd)
+    if (allocated(ppfd_diffuse))     deallocate (ppfd_diffuse)
     if (allocated(uva))              deallocate (uva)
     if (allocated(uvb))              deallocate (uvb)
     if (allocated(uvc))              deallocate (uvc)
@@ -223,6 +229,14 @@ Contains
     if (allocated(rlongup_top_clr))  call increment_vtable('RLONGUP_TOP_CLR', 'AW', rvar1=rlongup_top_clr)
 
     if (allocated(pbl_cld_forc))     call increment_vtable('PBL_CLD_FORC',    'AW', rvar1=pbl_cld_forc)
+
+    if (allocated(par))              call increment_vtable('PAR',             'AW', rvar1=par)
+
+    if (allocated(par_diffuse))      call increment_vtable('PAR_DIFFUSE',     'AW', rvar1=par_diffuse)
+
+    if (allocated(ppfd))             call increment_vtable('PPFD',            'AW', rvar1=ppfd)
+
+    if (allocated(ppfd_diffuse))     call increment_vtable('PPFD_DIFFUSE',    'AW', rvar1=ppfd_diffuse)
 
   end subroutine filltab_radiate
 
