@@ -230,11 +230,11 @@ Contains
 
     if (allocated(pbl_cld_forc))     call increment_vtable('PBL_CLD_FORC',    'AW', rvar1=pbl_cld_forc)
 
-    if (allocated(par))              call increment_vtable('PAR',             'AW', rvar1=par)
+    if (allocated(par))              call increment_vtable('PAR_TOT',         'AW', rvar1=par)
 
     if (allocated(par_diffuse))      call increment_vtable('PAR_DIFFUSE',     'AW', rvar1=par_diffuse)
 
-    if (allocated(ppfd))             call increment_vtable('PPFD',            'AW', rvar1=ppfd)
+    if (allocated(ppfd))             call increment_vtable('PPFD_TOT',        'AW', rvar1=ppfd)
 
     if (allocated(ppfd_diffuse))     call increment_vtable('PPFD_DIFFUSE',    'AW', rvar1=ppfd_diffuse)
 

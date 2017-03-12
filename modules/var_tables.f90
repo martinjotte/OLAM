@@ -153,7 +153,7 @@ Contains
          'SU', 'SW', 'SM',        &  ! Sea   U, W, M array
          'CN'                     /) ! Contstant (scalar)
 
-    integer :: ntsize
+    integer :: ntsize, iv
     integer, parameter :: ialloc = 20 ! Increment to increase tables
 
     type(var_tables_r),  allocatable :: vtab_copy(:)
@@ -162,17 +162,28 @@ Contains
     ! ERROR CHECKING: MAKE SURE VARIABLE HAS A NAME
 
     if (len_trim(name) == 0) then
-       write(io6,*) "Error in subroutine vtables:"
+       write(io6,*) "Error in subroutine increment_vtable:"
        stop         "Vtables called with no variable name."
     endif
 
     ! ERROR CHECKING: MAKE SURE VARIABLE HAS A STAGGER POINT
 
     if (len_trim(stagpt) == 0) then
-       write(io6,*) "Error in subroutine vtables:"
+       write(io6,*) "Error in subroutine increment_vtable:"
        stop         "vtables called with no stagger point."
     endif
-   
+
+    ! ERROR CHECKING: MAKE SURE NAMES ARE UNIQUE
+    if (num_var > 0) then
+       do iv = 1, num_var
+          if (vtab_r(iv)%name == name) then
+             write(io6,*) "Error in subroutine increment_vtable:"
+             write(io6,*) "Name " // trim(name) // " already used."
+             stop
+          endif
+       enddo
+    endif
+
     ! INITIAL ALLOCATION OF TABLES IF THIS IS THE FIRST CALL
 
     if (.not. allocated(vtab_r)) allocate(vtab_r(ialloc))
