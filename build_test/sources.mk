@@ -296,8 +296,9 @@ SOURCE_FILES= \
              $(CMAQ)/SSEMIS.F \
              $(CMAQ)/twoway_rrtmg_aero_optics.F90 \
              $(CMAQ)/UTILIO_DEFN.F \
-             $(MEGAN)/canopy.f90 \
-             $(MEGAN)/driver.f90
+             $(MEGAN)/CONSTS_MEGAN.f90 \
+             $(MEGAN)/EMIS_MAPS_MEGAN.f90 \
+             $(MEGAN)/megan_driver.f90
 
 ED2_SOURCES = \
              $(ED2DRIV)/ed_1st.f90 \
