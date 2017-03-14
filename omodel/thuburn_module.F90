@@ -241,7 +241,7 @@ Contains
                    endif
                 enddo
              else
-                iwnode   = maxloc(w_maxs, dim=1)
+                iwnode   = maxloc(abs(w_maxs), dim=1)
                 w_max    = w_maxs(iwnode)
                 iwmax(:) = iwmaxs(:,iwnode)
              endif

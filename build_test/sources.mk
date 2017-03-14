@@ -247,6 +247,7 @@ SOURCE_FILES= \
              $(CMAQ)/aqchem.F \
              $(CMAQ)/cb05tucl_ae6_aq/RXNS_DATA_MODULE.F90 \
              $(CMAQ)/cb05tucl_ae6_aq/RXNS_FUNC_MODULE.F90 \
+             $(CMAQ)/cmaq_cloud_optics.f90 \
              $(CMAQ)/cmaq_driver.f90 \
              $(CMAQ)/coags.f \
              $(CMAQ)/conv_cgrid.f90 \
@@ -280,12 +281,14 @@ SOURCE_FILES= \
              $(CMAQ)/isocom.f \
              $(CMAQ)/isofwd.f \
              $(CMAQ)/isorev.f \
+             $(CMAQ)/isrpia.f90 \
              $(CMAQ)/LTNG_DEFN.f90 \
              $(CMAQ)/m3dry.f90 \
              $(CMAQ)/oplot_chem_lib.f90 \
              $(CMAQ)/phot.F \
              $(CMAQ)/phot_albedo.f90 \
              $(CMAQ)/PHOT_MOD.F \
+             $(CMAQ)/PMDIAG_DATA.F \
              $(CMAQ)/PRECURSOR_DATA.F \
              $(CMAQ)/rescld.F \
              $(CMAQ)/scavwdep.F \

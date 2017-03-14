@@ -865,14 +865,14 @@ contains
 
           if (edgar42_vars(iw)%nmvoc(j) > 1.e-20) then
 
-             fact1 = timefac(n) * edgar42_vars(iw)%nmvoc(j)
+             fact1 = timefac(n) * edgar42_vars(iw)%nmvoc(j) * gpkg
 
              do v = iald2, isesq
                 i = v - iald2 + 1
 
                 if (vocspec(n,i) > 1.e-12) then
                    
-                   fact2 = fact1 * emiscnvt(v) * vocspec(n,i)
+                   fact2 = fact1 * vocspec(n,i)
 
                    do ns = 1, lsw(iw)
                       ka = lpw(iw) + ns - 1
@@ -883,7 +883,6 @@ contains
                          k  = ks + ka - 1
                          edgar42_emis(k,iw,v) = edgar42_emis(k,iw,v) &
                                               + vinterp(n,ka)%facts(ks) * fact3
-
                       enddo
                    enddo
                 endif

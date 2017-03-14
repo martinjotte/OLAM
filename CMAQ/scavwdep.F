@@ -293,35 +293,34 @@ C...  specified, otherwise there is no need to perform scavenging
 C...compute total Aitken mode number (#/m3)
 
       NUMAKN = 0.0
-
       DO I = 1, N_NUMAKN
         PNTR = CGRID_SCAV_MAP( L_NUMAKN( I ) )
-        NUMAKN = NUMAKN + ( POLC( PNTR ) * AIRM / CTHK1 )
+        NUMAKN = NUMAKN + POLC( PNTR )
       END DO
+      NUMAKN = NUMAKN * AIRM / CTHK1
 
 C...compute total Aitken mode mass (ug/m3)
 
       MASAKN = 0.0
-
       DO I = 1, N_MASAKN
         PNTR = CGRID_SCAV_MAP( L_MASAKN( I ) )
         IF ( ( .not. cgrid_scav_isnum( L_MASAKN( I ) ) ) .AND.
      &       ( .not. cgrid_scav_issrf( L_MASAKN( I ) ) ) .AND.
      &       ( .not. cgrid_scav_ish2o( L_MASAKN( I ) ) ) .AND.
      &       ( .not. cgrid_scav_istrc( L_MASAKN( I ) ) ) ) THEN
-          MASAKN = MASAKN + ( POLC( PNTR ) * AIRM / CTHK1
-     &           * AE_MOLWT( PNTR - AE_STRT + 1 ) * 1.0E6 )
+          MASAKN = MASAKN + POLC( PNTR ) * AE_MOLWT( PNTR - AE_STRT + 1 )
         END IF
       END DO
+      masakn = masakn * airm / cthk1 * 1.e6
 
 C...compute total Aitken mode surface area (m2/m3)
 
       SRFAKN = 0.0
-
       DO I = 1, N_SRFAKN
         PNTR = CGRID_SCAV_MAP( L_SRFAKN( I ) )
-        SRFAKN = SRFAKN + ( POLC( PNTR ) * AIRM / CTHK1 )
+        SRFAKN = SRFAKN + POLC( PNTR )
       END DO
+      srfakn = srfakn * airm / cthk1
 
 C...compute the scavenging coefficients for aitken mode aerosol mass
 C...  and number

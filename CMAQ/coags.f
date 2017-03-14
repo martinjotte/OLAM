@@ -100,17 +100,15 @@ C *** Local Variables:
       REAL( 8 ) :: I1NC
       REAL( 8 ) :: I1
       
-      REAL( 8 ) :: CONST II
-      
       REAL( 8 ) :: KNGAT, KNGAC
 
       REAL( 8 ), PARAMETER :: ONE = 1.0D0, TWO = 2.0D0, HALF = 0.5D0
-!     REAL( 8 ), PARAMETER :: A = 2.492D0
       REAL( 8 ), PARAMETER :: A = 1.246D0
       REAL( 8 ), PARAMETER :: TWO3RDS = 2.D0 / 3.D0
+      REAL( 8 ), PARAMETER :: ONE3RDS = 1.D0 / 3.D0
 
-      REAL( 8 ) :: SQRTTWO  !  sqrt(2.0)
-      REAL( 8 ) :: DLGSQT2  !  1/ln( sqrt( 2.0 ) )
+      REAL( 8 ), parameter :: CONSTII = ONE - HALF * ( TWO ) ** TWO3RDS
+      REAL( 8 ), parameter :: DLGSQT2 = ONE / LOG( SQRT( TWO ) )
 
       REAL( 8 ) :: ESAT01         ! Aitken mode exp( log^2( sigmag )/8 )
       REAL( 8 ) :: ESAC01         ! accumulation mode exp( log^2( sigmag )/8 )
@@ -1411,10 +1409,6 @@ C *** end of data statements.
 
 C----------------------------------------------------------------------
 
-      CONSTII = ABS( HALF * ( TWO ) ** TWO3RDS - ONE )
-      SQRTTWO = SQRT( TWO )      
-      DLGSQT2 = ONE / LOG( SQRTTWO )
-
       ESAT01   = EXP( 0.125D0 * XXLSGAT * XXLSGAT )
       ESAC01   = EXP( 0.125D0 * XXLSGAC * XXLSGAC )
 
@@ -1560,7 +1554,7 @@ C *** Harmonic mean
       QS12 = COAGATAC2 
 
 C *** Gain by accumulation mode
-      COAGACAT2 = ( ( ONE + R6 ) ** TWO3RDS - R4 ) * I1 
+      COAGACAT2 = ( ( ( ONE + R6 ) ** 2 ) ** ONE3RDS - R4 ) * I1 
       QS21 = COAGACAT2 * BM2JI( N1,N2N,N2A )
 
 C *** Set up for third moment

@@ -24,6 +24,8 @@
 
       IMPLICIT NONE
       
+      integer, parameter :: nwl = 7
+
       CHARACTER( 32 ), PUBLIC :: JTABLE_REF
 
       INTEGER, PUBLIC :: NPHOT_REF  ! # ref phot reactions 
@@ -121,7 +123,7 @@
 
 !***Information for photolysis
 
-      INTEGER, SAVE       :: NWL     ! number of wavelengths
+!     INTEGER, SAVE       :: NWL     ! number of wavelengths
 !     INTEGER, PARAMETER  :: NWL_INLINE_METHOD = 7
 
       INTEGER JWAVE             ! index use for wavelength
@@ -318,7 +320,7 @@ C     NONE
       CHARACTER(  16 ),  ALLOCATABLE :: AE_RERACT_REF( : )
 
 !     INTEGER, INTENT(OUT) :: NWL_PHOT    ! # of wavelengths used in PHOT_MOD.F
-      INTEGER :: NWL_PHOT    ! # of wavelengths used in PHOT_MOD.F
+!     INTEGER :: NWL_PHOT    ! # of wavelengths used in PHOT_MOD.F
       INTEGER :: IOST        ! IOST returned from OPEN function
       INTEGER :: JDATE = 0
       INTEGER :: LOG_UNIT
@@ -458,12 +460,10 @@ C...begin read
       
 4999  FORMAT(17X,I3,2X,17X,I3)
 
-      
-      NWL       = NWL_REF
-      NWL_PHOT  = NWL
+!      NWL       = NWL_REF
+!      NWL_PHOT  = NWL
 
-
-      IF ( NWL_REF .LT. 1 ) THEN
+      IF ( NWL_REF /= nwl ) THEN
          WRITE( LOG_UNIT,* ) 'NWL_REF  = ', NWL_REF
          MSG = 'NWL_REF in ' // CSQY_FILE
      &       // ' has the bad value, written above. '
@@ -589,11 +589,11 @@ C...begin read
 
       NTEMP_STRAT = NTEMP_STRAT_REF
       ALLOCATE( TEMP_O3_STRAT( NTEMP_STRAT_REF ) )
-      ALLOCATE( XO3CS        ( NTEMP_STRAT_REF, NWL_PHOT ) )
+      ALLOCATE( XO3CS        ( NTEMP_STRAT_REF, NWL ) )
 
       DO ITT_LOAD = 1, NTEMP_STRAT_REF
          TEMP_O3_STRAT( ITT_LOAD ) = TEMP_STRAT_REF( ITT_LOAD )
-         DO IWL_LOAD = 1, NWL_PHOT
+         DO IWL_LOAD = 1, NWL
             XO3CS( ITT_LOAD, IWL_LOAD ) = O3_CS_STRAT_REF( IWL_LOAD, ITT_LOAD )
          END DO
       END DO

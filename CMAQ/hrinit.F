@@ -34,7 +34,7 @@ C  RETURN VALUES: None
 C
 C  KEY SUBROUTINES/FUNCTIONS CALLED: None
 C
-C  REVISION HISTORY: Created by EBI solver program, March 12, 2015
+C  REVISION HISTORY: Created by EBI solver program, May 25, 2016
 C   21 Jun 10 J.Young:   convert for Namelist redesign
 C   18 Jul 14 B.Hutzell: revised to use the RXNS_DATA and RXNS_FUNCTION
 C                        modules instead of include files
@@ -44,11 +44,12 @@ C***********************************************************************
       USE HRDATA
       USE RXNS_DATA
       USE RXNS_FUNCTION
+      use mem_grid, only: mza
 
       IMPLICIT NONE
 
 C.....INCLUDES:
-      include 'CONST.EXT'       ! common constants
+      Include 'CONST.EXT'          ! common constants
 
 C.....ARGUMENTS: NONE
 
@@ -71,7 +72,7 @@ C***********************************************************************
       N_RXNS = NRXNS
       N_SPCL_RKS =   0
       ALLOCATE( RKI( NRXNS ),
-     &          RKI_SAV( MAX_CELLS_EBI, NRXNS ),
+     &          RKI_SAV( MZA, NRXNS ),
      &          FORWARD_CONV( N_SPEC),
      &          REVERSE_CONV( N_SPEC),
      &          RXRAT( NRXNS ),
@@ -90,13 +91,13 @@ C***********************************************************************
           CALL M3EXIT( PNAME, 0, 0, MSG, XSTAT1 )
        END IF
 
-       ALLOCATE( ATMPRES( MAX_CELLS_EBI ),
-     &           H2O    ( MAX_CELLS_EBI ),
-     &           TEMP   ( MAX_CELLS_EBI ),
-     &           HET    ( MAX_CELLS_EBI, NHETERO ),
-     &           RJIN   ( MAX_CELLS_EBI, NPHOTAB ),
-     &           LAND   ( MAX_CELLS_EBI ) ,
-     &           STAT = IOS )
+!       ALLOCATE( ATMPRES( MZA ),
+!     &           H2O    ( MZA ),
+!     &           TEMP   ( MZA ),
+!    &           HET    ( MZA, NHETERO ),
+!    &           RJIN   ( MZA, NPHOTAB ),
+!    &           LAND   ( MZA ) ,
+!     &           STAT = IOS )
 
        IF ( IOS .NE. 0 ) THEN
           MSG = 'Error allocating ATMPRES, H2O, TEMP, HET, RJIN, LAND '
@@ -104,7 +105,7 @@ C***********************************************************************
        END IF
 
        IF( NSPECIAL .GT. 0 )THEN
-          ALLOCATE( SYC( MAX_CELLS_EBI, N_SPEC ), STAT = IOS )
+          ALLOCATE( SYC( MZA, N_SPEC ), STAT = IOS )
           IF ( IOS .NE. 0 ) THEN
                MSG = 'Error allocating SYC'
                CALL M3EXIT( PNAME, 0, 0, MSG, XSTAT1 )
@@ -145,7 +146,7 @@ C***********************************************************************
 
 c..Allocate and define ebi species
 
-      N_EBISP  =  94
+      N_EBISP  = 102
       ALLOCATE( EBISP( N_EBISP ), STAT = IOS ) 
       IF ( IOS .NE. 0 ) THEN
          MSG = 'Error allocating EBISP' 
@@ -242,10 +243,18 @@ c..Allocate and define ebi species
       EBISP(  88 ) = APAH2J
       EBISP(  89 ) = AALK1J
       EBISP(  90 ) = AALK2J
-      EBISP(  91 ) = APOCI
-      EBISP(  92 ) = APNCOMI
-      EBISP(  93 ) = APOCJ
-      EBISP(  94 ) = APNCOMJ
+      EBISP(  91 ) = PCVOC
+      EBISP(  92 ) = PCSOARXN
+      EBISP(  93 ) = VLVPO1
+      EBISP(  94 ) = VSVPO1
+      EBISP(  95 ) = VSVPO2
+      EBISP(  96 ) = VSVPO3
+      EBISP(  97 ) = VIVPO1
+      EBISP(  98 ) = VLVOO1
+      EBISP(  99 ) = VLVOO2
+      EBISP( 100 ) = VSVOO2
+      EBISP( 101 ) = VSVOO3
+      EBISP( 102 ) = VSVOO1
 
 
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -297,8 +306,8 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       RTOL( CRO      ) = 1.0D-03
       RTOL( CAT1     ) = 1.0D-03
       RTOL( CRON     ) = 1.0D-03
-      RTOL( CRNO     ) = 1.0D-03
-      RTOL( CRN2     ) = 1.0D-03
+      RTOL( CRNO     ) = 1.0D+00
+      RTOL( CRN2     ) = 1.0D+00
       RTOL( CRPX     ) = 1.0D-03
       RTOL( OPO3     ) = 1.0D-03
       RTOL( CAO2     ) = 1.0D-03
@@ -315,13 +324,13 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       RTOL( SULRXN   ) = 1.0D+00
       RTOL( ETOH     ) = 1.0D-03
       RTOL( ETHA     ) = 1.0D-03
-      RTOL( CL2      ) = 1.0D-03
-      RTOL( CL       ) = 1.0D-03
-      RTOL( HOCL     ) = 1.0D-03
-      RTOL( CLO      ) = 1.0D-03
-      RTOL( FMCL     ) = 1.0D-03
-      RTOL( HCL      ) = 1.0D-03
-      RTOL( CLNO2    ) = 1.0D-03
+      RTOL( CL2      ) = 1.0D+00
+      RTOL( CL       ) = 1.0D+00
+      RTOL( HOCL     ) = 1.0D+00
+      RTOL( CLO      ) = 1.0D+00
+      RTOL( FMCL     ) = 1.0D+00
+      RTOL( HCL      ) = 1.0D+00
+      RTOL( CLNO2    ) = 1.0D-01
       RTOL( TOLNRXN  ) = 1.0D+00
       RTOL( TOLHRXN  ) = 1.0D+00
       RTOL( XYLNRXN  ) = 1.0D+00
@@ -354,10 +363,18 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       RTOL( APAH2J   ) = 1.0D-03
       RTOL( AALK1J   ) = 1.0D-03
       RTOL( AALK2J   ) = 1.0D-03
-      RTOL( APOCI    ) = 1.0D-03
-      RTOL( APNCOMI  ) = 1.0D-03
-      RTOL( APOCJ    ) = 1.0D-03
-      RTOL( APNCOMJ  ) = 1.0D-03
+      RTOL( PCVOC    ) = 1.0D-03
+      RTOL( PCSOARXN ) = 1.0D-03
+      RTOL( VLVPO1   ) = 1.0D-03
+      RTOL( VSVPO1   ) = 1.0D-03
+      RTOL( VSVPO2   ) = 1.0D-03
+      RTOL( VSVPO3   ) = 1.0D-03
+      RTOL( VIVPO1   ) = 1.0D-03
+      RTOL( VLVOO1   ) = 1.0D-03
+      RTOL( VLVOO2   ) = 1.0D-03
+      RTOL( VSVOO2   ) = 1.0D-03
+      RTOL( VSVOO3   ) = 1.0D-03
+      RTOL( VSVOO1   ) = 1.0D-03
 
 
       RETURN

@@ -196,7 +196,6 @@ contains
 
     use utilio_defn      
     use aero_data           ! aero variable data
-    use soa_defn            ! gas soa data
     use aeromet_data        ! Includes CONST.EXT
     use mem_grid,  only: mza, lpw
     use mem_basic, only: tair, press, rho
@@ -209,8 +208,8 @@ contains
     real,    intent( out ) :: vsed_ae( :,: )  ! settling velocities [ m/s ]
 
     ! Parameters
-    real,    parameter :: t0 = 288.15      ! [ K ] ! starting standard surface temp.
-    real,    parameter :: two3 = 2.0 / 3.0
+    real,    parameter :: t0   = 288.15       ! [ K ] ! starting standard surface temp.
+    real,    parameter :: one3 = 1.0 / 3.0
 
     ! Local variables:
 
@@ -227,8 +226,7 @@ contains
     real :: m2_wet, m2_dry
     real :: m3_wet, m3subt, m3_dry
 
-    integer :: l, v, n, j      ! loop counters
-    integer :: spc, s          ! species loop counter
+    integer :: l, s, n, spc    ! loop counters
 
     !-----------------------------------------------------------------------
 
@@ -242,69 +240,20 @@ contains
 
        ! extract grid cell concentrations of aero species from CGRID
        ! into aerospc_conc in aero_data module
+       ! Also converts dry surface area to wet 2nd moment
 
        call extract_aero( cgrid( l,iw,: ), .true. )  ! set minimum floor
-
-       ! extract soa concentrations from cgrid
-
-       call extract_soa( cgrid( l,iw,: ) )
-
-       ! Calculate aerosol surface area to 2nd moment. 
-
-       do s = 2, n_mode
-          n = aerosrf_map( s )
-          moment2_conc( s ) = cgrid( l,iw,n ) / pi
-       end do
-
-       ! Get the geometric mean diameters and standard deviations of the
-       ! "dry" size distribution (also returns MOMENT3_CONC)
-
-       call getpar( .false., .false. ) 
-                       !        ! do not fix stnd dev`s to existing value
-                       ! exclude H2O and SOA from 3rd moment
-
-       ! add contribution of water and SOA
-
-       ! accum mode
-
-       m3_dry = moment3_conc( 2 )
-       m3subt = ( 1.0e-9 * f6pi / aerospc( ah2o_idx )%density ) &
-              * aerospc_conc( ah2o_idx,2 )
-       do spc = 1, n_vapor
-          m3subt = m3subt + ( 1.0e-9 * f6pi / aerospc( apoc_idx )%density ) &
-                 * aerospc_conc( soa_aeromap( spc ),2 )
-       end do
-
-       m3_wet = m3_dry + m3subt
-       m2_dry = moment2_conc( 2 )
-       m2_wet = m2_dry * ( m3_wet / m3_dry ) ** two3
-
-       moment3_conc( 2 ) = max( conmin, m3_wet )
-       moment2_conc( 2 ) = max( conmin, m2_wet )
-
-       ! coarse mode
-
-       m3_dry = moment3_conc( 3 )
-       m3subt = ( 1.0e-9 * f6pi / aerospc( ah2o_idx )%density ) &
-              * aerospc_conc( ah2o_idx,3 )
-       m3_wet = m3_dry + m3subt
-       m2_dry = moment2_conc( 3 )
-       m2_wet = m2_dry * ( m3_wet / m3_dry ) ** two3
-
-       moment3_conc( 3 ) = max( conmin, m3_wet )
-       moment2_conc( 3 ) = max( conmin, m2_wet )
 
        ! Get the geometric mean diameters and standard deviations of the
        ! "wet" size distribution
 
-       call getpar( .true., .false. )     
-                      !        ! do not fix stnd dev`s to existing value
-                      ! include H2O and SOA in 3rd moment
+       call getpar( .false. )     
+                       ! do not fix stnd dev`s to existing value
 
        ! Save getpar values
 
-       xxlsgac = aeromode_sdev( 2 )
-       xxlsgco = aeromode_sdev( 3 )
+       xxlsgac = aeromode_lnsg( 2 )
+       xxlsgco = aeromode_lnsg( 3 )
 
        dgacc   = aeromode_diam( 2 )
        dgcor   = aeromode_diam( 3 )
@@ -368,7 +317,6 @@ contains
     real :: bxlm
 
     real, parameter :: bhat    = 2.492 ! 2 X Constant from Cunningham slip correction
-    real, parameter :: two3    = 2.0 / 3.0
 
     ! Scalar variables for VARIABLE standard deviations.
 

@@ -49,6 +49,7 @@ C**********************************************************************
       USE UTILIO_DEFN
       USE RXNS_DATA
       USE HRDATA
+      use mem_para, only: myrank
 
       IMPLICIT NONE
 
@@ -226,8 +227,14 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
                DO EBI = 1, N_EBISP
                   S = EBISP( EBI )
-                  YCP( S ) =  YC( S )*( ( YC0( S ) + PROD( S ) * DTC )
-     &                     / ( YC( S ) + LOSS( S ) * DTC ) )
+                  YCP( S ) =  YC( S ) * ( YC0( S ) + PROD( S ) * DTC )
+     &                                / ( YC(  S ) + LOSS( S ) * DTC )
+!                  YCP( S ) =  0.05 * YC( S ) + 0.95 * YC( S ) * ( YC0( S ) + PROD( S ) * DTC )
+!     &                                                        / ( YC(  S ) + LOSS( S ) * DTC )
+
+!                  YCP( S ) =  YC( S ) * ( 0.05 + 0.95 * ( YC0( S ) + PROD( S ) * DTC )
+!     &                                                / ( YC(  S ) + LOSS( S ) * DTC ) )
+
                END DO
 
 c..Special treatment of PAR because of negative product stoichiometry
@@ -248,22 +255,46 @@ c..Special treatment of PAR because of negative product stoichiometry
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Check for convergence
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+               do s = 1, n_spec
+                  LEBISPFL( S ) = .FALSE.
+                  YCP( S ) = MAX( ZERO,    YCP( S ) )
+               enddo
+
                LEBI_CONV = .TRUE.
                MXFL = .FALSE.
                DO S = 1, N_SPEC
-                  LEBISPFL( S ) = .FALSE.
-                  YCP( S ) = MAX( ZERO, YCP( S ) )
-                  IF(ABS(YC(S)-YCP(S)) .GT. RTOL(S)*(YC(S)+YCP(S)))THEN
+!                  LEBISPFL( S ) = .FALSE.
+!                  YCP( S ) = MAX( ZERO, YCP( S ) )
+!                 IF(ABS(YC(S)-YCP(S)) .GT. RTOL(S)*(YC(S)+YCP(S)))THEN
+                  IF ( ABS(YC(S)-YCP(S)) .GT. max(RTOL(S)*YC(S)+YCP(S),1.d-28) ) THEN
                      LEBI_CONV     = .FALSE.
                      LEBISPFL( S ) = .TRUE.
+
+!                    if (n_ebi_it > 15) write(logdev,'(1x,I4,I3,1x,A7,9g14.5)') n_ebi_it, s,
+!     &                    trim(CHEMISTRY_SPC( S )), real(yc(s)), real(ycp(s)), real(ABS(YC(S)-YCP(S)))
                   END IF
+
 c..if predictions growing too large, treat as a convergence failure
                   IF( YCP( S ) .GT. MAXPRED ) THEN
                      MXFL = .TRUE.
                      GO TO 1010
                   END IF
-                  YC( S ) = YCP( S )
+!                  YC( S ) = YCP( S )
                END DO
+
+               if (iter < 5) then
+                  do s = 1, n_spec
+                     YC( S ) = 0.95d0 * YCP( S ) + 0.05d0 * yc( s )
+                  enddo
+               elseif (iter < 15) then
+                  do s = 1, n_spec
+                     YC( S ) = 0.9d0 * YCP( S ) + 0.1d0 * yc( s )
+                  enddo
+               else
+                  do s = 1, n_spec
+                     YC( S ) = 0.8d0 * YCP( S ) + 0.2d0 * yc( s )
+                  enddo
+               endif
 
 c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
 #ifdef hrdebug

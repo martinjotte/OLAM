@@ -41,7 +41,7 @@ module cgrid_conv
   real, parameter :: maoavo1000 = 1.0e+03 * mwair / avo
   real, parameter :: avooma_001 = 1.0 / maoavo1000
 
-  public :: conv_cgrid, rev_cgrid, conv_cgrid_iw, rev_cgrid_iw
+  public :: conv_cgrid, rev_cgrid, conv_cgrid_iw, rev_cgrid_iw, rev_cgrid_sfc_iw
   private
       
 
@@ -117,77 +117,69 @@ contains
 
     use cgrid_defn, only: cgrid
     use mem_basic,  only: rho
-    use mem_grid,   only: mwa, lpw, mza
+    use mem_grid,   only: lpw, mza
     use mem_ijtabs, only: jtab_w, jtw_prog
 
     implicit none
 
     integer, intent(in) :: mrl
 
-    integer :: nspcs
     integer :: iw, k, n, v, j
-    real    :: conv, fac
+    real    :: fac
+    real    :: rhoi(mza)
 
     if ( firstime ) then
        firstime = .false.
        call setup_conv()
     endif
 
-    ! Gas - no conversion
+    ! Gas and non-reactive - no conversions necessary (always ppmV)
 
-    ! micro-grams/m**3 aerosol -> ppmv
-    ! (Don't divide by MGPG, then multiply by 1.0E+6: 1/MGPG = 10**-6 cancels out
-    ! ppm = 10**6)
+    do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-    nspcs = nqae
-    if ( nspcs .gt. 0 ) then
-
-       do v = 1, nspcs
-          n = qae( v )
-          fac = maogpkg * molwti(v)
-          do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-             do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * fac / real(rho(k,iw))
-             enddo
-          enddo
+       do k = lpw(iw), mza
+          rhoi(k) = 1.0 / real(rho(k,iw))
        enddo
 
-    endif
+       ! micro-grams/m**3 aerosol -> ppmv
+       ! (Don't divide by MGPG, then multiply by 1.0E+6: 1/MGPG = 10**-6 cancels out
+       ! ppm = 10**6)
 
-    ! number/m**3 aerosol -> ppmv
-    ! (Don't divide by MGPG, etc. See note above)
-
-    nspcs = nnae
-    if ( nspcs .gt. 0 ) then
-
-       do v = 1, nspcs
-          n = nae( v )
-          do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+       if ( nqae .gt. 0 ) then
+          do v = 1, nqae
+             n = qae( v )
+             fac = maogpkg * molwti(v)
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * MAOAVO1000 / real(rho(k,iw))
+                cgrid(k,iw,n) = cgrid(k,iw,n) * fac * rhoi(k)
              enddo
           enddo
-       enddo
+       endif
 
-    endif
+       ! number/m**3 aerosol -> ppmv
+       ! (Don't divide by MGPG, etc. See note above)
 
-    ! m**2/m**3 aerosol -> m**2/mol air
-
-    nspcs = nsae
-    if ( nspcs .gt. 0 ) then
-
-       do v = 1, nspcs
-          n = sae( v )
-          do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+       if ( nnae .gt. 0 ) then
+          do v = 1, nnae
+             n = nae( v )
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * MAOGPKG / real(rho(k,iw))
+                cgrid(k,iw,n) = cgrid(k,iw,n) * MAOAVO1000 * rhoi(k)
              enddo
           enddo
-       enddo
+       endif
 
-    endif
+       ! aerosol surface area
+       ! m**2/m**3 aerosol -> m**2/mol air
+
+       if ( nsae .gt. 0 ) then
+          do v = 1, nsae
+             n = sae( v )
+             do k = lpw(iw), mza
+                cgrid(k,iw,n) = cgrid(k,iw,n) * MAOGPKG * rhoi(k)
+             enddo
+          enddo
+       endif
       
-    ! Non-reactives - no conversion
+    enddo
 
   end subroutine conv_cgrid
 
@@ -207,75 +199,64 @@ contains
 
     use cgrid_defn, only: cgrid
     use mem_basic,  only: rho
-    use mem_grid,   only: mwa, lpw, mza
+    use mem_grid,   only: lpw, mza
     use mem_ijtabs, only: jtab_w, jtw_prog
 
     implicit none
 
     integer, intent(in) :: mrl
 
-    integer :: nspcs
     integer :: iw, k, n, v, j
-    real    :: conv, fac
+    real    :: fac
 
     if ( firstime ) then
        firstime = .false.
        call setup_conv()
     endif
 
-    ! Gas - no conversion
+    ! Gas and non-reactive - no conversions necessary (always ppmV)
 
-    ! aerosol ppmv -> micro-grams/m**3
-    ! (Don't multiply by MGPG, then divide by 1.0E+6: 1/MGPG = 10**-6 cancels out
-    ! ppm = 10**6)
+    do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-    nspcs = nqae
-    if ( nspcs .gt. 0 ) then
+       ! aerosol ppmv -> micro-grams/m**3
+       ! (Don't multiply by MGPG, then divide by 1.0E+6: 1/MGPG = 10**-6 cancels out
+       ! ppm = 10**6)
 
-       do v = 1, nspcs
-          n = qae( v )
-          fac = gpkgoma * molwt( v )
-          do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+       if ( nqae .gt. 0 ) then
+          do v = 1, nqae
+             n = qae( v )
+             fac = gpkgoma * molwt( v )
              do k = lpw(iw), mza
                 cgrid(k,iw,n) = cgrid(k,iw,n) * fac * real(rho(k,iw))
              enddo
           enddo
-       enddo
-         
-    endif
+       endif
      
-    ! aerosol ppmv -> number/m**3
-    ! (Don't multiply by MGPG, etc. See note above)
+       ! aerosol ppmv -> number/m**3
+       ! (Don't multiply by MGPG, etc. See note above)
 
-    nspcs = nnae
-    if ( nspcs .gt. 0 ) then
-
-       do v = 1, nspcs
-          n = nae( v )
-          do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+       if ( nnae .gt. 0 ) then
+          do v = 1, nnae
+             n = nae( v )
              do k = lpw(iw), mza
                 cgrid(k,iw,n) = cgrid(k,iw,n) * AVOOMA_001 * real(rho(k,iw))
              enddo
           enddo
-       enddo
-         
-    endif
+       endif
 
-    nspcs = nsae
-    if ( nspcs .gt. 0 ) then
+       ! aerosol surface area
+       ! m**2/mol air -> m**2/m**3
 
-       do v = 1, nspcs
-          n = sae( v )
-          do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+       if ( nsae .gt. 0 ) then
+          do v = 1, nsae
+             n = sae( v )
              do k = lpw(iw), mza
                 cgrid(k,iw,n) = cgrid(k,iw,n) * GPKGOMA * real(rho(k,iw))
              enddo
           enddo
-       enddo
-         
-    endif
+       endif
 
-    ! Non-reactives - no conversion
+    enddo
 
   end subroutine rev_cgrid
 
@@ -296,16 +277,15 @@ contains
     use cgrid_defn, only: cgrid
     use mem_basic,  only: rho
     use mem_grid,   only: lpw, mza
-    use cgrid_spcs, only: n_gc_spc, n_nr_spc, gc_strt, nr_strt
+    use cgrid_spcs, only: n_gc_spc, n_nr_spc, nr_strt
 
     implicit none
 
     integer, intent(in ) :: iw
     real,    intent(out) :: cngrd(:,:)
 
-    integer :: nspcs, off
-    integer :: k, n, v
-    real    :: conv, fac
+    integer :: k, n, v, off
+    real    :: fac
     real    :: rhoi(mza)
 
     if ( firstime ) then
@@ -319,76 +299,61 @@ contains
 
     ! Gas - no conversion
 
-    nspcs = n_gc_spc
-    if ( nspcs .gt. 0 ) then
-
-       off = gc_strt - 1
-       do v = 1, nspcs
+    if ( n_gc_spc .gt. 0 ) then
+       do v = 1, n_gc_spc
           do k = lpw(iw), mza
-             cngrd(k,off+v) = cgrid(k,iw,off+v)
+             cngrd(k,v) = cgrid(k,iw,v)
           enddo
        enddo
-
     endif
 
-    ! aerosol ppmv -> micro-grams/m**3
-    ! (Don't multiply by MGPG, then divide by 1.0E+6: 1/MGPG = 10**-6 cancels out
+    ! micro-grams/m**3 aerosol -> ppmv
+    ! (Don't divide by MGPG, then multiply by 1.0E+6: 1/MGPG = 10**-6 cancels out
     ! ppm = 10**6)
 
-    nspcs = nqae
-    if ( nspcs .gt. 0 ) then
-
-       do v = 1, nspcs
+    if ( nqae .gt. 0 ) then
+       do v = 1, nqae
           n = qae( v )
           fac = maogpkg * molwti(v)
           do k = lpw(iw), mza
              cngrd(k,n) = cgrid(k,iw,n) * fac * rhoi(k)
           enddo
        enddo
-         
     endif
      
-    ! aerosol ppmv -> number/m**3
-    ! (Don't multiply by MGPG, etc. See note above)
+    ! number/m**3 aerosol -> ppmv
+    ! (Don't divide by MGPG, etc. See note above)
 
-    nspcs = nnae
-    if ( nspcs .gt. 0 ) then
-
-       do v = 1, nspcs
+    if ( nnae .gt. 0 ) then
+       do v = 1, nnae
           n = nae( v )
           do k = lpw(iw), mza
              cngrd(k,n) = cgrid(k,iw,n) * MAOAVO1000 * rhoi(k)
           enddo
        enddo
-         
     endif
 
-    ! m**2/m**3 aerosol -> m**2/mol air
+    ! aerosol surface area
+    ! m**2/m**3 -> m**2/mol air
 
-    nspcs = nsae
-    if ( nspcs .gt. 0 ) then
-
-       do v = 1, nspcs
+    if ( nsae .gt. 0 ) then
+       do v = 1, nsae
           n = sae( v )
           do k = lpw(iw), mza
              cngrd(k,n) = cgrid(k,iw,n) * MAOGPKG * rhoi(k)
           enddo
        enddo
-
     endif
 
     ! Non-reactives - no conversion
 
-    nspcs = n_nr_spc
-    if ( nspcs .gt. 0 ) then
-
+    if ( n_nr_spc .gt. 0 ) then
        off = nr_strt - 1
-       do v = 1, nspcs
+       do v = 1, n_nr_spc
           do k = lpw(iw), mza
              cngrd(k,off+v) = cgrid(k,iw,off+v)
           enddo
        enddo
-
     endif
 
   end subroutine conv_cgrid_iw
@@ -410,16 +375,15 @@ contains
     use cgrid_defn, only: cgrid
     use mem_basic,  only: rho
     use mem_grid,   only: lpw, mza
-    use cgrid_spcs, only: n_gc_spc, n_nr_spc, gc_strt, nr_strt
+    use cgrid_spcs, only: n_gc_spc, n_nr_spc, nr_strt
 
     implicit none
 
     integer, intent(in ) :: iw
     real,    intent(out) :: cngrd(:,:)
 
-    integer :: nspcs, off
-    integer :: k, n, v
-    real    :: conv, fac
+    integer :: k, n, v, off
+    real    :: fac
 
     if ( firstime ) then
        firstime = .false.
@@ -428,78 +392,162 @@ contains
 
     ! Gas - no conversion
 
-    nspcs = n_gc_spc
-    if ( nspcs .gt. 0 ) then
-
-       off = gc_strt - 1
-       do v = 1, nspcs
+    if ( n_gc_spc .gt. 0 ) then
+       do v = 1, n_gc_spc
           do k = lpw(iw), mza
-             cngrd(k,off+v) = cgrid(k,iw,off+v)
+             cngrd(k,v) = cgrid(k,iw,v)
           enddo
        enddo
-
     endif
 
     ! aerosol ppmv -> micro-grams/m**3
     ! (Don't multiply by MGPG, then divide by 1.0E+6: 1/MGPG = 10**-6 cancels out
     ! ppm = 10**6)
 
-    nspcs = nqae
-    if ( nspcs .gt. 0 ) then
-
-       do v = 1, nspcs
+    if ( nqae .gt. 0 ) then
+       do v = 1, nqae
           n = qae( v )
           fac = gpkgoma * molwt( v )
           do k = lpw(iw), mza
              cngrd(k,n) = cgrid(k,iw,n) * fac * real(rho(k,iw))
           enddo
        enddo
-         
     endif
      
     ! aerosol ppmv -> number/m**3
     ! (Don't multiply by MGPG, etc. See note above)
 
-    nspcs = nnae
-    if ( nspcs .gt. 0 ) then
-
-       do v = 1, nspcs
+    if ( nnae .gt. 0 ) then
+       do v = 1, nnae
           n = nae( v )
           do k = lpw(iw), mza
              cngrd(k,n) = cgrid(k,iw,n) * AVOOMA_001 * real(rho(k,iw))
           enddo
        enddo
-         
     endif
 
-    ! m**2/m**3 aerosol -> m**2/mol air
+    ! aerosol surface area
+    ! m**2/mol air -> m**2/m**3
 
-    nspcs = nsae
-    if ( nspcs .gt. 0 ) then
-
-       do v = 1, nspcs
+    if ( nsae .gt. 0 ) then
+       do v = 1, nsae
           n = sae( v )
           do k = lpw(iw), mza
              cngrd(k,n) = cgrid(k,iw,n) * GPKGOMA * real(rho(k,iw))
           enddo
        enddo
-
     endif
 
     ! Non-reactives - no conversion
 
-    nspcs = n_nr_spc
-    if ( nspcs .gt. 0 ) then
-
+    if ( n_nr_spc .gt. 0 ) then
        off = nr_strt - 1
-       do v = 1, nspcs
+       do v = 1, n_nr_spc
           do k = lpw(iw), mza
              cngrd(k,off+v) = cgrid(k,iw,off+v)
           enddo
        enddo
-
     endif
 
   end subroutine rev_cgrid_iw
+
+
+  subroutine rev_cgrid_sfc_iw ( iw, cngrd )
+
+    !-----------------------------------------------------------------------
+    ! Function:
+    !   Convert aerosol species to molar units (ppm and m**2/mol)
+    !
+    ! Revision History:
+    !   Written by: J.Young 21 Aug 03
+    !   J.Young 31 Jan 05: dyn alloc - establish both horizontal & vertical
+    !                      domain specifications in one module
+    !   16 Feb 11 S.Roselle: replaced I/O API include files with UTILIO_DEFN
+    !-----------------------------------------------------------------------
+
+    use cgrid_defn, only: cgrid
+    use mem_basic,  only: rho
+    use mem_grid,   only: lpw, lsw
+    use cgrid_spcs, only: n_gc_spc, n_nr_spc, nr_strt
+
+    implicit none
+
+    integer, intent(in ) :: iw
+    real,    intent(out) :: cngrd(:,:)
+
+    integer :: ks, k, n, v, kb, kt, off
+    real    :: fac
+
+    if ( firstime ) then
+       firstime = .false.
+       call setup_conv()
+    endif
+
+    ! Gas - no conversion
+
+    if ( n_gc_spc .gt. 0 ) then
+       do v = 1, n_gc_spc
+          do ks = 1, lsw(iw)
+             k  = ks + lpw(iw) - 1
+             cngrd(ks,v) = cgrid(k,iw,v)
+          enddo
+       enddo
+    endif
+
+    ! micro-grams/m**3 aerosol -> ppmv
+    ! (Don't divide by MGPG, then multiply by 1.0E+6: 1/MGPG = 10**-6 cancels out
+    ! ppm = 10**6)
+
+    if ( nqae .gt. 0 ) then
+       do v = 1, nqae
+          n = qae( v )
+          fac = gpkgoma * molwt(v)
+          do ks = 1, lsw(iw)
+             k  = ks + lpw(iw) - 1
+             cngrd(ks,n) = cgrid(k,iw,n) * fac * real(rho(k,iw))
+          enddo
+       enddo
+    endif
+
+    ! number/m**3 aerosol -> ppmv
+    ! (Don't divide by MGPG, etc. See note above)
+
+    if ( nnae .gt. 0 ) then
+       do v = 1, nnae
+          n = nae( v )
+          do ks = 1, lsw(iw)
+             k  = ks + lpw(iw) - 1
+             cngrd(ks,n) = cgrid(k,iw,n) * AVOOMA_001 * real(rho(k,iw))
+          enddo
+       enddo
+    endif
+
+    ! aerosol surface area
+    ! m**2/m**3 aerosol -> m**2/mol air
+
+    if ( nsae .gt. 0 ) then
+       do v = 1, nsae
+          n = sae( v )
+          do ks = 1, lsw(iw)
+             k  = ks + lpw(iw) - 1
+             cngrd(ks,n) = cgrid(k,iw,n) * GPKGOMA * real(rho(k,iw))
+          enddo
+       enddo
+    endif
+      
+    ! Non-reactives - no conversion
+
+    if ( n_nr_spc .gt. 0 ) then
+       off = nr_strt - 1
+       do v = 1, n_nr_spc
+          do ks = 1, lsw(iw)
+             k  = ks + lpw(iw) - 1
+             cngrd(ks,off+v) = cgrid(k,iw,off+v)
+          enddo
+       enddo
+    endif
+
+  end subroutine rev_cgrid_sfc_iw
+
 
 end module cgrid_conv

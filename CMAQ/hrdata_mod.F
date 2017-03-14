@@ -33,14 +33,16 @@ C  PRECONDITIONS: For the CB05TUCL family of mechanisms
 C
 C  KEY SUBROUTINES/FUNCTIONS CALLED: None
 C
-C  REVISION HISTORY: Created by EBI solver program, March 12, 2015
+C  REVISION HISTORY: Created by EBI solver program, May 25, 2016
 C
 C   18 Jul 14 B.Hutzell: revised to use real(8) variables for solution
 C*************************************************************************
 
 c..EBI solver fixed parameters
-      INTEGER, PARAMETER    ::  NEBITER       = 1000     ! No. of iterations for EBI
-      INTEGER, PARAMETER    ::  MAX_CELLS_EBI = 1        ! max # cells in local conc arrays
+!     INTEGER, PARAMETER    ::  NEBITER       = 1000     ! No. of iterations for EBI
+      INTEGER, PARAMETER    ::  NEBITER       = 30      ! No. of iterations for EBI
+
+!     INTEGER, PARAMETER    ::  MAX_CELLS_EBI = 1        ! max # cells in local conc arrays
       REAL( 8 ), PARAMETER  ::  DELTAT        = 2.5D+00  ! EBI time step
 
 c..Mechanism specific variables
@@ -89,25 +91,25 @@ c...Allocatable arrays
       REAL( 8 ), ALLOCATABLE ::  LOSS(  : )     ! Loss of species
       REAL( 8 ), ALLOCATABLE ::  PNEG(  : )! Negative production rates
 
-      REAL, ALLOCATABLE      :: PRES( :, :, : )          ! pressure (Pa)
-      REAL, ALLOCATABLE      :: QV  ( :, :, : )          ! water vapor (Kg/Kg air)
-      REAL, ALLOCATABLE      :: TA  ( :, :, : )          ! temperature (K)
-      REAL, ALLOCATABLE      :: RJ  ( :, :, : )          ! J-values (min-1)
+!     REAL, ALLOCATABLE      :: PRES( :, :, : )          ! pressure (Pa)
+!     REAL, ALLOCATABLE      :: QV  ( :, :, : )          ! water vapor (Kg/Kg air)
+!     REAL, ALLOCATABLE      :: TA  ( :, :, : )          ! temperature (K)
+      REAL(8), ALLOCATABLE   :: RJ  ( :, :, : )          ! J-values (min-1)
 
-      REAL, ALLOCATABLE      :: SEAICE ( :, :)            ! fractional seaice cover, [-]
-      REAL, ALLOCATABLE      :: DENS( :, :, : )           ! mass density (Kg/m^3)
+!     REAL, ALLOCATABLE      :: SEAICE ( :, :)            ! fractional seaice cover, [-]
+!     REAL, ALLOCATABLE      :: DENS( :, :, : )           ! mass density (Kg/m^3)
 
-      REAL,    ALLOCATABLE   :: OPEN_ZONE   ( :,: )       ! fractional sea water cover, [-]
-      REAL,    ALLOCATABLE   :: SURF_ZONE   ( :,: )       ! fractional surf-zone cover, [-]
-      LOGICAL, ALLOCATABLE   :: LAND_ZONE   ( :,: )       ! Is the surface totally land?
+!     REAL,    ALLOCATABLE   :: OPEN_ZONE   ( :,: )       ! fractional sea water cover, [-]
+!     REAL,    ALLOCATABLE   :: SURF_ZONE   ( :,: )       ! fractional surf-zone cover, [-]
+!     LOGICAL, ALLOCATABLE   :: LAND_ZONE   ( :,: )       ! Is the surface totally land?
 
-      REAL( 8 ), ALLOCATABLE ::  ATMPRES ( : )     ! Cell pressure, Atm
-!      REAL( 8 ), ALLOCATABLE ::  PRESCELL( : )         ! Cell pressure, Pa
-      REAL( 8 ), ALLOCATABLE ::  H2O     ( : )     ! Cell H2O mixing ratio (ppmV)
-      REAL( 8 ), ALLOCATABLE ::  TEMP    ( : )     ! Cell Temperature
-      REAL( 8 ), ALLOCATABLE ::  HET     ( :, : )  ! cell heterogeneous reaction rates
-      REAL( 8 ), ALLOCATABLE ::  RJIN    ( :, : )  ! J-values for a cell
-      LOGICAL, ALLOCATABLE   ::  LAND    ( : )     ! land_zone value for specific cell
+!     REAL( 8 ), ALLOCATABLE ::  ATMPRES ( : )     ! Cell pressure, Atm
+!     REAL( 8 ), ALLOCATABLE ::  PRESCELL( : )         ! Cell pressure, Pa
+!     REAL( 8 ), ALLOCATABLE ::  H2O     ( : )     ! Cell H2O mixing ratio (ppmV)
+!     REAL( 8 ), ALLOCATABLE ::  TEMP    ( : )     ! Cell Temperature
+!     REAL( 8 ), ALLOCATABLE ::  HET     ( :, : )  ! cell heterogeneous reaction rates
+!     REAL( 8 ), ALLOCATABLE ::  RJIN    ( :, : )  ! J-values for a cell
+!     LOGICAL, ALLOCATABLE   ::  LAND    ( : )     ! land_zone value for specific cell
 
 c..Species indices
       INTEGER, PARAMETER :: NO2              =    1
@@ -213,9 +215,17 @@ c..Species indices
       INTEGER, PARAMETER :: APAH2J           =  101
       INTEGER, PARAMETER :: AALK1J           =  102
       INTEGER, PARAMETER :: AALK2J           =  103
-      INTEGER, PARAMETER :: APOCI            =  104
-      INTEGER, PARAMETER :: APNCOMI          =  105
-      INTEGER, PARAMETER :: APOCJ            =  106
-      INTEGER, PARAMETER :: APNCOMJ          =  107
+      INTEGER, PARAMETER :: PCVOC            =  104
+      INTEGER, PARAMETER :: PCSOARXN         =  105
+      INTEGER, PARAMETER :: VLVPO1           =  106
+      INTEGER, PARAMETER :: VSVPO1           =  107
+      INTEGER, PARAMETER :: VSVPO2           =  108
+      INTEGER, PARAMETER :: VSVPO3           =  109
+      INTEGER, PARAMETER :: VIVPO1           =  110
+      INTEGER, PARAMETER :: VLVOO1           =  111
+      INTEGER, PARAMETER :: VLVOO2           =  112
+      INTEGER, PARAMETER :: VSVOO2           =  113
+      INTEGER, PARAMETER :: VSVOO3           =  114
+      INTEGER, PARAMETER :: VSVOO1           =  115
 
       END MODULE HRDATA
