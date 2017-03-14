@@ -1,8 +1,7 @@
 subroutine cmaq_driver( mrl )
 
   use cgrid_conv, only: conv_cgrid, rev_cgrid
-  use mem_grid,   only: lpw
-  use mem_ijtabs, only: jtab_w, jtw_prog
+  use sedv_defn,  only: aero_sedi
 
   implicit none
 
@@ -15,6 +14,10 @@ subroutine cmaq_driver( mrl )
   ! Convert aerosol species to densities
 
   call rev_cgrid( mrl )
+
+  ! Aerosol sedimentation
+
+  call aero_sedi( mrl )
 
   ! Gas chemistry
 

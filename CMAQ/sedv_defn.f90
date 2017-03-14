@@ -52,9 +52,8 @@ contains
 
     use mem_grid,    only: mza, lpw, volt, volti, arw
     use mem_ijtabs,  only: jtab_w, jtw_prog
-    use misc_coms,   only: io6, dtlm
+    use misc_coms,   only: dtlm
     use consts_coms, only: r8
-    use mem_basic,   only: rho
     use utilio_defn
     use cgrid_conv
     use cgrid_spcs
@@ -66,7 +65,7 @@ contains
 
     real, parameter :: alpha = 1.1
 
-    integer :: j, iw, s, v, n, off, k
+    integer :: j, iw, s, v, n, k
     integer :: astat
 
     logical, save :: firstime = .true.
@@ -79,7 +78,6 @@ contains
     real     :: dt
     real(r8) :: dtmin( n_ae_sed_spc )
     real     :: vsed_ae( n_ae_sed_spc, mza )
-    real     :: conc   ( mza, nspcsd )
     real     :: fplus(mza,n_ae_sed_spc), fminus(mza,n_ae_sed_spc)
     real     :: aplus(mza), aminus(mza)
 
@@ -126,9 +124,7 @@ contains
 
     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-       call rev_cgrid_iw( iw, conc )
-
-       call aero_sedv( iw, conc, vsed_ae )
+       call aero_sedv( iw, vsed_ae )
 
        vsed_ae(:,mza)       = 0.0
        vsed_ae(:,lpw(iw)-1) = 0.0
@@ -139,7 +135,7 @@ contains
        enddo
 
        do k = lpw(iw), mza-1
-          aplus (k) = arw(k  ,iw) * volti(k,iw) * rho(k+1,iw) / rho(k,iw)
+          aplus (k) = arw(k  ,iw) * volti(k,iw)
           aminus(k) = arw(k-1,iw) * volti(k,iw)
        enddo
        aplus (mza) = 0.0
@@ -156,10 +152,11 @@ contains
 
           s = n_gc_spc + v
           n = sedi_sur(v)
+
           if (n > 0) then
              
              time = 0.0_r8
-             eps  = 1.e-5_r8 * min( dtmin(n), dtlm(mrl) )
+             eps  = 1.e-6_r8 * min( dtmin(n), dtlm(mrl) )
 
              do while( time + eps < dtlm(mrl) )
              
@@ -170,6 +167,7 @@ contains
                    cgrid(k,iw,s) = cgrid(k,iw,s) + dt *  &
                                    (fplus(k,n) * cgrid(k+1,iw,s) - fminus(k,n) * cgrid(k,iw,s))
                 enddo
+
                 cgrid(mza,iw,s) = cgrid(mza,iw,s) - dt * fminus(mza,n) * cgrid(mza,iw,s)
                 
                 time = time + dt8
@@ -185,7 +183,7 @@ contains
 
   !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-  subroutine aero_sedv ( iw, cgrd, vsed_ae )
+  subroutine aero_sedv ( iw, vsed_ae )
 
     !-----------------------------------------------------------------------
     ! Get accum. and coarse mode grav. settling vel
@@ -202,12 +200,12 @@ contains
     use aeromet_data        ! Includes CONST.EXT
     use mem_grid,  only: mza, lpw
     use mem_basic, only: tair, press, rho
+    use cgrid_defn
 
     implicit none
 
     ! Arguments
     integer, intent( in )  :: iw
-    real,    intent( in )  :: cgrd( :,: )     ! cgrid subsection (layers,species)
     real,    intent( out ) :: vsed_ae( :,: )  ! settling velocities [ m/s ]
 
     ! Parameters
@@ -245,17 +243,17 @@ contains
        ! extract grid cell concentrations of aero species from CGRID
        ! into aerospc_conc in aero_data module
 
-       call extract_aero( cgrd( l,: ), .true. )  ! set minimum floor
+       call extract_aero( cgrid( l,iw,: ), .true. )  ! set minimum floor
 
        ! extract soa concentrations from cgrid
 
-       call extract_soa( cgrd( l,: ) )
+       call extract_soa( cgrid( l,iw,: ) )
 
        ! Calculate aerosol surface area to 2nd moment. 
 
        do s = 2, n_mode
           n = aerosrf_map( s )
-          moment2_conc( s ) = cgrd( l,n ) / pi
+          moment2_conc( s ) = cgrid( l,iw,n ) / pi
        end do
 
        ! Get the geometric mean diameters and standard deviations of the
