@@ -51,25 +51,57 @@ C                    for clay content > 0.2; convert volumetric soil moisture to
 C                    gravimetric water content; corrected soil moisture factor (fmoit);
 C                    use lwmask>0 rather than sltyp>0 (non-existent) for over water test
 C-----------------------------------------------------------------------
-
       use aero_data, only: n_mode
+
       implicit none 
+
+C number of chemical species in windblown dust aerosol
+      integer, parameter :: ndust_spc = 19
 
 C Sea-Salt Emissions Rates
       real, allocatable, save :: dustoutm( :,:,: )  ! mass emission rates [g/m**3/s]
       real, allocatable, save :: dustoutn( :,: )    ! number emission rates [1/m**3/s]
       real, allocatable, save :: dustouts( :,: )    ! surface-area emisrates [m2/m**3/s]
 
-      public dustoutm, dustoutn, dustouts,
+      public ndust_spc, dustoutm, dustoutn, dustouts, dust_spc,
      &       dust_emis_init, get_dust_emis, dust_em
       private
 
       real, allocatable, save :: dust_em( : )  ! total dust emissions [g/m**3/s]
 
-C updated values of mass fraction for "freshly emitted dust"
-C based on Kok [PNAS, 2011] and Nabat et al. [ACP, 2012]
-      real, parameter :: fracmj = 0.07  ! mass fraction assigned to accum mode
-      real, parameter :: fracmk = 0.93  ! mass fraction assigned to coarse mode
+C number of lognormal modes in windblown dust aerosol = n_mode (from aero_data)
+C - only accumulation and coarse modes used
+      type dust_type
+         character( 16 ) :: name  ( n_mode )
+         real            :: spcfac( n_mode )
+      end type dust_type
+
+C speciation factors from SPECIATE composite of 4 desert soil profiles (Pouliot):
+      type( dust_type ), parameter :: dust_spc( ndust_spc ) = (/
+C                      ---------- name --------------      ------- spcfac -------
+C                      Aitken     accum      coarse        Aitken  accum   coarse
+     &   dust_type( (/'       ', 'ASO4J  ', 'ASO4K  '/), (/ 0.0, 0.02250, 0.02655/) ),   ! Sulfate
+     &   dust_type( (/'       ', 'ANO3J  ', 'ANO3K  '/), (/ 0.0, 0.00020, 0.00160/) ),   ! Nitrate
+     &   dust_type( (/'       ', 'ACLJ   ', 'ACLK   '/), (/ 0.0, 0.00945, 0.01190/) ),   ! Chlorine
+     &   dust_type( (/'       ', 'ANH4J  ', '       '/), (/ 0.0, 0.00005, 0.0    /) ),   ! Ammonium
+     &   dust_type( (/'       ', 'ANAJ   ', '       '/), (/ 0.0, 0.03935, 0.0    /) ),   ! Sodium
+     &   dust_type( (/'       ', 'ACAJ   ', '       '/), (/ 0.0, 0.07940, 0.0    /) ),   ! Calcium
+     &   dust_type( (/'       ', 'AMGJ   ', '       '/), (/ 0.0, 0.0,     0.0    /) ),   ! Magnesium
+     &   dust_type( (/'       ', 'AKJ    ', '       '/), (/ 0.0, 0.03770, 0.0    /) ),   ! Potassium
+     &   dust_type( (/'       ', 'APOCJ  ', '       '/), (/ 0.0, 0.01075, 0.0    /) ),   ! Organic Carbon
+     &   dust_type( (/'       ', 'APNCOMJ', '       '/), (/ 0.0, 0.00430, 0.0    /) ),   ! Non-Carbon Organic Matter
+     &   dust_type( (/'       ', 'AECJ   ', '       '/), (/ 0.0, 0.0,     0.0    /) ),   ! Elemental Carbon
+     &   dust_type( (/'       ', 'AFEJ   ', '       '/), (/ 0.0, 0.03355, 0.0    /) ),   ! Iron
+     &   dust_type( (/'       ', 'AALJ   ', '       '/), (/ 0.0, 0.05695, 0.0    /) ),   ! Aluminum
+     &   dust_type( (/'       ', 'ASIJ   ', '       '/), (/ 0.0, 0.19425, 0.0    /) ),   ! Silicon
+     &   dust_type( (/'       ', 'ATIJ   ', '       '/), (/ 0.0, 0.00280, 0.0    /) ),   ! Titanium
+     &   dust_type( (/'       ', 'AMNJ   ', '       '/), (/ 0.0, 0.00115, 0.0    /) ),   ! Manganese
+     &   dust_type( (/'       ', 'AH2OJ  ', '       '/), (/ 0.0, 0.00541, 0.0    /) ),   ! Water
+     &   dust_type( (/'       ', 'AOTHRJ ', '       '/), (/ 0.0, 0.50219, 0.0    /) ),   ! Other
+     &   dust_type( (/'       ', '       ', 'ASOIL  '/), (/ 0.0, 0.0,     0.95995/) ) /) ! Non-Anion Dust
+
+      real, parameter :: fracmj = 0.20  ! mass fraction assigned to accum mode
+      real, parameter :: fracmk = 0.80  ! mass fraction assigned to coarse mode
 
 C diam`s from FRACMJ,FRACMK-weighted 2 2-bin averages of geom means
       real, parameter :: dgvj = 1.3914  ! geom mean diam of accum mode [um]
@@ -276,7 +308,7 @@ C=======================================================================
 !        use hgrd_defn        ! horizontal domain specifications
          use aero_data        ! aerosol species definitions
          use utilio_defn
-         use leaf_coms,  only: mwl, nzg, robulk_ch, robulk_vg, soilcp_ch, soilcp_vg
+         use leaf_coms,  only: mwl, nzg
          use mem_leaf,   only: land
 
 C Arguments:
@@ -579,14 +611,7 @@ C    w` = 0.0014(%clay)**2 + 0.17(%clay)
 C    Fecan et al. 1999 Annales Geophys.,17,144-157.
 !              wmax( c,r ) = ( 0.0014 * clayc( j ) + 0.17 ) * clayc( j ) <-error
 C clayc in [Kg/Kg] -> wmax in [Kg/Kg]
-!              wmax( iwl ) = ( 0.14 * clayc( j ) + 0.17 ) * clayc( j )
-               if ( land%flag_vg(iwl) ) then
-                  wmax(iwl) = 1.3 * soilcp_vg(land%ntext_soil(nzg,iwl))
-     &                      * 1000.0 / robulk_vg(land%ntext_soil(nzg,iwl))
-               else
-                  wmax(iwl) = 1.3 * soilcp_ch(land%ntext_soil(nzg,iwl))
-     &                      * 1000.0 / robulk_ch(land%ntext_soil(nzg,iwl))
-               endif
+               wmax( iwl ) = ( 0.14 * clayc( j ) + 0.17 ) * clayc( j )
 
 C    log(F/G) = 0.134(%clay)-6
 C    F/G (vertical to horizontal flux) ratio is a function of clay content 0~20%
@@ -754,7 +779,7 @@ C=======================================================================
 !        use grid_conf           ! horizontal & vertical domain specifications
          use utilio_defn
          use aero_data
-         use leaf_coms,  only: mwl, nzg, slmsts_ch, slmsts_vg, robulk_ch, robulk_vg
+         use leaf_coms,  only: mwl, nzg, slmsts_ch, slmsts_vg
          use mem_leaf,   only: land, itab_wl
          use mem_grid,   only: volti
          use misc_coms,  only: isubdomain
@@ -781,7 +806,7 @@ C Includes:
 C External Functions:
                
 C Parameters:
-!        real zi                           ! Height of Internal Boundary Layer [m]
+         real zi                           ! Height of Internal Boundary Layer [m]
          real, parameter :: sc  = 32.0     ! SENSIT-based scaling parameter
          real, parameter :: z0s = 0.00001  ! Surface roughness for dust [m],
                                            ! Ref. Marticorena et al. JGR 1997
@@ -1108,7 +1133,7 @@ C-----------------------------------------------------------------------
                slmsts_top = slmsts_ch(land%ntext_soil(nzg,iwl))
             endif
                
-            if ( land%soil_water(nzg,iwl) > slmsts_top - 0.02 ) cycle
+            if ( land%soil_water(nzg,iwl) > slmsts_top - 0.01 ) cycle
 
             ! Convert layer-average U* into surface local U*
             ! -> U*t has to be surface values from measurements.
@@ -1139,13 +1164,8 @@ C Dust possiblity if not over water and rain < 1/100 in. (1 in. = 2.540 cm)
 !           ! Convert volumetric soil moisture (m**3/m**3) to 
             ! gravimetric water content (Kg/Kg)based on Zender et al. (2003)
 
-            if ( land%flag_vg(iwl) ) then
-               soimt = land%soil_water(nzg,iwl) * 1000.0 /
-     &              robulk_vg(land%ntext_soil(nzg,iwl))
-            else
-               soimt = land%soil_water(nzg,iwl) * 1000.0 /
-     &              robulk_ch(land%ntext_soil(nzg,iwl))
-            endif
+            soimt = land%soil_water(nzg,iwl)
+     &            * 1000.0 / ( 2600.0 * ( 0.511 + 0.126 * sandc( j ) ) )
 
             ! Soil moisture effect on U*t
 

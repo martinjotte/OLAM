@@ -311,8 +311,6 @@ C DEPVEL_GAS is used also for non-ILDEPV in the sgtot calculation
             CALL M3WARN( PNAME, JDATE, JTIME, XMSG )
             SUCCESS = .FALSE.; RETURN
          END IF
-         depvel_gas_land = 0.0
-         depvel_gas_sea  = 0.0
 
 C Initialize deposition velocities for nondeposited species to zero:
 C setting DEPV( N_SPC_DEPV+1,C,R ) = 0.0 accounts for dry dep. species names
@@ -744,6 +742,7 @@ C-----------------------------------------------------------------------
          use mem_ijtabs, only: itabg_w, jtab_w, jtw_prog
          use mem_basic,  only: rho
          use cgrid_defn, only: cgrid, sxfer_gc, sxfer_nr, sxfer_ae
+         use cgrid_conv, only: conv_cgrid, rev_cgrid
 
          IMPLICIT NONE
 !
@@ -845,10 +844,12 @@ C-----------------------------------------------------------------------
 !            CALL M3DRY ( JDATE, JTIME, TSTEP, ABFLUX, SFC_HONO, MOSAIC, FST,             
 !     &                   CGRIDL1, DEPVEL_GAS, PVD, CMP )
 
-         do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+         call rev_cgrid ( mrl )
+         if (N_GAS_DEPV > 0) call m3dry     ( mrl, abflux, sfc_hono )
+         if (N_AE_DEPV  > 0) call aero_depv ( mrl )
+         call conv_cgrid( mrl )
 
-            if (N_GAS_DEPV > 0) call m3dry     ( iw, abflux, sfc_hono )
-            if (N_AE_DEPV  > 0) call aero_depv ( iw )
+         do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
             ka = lpw(iw)
             nland = itab_w(iw)%nland

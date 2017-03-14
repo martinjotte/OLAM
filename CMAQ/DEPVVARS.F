@@ -37,17 +37,10 @@ C                        UTILIO_DEFN
 C           11 May 2011 J.Bash: Updated for NH3 bidirectional exchange
 C           04 Jan 2012 J.Young: Initialize char variables with blank padding
 C           28 Aug 2014  G. Sarwar: added deposition for CLNO2 
-C           07 Nov 14 J.Bash: Updated for the ASX_DATA_MOD shared data module. 
-C           05 May 2015: H.Pye: Added ISOPNN and MTNO3 with Donna Schwede
-C           24 Aug 2015: H.Pye: Added IEPOX and HACET with Donna Schwede
-C           26 Jan 2016: H. Pye added info for SOA SVOCs
-C           24 Mar 2016: G. Sarwar: added iodine and bromine species
-C           26 Sep 2016: D. Wong: removed unnecessary use module statements
-
 C-----------------------------------------------------------------------
 
       INTEGER, PARAMETER :: LDDEP = 4
-      INTEGER, PARAMETER :: LTOTG = 104
+      INTEGER, PARAMETER :: LTOTG = 65
       INTEGER, PARAMETER :: LCMP  = 8
       CHARACTER( 16 )    :: DEPV_METHOD
 
@@ -72,6 +65,9 @@ C----------------------------------------------------------------------
       CONTAINS
 
          FUNCTION DEPVVARS_INIT( ) RESULT ( SUCCESS )
+
+!        USE HGRD_DEFN
+!        USE UTILIO_DEFN
 
          IMPLICIT NONE
 
@@ -153,45 +149,6 @@ C-------------------------------------------------------------------------------
          DEPSPC( 63 ) = 'CLNO2           '
          DEPSPC( 64 ) = 'ISOPNN          '
          DEPSPC( 65 ) = 'MTNO3           '
-         DEPSPC( 66 ) = 'IEPOX           '
-         DEPSPC( 67 ) = 'HACET           '
-         DEPSPC( 68 ) = 'SVALK1          '
-         DEPSPC( 69 ) = 'SVALK2          '
-         DEPSPC( 70 ) = 'SVBNZ1          '
-         DEPSPC( 71 ) = 'SVBNZ2          '
-         DEPSPC( 72 ) = 'SVISO1          '
-         DEPSPC( 73 ) = 'SVISO2          '
-         DEPSPC( 74 ) = 'SVPAH1          '
-         DEPSPC( 75 ) = 'SVPAH2          '
-         DEPSPC( 76 ) = 'SVSQT           '
-         DEPSPC( 77 ) = 'SVTOL1          '
-         DEPSPC( 78 ) = 'SVTOL2          '
-         DEPSPC( 79 ) = 'SVTRP1          '
-         DEPSPC( 80 ) = 'SVTRP2          '
-         DEPSPC( 81 ) = 'SVXYL1          '
-         DEPSPC( 82 ) = 'SVXYL2          '
-         DEPSPC( 83 ) = 'IO              '
-         DEPSPC( 84 ) = 'OIO             '
-         DEPSPC( 85 ) = 'I2O2            '
-         DEPSPC( 86 ) = 'I2O3            '
-         DEPSPC( 87 ) = 'I2O4            '
-         DEPSPC( 88 ) = 'HI              '
-         DEPSPC( 89 ) = 'HOI             '
-         DEPSPC( 90 ) = 'INO             '
-         DEPSPC( 91 ) = 'INO2            '
-         DEPSPC( 92 ) = 'IONO2           '
-         DEPSPC( 93 ) = 'BRO             '
-         DEPSPC( 94 ) = 'HOBR            '
-         DEPSPC( 95 ) = 'HBR             '
-         DEPSPC( 96 ) = 'BRONO2          '
-         DEPSPC( 97 ) = 'BRNO2           '
-         DEPSPC( 98 ) = 'BRCL            '
-         DEPSPC( 99 ) = 'DMS             '
-         DEPSPC( 100) = 'MSA             '
-         DEPSPC( 101) = 'METHANE         '
-         DEPSPC( 102) = 'ACRYACID        '
-         DEPSPC( 103) = 'CARBSULFIDE     '
-         DEPSPC( 104) = 'ACETONITRILE    ' 
 
          N_USE_DEPSPC = 0
          USE_DEPSPC = .FALSE.   ! array

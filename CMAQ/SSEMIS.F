@@ -741,6 +741,7 @@ C Variables for calculating dry surface-area emission rate for accum mode
 !           INTEGER           :: MDATE, MTIME  ! SSEMIS write date&time
 
             REAL, PARAMETER :: ONE3 = 1.0 / 3.0
+            REAL, PARAMETER :: TWO3 = 2.0 / 3.0
 
             integer :: iw, iws, kw
             real, external :: rhovsl
@@ -933,12 +934,12 @@ C Multiply dry 2nd moment by PI to obtain dry surface area emission rate.
                   WET_M3J = M3J 
                   WET_M2J = M3J * FACTM2J
                   DRY_M3J = WET_M3J - F6PI * SSOUTM( KH2O,2,iws ) * 1.0E-06
-                  DRY_M2J = WET_M2J * ((DRY_M3J/WET_M3J)**2) ** ONE3
+                  DRY_M2J = WET_M2J * ( DRY_M3J / WET_M3J ) ** TWO3
 
                   WET_M3K = M3K
                   WET_M2K = M3K * FACTM2K
                   DRY_M3K = WET_M3K - F6PI * SSOUTM( KH2O,3,iws ) * 1.0E-06
-                  DRY_M2K = WET_M2K * ((DRY_M3K/WET_M3K)**2) ** ONE3
+                  DRY_M2K = WET_M2K * ( DRY_M3K / WET_M3K ) ** TWO3
 
                   SSOUTS( 1,iws ) = 0.0
                   SSOUTS( 2,iws ) = PI * DRY_M2J

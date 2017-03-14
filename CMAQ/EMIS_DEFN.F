@@ -96,8 +96,6 @@ C-----------------------------------------------------------------------
       character(24), allocatable :: vname3d_emis(:)
       character(24), allocatable :: units3d_emis(:)
 
-      integer, allocatable :: edgar_kmax(:)
-
 !     real, allocatable :: sea_emisf(:,:,:),  sea_emisc(:,:,:),  sea_emisp(:,:,:)
 !     real, allocatable :: land_emisf(:,:,:), land_emisc(:,:,:), land_emisp(:,:,:)
 
@@ -121,11 +119,11 @@ C-----------------------------------------------------------------------
          USE AERO_EMIS           ! inherits GRID_CONF
          USE AERO_DATA, ONLY: MAP_PMEMIS  ! access subroutine map_pmemis
 
-         use misc_coms,     only: idate1, imonth1, iyear1, itime1
-         use mem_grid,      only: mwa, mza, lpw, lsw
-         use edgar_42_emis, only: edgar_42_init, vinterp, nsec
+         use misc_coms,     only: s1900_sim, idate1, imonth1, iyear1, itime1
+         use mem_grid,      only: mwa, mza
+         use edgar_42_emis, only: edgar_42_init
          use soil_nox,      only: soil_nox_init
-         use mem_ijtabs,    only: jtab_w, jtw_prog
+
          IMPLICIT NONE
 
 C Includes:
@@ -143,19 +141,20 @@ C Local Variables:
 
 !        REAL    DX1, DX2        ! CX x1- and x2-cell widths
 
-!        CHARACTER( 16 ), SAVE :: CTM_EMLAYS = 'CTM_EMLAYS'    ! env var for no. of
+         CHARACTER( 16 ), SAVE :: CTM_EMLAYS = 'CTM_EMLAYS'    ! env var for no. of
                                                                ! emiss. layers
          CHARACTER( 16 ) :: PNAME = 'EMIS_INIT'
-!        CHARACTER( 80 ) :: VARDESC   ! env variable description
+         CHARACTER( 80 ) :: VARDESC   ! env variable description
          CHARACTER( 120 ) :: XMSG = ' '
-         INTEGER V, LOGDEV
+         INTEGER V, LOGDEV, STATUS
          CHARACTER( 16 ) :: UNITSCK
 
          REAL, PARAMETER :: CMLMR  = 1.0E+06 ! ppmV/Molar Mixing Ratio
          REAL, parameter :: CONVEM = 1.0E-03 ! conversion for emissions rates to Kg/s
          real, parameter :: CNVTE = CMLMR * CONVEM * MWAIR ! conversion from moles / sec
                                                            ! to rho ppmV Vol / sec
-         integer :: n, jw, iw, ka
+
+         integer :: n
 !        real :: timefac_emis
          integer, external :: julday
 
@@ -203,29 +202,17 @@ C Open Emissions files
 
          call edgar_42_init(nvars3d_emis, vname3d_emis, units3d_emis)
 
-         allocate(edgar_kmax(mwa)) ; edgar_kmax = mza
-         do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
-            ka = lpw(iw) + lsw(iw) - 1
-            edgar_kmax(iw) = maxval(vinterp(1:nsec,ka)%nlevs) + ka - 1
-         enddo
-
          DO N = 1, N_GC_EMIS
             V = INDEX1( GC_EMIS( N ), NVARS3D_EMIS, VNAME3D_EMIS )
             IF ( V .NE. 0 ) THEN
                UNITSCK = UNITS3D_EMIS( V )
                CALL UPCASE ( UNITSCK )
-               IF (GC_EMIS(n) == 'POC') then
-                  if ( unitsck .ne. 'G/S'   .and.  
-     &                 unitsck .ne. 'G/SEC' ) then
-                     XMSG = 'GC units incorrect in emissions file'
-                     CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
-                  endif
-               ELSEIF ( UNITSCK .NE. 'MOLES/S'   .AND.
-     &                  UNITSCK .NE. 'MOLE/S'    .AND.
-     &                  UNITSCK .NE. 'MOL/S'     .AND.
-     &                  UNITSCK .NE. 'MOLES/SEC' .AND.
-     &                  UNITSCK .NE. 'MOLE/SEC'  .AND.
-     &                  UNITSCK .NE. 'MOL/SEC' ) THEN
+               IF ( UNITSCK .NE. 'MOLES/S'   .AND.
+     &              UNITSCK .NE. 'MOLE/S'    .AND.
+     &              UNITSCK .NE. 'MOL/S'     .AND.
+     &              UNITSCK .NE. 'MOLES/SEC' .AND.
+     &              UNITSCK .NE. 'MOLE/SEC'  .AND.
+     &              UNITSCK .NE. 'MOL/SEC' ) THEN
                   XMSG = 'GC units incorrect in emissions file'
                   CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
                END IF
@@ -260,6 +247,19 @@ C Open Emissions files
          END DO
 
 ! Time interpolation factor for updating EMIS
+
+!         timefac_emis = 0.0
+!         
+!         if (nemisfiles > 1) then
+!            timefac_emis = (s1900_sim             - s1900_emis(iemisfile-1))
+!     &                   / (s1900_emis(iemisfile) - s1900_emis(iemisfile-1))
+!         endif
+!
+!         sea_emisc(:,:,:) = sea_emisp(:,:,:)
+!     &                    + (sea_emisf(:,:,:) - sea_emisp(:,:,:)) * timefac_emis
+!
+!         land_emisc(:,:,:) = land_emisp(:,:,:)
+!     &                     + (land_emisf(:,:,:) - land_emisp(:,:,:)) * timefac_emis
 
 C Get number of emissions layers
 
@@ -307,8 +307,7 @@ C Initialize aerosol emissions
 
 !        PM_EMLYRS = EMLAYS   ! set PM_EMLYRS in AERO_EMIS module
 
-         IF ( .NOT. AERO_EMIS_INIT( JDATE, JTIME, TSTEP, NEMIS_AE,
-     &                              nvars3d_emis, vname3d_emis ) ) THEN
+         IF ( .NOT. AERO_EMIS_INIT( JDATE, JTIME, TSTEP, NEMIS_AE ) ) THEN
             XMSG = 'Failure initializing aerosol emissions module'
             CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
          END IF
@@ -442,13 +441,13 @@ C combined gas emssions conversion factor
          USE UTILIO_DEFN
 !
          use consts_coms,  only: r8
-         use misc_coms,    only: isubdomain
+         use misc_coms,    only: time8, timmax8, initial, s1900_sim, isubdomain
          use leaf_coms,    only: mwl, isfcl
-         use mem_leaf,     only: itab_wl
+         use mem_leaf,     only: land, itab_wl
          use mem_grid,     only: mza, volti, lpw
-         use mem_ijtabs,   only: itabg_w, jtab_w, jtw_prog
+         use mem_ijtabs,   only: itabg_w, itab_w, jtab_w, jtw_prog
          use mem_basic,    only: rho
-         use mem_megan,    only: megan_driver, megan_emis, mgn_2_gc_map
+         use mem_megan,    only: megan_driver, megan_emis, mgn_2_gc_map !, mgn_2_nr_map
          use edgar_42_emis,only: process_edgar_emis, edgar42_emis
          use soil_nox,     only: get_soil_nox, sn_map, soilnox
 
@@ -477,13 +476,15 @@ C combined gas emssions conversion factor
 !         REAL             DELT          ! interpolation factor
 
          INTEGER          N, S, V
-         integer :: j, k, kw, iw, iwl               ! loop induction variables
+         integer :: j, k, ke, kw, ktop, iw, iwl               ! loop induction variables
 
 !        real, parameter :: convpa = 1.0
          REAL, PARAMETER :: CMLMR  = 1.0E+06 ! ppmV/Molar Mixing Ratio
          REAL, parameter :: CONVEM = 1.0E-03 ! conversion for emissions rates to Kg/s
          real, parameter :: CNVTE  = CMLMR * CONVEM * MWAIR ! conversion from moles / sec
                                                             ! to rho ppmV Vol / sec
+         real :: timefac_emis
+
 !         CHARACTER( 16 ) :: PNAME = 'GET_EMIS'
 !         CHARACTER( 120 ) :: XMSG = ' '
 !#ifdef Verbose2
@@ -495,6 +496,21 @@ C combined gas emssions conversion factor
 !         INTEGER, SAVE :: STARTCOL, ENDCOL, STARTROW, ENDROW
 !
 !C-----------------------------------------------------------------------
+
+!         if (iupdemis == 1 .and. nemisfiles > 1) then
+!            if (s1900_sim > s1900_emis(iemisfile) .and. time8+0.001_r8 < timmax8) then
+!               call emis_database_read(1)
+!            endif
+!
+!            timefac_emis = (s1900_sim             - s1900_emis(iemisfile-1))
+!     &                   / (s1900_emis(iemisfile) - s1900_emis(iemisfile-1))
+!
+!            sea_emisc(:,:,:) = sea_emisp(:,:,:)
+!     &                       + (sea_emisf(:,:,:) - sea_emisp(:,:,:)) * timefac_emis
+!
+!            land_emisc(:,:,:) = land_emisp(:,:,:)
+!     &                        + (land_emisf(:,:,:) - land_emisp(:,:,:)) * timefac_emis
+!         endif
 
 !         IF ( FIRSTIME ) THEN
 !            FIRSTIME = .FALSE.
@@ -511,9 +527,7 @@ C read & interpolate emissions (create VDEMIS in the species class order)
          call process_edgar_emis()
 
          do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-            vdemis_gc( :,iw,: ) = 0.0
-            vdemis_nr( :,iw,: ) = 0.0
-            vdemis_ae( :,iw,: ) = 0.0
+            vdemis_gc(:,iw,:) = 0.0
          enddo
 
          do s = 1, n_gc_emis
@@ -525,7 +539,7 @@ C read & interpolate emissions (create VDEMIS in the species class order)
 
                do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
-                  do k = lpw(iw), edgar_kmax(iw)
+                  do k = lpw(iw), mza
                   
                      ! convert mol/ sec emissions to ppmV / sec
                      cnvtc = cnvti * volti(k,iw) / rho(k,iw)
@@ -534,28 +548,6 @@ C read & interpolate emissions (create VDEMIS in the species class order)
                   enddo
                enddo
             endif
-            
-            !READ Non-Carbon Organic Matter From Gas Emissions
-            if ( gc_emis(s) .eq. 'POC' ) then
-
-               n = INDEX1( 'PNCOM', NVARS3D_EMIS, VNAME3D_EMIS )
-               if (n /= 0) then
-
-                  CNVTI = CNVTE * GC_EMIS_FAC( S )
-
-                  do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
-
-                     do k = lpw(iw), edgar_kmax(iw)
-                  
-                        ! convert mol/ sec emissions to ppmV / sec
-                        cnvtc = cnvti * volti(k,iw) / rho(k,iw)
-
-                        vdemis_gc(k,iw,s) = vdemis_gc(k,iw,s) + edgar42_emis(k,iw,n) * cnvtc
-                     enddo
-                  enddo
-               endif
-            endif
-               
          enddo
 
 !#ifdef Verbose2
@@ -686,7 +678,7 @@ C plume rise
 !
          IF ( N_AE_SPC .GT. 0 ) THEN
 !           CALL GET_AERO_EMIS ( JDATE, JTIME, TSTEP, RJACM, VDEMIS )
-            CALL GET_AERO_EMIS ( mrl, nvars3d_emis, vname3d_emis, edgar_kmax )
+            CALL GET_AERO_EMIS ( mrl, nvars3d_emis, vname3d_emis, edgar42_emis )
 !
 !            DO R = 1, MY_NROWS
 !               DO C = 1, MY_NCOLS
@@ -704,6 +696,10 @@ C plume rise
 
 C non-reactive gases (conversion to ppmv/s) VDEMIS in this order from RDEMIS
 
+         do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+            vdemis_nr(:,iw,:) = 0.0
+         enddo
+
          do s = 1, n_nr_emis
             n = INDEX1( NR_EMIS(S), NVARS3D_EMIS, VNAME3D_EMIS )
 
@@ -713,7 +709,7 @@ C non-reactive gases (conversion to ppmv/s) VDEMIS in this order from RDEMIS
                
                do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
-                  do k = lpw(iw), edgar_kmax(iw)
+                  do k = lpw(iw), mza
                   
                      ! convert mol/ sec emissions to ppmV / sec
                      cnvtc = cnvti * volti(k,iw) / rho(k,iw)

@@ -34,9 +34,8 @@ C
 C=======================================================================
 C
       SUBROUTINE ISRP1R (WI, RHI, TEMPI)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      REAL(8) :: WI(NCOMP), rhi, tempi
+      INCLUDE 'isrpia.inc'
+      DIMENSION WI(NCOMP)
 C
 C *** INITIALIZE COMMON BLOCK VARIABLES *********************************
 C
@@ -158,9 +157,8 @@ C
 C=======================================================================
 C
       SUBROUTINE ISRP2R (WI, RHI, TEMPI)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      REAL(8) :: WI(NCOMP), rhi, tempi
+      INCLUDE 'isrpia.inc'
+      DIMENSION WI(NCOMP)
       LOGICAL   TRYLIQ
 C
 C *** INITIALIZE ALL VARIABLES IN COMMON BLOCK **************************
@@ -317,9 +315,8 @@ C
 C=======================================================================
 C
       SUBROUTINE ISRP3R (WI, RHI, TEMPI)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      REAL(8) :: WI(NCOMP), rhi, tempi
+      INCLUDE 'isrpia.inc'
+      DIMENSION WI(NCOMP)
       LOGICAL   TRYLIQ
 ccC
 ccC *** ADJUST FOR TOO LITTLE AMMONIUM AND CHLORIDE ***********************
@@ -544,9 +541,8 @@ C
 C=======================================================================
 C
       SUBROUTINE ISRP4R (WI, RHI, TEMPI)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      REAL(8) :: WI(NCOMP), rhi, tempi
+      INCLUDE 'isrpia.inc'
+      DIMENSION WI(NCOMP)
       LOGICAL   TRYLIQ
 ccC
 ccC *** ADJUST FOR TOO LITTLE AMMONIUM AND CHLORIDE ***********************
@@ -863,8 +859,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCS2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       DOUBLE PRECISION NH4I, NH3GI, NH3AQ
 C
 C *** SETUP PARAMETERS ************************************************
@@ -876,7 +871,7 @@ C
 C *** CALCULATE WATER CONTENT *****************************************
 C
       MOLALR(4)= MIN(WAER(2), 0.5d0*WAER(3))
-      WATER    = MOLALR(4)*M0I(4)  ! ZSR correlation
+      WATER    = MOLALR(4)/M0(4)  ! ZSR correlation
 C
 C *** SOLVE EQUATIONS ; WITH ITERATIONS FOR ACTIVITY COEF. ************
 C
@@ -954,8 +949,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCS1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       CNH42S4 = MIN(WAER(2),0.5d0*WAER(3))  ! For bad input problems
       GNH3    = ZERO
@@ -988,10 +982,15 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCN3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       DOUBLE PRECISION NH4I, NO3I, NH3AQ, NO3AQ
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -1004,7 +1003,7 @@ C
       MOLALR(4) = MIN(WAER(2),0.5d0*WAER(3))       ! (NH4)2SO4
       AML5      = MAX(WAER(3)-2.D0*MOLALR(4),ZERO) ! "free" NH4
       MOLALR(5) = MAX(MIN(AML5,WAER(4)), ZERO)     ! NH4NO3=MIN("free",NO3)
-      WATER     = MOLALR(4)*M0I(4) + MOLALR(5)*M0I(5)
+      WATER     = MOLALR(4)/M0(4) + MOLALR(5)/M0(5)
       WATER     = MAX(WATER, TINY)
 C
 C *** SOLVE EQUATIONS ; WITH ITERATIONS FOR ACTIVITY COEF. ************
@@ -1099,9 +1098,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCN2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -1129,7 +1133,7 @@ C
       DO 10 I=1,NDIV
          X2 = MAX(X1-DX, ZERO)
          Y2 = FUNCN2 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -1154,7 +1158,7 @@ C
          YY = FUNCN2(P4)
          GOTO 50
       ELSE
-!        CALL PUSHERR (0001, 'CALCN2')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCN2')    ! WARNING ERROR: NO SOLUTION
          RETURN
       ENDIF
 C
@@ -1163,7 +1167,7 @@ C
 20    DO 30 I=1,MAXIT
          X3 = 0.5*(X1+X2)
          Y3 = FUNCN2 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -1172,7 +1176,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!     CALL PUSHERR (0002, 'CALCN2')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCN2')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -1198,10 +1202,15 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCN2 (P1)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      DOUBLE PRECISION NH4I, NO3I, NH3AQ, NO3AQ, P1
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION NH4I, NO3I, NH3AQ, NO3AQ
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -1310,8 +1319,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCN1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCN1A, CALCN2
 C
 C *** REGIME DEPENDS UPON THE AMBIENT RELATIVE HUMIDITY *****************
@@ -1353,8 +1361,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCN1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** SETUP PARAMETERS *************************************************
 C
@@ -1406,11 +1413,16 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCQ5
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -1552,12 +1564,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCQ4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV1
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -1731,8 +1748,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCQ3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL EXNO, EXCL
       EXTERNAL CALCQ1A, CALCQ4
 C
@@ -1784,12 +1800,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCQ3A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV1, PSCONV6
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -1986,8 +2007,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCQ2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL EXNO, EXCL
       EXTERNAL CALCQ1A, CALCQ3A, CALCQ4
 C
@@ -2049,12 +2069,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCQ2A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV1, PSCONV4, PSCONV6
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -2280,8 +2305,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCQ1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL EXNO, EXCL
       EXTERNAL CALCQ1A, CALCQ2A, CALCQ3A, CALCQ4
 C
@@ -2361,8 +2385,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCQ1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** CALCULATE SOLIDS **************************************************
 C
@@ -2411,11 +2434,16 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCR6
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -2557,12 +2585,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCR5
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
       LOGICAL  NEAN, NEAC, NESN, NESC
 C
@@ -2746,8 +2779,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCR4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL  EXAN, EXAC, EXSN, EXSC
       EXTERNAL CALCR1A, CALCR5
 C
@@ -2805,12 +2837,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCR4A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV1, PSCONV4
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -3000,8 +3037,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCR3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL  EXAN, EXAC, EXSN, EXSC
       EXTERNAL CALCR1A, CALCR4A, CALCR5
 C
@@ -3075,12 +3111,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCR3A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV1, PSCONV3, PSCONV4
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -3322,8 +3363,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCR2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL  EXAN, EXAC, EXSN, EXSC
       EXTERNAL CALCR1A, CALCR3A, CALCR4A, CALCR5
 C
@@ -3425,12 +3465,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCR2A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV1, PSCONV2, PSCONV3, PSCONV4
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -3702,8 +3747,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCR1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL  EXAN, EXAC, EXSN, EXSC
       EXTERNAL CALCR1A, CALCR2A, CALCR3A, CALCR4A, CALCR5
 C
@@ -3860,8 +3904,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCR1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** CALCULATE SOLIDS **************************************************
 C
@@ -3916,11 +3959,16 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCV7
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -4088,12 +4136,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCV6
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV7
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -4294,12 +4347,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCV5
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV7, PSCONV1
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -4525,12 +4583,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCV4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV7, PSCONV1
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -4756,8 +4819,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCV3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL EXNO, EXCL
       EXTERNAL CALCV1A, CALCV4
 C
@@ -4809,12 +4871,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCV3A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV7, PSCONV1, PSCONV6
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -5063,8 +5130,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCV2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL EXNO, EXCL
       EXTERNAL CALCV1A, CALCV3A, CALCV4
 C
@@ -5127,12 +5193,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCV2A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV7, PSCONV1, PSCONV6, PSCONV4
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -5414,8 +5485,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCV1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL EXNO, EXCL
       EXTERNAL CALCV1A, CALCV2A, CALCV3A, CALCV4
 C
@@ -5506,8 +5576,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCV1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** CALCULATE SOLIDS **************************************************
 C
@@ -5565,11 +5634,16 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCU8
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -5743,12 +5817,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCU7
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV7
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -5968,12 +6047,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCU6
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV7, PSCONV1
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -6217,12 +6301,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCU5
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV7, PSCONV1
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -6465,8 +6554,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCU4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL  EXAN, EXAC, EXSN, EXSC
       EXTERNAL CALCU1A, CALCU5
 C
@@ -6524,12 +6612,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCU4A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV7, PSCONV1, PSCONV4
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -6793,8 +6886,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCU3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL  EXAN, EXAC, EXSN, EXSC
       EXTERNAL CALCU1A, CALCU4A, CALCU5
 C
@@ -6869,12 +6961,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCU3A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV7, PSCONV1, PSCONV4, PSCONV3
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -7178,8 +7275,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCU2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL  EXAN, EXAC, EXSN, EXSC
       EXTERNAL CALCU1A, CALCU3A, CALCU4A, CALCU5
 C
@@ -7305,12 +7401,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCU2A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV7, PSCONV1, PSCONV4, PSCONV3, PSCONV5
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -7640,8 +7741,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCU1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       LOGICAL  EXAN, EXAC, EXSN, EXSC
       EXTERNAL CALCU1A, CALCU2A, CALCU3A, CALCU4A, CALCU5
 C
@@ -7809,8 +7909,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCU1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** CALCULATE SOLIDS *************************************************
 C
@@ -7879,11 +7978,16 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW13
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -8064,12 +8168,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW12
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV9
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -8285,12 +8394,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW11
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV9, PSCONV13
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -8533,12 +8647,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW10
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV9, PSCONV13
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -8783,12 +8902,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW9
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV9, PSCONV13, PSCONV14
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -9057,12 +9181,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW8
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV9, PSCONV13, PSCONV14, PSCONV5
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -9355,12 +9484,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW7
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV9, PSCONV13, PSCONV14, PSCONV5, PSCONV7
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -9679,12 +9813,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW6
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV9, PSCONV13, PSCONV14, PSCONV5, PSCONV7, PSCONV8
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -10027,8 +10166,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW5
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       EXTERNAL CALCW1A, CALCW6
 C
@@ -10088,12 +10226,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW5A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV9, PSCONV13, PSCONV14, PSCONV5, PSCONV7, PSCONV8
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -10436,8 +10579,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCW1A, CALCW5A
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF WATER AND OF THE RH ************
@@ -10496,12 +10638,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW4A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV9, PSCONV13, PSCONV14, PSCONV5, PSCONV7, PSCONV8
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -10845,8 +10992,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCW1A, CALCW4A
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF WATER AND OF THE RH ************
@@ -10911,12 +11057,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW3A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV9, PSCONV13, PSCONV14, PSCONV5, PSCONV7, PSCONV8
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -11269,8 +11420,7 @@ C=======================================================================
 C
 C
       SUBROUTINE CALCW2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCW1A, CALCW3A, CALCW4A, CALCW5A, CALCW6
 C
 C *** FIND DRY COMPOSITION **********************************************
@@ -11355,12 +11505,17 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW2A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       LOGICAL PSCONV9, PSCONV13, PSCONV14, PSCONV5, PSCONV7, PSCONV8
       DOUBLE PRECISION NH4I, NAI, NO3I, NH3AQ, NO3AQ, CLAQ, CAI, KI, MGI
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -11710,8 +11865,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCW1A, CALCW2A
 C
 C *** REGIME DEPENDS UPON THE AMBIENT RELATIVE HUMIDITY *****************
@@ -11752,8 +11906,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCW1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** CALCULATE SOLIDS **************************************************
 C

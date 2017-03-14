@@ -34,9 +34,8 @@ C
 C=======================================================================
 C
       SUBROUTINE ISRP1F (WI, RHI, TEMPI)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      REAL(8) :: WI(NCOMP), rhi, tempi
+      INCLUDE 'isrpia.inc'
+      DIMENSION WI(NCOMP)
 C
 C *** INITIALIZE ALL VARIABLES IN COMMON BLOCK **************************
 C
@@ -144,9 +143,8 @@ C
 C=======================================================================
 C
       SUBROUTINE ISRP2F (WI, RHI, TEMPI)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      REAL(8) :: WI(NCOMP), rhi, tempi
+      INCLUDE 'isrpia.inc'
+      DIMENSION WI(NCOMP)
 C
 C *** INITIALIZE ALL VARIABLES IN COMMON BLOCK **************************
 C
@@ -273,9 +271,8 @@ C
 C=======================================================================
 C
       SUBROUTINE ISRP3F (WI, RHI, TEMPI)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      REAL(8) :: WI(NCOMP), rhi, tempi
+      INCLUDE 'isrpia.inc'
+      DIMENSION WI(NCOMP)
 C
 C *** ADJUST FOR TOO LITTLE AMMONIUM AND CHLORIDE ***********************
 C
@@ -298,7 +295,7 @@ C
       REST = 2.D0*W(2) + W(4) + W(5) 
       IF (W(1).GT.REST) THEN            ! NA > 2*SO4+CL+NO3 ?
          W(1) = (ONE-1D-6)*REST         ! Adjust Na amount
-!        CALL PUSHERR (0050, 'ISRP3F')  ! Warning error: Na adjusted
+         CALL PUSHERR (0050, 'ISRP3F')  ! Warning error: Na adjusted
       ENDIF
 C
 C *** CALCULATE SULFATE & SODIUM RATIOS *********************************
@@ -465,9 +462,8 @@ C
 C=======================================================================
 C
       SUBROUTINE ISRP4F (WI, RHI, TEMPI)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      REAL(8) :: WI(NCOMP), rhi, tempi
+      INCLUDE 'isrpia.inc'
+      DIMENSION WI(NCOMP)
       DOUBLE PRECISION NAFRI, NO3FRI
 C
 C *** ADJUST FOR TOO LITTLE AMMONIUM AND CHLORIDE ***********************
@@ -527,22 +523,22 @@ C
              W(1)= ZERO                          ! Adjust Na amount
              W(7)= ZERO                          ! Adjust K amount
              W(8)= ZERO                          ! Adjust Mg amount
-!            CALL PUSHERR (0051, 'ISRP4F')       ! Warning error: Ca, Na, K, Mg in excess
+             CALL PUSHERR (0051, 'ISRP4F')       ! Warning error: Ca, Na, K, Mg in excess
 C
          ELSE IF (W(1).GT.REST1) THEN                 ! Na > 2*FRSO4+FRCL+FRNO3 ?
              W(1) = (ONE-1D-6)*REST1             ! Adjust Na amount
              W(7)= ZERO                          ! Adjust K amount
              W(8)= ZERO                          ! Adjust Mg amount
-!            CALL PUSHERR (0052, 'ISRP4F')       ! Warning error: Na, K, Mg in excess
+             CALL PUSHERR (0052, 'ISRP4F')       ! Warning error: Na, K, Mg in excess
 C
          ELSE IF (W(8).GT.REST2) THEN                 ! Mg > 2*FRSO4+FRCL+FRNO3 ?
              W(8) = (ONE-1D-6)*REST2             ! Adjust Mg amount
              W(7)= ZERO                          ! Adjust K amount
-!            CALL PUSHERR (0053, 'ISRP4F')       ! Warning error: K, Mg in excess
+             CALL PUSHERR (0053, 'ISRP4F')       ! Warning error: K, Mg in excess
 C
          ELSE IF (W(7).GT.REST3) THEN                 ! K > 2*FRSO4+FRCL+FRNO3 ?
              W(7) = (ONE-1D-6)*REST3             ! Adjust K amount
-!            CALL PUSHERR (0054, 'ISRP4F')       ! Warning error: K in excess
+             CALL PUSHERR (0054, 'ISRP4F')       ! Warning error: K in excess
          ENDIF
       ENDIF
 C
@@ -819,8 +815,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCA2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -846,14 +841,14 @@ C
       DO 10 I=1,NDIV
          X2 = MAX(X1-DX, OMELO)
          Y2 = FUNCA2 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
       IF (ABS(Y2).LE.EPS) THEN
          RETURN
       ELSE
-!         CALL PUSHERR (0001, 'CALCA2')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCA2')    ! WARNING ERROR: NO SOLUTION
          RETURN
       ENDIF
 C
@@ -863,7 +858,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCA2 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -872,7 +867,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCA2')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCA2')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -898,9 +893,8 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCA2 (OMEGI)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: omegi
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -969,8 +963,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCA1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
       CNH42S4 = W(2)
       GNH3    = MAX (W(3)-2.0*CNH42S4, ZERO)
@@ -1005,8 +998,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCB4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** SOLVE EQUATIONS **************************************************
 C
@@ -1023,7 +1015,7 @@ C
       CLC        = ZERO
       CNH4HS4    = ZERO
       CNH42S4    = ZERO
-      WATER      = MOLALR(13)*M0I(13)+MOLALR(9)*M0I(9)+MOLALR(4)*M0I(4)
+      WATER      = MOLALR(13)/M0(13)+MOLALR(9)/M0(9)+MOLALR(4)/M0(4)
 C
       MOLAL(3)   = W(3)   ! NH4I
 C
@@ -1074,8 +1066,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCB3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C    
 C *** CALCULATE EQUIVALENT AMOUNT OF HSO4 AND SO4 ***********************
 C
@@ -1130,9 +1121,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCB3A (TLC, TNH42S4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: tlc, TNH42S4
+      INCLUDE 'isrpia.inc'
 C
       CALAOU = .TRUE.         ! Outer loop activity calculation flag
       ZLO    = ZERO           ! MIN DISSOLVED (NH4)2SO4
@@ -1151,7 +1140,7 @@ C
       DO 10 I=1,NDIV
          Z2 = Z1+DZ
          Y2 = FUNCB3A (Z2, TLC, TNH42S4)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          Z1 = Z2
          Y1 = Y2
 10    CONTINUE
@@ -1176,7 +1165,7 @@ C
          Z2 = ZLO
          GOTO 40
       ELSE
-!         CALL PUSHERR (0001, 'CALCB3A')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCB3A')    ! WARNING ERROR: NO SOLUTION
          RETURN
       ENDIF
 C
@@ -1186,7 +1175,7 @@ C
          Z3 = 0.5*(Z1+Z2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCB3A (Z3, TLC, TNH42S4)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             Z2    = Z3
          ELSE
@@ -1195,7 +1184,7 @@ C
          ENDIF
          IF (ABS(Z2-Z1) .LE. EPS*Z1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCB3A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCB3A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN ************************************************
 C
@@ -1222,9 +1211,8 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCB3A (ZK, Y, X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      DOUBLE PRECISION KK, y, x
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION KK
 C
 C *** SOLVE EQUATIONS ; WITH ITERATIONS FOR ACTIVITY COEF. ************
 C
@@ -1287,9 +1275,8 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCB3B (Y, X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      DOUBLE PRECISION KK, y, x
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION KK
 C
       CALAOU = .FALSE.        ! Outer loop activity calculation flag
       FRST   = .FALSE.
@@ -1345,8 +1332,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCB2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C    
 C *** CALCULATE EQUIVALENT AMOUNT OF HSO4 AND SO4 ***********************
 C
@@ -1399,9 +1385,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCB2A (TLC, TNH42S4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: tlc, TNH42S4
+      INCLUDE 'isrpia.inc'
 C
 C *** REGIME DEPENDS UPON THE AMBIENT RELATIVE HUMIDITY *****************
 C
@@ -1449,9 +1433,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCB2A2 (TLC, TNH42S4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: TLC, TNH42S4
+      INCLUDE 'isrpia.inc'
 C
 C *** FIND WEIGHT FACTOR **********************************************
 C
@@ -1522,9 +1504,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCB2B (TLC,TNH4HS4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: TLC, TNH42S4
+      INCLUDE 'isrpia.inc'
 C
       CALAOU = .TRUE.       ! Outer loop activity calculation flag
       ZLO    = ZERO
@@ -1543,7 +1523,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1-DX
          Y2 = FUNCB2B (X2,TNH4HS4,TLC)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -1568,7 +1548,7 @@ C
          X2 = ZLO
          GOTO 40
       ELSE
-!         CALL PUSHERR (0001, 'CALCB2B')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCB2B')    ! WARNING ERROR: NO SOLUTION
          RETURN
       ENDIF
 C
@@ -1578,7 +1558,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCB2B (X3,TNH4HS4,TLC)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -1587,7 +1567,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCB2B')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCB2B')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN ************************************************
 C
@@ -1614,9 +1594,7 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCB2B (X,TNH4HS4,TLC)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: X,TNH4HS4,TLC
+      INCLUDE 'isrpia.inc'
 C
 C *** SOLVE EQUATIONS **************************************************
 C
@@ -1682,8 +1660,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCB1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** REGIME DEPENDS UPON THE AMBIENT RELATIVE HUMIDITY *****************
 C
@@ -1731,8 +1708,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCB1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -1785,8 +1761,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCB1B
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** FIND WEIGHT FACTOR **********************************************
 C
@@ -1853,8 +1828,8 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCC2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA, KAPA
 C
       CALAOU =.TRUE.         ! Outer loop activity calculation flag
       FRST   =.TRUE.
@@ -1913,8 +1888,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCC1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       DOUBLE PRECISION KLO, KHI
 C
       CALAOU = .TRUE.    ! Outer loop activity calculation flag
@@ -1934,7 +1908,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCC1 (X2)
-         IF (Y1*Y2 .LT. ZERO) GOTO 20 ! (Y1*Y2 .LT. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2) .LT. ZERO) GOTO 20 ! (Y1*Y2 .LT. ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -1957,7 +1931,7 @@ C
          X2 = KLO
          GOTO 40
       ELSE
-!         CALL PUSHERR (0001, 'CALCC1')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCC1')    ! WARNING ERROR: NO SOLUTION
          GOTO 50
       ENDIF
 C
@@ -1967,7 +1941,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCC1 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -1976,7 +1950,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCC1')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCC1')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN ***********************************************
 C
@@ -2008,10 +1982,9 @@ C *** UPDATE|ADJOINT BY SHANNON CAPPS
 C
 C=======================================================================
 C
-      DOUBLE PRECISION FUNCTION FUNCC1 (KAP)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: kap
+      DOUBLE PRECISION FUNCTION FUNCC1 (KAPA)
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION KAPA, LAMDA
 C
 C *** SOLVE EQUATIONS **************************************************
 C
@@ -2023,15 +1996,15 @@ C
          PAR1  = XK1*WATER/GAMA(7)*(GAMA(8)/GAMA(7))**2
          PAR2  = XK12*(WATER/GAMA(9))**2
          BB    = PSI + PAR1
-         CC    =-PAR1*(PSI+KAP)
+         CC    =-PAR1*(PSI+KAPA)
          LAMDA = 0.5*(-BB+SQRT(BB*BB-4*CC))
 C
 C *** SAVE CONCENTRATIONS IN MOLAL ARRAY *******************************
 C
          MOLAL(1) = PSI+LAMDA                    ! HI
-         MOLAL(3) = KAP                          ! NH4I
+         MOLAL(3) = KAPA                         ! NH4I
          MOLAL(5) = LAMDA                        ! SO4I
-         MOLAL(6) = MAX (ZERO, PSI+KAP-LAMDA)    ! HSO4I
+         MOLAL(6) = MAX (ZERO, PSI+KAPA-LAMDA)   ! HSO4I
          CNH4HS4  = MAX(W(3)-MOLAL(3), ZERO)     ! Solid NH4HSO4
          CH2SO4   = MAX(PSI, ZERO)               ! Free H2SO4
          CALL CALCMR                             ! Water content
@@ -2074,9 +2047,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCD3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -2120,7 +2098,7 @@ C
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCD3 (X2)
          IF (((Y1) .LT. ZERO) .AND. ((Y2) .GT. ZERO)) GOTO 20  ! (Y1*Y2.LT.ZERO) (slc.1.2012)
-C         IF (Y1*Y2.LT.ZERO) GOTO 20
+C         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -2151,7 +2129,7 @@ C
          PSI4HI = PSI4LO
          PSI4LO = PSI4LO - 0.1*(PSI1+PSI2) ! No solution; some NH3 evaporates
          IF (PSI4LO.LT.-(PSI1+PSI2)) THEN
-!            CALL PUSHERR (0001, 'CALCD3')  ! WARNING ERROR: NO SOLUTION
+            CALL PUSHERR (0001, 'CALCD3')  ! WARNING ERROR: NO SOLUTION
             RETURN
          ELSE
             MOLAL(5) = PSI2              ! Include sulfate in initial water calculation
@@ -2169,7 +2147,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCD3 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -2178,7 +2156,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*ABS(X1)) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCD3')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCD3')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -2214,10 +2192,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCD3 (P4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p4
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -2299,9 +2281,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCD2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -2345,7 +2332,7 @@ C
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCD2 (X2)
          IF (((Y1) .LT. ZERO) .AND. ((Y2) .GT. ZERO)) GOTO 20  ! (Y1*Y2.LT.ZERO) slc.1.2012
-C         IF (Y1*Y2.LT.ZERO) THEN
+C         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) THEN
 CC
 CC This is done, in case if Y(PSI4LO)>0, but Y(PSI4LO+DX) < 0 (i.e.undersat)
 CC
@@ -2381,7 +2368,7 @@ C
          PSI4HI = PSI4LO
          PSI4LO = PSI4LO - 0.1*(PSI1+PSI2) ! No solution; some NH3 evaporates
          IF (PSI4LO.LT.-(PSI1+PSI2)) THEN
-!            CALL PUSHERR (0001, 'CALCD2')  ! WARNING ERROR: NO SOLUTION
+            CALL PUSHERR (0001, 'CALCD2')  ! WARNING ERROR: NO SOLUTION
             RETURN
          ELSE
             MOLAL(5) = PSI2              ! Include initial amount in water calc
@@ -2399,7 +2386,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCD2 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -2408,7 +2395,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*ABS(X1)) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCD2')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCD2')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -2444,10 +2431,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCD2 (P4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p4
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -2546,8 +2537,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCD1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCD1A, CALCD2
 C
 C *** REGIME DEPENDS UPON THE AMBIENT RELATIVE HUMIDITY *****************
@@ -2594,8 +2584,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCD1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -2643,9 +2632,12 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCG5
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEG/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, LAMDA,
+     &               PSI1, PSI2, PSI3, PSI4, PSI5, PSI6, PSI7,
+     &               A1,   A2,   A3,   A4,   A5,   A6,   A7
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -2662,7 +2654,7 @@ C
       PSI6LO = TINY                  
       PSI6HI = CHI6-TINY    ! MIN(CHI6-TINY, CHI4)
 C
-      WATER  = CHI2*M0I(4) + CHI1*M0I(2)
+      WATER  = CHI2/M0(4) + CHI1/M0(2)
 C
 C *** INITIAL VALUES FOR BISECTION ************************************
 C
@@ -2678,7 +2670,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX 
          Y2 = FUNCG5A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -2697,7 +2689,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCG5A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -2706,7 +2698,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCG5')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCG5')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -2753,10 +2745,12 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCG5A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEG/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, LAMDA,
+     &               PSI1, PSI2, PSI3, PSI4, PSI5, PSI6, PSI7,
+     &               A1,   A2,   A3,   A4,   A5,   A6,   A7
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -2856,9 +2850,12 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCG4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEG/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, LAMDA,
+     &               PSI1, PSI2, PSI3, PSI4, PSI5, PSI6, PSI7,
+     &               A1,   A2,   A3,   A4,   A5,   A6,   A7
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -2874,7 +2871,7 @@ C
       PSI6LO = TINY                  
       PSI6HI = CHI6-TINY    ! MIN(CHI6-TINY, CHI4)
 C
-      WATER  = CHI2*M0I(4) + CHI1*M0I(2)
+      WATER  = CHI2/M0(4) + CHI1/M0(2)
 C
 C *** INITIAL VALUES FOR BISECTION ************************************
 C
@@ -2890,7 +2887,7 @@ C
       DO 10 I=1,NDIV
          X2  = X1+DX
          Y2  = FUNCG4A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1  = X2
          Y1  = Y2
 10    CONTINUE
@@ -2909,7 +2906,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCG4A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -2918,7 +2915,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCG4')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCG4')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -2965,11 +2962,12 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCG4A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
-      DOUBLE PRECISION NAI, NH4I, NO3I
+      DOUBLE PRECISION LAMDA, NAI, NH4I, NO3I
+      COMMON /CASEG/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, LAMDA,
+     &               PSI1, PSI2, PSI3, PSI4, PSI5, PSI6, PSI7,
+     &               A1,   A2,   A3,   A4,   A5,   A6,   A7
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -3094,8 +3092,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCG3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCG1A, CALCG4
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF WATER AND OF THE RH ************
@@ -3153,9 +3150,12 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCG3A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEG/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, LAMDA,
+     &               PSI1, PSI2, PSI3, PSI4, PSI5, PSI6, PSI7,
+     &               A1,   A2,   A3,   A4,   A5,   A6,   A7
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -3187,7 +3187,7 @@ C
          X2  = X1+DX 
          Y2  = FUNCG3A (X2)
 C
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1  = X2
          Y1  = Y2
 10    CONTINUE
@@ -3206,7 +3206,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCG3A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -3215,7 +3215,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCG3A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCG3A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -3281,10 +3281,12 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCG3A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEG/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, LAMDA,
+     &               PSI1, PSI2, PSI3, PSI4, PSI5, PSI6, PSI7,
+     &               A1,   A2,   A3,   A4,   A5,   A6,   A7
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -3389,8 +3391,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCG2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCG1A, CALCG3A, CALCG4
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF NITRATES ***********************
@@ -3463,9 +3464,12 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCG2A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEG/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, LAMDA,
+     &               PSI1, PSI2, PSI3, PSI4, PSI5, PSI6, PSI7,
+     &               A1,   A2,   A3,   A4,   A5,   A6,   A7
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -3496,7 +3500,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX 
          Y2 = FUNCG2A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -3512,7 +3516,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCG2A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -3521,7 +3525,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCG2A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCG2A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -3591,10 +3595,12 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCG2A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEG/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, LAMDA,
+     &               PSI1, PSI2, PSI3, PSI4, PSI5, PSI6, PSI7,
+     &               A1,   A2,   A3,   A4,   A5,   A6,   A7
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -3725,8 +3731,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCG1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCG1A, CALCG2A
 C
 C *** REGIME DEPENDS UPON THE AMBIENT RELATIVE HUMIDITY *****************
@@ -3773,9 +3778,8 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCG1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      DOUBLE PRECISION LAMDA1, LAMDA2, KAPA1, KAPA2
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA, LAMDA1, LAMDA2, KAPA, KAPA1, KAPA2
 C
 C *** CALCULATE NON VOLATILE SOLIDS ***********************************
 C
@@ -3915,9 +3919,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCH6
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -3947,7 +3956,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX 
          Y2 = FUNCH6A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -3966,7 +3975,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCH6A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -3975,7 +3984,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCH6')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCH6')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -4022,10 +4031,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCH6A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -4130,9 +4143,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCH5
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF NITRATES ***********************
 C
@@ -4171,7 +4189,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX 
          Y2 = FUNCH5A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -4190,7 +4208,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCH5A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -4199,7 +4217,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCH5')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCH5')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -4246,10 +4264,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCH5A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -4366,9 +4388,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCH4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF NITRATES ***********************
 C
@@ -4407,7 +4434,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX 
          Y2 = FUNCH4A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -4426,7 +4453,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCH4A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -4435,7 +4462,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCH4')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCH4')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -4482,10 +4509,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCH4A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -4627,9 +4658,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCH3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF NITRATES ***********************
 C
@@ -4668,7 +4704,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX 
          Y2 = FUNCH3A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -4687,7 +4723,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCH3A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -4696,7 +4732,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCH3')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCH3')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -4743,10 +4779,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCH3A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -4902,8 +4942,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCH2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCH1A, CALCH3
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF NITRATES ***********************
@@ -4956,10 +4995,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCH2A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
-
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -4989,7 +5032,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX 
          Y2 = FUNCH2A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -5008,7 +5051,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCH2A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -5017,7 +5060,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCH2A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCH2A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -5064,10 +5107,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCH2A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -5226,8 +5273,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCH1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCH1A, CALCH2A
 C
 C *** REGIME DEPENDS UPON THE AMBIENT RELATIVE HUMIDITY *****************
@@ -5269,9 +5315,9 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCH1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      DOUBLE PRECISION LAMDA1, LAMDA2, KAPA1, KAPA2, NAFR, NO3FR
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA, LAMDA1, LAMDA2, KAPA, KAPA1, KAPA2, NAFR,
+     &                 NO3FR
 C
 C *** CALCULATE NON VOLATILE SOLIDS ***********************************
 C
@@ -5413,10 +5459,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCI6
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
-
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -5502,10 +5552,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCI5
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
-
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -5552,7 +5606,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1-DX
          Y2 = FUNCI5A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -5567,7 +5621,7 @@ C
       ELSE IF (ABS(Y2) .LT. EPS) THEN   ! X2 IS A SOLUTION 
          GOTO 50
       ELSE
-!         CALL PUSHERR (0001, 'CALCI5')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCI5')    ! WARNING ERROR: NO SOLUTION
          GOTO 50
       ENDIF
 C
@@ -5577,7 +5631,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCI5A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -5586,7 +5640,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCI5')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCI5')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -5623,10 +5677,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCI5A (P4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p4
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -5701,10 +5759,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCI4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
-
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -5751,7 +5813,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1-DX
          Y2 = FUNCI4A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -5766,7 +5828,7 @@ C
       ELSE IF (ABS(Y2) .LT. EPS) THEN   ! X2 IS A SOLUTION 
          GOTO 50
       ELSE
-!         CALL PUSHERR (0001, 'CALCI4')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCI4')    ! WARNING ERROR: NO SOLUTION
          GOTO 50
       ENDIF
 C
@@ -5776,7 +5838,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCI4A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -5785,7 +5847,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCI4')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCI4')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -5822,10 +5884,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCI4A (P4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p4
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -5912,8 +5978,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCI3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCI1A, CALCI4
 C
 C *** FIND DRY COMPOSITION **********************************************
@@ -5972,10 +6037,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCI3A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
-
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -6015,7 +6084,7 @@ C
       DO 10 I=1,NDIV
          X2 = MAX(X1-DX, PSI2LO)
          Y2 = FUNCI3A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -6034,7 +6103,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCI3A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -6043,7 +6112,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCI3A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCI3A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -6077,10 +6146,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCI3A (P2)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p2
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -6112,7 +6185,7 @@ C
       DO 10 I=1,NDIV
          X2 = MAX(X1-DX, PSI4LO)
          Y2 = FUNCI3B (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -6131,7 +6204,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCI3B (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -6140,7 +6213,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0004, 'FUNCI3A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0004, 'FUNCI3A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** INNER LOOP CONVERGED **********************************************
 C
@@ -6176,10 +6249,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCI3B (P4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p4
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -6269,8 +6346,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCI2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCI1A, CALCI3A
 C
 C *** FIND DRY COMPOSITION **********************************************
@@ -6328,9 +6404,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCI2A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -6370,7 +6451,7 @@ C
       DO 10 I=1,NDIV
          X2 = MAX(X1-DX, PSI2LO)
          Y2 = FUNCI2A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -6389,7 +6470,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCI2A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -6398,7 +6479,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCI2A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCI2A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -6435,10 +6516,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCI2A (P2)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p2
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -6553,8 +6638,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCI1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCI1A, CALCI2A
 C
 C *** REGIME DEPENDS UPON THE AMBIENT RELATIVE HUMIDITY *****************
@@ -6600,8 +6684,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCI1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** CALCULATE NON VOLATILE SOLIDS ***********************************
 C
@@ -6659,9 +6742,9 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCJ3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA, KAPA
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -6737,9 +6820,11 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCJ2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA, KAPA
+      COMMON /CASEJ/ CHI1, CHI2, CHI3, LAMDA, KAPA, PSI1, PSI2, PSI3, 
+     &               A1,   A2,   A3
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -6765,7 +6850,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1-DX
          Y2 = FUNCJ2 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -6780,7 +6865,7 @@ C
       ELSE IF (ABS(Y2) .LT. EPS) THEN   ! X2 IS A SOLUTION 
          GOTO 50
       ELSE
-!         CALL PUSHERR (0001, 'CALCJ2')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCJ2')    ! WARNING ERROR: NO SOLUTION
          GOTO 50
       ENDIF
 C
@@ -6790,7 +6875,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCJ2 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -6799,7 +6884,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCJ2')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCJ2')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -6836,10 +6921,11 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCJ2 (P1)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p1
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA, KAPA
+      COMMON /CASEJ/ CHI1, CHI2, CHI3, LAMDA, KAPA, PSI1, PSI2, PSI3, 
+     &               A1,   A2,   A3
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -6916,9 +7002,11 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCJ1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA, KAPA
+      COMMON /CASEJ/ CHI1, CHI2, CHI3, LAMDA, KAPA, PSI1, PSI2, PSI3, 
+     &               A1,   A2,   A3
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -6945,7 +7033,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1-DX
          Y2 = FUNCJ1 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -6960,7 +7048,7 @@ C
       ELSE IF (ABS(Y2) .LT. EPS) THEN   ! X2 IS A SOLUTION 
          GOTO 50
       ELSE
-!         CALL PUSHERR (0001, 'CALCJ1')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCJ1')    ! WARNING ERROR: NO SOLUTION
          GOTO 50
       ENDIF
 C
@@ -6970,7 +7058,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCJ1 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -6979,7 +7067,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCJ1')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCJ1')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -7016,9 +7104,10 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCJ1 (P1)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p1
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA, KAPA
+      COMMON /CASEJ/ CHI1, CHI2, CHI3, LAMDA, KAPA, PSI1, PSI2, PSI3, 
+     &               A1,   A2,   A3
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -7095,9 +7184,13 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCO7
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEO/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, LAMDA, PSI1, PSI2, PSI3, PSI4, PSI5,
+     &               PSI6, PSI7, PSI8, PSI9,  A1,  A2,  A3,  A4,
+     &               A5, A6, A7, A8, A9
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -7131,7 +7224,7 @@ C
       PSI6LO = TINY
       PSI6HI = CHI6-TINY    ! MIN(CHI6-TINY, CHI4)
 C
-      WATER  = CHI2*M0I(4) + CHI1*M0I(2) + CHI7*M0I(17) + CHI8*M0I(21)
+      WATER  = CHI2/M0(4) + CHI1/M0(2) + CHI7/M0(17) + CHI8/M0(21)
       WATER  = MAX (WATER , TINY)
 C
 C *** INITIAL VALUES FOR BISECTION ************************************
@@ -7148,7 +7241,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCO7 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -7167,7 +7260,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCO7 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -7176,7 +7269,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCO7')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCO7')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -7219,10 +7312,13 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCO7 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEO/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, LAMDA, PSI1, PSI2, PSI3, PSI4, PSI5,
+     &               PSI6, PSI7, PSI8, PSI9,  A1,  A2,  A3,  A4,
+     &               A5, A6, A7, A8, A9
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -7334,9 +7430,13 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCO6
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEO/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, LAMDA, PSI1, PSI2, PSI3, PSI4, PSI5,
+     &               PSI6, PSI7, PSI8, PSI9,  A1,  A2,  A3,  A4,
+     &               A5, A6, A7, A8, A9
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -7368,7 +7468,7 @@ C
       PSI6LO = TINY
       PSI6HI = CHI6-TINY    ! MIN(CHI6-TINY, CHI4)
 C
-      WATER  = CHI2*M0I(4) + CHI1*M0I(2) + CHI7*M0I(17) + CHI8*M0I(21)
+      WATER  = CHI2/M0(4) + CHI1/M0(2) + CHI7/M0(17) + CHI8/M0(21)
       WATER  = MAX (WATER , TINY)
 C
 C *** INITIAL VALUES FOR BISECTION ************************************
@@ -7385,7 +7485,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCO6 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -7404,7 +7504,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCO6 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -7413,7 +7513,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCO6')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCO6')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -7456,10 +7556,13 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCO6 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEO/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, LAMDA, PSI1, PSI2, PSI3, PSI4, PSI5,
+     &               PSI6, PSI7, PSI8, PSI9,  A1,  A2,  A3,  A4,
+     &               A5, A6, A7, A8, A9
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -7587,9 +7690,13 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCO5
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEO/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, LAMDA, PSI1, PSI2, PSI3, PSI4, PSI5,
+     &               PSI6, PSI7, PSI8, PSI9,  A1,  A2,  A3,  A4,
+     &               A5, A6, A7, A8, A9
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -7620,7 +7727,7 @@ C
       PSI6LO = TINY
       PSI6HI = CHI6-TINY    ! MIN(CHI6-TINY, CHI4)
 C
-      WATER  = CHI2*M0I(4) + CHI1*M0I(2) + CHI7*M0I(17) + CHI8*M0I(21)
+      WATER  = CHI2/M0(4) + CHI1/M0(2) + CHI7/M0(17) + CHI8/M0(21)
       WATER  = MAX (WATER , TINY)
 C
 C *** INITIAL VALUES FOR BISECTION ************************************
@@ -7637,7 +7744,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCO5 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -7656,7 +7763,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCO5 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -7665,7 +7772,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCO5')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCO5')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -7708,10 +7815,13 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCO5 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEO/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, LAMDA, PSI1, PSI2, PSI3, PSI4, PSI5,
+     &               PSI6, PSI7, PSI8, PSI9,  A1,  A2,  A3,  A4,
+     &               A5, A6, A7, A8, A9
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -7848,9 +7958,13 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCO4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEO/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, LAMDA, PSI1, PSI2, PSI3, PSI4, PSI5,
+     &               PSI6, PSI7, PSI8, PSI9,  A1,  A2,  A3,  A4,
+     &               A5, A6, A7, A8, A9
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -7880,7 +7994,7 @@ C
       PSI6LO = TINY
       PSI6HI = CHI6-TINY    ! MIN(CHI6-TINY, CHI4)
 C
-      WATER  = CHI2*M0I(4) + CHI1*M0I(2) + CHI7*M0I(17) + CHI8*M0I(21)
+      WATER  = CHI2/M0(4) + CHI1/M0(2) + CHI7/M0(17) + CHI8/M0(21)
       WATER  = MAX (WATER , TINY)
 C
 C *** INITIAL VALUES FOR BISECTION ************************************
@@ -7897,7 +8011,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCO4 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -7916,7 +8030,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCO4 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -7925,7 +8039,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCO4')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCO4')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -7989,10 +8103,13 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCO4 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEO/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, LAMDA, PSI1, PSI2, PSI3, PSI4, PSI5,
+     &               PSI6, PSI7, PSI8, PSI9,  A1,  A2,  A3,  A4,
+     &               A5, A6, A7, A8, A9
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -8119,8 +8236,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCO3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCO1A, CALCO4
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF WATER AND OF THE RH ************
@@ -8177,9 +8293,13 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCO3A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEO/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, LAMDA, PSI1, PSI2, PSI3, PSI4, PSI5,
+     &               PSI6, PSI7, PSI8, PSI9, A1,  A2,  A3,  A4,
+     &               A5,  A6,  A7,  A8,  A9
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -8222,7 +8342,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCO3A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -8241,7 +8361,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCO3A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -8250,7 +8370,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCO3A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCO3A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -8313,10 +8433,13 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCO3A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEO/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, LAMDA, PSI1, PSI2, PSI3, PSI4, PSI5,
+     &               PSI6, PSI7, PSI8, PSI9,  A1,  A2,  A3,  A4,
+     &               A5, A6, A7, A8, A9
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -8455,8 +8578,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCO2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCO1A, CALCO3A, CALCO4
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF NITRATES ***********************
@@ -8528,9 +8650,13 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCO2A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEO/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, LAMDA, PSI1, PSI2, PSI3, PSI4, PSI5,
+     &               PSI6, PSI7, PSI8, PSI9,  A1,  A2,  A3,  A4,
+     &               A5, A6, A7, A8, A9
 C
 C *** SETUP PARAMETERS *************************************************
 C
@@ -8573,7 +8699,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCO2A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -8589,7 +8715,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCO2A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -8598,7 +8724,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCO2A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCO2A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN ***********************************************
 C
@@ -8664,10 +8790,13 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCO2A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA
+      COMMON /CASEO/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, LAMDA, PSI1, PSI2, PSI3, PSI4, PSI5,
+     &               PSI6, PSI7, PSI8, PSI9,  A1,  A2,  A3,  A4,
+     &               A5, A6, A7, A8, A9
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -8831,8 +8960,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCO1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCO1A, CALCO2A
 C
 C *** REGIME DEPENDS UPON THE AMBIENT RELATIVE HUMIDITY *****************
@@ -8876,9 +9004,8 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCO1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      DOUBLE PRECISION LAMDA1, LAMDA2, KAPA1, KAPA2
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA, LAMDA1, LAMDA2, KAPA, KAPA1, KAPA2
 C
 C *** CALCULATE NON VOLATILE SOLIDS ***********************************
 C
@@ -9029,9 +9156,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCM8
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -9070,7 +9202,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCM8 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -9089,7 +9221,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCM8 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -9098,7 +9230,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCM8')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCM8')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -9145,10 +9277,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCM8 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -9265,9 +9401,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCM7
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -9306,7 +9447,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCM7 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -9325,7 +9466,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCM7 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -9334,7 +9475,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCM7')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCM7')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -9379,10 +9520,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCM7 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -9507,9 +9652,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCM6
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -9548,7 +9698,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCM6 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -9567,7 +9717,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCM6 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -9576,7 +9726,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCM6')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCM6')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -9620,10 +9770,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCM6 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -9776,9 +9930,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCM5
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -9817,7 +9976,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCM5 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -9836,7 +9995,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCM5 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -9845,7 +10004,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCM5')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCM5')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -9889,10 +10048,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCM5 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -10045,9 +10208,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCM4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF NITRATES ***********************
 C
@@ -10095,7 +10263,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCM4 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -10114,7 +10282,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCM4 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -10123,7 +10291,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCM4')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCM4')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -10167,10 +10335,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCM4 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -10352,10 +10524,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCM3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
-
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF NITRATES ***********************
 C
@@ -10403,7 +10579,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCM3 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -10422,7 +10598,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCM3 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -10431,7 +10607,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCM3')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCM3')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -10475,10 +10651,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCM3 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -10684,8 +10864,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCM2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCM1A, CALCM3
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF NITRATES ***********************
@@ -10737,9 +10916,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCM2A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -10778,7 +10962,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCM2A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -10797,7 +10981,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCM2A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -10806,7 +10990,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCM2A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCM2A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -10850,10 +11034,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCM2A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -11070,8 +11258,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCM1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCM1A, CALCM2A
 C
 C *** REGIME DEPENDS UPON THE AMBIENT RELATIVE HUMIDITY *****************
@@ -11111,9 +11298,9 @@ C
 C=======================================================================
 
       SUBROUTINE CALCM1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      DOUBLE PRECISION LAMDA1, LAMDA2, KAPA1, KAPA2, NAFR, NO3FR
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA, LAMDA1, LAMDA2, KAPA, KAPA1, KAPA2, NAFR,
+     &                 NO3FR
 C
 C *** CALCULATE NON VOLATILE SOLIDS ***********************************
 C
@@ -11265,9 +11452,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP13
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -11328,7 +11520,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCP13 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -11347,7 +11539,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCP13 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -11356,7 +11548,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCP13')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCP13')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -11402,10 +11594,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCP13 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -11557,9 +11753,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP12
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -11620,7 +11821,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCP12 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -11639,7 +11840,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCP12 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -11648,7 +11849,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCP12')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCP12')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -11694,10 +11895,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCP12 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -11864,9 +12069,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP11
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -11927,7 +12137,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCP11 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -11946,7 +12156,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCP11 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -11955,7 +12165,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCP11')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCP11')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -12001,10 +12211,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCP11 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -12179,9 +12393,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP10
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -12242,7 +12461,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCP10 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -12261,7 +12480,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCP10 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -12270,7 +12489,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCP10')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCP10')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -12316,10 +12535,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCP10 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -12494,9 +12717,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP9
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -12557,7 +12785,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCP9 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -12576,7 +12804,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCP9 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -12585,7 +12813,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCP9')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCP9')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -12631,10 +12859,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCP9 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -12815,9 +13047,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP8
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -12878,7 +13115,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCP8 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -12897,7 +13134,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCP8 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -12906,7 +13143,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCP8')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCP8')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -12952,10 +13189,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCP8 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -13164,9 +13405,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP7
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -13227,7 +13473,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCP7 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -13246,7 +13492,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCP7 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -13255,7 +13501,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCP7')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCP7')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -13301,10 +13547,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCP7 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -13522,9 +13772,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP6
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -13585,7 +13840,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCP6 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -13604,7 +13859,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCP6 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -13613,7 +13868,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCP6')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCP6')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -13659,10 +13914,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCP6 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -13891,8 +14150,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP5
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCP1A, CALCP6
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF WATER AND OF THE RH ************
@@ -13951,9 +14209,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP5A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -14014,7 +14277,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCP5 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -14033,7 +14296,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCP5 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -14042,7 +14305,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCP5')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCP5')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -14088,10 +14351,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCP5 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -14348,8 +14615,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCP1A, CALCP5A
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF WATER AND OF THE RH ************
@@ -14407,9 +14673,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP4A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -14470,7 +14741,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCP4 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -14489,7 +14760,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCP4 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -14498,7 +14769,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCP4')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCP4')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -14543,10 +14814,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCP4 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -14803,8 +15078,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCP1A, CALCP4A
 C
 C *** REGIME DEPENDS ON THE EXISTANCE OF WATER AND OF THE RH ************
@@ -14863,9 +15137,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP3A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -14926,7 +15205,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCP3 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -14945,7 +15224,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCP3 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -14954,7 +15233,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCP3')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCP3')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -15000,10 +15279,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCP3 (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -15268,8 +15551,7 @@ C=======================================================================
 C
 C
       SUBROUTINE CALCP2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCP1A, CALCP3A, CALCP4A, CALCP5A, CALCP6
 C
 C *** FIND DRY COMPOSITION **********************************************
@@ -15354,9 +15636,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP2A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -15417,7 +15704,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1+DX
          Y2 = FUNCP2A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -15436,7 +15723,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCP2A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -15445,7 +15732,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCP2A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCP2A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -15491,10 +15778,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCP2A (X)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: x
+      INCLUDE 'isrpia.inc'
 C
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -15756,8 +16047,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCP1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCP1A, CALCP2A
 C
 C *** REGIME DEPENDS UPON THE AMBIENT RELATIVE HUMIDITY *****************
@@ -15799,9 +16089,9 @@ C
 C=======================================================================
 
       SUBROUTINE CALCP1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      DOUBLE PRECISION LAMDA1, LAMDA2, KAPA1, KAPA2, NAFR, NO3FR
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA, LAMDA1, LAMDA2, KAPA, KAPA1, KAPA2, NAFR,
+     &                 NO3FR
 C
 C *** CALCULATE NON VOLATILE SOLIDS ***********************************
 C
@@ -15969,8 +16259,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCL9
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -16070,8 +16366,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCL8
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -16122,7 +16424,7 @@ C
       DO 10 I=1,NDIV
          X2 = X1-DX
          Y2 = FUNCL8 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -16137,7 +16439,7 @@ C
       ELSE IF (ABS(Y2) .LT. EPS) THEN   ! X2 IS A SOLUTION
          GOTO 50
       ELSE
-!         CALL PUSHERR (0001, 'CALCL8')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCL8')    ! WARNING ERROR: NO SOLUTION
          GOTO 50
       ENDIF
 C *** PERFORM BISECTION ***********************************************
@@ -16146,7 +16448,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCL8 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -16155,7 +16457,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCL8')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCL8')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -16190,9 +16492,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCL8 (P6)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p6
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -16276,8 +16583,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCL7
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -16329,7 +16642,7 @@ C
          X2 = X1-DX
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCL7 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -16344,7 +16657,7 @@ C
       ELSE IF (ABS(Y2) .LT. EPS) THEN   ! X2 IS A SOLUTION
          GOTO 50
       ELSE
-!         CALL PUSHERR (0001, 'CALCL7')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCL7')    ! WARNING ERROR: NO SOLUTION
          GOTO 50
       ENDIF
 C *** PERFORM BISECTION ***********************************************
@@ -16353,7 +16666,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCL7 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -16362,7 +16675,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCL7')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCL7')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -16397,9 +16710,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCL7 (P4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p4
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -16502,8 +16820,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCL6
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -16555,7 +16879,7 @@ C
          X2 = X1-DX
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCL6 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -16570,7 +16894,7 @@ C
       ELSE IF (ABS(Y2) .LT. EPS) THEN   ! X2 IS A SOLUTION
          GOTO 50
       ELSE
-!         CALL PUSHERR (0001, 'CALCL6')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCL6')    ! WARNING ERROR: NO SOLUTION
          GOTO 50
       ENDIF
 C
@@ -16580,7 +16904,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCL6 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -16589,7 +16913,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCL6')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCL6')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -16623,9 +16947,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCL6 (P4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p4
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -16728,8 +17057,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCL5
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -16783,7 +17118,7 @@ C
          X2 = MAX(X1-DX, PSI4LO)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCL5 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -16798,7 +17133,7 @@ C
       ELSE IF (ABS(Y2) .LT. EPS) THEN   ! X2 IS A SOLUTION
          GOTO 50
       ELSE
-!         CALL PUSHERR (0001, 'CALCL5')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCL5')    ! WARNING ERROR: NO SOLUTION
          GOTO 50
       ENDIF
 C
@@ -16808,7 +17143,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCL5 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -16817,7 +17152,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCL5')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCL5')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -16852,9 +17187,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCL5 (P4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p4
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -16967,8 +17307,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCL4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -17020,7 +17366,7 @@ C
          X2 = X1-DX
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCL4 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -17035,7 +17381,7 @@ C
       ELSE IF (ABS(Y2) .LT. EPS) THEN   ! X2 IS A SOLUTION
          GOTO 50
       ELSE
-!         CALL PUSHERR (0001, 'CALCL4')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCL4')    ! WARNING ERROR: NO SOLUTION
          GOTO 50
       ENDIF
 C
@@ -17045,7 +17391,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCL4 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -17054,7 +17400,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCL4')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCL4')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -17089,9 +17435,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCL4 (P4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p4
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -17212,8 +17563,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCL3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCL1A, CALCL4
 C
 C *** FIND DRY COMPOSITION *********************************************
@@ -17270,8 +17620,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCL3A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** FIND DRY COMPOSITION **********************************************
 C
@@ -17318,7 +17674,7 @@ C
          X2 = MAX(X1-DX, PSI2LO)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCL3A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -17337,7 +17693,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCL3A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -17346,7 +17702,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCL3A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCL3A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -17380,9 +17736,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCL3A (P2)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p2
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -17416,7 +17777,7 @@ C
          X2 = MAX(X1-DX, PSI4LO)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCL3B (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -17435,7 +17796,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCL3B (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -17444,7 +17805,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0004, 'FUNCL3A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0004, 'FUNCL3A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** INNER LOOP CONVERGED **********************************************
 C
@@ -17483,9 +17844,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCL3B (P4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p4
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -17605,8 +17971,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCL2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCL1A, CALCL3A
 C
 C *** FIND DRY COMPOSITION **********************************************
@@ -17663,8 +18028,14 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCL2A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -17708,7 +18079,7 @@ C
          X2 = MAX(X1-DX, PSI2LO)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCL2A (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -17727,7 +18098,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCL2A (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -17736,7 +18107,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCL2A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCL2A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -17770,9 +18141,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCL2A (P2)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p2
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -17809,7 +18185,7 @@ C
          X2 = MAX(X1-DX, PSI4LO)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCL2B (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -17828,7 +18204,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCL2B (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -17837,7 +18213,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0004, 'FUNCL2A')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0004, 'FUNCL2A')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** INNER LOOP CONVERGED **********************************************
 C
@@ -17875,9 +18251,14 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCL2B (P4)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p4
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA
+      COMMON /SOLUT/ CHI1, CHI2, CHI3, CHI4, CHI5, CHI6, CHI7, CHI8,
+     &               CHI9, CHI10, CHI11, CHI12, CHI13, CHI14, CHI15,
+     &               CHI16, CHI17, PSI1, PSI2, PSI3, PSI4, PSI5, PSI6,
+     &               PSI7, PSI8, PSI9, PSI10, PSI11, PSI12, PSI13,
+     &               PSI14, PSI15, PSI16, PSI17, A1, A2, A3, A4, A5, A6,
+     &               A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -18013,8 +18394,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCL1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
       EXTERNAL CALCL1A, CALCL2A
 C
 C *** REGIME DEPENDS UPON THE AMBIENT RELATIVE HUMIDITY *****************
@@ -18058,8 +18438,7 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCL1A
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
 C *** CALCULATE NON VOLATILE SOLIDS ***********************************
 C
@@ -18147,9 +18526,11 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCK4
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA, KAPA
+      COMMON /CASEK/ CHI1,CHI2,CHI3,CHI4,LAMDA,KAPA,PSI1,PSI2,PSI3,
+     &               A1,   A2,   A3,   A4
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -18231,9 +18612,11 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCK3
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA, KAPA
+      COMMON /CASEK/ CHI1,CHI2,CHI3,CHI4,LAMDA,KAPA,PSI1,PSI2,PSI3,
+     &               A1,   A2,   A3,   A4
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -18263,7 +18646,7 @@ C
          X2 = X1-DX
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCK3 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -18278,7 +18661,7 @@ C
       ELSE IF (ABS(Y2) .LT. EPS) THEN   ! X2 IS A SOLUTION
          GOTO 50
       ELSE
-!         CALL PUSHERR (0001, 'CALCK3')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCK3')    ! WARNING ERROR: NO SOLUTION
          GOTO 50
       ENDIF
 C
@@ -18288,7 +18671,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCK3 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -18297,7 +18680,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCK3')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCK3')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -18330,9 +18713,10 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCK3 (P1)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p1
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA, KAPA
+      COMMON /CASEK/ CHI1,CHI2,CHI3,CHI4,LAMDA,KAPA,PSI1,PSI2,PSI3,
+     &               A1,   A2,   A3,   A4
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -18416,9 +18800,11 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCK2
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA, KAPA
+      COMMON /CASEK/ CHI1,CHI2,CHI3,CHI4,LAMDA,KAPA,PSI1,PSI2,PSI3,
+     &               A1,   A2,   A3,   A4
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -18448,7 +18834,7 @@ C
          X2 = X1-DX
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCK2 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -18463,7 +18849,7 @@ C
       ELSE IF (ABS(Y2) .LT. EPS) THEN   ! X2 IS A SOLUTION
          GOTO 50
       ELSE
-!         CALL PUSHERR (0001, 'CALCK2')    ! WARNING ERROR: NO SOLUTION
+         CALL PUSHERR (0001, 'CALCK2')    ! WARNING ERROR: NO SOLUTION
          GOTO 50
       ENDIF
 C
@@ -18473,7 +18859,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCK2 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -18482,7 +18868,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCK2')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCK2')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -18514,9 +18900,10 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCK2 (P1)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p1
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA, KAPA
+      COMMON /CASEK/ CHI1,CHI2,CHI3,CHI4,LAMDA,KAPA,PSI1,PSI2,PSI3,
+     &               A1,   A2,   A3,   A4
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -18601,9 +18988,11 @@ C
 C=======================================================================
 C
       SUBROUTINE CALCK1
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INCLUDE 'isrpia.inc'
 C
+      DOUBLE PRECISION LAMDA, KAPA
+      COMMON /CASEK/ CHI1,CHI2,CHI3,CHI4,LAMDA,KAPA,PSI1,PSI2,PSI3,
+     &               A1,   A2,   A3,   A4
 C
 C *** SETUP PARAMETERS ************************************************
 C
@@ -18634,7 +19023,7 @@ C
          X2 = X1-DX
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y2 = FUNCK1 (X2)
-         IF (Y1*Y2.LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y2).LT.ZERO) GOTO 20  ! (Y1*Y2.LT.ZERO)
          X1 = X2
          Y1 = Y2
 10    CONTINUE
@@ -18649,7 +19038,7 @@ C
       ELSE IF (ABS(Y2) .LT. EPS) THEN       ! X2 IS A SOLUTION
          GOTO 50
       ELSE
-!        CALL PUSHERR (0001, 'CALCK1')    ! WARNING ERROR: NO SOLUTION
+        CALL PUSHERR (0001, 'CALCK1')    ! WARNING ERROR: NO SOLUTION
         GOTO 50
       ENDIF
 C
@@ -18659,7 +19048,7 @@ C
          X3 = 0.5*(X1+X2)
          CALL RSTGAMP            ! reinitialize activity coefficients (slc.1.2012)
          Y3 = FUNCK1 (X3)
-         IF (Y1*Y3 .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
+         IF (SIGN(1.d0,Y1)*SIGN(1.d0,Y3) .LE. ZERO) THEN  ! (Y1*Y3 .LE. ZERO)
             Y2    = Y3
             X2    = X3
          ELSE
@@ -18668,7 +19057,7 @@ C
          ENDIF
          IF (ABS(X2-X1) .LE. EPS*X1) GOTO 40
 30    CONTINUE
-!      CALL PUSHERR (0002, 'CALCK1')    ! WARNING ERROR: NO CONVERGENCE
+      CALL PUSHERR (0002, 'CALCK1')    ! WARNING ERROR: NO CONVERGENCE
 C
 C *** CONVERGED ; RETURN **********************************************
 C
@@ -18701,9 +19090,10 @@ C
 C=======================================================================
 C
       DOUBLE PRECISION FUNCTION FUNCK1 (P1)
-      use isrpia
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      real(8) :: p1
+      INCLUDE 'isrpia.inc'
+      DOUBLE PRECISION LAMDA, KAPA
+      COMMON /CASEK/ CHI1,CHI2,CHI3,CHI4,LAMDA,KAPA,PSI1,PSI2,PSI3,
+     &               A1,   A2,   A3,   A4
 C
 C *** SETUP PARAMETERS ************************************************
 C

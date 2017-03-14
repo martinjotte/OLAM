@@ -9,7 +9,7 @@ subroutine geia_init()
 
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
   use mem_para,   only: myrank
-  use isan_coms,  only: gdatdx, gdatdy, xswlat, xswlon, ipoffset, inproj
+  use isan_coms,  only: gdatdx, gdatdy, xswlat, xswlon, ipoffset
   use misc_coms,  only: io6, iparallel
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
   use mem_grid,   only: mwa, arw0, glatw, glonw
@@ -80,9 +80,7 @@ subroutine geia_init()
   
   xswlat =  -89.5
   xswlon = -179.5
-
   ipoffset = int((xswlon + 180.) / gdatdx) + 2
-  inproj = 1
 
   call prfill(nlon, nlat, buffer(:,:,1),  cl)
   call prfill(nlon, nlat, buffer(:,:,2), hcl)

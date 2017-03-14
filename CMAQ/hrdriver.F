@@ -70,7 +70,7 @@ C**********************************************************************
       USE AEROSOL_CHEMISTRY
       USE RXNS_FUNCTION
       USE HRDATA
-      USE AERO_DATA,  ONLY: N_MODE
+
       use cgrid_defn, only: cgrid
       use misc_coms,  only: dtlm
       use mem_grid,   only: lpw, mza, mwa
@@ -79,12 +79,11 @@ C**********************************************************************
       use mem_sea,    only: sea
       use mem_turb,   only: frac_land
       use cgrid_defn, only: cgrid
-      use mem_para,   only: myrank
 
       IMPLICIT NONE
 
 C..Includes:
-!     INCLUDE 'FILES_CTM.EXT'  ! CMAQ files
+      INCLUDE 'FILES_CTM.EXT'  ! CMAQ files
       INCLUDE 'CONST.EXT'      ! CMAQ constants
 
 !     INCLUDE SUBST_EMISPRM   ! Emissions processing control parameters
@@ -123,6 +122,7 @@ C..Scratch Local Variables:
       integer :: iw, k, j, jws, iws
       real    :: area, frac_ice
 
+      INTEGER AVGEBI          ! Average no. of EBI iterations
       INTEGER DELT_SEC        ! EBI max time step in seconds
       INTEGER ESP             ! Loop index for emissions species
       INTEGER ITMSTEP         ! Chemistry integration interval (sec)
@@ -131,22 +131,17 @@ C..Scratch Local Variables:
       INTEGER MIDTIME         ! Time at time step midpoint
       INTEGER NPH             ! Index for number of phot. rxns in PHOT
       INTEGER SPC             ! Species loop index
-
 #ifdef hrstats
-!     INTEGER MNEBI           ! Min no. of EBI iterations
+      INTEGER MNEBI           ! Min no. of EBI iterations
       INTEGER MXEBI           ! Max no. of EBI iterations
-      INTEGER AVGEBI          ! Average no. of EBI iterations
-      REAL    SUMEBI          ! Sum of EBI iterations
-      INTEGER NCALL
-      real :: rjmax, hemax, rkmax
 #endif
 
       LOGICAL LSUNLIGHT       ! Flag for sunlight
 
-      REAL    ::      INV_DENS(mza)     ! reciprocal of air mass density, m3/Kg
-      REAL(8) ::      TEMP    (mza)
-      REAL(8) ::      ATMPRES (mza)
-      REAL(8) ::      H2O     (mza)
+      REAL       INV_DENS     ! reciprocal of air mass density, m3/Kg
+#ifdef hrstats
+      REAL       SUMEBI       ! Sum of EBI iterations
+#endif
 
       REAL( 8 )  CHEMSTEP     ! Chemistry integration interval (min)
 
@@ -155,12 +150,6 @@ C..Scratch Local Variables:
 C for INTERPX
 !     INTEGER, SAVE :: STRTCOLMC2, ENDCOLMC2, STRTROWMC2, ENDROWMC2
 !     INTEGER, SAVE :: STRTCOLMC3, ENDCOLMC3, STRTROWMC3, ENDROWMC3
-
-      real(8) :: het            ( mza, nhetero )
-      real    :: chem_m2dry_init( n_mode,  mza )
-      real    :: chem_m3dry_init( n_mode,  mza )
-      integer :: kmax
-      logical :: land
 
       INTERFACE
 !        SUBROUTINE PHOT ( MDATE, MTIME, JDATE, JTIME, DTSTEP, RJ )
@@ -247,11 +236,11 @@ c..If emissions processing requested stop
 !         END IF   ! End if doing emissions
 
 
-!#ifdef hrstats
-!         ISTFL = JUNIT()
-!         OPEN( UNIT=ISTFL, FILE='iterstat.dat' )
-!         WRITE( ISTFL, 94020 )
-!#endif
+#ifdef hrstats
+         ISTFL = JUNIT()
+         OPEN( UNIT=ISTFL, FILE='iterstat.dat' )
+         WRITE( ISTFL, 94020 )
+#endif
 
 C.. Get fractional seawater coverage from the OCEAN file.
 
@@ -303,7 +292,7 @@ C.. Get fractional surf-zone coverage from the OCEAN file.
 !     &             RJ  ( NCOLS, NROWS, NLAYS, NPHOTAB ),
 !     &             SEAICE( NCOLS, NROWS ) )
 
-         allocate( rj( mza, nphotab, mwa ) )
+         allocate( rj( nphotab, mza, mwa ) )
 
          LFIRST = .FALSE.
 
@@ -388,146 +377,120 @@ C.. Get photolysis rates in /min
 !     CALL PHOT ( MIDDATE, MIDTIME, JDATE, JTIME, TSTEP, RJ )
       CALL PHOT ( mrl )
 
-C.. Get Heteorogeneous rates and Update Aerosol Properties (Moments, D
-C   and sigma)
+C.. Get Heteorogeneous rats
 !     CALL HETCHEM_RATES( TA, PRES, QV, CGRID )
-!     CALL HETCHEM_RATES( mrl )
+      CALL HETCHEM_RATES( mrl )
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Top of loop over cells
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 #ifdef hrstats
-!     MNEBI = 1000
+      MNEBI = 1000
       MXEBI = 0
       SUMEBI = 0.0
-      NCALL = 0
-      hemax = 0.
-      rjmax = 0.
-      rkmax = 0.
 #endif
 
-!     NCELL = 1
+      NCELL = 1
+
 !      DO L = 1, NLAYS
 !         DO R = 1, MY_NROWS
 !            DO C = 1, MY_NCOLS
 
       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+         do k = lpw(iw), mza
 
-         do k = mza-1, lpw(iw), -1
-            if (press(k,iw) > 100.d2) exit
-         enddo
+            if (press(k,iw) < 100.d2) then
 
-         kmax = k + 1
+               DO SPC = 1, NUMB_MECH_SPC
+                  S = CGRID_INDEX( SPC )
+                  CGRID( k, iw, S ) = max( CGRID( k, iw, S ), CONCMIN)
+               enddo
 
-         ! Don't do tropospheric chem above 100 mb
+            else
 
-         do spc = 1, numb_mech_spc
-            s = cgrid_index( spc )
-            do k = kmax+1, mza
-               cgrid( k, iw, s ) = max( cgrid( k, iw, s ), concmin)
-            enddo
-         enddo
+c..Load ICs
+               INV_DENS = 1.0 / rho(k,iw)
+               DO SPC = 1, NUMB_MECH_SPC
+                  S = CGRID_INDEX( SPC )
+                  IF( CONVERT_CONC( SPC ) )THEN
+                      YC( SPC ) = REAL( MAX( CONCMIN,
+     &                            INV_DENS*FORWARD_CONV( SPC )*CGRID( k, iw, S )), 8 )
+                  ELSE
+                      YC( SPC ) = REAL( MAX( CGRID( k, iw, S ), CONCMIN), 8 )
+                  END IF
+               END DO
 
-         ! Set physical quantities
+c..Set physical quantities
+               TEMP( NCELL )     = REAL( tair(k,iw), 8)
+!              PRESCELL( NCELL ) = REAL( PRES( C,R,L ), 8)
+               ATMPRES( NCELL )  = PA2ATM * press(k,iw)
+               H2O( NCELL )      = REAL( MAX ( MAOMV * sh_v(k,iw), 0.0 ), 8)
 
-         do k = lpw(iw), kmax
-            TEMP    ( k ) = tair(k,iw)
-            ATMPRES ( k ) = PA2ATM * press(k,iw)
-            H2O     ( k ) = MAX( MAOMV * sh_v(k,iw), 0.0 )
-            inv_dens( k ) = 1.0 / rho(k,iw)
-         enddo
-
-         ! Is column mostly land or open sea (map seaice to land)
-
-         frac_ice = 0.0
-
-         if (itab_w(iw)%nsea > 0) then
-            area = 0.0
-            do jws = 1, itab_w(iw)%nsea
-               iws = itab_w(iw)%isea(jws)
-               frac_ice = frac_ice + sea%area(iws) * sea%seaicec(iws)
-               area     = area     + sea%area(iws)
-            enddo
-            frac_ice = frac_ice / area
-         endif
-
-         if ((frac_land(iw) + (1.0-frac_land(iw)) * frac_ice) > 0.5) then
-            land = .true.
-         else
-            land = .false.
-         end if
+               area     = 0.0
+               frac_ice = 0.0
+               
+               do jws = 1, itab_w(iw)%nsea
+                  iws = itab_w(iw)%isea(jws)
+                  frac_ice = frac_ice + sea%seaicec(iws) * sea%area(iws)
+                  area     = area + sea%area(iws)
+               enddo
+               
+               if (itab_w(iw)%nsea > 0) frac_ice = frac_ice / area
+               
+               if ((frac_land(iw) + (1.0-frac_land(iw)) * frac_ice) > 0.5) then
+                   LAND (NCELL) = .TRUE.
+               ELSE
+                   LAND (NCELL) = .FALSE.
+               END IF
 
 c..Get rate constants
+               LSUNLIGHT = .FALSE.
+               FORALL( NPH = 1:NPHOTAB ) RJIN( NCELL,NPH ) = REAL( RJ( NPH,k,iw ), 8)
+               IF( any(RJ(:,k,iw) .GT. 1.0e-20) ) LSUNLIGHT = .TRUE.
 
-         call hetchem_rates( iw, kmax, het, chem_m2dry_init, chem_m3dry_init )
+               FORALL ( NPH = 1:NHETERO )HET( NCELL,NPH ) = REAL( KHETERO( NPH,k,iw ), 8)
 
-         if ( any( rj(lpw(iw),:,iw) > 1.d-7 ) ) then
-            lsunlight = .true.
-         else
-            lsunlight = .false.
-         endif
-
-         CALL CALC_RCONST( TEMP, ATMPRES, H2O, RJ(:,:,iw), HET, LSUNLIGHT, LAND, RKI_SAV, lpw(iw), kmax )
-
-#ifdef hrstats
-         hemax = max( maxval(het    (lpw(iw):kmax,:   )), hemax )
-         rjmax = max( maxval(rj     (lpw(iw):kmax,:,iw)), rjmax )
-         rkmax = max( maxval(rki_sav(lpw(iw):kmax,:   )), rkmax )
-#endif
+               CALL CALC_RCONST( TEMP, ATMPRES, H2O, RJIN, HET, LSUNLIGHT, LAND, RKI_SAV, NCELL )
+               FORALL( NPH = 1:NRXNS )RKI( NPH ) = RKI_SAV( NCELL, NPH )
 
 c..Call EBI solver
-         
-         do k = lpw(iw), kmax
+               N_EBI_IT = 0
 
-            ! Load ICs
-            do spc = 1, numb_mech_spc
-               s = cgrid_index( spc )
-
-               if ( convert_conc( spc ) )then
-                  yc( spc ) = max( concmin, inv_dens( k ) * forward_conv( spc ) * cgrid( k,iw,s ) )
-               else
-                  yc( spc ) = max( concmin, cgrid( k,iw,s ) )
-               endif
-            enddo
-
-            ! Load reaction rates
-            do nph = 1, nrxns
-               rki(nph) = rki_sav(k,nph)
-            enddo
-
-            N_EBI_IT = 0
-
-            CALL HRSOLVER( 0, 0, iw, itab_w(iw)%iwglobe, k )
+!              CALL HRSOLVER( JDATE, JTIME, C, R, L )
+               CALL HRSOLVER( 0, 0, iw, itab_w(iw)%iwglobe, k )
 
 #ifdef hrstats
-            MXEBI  = MAX( MXEBI, N_EBI_IT )
-!           MNEBI  = MIN( MNEBI, N_EBI_IT )
-            SUMEBI = SUMEBI + REAL( N_EBI_IT )
-            NCALL = NCALL + 1
+               MXEBI  = MAX( MXEBI, N_EBI_IT )
+               MNEBI  = MIN( MNEBI, N_EBI_IT )
+               SUMEBI = SUMEBI + REAL( N_EBI_IT )
 #endif
 
+
 c..Update concentration array
-            DO SPC = 1, NUMB_MECH_SPC
-               S = CGRID_INDEX( SPC )
-               IF ( CONVERT_CONC( SPC ) )THEN
-                  CGRID( k, iw, S ) = MAX( REVERSE_CONV( SPC ) * REAL( rho( k,iw ) * YC( SPC ), 4), CONCMIN)
-               ELSE
-                  CGRID( k, iw, S ) = MAX( REAL( YC( SPC ), 4), CONCMIN)
-               END IF
-            END DO
+               DO SPC = 1, NUMB_MECH_SPC
+                  S = CGRID_INDEX( SPC )
+                  IF( CONVERT_CONC( SPC ) )THEN
+                      CGRID( k, iw, S ) = MAX( REVERSE_CONV( SPC )
+     &                                 * REAL( rho( k,iw ) * YC( SPC ), 4), CONCMIN)
+                  ELSE
+                      CGRID( k, iw, S ) = MAX( REAL( YC( SPC ), 4), CONCMIN)
+                  END IF
+               END DO
 
-         enddo
 
-         ! Update Aerosol Surface Area
-         CALL HETCHEM_UPDATE_AERO( chem_m2dry_init, chem_m3dry_init, iw, lpw(iw), kmax )
+            end if
+!           END DO
 
+         END DO
       END DO
 
+
+
+
 #ifdef hrstats
-      AVGEBI = nint( SUMEBI / REAL( NCALL ) )
-!     WRITE( ISTFL, 94040 ) JDATE, JTIME, MNEBI, AVGEBI, MXEBI
-      write(*,'(1x,I0.2,A,2(I0,1x),3(g12.5,1x))') myrank, " EBI mn, mx, rates: ", avgebi, mxebi, hemax, rjmax, rkmax
+      AVGEBI = SUMEBI / REAL( NCOLS * NROWS * NLAYS )
+      WRITE( ISTFL, 94040 ) JDATE, JTIME, MNEBI, AVGEBI, MXEBI
 #endif
 
       RETURN
