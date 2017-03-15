@@ -31,9 +31,9 @@
 
 !===============================================================================
 
-subroutine pbl_driver(mrl)
+subroutine pbl_driver(mrl,rhot)
 
-  use mem_grid,       only: mza, lpw, lsw,lpv, arv, volt, dniv, arw0
+  use mem_grid,       only: mza, mwa, lpw, lsw,lpv, arv, volt, volti, dniv, arw0
   use misc_coms,      only: io6, idiffk, dtlm, iparallel, akmin
   use mem_tend,       only: thilt, sh_wt
   use mem_basic,      only: vxe, vye, vze, thil, theta, tair, sh_w, sh_v, rho
@@ -50,14 +50,17 @@ subroutine pbl_driver(mrl)
 
   implicit none
 
-  integer, intent(in) :: mrl
+  integer, intent(in)    :: mrl
+  real,    intent(inout) :: rhot(mza,mwa)
+
   integer :: j, k, ka, iw, mrlw, ks, iw1, iw2, iv, km
 
-  real     :: qc    (mza)
-  real     :: thlv  (mza)
+  real     :: qc  (mza)
+  real     :: thlv(mza)
   real     :: moli
   real(r8) :: fact1, fact2
   real     :: tempm, temph, stab1, stab2, hkm, hkh, dens, bkmin
+  real     :: dtli
 
 ! Loop over all W/T points where PBL parameterization may be done
 
@@ -123,6 +126,19 @@ subroutine pbl_driver(mrl)
 
      endif
 
+     ! Add surface vapor flux to total density
+
+     if (idiffk(mrlw) > 0) then
+
+        dtli = 1.0 / dtlm(mrlw)
+
+        do ks = 1, lsw(iw)
+           k = lpw(iw) + ks - 1
+           rhot(k,iw) = rhot(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
+        enddo
+
+     endif
+
   enddo
   !$omp end parallel do
 
@@ -138,7 +154,7 @@ subroutine pbl_driver(mrl)
 !----------------------------------------------------------------------
 
      ! Zero out sxfer arrays now that they have been transferred to the atm
-     
+
      do ks = 1, lsw(iw)
         sxfer_tk(ks,iw) = 0.0
         sxfer_rk(ks,iw) = 0.0

@@ -124,7 +124,7 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
   use mem_grid,     only: mza, mma, mva, mwa, lpm, lpv, lpw, c1, c2, dzim, &
                           zfact, zfacit, zfacim, dnv, dniv, dnu, arm0, &
                           vnxo2, vnyo2, vnzo2, wnxo2, wnyo2, wnzo2
-  use mem_tend,     only: thilt, vmxet, vmyet, vmzet, sh_wt
+  use mem_tend,     only: thilt, vmxet, vmyet, vmzet
   use misc_coms,    only: iparallel, time8, dtlm, initial, dn01d, th01d, &
                           deltax, nxp, mdomain
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
@@ -215,10 +215,6 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 
         ! Vertical loop over T levels
         do k = ka, mza
-
-           ! Include moisture changes in total density tendency
-
-           rhot(k,iw) = rhot(k,iw) + sh_wt(k,iw)
 
            ! Apply density tendency to momentum tendencies to conserve momentum
 

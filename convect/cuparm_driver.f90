@@ -30,7 +30,7 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine cuparm_driver()
+subroutine cuparm_driver(rhot)
 
   use mem_grid,         only: mwa, mza, lpw, dzt
   use module_cu_g3,     only: grell_driver
@@ -50,6 +50,8 @@ subroutine cuparm_driver()
   use var_tables,       only: num_cumix
 
   implicit none
+
+  real, intent(inout) :: rhot(mza,mwa)
 
   integer, save :: init_kf = 0
   integer       :: j, iw, k, mrl, mrlw
@@ -265,6 +267,12 @@ subroutine cuparm_driver()
            thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * rho(k,iw)
            sh_wt(k,iw) = sh_wt(k,iw) +    rt(k)    * rho(k,iw)
         enddo
+
+        if (conprr(iw) > 1.e-12) then
+           do k = lpw(iw), mza
+              rhot(k,iw) = rhot(k,iw) + rt(k) * rho(k,iw)
+           enddo
+        endif
 
         if (nl%conv_uv_mix > 0) then
            do k = lpw(iw), mza

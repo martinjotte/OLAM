@@ -106,7 +106,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    ! call check_nans(1)
 
    if (any( nqparm(1:mrls) > 0 )) then
-      call cuparm_driver()
+      call cuparm_driver(rhot)
       if (isfcl == 1) then
          call surface_cuparm_flux()
       endif
@@ -126,7 +126,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
          call get_emis ( mrl )
          call get_depv ( mrl )
       endif
-      call pbl_driver(mrl)
+      call pbl_driver(mrl,rhot)
       if (isfcl == 1) call lateral_friction(mrl)
    endif
 
