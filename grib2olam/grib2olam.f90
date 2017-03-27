@@ -820,63 +820,62 @@ program grib_to_gdf
 
      if (allocated(alats)) then
         ndims=1 ; idims(1)=ny
-        call shdf5_orec(ndims, idims, 'glat', rvara=alats)
+        call shdf5_orec(ndims, idims, 'glat', rvar1=alats)
      endif
 
      if (nlev > 0) then
         ndims=1 ; idims(1)=nlev
-        call shdf5_orec(ndims, idims, 'levels', ivara=iplevs)
+        call shdf5_orec(ndims, idims, 'levels', ivar1=iplevs)
      endif
 
      if (ngnd > 0) then
         ndims=1 ; idims(1)=ngnd
-        call shdf5_orec(ndims, idims, 'sdepths', ivara=islevs)
+        call shdf5_orec(ndims, idims, 'sdepths', ivar1=islevs)
      endif
 
      do i = 1, nvar3d
         write(*,*) out3d(i)
         ndims=3 ; idims(1)=nx; idims(2)=ny; idims(3)=nlev
-        call shdf5_orec(ndims, idims, out3d(i), rvara=a3(:,:,:,i))
+        call shdf5_orec(ndims, idims, out3d(i), rvar3=a3(:,:,:,i))
      enddo
 
      do i = 1, nvarsfc
         write(*,*) outsfc(i)
         ndims=2 ; idims(1)=nx; idims(2)=ny
-        call shdf5_orec(ndims, idims, outsfc(i), rvara=a2(:,:,i))
+        call shdf5_orec(ndims, idims, outsfc(i), rvar2=a2(:,:,i))
      enddo
 
      if (have_sst .and. allocated(sst)) then
         write(*,*) 'SST'
         ndims=2 ; idims(1)=nx; idims(2)=ny
-        call shdf5_orec(ndims, idims, 'SST', rvara=sst)
+        call shdf5_orec(ndims, idims, 'SST', rvar2=sst)
         deallocate(sst)
      endif
 
      if (have_ice .and. allocated(ice)) then
         write(*,*) 'ICEC'
         ndims=2 ; idims(1)=nx; idims(2)=ny
-        call shdf5_orec(ndims, idims, 'ICEC', rvara=ice)
+        call shdf5_orec(ndims, idims, 'ICEC', rvar2=ice)
         deallocate(ice)
      endif
 
      if (have_soilw .and. allocated(soilw) .and. ngnd > 0) then
         write(*,*) 'SOILW'
         ndims=3 ; idims(1)=nx; idims(2)=ny; idims(3)=ngnd
-        call shdf5_orec(ndims, idims, 'SOILW', rvara=soilw)
+        call shdf5_orec(ndims, idims, 'SOILW', rvar3=soilw)
      endif
 
      if (have_soilt .and. allocated(soilt) .and. ngnd > 0) then
         write(*,*) 'SOILT'
         ndims=3 ; idims(1)=nx; idims(2)=ny; idims(3)=ngnd
-        call shdf5_orec(ndims, idims, 'SOILT', rvara=soilt)
+        call shdf5_orec(ndims, idims, 'SOILT', rvar3=soilt)
      endif
 
      if (have_snow .and. allocated(snow)) then
         write(*,*) 'SNOWMASS'
         ndims=2 ; idims(1)=nx; idims(2)=ny
-        call shdf5_orec(ndims, idims, 'SNOWMASS', rvara=snow)
+        call shdf5_orec(ndims, idims, 'SNOWMASS', rvar2=snow)
      endif
-
 
      call shdf5_close()
 

@@ -99,7 +99,7 @@ Contains
     allocate (frac_sea  (mwa)) ; frac_sea  = 0.0
 
     allocate (akmodx(mza,mva)) ; akmodx    = rinit
-    allocate (akhodx(mza,mva)) ; akmodx    = rinit
+    allocate (akhodx(mza,mva)) ; akhodx    = rinit
 
   end subroutine alloc_turb
   
