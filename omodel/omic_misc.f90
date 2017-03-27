@@ -245,7 +245,7 @@ elseif (jnmb(lcat) == 4) then ! As of version 5.0.0, can only apply to cloud
       cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
    enddo
 
-elseif (jnmb(lcat) >= 5) then
+elseif (jnmb(lcat) == 5) then
 
    do k = k1(lcat), k2(lcat)
       emb(k,lcat) = max( emb0(lcat),                                            &
@@ -708,6 +708,7 @@ real    :: dispemb,riemb,rsfc,qrsfc
         ! Loop over precipitation categories
 
         do lcat = 2,ncat
+           if (k1(lcat) > k2(lcat)) cycle
            cxnew(kw,lcat) = cxnew(kw,lcat) - volti(kw,iw0) * pcpfluxc(kw-1,lcat) * sea%area(iws)
            rxnew(kw,lcat) = rxnew(kw,lcat) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * sea%area(iws)
            qrnew(kw,lcat) = qrnew(kw,lcat) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * sea%area(iws)
@@ -737,6 +738,7 @@ real    :: dispemb,riemb,rsfc,qrsfc
         ! Loop over precipitation categories
 
         do lcat = 2,ncat
+           if (k1(lcat) > k2(lcat)) cycle
            cxnew(kw,lcat) = cxnew(kw,lcat) - volti(kw,iw0) * pcpfluxc(kw-1,lcat) * land%area(iwl)
            rxnew(kw,lcat) = rxnew(kw,lcat) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * land%area(iwl)
            qrnew(kw,lcat) = qrnew(kw,lcat) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * land%area(iwl)
@@ -755,6 +757,7 @@ real    :: dispemb,riemb,rsfc,qrsfc
   ! Loop over precipitation categories
 
   do lcat = 2,ncat
+     if (k1(lcat) > k2(lcat)) cycle
 
      ! Loop over precipation source levels
 
@@ -764,7 +767,7 @@ real    :: dispemb,riemb,rsfc,qrsfc
            rxnew(k,lcat) = 0.
            cxnew(k,lcat) = 0.
            qrnew(k,lcat) = 0.
-        elseif (jnmb(lcat) >= 5) then
+        elseif (jnmb(lcat) == 5) then
            cxnew(k,lcat) = max(cxnew(k,lcat), rxnew(k,lcat) / emb1(lcat))
         endif
 

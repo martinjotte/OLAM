@@ -294,3 +294,36 @@ subroutine cuparm_driver(rhot)
   endif
 
 end subroutine cuparm_driver
+
+
+
+subroutine reset_cuparm()
+
+  use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
+  use mem_cuparm, only: conprr, kcutop, kcubot, iactcu, cbmf
+  use misc_coms,  only: nqparm
+
+  implicit none
+
+  integer :: j, iw, mrlw
+
+  !$omp parallel do private(iw,mrlw)
+  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+
+     ! MRL for current IW column
+     mrlw = itab_w(iw)%mrlw
+
+     if (nqparm(mrlw) == 0) then
+
+                                 iactcu(iw) =  0
+        if (allocated( conprr )) conprr(iw) =  0.0
+        if (allocated( kcutop )) kcutop(iw) = -1
+        if (allocated( kcubot )) kcubot(iw) = -1
+        if (allocated( cbmf   ))   cbmf(iw) =  0.0
+
+     endif
+
+  enddo
+  !$omp end parallel do
+
+end subroutine reset_cuparm

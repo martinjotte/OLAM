@@ -307,6 +307,8 @@ Contains
 
      if (allocated(land%rib)) call increment_vtable('LAND%RIB', 'LW', rvar1=land%rib)
 
+     if (allocated(land%rib)) call increment_vtable('LAND%WTHV', 'LW', rvar1=land%wthv)
+
      if (allocated(land%albedo_beam)) call increment_vtable('LAND%ALBEDO_BEAM', 'LW', rvar1=land%albedo_beam)
 
      if (allocated(land%albedo_diffuse)) call increment_vtable('LAND%ALBEDO_DIFFUSE', 'LW', rvar1=land%albedo_diffuse)

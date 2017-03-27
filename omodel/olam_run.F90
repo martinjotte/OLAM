@@ -611,6 +611,10 @@ subroutine olam_run(name_name)
 
      call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
+     ! reset convective variables if we have turned off convection
+
+     call reset_cuparm()
+
      ! If not updating SST/SEAICE/NDVI, copy the curent values to 
      ! the past and future arrays
      
