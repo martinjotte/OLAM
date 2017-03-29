@@ -1122,14 +1122,14 @@ subroutine fields2_ll()
      CALL shdf5_orec(ndims, idims, 'lon', rvar1=alon, isdim=.true., &
                      long_name = "longitude",                       &
                      standard_name = "longitude",                   &
-                     units = "degrees_north"                        )
+                     units = "degrees_east"                         )
 
      idims(1) = nlat
 
      CALL shdf5_orec(ndims, idims, 'lat', rvar1=alat, isdim=.true., &
                      long_name = "latitude",                        &
                      standard_name = "latitude",                    &
-                     units = "degrees_east"                         )
+                     units = "degrees_north"                        )
 
      idims(1) = mza-1
 
