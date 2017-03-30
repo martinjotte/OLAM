@@ -67,7 +67,7 @@ subroutine check_pos(icall)
   use mem_grid,   only: lpw, mza
   use var_tables, only: num_scalar, scalar_tab
   use oname_coms, only: nl
-  use mem_para
+  use mem_para,   only: myrank
 
   implicit none
 
@@ -99,3 +99,105 @@ subroutine check_pos(icall)
   enddo
 
 end subroutine check_pos
+
+
+
+
+subroutine compute_mass_sums()
+
+  use mem_ijtabs,  only: jtab_w, jtw_prog
+  use mem_grid,    only: lpw, mza, volt
+  use mem_para,    only: myrank, mgroupsize
+  use misc_coms,   only: naddsc, iparallel
+  use mem_addsc,   only: addsc
+  use consts_coms, only: r8
+  use mem_basic,   only: rho, sh_w
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
+  implicit none
+
+  real(r8) :: tot_mass_sum
+  real(r8) :: dry_mass_sum
+  real(r8) :: wat_mass_sum
+  real(r8) :: sclp_mass_sum
+
+  real(r8) :: tmasses(mgroupsize)
+  integer  :: j, iw, k, ier
+
+  logical,  save :: firstime = .true.
+  real(r8), save :: tot_mass_sum0
+  real(r8), save :: dry_mass_sum0
+  real(r8), save :: wat_mass_sum0
+  real(r8), save :: sclp_mass_sum0
+
+  tot_mass_sum  = 0.0_r8
+  wat_mass_sum  = 0.0_r8
+  sclp_mass_sum = 0.0_r8
+
+  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+     do k = lpw(iw),mza
+
+        tot_mass_sum = tot_mass_sum + rho(k,iw) * volt(k,iw)
+        wat_mass_sum = wat_mass_sum + rho(k,iw) * volt(k,iw) * sh_w(k,iw)
+        
+        if (naddsc > 0) then
+           sclp_mass_sum = sclp_mass_sum + rho(k,iw) * volt(k,iw) * addsc(1)%sclp(k,iw)
+        endif
+
+     enddo
+  enddo
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+ 
+     call MPI_Gather( tot_mass_sum, 1, MPI_DOUBLE, &
+                      tmasses,      1, MPI_DOUBLE, 0, MPI_COMM_WORLD, ier )
+     
+     if (myrank == 0) tot_mass_sum = sum(tmasses)
+
+     call MPI_Gather( wat_mass_sum, 1, MPI_DOUBLE, &
+                      tmasses,      1, MPI_DOUBLE, 0, MPI_COMM_WORLD, ier )
+     
+     if (myrank == 0) wat_mass_sum = sum(tmasses)
+
+     if (naddsc > 0) then
+
+        call MPI_Gather( sclp_mass_sum, 1, MPI_DOUBLE, &
+                         tmasses,       1, MPI_DOUBLE, 0, MPI_COMM_WORLD, ier )
+     
+        if (myrank == 0) sclp_mass_sum = sum(tmasses)
+     endif
+
+  endif
+#endif OLAM_MPI
+
+  if (myrank == 0) then
+
+     dry_mass_sum = tot_mass_sum - wat_mass_sum
+
+     if (firstime) then
+        dry_mass_sum0 = dry_mass_sum
+        tot_mass_sum0 = tot_mass_sum
+        wat_mass_sum0 = wat_mass_sum
+     endif
+
+     write(*,'(a,3(g20.13,1x))') ' mass1: tot,wet,dry ', tot_mass_sum, wat_mass_sum, dry_mass_sum
+     write(*,'(a,3(g20.13,1x))') ' percent change:    ', &
+          (tot_mass_sum - tot_mass_sum0) / tot_mass_sum0 * 100._r8, &
+          (wat_mass_sum - wat_mass_sum0) / wat_mass_sum0 * 100._r8, &
+          (dry_mass_sum - dry_mass_sum0) / dry_mass_sum0 * 100._r8
+
+     if (naddsc > 0) then
+        write(*,'(a,3(g20.13,1x))') ' sclp1 mass: ', sclp_mass_sum
+        write(*,'(a,3(g20.13,1x))') ' % change:   ', &
+             (sclp_mass_sum - sclp_mass_sum0) / sclp_mass_sum0 * 100._r8
+     endif
+
+  endif
+
+  firstime = .false.
+
+end subroutine compute_mass_sums
+

@@ -349,6 +349,10 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    time_istp8p = time_istp8 + time_bias
    s1900_sim   = s1900_init + time_istp8
 
+   ! if (jstp == nstp) then
+   !    call compute_mass_sums()
+   ! endif
+
 enddo
 
 end subroutine timestep
