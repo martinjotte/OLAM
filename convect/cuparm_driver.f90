@@ -32,7 +32,7 @@
 !===============================================================================
 subroutine cuparm_driver(rhot)
 
-  use mem_grid,         only: mwa, mza, lpw, dzt
+  use mem_grid,         only: mwa, mza, lpw, volt
   use module_cu_g3,     only: grell_driver
   use module_cu_gf,     only: gf_driver
   use module_cu_kfeta,  only: cuparm_kfeta, kf_lutab
@@ -44,10 +44,11 @@ subroutine cuparm_driver(rhot)
   use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc, &
                               kcutop, kcubot, qwcon, iactcu, cbmf
   use mem_tend,         only: thilt, sh_wt, vmxet, vmyet, vmzet
-  use mem_basic,        only: rho, sh_w
+  use mem_basic,        only: rho, sh_w, theta, tair
   use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
   use oname_coms,       only: nl
   use var_tables,       only: num_cumix
+  use consts_coms,      only: alvlocp, r8
 
   implicit none
 
@@ -55,10 +56,12 @@ subroutine cuparm_driver(rhot)
 
   integer, save :: init_kf = 0
   integer       :: j, iw, k, mrl, mrlw
-  real          :: qpos, qadd, fact, dq
-  real          :: qtest, rt(mza)
+  real(r8)      :: qpos, qadd, dq
+  real          :: qtest, rt(mza), fact
   real          :: dthmax, dtlong4, confrq4, confrq4i
   integer       :: iwqmax, kqmax, km, km1
+  integer       :: ka, kb
+  real(r8)      :: qsum, tsum, vtot
 
 ! For KF_eta parameterization, initialize scheme if needed
 
@@ -108,7 +111,7 @@ subroutine cuparm_driver(rhot)
 ! Loop over all IW grid cells where cumulus parameterization may be done
 
 !----------------------------------------------------------------------
-     !$omp parallel do private(iw,mrlw,km,km1) 
+     !$omp parallel do private(iw,mrlw,km,km1,k,ka,kb,qsum,tsum,vtot)
      do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
 !----------------------------------------------------------------------
 
@@ -171,6 +174,28 @@ subroutine cuparm_driver(rhot)
            enddo
         endif
 
+! Make sure convective scheme conserves heat and water
+! Add heat/moisture within cloud to balance precipitation
+
+        if (iactcu(iw) == 1) then
+           
+           ka = lpw(iw)
+           kb = min(kcutop(iw) + 1, mza)
+
+           qsum = sum( rtsrc(ka:kb,iw) * volt(ka:kb,iw) ) + conprr(iw)
+           tsum = sum( thsrc(ka:kb,iw) * volt(ka:kb,iw) ) - conprr(iw) * alvlocp
+           vtot = sum( volt(kcubot(iw):kcutop(iw),iw) )
+
+           qsum = qsum / vtot
+           tsum = tsum / vtot
+
+           do k = kcubot(iw), kcutop(iw)
+              rtsrc(k,iw) = rtsrc(k,iw) - qsum
+              thsrc(k,iw) = thsrc(k,iw) - tsum
+           enddo
+
+        endif
+
      enddo
      !$omp end parallel do
 
@@ -182,13 +207,15 @@ subroutine cuparm_driver(rhot)
 
      ! this will need to be changed to work with OpenMP
      do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
-        do k = lpw(iw), mza
-           if (thsrc(k,iw) > dthmax) then
-              dthmax = thsrc(k,iw)
-              iwqmax = iw
-              kqmax  = k
-           endif
-        enddo
+        if (iactcu(iw) == 1) then
+           do k = lpw(iw), mza
+              if (thsrc(k,iw) > dthmax) then
+                 dthmax = thsrc(k,iw)
+                 iwqmax = iw
+                 kqmax  = k
+              endif
+           enddo
+        endif
      enddo
 
      write(io6, '(A,I0,A,I0,A,F0.3,A,F0.4)') " MAX CONVECTIVE HEATING RATE AT IW=",  &
@@ -219,15 +246,19 @@ subroutine cuparm_driver(rhot)
         ! First modify humidity tendencies so that we don't create negative
         ! sh_w's, and keep track of how much water we added in variable qadd
 
-        qadd = 0.0
+        qadd = 0.0_r8
+        rt(lpw(iw):mza) = rtsrc(lpw(iw):mza,iw)
 
         do k = lpw(iw), mza
-           qtest = max(sh_w(k,iw),0.0) + rtsrc(k,iw) * dtlong
 
-           if (qtest < 0. .and. rtsrc(k,iw) < 0.) then
-              dq = qtest / dtlong * 1.000002
-              rt(k) = rtsrc(k,iw) - dq
-              qadd  = qadd - dq * rho(k,iw) * dzt(k)
+           if (rtsrc(k,iw) < 0.) then
+              qtest = max(sh_w(k,iw),0.0) * rho(k,iw) + rtsrc(k,iw) * dtlong
+
+              if (qtest < 0.) then
+                 dq = qtest / dtlong * 1.000001
+                 rt(k) = rt(k) - dq
+                 qadd  = qadd - dq * volt(k,iw)
+              endif
            else
               rt(k) = rtsrc(k,iw)
            endif
@@ -243,7 +274,7 @@ subroutine cuparm_driver(rhot)
 
            do k = lpw(iw), mza
               if (rtsrc(k,iw) > 0.) then
-                 qpos = qpos + rho(k,iw)*rtsrc(k,iw)*dzt(k)
+                 qpos = qpos + rtsrc(k,iw) * volt(k,iw)
               endif
            enddo
 
@@ -264,15 +295,10 @@ subroutine cuparm_driver(rhot)
         aconpr(iw) = aconpr(iw) + conprr(iw) * dtlong
 
         do k = lpw(iw), mza
-           thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * rho(k,iw)
-           sh_wt(k,iw) = sh_wt(k,iw) +    rt(k)    * rho(k,iw)
+           thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * theta(k,iw) / tair(k,iw)
+           sh_wt(k,iw) = sh_wt(k,iw) + rt(k)
+           rhot (k,iw) = rhot (k,iw) + rt(k)
         enddo
-
-        if (conprr(iw) > 1.e-12) then
-           do k = lpw(iw), mza
-              rhot(k,iw) = rhot(k,iw) + rt(k) * rho(k,iw)
-           enddo
-        endif
 
         if (nl%conv_uv_mix > 0) then
            do k = lpw(iw), mza

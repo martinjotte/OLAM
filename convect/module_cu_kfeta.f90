@@ -150,15 +150,14 @@ CONTAINS
          dqfdt = DQIDT(kt) + DQSDT(kt)
 
          ! include condensate in total water tendency
-         rtsrc(k,iw) = DQVDT(kt) + dqldt + dqfdt
+         rtsrc(k,iw) = (DQVDT(kt) + dqldt + dqfdt) * rho(k,iw)
 
          ! since we do not add the condensate to the microphysics tendencies,
          ! we will evaporate the condensate that the K-F scheme leaves in the column
          ! when computing the convective theta tendency
-         lv           = xlv0 - xlv1 * t1d(kt)
-         ls           = xls0 - xls1 * t1d(kt)
-         DTDT(kt)    = DTDT(kt) - lv / cp * dqldt - ls / cp * dqfdt
-         thsrc(k,iw) = DTDT(kt) * theta(k,iw) / tair(k,iw)
+         lv          = xlv0 - xlv1 * t1d(kt)
+         ls          = xls0 - xls1 * t1d(kt)
+         thsrc(k,iw) = (DTDT(kt) - lv / cp * dqldt - ls / cp * dqfdt) * rho(k,iw)
          
          ! cloud condensate
          qwcon(k,iw) = max(0.,cldliq(kt)) + max(0.,cldice(kt))

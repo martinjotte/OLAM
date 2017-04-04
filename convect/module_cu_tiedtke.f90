@@ -321,8 +321,8 @@ CONTAINS
 
          ! store convective heating and moisture rates and cloud water
 
-         thsrc(k,iw) = dTdt(kt) * (theta(k,iw) / tair(k,iw))
-         rtsrc(k,iw) = dQdt(kt)
+         thsrc(k,iw) = dTdt(kt) * rho(k,iw)
+         rtsrc(k,iw) = dQdt(kt) * rho(k,iw)
 
          qwcon(k,iw) = zlu(kt)
 

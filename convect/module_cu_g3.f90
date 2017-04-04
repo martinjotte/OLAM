@@ -373,37 +373,21 @@ CONTAINS
         kcubot(iw) = kbcon(1) + ka - 1
         iactcu(iw) = 1
         cbmf  (iw) = xmb(1)
+        conprr(iw) = pre(1)
 
         do kc = 1, ktf
            k  = kc + ka - 1
 
            ! Total water tendency
-           outq(1,kc) = outq(1,kc) + subq(1,kc) + outqc(1,kc)
+           rtsrc(k,iw) = (outq(1,kc) + subq(1,kc) + outqc(1,kc)) * rho(k,iw)
 
            ! Any cloud condensate is evaporated since we do not feed back
            ! to resolved microphysics
-           outt(1,kc) = outt(1,kc) + subt(1,kc) - alvlocp * outqc(1,kc)
-        enddo
+           thsrc(k,iw) = (outt(1,kc) + subt(1,kc) - alvlocp * outqc(1,kc)) * rho(k,iw)
 
-        ! Slightly modify tendencies to ensure heat and moisture conservation
-
-        qav  = sum(     outq(1,1:ktf)  * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) ) + pre(1)
-        qsum = sum( abs(outq(1,1:ktf)) * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) )
-
-        tav  = cp * sum(     outt(1,1:ktf)  * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) ) - pre(1) * alvl
-        tsum = cp * sum( abs(outt(1,1:ktf)) * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) )
-
-        qav = qav / max(qsum, 1.e-20_r8)
-        tav = tav / max(tsum, 1.e-20_r8)
-
-        do kc = 1, ktf
-           k  = kc + ka - 1
-           rtsrc(k,iw) =  outq(1,kc) - qav * abs(outq(1,kc))
-           thsrc(k,iw) = (outt(1,kc) - tav * abs(outt(1,kc))) / exner(k)
+           ! Cloud water
            qwcon(k,iw) = cupclw(1,kc)
         enddo
-
-        conprr(iw) = pre(1)
 
      else if (ishallow_g3 == 1 .and. kbcon3(1) > 0 .and. ktop3(1) >= kbcon3(1)) then
 
@@ -414,21 +398,10 @@ CONTAINS
         iactcu(iw) = 1
         cbmf  (iw) = xmb3(1)
 
-        ! Slightly modify tendencies to ensure heat and moisture conservation
-
-        qav  = sum(     outqs(1,1:ktf)  * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) )
-        qsum = sum( abs(outqs(1,1:ktf)) * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) )
-
-        tav  = cp * sum(     outts(1,1:ktf)  * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) )
-        tsum = cp * sum( abs(outts(1,1:ktf)) * rho(ka:ktf+ka-1,iw) * dzt(ka:ktf+ka-1) )
-
-        qav = qav / max(qsum, 1.e-20_r8)
-        tav = tav / max(tsum, 1.e-20_r8)
-
         do kc = 1, ktf
            k  = kc + ka - 1
-           rtsrc(k,iw) =  outqs(1,kc) - qav * abs(outqs(1,kc))
-           thsrc(k,iw) = (outts(1,kc) - tav * abs(outts(1,kc))) / exner(k)
+           rtsrc(k,iw) = outqs(1,kc) * rho(k,iw)
+           thsrc(k,iw) = outts(1,kc) * rho(k,iw)
            qwcon(k,iw) = cupclws(1,kc)
         enddo
 

@@ -125,8 +125,8 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
 
      do kc = 1, nd
         k  = kc + ka - 1
-        thsrc(k,iw) = tt(kc) * theta(k,iw) / tair(k,iw)
-        rtsrc(k,iw) = qt(kc)
+        thsrc(k,iw) = tt(kc) * rho(k,iw)
+        rtsrc(k,iw) = qt(kc) * rho(k,iw)
         qwcon(k,iw) = qcldc(kc)
      enddo
 
