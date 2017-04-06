@@ -124,20 +124,22 @@ subroutine pbl_driver(mrl,rhot)
 
         call turb_k(iw, mrlw, thlv, vkh(:,iw), vkm(:,iw))
 
+     else
+
+        ! If no PBL diffusion, just apply fluxes
+
+        call apply_surface_fluxes( iw )
+
      endif
 
      ! Add surface vapor flux to total density
 
-     if (idiffk(mrlw) > 0) then
+     dtli = 1.0 / dtlm(mrlw)
 
-        dtli = 1.0 / dtlm(mrlw)
-
-        do ks = 1, lsw(iw)
-           k = lpw(iw) + ks - 1
-           rhot(k,iw) = rhot(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
-        enddo
-
-     endif
+     do ks = 1, lsw(iw)
+        k = lpw(iw) + ks - 1
+        rhot(k,iw) = rhot(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
+     enddo
 
   enddo
   !$omp end parallel do
@@ -326,3 +328,56 @@ subroutine pbl_init()
 !$omp end parallel do
 
 end subroutine pbl_init
+
+
+subroutine apply_surface_fluxes( iw )
+
+  use mem_grid,    only: mza, lpw, lsw, volti
+  use consts_coms, only: r8
+  use misc_coms,   only: dtlm
+  use mem_basic,   only: rho
+  use mem_ijtabs,  only: itab_w
+  use var_tables,  only: sxfer_map, num_sxfer, emis_map, num_emis, scalar_tab
+
+  implicit none
+
+  integer, intent(in) :: iw
+  integer             :: ns, n, ks, k
+  real(r8)            :: dtli
+
+  dtli = 1.0_r8 / dtlm(itab_w(iw)%mrlw)
+
+  ! Apply surface heat and moisture fluxes directly to tendency arrays
+
+  if (num_sxfer > 0) then
+
+     do ns = 1, num_sxfer
+        n = sxfer_map(ns)
+
+        do ks = 1, lsw(iw)
+           k = lpw(iw) + ks - 1
+
+           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                     + dtli * volti(k,iw) * scalar_tab(n)%sxfer(ks,iw)
+        enddo
+     enddo
+
+  endif
+
+  ! Apply emissions directly to the tendency arrays
+  ! (emis units are concentration / sec )
+
+  if (num_emis > 0) then
+
+     do ns = 1, num_emis
+        n = emis_map(ns)
+
+        do k = lpw(iw), mza-1
+           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                     + rho(k,iw) * scalar_tab(n)%emis(k,iw)
+        enddo
+     enddo
+     
+  endif
+
+end subroutine apply_surface_fluxes
