@@ -1124,7 +1124,7 @@ endif
 ! from microphysics column arrays to main model arrays
 
  call mic_copyback(iw0,lpw0,k1,k2,k3, &
-    dtli0,accpx,pcprx,thil0,theta0,tair,rhoa,rhow,rhov,rhoi, &
+    dtli0,accpx,pcprx,thil0,theta0,tair,rhoa,rhow,rhov, &
     con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
 end subroutine micphys
@@ -1576,7 +1576,7 @@ end subroutine mic_copy
 !===============================================================================
 
 subroutine mic_copyback(iw0,lpw0,k1,k2,k3, &
-   dtli0,accpx,pcprx,thil0,theta0,tair0,rhoa,rhow,rhov,rhoi, &
+   dtli0,accpx,pcprx,thil0,theta0,tair0,rhoa,rhow,rhov, &
    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
 use micro_coms, only: mza0, ncat, jnmb, iccn, igccn, iifn
@@ -1612,7 +1612,6 @@ real, intent(in)  :: thil0(mza0)
 real, intent(in)  :: theta0(mza0)
 real, intent(in)  :: tair0(mza0)
 real, intent(in)  :: rhov(mza0)
-real, intent(out) :: rhoi(mza0)
 
 real(r8), intent(in) :: rhoa(mza0)
 real(r8), intent(in) :: rhow(mza0)
@@ -1625,7 +1624,7 @@ real, intent(in) :: rx(mza0,ncat)
 real, intent(in) :: cx(mza0,ncat)
 real, intent(in) :: qx(mza0,ncat)
 
-real     :: rfact(mza0)
+real(r8) :: rfact(mza0), rhoi(mza0)
 integer  :: k, n, ic
 
 ! Copy base thermodynamic variables
@@ -1634,7 +1633,7 @@ do k = lpw0,mza0
    thil(k,iw0)  = thil0(k)
    theta(k,iw0) = theta0(k)
    tair(k,iw0)  = tair0(k)
-   rhoi(k)      = 1. / rhoa(k)
+   rhoi(k)      = 1.0_r8 / rhoa(k)
    rfact(k)     = rhoi(k) * rho(k,iw0)
    rho(k,iw0)   = rhoa(k)
    sh_w(k,iw0)  = rhow(k) * rhoi(k)

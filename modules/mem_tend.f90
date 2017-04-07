@@ -217,7 +217,7 @@ Contains
    use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,        &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
                          ccntyp, con_ifn, con_gccn, q2, q6, q7
-   use var_tables, only: vtables_scalar, num_var
+   use var_tables, only: vtables_scalar, num_scalar
    use misc_coms,  only: do_chem
    use cgrid_defn, only: cgrid_scalar_tabs
 
@@ -263,14 +263,14 @@ Contains
       enddo
    endif
 
-   if (allocated(q2t))      call vtables_scalar (q2, q2t, 'Q2')
-   if (allocated(q6t))      call vtables_scalar (q6, q6t, 'Q6')
-   if (allocated(q7t))      call vtables_scalar (q7, q7t, 'Q7')
+   if (allocated(q2t)) call vtables_scalar (q2, q2t, 'Q2')
+   if (allocated(q6t)) call vtables_scalar (q6, q6t, 'Q6')
+   if (allocated(q7t)) call vtables_scalar (q7, q7t, 'Q7')
 
-   num_omic = num_var
+   num_omic = num_scalar
 
-   if (allocated(tket))     call vtables_scalar (tkep, tket, 'TKEP')
-   if (allocated(epst))     call vtables_scalar (epsp, epst, 'EPSP')
+   if (allocated(tket)) call vtables_scalar (tkep, tket, 'TKEP')
+   if (allocated(epst)) call vtables_scalar (epsp, epst, 'EPSP')
 
    if (do_chem == 1) call cgrid_scalar_tabs()
 
