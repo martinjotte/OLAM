@@ -1187,6 +1187,7 @@ subroutine ctrlvols_hex()
   real    :: hmin,hmax,topc,facw
   real(r8):: area, arw8, arw8m
   integer :: status
+  logical :: docheck
 
   real(r8), allocatable :: area_sum(:,:)
 
@@ -1224,6 +1225,18 @@ subroutine ctrlvols_hex()
      do k = kw+1,nza
         arw(k-1,iw) = arw(k-1,iw) + area
          volt(k,iw) =  volt(k,iw) + area * (zm(k) - zm(k-1))
+     enddo
+  enddo
+
+  ! special for stability: close small cells
+
+  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+     do k = nza-1, 2, -1
+        if ( (arw(k,iw) < 0.2 * arw0(iw)) .or. (volt(k,iw) < 0.2 * arw0(iw) * dzt(k))) then
+           arw (1:k,iw) = 0.0
+           volt(1:k,iw) = 0.0
+           exit
+        endif
      enddo
   enddo
 
@@ -1308,12 +1321,41 @@ subroutine ctrlvols_hex()
 
            endif
 
+           if (arv(k,iv) < 0.2 * dnu(iv) * dzt(k)) then
+              arv(1:k,iv) = 0.0
+              exit
+           endif
+
         enddo ! k
 
      endif
 
   enddo ! j,iv
   !$omp end parallel do
+
+  ! option for stability: if hexagon has only one lateral face open, close entire cell
+
+  docheck = .true.
+  do while (docheck)
+
+     docheck = .false.
+     do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+
+        npoly = itab_w(iw)%npoly
+
+        do k = nza-1, 2, -1
+
+           if ( count( arv( k,itab_w(iw)%iv(1:npoly) ) < 1.e-8 ) == npoly-1 ) then
+              docheck = .true.
+              arw (1:k,iw) = 0.0
+              volt(1:k,iw) = 0.0
+              arv (1:k,itab_w(iw)%iv(1:npoly)) = 0.0
+              exit
+           endif
+        enddo
+     enddo
+
+  enddo
 
 ! Set ARV to zero at non-topo walls
 ! [ONLY FOR ISFCL = 0]
@@ -1378,7 +1420,7 @@ subroutine ctrlvols_hex()
 
            ! Each V face contributes to open up its fraction farv
            ! of the current polygon:
-           facw = facw + itab_w(iw)%farv(jv) * arv(k,iv) / (dnu(iv) * dzt(k))
+           facw = facw + 1.5 * itab_w(iw)%farv(jv) * arv(k,iv) / (dnu(iv) * dzt(k))
 
         enddo
 
