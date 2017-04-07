@@ -55,7 +55,7 @@
       INTEGER, ALLOCATABLE :: REFRACT_INDX_MAP( : )  ! map array for refactive index
 
       REAL,    ALLOCATABLE :: VOL_MINS( : )          ! minmum volume permode
-      REAL,    ALLOCATABLE :: M3_FACTOR( : )         ! convert mass to portion of 3rd moment
+!     REAL,    ALLOCATABLE :: M3_FACTOR( : )         ! convert mass to portion of 3rd moment
       LOGICAL, ALLOCATABLE :: IS_CORE_SPCS( :,: )    ! flag denoting species is in aerosol core
 
       INTEGER, PARAMETER   :: NUMB_COR_SPCS = 3      ! number species in core
@@ -77,12 +77,9 @@ C Allocate and define arrays used to calculate aerosol optical properties
 
 !        USE GRID_CONF, ONLY: NROWS, NCOLS, NLAYS  ! horizontal & vertical domain specifications
          USE UTILIO_DEFN
-      
          USE AERO_DATA           ! aero variable data
-         USE SOA_DEFN            ! gas soa data
          USE AEROMET_DATA        ! constants and met data
-      
-         USE CSQY_DATA, ONLY : NWL => NWL_REF, NUM_REFRACTIVE, REFRACTIVE_INDEX,
+         USE CSQY_DATA, ONLY : NWL, NUM_REFRACTIVE, REFRACTIVE_INDEX,
      &                         WAVELENGTH => EFFWL_REF
 
          IMPLICIT NONE
@@ -232,11 +229,11 @@ C...Allocate needed arrays
 
          CALL MAP_AERO()
                   
-         ALLOCATE( M3_FACTOR( N_AEROSPC ), STAT = ALLOCSTAT )
-         IF ( ALLOCSTAT .NE. 0 ) THEN
-            XMSG = 'Failure allocating  M3_FACTOR'
-            CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-         END IF
+!         ALLOCATE( M3_FACTOR( N_AEROSPC ), STAT = ALLOCSTAT )
+!         IF ( ALLOCSTAT .NE. 0 ) THEN
+!            XMSG = 'Failure allocating  M3_FACTOR'
+!            CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+!         END IF
          
          ALLOCATE( REFRACT_INDX_MAP( N_AEROSPC ), STAT = ALLOCSTAT )
          IF ( ALLOCSTAT .NE. 0 ) THEN
@@ -305,7 +302,7 @@ C ***    Create map for refactive index for each species
 
          DO SPC = 1, N_AEROSPC
 
-            M3_FACTOR( SPC ) = 1.0E-9 * F6DPI / AEROSPC( SPC )%DENSITY
+!           M3_FACTOR( SPC ) = 1.0E-9 * F6DPI / AEROSPC( SPC )%DENSITY
 
             DO M = 1, NUM_REFRACTIVE
                IF ( AEROSPC( SPC )%OPTIC_SURR .EQ. REFRACTIVE_INDEX( M )%NAME ) THEN
@@ -382,9 +379,9 @@ C
 C     NOTE
 C       2nd moment concentrations (M2) are passed into GETPAR in the
 C       CBLK array.  The GETPAR calculations implicitly assume
-C       that the input value of M2 is consistent with the input value of
-C       M3_WET_FLAG.  If, for example, the input M2 value was calculated
-C       for a "dry" aerosol and the M3_WET_FLAG is .TRUE., GETPAR would
+C       that the input value of M2 is up to date.  
+C       If, for example, the input M2 value was calculated
+C       for a "dry" aerosol and the Wet_Moments_FLAG is .TRUE., GETPAR would
 C       incorrectly adjust the M2 concentrations!
 C
 C  KEY SUBROUTINES/FUNCTIONS CALLED:  EXTRACT_AERO, EXTRACT_SOA, GETPAR
@@ -392,6 +389,8 @@ C                                     AERO_OPTICAL2, AERO_OPTICAL_CS
 C  REVISION HISTORY
 C     06/13/13 B.Hutzell - initial version created for aero_photdata.F 
 C                          from version 5.01
+C     05/2016 H. Pye and B. Murphy - updated treatment of aerosol
+C                          moments
 C
 C  REFERENCES:
 C     Horvath, H., Size segrated light absorption coefficient for
@@ -409,10 +408,8 @@ C-----------------------------------------------------------------------
       USE UTILIO_DEFN
 
       USE AERO_DATA           ! aero variable data
-      USE SOA_DEFN            ! gas soa data
       USE AEROMET_DATA        ! constants and met data
-      
-      USE CSQY_DATA,  ONLY : NWL => NWL_REF, NUM_REFRACTIVE, REFRACTIVE_INDEX,
+      USE CSQY_DATA,  ONLY : NWL, NUM_REFRACTIVE, REFRACTIVE_INDEX,
      &                       WAVELENGTH => EFFWL_REF
 
       USE RRTMG_AERO_OPTICAL_UTIL_MODULE, ONLY : AERO_OPTICAL2, AERO_OPTICAL_CS
@@ -475,42 +472,44 @@ C***  variables for calculating modal averaged properties per layer and lambda
       INTEGER SPC                   ! species loop counter
       INTEGER MODE                  ! aerosol mode loop counter
       LOGICAL SUCCESS
-      LOGICAL TROUBLE
+      
+      real, parameter :: asym_max = 0.990
+      real, parameter :: exti_min = 1.e-9
+      real, parameter :: scat_min = 1.e-9
+
 
 C-----------------------------------------------------------------------
 
       ! *** initialize internal and external dimensions of aerosols
 
-      AERO_SCAT_COEF = 0.0
-      AERO_EXTI_COEF = 0.0
-      AERO_ASYM_FAC  = 0.0
+      AERO_SCAT_COEF = scat_min
+      AERO_EXTI_COEF = exti_min
+      AERO_ASYM_FAC  = asym_max
 
       IF ( N_AE_SPC .LE. 0 ) RETURN
 
       SUCCESS       = .TRUE.
 
       LAY_LOOP: DO L = 1, NLAYS
+
          k = l + koff
 
          ! *** extract grid cell concentrations of aero species from CGRID into aerospc_conc 
          ! *** in aero_data module
+         !     Also converts dry surface area to wet second moment
          CALL EXTRACT_AERO ( CGRID( k,IW,: ), .TRUE. )
 
-         ! *** extract soa concentrations from CGRID
-         CALL EXTRACT_SOA ( CGRID( k,IW,: ) )
+         ! *** Calculate geometric mean diameters and standard deviations of "wet" size distribution
+         CALL GETPAR ( .FALSE. )
 
-         ! *** Calculate aerosol surface area to 2nd moment.
-         DO MODE = 1, N_MODE
-            MOMENT2_CONC( MODE ) = MOMENT2_CONC( MODE ) * ONE_OVER_PI
-         END DO
-
-         ! *** Calculate geometric mean diameters and standard deviations of "dry" size distribution
-         CALL GETPAR ( .TRUE., .FALSE. )
+         G_BAR(1:nwl) = 0.0
+         BEXT (1:nwl) = 0.0
+         BSCAT(1:nwl) = 0.0
 
          MODE_LOOP: DO MODE = 1, N_MODE
 
-           if (moment3_conc(mode) < 1.e5 * aeromode( mode )%min_m3conc) cycle mode_loop
-           if (moment2_conc(mode) < 1.e5 * aeromode( mode )%min_m2conc * one_over_pi) cycle mode_loop
+           if (moment3_conc(mode) < 1.e5 * aeromode( mode )%min_m3conc ) cycle mode_loop
+           if (moment2_conc(mode) < 1.e5 * aeromode( mode )%min_m2conc ) cycle mode_loop
            if (moment0_conc(mode) < 1.e5 * aeromode( mode )%min_numconc) cycle mode_loop
 
             AE_NR_SHELL(1:NWL) = 0.0
@@ -530,7 +529,7 @@ C-----------------------------------------------------------------------
                ! neglect species with small concentration
                if ( AEROSPC_CONC( SPC,MODE ) < 1.e-23 ) cycle spc_loop
 
-               MOMENT3_PORTION  = M3_FACTOR( SPC ) * AEROSPC_CONC( SPC,MODE )
+               MOMENT3_PORTION = AEROSPC_M3FAC( SPC ) * AEROSPC_CONC( SPC,MODE )
 
                M = REFRACT_INDX_MAP( SPC )
 
@@ -559,7 +558,7 @@ C-----------------------------------------------------------------------
             if (moment3_portion < 1.e5 * aeromode( mode )%min_m3conc) cycle mode_loop
 
             vol = PI6 * moment3_portion
-            LSG = AEROMODE_SDEV( MODE )
+            LSG = AEROMODE_LNSG( MODE )
 
             dgn_shell = AEROMODE_DIAM( MODE )
             dgn_core  = 0.0
@@ -586,10 +585,6 @@ C-----------------------------------------------------------------------
 
             enddo
                
-            G_BAR(1:nwl) = 0.0
-            BEXT (1:nwl) = 0.0
-            BSCAT(1:nwl) = 0.0
-
             if (CORE_SHELL .and. DGN_CORE > 1.e-20) then
 
                VOL_CORE  = PI6 * CORE_MOMENT3
@@ -640,8 +635,6 @@ C-----------------------------------------------------------------------
 
                do v = 1, nwl
 
-                  trouble = .false.
-
                   IF ( AE_NR_SHELL( V ) .LT. 1.e-30 ) cycle
                   IF ( AE_NI_SHELL( V ) .LT. 1.e-30 ) cycle
 
@@ -652,8 +645,6 @@ C-----------------------------------------------------------------------
                      CALL AERO_OPTICAL2( LAMDA_UM(v), NR_SHELL, VOL, 
      &                                   DGN_SHELL, XXLSG,
      &                                   BEXT_MODE, BSCAT_MODE, GBAR_MODE, SUCCESS )
-                     VFAC = 1.0  ! correction factor 
-
                   ELSE 
 
                      ! use old fast optics method
@@ -661,27 +652,31 @@ C-----------------------------------------------------------------------
      &                                 WAVELENGTH(V), XXLSG, lsg, mie_parameter, 
      &                                 expfac2, expfac3, 
      &                                 BEXT_MODE, BSCAT_MODE, GBAR_MODE )
-                     VFAC = VOL * INV_LAMBDA(v)
+
+                     VFAC       = VOL * INV_LAMBDA(v)
+                     BEXT_MODE  = BEXT_MODE  * VFAC
+                     BSCAT_MODE = BSCAT_MODE * VFAC
 
                   ENDIF
 
                   !***sum to get total extinction and scattering
                   !***  and contribution to the overall asymmetry factor
 
-                  BEXT(v)  =  BEXT(v) + VFAC * BEXT_MODE
-                  BSC      =            VFAC * BSCAT_MODE
-                  BSCAT(v) = BSCAT(v) + BSC
-                  G_BAR(v) = G_BAR(v) + BSC  * GBAR_MODE
+                  BEXT (v) = BEXT (v) + BEXT_MODE
+                  BSCAT(v) = BSCAT(v) + BSCAT_MODE
+                  G_BAR(v) = G_BAR(v) + BSCAT_MODE * GBAR_MODE
 
                enddo
 
-            END IF       
+            END IF
 
          END DO MODE_LOOP
 
-         AERO_SCAT_COEF( L,1:nwl ) = BSCAT(1:nwl)
-         AERO_EXTI_COEF( L,1:nwl ) = BEXT(1:nwl)
-         AERO_ASYM_FAC ( L,1:nwl ) = G_BAR(1:nwl) / MAX( BSCAT(1:nwl), 1.0E-30 )
+         G_BAR(1:nwl) = G_BAR(1:nwl) / MAX( BSCAT(1:nwl), 1.0E-28 )
+
+         AERO_SCAT_COEF( L,1:nwl ) = max( BSCAT(1:nwl), scat_min)
+         AERO_EXTI_COEF( L,1:nwl ) = max( BEXT (1:nwl), exti_min)
+         AERO_ASYM_FAC ( L,1:nwl ) = min( G_BAR(1:nwl), asym_max)
 
       END DO LAY_LOOP
 

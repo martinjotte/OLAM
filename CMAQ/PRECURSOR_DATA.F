@@ -50,7 +50,7 @@ C-----------------------------------------------------------------------
 
       Implicit None
 
-      Integer, Parameter :: n_precursor = 23   ! # of precursors
+      Integer, Parameter :: n_precursor = 24   ! # of precursors
 
       Type precursor_type
          Character( 16 ) :: name               ! species name
@@ -84,6 +84,7 @@ C                    ----------   ----------  ------
      & precursor_type( 'OH     ', .False. , .False. ),
      & precursor_type( 'PAHNRXN', .True.  , .True.  ),
      & precursor_type( 'PAHHRXN', .True.  , .True.  ),
+     & precursor_type( 'PCSOARXN',.True.  , .True.  ),
      & precursor_type( 'PHGRXN ', .True.  , .True. )/)
 
 C Required species
@@ -110,10 +111,10 @@ C Indices of required species
       Integer :: OH_idx
       Integer :: PHGRXN_idx
 
-      Real( 8 ) :: precursor_mw ( n_precursor )   ! mol wt from cgrid_spcs [g/mol]
-      Real( 8 ) :: precursor_mwi( n_precursor )   ! 1 / mol wt from cgrid_spcs [mol/g]
-
-      Real( 8 ) :: precursor_conc( n_precursor ) ! precursor concentration [ug/m^3]
+      Real( 8 ) :: precursor_mw  ( n_precursor )  ! mol wt from cgrid_spcs [g/mol]
+      Real( 8 ) :: precursor_mwi ( n_precursor )  ! 1 / mol wt from cgrid_spcs [mol/g]
+      Real( 8 ) :: precursor_mwi6( n_precursor )  ! 10^-6 / mol wt from cgrid_spcs [mol/g]
+      Real( 8 ) :: precursor_conc( n_precursor )  ! precursor concentration [ug/m^3]
 
       Real    :: so4rate                       ! sulfate gas-phase production rate [ug/m^3*s]
       Real    :: phg_rate                      ! particulate mercury gas-phase production rate [ug/m^3*s]
@@ -152,25 +153,30 @@ C Local Variables:
       Integer          :: n
       Integer          :: spc
 
+      if (mapped) return
+
       logdev = setup_logdev()
 
-      precursor_mw  = 0.0d0
-      precursor_mwi = 0.0d0
-      precursor_map = 0
+      precursor_mw   = 0.0d0
+      precursor_mwi  = 0.0d0
+      precursor_mwi6 = 0.0d0
+      precursor_map  = 0
 
 C Build mapping to CGRID for each precursor species
       Do spc = 1, n_precursor
          n = index1( precursor( spc )%name, n_gc_g2ae, gc_g2ae )
          If ( n .Ne. 0 ) Then
-            precursor_mw ( spc ) = real( gc_molwt( gc_g2ae_map( n ) ), 8 )
-            precursor_mwi( spc ) = 1.d0 / precursor_mw ( spc )
-            precursor_map( spc ) = gc_strt - 1 + gc_g2ae_map( n )
+            precursor_mw  ( spc ) = real( gc_molwt( gc_g2ae_map( n ) ), 8 )
+            precursor_mwi ( spc ) = 1.d00 / precursor_mw ( spc )
+            precursor_mwi6( spc ) = 1.d-6 / precursor_mw ( spc )
+            precursor_map ( spc ) = gc_strt - 1 + gc_g2ae_map( n )
          Else
             n = index1( precursor( spc )%name, n_nr_n2ae, nr_n2ae )
             If ( n .Ne. 0 ) Then
-               precursor_mw ( spc ) = real( nr_molwt( nr_n2ae_map( n ) ), 8 )
-               precursor_mwi( spc ) = 1.d0 / precursor_mw ( spc )
-               precursor_map( spc ) = nr_strt - 1 + nr_n2ae_map( n )
+               precursor_mw  ( spc ) = real( nr_molwt( nr_n2ae_map( n ) ), 8 )
+               precursor_mwi ( spc ) = 1.d00 / precursor_mw ( spc )
+               precursor_mwi6( spc ) = 1.d-6 / precursor_mw ( spc )
+               precursor_map ( spc ) = nr_strt - 1 + nr_n2ae_map( n )
             Else
                xmsg = 'Species ' // Trim( precursor( spc )%name ) //
      &               ' in precursor name is not in GC_G2AE or NR_N2AE tables'
@@ -242,7 +248,6 @@ C HS  03/10/11 Changed vtmp and gasconv to real(8)
 C-----------------------------------------------------------------------
 
       Use aeromet_data            ! air and met variables
-      Use utilio_defn
 
       Implicit None
 
@@ -260,7 +265,7 @@ C Local Variables:
       End If
 
 C Compute gas conversion constant
-      gasconv = Real( airdens * inv_mwair, 8 )
+      gasconv = airdens * inv_mwair
 
 C Copy grid cell concentrations of precursor species
       precursor_conc = 0.0
@@ -269,7 +274,7 @@ C Copy grid cell concentrations of precursor species
          n = precursor_map( spc )
          If ( n .Ne. 0 ) Then
             vtmp = gasconv * precursor_mw( spc )
-            precursor_conc( spc ) = Max( Real( conc( n ), 8) * vtmp, Real( min_gasconc, 8) )
+            precursor_conc( spc ) = Max( conc( n ) * vtmp, dmin_gasconc )
          End If
       End Do
 
@@ -312,7 +317,7 @@ C local variables:
       End If
 
 C compute gas conversion constant
-      gasconv = Real( airdens * inv_mwair, 8 )
+      gasconv = mwairkg / airdens
 
 C copy precursor_conc back to grid cell concentrations
       Do spc = 1, n_precursor
@@ -320,10 +325,10 @@ C copy precursor_conc back to grid cell concentrations
          If ( n .Ne. 0 ) Then
             If ( precursor( spc )%update ) Then
                If ( precursor( spc )%rxncounter ) Then
-                  conc( n ) = 0.0
+                  conc( n ) = min_gasconc
                Else
-                  vtmp = precursor_mw( spc ) * gasconv
-                  conc( n ) = Max( real( precursor_conc( spc ) / vtmp, 4 ), min_gasconc  )
+                  vtmp = precursor_mwi( spc ) * gasconv
+                  conc( n ) = Max( real(precursor_conc( spc ) * vtmp), min_gasconc  )
                End If
             End If
          End If

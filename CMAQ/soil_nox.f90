@@ -369,6 +369,7 @@ contains
 
     ! Surface temperature [K] and [C]
     TEMPC = tempk - 273.15
+    TEMPC = max(TEMPC, -40.0)
 
     ! Adjust external surface resistances for temperature; 
     ! from Wesely [1989], expression given in text on p. 1296.        
@@ -444,7 +445,7 @@ contains
     ! Skip the following block if the resistance RIX is high
     IF ( RIX < 9999.0 ) THEN
 
-       IF ( TEMPC > 0. .AND. TEMPC < 40.) THEN
+       IF ( TEMPC > 0. .AND. TEMPC < 39.99999) THEN
           GFACT = 400. / (TEMPC * ( 40.0 - TEMPC ))
        Else
           GFACT = 100.0

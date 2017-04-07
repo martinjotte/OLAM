@@ -21,9 +21,6 @@
 C RCS file, release, date & time of last delta, author, state, [and locker]
 C $Header: /project/yoj/arc/CCTM/src/aero/aero5/aero_driver.F,v 1.11 2012/01/19 13:12:57 yoj Exp $
 
-C what(1) key, module and SID; SCCS file; date and time of last delta:
-C %W% %P% %G% %U%
-
 C >>> 08/04/2000 Changes necessary to be able to read and process
 C two different types of emissions files.
 C the first type is the existing opperational PM2.5 & PM10 unspeciated
@@ -97,6 +94,25 @@ C                            diagnostic outputs on reaction gamma and yield
 C                            values 
 C   HOT Pye - Jan 13 - Additional information for IEPOX aerosol 
 C                      written to AERODIAG file
+C   David Wong - Aug 15 - Used IO_PE_INCLUSIVE rather than MYPE to facilitate
+C                         parallel I/O implementation
+C                       - Used a new logical variable, FIRST_CTM_VIS_1 to
+C                         determine when to open CTM_VIS_1 
+C  B.Hutzell 22 Feb 16 - Added test to determine to write diagnostics from aerosol
+C                        chemistry
+C  H Pye and B Murphy April 2016 - Updated dry/wet moment process to use
+C                        Extract_aero and Update_aero for getting moment/saving surface area
+C  D. Wong 10 May 2016 - added calculation of average PMDIAG species w.r.t.
+C                        environment variable CTM_PMDIAG, APMDIAG_BLEV_ELEV, 
+C                        and AVG_PMDIAG_SPCS
+C                      - added calculation of average visibility species w.r.t.
+C                        environment variable CTM_AVISDIAG
+C                      - renamed AERODIAM to PMDIAG and CTM_AERDIAG to CTM_PMDIAG
+C                      - added flexibility to handle AE6 and AE6i
+C                      - renamed DIAM to PMDIAG
+C  D. Wong 19 May 2016 - renamed ACONC_END_TIME to AVG_FILE_ENDTIME
+C                      - updated the way to define NUM_PMDIAG_SPC
+C                      - set CTM_PMDIAG default value to .TRUE.
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       SUBROUTINE AERO ( mrl )
 
@@ -110,12 +126,14 @@ C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       USE AOD_DEFN            ! IMPROVE reconstructed method AOD
       USE UTILIO_DEFN
       USE CGRID_SPCS
-      USE AEROSOL_CHEMISTRY, ONLY : GAMMA_N2O5IJ, GAMMA_N2O5K, YCLNO2IJ, YCLNO2K, GAMMA_IEPOX
+!     USE AEROSOL_CHEMISTRY, ONLY : GAMMA_N2O5IJ, GAMMA_N2O5K, YCLNO2IJ, YCLNO2K, 
+!    &                              GAMMA_IEPOX, GAMMA_IMAE, KPARTIEPOX, AERO_CHEM_SET
+      USE PMDIAG_DATA_MODULE
 
       use cgrid_defn, only: cgrid
       use mem_ijtabs, only: jtab_w, jtw_prog
-      use mem_grid,   only: mwa, mza, lpw
-      use misc_coms,  only: dtlm, io6
+      use mem_grid,   only: mza, lpw
+      use misc_coms,  only: dtlm
       use mem_basic,  only: tair, rho, press, sh_v
 
       IMPLICIT NONE
@@ -123,7 +141,6 @@ C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 C *** Includes:
 
 !     INCLUDE SUBST_FILES_ID  ! file name parameters (req IOPARMS)
-!     INCLUDE SUBST_PACTL_ID  ! process analysis
 
 C *** Arguments:
 
@@ -143,34 +160,37 @@ C *** CGRID is conc field (including gas and aerosol variables)
 C *** Local Variables:
 
       CHARACTER( 16 ), SAVE :: PNAME = 'AERO_DRIVER'
-      CHARACTER( 16 ) :: VNAME            ! variable name
+!      CHARACTER( 16 ) :: VNAME            ! variable name
       CHARACTER( 96 ) :: XMSG = ' '
 
 !     INTEGER   MDATE, MTIME, MSTEP  ! julian date, time and
                                      ! timestep in sec
-      INTEGER   C, R, L, V, N        ! loop counters
-      INTEGER   SPC                  ! species loop counter
+      INTEGER   C, R, L, N           ! loop counters
+!     INTEGER   SPC                  ! species loop counter
 !     INTEGER   STRT, FINI           ! loop induction variables
-      INTEGER   ALLOCSTAT            ! memory allocation status
+!     INTEGER   ALLOCSTAT            ! memory allocation status
 
-      LOGICAL   LERROR               ! Error flag
+      integer :: j, iw, k
+      real, external :: rhovsl
+
+!     LOGICAL   LERROR               ! Error flag
 
 C *** Grid Description
-!      REAL DX1                 ! Cell x-dimension
-!      REAL DX2                 ! Cell y-dimension
-!      INTEGER GXOFF, GYOFF     ! global origin offset from file
+!     REAL DX1                 ! Cell x-dimension
+!     REAL DX2                 ! Cell y-dimension
+!     INTEGER GXOFF, GYOFF     ! global origin offset from file
 C for INTERPX
-!      INTEGER, SAVE :: STRTCOLMC3, ENDCOLMC3, STRTROWMC3, ENDROWMC3
+!     INTEGER, SAVE :: STRTCOLMC3, ENDCOLMC3, STRTROWMC3, ENDROWMC3
 
 C *** Variable to set time step for writing visibility file
-      INTEGER, SAVE :: WSTEP  = 0   ! local write counter
+!     INTEGER, SAVE :: WSTEP  = 0   ! local write counter
       LOGICAL, SAVE :: WRITETIME = .FALSE. ! local write flag
 
 C *** meteorological variables
-!      REAL PRES   ( NCOLS,NROWS,NLAYS )  ! Atmospheric pressure [ Pa ]
-!      REAL TA     ( NCOLS,NROWS,NLAYS )  ! Air temperature [ K ]
-!      REAL DENS   ( NCOLS,NROWS,NLAYS )  ! Air density [ kg/m**-3 ]
-!      REAL QV     ( NCOLS,NROWS,NLAYS )  ! Water vapor mixing ratio [ kg/kg ]
+!     REAL PRES   ( NCOLS,NROWS,NLAYS )  ! Atmospheric pressure [ Pa ]
+!     REAL TA     ( NCOLS,NROWS,NLAYS )  ! Air temperature [ K ]
+!     REAL DENS   ( NCOLS,NROWS,NLAYS )  ! Air density [ kg/m**-3 ]
+!     REAL QV     ( NCOLS,NROWS,NLAYS )  ! Water vapor mixing ratio [ kg/kg ]
 
 C *** variables computed and output but not carried in CGRID
 
@@ -180,78 +200,92 @@ C *** visibility variables
       INTEGER, PARAMETER :: IBEXT1 = 2 ! extinction [ 1/km ] (Mie)
       INTEGER, PARAMETER :: IDCVW2 = 3 ! visual range in deciview (Reconst)
       INTEGER, PARAMETER :: IBEXT2 = 4 ! extinction [ 1/km ] (Reconst)
-!     REAL VIS_SPC( NCOLS,NROWS,N_AE_VIS_SPC ) ! Visual range information
-!     REAL VIS_SPC(  mza, mwa, N_AE_VIS_SPC ) ! Visual range information
+!     REAL VIS_SPC( NCOLS,NROWS,N_AE_VIS_SPC )  ! Visual range information
+!     REAL, ALLOCATABLE, SAVE :: AVIS_SPC( :,:,: ) ! average Visual range information
 
 C *** aerosol size distribution variables
-!     REAL DIAM_SPC( NCOLS,NROWS,NLAYS,27 )
-!     real diam_spc( mza, mwa, 27 )
+!     REAL DIAM_SPC( NCOLS,NROWS,NLAYS,39 )
+!     REAL, ALLOCATABLE, SAVE :: PMDIAG_SPC( :,:,:,: )
+!     REAL, ALLOCATABLE, SAVE :: A_PMDIAG_SPC( :,:,:,: )
+!     CHARACTER( 16 ) :: V_LIST( 2 )
+
+      INTEGER, SAVE :: N_APMDIAG_STEP
+      INTEGER, SAVE :: A_NLAYS
+!     CHARACTER( 32 ) :: APMDIAG_BLEV_ELEV = 'APMDIAG_BLEV_ELEV'
 
 C *** atmospheric properties
-      REAL XLM             ! atmospheric mean free path [ m ]
-      REAL AMU             ! atmospheric dynamic viscosity [ kg/m s ]
+!      REAL XLM             ! atmospheric mean free path [ m ]
+!      REAL AMU             ! atmospheric dynamic viscosity [ kg/m s ]
 
-C *** mass fraction of each mode less than 2.5um aerodynamic diameter
-      REAL PM25( N_MODE )  ! fine fractions
+C *** mass fraction of each mode less than Specified Aerodynamic Diameters
+      REAL fPM1 ( N_MODE )  ! PM1 fraction
+      REAL fPM25( N_MODE )  ! PM2.5 fraction
+      REAL fPM10( N_MODE )  ! PM10 fraction
+      REAL fAMS ( N_MODE )  ! AMS Transmission Fraction
 
 C *** visual range information
-      REAL BLKDCV1         ! block deciview (Mie)
-      REAL BLKEXT1         ! block extinction [ km**-1 ] (Mie)
+!     REAL BLKDCV1         ! block deciview (Mie)
+!     REAL BLKEXT1         ! block extinction [ km**-1 ] (Mie)
 
-      REAL BLKDCV2         ! block deciview (Reconstructed)
-      REAL BLKEXT2         ! block extinction [ km**-1 ] (Reconstructed)
+!     REAL BLKDCV2         ! block deciview (Reconstructed)
+!     REAL BLKEXT2         ! block extinction [ km**-1 ] (Reconstructed)
+
+      INTEGER, SAVE :: N_VIS_STEP
 
 C *** other internal aerosol variables
-      INTEGER IND                         ! index to be used with INDEX1
+!     INTEGER IND                         ! index to be used with INDEX1
 
 C *** synchronization time step [ s ]
       REAL DT
 
 C *** variables to set up for "dry transport "
-      REAL M3_WET, M3_DRY   ! third moment with and without water
-      REAL M2_WET, M2_DRY   ! second moment with and without water
-      REAL M3SUBT           ! temp variable for dry 3rd moment calcs
-
-C *** flag to include water in the 3rd moment calculation
-      LOGICAL, PARAMETER :: M3_WET_FLAG = .FALSE.
+!     REAL M3_WET( N_MODE ), M3_DRY( N_MODE )   ! third moment with and without water
+!     REAL M2_WET( N_MODE ), M2_DRY( N_MODE )   ! second moment with and without water
 
 C *** if LIMIT_Sg = T, atkn & accum std. dev. are not changed by GETPAR
       LOGICAL, PARAMETER :: LIMIT_Sg = .FALSE.
 
 C *** variables aerosol diagnostic file flag
-      INTEGER      STATUS            ! ENV... status
-      CHARACTER( 80 ) :: VARDESC     ! environment variable description
+!     INTEGER      STATUS            ! ENV... status
+!     CHARACTER( 80 ) :: VARDESC     ! environment variable description
 
-C *** environment variable for AERDIAG file
-      CHARACTER( 16 ), SAVE :: CTM_AERDIAG = 'CTM_AERDIAG'
+C *** environment variable for PMDIAG APMDIAG file
+!     CHARACTER( 16 ), SAVE :: CTM_PMDIAG   = 'CTM_PMDIAG'
+!     CHARACTER( 16 ), SAVE :: CTM_APMDIAG  = 'CTM_APMDIAG'
+!     CHARACTER( 16 ), SAVE :: CTM_AVISDIAG = 'CTM_AVISDIAG'
 
-C *** flag for AERDIAG file [F], default
-      LOGICAL, SAVE :: AERDIAG
+C *** flag for PMDIAG and APMDIAG file [F], default
+      LOGICAL, SAVE :: PMDIAG
+      LOGICAL, SAVE :: APMDIAG
+      LOGICAL, SAVE :: AVISDIAG
 
 C *** first pass flag
       LOGICAL, SAVE :: FIRSTIME = .TRUE.
+!     LOGICAL, SAVE :: FIRST_CTM_VIS_1 = .TRUE.
 
 C *** ratio of molecular weights of water vapor to dry air = 0.622015
-      REAL, PARAMETER :: EPSWATER = MWWAT / MWAIR
+!     REAL, PARAMETER :: EPSWATER = MWWAT / MWAIR
 
 C *** dry moment factor
-      REAL, PARAMETER :: TWOTHIRDS = 2.0 / 3.0
+!     REAL, PARAMETER :: TWOTHIRDS = 2.0 / 3.0
 
-!      LOGICAL :: TIME_TO_CALL_FEEDBACK_WRITE
-!      LOGICAL, SAVE :: CMAQ_WRF_FEEDBACK
-
-      real, external :: rhovsl
-      integer :: j, iw, k
+!     LOGICAL :: TIME_TO_CALL_FEEDBACK_WRITE
+!     LOGICAL, SAVE :: CMAQ_WRF_FEEDBACK
 
 C *** Statement Function **************
-!      REAL ESATL ! arithmetic statement function for vapor pressure [Pa]
-!      REAL TT
+!     REAL ESATL ! arithmetic statement function for vapor pressure [Pa]
+!     REAL TT
 C *** Coefficients for the equation, ESATL defining saturation vapor pressure
-!      REAL, PARAMETER :: AL = 610.94
-!      REAL, PARAMETER :: BL = 17.625
-!      REAL, PARAMETER :: CL = 243.04
+!     REAL, PARAMETER :: AL = 610.94
+!     REAL, PARAMETER :: BL = 17.625
+!     REAL, PARAMETER :: CL = 243.04
 
 !     INTEGER, SAVE :: O3
+
+!     CHARACTER( 16 ) :: AVG_FILE_ENDTIME = 'AVG_FILE_ENDTIME'
+!     LOGICAL, SAVE :: END_TIME = .FALSE.
+
+!     REAL, ALLOCATABLE, SAVE :: TEMP_DATA(:)
 
 C *** values of AL, BL, and CL are from:
 C     Alduchov and Eskridge, "Improved Magnus Form Approximations of
@@ -265,14 +299,22 @@ C *** End Statement Function  ********
 
 !     logical, save :: now = .true.
 
-!#ifdef twoway
-!      INTERFACE
-!        SUBROUTINE FEEDBACK_WRITE (C, R, L, CGRID_DATA, O3_VALUE, JDATE, JTIME)
-!          REAL, INTENT(IN) :: CGRID_DATA(:), O3_VALUE
-!          INTEGER, INTENT(IN) :: C, R, L, JDATE, JTIME
-!        END SUBROUTINE FEEDBACK_WRITE
-!      END INTERFACE
-!#endif
+!     INTERFACE
+!        SUBROUTINE GET_ENVLIST ( ENV_VAR, NVARS, VAL_LIST )
+!           CHARACTER( * ),  INTENT ( IN )  :: ENV_VAR
+!           INTEGER,         INTENT ( OUT ) :: NVARS
+!           CHARACTER( 16 ), INTENT ( OUT ) :: VAL_LIST( : )
+!        END SUBROUTINE GET_ENVLIST
+!     END INTERFACE
+
+#ifdef twoway
+!     INTERFACE
+!       SUBROUTINE FEEDBACK_WRITE (C, R, L, CGRID_DATA, O3_VALUE, JDATE, JTIME)
+!         REAL, INTENT( IN ) :: CGRID_DATA(:), O3_VALUE
+!         INTEGER, INTENT( IN ) :: C, R, L, JDATE, JTIME
+!       END SUBROUTINE FEEDBACK_WRITE
+!     END INTERFACE
+#endif
 
 C ------------------ begin body of AERO_DRIVER -------------------------
 
@@ -280,102 +322,167 @@ C ------------------ begin body of AERO_DRIVER -------------------------
          FIRSTIME = .FALSE.
          LOGDEV = INIT3()
 
-!#ifdef twoway
-!! -- this is for twoway
-!         VNAME = 'O3'
-!         N = INDEX1( VNAME, N_GC_CONC, GC_CONC )
-!         IF ( N .NE. 0 ) THEN
-!            O3 = GC_STRT - 1 + GC_CONC_MAP( N )
-!         ELSE
-!            XMSG = 'Could not find ' // VNAME // 'in gas chem aerosol table'
-!            CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT3 )
-!         END IF
-!#endif
+         IF ( INDEX(MECHNAME, 'SAPRC07TIC_AE6I_AQ') .GT. 0 ) THEN
+            NUM_PMDIAG_SPC = 41
+         ELSE
+            NUM_PMDIAG_SPC = 39
+         END IF
+
+!        CALL GET_ENVLIST ( APMDIAG_BLEV_ELEV, N, V_LIST )
+!        IF ( N .EQ. 0 ) THEN
+            A_NLAYS = mza
+!        ELSE
+!          READ( V_LIST( 2 ), '( I4 )' ) A_NLAYS
+!        END IF
+
+!        ALLOCATE (   PMDIAG_SPC( NCOLS,NROWS,NLAYS,NUM_PMDIAG_SPC ),
+!    &              A_PMDIAG_SPC( NCOLS,NROWS,A_NLAYS,NUM_PMDIAG_SPC ),
+!    &              TEMP_DATA( NUM_PMDIAG_SPC ), 
+!    &              AVIS_SPC( NCOLS,NROWS,N_AE_VIS_SPC ),
+!    &              STAT=ALLOCSTAT)
+
+!        A_PMDIAG_SPC  = 0.0
+         N_APMDIAG_STEP = 0
+
+!        AVIS_SPC = 0.0
+         N_VIS_STEP = 0
+
+!        END_TIME = ENVYN( AVG_FILE_ENDTIME, ' ', END_TIME, STATUS )
+
+#ifdef twoway
+! -- this is for twoway
+!        VNAME = 'O3'
+!        N = INDEX1( VNAME, N_GC_CONC, GC_CONC )
+!        IF ( N .NE. 0 ) THEN
+!           O3 = GC_STRT - 1 + GC_CONC_MAP( N )
+!        ELSE
+!           XMSG = 'Could not find ' // VNAME // 'in gas chem aerosol table'
+!           CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT3 )
+!        END IF
+#endif
 
 C *** Get aerosol diagnostic file flag.
-         AERDIAG = .FALSE.         ! default
-!         VARDESC = 'Flag for writing the aerosol diagnostic file'
-!         AERDIAG = ENVYN( CTM_AERDIAG, VARDESC, AERDIAG, STATUS )
-!         IF ( STATUS .NE. 0 ) WRITE( LOGDEV, '(5X, A)' ) VARDESC
-!         IF ( STATUS .EQ. 1 ) THEN
-!            XMSG = 'Environment variable improperly formatted'
-!            CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
-!         ELSE IF ( STATUS .EQ. -1 ) THEN
-!            XMSG = 'Environment variable set, but empty ... Using default:'
-!            WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
-!         ELSE IF ( STATUS .EQ. -2 ) THEN
-!            XMSG = 'Environment variable not set ... Using default:'
-!            WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
-!         END IF
+         PMDIAG = .FALSE.         ! default
+!        VARDESC = 'Flag for writing the aerosol diagnostic file'
+!        PMDIAG = ENVYN( CTM_PMDIAG, VARDESC, PMDIAG, STATUS )
+!        IF ( STATUS .NE. 0 ) WRITE( LOGDEV, '(5X, A)' ) VARDESC
+!        IF ( STATUS .EQ. 1 ) THEN
+!           XMSG = 'Environment variable improperly formatted'
+!           CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
+!        ELSE IF ( STATUS .EQ. -1 ) THEN
+!           XMSG = 'Environment variable set, but empty ... Using default:'
+!           WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
+!        ELSE IF ( STATUS .EQ. -2 ) THEN
+!           XMSG = 'Environment variable not set ... Using default:'
+!           WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
+!        END IF
+
+C *** Get aerosol average diagnostic file flag.
+         APMDIAG = .FALSE.         ! default
+!        VARDESC = 'Flag for writing the aerosol diagnostic file'
+!        APMDIAG = ENVYN( CTM_APMDIAG, VARDESC, APMDIAG, STATUS )
+!        IF ( STATUS .NE. 0 ) WRITE( LOGDEV, '(5X, A)' ) VARDESC
+!        IF ( STATUS .EQ. 1 ) THEN
+!           XMSG = 'Environment variable improperly formatted'
+!           CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
+!        ELSE IF ( STATUS .EQ. -1 ) THEN
+!           XMSG = 'Environment variable set, but empty ... Using default:'
+!           WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
+!        ELSE IF ( STATUS .EQ. -2 ) THEN
+!           XMSG = 'Environment variable not set ... Using default:'
+!           WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
+!        END IF
+
+C *** Get aerosol average diagnostic file flag.
+         AVISDIAG = .FALSE.         ! default
+!        VARDESC = 'Flag for writing the aerosol diagnostic file'
+!        AVISDIAG = ENVYN( CTM_AVISDIAG, VARDESC, AVISDIAG, STATUS )
+!        IF ( STATUS .NE. 0 ) WRITE( LOGDEV, '(5X, A)' ) VARDESC
+!        IF ( STATUS .EQ. 1 ) THEN
+!           XMSG = 'Environment variable improperly formatted'
+!           CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
+!        ELSE IF ( STATUS .EQ. -1 ) THEN
+!           XMSG = 'Environment variable set, but empty ... Using default:'
+!           WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
+!        ELSE IF ( STATUS .EQ. -2 ) THEN
+!           XMSG = 'Environment variable not set ... Using default:'
+!           WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
+!        END IF
 
 C *** Get AOD diagnostic file flag.
          AOD = .FALSE.         ! default
-!         VARDESC = 'Flag for writing the AOD diagnostic file'
-!         AOD = ENVYN( CTM_AOD, VARDESC, AOD, STATUS )
-!         IF ( STATUS .NE. 0 ) WRITE( LOGDEV, '(5X, A)' ) VARDESC
-!         IF ( STATUS .EQ. 1 ) THEN
-!            XMSG = 'Environment variable improperly formatted'
-!            CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
-!         ELSE IF ( STATUS .EQ. -1 ) THEN
-!            XMSG = 'Environment variable set, but empty ... Using default:'
-!            WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
-!         ELSE IF ( STATUS .EQ. -2 ) THEN
-!            XMSG = 'Environment variable not set ... Using default:'
-!            WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
-!         END IF
+!        VARDESC = 'Flag for writing the IMPROVE network AOD diagnostic file'
+!        AOD = ENVYN( CTM_AOD, VARDESC, AOD, STATUS )
+!        IF ( STATUS .NE. 0 ) WRITE( LOGDEV, '(5X, A)' ) VARDESC
+!        IF ( STATUS .EQ. 1 ) THEN
+!           XMSG = 'Environment variable improperly formatted'
+!           CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
+!        ELSE IF ( STATUS .EQ. -1 ) THEN
+!           XMSG = 'Environment variable set, but empty ... Using default:'
+!           WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
+!        ELSE IF ( STATUS .EQ. -2 ) THEN
+!           XMSG = 'Environment variable not set ... Using default:'
+!           WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
+!        END IF
 
 C *** Open the met files.
-!         IF ( .NOT. OPEN3( MET_CRO_3D, FSREAD3, PNAME ) ) THEN
-!            XMSG = 'Could not open  MET_CRO_3D  file '
-!            CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!         END IF
-!
-!         IF ( .NOT. OPEN3( MET_CRO_2D, FSREAD3, PNAME ) ) THEN
-!            XMSG = 'Could not open  MET_CRO_2D file '
-!            CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!         END IF
+!        IF ( .NOT. OPEN3( MET_CRO_3D, FSREAD3, PNAME ) ) THEN
+!           XMSG = 'Could not open  MET_CRO_3D  file '
+!           CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+!        END IF
+
+!        IF ( .NOT. OPEN3( MET_CRO_2D, FSREAD3, PNAME ) ) THEN
+!           XMSG = 'Could not open  MET_CRO_2D file '
+!           CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+!        END IF
 
 C *** Set up file structure for visibility file. It has two variables,
 C     visual range in deciview units (dimensionless) and extinction in
 C     units of (1/km) and is for layer 1 only.
-!        IF ( MYPE .EQ. 0 ) CALL OPVIS ( JDATE, JTIME, TSTEP( 1 ) )
+!        IF ( IO_PE_INCLUSIVE ) THEN
+!           CALL OPVIS ( JDATE, JTIME, TSTEP( 1 ) )
+!           IF ( AVISDIAG ) CALL OPAVIS ( JDATE, JTIME, TSTEP( 1 ) )
+!        END IF
 
 C *** Open the aerosol parameters file (diameters and standard deviations).
-!         IF ( AERDIAG .AND. MYPE .EQ. 0 ) CALL OPDIAM ( JDATE, JTIME, TSTEP( 1 ) )
 
-         IF ( AOD ) THEN
+!        IF ( PMDIAG .AND. IO_PE_INCLUSIVE ) CALL OPPMDIAG ( JDATE, JTIME, TSTEP( 1 ) )
+!        IF ( APMDIAG ) CALL OPAPMDIAG ( JDATE, JTIME, TSTEP( 1 ) )
+
+!        IF ( AOD ) THEN
 C *** Set up for AOD processing
-            IF ( .NOT. AOD_INIT( 0, 0, 0 ) ) THEN
-               XMSG = 'Failure initializing dust emission processing'
+!           IF ( .NOT. AOD_INIT( JDATE, JTIME, TSTEP( 1 ) ) ) THEN
+            IF ( .NOT. AOD_INIT( 0, 0, 0) ) THEN
+               XMSG = 'Failure initializing optical depth module'
                CALL M3EXIT( PNAME, 0, 0, XMSG, XSTAT2 )
             END IF
-         END IF
+!        END IF
 
 C *** Get domain decomp info from the MET_CRO_3D file
-!         CALL SUBHFILE ( MET_CRO_3D, GXOFF, GYOFF,
-!     &                   STRTCOLMC3, ENDCOLMC3, STRTROWMC3, ENDROWMC3 )
+!        CALL SUBHFILE ( MET_CRO_3D, GXOFF, GYOFF,
+!    &                   STRTCOLMC3, ENDCOLMC3, STRTROWMC3, ENDROWMC3 )
 
-!#ifdef twoway
-!         CMAQ_WRF_FEEDBACK = ENVYN( 'CMAQ_WRF_FEEDBACK', ' ', .FALSE., STATUS )
-!         IF ( STATUS .EQ. 1 ) THEN
-!            PRINT *, 'Environment variable improperly formatted'
-!            STOP
-!         ELSE IF ( STATUS .EQ. -1 ) THEN
-!            PRINT *, 'Environment variable set, but empty ... Using default:'
-!         ELSE IF ( STATUS .EQ. -2 ) THEN
-!            PRINT *, 'Environment variable not set ... Using default:'
-!         END IF
-!#endif
+#ifdef twoway
+!        CMAQ_WRF_FEEDBACK = ENVYN( 'CMAQ_WRF_FEEDBACK', ' ', .FALSE., STATUS )
+!        IF ( STATUS .EQ. 1 ) THEN
+!           PRINT *, 'Environment variable improperly formatted'
+!           STOP
+!        ELSE IF ( STATUS .EQ. -1 ) THEN
+!           PRINT *, 'Environment variable set, but empty ... Using default:'
+!        ELSE IF ( STATUS .EQ. -2 ) THEN
+!           PRINT *, 'Environment variable not set ... Using default:'
+!        END IF
+#endif
 
       END IF    ! FIRSTIME
 
-!      MDATE  = JDATE
-!      MTIME  = JTIME
-!      MSTEP = TIME2SEC( TSTEP( 2 ) )
-!      CALL NEXTIME ( MDATE, MTIME, SEC2TIME( MSTEP / 2 ) )
-!
-!      WSTEP = WSTEP + TIME2SEC( TSTEP( 2 ) )
-!      IF ( WSTEP .GE. TIME2SEC( TSTEP( 1 ) ) ) WRITETIME = .TRUE.
+!     MDATE  = JDATE
+!     MTIME  = JTIME
+!     MSTEP = TIME2SEC( TSTEP( 2 ) )
+!     CALL NEXTIME ( MDATE, MTIME, SEC2TIME( MSTEP / 2 ) )
+
+!     WSTEP = WSTEP + TIME2SEC( TSTEP( 2 ) )
+!     IF ( WSTEP .GE. TIME2SEC( TSTEP( 1 ) ) ) WRITETIME = .TRUE.
 
 C *** Set floating point synchronization time step:
 !     DT = FLOAT( MSTEP ) ! set time step in seconds
@@ -384,59 +491,58 @@ C *** Set floating point synchronization time step:
 C *** Get Meteorological Variables
 
 C *** pressure [Pa]
-!      VNAME = 'PRES'
-!      IF ( .NOT. INTERPX( MET_CRO_3D, VNAME, PNAME,
-!     &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,NLAYS,
-!     &                    MDATE, MTIME, PRES ) ) THEN
-!         XMSG = 'Could not interpolate '// TRIM( VNAME ) // ' from MET_CRO_3D '
-!         CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
-!      END IF
+!     VNAME = 'PRES'
+!     IF ( .NOT. INTERPX( MET_CRO_3D, VNAME, PNAME,
+!    &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,NLAYS,
+!    &                    MDATE, MTIME, PRES ) ) THEN
+!        XMSG = 'Could not interpolate '// TRIM( VNAME ) // ' from MET_CRO_3D '
+!        CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
+!     END IF
 
 C *** temperature [K]
-!      VNAME = 'TA'
-!      IF ( .NOT. INTERPX( MET_CRO_3D, VNAME, PNAME,
-!     &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,NLAYS,
-!     &                    MDATE, MTIME, TA ) ) THEN
-!         XMSG = 'Could not interpolate '// TRIM( VNAME ) // ' from MET_CRO_3D '
-!         CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
-!      END IF
+!     VNAME = 'TA'
+!     IF ( .NOT. INTERPX( MET_CRO_3D, VNAME, PNAME,
+!    &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,NLAYS,
+!    &                    MDATE, MTIME, TA ) ) THEN
+!        XMSG = 'Could not interpolate '// TRIM( VNAME ) // ' from MET_CRO_3D '
+!        CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
+!     END IF
 
 C *** specific humidity [g H2O/g air]
-!      VNAME = 'QV'
-!      IF ( .NOT. INTERPX( MET_CRO_3D, VNAME, PNAME,
-!     &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,NLAYS,
-!     &                    MDATE, MTIME, QV ) ) THEN
-!         XMSG = 'Could not interpolate '// TRIM( VNAME ) // ' from MET_CRO_3D '
-!         CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!      END IF
+!     VNAME = 'QV'
+!     IF ( .NOT. INTERPX( MET_CRO_3D, VNAME, PNAME,
+!    &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,NLAYS,
+!    &                    MDATE, MTIME, QV ) ) THEN
+!        XMSG = 'Could not interpolate '// TRIM( VNAME ) // ' from MET_CRO_3D '
+!        CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+!     END IF
 
 C *** air density [kg/m3]
-!      VNAME = 'DENS'
-!      IF ( .NOT. INTERPX( MET_CRO_3D, VNAME, PNAME,
-!     &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,NLAYS,
-!     &                    MDATE, MTIME, DENS ) ) THEN
-!         XMSG = 'Could not interpolate '// TRIM( VNAME ) // ' from MET_CRO_3D '
-!         CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
-!      END IF
+!     VNAME = 'DENS'
+!     IF ( .NOT. INTERPX( MET_CRO_3D, VNAME, PNAME,
+!    &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,NLAYS,
+!    &                    MDATE, MTIME, DENS ) ) THEN
+!        XMSG = 'Could not interpolate '// TRIM( VNAME ) // ' from MET_CRO_3D '
+!        CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
+!     END IF
 
 #ifdef twoway
 ! call FEEDBACK_WRITE when JTIME is mulitple of WRF time step
-      IF ( CMAQ_WRF_FEEDBACK ) THEN
-         IF ( MOD( TIME2SEC(MOD( JTIME, 10000 )), TIME2SEC(TSTEP( 3 )) ) .EQ. 0 ) THEN
-            TIME_TO_CALL_FEEDBACK_WRITE = .TRUE.
-         ELSE
-            TIME_TO_CALL_FEEDBACK_WRITE = .FALSE.
-         END IF
-      END IF
+!     IF ( CMAQ_WRF_FEEDBACK ) THEN
+!        IF ( MOD( TIME2SEC(MOD( JTIME, 10000 )), TIME2SEC(TSTEP( 3 )) ) .EQ. 0 ) THEN
+!           TIME_TO_CALL_FEEDBACK_WRITE = .TRUE.
+!        ELSE
+!           TIME_TO_CALL_FEEDBACK_WRITE = .FALSE.
+!        END IF
+!     END IF
 #endif
 
 C --------------------- Begin loops over grid cells --------------------------
 
 C *** initialize conc arrays
 
-!      DO L = 1, NLAYS
-!         DO R = 1, MY_NROWS
-!            DO C = 1, MY_NCOLS
+!     N_APMDIAG_STEP = N_APMDIAG_STEP + 1
+!     N_VIS_STEP     = N_VIS_STEP + 1 
 
       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
          do k = lpw(iw), mza
@@ -450,15 +556,9 @@ C *** initialize conc arrays
 C *** Grid cell meteorological data.
                AIRTEMP  = tair ( k, iw )
                AIRPRES  = press( k, iw )
-               AIRQV    = sh_v ( k, iw )
                AIRDENS  = rho  ( k, iw )
-               
-               AIRRH    = airqv * airdens / rhovsl(airtemp - 273.15)
+               AIRRH    = sh_v ( k, iw ) * airdens / rhovsl(airtemp - 273.15)
                AIRRH    = MAX( 0.005, MIN( 0.99, AIRRH ) )
-
-!              H2OSATVP = ESATL( AIRTEMP )
-!              H2OVP    = AIRPRES * AIRQV / ( EPSWATER  + AIRQV )
-!              AIRRH    = MAX( 0.005, MIN( 0.99, H2OVP / H2OSATVP ) )
 
 C *** Extract grid cell concentrations of aero species from CGRID
 C     into aerospc_conc in aero_data module (set minimum)
@@ -469,164 +569,168 @@ C     into precursr_conc in precursor_data
                CALL EXTRACT_PRECURSOR( CGRID( C,R,: ) )
 
 C *** Calculate SO4RATE stored in module
-               SO4RATE = REAL( PRECURSOR_CONC( SULPRD_IDX ), 4 ) / DT
+               SO4RATE = PRECURSOR_CONC( SULPRD_IDX ) / DT
  
                IF ( PHGRXN_IDX .GT. 0 ) THEN
 C *** Calculate PHG_RATE stored in module
-                  PHG_RATE = REAL( PRECURSOR_CONC( PHGRXN_IDX ), 4 ) / DT
+                  PHG_RATE = PRECURSOR_CONC( PHGRXN_IDX ) / DT
                ELSE
                   PHG_RATE = 0.0
                END IF
 
-C *** Extract soa concentrations from CGRID
+C *** Extract soa concentrations from CGRID and 
+C     convert M2 to wet
                CALL EXTRACT_SOA( CGRID( C,R,: ) )
 
 C *** Aerosol process routines
                CALL AEROPROC( DT, C, R, L )
 
-C *** Update aerosol variables conc back into CGRID (set minimum)
-               CALL UPDATE_AERO( CGRID( C,R,: ), .TRUE. )
+C *** Update aerosol variables conc back into CGRID (set minimum) 
+C     and convert M2 to dry and save as surface area
+              CALL UPDATE_AERO( CGRID( C,R,: ), .TRUE. )
 
 C *** Update precursor variables conc back into CGRID
-               CALL UPDATE_PRECURSOR( CGRID( C,R,: ) )
+              CALL UPDATE_PRECURSOR( CGRID( C,R,: ) )
 
 C *** Update gas soa concentrations back to CGRID
                CALL UPDATE_SOA( CGRID( C,R,: ) )
 
-C *** Calculate volume fraction of each mode < 2.5um aerodynamic diameter
+C *** OUTPUT DIAGNOSTIC INFORMATION
+
+               if (writetime) then
+C *** Get wet moment info (dry will be converted to wet)
+               CALL calcmoments( .true. )
+               CALL GETPAR( LIMIT_Sg ) ! update AEROMODE_DIAM,DENS,SDEV
+                   
+C *** Calculate volume fraction of each mode for measurement applications
                DO N = 1, N_MODE
-                  CALL INLET25 ( AEROMODE_DIAM( N ), AEROMODE_SDEV( N ),
-     &                           AEROMODE_DENS( N ), PM25( N ) )
+                  ! Calculate transmission of each mode in aerosol impactors.
+                  ! Report fraction of PM1, PM2.5, and PM10.0 for all modes
+                  ! after converting to aerodynamic diameter.
+                  CALL AERO_INLET ( AEROMODE_DIAM( N ), AEROMODE_LNSG( N ),
+     &                              AEROMODE_DENS( N ), fPM1( N ), fPM25( N ),
+     &                              fPM10( N ) )
+           
+                  ! Calculate AMS Transmission Fraction. Aerosol water will
+                  ! be excluded from the calculation since AMS standard
+                  ! procedures recommend drying particles before they enter
+                  ! the intstrument.
+                  CALL AERO_AMS ( MOMENT3_CONC( N ), MOMENT2_CONC( N ),
+     &                            MOMENT0_CONC( N ), AEROSPC_CONC( AH2O_IDX,N ), 
+     &                            AEROMODE_DENS( N ),AEROSPC( AH2O_IDX)%DENSITY, 
+     &                            fAMS( N ) )
                END DO
+               endif
 
 C *** Write aerosol extinction coefficients and deciviews to visibility
 C     diagnostic array (lowest vertical layer only)
 
-!               IF ( WRITETIME .AND. L .EQ. 1 ) THEN
-!
-!                  CALL GETVISBY( BLKDCV1, BLKEXT1, BLKDCV2, BLKEXT2 )
-!
-!                  VIS_SPC( C,R,IDCVW1 ) = BLKDCV1  ! Mie visual range [deciview]
-!                  VIS_SPC( C,R,IBEXT1 ) = BLKEXT1  ! Mie aero extinction [1/km]
-!                  VIS_SPC( C,R,IDCVW2 ) = BLKDCV2  ! Reconstructed visual range [deciview]
-!                  VIS_SPC( C,R,IBEXT2 ) = BLKEXT2  ! Reconstructed aero extinction [1/km]
-!
-!               END IF
+!              IF ( L .EQ. 1 ) THEN
+!                 IF ( WRITETIME .OR. AVISDIAG) THEN
+!                    CALL GETVISBY( BLKDCV1, BLKEXT1, BLKDCV2, BLKEXT2 )
+!                 END IF
+!                 IF ( AVISDIAG ) THEN
+!                    AVIS_SPC( C,R,1 ) = AVIS_SPC( C,R,1 ) + BLKDCV1  ! Mie visual range [deciview]
+!                    AVIS_SPC( C,R,2 ) = AVIS_SPC( C,R,2 ) + BLKEXT1  ! Mie aero extinction [1/km]
+!                    AVIS_SPC( C,R,3 ) = AVIS_SPC( C,R,3 ) + BLKDCV2  ! Reconstructed visual range [deciview]
+!                    AVIS_SPC( C,R,4 ) = AVIS_SPC( C,R,4 ) + BLKEXT2  ! Reconstructed aero extinction [1/km]
+!                 END IF
+!                 IF ( WRITETIME ) THEN
+!                    VIS_SPC( C,R,IDCVW1 ) = BLKDCV1  ! Mie visual range [deciview]
+!                    VIS_SPC( C,R,IBEXT1 ) = BLKEXT1  ! Mie aero extinction [1/km]
+!                    VIS_SPC( C,R,IDCVW2 ) = BLKDCV2  ! Reconstructed visual range [deciview]
+!                    VIS_SPC( C,R,IBEXT2 ) = BLKEXT2  ! Reconstructed aero extinction [1/km]
+!                 END IF
+!              END IF
 
-C *** Write wet diameters, 2nd, and 3rd moments to aerosol diagnostic array
-C     This assumes that GETPAR was last called with M3_WET_FLAG = .TRUE.
-!               IF ( WRITETIME .AND. AERDIAG ) THEN
-!!                 DIAM_SPC( C,R, : ) = 0.0
-!                  DIAM_SPC( C,R, 7 ) = AEROMODE_DIAM( 1 ) * 1.0E6  ! wet i-mode diam.
-!                  DIAM_SPC( C,R, 8 ) = AEROMODE_DIAM( 2 ) * 1.0E6  ! wet j-mode diam.
-!                  DIAM_SPC( C,R, 9 ) = AEROMODE_DIAM( 3 ) * 1.0E6  ! wet k-mode diam.
-!                  DIAM_SPC( C,R,10 ) = MOMENT2_CONC( 1 )     ! wet i-mode 2nd moment
-!                  DIAM_SPC( C,R,11 ) = MOMENT2_CONC( 2 )     ! wet j-mode 2nd moment
-!                  DIAM_SPC( C,R,12 ) = MOMENT2_CONC( 3 )     ! wet k-mode 2nd moment
-!                  DIAM_SPC( C,R,16 ) = MOMENT3_CONC( 1 )     ! wet i-mode 3rd moment
-!                  DIAM_SPC( C,R,17 ) = MOMENT3_CONC( 2 )     ! wet j-mode 3rd moment
-!                  DIAM_SPC( C,R,18 ) = MOMENT3_CONC( 3 )     ! wet k-mode 3rd moment
-!                  DIAM_SPC( C,R,20 ) = PM25( 1 )             ! i-mode fine fraction
-!                  DIAM_SPC( C,R,21 ) = PM25( 2 )             ! j-mode fine fraction
-!                  DIAM_SPC( C,R,22 ) = PM25( 3 )             ! coarse-mode fine fraction
-!                  DIAM_SPC( C,R,23 ) = GAMMA_N2O5IJ( C,R ) ! fine N2O5 heterorxn probability
-!                  DIAM_SPC( C,R,24 ) = GAMMA_N2O5K( C,R )  ! fine N2O5 heterorxn probability
-!                  DIAM_SPC( C,R,25 ) = YCLNO2IJ( C,R )     ! fine CLNO2 heterorxn yield
-!                  DIAM_SPC( C,R,26 ) = YCLNO2K( C,R )      ! coarse CLNO2 heterorxn yield
-!                  DIAM_SPC( C,R,27 ) = GAMMA_IEPOX( C,R )  ! IEPOX heterorxn uptake coeff
-!               END IF   ! WRITETIME .AND. AERDIAG
+!              IF ( PMDIAG .OR. APMDIAG ) THEN
+!                 TEMP_DATA(  7 ) = AEROMODE_DIAM( 1 ) * 1.0E6  ! wet i-mode diam.
+!                 TEMP_DATA(  8 ) = AEROMODE_DIAM( 2 ) * 1.0E6  ! wet j-mode diam.
+!                 TEMP_DATA(  9 ) = AEROMODE_DIAM( 3 ) * 1.0E6  ! wet k-mode diam.
+!                 TEMP_DATA( 10 ) = MOMENT2_CONC( 1 )     ! wet i-mode 2nd moment
+!                 TEMP_DATA( 11 ) = MOMENT2_CONC( 2 )     ! wet j-mode 2nd moment
+!                 TEMP_DATA( 12 ) = MOMENT2_CONC( 3 )     ! wet k-mode 2nd moment
+!                 TEMP_DATA( 16 ) = MOMENT3_CONC( 1 )     ! wet i-mode 3rd moment
+!                 TEMP_DATA( 17 ) = MOMENT3_CONC( 2 )     ! wet j-mode 3rd moment
+!                 TEMP_DATA( 18 ) = MOMENT3_CONC( 3 )     ! wet k-mode 3rd moment
+!                 TEMP_DATA( 20 ) = fPM1( 1 )             ! i-mode PM1 fraction
+!                 TEMP_DATA( 21 ) = fPM1( 2 )             ! j-mode PM1 fraction
+!                 TEMP_DATA( 22 ) = fPM1( 3 )             ! k-mode PM1 fraction
+!                 TEMP_DATA( 23 ) = fPM25( 1 )            ! i-mode fine fraction
+!                 TEMP_DATA( 24 ) = fPM25( 2 )            ! j-mode fine fraction
+!                 TEMP_DATA( 25 ) = fPM25( 3 )            ! k-mode fine fraction
+!                 TEMP_DATA( 26 ) = fPM10( 1 )            ! i-mode PM10 fraction
+!                 TEMP_DATA( 27 ) = fPM10( 2 )            ! j-mode PM10 fraction
+!                 TEMP_DATA( 28 ) = fPM10( 3 )            ! k-mode PM10 fraction
+!                 TEMP_DATA( 29 ) = fAMS( 1 )             ! i-mode fraction transmitted through AMS
+!                 TEMP_DATA( 30 ) = fAMS( 2 )             ! j-mode fraction transmitted through AMS
+!                 TEMP_DATA( 31 ) = fAMS( 3 )             ! k-mode fraction transmitted through AMS
+
+!                 IF ( AERO_CHEM_SET ) THEN
+!                    TEMP_DATA( 32 ) = GAMMA_N2O5IJ( C,R,L ) ! fine N2O5 heterorxn probability
+!                    TEMP_DATA( 33 ) = GAMMA_N2O5K( C,R,L )  ! coarse N2O5 heterorxn probability
+!                    TEMP_DATA( 34 ) = YCLNO2IJ( C,R,L )     ! fine CLNO2 heterorxn yield
+!                    TEMP_DATA( 35 ) = YCLNO2K( C,R,L )      ! coarse CLNO2 heterorxn yield
+!                    TEMP_DATA( 36 ) = GAMMA_IEPOX( C,R,L )  ! IEPOX heterorxn uptake coeff
+!                 ELSE
+!                    TEMP_DATA( 32:36 ) = 0.0
+!                 END IF
+!                 TEMP_DATA( 37 ) = AEROMODE_DENS( 1 )    ! Aitken Mode Density [kg m-3]
+!                 TEMP_DATA( 38 ) = AEROMODE_DENS( 2 )    ! Accumulation Mode Density [kg m-3]
+!                 TEMP_DATA( 39 ) = AEROMODE_DENS( 3 )    ! Coarse Mode Density [kg m3-]
+!                 IF ( NUM_PMDIAG_SPC .GT. 39 ) THEN ! AERO6i
+!                    TEMP_DATA( 40 ) = KPARTIEPOX( C,R,L )  ! Particle-Phase Rxn Rate Constant
+!                    TEMP_DATA( 41 ) = GAMMA_IMAE( C,R,L )  ! IMAE Heterorxn Uptake Coeff
+!                 END IF
+!              END IF
 
 C *** Calculate 2nd and 3rd moments of the "dry" aerosol distribution
 C     NOTE! "dry" aerosol excludes both H2O and SOA  (Jan 2004 --SJR)
 C     EXCEPT!  nonvolatile SOA is part of dry aerosol (Oct 2007 --PVB)
+!              CALL CALCMOMENTS( .FALSE. )
+!              CALL GETPAR( LIMIT_Sg ) ! update AEROMODE_DIAM,DENS,SDEV
 
-C     Aitken mode
-               M3_WET = MOMENT3_CONC( 1 )
-               M3SUBT = ( 1.0E-9 * F6PI / AEROSPC( AH2O_IDX )%DENSITY )
-     &                * AEROSPC_CONC( AH2O_IDX,1 )
-               M3_DRY = M3_WET - M3SUBT
-               M2_WET = MOMENT2_CONC( 1 )
-               M2_DRY = M2_WET * ( M3_DRY / M3_WET ) ** TWOTHIRDS
+!              IF ( PMDIAG .OR. APMDIAG ) THEN
+!                 TEMP_DATA(  1 ) = EXP( AEROMODE_LNSG( 1 ) )
+!                 TEMP_DATA(  2 ) = EXP( AEROMODE_LNSG( 2 ) )
+!                 TEMP_DATA(  3 ) = EXP( AEROMODE_LNSG( 3 ) )
+!                 TEMP_DATA(  4 ) = AEROMODE_DIAM( 1 ) * 1.0E6  ! dry i-mode diam.
+!                 TEMP_DATA(  5 ) = AEROMODE_DIAM( 2 ) * 1.0E6  ! dry j-mode diam.
+!                 TEMP_DATA(  6 ) = AEROMODE_DIAM( 3 ) * 1.0e6  ! dry k-mode diam.
+!                 TEMP_DATA( 13 ) = MOMENT3_CONC( 1 )    ! dry i-mode 3rd moment
+!                 TEMP_DATA( 14 ) = MOMENT3_CONC( 2 )    ! dry j-mode 3rd moment
+!                 TEMP_DATA( 15 ) = MOMENT3_CONC( 3 )    ! dry k-mode 3rd moment
+!                 TEMP_DATA( 19 ) = AIRRH                ! relative humidity
+!              END IF
 
-               MOMENT3_CONC( 1 ) = MAX( CONMIN, M3_DRY )
-               MOMENT2_CONC( 1 ) = MAX( CONMIN, M2_DRY )
+C *** Accumulate wet diameters, 2nd, and 3rd moments to average aerosol diagnostic array
+!              IF ( APMDIAG .AND. L .LE. A_NLAYS ) THEN
+!                 DO V = 1, NUM_PMDIAG_SPC
+!                    IF ( A_PMDIAG_SPC_MAP( V ) .EQ. 1 ) THEN
+!                       A_PMDIAG_SPC( C,R,L,V ) = A_PMDIAG_SPC( C,R,L,V ) + TEMP_DATA( V )
+!                    END IF
+!                 END DO 
+!              END IF
 
-C     accumulation mode
-               M3_WET = MOMENT3_CONC( 2 )
+C *** Write dry aerosol distribution parameters to aerosol diagnostic array
+!              IF ( WRITETIME .AND. PMDIAG ) PMDIAG_SPC( C,R,L,: ) = TEMP_DATA
 
-               M3SUBT = ( 1.0E-9 * F6PI / AEROSPC( AH2O_IDX )%DENSITY )
-     &                * AEROSPC_CONC( AH2O_IDX,2 )
-               DO SPC = 1, N_VAPOR
-                  IF( SOA_AEROMAP( SPC ) .LT. 1 )CYCLE
-                  M3SUBT = M3SUBT
-     &                   + ( 1.0E-9 * F6PI / AEROSPC( APOC_IDX )%DENSITY )
-     &                   * AEROSPC_CONC( SOA_AEROMAP( SPC ),2 )
-               END DO
+#ifdef twoway
+!              IF ( CMAQ_WRF_FEEDBACK ) THEN
+!                 IF ( TIME_TO_CALL_FEEDBACK_WRITE ) THEN
+!                    CALL FEEDBACK_WRITE ( C, R, L, CGRID(C,R,L,:), CGRID(C,R,L,O3),
+!    &                                     aeromode_diam, AEROMODE_LNSG, jdate, jtime)
+!    &                                     JDATE, JTIME )
+!                 END IF
+!              END IF
+#endif
 
-               M3_DRY = M3_WET - M3SUBT
-               M2_WET = MOMENT2_CONC( 2 )
-               M2_DRY = M2_WET * ( M3_DRY / M3_WET ) ** TWOTHIRDS
-
-               MOMENT3_CONC( 2 ) = MAX( CONMIN, M3_DRY )
-               MOMENT2_CONC( 2 ) = MAX( CONMIN, M2_DRY )
-
-C     coarse mode
-               M3_WET = MOMENT3_CONC(3)
-               M3SUBT = ( 1.0E-9 * F6PI / AEROSPC( AH2O_IDX )%DENSITY )
-     &                * AEROSPC_CONC( AH2O_IDX,3 )
-               M3_DRY = M3_WET - M3SUBT
-               M2_WET = MOMENT2_CONC( 3 )
-               M2_DRY = M2_WET * ( M3_DRY / M3_WET ) ** TWOTHIRDS
-
-               MOMENT3_CONC( 3 ) = MAX( CONMIN, M3_DRY )
-               MOMENT2_CONC( 3 ) = MAX( CONMIN, M2_DRY )
-
-C *** Calculate geometric mean diameters and standard deviations of the
-C     "dry" size distribution
-               CALL GETPAR( M3_WET_FLAG, LIMIT_Sg )
-
-!C *** Write dry aerosol distribution parameters to aerosol diagnostic array
-!               IF ( WRITETIME .AND. AERDIAG ) THEN
-!                  DIAM_SPC( C,R, 1 ) = EXP( AEROMODE_SDEV( 1 ) )
-!                  DIAM_SPC( C,R, 2 ) = EXP( AEROMODE_SDEV( 2 ) )
-!                  DIAM_SPC( C,R, 3 ) = EXP( AEROMODE_SDEV( 3 ) )
-!                  DIAM_SPC( C,R, 4 ) = AEROMODE_DIAM( 1 ) * 1.0E6  ! dry i-mode diam.
-!                  DIAM_SPC( C,R, 5 ) = AEROMODE_DIAM( 2 ) * 1.0E6  ! dry j-mode diam.
-!                  DIAM_SPC( C,R, 6 ) = AEROMODE_DIAM( 3 ) * 1.0e6  ! dry k-mode diam.
-!                  DIAM_SPC( C,R,13 ) = MOMENT3_CONC( 1 )    ! dry i-mode 3rd moment
-!                  DIAM_SPC( C,R,14 ) = MOMENT3_CONC( 2 )    ! dry j-mode 3rd moment
-!                  DIAM_SPC( C,R,15 ) = MOMENT3_CONC( 3 )    ! dry k-mode 3rd moment
-!                  DIAM_SPC( C,R,19 ) = AIRRH                ! relative humidity
-!               END IF   ! WRITETIME .AND. AERDIAG
-
-C *** Calculate aerosol surface area from the dry 2nd moment.  Dry value is
-C     used in transport routines.  Put aeroSrf values back to CGRID
-               DO N = 1, N_MODE
-                  V = AEROSRF_MAP( N )
-                  CGRID( C,R,V ) = PI * MOMENT2_CONC( N )
-               END DO
-
-!#ifdef twoway
-!               IF ( CMAQ_WRF_FEEDBACK ) THEN
-!                  IF ( TIME_TO_CALL_FEEDBACK_WRITE ) THEN
-!                     CALL FEEDBACK_WRITE ( C, R, L, CGRID(C,R,L,:), CGRID(C,R,L,O3),
-!!    &                                     aeromode_diam, aeromode_sdev, jdate, jtime)
-!     &                                     JDATE, JTIME )
-!                  END IF
-!               END IF
-!#endif
 
             endif
          enddo
       enddo
 
-!           END DO ! loop on MY_COLS
-!         END DO ! loop on MY_ROWS
-!      END DO ! loop on NLAYS
-
-      IF ( WRITETIME .AND. AOD ) THEN
-         CALL GET_AOD( mrl )
-      END IF
+      IF ( WRITETIME .AND. AOD ) CALL GET_AOD( mrl )
 
 C *** From AEROPROC call to ORGAER...
 !     If ( pfc .gt. 0 ) Then
@@ -636,54 +740,135 @@ C *** From AEROPROC call to ORGAER...
 !     End If
 
 C *** If last call this hour, write visibility information.
-!      IF ( WRITETIME ) THEN
-!         MDATE = JDATE
-!         MTIME = JTIME
-!         CALL NEXTIME ( MDATE, MTIME, TSTEP( 2 ) )
-!         WSTEP = 0
-!         WRITETIME = .FALSE.
-!
-!         IF ( .NOT. WRITE3( CTM_VIS_1, ALLVAR3,
-!     &                      MDATE, MTIME, VIS_SPC ) ) THEN
-!            XMSG = 'Could not write ' // CTM_VIS_1 // ' file'
-!            CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
-!         END IF
-!
-!         WRITE( LOGDEV, '( /5X, 3( A, :, 1X ), I8, ":", I6.6 )' )
-!     &                  'Timestep written to', CTM_VIS_1,
-!     &                  'for date and time', MDATE, MTIME
+!     IF ( WRITETIME ) THEN
+!        MDATE = JDATE
+!        MTIME = JTIME
+!        CALL NEXTIME ( MDATE, MTIME, TSTEP( 2 ) )
+!        WSTEP = 0
+!        WRITETIME = .FALSE.
+
+#ifdef parallel_io
+!        IF ( FIRST_CTM_VIS_1 ) THEN
+!           FIRST_CTM_VIS_1 = .FALSE.
+!           IF ( .NOT. IO_PE_INCLUSIVE ) THEN
+!              IF ( .NOT. OPEN3( CTM_VIS_1, FSREAD3, PNAME ) ) THEN
+!                 XMSG = 'Could not open ' // TRIM( CTM_VIS_1 )
+!                 CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+!              END IF
+!           END IF
+!           IF ( PMDIAG ) THEN
+!              IF ( .NOT. IO_PE_INCLUSIVE ) THEN
+!                 IF ( .NOT. OPEN3( CTM_PMDIAG_1, FSREAD3, PNAME ) ) THEN
+!                    XMSG = 'Could not open ' // TRIM( CTM_PMDIAG_1 )
+!                    CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+!                 END IF
+!              END IF
+!           END IF
+!           IF ( APMDIAG ) THEN
+!              IF ( .NOT. IO_PE_INCLUSIVE ) THEN
+!                 IF ( .NOT. OPEN3( CTM_APMDIAG_1, FSREAD3, PNAME ) ) THEN
+!                    XMSG = 'Could not open ' // TRIM( CTM_APMDIAG_1 )
+!                    CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+!                 END IF
+!              END IF
+!           END IF
+!           IF ( AOD ) THEN
+!              IF ( .NOT. IO_PE_INCLUSIVE ) THEN
+!                 IF ( .NOT. OPEN3( CTM_AOD_1, FSREAD3, PNAME ) ) THEN
+!                    XMSG = 'Could not open ' // TRIM( CTM_AOD_1 )
+!                    CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+!                 END IF
+!              END IF
+!           END IF
+!        END IF
+#endif
+
+!        IF ( .NOT. WRITE3( CTM_VIS_1, ALLVAR3,
+!    &                      MDATE, MTIME, VIS_SPC ) ) THEN
+!           XMSG = 'Could not write ' // CTM_VIS_1 // ' file'
+!           CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
+!        END IF
+!        WRITE( LOGDEV, '( /5X, 3( A, :, 1X ), I8, ":", I6.6 )' )
+!    &                  'Timestep written to', CTM_VIS_1,
+!    &                  'for date and time', MDATE, MTIME
 
 C *** Write data to the aerosol diagnostic file.
-!         IF ( AERDIAG ) THEN
-!
-!            IF ( .NOT. WRITE3( CTM_DIAM_1, ALLVAR3,
-!     &                         MDATE, MTIME, DIAM_SPC ) ) THEN
-!               XMSG = 'Could not write ' // CTM_DIAM_1 // ' file'
-!               CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
-!            END IF
-!
-!            WRITE( LOGDEV, '( /5X, 3( A, :, 1X ), I8, ":", I6.6 )' )
-!     &                     'Timestep written to', CTM_DIAM_1,
-!     &                     'for date and time', MDATE, MTIME
-!
-!         END IF
-     
+!        IF ( PMDIAG ) THEN
+
+!           IF ( .NOT. WRITE3( CTM_PMDIAG_1, ALLVAR3,
+!    &                         MDATE, MTIME, PMDIAG_SPC ) ) THEN
+!              XMSG = 'Could not write ' // CTM_PMDIAG_1 // ' file'
+!              CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
+!           END IF
+
+!           WRITE( LOGDEV, '( /5X, 3( A, :, 1X ), I8, ":", I6.6 )' )
+!    &                     'Timestep written to', CTM_PMDIAG_1,
+!    &                     'for date and time', MDATE, MTIME
+
+!        END IF
+!    
 C *** Write data to the AOD diagnostic file.
-!         IF ( AOD ) THEN
+!        IF ( AOD ) THEN
+
+!           IF ( .NOT. WRITE3( CTM_AOD_1, ALLVAR3,
+!    &                         MDATE, MTIME, AOD_DATA ) ) THEN
+!              XMSG = 'Could not write ' // CTM_AOD_1 // ' file'
+!              CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
+!           END IF
+
+!           WRITE( LOGDEV, '( /5X, 3( A, :, 1X ), I8, ":", I6.6 )' )
+!    &                     'Timestep written to', CTM_AOD_1,
+!    &                     'for date and time', MDATE, MTIME
+
+!        END IF
+
+!        IF ( APMDIAG .OR. AVISDIAG ) THEN
+!           IF ( .NOT. END_TIME ) THEN   ! ending time timestamp
+!              CALL NEXTIME ( MDATE, MTIME, -TSTEP(1) )
+!           END IF
+!        END IF
+
+C *** Write data to the average aerosol diagnostic file.
+!        IF ( APMDIAG ) THEN
+
+!           DO V = 1, NUM_PMDIAG_SPC
 !
-!            IF ( .NOT. WRITE3( CTM_AOD_1, ALLVAR3,
-!     &                         MDATE, MTIME, AOD_DATA ) ) THEN
-!               XMSG = 'Could not write ' // CTM_AOD_1 // ' file'
-!               CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
-!            END IF
-!
-!            WRITE( LOGDEV, '( /5X, 3( A, :, 1X ), I8, ":", I6.6 )' )
-!     &                     'Timestep written to', CTM_AOD_1,
-!     &                     'for date and time', MDATE, MTIME
-!
-!         END IF
-!
-!      END IF
+!              IF ( A_PMDIAG_SPC_MAP( V ) .EQ. 1 ) THEN
+!                 A_PMDIAG_SPC( :,:,:,V ) = A_PMDIAG_SPC( :,:,:,V ) / N_APMDIAG_STEP 
+
+!                 IF ( .NOT. WRITE3( CTM_APMDIAG_1, PMDIAG_SPC_RECORD( V )%SPC_NAME,
+!    &                               MDATE, MTIME, A_PMDIAG_SPC( :,:,:,V ) ) ) THEN
+!                    XMSG = 'Could not write ' // CTM_APMDIAG_1 // ' file'
+!                    CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
+!                 END IF
+!                 A_PMDIAG_SPC( :,:,:,V ) = 0.0
+!              END IF
+!           END DO
+
+!           WRITE( LOGDEV, '( /5X, 3( A, :, 1X ), I8, ":", I6.6 )' )
+!    &                     'Timestep written to', CTM_APMDIAG_1,
+!    &                     'for date and time', MDATE, MTIME
+
+!           N_APMDIAG_STEP = 0
+!        END IF
+!    
+C *** Write data to the average visibility diagnostic file.
+!        IF ( AVISDIAG ) THEN
+!           AVIS_SPC = AVIS_SPC / N_VIS_STEP
+!           IF ( .NOT. WRITE3( CTM_AVIS_1, ALLVAR3,
+!    &                         MDATE, MTIME, AVIS_SPC ) ) THEN
+!              XMSG = 'Could not write ' // CTM_AVIS_1 // ' file'
+!              CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
+!           END IF
+!           N_VIS_STEP = 0 
+!           AVIS_SPC = 0.0
+!        END IF
+
+!        WRITE( LOGDEV, '( /5X, 3( A, :, 1X ), I8, ":", I6.6 )' )
+!    &                  'Timestep written to', CTM_AVIS_1,
+!    &                  'for date and time', MDATE, MTIME
+
+!     END IF   ! WRITETIME
 
       RETURN
       END

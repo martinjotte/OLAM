@@ -111,13 +111,14 @@ C-----------------------------------------------------------------------
       CONTAINS
 
 C///////////////////////////////////////////////////////////////////////
-      SUBROUTINE NEW_OPTICS ( iw, JDATE, JTIME, NLAYS, nlays_model, nlays_chem, 
+      SUBROUTINE NEW_OPTICS ( IW, JDATE, JTIME, NLAYS, nlays_model, nlays_chem,
      &                        BLKTA, BLKPRS, BLKDENS, BLKZH, BLKZF,
      &                        BLKO3, BLKNO2,
      &                        ZSFC, COSZEN, SINZEN, RSQDI,
      &                        NEW_PROFILE, CLOUDS, CLDFRC,
      &                        BLKRJ, TAUC_AERO, TAU_TOT,
-     &                        SSA_AERO, TAU_CLOUD )
+     &                        SSA_AERO, TAU_CLOUD, 
+     &                        tauclds, ssaclds, asmclds )
 C-----------------------------------------------------------------------
 C
 C  FSB  NOTE new call vector <<<<<<<<<<<<< **********
@@ -145,7 +146,6 @@ C-----------------------------------------------------------------------
 
       USE UTILIO_DEFN
       USE RXNS_DATA            ! chemical mechanism data
-!     USE CLOUD_OPTICS         ! data and routines for optics of cloud hydrometeors
       USE AERO_PHOTDATA
 
       IMPLICIT NONE
@@ -185,6 +185,8 @@ C-----------------------------------------------------------------------
       REAL,    INTENT(OUT)   :: SSA_AERO ( : )  ! single scatering albedo for aerosol column
       
 !      REAL, INTENT(INOUT) :: TOTAL_O3_COLUMN  ! total ozone colum density [ DU ]
+
+      real, intent(in) :: tauclds(:,:), ssaclds(:,:), asmclds(:,:)
 
 !***internal
       REAL, PARAMETER :: ONE_OVER_PI = 1.0 / PI 
@@ -293,6 +295,8 @@ C-----------------------------------------------------------------------
       REAL TAU_SCAT_CLD         ! total scattering optical depth of cloud
       REAL LAYERING_FACTOR      ! correction factor for cloud layering
       REAL STOZONE
+
+      real :: dtau_clr, dtau_cld, om_clr, g_clr
 
       LOGICAL, SAVE :: FIRST = .TRUE.  ! Flag for first call
       LOGICAL       :: SUCCESS
@@ -654,63 +658,87 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
 !***  single scattering albedo, asymmetry factor
 !***  and DSDH starting at the top.
 
-            DTAU( L ) = DTSCAT + DTABS
-            OM  ( L ) = DTSCAT / ( DTSCAT + DTABS )
-!           G   ( L ) = ( G_BAR * DTSCAT_A + G_CLOUD * DTSCAT_CLOUD ) / DTSCAT
-            G   ( L ) = ( G_BAR * DTSCAT_A ) / DTSCAT
+!!            DTAU( L ) = DTSCAT + DTABS
+!!            OM  ( L ) = DTSCAT / ( DTSCAT + DTABS )
+!!!           G   ( L ) = ( G_BAR * DTSCAT_A + G_CLOUD * DTSCAT_CLOUD ) / DTSCAT
+!!            G   ( L ) = ( G_BAR * DTSCAT_A ) / DTSCAT
 
-            IF ( G( L ) .GE. 1.0 .OR. G( L ) .LE. -1.0 .OR. G( L ) .NE. G( L ) ) THEN
-               WRITE( NEW_OPTICS_LOG,'(A,ES12.4,A)',ADVANCE = 'NO' )
-     &         'G( L ) = ', G( L ),' resetting to '
-               G( L ) = MIN( 0.9999, MAX( G( L ), -0.9999) )
-               WRITE( NEW_OPTICS_LOG,'(ES12.4)')G( L )
-               WRITE( NEW_OPTICS_LOG,'(A,10(1X,ES12.4))' )
-     &         'DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD, G_BAR, G_CLOUD = ',
-     &          DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD, G_BAR, G_CLOUD
-            END IF
+            dtau_clr = DTSCAT + DTABS
+            om_clr   = DTSCAT / ( DTSCAT + DTABS )
+            g_clr    =  ( G_BAR * DTSCAT_A ) / DTSCAT
 
-            IF ( OM( L ) .GT. 1.0 .OR. OM( L ) .LE. 0.0 .OR. OM( L ) .NE. OM( L ) ) THEN
-               WRITE( NEW_OPTICS_LOG,'(A,ES12.4,A)',ADVANCE = 'NO' )
-     &         'OM( L ) = ', OM( L ),' resetting to '
-               OM( L ) = MIN( 0.9999, MAX( OM( L ), 0.0001) )
-#ifdef phot_debug
-               WRITE( NEW_OPTICS_LOG,'(ES12.4)' ) OM( L )
-               WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
-     &         'DTSCAT, DTABS, ( DTSCAT + DTABS) = ',
-     &         DTSCAT, DTABS, ( DTSCAT + DTABS )
-               WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
-     &         'DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD = ',
-     &         DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD
-               WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
-     &         'DDTABS_M, DTABS_A, MAX(( 1.0-OM_CLOUD ), 0.0) * DT_CLOUD( L ) = ',
-     &         DTABS_M, DTABS_A, MAX(( 1.0 - OM_CLOUD ), 0.0) * DT_CLOUD( L )
-               WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
-     &         ' AO3, ANO2,AERO_BEXT, AERO_BSCAT = ',
-     &         AO3, ANO2,BEXT, BSCAT
-#endif
-            ELSE
-#ifdef phot_debug
-               IF ( OM( L ) .EQ. 1.0 ) THEN
-                  WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
-     &            'DTSCAT, DTABS, ( DTSCAT + DTABS ) = ',
-     &             DTSCAT, DTABS, (DTSCAT + DTABS)
-                  WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
-     &            'DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD = ',
-     &             DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD
-                  WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
-     &            'DDTABS_M, DTABS_A, MAX(( 1.0-OM_CLOUD ), 0.0) * DT_CLOUD( L ) = ',
-     &            DTABS_M, DTABS_A, MAX(( 1.0 - OM_CLOUD ), 0.0 ) * DT_CLOUD( L)
-                  WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
-     &            'AO3, ANO2,AERO_BEXT, AERO_BSCAT = ',
-     &            AO3, ANO2,BEXT, BSCAT
-               END IF
-#endif
-               OM( L ) = MIN( 0.9999,  OM( L ) )
-            END IF
+            ! combine clear sky and cloud properties
+
+            if (cldfrc(ii) > 0.01) then
+
+               dtau_cld = sqrt( cldfrc(ii) ) * tauclds(iwl,ii)
+
+               dtau(l) = dtau_clr + dtau_cld
+               om  (l) = om_clr * dtau_clr + ssaclds(iwl,ii) * dtau_cld
+               g   (l) = ( g_clr * om_clr * dtau_clr 
+     &                 + asmclds(iwl,ii) * ssaclds(iwl,ii) * dtau_cld ) / om(l)
+               om  (l) = om(l) / dtau(l)
+
+            else
+
+               dtau(l) = dtau_clr
+               om  (l) = om_clr
+               g   (l) = g_clr
+
+            endif
+
+!            IF ( G( L ) .GE. 1.0 .OR. G( L ) .LE. -1.0 .OR. G( L ) .NE. G( L ) ) THEN
+!               WRITE( NEW_OPTICS_LOG,'(A,ES12.4,A)',ADVANCE = 'NO' )
+!     &         'G( L ) = ', G( L ),' resetting to '
+!               G( L ) = MIN( 0.9999, MAX( G( L ), -0.9999) )
+!               WRITE( NEW_OPTICS_LOG,'(ES12.4)')G( L )
+!               WRITE( NEW_OPTICS_LOG,'(A,10(1X,ES12.4))' )
+!     &         'DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD, G_BAR, G_CLOUD = ',
+!     &          DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD, G_BAR, G_CLOUD
+!            END IF
+!
+!            IF ( OM( L ) .GT. 1.0 .OR. OM( L ) .LE. 0.0 .OR. OM( L ) .NE. OM( L ) ) THEN
+!               WRITE( NEW_OPTICS_LOG,'(A,ES12.4,A)',ADVANCE = 'NO' )
+!     &         'OM( L ) = ', OM( L ),' resetting to '
+!               OM( L ) = MIN( 0.9999, MAX( OM( L ), 0.0001) )
+!#ifdef phot_debug
+!               WRITE( NEW_OPTICS_LOG,'(ES12.4)' ) OM( L )
+!               WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &         'DTSCAT, DTABS, ( DTSCAT + DTABS) = ',
+!     &         DTSCAT, DTABS, ( DTSCAT + DTABS )
+!               WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &         'DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD = ',
+!     &         DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD
+!               WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &         'DDTABS_M, DTABS_A, MAX(( 1.0-OM_CLOUD ), 0.0) * DT_CLOUD( L ) = ',
+!     &         DTABS_M, DTABS_A, MAX(( 1.0 - OM_CLOUD ), 0.0) * DT_CLOUD( L )
+!               WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &         ' AO3, ANO2,AERO_BEXT, AERO_BSCAT = ',
+!     &         AO3, ANO2,BEXT, BSCAT
+!#endif
+!            ELSE
+!#ifdef phot_debug
+!               IF ( OM( L ) .EQ. 1.0 ) THEN
+!                  WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &            'DTSCAT, DTABS, ( DTSCAT + DTABS ) = ',
+!     &             DTSCAT, DTABS, (DTSCAT + DTABS)
+!                  WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &            'DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD = ',
+!     &             DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD
+!                  WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &            'DDTABS_M, DTABS_A, MAX(( 1.0-OM_CLOUD ), 0.0) * DT_CLOUD( L ) = ',
+!     &            DTABS_M, DTABS_A, MAX(( 1.0 - OM_CLOUD ), 0.0 ) * DT_CLOUD( L)
+!                  WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &            'AO3, ANO2,AERO_BEXT, AERO_BSCAT = ',
+!     &            AO3, ANO2,BEXT, BSCAT
+!               END IF
+!#endif
+!               OM( L ) = MIN( 0.9999,  OM( L ) )
+!            END IF
 
 !            DSDH_TD( L ) = DSDH( L - 1 )
 
-            IF ( ONLY_SOLVE_RAD ) CYCLE
+!           IF ( ONLY_SOLVE_RAD ) CYCLE
 !***FSB get sums of unscaled optical depths
 
             TAU_SCAT( IWL ) = TAU_SCAT ( IWL ) + DTSCAT_A
@@ -838,7 +866,7 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
       TRANSMISSION = ONE_OVER_PI * TRANSMISSION * INSOLATION
 
       IF ( ONLY_SOLVE_RAD ) RETURN 
-               
+
 ! compute photolysis rates
       DO IPHOT = 1, NPHOTAB
          DO IWL = 1, NWL
@@ -1433,19 +1461,16 @@ C-----------------------------------------------------------------------
       REAL( 8 ) :: E1 ( NLEVEL ), E2  ( NLEVEL ), E3   ( NLEVEL ), E4   ( NLEVEL )
       REAL( 8 ) :: CUP( NLEVEL ), CDN ( NLEVEL ), CUPTN( NLEVEL ), CDNTN( NLEVEL )
 
-      REAL( 8 ) :: A( 2.*NLEVEL ), B( 2.*NLEVEL ), D( 2.*NLEVEL ), E( 2.*NLEVEL ), Y( 2.*NLEVEL )
+      REAL( 8 ) :: A( 2*NLEVEL ), B( 2*NLEVEL ), D( 2*NLEVEL ), E( 2*NLEVEL ), Y( 2*NLEVEL )
 
 !***other:
 
       REAL( 8 ) :: GI( NLEVEL ), OMI( NLEVEL ), TEMPG
-      REAL( 8 ) :: PIFS, FDN0
       REAL( 8 ) :: F, G, OM
       REAL( 8 ) :: GAM1, GAM2, GAM3, GAM4
 
       REAL( 8 ) :: EXPON, EXPON0, EXPON1, DIVISR, TEMP, UP, DN
       REAL( 8 ) :: SSFC
-
-      REAL      :: MU1  ! reciprocal of constant from delta_Eddington method
 
       INTEGER   :: ROW
       INTEGER   :: I, J
@@ -1453,55 +1478,44 @@ C-----------------------------------------------------------------------
 
 !***Some additional program constants:
 
-!!!!from above      REAL, PARAMETER :: PI          = 3.1415926535898  ! pi
       REAL( 8 ), PARAMETER :: LARGEST     = 1.0D+36 ! largest machine number
       REAL( 8 ), PARAMETER :: SMALLEST    = 1.0D-36 ! smallest machine number
       REAL( 8 ), PARAMETER :: SQRTLRGST   = 1.0D+18 ! sqrt(largest)
       REAL( 8 ), PARAMETER :: SQRTLRGSTM1 = 1.0D-18 ! 1/sqrt(largest)
       REAL( 8 ), PARAMETER :: EPS         = 1.0D-03
-      REAL( 8 ), PARAMETER :: PRECIS      = ( 1.0D0 - 1.0D-07 )
+      REAL( 8 ), PARAMETER :: PRECIS      = 1.0D0 - 1.0D-07
 
-C-----------------------------------------------------------------------
+      ! boundary conditions:
+      real( 8 ), parameter :: pifs = 1.0d0   ! solar flux is set to unity here
+      real( 8 ), parameter :: fdn0 = 0.0d0   ! no downward diffuse flux
 
-!***boundary conditions:
+      ! reciprocal of constant from delta_Eddington method
+      REAL( 8 ), parameter :: MU1 = 2.0d0   
 
-      PIFS = 1.0D0                ! solar flux is set to unity here.
-      FDN0 = 0.0D0                ! no downward diffuse flux
+!-----------------------------------------------------------------------
 
       NLAYER = NLEVEL - 1
 
-      DO J = 0, nlevel
-         TAUC  ( J ) = 0.0D0
-         TAUSLA( J ) = 0.0D0
-         MU2   ( J ) = SQRTLRGST
-      END DO
+      TAUC  ( 0 ) = 0.0D0
+      TAUSLA( 0 ) = 0.0D0
+      MU2   ( 0 ) = SQRTLRGSTM1
 
 !***scaling for delta-Eddington approximation
-
-!***start diagnostic prinout
-
-      DO I = 1, NLAYER
-         F = REAL( GU(I) * GU(I), 8 )
-         GI  (I) = ( GU(I) - F ) / ( 1.0D0 - F )
-         OMI (I) = ( 1.0D0 - F ) * REAL( OMU(I), 8 ) 
-     &           / ( 1.0D0 - REAL( OMU(I), 8 )  * F )
-         TAUN(I) = ( 1.0D0 - REAL( OMU( I ), 8 ) * F ) 
-     *           *  REAL( TAUU(I), 8)
-      END DO
-
 !***set  tausla to be slant optical path contribution for each layer.
 
       DO I = 1, NLAYER
-         TAUSLA(I) = TAUN(I) * REAL( DSDH(I), 8 )
+         F         = GU(I) * GU(I)
+         GI    (I) = ( GU(I) - F ) / ( 1.0D0 - F )
+         OMI   (I) = ( 1.0D0 - F ) * OMU(I) / ( 1.0D0 - OMU(I) * F )
+         TAUN  (I) = ( 1.0D0 - OMU( I )  * F ) * TAUU(I)
+         TAUSLA(I) = TAUN(I) * DSDH(I)
+         mu2   (i) = max(dsdh(i), sqrtlrgstm1)
       END DO
 
-      TAUC(1)   = TAUN(1)
-
       DO I = 1, NLAYER
-         TAUN(I)   = TAUN(I)
-         TAUSLA(I) = TAUSLA(I-1) + TAUSLA(I) ! NOTE redefinition of tausla
-                                             ! to be a sum over altitude.
-         TAUC(I)   = TAUC(I-1) + TAUN(I)
+         TAUSLA(I) = TAUSLA(I-1) + TAUSLA(I) ! NOTE redefinition of tau
+         TAUC  (I) = TAUC  (I-1) + TAUN  (I) ! to be a sum over altitude.
+      ENDDO
 
 !***FSB calculate MU2(i). This is the substitute for mu ( = 1/ coszen) for the
 !***  pseudo spherical approximation. It is ther ratio of vertical optical
@@ -1518,13 +1532,14 @@ C-----------------------------------------------------------------------
 !         MU2(I) = 1.0D0 / MU2(I)
 !      END DO
 
-         IF ( TAUSLA(I) .EQ. TAUSLA(I-1) ) THEN
-            MU2(I) = SQRTLRGSTM1
-         ELSE
-            MU2(I) =  (TAUSLA(I) - TAUSLA(I-1)) / (TAUC(I) - TAUC(I-1)) 
-            MU2(I) = SIGN( MIN( ABS( MU2(I)), SQRTLRGST ), MU2(I) )
-         END IF
-      END DO
+!         IF ( TAUSLA(I) .EQ. TAUSLA(I-1) ) THEN
+!            MU2(I) = SQRTLRGSTM1
+!         ELSE
+!            MU2(I) =  (TAUSLA(I) - TAUSLA(I-1)) / (TAUC(I) - TAUC(I-1)) 
+!            MU2(I) = SIGN( MIN( ABS( MU2(I)), SQRTLRGST ), MU2(I) )
+!         END IF
+!
+!      END DO
 
 !***compute coefficients for each layer:
 !***  gam1 - gam4 = 2-stream coefficients
@@ -1536,16 +1551,19 @@ C-----------------------------------------------------------------------
 
       DO 11, I = 1, NLAYER
 
-         G = GI(I)
+         G  = GI (I)
          OM = OMI(I)
 
 !***stay away from 1 by precision.  For g, also stay away from -1
 
 !        TEMPG = MIN( ABS( G ), 1.0D0 - PRECIS )
-         TEMPG = MIN( ABS( G ), PRECIS )
-         G = SIGN( TEMPG, G )
+!        TEMPG = MIN( ABS( G ), PRECIS )
+!        G = SIGN( TEMPG, G )
 !        OM = MIN( OM, 1.0D0 - PRECIS )
-         OM = MIN( OM, PRECIS )
+
+         OM = MIN( OM,  PRECIS )
+         g  = min(  g,  precis )
+         g  = max(  g, -precis )
 
 !***calculate the gamma values from line 1 Table 1, page 16,289
 
@@ -1553,25 +1571,24 @@ C-----------------------------------------------------------------------
          GAM2 = -( 1.0D0 - OM * ( 4.0D0 - 3.0D0 * G ) ) * 0.25D0
          GAM3 =  ( 2.0D0 - 3.0D0 * G * MU ) * 0.25D0
          GAM4 =  1.0D0 - GAM3
-         MU1  =  2.0D0
 
 !***lambda = pg 16,290 equation 21
 !***big gamma = pg 16,290 equation 22
 
-         IF ( ABS( GAM2 ) .LE. SMALLEST ) THEN
-            WRITE( NEW_OPTICS_LOG, 2609) I, GI(I), OMI(I), G, OM, GAM1, GAM2
-            WRITE( NEW_OPTICS_LOG, 2610)
-         END IF
+!         IF ( ABS( GAM2 ) .LE. SMALLEST ) THEN
+!            WRITE( NEW_OPTICS_LOG, 2609) I, GI(I), OMI(I), G, OM, GAM1, GAM2
+!            WRITE( NEW_OPTICS_LOG, 2610)
+!         END IF
 
-         IF ( ( GAM1*GAM1 - GAM2*GAM2 ) .LT. 0.0D0 ) THEN
-            WRITE( NEW_OPTICS_LOG, 2609) I, GI(I), OMI(I), G, OM, GAM1, GAM2
-            WRITE( NEW_OPTICS_LOG, 2611)
-         END IF
+!         IF ( ( GAM1*GAM1 - GAM2*GAM2 ) .LT. 0.0D0 ) THEN
+!            WRITE( NEW_OPTICS_LOG, 2609) I, GI(I), OMI(I), G, OM, GAM1, GAM2
+!            WRITE( NEW_OPTICS_LOG, 2611)
+!         END IF
  
-         LAM(I) = SQRT( GAM1*GAM1 - GAM2*GAM2 )
+         LAM(I) = SQRT( max(GAM1*GAM1 - GAM2*GAM2, 0.0) )
 
          IF ( ABS( GAM2 ) .LE. SMALLEST ) THEN 
-!***adjustment based on NCAR TUV model
+            !***adjustment based on NCAR TUV model
             BGAM(I) = 0.0D0
          ELSE
             BGAM(I) = ( GAM1 - LAM(I) ) / GAM2
@@ -1618,7 +1635,7 @@ C-----------------------------------------------------------------------
 !***set up matrix
 !*** ssfc = pg 16,292 equation 37  where pi Fs is one (unity).
 
-      SSFC = REAL( RSFC * MU, 8 ) * EXP( -TAUSLA( NLAYER ) ) * PIFS
+      SSFC = RSFC * MU * EXP( -TAUSLA( NLAYER ) ) * PIFS
 
 !***MROWS = the number of rows in the matrix
 
@@ -1667,7 +1684,7 @@ C-----------------------------------------------------------------------
       A(ROW) = E1(I) - RSFC * E3(I)
       B(ROW) = E2(I) - RSFC * E4(I)
       D(ROW) = 0.0D0
-      E(ROW) = SSFC - CUPTN(I) + REAL( RSFC, 8 ) * CDNTN(I)
+      E(ROW) = SSFC - CUPTN(I) + RSFC * CDNTN(I)
 
 !***solve tri-diagonal matrix:
 
@@ -1682,17 +1699,17 @@ C-----------------------------------------------------------------------
 !***the following equations are from pg 16,291  equations 31 & 32
 
       FDR(LEV) = 1.0    ! this the downward flux at the top of the model
-      EDR(LEV) = MU * REAL( FDR(LEV) )
-      EDN(LEV) = REAL( FDN0 )
-      EUP(LEV) = REAL( Y(ROW) * E3(J) - Y(ROW + 1) * E4(J) + CUP(J) )
+      EDR(LEV) = MU * FDR(LEV)
+      EDN(LEV) = FDN0
+      EUP(LEV) = Y(ROW) * E3(J) - Y(ROW + 1) * E4(J) + CUP(J)
       FDN(LEV) = EDN(LEV) * MU1
       FUP(LEV) = EUP(LEV) * MU1
 
       DO 60, LEV = 2, NLAYER + 1
-         FDR(LEV) = REAL( EXP( -TAUSLA(LEV-1) ) )
+         FDR(LEV) = EXP( -TAUSLA(LEV-1) )
          EDR(LEV) = MU * FDR(LEV)
-         EDN(LEV) = REAL( Y(ROW) * E3(J) + Y(ROW + 1) * E4(J) + CDNTN(J) )
-         EUP(LEV) = REAL( Y(ROW) * E1(J) + Y(ROW + 1) * E2(J) + CUPTN(J) )
+         EDN(LEV) = Y(ROW) * E3(J) + Y(ROW + 1) * E4(J) + CDNTN(J)
+         EUP(LEV) = Y(ROW) * E1(J) + Y(ROW + 1) * E2(J) + CUPTN(J)
          FDN(LEV) = EDN(LEV) * MU1 
          FUP(LEV) = EUP(LEV) * MU1
 
@@ -1700,18 +1717,18 @@ C-----------------------------------------------------------------------
          J = J + 1
  60   CONTINUE
 
-2609  FORMAT(/ 'PHOT_MOD: Instability in Two Stream RadTran Subroutine'
-     &       / 'Layer: I = ', I3
-     &       / 'Asymmetry Factor: GI = ', ES12.4
-     &       / 'Single Scattering Albedo: OMI = ', ES12.4
-     &       / 'SIGN( MIN( ABS( GI ), 1.0 - 1.0E-7), GI ): G = ', ES12.4
-     &       / 'MIN( OMI, 1.0 - 1.0E-7 ): OM = ', ES12.4
-     &       / '0.25*( 7.0 - OM * ( 4.0 + 3.0 * G ) ): GAM1 = ', ES12.4
-     &       / '0.25*( OM * ( 4.0 + 3.0 * G ) - 1.0 ): GAM2 = ', ES12.4  /)
-
-2610  FORMAT(/ 'Setting (GAM1 - SQRT(GAM1**2 - GAM2**2))/GAM2 to zero' /)
-
-2611  FORMAT(/ ' ( GAM1**2 - GAM2**2 ) < 0: NaNs introduced into solution ' /)
+!2609  FORMAT(/ 'PHOT_MOD: Instability in Two Stream RadTran Subroutine'
+!     &       / 'Layer: I = ', I3
+!     &       / 'Asymmetry Factor: GI = ', ES12.4
+!     &       / 'Single Scattering Albedo: OMI = ', ES12.4
+!     &       / 'SIGN( MIN( ABS( GI ), 1.0 - 1.0E-7), GI ): G = ', ES12.4
+!     &       / 'MIN( OMI, 1.0 - 1.0E-7 ): OM = ', ES12.4
+!     &       / '0.25*( 7.0 - OM * ( 4.0 + 3.0 * G ) ): GAM1 = ', ES12.4
+!     &       / '0.25*( OM * ( 4.0 + 3.0 * G ) - 1.0 ): GAM2 = ', ES12.4  /)
+!
+!2610  FORMAT(/ 'Setting (GAM1 - SQRT(GAM1**2 - GAM2**2))/GAM2 to zero' /)
+!
+!2611  FORMAT(/ ' ( GAM1**2 - GAM2**2 ) < 0: NaNs introduced into solution ' /)
 
       RETURN
       END SUBROUTINE TWOSTREAM_S

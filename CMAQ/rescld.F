@@ -310,8 +310,8 @@ C...Initialization
         FINI = AE_STRT - 1 + N_AE_SPC
         DO VAR = STRT, FINI
            SPC = SPC + 1
-           isnum_spc( spc ) = ( INDEX( AE_SPC( SPC ), 'NUM' ) .GT. 0 )
-           issrf_spc( spc ) = ( INDEX( AE_SPC( SPC ), 'SRF' ) .GT. 0 )
+           isnum_spc( var ) = ( INDEX( AE_SPC( SPC ), 'NUM' ) .GT. 0 )
+           issrf_spc( var ) = ( INDEX( AE_SPC( SPC ), 'SRF' ) .GT. 0 )
         ENDDO
 
         ALLOCATE ( TOT_WDEP ( mwa, N_SPC_WDEP+1 ),
@@ -535,7 +535,7 @@ C...  path is >= 10 g/m2
 
 C...loop through layers
 
-         IF ( QCRCOL .GT. 1.e-6 ) THEN
+         IF ( QCRCOL .GT. 1.e-5 ) THEN
 
             ! Diagnose cloud fraction
 
@@ -545,7 +545,7 @@ C...loop through layers
 
 C...Compute cloud quantities
 
-               IF ( ( QC( K ) + QR( K ) ) > 1.e-6 .and. press(k,iw) > 100.d2) THEN
+               IF ( ( QC( K ) + QR( K ) ) >= 1.e-5 .and. press(k,iw) > 100.d2) THEN
 
                   fract = max(frac(k), 0.1)
 
@@ -636,8 +636,8 @@ C...  for aerosols
                   FINI = AE_STRT - 1 + N_AE_SPC
                   DO VAR = STRT, FINI
                      SPC = SPC + 1
-                     IF ( (.not. isnum_spc( spc )) .AND.
-     &                    (.not. issrf_spc( spc )) ) THEN
+                     IF ( (.not. isnum_spc( var )) .AND.
+     &                    (.not. issrf_spc( var )) ) THEN
                         REMOV( VAR ) = REMOV( VAR ) * AE_MOLWT( SPC )
      &                               * M2PHA_OVER_GPKG
                      ELSE

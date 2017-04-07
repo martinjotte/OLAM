@@ -44,17 +44,22 @@ C Fundamental constants
       Real,      Parameter :: pi6 = pi / 6.0
       Real( 8 ), Parameter :: boltzmann = rgasuniv / avo  ! [ J/K ]
 
+      Real,      Parameter :: oneovpi = 1.0 / pi
+      Real,      Parameter :: f6piove9 = 6.0 / pi * 1.0e-9
+
 C Concentration lower limit used for gas species
-      Real,      Parameter :: min_gasconc = 1.0E-30        ! [ ug/m^3 ]
-      Real,      Parameter :: inv_mwair   = 1.0E3 / mwair  ! [ 1/g ]
+      Real,      Parameter :: min_gasconc  = 1.0E-30        ! [ ug/m^3 ]
+      Real,      Parameter :: dmin_gasconc = 1.0D-30        ! [ ug/m^3 ]
+      Real,      Parameter :: inv_mwair    = 1.0E3 / mwair  ! [ 1/g ]
+      Real,      Parameter :: mwairkg      = mwair * 1.e-3
 
 C Meteorological variables (data from MET_CRO_3D file)
       Real :: airtemp      ! air temp [ K ]
       Real :: airpres      ! air pressure [ Pa]
       Real :: airdens      ! air density [ kg/m^3]
       Real :: airRH        ! fractional relative humidity
-      Real :: airQV        ! water vapor mass mixing ratio [ kg_H2O/kg_air ]
-      Real :: H2OsatVP     ! saturation water vapor pressure [ Pa ]
-      Real :: H2OVP        ! ambient water vapor pressure [ Pa ]
+!     Real :: airQV        ! water vapor mass mixing ratio [ kg_H2O/kg_air ]
+!     Real :: H2OsatVP     ! saturation water vapor pressure [ Pa ]
+!     Real :: H2OVP        ! ambient water vapor pressure [ Pa ]
 
       End Module aeromet_data
