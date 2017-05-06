@@ -708,7 +708,10 @@ real    :: dispemb,riemb,rsfc,qrsfc
         ! Loop over precipitation categories
 
         do lcat = 2,ncat
+
            if (k1(lcat) > k2(lcat)) cycle
+           if (k2(lcat) > kw)       cycle
+
            cxnew(kw,lcat) = cxnew(kw,lcat) - volti(kw,iw0) * pcpfluxc(kw-1,lcat) * sea%area(iws)
            rxnew(kw,lcat) = rxnew(kw,lcat) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * sea%area(iws)
            qrnew(kw,lcat) = qrnew(kw,lcat) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * sea%area(iws)
@@ -738,7 +741,10 @@ real    :: dispemb,riemb,rsfc,qrsfc
         ! Loop over precipitation categories
 
         do lcat = 2,ncat
+
            if (k1(lcat) > k2(lcat)) cycle
+           if (k2(lcat) > kw)       cycle
+
            cxnew(kw,lcat) = cxnew(kw,lcat) - volti(kw,iw0) * pcpfluxc(kw-1,lcat) * land%area(iwl)
            rxnew(kw,lcat) = rxnew(kw,lcat) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * land%area(iwl)
            qrnew(kw,lcat) = qrnew(kw,lcat) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * land%area(iwl)
