@@ -148,7 +148,7 @@ subroutine olam_alloc_mpi(mza, mrls)
 
   use mem_ijtabs, only: jtab_v, jtab_w, jtab_m, mloops
   use mem_nudge,  only: jtab_wnud
-  use mem_para,   only: nbytes_int, nbytes_real, nbytes_real8,              &
+  use mem_para,   only: nbytes_int, nbytes_real, nbytes_real8, myrank,      &
                         nrecvs_v,   nrecvs_w,    nrecvs_m,     nrecvs_wnud, &
                         nsends_v,   nsends_w,    nsends_m,     nsends_wnud, &
                         recv_v,     recv_w,      recv_m,       recv_wnud,   &
@@ -179,6 +179,8 @@ subroutine olam_alloc_mpi(mza, mrls)
 
   integer :: nv
   integer :: mrl
+
+  integer, allocatable :: ireqs(:)
 
   integer              :: sbuf(mrls)
   integer, allocatable :: rbuf(:,:)
@@ -376,12 +378,14 @@ subroutine olam_alloc_mpi(mza, mrls)
 
 ! Loop over all V receives for mrl = 1
 
+  allocate( ireqs( max(nrecvs_v(1), nrecvs_w(1), nrecvs_m(1), nrecvs_wnud) ) )
+  ireqs(1:nrecvs_v(1)) = recv_v(1:nrecvs_v(1))%irequest
+
   do jtmp = 1, nrecvs_v(1)
 
 ! Get recv_v buffer sizes from any node
 
-     call MPI_Waitany(nrecvs_v(1), recv_v(1:nrecvs_v(1))%irequest, jrecv, &
-          MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nrecvs_v(1), ireqs, jrecv, MPI_STATUS_IGNORE, ierr)
 
      recv_v(jrecv)%nbytes  = rbuf(1,jrecv)
 
@@ -400,12 +404,13 @@ subroutine olam_alloc_mpi(mza, mrls)
 
 ! Loop over all M receives for mrl = 1
 
+  ireqs(1:nrecvs_m(1)) = recv_m(1:nrecvs_m(1))%irequest
+
   do jtmp = 1, nrecvs_m(1)
 
 ! Get recv_m buffer sizes from any node
 
-     call MPI_Waitany(nrecvs_m(1), recv_m(1:nrecvs_m(1))%irequest, jrecv, &
-          MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nrecvs_m(1), ireqs, jrecv, MPI_STATUS_IGNORE, ierr)
 
      recv_m(jrecv)%nbytes = mrbuf(1,jrecv)
 
@@ -424,12 +429,13 @@ subroutine olam_alloc_mpi(mza, mrls)
 
 ! Loop over all W receives for mrl = 1
 
+  ireqs(1:nrecvs_w(1)) = recv_w(1:nrecvs_w(1))%irequest
+
   do jtmp = 1,nrecvs_w(1)
 
 ! Get recv_w buffer sizes
 
-     call MPI_Waitany(nrecvs_w(1), recv_w(1:nrecvs_w(1))%irequest, jrecv, &
-          MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nrecvs_w(1), ireqs, jrecv, MPI_STATUS_IGNORE, ierr)
 
 ! Allocate recv_w buffers
 
@@ -447,12 +453,13 @@ subroutine olam_alloc_mpi(mza, mrls)
 
 ! Loop over all WNUD receives
 
+  ireqs(1:nrecvs_wnud) = recv_wnud(1:nrecvs_wnud)%irequest
+
   do jtmp = 1,nrecvs_wnud
 
 ! Get recv_wnud buffer sizes
 
-     call MPI_Waitany(nrecvs_wnud, recv_wnud(1:nrecvs_wnud)%irequest, jrecv, &
-          MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nrecvs_wnud, ireqs, jrecv, MPI_STATUS_IGNORE, ierr)
 
 ! Allocate recv_wnud buffers
 
@@ -463,7 +470,6 @@ subroutine olam_alloc_mpi(mza, mrls)
 
 #endif
 
-  return
 end subroutine olam_alloc_mpi
 
 !===============================================================================
@@ -515,6 +521,10 @@ do jsend = 1,nsends_v(mrl)
 
    ipos = 0
 
+   if (send_v(jsend)%nbytes > 0) then
+      call MPI_Wait( send_v(jsend)%irequest, MPI_STATUS_IGNORE, ierr)
+   endif
+
    call MPI_Pack(jtab_v(mloops+jsend)%jend(mrl),1,MPI_INTEGER, &
       send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
@@ -557,7 +567,6 @@ enddo
 
 #endif
 
-return
 end subroutine mpi_send_v
 
 !=============================================================================
@@ -602,6 +611,10 @@ subroutine mpi_send_m(mrl, rvara1, rvara2)
   do jsend = 1, nsends_m(mrl)
 
      ipos = 0
+
+     if (send_m(jsend)%nbytes > 0) then
+        call MPI_Wait( send_m(jsend)%irequest, MPI_STATUS_IGNORE, ierr)
+     endif
 
      call MPI_Pack(jtab_m(mloops+jsend)%jend(mrl),1,MPI_INTEGER, &
           send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
@@ -720,9 +733,13 @@ enddo
 
 ! Now we can actually go on to sending the stuff
 
-do jsend = 1,nsends_w(mrl)
+do jsend = 1, nsends_w(mrl)
 
    ipos = 0
+
+   if (send_w(jsend)%nbytes > 0) then
+      call MPI_Wait( send_w(jsend)%irequest, MPI_STATUS_IGNORE, ierr)
+   endif
 
    call MPI_Pack(jtab_w(mloops+jsend)%jend(mrl),1,MPI_INTEGER, &
       send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
@@ -901,7 +918,6 @@ enddo
 
 #endif
 
-return
 end subroutine mpi_send_w
 
 !=============================================================================
@@ -947,6 +963,10 @@ subroutine mpi_send_wnud(rvara1, rvara2, rvara3, rvara4, rvara5, rvara6)
   do jsend = 1, nsends_wnud
 
      ipos = 0
+
+     if (send_wnud(jsend)%nbytes > 0) then
+        call MPI_Wait( send_wnud(jsend)%irequest, MPI_STATUS_IGNORE, ierr)
+     endif
 
      call MPI_Pack(jtab_wnud(jsend)%jend,1,MPI_INTEGER, &
           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
@@ -1034,15 +1054,17 @@ integer :: nvpts
 integer :: j
 integer :: iv
 integer :: ivglobe
+integer :: ireqs(nrecvs_v(1))
 
 if (mrl < 1) return
 
 !  Now, let's wait on our receives
 
+ireqs(1:nrecvs_v(mrl)) = recv_v(1:nrecvs_v(mrl))%irequest
+
 do jtmp = 1,nrecvs_v(mrl)
 
-   call MPI_Waitany(nrecvs_v(mrl), recv_v(1:nrecvs_v(mrl))%irequest, jrecv, &
-        MPI_STATUS_IGNORE, ierr)
+   call MPI_Waitany(nrecvs_v(mrl), ireqs, jrecv, MPI_STATUS_IGNORE, ierr)
 
 !  We got all our stuff.  Now unpack it into appropriate space.
 
@@ -1084,14 +1106,8 @@ do jtmp = 1,nrecvs_v(mrl)
 
 enddo
 
-! Make sure all of our sends are finished and de-allocated
-
-call MPI_Waitall(nsends_v(mrl), send_v(1:nsends_v(mrl))%irequest, &
-     MPI_STATUSES_IGNORE, ierr)
-
 #endif
 
-return
 end subroutine mpi_recv_v
 
 !=============================================================================
@@ -1123,15 +1139,17 @@ subroutine mpi_recv_m(mrl, rvara1, rvara2)
   integer :: j
   integer :: im
   integer :: imglobe
+  integer :: ireqs(nrecvs_m(1))
 
   if (mrl < 1) return
 
 !  Now, let's wait on our receives
 
+  ireqs(1:nrecvs_m(mrl)) = recv_m(1:nrecvs_m(mrl))%irequest
+
   do jtmp = 1, nrecvs_m(mrl)
 
-     call MPI_Waitany(nrecvs_m(mrl), recv_m(1:nrecvs_m(mrl))%irequest, jrecv, &
-                      MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nrecvs_m(mrl), ireqs, jrecv, MPI_STATUS_IGNORE, ierr)
 
      !  We got all our stuff.  Now unpack it into appropriate space.
      
@@ -1161,11 +1179,6 @@ subroutine mpi_recv_m(mrl, rvara1, rvara2)
      enddo
 
   enddo
-
-! Make sure all of our sends are finished and de-allocated
-
-  call MPI_Waitall(nsends_m(mrl), send_m(1:nsends_m(mrl))%irequest, &
-       MPI_STATUSES_IGNORE, ierr)
 
 #endif
 
@@ -1240,15 +1253,17 @@ integer :: nwpts
 integer :: i, j
 integer :: iw
 integer :: iwglobe
+integer :: ireqs(nrecvs_w(1))
 
 if (mrl < 1) return
 
 !  Now, let's wait on our receives
 
+ireqs(1:nrecvs_w(mrl)) = recv_w(1:nrecvs_w(mrl))%irequest
+
 do jtmp = 1,nrecvs_w(mrl)
 
-   call MPI_Waitany(nrecvs_w(mrl), recv_w(1:nrecvs_w(mrl))%irequest, jrecv, &
-        MPI_STATUS_IGNORE, ierr)
+   call MPI_Waitany(nrecvs_w(mrl), ireqs, jrecv, MPI_STATUS_IGNORE, ierr)
 
 !  We got all our stuff.  Now unpack it into appropriate space.
 
@@ -1425,14 +1440,8 @@ do jtmp = 1,nrecvs_w(mrl)
 
 enddo
 
-! Make sure all of our sends are finished and de-allocated
-
- call MPI_Waitall(nsends_w(mrl), send_w(1:nsends_w(mrl))%irequest, &
-     MPI_STATUSES_IGNORE, ierr)
-
 #endif
 
-return
 end subroutine mpi_recv_w
 
 !=============================================================================
@@ -1536,11 +1545,6 @@ subroutine mpi_recv_wnud(rvara1, rvara2, rvara3, rvara4, rvara5, rvara6)
      enddo
 
   enddo
-
-! Make sure all of our sends are finished and de-allocated
-
-  call MPI_Waitall(nsends_wnud, send_wnud(1:nsends_wnud)%irequest, &
-       MPI_STATUSES_IGNORE, ierr)
 
 #endif
 
