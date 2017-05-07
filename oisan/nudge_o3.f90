@@ -79,9 +79,9 @@ subroutine obs_nudge_o3()
   use mem_nudge,  only: ozone_obsp, ozone_obsf, o3nudflag, tnudi_o3, o3nudpress, io3
   use mem_basic,  only: rho, press
   use mem_grid,   only: mza, lpw
-  use mem_ijtabs, only: istp, jtab_w, mrl_begl, jtw_prog
+  use mem_ijtabs, only: istp, jtab_w, mrl_begl, jtw_prog, itab_w
   use isan_coms,  only: ifgfile, s1900_fg
-  use misc_coms,  only: io6, time8, s1900_sim
+  use misc_coms,  only: io6, time8, s1900_sim, dtlm
   use var_tables, only: scalar_tab
 
   implicit none
@@ -121,6 +121,12 @@ subroutine obs_nudge_o3()
 
         scalar_tab(io3)%var_t(k,iw) = scalar_tab(io3)%var_t(k,iw) + tnudi_o3 * rho(k,iw) * &
              ( (tp * ozone_obsp(k,iw) + tf * ozone_obsf(k,iw)) - scalar_tab(io3)%var_p(k,iw) )
+
+        ! With nudging, scalar mass is no longer conserved. Make sure the long timestep
+        ! tendency does not drive ozone negative when nudging is included:
+
+        scalar_tab(io3)%var_t(k,iw) = max( scalar_tab(io3)%var_t(k,iw), &
+             -0.999 * max(scalar_tab(io3)%var_p(k,iw), 0.0) * real( rho(k,iw) / dtlm(itab_w(iw)%mrlw) ) )
 
      enddo
 

@@ -115,7 +115,7 @@ use mem_nudge, only:   tnudcent,                                       &
 
 use mem_basic,   only: rho, theta, sh_w, vxe, vye, vze
 use mem_grid,    only: mza, mwa, lpw, xew, yew, zew
-use misc_coms,   only: s1900_sim
+use misc_coms,   only: s1900_sim, dtlm
 use mem_ijtabs,  only: istp, itab_w, jtab_w, mrl_begl, jtw_prog
 use consts_coms, only: eradi
 use mem_tend,    only: thilt, sh_wt, vmxet, vmyet, vmzet
@@ -259,6 +259,12 @@ do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
       umzonalt(k)    = tnudirho * (uzonal_obs(k,iw) - uzonal(k))
 
       ummeridt(k)    = tnudirho * (umerid_obs(k,iw) - umerid(k))
+
+      ! With nudging, scalar mass is no longer conserved. Make sure the long timestep
+      ! tendency does not drive humidity negative when nudging is included:
+
+      sh_wt(k,iw) = max( sh_wt(k,iw), &
+           -0.999 * max(sh_w(k,iw), 0.0) * real( rho(k,iw) / dtlm(itab_w(iw)%mrlw) ) )
 
    enddo
 
