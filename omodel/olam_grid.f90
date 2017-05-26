@@ -1228,12 +1228,12 @@ real,    allocatable :: rscr(:,:)
   allocate( grdrad0 (ngrids0, maxngrdll) )
   allocate( grdlat0 (ngrids0, maxngrdll) )
   allocate( grdlon0 (ngrids0, maxngrdll) )
-  allocate( hdz0(ndz0))
-  allocate( dz0 (ndz0))
 
   if (ndz0 > 1) then
-     idims(1) = ndz0
+     allocate( hdz0(ndz0))
+     allocate( dz0 (ndz0))
 
+     idims(1) = ndz0
      call shdf5_irec(ndims, idims, 'HDZ' , rvar1=hdz0)
      call shdf5_irec(ndims, idims, 'DZ'  , rvar1=dz0)
   endif
@@ -1275,10 +1275,12 @@ real,    allocatable :: rscr(:,:)
      enddo
   enddo
 
-  do idz = 1, min(ndz0,ndz)
-     if (abs(hdz0(idz) - hdz(idz)) > 1.e1 ) ierr = 1
-     if (abs(dz0 (idz) - dz (idz)) > 1.e1 ) ierr = 1
-  enddo
+  if (ndz0 > 1 .and. ndz > 1) then
+     do idz = 1, min(ndz0,ndz)
+        if (abs(hdz0(idz) - hdz(idz)) > 1.e1 ) ierr = 1
+        if (abs(dz0 (idz) - dz (idz)) > 1.e1 ) ierr = 1
+     enddo
+  endif
 
   if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
      if (nudflag0 /= nudflag) ierr = 1
@@ -1299,11 +1301,15 @@ real,    allocatable :: rscr(:,:)
      write(io6,*)              'deltax:   ',deltax0  ,deltax
      write(io6,*)              'ndz:      ',ndz0     ,ndz
      write(io6,*) ' '
-     write(io6, '(a,20f10.1)') 'hdz0:     ',hdz0 (1:ndz)
-     write(io6, '(a,20f10.1)') 'hdz:      ',hdz  (1:ndz)
-     write(io6,*) ' '
-     write(io6, '(a,20f10.1)') 'dz0:      ',dz0 (1:ndz)
-     write(io6, '(a,20f10.1)') 'dz:       ',dz  (1:ndz)
+
+     if (ndz0 > 1 .and. ndz > 1) then
+        write(io6, '(a,20f10.1)') 'hdz0:     ',hdz0 (1:ndz)
+        write(io6, '(a,20f10.1)') 'hdz:      ',hdz  (1:ndz)
+        write(io6,*) ' '
+        write(io6, '(a,20f10.1)') 'dz0:      ',dz0 (1:ndz)
+        write(io6, '(a,20f10.1)') 'dz:       ',dz  (1:ndz)
+     endif
+
      write(io6,*) ' '
      write(io6, '(a,20i12)')   'ngrdll0:  ',ngrdll0 (1:ngrids)
      write(io6, '(a,20i12)')   'ngrdll:   ',ngrdll  (1:ngrids)
