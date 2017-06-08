@@ -58,12 +58,12 @@ contains
     use cgrid_conv
     use cgrid_spcs
     use cgrid_defn
+    use mem_para
+    use mem_basic
 
     implicit none
 
     integer, intent(in) :: mrl
-
-    real, parameter :: alpha = 1.1
 
     integer :: j, iw, s, v, n, k
     integer :: astat
@@ -130,8 +130,8 @@ contains
        vsed_ae(:,lpw(iw)-1) = 0.0
 
        do n = 1, n_ae_sed_spc
-          dtmin(n) = alpha * minval( volt(lpw(iw):mza-1,iw) &
-                                   / arw(lpw(iw):mza-1,iw) / vsed_ae(n,lpw(iw):mza-1) )
+          dtmin(n) = minval( volt(lpw(iw):mza-1,iw) &
+                           / arw(lpw(iw):mza-1,iw) / vsed_ae(n,lpw(iw):mza-1) )
        enddo
 
        do k = lpw(iw), mza-1
@@ -260,7 +260,7 @@ contains
 
        pdensac = aeromode_dens( 2 )
        pdensco = aeromode_dens( 3 )
- 
+
        ! Calculate mean free path [ m ]:
 
        xlm = 6.6328e-8 * STDATMPA * airtemp / ( t0 * airpres )

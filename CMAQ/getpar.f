@@ -85,7 +85,7 @@ C Local Variables:
       Real, Parameter :: one3  = 1.0 / 3.0
       Real, Parameter :: dgmin = 1.0E-09   ! minimum particle diameter [ m ]
       Real, Parameter :: densmin = 1.0E03  ! minimum particle density [ kg/m**3 ]
-      real, parameter :: dgmax(n_mode) = def_diam(1:n_mode) * 100.
+      real, parameter :: dgmax(n_mode) = min(def_diam(1:n_mode) * 100., 5.e-6)
       Real, parameter :: minl2sg = Log( min_sigma_g ) ** 2
       Real, parameter :: maxl2sg = Log( max_sigma_g ) ** 2
       Real, parameter :: minel2sg = exp( minl2sg )
