@@ -137,7 +137,7 @@ do k = k1(11),k2(11)
    vapdif(k) = 2.14 * (tair(k) / 273.15) ** 1.94 / press0(k)
    rdynvsci(k) = sqrt(1. / dynvisc(k))
 
-   tref(k,1) = tairc(k) - min(25.,700. * (rhovslair(k) - rhov(k)) * rhoi(k))
+   tref(k,1) = tairstrc(k) - min(25.,700. * (rhovslair(k) - rhovstr(k)) * rhoi(k))
 
    sa(k,2) = thrmcon(k) * sa(k,1)  ! stays the same
    sa(k,3) = thrmcon(k) * (tairstrc(k) * rhoa(k) + sa(k,1) * rhovstr(k))  

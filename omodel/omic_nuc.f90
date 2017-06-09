@@ -1506,6 +1506,8 @@ real :: cactivated, sh_wbc, satenvmax
         cnuc_vc(k) = cactivated * rhoa(k) ! [#/m^3]
         rnuc_vc(k) = max(sh_wbc * rhoa(k), cnuc_vc(k) * emb0(1)) ! [kg_w/m^3]
 
+        rhov(k) = rhov(k) - rnuc_vc(k)
+
         cx(k,1) = cx(k,1) + cnuc_vc(k) ! [#/m^3]  x rhoa
         rx(k,1) = rx(k,1) + rnuc_vc(k) ! [kg/m^3] x rhoa
         qr(k,1) = qr(k,1) + rnuc_vc(k) * (tairc(k) * cliq + alli) ! (x rhoa)
@@ -1558,7 +1560,7 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
   real, intent(in)    :: vap(mza0,ncat)
   real, intent(in)    :: tx (mza0,ncat)
 
-  real, intent(in) :: rhov     (mza0)
+  real, intent(inout) :: rhov  (mza0)
   real, intent(in) :: press0   (mza0)
   real, intent(in) :: dynvisc  (mza0)
   real, intent(in) :: thrmcon  (mza0)
@@ -1588,7 +1590,7 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
   real :: dn1,dn8,fraccld,ridnc,wdnc2,tc,ritc,wtc2, &
           ptotvi,fracifn,cldnuc,cldnucr,rhhz,haznuc, &
           rirhhz,wrhhz2,thz,rithz,wthz2,frachaz,ssi,diagni, &
-          vapnuc,vapnucr,availvap,emb0i3,fac
+          vapnuc,vapnucr,availvap,emb0i3,fac,excessrhov
   real :: con_ifnx_sum
 
   !---> D14 parameters
@@ -1645,6 +1647,28 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
         endif
 
         rnuc_cp_hom(k) = cnuc_cp_hom(k) * emb(k,1) ! x rhoa
+
+        ! Subtract homogeneous freezing number and mass from cloud water
+
+        cx(k,1) = cx(k,1) - cnuc_cp_hom(k) ! x rhoa
+        rx(k,1) = rx(k,1) - rnuc_cp_hom(k) ! x rhoa
+        qr(k,1) = qr(k,1) - rnuc_cp_hom(k) * qx(k,1) ! (x rhoa)
+
+        if (rx(k,1) >= rxmin(1)) qx(k,1) = qr(k,1) / rx(k,1)
+
+        ! Add homogeneous freezing number and mass to pristine ice
+
+        cx(k,3) = cx(k,3) + cnuc_cp_hom(k) ! x rhoa
+        rx(k,3) = rx(k,3) + rnuc_cp_hom(k) ! x rhoa
+        qr(k,3) = qr(k,3) + rnuc_cp_hom(k) * cice * tairc(k) ! (x rhoa)
+
+        if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
+
+        ! (Changes in qr1 and qr3 have different magnitudes; energy difference will be
+        ! accounted for in next theta diagnosis from theta_il and ice/liquid contents.)
+
+        ! if homogeneous freezing has depleted the cloud drops, skip immersion freezing
+        if (rx(k,1) < rxmin(1)) cycle
 
      endif
 
@@ -1722,26 +1746,29 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
 
         cnuc_vp_immers(k) = max(0.,cnuc_vp_immers(k) - cx(k,3)) ! x rhoa
         rnuc_vp_immers(k) = cnuc_vp_immers(k) * emb0(3) ! x rhoa
+
+        ! Prevent heterogeneous nucleation from using up too much available water
+
+        excessrhov = max(rhov(k) - rhovsiair(k), 0.0)
+
+        if (rnuc_vp_immers(k) > excessrhov) then
+           cnuc_vp_immers(k) = excessrhov / emb0(3)
+           rnuc_vp_immers(k) = excessrhov
+        endif
+
+        ! Add heterogeneous freezing number and mass to pristine ice
+
+        cx(k,3) = cx(k,3) + cnuc_vp_immers(k) ! x rhoa
+        rx(k,3) = rx(k,3) + rnuc_vp_immers(k) ! x rhoa
+        qr(k,3) = qr(k,3) + rnuc_vp_immers(k) * cice * tairc(k) ! (x rhoa)
+
+        if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
+
+        ! Subtract heterogeneous freezing mass from water vapor
+        ! to conserver water
+        rhov(k) = rhov(k) - rnuc_vp_immers(k)
+
      endif
-
-     ! Subtract homogeneous freezing number and mass from cloud water
-
-     cx(k,1) = cx(k,1) - cnuc_cp_hom(k) ! x rhoa
-     rx(k,1) = rx(k,1) - rnuc_cp_hom(k) ! x rhoa
-     qr(k,1) = qr(k,1) - rnuc_cp_hom(k) * qx(k,1) ! (x rhoa)
-
-     if (rx(k,1) >= rxmin(1)) qx(k,1) = qr(k,1) / rx(k,1)
-
-     ! Add homogeneous and heterogeneous freezing number and mass to pristine ice
-
-     cx(k,3) = cx(k,3) +  cnuc_cp_hom(k) + cnuc_vp_immers(k) ! x rhoa
-     rx(k,3) = rx(k,3) +  rnuc_cp_hom(k) + rnuc_vp_immers(k) ! x rhoa
-     qr(k,3) = qr(k,3) + (rnuc_cp_hom(k) + rnuc_vp_immers(k)) * cice * tairc(k) ! (x rhoa)
-
-     if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
-
-     ! (Changes in qr1 and qr3 have different magnitudes; energy difference will be
-     ! accounted for in next theta diagnosis from theta_il and ice/liquid contents.)
 
   enddo
 
@@ -1754,7 +1781,7 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
 
      if (rhhz < 0.82 .or. tairc(k) > -35.01) cycle
 
-     rirhhz = min(0.1799,rhhz- 0.82) / drhhz + 1.0
+     rirhhz = min(0.1799,rhhz - 0.82) / drhhz + 1.0
      irhhz = int(rirhhz)
      wrhhz2 = rirhhz - real(irhhz)
 
@@ -1793,16 +1820,28 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
 
      rnuc_vp_haze(k) = cnuc_vp_haze(k) * emb0(3) ! x rhoa
 
+     ! Prevent haze nucleation from using up too much available water
+
+     excessrhov = max(rhov(k) - rhovsiair(k), 0.0)
+
+     if (rnuc_vp_haze(k) > excessrhov) then
+        cnuc_vp_haze(k) = excessrhov / emb0(3)
+        rnuc_vp_haze(k) = excessrhov
+     endif
+
 !--------------- PARCEL EXPTS: turn off hom nuc haze
 !   cnuc_vp_haze(k) = 0.
 !   rnuc_vp_haze(k) = 0.
 !---------------------------------------------------
 
-     rx(k,3) = rx(k,3) +  rnuc_vp_haze(k) + rnuc_vp_immers(k)
-     qr(k,3) = qr(k,3) + (rnuc_vp_haze(k) + rnuc_vp_immers(k)) * cice * tairc(k)
-     cx(k,3) = cx(k,3) +  cnuc_vp_haze(k) + cnuc_vp_immers(k)
+     rx(k,3) = rx(k,3) + rnuc_vp_haze(k)
+     qr(k,3) = qr(k,3) + rnuc_vp_haze(k) * cice * tairc(k)
+     cx(k,3) = cx(k,3) + cnuc_vp_haze(k)
 
      if (rx(k,3) >= rxmin(3)) qx(k,3) = qr(k,3) / rx(k,3)
+
+     ! Subtract haze nucleation mass from water vapor to conserve water
+     rhov(k) = rhov(k) - rnuc_vp_haze(k)
 
   enddo
 
