@@ -39,16 +39,17 @@ subroutine cuparm_driver(rhot)
   use module_cu_tiedtke,only: cuparm_tiedtke
   use module_cu_emanuel,only: cuparm_emanuel
   use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
-                              dtlong, mstp, runtype
+                              dtlong, mstp, runtype, dtlm
   use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
   use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc, &
                               kcutop, kcubot, qwcon, iactcu, cbmf
   use mem_tend,         only: thilt, sh_wt, vmxet, vmyet, vmzet
-  use mem_basic,        only: rho, sh_w, theta, tair
+  use mem_basic,        only: rho, sh_w, theta, tair, thil
   use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
   use oname_coms,       only: nl
   use var_tables,       only: num_cumix
   use consts_coms,      only: alvlocp, r8
+  use olam_mpi_atm,     only: mpi_recv_w, mpi_send_w
 
   implicit none
 
@@ -221,6 +222,8 @@ subroutine cuparm_driver(rhot)
      write(io6, '(A,I0,A,I0,A,F0.3,A,F0.4)') " MAX CONVECTIVE HEATING RATE AT IW=",  &
            iwqmax, " K=", kqmax, " IS ", dthmax*86400., " K/DAY"
 
+     call mpi_send_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, r1dvara1=cbmf)
+
   endif
 
 ! Add current value of convective tendencies to thilt and sh_wt arrays
@@ -239,6 +242,8 @@ subroutine cuparm_driver(rhot)
 
         if (iactcu(iw) /= 1) cycle
 
+        dtlong4 = dtlm(itab_w(iw)%mrlw)
+
         ! Slight adjustment of water vapor tendencies to ensure that
         ! convection does not produce negative sh_w. This may happen
         ! since we usually do not call convection every timestep.
@@ -252,10 +257,10 @@ subroutine cuparm_driver(rhot)
         do k = lpw(iw), mza
 
            if (rtsrc(k,iw) < 0.) then
-              qtest = max(sh_w(k,iw),0.0) * rho(k,iw) + rtsrc(k,iw) * dtlong
+              qtest = max(sh_w(k,iw),0.0) * rho(k,iw) + rtsrc(k,iw) * dtlong4
 
               if (qtest < 0.) then
-                 dq = qtest / dtlong * 1.000001
+                 dq = qtest / dtlong4 * 1.000001
                  rt(k) = rt(k) - dq
                  qadd  = qadd - dq * volt(k,iw)
               endif
@@ -292,12 +297,19 @@ subroutine cuparm_driver(rhot)
 
         ! Now copy the tendencies
 
-        aconpr(iw) = aconpr(iw) + conprr(iw) * dtlong
+        aconpr(iw) = aconpr(iw) + conprr(iw) * dtlong4
 
         do k = lpw(iw), mza
-           thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * theta(k,iw) / tair(k,iw)
+
+           if (tair(k,iw) > 253.) then
+              thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * theta(k,iw) / tair(k,iw)
+           else
+              thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * thil(k,iw) / tair(k,iw)
+           endif
+
            sh_wt(k,iw) = sh_wt(k,iw) + rt(k)
            rhot (k,iw) = rhot (k,iw) + rt(k)
+
         enddo
 
         if (nl%conv_uv_mix > 0) then
@@ -316,6 +328,13 @@ subroutine cuparm_driver(rhot)
 
      enddo
      !$omp end parallel do
+
+  endif
+
+  if ((istp == 1 .and. mod(time_istp8p, confrq) < dtlong) .or. &
+      (istp == 1 .and. mstp == 0 .and. runtype == 'HISTADDGRID')) then
+
+     call mpi_recv_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, r1dvara1=cbmf)
 
   endif
 

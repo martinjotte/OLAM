@@ -657,7 +657,8 @@ subroutine mpi_send_w(mrl, scalars, dvara1, dvara2, svara1,   svara2,  &
                       rvara6,   rvara7,   rvara8,   rvara9,   rvara10, &
                       rvara11,  rvara12,  rvara13,  rvara14,  rvara15, &
                       rvara16,  rvara17,  rvara18,  rvara19,  rvara20, &
-                      r1dvara1, r1dvara2, r1dvara3, r1dvara4, r1dvara5 )
+                      r1dvara1, r1dvara2, r1dvara3, r1dvara4, r1dvara5,&
+                      i1dvara1, i1dvara2, i1dvara3                     )
 
 ! Subroutine to perform a parallel MPI send of a "W group" or "S group"
 ! of field variables
@@ -710,6 +711,10 @@ real, optional, intent(in) :: r1dvara2(mwa)
 real, optional, intent(in) :: r1dvara3(mwa)
 real, optional, intent(in) :: r1dvara4(mwa)
 real, optional, intent(in) :: r1dvara5(mwa)
+
+integer, optional, intent(in) :: i1dvara1(mwa)
+integer, optional, intent(in) :: i1dvara2(mwa)
+integer, optional, intent(in) :: i1dvara3(mwa)
 
 #ifdef OLAM_MPI
 
@@ -896,6 +901,21 @@ do jsend = 1, nsends_w(mrl)
       if (present(r1dvara5)) then
          call MPI_Pack(r1dvara5(iw),1,MPI_REAL, &
          send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(i1dvara1)) then
+         call MPI_Pack(i1dvara1(iw),1,MPI_INTEGER, &
+            send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(i1dvara2)) then
+         call MPI_Pack(i1dvara2(iw),1,MPI_INTEGER, &
+              send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(i1dvara3)) then
+         call MPI_Pack(i1dvara3(iw),1,MPI_INTEGER, &
+              send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
       endif
 
       if (present(scalars)) then
@@ -1191,7 +1211,8 @@ subroutine mpi_recv_w(mrl, scalars, dvara1, dvara2, svara1,   svara2,  &
                       rvara6,   rvara7,   rvara8,   rvara9,   rvara10, &
                       rvara11,  rvara12,  rvara13,  rvara14,  rvara15, &
                       rvara16,  rvara17,  rvara18,  rvara19,  rvara20, &
-                      r1dvara1, r1dvara2, r1dvara3, r1dvara4, r1dvara5 )
+                      r1dvara1, r1dvara2, r1dvara3, r1dvara4, r1dvara5,&
+                      i1dvara1, i1dvara2, i1dvara3                     )
 
 ! Subroutine to perform a parallel MPI receive of a "W group" or "S group"
 ! of field variables
@@ -1244,6 +1265,10 @@ real, optional, intent(inout) :: r1dvara2(mwa)
 real, optional, intent(inout) :: r1dvara3(mwa)
 real, optional, intent(inout) :: r1dvara4(mwa)
 real, optional, intent(inout) :: r1dvara5(mwa)
+
+integer, optional, intent(inout) :: i1dvara1(mwa)
+integer, optional, intent(inout) :: i1dvara2(mwa)
+integer, optional, intent(inout) :: i1dvara3(mwa)
 
 #ifdef OLAM_MPI
 
@@ -1424,6 +1449,21 @@ do jtmp = 1,nrecvs_w(mrl)
       if (present(r1dvara5)) then
          call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
             r1dvara5(iw),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(i1dvara1)) then
+         call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+            i1dvara1(iw),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(i1dvara2)) then
+         call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+            i1dvara2(iw),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(i1dvara3)) then
+         call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+            i1dvara3(iw),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
       endif
 
       if (present(scalars)) then
