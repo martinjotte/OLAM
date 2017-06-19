@@ -144,6 +144,14 @@ end subroutine o_hls
 
 !===============================================================================
 
+subroutine o_gscr(iwk,ic,o_r,o_g,o_b)
+  implicit none
+  integer, intent(in) :: iwk,ic
+  real,    intent(in) :: o_r,o_g,o_b
+end subroutine o_gscr
+
+!===============================================================================
+
 subroutine o_gsplci(i)
   implicit none
   integer, intent(in) :: i

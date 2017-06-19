@@ -38,7 +38,6 @@
 subroutine o_opngks()
 
   use oplot_coms, only: op
-  use misc_coms,  only: iparallel
   use mem_para,   only: myrank
 
   implicit none
@@ -349,6 +348,25 @@ subroutine o_hls(iwk,ic,o_h,o_l,o_s)
   call gscr (iwk,ic,r,g,b)
 
 end subroutine o_hls
+
+!===============================================================================
+
+subroutine o_gscr(iwk,ic,o_r,o_g,o_b)
+
+  implicit none
+
+  integer, intent(in) :: iwk, ic
+  real,    intent(in) :: o_r, o_g, o_b
+
+  real :: r, g, b
+
+  r = o_r
+  g = o_g
+  b = o_b
+
+  call gscr (iwk, ic, r, g, b)
+
+end subroutine o_gscr
 
 !===============================================================================
 
