@@ -45,6 +45,7 @@ Module mem_turb
   real,    allocatable, target :: sfluxr(:)
   real,    allocatable, target :: ustar (:)
   real,    allocatable, target :: wstar (:)
+  real,    allocatable, target :: moli  (:)
   real,    allocatable, target :: wtv0  (:)
   real,    allocatable, target :: pblh  (:)
   integer, allocatable, target :: kpblh (:)
@@ -90,16 +91,17 @@ Contains
     allocate (sfluxr    (mwa)) ; sfluxr    = rinit
     allocate (ustar     (mwa)) ; ustar     = rinit
     allocate (wstar     (mwa)) ; wstar     = rinit
+    allocate (moli      (mwa)) ; moli      = rinit
     allocate (wtv0      (mwa)) ; wtv0      = rinit
     allocate (pblh      (mwa)) ; pblh      = rinit
     allocate (kpblh     (mwa)) ; kpblh     = 1
-    allocate (frac_urb  (mwa)) ; frac_urb  = 0.0 
+    allocate (frac_urb  (mwa)) ; frac_urb  = 0.0
     allocate (frac_land (mwa)) ; frac_land = 0.0
     allocate (frac_lake (mwa)) ; frac_lake = 0.0
     allocate (frac_sea  (mwa)) ; frac_sea  = 0.0
 
-    allocate (akmodx(mza,mva)) ; akmodx    = rinit
-    allocate (akhodx(mza,mva)) ; akhodx    = rinit
+    allocate (akmodx(mza,mva)) ; akmodx    = 0.0
+    allocate (akhodx(mza,mva)) ; akhodx    = 0.0
 
   end subroutine alloc_turb
   
@@ -118,6 +120,7 @@ Contains
     if (allocated(sfluxr))  deallocate (sfluxr)
     if (allocated(ustar))   deallocate (ustar)
     if (allocated(wstar))   deallocate (wstar)
+    if (allocated(moli))    deallocate (moli)
     if (allocated(wtv0))    deallocate (wtv0)
     if (allocated(pblh))    deallocate (pblh)
     if (allocated(kpblh))   deallocate (kpblh)

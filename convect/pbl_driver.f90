@@ -33,39 +33,34 @@
 
 subroutine pbl_driver(mrl,rhot)
 
-  use mem_grid,       only: mza, mwa, lpw, lsw,lpv, arv, volt, volti, dniv, arw0
-  use misc_coms,      only: io6, idiffk, dtlm, iparallel, akmin
+  use mem_grid,       only: mza, mwa, lpw, lsw, volti
+  use misc_coms,      only: idiffk, dtlm
   use mem_tend,       only: thilt, sh_wt
   use mem_basic,      only: vxe, vye, vze, thil, theta, tair, sh_w, sh_v, rho
-  use mem_turb,       only: vkm, vkh, sxfer_tk, sxfer_rk, ustar, wstar, wtv0, &
-                            frac_sfc, pblh, kpblh, fthpbl, fqtpbl, akmodx, akhodx
+  use mem_turb,       only: vkm, vkh, sxfer_rk, ustar, wstar, wtv0, &
+                            frac_sfc, pblh, kpblh, fqtpbl, fthpbl, moli
   use consts_coms,    only: grav, vonk, eps_virt, alvlocp, r8
-  use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog, jtab_v, jtv_wadj, itab_v
+  use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
   use mem_radiate,    only: pbl_cld_forc
-  use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx, acm2
+  use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx, acm2_scalars, acm2_momentum
   use smagorinsky,    only: turb_k
   use mem_micro,      only: sh_c
-  use olam_mpi_atm,   only: mpi_send_w, mpi_recv_w  
-  use obnd,           only: lbcopy_w
 
   implicit none
 
   integer, intent(in)    :: mrl
   real,    intent(inout) :: rhot(mza,mwa)
 
-  integer :: j, k, ka, iw, mrlw, ks, iw1, iw2, iv, km
+  integer :: j, k, ka, iw, mrlw, ks
 
-  real     :: qc  (mza)
-  real     :: thlv(mza)
-  real     :: moli
-  real(r8) :: fact1, fact2
-  real     :: tempm, temph, stab1, stab2, hkm, hkh, dens, bkmin
-  real     :: dtli
+  real    :: qc(mza)
+  real    :: thlv(mza)
+  real    :: dtli
 
 ! Loop over all W/T points where PBL parameterization may be done
 
 !----------------------------------------------------------------------
-  !$omp parallel do private(iw,mrlw,ka,k,qc,thlv,moli)
+  !$omp parallel do private(iw,mrlw,ka,k,qc,thlv)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -74,14 +69,14 @@ subroutine pbl_driver(mrl,rhot)
      mrlw = itab_w(iw)%mrlw
      ka   = lpw(iw)
 
-     ! Save input tendencies of theta and qt for later determining PBL tendencies
+     ! Save input tendencies of thil and qt for later determining PBL tendencies
 
      do k = ka, mza
         fthpbl(k,iw) = thilt(k,iw)
         fqtpbl(k,iw) = sh_wt(k,iw)
      enddo
 
-     ! Define a cloud-water virtual potential temperature for diagnosing buoyancy
+     ! Define a cloud-liquid-water virtual potential temperature for diagnosing buoyancy
 
      if (allocated(sh_c)) then
         do k = ka, mza
@@ -102,21 +97,24 @@ subroutine pbl_driver(mrl,rhot)
                        frac_sfc(:,iw), thlv, vxe(:,iw), vye(:,iw), vze(:,iw), &
                        kpblh(iw), pblh(iw) )
 
+     ! Apply temperature and scalar surface fluxes and emissions
+
+     call apply_surface_fluxes( iw )
+
      ! Select PBL scheme based on MRL of current IW column
 
      if (idiffk(mrlw) == 1) then
 
         ! ACM2 non-local convective tranport scheme
 
-        moli = - grav * vonk * wtv0(iw) / ustar(iw)**3 / thlv(ka)
-
-        call acm2_eddyx( iw, moli, ustar(iw), wstar(iw), pblh(iw), kpblh(iw), &
-                         ka, mza, vkh(:,iw), vkm(:,iw),                       &
+        call acm2_eddyx( iw, moli(iw), ustar(iw), wstar(iw), pblh(iw),        &
+                         kpblh(iw), ka, mza, vkm(:,iw), vkh(:,iw),            &
                          vxe(:,iw), vye(:,iw), vze(:,iw),                     &
                          sh_w(:,iw), sh_v(:,iw), qc, thil(:,iw), theta(:,iw), &
                          thlv, tair(:,iw), pbl_cld_forc(iw), rho(:,iw)        )
 
-        call acm2( iw, moli, ustar(iw), pblh(iw), kpblh(iw), vkh(:,iw), vkm(:,iw) )
+        call acm2_scalars ( iw, moli(iw), pblh(iw), kpblh(iw), vkh(:,iw) )
+        call acm2_momentum( iw, vkm(:,iw) )
 
      else if (idiffk(mrlw) == 2 .or. idiffk(mrlw) == 3) then
 
@@ -126,13 +124,13 @@ subroutine pbl_driver(mrl,rhot)
 
      else
 
-        ! If no PBL diffusion, just apply fluxes
+        ! If no PBL diffusion, just apply momentum fluxes
 
-        call apply_surface_fluxes( iw )
+        call apply_momentum_fluxes( iw )
 
      endif
 
-     ! Add surface vapor flux to total density
+     ! Add surface vapor flux to total density tendency
 
      dtli = 1.0 / dtlm(mrlw)
 
@@ -141,74 +139,90 @@ subroutine pbl_driver(mrl,rhot)
         rhot(k,iw) = rhot(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
      enddo
 
-  enddo
-  !$omp end parallel do
-
-  ! Parallel send of K's
-
-  if (iparallel == 1) then
-     call mpi_send_w(mrl, rvara1=vkm, rvara2=vkh)
-  endif
-
-!----------------------------------------------------------------------
-  !$omp parallel do private(iw,ks,k)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-!----------------------------------------------------------------------
-
-     ! Zero out sxfer arrays now that they have been transferred to the atm
-
-     do ks = 1, lsw(iw)
-        sxfer_tk(ks,iw) = 0.0
-        sxfer_rk(ks,iw) = 0.0
-     enddo
-
-     ! Save PBL tendencies of theta and qt needed by some convective schemes
+     ! Save PBL tendencies of qt needed by some convective schemes
 
      do k = lpw(iw), mza
-        fthpbl(k,iw) = (thilt(k,iw) - fthpbl(k,iw)) / rho(k,iw)
         fqtpbl(k,iw) = (sh_wt(k,iw) - fqtpbl(k,iw)) / rho(k,iw)
+        fthpbl(k,iw) = (thilt(k,iw) - fthpbl(k,iw)) / rho(k,iw)
      enddo
 
   enddo
   !$omp end parallel do
 
-! MPI Recv and LBC copy of K's
+end subroutine pbl_driver
 
-  if (iparallel == 1) then
-     call mpi_recv_w(mrl, rvara1=vkm, rvara2=vkh)
-  endif
-  call lbcopy_w(mrl, a1=vkm, a2=vkh)
 
-! Loop over V columns to compute ARV * K / DX, and make sure
-! horizontal diffusion is stable over the long timestep
+!===============================================================================
 
-!----------------------------------------------------------------------
+
+subroutine comp_horiz_k(mrl)
+
+  use consts_coms, only: r8
+  use mem_grid,    only: arw0, lpv, mza, arv, volt, dniv, zm, zt
+  use misc_coms,   only: dtlm, akmin
+  use mem_ijtabs,  only: jtab_v, jtv_wadj, itab_v, itab_w
+  use mem_turb,    only: vkm, vkh, akmodx, akhodx
+  use mem_basic,   only: rho
+  use mem_cuparm,  only: kcutop, kcubot, cbmf, iactcu
+
+  implicit none
+
+  integer, intent(in) :: mrl
+  integer             :: j, iv, iw1, iw2, k, km
+  real                :: bkmin, dens
+  real                :: hkm, hkh, tempm, temph, stab1, stab2
+  real(r8)            :: fact1, fact2
+  real                :: hcm, hch, hkc1(mza), hkc2(mza), eta
+
+  ! Loop over V columns to compute ARV * K / DX, and make sure
+  ! horizontal diffusion is stable over the long timestep
+
   !$omp parallel do private(iv,iw1,iw2,fact1,fact2,bkmin,k,km,&
   !$                        dens,hkm,hkh,tempm,temph,stab1,stab2)
   do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-!----------------------------------------------------------------------
 
      iw1 = itab_v(iv)%iw(1)
      iw2 = itab_v(iv)%iw(2)
 
-     fact1 = 1.0_r8 / ( dtlm(itab_w(iw1)%mrlw) * itab_w(iw1)%npoly )
-     fact2 = 1.0_r8 / ( dtlm(itab_w(iw2)%mrlw) * itab_w(iw2)%npoly )
+     fact1 = 0.95_r8 / ( dtlm(itab_w(iw1)%mrlw) * itab_w(iw1)%npoly )
+     fact2 = 0.95_r8 / ( dtlm(itab_w(iw2)%mrlw) * itab_w(iw2)%npoly )
 
      bkmin = akmin(itab_v(iv)%mrlv) * .075 * min(arw0(iw1),arw0(iw2)) ** .66666666
 
+     hkc1(:) = 0.0
+     hkc2(:) = 0.0
+
+     if (iactcu(iw1)) then
+        do k = kcubot(iw1), kcutop(iw1)
+           eta = ( zt(k) - zm(kcubot(iw1)-1) ) / ( zm(kcutop(iw1)) - zm(kcubot(iw1)-1) )
+           hkc1(k) = cbmf(iw1) * 2200.0 * eta * (1.0-eta)**2 * rho(k,iw1)
+        enddo
+     endif
+
+     if (iactcu(iw2)) then
+        do k = kcubot(iw2), kcutop(iw2)
+           eta = ( zt(k) - zm(kcubot(iw2)-1) ) / ( zm(kcutop(iw2)) - zm(kcubot(iw2)-1) )
+           hkc2(k) = cbmf(iw2) * 2200.0 * eta * (1.0-eta)**2 * rho(k,iw1)
+        enddo
+     endif
+
      do k = lpv(iv), mza
-        km  = max(k-1, lpv(iv))
+        km = max(k-1, lpv(iv))
 
         dens = 0.5 * (rho(k,iw1) + rho(k,iw2))
 
-        hkm = max(0.25 * (vkm(k,iw1) + vkm(k,iw2) + vkm(km,iw1) + vkm(km,iw2)), bkmin * dens)
-        hkh = max(0.25 * (vkh(k,iw1) + vkh(k,iw2) + vkh(km,iw1) + vkh(km,iw2)), bkmin * dens)
+        hch = 0.5 * ( hkc1(k)+hkc2(k) )
+        hcm = 0.5 * hch
+
+        hkm = max(0.25 * (vkm(k,iw1) + vkm(k,iw2) + vkm(km,iw1) + vkm(km,iw2)) + hcm, bkmin * dens)
+        hkh = max(0.25 * (vkh(k,iw1) + vkh(k,iw2) + vkh(km,iw1) + vkh(km,iw2)) + hch, bkmin * dens)
 
         tempm = dniv(iv) * arv(k,iv) * hkm
         temph = dniv(iv) * arv(k,iv) * hkh
 
         stab1 = rho(k,iw1) * volt(k,iw1) * fact1
         stab2 = rho(k,iw2) * volt(k,iw2) * fact2
+
         akmodx(k,iv) = min( tempm, stab1, stab2 )
         akhodx(k,iv) = min( temph, stab1, stab2 )
      enddo
@@ -216,7 +230,7 @@ subroutine pbl_driver(mrl,rhot)
   enddo
   !$omp end parallel do
 
-end subroutine pbl_driver
+end subroutine comp_horiz_k
 
 !===============================================================================
 
@@ -225,11 +239,11 @@ subroutine pbl_init()
   use mem_grid,      only: lsw, lpw, mza, mwa, arw, arw0, zfacim2
   use mem_ijtabs,    only: jtab_w, jtw_prog, itabg_w
   use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, frac_sfc, &
-                           ustar, wstar, wtv0, pblh, kpblh, fthpbl, fqtpbl
+                           ustar, wstar, wtv0, pblh, kpblh, fthpbl, fqtpbl, moli
   use mem_leaf,      only: land, itab_wl
   use mem_sea,       only: sea, itab_ws
   use mem_basic,     only: vxe, vye, vze, theta, sh_v
-  use misc_coms,     only: io6, isubdomain, runtype, iparallel
+  use misc_coms,     only: isubdomain, runtype, iparallel
   use module_bl_acm2,only: acm2_pblhgt
   use leaf_coms,     only: mwl, isfcl
   use sea_coms,      only: mws
@@ -301,7 +315,7 @@ subroutine pbl_init()
            k  = lpw(iw) + ks - 1
            km = k - 1
            frac_sfc(ks,iw) = &
-                (arw(k,iw) * zfacim2(k) - arw(km,iw) * zfacim2(km)) / arw0(iw)
+                max(arw(k,iw) * zfacim2(k) - arw(km,iw) * zfacim2(km),0.) / arw0(iw)
         enddo
      endif
   enddo
@@ -316,6 +330,7 @@ subroutine pbl_init()
      ustar(iw) = 0.2
      wstar(iw) = 0.0
      wtv0 (iw) = 0.0
+     moli (iw) = 0.0
 
      do k = lpw(iw), mza
         thlv(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw))
@@ -329,6 +344,7 @@ subroutine pbl_init()
 
 end subroutine pbl_init
 
+!===============================================================================
 
 subroutine apply_surface_fluxes( iw )
 
@@ -338,6 +354,8 @@ subroutine apply_surface_fluxes( iw )
   use mem_basic,   only: rho
   use mem_ijtabs,  only: itab_w
   use var_tables,  only: sxfer_map, num_sxfer, emis_map, num_emis, scalar_tab
+  use mem_turb,    only: sxfer_tk
+  use mem_tend,    only: thilt
 
   implicit none
 
@@ -347,7 +365,14 @@ subroutine apply_surface_fluxes( iw )
 
   dtli = 1.0_r8 / dtlm(itab_w(iw)%mrlw)
 
-  ! Apply surface heat and moisture fluxes directly to tendency arrays
+  ! Apply surface heat flux directly to thil tendency
+
+  do ks = 1, lsw(iw)
+     k = lpw(iw) + ks - 1
+     thilt(k,iw) = thilt(k,iw) + dtli * volti(k,iw) * sxfer_tk(ks,iw)
+  enddo
+
+  ! Apply surface moisture and scalar fluxes directly to tendency arrays
 
   if (num_sxfer > 0) then
 
@@ -381,3 +406,36 @@ subroutine apply_surface_fluxes( iw )
   endif
 
 end subroutine apply_surface_fluxes
+
+!===============================================================================
+
+subroutine apply_momentum_fluxes( iw )
+
+  use mem_grid,    only: lpw, lsw, volti, arw, dzim
+  use consts_coms, only: r8
+  use misc_coms,   only: dtlm
+  use mem_tend,    only: vmxet, vmyet, vmzet
+  use mem_basic,   only: vxe, vye, vze
+  use mem_ijtabs,  only: itab_w
+  use mem_turb,    only: vkm_sfc, sxfer_tk
+
+  implicit none
+
+  integer, intent(in) :: iw
+  integer             :: ks, k
+  real(r8)            :: dtli
+  real                :: fact
+
+  dtli = 1.0_r8 / dtlm(itab_w(iw)%mrlw)
+
+  do k = lpw(iw), lpw(iw) + lsw(iw) - 1
+     ks = k - lpw(iw) + 1
+
+     fact = 2.0 * vkm_sfc(ks,iw) * dzim(k-1) * (arw(k,iw) - arw(k-1,iw)) * volti(k,iw)
+
+     vmxet(k,iw) = vmxet(k,iw) - fact * vxe(k,iw)
+     vmyet(k,iw) = vmyet(k,iw) - fact * vye(k,iw)
+     vmzet(k,iw) = vmzet(k,iw) - fact * vze(k,iw)
+  enddo
+
+end subroutine apply_momentum_fluxes

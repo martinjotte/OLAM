@@ -48,7 +48,7 @@ integer :: n
 
 ! Prognostic scalars other than thil
 
-do n = 2, num_scalar
+do n = 1, num_scalar
 
    call latsett(scalar_tab(n)%var_p)
    call botset(scalar_tab(n)%var_p)

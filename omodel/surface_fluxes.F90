@@ -65,7 +65,7 @@ use mem_grid,    only: lsw, lpw, dzt_bot, arw
 use mem_sea,     only: sea, itab_ws
 use mem_leaf,    only: land, itab_wl
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, sxfer_tk, sxfer_rk, &
-                       ustar, wstar, wtv0, pblh
+                       ustar, wstar, wtv0, pblh, moli
 use mem_basic,   only: press, rho, theta, tair, sh_v, vxe, vye, vze
 use mem_micro,   only: sh_c
 use consts_coms, only: grav, p00, rocp, cpi, eps_virt, vonk
@@ -155,11 +155,17 @@ endif
 do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
 !----------------------------------------------------------------------
 
-   vkm_sfc(:,iw) = 0.
    ustar    (iw) = 0.
    wtv0     (iw) = 0.
    sfluxt   (iw) = 0.
    sfluxr   (iw) = 0.
+
+   ! for now, zero out surface transfer arrays at the start
+   ! of each long timestep:
+   vkm_sfc (:,iw) = 0.
+   sxfer_tk(:,iw) = 0.
+   sxfer_rk(:,iw) = 0.
+!  sxfer_ck(:,iw) = 0.  ! placeholder for CO2
 
 enddo
 !$omp end parallel do
@@ -513,6 +519,9 @@ enddo
 do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
    ka = lpw(iw)
+
+   moli(iw) = - grav * vonk * wtv0(iw) /  &
+              ( ustar(iw)**3 * theta(ka,iw) * (1.0 + eps_virt * sh_v(ka,iw)) )
 
    if (wtv0(iw) > 0.0) then
       wstar(iw) = (grav * pblh(iw) * wtv0(iw) / theta(ka,iw)) ** onethird

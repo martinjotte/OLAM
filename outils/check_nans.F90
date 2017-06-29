@@ -81,7 +81,7 @@ subroutine check_pos(icall)
   mrl = mrl_endl(istp)
   if (mrl == 0) return
 
-  do n = 2, num_scalar
+  do n = 1, num_scalar
 
      if (scalar_tab(n)%name == 'Q2') cycle
      if (scalar_tab(n)%name == 'Q6') cycle

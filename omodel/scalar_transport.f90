@@ -30,11 +30,12 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
-  use mem_ijtabs,   only: istp, jtab_v, jtab_w, mrl_endl, itab_v, itab_w, &
-                          jtv_wadj, jtw_prog
-  use mem_grid,     only: mza, mva, mwa, lpv, lpw, arv, arw, volt, volti, &
+subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
+
+  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, &
+                          jtv_wadj, jtw_prog, jtw_wadj
+  use mem_grid,     only: mza, mva, mwa, lpv, lpw, arv, arw, volti, &
                           zwgt_bot, zwgt_top
   use misc_coms,    only: dtlm, iparallel
   use var_tables,   only: num_scalar, scalar_tab
@@ -42,7 +43,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   use mem_basic,    only: rho
   use oname_coms,   only: nl
   use mem_thuburn,  only: comp_cfl1, comp_cfl2, comp_and_apply_monot_limits, &
-                          comp_and_apply_pd_limits, scp_max, scp_min, find_max_min
+                          comp_and_apply_pd_limits
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use obnd,         only: lbcopy_w
   use consts_coms,  only: r8, cice, t00
@@ -54,6 +55,8 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
                           gxyps_scp, gxxps_scp, gyyps_scp, gzzps_scp
   implicit none
 
+  integer, intent(in) :: mrl
+
   real, intent(in) :: vmsc(mza,mva)
   real, intent(in) :: wmsc(mza,mwa)
 
@@ -63,7 +66,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
   real(r8), intent(in) :: rho_old(mza,mwa)
 
-  integer  :: j,iw,iw1,iw2,iwd,mrl
+  integer  :: j,iw,iw1,iw2,iwd
   integer  :: n,k,kb,kd,iv,iwn,jv
   real     :: dirv
 
@@ -94,14 +97,13 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
 ! Return if this is not the end of the long timestep on any MRL
 
-  mrl = mrl_endl(istp)
   if (mrl == 0) return
 
 ! Special for energy microphysics variables
 
   if (firstime) then
      firstime = .false.
-     do n = 2, num_scalar
+     do n = 1, num_scalar
         if (scalar_tab(n)%name == 'Q2') n2 = n
         if (scalar_tab(n)%name == 'Q6') n6 = n
         if (scalar_tab(n)%name == 'Q7') n7 = n
@@ -157,6 +159,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
      vsc  (1:kb-1,iv) = 0.0
      vmsca(1:kb-1,iv) = 0.0
+     scp_upv(1:kb-1,iv) = 0.0
 
   enddo
   !$omp end do
@@ -200,9 +203,7 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   endif
 
 ! LOOP OVER SCALARS HERE
-! (skip n=1 which is THIL and computed elsewhere)
-
-  do n = 2, num_scalar
+  do n = 1, num_scalar
 
 ! Point SCP and SCT to scalar table arrays
 
@@ -219,30 +220,12 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
         endif
      endif
 
-! Evaluate and MPI send scalar lacal max/min
-
-     if (nl%iscal_monot == 1) then
-        call find_max_min(mrl, scp)
-        if (iparallel == 1) then
-           call mpi_send_w(mrl, rvara1=scp_min,  rvara2=scp_max)
-        endif
-     endif
-
 ! Evaluate and MPI send of horizontal gradients of scalar field
 
      if (nl%adv_order <= 2) then
         call grad_t2d  (mrl, scp, gxps_scp, gyps_scp)
      else
         call grad_t2d_3(mrl, scp, gxps_scp, gyps_scp, gxxps_scp, gxyps_scp, gyyps_scp)
-     endif
-
-! MPI recv scalar lacal max/min
-     
-     if (nl%iscal_monot == 1) then
-        if (iparallel == 1) then
-           call mpi_recv_w(mrl, rvara1=scp_min,  rvara2=scp_max)
-        endif
-        call lbcopy_w(mrl, a1=scp_min,  a2=scp_max)
      endif
 
 ! MPI send of SCP gradient components
@@ -299,12 +282,6 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
                             + dzps_w(k,iw) * gzps_scp(kd,iw) + dzzps_w(k,iw) * gzzps_scp(kd,iw)
            endif
 
-           if     (nl%iscal_monot == 1) then
-              scp_upw(k,iw) = max(scp_min(kd,iw), min(scp_upw(k,iw), scp_max(kd,iw)))
-           elseif (nl%iscal_monot == 2) then
-              scp_upw(k,iw) = max(scp_upw(k,iw), 0.0)
-           endif
-
         enddo
      enddo
      !$omp end parallel do
@@ -356,14 +333,9 @@ subroutine scalar_transport(vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
                             + dzps_v(k,iv) * gzps_scp(k,iwd) + dzzps_v(k,iv) * gzzps_scp(k,iwd)
            endif
 
-           if     (nl%iscal_monot == 1) then
-              scp_upv(k,iv) = max(scp_min(k,iwd), min(scp_upv(k,iv), scp_max(k,iwd)))
-           elseif (nl%iscal_monot == 2) then
-              scp_upv(k,iv) = max(scp_upv(k,iv), 0.0)
-           endif
-
         enddo
      enddo
+     !$omp end parallel do
 
 ! Compute the monotonic or positive-definite flux limiters and then apply them
 
@@ -1326,60 +1298,129 @@ endif
 return
 end subroutine timeavg_momsc
 
+!===========================================================================
 
+subroutine scalar_hdiff_split(mrl, rho_old)
 
-subroutine scalar_hdiff_split(mrl)
-
-  use mem_grid,   only: mza, volti, lpw, lpv
+  use mem_grid,   only: mza, mwa, volti, lpw
   use mem_turb,   only: akhodx
-  use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
+  use mem_ijtabs, only: jtab_w, jtw_prog, jtw_wadj, itab_w
   use var_tables, only: num_scalar, scalar_tab
-  use misc_coms,  only: idiffk
+  use misc_coms,  only: dtlm
+  use olam_mpi_atm,only: mpi_recv_w, mpi_send_w
+  use consts_coms, only: r8
 
   implicit none
 
   integer,  intent(in) :: mrl
-  real                 :: hflux(mza)
-  integer              :: n, j, iw, kb, mrlw, jv, iv, iwn, k
+  real(r8), intent(in) :: rho_old(mza,mwa)
+
+  integer              :: n, j, iw, k
+  real                 :: scp2(mza,mwa)
+  real                 :: dtorho(mza,mwa)
+
+  integer :: iw1, iw2, iw3, iw4, iw5, iw6, iw7
+  integer :: iv1, iv2, iv3, iv4, iv5, iv6, iv7
+
 
   if (mrl > 0) then
 
-     ! Skip n=1 which is THIL and computed elsewhere
+     do n = 1, num_scalar
 
-     !$omp parallel do collapse(2) private(n,j,iw,kb,mrlw,hflux,jv,iv,iwn,k)
-     do n = 2, num_scalar
+        if (n == 1) then
+           call mpi_send_w(mrl, rvara2=scalar_tab(n)%var_t)
 
-        do j = 1,jtab_w(jtw_prog)%jend(mrl)
-           
-           iw   = jtab_w(jtw_prog)%iw(j)
-           kb   = lpw(iw)
-           mrlw = itab_w(iw)%mrlw
+           !$omp parallel do private(iw,k)
+           do j = 1,jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
+              do k = lpw(iw), mza
+                 dtorho(k,iw) = dtlm(itab_w(iw)%mrlw) / rho_old(k,iw)
+              enddo
+           enddo
+           !$omp end parallel
 
-           if (idiffk(mrlw) < 1) cycle
+        endif
 
-           ! Loop over neighbor V points of this W cell
+        call mpi_recv_w(mrl, rvara2=scalar_tab(n)%var_t)
+        if (n < num_scalar) call mpi_send_w(mrl, rvara2=scalar_tab(n+1)%var_t)
 
-           hflux(kb:mza) = 0.
+        !$omp parallel do private(iw,k)
+        do j = 1,jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
+           do k = lpw(iw), mza
+              scp2(k,iw) = scalar_tab(n)%var_p(k,iw) + dtorho(k,iw) * scalar_tab(n)%var_t(k,iw)
+           enddo
+           do k = 2, lpw(iw)-1
+              scp2(k,iw) = scp2(lpw(iw),iw)
+           enddo
+        enddo
 
-           do jv = 1, itab_w(iw)%npoly
+        !$omp parallel do private( iw,k,iw1,iw2,iw3,iw4,iw5,iw6,iw7,&
+        !$omp                           iv1,iv2,iv3,iv4,iv5,iv6,iv7 )
+        !%omp                     
+        do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-              iv  = itab_w(iw)%iv(jv)
-              iwn = itab_w(iw)%iw(jv)
+           iw1 = itab_w(iw)%iw(1)
+           iw2 = itab_w(iw)%iw(2)
+           iw3 = itab_w(iw)%iw(3)
+           iw4 = itab_w(iw)%iw(4)
+           iw5 = itab_w(iw)%iw(5)
 
-              ! Horizontal diffusive fluxes
-              do k = lpv(iv), mza
-                 hflux(k) = hflux(k) + akhodx(k,iv) * (scalar_tab(n)%var_p(k,iwn) - scalar_tab(n)%var_p(k,iw))
+           iv1 = itab_w(iw)%iv(1)
+           iv2 = itab_w(iw)%iv(2)
+           iv3 = itab_w(iw)%iv(3)
+           iv4 = itab_w(iw)%iv(4)
+           iv5 = itab_w(iw)%iv(5)
+
+           if (itab_w(iw)%npoly == 5) then
+
+              do k = lpw(iw), mza
+                 scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) + volti(k,iw) * ( &
+                            akhodx(k,iv1) * (scp2(k,iw1) - scp2(k,iw)) &
+                          + akhodx(k,iv2) * (scp2(k,iw2) - scp2(k,iw)) &
+                          + akhodx(k,iv3) * (scp2(k,iw3) - scp2(k,iw)) &
+                          + akhodx(k,iv4) * (scp2(k,iw4) - scp2(k,iw)) &
+                          + akhodx(k,iv5) * (scp2(k,iw5) - scp2(k,iw)) )
               enddo
 
-           enddo
+           elseif (itab_w(iw)%npoly == 6) then
 
-           do k = kb,mza
-              scalar_tab(n)%var_t(k,iw) = volti(k,iw) * hflux(k)
-           enddo
+              iw6 = itab_w(iw)%iw(6)
+              iv6 = itab_w(iw)%iv(6)
+
+              do k = lpw(iw), mza
+                 scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) + volti(k,iw) * ( &
+                            akhodx(k,iv1) * (scp2(k,iw1) - scp2(k,iw)) &
+                          + akhodx(k,iv2) * (scp2(k,iw2) - scp2(k,iw)) &
+                          + akhodx(k,iv3) * (scp2(k,iw3) - scp2(k,iw)) &
+                          + akhodx(k,iv4) * (scp2(k,iw4) - scp2(k,iw)) &
+                          + akhodx(k,iv5) * (scp2(k,iw5) - scp2(k,iw)) &
+                          + akhodx(k,iv6) * (scp2(k,iw6) - scp2(k,iw)) )
+              enddo
+
+           elseif (itab_w(iw)%npoly == 7) then
+
+              iw6 = itab_w(iw)%iw(6)
+              iw7 = itab_w(iw)%iw(7)
+
+              iv6 = itab_w(iw)%iv(6)
+              iv7 = itab_w(iw)%iv(7)
+
+              do k = lpw(iw), mza
+                 scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) + volti(k,iw) * ( &
+                            akhodx(k,iv1) * (scp2(k,iw1) - scp2(k,iw)) &
+                          + akhodx(k,iv2) * (scp2(k,iw2) - scp2(k,iw)) &
+                          + akhodx(k,iv3) * (scp2(k,iw3) - scp2(k,iw)) &
+                          + akhodx(k,iv4) * (scp2(k,iw4) - scp2(k,iw)) &
+                          + akhodx(k,iv5) * (scp2(k,iw5) - scp2(k,iw)) &
+                          + akhodx(k,iv6) * (scp2(k,iw6) - scp2(k,iw)) &
+                          + akhodx(k,iv7) * (scp2(k,iw7) - scp2(k,iw)) )
+              enddo
+
+           endif
 
         enddo
+        !$omp end parallel do
+
      enddo
-     !$omp end parallel do
 
   endif
 

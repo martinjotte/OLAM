@@ -51,14 +51,12 @@ contains
     use mem_ijtabs,  only: itab_w
     use mem_grid,    only: mza, lpv, lpw, dzim, zm, volt, arw, lsw, volti
     use misc_coms,   only: io6, idiffk, csx, csz, dtlm
-    use mem_basic,   only: rho, vxe, vye, vze
+    use mem_basic,   only: rho, vxe, vye, vze, thil
     use consts_coms, only: vonk, grav2
     use mem_grid,    only: mza, lpw, arw0, dzm, dzim, zm
-    use mem_tend,    only: vmxet, vmyet, vmzet
-    use var_tables,  only: num_scalar, scalar_tab, sxfer_map, num_sxfer, &
-                           emis_map, num_emis
+    use mem_tend,    only: vmxet, vmyet, vmzet, thilt
+    use var_tables,  only: num_scalar, scalar_tab
     use tridiag,     only: tridv
-    use oname_coms,  only: nl
 
     implicit none
 
@@ -82,7 +80,7 @@ contains
     real :: akodz(mza), dtomass(mza)
     real :: vctr3(mza),vctr5(mza),vctr6(mza),vctr7(mza)
 
-    real :: rhs(mza,max(3,num_scalar)), soln(mza,max(3,num_scalar))
+    real :: rhs(mza,max(3,num_scalar+1)), soln(mza,max(3,num_scalar+1))
     real :: del_scp(mza), varp(mza)
     real :: vctr2(mza,3)
 
@@ -349,84 +347,33 @@ contains
        vctr6(k) = 1. - vctr5(k) - vctr7(k)
     enddo
 
-    if (nl%split_scalars > 0) then
-
-       do n = 1, num_scalar
-          do k = ka, mza
-             varp(k) = scalar_tab(n)%var_p(k,iw) + dtl * scalar_tab(n)%var_t(k,iw) / rho(k,iw)
-          enddo
-          do k = ka, mza-1
-             rhs(k,n) = akodz(k) * (varp(k) - varp(k+1))
-          enddo
+    do n = 1, num_scalar
+       do k = ka, mza
+          varp(k) = scalar_tab(n)%var_p(k,iw) + dtl * scalar_tab(n)%var_t(k,iw) / rho(k,iw)
        enddo
-
-    else
-
-       do n = 1, num_scalar
-          do k = ka, mza-1
-             rhs(k,n) = akodz(k) * (scalar_tab(n)%var_p(k,iw) - scalar_tab(n)%var_p(k+1,iw))
-          enddo
-       enddo
-
-    endif
-
-    ! APPLY SURFACE HEAT AND MOISTURE FLUXES DIRECTLY TO TENDENCY ARRAYS, AND
-    ! INCLUDE THE CHANGES IN THE FUTURE FLUXES DUE TO SURFACE TRANSFER
-
-    do ns = 1, num_sxfer
-       n = sxfer_map(ns)
-
-       do ks = 1, lsw(iw)
-          k = ka + ks - 1
-
-          scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                    + dtli * volti(k,iw) * scalar_tab(n)%sxfer(ks,iw)
-
-          del_scp(k) = scalar_tab(n)%sxfer(ks,iw) / (rho(k,iw) * volt(k,iw))
-       enddo
-
-       del_scp(ka+lsw(iw)) = 0.0
-    
-       do ks = 1, lsw(iw)
-          k = ka + ks - 1
-          rhs(k,n) = rhs(k,n) + akodz(k) * (del_scp(k) - del_scp(k+1))
+       do k = ka, mza-1
+          rhs(k,n) = akodz(k) * (varp(k) - varp(k+1))
        enddo
     enddo
 
-    ! APPLY EMISSIONS DIRECTLY TO THE TENDENCY ARRAYS, AND
-    ! INCLUDE THE CHANGES IN THE FUTURE FLUXES DUE TO EMISSIONS
-    ! (emis units are concentration / sec )
-
-    if (num_emis > 0) then
-
-       do ns = 1, num_emis
-          n = emis_map(ns)
-
-          do k = ka, mza-1
-             scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                       + rho(k,iw) * scalar_tab(n)%emis(k,iw)
-
-             del_scp(k) = scalar_tab(n)%emis(k,iw) * dtl
-          enddo
-          
-          del_scp(mza) = 0.0
-    
-          do k = ka, mza-1
-             rhs(k,n) = rhs(k,n) + akodz(k) * (del_scp(k) - del_scp(k+1))
-          enddo
-       enddo
-    endif
+    n = num_scalar + 1
+    do k = ka, mza
+       varp(k) = thil(k,iw) + dtl * thilt(k,iw) / rho(k,iw)
+    enddo
+    do k = ka, mza-1
+       rhs(k,n) = akodz(k) * (varp(k) - varp(k+1))
+    enddo
 
     ! Solve tri-diagonal matrix equation
 
     if (ka <= mza-1) then
-       call tridv( vctr5, vctr6, vctr7, rhs, soln, ka, mza-1, mza, num_scalar )
+       call tridv( vctr5, vctr6, vctr7, rhs, soln, ka, mza-1, mza, num_scalar+1 )
     endif
 
     ! Set bottom and top vertical internal turbulent fluxes to zero
 
-    soln( ka-1, 1:num_scalar) = 0.0
-    soln(mza  , 1:num_scalar) = 0.0
+    soln( ka-1, 1:num_scalar+1) = 0.0
+    soln(mza  , 1:num_scalar+1) = 0.0
 
     ! Vertical loop over T levels
 
@@ -435,6 +382,11 @@ contains
           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
                                     + volti(k,iw) * (soln(k-1,n) - soln(k,n))
        enddo
+    enddo
+
+    n = num_scalar + 1
+    do k = ka, mza
+       thilt(k,iw) = thilt(k,iw) + volti(k,iw) * (soln(k-1,n) - soln(k,n))
     enddo
 
   end subroutine turb_k

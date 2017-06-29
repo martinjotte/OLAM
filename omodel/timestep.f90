@@ -32,16 +32,15 @@
 !===============================================================================
 subroutine timestep()
 
-use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, time_bias, &
-                       idiffk, nqparm, initial, ilwrtyp, iswrtyp, dtsm, dtlm, &
+use misc_coms,   only: io6, time8, time_istp8, time_istp8p, time_bias, &
+                       nqparm, initial, ilwrtyp, iswrtyp, dtsm, dtlm, &
                        iparallel, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag, io3
-use mem_grid,    only: mza, mva, mwa, nsw_max
+use mem_grid,    only: mza, mva, mwa
 use micro_coms,  only: miclevel
 use leaf_coms,   only: isfcl
-use mem_para,    only: myrank
-use mem_basic,   only: vmc, vc, vxe, vye, vze, vxe2, vye2, vze2, thil, rho, wmc, wc
+use mem_basic,   only: vmc, vc, vxe, vye, vze, thil, rho, wmc, wc
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 use var_tables,  only: nvar_par, vtab_r, nptonv
 use obnd,        only: trsets, lbcopy_v, lbcopy_w, botset, latsett
@@ -55,6 +54,7 @@ use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
 use wrtv_mem,    only: prog_wrtv
+use mem_turb,    only: vkm, vkh
 
 implicit none
 
@@ -118,22 +118,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call radiate()
    endif
 
-   ! call check_nans(3)
-
-   mrl = mrl_begl(istp)
-   if (mrl > 0) then
-      if (do_chem == 1) then
-         call get_emis ( mrl )
-         call get_depv ( mrl )
-      endif
-      call pbl_driver(mrl,rhot)
-      if (isfcl == 1) call lateral_friction(mrl)
-   endif
-
-   ! call check_nans(5)
-
-   call zero_momsc(vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
-
    ! Compute nudging tendencies
 
    if (initial == 2 .and. nudflag == 1) then
@@ -144,24 +128,45 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       endif
    endif
 
-   ! Nudging of ozone if it is a variable in the scalar table
+   ! Nudging of ozone if it is in the scalar table
 
    if (initial == 2 .and. o3nudflag == 1 .and. io3 > 0) then
       call obs_nudge_o3()
    endif
 
-   ! call check_nans(10)
+   ! Long timestep PBL tendencies (computation of K's, scalar diffusion, 
+   ! CMAQ emissions and deposition, and lateral friction with shaved cells)
 
-   mrl = mrl_ends(istp)
-   if (nl%split_scalars > 0 .and. mrl > 0) then
-      call split_thil(mrl)
-      call botset(thil)
-      if (iparallel == 1) then
-         call mpi_send_w(mrl, rvara1=thil)
-         call mpi_recv_w(mrl, rvara1=thil)
+   mrl = mrl_begl(istp)
+   if (mrl > 0) then
+
+      if (do_chem == 1) then
+         call get_emis ( mrl )
+         call get_depv ( mrl )
       endif
-      call lbcopy_w(mrl, a1=thil)
+
+      call pbl_driver(mrl,rhot)
+
+      ! MPI send of computed K's
+      if (iparallel == 1) then
+         call mpi_send_w(mrl, rvara1=vkm, rvara2=vkh)
+      endif
+
+      if (isfcl == 1) call lateral_friction(mrl)
+
+      ! MPI recv of computed K's
+      if (iparallel == 1) then
+         call mpi_recv_w(mrl, rvara1=vkm, rvara2=vkh)
+      endif
+      call lbcopy_w(mrl, a1=vkm, a2=vkh)
+
+      call comp_horiz_k(mrl)
+
    endif
+
+   ! call check_nans(5)
+
+   call zero_momsc(vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
 
    ! call check_nans(11)
 
@@ -172,7 +177,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    mrl = mrl_endl(istp)
    if (nl%split_scalars > 0 .and. mrl > 0) then
       call predtr_split(mrl,rho_old)
-      do n = 2, num_scalar
+      do n = 1, num_scalar
          call latsett(scalar_tab(n)%var_p)
          call botset (scalar_tab(n)%var_p)
       enddo
@@ -189,33 +194,16 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')
    endif
 
-   if (mrl_endl(istp) > 0) then
-      call scalar_transport(vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
+   mrl = mrl_endl(istp)
+   if (mrl > 0) then
+      call scalar_transport(mrl,vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
+      if (nl%split_scalars > 0) call scalar_hdiff_split(mrl, rho_old)
    endif
 
    ! call check_nans(14)
 
    call predtr(rho_old)
 
-   if (any( idiffk(1:mrls) > 0 )) then
-      if (nl%split_scalars > 0 .and. mrl > 0) then
-      
-         if (iparallel == 1) call mpi_send_w(mrl, scalars='S')
-         if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')
-
-         do n = 2, num_scalar
-            call latsett(scalar_tab(n)%var_p)
-            call botset (scalar_tab(n)%var_p)
-         enddo
-
-         call scalar_hdiff_split(mrl)
-         call predtr_split(mrl,rho)
-      endif
-   endif
-
-   ! if (mrl_endl(istp) > 0) then
-   !    call check_pos(2)
-   ! endif
 
    ! call check_nans(15)
 
@@ -364,7 +352,7 @@ subroutine modsched()
 use mem_ijtabs, only: nstp, mrls,  &
                       mrl_endl, mrl_ends, mrl_begl, mrl_begs, leafstep
 
-use misc_coms,  only: io6, nacoust, ndtrat, dtlm, dtlong, dtsm, nqparm
+use misc_coms,  only: io6, nacoust, ndtrat, dtlm, dtlong, dtsm
 use leaf_coms,  only: dt_leaf, mrl_leaf, isfcl
 use sea_coms,   only: dt_sea
 use consts_coms,only: r8
@@ -488,28 +476,30 @@ end subroutine modsched
 
 subroutine tend0(rhot)
 
-use mem_ijtabs, only: jtab_w, jtab_v, istp, mrl_begl, jtv_wstn, jtw_wstn
+use mem_ijtabs, only: jtab_w, istp, mrl_begl, jtv_wstn, jtw_wstn
 use var_tables, only: scalar_tab, num_scalar
-use mem_grid,   only: mza, mwa, mva, lpv, lpw
+use mem_grid,   only: mza, mwa, lpw
 use mem_tend,   only: thilt, vmxet, vmyet, vmzet
-use misc_coms,  only: io6
 
 implicit none
 
 real, intent(inout) :: rhot(mza,mwa)
 
-integer :: n,mrl,j,k,iw,iv
+integer :: n,mrl,j,k,iw
 
 ! SET SCALAR TENDENCIES TO ZERO
 
 mrl = mrl_begl(istp)
 
 if (mrl > 0) then
+
+   call tnd0( thilt)
+   call tnd0( rhot )
+
    do n = 1,num_scalar
       call tnd0(scalar_tab(n)%var_t)
    enddo
 
-   call tnd0(rhot)
 endif
 
 ! SET W AND EARTH-CARTESIAN MOMENTUM TENDENCIES TO ZERO
@@ -537,7 +527,6 @@ subroutine tnd0(vart)
 
 use mem_ijtabs, only: jtab_w, istp, mrl_begl, jtw_wstn
 use mem_grid,   only: mza, mwa, lpw
-use misc_coms,  only: io6
 
 implicit none
 
@@ -566,15 +555,18 @@ end subroutine tnd0
 subroutine predtr(rho_old)
 
 use var_tables, only: num_scalar, scalar_tab
-use mem_ijtabs, only: istp, mrl_endl
-use mem_grid,   only: mza, mwa
-use misc_coms,  only: io6
+use mem_ijtabs, only: istp, mrl_endl, jtab_w, itab_w, jtw_prog
+use mem_grid,   only: mza, mwa, lpw
+use misc_coms,  only: dtlm
+use consts_coms,only: r8
+use mem_basic,  only: rho
 
 implicit none
 
-real(kind=8), intent(in) :: rho_old(mza,mwa)
+real(r8), intent(in) :: rho_old(mza,mwa)
 
-integer :: n,mrl
+integer :: n,iw,j,k,mrl
+real    :: dtl
 
 !   -  Step thermodynamic variables from  t  to  t+1.
 !   -  Set top, lateral and bottom boundary conditions on some variables
@@ -590,52 +582,23 @@ integer :: n,mrl
 mrl = mrl_endl(istp)
 if (mrl > 0) then
 
-   ! Skip n=1 which is THIL and computed elsewhere
+   !$omp parallel do collapse(2) private(n,j,iw,dtl,k)
+   do n = 1, num_scalar
+      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-   do n = 2, num_scalar
-      call o_update(n,scalar_tab(n)%var_p,scalar_tab(n)%var_t,rho_old)
+         dtl = dtlm(itab_w(iw)%mrlw)
+         do k = lpw(iw),mza
+            scalar_tab(n)%var_p(k,iw) = ( scalar_tab(n)%var_p(k,iw) * rho_old(k,iw)  &
+                                         + dtl * scalar_tab(n)%var_t(k,iw) ) / rho(k,iw)
+         enddo
+
+      enddo
    enddo
+   !$omp end parallel do
 
 endif
 
 end subroutine predtr
-
-!==========================================================================
-
-subroutine o_update(n,varp,vart,rho_old)
-
-use mem_ijtabs, only: jtab_w, istp, itab_w, mrl_endl, jtw_prog
-use mem_basic,  only: rho
-use misc_coms,  only: io6, dtlm
-use mem_grid,   only: mza, mwa, lpw
-
-implicit none
-
-integer, intent(in) :: n
-
-real, intent(inout) :: varp(mza,mwa)
-real, intent(in)    :: vart(mza,mwa)
-
-real(kind=8), intent(in) :: rho_old(mza,mwa)
-
-integer :: iw,j,k,mrl
-real :: dtl
-
-!----------------------------------------------------------------------
-mrl = mrl_endl(istp)
-if (mrl > 0) then
-!$omp parallel do private(iw,k,dtl)
-do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-!----------------------------------------------------------------------
-   dtl = dtlm(itab_w(iw)%mrlw)
-   do k = lpw(iw),mza
-      varp(k,iw) = (varp(k,iw) * rho_old(k,iw) + dtl * vart(k,iw)) / rho(k,iw)
-   enddo
-enddo
-!$omp end parallel do
-endif
-
-end subroutine o_update
 
 !==========================================================================
 
@@ -700,13 +663,12 @@ end subroutine omic_update_v_mom
 subroutine bubble()
 
 use mem_basic, only: thil, theta
-use misc_coms, only: io6
 !use mem_grid
 !use mem_ijtabs
 
 implicit none
 
-integer :: iw,i,j,k
+integer :: k
 
    do k = 2,2
       thil(k,17328) = thil(k,17328) + 5. 
@@ -735,9 +697,9 @@ end subroutine bubble
 subroutine predtr_split(mrl,rho_old)
 
   use var_tables,  only: num_scalar, scalar_tab
-  use mem_ijtabs,  only: istp, jtab_w, itab_w, jtw_prog
+  use mem_ijtabs,  only: jtab_w, itab_w, jtw_prog
   use mem_grid,    only: mza, mwa, lpw
-  use misc_coms,   only: io6, dtlm
+  use misc_coms,   only: dtlm
   use consts_coms, only: r8
 
   implicit none
@@ -747,15 +709,14 @@ subroutine predtr_split(mrl,rho_old)
   integer              :: iw, j, n, k
   real                 :: dtl
 
-  ! Step scalars from  t  to  t+1 in a process-split sub step
+  ! Step scalars from t to t+1 in a time-split sub step
 
   if (mrl > 0) then
 
-     ! Skip n=1 which is THIL and computed elsewhere
-
      !$omp parallel do collapse(2) private(n,j,iw,dtl,k)
-     do n = 2, num_scalar
+     do n = 1, num_scalar
         do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
            dtl = dtlm(itab_w(iw)%mrlw)
 
            do k = lpw(iw), mza
@@ -772,41 +733,3 @@ subroutine predtr_split(mrl,rho_old)
   ! TODO: check if updated scalars are positive-definite??
 
 end subroutine predtr_split
-
-!==========================================================================
-
-subroutine split_thil(mrl)
-
-  use mem_ijtabs,  only: jtab_w, itab_w, jtw_prog
-  use mem_grid,    only: mza, mwa, lpw
-  use misc_coms,   only: io6, dtsm
-  use consts_coms, only: r8
-  use mem_basic,   only: thil, rho
-  use mem_tend,    only: thilt
-
-  implicit none
-
-  integer, intent(in) :: mrl
-  integer             :: iw, j, k
-  real                :: dts
-
-  ! Step thil from  t  to  t+1 in a process-split sub step
-
-  if (mrl > 0) then
-
-     !$omp parallel do private(iw,k,dts)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-        dts = dtsm(itab_w(iw)%mrlw)
-
-        do k = lpw(iw), mza
-           thil (k,iw) = thil(k,iw) + dts * thilt(k,iw) / rho(k,iw)
-        enddo
-
-     enddo
-     !$omp end parallel do
-
-  endif
-
-end subroutine split_thil
-

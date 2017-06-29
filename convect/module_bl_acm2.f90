@@ -32,27 +32,24 @@ contains
 
 !=======================================================================
 
-  subroutine acm2( iw, moli, ustar, pblh, kpblh, zkh, zkm )
+  subroutine acm2_scalars( iw, moli, pblh, kpblh, zkh )
 
     use mem_grid,   only: arw, volti, lpw, lsw, nsw_max
-    use mem_turb,   only: vkm_sfc, frac_sfc
-    use mem_basic,  only: vxe, vye, vze, rho
-    use mem_tend,   only: vmxet, vmyet, vmzet
+    use mem_turb,   only: frac_sfc, sxfer_tk
+    use mem_basic,  only: rho, thil
     use mem_ijtabs, only: itab_w
     use misc_coms,  only: dtlm, io6
     use tridiag,    only: tridv, acm_matrix
-    use var_tables, only: num_scalar, scalar_tab, sxfer_map, num_sxfer, &
-                          emis_map, num_emis
-    use oname_coms, only: nl
+    use var_tables, only: num_scalar, scalar_tab
+    use mem_tend,   only: thilt
+    use mem_para
 
     implicit none
 
     integer, intent(in)    :: iw, kpblh
     real,    intent(in)    :: pblh
-    real,    intent(in)    :: ustar
     real,    intent(in)    :: moli
     real,    intent(in)    :: zkh(:)
-    real,    intent(in)    :: zkm(:)
 
     logical :: cnvct
     real :: massflx(mza)
@@ -67,13 +64,11 @@ contains
     real :: aa(mza,nsw_max)
     real :: cbot(mza)
 
-    real :: aflux(mza,max(3,num_scalar))
-    real :: rhs  (mza,max(3,num_scalar))
-    real :: soln (mza,max(3,num_scalar))
+    real :: aflux(mza,num_scalar+1)
+    real :: rhs  (mza,num_scalar+1)
+    real :: soln (mza,num_scalar+1)
 
-    real :: fact(nsw_max)
-
-    integer :: k, ks, n, ns, ksm, ksp, kk, ksmax, kmax
+    integer :: k, ks, n, ns, ksm, ksp, kk, ksmax
     real :: hovl, mbar, fnl, dens
     real :: dtl, dtli
     
@@ -122,6 +117,168 @@ contains
 
     endif
 
+    ! EDDY DIFFUSIVITY TERMS FOR SEMI-IMPLICIT SOLVER - SCALARS
+
+    do k = kbot, ktop - 1
+       akodz(k) = arw(k,iw) * seddy(k) * dzim(k)
+    enddo
+
+    akodz(kbot-1) = 0.0
+    akodz(ktop  ) = 0.0
+
+    do k = kbot, ktop
+       ks = k - kbot + 1
+
+       dtom(k) = dtl * volti(k,iw) / rho(k,iw)
+
+       low(ks) = - dtom(k) * akodz(k-1)
+       upp(ks) = - dtom(k) * akodz(k  )
+       dia(ks) = 1.0 - low(ks) - upp(ks)
+    enddo
+
+    ! Scalar variables with long-timestep forcing included
+
+    do n = 1, num_scalar
+       do k = kbot, ktop
+          ks = k - kbot + 1
+          rhs(ks,n) = scalar_tab(n)%var_p(k,iw)  &
+                    + dtl * scalar_tab(n)%var_t(k,iw) / rho(k,iw)
+       enddo
+    enddo
+
+    n = num_scalar + 1
+    do k = kbot, ktop
+       ks = k - kbot + 1
+       rhs(ks,n) = thil(k,iw) + dtl * thilt(k,iw) / rho(k,iw)
+    enddo
+
+    ! IF CONVECTIVE, INCLUDE NONLOCAL TERMS
+       
+    if (cnvct) then
+
+       do k = kbot+1, kpblh
+          ks = k - kbot + 1
+          dia(ks)   = dia(ks)   + dtom(k)   * massflx(k-1)
+          upp(ks-1) = upp(ks-1) - dtom(k-1) * massflx(k-1)
+       enddo
+
+       aa(:,:) = 0.0
+       ksmax = min(nsfc, kpblh - kbot)
+
+       do kk = 1, ksmax
+          do k = kk + kbot, kpblh
+             
+             ks  = k - kbot + 1
+             ksp = min(ks,  nsfc)
+             ksm = min(ks-1,nsfc)
+
+             aa(ks,kk) = dtom(k) * frac_sfc(kk,iw) * &
+                       ( massflx(k) / frac_sum(ksp) - massflx(k-1) / frac_sum(ksm) )
+          enddo
+       enddo
+
+       do k = kbot, min(kbot + nsfc - 1, kpblh)
+          ks = k - kbot + 1
+          dia(ks) = dia(ks) + dtom(k) * massflx(k) * frac_sfc(ks,iw) / frac_sum(ks)
+          low(ks+1) = low(ks+1) + aa(ks+1,ks)
+       enddo
+
+       call acm_matrix(aa, dia, low, rhs, upp, soln, nlev, num_scalar+1, ksmax)
+
+    else
+
+       call tridv(low, dia, upp, rhs, soln, 1, nlev, mza, num_scalar+1)
+
+    endif
+
+    ! Now, soln contains future(t+1) values
+
+    ! Compute internal vertical turbulent fluxes due to Kh
+
+    do n = 1, num_scalar+1
+       do k = kbot, ktop-1
+          ks = k - kbot + 1
+          aflux(k,n) = akodz(k) * (soln(ks,n) - soln(ks+1,n))
+       enddo
+    enddo
+
+    ! Include internal nonlocal vertical turbulent fluxes
+
+    if (cnvct) then
+
+       do n = 1, num_scalar+1
+
+          cbot(1) = soln(1,n)
+          do k = 2, nsfc
+             cbot(k) = sum( soln(1:k,n)*frac_sfc(1:k,iw) ) / frac_sum(k)
+          enddo
+          cbot(nsfc+1:) = cbot(nsfc)
+
+          do k = kbot, kpblh
+             ks = k - kbot + 1
+             aflux(k,n) = aflux(k,n) + massflx(k) * (cbot(ks) - soln(ks+1,n))
+          enddo
+          
+       enddo
+    endif
+
+    ! Set bottom and top internal fluxes to zero
+    
+    aflux(kbot-1,:) = 0.
+    aflux(ktop,  :) = 0.
+
+    ! Compute tendencies due to internal turbulent fluxes
+
+    do n = 1, num_scalar
+       do k = kbot, ktop
+          scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                    + volti(k,iw) * (aflux(k-1,n) - aflux(k,n))
+       enddo
+    enddo
+
+    n = num_scalar + 1
+    do k = kbot, ktop
+       thilt(k,iw) = thilt(k,iw) + volti(k,iw) * (aflux(k-1,n) - aflux(k,n))
+    enddo
+
+  end subroutine acm2_scalars
+
+!=======================================================================
+
+  subroutine acm2_momentum( iw, zkm )
+
+    use mem_grid,   only: arw, volti, lpw, lsw, nsw_max
+    use mem_turb,   only: vkm_sfc
+    use mem_basic,  only: vxe, vye, vze, rho
+    use mem_tend,   only: vmxet, vmyet, vmzet
+    use mem_ijtabs, only: itab_w
+    use misc_coms,  only: dtlm
+    use tridiag,    only: tridv
+
+    implicit none
+
+    integer, intent(in)    :: iw
+    real,    intent(in)    :: zkm(:)
+
+    real :: aflux(mza,3)
+    real :: rhs  (mza,3)
+    real :: soln (mza,3)
+
+    real :: akodz(mza)
+
+    real :: low(mza)
+    real :: dia(mza)
+    real :: upp(mza)
+    real :: dtom(mza)
+    real :: fact(nsw_max)
+
+    integer :: k, ks
+    integer :: kbot, ktop, nsfc
+
+    kbot = lpw(iw)
+    ktop = mza
+    nsfc = lsw(iw)
+
     ! EDDY DIFFUSIVITY TERMS FOR SEMI-IMPLICIT SOLVER - MOMENTUM
 
     akodz(kbot-1) = 0.0
@@ -133,7 +290,7 @@ contains
     akodz(ktop) = 0.0
 
     do k = kbot, ktop
-       dtom(k)  = dtl * volti(k,iw) / rho(k,iw)
+       dtom(k)  = dtlm(itab_w(iw)%mrlw) * volti(k,iw) / rho(k,iw)
        low(k)   = -dtom(k) * akodz(k-1)
        upp(k)   = -dtom(k) * akodz(k  )
        dia(k)   = 1.0 - low(k) - upp(k)
@@ -147,7 +304,7 @@ contains
     do k = kbot, kbot + nsfc - 1
        ks = k - kbot + 1
        fact(ks) = 2.0 * vkm_sfc(ks,iw) * dzim(k-1) * (arw(k,iw) - arw(k-1,iw))
-       dia(k)   = dia(k)   + dtom(k) * fact(ks)
+       dia(k)   = dia(k) + dtom(k) * fact(ks)
     enddo
 
     ! tridv - low, diag, upper, rhs, soln
@@ -186,173 +343,7 @@ contains
        vmzet(k,iw) = vmzet(k,iw) - volti(k,iw) * fact(ks) * soln(k,3)
     enddo
 
-    ! EDDY DIFFUSIVITY TERMS FOR SEMI-IMPLICIT SOLVER - SCALARS
-
-    do k = kbot, ktop - 1
-       akodz(k) = arw(k,iw) * seddy(k) * dzim(k)
-    enddo
-
-    akodz(kbot-1) = 0.0
-    akodz(ktop  ) = 0.0
-
-    do k = kbot, ktop
-       ks = k - kbot + 1
-
-       low(ks)   = - dtom(k) * akodz(k-1)
-       upp(ks)   = - dtom(k) * akodz(k  )
-       dia(ks)   = 1.0 - low(ks) - upp(ks)
-    enddo
-
-    do n = 1, num_scalar
-       do k = kbot, ktop
-          ks = k - kbot + 1
-             
-          if (nl%split_scalars > 0) then
-             rhs(ks,n) = scalar_tab(n)%var_p(k,iw)  &
-                       + dtl * scalar_tab(n)%var_t(k,iw) / rho(k,iw)
-          else
-             rhs(ks,n) = scalar_tab(n)%var_p(k,iw)
-          endif
-
-       enddo
-    enddo
-
-    ! Include surface exchange
-    
-    if (num_sxfer > 0) then
-       kmax = min(kbot + nsfc - 1, ktop)
-       do ns = 1, num_sxfer
-          n = sxfer_map(ns)
-          do k = kbot, kmax
-             ks = k - kbot + 1
-             rhs(ks,n) = rhs(ks,n) + scalar_tab(n)%sxfer(ks,iw) * volti(k,iw) / rho(k,iw)
-          enddo
-       enddo
-    endif
-
-    ! Include emissions (emis units are concentration / sec )
-
-    if (num_emis > 0) then
-       do ns = 1, num_emis
-          n = emis_map(ns)
-          do k = kbot, ktop
-             ks = k - kbot + 1
-             rhs(ks,n) = rhs(ks,n) + scalar_tab(n)%emis(k,iw) * dtl
-          enddo
-       enddo
-    endif
-
-    ! IF CONVECTIVE, INCLUDE NONLOCAL TERMS
-       
-    if (cnvct) then
-
-       do k = kbot+1, kpblh
-          ks = k - kbot + 1
-          dia(ks)   = dia(ks)   + dtom(k)   * massflx(k-1)
-          upp(ks-1) = upp(ks-1) - dtom(k-1) * massflx(k-1)
-       enddo
-
-       aa(:,:) = 0.0
-       ksmax = min(nsfc, kpblh - kbot)
-
-       do kk = 1, ksmax
-          do k = kk + kbot, kpblh
-             
-             ks  = k - kbot + 1
-             ksp = min(ks,  nsfc)
-             ksm = min(ks-1,nsfc)
-
-             aa(ks,kk) = dtom(k) * frac_sfc(kk,iw) * &
-                       ( massflx(k) / frac_sum(ksp) - massflx(k-1) / frac_sum(ksm) )
-          enddo
-       enddo
-
-       do k = kbot, min(kbot + nsfc - 1, kpblh)
-          ks = k - kbot + 1
-          dia(ks) = dia(ks) + dtom(k) * massflx(k) * frac_sfc(ks,iw) / frac_sum(ks)
-          low(ks+1) = low(ks+1) + aa(ks+1,ks)
-       enddo
-
-       call acm_matrix(aa, dia, low, rhs, upp, soln, nlev, num_scalar, ksmax)
-
-    else
-
-       call tridv(low, dia, upp, rhs, soln, 1, nlev, mza, num_scalar)
-
-    endif
-
-    ! Now, soln contains future(t+1) values
-
-    ! Compute internal vertical turbulent fluxes due to Kh
-
-    do n = 1, num_scalar
-       do k = kbot, ktop-1
-          ks = k - kbot + 1
-          aflux(k,n) = akodz(k) * (soln(ks,n) - soln(ks+1,n))
-       enddo
-    enddo
-
-    ! Include internal nonlocal vertical turbulent fluxes
-
-    if (cnvct) then
-
-       do n = 1, num_scalar
-
-          cbot(1) = soln(1,n)
-          do k = 2, nsfc
-             cbot(k) = sum( soln(1:k,n)*frac_sfc(1:k,iw) ) / frac_sum(k)
-          enddo
-          cbot(nsfc+1:) = cbot(nsfc)
-
-          do k = kbot, kpblh
-             ks = k - kbot + 1
-             aflux(k,n) = aflux(k,n) + massflx(k) * (cbot(ks) - soln(ks+1,n))
-          enddo
-          
-       enddo
-    endif
-
-    ! Set bottom and top internal fluxes to zero
-    
-    aflux(kbot-1,:) = 0.
-    aflux(ktop,  :) = 0.
-
-    ! Compute tendencies due to internal turbulent fluxes
-
-    do n = 1, num_scalar
-       do k = kbot, ktop
-          scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                    + volti(k,iw) * (aflux(k-1,n) - aflux(k,n))
-       enddo
-    enddo
-
-    ! Include tendencies due to surface exchange
-
-    if (num_sxfer > 0) then
-       kmax = min(kbot + nsfc - 1, ktop)
-       do ns = 1, num_sxfer
-          n = sxfer_map(ns)
-          do k = kbot, kmax
-             ks = k - kbot + 1
-             scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                       + dtli * volti(k,iw) * scalar_tab(n)%sxfer(ks,iw)
-          enddo
-       enddo
-    endif
-
-    ! Include tendencies due to emissions (emis units are concentration / sec )
-
-    if (num_emis > 0) then
-       do ns = 1, num_emis
-          n = emis_map(ns)
-          do k = kbot, ktop
-             scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                       + rho(k,iw) * scalar_tab(n)%emis(k,iw)
-          enddo
-       enddo
-    endif
-
-  end subroutine acm2
+  end subroutine acm2_momentum
     
 !=======================================================================
 
@@ -365,6 +356,8 @@ contains
     !      vertical wind shear, similar to LIU & CARROLL (1996)
     !   3. Cloud-top radiational cooling scaling, Lock et al. (2000)
 
+
+    use misc_coms, only: io6
     implicit none
 
     ! INPUT VARIABLES
@@ -541,17 +534,17 @@ contains
 
           sql = (zk * rlam_unst / (rlam_unst + zk))**2
 
-          phimi =     (1.0 - 16.0 * ri)**0.25
-          phihi = sqrt(1.0 - 16.0 * ri)
+!          phimi =     (1.0 - 16.0 * ri)**0.25
+!          phihi = sqrt(1.0 - 16.0 * ri)
 
-          edyrm(k) = sqrt(ss) * sql * phimi * phimi
-          edyrh(k) = sqrt(ss) * sql * phimi * phihi
+          edyrm(k) = sqrt(ss) * sql !* phimi * phimi
+          edyrh(k) = sqrt(ss) * sql !* phimi * phihi
 
        endif
 
     enddo
 
-!! Now computed combined eddy diffusivity from surface and cloud K-profiles
+!! Now compute combined eddy diffusivity from surface and cloud K-profiles
 !! and Richardson-number eddy diffusivity
 
     do k = kbot, mza-1
@@ -572,7 +565,7 @@ contains
 
   end subroutine acm2_eddyx
 
-
+!=======================================================================
 
   subroutine acm2_pblhgt( ustar, wstar, wtv0, kbot, ktop, nsfc, &
                           fracsfc, thv, vx, vy, vz, kpblh, pblh )

@@ -76,13 +76,12 @@ Contains
    subroutine alloc_tend(lza,lva,lwa,naddsc,nccntyp)
 
    use mem_turb,   only: tkep, epsp
-   use mem_basic,  only: vmc, wmc, thil, sh_w, vxe, vye, vze
+   use mem_basic,  only: thil, sh_w, vxe, vye, vze
    use mem_addsc,  only: addsc
    use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,        &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
                          ccntyp, con_ifn, con_gccn, q2, q6, q7
    use misc_coms,  only: io6
-   use oname_coms, only: nl
    
    implicit none
 
@@ -211,8 +210,8 @@ Contains
                
    subroutine filltab_tend(naddsc,nccntyp)
 
-   use mem_turb,   only: tkep, epsp, sxfer_tk, sxfer_rk
-   use mem_basic,  only: thil, sh_w
+   use mem_turb,   only: tkep, epsp, sxfer_rk
+   use mem_basic,  only: sh_w
    use mem_addsc,  only: addsc
    use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,        &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
@@ -230,7 +229,6 @@ Contains
 
 ! Fill pointers to scalar arrays into scalar tables
 
-   if (allocated(thilt))    call vtables_scalar (thil,thilt, 'THIL', sxfer=sxfer_tk)
    if (allocated(sh_wt))    call vtables_scalar (sh_w,sh_wt, 'SH_W', sxfer=sxfer_rk)
 
    if (allocated(sh_ct))    call vtables_scalar (sh_c, sh_ct, 'SH_C')
