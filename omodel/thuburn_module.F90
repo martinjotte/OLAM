@@ -363,7 +363,7 @@ Contains
     real    :: scpmin(mza), scpmax(mza), smin, smax
 
     !$omp parallel 
-    !$omp do private(iv,iw1,iw2,iw3,iw4,iv1,iv2,iv3,iv4,k,spcmin,spcmax)
+    !$omp do private(iv,iw1,iw2,iw3,iw4,iv1,iv2,iv3,iv4,k,scpmin,scpmax)
     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
        iw1 = itab_v(iv)%iw(1)
@@ -577,7 +577,7 @@ Contains
     enddo
     !$omp end do
 
-    !$omp do private(iw,ka,k,scp_int,c_scp_in_min_sum,scp_int,scp_inb,&
+    !$omp do private(iw,ka,k,c_scp_in_min_sum,scp_int,scp_inb,&
     !$omp            jv,iv,iwn,scpup)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 

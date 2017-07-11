@@ -39,7 +39,7 @@ subroutine cuparm_driver(rhot)
   use module_cu_tiedtke,only: cuparm_tiedtke
   use module_cu_emanuel,only: cuparm_emanuel
   use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
-                              dtlong, mstp, runtype, dtlm
+                              dtlong, mstp, runtype, dtlm, iparallel
   use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
   use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc, &
                               kcutop, kcubot, qwcon, iactcu, cbmf
@@ -222,7 +222,9 @@ subroutine cuparm_driver(rhot)
      write(io6, '(A,I0,A,I0,A,F0.3,A,F0.4)') " MAX CONVECTIVE HEATING RATE AT IW=",  &
            iwqmax, " K=", kqmax, " IS ", dthmax*86400., " K/DAY"
 
-     call mpi_send_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, r1dvara1=cbmf)
+     if (iparallel == 1) then
+        call mpi_send_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, r1dvara1=cbmf)
+     endif
 
   endif
 
@@ -331,11 +333,14 @@ subroutine cuparm_driver(rhot)
 
   endif
 
-  if ((istp == 1 .and. mod(time_istp8p, confrq) < dtlong) .or. &
-      (istp == 1 .and. mstp == 0 .and. runtype == 'HISTADDGRID')) then
+  
+  if (iparallel == 1) then
+     if ((istp == 1 .and. mod(time_istp8p, confrq) < dtlong) .or. &
+         (istp == 1 .and. mstp == 0 .and. runtype == 'HISTADDGRID')) then
 
-     call mpi_recv_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, r1dvara1=cbmf)
+        call mpi_recv_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, r1dvara1=cbmf)
 
+     endif
   endif
 
 end subroutine cuparm_driver

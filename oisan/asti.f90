@@ -38,12 +38,12 @@ use max_dims,     only: maxpr
 use isan_coms,    only: nprz, npry, nprx, nprz_rh, haso3, nbot_o3, &
                         xswlat, xswlon, gdatdx, gdatdy, glat, &
                         npd, kzonoff, levpr, lzon_bot, ipoffset, inproj
-use mem_grid,     only: glatw, glonw, mza, mwa, mva, lpv, lpw, &
+use mem_grid,     only: glatw, glonw, mza, mwa, mva, lpv, &
                         xev, yev, zev, vnx, vny, vnz
-use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, jtv_init, jtw_init
+use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, jtv_init, jtw_init
 use mem_zonavg,   only: zonp_vect, zont, zonz, zonr, zonu, zono
 use consts_coms,  only: r8, eradi, rocp, p00i, cp
-use misc_coms,    only: io6, iparallel
+use misc_coms,    only: iparallel
 use isan_coms,    only: ihydsfc
 use olam_mpi_atm, only: mpi_send_w, mpi_send_v, mpi_recv_w, mpi_recv_v
 use obnd,         only: lbcopy_v
@@ -140,6 +140,10 @@ if (inproj == 2) then
 endif
 
 !----------------------------------------------------------------------
+!$omp parallel do private(gry,grx,ilat,k,pcol_temp,pcol_z,pcol_u,pcol_v,&
+!$omp                     pcol_rt,pcol_o3,pcol_topo,pcol_prsfc,pcol_tsfc,&
+!$omp                     pcol_shsfc,pcol_exnersfc,rlat,wt2,nlevs,kstrt,&
+!$omp                     r_interp,levp)
 do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 
@@ -276,6 +280,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
                  pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc)
 
 enddo
+!$omp end parallel do
 
 if (iparallel == 1) then
    mrl = 1
@@ -286,6 +291,8 @@ endif
 ! Initialize V wind component
 
 !----------------------------------------------------------------------
+
+!$omp parallel do private(iv,iw1,iw2,ka,raxis,raxisi,k,ug,vg,uvgr,uvgx,uvgy,uvgz)
 do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
@@ -320,6 +327,7 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
    endif
 
 enddo
+!$omp end parallel do
 
 ! MPI parallel send/recv of o_vc
 
@@ -347,7 +355,6 @@ use isan_coms,   only: npd, ihydsfc
 use consts_coms, only: r8, grav2, grav, cvocp, p00k, rdry, rvap, p00, &
                        cp, rocp, gravi, eps_virt, eps_vap
 use mem_grid,    only: mwa, mza, lpw, dzt_top, dzt_bot, zt
-use misc_coms,   only: io6
 
 implicit none
 

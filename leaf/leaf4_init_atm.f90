@@ -109,7 +109,7 @@ subroutine leaf4_init_atm()
 
      !$omp parallel do
      do iwl = 2, mwl
-        land%slope_fact = 1.0
+        land%slope_fact(iwl) = 1.0
      enddo
      !$omp end parallel do
 

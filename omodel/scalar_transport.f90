@@ -1336,7 +1336,7 @@ subroutine scalar_hdiff_split(mrl, rho_old)
                  dtorho(k,iw) = dtlm(itab_w(iw)%mrlw) / rho_old(k,iw)
               enddo
            enddo
-           !$omp end parallel
+           !$omp end parallel do
 
         endif
 
