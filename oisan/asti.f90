@@ -140,7 +140,7 @@ if (inproj == 2) then
 endif
 
 !----------------------------------------------------------------------
-!$omp parallel do private(gry,grx,ilat,k,pcol_temp,pcol_z,pcol_u,pcol_v,&
+!$omp parallel do private(iw,gry,grx,ilat,k,pcol_temp,pcol_z,pcol_u,pcol_v,&
 !$omp                     pcol_rt,pcol_o3,pcol_topo,pcol_prsfc,pcol_tsfc,&
 !$omp                     pcol_shsfc,pcol_exnersfc,rlat,wt2,nlevs,kstrt,&
 !$omp                     r_interp,levp)

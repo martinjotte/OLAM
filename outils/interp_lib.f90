@@ -106,17 +106,13 @@ real function quad_avg ( x , x0, x1, x2, x3, y0, y1, y2, y3 )
   !  (once with x0, x1, x2 and once with x1, x2, x3), and then average those.
   !  This will reduce overshoot. The "x" point is where we are interpolating to.
 
-  !        x0         x1    x    x2
-  !                   x1    x    x2         x3
-
   q1 = quad ( x , x0, x1, x2,     y0, y1, y2     )
   q2 = quad ( x ,     x1, x2, x3,     y1, y2, y3 )
 
   if (abs(q1) < 1.e30 .and. abs(q2) < 1.e30) then
 
-     quad_avg = ( quad ( x , x0, x1, x2,     y0, y1, y2     ) * ( x2 - x  ) + &
-                  quad ( x ,     x1, x2, x3,     y1, y2, y3 ) * ( x  - x1 ) ) &
-              / ( x2 - x1 )
+     quad_avg = ( q1 * ( x2 - x  ) + &
+                + q2 * ( x  - x1 ) ) / ( x2 - x1 )
 
   elseif (abs(q1) < 1.e30) then
 
