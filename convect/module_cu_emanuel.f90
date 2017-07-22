@@ -11,6 +11,7 @@ MODULE module_cu_emanuel
   use misc_coms,   only: io6
   use mem_grid,    only: mza
   use consts_coms, only: r8
+
   implicit none
 
   private :: myrank, io6, mza, r8
@@ -23,7 +24,7 @@ CONTAINS
 SUBROUTINE cuparm_emanuel(iw, dtlong)
 
   use mem_grid,    only: lpw, zm, zt, xew, yew, zew, dzt
-  use mem_basic,   only: theta, tair, press, rho, sh_v, vxe, vye, vze
+  use mem_basic,   only: tair, press, rho, sh_v, vxe, vye, vze
   use consts_coms, only: t00, grav, eradi
   use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc, &
                          kcutop, kcubot, qwcon, iactcu
@@ -303,7 +304,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
        cpinv, cwat, dbo, dbosum, defrac, dei, delm, delp, &
        delti, denom, dhdp, dpinv, dtma, dtmin, dtpbl, elacrit, epmax, &
        fac, fqold, frac, ftold, fuold, fvold, plcl, qp1, &
-       qsm, qstm, qti, rat, revap, rh, scrit, sigt, sjmax, sjmin, smid, &
+       qsm, qstm, qti, rat, revap, rh, scrit, siga, sigt, sjmax, sjmin, smid, &
        smin, stemp, tca, tvaplcl, tvpplcl, wdtrain
 
   integer :: i, ihmin, inb1, j, jtt, k
@@ -316,7 +317,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
   real    ::  qp(mza), ep(mza), wt(mza), evap(mza), clw(mza)
   real    ::  sigp(mza), tp(mza), cpn(mza)
   real    ::  lv(mza), lvcp(mza), h(mza), hp(mza), hm(mza)
-  real    ::  qcond(mza), nqcond(mza), wa(mza), ma(mza), siga(mza), ax(mza)
+  real    ::  qcond(mza), nqcond(mza), wa(mza), ma(mza), ax(mza)
   
   integer :: nkmax
   real    :: dbmax, deltv
@@ -414,6 +415,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      QCONDC(I)=0.0
      QCOND(I)=0.0
      NQCOND(I)=0.0
+     ma(i) = 0.0
 
 !     DO J=1,NTRA
 !        FTRA(I,J)=0.0
@@ -1176,10 +1178,8 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
   ma(inb) = 0.0
   wa(inb) = 1.e-10
 
-  DO I=icb,inb-1
-     DO K=I+1,INB+1
-        MA(I)=MA(I)+M(K)
-     ENDDO
+  DO I=inb-1,icb,-1
+     ma(i) = ma(i+1) + m(i+1)
   ENDDO
 
   DO I=ICB,INB-1
@@ -1195,13 +1195,12 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
   ENDDO
 
   do i=icb,inb
-     SIGA(I) = MA(I)/WA(I)*RD*TVP(I)/P(I)/100./DELTA
-     SIGA(I) = MIN(SIGA(I),0.9) 
-     SIGA(I) = MAX(SIGA(I),0.1) 
-     QCONDC(I) = SIGA(I)*CLW(I)*(1.-EP(I)) + (1.-SIGA(I))*QCOND(I)
+     siga = ma(i) / ( rho(i) * wa(i) * delta )
+     SIGA = MIN(SIGA,0.9) 
+     SIGA = MAX(SIGA,0.1) 
+     QCONDC(I) = SIGA * CLW(I)*(1.-EP(I)) + (1.-SIGA) * QCOND(I)
   ENDDO
 
-  RETURN
 END SUBROUTINE CONVECT43C
 
 

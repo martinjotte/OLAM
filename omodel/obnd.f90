@@ -34,58 +34,63 @@ Module obnd
 
 Contains
 
-subroutine trsets()
+subroutine trsets(mrl)
 
 use var_tables, only: num_scalar, scalar_tab
-use mem_basic,  only: theta, sh_v
+use mem_basic,  only: theta, tair, sh_v
 use micro_coms, only: miclevel
 
 implicit none
 
-integer :: n
+integer, intent(in) :: mrl
+integer             :: n
 
 ! SCALARS - Lateral, top, and bottom boundary conditions.
 
-! Prognostic scalars other than thil
+if (mrl < 1) return
+
+! Prognostic scalars
 
 do n = 1, num_scalar
-
-   call latsett(scalar_tab(n)%var_p)
-   call botset(scalar_tab(n)%var_p)
-
+   call latsett(mrl,scalar_tab(n)%var_p)
+   call botset (mrl,scalar_tab(n)%var_p)
 enddo
 
-! THETA and SH_V
+! THETA, TAIR, and SH_V
 
-call latsett(theta)
-call botset(theta)
+call latsett(mrl,theta)
+call botset (mrl,theta)
+
+call latsett(mrl,tair)
+call botset (mrl,tair)
 
 if (miclevel >= 1) then
-   call latsett(sh_v)
-   call botset(sh_v)
+   call latsett(mrl,sh_v)
+   call botset (mrl,sh_v)
 endif
 
-return
 end subroutine trsets
 
 !===============================================================================
 
-subroutine latsett(sclr)
+subroutine latsett(mrl,sclr)
 
 use mem_ijtabs, only: jtab_w, itab_w, istp, mrl_endl, jtw_lbcp
 use mem_grid,   only: mza, mwa, lpw
 
 implicit none
 
-real, intent(inout) :: sclr(mza,mwa)
+integer, intent(in)    :: mrl
+real,    intent(inout) :: sclr(mza,mwa)
 
-integer :: j,iw,iwp,k,mrl
+integer :: j,iw,iwp,k
 
 ! LBC for scalars (usually cyclic)
 
+if (mrl < 1) return
+if (jtab_w(jtw_lbcp)%jend(mrl) < 1) return
+
 !----------------------------------------------------------------------
-mrl = mrl_endl(istp)
-if (mrl > 0) then
 do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
    iwp = itab_w(iw)%iwp
 !----------------------------------------------------------------------
@@ -93,29 +98,28 @@ do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
       sclr(k,iw) = sclr(k,iwp)
    enddo
 enddo
-endif
 
-return
 end subroutine latsett
 
 !===============================================================================
 
-subroutine botset(sclr)
+subroutine botset(mrl,sclr)
 
 use mem_ijtabs, only: jtab_w, istp, mrl_endl, jtw_prog
 use mem_grid,   only: mza, mwa, lpw
 
 implicit none
 
-real, intent(inout) :: sclr(mza,mwa)
+integer, intent(in)    :: mrl
+real,    intent(inout) :: sclr(mza,mwa)
 
-integer :: iw,j,k,ka,mrl
+integer :: iw,j,k,ka
 
 ! Top/bottom boundary condition for scalars: zero-gradient
 
+if (mrl < 1) return
+
 !----------------------------------------------------------------------
-mrl = mrl_endl(istp)
-if (mrl > 0) then
 !$omp parallel do private (iw,ka,k)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
@@ -127,9 +131,7 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    
 enddo
 !$omp end parallel do
-endif
 
-return
 end subroutine botset
 
 !===============================================================================
@@ -149,8 +151,10 @@ integer :: j,im,imp
 
 ! Lateral boundary copy (usually cyclic)
 
+if (mrl < 1) return
+if (jtab_m(jtm_lbcp)%jend(mrl) < 1) return
+
 !----------------------------------------------------------------------
-if (mrl > 0) then
 do j = 1,jtab_m(jtm_lbcp)%jend(mrl); im = jtab_m(jtm_lbcp)%im(j)
    imp = itab_m(im)%imp
 !----------------------------------------------------------------------
@@ -158,9 +162,7 @@ do j = 1,jtab_m(jtm_lbcp)%jend(mrl); im = jtab_m(jtm_lbcp)%im(j)
    if (present(a1)) a1(:,im) = a1(:,imp) 
 
 enddo
-endif
 
-return
 end subroutine lbcopy_m
 
 !===============================================================================
@@ -181,8 +183,10 @@ integer :: j,iv,ivp
 
 ! Lateral boundary copy (usually cyclic)
 
+if (mrl < 1) return
+if (jtab_v(jtv_lbcp)%jend(mrl) < 1) return
+
 !----------------------------------------------------------------------
-if (mrl > 0) then
 do j = 1,jtab_v(jtv_lbcp)%jend(mrl); iv = jtab_v(jtv_lbcp)%iv(j)
    ivp = itab_v(iv)%ivp
 !----------------------------------------------------------------------
@@ -191,9 +195,7 @@ do j = 1,jtab_v(jtv_lbcp)%jend(mrl); iv = jtab_v(jtv_lbcp)%iv(j)
    if (present(vc))  vc (:,iv) = vc (:,ivp) 
 
 enddo
-endif
 
-return
 end subroutine lbcopy_v
 
 !===============================================================================
@@ -241,8 +243,10 @@ integer :: j,iw,iwp
 
 ! Lateral boundary copy (usually cyclic)
 
+if (mrl < 1) return
+if (jtab_w(jtw_lbcp)%jend(mrl) < 1) return
+
 !----------------------------------------------------------------------
-if (mrl > 0) then
 do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
    iwp = itab_w(iw)%iwp
 !----------------------------------------------------------------------
@@ -275,9 +279,7 @@ do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
    if (present(d2 )) d2 (:,iw) = d2 (:,iwp)
 
 enddo
-endif
 
-return
 end subroutine lbcopy_w
 
 !===============================================================================
@@ -311,8 +313,10 @@ integer :: j,iw,iwp
 
 ! Lateral boundary copy (usually cyclic)
 
+if (mrl < 1) return
+if (jtab_w(jtw_lbcp)%jend(mrl) < 1) return
+
 !----------------------------------------------------------------------
-if (mrl > 0) then
 do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
    iwp = itab_w(iw)%iwp
 !----------------------------------------------------------------------
@@ -332,10 +336,7 @@ do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
    if (present(d1 )) d1 (iw) = d1 (iwp) 
 
 enddo
-endif
 
-return
 end subroutine lbcopy_w1d
 
 End Module obnd
-

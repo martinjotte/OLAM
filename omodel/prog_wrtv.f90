@@ -420,7 +420,7 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 ! COMPUTE HALF-FORWARD VELOCITIES AND MOMEMTUM
 
   ! Horizontal loop over V/N columns
-  !$omp parallel do private(k) 
+  !$omp parallel do private(k,vmcf)
   do iv = 2,mva
 
      ! Extrapolate VM to time T + 1/2; update VMP
@@ -1356,6 +1356,12 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
 
   wc(1:ka-2,iw) = 0.
   wc(mza   ,iw) = 0.
+
+  ! Bottom boundary for THIL
+
+  do k = 1, ka-1
+     thil(k,iw) = thil(ka,iw)
+  enddo
 
 end subroutine prog_wrt_begs
 

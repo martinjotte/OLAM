@@ -289,7 +289,7 @@ go to 100
 
    do iter = 1,100
    
-      do k = 1,mza
+      do k = lpw(iw),mza
       
          if (level == 0) then
             rho(k,iw) = press(k,iw) ** cvocp * p00k / (rdry * theta(k,iw))
@@ -323,11 +323,15 @@ go to 100
       enddo
    enddo
 
-   do k = 1, mza
+   do k = lpw(iw), mza
       tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
    enddo
 
 100 continue
+
+   do k = 1, lpw(iw)-1
+      thil(k,iw) = thil(lpw(iw),iw))
+   enddo
 
 enddo
 

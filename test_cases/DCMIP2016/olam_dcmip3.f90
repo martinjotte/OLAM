@@ -421,11 +421,15 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    enddo
 
-   do k = 1, mza
+   do k = ka, mza
       tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
    enddo
 
 100 continue
+
+   do k = 1, ka-1
+      thil(k,iw) = thil(ka,iw)
+   enddo
 
 enddo
 

@@ -58,11 +58,12 @@ subroutine cuparm_driver(rhot)
   integer, save :: init_kf = 0
   integer       :: j, iw, k, mrl, mrlw
   real(r8)      :: qpos, qadd, dq
-  real          :: qtest, rt(mza), fact
+  real          :: qtest, fact
   real          :: dthmax, dtlong4, confrq4, confrq4i
   integer       :: iwqmax, kqmax, km, km1
   integer       :: ka, kb
   real(r8)      :: qsum, tsum, vtot
+  real          :: rt2(mza)
 
 ! For KF_eta parameterization, initialize scheme if needed
 
@@ -105,7 +106,6 @@ subroutine cuparm_driver(rhot)
         kcutop(iw) = -1
         kcubot(iw) = -1
         iactcu(iw) =  0
-        cbmf  (iw) =  0.0
      enddo
      !$omp end parallel do
 
@@ -173,6 +173,8 @@ subroutine cuparm_driver(rhot)
            do k = kcubot(iw), kcutop(iw)
               qwcon(k,iw) = max(qwcon(k,iw),1.e-5)
            enddo
+        else
+           cbmf(iw) = 0.0
         endif
 
 ! Make sure convective scheme conserves heat and water
@@ -236,7 +238,7 @@ subroutine cuparm_driver(rhot)
   mrl = mrl_begl(istp)
   if (mrl > 0) then
 
-     !$omp parallel do private(iw,qadd,k,qtest,dq,rt,qpos,fact)
+     !$omp parallel do private(iw,dtlong4,qadd,k,rt2,qtest,dq,qpos,fact)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -254,7 +256,10 @@ subroutine cuparm_driver(rhot)
         ! sh_w's, and keep track of how much water we added in variable qadd
 
         qadd = 0.0_r8
-        rt(lpw(iw):mza) = rtsrc(lpw(iw):mza,iw)
+        
+        do k = lpw(iw), mza
+           rt2(k) = rtsrc(k,iw)
+        enddo
 
         do k = lpw(iw), mza
 
@@ -263,12 +268,11 @@ subroutine cuparm_driver(rhot)
 
               if (qtest < 0.) then
                  dq = qtest / dtlong4 * 1.000001
-                 rt(k) = rt(k) - dq
+                 rt2(k) = rt2(k) - dq
                  qadd  = qadd - dq * volt(k,iw)
               endif
-           else
-              rt(k) = rtsrc(k,iw)
            endif
+
         enddo
 
         ! If we added any water, remove it from positive tendency areas so
@@ -292,7 +296,7 @@ subroutine cuparm_driver(rhot)
            ! now borrow water from positive tendency areas to balance qadd
            do k = lpw(iw), mza
               if (rtsrc(k,iw) > 0.) then
-                 rt(k) = rtsrc(k,iw) * fact
+                 rt2(k) = rtsrc(k,iw) * fact
               endif
            enddo
         endif
@@ -309,8 +313,8 @@ subroutine cuparm_driver(rhot)
               thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * thil(k,iw) / tair(k,iw)
            endif
 
-           sh_wt(k,iw) = sh_wt(k,iw) + rt(k)
-           rhot (k,iw) = rhot (k,iw) + rt(k)
+           sh_wt(k,iw) = sh_wt(k,iw) + rt2(k)
+           rhot (k,iw) = rhot (k,iw) + rt2(k)
 
         enddo
 

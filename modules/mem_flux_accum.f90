@@ -504,7 +504,7 @@ subroutine flux_accum()
 ! consistent with (inversely proportional to) that DTA.
 
         dta  = dtlm(itab_w(iw)%mrlw)
-        wind = vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2
+        wind = sqrt(vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2)
 
            vels_s_accum(iws) =    vels_s_accum(iws) + dta * real(wind,r8)
         airtemp_s_accum(iws) = airtemp_s_accum(iws) + dta * real(tair(kw,iw),r8)

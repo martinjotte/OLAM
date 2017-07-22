@@ -126,6 +126,8 @@ subroutine pbl_driver(mrl,rhot)
 
         ! If no PBL diffusion, just apply momentum fluxes
 
+        vkm(:,iw) = 0.0
+        vkh(:,iw) = 0.0
         call apply_momentum_fluxes( iw )
 
      endif
@@ -178,7 +180,8 @@ subroutine comp_horiz_k(mrl)
   ! horizontal diffusion is stable over the long timestep
 
   !$omp parallel do private(iv,iw1,iw2,fact1,fact2,bkmin,k,km,&
-  !$                        dens,hkm,hkh,tempm,temph,stab1,stab2)
+  !$                        dens,hkm,hkh,tempm,temph,stab1,stab2,&
+  !$                        hcm,hch,hkc1,hkc2,eta)
   do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
      iw1 = itab_v(iv)%iw(1)
@@ -189,33 +192,42 @@ subroutine comp_horiz_k(mrl)
 
      bkmin = akmin(itab_v(iv)%mrlv) * .075 * min(arw0(iw1),arw0(iw2)) ** .66666666
 
-     hkc1(:) = 0.0
-     hkc2(:) = 0.0
-
-     if (iactcu(iw1)) then
-        do k = kcubot(iw1), kcutop(iw1)
-           eta = ( zt(k) - zm(kcubot(iw1)-1) ) / ( zm(kcutop(iw1)) - zm(kcubot(iw1)-1) )
-           hkc1(k) = cbmf(iw1) * 2200.0 * eta * (1.0-eta)**2 * rho(k,iw1)
-        enddo
-     endif
-
-     if (iactcu(iw2)) then
-        do k = kcubot(iw2), kcutop(iw2)
-           eta = ( zt(k) - zm(kcubot(iw2)-1) ) / ( zm(kcutop(iw2)) - zm(kcubot(iw2)-1) )
-           hkc2(k) = cbmf(iw2) * 2200.0 * eta * (1.0-eta)**2 * rho(k,iw1)
-        enddo
-     endif
+!   ! Extra mixing around convection???
+!    hkc1(:) = 0.0
+!    hkc2(:) = 0.0
+!
+!    if (iactcu(iw1)) then
+!       do k = kcubot(iw1), kcutop(iw1)
+!          eta = ( zt(k) - zm(kcubot(iw1)-1) ) / ( zm(kcutop(iw1)) - zm(kcubot(iw1)-1) )
+!          hkc1(k) = cbmf(iw1) * 2200.0 * eta * (1.0-eta)**2 * rho(k,iw1)
+!       enddo
+!    endif
+!
+!    if (iactcu(iw2)) then
+!       do k = kcubot(iw2), kcutop(iw2)
+!          eta = ( zt(k) - zm(kcubot(iw2)-1) ) / ( zm(kcutop(iw2)) - zm(kcubot(iw2)-1) )
+!          hkc2(k) = cbmf(iw2) * 2200.0 * eta * (1.0-eta)**2 * rho(k,iw1)
+!       enddo
+!    endif
 
      do k = lpv(iv), mza
-        km = max(k-1, lpv(iv))
+
+        if (k == lpv(iv)) then
+           km = lpv(iv)
+        else
+           km = k - 1
+        endif
 
         dens = 0.5 * (rho(k,iw1) + rho(k,iw2))
 
-        hch = 0.5 * ( hkc1(k)+hkc2(k) )
-        hcm = 0.5 * hch
+!       ! Extra mixing around convection???
+!       hch = 0.5 * ( hkc1(k)+hkc2(k) )
+!       hcm = 0.5 * hch
+!       hkm = max(0.25 * (vkm(k,iw1) + vkm(k,iw2) + vkm(km,iw1) + vkm(km,iw2)) + hcm, bkmin * dens)
+!       hkh = max(0.25 * (vkh(k,iw1) + vkh(k,iw2) + vkh(km,iw1) + vkh(km,iw2)) + hch, bkmin * dens)
 
-        hkm = max(0.25 * (vkm(k,iw1) + vkm(k,iw2) + vkm(km,iw1) + vkm(km,iw2)) + hcm, bkmin * dens)
-        hkh = max(0.25 * (vkh(k,iw1) + vkh(k,iw2) + vkh(km,iw1) + vkh(km,iw2)) + hch, bkmin * dens)
+        hkm = max(0.25 * (vkm(k,iw1) + vkm(k,iw2) + vkm(km,iw1) + vkm(km,iw2)), bkmin * dens)
+        hkh = max(0.25 * (vkh(k,iw1) + vkh(k,iw2) + vkh(km,iw1) + vkh(km,iw2)), bkmin * dens)
 
         tempm = dniv(iv) * arv(k,iv) * hkm
         temph = dniv(iv) * arv(k,iv) * hkh

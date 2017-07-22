@@ -397,11 +397,11 @@ subroutine olam_run(name_name)
   endif
   !-------------------------------------------------------------------------------
 
-  call trsets()  
+  mrl = 1
+
+  call trsets(mrl)
 
   ! For parallel run, send and receive initialized scalars
-
-  mrl = 1
 
   if (iparallel == 1) then
      call mpi_send_w(mrl, scalars='S')  ! Send scalars

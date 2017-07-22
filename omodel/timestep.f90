@@ -178,8 +178,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    if (nl%split_scalars > 0 .and. mrl > 0) then
       call predtr_split(mrl,rho_old)
       do n = 1, num_scalar
-         call latsett(scalar_tab(n)%var_p)
-         call botset (scalar_tab(n)%var_p)
+         call latsett(mrl,scalar_tab(n)%var_p)
+         call botset (mrl,scalar_tab(n)%var_p)
       enddo
       if (iparallel == 1) call mpi_send_w(mrl, scalars='S')
       ! call check_pos(1)
@@ -251,11 +251,13 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    ! call check_nans(17)
 
    ! Call atmospheric chemistry here
-   
+
    mrl = mrl_endl(istp)
    if (do_chem == 1 .and. mrl > 0) call cmaq_driver(mrl)
 
-   call trsets()
+   ! Cyclic lateral boundaries and bottom boundary for scalars
+
+   call trsets(mrl)
 
    ! call check_nans(18)
 

@@ -198,6 +198,10 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
    enddo
 
+   do k = 1, ka-1
+      thil(k,iw) = thil(ka,iw)
+   enddo
+
 enddo
 
 ! LBC copy (THETA and TAIR will be copied later with the scalars)

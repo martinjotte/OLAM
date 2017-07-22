@@ -935,6 +935,10 @@ Contains
         tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
      enddo
 
+     do k = 1, lpw(iw)-1
+        thil(k,iw) = thil(lpw(iw),iw)
+     enddo
+
   enddo
 
 ! If using MPI, perform parallel send/recv
