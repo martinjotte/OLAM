@@ -356,25 +356,19 @@ Contains
     integer, intent(in)    :: kdepw  (mza,mwa)
 
     integer :: j, iw, ka, k, jv, iv, iwn, kd, iwd, iw1, iw2, iw3, iw4
-    integer :: iv1, iv2, iv3, iv4
     real    :: c_scp_in_max_sum(mza), c_scp_in_min_sum(mza)
     real    :: scp_int, scp_inb, scpup
     real    :: scp_upwmax(mza), scp_upwmin(mza)
     real    :: scpmin(mza), scpmax(mza), smin, smax
 
     !$omp parallel 
-    !$omp do private(iv,iw1,iw2,iw3,iw4,iv1,iv2,iv3,iv4,k,scpmin,scpmax)
+    !$omp do private(iv,iw1,iw2,iw3,iw4,k,scpmin,scpmax)
     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
        iw1 = itab_v(iv)%iw(1)
        iw2 = itab_v(iv)%iw(2)
        iw3 = itab_v(iv)%iw(3)
        iw4 = itab_v(iv)%iw(4)
-
-       iv1 = itab_v(iv)%iv(1)
-       iv2 = itab_v(iv)%iv(2)
-       iv3 = itab_v(iv)%iv(3)
-       iv4 = itab_v(iv)%iv(4)
 
        ! Vertical loop over T levels
        do k = lpv(iv), mza-1
@@ -385,12 +379,12 @@ Contains
                            scp(k-1,iw2), scp(k,iw2), scp(k+1,iw2) )
        enddo
 
-       do k = max(lpv(iv), min(lpv(iv1), lpv(iv2))), mza-1
+       do k = max(lpv(iv), lpw(iw3)), mza-1
           scpmin(k) = min(scpmin(k), scp(k-1,iw3), scp(k,iw3), scp(k+1,iw3) )
           scpmax(k) = max(scpmax(k), scp(k-1,iw3), scp(k,iw3), scp(k+1,iw3) )
        enddo
 
-       do k = max(lpv(iv), min(lpv(iv3), lpv(iv4))), mza-1
+       do k = max(lpv(iv), lpw(iw4)), mza-1
           scpmin(k) = min(scpmin(k), scp(k-1,iw4), scp(k,iw4), scp(k+1,iw4) )
           scpmax(k) = max(scpmax(k), scp(k-1,iw4), scp(k,iw4), scp(k+1,iw4) )
        enddo

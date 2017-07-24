@@ -464,11 +464,7 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
      ! Diagnose advective donor point locations for all primary W faces
      ! No parallel communication is necessary to compute this
 
-     if (nl%adv_order <= 2) then
-        call donorpointw  (1, mrl, wc, vxef, vyef, vzef, kdepw)
-     else
-        call donorpointw_3(1, mrl, wc, vxef, vyef, vzef, kdepw)
-     endif
+     call donorpointw(1, mrl, wc, vxef, vyef, vzef, kdepw)
 
      ! Finish MPI recv of VXE, VYE, VZE and do a LBC copy
 
@@ -481,23 +477,14 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
      ! Diagnose advective donor point locations for the V faces surrounding all
      ! primary W points. Communication of velocities must have been completed
 
-     if (nl%adv_order <= 2) then
-        call donorpointv  (1, mrl, vcf, vxef, vyef, vzef, iwdepv)
-     else
-        call donorpointv_3(1, mrl, vcf, vxef, vyef, vzef, iwdepv)
-     endif
+     call donorpointv(1, mrl, vcf, vxef, vyef, vzef, iwdepv)
 
   else
 
      ! Compute donor point locations using current velocities.
 
-     if (nl%adv_order <= 2) then
-        call donorpointw  (1, mrl, wc, vxe, vye, vze, kdepw)
-        call donorpointv  (1, mrl, vc, vxe, vye, vze, iwdepv)
-     else
-        call donorpointw_3(1, mrl, wc, vxe, vye, vze, kdepw)
-        call donorpointv_3(1, mrl, vc, vxe, vye, vze, iwdepv)
-     endif
+     call donorpointw(1, mrl, wc, vxe, vye, vze, kdepw)
+     call donorpointv(1, mrl, vc, vxe, vye, vze, iwdepv)
 
   endif  ! strict_wvt_donorpoint
 
@@ -510,13 +497,14 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
   !$omp end parallel do
 
   if (nl%ithil_monot > 0) then
+
      ! Compute outflow CFL numbers needed by Thuburn monotonic scheme
      call comp_cfl1( mrl, dtsm, vmcfa, wmca, vc, wc, rho, nl%ithil_monot, do_check=.false. )
 
      ! Diagnose inlfow CFL numbers at V and W interfaces for Thuburn monotonic scheme
      call comp_cfl2_t( mrl, dtsm, vmcfa, wmca, rho, nl%ithil_monot )
-  endif
 
+  endif
 
 ! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
 ! (Example of how to plot "external" field; one not available in module memory)
@@ -559,7 +547,7 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 
 ! EVALUATE HORIZONTAL GRADIENTS OF THIL, VXE, VYE, AND VZE FOR BEGS
 
-  if (nl%adv_order <= 2) then
+  if (nl%horiz_adv_order <= 2) then
      call grad_t2d  (mrl, thil, gxps_scp,  gyps_scp)
      call grad_t2d  (mrl, vxe,  gxps_vxe,  gyps_vxe)
      call grad_t2d  (mrl, vye,  gxps_vye,  gyps_vye)
@@ -584,7 +572,7 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
      endif
 
      ! MPI send of THIL, VXE, VYE, and VZE gradient components
-     if (nl%adv_order <= 2) then
+     if (nl%horiz_adv_order <= 2) then
         call mpi_send_w(mrl, rvara1=gxps_scp, rvara2=gyps_scp, &
                              rvara3=gxps_vxe, rvara4=gyps_vxe, &
                              rvara5=gxps_vye, rvara6=gyps_vye, &
@@ -604,8 +592,8 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
      
 ! EVALUATE VERTICAL GRADIENT OF THIL, VXE, VYE, AND VZE FOR BEGS
 
-  if (nl%adv_order <= 2) then
-     call grad_z  (mrl, thil, gzps_scp)
+  if (nl%vert_adv_order <= 2) then
+     call grad_z  (mrl, thil, gzps_scp, gzzps_scp)
      call grad_z  (mrl, vxe,  gzps_vxe)
      call grad_z  (mrl, vye,  gzps_vye)
      call grad_z  (mrl, vze,  gzps_vze)
@@ -619,15 +607,13 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 ! EVALUATE UPWINDED THIL, VXE, VYE, AND VZE AT EACH W FACE FOR 
 ! VERTICAL FLUX COMPUTATION
 
-  ! Horizontal loop over all primary W columns
-  !$omp parallel do private(iw,k,kd) 
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-      
-     do k = lpw(iw), mza
+  if (nl%vert_adv_order == 2 .and. nl%horiz_adv_order == 2) then
 
-        kd = kdepw(k,iw)
+     !$omp parallel do private(iw,k,kd)
+     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-        if (nl%adv_order <= 2) then
+        do k = lpw(iw), mza-1
+           kd = kdepw(k,iw)
 
            thil_upw(k,iw) = thil(kd,iw)                    &
                           + dxps_w(k,iw) * gxps_scp(kd,iw) &
@@ -648,7 +634,77 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
                           + dxps_w(k,iw) * gxps_vze(kd,iw) &
                           + dyps_w(k,iw) * gyps_vze(kd,iw) &
                           + dzps_w(k,iw) * gzps_vze(kd,iw)
-        else
+        enddo
+     enddo
+     !$omp end parallel do
+        
+  elseif (nl%vert_adv_order == 3 .and. nl%horiz_adv_order == 2) then
+
+     !$omp parallel do private(iw,k,kd)
+     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+        do k = lpw(iw), mza-1
+           kd = kdepw(k,iw)
+
+           thil_upw(k,iw) = thil(kd,iw)                    &
+                          + dxps_w(k,iw) * gxps_scp(kd,iw) &
+                          + dyps_w(k,iw) * gyps_scp(kd,iw) &
+                          + dzps_w(k,iw) * gzps_scp(kd,iw) + dzzps_w(k,iw) * gzzps_scp(kd,iw)
+
+           vxe_upw(k,iw)  = vxe(kd,iw)                     &
+                          + dxps_w(k,iw) * gxps_vxe(kd,iw) &
+                          + dyps_w(k,iw) * gyps_vxe(kd,iw) &
+                          + dzps_w(k,iw) * gzps_vxe(kd,iw) + dzzps_w(k,iw) * gzzps_vxe(kd,iw)
+
+           vye_upw(k,iw)  = vye(kd,iw)                     &
+                          + dxps_w(k,iw) * gxps_vye(kd,iw) &
+                          + dyps_w(k,iw) * gyps_vye(kd,iw) &
+                          + dzps_w(k,iw) * gzps_vye(kd,iw) + dzzps_w(k,iw) * gzzps_vye(kd,iw)
+
+           vze_upw(k,iw)  = vze(kd,iw)                     &
+                          + dxps_w(k,iw) * gxps_vze(kd,iw) &
+                          + dyps_w(k,iw) * gyps_vze(kd,iw) &
+                          + dzps_w(k,iw) * gzps_vze(kd,iw) + dzzps_w(k,iw) * gzzps_vze(kd,iw)
+        enddo
+     enddo
+     !$omp end parallel do
+
+  elseif (nl%vert_adv_order == 2 .and. nl%horiz_adv_order == 3) then
+
+     !$omp parallel do private(iw,k,kd)
+     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+        do k = lpw(iw), mza-1
+           kd = kdepw(k,iw)
+
+           thil_upw(k,iw) = thil(kd,iw)                                                       &
+                          + dxps_w(k,iw) * gxps_scp(kd,iw) + dxxps_w(k,iw) * gxxps_scp(kd,iw) &
+                                                           + dxyps_w(k,iw) * gxyps_scp(kd,iw) &
+                          + dyps_w(k,iw) * gyps_scp(kd,iw) + dyyps_w(k,iw) * gyyps_scp(kd,iw) &
+                          + dzps_w(k,iw) * gzps_scp(kd,iw)
+
+           vxe_upw(k,iw)  = vxe(kd,iw)                                                        &
+                          + dxps_w(k,iw) * gxps_vxe(kd,iw) + dxxps_w(k,iw) * gxxps_vxe(kd,iw) &
+                                                           + dxyps_w(k,iw) * gxyps_vxe(kd,iw) &
+                          + dyps_w(k,iw) * gyps_vxe(kd,iw) + dyyps_w(k,iw) * gyyps_vxe(kd,iw) &
+                          + dzps_w(k,iw) * gzps_vxe(kd,iw)
+
+           vye_upw(k,iw)  = vye(kd,iw)                                                        &
+                          + dxps_w(k,iw) * gxps_vye(kd,iw) + dxxps_w(k,iw) * gxxps_vye(kd,iw) &
+                                                           + dxyps_w(k,iw) * gxyps_vye(kd,iw) &
+                          + dyps_w(k,iw) * gyps_vye(kd,iw) + dyyps_w(k,iw) * gyyps_vye(kd,iw) &
+                          + dzps_w(k,iw) * gzps_vye(kd,iw)
+        enddo
+     enddo
+     !$omp end parallel do
+
+  elseif (nl%vert_adv_order == 3 .and. nl%horiz_adv_order == 3) then
+
+     !$omp parallel do private(iw,k,kd)
+     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+        do k = lpw(iw), mza-1
+           kd = kdepw(k,iw)
 
            thil_upw(k,iw) = thil(kd,iw)                                                       &
                           + dxps_w(k,iw) * gxps_scp(kd,iw) + dxxps_w(k,iw) * gxxps_scp(kd,iw) &
@@ -673,16 +729,15 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
                                                            + dxyps_w(k,iw) * gxyps_vze(kd,iw) &
                           + dyps_w(k,iw) * gyps_vze(kd,iw) + dyyps_w(k,iw) * gyyps_vze(kd,iw) &
                           + dzps_w(k,iw) * gzps_vze(kd,iw) + dzzps_w(k,iw) * gzzps_vze(kd,iw)
-        endif
-
+        enddo
      enddo
+     !$omp end parallel do
 
-  enddo
-  !$omp end parallel do
+  endif
 
   ! finish MPI recv of THIL, VXE, VYE, and VZE gradient components
   if (iparallel == 1) then
-     if (nl%adv_order <= 2) then
+     if (nl%horiz_adv_order <= 2) then
         call mpi_recv_w(mrl, rvara1=gxps_scp, rvara2=gyps_scp, &
                              rvara3=gxps_vxe, rvara4=gyps_vxe, &
                              rvara5=gxps_vye, rvara6=gyps_vye, &
@@ -700,7 +755,7 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
   endif
 
   ! lateral boundary copy of THIL, VXE, VYE, and VZE gradient components
-  if (nl%adv_order <= 2) then
+  if (nl%horiz_adv_order <= 2) then
      call lbcopy_w(mrl, a1=gxps_scp, a2=gyps_scp, &
                         a3=gxps_vxe, a4=gyps_vxe, &
                         a5=gxps_vye, a6=gyps_vye, &
@@ -719,17 +774,13 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 ! EVALUATE UPWINDED THIL, VXE, VYE, AND VZE AT EACH V FACE FOR 
 ! HORIZONTAL FLUX COMPUTATION
 
-  ! Horizontal loop over V
-  !$omp parallel do private(iv,iwd,kbv,k) 
-  do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+  if (nl%vert_adv_order == 2 .and. nl%horiz_adv_order == 2) then
 
-     kbv = lpv(iv)
+     !$omp parallel do private(iv,k,iwd)
+     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
-     do k = kbv, mza
-
-        iwd = iwdepv(k,iv)
-
-        if (nl%adv_order <= 2) then
+        do k = lpv(iv), mza
+           iwd = iwdepv(k,iv)
 
            thil_upv(k,iv) = thil(k,iwd)                    &
                           + dxps_v(k,iv) * gxps_scp(k,iwd) &
@@ -750,7 +801,83 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
                           + dxps_v(k,iv) * gxps_vze(k,iwd) &
                           + dyps_v(k,iv) * gyps_vze(k,iwd) &
                           + dzps_v(k,iv) * gzps_vze(k,iwd)
-        else
+        enddo
+     enddo
+     !$omp end parallel do
+
+  elseif (nl%vert_adv_order == 3 .and. nl%horiz_adv_order == 2) then
+
+     !$omp parallel do private(iv,k,iwd)
+     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+
+        do k = lpv(iv), mza
+           iwd = iwdepv(k,iv)
+
+           thil_upv(k,iv) = thil(k,iwd)                    &
+                          + dxps_v(k,iv) * gxps_scp(k,iwd) &
+                          + dyps_v(k,iv) * gyps_scp(k,iwd) &
+                          + dzps_v(k,iv) * gzps_scp(k,iwd) + dzzps_v(k,iv) * gzzps_scp(k,iwd)
+
+           vxe_upv(k,iv)  = vxe(k,iwd)                     &
+                          + dxps_v(k,iv) * gxps_vxe(k,iwd) &
+                          + dyps_v(k,iv) * gyps_vxe(k,iwd) &
+                          + dzps_v(k,iv) * gzps_vxe(k,iwd) + dzzps_v(k,iv) * gzzps_vxe(k,iwd)
+
+           vye_upv(k,iv)  = vye(k,iwd)                     &
+                          + dxps_v(k,iv) * gxps_vye(k,iwd) &
+                          + dyps_v(k,iv) * gyps_vye(k,iwd) &
+                          + dzps_v(k,iv) * gzps_vye(k,iwd) + dzzps_v(k,iv) * gzzps_vye(k,iwd)
+
+           vze_upv(k,iv)  = vze(k,iwd)                     &
+                          + dxps_v(k,iv) * gxps_vze(k,iwd) &
+                          + dyps_v(k,iv) * gyps_vze(k,iwd) &
+                          + dzps_v(k,iv) * gzps_vze(k,iwd) + dzzps_v(k,iv) * gzzps_vze(k,iwd)
+        enddo
+     enddo
+     !$omp end parallel do
+
+  elseif (nl%vert_adv_order == 2 .and. nl%horiz_adv_order == 3) then
+
+     !$omp parallel do private(iv,k,iwd)
+     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+
+        do k = lpv(iv), mza
+           iwd = iwdepv(k,iv)
+
+           thil_upv(k,iv) = thil(k,iwd)                                                       &
+                          + dxps_v(k,iv) * gxps_scp(k,iwd) + dxxps_v(k,iv) * gxxps_scp(k,iwd) &
+                                                           + dxyps_v(k,iv) * gxyps_scp(k,iwd) &
+                          + dyps_v(k,iv) * gyps_scp(k,iwd) + dyyps_v(k,iv) * gyyps_scp(k,iwd) &
+                          + dzps_v(k,iv) * gzps_scp(k,iwd)
+
+           vxe_upv(k,iv)  = vxe(k,iwd)                                                        &
+                          + dxps_v(k,iv) * gxps_vxe(k,iwd) + dxxps_v(k,iv) * gxxps_vxe(k,iwd) &
+                                                           + dxyps_v(k,iv) * gxyps_vxe(k,iwd) &
+                          + dyps_v(k,iv) * gyps_vxe(k,iwd) + dyyps_v(k,iv) * gyyps_vxe(k,iwd) &
+                          + dzps_v(k,iv) * gzps_vxe(k,iwd)
+
+           vye_upv(k,iv)  = vye(k,iwd)                                                        &
+                          + dxps_v(k,iv) * gxps_vye(k,iwd) + dxxps_v(k,iv) * gxxps_vye(k,iwd) &
+                                                           + dxyps_v(k,iv) * gxyps_vye(k,iwd) &
+                          + dyps_v(k,iv) * gyps_vye(k,iwd) + dyyps_v(k,iv) * gyyps_vye(k,iwd) &
+                          + dzps_v(k,iv) * gzps_vye(k,iwd)
+
+           vze_upv(k,iv)  = vze(k,iwd)                                                        &
+                          + dxps_v(k,iv) * gxps_vze(k,iwd) + dxxps_v(k,iv) * gxxps_vze(k,iwd) &
+                                                           + dxyps_v(k,iv) * gxyps_vze(k,iwd) &
+                          + dyps_v(k,iv) * gyps_vze(k,iwd) + dyyps_v(k,iv) * gyyps_vze(k,iwd) &
+                          + dzps_v(k,iv) * gzps_vze(k,iwd)
+        enddo
+     enddo
+     !$omp end parallel do
+
+  elseif (nl%vert_adv_order == 3 .and. nl%horiz_adv_order == 3) then
+
+     !$omp parallel do private(iv,k,iwd)
+     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+
+        do k = lpv(iv), mza
+           iwd = iwdepv(k,iv)
 
            thil_upv(k,iv) = thil(k,iwd)                                                       &
                           + dxps_v(k,iv) * gxps_scp(k,iwd) + dxxps_v(k,iv) * gxxps_scp(k,iwd) &
@@ -775,12 +902,11 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
                                                            + dxyps_v(k,iv) * gxyps_vze(k,iwd) &
                           + dyps_v(k,iv) * gyps_vze(k,iwd) + dyyps_v(k,iv) * gyyps_vze(k,iwd) &
                           + dzps_v(k,iv) * gzps_vze(k,iwd) + dzzps_v(k,iv) * gzzps_vze(k,iwd)
-        endif
-
+        enddo
      enddo
+     !$omp end parallel do
 
-  enddo
-  !$omp end parallel do
+  endif
 
 ! Compute the monotonic or positive-definite flux limiters and then apply them
 

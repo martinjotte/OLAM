@@ -68,7 +68,8 @@ subroutine olam_run(name_name)
   use mem_leaf,    only: land
   use mem_sea,     only: sea
   use vel_t3d,     only: diagvel_t3d, diagvel_t3d_init
-
+  use mem_adv,     only: alloc_adv
+  
   use cgrid_spcs,  only: cgrid_spcs_init
   use emis_defn,   only: emis_init
   use depv_defn,   only: depv_init
@@ -317,6 +318,11 @@ subroutine olam_run(name_name)
      call olam_alloc_mpi(mza,mrls)
   endif
 
+  ! Allocate memory for advection and pre-compute arrays for 3rd order advection
+  ! (needs MPI to have been initialized)
+
+  call alloc_adv()
+  
   ! Initialize 3d microphysics fields (if miclevel = 3) and other microphysics
   ! quantities
 

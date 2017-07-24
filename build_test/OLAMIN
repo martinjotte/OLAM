@@ -201,13 +201,18 @@
 
    NL%NADDSC    = 0       ! Number of additional scalar species
 
+   NL%ITHIL_MONOT = 0     ! Monotonic advection for temperature (THIL)
+                          ! 0 = off, 1 = monotonic, 2 = positive-definite
+   
    NL%ISCAL_MONOT = 0     ! Monotonic advection for scalars (including moisture)
                           ! 0 = off, 1 = monotonic, 2 = positive-definite
 
    NL%SPLIT_SCALARS = 0   ! time split scalar physics from advection
+                          ! (ensures scalars remain bounded/postive-definite)
                           ! 0 = off, 1 = on
 
-   NL%ADV_ORDER = 2       ! Advection order (2 or 3)
+   NL%VERT_ADV_ORDER  = 3 ! Vertical advection order (2 or 3)
+   NL%HORIZ_ADV_ORDER = 2 ! Horizontal advection order (2 or 3)
 
    NL%DEBUG_FP  = .false. ! Detect floating point errors such as overflows,
                           ! INFs, divide-by-zeros, and NANs (best if code is
@@ -296,11 +301,11 @@
    NL%ICLOUD = 4  !  0,4,5  ! 0 = category off
    NL%IDRIZ  = 5  !  0,  5  ! 2 = diameter specified and concen diagnosed
    NL%IPRIS  = 5  !  0,  5  ! 4 = concen specified and diameter diagnosed
-   NL%IRAIN  = 2  !  0,2,5  ! 5 = concen prognosed and diameter diagnosed
-   NL%ISNOW  = 2  !  0,2,5  !
-   NL%IAGGR  = 2  !  0,2,5  ! If any of IRAIN, ISNOW, IAGGR, IGRAUP, IHAIL
-   NL%IGRAUP = 2  !  0,2,5  ! are set to 5, all others not set to 0 will
-   NL%IHAIL  = 2  !  0,2,5  ! be set to 5 as well (in code)
+   NL%IRAIN  = 5  !  0,2,5  ! 5 = concen prognosed and diameter diagnosed
+   NL%ISNOW  = 5  !  0,2,5  !
+   NL%IAGGR  = 5  !  0,2,5  ! If any of IRAIN, ISNOW, IAGGR, IGRAUP, IHAIL
+   NL%IGRAUP = 5  !  0,2,5  ! are set to 5, all others not set to 0 will
+   NL%IHAIL  = 5  !  0,2,5  ! be set to 5 as well (in code)
 
    NL%ICCN   = 1  ! 1   = CCN concentration is specified in CCNPARM
                   ! 2+  = CCN is prognosed (ICCN value ID's a set of CCN types)

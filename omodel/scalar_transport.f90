@@ -168,11 +168,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! Diagnose advective donor point locations for all primary W faces
 ! No parallel communication is necessary to compute this
 
-  if (nl%adv_order <= 2) then
-     call donorpointw  (1, mrl, wsc, vxesc, vyesc, vzesc, kdepw)
-  else
-     call donorpointw_3(1, mrl, wsc, vxesc, vyesc, vzesc, kdepw)
-  endif
+  call donorpointw(1, mrl, wsc, vxesc, vyesc, vzesc, kdepw)
 
 ! Complete MPI recv of VXESC, VYESC, VZESC and do LBC copy
 
@@ -185,11 +181,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! Diagnose advective donor point locations for the V faces surrounding all
 ! primary W points. Communication of velocities must have been completed
 
-  if (nl%adv_order <= 2) then
-     call donorpointv(1, mrl, vsc, vxesc, vyesc, vzesc, iwdepv)
-  else
-     call donorpointv_3(1, mrl, vsc, vxesc, vyesc, vzesc, iwdepv)
-  endif
+  call donorpointv(1, mrl, vsc, vxesc, vyesc, vzesc, iwdepv)
 
   ! Compute outflow CFL numbers for long timestep stability check;
   ! also needed by Thuburn monotonic scheme
@@ -222,7 +214,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
 ! Evaluate and MPI send of horizontal gradients of scalar field
 
-     if (nl%adv_order <= 2) then
+     if (nl%horiz_adv_order <= 2) then
         call grad_t2d  (mrl, scp, gxps_scp, gyps_scp)
      else
         call grad_t2d_3(mrl, scp, gxps_scp, gyps_scp, gxxps_scp, gxyps_scp, gyyps_scp)
@@ -231,7 +223,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! MPI send of SCP gradient components
 
      if (iparallel == 1) then
-        if (nl%adv_order <= 2) then
+        if (nl%horiz_adv_order <= 2) then
            call mpi_send_w(mrl, rvara1=gxps_scp,  rvara2=gyps_scp)
         else
            call mpi_send_w(mrl, rvara1=gxps_scp,  rvara2=gyps_scp,  &
@@ -241,7 +233,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
 ! Evaluate vertical gradient of scalar field
 
-     if (nl%adv_order <= 2) then
+     if (nl%vert_adv_order <= 2) then
         call grad_z  (mrl, scp, gzps_scp)
      else
         call grad_z_3(mrl, scp, gzps_scp, gzzps_scp)
@@ -251,45 +243,78 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! upwinded scalar value at each W interface. This can be 
 ! computed before scalar gradients are received at the borders
 
-! Loop over all primary W/T columns:
+     if (nl%vert_adv_order == 2 .and. nl%horiz_adv_order == 2) then
 
-     !$omp parallel do private(iw,k,kd)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+        !$omp parallel do private(iw,k,kd)
+        do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-        ! Loop over W levels
-        do k = lpw(iw), mza-1
-           kd = kdepw(k,iw)
+           do k = lpw(iw), mza-1
+              kd = kdepw(k,iw)
 
-           ! First-order upstream:
-           ! scp_upw(k,iw) = scp(kd,iw)
-
-
-           if (nl%adv_order <= 2) then
-
-              ! 2nd order, biased to upwind cell:
               scp_upw(k,iw) = scp(kd,iw)                     &
                             + dxps_w(k,iw) * gxps_scp(kd,iw) &
                             + dyps_w(k,iw) * gyps_scp(kd,iw) &
                             + dzps_w(k,iw) * gzps_scp(kd,iw)
+           enddo
+        enddo
+        !$omp end parallel do
+        
+     elseif (nl%vert_adv_order == 3 .and. nl%horiz_adv_order == 2) then
 
-           else
+        !$omp parallel do private(iw,k,kd)
+        do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-              ! 3rd order, biased to upwind cell:
+           do k = lpw(iw), mza-1
+              kd = kdepw(k,iw)
+
+              scp_upw(k,iw) = scp(kd,iw)                     &
+                            + dxps_w(k,iw) * gxps_scp(kd,iw) &
+                            + dyps_w(k,iw) * gyps_scp(kd,iw) &
+                            + dzps_w(k,iw) * gzps_scp(kd,iw) + dzzps_w(k,iw) * gzzps_scp(kd,iw)
+           enddo
+        enddo
+        !$omp end parallel do
+
+     elseif (nl%vert_adv_order == 2 .and. nl%horiz_adv_order == 3) then
+
+        !$omp parallel do private(iw,k,kd)
+        do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+           do k = lpw(iw), mza-1
+              kd = kdepw(k,iw)
+
+              scp_upw(k,iw) = scp(kd,iw)                                                        &
+                            + dxps_w(k,iw) * gxps_scp(kd,iw) + dxxps_w(k,iw) * gxxps_scp(kd,iw) &
+                                                             + dxyps_w(k,iw) * gxyps_scp(kd,iw) &
+                            + dyps_w(k,iw) * gyps_scp(kd,iw) + dyyps_w(k,iw) * gyyps_scp(kd,iw) &
+                            + dzps_w(k,iw) * gzps_scp(kd,iw)
+           enddo
+        enddo
+        !$omp end parallel do
+
+     elseif (nl%vert_adv_order == 3 .and. nl%horiz_adv_order == 3) then
+
+        !$omp parallel do private(iw,k,kd)
+        do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+           do k = lpw(iw), mza-1
+              kd = kdepw(k,iw)
+
               scp_upw(k,iw) = scp(kd,iw)                                                        &
                             + dxps_w(k,iw) * gxps_scp(kd,iw) + dxxps_w(k,iw) * gxxps_scp(kd,iw) &
                                                              + dxyps_w(k,iw) * gxyps_scp(kd,iw) &
                             + dyps_w(k,iw) * gyps_scp(kd,iw) + dyyps_w(k,iw) * gyyps_scp(kd,iw) &
                             + dzps_w(k,iw) * gzps_scp(kd,iw) + dzzps_w(k,iw) * gzzps_scp(kd,iw)
-           endif
-
+           enddo
         enddo
-     enddo
-     !$omp end parallel do
+        !$omp end parallel do
+
+     endif
 
 ! MPI recv of SCP gradient components
 
      if (iparallel == 1) then
-        if (nl%adv_order <= 2) then
+        if (nl%horiz_adv_order <= 2) then
            call mpi_recv_w(mrl, rvara1=gxps_scp,  rvara2=gyps_scp)
         else
            call mpi_recv_w(mrl, rvara1=gxps_scp,  rvara2=gyps_scp,  &
@@ -297,7 +322,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
         endif
      endif
 
-     if (nl%adv_order <= 2) then
+     if (nl%horiz_adv_order <= 2) then
         call lbcopy_w(mrl, a1=gxps_scp,  a2=gyps_scp)
      else
         call lbcopy_w(mrl, a1=gxps_scp,  a2=gyps_scp,  &
@@ -307,35 +332,73 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! Horizontal loop over all V points surrounding primary W/T columns
 ! to compute upwinded scalar value at the V points
 
-     !$omp parallel do private(iv,k,iwd)
-     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+     if (nl%vert_adv_order == 2 .and. nl%horiz_adv_order == 2) then
 
-        do k = lpv(iv), mza
-           iwd = iwdepv(k,iv)
+        !$omp parallel do private(iv,k,iwd)
+        do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
-           ! 1st-order upwind:
-           ! scp_upv(k,iv) = scp(k,iwd)
+           do k = lpv(iv), mza
+              iwd = iwdepv(k,iv)
 
-           if (nl%adv_order <= 2) then
-
-              ! 2nd-order, biased to upwind cell:
               scp_upv(k,iv) = scp(k,iwd)                     &
                             + dxps_v(k,iv) * gxps_scp(k,iwd) &
                             + dyps_v(k,iv) * gyps_scp(k,iwd) &
                             + dzps_v(k,iv) * gzps_scp(k,iwd)
-           else
+           enddo
+        enddo
+        !$omp end parallel do
 
-              ! 3rd-order, biased to upwind cell:
+     elseif (nl%vert_adv_order == 3 .and. nl%horiz_adv_order == 2) then
+
+        !$omp parallel do private(iv,k,iwd)
+        do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+
+           do k = lpv(iv), mza
+              iwd = iwdepv(k,iv)
+
               scp_upv(k,iv) = scp(k,iwd)                     &
+                            + dxps_v(k,iv) * gxps_scp(k,iwd) &
+                            + dyps_v(k,iv) * gyps_scp(k,iwd) &
+                            + dzps_v(k,iv) * gzps_scp(k,iwd) + dzzps_v(k,iv) * gzzps_scp(k,iwd)
+           enddo
+        enddo
+        !$omp end parallel do
+
+     elseif (nl%vert_adv_order == 2 .and. nl%horiz_adv_order == 3) then
+
+        !$omp parallel do private(iv,k,iwd)
+        do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+
+           do k = lpv(iv), mza
+              iwd = iwdepv(k,iv)
+
+              scp_upv(k,iv) = scp(k,iwd)                                                        &
+                            + dxps_v(k,iv) * gxps_scp(k,iwd) + dxxps_v(k,iv) * gxxps_scp(k,iwd) &
+                                                             + dxyps_v(k,iv) * gxyps_scp(k,iwd) &
+                            + dyps_v(k,iv) * gyps_scp(k,iwd) + dyyps_v(k,iv) * gyyps_scp(k,iwd) &
+                            + dzps_v(k,iv) * gzps_scp(k,iwd)
+           enddo
+        enddo
+        !$omp end parallel do
+
+     elseif (nl%vert_adv_order == 3 .and. nl%horiz_adv_order == 3) then
+
+        !$omp parallel do private(iv,k,iwd)
+        do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+
+           do k = lpv(iv), mza
+              iwd = iwdepv(k,iv)
+
+              scp_upv(k,iv) = scp(k,iwd)                                                        &
                             + dxps_v(k,iv) * gxps_scp(k,iwd) + dxxps_v(k,iv) * gxxps_scp(k,iwd) &
                                                              + dxyps_v(k,iv) * gxyps_scp(k,iwd) &
                             + dyps_v(k,iv) * gyps_scp(k,iwd) + dyyps_v(k,iv) * gyyps_scp(k,iwd) &
                             + dzps_v(k,iv) * gzps_scp(k,iwd) + dzzps_v(k,iv) * gzzps_scp(k,iwd)
-           endif
-
+           enddo
         enddo
-     enddo
-     !$omp end parallel do
+        !$omp end parallel do
+
+     endif
 
 ! Compute the monotonic or positive-definite flux limiters and then apply them
 
@@ -554,7 +617,7 @@ end subroutine grad_t2d_3
 subroutine grad_z(mrl, scp, gzps)
 
   use mem_ijtabs, only: jtab_w, jtw_wadj
-  use mem_grid,   only: mza, mwa, lpw, dzim
+  use mem_grid,   only: mza, mwa, lpw, dzim, dzit
 
   implicit none
 
@@ -605,6 +668,7 @@ subroutine grad_z_3(mrl, scp, gzps, gzzps)
   use mem_ijtabs, only: jtab_w, jtw_wadj
   use mem_grid,   only: mza, mwa, lpw, dzm
   use mem_adv,    only: zzt, zzb, a_v
+  use misc_coms,  only: io6
 
   implicit none
 
@@ -635,6 +699,9 @@ subroutine grad_z_3(mrl, scp, gzps, gzzps)
         b(1) = sp * dzm(k) - sm * dzm(k-1)
         b(2) = sp * zzt(k) + sm * zzb(k)
 
+        sm = gzps(k,iw)
+        sp = gzzps(k,iw)
+
         gzzps(k,iw) = (b(2) - a_v(2,1,k) * b(1)       ) * a_v(2,2,k)
         gzps (k,iw) = (b(1) - a_v(1,2,k) * gzzps(k,iw)) * a_v(1,1,k)
      enddo
@@ -659,134 +726,12 @@ end subroutine grad_z_3
 subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv)
 
   use mem_ijtabs,  only: jtab_v, itab_v, jtv_wadj
-  use mem_grid,    only: mza, mva, mwa, lpv, unx, uny, unz, xev, yev, zev
-  use misc_coms,   only: dtlm, dtsm, mdomain
-  use consts_coms, only: eradi
-  use max_dims,    only: maxgrds
-  use mem_adv,     only: dxps_v, dyps_v, dzps_v
-
-  implicit none
-
-  integer, intent(in)  :: ldt, mrl
-  real,    intent(in)  :: vs (mza,mva)
-  real,    intent(in)  :: vxe(mza,mwa)
-  real,    intent(in)  :: vye(mza,mwa)
-  real,    intent(in)  :: vze(mza,mwa)
-
-  integer, intent(out) :: iwdepv(mza,mva)
-
-  real :: dto2
-  real :: dxps1, dyps1, dxps2, dyps2
-  real :: cosv1, sinv1, cosv2, sinv2
-  real :: wnx_v, wny_v, wnz_v
-  real :: vxeface, vyeface, vzeface
-
-  real :: dtm(maxgrds)
-  real :: ufacev(mza), wfacev
-
-  integer :: j, kb, k, iv, iw1, iw2
-
-  if (ldt == 1) then
-     dtm(:) = dtlm(:)
-  else
-     dtm(:) = dtsm(:)
-  endif
-
-! Horizontal loop over V points
-
-!----------------------------------------------------------------------------
-  !$omp parallel do private(iv,iw1,iw2,kb,k,dto2,dxps1,dyps1,dxps2,dyps2, &
-  !$omp                     cosv1,sinv1,cosv2,sinv2,wnx_v,wny_v,wnz_v, &
-  !$omp                     vxeface,vyeface,vzeface,ufacev,wfacev)
-  do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-  iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-!----------------------------------------------------------------------------
-
-     kb = lpv(iv)
-
-     dto2 = .5 * dtm(itab_v(iv)%mrlv)
-
-     dxps1 = itab_v(iv)%dxps(1)
-     dyps1 = itab_v(iv)%dyps(1)
-
-     dxps2 = itab_v(iv)%dxps(2)
-     dyps2 = itab_v(iv)%dyps(2)
-
-     cosv1 = itab_v(iv)%cosv(1)
-     sinv1 = itab_v(iv)%sinv(1)
-
-     cosv2 = itab_v(iv)%cosv(2)
-     sinv2 = itab_v(iv)%sinv(2)
-   
-     if (mdomain <= 1) then
-        wnx_v = xev(iv) * eradi
-        wny_v = yev(iv) * eradi
-        wnz_v = zev(iv) * eradi
-     else
-        wnx_v = 0.
-        wny_v = 0.
-        wnz_v = 1.
-     endif
-
-! Vertical loop over T/V levels
-
-     do k = kb, mza
-
-! Average 3 earth velocity components from T points to V face
-
-        vxeface = .5 * (vxe(k,iw1) + vxe(k,iw2))
-        vyeface = .5 * (vye(k,iw1) + vye(k,iw2))
-        vzeface = .5 * (vze(k,iw1) + vze(k,iw2))
-
-! Project earth velocity components at V face onto U and W directions
-
-        ufacev(k) = unx(iv) * vxeface + uny(iv) * vyeface + unz(iv) * vzeface
-        wfacev    = wnx_v   * vxeface + wny_v   * vyeface + wnz_v   * vzeface
-
-! Compute z displacement component for V face relative to T point
-
-        dzps_v(k,iv)  = -dto2 * wfacev
-
-     enddo
-
-! Compute X, Y displacement components for V face relative to T point
-! Vertical loop over T/V levels
-
-     do k = kb, mza
-
-        if (vs(k,iv) > 0.0) then
-
-           iwdepv(k,iv) = iw1
-           dxps_v(k,iv) = -dto2 * (vs(k,iv) * cosv1 - ufacev(k) * sinv1) + dxps1
-           dyps_v(k,iv) = -dto2 * (vs(k,iv) * sinv1 + ufacev(k) * cosv1) + dyps1
-
-        else
-
-           iwdepv(k,iv) = iw2
-           dxps_v(k,iv) = -dto2 * (vs(k,iv) * cosv2 - ufacev(k) * sinv2) + dxps2
-           dyps_v(k,iv) = -dto2 * (vs(k,iv) * sinv2 + ufacev(k) * cosv2) + dyps2
-
-        endif
-
-     enddo
-
-  enddo
-  !$omp end parallel do
-
-end subroutine donorpointv
-
-
-!===============================================================================
-
-
-subroutine donorpointv_3(ldt, mrl, vs, vxe, vye, vze, iwdepv)
-
-  use mem_ijtabs,  only: jtab_v, itab_v, jtv_wadj
   use mem_grid,    only: mza, mva, mwa, lpv, unx, uny, unz, xev, yev, zev, &
                          dzto4
   use misc_coms,   only: dtlm, dtsm, mdomain
   use consts_coms, only: eradi
   use max_dims,    only: maxgrds
+  use oname_coms,  only: nl
   use mem_adv,     only: dxps_v, dyps_v, dzps_v, &
                          dxyps_v, dxxps_v, dyyps_v, dzzps_v, &
                          xx0_v, xy0_v, yy0_v, dxps_m1, dyps_m1, dxps_m2, dyps_m2
@@ -879,70 +824,98 @@ subroutine donorpointv_3(ldt, mrl, vs, vxe, vye, vze, iwdepv)
 ! Compute z displacement component for V face relative to T point
 
         dzps_v(k,iv)  = min( max( -dto2 * wfacev, -dzto4(k) ), dzto4(k) )
-        zp            = 2.0 * dzps_v(k,iv)
-        dzzps_v(k,iv) = zp * zp
-
      enddo
+
+     if (nl%vert_adv_order > 2) then
+        do k = kb, mza
+           zp            = 2.0 * dzps_v(k,iv)
+           dzzps_v(k,iv) = zp * zp
+        enddo
+     endif
 
 ! Compute X, Y displacement components for V face relative to T point
 ! Vertical loop over T/V levels
 
-     do k = kb, mza
+     if (nl%horiz_adv_order <= 2) then
 
-        if (vs(k,iv) > 0.0) then
+        do k = kb, mza
 
-           iwdepv(k,iv) = iw1
+           if (vs(k,iv) > 0.0) then
 
-           dxo2 = -dto2 * (vs(k,iv) * cosv1 - ufacev(k) * sinv1)
-           dx   = 2.0 * dxo2
+              iwdepv(k,iv) = iw1
+              dxps_v(k,iv) = -dto2 * (vs(k,iv) * cosv1 - ufacev(k) * sinv1) + dxps1
+              dyps_v(k,iv) = -dto2 * (vs(k,iv) * sinv1 + ufacev(k) * cosv1) + dyps1
 
-           dyo2 = -dto2 * (vs(k,iv) * sinv1 + ufacev(k) * cosv1)
-           dy   = 2.0 * dyo2
+           else
 
-           dxps_v(k,iv) = dxo2 + dxps1
-           dyps_v(k,iv) = dyo2 + dyps1
+              iwdepv(k,iv) = iw2
+              dxps_v(k,iv) = -dto2 * (vs(k,iv) * cosv2 - ufacev(k) * sinv2) + dxps2
+              dyps_v(k,iv) = -dto2 * (vs(k,iv) * sinv2 + ufacev(k) * cosv2) + dyps2
 
-           dx1 = dxps_m1(1,iv) + dx
-           dy1 = dyps_m1(1,iv) + dy
+           endif
 
-           dx2 = dxps_m2(1,iv) + dx
-           dy2 = dyps_m2(1,iv) + dy
+        enddo
 
-           dxxps_v(k,iv) = xx0_v(1,iv) + wt1 * dxps_v(k,iv) * dxps_v(k,iv) + wt2 * (dx1 * dx1 + dx2 * dx2)
-           dxyps_v(k,iv) = xy0_v(1,iv) + wt1 * dxps_v(k,iv) * dyps_v(k,iv) + wt2 * (dx1 * dy1 + dx2 * dy2)
-           dyyps_v(k,iv) = yy0_v(1,iv) + wt1 * dyps_v(k,iv) * dyps_v(k,iv) + wt2 * (dy1 * dy1 + dy2 * dy2)
+     else
 
-        else
+        do k = kb, mza
 
-           iwdepv(k,iv) = iw2
+           if (vs(k,iv) > 0.0) then
+
+              iwdepv(k,iv) = iw1
+
+              dxo2 = -dto2 * (vs(k,iv) * cosv1 - ufacev(k) * sinv1)
+              dx   = 2.0 * dxo2
+
+              dyo2 = -dto2 * (vs(k,iv) * sinv1 + ufacev(k) * cosv1)
+              dy   = 2.0 * dyo2
+
+              dxps_v(k,iv) = dxo2 + dxps1
+              dyps_v(k,iv) = dyo2 + dyps1
+
+              dx1 = dxps_m1(1,iv) + dx
+              dy1 = dyps_m1(1,iv) + dy
+
+              dx2 = dxps_m2(1,iv) + dx
+              dy2 = dyps_m2(1,iv) + dy
+
+              dxxps_v(k,iv) = xx0_v(1,iv) + wt1 * dxps_v(k,iv) * dxps_v(k,iv) + wt2 * (dx1 * dx1 + dx2 * dx2)
+              dxyps_v(k,iv) = xy0_v(1,iv) + wt1 * dxps_v(k,iv) * dyps_v(k,iv) + wt2 * (dx1 * dy1 + dx2 * dy2)
+              dyyps_v(k,iv) = yy0_v(1,iv) + wt1 * dyps_v(k,iv) * dyps_v(k,iv) + wt2 * (dy1 * dy1 + dy2 * dy2)
+
+           else
+
+              iwdepv(k,iv) = iw2
            
-           dxo2 = -dto2 * (vs(k,iv) * cosv2 - ufacev(k) * sinv2)
-           dx   = 2.0 * dxo2
+              dxo2 = -dto2 * (vs(k,iv) * cosv2 - ufacev(k) * sinv2)
+              dx   = 2.0 * dxo2
 
-           dyo2 = -dto2 * (vs(k,iv) * sinv2 + ufacev(k) * cosv2)
-           dy   = 2.0 * dyo2
+              dyo2 = -dto2 * (vs(k,iv) * sinv2 + ufacev(k) * cosv2)
+              dy   = 2.0 * dyo2
 
-           dxps_v(k,iv) = dxo2 + dxps2
-           dyps_v(k,iv) = dyo2 + dyps2
+              dxps_v(k,iv) = dxo2 + dxps2
+              dyps_v(k,iv) = dyo2 + dyps2
 
-           dx1 = dxps_m1(2,iv) + dx
-           dy1 = dyps_m1(2,iv) + dy
+              dx1 = dxps_m1(2,iv) + dx
+              dy1 = dyps_m1(2,iv) + dy
 
-           dx2 = dxps_m2(2,iv) + dx
-           dy2 = dyps_m2(2,iv) + dy
+              dx2 = dxps_m2(2,iv) + dx
+              dy2 = dyps_m2(2,iv) + dy
 
-           dxxps_v(k,iv) = xx0_v(2,iv) + wt1 * dxps_v(k,iv) * dxps_v(k,iv) + wt2 * (dx1 * dx1 + dx2 * dx2)
-           dxyps_v(k,iv) = xy0_v(2,iv) + wt1 * dxps_v(k,iv) * dyps_v(k,iv) + wt2 * (dx1 * dy1 + dx2 * dy2)
-           dyyps_v(k,iv) = yy0_v(2,iv) + wt1 * dyps_v(k,iv) * dyps_v(k,iv) + wt2 * (dy1 * dy1 + dy2 * dy2)
+              dxxps_v(k,iv) = xx0_v(2,iv) + wt1 * dxps_v(k,iv) * dxps_v(k,iv) + wt2 * (dx1 * dx1 + dx2 * dx2)
+              dxyps_v(k,iv) = xy0_v(2,iv) + wt1 * dxps_v(k,iv) * dyps_v(k,iv) + wt2 * (dx1 * dy1 + dx2 * dy2)
+              dyyps_v(k,iv) = yy0_v(2,iv) + wt1 * dyps_v(k,iv) * dyps_v(k,iv) + wt2 * (dy1 * dy1 + dy2 * dy2)
 
-        endif
+           endif
 
-     enddo
+        enddo
+
+     endif
 
   enddo
   !$omp end parallel do
 
-end subroutine donorpointv_3
+end subroutine donorpointv
 
 
 !===============================================================================
@@ -951,114 +924,10 @@ end subroutine donorpointv_3
 subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw)
 
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
-  use mem_grid,   only: mza, mwa, lpw, dzt_top, dzt_bot
-  use misc_coms,  only: dtlm, dtsm
-  use max_dims,   only: maxgrds
-  use mem_adv,    only: dxps_w, dyps_w, dzps_w
-
-  implicit none
-
-  integer, intent(in)  :: ldt, mrl
-  real,    intent(in)  :: ws (mza,mwa)
-  real,    intent(in)  :: vxe(mza,mwa)
-  real,    intent(in)  :: vye(mza,mwa)
-  real,    intent(in)  :: vze(mza,mwa)
-
-  integer, intent(out) :: kdepw(mza,mwa)
-
-  real :: dto2
-  real :: unx_w, uny_w, vnx_w, vny_w, vnz_w
-  real :: vxeface, vyeface, vzeface
-  real :: uface,vface
-  real :: dtm(maxgrds)
-
-  integer :: j, kb, k, kp, iw
-
-  if (ldt == 1) then
-     dtm(:) = dtlm(:)
-  else
-     dtm(:) = dtsm(:)
-  endif
-
-! Horizontal loop over all primary W points
-
-!------------------------------------------------------------------------
-  !$omp parallel do private(iw,kb,k,kp,dto2,unx_w,uny_w,vnx_w,vny_w,vnz_w, &
-  !$omp                     vxeface,vyeface,vzeface,uface,vface) 
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-!------------------------------------------------------------------------
-
-     kb = lpw(iw)
-
-     dto2 = 0.5 * dtm(itab_w(iw)%mrlw)
-
-     unx_w = itab_w(iw)%unx_w
-     uny_w = itab_w(iw)%uny_w
-   
-     vnx_w = itab_w(iw)%vnx_w
-     vny_w = itab_w(iw)%vny_w
-     vnz_w = itab_w(iw)%vnz_w
-
-! Vertical loop over W levels
-
-     do k = kb, mza
-        kp = min(k+1,mza)
-
-! Average 3 velocity components from T points to W point
-
-        vxeface = .5 * (vxe(k,iw) + vxe(kp,iw))
-        vyeface = .5 * (vye(k,iw) + vye(kp,iw))
-        vzeface = .5 * (vze(k,iw) + vze(kp,iw))
-
-! Project earth velocity components at W face onto U and V directions
-
-        uface = unx_w * vxeface + uny_w * vyeface
-        vface = vnx_w * vxeface + vny_w * vyeface + vnz_w * vzeface
-
-! Compute x and y displacement components for W face relative to T point
-
-        dxps_w(k,iw) = -dto2 * uface
-        dyps_w(k,iw) = -dto2 * vface
-     enddo
-
-! Compute z displacement components for W face relative to T point,
-! and store the vertical donor and recv cell indices.
-! Vertical loop over W levels
-
-     do k = kb, mza-1
-
-        if (ws(k,iw) > 0.0) then
-
-           kdepw(k,iw) = k
-           dzps_w(k,iw) = max( -dto2 * ws(k,iw) + dzt_top(k), 0.0)
-
-        else
-
-           kdepw(k,iw) = k + 1
-           dzps_w(k,iw) = min( -dto2 * ws(k,iw) - dzt_bot(k+1), 0.0)
-
-        endif
-
-     enddo
-   
-     kdepw (mza,iw) = mza
-     dzps_w(mza,iw) = dzt_top(mza)
-
-  enddo
-  !$omp end parallel do
-
-end subroutine donorpointw
-
-
-!===============================================================================
-
-
-subroutine donorpointw_3(ldt, mrl, ws, vxe, vye, vze, kdepw)
-
-  use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
   use mem_grid,   only: mza, mwa, lpw, dzto2, dzt, dztsqo6
   use misc_coms,  only: dtlm, dtsm
   use max_dims,   only: maxgrds
+  use oname_coms, only: nl
   use mem_adv,    only: dxps_w, dyps_w, dzps_w, &
                         dxyps_w, dxxps_w, dyyps_w, dzzps_w
 
@@ -1129,11 +998,15 @@ subroutine donorpointw_3(ldt, mrl, ws, vxe, vye, vze, kdepw)
         dxps_w(k,iw) = -dto2 * uface
         dyps_w(k,iw) = -dto2 * vface
 
-        dxxps_w(k,iw) = dxps_w(k,iw) * dxps_w(k,iw)
-        dxyps_w(k,iw) = dxps_w(k,iw) * dyps_w(k,iw)
-        dyyps_w(k,iw) = dyps_w(k,iw) * dyps_w(k,iw)
-
      enddo
+
+     if (nl%horiz_adv_order > 2) then
+        do k = kb, mza
+           dxxps_w(k,iw) = dxps_w(k,iw) * dxps_w(k,iw)
+           dxyps_w(k,iw) = dxps_w(k,iw) * dyps_w(k,iw)
+           dyyps_w(k,iw) = dyps_w(k,iw) * dyps_w(k,iw)
+        enddo
+     endif
 
 ! Compute z displacement components for W face relative to T point,
 ! and store the vertical donor and recv cell indices.
@@ -1153,21 +1026,27 @@ subroutine donorpointw_3(ldt, mrl, ws, vxe, vye, vze, kdepw)
 
         endif
 
-        zp = min( dt * abs(ws(k,iw)), dzt(k) )
-        dzzps_w(k,iw) = dztsqo6(k) + zp * (zp * onethird - dzto2(k))
-
      enddo
-   
+        
      kdepw  (mza,iw) = mza
      dzps_w (mza,iw) = dzto2(mza)
-     dzzps_w(mza,iw) = dztsqo6(mza)
+
+     if (nl%vert_adv_order > 2) then
+        do k = kb, mza-1
+           zp = min( dt * abs(ws(k,iw)), dzt(k) )
+           dzzps_w(k,iw) = dztsqo6(k) + zp * (zp * onethird - dzto2(k))
+        enddo
+        dzzps_w(mza,iw) = dztsqo6(mza)
+     endif
 
   enddo
   !$omp end parallel do
 
-end subroutine donorpointw_3
+end subroutine donorpointw
+
 
 !===========================================================================
+
 
 subroutine zero_momsc(vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
 
