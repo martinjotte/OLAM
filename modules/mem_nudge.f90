@@ -33,7 +33,11 @@
 
 Module mem_nudge
 
+  use consts_coms, only: r8
+
   implicit none
+
+  private :: r8
    
   integer, parameter :: nloops_wnud = 100 ! # WNUD DO loops for para
 
@@ -91,6 +95,8 @@ Module mem_nudge
   real,    allocatable         :: uzonal_sim(:,:)
   real,    allocatable         :: umerid_sim(:,:)
 
+  real(r8),allocatable         ::   volwnudi(:,:)
+
   integer :: nudflag
   integer :: nudnxp
   integer :: nnudfiles
@@ -129,7 +135,9 @@ Contains
 
   subroutine alloc_nudge2(mza)
 
-    use misc_coms, only: io6, rinit
+    use misc_coms,   only: io6, rinit
+    use consts_coms, only: r8
+
     implicit none
 
     integer, intent(in) :: mza
@@ -162,6 +170,7 @@ Contains
        allocate (    shw_sim(mza,mwnud)) ; shw_sim     = rinit
        allocate ( uzonal_sim(mza,mwnud)) ; uzonal_sim  = rinit
        allocate ( umerid_sim(mza,mwnud)) ; umerid_sim  = rinit
+       allocate (   volwnudi(mza,mwnud)) ; volwnudi    = 0.0_r8
     endif
 
   end subroutine alloc_nudge2

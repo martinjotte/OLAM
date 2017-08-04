@@ -300,15 +300,14 @@ Contains
        call mpi_send_w(mrl, rvara1=cfl_out_sum)
     endif
 
-    !$omp parallel do private(iw,k,fact,jv,iv)
+    !$omp parallel private(fact)
+    !$omp do private(iw,k,jv,iv)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        ! Loop over W/M levels
 
-!      do k = lpw(iw)+1, mza-1
        do k = lpw(iw), mza
           fact(k)         = dtm(itab_w(iw)%mrlw) * volti(k,iw) / rho_old(k,iw)
-
           cfl_win_b(k,iw) =  max(wmca(k-1,iw),0.0) * fact(k)
           cfl_win_t(k,iw) = -min(wmca(k,  iw),0.0) * fact(k)
        enddo
@@ -327,7 +326,8 @@ Contains
        enddo
 
     enddo
-    !$omp end parallel do
+    !$omp end do
+    !$omp end parallel
 
     if (iparallel == 1) then
        call mpi_recv_w(mrl, rvara1=cfl_out_sum)
@@ -361,8 +361,9 @@ Contains
     real    :: scp_upwmax(mza), scp_upwmin(mza)
     real    :: scpmin(mza), scpmax(mza), smin, smax
 
-    !$omp parallel 
-    !$omp do private(iv,iw1,iw2,iw3,iw4,k,scpmin,scpmax)
+    !$omp parallel private(scpmin,scpmax,scp_upwmax,scp_upwmin, &
+    !$omp                  c_scp_in_max_sum,c_scp_in_min_sum)
+    !$omp do private(iv,iw1,iw2,iw3,iw4,k)
     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
        iw1 = itab_v(iv)%iw(1)
@@ -401,9 +402,7 @@ Contains
     enddo
     !$omp end do
 
-    !$omp do private(iw,ka,k,scp_upwmax,scp_upwmin,jv,iv,iwn,&
-    !$omp            scp_int,scp_inb,c_scp_in_max_sum,c_scp_in_min_sum,&
-    !$omp            scpup,smax,smin)
+    !$omp do private(iw,ka,k,jv,iv,iwn,scp_int,scp_inb,scpup,smax,smin)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        ka = lpw(iw)
@@ -560,7 +559,7 @@ Contains
     real    :: c_scp_in_min_sum(mza)
     real    :: scpup, scp_int, scp_inb
 
-    !$omp parallel
+    !$omp parallel private(c_scp_in_min_sum)
     !$omp do private(iv,k)
     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
@@ -571,8 +570,7 @@ Contains
     enddo
     !$omp end do
 
-    !$omp do private(iw,ka,k,c_scp_in_min_sum,scp_int,scp_inb,&
-    !$omp            jv,iv,iwn,scpup)
+    !$omp do private(iw,ka,k,scp_int,scp_inb,jv,iv,iwn,scpup)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        ka = lpw(iw)
@@ -695,7 +693,8 @@ Contains
        call mpi_send_w(mrl, rvara1=cfl_out_sum)
     endif
 
-    !$omp parallel do private(iw,k,fact,jv,iv,flux)
+    !$omp parallel private(fact,flux)
+    !$omp do private(iw,k,jv,iv)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        ! Loop over W/M levels
@@ -726,7 +725,8 @@ Contains
        endif
 
     enddo
-    !$omp end parallel do
+    !$omp end do
+    !$omp end parallel
 
     if (iparallel == 1) then
        call mpi_recv_w(mrl, rvara1=cfl_out_sum)

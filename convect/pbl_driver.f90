@@ -60,7 +60,8 @@ subroutine pbl_driver(mrl,rhot)
 ! Loop over all W/T points where PBL parameterization may be done
 
 !----------------------------------------------------------------------
-  !$omp parallel do private(iw,mrlw,ka,k,qc,thlv)
+  !$omp parallel private(qc,thlv)
+  !$omp do private(iw,mrlw,ka,k)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -149,7 +150,8 @@ subroutine pbl_driver(mrl,rhot)
      enddo
 
   enddo
-  !$omp end parallel do
+  !$omp end do
+  !$omp end parallel
 
 end subroutine pbl_driver
 
@@ -319,6 +321,7 @@ subroutine pbl_init()
 
 ! Store the fraction of the total surface that intersects with each layer
 
+  !$omp parallel do private(ks,k,km)
   do iw = 2, mwa
      if (lsw(iw) == 1) then
         frac_sfc(1,iw) = 1.0
@@ -331,12 +334,14 @@ subroutine pbl_init()
         enddo
      endif
   enddo
+  !$omp end parallel do
 
   if (runtype /= 'INITIAL') return
 
 ! Initialize PBL height and some PBL quantities
     
-!$omp parallel do private(iw,k,thlv)
+  !$omp parallel private(thlv)
+  !$omp do private(k,iw)
   do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
      ustar(iw) = 0.2
@@ -348,11 +353,12 @@ subroutine pbl_init()
         thlv(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw))
      enddo
 
-     call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), lpw(iw), mza-1, lsw(iw), &
-                       frac_sfc(:,iw), thlv, vxe(:,iw), vye(:,iw), vze(:,iw),  &
-                       kpblh(iw), pblh(iw)                                      )
+    call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), lpw(iw), mza-1, lsw(iw), &
+                      frac_sfc(:,iw), thlv, vxe(:,iw), vye(:,iw), vze(:,iw),   &
+                      kpblh(iw), pblh(iw)                                      )
   enddo
-!$omp end parallel do
+  !$omp end do
+  !$omp end parallel
 
 end subroutine pbl_init
 

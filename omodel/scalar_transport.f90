@@ -206,9 +206,11 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
      if (nl%iscal_monot > 0) then
         if (n == n2 .or. n == n6 .or. n == n7) then
+           !$omp parallel do
            do iw = 2, mwa
               scp(:,iw) = scp(:,iw) + cice * t00
            enddo
+           !$omp end parallel do
         endif
      endif
 
@@ -410,7 +412,8 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
 ! Horizontal loop over W/T points
 
-     !$omp parallel do private (iw, kb, hflux, jv, iv, iwn, dirv, k, vfluxadv)
+     !$omp parallel private(hflux,vfluxadv)
+     !$omp do private (iw, kb, jv, iv, iwn, dirv, k)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
         kb = lpw(iw)
@@ -472,15 +475,18 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
         enddo
 
      enddo
-     !$omp end parallel do
+     !$omp end do
+     !$omp end parallel
 
 ! Special for energy microphysics variables
 
      if (nl%iscal_monot > 0) then
         if (n == n2 .or. n == n6 .or. n == n7) then
+           !$omp parallel do
            do iw = 2, mwa
               scp(:,iw) = scp(:,iw) - cice * t00
            enddo
+           !$omp end parallel do
         endif
      endif
 
@@ -772,9 +778,10 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv)
 ! Horizontal loop over V points
 
 !----------------------------------------------------------------------------
-  !$omp parallel do private(iv,iw1,iw2,kb,k,dto2,dxps1,dyps1,dxps2,dyps2, &
+  !$omp parallel private(ufacev)
+  !$omp do private(iv,iw1,iw2,kb,k,dto2,dxps1,dyps1,dxps2,dyps2, &
   !$omp                     cosv1,sinv1,cosv2,sinv2,wnx_v,wny_v,wnz_v, &
-  !$omp                     vxeface,vyeface,vzeface,ufacev,wfacev,zp, &
+  !$omp                     vxeface,vyeface,vzeface,wfacev,zp, &
   !$omp                     dxo2,dx,dyo2,dy,dx1,dy1,dx2,dy2)
   do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
@@ -913,7 +920,8 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv)
      endif
 
   enddo
-  !$omp end parallel do
+  !$omp end do
+  !$omp end parallel
 
 end subroutine donorpointv
 

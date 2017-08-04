@@ -238,7 +238,8 @@ subroutine cuparm_driver(rhot)
   mrl = mrl_begl(istp)
   if (mrl > 0) then
 
-     !$omp parallel do private(iw,dtlong4,qadd,k,rt2,qtest,dq,qpos,fact)
+     !$omp parallel private(rt2)
+     !$omp do private(iw,dtlong4,qadd,k,qtest,dq,qpos,fact)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -333,7 +334,8 @@ subroutine cuparm_driver(rhot)
         endif
 
      enddo
-     !$omp end parallel do
+     !$omp end do
+     !$omp end parallel
 
   endif
 

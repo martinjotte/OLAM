@@ -503,14 +503,16 @@ enddo
 
 ! Loop over all WNUD points in global domain
 
-do iwnud = 1,nwnud
-   if (myrankflag_wnud(iwnud)) then ! WNUD point is in memory on local subdomain
+if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+   do iwnud = 1,nwnud
+      if (myrankflag_wnud(iwnud)) then ! WNUD point is in memory on local subdomain
 
-      iwnud_myrank = itabg_wnud(iwnud)%iwnud_myrank ! Local index of WNUD point
+         iwnud_myrank = itabg_wnud(iwnud)%iwnud_myrank ! Local index of WNUD point
 
-      itab_wnud(iwnud_myrank)%irank = itabg_wnud(iwnud)%irank
-   endif
-enddo
+         itab_wnud(iwnud_myrank)%irank = itabg_wnud(iwnud)%irank
+      endif
+   enddo
+endif
 
 ! Loop over all V points and for each that is primary on a remote rank, 
 ! access all V, W and M points in its stencil.
@@ -920,7 +922,6 @@ if (jrecv > nrecvs_wnud) nrecvs_wnud = jrecv
 
 recv_wnud(jrecv)%iremote = iremote
 
-return
 end subroutine recv_table_wnud
 
 !===============================================================================
@@ -1071,7 +1072,6 @@ iwnud_myrank = itabg_wnud(iwnud)%iwnud_myrank
 itab_wnud(iwnud_myrank)%loop(jsend) = .true.
 send_wnud(jsend)%iremote = iremote
 
-return
 end subroutine send_table_wnud
 
 !===============================================================================
@@ -1080,8 +1080,8 @@ subroutine compute_primary_points()
 
   use mem_grid,   only: mma, mva, mwa
   use mem_ijtabs, only: itab_v, itab_w, itab_m, itabg_m
-  use mem_nudge,  only: mwnud, itab_wnud
-  use misc_coms,  only: io6
+  use mem_nudge,  only: mwnud, itab_wnud, nudflag, nudnxp
+  use misc_coms,  only: io6, mdomain
   use leaf_coms,  only: mwl
   use mem_leaf,   only: itab_wl
   use sea_coms,   only: mws
@@ -1118,9 +1118,11 @@ subroutine compute_primary_points()
      mws_primary = mws_primary + 1
   enddo
 
-  do i = 2, mwnud
-     if (itab_wnud(i)%irank == myrank) mwnud_primary = mwnud_primary + 1
-  enddo
+  if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+     do i = 2, mwnud
+        if (itab_wnud(i)%irank == myrank) mwnud_primary = mwnud_primary + 1
+     enddo
+  endif
 
   ! additional space for dummy 1st point included with rank 0 only
 
@@ -1241,17 +1243,19 @@ subroutine compute_primary_points()
 
   if (ia /= mws_primary) stop "error computing number of primary points5"
 
-  ia = istart
+  if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+     ia = istart
 
-  do i = 2, mwnud
-     if (itab_wnud(i)%irank == myrank) then
-        ia = ia + 1
-        iwnud_globe_primary(ia) = itab_wnud(i)%iwnudglobe
-        iwnud_local_primary(ia) = i
-     endif
-  enddo
+     do i = 2, mwnud
+        if (itab_wnud(i)%irank == myrank) then
+           ia = ia + 1
+           iwnud_globe_primary(ia) = itab_wnud(i)%iwnudglobe
+           iwnud_local_primary(ia) = i
+        endif
+     enddo
 
-  if (ia /= mwnud_primary) stop "error computing number of primary points6"
+     if (ia /= mwnud_primary) stop "error computing number of primary points6"
+  endif
 
 !!!! temporary checks !!!!!!!!!!!!!!!
 do i = 2, mva_primary
@@ -1333,11 +1337,13 @@ do i = 2, mws
    endif
 enddo
 
-do i = 2, mwnud
-   if (itab_wnud(i)%iwnudglobe < itab_wnud(i-1)%iwnudglobe) then
-      write(io6,*) 'error: WNUDGLOBE is out of order!!!!'
-      stop
-   endif
-enddo
+if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+   do i = 2, mwnud
+      if (itab_wnud(i)%iwnudglobe < itab_wnud(i-1)%iwnudglobe) then
+         write(io6,*) 'error: WNUDGLOBE is out of order!!!!'
+         stop
+      endif
+   enddo
+endif
 
 end subroutine compute_primary_points
