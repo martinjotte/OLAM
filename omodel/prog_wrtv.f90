@@ -589,11 +589,11 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
      endif
 
   endif ! iparallel == 1
-     
+
 ! EVALUATE VERTICAL GRADIENT OF THIL, VXE, VYE, AND VZE FOR BEGS
 
   if (nl%vert_adv_order <= 2) then
-     call grad_z  (mrl, thil, gzps_scp, gzzps_scp)
+     call grad_z  (mrl, thil, gzps_scp)
      call grad_z  (mrl, vxe,  gzps_vxe)
      call grad_z  (mrl, vye,  gzps_vye)
      call grad_z  (mrl, vze,  gzps_vze)
