@@ -212,6 +212,7 @@ C-----------------------------------------------------------------------
       USE SOA_DEFN
       USE AEROMET_DATA
       USE UTILIO_DEFN
+      use misc_coms, only: io6
 
       IMPLICIT NONE
 
@@ -255,9 +256,9 @@ C *** Intramodal coagulation rates [ m**3/s ] ( 0th & 2nd moments )
 C *** Intermodal coagulation rate [ m**3/s ] ( 3rd moment )
       REAL( 8 ) :: C3IJ       ! Aitken to accumulation
       REAL( 8 ) :: C30ATAC    ! Aitken to accumulation
-      REAL( 8 ) :: DG_D ( N_MODE )
-      REAL( 8 ) :: SG_D ( N_MODE )
-      REAL( 8 ) :: XXL_D( N_MODE )
+      REAL( 8 ) :: DG_D ( N_MODE-1 )
+      REAL( 8 ) :: SG_D ( N_MODE-1 )
+      REAL( 8 ) :: XXL_D( N_MODE-1 )
 
 C *** variables for advancing concentrations one time step
       REAL :: A, B
@@ -278,19 +279,10 @@ C *** Variables for mode merging
 C *** local variables
       INTEGER      SPC        ! loop counter
       INTEGER      N          ! loop counter
-      LOGICAL   :: LIMIT_Sg = .FALSE.
 
-      integer, save :: logdev 
-      logical, save :: firstime = .true.
+      LOGICAL, parameter :: LIMIT_Sg = .FALSE.
+
 C-----------------------------------------------------------------------
-
-      if ( firstime ) then
-         firstime = .false.
-         logdev = init3()
-#ifdef nomm
-         write( logdev,* ) 'aero_subs: nomm'
-#endif
-      end if
 
 C *** square root of the ambient temperature for later use
       SQRT_TEMP = SQRT( AIRTEMP )
@@ -317,8 +309,10 @@ C     Update the secondary organic aerosol (SOA) mass concentrations
 C     and the SVOC mass concentrations by equilibrium absorptive
 C     partitioning between the particle and vapor phases.  Assume all
 C     SOA resides in the accumulation mode.
-C
+
 C     Aerosol is wet when it enters orgaer
+      CALL GETPAR( LIMIT_Sg )
+
       CALL ORGAER( DT, LAYER )
 
 C *** Secondary Inorganics
@@ -361,7 +355,7 @@ C *** transfer of number to accumulation mode from Aitken mode is zero
 
 C *** set geometric mean diameters, geometric standard deviations, and
 C     ln(GSD) in double precision
-         DO N = 1, N_MODE
+         DO N = 1, N_MODE-1
             DG_D( N ) = AEROMODE_DIAM( N )
             SG_D( N ) = EXP( AEROMODE_LNSG( N ) )
             XXL_D( N ) = AEROMODE_LNSG( N )
@@ -652,7 +646,7 @@ C     standard deviations, modal mass totals, and particle densities,
 C     based on the final concentrations of M2, M0, and speciated masses
 C     after mode merging is complete. This should be done for the wet
 C     distribution.
-      CALL GETPAR( LIMIT_Sg )
+!     CALL GETPAR( LIMIT_Sg )
 
 C *** Set minimum value for all concentrations in the CBLK array
 
@@ -901,6 +895,7 @@ C *** Local Saved Variables
 
 C-----------------------------------------------------------------------
  
+      !$omp critical
       IF ( FIRSTIME ) THEN
       
          FIRSTIME = .FALSE.
@@ -949,6 +944,7 @@ C-----------------------------------------------------------------------
          HNO3RATI = 1.D0 / HNO3RAT
          HCLRATI  = 1.D0 / HCLRAT
       END IF
+      !$omp end critical
 
 C *** Determine if Hybrid
 

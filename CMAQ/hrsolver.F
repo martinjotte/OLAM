@@ -91,7 +91,7 @@ C..SCRATCH LOCAL VARIABLES:
       INTEGER EBI             ! Loop index
       INTEGER NBKUPS          ! No. of times time step reduced
       INTEGER ERR             ! Allocate error flag
-
+      integer n_inr_steps
 
       LOGICAL LEBI_CONV             ! Flag for EBI convergence
       LOGICAL MXFL                  ! hit MAXPRED flag
@@ -165,8 +165,6 @@ c      IF( JTIME .EQ. 160000 ) THEN
       END IF
 #endif
 c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
-
-
 
       N_EBI_IT = 0
       DTC      = EBI_TMSTEP

@@ -137,7 +137,7 @@
 
 !***surface albedo
 
-      REAL, ALLOCATABLE :: ALB( : )  ! set in subroutine PHOT
+!     REAL, ALLOCATABLE :: ALB( : )  ! set in subroutine PHOT
 
 !**Cloud albedo values from JPROC
 
@@ -207,10 +207,7 @@
             INTEGER, ALLOCATABLE :: CSQY_ADJUST( : ) 
             
             REAL,    ALLOCATABLE :: IPHI0_MGLY( : ) ! Reciprocal Methyl Glyoxal Quantum Yields at zero pressure
-            REAL,    ALLOCATABLE :: KMGLY    ( : )  ! Quenching Coefficient for Methyl Glyoxal Quantum Yields
-             
-             
-
+            REAL,    ALLOCATABLE :: KMGLY    ( : ) ! Quenching Coefficient for Methyl Glyoxal Quantum Yields
 
       INTEGER :: IREFTEMPS  ! number of ref. temperatures
 
@@ -280,7 +277,9 @@
       REAL :: OPTT                ! variable needed for acetone
       
       INTEGER, PRIVATE :: CSQY_DATA_LOG
-      
+
+      REAL, ALLOCATABLE :: DELTA_REFTI( :, : )
+
       CONTAINS
 
       SUBROUTINE LOAD_CSQY_DATA ( )
@@ -693,6 +692,15 @@ C...begin read
       
 !!!      CLOSE(LOG_UNIT)
       CLOSE(PHOTAB_UNIT)
+
+      allocate(DELTA_REFTI( IREFTEMPS - 1, MECHANISM_RATES ) )
+      DO ITT = 1, IREFTEMPS - 1
+         DO IPHOT = 1, MECHANISM_RATES
+            DELTA_REFTI( ITT, IPHOT ) = 1. / ( RTEMP_S( ITT + 1, IPHOT ) -  RTEMP_S( ITT, IPHOT ) )
+         END DO
+      END DO
+
+      CALL DEFINE_CSQY_ADJUST()
 
 5012  FORMAT( 4X,A30,1X,3(F8.3,2X) )
 5013  FORMAT( 22X,I3 )
@@ -1363,18 +1371,16 @@ C...begin read
       END IF
 
 ! set the default values for surface albedo
-      ALLOCATE( ALB( NWL_OPTICS ) )
+!      ALLOCATE( ALB( NWL_OPTICS ) )
       
-      DO IWL_LOAD = 1, NWL_OPTICS
-         IF ( WAVELENGTH( IWL_LOAD ) .LE. 380.1 ) THEN
-            ALB( IWL_LOAD ) = 0.05
-         ELSE
-            ALB( IWL_LOAD ) = 0.10
-         END IF
-      END DO
+!      DO IWL_LOAD = 1, NWL_OPTICS
+!         IF ( WAVELENGTH( IWL_LOAD ) .LE. 380.1 ) THEN
+!            ALB( IWL_LOAD ) = 0.05
+!         ELSE
+!            ALB( IWL_LOAD ) = 0.10
+!         END IF
+!      END DO
 
-
-            
       IF( ERROR_FLAG )THEN
          MSG = 'The above fatal error(s) found in CSQY data! '
          CALL M3EXIT( PNAME, 0, 0, MSG, -1 )
@@ -1502,9 +1508,6 @@ C-----------------------------------------------------------------------
       REAL     :: XTEMP            ! local temperature
       REAL     :: YTEMP            ! temperature difference ratio
 
-      REAL,    ALLOCATABLE, SAVE :: DELTA_REFTI( :, : )
-      INTEGER, ALLOCATABLE, SAVE :: ITEMP( :, : )
-
       REAL, PARAMETER :: TTX1 = 235.0
       REAL, PARAMETER :: TTX2 = 298.0
       REAL, PARAMETER :: DTTX = TTX2 - TTX1
@@ -1512,21 +1515,8 @@ C-----------------------------------------------------------------------
       REAL            :: PRESSURE       ! units vary
       REAL            :: FACTOR         ! scratch variable for yield
       REAL            :: ALPHA, BETA    ! scratch variables
-
-      LOGICAL, SAVE   :: FIRSTCALL = .TRUE.
       integer         :: nlays
-
-      IF ( FIRSTCALL ) THEN
-          ALLOCATE( ITEMP( nrad_max, MECHANISM_RATES ) )
-          ALLOCATE( DELTA_REFTI( (IREFTEMPS - 1), MECHANISM_RATES ) )
-          DO IT = 1, IREFTEMPS - 1
-             DO IPHOT = 1, MECHANISM_RATES
-                DELTA_REFTI( IT, IPHOT ) = 1. / ( RTEMP_S( IT + 1, IPHOT ) -  RTEMP_S( IT, IPHOT ) )
-             END DO
-          END DO
-          CALL DEFINE_CSQY_ADJUST()
-          FIRSTCALL = .FALSE.
-      END IF
+      integer         :: ITEMP( nrad_max, MECHANISM_RATES )
 
 !***determine and save where layer temperatures fall within range of CS and QY data
       DO IPHOT = 1, MECHANISM_RATES
@@ -1545,7 +1535,6 @@ C-----------------------------------------------------------------------
             END IF
          END DO
       END DO
-
 
 !***loop over rates
       DO IPHOT = 1, MECHANISM_RATES

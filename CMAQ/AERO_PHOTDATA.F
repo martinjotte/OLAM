@@ -40,12 +40,14 @@
       REAL, ALLOCATABLE :: AERO_ASYM_FAC ( :,: ) ! aerosol modal averaged asymmetry factor
       REAL, ALLOCATABLE :: AERO_EXTI_COEF( :,: ) ! aerosol modal averaged extinction coeff.
       REAL, ALLOCATABLE :: AERO_SCAT_COEF( :,: ) ! aerosol modal averaged scattering coeff.
- 
+
+      !$omp threadprivate( AERO_ASYM_FAC, AERO_EXTI_COEF, AERO_SCAT_COEF)
+
       real, allocatable :: ri_r( :,:,: )
       real, allocatable :: ri_i( :,:,: )
 
-      LOGICAL           :: CORE_SHELL
-      LOGICAL           :: MIE_CALC
+      LOGICAL           :: CORE_SHELL = .false.
+      LOGICAL           :: MIE_CALC   = .false.
 
       PUBLIC            :: AERO_ASYM_FAC, AERO_EXTI_COEF, AERO_SCAT_COEF,
      &                     INIT_AERO_DATA, GET_AERO_DATA
@@ -71,16 +73,17 @@ C *** Species in aerosol core
       CONTAINS
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
       SUBROUTINE INIT_AERO_DATA( nlays )
 
 C Allocate and define arrays used to calculate aerosol optical properties
 
-!        USE GRID_CONF, ONLY: NROWS, NCOLS, NLAYS  ! horizontal & vertical domain specifications
          USE UTILIO_DEFN
          USE AERO_DATA           ! aero variable data
          USE AEROMET_DATA        ! constants and met data
-         USE CSQY_DATA, ONLY : NWL, NUM_REFRACTIVE, REFRACTIVE_INDEX,
-     &                         WAVELENGTH => EFFWL_REF
+         USE CSQY_DATA,   ONLY: NWL, NUM_REFRACTIVE, REFRACTIVE_INDEX,
+     &                          WAVELENGTH => EFFWL_REF
+         use oname_coms,   only: nl
 
          IMPLICIT NONE
 
@@ -115,7 +118,8 @@ C Local:
 
 !...Get flag to use core-shell mixing model for aerosol optical properties
 
-         CORE_SHELL = .false.         ! default
+         core_shell = nl%core_shell_photolysis
+!         CORE_SHELL = .false.         ! default
 !         XMSG = 'Use core-shell mixing model for aerosol optical properties'
 !         CORE_SHELL = ENVYN( CORE_SHELL_OPTICS, XMSG, CORE_SHELL, ESTAT )
 !         IF ( ESTAT .NE. 0 ) WRITE( LOGDEV, '(5X, A)' ) XMSG
@@ -133,7 +137,8 @@ C Local:
 
 !...Get flag to use fast optics for volume mixing model for aerosol optical properties
 
-         MIE_CALC = .FALSE.         ! default
+         mie_calc = nl%mie_calc_photolysis
+!         MIE_CALC = .FALSE.         ! default
 !         XMSG = 'Use Mie theory for aerosol optical properties of Internal mixing model'
 !         MIE_CALC = ENVYN( OPTICS_MIE_CALC, XMSG, MIE_CALC, ESTAT )
 !         IF ( ESTAT .NE. 0 ) WRITE( LOGDEV, '(5X, A)' ) XMSG
@@ -205,6 +210,7 @@ C...Allocate needed arrays
 !            CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
 !         END IF
 
+         !$omp parallel private(allocstat, xmsg)
          ALLOCATE ( AERO_ASYM_FAC( NLAYS,NWL ), STAT = ALLOCSTAT )
          IF ( ALLOCSTAT .NE. 0 ) THEN
             XMSG = 'Failure allocating AERO_ASYM_FAC'
@@ -226,6 +232,7 @@ C...Allocate needed arrays
          AERO_SCAT_COEF = 0.0
          AERO_EXTI_COEF = 0.0
          AERO_ASYM_FAC  = 0.0
+         !$omp end parallel
 
          CALL MAP_AERO()
                   
@@ -365,6 +372,7 @@ C ***    Create map for refactive index for each species
       END SUBROUTINE INIT_AERO_DATA
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
       SUBROUTINE GET_AERO_DATA ( iw, NLAYS, koff )
 
 C-----------------------------------------------------------------------
@@ -409,8 +417,7 @@ C-----------------------------------------------------------------------
 
       USE AERO_DATA           ! aero variable data
       USE AEROMET_DATA        ! constants and met data
-      USE CSQY_DATA,  ONLY : NWL, NUM_REFRACTIVE, REFRACTIVE_INDEX,
-     &                       WAVELENGTH => EFFWL_REF
+      USE CSQY_DATA,  ONLY : NWL, NUM_REFRACTIVE, WAVELENGTH => EFFWL_REF
 
       USE RRTMG_AERO_OPTICAL_UTIL_MODULE, ONLY : AERO_OPTICAL2, AERO_OPTICAL_CS
       use cgrid_defn, only: cgrid
@@ -455,13 +462,13 @@ C***  variables for calculating modal averaged properties per layer and lambda
       COMPLEX NR_SHELL
       COMPLEX NR_CORE
 
-      REAL BEXT_MODE  ! total aerosol extinction coefficient [ 1/m ]
-      REAL BSCAT_MODE ! total aerosol scattering coefficient [ 1/m ]
-      REAL GBAR_MODE  ! total aerosol asymmetry factor
-      REAL BEXT(nwl)      ! total aerosol extinction coefficient [ 1/m ]
-      REAL VFAC, BSC  ! unit correction factors
-      REAL BSCAT(nwl)      ! total aerosol scattering coefficient [ 1/m ]
-      REAL G_BAR(nwl)      ! total aerosol asymmetry factor
+      REAL BEXT_MODE   ! total aerosol extinction coefficient [ 1/m ]
+      REAL BSCAT_MODE  ! total aerosol scattering coefficient [ 1/m ]
+      REAL GBAR_MODE   ! total aerosol asymmetry factor
+      REAL BEXT(nwl)   ! total aerosol extinction coefficient [ 1/m ]
+      REAL VFAC        ! unit correction factors
+      REAL BSCAT(nwl)  ! total aerosol scattering coefficient [ 1/m ]
+      REAL G_BAR(nwl)  ! total aerosol asymmetry factor
 
       real AE_NR_SHELL(nwl)
       real AE_NI_SHELL(nwl)
@@ -476,7 +483,6 @@ C***  variables for calculating modal averaged properties per layer and lambda
       real, parameter :: asym_max = 0.990
       real, parameter :: exti_min = 1.e-9
       real, parameter :: scat_min = 1.e-9
-
 
 C-----------------------------------------------------------------------
 

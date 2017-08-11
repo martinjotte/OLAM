@@ -291,7 +291,7 @@ contains
     use mem_leaf,     only: land
     use leaf4_canopy, only: vegndvi
     use consts_coms,  only: pio180, pi2
-    use misc_coms,    only: io6, current_time, runtype
+    use misc_coms,    only: current_time, runtype
     use mem_grid,     only: mwa, glatw
     use cgrid_spcs,   only: n_gc_emis, gc_emis
     use utilio_defn,  only: index1
@@ -436,24 +436,39 @@ contains
     !$omp end parallel
 
   end subroutine megan_avg_temp
-    
+
 
   subroutine megan_driver(mrl)
 
+    use leaf_coms,   only: mwl
+    implicit none
+
+    integer, intent(in) :: mrl
+    integer             :: iwl
+
+    !$omp parallel do
+    do iwl = 2, mwl
+       call megan_driver1(iwl)
+    enddo
+    !$omp end parallel do
+
+  end subroutine megan_driver
+
+
+  subroutine megan_driver1(iwl)
+
     use leaf_coms,   only: nvtyp
     use mem_leaf,    only: land
-    use misc_coms,   only: io6, isubdomain, current_time
+    use misc_coms,   only: isubdomain, current_time
     use mem_ijtabs,  only: itabg_w
     use mem_leaf,    only: land, itab_wl
-    use leaf_coms,   only: mwl
     use consts_coms, only: pio180
     use mem_radiate, only: ppfd, ppfd_diffuse
     use leaf_coms,   only: nzg
 
-
     implicit none
 
-    integer, intent(in) :: mrl
+    integer, intent(in) :: iwl
 
     real :: gam_lht             ! LAI activity factor
     real :: gam_age(n_mgn_spc)  ! leaf age activity factor
@@ -465,7 +480,7 @@ contains
     real :: tmper(n_spca_spc)
     real :: outer(n_mech_spc)
 
-    integer :: kw, iw, iwl, s
+    integer :: kw, iw, s
 
     real :: glat, glon, hour
     real :: LAIc
@@ -486,114 +501,110 @@ contains
     jday  = julday( current_time%month, current_time%date, current_time%year )
     jdate = current_time%year*1000 + jday
 
-    do iwl = 2, mwl
+    iw = itab_wl(iwl)%iw
+    if (isubdomain == 1) then
+       iw = itabg_w(iw)%iw_myrank
+    endif
+    kw = itab_wl(iwl)%kw
 
-       iw = itab_wl(iwl)%iw
-       if (isubdomain == 1) then
-          iw = itabg_w(iw)%iw_myrank
-       endif
-       kw = itab_wl(iwl)%kw
+    LAIc = land%veg_lai(iwl) * (1.0 - land%snowfac(iwl))
+    glat = land%glatw(iwl)
+    glon = land%glonw(iwl)
+    arf  = land%area(iwl)
 
-       LAIc = land%veg_lai(iwl) * (1.0 - land%snowfac(iwl))
-       glat = land%glatw(iwl)
-       glon = land%glonw(iwl)
-       arf  = land%area(iwl)
+    if (laic > 0.01 .and. land%vf(iwl) > 0.01 .and. ipft(iwl) /= 0) then
 
-       if (laic > 0.01 .and. land%vf(iwl) > 0.01 .and. ipft(iwl) /= 0) then
+       ppfd0      = ppfd(iw)
+       ppfd0_dif  = ppfd_diffuse(iw)
+       ppfd24     = avg_srad(iw)
+       ppfd24_dif = avg_srad_dif(iw)
 
-          ppfd0      = ppfd(iw)
-          ppfd0_dif  = ppfd_diffuse(iw)
-          ppfd24     = avg_srad(iw)
-          ppfd24_dif = avg_srad_dif(iw)
+       temp24 = avg_temp(iwl)
+       temp0  = land%cantemp(iwl)
+       vegtk  = land%veg_temp(iwl)
 
-          temp24 = avg_temp(iwl)
-          temp0  = land%cantemp(iwl)
-          vegtk  = land%veg_temp(iwl)
+       ! compute local solar day/hour
 
-          ! compute local solar day/hour
+       day  = jday
+       hour = current_time%time / 3600.0_r8 + glon / 15.0
 
-          day  = jday
-          hour = current_time%time / 3600.0_r8 + glon / 15.0
-
-          if ( hour < 0.0 ) then
-             hour = hour + 24.0
-          !  day  = day  -  1
-          elseif ( hour > 24.0 ) then
-             hour = hour - 24.0
-          !  day  = day  +  1
-          endif
-
-          ! solar zenith angle
-          ! TODO: take into account surface slope?
-
-          ! Sinbeta = cosz(iw)
-          ! Sinbeta = land%cosz(iwl)
-          Beta    = Calcbeta( Day, glat, Hour )
-          Sinbeta = SIN(Beta * pio180)
-
-          call gamma_lai( gam_lht, laic )
-
-          call gamma_sm( gam_smt, land%leaf_class(iwl), &
-                         land%soil_water(1:nzg,iwl), land%ntext_soil(1:nzg,iwl) )
-
-          call gamma_a( gam_age, lai_prev(iwl), lai_next(iwl), temp24 )
-
-          call gamma_ce( gam_tld, gam_tli, sinbeta, temp0, temp24, vegtk,      &
-                         ppfd0, ppfd0_dif, ppfd24, ppfd24_dif, ipft(iwl), laic )
-
-          do s = 1, n_mgn_spc
-
-             em(s) = GAM_AGE(s) * GAM_SMT(s) * &
-                    ( (1.0-LDF_FCT(S)) * GAM_TLI(s) * GAM_LHT + LDF_FCT(S) * GAM_TLD(s) )
-          enddo
-
-          ! We do soil NOx elsewhere, so turn off NOx here
-
-          em(INO) = 0.0
-
-          ! Conversion from MGN 20 to speciated 150
-
-          do s = 1, n_smap_spc
-
-             nmpmg = mg20_map(s)
-             nmpsp = spca_map(s)
-
-             tmper(nmpsp) = em(nmpmg) * ef_all(ipft(iwl),nmpmg) * effs_all(ipft(iwl),nmpsp)
-
-          enddo
-
-          ! Convert from ug/m^2/hr to mol/m^2/hr using their MW
-
-          do s = 1, n_spca_spc
-             tmper(s) = tmper(s) / spca_mwt(s) * ug2g
-          enddo
-
-          ! Conversion from speciated species to MECHANISM species,
-          ! with units of mol/sec
-
-          outer(:) = 0.0
-       
-          do s = 1, n_scon_spc
-             nmpsp = spmh_map(s)         ! Mapping value for SPCA
-             nmpmc = mech_map(s)         ! Mapping value for MECHANISM
-             outer(nmpmc) = outer(nmpmc) + tmper(nmpsp) * conv_fac(s)
-          enddo
-       
-          do s = 1, n_mech_spc
-             megan_emis(iwl,s) = outer(s) * arf * hr2sec
-          enddo
-
-       else
-
-          do s = 1, n_mech_spc
-             megan_emis(iwl,s) = 0.0
-          enddo
-
+       if ( hour < 0.0 ) then
+          hour = hour + 24.0
+       !  day  = day  -  1
+       elseif ( hour > 24.0 ) then
+          hour = hour - 24.0
+       !  day  = day  +  1
        endif
 
-    enddo
+       ! solar zenith angle
+       ! TODO: take into account surface slope?
 
-  end subroutine megan_driver
+       ! Sinbeta = cosz(iw)
+       ! Sinbeta = land%cosz(iwl)
+       Beta    = Calcbeta( Day, glat, Hour )
+       Sinbeta = SIN(Beta * pio180)
+
+       call gamma_lai( gam_lht, laic )
+
+       call gamma_sm( gam_smt, land%leaf_class(iwl), &
+            land%soil_water(1:nzg,iwl), land%ntext_soil(1:nzg,iwl) )
+
+       call gamma_a( gam_age, lai_prev(iwl), lai_next(iwl), temp24 )
+
+       call gamma_ce( gam_tld, gam_tli, sinbeta, temp0, temp24, vegtk,      &
+            ppfd0, ppfd0_dif, ppfd24, ppfd24_dif, ipft(iwl), laic )
+
+       do s = 1, n_mgn_spc
+
+          em(s) = GAM_AGE(s) * GAM_SMT(s) * &
+               ( (1.0-LDF_FCT(S)) * GAM_TLI(s) * GAM_LHT + LDF_FCT(S) * GAM_TLD(s) )
+       enddo
+
+       ! We do soil NOx elsewhere, so turn off NOx here
+
+       em(INO) = 0.0
+
+       ! Conversion from MGN 20 to speciated 150
+
+       do s = 1, n_smap_spc
+
+          nmpmg = mg20_map(s)
+          nmpsp = spca_map(s)
+
+          tmper(nmpsp) = em(nmpmg) * ef_all(ipft(iwl),nmpmg) * effs_all(ipft(iwl),nmpsp)
+
+       enddo
+
+       ! Convert from ug/m^2/hr to mol/m^2/hr using their MW
+
+       do s = 1, n_spca_spc
+          tmper(s) = tmper(s) / spca_mwt(s) * ug2g
+       enddo
+
+       ! Conversion from speciated species to MECHANISM species,
+       ! with units of mol/sec
+
+       outer(:) = 0.0
+
+       do s = 1, n_scon_spc
+          nmpsp = spmh_map(s)         ! Mapping value for SPCA
+          nmpmc = mech_map(s)         ! Mapping value for MECHANISM
+          outer(nmpmc) = outer(nmpmc) + tmper(nmpsp) * conv_fac(s)
+       enddo
+
+       do s = 1, n_mech_spc
+          megan_emis(iwl,s) = outer(s) * arf * hr2sec
+       enddo
+
+    else
+
+       do s = 1, n_mech_spc
+          megan_emis(iwl,s) = 0.0
+       enddo
+
+    endif
+
+  end subroutine megan_driver1
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
@@ -1019,7 +1030,7 @@ contains
     integer, intent(in) :: Day
     real,    intent(in) :: lat, hour
 
-    real :: Rpi, SinDelta,  CosDelta, A, B, Sinbeta
+    real :: SinDelta,  CosDelta, A, B, Sinbeta
     real, parameter :: Pi = 3.141592654, Rpi180 = 57.29578
     real, parameter :: twopi = 2.0 * pi
     real, parameter :: Rpi180i = 1.0 / Rpi180

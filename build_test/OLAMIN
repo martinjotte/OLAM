@@ -510,12 +510,21 @@
  ! CMAQ chemistry variables
  !--------------------------------------------------------------------------
 
-   NL%DO_CHEM   =  0
+   NL%DO_CHEM   =  0   ! CMAQ chemistry (0 = off, 1 = on)
 
-   NL%LTNG_NOX  =  0
-   NL%CHEM_FRQ  =  1
-   NL%PHOT_FRQ  =  1
-   NL%EMIS_DIR  = '../../olamdatah5/edgar42'
+   NL%LTNG_NOX  =  1   ! Include lightning NOx from convection
+                       ! (0 = off, 1 = on)
+
+   NL%CORE_SHELL_PHOTOLYSIS = .FALSE. ! TRUE: Use core-shell model for aerosol
+                                      !       optical properties in photolysis
+                                      ! FALSE: only internal mixing of aerosols
+
+   NL%MIE_CALC_PHOTOLYSIS = .FALSE. ! TRUE: use Mei calculation of internal 
+                                    !       mixing model for photolysis
+                                    ! FALSE: use fast computation of aerosol
+                                    !        properties for photolysis
+
+   NL%EMIS_DIR        '../../olamdatah5/edgar42'
    NL%GEIA_EMIS_FILE = '../etc/geia_emis.nc4'
 
    NL%O3NUDFLAG  = 0

@@ -71,12 +71,15 @@ C***********************************************************************
       N_SPEC = NUMB_MECH_SPC
       N_RXNS = NRXNS
       N_SPCL_RKS =   0
+
+      allocate( FORWARD_CONV(N_SPEC), 
+     &          REVERSE_CONV(N_SPEC),
+     &          RTOL        (N_SPEC) )
+ 
+      !$omp parallel private(ios,msg)
       ALLOCATE( RKI( NRXNS ),
      &          RKI_SAV( MZA, NRXNS ),
-     &          FORWARD_CONV( N_SPEC),
-     &          REVERSE_CONV( N_SPEC),
      &          RXRAT( NRXNS ),
-     &          RTOL( N_SPEC),
      &          YC(   N_SPEC),
      &          YC0(  N_SPEC),
      &          YCP(  N_SPEC),
@@ -90,26 +93,16 @@ C***********************************************************************
      &       // 'REVERSE_CONV, PROD, LOSS, or PNEG'
           CALL M3EXIT( PNAME, 0, 0, MSG, XSTAT1 )
        END IF
-
-!       ALLOCATE( ATMPRES( MZA ),
-!     &           H2O    ( MZA ),
-!     &           TEMP   ( MZA ),
-!    &           HET    ( MZA, NHETERO ),
-!    &           RJIN   ( MZA, NPHOTAB ),
-!    &           LAND   ( MZA ) ,
-!     &           STAT = IOS )
-
-       IF ( IOS .NE. 0 ) THEN
-          MSG = 'Error allocating ATMPRES, H2O, TEMP, HET, RJIN, LAND '
-          CALL M3EXIT( PNAME, 0, 0, MSG, XSTAT1 )
-       END IF
+      !$omp end parallel
 
        IF( NSPECIAL .GT. 0 )THEN
+          !$omp parallel private(ios,msg)
           ALLOCATE( SYC( MZA, N_SPEC ), STAT = IOS )
           IF ( IOS .NE. 0 ) THEN
                MSG = 'Error allocating SYC'
                CALL M3EXIT( PNAME, 0, 0, MSG, XSTAT1 )
           END IF
+          !$omp end parallel
           ALLOCATE( IOLD2NEW( N_SPEC, 1 ), STAT = IOS )
           IF ( IOS .NE. 0 ) THEN
                MSG = 'Error allocating IOLD2NEW'

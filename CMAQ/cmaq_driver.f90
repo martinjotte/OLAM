@@ -32,5 +32,3 @@ subroutine cmaq_driver( mrl )
   call conv_cgrid ( mrl )
 
 end subroutine cmaq_driver
-
-  

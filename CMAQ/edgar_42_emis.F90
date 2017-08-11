@@ -163,7 +163,7 @@ contains
     use mem_grid,  only: mwa, mza
     use geia_emis, only: geia_init
     implicit none
-    
+
     integer,                    intent(inout) :: nvars3d_emis
     character(24), allocatable, intent(inout) :: vname3d_emis(:)
     character(24), allocatable, intent(inout) :: units3d_emis(:)
@@ -704,8 +704,8 @@ contains
 
 
   subroutine process_edgar_emis()
-    use misc_coms,  only: current_time, io6
-    use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
+    use misc_coms,  only: current_time
+    use mem_ijtabs, only: jtab_w, jtw_prog
     use mem_grid,   only: glonw, lsw, lpw
     use mem_turb,   only: frac_sfc
     use geia_emis,  only: cl_emis, hcl_emis
@@ -737,7 +737,9 @@ contains
 
     month = current_time%month
     dow = day_of_week(current_time%month, current_time%date, current_time%year)
-    
+
+    !$omp parallel do private(jw,iw,day,itz,hour,timefac,j,n,fact1,fact2,&
+    !$omp                     fact3,ns,ka,ks,k,emisn,v,i)
     do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
 
        edgar42_emis(:,iw,:) = 0.0
@@ -985,16 +987,15 @@ contains
        endif
 
     enddo
+    !$omp end parallel do
 
   end subroutine process_edgar_emis
 
 
-
   subroutine interp_to_olam()
     use misc_coms,  only: current_time, io6, iparallel
-    use cgrid_spcs, only: n_gc_spc, gc_spc
-    use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
-    use mem_grid,   only: arw0, mwa
+    use mem_ijtabs, only: jtab_w, jtw_prog
+    use mem_grid,   only: mwa
     use mem_para,   only: myrank
     use oname_coms, only: nl
     use hdf5_utils
@@ -1155,6 +1156,7 @@ contains
 
     if (year == year_stored) return
 
+    !$omp parallel do
     do iw = 1, mwa
 !!     edgar42_vars(iw)%ch4  (:) = 0.0
        edgar42_vars(iw)%co   (:) = 0.0
@@ -1165,6 +1167,7 @@ contains
        edgar42_vars(iw)%pm10 (:) = 0.0
        edgar42_vars(iw)%so2  (:) = 0.0
     enddo
+    !$omp end parallel do
 
     year_stored = year
     write(yyear,'(I4)') year
@@ -1213,6 +1216,7 @@ contains
 !!       endif
 !!#endif
 !!
+!!       !$omp parallel do private(jw,iw,n)
 !!       do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
 !!          
 !!          ! sum the emission overlaps that contribute to this cell and
@@ -1224,6 +1228,7 @@ contains
 !!          enddo
 !!
 !!       enddo
+!!       !$omp end parallel do
 !!    enddo
 
     ! Average CO to olam grid
@@ -1270,12 +1275,19 @@ contains
        endif
 #endif
 
+       !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+
+          ! sum the emission overlaps that contribute to this cell and
+          ! multiply by area to get emissions in kg/sec
+
           do n = 1, emis_w(iw)%ncells
              edgar42_vars(iw)%co(j) = edgar42_vars(iw)%co(j) + &
                   rawdata(emis_w(iw)%i(n),emis_w(iw)%j(n)) * emis_w(iw)%area(n)
           enddo
+
        enddo
+       !$omp end parallel do
 
     enddo
 
@@ -1323,14 +1335,20 @@ contains
        endif
 #endif
 
+       !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
           
+          ! sum the emission overlaps that contribute to this cell and
+          ! multiply by area to get emissions in kg/sec
+
           do n = 1, emis_w(iw)%ncells
              edgar42_vars(iw)%nh3(j) = edgar42_vars(iw)%nh3(j) + &
                   rawdata(emis_w(iw)%i(n),emis_w(iw)%j(n)) * emis_w(iw)%area(n)
           enddo
 
        enddo
+       !$omp end parallel do
+
     enddo
 
     ! Average NMVOC to olam grid
@@ -1377,14 +1395,20 @@ contains
        endif
 #endif
 
+       !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
-          
+
+          ! sum the emission overlaps that contribute to this cell and
+          ! multiply by area to get emissions in kg/sec
+
           do n = 1, emis_w(iw)%ncells
              edgar42_vars(iw)%nmvoc(j) = edgar42_vars(iw)%nmvoc(j) + &
                   rawdata(emis_w(iw)%i(n),emis_w(iw)%j(n)) * emis_w(iw)%area(n)
           enddo
 
        enddo
+       !$omp end parallel do
+
     enddo
 
     ! Average NOX to olam grid
@@ -1431,12 +1455,19 @@ contains
        endif
 #endif
 
+       !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+
+          ! sum the emission overlaps that contribute to this cell and
+          ! multiply by area to get emissions in kg/sec
+
           do n = 1, emis_w(iw)%ncells
              edgar42_vars(iw)%nox(j) = edgar42_vars(iw)%nox(j) + &
                   rawdata(emis_w(iw)%i(n),emis_w(iw)%j(n)) * emis_w(iw)%area(n)
           enddo
+
        enddo
+       !$omp end parallel do
 
     enddo
 
@@ -1484,6 +1515,7 @@ contains
        endif
 #endif
 
+       !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
           
           do n = 1, emis_w(iw)%ncells
@@ -1492,6 +1524,8 @@ contains
           enddo
 
        enddo
+       !$omp end parallel do
+
     enddo
 
     ! Average PM10 to olam grid
@@ -1537,12 +1571,17 @@ contains
           call MPI_Bcast( rawdata, nx_e42*ny_e42, MPI_REAL, 0, MPI_COMM_WORLD, ier )
        endif
 #endif
+
+       !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+
           do n = 1, emis_w(iw)%ncells
              edgar42_vars(iw)%pm10(j) = edgar42_vars(iw)%pm10(j) + &
                   rawdata(emis_w(iw)%i(n),emis_w(iw)%j(n)) * emis_w(iw)%area(n)
           enddo
+
        enddo
+       !$omp end parallel do
 
     enddo
 
@@ -1590,14 +1629,20 @@ contains
        endif
 #endif
 
+       !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
           
+          ! sum the emission overlaps that contribute to this cell and
+          ! multiply by area to get emissions in kg/sec
+
           do n = 1, emis_w(iw)%ncells
              edgar42_vars(iw)%so2(j) = edgar42_vars(iw)%so2(j) + &
                   rawdata(emis_w(iw)%i(n),emis_w(iw)%j(n)) * emis_w(iw)%area(n)
           enddo
 
        enddo
+       !$omp end parallel do
+
     enddo
 
   end subroutine interp_to_olam
@@ -1607,7 +1652,7 @@ contains
     use consts_coms, only: erad, pio180, piu180, r8
     use misc_coms,   only: io6
     use mem_ijtabs,  only: jtab_w, itab_w, jtw_prog
-    use mem_grid,    only: glatw, glonw, glatm, glonm, arw0, mwa, &
+    use mem_grid,    only: glatw, glonw, glatm, glonm, arw0, &
                            xem, yem, zem, xew, yew, zew
 
     implicit none
@@ -1643,13 +1688,19 @@ contains
     integer, allocatable :: jpoints(:), jtmp(:)
     real,    allocatable :: areafrc(:), atmp(:)
 
+    dx = 360.0 / real(nlon)
+    dy = 180.0 / real(nlat)
+
+    !$omp parallel private(ipoints,jpoints,areafrc,itmp,jtmp,atmp)
+
     allocate(ipoints(1000))
     allocate(jpoints(1000))
     allocate(areafrc(1000))
 
-    dx = 360.0 / real(nlon)
-    dy = 180.0 / real(nlat)
-
+    !$omp do private(jw,iw,np,tolerance,sumarea,n,im,flats,flons,ngrp,max180,&
+    !$omp            min180,js,je,is,ie,sinwlat,coswlat,sinwlon,coswlon,&
+    !$omp            dxe,dye,dze,x,y,xf,yf,ng,nn,j,i,lons,lats,xg,yg,areaij,&
+    !$omp            alpha,area,jtrap,xtrap,ytrap,traparea,ijsize)
     do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
 
        np = itab_w(iw)%npoly
@@ -1839,13 +1890,14 @@ contains
        endif
 
     enddo
+    !$omp end do
+    !$omp end parallel
 
   end subroutine emis_overlap
 
 
   subroutine comp_vert_facts()
-    use mem_grid, only: zm, lpw, mza
-    use misc_coms, only: io6
+    use mem_grid, only: zm, mza
     implicit none
 
     real,    parameter :: ztop  = 20.e3

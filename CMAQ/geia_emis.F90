@@ -89,6 +89,7 @@ subroutine geia_init()
 
   ! Fill emissions arrays by interpolation
 
+  !$omp parallel do private(j,iw,gry,grx)
   do j = 1, jtab_w(jtw_prog)%jend(1)
      iw = jtab_w(jtw_prog)%iw(j)
   
@@ -107,6 +108,7 @@ subroutine geia_init()
      hcl_emis(iw) = hcl_emis(iw) * arw0(iw) / year2sec / cl_mwght
 
   enddo
+  !$omp end parallel do
 
 end subroutine geia_init
 

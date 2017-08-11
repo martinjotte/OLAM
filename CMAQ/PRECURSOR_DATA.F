@@ -119,6 +119,8 @@ C Indices of required species
       Real    :: so4rate                       ! sulfate gas-phase production rate [ug/m^3*s]
       Real    :: phg_rate                      ! particulate mercury gas-phase production rate [ug/m^3*s]
 
+      !$omp threadprivate(precursor_conc,so4rate,phg_rate)
+
 C Private variables for loading and unloading to CGRID array
       Integer          :: precursor_map( n_precursor )  ! pointers to CGRID
       Logical, Private, Save :: mapped = .False.
@@ -260,9 +262,11 @@ C Local Variables:
       Integer         :: n
       Integer         :: spc
 
+      !$omp critical
       If ( .Not. mapped ) Then
          Call map_precursor()
       End If
+      !$omp end critical
 
 C Compute gas conversion constant
       gasconv = airdens * inv_mwair

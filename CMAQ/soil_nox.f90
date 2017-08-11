@@ -4,6 +4,8 @@ module soil_nox
   real, allocatable, target :: pfactor(:) ! Soil NOx pulse factor
   real, allocatable, target :: drytime(:) ! Time since last precip (hr) 
 
+  integer, allocatable      :: lbiome(:)
+
   integer, parameter        :: nbiom = 23
   character(16), parameter  :: sn_spc = 'NO'
   integer, save             :: sn_map = 0
@@ -66,25 +68,45 @@ contains
 
 
   subroutine get_soil_nox(mrl)
+  
+    use leaf_coms, only: mwl
+    implicit none
 
-    use leaf_coms,   only: mwl, nzg, slmstsi_vg, slmstsi_ch
+    integer, intent(in) :: mrl
+    integer             :: iwl
+
+    !$omp parallel do
+    do iwl = 2, mwl
+
+       call get_soil_nox_driver(iwl)
+
+    enddo
+    !$omp end parallel do
+
+  end subroutine get_soil_nox
+
+
+
+  subroutine get_soil_nox_driver(iwl)
+
+    use leaf_coms,   only: nzg, slmstsi_vg, slmstsi_ch
     use mem_leaf,    only: land, itab_wl
     use mem_ijtabs,  only: itabg_w
     use consts_coms, only: t00
-    use misc_coms,   only: io6, isubdomain, dtlm
+    use misc_coms,   only: isubdomain, dtlm
     use mem_radiate, only: cosz, rshort, rshort_clr
     use mem_basic,   only: rho, vxe, vye, vze
 
     implicit none
 
-    integer, intent(in) :: mrl
+    integer, intent(in) :: iwl
 
     real, parameter :: ng2g    = 1.e-9
     real, parameter :: molwt_N = 14.0
     real, parameter :: ng2molN = ng2g / molwt_N
 
     logical :: arid
-    integer :: iwl, iw, kw
+    integer :: iw, kw
     integer :: kb
     real    :: wfps, pcprate, ts_emis
     real    :: lai, tempc, tempk, rhos
@@ -96,104 +118,101 @@ contains
     real    :: temp_term, wet_term
     real    :: crf_term
 
-    do iwl = 2, mwl
+    iw = itab_wl(iwl)%iw
+    if (isubdomain == 1) then
+       iw = itabg_w(iw)%iw_myrank
+    endif
+    kw = itab_wl(iwl)%kw
+   
+    snfac = land%snowfac(iwl)
+    lai   = land%veg_lai(iwl) * (1. - snfac)
+    tempk = land%cantemp(iwl)
+    tempc = land%cantemp(iwl) - t00
+    rhos  = rho(kw,iw)
 
-       iw = itab_wl(iwl)%iw
-       if (isubdomain == 1) then
-          iw = itabg_w(iw)%iw_myrank
-       endif
-       kw = itab_wl(iwl)%kw
-       
-       snfac = land%snowfac(iwl)
-       lai   = land%veg_lai(iwl) * (1. - snfac)
-       tempk = land%cantemp(iwl)
-       tempc = land%cantemp(iwl) - t00
-       rhos  = rho(kw,iw)
+    nlev_sfcwater = land%nlev_sfcwater(iwl)
 
-       nlev_sfcwater = land%nlev_sfcwater(iwl)
+    if (nlev_sfcwater == 0) then
+       sndepth = 0.0
+    else
+       sndepth = sum( land%sfcwater_depth(1:nlev_sfcwater,iwl) )
+    endif
 
-       if (nlev_sfcwater == 0) then
-          sndepth = 0.0
-       else
-          sndepth = sum( land%sfcwater_depth(1:nlev_sfcwater,iwl) )
-       endif
+    ! Get surface biome type 
 
-       ! Get surface biome type 
+    kb = lbiome(iwl)
 
-       kb = olam2sl10( land%leaf_class(iwl), land%glatw(iwl) )
+    ! If surface is snow or ice, use snow/ice biome
 
-       ! If surface is snow or ice, use snow/ice biome
+    if ( nlev_sfcwater > 0 ) then
+       call qtk( land%sfcwater_energy(nlev_sfcwater,iwl), tsfcwater, liqfrac )
+       if (liqfrac < 0.3 .and. sndepth > 0.001) kb = 2
+    endif
 
-       if ( nlev_sfcwater > 0 ) then
-          call qtk( land%sfcwater_energy(nlev_sfcwater,iwl), tsfcwater, liqfrac )
-          if (liqfrac < 0.3 .and. sndepth > 0.001) kb = 2
-       endif
+    ! Get fraction of saturation (water-filled pore space)
 
-       ! Get fraction of saturation (water-filled pore space)
+    if (land%flag_vg(iwl)) then
+       wfps = land%soil_water(nzg,iwl) &
+            * slmstsi_vg( land%ntext_soil(nzg,iwl) )
+    else
+       wfps = land%soil_water(nzg,iwl) &
+            * slmstsi_ch( land%ntext_soil(nzg,iwl) )
+    endif
 
-       if (land%flag_vg(iwl)) then
-          wfps = land%soil_water(nzg,iwl) &
-               * slmstsi_vg( land%ntext_soil(nzg,iwl) )
-       else
-          wfps = land%soil_water(nzg,iwl) &
-               * slmstsi_ch( land%ntext_soil(nzg,iwl) )
-       endif
+    ! If desert type, mark soil as arid
 
-       ! If desert type, mark soil as arid
+    if ( land%leaf_class(iwl)==3 .or. land%leaf_class(iwl)==10 ) then
+       arid = .true.
+    else
+       arid = .false.
+    endif
 
-       if ( land%leaf_class(iwl)==3 .or. land%leaf_class(iwl)==10 ) then
-          arid = .true.
-       else
-          arid = .false.
-       endif
+    ! Base emissions per biome. No fertilizer use for now as it is
+    ! also partially contained in the edgar42 emissions
 
-       ! Base emissions per biome. No fertilizer use for now as it is
-       ! also partially contained in the edgar42 emissions
+    a_biom = a_biome(kb) * ng2molN * land%area(iwl)  ! mol N / sec
+    a_fert = 0.0
+!   a_fert = edgar42_vars(iw)%nox(9) / arw0(iw) * land%area(iwl) * 1000. / 14.
 
-       a_biom = a_biome(kb) * ng2molN * land%area(iwl)  ! mol N / sec
-       a_fert = 0.0
-!      a_fert = edgar42_vars(iw)%nox(9) / arw0(iw) * land%area(iwl) * 1000. / 14.
+    ! Temperature-dependent term of soil NOx emissions
 
-       ! Temperature-dependent term of soil NOx emissions
+    temp_term = soiltemp_term( tempc )
 
-       temp_term = soiltemp_term( tempc )
+    ! Soil moisture scaling of soil NOx emissions
 
-       ! Soil moisture scaling of soil NOx emissions
+    wet_term  = soilwet_term( wfps, arid )
 
-       wet_term  = soilwet_term( wfps, arid )
+    ! Cumulative multiplication factor (over baseline emissions) 
+    ! that accounts for soil pulsing
 
-       ! Cumulative multiplication factor (over baseline emissions) 
-       ! that accounts for soil pulsing
+    pcprate = land%pcpg(iwl) / dtlm(1)
+    ts_emis = dtlm(1)
 
-       pcprate = land%pcpg(iwl) / dtlm(1)
-       ts_emis = dtlm(1)
+    call PULSING( wfps, ts_emis, pcprate, PFACTOR(iwl), drytime(iwl) )
 
-       call PULSING( wfps, ts_emis, pcprate, PFACTOR(iwl), drytime(iwl) )
+    ! Compute NOx canopy resistance
 
-       ! Compute NOx canopy resistance
+    if (cosz(iw) > 1.e-3) then
+       cfrac = 1.0 - rshort(iw) / max(rshort(iw), rshort_clr(iw), 1.e-7)
+    else
+       cfrac = 0.0
+    endif
 
-       if (cosz(iw) > 1.e-3) then
-          cfrac = 1.0 - rshort(iw) / max(rshort(iw), rshort_clr(iw), 1.e-7)
-       else
-          cfrac = 0.0
-       endif
+    r_canopy = get_canopy_nox( tempk, rhos, kb, lai,       &
+                               rshort(iw), cosz(iw), cfrac )
 
-       r_canopy = get_canopy_nox( tempk, rhos, kb, lai,       &
-                                  rshort(iw), cosz(iw), cfrac )
+    ! Canopy reduction factor
 
-       ! Canopy reduction factor
+    windsqr  = vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2
+    crf_term = soilcrf( kb, lai, r_canopy, windsqr, cosz(iw) )
 
-       windsqr  = vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2
-       crf_term = soilcrf( kb, lai, r_canopy, windsqr, cosz(iw) )
+    ! Soil NOx emissions
 
-       ! Soil NOx emissions
+    soilnox(iwl) = ( A_BIOM + A_FERT )              &
+                 * ( TEMP_TERM * WET_TERM * Pfactor(iwl) ) &
+                 * ( 1.0 - CRF_TERM )
 
-       soilnox(iwl) = ( A_BIOM + A_FERT )              &
-                    * ( TEMP_TERM * WET_TERM * Pfactor(iwl) ) &
-                    * ( 1.0 - CRF_TERM )
-
-    end do
-  end subroutine get_soil_nox
+  end subroutine get_soil_nox_driver
 
 
 
@@ -204,12 +223,13 @@ contains
     allocate(soilnox(mwl)) ; soilnox = 0.0
     allocate(pfactor(mwl)) ; pfactor = 0.0
     allocate(drytime(mwl)) ; drytime = 0.0
+    allocate(lbiome (mwl)) ; lbiome  = 0
 
   end subroutine alloc_soil_nox
 
 
   subroutine filltab_soil_nox()
-    use var_tables, only: vtab_r, num_var, increment_vtable
+    use var_tables, only: increment_vtable
     implicit none
 
 !   if (allocated(soilnox)) &
@@ -242,6 +262,7 @@ contains
        ! Initialize soil nox pulse to 1, and estimate initial drytime
        ! based on top soil layer wetness
 
+       !$omp parallel do private(iwl,wfps)
        do iwl = 2, mwl
           pfactor(iwl) = 1.0
           soilnox(iwl) = 0.0
@@ -260,6 +281,7 @@ contains
              drytime(iwl) = 240.0 * (1.0 - wfps / 0.5)
           endif
        enddo
+       !$omp end parallel do
 
     endif
 
@@ -270,6 +292,11 @@ contains
        xmsg = trim(sn_spc) // ' not found in GC_EMIS table'
        call m3exit( 'SOIL_NOX_INIT', 0, 0, xmsg, xstat1 )
     end if
+
+    ! LEAF to biome map
+    do iwl = 2, mwl
+       lbiome(iwl) = olam2sl10( land%leaf_class(iwl), land%glatw(iwl) )
+    enddo
 
   end subroutine soil_nox_init
 

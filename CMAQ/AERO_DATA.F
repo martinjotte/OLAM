@@ -460,6 +460,8 @@ C Indices of Optional species
       Real, Allocatable :: aerospc_mw   ( : )   ! aero species M.W. (from AE_SPC Namelist) [ g/mol ]
       Real, Allocatable :: aerospc_mwi  ( : )   ! aero species M.W. (from AE_SPC Namelist) [ g/mol ]
       Real, Allocatable :: aerospc_conc ( :,: ) ! aero species concentration [ ug/m^3 ]
+      !$omp threadprivate(aerospc_conc)
+
       Real, Allocatable :: aerospc_m3fac( : )   ! converts mass concentrations [ug/m3] to 
                                                 ! 3rd moment concentrations [m3/m3]
       Real, Allocatable :: aerospc_spvol( : )   ! inverse density m3 / kg
@@ -488,22 +490,27 @@ C                  ----------  -------  -------- -------  ------
       Real, Parameter :: def_sigma_g( n_mode ) = (/ 1.70, 2.0, 2.2 /)       ! default background sigma-g for each mode
       Real, Parameter :: def_diam( n_mode ) = (/ 1.0E-8, 7.0E-8, 1.0E-6 /)  ! default background mean diameter for each mode
 
-      Real          :: moment0_conc( n_mode )     ! 0th moment concentration
-      Real          :: moment2_conc( n_mode )     ! 2nd moment concentration
-      Real          :: moment3_conc( n_mode )     ! 3rd moment concentration
-      Logical, save :: wet_moments_flag           ! T if M2 and M3 are wet, F otherwise
+      Real    :: moment0_conc( n_mode )     ! 0th moment concentration
+      Real    :: moment2_conc( n_mode )     ! 2nd moment concentration
+      Real    :: moment3_conc( n_mode )     ! 3rd moment concentration
+      Logical :: wet_moments_flag           ! T if M2 and M3 are wet, F otherwise
+      !$omp threadprivate(moment0_conc,moment2_conc,moment3_conc,wet_moments_flag)
 
 C Mass concentration (calculated by GETPAR)
       Real :: aeromode_mass( n_mode )   ! [ ug/m^3 ]
+      !$omp threadprivate(aeromode_mass)
 
 C Particle density (calculated by GETPAR)
       Real :: aeromode_dens( n_mode )   ! [ kg/m^3 ]
+      !$omp threadprivate(aeromode_dens)
 
 C Geometric mean diameter (calculated by GETPAR)
       Real :: aeromode_diam( n_mode )   ! [ m ]
+      !$omp threadprivate(aeromode_diam)
 
 C Log of geometric standard deviation (calculated by GETPAR )
       Real :: aeromode_lnsg( n_mode )
+      !$omp threadprivate(aeromode_lnsg)
 
 C Minimum number (calculated in map_aero routine)
       Real :: aeromode_minNum( n_mode )
@@ -646,7 +653,9 @@ C Build mapping to CGRID for each species in the master AeroList
       Allocate ( aerospc      ( n_aerospc ) )
       Allocate ( aerospc_mw   ( n_aerospc ) )
       Allocate ( aerospc_map  ( n_aerospc, n_mode ) )
+      !$omp parallel
       Allocate ( aerospc_conc ( n_aerospc, n_mode ) )
+      !$omp end parallel
       Allocate ( aerospc_ssf  ( n_mode, n_aerospc ) )
       Allocate ( aero_missing ( n_aerospc, n_mode ) )
       Allocate ( aeronum_map  ( n_mode ) )
@@ -1012,9 +1021,11 @@ C Arguments:
 C Local Variables:
       Integer m, n, spc
 
+      !$omp critical
       If ( .Not. mapped ) Then
          Call map_aero()
       End If
+      !$omp end critical
 
 C Copy grid cell concentrations of aero species to aerospc_conc
       aerospc_conc = 0.0

@@ -53,26 +53,29 @@ c..Mechanism specific variables
       INTEGER   NING2        ! No. of species in group 2
       INTEGER   N_SPCL_RKS   ! No. of special rate constants
       INTEGER   N_ACTSP      ! No. of species in mechanism (non-ss spec)
-      INTEGER   NCELL        ! cell number in EBI Block
+!     INTEGER   NCELL        ! cell number in EBI Block
 
 c..Control flags
       LOGICAL   L_AE_VRSN    ! Flag for aerosol version of mech
       LOGICAL   L_AQ_VRSN    ! Flag for aqueous chemistry version of mech
 
-
 c..Miscellaneous variables
       INTEGER   LOGDEV        ! Unit number of output log
       INTEGER   N_EBI_IT      ! No. of iterations for EBI
-      INTEGER   N_EBI_STEPS   ! No. of time steps for EBI
-      INTEGER   N_INR_STEPS   ! No. of inner time steps for EBI
-
+      INTEGER, parameter :: N_EBI_STEPS = 1   ! No. of time steps for EBI
+!     INTEGER   N_INR_STEPS   ! No. of inner time steps for EBI
       REAL( 8 )    EBI_TMSTEP          ! Time step for EBI loops (min)
+
+      !$omp threadprivate(n_ebi_it,ebi_tmstep)
 
 c...Allocatable arrays
       INTEGER, ALLOCATABLE :: EBISP( : )         ! Index of EBI species
       INTEGER, ALLOCATABLE :: SSASP( : )         ! Index of ss species
       INTEGER, ALLOCATABLE :: ACTSP( : )         ! Index of active species
       INTEGER, ALLOCATABLE :: IOLD2NEW( :,: )    ! YC species map, used if NSPECIAL > 0
+
+      REAL, ALLOCATABLE      :: FORWARD_CONV( : )  ! CGRID to CHEM Species conversion factor
+      REAL, ALLOCATABLE      :: REVERSE_CONV( : )  ! CHEM to CGRID Species conversion factor
 
       REAL( 8 ), ALLOCATABLE ::  RKI(  : )     ! Rate constants
       REAL( 8 ), ALLOCATABLE ::  RKI_SAV(  :,  : )  ! Saved values of RKI for SS species calcs
@@ -82,14 +85,14 @@ c...Allocatable arrays
       REAL( 8 ), ALLOCATABLE ::  YCP(  : )      ! Species concentrations
       REAL( 8 ), ALLOCATABLE ::  SYC(  :, : )   ! Species concentrations
 
-      REAL, ALLOCATABLE      :: FORWARD_CONV( : )  ! CGRID to CHEM Species conversion factor
-      REAL, ALLOCATABLE      :: REVERSE_CONV( : )  ! CHEM to CGRID Species conversion factor
-
       REAL( 8 ), ALLOCATABLE ::  RXRAT( : )     ! Reaction rates
-      REAL( 8 ), ALLOCATABLE ::  RTOL(  : )        ! Species tolerances
+      REAL( 8 ), ALLOCATABLE ::  RTOL(  : )     ! Species tolerances
       REAL( 8 ), ALLOCATABLE ::  PROD(  : )     ! Prod of species
       REAL( 8 ), ALLOCATABLE ::  LOSS(  : )     ! Loss of species
-      REAL( 8 ), ALLOCATABLE ::  PNEG(  : )! Negative production rates
+      REAL( 8 ), ALLOCATABLE ::  PNEG(  : )     ! Negative production rates
+
+      !$omp threadprivate( rki,rki_sav,yc,yc0,ycp,syc )
+      !$omp threadprivate( rxrat,prod,loss,pneg )
 
 !     REAL, ALLOCATABLE      :: PRES( :, :, : )          ! pressure (Pa)
 !     REAL, ALLOCATABLE      :: QV  ( :, :, : )          ! water vapor (Kg/Kg air)

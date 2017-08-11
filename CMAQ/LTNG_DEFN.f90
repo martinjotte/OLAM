@@ -88,10 +88,11 @@ contains
   subroutine get_ltng ( mrl )
 
     ! Get NO produced from lightning in VDEMIS_LT
+    ! TODO: add resolved
 
-    use mem_basic,  only: tair, press
-    use mem_grid,   only: mza, lpw, arw0, zm
-    use mem_cuparm, only: kcutop, kcubot, conprr
+    use mem_basic,  only: tair
+    use mem_grid,   only: arw0
+    use mem_cuparm, only: kcutop, kcubot, iactcu, conprr
     use mem_ijtabs, only: jtab_w, jtw_prog
     use mem_turb,   only: frac_sea
     use consts_coms,only: t00
@@ -108,45 +109,49 @@ contains
     real, parameter :: molesN_per_flash = 350.
     real, parameter :: cg_to_total      = 1. / 4.
     real, parameter :: scale = 147. / 10. / 36000.**2 * molesN_per_flash / cg_to_total
-    integer         :: j, iw, k
-    real            :: cc_thick, rate, fsea, fland
+
+    integer         :: j, iw
+    real            :: rate
 
     if ( .not. ltng_no ) return
 
+    !$omp parallel do private(j,iw,rate)
     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-       vdemis_lt(1:mza,iw) = 0.0
-       column_ltng_no (iw) = 0.0
+       vdemis_lt   (:,iw) = 0.0
+       column_ltng_no(iw) = 0.0
             
        ! First make sure that there was deep convection
 
-       if ( .not. ( kcubot(iw) >= lpw(iw) .and. kcutop(iw) > kcubot(iw) &
-                    .and. conprr(iw) > 1.e-9 ) ) cycle
+       if ( iactcu(iw) == 1 .and. conprr(iw) > 1.e-10 ) then
 
-       ! And that the cloud top was sufficiently below freezing to generate
-       ! positive and negative charge areas
+          ! And that the cloud top was sufficiently below freezing to generate
+          ! positive and negative charge areas
 
-       if (tair(kcutop(iw),iw) > tmin) cycle
+          if (tair(kcutop(iw),iw) > tmin) cycle
 
-       ! And that the cloud base temperature is warm enough to have
-       ! water droplets in the cloud
+          ! And that the cloud base temperature is warm enough to have
+          ! water droplets in the cloud
 
-       if (tair(kcubot(iw),iw) < tmax) cycle
+          if (tair(kcubot(iw),iw) < tmax) cycle
 
-       ! Compute lightning flash rate. Scale is the moles of N produced
-       ! per m^2 per mm precip, resulting in moles/sec
+          ! Compute lightning flash rate. Scale is the moles of N produced
+          ! per m^2 per mm precip, resulting in moles/sec
 
-       rate = arw0(iw) * conprr(iw) * scale
+          rate = arw0(iw) * conprr(iw) * scale
 
-       ! Reduce lightning over oceans
+          ! Reduce lightning over oceans
        
-       column_ltng_no(iw) = rate * ( 1.0 - 0.9 * frac_sea(iw) )
+          column_ltng_no(iw) = rate * ( 1.0 - 0.9 * frac_sea(iw) )
 
-       ! Get the vertical distibution of NOx from lightning
+          ! Get the vertical distibution of NOx from lightning
 
-       call lightdist( iw, kcutop(iw), column_ltng_no(iw), vdemis_lt(:,iw) )
+          call lightdist( iw, kcutop(iw), column_ltng_no(iw), vdemis_lt(:,iw) )
+
+       endif
                
     end do
+    !$omp end parallel do
 
   end subroutine get_ltng
 
@@ -192,7 +197,7 @@ contains
   subroutine lightdist( iw, ktop, total, vertprof )
 
     use misc_coms, only: current_time
-    use mem_grid,  only: mza, glatw, zt, zm, lpw
+    use mem_grid,  only: mza, glatw, zm, lpw
     use mem_turb,  only: frac_sea
 
     implicit none

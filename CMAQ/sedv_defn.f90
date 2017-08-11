@@ -122,6 +122,8 @@ contains
 
     endif  ! firstime
 
+    !$omp parallel do private(iw,vsed_ae,n,dtmin,k,aplus,aminus,&
+    !$omp                     fplus,fminus,v,s,time,eps,dt8,dt)
     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        call aero_sedv( iw, vsed_ae )
@@ -178,6 +180,7 @@ contains
        end do
 
     enddo
+    !$omp end parallel do
 
   end subroutine aero_sedi
 
@@ -223,10 +226,7 @@ contains
     real :: xlm       ! mean free path [ m ]
     real :: amu       ! dynamic viscosity [ kg/m/s ]
 
-    real :: m2_wet, m2_dry
-    real :: m3_wet, m3subt, m3_dry
-
-    integer :: l, s, n, spc    ! loop counters
+    integer :: l      ! loop counters
 
     !-----------------------------------------------------------------------
 

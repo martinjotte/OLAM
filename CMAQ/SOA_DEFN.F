@@ -148,6 +148,8 @@ C Indices of required species
       Real, Allocatable    :: vapor_conc( : )   ! vapor concentration
       Integer, Allocatable :: drog_map  ( : )   ! drog mapping assignments
 
+      !$omp threadprivate(vapor_conc)
+
 C orgprod species
 
       Type orgprod_type
@@ -160,7 +162,7 @@ C orgprod species
 C   This default orgprod table is for CB05, parent names are changed in subroutine
 C   extract_soa for the SAPRC99 and SAPRC07T mechanisms
 C
-      Type( orgprod_type ), Save      :: orgprod( n_orgprod ) = (/
+      Type( orgprod_type ), Save :: orgprod( n_orgprod ) = (/
 C                      Name      Parent     Aerospc  AlphaH
 C                     -------    -------    ------   ------
      & orgprod_type( 'ALKRXN  ', 'SOAALK ', '      ', 0.000 ),
@@ -183,6 +185,7 @@ C                     -------    -------    ------   ------
       Integer :: orgprod_aeroMap( n_orgprod )  ! orgprod pointers to aerospc
       Integer, Allocatable :: soa_aeroMap    ( : )    ! soa pointers to aerospc
 
+      !$omp threadprivate(orgprod_conc)
 
 C mapping variables used for loading and unloading to CGRID array
       Integer, Allocatable :: vapor_map( : )     ! pointers of vapor species to CGRID
@@ -238,6 +241,7 @@ C Local Variables:
 
 !     Real, Save :: alk_factor = 1.00
 
+      !$omp critical
       If ( .Not. mapped ) Then
 
 C Before Anything Else, the VaporSpc Array must be populated with
@@ -258,7 +262,7 @@ C namelist or in the NR namelist.
           Allocate ( vaporspc   ( n_vapor ))
           Allocate ( vapor_mw   ( n_vapor ))
           Allocate ( vapor_mwi  ( n_vapor ))
-          Allocate ( vapor_conc ( n_vapor ))
+!         Allocate ( vapor_conc ( n_vapor ))
           Allocate ( drog_map   ( n_vapor ))
           Allocate ( soa_aeroMap( n_vapor ))
           Allocate ( vapor_map  ( n_vapor ))
@@ -448,6 +452,9 @@ C Reactive variables that store their production rates (orgprod)
          mapped = .True.
 
       End If     ! mapping condition
+      !$omp end critical
+
+      if (.not. allocated(vapor_conc)) allocate( vapor_conc( n_vapor ) )
 
 C Compute gas conversion constant
       gasconv = airdens * inv_mwair
@@ -473,7 +480,6 @@ C Copy grid cell concentrations of ORGPROD species
 C Adjust ALK orgprod for fraction that produces SOA
 !      orgprod_conc( 1 ) = alk_factor * orgprod_conc( 1 )
 
-      Return
       End Subroutine extract_soa
 
 C-----------------------------------------------------------------------
@@ -519,7 +525,6 @@ C Copy vapor_conc back to grid cell concentrations
          conc( n ) = Max ( vapor_conc( spc ) * vtmp, min_gasconc )
       End Do
 
-      Return
       End Subroutine update_soa
 
 C-----------------------------------------------------------------------
@@ -556,7 +561,6 @@ C Local Variables:
       xmsg = 'Required Species ' // Trim( vname ) // ' not found in [vapor names] array'
       Call m3exit( pname, 0, 0, xmsg, xstat3 )
 
-      Return
       End Function findVapor
 
 C-----------------------------------------------------------------------
@@ -584,10 +588,8 @@ C Local Variables:
       Integer         :: spc
 
       Do spc = 1, n_orgprod
-         ! If ( Index( orgprod( spc )%name, Trim( vname ) ) .Gt. 0 ) Then
-         If ( Trim( orgprod( spc )%name ) .Eq. Trim( vname ) ) Then
+         If ( orgprod( spc )%name .Eq. vname ) Then
             ndx = spc
-            ! Write( *,'(a,i5)' ) vname, ndx
             Return
          End If
       End Do
@@ -596,7 +598,6 @@ C Local Variables:
      &     // ' Not found in [orgprod names] array'
       Call m3exit( pname, 0, 0, xmsg, xstat3 )
 
-      Return
       End Function findOrgprod
 
 C-----------------------------------------------------------------------
@@ -945,8 +946,7 @@ C Variables used in acid-enhanced isoprene SOA calculations
 C Variables used in equilibrium partitioning calculations
       Real drog( n_orgprod ) ! change in precursor conc [ ug/m3 ]
       Real totrog( n_vapor ) ! drog conc mapped to each SVOC [ ug/m3 ]
-      Real(8) GRtmp( n_mode )   ! Dummy variable for accurate treatment of growth to specific moment
-      Real GR3( n_vapor,n_mode ) ! 3rd Moment Growth for each mode and compound
+      Real(8) GR3( n_vapor,n_mode ) ! 3rd Moment Growth for each mode and compound
       Real GR3FRAC( n_vapor,n_mode ) ! Fraction of each mode growing/shrinking
       Real c0    ( n_vapor ) ! cstar at AIRTEMP [ ug/m3 ]
       Real caer0 ( n_vapor ) ! SVOC conc before current time step [ ug/m3 ]
@@ -975,11 +975,10 @@ C Variables for updating 2nd and 3rd moments
 
 C Added for new SOA bisection (hotp 7/6/11)
       Real               :: upb, orgmoles      ! upper bound, total aerosol moles
-      real               :: x1, x2
-      integer            :: iter
 
 C-----------------------------------------------------------------------
 
+      !$omp critical
       If ( first_time )  Then
          first_time = .False.
          logdev = setup_logdev()
@@ -994,6 +993,7 @@ C     Set unit conversion
 
          isnvpoa = (INDEX( MECHNAME, 'NVPOA' ) .Ne. 0)
       End If ! first_time
+      !$omp end critical
 
 C Set temperature factors
       tt1 = tref / airtemp
@@ -1011,8 +1011,8 @@ C Compute 3rd moment, 2nd moment. moment_conc arrays are wet
       Call calcmoments ( .true. )
       m3wet_init( : ) = moment3_conc( 1:2 )
       m2wet_init( : ) = moment2_conc( 1:2 )
-        
-      GR3( :,: ) = 0.d0
+
+      GR3( :,: ) = 1.d-30
       m0_init( : )    = moment0_conc( 1:2 )
       m2wet_initD( : ) = DBLE( m2wet_init( 1:2 ) )
 
@@ -1023,9 +1023,8 @@ C Compute 3rd moment, 2nd moment. moment_conc arrays are wet
         Do i = 1, n_vapor
           If ( aero_missing( soa_aeroMap( i ),im ) ) Cycle
           
-          Call HCOND3_l( m0_init( im ), m1wet_init( im ),
-     &                 m2wet_initD( im ), Dv_org, cbar_org(i), GRtmp )
-          GR3( i,im ) = max( GRtmp( 2 ), 1.d-30 )
+          Call HCOND3_l( m1wet_init( im ), m2wet_initD( im ), 
+     &                   Dv_org, cbar_org(i), GR3( i,im ) )
         End Do
       End Do
 
@@ -1277,7 +1276,7 @@ C condensation/evaporation does not affect the geometric standard deviation.
 
 C-----------------------------------------------------------------------
 
-      subroutine hcond3_l( am0, am1, am2, dv, cbar, f )
+      subroutine hcond3_l( am1, am2, dv, cbar, f )
 
 C  calculates the size-dependent term in the condensational-growth rate
 C  expression for the 2nd and 3rd moments of a lognormal aerosol mode
@@ -1301,21 +1300,15 @@ C      Res., Vol 100, No D12, 26101-26209, 1995.
 
 C *** Arguments:
 
-      real( 8 ), intent( in ) :: am0   ! zeroth moment of mode  [ #/m**3 ]
       real( 8 ), intent( in ) :: am1   ! first moment of mode   [ m/m**3 ]
       real( 8 ), intent( in ) :: am2   ! second moment of mode  [ m**2/m**3 ]
       real,      intent( in ) :: dv    ! molecular diffusivity of the
                                        ! condensing vapor  [ m**2/s ]
       real,      intent( in ) :: cbar  ! kinetic velocity of condensing vapor [ m/s ]
 
-      real( 8 ), intent( out ) :: f( 2 ) ! size-dependent term in condensational-growth
-                                         ! rate: F(1) = 2nd moment [ m**2/m**3 s ]
-                                         !       F(2) = 3rd moment [ m**3/m**3 s ]
-
+      real( 8 ), intent( out ) :: f    ! size-dependent term in condensational-growth
+                                       ! rate: F = 3rd moment [ m**3/m**3 s ]
 C *** Local Variables:
-
-      real( 8 ) :: gnc2 ! integrals used to calculate F(1) [m^2 / m^3 s]
-      real( 8 ) :: gfm2 !
 
       real( 8 ) :: gnc3 ! integrals used to calculate F(2) [m^3 / m^3 s]
       real( 8 ) :: gfm3 !
@@ -1326,9 +1319,7 @@ C *** Local Variables:
 C *** Implement equation A15 of Binkowski & Shankar (1995) for the
 C     2nd and 3rd moments of a lognormal mode of arbitrary size.
 
-      gnc2 = twopi * dv * am0   ! 2nd moment, near-continuum
       gnc3 = twopi * dv * am1   ! 3rd moment, near-continuum
-      gfm2 = pi4 * cbar * am1   ! 2nd moment, free-molecular
       gfm3 = pi4 * cbar * am2   ! 3rd moment, free-molecular
 
 C *** Implement equation A13 of Binkowski & Shankar (1995) for a
@@ -1336,8 +1327,7 @@ C     lognormal mode of arbitrary size.  These are the size-dependent
 C     terms in the condensational-growth rate expression, given in
 C     equation 7a of B&S (1995).
 
-      f( 1 ) = gnc2 * gfm2 / ( gnc2 + gfm2 )  ! 2nd moment
-      f( 2 ) = gnc3 * gfm3 / ( gnc3 + gfm3 )  ! 3rd moment
+      f = max( gnc3 * gfm3 / ( gnc3 + gfm3 ), 1.e-30 ) ! 3rd moment
 
       end subroutine hcond3_l
 

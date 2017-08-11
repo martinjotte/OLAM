@@ -89,33 +89,47 @@ C-----------------------------------------------------------------------
 
 !***LOGDEV for NEW_OPTICS and supporting routines
       
-      INTEGER, SAVE :: NEW_OPTICS_LOG
+!     INTEGER, SAVE :: NEW_OPTICS_LOG
 
-      INTEGER, PARAMETER :: N_DIAG_WVL = 2         ! number of dianostic wavelengths
-      INTEGER, SAVE      :: DIAG_WVL( N_DIAG_WVL ) ! pointers to diagnostic wavelengths
-      
-      REAL, ALLOCATABLE  :: ACTINIC_FLUX( :,: )    ! actinic fluxes, initially [Photons/(cm^2s)] then  [Watts/m^2] 
-      REAL, ALLOCATABLE  :: IRRADIANCE  ( :,: )    ! total downward irradiance [Watts/m^2]
-      REAL               :: REFLECTION             ! broad band reflection coefficient (diffuse) at model top 
-      REAL               :: TRANSMISSION           ! broad band transmission coefficient (diffuse) at surface
-      REAL               :: TRANS_DIRECT           ! broad band direct transmission coefficient at surface
+!      INTEGER, PARAMETER :: N_DIAG_WVL = 2         ! number of dianostic wavelengths
+!      INTEGER, SAVE      :: DIAG_WVL( N_DIAG_WVL ) ! pointers to diagnostic wavelengths
+
+!     REAL, ALLOCATABLE  :: ACTINIC_FLUX( :,: )    ! actinic fluxes, initially [Photons/(cm^2s)] then  [Watts/m^2] 
+!     REAL, ALLOCATABLE  :: IRRADIANCE  ( :,: )    ! total downward irradiance [Watts/m^2]
+!     REAL               :: REFLECTION             ! broad band reflection coefficient (diffuse) at model top 
+!      REAL               :: TRANSMISSION           ! broad band transmission coefficient (diffuse) at surface
+!      REAL               :: TRANS_DIRECT           ! broad band direct transmission coefficient at surface
   
-      LOGICAL            :: ONLY_SOLVE_RAD   ! only compute fluxes     
+      LOGICAL            :: PHOTDIAG = .false.      ! Flag for PHOTDIAG file
+      LOGICAL            :: ONLY_SOLVE_RAD = .false.! only compute fluxes     
            
       CHARACTER( 133 )   :: PHOT_MOD_MSG
       
-      INTEGER            :: PHOT_COL   ! cell column of routine calling module routine
-      INTEGER            :: PHOT_ROW   ! cell row of routine calling module routine
       integer            :: nlays_max
+
+      REAL, ALLOCATABLE  :: SINLATS ( : ) ! sine of latitude
+      REAL, ALLOCATABLE  :: COSLATS ( : ) ! cosine of latitude
+
+      INTEGER            :: LGC_O3   ! pointer to O3 in CGRID
+      INTEGER            :: LGC_NO2  ! pointer to NO2 in CGRID
+
+      real, ALLOCATABLE :: srayl   ( : ) ! Molecular scattering cross sections [ cm ** 2]
+      REAL, ALLOCATABLE :: CONV_WM2( : ) ! conversion factor [photons/(cm**2 s )] to [Watts/m**2]
+
+      REAL :: EQT             ! equation of time
+      REAL :: SOLDIST         ! solar distance [ au ]
+      REAL :: SINDEC          ! sine of the solar declination
+      REAL :: COSDEC          ! cosine of the solar declination
+      REAL :: RSQDI           ! 1 / square of soldist
 
       CONTAINS
 
 C///////////////////////////////////////////////////////////////////////
-      SUBROUTINE NEW_OPTICS ( IW, JDATE, JTIME, NLAYS, nlays_model, nlays_chem,
-     &                        BLKTA, BLKPRS, BLKDENS, BLKZH, BLKZF,
-     &                        BLKO3, BLKNO2,
-     &                        ZSFC, COSZEN, SINZEN, RSQDI,
-     &                        NEW_PROFILE, CLOUDS, CLDFRC,
+      SUBROUTINE NEW_OPTICS ( IW, NLAYS, nlays_model, nlays_chem,
+     &                        BLKTA, BLKDENS, BLKZF,
+     &                        BLKO3, BLKNO2, ALB, 
+     &                        ZSFC, COSZEN, SINZEN,
+     &                        NEW_PROFILE, CLDFRC,
      &                        BLKRJ, TAUC_AERO, TAU_TOT,
      &                        SSA_AERO, TAU_CLOUD, 
      &                        tauclds, ssaclds, asmclds )
@@ -152,26 +166,21 @@ C-----------------------------------------------------------------------
 
 !***arguments
       INTEGER, INTENT(IN) :: IW
-      INTEGER, INTENT(IN) :: JDATE   ! julian date YYYYDDD
-      INTEGER, INTENT(IN) :: JTIME   ! TIME HHMMSS
       INTEGER, INTENT(IN) :: NLAYS       ! # of radiation vertical layers
       INTEGER, INTENT(IN) :: NLAYS_MODEL ! # of model vertical layers
       INTEGER, INTENT(IN) :: NLAYS_CHEM  ! # of vertical layers where chemistry is active
       
-      REAL,    INTENT(IN) :: BLKPRS ( : )       ! Air pressure in [ atm ]
       REAL,    INTENT(IN) :: BLKTA  ( : )       ! Air temperature [ K ]
       REAL,    INTENT(IN) :: BLKDENS( : )       ! Air density  [ molecules / cm**3 ]
-      REAL,    INTENT(IN) :: BLKZH  ( : )       ! layer half-height [ m ]
       REAL,    INTENT(IN) :: BLKZF  ( : )       ! layer full height[ m ]
       REAL,    INTENT(IN) :: BLKO3  ( : )       ! O3 concentration [ molecules / cm**3 ]
       REAL,    INTENT(IN) :: BLKNO2 ( : )       ! NO2 concentration [ molecules / cm**3 ]
+      REAL,    INTENT(IN) :: ALB    ( : )       ! wavelength-dependent surface albedo
       REAL,    INTENT(IN) :: ZSFC               ! surface height (msl) [ m ]
       REAL,    INTENT(IN) :: COSZEN, SINZEN     ! sine and cosine of the zenith angle
-      REAL,    INTENT(IN) :: RSQDI              ! 1 / square of solar distance [ au**-2 ]
 
       LOGICAL, INTENT(IN) :: NEW_PROFILE     ! Has the atmospheric profile changed since last call?
-      LOGICAL, INTENT(IN) :: CLOUDS( : )  ! Does layer have clouds
-      REAL,    INTENT(IN) :: CLDFRC( : )  ! fraction of gridcell covered by cloud
+      REAL,    INTENT(IN) :: CLDFRC( : )     ! fraction of gridcell covered by cloud
       
 
       REAL,    INTENT(OUT) :: BLKRJ( :,: )  ! photolysis rates [ 1 / sec ]
@@ -193,7 +202,7 @@ C-----------------------------------------------------------------------
 !      REAL, PARAMETER :: STRAT_TEMP  = 225.0    ! stratospheric temperature
 !      REAL, PARAMETER :: ZTOA        = 50.0E3   ! top of the atmosphere [ m ]
 
-      INTEGER L, I, IWL, II, ILEV, IPHOT, MODE ! loop indices
+      INTEGER L, IWL, II, IPHOT  ! loop indices
 
 !     INTEGER NLEVEL
       REAL SOLAR_FLUX        ! solar flux at atmosphere top in a wavelength band, [photons/(cm^2*s)]
@@ -205,9 +214,9 @@ C-----------------------------------------------------------------------
 !      REAL STRAT_O3_COLMIN   ! ozone minium column density in the stratosphere [molecules/cm2]
 !      REAL TAU_O3            ! optical depth of stratospheric ozone [ m ]
 !      REAL DENSTOM           ! estimated air density at top of model [ molecules / cm**3 ]
-      REAL LAMDA             ! wavelength  [ nm ]
-      REAL INV_LAMBDA        ! reciprocal of wavelength [ 1/nm ]
-      REAL LAMDA_UM          ! wavelength  [ um ]
+!      REAL LAMDA             ! wavelength  [ nm ]
+!     REAL INV_LAMBDA        ! reciprocal of wavelength [ 1/nm ]
+!     REAL LAMDA_UM          ! wavelength  [ um ]
 
 !***working absorption cross sections [ cm**2 ]. These have been corrected
 !***  for ambient ( pressure and temperature ) conditions.
@@ -216,7 +225,7 @@ C-----------------------------------------------------------------------
       REAL ANO2
       REAL BETA_M     ! molecular scattering coefficient [ 1/m ]
       REAL BEXT       ! total aerosol extinction coefficient [ 1/m ]
-      REAL VFAC, BSC  ! unit correction factors
+!     REAL VFAC, BSC  ! unit correction factors
       REAL BSCAT      ! total aerosol scattering coefficient [ 1/m ]
       REAL G_BAR      ! total aerosol asymmetry factor
 
@@ -229,53 +238,53 @@ C-----------------------------------------------------------------------
 
 !***variables describing the layer heights and slants
 !     REAL DJ, DF
-      REAL ZTOM                               ! top of model  [ m ]
-      REAL, ALLOCATABLE, SAVE :: DSDH_TD( : ) ! slant path function from top down
-      REAL, ALLOCATABLE, SAVE :: BLKDZ( : )   ! layer thicknesses [ m ]
+!     REAL ZTOM                               ! top of model  [ m ]
+!      REAL, ALLOCATABLE, SAVE :: DSDH_TD( : ) ! slant path function from top down
+!      REAL, ALLOCATABLE, SAVE :: BLKDZ( : )   ! layer thicknesses [ m ]
 !     REAL, ALLOCATABLE, SAVE :: DSDH( : )    ! slant path function
 !     REAL, SAVE              :: DSDH_TOP     ! slantpath function from ZTOM to ZTOA
 
 !***Increment of optical depth
 
-      REAL, ALLOCATABLE, SAVE :: DTAU    ( : )   ! total depth at level
-      REAL, ALLOCATABLE, SAVE :: DT_AERO ( : )   ! aerosol contribution at level
-      REAL, ALLOCATABLE, SAVE :: DT_CLOUD( : )   ! cloud contribution at level
+!      REAL, ALLOCATABLE, SAVE :: DTAU    ( : )   ! total depth at level
+!      REAL, ALLOCATABLE, SAVE :: DT_AERO ( : )   ! aerosol contribution at level
+!      REAL, ALLOCATABLE, SAVE :: DT_CLOUD( : )   ! cloud contribution at level
 
 !***single scattering albedo for layer
 
-      REAL, ALLOCATABLE, SAVE :: OM( : )
+!      REAL, ALLOCATABLE, SAVE :: OM( : )
 
 !***asymmetry factor
 
-      REAL, ALLOCATABLE, SAVE :: G( : )
+!      REAL, ALLOCATABLE, SAVE :: G( : )
 
 !***arrays for fluxes and irradiances used in
 
 !***delta-Eddington code
 
-      REAL, ALLOCATABLE, SAVE :: FDIR( : )   ! direct actinic flux
-      REAL, ALLOCATABLE, SAVE :: FUP ( : )   ! diffuse upward actinic flux
-      REAL, ALLOCATABLE, SAVE :: FDN ( : )   ! diffuse downward flux
-      REAL, ALLOCATABLE, SAVE :: EDIR( : )   ! direct irradiance
-      REAL, ALLOCATABLE, SAVE :: EUP ( : )   ! diffuse upward irradiance
-      REAL, ALLOCATABLE, SAVE :: EDN ( : )   ! diffuse downward irradiance
+!      REAL, ALLOCATABLE, SAVE :: FDIR( : )   ! direct actinic flux
+!      REAL, ALLOCATABLE, SAVE :: FUP ( : )   ! diffuse upward actinic flux
+!      REAL, ALLOCATABLE, SAVE :: FDN ( : )   ! diffuse downward flux
+!      REAL, ALLOCATABLE, SAVE :: EDIR( : )   ! direct irradiance
+!      REAL, ALLOCATABLE, SAVE :: EUP ( : )   ! diffuse upward irradiance
+!      REAL, ALLOCATABLE, SAVE :: EDN ( : )   ! diffuse downward irradiance
 
 !***surface albedo
 
-      REAL RSFC
+!     REAL RSFC
 
-      REAL FX
-      REAL, ALLOCATABLE, SAVE :: ESUM( : )   ! total downward irradiance
-      REAL, ALLOCATABLE, SAVE :: FSUM( : )   ! total actinic flux
+!     REAL FX
+!      REAL, ALLOCATABLE, SAVE :: ESUM( : )   ! total downward irradiance
+!      REAL, ALLOCATABLE, SAVE :: FSUM( : )   ! total actinic flux
 
 !***needed for stratospheric Raleigh optical depth
       REAL, PARAMETER :: R_G = 100.0 * RDGAS / GRAV  ! dry air gas constant
                                                      ! divided by gravitational
                                                      ! acceleration [cm/K] NOTE: cgs units
 
-      REAL HSCALE               ! Scale height [cm] ! NOTE: cgs units
+!     REAL HSCALE               ! Scale height [cm] ! NOTE: cgs units
 
-      REAL NBAR                 ! total number of air molecules [ # /cm**2 ]
+!     REAL NBAR                 ! total number of air molecules [ # /cm**2 ]
                                 ! above top of model domain
 
 !      REAL, SAVE :: COS85
@@ -293,75 +302,65 @@ C-----------------------------------------------------------------------
       REAL OM_CLOUD             ! local cloud single scattering albedo
       REAL DTSCAT_CLOUD         ! level increment in cloud scattering optical
       REAL TAU_SCAT_CLD         ! total scattering optical depth of cloud
-      REAL LAYERING_FACTOR      ! correction factor for cloud layering
-      REAL STOZONE
+!     REAL LAYERING_FACTOR      ! correction factor for cloud layering
+!     REAL STOZONE
 
       real :: dtau_clr, dtau_cld, om_clr, g_clr
 
-      LOGICAL, SAVE :: FIRST = .TRUE.  ! Flag for first call
-      LOGICAL       :: SUCCESS
+!     LOGICAL, SAVE :: FIRST = .TRUE.  ! Flag for first call
+!     LOGICAL       :: SUCCESS
 
 !***arrays for fluxes and irradiances used in
-      REAL, ALLOCATABLE, SAVE :: SRAYL( : )        ! Molecular scattering cross sections [ cm ** 2]
-      REAL, ALLOCATABLE, SAVE :: TAU_SCAT( : )     ! aerosol scattering optical depth
-      REAL, ALLOCATABLE, SAVE :: CONV_WM2( : )     ! conversion factor [photons/(cm**2 s )] to [Watts/m**2]
+!      REAL, ALLOCATABLE, SAVE :: SRAYL( : )        ! Molecular scattering cross sections [ cm ** 2]
+!      REAL, ALLOCATABLE, SAVE :: TAU_SCAT( : )     ! aerosol scattering optical depth
+!      REAL, ALLOCATABLE, SAVE :: CONV_WM2( : )     ! conversion factor [photons/(cm**2 s )] to [Watts/m**2]
 
 !***three-dimensional array for Cs and Qy
 !***  (temperature, wavelength, species)
 !***(layer, wavelength species)
 
-      REAL, ALLOCATABLE, SAVE :: CSZ( :,:,: )
-      REAL, ALLOCATABLE, SAVE :: QYZ( :,:,: )
-      
-      IF ( FIRST ) THEN
+!      REAL, ALLOCATABLE, SAVE :: CSZ( :,:,: )
+!      REAL, ALLOCATABLE, SAVE :: QYZ( :,:,: )
 
-         NEW_OPTICS_LOG = INIT3()
+         REAL :: TAU_SCAT( NWL )               ! aerosol scattering optical depth
+         REAL :: CSZ( NLAYS_MAX,NWL,NPHOTAB )  ! molecular cross section
+         REAL :: QYZ( NLAYS_MAX,NWL,NPHOTAB )  ! quantum yield
          
-         ALLOCATE( CONV_WM2( NWL ) )
-         ALLOCATE( SRAYL   ( NWL ) )
-         ALLOCATE( TAU_SCAT( NWL ) )
-         ALLOCATE( CSZ( NLAYS_MAX,NWL,NPHOTAB ) )
-         ALLOCATE( QYZ( NLAYS_MAX,NWL,NPHOTAB ) )
-         
-         ALLOCATE( ACTINIC_FLUX( NLAYS_MAX,NWL ) )
-         ALLOCATE( IRRADIANCE  ( NLAYS_MAX,NWL ) )
-         
-         ALLOCATE( DSDH_TD ( NLAYS_MAX ),
-     &             BLKDZ   ( NLAYS_MAX ),
-     &             DTAU    ( NLAYS_MAX ),
-     &             DT_AERO ( NLAYS_MAX ),
-     &             DT_CLOUD( NLAYS_MAX ),
-     &             OM      ( NLAYS_MAX ),
-     &             G       ( NLAYS_MAX ),
-     &             FDIR    ( NLAYS_MAX ),
-     &             FUP     ( NLAYS_MAX ),
-     &             FDN     ( NLAYS_MAX ),
-     &             EDIR    ( NLAYS_MAX ),
-     &             EUP     ( NLAYS_MAX ),
-     &             EDN     ( NLAYS_MAX ),
-     &             ESUM    ( NLAYS_MAX ),
-     &             FSUM    ( NLAYS_MAX ) )
+         REAL :: ACTINIC_FLUX( NLAYS_MAX,NWL ) ! actinic fluxes, initially [Photons/(cm^2s)] then  [Watts/m^2] 
+         REAL :: IRRADIANCE  ( NLAYS_MAX,NWL ) ! total downward irradiance [Watts/m^2]
+
+         REAL :: REFLECTION            ! broad band reflection coefficient (diffuse) at model top 
+         REAL :: TRANSMISSION          ! broad band transmission coefficient (diffuse) at surface
+         REAL :: TRANS_DIRECT          ! broad band direct transmission coefficient at surface
+         REAL :: DSDH_TD ( NLAYS_MAX ) ! slant path function from top down
+         REAL :: BLKDZ   ( NLAYS_MAX ) ! layer thicknesses [ m ]
+         REAL :: DTAU    ( NLAYS_MAX ) ! total optical depth at level
+         REAL :: DT_AERO ( NLAYS_MAX ) ! aerosol contribution to optical depth at level
+         REAL :: DT_CLOUD( NLAYS_MAX ) ! cloud contribution to optical depth at level
+         REAL :: OM      ( NLAYS_MAX ) ! single scattering albedo
+         REAL :: G       ( NLAYS_MAX ) ! asymmetry factor
+         REAL :: FDIR    ( NLAYS_MAX ) ! direct actinic flux
+         REAL :: FUP     ( NLAYS_MAX ) ! diffuse upward actinic flux
+         REAL :: FDN     ( NLAYS_MAX ) ! diffuse downward actinic flux
+         REAL :: EDIR    ( NLAYS_MAX ) ! direct irradiance
+         REAL :: EUP     ( NLAYS_MAX ) ! diffuse upward irradiance
+         REAL :: EDN     ( NLAYS_MAX ) ! diffuse downward irradiance
+         REAL :: ESUM    ( NLAYS_MAX ) ! total downward irradiance
+         REAL :: FSUM    ( NLAYS_MAX ) ! total actinic flux
 
 !***FSB Set up conversion factor for
 !***  [photons / ( cm**2 s) ] to [Watts / m**2 ]
 !***  THE 1.0E13 FACTO IS 1.0E9 * 1.0 E4
 !***  The 1.0e9 is for the wavelength [ nm ] -> [ m ]
 !***  The 1.0e4 is for the area [ cm **2 ] -> [ m**2 ]
-
-         DO IWL = 1, NWL
-            LAMDA = WAVELENGTH( IWL )
-            CONV_WM2( IWL ) = 1.0E13 * ( PLANCK_C * LIGHT_SPEED ) / LAMDA
-         END DO
-
-!         COS85 = COS( 85.0 * PI180 )
-
-!***get molecular scattering cross sections
-
-         CALL GETSRAY ( NWL, WAVELENGTH, SRAYL )
-
-         FIRST = .FALSE.
-
-      END IF   ! FIRSTIME
+!
+!         DO IWL = 1, NWL
+!            CONV_WM2( IWL ) = 1.0E13 * ( PLANCK_C * LIGHT_SPEED ) / WAVELENGTH( IWL )
+!         END DO
+!
+!!***get molecular scattering cross sections
+!
+!         CALL GETSRAY ( NWL, WAVELENGTH, SRAYL )
 
 !***initialize BLKRJ and other layer variables
 
@@ -1154,6 +1153,7 @@ C-----------------------------------------------------------------------
       REAL,    INTENT( IN )  :: ZSFC
       REAL,    INTENT( IN )  :: REARTH
       REAL,    INTENT( IN )  :: SINZEN
+
       REAL,    INTENT( OUT ) :: DZ  ( : )  ! layer thicknesses counting from surface upward
       REAL,    INTENT( OUT ) :: DSDH( : )
 
@@ -1465,7 +1465,7 @@ C-----------------------------------------------------------------------
 
 !***other:
 
-      REAL( 8 ) :: GI( NLEVEL ), OMI( NLEVEL ), TEMPG
+      REAL( 8 ) :: GI( NLEVEL ), OMI( NLEVEL )
       REAL( 8 ) :: F, G, OM
       REAL( 8 ) :: GAM1, GAM2, GAM3, GAM4
 

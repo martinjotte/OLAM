@@ -24,11 +24,8 @@ C $Header: /project/yoj/arc/CCTM/src/aero/aero5/aero_depv.F,v 1.12 2012/01/19 13
 C what(1) key, module and SID; SCCS file; date and time of last delta:
 C @(#)aero_depv.F       1.3 /project/mod3/CMAQ/src/ae_depv/aero_depv/SCCS/s.aero_depv.F 18 Jun 1997 12:55:48
 
-C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-!     SUBROUTINE AERO_DEPV ( CGRID, JDATE, JTIME, TSTEP, MOSAIC, VDEP_AE )
       SUBROUTINE AERO_DEPV ( iw )
 
-C-----------------------------------------------------------------------
 C aerosol dry deposition routine
 C   written 4/9/97 by Dr. Francis S. Binkowski
 C   uses code from modpar and vdvg from the aerosol module.
@@ -80,25 +77,17 @@ C 08 Jun 12 J.Young: remove full character blank padding for GNU Fortran (GCC) 4
 C 07 Jul 14 B.Hutzell: replaced mechanism include file(s) with fortran module
 C 07 Nov 14 J.Bash: Updated for the ASX_DATA_MOD shared data module.
 C    May 16 B. Murphy, H. Pye: Updated treatment of aerosol moments
-C-----------------------------------------------------------------------
 
-!     USE GRID_CONF           ! horizontal & vertical domain specifications
       USE RXNS_DATA           ! chemical mechanism data
       USE CGRID_SPCS          ! CGRID mechanism species
       USE UTILIO_DEFN      
       USE AERO_DATA           ! aero variable data
       USE AEROMET_DATA        ! Includes CONST.EXT
-!     USE Mosaic_Mod, Only: ADEPVJ  ! Shared mosaic variables
-!     Use LSM_Mod, Only: N_LUFRAC
-!     USE ASX_DATA_MOD, Only: Met_Data
 
       use cgrid_conv,  only: rev_cgrid_sfc_iw
       use depv_defn
-      use misc_coms,   only: io6, isubdomain
       use mem_ijtabs,  only: itab_w
-      use leaf_coms,   only: mwl
       use mem_leaf,    only: land, itab_wl
-      use sea_coms,    only: mws
       use mem_sea,     only: sea,  itab_ws
       use mem_turb,    only: pblh
       use mem_basic,   only: rho, press, theta
@@ -106,19 +95,8 @@ C-----------------------------------------------------------------------
 
       IMPLICIT NONE
 
-C Includes:
-
-!     INCLUDE SUBST_FILES_ID  ! file name parameters
-
 C Arguments
-
       integer, intent(in) :: iw
-!     REAL,    POINTER       :: CGRID( :,:,:,: )
-!     INTEGER, INTENT( IN )  :: JDATE               ! current model date , coded YYYYDDD
-!     INTEGER, INTENT( IN )  :: JTIME               ! current model time , coded HHMMSS
-!     INTEGER, INTENT( IN )  :: TSTEP               ! model time step, coded HHMMSS
-!     LOGICAL, INTENT( IN )  :: MOSAIC              ! use mosaic option
-!     REAL,    INTENT( OUT ) :: VDEP_AE( :,:,: )    ! surrogate deposition velocities [ m s**-1 ]
 
 C Parameters
       REAL,    PARAMETER :: T0 = 288.15      ! [ K ] ! starting standard surface temp.
@@ -139,7 +117,7 @@ C set up species dimension and indices for deposition velocity internal array VD
 
 C Local variables:
 
-      CHARACTER( 16 ) :: VDAE_NAME( N_AE_DEP_SPC )! dep vel surrogate name table
+      CHARACTER( 16 ) :: VDAE_NAME( N_AE_DEP_SPC ) ! dep vel surrogate name table
       DATA         VDAE_NAME( 1 ) / 'VNUMATKN' /
       DATA         VDAE_NAME( 2 ) / 'VNUMACC ' /
       DATA         VDAE_NAME( 3 ) / 'VNUMCOR ' /
@@ -153,10 +131,6 @@ C Local variables:
       INTEGER, ALLOCATABLE, SAVE :: DEPV_SUR( : )   ! pointer to surrogate
 
 C Meteorological variables
-
-!     CHARACTER( 16 ), SAVE :: AE_VRSN ! Aerosol version name
-
-!     INTEGER, SAVE :: NCELLS              ! number of cells per layer
 
       REAL :: XXLSGAT(lsw(iw))           ! log of standard deviation
       REAL :: XXLSGAC(lsw(iw))       
@@ -173,113 +147,32 @@ C Meteorological variables
       REAL :: XLM               ! mean free path [ m ]
       REAL :: AMU               ! dynamic viscosity [ kg m**-1 s**-1 ]
 
-      REAL, ALLOCATABLE, SAVE :: VDEP( : )    ! deposition  velocity [ m/s ]
-!     REAL, ALLOCATABLE, SAVE :: VDEPJ( :,:,:,: ) ! deposition  velocity [ m/s ]
-
-      REAL M3_WET, M3SUBT, M3_DRY
-      REAL M2_WET, M2_DRY
+      real :: vdep(n_ae_dep_spc)  ! deposition  velocity [ m/s ]
 
       LOGICAL, SAVE :: FIRSTIME = .TRUE.
       INTEGER, SAVE :: LOGDEV                   ! unit number for the log file
       CHARACTER( 16 ), SAVE :: PNAME = 'AERO_DEPV'
-!     CHARACTER( 16 ) :: VNAME            ! varable name
       CHARACTER( 96 ) :: XMSG = ' '
 
       INTEGER  V, N                  ! loop counters
-      INTEGER  SPC, S                ! species loop counter
       INTEGER  ALLOCSTAT
 
       INTEGER :: JDATE               ! current model date , coded YYYYDDD
       INTEGER :: JTIME               ! current model time , coded HHMMSS
 
       real    :: ustar, wstar, ra, wtv0
-      integer :: jwls, iwls, ks, kw, mmax, ns
+      integer :: jwls, iwls, ks, kw
 
-      real :: cngrd(lsw(iw),nspcsd)
-
-!      INTERFACE
-!        SUBROUTINE GETDEP_V ( XLM, AMU, DGATK, DGACC, DGCOR,
-!     &                        XXLSGAT, XXLSGAC, XXLSGCO,
-!     &                        PDENSAT, PDENSAC, PDENSCO,
-!     &                        VDEP, VDEPJ, MOSAIC )
-!          REAL, INTENT( IN ) :: XLM( :,: )      ! atmospheric mean free path [ m ]
-!          REAL, INTENT( IN ) :: AMU( :,: )      ! atmospheric dynamic viscosity [ kg/(m s) ]
-!          REAL, INTENT( IN ) :: DGATK( :,: )    ! nuclei mode geometric mean diameter  [ m ]
-!          REAL, INTENT( IN ) :: DGACC( :,: )    ! accumulation geometric mean diameter [ m ]
-!          REAL, INTENT( IN ) :: DGCOR( :,: )    ! coarse mode geometric mean diameter  [ m ]
-!          REAL, INTENT( IN ) :: XXLSGAT( :,: )  ! Aitken mode
-!          REAL, INTENT( IN ) :: XXLSGAC( :,: )  ! accumulation mode
-!          REAL, INTENT( IN ) :: XXLSGCO( :,: )  ! coarse mode
-!          REAL, INTENT( IN ) :: PDENSAT( :,: )  ! average particle density in nuclei mode
-!          REAL, INTENT( IN ) :: PDENSAC( :,: )  ! average particle density in accumulation mode
-!          REAL, INTENT( IN ) :: PDENSCO( :,: )  ! average particle density in coarse mode
-!          REAL, INTENT( OUT ) :: VDEP( :,:,: ) ! deposition  velocity [ m/s ]
-!          REAL, INTENT( OUT ) :: VDEPJ( :,:,:,: ) ! deposition  velocity [ m/s ] for each land use category
-!          LOGICAL, INTENT( IN ) :: MOSAIC
-!        END SUBROUTINE GETDEP_V
-!      END INTERFACE
-
-C-----------------------------------------------------------------------
+      real :: cngrd(lsw(iw),nspcsd) 
 
       jdate = 0
       jtime = 0
 
+      !$omp critical
       IF ( FIRSTIME ) THEN
+
          FIRSTIME = .FALSE.
          LOGDEV = INIT3()
-
-!        NCELLS = NCOLS * NROWS
-
-C  Allocate arrays
-!         ALLOCATE( XXLSGAT( NCOLS,NROWS ),
-!     &             XXLSGAC( NCOLS,NROWS ),
-!     &             XXLSGCO( NCOLS,NROWS ), STAT = ALLOCSTAT )
-!         IF ( ALLOCSTAT .NE. 0 ) THEN
-!            XMSG = 'Failure allocating XXLSGAT, XXLSGAC or XXLSGCO'
-!            CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!         END IF
-!
-!         ALLOCATE( DGATK( NCOLS,NROWS ),
-!     &             DGACC( NCOLS,NROWS ),
-!     &             DGCOR( NCOLS,NROWS ), STAT = ALLOCSTAT )
-!         IF ( ALLOCSTAT .NE. 0 ) THEN
-!            XMSG = 'Failure allocating DGATK, DGACC or DGCOR'
-!            CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!         END IF
-!
-!         ALLOCATE( PDENSAT( NCOLS,NROWS ),
-!     &             PDENSAC( NCOLS,NROWS ),
-!     &             PDENSCO( NCOLS,NROWS ), STAT = ALLOCSTAT )
-!         IF ( ALLOCSTAT .NE. 0 ) THEN
-!            XMSG = 'Failure allocating PDENSAT, PDENSAC or PDENSCO'
-!            CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!         END IF
-!
-!         ALLOCATE( XLM( NCOLS,NROWS ),
-!     &             AMU( NCOLS,NROWS ), STAT = ALLOCSTAT )
-!         IF ( ALLOCSTAT .NE. 0 ) THEN
-!            XMSG = 'Failure allocating XLM or AMU'
-!            CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!         END IF
-!
-         ALLOCATE ( VDEP( N_AE_DEP_SPC ), STAT = ALLOCSTAT )
-         IF ( ALLOCSTAT .NE. 0 ) THEN
-            XMSG = 'Failure allocating VDEP'
-            CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-         END IF
-!
-!            ALLOCATE ( VDEPJ( N_LUFRAC,NCOLS,NROWS,N_AE_DEP_SPC ), STAT = ALLOCSTAT )
-!            IF ( ALLOCSTAT .NE. 0 ) THEN
-!               XMSG = 'Failure allocating VDEPJ'
-!               CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!            END IF
-!         IF ( MOSAIC ) THEN
-!            ALLOCATE ( ADEPVJ( N_LUFRAC,N_AE_DEPV,NCOLS,NROWS ), STAT = ALLOCSTAT )
-!            IF ( ALLOCSTAT .NE. 0 ) THEN
-!               XMSG = 'Failure allocating ADEV'
-!               CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!            END IF
-!         END IF
 
          ALLOCATE ( DEPV_SUR( N_AE_DEPV ), STAT = ALLOCSTAT )
          IF ( ALLOCSTAT .NE. 0 ) THEN
@@ -287,7 +180,7 @@ C  Allocate arrays
             CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
          END IF
 
-C Set the dep vel surrogate pointers
+         ! Set the dep vel surrogate pointers
          DO V = 1, N_AE_DEPV
             N = INDEX1( AE_DEPV( V ), N_AE_DEP_SPC, VDAE_NAME )
             IF ( N .NE. 0 ) THEN
@@ -300,7 +193,8 @@ C Set the dep vel surrogate pointers
             END IF
          END DO
 
-      END IF    ! FIRSTIME      
+      END IF
+      !$omp end critical
 
       IF ( N_AE_SPC .LE. 0 ) RETURN
 
@@ -431,6 +325,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       contains
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
       SUBROUTINE GETDEP_V ( XLM, AMU, DGATK, DGACC, DGCOR,
      &                      XXLSGAT, XXLSGAC, XXLSGCO,
      &                      PDENSAT, PDENSAC, PDENSCO,VDEP, 
@@ -455,9 +350,7 @@ C 08 Sep 08 P.Bhave:  Backward compatibility with AE4 mechanisms
 C                     standardized names of all coarse-mode variables
 C-----------------------------------------------------------------------
 
-!     USE LSM_MOD, Only: n_lufrac      ! to get n_lufrac
       USE AEROMET_DATA   ! Includes CONST.EXT
-!     USE ASX_DATA_MOD, Only: Met_Data, Mosaic_Data, Grid_Data
 
       IMPLICIT NONE
 
@@ -491,13 +384,9 @@ c     atmospheric variables
       real, intent( in ) :: wstar
       real, intent( in ) :: ra
 
-C     Mosaic variables
-!     LOGICAL, INTENT( IN ) :: MOSAIC
-
 C *** output arguments
 
       REAL, INTENT( OUT ) :: VDEP( : ) ! deposition  velocity [ m/s ]
-!     REAL, INTENT( OUT ) :: VDEPJ( :,:,:,: ) ! deposition  velocity [ m/s ] for each land use category
 
 C *** array indices hardcoded to match SUBROUTINE AERO_DEPV
       INTEGER, PARAMETER :: VDNATK = 1,  ! Aitken mode number
@@ -624,215 +513,208 @@ C-----------------------------------------------------------------------
 
       VDEP(:)  = 0.0   ! array assignment
 
-!      IF ( MOSAIC ) THEN
-!         VDEPJ = 0.0   ! array assignment
-!      END IF
-!
-!      DO R = 1, SIZE( Met_Data%TEMP2, 2 )
-!         DO C = 1, SIZE( Met_Data%TEMP2, 1 )
-
 C *** Calculate Knudsen numbers
 
-            TWOXLM = XLM + XLM
-            KNATK = TWOXLM / DGATK
-            KNACC = TWOXLM / DGACC
-            KNCOR = TWOXLM / DGCOR
+      TWOXLM = XLM + XLM
+      KNATK = TWOXLM / DGATK
+      KNACC = TWOXLM / DGACC
+      KNCOR = TWOXLM / DGCOR
 
 C *** Calculate functions of variable standard deviation.
 
-            L2SGAT = XXLSGAT * XXLSGAT
-            L2SGAC = XXLSGAC * XXLSGAC
-            L2SGCO = XXLSGCO * XXLSGCO
+      L2SGAT = XXLSGAT * XXLSGAT
+      L2SGAC = XXLSGAC * XXLSGAC
+      L2SGCO = XXLSGCO * XXLSGCO
 
-            EAT1   = EXP( 0.125 * L2SGAT )
-            EAC1   = EXP( 0.125 * L2SGAC )
-            ECO1   = EXP( 0.125 * L2SGCO )
+      EAT1   = EXP( 0.125 * L2SGAT )
+      EAC1   = EXP( 0.125 * L2SGAC )
+      ECO1   = EXP( 0.125 * L2SGCO )
 
-            ESAT04  = EAT1 ** 4
-            ESAC04  = EAC1 ** 4
-            ESCO04  = ECO1 ** 4
+      ESAT04  = EAT1 ** 4
+      ESAC04  = EAC1 ** 4
+      ESCO04  = ECO1 ** 4
 
-            ESAT08  = ESAT04 * ESAT04
-            ESAC08  = ESAC04 * ESAC04
-            ESCO08  = ESCO04 * ESCO04
+      ESAT08  = ESAT04 * ESAT04
+      ESAC08  = ESAC04 * ESAC04
+      ESCO08  = ESCO04 * ESCO04
 
-            ESAT12  = ESAT04 * ESAT08
-            ESAC12  = ESAC04 * ESAC08
-            ESCO12  = ESCO04 * ESCO08
+      ESAT12  = ESAT04 * ESAT08
+      ESAC12  = ESAC04 * ESAC08
+      ESCO12  = ESCO04 * ESCO08
 
-            ESAT16  = ESAT08 * ESAT08
-            ESAC16  = ESAC08 * ESAC08
-            ESCO16  = ESCO08 * ESCO08
+      ESAT16  = ESAT08 * ESAT08
+      ESAC16  = ESAC08 * ESAC08
+      ESCO16  = ESCO08 * ESCO08
 
-            ESAT20  = ESAT16 * ESAT04
-            ESAC20  = ESAC16 * ESAC04
-            ESCO20  = ESCO16 * ESCO04
+      ESAT20  = ESAT16 * ESAT04
+      ESAC20  = ESAC16 * ESAC04
+      ESCO20  = ESCO16 * ESCO04
 
-            ESAT28  = ESAT20 * ESAT08
-            ESAC28  = ESAC20 * ESAC08
-            ESCO28  = ESCO20 * ESCO08
+      ESAT28  = ESAT20 * ESAT08
+      ESAC28  = ESAC20 * ESAC08
+      ESCO28  = ESCO20 * ESCO08
 
-            ESAT32  = ESAT16 * ESAT16
-            ESAC32  = ESAC16 * ESAC16
-            ESCO32  = ESCO16 * ESCO16
+      ESAT32  = ESAT16 * ESAT16
+      ESAC32  = ESAC16 * ESAC16
+      ESCO32  = ESCO16 * ESCO16
 
-            ESAT36  = ESAT16 * ESAT20
-            ESAC36  = ESAC16 * ESAC20
-            ESCO36  = ESCO16 * ESCO20
+      ESAT36  = ESAT16 * ESAT20
+      ESAC36  = ESAC16 * ESAC20
+      ESCO36  = ESCO16 * ESCO20
 
-            ESAT48  = ESAT36 * ESAT12
-            ESAC48  = ESAC36 * ESAC12
-            ESCO48  = ESCO36 * ESCO12
+      ESAT48  = ESAT36 * ESAT12
+      ESAC48  = ESAC36 * ESAC12
+      ESCO48  = ESCO36 * ESCO12
 
-            ESAT64  = ESAT32 * ESAT32
-            ESAC64  = ESAC32 * ESAC32
-            ESCO64  = ESCO32 * ESCO32
+      ESAT64  = ESAT32 * ESAT32
+      ESAC64  = ESAC32 * ESAC32
+      ESCO64  = ESCO32 * ESCO32
 
-            ESAT128 = ESAT64 * ESAT64
-            ESAC128 = ESAC64 * ESAC64
-            ESCO128 = ESCO64 * ESCO64
+      ESAT128 = ESAT64 * ESAT64
+      ESAC128 = ESAC64 * ESAC64
+      ESCO128 = ESCO64 * ESCO64
 
-            ESAT160 = ESAT128* ESAT32
-            ESAC160 = ESAC128* ESAC32
-            ESCO160 = ESCO128* ESCO32
+      ESAT160 = ESAT128* ESAT32
+      ESAC160 = ESAC128* ESAC32
+      ESCO160 = ESCO128* ESCO32
 
 C *** calculate inverses:
 
-            ESATM12 = 1.0 / ESAT12
-            ESACM12 = 1.0 / ESAC12
-            ESCOM12 = 1.0 / ESCO12
+      ESATM12 = 1.0 / ESAT12
+      ESACM12 = 1.0 / ESAC12
+      ESCOM12 = 1.0 / ESCO12
 
-            ESATM16 = 1.0 / ESAT16
-            ESACM16 = 1.0 / ESAC16
-            ESCOM16 = 1.0 / ESCO16
+      ESATM16 = 1.0 / ESAT16
+      ESACM16 = 1.0 / ESAC16
+      ESCOM16 = 1.0 / ESCO16
 
-            ESATM20 = 1.0 / ESAT20
-            ESACM20 = 1.0 / ESAC20
-            ESCOM20 = 1.0 / ESCO20
+      ESATM20 = 1.0 / ESAT20
+      ESACM20 = 1.0 / ESAC20
+      ESCOM20 = 1.0 / ESCO20
 
-            ESATM32 = 1.0 / ESAT32
-            ESACM32 = 1.0 / ESAC32
-            ESCOM32 = 1.0 / ESCO32
+      ESATM32 = 1.0 / ESAT32
+      ESACM32 = 1.0 / ESAC32
+      ESCOM32 = 1.0 / ESCO32
 
-            DCONST1  = BOLTZMANN * TEMP2 / ( THREEPI * AMU )
-            DCONST1N = DCONST1 / DGATK
-            DCONST1A = DCONST1 / DGACC
-            DCONST1C = DCONST1 / DGCOR
-            DCONST2  = GRAV / ( 18.0 * AMU )
-            DCONST3N = DCONST2 * PDENSAT * DGATK * DGATK
-            DCONST3A = DCONST2 * PDENSAC * DGACC * DGACC
-            DCONST3C = DCONST2 * PDENSCO * DGCOR * DGCOR
+      DCONST1  = BOLTZMANN * TEMP2 / ( THREEPI * AMU )
+      DCONST1N = DCONST1 / DGATK
+      DCONST1A = DCONST1 / DGACC
+      DCONST1C = DCONST1 / DGCOR
+      DCONST2  = GRAV / ( 18.0 * AMU )
+      DCONST3N = DCONST2 * PDENSAT * DGATK * DGATK
+      DCONST3A = DCONST2 * PDENSAC * DGACC * DGACC
+      DCONST3C = DCONST2 * PDENSCO * DGCOR * DGCOR
 
 C i-mode
-            DCHAT0N  = DCONST1N * ( ESAT04  + BHAT * KNATK * ESAT16 )
-            DCHAT2N  = DCONST1N * ( ESATM12 + BHAT * KNATK * ESATM16 )
-            DCHAT3N  = DCONST1N * ( ESATM20 + BHAT * KNATK * ESATM32 )
-            VGHAT0N  = DCONST3N * ( ESAT16  + BHAT * KNATK * ESAT04 )
-            VGHAT2N  = DCONST3N * ( ESAT48  + BHAT * KNATK * ESAT20 )
-            VGHAT3N  = DCONST3N * ( ESAT64  + BHAT * KNATK * ESAT28 )
+      DCHAT0N  = DCONST1N * ( ESAT04  + BHAT * KNATK * ESAT16 )
+      DCHAT2N  = DCONST1N * ( ESATM12 + BHAT * KNATK * ESATM16 )
+      DCHAT3N  = DCONST1N * ( ESATM20 + BHAT * KNATK * ESATM32 )
+      VGHAT0N  = DCONST3N * ( ESAT16  + BHAT * KNATK * ESAT04 )
+      VGHAT2N  = DCONST3N * ( ESAT48  + BHAT * KNATK * ESAT20 )
+      VGHAT3N  = DCONST3N * ( ESAT64  + BHAT * KNATK * ESAT28 )
 
 C j-mode
-            DCHAT0A  = DCONST1A * ( ESAC04  + BHAT * KNACC * ESAC16 )
-            DCHAT2A  = DCONST1A * ( ESACM12 + BHAT * KNACC * ESACM16 )
-            DCHAT3A  = DCONST1A * ( ESACM20 + BHAT * KNACC * ESACM32 )
-            VGHAT0A  = DCONST3A * ( ESAC16  + BHAT * KNACC * ESAC04 )
-            VGHAT2A  = DCONST3A * ( ESAC48  + BHAT * KNACC * ESAC20 )
-            VGHAT3A  = DCONST3A * ( ESAC64  + BHAT * KNACC * ESAC28 )
+      DCHAT0A  = DCONST1A * ( ESAC04  + BHAT * KNACC * ESAC16 )
+      DCHAT2A  = DCONST1A * ( ESACM12 + BHAT * KNACC * ESACM16 )
+      DCHAT3A  = DCONST1A * ( ESACM20 + BHAT * KNACC * ESACM32 )
+      VGHAT0A  = DCONST3A * ( ESAC16  + BHAT * KNACC * ESAC04 )
+      VGHAT2A  = DCONST3A * ( ESAC48  + BHAT * KNACC * ESAC20 )
+      VGHAT3A  = DCONST3A * ( ESAC64  + BHAT * KNACC * ESAC28 )
 
 C coarse mode
-            DCHAT0C  = DCONST1C * ( ESCO04  + BHAT * KNCOR * ESCO16 )
-            DCHAT2C  = DCONST1C * ( ESCOM12 + BHAT * KNCOR * ESCOM16 )
-            DCHAT3C  = DCONST1C * ( ESCOM20 + BHAT * KNCOR * ESCOM32 )
-            VGHAT0C  = DCONST3C * ( ESCO16  + BHAT * KNCOR * ESCO04 )
-            VGHAT2C  = DCONST3C * ( ESCO48  + BHAT * KNCOR * ESCO20 )
-            VGHAT3C  = DCONST3C * ( ESCO64  + BHAT * KNCOR * ESCO28 )
+      DCHAT0C  = DCONST1C * ( ESCO04  + BHAT * KNCOR * ESCO16 )
+      DCHAT2C  = DCONST1C * ( ESCOM12 + BHAT * KNCOR * ESCOM16 )
+      DCHAT3C  = DCONST1C * ( ESCOM20 + BHAT * KNCOR * ESCOM32 )
+      VGHAT0C  = DCONST3C * ( ESCO16  + BHAT * KNCOR * ESCO04 )
+      VGHAT2C  = DCONST3C * ( ESCO48  + BHAT * KNCOR * ESCO20 )
+      VGHAT3C  = DCONST3C * ( ESCO64  + BHAT * KNCOR * ESCO28 )
 
 C now calculate the deposition velocities
 
-            NUI     = DENS1 / AMU
-            USTFAC  = NUI * GRAVI * USTAR ** 2
-            STOKENF = 0.0025 * (DCONST3N * USTFAC) ** 2
-            STOKEAF = 0.0025 * (DCONST3A * USTFAC) ** 2
-            STOKECF = 0.0025 * (DCONST3C * USTFAC) ** 2
-            UTSCALI = ustar / ( ustar**2 + 0.24 * wstar**2 )
+      NUI     = DENS1 / AMU
+      USTFAC  = NUI * GRAVI * USTAR ** 2
+      STOKENF = 0.0025 * (DCONST3N * USTFAC) ** 2
+      STOKEAF = 0.0025 * (DCONST3A * USTFAC) ** 2
+      STOKECF = 0.0025 * (DCONST3C * USTFAC) ** 2
+      UTSCALI = ustar / ( ustar**2 + 0.24 * wstar**2 )
 
 C first do 0th moment for the deposition of number
 
 C  Aitken mode
-            SC0NI2 = (NUI * DCHAT0N) ** 2
-            EIM    = MIN( STOKENF * ESAT64, 1.0 )
-            RD0N   = UTSCALI / ( SC0NI2**ONE3 + EIM )
+      SC0NI2 = (NUI * DCHAT0N) ** 2
+      EIM    = MIN( STOKENF * ESAT64, 1.0 )
+      RD0N   = UTSCALI / ( SC0NI2**ONE3 + EIM )
 
-            VDEP( VDNATK ) = VGHAT0N
-     &             / ( 1.0 - EXP( -VGHAT0N * ( RA + RD0N ) ) )
+      VDEP( VDNATK ) = VGHAT0N
+     &               / ( 1.0 - EXP( -VGHAT0N * ( RA + RD0N ) ) )
 
 C accumulation mode
-            SC0AI2 = (NUI * DCHAT0A) ** 2
-            EIM    = MIN( STOKEAF * ESAC64, 1.0 )
-            RD0A   = UTSCALI / ( SC0AI2**ONE3 + EIM )
-
-            VDEP( VDNACC ) = VGHAT0A
-     &             / ( 1.0 - EXP( -VGHAT0A * ( RA + RD0A ) ) )
+      SC0AI2 = (NUI * DCHAT0A) ** 2
+      EIM    = MIN( STOKEAF * ESAC64, 1.0 )
+      RD0A   = UTSCALI / ( SC0AI2**ONE3 + EIM )
+      
+      VDEP( VDNACC ) = VGHAT0A
+     &               / ( 1.0 - EXP( -VGHAT0A * ( RA + RD0A ) ) )
 
 C coarse mode
-            SC0CI2 = (NUI * DCHAT0C) ** 2
-            EIM    = MIN( STOKECF * ESCO64, 1.0 )
-            RD0C   = UTSCALI / ( SC0CI2**ONE3 + EIM )
+      SC0CI2 = (NUI * DCHAT0C) ** 2
+      EIM    = MIN( STOKECF * ESCO64, 1.0 )
+      RD0C   = UTSCALI / ( SC0CI2**ONE3 + EIM )
 
-            VDEP( VDNCOR ) = VGHAT0C
-     &             / ( 1.0 - EXP( -VGHAT0C * ( RA + RD0C ) ) )
+      VDEP( VDNCOR ) = VGHAT0C
+     &               / ( 1.0 - EXP( -VGHAT0C * ( RA + RD0C ) ) )
 
 C now do 2nd moment for the deposition of surface area
 
 C  Aitken mode
-            SC2NI2 = (NUI * DCHAT2N) ** 2
-            EIM    = MIN( STOKENF * ESAT128, 1.0 )
-            RD2N   = UTSCALI / ( SC2NI2**ONE3 + EIM )
+      SC2NI2 = (NUI * DCHAT2N) ** 2
+      EIM    = MIN( STOKENF * ESAT128, 1.0 )
+      RD2N   = UTSCALI / ( SC2NI2**ONE3 + EIM )
 
-            VDEP( VDSATK ) = VGHAT2N
-     &             / ( 1.0 - EXP( -VGHAT2N * ( RA + RD2N ) ) )
+      VDEP( VDSATK ) = VGHAT2N
+     &               / ( 1.0 - EXP( -VGHAT2N * ( RA + RD2N ) ) )
 
 C accumulation mode
-            SC2AI2 = (NUI * DCHAT2A) ** 2
-            EIM    = MIN( STOKEAF * ESAC128, 1.0 )
-            RD2A   = UTSCALI / ( SC2AI2**ONE3 + EIM )
+      SC2AI2 = (NUI * DCHAT2A) ** 2
+      EIM    = MIN( STOKEAF * ESAC128, 1.0 )
+      RD2A   = UTSCALI / ( SC2AI2**ONE3 + EIM )
 
-            VDEP( VDSACC ) = VGHAT2A
-     &             / ( 1.0 - EXP( -VGHAT2A * ( RA + RD2A ) ) )
+      VDEP( VDSACC ) = VGHAT2A
+     &               / ( 1.0 - EXP( -VGHAT2A * ( RA + RD2A ) ) )
 
 C coarse mode
-            SC2CI2 = (NUI * DCHAT2C) ** 2
-            EIM    = MIN( STOKECF * ESCO128, 1.0 )
-            RD2C   = UTSCALI / ( SC2CI2**ONE3 + EIM )
+      SC2CI2 = (NUI * DCHAT2C) ** 2
+      EIM    = MIN( STOKECF * ESCO128, 1.0 )
+      RD2C   = UTSCALI / ( SC2CI2**ONE3 + EIM )
 
-            VDEP( VDSCOR ) = VGHAT2C
-     &             / ( 1.0 - EXP( -VGHAT2C * ( RA + RD2C ) ) )
+      VDEP( VDSCOR ) = VGHAT2C
+     &               / ( 1.0 - EXP( -VGHAT2C * ( RA + RD2C ) ) )
 
 C now do 3rd moment for the deposition of mass
 
 C  Aitken mode
-            SC3NI2 = (NUI * DCHAT3N) ** 2
-            EIM    = MIN( STOKENF * ESAT160, 1.0 )
-            RD3N   = UTSCALI / ( SC3NI2**ONE3 + EIM )
+      SC3NI2 = (NUI * DCHAT3N) ** 2
+      EIM    = MIN( STOKENF * ESAT160, 1.0 )
+      RD3N   = UTSCALI / ( SC3NI2**ONE3 + EIM )
 
-            VDEP( VDMATK ) = VGHAT3N
-     &             / ( 1.0 - EXP( -VGHAT3N * ( RA + RD3N ) ) )
+      VDEP( VDMATK ) = VGHAT3N
+     &               / ( 1.0 - EXP( -VGHAT3N * ( RA + RD3N ) ) )
 
 C accumulation mode
-            SC3AI2 = (NUI * DCHAT3A) ** 2
-            EIM    = MIN( STOKEAF * ESAC160, 1.0 )
-            RD3A   = UTSCALI / ( SC3AI2**ONE3 + EIM )
+      SC3AI2 = (NUI * DCHAT3A) ** 2
+      EIM    = MIN( STOKEAF * ESAC160, 1.0 )
+      RD3A   = UTSCALI / ( SC3AI2**ONE3 + EIM )
 
-            VDEP( VDMACC ) = VGHAT3A
-     &             / ( 1.0 - EXP( -VGHAT3A * ( RA + RD3A ) ) )
+      VDEP( VDMACC ) = VGHAT3A
+     &               / ( 1.0 - EXP( -VGHAT3A * ( RA + RD3A ) ) )
 
 C coarse mode
-            SC3CI2 = (NUI * DCHAT3C) ** 2
-            EIM    = MIN( STOKECF * ESCO160, 1.0 )
-            RD3C   = UTSCALI / ( SC3CI2**ONE3 + EIM )
+      SC3CI2 = (NUI * DCHAT3C) ** 2
+      EIM    = MIN( STOKECF * ESCO160, 1.0 )
+      RD3C   = UTSCALI / ( SC3CI2**ONE3 + EIM )
 
-            VDEP( VDMCOR ) = VGHAT3C
-     &             / ( 1.0 - EXP( -VGHAT3C * ( RA + RD3C ) ) )
+      VDEP( VDMCOR ) = VGHAT3C
+     &               / ( 1.0 - EXP( -VGHAT3C * ( RA + RD3C ) ) )
 
       END SUBROUTINE GETDEP_V
 

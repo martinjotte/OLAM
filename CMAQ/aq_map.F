@@ -171,7 +171,8 @@ C-----------------------------------------------------------------------
 
 C...Initialization
 C...  event-statistics variables.
-     
+
+      !$omp critical
       IF ( FIRSTIME ) THEN
 
         FIRSTIME = .FALSE.
@@ -179,6 +180,7 @@ C...  event-statistics variables.
         CALL AQ_DATA_INIT()      
 
       END IF
+      !$omp end critical
 
 C...for subsequent calls, check to make sure some surrogates were
 C...  specified, otherwise there is no need to perform aqueous chemistry

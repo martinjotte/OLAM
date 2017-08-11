@@ -147,7 +147,9 @@ c *** ranges for acceptable values of LOG( sigma_g).
 C-----------------------------------------------------------------------
 C     begin body of subroutine GETALPHA
 
+      !$omp critical
       IF ( FIRSTIME ) THEN
+
         FIRSTIME = .FALSE.
 
 C...compute special variables for moments
@@ -166,7 +168,8 @@ C...compute constant for obtaining dgc
         MAXL2SG = LOG( MAX_SIGMA_G ) ** 2          ! maximum sigma_g = 2.5  (8.395887e-1)
         DEFL2SG = LOG( DEF_SIGMA_G( 1 ) ) ** 2     ! default sigma_g = 1.7  (2.815663e-1)
 
-      END IF ! check on firstime
+      END IF  ! firstime
+      !$omp end critical
 
 C...check to make sure that there is aerosol mass and number before
 C... proceeding, if not set alphas to zero

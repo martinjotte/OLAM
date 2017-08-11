@@ -173,6 +173,7 @@ C-----------------------------------------------------------------------
 C...INITIALIZATION SCAVWDEP module:
 C...  event-statistics variables.  Open output files.
 
+      !$omp critical
       IF ( FIRSTIME ) THEN
 
         FIRSTIME = .FALSE.
@@ -186,7 +187,7 @@ C...  for scavenging, otherwise notify the user and return
           XMSG = 'No species were specified for scavenging by cloud ' //
      &           'or rain water...SCAVENGING WILL NOT BE PERFORMED!'
           CALL M3WARN ( PNAME, JDATE, JTIME, XMSG )
-          RETURN
+!         RETURN
         END IF
 
         ALLOCATE ( CGRID_SCAV    ( N_CGRID_SCAV ),
@@ -273,7 +274,8 @@ C...create the pointers from CGRID to the species needed by AQCHEM
            cgrid_scav_isaik( var ) = ( INDEX( CGRID_SCAV( var ), 'AITKEN' ) .GT. 0 )
         enddo
 
-      END IF
+      END IF  ! FIRSTIME
+      !$omp end critical
 
 C...for subsequent calls, check to make sure some species were
 C...  specified, otherwise there is no need to perform scavenging

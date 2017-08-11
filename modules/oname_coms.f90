@@ -292,10 +292,11 @@ Module oname_coms
 
 !!    CMAQ Chemistry
 
-      integer            :: do_chem   =  0
-      integer            :: ltng_nox  =  0
-      integer            :: chem_frq  =  1
-      integer            :: phot_frq  =  1
+      integer :: do_chem               =  0
+      integer :: ltng_nox              =  0
+      logical :: core_shell_photolysis = .false.
+      logical :: mie_calc_photolysis   = .false.
+
       character(pathlen) :: emis_dir  = '../../olamdatah5/edgar42'
       character(pathlen) :: geia_emis_file = '../etc/geia_emis.nc4'
 

@@ -182,8 +182,8 @@ c intialize the surr2 table
             character( 4 ) :: gc_surr2( 2 )
             integer :: gc_surr2_ndx( 2 )
             integer :: g2ae_ndx, g2aq_ndx
-            character( 4 ) :: ae_surr2( 1 ) = (/ 'A2AQ' /)
-            integer :: ae_surr2_ndx( 1 ) = (/ 1 /)
+!           character( 4 ) :: ae_surr2( 1 ) = (/ 'A2AQ' /)
+!           integer :: ae_surr2_ndx( 1 ) = (/ 1 /)
             integer :: a2aq_ndx
             character( 4 ) :: nr_surr2( 2 )
             integer :: nr_surr2_ndx( 2 )
@@ -469,7 +469,7 @@ c establish surr1 order in the namelist header (surr1 possibly rearranged)
             scav_ndx = index1a( 'SCAV', 4, surr1 )
 
 c create the surr2 table from the namelist header
-            ae_surr2_ndx( 1 ) = index( type_header, 'A2AQ' )
+!           ae_surr2_ndx( 1 ) = index( type_header, 'A2AQ' )
 c establish surr2 order in the namelist header
             a2aq_ndx = 1
 

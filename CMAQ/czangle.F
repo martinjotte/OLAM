@@ -62,7 +62,6 @@ C Last updated: $Date: 2012/03/28 16:05:37 $
 C----------------------------------------------------------------------
 
       USE UTILIO_DEFN
-!     USE ASX_DATA_MOD, Only: Grid_Data
 
       use mem_grid,  only: mwa, glatw, glonw
       use misc_coms, only: current_time
@@ -120,10 +119,7 @@ C compute sine of lat and lon first time through
          FIRSTIME = .FALSE.
 
          ALLOCATE( SINLAT( mwa ), STAT=IOS )
-!         CALL CHECKMEM( IOS, 'SINLAT', PNAME )
-
          ALLOCATE( COSLAT( mwa ), STAT=IOS )
-!         CALL CHECKMEM( IOS, 'COSLAT', PNAME )
 
          DO iw = 2, mwa
             SLA = PI180 * glatw( iw )
@@ -135,10 +131,6 @@ C compute sine of lat and lon first time through
 
 C Convert time to hours and add time-zone offset
       
-!      GMT    = FLOAT( JTIME / 10000 )                        !  hr part
-!     &       + D60 * ( FLOAT( MOD( JTIME / 100 , 100 ) )     !  min part
-!     &       + D60 *   FLOAT( MOD( JTIME, 100 ) ) )          !  sec part
-
       gmt = current_time%time / 3600.0
       jda = julday( current_time%month, current_time%date, current_time%year )
 
@@ -166,6 +158,7 @@ C The equation of time adjustment
       EQT = 0.123470 * DESIN  - 0.004289 * DECOS
      &    + 0.153809 * DESIN2 + 0.060783 * DECOS2
 
+      !$omp parallel do private(tk,tst,hrangl)
       do iw = 2, mwa
 
          TK     =  GMT + GLONW( IW ) * D15 !  Distance in hours from LON=0
@@ -182,6 +175,6 @@ C Bound against numerical rounding errors
          COSZEN( IW ) = MIN( MAX( COSZEN( IW ), -1.0 ), 1.0 )
                    
       END DO
+      !$omp end parallel do
 
-      RETURN
-      END
+      END SUBROUTINE CZANGLE

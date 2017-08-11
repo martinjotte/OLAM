@@ -23,8 +23,91 @@ C $Header$
 C what(1) key, module and SID; SCCS file; date and time of last delta:
 C %W% %P% %G% %U%
 
-!      SUBROUTINE CHEM( CGRID, JDATE, JTIME, TSTEP )
-       SUBROUTINE CHEM( mrl )
+      subroutine chem( mrl )
+
+      USE RXNS_DATA
+      USE RXNS_FUNCTION
+      USE UTILIO_DEFN 
+      use hrdata
+      use mem_grid,   only: mza, mwa
+      use mem_ijtabs, only: jtab_w, jtw_prog
+      use misc_coms,  only: io6
+
+      implicit none
+
+      integer, intent(in) :: mrl
+      LOGICAL, SAVE       :: LFIRST = .TRUE.
+      integer             :: j, iw
+      CHARACTER( 132 )    :: MSG
+
+      INTEGER :: MXEBI
+      REAL    :: SMEBI
+      INTEGER :: NCALL
+!
+      integer :: maxebi
+      real    :: sumebi
+      integer :: ncall_ebi
+      integer :: avgebi
+
+      IF ( NUMB_MECH_SPC .EQ. 0 ) RETURN
+
+!  On first call, call routines to set-up for EBI solver
+
+      IF ( LFIRST ) THEN
+
+         LOGDEV = INIT3( )
+
+         IF ( MECHNAME .NE. 'CB05TUCL_AE6_AQ' ) THEN
+            MSG = 'This version of the EBI solver can only be used with'
+     &           // ' the CB05TUCL_AE6_AQ chemical mechanism'
+            CALL M3EXIT( 'HRDRIVER', 0, 0, MSG, XSTAT1 )
+         END IF
+
+         IF( INDEX( MECHNAME, 'AE' ) .NE. 0 ) THEN
+            L_AE_VRSN = .TRUE.
+         ELSE
+            L_AE_VRSN = .FALSE.
+         END IF
+
+         IF( INDEX( MECHNAME, 'AQ' ) .NE. 0 ) THEN
+            L_AQ_VRSN = .TRUE.
+         ELSE
+            L_AQ_VRSN = .FALSE.
+         END IF
+
+         allocate( rj( mza, nphotab, mwa ) )
+
+         LFIRST = .FALSE.
+
+      END IF      ! First time
+
+      call phot( mrl )
+
+      maxebi = 0
+      sumebi = 0.
+      ncall_ebi = 0
+
+      !$omp parallel do private(iw,mxebi,smebi,ncall) reduction(+:sumebi,ncall_ebi) reduction(max:maxebi)
+      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+         call chem1(iw,mxebi,smebi,ncall)
+         
+         maxebi    = max(maxebi,mxebi)
+         sumebi    = sumebi + smebi
+         ncall_ebi = ncall_ebi + ncall
+
+      enddo
+      !$omp end parallel do
+
+#ifdef EBI_STATS
+      avgebi = nint(sumebi / real(ncall_ebi))
+      write(io6,'(1x,A,2(I0,1x))') " EBI mn, mx, rates: ", avgebi, maxebi
+#endif
+
+      end subroutine chem
+
+
+      SUBROUTINE CHEM1( iw, mxebi, smebi, ncall )
 
 C**********************************************************************
 C
@@ -73,13 +156,12 @@ C**********************************************************************
       USE AERO_DATA,  ONLY: N_MODE
       use cgrid_defn, only: cgrid
       use misc_coms,  only: dtlm
-      use mem_grid,   only: lpw, mza, mwa
-      use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
+      use mem_grid,   only: lpw, mza
+      use mem_ijtabs, only: itab_w
       use mem_basic,  only: tair, sh_v, press, rho
       use mem_sea,    only: sea
       use mem_turb,   only: frac_land
       use cgrid_defn, only: cgrid
-      use mem_para,   only: myrank
 
       IMPLICIT NONE
 
@@ -95,7 +177,7 @@ C..Arguments:
 !     INTEGER JDATE           ! Current date (YYYYDDD)
 !     INTEGER JTIME           ! Current time (HHMMSS)
 !     INTEGER TSTEP( 3 )      ! Time step vector (HHMMSS)
-      integer, intent(in) :: mrl
+      integer, intent(in) :: iw
 
 C..Parameters:
       REAL, PARAMETER :: CONCMIN = 1.0E-30               ! minimum species concentration allowed
@@ -106,40 +188,35 @@ C..External Functions:
 
 C..Saved Local Variables:
 
-      CHARACTER( 16 ), SAVE :: PNAME = 'HRDRIVER'     ! Program name
+!     CHARACTER( 16 ), SAVE :: PNAME = 'HRDRIVER'     ! Program name
 
-      INTEGER, SAVE :: ISTFL            ! Unit no. of iteration stat output file
-      LOGICAL, SAVE :: LFIRST = .TRUE.  ! Flag for first call to this subroutine
+!      INTEGER, SAVE :: ISTFL            ! Unit no. of iteration stat output file
+!      LOGICAL, SAVE :: LFIRST = .TRUE.  ! Flag for first call to this subroutine
 
-      REAL( 8 ), SAVE :: PA2ATM   ! Pascal to atm conv fac
+!     REAL( 8 ), SAVE :: PA2ATM   ! Pascal to atm conv fac
+      real( 8 ), parameter :: pa2atm = 1.d0 / real(STDATMPA,8)
+
 
 C..Scratch Local Variables:
-      CHARACTER( 132 ) :: MSG           ! Message text
-      CHARACTER(  16 ) :: VNAME         ! Name of I/O API data variable
+!      CHARACTER( 132 ) :: MSG           ! Message text
+!      CHARACTER(  16 ) :: VNAME         ! Name of I/O API data variable
 
-      INTEGER C, E, L, R, S   ! Loop indices
-      INTEGER ISP             ! array index
-
-      integer :: iw, k, j, jws, iws
+      integer :: s, k, jws, iws, mrlw
       real    :: area, frac_ice
 
-      INTEGER DELT_SEC        ! EBI max time step in seconds
-      INTEGER ESP             ! Loop index for emissions species
-      INTEGER ITMSTEP         ! Chemistry integration interval (sec)
-      INTEGER LEV             ! Layer index
-      INTEGER MIDDATE         ! Date at time step midpoint
-      INTEGER MIDTIME         ! Time at time step midpoint
+!     INTEGER DELT_SEC        ! EBI max time step in seconds
+!     INTEGER ESP             ! Loop index for emissions species
+!     INTEGER ITMSTEP         ! Chemistry integration interval (sec)
+!     INTEGER LEV             ! Layer index
+!     INTEGER MIDDATE         ! Date at time step midpoint
+!     INTEGER MIDTIME         ! Time at time step midpoint
       INTEGER NPH             ! Index for number of phot. rxns in PHOT
       INTEGER SPC             ! Species loop index
 
-#ifdef hrstats
-!     INTEGER MNEBI           ! Min no. of EBI iterations
-      INTEGER MXEBI           ! Max no. of EBI iterations
-      INTEGER AVGEBI          ! Average no. of EBI iterations
-      REAL    SUMEBI          ! Sum of EBI iterations
-      INTEGER NCALL
-      real :: rjmax, hemax, rkmax
-#endif
+      INTEGER, intent(inout) :: MXEBI           ! Max no. of EBI iterations
+      REAL,    intent(inout) :: SMEBI           ! Sum of EBI iterations
+      INTEGER, intent(inout) :: NCALL
+!     real :: rjmax, hemax, rkmax
 
       LOGICAL LSUNLIGHT       ! Flag for sunlight
 
@@ -148,14 +225,6 @@ C..Scratch Local Variables:
       REAL(8) ::      ATMPRES (mza)
       REAL(8) ::      H2O     (mza)
 
-      REAL( 8 )  CHEMSTEP     ! Chemistry integration interval (min)
-
-
-      INTEGER     GXOFF, GYOFF            ! global origin offset from file
-C for INTERPX
-!     INTEGER, SAVE :: STRTCOLMC2, ENDCOLMC2, STRTROWMC2, ENDROWMC2
-!     INTEGER, SAVE :: STRTCOLMC3, ENDCOLMC3, STRTROWMC3, ENDROWMC3
-
       real(8) :: het            ( mza, nhetero )
       real    :: chem_m2dry_init( n_mode,  mza )
       real    :: chem_m3dry_init( n_mode,  mza )
@@ -163,19 +232,7 @@ C for INTERPX
       logical :: land
 
       INTERFACE
-!        SUBROUTINE PHOT ( MDATE, MTIME, JDATE, JTIME, DTSTEP, RJ )
-!           IMPLICIT NONE
-!           INTEGER, INTENT( IN )  :: MDATE       !"centered" Julian date (YYYYDDD)
-!           INTEGER, INTENT( IN )  :: MTIME       !"centered" time (HHMMSS)
-!           INTEGER, INTENT( IN )  :: JDATE       ! Current date (YYYYDDD)
-!           INTEGER, INTENT( IN )  :: JTIME       ! Current time (HHMMSS)
-!           INTEGER, INTENT( IN )  :: DTSTEP( : ) ! time step vector (HHMMSS)
-!           REAL,    INTENT( OUT ) :: RJ(:,:,:,:) ! gridded J-values  (1/min units)
-!        END SUBROUTINE PHOT
         SUBROUTINE HRSOLVER( JDATE, JTIME, C, R, L )
-!          USE UTILIO_DEFN
-!          USE RXNS_DATA
-!          USE HRDATA
            IMPLICIT NONE
            INTEGER, INTENT( IN ) :: JDATE    ! Current date (YYYYDDD)
            INTEGER, INTENT( IN ) :: JTIME    ! Current time (HHMMSS)
@@ -183,236 +240,19 @@ C for INTERPX
         END SUBROUTINE HRSOLVER
       END INTERFACE
 
-C**********************************************************************
-
-      IF( NUMB_MECH_SPC .EQ. 0 ) RETURN
-
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-c  On first call, call routines to set-up for EBI solver
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      IF( LFIRST ) THEN
-
-         LOGDEV = INIT3( )
-
-         IF( MECHNAME .NE. 'CB05TUCL_AE6_AQ' ) THEN
-             MSG = 'This version of the EBI solver can only be used with'
-     &            // ' the CB05TUCL_AE6_AQ chemical mechanism'
-             CALL M3EXIT( PNAME, 0, 0, MSG, XSTAT1 )
-         END IF
-
-!#ifdef emis_chem
-!         EMISVD = .FALSE.
-!#else
-!         EMISVD = .TRUE.
-!#endif
-
-         IF( INDEX( MECHNAME, 'AE' ) .NE. 0 ) THEN
-           L_AE_VRSN = .TRUE.
-         ELSE
-           L_AE_VRSN = .FALSE.
-         END IF
-
-         IF( INDEX( MECHNAME, 'AQ' ) .NE. 0 ) THEN
-           L_AQ_VRSN = .TRUE.
-         ELSE
-           L_AQ_VRSN = .FALSE.
-         END IF
-
-!         IF( LIRR ) THEN
-!            MSG = 'IRR Analysis not allowed with EBI solver'
-!            CALL M3EXIT( PNAME, JDATE, JTIME, MSG, XSTAT1 )
-!         END IF
-
-!!! Call moved to olam_run to initialize cgrid pointers earlier
-!         CALL HRINIT
-
-!         ITMSTEP = TIME2SEC( TSTEP( 2 ) )
-!         CHEMSTEP = FLOAT( ITMSTEP ) / 60.0
-!         WRITE( LOGDEV, 92000 ) CHEMSTEP, DELTAT
-!
-!         WRITE( LOGDEV, 92020 )
-!         DO SPC = 1, NUMB_MECH_SPC
-!            WRITE( LOGDEV, 92040 ) CHEMISTRY_SPC( SPC ), RTOL( SPC )
-!         END DO
-
-         PA2ATM =  REAL( 1.0 / STDATMPA, 8)
-
-c..If emissions processing requested stop
-!         IF( .NOT. EMISVD ) THEN  ! assumes emis processing in gas chem
-!
-!            MSG = 'ERROR: EBI solver not configured to '//
-!     &            'process emissions in chemistry'
-!            CALL M3EXIT( PNAME, JDATE, JTIME, MSG, XSTAT1 )
-!
-!         END IF   ! End if doing emissions
-
-
-!#ifdef hrstats
-!         ISTFL = JUNIT()
-!         OPEN( UNIT=ISTFL, FILE='iterstat.dat' )
-!         WRITE( ISTFL, 94020 )
-!#endif
-
-C.. Get fractional seawater coverage from the OCEAN file.
-
-!         ALLOCATE( OPEN_ZONE( NCOLS, NROWS ), SURF_ZONE( NCOLS, NROWS ) )
-!
-!         CALL SUBHFILE ( OCEAN_1, GXOFF, GYOFF,
-!     &                   STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3 )
-!
-!         VNAME = 'OPEN'
-!         IF ( .NOT. INTERPX( OCEAN_1, VNAME, PNAME,
-!     &                       STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,1,
-!     &                       JDATE, JTIME, OPEN_ZONE ) ) THEN
-!            MSG = 'Could not read OPEN from ' // OCEAN_1
-!            CALL M3EXIT ( PNAME, JDATE, JTIME, MSG, XSTAT1 )
-!         END IF
-
-C.. Get fractional surf-zone coverage from the OCEAN file.
-
-!         VNAME = 'SURF'
-!         IF ( .NOT. INTERPX( OCEAN_1, VNAME, PNAME,
-!     &                       STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,1,
-!     &                       JDATE, JTIME, SURF_ZONE ) ) THEN
-!            MSG = 'Could not read SURF from ' // OCEAN_1
-!            CALL M3EXIT ( PNAME, JDATE, JTIME, MSG, XSTAT1 )
-!         END IF
-!
-!         ALLOCATE( LAND_ZONE( NCOLS, NROWS ) )
-!         DO R = 1, NROWS
-!            DO C = 1, NCOLS
-!               IF( OPEN_ZONE( C,R ) + SURF_ZONE( C,R ) .GT. 0.0 )THEN
-!                   LAND_ZONE( C,R ) = .FALSE.
-!               ELSE
-!                   LAND_ZONE( C,R ) = .TRUE.
-!               END IF
-!             END DO
-!         END DO
-!
-!         DEALLOCATE( OPEN_ZONE, SURF_ZONE )
-!
-!
-!         CALL SUBHFILE ( MET_CRO_3D, GXOFF, GYOFF,
-!     &                   STRTCOLMC2, ENDCOLMC2, STRTROWMC2, ENDROWMC2 )
-!
-!         CALL SUBHFILE ( MET_CRO_3D, GXOFF, GYOFF,
-!     &                   STRTCOLMC3, ENDCOLMC3, STRTROWMC3, ENDROWMC3 )
-!
-!        ALLOCATE( DENS( NCOLS, NROWS, NLAYS ), PRES( NCOLS, NROWS, NLAYS ),
-!     &             QV  ( NCOLS, NROWS, NLAYS ), TA  ( NCOLS, NROWS, NLAYS ),
-!     &             RJ  ( NCOLS, NROWS, NLAYS, NPHOTAB ),
-!     &             SEAICE( NCOLS, NROWS ) )
-
-         allocate( rj( mza, nphotab, mwa ) )
-
-         LFIRST = .FALSE.
-
-      END IF      ! First time
-
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-C  Set date and time to center of time step, get necessary physical
-C  data, and get photolysis rates
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!      MIDDATE = JDATE
-!      MIDTIME = JTIME
-!      ITMSTEP = TIME2SEC( TSTEP( 2 ) )
-!      CHEMSTEP = FLOAT( ITMSTEP ) / 60.0D+00
-!      CALL NEXTIME( MIDDATE, MIDTIME, SEC2TIME( ITMSTEP / 2 ) )
-
-C.. Compute number of time step loops and step size for EBI solver
-!      DELT_SEC = INT( DELTAT * 60.0 + 0.1 )
-!      IF( DELT_SEC .GE. ITMSTEP ) THEN
-!         N_EBI_STEPS = 1
-!         EBI_TMSTEP = FLOAT( ITMSTEP ) / 60.0
-!      ELSE
-!         IF( MOD( ITMSTEP, DELT_SEC ) .EQ. 0 ) THEN
-!            N_EBI_STEPS = ITMSTEP / DELT_SEC
-!         ELSE
-!            N_EBI_STEPS = ITMSTEP / DELT_SEC + 1
-!         END IF
-!         EBI_TMSTEP =  FLOAT( ITMSTEP ) / FLOAT( N_EBI_STEPS ) / 60.0
-!      END IF
-
-      N_EBI_STEPS = 1
-      EBI_TMSTEP  = dtlm(mrl) / 60.d0
-      N_INR_STEPS = 1
-
-
-C.. Get fractional seaice coverage from the METCRO2D file.
-
-!      VNAME = 'SEAICE'
-!      IF ( .NOT. INTERPX( MET_CRO_2D, VNAME, PNAME,
-!     &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,1,
-!     &                    MIDDATE, MIDTIME, SEAICE ) ) THEN
-!         MSG = 'Could not read SEAICE from MET_CRO_2D'
-!         CALL M3EXIT( PNAME, JDATE, JTIME, MSG, XSTAT1 )
-!      END IF
-
-C.. Get ambient temperature in K
-!      VNAME = 'TA'
-!      IF ( .NOT. INTERPX( MET_CRO_3D, VNAME, PNAME,
-!     &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,NLAYS,
-!     &                    MIDDATE, MIDTIME, TA ) ) THEN
-!         MSG = 'Could not read TA from MET_CRO_3D'
-!         CALL M3EXIT( PNAME, JDATE, JTIME, MSG, XSTAT1 )
-!      END IF
-
-C.. Get specific humidity in Kg H2O / Kg air
-!      VNAME = 'QV'
-!      IF ( .NOT. INTERPX( MET_CRO_3D, VNAME, PNAME,
-!     &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,NLAYS,
-!     &                    MIDDATE, MIDTIME, QV ) ) THEN
-!         MSG = 'Could not read QV from MET_CRO_3D'
-!         CALL M3EXIT( PNAME, JDATE, JTIME, MSG, XSTAT1 )
-!      END IF
-
-! Get ambient MASS DENSITY in Kg/m^3
-!       VNAME = 'DENS'
-!       IF ( .NOT. INTERPX( MET_CRO_3D, VNAME, PNAME,
-!     &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,NLAYS,
-!     &                    MIDDATE, MIDTIME, DENS ) ) THEN
-!          MSG = 'Could not read DENS from MET_CRO_3D'
-!          CALL M3EXIT( PNAME, JDATE, JTIME, MSG, XSTAT1 )
-!       END IF
-
-C.. Get pressure in Pascals
-!      VNAME = 'PRES'
-!      IF ( .NOT. INTERPX( MET_CRO_3D, VNAME, PNAME,
-!     &                    STRTCOLMC3,ENDCOLMC3, STRTROWMC3,ENDROWMC3, 1,NLAYS,
-!     &                    MIDDATE, MIDTIME, PRES ) ) THEN
-!         MSG = 'Could not read PRES from MET_CRO_3D'
-!         CALL M3EXIT ( PNAME, JDATE, JTIME, MSG, XSTAT1 )
-!      END IF
-
-C.. Get photolysis rates in /min
-!     CALL PHOT ( MIDDATE, MIDTIME, JDATE, JTIME, TSTEP, RJ )
-      CALL PHOT ( mrl )
-
-C.. Get Heteorogeneous rates and Update Aerosol Properties (Moments, D
-C   and sigma)
-!     CALL HETCHEM_RATES( TA, PRES, QV, CGRID )
-!     CALL HETCHEM_RATES( mrl )
-
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-c  Top of loop over cells
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-
 #ifdef hrstats
 !     MNEBI = 1000
-      MXEBI = 0
-      SUMEBI = 0.0
-      NCALL = 0
       hemax = 0.
       rjmax = 0.
       rkmax = 0.
 #endif
+      MXEBI = 0
+      SMEBI = 0.0
+      NCALL = 0
 
-!     NCELL = 1
-!      DO L = 1, NLAYS
-!         DO R = 1, MY_NROWS
-!            DO C = 1, MY_NCOLS
+      mrlw = itab_w(iw)%mrlw
 
-      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+      EBI_TMSTEP = dtlm(mrlw) / 60.d0
 
          do k = mza-1, lpw(iw), -1
             if (press(k,iw) > 100.d2) exit
@@ -477,7 +317,7 @@ c..Get rate constants
 #endif
 
 c..Call EBI solver
-         
+
          do k = lpw(iw), kmax
 
             ! Load ICs
@@ -496,16 +336,11 @@ c..Call EBI solver
                rki(nph) = rki_sav(k,nph)
             enddo
 
-            N_EBI_IT = 0
-
             CALL HRSOLVER( 0, 0, iw, itab_w(iw)%iwglobe, k )
 
-#ifdef hrstats
-            MXEBI  = MAX( MXEBI, N_EBI_IT )
-!           MNEBI  = MIN( MNEBI, N_EBI_IT )
-            SUMEBI = SUMEBI + REAL( N_EBI_IT )
+            MXEBI = MAX( MXEBI, N_EBI_IT )
+            SMEBI = SMEBI + REAL( N_EBI_IT )
             NCALL = NCALL + 1
-#endif
 
 c..Update concentration array
             DO SPC = 1, NUMB_MECH_SPC
@@ -522,15 +357,13 @@ c..Update concentration array
          ! Update Aerosol Surface Area
          CALL HETCHEM_UPDATE_AERO( chem_m2dry_init, chem_m3dry_init, iw, lpw(iw), kmax )
 
-      END DO
-
 #ifdef hrstats
-      AVGEBI = nint( SUMEBI / REAL( NCALL ) )
+!      AVGEBI = nint( SUMEBI / REAL( NCALL ) )
 !     WRITE( ISTFL, 94040 ) JDATE, JTIME, MNEBI, AVGEBI, MXEBI
-      write(*,'(1x,I0.2,A,2(I0,1x),3(g12.5,1x))') myrank, " EBI mn, mx, rates: ", avgebi, mxebi, hemax, rjmax, rkmax
+!      write(*,'(1x,I0.2,A,2(I0,1x),3(g12.5,1x))') myrank, " EBI mn, mx, rates: ", avgebi, mxebi, hemax, rjmax, rkmax
 #endif
 
-      RETURN
+!      RETURN
 
 C*********************** FORMAT STATEMENTS ****************************
 
@@ -550,4 +383,5 @@ C*********************** FORMAT STATEMENTS ****************************
 94020 FORMAT( 'DATE      TIME ', 'MNEBI AVEBI MXEBI' )
 
 94040 FORMAT( I7, 1X, I6, 1X, 3( I5, 1X ) )
+
       END

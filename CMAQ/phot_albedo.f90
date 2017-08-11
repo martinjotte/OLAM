@@ -3,7 +3,7 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
 
   use phot_mod
   use csqy_data
-  use mem_ijtabs, only: itab_w, jtab_w
+  use mem_ijtabs, only: itab_w
   use mem_sea,    only: sea, itab_ws
   use mem_leaf,   only: land, itab_wl
   use mem_grid,   only: glatw

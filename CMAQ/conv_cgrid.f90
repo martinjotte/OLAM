@@ -135,6 +135,8 @@ contains
 
     ! Gas and non-reactive - no conversions necessary (always ppmV)
 
+    !$omp parallel private(rhoi)
+    !$omp do private(j,iw,k,v,n,fac)
     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        do k = lpw(iw), mza
@@ -180,6 +182,8 @@ contains
        endif
       
     enddo
+    !$omp end do
+    !$omp end parallel
 
   end subroutine conv_cgrid
 
@@ -216,6 +220,7 @@ contains
 
     ! Gas and non-reactive - no conversions necessary (always ppmV)
 
+    !$omp parallel do private(j,iw,v,n,fac,k)
     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        ! aerosol ppmv -> micro-grams/m**3
@@ -257,6 +262,7 @@ contains
        endif
 
     enddo
+    !$omp end parallel do
 
   end subroutine rev_cgrid
 
@@ -288,10 +294,12 @@ contains
     real    :: fac
     real    :: rhoi(mza)
 
+    !$omp critical
     if ( firstime ) then
        firstime = .false.
        call setup_conv()
     endif
+    !$omp end critical
 
     do k = lpw(iw), mza
        rhoi(k) = 1.0 / real(rho(k,iw))
@@ -385,10 +393,12 @@ contains
     integer :: k, n, v, off
     real    :: fac
 
+    !$omp critical
     if ( firstime ) then
        firstime = .false.
        call setup_conv()
     endif
+    !$omp end critical
 
     ! Gas - no conversion
 
@@ -475,13 +485,15 @@ contains
     integer, intent(in ) :: iw
     real,    intent(out) :: cngrd(:,:)
 
-    integer :: ks, k, n, v, kb, kt, off
+    integer :: ks, k, n, v, off
     real    :: fac
 
-    if ( firstime ) then
+    !$omp critical
+    if (firstime) then
        firstime = .false.
        call setup_conv()
     endif
+    !$omp end critical
 
     ! Gas - no conversion
 

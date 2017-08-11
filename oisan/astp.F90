@@ -352,7 +352,7 @@ end subroutine read_press_header
 subroutine pressure_stage(fform, p_u, p_v, p_t, p_z, p_r, p_o, &
                           p_topo, p_prsfc, p_tsfc, p_shsfc)
 
-use isan_coms,   only: pnpr, levpr, nprx, npry, nprz, nprz_rh
+use isan_coms,   only: pnpr, levpr, nprx, npry, nprz
 use consts_coms, only: rocp, p00, eps_vap
 use misc_coms,   only: io6
 use hdf5_utils,  only: shdf5_close
@@ -949,12 +949,14 @@ nprxo2 = nprx / 2
 ! Copy pressure-level or surface data from xx to dn array, shifting by ipoffset
 ! in x direction and by 2 in y direction
 
+!$omp parallel do private(j,i,iin)
 do j = 1,npry
    do i = 1,nprx+4
       iin = mod(i+nprx-ipoffset-1,nprx)+1
       dn(i,j+2) = xx(iin,j)
    enddo
 enddo
+!$omp end parallel do
 
 ! Fill in N/S boundary rows, based on whether xswlat = -90. or -90. + gdatdy/2.
 
@@ -1016,6 +1018,7 @@ nprxo2 = nprx / 2
 ! Copy pressure-level or surface data from xx to dn array, shifting by ipoffset
 ! in x direction and by 2 in y direction
 
+!$omp parallel do private(j,i,iin)
 do k = 1,nprz
    do j = 1,npry
       do i = 1,nprx+4
@@ -1063,5 +1066,6 @@ do k = 1,nprz
    endif
    
 enddo
+!$omp end parallel do
 
 end subroutine prfill3

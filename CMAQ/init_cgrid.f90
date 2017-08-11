@@ -165,7 +165,7 @@ contains
   subroutine load_cgrid ( spc_cat )
 
     use utilio_defn, only: index1, m3exit, xstat3
-    use mem_grid,    only: mza, mwa, lpw, zm, zt
+    use mem_grid,    only: mza, lpw, zm, zt
     use mem_basic,   only: rho, press
     use mem_ijtabs,  only: jtab_w, jtw_init
 
@@ -461,6 +461,7 @@ contains
        if ( SPC_CAT .EQ. 'GC' ) THEN
           if (V == LO3) then
              
+             !$omp parallel do private(j,iw,ka,k)
              do j = 1, jtab_w(jtw_init)%jend(1)
                 iw   = jtab_w(jtw_init)%iw(j)
 
@@ -474,6 +475,7 @@ contains
 
                 cgrid(1:ka,iw,v) = 0.025
              enddo
+             !$omp end parallel do
 
              NDX = 0
           endif
@@ -481,6 +483,8 @@ contains
 
        IF ( NDX .GT. 0 ) THEN
 
+          !$omp parallel private(vghgts_in,vec)
+          !$omp do private(j,iw,ka,ztop,zbot)
           do j = 1, jtab_w(jtw_init)%jend(1)
              iw   = jtab_w(jtw_init)%iw(j)
              ka   = lpw(iw)
@@ -494,6 +498,8 @@ contains
              cgrid(:,iw,v) = ICBC_FAC( SPC ) * vec(:)
 
           enddo
+          !$omp end do
+          !$omp end parallel
 
        endif
     enddo
@@ -558,6 +564,7 @@ contains
 
           H2SO4CONV = 1.0E3 * MWH2SO4 / MWAIR * SO4VAPTOAER
 
+          !$omp parallel do private(j,iw,k,kr)
           do j = 1, jtab_w(jtw_init)%jend(1) ; iw = jtab_w(jtw_init)%iw(j)
              do k = 1, mza
                 kr = max(k, lpw(iw))
@@ -595,6 +602,7 @@ contains
     
              END DO
           END DO
+          !$omp end parallel do
 
           write(*,*) 'No IC''s found for aerosol sulfate. '
           write(*,*) 'Gas Chem sulfate used for partitioning.'

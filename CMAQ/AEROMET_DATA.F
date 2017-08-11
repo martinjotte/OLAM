@@ -58,8 +58,7 @@ C Meteorological variables (data from MET_CRO_3D file)
       Real :: airpres      ! air pressure [ Pa]
       Real :: airdens      ! air density [ kg/m^3]
       Real :: airRH        ! fractional relative humidity
-!     Real :: airQV        ! water vapor mass mixing ratio [ kg_H2O/kg_air ]
-!     Real :: H2OsatVP     ! saturation water vapor pressure [ Pa ]
-!     Real :: H2OVP        ! ambient water vapor pressure [ Pa ]
+
+      !$omp threadprivate(airtemp, airpres, airdens, airRH)
 
       End Module aeromet_data

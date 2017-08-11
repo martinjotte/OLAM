@@ -24,8 +24,56 @@ C $Header: /project/work/rep/arc/CCTM/src/cloud/cloud_acm_ae6/rescld.F,v 1.7 201
 C what( 1 ) key, module and SID; SCCS file; date and time of last delta:
 C %W% %P% %G% %U%
 
+      subroutine rescld ( mrl )
+
+      use aq_data,     only: tot_wdep
+      use mem_grid,    only: mwa
+      use utilio_defn, only: m3exit, xstat1
+      use cgrid_spcs,  only: n_gc_wdep, n_ae_wdep, n_nr_wdep
+      use mem_ijtabs, only: jtab_w, jtw_prog
+
+      implicit none
+      
+      integer, intent(in) :: mrl
+
+      logical, save       :: firstime = .true.
+      integer             :: allocstat
+      integer             :: isize
+      integer             :: j, iw
+      CHARACTER( 30 )     :: XMSG              ! Exit status message
+      real                :: COSZEN( mwa )     ! cosine of zenith angle
+
+      if (firstime) then
+         firstime = .false.
+
+         isize = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP + 1
+
+         ALLOCATE ( TOT_WDEP( mwa,isize ), STAT = ALLOCSTAT )
+         IF ( ALLOCSTAT .NE. 0 ) THEN
+            XMSG = 'Failure allocating TOT_WDEP'
+            CALL M3EXIT( 'RESCLD', 0, 0, XMSG, XSTAT1 )
+         ENDIF
+         
+         tot_wdep = 0.0
+      endif
+
+      ! Compute zenith angle; Golam Sarwar, July 1, 2011 
+      CALL CZANGLE ( COSZEN )
+
+      !$omp parallel do private(iw)
+      do j = 1, jtab_w(jtw_prog)%jend(mrl)
+         iw =  jtab_w(jtw_prog)%iw(j)
+
+         call rescld1( iw, coszen )
+
+      enddo
+      !$omp end parallel do
+
+      end subroutine rescld
+
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      SUBROUTINE RESCLD ( mrl )
+
+      SUBROUTINE RESCLD1 ( iw, coszen )
 
 C-----------------------------------------------------------------------
 C  FUNCTION: Resolved-scale CLOUD processor Models-3 science process:
@@ -70,7 +118,6 @@ C  Called by:  CLDPROC
 C  Calls the following subroutines:  SCAVWDEP and AQ_MAP
 C-----------------------------------------------------------------------
 
-!     USE GRID_CONF           ! horizontal & vertical domain specifications
       USE CGRID_SPCS          ! CGRID mechanism species
       USE UTILIO_DEFN
 
@@ -78,7 +125,7 @@ C-----------------------------------------------------------------------
       use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7,
      &                       pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh
       use micro_coms, only: jnmb, rxmin
-      use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
+      use mem_ijtabs, only: itab_w
       use mem_grid,   only: mwa, mza, lpw, dzt
       use mem_cuparm, only: kcubot, kcutop, qwcon, conprr, iactcu
       use misc_coms,  only: dtlm
@@ -90,10 +137,10 @@ C-----------------------------------------------------------------------
 C...........Includes:
 
       INCLUDE 'CONST.EXT'                ! constants
-!     INCLUDE 'FILES.EXT'                ! file name parameters
 
 C...........Arguments:
-      integer, intent(in)  :: mrl
+      integer, intent(in)  :: iw
+      REAL,    intent(in)  :: COSZEN( mwa )  ! cosine of zenith angle
 
 C...........Parameters:
       REAL, PARAMETER :: GPKG = 1.0E+03  ! g/kg
@@ -103,20 +150,12 @@ C...........Parameters:
       REAL, PARAMETER :: CNV4I = 1.0 / CNV4
 
 C Number of species in CGRID
-      INTEGER, SAVE :: MXSPCS
-
-      INTEGER,             save  :: N_SPC_WDEP    ! # of wet deposition species
+      INTEGER,              SAVE :: MXSPCS
+      INTEGER,              save :: N_SPC_WDEP    ! # of wet deposition species
       INTEGER, ALLOCATABLE, SAVE :: WDEP_MAP( : ) ! wet deposition map to CGRID
 
-!     REAL          CGRID( NCOLS,NROWS,NLAYS,* )  !  concentrations
-!     REAL       :: CGRID( :,:,:,: )    ! concentrations
-!     REAL, POINTER :: CGRID( :,:,:,: )    ! concentrations
       INTEGER       JDATE               ! current model date, coded YYYYDDD
       INTEGER       JTIME               ! current model time, coded HHMMSS
-!     INTEGER       TSTEP( 3 )          ! model time step, coded H*MMSS
-!     INTEGER       WDEP_MAP( * )       ! wet deposition map to CGRID
-!     REAL          DEP  ( NCOLS,NROWS,* )  ! depositions (etc.)
-!     REAL       :: RESTRANS( :,: )
 
 C...........Local Variables:
 
@@ -135,7 +174,7 @@ C...........Local Variables:
 !      INTEGER       ROW                 ! row loop counter
 !      INTEGER       LAY                 ! layer loop counter
       INTEGER       FINI                ! ending position
-      INTEGER, SAVE :: LOGDEV           ! output log unit number
+!     INTEGER, SAVE :: LOGDEV           ! output log unit number
 !      INTEGER       MDATE               ! process date (yyyyddd)
 !      INTEGER, SAVE :: MSTEP            ! met file time step (hhmmss)
 !      INTEGER       MTIME               ! process time (hhmmss)
@@ -166,9 +205,9 @@ C...........Local Variables:
       REAL          WTBAR               ! total water content of cloud (kg/m3)
       REAL          rhoair
 
-      REAL, ALLOCATABLE, SAVE :: POLC ( : )   ! incloud conc (mol/mol)
-      REAL, ALLOCATABLE, SAVE :: CEND ( : )   ! ending conc (mol/mol)
-      REAL, ALLOCATABLE, SAVE :: REMOV( : )   ! moles/m2 or mm*mol/lit scavenged
+      REAL :: POLC ( N_GC_SPCD + N_AE_SPC + N_NR_SPC ) ! incloud conc (mol/mol)
+      REAL :: CEND ( N_GC_SPCD + N_AE_SPC + N_NR_SPC ) ! ending conc (mol/mol)
+      REAL :: REMOV( N_GC_SPCD + N_AE_SPC + N_NR_SPC ) ! moles/m2 or mm*mol/lit scavenged
 
 !     REAL          RN   ( NCOLS, NROWS ) ! non-convective rainfall (cm)
 !     REAL          DENS ( NCOLS, NROWS, NLAYS )  ! air density (kg/m3)
@@ -194,12 +233,11 @@ C for INTERPX
 
 C Gridded meteorology data:
 C Latitude and longitude for zenith angle calculation: Golam Sarwar * July 1, 2011 
-      REAL          COSZEN( mwa )                   ! cosine of zenith angle
       REAL          COSZ                            ! local cosine of zenith angle
       LOGICAL       DARK                            ! DARK = TRUE is night,  DARK = FALSE is day
 
       real    :: tc, fracliq, prate, twc, qcu
-      integer :: k, j, iw, mrlw
+      integer :: k, mrlw
 
       logical, allocatable, save :: isnum_spc(:)
       logical, allocatable, save :: issrf_spc(:)
@@ -240,11 +278,10 @@ C...Initialization
       jdate = 0
       jtime = 0
 
+      !$omp critical
       IF ( FIRSTIME ) THEN
 
         FIRSTIME = .FALSE.
-
-        LOGDEV = INIT3()
 
         N_SPC_WDEP = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP
         ALLOCATE ( WDEP_MAP( N_SPC_WDEP ), STAT = ALLOCSTAT )
@@ -284,23 +321,15 @@ C...Initialization
           WDEP_MAP( VAR ) = NR_STRT - 1 + NR_WDEP_MAP( SPC )
         END DO
 
-        SPC = 0
-        STRT = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP + 1
-        FINI = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP + N_TR_WDEP
-        DO VAR = STRT, FINI
-          SPC = SPC + 1
-          WDEP_MAP( VAR ) = TR_STRT - 1 + TR_WDEP_MAP( SPC )
-        END DO
+        MXSPCS = N_GC_SPCD + N_AE_SPC + N_NR_SPC
 
-        MXSPCS = N_GC_SPCD + N_AE_SPC + N_NR_SPC + N_TR_SPC
-
-        ALLOCATE ( CEND ( MXSPCS ),
-     &             POLC ( MXSPCS ),
-     &             REMOV( MXSPCS ), STAT = ALLOCSTAT )
-        IF ( ALLOCSTAT .NE. 0 ) THEN
-          XMSG = 'Failure allocating CEND, POLC or REMOV'
-          CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-        END IF
+!        ALLOCATE ( CEND ( MXSPCS ),
+!     &             POLC ( MXSPCS ),
+!     &             REMOV( MXSPCS ), STAT = ALLOCSTAT )
+!        IF ( ALLOCSTAT .NE. 0 ) THEN
+!          XMSG = 'Failure allocating CEND, POLC or REMOV'
+!          CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
+!        END IF
 
         allocate(isnum_spc(mxspcs)); isnum_spc(:) = .false.
         allocate(issrf_spc(mxspcs)); issrf_spc(:) = .false.
@@ -314,36 +343,17 @@ C...Initialization
            issrf_spc( var ) = ( INDEX( AE_SPC( SPC ), 'SRF' ) .GT. 0 )
         ENDDO
 
-        ALLOCATE ( TOT_WDEP ( mwa, N_SPC_WDEP+1 ),
-     &             STAT = ALLOCSTAT )
-        IF ( ALLOCSTAT .NE. 0 ) THEN
-          XMSG = 'Failure allocating TOT_WDEP'
-          CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-        END IF
-
-      END IF  ! FIRSTIME
-
-!     MDATE = JDATE
-!     MTIME = JTIME
-
-C...set the cloud lifetime (=adv timestep)
-
-!     TCLD = TIME2SEC( TSTEP( 2 ) )
-!     TAUCLD = REAL( TCLD )
-      taucld = dtlm(mrl)
-
-C.. Compute zenith angle; Golam Sarwar, July 1, 2011 
-
-      CALL CZANGLE ( COSZEN ) 
- 
-      TOT_WDEP = 0.0
+      END IF
+      !$omp end critical
 
 C...Loop through all grid cells
 
-      do j = 1, jtab_w(jtw_prog)%jend(mrl)
-
-         iw   = jtab_w(jtw_prog)%iw(j)
          mrlw = itab_w(iw)%mrlw
+
+         ! Set the cloud lifetime (=adv timestep)
+         taucld = dtlm(mrlw)
+
+         tot_wdep(iw,:) = 0.0
 
 C...Sum microphysics precipitation rate over species and convert from (mm/s) to (mm/hr)
 
@@ -684,6 +694,4 @@ C...set cgrid to the ending concentrations
             END DO
          END IF
 
-      END DO
-
-      END SUBROUTINE RESCLD
+      END SUBROUTINE RESCLD1

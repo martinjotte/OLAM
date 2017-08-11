@@ -544,6 +544,7 @@ C *** initialize conc arrays
 !     N_APMDIAG_STEP = N_APMDIAG_STEP + 1
 !     N_VIS_STEP     = N_VIS_STEP + 1 
 
+      !$omp parallel do private(iw,k,c,r,l,n,fpm1,fpm25,fpm10,fams)
       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
          do k = lpw(iw), mza
 
@@ -729,6 +730,7 @@ C *** Write dry aerosol distribution parameters to aerosol diagnostic array
             endif
          enddo
       enddo
+      !$omp end parallel do
 
       IF ( WRITETIME .AND. AOD ) CALL GET_AOD( mrl )
 

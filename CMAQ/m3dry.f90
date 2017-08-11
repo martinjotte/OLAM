@@ -138,11 +138,8 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
   use depv_defn,   only: depvel_gas_land, depvel_gas_sea, ie_hono, ic_no2
   use utilio_defn
   use cgrid_defn,  only: cgrid, vdemis_gc
-  use misc_coms,   only: io6, isubdomain
   use mem_ijtabs,  only: itab_w
-  use leaf_coms,   only: mwl
   use mem_leaf,    only: land, itab_wl
-  use sea_coms,    only: mws
   use mem_sea,     only: sea,  itab_ws
   use mem_grid,    only: dzt, volti
   use mem_basic,   only: theta, rho
@@ -272,8 +269,8 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
   REAL, save                 :: ddif0    ( ltotg )        ! molecular diffusivity / dwat
   REAL, save                 :: lebas    ( ltotg )        ! Le Bas molar volume [cm3/mol ]
   REAL, save                 :: meso     ( ltotg )        ! Exception for species that 
-  ! react with cell walls. fo in 
-  ! Wesely 1989 eq 6.
+                                                          ! react with cell walls.
+                                                          ! Wesely 1989 eq 6.
   REAL, SAVE                 :: scc_pr_23( ltotg )        ! 0.2(PR/SCC)**2/3, fn of DIF0
   real, save                 :: csnow    ( ltotg )
   real, save                 :: cgnd     ( ltotg )
@@ -281,7 +278,7 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
   REAL, save                 :: dw25     ( ltotg )     ! diffusivity of water at 25C
 
 
-  CHARACTER( 16 )            :: subname  ( ltotg )        ! for subroutine HLCONST
+  CHARACTER( 16 ), save      :: subname  ( ltotg )        ! for subroutine HLCONST
   integer, save              :: hlspc    ( ltotg )        ! species index in hlconst
   logical, save              :: hleff    ( ltotg )
 
@@ -499,7 +496,9 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
   DATA subname(103), dif0(103), ar(103), meso(103), lebas(103) / 'CARBSULFIDE     ',0.1240,    5.0,      0.0,   51.5/ 
   DATA subname(104), dif0(104), ar(104), meso(104), lebas(104) / 'ACETONITRILE    ',0.1280,    5.0,      0.0,   52.3/ 
 
+  !$omp critical
   IF ( first_call ) THEN
+
      first_call = .FALSE.
 
      DO l = 1, n_spc_m3dry
@@ -524,7 +523,8 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
      enddo
 
   END IF   ! first_call
-      
+  !$omp end critical
+
 !-------------------------------------------------------------------------------
 ! Loop over land cells and calculate dry deposition.
 !-------------------------------------------------------------------------------

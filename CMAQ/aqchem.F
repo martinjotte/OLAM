@@ -474,6 +474,7 @@ C*********************************************************************
 
 C...Initialization
 
+      !$omp critical
       IF ( FIRSTIME ) THEN
 
         FIRSTIME = .FALSE.
@@ -548,8 +549,9 @@ C... soluble aerosols
      &                             / REAL( AEROSPC_MW( AK_IDX ), 8 ) / ASOIL_RENORM
         CORS_K_FAC = ACORS_K_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
      &                             / REAL( AEROSPC_MW( AK_IDX ), 8 ) / ACORS_RENORM
-
+      
       END IF    ! FIRSTIME
+      !$omp end critical
 
       ONE_OVER_TEMP = 1.0D0 / TEMP
 

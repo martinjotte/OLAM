@@ -175,7 +175,6 @@ C *** Aitken Mode:
 
             aeromode_lnsg( n ) = sqrt( l2sg )
 
-!           ES36_one3 = Exp( 1.5 * l2sg )
             ES36_one3 = el2sg * sqrt(el2sg)
 
             aeromode_diam( n ) = max( dgmin, ( xm3_one3 / ( xm0_one3 * es36_one3 ) ) )

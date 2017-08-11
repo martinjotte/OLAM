@@ -201,6 +201,7 @@ C         AERO_DATA.F. Moments are wet after extract_aero
 !         do r = 1, my_nrows
 !            do c = 1, my_ncols
 
+         !$omp parallel do private(iw,k,airrh,extinc)
          do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
 !              conc_cr = cgrid( iw,:,: )
@@ -236,12 +237,8 @@ C         AERO_DATA.F. Moments are wet after extract_aero
      &                           + extinc * 0.001 * dzt(k)
                end do
 
-!              if (once) then
-!                 once = .false.
-!              end if
-
-!           end do
          end do
+         !$omp end parallel do
 
          end subroutine get_aod
 

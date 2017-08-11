@@ -37,8 +37,8 @@ subroutine olam_run(name_name)
 #endif
 
   use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, iflag,     &
-                         expnme, mdomain, ngrids, initial, iswrtyp, ilwrtyp,     &
-                         runtype, hfilin, nzp, timmax8, alloc_misc, iparallel,   &
+                         expnme, mdomain, initial, iswrtyp, ilwrtyp,             &
+                         runtype, hfilin, timmax8, alloc_misc, iparallel,        &
                          iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
                          time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
                          isubdomain, do_chem, time_bias, dtlong
@@ -46,13 +46,12 @@ subroutine olam_run(name_name)
   use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, &
                          alloc_mpi_sndrcv_bufs
 
-  use leaf_coms,   only: nzg, nzs, isfcl, nwl, mwl, iupdndvi
+  use leaf_coms,   only: isfcl, nwl, mwl, iupdndvi
   use sea_coms,    only: nws, mws, iupdsst, iupdseaice
   use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_v, itab_w
   use oplot_coms,  only: op
-  use mem_grid,    only: nma, nva, nwa, mma, mva, mwa, mza, zm, zt
-  use mem_basic,   only: alloc_basic, wc, vxe, vye, vze
-  use micro_coms,  only: gnu
+  use mem_grid,    only: mma, mva, mwa, mza
+  use mem_basic,   only: alloc_basic, vxe, vye, vze
   use mem_nudge,   only: nudflag, nudnxp, fill_jnudge, o3nudflag
   use mem_rayf,    only: rayf_init
   use mem_para,    only: myrank
@@ -84,8 +83,8 @@ subroutine olam_run(name_name)
 
   character(len=*), intent(in) :: name_name
 
-  integer :: i,ifm,nndtflg,ifileok,ierr,iplt_file,mrl, imavg_file, idavg_file
-  integer :: mwa_prog, mva_prog, nthr
+  integer :: i,iplt_file,mrl, imavg_file, idavg_file
+  integer :: mwa_prog, mva_prog
   real :: w1,w2,t1,t2,wtime_start
   real, external :: walltime
   character(len=128) :: mavgfile, davgfile
@@ -807,8 +806,7 @@ subroutine olam_output()
 
   implicit none
 
-  integer  :: ierr, ifm, ifileok
-  integer  :: outyear, outmonth, outdate, outhour
+  integer :: outyear, outmonth, outdate, outhour
 
   !-------------------- SPECIAL - HURRICANE TRACKING ------------------
   if (init_hurr_step == 1 .or. init_hurr_step == 2) then

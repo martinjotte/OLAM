@@ -25,11 +25,148 @@
 ! %W% %P% %G% %U%
 
 !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-!     SUBROUTINE PHOT ( MDATE, MTIME, JDATE, JTIME, DTSTEP, RJ )
+
       SUBROUTINE PHOT ( mrl )
 
+      use phot_mod
+      USE UTILIO_DEFN
+      USE CGRID_SPCS
+      USE AERO_PHOTDATA
+      use mem_radiate, only: nadd_rad
+      use cmaq_cloud
+      use mem_ijtabs,  only: jtab_w, jtw_prog
+      use mem_grid,    only: mza, mwa, glatw
+      use misc_coms,   only: current_time
+      use consts_coms, only: r8
+      use mem_mclat,   only: mclat_spline
+      implicit none
+
+      integer, intent(in) :: mrl
+
+      LOGICAL, SAVE :: FIRSTIME = .TRUE.
+      INTEGER, SAVE :: LOGDEV
+
+      integer :: jdate      ! current Julian date (YYYYDDD)
+      integer :: jday       ! current Julian day (DDD)
+      real    :: jyear      ! year
+      integer :: iyear      ! year
+      REAL    :: JDSTRT     ! current Julian day (DDD)
+      integer :: jtime      ! current time (HHMMSS)
+      real    :: jyfreq
+      REAL    :: CURRHR     ! current GMT hour
+      REAL    :: JULIAN_DAY ! time of year [days]
+
+      CHARACTER( 16 ) :: VARNM
+      CHARACTER( 60 ) :: XMSG
+      CHARACTER( 16 ) :: PNAME = 'PHOT'
+
+      integer :: j, iw, iwl
+
+      real, parameter :: twopi = 2.0 * pi
+      integer, external :: julday, timetohhmmss
+
+      IF ( FIRSTIME ) THEN
+
+         FIRSTIME = .FALSE.
+         LOGDEV   = INIT3()
+
+         nlays_max = mza + nadd_rad
+
+         CALL LOAD_CSQY_DATA( )
+
+         CALL LOAD_OPTICS_DATA( )
+ 
+         CALL INIT_AERO_DATA( nlays_max )
+         
+         call cmaq_cld_optics_init( )
+
+         ! set pointers to species O3 and NO2 in CGRID
+
+         VARNM = 'O3'
+         LGC_O3 = INDEX1( VARNM, N_GC_SPC, GC_SPC )
+         IF ( LGC_O3 .LE. 0 ) THEN
+            XMSG = 'Could not find ' // VARNM // 'in species table'
+            CALL M3EXIT ( PNAME, 0, 0, XMSG, XSTAT3 )
+         END IF
+
+         VARNM = 'NO2'
+         LGC_NO2 = INDEX1( VARNM, N_GC_SPC, GC_SPC )
+         IF ( LGC_NO2 .LE. 0 ) THEN
+            XMSG = 'Could not find ' // VARNM // 'in species table'
+            CALL M3EXIT ( PNAME, 0, 0, XMSG, XSTAT3 )
+         END IF
+
+         allocate( sinlats( mwa ) )
+         allocate( coslats( mwa ) )
+
+         sinlats(1) = 0.0
+         coslats(1) = 0.0
+         do iw = 2, mwa
+            sinlats(iw) =  SIN( PI180 * glatw(iw) )
+            coslats(iw) =  cos( PI180 * glatw(iw) )
+	enddo
+
+         allocate( conv_wm2( nwl ) )
+         allocate( srayl   ( nwl ) )
+
+         ! FSB Set up conversion factor for
+         ! [photons / ( cm**2 s) ] to [Watts / m**2 ]
+         ! THE 1.0E13 FACTO IS 1.0E9 * 1.0 E4
+         ! The 1.0e9 is for the wavelength [ nm ] -> [ m ]
+         ! The 1.0e4 is for the area [ cm **2 ] -> [ m**2 ]
+         DO IWL = 1, NWL
+            CONV_WM2( IWL ) = 1.0E13 * ( PLANCK_C * LIGHT_SPEED ) / WAVELENGTH( IWL )
+         END DO
+
+         ! get molecular scattering cross sections
+         CALL GETSRAY ( NWL, WAVELENGTH, SRAYL )
+
+      END IF  ! firstime
+
+      ! Calculate current hour in GMT and julian day
+
+      currhr     = current_time%time / 3600.0_r8
+      jday       = julday( current_time%month, current_time%date, current_time%year )
+      julian_day = real( jday )
+      jyear      = real( current_time%year )
+      jdstrt     = julian_day
+      jdate      = current_time%year * 1000 + jday
+      jtime      = timetohhmmss( current_time%time )
+      iyear      = current_time%year
+
+      if ( (mod(iyear,400) == 0) .or. (mod(iyear,100) /= 0 .and. mod(iyear,4) == 0) ) then
+         jyfreq = twopi / 366.0                                                                                                    
+      else
+         jyfreq = twopi / 365.0
+      endif
+
+      ! Interpolate Mclatchy soundings between summer and winter values,
+      ! and prepare spline coefficients for interpolation by latitude.
+
+      call mclat_spline(jday)
+
+      ! Calculate the solar information.
+
+      CALL SOLEFM3 ( JYEAR, JDSTRT, EQT, SINDEC, COSDEC, SOLDIST )
+
+      RSQDI = 1.0 / (SOLDIST * SOLDIST)
+
+      ! MAIN loop over all rows and columns
+
+      !$omp parallel do private(iw)
+      do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+         call phot1( iw, currhr, julian_day, jyfreq )
+
+      enddo
+      !$omp end parallel do
+
+      end subroutine phot
+
 !-----------------------------------------------------------------------
-!
+
+      subroutine phot1( iw, currhr, julian_day, jyfreq )
+
 ! Function:  Calculates the photolysis rate constant to be used by the
 !     chemical solver.  It calculates these rates at each gridcell using
 !     codes adapted from JPROC.  Cloud correction now called within the
@@ -132,15 +269,11 @@ C...modules
       use hrdata,      only: rj
       use mem_grid,    only: mza
       use mem_radiate, only: nadd_rad
-      use misc_coms,   only: current_time
-      use mem_grid,    only: mwa, mza, glatw, glonw, zt, zm, lpw, dzt
+      use mem_grid,    only: mza, glatw, glonw, zt, zm, lpw, dzt
       use cgrid_defn
-      use mem_radiate, only: albedt
       use mem_basic,   only: tair, press, rho, sh_v
       use consts_coms, only: r8, t00, alvl, eps_vap, cp
-      use mem_ijtabs,  only: jtab_w, jtw_prog
-      use mem_turb,    only: kpblh
-      use mem_mclat,   only: mclat_spline, rad_mclat
+      use mem_mclat,   only: rad_mclat
       use cmaq_cloud
       use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi,
      &                       dmncof, jhabtab, emb2, zfactor_ccn
@@ -149,19 +282,12 @@ C...modules
 
       IMPLICIT NONE
 
-!...include files
-
-!     INCLUDE SUBST_FILES_ID   ! file name parameters
-!     INCLUDE SUBST_CONST      ! physical constants--moved to PHOT_MOD.
-
 !...arguments
 
-!     INTEGER, INTENT( IN ) :: MDATE         ! "centered" Julian date (YYYYDDD)
-!     INTEGER, INTENT( IN ) :: MTIME         ! "centered" time (HHMMSS)
-!     INTEGER, INTENT( IN ) :: JDATE         ! current Julian date (YYYYDDD)
-!     INTEGER, INTENT( IN ) :: JTIME         ! current time (HHMMSS)
-!     INTEGER, INTENT( IN ) :: DTSTEP( : )   ! time step vector (HHMMSS)
-      integer, intent(in) :: mrl
+      integer, intent(in) :: iw
+      REAL,    intent(in) :: CURRHR          ! current GMT hour
+      REAL,    intent(in) :: JULIAN_DAY      ! time of year [days]
+      real,    intent(in) :: jyfreq
 
 !     REAL RJ( NCOLS,NROWS,NLAYS, NPHOTAB )
 !     REAL,    INTENT( OUT ) :: RJ( :,:,:,: )  ! gridded J-values  (1/min units)
@@ -190,140 +316,100 @@ C...modules
 
 !...local variables
 
-      LOGICAL, SAVE :: FIRSTIME = .TRUE.  ! Flag for first call to PHOT
-      LOGICAL, SAVE :: PHOTDIAG           ! Flag for PHOTDIAG file
+!     CHARACTER(   3 ), ALLOCATABLE, SAVE :: WLTXT( : )
+!     CHARACTER(  16 )                    :: VARNM
+!     CHARACTER(  16 ), SAVE              :: PNAME = 'PHOT'
+!     CHARACTER(  16 ), SAVE              :: CTM_PHOTDIAG = 'CTM_PHOTDIAG'
 
-      LOGICAL, SAVE :: CALL_INIT_ALBEDO = .TRUE.
-      LOGICAL, SAVE :: CALL_GET_ALBEDO  = .TRUE.
-      
-      LOGICAL       :: ZERO_ICE
+!     CHARACTER(  80 ) :: VARDESC  ! environment variable description
+!     CHARACTER( 240 ) :: XMSG = ' '
 
-      CHARACTER(   3 ), ALLOCATABLE, SAVE :: WLTXT( : )
-      CHARACTER(  16 )                    :: VARNM
-      CHARACTER(  16 ), SAVE              :: PNAME = 'PHOT'
-      CHARACTER(  16 ), SAVE              :: CTM_PHOTDIAG = 'CTM_PHOTDIAG'
+!     INTEGER,    SAVE :: TSTEP    ! output timestep in sec
 
-      CHARACTER(  80 ) :: VARDESC  ! environment variable description
-      CHARACTER( 240 ) :: XMSG = ' '
-
-      INTEGER,    SAVE :: LOGDEV
-      INTEGER,    SAVE :: LGC_O3   ! pointer to O3 in CGRID
-      INTEGER,    SAVE :: LGC_NO2  ! pointer to NO2 in CGRID
-      INTEGER,    SAVE :: TSTEP    ! output timestep in sec
-
-      INTEGER ESTAT                ! status from environment var check
+!     INTEGER ESTAT                ! status from environment var check
       INTEGER IPHOT                ! photolysis rate loop index
-      INTEGER ROW
-      INTEGER COL
-      INTEGER LEV
-      INTEGER SPC
-      INTEGER IWL
+!     INTEGER ROW
+!     INTEGER COL
+!     INTEGER LEV
+!     INTEGER SPC
+!     INTEGER IWL
       INTEGER L
-      INTEGER V, N, MODE
-      LOGICAL JTIME_CHK            ! To check for JTIME to write RJ values
-      INTEGER ODATE                ! output date
-      INTEGER OTIME                ! output time 
-      INTEGER ALLOCSTAT
+!     INTEGER V, N, MODE
+!     LOGICAL JTIME_CHK            ! To check for JTIME to write RJ values
+!     INTEGER ODATE                ! output date
+!     INTEGER OTIME                ! output time 
+!     INTEGER ALLOCSTAT
 
-      integer :: iw, j, k
-      integer :: koff, nlays, nlays_olam, nlays_chem
+      integer :: k, koff, nlays, nlays_olam, nlays_chem
 
-!      INTEGER, SAVE :: GXOFF, GYOFF        ! global origin offset from file
-!      INTEGER, SAVE :: PECOL_OFFSET        ! Local Column Offset for processor
-!      INTEGER, SAVE :: PEROW_OFFSET        ! Local Column Offset for processor
-
-! for INTERPX
-!      INTEGER, SAVE :: STRTCOLGC2, ENDCOLGC2, STRTROWGC2, ENDROWGC2
-!      INTEGER, SAVE :: STRTCOLMC2, ENDCOLMC2, STRTROWMC2, ENDROWMC2
-!      INTEGER, SAVE :: STRTCOLMC3, ENDCOLMC3, STRTROWMC3, ENDROWMC3
-
-      integer :: jdate      ! current Julian date (YYYYDDD)
-      integer :: jday       ! current Julian day (DDD)
-      real    :: jyear      ! year
-      integer :: iyear      ! year
-      REAL    :: JDSTRT     ! current Julian day (DDD)
-      integer :: jtime      ! current time (HHMMSS)
-      real    :: jyfreq
+!      integer :: jdate      ! current Julian date (YYYYDDD)
+!      integer :: jday       ! current Julian day (DDD)
+!      real    :: jyear      ! year
+!      integer :: iyear      ! year
+!      REAL    :: JDSTRT     ! current Julian day (DDD)
+!      integer :: jtime      ! current time (HHMMSS)
+!      real    :: jyfreq
 
       real    :: dens
 
-      REAL CURRHR          ! current GMT hour
-      REAL JULIAN_DAY      ! time of year [days]
       REAL CURRHR_LST      ! local standard time at each grid cell
-      REAL CTOP            ! cloud top in single dimension
-      REAL CBASE           ! cloud base in single dimension
-      REAL ZLEV            ! height in single dimension
-      REAL ZEN             ! cosine of zenith angle
-      REAL SINLAT          ! sine of latitude
-      REAL COSLAT          ! cosine of latitude
-      REAL RSQDI           ! 1 / square of soldist
+!      REAL CTOP            ! cloud top in single dimension
+!      REAL CBASE           ! cloud base in single dimension
+!      REAL ZLEV            ! height in single dimension
+!      REAL ZEN             ! cosine of zenith angle
+!      REAL SINLAT          ! sine of latitude
+!      REAL COSLAT          ! cosine of latitude
       REAL ZSFC            ! surface height (msl) [ m ]
-      REAL EQT             ! equation of time
-      REAL SOLDIST         ! solar distance [ au ]
-      REAL SINDEC          ! sine of the solar declination
-      REAL COSDEC          ! cosine of the solar declination
       REAL COSZEN          ! working cosine of the solar zenith angle
       REAL SINZEN          ! working sine of the solar zenith angle
-      REAL LATCR           ! local latitude
-      REAL LONCR           ! local longitude
-      REAL OWATER_FRAC     ! Open water fraction
-      REAL SNOW_FRAC       ! Snow fractional coverage
-      REAL SEAICE_FRAC     ! Sea Ice fraction
-      REAL RES_SKY_REFLECT ! reflection coefficient based on resolved sky
-      REAL RES_SKY_TRANS   ! diffuse transmission coefficient based on resolved sky
-      REAL RES_SKY_TRANSD  ! direct transmission coefficient based on resolved sky
-
-      real, allocatable, save :: sctop(:)
-      real, allocatable, save :: extop(:)
-      real, allocatable, save :: astop(:)
-
-!      REAL                    :: TOTAL_O3_COLUMN ! total ozone column density, DU
-      
-!     REAL,              SAVE :: JYEAR  ! year
-!     REAL,              SAVE :: JDSTRT ! current Julian day (DDD)
-
-      REAL, ALLOCATABLE, SAVE :: ETOT_SFC ( : )    ! total downward irradiance at sfc [ Watts / m**2  ]
-!      REAL, ALLOCATABLE, SAVE :: TAUO3_TOP( : )    ! optical depth of ozone above model domain
-!      REAL, ALLOCATABLE, SAVE :: TAU_RAY  ( : )    ! Rayleigh optical depth above model domain
-      REAL, ALLOCATABLE, SAVE :: TAUC_AERO( :,: )  ! aerosol optical depth at layer bottom
-      REAL, ALLOCATABLE, SAVE :: TAU_TOT  ( :,: )  ! total optical depth at layer bottom
-      REAL, ALLOCATABLE, SAVE :: TAU_CLOUD( :,: )  ! cloud optical depth at layer bottom
-
-      REAL, ALLOCATABLE, SAVE :: SSA      ( : ) ! aerosol single scattering albedo, column average
-
+!      REAL LATCR           ! local latitude
+!      REAL LONCR           ! local longitude
+!      REAL OWATER_FRAC     ! Open water fraction
+!      REAL SNOW_FRAC       ! Snow fractional coverage
+!      REAL SEAICE_FRAC     ! Sea Ice fraction
+!      REAL RES_SKY_REFLECT ! reflection coefficient based on resolved sky
+!      REAL RES_SKY_TRANS   ! diffuse transmission coefficient based on resolved sky
+!      REAL RES_SKY_TRANSD  ! direct transmission coefficient based on resolved sky
       REAL MSCALE          ! combined factor to scale ppm to Molecules / cm**3
                            ! and correct for ambient temperaure and pressure
 
-      REAL, ALLOCATABLE, SAVE :: SINLATS  ( : ) ! sine of latitude
-      REAL, ALLOCATABLE, SAVE :: COSLATS  ( : ) ! cosine of latitude
+      real :: sctop( nwl )
+      real :: extop( nwl )
+      real :: astop( nwl )
+
+!     REAL, ALLOCATABLE, SAVE :: TAUO3_TOP( : )    ! optical depth of ozone above model domain
+!     REAL, ALLOCATABLE, SAVE :: TAU_RAY  ( : )    ! Rayleigh optical depth above model domain
+
+!     REAL :: ETOT_SFC           ( nwl )  ! total downward irradiance at sfc [ Watts / m**2  ]
+      REAL :: TAUC_AERO( nlays_max,nwl )  ! aerosol optical depth at layer bottom
+      REAL :: TAU_TOT  ( nlays_max,nwl )  ! total optical depth at layer bottom
+      REAL :: TAU_CLOUD( nlays_max,nwl )  ! cloud optical depth at layer bottom
+      REAL :: SSA                ( nwl )  ! aerosol single scattering albedo, column average
+
+      real :: alb                ( nwl )  ! surface albedo
+      real :: alb_dif            ( nwl ) 
 
 ! FSB new arrays for new on-line cloud version
 
-      REAL, ALLOCATABLE, SAVE :: LWC    ( : )      ! cloud liquid water content [ g/m**3 ]
-      REAL, ALLOCATABLE, SAVE :: RWC    ( : )      ! rain water content [ g/m**3 ]
-      REAL, ALLOCATABLE, SAVE :: IWC    ( : )      ! ice liquid water content [ g/m**3 ]
-      REAL, ALLOCATABLE, SAVE :: SWC    ( : )      ! snow content [ g/m**3 ]
-      REAL, ALLOCATABLE, SAVE :: GWC    ( : )      ! graupel content [ g/m**3 ]
-      REAL, ALLOCATABLE, SAVE :: CLDFRAC( : )      ! fractional cloud cover
-      REAL, ALLOCATABLE, SAVE :: BLKPRS ( : )      ! Air pressure in [ Pa ]
-      REAL, ALLOCATABLE, SAVE :: BLKTA  ( : )      ! Air temperature [ K ]
-      REAL, ALLOCATABLE, SAVE :: BLKDENS( : )      ! Air density  [ molecules / m**3 ]
-      REAL, ALLOCATABLE, SAVE :: BLKZH  ( : )      ! layer half-height [ m ]
-      REAL, ALLOCATABLE, SAVE :: BLKO3  ( : )      ! O3 concentration [ molecules/cm**3 ]
-      REAL, ALLOCATABLE, SAVE :: BLKNO2 ( : )      ! NO2 concentration [ molecules/cm**3 ]
-      REAL, ALLOCATABLE, SAVE :: BLKZF  ( : )      ! layer full-height [ m ]
+!     REAL :: LWC    ( nlays_max )      ! cloud liquid water content [ g/m**3 ]
+!     REAL :: RWC    ( nlays_max )      ! rain water content [ g/m**3 ]
+!     REAL :: IWC    ( nlays_max )      ! ice liquid water content [ g/m**3 ]
+!     REAL :: SWC    ( nlays_max )      ! snow content [ g/m**3 ]
+!     REAL :: GWC    ( nlays_max )      ! graupel content [ g/m**3 ]
+      REAL :: CLDFRAC( nlays_max )      ! fractional cloud cover
+      REAL :: BLKPRS ( nlays_max )      ! Air pressure in [ Pa ]
+      REAL :: BLKTA  ( nlays_max )      ! Air temperature [ K ]
+      REAL :: BLKDENS( nlays_max )      ! Air density  [ molecules / m**3 ]
+      REAL :: BLKZH  ( nlays_max )      ! layer half-height [ m ]
+      REAL :: BLKO3  ( nlays_max )      ! O3 concentration [ molecules/cm**3 ]
+      REAL :: BLKNO2 ( nlays_max )      ! NO2 concentration [ molecules/cm**3 ]
+      REAL :: BLKZF  ( nlays_max+1 )      ! layer full-height [ m ]
+      REAL :: BLKDZ  ( nlays_max )
+      REAL :: BLKSHV ( nlays_max )
 
-      REAL, ALLOCATABLE, SAVE :: BLKDZ  ( : )
-      REAL, ALLOCATABLE, SAVE :: BLKSHV ( : )
+      REAL :: BLKRJ_RES( nlays_max,nphotab ) ! photolysis rates
 
-      real, allocatable, save :: alb_dif( : )
-
-      REAL, ALLOCATABLE, SAVE :: BLKRJ_RES( :, : ) ! photolysis rates
-!     REAL, ALLOCATABLE, SAVE :: BLKRJ_ACM( :, : ) ! photolysis rates
-      
-      LOGICAL, ALLOCATABLE, SAVE :: CLOUDS( : )    ! Does layer have clouds?
-      LOGICAL                    :: NEW_PROFILE    ! Has atmospheric temperature and density profile changed?
-      LOGICAL                    :: DARK           ! Are this processor's cells in darkness?
+      LOGICAL :: NEW_PROFILE    ! Has atmospheric temperature and density profile changed?
       
 !...Variables for diagnostic outputs
 
@@ -373,13 +459,12 @@ C...modules
 
       real :: r_ef, dmean, watp, twc, prate, tc, rh
 
-      real :: frac(mza)
-!     real :: cldfrac(mza + nadd_rad)
+      real    :: frac(mza)
       logical :: dosnow
 
-      real :: tauclds(nwl, mza + nadd_rad)
-      real :: ssaclds(nwl, mza + nadd_rad)
-      real :: asmclds(nwl, mza + nadd_rad)
+      real :: tauclds(nwl, nlays_max)
+      real :: ssaclds(nwl, nlays_max)
+      real :: asmclds(nwl, nlays_max)
 
       integer :: mc, mcat, ih, krad, ns, nt, ib
 
@@ -407,333 +492,10 @@ C...modules
 !                                  15.  snow needles
 !                                  16.  snow rosettes
 
-                                      ! 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+                                          ! 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
       integer, parameter :: kradcat(16) = (/1,3,6,6,5,4,4,2,8, 8, 7, 9, 8, 8, 7, 9/)
 
 ! ----------------------------------------------------------------------
-
-      IF ( FIRSTIME ) THEN
-
-         FIRSTIME = .FALSE.
-         LOGDEV   = INIT3()
-
-!        TSTEP  = TIME2SEC( DTSTEP( 1 ) ) ! output timestep for phot diagnostic files
-
-!        CGRID => PCGRID( 1:MY_NCOLS,1:MY_NROWS,:,: )
-
-!...Get photolysis rate diagnostic file flag
-
-         PHOTDIAG = .FALSE.         ! default
-!         VARDESC= 'Flag for writing the photolysis rate diagnostic file'
-!         PHOTDIAG = ENVYN( CTM_PHOTDIAG, VARDESC, PHOTDIAG, ESTAT )
-!         IF ( ESTAT .NE. 0 ) WRITE( LOGDEV, '(5X, A)' ) VARDESC
-!         IF ( ESTAT .EQ. 1 ) THEN
-!            XMSG = 'Environment variable improperly formatted'
-!            CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
-!         ELSE IF ( ESTAT .EQ. -1 ) THEN
-!            XMSG =
-!     &          'Environment variable set, but empty ... Using default:'
-!            WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
-!         ELSE IF ( ESTAT .EQ. -2 ) THEN
-!            XMSG = 'Environment variable not set ... Using default:'
-!            WRITE( LOGDEV, '(5X, A, I9)' ) XMSG, JTIME
-!         END IF
-
-!...Get met file offsets
-
-!         CALL SUBHFILE ( GRID_CRO_2D, GXOFF, GYOFF,
-!     &                   STRTCOLGC2, ENDCOLGC2, STRTROWGC2, ENDROWGC2 )
-!         CALL SUBHFILE ( MET_CRO_2D, GXOFF, GYOFF,
-!     &                   STRTCOLMC2, ENDCOLMC2, STRTROWMC2, ENDROWMC2 )
-!         CALL SUBHFILE ( MET_CRO_3D, GXOFF, GYOFF,
-!     &                   STRTCOLMC3, ENDCOLMC3, STRTROWMC3, ENDROWMC3 )
- 
-!         PECOL_OFFSET = COLSD_PE( 1, MYPE+1 ) - 1
-!         PEROW_OFFSET = ROWSD_PE( 1, MYPE+1 ) - 1
-
-         nlays_max = mza + nadd_rad
-
-         CALL LOAD_CSQY_DATA( )
-
-         CALL LOAD_OPTICS_DATA( )
- 
-!...Allocate array needed to calculation aerosol and cloud optical properties
-
-         CALL INIT_AERO_DATA( nlays_max )
-         
-!        CALL INIT_CLOUD_OPTICS(  )
-         call cmaq_cld_optics_init( )
-
-!...Initialize Surface albedo method
-
-!         IF ( .NOT. INITIALIZE_ALBEDO( JDATE, JTIME, LOGDEV ) ) THEN
-!              XMSG = 'Failure initializing photolysis surface albedo algorithm'
-!              CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!         END IF
-
-         ALLOCATE( ETOT_SFC ( NWL ) )
-         allocate( alb_dif  ( nwl ) )
-
-         ALLOCATE( LWC    ( NLAYS_MAX ) ) 
-         ALLOCATE( RWC    ( NLAYS_MAX ) ) 
-         ALLOCATE( IWC    ( NLAYS_MAX ) ) 
-         ALLOCATE( SWC    ( NLAYS_MAX ) ) 
-         ALLOCATE( GWC    ( NLAYS_MAX ) ) 
-         ALLOCATE( BLKPRS ( NLAYS_MAX ) ) 
-         ALLOCATE( BLKTA  ( NLAYS_MAX ) ) 
-         ALLOCATE( BLKDENS( NLAYS_MAX ) ) 
-         ALLOCATE( BLKZH  ( NLAYS_MAX ) ) 
-         ALLOCATE( BLKO3  ( NLAYS_MAX ) ) 
-         ALLOCATE( BLKNO2 ( NLAYS_MAX ) ) 
-         ALLOCATE( BLKZF  ( NLAYS_MAX+1 ) )
-         ALLOCATE( CLOUDS ( NLAYS_MAX ) ) 
-         ALLOCATE( CLDFRAC( NLAYS_MAX ) ) 
-
-         allocate( blkdz  (nlays_max ) )
-         allocate( blkshv (nlays_max ) )
-
-         ALLOCATE( BLKRJ_RES( NLAYS_MAX,NPHOTAB ) )
-!        ALLOCATE( BLKRJ_ACM( NLAYS_MAX,NPHOTAB ) )
-
-!         ALLOCATE( TAUO3_TOP( NWL ) )
-!         ALLOCATE( TAU_RAY  ( NWL ) )
-         ALLOCATE( SSA      ( NWL ) )
-
-         ALLOCATE( TAU_CLOUD( NLAYS_MAX,NWL ) )
-         ALLOCATE( TAUC_AERO( NLAYS_MAX,NWL ) )
-         ALLOCATE( TAU_TOT  ( NLAYS_MAX,NWL ) )
-
-!         ALLOCATE( TOC      ( NCOLS,NROWS ) )
-!
-!         IF ( PHOTDIAG ) THEN
-!            ALLOCATE( TRANSMIS_DIFFUSE( NCOLS,NROWS ) )
-!            ALLOCATE( TRANSMIS_DIRECT ( NCOLS,NROWS ) )
-!            ALLOCATE( REFLECT_COEFF   ( NCOLS,NROWS ) )
-!            ALLOCATE( CLR_TRANSMISSION( NCOLS,NROWS ) )
-!            ALLOCATE( CLR_TRANS_DIRECT( NCOLS,NROWS ) )
-!            ALLOCATE( CLR_REFLECTION  ( NCOLS,NROWS ) )
-!            ALLOCATE( ETOT_SFC_WL     ( NCOLS,NROWS,NWL ) )
-!            ALLOCATE( TAU_AERO_WL     ( NCOLS,NROWS,NWL ) )
-!            ALLOCATE( TAU_CLOUD_WL    ( NCOLS,NROWS,NWL ) )
-!#ifdef phot_debug            
-!            ALLOCATE( SSA_CLOUD_WL( NCOLS,NROWS,NWL ) )
-!            ALLOCATE( ASY_CLOUD_WL( NCOLS,NROWS,NWL ) )
-!#endif            
-!            ALLOCATE( TAU_TOT_WL  ( NCOLS,NROWS,NWL ) )
-!            ALLOCATE( TAUO3_TOP_WL( NCOLS,NROWS,NWL ) )
-!
-!            DIAG_WVL( 1 ) = 1
-!            DIAG_WVL( N_DIAG_WVL ) = NWL
-!
-!            ALLOCATE ( AERO_ASYM( NCOLS,NROWS,NLAYS,N_DIAG_WVL ), STAT = ALLOCSTAT )
-!            IF ( ALLOCSTAT .NE. 0 ) THEN
-!               XMSG = 'Failure allocating 3D AERO_ASYM'
-!               CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!            END IF
-!
-!            ALLOCATE ( AERO_SSA( NCOLS,NROWS,NLAYS,N_DIAG_WVL ), STAT = ALLOCSTAT )
-!            IF ( ALLOCSTAT .NE. 0 ) THEN
-!               XMSG = 'Failure allocating 3D AERO_SSA'
-!               CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!            END IF
-!
-!            ALLOCATE ( TAU_AERO( NCOLS,NROWS,NLAYS,N_DIAG_WVL ), STAT = ALLOCSTAT )
-!            IF ( ALLOCSTAT .NE. 0 ) THEN
-!               XMSG = 'Failure allocating 3D TAU_AERO'
-!               CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!            END IF
-!
-!            ALLOCATE ( TAU( NCOLS,NROWS,NLAYS,N_DIAG_WVL ), STAT = ALLOCSTAT )
-!            IF ( ALLOCSTAT .NE. 0 ) THEN
-!               XMSG = 'Failure allocating 3D TAU'
-!               CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!            END IF
-!
-!            ALLOCATE ( ACTINIC_FX( NCOLS,NROWS,NLAYS,NWL ), STAT = ALLOCSTAT )
-!            IF ( ALLOCSTAT .NE. 0 ) THEN
-!               XMSG = 'Failure allocating ACTINIC_FX'
-!               CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!            END IF
-!
-!!...write wavelength data to a character array
-!
-!            ALLOCATE ( WLTXT( NWL ) )
-!
-!            DO IWL = 1, NWL
-!               WRITE( WLTXT( IWL ),'(I3.3)' ) INT( WAVELENGTH( IWL ) )
-!            END DO
-!
-!!...open the photolysis rate diagnostic files
-!
-!            ODATE = JDATE; OTIME = JTIME
-!#ifndef phot_extra_tstep
-!            CALL NEXTIME ( ODATE, OTIME, DTSTEP( 1 ) )  ! output timestamp ending time
-!#endif
-!            IF ( IO_PE_INCLUSIVE ) CALL OPPHOT ( ODATE, OTIME, DTSTEP( 1 ) )
-!
-!         END IF  ! photdiag
-
-!...set pointers to species O3 and NO2 in CGRID
-
-         VARNM = 'O3'
-         LGC_O3 = INDEX1( VARNM, N_GC_SPC, GC_SPC )
-         IF ( LGC_O3 .LE. 0 ) THEN
-            XMSG = 'Could not find ' // VARNM // 'in species table'
-            CALL M3EXIT ( PNAME, 0, 0, XMSG, XSTAT3 )
-         END IF
-
-         VARNM = 'NO2'
-         LGC_NO2 = INDEX1( VARNM, N_GC_SPC, GC_SPC )
-         IF ( LGC_NO2 .LE. 0 ) THEN
-            XMSG = 'Could not find ' // VARNM // 'in species table'
-            CALL M3EXIT ( PNAME, 0, 0, XMSG, XSTAT3 )
-         END IF
-
-!#ifdef phot_extra_tstep
-!      ELSE
-!         IF ( PHOTDIAG ) THEN
-!            ODATE = JDATE; OTIME = JTIME
-!            CALL NEXTIME ( ODATE, OTIME, DTSTEP( 2 ) )  ! sync time step
-!         END IF
-!#endif
-
-         allocate( sinlats( mwa ) )
-         allocate( coslats( mwa ) )
-
-         sinlats(1) = 0.0
-         coslats(1) = 0.0
-         do iw = 2, mwa
-            sinlats(iw) =  SIN( PI180 * glatw(iw) )
-            coslats(iw) =  cos( PI180 * glatw(iw) )
-         enddo
-
-         allocate(sctop(nwl))
-         allocate(astop(nwl))
-         allocate(extop(nwl))
-
-      END IF  ! firstime
-
-C...Calculate current hour in GMT and julian day
-
-      currhr     = current_time%time / 3600.0_r8
-      jday       = julday( current_time%month, current_time%date, current_time%year )
-      julian_day = real( jday )
-      jyear      = real( current_time%year )
-      jdstrt     = julian_day
-      jdate      = current_time%year * 1000 + jday
-      jtime      = timetohhmmss( current_time%time )
-      iyear      = current_time%year
-
-      if ( (mod(iyear,400) == 0) .or. (mod(iyear,100) /= 0 .and. mod(iyear,4) == 0) ) then
-         jyfreq = twopi / 366.0                                                                                                    
-      else
-         jyfreq = twopi / 365.0
-      endif
-
-! Interpolate Mclatchy soundings between summer and winter values, and prepare
-! spline coefficients for interpolation by latitude.
-
-      call mclat_spline(jday)
-
-!...Get Met data
-
-!     CALL GET_PHOT_MET( JDATE, JTIME, MDATE, MTIME )
-
-!...Get cosine of solar parameters and set DARK
-
-!      CALL UPDATE_SUN( JDATE, JTIME, MDATE, MTIME )
-!      
-!      RSQD = DIST_TO_SUN * DIST_TO_SUN
-!
-!      IF ( MAXVAL( COSINE_ZENITH ) .LE. 0.0 ) THEN
-!         DARK = .TRUE.
-!      ELSE
-!         DARK = .FALSE.
-!      END IF
-
-C...calculate the solar information.
-
-      CALL SOLEFM3 ( JYEAR, JDSTRT, EQT, SINDEC, COSDEC, SOLDIST )
-
-      RSQDI = 1.0 / (SOLDIST * SOLDIST)
-
-!...set surface albedos
-
-!     CALL GET_ALBEDO( MDATE, MTIME, LOGDEV, COSINE_ZENITH, LAT, LON )
-
-!...SA  Write COSINE_ZENITH array at the end of each output tstep
-
-!      IF ( PHOTDIAG ) THEN
-!#ifndef phot_extra_tstep
-!         ODATE = JDATE; OTIME = JTIME
-!         CALL NEXTIME ( ODATE, OTIME, DTSTEP( 2 ) )  ! sync time step
-!#endif
-!         JTIME_CHK = ( MOD( TIME2SEC( OTIME ), TSTEP ) .EQ. 0 ) 
-!#ifdef parallel_io
-!         IF ( .NOT. IO_PE_INCLUSIVE ) THEN
-!            IF ( .NOT. OPEN3( CTM_RJ_1, FSNONIO, PNAME ) ) THEN
-!               XMSG = 'Could not open ' // TRIM(CTM_RJ_1)
-!               CALL M3EXIT( PNAME, ODATE, OTIME, XMSG, XSTAT1 )
-!            END IF
-!            IF ( .NOT. OPEN3( CTM_RJ_2, FSNONIO, PNAME ) ) THEN
-!               XMSG = 'Could not open ' // TRIM(CTM_RJ_2)
-!               CALL M3EXIT( PNAME, ODATE, OTIME, XMSG, XSTAT1 )
-!            END IF
-!         END IF
-!#endif
-!      ELSE     
-!        JTIME_CHK = .FALSE.
-!      END IF 
-
-!...If sun below horizon at all cells, zero photolysis rates & exit
-!...  (assumes sun below horizon at *all* levels!)
-
-!      IF ( DARK ) THEN
-
-!         RJ = 0.0
-
-!...write to the log file, CTM_RJ_1 file and return
-
-!         WRITE( LOGDEV, 1003 ) MYPE, JDATE, JTIME
-!1003     FORMAT( 8X, 'Processor ',I4.4,' is in darkness at ', I8.7, ':', I6.6,
-!     &           1X, 'GMT - no photolysis')
-
-!...Initialize ETOT_SFC, TAU_AERO, TAU_TOT, TAUO3_TOP to 0.0
-
-!...Write data to output diagnostic file
-
-!         TOC = 0.0
-!
-!         IF ( JTIME_CHK ) THEN
-!
-!            ETOT_SFC_WL  = 0.0
-!            TAUO3_TOP_WL = 0.0
-!            TAU_AERO_WL  = 0.0
-!            TAU_CLOUD_WL = 0.0
-!#ifdef phot_debug                   
-!            SSA_CLOUD_WL = 0.0
-!            ASY_CLOUD_WL = 0.0
-!#endif                   
-!            TAU_TOT_WL   = 0.0
-!            TAU          = 0.0
-!            TAU_AERO     = 0.0
-!            AERO_SSA     = 0.0
-!            AERO_ASYM    = 0.0
-!            ACTINIC_FX   = 0.0
-!                   
-!            TRANSMIS_DIFFUSE  = 0.0
-!            TRANSMIS_DIRECT   = 0.0
-!            REFLECT_COEFF     = 0.0
-!            CLR_TRANSMISSION  = 0.0
-!            CLR_TRANS_DIRECT  = 0.0
-!            CLR_REFLECTION    = 0.0 
-
-!         END IF  ! if JTIME_CHK
-
-!      ELSE  ! all cells not dark
-
-!...MAIN loop over all rows and columns
-         do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
                RJ( :,:,iw ) = 0.0
 
@@ -742,8 +504,8 @@ C...calculate the solar information.
                CALL GETZEN2 ( CURRHR_LST , SINLATS(iw), COSLATS(iw),
      &                     SINDEC, COSDEC, EQT, COSZEN )
 
-               ! If column is dark, cycle to next column
-               if (coszen < cos85) cycle
+               ! If column is dark, skip to next column
+               if (coszen < cos85) return
 
                ! K index offset for radiation column arrays
                koff = lpw(iw) - 1
@@ -829,10 +591,10 @@ C...calculate the solar information.
 !...Fetch the grid cell ambient data at each layer.
 
                   BLKTA  ( L )   = tair ( k, iw ) ! temperature [K]
-                  BLKPRS ( L )   = press( k, iw ) * PRES_CONV ! [atmospheres]
+!                 BLKPRS ( L )   = press( k, iw ) * PRES_CONV ! [atmospheres]
                   BLKDENS( L )   = rho  ( k, iw ) * DENS_CONV ! [molecules / cm**3]
-                  BLKZH  ( L )   = zt   ( k ) - zsfc ! mid layer height [m]
-                  BLKZF  ( L+1 ) = zm   ( k ) - zsfc ! full layer height [m]
+                  BLKZH  ( L )   = zt   ( k ) ! mid layer height [m]
+                  BLKZF  ( L+1 ) = zm   ( k ) ! full layer height [m]
 
 !...set scale factor for [ppm] -> [molecule / cm**3]
 !...  To go from ppm to molecule/cc:
@@ -866,13 +628,14 @@ C...calculate the solar information.
                sctop(1:nwl) = aero_scat_coef(mza-koff,1:nwl) / blkdens(mza-koff)
                extop(1:nwl) = aero_exti_coef(mza-koff,1:nwl) / blkdens(mza-koff)
                astop(1:nwl) = aero_asym_fac (mza-koff,1:nwl)
+               
+               do l = 2, nlays+1
+                  blkzf(l) = blkzf(l) - zsfc
+               enddo
 
                do l = mza-koff+1, nlays
                   dens         = blkdens(l)
-                  blkprs (l)   = blkprs (l)   * pres_conv
                   blkdens(l)   = blkdens(l)   * dens_conv
-                  blkzh  (l)   = blkzh  (l)   - zsfc
-                  blkzf  (l+1) = blkzf  (l+1) - zsfc
 
                   mscale       = blkdens(l)   * ppm_mcm3
                   blko3  (l)   = blko3  (l)   * o3_conv * mscale / dens
@@ -1084,11 +847,11 @@ C...calculate the solar information.
 !!                 CLOUD_LAYERING = .FALSE.
 !                  CLDFRAC        = 0.0
 !  hydrometeor concentrations
-                  LWC = 0.0
-                  IWC = 0.0
-                  RWC = 0.0
-                  SWC = 0.0
-                  RWC = 0.0
+!                  LWC = 0.0
+!                  IWC = 0.0
+!                  RWC = 0.0
+!                  SWC = 0.0
+!                  RWC = 0.0
 !                 CALL CLEAR_HYDROMETEOR_OPTICS()
 !               END IF
             
@@ -1106,11 +869,11 @@ C...calculate the solar information.
                NEW_PROFILE    = .TRUE. 
                ONLY_SOLVE_RAD = .FALSE. 
 
-               CALL NEW_OPTICS ( iw, JDATE, JTIME, NLAYS, nlays_olam, nlays_chem,
-     &                           BLKTA, BLKPRS, BLKDENS, BLKZH, BLKZF,
-     &                           BLKO3, BLKNO2,
-     &                           ZSFC, COSZEN, SINZEN, RSQDI,
-     &                           NEW_PROFILE, CLOUDS, CLDFRAC,
+               CALL NEW_OPTICS ( iw, NLAYS, nlays_olam, nlays_chem,
+     &                           BLKTA, BLKDENS, BLKZF,
+     &                           BLKO3, BLKNO2, alb, 
+     &                           ZSFC, COSZEN, SINZEN,
+     &                           NEW_PROFILE, CLDFRAC,
      &                           BLKRJ_RES, TAUC_AERO, TAU_TOT,
      &                           SSA, TAU_CLOUD, tauclds, ssaclds, asmclds )
 
@@ -1294,7 +1057,7 @@ C...calculate the solar information.
 !                  END IF
 !               END IF
 
-            END DO
+!            END DO
 !         END DO
 
 !      END IF
@@ -1553,4 +1316,4 @@ C...calculate the solar information.
 
        end subroutine lookup_cmaq_cld_optics
 
-      END SUBROUTINE PHOT
+      END SUBROUTINE PHOT1
