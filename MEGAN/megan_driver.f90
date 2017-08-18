@@ -291,7 +291,7 @@ contains
     use mem_leaf,     only: land
     use leaf4_canopy, only: vegndvi
     use consts_coms,  only: pio180, pi2
-    use misc_coms,    only: current_time, runtype
+    use misc_coms,    only: current_time, runtype, io6
     use mem_grid,     only: mwa, glatw
     use cgrid_spcs,   only: n_gc_emis, gc_emis
     use utilio_defn,  only: index1
@@ -370,6 +370,12 @@ contains
 
     do n = 1, n_gc_emis
        mgn_2_gc_map(n) = INDEX1( GC_EMIS(n), n_mech_spc, mech_spc )
+
+       !if ( mgn_2_gc_map(n) > 0) then
+       !   write(io6,*) "MEGAN: ", trim(gc_emis(n)), " is mapped to ", trim(mech_spc(mgn_2_gc_map(n)))
+       !else
+       !   write(io6,*) "MEGAN: ", trim(gc_emis(n)), " is not mapped"
+       !endif
     enddo
 
   end subroutine megan_init

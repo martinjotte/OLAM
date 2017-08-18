@@ -26,22 +26,24 @@
 
 !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-      SUBROUTINE PHOT ( mrl )
+      SUBROUTINE PHOT ( )
 
       use phot_mod
       USE UTILIO_DEFN
       USE CGRID_SPCS
       USE AERO_PHOTDATA
+      USE RXNS_DATA,   only: nphotab
+      use hrdata,      only: rj
       use mem_radiate, only: nadd_rad
       use cmaq_cloud
-      use mem_ijtabs,  only: jtab_w, jtw_prog
+      use mem_ijtabs,  only: jtab_w, jtw_prog, istp
       use mem_grid,    only: mza, mwa, glatw
-      use misc_coms,   only: current_time
+      use misc_coms,   only: current_time, time8p, dtlong, mstp
       use consts_coms, only: r8
       use mem_mclat,   only: mclat_spline
-      implicit none
+      use oname_coms,  only: nl
 
-      integer, intent(in) :: mrl
+      implicit none
 
       LOGICAL, SAVE :: FIRSTIME = .TRUE.
       INTEGER, SAVE :: LOGDEV
@@ -71,6 +73,8 @@
          LOGDEV   = INIT3()
 
          nlays_max = mza + nadd_rad
+
+         allocate( rj( mza, nphotab, mwa ) ) ; rj = 0.0
 
          CALL LOAD_CSQY_DATA( )
 
@@ -123,43 +127,50 @@
 
       END IF  ! firstime
 
-      ! Calculate current hour in GMT and julian day
+      ! Check whether it is time to update photolysis rates
 
-      currhr     = current_time%time / 3600.0_r8
-      jday       = julday( current_time%month, current_time%date, current_time%year )
-      julian_day = real( jday )
-      jyear      = real( current_time%year )
-      jdstrt     = julian_day
-      jdate      = current_time%year * 1000 + jday
-      jtime      = timetohhmmss( current_time%time )
-      iyear      = current_time%year
+      if ( (istp == 1 .and. mod(time8p, nl%photfrq) < dtlong) .or.
+     &     (istp == 1 .and. mstp == 0) ) then
 
-      if ( (mod(iyear,400) == 0) .or. (mod(iyear,100) /= 0 .and. mod(iyear,4) == 0) ) then
-         jyfreq = twopi / 366.0                                                                                                    
-      else
-         jyfreq = twopi / 365.0
+         ! Calculate current hour in GMT and julian day
+
+         currhr     = current_time%time / 3600.0_r8
+         jday       = julday( current_time%month, current_time%date, current_time%year )
+         julian_day = real( jday )
+         jyear      = real( current_time%year )
+         jdstrt     = julian_day
+         jdate      = current_time%year * 1000 + jday
+         jtime      = timetohhmmss( current_time%time )
+         iyear      = current_time%year
+
+         if ( (mod(iyear,400) == 0) .or. (mod(iyear,100) /= 0 .and. mod(iyear,4) == 0) ) then
+            jyfreq = twopi / 366.0
+         else
+            jyfreq = twopi / 365.0
+         endif
+ 
+         ! Interpolate Mclatchy soundings between summer and winter values,
+         ! and prepare spline coefficients for interpolation by latitude.
+
+         call mclat_spline(jday)
+
+         ! Calculate the solar information.
+
+         CALL SOLEFM3 ( JYEAR, JDSTRT, EQT, SINDEC, COSDEC, SOLDIST )
+
+         RSQDI = 1.0 / (SOLDIST * SOLDIST)
+
+         ! MAIN loop over all rows and columns
+
+         !$omp parallel do private(iw)
+         do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+
+            call phot1( iw, currhr, julian_day, jyfreq )
+
+         enddo
+         !$omp end parallel do
+
       endif
-
-      ! Interpolate Mclatchy soundings between summer and winter values,
-      ! and prepare spline coefficients for interpolation by latitude.
-
-      call mclat_spline(jday)
-
-      ! Calculate the solar information.
-
-      CALL SOLEFM3 ( JYEAR, JDSTRT, EQT, SINDEC, COSDEC, SOLDIST )
-
-      RSQDI = 1.0 / (SOLDIST * SOLDIST)
-
-      ! MAIN loop over all rows and columns
-
-      !$omp parallel do private(iw)
-      do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-         call phot1( iw, currhr, julian_day, jyfreq )
-
-      enddo
-      !$omp end parallel do
 
       end subroutine phot
 

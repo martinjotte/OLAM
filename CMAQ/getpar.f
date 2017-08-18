@@ -20,8 +20,13 @@
 C RCS file, release, date & time of last delta, author, state, [and locker]
 C $Header: /project/yoj/arc/CCTM/src/aero/aero5/getpar.f,v 1.7 2012/01/19 13:13:27 yoj Exp $
 
+      module getpar_mod
+
+      contains
+
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      Subroutine getpar( limit_sg  )
+
+      Subroutine getpar( limit_sg, noM3 )
 
 C  Calculates the 3rd moments (M3), masses, aerosol densities, and
 C  geometric mean diameters (Dg) of all 3 modes, and the natural logs of
@@ -64,6 +69,7 @@ C-----------------------------------------------------------------------
 
 C Arguments:
       Logical, Intent( In ) :: limit_sg  ! fix coarse and accum Sg's to the input value?
+      Logical, Intent( In ), optional :: noM3  ! no need to recompute 3rd moment?
 
 C Output variables:
 C  updates arrays in aero_data module
@@ -82,14 +88,11 @@ C Local Variables:
       real :: xm0_one3
       real :: xm3_one3
 
-      Real, Parameter :: one3  = 1.0 / 3.0
-      Real, Parameter :: dgmin = 1.0E-09   ! minimum particle diameter [ m ]
+      Real, Parameter :: one3    = 1.0 / 3.0
       Real, Parameter :: densmin = 1.0E03  ! minimum particle density [ kg/m**3 ]
-      real, parameter :: dgmax(n_mode) = min(def_diam(1:n_mode) * 100., 5.e-6)
-      Real, parameter :: minl2sg = Log( min_sigma_g ) ** 2
-      Real, parameter :: maxl2sg = Log( max_sigma_g ) ** 2
-      Real, parameter :: minel2sg = exp( minl2sg )
-      Real, parameter :: maxel2sg = exp( maxl2sg )
+
+      Real, parameter :: minel2sg = exp( min_l2sg )
+      Real, parameter :: maxel2sg = exp( max_l2sg )
 
       Real( 8 ) :: sumM3  ( n_mode )
       Real( 8 ) :: sumMass( n_mode )
@@ -101,27 +104,54 @@ C-----------------------------------------------------------------------
 
 C *** Calculate aerosol 3rd moment concentrations [ m**3 / m**3 ]
 
-      Do n = 1, n_mode
-         sumM3  (n) = 0.0_8
-         sumMass(n) = 0.0_8
-      End Do
+      if (present(noM3)) then
+         if (noM3) then
 
-      Do spc = 1, n_aerospc
-         If ( aerospc( spc )%tracer) cycle
-         If ( aerospc( spc )%no_M2Wet .AND. .Not. wet_moments_flag ) Cycle
-         do n = 1, n_mode
-            if ( aero_missing(spc,n) ) cycle
-            sumM3  (n) = sumM3  (n) + aerospc_conc(spc,n) * aerospc_m3fac(spc)
-            sumMass(n) = sumMass(n) + aerospc_conc(spc,n)
+            Do n = 1, n_mode
+               sumMass(n) = 0.0_8
+            End Do
+
+            Do spc = 1, n_aerospc
+               If ( aerospc( spc )%tracer) cycle
+               If ( aerospc( spc )%no_M2Wet .AND. .Not. wet_moments_flag ) Cycle
+               do n = 1, n_mode
+                  if ( aero_missing(spc,n) ) cycle
+                  sumMass(n) = sumMass(n) + aerospc_conc(spc,n)
+               End Do
+            End Do
+
+            ! Calculate modal average particle densities [ kg/m**3 ]
+            do n = 1, n_mode
+               aeromode_mass(n) = sumMass(n)
+               aeromode_dens(n) = max(f6piove9 * aeromode_mass(n) / moment3_conc(n), densmin)
+            enddo
+
+         endif
+      else
+
+         Do n = 1, n_mode
+            sumM3  (n) = 0.0_8
+            sumMass(n) = 0.0_8
          End Do
-      End Do
 
-C *** Calculate modal average particle densities [ kg/m**3 ]
-      do n = 1, n_mode
-         moment3_conc (n) = Max( Real(sumM3(n)), aeromode( n )%min_m3conc )
-         aeromode_mass(n) = sumMass(n)
-         aeromode_dens(n) = max(f6piove9 * aeromode_mass(n) / moment3_conc(n), densmin)
-      enddo
+         Do spc = 1, n_aerospc
+            If ( aerospc( spc )%tracer) cycle
+            If ( aerospc( spc )%no_M2Wet .AND. .Not. wet_moments_flag ) Cycle
+            do n = 1, n_mode
+               if ( aero_missing(spc,n) ) cycle
+               sumM3  (n) = sumM3  (n) + aerospc_conc(spc,n) * aerospc_m3fac(spc)
+               sumMass(n) = sumMass(n) + aerospc_conc(spc,n)
+            End Do
+         End Do
+
+         ! Calculate modal average particle densities [ kg/m**3 ]
+         do n = 1, n_mode
+            moment3_conc (n) = Max( Real(sumM3(n)), aeromode( n )%min_m3conc )
+            aeromode_mass(n) = sumMass(n)
+            aeromode_dens(n) = max(f6piove9 * aeromode_mass(n) / moment3_conc(n), densmin)
+         enddo
+
+      endif
 
 C *** Calculate geometric standard deviations as follows:
 c        ln^2(Sg) = 1/3*ln(M0) + 2/3*ln(M3) - ln(M2)
@@ -149,9 +179,8 @@ C *** Aitken Mode:
 
             ES36_one3 = Exp( 1.5 * l2sg )
 
-            aeromode_diam( n ) = max( dgmin, ( xm3_one3 / ( xm0_one3 * es36_one3 ) ) )
-
-            aeromode_diam( n ) = min( dgmax(n), aeromode_diam(n) )
+            aeromode_diam( n ) = max( min_diam_g(n), ( xm3_one3 / (xm0_one3 * es36_one3) ) )
+            aeromode_diam( n ) = min( max_diam_g(n), aeromode_diam(n) )
 
          End Do
 
@@ -164,10 +193,8 @@ C *** Aitken Mode:
 
             exfsum = xm0_one3 * xm3_one3 ** 2
 
-            el2sg = exfsum / moment2_conc( n ) 
-
-            el2sg = Max( el2sg, minel2sg )
-            el2sg = Min( el2sg, maxel2sg )
+            el2sg = max( minel2sg, exfsum / moment2_conc( n ) )
+            el2sg = Min( maxel2sg, el2sg )
 
             moment2_conc( n )  = exfsum / el2sg
 
@@ -177,12 +204,13 @@ C *** Aitken Mode:
 
             ES36_one3 = el2sg * sqrt(el2sg)
 
-            aeromode_diam( n ) = max( dgmin, ( xm3_one3 / ( xm0_one3 * es36_one3 ) ) )
-
-            aeromode_diam( n ) = min( dgmax(n), aeromode_diam(n) )
+            aeromode_diam( n ) = max( min_diam_g(n), ( xm3_one3 / (xm0_one3 * es36_one3) ) )
+            aeromode_diam( n ) = min( max_diam_g(n), aeromode_diam(n) )
 
          End Do
 
       endif
 
       End Subroutine getpar
+
+      end module getpar_mod

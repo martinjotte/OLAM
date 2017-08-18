@@ -414,7 +414,7 @@ C-----------------------------------------------------------------------
       USE RXNS_DATA
       USE CGRID_SPCS          ! CGRID mechanism species
       USE UTILIO_DEFN
-
+      USE GETPAR_MOD, ONLY: GETPAR
       USE AERO_DATA           ! aero variable data
       USE AEROMET_DATA        ! constants and met data
       USE CSQY_DATA,  ONLY : NWL, NUM_REFRACTIVE, WAVELENGTH => EFFWL_REF
@@ -506,7 +506,7 @@ C-----------------------------------------------------------------------
          CALL EXTRACT_AERO ( CGRID( k,IW,: ), .TRUE. )
 
          ! *** Calculate geometric mean diameters and standard deviations of "wet" size distribution
-         CALL GETPAR ( .FALSE. )
+         CALL GETPAR ( .FALSE., noM3=.true. )
 
          G_BAR(1:nwl) = 0.0
          BEXT (1:nwl) = 0.0

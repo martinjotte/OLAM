@@ -83,7 +83,7 @@ C    May 16 B. Murphy, H. Pye: Updated treatment of aerosol moments
       USE UTILIO_DEFN      
       USE AERO_DATA           ! aero variable data
       USE AEROMET_DATA        ! Includes CONST.EXT
-
+      use getpar_mod,  only: getpar
       use cgrid_conv,  only: rev_cgrid_sfc_iw
       use depv_defn
       use mem_ijtabs,  only: itab_w
@@ -215,7 +215,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
          ! Calculate geometric mean diameters and standard deviations of
          ! the "wet" size distribution
 
-         call getpar( .false. )
+         call getpar( .false., noM3=.true. )
 
          ! Save getpar values to arrays
 

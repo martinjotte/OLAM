@@ -225,7 +225,7 @@ C Mapping array for location of acid enhanced products and nucleophiles in aeros
 
       CONTAINS
 
-      SUBROUTINE HETCHEM_RATES( iw, kmax, khetero, chem_m2dry_init, chem_m3dry_init )
+      SUBROUTINE HETCHEM_RATES( iw, kmax, khetero, chem_m3dry_init )
 
 c Calculates the heterogeneous reactions for N2O5, NO2, CLNO2, and IEPOX. 
 c
@@ -327,6 +327,7 @@ C-----------------------------------------------------------------------
       USE AERO_DATA
       USE AEROMET_DATA, ztemp1=>airtemp, ztemp2=>airrh 
       USE PRECURSOR_DATA, only: map_precursor
+      use GETPAR_MOD, only: getpar
       USE SOA_DEFN,   only: n_vapor, soa_aeroMap
       use mem_basic,  only: tair, rho, press, sh_v
       use mem_grid,   only: mza, lpw
@@ -338,7 +339,6 @@ C *** Arguments
       integer, intent(in)  :: iw
       integer, intent(in)  :: kmax
       real(8), intent(out) :: khetero        ( mza, nhetero )
-      real,    intent(out) :: chem_m2dry_init( n_mode,  mza )
       real,    intent(out) :: chem_m3dry_init( n_mode,  mza )
       
 C *** Parameters
@@ -485,12 +485,6 @@ C *** variables for getting aerosol diagnostic file flag
       LOGICAL              :: DUMP_CELL
 #endif
 
-      INTERFACE
-         SUBROUTINE GETPAR( LIMIT_SG  )
-         LOGICAL, INTENT( IN ) :: LIMIT_SG ! fix coarse and accum Sg's to the input value?
-         END SUBROUTINE GETPAR
-      END INTERFACE 
-  
 C-----------------------------------------------------------------------
 
       IF ( NHETERO .LT. 1 ) RETURN
@@ -576,7 +570,7 @@ C *** Get flag for average PM diagnostic file.
        ELSE
           MWTIEPOX  = 118.1D0
        END IF
-       CFACTOR_IEPOX = SQRT( 8.0D3 * REAL( RGASUNIV, 8 ) / ( MWTIEPOX * DPI ) )
+       CFACTOR_IEPOX = SQRT( 8.0D3 * DRGASUNIV / ( MWTIEPOX * DPI ) )
 
        IMAE_IDX = INDEX1( 'IMAE', NUMB_MECH_SPC, CHEMISTRY_SPC )
        IF( IMAE_IDX .GT. 0 )THEN
@@ -584,7 +578,7 @@ C *** Get flag for average PM diagnostic file.
        ELSE
            MWTIMAE  = 102.0D0
        END IF
-       CFACTOR_IMAE = SQRT( 8.0D3 * REAL( RGASUNIV, 8 ) / ( MWTIMAE * DPI ) )
+       CFACTOR_IMAE = SQRT( 8.0D3 * DRGASUNIV / ( MWTIMAE * DPI ) )
 
        IF( AIETET_IDX .GT. 0 ) THEN
           INV_MWIETET = REAL( 1.0/ aerospc_mw( AIETET_IDX ), 8 )
@@ -604,7 +598,7 @@ C *** Get flag for average PM diagnostic file.
        ELSE
            MWTNO3  = 62.01D0
        END IF
-       CFACTOR_NO3 = SQRT( 8.0D3 * REAL( RGASUNIV, 8 ) / ( MWTNO3 * DPI ) )
+       CFACTOR_NO3 = SQRT( 8.0D3 * DRGASUNIV / ( MWTNO3 * DPI ) )
 
        GLY_IDX = INDEX1( 'GLY', NUMB_MECH_SPC, CHEMISTRY_SPC )
        IF( GLY_IDX .GT. 0 )THEN
@@ -612,7 +606,7 @@ C *** Get flag for average PM diagnostic file.
        ELSE
            MWTGLY  = 58.04D0
        END IF
-       CFACTOR_GLY = SQRT( 8.0D3 * REAL( RGASUNIV, 8 ) / ( MWTGLY * DPI ) )
+       CFACTOR_GLY = SQRT( 8.0D3 * DRGASUNIV / ( MWTGLY * DPI ) )
 
        MGLY_IDX = INDEX1( 'MGLY', NUMB_MECH_SPC, CHEMISTRY_SPC )
        IF( MGLY_IDX .GT. 0 )THEN
@@ -620,7 +614,7 @@ C *** Get flag for average PM diagnostic file.
        ELSE
            MWTMGLY  = 72.07D0
        END IF
-       CFACTOR_MGLY = SQRT( 8.0D3 * REAL( RGASUNIV, 8 ) / ( MWTMGLY * DPI ) )
+       CFACTOR_MGLY = SQRT( 8.0D3 * DRGASUNIV / ( MWTMGLY * DPI ) )
 
 C ***  Map to acids/nucleophiles for epoxide uptake
        INDX =  INDEX1( NAMES_AERO_RATES( IA_IEPOX ), NHETERO, HETERO )   
@@ -722,7 +716,7 @@ C ***  Map to acids/nucleophiles for epoxide uptake
 C *** extract grid cell concentrations of aero species from CGRID
 C     into aerospc_conc in aero_data module
 C     also converts dry surface area to wet second moment
-               CALL EXTRACT_AERO ( CGRID( C,R,: ), .TRUE. )
+               CALL EXTRACT_AERO ( CGRID( C,R,: ), .TRUE., dry_m3=CHEM_M3DRY_INIT( :,C ) )
 
                AIRTEMP   = tair(k,iw)
                tairc     = tair(k,iw) - 273.15
@@ -749,7 +743,7 @@ C     standard deviations, modal mass totals, and modal particle
 C     densities, based on the concentrations of M2, M0, and speciated
 C     masses.
                LIMIT_Sg = .False.
-               CALL getpar( limIT_Sg )
+               CALL getpar( limIT_Sg, noM3=.true. )
     
 C *** set up variables needed for calculating KN2O5 and YIELD_CLNO2
 
@@ -765,14 +759,6 @@ C     getpar. It is stored in aeromode_diam
 C *** calculate effective diameter (this is actually the mean) using Eq 3 of Pleim et al (1995)
                   RE_WET( N ) = 0.5 * AEROMODE_DIAM( N ) * EXP( 1.5 * AEROMODE_LNSG( N ) ** 2 )
                END DO
-
-C *** Retrieve and Save the Dry 3rd and 2nd Moments
-               CALL calcmoments( .False. )
-
-               do n = 1, n_mode
-                  CHEM_M2DRY_INIT( n,C ) = MOMENT2_CONC( n )
-                  CHEM_M3DRY_INIT( n,C ) = MOMENT3_CONC( n )
-               enddo
 
 C *** calculate molecular speeds (m/s) using Eq 4 of Pleim et al (1995)
 
@@ -1160,7 +1146,7 @@ C *** calculate KBRONO2 from coarse mode
  
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-      SUBROUTINE HETCHEM_UPDATE_AERO ( m2dry_init, m3dry_init, iw, ks, ke )
+      SUBROUTINE HETCHEM_UPDATE_AERO ( m3dry_init, iw, ks, ke )
 
 c  Calculates the change in aerosol surface area due to heterogeneous
 C  reactions and updates the CGRID array with this information.
@@ -1179,40 +1165,25 @@ C  Called by: Gas-Phase Chemistry Driver
       IMPLICIT NONE
       
       integer, intent(in) :: iw, ks, ke
-      real,    intent(in) :: m2dry_init(n_mode, mza)
       real,    intent(in) :: m3dry_init(n_mode, mza)
       
       REAL, PARAMETER :: ONETHIRD = 1.0 / 3.0
-      REAL            :: M2DRY_FINAL( N_MODE ) ! Dry 2nd Aerosol Moment
-!     REAL            :: M3DRY_FINAL( N_MODE ) ! Dry 3rd Aerosol Moment
       INTEGER         :: M, k
 
-      do k = ks, ke
+      DO K = KS, KE
 
          ! Extract grid cell concentrations of aero species from CGRID
          ! into aerospc_conc in aero_data module
-         ! also converts dry surface area to wet second moment
-         CALL extract_aero ( CGRID( K,IW,: ), .True. )
+         CALL extract_aero ( CGRID( K,IW,: ), .True., dry=.True. )
 
-         ! Recalculate Dry 3rd Moment After Chemistry Processes
-         ! 2nd moment hasn't been update yet.
-         CALL calcmoments( .False. )
-
-         do m = 1, n_mode
-!            M2DRY_FINAL( m ) = MOMENT2_CONC( m )
-!            M3DRY_FINAL( m ) = MOMENT3_CONC( m )
-
-            ! Calculate new Second Moment Manually
-            ! Assume standard deviation is fixed.
-            M2DRY_FINAL( m ) = M2DRY_INIT( m,K )
-     &                       * ( (MOMENT3_CONC( m )/M3DRY_INIT( m,K ))**2 ) ** ONETHIRD
-
-            ! Update the Aerosol Surface Area making sure to multiply
-            ! the 2nd moment by Pi to convert properly
-            CGRID( K,IW,aerosrf_map( M ) ) = PI * M2DRY_FINAL( M )
+         ! Update the Aerosol Surface Area making sure to multiply
+         ! the 2nd moment by Pi to convert properly
+         DO M = 1, N_MODE
+            CGRID( K,IW,aerosrf_map( M ) ) = PI * MOMENT2_CONC( M )
+     &           * ( (MOMENT3_CONC( m ) / M3DRY_INIT( m,K ))**2 ) ** ONETHIRD
          END DO
 
-      end do
+      END DO
 
       END SUBROUTINE HETCHEM_UPDATE_AERO
 
@@ -2073,10 +2044,12 @@ C *** External functions
 
 C-----------------------------------------------------------------------
 
+      !$omp critical
       if (i_iepox == 0) then
          call hlconst_spcs_init ( 'IEPOX', i_iepox )
          call hlconst_spcs_init ( 'IMAE',  i_imae )
       endif
+      !$omp end critical
 
 C *** Determine H+ acid concentration of j mode [mol/m3]
       eqlbh = aerospc_conc( ah3op_idx, 2 ) * aerospc_mwi( ah3op_idx ) * 1.0d-6

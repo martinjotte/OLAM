@@ -238,6 +238,12 @@
 !           CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
 !        END IF
 
+! Check the Emissions Species Available on the Input Files Against the
+! Surrogates Identified by the User via the Namelists and Stop the model
+! or Print Warnings if Mistakes Are Made.
+!        CALL EMIS_SPC_CHECK( JDATE, JTIME )
+
+C Warn the User if there are No Emissions Species On Any File         
          IF ( N_SPC_EMIS .LE. 0 ) THEN
             XMSG = 'There are no emissions: VDEMIS is set to zero' ! below
             CALL M3WARN ( PNAME, JDATE, JTIME, XMSG )

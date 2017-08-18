@@ -370,12 +370,23 @@
            ! the pcVOC emissions
            ZERO_PCSOA = .FALSE.         ! default
 
+           V = INDEX1( 'PCVOC', N_GC_SPC, GC_SPC )
+           IF ( V .LT. 1 ) THEN
+             WRITE(LOGDEV,99901)'PCVOC','PCVOC',TRIM( MECHNAME )
+             SUCCESS = .FALSE.
+           END IF
+
            IF ( ZERO_PCSOA ) THEN
              ! Find the index for the pcVOC species in the emissions
              ! scale-factor vector
-             V = INDEX1( 'PCVOC', N_GC_SPC, GC_SPC )
-             S = FINDEX( V, N_GC_EMIS, GC_EMIS_MAP )
-             GC_EMIS_FAC( S ) = 0.0
+             IF ( V .GT. 0 ) THEN
+                S = FINDEX( V, N_GC_EMIS, GC_EMIS_MAP )
+                IF ( S .GT. 0 )THEN
+                   GC_EMIS_FAC( S ) = 0.0
+                ELSE
+                   WRITE(LOGDEV,99902)'PCVOC'
+                END IF
+             END IF
            ENDIF
 
 ! *** Assign Volaitlity Distribution to Primary Orgnaic Vapor Species
@@ -461,6 +472,14 @@
                      IF ( IDX .NE. 0 ) THEN
                         EM_MAP( IDX,N ) = INDEX1( AEROSPC( IDX )%NAME( N ), N_AE_EMIS, AE_EMIS )
                         DUST_MAP( IDX,N ) = S
+                     ELSE
+                        WRITE( XMSG, '(A43,A23,A8,A11,A62,A53)' ), 
+     &                         'Cannot find aerosol species to accomodate ',
+     &                         'dust emission species: ', DUST_SPC( S )%NAME( N ), '. You must ',
+     &                         'provide a prognostic variable for this species in both the AE ',
+     &                         'namelist and the AERO_DATA table in order to proceed.'
+                        CALL M3WARN( PNAME, JDATE, JTIME, XMSG )
+                        SUCCESS = .FALSE.
                      END IF
 #ifdef Verbose1
                   write( logdev,* ) 'dust_map: ', n, s, dust_map( idx,n ), aerospc( idx )%name( n )
@@ -529,6 +548,13 @@
 
          SUCCESS = .TRUE.; RETURN
 
+99901     FORMAT(/'FATAL: GC namelist used does not include species, ', A, 
+     &         / 'Check this namelist contains the same information '
+     &         / 'for ', A,' as the repository version of the GC namelist for '
+     &         / 'the ', A, ' mechanism.' )
+99902     FORMAT(/'WARNING: GC namelist line for ', A, ' does not include an emissions '
+     &         / 'surrogate. Simulation cannot evaluate the effect from zeroing out its '
+     &         / 'emissions.')
          END FUNCTION  AERO_EMIS_INIT
 
 !-----------------------------------------------------------------------

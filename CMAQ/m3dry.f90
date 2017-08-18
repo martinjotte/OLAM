@@ -389,6 +389,10 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
 !    Toluene diisocyanate and hexamethylene diisocyanate reactivities are
 !    assumed to be similar to SO2. Diffusivities are calculated with standard
 !    formulas.  W. Hutzell (04/08)
+! %% G. Sarwar: added data for iodine and bromine species (03/2016)
+! %% B. Hutzell: added dry deposition data for methane, acrylic acid, methyl chloride,
+!    and acetonitrile (09/2016)   
+
 !-------------------------------------------------------------------------------
 
   DATA subname(  1), dif0(  1), ar(  1), meso(  1), lebas(  1) / 'SO2             ', 0.1089,   10.0,      0.0,  35.0/
@@ -495,6 +499,7 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
   DATA subname(102), dif0(102), ar(102), meso(102), lebas(102) / 'ACRYACID        ',0.0908,    2.0,      0.0,   63.2/ 
   DATA subname(103), dif0(103), ar(103), meso(103), lebas(103) / 'CARBSULFIDE     ',0.1240,    5.0,      0.0,   51.5/ 
   DATA subname(104), dif0(104), ar(104), meso(104), lebas(104) / 'ACETONITRILE    ',0.1280,    5.0,      0.0,   52.3/ 
+  DATA subname(105), dif0(105), ar(105), meso(105), lebas(105) / '6_NITRO_O_CRESOL',0.0664,   16.0,      0.0,  155.0/ ! dif0, equation 9-22. Scwarzenbach et. (1993) Env. Org. Chem.
 
   !$omp critical
   IF ( first_call ) THEN

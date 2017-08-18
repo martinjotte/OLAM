@@ -237,6 +237,8 @@
 
       INTEGER, SAVE :: LOGDEV
 
+      real, save :: rhsumdry
+
       CONTAINS
 
 !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -378,6 +380,18 @@
             endif
 
             call lbcopy_w1d(1, a1=szone)
+
+            ! Calculate dry sea-salt density (kg/m3)
+            RHSUMDRY = 0.0
+            DO S = 1, NSSSPC
+               IF ( AEROSPC_SSF( 2,SSSPC_MAP( S ) ) .LT. 1.0E-30 ) CYCLE
+
+               ! do not include Water or tracers
+               IF ( S .EQ. KH2O .OR. AEROSPC( SSSPC_MAP( S ) )%TRACER ) CYCLE
+
+               ! RHSUMDRY is assumed the same between J and K modes
+               RHSUMDRY = RHSUMDRY + AEROSPC_SSF( 2,SSSPC_MAP(S) ) * aerospc_spvol( SSSPC_MAP(S) )
+            END DO
 
 ! Get sea-salt-emission diagnostic output file flag.
 
@@ -671,6 +685,8 @@
             REAL      :: BLKRH            ! fractional relative humidity
 
 ! Variables for calculating solute mass fraction & size-correction factors
+            REAL, PARAMETER :: A0  = 1.0 / 3.70
+            REAL, PARAMETER :: A80 = 3.7 / 1.82
             REAL      :: RH               ! BLKRH constrained to 45-99% range
             REAL      :: C0               ! (Diam @ formation) / (Diam @ ambient RH)
             REAL      :: C80              ! (Diam @ 80% RH) / (Diam @ ambient RH)    
@@ -678,8 +694,6 @@
 
 ! Density of dry sea salt [kg/m3] using volume additivity
             REAL      :: RHOSW            ! sea-salt particle density at ambient RH [g/m3]
-            REAL      :: specvol          ! specific volume of dry sea salt [m3/kg]
-                                          ! using volume additivity
 
 ! Maximum and minimum diameters for emission-flux integrations [m]
             REAL, PARAMETER :: DPMAX = 20.0E-6 ! upper limit used for the
@@ -772,9 +786,9 @@
                RH = BLKRH
                RH = MAX( 0.45, MIN( 0.99, RH ) )
 
-! Calculate size-correction factors from Equation 3 of Lewis & Schwartz 2006 and Zhang et al 2006 equation 2. 
-               C0  = 3.70 * ( (1.0-RH) / (2.0-RH) ) ** one3
-               C80 = 1.82 * ( (1.0-RH) / (2.0-RH) ) ** one3
+C Calculate inverse of size-correction factors from Equation 3 of Lewis & Schwartz 2006 and Zhang et al 2006 equation 2. 
+               C0  = A0  * ( (2.0-RH) / (1.0-RH) ) ** ONE3
+               C80 = A80 * C0
 
 ! Calculate solute mass fraction using Equation 1 of Zhang et al.
                XSW =        X_COEFF( 1 )
@@ -784,31 +798,22 @@
      &             + RH * ( X_COEFF( 5 )
      &             + RH * ( X_COEFF( 6 ) ) ) ) ) )
 
-! Calculate dry sea-salt [kg/m3]
-               specvol = 0.0
-               DO S = 1, NSSSPC
-                  IF ( S .EQ. KH2O ) CYCLE !! do not include Water
-                  SPECVOL = SPECVOL
-     &                    + AEROSPC_SSF( 2,SSSPC_MAP( S ) )
-     &                      / AEROSPC( SSSPC_MAP( S ) )%DENSITY
-               END DO
-
 ! Calculate sea-salt-particle density [g/m3] at ambient RH, assuming
 ! volume additivity of dry salt plus water
-               RHOSW = 1.0e3 / ( XSW * specvol + 
-     &                           (1.0 - XSW) / AEROSPC( AH2O_IDX )%DENSITY )
+               RHOSW = 1.0e3 / ( XSW * rhsumdry
+     &                         + (1.0 - XSW) * aerospc_spvol( AH2O_IDX ) )
 
 ! Set minimum and maximum diameters for integration using the size-
 ! correction factors of Zhang et al. (2005)
 
 ! Gong-Monahan flux function is valid from 0.005-5.0 um dry radius;
 ! multiply by 4 to get wet diameter at 80% RH
-               DPMINO = 2.0E-8 / C80
-               DPMAXO = MIN( DPMAX, DPMAX / C80 )
+               DPMINO = 2.0E-8 * C80
+               DPMAXO = MIN( DPMAX, DPMAX * C80 )
 
 ! deLeeuw flux function is valid from 1.6-20 um diameter at formation
-!              DPMINO = 1.6E-6 / C0 
-!              DPMAXO = MIN( DPMAX, DPMAX / C0 )
+!              DPMINO = 1.6E-6 * C0 
+!              DPMAXO = MIN( DPMAX, DPMAX * C0 )
 
 ! Calculate scaling factors to correct the tabulated fluxes for the 10m
 ! wind speed in this cell.  Note: tabulated values are based on 1 m/s.

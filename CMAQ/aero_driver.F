@@ -126,10 +126,8 @@ C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       USE AOD_DEFN            ! IMPROVE reconstructed method AOD
       USE UTILIO_DEFN
       USE CGRID_SPCS
-!     USE AEROSOL_CHEMISTRY, ONLY : GAMMA_N2O5IJ, GAMMA_N2O5K, YCLNO2IJ, YCLNO2K, 
-!    &                              GAMMA_IEPOX, GAMMA_IMAE, KPARTIEPOX, AERO_CHEM_SET
       USE PMDIAG_DATA_MODULE
-
+      USE GETPAR_MOD, only: getpar
       use cgrid_defn, only: cgrid
       use mem_ijtabs, only: jtab_w, jtw_prog
       use mem_grid,   only: mza, lpw
@@ -601,7 +599,7 @@ C *** OUTPUT DIAGNOSTIC INFORMATION
                if (writetime) then
 C *** Get wet moment info (dry will be converted to wet)
                CALL calcmoments( .true. )
-               CALL GETPAR( LIMIT_Sg ) ! update AEROMODE_DIAM,DENS,SDEV
+               CALL GETPAR( LIMIT_Sg, noM3=.true. ) ! update AEROMODE_DIAM,DENS,SDEV
                    
 C *** Calculate volume fraction of each mode for measurement applications
                DO N = 1, N_MODE

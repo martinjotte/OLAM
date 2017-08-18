@@ -12,7 +12,7 @@ module edgar_42_emis
   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
   integer, parameter :: nsec    = 17 ! number of edgar emissions sectors
-  integer, parameter :: nvars3d = 48
+  integer, parameter :: nvars3d = 53
   integer, parameter :: nvoc    = 19 ! number of speciation factors for nmvoc
   integer, parameter :: nevars  =  8 ! number of raw emissions species
   integer, parameter :: npms    = 19 ! number of speciation factors for pm2.5
@@ -21,62 +21,67 @@ module edgar_42_emis
 
   ! Gas chemistry species
 
-  integer :: ICO   = 1
-  integer :: INO   = 2
-  integer :: INO2  = 3
-  integer :: INH3  = 4
-  integer :: ISO2  = 5
-  integer :: ISULF = 6
+  integer, parameter :: ICO   = 1
+  integer, parameter :: INO   = 2
+  integer, parameter :: INO2  = 3
+  integer, parameter :: INH3  = 4
+  integer, parameter :: ISO2  = 5
+  integer, parameter :: ISULF = 6
 
   ! NMVOC species
 
-  integer :: IALD2    =  7
-  integer :: IALDX    =  8
-  integer :: IETH     =  9
-  integer :: IETHA    = 10
-  integer :: IETOH    = 11
-  integer :: IFORM    = 12
-  integer :: IIOLE    = 13
-  integer :: IISOP    = 14
-  integer :: IMEOH    = 15    
-  integer :: INVOL    = 16
-  integer :: IOLE     = 17
-  integer :: IPAR     = 18
-  integer :: ITERP    = 19
-  integer :: ITOL     = 20
-  integer :: IUNK     = 21
-  integer :: IUNR     = 22
-  integer :: IXYL     = 23
-  integer :: IBENZENE = 24
-  integer :: ISESQ    = 25
+  integer, parameter :: IALD2    =  7
+  integer, parameter :: IALDX    =  8
+  integer, parameter :: IETH     =  9
+  integer, parameter :: IETHA    = 10
+  integer, parameter :: IETOH    = 11
+  integer, parameter :: IFORM    = 12
+  integer, parameter :: IIOLE    = 13
+  integer, parameter :: IISOP    = 14
+  integer, parameter :: IMEOH    = 15    
+  integer, parameter :: INVOL    = 16
+  integer, parameter :: IOLE     = 17
+  integer, parameter :: IPAR     = 18
+  integer, parameter :: ITERP    = 19
+  integer, parameter :: ITOL     = 20
+  integer, parameter :: IUNK     = 21
+  integer, parameter :: IUNR     = 22
+  integer, parameter :: IXYLMN   = 23
+  integer, parameter :: IBENZENE = 24
+  integer, parameter :: ISESQ    = 25
 
-! Other gas species (currently not set here)
+! Other gas species (some not set here)
 
-  integer :: ICL2  = 26
-  integer :: IHCL  = 27
-  integer :: IHONO = 28
+  integer, parameter :: ICL2   = 26  ! computed from GEIA database
+  integer, parameter :: IHCL   = 27  ! computed from GEIA database
+  integer, parameter :: IHONO  = 28  ! estimated from NOx for vehicle emissions
+  integer, parameter :: INAPH  = 29  ! new in 5.2, estimated from XYLMN
+  integer, parameter :: ISOAALK= 30  ! new in 5.2, estimated from PAR
+  integer, parameter :: IFACD  = 31
+  integer, parameter :: IAACD  = 32
+  integer, parameter :: ICH4   = 33  ! placeholder, used in CB6
 
 ! PM species
-  integer :: IPMC    = 29
-  integer :: IPEC    = 30
-  integer :: IPMFINE = 31
-  integer :: IPNO3   = 32
-  integer :: IPOC    = 33
-  integer :: IPSO4   = 34
-  integer :: IPCL    = 35
-  integer :: IPNH4   = 36
-  integer :: IPNA    = 37
-  integer :: IPMG    = 38
-  integer :: IPK     = 39
-  integer :: IPCA    = 40
-  integer :: IPNCOM  = 41
-  integer :: IPFE    = 42
-  integer :: IPAL    = 43
-  integer :: IPSI    = 44
-  integer :: IPTI    = 45
-  integer :: IPMN    = 46
-  integer :: IPH2O   = 47
-  integer :: IPMOTHR = 48
+  integer, parameter :: IPMC    = 34
+  integer, parameter :: IPEC    = 35
+  integer, parameter :: IPMFINE = 36
+  integer, parameter :: IPNO3   = 37
+  integer, parameter :: IPOC    = 38
+  integer, parameter :: IPSO4   = 39
+  integer, parameter :: IPCL    = 40
+  integer, parameter :: IPNH4   = 41
+  integer, parameter :: IPNA    = 42
+  integer, parameter :: IPMG    = 43
+  integer, parameter :: IPK     = 44
+  integer, parameter :: IPCA    = 45
+  integer, parameter :: IPNCOM  = 46
+  integer, parameter :: IPFE    = 47
+  integer, parameter :: IPAL    = 48
+  integer, parameter :: IPSI    = 49
+  integer, parameter :: IPTI    = 50
+  integer, parameter :: IPMN    = 51
+  integer, parameter :: IPH2O   = 52
+  integer, parameter :: IPMOTHR = 53
 
   type overlap_vars
      integer              :: ncells = 0
@@ -296,8 +301,8 @@ contains
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  16.0
 
-    i = ixyl 
-    vname3d_emis(i) = 'XYL'
+    i = ixylmn
+    vname3d_emis(i) = 'XYLMN'
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  106.0
 
@@ -309,8 +314,8 @@ contains
     i = isesq
     vname3d_emis(i) = 'SESQ'
     units3d_emis(i) = 'MOLES/S'
-    molwt       (i) =  1.0   ! CHECK: why is this 1 in Jia's file?  are BVOC emis in gC?
-
+    molwt       (i) =  1.0   ! CHECK: why is this 1 in Jia's file? Are BVOC emis in gC?
+                             ! The speciation factor take into account the molewt
     i = icl2
     vname3d_emis(i) = 'CL2'
     units3d_emis(i) = 'MOLES/S'
@@ -325,6 +330,31 @@ contains
     vname3d_emis(i) = 'HONO'
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  47.0
+
+    i = inaph
+    vname3d_emis(i) = 'NAPH'
+    units3d_emis(i) = 'MOLES/S'
+    molwt       (i) =  128.2
+
+    i = isoaalk
+    vname3d_emis(i) = 'SOAALK'
+    units3d_emis(i) = 'MOLES/S'
+    molwt       (i) =  112.0
+
+    i = ifacd
+    vname3d_emis(i) = 'FACD'
+    units3d_emis(i) = 'MOLES/S'
+    molwt       (i) =  46.0
+
+    i = iaacd
+    vname3d_emis(i) = 'AACD'
+    units3d_emis(i) = 'MOLES/S'
+    molwt       (i) =  60.0
+
+    i = ich4
+    vname3d_emis(i) = 'CH4'
+    units3d_emis(i) = 'MOLES/S'
+    molwt       (i) =  16.0
 
     i = ipmc
     vname3d_emis(i) = 'PMC'
@@ -713,7 +743,7 @@ contains
     implicit none
 
     integer :: year, month, hour, day
-    integer :: itz, dow
+    integer :: itz, dow, hr00z
     integer :: jw, iw, j, n, ns, k, ks, ka, v, i
 
     real :: timefac(nsec)
@@ -723,6 +753,18 @@ contains
          0.000143, 0.000229, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.000202, 0.0 /)
 
     real, parameter :: gpkg = 1.0e3
+
+    !                            gC/gNH3 gNH3/molNH3 molC/gC mol/molC
+    real, parameter :: nh3toaa11 = 0.090  *  17.0  /  12.0  *  0.5
+    real, parameter :: nh3toaa12 = 0.045  *  17.0  /  12.0  *  0.5
+    real, parameter :: nh3tofa11 = 0.045  *  17.0  /  12.0  *  1.0
+    real, parameter :: nh3tofa12 = 0.016  *  17.0  /  12.0  *  1.0
+
+    !                                g/gCO    gCO/molCO  mol/g
+    real, parameter :: cotoaa_res  = 0.0425  *  28.0  /  60.0
+    real, parameter :: cotofa_res  = 0.0018  *  28.0  /  46.0
+    real, parameter :: cotoaa_burn = 0.0244  *  28.0  /  60.0
+    real, parameter :: cotofa_burn = 0.0032  *  28.0  /  46.0
 
     integer, parameter ::  cl_sec = 13
     integer, parameter :: hcl_sec =  1
@@ -736,7 +778,8 @@ contains
     if (year /= year_stored)  call interp_to_olam()
 
     month = current_time%month
-    dow = day_of_week(current_time%month, current_time%date, current_time%year)
+    dow   = day_of_week(current_time%month, current_time%date, current_time%year)
+    hr00z = int( current_time%time / 3600. ) + 1
 
     !$omp parallel do private(jw,iw,day,itz,hour,timefac,j,n,fact1,fact2,&
     !$omp                     fact3,ns,ka,ks,k,emisn,v,i)
@@ -746,7 +789,7 @@ contains
        
        day  = dow
        itz  = nint( glonw(iw) / 15.0 )
-       hour = int( current_time%time / 3600. ) + itz + 1
+       hour = hr00z + itz
 
        if (hour <  1) then
           day  = day - 1
@@ -762,7 +805,7 @@ contains
        do n = 1, nsec
           timefac(n) = rawmn(n,month) * rawwk(n,day) * rawhr(n,hour)
        enddo
-       
+
 !       if (jw == 1) write(io6,*) "Processing CO..."
 
        do j = 1, n_co
@@ -781,6 +824,22 @@ contains
                    k  = ks + ka - 1
                    edgar42_emis(k,iw,ico) = edgar42_emis(k,iw,ico) &
                                           + vinterp(n,ka)%facts(ks) * fact3
+
+                   ! Estimate formic and acetic acid resid/biomass burning emissions from CO
+                   if (n == 5) then
+                      edgar42_emis(k,iw,iaacd) = edgar42_emis(k,iw,iaacd) &
+                                              + vinterp(n,ka)%facts(ks) * fact3 * cotoaa_res
+                      edgar42_emis(k,iw,ifacd) = edgar42_emis(k,iw,ifacd) &
+                                              + vinterp(n,ka)%facts(ks) * fact3 * cotofa_res
+                   endif
+                   
+                   if (n == 13 .or. n == 14) then
+                      edgar42_emis(k,iw,iaacd) = edgar42_emis(k,iw,iaacd) &
+                                              + vinterp(n,ka)%facts(ks) * fact3 * cotoaa_burn
+                      edgar42_emis(k,iw,ifacd) = edgar42_emis(k,iw,ifacd) &
+                                              + vinterp(n,ka)%facts(ks) * fact3 * cotofa_burn
+                   endif
+
                 enddo
              enddo
          endif
@@ -805,8 +864,14 @@ contains
                    emisn = vinterp(n,ka)%facts(ks) * fact3
                    edgar42_emis(k,iw,ino ) = edgar42_emis(k,iw,ino ) + 0.9 * emisn
                    edgar42_emis(k,iw,ino2) = edgar42_emis(k,iw,ino2) + 0.1 * emisn
-                enddo
 
+                   ! special for HONO: use 8X10**-3 HONO/NOx ratio from vehicular emissions
+                   ! see Sarwar et al. (2008) Atm. Env.
+                   if (n == 2 .or. n == 3) then
+                      edgar42_emis(k,iw,ihono) = edgar42_emis(k,iw,ihono) + 8.0e-3 * emisn
+                   endif
+
+                enddo
              enddo
           endif
        enddo
@@ -829,8 +894,22 @@ contains
                    k  = ks + ka - 1
                    edgar42_emis(k,iw,inh3) = edgar42_emis(k,iw,inh3) &
                                            + vinterp(n,ka)%facts(ks) * fact3
-                enddo
 
+                   ! Estimate formic and acetic acid agriculture emissions from NH3
+                   if (n == 11) then
+                      edgar42_emis(k,iw,iaacd) = edgar42_emis(k,iw,iaacd) &
+                                              + vinterp(n,ka)%facts(ks) * fact3 * nh3toaa11
+                      edgar42_emis(k,iw,ifacd) = edgar42_emis(k,iw,ifacd) &
+                                              + vinterp(n,ka)%facts(ks) * fact3 * nh3tofa11
+                   endif
+                   if (n == 12) then
+                      edgar42_emis(k,iw,iaacd) = edgar42_emis(k,iw,iaacd) &
+                                              + vinterp(n,ka)%facts(ks) * fact3 * nh3toaa12
+                      edgar42_emis(k,iw,ifacd) = edgar42_emis(k,iw,ifacd) &
+                                              + vinterp(n,ka)%facts(ks) * fact3 * nh3tofa12
+
+                   endif
+                enddo
              enddo
           endif
        enddo
@@ -890,6 +969,15 @@ contains
                 endif
              enddo
           endif
+       enddo
+
+       ! update for new emissions species in CMAQ 5.2
+       ka = lpw(iw) + lsw(iw) - 1
+       do k = lpw(iw), maxval( vinterp(1:nsec,ka)%nlevs ) + ka - 1
+          edgar42_emis(k,iw,inaph)   = 0.002 * edgar42_emis(k,iw,ixylmn) 
+          edgar42_emis(k,iw,ixylmn)  = 0.998 * edgar42_emis(k,iw,ixylmn)
+          edgar42_emis(k,iw,isoaalk) = 0.108 * edgar42_emis(k,iw,ipar)
+          edgar42_emis(k,iw,ipar)    = edgar42_emis(k,iw,ipar) - 0.00001 * edgar42_emis(k,iw,inaph)
        enddo
 
 !      if (jw == 1) write(io6,*) "Processing PM10..."

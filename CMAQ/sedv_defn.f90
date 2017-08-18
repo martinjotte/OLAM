@@ -200,9 +200,10 @@ contains
     use utilio_defn      
     use aero_data           ! aero variable data
     use aeromet_data        ! Includes CONST.EXT
-    use mem_grid,  only: mza, lpw
-    use mem_basic, only: tair, press, rho
+    use mem_grid,   only: mza, lpw
+    use mem_basic,  only: tair, press, rho
     use cgrid_defn
+    use getpar_mod, only: getpar
 
     implicit none
 
@@ -247,7 +248,7 @@ contains
        ! Get the geometric mean diameters and standard deviations of the
        ! "wet" size distribution
 
-       call getpar( .false. )     
+       call getpar( .false., noM3=.true. )
                        ! do not fix stnd dev`s to existing value
 
        ! Save getpar values

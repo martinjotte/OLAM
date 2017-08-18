@@ -34,7 +34,7 @@ C  RETURN VALUES: None
 C
 C  KEY SUBROUTINES/FUNCTIONS CALLED: None
 C
-C  REVISION HISTORY: Created by EBI solver program, May 25, 2016
+C  REVISION HISTORY: Created by EBI solver program, May 26, 2017
 C   21 Jun 10 J.Young:   convert for Namelist redesign
 C   18 Jul 14 B.Hutzell: revised to use the RXNS_DATA and RXNS_FUNCTION
 C                        modules instead of include files
@@ -125,12 +125,15 @@ C***********************************************************************
 
 ! initialize all reaction rates to zero so unused array elements are defined
 
-       RXRAT = 0.0D0
+       !$omp parallel
+       RXRAT   = 0.0D0
+       RKI_SAV = 0.0D0
 
 ! initialize all production and loss rates to zero so unused array elements are defined
 
        PROD  = 0.0D0
        LOSS  = 0.0D0
+       !$omp end parallel
 
        NING1 = 4
        NING2 = 4
@@ -139,7 +142,7 @@ C***********************************************************************
 
 c..Allocate and define ebi species
 
-      N_EBISP  = 102
+      N_EBISP  = 108
       ALLOCATE( EBISP( N_EBISP ), STAT = IOS ) 
       IF ( IOS .NE. 0 ) THEN
          MSG = 'Error allocating EBISP' 
@@ -185,69 +188,75 @@ c..Allocate and define ebi species
       EBISP(  37 ) = OPO3
       EBISP(  38 ) = CAO2
       EBISP(  39 ) = OPAN
-      EBISP(  40 ) = XYL
+      EBISP(  40 ) = XYLMN
       EBISP(  41 ) = XYLRO2
-      EBISP(  42 ) = ISOP
-      EBISP(  43 ) = ISPD
-      EBISP(  44 ) = ISOPRXN
-      EBISP(  45 ) = TERP
-      EBISP(  46 ) = TRPRXN
-      EBISP(  47 ) = SO2
-      EBISP(  48 ) = SULF
-      EBISP(  49 ) = SULRXN
-      EBISP(  50 ) = ETOH
-      EBISP(  51 ) = ETHA
-      EBISP(  52 ) = CL2
-      EBISP(  53 ) = CL
-      EBISP(  54 ) = HOCL
-      EBISP(  55 ) = CLO
-      EBISP(  56 ) = FMCL
-      EBISP(  57 ) = HCL
-      EBISP(  58 ) = CLNO2
-      EBISP(  59 ) = TOLNRXN
-      EBISP(  60 ) = TOLHRXN
-      EBISP(  61 ) = XYLNRXN
-      EBISP(  62 ) = XYLHRXN
-      EBISP(  63 ) = BENZENE
-      EBISP(  64 ) = BENZRO2
-      EBISP(  65 ) = BNZNRXN
-      EBISP(  66 ) = BNZHRXN
-      EBISP(  67 ) = SESQ
-      EBISP(  68 ) = SESQRXN
-      EBISP(  69 ) = H2NO3PIJ
-      EBISP(  70 ) = H2NO3PK
-      EBISP(  71 ) = ACLI
-      EBISP(  72 ) = ACLJ
-      EBISP(  73 ) = ACLK
-      EBISP(  74 ) = AXYL1J
-      EBISP(  75 ) = AOLGAJ
-      EBISP(  76 ) = AXYL2J
-      EBISP(  77 ) = ATOL1J
-      EBISP(  78 ) = ATOL2J
-      EBISP(  79 ) = ABNZ1J
-      EBISP(  80 ) = ABNZ2J
-      EBISP(  81 ) = ATRP1J
-      EBISP(  82 ) = AOLGBJ
-      EBISP(  83 ) = ATRP2J
-      EBISP(  84 ) = AISO1J
-      EBISP(  85 ) = AISO2J
-      EBISP(  86 ) = ASQTJ
-      EBISP(  87 ) = APAH1J
-      EBISP(  88 ) = APAH2J
-      EBISP(  89 ) = AALK1J
-      EBISP(  90 ) = AALK2J
-      EBISP(  91 ) = PCVOC
-      EBISP(  92 ) = PCSOARXN
-      EBISP(  93 ) = VLVPO1
-      EBISP(  94 ) = VSVPO1
-      EBISP(  95 ) = VSVPO2
-      EBISP(  96 ) = VSVPO3
-      EBISP(  97 ) = VIVPO1
-      EBISP(  98 ) = VLVOO1
-      EBISP(  99 ) = VLVOO2
-      EBISP( 100 ) = VSVOO2
-      EBISP( 101 ) = VSVOO3
-      EBISP( 102 ) = VSVOO1
+      EBISP(  42 ) = NAPH
+      EBISP(  43 ) = PAHRO2
+      EBISP(  44 ) = ISOP
+      EBISP(  45 ) = ISPD
+      EBISP(  46 ) = ISOPRXN
+      EBISP(  47 ) = TERP
+      EBISP(  48 ) = TRPRXN
+      EBISP(  49 ) = SO2
+      EBISP(  50 ) = SULF
+      EBISP(  51 ) = SULRXN
+      EBISP(  52 ) = ETOH
+      EBISP(  53 ) = ETHA
+      EBISP(  54 ) = CL2
+      EBISP(  55 ) = CL
+      EBISP(  56 ) = HOCL
+      EBISP(  57 ) = CLO
+      EBISP(  58 ) = FMCL
+      EBISP(  59 ) = HCL
+      EBISP(  60 ) = CLNO2
+      EBISP(  61 ) = TOLNRXN
+      EBISP(  62 ) = TOLHRXN
+      EBISP(  63 ) = XYLNRXN
+      EBISP(  64 ) = XYLHRXN
+      EBISP(  65 ) = BENZENE
+      EBISP(  66 ) = BENZRO2
+      EBISP(  67 ) = BNZNRXN
+      EBISP(  68 ) = BNZHRXN
+      EBISP(  69 ) = SESQ
+      EBISP(  70 ) = SESQRXN
+      EBISP(  71 ) = PAHNRXN
+      EBISP(  72 ) = PAHHRXN
+      EBISP(  73 ) = SOAALK
+      EBISP(  74 ) = ALKRXN
+      EBISP(  75 ) = H2NO3PIJ
+      EBISP(  76 ) = H2NO3PK
+      EBISP(  77 ) = ACLI
+      EBISP(  78 ) = ACLJ
+      EBISP(  79 ) = ACLK
+      EBISP(  80 ) = AXYL1J
+      EBISP(  81 ) = AOLGAJ
+      EBISP(  82 ) = AXYL2J
+      EBISP(  83 ) = ATOL1J
+      EBISP(  84 ) = ATOL2J
+      EBISP(  85 ) = ABNZ1J
+      EBISP(  86 ) = ABNZ2J
+      EBISP(  87 ) = ATRP1J
+      EBISP(  88 ) = AOLGBJ
+      EBISP(  89 ) = ATRP2J
+      EBISP(  90 ) = AISO1J
+      EBISP(  91 ) = AISO2J
+      EBISP(  92 ) = ASQTJ
+      EBISP(  93 ) = APAH1J
+      EBISP(  94 ) = APAH2J
+      EBISP(  95 ) = AALK1J
+      EBISP(  96 ) = AALK2J
+      EBISP(  97 ) = PCVOC
+      EBISP(  98 ) = PCSOARXN
+      EBISP(  99 ) = VLVPO1
+      EBISP( 100 ) = VSVPO1
+      EBISP( 101 ) = VSVPO2
+      EBISP( 102 ) = VSVPO3
+      EBISP( 103 ) = VIVPO1
+      EBISP( 104 ) = VLVOO1
+      EBISP( 105 ) = VLVOO2
+      EBISP( 106 ) = VSVOO2
+      EBISP( 107 ) = VSVOO3
+      EBISP( 108 ) = VSVOO1
 
 
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -305,8 +314,10 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       RTOL( OPO3     ) = 1.0D-03
       RTOL( CAO2     ) = 1.0D-03
       RTOL( OPAN     ) = 1.0D-03
-      RTOL( XYL      ) = 1.0D-03
+      RTOL( XYLMN    ) = 1.0D-03
       RTOL( XYLRO2   ) = 1.0D-03
+      RTOL( NAPH     ) = 1.0D-03
+      RTOL( PAHRO2   ) = 1.0D+00
       RTOL( ISOP     ) = 1.0D-03
       RTOL( ISPD     ) = 1.0D-03
       RTOL( ISOPRXN  ) = 1.0D+00
@@ -334,6 +345,10 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       RTOL( BNZHRXN  ) = 1.0D+00
       RTOL( SESQ     ) = 1.0D-03
       RTOL( SESQRXN  ) = 1.0D+00
+      RTOL( PAHNRXN  ) = 1.0D+00
+      RTOL( PAHHRXN  ) = 1.0D+00
+      RTOL( SOAALK   ) = 1.0D-03
+      RTOL( ALKRXN   ) = 1.0D+00
       RTOL( H2NO3PIJ ) = 1.0D-03
       RTOL( H2NO3PK  ) = 1.0D-03
       RTOL( ACLI     ) = 1.0D-03

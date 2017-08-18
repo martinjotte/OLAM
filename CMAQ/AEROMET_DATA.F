@@ -42,7 +42,7 @@ C Fundamental constants
       Real,      Parameter :: f6pi = 6.0 / pi
       Real( 8 ), Parameter :: dpi6 = dpi / 6.0D0
       Real,      Parameter :: pi6 = pi / 6.0
-      Real( 8 ), Parameter :: boltzmann = rgasuniv / avo  ! [ J/K ]
+      Real( 8 ), Parameter :: boltzmann = drgasuniv / davo  ! [ J/K ]
 
       Real,      Parameter :: oneovpi = 1.0 / pi
       Real,      Parameter :: f6piove9 = 6.0 / pi * 1.0e-9

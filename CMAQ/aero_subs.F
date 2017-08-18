@@ -212,7 +212,7 @@ C-----------------------------------------------------------------------
       USE SOA_DEFN
       USE AEROMET_DATA
       USE UTILIO_DEFN
-      use misc_coms, only: io6
+      USE GETPAR_MOD, ONLY: GETPAR
 
       IMPLICIT NONE
 
@@ -226,7 +226,8 @@ C *** Parameters
       REAL, PARAMETER :: DIFFSULF = 9.36E-06  ! molecular diffusiviity for sulfuric acid
       REAL, PARAMETER :: SQRT2 = 1.4142135623731
       REAL, PARAMETER :: T0 = 288.15   ! [ K ]
-      REAL, PARAMETER :: TWOTHIRDS = 2.0 / 3.0
+      REAL, PARAMETER :: TWOTHIRDS   =  2.0 / 3.0
+      REAL, PARAMETER :: ONE_OVER_TICE =  1.0 / 273.16
 
 C *** local variables
       REAL         DIFFCORR   ! Correction to DIFFSULF & DIFFORG for pressure
@@ -311,7 +312,7 @@ C     partitioning between the particle and vapor phases.  Assume all
 C     SOA resides in the accumulation mode.
 
 C     Aerosol is wet when it enters orgaer
-      CALL GETPAR( LIMIT_Sg )
+      CALL GETPAR( LIMIT_Sg, noM3=.true. )
 
       CALL ORGAER( DT, LAYER )
 
@@ -321,7 +322,7 @@ C     production and a fully dynamic treatment of inorganic gas-to-
 C     particle mass transfer.
 
 C *** Compute H2SO4 diffusivity, correct for temperature and pressure
-      DIFFCORR = ( STDATMPA / AIRPRES ) * ( AIRTEMP / 273.16 ) ** 1.75
+      DIFFCORR = ( STDATMPA / AIRPRES ) * ( ONE_OVER_TICE * AIRTEMP ) ** 1.75
       DV_SO4 = DIFFSULF * DIFFCORR
 
 C *** Update size parameters (distribution is wet from ORGAER)
@@ -460,7 +461,7 @@ C     Note: LOSS is assumed to be non-negative.
          POL = PROD / LOSS
          Y = POL + ( M20 - POL ) * EXP( -LOSS )
       ELSE
-         Y = M20 + PROD - max(LOSS,0.0) * M20
+         Y = M20 * (1. - LOSS) + PROD
       END IF ! test on loss
 
 C *** Transfer new value of M2_accum to moment array
@@ -646,7 +647,7 @@ C     standard deviations, modal mass totals, and particle densities,
 C     based on the final concentrations of M2, M0, and speciated masses
 C     after mode merging is complete. This should be done for the wet
 C     distribution.
-!     CALL GETPAR( LIMIT_Sg )
+      CALL GETPAR( LIMIT_Sg )
 
 C *** Set minimum value for all concentrations in the CBLK array
 
@@ -709,6 +710,7 @@ C    aerosols. ATMOSPHERIC CHEMISTRY AND PHYSICS. 7, 4639-4659
       USE SOA_DEFN
       USE AEROMET_DATA
       USE UTILIO_DEFN
+      USE GETPAR_MOD, only: getpar
 
       IMPLICIT NONE
 
@@ -762,6 +764,7 @@ C     defined in Equations A17-A18 of [Binkowski & Shankar,1995]
       REAL( 8 ) :: OMEGA_AT_SO4  ! Aitken mode 2nd and 3rd moments
       REAL( 8 ) :: OMEGA_AC_SO4  ! Accumulation mode 2nd and 3rd moments
       REAL( 8 ) :: OMEGA( 2 )    ! partitioning coefficient for equilibrium PM mass
+      REAL( 8 ) :: totaer, cadd, fact
 
 C *** Variables for new particle formation:
       REAL XH2SO4            ! steady state H2SO4 concentration
@@ -803,7 +806,6 @@ C *** Initial (double-precision) concentrations [ug/m3]
       REAL( 8 ) :: GNH3R8               ! gas-phase ammonia
       REAL( 8 ) :: GNO3R8               ! gas-phase nitric acid
       REAL( 8 ) :: GCLR8                ! gas-phase hydrochloric acid
-!     REAL( 8 ) :: H2OR8                ! aerosol LWC
 
 C *** Variables for volatile species mass transfer between gas and aerosol and
 C     mass partitioning between the modes 
@@ -813,9 +815,7 @@ C     mass partitioning between the modes
 
       REAL( 8 ), SAVE :: H2SO4RATM1     ! Mol. wt. ratio of SO4/H2SO4
 
-!     REAL( 8 ) :: JH2SO4 ! flux of cond./evap. H2SO4 (mol/m3/s)
-!     REAL( 8 ) :: CH2SO4 ! concentration of H2SO4 before cond/evap (mol/m3)
-      REAL( 8 ) :: DVOLINORG ( NVOLINORG ) ! vol inorg spcs mass to be xferred [mol/m3]
+      REAL( 8 ) :: DVOLINORG( NVOLINORG ) ! vol inorg spcs mass to be xferred [mol/m3]
       REAL( 8 ) :: DVOLMAX                ! max value for DVOLINORG 
       REAL( 8 ) :: CINORG( NINORG,N_MODE ) ! scratch array for inorg spcs [ug/m**3]
       REAL( 8 ) :: SEACAT                 ! coarse sea-salt cations [ug/m**3]
@@ -924,7 +924,7 @@ C-----------------------------------------------------------------------
          MWH2SO4 = PRECURSOR_MW( SULF_IDX ) ! molecular weight for H2SO4
          FAERH2SO4 = 1.0E-6 / MWH2SO4
 
-         COFCBAR_SO4 = SQRT( 8.0 * RGASUNIV / ( PI * MWH2SO4 * 1.0E-3 ) )
+         COFCBAR_SO4 = SQRT( 8.0 * RGASUNIV / ( PI * REAL( MWH2SO4,4 ) * 1.0E-3 ) )
          H2SO4RATM1 = AEROSPC_MW( ASO4_IDX ) / MWH2SO4
          SO4FAC  = 1.0D-9 * F6DPI / REAL( AEROSPC( ASO4_IDX )%DENSITY, 8 )
          SOILFAC = 1.0D-9 * F6DPI / REAL( AEROSPC( ASOIL_IDX )%DENSITY, 8 )
@@ -1022,7 +1022,6 @@ C     is non-zero.  The condensation rate of H2SO4 is calculated as the
 C     gas-phase production rate minus the new particle production rate.
 
 C *** Initialize Variables
-!     DMDT_SO4  = so4rate
       DMDT_SO4  = 0.0D0
       DNDT      = 0.0D0
       DM2DT     = 0.0D0
@@ -1292,7 +1291,7 @@ C     densities. It is a waste of time updating the aitken and
 C     accumulation modes but the coarse mode does need to be updated
 C     each sub-time step. This should be for the wet distribution
                
-         CALL GETPAR( LIMIT_Sg )
+!        CALL GETPAR( LIMIT_Sg )
 
       END IF   ! for 'Hybrid' method
 
@@ -1380,40 +1379,26 @@ C *** Apply modal partitioning of equilibrium aerosol mass
       END DO
 
       ! Calculate Final Concentrations
-      DO IMODE = 1, 2
-         DO ISP = 1, NVOLINORG
-            CFINAL( ISP,IMODE ) = CINORG( ISP,IMODE )
-     &                          + OMEGA( IMODE ) * DVOLINORG( ISP ) * DF( ISP )
-         END DO
-      END DO
-
-      ! Jai Xing's VOLINORG fix - Check Aitken and Accumulation modes
-      ! individually for negative concentrations
       DO ISP = 1, NVOLINORG
+         cadd = DVOLINORG( ISP ) * DF( ISP )
 
-         IF (CFINAL( ISP,1 ) .LT. 0.0D0 ) THEN
-            CFINAL( ISP,2 ) = CFINAL( ISP,2 ) + CFINAL( ISP,1 )
-            CFINAL( ISP,1 ) = 0.0D0
-         END IF
+         if ( cadd < 0.d0 ) THEN
 
-         IF (CFINAL( ISP,2 ) .LT. 0.0D0 ) THEN
-            CFINAL( ISP,1 ) = CFINAL( ISP,1 ) + CFINAL( ISP,2 )
-            CFINAL( ISP,IMODE ) = 0.0D0
+            ! Evaporate Mass Using Condensed-Phase Fraction in each Mode
+            totaer = MAX( CINORG( ISP,1) + CINORG( ISP,2), CONMIND )
+            fact   = 1.d0 + max(cadd, -totaer) / totaer
+            
+            CFINAL( ISP,1 ) = CINORG( ISP,1 ) * fact
+            CFINAL( ISP,2 ) = CINORG( ISP,2 ) * fact
 
-            IF ( CFINAL( ISP, 1 ) .LT. 0.0D0 ) THEN
-               IF ( CFINAL( ISP,1 ) .GT. -1.0D-13 ) THEN
-                  CFINAL( ISP,1 ) = 0.0D0
-               ELSE
-                  !Note: this should NEVER happen because there
-                  !should not be more evaporated mass than there is
-                  !existing particle mass
-                  XMSG = 'VOLINORG: Too much evaporation'
-                  CALL M3EXIT( 'VOLINORG', 0, 0, XMSG, XSTAT1 ) 
-               END IF
-            END IF
-         END IF
+         else
 
-      END DO ! ISP
+            ! Condense Mass Using Condensation Sink Factors
+            CFINAL( ISP,1 ) = CINORG( ISP,1 ) + OMEGA( 1 ) * cadd
+            CFINAL( ISP,2 ) = CINORG( ISP,2 ) + OMEGA( 2 ) * cadd
+
+         end if
+      END DO
 
 C *** Apply Final Concentrations to Moment Variables in Aerosol Scheme
 
@@ -1487,7 +1472,7 @@ C *** Assign H+ Concentration to each Mode
       H2O = AEROSPC_CONC( AH2O_IDX, 1 ) + AEROSPC_CONC( AH2O_IDX, 2 )
       IF(  H2O .GT. CONMIN )THEN
           H2O = 1.0 / H2O
-          AEROSPC_CONC( AH3OP_IDX, 1:2 ) = EQLBHIJ * AEROSPC_CONC( AH2O_IDX, 1:2 ) * H2O
+          AEROSPC_CONC( AH3OP_IDX, 1:2 ) = REAL( EQLBHIJ * H2O, 4 ) * AEROSPC_CONC( AH2O_IDX, 1:2 ) 
       ELSE
           AEROSPC_CONC( AH3OP_IDX, 1:2 ) = CONMIN
       END IF
@@ -1508,9 +1493,11 @@ C *** Update gas-phase concentrations from Aitken and Accumulation Mode Partitio
      &                            -CFINAL( KNO3,1:2) ) * HNO3RAT  
       PRECURSOR_CONC( HCL_IDX )  = GCLR8 + sum( CINORG( KCL,1:2 )
      &                            -CFINAL( KCL,1:2) ) * HCLRAT 
-
-2029  FORMAT( 1X, 'VOLINORG returning negative gas concentrations from ISOROPIA:'
-     &       /1X, 'at (C,R,L): ', 3I4, 1X, 'GAS Conc:', 3( 1PE11.3 ) )
+         
+2023  FORMAT( 1X, 'VOLINORG returning negative gas concentrations from ISOROPIA:'
+     &       /10X, 'GAS(1) = NH3, GAS(2) = HNO3, GAS(3) = HCl' )
+2029  FORMAT( 1X, '[see VOLINORG msg]'
+     &        1X, 'at (C,R,L): ', 3I4, 1X, 'GAS Conc:', 3( 1PE11.3 ) )
 
       RETURN
       END SUBROUTINE VOLINORG
@@ -1857,8 +1844,9 @@ C     Calculate cond/evap fluxes (no H+ limiting)
          J( isp ) = CondRate * ( Cinf( isp ) - Ceq( isp ) )
       END DO
 
-C     Convert rate to mol/m3/s and
-      JH2SO4 = rate * PRECURSOR_MWI6( SULPRD_IDX )
+C     Convert rate to mol/m3/s and get effective Cinf for H2SO4(g)
+      JH2SO4  = rate * 1.0D-6 / PRECURSOR_MW( SULPRD_IDX )
+      CH2SO4  = JH2SO4 / CondRate
 
 C     Limit H+ flux (Pilinis et al., 2000, AS&T). Note: J is flux
 C     to entire mode, not one particle
@@ -1869,9 +1857,6 @@ C     If Hflux is too large, limit the flux by modifying species
 C     vapor pressures with Qk factor (Pilinis et al., 2000, AS&T).
       IF ( ABS( Hflux ) .GT. Hlim ) THEN
          Hlim = SIGN( Hlim, Hflux )
-
-C        Get effective Cinf for H2SO4(g)
-         CH2SO4  = JH2SO4 / CondRate
 
 C        Solve quadratic for Qk: aa*Qk^2 + bb*Qk + cc = 0
          aa = Ceq( KCL ) + Ceq( KNO3 )
@@ -2766,10 +2751,6 @@ C    Internal variables
       REAL DG                        ! DGN converted to [ um ]
       REAL DGv                       ! Volume Median Diameter
       REAL XXLSG                     ! ln(StndDev) for current mode
-!     REAL ERFARG                    ! argument of ERF, from Step#6 of Jiang et al. (2006)
-!     REAL flo, fhi                  ! Integrated Fractions from SizeDist at low and high diameter bounds
-!     REAL T                         ! Transmission factor for each function piece
-!     INTEGER I1
       REAL M3_DRY, M2_DRY, M3SUBT, M_WET, M_DRY, DRY_DENS, DENSFAC
       REAL XFSUM, LXFM2, L2SG, ES36
       REAL DBlo_st, DBhi_st, LOG_HILO, LOG_LOHI, LOG_HI, LOG_LO

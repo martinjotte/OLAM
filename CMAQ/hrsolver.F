@@ -73,8 +73,8 @@ C..EXTERNAL FUNCTIONS:
 
 C..SAVED LOCAL VARIABLES:
       CHARACTER( 16 ),      SAVE :: PNAME  = 'HRSOLVER' ! Program name
-      LOGICAL,              SAVE :: LFIRST = .TRUE.     ! Flag for first call
-      LOGICAL, ALLOCATABLE, SAVE :: LEBISPFL( : )       ! Flag for EBI species
+!     LOGICAL,              SAVE :: LFIRST = .TRUE.     ! Flag for first call
+!     LOGICAL, ALLOCATABLE, SAVE :: LEBISPFL( : )       ! Flag for EBI species
 
 
 C..SCRATCH LOCAL VARIABLES:
@@ -83,14 +83,14 @@ C..SCRATCH LOCAL VARIABLES:
 
       INTEGER ITER            ! Loop index for Backward Euler iterations
       INTEGER S               ! Loop index for species
-      INTEGER NEBI            ! Loop index for time steps
+!     INTEGER NEBI            ! Loop index for time steps
       INTEGER NINR            ! No. of inner time steps
 #ifdef hrdebug
       INTEGER N               ! Loop index
 #endif
       INTEGER EBI             ! Loop index
       INTEGER NBKUPS          ! No. of times time step reduced
-      INTEGER ERR             ! Allocate error flag
+!     INTEGER ERR             ! Allocate error flag
       integer n_inr_steps
 
       LOGICAL LEBI_CONV             ! Flag for EBI convergence
@@ -110,23 +110,23 @@ C..SCRATCH LOCAL VARIABLES:
       INTEGER DBGOUT          ! Output unit for debu outpt
 
       LOGICAL LDEBUG          ! Debug output flag
-      LOGICAL, SAVE  :: LOPEN = .FALSE.
+!     LOGICAL, SAVE  :: LOPEN = .FALSE.
 #endif
 
 
 C**********************************************************************
 
 
-       IF( LFIRST ) THEN
-          LFIRST = .FALSE.
-          LOGDEV = INIT3( )
-
-          ALLOCATE ( LEBISPFL( NUMB_MECH_SPC ), STAT = ERR )
-          IF ( ERR .NE. 0 ) THEN
-             MSG = 'Error allocating LEBISPFL'
-             CALL M3EXIT( PNAME, JDATE, JTIME, MSG, XSTAT1 )
-          END IF
-       END IF
+!       IF( LFIRST ) THEN
+!          LFIRST = .FALSE.
+!          LOGDEV = INIT3( )
+!
+!          ALLOCATE ( LEBISPFL( NUMB_MECH_SPC ), STAT = ERR )
+!          IF ( ERR .NE. 0 ) THEN
+!             MSG = 'Error allocating LEBISPFL'
+!             CALL M3EXIT( PNAME, JDATE, JTIME, MSG, XSTAT1 )
+!          END IF
+!       END IF
 
 
 c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
@@ -154,7 +154,7 @@ c      IF( JTIME .EQ. 160000 ) THEN
            WRITE( DBGOUT, '( A, F7.2) ' )
      &             'EBI_TMSTEP = ', EBI_TMSTEP
            WRITE( DBGOUT, '( A )' ) 'Starting concs and rate constants'
-           DO N = 1, N_SPEC
+           DO N = 1, NUMB_MECH_SPC
              WRITE( DBGOUT,  '( A, I3, 1X, A, 1X, 1PE13.5 )' )
      &                     'SP ',N, CHEMISTRY_SPC( N ), YC( N )
            END DO
@@ -170,7 +170,7 @@ c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
       DTC      = EBI_TMSTEP
 
 
-      DO 3000 NEBI = 1, N_EBI_STEPS    ! outer EBI time-step loop
+!     DO 3000 NEBI = 1, N_EBI_STEPS    ! outer EBI time-step loop
 
           NBKUPS      = 0
           N_INR_STEPS = 1
@@ -179,7 +179,9 @@ c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
 
          DO 2000 NINR = 1, N_INR_STEPS   ! No. of time steps for back-up
 
-            FORALL( S = 1:N_SPEC )YC0( S ) = YC( S )   ! Set ICs for EBI iterations
+            do s = 1, numb_mech_spc 
+               yc0( s ) = yc( s )
+            enddo
 
             DO 1000 ITER = 1, NEBITER    ! EBI iteration loop
 
@@ -243,25 +245,25 @@ c..Special treatment of PAR because of negative product stoichiometry
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Check for convergence
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-               do s = 1, n_spec
-                  LEBISPFL( S ) = .FALSE.
+               do s = 1, numb_mech_spc
+!                 LEBISPFL( S ) = .FALSE.
                   YCP( S ) = MAX( ZERO, YCP( S ) )
                enddo
 
                LEBI_CONV = .TRUE.
                MXFL = .FALSE.
 
-               do s = 1, n_spec
+               do s = 1, numb_mech_spc
                   IF( YCP( S ) .GT. MAXPRED ) THEN
                      MXFL = .TRUE.
                      GO TO 1010
                   END IF
                enddo
 
-               DO S = 1, N_SPEC
-                  IF ( ABS(YC(S)-YCP(S)) .GT. max(RTOL(S)*(YC(S)+YCP(S)), 1.d-25) ) THEN
+               DO S = 1, NUMB_MECH_SPC
+                  IF ( ABS(YC(S)-YCP(S)) .GT. max(RTOL(S)*(YC(S)+YCP(S)), 1.d-5) ) THEN
                      LEBI_CONV     = .FALSE.
-                     LEBISPFL( S ) = .TRUE.
+!                    LEBISPFL( S ) = .TRUE.
 
 !                    if (n_ebi_it > 10) write(logdev,'(1x,I4,I3,1x,A7,10g14.5)') n_ebi_it, s,
 !     &                    trim(CHEMISTRY_SPC( S )), real(yc(s)),
@@ -271,21 +273,21 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
                   END IF
                END DO
 
-               if (iter < 25) then
-                  do s = 1, n_spec
+!               if (iter < 25) then
+                  do s = 1, numb_mech_spc
                      yc(s) = ycp(s)
                   enddo
-               else
-                  do s = 1, n_spec
-                     YC( S ) = 0.96d0 * YCP( S ) + 0.04d0 * yc( s )
-                  enddo
-               endif
+!               else
+!                  do s = 1, numb_mech_spc
+!                     YC( S ) = 0.96d0 * YCP( S ) + 0.04d0 * yc( s )
+!                  enddo
+!               endif
 
 c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
 #ifdef hrdebug
                IF( LDEBUG ) THEN
                   WRITE( DBGOUT, '( A, I5 )' ) 'Concs after ITER= ', ITER
-                  DO S = 1, N_SPEC
+                  DO S = 1, NUMB_MECH_SPC
 
                      IF( LEBISPFL( S ) ) THEN
                         NOTE = 'CONV FAIL'
@@ -304,7 +306,7 @@ c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
 
 
                 IF( LEBI_CONV )THEN
-                   GO TO 2000
+                   GO TO 3000
                 END IF
 
 1000        CONTINUE
@@ -324,7 +326,7 @@ c.....start inner loop over unless max backups exceeded
                   WRITE( LOGDEV, 92000 ) C, R, L, NBKUPS
                END IF
 
-               DO S = 1, N_SPEC
+               DO S = 1, NUMB_MECH_SPC
                   YC( S ) = YC0( s )
                END DO
 
@@ -339,9 +341,9 @@ c.....start inner loop over unless max backups exceeded
                WRITE( LOGDEV, 92040 ) C, R, L
 
                WRITE( LOGDEV, 92060 )
-               DO S = 1, N_SPEC
-                  IF( LEBISPFL( S ) ) WRITE( LOGDEV, 92080 ) CHEMISTRY_SPC( S )
-               END DO
+!               DO S = 1, NUMB_MECH_SPC
+!                  IF( LEBISPFL( S ) ) WRITE( LOGDEV, 92080 ) CHEMISTRY_SPC( S )
+!               END DO
 
                MSG = 'ERROR: Stopping because of EBI convergence failures'
                CALL M3EXIT( PNAME, JDATE, JTIME, MSG, XSTAT2 )

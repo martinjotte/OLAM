@@ -550,6 +550,7 @@ endif
 
 call ichk_bnds( nl%do_chem , "DO_CHEM ", 0,   1, 2, nfatal, nwarn )
 call ichk_bnds( nl%ltng_nox, "LTNG_NOx", 0,   1, 2, nfatal, nwarn )
+call dchk_bnds( nl%photfrq,  "PHOTFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
 
 if (nl%initial /= 2) then
    if (nl%o3nudflag /= 0) then

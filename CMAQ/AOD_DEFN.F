@@ -145,7 +145,7 @@ C         AERO_DATA.F. Moments are wet after extract_aero
          use aero_data          
 !        use asx_data_mod     ! meteorology data, includes SUBST_CONST
          use utilio_defn
-
+         use getpar_mod, only: getpar
          use cgrid_defn, only: cgrid
          use mem_ijtabs, only: jtab_w, jtw_prog
          use mem_grid,   only: mza, lpw, dzt
@@ -229,7 +229,7 @@ C         AERO_DATA.F. Moments are wet after extract_aero
 ! compute extinction, 1/km
 ! extract_aero will compute the wet second and third moments
                   call extract_aero( cgrid( k,iw,: ), .false. )
-                  call getpar( .false. )
+                  call getpar( .false., noM3=.true. )
 
                   call get_extinc( airrh, extinc )
 ! compute aod

@@ -29,7 +29,6 @@ C %W% %P% %G% %U%
       USE RXNS_FUNCTION
       USE UTILIO_DEFN 
       use hrdata
-      use mem_grid,   only: mza, mwa
       use mem_ijtabs, only: jtab_w, jtw_prog
       use misc_coms,  only: io6
 
@@ -75,13 +74,9 @@ C %W% %P% %G% %U%
             L_AQ_VRSN = .FALSE.
          END IF
 
-         allocate( rj( mza, nphotab, mwa ) )
-
          LFIRST = .FALSE.
 
       END IF      ! First time
-
-      call phot( mrl )
 
       maxebi = 0
       sumebi = 0.
@@ -117,7 +112,7 @@ C  PRECONDITIONS: For the CB05TUCL family of mechanisms
 C
 C  KEY SUBROUTINES/FUNCTIONS CALLED:  HRINIT, PHOT, HRCALCKS, HRSOLVER
 C
-C  REVISION HISTORY: Created by EBI solver program, March 12, 2015
+C  REVISION HISTORY: Created by EBI solver program, May 26, 2017
 C                       Based on the algorithm in "Test of Two Numerical
 C                       Schemes for Use in Atmospheric Transport-Chemistry
 C                       Models", O. Hertel, R. Berkowicz, J. Christensen,
@@ -180,8 +175,9 @@ C..Arguments:
       integer, intent(in) :: iw
 
 C..Parameters:
-      REAL, PARAMETER :: CONCMIN = 1.0E-30               ! minimum species concentration allowed
-      REAL, PARAMETER :: MAOMV   = 1.0E6 * MWAIR / MWWAT ! Mol Wt of air over Mol Wt of water times
+      REAL( 8 ), PARAMETER :: DCONMIN = 1.0D-30               ! minimum species concentration allowed
+      REAL,      PARAMETER :: CONCMIN = 1.0E-30               ! minimum species concentration allowed
+      REAL,      PARAMETER :: MAOMV   = 1.0E6 * MWAIR / MWWAT ! Mol Wt of air over Mol Wt of water times 1.0E6
 
 C..External Functions:
 
@@ -226,7 +222,6 @@ C..Scratch Local Variables:
       REAL(8) ::      H2O     (mza)
 
       real(8) :: het            ( mza, nhetero )
-      real    :: chem_m2dry_init( n_mode,  mza )
       real    :: chem_m3dry_init( n_mode,  mza )
       integer :: kmax
       logical :: land
@@ -298,15 +293,16 @@ C..Scratch Local Variables:
             land = .false.
          end if
 
-c..Get rate constants
-
-         call hetchem_rates( iw, kmax, het, chem_m2dry_init, chem_m3dry_init )
+C.. Get Heteorogeneous rates and Update Aerosol Distribution Properties
+         call hetchem_rates( iw, kmax, het, chem_m3dry_init )
 
          if ( any( rj(lpw(iw),:,iw) > 1.d-7 ) ) then
             lsunlight = .true.
          else
             lsunlight = .false.
          endif
+
+c..Get rate constants
 
          CALL CALC_RCONST( TEMP, ATMPRES, H2O, RJ(:,:,iw), HET, LSUNLIGHT, LAND, RKI_SAV, lpw(iw), kmax )
 
@@ -346,24 +342,22 @@ c..Update concentration array
             DO SPC = 1, NUMB_MECH_SPC
                S = CGRID_INDEX( SPC )
                IF ( CONVERT_CONC( SPC ) )THEN
-                  CGRID( k, iw, S ) = MAX( REVERSE_CONV( SPC ) * REAL( rho( k,iw ) * YC( SPC ), 4), CONCMIN)
+                  CGRID( k, iw, S ) = REVERSE_CONV( SPC ) * rho( k,iw ) * MAX( YC( SPC ), DCONMIN )
                ELSE
-                  CGRID( k, iw, S ) = MAX( REAL( YC( SPC ), 4), CONCMIN)
+                  CGRID( k, iw, S ) = MAX( YC( SPC ), DCONMIN )
                END IF
             END DO
 
          enddo
 
          ! Update Aerosol Surface Area
-         CALL HETCHEM_UPDATE_AERO( chem_m2dry_init, chem_m3dry_init, iw, lpw(iw), kmax )
+         CALL HETCHEM_UPDATE_AERO( chem_m3dry_init, iw, lpw(iw), kmax )
 
 #ifdef hrstats
 !      AVGEBI = nint( SUMEBI / REAL( NCALL ) )
-!     WRITE( ISTFL, 94040 ) JDATE, JTIME, MNEBI, AVGEBI, MXEBI
-!      write(*,'(1x,I0.2,A,2(I0,1x),3(g12.5,1x))') myrank, " EBI mn, mx, rates: ", avgebi, mxebi, hemax, rjmax, rkmax
+!      WRITE( ISTFL, 94040 ) JDATE, JTIME, MNEBI, AVGEBI, MXEBI
+!      write(io6,'(1x,I0.2,A,2(I0,1x),3(g12.5,1x))') myrank, " EBI mn, mx, rates: ", avgebi, mxebi, hemax, rjmax, rkmax
 #endif
-
-!      RETURN
 
 C*********************** FORMAT STATEMENTS ****************************
 

@@ -318,6 +318,8 @@ C  Defines mapping from CGRID for species concentration and moments.
 C  Revision History:
 C     First version was coded in May 2010 by Steve Howard with
 C     Prakash Bhave, Jeff Young, and Sergey Napelenok.
+C     Jan 2017: Additional error check added to avoid array out of
+C     bounds when additional aerosol species are added. HOT Pye.
 C-----------------------------------------------------------------------
 
       Use cgrid_spcs          ! CGRID mechanism species
@@ -355,10 +357,10 @@ C Local Variable used to determine what optional TX to add to surrogates
       
 C-----------------------------------------------------------------------
 
-      logdev = setup_logdev()
 
       If ( Firstcall ) Then
          Firstcall = .False.
+         logdev    = setup_logdev()
       Else
          Return
       End if
@@ -435,26 +437,23 @@ C...Add missing optional aerosol surrogate species
       Do spc = 1, nadd_tx
          srgaer( spc ) = srgaer_addtx( spc )
       End Do
- 
-      Do var = 1, n_aerospc
 
+C...Initialize aerosol surrogate species from AERO_DATA table
+      Do var = 1, n_aerospc
          spc = nadd_tx + var
          srgaer( spc ) = sur_aer_type( (/' ',' ',' '/), 0.0, 0.0, 0.0 )
 
          ! Skip H2O, H2OP, and SOIL species
          If ( var .Eq. ah2o_idx .Or. var .Eq. ah3op_idx ) Then
               write(xmsg,'(4(A,1x))')'Skipping AQ surrogate for AEROSPC ',
-     &                               aerospc( spc )%name( 1:n_mode )
+     &                               aerospc( spc-nadd_tx )%name( 1:n_mode )
               Call m3warn( 'aq_data_init', 0, 0, xmsg )
               Cycle
          End if
-!        If ( var .Eq. asoil_idx ) Cycle ! SLN 16March2011
 
          Do mode = 1, n_mode
-
             n = index1( aerospc( var )%name( mode ), n_ae_a2aq, aename )
             If ( n .Gt. 0 ) Then
-
                ! Verify that surrogate is new
                new = .True. 
                Do i = 1, spc
@@ -468,12 +467,12 @@ C...Add missing optional aerosol surrogate species
                   srgaer( spc )%molwt = aerospc_mw( var )
                End If
            End If
-
          End Do   ! mode
-
       End Do   ! spc
 
-C...Add additional aerosol surrogate species
+C...Initialize aerosol moment surrogates (i.e.
+C   NUM_AITKEN, NUM_ACCUM, NUM_COARSE,
+C   SRF_AITKEB, SRF_ACCUM, SRF_COARSE )
       Do n = 1, naddaer
          spc = n_aerospc + nadd_tx + n
          srgaer( spc ) = addsrgaer( n )
@@ -578,6 +577,10 @@ C...Create the pointers from CGRID to the aerosol species needed by AQCHEM
                   Call m3mesg( xmsg )
                Else
                   Do isrg = 1, nsrgaer( iaer,n )
+                     If ( isrg .Gt. mxsrg ) Then
+                        xmsg = 'lsrg will index out of bounds. Increase mxsrg in AQ_DATA.F'
+                        Call m3exit( 'AQ_DATA', 0, 0, xmsg, xstat3 )
+                     End If
                      lsrgaer( iaer,n,isrg ) = lsrg( isrg )
 #ifdef verbose_cloud
                      write( logdev,1113 ) cgrid2aq_name( lsrgaer( iaer,n,isrg ) ),
@@ -726,8 +729,9 @@ C Local Variables:
       Character( 80 ) :: xmsg
       Integer spc
 
+      idx = 0
       Do spc = 1, ngas      
-         If ( srggas( spc )%name .Eq. Trim( vname ) ) Then
+         If ( srggas( spc )%name .Eq. vname ) Then
             idx = spc
             ! Write( *,'(a,i5)' ) vname, idx
             Return
@@ -762,10 +766,11 @@ C Local Variables:
       Character( 80 ) :: xmsg
       Integer spc, n
 
+      idx = 0
       Do spc = 1, naer
          Do n = 1, nmodes
             ! Write( *,'(a,i5)' ) vname, spc
-            If ( srgaer( spc )%name( n ) .Eq. Trim( vname ) ) Then
+            If ( srgaer( spc )%name( n ) .Eq. vname ) Then
                idx = spc
                ! Write( *,'(a,i5)' ) vname, idx
                Return
@@ -806,7 +811,7 @@ C-----------------------------------------------------------------------
 C..Functions:
 
 C..Parameters:
-      Real, Parameter :: cmin = 1.0E-25   ! minimum concentration for most species
+      Real, Parameter :: cmin = 1.0E-34   ! minimum concentration for most species
 
 C..Arguments:
       Real, Intent( Out ) :: aeconcmin( : ) ! array of minimum concentrations

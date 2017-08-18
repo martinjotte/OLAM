@@ -547,7 +547,7 @@ module EMIS_MAPS_MEGAN
       PARAMETER     (SPC_CB05MECH = 'CB05            ')
 
       INTEGER        N_CB05_SPC
-      PARAMETER     (N_CB05_SPC = 20)
+      PARAMETER     (N_CB05_SPC = 24)
 
       CHARACTER*16, target :: MECH_SPC_CB05( N_CB05_SPC )  ! Mechanism species name
       REAL                    MECH_MWT_CB05( N_CB05_SPC )  ! Mechanism species molecular weight
@@ -555,7 +555,7 @@ module EMIS_MAPS_MEGAN
       DATA  MECH_SPC_CB05(  1), MECH_MWT_CB05(  1) / 'ISOP            ',  80.00  /
       DATA  MECH_SPC_CB05(  2), MECH_MWT_CB05(  2) / 'TERP            ', 160.00  /
       DATA  MECH_SPC_CB05(  3), MECH_MWT_CB05(  3) / 'PAR             ',  16.00  /
-      DATA  MECH_SPC_CB05(  4), MECH_MWT_CB05(  4) / 'XYL             ', 128.00  /
+      DATA  MECH_SPC_CB05(  4), MECH_MWT_CB05(  4) / 'XYLMN           ', 106.00  /
       DATA  MECH_SPC_CB05(  5), MECH_MWT_CB05(  5) / 'OLE             ',  32.00  /
       DATA  MECH_SPC_CB05(  6), MECH_MWT_CB05(  6) / 'NR              ',  16.00  /
       DATA  MECH_SPC_CB05(  7), MECH_MWT_CB05(  7) / 'MEOH            ',  16.00  /
@@ -571,7 +571,11 @@ module EMIS_MAPS_MEGAN
       DATA  MECH_SPC_CB05( 17), MECH_MWT_CB05( 17) / 'CO              ',  28.00  /
       DATA  MECH_SPC_CB05( 18), MECH_MWT_CB05( 18) / 'ETHA            ',  32.00  /
       DATA  MECH_SPC_CB05( 19), MECH_MWT_CB05( 19) / 'ETH             ',  28.00  /
-      DATA  MECH_SPC_CB05( 20), MECH_MWT_CB05( 20) / 'SESQ            ', 204.35  /
+      DATA  MECH_SPC_CB05( 20), MECH_MWT_CB05( 20) / 'SESQ            ', 204.00  /
+      DATA  MECH_SPC_CB05( 21), MECH_MWT_CB05( 21) / 'NAPH            ', 128.20  /
+      DATA  MECH_SPC_CB05( 22), MECH_MWT_CB05( 22) / 'SOAALK          ', 112.00  /
+      DATA  MECH_SPC_CB05( 23), MECH_MWT_CB05( 23) / 'FACD            ',  46.00  /
+      DATA  MECH_SPC_CB05( 24), MECH_MWT_CB05( 24) / 'AACD            ',  60.00  /
 
 !=======================================================================
 !  MAP_CB05_CV2CB05.EXT
@@ -593,7 +597,7 @@ module EMIS_MAPS_MEGAN
       PARAMETER    (MAP_CB05MECH = 'CB05            ')
 
       INTEGER        N_CB05
-      PARAMETER     (N_CB05 = 204)        ! Number of map species
+      PARAMETER     (N_CB05 = 207)        ! Number of map species
 
       CHARACTER*16   SPMH_NAM_CB05( N_CB05 )   ! speciated species name
       INTEGER, target :: SPMH_MAP_CB05( N_CB05 )   ! speciated species name
@@ -670,7 +674,7 @@ module EMIS_MAPS_MEGAN
       DATA  SPMH_NAM_CB05( 10)     , SPMH_MAP_CB05( 10)  &
           / '2met_styrene    ', 9             /
       DATA  MECH_NAM_CB05( 10)     , MECH_MAP_CB05( 10)  &
-          / 'XYL             ', 4             /
+          / 'XYLMN           ', 4             /
       DATA  CONV_FAC_CB05( 10)  &
           / 1.00          /
 
@@ -691,7 +695,7 @@ module EMIS_MAPS_MEGAN
       DATA  SPMH_NAM_CB05( 13)     , SPMH_MAP_CB05( 13)  &
           / 'cymene_p        ', 10            /
       DATA  MECH_NAM_CB05( 13)     , MECH_MAP_CB05( 13)  &
-          / 'XYL             ', 4             /
+          / 'XYLMN           ', 4             /
       DATA  CONV_FAC_CB05( 13)  &
           / 1.00          /
 
@@ -705,7 +709,7 @@ module EMIS_MAPS_MEGAN
       DATA  SPMH_NAM_CB05( 15)     , SPMH_MAP_CB05( 15)  &
           / 'cymene_o        ', 11            /
       DATA  MECH_NAM_CB05( 15)     , MECH_MAP_CB05( 15)  &
-          / 'XYL             ', 4             /
+          / 'XYLMN           ', 4             /
       DATA  CONV_FAC_CB05( 15)  &
           / 1.00          /
 
@@ -1258,7 +1262,7 @@ module EMIS_MAPS_MEGAN
       DATA  SPMH_NAM_CB05( 94)     , SPMH_MAP_CB05( 94)  &
           / 'formic_acid     ', 80            /
       DATA  MECH_NAM_CB05( 94)     , MECH_MAP_CB05( 94)  &
-          / 'NR              ', 6             /
+          / 'FACD            ', 23            /
       DATA  CONV_FAC_CB05( 94)  &
           / 1.00          /
 
@@ -1279,7 +1283,7 @@ module EMIS_MAPS_MEGAN
       DATA  SPMH_NAM_CB05( 97)     , SPMH_MAP_CB05( 97)  &
           / 'acetic_acid     ', 82            /
       DATA  MECH_NAM_CB05( 97)     , MECH_MAP_CB05( 97)  &
-          / 'NR              ', 6             /
+          / 'AACD            ', 24             /
       DATA  CONV_FAC_CB05( 97)  &
           / 1.00          /
 
@@ -1389,648 +1393,669 @@ module EMIS_MAPS_MEGAN
           / 7.00          /
 
       DATA  SPMH_NAM_CB05(113)     , SPMH_MAP_CB05(113)  &
-          / 'hexane          ', 92            /
+          / 'heptane         ', 91            /
       DATA  MECH_NAM_CB05(113)     , MECH_MAP_CB05(113)  &
-          / 'PAR             ', 3             /
+          / 'SOAALK          ', 22            /
       DATA  CONV_FAC_CB05(113)  &
-          / 6.00          /
+          / 0.05          /
 
       DATA  SPMH_NAM_CB05(114)     , SPMH_MAP_CB05(114)  &
-          / 'met_benzoate    ', 93            /
+          / 'hexane          ', 92            /
       DATA  MECH_NAM_CB05(114)     , MECH_MAP_CB05(114)  &
-          / 'TOL             ', 15            /
-      DATA  CONV_FAC_CB05(114)  &
-          / 1.00          /
-
-      DATA  SPMH_NAM_CB05(115)     , SPMH_MAP_CB05(115)  &
-          / 'met_benzoate    ', 93            /
-      DATA  MECH_NAM_CB05(115)     , MECH_MAP_CB05(115)  &
-          / 'NR              ', 6             /
-      DATA  CONV_FAC_CB05(115)  &
-          / 1.00          /
-
-      DATA  SPMH_NAM_CB05(116)     , SPMH_MAP_CB05(116)  &
-          / 'met_heptenone   ', 94            /
-      DATA  MECH_NAM_CB05(116)     , MECH_MAP_CB05(116)  &
           / 'PAR             ', 3             /
-      DATA  CONV_FAC_CB05(116)  &
+      DATA  CONV_FAC_CB05(114)  &
           / 6.00          /
 
+      DATA  SPMH_NAM_CB05(115)     , SPMH_MAP_CB05(115)  &
+          / 'hexane          ', 92            /
+      DATA  MECH_NAM_CB05(115)     , MECH_MAP_CB05(115)  &
+          / 'SOAALK          ', 22            /
+      DATA  CONV_FAC_CB05(115)  &
+          / 0.03          /
+
+      DATA  SPMH_NAM_CB05(116)     , SPMH_MAP_CB05(116)  &
+          / 'met_benzoate    ', 93            /
+      DATA  MECH_NAM_CB05(116)     , MECH_MAP_CB05(116)  &
+          / 'TOL             ', 15            /
+      DATA  CONV_FAC_CB05(116)  &
+          / 1.00          /
+
       DATA  SPMH_NAM_CB05(117)     , SPMH_MAP_CB05(117)  &
-          / 'met_heptenone   ', 94            /
+          / 'met_benzoate    ', 93            /
       DATA  MECH_NAM_CB05(117)     , MECH_MAP_CB05(117)  &
-          / 'ALDX            ', 14            /
+          / 'NR              ', 6             /
       DATA  CONV_FAC_CB05(117)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(118)     , SPMH_MAP_CB05(118)  &
-          / 'neryl_acetone   ', 95            /
+          / 'met_heptenone   ', 94            /
       DATA  MECH_NAM_CB05(118)     , MECH_MAP_CB05(118)  &
-          / 'IOLE            ', 16            /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(118)  &
-          / 1.00          /
+          / 6.00          /
 
       DATA  SPMH_NAM_CB05(119)     , SPMH_MAP_CB05(119)  &
-          / 'neryl_acetone   ', 95            /
+          / 'met_heptenone   ', 94            /
       DATA  MECH_NAM_CB05(119)     , MECH_MAP_CB05(119)  &
-          / 'PAR             ', 3             /
+          / 'ALDX            ', 14            /
       DATA  CONV_FAC_CB05(119)  &
-          / 8.00          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(120)     , SPMH_MAP_CB05(120)  &
           / 'neryl_acetone   ', 95            /
       DATA  MECH_NAM_CB05(120)     , MECH_MAP_CB05(120)  &
-          / 'NR              ', 6             /
+          / 'IOLE            ', 16            /
       DATA  CONV_FAC_CB05(120)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(121)     , SPMH_MAP_CB05(121)  &
-          / 'nonanal         ', 96            /
+          / 'neryl_acetone   ', 95            /
       DATA  MECH_NAM_CB05(121)     , MECH_MAP_CB05(121)  &
-          / 'ALDX            ', 14            /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(121)  &
-          / 1.00          /
+          / 8.00          /
 
       DATA  SPMH_NAM_CB05(122)     , SPMH_MAP_CB05(122)  &
-          / 'nonanal         ', 96            /
+          / 'neryl_acetone   ', 95            /
       DATA  MECH_NAM_CB05(122)     , MECH_MAP_CB05(122)  &
-          / 'PAR             ', 3             /
+          / 'NR              ', 6             /
       DATA  CONV_FAC_CB05(122)  &
-          / 7.00          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(123)     , SPMH_MAP_CB05(123)  &
-          / 'nonenal         ', 97            /
+          / 'nonanal         ', 96            /
       DATA  MECH_NAM_CB05(123)     , MECH_MAP_CB05(123)  &
-          / 'PAR             ', 3             /
+          / 'ALDX            ', 14            /
       DATA  CONV_FAC_CB05(123)  &
-          / 3.00          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(124)     , SPMH_MAP_CB05(124)  &
-          / 'nonenal         ', 97            /
+          / 'nonanal         ', 96            /
       DATA  MECH_NAM_CB05(124)     , MECH_MAP_CB05(124)  &
-          / 'IOLE            ', 16            /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(124)  &
-          / 1.00          /
+          / 7.00          /
 
       DATA  SPMH_NAM_CB05(125)     , SPMH_MAP_CB05(125)  &
           / 'nonenal         ', 97            /
       DATA  MECH_NAM_CB05(125)     , MECH_MAP_CB05(125)  &
-          / 'ALDX            ', 14            /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(125)  &
-          / 1.00          /
+          / 3.00          /
 
       DATA  SPMH_NAM_CB05(126)     , SPMH_MAP_CB05(126)  &
-          / 'octanal         ', 98            /
+          / 'nonenal         ', 97            /
       DATA  MECH_NAM_CB05(126)     , MECH_MAP_CB05(126)  &
-          / 'ALDX            ', 14            /
+          / 'IOLE            ', 16            /
       DATA  CONV_FAC_CB05(126)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(127)     , SPMH_MAP_CB05(127)  &
-          / 'octanal         ', 98            /
+          / 'nonenal         ', 97            /
       DATA  MECH_NAM_CB05(127)     , MECH_MAP_CB05(127)  &
-          / 'PAR             ', 3             /
+          / 'ALDX            ', 14            /
       DATA  CONV_FAC_CB05(127)  &
-          / 6.00          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(128)     , SPMH_MAP_CB05(128)  &
-          / 'octanol         ', 99            /
+          / 'octanal         ', 98            /
       DATA  MECH_NAM_CB05(128)     , MECH_MAP_CB05(128)  &
-          / 'PAR             ', 3             /
+          / 'ALDX            ', 14            /
       DATA  CONV_FAC_CB05(128)  &
-          / 8.00          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(129)     , SPMH_MAP_CB05(129)  &
-          / 'octenol_1e3ol   ', 100           /
+          / 'octanal         ', 98            /
       DATA  MECH_NAM_CB05(129)     , MECH_MAP_CB05(129)  &
           / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(129)  &
           / 6.00          /
 
       DATA  SPMH_NAM_CB05(130)     , SPMH_MAP_CB05(130)  &
-          / 'octenol_1e3ol   ', 100           /
+          / 'octanol         ', 99            /
       DATA  MECH_NAM_CB05(130)     , MECH_MAP_CB05(130)  &
-          / 'OLE             ', 5             /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(130)  &
-          / 1.00          /
+          / 8.00          /
 
       DATA  SPMH_NAM_CB05(131)     , SPMH_MAP_CB05(131)  &
-          / 'oxopentanal     ', 101           /
+          / 'octanal         ', 98            /
       DATA  MECH_NAM_CB05(131)     , MECH_MAP_CB05(131)  &
-          / 'PAR             ', 3             /
+          / 'SOAALK          ', 22            /
       DATA  CONV_FAC_CB05(131)  &
-          / 3.00          /
+          / 0.10          /
 
       DATA  SPMH_NAM_CB05(132)     , SPMH_MAP_CB05(132)  &
-          / 'oxopentanal     ', 101           /
+          / 'octenol_1e3ol   ', 100           /
       DATA  MECH_NAM_CB05(132)     , MECH_MAP_CB05(132)  &
-          / 'ALDX            ', 14            /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(132)  &
-          / 1.00          /
+          / 6.00          /
 
       DATA  SPMH_NAM_CB05(133)     , SPMH_MAP_CB05(133)  &
-          / 'pentane         ', 102           /
+          / 'octenol_1e3ol   ', 100           /
       DATA  MECH_NAM_CB05(133)     , MECH_MAP_CB05(133)  &
-          / 'PAR             ', 3             /
+          / 'OLE             ', 5             /
       DATA  CONV_FAC_CB05(133)  &
-          / 5.00          /
-
-      DATA  SPMH_NAM_CB05(134)     , SPMH_MAP_CB05(134)  &
-          / 'phenyl_CCO      ', 103           /
-      DATA  MECH_NAM_CB05(134)     , MECH_MAP_CB05(134)  &
-          / 'TOL             ', 15            /
-      DATA  CONV_FAC_CB05(134)  &
           / 1.00          /
 
+      DATA  SPMH_NAM_CB05(134)     , SPMH_MAP_CB05(134)  &
+          / 'oxopentanal     ', 101           /
+      DATA  MECH_NAM_CB05(134)     , MECH_MAP_CB05(134)  &
+          / 'PAR             ', 3             /
+      DATA  CONV_FAC_CB05(134)  &
+          / 3.00          /
+
       DATA  SPMH_NAM_CB05(135)     , SPMH_MAP_CB05(135)  &
-          / 'phenyl_CCO      ', 103           /
+          / 'oxopentanal     ', 101           /
       DATA  MECH_NAM_CB05(135)     , MECH_MAP_CB05(135)  &
           / 'ALDX            ', 14            /
       DATA  CONV_FAC_CB05(135)  &
-          / 0.50          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(136)     , SPMH_MAP_CB05(136)  &
-          / 'pyruvic_acid    ', 104           /
+          / 'pentane         ', 102           /
       DATA  MECH_NAM_CB05(136)     , MECH_MAP_CB05(136)  &
-          / 'FORM            ', 13            /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(136)  &
-          / 1.00          /
+          / 5.00          /
 
       DATA  SPMH_NAM_CB05(137)     , SPMH_MAP_CB05(137)  &
-          / 'pyruvic_acid    ', 104           /
+          / 'pentane         ', 102           /
       DATA  MECH_NAM_CB05(137)     , MECH_MAP_CB05(137)  &
-          / 'ALDX            ', 14            /
+          / 'SOAALK          ', 22            /
       DATA  CONV_FAC_CB05(137)  &
-          / 1.00          /
+          / 0.02          /
 
       DATA  SPMH_NAM_CB05(138)     , SPMH_MAP_CB05(138)  &
-          / 'terpinyl_ACT_a  ', 105           /
+          / 'phenyl_CCO      ', 103           /
       DATA  MECH_NAM_CB05(138)     , MECH_MAP_CB05(138)  &
-          / 'TERP            ', 2             /
+          / 'TOL             ', 15            /
       DATA  CONV_FAC_CB05(138)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(139)     , SPMH_MAP_CB05(139)  &
-          / 'terpinyl_ACT_a  ', 105           /
+          / 'phenyl_CCO      ', 103           /
       DATA  MECH_NAM_CB05(139)     , MECH_MAP_CB05(139)  &
-          / 'NR              ', 6             /
+          / 'ALDX            ', 14            /
       DATA  CONV_FAC_CB05(139)  &
-          / 2.00          /
+          / 0.50          /
 
       DATA  SPMH_NAM_CB05(140)     , SPMH_MAP_CB05(140)  &
-          / 'tetradecene_1   ', 106           /
+          / 'pyruvic_acid    ', 104           /
       DATA  MECH_NAM_CB05(140)     , MECH_MAP_CB05(140)  &
-          / 'PAR             ', 3             /
+          / 'FORM            ', 13            /
       DATA  CONV_FAC_CB05(140)  &
-          / 12.00         /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(141)     , SPMH_MAP_CB05(141)  &
-          / 'tetradecene_1   ', 106           /
+          / 'pyruvic_acid    ', 104           /
       DATA  MECH_NAM_CB05(141)     , MECH_MAP_CB05(141)  &
-          / 'OLE             ', 5             /
+          / 'ALDX            ', 14            /
       DATA  CONV_FAC_CB05(141)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(142)     , SPMH_MAP_CB05(142)  &
-          / 'toluene         ', 107           /
+          / 'terpinyl_ACT_a  ', 105           /
       DATA  MECH_NAM_CB05(142)     , MECH_MAP_CB05(142)  &
-          / 'TOL             ', 15            /
+          / 'TERP            ', 2             /
       DATA  CONV_FAC_CB05(142)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(143)     , SPMH_MAP_CB05(143)  &
-          / 'carbon_monoxide ', 108           /
+          / 'terpinyl_ACT_a  ', 105           /
       DATA  MECH_NAM_CB05(143)     , MECH_MAP_CB05(143)  &
-          / 'CO              ', 17            /
+          / 'NR              ', 6             /
       DATA  CONV_FAC_CB05(143)  &
-          / 1.00          /
-
-      DATA  SPMH_NAM_CB05(144)     , SPMH_MAP_CB05(144)  &
-          / 'butene          ', 109           /
-      DATA  MECH_NAM_CB05(144)     , MECH_MAP_CB05(144)  &
-          / 'OLE             ', 5             /
-      DATA  CONV_FAC_CB05(144)  &
-          / 1.00          /
-
-      DATA  SPMH_NAM_CB05(145)     , SPMH_MAP_CB05(145)  &
-          / 'butene          ', 109           /
-      DATA  MECH_NAM_CB05(145)     , MECH_MAP_CB05(145)  &
-          / 'PAR             ', 3             /
-      DATA  CONV_FAC_CB05(145)  &
           / 2.00          /
 
+      DATA  SPMH_NAM_CB05(144)     , SPMH_MAP_CB05(144)  &
+          / 'tetradecene_1   ', 106           /
+      DATA  MECH_NAM_CB05(144)     , MECH_MAP_CB05(144)  &
+          / 'PAR             ', 3             /
+      DATA  CONV_FAC_CB05(144)  &
+          / 12.00         /
+
+      DATA  SPMH_NAM_CB05(145)     , SPMH_MAP_CB05(145)  &
+          / 'tetradecene_1   ', 106           /
+      DATA  MECH_NAM_CB05(145)     , MECH_MAP_CB05(145)  &
+          / 'OLE             ', 5             /
+      DATA  CONV_FAC_CB05(145)  &
+          / 1.00          /
+
       DATA  SPMH_NAM_CB05(146)     , SPMH_MAP_CB05(146)  &
-          / 'ethane          ', 110           /
+          / 'toluene         ', 107           /
       DATA  MECH_NAM_CB05(146)     , MECH_MAP_CB05(146)  &
-          / 'ETHA            ', 18            /
+          / 'TOL             ', 15            /
       DATA  CONV_FAC_CB05(146)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(147)     , SPMH_MAP_CB05(147)  &
-          / 'ethene          ', 111           /
+          / 'carbon_monoxide ', 108           /
       DATA  MECH_NAM_CB05(147)     , MECH_MAP_CB05(147)  &
-          / 'ETH             ', 19            /
+          / 'CO              ', 17            /
       DATA  CONV_FAC_CB05(147)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(148)     , SPMH_MAP_CB05(148)  &
-          / 'propane         ', 113           /
+          / 'butene          ', 109           /
       DATA  MECH_NAM_CB05(148)     , MECH_MAP_CB05(148)  &
-          / 'PAR             ', 3             /
+          / 'OLE             ', 5             /
       DATA  CONV_FAC_CB05(148)  &
-          / 1.50          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(149)     , SPMH_MAP_CB05(149)  &
-          / 'propane         ', 113           /
+          / 'butene          ', 109           /
       DATA  MECH_NAM_CB05(149)     , MECH_MAP_CB05(149)  &
-          / 'NR              ', 6             /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(149)  &
-          / 1.50          /
+          / 2.00          /
 
       DATA  SPMH_NAM_CB05(150)     , SPMH_MAP_CB05(150)  &
-          / 'propene         ', 114           /
+          / 'ethane          ', 110           /
       DATA  MECH_NAM_CB05(150)     , MECH_MAP_CB05(150)  &
-          / 'OLE             ', 5             /
+          / 'ETHA            ', 18            /
       DATA  CONV_FAC_CB05(150)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(151)     , SPMH_MAP_CB05(151)  &
-          / 'propene         ', 114           /
+          / 'ethene          ', 111           /
       DATA  MECH_NAM_CB05(151)     , MECH_MAP_CB05(151)  &
-          / 'PAR             ', 3             /
+          / 'ETH             ', 19            /
       DATA  CONV_FAC_CB05(151)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(152)     , SPMH_MAP_CB05(152)  &
-          / 'diallyl_2s      ', 117           /
+          / 'propane         ', 113           /
       DATA  MECH_NAM_CB05(152)     , MECH_MAP_CB05(152)  &
           / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(152)  &
-          / 2.00          /
+          / 1.50          /
 
       DATA  SPMH_NAM_CB05(153)     , SPMH_MAP_CB05(153)  &
-          / 'diallyl_2s      ', 117           /
+          / 'propane         ', 113           /
       DATA  MECH_NAM_CB05(153)     , MECH_MAP_CB05(153)  &
-          / 'OLE             ', 5             /
+          / 'NR              ', 6             /
       DATA  CONV_FAC_CB05(153)  &
-          / 2.00          /
+          / 1.50          /
 
       DATA  SPMH_NAM_CB05(154)     , SPMH_MAP_CB05(154)  &
-          / '2met_2s         ', 118           /
+          / 'propene         ', 114           /
       DATA  MECH_NAM_CB05(154)     , MECH_MAP_CB05(154)  &
-          / 'PAR             ', 3             /
+          / 'OLE             ', 5             /
       DATA  CONV_FAC_CB05(154)  &
-          / 2.00          /
-
+          / 1.00          /
+ 
       DATA  SPMH_NAM_CB05(155)     , SPMH_MAP_CB05(155)  &
-          / '2met_s          ', 119           /
+          / 'propene         ', 114           /
       DATA  MECH_NAM_CB05(155)     , MECH_MAP_CB05(155)  &
           / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(155)  &
-          / 2.00          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(156)     , SPMH_MAP_CB05(156)  &
-          / 'met_chloride    ', 120           /
+          / 'diallyl_2s      ', 117           /
       DATA  MECH_NAM_CB05(156)     , MECH_MAP_CB05(156)  &
-          / 'NR              ', 6             /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(156)  &
-          / 1.00          /
+          / 2.00          /
 
       DATA  SPMH_NAM_CB05(157)     , SPMH_MAP_CB05(157)  &
-          / 'met_bromide     ', 121           /
+          / 'diallyl_2s      ', 117           /
       DATA  MECH_NAM_CB05(157)     , MECH_MAP_CB05(157)  &
-          / 'NR              ', 6             /
+          / 'OLE             ', 5             /
       DATA  CONV_FAC_CB05(157)  &
-          / 1.00          /
+          / 2.00          /
 
       DATA  SPMH_NAM_CB05(158)     , SPMH_MAP_CB05(158)  &
-          / 'met_iodide      ', 122           /
+          / '2met_2s         ', 118           /
       DATA  MECH_NAM_CB05(158)     , MECH_MAP_CB05(158)  &
-          / 'NR              ', 6             /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(158)  &
-          / 1.00          /
+          / 2.00          /
 
       DATA  SPMH_NAM_CB05(159)     , SPMH_MAP_CB05(159)  &
-          / 'met_mercaptan   ', 124           /
+          / '2met_s          ', 119           /
       DATA  MECH_NAM_CB05(159)     , MECH_MAP_CB05(159)  &
           / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(159)  &
-          / 1.00          /
-
-      DATA  SPMH_NAM_CB05(160)     , SPMH_MAP_CB05(160)  &
-          / 'met_propenyl_2s ', 125           /
-      DATA  MECH_NAM_CB05(160)     , MECH_MAP_CB05(160)  &
-          / 'PAR             ', 3             /
-      DATA  CONV_FAC_CB05(160)  &
           / 2.00          /
 
+      DATA  SPMH_NAM_CB05(160)     , SPMH_MAP_CB05(160)  &
+          / 'met_chloride    ', 120           /
+      DATA  MECH_NAM_CB05(160)     , MECH_MAP_CB05(160)  &
+          / 'NR              ', 6             /
+      DATA  CONV_FAC_CB05(160)  &
+          / 1.00          /
+
       DATA  SPMH_NAM_CB05(161)     , SPMH_MAP_CB05(161)  &
-          / 'met_propenyl_2s ', 125           /
+          / 'met_bromide     ', 121           /
       DATA  MECH_NAM_CB05(161)     , MECH_MAP_CB05(161)  &
-          / 'OLE             ', 5             /
+          / 'NR              ', 6             /
       DATA  CONV_FAC_CB05(161)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(162)     , SPMH_MAP_CB05(162)  &
-          / 'PPPP_2s         ', 126           /
+          / 'met_iodide      ', 122           /
       DATA  MECH_NAM_CB05(162)     , MECH_MAP_CB05(162)  &
-          / 'PAR             ', 3             /
+          / 'NR              ', 6             /
       DATA  CONV_FAC_CB05(162)  &
-          / 4.00          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(163)     , SPMH_MAP_CB05(163)  &
-          / 'PPPP_2s         ', 126           /
+          / 'met_mercaptan   ', 124           /
       DATA  MECH_NAM_CB05(163)     , MECH_MAP_CB05(163)  &
-          / 'OLE             ', 5             /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(163)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(164)     , SPMH_MAP_CB05(164)  &
-          / '2met_nonatriene ', 127           /
+          / 'met_propenyl_2s ', 125           /
       DATA  MECH_NAM_CB05(164)     , MECH_MAP_CB05(164)  &
-          / 'TERP            ', 2             /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(164)  &
-          / 1.00          /
+          / 2.00          /
 
       DATA  SPMH_NAM_CB05(165)     , SPMH_MAP_CB05(165)  &
-          / 'met_salicylate  ', 128           /
+          / 'met_propenyl_2s ', 125           /
       DATA  MECH_NAM_CB05(165)     , MECH_MAP_CB05(165)  &
-          / 'TOL             ', 15            /
+          / 'OLE             ', 5             /
       DATA  CONV_FAC_CB05(165)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(166)     , SPMH_MAP_CB05(166)  &
-          / 'met_salicylate  ', 128           /
+          / 'PPPP_2s         ', 126           /
       DATA  MECH_NAM_CB05(166)     , MECH_MAP_CB05(166)  &
-          / 'NR              ', 6             /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(166)  &
-          / 1.00          /
+          / 4.00          /
 
       DATA  SPMH_NAM_CB05(167)     , SPMH_MAP_CB05(167)  &
-          / 'indole          ', 129           /
+          / 'PPPP_2s         ', 126           /
       DATA  MECH_NAM_CB05(167)     , MECH_MAP_CB05(167)  &
-          / 'TOL             ', 15            /
+          / 'OLE             ', 5             /
       DATA  CONV_FAC_CB05(167)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(168)     , SPMH_MAP_CB05(168)  &
-          / 'indole          ', 129           /
+          / '2met_nonatriene ', 127           /
       DATA  MECH_NAM_CB05(168)     , MECH_MAP_CB05(168)  &
-          / 'NR              ', 6             /
+          / 'TERP            ', 2             /
       DATA  CONV_FAC_CB05(168)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(169)     , SPMH_MAP_CB05(169)  &
-          / 'jasmone         ', 130           /
+          / 'met_salicylate  ', 128           /
       DATA  MECH_NAM_CB05(169)     , MECH_MAP_CB05(169)  &
-          / 'TERP            ', 2             /
+          / 'TOL             ', 15            /
       DATA  CONV_FAC_CB05(169)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(170)     , SPMH_MAP_CB05(170)  &
-          / 'jasmone         ', 130           /
+          / 'met_salicylate  ', 128           /
       DATA  MECH_NAM_CB05(170)     , MECH_MAP_CB05(170)  &
           / 'NR              ', 6             /
       DATA  CONV_FAC_CB05(170)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(171)     , SPMH_MAP_CB05(171)  &
-          / 'met_jasmonate   ', 131           /
+          / 'indole          ', 129           /
       DATA  MECH_NAM_CB05(171)     , MECH_MAP_CB05(171)  &
-          / 'TERP            ', 2             /
+          / 'TOL             ', 15            /
       DATA  CONV_FAC_CB05(171)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(172)     , SPMH_MAP_CB05(172)  &
-          / 'met_jasmonate   ', 131           /
+          / 'indole          ', 129           /
       DATA  MECH_NAM_CB05(172)     , MECH_MAP_CB05(172)  &
           / 'NR              ', 6             /
       DATA  CONV_FAC_CB05(172)  &
-          / 3.00          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(173)     , SPMH_MAP_CB05(173)  &
-          / '3met_3DCTT      ', 132           /
+          / 'jasmone         ', 130           /
       DATA  MECH_NAM_CB05(173)     , MECH_MAP_CB05(173)  &
-          / 'NR              ', 6             /
+          / 'TERP            ', 2             /
       DATA  CONV_FAC_CB05(173)  &
-          / 16.00         /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(174)     , SPMH_MAP_CB05(174)  &
-          / 'hexanal         ', 133           /
+          / 'jasmone         ', 130           /
       DATA  MECH_NAM_CB05(174)     , MECH_MAP_CB05(174)  &
-          / 'ALDX            ', 14            /
+          / 'NR              ', 6             /
       DATA  CONV_FAC_CB05(174)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(175)     , SPMH_MAP_CB05(175)  &
-          / 'hexanal         ', 133           /
+          / 'met_jasmonate   ', 131           /
       DATA  MECH_NAM_CB05(175)     , MECH_MAP_CB05(175)  &
-          / 'PAR             ', 3             /
+          / 'TERP            ', 2             /
       DATA  CONV_FAC_CB05(175)  &
-          / 4.00          /
-
-      DATA  SPMH_NAM_CB05(176)     , SPMH_MAP_CB05(176)  &
-          / 'hexanol_1       ', 134           /
-      DATA  MECH_NAM_CB05(176)     , MECH_MAP_CB05(176)  &
-          / 'PAR             ', 3             /
-      DATA  CONV_FAC_CB05(176)  &
-          / 6.00          /
-
-      DATA  SPMH_NAM_CB05(177)     , SPMH_MAP_CB05(177)  &
-          / 'hexenal_c3      ', 135           /
-      DATA  MECH_NAM_CB05(177)     , MECH_MAP_CB05(177)  &
-          / 'IOLE            ', 16            /
-      DATA  CONV_FAC_CB05(177)  &
           / 1.00          /
 
+      DATA  SPMH_NAM_CB05(176)     , SPMH_MAP_CB05(176)  &
+          / 'met_jasmonate   ', 131           /
+      DATA  MECH_NAM_CB05(176)     , MECH_MAP_CB05(176)  &
+          / 'NR              ', 6             /
+      DATA  CONV_FAC_CB05(176)  &
+          / 3.00          /
+
+      DATA  SPMH_NAM_CB05(177)     , SPMH_MAP_CB05(177)  &
+          / '3met_3DCTT      ', 132           /
+      DATA  MECH_NAM_CB05(177)     , MECH_MAP_CB05(177)  &
+          / 'NR              ', 6             /
+      DATA  CONV_FAC_CB05(177)  &
+          / 16.00         /
+
       DATA  SPMH_NAM_CB05(178)     , SPMH_MAP_CB05(178)  &
-          / 'hexenal_c3      ', 135           /
+          / 'hexanal         ', 133           /
       DATA  MECH_NAM_CB05(178)     , MECH_MAP_CB05(178)  &
           / 'ALDX            ', 14            /
       DATA  CONV_FAC_CB05(178)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(179)     , SPMH_MAP_CB05(179)  &
-          / 'hexenal_t2      ', 136           /
+          / 'hexanal         ', 133           /
       DATA  MECH_NAM_CB05(179)     , MECH_MAP_CB05(179)  &
-          / 'IOLE            ', 16            /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(179)  &
-          / 1.00          /
+          / 4.00          /
 
       DATA  SPMH_NAM_CB05(180)     , SPMH_MAP_CB05(180)  &
-          / 'hexenal_t2      ', 136           /
+          / 'hexanol_1       ', 134           /
       DATA  MECH_NAM_CB05(180)     , MECH_MAP_CB05(180)  &
-          / 'ALDX            ', 14            /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(180)  &
-          / 1.00          /
+          / 6.00          /
 
       DATA  SPMH_NAM_CB05(181)     , SPMH_MAP_CB05(181)  &
-          / 'hexenol_c3      ', 137           /
+          / 'hexenal_c3      ', 135           /
       DATA  MECH_NAM_CB05(181)     , MECH_MAP_CB05(181)  &
-          / 'PAR             ', 3             /
+          / 'IOLE            ', 16            /
       DATA  CONV_FAC_CB05(181)  &
-          / 2.00          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(182)     , SPMH_MAP_CB05(182)  &
-          / 'hexenol_c3      ', 137           /
+          / 'hexenal_c3      ', 135           /
       DATA  MECH_NAM_CB05(182)     , MECH_MAP_CB05(182)  &
-          / 'IOLE            ', 16            /
+          / 'ALDX            ', 14            /
       DATA  CONV_FAC_CB05(182)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(183)     , SPMH_MAP_CB05(183)  &
-          / 'hexenyl_ACT_c3  ', 138           /
+          / 'hexenal_t2      ', 136           /
       DATA  MECH_NAM_CB05(183)     , MECH_MAP_CB05(183)  &
-          / 'PAR             ', 3             /
+          / 'IOLE            ', 16            /
       DATA  CONV_FAC_CB05(183)  &
-          / 3.00          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(184)     , SPMH_MAP_CB05(184)  &
-          / 'hexenyl_ACT_c3  ', 138           /
+          / 'hexenal_t2      ', 136           /
       DATA  MECH_NAM_CB05(184)     , MECH_MAP_CB05(184)  &
-          / 'IOLE            ', 16            /
+          / 'ALDX            ', 14            /
       DATA  CONV_FAC_CB05(184)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(185)     , SPMH_MAP_CB05(185)  &
-          / 'hexenyl_ACT_c3  ', 138           /
+          / 'hexenol_c3      ', 137           /
       DATA  MECH_NAM_CB05(185)     , MECH_MAP_CB05(185)  &
-          / 'NR              ', 6             /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(185)  &
-          / 1.00          /
+          / 2.00          /
 
       DATA  SPMH_NAM_CB05(186)     , SPMH_MAP_CB05(186)  &
-          / 'homosalate      ', 139           /
+          / 'hexenol_c3      ', 137           /
       DATA  MECH_NAM_CB05(186)     , MECH_MAP_CB05(186)  &
-          / 'TERP            ', 2             /
+          / 'IOLE            ', 16            /
       DATA  CONV_FAC_CB05(186)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(187)     , SPMH_MAP_CB05(187)  &
-          / 'homosalate      ', 139           /
+          / 'hexenyl_ACT_c3  ', 138           /
       DATA  MECH_NAM_CB05(187)     , MECH_MAP_CB05(187)  &
-          / 'NR              ', 6             /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(187)  &
           / 3.00          /
 
       DATA  SPMH_NAM_CB05(188)     , SPMH_MAP_CB05(188)  &
-          / 'Ehsalate        ', 140           /
+          / 'hexenyl_ACT_c3  ', 138           /
       DATA  MECH_NAM_CB05(188)     , MECH_MAP_CB05(188)  &
-          / 'TERP            ', 2             /
+          / 'IOLE            ', 16            /
       DATA  CONV_FAC_CB05(188)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(189)     , SPMH_MAP_CB05(189)  &
-          / 'Ehsalate        ', 140           /
+          / 'hexenyl_ACT_c3  ', 138           /
       DATA  MECH_NAM_CB05(189)     , MECH_MAP_CB05(189)  &
           / 'NR              ', 6             /
       DATA  CONV_FAC_CB05(189)  &
-          / 3.00          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(190)     , SPMH_MAP_CB05(190)  &
-          / 'pentanal        ', 141           /
+          / 'homosalate      ', 139           /
       DATA  MECH_NAM_CB05(190)     , MECH_MAP_CB05(190)  &
-          / 'ALDX            ', 14            /
+          / 'TERP            ', 2             /
       DATA  CONV_FAC_CB05(190)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(191)     , SPMH_MAP_CB05(191)  &
-          / 'pentanal        ', 141           /
+          / 'homosalate      ', 139           /
       DATA  MECH_NAM_CB05(191)     , MECH_MAP_CB05(191)  &
-          / 'PAR             ', 3             /
+          / 'NR              ', 6             /
       DATA  CONV_FAC_CB05(191)  &
           / 3.00          /
 
       DATA  SPMH_NAM_CB05(192)     , SPMH_MAP_CB05(192)  &
-          / 'heptanone       ', 142           /
+          / 'Ehsalate        ', 140           /
       DATA  MECH_NAM_CB05(192)     , MECH_MAP_CB05(192)  &
-          / 'PAR             ', 3             /
+          / 'TERP            ', 2             /
       DATA  CONV_FAC_CB05(192)  &
-          / 7.00          /
-
-      DATA  SPMH_NAM_CB05(193)     , SPMH_MAP_CB05(193)  &
-          / 'anisole         ', 143           /
-      DATA  MECH_NAM_CB05(193)     , MECH_MAP_CB05(193)  &
-          / 'TOL             ', 15            /
-      DATA  CONV_FAC_CB05(193)  &
           / 1.00          /
 
+      DATA  SPMH_NAM_CB05(193)     , SPMH_MAP_CB05(193)  &
+          / 'Ehsalate        ', 140           /
+      DATA  MECH_NAM_CB05(193)     , MECH_MAP_CB05(193)  &
+          / 'NR              ', 6             /
+      DATA  CONV_FAC_CB05(193)  &
+          / 3.00          /
+
       DATA  SPMH_NAM_CB05(194)     , SPMH_MAP_CB05(194)  &
-          / 'verbenene       ', 144           /
+          / 'pentanal        ', 141           /
       DATA  MECH_NAM_CB05(194)     , MECH_MAP_CB05(194)  &
-          / 'TERP            ', 2             /
+          / 'ALDX            ', 14            /
       DATA  CONV_FAC_CB05(194)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(195)     , SPMH_MAP_CB05(195)  &
-          / 'benzyl-acetate  ', 145           /
+          / 'pentanal        ', 141           /
       DATA  MECH_NAM_CB05(195)     , MECH_MAP_CB05(195)  &
-          / 'TOL             ', 15            /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(195)  &
-          / 1.00          /
+          / 3.00          /
 
       DATA  SPMH_NAM_CB05(196)     , SPMH_MAP_CB05(196)  &
-          / 'benzyl-acetate  ', 145           /
+          / 'heptanone       ', 142           /
       DATA  MECH_NAM_CB05(196)     , MECH_MAP_CB05(196)  &
           / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(196)  &
-          / 1.00          /
+          / 7.00          /
 
       DATA  SPMH_NAM_CB05(197)     , SPMH_MAP_CB05(197)  &
-          / 'benzyl-acetate  ', 145           /
+          / 'anisole         ', 143           /
       DATA  MECH_NAM_CB05(197)     , MECH_MAP_CB05(197)  &
-          / 'NR              ', 6             /
+          / 'TOL             ', 15            /
       DATA  CONV_FAC_CB05(197)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(198)     , SPMH_MAP_CB05(198)  &
-          / 'myrtenal        ', 146           /
+          / 'verbenene       ', 144           /
       DATA  MECH_NAM_CB05(198)     , MECH_MAP_CB05(198)  &
           / 'TERP            ', 2             /
       DATA  CONV_FAC_CB05(198)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(199)     , SPMH_MAP_CB05(199)  &
-          / 'benzyl-alcohol  ', 147           /
+          / 'benzyl-acetate  ', 145           /
       DATA  MECH_NAM_CB05(199)     , MECH_MAP_CB05(199)  &
           / 'TOL             ', 15            /
       DATA  CONV_FAC_CB05(199)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(200)     , SPMH_MAP_CB05(200)  &
-          / 'meta-cymenene   ', 148           /
+          / 'benzyl-acetate  ', 145           /
       DATA  MECH_NAM_CB05(200)     , MECH_MAP_CB05(200)  &
-          / 'XYL             ', 4             /
+          / 'PAR             ', 3             /
       DATA  CONV_FAC_CB05(200)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(201)     , SPMH_MAP_CB05(201)  &
-          / 'meta-cymenene   ', 148           /
+          / 'benzyl-acetate  ', 145           /
       DATA  MECH_NAM_CB05(201)     , MECH_MAP_CB05(201)  &
-          / 'PAR             ', 3             /
+          / 'NR              ', 6             /
       DATA  CONV_FAC_CB05(201)  &
-          / 2.00          /
+          / 1.00          /
 
       DATA  SPMH_NAM_CB05(202)     , SPMH_MAP_CB05(202)  &
-          / 'ipsenol         ', 149           /
+          / 'myrtenal        ', 146           /
       DATA  MECH_NAM_CB05(202)     , MECH_MAP_CB05(202)  &
           / 'TERP            ', 2             /
       DATA  CONV_FAC_CB05(202)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(203)     , SPMH_MAP_CB05(203)  &
-          / 'Napthalene      ', 150           /
+          / 'benzyl-alcohol  ', 147           /
       DATA  MECH_NAM_CB05(203)     , MECH_MAP_CB05(203)  &
-          / 'XYL             ', 4             /
+          / 'TOL             ', 15            /
       DATA  CONV_FAC_CB05(203)  &
           / 1.00          /
 
       DATA  SPMH_NAM_CB05(204)     , SPMH_MAP_CB05(204)  &
-          / 'Napthalene      ', 150           /
+          / 'meta-cymenene   ', 148           /
       DATA  MECH_NAM_CB05(204)     , MECH_MAP_CB05(204)  &
-          / 'PAR             ', 3             /
+          / 'XYLMN           ', 4             /
       DATA  CONV_FAC_CB05(204)  &
+          / 1.00          /
+
+      DATA  SPMH_NAM_CB05(205)     , SPMH_MAP_CB05(205)  &
+          / 'meta-cymenene   ', 148           /
+      DATA  MECH_NAM_CB05(205)     , MECH_MAP_CB05(205)  &
+          / 'PAR             ', 3             /
+      DATA  CONV_FAC_CB05(205)  &
           / 2.00          /
+
+      DATA  SPMH_NAM_CB05(206)     , SPMH_MAP_CB05(206)  &
+          / 'ipsenol         ', 149           /
+      DATA  MECH_NAM_CB05(206)     , MECH_MAP_CB05(206)  &
+          / 'TERP            ', 2             /
+      DATA  CONV_FAC_CB05(206)  &
+          / 1.00          /
+
+      DATA  SPMH_NAM_CB05(207)     , SPMH_MAP_CB05(207)  &
+          / 'Napthalene      ', 150           /
+      DATA  MECH_NAM_CB05(207)     , MECH_MAP_CB05(207)  &
+          / 'NAPH            ', 21            /
+      DATA  CONV_FAC_CB05(207)  &
+          / 1.00          /
 
 !=======================================================================
 !  SPC_SAPRC99_SAPRC99.EXT

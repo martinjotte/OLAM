@@ -592,7 +592,7 @@
             do i = 1, ndust_spc
                sumsplit = sumsplit + dust_spc( i )%spcfac( n ) ! should = 1.0
                idx = findAero( dust_spc( i )%name( n ), .true. )
-               sumfrac = sumfrac + dust_spc( i )%spcfac( n ) / aerospc( idx )%density
+               sumfrac = sumfrac + dust_spc( i )%spcfac( n ) * aerospc_spvol( idx )
             end do
             dustmode_dens( n ) = sumsplit / sumfrac
          end do

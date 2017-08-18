@@ -292,8 +292,9 @@ Module oname_coms
 
 !!    CMAQ Chemistry
 
-      integer :: do_chem               =  0
-      integer :: ltng_nox              =  0
+      integer :: do_chem               =   0
+      integer :: ltng_nox              =   0
+      real(r8):: photfrq               = 600.0_r8
       logical :: core_shell_photolysis = .false.
       logical :: mie_calc_photolysis   = .false.
 

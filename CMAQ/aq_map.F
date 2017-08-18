@@ -165,7 +165,7 @@ C External Functions:
            LOGICAL,   INTENT( IN )    :: DARK ! DARK = TRUE is night,  DARK = FALSE is day
            real,      intent( in )    :: cthk1
         END SUBROUTINE AQCHEM
-      END INTERFACE      
+      END INTERFACE
 
 C-----------------------------------------------------------------------
 
@@ -247,21 +247,9 @@ C...load aerosol concentrations
 C *** extract grid cell concentrations of aero species from CGRID
 C     into aerospc_conc in aero_data module
 
-      CALL EXTRACT_AERO ( POLC, .FALSE. )
+      CALL EXTRACT_AERO ( POLC, .FALSE., dry=.true. )
 
-C *** Calculate pseudo aerosol 3rd moment (ignore factors that cancel in the division)
-
-      DO IMODE = 2, N_MODE
-         SUM = 0.0_8
-         DO SPC = 1, N_AEROSPC
-            IF ( ( aerospc_map( spc,imode ) /= 0 ) .AND.
-     &           ( .NOT. AEROSPC( SPC )%NO_M2WET ) .AND. 
-     &           ( .NOT. AEROSPC( SPC )%TRACER   ) ) THEN
-               SUM = SUM + AEROSPC_CONC( SPC,IMODE ) * AEROSPC_MWODN( SPC )
-            END IF
-         END DO
-         M3OLD( IMODE ) = MAX( SUM, CONMIND )
-      END DO
+      m3old(2:3) = moment3_conc(2:3)
 
 C...perform aqueous-phase chemistry calculations
 
@@ -299,21 +287,9 @@ C...Now, re-apportion mass back into cend/remov (cgrid-type) array
 C *** extract grid cell concentrations of aero species from CGRID
 C     into aerospc_conc in aero_data module
 
-      CALL EXTRACT_AERO ( CEND, .FALSE. )
+      CALL EXTRACT_AERO ( CEND, .FALSE., dry=.true. )
 
-C *** Calculate pseudo aerosol 3rd moment (ignore factors that cancel in the division)
-
-      DO IMODE = 2, N_MODE
-         SUM = 0.0_8
-         DO SPC = 1, N_AEROSPC
-            IF ( ( aerospc_map( spc,imode ) /= 0 ) .AND.
-     &           ( .NOT. AEROSPC( SPC )%NO_M2WET ) .AND. 
-     &           ( .NOT. AEROSPC( SPC )%TRACER   ) ) THEN
-               SUM = SUM + AEROSPC_CONC( SPC,IMODE ) * AEROSPC_MWODN( SPC )
-            END IF
-         END DO
-         M3NEW( IMODE) = MAX( SUM, CONMIND )
-      END DO
+      m3new(2:3) = moment3_conc(2:3)
 
 C...Update surface area
 
