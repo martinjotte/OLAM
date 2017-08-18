@@ -70,6 +70,8 @@ subroutine sea_init_atm()
                     / (s1900_seaice(iseaicefile) - s1900_seaice(iseaicefile-1))
   endif
 
+  if (runtype /= "INITIAL") return
+
   !$omp parallel do
   do iws = 2,mws
 
@@ -85,10 +87,6 @@ subroutine sea_init_atm()
 
   enddo  ! iws
   !$omp end parallel do
-
-  ! End of initialization that does not depend on atmospheric conditions
-
-  if (runtype /= "INITIAL") return
 
   ! Initialize sea quantities that depend on atmospheric conditions
 

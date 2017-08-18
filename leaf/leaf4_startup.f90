@@ -74,7 +74,13 @@ if ( (iupdndvi /= 1) .and. &
      (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') ) then
 
 ! Do nothing if we are restarting and keeping NDVI constant.
-! It will be read in from the history file
+! It will be read in from the history file. However, we still
+! need to define values for leaf_init_atm before history read.
+     do iwl = 2,mwl
+        land%veg_ndvip(iwl) = .5
+        land%veg_ndvif(iwl) = .5
+        land%veg_ndvic(iwl) = .5
+     enddo
 
 elseif (ndviflg == 2) then
 
