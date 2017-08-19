@@ -49,8 +49,6 @@ c..Mechanism specific variables
       INTEGER   N_SPEC       ! No. of species in mechanism
       INTEGER   N_RXNS       ! No. of reactions in mechanism
       INTEGER   N_EBISP      ! No. of species solved by EBI
-      INTEGER   NING1        ! No. of species in group 1
-      INTEGER   NING2        ! No. of species in group 2
       INTEGER   N_SPCL_RKS   ! No. of special rate constants
       INTEGER   N_ACTSP      ! No. of species in mechanism (non-ss spec)
 !     INTEGER   NCELL        ! cell number in EBI Block

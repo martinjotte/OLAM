@@ -137,14 +137,11 @@ C-----------------------------------------------------------------------
          USE DEPVVARS
          USE UTILIO_DEFN
          USE RXNS_DATA
+         USE CONST_DATA
          use leaf_coms,  only: mwl
          use sea_coms,   only: mws
 
          IMPLICIT NONE
-
-C Includes:
-         INCLUDE 'CONST.EXT'     ! constants
-!        INCLUDE 'FILES_CTM.EXT' ! file name parameters
 
 C Arguments:
          INTEGER JDATE, JTIME, TSTEP( 3 )
@@ -632,6 +629,7 @@ C Get diagnostic file flag.
 
          USE CGRID_SPCS          ! CGRID mechanism species
          USE UTILIO_DEFN
+         USE CONST_DATA
          use cgrid_defn, only: cgrid
          use misc_coms,  only: dtlm
          use mem_grid,   only: lpw, lsw, volt
@@ -646,10 +644,6 @@ C Get diagnostic file flag.
 ! Arguments:
          integer, intent(in) :: iw
 
-! Include files:
-         INCLUDE 'CONST.EXT'     ! constants
-!        INCLUDE 'FILES_CTM.EXT' ! file name parameters
-         
 ! Local variables:
 !        INTEGER          STRT, FINI
 !        LOGICAL       :: WRITE_TIME     ! write to file flag

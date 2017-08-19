@@ -75,15 +75,10 @@ C-----------------------------------------------------------------------
       USE CGRID_SPCS                    ! CGRID mechanism species
       USE UTILIO_DEFN
       use hlconst_mod
+      use const_data
       use misc_coms, only: io6
 
       IMPLICIT NONE
-
-C...........Includes:
-
-      INCLUDE 'CONST.EXT'               ! constants
-
-      CHARACTER( 120 ) :: XMSG = ' '    ! Exit status message
 
 C...........Parameters:
 
@@ -120,6 +115,8 @@ C...........Arguments:
       REAL,    INTENT(  IN ) :: RHOAIR      ! air density in kg/m3
 
 C...........Local Variables:
+
+      CHARACTER( 120 ) :: XMSG = ' '    ! Exit status message
 
       LOGICAL, SAVE :: FIRSTIME = .TRUE.   ! flag for first pass thru
       CHARACTER( 16 ), SAVE :: PNAME = 'SCAVWDEP'  ! program name

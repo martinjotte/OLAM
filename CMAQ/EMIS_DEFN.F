@@ -94,8 +94,8 @@
          USE LTNG_DEFN           ! NO emissions from lightning strikes
          USE UTILIO_DEFN         ! I/O API
          USE AERO_EMIS           ! inherits GRID_CONF
-         USE AERO_DATA, ONLY: MAP_PMEMIS  ! access subroutine map_pmemis
-
+         USE AERO_DATA,     ONLY: MAP_PMEMIS  ! access subroutine map_pmemis
+         USE CONST_DATA
          use misc_coms,     only: idate1, imonth1, iyear1, itime1
          use mem_grid,      only: mwa, mza, lpw, lsw
          use edgar_42_emis, only: edgar_42_init, vinterp, nsec
@@ -103,10 +103,6 @@
          use mem_ijtabs,    only: jtab_w, jtw_prog
 
          IMPLICIT NONE
-
-! Includes:
-
-         INCLUDE 'CONST.EXT'     ! constants
 
 ! Parameters:
 
@@ -263,7 +259,7 @@ C Warn the User if there are No Emissions Species On Any File
 !        USE PTMAP               ! defines emissions file(s) PM mapping
          USE LTNG_DEFN           ! lightning NO emissions
          USE UTILIO_DEFN
-
+         USE CONST_DATA
          use consts_coms,  only: r8
          use leaf_coms,    only: isfcl
          use mem_leaf,     only: itab_wl
@@ -275,10 +271,6 @@ C Warn the User if there are No Emissions Species On Any File
          use soil_nox,     only: get_soil_nox, sn_map, soilnox
 
          IMPLICIT NONE
-
-! Includes:
-
-         INCLUDE 'CONST.EXT'     ! constants
 
 ! Arguments:
 

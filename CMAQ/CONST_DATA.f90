@@ -6,7 +6,9 @@
 ! @(#)CONST.EXT 4.1 /project/mod3/ICL/src/fixed/const/SCCS/s.CONST.EXT 29 May 1997 10:50:26
 
 !.......................................................................
- 
+
+module const_data
+
 !  INCLUDE FILE  CONST.EXT
  
 !  Contains:  Fundamental constants for air quality modeling
@@ -48,114 +50,111 @@
 !                     Dordrecht, 1988
 !.......................................................................
 
-
 ! Geometric Constants:
 
-      REAL,      PARAMETER :: PI = 3.14159265
-      REAL( 8 ), PARAMETER :: DPI = 3.14159265358979324D0
- 
+  REAL,      PARAMETER ::  PI = 3.14159265
+  REAL( 8 ), PARAMETER :: DPI = 3.14159265358979324D0
+
 ! pi/180 [ rad/deg ]
-      REAL, PARAMETER :: PI180  = PI / 180.0
+  REAL, PARAMETER :: PI180  = PI / 180.0
 
 ! Geodetic Constants:
  
 ! radius of the earth [ m ]
 ! FSB: radius of sphere having same surface area as
 ! Clarke ellipsoid of 1866 ( Source: Snyder, 1987)
-!     REAL, PARAMETER :: REARTH = 6370997.0
-      REAL, PARAMETER :: REARTH = 6370000.0    ! default Re in MM5 and WRF
+! REAL, PARAMETER :: REARTH = 6370997.0
+  REAL, PARAMETER :: REARTH = 6370000.0    ! default Re in MM5 and WRF
  
 ! length of a sidereal day [ sec ]
 ! FSB: Source: CRC76 pp. 14-6 
-      REAL, PARAMETER :: SIDAY = 86164.09
+  REAL, PARAMETER :: SIDAY = 86164.09
  
 ! mean gravitational acceleration [ m/sec**2 ]
 ! FSB: Value is mean of polar and equatorial values.
 ! Source: CRC Handbook (76th Ed) pp. 14-6
-      REAL, PARAMETER :: GRAV = 9.80622
+  REAL, PARAMETER :: GRAV = 9.80622
 
 ! latitude degrees to meters
-      REAL, PARAMETER :: DG2M = REARTH * PI180
+  REAL, PARAMETER :: DG2M = REARTH * PI180
 
 ! Solar Constant: 
 ! Solar constant [ W/m**2 ], p14-2 CRC76
-      REAL, PARAMETER :: SOLCNST = 1373.0
+  REAL, PARAMETER :: SOLCNST = 1373.0
 
 ! Fundamental Constants: ( Source: CRC76, pp. 1-1 to 1-6)
 
 ! Avogadro's Constant [ number/mol ]
-      REAL,      PARAMETER :: AVO  = 6.0221367E23
+  REAL,      PARAMETER :: AVO  = 6.0221367E23
 ! The NIST Reference on Constants, Units, and Uncertainty. US National
 ! Institute of Standards and Technology. June 2015. Retrieved 2017-04-21.
 ! http://physics.nist.gov/cgi-bin/cuu/Value?na
-      REAL( 8 ), PARAMETER :: DAVO = 6.02214085774D23
+  REAL( 8 ), PARAMETER :: DAVO = 6.02214085774D23
 
 ! universal gas constant [ J/mol-K ]
-      REAL, PARAMETER :: RGASUNIV = 8.314510
+  REAL, PARAMETER :: RGASUNIV = 8.314510
 ! The NIST Reference on Constants, Units, and Uncertainty. US National
 ! Institute of Standards and Technology. June 2015. Retrieved 2017-04-21.
 ! http://physics.nist.gov/cgi-bin/cuu/Value?r
-      REAL, PARAMETER :: DRGASUNIV = 8.314459848D0
+  REAL, PARAMETER :: DRGASUNIV = 8.314459848D0
 
 ! standard atmosphere  [ Pa ]
-      REAL, PARAMETER :: STDATMPA = 101325.0
+  REAL, PARAMETER :: STDATMPA = 101325.0
 
 ! Standard Temperature [ K ]
-      REAL, PARAMETER :: STDTEMP = 273.15
+  REAL, PARAMETER :: STDTEMP = 273.15
 
 ! Stefan-Boltzmann [ W/(m**2 K**4) ]
-      REAL, PARAMETER :: STFBLZ = 5.67051E-8
-
-! FSB Non-MKS
+  REAL, PARAMETER :: STFBLZ = 5.67051E-8
 
 ! Molar volume at STP [ L/mol ] Non MKS units 
-      REAL, PARAMETER :: MOLVOL = 22.41410
+  REAL, PARAMETER :: MOLVOL = 22.41410
 
 ! Atmospheric Constants: 
 
 ! mean molecular weight for dry air [ g/mol ]
 ! FSB: 78.06% N2, 21% O2, and 0.943% A on a mole 
 ! fraction basis ( Source : Hobbs, 1995) pp. 69-70
-      REAL, PARAMETER :: MWAIR = 28.9628
+  REAL, PARAMETER :: MWAIR = 28.9628
 
 ! dry-air gas constant [ J / kg-K ]
-      REAL, PARAMETER :: RDGAS = 1.0E3 * RGASUNIV / MWAIR   ! 287.07548994
+  REAL, PARAMETER :: RDGAS = 1.0E3 * RGASUNIV / MWAIR   ! 287.07548994
 
 ! mean molecular weight for water vapor [ g/mol ]
-      REAL, PARAMETER :: MWWAT = 18.0153
+  REAL, PARAMETER :: MWWAT = 18.0153
 
 ! gas constant for water vapor [ J/kg-K ]
-      REAL, PARAMETER :: RWVAP = 1.0E3 * RGASUNIV / MWWAT   ! 461.52492604
+  REAL, PARAMETER :: RWVAP = 1.0E3 * RGASUNIV / MWWAT   ! 461.52492604
 
 ! FSB NOTE: CPD, CVD, CPWVAP and CVWVAP are calculated assuming dry air and
 ! water vapor are classical ideal gases, i.e. vibration does not contribute
 ! to internal energy.
 
 ! specific heat of dry air at constant pressure [ J/kg-K ]
-      REAL, PARAMETER :: CPD = 7.0 * RDGAS / 2.0            ! 1004.7642148 
+  REAL, PARAMETER :: CPD = 7.0 * RDGAS / 2.0            ! 1004.7642148 
 
 ! specific heat of dry air at constant volume [ J/kg-K ]
-      REAL, PARAMETER :: CVD = 5.0 * RDGAS / 2.0            ! 717.68872485
+  REAL, PARAMETER :: CVD = 5.0 * RDGAS / 2.0            ! 717.68872485
 
 ! specific heat for water vapor at constant pressure [ J/kg-K ]
-      REAL, PARAMETER :: CPWVAP = 4.0 * RWVAP               ! 1846.0997042
+  REAL, PARAMETER :: CPWVAP = 4.0 * RWVAP               ! 1846.0997042
 
 ! specific heat for water vapor at constant volume [ J/kg-K ]
-      REAL, PARAMETER :: CVWVAP = 3.0 * RWVAP               ! 1384.5747781
+  REAL, PARAMETER :: CVWVAP = 3.0 * RWVAP               ! 1384.5747781
 
 ! vapor press of water at 0 C [ Pa ] Source: CRC76 pp. 6-15
-      REAL, PARAMETER :: VP0 = 611.29
+  REAL, PARAMETER :: VP0 = 611.29
 
 ! FSB The following values are taken from p. 641 of Stull (1988):
 
 ! latent heat of vaporization of water at 0 C [ J/kg ]
-      REAL, PARAMETER :: LV0 = 2.501E6
+  REAL, PARAMETER :: LV0 = 2.501E6
 
 ! Rate of change of latent heat of vaporization with
 ! respect to temperature [ J/kg-K ]
-      REAL, PARAMETER :: DLVDT = 2370.0
+  REAL, PARAMETER :: DLVDT = 2370.0
 
 ! latent heat of fusion of water at 0 C [ J/kg ]
-      REAL, PARAMETER :: LF0 = 3.34E5
+  REAL, PARAMETER :: LF0 = 3.34E5
 
-!.......................................................................
+end module const_data

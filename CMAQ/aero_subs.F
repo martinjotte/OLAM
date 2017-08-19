@@ -1522,11 +1522,9 @@ C   1. Binkowski, F.S. and U. Shankar, The regional particulate matter
 C      model 1. Model description and preliminary results, J. Geophys.
 C      Res., Vol 100, No D12, 26101-26209, 1995.
 
+      USE CONST_DATA
+
       IMPLICIT NONE
-
-C *** Includes:
-
-      INCLUDE 'CONST.EXT'     ! physical and mathematical constants
 
 C *** Arguments:
 
@@ -2609,9 +2607,9 @@ C   Technology, 20:253-265, 1994.
  
 C-----------------------------------------------------------------------
 
-      IMPLICIT NONE
+      USE CONST_DATA, ONLY: PI
 
-      INCLUDE 'CONST.EXT'    ! for PI
+      IMPLICIT NONE
 
 C    Input variables
       REAL   DGN     ! geometric mean Stokes diameter by number [ m ]
@@ -2724,12 +2722,10 @@ C   Angeles Basin during CalNex, Journ. Geophys. Res., 2013.
 
 C-----------------------------------------------------------------------
 
-      USE AERO_DATA, ONLY : MIN_SIGMA_G, MAX_SIGMA_G
-      USE AEROMET_DATA, ONLY : F6PI, PI6
+      USE AERO_DATA,    ONLY: MIN_SIGMA_G, MAX_SIGMA_G
+      USE AEROMET_DATA, ONLY: F6PI, PI6, PI
 
       IMPLICIT NONE
-
-      INCLUDE 'CONST.EXT'    ! for PI
 
 C    Input variables
       REAL, INTENT( IN ) :: M3_WET  ! Third Moment of Wet Distirbution (m3/m3)
@@ -3023,10 +3019,10 @@ C     geometric standard deviation given by xlnsig.
 C *** does gauss-hermite quadrature of Qext / alfa
 C     over log normal distribution
 C     using 20 symmetric points
+
+      use const_data
  
       implicit none
-
-      include 'CONST.EXT'
 
       real nr, ni  ! indices of refraction
       real alfv    ! Mie parameter for dgv
@@ -3038,14 +3034,7 @@ C     using 20 symmetric points
 
       real xxqalf  ! function to calculate the extinction ceofficient
       real qalfip, qalfim   ! extinction efficiencies at abscissas
-
-!     real, parameter :: pi      = 3.14159265
-!     real, parameter :: sqrtpi  = 1.77245385
-!     real, parameter :: sqrtpi1 = 1.0 / sqrtpi
-      real, parameter :: sqrt2   = 1.41421356
-!     real, parameter :: three_pi_two = 3.0 * pi / 2.0
-!     real, parameter :: const = three_pi_two * sqrtpi1
-
+      real, parameter :: sqrt2 = sqrt(2.0)
       integer i
       real const, sum, xi, wxi, xf
 

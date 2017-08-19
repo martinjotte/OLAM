@@ -50,6 +50,8 @@
 
       use aero_data, only: n_mode
       implicit none 
+      
+      private :: n_mode
 
 ! Sea-Salt Emissions Rates
       real, allocatable, save :: dustoutm( :,:,: )  ! mass emission rates [g/m**3/s]
@@ -258,6 +260,7 @@
          function dust_emis_init( jdate, jtime, tstep ) result( success )
 
          use aero_data        ! aerosol species definitions
+         use const_data
          use utilio_defn
          use leaf_coms,  only: mwl, nzg, robulk_ch, robulk_vg, soilcp_ch, soilcp_vg
          use mem_leaf,   only: land
@@ -267,9 +270,6 @@
          integer, intent( in ) :: jtime   ! current model time, coded HHMMSS
          integer, intent( in ) :: tstep   ! output time step
          logical               :: success
-
-! Includes:
-         include 'CONST.EXT'     ! physical and mathematical constants
 
 ! External Functions:
          integer, external :: setup_logdev
@@ -733,19 +733,15 @@
 
          subroutine get_dust_emis1( iwl )
 
-!        use grid_conf           ! horizontal & vertical domain specifications
          use utilio_defn
          use aero_data
+         use const_data
          use leaf_coms,  only: nzg, slmsts_ch, slmsts_vg, robulk_ch, robulk_vg
          use mem_leaf,   only: land, itab_wl
          use mem_grid,   only: volti
          use misc_coms,  only: isubdomain
          use mem_ijtabs, only: itabg_w
          use mem_basic,  only: vxe, vye, vze
-
-! Includes:
-
-         include 'CONST.EXT'    ! constants (for PI)
 
 ! Arguments:
 

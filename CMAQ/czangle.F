@@ -62,15 +62,11 @@ C Last updated: $Date: 2012/03/28 16:05:37 $
 C----------------------------------------------------------------------
 
       USE UTILIO_DEFN
-
+      use const_data
       use mem_grid,  only: mwa, glatw, glonw
       use misc_coms, only: current_time
 
       IMPLICIT NONE
-
-C Includes:
-
-      INCLUDE 'CONST.EXT'     ! constants
 
 C Arguments:
 

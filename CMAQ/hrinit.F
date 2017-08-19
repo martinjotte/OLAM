@@ -44,21 +44,17 @@ C***********************************************************************
       USE HRDATA
       USE RXNS_DATA
       USE RXNS_FUNCTION
+      USE CONST_DATA
       use mem_grid, only: mza
 
       IMPLICIT NONE
-
-C.....INCLUDES:
-      Include 'CONST.EXT'          ! common constants
 
 C.....ARGUMENTS: NONE
 
 C.....PARAMETERS: NONE
 
-
 C.....SAVED VARIABLES:
       CHARACTER( 16 ), SAVE  ::  PNAME = 'HRINIT'   ! Program name
-
 
 C.....LOCAL VARIABLES:
       CHARACTER( 132 ) ::  MSG       ! Log message
@@ -134,11 +130,6 @@ C***********************************************************************
        PROD  = 0.0D0
        LOSS  = 0.0D0
        !$omp end parallel
-
-       NING1 = 4
-       NING2 = 4
-
-
 
 c..Allocate and define ebi species
 

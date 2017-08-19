@@ -120,7 +120,7 @@ C-----------------------------------------------------------------------
 
       USE CGRID_SPCS          ! CGRID mechanism species
       USE UTILIO_DEFN
-
+      USE CONST_DATA
       use cgrid_defn, only: cgrid
       use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7,
      &                       pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh
@@ -133,10 +133,6 @@ C-----------------------------------------------------------------------
       use aq_data,    only: tot_wdep
 
       IMPLICIT NONE
-
-C...........Includes:
-
-      INCLUDE 'CONST.EXT'                ! constants
 
 C...........Arguments:
       integer, intent(in)  :: iw

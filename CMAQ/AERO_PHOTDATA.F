@@ -760,11 +760,9 @@ C     multmodal atmospheric particle size distributions, Atmospheric
 C     Environment, vol. 11, pp 95-999, 1977.
 C-----------------------------------------------------------------------
 
+      USE CONST_DATA
+
       IMPLICIT NONE
-
-C***include files
-
-      INCLUDE 'CONST.EXT'      ! physical constants
 
 C***arguments
 

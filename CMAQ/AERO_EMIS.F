@@ -207,8 +207,7 @@
          USE AERO_DATA
          USE PRECURSOR_DATA
          USE UTILIO_DEFN
-
-         INCLUDE 'CONST.EXT'     ! physical and mathematical constants
+         USE CONST_DATA          ! physical and mathematical constants
 
 ! Arguments:
 

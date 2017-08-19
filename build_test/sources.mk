@@ -250,6 +250,7 @@ SOURCE_FILES= \
              $(CMAQ)/cmaq_cloud_optics.f90 \
              $(CMAQ)/cmaq_driver.f90 \
              $(CMAQ)/coags.f \
+             $(CMAQ)/CONST_DATA.f90 \
              $(CMAQ)/conv_cgrid.f90 \
              $(CMAQ)/cgrid_defn.f90 \
              $(CMAQ)/CGRID_SPCS.F \

@@ -137,6 +137,7 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
   use depvvars
   use depv_defn,   only: depvel_gas_land, depvel_gas_sea, ie_hono, ic_no2
   use utilio_defn
+  use const_data
   use cgrid_defn,  only: cgrid, vdemis_gc
   use mem_ijtabs,  only: itab_w
   use mem_leaf,    only: land, itab_wl
@@ -150,10 +151,6 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
   use mem_micro,   only: cldnum
 
   implicit none
-
-! Includes:
-
-  INCLUDE 'CONST.EXT'     ! constants
 
 ! Arguments:
 

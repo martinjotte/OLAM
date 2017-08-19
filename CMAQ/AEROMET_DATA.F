@@ -33,10 +33,10 @@ C
 C SH  03/10/11 renamed file and module from MET_DATA to AEROMET_DATA
 C----------------------------------------------------------------------
 
-      Implicit None
+C Fundamental constants re-exported
+      use const_data
 
-C Fundamental constants
-      Include 'CONST.EXT'    ! common constants
+      Implicit None
 
       Real( 8 ), Parameter :: f6dpi = 6.0D0 / dpi
       Real,      Parameter :: f6pi = 6.0 / pi

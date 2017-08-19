@@ -19,9 +19,9 @@
 
 module cgrid_conv
 
-  implicit none
+  use const_data
 
-  include 'CONST.EXT'
+  implicit none
 
   logical,              save :: firstime = .true.
   integer,              save :: logdev

@@ -68,12 +68,9 @@ C  30Jul15  J.Young: REAL(4) -> REAL for code portability
 C-----------------------------------------------------------------------
 
       USE CSQY_DATA
+      USE CONST_DATA
 
       IMPLICIT NONE
-
-!***include files
-
-      INCLUDE 'CONST.EXT'      ! physical constants
 
 !***parameters
 

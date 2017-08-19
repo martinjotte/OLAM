@@ -55,10 +55,9 @@ C                                           implementation
 C-----------------------------------------------------------------------
 
       USE AERO_DATA
+      USE CONST_DATA, ONLY: PI, RGASUNIV, AVO, GRAV
 
       IMPLICIT NONE
-
-      INCLUDE 'CONST.EXT'   ! PI, RGASUNIV, AVO, GRAV
 
 C...........Parameters:
 

@@ -157,10 +157,9 @@ C-----------------------------------------------------------------------
       USE AERO_DATA
       USE UTILIO_DEFN
       use hlconst_mod
+      use const_data
 
       IMPLICIT NONE
-
-      INCLUDE 'CONST.EXT'          ! constants
 
       CHARACTER( 120 ) :: XMSG = ' '  ! Exit status message
 

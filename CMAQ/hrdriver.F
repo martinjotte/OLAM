@@ -140,14 +140,13 @@ C                        dependent reactions and 2) modified the call CALC_RCONS
 C                        routine
 C**********************************************************************
 
-!     USE HGRD_DEFN             ! horizontal domain specifications
-!     USE VGRD_DEFN             ! vertical layer specifications
       USE CGRID_SPCS            ! CGRID mechanism species
       USE UTILIO_DEFN           ! IOAPI parameters and functions declarations
       USE RXNS_DATA
       USE AEROSOL_CHEMISTRY
       USE RXNS_FUNCTION
       USE HRDATA
+      USE CONST_DATA
       USE AERO_DATA,  ONLY: N_MODE
       use cgrid_defn, only: cgrid
       use misc_coms,  only: dtlm
@@ -160,37 +159,22 @@ C**********************************************************************
 
       IMPLICIT NONE
 
-C..Includes:
-!     INCLUDE 'FILES_CTM.EXT'  ! CMAQ files
-      INCLUDE 'CONST.EXT'      ! CMAQ constants
-
-!     INCLUDE SUBST_EMISPRM   ! Emissions processing control parameters
-!     INCLUDE SUBST_PACTL_ID  ! Process analysis control parameters
-
 C..Arguments:
-!     REAL, POINTER :: CGRID( :,:,:,: )  ! Species concentrations
-!     INTEGER JDATE           ! Current date (YYYYDDD)
-!     INTEGER JTIME           ! Current time (HHMMSS)
-!     INTEGER TSTEP( 3 )      ! Time step vector (HHMMSS)
       integer, intent(in) :: iw
 
 C..Parameters:
       REAL( 8 ), PARAMETER :: DCONMIN = 1.0D-30               ! minimum species concentration allowed
       REAL,      PARAMETER :: CONCMIN = 1.0E-30               ! minimum species concentration allowed
       REAL,      PARAMETER :: MAOMV   = 1.0E6 * MWAIR / MWWAT ! Mol Wt of air over Mol Wt of water times 1.0E6
-
-C..External Functions:
-
+      real( 8 ), parameter :: pa2atm  = 1.0d0 / real(STDATMPA,8)
 
 C..Saved Local Variables:
 
 !     CHARACTER( 16 ), SAVE :: PNAME = 'HRDRIVER'     ! Program name
 
-!      INTEGER, SAVE :: ISTFL            ! Unit no. of iteration stat output file
-!      LOGICAL, SAVE :: LFIRST = .TRUE.  ! Flag for first call to this subroutine
+!     INTEGER, SAVE :: ISTFL            ! Unit no. of iteration stat output file
+!     LOGICAL, SAVE :: LFIRST = .TRUE.  ! Flag for first call to this subroutine
 
-!     REAL( 8 ), SAVE :: PA2ATM   ! Pascal to atm conv fac
-      real( 8 ), parameter :: pa2atm = 1.d0 / real(STDATMPA,8)
 
 
 C..Scratch Local Variables:

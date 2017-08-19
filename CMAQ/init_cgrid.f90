@@ -164,6 +164,7 @@ contains
 
   subroutine load_cgrid ( spc_cat )
 
+    use const_data
     use utilio_defn, only: index1, m3exit, xstat3
     use mem_grid,    only: mza, lpw, zm, zt
     use mem_basic,   only: rho, press
@@ -172,8 +173,6 @@ contains
     implicit none
 
     CHARACTER( 2 ),  intent(in) :: SPC_CAT
-
-    INCLUDE 'CONST.EXT'       ! constants
 
     ! minimum aerosol sulfate concentration [ ug/m**3 ]
     REAL, PARAMETER :: AEROCONCMIN = 0.001
