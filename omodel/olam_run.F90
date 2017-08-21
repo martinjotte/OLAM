@@ -70,11 +70,14 @@ subroutine olam_run(name_name)
   use mem_adv,     only: alloc_adv
   
   use cgrid_spcs,  only: cgrid_spcs_init
+  use aero_data,   only: map_aero
   use emis_defn,   only: emis_init
   use depv_defn,   only: depv_init
   use mem_megan,   only: megan_init
   use cgrid_conv,  only: conv_cgrid
-
+  use soa_defn,    only: map_soa
+  use aq_data,     only: aq_data_init
+  use precursor_data,   only: map_precursor
   use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
 
   use mem_swtc5_refsoln_cubic
@@ -300,6 +303,10 @@ subroutine olam_run(name_name)
   if (do_chem == 1) then
      result = cgrid_spcs_init()
      call hrinit()
+     call map_aero()
+     call map_soa()
+     call map_precursor()
+     call aq_data_init()
   endif
 
   ! Allocate remainder of main model memory (for 'INITIAL', 'HISTORY',

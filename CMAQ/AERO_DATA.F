@@ -1028,8 +1028,6 @@ C Adjust Dust Emissions list for Organic Species, if running with semivolatile P
      &             def_diam( m )**2 * Exp( 2.0 * Log( def_sigma_g( m ) )**2 )
       End do
  
-      call is_soa_mapped()
-
       if( AE_eflag )Then
          Write(logdev,99901) Trim( mechname )
              xmsg = 'The FATAL errors found in namelist used. Check '
@@ -1208,12 +1206,6 @@ C Arguments:
 C Local Variables:
       Integer :: m, n, spc
       Real(8) :: sumM3(n_mode)
-
-      !$omp critical
-      If ( .Not. mapped ) Then
-         Call map_aero()
-      End If
-      !$omp end critical
 
 C Copy grid cell concentrations of aero species to aerospc_conc
       aerospc_conc = 0.0

@@ -301,12 +301,39 @@ C for TX version
       Integer, Allocatable, Save :: cgrid2aq_map( : ) ! allocated in AQ_DATA_INIT
       Character( 16 ), Allocatable, Save :: cgrid2aq_name( : ) ! allocated in AQ_DATA_INIT
 
-      Logical, Private, Save :: mapped = .False.
+      Logical, Save :: mapped = .False.
 
-      Integer, Private, Save :: logdev
-      Integer, Private, External :: setup_logdev
+      Integer, Save :: logdev
+      Integer, External :: setup_logdev
 
       real, allocatable :: tot_wdep(:,:)
+
+      integer,              save :: n_spc_wdep
+      integer, allocatable, save :: wdep_map (:)
+      logical, allocatable, save :: isnum_spc(:)
+      logical, allocatable, save :: issrf_spc(:)
+
+      CHARACTER( 16 ), SAVE :: MGLYSUR = 'METHYL_GLYOXAL  ' ! Henry's law surrogate for MGLY
+
+      REAL( 8 ), SAVE :: SOIL_FE_FAC  ! Fe molar fraction of ASOIL
+      REAL( 8 ), SAVE :: CORS_FE_FAC  ! Fe molar fraction of ACORS
+      REAL( 8 ), SAVE :: SOIL_MN_FAC  ! etc.
+      REAL( 8 ), SAVE :: CORS_MN_FAC
+      REAL( 8 ), SAVE :: SEAS_NA_FAC  ! Na molar fraction of ASEACAT
+      REAL( 8 ), SAVE :: SOIL_NA_FAC
+      REAL( 8 ), SAVE :: CORS_NA_FAC
+      REAL( 8 ), SAVE :: SEAS_MG_FAC
+      REAL( 8 ), SAVE :: SOIL_MG_FAC
+      REAL( 8 ), SAVE :: CORS_MG_FAC
+      REAL( 8 ), SAVE :: SEAS_CA_FAC
+      REAL( 8 ), SAVE :: SOIL_CA_FAC
+      REAL( 8 ), SAVE :: CORS_CA_FAC
+      REAL( 8 ), SAVE :: SEAS_K_FAC
+      REAL( 8 ), SAVE :: SOIL_K_FAC
+      REAL( 8 ), SAVE :: CORS_K_FAC
+
+      integer, save :: hlso2, hlco2, hlnh3, hlh2o2, hlo3, hlhcl, hlhno3
+      integer, save :: hlmeth, hlperx, hlfora, hlglyo, hlmgly, hloh
 
       Contains
  
@@ -323,8 +350,11 @@ C     bounds when additional aerosol species are added. HOT Pye.
 C-----------------------------------------------------------------------
 
       Use cgrid_spcs          ! CGRID mechanism species
+      Use rxns_data, only: mechname
       Use utilio_defn
       Use aero_data
+      Use mem_grid, only: mwa
+      Use hlconst_mod
 
       Implicit None
 
@@ -333,8 +363,8 @@ C Functions:
 
 C Local Variables:
       Character( 100 ) :: xmsg
-      Character( 16 ), Allocatable, Save :: aename( : )
-      Character( 16 ), Allocatable, Save :: cgrid2aq( : )
+      Character( 16 ), Allocatable :: aename( : )
+      Character( 16 ), Allocatable :: cgrid2aq( : )
       Character( 10 ) :: bkground
       Integer :: igas
       Integer :: iaer
@@ -348,23 +378,18 @@ C Local Variables:
       Integer :: lsrg( mxsrg )
       Integer :: n_cgrid2aq
       Integer :: ios
+      Integer :: strt, fini
 C Local Variable used to determine what optional TX to add to surrogates
 !     Logical :: found_all_modes
 !     Integer :: n_missing_tx
 !     Integer :: n_which_txadd( nadd_tx )
 
-      Logical, Save :: Firstcall = .True.
-      
 C-----------------------------------------------------------------------
 
+      if (mapped) return
 
-      If ( Firstcall ) Then
-         Firstcall = .False.
-         logdev    = setup_logdev()
-      Else
-         Return
-      End if
- 
+      logdev = setup_logdev()
+
       Allocate ( aename( n_ae_a2aq ), stat = ios )
       If ( ios .Ne. 0 ) Then
          xmsg = '*** Error allocating aename'
@@ -645,6 +670,132 @@ C...For TXHG version
       lphg_acc       = findSgrAer( req_phgj )       !  Mercuric aitken and accumulation modes
       lphg_cor       = findSgrAer( req_phgk )       !  Mercuric coarse mode
 
+      n_spc_wdep = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP
+
+      ALLOCATE ( TOT_WDEP( mwa,n_spc_wdep+1 ), STAT = IOS )
+      IF ( IOS .NE. 0 ) THEN
+         XMSG = 'Failure allocating TOT_WDEP'
+         CALL M3EXIT( 'aq_data_init', 0, 0, XMSG, XSTAT1 )
+      ENDIF
+      tot_wdep = 0.0
+
+      ALLOCATE ( WDEP_MAP( N_SPC_WDEP ), STAT = IOS )
+      IF ( IOS .NE. 0 ) THEN
+         XMSG = 'Failure allocating WDEP_MAP'
+         CALL M3EXIT( 'aq_data_init', 0, 0, XMSG, XSTAT1 )
+      ENDIF
+
+      IF ( N_SPC_WDEP .LE. 0 ) THEN
+         XMSG = 'No species were specified for wet deposition ' //
+     &          'tracking'
+         CALL M3WARN ( 'aq_data_init', 0, 0, XMSG )
+      END IF
+
+      SPC = 0
+      STRT = 1
+      FINI = N_GC_WDEP
+      DO VAR = STRT, FINI
+         SPC = SPC + 1
+         WDEP_MAP( VAR ) = GC_STRT - 1 + GC_WDEP_MAP( SPC )
+      END DO
+
+      SPC = 0
+      STRT = N_GC_WDEP + 1
+      FINI = N_GC_WDEP + N_AE_WDEP
+      DO VAR = STRT, FINI
+         SPC = SPC + 1
+         WDEP_MAP( VAR ) = AE_STRT - 1 + AE_WDEP_MAP( SPC )
+      END DO
+
+      SPC = 0
+      STRT = N_GC_WDEP + N_AE_WDEP + 1
+      FINI = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP
+      DO VAR = STRT, FINI
+         SPC = SPC + 1
+         WDEP_MAP( VAR ) = NR_STRT - 1 + NR_WDEP_MAP( SPC )
+      END DO
+
+      allocate(isnum_spc(nspcsd)); isnum_spc(:) = .false.
+      allocate(issrf_spc(nspcsd)); issrf_spc(:) = .false.
+
+      SPC = 0
+      STRT = AE_STRT
+      FINI = AE_STRT - 1 + N_AE_SPC
+      DO VAR = STRT, FINI
+         SPC = SPC + 1
+         isnum_spc( var ) = ( INDEX( AE_SPC( SPC ), 'NUM' ) .GT. 0 )
+         issrf_spc( var ) = ( INDEX( AE_SPC( SPC ), 'SRF' ) .GT. 0 )
+      ENDDO
+
+C...Make sure an AE6 version of the mechanism is being used
+
+      IF ( INDEX ( MECHNAME, 'AE6' ) .LE. 0 ) THEN
+         XMSG = 'This version of AQCHEM requires an AE6 chemical mechanism'
+         CALL M3EXIT ( 'aq_data_init', 0, 0, XMSG, XSTAT3 )
+      END IF
+
+C... special treatment of MGLY for CB05 mechanism:
+C... use Henry`s law constant for glyoxal as a surrogate for methyl glyoxal
+
+      IF ( INDEX ( MECHNAME, 'CB05' ) .GT. 0 ) THEN
+         MGLYSUR = 'GLYOXAL         '
+      END IF
+
+      CALL HLCONST_SPCS_INIT( 'SO2             ', hlso2  )
+      CALL HLCONST_SPCS_INIT( 'CO2             ', hlco2  )
+      CALL HLCONST_SPCS_INIT( 'NH3             ', hlnh3  )
+      CALL HLCONST_SPCS_INIT( 'H2O2            ', hlh2o2 )
+      CALL HLCONST_SPCS_INIT( 'O3              ', hlo3   )
+      CALL HLCONST_SPCS_INIT( 'HCL             ', hlhcl  )
+      CALL HLCONST_SPCS_INIT( 'HNO3            ', hlhno3 )
+      CALL HLCONST_SPCS_INIT( 'METHYLHYDROPEROX', hlmeth )
+      CALL HLCONST_SPCS_INIT( 'PEROXYACETIC_ACI', hlperx )
+      CALL HLCONST_SPCS_INIT( 'FORMIC_ACID     ', hlfora )
+      CALL HLCONST_SPCS_INIT( 'GLYOXAL         ', hlglyo )
+      CALL HLCONST_SPCS_INIT( MGLYSUR           , hlmgly )
+      CALL HLCONST_SPCS_INIT( 'OH              ', hloh   )
+
+C... set MW ratios and speciation factors for molar concentrations of coarse
+C... soluble aerosols
+
+      SOIL_FE_FAC = ASOIL_FE_FAC * REAL( AEROSPC_MW( ASOIL_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( AFE_IDX ), 8 ) / ASOIL_RENORM
+      CORS_FE_FAC = ACORS_FE_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( AFE_IDX ), 8 ) / ACORS_RENORM
+
+      SOIL_MN_FAC = ASOIL_MN_FAC * REAL( AEROSPC_MW( ASOIL_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( AMN_IDX ), 8 ) / ASOIL_RENORM
+      CORS_MN_FAC = ACORS_MN_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( AMN_IDX ), 8 ) / ACORS_RENORM
+
+      SEAS_NA_FAC = ASCAT_NA_FAC * REAL( AEROSPC_MW( ASEACAT_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( ANA_IDX ), 8 )
+      SOIL_NA_FAC = ASOIL_NA_FAC * REAL( AEROSPC_MW( ASOIL_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( ANA_IDX ), 8 ) / ASOIL_RENORM
+      CORS_NA_FAC = ACORS_NA_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( ANA_IDX ), 8 ) / ACORS_RENORM
+
+      SEAS_MG_FAC = ASCAT_MG_FAC * REAL( AEROSPC_MW( ASEACAT_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( AMG_IDX ), 8 )
+      SOIL_MG_FAC = ASOIL_MG_FAC * REAL( AEROSPC_MW( ASOIL_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( AMG_IDX ), 8 ) / ASOIL_RENORM
+      CORS_MG_FAC = ACORS_MG_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( AMG_IDX ), 8 ) / ACORS_RENORM
+
+      SEAS_CA_FAC = ASCAT_CA_FAC * REAL( AEROSPC_MW( ASEACAT_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( ACA_IDX ), 8 )
+      SOIL_CA_FAC = ASOIL_CA_FAC * REAL( AEROSPC_MW( ASOIL_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( ACA_IDX ), 8 ) / ASOIL_RENORM
+      CORS_CA_FAC = ACORS_CA_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( ACA_IDX ), 8 ) / ACORS_RENORM
+
+      SEAS_K_FAC = ASCAT_K_FAC * REAL( AEROSPC_MW( ASEACAT_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( AK_IDX ), 8 )
+      SOIL_K_FAC = ASOIL_K_FAC * REAL( AEROSPC_MW( ASOIL_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( AK_IDX ), 8 ) / ASOIL_RENORM
+      CORS_K_FAC = ACORS_K_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
+     &                           / REAL( AEROSPC_MW( AK_IDX ), 8 ) / ACORS_RENORM
+
       mapped = .True.
 
 #ifdef verbose_cloud
@@ -704,7 +855,6 @@ C...For TXHG version
 1113  Format( a16, 1x, i4, 1x, a16, 1x, i4, 1x, i4)     
 1114  Format( / "   CGRID_SPC    ", 1x, "SPC ", 1x, "   SURROGATE   ", 1x, "ISRG", 1x, "IDX " )
 
-      Return
       End Subroutine aq_data_init
 
 C-----------------------------------------------------------------------

@@ -498,9 +498,10 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
   DATA subname(104), dif0(104), ar(104), meso(104), lebas(104) / 'ACETONITRILE    ',0.1280,    5.0,      0.0,   52.3/ 
   DATA subname(105), dif0(105), ar(105), meso(105), lebas(105) / '6_NITRO_O_CRESOL',0.0664,   16.0,      0.0,  155.0/ ! dif0, equation 9-22. Scwarzenbach et. (1993) Env. Org. Chem.
 
-  !$omp critical
   IF ( first_call ) THEN
 
+     !$omp barrier
+     !$omp single
      first_call = .FALSE.
 
      DO l = 1, n_spc_m3dry
@@ -523,9 +524,9 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
            hleff( l ) = is_effect_spc( hlspc( l ) )
         endif
      enddo
+     !$omp end single
 
   END IF   ! first_call
-  !$omp end critical
 
 !-------------------------------------------------------------------------------
 ! Loop over land cells and calculate dry deposition.

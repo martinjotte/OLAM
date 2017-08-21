@@ -823,15 +823,15 @@ C     mass partitioning between the modes
                                           ! SO4,NO3,CL,H2O [ug/m**3]
       REAL( 8 ) :: PMCwVOLS               ! anthrop coarse material before removal
                                           ! of SO4,NO3,CL,H2O [ug/m**3]
-      REAL      :: INT_TIME               ! internal mass transfer time (s)
-      REAL      :: TSTEP                  ! mass transfer time step [s]
-      REAL      :: TSTEP2
-      REAL      :: EPST
+!     REAL      :: INT_TIME               ! internal mass transfer time (s)
+!     REAL      :: TSTEP                  ! mass transfer time step [s]
+!     REAL      :: TSTEP2
+!     REAL      :: EPST
       REAL      :: DRYM20, Y              ! scratch vars for 2nd moment [m**2/m**3]
       REAL( 8 ) :: M3OTHR                 ! vars for 3rd moment calculation [m**3/m**3]
       REAL( 8 ), SAVE :: DF( NVOLINORG )  ! scratch array for mole -> ug conversion
       REAL( 8 ), SAVE :: DFH2OR8          ! mole -> ug conversion for H2O
-      REAL( 8 ) :: J( NVOLINORG )         ! condensation/evaporation flux [mol/m**3-s]
+!     REAL( 8 ) :: J( NVOLINORG )         ! condensation/evaporation flux [mol/m**3-s]
       REAL( 8 ) :: CFINAL( NVOLINORG,N_MODE ) ! conc after mass xfer step [ug/m**3]
       REAL( 8 ) :: H2O                    ! Scratch LWC variable for output
       REAL( 8 ) :: H2O_NEW                ! Update of LWC after condensation 
@@ -845,19 +845,19 @@ C     mass partitioning between the modes
       REAL( 8 ) :: EQLBHIJ                ! H+ concentration from isoropia for I plus J-modes [ug/m**3]
 
       REAL( 8 ) :: TMP
-      INTEGER I, N                        ! loop and array indices
+      INTEGER I                           ! loop and array indices
       INTEGER IMODE                       ! mode loop index  
 !     INTEGER ISTEP                       ! loop index, mass transfer time step loop
       INTEGER ISP                         ! loop index, species loop
       INTEGER, SAVE :: LOGDEV 
       LOGICAL, PARAMETER :: LIMIT_Sg = .TRUE.   ! fix Sg at current value?
       LOGICAL TrustIso                    ! For negative vap. press., TrustIso = F
-      CHARACTER( 50 ) :: XMSG
+!     CHARACTER( 50 ) :: XMSG
       INTEGER, PARAMETER :: IMOD3 = 3
 
 C *** Local Saved Variables 
       LOGICAL, SAVE :: FIRSTIME = .TRUE.
-      LOGICAL, SAVE :: FIRSTWRITE = .TRUE.
+!     LOGICAL, SAVE :: FIRSTWRITE = .TRUE.
       REAL( 8 ), SAVE :: SO4FAC         !  F6DPIM9 / RHOSO4
       REAL( 8 ), SAVE :: SOILFAC        !  F6DPIM9 / RHOSOIL
       REAL( 8 ), SAVE :: ANTHFAC        !  F6DPIM9 / RHOANTH
@@ -895,9 +895,10 @@ C *** Local Saved Variables
 
 C-----------------------------------------------------------------------
  
-      !$omp critical
       IF ( FIRSTIME ) THEN
       
+         !$omp barrier
+         !$omp single
          FIRSTIME = .FALSE.
          LOGDEV = INIT3()
 
@@ -943,8 +944,9 @@ C-----------------------------------------------------------------------
          NH3RATI  = 1.D0 / NH3RAT
          HNO3RATI = 1.D0 / HNO3RAT
          HCLRATI  = 1.D0 / HCLRAT
+         !$omp end single
+
       END IF
-      !$omp end critical
 
 C *** Determine if Hybrid
 
@@ -3253,18 +3255,3 @@ C       modified 1/6/98 by FSB
 
       return
       end subroutine pendrfx
-
-C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-
-      subroutine is_soa_mapped()
-
-      use soa_defn,     only: extract_soa
-      use cgrid_defn,   only: cgrid
-      use aeromet_data, only: airdens
-      implicit none
-
-      airdens = 1.0
-      call extract_soa(cgrid(2,2,:))
-
-      end subroutine is_soa_mapped
-

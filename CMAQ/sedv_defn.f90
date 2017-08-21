@@ -43,6 +43,11 @@ module sedv_defn
 
   integer, allocatable, save :: sedi_sur( : )   ! pointer to surrogate
 
+  logical, save :: firstime = .true.
+  integer, save :: logdev
+
+  private
+  public :: aero_sedi
 
 contains
 
@@ -50,36 +55,20 @@ contains
 
   subroutine aero_sedi( mrl )
 
-    use mem_grid,    only: mza, lpw, volt, volti, arw
     use mem_ijtabs,  only: jtab_w, jtw_prog
-    use misc_coms,   only: dtlm
     use consts_coms, only: r8
     use utilio_defn
-    use cgrid_conv
     use cgrid_spcs
-    use cgrid_defn
-    use mem_para
-    use mem_basic
 
     implicit none
 
     integer, intent(in) :: mrl
 
-    integer :: j, iw, s, v, n, k
+    integer :: j, iw, v, n
     integer :: astat
-
-    logical, save :: firstime = .true.
-    integer, save :: logdev
 
     character( 120 )           :: xmsg = ' '
     character( 16 ), parameter :: pname = 'aero_sedi'
-
-    real(r8) :: eps, dt8, time
-    real     :: dt
-    real(r8) :: dtmin( n_ae_sed_spc )
-    real     :: vsed_ae( n_ae_sed_spc, mza )
-    real     :: fplus(mza,n_ae_sed_spc), fminus(mza,n_ae_sed_spc)
-    real     :: aplus(mza), aminus(mza)
 
     if ( firstime ) then
 
@@ -122,67 +111,98 @@ contains
 
     endif  ! firstime
 
-    !$omp parallel do private(iw,vsed_ae,n,dtmin,k,aplus,aminus,&
-    !$omp                     fplus,fminus,v,s,time,eps,dt8,dt)
+    !$omp parallel do private(iw)
     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-       call aero_sedv( iw, vsed_ae )
-
-       vsed_ae(:,mza)       = 0.0
-       vsed_ae(:,lpw(iw)-1) = 0.0
-
-       do n = 1, n_ae_sed_spc
-          dtmin(n) = minval( volt(lpw(iw):mza-1,iw) &
-                           / arw(lpw(iw):mza-1,iw) / vsed_ae(n,lpw(iw):mza-1) )
-       enddo
-
-       do k = lpw(iw), mza-1
-          aplus (k) = arw(k  ,iw) * volti(k,iw)
-          aminus(k) = arw(k-1,iw) * volti(k,iw)
-       enddo
-       aplus (mza) = 0.0
-       aminus(mza) = arw(mza-1,iw) / volt(mza,iw)
-
-       do n = 1, n_ae_sed_spc
-          do k = lpw(iw), mza
-             fplus (k,n) = aplus (k) * vsed_ae(n,k)
-             fminus(k,n) = aminus(k) * vsed_ae(n,k-1)
-          enddo
-       enddo
-
-       do v = 1, n_ae_spc
-
-          s = n_gc_spc + v
-          n = sedi_sur(v)
-
-          if (n > 0) then
-             
-             time = 0.0_r8
-             eps  = 1.e-6_r8 * min( dtmin(n), dtlm(mrl) )
-
-             do while( time + eps < dtlm(mrl) )
-             
-                dt8 = min( dtmin(n), dtlm(mrl) - time )
-                dt  = real(dt8)
-
-                do k = lpw(iw), mza-1
-                   cgrid(k,iw,s) = cgrid(k,iw,s) + dt *  &
-                                   (fplus(k,n) * cgrid(k+1,iw,s) - fminus(k,n) * cgrid(k,iw,s))
-                enddo
-
-                cgrid(mza,iw,s) = cgrid(mza,iw,s) - dt * fminus(mza,n) * cgrid(mza,iw,s)
-                
-                time = time + dt8
-
-             end do
-
-          end if
-       end do
+       call aero_sedi2( iw )
 
     enddo
     !$omp end parallel do
-
+    
   end subroutine aero_sedi
+
+  !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+  subroutine aero_sedi2( iw )
+
+    use mem_grid,    only: mza, lpw, volt, volti, arw
+    use mem_ijtabs,  only: itab_w
+    use misc_coms,   only: dtlm
+    use consts_coms, only: r8
+    use utilio_defn
+    use cgrid_conv
+    use cgrid_spcs
+    use cgrid_defn
+
+    implicit none
+
+    integer, intent(in) :: iw
+
+    integer  :: s, v, n, k
+    real(r8) :: eps, dt8, time, dtmodel
+    real     :: dt
+    real(r8) :: dtmin( n_ae_sed_spc )
+    real     :: vsed_ae( n_ae_sed_spc, mza )
+    real     :: fplus(mza,n_ae_sed_spc), fminus(mza,n_ae_sed_spc)
+    real     :: aplus(mza), aminus(mza)
+
+    call aero_sedv( iw, vsed_ae )
+
+    vsed_ae(:,mza)       = 0.0
+    vsed_ae(:,lpw(iw)-1) = 0.0
+
+    do n = 1, n_ae_sed_spc
+       dtmin(n) = minval( volt(lpw(iw):mza-1,iw) &
+                        / arw(lpw(iw):mza-1,iw) / vsed_ae(n,lpw(iw):mza-1) )
+    enddo
+
+    do k = lpw(iw), mza-1
+       aplus (k) = arw(k  ,iw) * volti(k,iw)
+       aminus(k) = arw(k-1,iw) * volti(k,iw)
+    enddo
+    aplus (mza) = 0.0
+    aminus(mza) = arw(mza-1,iw) / volt(mza,iw)
+
+    do n = 1, n_ae_sed_spc
+       do k = lpw(iw), mza
+          fplus (k,n) = aplus (k) * vsed_ae(n,k)
+          fminus(k,n) = aminus(k) * vsed_ae(n,k-1)
+       enddo
+    enddo
+
+    dtmodel = dtlm(itab_w(iw)%mrlw)
+
+    do v = 1, n_ae_spc
+
+       s = n_gc_spc + v
+       n = sedi_sur(v)
+
+       if (n > 0) then
+             
+          time = 0.0_r8
+          eps  = 1.e-6_r8 * min( dtmin(n), dtmodel )
+
+          do while( time + eps < dtmodel )
+             
+             dt8 = min( dtmin(n), dtmodel - time )
+             dt  = real(dt8)
+
+             do k = lpw(iw), mza-1
+                cgrid(k,iw,s) = cgrid(k,iw,s) &
+                              + dt * ( fplus (k,n) * cgrid(k+1,iw,s) &
+                                     - fminus(k,n) * cgrid(k,  iw,s) )
+             enddo
+
+             cgrid(mza,iw,s) = cgrid(mza,iw,s) - dt * fminus(mza,n) * cgrid(mza,iw,s)
+                
+             time = time + dt8
+
+          end do
+
+       end if
+    end do
+
+  end subroutine aero_sedi2
 
   !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 

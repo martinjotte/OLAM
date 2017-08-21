@@ -326,7 +326,6 @@ C-----------------------------------------------------------------------
       USE RXNS_DATA
       USE AERO_DATA
       USE AEROMET_DATA, ztemp1=>airtemp, ztemp2=>airrh 
-      USE PRECURSOR_DATA, only: map_precursor
       use GETPAR_MOD, only: getpar
       USE SOA_DEFN,   only: n_vapor, soa_aeroMap
       use mem_basic,  only: tair, rho, press, sh_v
@@ -491,10 +490,11 @@ C-----------------------------------------------------------------------
 
 C *** compute only on first pass
 
-      !$omp critical
       IF ( FIRSTIME ) THEN
-      
-        FIRSTIME = .FALSE.
+         
+       !$omp barrier
+       !$omp single
+       FIRSTIME = .FALSE.
 
         LOGDEV = INIT3()
          
@@ -533,9 +533,6 @@ C *** Get flag for average PM diagnostic file.
 !        END IF
 
         isnvpoa = (INDEX( MECHNAME, 'NVPOA' ) .NE. 0)
-
-        CALL MAP_AERO()
-        CALL MAP_PRECURSOR()
 
         ALLOCATE( WHICH_AERO_RATE( NHETERO ) )
         
@@ -675,8 +672,8 @@ C ***  Map to acids/nucleophiles for epoxide uptake
 
        AERO_CHEM_SET = .TRUE.
 
+       !$omp end single
       END IF      ! first time condition
-      !$omp end critical
 
       KHETERO = 0.0D0
       
@@ -2044,12 +2041,13 @@ C *** External functions
 
 C-----------------------------------------------------------------------
 
-      !$omp critical
       if (i_iepox == 0) then
+         !$omp barrier
+         !$omp single
          call hlconst_spcs_init ( 'IEPOX', i_iepox )
          call hlconst_spcs_init ( 'IMAE',  i_imae )
+         !$omp end single
       endif
-      !$omp end critical
 
 C *** Determine H+ acid concentration of j mode [mol/m3]
       eqlbh = aerospc_conc( ah3op_idx, 2 ) * aerospc_mwi( ah3op_idx ) * 1.0d-6
@@ -2136,7 +2134,7 @@ C        Store information with speciation for IMAE
                CALL M3EXIT( PNAME, 0, 0, XMSG, XSTAT2 )
             end if
          end if
-      End Do      
+      End Do
 
 C *** Calculate gamma following Pye et al. 2013 ES&T
 C     (see also Hanson et al. 1994 JGR Eqn (2) for details)

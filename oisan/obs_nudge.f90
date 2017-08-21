@@ -196,8 +196,8 @@ tp = 1. - tf
 ! Horizontal loop over W columns
 
 !----------------------------------------------------------------------
-!$omp parallel do private(iw,raxis,raxisi,k,uzonal,umerid,&
-!$omp                     tnudi,tnudirho,umzonalt,ummeridt,uvtr)
+!$omp parallel private(uzonal,umerid,umzonalt,ummeridt)
+!$omp do private(iw,raxis,raxisi,k,tnudi,tnudirho,uvtr)
 do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !---------------------------------------------------------------------
 
@@ -278,6 +278,7 @@ do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    endif
 
 enddo
-!$omp end parallel do
+!$omp end do
+!$omp end parallel
 
 end subroutine obs_nudge

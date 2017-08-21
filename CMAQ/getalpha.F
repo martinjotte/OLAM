@@ -80,6 +80,20 @@ C...........Parameters:
 
       REAL, PARAMETER :: RHO_WATER = 1.0E3 ! density of water at 20 C & 1 ATM [ kg/m**3 ]
 
+! log and square of log of SIGC
+      REAL, PARAMETER :: LSGC   = LOG( SIGC )
+      REAL, PARAMETER :: LSGC2  = LSGC * LSGC
+      REAL, PARAMETER :: ESGC4  = EXP( 0.5 * LSGC2 )
+      REAL, PARAMETER :: ESGC16 = EXP( 2.0 * LSGC2 )
+
+C...compute constant for obtaining dgc
+      REAL, PARAMETER :: CLCONST = 6.0 / ( RHO_WATER * PI * EXP( 4.5 * LSGC2 ) )
+
+c *** ranges for acceptable values of LOG( sigma_g).
+      REAL, PARAMETER :: MINL2SG = LOG( MIN_SIGMA_G ) ** 2 ! minimum sigma_g = 1.05 (2.380480e-3)
+      REAL, PARAMETER :: MAXL2SG = LOG( MAX_SIGMA_G ) ** 2 ! maximum sigma_g = 2.5  (8.395887e-1)
+      REAL, PARAMETER :: DEFL2SG = LOG( DEF_SIGMA_G( 1 ) ) ** 2 ! default sigma_g = 1.7  (2.815663e-1)
+
 C...........Arguments:
 
       REAL          NUMI       ! total number concentration for the Aitken mode [ #/m**3 ]
@@ -98,12 +112,6 @@ C...........Local Variables (scalars):
                                ! Aitken mode geometric standard deviation
 !     REAL          XXFN       ! fraction for computing L2SGI
 
-c *** ranges for acceptable values of LOG( sigma_g).
-
-      REAL, SAVE   :: MINL2SG  ! minimum value of L2SG
-      REAL, SAVE   :: MAXL2SG  ! maximum value of L2SG
-      REAL, SAVE   :: DEFL2SG  ! default value of L2SG if no surface area
-
       REAL          NC         ! total cloud droplet number concentration  [ #/m**3 ]
       REAL          DGC        ! geometric mean diameter for cloud droplet [ m ]
       REAL          ESG4       ! exp(0.5 * L2SGI )
@@ -120,10 +128,6 @@ c *** ranges for acceptable values of LOG( sigma_g).
       REAL          M1C        ! moments of the cloud droplet distribution
       REAL          M2C        ! moments of the cloud droplet distribution
 
-      REAL          LSGC, LSGC2  ! log and square of log of SIGC
-      REAL, SAVE :: ESGC4      !
-      REAL, SAVE :: ESGC16     !
-
       REAL          COEF       !
 !     REAL          DIFF0      ! aerosol diffusivities
 !     REAL          DIFF2      ! aerosol diffusivities
@@ -139,36 +143,8 @@ c *** ranges for acceptable values of LOG( sigma_g).
       REAL          MU         ! dynamic viscosity [ kg/(m*s) ]
       REAL          NU         ! kinematic viscosity [ m**2/s ]
 
-      REAL, SAVE :: CLCONST    !
-
-      LOGICAL, SAVE :: FIRSTIME = .TRUE.   ! flag for first pass thru
-
 C-----------------------------------------------------------------------
 C     begin body of subroutine GETALPHA
-
-      !$omp critical
-      IF ( FIRSTIME ) THEN
-
-        FIRSTIME = .FALSE.
-
-C...compute special variables for moments
-C...  of cloud droplet distribution
-
-        LSGC   = LOG( SIGC )
-        LSGC2  = LSGC * LSGC
-        ESGC4  = EXP( 0.5 * LSGC2 )
-        ESGC16 = EXP( 2.0 * LSGC2 )
-
-C...compute constant for obtaining dgc
-
-        CLCONST = 6.0 / ( RHO_WATER * PI * EXP( 4.5 * LOG( SIGC ) ** 2 ) )
-
-        MINL2SG = LOG( MIN_SIGMA_G ) ** 2          ! minimum sigma_g = 1.05 (2.380480e-3)
-        MAXL2SG = LOG( MAX_SIGMA_G ) ** 2          ! maximum sigma_g = 2.5  (8.395887e-1)
-        DEFL2SG = LOG( DEF_SIGMA_G( 1 ) ) ** 2     ! default sigma_g = 1.7  (2.815663e-1)
-
-      END IF  ! firstime
-      !$omp end critical
 
 C...check to make sure that there is aerosol mass and number before
 C... proceeding, if not set alphas to zero

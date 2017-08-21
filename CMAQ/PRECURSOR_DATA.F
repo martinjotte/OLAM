@@ -284,12 +284,6 @@ C Local Variables:
       Integer         :: n
       Integer         :: spc
 
-      !$omp critical
-      If ( .Not. mapped ) Then
-         Call map_precursor()
-      End If
-      !$omp end critical
-
 C Compute gas conversion constant
       gasconv = airdens * inv_mwair
 

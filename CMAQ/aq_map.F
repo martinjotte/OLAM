@@ -110,7 +110,7 @@ C Arguments:
 
 C Local Variables (scalars):
 
-      LOGICAL, SAVE :: FIRSTIME = .TRUE.      ! flag for first pass thru
+!     LOGICAL, SAVE :: FIRSTIME = .TRUE.      ! flag for first pass thru
 
 !     CHARACTER(16), SAVE :: PNAME = 'AQ_MAP' ! program name
 
@@ -119,13 +119,13 @@ C Local Variables (scalars):
       INTEGER       IGAS                ! gas loop counter
       INTEGER       ISRG                ! surrogate loop counter
       INTEGER       PNTR                ! relative pointer variable
-      INTEGER       SPC                 ! liquid species loop counter
+!     INTEGER       SPC                 ! liquid species loop counter
 
       REAL( 8 )  :: BETASO4
       REAL       :: EALFA2T             ! EXP( -ALFAC * TAUCLD )
       REAL       :: M3OLD( NMODES )     ! modal mass at time 0
       REAL       :: M3NEW( NMODES )     ! modal mass at time t
-      REAL( 8 )  :: SUM
+!     REAL( 8 )  :: SUM
 
       real       :: airm1                         
       REAL       :: HPWDEP                        ! hydrogen wet dep (mm mol/liter)
@@ -169,20 +169,7 @@ C External Functions:
 
 C-----------------------------------------------------------------------
 
-C...Initialization
-C...  event-statistics variables.
-
-      !$omp critical
-      IF ( FIRSTIME ) THEN
-
-        FIRSTIME = .FALSE.
-
-        CALL AQ_DATA_INIT()      
-
-      END IF
-      !$omp end critical
-
-C...for subsequent calls, check to make sure some surrogates were
+C...  for subsequent calls, check to make sure some surrogates were
 C...  specified, otherwise there is no need to perform aqueous chemistry
 
       IF ( SIZE( CGRID2AQ_MAP ) .EQ. 0 ) THEN

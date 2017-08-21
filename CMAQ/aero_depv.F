@@ -168,9 +168,10 @@ C Meteorological variables
       jdate = 0
       jtime = 0
 
-      !$omp critical
       IF ( FIRSTIME ) THEN
 
+         !$omp barrier
+         !$omp single
          FIRSTIME = .FALSE.
          LOGDEV = INIT3()
 
@@ -192,9 +193,9 @@ C Meteorological variables
                DEPV_SUR( V ) = 0
             END IF
          END DO
+         !$omp end single
 
       END IF
-      !$omp end critical
 
       IF ( N_AE_SPC .LE. 0 ) RETURN
 

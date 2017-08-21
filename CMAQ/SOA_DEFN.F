@@ -22,6 +22,7 @@ C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 C  Defines aerosol species arrays and parameters required in SOA processing.
 
 C  Contains:
+C     Subroutine map_soa
 C     Subroutine extract_soa
 C     Subroutine update_soa
 C     Function findVapor
@@ -196,58 +197,41 @@ C mapping variables used for loading and unloading to CGRID array
       Logical, Private, Save :: RXNS_eflag          = .False. ! error flag for RXNS modules used
       Logical, Private, Save :: SOA_eflag           = .False. ! error flag for soa_defn
 
-!     Integer, Save :: pfc = 0   ! possible false soabisect convergence counter
-
       Character( 16 ), Private, Save :: pname = 'Soa_Defn        '
       Integer, Private, Save :: logdev
+
+      Real, Save :: mwpoa                     ! Molecular weight of POA [ g/mol ]
+
+      Real, Save ::  drog_ppm2ug( n_orgprod ) ! [ ppm per ug/m3 ] for ORGPROD at
+                                              ! reference temperature and pressure
+      logical, save :: isnvpoa = .false.
 
       Contains
 
 C-----------------------------------------------------------------------
-      Subroutine extract_soa( conc )
 
-C  Extracts the required soa data from CGRID into the conc array.
-
-C  Revision History:
-C     First version was coded in April 2010 by Steve Howard with
-C     Prakash Bhave, Jeff Young, and Sergey Napelenok.
-C
-C SH  03/10/11 Renamed met_data to aeromet_data
-C SR  03/25/11 Replaced I/O API include files with UTILIO_DEFN
-C HP  09/27/14 alk_factor removed, updated for alkane/PAH SOA.
-C              Conversion of reacted alkane to dodecane equivalent
-C              is handled in mech.def. A factor of 0.47 is in use and
-C              reflects the fact that alkane SOA precursor
-C              emissions are dominated by compounds smaller than dodecane.
-C-----------------------------------------------------------------------
+      Subroutine map_soa( )
 
       Use rxns_data       ! chemical mechanism data
       Use aero_data       ! aero species
-      Use aeromet_data    ! air and met variables
       Use cgrid_spcs      ! CGRID mechanism species
       Use utilio_defn
-
-      Implicit None
-
-C Includes:
-
-C Arguments:
-      Real, Intent( In ) :: conc( : )
+      Use aeromet_data, only: rgasuniv
 
 C Local Variables:
       Character( 132 ) :: xmsg
-      Real            :: gasconv
-      Real            :: vtmp
-      Integer         :: n, g
-      Integer         :: spc
+      Integer         :: n, g, i, spc
       Integer         :: vapor_to_vaporlist( n_vapor_list )
 
-!     Real, Save :: alk_factor = 1.00
+      Real, Parameter :: rgas1  = 1.0 / rgasuniv ! reciprocal of universal gas constant
+      Real, Parameter :: tref   = 298.0          ! reference temperature [ K ]
+      Real, Parameter :: trefm1 = 1.0 / tref ! inverse of reference temperature
 
-      !$omp critical
-      If ( .Not. mapped ) Then
+      Real, Parameter :: convfac_298 = 101325.0 * rgas1 * trefm1 ! P/RT at 1 atm and 298 K [ mole/m**3 ]
 
-         logdev = init3()
+      if ( .not. mapped ) then
+
+          logdev = init3()
 
 C Before Anything Else, the VaporSpc Array must be populated with
 C the species from VaporList that have been identified in the GC
@@ -579,10 +563,64 @@ C Reactive variables that store their production rates (orgprod)
              Call m3exit( pname, 0, 0, xmsg, xstat3 )
          End If 
 
+C     Set unit conversion
+
+         Do i = 1, n_orgprod
+            drog_ppm2ug( i ) = orgprod_mw( i ) * convfac_298
+         End Do
+
+         mwpoa = aerospc_mw( apoc_idx )
+
+         isnvpoa = (INDEX( MECHNAME, 'NVPOA' ) .Ne. 0)
+
          mapped = .True.
 
       End If     ! mapping condition
-      !$omp end critical
+
+99901 Format(/'FATAL Error(s) found in the namelist(s) used. Check that '
+     &     /  'these namelists contain the data as the files in '
+     &     /  'the respository version of the mechanism: ', a / )
+99902 Format('FATAL: SOA Vapor, ', a, ', is not found among the species in '
+     &        / 'the NR or GC namelist used. Required for modeling ', a / )
+99903 Format( 'FATAL: SOA Precursor, ', a,  '. is not found among the species',
+     &         / 'in GC or NR namelist used. Required for modeling vapor, ', a / )
+99904 Format(1X,'aerosol product from namelist species: ', a /)
+99905 Format(1X,'aerosol by-product from namelist species : ', a /)
+C99906 Format(1X,'precursor from namelist species : ', a /)
+  
+      End Subroutine Map_soa
+
+C-----------------------------------------------------------------------
+
+      Subroutine extract_soa( conc )
+
+C  Extracts the required soa data from CGRID into the conc array.
+
+C  Revision History:
+C     First version was coded in April 2010 by Steve Howard with
+C     Prakash Bhave, Jeff Young, and Sergey Napelenok.
+C
+C SH  03/10/11 Renamed met_data to aeromet_data
+C SR  03/25/11 Replaced I/O API include files with UTILIO_DEFN
+C HP  09/27/14 alk_factor removed, updated for alkane/PAH SOA.
+C              Conversion of reacted alkane to dodecane equivalent
+C              is handled in mech.def. A factor of 0.47 is in use and
+C              reflects the fact that alkane SOA precursor
+C              emissions are dominated by compounds smaller than dodecane.
+C-----------------------------------------------------------------------
+
+      Use aeromet_data          ! air and met variables
+
+      Implicit None
+
+C Arguments:
+      Real, Intent( In ) :: conc( : )
+
+C Local Variables:
+      Real            :: gasconv
+      Real            :: vtmp
+      Integer         :: n
+      Integer         :: spc
 
       if (.not. allocated(vapor_conc)) allocate( vapor_conc( n_vapor ) )
 
@@ -609,25 +647,10 @@ C Copy grid cell concentrations of ORGPROD species
          End If
       End Do
 
-C Adjust ALK orgprod for fraction that produces SOA
-!      orgprod_conc( 1 ) = alk_factor * orgprod_conc( 1 )
-
-99901 Format(/'FATAL Error(s) found in the namelist(s) used. Check that '
-     &     /  'these namelists contain the data as the files in '
-     &     /  'the respository version of the mechanism: ', a / )
-99902 Format('FATAL: SOA Vapor, ', a, ', is not found among the species in '
-     &        / 'the NR or GC namelist used. Required for modeling ', a / )
-99903 Format( 'FATAL: SOA Precursor, ', a,  '. is not found among the species',
-     &         / 'in GC or NR namelist used. Required for modeling vapor, ', a / )
-99904 Format(1X,'aerosol product from namelist species: ', a /)
-99905 Format(1X,'aerosol by-product from namelist species : ', a /)
-C99906 Format(1X,'precursor from namelist species : ', a /)
-  
-
-      Return
       End Subroutine extract_soa
 
 C-----------------------------------------------------------------------
+
       Subroutine update_soa( conc )
 
 C  Populates CGRID from the conc array with updated SOA values.
@@ -673,6 +696,7 @@ C Copy vapor_conc back to grid cell concentrations
       End Subroutine update_soa
 
 C-----------------------------------------------------------------------
+
       Function findVapor( vname ) Result ( ndx )
 
 C  Finds the index of 'required' semivolatile species in the vaporspc list
@@ -1050,21 +1074,9 @@ C Arguments:
       Real    :: dt            ! Synchronization time step [ s ]
       Integer :: layer         ! model layer number
 
-C External functions:
-      Integer, External :: setup_logdev
-
 C Local variables:
-      Logical, Save :: first_time = .True.
-      Integer, Save :: logdev
-      Character( 300 ) :: xmsg
+!     Character( 300 ) :: xmsg
       Integer       :: i, im, indx
-
-      Real, Save :: mwpoa                     ! Molecular weight of POA [ g/mol ]
-
-      Real, Save ::  drog_ppm2ug( n_orgprod ) ! [ ppm per ug/m3 ] for ORGPROD at
-                                              ! reference temperature and pressure
-
-      logical, save :: isnvpoa = .false.
 
 C Parameters & variables for adjusting cstar to ambient conditions
       Real, Parameter :: tref   = 298.0          ! reference temperature [ K ]
@@ -1076,7 +1088,7 @@ C Parameters & variables for adjusting cstar to ambient conditions
       Real, Parameter :: kacid  = 3.61           ! acid-induced enhancement factor
       Real, Parameter :: threshmin = 1.0E-19     ! small positive number
       Real, Parameter :: ctolmin = 1.0E-06
-      Real, Parameter :: convfac_298 = 101325.0 * rgas1 * trefm1  ! P/RT at 1 atm and 298 K [ mole/m**3 ]
+!     Real, Parameter :: convfac_298 = 101325.0 * rgas1 * trefm1  ! P/RT at 1 atm and 298 K [ mole/m**3 ]
       Real, Parameter :: difforg = 9.36e-6  ! Diffusivity of organics [m2 s-1]
 
       Real convfac
@@ -1114,8 +1126,8 @@ C Variables used in equilibrium partitioning calculations
       Real totorgsw          ! POA + non-volatile SOA [ umole/m3 ]
       Real totorg            ! SOA + POA before time step [ umole/m3 ]
       Real threshold         ! criterion for establishing gas/part equil.
-      Real faer              ! fraction of total in aerosol, intermediate value
-      Logical check          ! flag to indicate if NEWT subroutine
+!     Real faer              ! fraction of total in aerosol, intermediate value
+!     Logical check          ! flag to indicate if NEWT subroutine
                              ! converged to a spurious root
       Real totaer, fact      ! total aerosol-phase mass of each semivolaitle component
 
@@ -1132,23 +1144,6 @@ C Added for new SOA bisection (hotp 7/6/11)
       Real               :: upb, orgmoles      ! upper bound, total aerosol moles
 
 C-----------------------------------------------------------------------
-
-      !$omp critical
-      If ( first_time )  Then
-         first_time = .False.
-         logdev = setup_logdev()
-
-C     Set unit conversion
-
-         Do i = 1, n_orgprod
-            drog_ppm2ug( i ) = orgprod_mw( i ) * convfac_298
-         End Do
-
-         mwpoa = aerospc_mw( apoc_idx )
-
-         isnvpoa = (INDEX( MECHNAME, 'NVPOA' ) .Ne. 0)
-      End If ! first_time
-      !$omp end critical
 
 C Set temperature factors
       tt1 = tref / airtemp

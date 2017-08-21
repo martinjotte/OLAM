@@ -76,7 +76,6 @@ C-----------------------------------------------------------------------
       USE UTILIO_DEFN
       use hlconst_mod
       use const_data
-      use misc_coms, only: io6
 
       IMPLICIT NONE
 
@@ -145,7 +144,7 @@ C...........Local Variables:
       REAL          SRFAKN
       REAL          ONE_OVER_TWASH      ! 1 / TWASH
       REAL          RTCH                ! chemical gas const times temp
-      REAL          TWASH               ! washout time for clouds (sec) with low liq wat content
+!     REAL          TWASH               ! washout time for clouds (sec) with low liq wat content
       REAL          TWF                 ! washout scaling factor (mol/l/atm)
 
       REAL, PARAMETER :: HPLUS = 1.0E-4 ! typical value hydrogen ion concentration [mol/l]
@@ -170,8 +169,9 @@ C-----------------------------------------------------------------------
 C...INITIALIZATION SCAVWDEP module:
 C...  event-statistics variables.  Open output files.
 
-      !$omp critical
       IF ( FIRSTIME ) THEN
+        !$omp barrier
+        !$omp single
 
         FIRSTIME = .FALSE.
 
@@ -270,9 +270,9 @@ C...create the pointers from CGRID to the species needed by AQCHEM
            cgrid_scav_istrc( var ) = ( INDEX( CGRID_SCAV( var ), 'TRACER' ) .GT. 0 )
            cgrid_scav_isaik( var ) = ( INDEX( CGRID_SCAV( var ), 'AITKEN' ) .GT. 0 )
         enddo
+        !$omp end single
 
       END IF  ! FIRSTIME
-      !$omp end critical
 
 C...for subsequent calls, check to make sure some species were
 C...  specified, otherwise there is no need to perform scavenging

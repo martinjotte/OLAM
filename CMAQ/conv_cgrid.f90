@@ -129,8 +129,11 @@ contains
     real    :: rhoi(mza)
 
     if ( firstime ) then
+       !$omp barrier
+       !$omp single
        firstime = .false.
        call setup_conv()
+       !$omp end single
     endif
 
     ! Gas and non-reactive - no conversions necessary (always ppmV)
@@ -214,8 +217,11 @@ contains
     real    :: fac
 
     if ( firstime ) then
+       !$omp barrier
+       !$omp single
        firstime = .false.
        call setup_conv()
+       !$omp end single
     endif
 
     ! Gas and non-reactive - no conversions necessary (always ppmV)
@@ -294,12 +300,13 @@ contains
     real    :: fac
     real    :: rhoi(mza)
 
-    !$omp critical
     if ( firstime ) then
+       !$omp barrier
+       !$omp single
        firstime = .false.
        call setup_conv()
+       !$omp end single
     endif
-    !$omp end critical
 
     do k = lpw(iw), mza
        rhoi(k) = 1.0 / real(rho(k,iw))
@@ -393,12 +400,13 @@ contains
     integer :: k, n, v, off
     real    :: fac
 
-    !$omp critical
     if ( firstime ) then
+       !$omp barrier
+       !$omp single
        firstime = .false.
        call setup_conv()
+       !$omp end single
     endif
-    !$omp end critical
 
     ! Gas - no conversion
 
@@ -488,12 +496,13 @@ contains
     integer :: ks, k, n, v, off
     real    :: fac
 
-    !$omp critical
     if (firstime) then
+       !$omp barrier
+       !$omp single
        firstime = .false.
        call setup_conv()
+       !$omp end single
     endif
-    !$omp end critical
 
     ! Gas - no conversion
 

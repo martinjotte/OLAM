@@ -152,7 +152,6 @@ C  AEROSOL(naer,nmodes) real input&output   Concentration for species i=1,51
 C  AERWDEP(naer,nmodes) real     output     wet deposition for species
 C-----------------------------------------------------------------------
 
-      USE RXNS_DATA       ! chemical mechanism data
       USE AQ_DATA         ! doesn't inherit; gets only n_aerospc, conmin from AERO_DATA
       USE AERO_DATA
       USE UTILIO_DEFN
@@ -199,10 +198,9 @@ C...........Arguments:
 
 C...........Local Variables (scalars):
 
-      LOGICAL, SAVE :: FIRSTIME = .TRUE. ! flag for first pass thru
+!     LOGICAL, SAVE :: FIRSTIME = .TRUE. ! flag for first pass thru
 
       CHARACTER( 16 ), SAVE :: PNAME = 'AQCHEM'             ! driver program name
-      CHARACTER( 16 ), SAVE :: MGLYSUR = 'METHYL_GLYOXAL  ' ! Henry's law surrogate for MGLY
 
       INTEGER      ISPC            ! loop counter for species
       INTEGER      I20C            ! loop counter for do loop 20
@@ -421,23 +419,6 @@ C...........Local Variables (scalars):
       REAL( 8 ) :: FE_SOL          ! Fractional Fe solubility, GS - July 1, 2011
       REAL( 8 ) :: MN_SOL          ! Fractional Mn solubility, GS - July 1, 2011
 
-      REAL( 8 ), SAVE :: SOIL_FE_FAC  ! Fe molar fraction of ASOIL
-      REAL( 8 ), SAVE :: CORS_FE_FAC  ! Fe molar fraction of ACORS
-      REAL( 8 ), SAVE :: SOIL_MN_FAC  ! etc.
-      REAL( 8 ), SAVE :: CORS_MN_FAC
-      REAL( 8 ), SAVE :: SEAS_NA_FAC  ! Na molar fraction of ASEACAT
-      REAL( 8 ), SAVE :: SOIL_NA_FAC
-      REAL( 8 ), SAVE :: CORS_NA_FAC
-      REAL( 8 ), SAVE :: SEAS_MG_FAC
-      REAL( 8 ), SAVE :: SOIL_MG_FAC
-      REAL( 8 ), SAVE :: CORS_MG_FAC
-      REAL( 8 ), SAVE :: SEAS_CA_FAC
-      REAL( 8 ), SAVE :: SOIL_CA_FAC
-      REAL( 8 ), SAVE :: CORS_CA_FAC
-      REAL( 8 ), SAVE :: SEAS_K_FAC
-      REAL( 8 ), SAVE :: SOIL_K_FAC
-      REAL( 8 ), SAVE :: CORS_K_FAC
-
 C...........Local Variables (arrays):
 
       REAL( 8 ) :: LOADING( MAX_NAER, NMODES ) ! aerosol loading (mol/liter)
@@ -464,93 +445,7 @@ C...........External Functions:
       REAL( 8 ) :: HGFINE           ! mercury PM acc+akn aerosol in cloudwater (mol/liter)
       REAL( 8 ) :: HGCOR            ! mercury PM coarse aerosol in cloudwater (mol/liter)
 
-      INTEGER, SAVE :: LOGDEV
-      INTEGER, EXTERNAL :: SETUP_LOGDEV
-
-      integer, save :: hlso2, hlco2, hlnh3, hlh2o2, hlo3, hlhcl, hlhno3
-      integer, save :: hlmeth, hlperx, hlfora, hlglyo, hlmgly, hloh
 C*********************************************************************
-
-C...Initialization
-
-      !$omp critical
-      IF ( FIRSTIME ) THEN
-
-        FIRSTIME = .FALSE.
-
-        LOGDEV = SETUP_LOGDEV()
-
-C...Make sure an AE6 version of the mechanism is being used
-
-        IF ( INDEX ( MECHNAME, 'AE6' ) .LE. 0 ) THEN
-          XMSG = 'This version of AQCHEM requires an AE6 chemical mechanism'
-          CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT3 )
-        END IF
-
-C...special treatment of MGLY for CB05 mechanism:
-C...  use Henry`s law constant for glyoxal as a surrogate for methyl glyoxal
-
-        IF ( INDEX ( MECHNAME, 'CB05' ) .GT. 0 ) THEN
-          MGLYSUR = 'GLYOXAL         '
-        END IF
-
-        CALL HLCONST_SPCS_INIT( 'SO2             ', hlso2  )
-        CALL HLCONST_SPCS_INIT( 'CO2             ', hlco2  )
-        CALL HLCONST_SPCS_INIT( 'NH3             ', hlnh3  )
-        CALL HLCONST_SPCS_INIT( 'H2O2            ', hlh2o2 )
-        CALL HLCONST_SPCS_INIT( 'O3              ', hlo3   )
-        CALL HLCONST_SPCS_INIT( 'HCL             ', hlhcl  )
-        CALL HLCONST_SPCS_INIT( 'HNO3            ', hlhno3 )
-        CALL HLCONST_SPCS_INIT( 'METHYLHYDROPEROX', hlmeth )
-        CALL HLCONST_SPCS_INIT( 'PEROXYACETIC_ACI', hlperx )
-        CALL HLCONST_SPCS_INIT( 'FORMIC_ACID     ', hlfora )
-        CALL HLCONST_SPCS_INIT( 'GLYOXAL         ', hlglyo )
-        CALL HLCONST_SPCS_INIT( MGLYSUR           , hlmgly )
-        CALL HLCONST_SPCS_INIT( 'OH              ', hloh   )
-
-C... set MW ratios and speciation factors for molar concentrations of coarse
-C... soluble aerosols
-
-        SOIL_FE_FAC = ASOIL_FE_FAC * REAL( AEROSPC_MW( ASOIL_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( AFE_IDX ), 8 ) / ASOIL_RENORM
-        CORS_FE_FAC = ACORS_FE_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( AFE_IDX ), 8 ) / ACORS_RENORM
-
-        SOIL_MN_FAC = ASOIL_MN_FAC * REAL( AEROSPC_MW( ASOIL_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( AMN_IDX ), 8 ) / ASOIL_RENORM
-        CORS_MN_FAC = ACORS_MN_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( AMN_IDX ), 8 ) / ACORS_RENORM
-
-        SEAS_NA_FAC = ASCAT_NA_FAC * REAL( AEROSPC_MW( ASEACAT_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( ANA_IDX ), 8 )
-        SOIL_NA_FAC = ASOIL_NA_FAC * REAL( AEROSPC_MW( ASOIL_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( ANA_IDX ), 8 ) / ASOIL_RENORM
-        CORS_NA_FAC = ACORS_NA_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( ANA_IDX ), 8 ) / ACORS_RENORM
-
-        SEAS_MG_FAC = ASCAT_MG_FAC * REAL( AEROSPC_MW( ASEACAT_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( AMG_IDX ), 8 )
-        SOIL_MG_FAC = ASOIL_MG_FAC * REAL( AEROSPC_MW( ASOIL_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( AMG_IDX ), 8 ) / ASOIL_RENORM
-        CORS_MG_FAC = ACORS_MG_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( AMG_IDX ), 8 ) / ACORS_RENORM
-
-        SEAS_CA_FAC = ASCAT_CA_FAC * REAL( AEROSPC_MW( ASEACAT_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( ACA_IDX ), 8 )
-        SOIL_CA_FAC = ASOIL_CA_FAC * REAL( AEROSPC_MW( ASOIL_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( ACA_IDX ), 8 ) / ASOIL_RENORM
-        CORS_CA_FAC = ACORS_CA_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( ACA_IDX ), 8 ) / ACORS_RENORM
-
-        SEAS_K_FAC = ASCAT_K_FAC * REAL( AEROSPC_MW( ASEACAT_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( AK_IDX ), 8 )
-        SOIL_K_FAC = ASOIL_K_FAC * REAL( AEROSPC_MW( ASOIL_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( AK_IDX ), 8 ) / ASOIL_RENORM
-        CORS_K_FAC = ACORS_K_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
-     &                             / REAL( AEROSPC_MW( AK_IDX ), 8 ) / ACORS_RENORM
-      
-      END IF    ! FIRSTIME
-      !$omp end critical
 
       ONE_OVER_TEMP = 1.0D0 / TEMP
 

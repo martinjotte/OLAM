@@ -304,7 +304,8 @@ C Warn the User if there are No Emissions Species On Any File
 
 ! Apply gaseous emissions (gas chemistry and non-reacting species)
 
-         !$omp parallel do private(iw,k,cnvtc,s,n,jwl,iwl)
+         !$omp parallel private(cnvtc)
+         !$omp do private(iw,k,s,n,jwl,iwl)
          do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
             ! Zero-out emissions arrays
@@ -413,7 +414,8 @@ C Warn the User if there are No Emissions Species On Any File
             endif
 
          enddo
-         !$omp end parallel do
+         !$omp end do
+         !$omp end parallel
 
 ! Aerosol emissions - all units conversions done in GET_AERO_EMIS for aerosols
 ! GET_AERO_EMIS is in f90 module AERO_EMIS

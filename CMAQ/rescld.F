@@ -26,43 +26,20 @@ C %W% %P% %G% %U%
 
       subroutine rescld ( mrl )
 
-      use aq_data,     only: tot_wdep
-      use mem_grid,    only: mwa
-      use utilio_defn, only: m3exit, xstat1
-      use cgrid_spcs,  only: n_gc_wdep, n_ae_wdep, n_nr_wdep
+      use mem_grid,   only: mwa
       use mem_ijtabs, only: jtab_w, jtw_prog
 
       implicit none
       
       integer, intent(in) :: mrl
-
-      logical, save       :: firstime = .true.
-      integer             :: allocstat
-      integer             :: isize
       integer             :: j, iw
-      CHARACTER( 30 )     :: XMSG              ! Exit status message
       real                :: COSZEN( mwa )     ! cosine of zenith angle
-
-      if (firstime) then
-         firstime = .false.
-
-         isize = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP + 1
-
-         ALLOCATE ( TOT_WDEP( mwa,isize ), STAT = ALLOCSTAT )
-         IF ( ALLOCSTAT .NE. 0 ) THEN
-            XMSG = 'Failure allocating TOT_WDEP'
-            CALL M3EXIT( 'RESCLD', 0, 0, XMSG, XSTAT1 )
-         ENDIF
-         
-         tot_wdep = 0.0
-      endif
 
       ! Compute zenith angle; Golam Sarwar, July 1, 2011 
       CALL CZANGLE ( COSZEN )
 
       !$omp parallel do private(iw)
-      do j = 1, jtab_w(jtw_prog)%jend(mrl)
-         iw =  jtab_w(jtw_prog)%iw(j)
+      do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
          call rescld1( iw, coszen )
 
@@ -130,7 +107,7 @@ C-----------------------------------------------------------------------
       use mem_cuparm, only: kcubot, kcutop, qwcon, conprr, iactcu
       use misc_coms,  only: dtlm
       use mem_basic,  only: tair, rho, press
-      use aq_data,    only: tot_wdep
+      use aq_data,    only: tot_wdep, n_spc_wdep, isnum_spc, issrf_spc, wdep_map
 
       IMPLICIT NONE
 
@@ -145,24 +122,19 @@ C...........Parameters:
       REAL, PARAMETER :: CNV4 = 1.E-6 * AVO
       REAL, PARAMETER :: CNV4I = 1.0 / CNV4
 
-C Number of species in CGRID
-      INTEGER,              SAVE :: MXSPCS
-      INTEGER,              save :: N_SPC_WDEP    ! # of wet deposition species
-      INTEGER, ALLOCATABLE, SAVE :: WDEP_MAP( : ) ! wet deposition map to CGRID
-
       INTEGER       JDATE               ! current model date, coded YYYYDDD
       INTEGER       JTIME               ! current model time, coded HHMMSS
 
 C...........Local Variables:
 
-      LOGICAL, SAVE :: FIRSTIME = .TRUE.   ! flag for first pass thru
+!      LOGICAL, SAVE :: FIRSTIME = .TRUE.   ! flag for first pass thru
 !      LOGICAL, SAVE :: QG_AVAIL = .TRUE.   ! flag for QG available on file
 !      LOGICAL, SAVE :: QI_AVAIL = .TRUE.   ! flag for QI available on file
 !      LOGICAL, SAVE :: QS_AVAIL = .TRUE.   ! flag for QS available on file
 
 
-      CHARACTER( 120 ) :: XMSG           ! Exit status message
-      CHARACTER( 16 ), parameter :: PNAME = 'RESCLD'    ! process name
+!     CHARACTER( 120 ) :: XMSG           ! Exit status message
+!     CHARACTER( 16 ), parameter :: PNAME = 'RESCLD'    ! process name
 !     CHARACTER( 16 ) ::  VARNM               ! variable name for IOAPI to get
 !     CHARACTER( 16 ), SAVE ::  VNAME_RN
 
@@ -180,7 +152,7 @@ C...........Local Variables:
 !      INTEGER, SAVE :: STIME            ! met file start time
 !      INTEGER       TCLD                ! cloud lifetime (sec)
       INTEGER       VAR                 ! variable loop counter
-      INTEGER       ALLOCSTAT           ! memory allocation status
+!     INTEGER       ALLOCSTAT           ! memory allocation status
 
       REAL          AIRM                ! total airmass (mol/m2) in cloudy air
       REAL          ALFAC               ! aerosol scavenging coef
@@ -197,13 +169,13 @@ C...........Local Variables:
       REAL          TAUCLD              ! cloud lifetime (sec)
       REAL          TBARC               ! mean cloud temp (K)
       REAL          WCBAR               ! liq water content of cloud (kg/m3)
-      REAL          WPBAR               ! precipitation water content (kg/m3)
+!     REAL          WPBAR               ! precipitation water content (kg/m3)
       REAL          WTBAR               ! total water content of cloud (kg/m3)
       REAL          rhoair
 
-      REAL :: POLC ( N_GC_SPCD + N_AE_SPC + N_NR_SPC ) ! incloud conc (mol/mol)
-      REAL :: CEND ( N_GC_SPCD + N_AE_SPC + N_NR_SPC ) ! ending conc (mol/mol)
-      REAL :: REMOV( N_GC_SPCD + N_AE_SPC + N_NR_SPC ) ! moles/m2 or mm*mol/lit scavenged
+      REAL :: POLC ( NSPCSD )            ! incloud conc (mol/mol)
+      REAL :: CEND ( NSPCSD )            ! ending conc (mol/mol)
+      REAL :: REMOV( NSPCSD )            ! moles/m2 or mm*mol/lit scavenged
 
 !     REAL          RN   ( NCOLS, NROWS ) ! non-convective rainfall (cm)
 !     REAL          DENS ( NCOLS, NROWS, NLAYS )  ! air density (kg/m3)
@@ -234,9 +206,6 @@ C Latitude and longitude for zenith angle calculation: Golam Sarwar * July 1, 20
 
       real    :: tc, fracliq, prate, twc, qcu
       integer :: k, mrlw
-
-      logical, allocatable, save :: isnum_spc(:)
-      logical, allocatable, save :: issrf_spc(:)
 
 C...........External Functions:
 
@@ -269,80 +238,8 @@ C...........External Functions:
       END INTERFACE
 C-----------------------------------------------------------------------
 
-C...Initialization
-
-      jdate = 0
-      jtime = 0
-
-      !$omp critical
-      IF ( FIRSTIME ) THEN
-
-        FIRSTIME = .FALSE.
-
-        N_SPC_WDEP = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP
-        ALLOCATE ( WDEP_MAP( N_SPC_WDEP ), STAT = ALLOCSTAT )
-
-        IF ( ALLOCSTAT .NE. 0 ) THEN
-          XMSG = 'Failure allocating WDEP_MAP'
-          CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-        END IF
-
-        IF ( N_SPC_WDEP .LE. 0 ) THEN
-           XMSG = 'No species were specified for wet deposition ' //
-     &            'tracking'
-           CALL M3WARN ( PNAME, JDATE, JTIME, XMSG )
-        END IF
-
-        SPC = 0
-        STRT = 1
-        FINI = N_GC_WDEP
-        DO VAR = STRT, FINI
-          SPC = SPC + 1
-          WDEP_MAP( VAR ) = GC_STRT - 1 + GC_WDEP_MAP( SPC )
-        END DO
-
-        SPC = 0
-        STRT = N_GC_WDEP + 1
-        FINI = N_GC_WDEP + N_AE_WDEP
-        DO VAR = STRT, FINI
-          SPC = SPC + 1
-          WDEP_MAP( VAR ) = AE_STRT - 1 + AE_WDEP_MAP( SPC )
-        END DO
-
-        SPC = 0
-        STRT = N_GC_WDEP + N_AE_WDEP + 1
-        FINI = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP
-        DO VAR = STRT, FINI
-          SPC = SPC + 1
-          WDEP_MAP( VAR ) = NR_STRT - 1 + NR_WDEP_MAP( SPC )
-        END DO
-
-        MXSPCS = N_GC_SPCD + N_AE_SPC + N_NR_SPC
-
-!        ALLOCATE ( CEND ( MXSPCS ),
-!     &             POLC ( MXSPCS ),
-!     &             REMOV( MXSPCS ), STAT = ALLOCSTAT )
-!        IF ( ALLOCSTAT .NE. 0 ) THEN
-!          XMSG = 'Failure allocating CEND, POLC or REMOV'
-!          CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-!        END IF
-
-        allocate(isnum_spc(mxspcs)); isnum_spc(:) = .false.
-        allocate(issrf_spc(mxspcs)); issrf_spc(:) = .false.
-
-        SPC = 0
-        STRT = AE_STRT
-        FINI = AE_STRT - 1 + N_AE_SPC
-        DO VAR = STRT, FINI
-           SPC = SPC + 1
-           isnum_spc( var ) = ( INDEX( AE_SPC( SPC ), 'NUM' ) .GT. 0 )
-           issrf_spc( var ) = ( INDEX( AE_SPC( SPC ), 'SRF' ) .GT. 0 )
-        ENDDO
-
-      END IF
-      !$omp end critical
-
-C...Loop through all grid cells
+         jdate = 0
+         jtime = 0
 
          mrlw = itab_w(iw)%mrlw
 
