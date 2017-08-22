@@ -623,7 +623,7 @@ end subroutine grad_t2d_3
 subroutine grad_z(mrl, scp, gzps)
 
   use mem_ijtabs, only: jtab_w, jtw_wadj
-  use mem_grid,   only: mza, mwa, lpw, dzim, dzit
+  use mem_grid,   only: mza, mwa, lpw, dzim
 
   implicit none
 
@@ -674,7 +674,6 @@ subroutine grad_z_3(mrl, scp, gzps, gzzps)
   use mem_ijtabs, only: jtab_w, jtw_wadj
   use mem_grid,   only: mza, mwa, lpw, dzm
   use mem_adv,    only: zzt, zzb, a_v
-  use misc_coms,  only: io6
 
   implicit none
 
@@ -1193,7 +1192,7 @@ subroutine scalar_hdiff_split(mrl, rho_old)
   use mem_turb,   only: akhodx
   use mem_ijtabs, only: jtab_w, jtw_prog, jtw_wadj, itab_w
   use var_tables, only: num_scalar, scalar_tab
-  use misc_coms,  only: dtlm
+  use misc_coms,  only: dtlm, iparallel
   use olam_mpi_atm,only: mpi_recv_w, mpi_send_w
   use consts_coms, only: r8
 
@@ -1215,7 +1214,10 @@ subroutine scalar_hdiff_split(mrl, rho_old)
      do n = 1, num_scalar
 
         if (n == 1) then
-           call mpi_send_w(mrl, rvara2=scalar_tab(n)%var_t)
+
+           if (iparallel == 1) then
+              call mpi_send_w(mrl, rvara1=scalar_tab(n)%var_t)
+           endif
 
            !$omp parallel do private(iw,k)
            do j = 1,jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
@@ -1227,8 +1229,10 @@ subroutine scalar_hdiff_split(mrl, rho_old)
 
         endif
 
-        call mpi_recv_w(mrl, rvara2=scalar_tab(n)%var_t)
-        if (n < num_scalar) call mpi_send_w(mrl, rvara2=scalar_tab(n+1)%var_t)
+        if (iparallel == 1) then
+           call mpi_recv_w(mrl, rvara1=scalar_tab(n)%var_t)
+           if (n < num_scalar) call mpi_send_w(mrl, rvara1=scalar_tab(n+1)%var_t)
+        endif
 
         !$omp parallel do private(iw,k)
         do j = 1,jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
