@@ -290,7 +290,6 @@ C for TX version
       integer, parameter :: lphgfinel   = 54 ! Fine-mode Mercury Tracer
       integer, parameter :: lphgcorl    = 55 ! Coarse-mode Mercury Tracer
 
-
       Integer    :: nsrggas( ngas )           ! # surrogates in CGRID for each gas
       Integer    :: lsrggas( ngas,mxsrg )
 
@@ -306,6 +305,7 @@ C for TX version
       Integer, Save :: logdev
       Integer, External :: setup_logdev
 
+      ! these come from rescld:
       real, allocatable :: tot_wdep(:,:)
 
       integer,              save :: n_spc_wdep
@@ -313,6 +313,7 @@ C for TX version
       logical, allocatable, save :: isnum_spc(:)
       logical, allocatable, save :: issrf_spc(:)
 
+      ! these come from aqchem:
       CHARACTER( 16 ), SAVE :: MGLYSUR = 'METHYL_GLYOXAL  ' ! Henry's law surrogate for MGLY
 
       REAL( 8 ), SAVE :: SOIL_FE_FAC  ! Fe molar fraction of ASOIL
@@ -334,6 +335,26 @@ C for TX version
 
       integer, save :: hlso2, hlco2, hlnh3, hlh2o2, hlo3, hlhcl, hlhno3
       integer, save :: hlmeth, hlperx, hlfora, hlglyo, hlmgly, hloh
+
+      ! these come from scavwdep:
+      INTEGER, SAVE :: N_CGRID_SCAV        ! Number of species scavenged
+      INTEGER, SAVE :: N_NUMAKN            ! # aitken aerosol number species
+      INTEGER, SAVE :: N_MASAKN            ! # aitken aerosol mass species
+      INTEGER, SAVE :: N_SRFAKN            ! # aitken aerosol sfc area species
+
+      CHARACTER( 16 ), ALLOCATABLE, SAVE :: CGRID_SCAV    ( : ) ! CGRID species scavenged
+      INTEGER,         ALLOCATABLE, SAVE :: CGRID_SCAV_MAP( : ) ! CGRID map to scavenged spc
+      REAL,            ALLOCATABLE, SAVE :: CGRID_SCAV_FAC( : ) ! CGRID scav coef factors
+      INTEGER,         ALLOCATABLE, SAVE :: L_NUMAKN      ( : ) ! pointers to aitken aerosol #
+      INTEGER,         ALLOCATABLE, SAVE :: L_MASAKN      ( : ) ! pointers to aitken aerosols
+      INTEGER,         ALLOCATABLE, SAVE :: L_SRFAKN      ( : ) ! pntrs to aitken aerosol surface area
+
+      integer, allocatable, save :: hlspc_map       ( : )
+      logical, allocatable, save :: cgrid_scav_isnum( : )
+      logical, allocatable, save :: cgrid_scav_issrf( : )
+      logical, allocatable, save :: cgrid_scav_ish2o( : )
+      logical, allocatable, save :: cgrid_scav_istrc( : )
+      logical, allocatable, save :: cgrid_scav_isaik( : )
 
       Contains
  
@@ -379,6 +400,7 @@ C Local Variables:
       Integer :: n_cgrid2aq
       Integer :: ios
       Integer :: strt, fini
+
 C Local Variable used to determine what optional TX to add to surrogates
 !     Logical :: found_all_modes
 !     Integer :: n_missing_tx
@@ -670,6 +692,7 @@ C...For TXHG version
       lphg_acc       = findSgrAer( req_phgj )       !  Mercuric aitken and accumulation modes
       lphg_cor       = findSgrAer( req_phgk )       !  Mercuric coarse mode
 
+      ! these come from rescld:
       n_spc_wdep = N_GC_WDEP + N_AE_WDEP + N_NR_WDEP
 
       ALLOCATE ( TOT_WDEP( mwa,n_spc_wdep+1 ), STAT = IOS )
@@ -726,6 +749,8 @@ C...For TXHG version
          isnum_spc( var ) = ( INDEX( AE_SPC( SPC ), 'NUM' ) .GT. 0 )
          issrf_spc( var ) = ( INDEX( AE_SPC( SPC ), 'SRF' ) .GT. 0 )
       ENDDO
+
+      ! these come from aqchem:
 
 C...Make sure an AE6 version of the mechanism is being used
 
@@ -795,6 +820,101 @@ C... soluble aerosols
      &                           / REAL( AEROSPC_MW( AK_IDX ), 8 ) / ASOIL_RENORM
       CORS_K_FAC = ACORS_K_FAC * REAL( AEROSPC_MW( ACORS_IDX ), 8 )
      &                           / REAL( AEROSPC_MW( AK_IDX ), 8 ) / ACORS_RENORM
+
+      ! these come from scavwdep:
+      N_CGRID_SCAV = N_GC_SCAV + N_AE_SCAV + N_NR_SCAV
+
+C...first check to make sure that some species in CGRID were specified
+C...  for scavenging, otherwise notify the user and return
+
+      IF ( N_CGRID_SCAV .LE. 0 ) THEN
+         XMSG = 'No species were specified for scavenging by cloud ' //
+     &          'or rain water...SCAVENGING WILL NOT BE PERFORMED!'
+         CALL M3WARN ( 'aq_data_init', 0, 0, XMSG )
+         RETURN
+      END IF
+
+      ALLOCATE ( CGRID_SCAV    ( N_CGRID_SCAV ),
+     &           CGRID_SCAV_MAP( N_CGRID_SCAV ),
+     &           CGRID_SCAV_FAC( N_CGRID_SCAV ), STAT = IOS )
+      IF ( IOS .NE. 0 ) THEN
+         XMSG = 'Failure allocating CGRID_SCAV, CGRID_SCAV_MAP or CGRID_SCAV_FAC'
+         CALL M3EXIT( 'aq_data_init', 0, 0, XMSG, XSTAT1 )
+      END IF
+
+      ALLOCATE ( L_NUMAKN( NSPCSD ),
+     &           L_MASAKN( NSPCSD ),
+     &           L_SRFAKN( NSPCSD ), STAT = IOS )
+      IF ( IOS .NE. 0 ) THEN
+         XMSG = 'Failure allocating L_NUMAKN, L_MASAKN or L_SRFAKN'
+         CALL M3EXIT( 'aq_data_init', 0, 0, XMSG, XSTAT1 )
+      END IF
+
+      allocate( hlspc_map( N_CGRID_SCAV ) )
+      hlspc_map(:) = -1
+
+C...prepare indices for scavenged species
+
+C...  load the CGRID to scavenged species pointers for the gases
+
+      SPC = 0
+      DO VAR=1, N_GC_SCAV
+         SPC = SPC + 1
+         CGRID_SCAV( SPC ) = GC_SCAV( VAR )
+         CGRID_SCAV_MAP( SPC ) = GC_SCAV_MAP( VAR ) + GC_STRT - 1
+         CGRID_SCAV_FAC( SPC ) = GC_SCAV_FAC( VAR )
+         call hlconst_spcs_init( cgrid_scav( SPC ), hlspc_map( SPC ) )
+      END DO
+
+C...  load the CGRID to scavenged species pointers for the aerosols
+
+      DO VAR=1, N_AE_SCAV
+         SPC = SPC + 1
+         CGRID_SCAV( SPC ) = AE_SCAV( VAR )
+         CGRID_SCAV_MAP( SPC ) = AE_SCAV_MAP( VAR ) + AE_STRT - 1
+         CGRID_SCAV_FAC( SPC ) = AE_SCAV_FAC( VAR )
+      END DO
+
+C...  load the CGRID to scavenged species pointers for the non-reactives
+
+      DO VAR=1, N_NR_SCAV
+         SPC = SPC + 1
+         CGRID_SCAV( SPC ) = NR_SCAV( VAR )
+         CGRID_SCAV_MAP( SPC ) = NR_SCAV_MAP( VAR ) + NR_STRT - 1
+         CGRID_SCAV_FAC( SPC ) = NR_SCAV_FAC( VAR )
+         call hlconst_spcs_init( cgrid_scav( SPC ), hlspc_map( SPC ) )
+      END DO
+
+      do spc = 1, n_cgrid_scav
+         if ( abs( CGRID_SCAV_FAC(SPC) - 1.0 ) > 1.e-7 ) then
+            XMSG = 'Code assumes cgrid_scav_fac = 1'
+            CALL M3EXIT( 'aq_data_init', 0, 0, XMSG, XSTAT1 )
+         END IF
+      enddo
+
+C...create the pointers from CGRID to the species needed by AQCHEM
+
+      N_NUMAKN = INDEXN( 'NUM_AITKEN      ', N_CGRID_SCAV, CGRID_SCAV,
+     &                   L_NUMAKN )
+      N_MASAKN = INDEXN( 'AITKEN', N_CGRID_SCAV, CGRID_SCAV, L_MASAKN )
+      N_SRFAKN = INDEXN( 'SRF_AITKEN      ', N_CGRID_SCAV, CGRID_SCAV,
+     &                    L_SRFAKN )
+
+!...  store type of species
+
+      allocate( cgrid_scav_isnum( N_CGRID_SCAV ) )
+      allocate( cgrid_scav_issrf( N_CGRID_SCAV ) )
+      allocate( cgrid_scav_ish2o( N_CGRID_SCAV ) )
+      allocate( cgrid_scav_istrc( N_CGRID_SCAV ) )
+      allocate( cgrid_scav_isaik( N_CGRID_SCAV ) )
+
+      do var = 1,  N_CGRID_SCAV
+         cgrid_scav_isnum( var ) = ( INDEX( CGRID_SCAV( var ), 'NUM'    ) .GT. 0 )
+         cgrid_scav_issrf( var ) = ( INDEX( CGRID_SCAV( var ), 'SRF'    ) .GT. 0 )
+         cgrid_scav_ish2o( var ) = ( INDEX( CGRID_SCAV( var ), 'H2O'    ) .GT. 0 )
+         cgrid_scav_istrc( var ) = ( INDEX( CGRID_SCAV( var ), 'TRACER' ) .GT. 0 )
+         cgrid_scav_isaik( var ) = ( INDEX( CGRID_SCAV( var ), 'AITKEN' ) .GT. 0 )
+      enddo
 
       mapped = .True.
 

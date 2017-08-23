@@ -76,6 +76,7 @@ C-----------------------------------------------------------------------
       USE UTILIO_DEFN
       use hlconst_mod
       use const_data
+      use aq_data
 
       IMPLICIT NONE
 
@@ -83,13 +84,6 @@ C...........Parameters:
 
       REAL, PARAMETER :: H2ODENS = 1000.0  ! density of water at 20 C
                                            ! and 1 ATM (kg/m3)
-
-C Number of species in CGRID
-      INTEGER, SAVE :: MXSPCS
-
-C Number of species scavenged
-      INTEGER, SAVE :: N_CGRID_SCAV
-
       REAL, PARAMETER :: TWOTHIRDS = 2.0 / 3.0
 
       REAL, PARAMETER :: KGPG = 1.0E-03   ! kilograms per gram
@@ -115,24 +109,12 @@ C...........Arguments:
 
 C...........Local Variables:
 
-      CHARACTER( 120 ) :: XMSG = ' '    ! Exit status message
+!      CHARACTER( 120 ) :: XMSG = ' '    ! Exit status message
 
-      LOGICAL, SAVE :: FIRSTIME = .TRUE.   ! flag for first pass thru
-      CHARACTER( 16 ), SAVE :: PNAME = 'SCAVWDEP'  ! program name
-
-      CHARACTER( 16 ), ALLOCATABLE, SAVE :: CGRID_SCAV( : )  ! CGRID species scavenged
-      INTEGER, ALLOCATABLE, SAVE :: CGRID_SCAV_MAP( : ) ! CGRID map to scavenged spc
-      REAL, ALLOCATABLE,    SAVE :: CGRID_SCAV_FAC( : )  ! CGRID scav coef factors
-      INTEGER, ALLOCATABLE, SAVE :: L_NUMAKN( : ) ! pointers to aitken aerosol #
-      INTEGER, ALLOCATABLE, SAVE :: L_MASAKN( : ) ! pointers to aitken aerosols
-      INTEGER, ALLOCATABLE, SAVE :: L_SRFAKN( : ) ! pntrs to aitken aerosol surface area
-      INTEGER ASTAT
-      integer, allocatable, save :: hlspc_map( : )
+!      LOGICAL, SAVE :: FIRSTIME = .TRUE.   ! flag for first pass thru
+!      CHARACTER( 16 ), SAVE :: PNAME = 'SCAVWDEP'  ! program name
 
       INTEGER       I
-      INTEGER, SAVE :: N_NUMAKN            ! # aitken aerosol number species
-      INTEGER, SAVE :: N_MASAKN            ! # aitken aerosol mass species
-      INTEGER, SAVE :: N_SRFAKN            ! # aitken aerosol sfc area species
       INTEGER       PNTR                ! relative pointer variable
       INTEGER       SPC                 ! liquid species loop counter
       INTEGER       VAR                 ! variable loop counter
@@ -154,125 +136,7 @@ C...........Local Variables:
       REAL :: EALFA
       logical :: do_rainout
 
-      logical, allocatable, save :: cgrid_scav_isnum( : )
-      logical, allocatable, save :: cgrid_scav_issrf( : )
-      logical, allocatable, save :: cgrid_scav_ish2o( : )
-      logical, allocatable, save :: cgrid_scav_istrc( : )
-      logical, allocatable, save :: cgrid_scav_isaik( : )
-
-C...........External Functions:
-
-      INTEGER, EXTERNAL :: INDEXN
-
 C-----------------------------------------------------------------------
-
-C...INITIALIZATION SCAVWDEP module:
-C...  event-statistics variables.  Open output files.
-
-      IF ( FIRSTIME ) THEN
-        !$omp barrier
-        !$omp single
-
-        FIRSTIME = .FALSE.
-
-        N_CGRID_SCAV = N_GC_SCAV + N_AE_SCAV + N_NR_SCAV
-
-C...first check to make sure that some species in CGRID were specified
-C...  for scavenging, otherwise notify the user and return
-
-        IF ( N_CGRID_SCAV .LE. 0 ) THEN
-          XMSG = 'No species were specified for scavenging by cloud ' //
-     &           'or rain water...SCAVENGING WILL NOT BE PERFORMED!'
-          CALL M3WARN ( PNAME, JDATE, JTIME, XMSG )
-!         RETURN
-        END IF
-
-        ALLOCATE ( CGRID_SCAV    ( N_CGRID_SCAV ),
-     &             CGRID_SCAV_MAP( N_CGRID_SCAV ),
-     &             CGRID_SCAV_FAC( N_CGRID_SCAV ), STAT = ASTAT )
-        IF ( ASTAT .NE. 0 ) THEN
-          XMSG = 'Failure allocating CGRID_SCAV, CGRID_SCAV_MAP or CGRID_SCAV_FAC'
-          CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-        END IF
-
-        MXSPCS = N_GC_SPCD + N_AE_SPC + N_NR_SPC + N_TR_SPC
-
-        ALLOCATE ( L_NUMAKN( MXSPCS ),
-     &             L_MASAKN( MXSPCS ),
-     &             L_SRFAKN( MXSPCS ), STAT = ASTAT )
-        IF ( ASTAT .NE. 0 ) THEN
-          XMSG = 'Failure allocating L_NUMAKN, L_MASAKN or L_SRFAKN'
-          CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-        END IF
-
-        allocate( hlspc_map( N_CGRID_SCAV ) )
-        hlspc_map(:) = -1
-
-C...prepare indices for scavenged species
-
-C...  load the CGRID to scavenged species pointers for the gases
-
-        SPC = 0
-        DO VAR=1, N_GC_SCAV
-          SPC = SPC + 1
-          CGRID_SCAV( SPC ) = GC_SCAV( VAR )
-          CGRID_SCAV_MAP( SPC ) = GC_SCAV_MAP( VAR ) + GC_STRT - 1
-          CGRID_SCAV_FAC( SPC ) = GC_SCAV_FAC( VAR )
-          call hlconst_spcs_init( cgrid_scav( SPC ), hlspc_map( SPC ) )
-        END DO
-
-C...  load the CGRID to scavenged species pointers for the aerosols
-
-        DO VAR=1, N_AE_SCAV
-          SPC = SPC + 1
-          CGRID_SCAV( SPC ) = AE_SCAV( VAR )
-          CGRID_SCAV_MAP( SPC ) = AE_SCAV_MAP( VAR ) + AE_STRT - 1
-          CGRID_SCAV_FAC( SPC ) = AE_SCAV_FAC( VAR )
-        END DO
-
-C...  load the CGRID to scavenged species pointers for the non-reactives
-
-        DO VAR=1, N_NR_SCAV
-          SPC = SPC + 1
-          CGRID_SCAV( SPC ) = NR_SCAV( VAR )
-          CGRID_SCAV_MAP( SPC ) = NR_SCAV_MAP( VAR ) + NR_STRT - 1
-          CGRID_SCAV_FAC( SPC ) = NR_SCAV_FAC( VAR )
-          call hlconst_spcs_init( cgrid_scav( SPC ), hlspc_map( SPC ) )
-        END DO
-
-        do spc = 1, n_cgrid_scav
-           if ( abs( CGRID_SCAV_FAC(SPC) - 1.0 ) > 1.e-7 ) then
-              XMSG = 'Code assumes cgrid_scav_fac = 1'
-              CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-           END IF
-        enddo
-
-C...create the pointers from CGRID to the species needed by AQCHEM
-
-        N_NUMAKN = INDEXN( 'NUM_AITKEN      ', N_CGRID_SCAV, CGRID_SCAV,
-     &                     L_NUMAKN )
-        N_MASAKN = INDEXN( 'AITKEN', N_CGRID_SCAV, CGRID_SCAV, L_MASAKN )
-        N_SRFAKN = INDEXN( 'SRF_AITKEN      ', N_CGRID_SCAV, CGRID_SCAV,
-     &                     L_SRFAKN )
-
-!...  store type of species
-
-        allocate( cgrid_scav_isnum( N_CGRID_SCAV ) )
-        allocate( cgrid_scav_issrf( N_CGRID_SCAV ) )
-        allocate( cgrid_scav_ish2o( N_CGRID_SCAV ) )
-        allocate( cgrid_scav_istrc( N_CGRID_SCAV ) )
-        allocate( cgrid_scav_isaik( N_CGRID_SCAV ) )
-
-        do var = 1,  N_CGRID_SCAV
-           cgrid_scav_isnum( var ) = ( INDEX( CGRID_SCAV( var ), 'NUM'    ) .GT. 0 )
-           cgrid_scav_issrf( var ) = ( INDEX( CGRID_SCAV( var ), 'SRF'    ) .GT. 0 )
-           cgrid_scav_ish2o( var ) = ( INDEX( CGRID_SCAV( var ), 'H2O'    ) .GT. 0 )
-           cgrid_scav_istrc( var ) = ( INDEX( CGRID_SCAV( var ), 'TRACER' ) .GT. 0 )
-           cgrid_scav_isaik( var ) = ( INDEX( CGRID_SCAV( var ), 'AITKEN' ) .GT. 0 )
-        enddo
-        !$omp end single
-
-      END IF  ! FIRSTIME
 
 C...for subsequent calls, check to make sure some species were
 C...  specified, otherwise there is no need to perform scavenging
