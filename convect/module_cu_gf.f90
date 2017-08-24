@@ -2446,6 +2446,7 @@ endif
    SUBROUTINE cup_env(z,qes,he,hes,t,q,p,z1,                 &
               psur,ierr,itest,ktf)
 
+   use therm_lib, only: rsif, rslf
    IMPLICIT NONE
 
      integer                                                           &
@@ -2494,8 +2495,6 @@ endif
 
 !      real, external :: satvap
 !      real :: satvap
-      real, external :: rsif, rslf
-
 
 !!      HT(1)=XL/CP
 !!      HT(2)=2.834E6/CP

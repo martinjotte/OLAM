@@ -652,6 +652,7 @@ use leaf_coms,   only: mwl, mrl_leaf
 use sea_coms,    only: mws
 use misc_coms,   only: io6, isubdomain, dtlm
 use ed_misc_coms,only: ed2_active
+use therm_lib,   only: rhovsl
 
 implicit none
 
@@ -662,8 +663,6 @@ integer :: kw
 
 real :: airtempc
 real :: tempc
-
-real, external :: rhovsl
 
 ! Subroutine to transfer atmospheric cumulus parameterization 
 ! precipitation FLUX to surface cells

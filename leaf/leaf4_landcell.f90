@@ -53,6 +53,7 @@ use leaf4_canopy,      only: canopy, vegndvi
 use leaf4_sfcwater,    only: sfcwater, sfcwater_adjust, remove_runoff
 use leaf4_soil,        only: soil
 use leaf4_plot,        only: leaf_plot
+use therm_lib,         only: qwtk, qtk
 
 implicit none
 

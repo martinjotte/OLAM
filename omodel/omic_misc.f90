@@ -43,6 +43,7 @@ subroutine each_column(lpw0,iw0,k1,k2,dtl0,                    &
 use micro_coms,  only: mza0, ncat, jhabtab
 use consts_coms, only: r8, alvl, alvi
 use misc_coms,   only: io6
+use therm_lib,   only: rhovsl, rhovsi
 
 implicit none
 
@@ -90,7 +91,6 @@ real, intent(out) :: rhovsrefp(mza0,2)
 
 integer :: k,nt,ns
 real :: ck1,ck2,ck3,rhovsref1,rhovsref2,relhum,colf
-real, external :: rhovsl,rhovsi
 
 data ck1,ck2,ck3/-4.818544e-3,1.407892e-4,-1.249986e-7/
 
@@ -282,6 +282,7 @@ use micro_coms,  only: mza0, ncat, rxmin, enmlttab, dnfac, pwmasi, &
 use ccnbin_coms, only: nccntyp
 use consts_coms, only: r8, alli
 use misc_coms,   only: io6
+use therm_lib,   only: qtc
 
 implicit none
 

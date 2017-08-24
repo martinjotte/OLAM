@@ -7,6 +7,7 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
   use mem_sea,    only: sea, itab_ws
   use mem_leaf,   only: land, itab_wl
   use mem_grid,   only: glatw
+  use therm_lib,  only: qtk
 
   implicit none
 

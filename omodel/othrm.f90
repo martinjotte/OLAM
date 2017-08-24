@@ -111,14 +111,13 @@ use mem_micro,   only: sh_c
 use consts_coms, only: p00i, cp, alvl, rocp
 use mem_grid,    only: lpw, mza
 use misc_coms,   only: io6
-
+use therm_lib,   only: rhovsl
 implicit none
 
 integer, intent(in) :: iw
 
 integer :: iterate,k
 real :: temp,rlvs,rt,rc,t_il,rvls,exner,rhovs
-real, external :: rhovsl
 
 do k = lpw(iw),mza
    exner = (press(k,iw) * p00i) ** rocp  ! Defined WITHOUT CP factor
@@ -154,6 +153,7 @@ use micro_coms,  only: jnmb
 use consts_coms, only: p00, rocp, alvl, alvi, cpi4, cp253i
 use mem_grid,    only: mza, lpw
 use misc_coms,   only: io6
+use therm_lib,   only: qtc
 
 implicit none
 

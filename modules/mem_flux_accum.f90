@@ -262,17 +262,13 @@ subroutine flux_accum()
                          rlongup_top_clr
 
   use leaf_coms,   only: nzg, mwl, mrl_leaf, dt_leaf, isfcl, slcpd
-
   use mem_turb,    only: sfluxt, sfluxr
-
   use consts_coms, only: r8
-
   use sea_coms,    only: mws
   use mem_sea,     only: sea, itab_ws
-
   use mem_leaf,    only: land, itab_wl
-
   use mem_grid,    only: mza, lpv, lpw
+  use therm_lib,   only: qtk, qwtk
 
   implicit none
 

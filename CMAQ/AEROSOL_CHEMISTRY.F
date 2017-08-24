@@ -331,6 +331,7 @@ C-----------------------------------------------------------------------
       use mem_basic,  only: tair, rho, press, sh_v
       use mem_grid,   only: mza, lpw
       use cgrid_defn, only: cgrid
+      use therm_lib,  only: rhovsl
 
       IMPLICIT NONE
 
@@ -474,7 +475,6 @@ C *** variables for getting aerosol diagnostic file flag
       CHARACTER( 132 )  :: XMSG
       
       real :: tairc, rhovslair
-      real, external :: rhovsl
       integer :: k, c, r, n, i
 
 ! reciprocal of rxn probability for BRONO2 on aerosol, Yang et al., JGR, 2005

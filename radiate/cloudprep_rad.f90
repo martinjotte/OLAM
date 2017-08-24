@@ -50,6 +50,8 @@ use mem_basic,  only: tair
 
 use mem_grid,   only: mza
 
+use therm_lib,  only: rhovsl
+
 implicit none
 
 integer, intent(in) :: iw
@@ -75,9 +77,6 @@ integer :: nt
 real :: rhovslair
 real :: relhum
 real :: tairc
-
-
-real, external :: rhovsl
 
 ! If miclevel <= 1, there is no condensate of any type in this simulation.
 

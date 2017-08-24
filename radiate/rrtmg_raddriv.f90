@@ -21,6 +21,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   use mem_mclat,   only: rad_mclat
   use mem_ijtabs,  only: itab_w
   use mem_micro,   only: cldnum
+  use therm_lib,   only: rhovsl
 
   use parrrtm,             only: nbndlw, ngptlw
   use parrrsw,             only: nbndsw, ngptsw
@@ -158,8 +159,6 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   real :: frac(mza)
   logical :: dosnow
-
-  real, external :: rhovsl, rhovsi
 
 ! Set gas volume mixing ratios, 2005 values, IPCC (2007)
 

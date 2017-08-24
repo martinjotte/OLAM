@@ -11,6 +11,7 @@ use consts_coms, only: p00, rocp, erad, pio180, cvocp, p00k, rdry, rvap, &
                        alvlocp, gravo2, xscale
 use mem_micro,   only: sh_c
 use micro_coms,  only: level
+use therm_lib,   only: rhovsl
 
 use dcmip_initial_conditions_test_1_2_3, only: &
    test1_advection_deformation, &
@@ -51,8 +52,6 @@ integer :: mrl,j,iw,k,iv,iw1,iw2,zcoords,rcoords,cfv,shear,moist,iter,ka, &
 logical :: hybrid_eta
 
 real :: exner,temp,rhovs
-
-real, external :: rhovsl
 
 zcoords = 1
 rcoords = 1

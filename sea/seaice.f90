@@ -172,6 +172,7 @@ subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,      &
 
   use consts_coms, only: alvi, cice, t00, cp, alli
   use sea_coms,    only: dt_sea, t00sea, nzi
+  use therm_lib,   only: rhovsil, qtk_sea
 
   implicit none
 
@@ -210,7 +211,6 @@ subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,      &
   real :: wxferic ! seaice-to-can_air vap xfer this step [kg_vap/m^2]
   real :: hxferca ! heat xfer from can_air to atm this step [J/m^2]
 
-  real, external :: rhovsil ! function to compute saturation vapor density
   integer :: k
 
   if (nlev_seaice == 0) return

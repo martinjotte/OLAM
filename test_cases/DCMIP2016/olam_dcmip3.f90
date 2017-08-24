@@ -42,6 +42,8 @@ use terminator, only: initial_value_terminator, ctend1, ctend2
 
 use oname_coms, only: nl
 
+use therm_lib, only: rhovsl
+
 implicit none
 
 real(8) :: time0
@@ -59,8 +61,6 @@ integer :: mrl,j,iw,k,iv,iw1,iw2,zcoords,rcoords,cfv,shear,moist,iter,ka,kbc, &
 logical :: hybrid_eta
 
 real :: exner, temp, rhovs, pkhyd, qhydm, thet0
-
-real, external :: rhovsl
 
 ! In case standard OLAM hydrostatic balance is carried out, choose the middle
 ! level of the model (as counted by vertical index) to be an internal pressure

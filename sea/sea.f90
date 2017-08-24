@@ -201,6 +201,7 @@ subroutine seacell( iws, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
   use sea_coms,    only: dt_sea
   use consts_coms, only: cp, grav
   use misc_coms,   only: io6
+  use therm_lib,   only: rhovsil
 
   implicit none
 
@@ -229,7 +230,6 @@ subroutine seacell( iws, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
   real :: wxfergc ! vapor xfer from sea surface to can_air this step [kg_vap/m^2]
 
   real :: zn1, zn2, zw
-  real, external :: rhovsil  ! function to compute saturation vapor density
 
 ! Evaluate surface saturation specific humidity
 

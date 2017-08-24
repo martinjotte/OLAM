@@ -10,6 +10,7 @@ subroutine get_cloud_frac(iw, ka, frac)
   use mem_turb,    only: frac_land
   use mem_micro,   only: sh_c, sh_p
   use clouds_gno,  only: cu_cldfrac
+  use therm_lib,   only: rhovsl, rhovsi
 
   implicit none
 
@@ -30,8 +31,6 @@ subroutine get_cloud_frac(iw, ka, frac)
   real    :: qc_sub(mza)
   real    :: cu_cldf(mza)
   real    :: qsat, qw
-
-  real, external :: rhovsl, rhovsi
 
   if (allocated(frac_land)) then
      fland = frac_land(iw)

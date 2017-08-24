@@ -174,7 +174,7 @@ subroutine inc_davg_vars()
 !obs  use mem_micro,   only: pcpgr
   use mem_radiate, only: rshort, rshort_top, rshortup_top, rlong, rlongup, &
                          rlongup_top, albedt
-
+  use therm_lib, only: qwtk
   use leaf_coms, only: nzg, mwl, slcpd
   use mem_leaf,  only: land, itab_wl
   use sea_coms,  only: mws

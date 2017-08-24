@@ -31,13 +31,21 @@
 
 !===============================================================================
 
-real function eslf(t)
+module therm_lib
+
+contains
+
+!dir$ attributes vector :: eslf
+elemental real function eslf(t)
 
 !     This function calculates the saturation vapor pressure over liquid water
 !     as a function of Celsius temperature following Flatau et al. (JAM, 1992).
 
 implicit none
+
+!dir$ attributes value :: t
 real, intent(in) :: t
+
 real             :: x
 real, parameter  :: c0 = .6105851e+03, c1 = .4440316e+02, c2 = .1430341e+01
 real, parameter  :: c3 = .2641412e-01, c4 = .2995057e-03, c5 = .2031998e-05
@@ -46,17 +54,19 @@ real, parameter  :: c6 = .6936113e-08, c7 = .2564861e-11, c8 =-.3704404e-13
 x = max(-80.,t)
 eslf = c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*c8)))))))
 
-return
 end function eslf
 
 !===============================================================================
 
-real function esif(t)
+!dir$ attributes vector :: esif
+elemental real function esif(t)
 
 !     This function calculates the saturation vapor pressure over ice
 !     as a function of Celsius temperature following Flatau et al. (JAM, 1992).
 
 implicit none
+
+!dir$ attributes value :: t
 real, intent(in) :: t
 real             :: x
 real, parameter  :: c0 = .6114327e+03, c1 = .5027041e+02, c2 = .1875982e+01
@@ -66,18 +76,20 @@ real, parameter  :: c6 = .3566847e-07, c7 = .1306802e-09, c8 = .2152144e-12
 x = max(-80.,t)
 esif = c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*c8)))))))
 
-return
 end function esif
 
 !===============================================================================
 
-real function eslpf(t)
+!dir$ attributes vector :: eslpf
+elemental real function eslpf(t)
 
 !     This function calculates the partial derivative of liquid saturation vapor
 !     pressure with respect to temperature as a function of Celsius temperature
 !     following Flatau et al. (JAM, 1992).
 
 implicit none
+
+!dir$ attributes value :: t
 real, intent(in) :: t
 real             :: x
 real, parameter  :: d0 = .4443216e+02, d1 = .2861503e+01, d2 = .7943347e-01
@@ -87,18 +99,20 @@ real, parameter  :: d6 =-.5805342e-10, d7 =-.1159088e-11, d8 =-.3189651e-14
 x = max(-80.,t)
 eslpf = d0+x*(d1+x*(d2+x*(d3+x*(d4+x*(d5+x*(d6+x*(d7+x*d8)))))))
 
-return
 end function eslpf
 
 !===============================================================================
 
-real function esipf(t)
+!dir$ attributes vector :: esipf
+elemental real function esipf(t)
 
 !     This function calculates the partial derivative of ice saturation vapor
 !     pressure with respect to temperature as a function of Celsius temperature
 !     following Flatau et al. (JAM, 1992).
 
 implicit none
+
+!dir$ attributes value :: t
 real, intent(in) :: t
 real             :: x
 real, parameter  :: d0 = .5036342e+02, d1 = .3775758e+01, d2 = .1269736e+00
@@ -108,12 +122,12 @@ real, parameter  :: d6 = .1392546e-08, d7 = .4315126e-11, d8 = .5961476e-14
 x = max(-80.,t)
 esipf = d0+x*(d1+x*(d2+x*(d3+x*(d4+x*(d5+x*(d6+x*(d7+x*d8)))))))
 
-return
 end function esipf
 
 !===============================================================================
 
-real function rslf(p,t)
+!dir$ attributes vector :: rslf
+elemental real function rslf(p,t)
 
 !     This function calculates the liquid saturated mixing ratio as a
 !     function of pressure (Pa) and Kelvin temperature using the
@@ -122,6 +136,7 @@ real function rslf(p,t)
 use consts_coms, only: t00, eps_vap
 implicit none
 
+!dir$ attributes value :: p, t
 real, intent(in) :: p, t
 real             :: x, eslf
 real, parameter  :: c0 = .6105851e+03, c1 = .4440316e+02, c2 = .1430341e+01
@@ -133,12 +148,12 @@ eslf = c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*c8)))))))
 eslf = min(eslf,0.9*p)
 rslf = eps_vap*eslf/(p-eslf)
 
-return
 end function rslf
 
 !===============================================================================
 
-real function rsif(p,t)
+!dir$ attributes vector :: rsif
+elemental real function rsif(p,t)
 
 !     This function calculates the ice saturated mixing ratio as a
 !     function of pressure (Pa) and Kelvin temperature using the
@@ -147,6 +162,7 @@ real function rsif(p,t)
 use consts_coms, only: t00, eps_vap
 implicit none
 
+!dir$ attributes value :: p, t
 real, intent(in) :: p, t
 real             :: x, esif
 real, parameter  :: c0 = .6114327e+03, c1 = .5027041e+02, c2 = .1875982e+01
@@ -158,12 +174,12 @@ esif = c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*c8)))))))
 esif = min(esif,0.9*p)
 rsif = eps_vap*esif/(p-esif)
 
-return
 end function rsif
 
 !===============================================================================
 
-real function rslfp(p,t)
+!dir$ attributes vector :: rslfp
+elemental real function rslfp(p,t)
 
 !     This function calculates the partial derivative of liquid saturated
 !     mixing ratio with respect to temperature as a function of pressure (Pa)
@@ -172,6 +188,7 @@ real function rslfp(p,t)
 use consts_coms, only: t00, eps_vap
 implicit none
 
+!dir$ attributes value :: p, t
 real, intent(in) :: p, t
 real             :: x, eslpf
 real, parameter  :: d0 = .4443216e+02, d1 = .2861503e+01, d2 = .7943347e-01
@@ -183,12 +200,12 @@ eslpf = d0+x*(d1+x*(d2+x*(d3+x*(d4+x*(d5+x*(d6+x*(d7+x*d8)))))))
 eslpf = min(eslpf,0.9*p)
 rslfp = eps_vap*eslpf/(p-eslpf)
 
-return
 end function rslfp
 
 !===============================================================================
 
-real function rsifp(p,t)
+!dir$ attributes vector :: rsifp
+elemental real function rsifp(p,t)
 
 !     This function calculates the partial derivative of ice saturated
 !     mixing ratio with respect to temperature as a function of pressure (Pa)
@@ -197,6 +214,7 @@ real function rsifp(p,t)
 use consts_coms, only: t00, eps_vap
 implicit none
 
+!dir$ attributes value :: p, t
 real, intent(in) :: p, t
 real             :: x, esipf
 real, parameter  :: d0 = .5036342e+02, d1 = .3775758e+01, d2 = .1269736e+00
@@ -208,65 +226,67 @@ esipf = d0+x*(d1+x*(d2+x*(d3+x*(d4+x*(d5+x*(d6+x*(d7+x*d8)))))))
 esipf = min(esipf,0.9*p)
 rsifp = eps_vap*esipf/(p-esipf)
 
-return
 end function rsifp
 
 !===============================================================================
 
-real function rhovsl(tc)
+!dir$ attributes vector :: rhovsl
+elemental real function rhovsl(tc)
 
 !     This function calculates the density of water vapor at saturation
 !     over liquid as a function of Celsius temperature
 
 use consts_coms, only: t00
 implicit none
-real, intent(in) :: tc
 
-real, parameter :: c0 = .6105851e+03 ,c1 = .4440316e+02 ,c2 =  .1430341e+01
-real, parameter :: c3 = .2641412e-01 ,c4 = .2995057e-03 ,c5 =  .2031998e-05
-real, parameter :: c6 = .6936113e-08 ,c7 = .2564861e-11 ,c8 = -.3704404e-13
-real, parameter :: rvap = 461.
-real :: esl,x
+!dir$ attributes value :: tc
+real, intent(in) :: tc
+real             :: esl,x
+real, parameter  :: c0 = .6105851e+03 ,c1 = .4440316e+02 ,c2 =  .1430341e+01
+real, parameter  :: c3 = .2641412e-01 ,c4 = .2995057e-03 ,c5 =  .2031998e-05
+real, parameter  :: c6 = .6936113e-08 ,c7 = .2564861e-11 ,c8 = -.3704404e-13
+real, parameter  :: rvap = 461.
 
 x = max(-80.,tc)
 esl = c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*c8)))))))
 rhovsl = esl / (rvap * (tc + t00))
 
-return
 end function rhovsl
 
 !===============================================================================
 
-real function rhovsi(tc)
+!dir$ attributes vector :: rhovsi
+elemental real function rhovsi(tc)
 
 !     This function calculates the density of water vapor at saturation
 !     over ice as a function of Celsius temperature
 
 use consts_coms, only: t00
 implicit none
-real, intent(in) :: tc
 
-real, parameter :: c0 = .6114327e+03 ,c1 = .5027041e+02 ,c2 = .1875982e+01
-real, parameter :: c3 = .4158303e-01 ,c4 = .5992408e-03 ,c5 = .5743775e-05
-real, parameter :: c6 = .3566847e-07 ,c7 = .1306802e-09 ,c8 = .2152144e-12
-real, parameter :: rvap = 461.
-real :: esi,x
+!dir$ attributes value :: tc
+real, intent(in) :: tc
+real             :: esi,x
+real, parameter  :: c0 = .6114327e+03 ,c1 = .5027041e+02 ,c2 = .1875982e+01
+real, parameter  :: c3 = .4158303e-01 ,c4 = .5992408e-03 ,c5 = .5743775e-05
+real, parameter  :: c6 = .3566847e-07 ,c7 = .1306802e-09 ,c8 = .2152144e-12
+real, parameter  :: rvap = 461.
 
 x = max(-80.,tc)
 esi = c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*c8)))))))
 rhovsi = esi / (rvap * (tc + t00))
 
-return
 end function rhovsi
 
 !===============================================================================
 
-real function rhovsil(tc)
+!dir$ attributes vector :: rhovsil
+elemental real function rhovsil(tc)
 
 implicit none
 
+!dir$ attributes value :: tc
 real, intent(in) :: tc
-real, external :: rhovsl,rhovsi
 
 !     This function calculates the density of water vapor at saturation,
 !     over liquid or ice depending on temperature, as a function of
@@ -278,7 +298,6 @@ else
    rhovsil = rhovsi(tc)
 endif
 
-return
 end function rhovsil
 
 !===============================================================================
@@ -315,7 +334,6 @@ td = (29.65*esln-5016.7042) / (esln-24.0852)
 !   enddo
 !endif
 
-return
 end function td
 
 !===============================================================================
@@ -330,7 +348,6 @@ real, intent(out) :: the
 
 real    :: pit,tupo,ttd,dz,tupn,tmn
 integer :: iter
-real, external :: td
 
 pit  = p
 tupo = t
@@ -363,7 +380,6 @@ if (iter == 51) then
    print *, "P, T, R, theta_e: ", p, t, rv, the
 endif
 
-return
 end subroutine thetae
 
 !===============================================================================
@@ -375,7 +391,6 @@ implicit none
 real, intent(in) :: rvp, thet, p
 real             :: piter, t, x, a, tq, d
 integer          :: id
-real, external   :: rslf, td
 
 piter = p
 
@@ -401,7 +416,6 @@ enddo
 
 tw = tq
 
-return
 end function tw
 
 !===============================================================================
@@ -416,7 +430,6 @@ real, intent(out) :: th, t, r
 
 real    :: pi, to
 integer :: iter
-real, external :: rslf
 
 r  = 0.012  ! first guess
 to = 295.0  ! first guess
@@ -436,15 +449,17 @@ print *,            'WARNING:'
 print *,            ' Iteration did not converge in routine the2t.'
 print '(a,5e15.6)', ' the,p,to,th,r: ', the, p, to, th, r
 
-return
 end subroutine the2t
 
 !===============================================================================
 
-subroutine qtk(q,tempk,fracliq)
+!dir$ attributes vector :: qtk
+elemental subroutine qtk(q,tempk,fracliq)
+
 use consts_coms, only: t00, alli, allii, cicei, cliqi
 implicit none
 
+!dir$ attributes value :: q
 real, intent(in)  :: q
 real, intent(out) :: tempk, fracliq
 real, parameter   :: const = t00 - alli * cliqi
@@ -466,16 +481,17 @@ else
    tempk = t00
 endif
 
-return
 end subroutine qtk
 
 !===============================================================================
 
-subroutine qtc(q,tempc,fracliq)
+!dir$ attributes vector :: qtc
+elemental subroutine qtc(q,tempc,fracliq)
 
 use consts_coms, only: alli, allii, cicei, cliqi
 implicit none
 
+!dir$ attributes value :: q
 real, intent(in)  :: q
 real, intent(out) :: tempc, fracliq
 real, parameter   :: const = - alli * cliqi
@@ -497,16 +513,17 @@ else
    tempc = 0.
 endif
 
-return
 end subroutine qtc
 
 !===============================================================================
 
-subroutine qwtk(qw,w,dryhcap,tempk,fracliq)
+!dir$ attributes vector :: qwtk
+elemental subroutine qwtk(qw,w,dryhcap,tempk,fracliq)
 
 use consts_coms, only: t00, alli, allii, cice, cliq
 implicit none
 
+!dir$ attributes value :: qw, w, dryhcap
 real, intent(in)  :: qw, w, dryhcap
 real, intent(out) :: tempk, fracliq
 real              :: qwliq0
@@ -531,16 +548,18 @@ else
    tempk = t00
 endif
 
-return
 end subroutine qwtk
 
 !===============================================================================
 
-subroutine qtk_sea(q,tempk,fracliq)
+!dir$ attributes vector :: qtk_sea
+elemental subroutine qtk_sea(q,tempk,fracliq)
+
 use consts_coms, only: alli, allii, cicei, cliqi
 use sea_coms,    only: t00sea
 implicit none
 
+!dir$ attributes value :: q
 real, intent(in)  :: q
 real, intent(out) :: tempk, fracliq
 real, parameter   :: const = t00sea - alli * cliqi
@@ -562,17 +581,18 @@ else
    tempk = t00sea
 endif
 
-return
 end subroutine qtk_sea
 
 !===============================================================================
 
-subroutine qtc_sea(q,tempc,fracliq)
+!dir$ attributes vector :: qtc_sea
+elemental subroutine qtc_sea(q,tempc,fracliq)
 
 use consts_coms, only: t00, alli, allii, cicei, cliqi
 use sea_coms,    only: t00sea
 implicit none
 
+!dir$ attributes value :: q
 real, intent(in)  :: q
 real, intent(out) :: tempc, fracliq
 real, parameter   :: tdiff = t00sea - t00
@@ -595,8 +615,8 @@ else
    tempc = tdiff
 endif
 
-return
 end subroutine qtc_sea
 
 !===============================================================================
 
+end module therm_lib

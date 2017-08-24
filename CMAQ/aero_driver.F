@@ -133,6 +133,7 @@ C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       use mem_grid,   only: mza, lpw
       use misc_coms,  only: dtlm
       use mem_basic,  only: tair, rho, press, sh_v
+      use therm_lib,  only: rhovsl
 
       IMPLICIT NONE
 
@@ -169,7 +170,6 @@ C *** Local Variables:
 !     INTEGER   ALLOCSTAT            ! memory allocation status
 
       integer :: j, iw, k
-      real, external :: rhovsl
 
 !     LOGICAL   LERROR               ! Error flag
 

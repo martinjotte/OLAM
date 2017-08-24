@@ -890,7 +890,7 @@ subroutine ccnbin(iw0, k, ntim, timespan, &
                          wetdiam100, critdiam, critsat, d01sat, d10sat, &
                          d30sat, d50sat, crits, ihyg, &
                          dminprog, dmaxinit, dactivate
-
+  use therm_lib, only: rhovsl
 
   implicit none
 
@@ -930,7 +930,7 @@ subroutine ccnbin(iw0, k, ntim, timespan, &
   real :: rlv, pratio, rlambda, dvn, rkan, fdcfac, fkafac
   real :: rad, rad2, dsv, fksa, t1, t2, t3, tn, td
 
-  real, external :: few, flhv, rhovsl
+  real, external :: few, flhv
 
   ! If critical saturation of all bins exceeds ending environmental saturation, return
 
@@ -1283,6 +1283,7 @@ use ccnbin_coms, only: nccntyp
 use misc_coms,   only: io6, dtlm
 use mem_grid,    only: zt
 use consts_coms, only: r8, rvap, grav, alvl, cp, cliq, alli, eps_vapi
+use therm_lib,   only: rhovsl
 
 implicit none
 
@@ -1335,8 +1336,6 @@ real :: cactivated, sh_wbc, satenvmax
   real :: satenvA, satenvB
   real :: timespan, con_cp
   real :: con_ccny(nccntyp)
-
-  real, external :: rhovsl
 
   ntim = 50
 

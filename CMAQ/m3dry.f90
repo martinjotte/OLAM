@@ -149,6 +149,7 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
   use hlconst_mod, only: hlconst, hlconst_spcs_init, is_effect_spc
   use micro_coms,  only: ccnparm
   use mem_micro,   only: cldnum
+  use therm_lib,   only: rhovsil, qtk, qtk_sea, qwtk
 
   implicit none
 
@@ -212,7 +213,6 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
   REAL,            PARAMETER :: rgwet0i    = 1.0 / rgwet0 ! m/s]
 
   REAL                       :: rh_air               ! rel humidity (air)
-  REAL,            external  :: rhovsil
   REAL                       :: rinc                 ! resitanced from ground through canopy
   REAL                       :: rsi                  ! stomatal resistance [s/m]
   REAL,            PARAMETER :: rsndiff    = 10.0    ! snow diffusivity fac

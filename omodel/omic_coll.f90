@@ -557,6 +557,7 @@ use micro_coms, only: mza0, ncat, rxmin, ipair, coltabx, coltaby, coltabc, &
                       sipfac, pwmasi, emb1, gamsip13, gamsip24, emb0, neff, &
                       jnmb, ngam
 use misc_coms,  only: io6
+use therm_lib,  only: qtc
 
 implicit none
 
@@ -742,6 +743,7 @@ subroutine col3(my,mz,meff,j1,j2, &
 use micro_coms, only: mza0, ncat, rxmin, ipair, jnmb, neff, &
                       coltabx, coltaby, coltabc
 use misc_coms,  only: io6
+use therm_lib,  only: qtc
 
 implicit none
 

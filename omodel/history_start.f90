@@ -249,6 +249,7 @@ subroutine hist_read_addgrid()
   use mem_para,    only: myrank
   use consts_coms, only: r8, cliq1000, cice1000, alli1000
   use mem_nudge,   only: nwnud, mwnud, itab_wnud
+  use therm_lib,   only: qwtk
 
   use mem_flux_accum, only: vc_accum
 

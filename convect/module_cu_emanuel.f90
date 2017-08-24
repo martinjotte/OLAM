@@ -29,6 +29,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc, &
                          kcutop, kcubot, qwcon, iactcu
   use oname_coms,  only: nl
+  use therm_lib,   only: rhovsil
 
   implicit none
 
@@ -39,8 +40,6 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   real, dimension(mza) :: tt, qt, ut, vt, qcldc
 
   integer :: k, ka, kc, kp, nd, na, nm
-  real, external :: rhovsil
-
   real    :: pcprate, wprime, tprime, qprime
   integer :: iflag, kcbase, kctop, kup
   real    :: raxis, raxisi, uvtr

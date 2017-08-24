@@ -36,6 +36,7 @@ subroutine thrmstr(iw0,lpw0,k1,k2, &
 use micro_coms,  only: mza0, ncat
 use consts_coms, only: r8, p00i, rocp, alvl, alvi, cpi4, cpi, cp253i
 use misc_coms,   only: io6
+use therm_lib,   only: qtc
 
 implicit none
 
@@ -567,6 +568,7 @@ subroutine newtemp(j1,j2, &
 
 use micro_coms, only: mza0
 use misc_coms,  only: io6
+use therm_lib,  only: rhovsl, rhovsi
 
 implicit none
 
@@ -583,10 +585,7 @@ real, intent(out) :: tair     (mza0)
 real, intent(out) :: theta0   (mza0)
 real, intent(out) :: rhovslair(mza0)
 real, intent(out) :: rhovsiair(mza0)
-
-real, intent(in) :: sa (mza0,9)
-
-real, external :: rhovsl,rhovsi
+real, intent(in)  :: sa       (mza0,9)
 
 integer :: k
 

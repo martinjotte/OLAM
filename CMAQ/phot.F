@@ -290,6 +290,7 @@ C...modules
      &                       dmncof, jhabtab, emb2, zfactor_ccn
       use mem_micro,   only: cldnum
       use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr, iactcu
+      use therm_lib,   only: rhovsl
 
       IMPLICIT NONE
 
@@ -478,8 +479,6 @@ C...modules
       real :: asmclds(nwl, nlays_max)
 
       integer :: mc, mcat, ih, krad, ns, nt, ib
-
-      real, external :: rhovsl, rhovsi
 
 ! Array kradcat maps RAMS/OLAM microphysics hydrometeor categories to those
 ! represented in the cloud optics tables according to the following numbering:

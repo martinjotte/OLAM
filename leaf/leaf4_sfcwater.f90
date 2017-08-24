@@ -48,6 +48,7 @@ use leaf_coms,   only: nzg, nzs, dt_leaf, slz, dslz, dslzi, dslzo2, &
 use consts_coms, only: alvi, cice, cliq, alli
 use misc_coms,   only: io6
 use leaf4_plot,  only: leaf_plot
+use therm_lib,   only: qwtk
 
 implicit none
 
@@ -407,6 +408,7 @@ use leaf_coms,   only: nzg, dslz, dslzi, slcpd
                        
 use consts_coms, only: cice, cliq, alli
 use misc_coms,   only: io6
+use therm_lib,   only: qwtk
 
 implicit none
 
@@ -740,9 +742,9 @@ end subroutine sfcwater_adjust
 subroutine remove_runoff(iwl, ksn, sfcwater_fracliq, sfcwater_mass,   &
      sfcwater_tempk, sfcwater_energy, sfcwater_depth, runoff, qrunoff)
 
-  use leaf_coms, only: nzs, dt_leaf
+  use leaf_coms,   only: nzs, dt_leaf
   use consts_coms, only: alli, cliq
-  use misc_coms, only: io6
+  use therm_lib,   only: qtk
 
   implicit none
 

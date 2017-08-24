@@ -108,6 +108,7 @@ C-----------------------------------------------------------------------
       use misc_coms,  only: dtlm
       use mem_basic,  only: tair, rho, press
       use aq_data,    only: tot_wdep, n_spc_wdep, isnum_spc, issrf_spc, wdep_map
+      use therm_lib,  only: qtc
 
       IMPLICIT NONE
 

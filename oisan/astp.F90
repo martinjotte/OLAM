@@ -357,6 +357,7 @@ use consts_coms, only: rocp, p00, eps_vap
 use misc_coms,   only: io6
 use hdf5_utils,  only: shdf5_close
 use mem_para,    only: myrank
+use therm_lib,   only: eslf
 
 implicit none
 
@@ -377,8 +378,6 @@ real, intent(inout) :: p_shsfc(nprx+4,npry+4)
 real :: thmax,thmin,vapor_press,qmax
 integer :: i,j,k,iunit
 logical :: isrh, doconvert
-
-real, external :: eslf
 
 iunit = 11
 

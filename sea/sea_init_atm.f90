@@ -38,9 +38,9 @@ subroutine sea_init_atm()
   use mem_basic,   only: rho, press, vxe, vye, vze, tair, sh_v, theta
   use misc_coms,   only: io6, time8, s1900_sim, iparallel, isubdomain, runtype
   use mem_ijtabs,  only: itabg_w
-  use mem_para,    only: myrank
   use consts_coms, only: t00, p00i, grav, rocp
   use mem_grid,    only: dzt_bot
+  use therm_lib,   only: rhovsl, rhovsil
 
   implicit none
 
@@ -52,8 +52,6 @@ subroutine sea_init_atm()
   real :: timefac_seaice
   real :: dum1, dum2
   real :: prss
-
-  real, external :: rhovsl, rhovsil
 
   ! Initialize sea quantities that do not depend on atmospheric conditions
 

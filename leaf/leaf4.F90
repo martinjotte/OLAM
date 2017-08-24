@@ -137,6 +137,7 @@ subroutine grndvap(iwl, nlev_sfcwater, nts, soil_water, soil_energy, &
 use leaf_coms,   only: nstyp, slcpd, nzg
 use consts_coms, only: grav, rvap
 use misc_coms,   only: io6
+use therm_lib,   only: qtk, rhovsil, qwtk
 
 implicit none
 
@@ -160,8 +161,6 @@ real :: fracliq   ! fraction of surface water in liquid phase
 real :: can_rhov  ! canopy water vapor density [kg_vap/m^3]
 real :: sfc_rhovs ! ground sfc saturation vapor density [kg_vap/m^3]
 real :: gnd_rhov  ! ground sfc evaporative vapor density [kg_vap/m^3]
-
-real, external :: rhovsil  ! function to compute sat vapor density (over ice or liq)
 
   can_rhov = canshv * rhos
 
@@ -261,6 +260,7 @@ use leaf_coms,   only: nzs, slcpd, slmstsi_ch, emisv, emisg, slmstsi_vg
 use consts_coms, only: stefan, eradi
 use misc_coms,   only: io6
 use mem_radiate, only: sunx, suny, sunz
+use therm_lib,   only: qwtk, qtk
 
 implicit none
 

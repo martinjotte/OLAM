@@ -96,6 +96,7 @@ contains
     use misc_coms,   only: isubdomain, dtlm
     use mem_radiate, only: cosz, rshort, rshort_clr
     use mem_basic,   only: rho, vxe, vye, vze
+    use therm_lib,   only: qtk
 
     implicit none
 

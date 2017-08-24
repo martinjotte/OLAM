@@ -1151,7 +1151,8 @@ use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                       cldnum
 
 use misc_coms,  only: io6, time_istp8
-use consts_coms, only: r8, p00i, rocp, cpi
+use consts_coms,only: r8, p00i, rocp, cpi
+use therm_lib,  only: qtc
 
 implicit none
 
@@ -1593,6 +1594,7 @@ use consts_coms,only: r8, p00i, rocp, alvl, alvi, cpi4, cp253i
 use mem_grid,   only: zwgt_bot, zwgt_top
 use mem_tend,   only: num_omic
 use var_tables, only: num_scalar, scalar_tab
+use therm_lib,  only: qtc
 
 implicit none
 

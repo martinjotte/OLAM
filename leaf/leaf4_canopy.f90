@@ -58,6 +58,7 @@ Contains
  use leaf4_sfcwater, only: sfcwater_soil_comb
  use leaf4_soil,     only: soil_wat2pot
  use matrix,         only: matrix8_2x2, matrix8_3x3, matrix8_4x4
+ use therm_lib,      only: qwtk, rhovsil, eslf
 
  implicit none
 
@@ -247,10 +248,6 @@ Contains
  real(r8) :: aa4(4,4), xx4(4,6), yy4(4)  ! 4x4 matrix equation terms
 
  logical :: sing
-
- real, external :: rhovsil ! function to compute sat vapor density
- real, external :: eslf    ! function to compute sat vapor pressure
-
  integer :: itest  ! test number
  integer :: ieqn   ! matrix equation number; loop index
 

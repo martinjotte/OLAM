@@ -150,6 +150,7 @@ C         AERO_DATA.F. Moments are wet after extract_aero
          use mem_ijtabs, only: jtab_w, jtw_prog
          use mem_grid,   only: mza, lpw, dzt
          use mem_basic,  only: tair, rho, sh_v
+         use therm_lib,  only: rhovsl
 
          implicit none
 
@@ -166,9 +167,6 @@ C         AERO_DATA.F. Moments are wet after extract_aero
          real    :: airrh
          real    :: extinc
 !        logical :: output_ext
-
-         real, external :: rhovsl
-
 
 !         real, parameter :: epswater = mwwat / mwair
 !

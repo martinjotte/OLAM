@@ -50,12 +50,12 @@ use consts_coms, only: pio180, eps_virt, grav, rdry, p00k, rocp, cp, cpor,  &
                        p00i, p00, eps_vap
 use misc_coms,   only: io6, nsndg, ipsflg, itsflg, irtsflg, iusflg,  &
                        ps, ts, rts, us, vs, hs, thds, p_sfc
+use therm_lib,   only: eslf
 
 implicit none
 
 integer :: ksndg
 real :: toffset,dir,spd,zold2,zold1,tavg,rtss,wt,ssh_sndg,vapor_press
-real, external :: eslf
 real :: tvirt(nsndg)  ! automatic array
 
 ! +----------------------------------------------------------------------+
@@ -317,11 +317,10 @@ use mem_grid,    only: mza, mva, lpv, lpw, &
                        unx, uny, unz, vnx, vny, vnz, &
                        xev, yev, zev, arv, volt, &
                        xew, yew, zew, dzt_top, dzt_bot
-
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
-                        mpi_send_v, mpi_recv_v 
-
-use obnd,         only: lbcopy_v, lbcopy_w
+use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, &
+                       mpi_send_v, mpi_recv_v 
+use obnd,        only: lbcopy_v, lbcopy_w
+use therm_lib,   only: rhovsl
 
 implicit none   
 
@@ -331,8 +330,6 @@ real :: rcloud,dummy,temp,rvls,exner
 real :: uv01dx,uv01dy,uv01dz,uv01dr,raxis,rhovs
 real :: pkhyd, qhydm
 
-real, external :: rhovsl
- 
 ! Choose as an internal pressure boundary condition the pressure level at or
 ! below (in elevation) the 49900 Pa surface.  Find the k index of this level.
 

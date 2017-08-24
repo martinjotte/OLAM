@@ -658,6 +658,7 @@
             use misc_coms,  only: isubdomain
             use mem_grid,   only: volti
             use mem_basic,  only: press, tair, sh_v, rho, vxe, vye, vze
+            use therm_lib,  only: rhovsl
 
             IMPLICIT NONE
 
@@ -760,7 +761,6 @@
             REAL, PARAMETER :: ONE3 = 1.0 / 3.0
 
             integer :: iw, kw
-            real, external :: rhovsl
 
             iw = itab_ws(iws)%iw
             if (isubdomain == 1) then

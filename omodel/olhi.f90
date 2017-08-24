@@ -44,6 +44,7 @@ use mem_grid,    only: mza, mva, mwa, lpv, lpw, zt, zm, dzt_top, dzt_bot, &
 use mem_zonavg,  only: zonz_vect, zonu_vect, zont_vect, zonr_vect,  &
                        zonp_vect, zonz, zonu, zont, zonr, zonavg_init
 use misc_coms,   only: io6, iparallel, idate1, imonth1, iyear1
+use therm_lib,   only: rhovsl
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w,  &
                         mpi_send_v, mpi_recv_v 
@@ -65,8 +66,6 @@ character(len=1) :: line
 
 real :: vctr1(mza), vctr2(mza), vctr3(mza)
 real :: uzonal(mza,mwa)
-
-real, external :: rhovsl
 
 ! Choose as an internal pressure boundary condition the pressure level
 ! zonp_vect(3), whose pressure is 46415.89 Pa.
