@@ -120,6 +120,7 @@ CONTAINS
      real    :: fqvadv, fthadv
      real(r8):: qsum, qav, tsum, tav
      real    :: dtemp, dsh_v, fens4m
+     real    :: v, vp, vm
 
      ka    = lpw(iw)
      npoly = itab_w(iw)%npoly
@@ -149,8 +150,6 @@ CONTAINS
      psur  = 0.01 * (press(ka,iw) + (zt(ka)-zm(ka-1))*rho(ka,iw)*grav)
      z1    = zm(ka-1)
      
-     mconv(1,:) = 0.0
-
      ! one if by land, two if by sea
      if (allocated(frac_land)) then
         xland = 2.0 - frac_land(iw)
@@ -164,21 +163,15 @@ CONTAINS
 
      ! Vertical advective theta and water vapor fluxes (W levels)
 
-     do k = ka,mza-1
-        vflux(k) = arw(k,iw) * wmc(k,iw)
+     do k = ka, mza-1
+        v  = arw(k,iw) * wmc(k,iw)
+        vm = max(v, 0.0)
+        vp = min(v, 0.0)
 
-        ! upwinded
-        if (wmc(k,iw) >= 0.0) then
-           vflux_vap(k) = vflux(k) * sh_v(k,iw)
-           vflux_the(k) = vflux(k) * theta(k,iw)
-        else
-           vflux_vap(k) = vflux(k) * sh_v(k+1,iw)
-           vflux_the(k) = vflux(k) * theta(k+1,iw)
-        endif
-
-        ! centered
-        ! vflux_the(k) = vflux(k) * 0.5 * (theta(k,iw) + theta(k+1,iw))
-        ! vflux_vap(k) = vflux(k) * 0.5 * (sh_v (k,iw) + sh_v (k+1,iw))
+        ! upwinded fluxes
+        vflux    (k) = v
+        vflux_vap(k) = vm * sh_v (k,iw) + vp * sh_v (k+1,iw)
+        vflux_the(k) = vm * theta(k,iw) + vp * theta(k+1,iw)
      enddo
 
      vflux    (ka-1)  = 0.
@@ -190,6 +183,7 @@ CONTAINS
 
      ! Loop over T levels
 
+     !dir$ simd
      do kc = 1, ktf
         k  = kc + ka - 1
 
@@ -207,6 +201,7 @@ CONTAINS
         hflux_the = 0.
         hflux_vap = 0.
       
+        !dir$ loop count max=7, min=5, avg=6
         do jv = 1, npoly
            iv  = itab_w(iw)%iv(jv)
 
@@ -225,10 +220,6 @@ CONTAINS
                  hflux_vap = hflux_vap + flx * sh_v (k,iw)
                  hflux_the = hflux_the + flx * theta(k,iw)
               endif
-
-              ! centered
-              ! hflux_vap = hflux_vap + flx * 0.5 * (sh_v (k,iw) + sh_v (k,iwn))
-              ! hflux_the = hflux_the + flx * 0.5 * (theta(k,iw) + theta(k,iwn))
            endif
         enddo
 
@@ -273,6 +264,7 @@ CONTAINS
         dhdt  (1,kc) = cp * exner(k) * fthpbl(k,iw) + alvl * fqtpbl(k,iw)
         
         ! Set area ensembles of omega, T, and Q
+        !dir$ loop count max=7, min=5, avg=6
         do n = 1, npoly
 
            if (k >= lpw(itab_w(iw)%iw(n))) then
@@ -285,8 +277,14 @@ CONTAINS
            qx  (1,kc,n+1) = max( sh_v(k,iwn) + dsh_v, 1.e-8 )
            omeg(1,kc,n+1) = -grav * wmc(k,iwn)
         enddo
+     enddo
 
-        ! Compute area ensemble moisture convergence based on average omega
+     ! Compute area ensemble moisture convergence based on average omega
+
+     mconv(1,:) = 0.0
+
+     do kc = 1, ktf
+        k  = kc + ka - 1
         omega_ave = sum(omeg(1,kc,1:ens4)) * fens4m
         mconv(1,1) = mconv(1,1) + omega_ave * (sh_v(k+1,iw) - sh_v(k,iw)) * gravi
 
@@ -297,7 +295,6 @@ CONTAINS
               mconv(1,n+1) = mconv(1,n+1) + omega_ave * (sh_v(k+1,iwn) - sh_v(k,iwn)) * gravi
            endif
         enddo
-
      enddo
 
      mconv(1,1:ens4) = max(mconv(1,1:ens4), 0.00)
@@ -1660,9 +1657,9 @@ CONTAINS
 !
 
      integer i,k,kk
-     real    einc,pef,pefb,prezk,zkbc
+     real    einc,pef,pefb,prezk,zkbc,vws
      real,    dimension (its:ite)         ::                           &
-      vshear,sdp,vws
+      vshear
 
 !
 !--- DETERMINE DOWNDRAFT STRENGTH IN TERMS OF WINDSHEAR
@@ -1671,8 +1668,6 @@ CONTAINS
 !
        do i=its,itf
         edt(i)=0.
-        vws(i)=0.
-        sdp(i)=0.
         vshear(i)=0.
        enddo
        do k=1,maxens2
@@ -1680,20 +1675,20 @@ CONTAINS
         edtc(i,k)=0.
        enddo
        enddo
-       do kk = kts,ktf-1
-         do 62 i=its,itf
-          IF(ierr(i).ne.0)GO TO 62
-          if (kk .le. min0(ktop(i),ktf) .and. kk .ge. kbcon(i)) then
-             vws(i) = vws(i)+ &
+
+       do i=its,itf
+       IF (ierr(i).ne.0) cycle
+       vws = 0.
+       do kk = kbcon(i), ktop(i)
+             vws = vws + &
               (abs((us(i,kk+1)-us(i,kk))/(z(i,kk+1)-z(i,kk))) &
-          +   abs((vs(i,kk+1)-vs(i,kk))/(z(i,kk+1)-z(i,kk)))) * &
+          +    abs((vs(i,kk+1)-vs(i,kk))/(z(i,kk+1)-z(i,kk)))) * &
               (p(i,kk) - p(i,kk+1))
-            sdp(i) = sdp(i) + p(i,kk) - p(i,kk+1)
-          endif
-          if (kk .eq. ktf-1)vshear(i) = 1.e3 * vws(i) / sdp(i)
-   62   continue
        end do
-      do i=its,itf
+       vshear(i) = 1.e3 * vws / (p(i,kbcon(i)) - p(i,ktop(i)+1))
+       end do
+
+       do i=its,itf
          IF(ierr(i).eq.0)then
             pef=(1.591-.639*VSHEAR(I)+.0953*(VSHEAR(I)**2) &
                -.00496*(VSHEAR(I)**3))
@@ -2383,8 +2378,7 @@ CONTAINS
       if(itest.ne.2)then
          do i=its,itf
            if(ierr(i).eq.0)then
-             Z(I,1)=max(0.,Z1(I))-(ALOG(P(I,1))- &
-                 ALOG(PSUR(I)))*287.*TV(I,1)/9.81
+             Z(I,1) = max(0.,Z1(I)) + ALOG(PSUR(I)/P(I,1)) * 287.*TV(I,1)/9.81
            endif
          enddo
 
@@ -2393,8 +2387,7 @@ CONTAINS
          do i=its,itf
            if(ierr(i).eq.0)then
               TVBAR=.5*TV(I,K)+.5*TV(I,K-1)
-              Z(I,K)=Z(I,K-1)-(ALOG(P(I,K))- &
-               ALOG(P(I,K-1)))*287.*TVBAR/9.81
+              Z(I,K) = Z(I,K-1) + ALOG(P(I,K-1)/P(I,K)) * 287.*TVBAR/9.81
            endif
          enddo
          enddo
@@ -3145,22 +3138,15 @@ CONTAINS
      real                                 ::                           &
          xar
      integer                              ::                           &
-         i,k
+         i,kstop
 
-       DO 200 i=its,itf
-       MAXX(I)=KS
-       if(ierr(i).eq.0)then
-      X(I)=ARRAY(I,KS)
-!
-       DO 100 K=KS,KE(i)
-         XAR=ARRAY(I,K)
-         IF(XAR.GE.X(I)) THEN
-            X(I)=XAR
-            MAXX(I)=K
-         ENDIF
- 100  CONTINUE
-      endif
- 200  CONTINUE
+       do i=its,itf
+         maxx(i)=ks
+         if(ierr(i).eq.0)then
+            kstop = max( ks, ke(i) )
+            maxx(i) = ks + maxloc( array(i,ks:kstop), 1 ) - 1
+         endif
+       enddo
 
    END SUBROUTINE cup_MAXIMI
 
@@ -3194,22 +3180,15 @@ CONTAINS
      real,    dimension (its:ite)         ::                           &
          x
      integer                              ::                           &
-         i,k,kstop
+         i,kstop
 
-       DO 200 i=its,itf
-      KT(I)=KS(I)
-      if(ierr(i).eq.0)then
-      X(I)=ARRAY(I,KS(I))
-       KSTOP=MAX(KS(I)+1,KEND(I))
-!
-       DO 100 K=KS(I)+1,KSTOP
-         IF(ARRAY(I,K).LT.X(I)) THEN
-              X(I)=ARRAY(I,K)
-              KT(I)=K
-         ENDIF
- 100  CONTINUE
-      endif
- 200  CONTINUE
+       DO i=its,itf
+         KT(I)=KS(I)
+         if(ierr(i).eq.0)then
+            kstop = max( ks(i), kend(i) )
+            kt(i) = ks(i) + minloc( array(i,ks(i):kstop), 1 ) - 1
+         endif
+       enddo
 
    END SUBROUTINE cup_MINIMI
 
@@ -4117,8 +4096,7 @@ CONTAINS
 !
          do i=its,itf
            if(ierrxx(i).eq.0)then
-             Z(I,KTS)=max(0.,Z1(I))-(ALOG(P(I,KTS))- &
-                 ALOG(PSUR(I)))*287.*TV(I,KTS)/9.81
+             Z(I,KTS) = Z1(I) + ALOG(PSUR(I)/P(I,KTS)) * 287.*TV(I,KTS)/9.81
            endif
          enddo
 
@@ -4127,8 +4105,7 @@ CONTAINS
          do i=its,itf
            if(ierrxx(i).eq.0)then
               TVBAR=.5*TV(I,K)+.5*TV(I,K-1)
-              Z(I,K)=Z(I,K-1)-(ALOG(P(I,K))- &
-               ALOG(P(I,K-1)))*287.*TVBAR/9.81
+              Z(I,K) = Z(I,K-1) + ALOG(P(I,K-1)/P(I,K)) * 287.*TVBAR/9.81
            endif
          enddo
          enddo
