@@ -172,6 +172,8 @@ Module oname_coms
       integer :: iswrtyp = 0
       integer :: ilwrtyp = 0
       real(r8):: radfrq  = 1800.0_r8
+      
+      integer :: iclrsky = 1
 
       character(pathlen) :: rrtmg_datadir = '../etc'
 

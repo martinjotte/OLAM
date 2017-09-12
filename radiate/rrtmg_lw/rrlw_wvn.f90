@@ -66,9 +66,20 @@
       integer(kind=im), parameter :: nspb(nbndlw) = &
            (/1,1,5,5,5,0,1,1,1,1,1,0,0,1,0,0/)
 
-      real(kind=rb) :: wavenum1(nbndlw)
-      real(kind=rb) :: wavenum2(nbndlw)
-      real(kind=rb) :: delwave(nbndlw)
+      real(kind=rb), parameter :: wavenum1(nbndlw) = &
+           (/ 10._rb, 350._rb, 500._rb, 630._rb, 700._rb, 820._rb, &
+             980._rb,1080._rb,1180._rb,1390._rb,1480._rb,1800._rb, &
+             2080._rb,2250._rb,2380._rb,2600._rb/)
+
+      real(kind=rb), parameter :: wavenum2(nbndlw) = &
+           (/350._rb, 500._rb, 630._rb, 700._rb, 820._rb, 980._rb, &
+            1080._rb,1180._rb,1390._rb,1480._rb,1800._rb,2080._rb, &
+            2250._rb,2380._rb,2600._rb,3250._rb/)
+
+      real(kind=rb), parameter :: delwave(nbndlw) = &
+           (/340._rb, 150._rb, 130._rb,  70._rb, 120._rb, 160._rb, &
+             100._rb, 100._rb, 210._rb,  90._rb, 320._rb, 280._rb, &
+             170._rb, 130._rb, 220._rb, 650._rb/)
 
       real(kind=rb) :: totplnk(181,nbndlw)
       real(kind=rb) :: totplk16(181)

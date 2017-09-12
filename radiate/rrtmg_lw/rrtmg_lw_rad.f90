@@ -60,7 +60,7 @@
 ! *** Move the required call to rrtmg_lw_ini below and the following 
 ! use association to the GCM initialization area ***
 !      use rrtmg_lw_init, only: rrtmg_lw_ini
-      use rrtmg_lw_rtrnmc, only: rtrnmc
+      use rrtmg_lw_rtrnmc, only: rtrnmc, rtrnmc_noclr
       use rrtmg_lw_setcoef, only: setcoef
       use rrtmg_lw_taumol, only: taumol
 
@@ -187,6 +187,7 @@
       use parrrtm, only : nbndlw, ngptlw, maxxsec, mxmol
       use rrlw_con, only: fluxfac, heatfac, oneminus, pi
       use rrlw_wvn, only: ng, ngb, nspa, nspb, wavenum1, wavenum2, delwave
+      use oname_coms, only: nl
 
 ! ------- Declarations -------
 
@@ -313,7 +314,7 @@
 !     integer(kind=im) :: iaer                ! aerosol option flag
       integer(kind=im) :: iplon               ! column loop index
       integer(kind=im) :: imca                ! flag for mcica [0=off, 1=on]
-      integer(kind=im) :: ims                 ! value for changing mcica permute seed
+!     integer(kind=im) :: ims                 ! value for changing mcica permute seed
       integer(kind=im) :: k                   ! layer loop index
       integer(kind=im) :: ig                  ! g-point loop index
 
@@ -416,13 +417,13 @@
 !
 ! Initializations
 
-      oneminus = 1._rb - 1.e-6_rb
-      pi = 2._rb * asin(1._rb)
-      fluxfac = pi * 2.e4_rb                  ! orig:   fluxfac = pi * 2.d4  
+!     oneminus = 1._rb - 1.e-6_rb
+!     pi = 2._rb * asin(1._rb)
+!     fluxfac = pi * 2.e4_rb                  ! orig:   fluxfac = pi * 2.d4  
       istart = 1
       iend = 16
 !     iout = 0
-      ims = 1
+!     ims = 1
 
 ! Set imca to select calculation type:
 !  imca = 0, use standard forward model calculation
@@ -527,11 +528,22 @@
 ! to be used.  Clear sky calculation is done simultaneously.
 ! For McICA, RTRNMC is called for clear and cloudy calculations.
 
-         call rtrnmc(nlayers, istart, iend, iout, pz, semiss, ncbands, &
-                     cldfmc, taucmc, planklay, planklev, plankbnd, &
-                     pwvcm, fracs, taut, &
-                     totuflux, totdflux, fnet, htr, &
-                     totuclfl, totdclfl, fnetc, htrc)
+         if (nl%iclrsky == 0) then
+
+            call rtrnmc_noclr(nlayers, istart, iend, iout, pz, semiss, ncbands, &
+                              cldfmc, taucmc, planklay, planklev, plankbnd, &
+                              pwvcm, fracs, taut, &
+                              totuflux, totdflux, fnet, htr, &
+                              totuclfl, totdclfl, fnetc, htrc)
+         else
+
+            call rtrnmc(nlayers, istart, iend, iout, pz, semiss, ncbands, &
+                        cldfmc, taucmc, planklay, planklev, plankbnd, &
+                        pwvcm, fracs, taut, &
+                        totuflux, totdflux, fnet, htr, &
+                        totuclfl, totdclfl, fnetc, htrc)
+         endif
+            
 
 !  Transfer up and down fluxes and heating rate to output arrays.
 !  Vertical indexing goes from bottom to top; reverse here for GCM if necessary.

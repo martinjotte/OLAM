@@ -215,15 +215,15 @@
                                                ! (J kg-1 K-1)
 
 ! Longwave spectral band limits (wavenumbers)
-      wavenum1(:) = (/ 10._rb, 350._rb, 500._rb, 630._rb, 700._rb, 820._rb, &
-                      980._rb,1080._rb,1180._rb,1390._rb,1480._rb,1800._rb, &
-                     2080._rb,2250._rb,2380._rb,2600._rb/)
-      wavenum2(:) = (/350._rb, 500._rb, 630._rb, 700._rb, 820._rb, 980._rb, &
-                     1080._rb,1180._rb,1390._rb,1480._rb,1800._rb,2080._rb, &
-                     2250._rb,2380._rb,2600._rb,3250._rb/)
-      delwave(:) =  (/340._rb, 150._rb, 130._rb,  70._rb, 120._rb, 160._rb, &
-                      100._rb, 100._rb, 210._rb,  90._rb, 320._rb, 280._rb, &
-                      170._rb, 130._rb, 220._rb, 650._rb/)
+!      wavenum1(:) = (/ 10._rb, 350._rb, 500._rb, 630._rb, 700._rb, 820._rb, &
+!                      980._rb,1080._rb,1180._rb,1390._rb,1480._rb,1800._rb, &
+!                     2080._rb,2250._rb,2380._rb,2600._rb/)
+!      wavenum2(:) = (/350._rb, 500._rb, 630._rb, 700._rb, 820._rb, 980._rb, &
+!                     1080._rb,1180._rb,1390._rb,1480._rb,1800._rb,2080._rb, &
+!                     2250._rb,2380._rb,2600._rb,3250._rb/)
+!      delwave(:) =  (/340._rb, 150._rb, 130._rb,  70._rb, 120._rb, 160._rb, &
+!                      100._rb, 100._rb, 210._rb,  90._rb, 320._rb, 280._rb, &
+!                      170._rb, 130._rb, 220._rb, 650._rb/)
 
 ! Spectral band information
 !      ng(:) = (/16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16/)
@@ -247,28 +247,28 @@
 
 ! Fundamental physical constants from NIST 2002
 
-      grav = 9.8066_rb                        ! Acceleration of gravity
-                                              ! (m s-2)
-      planck = 6.62606876e-27_rb              ! Planck constant
-                                              ! (ergs s; g cm2 s-1)
-      boltz = 1.3806503e-16_rb                ! Boltzmann constant
-                                              ! (ergs K-1; g cm2 s-2 K-1)
-      clight = 2.99792458e+10_rb              ! Speed of light in a vacuum  
-                                              ! (cm s-1)
-      avogad = 6.02214199e+23_rb              ! Avogadro constant
-                                              ! (mol-1)
-      alosmt = 2.6867775e+19_rb               ! Loschmidt constant
-                                              ! (cm-3)
-      gascon = 8.31447200e+07_rb              ! Molar gas constant
-                                              ! (ergs mol-1 K-1)
-      radcn1 = 1.191042722e-12_rb             ! First radiation constant
-                                              ! (W cm2 sr-1)
-      radcn2 = 1.4387752_rb                   ! Second radiation constant
-                                              ! (cm K)
-      sbcnst = 5.670400e-04_rb                ! Stefan-Boltzmann constant
-                                              ! (W cm-2 K-4)
-      secdy = 8.6400e4_rb                     ! Number of seconds per day
-                                              ! (s d-1)
+!     grav = 9.8066_rb                        ! Acceleration of gravity
+!                                             ! (m s-2)
+!     planck = 6.62606876e-27_rb              ! Planck constant
+!                                             ! (ergs s; g cm2 s-1)
+!     boltz = 1.3806503e-16_rb                ! Boltzmann constant
+!                                             ! (ergs K-1; g cm2 s-2 K-1)
+!     clight = 2.99792458e+10_rb              ! Speed of light in a vacuum  
+!                                             ! (cm s-1)
+!     avogad = 6.02214199e+23_rb              ! Avogadro constant
+!                                             ! (mol-1)
+!     alosmt = 2.6867775e+19_rb               ! Loschmidt constant
+!                                             ! (cm-3)
+!     gascon = 8.31447200e+07_rb              ! Molar gas constant
+!                                             ! (ergs mol-1 K-1)
+!     radcn1 = 1.191042722e-12_rb             ! First radiation constant
+!                                             ! (W cm2 sr-1)
+!     radcn2 = 1.4387752_rb                   ! Second radiation constant
+!                                             ! (cm K)
+!     sbcnst = 5.670400e-04_rb                ! Stefan-Boltzmann constant
+!                                             ! (W cm-2 K-4)
+!     secdy = 8.6400e4_rb                     ! Number of seconds per day
+!                                             ! (s d-1)
 !
 !     units are generally cgs
 !
@@ -298,7 +298,7 @@
 !        (grav) x (#sec/day) / (specific heat of dry air at const. p x 1.e2)
 !           Here, cpdair is in units of J kg-1 K-1, and the constant (1.e2) 
 !           converts mb to Pa when heatfac is multiplied by W m-2 mb-1. 
-      heatfac = grav * secdy / (cpdair * 1.e2_rb)
+!     heatfac = grav * secdy / (cpdair * 1.e2_rb)
 
       end subroutine lwdatinit
 

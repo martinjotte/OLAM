@@ -544,18 +544,20 @@ end subroutine sunloc
 
 subroutine radinit()
 
-  use mem_radiate,   only: maxadd_rad, nadd_rad, zmrad
-  use mem_grid,      only: mza, zm
+  use mem_radiate,   only: maxadd_rad, nadd_rad, zmrad, mcica_seed
+  use mem_grid,      only: mza, zm, glatw, glonw, nwa
   use misc_coms,     only: io6, iswrtyp, ilwrtyp
   use consts_coms,   only: cp
   use rrtmg_sw_init, only: rrtmg_sw_ini
   use rrtmg_lw_init, only: rrtmg_lw_ini
   use rrtmg_cloud,   only: rsw_cld_optics_init, rlw_cloud_optics_init
   use clouds_gno,    only: gno_lookup_init
+  use mem_ijtabs,    only: jtab_w, jtw_prog, itab_w
 
   implicit none
 
   real :: deltaz
+  integer :: j, iw
 
 ! Compute NADD_RAD, the number of radiation levels to be added above the top
 ! model prognostic level.  (Added levels will be filled elsewhere with data 
@@ -592,6 +594,19 @@ subroutine radinit()
      call rrtmg_lw_ini(cp)
      call rlw_cloud_optics_init()
   endif
+
+! Seed the random number generator for RRTMg's cloud overlap scheme.
+! This should only be done at initial time, but if we restart a run
+! where the seeds weren't saved we need to re-seed again
+
+  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+     if (all(mcica_seed(1:4,iw) == 0)) then
+        mcica_seed(1,iw) = 1 + itab_w(iw)%iwglobe
+        mcica_seed(2,iw) = 1 + itab_w(iw)%iwglobe + nwa
+        mcica_seed(3,iw) = nint( (glatw(iw) +   1) * 1.e4 )
+        mcica_seed(4,iw) = nint( (glonw(iw) + 181) * 1.e4 )
+     endif
+  enddo
 
 ! Read in the convective cloud fraction lookup table
 

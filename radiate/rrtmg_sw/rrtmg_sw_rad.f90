@@ -62,7 +62,8 @@
 ! use association to GCM initialization area ***
 !      use rrtmg_sw_init, only: rrtmg_sw_ini
       use rrtmg_sw_setcoef, only: setcoef_sw
-      use rrtmg_sw_spcvmc, only: spcvmc_sw
+      use rrtmg_sw_spcvmc, only: spcvmc_sw, spcvmc_sw_noclr
+      use oname_coms, only: nl
 
       implicit none
 
@@ -688,17 +689,35 @@
 !!         enddo
 
 
-         call spcvmc_sw &
-             (nlayers, istart, iend, icpr, idelm, iout, &
-              pavel, tavel, pz, tz, tbound, albdif, albdir, &
-              zcldfmc, ztaucmc, zasycmc, zomgcmc, ztaormc, &
-              ztaua, zasya, zomga, cossza, coldry, wkl, adjflux, &	 
-              laytrop, layswtch, laylow, jp, jt, jt1, &
-              co2mult, colch4, colco2, colh2o, colmol, coln2o, colo2, colo3, &
-              fac00, fac01, fac10, fac11, &
-              selffac, selffrac, indself, forfac, forfrac, indfor, &
-              zbbfd, zbbfu, zbbcd, zbbcu, &
-              zbbfddir, zbbcddir)
+         if (nl%iclrsky == 0) then
+
+            call spcvmc_sw_noclr &
+                 (nlayers, istart, iend, icpr, idelm, iout, &
+                  pavel, tavel, pz, tz, tbound, albdif, albdir, &
+                  zcldfmc, ztaucmc, zasycmc, zomgcmc, ztaormc, &
+                  ztaua, zasya, zomga, cossza, coldry, wkl, adjflux, &	 
+                  laytrop, layswtch, laylow, jp, jt, jt1, &
+                  co2mult, colch4, colco2, colh2o, colmol, coln2o, colo2, colo3, &
+                  fac00, fac01, fac10, fac11, &
+                  selffac, selffrac, indself, forfac, forfrac, indfor, &
+                  zbbfd, zbbfu, zbbcd, zbbcu, &
+                  zbbfddir, zbbcddir)
+         else 
+
+            call spcvmc_sw &
+                 (nlayers, istart, iend, icpr, idelm, iout, &
+                  pavel, tavel, pz, tz, tbound, albdif, albdir, &
+                  zcldfmc, ztaucmc, zasycmc, zomgcmc, ztaormc, &
+                  ztaua, zasya, zomga, cossza, coldry, wkl, adjflux, &	 
+                  laytrop, layswtch, laylow, jp, jt, jt1, &
+                  co2mult, colch4, colco2, colh2o, colmol, coln2o, colo2, colo3, &
+                  fac00, fac01, fac10, fac11, &
+                  selffac, selffrac, indself, forfac, forfrac, indfor, &
+                  zbbfd, zbbfu, zbbcd, zbbcu, &
+                  zbbfddir, zbbcddir)
+      endif
+         
+
 
 ! Transfer up and down, clear and total sky fluxes to output arrays.
 ! Vertical indexing goes from bottom to top; reverse here for GCM if necessary.

@@ -12,7 +12,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          rshortup_clr, rshort_top_clr, rshortup_top_clr, &
                          rlong_clr, rlongup_clr, rlongup_top_clr, &
                          par, par_diffuse, uva, uvb, uvc, pbl_cld_forc, &
-                         ppfd, ppfd_diffuse
+                         ppfd, ppfd_diffuse, mcica_seed
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab, &
                          emb2, zfactor_ccn
   use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr, iactcu
@@ -283,7 +283,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   tlev(ncol,nrad+1) = tlay(ncol,nrad)
 
 ! initialize cloud properties to 0
-  
+
   cldfr    (ncol,:) = 0.0
   taucldl(:,ncol,:) = 0.0
   tauclds(:,ncol,:) = 0.0
@@ -459,6 +459,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   do k = ka, mza
      krad = k - koff
+     if (cldfr(1,krad) > 0.99) cldfr(1,krad) = 1.0
+     if (cldfr(1,krad) < 0.01) cldfr(1,krad) = 0.0
      cloud_frac(k,iw) = cldfr(1,krad)
   enddo
 
@@ -481,22 +483,18 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
      icloud = icld
      iaeros = iaer
-     iplon = 1
-     irng = 1
-     permuteseed = 1
-     iseed = itab_w(iw)%iwglobe
-     ntim = 1 + nint( mod(time8/dtlm(1), 1.e8_r8) )
+     irng = 0
+     permuteseed = 1 + nint( mod(time8/dtlm(1), 1.e8_r8) )
 
      if ( any( cloud_frac(ka:mza,iw) > 0.01 .and. cloud_frac(ka:mza,iw) < 0.99 ) ) then
      
         ! Subgrid (fractional) cloudiness present
 
-        call mcica_subcol_sw(iseed, ntim, iplon, ncol, nrad, icloud, &
-                             permuteseed, irng, &
-                             cldfr, cicewp, cliqwp, reice, reliq,  &
+        call mcica_subcol_sw(nrad, icloud, permuteseed, mcica_seed(1:4,iw), irng, &
+                             cldfr,  cicewp,  cliqwp, reice, reliq, &
                              tauclds, ssaclds, asmclds, fsfclds, &
                              cldfmcl, ciwpmcl, clwpmcl, reicmcl, relqmcl, &
-                             taucmcl, ssacmcl, asmcmcl, fsfcmcl)
+                             taucmcl, ssacmcl, asmcmcl, fsfcmcl, inflg)
      else
 
         ! No fractional cloudiness (cloud fraction either 0 or 1)
@@ -605,21 +603,17 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
      icloud = icld
      iaeros = iaer
-     iplon = 1
-     irng = 1
-     permuteseed = 150
-     iseed = itab_w(iw)%iwglobe
-     ntim = 1 + nint( mod(time8/dtlm(1), 1.e8_r8) )
+     irng = 0
+     permuteseed = 150 + nint( mod(time8/dtlm(1), 1.e8_r8) )
 
      if ( any( cloud_frac(ka:mza,iw) > 0.01 .and. cloud_frac(ka:mza,iw) < 0.99 ) ) then
-     
+
         ! Subgrid (fractional) cloudiness present
 
-        call mcica_subcol_lw(iseed  , ntim       , iplon     , ncol      , nrad  , &
-                             icloud , permuteseed, irng      ,                     &
-                             cldfr  , cicewp     , cliqwp    , reice     , reliq , &
-                             taucldl, cldfmcl_lw , ciwpmcl_lw, clwpmcl_lw,         &
-                             reicmcl, relqmcl    , taucmcl_lw                      )
+        call mcica_subcol_lw(nrad   , icloud    , permuteseed, mcica_seed(1:4,iw), irng , &
+                             cldfr  , cicewp    , cliqwp     , reice             , reliq, &
+                             taucldl, cldfmcl_lw, ciwpmcl_lw , clwpmcl_lw        ,        &
+                             reicmcl, relqmcl   , taucmcl_lw , inflg                      )
      else
 
         ! No fractional cloudiness (cloud fraction either 0 or 1)

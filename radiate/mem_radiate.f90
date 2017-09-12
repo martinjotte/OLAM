@@ -76,6 +76,10 @@ Module mem_radiate
   real, allocatable, target :: rlongup_clr     (:)
   real, allocatable, target :: rlongup_top_clr (:)
 
+! RRTMg random cloud overlap seed
+
+  integer, allocatable, target :: mcica_seed(:,:)
+
 ! These are used for adding extra levels at the top with the Mclatchy soundings
 
   integer, parameter :: maxadd_rad = 10 ! max allowed # of added rad levels
@@ -137,6 +141,8 @@ Contains
        allocate (rlong_clr      (mwa)) ; rlong_clr       = 0.0
        allocate (rlongup_clr    (mwa)) ; rlongup_clr     = 0.0
        allocate (rlongup_top_clr(mwa)) ; rlongup_top_clr = 0.0
+
+       allocate (mcica_seed   (4,mwa)) ; mcica_seed = 0
 
     endif
 
@@ -237,6 +243,8 @@ Contains
     if (allocated(ppfd))             call increment_vtable('PPFD_TOT',        'AW', rvar1=ppfd)
 
     if (allocated(ppfd_diffuse))     call increment_vtable('PPFD_DIFFUSE',    'AW', rvar1=ppfd_diffuse)
+
+    if (allocated(mcica_seed))       call increment_vtable('MCICA_SEED',      'AW', ivar2=mcica_seed)
 
   end subroutine filltab_radiate
 
