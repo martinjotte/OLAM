@@ -730,12 +730,11 @@ end subroutine grad_z_3
 
 subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv)
 
-  use mem_ijtabs,  only: jtab_v, itab_v, jtv_wadj
+  use mem_ijtabs,  only: jtab_v, itab_v, jtv_wadj, mrls
   use mem_grid,    only: mza, mva, mwa, lpv, unx, uny, unz, xev, yev, zev, &
                          dzto4
   use misc_coms,   only: dtlm, dtsm, mdomain
   use consts_coms, only: eradi
-  use max_dims,    only: maxgrds
   use oname_coms,  only: nl
   use mem_adv,     only: dxps_v, dyps_v, dzps_v, &
                          dxyps_v, dxxps_v, dyyps_v, dzzps_v, &
@@ -760,7 +759,7 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv)
   real :: dx, dxo2, dy, dyo2
   real :: dx1, dy1, dx2, dy2
 
-  real :: dtm(maxgrds)
+  real :: dtm(mrls)
   real :: ufacev(mza), wfacev
 
   real, parameter :: wt1 = 8.0 / 12.
@@ -769,9 +768,9 @@ subroutine donorpointv(ldt, mrl, vs, vxe, vye, vze, iwdepv)
   integer :: j, kb, k, iv, iw1, iw2
 
   if (ldt == 1) then
-     dtm(:) = dtlm(:)
+     dtm(1:mrls) = dtlm(1:mrls)
   else
-     dtm(:) = dtsm(:)
+     dtm(1:mrls) = dtsm(1:mrls)
   endif
 
 ! Horizontal loop over V points
@@ -930,10 +929,9 @@ end subroutine donorpointv
 
 subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw)
 
-  use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
+  use mem_ijtabs, only: jtab_w, itab_w, jtw_prog, mrls
   use mem_grid,   only: mza, mwa, lpw, dzto2, dzt, dztsqo6
   use misc_coms,  only: dtlm, dtsm
-  use max_dims,   only: maxgrds
   use oname_coms, only: nl
   use mem_adv,    only: dxps_w, dyps_w, dzps_w, &
                         dxyps_w, dxxps_w, dyyps_w, dzzps_w
@@ -952,16 +950,16 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw)
   real :: unx_w, uny_w, vnx_w, vny_w, vnz_w
   real :: vxeface, vyeface, vzeface
   real :: uface,vface
-  real :: dtm(maxgrds)
+  real :: dtm(mrls)
 
   real, parameter :: onethird = 1.0 / 3.0
 
   integer :: j, kb, k, kp, iw
 
   if (ldt == 1) then
-     dtm(:) = dtlm(:)
+     dtm(1:mrls) = dtlm(1:mrls)
   else
-     dtm(:) = dtsm(:)
+     dtm(1:mrls) = dtsm(1:mrls)
   endif
 
 ! Horizontal loop over all primary W points
