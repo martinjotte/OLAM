@@ -78,14 +78,14 @@
 !------------------------------------------------------------------
 
       subroutine rrtmg_lw &
-            (ncol    ,nlay    ,icld    ,idrv    ,iaer    ,iout  , &
-             play    ,plev    ,tlay    ,tlev    ,tsfc    , & 
+            (ncol    ,nlay    ,icld    ,nsfc    ,iaer    ,iout  , &
+             play    ,plev    ,tlay    ,tlev    ,tsfc    ,frac_sfck, & 
              h2ovmr  ,o3vmr   ,co2vmr  ,ch4vmr  ,n2ovmr  ,o2vmr , &
              cfc11vmr,cfc12vmr,cfc22vmr,ccl4vmr ,emis    , &
              inflglw ,iceflglw,liqflglw,cldfmcl , &
-             taucmcl ,ciwpmcl ,clwpmcl ,reicmcl ,relqmcl , &
-             tauaer  , &
-             uflx    ,dflx    ,hr      ,uflxc   ,dflxc,  hrc)
+             taucmcl ,ciwpmcl ,clwpmcl ,reicmcl ,relqmcl ,tauaer  , &
+             uflx    ,dflx    ,uflxc   ,dflxc   , &
+             uflx_sfc,dflx_sfc,uflxc_sfc,dflxc_sfc)
 
 ! -------- Description --------
 
@@ -201,12 +201,8 @@
                                                       !    1: Random
                                                       !    2: Maximum/random
                                                       !    3: Maximum
-      integer(kind=im), intent(in) :: idrv            ! Flag for calculation of dFdT, the change
-                                                      !    in upward flux as a function of 
-                                                      !    surface temperature [0=off, 1=on]
-                                                      !    0: Normal forward calculation
-                                                      !    1: Normal forward calculation with
-                                                      !       duflx_dt and duflxc_dt output
+      integer(kind=im), intent(in) :: nsfc            ! Number of layers that 
+                                                      ! intersect with surface
       integer(kind=im), intent(in) :: iaer            ! aerosol option flag
       integer(kind=im), intent(in) :: iout            ! output option flag (inactive)
 
@@ -220,6 +216,8 @@
                                                       !    Dimensions: (ncol,nlay+1)
       real(kind=rb), intent(in) :: tsfc(:)            ! Surface temperature (K)
                                                       !    Dimensions: (ncol)
+      real(kind=rb), intent(in) :: frac_sfck(:)
+
       real(kind=rb), intent(in) :: h2ovmr(:,:)        ! H2O volume mixing ratio
                                                       !    Dimensions: (ncol,nlay)
       real(kind=rb), intent(in) :: o3vmr(:,:)         ! O3 volume mixing ratio
@@ -291,25 +289,35 @@
 
 ! ----- Output -----
 
-      real(kind=rb), intent(out) :: uflx(:,:)         ! Total sky longwave upward flux (W/m2)
+      real(kind=rb), intent(out) :: uflx(nlay+1)       ! Total sky longwave upward flux (W/m2)
                                                       !    Dimensions: (ncol,nlay+1)
-      real(kind=rb), intent(out) :: dflx(:,:)         ! Total sky longwave downward flux (W/m2)
+      real(kind=rb), intent(out) :: dflx(nlay+1)    ! Total sky longwave downward flux (W/m2)
                                                       !    Dimensions: (ncol,nlay+1)
-      real(kind=rb), intent(out) :: hr(:,:)           ! Total sky longwave radiative heating rate (K/d)
-                                                      !    Dimensions: (ncol,nlay)
-      real(kind=rb), intent(out) :: uflxc(:,:)        ! Clear sky longwave upward flux (W/m2)
+!      real(kind=rb), intent(out) :: hr(:,:)           ! Total sky longwave radiative heating rate (K/d)
+!                                                      !    Dimensions: (ncol,nlay)
+      real(kind=rb), intent(out) :: uflxc(nlay+1)   ! Clear sky longwave upward flux (W/m2)
                                                       !    Dimensions: (ncol,nlay+1)
-      real(kind=rb), intent(out) :: dflxc(:,:)        ! Clear sky longwave downward flux (W/m2)
+      real(kind=rb), intent(out) :: dflxc(nlay+1)   ! Clear sky longwave downward flux (W/m2)
                                                       !    Dimensions: (ncol,nlay+1)
-      real(kind=rb), intent(out) :: hrc(:,:)          ! Clear sky longwave radiative heating rate (K/d)
-                                                      !    Dimensions: (ncol,nlay)
+!      real(kind=rb), intent(out) :: hrc(:,:)          ! Clear sky longwave radiative heating rate (K/d)
+!                                                      !    Dimensions: (ncol,nlay)
+
+      real(kind=rb), intent(out) :: uflx_sfc(nsfc)    ! Total sky longwave upward flux (W/m2)
+
+      real(kind=rb), intent(out) :: dflx_sfc(nsfc)    ! Total sky longwave downward flux (W/m2)
+
+      real(kind=rb), intent(out) :: uflxc_sfc(nsfc)   ! Clear sky longwave upward flux (W/m2)
+
+      real(kind=rb), intent(out) :: dflxc_sfc(nsfc)   ! Clear sky longwave downward flux (W/m2)
+        
+
 
 ! ----- Local -----
 
 ! Control
       integer(kind=im) :: nlayers             ! total number of layers
-      integer(kind=im) :: istart              ! beginning band of calculation
-      integer(kind=im) :: iend                ! ending band of calculation
+!     integer(kind=im) :: istart              ! beginning band of calculation
+!     integer(kind=im) :: iend                ! ending band of calculation
 !     integer(kind=im) :: iout                ! output option flag (inactive)
 !     integer(kind=im) :: iaer                ! aerosol option flag
       integer(kind=im) :: iplon               ! column loop index
@@ -323,13 +331,13 @@
       real(kind=rb) :: tavel(nlay+1)          ! layer temperatures (K)
       real(kind=rb) :: pz(0:nlay+1)           ! level (interface) pressures (hPa, mb)
       real(kind=rb) :: tz(0:nlay+1)           ! level (interface) temperatures (K)
-      real(kind=rb) :: tbound                 ! surface temperature (K)
+      real(kind=rb) :: tbound(nsfc)           ! surface temperature (K)
       real(kind=rb) :: coldry(nlay+1)         ! dry air column density (mol/cm2)
       real(kind=rb) :: wbrodl(nlay+1)         ! broadening gas column density (mol/cm2)
       real(kind=rb) :: wkl(mxmol,nlay+1)      ! molecular amounts (mol/cm-2)
       real(kind=rb) :: wx(maxxsec,nlay+1)     ! cross-section amounts (mol/cm-2)
       real(kind=rb) :: pwvcm                  ! precipitable water vapor (cm)
-      real(kind=rb) :: semiss(nbndlw)         ! lw surface emissivity
+      real(kind=rb) :: semiss(nsfc,nbndlw)    ! lw surface emissivity
       real(kind=rb) :: fracs(nlay+1,ngptlw)   ! 
       real(kind=rb) :: taug(nlay+1,ngptlw)    ! gaseous optical depths
       real(kind=rb) :: taut(nlay+1,ngptlw)    ! gaseous + aerosol optical depths
@@ -349,8 +357,8 @@
       integer(kind=im) :: jt1(nlay+1)         ! lookup table index 
       real(kind=rb) :: planklay(nlay+1,nbndlw)! 
       real(kind=rb) :: planklev(0:nlay+1,nbndlw)! 
-      real(kind=rb) :: plankbnd(nbndlw)       ! 
-      real(kind=rb) :: dplankbnd_dt(nbndlw)   ! 
+      real(kind=rb) :: planksfc(nsfc,nbndlw)  ! 
+!     real(kind=rb) :: dplankbnd_dt(nbndlw)   ! 
 
       real(kind=rb) :: colh2o(nlay+1)         ! column amount (h2o)
       real(kind=rb) :: colco2(nlay+1)         ! column amount (co2)
@@ -405,14 +413,14 @@
                                               !   (lw scattering not yet available)
 
 ! Output
-      real(kind=rb) :: totuflux(0:nlay+1)     ! upward longwave flux (w/m2)
-      real(kind=rb) :: totdflux(0:nlay+1)     ! downward longwave flux (w/m2)
-      real(kind=rb) :: fnet(0:nlay+1)         ! net longwave flux (w/m2)
-      real(kind=rb) :: htr(0:nlay+1)          ! longwave heating rate (k/day)
-      real(kind=rb) :: totuclfl(0:nlay+1)     ! clear sky upward longwave flux (w/m2)
-      real(kind=rb) :: totdclfl(0:nlay+1)     ! clear sky downward longwave flux (w/m2)
-      real(kind=rb) :: fnetc(0:nlay+1)        ! clear sky net longwave flux (w/m2)
-      real(kind=rb) :: htrc(0:nlay+1)         ! clear sky longwave heating rate (k/day)
+!     real(kind=rb) :: totuflux(0:nlay+1)     ! upward longwave flux (w/m2)
+!     real(kind=rb) :: totdflux(0:nlay+1)     ! downward longwave flux (w/m2)
+!      real(kind=rb) :: fnet(0:nlay+1)         ! net longwave flux (w/m2)
+!      real(kind=rb) :: htr(0:nlay+1)          ! longwave heating rate (k/day)
+!     real(kind=rb) :: totuclfl(0:nlay+1)     ! clear sky upward longwave flux (w/m2)
+!     real(kind=rb) :: totdclfl(0:nlay+1)     ! clear sky downward longwave flux (w/m2)
+!      real(kind=rb) :: fnetc(0:nlay+1)        ! clear sky net longwave flux (w/m2)
+!      real(kind=rb) :: htrc(0:nlay+1)         ! clear sky longwave heating rate (k/day)
 
 !
 ! Initializations
@@ -420,8 +428,8 @@
 !     oneminus = 1._rb - 1.e-6_rb
 !     pi = 2._rb * asin(1._rb)
 !     fluxfac = pi * 2.e4_rb                  ! orig:   fluxfac = pi * 2.d4  
-      istart = 1
-      iend = 16
+!     istart = 1
+!     iend = 16
 !     iout = 0
 !     ims = 1
 
@@ -457,7 +465,7 @@
 !  Prepare atmospheric profile from GCM for use in RRTMG, and define
 !  other input parameters.  
 
-         call inatm (iplon, nlay, icld, iaer, &
+         call inatm (iplon, nlay, nsfc, icld, iaer, &
               play, plev, tlay, tlev, tsfc, h2ovmr, &
               o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, &
               cfc22vmr, ccl4vmr, emis, inflglw, iceflglw, liqflglw, &
@@ -480,10 +488,9 @@
 ! coefficients and indices needed to compute the optical depths
 ! by interpolating data from stored reference atmospheres. 
 
-         call setcoef(nlayers, istart, pavel, tavel, tz, tbound, semiss, &
+         call setcoef(nlayers, nsfc, pavel, tavel, tz, tbound, semiss, &
                       coldry, wkl, wbrodl, &
-                      laytrop, jp, jt, jt1, planklay, planklev, plankbnd, &
-                      idrv, dplankbnd_dt, &
+                      laytrop, jp, jt, jt1, planklay, planklev, planksfc, &
                       colh2o, colco2, colo3, coln2o, colco, colch4, colo2, &
                       colbrd, fac00, fac01, fac10, fac11, &
                       rat_h2oco2, rat_h2oco2_1, rat_h2oo3, rat_h2oo3_1, &
@@ -496,7 +503,7 @@
 !  each longwave spectral band.
 
          call taumol(nlayers, pavel, wx, coldry, &
-                     laytrop, jp, jt, jt1, planklay, planklev, plankbnd, &
+                     laytrop, jp, jt, jt1, &
                      colh2o, colco2, colo3, coln2o, colco, colch4, colo2, &
                      colbrd, fac00, fac01, fac10, fac11, &
                      rat_h2oco2, rat_h2oco2_1, rat_h2oo3, rat_h2oo3_1, &
@@ -530,34 +537,38 @@
 
          if (nl%iclrsky == 0) then
 
-            call rtrnmc_noclr(nlayers, istart, iend, iout, pz, semiss, ncbands, &
-                              cldfmc, taucmc, planklay, planklev, plankbnd, &
+            call rtrnmc_noclr(nlayers, nsfc, pz, semiss, ncbands, &
+                              cldfmc, taucmc, planklay, planklev, &
+                              planksfc, frac_sfck, &
                               pwvcm, fracs, taut, &
-                              totuflux, totdflux, fnet, htr, &
-                              totuclfl, totdclfl, fnetc, htrc)
+                              uflx, dflx, &
+                              uflxc, dflxc, &
+                              uflx_sfc, dflx_sfc, uflxc_sfc, dflxc_sfc)
          else
 
-            call rtrnmc(nlayers, istart, iend, iout, pz, semiss, ncbands, &
-                        cldfmc, taucmc, planklay, planklev, plankbnd, &
+            call rtrnmc(nlayers, nsfc, pz, semiss, ncbands, &
+                        cldfmc, taucmc, planklay, planklev, &
+                        planksfc, frac_sfck, &
                         pwvcm, fracs, taut, &
-                        totuflux, totdflux, fnet, htr, &
-                        totuclfl, totdclfl, fnetc, htrc)
+                        uflx, dflx, &
+                        uflxc, dflxc, &
+                        uflx_sfc, dflx_sfc, uflxc_sfc, dflxc_sfc)
+
          endif
-            
 
 !  Transfer up and down fluxes and heating rate to output arrays.
 !  Vertical indexing goes from bottom to top; reverse here for GCM if necessary.
 
-         do k = 0, nlayers
-            uflx(iplon,k+1) = totuflux(k)
-            dflx(iplon,k+1) = totdflux(k)
-            uflxc(iplon,k+1) = totuclfl(k)
-            dflxc(iplon,k+1) = totdclfl(k)
-         enddo
-         do k = 0, nlayers-1
-            hr(iplon,k+1) = htr(k)
-            hrc(iplon,k+1) = htrc(k)
-         enddo
+!!         do k = 0, nlayers
+!!            uflx (iplon,k+1) = totuflux(k)
+!!            dflx (iplon,k+1) = totdflux(k)
+!!            uflxc(iplon,k+1) = totuclfl(k)
+!!            dflxc(iplon,k+1) = totdclfl(k)
+!!         enddo
+!!         do k = 0, nlayers-1
+!!            hr(iplon,k+1) = htr(k)
+!!            hrc(iplon,k+1) = htrc(k)
+!!         enddo
 
 ! End longitude/column loop
       enddo
@@ -565,7 +576,7 @@
       end subroutine rrtmg_lw
 
 !***************************************************************************
-      subroutine inatm (iplon, nlay, icld, iaer, &
+      subroutine inatm (iplon, nlay, nsfc, icld, iaer, &
               play, plev, tlay, tlev, tsfc, h2ovmr, &
               o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, &
               cfc22vmr, ccl4vmr, emis, inflglw, iceflglw, liqflglw, &
@@ -593,6 +604,7 @@
 ! by scaling mass mixing ratio (g/g) with the appropriate molecular weights (g/mol) 
       integer(kind=im), intent(in) :: iplon           ! column loop index
       integer(kind=im), intent(in) :: nlay            ! Number of model layers
+      integer(kind=im), intent(in) :: nsfc
       integer(kind=im), intent(in) :: icld            ! clear/cloud and cloud overlap flag
       integer(kind=im), intent(in) :: iaer            ! aerosol option flag
 
@@ -660,7 +672,7 @@
                                                       !    Dimensions: (0:nlay)
       real(kind=rb), intent(out) :: tz(0:)            ! level (interface) temperatures (K)
                                                       !    Dimensions: (0:nlay)
-      real(kind=rb), intent(out) :: tbound            ! surface temperature (K)
+      real(kind=rb), intent(out) :: tbound(:)         ! surface temperature (K)
       real(kind=rb), intent(out) :: coldry(:)         ! dry air column density (mol/cm2)
                                                       !    Dimensions: (nlay)
       real(kind=rb), intent(out) :: wbrodl(:)         ! broadening gas column density (mol/cm2)
@@ -670,7 +682,7 @@
       real(kind=rb), intent(out) :: wx(:,:)           ! cross-section amounts (mol/cm-2)
                                                       !    Dimensions: (maxxsec,nlay)
       real(kind=rb), intent(out) :: pwvcm             ! precipitable water vapor (cm)
-      real(kind=rb), intent(out) :: semiss(:)         ! lw surface emissivity
+      real(kind=rb), intent(out) :: semiss(:,:)       ! lw surface emissivity
                                                       !    Dimensions: (nbndlw)
 
 ! Atmosphere/clouds - cldprmc
@@ -740,7 +752,9 @@
       wvttl = 0.0_rb
  
 !  Set surface temperature.
-      tbound = tsfc(iplon)
+      do l = 1, nsfc
+         tbound(l) = tsfc(l)
+      enddo
 
 !  Install input GCM arrays into RRTMG_LW arrays for pressure, temperature,
 !  and molecular amounts.  
@@ -842,8 +856,9 @@
 ! Set spectral surface emissivity for each longwave band.  
 
       do n=1,nbndlw
-         semiss(n) = emis(iplon,n)
-!          semiss(n) = 1.0_rb
+         do l = 1, nsfc
+            semiss(l,n) = emis(l,n)
+         enddo
       enddo
 
 ! Transfer aerosol optical properties to RRTM variable;

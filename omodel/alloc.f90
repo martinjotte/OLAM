@@ -79,7 +79,7 @@ subroutine olam_mem_alloc()
   call alloc_micro(mza,mwa,miclevel,ncat,nccntyp,iccn,igccn,iifn,jnmb)
   call filltab_micro(nccntyp)
 
-  call alloc_radiate(mza,mwa,ilwrtyp,iswrtyp)
+  call alloc_radiate(mza,mwa,nsw_max,ilwrtyp,iswrtyp)
   call filltab_radiate()
 
   call alloc_turb(mza,mwa,mva,nsw_max,idiffk,mrls)

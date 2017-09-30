@@ -30,11 +30,14 @@
 
 !-----------------------------------------------------------------------------
 
-      subroutine rtrnmc(nlayers, istart, iend, iout, pz, semiss, ncbands, &
-                        cldfmc, taucmc, planklay, planklev, plankbnd, &
+      subroutine rtrnmc(nlayers, nsfc, pz, semiss, ncbands, &
+                        cldfmc, taucmc, planklay, planklev, &
+                        planksfc, frac_sfck, &
                         pwvcm, fracs, taut, &
-                        totuflux, totdflux, fnet, htr, &
-                        totuclfl, totdclfl, fnetc, htrc)
+                        totuflux, totdflux, &
+                        totuclfl, totdclfl, &
+                        totuflux_sfc, totdflux_sfc, &
+                        totuclfl_sfc, totdclfl_sfc )
 
 !-----------------------------------------------------------------------------
 !
@@ -63,28 +66,30 @@
 
 ! ------- Declarations -------
 
+      implicit none
+
 ! ----- Input -----
       integer(kind=im), intent(in) :: nlayers         ! total number of layers
-      integer(kind=im), intent(in) :: istart          ! beginning band of calculation
-      integer(kind=im), intent(in) :: iend            ! ending band of calculation
-      integer(kind=im), intent(in) :: iout            ! output option flag
+
+      integer(kind=im), intent(in) :: nsfc            ! total number of surface layers
 
 ! Atmosphere
       real(kind=rb), intent(in) :: pz(0:nlayers+1)    ! level (interface) pressures (hPa, mb)
                                                       !    Dimensions: (0:nlayers)
       real(kind=rb), intent(in) :: pwvcm              ! precipitable water vapor (cm)
-      real(kind=rb), intent(in) :: semiss(nbndlw)     ! lw surface emissivity
+      real(kind=rb), intent(in) :: semiss(nsfc,nbndlw)! lw surface emissivity
                                                       !    Dimensions: (nbndlw)
       real(kind=rb), intent(in) :: planklay(nlayers+1,nbndlw)
                                                       !    Dimensions: (nlayers,nbndlw)
       real(kind=rb), intent(in) :: planklev(0:nlayers+1,nbndlw)
                                                       !    Dimensions: (0:nlayers,nbndlw)
-      real(kind=rb), intent(in) :: plankbnd(nbndlw)   ! 
+      real(kind=rb), intent(in) :: planksfc(nsfc,nbndlw)   ! 
                                                       !    Dimensions: (nbndlw)
       real(kind=rb), intent(in) :: fracs(nlayers+1,ngptlw)
                                                       !    Dimensions: (nlayers,ngptw)
       real(kind=rb), intent(in) :: taut(nlayers+1,ngptlw)! gaseous + aerosol optical depths
                                                       !    Dimensions: (nlayers,ngptlw)
+      real(kind=rb), intent(in) :: frac_sfck(nsfc)
 
 ! Clouds
       integer(kind=im), intent(in) :: ncbands         ! number of cloud spectral bands
@@ -94,23 +99,30 @@
                                                       !    Dimensions: (ngptlw,nlayers)
 
 ! ----- Output -----
-      real(kind=rb), intent(out) :: totuflux(0:nlayers+1)! upward longwave flux (w/m2)
+      real(kind=rb), intent(out) :: totuflux(nlayers+1)! upward longwave flux (w/m2)
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: totdflux(0:nlayers+1)! downward longwave flux (w/m2)
+      real(kind=rb), intent(out) :: totdflux(nlayers+1)! downward longwave flux (w/m2)
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: fnet(0:nlayers+1) ! net longwave flux (w/m2)
+!      real(kind=rb), intent(out) :: fnet(0:nlayers+1) ! net longwave flux (w/m2)
+!                                                      !    Dimensions: (0:nlayers)
+!      real(kind=rb), intent(out) :: htr(0:nlayers+1)  ! longwave heating rate (k/day)
+!                                                      !    Dimensions: (0:nlayers)
+      real(kind=rb), intent(out) :: totuclfl(nlayers+1)! clear sky upward longwave flux (w/m2)
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: htr(0:nlayers+1)  ! longwave heating rate (k/day)
+      real(kind=rb), intent(out) :: totdclfl(nlayers+1)! clear sky downward longwave flux (w/m2)
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: totuclfl(0:nlayers+1)! clear sky upward longwave flux (w/m2)
+!      real(kind=rb), intent(out) :: fnetc(0:nlayers+1)! clear sky net longwave flux (w/m2)
+!                                                      !    Dimensions: (0:nlayers)
+!      real(kind=rb), intent(out) :: htrc(0:nlayers+1) ! clear sky longwave heating rate (k/day)
+!                                                      !    Dimensions: (0:nlayers)
+      real(kind=rb), intent(out) :: totuflux_sfc(nsfc)! upward longwave flux (w/m2)
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: totdclfl(0:nlayers+1)! clear sky downward longwave flux (w/m2)
+      real(kind=rb), intent(out) :: totdflux_sfc(nsfc)! downward longwave flux (w/m2)
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: fnetc(0:nlayers+1)! clear sky net longwave flux (w/m2)
+      real(kind=rb), intent(out) :: totuclfl_sfc(nsfc)! upward longwave flux (w/m2)
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: htrc(0:nlayers+1) ! clear sky longwave heating rate (k/day)
+      real(kind=rb), intent(out) :: totdclfl_sfc(nsfc)! downward longwave flux (w/m2)
                                                       !    Dimensions: (0:nlayers)
-
 ! ----- Local -----
 ! Declarations for radiative transfer
 !     real(kind=rb) :: abscld(nlayers,ngptlw)
@@ -129,6 +141,12 @@
       real(kind=rb) :: dclfl(0:nlayers)
 !     real(kind=rb) :: odcld(nlayers,ngptlw)
 
+      real(kind=rb) :: drad_sfc(0:nsfc)
+      real(kind=rb) :: urad_sfc(0:nsfc)
+
+      real(kind=rb) :: clrdrad_sfc(0:nsfc)
+      real(kind=rb) :: clrurad_sfc(0:nsfc)
+
       real(kind=rb) :: transclr(nlayers)
       real(kind=rb) :: transtot(nlayers)
  
@@ -136,12 +154,15 @@
       real(kind=rb) :: transcld, radld, radclrd, plfrac, blay, dplankup, dplankdn
       real(kind=rb) :: odepth, odtot, odepth_rec, odtot_rec !, gassrc
       real(kind=rb) :: tblind, tfactot, tfacgas, transc, tausfac, aclr, atot
-      real(kind=rb) :: rad0, radlu, radclru
-      real(kind=rb) :: reflect(nbndlw)
+      real(kind=rb) :: radlu, radclru, dplanksfc
+      real(kind=rb) :: reflect(nsfc,nbndlw)
+      real(kind=rb) :: plankbnd(nsfc,nbndlw)
 
+      real(kind=rb) :: rad0(0:nsfc)
       real(kind=rb) :: bbdclr(nlayers), bbdtot(nlayers)
+      real(kind=rb) :: bbdclr_sfc(nsfc), bbdtot_sfc(nsfc)
 
-      integer(kind=im) :: ibnd, ib, iband, lev, l      ! loop indices
+      integer(kind=im) :: iband, lev, l      ! loop indices
       integer(kind=im) :: igc                          ! g-point interval counter
       integer(kind=im) :: iclddn                       ! flag for cloud in down path
       integer(kind=im) :: ittot, itgas, itr            ! lookup table indices
@@ -246,29 +267,40 @@
 
 !     hvrrtc = '$Revision: 1.7 $'
 
-      do ibnd = 1,nbndlw
-         if (ibnd.eq.1 .or. ibnd.eq.4 .or. ibnd.ge.10) then
-            secdiff(ibnd) = 1.66_rb
+      do iband = 1,nbndlw
+         if (iband.eq.1 .or. iband.eq.4 .or. iband.ge.10) then
+            secdiff(iband) = 1.66_rb
          else
-            secdiff(ibnd) = a0(ibnd) + a1(ibnd)*exp(a2(ibnd)*pwvcm)
-            if (secdiff(ibnd) .gt. 1.80_rb) secdiff(ibnd) = 1.80_rb
-            if (secdiff(ibnd) .lt. 1.50_rb) secdiff(ibnd) = 1.50_rb
+            secdiff(iband) = a0(iband) + a1(iband)*exp(a2(iband)*pwvcm)
+            if (secdiff(iband) .gt. 1.80_rb) secdiff(iband) = 1.80_rb
+            if (secdiff(iband) .lt. 1.50_rb) secdiff(iband) = 1.50_rb
          endif
       enddo
 
-      do lev = 0, nlayers
+      do lev = 1, nlayers+1
          totuflux(lev) = 0.0_rb
          totdflux(lev) = 0.0_rb
          totuclfl(lev) = 0.0_rb
          totdclfl(lev) = 0.0_rb
       enddo
 
+      do lev = 1, nsfc
+         totuflux_sfc(lev) = 0.0_rb
+         totdflux_sfc(lev) = 0.0_rb
+         totuclfl_sfc(lev) = 0.0_rb
+         totdclfl_sfc(lev) = 0.0_rb
+      enddo
+
       drad   (nlayers) = 0.0_rb
       clrdrad(nlayers) = 0.0_rb
 
-      do ibnd = 1,nbndlw
-         reflect(ibnd) = 1.0 - semiss(ibnd)
+      do iband = 1,nbndlw
+         do lev = 1, nsfc
+            reflect (lev,iband)  = 1.0 - semiss(lev,iband)
+            plankbnd(lev,iband) = semiss(lev,iband) * planksfc(lev,iband)
+         enddo
       enddo
+
 
 ! Loop over g-channels
       do igc = 1, ngptlw
@@ -310,6 +342,12 @@
             bbdclr(lev) = plfrac * (blay + tausfac * dplankdn) * aclr
             bbuclr(lev) = plfrac * (blay + tausfac * dplankup) * aclr
 
+            ! special for shaved cells:
+            if (lev <= nsfc) then
+               dplanksfc       = planksfc(lev,iband) - blay
+               bbdclr_sfc(lev) = plfrac * (blay + tausfac * dplanksfc) * aclr
+            endif
+
             !  Cloudy layer properties
 
             if (cldfmc(igc,lev) > 0.99_rb) then
@@ -340,11 +378,21 @@
                bbdtot(lev) = plfrac * (blay + tfactot * dplankdn) * atot
                bbutot(lev) = plfrac * (blay + tfactot * dplankup) * atot
 
+               ! special for shaved cells:
+               if (lev <= nsfc) then
+                  bbdtot_sfc(lev) = plfrac * (blay + tfactot * dplanksfc) * atot
+               endif
+
              else
 
                 transtot(lev) = transclr(lev)
                 bbdtot  (lev) = bbdclr  (lev)
                 bbutot  (lev) = bbuclr  (lev)
+
+                ! special for shaved cells:
+                if (lev <= nsfc) then
+                   bbdtot_sfc(lev) = bbdclr_sfc(lev)
+                endif
 
              endif
 
@@ -354,7 +402,7 @@
 
          iclddn = 0
 
-! Downward radiative transfer loop.  
+! Downward radiative transfer loop
 
          do lev = nlayers, 1, -1
 
@@ -367,12 +415,23 @@
 !  remain clear.  Streams diverge when a cloud is reached (iclddn=1),
 !  and clear sky stream must be computed separately from that point.
 
-            if (iclddn.eq.1) then
+            if (iclddn == 1) then
                clrdrad(lev-1) = clrdrad(lev) * transclr(lev) + bbdclr(lev)
             else
                clrdrad(lev-1) = drad(lev-1)
             endif
 
+         enddo
+
+         ! special for shaved cells:
+         do lev = nsfc, 1, -1
+            drad_sfc(lev-1) = drad(lev) * transtot(lev) + bbdtot_sfc(lev)
+
+            if (iclddn == 1) then
+               clrdrad_sfc(lev-1) = clrdrad(lev) * transclr(lev) + bbdclr_sfc(lev)
+            else
+               clrdrad_sfc(lev-1) = drad_sfc(lev-1)
+            endif
          enddo
 
 !  Spectral emissivity & reflectance
@@ -383,41 +442,87 @@
 !  Note: The emissivity is applied to plankbnd and dplankbnd_dt when 
 !  they are defined in subroutine setcoef. 
 
-         rad0 = fracs(1,igc) * plankbnd(iband)
+         rad0(0) = fracs(1,igc) * plankbnd(1,iband)
 
 !  Add in specular reflection of surface downward radiance.
 
-         urad   (0) = rad0 + reflect(iband) *    drad(0)
-         clrurad(0) = rad0 + reflect(iband) * clrdrad(0)
+         urad_sfc(0) = rad0(0) + reflect(1,iband) * drad_sfc(0)
+         urad    (0) = urad_sfc(0)
 
-! Upward radiative transfer loop.
+         ! special for shaved cells
+         if (nsfc > 1) then
+            do lev = 1, nsfc-1
 
-         do lev = 1, nlayers
+               rad0(lev) = fracs(lev+1,igc) * plankbnd(lev+1,iband)
 
-! Total Sky
+               urad_sfc(lev) = rad0(lev) + reflect(lev+1,iband) * drad_sfc(lev)
+
+               urad(lev) = ( urad_sfc(lev-1) *     frac_sfck(lev)  &
+                           + urad    (lev-1) * (1.-frac_sfck(lev)) ) * transtot(lev) + bbutot(lev)
+            enddo
+            
+            urad(nsfc) = ( urad_sfc(nsfc-1) *     frac_sfck(nsfc)  &
+                         + urad    (nsfc-1) * (1.-frac_sfck(nsfc)) ) * transtot(nsfc) + bbutot(nsfc)
+         else
+            urad(nsfc) = urad(nsfc-1) * transtot(nsfc) + bbutot(nsfc)
+         endif
+
+! Upward radiative transfer loop, total sky
+
+         do lev = nsfc+1, nlayers
             urad(lev) = urad(lev-1) * transtot(lev) + bbutot(lev)
+         enddo
 
-!  Set clear sky stream to total sky stream as long as all layers
-!  are clear (iclddn=0).  Streams must be calculated separately at 
-!  all layers when a cloud is present (ICLDDN=1), because surface 
-!  reflectance is different for each stream.
+! Now do clear sky
 
-            if (iclddn.eq.1) then
-               clrurad(lev) = clrurad(lev-1) * transclr(lev) + bbuclr(lev)
+         if (iclddn == 1) then
+
+            clrurad_sfc(0) = rad0(0) + reflect(1,iband) * clrdrad_sfc(0)
+            clrurad    (0) = clrurad_sfc(0)
+
+            ! special for shaved cells
+            if (nsfc > 1) then
+               do lev = 1, nsfc-1
+
+                  clrurad_sfc(lev) = rad0(lev) + reflect(lev+1,iband) * clrdrad_sfc(lev)
+
+                  clrurad(lev) = ( clrurad_sfc(lev-1) *     frac_sfck(lev)  &
+                                 + clrurad    (lev-1) * (1.-frac_sfck(lev)) ) * transclr(lev) + bbuclr(lev)
+               enddo
+
+               clrurad(nsfc) = ( clrurad_sfc(nsfc-1) *     frac_sfck(nsfc)  &
+                               + clrurad    (nsfc-1) * (1.-frac_sfck(nsfc)) ) * transclr(nsfc) + bbuclr(nsfc)
             else
-               clrurad(lev) = urad(lev)
+               clrurad(nsfc) = clrurad(nsfc-1) * transclr(nsfc) + bbuclr(nsfc)
             endif
 
-         enddo
+            ! Upward radiative transfer loop, clear sky
+            do lev = nsfc+1, nlayers
+               clrurad(lev) = clrurad(lev-1) * transclr(lev) + bbuclr(lev)
+            enddo
+
+         else
+
+            clrurad_sfc(0:nsfc-1)  = urad_sfc(0:nsfc-1)
+            clrurad    (0:nlayers) = urad    (0:nlayers)
+
+         endif
 
 ! Process longwave output from band for total and clear streams.
 ! Calculate upward, downward, and net flux.
 
-         do lev = nlayers, 0, -1
-            totuflux(lev) = totuflux(lev) + urad(lev) * delwave(iband)
-            totdflux(lev) = totdflux(lev) + drad(lev) * delwave(iband)
-            totuclfl(lev) = totuclfl(lev) + clrurad(lev) * delwave(iband)
-            totdclfl(lev) = totdclfl(lev) + clrdrad(lev) * delwave(iband)
+         do lev = 1, nlayers+1
+            totuflux(lev) = totuflux(lev) +    urad(lev-1) * delwave(iband)
+            totdflux(lev) = totdflux(lev) +    drad(lev-1) * delwave(iband)
+            totuclfl(lev) = totuclfl(lev) + clrurad(lev-1) * delwave(iband)
+            totdclfl(lev) = totdclfl(lev) + clrdrad(lev-1) * delwave(iband)
+         enddo
+
+         do lev = 1, nsfc
+            totuflux_sfc(lev) = totuflux_sfc(lev) +    urad_sfc(lev-1) * delwave(iband)
+            totdflux_sfc(lev) = totdflux_sfc(lev) +    drad_sfc(lev-1) * delwave(iband)
+            totuclfl_sfc(lev) = totuclfl_sfc(lev) + clrurad_sfc(lev-1) * delwave(iband)
+            totdclfl_sfc(lev) = totdclfl_sfc(lev) + clrdrad_sfc(lev-1) * delwave(iband)
          enddo
 
 ! End spectral g-point loop
@@ -425,38 +530,47 @@
 
 ! Calculate fluxes at model levels
 
-      do lev = 0, nlayers
+      do lev = 1, nlayers+1
          totuflux(lev) = totuflux(lev) * fluxfacw
          totdflux(lev) = totdflux(lev) * fluxfacw
-         fnet(lev) = totuflux(lev) - totdflux(lev)
          totuclfl(lev) = totuclfl(lev) * fluxfacw
          totdclfl(lev) = totdclfl(lev) * fluxfacw
-         fnetc(lev) = totuclfl(lev) - totdclfl(lev)
       enddo
 
+      do lev = 1, nsfc
+         totuflux_sfc(lev) = totuflux_sfc(lev) * fluxfacw
+         totdflux_sfc(lev) = totdflux_sfc(lev) * fluxfacw
+
+         totuclfl_sfc(lev) = totuclfl_sfc(lev) * fluxfacw
+         totdclfl_sfc(lev) = totdclfl_sfc(lev) * fluxfacw
+      enddo
+      
 ! Calculate heating rates at model layers
 
-      do l = 0, nlayers-1
-         lev = l + 1
-         htr(l)=heatfac*(fnet(l)-fnet(lev))/(pz(l)-pz(lev)) 
-         htrc(l)=heatfac*(fnetc(l)-fnetc(lev))/(pz(l)-pz(lev)) 
-      enddo
+!!      do l = 0, nlayers-1
+!!         lev = l + 1
+!!         htr(l)=heatfac*(fnet(l)-fnet(lev))/(pz(l)-pz(lev)) 
+!!         htrc(l)=heatfac*(fnetc(l)-fnetc(lev))/(pz(l)-pz(lev)) 
+!!      enddo
 
 ! Set heating rate to zero in top layer
 
-      htr (nlayers) = 0.0_rb
-      htrc(nlayers) = 0.0_rb
+!!      htr (nlayers) = 0.0_rb
+!!      htrc(nlayers) = 0.0_rb
 
       end subroutine rtrnmc
 
 !-----------------------------------------------------------------------------
 
       subroutine rtrnmc_noclr( &
-                        nlayers, istart, iend, iout, pz, semiss, ncbands, &
-                        cldfmc, taucmc, planklay, planklev, plankbnd, &
+                        nlayers, nsfc, pz, semiss, ncbands, &
+                        cldfmc, taucmc, planklay, planklev, &
+                        planksfc, frac_sfck, &
                         pwvcm, fracs, taut, &
-                        totuflux, totdflux, fnet, htr, &
-                        totuclfl, totdclfl, fnetc, htrc)
+                        totuflux, totdflux, &
+                        totuclfl, totdclfl, &
+                        totuflux_sfc, totdflux_sfc, &
+                        totuclfl_sfc, totdclfl_sfc )
 
 !-----------------------------------------------------------------------------
 !
@@ -485,28 +599,30 @@
 
 ! ------- Declarations -------
 
+      implicit none
+
 ! ----- Input -----
       integer(kind=im), intent(in) :: nlayers         ! total number of layers
-      integer(kind=im), intent(in) :: istart          ! beginning band of calculation
-      integer(kind=im), intent(in) :: iend            ! ending band of calculation
-      integer(kind=im), intent(in) :: iout            ! output option flag
+
+      integer(kind=im), intent(in) :: nsfc            ! total number of surface layers
 
 ! Atmosphere
       real(kind=rb), intent(in) :: pz(0:nlayers+1)    ! level (interface) pressures (hPa, mb)
                                                       !    Dimensions: (0:nlayers)
       real(kind=rb), intent(in) :: pwvcm              ! precipitable water vapor (cm)
-      real(kind=rb), intent(in) :: semiss(nbndlw)     ! lw surface emissivity
+      real(kind=rb), intent(in) :: semiss(nsfc,nbndlw)! lw surface emissivity
                                                       !    Dimensions: (nbndlw)
       real(kind=rb), intent(in) :: planklay(nlayers+1,nbndlw)
                                                       !    Dimensions: (nlayers,nbndlw)
       real(kind=rb), intent(in) :: planklev(0:nlayers+1,nbndlw)
                                                       !    Dimensions: (0:nlayers,nbndlw)
-      real(kind=rb), intent(in) :: plankbnd(nbndlw)   ! 
+      real(kind=rb), intent(in) :: planksfc(nsfc,nbndlw)
                                                       !    Dimensions: (nbndlw)
       real(kind=rb), intent(in) :: fracs(nlayers+1,ngptlw)
                                                       !    Dimensions: (nlayers,ngptw)
       real(kind=rb), intent(in) :: taut(nlayers+1,ngptlw)! gaseous + aerosol optical depths
                                                       !    Dimensions: (nlayers,ngptlw)
+      real(kind=rb), intent(in) :: frac_sfck(nsfc)
 
 ! Clouds
       integer(kind=im), intent(in) :: ncbands         ! number of cloud spectral bands
@@ -516,23 +632,31 @@
                                                       !    Dimensions: (ngptlw,nlayers)
 
 ! ----- Output -----
-      real(kind=rb), intent(out) :: totuflux(0:nlayers+1)! upward longwave flux (w/m2)
+      real(kind=rb), intent(out) :: totuflux(nlayers+1)! upward longwave flux (w/m2)
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: totdflux(0:nlayers+1)! downward longwave flux (w/m2)
+      real(kind=rb), intent(out) :: totdflux(nlayers+1)! downward longwave flux (w/m2)
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: fnet(0:nlayers+1) ! net longwave flux (w/m2)
+!      real(kind=rb), intent(out) :: fnet(0:nlayers+1) ! net longwave flux (w/m2)
+!                                                      !    Dimensions: (0:nlayers)
+!      real(kind=rb), intent(out) :: htr(0:nlayers+1)  ! longwave heating rate (k/day)
+!                                                      !    Dimensions: (0:nlayers)
+      real(kind=rb), intent(out) :: totuclfl(nlayers+1)! clear sky upward longwave flux (w/m2)
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: htr(0:nlayers+1)  ! longwave heating rate (k/day)
+      real(kind=rb), intent(out) :: totdclfl(nlayers+1)! clear sky downward longwave flux (w/m2)
                                                       !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: totuclfl(0:nlayers+1)! clear sky upward longwave flux (w/m2)
-                                                      !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: totdclfl(0:nlayers+1)! clear sky downward longwave flux (w/m2)
-                                                      !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: fnetc(0:nlayers+1)! clear sky net longwave flux (w/m2)
-                                                      !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(out) :: htrc(0:nlayers+1) ! clear sky longwave heating rate (k/day)
-                                                      !    Dimensions: (0:nlayers)
+!      real(kind=rb), intent(out) :: fnetc(0:nlayers+1)! clear sky net longwave flux (w/m2)
+!                                                      !    Dimensions: (0:nlayers)
+!      real(kind=rb), intent(out) :: htrc(0:nlayers+1) ! clear sky longwave heating rate (k/day)
+!                                                      !    Dimensions: (0:nlayers)
 
+      real(kind=rb), intent(out) :: totuflux_sfc(nsfc)! upward longwave flux (w/m2)
+                                                      !    Dimensions: (0:nlayers)
+      real(kind=rb), intent(out) :: totdflux_sfc(nsfc)! downward longwave flux (w/m2)
+                                                      !    Dimensions: (0:nlayers)
+      real(kind=rb), intent(out) :: totuclfl_sfc(nsfc)! upward longwave flux (w/m2)
+                                                      !    Dimensions: (0:nlayers)
+      real(kind=rb), intent(out) :: totdclfl_sfc(nsfc)! downward longwave flux (w/m2)
+                                                      !    Dimensions: (0:nlayers)
 ! ----- Local -----
 ! Declarations for radiative transfer
 !     real(kind=rb) :: abscld(nlayers,ngptlw)
@@ -551,6 +675,9 @@
       real(kind=rb) :: dclfl(0:nlayers)
 !     real(kind=rb) :: odcld(nlayers,ngptlw)
 
+      real(kind=rb) :: drad_sfc(0:nsfc)
+      real(kind=rb) :: urad_sfc(0:nsfc)
+
       real(kind=rb) :: transclr(nlayers)
       real(kind=rb) :: transtot(nlayers)
  
@@ -558,12 +685,14 @@
       real(kind=rb) :: transcld, radld, radclrd, plfrac, blay, dplankup, dplankdn
       real(kind=rb) :: odepth, odtot, odepth_rec, odtot_rec !, gassrc
       real(kind=rb) :: tblind, tfactot, tfacgas, transc, tausfac, aclr, atot
-      real(kind=rb) :: rad0, radlu, radclru
-      real(kind=rb) :: reflect(nbndlw)
+      real(kind=rb) :: rad0, radlu, radclru, dplanksfc
+      real(kind=rb) :: reflect (nsfc,nbndlw)
+      real(kind=rb) :: plankbnd(nsfc,nbndlw)
 
-      real(kind=rb) :: bbdclr(nlayers), bbdtot(nlayers)
+      real(kind=rb) :: bbdtot(nlayers)
+      real(kind=rb) :: bbdtot_sfc(nsfc)
 
-      integer(kind=im) :: ibnd, ib, iband, lev, l      ! loop indices
+      integer(kind=im) :: iband, lev, l      ! loop indices
       integer(kind=im) :: igc                          ! g-point interval counter
       integer(kind=im) :: iclddn                       ! flag for cloud in down path
       integer(kind=im) :: ittot, itgas, itr            ! lookup table indices
@@ -668,28 +797,38 @@
 
 !     hvrrtc = '$Revision: 1.7 $'
 
-      do ibnd = 1,nbndlw
-         if (ibnd.eq.1 .or. ibnd.eq.4 .or. ibnd.ge.10) then
-            secdiff(ibnd) = 1.66_rb
+      do iband = 1,nbndlw
+         if (iband.eq.1 .or. iband.eq.4 .or. iband.ge.10) then
+            secdiff(iband) = 1.66_rb
          else
-            secdiff(ibnd) = a0(ibnd) + a1(ibnd)*exp(a2(ibnd)*pwvcm)
-            if (secdiff(ibnd) .gt. 1.80_rb) secdiff(ibnd) = 1.80_rb
-            if (secdiff(ibnd) .lt. 1.50_rb) secdiff(ibnd) = 1.50_rb
+            secdiff(iband) = a0(iband) + a1(iband)*exp(a2(iband)*pwvcm)
+            if (secdiff(iband) .gt. 1.80_rb) secdiff(iband) = 1.80_rb
+            if (secdiff(iband) .lt. 1.50_rb) secdiff(iband) = 1.50_rb
          endif
       enddo
 
-      do lev = 0, nlayers
+      do lev = 1, nlayers+1
          totuflux(lev) = 0.0_rb
          totdflux(lev) = 0.0_rb
          totuclfl(lev) = 0.0_rb
          totdclfl(lev) = 0.0_rb
       enddo
 
+      do lev = 1, nsfc
+         totuflux_sfc(lev) = 0.0_rb
+         totdflux_sfc(lev) = 0.0_rb
+         totuclfl_sfc(lev) = 0.0_rb
+         totdclfl_sfc(lev) = 0.0_rb
+      enddo
+
       drad   (nlayers) = 0.0_rb
       clrdrad(nlayers) = 0.0_rb
 
-      do ibnd = 1,nbndlw
-         reflect(ibnd) = 1.0 - semiss(ibnd)
+      do iband = 1,nbndlw
+         do lev = 1, nsfc
+            reflect (lev,iband)  = 1.0 - semiss(lev,iband)
+            plankbnd(lev,iband) = semiss(lev,iband) * planksfc(lev,iband)
+         enddo
       enddo
 
 ! Loop over g-channels
@@ -732,17 +871,24 @@
             bbdtot(lev) = plfrac * (blay + tfactot * dplankdn) * atot
             bbutot(lev) = plfrac * (blay + tfactot * dplankup) * atot
 
+            ! special for shaved cells:
+            if (lev <= nsfc) then
+               dplanksfc       = planksfc(lev,iband) - blay
+               bbdtot_sfc(lev) = plfrac * (blay + tfactot * dplanksfc) * atot
+            endif
          enddo
 
 ! Radiative transfer starts here.
 
-! Downward radiative transfer loop.  
+! Downward radiative transfer loop, total sky only.
 
          do lev = nlayers, 1, -1
-
-! Total Sky
             drad(lev-1) = drad(lev) * transtot(lev) + bbdtot(lev)
+         enddo
 
+         ! special for shaved cells:
+         do lev = nsfc, 1, -1
+            drad_sfc(lev-1) = drad(lev) * transtot(lev) + bbdtot_sfc(lev)
          enddo
 
 !  Spectral emissivity & reflectance
@@ -753,27 +899,48 @@
 !  Note: The emissivity is applied to plankbnd and dplankbnd_dt when 
 !  they are defined in subroutine setcoef. 
 
-         rad0 = fracs(1,igc) * plankbnd(iband)
+         rad0 = fracs(1,igc) * plankbnd(1,iband)
 
 !  Add in specular reflection of surface downward radiance.
 
-         urad   (0) = rad0 + reflect(iband) *    drad(0)
+         urad_sfc(0) = rad0 + reflect(1,iband) * drad_sfc(0)
+         urad    (0) = urad_sfc(0)
 
-! Upward radiative transfer loop.
+         ! special for shaved cells
+         if (nsfc > 1) then
+            do lev = 1, nsfc-1
 
-         do lev = 1, nlayers
+               rad0 = fracs(lev+1,igc) * plankbnd(lev+1,iband)
 
-! Total Sky
+               urad_sfc(lev) = rad0 + reflect(lev+1,iband) * drad_sfc(lev)
+
+               urad(lev) = ( urad_sfc(lev-1) *     frac_sfck(lev)  &
+                           + urad    (lev-1) * (1.-frac_sfck(lev)) ) * transtot(lev) + bbutot(lev)
+            enddo
+            
+            urad(nsfc) = ( urad_sfc(nsfc-1) *     frac_sfck(nsfc)  &
+                         + urad    (nsfc-1) * (1.-frac_sfck(nsfc)) ) * transtot(nsfc) + bbutot(nsfc)
+         else
+            urad(nsfc) = urad(nsfc-1) * transtot(nsfc) + bbutot(nsfc)
+         endif
+
+! Upward radiative transfer loop, total sky
+
+         do lev = nsfc+1, nlayers
             urad(lev) = urad(lev-1) * transtot(lev) + bbutot(lev)
-
          enddo
 
 ! Process longwave output from band for total and clear streams.
 ! Calculate upward, downward, and net flux.
 
-         do lev = nlayers, 0, -1
-            totuflux(lev) = totuflux(lev) + urad(lev) * delwave(iband)
-            totdflux(lev) = totdflux(lev) + drad(lev) * delwave(iband)
+         do lev = 1, nlayers+1
+            totuflux(lev) = totuflux(lev) + urad(lev-1) * delwave(iband)
+            totdflux(lev) = totdflux(lev) + drad(lev-1) * delwave(iband)
+         enddo
+
+         do lev = 1, nsfc
+            totuflux_sfc(lev) = totuflux_sfc(lev) + urad_sfc(lev-1) * delwave(iband)
+            totdflux_sfc(lev) = totdflux_sfc(lev) + drad_sfc(lev-1) * delwave(iband)
          enddo
 
 ! End spectral g-point loop
@@ -781,25 +948,64 @@
 
 ! Calculate fluxes at model levels
 
-      do lev = 0, nlayers
+      do lev = 1, nlayers+1
          totuflux(lev) = totuflux(lev) * fluxfacw
          totdflux(lev) = totdflux(lev) * fluxfacw
-         fnet    (lev) = totuflux(lev) - totdflux(lev)
-         fnetc   (lev) = 0.0
+!        fnet    (lev-1) = totuflux(lev) - totdflux(lev)
+!        fnetc   (lev-1) = 0.0
+      enddo
+
+!!      if (nsfc > 2) then
+!!
+!!      write(io6,*) nsfc
+!!      write(io6,'(20g13.5)') totuflux_sfc(1:nsfc) * fluxfacw
+!!      write(io6,'(20g13.5)') totdflux_sfc(1:nsfc) * fluxfacw
+!!      write(io6,*)
+!!      write(io6,'(20g13.5)') totuflux(0:4)
+!!      write(io6,'(20g13.5)') totdflux(0:4)
+!!      write(io6,*)
+!!      write(io6,'(20g13.5)') planklay(1:nsfc,1)
+!!      write(io6,'(20g13.5)') planklev(0:nsfc-1,1)
+!!      write(io6,'(20g13.5)') planksfc(1:nsfc,1)
+!!      write(io6,'(20g13.5)') plankbnd(1:nsfc,1)
+!!      write(io6,*)
+!!      write(io6,'(20g13.5)') planklay(1:nsfc,16)
+!!      write(io6,'(20g13.5)') planklev(0:nsfc-1,16)
+!!      write(io6,'(20g13.5)') planksfc(1:nsfc,16)
+!!      write(io6,'(20g13.5)') plankbnd(1:nsfc,16)
+!!      write(io6,*)
+!!      write(io6,'(20g13.5)') reflect(1:nsfc,1)
+!!      write(io6,'(20g13.5)') semiss(1:nsfc,1)
+!!      write(io6,*)
+!!      write(io6,'(20g13.5)') reflect(1:nsfc,16)
+!!      write(io6,'(20g13.5)') semiss(1:nsfc,16)
+!!
+!!      write(io6,*)
+!!      write(io6,'(20g13.5)') frac_sfck(1:nsfc)
+!!      write(io6,*)
+!!      write(io6,*)
+!!      
+!!
+!!      endif
+!!!     stop
+!!
+      do lev = 1, nsfc
+         totuflux_sfc(lev) = totuflux_sfc(lev) * fluxfacw
+         totdflux_sfc(lev) = totdflux_sfc(lev) * fluxfacw
       enddo
 
 ! Calculate heating rates at model layers
 
-      do l = 0, nlayers-1
-         lev = l + 1
-         htr (l) = heatfac*(fnet(l)-fnet(lev))/(pz(l)-pz(lev)) 
-         htrc(l) = 0.0
-      enddo
+!!      do l = 0, nlayers-1
+!!         lev = l + 1
+!!         htr (l) = heatfac*(fnet(l)-fnet(lev))/(pz(l)-pz(lev)) 
+!!         htrc(l) = 0.0
+!!      enddo
 
 ! Set heating rate to zero in top layer
 
-      htr (nlayers) = 0.0_rb
-      htrc(nlayers) = 0.0_rb
+!!      htr (nlayers) = 0.0_rb
+!!      htrc(nlayers) = 0.0_rb
 
       end subroutine rtrnmc_noclr
 

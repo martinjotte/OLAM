@@ -107,6 +107,11 @@ Module mem_leaf
 
       real, allocatable :: cosz      (:) ! cosine of the solar zenith angle of the land cell
 
+!     real, allocatable :: par         (:) ! total photosynthetic active radiation (W/m^2)
+!     real, allocatable :: par_diffuse (:) ! diffuse photosynthetic active radiation (W/m^2)
+      real, allocatable :: ppfd        (:) ! total photosynthetic photon flux density (uMol/m^2/s)
+      real, allocatable :: ppfd_diffuse(:) ! diffuse photosynthetic photon flux density (uMol/m^2/s)
+      
 ! Precipitation fluxes
 
       real, allocatable :: pcpg (:) ! new pcp amount this leaf timestep [kg/m^2]
@@ -235,6 +240,11 @@ Contains
      allocate (land%rlong_v            (mwl)) ; land%rlong_v         = rinit
 
      allocate (land%cosz               (mwl)) ; land%cosz            = rinit
+
+!    allocate (land%par                (mwl)) ; land%par             = rinit
+!    allocate (land%par_diffuse        (mwl)) ; land%par_diffuse     = rinit
+     allocate (land%ppfd               (mwl)) ; land%ppfd            = rinit
+     allocate (land%ppfd_diffuse       (mwl)) ; land%ppfd_diffuse    = rinit
 
      allocate (land%pcpg               (mwl)) ; land%pcpg            = 0.0
      allocate (land%qpcpg              (mwl)) ; land%qpcpg           = 0.0
@@ -397,6 +407,14 @@ Contains
 
      if (allocated(land%vf)) call increment_vtable('LAND%VF', 'LW', rvar1=land%vf)
 
+!    if (allocated(land%par)) call increment_vtable('LAND%PAR', 'LW', rvar1=land%par)
+
+!    if (allocated(land%par_diffuse)) call increment_vtable('LAND%PAR_DIFFUSE', 'LW', rvar1=land%par_diffuse)
+
+     if (allocated(land%ppfd)) call increment_vtable('LAND%PPFD', 'LW', rvar1=land%ppfd)
+
+     if (allocated(land%ppfd_diffuse)) call increment_vtable('LAND%PPFD_DIFFUSE', 'LW', rvar1=land%ppfd_diffuse)
+     
    end subroutine filltab_leaf
 
 End Module mem_leaf

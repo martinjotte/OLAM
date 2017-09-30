@@ -9,8 +9,8 @@ module mem_megan
 
   integer, allocatable         :: ipft    (:)
   real,    allocatable, target :: avg_temp(:)
-  real,    allocatable, target :: avg_srad(:)
-  real,    allocatable, target :: avg_srad_dif(:)
+  real,    allocatable, target :: avg_ppfd(:)
+  real,    allocatable, target :: avg_ppfd_dif(:)
   real,    allocatable         :: lai_prev(:)
   real,    allocatable         :: lai_next(:)
   real,    allocatable         :: megan_emis(:,:)
@@ -45,13 +45,12 @@ contains
     integer, intent(in) :: mwl
     integer, intent(in) :: mwa
 
-    allocate(avg_temp(mwl)) ; avg_temp = 0.0
-    allocate(ipft    (mwl)) ; ipft     = 0
-    allocate(lai_prev(mwl)) ; lai_prev = 0.0
-    allocate(lai_next(mwl)) ; lai_next = 0.0
-
-    allocate(avg_srad    (mwa)) ; avg_srad     = 0.0
-    allocate(avg_srad_dif(mwa)) ; avg_srad_dif = 0.0
+    allocate(avg_temp    (mwl)) ; avg_temp     = 0.0
+    allocate(ipft        (mwl)) ; ipft         = 0
+    allocate(lai_prev    (mwl)) ; lai_prev     = 0.0
+    allocate(lai_next    (mwl)) ; lai_next     = 0.0
+    allocate(avg_ppfd    (mwl)) ; avg_ppfd     = 0.0
+    allocate(avg_ppfd_dif(mwl)) ; avg_ppfd_dif = 0.0
 
     ! Store index of NO
     INO = INDEX1('NO', N_MGN_SPC, MGN_SPC)
@@ -97,12 +96,12 @@ contains
        call increment_vtable('MEGAN_AVGTEMP', 'LW', rvar1=avg_temp)
     endif
 
-    if (allocated(avg_srad)) then
-       call increment_vtable('MEGAN_AVGSRAD', 'AW', rvar1=avg_srad)
+    if (allocated(avg_ppfd)) then
+       call increment_vtable('MEGAN_AVGPPFD', 'LW', rvar1=avg_ppfd)
     endif
 
-    if (allocated(avg_srad_dif)) then
-       call increment_vtable('MEGAN_AVGSRAD_DIF', 'AW', rvar1=avg_srad_dif)
+    if (allocated(avg_ppfd_dif)) then
+       call increment_vtable('MEGAN_AVGPPFD_DIF', 'LW', rvar1=avg_ppfd_dif)
     endif
 
   end subroutine filltab_megan
@@ -309,6 +308,9 @@ contains
     real, parameter :: tdiff0 = 5.0
     real, parameter :: hrmax  = 14.0
 
+    real, parameter :: par_ratio = 0.4  ! typical PAR / SOLAR
+    real, parameter :: ppfd_ratio = 4.25  ! typical PPFD / PAR
+
     day = julday( current_time%month, current_time%date, current_time%year )
 
     !$omp parallel 
@@ -328,13 +330,18 @@ contains
        ipft(iwl) = olam2pft( land%leaf_class(iwl), land%glatw(iwl) )
 
        ! initialize average temperature based on current temperature modified
-       ! by a simple diurnal variation
+       ! by a simple diurnal variation, and the average radiation to be a 
+       ! fraction of midday clear-sky top-of-atmosphere solar flux
 
        if (runtype == 'INITIAL') then
           beta        = calcbeta( Day, land%glatw(iwl), 12.0 )
           sinbeta_max = max( sin(beta * pio180), 0.0 )
+
           avg_temp(iwl) = land%cantemp(iwl) &
                - tdiff0 * cos( (hour - hrmax) * pi2 / 24.0 ) * sinbeta_max
+
+          avg_ppfd    (iwl) = solcon * sinbeta_max * 0.25 * par_ratio * ppfd_ratio
+          avg_ppfd_dif(iwl) = solcon * sinbeta_max * 0.05 * par_ratio * ppfd_ratio
        endif
 
        ! set current and next months LAI
@@ -349,24 +356,6 @@ contains
 
     enddo
     !$omp end do
-
-    if (runtype == 'INITIAL') then
-
-       !$omp do private (beta,sinbeta_max)
-       do iw = 2, mwa
-
-          ! initialize average radiation to be a fraction of midday clear-sky 
-          ! top-of-atmosphere solar flux
-
-          beta             = calcbeta( Day, glatw(iw), 12.0 )
-          sinbeta_max      = max( sin(beta * pio180), 0.0 )
-          avg_srad    (iw) = solcon * sinbeta_max * 0.25
-          avg_srad_dif(iw) = solcon * sinbeta_max * 0.05
-       enddo
-       !$omp end do
-
-    endif
-    !$omp end parallel
 
     do n = 1, n_gc_emis
        mgn_2_gc_map(n) = INDEX1( GC_EMIS(n), n_mech_spc, mech_spc )
@@ -412,34 +401,24 @@ contains
     use leaf_coms,   only: mwl, dt_leaf
     use mem_leaf,    only: land
     use consts_coms, only: r8
-    use mem_radiate, only: ppfd, ppfd_diffuse
-    use mem_ijtabs,  only: jtab_w, jtw_prog
 
     implicit none
 
     real, parameter :: tscali = 2.0 / 86400.0
 
     real    :: si, so
-    integer :: iwl, iw, j
+    integer :: iwl
 
     si = dt_leaf * tscali
     so = 1.0 - si
 
-    !$omp parallel 
-    !$omp do
+    !$omp parallel do
     do iwl = 2, mwl
-       avg_temp(iwl) = avg_temp(iwl) * so + land%cantemp(iwl) * si
+       avg_temp    (iwl) = avg_temp    (iwl) * so + land%cantemp     (iwl) * si
+       avg_ppfd    (iwl) = avg_ppfd    (iwl) * so + land%ppfd        (iwl) * si
+       avg_ppfd_dif(iwl) = avg_ppfd_dif(iwl) * so + land%ppfd_diffuse(iwl) * si
     enddo
-    !$omp end do
-
-    !$omp do private(iw)
-    do j = 1, jtab_w(jtw_prog)%jend(1)
-       iw = jtab_w(jtw_prog)%iw(j)
-       avg_srad    (iw) = avg_srad    (iw) * so + ppfd        (iw) * si
-       avg_srad_dif(iw) = avg_srad_dif(iw) * so + ppfd_diffuse(iw) * si
-    enddo
-    !$omp end do
-    !$omp end parallel
+    !$omp end parallel do
 
   end subroutine megan_avg_temp
 
@@ -469,7 +448,6 @@ contains
     use mem_ijtabs,  only: itabg_w
     use mem_leaf,    only: land, itab_wl
     use consts_coms, only: pio180
-    use mem_radiate, only: ppfd, ppfd_diffuse
     use leaf_coms,   only: nzg
 
     implicit none
@@ -520,10 +498,11 @@ contains
 
     if (laic > 0.01 .and. land%vf(iwl) > 0.01 .and. ipft(iwl) /= 0) then
 
-       ppfd0      = ppfd(iw)
-       ppfd0_dif  = ppfd_diffuse(iw)
-       ppfd24     = avg_srad(iw)
-       ppfd24_dif = avg_srad_dif(iw)
+       ppfd0      = land%ppfd(iwl)
+       ppfd0_dif  = land%ppfd_diffuse(iwl)
+
+       ppfd24     = avg_ppfd(iwl)
+       ppfd24_dif = avg_ppfd_dif(iwl)
 
        temp24 = avg_temp(iwl)
        temp0  = land%cantemp(iwl)

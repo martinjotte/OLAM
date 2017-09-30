@@ -28,10 +28,9 @@
       contains
 
 !----------------------------------------------------------------------------
-      subroutine setcoef(nlayers, istart, pavel, tavel, tz, tbound, semiss, &
+      subroutine setcoef(nlayers, nsfc, pavel, tavel, tz, tbound, semiss, &
                          coldry, wkl, wbroad, &
-                         laytrop, jp, jt, jt1, planklay, planklev, plankbnd, &
-                         idrv, dplankbnd_dt, &
+                         laytrop, jp, jt, jt1, planklay, planklev, planksfc, &
                          colh2o, colco2, colo3, coln2o, colco, colch4, colo2, &
                          colbrd, fac00, fac01, fac10, fac11, &
                          rat_h2oco2, rat_h2oco2_1, rat_h2oo3, rat_h2oo3_1, &
@@ -49,128 +48,146 @@
 ! ------- Declarations -------
 
 ! ----- Input -----
-      integer(kind=im), intent(in) :: nlayers         ! total number of layers
-      integer(kind=im), intent(in) :: istart          ! beginning band of calculation
-      integer(kind=im), intent(in) :: idrv            ! Planck derivative option flag
+      integer(kind=im), intent(in) :: nlayers          ! total number of layers
+      integer(kind=im), intent(in) :: nsfc             ! total number of layers that intersect ground
 
-      real(kind=rb), intent(in) :: pavel(:)           ! layer pressures (mb) 
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: tavel(:)           ! layer temperatures (K)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: tz(0:)             ! level (interface) temperatures (K)
-                                                      !    Dimensions: (0:nlayers)
-      real(kind=rb), intent(in) :: tbound             ! surface temperature (K)
-      real(kind=rb), intent(in) :: coldry(:)          ! dry air column density (mol/cm2)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: wbroad(:)          ! broadening gas column density (mol/cm2)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: wkl(:,:)           ! molecular amounts (mol/cm-2)
-                                                      !    Dimensions: (mxmol,nlayers)
-      real(kind=rb), intent(in) :: semiss(:)          ! lw surface emissivity
-                                                      !    Dimensions: (nbndlw)
+!     integer(kind=im), intent(in) :: idrv             ! Planck derivative option flag
+
+      real(kind=rb), intent(in) :: pavel(nlayers+1)    ! layer pressures (mb) 
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(in) :: tavel(nlayers+1)    ! layer temperatures (K)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(in) :: tz(0:nlayers+1)     ! level (interface) temperatures (K)
+                                                       !    Dimensions: (0:nlayers)
+      real(kind=rb), intent(in) :: tbound(nsfc)        ! surface temperature (K)
+      real(kind=rb), intent(in) :: coldry(nlayers+1)   ! dry air column density (mol/cm2)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(in) :: wbroad(nlayers+1)   ! broadening gas column density (mol/cm2)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(in) :: wkl(mxmol,nlayers+1)! molecular amounts (mol/cm-2)
+                                                       !    Dimensions: (mxmol,nlayers)
+      real(kind=rb), intent(in) :: semiss(nsfc,nbndlw) ! lw surface emissivity
+                                                       !    Dimensions: (nbndlw)
 
 ! ----- Output -----
-      integer(kind=im), intent(out) :: laytrop        ! tropopause layer index
-      integer(kind=im), intent(out) :: jp(:)          ! 
-                                                      !    Dimensions: (nlayers)
-      integer(kind=im), intent(out) :: jt(:)          !
-                                                      !    Dimensions: (nlayers)
-      integer(kind=im), intent(out) :: jt1(:)         !
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: planklay(:,:)     ! 
-                                                      !    Dimensions: (nlayers,nbndlw)
-      real(kind=rb), intent(out) :: planklev(0:,:)    ! 
-                                                      !    Dimensions: (0:nlayers,nbndlw)
-      real(kind=rb), intent(out) :: plankbnd(:)       ! 
-                                                      !    Dimensions: (nbndlw)
-      real(kind=rb), intent(out) :: dplankbnd_dt(:)   ! 
-                                                      !    Dimensions: (nbndlw)
+      integer(kind=im), intent(out) :: laytrop         ! tropopause layer index
+      integer(kind=im), intent(out) :: jp(nlayers+1)   ! 
+                                                       !    Dimensions: (nlayers)
+      integer(kind=im), intent(out) :: jt(nlayers+1)   !
+                                                       !    Dimensions: (nlayers)
+      integer(kind=im), intent(out) :: jt1(nlayers+1)  !
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: planklay(nlayers+1,nbndlw) 
+                                                       !    Dimensions: (nlayers,nbndlw)
+      real(kind=rb), intent(out) :: planklev(0:nlayers+1,nbndlw)
+                                                       !    Dimensions: (0:nlayers,nbndlw)
+      real(kind=rb), intent(out) :: planksfc(nsfc,nbndlw) 
+                                                       !    Dimensions: (nbndlw)
+!     real(kind=rb), intent(out) :: dplankbnd_dt(:)    !
+                                                       !    Dimensions: (nbndlw)
 
-      real(kind=rb), intent(out) :: colh2o(:)         ! column amount (h2o)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: colco2(:)         ! column amount (co2)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: colo3(:)          ! column amount (o3)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: coln2o(:)         ! column amount (n2o)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: colco(:)          ! column amount (co)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: colch4(:)         ! column amount (ch4)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: colo2(:)          ! column amount (o2)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: colbrd(:)         ! column amount (broadening gases)
-                                                      !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: colh2o(nlayers+1)  ! column amount (h2o)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: colco2(nlayers+1)  ! column amount (co2)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: colo3(nlayers+1)   ! column amount (o3)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: coln2o(nlayers+1)  ! column amount (n2o)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: colco(nlayers+1)   ! column amount (co)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: colch4(nlayers+1)  ! column amount (ch4)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: colo2(nlayers+1)   ! column amount (o2)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: colbrd(nlayers+1)  ! column amount (broadening gases)
+                                                       !    Dimensions: (nlayers)
 
-      integer(kind=im), intent(out) :: indself(:)
-                                                      !    Dimensions: (nlayers)
-      integer(kind=im), intent(out) :: indfor(:)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: selffac(:)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: selffrac(:)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: forfac(:)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: forfrac(:)
-                                                      !    Dimensions: (nlayers)
+      integer(kind=im), intent(out) :: indself(nlayers+1)
+                                                       !    Dimensions: (nlayers)
+      integer(kind=im), intent(out) :: indfor(nlayers+1)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: selffac(nlayers+1)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: selffrac(nlayers+1)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: forfac(nlayers+1)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: forfrac(nlayers+1)
+                                                       !    Dimensions: (nlayers)
 
-      integer(kind=im), intent(out) :: indminor(:)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: minorfrac(:)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: scaleminor(:)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(out) :: scaleminorn2(:)
-                                                      !    Dimensions: (nlayers)
+      integer(kind=im), intent(out) :: indminor(nlayers+1)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: minorfrac(nlayers+1)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: scaleminor(nlayers+1)
+                                                       !    Dimensions: (nlayers)
+      real(kind=rb), intent(out) :: scaleminorn2(nlayers+1)
+                                                       !    Dimensions: (nlayers)
 
-      real(kind=rb), intent(out) :: &                 !
-                       fac00(:), fac01(:), &          !    Dimensions: (nlayers)
+      real(kind=rb), intent(out), dimension(nlayers+1) :: &
+                       fac00(:), fac01(:), &           !    Dimensions: (nlayers)
                        fac10(:), fac11(:) 
                                                         
-      real(kind=rb), intent(out) :: &                 !
+      real(kind=rb), intent(out), dimension(nlayers+1) :: &
                        rat_h2oco2(:),rat_h2oco2_1(:), &
-                       rat_h2oo3(:),rat_h2oo3_1(:), & !    Dimensions: (nlayers)
+                       rat_h2oo3(:),rat_h2oo3_1(:),   &!    Dimensions: (nlayers)
                        rat_h2on2o(:),rat_h2on2o_1(:), &
                        rat_h2och4(:),rat_h2och4_1(:), &
                        rat_n2oco2(:),rat_n2oco2_1(:), &
                        rat_o3co2(:),rat_o3co2_1(:)
-                                                        
 
 ! ----- Local -----
       integer(kind=im) :: indbound, indlev0
       integer(kind=im) :: lay, indlay, indlev, iband
       integer(kind=im) :: jp1
-      real(kind=rb) :: stpfac, tbndfrac, t0frac, tlayfrac, tlevfrac
+      real(kind=rb) :: tbndfrac, t0frac, tlayfrac, tlevfrac
       real(kind=rb) :: dbdtlev, dbdtlay
       real(kind=rb) :: plog, fp, ft, ft1, water, scalefac, factor, compfp
 
+      real(kind=rb), parameter :: stpfac = 296._rb/1013._rb
+      real(kind=rb), parameter :: ptrop   = exp(4.56_rb)
 
-      hvrset = '$Revision: 1.6 $'
+!     hvrset = '$Revision: 1.6 $'
 
-      stpfac = 296._rb/1013._rb
+      ! find tropopause height
 
-      indbound = tbound - 159._rb
-      if (indbound .lt. 1) then
-         indbound = 1
-      elseif (indbound .gt. 180) then
-         indbound = 180
+      laytrop = nlayers
+      if (pavel(nlayers) < ptrop) then
+         do lay = 1, nlayers
+            if (pavel(lay) <= ptrop) then
+               laytrop = lay-1
+               exit
+            endif
+         enddo
       endif
-      tbndfrac = tbound - 159._rb - real(indbound)
-      indlev0 = tz(0) - 159._rb
-      if (indlev0 .lt. 1) then
-         indlev0 = 1
-      elseif (indlev0 .gt. 180) then
-         indlev0 = 180
-      endif
-      t0frac = tz(0) - 159._rb - real(indlev0)
-      laytrop = 0
+
+      ! special with shaved cells:
+
+      do lay = 1, nsfc
+         indbound = tbound(lay) - 159._rb
+         if (indbound .lt. 1) then
+            indbound = 1
+         elseif (indbound .gt. 180) then
+            indbound = 180
+         endif
+         tbndfrac = tbound(lay) - 159._rb - real(indbound)
+
+         do iband = 1, 16
+            dbdtlev = totplnk(indbound+1,iband) - totplnk(indbound,iband)
+            planksfc(lay,iband) = totplnk(indbound,iband) + tbndfrac * dbdtlev
+         enddo
+      enddo
+
+      do iband = 1, 16
+         planklev(0,iband) = planksfc(1,iband)
+      enddo
 
 ! Begin layer loop 
 !  Calculate the integrated Planck functions for each band at the
 !  surface, level, and layer temperatures.
       do lay = 1, nlayers
+
          indlay = tavel(lay) - 159._rb
          if (indlay .lt. 1) then
             indlay = 1
@@ -178,6 +195,7 @@
             indlay = 180
          endif
          tlayfrac = tavel(lay) - 159._rb - real(indlay)
+
          indlev = tz(lay) - 159._rb
          if (indlev .lt. 1) then
             indlev = 1
@@ -187,67 +205,25 @@
          tlevfrac = tz(lay) - 159._rb - real(indlev)
 
 ! Begin spectral band loop 
-         do iband = 1, 15
-            if (lay.eq.1) then
-               dbdtlev = totplnk(indbound+1,iband) - totplnk(indbound,iband)
-               plankbnd(iband) = semiss(iband) * &
-                   (totplnk(indbound,iband) + tbndfrac * dbdtlev)
-               dbdtlev = totplnk(indlev0+1,iband)-totplnk(indlev0,iband)
-               planklev(0,iband) = totplnk(indlev0,iband) + t0frac * dbdtlev
-               if (idrv .eq. 1) then 
-                  dbdtlev = totplnkderiv(indbound+1,iband) - totplnkderiv(indbound,iband)
-                  dplankbnd_dt(iband) = semiss(iband) * &
-                      (totplnkderiv(indbound,iband) + tbndfrac * dbdtlev)
-               endif
-            endif
+         do iband = 1, 16
             dbdtlev = totplnk(indlev+1,iband) - totplnk(indlev,iband)
             dbdtlay = totplnk(indlay+1,iband) - totplnk(indlay,iband)
             planklay(lay,iband) = totplnk(indlay,iband) + tlayfrac * dbdtlay
             planklev(lay,iband) = totplnk(indlev,iband) + tlevfrac * dbdtlev
          enddo
 
-!  For band 16, if radiative transfer will be performed on just
-!  this band, use integrated Planck values up to 3250 cm-1.  
-!  If radiative transfer will be performed across all 16 bands,
-!  then include in the integrated Planck values for this band
-!  contributions from 2600 cm-1 to infinity.
-         iband = 16
-         if (istart .eq. 16) then
-            if (lay.eq.1) then
-               dbdtlev = totplk16(indbound+1) - totplk16(indbound)
-               plankbnd(iband) = semiss(iband) * &
-                    (totplk16(indbound) + tbndfrac * dbdtlev)
-               if (idrv .eq. 1) then
-                  dbdtlev = totplk16deriv(indbound+1) - totplk16deriv(indbound)
-                  dplankbnd_dt(iband) = semiss(iband) * &
-                       (totplk16deriv(indbound) + tbndfrac * dbdtlev)
-               endif
-               dbdtlev = totplnk(indlev0+1,iband)-totplnk(indlev0,iband)
-               planklev(0,iband) = totplk16(indlev0) + &
-                    t0frac * dbdtlev
-            endif
-            dbdtlev = totplk16(indlev+1) - totplk16(indlev)
-            dbdtlay = totplk16(indlay+1) - totplk16(indlay)
-            planklay(lay,iband) = totplk16(indlay) + tlayfrac * dbdtlay
-            planklev(lay,iband) = totplk16(indlev) + tlevfrac * dbdtlev
-         else
-            if (lay.eq.1) then
-               dbdtlev = totplnk(indbound+1,iband) - totplnk(indbound,iband)
-               plankbnd(iband) = semiss(iband) * &
-                    (totplnk(indbound,iband) + tbndfrac * dbdtlev)
-               if (idrv .eq. 1) then 
-                  dbdtlev = totplnkderiv(indbound+1,iband) - totplnkderiv(indbound,iband)
-                  dplankbnd_dt(iband) = semiss(iband) * &
-                       (totplnkderiv(indbound,iband) + tbndfrac * dbdtlev)
-               endif
-               dbdtlev = totplnk(indlev0+1,iband)-totplnk(indlev0,iband)
-               planklev(0,iband) = totplnk(indlev0,iband) + t0frac * dbdtlev
-            endif
-            dbdtlev = totplnk(indlev+1,iband) - totplnk(indlev,iband)
-            dbdtlay = totplnk(indlay+1,iband) - totplnk(indlay,iband)
-            planklay(lay,iband) = totplnk(indlay,iband) + tlayfrac * dbdtlay
-            planklev(lay,iband) = totplnk(indlev,iband) + tlevfrac * dbdtlev
-         endif
+!  Calculate needed column amounts.
+         colh2o(lay) = 1.e-20_rb * wkl(1,lay)
+         colo2(lay) = 1.e-20_rb * wkl(7,lay)
+         colco2(lay) = max(1.e-20_rb * wkl(2,lay), 1.e-32_rb * coldry(lay))
+         colo3(lay) = max(1.e-20_rb * wkl(3,lay), 1.e-32_rb * coldry(lay))
+         coln2o(lay) = max(1.e-20_rb * wkl(4,lay), 1.e-32_rb * coldry(lay))
+         colco(lay) = max(1.e-20_rb * wkl(5,lay), 1.e-32_rb * coldry(lay))
+         colch4(lay) = max(1.e-20_rb * wkl(6,lay), 1.e-32_rb * coldry(lay))
+         colbrd(lay) = 1.e-20_rb * wbroad(lay)
+      enddo
+
+      do lay = 1, nlayers
 
 !  Find the two reference pressures on either side of the
 !  layer pressure.  Store them in JP and JP1.  Store in FP the
@@ -289,8 +265,8 @@
 
 !  If the pressure is less than ~100mb, perform a different
 !  set of species interpolations.
-         if (plog .le. 4.56_rb) go to 5300
-         laytrop =  laytrop + 1
+
+         if (lay <= laytrop) then
 
          forfac(lay) = scalefac / (1.+water)
          factor = (332.0_rb-tavel(lay))/36.0_rb
@@ -330,24 +306,8 @@
          rat_n2oco2(lay)=chi_mls(4,jp(lay))/chi_mls(2,jp(lay))
          rat_n2oco2_1(lay)=chi_mls(4,jp(lay)+1)/chi_mls(2,jp(lay)+1)
 
-!  Calculate needed column amounts.
-         colh2o(lay) = 1.e-20_rb * wkl(1,lay)
-         colco2(lay) = 1.e-20_rb * wkl(2,lay)
-         colo3(lay) = 1.e-20_rb * wkl(3,lay)
-         coln2o(lay) = 1.e-20_rb * wkl(4,lay)
-         colco(lay) = 1.e-20_rb * wkl(5,lay)
-         colch4(lay) = 1.e-20_rb * wkl(6,lay)
-         colo2(lay) = 1.e-20_rb * wkl(7,lay)
-         if (colco2(lay) .eq. 0._rb) colco2(lay) = 1.e-32_rb * coldry(lay)
-         if (colo3(lay) .eq. 0._rb) colo3(lay) = 1.e-32_rb * coldry(lay)
-         if (coln2o(lay) .eq. 0._rb) coln2o(lay) = 1.e-32_rb * coldry(lay)
-         if (colco(lay) .eq. 0._rb) colco(lay) = 1.e-32_rb * coldry(lay)
-         if (colch4(lay) .eq. 0._rb) colch4(lay) = 1.e-32_rb * coldry(lay)
-         colbrd(lay) = 1.e-20_rb * wbroad(lay)
-         go to 5400
-
-!  Above laytrop.
- 5300    continue
+         else
+ !  Above laytrop.
 
          forfac(lay) = scalefac / (1.+water)
          factor = (tavel(lay)-188.0_rb)/36.0_rb
@@ -375,21 +335,7 @@
          rat_o3co2(lay)=chi_mls(3,jp(lay))/chi_mls(2,jp(lay))
          rat_o3co2_1(lay)=chi_mls(3,jp(lay)+1)/chi_mls(2,jp(lay)+1)         
 
-!  Calculate needed column amounts.
-         colh2o(lay) = 1.e-20_rb * wkl(1,lay)
-         colco2(lay) = 1.e-20_rb * wkl(2,lay)
-         colo3(lay) = 1.e-20_rb * wkl(3,lay)
-         coln2o(lay) = 1.e-20_rb * wkl(4,lay)
-         colco(lay) = 1.e-20_rb * wkl(5,lay)
-         colch4(lay) = 1.e-20_rb * wkl(6,lay)
-         colo2(lay) = 1.e-20_rb * wkl(7,lay)
-         if (colco2(lay) .eq. 0._rb) colco2(lay) = 1.e-32_rb * coldry(lay)
-         if (colo3(lay) .eq. 0._rb) colo3(lay) = 1.e-32_rb * coldry(lay)
-         if (coln2o(lay) .eq. 0._rb) coln2o(lay) = 1.e-32_rb * coldry(lay)
-         if (colco(lay)  .eq. 0._rb) colco(lay) = 1.e-32_rb * coldry(lay)
-         if (colch4(lay) .eq. 0._rb) colch4(lay) = 1.e-32_rb * coldry(lay)
-         colbrd(lay) = 1.e-20_rb * wbroad(lay)
- 5400    continue
+         endif
 
 !  We have now isolated the layer ln pressure and temperature,
 !  between two reference pressures and two reference temperatures 

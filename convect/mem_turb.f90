@@ -53,11 +53,12 @@ Module mem_turb
   real,    allocatable, target :: fthpbl(:,:)
   real,    allocatable, target :: fqtpbl(:,:)
 
-  real,    allocatable         :: frac_land (:)
-  real,    allocatable         :: frac_sea  (:)
-  real,    allocatable         :: frac_lake (:)
-  real,    allocatable         :: frac_urb  (:)
-  real,    allocatable         :: frac_sfc(:,:)
+  real,    allocatable         :: frac_land  (:)
+  real,    allocatable         :: frac_sea   (:)
+  real,    allocatable         :: frac_lake  (:)
+  real,    allocatable         :: frac_urb   (:)
+  real,    allocatable         :: frac_sfc (:,:)
+  real,    allocatable         :: frac_sfck(:,:)
 
   real,    allocatable         :: akmodx(:,:)
   real,    allocatable         :: akhodx(:,:)
@@ -79,8 +80,9 @@ Contains
     allocate (sxfer_tk(nsw_max,mwa)) ; sxfer_tk = 0.0
     allocate (sxfer_rk(nsw_max,mwa)) ; sxfer_rk = 0.0
 
-    allocate (vkm_sfc (nsw_max,mwa)) ; vkm_sfc  = 0.0
-    allocate (frac_sfc(nsw_max,mwa)) ; frac_sfc = 0.0
+    allocate (vkm_sfc  (nsw_max,mwa)) ; vkm_sfc   = 0.0
+    allocate (frac_sfc (nsw_max,mwa)) ; frac_sfc  = 0.0
+    allocate (frac_sfck(nsw_max,mwa)) ; frac_sfck = 0.0
 
     allocate (vkm   (mza,mwa)) ; vkm       = rinit
     allocate (vkh   (mza,mwa)) ; vkh       = rinit

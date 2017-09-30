@@ -1,10 +1,11 @@
-subroutine rrtmg_raddriv(iw, ka, nrad, koff)
+subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
+                         rlongup_ks, rlong_albedo_ks, albedt_ks, albedt_diffuse_ks )
 
-  use mem_grid,    only: mza, zm, zt, glatw, dzt
+  use mem_grid,    only: mza, zm, zt, glatw, dzt, dzit
   use mem_basic,   only: rho, press, theta, tair, sh_v
-  use misc_coms,   only: iswrtyp, ilwrtyp, time8, dtlm
+  use misc_coms,   only: iswrtyp, ilwrtyp, time8, dtlm, io6
   use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, &
-                         t00, r8
+                         t00, r8, cpi
   use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
                          rshort_top, rshortup_top, rlongup_top, fthrd_sw, &
                          albedt_beam, albedt_diffuse, rshort_diffuse, &
@@ -12,12 +13,14 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                          rshortup_clr, rshort_top_clr, rshortup_top_clr, &
                          rlong_clr, rlongup_clr, rlongup_top_clr, &
                          par, par_diffuse, uva, uvb, uvc, pbl_cld_forc, &
-                         ppfd, ppfd_diffuse, mcica_seed
+                         ppfd, ppfd_diffuse, mcica_seed, &
+                         rlong_ks, rshort_ks, rshort_diffuse_ks, &
+                         ppfd_ks, ppfd_diffuse_ks
   use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi, dmncof, jhabtab, &
                          emb2, zfactor_ccn
   use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr, iactcu
   use rrtmg_cloud, only: cloud_props
-  use mem_turb,    only: frac_land, kpblh
+  use mem_turb,    only: frac_land, kpblh, frac_sfc, frac_sfck
   use mem_mclat,   only: rad_mclat
   use mem_ijtabs,  only: itab_w
   use mem_micro,   only: cldnum
@@ -36,9 +39,15 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
   integer, intent(in) :: iw
   integer, intent(in) :: ka
-  integer, intent(in) :: nrad
+  integer, intent(in) :: nrad 
   integer, intent(in) :: koff
-  
+  integer, intent(in) :: nsfc
+ 
+  real, intent(in) :: rlongup_ks(nsfc)
+  real, intent(in) :: rlong_albedo_ks(nsfc)
+  real, intent(in) :: albedt_ks(nsfc)
+  real, intent(in) :: albedt_diffuse_ks(nsfc)
+
   integer, parameter :: ncol   = 1
   integer, parameter :: icld   = 2
   integer, parameter :: iaer   = 0
@@ -60,12 +69,23 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: emb  (mza,ncat)  ! hydrom mean particle mass [kg/particle]
 
   real :: coszen(ncol)
-  real :: tsfc  (ncol)
-  real :: asdir (ncol)
-  real :: aldir (ncol)
-  real :: asdif (ncol)
-  real :: aldif (ncol)
-  real :: emis  (ncol, nbndlw)
+
+  real :: par_k(nsfc)
+  real :: par_diffuse_k(nsfc)
+  real :: ppfd_k(nsfc)
+  real :: ppfd_diffuse_k(nsfc)
+  
+  real :: uva_k(nsfc)
+  real :: uvb_k(nsfc)
+  real :: uvc_k(nsfc)
+
+  real :: asdir (nsfc)
+  real :: aldir (nsfc)
+  real :: asdif (nsfc)
+  real :: aldif (nsfc)
+
+  real :: tsfc  (nsfc)
+  real :: emis  (nsfc, nbndlw)
 
   real :: zsfc
   real :: emiss
@@ -120,30 +140,39 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: dl (nrad)
   real :: zml(nrad)
   real :: ztl(nrad)
-  real :: exl(nrad)
+! real :: exl(nrad)
   real :: dzl(nrad)
 
-  real :: swuflx (ncol, nrad+1)
-  real :: swdflx (ncol, nrad+1)
-  real :: swhr   (ncol, nrad  )
-  real :: swuflxc(ncol, nrad+1)
-  real :: swdflxc(ncol, nrad+1)
-  real :: swhrc  (ncol, nrad  )
+  real :: swuflxt(nrad+1)
+  real :: swdflxt(nrad+1)
+  real :: swuflxc(nrad+1)
+  real :: swdflxc(nrad+1)
 
-  real :: swuflxt_band    (nrad+1,nbndsw)
-  real :: swdflxt_band    (nrad+1,nbndsw)
-  real :: swdflxt_band_dir(nrad+1,nbndsw)
+  real :: swuflxt_sfc    (nsfc)
+  real :: swdflxt_sfc    (nsfc)
+  real :: swdflxt_dir_sfc(nsfc)
 
-  real :: swuflxc_band    (nrad+1,nbndsw)
-  real :: swdflxc_band    (nrad+1,nbndsw)
-  real :: swdflxc_band_dir(nrad+1,nbndsw)
+  real :: swuflxc_sfc    (nsfc)
+  real :: swdflxc_sfc    (nsfc)
+  real :: swdflxc_dir_sfc(nsfc)
 
-  real :: lwuflx (ncol, nrad+1) 
-  real :: lwdflx (ncol, nrad+1)
-  real :: lwhr   (ncol, nrad  )
-  real :: lwuflxc(ncol, nrad+1)
-  real :: lwdflxc(ncol, nrad+1)
-  real :: lwhrc  (ncol, nrad  )
+  real :: swuflxt_band_sfc    (nsfc,nbndsw)
+  real :: swdflxt_band_sfc    (nsfc,nbndsw)
+  real :: swdflxt_band_dir_sfc(nsfc,nbndsw)
+
+  real :: swuflxc_band_sfc    (nsfc,nbndsw)
+  real :: swdflxc_band_sfc    (nsfc,nbndsw)
+  real :: swdflxc_band_dir_sfc(nsfc,nbndsw)
+
+  real :: lwuflxt(nrad+1) 
+  real :: lwdflxt(nrad+1)
+  real :: lwuflxc(nrad+1)
+  real :: lwdflxc(nrad+1)
+
+  real :: lwuflxt_sfc(nsfc)
+  real :: lwdflxt_sfc(nsfc)
+  real :: lwuflxc_sfc(nsfc)
+  real :: lwdflxc_sfc(nsfc)
 
   real :: tauaerl(ncol, nrad, nbndlw)
   real :: tauaers(ncol, nrad, nbndsw)
@@ -151,12 +180,13 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
   real :: asmaers(ncol, nrad, nbndsw)
   real :: ecaer  (ncol, nrad, nbndsw)
 
-  integer :: k, krad, icloud, iaeros, ib, ig, krad1, krad2
+  integer :: k, ks, krad, icloud, iaeros, ib, ig, krad1, krad2
   integer :: iplon, irng, permuteseed, ns, nt, iseed
   integer :: mc, mcat, ih, l, ntim, ngbmsw, ngbmlw
 
-  real :: r_ef, dmean, watp, twc, prate
+  real :: r_ef, dmean, watp, twc, prate, rshort_dir, rshortup
 
+  real :: flux_net(mza), flux_net_bot
   real :: frac(mza)
   logical :: dosnow
 
@@ -202,17 +232,21 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
 ! Set some surface values needed by RRTMg
 
-  emiss = 1.0 - rlong_albedo(iw)
+  do ks = 1, nsfc
+     emiss      = 1.0 - rlong_albedo_ks(ks)
+     emis(ks,:) = emiss
+     tsfc(ks)   = (rlongup_ks(ks) / emiss / stefan) ** 0.25
+
+     asdir(ks) = albedt_ks(ks)
+     aldir(ks) = albedt_ks(ks)
+     asdif(ks) = albedt_diffuse_ks(ks)
+     aldif(ks) = albedt_diffuse_ks(ks)
+  enddo
+
   zsfc  = zm(ka-1)
 
-  asdir(ncol) = albedt_beam(iw)
-  aldir(ncol) = albedt_beam(iw)
-  asdif(ncol) = albedt_diffuse(iw)
-  aldif(ncol) = albedt_diffuse(iw)
 
   coszen(ncol) = cosz(iw)
-  emis(ncol,:) = emiss
-  tsfc(ncol)   = (rlongup(iw) / emiss / stefan) ** 0.25
 
   if (allocated(frac_land)) then
      fland = frac_land(iw)
@@ -230,7 +264,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
      play  (1,krad) = press(k,iw)
      tlay  (1,krad) = tair (k,iw)
      dl      (krad) = rho  (k,iw)
-     exl     (krad) = theta(k,iw) / tair(k,iw)
+!    exl     (krad) = theta(k,iw) / tair(k,iw)
      h2ovmr(1,krad) = rhov (k)
      zml     (krad) = zm   (k)
      ztl     (krad) = zt   (k)
@@ -541,7 +575,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
      endif
 
-     call rrtmg_sw(ncol    ,nrad    ,icloud  ,iaeros  ,iw     ,         &
+     call rrtmg_sw(ncol    ,nrad    ,icloud  ,iaeros  ,nsfc   ,frac_sfck(1:nsfc,iw), &
                    play    ,plev    ,tlay    ,tlev    ,tsfc   ,         &
                    h2ovmr  ,o3vmr   ,co2vmr  ,ch4vmr  ,n2ovmr ,o2vmr   ,&
                    asdir   ,asdif   ,aldir   ,aldif   ,                 &
@@ -550,51 +584,92 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
                    taucmcl ,ssacmcl ,asmcmcl ,fsfcmcl ,                 &
                    ciwpmcl ,clwpmcl ,reicmcl ,relqmcl ,                 &
                    tauaers ,ssaaers ,asmaers ,ecaer   ,                 &
-                   swuflx  ,swdflx  ,swhr    ,swuflxc ,swdflxc ,swhrc  ,&
-                   swuflxt_band     ,swdflxt_band     ,swuflxc_band    ,& 
-                   swdflxc_band     ,swdflxt_band_dir ,swdflxc_band_dir )
+                   swuflxt ,swdflxt ,swuflxc ,swdflxc ,                 &
+                   swuflxt_sfc, swdflxt_sfc,  swdflxt_dir_sfc,          &
+                   swuflxc_sfc, swdflxc_sfc,  swdflxc_dir_sfc,          &
+                   swuflxt_band_sfc, swdflxt_band_sfc, swdflxt_band_dir_sfc, &
+                   swuflxc_band_sfc, swdflxc_band_sfc, swdflxc_band_dir_sfc )
 
-     rshort        (iw) = swdflx(1,1)
-     rshort_diffuse(iw) = swdflx(1,1) - sum(swdflxt_band_dir(1,1:nbndsw))
-     rshort_top    (iw) = swdflx(1,nrad+1)
-     rshortup_top  (iw) = swuflx(1,nrad+1)
-     albedt        (iw) = swuflx(1,1) / swdflx(1,1)
-
-     rshort_clr      (iw) = swdflxc(1,1)
-     rshortup_clr    (iw) = swuflxc(1,1)
-     rshort_top_clr  (iw) = swdflxc(1,nrad+1)
-     rshortup_top_clr(iw) = swuflxc(1,nrad+1)
-
-     par(iw) = 0.5268*swdflxt_band(1, 9) + swdflxt_band(1,10) &
-             + 0.4724*swdflxt_band(1,11)
-
-     par_diffuse(iw) = par(iw) - ( 0.5268*swdflxt_band_dir(1, 9) &
-                                 +        swdflxt_band_dir(1,10) &
-                                 + 0.4724*swdflxt_band_dir(1,11) )
-
-     ppfd(iw) = 2.9156 * swdflxt_band(1, 9) &
-              + 4.4568 * swdflxt_band(1,10) &
-              + 1.6614 * swdflxt_band(1,11)
-
-     ppfd_diffuse(iw) = ppfd(iw) - ( 2.9156 * swdflxt_band_dir(1, 9) &
-                                   + 4.4568 * swdflxt_band_dir(1,10) &
-                                   + 1.6614 * swdflxt_band_dir(1,11) )
-
-     uva(iw) = 0.5276*swdflxt_band(1,11) + 0.3932*swdflxt_band(1,12)
-
-     uvb(iw) = 0.3708*swdflxt_band(1,12)
-
-     uvc(iw) = 0.2360*swdflxt_band(1,12) + swdflxt_band(1,13)
-
-     do k = ka, mza
-        krad = k - koff
-        fthrd_sw(k,iw) = swhr(1,krad) * exl(krad) / 86400.0
+     do krad = 1, mza - koff + 1
+        flux_net(krad) = swuflxt(krad) - swdflxt(krad)
      enddo
 
-     krad1 = max(kpblh(iw) - koff - 1, 1)
-     krad2 = min(kpblh(iw) - koff + 1, nrad+1)
-     pbl_cld_forc(iw) = (swdflx(1,krad1) - swdflxc(1,krad1)) - (swdflx(1,krad2) - swdflxc(1,krad2)) &
-                      + (swuflx(1,krad2) - swuflxc(1,krad2)) - (swuflx(1,krad1) - swuflxc(1,krad1))
+     do k = ka, ka + nsfc - 1
+        krad = k - koff
+        flux_net_bot = (swuflxt_sfc(krad) - swdflxt_sfc(krad)) *        frac_sfck(krad,iw) &
+                     + (swuflxt    (krad) - swdflxt    (krad)) * (1.0 - frac_sfck(krad,iw))
+        fthrd_sw(k,iw) = (flux_net_bot - flux_net(krad+1)) * dzit(k) * cpi
+     enddo
+
+     do k = ka + nsfc, mza
+        krad = k - koff
+        fthrd_sw(k,iw) = (flux_net(krad) - flux_net(krad+1)) * dzit(k) * cpi
+     enddo
+
+     rshort        (iw) = surface_avg( swdflxt_sfc )
+     rshortup           = surface_avg( swuflxt_sfc )
+     rshort_dir         = surface_avg( swdflxt_dir_sfc )
+     rshort_diffuse(iw) = rshort(iw) - rshort_dir
+     albedt        (iw) = rshortup / rshort(iw)
+     rshort_top    (iw) = swdflxt(nrad+1)
+     rshortup_top  (iw) = swuflxt(nrad+1)
+
+     rshort_clr      (iw) = surface_avg( swdflxc_sfc )
+     rshortup_clr    (iw) = surface_avg( swuflxc_sfc )
+     rshort_top_clr  (iw) = swdflxc(nrad+1)
+     rshortup_top_clr(iw) = swuflxc(nrad+1)
+
+     do krad = 1, nsfc
+
+        par_k(krad) = 0.5268*swdflxt_band_sfc(krad, 9) &
+                    +        swdflxt_band_sfc(krad,10) &
+                    + 0.4724*swdflxt_band_sfc(krad,11)
+
+        par_diffuse_k(krad) = par_k(krad) - ( 0.5268*swdflxt_band_dir_sfc(krad, 9) &
+                                            +        swdflxt_band_dir_sfc(krad,10) &
+                                            + 0.4724*swdflxt_band_dir_sfc(krad,11) )
+
+        ppfd_k(krad) = 2.9156 * swdflxt_band_sfc(krad, 9) &
+                     + 4.4568 * swdflxt_band_sfc(krad,10) &
+                     + 1.6614 * swdflxt_band_sfc(krad,11)
+
+        ppfd_diffuse_k(krad) = ppfd_k(krad) - ( 2.9156 * swdflxt_band_dir_sfc(krad, 9) &
+                                              + 4.4568 * swdflxt_band_dir_sfc(krad,10) &
+                                              + 1.6614 * swdflxt_band_dir_sfc(krad,11) )
+
+        uva_k(krad) = 0.5276*swdflxt_band_sfc(krad,11) + 0.3932*swdflxt_band_sfc(krad,12)
+
+        uvb_k(krad) = 0.3708*swdflxt_band_sfc(krad,12)
+
+        uvc_k(krad) = 0.2360*swdflxt_band_sfc(krad,12) + swdflxt_band_sfc(krad,13)
+
+     enddo
+
+     par         (iw) = surface_avg( par_k )
+     par_diffuse (iw) = surface_avg( par_diffuse_k )
+     ppfd        (iw) = surface_avg( ppfd_k )
+     ppfd_diffuse(iw) = surface_avg( ppfd_diffuse_k )
+     uva         (iw) = surface_avg( uva_k )
+     uvb         (iw) = surface_avg( uvb_k )
+     uvc         (iw) = surface_avg( uvc_k )
+
+     do krad = 1, nsfc
+
+        rshort_ks        (krad,iw) = swdflxt_sfc(krad)
+        rshort_diffuse_ks(krad,iw) = swdflxt_sfc(krad) - swdflxt_dir_sfc(krad)
+
+!       par_ks         (krad,iw) = par_k(krad)
+!       par_diffuse_ks (krad,iw) = par_diffuse_k(krad)
+        ppfd_ks        (krad,iw) = ppfd_k(krad)
+        ppfd_diffuse_ks(krad,iw) = ppfd_diffuse_k(krad)
+        
+     enddo
+
+     krad1 = max(kpblh(iw) - 1, ka)
+     krad2 = min(kpblh(iw) + 1, mza)
+
+     pbl_cld_forc(iw) = - sum( fthrd_sw(krad1:krad2,iw) * dzt(krad1:krad2) ) / rho(kpblh(iw),iw)
+
   endif
 
   ! Compute the longwave fluxes and heating rates
@@ -654,39 +729,72 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff)
 
      endif
 
-     call rrtmg_lw(ncol       ,nrad       ,icloud     ,idrv       ,iaeros  ,iw     , &
-                   play       ,plev       ,tlay       ,tlev       ,tsfc    ,         & 
+     call rrtmg_lw(ncol       ,nrad       ,icloud     ,nsfc       ,iaeros  ,iw     , &
+                   play       ,plev       ,tlay       ,tlev       ,tsfc    ,frac_sfck(1:nsfc,iw),&
                    h2ovmr     ,o3vmr      ,co2vmr     ,ch4vmr     ,n2ovmr  ,o2vmr  , &
                    cfc11vmr   ,cfc12vmr   ,cfc22vmr   ,ccl4vmr    ,emis    ,         &
                    inflg      ,iceflg     ,liqflg     ,cldfmcl_lw ,                  &
                    taucmcl_lw ,ciwpmcl_lw ,clwpmcl_lw ,reicmcl    ,relqmcl ,tauaerl, &
-                   lwuflx     ,lwdflx     ,lwhr       ,lwuflxc    ,lwdflxc ,lwhrc    )
+                   lwuflxt    ,lwdflxt    ,lwuflxc    ,lwdflxc    ,                  &
+                   lwuflxt_sfc,lwdflxt_sfc,lwuflxc_sfc,lwdflxc_sfc                   )
 
-     rlong      (iw) = lwdflx(1,1)
-     rlongup    (iw) = lwuflx(1,1)
-     rlongup_top(iw) = lwuflx(1,nrad+1)
-
-     rlong_clr      (iw) = lwdflxc(1,1)
-     rlongup_clr    (iw) = lwuflxc(1,1)
-     rlongup_top_clr(iw) = lwuflxc(1,nrad+1)
-
-     do k = ka, mza
-        krad = k - koff
-        fthrd_lw(k,iw) = lwhr(1,krad) * exl(krad) / 86400.0
+     do krad = 1, mza - koff + 1
+        flux_net(krad) = lwuflxt(krad) - lwdflxt(krad)
      enddo
 
-     krad1 = max(kpblh(iw) - koff - 1, 1)
-     krad2 = min(kpblh(iw) - koff + 1, nrad+1)
+     do k = ka, ka + nsfc - 1
+        krad = k - koff
+        flux_net_bot = (lwuflxt_sfc(krad) - lwdflxt_sfc(krad)) *        frac_sfck(krad,iw) &
+                     + (lwuflxt    (krad) - lwdflxt    (krad)) * (1.0 - frac_sfck(krad,iw))
+        fthrd_lw(k,iw) = (flux_net_bot - flux_net(krad+1)) * dzit(k) * cpi
+     enddo
+
+     do k = ka + nsfc, mza
+        krad = k - koff
+        fthrd_lw(k,iw) = (flux_net(krad) - flux_net(krad+1)) * dzit(k) * cpi
+     enddo
+
+     rlong      (iw) = surface_avg( lwdflxt_sfc )
+     rlongup    (iw) = surface_avg( lwuflxt_sfc )
+     rlongup_top(iw) = lwuflxt(nrad+1)
+
+     rlong_clr      (iw) = surface_avg( lwdflxc_sfc )
+     rlongup_clr    (iw) = surface_avg( lwuflxt_sfc )
+     rlongup_top_clr(iw) = lwuflxc(nrad+1)
+
+     do krad = 1, nsfc
+        rlong_ks(krad,iw) = lwdflxt_sfc(krad)
+     enddo
+
+     krad1 = max(kpblh(iw) - 1, ka)
+     krad2 = min(kpblh(iw) + 1, mza)
+
      pbl_cld_forc(iw) = pbl_cld_forc(iw) &
-                      + (lwdflx(1,krad1) - lwdflxc(1,krad1)) - (lwdflx(1,krad2) - lwdflxc(1,krad2)) &
-                      + (lwuflx(1,krad2) - lwuflxc(1,krad2)) - (lwuflx(1,krad1) - lwuflxc(1,krad1))
+                      - sum( fthrd_lw(krad1:krad2,iw) * dzt(krad1:krad2) ) / rho(kpblh(iw),iw)
+
   endif
 
 
 contains
 
 
+  real function surface_avg( field )
+
+    implicit none
+    real, intent(in) :: field(nsfc)
+
+    if (nsfc == 1) then
+       surface_avg = field(1)
+    else
+       surface_avg = dot_product( field(1:nsfc), frac_sfc(1:nsfc,iw) )
+    endif
+
+  end function surface_avg
+
+
   subroutine lookup_rrtmg_cld_optics( l, r_ef, watp, krad )
+
+    implicit none
 
     integer, intent(in) :: l     ! lookup table category
     real,    intent(in) :: r_ef  ! effective radius (um)

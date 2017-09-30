@@ -356,8 +356,8 @@ contains
     !      vertical wind shear, similar to LIU & CARROLL (1996)
     !   3. Cloud-top radiational cooling scaling, Lock et al. (2000)
 
-
-    use misc_coms, only: io6
+    use misc_coms,  only: io6
+    use mem_cuparm, only: iactcu, kcubot
     implicit none
 
     ! INPUT VARIABLES
@@ -379,7 +379,7 @@ contains
     real,    intent(in) :: theta (:) ! potential temperature profile
     real,    intent(in) :: thetav(:) ! virtual potential temperature profile
     real,    intent(in) :: tair  (:) ! air temperature profile
-    real,    intent(in) :: delr      ! cloud top cooling at PBL top (W/m^2)
+    real,    intent(in) :: delr      ! cloud top cooling at PBL top (K m/s)
     real(8), intent(in) :: rho   (:) ! air density
     integer, intent(in) :: iw
 
@@ -442,13 +442,14 @@ contains
     wcloud  = 0.0
     kpblm1  = max(kpblh-1, kbot)
 
-    if (ql(kpblh) > 1.e-8 .or. ql(kpblm1) > 1.e-8) then
-       deltar = max( delr / rho(kpblh) * cpi, 0.0 )
+    if ( ql(kpblh) > 1.e-8 .or. ql(kpblm1) > 1.e-8 .or.
+         (iactcu(iw) > 0 .and. kcubot <= kpblh) ) then
+       deltar = max( delr, 0.0 )
     else
        deltar = 0.0
     endif
 
-    if (deltar > 1.e-9) then
+    if (deltar > 2.e-7) then
 
        wcloud = (grav / thetav(kpblh) * pblh * deltar)**0.33333333
 

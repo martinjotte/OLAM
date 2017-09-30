@@ -65,6 +65,17 @@ Module mem_radiate
   real, allocatable         :: uvc           (:)
   real, allocatable         :: pbl_cld_forc  (:)
 
+  ! arrays for transferring radiation quantities
+  ! to surface with shaved cells
+
+  real, allocatable         :: rshort_ks        (:,:)
+  real, allocatable         :: rlong_ks         (:,:)
+  real, allocatable         :: rshort_diffuse_ks(:,:)
+! real, allocatable         :: par_ks           (:,:)
+! real, allocatable         :: par_diffuse_ks   (:,:)
+  real, allocatable, target :: ppfd_ks          (:,:)
+  real, allocatable, target :: ppfd_diffuse_ks  (:,:)
+
   ! clear-sky values
 
   real, allocatable, target :: rshort_clr      (:)
@@ -90,13 +101,14 @@ Contains
 
 !===============================================================================
 
-  subroutine alloc_radiate(mza,mwa,ilwrtyp,iswrtyp)
+  subroutine alloc_radiate(mza,mwa,nsw_max,ilwrtyp,iswrtyp)
 
     use misc_coms, only: io6, rinit
     implicit none
 
     integer, intent(in) :: mza
     integer, intent(in) :: mwa
+    integer, intent(in) :: nsw_max
     integer, intent(in) :: ilwrtyp
     integer, intent(in) :: iswrtyp
 
@@ -143,6 +155,15 @@ Contains
        allocate (rlongup_top_clr(mwa)) ; rlongup_top_clr = 0.0
 
        allocate (mcica_seed   (4,mwa)) ; mcica_seed = 0
+
+       allocate (rshort_ks        (nsw_max,mwa)) ; rshort_ks         = 0.0
+       allocate (rshort_diffuse_ks(nsw_max,mwa)) ; rshort_diffuse_ks = 0.0
+       allocate (rlong_ks         (nsw_max,mwa)) ; rlong_ks          = 0.0
+
+!      allocate (par_ks           (nsw_max,mwa)) ; par_ks            = 0.0
+!      allocate (par_diffuse_ks   (nsw_max,mwa)) ; par_diffuse_ks    = 0.0
+       allocate (ppfd_ks          (nsw_max,mwa)) ; ppfd_ks           = 0.0
+       allocate (ppfd_diffuse_ks  (nsw_max,mwa)) ; ppfd_diffuse_ks   = 0.0
 
     endif
 

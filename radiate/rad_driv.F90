@@ -33,7 +33,7 @@
 subroutine radiate()
 
 use mem_tend,    only: thilt
-use mem_ijtabs,  only: jtab_w, itabg_w, mrl_begl, istp, jtw_prog
+use mem_ijtabs,  only: jtab_w, itabg_w, mrl_begl, istp, jtw_prog, itab_w
 use mem_leaf,    only: land, itab_wl
 use mem_sea,     only: sea, itab_ws
 use leaf_coms,   only: nzg, nzs, mwl
@@ -45,15 +45,14 @@ use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,          &
                        rshort_clr, rshortup_clr,                          &
                        rshort_top_clr, rshortup_top_clr,                  &
                        par, par_diffuse, uva, uvb, uvc, pbl_cld_forc,     &
-                       ppfd, ppfd_diffuse
-use mem_basic,   only: rho
+                       ppfd, ppfd_diffuse, rlong_ks, rshort_ks,           &
+                       rshort_diffuse_ks, ppfd_ks, ppfd_diffuse_ks
+use mem_basic,   only: thil, theta, tair
 use consts_coms, only: stefan, pio180, eradi, r8
-use misc_coms,   only: io6, time8p, time_istp8, radfrq, itime1, ilwrtyp, &
-                       iswrtyp, dtlong, current_time, iparallel, isubdomain, &
-                       mstp, runtype
-use mem_grid,    only: lpw, mza, mwa
-use mem_grid,    only: wnx, wny, wnz
-use mem_para,    only: myrank
+use misc_coms,   only: io6, time8p, time_istp8, radfrq, ilwrtyp, &
+                       iswrtyp, dtlong, isubdomain, mstp, runtype
+use mem_grid,    only: lpw, mza, wnx, wny, wnz, lsw, nsw_max
+use mem_turb,    only: frac_sfc
 use ed_misc_coms,only: ed2_active
 
 implicit none
@@ -61,14 +60,20 @@ implicit none
 integer :: j
 integer :: iw
 integer :: k
-integer :: iws
-integer :: iwl
-integer :: ka
+integer :: nsfc
+integer :: iws, jws
+integer :: iwl, jwl
+integer :: ka, ks, kw
 integer :: koff
 integer :: nrad
 integer :: mrl
-real    :: arf_iw
+real    :: arf_iw, arf_kw
 real    :: sea_cosz
+
+real    :: albedt_ks        (nsw_max)
+real    :: albedt_diffuse_ks(nsw_max)
+real    :: rlongup_ks       (nsw_max)
+real    :: rlong_albedo_ks  (nsw_max)
 
 ! Check whether it is time to update radiative fluxes and heating rates
 
@@ -86,55 +91,9 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 
    call sunloc()
 
-! Loop over all radiative IW grid cells where radiation may be done
-
-!----------------------------------------------------------------------
-!$omp parallel do private(iw,k)
-   do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)! jend(1) = hardw for mrl = 1
-!----------------------------------------------------------------------
-
-! Compute solar zenith angle for atmosphere cells
-
-      cosz(iw) = wnx(iw) * sunx + wny(iw) * suny + wnz(iw) * sunz
-
-! Zero out fields that are summed from land/sea cells
-
-      rlongup       (iw) = 0.
-      rlong_albedo  (iw) = 0.
-      albedt_beam   (iw) = 0.
-      albedt_diffuse(iw) = 0.
-
-! Zero out solar radiation fields since solar radiation calls are skipped at night
-
-      rshort        (iw) = 0.
-      rshort_diffuse(iw) = 0.
-      rshort_top    (iw) = 0.
-      rshortup_top  (iw) = 0.
-
-      rshort_clr      (iw) = 0.
-      rshortup_clr    (iw) = 0.
-      rshort_top_clr  (iw) = 0.
-      rshortup_top_clr(iw) = 0.
-      
-      do k = lpw(iw), mza
-         fthrd_sw(k,iw) = 0.
-      enddo
-
-      par(iw) = 0.
-      par_diffuse(iw) = 0.
-      ppfd(iw) = 0.
-      ppfd_diffuse(iw) = 0.
-      uva(iw) = 0.
-      uvb(iw) = 0.
-      uvc(iw) = 0.
-
-      pbl_cld_forc(iw) = 0.
-   enddo
-!$omp end parallel do
-
 ! Loop over all SEA cells
 
-!$omp parallel do private (sea_cosz)
+   !$omp parallel do private (sea_cosz)
    do iws = 2,mws
 
 ! Get surface radiative properties (albedos and rlongup) for each sea cell. 
@@ -186,11 +145,11 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
       sea%albedo_diffuse(iws) = sea%albedo_beam(iws)
 
    enddo
-!$omp end parallel do
+   !$omp end parallel do
 
 ! Loop over all LAND cells
 
-!$omp parallel do
+   !$omp parallel do
    do iwl = 2,mwl
 
 ! Get surface radiative properties (albedos and rlongup) for each land cell.
@@ -228,7 +187,7 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
       endif
 
    enddo
-!$omp end parallel do
+   !$omp end parallel do
 
 ! Do radiation for all ED grid cells.
 
@@ -238,61 +197,111 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
    endif
 #endif
 
-! Loop over all SEA cells to get mean surface radiative properties
-! for each IW grid cell.
-
-! No OMP parallelization of following IWS loop unless conflicts are prevented
-   do iws = 2,mws
-      iw  = itab_ws(iws)%iw        ! global index
-
-! If run is parallel, get local rank index
-
-      if (isubdomain == 1) then
-         iw  = itabg_w(iw)%iw_myrank
-      endif
-
-      arf_iw = itab_ws(iws)%arf_iw
-
-      rlongup       (iw) = rlongup       (iw) + arf_iw * sea%rlongup(iws)       
-      rlong_albedo  (iw) = rlong_albedo  (iw) + arf_iw * sea%rlong_albedo(iws)  
-      albedt_beam   (iw) = albedt_beam   (iw) + arf_iw * sea%albedo_beam(iws)   
-      albedt_diffuse(iw) = albedt_diffuse(iw) + arf_iw * sea%albedo_diffuse(iws)
-
-   enddo
-
-! Loop over all LAND cells to get mean surface radiative
-! properties for each IW grid cell.
-
-! No OMP parallelization of following IWL loop unless conflicts are prevented
-   do iwl = 2,mwl
-      iw  = itab_wl(iwl)%iw         ! global index
-
-! If run is parallel, get local rank indices
-
-      if (isubdomain == 1) then
-         iw = itabg_w(iw)%iw_myrank
-      endif
-
-      arf_iw = itab_wl(iwl)%arf_iw
-
-      rlongup       (iw) = rlongup       (iw) + arf_iw * land%rlongup(iwl)
-      rlong_albedo  (iw) = rlong_albedo  (iw) + arf_iw * land%rlong_albedo(iwl)
-      albedt_beam   (iw) = albedt_beam   (iw) + arf_iw * land%albedo_beam(iwl)
-      albedt_diffuse(iw) = albedt_diffuse(iw) + arf_iw * land%albedo_diffuse(iwl)
-
-   enddo
-
 ! Loop over all radiative IW grid columns
 
 !----------------------------------------------------------------------
-!$omp parallel do private (iw,ka,koff,nrad)
+   !$omp parallel do private (iw,ka,koff,nrad,nsfc,rlongup_ks,rlong_albedo,&
+   !$omp                      albedt_ks,albedt_diffuse_ks)
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) = hardw for  mrl=1
 !----------------------------------------------------------------------
 
-! K index of lowest predicted level
+      ka   = lpw(iw)
+      nsfc = lsw(iw)
 
-      ka = lpw(iw)
-      
+! Compute solar zenith angle for atmosphere cells
+
+      cosz(iw) = wnx(iw) * sunx + wny(iw) * suny + wnz(iw) * sunz
+
+! Zero out fields that are summed from land/sea cells
+
+      rlongup       (iw) = 0.0
+      rlong_albedo  (iw) = 0.0
+      albedt_beam   (iw) = 0.0
+      albedt_diffuse(iw) = 0.0
+
+      rlongup_ks       (1:nsfc) = 0.0
+      rlong_albedo_ks  (1:nsfc) = 0.0
+      albedt_ks        (1:nsfc) = 0.0
+      albedt_diffuse_ks(1:nsfc) = 0.0
+
+! Zero out solar radiation fields since solar radiation calls are skipped at night
+
+      rshort        (iw) = 0.
+      rshort_diffuse(iw) = 0.
+      rshort_top    (iw) = 0.
+      rshortup_top  (iw) = 0.
+
+      rshort_clr      (iw) = 0.
+      rshortup_clr    (iw) = 0.
+      rshort_top_clr  (iw) = 0.
+      rshortup_top_clr(iw) = 0.
+
+      fthrd_sw(ka:mza,iw) = 0.
+
+      par(iw) = 0.
+      par_diffuse(iw) = 0.
+      ppfd(iw) = 0.
+      ppfd_diffuse(iw) = 0.
+      uva(iw) = 0.
+      uvb(iw) = 0.
+      uvc(iw) = 0.
+      pbl_cld_forc(iw) = 0.
+
+! Sum sea cell contributions to this iw column
+
+      do jws = 1, itab_w(iw)%nsea
+         iws = itab_w(iw)%isea(jws)
+
+         arf_iw = itab_ws(iws)%arf_iw     ! sea cell area frac of atm IW col
+         arf_kw = itab_ws(iws)%arf_kw     ! sea cell area frac of atm (KW,IW)
+                                          !    cell contact with surface
+         kw = itab_ws(iws)%kw
+         ks = kw - ka + 1
+
+         rlongup_ks       (ks) = rlongup_ks       (ks) + arf_kw * sea%rlongup(iws)
+         rlong_albedo_ks  (ks) = rlong_albedo_ks  (ks) + arf_kw * sea%rlong_albedo(iws)
+         albedt_ks        (ks) = albedt_ks        (ks) + arf_kw * sea%albedo_beam(iws)
+         albedt_diffuse_ks(ks) = albedt_diffuse_ks(ks) + arf_kw * sea%albedo_diffuse(iws)
+
+         rlongup       (iw) = rlongup       (iw) + arf_iw * sea%rlongup(iws)
+         rlong_albedo  (iw) = rlong_albedo  (iw) + arf_iw * sea%rlong_albedo(iws)
+         albedt_beam   (iw) = albedt_beam   (iw) + arf_iw * sea%albedo_beam(iws)
+         albedt_diffuse(iw) = albedt_diffuse(iw) + arf_iw * sea%albedo_diffuse(iws)
+      enddo
+
+! Sum land cell contributions to this iw column
+
+      do jwl = 1, itab_w(iw)%nland
+         iwl = itab_w(iw)%iland(jwl)
+
+         arf_iw = itab_wl(iwl)%arf_iw      ! land cell area frac of atm IW col
+         arf_kw = itab_wl(iwl)%arf_kw      ! land cell area frac of atm (KW,IW)
+                                           !    cell contact with surface
+         kw = itab_wl(iwl)%kw
+         ks = kw - ka + 1
+
+         rlongup_ks       (ks) = rlongup_ks       (ks) + arf_kw * land%rlongup(iwl)
+         rlong_albedo_ks  (ks) = rlong_albedo_ks  (ks) + arf_kw * land%rlong_albedo(iwl)
+         albedt_ks        (ks) = albedt_ks        (ks) + arf_kw * land%albedo_beam(iwl)
+         albedt_diffuse_ks(ks) = albedt_diffuse_ks(ks) + arf_kw * land%albedo_diffuse(iwl)
+
+         rlongup       (iw) = rlongup       (iw) + arf_iw * land%rlongup(iwl)
+         rlong_albedo  (iw) = rlong_albedo  (iw) + arf_iw * land%rlong_albedo(iwl)
+         albedt_beam   (iw) = albedt_beam   (iw) + arf_iw * land%albedo_beam(iwl)
+         albedt_diffuse(iw) = albedt_diffuse(iw) + arf_iw * land%albedo_diffuse(iwl)
+      enddo
+
+! If no land/sea cells are at this level, just copy from level below.
+
+      do ks = 2, nsfc
+         if (rlongup_ks(ks) < 1.e-7) then
+            rlongup_ks       (ks) = rlongup_ks       (ks-1)
+            rlong_albedo_ks  (ks) = rlong_albedo_ks  (ks-1)
+            albedt_ks        (ks) = albedt_ks        (ks-1)
+            albedt_diffuse_ks(ks) = albedt_diffuse_ks(ks-1)
+         endif
+      enddo
+
 ! Set total surface albedo to surface direct albedo
 ! (LEAF doesn't differentiate between diffuse and direct albedo)
    
@@ -306,8 +315,8 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
          koff = ka - 1
 
          nrad = mza - koff + nadd_rad
-         call rrtmg_raddriv( iw, ka, nrad, koff )
-
+         call rrtmg_raddriv( iw, ka, nrad, koff, nsfc, &
+                             rlongup_ks, rlong_albedo_ks, albedt_ks, albedt_diffuse_ks )
       endif
 
    enddo
@@ -316,9 +325,10 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 ! If running leaf, loop over SEA cells to transfer downward surface
 ! shortwave and longwave fluxes from IW atmospheric column to sea cells
 
-!$omp parallel do private (iw)
+!$omp parallel do private (iw,ks)
    do iws = 2,mws
-      iw = itab_ws(iws)%iw         ! global index
+
+      iw = itab_ws(iws)%iw   ! global index
 
 ! If run is parallel, get local rank indices
 
@@ -326,9 +336,11 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
          iw = itabg_w(iw)%iw_myrank
       endif
 
-      sea%rlong(iws)          = rlong(iw)
-      sea%rshort(iws)         = rshort(iw)
-      sea%rshort_diffuse(iws) = rshort_diffuse(iw)
+      ks = itab_ws(iws)%kw - lpw(iw) + 1
+
+      sea%rlong         (iws) = rlong_ks         (ks,iw)
+      sea%rshort        (iws) = rshort_ks        (ks,iw)
+      sea%rshort_diffuse(iws) = rshort_diffuse_ks(ks,iw)
 
    enddo
 !$omp end parallel do
@@ -336,9 +348,10 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 ! If running leaf, loop over LAND cells to transfer downward surface
 ! shortwave and longwave fluxes from IW atmospheric column to land cells
 
-!$omp parallel do private (iw)
+!$omp parallel do private (iw,ks)
    do iwl = 2,mwl
-      iw = itab_wl(iwl)%iw         ! global index
+
+      iw = itab_wl(iwl)%iw   ! global index
 
 ! If run is parallel, get local rank indices
 
@@ -346,9 +359,15 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
          iw = itabg_w(iw)%iw_myrank
       endif
 
-      land%rlong(iwl)          = rlong(iw)
-      land%rshort(iwl)         = rshort(iw)
-      land%rshort_diffuse(iwl) = rshort_diffuse(iw)
+      ks = itab_wl(iwl)%kw - lpw(iw) + 1
+
+      land%rlong         (iwl) = rlong_ks         (ks,iw)
+      land%rshort        (iwl) = rshort_ks        (ks,iw)
+      land%rshort_diffuse(iwl) = rshort_diffuse_ks(ks,iw)
+!     land%par           (iwl) = par_ks           (ks,iw)
+!     land%par_diffuse   (iwl) = par_diffuse_ks   (ks,iw)
+      land%ppfd          (iwl) = ppfd_ks          (ks,iw)
+      land%ppfd_diffuse  (iwl) = ppfd_diffuse_ks  (ks,iw)
 
    enddo   
 !$omp end parallel do
@@ -423,7 +442,15 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
    do k = lpw(iw), mza
-      thilt(k,iw) = thilt(k,iw) + rho(k,iw) * (fthrd_sw(k,iw) + fthrd_lw(k,iw))
+
+      if (tair(k,iw) > 253.) then
+         thilt(k,iw) = thilt(k,iw) &
+                     + (fthrd_sw(k,iw) + fthrd_lw(k,iw)) * theta(k,iw) / tair(k,iw)
+      else
+         thilt(k,iw) = thilt(k,iw) &
+                     + (fthrd_sw(k,iw) + fthrd_lw(k,iw)) * thil(k,iw) / tair(k,iw)
+      endif
+
    enddo
 
 enddo      
@@ -438,7 +465,6 @@ if (ed2_active == 1) then
 endif
 #endif
 
-return
 end subroutine radiate
 
 !============================================================================

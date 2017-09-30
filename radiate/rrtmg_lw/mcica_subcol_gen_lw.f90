@@ -489,6 +489,9 @@
 
       if (inflg == 0) then
 
+         clwp_stoch(:,:,:) = 0.0_rb
+         ciwp_stoch(:,:,:) = 0.0_rb
+ 
          do ilev = 1,nlay
             do i = 1, ncol
                do isubcol = 1, nsubcol
@@ -510,6 +513,8 @@
 
       else
 
+         tauc_stoch(:,:,:) = 0.0_rb
+         
          do ilev = 1,nlay
             do i = 1, ncol
                do isubcol = 1, nsubcol

@@ -253,7 +253,8 @@ subroutine pbl_init()
   use mem_grid,      only: lsw, lpw, mza, mwa, arw, arw0, zfacim2
   use mem_ijtabs,    only: jtab_w, jtw_prog, itabg_w
   use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, frac_sfc, &
-                           ustar, wstar, wtv0, pblh, kpblh, fthpbl, fqtpbl, moli
+                           ustar, wstar, wtv0, pblh, kpblh, fthpbl, fqtpbl, moli, &
+                           frac_sfck
   use mem_leaf,      only: land, itab_wl
   use mem_sea,       only: sea, itab_ws
   use mem_basic,     only: vxe, vye, vze, theta, sh_v
@@ -319,10 +320,11 @@ subroutine pbl_init()
      
   endif
 
-! Store the fraction of the total surface that intersects with each layer
-
   !$omp parallel do private(ks,k,km)
   do iw = 2, mwa
+
+     ! Store the fraction of the total surface that intersects with each layer
+
      if (lsw(iw) == 1) then
         frac_sfc(1,iw) = 1.0
      else
@@ -333,6 +335,18 @@ subroutine pbl_init()
                 max(arw(k,iw) * zfacim2(k) - arw(km,iw) * zfacim2(km),0.) / arw0(iw)
         enddo
      endif
+     
+     ! Store the fraction of the current cell that intersects with the surface
+
+     frac_sfck(1,iw) = 1.0
+
+     do ks = 2, lsw(iw)
+        k  = lpw(iw) + ks - 1
+        km = k - 1
+        frac_sfck(ks,iw) = &
+             max(arw(k,iw) * zfacim2(k) - arw(km,iw) * zfacim2(km),0.) / (arw(k,iw) * zfacim2(k))
+        enddo
+
   enddo
   !$omp end parallel do
 

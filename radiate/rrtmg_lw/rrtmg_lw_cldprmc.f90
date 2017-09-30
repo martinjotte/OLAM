@@ -155,20 +155,23 @@
 !         enddo
 !      enddo
 
+      if (inflag .eq. 0) then
+         ! Cloud optical depth already defined in taucmc, return to main program
+         return
+      endif
+
 ! Main layer loop
       do lay = 1, nlayers
 
         do ig = 1, ngptlw
           cwp = ciwpmc(ig,lay) + clwpmc(ig,lay)
+
           if (cldfmc(ig,lay) .ge. cldmin .and. &
              (cwp .ge. cldmin .or. taucmc(ig,lay) .ge. cldmin)) then
 
 ! Ice clouds and water clouds combined.
-            if (inflag .eq. 0) then
-! Cloud optical depth already defined in taucmc, return to main program
-               return
 
-            elseif(inflag .eq. 1) then 
+            if (inflag .eq. 1) then 
                 stop 'INFLAG = 1 OPTION NOT AVAILABLE WITH MCICA'
 !               cwp = ciwpmc(ig,lay) + clwpmc(ig,lay)
 !               taucmc(ig,lay) = abscld1 * cwp
