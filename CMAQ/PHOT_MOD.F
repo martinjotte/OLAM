@@ -122,7 +122,7 @@ C-----------------------------------------------------------------------
       CONTAINS
 
 C///////////////////////////////////////////////////////////////////////
-      SUBROUTINE NEW_OPTICS ( IW, NLAYS, nlays_model, nlays_chem,
+      SUBROUTINE NEW_OPTICS ( IW, NLAYS, nlays_model, nlays_chem, 
      &                        BLKTA, BLKDENS, BLKZF,
      &                        BLKO3, BLKNO2, ALB, 
      &                        ZSFC, COSZEN, SINZEN,
@@ -158,6 +158,8 @@ C-----------------------------------------------------------------------
       USE UTILIO_DEFN
       USE RXNS_DATA            ! chemical mechanism data
       USE AERO_PHOTDATA
+      use mem_turb, only: frac_sfck
+      use mem_grid, only: lsw
 
       IMPLICIT NONE
 
@@ -172,13 +174,12 @@ C-----------------------------------------------------------------------
       REAL,    INTENT(IN) :: BLKZF  ( : )       ! layer full height[ m ]
       REAL,    INTENT(IN) :: BLKO3  ( : )       ! O3 concentration [ molecules / cm**3 ]
       REAL,    INTENT(IN) :: BLKNO2 ( : )       ! NO2 concentration [ molecules / cm**3 ]
-      REAL,    INTENT(IN) :: ALB    ( : )       ! wavelength-dependent surface albedo
+      REAL,    INTENT(IN) :: ALB  ( :,: )       ! wavelength-dependent surface albedo
       REAL,    INTENT(IN) :: ZSFC               ! surface height (msl) [ m ]
       REAL,    INTENT(IN) :: COSZEN, SINZEN     ! sine and cosine of the zenith angle
 
       LOGICAL, INTENT(IN) :: NEW_PROFILE     ! Has the atmospheric profile changed since last call?
       REAL,    INTENT(IN) :: CLDFRC( : )     ! fraction of gridcell covered by cloud
-      
 
       REAL,    INTENT(OUT) :: BLKRJ( :,: )  ! photolysis rates [ 1 / sec ]
 
@@ -199,7 +200,7 @@ C-----------------------------------------------------------------------
 !      REAL, PARAMETER :: STRAT_TEMP  = 225.0    ! stratospheric temperature
 !      REAL, PARAMETER :: ZTOA        = 50.0E3   ! top of the atmosphere [ m ]
 
-      INTEGER L, IWL, II, IPHOT  ! loop indices
+      INTEGER L, IWL, II, IPHOT, nlevs  ! loop indices
 
 !     INTEGER NLEVEL
       REAL SOLAR_FLUX        ! solar flux at atmosphere top in a wavelength band, [photons/(cm^2*s)]
@@ -400,6 +401,8 @@ C-----------------------------------------------------------------------
 !         TOTAL_O3_COLUMN   = 0.0
 !         RETURN
 !      END IF
+
+      nlevs = nlays + 1
 
       IF ( NEW_PROFILE ) THEN  ! update based on new temperature and density profile
 !***Adjust cross sections and quantum yields for ambient conditions
@@ -664,7 +667,6 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
             g_clr    =  ( G_BAR * DTSCAT_A ) / DTSCAT
 
             ! combine clear sky and cloud properties
-
             if (cldfrc(ii) > 0.01) then
 
                dtau_cld = sqrt( cldfrc(ii) ) * tauclds(iwl,ii)
@@ -676,6 +678,8 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
                om  (l) = om(l) / dtau(l)
 
             else
+
+               dtau_cld = 0.0
 
                dtau(l) = dtau_clr
                om  (l) = om_clr
@@ -780,14 +784,11 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
 
 !***calculate fluxes and irradiances
 
-         CALL TWOSTREAM_S ( NLAYS, COSZEN, ALB( IWL ), DTAU, OM, G, DSDH_TD,
-     &                      FDIR, FUP, FDN, EDIR, EUP, EDN )
-
-         DO L = 1, NLAYS_MODEL
-            II = NLAYS_MODEL + 1 - L
-
+         CALL TWOSTREAM_S ( NLAYS, NLEVS, COSZEN, ALB(:,iwl), DTAU, OM, G, DSDH_TD,
+     &                      FDIR, FUP, FDN, EDIR, EUP, EDN, frac_sfck(:,iw), lsw(iw) )
+         DO L = 1, NLEVS
+            II = NLEVS + 1 - L
             FSUM( L ) = FDIR( II ) + FDN( II ) + FUP( II ) ! actinic flux
-
             ESUM( L ) = EDIR( II ) + EDN( II )             ! downward irradiance
          END DO                 ! loop over layers
 
@@ -1357,8 +1358,8 @@ C///////////////////////////////////////////////////////////////////////
 
 C///////////////////////////////////////////////////////////////////////
 
-      SUBROUTINE TWOSTREAM_S ( NLEVEL, MU, RSFC, TAUU, OMU, GU, DSDH,
-     &                         FDR, FUP, FDN, EDR, EUP, EDN )
+      SUBROUTINE TWOSTREAM_S ( NLAYER, NLEVEL, MU, RSFC, TAUU, OMU, GU, DSDH,
+     &                         FDR, FUP, FDN, EDR, EUP, EDN, frac_sfck, nsfc )
 C-----------------------------------------------------------------------
 C  PURPOSE:
 C     Solve two-stream equations for multiple layers.  The subroutine is
@@ -1431,10 +1432,11 @@ C-----------------------------------------------------------------------
 
 !***arguments
 
+      INTEGER, INTENT( IN ) :: NLAYER
       INTEGER, INTENT( IN ) :: NLEVEL
 
       REAL,    INTENT(IN )  :: MU
-      REAL,    INTENT(IN )  :: RSFC
+      REAL,    INTENT(IN )  :: RSFC( : )
       REAL,    INTENT(IN )  :: TAUU( : )
       REAL,    INTENT(IN )  :: OMU ( : )
       REAL,    INTENT(IN )  :: GU  ( : )
@@ -1446,11 +1448,15 @@ C-----------------------------------------------------------------------
       REAL,    INTENT(OUT ) :: EDN ( : )
       REAL,    INTENT(OUT ) :: EDR ( : )
 
+      real,    intent(in )  :: frac_sfck( : )
+      integer, intent(in )  :: nsfc
+
 !***local:
 
-      REAL( 8 ) :: TAUC  ( 0:nlevel )        ! optical depth variable
-      REAL( 8 ) :: TAUSLA( 0:nlevel )        ! slant path optical depth
-      REAL( 8 ) :: MU2   ( 0:nlevel )        ! replaces mu1 for slant path
+!     REAL( 8 ) :: TAUC   ( 0:nlevel )  ! optical depth variable
+      REAL( 8 ) :: TAUSLA ( 0:nlevel )  ! slant path optical depth
+      REAL( 8 ) :: ETAUSLA( 0:nlevel )  ! transmissivity along slant path
+      REAL( 8 ) :: MU2    ( 0:nlevel )  ! replaces mu1 for slant path
 
 !***internal coefficients and matrix
 
@@ -1458,7 +1464,8 @@ C-----------------------------------------------------------------------
       REAL( 8 ) :: E1 ( NLEVEL ), E2  ( NLEVEL ), E3   ( NLEVEL ), E4   ( NLEVEL )
       REAL( 8 ) :: CUP( NLEVEL ), CDN ( NLEVEL ), CUPTN( NLEVEL ), CDNTN( NLEVEL )
 
-      REAL( 8 ) :: A( 2*NLEVEL ), B( 2*NLEVEL ), D( 2*NLEVEL ), E( 2*NLEVEL ), Y( 2*NLEVEL )
+      REAL( 8 ) :: A( 2*NLAYER ), B( 2*NLAYER ), D( 2*NLAYER ), E( 2*NLAYER ), Y( 2*NLAYER )
+      REAL( 8 ) :: tmp1( 2*NLAYER ), tmp2( 2*NLAYER ), y2( 2*nlayer )
 
 !***other:
 
@@ -1466,12 +1473,12 @@ C-----------------------------------------------------------------------
       REAL( 8 ) :: F, G, OM
       REAL( 8 ) :: GAM1, GAM2, GAM3, GAM4
 
-      REAL( 8 ) :: EXPON, EXPON0, EXPON1, DIVISR, TEMP, UP, DN
-      REAL( 8 ) :: SSFC
+      REAL( 8 ) :: EXPON, DIVISR, TEMP, UP, DN
+      REAL( 8 ) :: SSFC( nsfc )
 
       INTEGER   :: ROW
       INTEGER   :: I, J
-      INTEGER   :: NLAYER, MROWS, LEV
+      INTEGER   :: MROWS, LEV
 
 !***Some additional program constants:
 
@@ -1491,9 +1498,9 @@ C-----------------------------------------------------------------------
 
 !-----------------------------------------------------------------------
 
-      NLAYER = NLEVEL - 1
+!      NLAYER = NLEVEL !- 1
 
-      TAUC  ( 0 ) = 0.0D0
+!     TAUC  ( 0 ) = 0.0D0
       TAUSLA( 0 ) = 0.0D0
       MU2   ( 0 ) = SQRTLRGSTM1
 
@@ -1509,9 +1516,12 @@ C-----------------------------------------------------------------------
          mu2   (i) = max(dsdh(i), sqrtlrgstm1)
       END DO
 
+      TEMP       = 0.0d0
+      ETAUSLA(0) = 1.0D0
       DO I = 1, NLAYER
-         TAUSLA(I) = TAUSLA(I-1) + TAUSLA(I) ! NOTE redefinition of tau
-         TAUC  (I) = TAUC  (I-1) + TAUN  (I) ! to be a sum over altitude.
+         TEMP       = TEMP + TAUSLA(I) ! sum over altitude
+         ETAUSLA(I) = EXP( -TEMP )
+!        TAUC  (I) = TAUC  (I-1) + TAUN  (I) ! to be a sum over altitude.
       ENDDO
 
 !***FSB calculate MU2(i). This is the substitute for mu ( = 1/ coszen) for the
@@ -1545,7 +1555,7 @@ C-----------------------------------------------------------------------
 !***  cup and cdn = calculation when tau is zero
 !***  cuptn and cdntn = calc. when tau is taun
 !***  divisr = prevents division by zero
-
+      
       DO 11, I = 1, NLAYER
 
          G  = GI (I)
@@ -1606,9 +1616,6 @@ C-----------------------------------------------------------------------
 !***  shift 1/MU^2 by  EPS = 1.E-3
 !***  which is approx equiv to shifting MU by 0.5*EPS* (MU)**3
 
-         EXPON0 = EXP( -TAUSLA(I-1) )
-         EXPON1 = EXP( -TAUSLA(I) )
-
          DIVISR = LAM(I) * LAM(I) - MU2(I) * MU2(I)
          TEMP = MAX( EPS, ABS( DIVISR ) )
          DIVISR = SIGN( TEMP , DIVISR )
@@ -1622,17 +1629,19 @@ C-----------------------------------------------------------------------
 !***cup and cdn are when tau is equal to zero
 !***cuptn and cdntn are when tau is equal to taun
 
-         CUP(I)   = UP * EXPON0
-         CDN(I)   = DN * EXPON0
-         CUPTN(I) = UP * EXPON1
-         CDNTN(I) = DN * EXPON1
+         CUP(I)   = UP * ETAUSLA(I-1)
+         CDN(I)   = DN * ETAUSLA(I-1)
+         CUPTN(I) = UP * ETAUSLA(I)
+         CDNTN(I) = DN * ETAUSLA(I)
 
  11   CONTINUE                  ! loop on layer
 
 !***set up matrix
 !*** ssfc = pg 16,292 equation 37  where pi Fs is one (unity).
 
-      SSFC = RSFC * MU * EXP( -TAUSLA( NLAYER ) ) * PIFS
+      do i = 1, nsfc
+         SSFC(i) = RSFC(i) * MU * ETAUSLA( NLAYER-I+1 ) * PIFS
+      enddo
 
 !***MROWS = the number of rows in the matrix
 
@@ -1678,14 +1687,40 @@ C-----------------------------------------------------------------------
       ROW = MROWS
       I = NLAYER
 
-      A(ROW) = E1(I) - RSFC * E3(I)
-      B(ROW) = E2(I) - RSFC * E4(I)
+      A(ROW) = E1(I) - RSFC(1) * E3(I)
+      B(ROW) = E2(I) - RSFC(1) * E4(I)
       D(ROW) = 0.0D0
-      E(ROW) = SSFC - CUPTN(I) + RSFC * CDNTN(I)
+      E(ROW) = SSFC(1) - CUPTN(I) + RSFC(1) * CDNTN(I)
 
 !***solve tri-diagonal matrix:
 
-      CALL TRIDIAGONAL ( A, B, D, E, Y, MROWS )
+      CALL TRIDIAGONAL ( A, B, D, E, Y, MROWS, tmp1, tmp2 )
+
+! multiple surface levels with shaved cells
+
+      if (nsfc > 1) then
+
+         i  = nlayer
+         j  = 1
+
+         do row = mrows-2, mrows-2*(nsfc-1), -2
+
+            i = i - 1
+            j = j + 1
+
+            if (frac_sfck(j) < 0.001) cycle
+
+            a(row) = E1(I) - RSFC(j) * E3(I)
+            b(row) = E2(I) - RSFC(j) * E4(I)
+            d(row) = 0.0d0
+            e(row) = SSFC(j) - CUPTN(I) + RSFC(j) * CDNTN(I)
+
+            CALL TRIDIAG2 ( A, B, D, E, Y2, row, tmp1, tmp2 )
+
+            y( 1:row ) = y( 1:row ) * (1.0-frac_sfck(j)) + y2( 1:row ) * frac_sfck(j)
+
+         enddo
+      endif
 
 !*** unfold solution of matrix, compute output fluxes:
 
@@ -1702,12 +1737,12 @@ C-----------------------------------------------------------------------
       FDN(LEV) = EDN(LEV) * MU1
       FUP(LEV) = EUP(LEV) * MU1
 
-      DO 60, LEV = 2, NLAYER + 1
-         FDR(LEV) = EXP( -TAUSLA(LEV-1) )
+      DO 60 LEV = 2, NLEVEL
+         FDR(LEV) = ETAUSLA(LEV-1)
          EDR(LEV) = MU * FDR(LEV)
          EDN(LEV) = Y(ROW) * E3(J) + Y(ROW + 1) * E4(J) + CDNTN(J)
          EUP(LEV) = Y(ROW) * E1(J) + Y(ROW + 1) * E2(J) + CUPTN(J)
-         FDN(LEV) = EDN(LEV) * MU1 
+         FDN(LEV) = EDN(LEV) * MU1
          FUP(LEV) = EUP(LEV) * MU1
 
          ROW = ROW + 2
@@ -1727,12 +1762,11 @@ C-----------------------------------------------------------------------
 !
 !2611  FORMAT(/ ' ( GAM1**2 - GAM2**2 ) < 0: NaNs introduced into solution ' /)
 
-      RETURN
       END SUBROUTINE TWOSTREAM_S
 
 C///////////////////////////////////////////////////////////////////////
 
-      SUBROUTINE TRIDIAGONAL ( A, B, D, E, Y, N )
+      SUBROUTINE TRIDIAGONAL ( A, B, D, E, Y, N, gam, y2 )
 C-----------------------------------------------------------------------
 C  This version has the same variable names as in twostream_s, that
 C  is D is the superdiagonal and E is the right hand side, and Y is
@@ -1781,39 +1815,118 @@ C-----------------------------------------------------------------------
 !***Arguments:
 
       INTEGER,   INTENT( IN )  :: N        ! number of rows in matrix
-      REAL( 8 ), INTENT( IN )  :: A( : )   ! subdiagonal
-      REAL( 8 ), INTENT( IN )  :: B( : )   ! diagonal
-      REAL( 8 ), INTENT( IN )  :: D( : )   ! superdiagonal
-      REAL( 8 ), INTENT( IN )  :: E( : )   ! R.H. side
-      REAL( 8 ), INTENT( OUT ) :: Y( : )   ! solution
+      REAL( 8 ), INTENT( IN )  :: A( n )   ! subdiagonal
+      REAL( 8 ), INTENT( IN )  :: B( n )   ! diagonal
+      REAL( 8 ), INTENT( IN )  :: D( n )   ! superdiagonal
+      REAL( 8 ), INTENT( IN )  :: E( n )   ! R.H. side
+      REAL( 8 ), INTENT( OUT ) :: Y( n )   ! solution
+
+      real( 8 ), intent( inout ) :: gam( n )
+      real( 8 ), intent( inout ) :: y2 ( n )
 
 !***Local Variables:
 
-      INTEGER J   ! loop index
-
-      REAL( 8 ) :: BET        !
-      REAL( 8 ) :: GAM( N )   !
+      INTEGER   :: J
+      REAL( 8 ) :: BET
 
 !***Decomposition and forward substitution:
 
       BET = 1.0D0 / B( 1 )
-      Y( 1 ) = BET * E( 1 )
+      Y2( 1 ) = BET * E( 1 )
 
       DO J = 2, N
          GAM( J ) = BET * D( J - 1 )
          BET = 1.0D0 / ( B( J ) - A( J ) * GAM( J ) )
-         Y( J ) = BET * ( E( J ) - A( J ) * Y( J - 1) )
+         Y2( J ) = BET * ( E( J ) - A( J ) * Y2( J - 1) )
       END DO
 
 !***Back-substitution:
 
+      Y( N ) = Y2( N )
+
       DO J = N - 1, 1, -1
-         Y( J ) = Y( J ) - GAM( J + 1 ) * Y( J + 1 )
+         Y( J ) = Y2( J ) - GAM( J + 1 ) * Y( J + 1 )
       END DO
 
       RETURN
 
       END SUBROUTINE TRIDIAGONAL
+
+C///////////////////////////////////////////////////////////////////////
+
+      SUBROUTINE TRIDIAG2 ( A, B, D, E, Y, N, gam, y2 )
+C-----------------------------------------------------------------------
+C  This version has the same variable names as in twostream_s, that
+C  is D is the superdiagonal and E is the right hand side, and Y is
+C  the  solution. The size of A,B,D,E and Y is now N, the
+C  number of rows in the matrix.
+C-----------------------------------------------------------------------
+C
+C  Function:
+C     Solves tridiagonal system by Thomas algorithm.  Algorithm fails
+C     if first pivot is zero.  In that case, rewrite the
+C     equation as a set of order N-1, with U(2) trivially eliminated.
+C     The associated tri-diagonal system is stored in 3 arrays
+C     B: diagonal
+C     A: sub-diagonal
+C     D: super-diagonal
+C     E: right hand side function
+C     U : return solution from tridiagonal solver
+C
+C     [ B(1) D(1) 0    0    0 ...       0     ]
+C     [ A(2) B(2) D(2) 0    0 ...       .     ]
+C     [ 0    A(3) B(3) D(3) 0 ...       .     ]
+C     [ .       .     .     .           .     ] Y(i) = E(i)
+C     [ .             .     .     .     0     ]
+C     [ .                   .     .     .     ]
+C     [ 0                           A(N) B(N) ]
+C
+C  Preconditions:
+C
+C  Subroutines and Functions Called:
+C
+C  Revision History:
+C     NO.   DATE     WHO      WHAT
+C     __    ____     ___      ____
+C     5     11/09/04  FSB  Changed symbols to match twostream_s
+C                          made arrays variable.
+C     4     4/3/96    SJR  copied code and modified for use in JPROC
+C     3     8/16/94   XKX  configuration management include statements
+C     2     3/15/92   CJC  For use in Models-3 LCM.
+C     1     10/19/89  JKV  converted for use on IBM
+C     0      3/89     BDX  Initial version
+C     yoj
+C-----------------------------------------------------------------------
+
+      IMPLICIT NONE
+
+!***Arguments:
+
+      INTEGER,   INTENT( IN )  :: N        ! number of rows in matrix
+      REAL( 8 ), INTENT( IN )  :: A( n )   ! subdiagonal
+      REAL( 8 ), INTENT( IN )  :: B( n )   ! diagonal
+      REAL( 8 ), INTENT( IN )  :: D( n )   ! superdiagonal
+      REAL( 8 ), INTENT( IN )  :: E( n )   ! R.H. side
+      REAL( 8 ), INTENT( OUT ) :: Y( n )   ! solution
+
+      real( 8 ), intent( inout ) :: gam( n )
+      real( 8 ), intent( inout ) :: y2 ( n )
+
+!***Local Variables:
+
+      INTEGER   :: J
+
+!***Decomposition and forward substitution:
+
+      Y( N ) = ( E( N ) - A( N ) * Y2( N - 1) ) / ( B( N ) - A( N ) * GAM( N ) )
+
+!***Back-substitution:
+
+      DO J = N - 1, 1, -1
+         Y( J ) = Y2( J ) - GAM( J + 1 ) * Y( J + 1 )
+      END DO
+
+      END SUBROUTINE TRIDIAG2
 
 C///////////////////////////////////////////////////////////////////////
 

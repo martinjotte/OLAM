@@ -302,7 +302,8 @@ end function rhovsil
 
 !===============================================================================
 
-real function td(p,rs)
+!dir$ attributes vector :: td
+elemental real function td(p,rs)
 
 !     This function calculates the dew point temperature (K) using Bolton's
 !     formula (MWR, 1980) given the atmospheric pressure p (Pa) and water
@@ -311,10 +312,9 @@ real function td(p,rs)
 use consts_coms, only: eps_vap, t00
 implicit none
 
+!dir$ attributes value :: p, rs
 real, intent(in) :: p, rs
 real             :: rr, es, esln, desdt, dt
-integer          :: iter
-real, external   :: eslpf, eslf
 
 rr = max(rs, 1.e-8)
 es = p*rr / (eps_vap+rr)
@@ -323,16 +323,17 @@ esln = log(es)
 td = (29.65*esln-5016.7042) / (esln-24.0852)
 
 ! We can refine the estimate for td using the eslpf funcion and
-! Newton iteration:
-!
-!if (td-t00 > -70.) then
-!   do iter=1,5
-!      desdt = eslpf(td-t00)
-!      dt = (es - eslf(td-t00))/desdt
-!      td = td + dt
-!      if (abs(dt).lt. 0.01) exit
-!   enddo
-!endif
+! Newton iteration.
+! MJO: just one interation seems sufficient
+
+if (td-t00 > -60.) then
+   ! do iter=1,5
+   desdt = eslpf(td-t00)
+   dt = (es - eslf(td-t00))/desdt
+   td = td + dt
+   ! if (abs(dt).lt. 0.01) exit
+   ! enddo
+endif
 
 end function td
 

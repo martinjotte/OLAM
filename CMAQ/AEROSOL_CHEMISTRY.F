@@ -614,7 +614,9 @@ C *** Get flag for average PM diagnostic file.
        CFACTOR_MGLY = SQRT( 8.0D3 * DRGASUNIV / ( MWTMGLY * DPI ) )
 
 C ***  Map to acids/nucleophiles for epoxide uptake
-       INDX =  INDEX1( NAMES_AERO_RATES( IA_IEPOX ), NHETERO, HETERO )   
+       INDX = INDEX1( NAMES_AERO_RATES( IA_IEPOX ), NHETERO, HETERO )   
+       numvoc = 0
+       n_nucpairs = 0
        IF ( INDX .GT. 0 ) THEN ! Find indices for acid catalyzed species in IEPOX reaction
           If ( INDEX( MECHNAME, 'SAPRC07TIC_AE6I' ) .GT. 0 ) then
              NUMVOC         = 2
@@ -837,33 +839,39 @@ C *** set up variables needed for calculating K_BRONO2
                CBAR_BRONO2 = CBAR_COEFF * INV_SQRT_MWBRONO2
                BRONO2_RXN_TIME = 4.0D0 * INV_GAMMA_BRONO2 / CBAR_BRONO2
 
+               if (numvoc > 0) then
+
 C *** Calculate IEPOX and MAE uptake information for accumulation mode
-               CBARIEPOX = CFACTOR_IEPOX * SQRT_TAIR
-               CBARIMAE  = CFACTOR_IMAE  * SQRT_TAIR
+                  CBARIEPOX = CFACTOR_IEPOX * SQRT_TAIR
+                  CBARIMAE  = CFACTOR_IMAE  * SQRT_TAIR
 
                ! Rate constants and concentrations
-               CALL CALCISOPGAMMAS( RE_WET(2), AIRTEMP, GAMMAIEPOX,
-     &                              GAMMAIMAE, KPIEPOX, FH2O, FOS, FDIM1, FDIM2)
+                  CALL CALCISOPGAMMAS( RE_WET(2), AIRTEMP, GAMMAIEPOX,
+     &                                 GAMMAIMAE, KPIEPOX, FH2O, FOS, FDIM1, FDIM2)
 
-               gamma  = GAMMAIEPOX * CBARIEPOX
-               KIEPOX = GAMMA * WET_M2( 2 ) * DIFFUSIVITYPI
-     &                / ( DIFFUSIVITY4 + RE_WET( 2 ) * GAMMA )
+                  gamma  = GAMMAIEPOX * CBARIEPOX
+                  KIEPOX = GAMMA * WET_M2( 2 ) * DIFFUSIVITYPI
+     &                   / ( DIFFUSIVITY4 + RE_WET( 2 ) * GAMMA )
 
-               If ( AIETET_IDX .GT. 0 ) Then
-                  TETROL_PPM = PPM_FACTOR * aerospc_conc( AIETET_IDX,2 ) * INV_MWIETET
-               Else
-                  TETROL_PPM = 0.0D0
-               End If 
+                  If ( AIETET_IDX .GT. 0 ) Then
+                     TETROL_PPM = PPM_FACTOR * aerospc_conc( AIETET_IDX,2 ) * INV_MWIETET
+                  Else
+                     TETROL_PPM = 0.0D0
+                  End If 
 
-               If ( AIEOS_IDX .GT. 0 ) Then
-                  IEPOXOS_PPM = PPM_FACTOR * aerospc_conc( AIEOS_IDX,2 ) * INV_MWIEOS
-               Else
-                  IEPOXOS_PPM = 0.0D0
-               End If
+                  If ( AIEOS_IDX .GT. 0 ) Then
+                     IEPOXOS_PPM = PPM_FACTOR * aerospc_conc( AIEOS_IDX,2 ) * INV_MWIEOS
+                  Else
+                     IEPOXOS_PPM = 0.0D0
+                  End If
 
-               gamma = GAMMAIMAE * CBARIMAE
-               KIMAE = WET_M2( 2 ) * DIFFUSIVITYPI
-     &               / ( DIFFUSIVITY4 + RE_WET( 2 ) * GAMMA )
+                  if (numvoc > 1) then
+                     gamma = GAMMAIMAE * CBARIMAE
+                     KIMAE = WET_M2( 2 ) * DIFFUSIVITYPI
+     &                     / ( DIFFUSIVITY4 + RE_WET( 2 ) * GAMMA )
+                  endif
+
+               endif
 
                ! Diagnostic information
                IF ( PMDIAG .OR. APMDIAG ) GAMMA_IEPOX( C ) = REAL( GAMMAIEPOX,4 )
@@ -1131,10 +1139,10 @@ C *** calculate KBRONO2 from coarse mode
                DO N = 1, NHETERO
                   WRITE( LOGDEV,9501 ) HETERO( N ) // ' = ', KHETERO( N, C, R ),' '
                END DO
-            END IF          
+            END IF
 9499        FORMAT( 'At COL = ',I3,' ROW = ',I3,' LAY = ',I3 )
 9500        FORMAT( A, ES12.4 )
-9501        FORMAT( A, ES12.4, A )          
+9501        FORMAT( A, ES12.4, A )
 #endif
         
          enddo
@@ -2197,11 +2205,14 @@ C     No/slow reaction
 
 C *** Calculate final values to return
       gammaiepox = gammaisop( 1 )
-      gammaimae  = gammaisop( 2 )
       kpiepox    = kparticle( 1 )
 
-      RETURN
- 
+      if (numvoc > 1) then
+         gammaimae = gammaisop( 2 )
+      else
+         gammaimae = 0.d0
+      endif
+
       END SUBROUTINE CALCISOPGAMMAS
 
       END MODULE AEROSOL_CHEMISTRY

@@ -1386,8 +1386,8 @@ C...gas-phase species wet deposition (mm mol/lit)
       GASWDEP( LPAA   ) = WETDEP( LPAAL  )
       GASWDEP( LHCL   ) = WETDEP( LHCLL  )
       GASWDEP( LHNO3  ) = WETDEP( LHNO3L )
-      GASWDEP( LN2O5  ) = 0.0D0
-      GASWDEP( LH2SO4 ) = 0.0D0
+!     GASWDEP( LN2O5  ) = 0.0D0
+!     GASWDEP( LH2SO4 ) = 0.0D0
       GASWDEP( LGLY   ) = WETDEP( LGLYL  )
       GASWDEP( LMGLY  ) = WETDEP( LMGLYL )
 !     GASWDEP( LHO    ) = WETDEP( LOHL   )
@@ -1415,13 +1415,13 @@ C...aerosol species wet deposition (mm mol/lit)
 C...  there is no wet deposition of aitken particles, they attached
 C...  to the accumulation mode particles
 
-      AERWDEP( LSO4, AKN ) = 0.0D0
-      AERWDEP( LNH4, AKN ) = 0.0D0
-      AERWDEP( LNO3, AKN ) = 0.0D0
-      AERWDEP( LEC,  AKN ) = 0.0D0
-      AERWDEP( LPRI, AKN ) = 0.0D0
+!     AERWDEP( LSO4, AKN ) = 0.0D0
+!     AERWDEP( LNH4, AKN ) = 0.0D0
+!     AERWDEP( LNO3, AKN ) = 0.0D0
+!     AERWDEP( LEC,  AKN ) = 0.0D0
+!     AERWDEP( LPRI, AKN ) = 0.0D0
 
-      AERWDEP( LPOA, AKN ) = 0.0D0
+!     AERWDEP( LPOA, AKN ) = 0.0D0
 
       AERWDEP( LSO4, ACC ) = WETDEP( LSO4ACCL ) + WETDEP( LHSO4ACCL )
       AERWDEP( LNH4, ACC ) = WETDEP( LNH4ACCL )
@@ -1438,8 +1438,8 @@ C...  to the accumulation mode particles
       AERWDEP( LNH4, COR ) = WETDEP( LNH4CORL  )
 !     AERWDEP( LPRICOR, COR ) = WETDEP( LPRIMCORL )
 
-      AERWDEP( LNA, AKN  ) = 0.0D0
-      AERWDEP( LCL, AKN  ) = 0.0D0
+!     AERWDEP( LNA, AKN  ) = 0.0D0
+!     AERWDEP( LCL, AKN  ) = 0.0D0
       AERWDEP( LNA, ACC  ) = WETDEP( LNAACCL )
       AERWDEP( LCL, ACC  ) = WETDEP( LCLACCL )
 !     AERWDEP( LNA, COR  ) = WETDEP( LNACORL )
@@ -1469,10 +1469,10 @@ C...  to the accumulation mode particles
 
 C...Compute for Aerosol species in  TXHG Version
 
-      AERWDEP( LTRACER_AKN, AKN ) = 0.0D0
+!     AERWDEP( LTRACER_AKN, AKN ) = 0.0D0
       AERWDEP( LTRACER_ACC, ACC ) = WETDEP( LTRACERL )
       AERWDEP( LTRACER_COR, COR ) = WETDEP( LTRACERCORL )
-      AERWDEP( LPHG_AKN, AKN ) = 0.0D0
+!     AERWDEP( LPHG_AKN, AKN ) = 0.0D0
       AERWDEP( LPHG_ACC, ACC ) = WETDEP( LPHGFINEL )
       AERWDEP( LPHG_COR, COR ) = WETDEP( LPHGCORL )
 

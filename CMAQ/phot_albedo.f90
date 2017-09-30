@@ -6,7 +6,7 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
   use mem_ijtabs, only: itab_w
   use mem_sea,    only: sea, itab_ws
   use mem_leaf,   only: land, itab_wl
-  use mem_grid,   only: glatw
+  use mem_grid,   only: glatw, nsw_max, lpw
   use therm_lib,  only: qtk
 
   implicit none
@@ -16,8 +16,8 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
   real,    intent( in) :: currhr_lst
   real,    intent( in) :: julian_day
   real,    intent( in) :: jyfreq
-  real,    intent(out) :: albedo_dir(nwl)
-  real,    intent(out) :: albedo_dif(nwl)
+  real,    intent(out) :: albedo_dir(nsw_max,nwl)
+  real,    intent(out) :: albedo_dif(nsw_max,nwl)
 
   integer, parameter :: lsea  = 17
   integer, parameter :: lice  = 20
@@ -30,7 +30,8 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
    real    :: sfactor
    real    :: tempk, fracliq, snowfac
    integer :: jws, iws, jwl, iwl
-   real    :: arf_iw
+   integer :: ka, kw, ks
+   real    :: arf_kw
    real    :: albedo_sea_dir(nwl)
    real    :: albedo_sea_dif(nwl)
    real    :: albedo_ice_dir(nwl)
@@ -85,14 +86,17 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
      MSCALE = 0.5 * ( 1.0 - SQRT( abs(SEAS_MODULATE) ) )
   END IF
 
-  albedo_dif(1:nwl) = 0.0
-  albedo_dir(1:nwl) = 0.0
+  albedo_dif(:,1:nwl) = 0.0
+  albedo_dir(:,1:nwl) = 0.0
+
+  ka = lpw(iw)
 
   if (itab_w(iw)%nsea > 0) then
      do jws = 1, itab_w(iw)%nsea
 
         iws    = itab_w(iw)%isea(jws)
-        arf_iw = itab_ws(iws)%arf_iw
+        kw     = itab_ws(iws)%kw
+        arf_kw = itab_ws(iws)%arf_kw
 
         ! water
 
@@ -126,8 +130,10 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
                                  +        sea%seaicec(iws)  * albedo_ice_dir(1:nwl)
         endif
 
-        albedo_dif(1:nwl) = albedo_dif(1:nwl) + arf_iw * albedo_sea_dif(1:nwl)
-        albedo_dir(1:nwl) = albedo_dir(1:nwl) + arf_iw * albedo_sea_dir(1:nwl)
+        ks = kw - ka + 1
+
+        albedo_dif(ks,1:nwl) = albedo_dif(ks,1:nwl) + arf_kw * albedo_sea_dif(1:nwl)
+        albedo_dir(ks,1:nwl) = albedo_dir(ks,1:nwl) + arf_kw * albedo_sea_dir(1:nwl)
 
      enddo
   endif
@@ -136,7 +142,8 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
      do jwl = 1, itab_w(iw)%nland
 
         iwl    = itab_w(iw)%iland(jwl)
-        arf_iw = itab_wl(iwl)%arf_iw
+        kw     = itab_wl(iwl)%kw
+        arf_kw = itab_wl(iwl)%arf_kw
 
         lland = leaf2cmaq(land%leaf_class(iwl))
 
@@ -175,8 +182,10 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
                                   +        snowfac  * albedo_snow_dir(1:nwl)
         endif
 
-        albedo_dif(1:nwl) = albedo_dif(1:nwl) + arf_iw * albedo_land_dif(1:nwl)
-        albedo_dir(1:nwl) = albedo_dir(1:nwl) + arf_iw * albedo_land_dir(1:nwl)
+        ks = kw - ka + 1
+
+        albedo_dif(ks,1:nwl) = albedo_dif(ks,1:nwl) + arf_kw * albedo_land_dif(1:nwl)
+        albedo_dir(ks,1:nwl) = albedo_dir(ks,1:nwl) + arf_kw * albedo_land_dir(1:nwl)
 
      enddo
   endif

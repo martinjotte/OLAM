@@ -278,7 +278,7 @@ C...modules
  !    USE CLOUD_OPTICS         ! data and routines for optics of cloud hydrometeors
 
       use hrdata,      only: rj
-      use mem_grid,    only: mza
+      use mem_grid,    only: mza, nsw_max
       use mem_radiate, only: nadd_rad
       use mem_grid,    only: mza, glatw, glonw, zt, zm, lpw, dzt
       use cgrid_defn
@@ -398,8 +398,8 @@ C...modules
       REAL :: TAU_CLOUD( nlays_max,nwl )  ! cloud optical depth at layer bottom
       REAL :: SSA                ( nwl )  ! aerosol single scattering albedo, column average
 
-      real :: alb                ( nwl )  ! surface albedo
-      real :: alb_dif            ( nwl ) 
+      real :: alb        ( nsw_max,nwl )  ! surface albedo
+      real :: alb_dif    ( nsw_max,nwl ) 
 
 ! FSB new arrays for new on-line cloud version
 
@@ -632,6 +632,7 @@ C...modules
 
 !...Fill ozone column and any extra radiation layers at model top
 
+               blkprs(mza-koff) = press(mza,iw)
                call rad_mclat( iw, nlays, koff, glatw(iw), blkdens, blkprs, blkshv, blkta,
      &                         blko3, blkzf(2:nlays+1), blkzh, blkdz, o3col=.false. )
 

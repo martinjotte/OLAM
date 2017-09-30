@@ -204,6 +204,7 @@ C...load gas-phase concentrations
 C...load aerosol concentrations
 
       airm1   = 1.0 / airm
+      aerwdep = 0.0d0
       aerosol = 0.0d0
 
       DO IAER = 1, NAER
