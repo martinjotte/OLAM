@@ -313,8 +313,7 @@ contains
 
     day = julday( current_time%month, current_time%date, current_time%year )
 
-    !$omp parallel 
-    !$omp do private (hour,beta,sinbeta_max,ta,tb,tc,td,te)
+    !$omp parallel do private (hour,beta,sinbeta_max,ta,tb,tc,td,te)
     do iwl = 2, mwl
 
        hour = current_time%time / 3600.0_r8 + land%glonw(iwl) / 15.0
@@ -355,7 +354,7 @@ contains
                      lai_next(iwl), tc, td, te                             )
 
     enddo
-    !$omp end do
+    !$omp end parallel do
 
     do n = 1, n_gc_emis
        mgn_2_gc_map(n) = INDEX1( GC_EMIS(n), n_mech_spc, mech_spc )

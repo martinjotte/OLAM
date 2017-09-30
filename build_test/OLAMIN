@@ -531,7 +531,7 @@
                                     ! FALSE: use fast computation of aerosol
                                     !        properties for photolysis
 
-   NL%EMIS_DIR        '../../olamdatah5/edgar42'
+   NL%EMIS_DIR       = '../../olamdatah5/edgar42'
    NL%GEIA_EMIS_FILE = '../etc/geia_emis.nc4'
 
    NL%O3NUDFLAG  = 0

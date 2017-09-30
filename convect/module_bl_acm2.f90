@@ -442,8 +442,8 @@ contains
     wcloud  = 0.0
     kpblm1  = max(kpblh-1, kbot)
 
-    if ( ql(kpblh) > 1.e-8 .or. ql(kpblm1) > 1.e-8 .or.
-         (iactcu(iw) > 0 .and. kcubot <= kpblh) ) then
+    if ( ql(kpblh) > 1.e-8 .or. ql(kpblm1) > 1.e-8 .or. &
+         (iactcu(iw) > 0 .and. kcubot(iw) <= kpblh) ) then
        deltar = max( delr, 0.0 )
     else
        deltar = 0.0
