@@ -146,21 +146,9 @@
       real(kind=rb) :: plog, fp, ft, ft1, water, scalefac, factor, compfp
 
       real(kind=rb), parameter :: stpfac = 296._rb/1013._rb
-      real(kind=rb), parameter :: ptrop   = exp(4.56_rb)
+!     real(kind=rb), parameter :: ptrop   = exp(4.56_rb)
 
 !     hvrset = '$Revision: 1.6 $'
-
-      ! find tropopause height
-
-      laytrop = nlayers
-      if (pavel(nlayers) < ptrop) then
-         do lay = 1, nlayers
-            if (pavel(lay) <= ptrop) then
-               laytrop = lay-1
-               exit
-            endif
-         enddo
-      endif
 
       ! special with shaved cells:
 
@@ -223,6 +211,7 @@
          colbrd(lay) = 1.e-20_rb * wbroad(lay)
       enddo
 
+      laytrop = nlayers
       do lay = 1, nlayers
 
 !  Find the two reference pressures on either side of the
@@ -230,7 +219,7 @@
 !  fraction of the difference (in ln(pressure)) between these
 !  two values that the layer pressure lies.
          plog = log(pavel(lay))
-         jp(lay) = int(36._rb - 5*(plog+0.04_rb))
+         jp(lay) = int(36._rb - 5.*(plog+0.04_rb))
          if (jp(lay) .lt. 1) then
             jp(lay) = 1
          elseif (jp(lay) .gt. 58) then
@@ -238,6 +227,8 @@
          endif
          jp1 = jp(lay) + 1
          fp = 5._rb *(preflog(jp(lay)) - plog)
+
+         if (jp(lay) >=13 .and. laytrop==nlayers) laytrop = lay-1
 
 !  Determine, for each reference pressure (JP and JP1), which
 !  reference temperature (these are different for each  

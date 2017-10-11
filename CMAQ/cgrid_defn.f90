@@ -79,7 +79,7 @@ contains
     use cgrid_spcs
     implicit none
 
-    integer :: n, ns
+    integer :: n, ns, j
     integer :: n_spc_adv
 
     n_spc_adv = n_gc_trns + n_ae_trns + n_nr_trns
@@ -97,8 +97,14 @@ contains
 
        else
 
-          ! non-transported species only need to be saved
-          call increment_vtable( gc_spc(n), 'AW', rvar2=cgrid(:,:,ns))
+          ! skip RXN counter species
+          j = max(len_trim(gc_spc(n)), 3)
+          if (gc_spc(n)(j-2:j) /= "RXN") then
+
+             ! non-transported species only need to be saved
+             call increment_vtable( gc_spc(n), 'AW', rvar2=cgrid(:,:,ns))
+
+          endif
 
        endif
     enddo

@@ -52,22 +52,22 @@ Contains
 
 !===============================================================================
 
-  subroutine alloc_thuburn(imonot, mza, mwa)
+  subroutine alloc_thuburn(imonot1, imonot2, mza, mwa)
     use misc_coms, only: rinit
     implicit none
     
-    integer, intent(in) :: imonot, mza, mwa
+    integer, intent(in) :: imonot1, imonot2, mza, mwa
 
     allocate( cfl_out_sum(mza,mwa)) ; cfl_out_sum = rinit
     
-    if (imonot == 1) then
+    if (imonot1 == 1 .or. imonot2 == 1) then
        allocate( scp_min    (mza,mwa)) ; scp_min     = rinit
        allocate( scp_max    (mza,mwa)) ; scp_max     = rinit
        allocate( scp_out_min(mza,mwa)) ; scp_out_min = rinit
        allocate( tfact      (mza,mwa)) ; tfact       = rinit
     endif
 
-    if (imonot > 0) then
+    if (imonot1 > 0 .or. imonot2 > 0) then
        allocate( scp_out_max(mza,mwa)) ; scp_out_max = rinit
        allocate( cfl_win_t  (mza,mwa)) ; cfl_win_t   = rinit
        allocate( cfl_win_b  (mza,mwa)) ; cfl_win_b   = rinit

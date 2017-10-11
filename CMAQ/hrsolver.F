@@ -261,7 +261,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
                enddo
 
                DO S = 1, NUMB_MECH_SPC
-                  IF ( ABS(YC(S)-YCP(S)) .GT. max(RTOL(S)*(YC(S)+YCP(S)), 1.d-5) ) THEN
+                  IF ( ABS(YC(S)-YCP(S)) .GT. max(RTOL(S)*(YC(S)+YCP(S)), 1.d-24) ) THEN
                      LEBI_CONV     = .FALSE.
 !                    LEBISPFL( S ) = .TRUE.
 
@@ -273,15 +273,15 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
                   END IF
                END DO
 
-!               if (iter < 25) then
+               if (iter < 5) then
                   do s = 1, numb_mech_spc
                      yc(s) = ycp(s)
                   enddo
-!               else
-!                  do s = 1, numb_mech_spc
-!                     YC( S ) = 0.96d0 * YCP( S ) + 0.04d0 * yc( s )
-!                  enddo
-!               endif
+               else
+                  do s = 1, numb_mech_spc
+                     YC( S ) = 0.96d0 * YCP( S ) + 0.04d0 * yc( s )
+                  enddo
+               endif
 
 c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
 #ifdef hrdebug

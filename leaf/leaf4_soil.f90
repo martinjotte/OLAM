@@ -235,11 +235,10 @@ if (flag_vg) then ! van Genuchten form
       ! Hydraulic resistance of top and bottom half of each soil layer
 
       hydresist_bot(k) = slreso2k(k) / (sqrt(water_frac_bnd(k)) &
-                       * (1. - (1. - water_frac_bnd(k)**emik(k))**emk(k))**2)
+                       * (1. - min( (1. - water_frac_bnd(k  )**emik(k))**emk(k), 0.9999) )**2)
 
       hydresist_top(k) = slreso2k(k) / (sqrt(water_frac_bnd(k+1)) &
-                       * (1. - (1. - water_frac_bnd(k+1)**emik(k))**emk(k))**2)
-
+                       * (1. - min( (1. - water_frac_bnd(k+1)**emik(k))**emk(k), 0.9999) )**2)
 
       ! Soil water available for transport in middle of soil layer (lesser of
       ! excess soil water above minimum value and unfrozen portion of water)
