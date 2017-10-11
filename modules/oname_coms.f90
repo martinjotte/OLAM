@@ -128,9 +128,9 @@ Module oname_coms
       integer :: ioutput_lite = 0
       integer :: ioutput_latlon = 0
 
+      integer :: iblocksize = -1
       integer :: iclobber  = 0
       integer :: icompress = 0
-      integer :: ipar_out  = 0
       integer :: latlonplot = 0 
 
       real(r8):: frqstate  = 3600.0_r8

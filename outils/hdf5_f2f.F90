@@ -112,7 +112,8 @@ contains
   subroutine fh5f_create(locfn, iaccess, hdferr)
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    use misc_coms, only: io6, iparallel
+    use misc_coms,  only: io6, iparallel
+    use oname_coms, only: nl
     use mpi
 #endif
 
@@ -127,6 +128,10 @@ contains
     integer        :: flags
     integer        :: info, ierr
 
+    integer(hsize_t), parameter :: msize = 1024 * 256
+    integer(hsize_t), parameter :: alignsmax = 1024 * 1024 * 128
+    integer(hsize_t)            :: aligns1, aligns2
+
     create_id = H5P_DEFAULT_F
     access_id = H5P_DEFAULT_F
     if (iaccess == 1) flags = H5F_ACC_TRUNC_F
@@ -138,21 +143,28 @@ contains
        write(io6,*)
        write(io6,*) "Enabling parallel HDF5 output"
        write(io6,*)
-       
-       info = MPI_INFO_NULL
 
-#if defined(__HOS_AIX__) || defined(__TOS_AIX__) || defined(_AIX)
-       ! This improved performance with IBM's native GPFS driver
-       call MPI_Info_create(info, ierr)
-       call MPI_Info_set(info, "IBM_largeblock_io", "true", ierr)
-#endif
+       info = MPI_INFO_NULL
 
        call h5pcreate_f(H5P_FILE_ACCESS_F, access_id, hdferr)
        call h5pset_fapl_mpio_f(access_id, MPI_COMM_WORLD, info, hdferr)
 
-#if defined(__HOS_AIX__) || defined(__TOS_AIX__) || defined(_AIX)
-       call MPI_Info_free(info, ierr)
-#endif
+       ! Increase some buffer sizes
+       call H5Pset_meta_block_size_f(access_id, msize, hdferr)
+       call H5Pset_small_data_block_size_f(access_id, msize, hdferr)
+
+       ! Align parallel writes to file-system block size
+       if (nl%iblocksize > 0) then
+          aligns1 = nl%iblocksize
+          aligns1 = min(aligns1,alignsmax)
+
+          if (aligns1 <= 1024) then
+             aligns2 = aligns1
+          else
+             aligns2 = aligns1 / 2
+          endif
+          call H5Pset_alignment_f( access_id, aligns1, aligns2, hdferr )
+       endif
 
     endif
 #endif
