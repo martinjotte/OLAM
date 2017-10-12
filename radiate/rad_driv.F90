@@ -200,8 +200,8 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 ! Loop over all radiative IW grid columns
 
 !----------------------------------------------------------------------
-   !$omp parallel do private (iw,ka,koff,nrad,nsfc,rlongup_ks,rlong_albedo,&
-   !$omp                      albedt_ks,albedt_diffuse_ks)
+   !$omp parallel private(rlongup_ks,rlong_albedo_ks,albedt_ks,albedt_diffuse_ks)
+   !$omp do private (iw,ka,koff,nrad,nsfc)
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) = hardw for  mrl=1
 !----------------------------------------------------------------------
 
@@ -320,7 +320,8 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
       endif
 
    enddo
-!$omp end parallel do
+!$omp end do
+!$omp end parallel
 
 ! If running leaf, loop over SEA cells to transfer downward surface
 ! shortwave and longwave fluxes from IW atmospheric column to sea cells
