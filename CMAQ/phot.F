@@ -37,7 +37,7 @@
       use mem_radiate, only: nadd_rad
       use cmaq_cloud
       use mem_ijtabs,  only: jtab_w, jtw_prog, istp
-      use mem_grid,    only: mza, mwa, glatw
+      use mem_grid,    only: mza, mwa, glatw, lpw
       use misc_coms,   only: current_time, time8p, dtlong, mstp
       use consts_coms, only: r8
       use mem_mclat,   only: mclat_spline
@@ -62,7 +62,8 @@
       CHARACTER( 60 ) :: XMSG
       CHARACTER( 16 ) :: PNAME = 'PHOT'
 
-      integer :: j, iw, iwl
+      integer :: j, iw, iwl, nlays_max
+      integer :: koff, nlays, nlays_model
 
       real, parameter :: twopi = 2.0 * pi
       integer, external :: julday, timetohhmmss
@@ -72,16 +73,15 @@
          FIRSTIME = .FALSE.
          LOGDEV   = INIT3()
 
-         nlays_max = mza + nadd_rad
-
          allocate( rj( mza, nphotab, mwa ) ) ; rj = 0.0
 
          CALL LOAD_CSQY_DATA( )
 
          CALL LOAD_OPTICS_DATA( )
- 
+
+         nlays_max = mza + nadd_rad
          CALL INIT_AERO_DATA( nlays_max )
-         
+
          call cmaq_cld_optics_init( )
 
          ! set pointers to species O3 and NO2 in CGRID
@@ -99,6 +99,12 @@
             XMSG = 'Could not find ' // VARNM // 'in species table'
             CALL M3EXIT ( PNAME, 0, 0, XMSG, XSTAT3 )
          END IF
+
+         allocate( actinic_flux_sfc( nwl, mwa ) )
+         actinic_flux_sfc = 0.0
+
+         allocate( cloud_frac_2d( mwa ) )
+         cloud_frac_2d = 0.0
 
          allocate( sinlats( mwa ) )
          allocate( coslats( mwa ) )
@@ -162,10 +168,17 @@
 
          ! MAIN loop over all rows and columns
 
-         !$omp parallel do private(iw)
+         !$omp parallel do private(iw,koff,nlays,nlays_model)
          do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
-            call phot1( iw, currhr, julian_day, jyfreq )
+            ! K index offset for radiation column arrays
+            koff = lpw(iw) - 1
+
+            nlays       = mza - koff + nadd_rad
+            nlays_model = mza - koff
+
+            call phot1( iw, currhr, julian_day, jyfreq,
+     &                  nlays, nlays_model, koff)
 
          enddo
          !$omp end parallel do
@@ -176,7 +189,8 @@
 
 !-----------------------------------------------------------------------
 
-      subroutine phot1( iw, currhr, julian_day, jyfreq )
+      subroutine phot1( iw, currhr, julian_day, jyfreq, 
+     &                  nlays, nlays_model, koff)
 
 ! Function:  Calculates the photolysis rate constant to be used by the
 !     chemical solver.  It calculates these rates at each gridcell using
@@ -300,6 +314,7 @@ C...modules
       REAL,    intent(in) :: CURRHR          ! current GMT hour
       REAL,    intent(in) :: JULIAN_DAY      ! time of year [days]
       real,    intent(in) :: jyfreq
+      integer, intent(in) :: koff, nlays, nlays_model
 
 !     REAL RJ( NCOLS,NROWS,NLAYS, NPHOTAB )
 !     REAL,    INTENT( OUT ) :: RJ( :,:,:,: )  ! gridded J-values  (1/min units)
@@ -321,8 +336,8 @@ C...modules
 
       real, parameter :: mwo3    = 48.0    ! molecular weight of ozone
       real, parameter :: o3_conv = mwair / mwo3 * 1.e6 ! ozone mixing ratio to ppmV
-      real, parameter :: cos85   = cos( 85.0 * PI180 )
-      REAL, PARAMETER :: TWOPI = 2.0 * PI
+      real, parameter :: cosz_min= cos( 88.0 * PI180 )
+      REAL, PARAMETER :: TWOPI   = 2.0 * PI
 
 !...external functions: none
 
@@ -352,7 +367,7 @@ C...modules
 !     INTEGER OTIME                ! output time 
 !     INTEGER ALLOCSTAT
 
-      integer :: k, koff, nlays, nlays_olam, nlays_chem
+      integer :: k, nlays_chem
 
 !      integer :: jdate      ! current Julian date (YYYYDDD)
 !      integer :: jday       ! current Julian day (DDD)
@@ -392,36 +407,35 @@ C...modules
 !     REAL, ALLOCATABLE, SAVE :: TAUO3_TOP( : )    ! optical depth of ozone above model domain
 !     REAL, ALLOCATABLE, SAVE :: TAU_RAY  ( : )    ! Rayleigh optical depth above model domain
 
-!     REAL :: ETOT_SFC           ( nwl )  ! total downward irradiance at sfc [ Watts / m**2  ]
-      REAL :: TAUC_AERO( nlays_max,nwl )  ! aerosol optical depth at layer bottom
-      REAL :: TAU_TOT  ( nlays_max,nwl )  ! total optical depth at layer bottom
-      REAL :: TAU_CLOUD( nlays_max,nwl )  ! cloud optical depth at layer bottom
-      REAL :: SSA                ( nwl )  ! aerosol single scattering albedo, column average
+!     REAL :: ETOT_SFC       ( nwl )  ! total downward irradiance at sfc [ Watts / m**2  ]
+!     REAL :: TAUC_AERO( nlays,nwl )  ! aerosol optical depth at layer bottom
+!     REAL :: TAU_TOT  ( nlays,nwl )  ! total optical depth at layer bottom
+!     REAL :: TAU_CLOUD( nlays,nwl )  ! cloud optical depth at layer bottom
+!     REAL :: SSA            ( nwl )  ! aerosol single scattering albedo, column average
 
       real :: alb        ( nsw_max,nwl )  ! surface albedo
       real :: alb_dif    ( nsw_max,nwl ) 
 
 ! FSB new arrays for new on-line cloud version
 
-!     REAL :: LWC    ( nlays_max )      ! cloud liquid water content [ g/m**3 ]
-!     REAL :: RWC    ( nlays_max )      ! rain water content [ g/m**3 ]
-!     REAL :: IWC    ( nlays_max )      ! ice liquid water content [ g/m**3 ]
-!     REAL :: SWC    ( nlays_max )      ! snow content [ g/m**3 ]
-!     REAL :: GWC    ( nlays_max )      ! graupel content [ g/m**3 ]
-      REAL :: CLDFRAC( nlays_max )      ! fractional cloud cover
-      REAL :: BLKPRS ( nlays_max )      ! Air pressure in [ Pa ]
-      REAL :: BLKTA  ( nlays_max )      ! Air temperature [ K ]
-      REAL :: BLKDENS( nlays_max )      ! Air density  [ molecules / m**3 ]
-      REAL :: BLKZH  ( nlays_max )      ! layer half-height [ m ]
-      REAL :: BLKO3  ( nlays_max )      ! O3 concentration [ molecules/cm**3 ]
-      REAL :: BLKNO2 ( nlays_max )      ! NO2 concentration [ molecules/cm**3 ]
-      REAL :: BLKZF  ( nlays_max+1 )      ! layer full-height [ m ]
-      REAL :: BLKDZ  ( nlays_max )
-      REAL :: BLKSHV ( nlays_max )
+!     REAL :: LWC    ( nlays )      ! cloud liquid water content [ g/m**3 ]
+!     REAL :: RWC    ( nlays )      ! rain water content [ g/m**3 ]
+!     REAL :: IWC    ( nlays )      ! ice liquid water content [ g/m**3 ]
+!     REAL :: SWC    ( nlays )      ! snow content [ g/m**3 ]
+!     REAL :: GWC    ( nlays )      ! graupel content [ g/m**3 ]
+      REAL :: CLDFRAC( nlays )      ! fractional cloud cover
+      REAL :: BLKPRS ( nlays )      ! Air pressure in [ Pa ]
+      REAL :: BLKTA  ( nlays )      ! Air temperature [ K ]
+      REAL :: BLKDENS( nlays )      ! Air density  [ molecules / m**3 ]
+      REAL :: BLKZH  ( nlays )      ! layer half-height [ m ]
+      REAL :: BLKO3  ( nlays )      ! O3 concentration [ molecules/cm**3 ]
+      REAL :: BLKNO2 ( nlays )      ! NO2 concentration [ molecules/cm**3 ]
+      REAL :: BLKZF  ( nlays+1 )    ! layer full-height [ m ]
+      REAL :: BLKDZ  ( nlays )
+      REAL :: BLKSHV ( nlays )
+      REAL :: BLKRJ  ( nlays,nphotab ) ! photolysis rates
 
-      REAL :: BLKRJ_RES( nlays_max,nphotab ) ! photolysis rates
-
-      LOGICAL :: NEW_PROFILE    ! Has atmospheric temperature and density profile changed?
+!     LOGICAL :: NEW_PROFILE    ! Has atmospheric temperature and density profile changed?
       
 !...Variables for diagnostic outputs
 
@@ -474,9 +488,9 @@ C...modules
       real    :: frac(mza)
       logical :: dosnow
 
-      real :: tauclds(nwl, nlays_max)
-      real :: ssaclds(nwl, nlays_max)
-      real :: asmclds(nwl, nlays_max)
+      real :: tauclds(nwl, nlays)
+      real :: ssaclds(nwl, nlays)
+      real :: asmclds(nwl, nlays)
 
       integer :: mc, mcat, ih, krad, ns, nt, ib
 
@@ -509,19 +523,16 @@ C...modules
 
                RJ( :,:,iw ) = 0.0
 
+               actinic_flux_sfc( :,iw ) = 0.0
+               cloud_frac_2d( iw ) = 0.0
+
                CURRHR_LST = CURRHR + glonw( iw )  / 15.0
 
                CALL GETZEN2 ( CURRHR_LST , SINLATS(iw), COSLATS(iw),
      &                     SINDEC, COSDEC, EQT, COSZEN )
 
                ! If column is dark, skip to next column
-               if (coszen < cos85) return
-
-               ! K index offset for radiation column arrays
-               koff = lpw(iw) - 1
-
-               nlays      = mza - koff + nadd_rad
-               nlays_olam = mza - koff
+               if (coszen < cosz_min) return
 
                do k = mza-1, lpw(iw), -1
                   if (press(k,iw) > 100.d2) exit
@@ -562,7 +573,7 @@ C...modules
 
 !...initialize BLKRJ using F90 array operations.
 
-               BLKRJ_RES = 0.0
+               BLKRJ = 0.0
 !              BLKRJ_ACM = 0.0
 
 !...Set height of lowest level to zero
@@ -625,7 +636,7 @@ C...modules
 !..calculate needed aerosol properties in column
 
 !              IF ( CORE_SHELL ) THEN
-                  CALL GET_AERO_DATA ( iw, NLAYS_olam, koff )
+                  CALL GET_AERO_DATA ( iw, nlays_model, koff )
 !              ELSE
 !                 CALL AERO_OPTICS_INTERNAL( COL,ROW, NLAYS, CGRID )
 !              END IF
@@ -687,6 +698,7 @@ C...modules
 
                         ! ice or liquid water path in g/m^2
                         watp = rx(k,mc) * real(rho(k,iw)) * 1000. * dzt(k)
+                        watp = watp / max( frac(k), 0.2 )
 
                         call lookup_cmaq_cld_optics( l, r_ef, watp, krad )
 
@@ -813,12 +825,21 @@ C...modules
 
                do k = lpw(iw), mza
                   krad = k - koff
-                  do ib = 1, nwl
-                     if (tauclds(ib,krad) > 1.e-9 .and. ssaclds(ib,krad) > 1.e-9) then
-                        asmclds(ib,krad) = asmclds(ib,krad) / ssaclds(ib,krad)
-                        ssaclds(ib,krad) = ssaclds(ib,krad) / tauclds(ib,krad)
-                     endif
-                  enddo
+
+                  if ( all(tauclds(1:nwl,krad) < 2.e-5) ) then
+                     tauclds(1:nwl,krad) = 0.0
+                     ssaclds(1:nwl,krad) = 1.0
+                     asmclds(1:nwl,krad) = 0.0
+                     cldfrac      (krad) = 0.0
+                  else
+                     do ib = 1, nwl
+                        if (tauclds(ib,krad) > 1.e-9 .and. ssaclds(ib,krad) > 1.e-9) then
+                           asmclds(ib,krad) = asmclds(ib,krad) / ssaclds(ib,krad)
+                           ssaclds(ib,krad) = ssaclds(ib,krad) / tauclds(ib,krad)
+                        endif
+                     enddo
+                  endif
+
                enddo
 
 ! Get optical properties of resolved clouds
@@ -877,16 +898,15 @@ C...modules
 
 !...calculate resolved-sky photolysis rates at all layers:
 
-               NEW_PROFILE    = .TRUE. 
-               ONLY_SOLVE_RAD = .FALSE. 
+!              NEW_PROFILE    = .TRUE. 
+!              ONLY_SOLVE_RAD = .FALSE. 
 
-               CALL NEW_OPTICS ( iw, NLAYS, nlays_olam, nlays_chem,
+               CALL NEW_OPTICS ( iw, NLAYS, nlays_model, nlays_chem,
      &                           BLKTA, BLKDENS, BLKZF,
      &                           BLKO3, BLKNO2, alb, 
      &                           ZSFC, COSZEN, SINZEN,
-     &                           NEW_PROFILE, CLDFRAC,
-     &                           BLKRJ_RES, TAUC_AERO, TAU_TOT,
-     &                           SSA, TAU_CLOUD, tauclds, ssaclds, asmclds )
+     &                           CLDFRAC, BLKRJ,
+     &                           tauclds, ssaclds, asmclds )
 
 !...load diagnostic file arrays
 
@@ -937,7 +957,7 @@ C...modules
                   k = l + koff
 
                   DO IPHOT = 1, NPHOTAB
-                     RJ( k, IPHOT, iw ) = 60.d0 * BLKRJ_RES( L,IPHOT )
+                     RJ( k, IPHOT, iw ) = 60.d0 * BLKRJ( L,IPHOT )
                   END DO        ! Loop on PHOT
 
                END DO           ! Loop on layers

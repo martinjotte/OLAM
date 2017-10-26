@@ -169,7 +169,7 @@ C *** Local Variables:
 !     INTEGER   STRT, FINI           ! loop induction variables
 !     INTEGER   ALLOCSTAT            ! memory allocation status
 
-      integer :: j, iw, k
+      integer :: j, iw, k, kmax
 
 !     LOGICAL   LERROR               ! Error flag
 
@@ -542,11 +542,18 @@ C *** initialize conc arrays
 !     N_APMDIAG_STEP = N_APMDIAG_STEP + 1
 !     N_VIS_STEP     = N_VIS_STEP + 1 
 
-      !$omp parallel do private(iw,k,c,r,l,n,fpm1,fpm25,fpm10,fams)
+      !$omp parallel do private(iw,k,kmax,c,r,l,n,fpm1,fpm25,fpm10,fams)
       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-         do k = lpw(iw), mza
 
-            if (press(k,iw) > 100.d2) then
+         do k = mza-1, lpw(iw), -1
+            if (press(k,iw) > 100.d2) exit
+         enddo
+
+         kmax = k + 1
+
+         ! Don't do tropospheric chem above 100 mb
+         
+         do k = lpw(iw), kmax
 
                c = k
                r = iw
@@ -725,7 +732,6 @@ C *** Write dry aerosol distribution parameters to aerosol diagnostic array
 #endif
 
 
-            endif
          enddo
       enddo
       !$omp end parallel do

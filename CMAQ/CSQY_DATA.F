@@ -1497,7 +1497,7 @@ C-----------------------------------------------------------------------
       RETURN
       END FUNCTION INDEXR
 
-      SUBROUTINE GET_CSQY ( nrad, nrad_model, nrad_chem, nrad_max, TEMP, DENS, CSZ, QYZ )
+      SUBROUTINE GET_CSQY ( nrad, nrad_model, nrad_chem, TEMP, DENS, CSZ, QYZ )
 !-----------------------------------------------------------------------
 !  Purpose: Calculate values of absorption cross
 !     section and quantum yield, given, temperature and air
@@ -1529,11 +1529,11 @@ C-----------------------------------------------------------------------
 
 !***Arguments
 
-      integer, intent(in)    :: nrad, nrad_model, nrad_chem, nrad_max
-      REAL,    INTENT(IN)    :: TEMP( : )      ! air temperature [K]
-      REAL,    INTENT(IN)    :: DENS( : )      ! air density [molecules/cm**3]
-      REAL,    INTENT(INOUT) :: CSZ( :, :, : ) ! abs cross sections
-      REAL,    INTENT(INOUT) :: QYZ( :, :, : ) ! quantum yields
+      integer, intent(in)    :: nrad, nrad_model, nrad_chem
+      REAL,    INTENT(IN)    :: TEMP( NRAD )      ! air temperature [K]
+      REAL,    INTENT(IN)    :: DENS( NRAD )      ! air density [molecules/cm**3]
+      REAL,    INTENT(INOUT) :: CSZ ( NRAD,NWL,MECHANISM_RATES ) ! abs cross sections
+      REAL,    INTENT(INOUT) :: QYZ ( NRAD,NWL,MECHANISM_RATES ) ! quantum yields
 
 !***Internal:
 
@@ -1549,7 +1549,7 @@ C-----------------------------------------------------------------------
       REAL            :: FACTOR         ! scratch variable for yield
       REAL            :: ALPHA, BETA    ! scratch variables
       integer         :: nlays
-      integer         :: ITEMP( nrad_max, MECHANISM_RATES )
+      integer         :: ITEMP( NRAD, MECHANISM_RATES )
 
 !***determine and save where layer temperatures fall within range of CS and QY data
       DO IPHOT = 1, MECHANISM_RATES

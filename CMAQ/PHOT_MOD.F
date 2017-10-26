@@ -98,14 +98,17 @@ C-----------------------------------------------------------------------
 !      REAL               :: TRANS_DIRECT           ! broad band direct transmission coefficient at surface
   
       LOGICAL            :: PHOTDIAG = .false.      ! Flag for PHOTDIAG file
-      LOGICAL            :: ONLY_SOLVE_RAD = .false.! only compute fluxes     
+!     LOGICAL, parameter :: ONLY_SOLVE_RAD = .false.! only compute fluxes     
            
       CHARACTER( 133 )   :: PHOT_MOD_MSG
-      
-      integer            :: nlays_max
+
+!     integer            :: nlays_max
 
       REAL, ALLOCATABLE  :: SINLATS ( : ) ! sine of latitude
       REAL, ALLOCATABLE  :: COSLATS ( : ) ! cosine of latitude
+
+      real, allocatable  :: actinic_flux_sfc( :,: )
+      real, allocatable  :: cloud_frac_2d     ( : )
 
       INTEGER            :: LGC_O3   ! pointer to O3 in CGRID
       INTEGER            :: LGC_NO2  ! pointer to NO2 in CGRID
@@ -126,9 +129,7 @@ C///////////////////////////////////////////////////////////////////////
      &                        BLKTA, BLKDENS, BLKZF,
      &                        BLKO3, BLKNO2, ALB, 
      &                        ZSFC, COSZEN, SINZEN,
-     &                        NEW_PROFILE, CLDFRC,
-     &                        BLKRJ, TAUC_AERO, TAU_TOT,
-     &                        SSA_AERO, TAU_CLOUD, 
+     &                        CLDFRC, BLKRJ, 
      &                        tauclds, ssaclds, asmclds )
 C-----------------------------------------------------------------------
 C
@@ -159,7 +160,7 @@ C-----------------------------------------------------------------------
       USE RXNS_DATA            ! chemical mechanism data
       USE AERO_PHOTDATA
       use mem_turb, only: frac_sfck
-      use mem_grid, only: lsw
+      use mem_grid, only: lsw, nsw_max
 
       IMPLICIT NONE
 
@@ -169,31 +170,41 @@ C-----------------------------------------------------------------------
       INTEGER, INTENT(IN) :: NLAYS_MODEL ! # of model vertical layers
       INTEGER, INTENT(IN) :: NLAYS_CHEM  ! # of vertical layers where chemistry is active
       
-      REAL,    INTENT(IN) :: BLKTA  ( : )       ! Air temperature [ K ]
-      REAL,    INTENT(IN) :: BLKDENS( : )       ! Air density  [ molecules / cm**3 ]
-      REAL,    INTENT(IN) :: BLKZF  ( : )       ! layer full height[ m ]
-      REAL,    INTENT(IN) :: BLKO3  ( : )       ! O3 concentration [ molecules / cm**3 ]
-      REAL,    INTENT(IN) :: BLKNO2 ( : )       ! NO2 concentration [ molecules / cm**3 ]
-      REAL,    INTENT(IN) :: ALB  ( :,: )       ! wavelength-dependent surface albedo
-      REAL,    INTENT(IN) :: ZSFC               ! surface height (msl) [ m ]
-      REAL,    INTENT(IN) :: COSZEN, SINZEN     ! sine and cosine of the zenith angle
+      REAL,    INTENT(IN) :: BLKTA  ( nlays )    ! Air temperature [ K ]
+      REAL,    INTENT(IN) :: BLKDENS( nlays )    ! Air density  [ molecules / cm**3 ]
+      REAL,    INTENT(IN) :: BLKZF  ( nlays+1 )  ! layer full height[ m ]
+      REAL,    INTENT(IN) :: BLKO3  ( nlays )    ! O3 concentration [ molecules / cm**3 ]
+      REAL,    INTENT(IN) :: BLKNO2 ( nlays )    ! NO2 concentration [ molecules / cm**3 ]
+      REAL,    INTENT(IN) :: CLDFRC ( nlays )    ! fraction of gridcell covered by cloud
 
-      LOGICAL, INTENT(IN) :: NEW_PROFILE     ! Has the atmospheric profile changed since last call?
-      REAL,    INTENT(IN) :: CLDFRC( : )     ! fraction of gridcell covered by cloud
+      REAL,    INTENT(IN) :: ALB( nsw_max,nwl )  ! wavelength-dependent surface albedo
+      REAL,    INTENT(IN) :: ZSFC                ! surface height (msl) [ m ]
+      REAL,    INTENT(IN) :: COSZEN, SINZEN      ! sine and cosine of the zenith angle
 
-      REAL,    INTENT(OUT) :: BLKRJ( :,: )  ! photolysis rates [ 1 / sec ]
+!     LOGICAL, INTENT(IN) :: NEW_PROFILE     ! Has the atmospheric profile changed since last call?
 
-      REAL,    INTENT(OUT) :: TAUC_AERO( :,: )  ! aerosol optical depth, bottom of layer
-      REAL,    INTENT(OUT) :: TAU_TOT  ( :,: )  ! total optical depth, bottom of layer
-      REAL,    INTENT(OUT) :: TAU_CLOUD( :,: )  ! cloud optical depth, bottom of layer
+      REAL,    INTENT(INOUT) :: BLKRJ( nlays,nphotab )  ! photolysis rates [ 1 / sec ]
 
-!      REAL,    INTENT(INOUT) :: TAUO3_TOP( : )  ! optical depth of ozone above model domain
-!      REAL,    INTENT(INOUT) :: TAU_RAY  ( : )  ! Rayleigh optical depth above model domain
-      REAL,    INTENT(OUT)   :: SSA_AERO ( : )  ! single scatering albedo for aerosol column
+!     REAL,    INTENT(OUT) :: TAUC_AERO( :,: )  ! aerosol optical depth, bottom of layer
+!     REAL,    INTENT(OUT) :: TAU_TOT  ( :,: )  ! total optical depth, bottom of layer
+!     REAL,    INTENT(OUT) :: TAU_CLOUD( :,: )  ! cloud optical depth, bottom of layer
+
+!     REAL,    INTENT(INOUT) :: TAUO3_TOP( : )  ! optical depth of ozone above model domain
+!     REAL,    INTENT(INOUT) :: TAU_RAY  ( : )  ! Rayleigh optical depth above model domain
+!     REAL,    INTENT(OUT)   :: SSA_AERO ( : )  ! single scatering albedo for aerosol column
       
 !      REAL, INTENT(INOUT) :: TOTAL_O3_COLUMN  ! total ozone colum density [ DU ]
 
-      real, intent(in) :: tauclds(:,:), ssaclds(:,:), asmclds(:,:)
+      real, intent(in) :: tauclds(nwl,nlays)
+      real, intent(in) :: ssaclds(nwl,nlays)
+      real, intent(in) :: asmclds(nwl,nlays)
+
+      logical :: incld
+      integer :: nbnds, k, n, jj, nb(3)
+      integer :: cbot(nlays_model/2 + 1)
+      integer :: ctop(nlays_model/2 + 1)
+      real    :: bfrac(3,2)
+      real    :: prob, probsum
 
 !***internal
       REAL, PARAMETER :: ONE_OVER_PI = 1.0 / PI 
@@ -303,7 +314,11 @@ C-----------------------------------------------------------------------
 !     REAL LAYERING_FACTOR      ! correction factor for cloud layering
 !     REAL STOZONE
 
-      real :: dtau_clr, dtau_cld, om_clr, g_clr
+!     real :: dtau_clr, dtau_cld, om_clr, g_clr
+      real :: dtau_cld
+      real :: dtau_clr(nlays), om_clr(nlays), g_clr(nlays)
+      real :: dtau_tot(nlays), om_tot(nlays), g_tot(nlays)
+
 
 !     LOGICAL, SAVE :: FIRST = .TRUE.  ! Flag for first call
 !     LOGICAL       :: SUCCESS
@@ -320,31 +335,32 @@ C-----------------------------------------------------------------------
 !      REAL, ALLOCATABLE, SAVE :: CSZ( :,:,: )
 !      REAL, ALLOCATABLE, SAVE :: QYZ( :,:,: )
 
-         REAL :: TAU_SCAT( NWL )               ! aerosol scattering optical depth
-         REAL :: CSZ( NLAYS_MAX,NWL,NPHOTAB )  ! molecular cross section
-         REAL :: QYZ( NLAYS_MAX,NWL,NPHOTAB )  ! quantum yield
+         REAL :: TAU_SCAT( NWL )           ! aerosol scattering optical depth
+         REAL :: CSZ( NLAYS,NWL,NPHOTAB )  ! molecular cross section
+         REAL :: QYZ( NLAYS,NWL,NPHOTAB )  ! quantum yield
          
-         REAL :: ACTINIC_FLUX( NLAYS_MAX,NWL ) ! actinic fluxes, initially [Photons/(cm^2s)] then  [Watts/m^2] 
-         REAL :: IRRADIANCE  ( NLAYS_MAX,NWL ) ! total downward irradiance [Watts/m^2]
+!        REAL :: ACTINIC_FLUX( NLAYS_MAX,NWL ) ! actinic fluxes, initially [Photons/(cm^2s)] then  [Watts/m^2] 
+!        REAL :: IRRADIANCE  ( NLAYS_MAX,NWL ) ! total downward irradiance [Watts/m^2]
+         real :: actinic_flux(nlays)
 
-         REAL :: REFLECTION            ! broad band reflection coefficient (diffuse) at model top 
-         REAL :: TRANSMISSION          ! broad band transmission coefficient (diffuse) at surface
-         REAL :: TRANS_DIRECT          ! broad band direct transmission coefficient at surface
-         REAL :: DSDH_TD ( NLAYS_MAX ) ! slant path function from top down
-         REAL :: BLKDZ   ( NLAYS_MAX ) ! layer thicknesses [ m ]
-         REAL :: DTAU    ( NLAYS_MAX ) ! total optical depth at level
-         REAL :: DT_AERO ( NLAYS_MAX ) ! aerosol contribution to optical depth at level
-         REAL :: DT_CLOUD( NLAYS_MAX ) ! cloud contribution to optical depth at level
-         REAL :: OM      ( NLAYS_MAX ) ! single scattering albedo
-         REAL :: G       ( NLAYS_MAX ) ! asymmetry factor
-         REAL :: FDIR    ( NLAYS_MAX ) ! direct actinic flux
-         REAL :: FUP     ( NLAYS_MAX ) ! diffuse upward actinic flux
-         REAL :: FDN     ( NLAYS_MAX ) ! diffuse downward actinic flux
-         REAL :: EDIR    ( NLAYS_MAX ) ! direct irradiance
-         REAL :: EUP     ( NLAYS_MAX ) ! diffuse upward irradiance
-         REAL :: EDN     ( NLAYS_MAX ) ! diffuse downward irradiance
-         REAL :: ESUM    ( NLAYS_MAX ) ! total downward irradiance
-         REAL :: FSUM    ( NLAYS_MAX ) ! total actinic flux
+         REAL :: REFLECTION          ! broad band reflection coefficient (diffuse) at model top 
+         REAL :: TRANSMISSION        ! broad band transmission coefficient (diffuse) at surface
+         REAL :: TRANS_DIRECT        ! broad band direct transmission coefficient at surface
+         REAL :: DSDH_TD ( NLAYS   ) ! slant path function from top down
+         REAL :: BLKDZ   ( NLAYS   ) ! layer thicknesses [ m ]
+         REAL :: DTAU    ( NLAYS   ) ! total optical depth at level
+!        REAL :: DT_AERO ( NLAYS   ) ! aerosol contribution to optical depth at level
+!        REAL :: DT_CLOUD( NLAYS   ) ! cloud contribution to optical depth at level
+         REAL :: OM      ( NLAYS   ) ! single scattering albedo
+         REAL :: G       ( NLAYS   ) ! asymmetry factor
+         REAL :: FDIR    ( NLAYS+1 ) ! direct actinic flux
+         REAL :: FUP     ( NLAYS+1 ) ! diffuse upward actinic flux
+         REAL :: FDN     ( NLAYS+1 ) ! diffuse downward actinic flux
+         REAL :: EDIR    ( NLAYS+1 ) ! direct irradiance
+         REAL :: EUP     ( NLAYS+1 ) ! diffuse upward irradiance
+         REAL :: EDN     ( NLAYS+1 ) ! diffuse downward irradiance
+!        REAL :: ESUM    ( NLAYS+1 ) ! total downward irradiance
+         REAL :: FSUM    ( NLAYS+1 ) ! total actinic flux
 
 !***FSB Set up conversion factor for
 !***  [photons / ( cm**2 s) ] to [Watts / m**2 ]
@@ -362,22 +378,23 @@ C-----------------------------------------------------------------------
 
 !***initialize BLKRJ and other layer variables
 
-      BLKRJ         = 0.0
-      ACTINIC_FLUX  = 0.0
-      IRRADIANCE    = 0.0
-      REFLECTION    = 0.0
-      TRANSMISSION  = 0.0
-      TRANS_DIRECT  = 0.0
-      INSOLATION    = 0.0
+!     BLKRJ         = 0.0
+!     ACTINIC_FLUX  = 0.0
+!     IRRADIANCE    = 0.0
+!     REFLECTION    = 0.0
+!     TRANSMISSION  = 0.0
+!     TRANS_DIRECT  = 0.0
+!     INSOLATION    = 0.0
 
 !***Initialize sums or set default values for outputs: 
 !   TAUC_AERO, TAU_TOT, TAUO3_TOP, TAU_RAY, SSA_AERO, etc.
 
-      TAUC_AERO = 0.0
-      TAU_TOT   = 0.0
-      TAU_CLOUD = 0.0
-      TAU_SCAT  = 0.0
-      SSA_AERO  = 0.0
+!      TAUC_AERO = 0.0
+!      TAU_TOT   = 0.0
+!      TAU_CLOUD = 0.0
+!      TAU_SCAT  = 0.0
+!      SSA_AERO  = 0.0
+
 !      TOTAL_TAU_CLD = 0.0
 !#ifdef phot_debug      
 !      AVE_SSA_CLD   = 0.0
@@ -404,10 +421,10 @@ C-----------------------------------------------------------------------
 
       nlevs = nlays + 1
 
-      IF ( NEW_PROFILE ) THEN  ! update based on new temperature and density profile
+!      IF ( NEW_PROFILE ) THEN  ! update based on new temperature and density profile
 !***Adjust cross sections and quantum yields for ambient conditions
 
-         CALL GET_CSQY ( nlays, nlays_model, nlays_chem, nlays_max, BLKTA, BLKDENS, CSZ, QYZ )
+         CALL GET_CSQY ( nlays, nlays_model, nlays_chem, BLKTA, BLKDENS, CSZ, QYZ )
 
 !***calculate scale height from top of model domain
 
@@ -430,7 +447,7 @@ C-----------------------------------------------------------------------
 
 !***get layer thicknesses and slantpath starting at the TOP
 
-         CALL SLANTPATH2 ( NLAYS, BLKZF, ZSFC, REARTH, SINZEN, BLKDZ, DSDH_TD )
+        CALL SLANTPATH2 ( NLAYS, BLKZF, ZSFC, REARTH, SINZEN, BLKDZ, DSDH_TD )
 
 !***get slantpath from ZTOM to ZTOA
 
@@ -491,9 +508,46 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
 !***get Rayleigh optical depth for stratosphere
 !            TAU_RAY( IWL ) = NBAR * SRAYL( IWL )         
 !         END DO
-      END IF ! for NEW_PROFILE
+!      END IF ! for NEW_PROFILE
 
 !***loop over wavelengths
+
+! find cloud bands
+
+      incld = .false.
+      nbnds = 0
+
+      do k = nlays_model, 1, -1
+         if (cldfrc(k) > 0.01) then
+            if (incld == .false.) then
+               nbnds = nbnds + 1
+               ctop(nbnds) = k
+               incld = .true.
+            endif
+         else
+            if (incld == .true.) then
+               incld = .false.
+               cbot(nbnds) = k + 1
+            endif
+         endif
+      enddo
+      if (incld == .true.) cbot(nbnds) = 1
+
+      if (nbnds > 3) then
+         do while(nbnds > 3)
+            k = minloc(cbot(1:nbnds-1) - ctop(2:nbnds), dim=1)
+            ctop(k+1:nbnds-1) = ctop(k+2:nbnds)
+            cbot(k:nbnds-1) = cbot(k+1:nbnds)
+            nbnds = nbnds - 1
+         enddo
+      endif
+
+      do n = 1, nbnds
+         bfrac(n,1) = maxval( cldfrc(cbot(n):ctop(n)) )
+         if (bfrac(n,1) < 0.02) bfrac(n,1) = 0.0
+         if (bfrac(n,1) > 0.98) bfrac(n,1) = 1.0
+         bfrac(n,2) = 1.0 - bfrac(n,1)
+      enddo
 
       DO IWL = 1, NWL           ! outermost loop
 
@@ -508,13 +562,14 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
 !*** initialize tau, delta tau's, other variables and loop over layers
 
          DTAU         = 0.0
-         DT_AERO      = 0.0
-         DT_CLOUD     = 0.0
+!        DT_AERO      = 0.0
+!        DT_CLOUD     = 0.0
          DTSCAT_CLOUD = 0.0
          TAU_SCAT_CLD = 0.0
 
-         DO L = 1, NLAYS
-            II = NLAYS + 1 - L  ! from top to bottom
+         ! Compute clear-sky only optical properties
+
+         DO II = 1, NLAYS
 
 !***in the following statements the factor of 100.0 converts
 !***  converts [ 1 / cm ] to [ 1 / m ]
@@ -542,13 +597,108 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
 
             DTSCAT_M = MAX( DTSCAT_M, SMALL )
             DTSCAT_A = MAX( DTSCAT_A, SMALL )
-
-
             DTABS_M  = ( AO3 + ANO2  )  * BLKDZ( II ) ! molecular absorption
             DTABS_A  = ( BEXT - BSCAT ) * BLKDZ( II ) ! particle absorption
 
             DTABS_M  = MAX( DTABS_M, SMALL )
             DTABS_A  = MAX( DTABS_A, SMALL )
+
+            DTSCAT = DTSCAT_M + DTSCAT_A
+            DTABS  = DTABS_M  + DTABS_A
+
+            dtau_clr(ii) = DTSCAT + DTABS
+            om_clr  (ii) = DTSCAT / ( DTSCAT + DTABS )
+            g_clr   (ii) = G_BAR * DTSCAT_A / DTSCAT
+         enddo
+
+         ! Compute total sky properties within cloud bands
+
+         dtau_tot = 0.0
+         
+         if (nbnds > 0) then
+            do n = 1, nbnds
+               do ii = cbot(n), ctop(n)
+                  dtau_cld = tauclds(iwl,ii) * cldfrc(ii) / bfrac(n,1)
+
+                  if (cldfrc(ii) > 0.01) then
+                     dtau_tot(ii) = dtau_clr(ii) + dtau_cld
+                     om_tot  (ii) = om_clr(ii) * dtau_clr(ii) + ssaclds(iwl,ii) * dtau_cld
+                     g_tot   (ii) = ( g_clr(ii) * om_clr(ii) * dtau_clr(ii) 
+     &                              + asmclds(iwl,ii) * ssaclds(iwl,ii) * dtau_cld )
+     &                            / om_tot(ii)
+                     om_tot  (ii) = om_tot(ii) / dtau_tot(ii)
+                  else
+                     dtau_tot(ii) = dtau_clr(ii)
+                     om_tot  (ii) = om_clr  (ii)
+                     g_tot   (ii) = g_clr   (ii)
+                  endif
+                  
+               enddo
+            enddo
+         endif
+
+         fsum(1:nlevs) = 0.0
+!        esum(1:nlevs) = 0.0
+         probsum       = 0.0
+         nb(1:3)       = 0
+
+         ! first set optical properties of column to the clear sky values
+         do l = 1, nlays
+            ii = nlays + 1 - l
+            dtau(ii) = dtau_clr(l)
+            om  (ii) = om_clr  (l)
+            g   (ii) = g_clr   (l)
+         enddo
+
+         cldloop: do jj = 1, 2**nbnds
+
+            prob = 1.0
+
+            ! now loop over all cloud overlap possibilities and copy 
+            ! the appropriate cloud band
+
+            if (nbnds > 0) then
+               do n = 1, nbnds
+                  
+                  if (mod((jj + 2**(n-1)-1) / 2**(n-1), 2) == 1 ) then
+
+                     ! layer is clear
+                     if (nb(n) /= 0) then
+                        do l = cbot(n), ctop(n)
+                           ii = nlays + 1 - l
+                           dtau(ii) = dtau_clr(l)
+                           om  (ii) = om_clr  (l)
+                           g   (ii) = g_clr   (l)
+                        enddo
+                        nb(n) = 0
+                     endif
+                     prob = prob * bfrac(n,2)
+
+                  else
+
+                     ! layer is cloudy
+                     if (nb(n) /= 1) then
+                        do l = cbot(n), ctop(n)
+                           ii = nlays + 1 - l
+                           dtau(ii) = dtau_tot(l)
+                           om  (ii) = om_tot  (l)
+                           g   (ii) = g_tot   (l)
+                        enddo
+                        nb(n) = 1
+                     endif
+                     prob = prob * bfrac(n,1)
+
+                  endif
+
+               enddo
+            endif
+
+            if (jj == 1) cloud_frac_2d(iw) = 1.0 - prob
+
+            ! skip small overlap probabilities
+            if (prob < 0.0015) cycle cldloop
+
+            probsum = probsum + prob
 
 !            IF ( CLOUDS( II ) ) THEN 
 !
@@ -638,20 +788,20 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
 !                  G_CLOUD = 0.0
 !               END IF            
 !            ELSE
-               DTSCAT_CLOUD = 0.0
-               G_CLOUD      = 0.0
-               OM_CLOUD     = 1.0
+!               DTSCAT_CLOUD = 0.0
+!               G_CLOUD      = 0.0
+!               OM_CLOUD     = 1.0
 !            END IF
              
 !***calculate total absorption and scattering contributions
 !***to optical depth
 
-            DTSCAT = DTSCAT_M + DTSCAT_A !+ DTSCAT_CLOUD
-            DTABS  = DTABS_M  + DTABS_A  !+ MAX(( 1.0 - OM_CLOUD ), 0.0) * DT_CLOUD( L )
+!            DTSCAT = DTSCAT_M + DTSCAT_A !+ DTSCAT_CLOUD
+!            DTABS  = DTABS_M  + DTABS_A  !+ MAX(( 1.0 - OM_CLOUD ), 0.0) * DT_CLOUD( L )
 
 !***set aerosol optical depth for later use
 
-            DT_AERO ( L ) = BEXT * BLKDZ( II )
+!           DT_AERO ( L ) = BEXT * BLKDZ( II )
 
 !***Now calculate the vertical profiles of optical depth,
 !***  single scattering albedo, asymmetry factor
@@ -662,30 +812,35 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
 !!!           G   ( L ) = ( G_BAR * DTSCAT_A + G_CLOUD * DTSCAT_CLOUD ) / DTSCAT
 !!            G   ( L ) = ( G_BAR * DTSCAT_A ) / DTSCAT
 
-            dtau_clr = DTSCAT + DTABS
-            om_clr   = DTSCAT / ( DTSCAT + DTABS )
-            g_clr    =  ( G_BAR * DTSCAT_A ) / DTSCAT
+!
+!            ! combine clear sky and cloud properties
+!            if (cldfrc(ii) > 0.01) then
+!
+!!              dtau_cld = sqrt( cldfrc(ii) ) * tauclds(iwl,ii)
+!               dtau_cld = cldfrc(ii) * tauclds(iwl,ii)
+!
+!               dtau(l) = dtau_clr + dtau_cld
+!               om  (l) = om_clr * dtau_clr + ssaclds(iwl,ii) * dtau_cld
+!               g   (l) = ( g_clr * om_clr * dtau_clr 
+!     &                 + asmclds(iwl,ii) * ssaclds(iwl,ii) * dtau_cld ) / om(l)
+!               om  (l) = om(l) / dtau(l)
+!
+!            else
+!
+!               dtau_cld = 0.0
+!
+!               dtau(l) = dtau_clr
+!               om  (l) = om_clr
+!               g   (l) = g_clr
+!
+!            endif
 
-            ! combine clear sky and cloud properties
-            if (cldfrc(ii) > 0.01) then
-
-               dtau_cld = sqrt( cldfrc(ii) ) * tauclds(iwl,ii)
-
-               dtau(l) = dtau_clr + dtau_cld
-               om  (l) = om_clr * dtau_clr + ssaclds(iwl,ii) * dtau_cld
-               g   (l) = ( g_clr * om_clr * dtau_clr 
-     &                 + asmclds(iwl,ii) * ssaclds(iwl,ii) * dtau_cld ) / om(l)
-               om  (l) = om(l) / dtau(l)
-
-            else
-
-               dtau_cld = 0.0
-
-               dtau(l) = dtau_clr
-               om  (l) = om_clr
-               g   (l) = g_clr
-
-            endif
+!            if (itab_w(iw)%iwglobe == 37013 .and. iwl == 1 .and. .false.) then
+!               if (l == 1) write(*,*) itab_w(iw)%iwglobe, nlays, nlays_model, nlays_chem
+!               if (l == 1) write(*,*) sinzen, coszen
+!               write(*,'(2I4,10g13.5)') ii, l, cldfrc(ii), dtau(l), dtscat, dtabs, g_bar,
+!     &              dtabs_m, dtabs_a, dsdh_td(l), blkzf(ii), blkdz(ii)
+!            endif
 
 !            IF ( G( L ) .GE. 1.0 .OR. G( L ) .LE. -1.0 .OR. G( L ) .NE. G( L ) ) THEN
 !               WRITE( NEW_OPTICS_LOG,'(A,ES12.4,A)',ADVANCE = 'NO' )
@@ -741,15 +896,15 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
 !           IF ( ONLY_SOLVE_RAD ) CYCLE
 !***FSB get sums of unscaled optical depths
 
-            TAU_SCAT( IWL ) = TAU_SCAT ( IWL ) + DTSCAT_A
-
-!***initialize optical depth profiles to the layer increment
-     
-            TAUC_AERO( II,IWL ) = DT_AERO( L )  ! aerosol optical depth
-            TAU_TOT  ( II,IWL ) = DTAU( L )     ! total optical depth
-            TAU_CLOUD( II,IWL ) = DT_CLOUD( L ) ! cloud optical depth
-
-         END DO                 ! loop over layers
+!            TAU_SCAT( IWL ) = TAU_SCAT ( IWL ) + DTSCAT_A
+!
+!!***initialize optical depth profiles to the layer increment
+!     
+!            TAUC_AERO( II,IWL ) = DT_AERO( L )  ! aerosol optical depth
+!            TAU_TOT  ( II,IWL ) = DTAU( L )     ! total optical depth
+!            TAU_CLOUD( II,IWL ) = DT_CLOUD( L ) ! cloud optical depth
+!
+!         END DO                 ! loop over layers
 
 !***set values for the stratosphere
 
@@ -760,51 +915,96 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
 
 !        NLEVEL = NLAYS + 1
 
-         IF ( .NOT. ONLY_SOLVE_RAD ) THEN
-!***calculate optical depth profiles
-            TAU_TOT  ( NLAYS,IWL ) = TAU_TOT  ( NLAYS,IWL ) + DTAU( 1 )
-            TAUC_AERO( NLAYS,IWL ) = TAUC_AERO( NLAYS,IWL ) + DT_AERO( 1 )  
-            TAU_CLOUD( NLAYS,IWL ) = TAU_CLOUD( NLAYS,IWL ) + DT_CLOUD( 1 ) 
-
-            DO L =  NLAYS-1, 1, -1
-               TAU_TOT  ( L,IWL ) = TAU_TOT  ( L,IWL ) + TAU_TOT  ( L+1,IWL )
-               TAUC_AERO( L,IWL ) = TAUC_AERO( L,IWL ) + TAUC_AERO( L+1,IWL ) 
-               TAU_CLOUD( L,IWL ) = TAU_CLOUD( L,IWL ) + TAU_CLOUD( L+1,IWL )
-            END DO
-         END IF
+!         IF ( .NOT. ONLY_SOLVE_RAD ) THEN
+!!***calculate optical depth profiles
+!            TAU_TOT  ( NLAYS,IWL ) = TAU_TOT  ( NLAYS,IWL ) + DTAU( 1 )
+!            TAUC_AERO( NLAYS,IWL ) = TAUC_AERO( NLAYS,IWL ) + DT_AERO( 1 )  
+!            TAU_CLOUD( NLAYS,IWL ) = TAU_CLOUD( NLAYS,IWL ) + DT_CLOUD( 1 ) 
+!
+!            DO L =  NLAYS-1, 1, -1
+!               TAU_TOT  ( L,IWL ) = TAU_TOT  ( L,IWL ) + TAU_TOT  ( L+1,IWL )
+!               TAUC_AERO( L,IWL ) = TAUC_AERO( L,IWL ) + TAUC_AERO( L+1,IWL ) 
+!               TAU_CLOUD( L,IWL ) = TAU_CLOUD( L,IWL ) + TAU_CLOUD( L+1,IWL )
+!            END DO
+!         END IF
          
 !***Set fluxes to zero
-
-         FDIR = 0.0
-         FUP  = 0.0
-         FDN  = 0.0
-         EDIR = 0.0
-         EUP  = 0.0
-         EDN  = 0.0
+!         FDIR = 0.0
+!         FUP  = 0.0
+!         FDN  = 0.0
+!         EDIR = 0.0
+!         EUP  = 0.0
+!         EDN  = 0.0
 
 !***calculate fluxes and irradiances
 
          CALL TWOSTREAM_S ( NLAYS, NLEVS, COSZEN, ALB(:,iwl), DTAU, OM, G, DSDH_TD,
      &                      FDIR, FUP, FDN, EDIR, EUP, EDN, frac_sfck(:,iw), lsw(iw) )
+
          DO L = 1, NLEVS
             II = NLEVS + 1 - L
-            FSUM( L ) = FDIR( II ) + FDN( II ) + FUP( II ) ! actinic flux
-            ESUM( L ) = EDIR( II ) + EDN( II )             ! downward irradiance
+!           if (itab_w(iw)%iwglobe == 37013 .and. iwl == 1) then
+!            if (itab_w(iw)%iwglobe == 37013 .and. iwl == 1) then
+!               write(*,'(2I4,10g13.5)') ii, l, edir(ii), edn(ii), eup(ii)
+!            endif
+            FSUM( L ) = fsum(l) + prob * (FDIR( II ) + FDN( II ) + FUP( II )) ! actinic flux
+!           ESUM( L ) = esum(l) + prob * (EDIR( II ) + EDN( II ))             ! downward irradiance
+
+!            if (nbnds == 2 .and. l /= nlevs) write(*,'(I4,10g13.5)') ii, fdir(l), fdn(l), fup(l),
+!     &           dtau(l), dtau_clr(ii-1), dtau_tot(ii-1), om(l), g(l), cldfrc(ii-1)
+
          END DO                 ! loop over layers
 
-! add diffusion and direct components for calculating reflectivity and transmissivity
-         INSOLATION    = INSOLATION    + SOLAR_FLUX 
-         REFLECTION    = REFLECTION    + SOLAR_FLUX * EUP( 1 )
-         TRANSMISSION  = TRANSMISSION  + SOLAR_FLUX * EDN( NLAYS )
-         TRANS_DIRECT  = TRANS_DIRECT  + SOLAR_FLUX * EDIR( NLAYS ) 
+      enddo cldloop
 
-         IF ( ONLY_SOLVE_RAD ) CYCLE
+!      if (nbnds == 2) then
+!         do l = nlevs, 1, -1
+!            write(*,*) l, fsum(l)
+!         enddo
+!        stop
+!      endif
+
+      if (probsum < 1.0 - 2.*epsilon(1.0)) then
+         do l = 1, nlevs
+            fsum(l) = fsum(l) / probsum
+!           esum(l) = esum(l) / probsum
+         enddo
+      endif
+
+!      if (nbnds == 1) then
+!         write(*,*) probsum
+!         stop
+!      endif
+
+!         if ( any(eup(1:nlevs) < 0.0) .or. 
+!     &        any(edn(1:nlevs) < 0.0) ) then
+!!           if ( itab_w(iw)%iwglobe == 36155 ) then
+!!            if ( sinzen < 0.1 ) then
+!            write(*,*) itab_w(iw)%iwglobe, iwl, sinzen, coszen
+!            do II = nlays, 1, -1
+!               l  = nlays - ii + 1
+!               write(*,'(I4,10g13.5)') ii, l, eup(l), edn(l),
+!     &              edir(l), dtau(l), om(l), g(l), cldfrc(ii)
+!            enddo
+!            write(*,'(I4,10g13.5)') 0, nlevs, eup(nlevs), edn(nlevs),
+!     &              edir(nlevs) !, dtau(nlevs), om(l), g(l), cldfrc(ii)
+!            write(*,*)
+!!           if (iwl == nwl) stop
+!         endif
+
+! add diffusion and direct components for calculating reflectivity and transmissivity
+!         INSOLATION    = INSOLATION    + SOLAR_FLUX 
+!         REFLECTION    = REFLECTION    + SOLAR_FLUX * EUP( 1 )
+!         TRANSMISSION  = TRANSMISSION  + SOLAR_FLUX * EDN( NLAYS )
+!         TRANS_DIRECT  = TRANS_DIRECT  + SOLAR_FLUX * EDIR( NLAYS ) 
+
+!         IF ( ONLY_SOLVE_RAD ) CYCLE
 
 !***FSB Calculate column averaged scattering albedo and asymmetry factor
 
-         IF ( TAUC_AERO( 1,IWL ) .GT. 1.0E-30 ) THEN
-            SSA_AERO( IWL ) = TAU_SCAT( IWL ) / TAUC_AERO( 1,IWL )
-         END IF
+!         IF ( TAUC_AERO( 1,IWL ) .GT. 1.0E-30 ) THEN
+!            SSA_AERO( IWL ) = TAU_SCAT( IWL ) / TAUC_AERO( 1,IWL )
+!         END IF
 
 !         TOTAL_TAU_CLD( IWL ) = TAU_CLOUD( 1,IWL )
 !
@@ -851,54 +1051,58 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
 !***multiply by the solar flux at the domain top for 
 !***actinic flux and irradiance; keeping actinic flux in photons/(cm^2*s)
          do l = 1, nlays_model
-            ACTINIC_FLUX( L,IWL ) = SOLAR_FLUX * FSUM( L )
-            IRRADIANCE  ( L,IWL ) = SOLAR_FLUX * CONV_WM2( IWL ) * ESUM( L )
+            ACTINIC_FLUX( L ) = SOLAR_FLUX * FSUM( L )
+!           IRRADIANCE  ( L,IWL ) = SOLAR_FLUX * CONV_WM2( IWL ) * ESUM( L )
          end do
-      END DO    ! loop over wavelengths
+!     END DO    ! loop over wavelengths
 
 ! normalize reflection and transmission coefficients 
-      INSOLATION   = 1.0 / ( COSZEN * INSOLATION )
-      TRANS_DIRECT = TRANS_DIRECT * INSOLATION
-      REFLECTION   = ONE_OVER_PI * REFLECTION * INSOLATION 
-      TRANSMISSION = ONE_OVER_PI * TRANSMISSION * INSOLATION
+!      INSOLATION   = 1.0 / ( COSZEN * INSOLATION )
+!      TRANS_DIRECT = TRANS_DIRECT * INSOLATION
+!      REFLECTION   = ONE_OVER_PI * REFLECTION * INSOLATION 
+!      TRANSMISSION = ONE_OVER_PI * TRANSMISSION * INSOLATION
 
-      IF ( ONLY_SOLVE_RAD ) RETURN 
+!      IF ( ONLY_SOLVE_RAD ) RETURN 
 
 ! compute photolysis rates
-      DO IPHOT = 1, NPHOTAB
-         DO IWL = 1, NWL
+          DO IPHOT = 1, NPHOTAB
+!         DO IWL = 1, NWL
             DO L = 1, NLAYS_CHEM
                BLKRJ( L,IPHOT ) = BLKRJ( L,IPHOT ) 
-     &                          + ACTINIC_FLUX( L,IWL ) 
+     &                          + ACTINIC_FLUX( L ) 
      &                          * CSZ( L,IWL,IPHOT ) * QYZ( L,IWL,IPHOT ) ! [ 1 / sec ]
             END DO
-         END DO
-      END DO  ! loop on layers, wavelength,  IPHOT
+!        END DO
+         END DO  ! loop on layers, wavelength,  IPHOT
 
-! convert actinic flux to watts/m^2    
-      do iwl = 1, nwl
-         do l = 1, nlays_model
-            ACTINIC_FLUX( L,IWL ) = ACTINIC_FLUX( L,IWL ) * CONV_WM2( IWL )
-         enddo
-      enddo
+         ! save surface actinic flux, convert to watts/m^2
+         actinic_flux_sfc(iwl,iw) = actinic_flux(1) * conv_wm2( iwl )
+
+      END DO
+
+! convert actinic flux to watts/m^2
+!      do iwl = 1, nwl
+!         do l = 1, nlays_model
+!            ACTINIC_FLUX( L,IWL ) = ACTINIC_FLUX( L,IWL ) * CONV_WM2( IWL )
+!         enddo
+!      enddo
 
 !***compute rate of photolysis (j-values) for each reaction        
 
-9503  FORMAT('LAYER = ',I3,' MODE = ',I3,' LAMBDA(nm)  = ',ES12.4,' DGN_CORE(m) = ',ES12.4,
-     &       ' DGN_SHELL(m) = ', ES12.4 / ' REFRACT_IDX_SHELL(NR,NI) = ', 2(ES12.4,1X),
-     &       ' REFRACT_IDX_CORE(NR,NI) = ', 2(ES12.4,1X) / ' LN(GEO.STD.DEV.) = ',
-     &       ES12.4)
-9504  FORMAT('LAYER = ',I3,' MODE = ',I3,' LAMBDA(nm)  = ',ES12.4,' DGN(m) = ',ES12.4,
-     &       ' REFRACT_IDX(NR,NI) = ', 2(ES12.4,1X) / ' VOL.DENS. = ', ES12.4,
-     &       ' LN(GEO.STD.DEV.) = ', ES12.4)
+!9503  FORMAT('LAYER = ',I3,' MODE = ',I3,' LAMBDA(nm)  = ',ES12.4,' DGN_CORE(m) = ',ES12.4,
+!     &       ' DGN_SHELL(m) = ', ES12.4 / ' REFRACT_IDX_SHELL(NR,NI) = ', 2(ES12.4,1X),
+!     &       ' REFRACT_IDX_CORE(NR,NI) = ', 2(ES12.4,1X) / ' LN(GEO.STD.DEV.) = ',
+!     &       ES12.4)
+!9504  FORMAT('LAYER = ',I3,' MODE = ',I3,' LAMBDA(nm)  = ',ES12.4,' DGN(m) = ',ES12.4,
+!     &       ' REFRACT_IDX(NR,NI) = ', 2(ES12.4,1X) / ' VOL.DENS. = ', ES12.4,
+!     &       ' LN(GEO.STD.DEV.) = ', ES12.4)
 
-99985 FORMAT('ERROR: Modeled Troposheric Ozone Column downward from layer ',I3,1X)
-99986 FORMAT('exceeds Top Ozone Column based on OMI.data file. Negative Optical Depths ')
-99987 FORMAT('but are physically unlikey.')
-99988 FORMAT(' SETTING O3 Column ABOVE PTOP TO 25% of OMI.dat value  ')
-99989 FORMAT(' FOR ROW/COL = ',2(1X,I4))
+!99985 FORMAT('ERROR: Modeled Troposheric Ozone Column downward from layer ',I3,1X)
+!99986 FORMAT('exceeds Top Ozone Column based on OMI.data file. Negative Optical Depths ')
+!99987 FORMAT('but are physically unlikey.')
+!99988 FORMAT(' SETTING O3 Column ABOVE PTOP TO 25% of OMI.dat value  ')
+!99989 FORMAT(' FOR ROW/COL = ',2(1X,I4))
 
-      RETURN
       END SUBROUTINE NEW_OPTICS
 
 C///////////////////////////////////////////////////////////////////////
@@ -1147,66 +1351,49 @@ C-----------------------------------------------------------------------
 
       INTEGER, INTENT( IN )  :: NLAYS
 
-      REAL,    INTENT( IN )  :: Z   ( : )
+      REAL,    INTENT( IN )  :: Z( NLAYS + 1 )
       REAL,    INTENT( IN )  :: ZSFC
       REAL,    INTENT( IN )  :: REARTH
       REAL,    INTENT( IN )  :: SINZEN
 
-      REAL,    INTENT( OUT ) :: DZ  ( : )  ! layer thicknesses counting from surface upward
-      REAL,    INTENT( OUT ) :: DSDH( : )
+      REAL,    INTENT( OUT ) :: DZ  ( NLAYS )  ! layer thicknesses counting from surface upward
+      REAL,    INTENT( OUT ) :: DSDH( NLAYS )
 
 !***Internal
 
       INTEGER I, J, K           ! loop indices
-      REAL RE
-      REAL DSJ                  ! slant path length [m]
-      REAL DHJ                  ! layer thickness [m]
+      REAL( 8 ) :: RE
+      REAL( 8 ) :: DSJ               ! slant path length [m]
+      REAL( 8 ) :: DHJ               ! layer thickness [m]
       REAL( 8 ) :: RJ, RJP1
       REAL( 8 ) :: RPSINZ            ! rpsinz = (re + zd(i)) * sinzen
       REAL( 8 ) :: RPSINZ2           ! rpsinz * rpsinz
       REAL( 8 ) :: GA, GB            ! see usage
-      REAL      :: ZE( NLAYS + 1 )   ! altitudes MSL
-      REAL      :: ZD( NLAYS + 1 )   ! array of altitudes indexed from top
+      REAL( 8 ) :: ZD ( NLAYS + 1 )  ! array of altitudes indexed from top
       REAL      :: DZI( NLAYS )      ! layer thicknesses counting downward from the top
 
 C-----------------------------------------------------------------------
 
 !***re include the altitude above sea level to the radius of the earth
 
-      RE = REARTH + ZSFC
-
-!***ze is the altitude above msl
-
-      DO K = 1, NLAYS + 1
-         ZE( K ) = Z( K )
-!!sjr    ZE(K) = Z(K) - ZSFC
-      END DO
-
-!***  DZ(1) = ZE(2) - ZE(1)
-!***  DZI(1) = ZE(NLAYS + 1) - ZE(NLAYS)
+      RE = real(REARTH,8) + real(ZSFC,8)
 
 !***calculate dz
 
       DO K = 1, NLAYS
-         DZ( K ) = ZE( K + 1 ) - ZE( K )
+         DZ( K ) = Z( K + 1 ) - Z( K )
       END DO
 
 !***zd, dzi are inverse coordinates of ze & dz
 
       DO K = 1, NLAYS + 1
          J = NLAYS + 1 - K + 1
-         ZD( J ) = ZE( K )
+         ZD( J ) = Z( K ) + RE
       END DO
 
       DO K = 1, NLAYS
          J = NLAYS + 1 - K
          DZI( J ) = DZ( K )
-      END DO
-
-!***initialize dsdh
-
-      DO I = 1, NLAYS
-         DSDH( I ) = 0.0
       END DO
 
 !***FSB The following code is a direct implementation of appendix B
@@ -1216,19 +1403,12 @@ C-----------------------------------------------------------------------
 !***calculate ds/dh of every layer starting at the top
 
       DO J = 1, NLAYS
-!***  K = NLAYS - J +1
-         RPSINZ  = ( RE + ZD( J ) ) * SINZEN
+         RPSINZ  = ZD( J ) * SINZEN
          RPSINZ2 = RPSINZ * RPSINZ
 
-         IF ( J .LT. NLAYS ) THEN
-            RJ   = RE + ZD( J )
-            RJP1 = RE + ZD( J + 1 )
-            DHJ  = DZI( J )
-         ELSE
-            RJ   = RE + ZD( J )
-            RJP1 = RE
-            DHJ  = DZI( J )
-         END IF
+         RJ   = ZD ( J )
+         RJP1 = ZD ( J + 1 )
+         DHJ  = DZI( J )
 
 !***define GA and GB
 
@@ -1237,7 +1417,7 @@ C-----------------------------------------------------------------------
 
 !***This is equation B1 from Dahlbeck and Stamnes (1991)
 
-         DSJ = ABS( GB - GA )
+         DSJ = max(GB - GA, dhj)
 
 !***this is the slant path (Chapman) function.
 
@@ -1245,7 +1425,6 @@ C-----------------------------------------------------------------------
 
       END DO   ! loop over altitude
 
-      RETURN
       END SUBROUTINE SLANTPATH2
 
 C///////////////////////////////////////////////////////////////////////
@@ -1427,36 +1606,32 @@ C-----------------------------------------------------------------------
 
       IMPLICIT NONE
 
-!     INTEGER, PARAMETER :: KZ = 100
-!     INTEGER, PARAMETER :: NROWS = 2 * KZ
-
 !***arguments
 
       INTEGER, INTENT( IN ) :: NLAYER
       INTEGER, INTENT( IN ) :: NLEVEL
+      INTEGER, INTENT( IN ) :: NSFC
 
       REAL,    INTENT(IN )  :: MU
-      REAL,    INTENT(IN )  :: RSFC( : )
-      REAL,    INTENT(IN )  :: TAUU( : )
-      REAL,    INTENT(IN )  :: OMU ( : )
-      REAL,    INTENT(IN )  :: GU  ( : )
-      REAL,    INTENT(IN )  :: DSDH( : )
-      REAL,    INTENT(OUT ) :: FUP ( : )
-      REAL,    INTENT(OUT ) :: FDN ( : )
-      REAL,    INTENT(OUT ) :: FDR ( : )
-      REAL,    INTENT(OUT ) :: EUP ( : )
-      REAL,    INTENT(OUT ) :: EDN ( : )
-      REAL,    INTENT(OUT ) :: EDR ( : )
+      REAL,    INTENT(IN )  :: RSFC( NSFC )
+      REAL,    INTENT(IN )  :: TAUU( NLAYER )
+      REAL,    INTENT(IN )  :: OMU ( NLAYER )
+      REAL,    INTENT(IN )  :: GU  ( NLAYER )
+      REAL,    INTENT(IN )  :: DSDH( NLAYER )
+      REAL,    INTENT(OUT ) :: FUP ( NLEVEL )
+      REAL,    INTENT(OUT ) :: FDN ( NLEVEL )
+      REAL,    INTENT(OUT ) :: FDR ( NLEVEL )
+      REAL,    INTENT(OUT ) :: EUP ( NLEVEL )
+      REAL,    INTENT(OUT ) :: EDN ( NLEVEL )
+      REAL,    INTENT(OUT ) :: EDR ( NLEVEL )
 
-      real,    intent(in )  :: frac_sfck( : )
-      integer, intent(in )  :: nsfc
+      REAL,    INTENT(IN )  :: FRAC_SFCK( NSFC )
 
 !***local:
 
-!     REAL( 8 ) :: TAUC   ( 0:nlevel )  ! optical depth variable
-      REAL( 8 ) :: TAUSLA ( 0:nlevel )  ! slant path optical depth
-      REAL( 8 ) :: ETAUSLA( 0:nlevel )  ! transmissivity along slant path
-      REAL( 8 ) :: MU2    ( 0:nlevel )  ! replaces mu1 for slant path
+      REAL( 8 ) :: TAUSLA ( 0:nlayer )  ! slant path optical depth
+      REAL( 8 ) :: ETAUSLA( 0:nlayer )  ! transmissivity along slant path
+      REAL( 8 ) :: MU2    ( 0:nlayer )  ! replaces mu1 for slant path
 
 !***internal coefficients and matrix
 
@@ -1473,7 +1648,7 @@ C-----------------------------------------------------------------------
       REAL( 8 ) :: F, G, OM
       REAL( 8 ) :: GAM1, GAM2, GAM3, GAM4
 
-      REAL( 8 ) :: EXPON, DIVISR, TEMP, UP, DN
+      REAL( 8 ) :: EXPON, DIVISR, TAUSUM(0:NLAYER), UP, DN, TEMP
       REAL( 8 ) :: SSFC( nsfc )
 
       INTEGER   :: ROW
@@ -1489,23 +1664,19 @@ C-----------------------------------------------------------------------
       REAL( 8 ), PARAMETER :: EPS         = 1.0D-03
       REAL( 8 ), PARAMETER :: PRECIS      = 1.0D0 - 1.0D-07
 
-      ! boundary conditions:
-      real( 8 ), parameter :: pifs = 1.0d0   ! solar flux is set to unity here
-      real( 8 ), parameter :: fdn0 = 0.0d0   ! no downward diffuse flux
-
       ! reciprocal of constant from delta_Eddington method
-      REAL( 8 ), parameter :: MU1 = 2.0d0   
+      real( 8 ), parameter :: sq3 = sqrt(3.d0)
+      real( 8 ), parameter :: c1 = 0.5d0 * sq3
+!     REAL( 8 ), parameter :: MU1 = 2.0d0   
+      REAL( 8 ), parameter :: MU1 = sq3
 
 !-----------------------------------------------------------------------
 
-!      NLAYER = NLEVEL !- 1
-
-!     TAUC  ( 0 ) = 0.0D0
-      TAUSLA( 0 ) = 0.0D0
-      MU2   ( 0 ) = SQRTLRGSTM1
-
 !***scaling for delta-Eddington approximation
 !***set  tausla to be slant optical path contribution for each layer.
+
+      TAUSLA(0) = 0.0D0
+      MU2   (0) = SQRTLRGSTM1
 
       DO I = 1, NLAYER
          F         = GU(I) * GU(I)
@@ -1516,37 +1687,15 @@ C-----------------------------------------------------------------------
          mu2   (i) = max(dsdh(i), sqrtlrgstm1)
       END DO
 
-      TEMP       = 0.0d0
-      ETAUSLA(0) = 1.0D0
+      TAUSUM(0) = 0.0d0
       DO I = 1, NLAYER
-         TEMP       = TEMP + TAUSLA(I) ! sum over altitude
-         ETAUSLA(I) = EXP( -TEMP )
-!        TAUC  (I) = TAUC  (I-1) + TAUN  (I) ! to be a sum over altitude.
+         TAUSUM(I) = TAUSUM(I-1) + TAUSLA(I) ! sum over altitude
       ENDDO
 
-!***FSB calculate MU2(i). This is the substitute for mu ( = 1/ coszen) for the
-!***  pseudo spherical approximation. It is ther ratio of vertical optical
-!***  depth to the slant optical depth.
-!***  This has been simplified from TUV ps2str because only
-!***  zenith angles < or = 90 degrees are considered.
-
-!         IF ( TAUSLA(I) .EQ. TAUSLA(I-1) ) THEN
-!            MU2(I) = SQRTLRGST
-!         ELSE
-!            MU2(I) = (TAUC(I) - TAUC(I-1)) / (TAUSLA(I) - TAUSLA(I-1))
-!            MU2(I) = SIGN( MAX( ABS( MU2(I)), SQRTLRGSTM1 ), MU2(I) )
-!         END IF
-!         MU2(I) = 1.0D0 / MU2(I)
-!      END DO
-
-!         IF ( TAUSLA(I) .EQ. TAUSLA(I-1) ) THEN
-!            MU2(I) = SQRTLRGSTM1
-!         ELSE
-!            MU2(I) =  (TAUSLA(I) - TAUSLA(I-1)) / (TAUC(I) - TAUC(I-1)) 
-!            MU2(I) = SIGN( MIN( ABS( MU2(I)), SQRTLRGST ), MU2(I) )
-!         END IF
-!
-!      END DO
+      ETAUSLA(0) = 1.0D0
+      DO I = 1, NLAYER
+         ETAUSLA(I) = EXP( -TAUSUM(I) )
+      ENDDO
 
 !***compute coefficients for each layer:
 !***  gam1 - gam4 = 2-stream coefficients
@@ -1556,42 +1705,29 @@ C-----------------------------------------------------------------------
 !***  cuptn and cdntn = calc. when tau is taun
 !***  divisr = prevents division by zero
       
-      DO 11, I = 1, NLAYER
+      DO I = 1, NLAYER
 
          G  = GI (I)
          OM = OMI(I)
 
 !***stay away from 1 by precision.  For g, also stay away from -1
 
-!        TEMPG = MIN( ABS( G ), 1.0D0 - PRECIS )
-!        TEMPG = MIN( ABS( G ), PRECIS )
-!        G = SIGN( TEMPG, G )
-!        OM = MIN( OM, 1.0D0 - PRECIS )
-
          OM = MIN( OM,  PRECIS )
-         g  = min(  g,  precis )
-         g  = max(  g, -precis )
+         G  = MIN(  G,  PRECIS )
+         G  = MAX(  G, -PRECIS )
 
 !***calculate the gamma values from line 1 Table 1, page 16,289
 
-         GAM1 =  ( 7.0D0 - OM * ( 4.0D0 + 3.0D0 * G ) ) * 0.25D0
-         GAM2 = -( 1.0D0 - OM * ( 4.0D0 - 3.0D0 * G ) ) * 0.25D0
-         GAM3 =  ( 2.0D0 - 3.0D0 * G * MU ) * 0.25D0
-         GAM4 =  1.0D0 - GAM3
+!        GAM1 =  ( 7.0D0 - OM * ( 4.0D0 + 3.0D0 * G ) ) * 0.25D0
+!        GAM2 = -( 1.0D0 - OM * ( 4.0D0 - 3.0D0 * G ) ) * 0.25D0
+!        GAM3 =  ( 2.0D0 - 3.0D0 * G * MU ) * 0.25D0
+!        GAM4 =  1.0D0 - GAM3
 
-!***lambda = pg 16,290 equation 21
-!***big gamma = pg 16,290 equation 22
+         gam1 = c1 * (2.d0 - om*(1.d0+g))
+         gam2 = c1 * (1.d0 - g)
+         gam3 = 0.5d0 - c1 * g * mu
+         gam4 = 1.d0 - gam3
 
-!         IF ( ABS( GAM2 ) .LE. SMALLEST ) THEN
-!            WRITE( NEW_OPTICS_LOG, 2609) I, GI(I), OMI(I), G, OM, GAM1, GAM2
-!            WRITE( NEW_OPTICS_LOG, 2610)
-!         END IF
-
-!         IF ( ( GAM1*GAM1 - GAM2*GAM2 ) .LT. 0.0D0 ) THEN
-!            WRITE( NEW_OPTICS_LOG, 2609) I, GI(I), OMI(I), G, OM, GAM1, GAM2
-!            WRITE( NEW_OPTICS_LOG, 2611)
-!         END IF
- 
          LAM(I) = SQRT( max(GAM1*GAM1 - GAM2*GAM2, 0.0) )
 
          IF ( ABS( GAM2 ) .LE. SMALLEST ) THEN 
@@ -1620,27 +1756,25 @@ C-----------------------------------------------------------------------
          TEMP = MAX( EPS, ABS( DIVISR ) )
          DIVISR = SIGN( TEMP , DIVISR )
 
-         UP = OM * PIFS *
-     &        ( ( GAM1 - MU2(I) ) * GAM3 + GAM4 * GAM2 ) / DIVISR
+         UP = OM * ( ( GAM1 - MU2(I) ) * GAM3 + GAM4 * GAM2 ) / DIVISR
 
-         DN = OM * PIFS *
-     &        ( ( GAM1 + MU2(I) ) * GAM4 + GAM2 * GAM3 ) / DIVISR
+         DN = OM * ( ( GAM1 + MU2(I) ) * GAM4 + GAM2 * GAM3 ) / DIVISR
 
 !***cup and cdn are when tau is equal to zero
 !***cuptn and cdntn are when tau is equal to taun
 
-         CUP(I)   = UP * ETAUSLA(I-1)
-         CDN(I)   = DN * ETAUSLA(I-1)
+         CUP  (I) = UP * ETAUSLA(I-1)
+         CDN  (I) = DN * ETAUSLA(I-1)
          CUPTN(I) = UP * ETAUSLA(I)
          CDNTN(I) = DN * ETAUSLA(I)
 
- 11   CONTINUE                  ! loop on layer
+      ENDDO
 
 !***set up matrix
 !*** ssfc = pg 16,292 equation 37  where pi Fs is one (unity).
 
       do i = 1, nsfc
-         SSFC(i) = RSFC(i) * MU * ETAUSLA( NLAYER-I+1 ) * PIFS
+         SSFC(i) = RSFC(i) * MU * ETAUSLA( NLAYER-I+1 )
       enddo
 
 !***MROWS = the number of rows in the matrix
@@ -1650,37 +1784,36 @@ C-----------------------------------------------------------------------
 !*** the following are from pg 16,292  equations 39 - 43.
 !*** set up first row of matrix:
 
-      I = 1
       A(1) = 0.0D0
-      B(1) = E1(I)
-      D(1) = -E2(I)
-      E(1) = FDN0 - CDN(I)
+      B(1) = E1(1)
+      D(1) = -E2(1)
+      E(1) = -CDN(1)
 
       ROW = 1
 
 !***set up odd rows 3 thru (MROWS - 1):
 
       I = 0
-      DO 20, ROW = 3, MROWS - 1, 2
+      DO ROW = 3, MROWS - 1, 2
          I = I + 1
          A(ROW) = E2(I) * E3(I) - E4(I) * E1(I)
          B(ROW) = E1(I) * E1(I + 1) - E3(I) * E3(I + 1)
          D(ROW) = E3(I) * E4(I + 1) - E1(I) * E2(I + 1)
          E(ROW) = E3(I) * ( CUP(I + 1) - CUPTN(I) ) +
      &            E1(I) * ( CDNTN(I) - CDN(I + 1) )
- 20   CONTINUE
+      ENDDO
 
 !***set up even rows 2 thru (MROWS - 2):
 
       I = 0
-      DO 30, ROW = 2, MROWS - 2, 2
+      DO ROW = 2, MROWS - 2, 2
          I = I + 1
          A(ROW) = E2(I + 1) * E1(I) - E3(I) * E4(I + 1)
          B(ROW) = E2(I) * E2(I + 1) - E4(I) * E4(I + 1)
          D(ROW) = E1(I + 1) * E4(I + 1) - E2(I + 1) * E3(I + 1)
          E(ROW) = ( CUP(I + 1) - CUPTN(I) ) * E2(I + 1) -
      &            ( CDN(I + 1) - CDNTN(I) ) * E4(I + 1)
- 30   CONTINUE
+      ENDDO
 
 !***set up last row of matrix at MROWS:
 
@@ -1722,45 +1855,27 @@ C-----------------------------------------------------------------------
          enddo
       endif
 
-!*** unfold solution of matrix, compute output fluxes:
-
-      ROW = 1
-      LEV = 1
-      J = 1
-
+!*** unfold solution of matrix, compute output fluxes
 !***the following equations are from pg 16,291  equations 31 & 32
 
-      FDR(LEV) = 1.0    ! this the downward flux at the top of the model
-      EDR(LEV) = MU * FDR(LEV)
-      EDN(LEV) = FDN0
-      EUP(LEV) = Y(ROW) * E3(J) - Y(ROW + 1) * E4(J) + CUP(J)
-      FDN(LEV) = EDN(LEV) * MU1
-      FUP(LEV) = EUP(LEV) * MU1
+      FDR(1) = 1.0    ! this the downward flux at the top of the model
+      EDR(1) = MU     ! this the downward flux at the top of the model
+      EDN(1) = 0.0
+      EUP(1) = Y(1) * E3(1) - Y(2) * E4(1) + CUP(1)
+      FDN(1) = 0.0
+      FUP(1) = EUP(1) * MU1
 
-      DO 60 LEV = 2, NLEVEL
+      ROW = 1
+      DO LEV = 2, NLEVEL
+         J = LEV - 1
          FDR(LEV) = ETAUSLA(LEV-1)
          EDR(LEV) = MU * FDR(LEV)
          EDN(LEV) = Y(ROW) * E3(J) + Y(ROW + 1) * E4(J) + CDNTN(J)
          EUP(LEV) = Y(ROW) * E1(J) + Y(ROW + 1) * E2(J) + CUPTN(J)
          FDN(LEV) = EDN(LEV) * MU1
          FUP(LEV) = EUP(LEV) * MU1
-
          ROW = ROW + 2
-         J = J + 1
- 60   CONTINUE
-
-!2609  FORMAT(/ 'PHOT_MOD: Instability in Two Stream RadTran Subroutine'
-!     &       / 'Layer: I = ', I3
-!     &       / 'Asymmetry Factor: GI = ', ES12.4
-!     &       / 'Single Scattering Albedo: OMI = ', ES12.4
-!     &       / 'SIGN( MIN( ABS( GI ), 1.0 - 1.0E-7), GI ): G = ', ES12.4
-!     &       / 'MIN( OMI, 1.0 - 1.0E-7 ): OM = ', ES12.4
-!     &       / '0.25*( 7.0 - OM * ( 4.0 + 3.0 * G ) ): GAM1 = ', ES12.4
-!     &       / '0.25*( OM * ( 4.0 + 3.0 * G ) - 1.0 ): GAM2 = ', ES12.4  /)
-!
-!2610  FORMAT(/ 'Setting (GAM1 - SQRT(GAM1**2 - GAM2**2))/GAM2 to zero' /)
-!
-!2611  FORMAT(/ ' ( GAM1**2 - GAM2**2 ) < 0: NaNs introduced into solution ' /)
+      ENDDO
 
       END SUBROUTINE TWOSTREAM_S
 
@@ -2183,7 +2298,6 @@ C-----------------------------------------------------------------------
 
       COSZEN = MIN( COSZEN, 0.999998 )
 
-      END SUBROUTINE GETZEN2        
-
+      END SUBROUTINE GETZEN2     
 
       END MODULE PHOT_MOD
