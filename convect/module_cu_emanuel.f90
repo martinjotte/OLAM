@@ -27,7 +27,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   use mem_basic,   only: tair, press, rho, sh_v, vxe, vye, vze
   use consts_coms, only: t00, grav, eradi
   use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc, &
-                         kcutop, kcubot, qwcon, iactcu
+                         kcutop, kcubot, qwcon, iactcu, kddtop, cddf
   use oname_coms,  only: nl
   use therm_lib,   only: rhovsil
 
@@ -37,7 +37,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   real,    intent(in)  :: dtlong
 
   real, dimension(mza) :: tc, qc, qsc, u, v, pc, pfc, gz, den, dz
-  real, dimension(mza) :: tt, qt, ut, vt, qcldc
+  real, dimension(mza) :: tt, qt, ut, vt, qcldc, mp
 
   integer :: k, ka, kc, kp, nd, na, nm
   real    :: pcprate, wprime, tprime, qprime
@@ -113,7 +113,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
 
   call convect43c (     iw,     den,    dz,                                 &
        tc,      qc,     qsc,    u,      v,        pc,    pfc, gz,           &
-       nd,      nm,     dtlong, iflag,  tt,       qt,    ut,  vt,           &
+       nd,      nm,     dtlong, iflag,  tt,       qt,    ut,  vt, mp,       &
        pcprate, wprime, tprime, qprime, cbmf(iw), qcldc, kup, kcbase, kctop )
 
   if (iflag == 1 .or. iflag == 4) then
@@ -122,6 +122,17 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
      kcubot(iw) = kcbase + ka - 1
      iactcu(iw) = 1
      conprr(iw) = pcprate
+
+     if (mp(kcbase) > 1.e-9) then
+        cddf(iw) = mp(kcbase)
+
+        do kc = kctop, kcbase, -1
+           if (mp(kc) > 0.33 * cddf(iw)) then
+              kddtop(iw) = kc + ka - 1
+              exit
+           endif
+        enddo
+     endif
 
      do kc = 1, nd
         k  = kc + ka - 1
@@ -162,7 +173,7 @@ END SUBROUTINE cuparm_emanuel
 
 SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      T,      Q,  QS,     U,      V,    P,      PH, gz,      &
-     ND,     NL, DELT,   IFLAG,  FT,   FQ,     FU, FV,      & 
+     ND,     NL, DELT,   IFLAG,  FT,   FQ,     FU, FV,  mp, & 
      PRECIP, WD, TPRIME, QPRIME, CBMF, QCONDC, nk, icb, inb )
   
 !-----------------------------------------------------------------------------
@@ -297,6 +308,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
   real,    intent(out) :: qcondc(nd) !, ftra(nd,ntra)
   real,    intent(out) :: wd, tprime, qprime, precip
   real,    intent(inout) :: cbmf
+  real,    intent(out) :: mp(nd)
 
   real :: ad, afac, ahmax, ahmin, alt, altem, am, amde, amp1, anum, asij, &
        awat, b6, bf2, bsum, by, c6, cape, capem, chi, coeff, &
@@ -311,7 +323,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
   integer ::  nent(mza)
   real    ::  uent(mza,mza), vent(mza,mza) !, traent(mza,mza,ntra), tratm(mza)
   real    ::  up(mza), vp(mza) !, trap(mza,ntra)
-  real    ::  m(mza), mp(mza), ment(mza,mza), qent(mza,mza), elij(mza,mza)
+  real    ::  m(mza), ment(mza,mza), qent(mza,mza), elij(mza,mza)
   real    ::  sij(mza,mza), tvp(mza), tv(mza), water(mza)
   real    ::  qp(mza), ep(mza), wt(mza), evap(mza), clw(mza)
   real    ::  sigp(mza), tp(mza), cpn(mza)

@@ -45,7 +45,9 @@ Module mem_cuparm
    real,    allocatable, target :: qwcon (:,:)
 
    real,    allocatable, target :: cbmf  (:)
+   real,    allocatable, target :: cddf  (:)
    integer, allocatable, target :: kcutop(:)
+   integer, allocatable, target :: kddtop(:)
    integer, allocatable, target :: kcubot(:)
    integer, allocatable, target :: iactcu(:)
 
@@ -84,7 +86,9 @@ Contains
        ! Diagnostic arrays for clouds/radiation/tracer mixing
 
        allocate(cbmf  (mwa)) ; cbmf   = 0.0
+       allocate(cddf  (mwa)) ; cddf   = 0.0
        allocate(kcutop(mwa)) ; kcutop = -1
+       allocate(kddtop(mwa)) ; kddtop = -1
        allocate(kcubot(mwa)) ; kcubot = -1
 
     endif
@@ -104,6 +108,8 @@ Contains
     if (allocated(conprr))  deallocate (conprr)
     if (allocated(qwcon))   deallocate (qwcon)
     if (allocated(cbmf))    deallocate (cbmf)
+    if (allocated(cddf))    deallocate (cddf)
+    if (allocated(kddtop))  deallocate (kddtop)
     if (allocated(kcutop))  deallocate (kcutop)
     if (allocated(kcubot))  deallocate (kcubot)
     if (allocated(iactcu))  deallocate (iactcu)
@@ -132,7 +138,11 @@ Contains
 
      if (allocated(cbmf))   call increment_vtable('CBMF',  'AW', rvar1=cbmf)
 
+     if (allocated(cddf))   call increment_vtable('CDDF',  'AW', rvar1=cddf)
+
      if (allocated(kcutop)) call increment_vtable('KCUTOP','AW', ivar1=kcutop)
+
+     if (allocated(kddtop)) call increment_vtable('KDDTOP','AW', ivar1=kddtop)
 
      if (allocated(kcubot)) call increment_vtable('KCUBOT','AW', ivar1=kcubot)
 

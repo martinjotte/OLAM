@@ -42,7 +42,7 @@ subroutine cuparm_driver(rhot)
                               dtlong, mstp, runtype, dtlm, iparallel
   use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
   use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc, &
-                              kcutop, kcubot, qwcon, iactcu, cbmf
+                              kcutop, kcubot, qwcon, iactcu, cbmf, cddf, kddtop
   use mem_tend,         only: thilt, sh_wt, vmxet, vmyet, vmzet
   use mem_basic,        only: rho, sh_w, theta, tair, thil
   use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
@@ -104,8 +104,10 @@ subroutine cuparm_driver(rhot)
 
         conprr(iw) =  0.0
         kcutop(iw) = -1
+        kddtop(iw) = -1
         kcubot(iw) = -1
         iactcu(iw) =  0
+        cddf  (iw) = 0.0
      enddo
      !$omp end parallel do
 

@@ -31,7 +31,7 @@ CONTAINS
      use mem_basic,   only: wmc, vmc, theta, tair, press, rho, sh_v, &
                             vxe, vye, vze
      use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
-                            qwcon, iactcu
+                            qwcon, iactcu, kddtop, cddf
 
      implicit none
 
@@ -87,6 +87,7 @@ CONTAINS
      integer :: k22    (1)       ! deep convectin updraft source level
      integer :: kbcon  (1)       ! deep convection LCL
      integer :: ktop   (1)       ! deep convection cloud top
+     integer :: jmin   (1)       ! downdraft originating level
      real    :: xmb    (1)       ! deep convection mass flux
      real    :: cupclw (1,mza)   ! deep convection cloud water
      real    :: xf_ens (1,1,ensdim) ! mass flux ensembles
@@ -159,7 +160,6 @@ CONTAINS
 
      raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
      raxisi = 1.0 / max(raxis, 1.e-12)
-
 
      ! Vertical advective theta and water vapor fluxes (W levels)
 
@@ -304,7 +304,7 @@ CONTAINS
      aaeq = 1.
      j = 1
      ichoice = 0
-     edt_out = 0
+     edt_out = 0.0
      high_resolution = 0
 !    if (arw0(iw) < 1.e8) high_resolution = 1
 
@@ -349,13 +349,14 @@ CONTAINS
      xf_ens = 0.0
      pr_ens = 0.0
      sub_mas = 0.0
+     jmin = 0
 
      call  CUP_enss_3d(iw,OUTQC,J,AAEQ,T,Q,Z1,sub_mas,                    &
               TN,QO,PO,PRE,P,OUTT,OUTQ,DTIME,ktau,tkmax,PSUR,US,VS,    &
               TCRIT,tx,qx,                                             &
               tshall,qshall,kpbl,dhdt,outts,outqs,tscl_kf,             &
               k23,kbcon3,ktop3,xmb3,                                   &
-              mconv,omeg,k22,xmb,                                      &
+              mconv,omeg,k22,xmb,jmin,                                 &
               APR_GR,APR_W,APR_MC,APR_ST,APR_AS,                       &
               APR_CAPMA,APR_CAPME,APR_CAPMI,kbcon,ktop,cupclw,         &
               xf_ens,pr_ens,xland,gsw,edt_out,subt,subq,               &
@@ -367,9 +368,11 @@ CONTAINS
         ! Deep convecton is active
 
         kcutop(iw) = ktop (1) + ka - 1
+        kddtop(iw) = jmin(1) + ka - 1
         kcubot(iw) = kbcon(1) + ka - 1
         iactcu(iw) = 1
         cbmf  (iw) = xmb(1)
+        cddf  (iw) = edt_out(1,1) * xmb(1)
         conprr(iw) = pre(1)
 
         do kc = 1, ktf
@@ -408,13 +411,13 @@ CONTAINS
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-   SUBROUTINE CUP_enss_3d(iw,OUTQC,J,AAEQ,T,Q,Z1,sub_mas,                 &
+   SUBROUTINE CUP_enss_3d(iw,OUTQC,J,AAEQ,T,Q,Z1,sub_mas,              &
               TN,QO,PO,PRE,P,OUTT,OUTQ,DTIME,ktau,tkmax,PSUR,US,VS,    &
               TCRIT,tx,qx,                                             &
               tshall,qshall,kpbl,dhdt,outts,outqs,tscl_kf,             &
               k23,kbcon3,ktop3,xmb3,                                   &
               mconv,                                                   &
-              omeg,k22,xmb,                                            &
+              omeg,k22,xmb,jmin,                                       &
               APR_GR,APR_W,APR_MC,APR_ST,APR_AS,                       &
               APR_CAPMA,APR_CAPME,APR_CAPMI,kbcon,ktop,cupclw,         &
               xf_ens,pr_ens,xland,gsw,edt_out,subt,subq,               &
@@ -454,7 +457,7 @@ CONTAINS
         pre,xmb3,xmb
      integer,    dimension (its:ite)                                   &
         ,intent (out  )                   ::                           &
-        k22,kbcon,ktop,k23,kbcon3,ktop3
+        k22,kbcon,ktop,k23,kbcon3,ktop3,jmin
      integer,    dimension (its:ite)                                   &
         ,intent (in  )                   ::                           &
         kpbl
@@ -613,7 +616,7 @@ CONTAINS
      real,    dimension (its:ite,1:ens4) ::                            &
         axx
      integer,    dimension (its:ite) ::                                &
-       kzdown,KDET,JMIN,kstabi,kstabm,K22x,jmin3,kdet3,                &
+       kzdown,KDET,kstabi,kstabm,K22x,jmin3,kdet3,                     &
        KBCONx,ierr,ierr2,ierr3,KBMAX,ierr5,ierr5_0 
 
      integer                              ::                           &

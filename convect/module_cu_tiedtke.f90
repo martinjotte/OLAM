@@ -76,7 +76,7 @@ CONTAINS
 
    use mem_grid,    only: mza, lpv, lpw, zt, xew, yew, zew, arv, arw, volt
    use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc, &
-                          kcubot, kcutop, cbmf, qwcon, iactcu
+                          kcubot, kcutop, cbmf, qwcon, iactcu, cddf, kddtop
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, &
                           vmc, wmc
    use mem_turb,    only: frac_land, sfluxt, sfluxr, fqtpbl
@@ -295,12 +295,24 @@ CONTAINS
 
    if (iact) then
 
+      ! convection extends 1 level above ictop
+      ictop = ictop - 1
+
       kcutop(iw) = mza - ictop + 1
       kcubot(iw) = mza - icbot + 1
       iactcu(iw) = 1
       cbmf  (iw) = zmfu(icbot)
 
-      do k = ka, mza
+      do k = kcutop(iw), kcubot(iw), -1
+         kt = mza + 1 - k
+         if (zmfd(kt) < -1.e-10) then
+            kddtop(iw) = k
+            cddf  (iw) = -zmfd(kt)
+            exit
+         endif
+      enddo
+
+      do k = ka, kcutop(iw)
          kt = mza + 1 - k
 
          ! subtract off the input humdity tendency
@@ -334,7 +346,7 @@ CONTAINS
          
          if (raxis > 1.e3) then
 
-            do k = ka, mza
+            do k = ka, kcutop(iw)
                kt = mza + 1 - k
                uvtr = -dVdt(kt) * zew(iw) * eradi
                vxsrc(k,iw) = (-dUdt(kt) * yew(iw) + uvtr * xew(iw)) * raxisi
@@ -344,7 +356,7 @@ CONTAINS
                
          else
 
-            do k = ka, mza
+            do k = ka, kcutop(iw)
                kt = mza + 1 - k
                vxsrc(k,iw) = dUdt(kt)
                vysrc(k,iw) = dVdt(kt)

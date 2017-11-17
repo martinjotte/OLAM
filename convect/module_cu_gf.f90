@@ -71,7 +71,7 @@ CONTAINS
                            vxe, vye, vze
     use oname_coms,  only: nl
     use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
-                           qwcon, vxsrc, vysrc, vzsrc, iactcu
+                           qwcon, vxsrc, vysrc, vzsrc, iactcu, kddtop, cddf
     implicit none
 
     integer, intent(in)  :: iw
@@ -101,6 +101,7 @@ CONTAINS
     real    :: dhdt   (1,mza)      ! moist static energy tendency
     integer :: ierr   (1)          ! error code
     real    :: xmb    (1)          ! deep conv convective mass flux
+    real    :: edt    (1)          ! ratio of downdraft to updraft mass flux
     real    :: sub_mas(1,mza)
     real    :: subt   (1,mza)      ! temp tendency due to subsidence
     real    :: subq   (1,mza)      ! water vapor tendency due to subsidence
@@ -114,6 +115,7 @@ CONTAINS
     integer :: kbcon  (1)          ! cloud base (LCL)
     integer :: ktop   (1)          ! cloud top
     integer :: k22    (1)          ! updraft originating level
+    integer :: jmin   (1)          ! downdraft originating level
     real    :: xf_ens (1,1,ensdim) ! mass flux ensembles
     real    :: pr_ens (1,1,ensdim) ! precipitation ensembles
     real    :: xland  (1)          ! 1 = land, 0 = water
@@ -294,6 +296,8 @@ CONTAINS
     cupclw = 0.0
     ierr = 0
     ierrc = ""
+    edt = 0.0
+    jmin = 0
 
     outt (1,:) = 0.0
     outq (1,:) = 0.0
@@ -307,16 +311,18 @@ CONTAINS
     call cup_gf(ktf, dx, dtime, kpbl, ccn, r, mconv, omeg, aaeq, t, q,  &
                 z1, xland, tn, qo, zo, po, p, psur, us, vs, zws, dhdt,  &
                 ierr, ierrc, xmb, sub_mas, subt, subq, pre, outt, outq, &
-                outqc, outu, outv, cupclw, kbcon, ktop, k22, xf_ens, pr_ens )
+                outqc, outu, outv, cupclw, kbcon, ktop, k22, jmin, edt, xf_ens, pr_ens )
 
     if (pre(1) > 1.e-16 .and. kbcon(1) > 0 .and. ktop(1) >= kbcon(1)) then
         
        ! Deep convecton is active. Copy tendencies to model arrays.
 
        kcutop(iw) = ktop (1) + ka - 1
+       kddtop(iw) = jmin (1) + ka - 1
        kcubot(iw) = kbcon(1) + ka - 1
        iactcu(iw) = 1
        cbmf  (iw) = xmb(1)
+       cddf  (iw) = edt(1) * xmb(1)
        conprr(iw) = pre(1)
 
        do kc = 1, ktf
@@ -447,7 +453,8 @@ CONTAINS
      		    ,outv	       &
      		    ,cupclw	       &
      		    ,kbcon,ktop,k22    &
-     		    ,xf_ens,pr_ens)
+     		    ,jmin,edt          &
+                    ,xf_ens,pr_ens     )
   
      IMPLICIT NONE
      		    
@@ -469,10 +476,10 @@ CONTAINS
         outu,outv,OUTT,OUTQ,OUTQC,subt,subq,sub_mas,cupclw
      real,    dimension (its:ite)                                      &
         ,intent (out  )                   ::                           &
-        pre,xmb_out
+        pre,xmb_out,edt
      integer,    dimension (its:ite)                                   &
         ,intent (out  )                   ::                           &
-        kbcon,ktop,k22
+        kbcon,ktop,k22,jmin
      integer,    dimension (its:ite)                                   &
         ,intent (in  )                   ::                           &
         kpbl
@@ -619,7 +626,7 @@ CONTAINS
   ! edt     = epsilon
 
      real,    dimension (its:ite) ::                                   &
-       edt,edto,edtx,AA1,AA0,XAA0,HKB,                          &
+       edto,edtx,AA1,AA0,XAA0,HKB,                          &
        HKBO,XHKB,QKB,QKBO,                                    &
        XMB,XPWAV,XPWEV,PWAV,PWEV,PWAVO,                                &
        PWEVO,BU,BUD,BUO,cap_max,xland1,                                    &
@@ -627,7 +634,7 @@ CONTAINS
      real,    dimension (its:ite,1:ens4) ::                                   &
         axx
      integer,    dimension (its:ite) ::                                &
-       kzdown,KDET,KB,JMIN,kstabi,kstabm,K22x,        &   !-lxz
+       kzdown,KDET,KB,kstabi,kstabm,K22x,        &   !-lxz
        KBCONx,KBx,KTOPx,ierr,ierr2,ierr3,KBMAX
 
      integer                              ::                           &

@@ -35,7 +35,7 @@ CONTAINS
    use mem_grid,    only: mza, lpw, zt, dzt, xew, yew, zew, arw0
    use misc_coms,   only: io6
    use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
-                          qwcon, iactcu
+                          qwcon, iactcu, kddtop, cddf
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, wc
    use mem_ijtabs,  only: itab_w
    use consts_coms, only: erad
@@ -50,7 +50,7 @@ CONTAINS
    real :: dqsdt(mza),dtdt(mza)
    real :: u1d(mza),v1d(mza),t1d(mza),dz1d(mza)
    real :: qv1d(mza),p1d(mza),rho1d(mza),w0avg1d(mza)
-   real :: cldliq(mza),cldice(mza),massflx(mza)
+   real :: cldliq(mza),cldice(mza),massflx(mza),ddflx(mza)
 
 ! cubot and cutop are bottom and top K level of cumulus clouds as diagnosed
 ! in the kf_eta scheme.  They are not currently used in OLAM but could be
@@ -79,6 +79,7 @@ CONTAINS
    cldliq (:) = 0.0
    cldice (:) = 0.0
    massflx(:) = 0.0
+   ddflx  (:) = 0.0
 
    cutop = lpw(iw)
    cubot = mza
@@ -133,7 +134,7 @@ CONTAINS
       DT,DX,DXSQ,RHO1D,                     &
       DQVDT,DQIDT,DQCDT,DQRDT,DQSDT,DTDT,   &
       pratec,                               &
-      CUTOP,CUBOT,cldliq,cldice,massflx)
+      CUTOP,CUBOT,cldliq,cldice,massflx,ddflx)
 
    if (cutop >= cubot) then
 
@@ -141,8 +142,16 @@ CONTAINS
       kcubot(iw) = cubot + lpw(iw) - 1
       iactcu(iw) = 1
       cbmf  (iw) = massflx(cubot) / dxsq
-      
-      do kt = 1, kte
+
+      do kt = cutop, cubot, -1
+         if (ddflx(kt) < -1.e-10 * dxsq) then
+            kddtop(iw) = kt + lpw(iw) - 1
+            cddf  (iw) = -ddflx(cubot) / dxsq
+            exit
+         endif
+      enddo
+
+      do kt = 1, cutop
          k  = kt + lpw(iw) - 1
 
          ! liquid and frozen condensate tendencies from K-F
@@ -171,12 +180,12 @@ CONTAINS
 
 !====================================================================
 
-   SUBROUTINE KF_eta_PARA (mza,IW,io6,kte,             &
+   SUBROUTINE KF_eta_PARA (mza,IW,io6,kte,                 &
                       U0,V0,T0,QV0,P0,DZQ,W0AVG1D,         &
                       DT,DX,DXSQ,rhoe,                     &
                       DQDT,DQIDT,DQCDT,DQRDT,DQSDT,DTDT,   &
                       PRATEC,                              &
-                      CUTOP,CUBOT,QLIQ,QICE,UMF)
+                      CUTOP,CUBOT,QLIQ,QICE,UMF,DMF)
 
 !***** The KF scheme that is currently used in experimental runs of EMCs 
 !***** Eta model....jsk 8/00
@@ -197,14 +206,14 @@ CONTAINS
 
       integer, INTENT(INOUT) :: CUBOT, CUTOP
 
-      real, intent(inout) :: qliq(mza), qice(mza), umf(mza)
+      real, intent(inout) :: qliq(mza), qice(mza), umf(mza), dmf(mza)
 
 !...DEFINE LOCAL VARIABLES...
 
       REAL, DIMENSION(mza) ::                         &
             Q0,Z0,TV0,TU,TVU,QU,TZ,TVD,               &
             QD,QES,THTES,TG,TVG,QG,WU,WD,W0,EMS,EMSD, &
-            UER,UDR,DMF,DER,DDR,UMF2,UER2,        &
+            UER,UDR,DER,DDR,UMF2,UER2,                &
             UDR2,DMF2,DER2,DDR2,DZA,THTA0,THETEE,     &
             THTAU,THETEU,THTAD,THETED,                &
             QLQOUT,QICOUT,PPTLIQ,PPTICE,DETLQ,DETIC,  &
