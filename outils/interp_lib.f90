@@ -43,7 +43,10 @@ subroutine gdtost(a,ix,iy,stax,stay,staval)
   !  IX=GRID POINTS IN X, IY = GRID POINTS IN Y .  STATION
   !  LOCATION GIVEN IN TERMS OF GRID RELATIVE STATION X (STAX)
   !  AND STATION COLUMN.
-  !  VALUES GREATER THAN 1.0E30 INDICATE MISSING DATA.
+  !
+  !  ON INPUT, VALUES OF 1.E30 AND LARGER OR -999 AND SMALLER
+  !  INDICATE MISSING DATA.
+  !  ON OUTPUT, STAVAL OF -1.0E30 INDICATES MISSING DATA.
 
   integer        :: iy1,iy2,ix1,ix2,ii,i,jj,j
   real           :: fiym2,fixm2,yy,xx
@@ -67,7 +70,7 @@ subroutine gdtost(a,ix,iy,stax,stay,staval)
 
      if (i < 1 .or. i > ix) then
 
-        scr(ii) = 1.e30
+        scr(ii) = -1.e30
 
      else
 
@@ -75,7 +78,9 @@ subroutine gdtost(a,ix,iy,stax,stay,staval)
            jj = j - iy1 + 1
 
            if (j < 1 .or. j > iy) then
-              r(jj) = 1.e30
+              r(jj) = -1.e30
+           elseif (a(i,j) <= -999.) then
+              r(jj) = -1.e30
            else
               r(jj) = a(i,j)
            endif
@@ -90,6 +95,147 @@ subroutine gdtost(a,ix,iy,stax,stay,staval)
   staval = quad_avg(xx,  1., 2., 3., 4., scr(1),scr(2),scr(3),scr(4))
 
 end subroutine gdtost
+
+
+!===============================================================================
+
+
+subroutine gdtost_int(a,ix,iy,stax,stay,staval)
+  implicit none
+  integer, intent(in)  :: ix,iy
+  integer, intent(in)  :: a(ix,iy)
+  real,    intent(in)  :: stax, stay
+  real,    intent(out) :: staval
+
+  !  SUBROUTINE TO RETURN STATIONS BACK-INTERPOLATED VALUES(STAVAL)
+  !  FROM UNIFORM GRID POINTS USING OVERLAPPING-QUADRATICS.
+  !  GRIDDED VALUES OF INPUT ARRAY A DIMENSIONED A(IX,IY),WHERE
+  !  IX=GRID POINTS IN X, IY = GRID POINTS IN Y .  STATION
+  !  LOCATION GIVEN IN TERMS OF GRID RELATIVE STATION X (STAX)
+  !  AND STATION COLUMN.
+  !
+  !  INPUT VALUES OF -999 OR LESS INDICATE MISSING DATA.
+  !  ON OUTPUT, STAVAL OF -1.0E30 INDICATES MISSING DATA.
+
+  integer        :: iy1,iy2,ix1,ix2,ii,i,jj,j
+  real           :: fiym2,fixm2,yy,xx
+  real           :: r(4), scr(4)
+  real, external :: quad_avg
+
+  iy1 = int(stay) - 1
+  iy2 = iy1 + 3
+
+  ix1 = int(stax)-1
+  ix2 = ix1+3
+
+  fiym2=real(iy1 - 1)
+  fixm2=real(ix1 - 1)
+
+  yy = stay - fiym2
+  xx = stax - fixm2
+
+  do i  = ix1, ix2
+     ii = i - ix1 + 1
+
+     if (i < 1 .or. i > ix) then
+
+        scr(ii) = -1.e30
+
+     else
+
+        do j  = iy1, iy2
+           jj = j - iy1 + 1
+
+           if (j < 1 .or. j > iy) then
+              r(jj) = -1.e30
+           elseif (a(i,j) <= -999) then
+              r(jj) = -1.e30
+           else
+              r(jj) = real(a(i,j))
+           endif
+        enddo
+
+        scr(ii) = quad_avg(yy, 1., 2., 3., 4., r(1), r(2), r(3), r(4) )
+
+     endif
+
+  enddo
+
+  staval = quad_avg(xx,  1., 2., 3., 4., scr(1),scr(2),scr(3),scr(4))
+
+end subroutine gdtost_int
+
+
+!===============================================================================
+
+
+subroutine gdtost_int1(a,ix,iy,stax,stay,staval)
+
+  use consts_coms, only: i1
+  implicit none
+
+  integer,     intent(in)  :: ix,iy
+  integer(i1), intent(in)  :: a(ix,iy)
+  real,        intent(in)  :: stax, stay
+  real,        intent(out) :: staval
+
+  !  SUBROUTINE TO RETURN STATIONS BACK-INTERPOLATED VALUES(STAVAL)
+  !  FROM UNIFORM GRID POINTS USING OVERLAPPING-QUADRATICS.
+  !  GRIDDED VALUES OF INPUT ARRAY A DIMENSIONED A(IX,IY),WHERE
+  !  IX=GRID POINTS IN X, IY = GRID POINTS IN Y .  STATION
+  !  LOCATION GIVEN IN TERMS OF GRID RELATIVE STATION X (STAX)
+  !  AND STATION COLUMN.
+  !
+  !  INPUT VALUE OF -127 OR INDICATES MISSING DATA.
+  !  ON OUTPUT, STAVAL OF -1.0E30 INDICATES MISSING DATA.
+
+  integer        :: iy1,iy2,ix1,ix2,ii,i,jj,j
+  real           :: fiym2,fixm2,yy,xx
+  real           :: r(4), scr(4)
+  real, external :: quad_avg
+
+  iy1 = int(stay) - 1
+  iy2 = iy1 + 3
+
+  ix1 = int(stax)-1
+  ix2 = ix1+3
+
+  fiym2=real(iy1 - 1)
+  fixm2=real(ix1 - 1)
+
+  yy = stay - fiym2
+  xx = stax - fixm2
+
+  do i  = ix1, ix2
+     ii = i - ix1 + 1
+
+     if (i < 1 .or. i > ix) then
+
+        scr(ii) = -1.e30
+
+     else
+
+        do j  = iy1, iy2
+           jj = j - iy1 + 1
+
+           if (j < 1 .or. j > iy) then
+              r(jj) = -1.e30
+           elseif (a(i,j) == -127) then
+              r(jj) = -1.e30
+           else
+              r(jj) = real(a(i,j))
+           endif
+        enddo
+
+        scr(ii) = quad_avg(yy, 1., 2., 3., 4., r(1), r(2), r(3), r(4) )
+
+     endif
+
+  enddo
+
+  staval = quad_avg(xx,  1., 2., 3., 4., scr(1),scr(2),scr(3),scr(4))
+
+end subroutine gdtost_int1
 
 
 !===============================================================================
@@ -124,7 +270,7 @@ real function quad_avg ( x , x0, x1, x2, x3, y0, y1, y2, y3 )
 
   else
 
-     quad_avg = 1.e30
+     quad_avg = -1.e30
 
   endif
 
@@ -144,7 +290,7 @@ real function quad ( x , x0, x1, x2, y0, y1, y2 )
   n = count( abs( (/y0, y1, y2/) ) < 1.e30 )
 
   if (n == 0) then
-     quad = 1.e30
+     quad = -1.e30
      return
   elseif (n == 1 .or. n == 2) then
      quad = sum( (/y0, y1, y2/), mask = abs( (/y0, y1, y2/) ) < 1.e30 ) / real(n)

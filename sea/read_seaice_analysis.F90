@@ -8,6 +8,7 @@ subroutine read_seaice_analysis(iaction)
                         inproj, xswlat, xswlon, gdatdx, gdatdy, ipoffset
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
   use mem_para,   only: myrank, nbytes_int, nbytes_real
+  use prfill_mod, only: prfill
 
 #ifdef OLAM_MPI
   use mpi
@@ -295,7 +296,7 @@ subroutine read_seaice_analysis(iaction)
         allocate(a2d(nprx,npry))
 
         call shdf5_irec(ndims, idims, 'ICEC', rvar2 = a2d)
-        call prfill(nprx, npry, a2d, ice)
+        call prfill(nprx, npry, a2d, ice, gdatdy, xswlat, ipoffset, inproj)
 
         has_seaice = .true.
         deallocate(a2d)

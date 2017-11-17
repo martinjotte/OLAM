@@ -497,10 +497,12 @@ subroutine get_press (fform, iunit, p_u, p_v, p_t, p_z, p_r, p_o, &
 
 use max_dims,   only: maxpr
 use isan_coms,  only: nprz, npry, nprx, pnpr, iyear, imonth, idate, &
-                      ihour, levpr, nprz_rh, ihydsfc, nbot_o3, haso3
+                      ihour, levpr, nprz_rh, ihydsfc, nbot_o3, haso3, &
+                      gdatdy, xswlat, ipoffset, inproj
 use misc_coms,  only: io6, iparallel
 use hdf5_utils, only: shdf5_irec, shdf5_info
 use mem_para,   only: myrank
+use prfill_mod, only: prfill, prfill3
 
 #ifdef OLAM_MPI
 use mpi
@@ -557,21 +559,21 @@ if (fform == 'GDF') then
 ! Zonal wind component
 
       read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,as,p_u(1,1,lv))
+      call prfill(nprx,npry,as,p_u(:,:,lv),gdatdy,xswlat,ipoffset,inproj)
       write(io6, '('' ==  Read UE on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
          levpr(lv),ihour,idate,imonth,iyear
 
 ! Meridional wind component
 
       read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,as,p_v(1,1,lv))
+      call prfill(nprx,npry,as,p_v(:,:,lv),gdatdy,xswlat,ipoffset,inproj)
       write(io6, '('' ==  Read VE on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
          levpr(lv),ihour,idate,imonth,iyear
 
 ! Temperature
 
       read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,as,p_t(1,1,lv))
+      call prfill(nprx,npry,as,p_t(:,:,lv),gdatdy,xswlat,ipoffset,inproj)
       write(io6, '('' ==  Read T on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
          levpr(lv),ihour,idate,imonth,iyear
       write(io6,*) 'prread1 ',as(5,5),nprx,npry,p_t(5,5,lv)
@@ -579,14 +581,14 @@ if (fform == 'GDF') then
 ! Geopotential height
 
       read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,as,p_z(1,1,lv))
+      call prfill(nprx,npry,as,p_z(:,:,lv),gdatdy,xswlat,ipoffset,inproj)
       write(io6, '('' ==  Read Z on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
          levpr(lv),ihour,idate,imonth,iyear
 
 ! Relative humidity (or specific humidity)
 
       read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,as,p_r(1,1,lv))
+      call prfill(nprx,npry,as,p_r(:,:,lv),gdatdy,xswlat,ipoffset,inproj)
       write(io6, '('' ==  Read RH on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
          levpr(lv),ihour,idate,imonth,iyear
 
@@ -616,7 +618,7 @@ elseif (fform == 'HD5') then
 
       if (myrank == 0) then
          call shdf5_irec(ndims, idims,'TOPO',rvar2 = as)
-         call prfill(nprx,npry,as,p_topo)
+         call prfill(nprx,npry,as,p_topo,gdatdy,xswlat,ipoffset,inproj)
       endif
 
 #ifdef OLAM_MPI
@@ -629,7 +631,7 @@ elseif (fform == 'HD5') then
 
       if (myrank == 0) then
          call shdf5_irec(ndims, idims,'PRSFC',rvar2 = as)
-         call prfill(nprx,npry,as,p_prsfc)
+         call prfill(nprx,npry,as,p_prsfc,gdatdy,xswlat,ipoffset,inproj)
       endif
 
 #ifdef OLAM_MPI
@@ -642,7 +644,7 @@ elseif (fform == 'HD5') then
 
       if (myrank == 0) then
          call shdf5_irec(ndims, idims,'TSFC',rvar2 = as)
-         call prfill(nprx,npry,as,p_tsfc)
+         call prfill(nprx,npry,as,p_tsfc,gdatdy,xswlat,ipoffset,inproj)
       endif
 
 #ifdef OLAM_MPI
@@ -655,7 +657,7 @@ elseif (fform == 'HD5') then
 
       if (myrank == 0) then
          call shdf5_irec(ndims, idims,'SHSFC',rvar2 = as)
-         call prfill(nprx,npry,as,p_shsfc)
+         call prfill(nprx,npry,as,p_shsfc,gdatdy,xswlat,ipoffset,inproj)
       endif
 
 #ifdef OLAM_MPI
@@ -691,7 +693,7 @@ elseif (fform == 'HD5') then
       endif
 
       call shdf5_irec(ndims, idims, varname, rvar3 = as3)
-      call prfill3(nprx,npry,nprz,as3,p_u)
+      call prfill3(nprx,npry,nprz,as3,p_u,gdatdy,xswlat,ipoffset,inproj)
 
    endif
 
@@ -719,7 +721,7 @@ elseif (fform == 'HD5') then
       endif
 
       call shdf5_irec(ndims, idims, varname, rvar3 = as3)
-      call prfill3(nprx,npry,nprz,as3,p_v)
+      call prfill3(nprx,npry,nprz,as3,p_v,gdatdy,xswlat,ipoffset,inproj)
 
    endif
    
@@ -734,7 +736,7 @@ elseif (fform == 'HD5') then
    if (myrank == 0) then
 
       call shdf5_irec(ndims, idims,'TEMP',rvar3 = as3)
-      call prfill3(nprx,npry,nprz,as3,p_t)
+      call prfill3(nprx,npry,nprz,as3,p_t,gdatdy,xswlat,ipoffset,inproj)
 
    endif
 
@@ -748,7 +750,7 @@ elseif (fform == 'HD5') then
 
    if (myrank == 0) then
       call shdf5_irec(ndims, idims,'GEO',rvar3 = as3)
-      call prfill3(nprx,npry,nprz,as3,p_z)
+      call prfill3(nprx,npry,nprz,as3,p_z,gdatdy,xswlat,ipoffset,inproj)
    endif
 
 #ifdef OLAM_MPI
@@ -768,7 +770,7 @@ elseif (fform == 'HD5') then
 
          isrh = .false.
          call shdf5_irec(ndims, idims,'SHV',rvar3 = as3)
-         call prfill3(nprx,npry,nprz,as3,p_r)
+         call prfill3(nprx,npry,nprz,as3,p_r,gdatdy,xswlat,ipoffset,inproj)
      
       else
       
@@ -784,7 +786,7 @@ elseif (fform == 'HD5') then
 
          isrh = .true.
          call shdf5_irec(ndims, idims, varname, rvar3 = as3)
-         call prfill3(nprx,npry,nprz,as3,p_r)
+         call prfill3(nprx,npry,nprz,as3,p_r,gdatdy,xswlat,ipoffset,inproj)
 
       endif
    endif
@@ -807,7 +809,7 @@ elseif (fform == 'HD5') then
 
          haso3 = .true.
          call shdf5_irec(ndims, idims, 'O3MR', rvar3 = as3)
-         call prfill3(nprx,npry,nprz,as3,p_o)
+         call prfill3(nprx,npry,nprz,as3,p_o,gdatdy,xswlat,ipoffset,inproj)
 
       endif
 
@@ -927,144 +929,3 @@ if (any(ithere(1:nprz,(/1,2,3,4/)) /= 0) .or. any(ithere(1:nprz_rh,5) /= 0)) the
 endif
 
 end subroutine get_press
-
-!===============================================================================
-
-subroutine prfill (nprx,npry,xx,dn)
-
-use isan_coms,  only: gdatdy, xswlat, ipoffset, inproj
-
-implicit none
-
-integer, intent(in) :: nprx,npry
-
-real, intent(in)    :: xx(nprx,npry)
-real, intent(inout) :: dn(nprx+4,npry+4)
-
-integer :: i,j,nprxo2,iin
-
-nprxo2 = nprx / 2
-
-! Copy pressure-level or surface data from xx to dn array, shifting by ipoffset
-! in x direction and by 2 in y direction
-
-!$omp parallel do private(j,i,iin)
-do j = 1,npry
-   do i = 1,nprx+4
-      iin = mod(i+nprx-ipoffset-1,nprx)+1
-      dn(i,j+2) = xx(iin,j)
-   enddo
-enddo
-!$omp end parallel do
-
-! Fill in N/S boundary rows, based on whether xswlat = -90. or -90. + gdatdy/2.
-
-if (inproj==1 .and. abs(xswlat + 90.) < .1) then
-
-   do i = 1,nprxo2
-      dn(i,1)      = dn(i+nprxo2,5)
-      dn(i,2)      = dn(i+nprxo2,4)
-      dn(i,npry+3) = dn(i+nprxo2,npry+1)
-      dn(i,npry+4) = dn(i+nprxo2,npry)
-   enddo
-
-   do i = nprxo2+1,nprx+4
-      dn(i,1)      = dn(i-nprxo2,5)
-      dn(i,2)      = dn(i-nprxo2,4)
-      dn(i,npry+3) = dn(i-nprxo2,npry+1)
-      dn(i,npry+4) = dn(i-nprxo2,npry)
-   enddo
-
-elseif (inproj==2 .or. (inproj==1 .and. abs(xswlat - .5 * gdatdy + 90.) < .1)) then
-
-   do i = 1,nprxo2
-      dn(i,1)      = dn(i+nprxo2,4)
-      dn(i,2)      = dn(i+nprxo2,3)
-      dn(i,npry+3) = dn(i+nprxo2,npry+2)
-      dn(i,npry+4) = dn(i+nprxo2,npry+1)
-   enddo
-
-   do i = nprxo2+1,nprx+4
-      dn(i,1)      = dn(i-nprxo2,4)
-      dn(i,2)      = dn(i-nprxo2,3)
-      dn(i,npry+3) = dn(i-nprxo2,npry+2)
-      dn(i,npry+4) = dn(i-nprxo2,npry+1)
-   enddo
-
-else
-   print*, 'xswlat & gdatdy combo not found ',xswlat,gdatdy
-endif
-
-end subroutine prfill
-
-!===============================================================================
-
-subroutine prfill3 (nprx,npry,nprz,xx,dn)
-
-use isan_coms,  only: gdatdy, xswlat, ipoffset, inproj
-
-implicit none
-
-integer, intent(in) :: nprx,npry,nprz
-
-real, intent(in)    :: xx(nprx,npry,nprz)
-real, intent(inout) :: dn(nprx+4,npry+4,nprz)
-
-integer :: i,j,k,nprxo2,iin
-
-nprxo2 = nprx / 2
-
-! Copy pressure-level or surface data from xx to dn array, shifting by ipoffset
-! in x direction and by 2 in y direction
-
-!$omp parallel do private(j,i,iin)
-do k = 1,nprz
-   do j = 1,npry
-      do i = 1,nprx+4
-         iin = mod(i+nprx-ipoffset-1,nprx)+1
-         dn(i,j+2,k) = xx(iin,j,k)
-      enddo
-   enddo
-
-! Fill in N/S boundary rows, based on whether xswlat = -90. or -90. + gdatdy/2.
-
-   if (inproj==1 .and. abs(xswlat + 90.) < .1) then
-
-      do i = 1,nprxo2
-         dn(i,1,k)      = dn(i+nprxo2,5,k)
-         dn(i,2,k)      = dn(i+nprxo2,4,k)
-         dn(i,npry+3,k) = dn(i+nprxo2,npry+1,k)
-         dn(i,npry+4,k) = dn(i+nprxo2,npry,k)
-      enddo
-
-      do i = nprxo2+1,nprx+4
-         dn(i,1,k)      = dn(i-nprxo2,5,k)
-         dn(i,2,k)      = dn(i-nprxo2,4,k)
-         dn(i,npry+3,k) = dn(i-nprxo2,npry+1,k)
-         dn(i,npry+4,k) = dn(i-nprxo2,npry,k)
-      enddo
-
-   elseif (inproj==2 .or. (inproj==1 .and. abs(xswlat - .5 * gdatdy + 90.) < .1)) then
-
-      do i = 1,nprxo2
-         dn(i,1,k)      = dn(i+nprxo2,4,k)
-         dn(i,2,k)      = dn(i+nprxo2,3,k)
-         dn(i,npry+3,k) = dn(i+nprxo2,npry+2,k)
-         dn(i,npry+4,k) = dn(i+nprxo2,npry+1,k)
-      enddo
-
-      do i = nprxo2+1,nprx+4
-         dn(i,1,k)      = dn(i-nprxo2,4,k)
-         dn(i,2,k)      = dn(i-nprxo2,3,k)
-         dn(i,npry+3,k) = dn(i-nprxo2,npry+2,k)
-         dn(i,npry+4,k) = dn(i-nprxo2,npry+1,k)
-      enddo
-
-   else
-      print*, 'xswlat & gdatdy combo not found ',xswlat,gdatdy
-   endif
-   
-enddo
-!$omp end parallel do
-
-end subroutine prfill3

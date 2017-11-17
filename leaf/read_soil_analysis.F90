@@ -13,6 +13,7 @@ subroutine read_soil_analysis(soil_tempc)
                         inproj, xswlat, xswlon, gdatdx, gdatdy, ipoffset
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
   use mem_para,   only: myrank, nbytes_int, nbytes_real
+  use prfill_mod, only: prfill, prfill3
 
 #ifdef OLAM_MPI
   use mpi
@@ -331,7 +332,7 @@ subroutine read_soil_analysis(soil_tempc)
         allocate(snow(nio,njo))
 
         call shdf5_irec(ndims, idims, 'SNOWMASS', rvar2 = a2d)
-        call prfill(nprx, npry, a2d, snow)
+        call prfill(nprx, npry, a2d, snow, gdatdy, xswlat, ipoffset, inproj)
 
         has_snow = .true.
         deallocate(a2d)
@@ -349,7 +350,7 @@ subroutine read_soil_analysis(soil_tempc)
            allocate(soilt(nio,njo,ngnd))
 
            call shdf5_irec(ndims, idims, 'SOILT', rvar3 = a3d)
-           call prfill3(nprx, npry, ngnd, a3d, soilt)
+           call prfill3(nprx, npry, ngnd, a3d, soilt, gdatdy, xswlat, ipoffset, inproj)
            has_soilt = .true.
         endif
 
@@ -359,7 +360,7 @@ subroutine read_soil_analysis(soil_tempc)
            allocate(soilw(nio,njo,ngnd))
 
            call shdf5_irec(ndims, idims, 'SOILW', rvar3 = a3d)
-           call prfill3(nprx, npry, ngnd, a3d, soilw)
+           call prfill3(nprx, npry, ngnd, a3d, soilw, gdatdy, xswlat, ipoffset, inproj)
            has_soilw = .true.
         endif
 
@@ -576,7 +577,7 @@ subroutine read_soil_analysis(soil_tempc)
            call gdtost(soilt(:,:,k), nprx+4, npry+4, grx, gry, tcol(k))
         enddo
  
-        if ( all(tcol(1:ngnd) < 1.e20) ) then
+        if ( all(tcol(1:ngnd) < 1.e20 .and. tcol(1:ngnd) > 0.) ) then
 
            tcol(1:ngnd) = tcol(1:ngnd) - 273.15
 
@@ -606,7 +607,7 @@ subroutine read_soil_analysis(soil_tempc)
            call gdtost(soilw(:,:,k), nprx+4, npry+4, grx, gry, wcol(k))
         enddo
 
-        if ( all(wcol(1:ngnd) < 1.e20) ) then
+        if ( all(wcol(1:ngnd) < 1.e20 .and. wcol(1:ngnd) >= 0.) ) then
 
            if (ngnd == 1) then
               wprof(1:nzg)= wcol(1)
