@@ -247,6 +247,14 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
       uvc(iw) = 0.
       pbl_cld_forc(iw) = 0.
 
+      rlong_ks         (1:nsfc,iw) = 0.
+      rshort_ks        (1:nsfc,iw) = 0.
+      rshort_diffuse_ks(1:nsfc,iw) = 0.
+!     par_ks           (1:nsfc,iw) = 0.
+!     par_diffuse_ks   (1:nsfc,iw) = 0.
+      ppfd_ks          (1:nsfc,iw) = 0.
+      ppfd_diffuse_ks  (1:nsfc,iw) = 0.
+
 ! Sum sea cell contributions to this iw column
 
       do jws = 1, itab_w(iw)%nsea

@@ -46,7 +46,7 @@
 ! Public subroutines
 !------------------------------------------------------------------
 
-      subroutine mcica_subcol_sw(nlay, icld, permuteseed, seeds, irng, &
+      subroutine mcica_subcol_sw(nlay, icld, seeds, &
                        cldfrac, ciwp, clwp, rei, rel, tauc, ssac, asmc, fsfc, &
                        cldfmcl, ciwpmcl, clwpmcl, reicmcl, relqmcl, &
                        taucmcl, ssacmcl, asmcmcl, fsfcmcl, inflg)
@@ -56,17 +56,9 @@
 
       integer(kind=im), intent(in) :: nlay            ! number of model layers
       integer(kind=im), intent(in) :: icld            ! clear/cloud, cloud overlap flag
-      integer(kind=im), intent(in) :: permuteseed     ! if the cloud generator is called multiple times,
-                                                      ! permute the seed between each call;
-                                                      ! between calls for LW and SW, recommended
-                                                      ! permuteseed differs by 'ngpt'
       integer(kind=im), intent(in) :: inflg           ! randomize cloud ice/liquid (1)
                                                       ! or optical properties (0)
       integer(kind=im), intent(inout) :: seeds(4)     ! seeds for the kissvec random number generator
-      integer(kind=im), intent(inout) :: irng         ! flag for random number generator
-                                                      !  0 = kissvec
-                                                      !  1 = Mersenne Twister
-        
 ! Atmosphere/clouds - cldprop
       real(kind=rb), intent(in) :: cldfrac(ncol,nlay)       ! layer cloud fraction
                                                       !    Dimensions: (ncol,nlay)
@@ -152,17 +144,17 @@
 !      enddo
 
 !  Generate the stochastic subcolumns of cloud optical properties for the shortwave;
-      call generate_stochastic_clouds_sw (nlay, nsubcsw, icld, irng, cldfrac, clwp, ciwp, &
+      call generate_stochastic_clouds_sw (nlay, nsubcsw, icld, cldfrac, clwp, ciwp, &
                               tauc, ssac, asmc, fsfc, cldfmcl, clwpmcl, ciwpmcl, &
-                              taucmcl, ssacmcl, asmcmcl, fsfcmcl, permuteseed, seeds, inflg)
+                              taucmcl, ssacmcl, asmcmcl, fsfcmcl, seeds, inflg)
 
       end subroutine mcica_subcol_sw
 
 
 !-------------------------------------------------------------------------------------------------
-      subroutine generate_stochastic_clouds_sw(nlay, nsubcol, icld, irng, cld, clwp, ciwp, &
+      subroutine generate_stochastic_clouds_sw(nlay, nsubcol, icld, cld, clwp, ciwp, &
                              tauc, ssac, asmc, fsfc, cld_stoch, clwp_stoch, ciwp_stoch, &
-                             tauc_stoch, ssac_stoch, asmc_stoch, fsfc_stoch, changeSeed, seeds, inflg)
+                             tauc_stoch, ssac_stoch, asmc_stoch, fsfc_stoch, seeds, inflg)
 !-------------------------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------------------------
@@ -219,24 +211,13 @@
   !   without cloud condensate or the opposite).
   !---------------------------------------------------------------------------------------------------------------
 
-      use mcica_random_numbers
-! The Mersenne Twister random number engine
-      use MersenneTwister, only: randomNumberSequence, &   
-                                 new_RandomNumberSequence, getRandomReal
-
-      type(randomNumberSequence) :: randomNumbers
-
 ! -- Arguments
 
       integer(kind=im), intent(in) :: inflg
       integer(kind=im), intent(in) :: nlay            ! number of layers
       integer(kind=im), intent(in) :: icld            ! clear/cloud, cloud overlap flag
-      integer(kind=im), intent(inout) :: irng         ! flag for random number generator
-                                                      !  0 = kissvec
-                                                      !  1 = Mersenne Twister
       integer(kind=im), intent(in) :: nsubcol         ! number of sub-columns (g-point intervals)
       integer(kind=im), intent(inout) :: seeds(4)     ! seeds for kissvec
-      integer(kind=im), optional, intent(in) :: changeSeed     ! allows permuting seed
 
 ! Column state (cloud fraction, cloud water, cloud ice) + variables needed to read physics state 
       real(kind=rb), intent(in) :: cld(ncol,nlay)           ! cloud fraction 
@@ -305,9 +286,6 @@
 
 !------------------------------------------------------------------------------------------ 
 
-! Check that irng is in bounds; if not, set to default
-      if (irng .ne. 0) irng = 1
-
 ! Pass input cloud overlap setting to local variable
       overlap = icld
 
@@ -338,9 +316,6 @@
 !         do i=1,changeSeed
 !            call kissvec(seed1, seed2, seed3, seed4, rand_num)
 !         enddo
-      if (irng.eq.1) then
-         randomNumbers = new_RandomNumberSequence(seed = changeSeed)
-      endif 
 
 ! ------ Apply overlap assumption --------
 
@@ -359,14 +334,10 @@
                   CDF(1:nsubcol,i,ilev) = 0.0_rb
                elseif(cldf(i,ilev) > 0.999) then
                   CDF(1:nsubcol,i,ilev) = 1.0_rb
-               elseif (irng == 0) then
+               else
                   do isubcol = 1,nsubcol
                      call kissvec(seeds, rand_num)
                      CDF(isubcol,i,ilev) = rand_num
-                  enddo
-               else
-                  do isubcol = 1, nsubcol
-                     CDF(isubcol,i,ilev) = getRandomReal(randomNumbers)
                   enddo
                endif
 
@@ -387,14 +358,10 @@
                CDF(1:nsubcol,i,ilev) = 1._rb
             elseif (cldf(i,ilev) < cldmin) then
                CDF(1:nsubcol,i,ilev) = 0.0_rb
-            elseif (irng == 0) then
+            else
                do isubcol = 1,nsubcol
                   call kissvec(seeds, rand_num)
                   CDF(isubcol,i,ilev) = rand_num
-               enddo
-            else
-               do isubcol = 1, nsubcol
-                  CDF(isubcol,i,ilev) = getRandomReal(randomNumbers)
                enddo
             endif
          enddo
@@ -412,12 +379,9 @@
                   do isubcol = 1, nsubcol
                      if (CDF(isubcol, i, ilev-1) > 1._rb - cldf(i,ilev-1) ) then
                         CDF(isubcol,i,ilev) = CDF(isubcol,i,ilev-1) 
-                     elseif (irng == 0) then
+                     else
                         call kissvec(seeds, rand_num)
                         CDF(isubcol,i,ilev) = (1._rb - cldf(i,ilev-1)) * rand_num
-                     else
-                        CDF(isubcol,i,ilev) = (1._rb - cldf(i,ilev-1)) &
-                                            * getRandomReal(randomNumbers)
                      endif
                   enddo
                endif
@@ -428,25 +392,14 @@
 ! Maximum overlap
 ! i) pick same random numebr at every level  
 
-         if (irng.eq.0) then 
-            do isubcol = 1,nsubcol
-               do i = 1, ncol
-                  call kissvec(seeds, rand_num)
-                  do ilev = 1,nlay
-                     CDF(isubcol,i,ilev) = rand_num
-                  enddo
+         do isubcol = 1,nsubcol
+            do i = 1, ncol
+               call kissvec(seeds, rand_num)
+               do ilev = 1,nlay
+                  CDF(isubcol,i,ilev) = rand_num
                enddo
             enddo
-         elseif (irng.eq.1) then
-            do isubcol = 1, nsubcol
-               do i = 1, ncol
-                  rand_num = getRandomReal(randomNumbers)
-                  do ilev = 1, nlay
-                     CDF(isubcol,i,ilev) = rand_num
-                  enddo
-               enddo
-             enddo
-         endif
+         enddo
 
 !    case(4)  - inactive
 !       ! Exponential overlap: weighting between maximum and random overlap increases with the distance. 
