@@ -31,7 +31,6 @@ contains
     real,    intent(out) :: lats(k) ! gaussian latitudes
 
     real :: sinlat(k)    ! sine of latitudes
-    real :: wgt(k)       ! gaussian weights
 
     real, parameter :: eps = 1.e-7  ! convergence criterion
     real :: c            ! constant combination
@@ -50,7 +49,7 @@ contains
     integer :: iter         ! iteration counter
     integer :: n,l          ! indices
 
-    real, parameter :: pi = 4 * atan(1.0)
+    real, parameter :: pi = 4. * atan(1.0)
 
     ! The value eps, used for convergence tests in the iterations,
     ! can be changed.  Newton iteration is used to find the abscissas.

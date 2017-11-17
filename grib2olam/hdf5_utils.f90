@@ -33,6 +33,7 @@
 Module hdf5_utils
 
   integer, parameter, private :: r8 = selected_real_kind(13,300)
+  integer, parameter, private :: i1 = selected_int_kind(2)
 
 Contains
 
@@ -150,11 +151,11 @@ end subroutine shdf5_info
 
 !===============================================================================
 
-subroutine shdf5_orec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars,  &
-                                          ivar1,rvar1,cvar1,dvar1,lvar1,  &
-                                          ivar2,rvar2,cvar2,dvar2,lvar2,  &
-                                          ivar3,rvar3,cvar3,dvar3,lvar3,  &
-                                          ivar4,rvar4,      dvar4,        &
+subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
+                                          bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, &
+                                          bvar2,ivar2,rvar2,cvar2,dvar2,lvar2, &
+                                          bvar3,ivar3,rvar3,cvar3,dvar3,lvar3, &
+                                          bvar4,ivar4,rvar4,      dvar4,       &
                                           nglobe, lpoints, gpoints,       &
                                           units, long_name, positive,     &
                                           imissing, rmissing, dmissing,   &
@@ -168,6 +169,7 @@ subroutine shdf5_orec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars,  &
   integer,      intent(in) :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
+  integer(i1),  intent(in), optional :: bvars, bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
   integer,      intent(in), optional :: ivars, ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
   real,         intent(in), optional :: rvars, rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
   character,    intent(in), optional :: cvars, cvar1(:), cvar2(:,:), cvar3(:,:,:)
@@ -202,7 +204,7 @@ subroutine shdf5_orec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars,  &
      
 ! Prepare memory and options for the write
 
-  call fh5_prepare_write(ndims, dims, hdferr, 5, &
+  call fh5_prepare_write(ndims, dims, hdferr, 6, &
        mcoords=lpoints, fcoords=gpoints, ifsize=nglobe)
 
   if (hdferr /= 0) then
@@ -217,28 +219,32 @@ subroutine shdf5_orec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars,  &
   elseif (present(cvars)) then ; call fh5_write(cvars, dsetname, hdferr)
   elseif (present(dvars)) then ; call fh5_write(dvars, dsetname, hdferr)
   elseif (present(lvars)) then ; call fh5_write(lvars, dsetname, hdferr)
+  elseif (present(bvars)) then ; call fh5_write(bvars, dsetname, hdferr)
 
   elseif (present(ivar1)) then ; call fh5_write(ivar1, dsetname, hdferr)
   elseif (present(rvar1)) then ; call fh5_write(rvar1, dsetname, hdferr)
   elseif (present(cvar1)) then ; call fh5_write(cvar1, dsetname, hdferr)
   elseif (present(dvar1)) then ; call fh5_write(dvar1, dsetname, hdferr)
   elseif (present(lvar1)) then ; call fh5_write(lvar1, dsetname, hdferr)
+  elseif (present(bvar1)) then ; call fh5_write(bvar1, dsetname, hdferr)
 
   elseif (present(ivar2)) then ; call fh5_write(ivar2, dsetname, hdferr)
   elseif (present(rvar2)) then ; call fh5_write(rvar2, dsetname, hdferr)
   elseif (present(cvar2)) then ; call fh5_write(cvar2, dsetname, hdferr)
   elseif (present(dvar2)) then ; call fh5_write(dvar2, dsetname, hdferr)
   elseif (present(lvar2)) then ; call fh5_write(lvar2, dsetname, hdferr)
+  elseif (present(bvar2)) then ; call fh5_write(bvar2, dsetname, hdferr)
 
   elseif (present(ivar3)) then ; call fh5_write(ivar3, dsetname, hdferr)
   elseif (present(rvar3)) then ; call fh5_write(rvar3, dsetname, hdferr)
   elseif (present(cvar3)) then ; call fh5_write(cvar3, dsetname, hdferr)
   elseif (present(dvar3)) then ; call fh5_write(dvar3, dsetname, hdferr)
-  elseif (present(lvar3)) then ; call fh5_write(lvar3, dsetname, hdferr)
+  elseif (present(bvar3)) then ; call fh5_write(bvar3, dsetname, hdferr)
 
   elseif (present(ivar4)) then ; call fh5_write(ivar4, dsetname, hdferr)
   elseif (present(rvar4)) then ; call fh5_write(rvar4, dsetname, hdferr)
   elseif (present(dvar4)) then ; call fh5_write(dvar4, dsetname, hdferr)
+  elseif (present(bvar4)) then ; call fh5_write(bvar4, dsetname, hdferr)
 
   else
      print*, 'Incorrect or missing data field argument in shdf5_orec'
@@ -304,11 +310,11 @@ end subroutine shdf5_orec
 
 !===============================================================================
 
-subroutine shdf5_irec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars,  &
-                                          ivar1,rvar1,cvar1,dvar1,lvar1,  &
-                                          ivar2,rvar2,cvar2,dvar2,lvar2,  &
-                                          ivar3,rvar3,cvar3,dvar3,lvar3,  &
-                                          ivar4,rvar4,      dvar4,        &
+subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars,  &
+                                          bvar1,ivar1,rvar1,cvar1,dvar1,lvar1,  &
+                                          bvar2,ivar2,rvar2,cvar2,dvar2,lvar2,  &
+                                          bvar3,ivar3,rvar3,cvar3,dvar3,lvar3,  &
+                                          bvar4,ivar4,rvar4,      dvar4,        &
                                           points, start, counts)
   use hdf5_f2f
   implicit none
@@ -318,6 +324,7 @@ subroutine shdf5_irec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars,  &
   integer,      intent(IN) :: dims(:)  ! Dataset dimensions
 
 ! Array and scalar arguments for different types. Only specify one in each call.
+  integer(i1),  intent(inout), optional :: bvars, bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
   integer,      intent(inout), optional :: ivars, ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
   real,         intent(inout), optional :: rvars, rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
   character,    intent(inout), optional :: cvars, cvar1(:), cvar2(:,:), cvar3(:,:,:)
@@ -355,28 +362,33 @@ subroutine shdf5_irec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars,  &
   elseif (present(cvars)) then ; call fh5_read(cvars, hdferr)
   elseif (present(dvars)) then ; call fh5_read(dvars, hdferr)
   elseif (present(lvars)) then ; call fh5_read(lvars, hdferr)
+  elseif (present(bvars)) then ; call fh5_read(bvars, hdferr)
 
   elseif (present(ivar1)) then ; call fh5_read(ivar1, hdferr)
   elseif (present(rvar1)) then ; call fh5_read(rvar1, hdferr)
   elseif (present(cvar1)) then ; call fh5_read(cvar1, hdferr)
   elseif (present(dvar1)) then ; call fh5_read(dvar1, hdferr)
   elseif (present(lvar1)) then ; call fh5_read(lvar1, hdferr)
+  elseif (present(bvar1)) then ; call fh5_read(bvar1, hdferr)
 
   elseif (present(ivar2)) then ; call fh5_read(ivar2, hdferr)
   elseif (present(rvar2)) then ; call fh5_read(rvar2, hdferr)
   elseif (present(cvar2)) then ; call fh5_read(cvar2, hdferr)
   elseif (present(dvar2)) then ; call fh5_read(dvar2, hdferr)
   elseif (present(lvar2)) then ; call fh5_read(lvar2, hdferr)
+  elseif (present(bvar2)) then ; call fh5_read(bvar2, hdferr)
 
   elseif (present(ivar3)) then ; call fh5_read(ivar3, hdferr)
   elseif (present(rvar3)) then ; call fh5_read(rvar3, hdferr)
   elseif (present(cvar3)) then ; call fh5_read(cvar3, hdferr)
   elseif (present(dvar3)) then ; call fh5_read(dvar3, hdferr)
   elseif (present(lvar3)) then ; call fh5_read(lvar3, hdferr)
+  elseif (present(bvar3)) then ; call fh5_read(bvar3, hdferr)
 
   elseif (present(ivar4)) then ; call fh5_read(ivar4, hdferr)
   elseif (present(rvar4)) then ; call fh5_read(rvar4, hdferr)
   elseif (present(dvar4)) then ; call fh5_read(dvar4, hdferr)
+  elseif (present(bvar4)) then ; call fh5_read(bvar4, hdferr)
 
   else
      print*,'Incorrect or missing data field argument in shdf5_irec'
@@ -420,18 +432,18 @@ end subroutine shdf5_close
 
 !===============================================================================
 
-subroutine shdf5_io(action,ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars, &
-                                               ivar1,rvar1,cvar1,dvar1,lvar1, &
-                                               ivar2,rvar2,cvar2,dvar2,lvar2, &
-                                               ivar3,rvar3,cvar3,dvar3,lvar3, &
-                                               ivar4,rvar4,      dvar4        )
-
+subroutine shdf5_io(action,ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
+                                               bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, &
+                                               bvar2,ivar2,rvar2,cvar2,dvar2,lvar2, &
+                                               bvar3,ivar3,rvar3,cvar3,dvar3,lvar3, &
+                                               bvar4,ivar4,rvar4,      dvar4        )
   use hdf5_f2f
 
   implicit none
 
   character(*), intent(in)           :: dsetname, action
   integer,      intent(in)           :: ndims,    dims(:)
+  integer(i1),  intent(inout), optional :: bvars, bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
   integer,      intent(inout), optional :: ivars, ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
   real,         intent(inout), optional :: rvars, rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
   character,    intent(inout), optional :: cvars, cvar1(:), cvar2(:,:), cvar3(:,:,:)
@@ -443,18 +455,18 @@ subroutine shdf5_io(action,ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars, &
 
   if (action == 'READ') then
      
-     call shdf5_irec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars, &
-                                         ivar1,rvar1,cvar1,dvar1,lvar1, &
-                                         ivar2,rvar2,cvar2,dvar2,lvar2, &
-                                         ivar3,rvar3,cvar3,dvar3,lvar3, &
-                                         ivar4,rvar4,      dvar4        )
+     call shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
+                                         bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, &
+                                         bvar2,ivar2,rvar2,cvar2,dvar2,lvar2, &
+                                         bvar3,ivar3,rvar3,cvar3,dvar3,lvar3, &
+                                         bvar4,ivar4,rvar4,      dvar4        )
   elseif (action == 'WRITE') then
      
-     call shdf5_orec(ndims,dims,dsetname,ivars,rvars,cvars,dvars,lvars, &
-                                         ivar1,rvar1,cvar1,dvar1,lvar1, &
-                                         ivar2,rvar2,cvar2,dvar2,lvar2, &
-                                         ivar3,rvar3,cvar3,dvar3,lvar3, &
-                                         ivar4,rvar4,      dvar4        )
+     call shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
+                                         bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, &
+                                         bvar2,ivar2,rvar2,cvar2,dvar2,lvar2, &
+                                         bvar3,ivar3,rvar3,cvar3,dvar3,lvar3, &
+                                         bvar4,ivar4,rvar4,      dvar4        )
   else
      
      print *, "Illegal action in shdf5_io."
