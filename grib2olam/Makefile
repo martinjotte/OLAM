@@ -27,7 +27,8 @@ OBJS = grib2olam.o  \
        hdf5_utils.o \
        hdf5_f2f.o   \
        relax.o      \
-       gaussian.o
+       gaussian.o   \
+       bit_shave.o
 
 # Rules
 

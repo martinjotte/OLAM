@@ -47,7 +47,8 @@ program grib_to_gdf
   integer :: i,j,idprep=0,ndate,nhr,ii,nh,nb,n
   integer :: nlev,inproj,ivertcoord,miss,ircode,num_hours
   integer :: nsoilw, nsoilt, ngnd
-  
+  integer :: nsd
+
   integer :: iyyyy,imm,idd,ihh,nuyyyy,numm,nudd,nuhh
   real :: tinc,xnelat,xnelon,aver
   logical :: exists, dousage
@@ -758,15 +759,43 @@ program grib_to_gdf
      !call plotfield(nx,ny,sst-273.15)
 
      ! Run the arrays through prepfield for possible conversion and flipping
-     do i=1,nvar3d
+     do i=1, nvar3d
+        nsd = 3
+        if (out3d(i) == 'TEMP' .or. out3d(i) == 'GEO') nsd = 4
         do j=1,nlev
            call prepfield(a3(:,:,j,i),nx,ny,projection,var3d(i))
+           call scalfield(a3(:,:,j,i),nx,ny,nsd)
         enddo
      enddo
    
-     do i=1,nvarsfc
+     do i=1, nvarsfc
         call prepfield(a2(:,:,i),nx,ny,projection,varsfc(i))
+        call scalfield(a2(:,:,i),nx,ny,4)
      enddo
+
+     if (have_soilw .and. allocated(soilw)) then
+        do i=1,nsoilw
+           call scalfield(soilw(:,:,i),nx,ny,3)
+        enddo
+     endif
+
+     if (have_soilt .and. allocated(soilt)) then
+        do i=1,nsoilt
+           call scalfield(soilt(:,:,i),nx,ny,4)
+        enddo
+     endif
+
+     if (have_sst .and. allocated(sst)) then
+        call scalfield(sst,nx,ny,4)
+     endif
+
+     if (have_ice .and. allocated(ice)) then
+        call scalfield(ice,nx,ny,3)
+     endif
+
+     if (have_snow .and. allocated(snow)) then
+        call scalfield(snow,nx,ny,3)
+     endif
 
 !!     do i=1,nvargnd
 !!        do j=1,ngnd
@@ -883,13 +912,14 @@ program grib_to_gdf
 
   !call clsgks
 
-contains
+end program grib_to_gdf
 
 !************************************************************************
 
 subroutine getfield(filein,nx,ny,a,var,iplev,ndate,nhr,ircode)
 
-  use grib_get_mod
+  use grib_get_mod, only: grib_get_recf, nrec, fields, levs, idates, &
+                          ifhrs, irecs
   implicit none
 
   integer,      intent(in)    :: nx, ny, iplev, ndate, nhr
@@ -1101,4 +1131,21 @@ subroutine date_add_to (inyear,inmonth,indate,inhour,  &
 
 end subroutine date_add_to
 
-end program grib_to_gdf
+!************************************************************************
+
+subroutine scalfield(a,nx,ny,nsd)
+
+  use grib_get_mod, only: amiss0
+  implicit none
+
+  integer, intent(in)    :: nx, ny, nsd
+  real,    intent(inout) :: a(nx,ny)
+  integer                :: i, j
+
+  do j = 1, ny
+     do i = 1, nx
+        call bit_shave( a(i,j), nsd )
+     enddo
+  enddo
+
+end subroutine scalfield
