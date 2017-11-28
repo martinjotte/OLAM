@@ -187,8 +187,8 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
   REAL                       :: kviswi      ! 1 / kinematic viscosity of water [s/cm^2]
   INTEGER                    :: kw
   INTEGER                    :: l
-  REAL                       :: lai                ! leaf area index
-  REAL                       :: tai                ! total area index
+  REAL                       :: lai, laiv          ! leaf area index
+  REAL                       :: tai, taiv          ! total area index
   INTEGER                    :: n
   CHARACTER( 16 ), PARAMETER :: pname      = 'M3DRY'
   REAL,            PARAMETER :: pr         = 0.709   ! [dim'less]
@@ -548,7 +548,6 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
      vegfr = land%veg_fracarea(iwl)
      wrcr  = land%veg_water(iwl)
      hveg  = land%veg_height(iwl)
-     rsi   = 1.0 / land%stom_resist(iwl)
 
      tempvg = land%veg_temp(iwl)
      tempcr = land%cantemp(iwl)
@@ -593,10 +592,6 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
                    slcpd(land%ntext_soil(nzg,iwl)), tempgr, xm )
      endif
 
-     ! Canopy resisance
-
-     rinc   = 14.0 * tai * hveg / ustar
-
      ! Canopy Wetness
 
      wrmax  = 0.2 * max(tai,1.e-10)
@@ -614,6 +609,23 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
      else
 
         hplus = hplus_def
+
+     endif
+
+     ! Vegetation properties
+
+     if (lai > 0.01 .and. vegfr > 0.01) then
+
+        laiv = lai / vegfr
+        taiv = tai / vegfr
+
+        ! Stomatal conductance
+
+        rsi = 1.0 / land%stom_resist(iwl)
+
+        ! Canopy resisance
+
+        rinc = 14.0 * taiv * hveg / ustar
 
      endif
 
@@ -653,7 +665,6 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
 
      endif
 
-
      ! Loop over species to calculate dry deposition velocities.
 
      depvel_gas_land( iwl,: ) = 0.0  ! initialize for this time period
@@ -680,7 +691,7 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
 
            heff = hlconst( tempcr, effective, hplus, hlspc( l ) )
 
-           if ( hleff( l ) ) then
+           if ( hleff( l ) .and. vegfr > 0.01 .and. lai > 0.01) then
               heff_ap = hlconst( tempcr, effective, hplus_ap, hlspc( l ) )
            else
               heff_ap = heff
@@ -730,44 +741,51 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
 
            rgndi  = ( 1.0 - deltag ) * rgdi + deltag * rgwi
 
-           ! Ground conductance under canopy vegetation
+           ! Vegetation calculations
+           if (lai > 0.01 .and. vegfr > 0.01) then
 
-           rgndci = rgndi / (1.0 + rgndi * rinc)
+              ! Ground conductance under canopy vegetation
 
-           ! Wet cuticle resitance with snow/ice
+              rgndci = rgndi / (1.0 + rgndi * rinc)
 
-           rwetsfci = ( 1.0 - liqfrv) * rsnowi + liqfrv * rweti
+              ! Wet cuticle conductance with snow/ice
 
-           ! Dry cuticle resistance
+              rwetsfci = ( 1.0 - liqfrv) * rsnowi + liqfrv * rweti
 
-           if ( l == l_nh3 ) then
-              rdryi = 0.00025 * exp( 0.054 * rh_air )
-           else
-              rdryi = ccut( l )
-              if ( l == l_o3 ) then
+              ! Dry cuticle conductance
+
+              if ( l == l_nh3 ) then
+                 rdryi = 0.00025 * exp( 0.054 * rh_air )
+              elseif ( l == l_o3 ) then
                  rh_func = max( 0.0, (rh_air - 70.0) / 30.0 )
-                 rdryi = ( 1.0 - rh_func ) * rdryi + rh_func * rweti
+                 rdryi = ( 1.0 - rh_func ) * ccut( l ) + rh_func * rweti
+              else
+                 rdryi = ccut( l )
               endif
+
+              ! Total cuticle conductance
+
+              rcuti = taiv * ( (1.0 - deltav) * rdryi + deltav * rwetsfci )
+
+              ! Bulk stomatal and mesophyll conductance (added in series)
+
+              rstomi = ddif0( l ) * rsi
+              rmesoi = heff_ap / 3000. + meso( l )
+
+              rstomi = laiv * rmesoi * rstomi / (rstomi + rmesoi)
+
+              ! Bulk surface conductance with vegetation (added in parallel)
+
+              rci =  vegfr * (rstomi + rcuti + rgndci) + (1.0 - vegfr) * rgndi
+
+           else
+
+              rci = rgndi
+
            endif
 
-           ! Total cuticle conductance
-
-           rcuti = tai * ( (1.0 - deltav) * rdryi + deltav * rwetsfci )
-
-           ! Bulk stomatal resistance annd mesophyll conductance
-
-           rstomi = ddif0( l ) * rsi
-           rmesoi = heff_ap / 3000. + meso( l )
-
-           ! Total bulk stomatal conductance
-
-           rstomi = lai * rmesoi * rstomi / (rstomi + rmesoi)
-
-           ! Bulk surface conductance
-
-           rci =  vegfr * (rstomi + rcuti + rgndci) + (1.0 - vegfr) * rgndi
-
-           ! Compute dry deposition velocity.
+           ! Compute dry deposition velocity (aerodynamic, surface, and laminar
+           ! conductacnes added in series)
 
            rbci = ustar * scc_pr_23( l )
 
@@ -793,10 +811,6 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono )
 ! depositional loss.
 
               depvel_gas_land( iwl,n ) = depvel_gas_land( iwl,n ) + 2.0 * kno2 * zf
-
-           END IF
-
-           IF ( sfc_hono .and. l .EQ. l_hono ) then
 
 ! Calculate production (pvd) for HONO; unit = ppm * m/s
                      

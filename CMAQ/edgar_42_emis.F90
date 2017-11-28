@@ -13,7 +13,7 @@ module edgar_42_emis
 
   integer, parameter :: nsec    = 17 ! number of edgar emissions sectors
   integer, parameter :: nvars3d = 53
-  integer, parameter :: nvoc    = 19 ! number of speciation factors for nmvoc
+  integer, parameter :: nvoc    = 21 ! number of speciation factors for nmvoc
   integer, parameter :: nevars  =  8 ! number of raw emissions species
   integer, parameter :: npms    = 19 ! number of speciation factors for pm2.5
 
@@ -49,16 +49,16 @@ module edgar_42_emis
   integer, parameter :: IXYLMN   = 23
   integer, parameter :: IBENZENE = 24
   integer, parameter :: ISESQ    = 25
+  integer, parameter :: IFACD    = 26
+  integer, parameter :: IAACD    = 27
 
 ! Other gas species (some not set here)
 
-  integer, parameter :: ICL2   = 26  ! computed from GEIA database
-  integer, parameter :: IHCL   = 27  ! computed from GEIA database
-  integer, parameter :: IHONO  = 28  ! estimated from NOx for vehicle emissions
-  integer, parameter :: INAPH  = 29  ! new in 5.2, estimated from XYLMN
-  integer, parameter :: ISOAALK= 30  ! new in 5.2, estimated from PAR
-  integer, parameter :: IFACD  = 31
-  integer, parameter :: IAACD  = 32
+  integer, parameter :: ICL2   = 28  ! computed from GEIA database
+  integer, parameter :: IHCL   = 29  ! computed from GEIA database
+  integer, parameter :: IHONO  = 30  ! estimated from NOx for vehicle emissions
+  integer, parameter :: INAPH  = 31  ! new in 5.2, estimated from XYLMN
+  integer, parameter :: ISOAALK= 32  ! new in 5.2, estimated from PAR
   integer, parameter :: ICH4   = 33  ! placeholder, used in CB6
 
 ! PM species
@@ -160,6 +160,7 @@ module edgar_42_emis
   real :: vocspec(nsec, nvoc)
   real :: pmspec (nsec, npms)
 
+  character(20) :: names(nvars3d)
 
 contains
 
@@ -199,12 +200,12 @@ contains
     i = ino
     vname3d_emis(i) = 'NO'
     units3d_emis(i) = 'MOLES/S'
-    molwt       (i) =  14.0  ! emis units are mass N, so use 14 to convert to moles rather than 30
+    molwt       (i) =  30.0
       
     i = ino2
     vname3d_emis(i) = 'NO2'
     units3d_emis(i) = 'MOLES/S'
-    molwt       (i) =  14.0  ! emis units are mass N, so use 14 to convert to moles rather than 46
+    molwt       (i) =  46.0  
 
     i = inh3
     vname3d_emis(i) = 'NH3'
@@ -214,12 +215,12 @@ contains
     i = iso2
     vname3d_emis(i) = 'SO2'
     units3d_emis(i) = 'MOLES/S'
-    molwt       (i) =  32.0  ! emis units are mass S, so use 32 to convert to moles rather than 64
+    molwt       (i) =  64.0
 
     i = isulf
     vname3d_emis(i) = 'SULF'
     units3d_emis(i) = 'MOLES/S'
-    molwt       (i) =  32.0  ! emis units are mass S, so use 32 to convert to moles rather than 64
+    molwt       (i) =  98.0
 
     i = iald2
     vname3d_emis(I) = 'ALD2'
@@ -314,8 +315,18 @@ contains
     i = isesq
     vname3d_emis(i) = 'SESQ'
     units3d_emis(i) = 'MOLES/S'
-    molwt       (i) =  1.0   ! CHECK: why is this 1 in Jia's file? Are BVOC emis in gC?
-                             ! The speciation factor take into account the molewt
+    molwt       (i) =  204.0
+
+    i = ifacd
+    vname3d_emis(i) = 'FACD'
+    units3d_emis(i) = 'MOLES/S'
+    molwt       (i) =  46.0
+
+    i = iaacd
+    vname3d_emis(i) = 'AACD'
+    units3d_emis(i) = 'MOLES/S'
+    molwt       (i) =  60.0
+
     i = icl2
     vname3d_emis(i) = 'CL2'
     units3d_emis(i) = 'MOLES/S'
@@ -340,16 +351,6 @@ contains
     vname3d_emis(i) = 'SOAALK'
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  112.0
-
-    i = ifacd
-    vname3d_emis(i) = 'FACD'
-    units3d_emis(i) = 'MOLES/S'
-    molwt       (i) =  46.0
-
-    i = iaacd
-    vname3d_emis(i) = 'AACD'
-    units3d_emis(i) = 'MOLES/S'
-    molwt       (i) =  60.0
 
     i = ich4
     vname3d_emis(i) = 'CH4'
@@ -460,6 +461,8 @@ contains
        emiscnvt(i) = gpkg / molwt(i)
     enddo
 
+    names(:) = vname3d_emis(:)
+    
     ! Monthly distribution factors
 
     rawmn( 1,:) = (/ 1.20, 1.15, 1.05, 1.00, 0.90, 0.85, 0.80, 0.88, 0.95, 1.00, 1.08, 1.15 /)
@@ -557,82 +560,98 @@ contains
     vocspec( 1,:) = (/ 0.24724e-5, 0.83117e-6, 0.58162e-3, 0.61433e-2, 0.0       ,  &
                        0.55483e-2, 0.16416e-4, 0.0       , 0.0       , 0.0       ,  &
                        0.15930e-2, 0.30714e-1, 0.0       , 0.12013e-2, 0.0       ,  &
-                       0.98334e-2, 0.10760e-2, 0.56493e-3, 0.0                     /)
+                       0.98334e-2, 0.10760e-2, 0.56493e-3, 0.0       , 0.32922e-3,  &
+                       0.50501e-3  /)
  
     vocspec( 2,:) = (/ 0.0       , 0.0       , 0.12065e-3, 0.44364e-3, 0.0       ,  &
                        0.20907e-1, 0.89703e-5, 0.0       , 0.0       , 0.0       ,  &
                        0.21292e-3, 0.18985e-1, 0.0       , 0.28711e-3, 0.0       ,  &
-                       0.36421e-2, 0.18305e-3, 0.40610e-3, 0.0                     /)
+                       0.36421e-2, 0.18305e-3, 0.40610e-3, 0.0       , 0.21507e-3,  &
+                       0.32978e-3  /)
  
     vocspec( 3,:) = (/ 0.37758e-3, 0.18399e-3, 0.20582e-2, 0.72071e-3, 0.11894e-4,  &
                        0.74435e-3, 0.32335e-3, 0.25169e-4, 0.17082e-4, 0.17634e-4,  &
                        0.13015e-2, 0.34423e-1, 0.10655e-4, 0.15034e-2, 0.23314e-6,  &
-                       0.47702e-2, 0.12890e-2, 0.50683e-3, 0.17049e-5              /)
+                       0.47702e-2, 0.12890e-2, 0.50683e-3, 0.17049e-5, 0.0       ,  &
+                       0.0         /)
  
     vocspec( 4,:) = (/ 0.37758e-3, 0.18399e-3, 0.20582e-2, 0.72071e-3, 0.11894e-4,  &
                        0.74435e-3, 0.32335e-3, 0.25169e-4, 0.17082e-4, 0.17634e-4,  &
                        0.13015e-2, 0.34423e-1, 0.10655e-4, 0.15034e-2, 0.23314e-6,  &
-                       0.47702e-2, 0.12890e-2, 0.50683e-3, 0.17049e-5              /)
+                       0.47702e-2, 0.12890e-2, 0.50683e-3, 0.17049e-5, 0.0       ,  &
+                       0.0         /)
  
     vocspec( 5,:) = (/ 0.32275e-2, 0.30807e-2, 0.0       , 0.20430e-4, 0.0       ,  &
                        0.62666e-2, 0.47299e-6, 0.0       , 0.0       , 0.11461e-4,  &
                        0.12019e-2, 0.92665e-2, 0.58834e-5, 0.15193e-2, 0.0       ,  &
-                       0.46819e-2, 0.43657e-3, 0.16691e-5, 0.94134e-6              /)
+                       0.46819e-2, 0.43657e-3, 0.16691e-5, 0.94134e-6, 0.17759e-2,  &
+                       0.27230e-2  /)
  
     vocspec( 6,:) = (/ 0.24724e-5, 0.83117e-6, 0.58162e-3, 0.61433e-2, 0.0       ,  &
                        0.55483e-2, 0.16416e-4, 0.0       , 0.0       , 0.0       ,  &
                        0.15930e-2, 0.30714e-1, 0.0       , 0.12013e-2, 0.0       ,  &
-                       0.98334e-2, 0.10760e-2, 0.56493e-3, 0.0                     /)
+                       0.98334e-2, 0.10760e-2, 0.56493e-3, 0.0,        0.0       ,  &
+                       0.0         /)
  
     vocspec( 7,:) = (/ 0.16257e-3, 0.24866e-3, 0.52832e-3, 0.88840e-2, 0.94085e-3,  &
                        0.58609e-2, 0.52268e-4, 0.25074e-4, 0.18672e-3, 0.10465e-3,  &
                        0.10168e-2, 0.27446e-1, 0.29961e-4, 0.41018e-3, 0.0       ,  &
-                       0.13330e-1, 0.20880e-3, 0.28897e-3, 0.47938e-5              /)
+                       0.13330e-1, 0.20880e-3, 0.28897e-3, 0.47938e-5, 0.0       ,  &
+                       0.0         /)
  
     vocspec( 8,:) = (/ 0.43741e-3, 0.62256e-3, 0.12869e-2, 0.53024e-3, 0.34969e-3,  &
                        0.60290e-3, 0.13877e-3, 0.67461e-4, 0.50238e-3, 0.28157e-3,  &
                        0.19828e-2, 0.29057e-1, 0.58069e-4, 0.73368e-3, 0.0       ,  &
-                       0.82535e-2, 0.50463e-3, 0.41431e-3, 0.92910e-5              /)
+                       0.82535e-2, 0.50463e-3, 0.41431e-3, 0.92910e-5, 0.0       ,  &
+                       0.0         /)
  
     vocspec( 9,:) = (/ 0.24539e-3, 0.39357e-3, 0.40283e-2, 0.33265e-3, 0.19618e-3,  &
                        0.33864e-3, 0.79623e-4, 0.37847e-4, 0.28184e-3, 0.15796e-3,  &
                        0.20358e-2, 0.31656e-1, 0.54062e-4, 0.71939e-3, 0.0       ,  &
-                       0.84159e-2, 0.31972e-3, 0.64305e-3, 0.86499e-5              /)
+                       0.84159e-2, 0.31972e-3, 0.64305e-3, 0.86499e-5, 0.0       ,  &
+                       0.0         /)
  
     vocspec(10,:) = (/ 0.19595e-4, 0.12467e-3, 0.57465e-4, 0.68298e-5, 0.11234e-2,  &
                        0.10167e-3, 0.30200e-4, 0.22703e-7, 0.92545e-3, 0.88522e-4,  &
                        0.34678e-3, 0.40462e-1, 0.16402e-3, 0.12774e-2, 0.0       ,  &
-                       0.58793e-2, 0.79457e-3, 0.27556e-4, 0.26243e-4              /)
+                       0.58793e-2, 0.79457e-3, 0.27556e-4, 0.26243e-4, 0.0       ,  &
+                       0.0         /)
  
     vocspec(11,:) = (/ 0.27735e-2, 0.18805e-2, 0.29772e-2, 0.10280e-3, 0.67794e-4,  &
                        0.62859e-2, 0.23283e-3, 0.90771e-4, 0.97394e-4, 0.54586e-4,  &
                        0.20293e-2, 0.18743e-1, 0.13215e-4, 0.42119e-3, 0.0       ,  &
-                       0.37797e-2, 0.17795e-3, 0.27230e-3, 0.21143e-5              /)
+                       0.37797e-2, 0.17795e-3, 0.27230e-3, 0.21143e-5, 0.0       ,  &
+                       0.0         /)
  
     vocspec(12,:) = (/ 0.53115e-3, 0.51103e-3, 0.25429e-2, 0.22169e-2, 0.18121e-3,  &
                        0.49473e-2, 0.14082e-3, 0.18312e-4, 0.13677e-3, 0.49815e-4,  &
                        0.14797e-2, 0.28392e-1, 0.44577e-4, 0.79310e-3, 0.31085e-7,  &
-                       0.65904e-2, 0.54441e-3, 0.30820e-3, 0.71323e-5              /)
+                       0.65904e-2, 0.54441e-3, 0.30820e-3, 0.71323e-5, 0.0       ,  &
+                       0.0         /)
  
     vocspec(13,:) = (/ 0.0       , 0.45794e-3, 0.85461e-2, 0.43683e-2, 0.0       ,  &
                        0.29857e-5, 0.11602e-3, 0.0       , 0.0       , 0.0       ,  &
                        0.21746e-2, 0.28112e-1, 0.15971e-3, 0.39872e-3, 0.0       ,  &
-                       0.81625e-2, 0.30230e-3, 0.0       , 0.25553e-4              /)
+                       0.81625e-2, 0.30230e-3, 0.0       , 0.25553e-4, 0.0       ,  &
+                       0.0         /)
  
     vocspec(14,:) = (/ 0.0       , 0.45794e-3, 0.85461e-2, 0.43683e-2, 0.0       ,  &
                        0.29857e-5, 0.11602e-3, 0.0       , 0.0       , 0.0       ,  &
                        0.21746e-2, 0.28112e-1, 0.15971e-3, 0.39872e-3, 0.0       ,  &
-                       0.81625e-2, 0.30230e-3, 0.0       , 0.25553e-4              /)
+                       0.81625e-2, 0.30230e-3, 0.0       , 0.25553e-4, 0.96338e-3,  &
+                       0.41361e-2  /)
  
     vocspec(15,:) = (/ 0.34125e-3, 0.29209e-4, 0.66517e-2, 0.24878e-4, 0.16407e-4,  &
                        0.34901e-3, 0.64866e-3, 0.31652e-5, 0.23571e-4, 0.13211e-4,  &
                        0.30184e-2, 0.44776e-1, 0.27239e-5, 0.34411e-4, 0.0       ,  &
-                       0.16987e-2, 0.23228e-4, 0.19431e-4, 0.43583e-6              /)
+                       0.16987e-2, 0.23228e-4, 0.19431e-4, 0.43583e-6, 0.62634e-3,  &
+                       0.96060e-3  /)
  
     vocspec(16,:) = (/ 0.0       , 0.0       , 0.12065e-3, 0.44364e-3, 0.0       ,  &
                        0.20907e-1, 0.89703e-5, 0.0       , 0.0       , 0.0       ,  &
                        0.21292e-3, 0.18985e-1, 0.0       , 0.28711e-3, 0.0       ,  &
-                       0.36421e-2, 0.18305e-3, 0.40610e-3, 0.0                     /)
+                       0.36421e-2, 0.18305e-3, 0.40610e-3, 0.0       , 0.0       ,  &
+                       0.0         /)
 
     pmspec( 1,:) = (/ 0.5093335E-01, 0.7896125E+00, 0.1130028E-02, 0.4630086E-01, &
                       0.1120233E+00, 0.7211590E-03, 0.3337995E-02, 0.7741310E-04, &
@@ -753,18 +772,8 @@ contains
          0.000143, 0.000229, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.000202, 0.0 /)
 
     real, parameter :: gpkg = 1.0e3
-
-    !                            gC/gNH3 gNH3/molNH3 molC/gC mol/molC
-    real, parameter :: nh3toaa11 = 0.090  *  17.0  /  12.0  *  0.5
-    real, parameter :: nh3toaa12 = 0.045  *  17.0  /  12.0  *  0.5
-    real, parameter :: nh3tofa11 = 0.045  *  17.0  /  12.0  *  1.0
-    real, parameter :: nh3tofa12 = 0.016  *  17.0  /  12.0  *  1.0
-
-    !                                g/gCO    gCO/molCO  mol/g
-    real, parameter :: cotoaa_res  = 0.0425  *  28.0  /  60.0
-    real, parameter :: cotofa_res  = 0.0018  *  28.0  /  46.0
-    real, parameter :: cotoaa_burn = 0.0244  *  28.0  /  60.0
-    real, parameter :: cotofa_burn = 0.0032  *  28.0  /  46.0
+    real, parameter :: emiscnvt_nox = gpkg / 14.0 ! NOx emis units are mass N
+    real, parameter :: emiscnvt_so2 = gpkg / 32.0 ! SO2 emis units are mass S
 
     integer, parameter ::  cl_sec = 13
     integer, parameter :: hcl_sec =  1
@@ -824,22 +833,6 @@ contains
                    k  = ks + ka - 1
                    edgar42_emis(k,iw,ico) = edgar42_emis(k,iw,ico) &
                                           + vinterp(n,ka)%facts(ks) * fact3
-
-                   ! Estimate formic and acetic acid resid/biomass burning emissions from CO
-                   if (n == 5) then
-                      edgar42_emis(k,iw,iaacd) = edgar42_emis(k,iw,iaacd) &
-                                              + vinterp(n,ka)%facts(ks) * fact3 * cotoaa_res
-                      edgar42_emis(k,iw,ifacd) = edgar42_emis(k,iw,ifacd) &
-                                              + vinterp(n,ka)%facts(ks) * fact3 * cotofa_res
-                   endif
-                   
-                   if (n == 13 .or. n == 14) then
-                      edgar42_emis(k,iw,iaacd) = edgar42_emis(k,iw,iaacd) &
-                                              + vinterp(n,ka)%facts(ks) * fact3 * cotoaa_burn
-                      edgar42_emis(k,iw,ifacd) = edgar42_emis(k,iw,ifacd) &
-                                              + vinterp(n,ka)%facts(ks) * fact3 * cotofa_burn
-                   endif
-
                 enddo
              enddo
          endif
@@ -852,7 +845,7 @@ contains
 
           if (edgar42_vars(iw)%nox(j) > 1.e-20) then
 
-             fact2 = emiscnvt(ino) * timefac(n) * edgar42_vars(iw)%nox(j)
+             fact2 = emiscnvt_nox * timefac(n) * edgar42_vars(iw)%nox(j)
 
              do ns = 1, lsw(iw)
                 ka = lpw(iw) + ns - 1
@@ -862,15 +855,17 @@ contains
                 do ks = 1, vinterp(n,ka)%nlevs
                    k  = ks + ka - 1
                    emisn = vinterp(n,ka)%facts(ks) * fact3
-                   edgar42_emis(k,iw,ino ) = edgar42_emis(k,iw,ino ) + 0.9 * emisn
-                   edgar42_emis(k,iw,ino2) = edgar42_emis(k,iw,ino2) + 0.1 * emisn
 
                    ! special for HONO: use 8X10**-3 HONO/NOx ratio from vehicular emissions
                    ! see Sarwar et al. (2008) Atm. Env.
                    if (n == 2 .or. n == 3) then
-                      edgar42_emis(k,iw,ihono) = edgar42_emis(k,iw,ihono) + 8.0e-3 * emisn
+                      edgar42_emis(k,iw,ino )  = edgar42_emis(k,iw,ino )  + 0.900 * emisn
+                      edgar42_emis(k,iw,ino2)  = edgar42_emis(k,iw,ino2)  + 0.092 * emisn
+                      edgar42_emis(k,iw,ihono) = edgar42_emis(k,iw,ihono) + 0.008 * emisn
+                   else
+                      edgar42_emis(k,iw,ino )  = edgar42_emis(k,iw,ino )  + 0.900 * emisn
+                      edgar42_emis(k,iw,ino2)  = edgar42_emis(k,iw,ino2)  + 0.100 * emisn
                    endif
-
                 enddo
              enddo
           endif
@@ -894,21 +889,6 @@ contains
                    k  = ks + ka - 1
                    edgar42_emis(k,iw,inh3) = edgar42_emis(k,iw,inh3) &
                                            + vinterp(n,ka)%facts(ks) * fact3
-
-                   ! Estimate formic and acetic acid agriculture emissions from NH3
-                   if (n == 11) then
-                      edgar42_emis(k,iw,iaacd) = edgar42_emis(k,iw,iaacd) &
-                                              + vinterp(n,ka)%facts(ks) * fact3 * nh3toaa11
-                      edgar42_emis(k,iw,ifacd) = edgar42_emis(k,iw,ifacd) &
-                                              + vinterp(n,ka)%facts(ks) * fact3 * nh3tofa11
-                   endif
-                   if (n == 12) then
-                      edgar42_emis(k,iw,iaacd) = edgar42_emis(k,iw,iaacd) &
-                                              + vinterp(n,ka)%facts(ks) * fact3 * nh3toaa12
-                      edgar42_emis(k,iw,ifacd) = edgar42_emis(k,iw,ifacd) &
-                                              + vinterp(n,ka)%facts(ks) * fact3 * nh3tofa12
-
-                   endif
                 enddo
              enddo
           endif
@@ -921,7 +901,7 @@ contains
 
           if (edgar42_vars(iw)%so2(j) > 1.e-20) then
 
-             fact2 = emiscnvt(iso2) * timefac(n) * edgar42_vars(iw)%so2(j)
+             fact2 = emiscnvt_so2 * timefac(n) * edgar42_vars(iw)%so2(j)
 
              do ns = 1, lsw(iw)
                 ka = lpw(iw) + ns - 1
@@ -948,7 +928,7 @@ contains
 
              fact1 = timefac(n) * edgar42_vars(iw)%nmvoc(j) * gpkg
 
-             do v = iald2, isesq
+             do v = iald2, iaacd
                 i = v - iald2 + 1
 
                 if (vocspec(n,i) > 1.e-12) then

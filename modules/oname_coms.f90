@@ -303,6 +303,9 @@ Module oname_coms
       character(pathlen) :: emis_dir  = '../../olamdatah5/edgar42'
       character(pathlen) :: geia_emis_file = '../etc/geia_emis.nc4'
 
+      logical            :: megan_use_pfts_file = .false.
+      character(pathlen) :: megan_pfts_file = '../../olamdatah5/megan/pfts.nc4'
+
       integer :: o3nudflag  = 0
       real    :: o3nudpress = 150.0
       real    :: o3tnudcent = 86400.0

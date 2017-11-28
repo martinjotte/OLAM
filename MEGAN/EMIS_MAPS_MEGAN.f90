@@ -550,7 +550,7 @@ module EMIS_MAPS_MEGAN
       PARAMETER     (N_CB05_SPC = 24)
 
       CHARACTER*16, target :: MECH_SPC_CB05( N_CB05_SPC )  ! Mechanism species name
-      REAL                    MECH_MWT_CB05( N_CB05_SPC )  ! Mechanism species molecular weight
+      REAL        , target :: MECH_MWT_CB05( N_CB05_SPC )  ! Mechanism species molecular weight
 
       DATA  MECH_SPC_CB05(  1), MECH_MWT_CB05(  1) / 'ISOP            ',  80.00  /
       DATA  MECH_SPC_CB05(  2), MECH_MWT_CB05(  2) / 'TERP            ', 160.00  /
@@ -2080,7 +2080,7 @@ module EMIS_MAPS_MEGAN
       PARAMETER     (N_SAPRC99_SPC = 28)
 
       CHARACTER*16, target :: MECH_SPC_SAPRC99( N_SAPRC99_SPC ) ! Mechanism species name
-      REAL                    MECH_MWT_SAPRC99( N_SAPRC99_SPC ) ! Mechanism species molecular weight
+      REAL        , target :: MECH_MWT_SAPRC99( N_SAPRC99_SPC ) ! Mechanism species molecular weight
 
 ! Note conversion between 134 species and SAPRC99 is done by 1:1 mole
 

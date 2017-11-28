@@ -2,18 +2,20 @@ module mem_megan
 
   use CONSTS_MEGAN
   use EMIS_MAPS_MEGAN
-  use consts_coms, only: r8
+  use consts_coms, only: r8, i1
+  use leaf_coms,   only: nstyp, nvtyp
+
   implicit none
 
-  private :: r8
+  private :: r8, i1
 
-  integer, allocatable         :: ipft    (:)
-  real,    allocatable, target :: avg_temp(:)
-  real,    allocatable, target :: avg_ppfd(:)
-  real,    allocatable, target :: avg_ppfd_dif(:)
-  real,    allocatable         :: lai_prev(:)
-  real,    allocatable         :: lai_next(:)
-  real,    allocatable         :: megan_emis(:,:)
+  real, allocatable         :: pfts    (:,:)
+  real, allocatable, target :: avg_temp(:)
+  real, allocatable, target :: avg_ppfd(:)
+  real, allocatable, target :: avg_ppfd_dif(:)
+  real, allocatable         :: lai_prev(:)
+  real, allocatable         :: lai_next(:)
+  real, allocatable         :: megan_emis(:,:)
 
   ! Length of the time between LAI updates (days)
   real, PARAMETER :: TSTLEN = 30.0
@@ -29,9 +31,15 @@ module mem_megan
   integer,       pointer, save :: spmh_map(:) => null()
   integer,       pointer, save :: mech_map(:) => null()
   character(16), pointer, save :: mech_spc(:) => null()
+  real,          pointer, save :: mech_mwt(:) => null()
 
   integer,   allocatable, save :: mgn_2_gc_map(:)
 
+  real :: wilting_point_vg(nstyp)
+
+  real :: norm_fact(nvtyp,16)
+
+  logical :: has_pft_dataset = .false.
 
 contains
 
@@ -46,7 +54,6 @@ contains
     integer, intent(in) :: mwa
 
     allocate(avg_temp    (mwl)) ; avg_temp     = 0.0
-    allocate(ipft        (mwl)) ; ipft         = 0
     allocate(lai_prev    (mwl)) ; lai_prev     = 0.0
     allocate(lai_next    (mwl)) ; lai_next     = 0.0
     allocate(avg_ppfd    (mwl)) ; avg_ppfd     = 0.0
@@ -66,7 +73,8 @@ contains
        spmh_map => spmh_map_cb05
        mech_map => mech_map_cb05
        conv_fac => conv_fac_cb05
-
+       mech_mwt => mech_mwt_cb05
+       
     elseif (mechanism == 'SAPRC99') then
 
        n_scon_spc = n_saprc99
@@ -75,6 +83,7 @@ contains
        spmh_map => spmh_map_saprc99
        mech_map => mech_map_saprc99
        conv_fac => conv_fac_saprc99
+       mech_mwt => mech_mwt_saprc99
 
     else
        write(*,*) "Invalid chemical mechanism specified in MEGAN."
@@ -83,7 +92,9 @@ contains
 
     allocate(mgn_2_gc_map(n_gc_emis))
 
-    allocate(megan_emis(mwl,n_mech_spc))
+    allocate(megan_emis(mwl,n_mech_spc)) ; megan_emis = 0.0
+
+    allocate(pfts(0:16,mwl)) ; pfts = 0.0
 
   end subroutine alloc_megan
 
@@ -284,23 +295,204 @@ contains
   end function olam2pft
 
 
+
+  subroutine read_pfts()
+
+    use leaf_coms,  only: mwl
+    use mem_leaf,   only: land
+    use misc_coms,  only: iparallel
+    use max_dims,   only: pathlen
+    use prfill_mod, only: prfill
+    use mem_para,   only: myrank
+    use oname_coms, only: nl
+
+    use hdf5_utils
+    use mpi
+
+    implicit none
+    
+    integer            :: ndims, idims(4)
+    character(pathlen) :: filename
+    integer, parameter :: nx_pft = 7200
+    integer, parameter :: ny_pft = 3600
+
+    integer, parameter :: nio = nx_pft + 4
+    integer, parameter :: njo = ny_pft + 4
+
+    integer(i1), allocatable :: rawdata (:,:)
+    integer(i1), allocatable :: landmask(:,:)
+    integer(i1), allocatable :: pfts_ll (:,:)
+
+    real    :: gdatdx, gdatdy, xswlat, xswlon
+    integer :: ipoffset, inproj
+
+    integer :: ips, ip, iwl
+    logical :: exists
+    integer :: ier
+    real    :: grx, gry
+
+    has_pft_dataset = .false.
+
+    filename = nl%megan_pfts_file
+
+    if (myrank == 0) then
+       inquire(file=filename, exist=exists)
+       if (.not. exists) then
+          write(*,*) "megan_init:  Cannot find plant functional types dataset."
+       else
+          has_pft_dataset = .true.
+       endif
+    
+       if (has_pft_dataset) then
+          write(*,*) "Reading " // trim(filename)
+          call shdf5_open(filename, 'R')
+
+          ndims = 0
+          idims = 0
+          call shdf5_info('LANDMASK', ndims, idims)
+
+          if ( ndims /= 2 .or. all(idims(1:2) /= (/nx_pft, ny_pft/)) ) then
+             write(*,*) "Cannot find plant functional types dataset."
+             has_pft_dataset = .false.
+          endif
+
+          ndims = 0
+          idims = 0
+          call shdf5_info('PCT_PFT', ndims, idims)
+
+          if ( ndims /= 3 .or. all(idims(1:3) /= (/nx_pft, ny_pft, 17/)) ) then
+             write(*,*) "Cannot find plant functional types dataset."
+             has_pft_dataset = .false.
+          endif
+       endif
+    endif
+
+#ifdef OLAM_MPI
+    if (iparallel == 1) then
+       call MPI_Bcast( has_pft_dataset, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier )
+    endif
+#endif
+
+    if (has_pft_dataset) then
+       allocate(landmask(nio,njo))
+       allocate(pfts_ll (nio,njo))
+
+       gdatdx =    0.05
+       gdatdy =    0.05
+       xswlat =  -89.975
+       xswlon = -179.975
+       inproj = 1
+       ipoffset = int((xswlon + 180.) / gdatdx) + 2
+
+       if (myrank == 0) then
+          allocate(rawdata(nx_pft,ny_pft))
+       endif
+
+       ! First read land/sea mask
+       if (myrank == 0) then
+          call shdf5_irec(2, (/nx_pft,ny_pft/), 'LANDMASK', bvar2=rawdata)
+
+          call prfill( nx_pft, ny_pft, rawdata, landmask, &
+                       gdatdy, xswlat, ipoffset, inproj )
+       endif
+
+       ! Communicate landmask to other nodes
+#ifdef OLAM_MPI
+       if (iparallel == 1) then
+          call MPI_Bcast( landmask, nio*njo, MPI_INTEGER1, 0, MPI_COMM_WORLD, ier )
+       endif
+#endif
+
+       ! Loop over all pfts in file. Skip 17 (other crop) which is 0 in file
+       do ips = 1, 16
+
+          ! pft 16 in file is crops; map to 'other crop' rather than corn
+          if (ips==16) then
+             ip = ips
+          else
+             ip = ips - 1
+          endif
+
+          ! Read PFT from file
+          if (myrank == 0) then
+             call shdf5_irec(ndims, idims, 'PCT_PFT', bvar2=rawdata, &
+                  start = (/1, 1, ips/), counts=(/nx_pft,ny_pft,1/) )
+
+             call prfill( nx_pft, ny_pft, rawdata, pfts_ll,&
+                          gdatdy, xswlat, ipoffset, inproj )
+
+             ! Mask out sea points
+             where (landmask == 0)
+                pfts_ll = -127
+             end where
+          endif
+
+          ! Communicate PFTs to other nodes
+#ifdef OLAM_MPI
+          if (iparallel == 1) then
+             call MPI_Bcast( pfts_ll, nio*njo, MPI_INTEGER1, 0, MPI_COMM_WORLD, ier )
+          endif
+#endif
+
+          !$omp parallel do private(gry,grx)
+          do iwl = 2, mwl
+
+             if (land%glatw(iwl) < -70.) then
+
+                ! Set Antarctica to all barren for now
+                if (ip == 0) then
+                   pfts(ip,iwl) = 1.0
+                else
+                   pfts(ip,iwl) = 0.0
+                endif
+
+             else
+
+                gry = (land%glatw(iwl) - xswlat) / gdatdy + 3.
+                grx = (land%glonw(iwl) - xswlon) / gdatdx + 1. + real(ipoffset) 
+
+                call gdtost_int1( pfts_ll, nio, njo, grx, gry, pfts(ip,iwl) )
+
+                pfts(ip,iwl) = pfts(ip,iwl) * 0.01
+
+             endif
+          enddo
+
+       enddo
+
+       if (myrank == 0) then
+          call shdf5_close()
+       endif
+
+    endif
+
+  end subroutine read_pfts
+
+
+
+
   subroutine megan_init()
 
     use leaf_coms,    only: mwl
     use mem_leaf,     only: land
     use leaf4_canopy, only: vegndvi
     use consts_coms,  only: pio180, pi2
-    use misc_coms,    only: current_time, runtype, io6
-    use mem_grid,     only: mwa, glatw
+    use misc_coms,    only: current_time, runtype
     use cgrid_spcs,   only: n_gc_emis, gc_emis
     use utilio_defn,  only: index1
+    use oname_coms,   only: nl
+    use max_dims,     only: pathlen
+    use leaf_coms,    only: veg_frac
+    use leaf4_soil,   only: soil_pot2wat
+
     implicit none
 
     real    :: ta, tb, tc, td, te
-    integer :: iwl, iw, n
+    integer :: iwl, n, ip
+    real    :: tot
 
     integer :: day
-    real    :: hour, beta, sinbeta_max
+    real    :: hour, beta, sinbeta
 
     integer, external :: julday
 
@@ -313,7 +505,11 @@ contains
 
     day = julday( current_time%month, current_time%date, current_time%year )
 
-    !$omp parallel do private (hour,beta,sinbeta_max,ta,tb,tc,td,te)
+    if (nl%megan_use_pfts_file .and. len_trim(nl%megan_pfts_file) > 0) then
+       call read_pfts( )
+    endif
+
+    !$omp parallel do private (hour,tot,beta,sinbeta,ta,tb,tc,td,te)
     do iwl = 2, mwl
 
        hour = current_time%time / 3600.0_r8 + land%glonw(iwl) / 15.0
@@ -324,23 +520,45 @@ contains
           hour = hour - 24.0
        endif
 
-       ! map OLAM land surface classes to what MEGAN expects
+       if (has_pft_dataset) then
+          tot = sum(pfts(0:16,iwl))
+       else
+          tot = 1.0
+       endif
 
-       ipft(iwl) = olam2pft( land%leaf_class(iwl), land%glatw(iwl) )
+       if ( (.not. has_pft_dataset) .or. (tot < 0.2) ) then
+
+          pfts(   0,iwl) = 1.0
+          pfts(1:16,iwl) = 0.0
+
+          ! Map OLAM land surface classes to what MEGAN expects
+          ! Note: This need to be improved, should use original OLSON ecosystem classes
+          ip = olam2pft( land%leaf_class(iwl), land%glatw(iwl) )
+
+          if (ip > 0) then
+             pfts(ip,iwl) =       veg_frac( land%leaf_class(iwl) )
+             pfts( 0,iwl) = 1.0 - veg_frac( land%leaf_class(iwl) )
+          endif
+
+       else
+
+          pfts(0:16,iwl) = pfts(0:16,iwl) / tot
+
+       endif
 
        ! initialize average temperature based on current temperature modified
        ! by a simple diurnal variation, and the average radiation to be a 
        ! fraction of midday clear-sky top-of-atmosphere solar flux
 
        if (runtype == 'INITIAL') then
-          beta        = calcbeta( Day, land%glatw(iwl), 12.0 )
-          sinbeta_max = max( sin(beta * pio180), 0.0 )
+          beta    = calcbeta( Day, land%glatw(iwl), 12.0 )
+          sinbeta = max( sin(beta * pio180), 0.0 )
 
           avg_temp(iwl) = land%cantemp(iwl) &
-               - tdiff0 * cos( (hour - hrmax) * pi2 / 24.0 ) * sinbeta_max
+               - tdiff0 * cos( (hour - hrmax) * pi2 / 24.0 ) * sinbeta
 
-          avg_ppfd    (iwl) = solcon * sinbeta_max * 0.25 * par_ratio * ppfd_ratio
-          avg_ppfd_dif(iwl) = solcon * sinbeta_max * 0.05 * par_ratio * ppfd_ratio
+          avg_ppfd    (iwl) = solcon * sinbeta * 0.25 * par_ratio * ppfd_ratio
+          avg_ppfd_dif(iwl) = solcon * sinbeta * 0.05 * par_ratio * ppfd_ratio
        endif
 
        ! set current and next months LAI
@@ -366,6 +584,50 @@ contains
        !endif
     enddo
 
+
+    do n = 1, nstyp
+       call soil_pot2wat( 0, n, .true., -153.0, 0.0, &
+                          tot, wilting_point_vg(n) )
+    enddo
+    
+    norm_fact( :3,:) = 0.0
+    norm_fact(21:,:) = 0.0
+
+    norm_fact( 4,:) = (/ 0.442, 0.442, 0.442, 0.551, 0.484, 0.551, 0.484, 0.484, &
+                         0.442, 0.442, 0.442, 0.405, 0.405, 0.405, 0.362, 0.362 /)
+    norm_fact( 5,:) = (/ 0.445, 0.445, 0.445, 0.554, 0.487, 0.554, 0.487, 0.487, &
+                         0.445, 0.445, 0.445, 0.408, 0.408, 0.408, 0.365, 0.365 /)
+    norm_fact( 6,:) = (/ 0.454, 0.454, 0.454, 0.566, 0.498, 0.566, 0.498, 0.498, &
+                         0.454, 0.454, 0.454, 0.417, 0.417, 0.417, 0.373, 0.373 /)
+    norm_fact( 7,:) = (/ 0.463, 0.463, 0.463, 0.577, 0.508, 0.577, 0.508, 0.508, &
+                         0.463, 0.463, 0.463, 0.425, 0.425, 0.425, 0.380, 0.380 /)
+    norm_fact( 8,:) = (/ 0.501, 0.501, 0.501, 0.624, 0.549, 0.624, 0.549, 0.549, &
+                         0.501, 0.501, 0.501, 0.459, 0.459, 0.459, 0.411, 0.411 /)
+    norm_fact( 9,:) = (/ 0.547, 0.547, 0.547, 0.682, 0.600, 0.682, 0.600, 0.600, &
+                         0.547, 0.547, 0.547, 0.502, 0.502, 0.502, 0.449, 0.449 /)
+    norm_fact(10,:) = (/ 0.469, 0.469, 0.469, 0.584, 0.514, 0.584, 0.514, 0.514, &
+                         0.469, 0.469, 0.469, 0.430, 0.430, 0.430, 0.385, 0.385 /)
+    norm_fact(11,:) = (/ 0.545, 0.545, 0.545, 0.679, 0.597, 0.679, 0.597, 0.597, &
+                         0.545, 0.545, 0.545, 0.499, 0.499, 0.499, 0.447, 0.447 /)
+    norm_fact(12,:) = (/ 0.346, 0.346, 0.346, 0.431, 0.379, 0.431, 0.379, 0.379, &
+                         0.346, 0.346, 0.346, 0.317, 0.317, 0.317, 0.284, 0.284 /)
+    norm_fact(13,:) = (/ 0.358, 0.358, 0.358, 0.446, 0.392, 0.446, 0.392, 0.392, &
+                         0.358, 0.358, 0.358, 0.328, 0.328, 0.328, 0.294, 0.294 /)
+    norm_fact(14,:) = (/ 0.448, 0.448, 0.448, 0.559, 0.491, 0.559, 0.491, 0.491, &
+                         0.448, 0.448, 0.448, 0.411, 0.411, 0.411, 0.368, 0.368 /)
+    norm_fact(15,:) = (/ 0.529, 0.529, 0.529, 0.660, 0.580, 0.660, 0.580, 0.580, &
+                         0.529, 0.529, 0.529, 0.485, 0.485, 0.485, 0.434, 0.434 /)
+    norm_fact(16,:) = (/ 0.353, 0.353, 0.353, 0.441, 0.387, 0.441, 0.387, 0.387, &
+                         0.353, 0.353, 0.353, 0.324, 0.324, 0.324, 0.290, 0.290 /)
+    norm_fact(17,:) = (/ 0.358, 0.358, 0.358, 0.446, 0.392, 0.446, 0.392, 0.392, &
+                         0.358, 0.358, 0.358, 0.328, 0.328, 0.328, 0.294, 0.294 /)
+    norm_fact(18,:) = (/ 0.595, 0.595, 0.595, 0.741, 0.652, 0.741, 0.652, 0.652, &
+                         0.595, 0.595, 0.595, 0.545, 0.545, 0.545, 0.488, 0.488 /)
+    norm_fact(19,:) = (/ 0.413, 0.413, 0.413, 0.515, 0.453, 0.515, 0.453, 0.453, &
+                         0.413, 0.413, 0.413, 0.379, 0.379, 0.379, 0.339, 0.339 /)
+    norm_fact(20,:) = (/ 0.456, 0.456, 0.456, 0.568, 0.499, 0.568, 0.499, 0.499, &
+                         0.456, 0.456, 0.456, 0.418, 0.418, 0.418, 0.374, 0.374 /)
+    
   end subroutine megan_init
 
 
@@ -384,14 +646,13 @@ contains
     do iwl = 2, mwl
 
        lai_prev(iwl) = lai_next(iwl)
-       
+
        call vegndvi( iwl, land%leaf_class(iwl), 1.0, land%veg_height(iwl), &
                      land%veg_ndvip(iwl), land%veg_ndvif(iwl), ta, tb,     &
                      lai_next(iwl), tc, td, te                             )
-
     enddo
     !$omp end parallel do
-       
+
   end subroutine megan_store_lai
 
 
@@ -459,14 +720,17 @@ contains
     real :: gam_tli(n_mgn_spc)  ! light-independent activity factor
     real :: gam_smt(n_mgn_spc)  ! soil moisture activity factor
 
+    real :: gam_tli_ip(n_mgn_spc)
+    real :: gam_tld_ip(n_mgn_spc)
+
     real :: em(n_mgn_spc)
     real :: tmper(n_spca_spc)
     real :: outer(n_mech_spc)
 
-    integer :: kw, iw, s
+    integer :: kw, iw, s, ip
 
     real :: glat, glon, hour
-    real :: LAIc
+    real :: LAIc, slai
     real :: arf
     real :: beta, sinbeta
 
@@ -479,23 +743,26 @@ contains
     real, parameter :: hr2sec = 1./3600.    ! convert 1/hr to 1/second
     real, parameter :: n2no   = 2.142857    ! nitrogen conversion?
 
-    real :: ppfd0, ppfd0_dif, ppfd24, ppfd24_dif, temp0, temp24, vegtk
+    real :: ppfd0, ppfd0_dif, ppfd24, ppfd24_dif, temp24, vegtk, ptot, fact
 
     jday  = julday( current_time%month, current_time%date, current_time%year )
     jdate = current_time%year*1000 + jday
 
     iw = itab_wl(iwl)%iw
+
     if (isubdomain == 1) then
        iw = itabg_w(iw)%iw_myrank
     endif
     kw = itab_wl(iwl)%kw
 
-    LAIc = land%veg_lai(iwl) * (1.0 - land%snowfac(iwl))
-    glat = land%glatw(iwl)
-    glon = land%glonw(iwl)
-    arf  = land%area(iwl)
+    slai = land%veg_lai(iwl) * (1.0 - land%snowfac(iwl))
+    ptot = 1.0 - pfts(0,iwl)
 
-    if (laic > 0.01 .and. land%vf(iwl) > 0.01 .and. ipft(iwl) /= 0) then
+    if (slai > 0.01 .and. land%veg_fracarea(iwl) > 0.01 .and. ptot > 0.01) then
+
+       glat = land%glatw(iwl)
+       glon = land%glonw(iwl)
+       arf  = land%area(iwl)
 
        ppfd0      = land%ppfd(iwl)
        ppfd0_dif  = land%ppfd_diffuse(iwl)
@@ -504,8 +771,15 @@ contains
        ppfd24_dif = avg_ppfd_dif(iwl)
 
        temp24 = avg_temp(iwl)
-       temp0  = land%cantemp(iwl)
        vegtk  = land%veg_temp(iwl)
+
+       if (.not. has_pft_dataset) then
+          fact = land%veg_fracarea(iwl) / ptot
+       else
+          fact = 1.0
+       endif
+
+       LAIc = land%veg_lai(iwl) * (1.0 - land%snowfac(iwl)) / max(land%veg_fracarea(iwl), ptot*fact)
 
        ! compute local solar day/hour
 
@@ -530,18 +804,32 @@ contains
 
        call gamma_lai( gam_lht, laic )
 
-       call gamma_sm( gam_smt, land%leaf_class(iwl), &
+       call gamma_sm( gam_smt, land%leaf_class(iwl), land%flag_vg(iwl), &
             land%soil_water(1:nzg,iwl), land%ntext_soil(1:nzg,iwl) )
 
        call gamma_a( gam_age, lai_prev(iwl), lai_next(iwl), temp24 )
 
-       call gamma_ce( gam_tld, gam_tli, sinbeta, temp0, temp24, vegtk,      &
-            ppfd0, ppfd0_dif, ppfd24, ppfd24_dif, ipft(iwl), laic )
+       gam_tld(:) = 0.
+       gam_tli(:) = 0.
+
+       do ip = 1, 16
+          if (pfts(ip,iwl) < 0.01) cycle
+
+          call gamma_ce( gam_tld_ip, gam_tli_ip, sinbeta, temp24, vegtk, ppfd0, &
+               ppfd0_dif, ppfd24, ppfd24_dif, ip, laic, norm_fact(land%leaf_class(iwl),ip) )
+
+          do s = 1, n_mgn_spc
+             gam_tld(s) = gam_tld(s) + pfts(ip,iwl) * gam_tld_ip(s)
+             gam_tli(s) = gam_tli(s) + pfts(ip,iwl) * gam_tli_ip(s)
+          enddo
+       enddo
 
        do s = 1, n_mgn_spc
+          gam_tld(s) = gam_tld(s) / ptot
+          gam_tli(s) = gam_tli(s) / ptot
 
           em(s) = GAM_AGE(s) * GAM_SMT(s) * &
-               ( (1.0-LDF_FCT(S)) * GAM_TLI(s) * GAM_LHT + LDF_FCT(S) * GAM_TLD(s) )
+                  ( (1.0-LDF_FCT(S)) * GAM_TLI(s) * GAM_LHT + LDF_FCT(S) * GAM_TLD(s) )
        enddo
 
        ! We do soil NOx elsewhere, so turn off NOx here
@@ -555,8 +843,8 @@ contains
           nmpmg = mg20_map(s)
           nmpsp = spca_map(s)
 
-          tmper(nmpsp) = em(nmpmg) * ef_all(ipft(iwl),nmpmg) * effs_all(ipft(iwl),nmpsp)
-
+          tmper(nmpsp) = em(nmpmg) * fact &
+                       * sum(ef_all(1:16,nmpmg) * effs_all(1:16,nmpsp) * pfts(1:16,iwl))
        enddo
 
        ! Convert from ug/m^2/hr to mol/m^2/hr using their MW
@@ -810,31 +1098,39 @@ contains
 !
 !     SUBROUTINE GAMMA_S returns the GAMMA_SM values
 !-----------------------------------------------------------------------
-  SUBROUTINE GAMMA_SM( GAM_S, leaf_class, soil_water, ntext_soil )
+  SUBROUTINE GAMMA_SM( GAM_S, leaf_class, flag_vg, soil_water, ntext_soil )
 
     use leaf_coms, only: nzg, kroot, soilwilt
     IMPLICIT NONE
 
     REAL,    intent(out) :: GAM_S(n_mgn_spc)
     integer, intent(in)  :: leaf_class
+    logical, intent(in)  :: flag_vg
     real,    intent(in)  :: soil_water(nzg)
     integer, intent(in)  :: ntext_soil(nzg)
 
     real, parameter :: dsw = 0.06
     real            :: smk
     integer         :: k, nts, s
+    real            :: wiltp
 
     gam_s(1) = 0.0
 
     do k = kroot(leaf_class), nzg
        nts = ntext_soil(k)
 
-       if (soil_water(k) <= soilwilt(nts)) then
+       if (flag_vg) then
+          wiltp = wilting_point_vg(nts)
+       else
+          wiltp = soilwilt(nts)
+       endif
+
+       if (soil_water(k) <= wiltp) then
           smk = 0.0
-       elseif (soil_water(k) >= soilwilt(nts) + dsw) then
+       elseif (soil_water(k) >= wiltp + dsw) then
           smk = 1.0
        else
-          smk = (soil_water(k) - soilwilt(nts)) / dsw
+          smk = (soil_water(k) - wiltp) / dsw
        endif
 
        gam_s(1) = max(gam_s(1), smk)
@@ -847,16 +1143,17 @@ contains
   END SUBROUTINE GAMMA_SM
 
 
-  subroutine gamma_ce( gamma_tld, gamma_tli, sinbeta, temp, temp24, veg_temp, &
-                       ppfd, ppfd_dif, ppfd24, ppfd24_dif, cantype, lai )
+  subroutine gamma_ce( gamma_tld, gamma_tli, sinbeta, temp24, veg_temp, &
+                       ppfd, ppfd_dif, ppfd24, ppfd24_dif, cantype, lai, cnorm )
      
     implicit none
 
     ! input
     integer, intent(in) :: cantype
     real,    intent(in) :: sinbeta, lai
-    real,    intent(in) :: temp, temp24, veg_temp
+    real,    intent(in) :: temp24, veg_temp
     real,    intent(in) :: ppfd, ppfd_dif, ppfd24, ppfd24_dif
+    real,    intent(in) :: cnorm
 
     ! output
     real, intent(out) :: gamma_tld (n_mgn_spc)
@@ -894,7 +1191,7 @@ contains
 
        do s = 1, n_mgn_spc
           gamma_t      = Ea1t99(veg_temp, topt, eopt, S)
-          gamma_tld(s) = ( gamma_p_sun + gamma_p_shade ) * gamma_t * cce * lai
+          gamma_tld(s) = ( gamma_p_sun + gamma_p_shade ) * gamma_t * cnorm * lai
        enddo
 
     else

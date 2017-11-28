@@ -302,7 +302,7 @@ SOURCE_FILES= \
              $(CMAQ)/UTILIO_DEFN.F \
              $(MEGAN)/CONSTS_MEGAN.f90 \
              $(MEGAN)/EMIS_MAPS_MEGAN.f90 \
-             $(MEGAN)/megan_driver.f90
+             $(MEGAN)/megan_driver.F90
 
 ED2_SOURCES = \
              $(ED2DRIV)/ed_1st.f90 \

@@ -537,6 +537,12 @@
 
    NL%EMIS_DIR       = '../../olamdatah5/edgar42'
    NL%GEIA_EMIS_FILE = '../etc/geia_emis.nc4'
+   
+   ! Set these to read the global plant functional type database provided with
+   ! the MEGAN biogenic emission module; else we estimate these from the OLAM
+   ! land use files.
+   NL%MEGAN_USE_PFTS_FILE = .FALSE.
+   NL%MEGAN_PFTS_FILE     = '../../olamdatah5/megan/pfts.nc4'
 
    NL%O3NUDFLAG  = 0
    NL%O3NUDPRESS = 150.
