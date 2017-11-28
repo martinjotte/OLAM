@@ -53,7 +53,7 @@ if (miclevel /= 3) return
 
 ! Section for parcel model simulation (only one grid cell is prognosed)
 
-if (nl%test_case == 901 .or. nl%test_case == 902) then
+if (nl%test_case >= 901 .and. nl%test_case <= 999) then
 
 ! Specify IW of grid cell to prognose (k=2 assumed for parcel cell)
 
@@ -236,7 +236,7 @@ real :: &
   r2323(mza0,2),r2337(mza0,2),r2442(mza0,2),r2427(mza0,2),r2424(mza0,2), &
   r2447(mza0,2),r2552(mza0,2),r2527(mza0,2),r2525(mza0,2),r2557(mza0,2), &
   r2662(mza0,2),r2627(mza0,2),r2626(mza0,2),r2667(mza0,2),r2772(mza0,2), &
-  r2727(mza0,2),r0000(mza0,2)
+  r2727(mza0,2),r0000(mza0,2),r1812(mza0,2),r1882(mza0,2)
 
 real :: &
   e1111(mza0),e1118(mza0),e8888(mza0),e8882(mza0),e1112(mza0), &
@@ -252,7 +252,7 @@ real :: &
   e2327(mza0),e2333(mza0),e2337(mza0),e2422(mza0),e2427(mza0), &
   e2444(mza0),e2447(mza0),e2522(mza0),e2527(mza0),e2555(mza0), &
   e2557(mza0),e2622(mza0),e2627(mza0),e2666(mza0),e2667(mza0), &
-  e2722(mza0),e2727(mza0),e2777(mza0),e0000(mza0)
+  e2722(mza0),e2727(mza0),e2777(mza0),e0000(mza0),e1882(mza0)
 
 real(r8) :: rhoa(mza0)
 real(r8) :: rhow(mza0)
@@ -380,7 +380,7 @@ totcond  (:) = 0.
  r2323(:,:) = 0.;r2337(:,:) = 0.;r2442(:,:) = 0.;r2427(:,:) = 0.;r2424(:,:) = 0.
  r2447(:,:) = 0.;r2552(:,:) = 0.;r2527(:,:) = 0.;r2525(:,:) = 0.;r2557(:,:) = 0.
  r2662(:,:) = 0.;r2627(:,:) = 0.;r2626(:,:) = 0.;r2667(:,:) = 0.;r2772(:,:) = 0.
- r2727(:,:) = 0.;r0000(:,:) = 0.
+ r2727(:,:) = 0.;r0000(:,:) = 0.;r1812(:,:) = 0.;r1882(:,:) = 0.
 
  e1111(:) = 0.;e1118(:) = 0.;e8888(:) = 0.;e8882(:) = 0.;e1112(:) = 0.
  e1811(:) = 0.;e1211(:) = 0.;e8288(:) = 0.;e2222(:) = 0.;e5555(:) = 0.
@@ -395,7 +395,7 @@ totcond  (:) = 0.
  e2327(:) = 0.;e2333(:) = 0.;e2337(:) = 0.;e2422(:) = 0.;e2427(:) = 0.
  e2444(:) = 0.;e2447(:) = 0.;e2522(:) = 0.;e2527(:) = 0.;e2555(:) = 0.
  e2557(:) = 0.;e2622(:) = 0.;e2627(:) = 0.;e2666(:) = 0.;e2667(:) = 0.
- e2722(:) = 0.;e2727(:) = 0.;e2777(:) = 0.;e0000(:) = 0.
+ e2722(:) = 0.;e2727(:) = 0.;e2777(:) = 0.;e0000(:) = 0.;e1882(:) = 0.
 
 rhoa(:) = 0.
 rhow(:) = 0.
@@ -713,34 +713,41 @@ j18 = max(k1(1),k1(8)); k18 = min(k2(1),k2(8))
 j82 = max(k1(8),k1(2)); k82 = min(k2(8),k2(2))
 j12 = max(k1(1),k1(2)); k12 = min(k2(1),k2(2))
 
-! Self-collection of cloud and drizzle
+if (jnmb(8) == 0) then  ! If drizzle is turned OFF
 
-if (jnmb(8) == 0) then  ! If drizzle is NOT active
+   ! Self-collection of cloud droplets - transfer to rain
 
    if (jnmb(2) >= 1 .and. k1(1) <= k2(1)) &
    call col1188(1,2,1,k1(1),k2(1), &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2, &
       r1112,e1111,e1112)
 
-else                    ! If drizzle IS active
+else                    ! If drizzle is turned ON
+
+   ! Self-collection of cloud droplets - transfer to drizzle
 
    if (k1(1) <= k2(1)) &
    call col1188(1,8,1,k1(1),k2(1), &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2, &
       r1118,e1111,e1118)
 
+   ! Collision between cloud and drizzle - transfer to drizzle and rain
+
+   if (j18 <= k18) &
+   call col1882(1,8,2,1,j18,k18, &
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
+      r1818,r1812,r1882,e1811,e1882)
+
 endif
+
+! Self-collection of drizzle - transfer to rain
 
 if (jnmb(2) >= 1 .and. k1(8) <= k2(8)) &
    call col1188(8,2,1,k1(8),k2(8), &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2, &
       r8882,e8888,e8882)
 
-! Collisions between different liquid species
-
-if (j18 <= k18) &
-   call col1(1,8,8,1,j18,k18, &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r1818,e1811)
+! Collisions of cloud or drizzle with rain
 
 if (j12 <= k12) &
    call col1(1,2,2,1,j12,k12, &
@@ -937,14 +944,14 @@ endif
     r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
     r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
     r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
-    r2727,r0000, &
+    r2727,r0000,r1812,r1882, &
     e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
     e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
     e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
     e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
     e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
     e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
-    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000, &
+    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000,e1882, &
     con_ccnx)
 
 1411 continue
@@ -1070,9 +1077,9 @@ if (jnmb(2) >= 1) &
   pcprx(1:ncat) = 0.
 
 ! No sedimentation, dry nuclei deposition, or precipitation scavenging of
-! nuclei if running parcel test 901 or 902
+! nuclei if running parcel tests 901-999
 
-if (nl%test_case == 901 .or. nl%test_case == 902) go to 1412
+if (nl%test_case >= 901 .and. nl%test_case <= 999) go to 1412
 
 ! Compute sedimentation for all 7 precipitating categories
 
@@ -1093,10 +1100,10 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1412
 
 1412 continue
 
-! If running parcel test case 901 or 902, call parcel plot to store and
+! If running parcel test cases 901-909, call parcel plot to store and
 ! (on last timestep) plot parcel fields
 
-if (nl%test_case == 901 .or. nl%test_case == 902) then
+if (nl%test_case >= 901 .and. nl%test_case <= 909) then
 
    call parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
       press0,thil0,theta0,tairc,rhovslair,rhovsiair,rhov,rhoi,rhoa,rhow, &
@@ -1109,14 +1116,14 @@ if (nl%test_case == 901 .or. nl%test_case == 902) then
       r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
       r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
       r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
-      r2727,r0000, &
+      r2727,r0000,r1812,r1882, &
       e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
       e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
       e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
       e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
       e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
       e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
-      e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000)
+      e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000,e1882)
 
 endif
 

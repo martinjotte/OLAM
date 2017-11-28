@@ -75,7 +75,6 @@ do ithz = 1,nthz
    enddo
 enddo
 
-return
 end subroutine haznuc
 
 !===============================================================================
@@ -129,7 +128,6 @@ do itc = 1, ntc
 
 enddo
 
-return
 end subroutine homfrzcl
 
 !===============================================================================
@@ -297,7 +295,6 @@ do lhcat = 1,nhcat
    enddo
 enddo
 
-return
 end subroutine mksedim_tab
 
 !===============================================================================
@@ -449,7 +446,7 @@ do lhcat = 1,nhcat
       enddo
    enddo
 enddo
-return
+
 end subroutine tabmelt
 
 !===============================================================================
@@ -458,7 +455,7 @@ subroutine mkcoltb_brute()
 
 use micro_coms, only: nhcat, lcat_lhcat, nembc, gnu, &
                       pwmas, cfmasi, pwmasi, emb0, emb1, cfvt, pwvt, cfmas, &
-                      ipair, coltabc, coltabx, coltaby
+                      ipair, coltabc, coltabx, coltaby, dnfac
 use misc_coms,  only: io6
 
 implicit none
@@ -466,13 +463,15 @@ implicit none
 integer, parameter :: ndx=100,ndy=100
 
 integer :: ihx,ix,ihy,iy,iemby,iembx,idx,idy
-integer :: ipc,ipc2,ipc3,ipx,ipy
+integer :: ipc,ipx,ipy,ipx2,ipy2
 
 real :: gxm,dnminx,dnmaxx,dxlo,dxhi,gxn,gyn,gym
 real :: dnminy,dnmaxy,dny,dnx,bint
-real :: sum_num,sum_num2,sum_num3,sum_xmass,sum_ymass
+real :: sum_num, sum_xmass, sum_ymass, sum_xmass2, sum_ymass2
 real :: vx,vy,dx,dy
 real :: fgamx,emx,dx1,dx2,fgamy,emy,dy1,dy2,dyhi,dylo
+
+real :: emby, embx, dmby, dmbx
 
 real, external :: gammln, efc
 
@@ -494,8 +493,8 @@ do ihx = 1,nhcat
 ! Get number-concentration collection table number for this colliding pair (X,Y)
 
       ipc  = ipair(ihx,ihy,1)
-      ipc2 = ipair(ihx,ihy,2)
-      ipc3 = ipair(ihx,ihy,3)
+      ipx2 = ipair(ihx,ihy,2)
+      ipy2 = ipair(ihx,ihy,3)
       ipx  = ipair(ihx,ihy,4)
       ipy  = ipair(ihx,ihy,5)
 
@@ -523,11 +522,11 @@ do ihx = 1,nhcat
          do iembx = 1,nembc
             dnx = dnminx * (dnmaxx / dnminx) ** (real(iembx-1) / real(nembc-1))
 
-            sum_num = 0.   ! Initialize integral number sum to zero
-            sum_num2 = 0.  ! Initialize integral number sum to zero
-            sum_num3 = 0.  ! Initialize integral number sum to zero
-            sum_xmass = 0. ! Initialize integral xmass sum to zero
-            sum_ymass = 0. ! Initialize integral ymass sum to zero
+            sum_num    = 0. ! Initialize integral number sum to zero
+            sum_xmass  = 0. ! Initialize integral xmass  sum to zero
+            sum_ymass  = 0. ! Initialize integral ymass  sum to zero
+            sum_xmass2 = 0. ! Initialize integral xmass2 sum to zero
+            sum_ymass2 = 0. ! Initialize integral ymass2 sum to zero
             
 ! Loop over spectrum of Y diameters for current mean-mass Y value
 
@@ -576,12 +575,9 @@ do ihx = 1,nhcat
 !    how much to send to category Z.
 ! 7. FOR DRIZZLE ACTIVATED:
 !      For CLOUD-CLOUD, determine how much goes to DRIZZLE.
-!         Use ipairc(8,1) for change in DRIZZLE number?
 !      for DRIZZLE-DRIZZLE, determine how much goes to RAIN.
-!         Use ipairc(2,8) for change in RAIN number?
 !    FOR NO DRIZZLE:
 !      For CLOUD-CLOUD, determine how much goes to RAIN.
-!         Use ipairc(2,1) for change in RAIN number?
 !------------------------------------------------------------------
 
 ! BINT is (integrand * del_dx * del_dy)
@@ -593,8 +589,8 @@ do ihx = 1,nhcat
 
                   sum_num = sum_num + bint
 
-! CONDITIONAL SUMMATION FOR CLOUD-CLOUD AND FOR DRIZZLE-DRIZZLE COLLISIONS
-! BASED ON MASS CUTOFF THRESHOLDS.  
+! CONDITIONAL SUMMATION FOR CLOUD-CLOUD, DRIZZLE-DRIZZLE, AND CLOUD-DRIZZLE
+! COLLISIONS BASED ON MASS CUTOFF THRESHOLDS (for cases where ipc = 1, 61, or 62)  
 !
 ! The assigned thresholds influence the rate at which mass and number are
 ! transferred from smaller to larger droplet species when collisions occur
@@ -608,49 +604,59 @@ do ihx = 1,nhcat
 ! cloud and rain, respectively.  The diameters and masses of the bins on
 ! either side of these thresholds are:
 !
-!          DIAMETER(m)   MASS(kg)
+! SXY      DIAMETER(m)   MASS(kg)
 !--------------------------------
+! BIN 10     25.0e-6       8.e-12
+! BIN 11     31.5e-6      16.e-12
+! BIN 12     39.7e-6      33.e-12
 ! BIN 13     50.0e-6      65.e-12
 ! BIN 14     63.0e-6     131.e-12
 ! BIN 15     79.4e-6     262.e-12
 ! BIN 16    100.0e-6     524.e-12
 ! BIN 17    126.0e-6    1047.e-12
 ! BIN 18    158.7e-6    2094.e-12
+! BIN 19    200.0e-6    4188.e-12
+! BIN 20    252.0e-6    8376.e-12
 
-                  if (ipc == 1) then
+! The following 4 size thresholds for (emx + emy) are related to embxz in
+! subroutines col1188 and col1882, but do not necessarily need to have the
+! same values.
 
-! Cloud-cloud interaction table for use in model runs with drizzle NOT activated
+                  if (ipc == 1) then      ! Cloud-cloud interaction table
 
-                      if (emx + emy > 400.e-12) then
+                     ! Drizzle turned ON in simulation
+
+                     if (emx + emy > 200.e-12) then
+                        sum_xmass = sum_xmass + bint * emx
+                     endif
+
+                     ! Drizzle turned OFF in simulation
+
+                     if (emx + emy > 400.e-12) then
+                        sum_xmass2 = sum_xmass2 + bint * emx
+                     endif
+
+                  elseif (ipc == 62) then ! Drizzle-drizzle interaction table
+
+                     if (emx + emy > 2000.e-12) then
+                        sum_xmass = sum_xmass + bint * emx
+                     endif
+
+                  elseif (ipc == 61) then ! Cloud-drizzle interaction table
+
+                     if (emx + emy > 2000.e-12) then
+
+                        sum_xmass2 = sum_xmass2 + bint * emx
+                        sum_ymass2 = sum_ymass2 + bint * emy
+
+                     else
 
                         sum_xmass = sum_xmass + bint * emx
-                        sum_num2  = sum_num2  + bint
+                        sum_ymass = sum_ymass + bint * emy
 
                      endif
 
-! Cloud-cloud interaction table for use in model runs with drizzle ACTIVATED
-
-                     if (emx + emy > 100.e-12) then
-
-                        sum_xmass = sum_xmass + bint * emx
-                        sum_num3  = sum_num3  + bint
-
-                     endif
-
-                  elseif (ipc == 62) then
-
-! Drizzle-drizzle interaction table
-
-                     if (emx + emy > 1500.e-12) then
-
-                        sum_xmass = sum_xmass + bint * emx
-                        sum_num2  = sum_num2  + bint
-
-                     endif
-
-                  else
-
-! Case 4: All other collisions - standard summation
+                  else                    ! All other collisions - standard summation
 
                      sum_xmass = sum_xmass + bint * emx
                      sum_ymass = sum_ymass + bint * emy
@@ -660,31 +666,15 @@ do ihx = 1,nhcat
                enddo
             enddo
 
-! sum_num and sum_xmass are the definite integral sums of number and mass
-! for the current X and Y mean-mass diameter pair.  Enter these in tables.
+! sum_num, sum_xmass, sum_ymass, sum_xmass2, and sum_ymass2 are the definite
+! integral sums of number and mass for the current X and Y mean-mass diameter
+! pair.  Enter these in tables.
 
-!no log10   coltabc(iembx,iemby,ipc) = sum_num
-            coltabc(iembx,iemby,ipc) = -log10(max(1.e-30,sum_num))
-
-            if (ipc2 > 0) then
-!no log10      coltabc(iembx,iemby,ipc2) = sum_num2
-               coltabc(iembx,iemby,ipc2) = -log10(max(1.e-30,sum_num2))
-            endif
-
-            if (ipc3 > 0) then
-!no log10      coltabc(iembx,iemby,ipc3) = sum_num3
-               coltabc(iembx,iemby,ipc3) = -log10(max(1.e-30,sum_num3))
-            endif
-
-            if (ipx > 0) then
-!no log10      coltabx(iembx,iemby,ipx) = sum_xmass
-               coltabx(iembx,iemby,ipx) = -log10(max(1.e-30,sum_xmass))
-            endif
-
-           if (ipy > 0) then
-!no log10      coltaby(iemby,iembx,ipy) = sum_ymass
-               coltaby(iemby,iembx,ipy) = -log10(max(1.e-30,sum_ymass))
-            endif
+                           coltabc(iembx,iemby,ipc ) = -log10(max(1.e-30,sum_num))
+             if (ipx  > 0) coltabx(iembx,iemby,ipx ) = -log10(max(1.e-30,sum_xmass))
+             if (ipx2 > 0) coltabx(iembx,iemby,ipx2) = -log10(max(1.e-30,sum_xmass2))
+             if (ipy  > 0) coltaby(iemby,iembx,ipy ) = -log10(max(1.e-30,sum_ymass))
+             if (ipy2 > 0) coltaby(iemby,iembx,ipy2) = -log10(max(1.e-30,sum_ymass2))
 
          enddo  ! iembx
       enddo  ! iemby
@@ -692,7 +682,6 @@ do ihx = 1,nhcat
    enddo  ! ihy
 enddo  ! ihx
 
-return
 end subroutine mkcoltb_brute
 
 !===============================================================================
@@ -803,7 +792,6 @@ efc = wtx1 * wty1 * efctab(iefcx  ,iefcy  ,knum) &
     + wtx1 * wty2 * efctab(iefcx  ,iefcy+1,knum) &
     + wtx2 * wty2 * efctab(iefcx+1,iefcy+1,knum)
 
-return
 end function efc
 
 !===============================================================================
@@ -895,5 +883,5 @@ do it = 1,31
       endif
    enddo
 enddo
-return
+
 end subroutine tabhab

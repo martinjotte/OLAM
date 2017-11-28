@@ -60,9 +60,9 @@ integer, parameter :: &
 
    ,neff   = 7    & ! 2nd array dim for eff (# of types of coalescence efficiency) 
 
-   ,npairc = 109  & ! # of pairs of species in number collection table
-   ,npairx = 102  & ! # of pairs of species in x mass collection table
-   ,npairy = 54   & ! # of pairs of species in y mass collection table
+   ,npairc = 106  & ! # of pairs of species in number collection table
+   ,npairx = 104  & ! # of pairs of species in x mass collection table
+   ,npairy = 55   & ! # of pairs of species in y mass collection table
    ,nembc  = 20     ! # of diam values spanning main collection table (in 2 dims)
 
 real, parameter :: & 
@@ -196,9 +196,9 @@ real, allocatable :: pcpfillr(:,:,:,:) ! sedim table for bulk density
 
 real :: ipair(nhcat,nhcat,6)
 
-!         ihx ihy    ipc ipc2 ipc3 ipx ipy ieff
+!         ihx ihy    ipc ipx2 ipy2 ipx ipy ieff
 
-data ipair( 1, 1,:) /   1,107,108,  1,  0,  1 /
+data ipair( 1, 1,:) /   1,103,  0,  1,  0,  1 /
 data ipair( 1, 2,:) /   2,  0,  0,  2,  0,  1 /
 data ipair( 2, 2,:) /   3,  0,  0,  0,  0,  1 /
 data ipair( 8, 2,:) /   4,  0,  0,  3,  0,  1 /
@@ -258,8 +258,8 @@ data ipair(13, 7,:) /  57,  0,  0, 53,  0, 10 /
 data ipair(14, 7,:) /  58,  0,  0, 54,  0, 10 /
 data ipair(15, 7,:) /  59,  0,  0, 55,  0, 10 /
 data ipair(16, 7,:) /  60,  0,  0, 56,  0, 10 /
-data ipair( 1, 8,:) /  61,  0,  0, 57,  0,  1 /
-data ipair( 8, 8,:) /  62,109,  0, 58,  0,  1 /
+data ipair( 1, 8,:) /  61,104, 55, 57,  0,  1 /
+data ipair( 8, 8,:) /  62,  0,  0, 58,  0,  1 /
 data ipair( 2, 9,:) /  63,  0,  0, 59, 19, 10 /
 data ipair( 9, 9,:) /  64,  0,  0, 60,  0, 10 /
 data ipair( 2,10,:) /  65,  0,  0, 61, 20, 10 /

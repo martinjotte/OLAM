@@ -89,9 +89,9 @@ endif
 do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    istp = jstp
 
-   ! Bypass all processes except microphyics if running parcel test 901 or 902
+   ! Bypass all processes except microphyics if running microphysics parcel simulation
 
-   if (nl%test_case == 901 .or. nl%test_case == 902) go to 1311
+   if (nl%test_case >= 901 .and. nl%test_case <= 999) go to 1311
 
    call tend0(rhot)
 
@@ -244,9 +244,9 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call micro()  ! maybe later make freq. uniform
    endif
 
-   ! Bypass all processes except microphyics if running parcel test 901 or 902
+   ! Bypass all processes except microphyics if running microphysics parcel simulation
 
-   if (nl%test_case == 901 .or. nl%test_case == 902) go to 1312
+   if (nl%test_case >= 901 .and. nl%test_case <= 999) go to 1312
 
    ! call check_nans(17)
 

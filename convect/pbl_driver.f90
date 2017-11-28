@@ -61,7 +61,7 @@ subroutine pbl_driver(mrl,rhot)
 
 !----------------------------------------------------------------------
   !$omp parallel private(qc,thlv)
-  !$omp do private(iw,mrlw,ka,k)
+  !$omp do private(iw,mrlw,ka,k,ks,dtli)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 

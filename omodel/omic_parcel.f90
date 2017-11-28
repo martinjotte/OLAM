@@ -76,7 +76,7 @@ subroutine parcel_env(iw)
 !                 0.0,   15.0,   80.0,   0.0,   0.0,  ! P1
 !              1000.0,    8.5,   80.0,   0.0,   0.0,  ! P1
 
-     press(k,iw) = press(k,iw) * .995
+     press(k,iw) = press(k,iw) * (1. - dtlm(1) * .0005)
 
      rho(k,iw) = press(k,iw) ** cvocp * p00k &
                / (theta(k,iw) * (1. - sh_c(k,iw)) &
@@ -137,6 +137,35 @@ subroutine parcel_env(iw)
         thil(k,iw) = thil(k,iw) + thildif
      endif
 
+  elseif (nl%test_case == 903) then
+
+! NOTES:
+! This is testbed for series of parcel simulations for OLAM version 5.2.
+! Tests are conducted to determine (1) optimal minimum size for drizzle,
+! (2) optimal cutoff sizes in coltab_brute for cloud-drizzle-rain, 
+! and (3) optimal method of applying subroutine ccnbin.
+
+! A parcel initially at a given temperature and subsaturated relative humidity
+! ascends at constant velocity for a given period of time.  During this time, 
+! the parcel cools and saturates, producing nucleated cloud water and (if specified)
+! nucleated drizzle.  Drizzle and rain are produced by subsequent collisions.
+! No ice categories are allowed in this simulation.  Sedimentation is turned off
+! (by IF statements in subroutine micphys in omic_driv.f90) in order to examine
+! conservation properties of the parcel.
+
+! OLAMIN microphysics settings are: ICLOUD = 5, IDRIZ = 5, IRAIN = 5,
+! IPRIS = 0, ISNOW = 0, IAGGR = 0, IGRAUP = 0, IHAIL = 0.
+
+! Sounding is standard atmosphere temperature profile but with high relative humidity:
+!                 0.0,   15.0,   80.0,   0.0,   0.0,  ! P1
+!              1000.0,    8.5,   80.0,   0.0,   0.0,  ! P1
+
+     press(k,iw) = press(k,iw) * (1. - dtlm(1) * .0005) ! This represents approximately 4 m/s ascent rate
+
+     rho(k,iw) = press(k,iw) ** cvocp * p00k &
+               / (theta(k,iw) * (1. - sh_c(k,iw)) &
+               * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+
   endif
 
 end subroutine parcel_env
@@ -154,14 +183,14 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
     r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
     r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
     r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
-    r2727,r0000, &
+    r2727,r0000,r1812,r1882, &
     e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
     e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
     e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
     e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
     e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
     e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
-    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000)
+    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000,e1882)
 
   use consts_coms, only: r8
   use misc_coms,   only: time8, timmax8, dtlm
@@ -224,7 +253,7 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
   r2323(mza0,2),r2337(mza0,2),r2442(mza0,2),r2427(mza0,2),r2424(mza0,2), &
   r2447(mza0,2),r2552(mza0,2),r2527(mza0,2),r2525(mza0,2),r2557(mza0,2), &
   r2662(mza0,2),r2627(mza0,2),r2626(mza0,2),r2667(mza0,2),r2772(mza0,2), &
-  r2727(mza0,2),r0000(mza0,2)
+  r2727(mza0,2),r0000(mza0,2),r1812(mza0,2),r1882(mza0,2)
 
   real, intent(in) :: &
   e1111(mza0),e1118(mza0),e8888(mza0),e8882(mza0),e1112(mza0), &
@@ -240,7 +269,7 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
   e2327(mza0),e2333(mza0),e2337(mza0),e2422(mza0),e2427(mza0), &
   e2444(mza0),e2447(mza0),e2522(mza0),e2527(mza0),e2555(mza0), &
   e2557(mza0),e2622(mza0),e2627(mza0),e2666(mza0),e2667(mza0), &
-  e2722(mza0),e2727(mza0),e2777(mza0),e0000(mza0)
+  e2722(mza0),e2727(mza0),e2777(mza0),e0000(mza0),e1882(mza0)
 
   real, save, allocatable :: press0_s   (:)
   real, save, allocatable :: thil0_s    (:)
@@ -296,7 +325,7 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
   r2323_s(:,:),r2337_s(:,:),r2442_s(:,:),r2427_s(:,:),r2424_s(:,:), &
   r2447_s(:,:),r2552_s(:,:),r2527_s(:,:),r2525_s(:,:),r2557_s(:,:), &
   r2662_s(:,:),r2627_s(:,:),r2626_s(:,:),r2667_s(:,:),r2772_s(:,:), &
-  r2727_s(:,:),r0000_s(:,:)
+  r2727_s(:,:),r0000_s(:,:),r1812_s(:,:),r1882_s(:,:)
 
   real, save, allocatable :: &
   e1111_s(:),e1118_s(:),e8888_s(:),e8882_s(:),e1112_s(:), &
@@ -312,7 +341,7 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
   e2327_s(:),e2333_s(:),e2337_s(:),e2422_s(:),e2427_s(:), &
   e2444_s(:),e2447_s(:),e2522_s(:),e2527_s(:),e2555_s(:), &
   e2557_s(:),e2622_s(:),e2627_s(:),e2666_s(:),e2667_s(:), &
-  e2722_s(:),e2727_s(:),e2777_s(:),e0000_s(:)
+  e2722_s(:),e2727_s(:),e2777_s(:),e0000_s(:),e1882_s(:)
 
   integer, save :: ncnt = 0, ntim = 0
   integer :: k
@@ -377,7 +406,7 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
   r2323_s(ntim,2),r2337_s(ntim,2),r2442_s(ntim,2),r2427_s(ntim,2),r2424_s(ntim,2), &
   r2447_s(ntim,2),r2552_s(ntim,2),r2527_s(ntim,2),r2525_s(ntim,2),r2557_s(ntim,2), &
   r2662_s(ntim,2),r2627_s(ntim,2),r2626_s(ntim,2),r2667_s(ntim,2),r2772_s(ntim,2), &
-  r2727_s(ntim,2),r0000_s(ntim,2))
+  r2727_s(ntim,2),r0000_s(ntim,2),r1812_s(ntim,2),r1882_s(ntim,2))
 
   allocate ( &
   e1111_s(ntim),e1118_s(ntim),e8888_s(ntim),e8882_s(ntim),e1112_s(ntim), &
@@ -393,7 +422,7 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
   e2327_s(ntim),e2333_s(ntim),e2337_s(ntim),e2422_s(ntim),e2427_s(ntim), &
   e2444_s(ntim),e2447_s(ntim),e2522_s(ntim),e2527_s(ntim),e2555_s(ntim), &
   e2557_s(ntim),e2622_s(ntim),e2627_s(ntim),e2666_s(ntim),e2667_s(ntim), &
-  e2722_s(ntim),e2727_s(ntim),e2777_s(ntim),e0000_s(ntim))
+  e2722_s(ntim),e2727_s(ntim),e2777_s(ntim),e0000_s(ntim),e1882_s(ntim))
 
   endif
 
@@ -586,6 +615,8 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
   r2772_s(ncnt,:) = r2772(k,:) * rhoi(k) * 1.e3
   r2727_s(ncnt,:) = r2727(k,:) * rhoi(k) * 1.e3
   r0000_s(ncnt,:) = r0000(k,:) * rhoi(k) * 1.e3
+  r1812_s(ncnt,:) = r1812(k,:) * rhoi(k) * 1.e3
+  r1882_s(ncnt,:) = r1882(k,:) * rhoi(k) * 1.e3
 
   e1111_s(ncnt) = e1111(k) * rhoi(k) * 1.e-3 ! converts to #/g from #/m^3
   e1118_s(ncnt) = e1118(k) * rhoi(k) * 1.e-3
@@ -656,6 +687,7 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
   e2727_s(ncnt) = e2727(k) * rhoi(k) * 1.e-3
   e2777_s(ncnt) = e2777(k) * rhoi(k) * 1.e-3
   e0000_s(ncnt) = e0000(k) * rhoi(k) * 1.e-3
+  e1882_s(ncnt) = e1882(k) * rhoi(k) * 1.e-3
 
   if (ncnt == ntim) then
      call o_reopnwk()
@@ -665,6 +697,8 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
      call o_gstxci(10)
 
      call o_set(0.,1.,0.,1.,0.,1.,0.,1.,1)
+
+go to 401
 
 ! WALKO ET AL. 2000 FIRST PLOT
 
@@ -729,6 +763,8 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
 
      call o_frame()
 
+401 continue
+
 ! CLOUD PLOT
 
      call plotback()
@@ -757,7 +793,7 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
      call plotpar(1,ntim,time,'D MIX RATIO','(g/kg)',0.,.2,.02)
      call bdline (1,ntim,rx_s(1:ntim,8))
 
-     call plotpar(2,ntim,time,'DR NUM CONC','(#/g)',0.,500.,50.)
+     call plotpar(2,ntim,time,'D NUM CONC','(#/g)',0.,500.,50.)
      call bdline (1,ntim,cx_s(1:ntim,8))
 
      call plotpar(3,ntim,time,'D EMB','(:0714:g)',0.,1.,.1) ! :0714: is Greek "mu"
@@ -791,6 +827,8 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
      call bdline (1,ntim,vap_s(1:ntim,2))
 
      call o_frame()
+
+go to 402
 
 ! PRISTINE ICE PLOT
 
@@ -898,6 +936,8 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
      call bdline (1,ntim,vap_s(1:ntim,7))
 
      call o_frame()
+
+402 continue
 
 ! PLOT 1
 
@@ -1014,6 +1054,8 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
      call bdline (1,ntim,dmb_s(1:ntim,7))
 
      call o_frame()
+
+go to 403
 
 ! PLOT 5
 
@@ -1138,6 +1180,8 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
 
      call o_frame()
 
+403 continue
+
 ! PLOT 10
 
      call plotback()
@@ -1255,6 +1299,8 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
      call bdline(1,ntim,r3445_s(1:ntim,1))
 
      call o_frame()
+
+go to 404
 
 ! R PLOT 3
 
@@ -1516,6 +1562,8 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
 
      call o_frame()
 
+404 continue
+
 ! R PLOT 13
 
      call plotback()
@@ -1527,6 +1575,14 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
      call plotpar(2,ntim,time,'R0000','(g/kg)',0.,.1,.01)
 
      call bdline(1,ntim,r0000_s(1:ntim,1))
+
+     call plotpar(3,ntim,time,'R1812','(g/kg)',0.,.1,.01)
+
+     call bdline(1,ntim,r1812_s(1:ntim,1))
+
+     call plotpar(4,ntim,time,'R1882','(g/kg)',0.,.1,.01)
+
+     call bdline(1,ntim,r1882_s(1:ntim,1))
 
      call o_frame()
 
@@ -1581,6 +1637,8 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
      call bdline(1,ntim,e5555_s(1:ntim))
 
      call o_frame()
+
+go to 405
 
 ! E PLOT 3
 
@@ -1868,6 +1926,8 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
 
      call o_frame()
 
+405 continue
+
 ! E PLOT 14
 
      call plotback()
@@ -1887,6 +1947,10 @@ subroutine parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
      call plotpar(4,ntim,time,'E0000','(#/g)',0.,1000.,100.)
 
      call bdline(1,ntim,e0000_s(1:ntim))
+
+     call plotpar(5,ntim,time,'E1882','(#/g)',0.,1000.,100.)
+
+     call bdline(1,ntim,e1882_s(1:ntim))
 
      call o_frame()
 

@@ -135,7 +135,7 @@ implicit none
 
 ! Check if collection table file exists
 
-  coltabfile = './COLTABFILE2'
+  coltabfile = './COLTABFILE3'
 
   inquire(file=coltabfile, exist=exans)
 
@@ -240,7 +240,7 @@ real :: dstprms(9,nhcat) = reshape( (/ &  ! Carver/Mitchell 1996 power laws
     .5,     .496,   2.4,   16.1,  .416,  .1e-3,  10.e-3,  2.,  1.e-9, & !aggreg
     .5,     157.,    3.,   332.,  .786,  .1e-3,   5.e-3,  2.,  1.e-9, & !graupel
     .5,     471.,    3.,  152.1,  .497,  .8e-3,  10.e-3,  2.,  1.e-9, & !hail
-    .5,     524.,    3., 1.26e7,  1.91, 65.e-6, 100.e-6,  4., 1.e-12, & !drizzle
+    .5,     524.,    3., 1.26e7,  1.91, 30.e-6, 120.e-6,  4., 1.e-12, & !drizzle
   .429,    .8854,   2.5, 20801., 1.377,    00.,     00., 00.,    00., & !pris hex
  .3183,  .377e-2,    2.,   56.4,  .695,    00.,     00., 00.,    00., & !pris den
  .1803,  1.23e-3,   1.8, 1617.9,  .983,    00.,     00., 00.,    00., & !pris ndl
