@@ -78,15 +78,17 @@ while ( $year <= $end_year )
             
                 set ztm = `printf "%02d" $tim`
 
-                if ( ($year >= 2011) && ($month >= 4) ) then
+                if ( (($year == 2011) && ($month >= 4)) || ($year > 2011) ) then
                     set file   = ${head2}${ztm}${tail2}
                     set toturl = ${url2}/${zyr}/${zyr}${zmn}/${zyr}${zmn}${zdy}/$file
+                    echo wget -4 -nv $toturl -O ${file:r}.${zyr}${zmn}${zdy}.grib2
+                    wget -4 -nv $toturl -O ${file:r}.${zyr}${zmn}${zdy}.grib2
                 else
                     set file   = ${head1}${zyr}${zmn}${zdy}${ztm}${tail1}
                     set toturl = ${url1}/${zyr}/${zyr}${zmn}/${zyr}${zmn}${zdy}/$file
+                    echo wget -4 -nv $toturl
+                    wget -4 -nv $toturl
                 endif
-
-                wget -4 -nv $toturl
 
             end
 
