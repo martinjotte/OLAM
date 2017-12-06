@@ -11,7 +11,7 @@ subroutine acmcld_uvmix( iw, dtl )
 
   ! Mixing due to convective updrafts
 
-  if (iactcu(iw) .and. cbmf(iw) > 1.e-6 ) then
+  if (iactcu(iw) > 0 .and. cbmf(iw) > 1.e-6 ) then
      
      call acmcld_uvmix_up( iw, dtl )
 
@@ -19,7 +19,7 @@ subroutine acmcld_uvmix( iw, dtl )
 
   ! Mixing due to convective downdrafts
 
-  if (iactcu(iw) .and. cddf(iw) > 1.e-6 ) then
+  if (iactcu(iw) > 0 .and. cddf(iw) > 1.e-6 ) then
      
      call acmcld_uvmix_dd( iw, dtl )
 
@@ -405,7 +405,7 @@ subroutine acmcld_tracermix( iw, dtl )
 
   ! Mixing due to convective updrafts
 
-  if (iactcu(iw) .and. cbmf(iw) > 1.e-6 ) then
+  if (iactcu(iw) > 0 .and. cbmf(iw) > 1.e-6 ) then
      
      call acmcld_tracermix_up( iw, dtl )
 
@@ -413,7 +413,7 @@ subroutine acmcld_tracermix( iw, dtl )
 
   ! Mixing due to convective downdrafts
 
-  if (iactcu(iw) .and. cddf(iw) > 1.e-6 ) then
+  if (iactcu(iw) > 0 .and. cddf(iw) > 1.e-6 ) then
      
      call acmcld_tracermix_dd( iw, dtl )
 

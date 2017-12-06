@@ -297,7 +297,7 @@ C Warn the User if there are No Emissions Species On Any File
             call get_ltng( mrl )
          endif
 
-         if (isfcl) then
+         if (isfcl == 1) then
             call get_soil_nox(mrl)
             call megan_driver(mrl)
          endif
@@ -380,7 +380,7 @@ C Warn the User if there are No Emissions Species On Any File
 
             ! Soil NOx emissions
 
-            if (isfcl .and. SN_MAP /= 0) then
+            if (isfcl == 1 .and. SN_MAP /= 0) then
 
                do jwl = 1, itab_w(iw)%nland
                   iwl = itab_w(iw)%iland(jwl)
@@ -393,7 +393,7 @@ C Warn the User if there are No Emissions Species On Any File
 
             ! MEGAN vegetation emissions
 
-            if (isfcl) then
+            if (isfcl == 1) then
 
                ! No non-reacting NH3 here?
                do s = 1, n_gc_emis

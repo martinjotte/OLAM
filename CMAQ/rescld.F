@@ -359,7 +359,7 @@ C... include layer thickness in the column integration
 
          ! convective clouds
 
-         if (iactcu(iw)) then
+         if (iactcu(iw) > 0) then
 
             do k = kcubot(iw), kcutop(iw)
                if (tair(k,iw) < 255.15) then

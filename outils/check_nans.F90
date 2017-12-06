@@ -181,7 +181,7 @@ subroutine compute_mass_sums()
         dry_mass_sum0 = dry_mass_sum
         tot_mass_sum0 = tot_mass_sum
         wat_mass_sum0 = wat_mass_sum
-        if (naddsc) sclp_mass_sum0 = sclp_mass_sum
+        if (naddsc > 0) sclp_mass_sum0 = sclp_mass_sum
      endif
 
      write(*,'(a,3(g20.13,1x))') ' mass1: tot,wet,dry ', tot_mass_sum, wat_mass_sum, dry_mass_sum

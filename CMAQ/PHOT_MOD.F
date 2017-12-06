@@ -519,19 +519,19 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
 
       do k = nlays_model, 1, -1
          if (cldfrc(k) > 0.01) then
-            if (incld == .false.) then
+            if (.not. incld) then
                nbnds = nbnds + 1
                ctop(nbnds) = k
                incld = .true.
             endif
          else
-            if (incld == .true.) then
+            if (incld) then
                incld = .false.
                cbot(nbnds) = k + 1
             endif
          endif
       enddo
-      if (incld == .true.) cbot(nbnds) = 1
+      if (incld) cbot(nbnds) = 1
 
       if (nbnds > 3) then
          do while(nbnds > 3)
@@ -2042,59 +2042,6 @@ C-----------------------------------------------------------------------
       END DO
 
       END SUBROUTINE TRIDIAG2
-
-C///////////////////////////////////////////////////////////////////////
-
-      INTEGER FUNCTION INDEXR0 ( NAME1, N, NAME2 )
-C-----------------------------------------------------------------------
-C
-C  Function:
-C     This routine searches for NAME1 in list NAME2
-C
-C  Revision History:
-C     5/88   Modified for ROMNET
-C     July 29, 2005 by FSB
-C     Changed name to avoid conflict FSB
-C     copied from CMAQ routine INDEX2 to allow internal use
-C
-C  Argument List Description:
-C
-C  Input Arguments:
-C     NAME1       Character string being searched for
-C     N           Length of array to be searched
-C     NAME2       Character array to be searched
-C
-C  Output Arguments:
-C     INDEX1      The position within the NAME2 array that NAME1
-C                 found. If string was not found, INDEX1 = 0
-C
-C  Local Variable Description:
-C     None
-C
-C-----------------------------------------------------------------------
-
-      IMPLICIT NONE
-
-      INTEGER, INTENT(IN) :: N
-
-      CHARACTER*(*), INTENT(IN) :: NAME1
-      CHARACTER*(*), INTENT(IN) :: NAME2(*)
-
-      INTEGER I
-
-!***Assume NAME1 is not in list NAME2
-
-      INDEXR0 = 0
-
-      DO I = 1, N
-         IF ( INDEX( NAME2( I ), NAME1 ) .EQ. 1 ) THEN
-            INDEXR0 = I
-            RETURN
-         END IF
-      END DO
-
-      RETURN
-      END FUNCTION INDEXR0
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 

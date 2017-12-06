@@ -2636,9 +2636,9 @@ C    Internal variables
       REAL ERFARG                    ! argument of ERF, from Step#6 of Jiang et al. (2006)
 
 C *** Error function approximation, from Meng & Seinfeld (1994)
-      REAL ERF        ! Error function
-      REAL XX         ! dummy argument for ERF
-      ERF( XX )  = SIGN( 1.0, XX ) * SQRT( 1.0 - EXP( -4.0 * XX * XX / PI ) )
+!     REAL ERF        ! Error function
+!     REAL XX         ! dummy argument for ERF
+!     ERF( XX )  = SIGN( 1.0, XX ) * SQRT( 1.0 - EXP( -4.0 * XX * XX / PI ) )
 
 C ----------------------- Begin solution -------------------------------
 
@@ -2755,9 +2755,9 @@ C    Internal variables
       REAL SQRT2LSG, TERM1, TERM2, TERM3, TERM4, TERM5
 
 C *** Error function approximation, from Meng & Seinfeld (1994)
-      REAL ERF        ! Error function
-      REAL XX         ! dummy argument for ERF
-      ERF( XX )  = SIGN( 1.0, XX ) * SQRT( 1.0 - EXP( -4.0 * XX * XX / PI ) )
+!     REAL ERF        ! Error function
+!     REAL XX         ! dummy argument for ERF
+!     ERF( XX )  = SIGN( 1.0, XX ) * SQRT( 1.0 - EXP( -4.0 * XX * XX / PI ) )
 
 C ----------------------- Begin solution -------------------------------
 

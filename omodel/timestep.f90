@@ -252,7 +252,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    ! Call atmospheric chemistry here
 
-   if (do_chem) call cmaq_driver()
+   if (do_chem == 1) call cmaq_driver()
 
    ! Cyclic lateral boundaries and bottom boundary for scalars
 
