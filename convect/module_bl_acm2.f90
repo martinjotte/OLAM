@@ -390,12 +390,13 @@ contains
 
     ! LOCAL VARIABLES
 
-    integer :: k, kpblm1, kpblp1, kb
-    real    :: zagl, zoh, zsol
+    integer :: k, kpblm1, kpblp1, kb, ka
+    real    :: zagl, zoh, zsol, dz, dzi
     real    :: buoy, ss, kprof, rlam
     real    :: ri, zk, sql, fh, fm, pr
     real    :: phimi, phihi
     real    :: we, dthv, deltar, wcloud
+    logical :: inlay
 
     real :: edyzh(mza) ! K-profile eddy diffusivity within PBL
     real :: edyzm(mza) ! K-profile eddy diffusivity within PBL 
@@ -499,22 +500,36 @@ contains
     else
        kb = kbot
     endif
+
+    inlay = .false.
+    ka    = kb
       
     ! Vertical loop over W levels
     do k = kb, ktop-1
 
-       ss = ( (vx(k+1) - vx(k))**2 &
-            + (vy(k+1) - vy(k))**2 &
-            + (vz(k+1) - vz(k))**2 ) * dzim(k) * dzim(k) + 1.e-9
+       if (.not. inlay) ka = k
 
-       buoy = (thetav(k+1) - thetav(k)) * dzim(k)
+       dz  = zt(k+1) - zt(ka)
+       dzi = 1.0 / dz
+       zk  = vonk * dz
 
-       ri = grav2 / (thetav(k+1) + thetav(k)) * buoy / ss
+       ss = ( (vx(k+1) - vx(ka))**2 &
+            + (vy(k+1) - vy(ka))**2 &
+            + (vz(k+1) - vz(ka))**2 ) * dzi * dzi
+       ss = max(ss, 1.e-6)
 
-       zagl = zm(k) - zm(kbot-1)
-       zk   = vonk * zagl
+       buoy = (thetav(k+1) - thetav(ka)) * dzi
 
-       if (ri >= 0.0) then
+       ri = grav2 / (thetav(k+1) + thetav(ka)) * buoy / ss
+       ri = max(ri, -1.0)
+
+       if (ri > ric) then
+          inlay = .false.
+       else
+          inlay = .true.
+       endif
+
+       if (ri > 0.0) then
 
           if (k < kpblh) then
              rlam = max(0.1 * pblh, rlam_stab)
@@ -535,11 +550,11 @@ contains
 
           sql = (zk * rlam_unst / (rlam_unst + zk))**2
 
-!          phimi =     (1.0 - 16.0 * ri)**0.25
-!          phihi = sqrt(1.0 - 16.0 * ri)
+          phimi =     (1.0 - 16.0 * ri)**0.25
+          phihi = sqrt(1.0 - 16.0 * ri)
 
-          edyrm(k) = sqrt(ss) * sql !* phimi * phimi
-          edyrh(k) = sqrt(ss) * sql !* phimi * phihi
+          edyrm(k) = sqrt(ss) * sql * phimi * phimi
+          edyrh(k) = sqrt(ss) * sql * phimi * phihi
 
        endif
 
