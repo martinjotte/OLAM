@@ -422,12 +422,14 @@ elseif (lcat == 4 .or. lcat == 5) then
 
          if (fracliq > 1.e-6) then
 
-            rmelt = rx(k,lcat) * fracliq
-            ricetor6 = min(rmelt, rx(k,lcat) - rmelt)
-
 ! change this??? move to rain instead ??? look at melting decisions in col2
 
-            rx(k,lcat) = rx(k,lcat) - rmelt - ricetor6
+            rmelt = rx(k,lcat) * fracliq
+            rx(k,lcat) = rx(k,lcat) - rmelt
+            
+            ricetor6 = min(rmelt, rx(k,lcat))
+            rx(k,lcat) = rx(k,lcat) - ricetor6
+
             qr(k,lcat) = 0.
             qx(k,lcat) = 0.
             tx(k,lcat) = 0.

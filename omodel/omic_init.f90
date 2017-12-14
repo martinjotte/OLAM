@@ -86,7 +86,7 @@ subroutine micinit_tabs()
 
 use mem_basic, only: rho
 
-use misc_coms,   only: io6, dtlm, runtype
+use misc_coms,   only: io6, dtlm, runtype, iparallel
 use mem_ijtabs,  only: jtab_w, mrls, jtw_init
 use mem_grid,    only: mza, zm, zt, dzt, dzit
 use mem_para,    only: myrank
@@ -103,6 +103,7 @@ use hdf5_utils, only: shdf5_irec, shdf5_orec, shdf5_open, shdf5_close
 implicit none
 
   integer :: j,iw,k,mrl,ndims,idims(3)
+  integer :: ipar_tmp
 
   character(len=80) :: coltabfile
 
@@ -180,6 +181,12 @@ implicit none
 
      if (myrank == 0) then
 
+        ! The collection table is only writen from one node.
+        ! Disable parallel I/O for these writes
+
+        ipar_tmp = iparallel
+        iparallel = 0
+
         call shdf5_open(trim(coltabfile),'W',0)
 
         ndims = 3
@@ -200,6 +207,8 @@ implicit none
 ! Close the collection table file
 
         call shdf5_close()
+
+        iparallel = ipar_tmp
 
      endif
   endif
