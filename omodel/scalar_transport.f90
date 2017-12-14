@@ -70,11 +70,6 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   integer  :: n,k,kb,kd,iv,iwn,jv
   real     :: dirv
 
-  integer, save :: n2 = -1
-  integer, save :: n6 = -1
-  integer, save :: n7 = -1
-  logical, save :: firstime = .true.
-
 ! Automatic arrays:
 
   real :: vsc(mza,mva)
@@ -98,17 +93,6 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! Return if this is not the end of the long timestep on any MRL
 
   if (mrl == 0) return
-
-! Special for energy microphysics variables
-
-  if (firstime) then
-     firstime = .false.
-     do n = 1, num_scalar
-        if (scalar_tab(n)%name == 'Q2') n2 = n
-        if (scalar_tab(n)%name == 'Q6') n6 = n
-        if (scalar_tab(n)%name == 'Q7') n7 = n
-     enddo
-  endif
 
 ! MPI send of VXESC, VYESC, VZESC
 
@@ -191,7 +175,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   ! Diagnose inlfow CFL numbers at V and W interfaces for Thuburn monotonic scheme
 
   if (nl%iscal_monot > 0) then
-     call comp_cfl2( mrl, dtlm, vmsca, wmsca, rho_old, rho, nl%iscal_monot )
+     call comp_cfl2( mrl, dtlm, vmsca, wmsca, rho_old, nl%iscal_monot )
   endif
 
 ! LOOP OVER SCALARS HERE
@@ -201,18 +185,6 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
      scp => scalar_tab(n)%var_p(:,:)
      sct => scalar_tab(n)%var_t(:,:)
-
-! Special for energy microphysics variables
-
-     if (nl%iscal_monot > 0) then
-        if (n == n2 .or. n == n6 .or. n == n7) then
-           !$omp parallel do
-           do iw = 2, mwa
-              scp(:,iw) = scp(:,iw) + cice * t00
-           enddo
-           !$omp end parallel do
-        endif
-     endif
 
 ! Evaluate and MPI send of horizontal gradients of scalar field
 
@@ -406,7 +378,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
      if (nl%iscal_monot == 1) then
         call comp_and_apply_monot_limits(mrl, scp, scp_upw, scp_upv, kdepw, iwdepv)
-     elseif (nl%iscal_monot == 2) then
+     elseif (nl%iscal_monot == 2 .and. scalar_tab(n)%pdef) then
         call comp_and_apply_pd_limits(mrl, scp, scp_upw, scp_upv, kdepw, iwdepv)
      endif
 
@@ -477,18 +449,6 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
      enddo
      !$omp end do
      !$omp end parallel
-
-! Special for energy microphysics variables
-
-     if (nl%iscal_monot > 0) then
-        if (n == n2 .or. n == n6 .or. n == n7) then
-           !$omp parallel do
-           do iw = 2, mwa
-              scp(:,iw) = scp(:,iw) - cice * t00
-           enddo
-           !$omp end parallel do
-        endif
-     endif
 
   enddo ! n
 

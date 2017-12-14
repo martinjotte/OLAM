@@ -205,7 +205,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call predtr(rho_old)
 
-
    ! call check_nans(15,rvara1=rhot,rvara2=alpha_press)
 
    if (miclevel /= 3) then
@@ -562,13 +561,14 @@ use mem_grid,   only: mza, mwa, lpw
 use misc_coms,  only: dtlm
 use consts_coms,only: r8
 use mem_basic,  only: rho
+use oname_coms, only: nl
 
 implicit none
 
 real(r8), intent(in) :: rho_old(mza,mwa)
 
-integer :: n,iw,j,k,mrl
-real    :: dtl
+integer  :: n,iw,j,k,mrl
+real(r8) :: dtl
 
 !   -  Step thermodynamic variables from  t  to  t+1.
 !   -  Set top, lateral and bottom boundary conditions on some variables
@@ -589,9 +589,26 @@ if (mrl > 0) then
       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
          dtl = dtlm(itab_w(iw)%mrlw)
+
          do k = lpw(iw),mza
             scalar_tab(n)%var_p(k,iw) = ( scalar_tab(n)%var_p(k,iw) * rho_old(k,iw)  &
                                          + dtl * scalar_tab(n)%var_t(k,iw) ) / rho(k,iw)
+
+            ! With monotonic advection and splitting, positive-definite scalars
+            ! should remain positive-definite to machine precision. Here we
+            ! ensure that tiny negative concentrations aren't produeced.
+
+            if ( scalar_tab(n)%pdef .and. nl%iscal_monot > 0 .and. &
+                 nl%split_scalars > 0) then
+
+               scalar_tab(n)%var_p(k,iw) = max( scalar_tab(n)%var_p(k,iw), 0.0 )
+
+            endif
+
+            ! Without monotonic advection and splitting, negative concentrations
+            ! can be produced that are significant. If we set those to zero, we 
+            ! will no longer conserve mass. 
+
          enddo
 
       enddo
@@ -709,7 +726,7 @@ subroutine predtr_split(mrl,rho_old)
   integer,  intent(in) :: mrl
   real(r8), intent(in) :: rho_old(mza,mwa)
   integer              :: iw, j, n, k
-  real                 :: dtl
+  real(r8)             :: dtl
 
   ! Step scalars from t to t+1 in a time-split sub step
 
@@ -725,7 +742,12 @@ subroutine predtr_split(mrl,rho_old)
               scalar_tab(n)%var_p(k,iw) = scalar_tab(n)%var_p(k,iw)  &
                                         + dtl * scalar_tab(n)%var_t(k,iw) / rho_old(k,iw)
               scalar_tab(n)%var_t(k,iw) = 0.0
+
+              if (scalar_tab(n)%pdef) then
+                 scalar_tab(n)%var_p(k,iw) = max( scalar_tab(n)%var_p(k,iw), 0.0)
+              endif
            enddo
+
         enddo
      enddo
      !$omp end parallel do

@@ -78,7 +78,8 @@ Module var_tables
      real, pointer :: sxfer(:,:) => null()
      real, pointer :: emis (:,:) => null()
 
-     character (len=32) :: name
+     character (len=32) :: name = ""
+     logical            :: pdef = .true.
 
   end type scalar_table
 
@@ -330,7 +331,7 @@ Contains
 
 !===============================================================================
 
-  subroutine vtables_scalar(varp,vart,name,sxfer,emis,cu_mix)
+  subroutine vtables_scalar(varp,vart,name,sxfer,emis,cu_mix,pos_def)
     use misc_coms, only: io6
     implicit none
 
@@ -341,6 +342,7 @@ Contains
     real, target, optional, intent(in) :: sxfer(:,:)
     real, target, optional, intent(in) :: emis (:,:)
     logical,      optional, intent(in) :: cu_mix
+    logical,      optional, intent(in) :: pos_def
 
     integer                         :: ntsize
     integer,            parameter   :: ialloc = 20
@@ -386,6 +388,12 @@ Contains
     scalar_tab(num_scalar)%name  =  name
     scalar_tab(num_scalar)%var_p => varp
     scalar_tab(num_scalar)%var_t => vart
+
+    if (present(pos_def)) then
+       scalar_tab(num_scalar)%pdef = pos_def
+    else
+       scalar_tab(num_scalar)%pdef = .true.
+    endif
 
     ! If this species has surface transfer, include it in the table
     

@@ -154,7 +154,7 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
                           gxyps_vye, gxxps_vye, gyyps_vye, gzzps_vye, &
                           gxps_vze, gyps_vze, gzps_vze, &
                           gxyps_vze, gxxps_vze, gyyps_vze, gzzps_vze
-  use mem_thuburn,  only: comp_cfl1, comp_cfl2_t, comp_and_apply_monot_limits, &
+  use mem_thuburn,  only: comp_cfl1, comp_cfl2, comp_and_apply_monot_limits, &
                           comp_and_apply_pd_limits
 
   implicit none
@@ -502,7 +502,7 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
      call comp_cfl1( mrl, dtsm, vmcfa, wmca, vc, wc, rho, nl%ithil_monot, do_check=.false. )
 
      ! Diagnose inlfow CFL numbers at V and W interfaces for Thuburn monotonic scheme
-     call comp_cfl2_t( mrl, dtsm, vmcfa, wmca, rho, nl%ithil_monot )
+     call comp_cfl2( mrl, dtsm, vmcfa, wmca, rho, nl%ithil_monot )
 
   endif
 
@@ -1271,7 +1271,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
 
      ! Explicit vertical momentum tendency
 
-     delex_wm(k) = dts * (wmt_other(k) + &
+     delex_wm(k) = dts * (wmt_other(k) &
 
           + dzim(k) * (press_t(k) - press_t(k+1) &
 

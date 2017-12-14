@@ -139,9 +139,7 @@ subroutine check_pos(icall)
 
   do n = 1, num_scalar
 
-     if (scalar_tab(n)%name == 'Q2') cycle
-     if (scalar_tab(n)%name == 'Q6') cycle
-     if (scalar_tab(n)%name == 'Q7') cycle
+     if (.not. scalar_tab(n)%pdef) cycle
 
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
         do k = lpw(iw), mza
@@ -259,4 +257,3 @@ subroutine compute_mass_sums()
 end subroutine compute_mass_sums
 
 end module check_nan
-
