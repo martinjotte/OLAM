@@ -118,7 +118,6 @@ t = erad2 / (erad2 + zq)
 x = xq * t
 y = yq * t
 
-return
 end subroutine ll_xy
 
 !============================================================================
@@ -213,7 +212,6 @@ qlon = atan2(y3q,x3q) / pio180
 r3q = sqrt(x3q ** 2 + y3q ** 2)
 qlat = atan2(z3q,r3q) / pio180
 
-return
 end subroutine xy_ll
 
 !============================================================================
@@ -286,8 +284,86 @@ t = erad2 / (erad2 + zq)
 x = xq * t
 y = yq * t
 
-return
 end subroutine e_ps
+
+!============================================================================
+
+subroutine e_gn(xeq,yeq,zeq,polelat,polelon,x,y)
+
+use consts_coms, only: pio180, erad
+
+implicit none
+
+real, intent(in) :: xeq
+real, intent(in) :: yeq
+real, intent(in) :: zeq
+real, intent(in) :: polelat
+real, intent(in) :: polelon
+
+real, intent(out) :: x
+real, intent(out) :: y
+
+real :: sinplat
+real :: cosplat
+real :: sinplon
+real :: cosplon
+real :: xep
+real :: yep
+real :: zep
+real :: xq
+real :: yq
+real :: zq
+real :: t
+
+! This subroutine computes coordinates (x,y) of point q projected onto 
+! gnomic plane whose pole point is located at geographic coordinates
+! (polelat,polelon).  Input coordinates (xeq,yeq,zeq) of q are defined in
+! "earth cartesian space", where the origin is the center of the earth, 
+! the z axis is the north pole, the x axis is the equator and prime meridian, 
+! and the y axis is the equator and 90 E..
+       
+! Evaluate sine and cosine of latitude and longitude of pole point p
+
+sinplat = sin(polelat * pio180)
+cosplat = cos(polelat * pio180)
+sinplon = sin(polelon * pio180)
+cosplon = cos(polelon * pio180)
+
+! Compute (xep,yep,zep) coordinates of the pole point in "earth cartesian space"
+
+xep = erad * cosplat * cosplon
+yep = erad * cosplat * sinplon
+zep = erad * sinplat
+
+! Transform q point from (xe,ye,ze) coordinates to 3D coordinates relative to
+! gnomic plane with origin at the pole point, the z axis pointing 
+! radially outward from the center of the earth, and the y axis pointing 
+! northward along the local earth meridian from the pole point.
+
+xq =                                  - sinplon * (xeq-xep) + cosplon * (yeq-yep)
+yq =   cosplat * (zeq-zep) - sinplat * (cosplon * (xeq-xep) + sinplon * (yeq-yep))
+zq =   sinplat * (zeq-zep) + cosplat * (cosplon * (xeq-xep) + sinplon * (yeq-yep))
+
+if (zq < -erad) then   ! point is on other side of earth - do not plot
+   x = 1.e12  ! This will serve as a flag to not plot point
+   y = 1.e12  ! This will serve as a flag to not plot point
+else
+
+   ! Parametric equation for line from earth center point at (0,0,-erad) in 3D 
+   ! coordinates of gnomic plane to point q has the following 
+   ! parameter (t) value on the gnomic plane (zq <= 0):
+
+   t = erad / (erad + zq)
+
+   ! This gives the following x and y coordinates for the projection of point q
+   ! onto the gnomic plane:
+
+   x = xq * t
+   y = yq * t
+
+endif
+
+end subroutine e_gn
 
 !============================================================================
 
@@ -355,7 +431,6 @@ else
    y = yq
 endif
 
-return
 end subroutine e_or
 
 !============================================================================
@@ -385,7 +460,6 @@ rax = sqrt(xeq ** 2 + yeq ** 2)  ! distance of q from earth axis
 rlat = atan2(zeq,rax) * piu180
 rlon = atan2(yeq,xeq) * piu180
 
-return
 end subroutine e_ec
 
 !============================================================================
@@ -464,8 +538,85 @@ xeq = xep - sinplon * xq + cosplon * (-sinplat * yq + cosplat * zq)
 yeq = yep + cosplon * xq - sinplon * ( sinplat * yq - cosplat * zq)
 zeq = zep                            + cosplat * yq + sinplat * zq
 
-return
 end subroutine ps_e
+
+!============================================================================
+
+subroutine gn_e(xeq,yeq,zeq,polelat,polelon,x,y)
+
+use consts_coms, only: pio180, erad
+
+implicit none
+
+real, intent(out) :: xeq
+real, intent(out) :: yeq
+real, intent(out) :: zeq
+
+real, intent(in) :: polelat
+real, intent(in) :: polelon
+real, intent(in) :: x
+real, intent(in) :: y
+
+real :: sinplat
+real :: cosplat
+real :: sinplon
+real :: cosplon
+real :: xep
+real :: yep
+real :: zep
+real :: xq
+real :: yq
+real :: zq
+real :: t
+real :: alpha
+
+! Given coordinates (x,y) of point q projected onto gnomic plane
+! whose pole point is located at geographic coordinates (polelat,polelon), 
+! this subroutine computes coordinates (xeq,yeq,zeq) of q on earth spherical
+! surface defined in "earth cartesian space", where the origin is the center
+! of the earth, the z axis is the north pole, the x axis is the equator and 
+! prime meridian, and the y axis is the equator and 90 E..
+
+! Evaluate sine and cosine of latitude and longitude of pole point p
+
+sinplat = sin(polelat * pio180)
+cosplat = cos(polelat * pio180)
+sinplon = sin(polelon * pio180)
+cosplon = cos(polelon * pio180)
+
+! Compute (xep,yep,zep) coordinates of the pole point in "earth cartesian space"
+
+xep = erad * cosplat * cosplon
+yep = erad * cosplat * sinplon
+zep = erad * sinplat
+
+! Parametric equation for line from earth center point at (0,0,-erad) in 3D 
+! coordinates of gnomic plane to point (x,y) on the gnomic
+! plane has the following parameter (t) value on the earth's surface (zq <= 0):
+
+alpha = atan2(sqrt(x**2 + y**2),erad)
+
+t = cos(alpha)
+
+! This gives the following xq, yq, zq coordinates relative to the polar
+! stereographic plane for the projection of point q from the polar stereographic
+! plane to the earth surface:
+
+xq = x * t
+yq = y * t
+zq = erad * (t - 1.)
+
+! Transform q point located on the earth's surface from ps coordinates (xq,yq,zq)
+! to earth coordinates (xe,ye,ze).  The polar stereographic plane has its origin
+! at the pole point, with the z axis pointing radially outward from the center
+! of the earth, and the y axis pointing northward along the local earth meridian
+! from the pole point.
+
+xeq = xep - sinplon * xq + cosplon * (-sinplat * yq + cosplat * zq)
+yeq = yep + cosplon * xq - sinplon * ( sinplat * yq - cosplat * zq)
+zeq = zep                            + cosplat * yq + sinplat * zq
+
+end subroutine gn_e
 
 !============================================================================
 
@@ -598,5 +749,4 @@ t = erad2 / (erad2 + zq)
 x = xq * t
 y = yq * t
 
-return
 end subroutine ll_xy2

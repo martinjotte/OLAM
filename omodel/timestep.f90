@@ -55,6 +55,7 @@ use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
 use wrtv_mem,    only: prog_wrtv
 use mem_turb,    only: vkm, vkh
+use check_nan,   only: check_nans
 
 implicit none
 
@@ -103,7 +104,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call dust_src(mrl)
    endif
 
-   ! call check_nans(1)
+   ! call check_nans(1,rvara1=rhot,rvara2=alpha_press)
 
    if (any( nqparm(1:mrls) > 0 )) then
       call cuparm_driver(rhot)
@@ -112,7 +113,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       endif
    endif
 
-   ! call check_nans(2)
+   ! call check_nans(2,rvara1=rhot,rvara2=alpha_press)
 
    if (ilwrtyp + iswrtyp > 0) then
       call radiate()
@@ -164,15 +165,15 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    endif
 
-   ! call check_nans(5)
+   ! call check_nans(5,rvara1=rhot,rvara2=alpha_press)
 
    call zero_momsc(vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
 
-   ! call check_nans(11)
+   ! call check_nans(11,rvara1=rhot,rvara2=alpha_press)
 
    call prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 
-   ! call check_nans(12)
+   ! call check_nans(12,rvara1=rhot,rvara2=alpha_press)
 
    mrl = mrl_endl(istp)
    if (nl%split_scalars > 0 .and. mrl > 0) then
@@ -187,7 +188,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call timeavg_momsc(vmsc,wmsc,vxesc,vyesc,vzesc)
 
-   ! call check_nans(13)
+   ! call check_nans(13,rvara1=rhot,rvara2=alpha_press)
 
    mrl = mrl_endl(istp)
    if (nl%split_scalars > 0 .and. mrl > 0) then
@@ -200,12 +201,12 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       if (nl%split_scalars > 0) call scalar_hdiff_split(mrl, rho_old)
    endif
 
-   ! call check_nans(14)
+   ! call check_nans(14,rvara1=rhot,rvara2=alpha_press)
 
    call predtr(rho_old)
 
 
-   ! call check_nans(15)
+   ! call check_nans(15,rvara1=rhot,rvara2=alpha_press)
 
    if (miclevel /= 3) then
       call thermo()
@@ -235,7 +236,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    !endif
    ! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
 
-   ! call check_nans(16)
+   ! call check_nans(16,rvara1=rhot,rvara2=alpha_press)
 
    1311 continue
 
@@ -248,7 +249,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    if (nl%test_case >= 901 .and. nl%test_case <= 999) go to 1312
 
-   ! call check_nans(17)
+   ! call check_nans(17,rvara1=rhot,rvara2=alpha_press)
 
    ! Call atmospheric chemistry here
 
@@ -258,7 +259,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call trsets(mrl)
 
-   ! call check_nans(18)
+   ! call check_nans(18,rvara1=rhot,rvara2=alpha_press)
 
    mrl = mrl_ends(istp)
 
@@ -276,7 +277,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call lbcopy_w(mrl, a1=thil, a2=wmc, a3=wc)
    endif
 
-   ! call check_nans(19)
+   ! call check_nans(19,rvara1=rhot,rvara2=alpha_press)
 
    mrl = mrl_endl(istp)
    if (mrl > 0) then
@@ -294,7 +295,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       ! call check_pos(3)
    endif
 
-   ! call check_nans(20)
+   ! call check_nans(20,rvara1=rhot,rvara2=alpha_press)
 
    ! MPI send/recv and lbc copy of VMC, VC
 
@@ -320,7 +321,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
    call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
-   ! call check_nans(21)
+   ! call check_nans(21,rvara1=rhot,rvara2=alpha_press)
 
    if (leafstep(istp) > 0) then
       call leaf4()
@@ -330,7 +331,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call flux_accum()
 
-   ! call check_nans(22)
+   ! call check_nans(22,rvara1=rhot,rvara2=alpha_press)
 
    1312 continue
 

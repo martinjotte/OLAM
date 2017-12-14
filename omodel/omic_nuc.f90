@@ -131,12 +131,13 @@ subroutine ccnbin_init()
                          dminprog, dmaxinit, dactivate, diam_nucx, rho_nucx, bkappa_nucx
 
   use micro_coms,  only: iccn, igccn, iifn
+  use misc_coms,   only: io6
                          
   implicit none
 
   integer :: jbins, ic, jbin, ibin, inewt, i0, inuc
   real :: d01, d10, d30, d50
-  real :: ax, sqrt2, dsiglog, dmedlog
+  real :: ax, sqrt2, dsiglog, dmedlog, diamfac
   real :: aux1, aux2, aux3, aux4, scal
   real :: dbnd1, dbnd2
   real :: ddlog, wetd, dwetd, satk, satkp, satkpp
@@ -237,7 +238,7 @@ subroutine ccnbin_init()
      ccntyp_name (1) = 'Fine Dust'
      nbins_ccntyp(1) = 20
      ccntyp_dmed (1) = 0.2e-6
-     ccntyp_dsig (1) = 2.0
+     ccntyp_dsig (1) = 5.0
      ccntyp_kappa(1) = 0.00
      diam_nucx (1,1) = 0.2e-6
       rho_nucx   (1) = 2.5e3
@@ -245,7 +246,7 @@ subroutine ccnbin_init()
      idust2 = 2
      ccntyp_name (2) = 'Coarse Dust'
      nbins_ccntyp(2) = 20
-     ccntyp_dmed (2) = 3.0e-6
+     ccntyp_dmed (2) = 2.0e-6
      ccntyp_dsig (2) = 2.0
      ccntyp_kappa(2) = 0.00
      diam_nucx (1,2) = 3.0e-6
@@ -355,22 +356,43 @@ subroutine ccnbin_init()
 
   if (nbins < 1) return
 
-  ! The minimum and maximum bin sizes, ccntyp_dmin and ccntyp_dmax, can be set
-  ! to about 1/5 of and 5 times ccntyp_dmed, respectively, as long as ccntyp_dsig is
-  ! set to 2.0 or less.  Using 20 bins, this results in the first and last bins each
-  ! holding about 1% of the population.  With ccntyp_dsig set to 1.5 and using
-  ! 20 bins, the first and last bins each hold less than 0.1% of the population.
+  ! The minimum and maximum bin sizes, ccntyp_dmin and ccntyp_dmax, are set to
+  ! ccntyp_dmed/diamfac and ccntyp*diamfac, respectively, where diamfac is 
+  ! given by the following empirical formulas.  Using 20 bins, this results in
+  ! the first and last bins each holding about 0.5% or less of the population.
+
   ! Limit ccntyp_dmax to values no larger than 2 microns since GCCN are treated
   ! separately in the model (as the GCCN category).  However, allow dust2 category
   ! to have larger (unlimited) sizes to represent large mineral dust without 
   ! significant solute content.
 
-  ccntyp_dmin(:) =     0.2 * ccntyp_dmed(:)
-  ccntyp_dmax(:) = min(5.0 * ccntyp_dmed(:), 2.0e-6)
+  do ic = 1, nccntyp
+     if     (ccntyp_dsig(ic) < 2.0) then
+        diamfac =   0.8 +  5.2 * (ccntyp_dsig(ic) - 1.0)
+     elseif (ccntyp_dsig(ic) < 3.0) then
+        diamfac =   6.0 + 11.0 * (ccntyp_dsig(ic) - 2.0)
+     elseif (ccntyp_dsig(ic) < 4.0) then
+        diamfac =  17.0 + 16.0 * (ccntyp_dsig(ic) - 3.0)
+     elseif (ccntyp_dsig(ic) < 5.0) then
+        diamfac =  33.0 + 24.0 * (ccntyp_dsig(ic) - 4.0)
+     elseif (ccntyp_dsig(ic) < 6.0) then
+        diamfac =  57.0 + 35.0 * (ccntyp_dsig(ic) - 5.0)
+     elseif (ccntyp_dsig(ic) < 7.0) then
+        diamfac =  92.0 + 52.0 * (ccntyp_dsig(ic) - 6.0)
+     else
+        diamfac = 144.0 + 80.0 * (ccntyp_dsig(ic) - 7.0)
+     endif
 
-  if (idust2 > 0) then
-     ccntyp_dmax(idust2) = 5.0 * ccntyp_dmed(idust2)
-  endif
+     ccntyp_dmin(ic) = ccntyp_dmed(ic) / diamfac
+     ccntyp_dmax(ic) = ccntyp_dmed(ic) * diamfac
+
+     if (ic /= idust2 > 0) then
+        ccntyp_dmax(ic) = min(ccntyp_dmax(ic), 2.0e-6)
+     endif
+
+     print*, 'diamfac ',ic,diamfac,ccntyp_dsig(ic)
+
+  enddo
 
   ! Allocate arrays for all size-bins of all CCN types
 
@@ -402,7 +424,14 @@ subroutine ccnbin_init()
   jbins = 0
   do ic = 1, nccntyp
 
+     write(io6,'(a,i5)') 'ccntyp ',ic
+
+     if (ccntyp_dsig(ic) < 1.1) then
+        stop 'stop: ccntyp_dsig less than 1.1'
+     endif
+
      ax = log(ccntyp_dmax(ic) / ccntyp_dmin(ic)) / (nbins_ccntyp(ic) * log(2.))
+
      dbnd1 = ccntyp_dmin(ic)
      tot = 0.
      tot_ifn = 0.

@@ -563,7 +563,7 @@ real, allocatable  :: a(:,:)
 
 !$omp parallel
 
-!$omp do private(raxis,npoly,j,iw)
+!$omp do private(raxis)
 do im = 2,nma
 
 ! Latitude and longitude at M points

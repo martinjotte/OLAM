@@ -1,9 +1,15 @@
-subroutine check_nans(icall)
+module check_nan
 
-  use mem_basic,  only: sh_w,rho,thil,sh_v,wc,wmc,press,vmc,vc
+Contains
+
+!===============================================================================
+
+subroutine check_nans(icall,rvara1,rvara2)
+
+  use mem_basic,  only: sh_w,rho,thil,sh_v,wc,wmc,press,vmc,vc,vxe,vye,vze
   use mem_micro,  only: sh_c,sh_r
-  use mem_grid,   only: mza,mwa,lpw,volti,mva,lpv
-  use mem_tend,   only: thilt
+  use mem_grid,   only: mza,mwa,lpw,volti,mva,lpv,glatw,glonw,glatv,glonv
+  use mem_tend,   only: thilt,sh_wt,vmxet,vmyet,vmzet
   use misc_coms,  only: io6, iparallel
   use mem_ijtabs, only: itab_v, itab_w
   use mem_para,   only: myrank
@@ -14,10 +20,15 @@ subroutine check_nans(icall)
 
   implicit none
 
-  integer :: i,k,iv
+  integer :: i,k,istop
   integer, intent(in) :: icall
 
+  real, optional, intent(in) :: rvara1 (mza,mwa)
+  real, optional, intent(in) :: rvara2 (mza,mwa)
+
 #ifdef IEEE_ARITHMETIC
+
+  istop = 0
 
   do i = 2,mwa
      do k = lpw(i),mza
@@ -27,20 +38,63 @@ subroutine check_nans(icall)
              ieee_is_nan(press(k,i)) .or.  &
              ieee_is_nan(wc   (k,i)) .or.  &
              ieee_is_nan(wmc  (k,i)) .or.  &
+             ieee_is_nan(thilt(k,i)) .or.  &
+             ieee_is_nan(sh_wt(k,i)) .or.  &
+             ieee_is_nan(vmxet(k,i)) .or.  &
+             ieee_is_nan(vmyet(k,i)) .or.  &
+             ieee_is_nan(vmzet(k,i)) .or.  &
+             ieee_is_nan(vxe  (k,i)) .or.  &
+             ieee_is_nan(vye  (k,i)) .or.  &
+             ieee_is_nan(vze  (k,i)) .or.  &
              ieee_is_nan(sh_v (k,i)) ) then
            
            write(*,*) 'Node ', myrank
-           write(*,*) 'NaN at ', k, i, icall
+           write(*,*) 'NaN at: k, i, icall ', k, i, icall
            write(io6,*) ''
-           write(io6,*) 'check_nans',k,i,icall
-           write(io6,*) 'sh_w,rho',sh_w(k,i),rho(k,i)
-           write(io6,*) 'thil,press',thil(k,i),press(k,i)
-           write(io6,*) 'wc, wmc, sh_v',wc(k,i),wmc(k,i),sh_v(k,i)
-           stop
+           write(io6,*) 'check_nans: k, i, icall, lat, lon ',k,i,icall,glatw(i),glonw(i)
+           write(io6,*) 'sh_w,rho ',sh_w(k,i),rho(k,i)
+           write(io6,*) 'thil,press ',thil(k,i),press(k,i)
+           write(io6,*) 'wc, wmc, sh_v ',wc(k,i),wmc(k,i),sh_v(k,i)
+           write(io6,*) 'vxe, vye, vze ',vxe(k,i),vye(k,i),vze(k,i)
+           write(io6,*) 'thilt, sh_wt ',thilt(k,i),sh_wt(k,i)
+           write(io6,*) 'vmxet, vmyet, vmzet ',vmxet(k,i),vmyet(k,i),vmzet(k,i)
+           istop = 1
         endif
 
      enddo
   enddo
+
+  if (present(rvara1)) then
+     do i = 2,mwa
+        do k = lpw(i),mza
+           if ( ieee_is_nan(rvara1 (k,i))) then
+              write(*,*) 'Node ', myrank
+              write(*,*) 'NaN at: k, i, icall ', k, i, icall
+              write(io6,*) ''
+              write(io6,*) 'check_nans: k, i, icall, lat, lon ',k,i,icall,glatw(i),glonw(i)
+              write(io6,*) 'rvara1 ',rvara1(k,i)
+              istop = 1
+           endif
+
+        enddo
+     enddo
+  endif
+
+  if (present(rvara2)) then
+     do i = 2,mwa
+        do k = lpw(i),mza
+           if ( ieee_is_nan(rvara2 (k,i))) then
+              write(*,*) 'Node ', myrank
+              write(*,*) 'NaN at: k, i, icall ',k,i,icall
+              write(io6,*) ''
+              write(io6,*) 'check_nans: k, i, icall, lat, lon  ',k,i,icall,glatw(i),glonw(i)
+              write(io6,*) 'rvara2 ',rvara2(k,i)
+              istop = 1
+           endif
+
+        enddo
+     enddo
+  endif
 
   do i = 2,mva
      do k = lpv(i), mza
@@ -49,12 +103,14 @@ subroutine check_nans(icall)
            write(io6,*) ''
            write(*,*) 'Node ', myrank
            write(*,*) 'NaN at ', k, i, icall
-           write(io6,*) 'check_nans',k,i,icall
+           write(io6,*) 'check_nans: k, i, icall, lat, lon ',k,i,icall,glatv(i),glonv(i)
            write(io6,*) 'vmc, vc: ', vmc(k,i), vc(k,i)
-           stop
+           istop = 1
         endif
      enddo
   enddo
+
+  if (istop > 0) stop 'stop: check_nans '
 
 #endif
 end subroutine check_nans
@@ -201,4 +257,6 @@ subroutine compute_mass_sums()
   firstime = .false.
 
 end subroutine compute_mass_sums
+
+end module check_nan
 
