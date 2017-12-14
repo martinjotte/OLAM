@@ -386,7 +386,7 @@ subroutine ccnbin_init()
      ccntyp_dmin(ic) = ccntyp_dmed(ic) / diamfac
      ccntyp_dmax(ic) = ccntyp_dmed(ic) * diamfac
 
-     if (ic /= idust2 > 0) then
+     if (ic /= idust2) then
         ccntyp_dmax(ic) = min(ccntyp_dmax(ic), 2.0e-6)
      endif
 
@@ -1532,7 +1532,7 @@ real :: cactivated, sh_wbc, satenvmax
                     con_cp, con_ccny, satenvmax, cactivated, sh_wbc)
 
         cnuc_vc(k) = cactivated * rhoa(k) ! [#/m^3]
-        rnuc_vc(k) = max(sh_wbc * rhoa(k), cnuc_vc(k) * emb0(1)) ! [kg_w/m^3]
+        rnuc_vc(k) = max( real(sh_wbc * rhoa(k)), cnuc_vc(k) * emb0(1)) ! [kg_w/m^3]
 
         rhov(k) = rhov(k) - rnuc_vc(k)
 
