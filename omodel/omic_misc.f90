@@ -794,6 +794,7 @@ real    :: dispemb,riemb,rsfc,qrsfc
 
         rx(k,lcat) = rxnew(k,lcat)
         cx(k,lcat) = cxnew(k,lcat)
+        qr(k,lcat) = qrnew(k,lcat)
         qx(k,lcat) = qrnew(k,lcat) / max(rxmin(lcat),rxnew(k,lcat))
 
      enddo

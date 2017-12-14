@@ -1132,7 +1132,7 @@ endif
 
  call mic_copyback(iw0,lpw0,k1,k2,k3, &
     dtli0,accpx,pcprx,thil0,theta0,tair,rhoa,rhow,rhov, &
-    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,exner0)
+    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr,exner0)
 
 end subroutine micphys
 
@@ -1230,7 +1230,7 @@ if (jnmb(1) == 5) then
          rx(k,1) = sh_c (k,iw0) * rhoa(k)
          cx(k,1) = con_c(k,iw0) * rhoa(k)
       else
-         sh_c (k,iw0) = max(sh_c(k,iw0), 0.0)
+         sh_c (k,iw0) = 0.0
          con_c(k,iw0) = 0.0
       endif
 
@@ -1245,7 +1245,7 @@ elseif (jnmb(1) >= 1) then
 
       if (sh_c(k,iw0) >= rxmin(1)) then
          rx(k,1) = sh_c(k,iw0) * rhoa(k)
-      elseif (sh_c(k,iw0) < 0.) then
+      else
          sh_c(k,iw0) = 0.
       endif
 
@@ -1271,11 +1271,12 @@ if (jnmb(2) == 5) then
       if (sh_r(k,iw0) >= rxmin(2)) then
          rx(k,2) = sh_r (k,iw0) * rhoa(k)
          cx(k,2) = con_r(k,iw0) * rhoa(k)
-         qx(k,2) = q2(k,iw0)
-         qr(k,2) = qx(k,2) * rx(k,2)
+         qr(k,2) = q2   (k,iw0) * rhoa(k)
+         qx(k,2) = q2   (k,iw0) / sh_r(k,iw0)
       else
-         sh_r (k,iw0) = max(sh_r(k,iw0), 0.0)
+         sh_r (k,iw0) = 0.0
          con_r(k,iw0) = 0.0
+         q2   (k,iw0) = 0.0
       endif
 
    enddo
@@ -1290,10 +1291,11 @@ elseif (jnmb(2) >= 1) then
 
       if (sh_r(k,iw0) >= rxmin(2)) then
          rx(k,2) = sh_r(k,iw0) * rhoa(k)
-         qx(k,2) = q2(k,iw0)
-         qr(k,2) = qx(k,2) * rx(k,2)
-      elseif (sh_r(k,iw0) < 0.) then
+         qr(k,2) = q2  (k,iw0) * rhoa(k)
+         qx(k,2) = q2  (k,iw0) / sh_r(k,iw0)
+      else
          sh_r(k,iw0) = 0.
+         q2  (k,iw0) = 0.
       endif
 
    enddo
@@ -1319,7 +1321,7 @@ if (jnmb(3) == 5) then
          rx(k,3) = sh_p (k,iw0) * rhoa(k)
          cx(k,3) = con_p(k,iw0) * rhoa(k)
       else
-         sh_p (k,iw0) = max(sh_p(k,iw0), 0.0)
+         sh_p (k,iw0) = 0.0
          con_p(k,iw0) = 0.0
       endif
 
@@ -1346,7 +1348,7 @@ if (jnmb(4) == 5) then
          rx(k,4) = sh_s (k,iw0) * rhoa(k)
          cx(k,4) = con_s(k,iw0) * rhoa(k)
       else
-         sh_s (k,iw0) = max(sh_s(k,iw0), 0.0)
+         sh_s (k,iw0) = 0.0
          con_s(k,iw0) = 0.0
       endif
 
@@ -1361,7 +1363,7 @@ elseif (jnmb(4) >= 1) then
 
       if (sh_s(k,iw0) >= rxmin(4)) then
          rx(k,4) = sh_s(k,iw0) * rhoa(k)
-      elseif (sh_s(k,iw0) < 0.) then
+      else
          sh_s(k,iw0) = 0.
       endif
 
@@ -1388,7 +1390,7 @@ if (jnmb(5) == 5) then
          rx(k,5) = sh_a (k,iw0) * rhoa(k)
          cx(k,5) = con_a(k,iw0) * rhoa(k)
       else
-         sh_a (k,iw0) = max(sh_a(k,iw0), 0.0)
+         sh_a (k,iw0) = 0.0
          con_a(k,iw0) = 0.0
       endif
 
@@ -1403,7 +1405,7 @@ elseif (jnmb(5) >= 1) then
 
       if (sh_a(k,iw0) >= rxmin(5)) then
          rx(k,5) = sh_a(k,iw0) * rhoa(k)
-      elseif (sh_a(k,iw0) < 0.) then
+      else
          sh_a(k,iw0) = 0.
       endif
 
@@ -1429,11 +1431,12 @@ if (jnmb(6) == 5) then
       if (sh_g(k,iw0) >= rxmin(6)) then
          rx(k,6) = sh_g (k,iw0) * rhoa(k)
          cx(k,6) = con_g(k,iw0) * rhoa(k)
-         qx(k,6) = q6(k,iw0)
-         qr(k,6) = qx(k,6) * rx(k,6)
+         qr(k,6) = q6   (k,iw0) * rhoa(k)
+         qx(k,6) = q6   (k,iw0) / sh_g(k,iw0)
       else
-         sh_g (k,iw0) = max(sh_g(k,iw0), 0.0)
+         sh_g (k,iw0) = 0.0
          con_g(k,iw0) = 0.0
+         q6   (k,iw0) = 0.0
       endif
 
    enddo
@@ -1448,10 +1451,11 @@ elseif (jnmb(6) >= 1) then
 
       if (sh_g(k,iw0) >= rxmin(6)) then
          rx(k,6) = sh_g(k,iw0) * rhoa(k)
-         qx(k,6) = q6(k,iw0)
-         qr(k,6) = qx(k,6) * rx(k,6)
-      elseif (sh_g(k,iw0) < 0.) then
+         qr(k,6) = q6  (k,iw0) * rhoa(k)
+         qx(k,6) = q6  (k,iw0) / sh_g(k,iw0)
+      else
          sh_g(k,iw0) = 0.
+         q6  (k,iw0) = 0.
       endif
 
    enddo
@@ -1476,11 +1480,12 @@ if (jnmb(7) == 5) then
       if (sh_h(k,iw0) >= rxmin(7)) then
          rx(k,7) = sh_h (k,iw0) * rhoa(k)
          cx(k,7) = con_h(k,iw0) * rhoa(k)
-         qx(k,7) = q7(k,iw0)
-         qr(k,7) = qx(k,7) * rx(k,7)
+         qr(k,7) = q7   (k,iw0) * rhoa(k)
+         qx(k,7) = q7   (k,iw0) / sh_h(k,iw0)
       else
-         sh_h (k,iw0) = max(sh_h(k,iw0), 0.0)
+         sh_h (k,iw0) = 0.0
          con_h(k,iw0) = 0.0
+         q7   (k,iw0) = 0.0
       endif
 
    enddo
@@ -1495,10 +1500,11 @@ elseif (jnmb(7) >= 1) then
 
       if (sh_h(k,iw0) >= rxmin(7)) then
          rx(k,7) = sh_h(k,iw0) * rhoa(k)
-         qx(k,7) = q7(k,iw0)
-         qr(k,7) = qx(k,7) * rx(k,7)
-      elseif (sh_h(k,iw0) < 0.) then
+         qr(k,7) = q7  (k,iw0) * rhoa(k)
+         qx(k,7) = q7  (k,iw0) / sh_h(k,iw0)
+      else
          sh_h(k,iw0) = 0.
+         q7  (k,iw0) = 0.
       endif
 
    enddo
@@ -1524,7 +1530,7 @@ if (jnmb(8) == 5) then
          rx(k,8) = sh_d (k,iw0) * rhoa(k)
          cx(k,8) = con_d(k,iw0) * rhoa(k)
       else
-         sh_d (k,iw0) = max(sh_d(k,iw0), 0.0)
+         sh_d (k,iw0) = 0.0
          con_d(k,iw0) = 0.0
       endif
 
@@ -1585,7 +1591,7 @@ end subroutine mic_copy
 
 subroutine mic_copyback(iw0,lpw0,k1,k2,k3, &
    dtli0,accpx,pcprx,thil0,theta0,tair0,rhoa,rhow,rhov, &
-   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,exner0)
+   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr,exner0)
 
 use micro_coms, only: mza0, ncat, jnmb, iccn, igccn, iifn, rxmin
 use ccnbin_coms, only: nccntyp
@@ -1632,6 +1638,7 @@ real, intent(in) :: con_ifnx (mza0)
 real, intent(in) :: rx(mza0,ncat)
 real, intent(in) :: cx(mza0,ncat)
 real, intent(in) :: qx(mza0,ncat)
+real, intent(in) :: qr(mza0,ncat)
 
 real, intent(in) :: exner0(mza0)
 
@@ -1651,7 +1658,7 @@ do k = lpw0,mza0
    rfact(k)     = rhoi(k) * rho(k,iw0)
    rho(k,iw0)   = rhoa(k)
    sh_w(k,iw0)  = rhow(k) * rhoi(k)
-   sh_v(k,iw0)  = min(rhov(k) * rhoi(k), sh_w(k,iw0))
+   sh_v(k,iw0)  = min( real(rhov(k) * rhoi(k)), sh_w(k,iw0))
    rholiq(k)    = 0.
    rhoice(k)    = 0.
 enddo
@@ -1687,7 +1694,7 @@ if (jnmb(2) >= 1) then
 
    do k = lpw0,k2(11)
       sh_r(k,iw0) = rx(k,2) * rhoi(k)
-      q2  (k,iw0) = qx(k,2)
+      q2  (k,iw0) = qr(k,2) * rhoi(k)
       if (rx(k,2) > rxmin(2)) rholiq(k) = rholiq(k) + rx(k,2)
    enddo
 endif
@@ -1735,7 +1742,7 @@ if (jnmb(6) >= 1) then
    pcprg(iw0) = pcprx(6)
    do k = lpw0,k2(11)
       sh_g(k,iw0) = rx(k,6) * rhoi(k)
-      q6  (k,iw0) = qx(k,6)
+      q6  (k,iw0) = qr(k,6) * rhoi(k)
       if (rx(k,6) > rxmin(6)) then
          call qtc(qx(k,6),tc,fracliq)
          rholiq(k) = rholiq(k) + rx(k,6) * fracliq
@@ -1751,7 +1758,7 @@ if (jnmb(7) >= 1) then
    pcprh(iw0) = pcprx(7)
    do k = lpw0,k2(11)
       sh_h(k,iw0) = rx(k,7) * rhoi(k)
-      q7  (k,iw0) = qx(k,7)
+      q7  (k,iw0) = qr(k,7) * rhoi(k)
       if (rx(k,7) > rxmin(7)) then
          call qtc(qx(k,7),tc,fracliq)
          rholiq(k) = rholiq(k) + rx(k,7) * fracliq
