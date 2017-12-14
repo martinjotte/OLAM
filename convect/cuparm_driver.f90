@@ -32,7 +32,7 @@
 !===============================================================================
 subroutine cuparm_driver(rhot)
 
-  use mem_grid,         only: mwa, mza, lpw, volt
+  use mem_grid,         only: mwa, mza, lpw, volt, arw0
   use module_cu_g3,     only: grell_driver
   use module_cu_gf,     only: gf_driver
   use module_cu_kfeta,  only: cuparm_kfeta, kf_lutab
@@ -187,8 +187,8 @@ subroutine cuparm_driver(rhot)
            ka = lpw(iw)
            kb = min(kcutop(iw) + 1, mza)
 
-           qsum = sum( rtsrc(ka:kb,iw) * volt(ka:kb,iw) ) + conprr(iw)
-           tsum = sum( thsrc(ka:kb,iw) * volt(ka:kb,iw) ) - conprr(iw) * alvlocp
+           qsum = sum( rtsrc(ka:kb,iw) * volt(ka:kb,iw) ) + conprr(iw) * arw0(iw)
+           tsum = sum( thsrc(ka:kb,iw) * volt(ka:kb,iw) ) - conprr(iw) * arw0(iw) * alvlocp
            vtot = sum( volt(kcubot(iw):kcutop(iw),iw) )
 
            qsum = qsum / vtot
