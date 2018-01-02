@@ -26,12 +26,12 @@ CONTAINS
                             gravi, alvlocp, r8
      use mem_radiate, only: rshort, fthrd_sw, fthrd_lw
      use mem_grid,    only: mza, lpw, arw0, zm, zt, xew, yew, zew, &
-                            dzt, arw, lpv, arv, volt
+                            dzt, arw, lpv, arv, volt, volti
      use mem_ijtabs,  only: itab_w
      use mem_basic,   only: wmc, vmc, theta, tair, press, rho, sh_v, &
                             vxe, vye, vze
      use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
-                            qwcon, iactcu, kddtop, cddf
+                            qwcon, iactcu, kddtop, cddf, rdsrc
 
      implicit none
 
@@ -74,7 +74,8 @@ CONTAINS
      real    :: xmb3   (1)       ! shallow convection mass flux
      real    :: mconv  (1,    8) ! column moisture convergence
      real    :: omeg   (1,mza,8) ! vertical velocity in pressure coordinates
-
+     real    :: qce    (1,mza)   ! Moisture tendency due to precipitation only
+                                 ! (kg water removed from grid cell / m^2 / sec )
      real    :: APR_GR (1,1)     ! precip (mm/hr) for different closures/caps
      real    :: APR_W  (1,1)
      real    :: APR_MC (1,1)
@@ -332,6 +333,7 @@ CONTAINS
      outqc(1,:) = 0.0
      subt (1,:) = 0.0
      subq (1,:) = 0.0
+     qce  (1,:) = 0.0
      pre  (1)   = 0.0
 
      k23 = 0
@@ -351,7 +353,7 @@ CONTAINS
      sub_mas = 0.0
      jmin = 0
 
-     call  CUP_enss_3d(iw,OUTQC,J,AAEQ,T,Q,Z1,sub_mas,                    &
+     call  CUP_enss_3d(iw,OUTQC,J,AAEQ,T,Q,Z1,sub_mas,                 &
               TN,QO,PO,PRE,P,OUTT,OUTQ,DTIME,ktau,tkmax,PSUR,US,VS,    &
               TCRIT,tx,qx,                                             &
               tshall,qshall,kpbl,dhdt,outts,outqs,tscl_kf,             &
@@ -361,7 +363,7 @@ CONTAINS
               APR_CAPMA,APR_CAPME,APR_CAPMI,kbcon,ktop,cupclw,         &
               xf_ens,pr_ens,xland,gsw,edt_out,subt,subq,               &
               xl,rv,cpd,g,ichoice,ipr,jpr,ens4,high_resolution,        &
-              ishallow_g3,cupclws,ktf,kts,kte                          )
+              qce,ishallow_g3,cupclws,ktf,kts,kte                      )
 
      if (pre(1) > 1.e-16) then
 
@@ -379,7 +381,7 @@ CONTAINS
            k  = kc + ka - 1
 
            ! Total water tendency
-           rtsrc(k,iw) = (outq(1,kc) + subq(1,kc) + outqc(1,kc)) * rho(k,iw)
+           rtsrc(k,iw) = (outq(1,kc) + subq(1,kc) + 0.*outqc(1,kc)) * rho(k,iw)
 
            ! Any cloud condensate is evaporated since we do not feed back
            ! to resolved microphysics
@@ -387,6 +389,9 @@ CONTAINS
 
            ! Cloud water
            qwcon(k,iw) = cupclw(1,kc)
+
+           ! Density change (Water removed)
+           rdsrc(k,iw) = -qce(1,kc) * arw0(iw) * volti(k,iw)
         enddo
 
      else if (ishallow_g3 == 1 .and. kbcon3(1) > 0 .and. ktop3(1) >= kbcon3(1)) then
@@ -422,7 +427,7 @@ CONTAINS
               APR_CAPMA,APR_CAPME,APR_CAPMI,kbcon,ktop,cupclw,         &
               xf_ens,pr_ens,xland,gsw,edt_out,subt,subq,               &
               xl,rv,cp,g,ichoice,ipr,jpr,ens4,high_resolution,         &
-              ishallow_g3,cupclws,ktf,kts,kte                          )
+              qce,ishallow_g3,cupclws,ktf,kts,kte                      )
 
    IMPLICIT NONE
 
@@ -450,8 +455,8 @@ CONTAINS
   ! outqc  = output qc tendency (per s)
   ! pre    = output precip
      real,    dimension (its:ite,kts:kte)                              &
-        ,intent (inout  )                   ::                           &
-        DHDT,OUTT,OUTQ,OUTQC,subt,subq,sub_mas,cupclw,outts,outqs,cupclws
+        ,intent (inout  )                   ::                         &
+        DHDT,OUTT,OUTQ,OUTQC,subt,subq,sub_mas,cupclw,outts,outqs,cupclws,qce
      real,    dimension (its:ite)                                      &
         ,intent (out  )                   ::                           &
         pre,xmb3,xmb
@@ -1506,7 +1511,7 @@ CONTAINS
            dellaqc_ens,subt_ens,subq_ens,subt,subq,outt,     &
            outq,outqc,zuo,sub_mas,pre,pwo_ens,xmb,ktop,      &
            j,'deep',ierr2,ierr3,         &
-           pr_ens,                    &
+           pr_ens,qce,                    &
            APR_GR,APR_W,APR_MC,APR_ST,APR_AS,                &
            APR_CAPMA,APR_CAPME,APR_CAPMI,closure_n,xland1,   &
            ktf,kts,kte)
@@ -2052,7 +2057,7 @@ CONTAINS
         iw,ktf,kts,kte
      integer, intent (in   )              ::                           &
         j,ipr,jpr
-      character *(*), intent (in)        ::                           &
+      character (*), intent (in)        ::                           &
        name
   !
   ! ierr error value, maybe modified in this routine
@@ -2144,7 +2149,7 @@ CONTAINS
      integer, dimension (its:ite)                                      &
         ,intent (inout)                   ::                           &
         ierr
-      character *(*), intent (in)        ::                           &
+      character (*), intent (in)        ::                           &
        name
 !
 !  local variables in this routine
@@ -2299,6 +2304,9 @@ CONTAINS
               psur,ierr,tcrit,itest,xl,cp,                   &
               ktf,kts,kte                     )
 
+     use consts_coms, only: t00, eps_vap
+     use therm_lib,   only: eslf, esif
+
    IMPLICIT NONE
 
      integer                                                           &
@@ -2345,29 +2353,37 @@ CONTAINS
 
      integer                              ::                           &
        i,k,iph
-      real, dimension (1:2) :: AE,BE,HT
+!     real, dimension (1:2) :: AE,BE,HT
       real, dimension (its:ite,kts:kte) :: tv
       real :: tcrit,e,tvbar
 
+!     HT(1)=XL/CP
+!     HT(2)=2.834E6/CP
+!     BE(1)=.622*HT(1)/.286
+!     AE(1)=BE(1)/273.+ALOG(610.71)
+!     BE(2)=.622*HT(2)/.286
+!     AE(2)=BE(2)/273.+ALOG(610.71)
 
-      HT(1)=XL/CP
-      HT(2)=2.834E6/CP
-      BE(1)=.622*HT(1)/.286
-      AE(1)=BE(1)/273.+ALOG(610.71)
-      BE(2)=.622*HT(2)/.286
-      AE(2)=BE(2)/273.+ALOG(610.71)
-!      print *, 'TCRIT = ', tcrit,its,ite
       DO k=kts,ktf
       do i=its,itf
         if(ierr(i).eq.0)then
 !Csgb - IPH is for phase, dependent on TCRIT (water or ice)
-        IPH=1
-        IF(T(I,K).LE.TCRIT)IPH=2
+!        IPH=1
+!        IF(T(I,K).LE.TCRIT)IPH=2
 !       print *, 'AE(IPH),BE(IPH) = ',AE(IPH),BE(IPH),AE(IPH)-BE(IPH),T(i,k),i,k
-        E=EXP(AE(IPH)-BE(IPH)/T(I,K))
+!       E=EXP(AE(IPH)-BE(IPH)/T(I,K))
 !       print *, 'P, E = ', P(I,K), E
-        QES(I,K)=.622*E/(100.*P(I,K)-(1.-0.622)*E)
-        IF(QES(I,K).LE.1.E-08)QES(I,K)=1.E-08
+!       QES(I,K)=.622*E/(100.*P(I,K)-(1.-0.622)*E)
+
+        if ( t(i,k) > tcrit ) then
+           e = eslf( t(i,k) - t00 )
+        else
+           e = esif( t(i,k) - t00 )
+        endif
+
+        qes(i,k) = max( eps_vap*e / (100.*p(i,k) - (1.0-eps_vap)*e), 1.e-8)
+
+!       IF(QES(I,K).LE.1.E-08)QES(I,K)=1.E-08
 !       IF(QES(I,K).LT.Q(I,K))QES(I,K)=Q(I,K)
         IF(Q(I,K).GT.QES(I,K))Q(I,K)=QES(I,K)
         TV(I,K)=T(I,K)+.608*Q(I,K)*T(I,K)
@@ -2582,7 +2598,7 @@ CONTAINS
      integer                                                           &
         ,intent (in   )                   ::                           &
         icoic
-      character *(*), intent (in)         ::                           &
+      character (*), intent (in)         ::                           &
        name
 !
 !  local variables in this routine
@@ -3199,7 +3215,7 @@ CONTAINS
    SUBROUTINE cup_output_ens_3d(xf_ens,ierr,dellat,dellaq,dellaqc,  &
               subt_ens,subq_ens,subt,subq,outtem,outq,outqc,     &
               zu,sub_mas,pre,pw,xmb,ktop,                 &
-              j,name,ierr2,ierr3,pr_ens,             &
+              j,name,ierr2,ierr3,pr_ens,qce,             &
               APR_GR,APR_W,APR_MC,APR_ST,APR_AS,                 &
               APR_CAPMA,APR_CAPME,APR_CAPMI,closure_n,xland1,    &
               ktf,kts,kte)
@@ -3240,7 +3256,7 @@ CONTAINS
 
      real,    dimension (its:ite,kts:kte)                              &
         ,intent (out  )                   ::                           &
-        outtem,outq,outqc,subt,subq,sub_mas
+        outtem,outq,outqc,subt,subq,sub_mas,qce
      real,    dimension (its:ite,kts:kte)                              &
         ,intent (in  )                   ::                           &
         zu
@@ -3269,8 +3285,8 @@ CONTAINS
         ddtes,dtt,dtq,dtqc,dtpw,tuning,clos_wei
      real                                 ::                           &
         dtts,dtqs
-     real,    dimension (its:ite)         ::                           &
-       xfac1,xfac2
+!    real,    dimension (its:ite)         ::                           &
+!      xfac1,xfac2
      real,    dimension (its:ite)::                           &
        xmb_ske,xmb_ave,xmb_std,xmb_cur,xmbweight
      real,    dimension (its:ite)::                           &
@@ -3282,7 +3298,7 @@ CONTAINS
      real, dimension (its:ite,5) :: xmb_w
 
 !
-      character *(*), intent (in)        ::                           &
+      character (*), intent (in)        ::                           &
        name
 !
      weight(1) = -999.  !this will turn off weights
@@ -3299,13 +3315,14 @@ CONTAINS
         subt(i,k)=0.
         subq(i,k)=0.
         sub_mas(i,k)=0.
+        qce(i,k)=0.
       enddo
       enddo
       do i=its,itf
         pre(i)=0.
         xmb(i)=0.
-         xfac1(i)=0.
-         xfac2(i)=0.
+!       xfac1(i)=0.
+!       xfac2(i)=0.
         xmbweight(i)=1.
       enddo
       do i=its,itf
@@ -3359,13 +3376,14 @@ CONTAINS
            endif
 !mjo limit mass flux
            xmb(i) = min(xmb(i),xmbmax)
-           xfac1(i)=xmb(i)
-           xfac2(i)=xmb(i)
+!          xfac1(i)=xmb(i)
+!          xfac2(i)=xmb(i)
 
         endif
 !       if(weight(1).lt.-100.)xfac1(i)=xmb_ave(i)
 !       if(weight(1).lt.-100.)xfac2(i)=xmb_ave(i)
       ENDDO
+
       DO k=kts,ktf
       do i=its,itf
             dtt=0.
@@ -3388,6 +3406,7 @@ CONTAINS
            OUTQ(I,K)=XMB(I)*dtq/float(maxens2)
            SUBQ(I,K)=XMB(I)*dtqs/float(maxens2)
            OUTQC(I,K)=XMB(I)*dtqc/float(maxens2)
+           qce(i,k)=XMB(I)*dtpw/float(maxens2)
            PRE(I)=PRE(I)+XMB(I)*dtpw/float(maxens2)
            sub_mas(i,k)=zu(i,k)*xmb(i)
         endif
@@ -3487,7 +3506,7 @@ CONTAINS
      integer                                                           &
         ,intent (in   )                   ::                           &
                                   ktf,kts,kte
-      character *(*), intent (in)        ::                           &
+      character (*), intent (in)        ::                           &
        name
   ! hc = cloud moist static energy
   ! hkb = moist static energy at originating level
@@ -3623,7 +3642,7 @@ CONTAINS
      integer, dimension (its:ite)                                      &
         ,intent (inout)                   ::                           &
         ierr
-      character *(*), intent (in)        ::                           &
+      character (*), intent (in)        ::                           &
        name
    ! qc = cloud q (including liquid water) after entrainment
    ! qrch = saturation q in cloud
@@ -4020,6 +4039,10 @@ CONTAINS
    SUBROUTINE cup_axx(tcrit,kbmax,z1,p,psur,xl,rv,cp,tx,qx,axx,ierr,    &
            cap_max,cap_max_increment,entr_rate,mentr_rate,&
            j,ktf,kts,kte,ens4)
+
+     use consts_coms, only: t00, eps_vap
+     use therm_lib,   only: eslf, esif
+
    IMPLICIT NONE
    INTEGER,      INTENT(IN   ) ::                                             &
                                   j,ktf,kts,kte,ens4
@@ -4041,7 +4064,7 @@ CONTAINS
            ierr,kbmax
      integer, dimension (its:ite) ::                             &
            ierrxx,k22xx,kbconxx,ktopxx,kstabm,kstabi
-      real, dimension (1:2) :: AE,BE,HT
+!     real, dimension (1:2) :: AE,BE,HT
       real, dimension (its:ite,kts:kte) :: tv
       real :: e,tvbar
      integer n,i,k,iph
@@ -4059,12 +4082,12 @@ CONTAINS
        axx(i,n)=0.
       enddo
       enddo
-     HT(1)=XL/CP
-     HT(2)=2.834E6/CP
-     BE(1)=.622*HT(1)/.286
-     AE(1)=BE(1)/273.+ALOG(610.71)
-     BE(2)=.622*HT(2)/.286
-     AE(2)=BE(2)/273.+ALOG(610.71)
+!     HT(1)=XL/CP
+!     HT(2)=2.834E6/CP
+!     BE(1)=.622*HT(1)/.286
+!     AE(1)=BE(1)/273.+ALOG(610.71)
+!     BE(2)=.622*HT(2)/.286
+!     AE(2)=BE(2)/273.+ALOG(610.71)
 !
 !
      do 100 n=1,ens4
@@ -4086,11 +4109,21 @@ CONTAINS
       DO k=kts,ktf
       do i=its,itf
         if(ierrxx(i).eq.0)then
-        IPH=1
-        IF(Tx(I,K,n).LE.TCRIT)IPH=2
-        E=EXP(AE(IPH)-BE(IPH)/TX(I,K,N))
-        QES(I,K)=.622*E/(100.*P(I,K)-(1.-0.622)*E)
-        IF(QES(I,K).LE.1.E-08)QES(I,K)=1.E-08
+
+!        IPH=1
+!        IF(Tx(I,K,n).LE.TCRIT)IPH=2
+!        E=EXP(AE(IPH)-BE(IPH)/TX(I,K,N))
+!        QES(I,K)=.622*E/(100.*P(I,K)-(1.-0.622)*E)
+
+        if ( tx(i,k,n) > tcrit ) then
+           e = eslf( tx(i,k,n) - t00 )
+        else
+           e = esif( tx(i,k,n) - t00 )
+        endif
+
+        qes(i,k) = max( eps_vap*e / (100.*p(i,k) - (1.0-eps_vap)*e), 1.e-8)
+
+!       IF(QES(I,K).LE.1.E-08)QES(I,K)=1.E-08
         IF(Qx(I,K,N).GT.QES(I,K))Qx(I,K,N)=QES(I,K)
         TV(I,K)=Tx(I,K,N)+.608*Qx(I,K,N)*Tx(I,K,N)
         endif

@@ -37,6 +37,7 @@ Module mem_cuparm
 
    real,    allocatable, target :: thsrc (:,:)
    real,    allocatable, target :: rtsrc (:,:)
+   real,    allocatable, target :: rdsrc (:,:)
    real(r8),allocatable, target :: aconpr  (:)
    real,    allocatable, target :: conprr  (:)
    real,    allocatable, target :: vxsrc (:,:)
@@ -71,6 +72,7 @@ Contains
        
        allocate (thsrc(mza,mwa)) ; thsrc  = 0.0
        allocate (rtsrc(mza,mwa)) ; rtsrc  = 0.0
+       allocate (rdsrc(mza,mwa)) ; rdsrc  = 0.0
        allocate (aconpr   (mwa)) ; aconpr = 0.0_r8
        allocate (conprr   (mwa)) ; conprr = 0.0
        allocate (qwcon(mza,mwa)) ; qwcon  = 0.0
@@ -104,6 +106,7 @@ Contains
 
     if (allocated(thsrc))   deallocate (thsrc)
     if (allocated(rtsrc))   deallocate (rtsrc)
+    if (allocated(rdsrc))   deallocate (rdsrc)
     if (allocated(aconpr))  deallocate (aconpr)
     if (allocated(conprr))  deallocate (conprr)
     if (allocated(qwcon))   deallocate (qwcon)
@@ -129,6 +132,8 @@ Contains
      if (allocated(thsrc))  call increment_vtable('THSRC', 'AW', rvar2=thsrc)
 
      if (allocated(rtsrc))  call increment_vtable('RTSRC', 'AW', rvar2=rtsrc)
+
+     if (allocated(rdsrc))  call increment_vtable('RDSRC', 'AW', rvar2=rdsrc)
 
      if (allocated(aconpr)) call increment_vtable('ACONPR','AW', dvar1=aconpr)
 

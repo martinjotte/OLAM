@@ -23,11 +23,11 @@ CONTAINS
 
 SUBROUTINE cuparm_emanuel(iw, dtlong)
 
-  use mem_grid,    only: lpw, zm, zt, xew, yew, zew, dzt
-  use mem_basic,   only: tair, press, rho, sh_v, vxe, vye, vze
+  use mem_grid,    only: lpw, zm, zt, xew, yew, zew, dzt, volt, volti, arw0
+  use mem_basic,   only: tair, press, rho, sh_v, vxe, vye, vze, theta
   use consts_coms, only: t00, grav, eradi
   use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc, &
-                         kcutop, kcubot, qwcon, iactcu, kddtop, cddf
+                         kcutop, kcubot, qwcon, iactcu, kddtop, cddf, rdsrc
   use oname_coms,  only: nl
   use therm_lib,   only: rhovsil
 
@@ -37,7 +37,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   real,    intent(in)  :: dtlong
 
   real, dimension(mza) :: tc, qc, qsc, u, v, pc, pfc, gz, den, dz
-  real, dimension(mza) :: tt, qt, ut, vt, qcldc, mp
+  real, dimension(mza) :: tt, qt, ut, vt, qcldc, mp, qce
 
   integer :: k, ka, kc, kp, nd, na, nm
   real    :: pcprate, wprime, tprime, qprime
@@ -114,7 +114,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   call convect43c (     iw,     den,    dz,                                 &
        tc,      qc,     qsc,    u,      v,        pc,    pfc, gz,           &
        nd,      nm,     dtlong, iflag,  tt,       qt,    ut,  vt, mp,       &
-       pcprate, wprime, tprime, qprime, cbmf(iw), qcldc, kup, kcbase, kctop )
+       pcprate, wprime, tprime, qprime, cbmf(iw), qcldc, qce, kup, kcbase, kctop )
 
   if (iflag == 1 .or. iflag == 4) then
 
@@ -134,18 +134,19 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
         enddo
      endif
 
-     do kc = 1, nd
+     do kc = 1, kctop
         k  = kc + ka - 1
         thsrc(k,iw) = tt(kc) * rho(k,iw)
         rtsrc(k,iw) = qt(kc) * rho(k,iw)
         qwcon(k,iw) = qcldc(kc)
+        rdsrc(k,iw) = -qce(kc) * arw0(iw) * volti(k,iw)
      enddo
 
      if (nl%conv_uv_mix > 0) then
 
         if (raxis > 1.e3) then
 
-           do kc = 1, nd
+           do kc = 1, kctop
               k  = kc + ka - 1
               uvtr = -vt(kc) * zew(iw) * eradi
               vxsrc(k,iw) = (-ut(kc) * yew(iw) + uvtr * xew(iw)) * raxisi
@@ -155,7 +156,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
  
         else
 
-           do kc = 1, nd
+           do kc = 1, kctop
               k  = kc + ka - 1
               vxsrc(k,iw) = ut(kc)
               vysrc(k,iw) = vt(kc)
@@ -174,7 +175,7 @@ END SUBROUTINE cuparm_emanuel
 SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      T,      Q,  QS,     U,      V,    P,      PH, gz,      &
      ND,     NL, DELT,   IFLAG,  FT,   FQ,     FU, FV,  mp, & 
-     PRECIP, WD, TPRIME, QPRIME, CBMF, QCONDC, nk, icb, inb )
+     PRECIP, WD, TPRIME, QPRIME, CBMF, QCONDC, qce, nk, icb, inb )
   
 !-----------------------------------------------------------------------------
 !    *** On input:      ***
@@ -305,7 +306,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 
   integer, intent(out) :: iflag, icb, inb, nk
   real,    intent(out) :: ft(nd), fq(nd), fu(nd), fv(nd)
-  real,    intent(out) :: qcondc(nd) !, ftra(nd,ntra)
+  real,    intent(out) :: qcondc(nd), qce(nd) !, ftra(nd,ntra)
   real,    intent(out) :: wd, tprime, qprime, precip
   real,    intent(inout) :: cbmf
   real,    intent(out) :: mp(nd)
@@ -329,7 +330,8 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
   real    ::  sigp(mza), tp(mza), cpn(mza)
   real    ::  lv(mza), lvcp(mza), h(mza), hp(mza), hm(mza)
   real    ::  qcond(mza), nqcond(mza), wa(mza), ma(mza), ax(mza)
-  
+  real    ::  qtemp(mza)
+
   integer :: nkmax
   real    :: dbmax, deltv
   real(r8):: qsum, tsum, usum, vsum, uav, vav, qav, tav
@@ -427,6 +429,8 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      QCOND(I)=0.0
      NQCOND(I)=0.0
      ma(i) = 0.0
+     qtemp(i) = 0.
+     qce(i) = 0.
 
 !     DO J=1,NTRA
 !        FTRA(I,J)=0.0
@@ -578,6 +582,23 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 
   CALL TLIFT(P,T,Q,QS,GZ,ICB,NK,TVP,TP,CLW,ND,NL,2)
 
+  if (clw(icb) <= 0.0) then
+
+     do i = icb+1, nk
+        if (clw(i) > 1.e-30) then
+           icb = i
+           exit
+        endif
+     enddo
+     
+     if (i >= nk) then
+        iflag = 0
+        cbmf  = 0.0
+        return
+     end if
+
+  endif
+
 !   ***  SET THE PRECIPITATION EFFICIENCIES AND THE FRACTION OF   ***
 !   ***          PRECIPITATION FALLING OUTSIDE OF CLOUD           ***
 !   ***      THESE MAY BE FUNCTIONS OF TP(I), P(I) AND CLW(I)     ***
@@ -653,13 +674,13 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 
   CAPE=0.0
   INB=ICB+1
-  INB1=INB
+! INB1=INB
 
   DO I=ICB+1,NL-1
      CAPEM=CAPE
      BY=(TVP(I)-TV(I))*(PH(I)-PH(I+1))/P(I)
      CAPE=CAPE+BY
-     IF(BY.GE.0.0)INB1=I+1
+!    IF(BY.GE.0.0)INB1=I+1
      IF(CAPE.GT.0.0)THEN
         INB=I+1
      ELSE
@@ -667,12 +688,24 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      ENDIF
   ENDDO
 
-  inb1=min(inb1,inb)
+! inb1=min(inb1,inb)
   DEFRAC=CAPEM-CAPE
   DEFRAC=MAX(DEFRAC,0.001)
   FRAC=-CAPE/DEFRAC
-  FRAC=MIN(FRAC,1.0)
+! FRAC=MIN(FRAC,1.0)
   FRAC=MAX(FRAC,0.0)
+  
+  if (frac >= 1.0) then
+     inb  = inb - 1
+     frac = 00
+  endif
+
+  ! require convection to span at least 2 layers
+  IF (inb == icb) THEN
+     iflag = 0
+     cbmf  = 0.0
+     RETURN
+  END IF
 
 !   ***   CALCULATE LIQUID WATER STATIC ENERGY OF LIFTED PARCEL   ***
 
@@ -974,7 +1007,11 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !   PRECIP=PRECIP+WT(1)*SIGD*WATER(1)*3600.*24000./(ROWL*G)
 
 !   ***  CALCULATE SURFACE PRECIPITATION IN MM/s     ***
-    precip=wt(1)*sigd*water(1)*1000./(rowl*g)
+    precip=wt(1)*sigd*water(1)/g
+
+    do j = 1, inb
+       qtemp(j) = wt(j)*sigd*water(j)/g
+    enddo
 
   ENDIF
 
@@ -1085,6 +1122,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
           (QP(I+1)-Q(I))-MP(I)*(QP(I)-Q(I-1)))*DPINV
      fu(i)=fu(i)+g*(mp(i+1)*(up(i+1)-u(i))-mp(i)*(up(i)-u(i-1)))*dpinv
      fv(i)=fv(i)+g*(mp(i+1)*(vp(i+1)-v(i))-mp(i)*(vp(i)-v(i-1)))*dpinv
+
 !     DO J=1,NTRA
 !        FTRA(I,J)=FTRA(I,J)+G*DPINV*(MP(I+1)*(TRAP(I+1,J)-TRA(I,J))- &
 !             MP(I)*(TRAP(I,J)-TRA(I-1,J)))
@@ -1171,6 +1209,10 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      ft(i) =  ft(i) - tav * abs(ft(i))
      fu(i) = (fu(i) - uav * abs(fu(i))) * (1.-cu)
      fv(i) = (fv(i) - vav * abs(fv(i))) * (1.-cu)
+  enddo
+
+  do i = 1, inb
+     qce(i) = qtemp(i) - qtemp(i+1)
   enddo
 
 !  DO K=1,NTRA

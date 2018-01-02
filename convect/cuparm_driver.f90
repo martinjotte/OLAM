@@ -42,7 +42,8 @@ subroutine cuparm_driver(rhot)
                               dtlong, mstp, runtype, dtlm, iparallel
   use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
   use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc, &
-                              kcutop, kcubot, qwcon, iactcu, cbmf, cddf, kddtop
+                              kcutop, kcubot, qwcon, iactcu, cbmf, cddf, kddtop, &
+                              rdsrc
   use mem_tend,         only: thilt, sh_wt, vmxet, vmyet, vmzet
   use mem_basic,        only: rho, sh_w, theta, tair, thil
   use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
@@ -94,6 +95,7 @@ subroutine cuparm_driver(rhot)
      do iw = 1, mwa
         thsrc(:,iw) = 0.0
         rtsrc(:,iw) = 0.0
+        rdsrc(:,iw) = 0.0
         qwcon(:,iw) = 0.0
 
         if (nl%conv_uv_mix > 0) then
@@ -183,7 +185,6 @@ subroutine cuparm_driver(rhot)
 ! Add heat/moisture within cloud to balance precipitation
 
         if (iactcu(iw) == 1) then
-           
            ka = lpw(iw)
            kb = min(kcutop(iw) + 1, mza)
 
@@ -198,7 +199,6 @@ subroutine cuparm_driver(rhot)
               rtsrc(k,iw) = rtsrc(k,iw) - qsum
               thsrc(k,iw) = thsrc(k,iw) - tsum
            enddo
-
         endif
 
      enddo
@@ -317,7 +317,7 @@ subroutine cuparm_driver(rhot)
            endif
 
            sh_wt(k,iw) = sh_wt(k,iw) + rt2(k)
-           rhot (k,iw) = rhot (k,iw) + rt2(k)
+           rhot (k,iw) = rhot (k,iw) + rdsrc(k,iw)
 
         enddo
 

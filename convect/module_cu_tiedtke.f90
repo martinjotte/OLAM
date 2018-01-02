@@ -74,8 +74,9 @@ CONTAINS
 
    subroutine cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
 
-   use mem_grid,    only: mza, lpv, lpw, zt, xew, yew, zew, arv, arw, volt
-   use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc, &
+   use mem_grid,    only: mza, lpv, lpw, zt, xew, yew, zew, arv, arw, arw0, &
+                          volt, volti
+   use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc, rdsrc, &
                           kcubot, kcutop, cbmf, qwcon, iactcu, cddf, kddtop
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, &
                           vmc, wmc
@@ -114,6 +115,10 @@ CONTAINS
    real :: zlde(km) ! cloud water detrained to environment
    real :: zmfu(km) ! upraft mass flux
    real :: zmfd(km) ! downdraft mass flux
+
+   real :: zdmfup(km)
+   real :: zdmfdp(km)
+   real :: zdpmel(km)
 
    real :: prsfc    ! surface rainfall rate [kg/(m^2 s)]
    real :: pssfc    ! surface snowfall rate [kg/(m^2 s)]
@@ -252,7 +257,7 @@ CONTAINS
 
    ! prsw(1) is press at zm(mza); prsw(km1) is press at zm(ka-1)
 
-   prsw(1) = max(1.e-3,1.5 * press(mza,iw) - 0.5 * press(mza-1,iw))
+   prsw(1) = max(1.e-3,real(1.5 * press(mza,iw) - 0.5 * press(mza-1,iw)))
    prsw(km1) = 1.5 * press(ka,iw) - 0.5 * press(ka+1,iw)
 
    evap  = sfluxr(iw)
@@ -289,7 +294,8 @@ CONTAINS
         ktype,    icbot,    ictop,    ztu,     zqu,    &
         zlu,      zlde,     zmfu,     zmfd,    zrain,  &
         psrain,   psevap,   psheat,   psdiss,  psmelt, &
-        dCdt,     hfx,      rhosf,    sig1,    lndj    )
+        dCdt,     hfx,      rhosf,    sig1,    lndj,   &
+        zdmfup,   zdmfdp,   zdpmel                     )
 
 ! Apply convective parameterization results to main model arrays
 
@@ -302,6 +308,9 @@ CONTAINS
       kcubot(iw) = mza - icbot + 1
       iactcu(iw) = 1
       cbmf  (iw) = zmfu(icbot)
+
+      ! precipitation rate
+      conprr(iw) = max(prsfc+pssfc, 0.0)
 
       do k = kcutop(iw), kcubot(iw), -1
          kt = mza + 1 - k
@@ -320,16 +329,15 @@ CONTAINS
 
          ! If convection created any ice or liquid, add it to the total
          ! water and evaporate it. Shouldn't be needed with fdbk=0 though.
-
-         if (dCdt(kt) > 1.e-18) then
-            dQdt(kt) = dQdt(kt) + dCdt(kt)
-            
-            if (t1(kt) > tmelt) then
-               dTdt(kt) = dTdt(kt) - alv * rcpd * dCdt(kt)
-            else
-               dTdt(kt) = dTdt(kt) - als * rcpd * dCdt(kt)
-            endif
-         endif
+         !if (dCdt(kt) > 1.e-18) then
+         !   dQdt(kt) = dQdt(kt) + dCdt(kt)
+         !   
+         !   if (t1(kt) > tmelt) then
+         !      dTdt(kt) = dTdt(kt) - alv * rcpd * dCdt(kt)
+         !   else
+         !      dTdt(kt) = dTdt(kt) - als * rcpd * dCdt(kt)
+         !   endif
+         !endif
 
          ! store convective heating and moisture rates and cloud water
 
@@ -337,6 +345,9 @@ CONTAINS
          rtsrc(k,iw) = dQdt(kt) * rho(k,iw)
 
          qwcon(k,iw) = zlu(kt)
+
+         ! density tendency (water removed per grid cell)
+         rdsrc(k,iw) = -(zdmfup(kt) + zdmfdp(kt)) * arw0(iw) * volti(k,iw)
 
       enddo
 
@@ -367,10 +378,6 @@ CONTAINS
 
       endif
 
-      ! precipitation rate
-
-      conprr(iw) = max(prsfc+pssfc, 0.0)
-
    endif
 
    end subroutine cuparm_tiedtke
@@ -389,7 +396,8 @@ CONTAINS
           KTYPE,    KCBOT,    KCTOP,    PTU,      PQU,   &
           PLU,      PLUDE,    PMFU,     PMFD,     PRAIN, &
           PSRAIN,   PSEVAP,   PSHEAT,   PSDISS,   PSMELT,& 
-          PCTE,     PHHFL,       RHO,     sig1,     lndj )
+          PCTE,     PHHFL,    RHO,      sig1,     lndj,  &
+          zdmfup,   zdmfdp,   zdpmel                     )
 !
 !***CUMASTR*  MASTER ROUTINE FOR CUMULUS MASSFLUX-SCHEME
 !     M.TIEDTKE      E.C.M.W.F.     1986/1987/1989

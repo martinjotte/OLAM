@@ -64,14 +64,15 @@ CONTAINS
     use consts_coms, only: p00i, eradi, grav, gravi, alvl, alvlocp, vonk, r8
     use mem_radiate, only: fthrd_sw, fthrd_lw
     use mem_grid,    only: mza, lpw, arw0, zm, zt, xew, yew, zew, &
-                           dzt, arw, lpv, arv, volt
+                           dzt, arw, lpv, arv, volt, volti
     use mem_ijtabs,  only: itab_w
     use mem_micro,   only: cldnum
     use mem_basic,   only: wmc, vmc, theta, tair, press, rho, sh_v, &
                            vxe, vye, vze
     use oname_coms,  only: nl
     use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
-                           qwcon, vxsrc, vysrc, vzsrc, iactcu, kddtop, cddf
+                           qwcon, vxsrc, vysrc, vzsrc, iactcu, kddtop, &
+                           cddf, rdsrc
     implicit none
 
     integer, intent(in)  :: iw
@@ -112,6 +113,8 @@ CONTAINS
     real    :: outu   (1,mza)      ! output conv u wind tendency
     real    :: outv   (1,mza)      ! output conv v wind tendency
     real    :: cupclw (1,mza)      ! cloud water
+    real    :: qce    (1,mza)      ! Moisture tendency due to precipitation only
+                                   ! (kg water removed from grid cell / m^2 / sec )
     integer :: kbcon  (1)          ! cloud base (LCL)
     integer :: ktop   (1)          ! cloud top
     integer :: k22    (1)          ! updraft originating level
@@ -306,12 +309,14 @@ CONTAINS
     outv (1,:) = 0.0
     subt (1,:) = 0.0
     subq (1,:) = 0.0
+    qce  (1,:) = 0.0
     pre  (1)   = 0.0
 
     call cup_gf(ktf, dx, dtime, kpbl, ccn, r, mconv, omeg, aaeq, t, q,  &
                 z1, xland, tn, qo, zo, po, p, psur, us, vs, zws, dhdt,  &
                 ierr, ierrc, xmb, sub_mas, subt, subq, pre, outt, outq, &
-                outqc, outu, outv, cupclw, kbcon, ktop, k22, jmin, edt, xf_ens, pr_ens )
+                outqc, outu, outv, cupclw, kbcon, ktop, k22, jmin, edt, &
+                xf_ens, pr_ens, qce )
 
     if (pre(1) > 1.e-16 .and. kbcon(1) > 0 .and. ktop(1) >= kbcon(1)) then
         
@@ -337,6 +342,9 @@ CONTAINS
 
           ! cloud water
           qwcon(k,iw) = cupclw(1,kc)
+
+          ! Density change (Water removed)
+          rdsrc(k,iw) = -qce(1,kc) * arw0(iw) * volti(k,iw)
        enddo
 
        ! convective momentum transport
@@ -417,8 +425,8 @@ CONTAINS
 
 !========================================================================================
 
-   SUBROUTINE CUP_gf(ktf	       &
-     		    !input data
+   SUBROUTINE CUP_gf(ktf               &
+     	            !input data
      		    ,dx 	       &
      		    ,DTIME	       &
      		    ,kpbl	       &
@@ -454,7 +462,7 @@ CONTAINS
      		    ,cupclw	       &
      		    ,kbcon,ktop,k22    &
      		    ,jmin,edt          &
-                    ,xf_ens,pr_ens     )
+                    ,xf_ens,pr_ens,qce )
   
      IMPLICIT NONE
      		    
@@ -472,8 +480,8 @@ CONTAINS
   ! outqc  = output qc tendency (per s)
   ! pre    = output precip
      real,    dimension (its:ite,kts:ktf)                              &
-        ,intent (inout  )                   ::                           &
-        outu,outv,OUTT,OUTQ,OUTQC,subt,subq,sub_mas,cupclw
+        ,intent (inout  )                   ::                         &
+        outu,outv,OUTT,OUTQ,OUTQC,subt,subq,sub_mas,cupclw,qce
      real,    dimension (its:ite)                                      &
         ,intent (out  )                   ::                           &
         pre,xmb_out,edt
@@ -651,7 +659,7 @@ CONTAINS
      integer :: k1,k2,kbegzu,kdefi,kfinalzu,kstart,jmini,levadj
      logical :: keep_going
      real tot_time_hr,blqe
-     character*50 :: ierrc(its:ite)
+     character(50) :: ierrc(its:ite)
      real,    dimension (its:ite,kts:ktf) ::                           &
        up_massentr,up_massdetr,dd_massentr,dd_massdetr                 &
       ,up_massentro,up_massdetro,dd_massentro,dd_massdetro
@@ -2164,7 +2172,7 @@ endif
        call cup_output_ens_3d(xff_mid,xf_ens,ierr,dellat_ens,dellaq_ens, &
             dellaqc_ens,subt_ens,subq_ens,subt,subq,outt,     &
             outq,outqc,zuo,sub_mas,pre,pwo_ens,xmb,ktop,      &
-            'deep',ierr2,ierr3,pr_ens,                        &
+            'deep',ierr2,ierr3,pr_ens,qce,                    &
             sig,closure_n,ktf,xf_dicycle )
       k=1
       do i=its,itf
@@ -2359,7 +2367,7 @@ endif
      real,    dimension (its:ite)                                      &
         ,intent (out  )                   ::                           &
         pwev,bu
-     character*50 :: ierrc(its:ite)
+     character(50) :: ierrc(its:ite)
 !
 !  local variables in this routine
 !
@@ -2755,7 +2763,7 @@ endif
      integer, dimension (its:ite)                                      &
         ,intent (inout)                   ::                           &
         ierr,ierr2,ierr3
-      character *(*), intent (in)         ::                           &
+      character (*), intent (in)         ::                           &
        name
 !-srf begin
       real,    intent(IN)   , dimension (its:ite) :: aa1_bl,tau_ecmwf
@@ -3369,7 +3377,7 @@ endif
    SUBROUTINE cup_output_ens_3d(xff_mid,xf_ens,ierr,dellat,dellaq,dellaqc,  &
               subt_ens,subq_ens,subt,subq,outtem,outq,outqc,     &
               zu,sub_mas,pre,pw,xmb,ktop,                 &
-              name,ierr2,ierr3,pr_ens,                    &
+              name,ierr2,ierr3,pr_ens,qce,                &
               sig,closure_n,ktf,xf_dicycle )
 
    IMPLICIT NONE
@@ -3401,7 +3409,7 @@ endif
        xf_ens,pr_ens
      real,    dimension (its:ite,kts:ktf)                              &
         ,intent (out  )                   ::                           &
-        outtem,outq,outqc,subt,subq,sub_mas
+        outtem,outq,outqc,subt,subq,sub_mas,qce
      real,    dimension (its:ite,kts:ktf)                              &
         ,intent (in  )                   ::                           &
         zu
@@ -3447,7 +3455,7 @@ endif
      real, dimension (its:ite,5) :: xmb_w
 
 !
-      character *(*), intent (in)        ::                           &
+      character (*), intent (in)        ::                           &
        name
 
 !
@@ -3464,6 +3472,7 @@ endif
         subt(i,k)=0.
         subq(i,k)=0.
         sub_mas(i,k)=0.
+        qce(i,k)=0.
       enddo
       enddo
       do i=its,itf
@@ -3560,6 +3569,7 @@ endif
            OUTQ  (I,K)= XMB(I)* dtq /float(maxens2)
            SUBQ  (I,K)= XMB(I)* dtqs/float(maxens2)
            OUTQC (I,K)= XMB(I)* dtqc/float(maxens2)
+           qce   (i,k)= XMB(I)*dtpw/float(maxens2)
            PRE(I)=PRE(I)+XMB(I)*dtpw/float(maxens2)
            xf_ens(i,j,:)=sig(i)*xf_ens(i,j,:)*dtpw/float(maxens2)
            sub_mas(i,k)=zu(i,k)*xmb(i)
@@ -4067,7 +4077,7 @@ endif
      integer :: icount,tun_lim,k1,k2,kbegzu,kfinalzu,kstart,jmini,levadj,nvar
      logical :: keep_going
      real xff_shal(2),blqe
-     character*50 :: ierrc(its:ite)
+     character(50) :: ierrc(its:ite)
      real,    dimension (its:ite,kts:ktf) ::                           &
        up_massentr,up_massdetr,dd_massentr,dd_massdetr                 &
       ,up_massentro,up_massdetro,dd_massentro,dd_massdetro
@@ -5068,7 +5078,7 @@ endif
      integer                                                           &
         ,intent (in   )                   ::                           &
         iloop
-     character*50 :: ierrc(its:ite)
+     character(50) :: ierrc(its:ite)
 
      real, dimension (its:ite,kts:ktf),intent (in) :: z_cup,heo
      real,intent (in) :: entr_rate
