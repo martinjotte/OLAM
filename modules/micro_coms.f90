@@ -182,18 +182,6 @@ real, allocatable :: zfactor_ccn(:)  ! height-based CCN concentration weight fac
 real, allocatable :: zfactor_gccn(:) ! height-based GCCN concentration weight factor (when IGCCN = 1)
 real, allocatable :: zfactor_ifn(:)  ! height-based IFN concentration weight factor (when IIFN = 1)
 
-! Sedimentation table section
-
-integer, parameter :: nembfall = 20 ! # of mass values spanning sedimentation table
-integer, parameter :: maxkfall = 4  ! # of grid levels of fall (in 1 timestep) spanning sedim table
-
-real, allocatable :: zmf  (:) ! micphys copy of z coord at M levels (expanded downward by maxkfall)
-real, allocatable :: dztf (:) ! micphys copy of deltaz at T levels (expanded downward by maxkfall)
-real, allocatable :: dzitf(:) ! inverse of dztf
-
-real, allocatable :: pcpfillc(:,:,:,:) ! sedim table for bulk number
-real, allocatable :: pcpfillr(:,:,:,:) ! sedim table for bulk density 
-
 real :: ipair(nhcat,nhcat,6)
 
 !         ihx ihy    ipc ipx2 ipy2 ipx ipy ieff
@@ -524,22 +512,6 @@ Contains
    zfactor_ifn (:) = exp(min(0.,-zt(:) / 8000.)) 
 
    end subroutine init_nuc_zfactors
-
-!===============================================================================
-
-   subroutine alloc_sedimtab(mza)
-
-   implicit none
-
-   integer, intent(in) :: mza
-   
-   allocate (zmf  (2-maxkfall:mza))
-   allocate (dztf (2-maxkfall:mza))
-   allocate (dzitf(2-maxkfall:mza))
-   allocate (pcpfillc(mza,maxkfall,nembfall,nhcat))
-   allocate (pcpfillr(mza,maxkfall,nembfall,nhcat))
-
-   end subroutine alloc_sedimtab
 
 End Module micro_coms
 

@@ -94,7 +94,7 @@ use mem_para,    only: myrank
 use micro_coms,  only: mza0, miclevel, nembc, &
                        cfmas, pwmas, cfvt, pwvt, &
                        npairx, npairy, npairc, coltabx, coltaby, coltabc, &
-                       alloc_sedimtab, init_nuc_zfactors
+                       init_nuc_zfactors
 
 use nuclei_coms, only: dust_src_init
 
@@ -126,9 +126,6 @@ implicit none
   call haznuc()
 
   call tabmelt()
-
-  call alloc_sedimtab(mza)
-  call mksedim_tab(mza,zm,dzt,dzit)
 
   do mrl = 1,mrls
      call homfrzcl(dtlm(mrl),mrl)
