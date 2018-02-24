@@ -180,14 +180,11 @@ C *** Aitken Mode:
             ES36_one3 = Exp( 1.5 * l2sg )
 
             aeromode_diam( n ) = max( min_diam_g(n), ( xm3_one3 / (xm0_one3 * es36_one3) ) )
-            aeromode_diam( n ) = min( max_diam_g(n), aeromode_diam(n) )
-
          End Do
 
       else
 
          Do n = 1, n_mode
-
             xm0_one3 = moment0_conc(n) ** one3
             xm3_one3 = moment3_conc(n) ** one3
 
@@ -205,8 +202,6 @@ C *** Aitken Mode:
             ES36_one3 = el2sg * sqrt(el2sg)
 
             aeromode_diam( n ) = max( min_diam_g(n), ( xm3_one3 / (xm0_one3 * es36_one3) ) )
-            aeromode_diam( n ) = min( max_diam_g(n), aeromode_diam(n) )
-
          End Do
 
       endif

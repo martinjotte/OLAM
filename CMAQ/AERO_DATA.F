@@ -109,7 +109,11 @@ C extinction efficiency [m^2/g], see White, Atmos.Env., 294(10)(1990), pp 2673-1
 C and Malm, et al., JGR, 99(D1)(1994), pp 1347-1370
 C----------------------------------------------------------------------
 
+      Use aeromet_data, only: pi, f6piove9
+
       Implicit None
+
+      private :: pi, f6piove9
 
 C Number of aerosol species and modes
 
@@ -139,8 +143,8 @@ C Emissions splits
 C Geometric mean diameter by volume (or mass) of emitted particles in
 C each mode [ m ].  See paragraph #14 of Binkowski & Roselle (2003)
 C 09/17/14 change by Kathleen Fahey - see Revision History, above
-      Real,    Parameter :: dgvem( n_mode ) = (/ 0.06E-6, 0.28E-6, 6.0E-6 /)
-      Real,    Parameter :: def_diam( n_mode )   = (/ 15.0E-9, 80.0E-9,  600.0E-9 /)  ! default background mean diameter for each mode
+      Real,    Parameter :: dgvem     ( n_mode ) = (/ 0.06E-6, 0.28E-6,  6.0E-6   /)
+      Real,    Parameter :: def_diam  ( n_mode ) = (/ 15.0E-9, 80.0E-9,  600.0E-9 /)  ! default background mean diameter for each mode
       Real,    Parameter :: min_diam_g( n_mode ) = (/ 1.0E-9,  30.0E-9,  120.0E-9 /)
       Real,    Parameter :: max_diam_g( n_mode ) = (/ 30.0E-9, 120.0E-9, 100.0E-6 /)
 
@@ -156,6 +160,16 @@ C 09/17/14 change by Kathleen Fahey - see Revision History, above
       Real,    Parameter :: def_l2sg( n_mode ) = ( LOG( def_sigma_g( : ) ) ) ** 2
       Real,    Parameter :: min_l2sg           = ( LOG( min_sigma_g      ) ) ** 2
       Real,    Parameter :: max_l2sg           = ( LOG( max_sigma_g      ) ) ** 2
+
+! Factors for converting 3rd moment emission rates into number and 2nd
+! moment emission rates.  See Equation 7b of Binkowski & Roselle (2003)
+      real,    parameter :: facnum( n_mode ) =      EXP( 4.5 * LOG( SGEM(:) )**2 ) / DGVEM(:)**3
+      real,    parameter :: facsrf( n_mode ) = PI * EXP( 0.5 * LOG( SGEM(:) )**2 ) / DGVEM(:)
+
+      real,    parameter :: mass_min( n_mode ) = 2.0 * cm_cor(:) + cm_so4(:)
+      real,    parameter :: m3_min( n_mode ) = f6piove9 * mass_min(:) / (/ 1800., 1800., 2200. /)
+      real,    parameter :: m0_min( n_mode ) = m3_min(:) * facnum(:)
+      real,    parameter :: m2_min( n_mode ) = m3_min(:) * facsrf(:) / pi
 
 C Flag to obtain coagulation coefficients
 C by analytical approximation (True) or by Gauss-Hermite quadrature (False)
@@ -1254,9 +1268,9 @@ C Convert surface area to M2 and set wet_moments_flag
       If ( minchk ) Then
          Do m = 1, n_mode
             n = aeronum_map( m )
-            moment0_conc( m ) = Max( conc( n ), aeromode( m )%min_numconc )
+            moment0_conc( m ) = Max( conc( n ), m0_min( m ) )
             n = aerosrf_map( m )
-            moment2_conc( m ) = Max( conc( n ) * oneovpi, aeromode( m )%min_m2conc )
+            moment2_conc( m ) = Max( conc( n ) * oneovpi, m2_min( m ) )
          End Do
       Else
          Do m = 1, n_mode
@@ -1350,7 +1364,7 @@ C Copy aero number and surface area back to grid cell concentrations
       If ( minchk ) Then
          Do m = 1, n_mode
             n = aeronum_map( m )
-            conc( n ) = Max( moment0_conc( m ), aeromode( m )%min_numconc )
+            conc( n ) = Max( moment0_conc( m ), m0_min( m ) )
          End Do
       Else
          Do m = 1, n_mode
@@ -1364,10 +1378,17 @@ C Save dry second moment to surface area (with pi conversion)
          Call calcmoments( .False. ) ! called with the F flag, returns dry moments
       End If
 
-      Do m = 1, n_mode
-         n = aerosrf_map( m )
-         conc( n ) = pi * moment2_conc( m )
-      End Do
+      If ( minchk ) Then
+         Do m = 1, n_mode
+            n = aerosrf_map( m )
+            conc( n ) = pi * Max( moment2_conc( m ), m2_min( m ) )
+         End Do
+      Else
+         Do m = 1, n_mode
+            n = aerosrf_map( m )
+            conc( n ) = pi * moment2_conc( m )
+         End Do
+      End If
 
       End Subroutine update_aero
 

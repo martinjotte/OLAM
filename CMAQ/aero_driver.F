@@ -551,8 +551,14 @@ C *** initialize conc arrays
 
          kmax = k + 1
 
-         ! Don't do tropospheric chem above 100 mb
-         
+         ! Don't do tropospheric chem above 100 mb, just set proper
+         ! minimum bounds on aerosols
+
+         do k = kmax+1, mza
+            call extract_aero( cgrid( k,iw,: ), .true. )
+            call update_aero ( cgrid( k,iw,: ), .true. )
+         enddo
+
          do k = lpw(iw), kmax
 
                c = k

@@ -78,12 +78,6 @@
       PUBLIC AERO_EMIS_INIT, GET_AERO_EMIS
       PRIVATE
 
-! Variables for converting mass emissions rate to number emissions rate
-      REAL,    SAVE :: FACNUM( N_MODE )
-
-! Variables for converting mass emissions rate to 2nd moment emissions rate
-      REAL,    SAVE :: FACSRF( N_MODE )
-
 ! Emission rate of all aerosol species interpolated to current time
       INTEGER, ALLOCATABLE, SAVE :: EM_MAP  ( :,: )     ! index in namelist table
       REAL,    ALLOCATABLE, SAVE :: EM_FAC  ( :,: )     ! Namelist emissions scaling factor
@@ -262,18 +256,6 @@
                CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
             END IF
          END IF
-
-! *** Calculate factors for converting 3rd moment emission rates into number
-!     emission rates.  See Equation 7b of Binkowski & Roselle (2003)
-         DO N = 1, N_MODE
-            FACNUM( N ) = EXP( 4.5 * LOG( SGEM( N ) ) ** 2 ) / DGVEM( N ) ** 3
-         END DO
-
-! *** Calculate factors for converting 3rd moment emission rates into 2nd 
-!     moment emission rates.  See Equation 7c of Binkowski & Roselle (2003)
-         DO N = 1, N_MODE
-            FACSRF( N ) = PI * EXP( 0.5 * LOG( SGEM( N ) ) ** 2 ) / DGVEM( N )
-         END DO
 
 ! *** Find location of sulfuric acid vapor in VDEMIS array
          VNAME = 'SULF'
