@@ -565,7 +565,7 @@ subroutine sedim2(iw0,lpw0,k1,k2,jhcat,dtl0, &
 use micro_coms,  only: mza0, ncat, rxmin, cfmasi, pwmasi, cfvt, pwvt, jnmb, emb1
 use consts_coms, only: r8, cpi, alviocp
 use misc_coms,   only: io6
-use mem_grid,    only: zm, dzt, dzit, zfacm2, zfacim2, arw0, arw, volti
+use mem_grid,    only: zm, zfacm2, zfacim2, arw0, arw, volti
 use mem_ijtabs,  only: itab_w
 use mem_sea,     only: sea, itab_ws
 use mem_leaf,    only: land, itab_wl
@@ -613,14 +613,11 @@ real, parameter :: alphasfc(ncat) = (/.001,.001,.010,.010,.010,.003,.001,.001/)
 
 integer :: lcat, lhcat, k, kk, kw, nsea, nland, jws, iws, jwl, iwl
 
-real :: sourcec, sourcer, sourceq
 real :: zbotnew, areascale, fracwkk
 
 real :: cxnew(mza0,ncat)
 real :: rxnew(mza0,ncat)
 real :: qrnew(mza0,ncat) 
-
-real    :: dispemb,riemb,rsfc,qrsfc
 
   ! Loop over precipitation categories
 
@@ -631,13 +628,6 @@ real    :: dispemb,riemb,rsfc,qrsfc
 
      do k = k1(lcat),k2(lcat)
         lhcat = jhcat(k,lcat)
-
-        ! Precipitation number, mass, and energy in source grid cell per m^2 of
-        ! source grid cell BOTTOM horiz area
-
-        sourcec = cx(k,lcat) * voa(k)
-        sourcer = rx(k,lcat) * voa(k)
-        sourceq = qr(k,lcat) * voa(k)
 
         ! Diameter of mean-mass hydrometeor
 
@@ -669,16 +659,16 @@ real    :: dispemb,riemb,rsfc,qrsfc
 
            areascale = zfacim2(k-1) * zfacm2(kk)
 
-           ! Fraction of source grid cell precipitation that crosses w(kk) level
+           ! Depth of source grid cell precipitation that crosses w(kk) level
 
-           fracwkk = min(1.0, (zm(kk) - zbotnew) * dzit(k))
+           fracwkk = min(voa(k), zm(kk) - zbotnew)
 
            ! Add source cell contribution to precipitation number flux [#/m^2],
            ! mass flux [kg/m^2], and internal energy flux [J/m^2] across w(kk) level
 
-           pcpfluxc(kk,lcat) = pcpfluxc(kk,lcat) + sourcec * fracwkk * areascale
-           pcpfluxr(kk,lcat) = pcpfluxr(kk,lcat) + sourcer * fracwkk * areascale
-           pcpfluxq(kk,lcat) = pcpfluxq(kk,lcat) + sourceq * fracwkk * areascale
+           pcpfluxc(kk,lcat) = pcpfluxc(kk,lcat) + cx(k,lcat) * fracwkk * areascale
+           pcpfluxr(kk,lcat) = pcpfluxr(kk,lcat) + rx(k,lcat) * fracwkk * areascale
+           pcpfluxq(kk,lcat) = pcpfluxq(kk,lcat) + qr(k,lcat) * fracwkk * areascale
         enddo
 
      enddo ! k
