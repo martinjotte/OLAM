@@ -82,16 +82,17 @@ C    May 16 B. Murphy, H. Pye: Updated treatment of aerosol moments
       USE CGRID_SPCS          ! CGRID mechanism species
       USE UTILIO_DEFN      
       USE AERO_DATA           ! aero variable data
-      USE AEROMET_DATA        ! Includes CONST.EXT
-      use getpar_mod,  only: getpar
-      use cgrid_conv,  only: rev_cgrid_sfc_iw
+
+      use const_data, only: grav, stdatmpa
+      use getpar_mod, only: getpar
+      use cgrid_conv, only: rev_cgrid_sfc_iw
       use depv_defn
-      use mem_ijtabs,  only: itab_w
-      use mem_leaf,    only: land, itab_wl
-      use mem_sea,     only: sea,  itab_ws
-      use mem_turb,    only: pblh
-      use mem_basic,   only: rho, press, theta
-      use mem_grid,    only: lsw, lpw
+      use mem_ijtabs, only: itab_w
+      use mem_leaf,   only: land, itab_wl
+      use mem_sea,    only: sea,  itab_ws
+      use mem_turb,   only: pblh
+      use mem_basic,  only: rho, press, theta
+      use mem_grid,   only: lsw, lpw
 
       IMPLICIT NONE
 
@@ -133,16 +134,20 @@ C Local variables:
 C Meteorological variables
 
       REAL :: XXLSGAT(lsw(iw))           ! log of standard deviation
-      REAL :: XXLSGAC(lsw(iw))       
-      REAL :: XXLSGCO(lsw(iw))       
+      REAL :: XXLSGAC(lsw(iw))
+      REAL :: XXLSGCO(lsw(iw))
  
       REAL :: DGATK(lsw(iw))             ! geometric mean diameter
-      REAL :: DGACC(lsw(iw))       
-      REAL :: DGCOR(lsw(iw))       
+      REAL :: DGACC(lsw(iw))
+      REAL :: DGCOR(lsw(iw))
 
       REAL :: PDENSAT(lsw(iw))           ! particle density         
-      REAL :: PDENSAC(lsw(iw))       
-      REAL :: PDENSCO(lsw(iw))       
+      REAL :: PDENSAC(lsw(iw))
+      REAL :: PDENSCO(lsw(iw))
+
+      real :: airdens
+      real :: airpres
+      real :: airtemp
 
       REAL :: XLM               ! mean free path [ m ]
       REAL :: AMU               ! dynamic viscosity [ kg m**-1 s**-1 ]
@@ -303,8 +308,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
          XLM = 6.6328E-8 * STDATMPA * AIRTEMP / ( T0 * AIRPRES )
 
          ! Calcualte dynamic viscosity [ kg m**-1 s**-1 ]:
-         AMU = 1.458E-6 * AIRTEMP * SQRT( AIRTEMP )
-     &       / ( AIRTEMP + 110.4 )
+         AMU = 1.458E-6 * AIRTEMP * SQRT( AIRTEMP ) / ( AIRTEMP + 110.4 )
 
          ! get dry deposition velocities:
 
@@ -351,7 +355,7 @@ C 08 Sep 08 P.Bhave:  Backward compatibility with AE4 mechanisms
 C                     standardized names of all coarse-mode variables
 C-----------------------------------------------------------------------
 
-      USE AEROMET_DATA   ! Includes CONST.EXT
+      use const_data, only: pi, boltzmann, grav
 
       IMPLICIT NONE
 
@@ -387,7 +391,7 @@ c     atmospheric variables
 
 C *** output arguments
 
-      REAL, INTENT( OUT ) :: VDEP( : ) ! deposition  velocity [ m/s ]
+      REAL, INTENT( OUT ) :: VDEP( n_ae_dep_spc ) ! deposition  velocity [ m/s ]
 
 C *** array indices hardcoded to match SUBROUTINE AERO_DEPV
       INTEGER, PARAMETER :: VDNATK = 1,  ! Aitken mode number
@@ -411,9 +415,9 @@ C modal particle diffusivities for number, 2nd, and 3rd moment, or mass:
       REAL DCHAT3N, DCHAT3A, DCHAT3C
 
 C modal sedimentation velocities for number, 2nd, and 3rd moment, or mass:
-      REAL VGHAT0N, VGHAT0A, VGHAT0C
-      REAL VGHAT2N, VGHAT2A, VGHAT2C
-      REAL VGHAT3N, VGHAT3A, VGHAT3C
+!     REAL VGHAT0N, VGHAT0A, VGHAT0C
+!     REAL VGHAT2N, VGHAT2A, VGHAT2C
+!     REAL VGHAT3N, VGHAT3A, VGHAT3C
 
       REAL DCONST1, DCONST1N, DCONST1A, DCONST1C
       REAL DCONST2, DCONST3N, DCONST3A, DCONST3C
@@ -440,9 +444,9 @@ C Scalar variables for VARIABLE standard deviations.
       REAL    L2SGAT, L2SGAC   ! see usage
       REAL    L2SGCO
 
-      REAL    EAT1             ! Aitken mode exp( log^2( sigmag )/8 )
-      REAL    EAC1             ! accumulation mode exp( log^2( sigmag )/8 )
-      REAL    ECO1             ! coarse mode exp( log^2( sigmag )/8 )
+!     REAL    EAT1             ! Aitken mode exp( log^2( sigmag )/8 )
+!     REAL    EAC1             ! accumulation mode exp( log^2( sigmag )/8 )
+!     REAL    ECO1             ! coarse mode exp( log^2( sigmag )/8 )
 
       REAL    ESAT04           ! Aitken       " **4
       REAL    ESAC04           ! accumulation "
@@ -512,8 +516,6 @@ C Scalar variables for VARIABLE standard deviations.
 
 C-----------------------------------------------------------------------
 
-      VDEP(:)  = 0.0   ! array assignment
-
 C *** Calculate Knudsen numbers
 
       TWOXLM = XLM + XLM
@@ -527,13 +529,13 @@ C *** Calculate functions of variable standard deviation.
       L2SGAC = XXLSGAC * XXLSGAC
       L2SGCO = XXLSGCO * XXLSGCO
 
-      EAT1   = EXP( 0.125 * L2SGAT )
-      EAC1   = EXP( 0.125 * L2SGAC )
-      ECO1   = EXP( 0.125 * L2SGCO )
+!     EAT1   = EXP( 0.125 * L2SGAT )
+!     EAC1   = EXP( 0.125 * L2SGAC )
+!     ECO1   = EXP( 0.125 * L2SGCO )
 
-      ESAT04  = EAT1 ** 4
-      ESAC04  = EAC1 ** 4
-      ESCO04  = ECO1 ** 4
+      ESAT04  = EXP( 0.5 * L2SGAT )
+      ESAC04  = EXP( 0.5 * L2SGAC )
+      ESCO04  = EXP( 0.5 * L2SGCO )
 
       ESAT08  = ESAT04 * ESAT04
       ESAC08  = ESAC04 * ESAC04
@@ -610,25 +612,25 @@ C i-mode
       DCHAT0N  = DCONST1N * ( ESAT04  + BHAT * KNATK * ESAT16 )
       DCHAT2N  = DCONST1N * ( ESATM12 + BHAT * KNATK * ESATM16 )
       DCHAT3N  = DCONST1N * ( ESATM20 + BHAT * KNATK * ESATM32 )
-      VGHAT0N  = DCONST3N * ( ESAT16  + BHAT * KNATK * ESAT04 )
-      VGHAT2N  = DCONST3N * ( ESAT48  + BHAT * KNATK * ESAT20 )
-      VGHAT3N  = DCONST3N * ( ESAT64  + BHAT * KNATK * ESAT28 )
+!     VGHAT0N  = DCONST3N * ( ESAT16  + BHAT * KNATK * ESAT04 )
+!     VGHAT2N  = DCONST3N * ( ESAT48  + BHAT * KNATK * ESAT20 )
+!     VGHAT3N  = DCONST3N * ( ESAT64  + BHAT * KNATK * ESAT28 )
 
 C j-mode
       DCHAT0A  = DCONST1A * ( ESAC04  + BHAT * KNACC * ESAC16 )
       DCHAT2A  = DCONST1A * ( ESACM12 + BHAT * KNACC * ESACM16 )
       DCHAT3A  = DCONST1A * ( ESACM20 + BHAT * KNACC * ESACM32 )
-      VGHAT0A  = DCONST3A * ( ESAC16  + BHAT * KNACC * ESAC04 )
-      VGHAT2A  = DCONST3A * ( ESAC48  + BHAT * KNACC * ESAC20 )
-      VGHAT3A  = DCONST3A * ( ESAC64  + BHAT * KNACC * ESAC28 )
+!     VGHAT0A  = DCONST3A * ( ESAC16  + BHAT * KNACC * ESAC04 )
+!     VGHAT2A  = DCONST3A * ( ESAC48  + BHAT * KNACC * ESAC20 )
+!     VGHAT3A  = DCONST3A * ( ESAC64  + BHAT * KNACC * ESAC28 )
 
 C coarse mode
       DCHAT0C  = DCONST1C * ( ESCO04  + BHAT * KNCOR * ESCO16 )
       DCHAT2C  = DCONST1C * ( ESCOM12 + BHAT * KNCOR * ESCOM16 )
       DCHAT3C  = DCONST1C * ( ESCOM20 + BHAT * KNCOR * ESCOM32 )
-      VGHAT0C  = DCONST3C * ( ESCO16  + BHAT * KNCOR * ESCO04 )
-      VGHAT2C  = DCONST3C * ( ESCO48  + BHAT * KNCOR * ESCO20 )
-      VGHAT3C  = DCONST3C * ( ESCO64  + BHAT * KNCOR * ESCO28 )
+!     VGHAT0C  = DCONST3C * ( ESCO16  + BHAT * KNCOR * ESCO04 )
+!     VGHAT2C  = DCONST3C * ( ESCO48  + BHAT * KNCOR * ESCO20 )
+!     VGHAT3C  = DCONST3C * ( ESCO64  + BHAT * KNCOR * ESCO28 )
 
 C now calculate the deposition velocities
 
@@ -646,24 +648,27 @@ C  Aitken mode
       EIM    = MIN( STOKENF * ESAT64, 1.0 )
       RD0N   = UTSCALI / ( SC0NI2**ONE3 + EIM )
 
-      VDEP( VDNATK ) = VGHAT0N
-     &               / ( 1.0 - EXP( -VGHAT0N * ( RA + RD0N ) ) )
+!     VDEP( VDNATK ) = VGHAT0N
+!    &               / ( 1.0 - EXP( -VGHAT0N * ( RA + RD0N ) ) )
+      VDEP( VDNATK ) = 1.0 / ( RA + RD0N )
 
 C accumulation mode
       SC0AI2 = (NUI * DCHAT0A) ** 2
       EIM    = MIN( STOKEAF * ESAC64, 1.0 )
       RD0A   = UTSCALI / ( SC0AI2**ONE3 + EIM )
       
-      VDEP( VDNACC ) = VGHAT0A
-     &               / ( 1.0 - EXP( -VGHAT0A * ( RA + RD0A ) ) )
+!     VDEP( VDNACC ) = VGHAT0A
+!    &               / ( 1.0 - EXP( -VGHAT0A * ( RA + RD0A ) ) )
+      VDEP( VDNACC ) = 1.0 / ( RA + RD0A )
 
 C coarse mode
       SC0CI2 = (NUI * DCHAT0C) ** 2
       EIM    = MIN( STOKECF * ESCO64, 1.0 )
       RD0C   = UTSCALI / ( SC0CI2**ONE3 + EIM )
 
-      VDEP( VDNCOR ) = VGHAT0C
-     &               / ( 1.0 - EXP( -VGHAT0C * ( RA + RD0C ) ) )
+!     VDEP( VDNCOR ) = VGHAT0C
+!    &               / ( 1.0 - EXP( -VGHAT0C * ( RA + RD0C ) ) )
+      VDEP( VDNCOR ) = 1.0 / ( RA + RD0C )
 
 C now do 2nd moment for the deposition of surface area
 
@@ -672,24 +677,27 @@ C  Aitken mode
       EIM    = MIN( STOKENF * ESAT128, 1.0 )
       RD2N   = UTSCALI / ( SC2NI2**ONE3 + EIM )
 
-      VDEP( VDSATK ) = VGHAT2N
-     &               / ( 1.0 - EXP( -VGHAT2N * ( RA + RD2N ) ) )
+!     VDEP( VDSATK ) = VGHAT2N
+!    &               / ( 1.0 - EXP( -VGHAT2N * ( RA + RD2N ) ) )
+      VDEP( VDSATK ) = 1.0 / ( RA + RD2N )
 
 C accumulation mode
       SC2AI2 = (NUI * DCHAT2A) ** 2
       EIM    = MIN( STOKEAF * ESAC128, 1.0 )
       RD2A   = UTSCALI / ( SC2AI2**ONE3 + EIM )
 
-      VDEP( VDSACC ) = VGHAT2A
-     &               / ( 1.0 - EXP( -VGHAT2A * ( RA + RD2A ) ) )
+!     VDEP( VDSACC ) = VGHAT2A
+!    &               / ( 1.0 - EXP( -VGHAT2A * ( RA + RD2A ) ) )
+      VDEP( VDSACC ) =  1.0 / ( RA + RD2A )
 
 C coarse mode
       SC2CI2 = (NUI * DCHAT2C) ** 2
       EIM    = MIN( STOKECF * ESCO128, 1.0 )
       RD2C   = UTSCALI / ( SC2CI2**ONE3 + EIM )
 
-      VDEP( VDSCOR ) = VGHAT2C
-     &               / ( 1.0 - EXP( -VGHAT2C * ( RA + RD2C ) ) )
+!     VDEP( VDSCOR ) = VGHAT2C
+!    &               / ( 1.0 - EXP( -VGHAT2C * ( RA + RD2C ) ) )
+      VDEP( VDSCOR ) = 1.0 / ( RA + RD2C )
 
 C now do 3rd moment for the deposition of mass
 
@@ -698,24 +706,27 @@ C  Aitken mode
       EIM    = MIN( STOKENF * ESAT160, 1.0 )
       RD3N   = UTSCALI / ( SC3NI2**ONE3 + EIM )
 
-      VDEP( VDMATK ) = VGHAT3N
-     &               / ( 1.0 - EXP( -VGHAT3N * ( RA + RD3N ) ) )
+!     VDEP( VDMATK ) = VGHAT3N
+!    &               / ( 1.0 - EXP( -VGHAT3N * ( RA + RD3N ) ) )
+      VDEP( VDMATK ) = 1.0 / ( RA + RD3N )
 
 C accumulation mode
       SC3AI2 = (NUI * DCHAT3A) ** 2
       EIM    = MIN( STOKEAF * ESAC160, 1.0 )
       RD3A   = UTSCALI / ( SC3AI2**ONE3 + EIM )
 
-      VDEP( VDMACC ) = VGHAT3A
-     &               / ( 1.0 - EXP( -VGHAT3A * ( RA + RD3A ) ) )
+!     VDEP( VDMACC ) = VGHAT3A
+!    &               / ( 1.0 - EXP( -VGHAT3A * ( RA + RD3A ) ) )
+      VDEP( VDMACC ) = 1.0 / ( RA + RD3A )
 
 C coarse mode
       SC3CI2 = (NUI * DCHAT3C) ** 2
       EIM    = MIN( STOKECF * ESCO160, 1.0 )
       RD3C   = UTSCALI / ( SC3CI2**ONE3 + EIM )
 
-      VDEP( VDMCOR ) = VGHAT3C
-     &               / ( 1.0 - EXP( -VGHAT3C * ( RA + RD3C ) ) )
+!     VDEP( VDMCOR ) = VGHAT3C
+!    &               / ( 1.0 - EXP( -VGHAT3C * ( RA + RD3C ) ) )
+      VDEP( VDMCOR ) = 1.0 / ( RA + RD3C )
 
       END SUBROUTINE GETDEP_V
 

@@ -30,7 +30,7 @@ module sedv_defn
                         vgsacc = 3, & ! accumulation mode surface area
                         vgscor = 4, & ! coarse mode surface area
                         vgmacc = 5, & ! accumulation mode mass
-                        vgmcor = 6     ! coarse mode mass
+                        vgmcor = 6    ! coarse mode mass
 
   ! follow the Namelist dep vel surrogate name table
   character( 16 ), parameter :: vgae_name( n_ae_sed_spc ) = &
@@ -42,6 +42,7 @@ module sedv_defn
                                    'VMASSC '  /)
 
   integer, allocatable, save :: sedi_sur( : )   ! pointer to surrogate
+  real,    allocatable, save :: sedi_sfc( :,: ) ! kg/m^s deposited this timestep
 
   logical, save :: firstime = .true.
   integer, save :: logdev
@@ -56,9 +57,9 @@ contains
   subroutine aero_sedi( mrl )
 
     use mem_ijtabs,  only: jtab_w, jtw_prog
-    use consts_coms, only: r8
-    use utilio_defn
-    use cgrid_spcs
+    use mem_grid,    only: mwa
+    use utilio_defn, only: index1, xstat1, m3exit, init3
+    use cgrid_spcs,  only: n_ae_spc, n_ae_depv, ae_depv
 
     implicit none
 
@@ -101,13 +102,7 @@ contains
           end if
        end do
 
-       !n = j
-       !write( logdev,* ) n, ' Aerosol species with a grav. settling vel'
-       !do j = 1, n_ae_spc
-       !   n = sedi_sur( j )
-       !   if ( n .ne. 0 ) write( logdev,'( i3, 2x, a9, i3, 2x, a )' ) &
-       !                   j, ae_spc( j ), n, trim( ae_depv( j ) )
-       !end do
+       allocate(sedi_sfc( n_ae_spc, mwa )) ; sedi_sfc( :,: ) = 0.0
 
     endif  ! firstime
 
@@ -118,89 +113,120 @@ contains
 
     enddo
     !$omp end parallel do
-    
+
   end subroutine aero_sedi
 
   !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
   subroutine aero_sedi2( iw )
 
-    use mem_grid,    only: mza, lpw, volt, volti, arw
+    use mem_grid,    only: mza, lpw, volt, volti, arw, &
+                           lsw, zm, zfacm2, zfacim2
     use mem_ijtabs,  only: itab_w
     use misc_coms,   only: dtlm
-    use consts_coms, only: r8
-    use utilio_defn
-    use cgrid_conv
-    use cgrid_spcs
-    use cgrid_defn
+    use cgrid_spcs,  only: n_gc_spc, n_ae_spc
+    use cgrid_defn,  only: cgrid
+    use mem_turb,    only: frac_sfc
 
     implicit none
 
     integer, intent(in) :: iw
 
-    integer  :: s, v, n, k
-    real(r8) :: eps, dt8, time, dtmodel
-    real     :: dt
-    real(r8) :: dtmin( n_ae_sed_spc )
-    real     :: vsed_ae( n_ae_sed_spc, mza )
-    real     :: fplus(mza,n_ae_sed_spc), fminus(mza,n_ae_sed_spc)
-    real     :: aplus(mza), aminus(mza)
+    integer :: s, v, n, k, kk, ks
+    real    :: dt
+    real    :: vsed_ae( mza, n_ae_sed_spc )
+    real    :: voa(mza), arp(mza)
+    logical :: only1( n_ae_sed_spc )
+    real    :: zbotnew(mza, n_ae_sed_spc)
+    real    :: aeflux(mza) 
+    real    :: fracwkk, areascale
 
     call aero_sedv( iw, vsed_ae )
 
-    vsed_ae(:,mza)       = 0.0
-    vsed_ae(:,lpw(iw)-1) = 0.0
+    dt = dtlm(itab_w(iw)%mrlw)
 
-    do n = 1, n_ae_sed_spc
-       dtmin(n) = minval( volt(lpw(iw):mza-1,iw) &
-                        / arw(lpw(iw):mza-1,iw) / vsed_ae(n,lpw(iw):mza-1) )
+    ! Ratio of grid cell volume to top horizontal area arw projected onto W(k-1) level
+
+    do k = lpw(iw) - 1, lpw(iw) + lsw(iw) - 2
+       arp(k) = arw(k+1,iw) * zfacim2(k+1) * zfacm2(k)
     enddo
 
-    do k = lpw(iw), mza-1
-       aplus (k) = arw(k  ,iw) * volti(k,iw)
-       aminus(k) = arw(k-1,iw) * volti(k,iw)
+    do k = lpw(iw) + lsw(iw) - 1, mza
+       arp(k) = arw(k,iw)
     enddo
-    aplus (mza) = 0.0
-    aminus(mza) = arw(mza-1,iw) / volt(mza,iw)
+
+    do k = lpw(iw), mza
+       voa(k) = volt(k,iw) / arp(k)
+    enddo
+
+    ! New bottom height of source-cell aerosol after fall for 1 time step
 
     do n = 1, n_ae_sed_spc
        do k = lpw(iw), mza
-          fplus (k,n) = aplus (k) * vsed_ae(n,k)
-          fminus(k,n) = aminus(k) * vsed_ae(n,k-1)
+          zbotnew(k,n) = zm(k-1) - dt * vsed_ae(k,n)
        enddo
+       only1(n) = all( zbotnew(lpw(iw)+1:mza,n) >= zm(lpw(iw)-1:mza-2) )
     enddo
 
-    dtmodel = dtlm(itab_w(iw)%mrlw)
+    aeflux(mza) = 0.0
 
     do v = 1, n_ae_spc
-
        s = n_gc_spc + v
        n = sedi_sur(v)
 
        if (n > 0) then
-             
-          time = 0.0_r8
-          eps  = 1.e-6_r8 * min( dtmin(n), dtmodel )
 
-          do while( time + eps < dtmodel )
-             
-             dt8 = min( dtmin(n), dtmodel - time )
-             dt  = real(dt8)
+          if (only1(n)) then
 
-             do k = lpw(iw), mza-1
-                cgrid(k,iw,s) = cgrid(k,iw,s) &
-                              + dt * ( fplus (k,n) * cgrid(k+1,iw,s) &
-                                     - fminus(k,n) * cgrid(k,  iw,s) )
+             do k = lpw(iw)-1, mza-1
+
+                ! Depth of source grid cell that crosses (k) level
+                fracwkk = min(voa(k+1), zm(k) - zbotnew(k+1,n))
+
+                ! Flux across (k) level
+                aeflux(k) = cgrid(k+1,iw,s) * fracwkk
              enddo
 
-             cgrid(mza,iw,s) = cgrid(mza,iw,s) - dt * fminus(mza,n) * cgrid(mza,iw,s)
+          else
+
+             aeflux( lpw(iw)-1:mza-1 ) = 0.0
+
+             do k = lpw(iw), mza
+             
+                do kk = k-1, lpw(iw)-1, -1
+                   if (zm(kk) <= zbotnew(k,n)) exit
                 
-             time = time + dt8
+                   ! Horizontal area scale factor for current (kk) level
+                   areascale = zfacim2(k-1) * zfacm2(kk)
 
-          end do
+                   ! Depth of source grid cell that crosses (kk) level
+                   fracwkk = min(voa(k), zm(kk) - zbotnew(k,n))
 
-       end if
-    end do
+                   ! Add source cell contribution to flux
+                   aeflux(kk) = aeflux(kk) + cgrid(k,iw,s) * fracwkk * areascale
+                enddo
+
+             enddo
+
+          endif
+    
+          ! Apply fluxes to obtain new aerosol concentrations
+
+          do k = lpw(iw), mza
+             cgrid(k,iw,s) = cgrid(k,iw,s) + volti(k,iw) &
+                  * (aeflux(k) * arw(k,iw) - aeflux(k-1) * arp(k-1))
+          enddo
+
+          ! Save total deposited to ground (per m^2)
+
+          sedi_sfc(s,iw) = 0.0
+          do ks = 1, lsw(iw)
+             k  = ks + lpw(iw) - 1
+             sedi_sfc(s,iw) = sedi_sfc(s,iw) + aeflux(k-1) * frac_sfc(ks,iw)
+          enddo
+
+       endif
+    enddo
 
   end subroutine aero_sedi2
 
@@ -217,23 +243,23 @@ contains
     !                    variables in the asx_data_mod
     !-----------------------------------------------------------------------
 
-    use utilio_defn      
-    use aero_data           ! aero variable data
-    use aeromet_data        ! Includes CONST.EXT
+    use aero_data     ! aero variable data
+    use const_data, only: stdatmpa, grav
     use mem_grid,   only: mza, lpw
-    use mem_basic,  only: tair, press, rho
-    use cgrid_defn
+    use mem_basic,  only: tair, press
+    use cgrid_defn, only: cgrid
     use getpar_mod, only: getpar
 
     implicit none
 
     ! Arguments
     integer, intent( in )  :: iw
-    real,    intent( out ) :: vsed_ae( :,: )  ! settling velocities [ m/s ]
+    real,    intent( out ) :: vsed_ae( mza,n_ae_sed_spc )  ! settling velocities [ m/s ]
 
     ! Parameters
-    real,    parameter :: t0   = 288.15       ! [ K ] ! starting standard surface temp.
+    real,    parameter :: t0   = 288.15      ! [ K ] ! starting standard surface temp.
     real,    parameter :: one3 = 1.0 / 3.0
+    real,    parameter :: bhat = 2.492       ! 2 X Constant from Cunningham slip correction
 
     ! Local variables:
 
@@ -244,20 +270,61 @@ contains
     real :: pdensac   ! particle density
     real :: pdensco
 
+    real :: airtemp
+    real :: airpres
+
     real :: xlm       ! mean free path [ m ]
     real :: amu       ! dynamic viscosity [ kg/m/s ]
 
     integer :: l      ! loop counters
 
+    ! modal Knudsen numbers X bhat
+
+    real :: bknacc   ! accumulation mode 
+    real :: bkncor   ! coarse mode
+
+    ! modal sedimentation velocities for 0th (number), 2nd (srf area), and 3rd (mass) moments
+
+    real :: vghat0a, vghat0c
+    real :: vghat2a, vghat2c
+    real :: vghat3a, vghat3c
+
+    real :: dconst2, dconst3a, dconst3c
+    real :: bxlm
+
+    ! Scalar variables for VARIABLE standard deviations.
+
+    real :: l2sgac, l2sgco   ! log^2( sigmag )
+
+    real :: esac01           ! accumu mode " ** 4
+    real :: esco01           ! coarse      "
+
+    real :: esac02           ! accumu mode " ** 8
+    real :: esco02           ! coarse      "
+
+    real :: esac04           ! accumu mode " ** 16
+    real :: esco04           ! coarse      "
+
+    real :: esac05           ! accumu mode " ** 20
+    real :: esco05           ! coarse      "
+
+    real :: esac07           ! accumu mode " ** 28
+    real :: esco07           ! coarse      "
+
+    real :: esac12           ! accumu mode " ** 48    
+    real :: esco12           ! coarse      "     
+
+    real :: esac16           ! accumu mode " ** 64
+    real :: esco16           ! coarse      "
+
     !-----------------------------------------------------------------------
 
-    do l = lpw(iw)+1, mza
+    do l = lpw(iw), mza
 
        ! Set meteorological data for the grid cell.
 
        airtemp = tair ( l,iw )
        airpres = press( l,iw )
-       airdens = rho  ( l,iw )
 
        ! extract grid cell concentrations of aero species from CGRID
        ! into aerospc_conc in aero_data module
@@ -290,144 +357,70 @@ contains
 
        amu = 1.458e-6 * airtemp * sqrt( airtemp ) / ( airtemp + 110.4 )
 
-       ! get settling velocities:
+       ! Calculate Knudsen numbers * bhat
 
-       call get_sedv ( xlm, amu, dgacc, dgcor, xxlsgac, xxlsgco, &
-                       pdensac, pdensco, vsed_ae(:,l-1)          )
+       bxlm = bhat * xlm
+       bknacc = bxlm / dgacc
+       bkncor = bxlm / dgcor
+
+       ! Calculate functions of variable standard deviation
+
+       l2sgac = xxlsgac * xxlsgac
+       l2sgco = xxlsgco * xxlsgco
+
+       esac01  = exp( 0.5 * l2sgac )
+       esco01  = exp( 0.5 * l2sgco )
+
+       esac02  = esac01 * esac01
+       esco02  = esco01 * esco01
+
+       esac04  = esac02 * esac02
+       esco04  = esco02 * esco02
+
+       esac05  = esac04 * esac01
+       esco05  = esco04 * esco01
+
+       esac07  = esac05 * esac02
+       esco07  = esco05 * esco02
+
+       esac12  = esac07 * esac05
+       esco12  = esco07 * esco05
+
+       esac16  = esac12 * esac04
+       esco16  = esco12 * esco04
+
+       dconst2  = grav / ( 18.0 * amu )
+       dconst3a = dconst2 * pdensac * dgacc * dgacc
+       dconst3c = dconst2 * pdensco * dgcor * dgcor
+
+       ! acc mode
+
+       vghat0a  = dconst3a * ( esac04  + bknacc * esac01 )
+       vghat2a  = dconst3a * ( esac12  + bknacc * esac05 )
+       vghat3a  = dconst3a * ( esac16  + bknacc * esac07 )
+
+       ! coarse mode
+
+       vghat0c  = dconst3c * ( esco04  + bkncor * esco01 )
+       vghat2c  = dconst3c * ( esco12  + bkncor * esco05 )
+       vghat3c  = dconst3c * ( esco16  + bkncor * esco07 )
+
+       ! settling velocities
+
+       ! vsed of 0th moment for the number 
+       vsed_ae( l,vgnacc ) = vghat0a   ! accum mode
+       vsed_ae( l,vgncor ) = vghat0c   ! coarse mode
+
+       ! vsed of 2nd moment for the surface area 
+       vsed_ae( l,vgsacc ) = vghat2a   ! accum mode
+       vsed_ae( l,vgscor ) = vghat2c   ! coarse mode
+
+       ! vsed of 3rd moment for the mass 
+       vsed_ae( l,vgmacc ) = vghat3a   ! accum mode
+       vsed_ae( l,vgmcor ) = vghat3c   ! coarse mode
 
     end do
     
   end subroutine aero_sedv
-
-  !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-
-  subroutine get_sedv ( xlm, amu, dgacc, dgcor, xxlsgac, xxlsgco, &
-                        pdensac, pdensco, vsed )
-
-    ! Calculate settling velocity for Aitken, accumulation, and coarse modes.
-
-    use aeromet_data   ! Includes CONST.EXT
-
-    implicit none
-
-    ! *** arguments
-
-    real, intent( in ) :: xlm      ! atmospheric mean free path [m]
-    real, intent( in ) :: amu      ! atmospheric dynamic viscosity [kg/(m s)]
-    real, intent( in ) :: dgacc    ! accum mode geom mean diameter [m]
-    real, intent( in ) :: dgcor    ! coarse mode geom mean diameter [m]
-    real, intent( in ) :: xxlsgac  ! accum mode log of modal geom stnd dev`s
-    real, intent( in ) :: xxlsgco  ! coarse mode log of modal geom stnd dev`s
-    real, intent( in ) :: pdensac  ! avg particle dens in accum mode [kg/m**3]
-    real, intent( in ) :: pdensco  ! avg particle dens in coarse mode [kg/m**3]
-
-    real, intent( out ) :: vsed( : )    ! grav settling velocity [ m/s ]
-
-    ! modal Knudsen numbers X bhat
-
-    real :: bknacc   ! accumulation mode 
-    real :: bkncor   ! coarse mode
-
-    ! modal sedimentation velocities for 0th (number), 2nd (srf area), and 3rd (mass) moments
-
-    real :: vghat0a, vghat0c
-    real :: vghat2a, vghat2c
-    real :: vghat3a, vghat3c
-
-    real :: dconst2, dconst3a, dconst3c
-    real :: bxlm
-
-    real, parameter :: bhat    = 2.492 ! 2 X Constant from Cunningham slip correction
-
-    ! Scalar variables for VARIABLE standard deviations.
-
-    real :: l2sgac, l2sgco   ! log^2( sigmag )
-
-    real :: esac01           ! accumu mode " ** 4
-    real :: esco01           ! coarse      "
-
-    real :: esac02           ! accumu mode " ** 8
-    real :: esco02           ! coarse      "
-
-    real :: esac04           ! accumu mode " ** 16
-    real :: esco04           ! coarse      "
-
-    real :: esac05           ! accumu mode " ** 20
-    real :: esco05           ! coarse      "
-
-    real :: esac07           ! accumu mode " ** 28
-    real :: esco07           ! coarse      "
-
-    real :: esac12           ! accumu mode " ** 48    
-    real :: esco12           ! coarse      "     
-
-    real :: esac16           ! accumu mode " ** 64
-    real :: esco16           ! coarse      "
-
-    !-----------------------------------------------------------------------
-
-    ! Calculate Knudsen numbers * bhat
-
-    bxlm = bhat * xlm
-    bknacc = bxlm / dgacc
-    bkncor = bxlm / dgcor
-
-    ! Calculate functions of variable standard deviation
-
-    l2sgac = xxlsgac * xxlsgac
-    l2sgco = xxlsgco * xxlsgco
-
-    esac01  = exp( 0.5 * l2sgac )
-    esco01  = exp( 0.5 * l2sgco )
-
-    esac02  = esac01 * esac01
-    esco02  = esco01 * esco01
-
-    esac04  = esac02 * esac02
-    esco04  = esco02 * esco02
-
-    esac05  = esac04 * esac01
-    esco05  = esco04 * esco01
-
-    esac07  = esac05 * esac02
-    esco07  = esco05 * esco02
-
-    esac12  = esac07 * esac05
-    esco12  = esco07 * esco05
-
-    esac16  = esac12 * esac04
-    esco16  = esco12 * esco04
-
-    dconst2  = grav / ( 18.0 * amu )
-    dconst3a = dconst2 * pdensac * dgacc * dgacc
-    dconst3c = dconst2 * pdensco * dgcor * dgcor
-
-    ! acc mode
-
-    vghat0a  = dconst3a * ( esac04  + bknacc * esac01 )
-    vghat2a  = dconst3a * ( esac12  + bknacc * esac05 )
-    vghat3a  = dconst3a * ( esac16  + bknacc * esac07 )
-
-    ! coarse mode
-
-    vghat0c  = dconst3c * ( esco04  + bkncor * esco01 )
-    vghat2c  = dconst3c * ( esco12  + bkncor * esco05 )
-    vghat3c  = dconst3c * ( esco16  + bkncor * esco07 )
-
-    ! settling velocities
-
-    ! vsed of 0th moment for the number 
-    vsed( vgnacc ) = vghat0a   ! accum mode
-    vsed( vgncor ) = vghat0c   ! coarse mode
-
-    ! vsed of 2nd moment for the surface area 
-    vsed( vgsacc ) = vghat2a   ! accum mode
-    vsed( vgscor ) = vghat2c   ! coarse mode
-
-    ! vsed of 3rd moment for the mass 
-    vsed( vgmacc ) = vghat3a   ! accum mode
-    vsed( vgmcor ) = vghat3c   ! coarse mode
-
-  end subroutine get_sedv
 
 end module sedv_defn
