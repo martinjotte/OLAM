@@ -2869,7 +2869,7 @@ subroutine oplot_set(iplt)
   real :: aspect
   real :: topo1,topo2
   real :: htpn(8)
-  real :: arws(mgroupsize)
+  real, allocatable :: buffer(:,:)
 
   ! Set plot window center or cone center coordinates (whichever is relevant),
   ! plus cone angle
@@ -2998,25 +2998,31 @@ subroutine oplot_set(iplt)
 
      elseif (op%projectn(iplt) == 'Z') then
 
-        op%xmin =  1.e9
-        op%xmax = -1.e9
-        op%ymin =  1.e9
-        op%ymax = -1.e9
-        do im = 2, mma
-           op%xmin = min(op%xmin,xem(im))
-           op%xmax = max(op%xmax,xem(im))
-           op%ymin = min(op%ymin,yem(im))
-           op%ymax = max(op%ymax,yem(im))
-        enddo
+        op%xmin = minval(xem(2:mma))
+        op%xmax = maxval(xem(2:mma))
+        
+        op%ymin = minval(yem(2:mma))
+        op%ymax = maxval(yem(2:mma))
 
-        if (allocated(xew)) then
-           do iw = 2, mwa
-              op%xmin = min(op%xmin,xew(iw))
-              op%xmax = max(op%xmax,xew(iw))
-              op%ymin = min(op%ymin,yew(iw))
-              op%ymax = max(op%ymax,yew(iw))
-           enddo
+#ifdef OLAM_MPI
+        if (iparallel == 1) then
+
+           allocate(buffer(4,mgroupsize))
+           buffer(1,myrank) = op%xmin
+           buffer(2,myrank) = op%xmax
+           buffer(3,myrank) = op%ymin
+           buffer(4,myrank) = op%ymax
+
+           call MPI_Allgather(MPI_IN_PLACE, 4, MPI_REAL, buffer, 4, MPI_REAL, MPI_COMM_WORLD, iok)
+
+           op%xmin = minval(buffer(1,:))
+           op%xmax = maxval(buffer(2,:))
+           op%ymin = minval(buffer(3,:))
+           op%ymax = maxval(buffer(4,:))
+           deallocate(buffer)
+
         endif
+#endif
 
         dist = max(op%xmax - op%xmin,op%ymax - op%ymin)
         xmid = .5 * (op%xmin + op%xmax)
@@ -3050,8 +3056,10 @@ subroutine oplot_set(iplt)
 
 #ifdef OLAM_MPI
      if (iparallel == 1) then
-        call MPI_Allgather(arwmin, 1, MPI_REAL, arws, 1, MPI_REAL, MPI_COMM_WORLD, iok)
-        arwmin = minval(arws)
+        allocate(buffer(1,mgroupsize))
+        call MPI_Allgather(arwmin, 1, MPI_REAL, buffer, 1, MPI_REAL, MPI_COMM_WORLD, iok)
+        arwmin = minval(buffer)
+        deallocate(buffer)
      endif
 #endif
 
@@ -3108,8 +3116,10 @@ subroutine oplot_set(iplt)
 
 #ifdef OLAM_MPI
      if (iparallel == 1) then
-        call MPI_Allgather(arwmin, 1, MPI_REAL, arws, 1, MPI_REAL, MPI_COMM_WORLD, iok)
-        arwmin = minval(arws)
+        allocate(buffer(1,mgroupsize))
+        call MPI_Allgather(arwmin, 1, MPI_REAL, buffer, 1, MPI_REAL, MPI_COMM_WORLD, iok)
+        arwmin = minval(buffer)
+        deallocate(buffer)
      endif
 #endif
 
