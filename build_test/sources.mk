@@ -239,7 +239,6 @@ SOURCE_FILES= \
              $(CMAQ)/AERO_EMIS.F \
              $(CMAQ)/AERO_PHOTDATA.F \
              $(CMAQ)/aero_subs.F \
-             $(CMAQ)/AEROMET_DATA.F \
              $(CMAQ)/AEROSOL_CHEMISTRY.F \
              $(CMAQ)/AOD_DEFN.F \
              $(CMAQ)/AQ_DATA.F \

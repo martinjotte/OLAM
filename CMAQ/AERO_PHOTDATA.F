@@ -79,11 +79,11 @@ C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 C Allocate and define arrays used to calculate aerosol optical properties
 
          USE UTILIO_DEFN
-         USE AERO_DATA           ! aero variable data
-         USE AEROMET_DATA        ! constants and met data
+         USE AERO_DATA          ! aero variable data
+         USE CONST_DATA,  ONLY: pi6
          USE CSQY_DATA,   ONLY: NWL, NUM_REFRACTIVE, REFRACTIVE_INDEX,
      &                          WAVELENGTH => EFFWL_REF
-         use oname_coms,   only: nl
+         use oname_coms,  only: nl
 
          IMPLICIT NONE
 
@@ -412,12 +412,12 @@ C
 C-----------------------------------------------------------------------
 
       USE RXNS_DATA
-      USE CGRID_SPCS          ! CGRID mechanism species
+      USE CGRID_SPCS        ! CGRID mechanism species
       USE UTILIO_DEFN
       USE GETPAR_MOD, ONLY: GETPAR
-      USE AERO_DATA           ! aero variable data
-      USE AEROMET_DATA        ! constants and met data
-      USE CSQY_DATA,  ONLY : NWL, NUM_REFRACTIVE, WAVELENGTH => EFFWL_REF
+      USE AERO_DATA         ! aero variable data
+      USE CONST_DATA, ONLY: PI, PI6
+      USE CSQY_DATA,  ONLY: NWL, NUM_REFRACTIVE, WAVELENGTH => EFFWL_REF
 
       USE RRTMG_AERO_OPTICAL_UTIL_MODULE, ONLY : AERO_OPTICAL2, AERO_OPTICAL_CS
       use cgrid_defn, only: cgrid

@@ -596,8 +596,7 @@
          USE SSEMIS
          USE UTILIO_DEFN
          USE DUST_EMIS
-         use AEROMET_DATA
-
+         use CONST_DATA,   only: mwairkg, avo
          use mem_grid,     only: lpw, volti
          use mem_ijtabs,   only: itab_w
          use mem_basic,    only: rho
@@ -612,7 +611,7 @@
          integer,       intent(in) :: edgar_kmax(:)
 
 ! Variables for converting emission rates into molar-mixing-ratio units
-         REAL, PARAMETER :: RAVO = 1.0 / AVO   ! reciprocal of Avogadro
+         REAL, PARAMETER :: RAVO = 1.E6 / AVO   ! reciprocal of Avogadro
          REAL      :: CONVM     ! conversion factor for mass emissions [m3/mol]
          REAL      :: CONVN     ! conversion factor for number emissions [1e6*m3]
          REAL      :: CONVS     ! conversion factor for surface area emissions [m3/mol]
@@ -650,10 +649,9 @@
 !     Also calculate scaling factors for converting to molar-mixing-ratio units
 !           GSFAC = CONVEM_PM( L ) * Met_Data%RJACM( C,R,L )
             GSFAC = CONVEM_PM_MASS * volti(k,iw) ! [ug/g/m^3]
-!           CONVM = MWAIR / GPKG / DENS( C,R,L ) ! [m3/mol]
-            CONVM = MWAIR / GPKG / rho(k,iw) ! [m3/mol]
-            CONVN = CONVM * RAVO * 1.0E+06 ! 10^6 * [m3]
-            CONVS = CONVM       ! [m3/mol]
+            CONVM = MWAIRKG / rho(k,iw)          ! [m3/mol]
+            CONVN = CONVM * RAVO                 ! 10^6 * [m3]
+            CONVS = CONVM                        ! [m3/mol]
 
 ! *** Calculate speciated mass emission rates for fine aerosol [ug/m3/s]
             DO S = 1, N_EMIS_PM
@@ -744,9 +742,9 @@
 !     converted to [ppmv/s].  Surface area emissions are converted to 
 !     [m2/mol/s].  Save results in the VDEMIS_AE array.
 
-            CONVM = MWAIR / GPKG / rho(k,iw) ! [m3/mol]
-            CONVN = CONVM * RAVO * 1.0E+06 ! 10^6 * [m3]
-            CONVS = CONVM       ! [m3/mol]
+            CONVM = MWAIRKG / rho(k,iw)  ! [m3/mol]
+            CONVN = CONVM * RAVO         ! 10^6 * [m3]
+            CONVS = CONVM                ! [m3/mol]
 
             DO N = 1, N_MODE
                DO S = 1, N_AEROSPC
@@ -780,9 +778,9 @@
 
             if (dust_em(iwl) > 1.e-25) then
 
-               CONVM = MWAIR / GPKG / rho(k,iw) ! [m3/mol]
-               CONVN = CONVM * RAVO * 1.0E+06 ! 10^6 * [m3]
-               CONVS = CONVM    ! [m3/mol]
+               CONVM = MWAIRKG / rho(k,iw)  ! [m3/mol]
+               CONVN = CONVM * RAVO         ! 10^6 * [m3]
+               CONVS = CONVM                ! [m3/mol]
 
                DO N = 2, N_MODE
                   DO S = 1, N_AEROSPC

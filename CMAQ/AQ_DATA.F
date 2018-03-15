@@ -1074,7 +1074,7 @@ C-----------------------------------------------------------------------
       Use cgrid_spcs            ! CGRID mechanism species
       Use aero_data
       Use utilio_defn
-      Use aeromet_data
+      Use const_data, only: mwair, mwairkg, pi
 
       Implicit None
 

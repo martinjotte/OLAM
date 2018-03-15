@@ -156,7 +156,7 @@ contains
     enddo
 
     do k = lpw(iw), mza
-       voa(k) = volt(k,iw) / arp(k)
+       voa(k) = volt(k,iw) / arp(k-1)
     enddo
 
     ! New bottom height of source-cell aerosol after fall for 1 time step
@@ -219,10 +219,10 @@ contains
 
           ! Save total deposited to ground (per m^2)
 
-          sedi_sfc(s,iw) = 0.0
+          sedi_sfc(v,iw) = 0.0
           do ks = 1, lsw(iw)
              k  = ks + lpw(iw) - 1
-             sedi_sfc(s,iw) = sedi_sfc(s,iw) + aeflux(k-1) * frac_sfc(ks,iw)
+             sedi_sfc(v,iw) = sedi_sfc(v,iw) + aeflux(k-1) * frac_sfc(ks,iw)
           enddo
 
        endif

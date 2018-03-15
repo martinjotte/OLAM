@@ -651,8 +651,7 @@
 
             USE UTILIO_DEFN
             USE AERO_DATA
-            USE AEROMET_DATA   ! Includes CONST.EXT
-
+            USE CONST_DATA, only: pi, f6pi
             use mem_sea,    only: sea, itab_ws
             use mem_ijtabs, only: itabg_w
             use misc_coms,  only: isubdomain
@@ -673,17 +672,11 @@
             REAL    :: U10                ! wind speed at 10m [m/s]
             REAL    :: RLAY1HT            ! reciprocal of layer-1 height [1/m]
             REAL    :: SST                ! sea surface temperature[C]
+            REAL    :: BLKRH            ! fractional relative humidity
 
 !           CHARACTER( 16 ), SAVE :: PNAME = 'GET_SSEMIS'
 !           CHARACTER( 96 ) :: XMSG = ' '
             INTEGER :: N, S         ! loop indices
-
-! Variables for calculating ambient RH as done in the aerosol module
-            REAL, PARAMETER :: AA = 610.94      ! coefficients from Alduchov
-            REAL, PARAMETER :: BB = 17.625      !  and Eskridge (1996)
-            REAL, PARAMETER :: CC = 243.04
-            REAL, PARAMETER :: EPSWATER = MWWAT / MWAIR
-            REAL      :: BLKRH            ! fractional relative humidity
 
 ! Variables for calculating solute mass fraction & size-correction factors
             REAL, PARAMETER :: A0  = 1.0 / 3.70

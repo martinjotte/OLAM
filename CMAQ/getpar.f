@@ -63,7 +63,7 @@ C    available through AERO_DATA consistent with the moments it refers to
 C-----------------------------------------------------------------------
 
       Use aero_data
-      Use aeromet_data   ! Includes CONST.EXT
+      Use const_data, only: f6piove9
 
       Implicit None
 

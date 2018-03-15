@@ -109,7 +109,7 @@ C extinction efficiency [m^2/g], see White, Atmos.Env., 294(10)(1990), pp 2673-1
 C and Malm, et al., JGR, 99(D1)(1994), pp 1347-1370
 C----------------------------------------------------------------------
 
-      Use aeromet_data, only: pi, f6piove9
+      Use const_data, only: pi, f6piove9
 
       Implicit None
 
@@ -649,7 +649,6 @@ C-----------------------------------------------------------------------
 
       Use rxns_data             ! chemical mechanism data
       Use cgrid_spcs            ! CGRID mechanism species
-      Use aeromet_data
       Use utilio_defn
 
       Implicit None
@@ -1206,7 +1205,7 @@ C     Prakash Bhave, Jeff Young, and Sergey Napelenok.
 C     4/2016: Updated for 2nd moment by H. Pye and B. Murphy
 C-----------------------------------------------------------------------
 
-      Use aeromet_data, only : oneovpi, f6piove9  ! fundamental constants, data type definitions, etc.
+      Use const_data, only : oneovpi, f6piove9  ! fundamental constants, data type definitions, etc.
 
       Implicit None
 
@@ -1319,7 +1318,7 @@ C     Prakash Bhave, Jeff Young, and Sergey Napelenok.
 C     4/2016: Updated for 2nd moment by H. Pye and B. Murphy
 C-----------------------------------------------------------------------
 
-      Use aeromet_data, only : pi     ! fundamental constants, data type definitions, etc.
+      Use const_data, only: pi
       Use utilio_defn
 
       Implicit None

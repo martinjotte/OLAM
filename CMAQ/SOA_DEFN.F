@@ -212,11 +212,11 @@ C-----------------------------------------------------------------------
 
       Subroutine map_soa( )
 
-      Use rxns_data       ! chemical mechanism data
-      Use aero_data       ! aero species
-      Use cgrid_spcs      ! CGRID mechanism species
+      Use rxns_data        ! chemical mechanism data
+      Use aero_data        ! aero species
+      Use cgrid_spcs       ! CGRID mechanism species
       Use utilio_defn
-      Use aeromet_data, only: rgasuniv
+      Use const_data, only: rgasuniv
 
 C Local Variables:
       Character( 132 ) :: xmsg
@@ -592,7 +592,7 @@ C99906 Format(1X,'precursor from namelist species : ', a /)
 
 C-----------------------------------------------------------------------
 
-      Subroutine extract_soa( conc )
+      Subroutine extract_soa( conc, airdens )
 
 C  Extracts the required soa data from CGRID into the conc array.
 
@@ -609,13 +609,14 @@ C              reflects the fact that alkane SOA precursor
 C              emissions are dominated by compounds smaller than dodecane.
 C-----------------------------------------------------------------------
 
-      Use aeromet_data          ! air and met variables
+      Use const_data, only: inv_mwairkg, min_gasconc
 
       Implicit None
 
 C Arguments:
       Real, Intent( In ) :: conc( : )
-
+      Real, Intent( In ) :: airdens
+      
 C Local Variables:
       Real            :: gasconv
       Real            :: vtmp
@@ -625,7 +626,7 @@ C Local Variables:
       if (.not. allocated(vapor_conc)) allocate( vapor_conc( n_vapor ) )
 
 C Compute gas conversion constant
-      gasconv = airdens * inv_mwair
+      gasconv = airdens * inv_mwairkg
 
 C Copy grid cell concentrations of vapor species
       vapor_conc = 0.0
@@ -651,7 +652,7 @@ C Copy grid cell concentrations of ORGPROD species
 
 C-----------------------------------------------------------------------
 
-      Subroutine update_soa( conc )
+      Subroutine update_soa( conc, airdens )
 
 C  Populates CGRID from the conc array with updated SOA values.
 
@@ -663,13 +664,14 @@ C SH  03/10/11 Renamed met_data to aeromet_data
 C SR  03/25/11 Replaced I/O API include files with UTILIO_DEFN
 C-----------------------------------------------------------------------
 
-      Use aeromet_data    ! air and met variables
+      Use const_data,  only: mwairkg, min_gasconc
       Use utilio_defn
 
       Implicit None
 
 C Arguments:
       Real, Intent( Out ) :: conc( : )
+      Real, Intent( In )  :: airdens
 
 C Local Variables:
       Character( 80 ) :: xmsg
@@ -779,7 +781,7 @@ C Local Variables:
       End Function findOrgprod
 
 C-----------------------------------------------------------------------
-      Subroutine orgaer( dt, layer )
+      Subroutine orgaer( dt, layer, airtemp, airpres )
 
 C Updates CGRID via several pathways for secondary organic aerosol (SOA)
 C formation, as recommended by Edney et al. (2007).  These include SOA
@@ -1064,15 +1066,17 @@ C-----------------------------------------------------------------------
 C Key Subroutines/Functions called:  newt, soabisection
 
       Use aero_data
-      Use aeromet_data
+      Use const_data
       Use utilio_defn
       Use rxns_data, only : MECHNAME
 
       Implicit None
 
 C Arguments:
-      Real    :: dt            ! Synchronization time step [ s ]
-      Integer :: layer         ! model layer number
+      Real,    intent( in ) :: dt            ! Synchronization time step [ s ]
+      Integer, intent( in ) :: layer         ! model layer number
+      Real,    intent( in ) :: airtemp
+      Real,    intent( in ) :: airpres
 
 C Local variables:
 !     Character( 300 ) :: xmsg
@@ -1445,7 +1449,7 @@ C   1. Binkowski, F.S. and U. Shankar, The regional particulate matter
 C      model 1. Model description and preliminary results, J. Geophys.
 C      Res., Vol 100, No D12, 26101-26209, 1995.
 
-      use aeromet_data, only: pi
+      use const_data, only: pi
       implicit none
 
 C *** Arguments:

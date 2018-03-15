@@ -122,7 +122,6 @@ C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       USE AERO_DATA           ! aero variable data
       USE PRECURSOR_DATA      ! gas phase aero precursor data
       USE SOA_DEFN            ! gas soa data
-      USE AEROMET_DATA        ! air properties data, eg., T, P, RH includes CONST.EXT
       USE AOD_DEFN            ! IMPROVE reconstructed method AOD
       USE UTILIO_DEFN
       USE CGRID_SPCS
@@ -229,6 +228,12 @@ C *** visual range information
 !     REAL BLKEXT2         ! block extinction [ km**-1 ] (Reconstructed)
 
       INTEGER, SAVE :: N_VIS_STEP
+
+C Meteorological variables
+      Real :: airtemp      ! air temp [ K ]
+      Real :: airpres      ! air pressure [ Pa]
+      Real :: airdens      ! air density [ kg/m^3]
+      Real :: airRH        ! fractional relative humidity
 
 C *** other internal aerosol variables
 !     INTEGER IND                         ! index to be used with INDEX1
@@ -542,7 +547,7 @@ C *** initialize conc arrays
 !     N_APMDIAG_STEP = N_APMDIAG_STEP + 1
 !     N_VIS_STEP     = N_VIS_STEP + 1 
 
-      !$omp parallel do private(iw,k,kmax,c,r,l,n,fpm1,fpm25,fpm10,fams)
+      !$omp parallel do private(iw,k,kmax,c,r,l,n,fpm1,fpm25,fpm10,fams,airtemp,airpres,airdens,airrh)
       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
          do k = mza-1, lpw(iw), -1
@@ -578,7 +583,7 @@ C     into aerospc_conc in aero_data module (set minimum)
 
 C *** Extract grid cell concentrations of gas precursors from CGRID (ppm)
 C     into precursr_conc in precursor_data
-               CALL EXTRACT_PRECURSOR( CGRID( C,R,: ) )
+               CALL EXTRACT_PRECURSOR( CGRID( C,R,: ), airdens )
 
 C *** Calculate SO4RATE stored in module
                SO4RATE = PRECURSOR_CONC( SULPRD_IDX ) / DT
@@ -592,20 +597,20 @@ C *** Calculate PHG_RATE stored in module
 
 C *** Extract soa concentrations from CGRID and 
 C     convert M2 to wet
-               CALL EXTRACT_SOA( CGRID( C,R,: ) )
+               CALL EXTRACT_SOA( CGRID( C,R,: ), airdens )
 
 C *** Aerosol process routines
-               CALL AEROPROC( DT, C, R, L )
+               CALL AEROPROC( DT, C, R, L, airtemp, airpres, airdens, airrh)
 
 C *** Update aerosol variables conc back into CGRID (set minimum) 
 C     and convert M2 to dry and save as surface area
               CALL UPDATE_AERO( CGRID( C,R,: ), .TRUE. )
 
 C *** Update precursor variables conc back into CGRID
-              CALL UPDATE_PRECURSOR( CGRID( C,R,: ) )
+              CALL UPDATE_PRECURSOR( CGRID( C,R,: ), airdens )
 
 C *** Update gas soa concentrations back to CGRID
-               CALL UPDATE_SOA( CGRID( C,R,: ) )
+               CALL UPDATE_SOA( CGRID( C,R,: ), airdens )
 
 C *** OUTPUT DIAGNOSTIC INFORMATION
 
@@ -639,7 +644,7 @@ C     diagnostic array (lowest vertical layer only)
 
 !              IF ( L .EQ. 1 ) THEN
 !                 IF ( WRITETIME .OR. AVISDIAG) THEN
-!                    CALL GETVISBY( BLKDCV1, BLKEXT1, BLKDCV2, BLKEXT2 )
+!                    CALL GETVISBY( BLKDCV1, BLKEXT1, BLKDCV2, BLKEXT2, airrh )
 !                 END IF
 !                 IF ( AVISDIAG ) THEN
 !                    AVIS_SPC( C,R,1 ) = AVIS_SPC( C,R,1 ) + BLKDCV1  ! Mie visual range [deciview]

@@ -759,9 +759,7 @@
          real, parameter :: fdsa = 1.0     ! factor of dust source area 1/.1/.01
          real, parameter :: gmad = 0.78    ! Factor to convert geometric to aerodynamic diameter
          real, parameter :: cfac = amen * radg * fdsa * gmad  ! combined factor for qam
-
-         real, parameter :: f6dpi = 6.0 / pi
-         real, parameter :: gpkg = 1.0e03     ! g/kg
+         real, parameter :: gpkg = 1.0e03  ! g/kg
 
 !        character( 16 ) :: pname = 'GET_DUST_EMIS   '
 !        character( 16 ) :: vname

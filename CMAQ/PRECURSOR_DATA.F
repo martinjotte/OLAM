@@ -259,7 +259,7 @@ C Find indices of required species
       End Subroutine map_precursor
 
 C-----------------------------------------------------------------------
-      Subroutine extract_precursor( conc )
+      Subroutine extract_precursor( conc, airdens )
 
 C  Extracts the required precursor data from CGRID into conc.
 
@@ -271,12 +271,13 @@ C SH  03/10/11 Renamed met_data to aeromet_data
 C HS  03/10/11 Changed vtmp and gasconv to real(8)
 C-----------------------------------------------------------------------
 
-      Use aeromet_data            ! air and met variables
+      Use const_data, only: inv_mwairkg, dmin_gasconc
 
       Implicit None
 
 C Arguments:
       Real, Intent( In ) :: conc( : )
+      Real, Intent( In ) :: airdens
 
 C Local Variables:
       Real( 8 )       :: gasconv       ! converts from [ppm] to [ug/m^3]
@@ -285,7 +286,7 @@ C Local Variables:
       Integer         :: spc
 
 C Compute gas conversion constant
-      gasconv = airdens * inv_mwair
+      gasconv = airdens * inv_mwairkg
 
 C Copy grid cell concentrations of precursor species
       precursor_conc = 0.0d0
@@ -298,11 +299,10 @@ C Copy grid cell concentrations of precursor species
          End If
       End Do
 
-      Return
       End Subroutine extract_precursor
 
 C------------------------------------------------------------------------
-      Subroutine update_precursor( conc )
+      Subroutine update_precursor( conc, airdens )
 
 C  Updates CGRID aerosol precursor values from the conc array.
 
@@ -316,13 +316,14 @@ C    -changed vtmp and gasconv to real(8)
 C SR  03/25/11 Replaced I/O API include files with UTILIO_DEFN
 C-----------------------------------------------------------------------
 
-      Use aeromet_data        ! air and met variables
+      Use const_data, only: mwairkg, min_gasconc
       Use utilio_defn
 
       Implicit None
 
 C arguments:
       Real, Intent( Out ) :: conc( : )
+      Real, Intent( In  ) :: airdens
 
 C local variables:
       Character( 80 ) :: xmsg
@@ -354,7 +355,6 @@ C copy precursor_conc back to grid cell concentrations
          End If
       End Do
 
-      Return
       End Subroutine update_precursor
 
 C-----------------------------------------------------------------------

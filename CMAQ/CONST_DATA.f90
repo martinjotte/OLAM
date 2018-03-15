@@ -56,7 +56,19 @@ module const_data
   REAL( 8 ), PARAMETER :: DPI = 3.14159265358979324D0
 
 ! pi/180 [ rad/deg ]
-  REAL, PARAMETER :: PI180  = PI / 180.0
+  REAL,      PARAMETER :: PI180  = PI / 180.0
+
+  Real( 8 ), Parameter :: f6dpi = 6.0D0 / dpi
+  Real,      Parameter :: f6pi = 6.0 / pi
+  Real( 8 ), Parameter :: dpi6 = dpi / 6.0D0
+  Real,      Parameter :: pi6 = pi / 6.0
+  
+  Real,      Parameter :: oneovpi = 1.0 / pi
+  Real,      Parameter :: f6piove9 = 6.0 / pi * 1.0e-9
+
+! Concentration lower limit used for gas species
+  Real,      Parameter :: min_gasconc  = 1.0E-30        ! [ ug/m^3 ]
+  Real,      Parameter :: dmin_gasconc = 1.0D-30        ! [ ug/m^3 ]
 
 ! Geodetic Constants:
  
@@ -98,6 +110,8 @@ module const_data
 ! http://physics.nist.gov/cgi-bin/cuu/Value?r
   REAL, PARAMETER :: DRGASUNIV = 8.314459848D0
 
+  Real( 8 ), Parameter :: boltzmann = drgasuniv / davo  ! [ J/K ]
+
 ! standard atmosphere  [ Pa ]
   REAL, PARAMETER :: STDATMPA = 101325.0
 
@@ -116,6 +130,10 @@ module const_data
 ! FSB: 78.06% N2, 21% O2, and 0.943% A on a mole 
 ! fraction basis ( Source : Hobbs, 1995) pp. 69-70
   REAL, PARAMETER :: MWAIR = 28.9628
+  Real, PARAMETER :: INV_MWAIR = 1.0 / mwair  ! [ 1/g ]
+
+  Real, PARAMETER :: MWAIRKG   = mwair * 1.e-3
+  Real, PARAMETER :: INV_MWAIRKG = 1.e3 / mwair
 
 ! dry-air gas constant [ J / kg-K ]
   REAL, PARAMETER :: RDGAS = 1.0E3 * RGASUNIV / MWAIR   ! 287.07548994

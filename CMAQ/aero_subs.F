@@ -26,7 +26,7 @@ C %W% %P% %G% %U%
 C routines for aerosol formation and transformation processes
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      SUBROUTINE AEROPROC( DT, COL, ROW, LAYER )
+      SUBROUTINE AEROPROC( DT, COL, ROW, LAYER, airtemp, airpres, airdens, airrh)
 
 C-----------------------------------------------------------------------
 C  SUBROUTINE AEROPROC advances the number, second moment, and mass
@@ -210,7 +210,7 @@ C-----------------------------------------------------------------------
       USE AERO_DATA
       USE PRECURSOR_DATA      ! gas phase aero precursor data
       USE SOA_DEFN
-      USE AEROMET_DATA
+      USE CONST_DATA
       USE UTILIO_DEFN
       USE GETPAR_MOD, ONLY: GETPAR
 
@@ -221,6 +221,10 @@ C *** arguments:
       INTEGER, INTENT( IN ) :: COL         ! Column of cell
       INTEGER, INTENT( IN ) :: ROW         ! Row of cell
       INTEGER, INTENT( IN ) :: LAYER       ! Layer of cell
+      REAL,    INTENT( IN ) :: AIRTEMP
+      REAL,    INTENT( IN ) :: AIRPRES
+      REAL,    INTENT( IN ) :: AIRDENS
+      REAL,    INTENT( IN ) :: AIRRH
 
 C *** Parameters
       REAL, PARAMETER :: DIFFSULF = 9.36E-06  ! molecular diffusiviity for sulfuric acid
@@ -314,7 +318,7 @@ C     SOA resides in the accumulation mode.
 C     Aerosol is wet when it enters orgaer
       CALL GETPAR( LIMIT_Sg, noM3=.true. )
 
-      CALL ORGAER( DT, LAYER )
+      CALL ORGAER( DT, LAYER, airtemp, airpres )
 
 C *** Secondary Inorganics
 C     The VOLINORG subroutine includes the treatment of new particle
@@ -328,7 +332,7 @@ C *** Compute H2SO4 diffusivity, correct for temperature and pressure
 C *** Update size parameters (distribution is wet from ORGAER)
       CALL GETPAR( LIMIT_Sg )
 
-      CALL VOLINORG( DT, COL, ROW, LAYER, DV_SO4, CGR )
+      CALL VOLINORG( DT, COL, ROW, LAYER, DV_SO4, CGR, airtemp, airrh )
 
 C *** Coagulation
 C     Calculate coagulation coefficients using a method dictated by
@@ -663,7 +667,7 @@ C *** Set minimum value for all concentrations in the CBLK array
 
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      SUBROUTINE VOLINORG( DT, COL, ROW, LAYER, DV_SO4, CGR )
+      SUBROUTINE VOLINORG( DT, COL, ROW, LAYER, DV_SO4, CGR, airtemp, airrh )
 
 C *** Calculates the partitioning of inorganic components (CL,NO3,NH4,SO4)
 C     between the aerosol and gas phase over the operator synchronization
@@ -708,20 +712,22 @@ C    aerosols. ATMOSPHERIC CHEMISTRY AND PHYSICS. 7, 4639-4659
       USE AERO_DATA
       USE PRECURSOR_DATA
       USE SOA_DEFN
-      USE AEROMET_DATA
+      USE CONST_DATA
       USE UTILIO_DEFN
       USE GETPAR_MOD, only: getpar
 
       IMPLICIT NONE
 
 C *** Arguments:
-      REAL    DT              ! time step [sec]
-      INTEGER COL             ! grid column index
-      INTEGER ROW             ! grid row index
-      INTEGER LAYER           ! model layer index
-      REAL    DV_SO4          ! molecular diffusivity of H2SO4 vapor 
-                              ! after correction for ambient conditions
-      REAL( 8 ) :: CGR( N_MODE-1 ) ! 3rd moment SO4 growth rate [m^3/m^3-s]
+      REAL,      intent( in  ) :: DT      ! time step [sec]
+      INTEGER,   intent( in  ) :: COL     ! grid column index
+      INTEGER,   intent( in  ) :: ROW     ! grid row index
+      INTEGER,   intent( in  ) :: LAYER   ! model layer index
+      REAL,      intent( in  ) :: DV_SO4  ! molecular diffusivity of H2SO4 vapor 
+                                          ! after correction for ambient conditions
+      REAL( 8 ), intent( out ) :: CGR( N_MODE-1 ) ! 3rd moment SO4 growth rate [m^3/m^3-s]
+      REAL,      INTENT( IN  ) :: airtemp
+      REAL,      INTENT( IN  ) :: airrh
 
 C *** Parameters: 
       INTEGER, PARAMETER :: NINORG = 8      ! number of inorganic species
@@ -1578,7 +1584,7 @@ C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       SUBROUTINE NEWPART3 ( RH, T, XH2SO4, SO4RATE, DNDT, DMDT_so4, DM2DT )
 
       USE AERO_DATA
-      USE AEROMET_DATA   ! Includes CONST.EXT
+      USE CONST_DATA
       USE PRECURSOR_DATA, ONLY: PRECURSOR_MW, SULF_IDX
       USE UTILIO_DEFN
 
@@ -1805,7 +1811,7 @@ C-----------------------------------------------------------------------
 
       USE AERO_DATA
       USE PRECURSOR_DATA
-      USE AEROMET_DATA
+      USE CONST_DATA
 
       IMPLICIT NONE
 
@@ -2724,8 +2730,8 @@ C   Angeles Basin during CalNex, Journ. Geophys. Res., 2013.
 
 C-----------------------------------------------------------------------
 
-      USE AERO_DATA,    ONLY: MIN_SIGMA_G, MAX_SIGMA_G
-      USE AEROMET_DATA, ONLY: F6PI, PI6, PI
+      USE AERO_DATA,  ONLY: MIN_SIGMA_G, MAX_SIGMA_G
+      USE CONST_DATA, ONLY: F6PI, PI6, PI
 
       IMPLICIT NONE
 
@@ -2844,7 +2850,7 @@ C     Appendix B in Ensberg et al., 2013).
       END SUBROUTINE AERO_AMS
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      SUBROUTINE GETVISBY( DCV1, EXT1, DCV2, EXT2 )
+      SUBROUTINE GETVISBY( DCV1, EXT1, DCV2, EXT2, airrh) 
  
 C *** This routine calculates the Pitchford & Malm visual index,
 C     deciview, using the Evans & Fournier extinction with 20 point
@@ -2906,7 +2912,7 @@ C ///////
 
       USE AERO_DATA
       USE SOA_DEFN
-      USE AEROMET_DATA
+      USE CONST_DATA
       USE AOD_DEFN
 
       IMPLICIT NONE
@@ -2917,6 +2923,7 @@ C ///////
       REAL    DCV2   ! block deciview (Reconstructed)
       REAL    EXT2   ! block extinction [ km**-1 ]
                                   ! (Reconstructed)
+      REAL   AIRRH
 
 C *** Paramters 
 

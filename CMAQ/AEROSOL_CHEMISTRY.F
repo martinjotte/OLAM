@@ -325,7 +325,7 @@ C-----------------------------------------------------------------------
       USE UTILIO_DEFN
       USE RXNS_DATA
       USE AERO_DATA
-      USE AEROMET_DATA, ztemp1=>airtemp, ztemp2=>airrh 
+      USE CONST_DATA
       use GETPAR_MOD, only: getpar
       USE SOA_DEFN,   only: n_vapor, soa_aeroMap
       use mem_basic,  only: tair, rho, press, sh_v
@@ -1163,9 +1163,9 @@ C  Key Subroutines Called: none
 C
 C  Called by: Gas-Phase Chemistry Driver
       USE AERO_DATA        
-      USE AEROMET_DATA, ONLY: pi
-      USE CGRID_DEFN,   ONLY: CGRID
-      use mem_grid,     only: mza
+      USE CONST_DATA, ONLY: pi
+      USE CGRID_DEFN, ONLY: CGRID
+      use mem_grid,   only: mza
 
       IMPLICIT NONE
       
@@ -1391,7 +1391,7 @@ C      particle liquid water, nitrate, and chloride, ACP, 9, 8351-8363, 2009.
 C-----------------------------------------------------------------------
 
       USE AERO_DATA
-      USE AEROMET_DATA   ! Includes CONST.EXT
+      USE CONST_DATA, only: f6piove9
 
       IMPLICIT NONE
 
@@ -1981,7 +1981,6 @@ C     Envion. Sci. Technol, 2013, doi: 10.1021/es402106h.
 C-----------------------------------------------------------------------
 
       Use aero_data
-      Use aeromet_data   ! Includes CONST.EXT (pi) and airtemp
       Use utilio_defn    ! error message and abort
       use hlconst_mod
 
