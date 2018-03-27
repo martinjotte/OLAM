@@ -10,9 +10,9 @@ module mem_megan
   private :: r8, i1
 
   real, allocatable         :: pfts    (:,:)
-  real, allocatable, target :: avg_temp(:)
-  real, allocatable, target :: avg_ppfd(:)
-  real, allocatable, target :: avg_ppfd_dif(:)
+  real, allocatable :: avg_temp(:)
+  real, allocatable :: avg_ppfd(:)
+  real, allocatable :: avg_ppfd_dif(:)
   real, allocatable         :: lai_prev(:)
   real, allocatable         :: lai_next(:)
   real, allocatable         :: megan_emis(:,:)

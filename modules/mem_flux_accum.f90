@@ -37,53 +37,53 @@ Module mem_flux_accum
 
 ! Atmosphere grid arrays
 
-  real(r8), allocatable, target :: rshort_accum      (:)
-  real(r8), allocatable, target :: rshortup_accum    (:)
-  real(r8), allocatable, target :: rlong_accum       (:)
-  real(r8), allocatable, target :: rlongup_accum     (:)
-  real(r8), allocatable, target :: rshort_top_accum  (:)
-  real(r8), allocatable, target :: rshortup_top_accum(:)
-  real(r8), allocatable, target :: rlongup_top_accum (:)
+  real(r8), allocatable :: rshort_accum      (:)
+  real(r8), allocatable :: rshortup_accum    (:)
+  real(r8), allocatable :: rlong_accum       (:)
+  real(r8), allocatable :: rlongup_accum     (:)
+  real(r8), allocatable :: rshort_top_accum  (:)
+  real(r8), allocatable :: rshortup_top_accum(:)
+  real(r8), allocatable :: rlongup_top_accum (:)
 
-  real(r8), allocatable, target :: rshort_clr_accum      (:)
-  real(r8), allocatable, target :: rshortup_clr_accum    (:)
-  real(r8), allocatable, target :: rlong_clr_accum       (:)
-  real(r8), allocatable, target :: rlongup_clr_accum     (:)
-  real(r8), allocatable, target :: rshort_top_clr_accum  (:)
-  real(r8), allocatable, target :: rshortup_top_clr_accum(:)
-  real(r8), allocatable, target :: rlongup_top_clr_accum (:)
+  real(r8), allocatable :: rshort_clr_accum      (:)
+  real(r8), allocatable :: rshortup_clr_accum    (:)
+  real(r8), allocatable :: rlong_clr_accum       (:)
+  real(r8), allocatable :: rlongup_clr_accum     (:)
+  real(r8), allocatable :: rshort_top_clr_accum  (:)
+  real(r8), allocatable :: rshortup_top_clr_accum(:)
+  real(r8), allocatable :: rlongup_top_clr_accum (:)
 
-  real(r8), allocatable, target :: sfluxt_accum(:)
-  real(r8), allocatable, target :: sfluxr_accum(:)
+  real(r8), allocatable :: sfluxt_accum(:)
+  real(r8), allocatable :: sfluxr_accum(:)
 
-  real(r8), allocatable, target :: vc_accum   (:,:)
-  real(r8), allocatable, target :: wc_accum   (:,:)
-  real(r8), allocatable, target :: press_accum(:,:)
-  real(r8), allocatable, target :: tair_accum (:,:)
-  real(r8), allocatable, target :: sh_v_accum (:,:)
+  real(r8), allocatable :: vc_accum   (:,:)
+  real(r8), allocatable :: wc_accum   (:,:)
+  real(r8), allocatable :: press_accum(:,:)
+  real(r8), allocatable :: tair_accum (:,:)
+  real(r8), allocatable :: sh_v_accum (:,:)
 
 ! Land arrays
 
-  real(r8), allocatable, target :: vels_l_accum    (:)
-  real(r8), allocatable, target :: airtemp_l_accum (:)
-  real(r8), allocatable, target :: airshv_l_accum  (:)
-  real(r8), allocatable, target :: cantemp_l_accum (:)
-  real(r8), allocatable, target :: canshv_l_accum  (:)
-  real(r8), allocatable, target :: skintemp_l_accum(:)
-  real(r8), allocatable, target :: sfluxt_l_accum  (:)
-  real(r8), allocatable, target :: sfluxr_l_accum  (:)
-  real(r8), allocatable, target :: wxfer1_l_accum  (:) ! filled in leaf4_soil
+  real(r8), allocatable :: vels_l_accum    (:)
+  real(r8), allocatable :: airtemp_l_accum (:)
+  real(r8), allocatable :: airshv_l_accum  (:)
+  real(r8), allocatable :: cantemp_l_accum (:)
+  real(r8), allocatable :: canshv_l_accum  (:)
+  real(r8), allocatable :: skintemp_l_accum(:)
+  real(r8), allocatable :: sfluxt_l_accum  (:)
+  real(r8), allocatable :: sfluxr_l_accum  (:)
+  real(r8), allocatable :: wxfer1_l_accum  (:) ! filled in leaf4_soil
 
 ! Sea arrays
 
-  real(r8), allocatable, target :: vels_s_accum    (:)
-  real(r8), allocatable, target :: airtemp_s_accum (:)
-  real(r8), allocatable, target :: airshv_s_accum  (:)
-  real(r8), allocatable, target :: cantemp_s_accum (:)
-  real(r8), allocatable, target :: canshv_s_accum  (:)
-  real(r8), allocatable, target :: skintemp_s_accum(:)
-  real(r8), allocatable, target :: sfluxt_s_accum  (:)
-  real(r8), allocatable, target :: sfluxr_s_accum  (:)
+  real(r8), allocatable :: vels_s_accum    (:)
+  real(r8), allocatable :: airtemp_s_accum (:)
+  real(r8), allocatable :: airshv_s_accum  (:)
+  real(r8), allocatable :: cantemp_s_accum (:)
+  real(r8), allocatable :: canshv_s_accum  (:)
+  real(r8), allocatable :: skintemp_s_accum(:)
+  real(r8), allocatable :: sfluxt_s_accum  (:)
+  real(r8), allocatable :: sfluxr_s_accum  (:)
 
 
 Contains

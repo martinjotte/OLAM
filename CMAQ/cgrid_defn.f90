@@ -1,18 +1,18 @@
 module cgrid_defn
 
-  real, allocatable, target :: cgrid(:,:,:)
+  real, allocatable :: cgrid(:,:,:)
 
-  real, allocatable, target :: gc_tend(:,:,:)
-  real, allocatable, target :: ae_tend(:,:,:)
-  real, allocatable, target :: nr_tend(:,:,:)
+  real, allocatable :: gc_tend(:,:,:)
+  real, allocatable :: ae_tend(:,:,:)
+  real, allocatable :: nr_tend(:,:,:)
 
-  real, allocatable, target :: vdemis_gc(:,:,:)
-  real, allocatable, target :: vdemis_ae(:,:,:)
-  real, allocatable, target :: vdemis_nr(:,:,:)
+  real, allocatable :: vdemis_gc(:,:,:)
+  real, allocatable :: vdemis_ae(:,:,:)
+  real, allocatable :: vdemis_nr(:,:,:)
 
-  real, allocatable, target :: sxfer_gc(:,:,:)
-  real, allocatable, target :: sxfer_ae(:,:,:)
-  real, allocatable, target :: sxfer_nr(:,:,:)
+  real, allocatable :: sxfer_gc(:,:,:)
+  real, allocatable :: sxfer_ae(:,:,:)
+  real, allocatable :: sxfer_nr(:,:,:)
 
   integer :: ns_co  = 0
   integer :: ns_no  = 0

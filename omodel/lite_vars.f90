@@ -34,8 +34,8 @@
 module lite_vars
   implicit none
 
-  real, allocatable, target :: ue(:,:)
-  real, allocatable, target :: ve(:,:)
+  real, allocatable :: ue(:,:)
+  real, allocatable :: ve(:,:)
 
 contains  
 

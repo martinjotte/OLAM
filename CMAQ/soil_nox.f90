@@ -1,8 +1,8 @@
 module soil_nox
 
-  real, allocatable, target :: soilnox(:) ! Soil NOx emissions (mol/sec)
-  real, allocatable, target :: pfactor(:) ! Soil NOx pulse factor
-  real, allocatable, target :: drytime(:) ! Time since last precip (hr) 
+  real, allocatable :: soilnox(:) ! Soil NOx emissions (mol/sec)
+  real, allocatable :: pfactor(:) ! Soil NOx pulse factor
+  real, allocatable :: drytime(:) ! Time since last precip (hr) 
 
   integer, allocatable      :: lbiome(:)
 

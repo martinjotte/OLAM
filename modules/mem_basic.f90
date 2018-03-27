@@ -38,29 +38,29 @@ Module mem_basic
 
   private :: r8
 
-  real, allocatable, target :: vmp  (:,:) ! past V horiz momentum [kg/(m^2 s)]
-  real, allocatable, target :: vmc  (:,:) ! current V horiz momentum [kg/(m^2 s)]
-  real, allocatable, target :: vp   (:,:) ! past V horiz velocity [m/s]
-  real, allocatable, target :: vc   (:,:) ! current V horiz velocity [m/s]
+  real, allocatable :: vmp  (:,:) ! past V horiz momentum [kg/(m^2 s)]
+  real, allocatable :: vmc  (:,:) ! current V horiz momentum [kg/(m^2 s)]
+  real, allocatable :: vp   (:,:) ! past V horiz velocity [m/s]
+  real, allocatable :: vc   (:,:) ! current V horiz velocity [m/s]
 
-  real, allocatable, target :: wmc  (:,:) ! current vert momentum [kg/(m^2 s)]
-  real, allocatable, target :: wc   (:,:) ! current vert velocity [m/s]
-  real, allocatable, target :: sh_w (:,:) ! tot water spec dens [kg_wat/kg_air]
-  real, allocatable, target :: sh_v (:,:) ! spec hum [kg_vap/kg_air]
-  real, allocatable, target :: thil (:,:) ! ice-liquid pot temp [K]
-  real, allocatable, target :: theta(:,:) ! pot temp [K]
-  real, allocatable, target :: tair (:,:)  ! temperature [K]
+  real, allocatable :: wmc  (:,:) ! current vert momentum [kg/(m^2 s)]
+  real, allocatable :: wc   (:,:) ! current vert velocity [m/s]
+  real, allocatable :: sh_w (:,:) ! tot water spec dens [kg_wat/kg_air]
+  real, allocatable :: sh_v (:,:) ! spec hum [kg_vap/kg_air]
+  real, allocatable :: thil (:,:) ! ice-liquid pot temp [K]
+  real, allocatable :: theta(:,:) ! pot temp [K]
+  real, allocatable :: tair (:,:)  ! temperature [K]
 
-  real, allocatable, target :: vxe  (:,:) ! earth-relative x velocity at T point [m/s]
-  real, allocatable, target :: vye  (:,:) ! earth-relative y velocity at T point [m/s]
-  real, allocatable, target :: vze  (:,:) ! earth-relative z velocity at T point [m/s]
+  real, allocatable :: vxe  (:,:) ! earth-relative x velocity at T point [m/s]
+  real, allocatable :: vye  (:,:) ! earth-relative y velocity at T point [m/s]
+  real, allocatable :: vze  (:,:) ! earth-relative z velocity at T point [m/s]
 
-  real, allocatable, target :: vxe2 (:,:) ! earth-relative x velocity at T point [m/s]
-  real, allocatable, target :: vye2 (:,:) ! earth-relative y velocity at T point [m/s]
-  real, allocatable, target :: vze2 (:,:) ! earth-relative z velocity at T point [m/s]
+  real, allocatable :: vxe2 (:,:) ! earth-relative x velocity at T point [m/s]
+  real, allocatable :: vye2 (:,:) ! earth-relative y velocity at T point [m/s]
+  real, allocatable :: vze2 (:,:) ! earth-relative z velocity at T point [m/s]
 
-  real(r8), allocatable, target :: press(:,:) ! air pressure [Pa]
-  real(r8), allocatable, target :: rho  (:,:) ! total air density [kg/m^3]
+  real(r8), allocatable :: press(:,:) ! air pressure [Pa]
+  real(r8), allocatable :: rho  (:,:) ! total air density [kg/m^3]
 
   ! If false, use current earth-cartesian velocities to compute the w, v, and t
   ! donor point locations, which saves some computation, memory, and communication.

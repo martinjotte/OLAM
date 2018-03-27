@@ -40,7 +40,7 @@ Module mem_addsc
       real, allocatable :: drydep(:) ! somethings per m^2 per sec (not currently implemented)
    End Type addsc_vars
    
-   type (addsc_vars), allocatable, target :: addsc(:)
+   type (addsc_vars), allocatable :: addsc(:)
   
 Contains
 

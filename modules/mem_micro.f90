@@ -35,55 +35,55 @@ Module mem_micro
 
   use consts_coms, only: r8
 
-  real, allocatable, target :: sh_c(:,:) ! cloud water spec dens [kg_cld/kg_air]
-  real, allocatable, target :: sh_d(:,:) ! drizzle spec dens [kg_driz/kg_air]
-  real, allocatable, target :: sh_r(:,:) ! rain spec dens [kg_rain/kg_air]
-  real, allocatable, target :: sh_p(:,:) ! pristine ice spec dens [kg_pris/kg_air]
-  real, allocatable, target :: sh_s(:,:) ! snow spec dens [kg_snow/kg_air]
-  real, allocatable, target :: sh_a(:,:) ! aggregates spec dens [kg_agg/kg_air]
-  real, allocatable, target :: sh_g(:,:) ! graupel spec dens [kg_graup/kg_air]
-  real, allocatable, target :: sh_h(:,:) ! hail spec dens [kg_hail/kg_air]
+  real, allocatable :: sh_c(:,:) ! cloud water spec dens [kg_cld/kg_air]
+  real, allocatable :: sh_d(:,:) ! drizzle spec dens [kg_driz/kg_air]
+  real, allocatable :: sh_r(:,:) ! rain spec dens [kg_rain/kg_air]
+  real, allocatable :: sh_p(:,:) ! pristine ice spec dens [kg_pris/kg_air]
+  real, allocatable :: sh_s(:,:) ! snow spec dens [kg_snow/kg_air]
+  real, allocatable :: sh_a(:,:) ! aggregates spec dens [kg_agg/kg_air]
+  real, allocatable :: sh_g(:,:) ! graupel spec dens [kg_graup/kg_air]
+  real, allocatable :: sh_h(:,:) ! hail spec dens [kg_hail/kg_air]
 
-  real, allocatable, target :: con_c(:,:) ! cloud drop number conc [#_cld/kg_air]
-  real, allocatable, target :: con_d(:,:) ! drizzle number conc [#_driz/kg_air]
-  real, allocatable, target :: con_r(:,:) ! rain number conc [#_rain/kg_air]
-  real, allocatable, target :: con_p(:,:) ! pristine ice number conc [#_pris/kg_air]
-  real, allocatable, target :: con_s(:,:) ! snow number conc [#_snow/kg_air]
-  real, allocatable, target :: con_a(:,:) ! aggregates number conc [#_aggr/kg_air]
-  real, allocatable, target :: con_g(:,:) ! graupel number conc [#_graup/kg_air]
-  real, allocatable, target :: con_h(:,:) ! hail number conc [#_hail/kg_air]
+  real, allocatable :: con_c(:,:) ! cloud drop number conc [#_cld/kg_air]
+  real, allocatable :: con_d(:,:) ! drizzle number conc [#_driz/kg_air]
+  real, allocatable :: con_r(:,:) ! rain number conc [#_rain/kg_air]
+  real, allocatable :: con_p(:,:) ! pristine ice number conc [#_pris/kg_air]
+  real, allocatable :: con_s(:,:) ! snow number conc [#_snow/kg_air]
+  real, allocatable :: con_a(:,:) ! aggregates number conc [#_aggr/kg_air]
+  real, allocatable :: con_g(:,:) ! graupel number conc [#_graup/kg_air]
+  real, allocatable :: con_h(:,:) ! hail number conc [#_hail/kg_air]
 
-  real, allocatable, target :: q2(:,:) ! rain internal energy [J/kg]
-  real, allocatable, target :: q6(:,:) ! graupel internal energy [J/kg]
-  real, allocatable, target :: q7(:,:) ! hail internal energy [J/kg]
+  real, allocatable :: q2(:,:) ! rain internal energy [J/kg]
+  real, allocatable :: q6(:,:) ! graupel internal energy [J/kg]
+  real, allocatable :: q7(:,:) ! hail internal energy [J/kg]
 
-  real(r8), allocatable, target :: accpd (:) ! sfc drizzle accum [kg/m^2]
-  real(r8), allocatable, target :: accpr (:) ! sfc rain accum [kg/m^2]
-  real(r8), allocatable, target :: accpp (:) ! sfc pristine ice accum [kg/m^2]
-  real(r8), allocatable, target :: accps (:) ! sfc snow accum [kg/m^2]
-  real(r8), allocatable, target :: accpa (:) ! sfc aggregates  accum [kg/m^2]
-  real(r8), allocatable, target :: accpg (:) ! sfc graupel accum [kg/m^2]
-  real(r8), allocatable, target :: accph (:) ! sfc hail accum [kg/m^2]
+  real(r8), allocatable :: accpd (:) ! sfc drizzle accum [kg/m^2]
+  real(r8), allocatable :: accpr (:) ! sfc rain accum [kg/m^2]
+  real(r8), allocatable :: accpp (:) ! sfc pristine ice accum [kg/m^2]
+  real(r8), allocatable :: accps (:) ! sfc snow accum [kg/m^2]
+  real(r8), allocatable :: accpa (:) ! sfc aggregates  accum [kg/m^2]
+  real(r8), allocatable :: accpg (:) ! sfc graupel accum [kg/m^2]
+  real(r8), allocatable :: accph (:) ! sfc hail accum [kg/m^2]
 
-  real, allocatable, target :: pcprd (:) ! sfc drizzle pcp rate [kg/(m^2 s)]
-  real, allocatable, target :: pcprr (:) ! sfc rain pcp rate [kg/(m^2 s)]
-  real, allocatable, target :: pcprp (:) ! sfc pristine ice pcp rate [kg/(m^2 s)]
-  real, allocatable, target :: pcprs (:) ! sfc snow pcp rate [kg/(m^2 s)]
-  real, allocatable, target :: pcpra (:) ! sfc aggregates pcp rate [kg/(m^2 s)]
-  real, allocatable, target :: pcprg (:) ! sfc graupel pcp rate [kg/(m^2 s)]
-  real, allocatable, target :: pcprh (:) ! sfc hail pcp rate [kg/(m^2 s)]
+  real, allocatable :: pcprd (:) ! sfc drizzle pcp rate [kg/(m^2 s)]
+  real, allocatable :: pcprr (:) ! sfc rain pcp rate [kg/(m^2 s)]
+  real, allocatable :: pcprp (:) ! sfc pristine ice pcp rate [kg/(m^2 s)]
+  real, allocatable :: pcprs (:) ! sfc snow pcp rate [kg/(m^2 s)]
+  real, allocatable :: pcpra (:) ! sfc aggregates pcp rate [kg/(m^2 s)]
+  real, allocatable :: pcprg (:) ! sfc graupel pcp rate [kg/(m^2 s)]
+  real, allocatable :: pcprh (:) ! sfc hail pcp rate [kg/(m^2 s)]
 
-  real, allocatable, target :: cldnum(:) ! cloud drop number conc (climatology) [#_cld/kg_air]
+  real, allocatable :: cldnum(:) ! cloud drop number conc (climatology) [#_cld/kg_air]
 
-  real, allocatable, target :: con_gccn(:,:)   ! GCCN number conc [#_gccn/kg_air]
-  real, allocatable, target :: con_ifn (:,:)   ! IFN  number conc [#_ifn/kg_air]
+  real, allocatable :: con_gccn(:,:)   ! GCCN number conc [#_gccn/kg_air]
+  real, allocatable :: con_ifn (:,:)   ! IFN  number conc [#_ifn/kg_air]
 
   Type ccntyp_vars   
      real, allocatable :: con_ccn (:,:) ! CCN  number conc [#_ccn/kg_air]
      real, allocatable :: con_ccnt(:,:) ! CCN  number tendency [#_ccn/(m^3 s)]
   End Type ccntyp_vars
    
-  type (ccntyp_vars), allocatable, target :: ccntyp(:)
+  type (ccntyp_vars), allocatable :: ccntyp(:)
 
 Contains
 
