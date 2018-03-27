@@ -257,7 +257,7 @@ real function quad_avg ( x , x0, x1, x2, x3, y0, y1, y2, y3 )
 
   if (abs(q1) < 1.e30 .and. abs(q2) < 1.e30) then
 
-     quad_avg = ( q1 * ( x2 - x  ) + &
+     quad_avg = ( q1 * ( x2 - x  ) &
                 + q2 * ( x  - x1 ) ) / ( x2 - x1 )
 
   elseif (abs(q1) < 1.e30) then

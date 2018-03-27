@@ -157,19 +157,25 @@ C 09/17/14 change by Kathleen Fahey - see Revision History, above
       Real,    Parameter :: min_sigma_g = 1.05
       Real,    Parameter :: max_sigma_g = 2.5001
 
-      Real,    Parameter :: def_l2sg( n_mode ) = ( LOG( def_sigma_g( : ) ) ) ** 2
-      Real,    Parameter :: min_l2sg           = ( LOG( min_sigma_g      ) ) ** 2
-      Real,    Parameter :: max_l2sg           = ( LOG( max_sigma_g      ) ) ** 2
+      Real,    Parameter :: ldef_sg ( n_mode ) = LOG( def_sigma_g )
+      Real,    Parameter :: def_l2sg( n_mode ) = ldef_sg ** 2
+      Real,    Parameter :: min_l2sg           = LOG( min_sigma_g ) ** 2
+      Real,    Parameter :: max_l2sg           = LOG( max_sigma_g ) ** 2
 
 ! Factors for converting 3rd moment emission rates into number and 2nd
 ! moment emission rates.  See Equation 7b of Binkowski & Roselle (2003)
-      real,    parameter :: facnum( n_mode ) =      EXP( 4.5 * LOG( SGEM(:) )**2 ) / DGVEM(:)**3
-      real,    parameter :: facsrf( n_mode ) = PI * EXP( 0.5 * LOG( SGEM(:) )**2 ) / DGVEM(:)
+      real,    parameter :: lsgem ( n_mode ) = log( sgem )
+      
+      real,    parameter :: facnuma( n_mode ) = EXP( 4.5 * lsgem ** 2 )
+      real,    parameter :: facnum ( n_mode ) = facnuma / dgvem ** 3
 
-      real,    parameter :: mass_min( n_mode ) = 2.0 * cm_cor(:) + cm_so4(:)
-      real,    parameter :: m3_min( n_mode ) = f6piove9 * mass_min(:) / (/ 1800., 1800., 2200. /)
-      real,    parameter :: m0_min( n_mode ) = m3_min(:) * facnum(:)
-      real,    parameter :: m2_min( n_mode ) = m3_min(:) * facsrf(:) / pi
+      real,    parameter :: facsrfa( n_mode ) = EXP( 0.5 * lsgem ** 2 )
+      real,    parameter :: facsrf ( n_mode ) = pi * facsrfa / dgvem
+
+      real,    parameter :: mass_min( n_mode ) = 2.0 * cm_cor + cm_so4
+      real,    parameter :: m3_min  ( n_mode ) = f6piove9 * mass_min / (/ 1800., 1800., 2200. /)
+      real,    parameter :: m0_min  ( n_mode ) = m3_min * facnum
+      real,    parameter :: m2_min  ( n_mode ) = m3_min * facsrf / pi
 
 C Flag to obtain coagulation coefficients
 C by analytical approximation (True) or by Gauss-Hermite quadrature (False)

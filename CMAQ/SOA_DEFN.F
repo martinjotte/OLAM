@@ -1481,7 +1481,7 @@ C     lognormal mode of arbitrary size.  These are the size-dependent
 C     terms in the condensational-growth rate expression, given in
 C     equation 7a of B&S (1995).
 
-      f = max( gnc3 * gfm3 / ( gnc3 + gfm3 ), 1.e-30 ) ! 3rd moment
+      f = max( gnc3 * gfm3 / ( gnc3 + gfm3 ), 1.d-30 ) ! 3rd moment
 
       end subroutine hcond3_l
 

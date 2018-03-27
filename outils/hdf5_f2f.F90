@@ -986,9 +986,9 @@ contains
     use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1),  intent(IN)  :: buf_integer1
-    character(*), intent(IN)  :: dname
-    integer,      intent(OUT) :: hdferr
+    integer(i1), target, intent(IN)  :: buf_integer1
+    character(*),        intent(IN)  :: dname
+    integer,             intent(OUT) :: hdferr
 
     type(c_ptr)      :: cptr
     integer, pointer :: fptr
@@ -1586,8 +1586,8 @@ contains
     type(c_ptr)      :: cptr
     integer, pointer :: fptr
 
-    integer(i1), intent(INOUT) :: buf_integer1
-    integer,     intent(OUT)   :: hdferr
+    integer(i1), target, intent(INOUT) :: buf_integer1
+    integer,             intent(OUT)   :: hdferr
 
     cptr = c_loc(buf_integer1)
     call c_f_pointer(cptr, fptr)

@@ -307,7 +307,9 @@ contains
     use oname_coms, only: nl
 
     use hdf5_utils
+#ifdef OLAM_MPI
     use mpi
+#endif
 
     implicit none
     

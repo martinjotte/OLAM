@@ -1504,7 +1504,7 @@ C *** Update gas-phase concentrations from Aitken and Accumulation Mode Partitio
          
 2023  FORMAT( 1X, 'VOLINORG returning negative gas concentrations from ISOROPIA:'
      &       /10X, 'GAS(1) = NH3, GAS(2) = HNO3, GAS(3) = HCl' )
-2029  FORMAT( 1X, '[see VOLINORG msg]'
+2029  FORMAT( 1X, '[see VOLINORG msg]',
      &        1X, 'at (C,R,L): ', 3I4, 1X, 'GAS Conc:', 3( 1PE11.3 ) )
 
       RETURN

@@ -63,12 +63,12 @@ module const_data
   Real( 8 ), Parameter :: dpi6 = dpi / 6.0D0
   Real,      Parameter :: pi6 = pi / 6.0
   
-  Real,      Parameter :: oneovpi = 1.0 / pi
+  Real,      Parameter :: oneovpi  = 1.0 / pi
   Real,      Parameter :: f6piove9 = 6.0 / pi * 1.0e-9
 
 ! Concentration lower limit used for gas species
-  Real,      Parameter :: min_gasconc  = 1.0E-30        ! [ ug/m^3 ]
-  Real,      Parameter :: dmin_gasconc = 1.0D-30        ! [ ug/m^3 ]
+  Real,      Parameter ::  min_gasconc = 1.0E-30        ! [ ug/m^3 ]
+  Real( 8 ), Parameter :: dmin_gasconc = 1.0D-30        ! [ ug/m^3 ]
 
 ! Geodetic Constants:
  

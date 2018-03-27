@@ -26,6 +26,8 @@ module isrpia
 
   character(15), parameter :: version = '2.1 (07/19/09)'
 
+  integer, private :: i
+
 ! *** INPUT VARIABLES **************************************************
 
   integer :: METSTBL, IPROB

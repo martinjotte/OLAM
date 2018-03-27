@@ -811,7 +811,7 @@ c *** get fine aerosol H2O and chlorine concentrations in
                   AH2O = aerospc_conc( AH2O_IDX,N )
                   ACL  = aerospc_conc( ACL_IDX, N )
 
-                  CL_PPM( N ) = max(PPM_FACTOR * ( ACL * INV_MWCL ), 0.3)
+                  CL_PPM( N ) = max(PPM_FACTOR * ( ACL * INV_MWCL ), 0.3D0)
 
 C *** If only a small amount of water is present on aerosol, keep YIELD_CLNO2 zero
                   IF ( AH2O .GT. 5.0E-01 .AND. ACL .GT. 1.0E-04 ) THEN

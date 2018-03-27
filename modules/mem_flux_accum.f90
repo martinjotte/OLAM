@@ -369,7 +369,7 @@ subroutine flux_accum()
 ! IW cell and dt_leaf; the frequency that each IW cell is processed in this
 ! loop should be consistent with (inversely proportional to) that DTA.
 
-        dta = min(dtlm(itab_w(iw)%mrlw),dt_leaf)
+        dta = min( dtlm(itab_w(iw)%mrlw), real(dt_leaf,r8) )
 
         sfluxt_accum(iw) = sfluxt_accum(iw) + dta * real(sfluxt(iw),r8)
         sfluxr_accum(iw) = sfluxr_accum(iw) + dta * real(sfluxr(iw),r8)

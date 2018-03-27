@@ -261,84 +261,80 @@ contains
     !$omp end do
     !$omp end parallel
 
-
-  contains
-
-
-    real(8) function fxx(x, y)
-      implicit none
-      real(8), intent(in)::  x, y
-      fxx = x * x
-    end function fxx
-
-
-    real(8) function fxy(x, y)
-      implicit none
-      real(8), intent(in)::  x, y
-      fxy = x * y
-    end function fxy
-
-
-    real(8) function fyy(x, y)
-      implicit none
-      real(8), intent(in)::  x, y
-      fyy = y * y
-    end function fyy
-
-
-    subroutine ludcmp(a, n)
-      implicit none
-
-      integer, intent(   in) :: n
-      real,    intent(inout) :: a(n,n)
-      real                   :: dum, sum
-      real                   :: vv(n)
-      integer                :: i, j, k, imax
-
-      ! ***************************************************************
-      ! * Given an N x N matrix A, this routine replaces it by the LU *
-      ! * decomposition of a rowwise permutation of itself. A and N   *
-      ! * are input. This routine is used with LUBKSB to solve        *
-      ! * linear equations or to invert a matrix.                     *
-      ! ***************************************************************
-
-      do i = 1, n
-         vv(i) = 1.0 / maxval(abs(a(i,1:n)))
-      enddo
-
-      do j = 1, n
-         do i = 1, j-1
-            sum = a(i,j)
-            do k = 1, i-1
-               sum = sum - a(i,k)*a(k,j) 
-            enddo
-            a(i,j) = sum
-         enddo
-
-         do i = j, n
-            sum = a(i,j)
-            do k = 1, j-1
-               sum = sum - a(i,k)*a(k,j) 
-            enddo
-            a(i,j) = sum
-         enddo
-   
-         if (j /= n) then
-            dum = 1.0 / a(j,j)
-            do i=j+1,n
-               a(i,j) = a(i,j)*dum
-            enddo
-         endif
-
-      enddo
-
-      do i = 1, n
-         a(i,i) = 1.0 / a(i,i)
-      enddo
-
-    end subroutine ludcmp
-
-
   end subroutine alloc_adv
+
+
+  real(8) function fxx(x, y)
+    implicit none
+    real(8), intent(in)::  x, y
+    fxx = x * x
+  end function fxx
+
+
+  real(8) function fxy(x, y)
+    implicit none
+    real(8), intent(in)::  x, y
+    fxy = x * y
+  end function fxy
+
+
+  real(8) function fyy(x, y)
+    implicit none
+    real(8), intent(in)::  x, y
+    fyy = y * y
+  end function fyy
+
+
+  subroutine ludcmp(a, n)
+    implicit none
+
+    integer, intent(   in) :: n
+    real,    intent(inout) :: a(n,n)
+    real                   :: dum, sum
+    real                   :: vv(n)
+    integer                :: i, j, k, imax
+
+    ! ***************************************************************
+    ! * Given an N x N matrix A, this routine replaces it by the LU *
+    ! * decomposition of a rowwise permutation of itself. A and N   *
+    ! * are input. This routine is used with LUBKSB to solve        *
+    ! * linear equations or to invert a matrix.                     *
+    ! ***************************************************************
+
+    do i = 1, n
+       vv(i) = 1.0 / maxval(abs(a(i,1:n)))
+    enddo
+
+    do j = 1, n
+       do i = 1, j-1
+          sum = a(i,j)
+          do k = 1, i-1
+             sum = sum - a(i,k)*a(k,j) 
+          enddo
+          a(i,j) = sum
+       enddo
+
+       do i = j, n
+          sum = a(i,j)
+          do k = 1, j-1
+             sum = sum - a(i,k)*a(k,j) 
+          enddo
+          a(i,j) = sum
+       enddo
+   
+       if (j /= n) then
+          dum = 1.0 / a(j,j)
+          do i=j+1,n
+             a(i,j) = a(i,j)*dum
+          enddo
+       endif
+
+    enddo
+
+    do i = 1, n
+       a(i,i) = 1.0 / a(i,i)
+    enddo
+
+  end subroutine ludcmp
 
 end module mem_adv

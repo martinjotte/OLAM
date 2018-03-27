@@ -573,7 +573,7 @@ contains
                 CGRID( k,iw,ISO4AJ )   = MAX ( AEROCONCMIN,     &
                                          ( 1.0 - IFRACATKN )    &
                                        * H2SO4CONV              &
-                                       * rho ( kr, iw )         &
+                                       * real(rho(kr,iw))       &
                                        * CGRID( K,IW,LSULF ) )
 
                 ! Accumulation mode number:
@@ -586,7 +586,7 @@ contains
                 CGRID( k,iw,ISO4AI )   = MAX ( AEROCONCMIN,     &
                                          IFRACATKN              &
                                        * H2SO4CONV              &
-                                       * rho ( kr, iw )         &
+                                       * real(rho(kr,iw))       &
                                        * CGRID( K,IW,LSULF ) )
     
                 ! Aitken mode number:
