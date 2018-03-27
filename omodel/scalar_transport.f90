@@ -87,8 +87,8 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
   real :: hflux(mza), vfluxadv(mza)
 
-  real, pointer :: scp(:,:)
-  real, pointer :: sct(:,:)
+  real, pointer, contiguous :: scp(:,:)
+  real, pointer, contiguous :: sct(:,:)
 
 ! Return if this is not the end of the long timestep on any MRL
 

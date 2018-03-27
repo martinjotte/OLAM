@@ -73,10 +73,10 @@ Module var_tables
 
   type scalar_table
 
-     real, pointer :: var_p(:,:) => null()
-     real, pointer :: var_t(:,:) => null()
-     real, pointer :: sxfer(:,:) => null()
-     real, pointer :: emis (:,:) => null()
+     real, pointer, contiguous :: var_p(:,:) => null()
+     real, pointer, contiguous :: var_t(:,:) => null()
+     real, pointer, contiguous :: sxfer(:,:) => null()
+     real, pointer, contiguous :: emis (:,:) => null()
 
      character (len=32) :: name = ""
      logical            :: pdef = .true.
