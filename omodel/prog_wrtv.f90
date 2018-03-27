@@ -34,9 +34,6 @@
 module wrtv_mem
   implicit none
 
-  real, allocatable :: div2d   (:,:)
-  real, allocatable :: vmt_long(:,:)
-
   real, allocatable :: vcf     (:,:) ! Time-extrapolated VC
   real, allocatable :: vxef    (:,:) ! Time-extrapolated XE velocity
   real, allocatable :: vyef    (:,:) ! Time-extrapolated YE velocity
@@ -52,8 +49,6 @@ module wrtv_mem
   logical, save     :: rotational = .false.
   logical, save     :: firstime   = .true.
 
-  real, allocatable :: rayfdivfac(:)
-
   private
   public prog_wrtv
 
@@ -64,15 +59,11 @@ contains
 subroutine init_prog_wrtv_mem()
 
   use mem_basic,  only: strict_wvt_donorpoint
-  use mem_grid,   only: mma, mwa, mva, mza, arw0, dnu
+  use mem_grid,   only: mma, mwa, mva, mza
   use misc_coms,  only: rinit
   use oname_coms, only: nl
-  use mem_rayf,   only: dorayfdiv, krayfdiv_bot
-  use mem_ijtabs, only: jtab_v, jtv_prog, itab_v
 
   implicit none
-
-  integer :: j, iv, iw1, iw2
 
   if (nl%expnme(1:1) == 'R') then
      rotational = .true.
@@ -80,23 +71,8 @@ subroutine init_prog_wrtv_mem()
      rotational = .false.
   endif
 
-  allocate(vmt_long(mza,mva)) ; vmt_long = rinit
-
-  if (dorayfdiv) then
-     allocate(div2d(krayfdiv_bot:mza,mwa)) ; div2d = rinit
-     allocate(rayfdivfac(mva)) ; rayfdivfac = rinit
-
-     do j = 1,jtab_v(jtv_prog)%jend(1); iv = jtab_v(jtv_prog)%iv(j)
-        iw1 = itab_v(iv)%iw(1)
-        iw2 = itab_v(iv)%iw(2)
-        rayfdivfac(iv) = 1.0 / (dnu(iv) * (arw0(iw1) + arw0(iw2)))
-     enddo
-
-  endif
-
-  allocate(vortp(mza,mma)) ; vortp = rinit
-
   if (rotational) then
+     allocate(vortp  (mza,mma)) ; vortp = rinit
      allocate(vortp_t(mza,mwa)) ; vortp_t = rinit
      allocate(vortn  (mza,mva)) ; vortn   = rinit
   endif
@@ -125,21 +101,18 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 ! convergences in T cells, the Miura (2007) piecewise-linear advection algorithm,
 ! and the Walko and Avissar (2008a,b) time differencing method.
 
-  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, istp, itab_w, jtab_m, itab_m, &
-                          mrl_begl, mrl_begs, mrl_ends, jtm_vadj, jtv_prog, &
+  use mem_ijtabs,   only: jtab_v, jtab_w, istp, mrl_begl, &
+                          mrl_begs, mrl_ends, jtm_vadj, jtv_prog, &
                           jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp
   use mem_basic,    only: rho, thil, wc, press, vmp, vmc, vp, vc, &
                           vxe, vye, vze, vxe2, vye2, vze2, wmc, &
                           strict_wvt_donorpoint
-  use mem_grid,     only: mza, mva, mwa, lpm, lpv, lpw, c1, c2, dzim, &
-                          zfact, zfacit, zfacim, dnv, dniv, dnu, arm0, arw, arv
+  use mem_grid,     only: mza, mva, mwa, lpv, lpw, arw, arv
   use mem_tend,     only: thilt, vmxet, vmyet, vmzet
   use misc_coms,    only: iparallel, dtsm
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
   use oplot_coms,   only: op
   use obnd,         only: lbcopy_m, lbcopy_w
-  use mem_rayf,     only: dorayf, dorayfdiv, krayfdiv_bot, rayf_cof, krayf_bot
-
   use vel_t3d,      only: vel_t3d_hex
   use oname_coms,   only: nl
   use mem_adv,      only: dxps_w, dyps_w, dzps_w, &
@@ -169,9 +142,7 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
   real, intent(in)    :: alpha_press(mza,mwa)
   real, intent(inout) :: rhot       (mza,mwa)
 
-  integer :: j, iv, k, kb, mrl, kbv, kd
-  integer :: iw, iw1, iw2
-  integer :: im1, im2, im3, im4, im5, im6
+  integer :: j, iv, iw, k, mrl, kd, iwd
 
 ! automatic arrays
 
@@ -203,13 +174,6 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
   real :: vmyet_short(mza,mwa)
   real :: vmzet_short(mza,mwa)
 
-  integer :: im,npoly,jv,iwd
-  integer :: jm
-  real    :: arm0i
-  real    :: vort_big1, vort_big2
-
-  real, parameter :: onethird = 1./3.
-
 ! IF FIRST CALL, ALLOCATE ANY EXTRA MEMORY DEPENDING ON MODEL OPTIONS
 
   if (firstime) then
@@ -222,64 +186,6 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
   mrl = mrl_begl(istp)
   if (mrl > 0) then
      call mpi_send_w(mrl, rvara1=rhot)
-  endif
-
-! HORIZONTAL LOOP OVER M/P COLUMNS FOR COMPUTING VERTICAL VORTICITY.  ALWAYS DO
-! THIS ON BEGL TIMESTEP; IF USING ROTATIONAL METHOD, ALSO DO THIS ON BEGS TIMESTEP
-
-  if (rotational) then
-     mrl = mrl_begs(istp)
-  else
-     mrl = mrl_begl(istp)
-  endif
-
-  if (mrl > 0) then
-
-     !$omp parallel do private(im,npoly,kb,jv,iv,k,arm0i)
-     do j = 1,jtab_m(jtm_vadj)%jend(mrl); im = jtab_m(jtm_vadj)%im(j)
-
-        npoly = itab_m(im)%npoly
-        kb    = lpm(im)
-
-        vortp(:,im) = 0.
-
-        ! Loop over V neighbors to evaluate circulation around M (at time T)
-        do jv = 1,npoly
-           iv = itab_m(im)%iv(jv)
-
-           if (itab_v(iv)%im(2) == im) then
-
-              do k = kb,mza
-                 vortp(k,im) = vortp(k,im) + vc(k,iv) * dnv(iv)
-              enddo
-
-           else
-
-              do k = kb,mza
-                 vortp(k,im) = vortp(k,im) - vc(k,iv) * dnv(iv)
-              enddo
-
-           endif
-        enddo
-
-        ! Convert circulation to relative vertical vorticity at M 
-        ! (DNV lacks the zfact factor and ARM0 lacks the zfact**2 factor, so we
-        ! divide their quotient by zfact)
-
-        arm0i = 1. / arm0(im)
-
-        do k = kb,mza
-           vortp(k,im) = vortp(k,im) * arm0i * zfacit(k)
-        enddo
-
-     enddo
-     !$omp end parallel do 
-  endif ! mrl > 0
-
-! PARALLEL SEND OF VORTP
-
-  if (mrl > 0 .and. iparallel == 1) then
-     call mpi_send_m(mrl, rvara1=vortp)
   endif
 
 ! INCLUDE THE LONG TIMESTEP THIL AND MOMENTUM TENDENCIES IN EACH SHORT TIMESTEP
@@ -305,50 +211,9 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
         endif
 
      enddo
-
-  endif
-
-! FINISH PARALLEL RECV OF VORTP
-
-  if (rotational) then
-     mrl = mrl_begs(istp)
-  else
-     mrl = mrl_begl(istp)
-  endif
-
-  if (mrl > 0 .and. iparallel == 1) then
-     call mpi_recv_m(mrl, rvara1=vortp)
-  endif
-  call lbcopy_m(mrl, a1=vortp)
-
-! COMPUTE THE HORIZONTAL FILTER FOR VERTICAL VORTICITY
-
-  mrl = mrl_begl(istp)
-  if (mrl > 0) then
-
-     !$omp parallel do private(iv,iw1,iw2,im1,im2,im3,im4,im5,im6,k,vort_big1,vort_big2)
-     do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-
-        iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-        im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2); im3 = itab_v(iv)%im(3)
-        im4 = itab_v(iv)%im(4); im5 = itab_v(iv)%im(5); im6 = itab_v(iv)%im(6)
-
-        do k = lpv(iv), mza
-
-           vort_big1 = onethird * (vortp(k,im2) + vortp(k,im3) + vortp(k,im4))
-           vort_big2 = onethird * (vortp(k,im1) + vortp(k,im5) + vortp(k,im6))
-
-        ! Horizontal filter for vertical vorticity
-
-           vmt_long(k,iv) = ( rho(k,iw1) + rho(k,iw2) )               &
-                            * ( (vort_big1 - vortp(k,im1)) * c1(iv)   &
-                              + (vort_big2 - vortp(k,im2)) * c2(iv) )
-        enddo
-
-     enddo
      !$omp end parallel do
 
-  endif  ! mrl > 0
+  endif
 
 ! FINISH PARALLEL COMMUNICATION OF RHOT
 
@@ -362,60 +227,6 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 
   mrl = mrl_ends(istp)
   if (mrl == 0) return
-
-! IF USING ROTATIONAL FORM FOR PROGNOSING HORIZONTAL MOMENTUM,
-! EVALUATE VORTP_T AND VORTN AND CORIOLIS FORCING TERMS
-
-  if (rotational) then
-
-     ! Horizontal loop over W/T columns
-     !$omp parallel do private(iw,npoly,kb,k,jm,im)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-        npoly = itab_w(iw)%npoly
-        kb = lpw(iw)
-
-        vortp_t(:,iw) = 0.
-
-        ! Loop over M neighbors of W
-        do jm = 1,npoly
-           im = itab_w(iw)%im(jm)
-
-           ! Vertical loop over T levels; average vorticity from P points to T point.
-           do k = kb,mza
-              vortp_t(k,iw) = vortp_t(k,iw) + itab_w(iw)%farm(jm) * vortp(k,im)
-           enddo
-        enddo
-
-     enddo
-     !$omp end parallel do 
-
-     if (iparallel == 1) call mpi_send_w(mrl, rvara1=vortp_t)
-     if (iparallel == 1) call mpi_recv_w(mrl, rvara1=vortp_t)
-
-     call lbcopy_w(mrl, a1=vortp_t)
-
-     ! Horizontal loop over V/N columns
-     !$omp parallel do private(iv,iw1,iw2,k,kb) 
-     do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-
-        iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-        kb = lpv(iv)
-
-        ! Vertical loop over N levels; compute horizontal relative vorticity 
-        ! and vertical velocity at N points (at time T)
-        do k = kb,mza-1
-           vortn(k,iv) = zfacim(k) * ((wc(k,iw1) - wc(k,iw2)) * dniv(iv) &
-                       + (vc(k+1,iv) * zfact(k+1) - vc(k,iv) * zfact(k)) * dzim(k))
-        enddo
-
-        vortn(1:kb-1,iv) = 0.
-        vortn(mza,iv) = 0.
-
-     enddo
-     !$omp end parallel do 
-
-  endif ! rotational
 
 ! COMPUTE HALF-FORWARD VELOCITIES AND MOMEMTUM
 
@@ -518,33 +329,6 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 ! endif
 ! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
 
-! COMPUTE HORIZONTAL DIVERGENCE IF WE ARE DAMPING IT AT THE MODEL TOP
-
-  if (dorayfdiv) then
-
-     !$omp parallel do private(iw,jv,iv,k)
-     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-        div2d(:,iw) = 0.0
-        do jv = 1, itab_w(iw)%npoly
-           iv = itab_w(iw)%iv(jv)
-
-           do k = krayfdiv_bot, mza
-              div2d(k,iw) = div2d(k,iw) - itab_w(iw)%dirv(jv) * vmp(k,iv) * dnu(iv)
-           enddo
-        enddo
-     enddo
-     !$omp end parallel do
-
-     ! MPI send of div2d
-     if (iparallel == 1) then
-        call mpi_send_w(mrl, svara1=div2d)
-     endif
-
-  endif ! dorayfdiv
-
-! Evaluate and MPI send scalar local max/min
-
 ! EVALUATE HORIZONTAL GRADIENTS OF THIL, VXE, VYE, AND VZE FOR BEGS
 
   if (nl%horiz_adv_order <= 2) then
@@ -564,12 +348,6 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
   endif
 
   if (iparallel == 1) then
-
-     ! MPI recv and lateral boundary copy of div2d
-     if (dorayfdiv) then
-        call mpi_recv_w(mrl, svara1=div2d)
-        call lbcopy_w(mrl, s1=div2d)
-     endif
 
      ! MPI send of THIL, VXE, VYE, and VZE gradient components
      if (nl%horiz_adv_order <= 2) then
@@ -948,6 +726,12 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
   call lbcopy_w(mrl, a1=vmxet_volt,  a2=vmyet_volt,  a3=vmzet_volt,  &
                      a4=vmxet_short, a5=vmyet_short, a6=vmzet_short, &
                      d1=press,       d2=rho                          )
+
+! COMPUTE TERMS FOR ROTATIONAL FORM OF HORIZONTAL MOMENTUM
+
+  if (rotational) then
+     call prep_rotational(mrl)
+  endif
 
 ! MAIN LOOP OVER V POINTS TO UPDATE VMC AND VC
 
@@ -1497,14 +1281,14 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
                             vmxet_short, vmyet_short, vmzet_short, rhot )
 
   use mem_ijtabs,  only: itab_v
-  use mem_basic,   only: vc, press, vmp, vmc, rho, vxe, vye, vze
+  use mem_basic,   only: vc, press, vmc, rho, vxe, vye, vze
+  use mem_tend,    only: vmt
   use misc_coms,   only: dtsm, initial, mdomain, deltax, nxp
   use consts_coms, only: eradi, gravo2
   use mem_grid,    only: mza, mwa, lpv, volt, xev, yev, zev, &
                          unx, uny, unz, vnx, vny, vnz, vnxo2, vnyo2, vnzo2, &
-                         dniu, dniv, arw0, dnu
-  use mem_rayf,    only: dorayf, rayf_cof, vc03d, dn03d, krayf_bot, &
-                         dorayfdiv, krayfdiv_bot, rayf_cofdiv
+                         dniu, dniv
+  use mem_rayf,    only: dorayf, rayf_cof, vc03d, dn03d, krayf_bot
   use oname_coms,  only: nl
 
   implicit none
@@ -1522,7 +1306,6 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
   integer :: k, kb
   integer :: iw1,iw2,im1,im2
 
-  real :: sum1,sum2,vmp_eqdiv
   real :: dts
   real :: fracx, rayfx
   real :: vx, vy, vz, uc, watv, tke1, tke2, vortp_v, dtso2dnu, dtso2dnv
@@ -1541,30 +1324,6 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
 
   vmt_rayf(:) = 0.
 
-  ! Horizontal divergence damping
-
-  if (dorayfdiv) then
-
-     ! Vertical loop over V points
-     do k = krayfdiv_bot, mza
-
-        ! Divergence in IW1 excluding IV
-        sum1 = div2d(k,iw1) - vmp(k,iv) * dnu(iv)
-
-        ! Divergence in IW2 excluding IV
-        sum2 = div2d(k,iw2) + vmp(k,iv) * dnu(iv)
-
-        ! VMP value that would equalize horizontal divergence in IW1 and IW2
-        ! cells (assuming no blockage by topography)
-
-        vmp_eqdiv = ( arw0(iw1) * sum2 - arw0(iw2) * sum1 ) * rayfdivfac(iv)
-
-        vmt_rayf(k) = rayf_cofdiv(k) * (vmp_eqdiv - vmp(k,iv))
-
-     enddo
-
-  endif ! (dorayfdiv)
-
   ! Rayleigh friction on vc: Only for horizontally homogeneous initialization
 
   if (dorayf .and. initial == 1) then
@@ -1576,7 +1335,7 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
      enddo
 
      ! Alternate form: Extra RAYF at open ends of channel with cyclic end boundary conditions
-
+     !
      ! fracx = abs(xev(iv)) / (real(nxp-1) * .866 * deltax)
      ! rayfx = .2 * (-2. + 3. * fracx) * rayf_cof(mza)
      ! rayfx = 0.   ! Default: no extra RAYF
@@ -1587,13 +1346,10 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
 
   endif ! (dorayf and initial == 1)
 
-  ! Vertical loop over V points
+  ! Vertical loop over V points to compute pressure gradient force
 
   do k = kb,mza
-
-     ! Pressure gradient force
      pgf(k) = dniv(iv) * (press(k,iw1) - press(k,iw2))
-
   enddo
 
   ! For shallow water test cases 2 & 5, rho & press are
@@ -1610,7 +1366,7 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
   if (.not. rotational) then
 
      do k = kb,mza
-        vmc(k,iv) = vmc(k,iv) + dts * (vmt_rayf(k) + vmt_long(k,iv) + pgf(k) &
+        vmc(k,iv) = vmc(k,iv) + dts * (vmt_rayf(k) + vmt(k,iv) + pgf(k) &
 
                   + .5 * vc(k,iv) * (rhot(k,iw1) + rhot(k,iw2))              &
 
@@ -1653,7 +1409,7 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
              + dtso2dnv * vc(k,iv) * (vortp_t(k,iw1) - vortp_t(k,iw2))
         !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@A2
 
-        vmc(k,iv) = vmc(k,iv) + dts * (vmt_rayf(k) + vmt_long(k,iv) + pgf(k) &
+        vmc(k,iv) = vmc(k,iv) + dts * (vmt_rayf(k) + vmt(k,iv) + pgf(k) &
 
                   + .5 * vc(k,iv) * (rhot(k,iw1) + rhot(k,iw2))              &
 
@@ -1672,6 +1428,131 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
   endif ! rotational
 
 end subroutine prog_v_begs
+
+!===============================================================================
+
+subroutine prep_rotational(mrl)
+
+  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, jtab_m, itab_m, &
+                          jtm_vadj, jtv_prog, jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp
+  use mem_basic,    only: vc, wc
+  use mem_grid,     only: mza, lpm, lpv, lpw, dzim, zfact, &
+                          zfacit, zfacim, dnv, dniv, arm0
+  use obnd,         only: lbcopy_m, lbcopy_w
+  use misc_coms,    only: iparallel
+  use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
+
+  implicit none
+
+  integer, intent(in) :: mrl
+
+  integer :: j, iv, k, kb
+  integer :: iw, iw1, iw2
+  integer :: im,npoly,jv
+  integer :: jm
+  real    :: arm0i
+
+! IF USING ROTATIONAL METHOD, HORIZONTAL LOOP OVER M/P COLUMNS
+! FOR COMPUTING VERTICAL VORTICITY.
+
+  !$omp parallel do private(im,npoly,kb,jv,iv,k,arm0i)
+  do j = 1,jtab_m(jtm_vadj)%jend(mrl); im = jtab_m(jtm_vadj)%im(j)
+
+     npoly = itab_m(im)%npoly
+     kb    = lpm(im)
+
+     vortp(:,im) = 0.
+
+     ! Loop over V neighbors to evaluate circulation around M (at time T)
+     do jv = 1,npoly
+        iv = itab_m(im)%iv(jv)
+
+        if (itab_v(iv)%im(2) == im) then
+
+           do k = kb,mza
+              vortp(k,im) = vortp(k,im) + vc(k,iv) * dnv(iv)
+           enddo
+
+        else
+
+           do k = kb,mza
+              vortp(k,im) = vortp(k,im) - vc(k,iv) * dnv(iv)
+           enddo
+
+        endif
+     enddo
+
+     ! Convert circulation to relative vertical vorticity at M 
+     ! (DNV lacks the zfact factor and ARM0 lacks the zfact**2 factor, so we
+     ! divide their quotient by zfact)
+
+     arm0i = 1. / arm0(im)
+
+     do k = kb,mza
+        vortp(k,im) = vortp(k,im) * arm0i * zfacit(k)
+     enddo
+
+  enddo
+  !$omp end parallel do 
+
+  ! PARALLEL SEND/RECV OF VORTP
+
+  if (iparallel == 1) then
+     call mpi_send_m(mrl, rvara1=vortp)
+     call mpi_recv_m(mrl, rvara1=vortp)
+  endif
+  call lbcopy_m(mrl, a1=vortp)
+
+! IF USING ROTATIONAL FORM FOR PROGNOSING HORIZONTAL MOMENTUM,
+! EVALUATE VORTP_T AND VORTN AND CORIOLIS FORCING TERMS
+
+  ! Horizontal loop over W/T columns
+  !$omp parallel do private(iw,npoly,kb,k,jm,im)
+  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+     npoly = itab_w(iw)%npoly
+     kb = lpw(iw)
+
+     vortp_t(:,iw) = 0.
+
+     ! Loop over M neighbors of W
+     do jm = 1,npoly
+        im = itab_w(iw)%im(jm)
+
+        ! Vertical loop over T levels; average vorticity from P points to T point.
+        do k = kb,mza
+           vortp_t(k,iw) = vortp_t(k,iw) + itab_w(iw)%farm(jm) * vortp(k,im)
+        enddo
+     enddo
+
+  enddo
+  !$omp end parallel do 
+
+  if (iparallel == 1) call mpi_send_w(mrl, rvara1=vortp_t)
+  if (iparallel == 1) call mpi_recv_w(mrl, rvara1=vortp_t)
+  call lbcopy_w(mrl, a1=vortp_t)
+
+  ! Horizontal loop over V/N columns
+  !$omp parallel do private(iv,iw1,iw2,k,kb) 
+  do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
+
+     iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+     kb = lpv(iv)
+
+     ! Vertical loop over N levels; compute horizontal relative vorticity 
+     ! and vertical velocity at N points (at time T)
+     do k = kb,mza-1
+        vortn(k,iv) = zfacim(k) * ((wc(k,iw1) - wc(k,iw2)) * dniv(iv) &
+                    + (vc(k+1,iv) * zfact(k+1) - vc(k,iv) * zfact(k)) * dzim(k))
+     enddo
+
+     vortn(1:kb-1,iv) = 0.
+     vortn(mza,iv) = 0.
+
+  enddo
+  !$omp end parallel do 
+
+end subroutine prep_rotational
 
 
 end module wrtv_mem

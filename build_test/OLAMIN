@@ -218,6 +218,9 @@
    NL%VERT_ADV_ORDER  = 3 ! Vertical advection order (2 or 3)
    NL%HORIZ_ADV_ORDER = 2 ! Horizontal advection order (2 or 3)
 
+   NL%AKMIN_VORT  = 0.8   ! Scaling factor for vorticity and divergence
+   NL%AKMIN_DIV2D = 0.4   ! damping. Set to 0 to disable.
+
    NL%DEBUG_FP  = .false. ! Detect floating point errors such as overflows,
                           ! INFs, divide-by-zeros, and NANs (best if code is
                           ! compiled with debug options too)

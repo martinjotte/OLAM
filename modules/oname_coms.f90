@@ -145,11 +145,18 @@ Module oname_coms
 !!    MODEL/NUMERICAL OPTIONS
 
       integer :: naddsc      = 0
+
       integer :: ithil_monot = 0
       integer :: iscal_monot = 0
+
       integer :: split_scalars = 0
+
       integer :: vert_adv_order  = 2
       integer :: horiz_adv_order = 2
+
+      real    :: akmin_vort  = 0.8
+      real    :: akmin_div2d = 0.4
+
       logical :: debug_fp    = .false.
       logical :: init_nans   = .false.
 

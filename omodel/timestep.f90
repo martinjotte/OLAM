@@ -119,6 +119,14 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call radiate()
    endif
 
+   ! small-scale divergence/vorticity damping
+
+   mrl = mrl_begl(istp)
+   if (mrl > 0) then
+      call vort_damp(mrl)
+      call divh_damp(mrl)
+   endif
+
    ! Compute nudging tendencies
 
    if (initial == 2 .and. nudflag == 1) then
@@ -477,79 +485,57 @@ end subroutine modsched
 
 subroutine tend0(rhot)
 
-use mem_ijtabs, only: jtab_w, istp, mrl_begl, jtv_wstn, jtw_wstn
+use mem_ijtabs, only: jtab_w, istp, mrl_begl, jtw_wstn, jtab_v, jtv_prog
 use var_tables, only: scalar_tab, num_scalar
-use mem_grid,   only: mza, mwa, lpw
-use mem_tend,   only: thilt, vmxet, vmyet, vmzet
+use mem_grid,   only: mza, mwa, lpw, lpv
+use mem_tend,   only: thilt, vmxet, vmyet, vmzet, vmt
 
 implicit none
 
 real, intent(inout) :: rhot(mza,mwa)
 
-integer :: n,mrl,j,k,iw
-
-! SET SCALAR TENDENCIES TO ZERO
+integer :: n,mrl,j,k,iw,iv
 
 mrl = mrl_begl(istp)
-
 if (mrl > 0) then
 
-   call tnd0( thilt)
-   call tnd0( rhot )
+   ! SET TENDENCIES AT W POINTS TO ZERO
 
-   do n = 1,num_scalar
-      call tnd0(scalar_tab(n)%var_t)
+   !$omp parallel
+   !$omp do private(iw,k,n)
+   do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
+
+      do k = lpw(iw),mza
+         vmxet(k,iw) = 0.0
+         vmyet(k,iw) = 0.0
+         vmzet(k,iw) = 0.0
+         thilt(k,iw) = 0.0
+         rhot (k,iw) = 0.0
+      enddo
+
+      do n = 1,num_scalar
+         do k = lpw(iw),mza
+            scalar_tab(n)%var_t(k,iw) = 0.0
+         enddo
+      enddo
    enddo
+   !$omp end do
 
-endif
+   ! SET TENDENCIES AT V PONTS TO ZERO
 
-! SET W AND EARTH-CARTESIAN MOMENTUM TENDENCIES TO ZERO
+   !$omp do private(iv,k)
+   do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 
-!----------------------------------------------------------------------
-mrl = mrl_begl(istp)
-if (mrl > 0) then
-!$omp parallel do private(iw,k)
-do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
-!----------------------------------------------------------------------
-   do k = lpw(iw),mza
-      vmxet(k,iw) = 0.0
-      vmyet(k,iw) = 0.0
-      vmzet(k,iw) = 0.0
+      do k = lpv(iv),mza
+         vmt(k,iv) = 0.0
+      enddo
    enddo
-enddo
-!$omp end parallel do
+   !$omp end do
+   !$omp end parallel
+
 endif
 
 end subroutine tend0
-
-!==========================================================================
-
-subroutine tnd0(vart)
-
-use mem_ijtabs, only: jtab_w, istp, mrl_begl, jtw_wstn
-use mem_grid,   only: mza, mwa, lpw
-
-implicit none
-
-real, intent(inout) :: vart(mza,mwa)
-
-integer :: j,iw,k,mrl
-
-!----------------------------------------------------------------------
-mrl = mrl_begl(istp)
-if (mrl > 0) then
-!$omp parallel do private(iw,k)
-do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
-!----------------------------------------------------------------------
-   do k = lpw(iw)-1,mza
-      vart(k,iw) = 0.
-   enddo
-
-enddo
-!$omp end parallel do
-endif
-
-end subroutine tnd0
 
 !==========================================================================
 

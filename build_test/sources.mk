@@ -117,6 +117,7 @@ SOURCE_FILES= \
              $(OMODEL)/triangle_utils.f90 \
              $(OMODEL)/vectslab.F90 \
              $(OMODEL)/vel_t3d.f90 \
+             $(OMODEL)/vort_div_damp.f90 \
              $(OUTILS)/blas.f90 \
              $(OUTILS)/check_nans.F90 \
              $(OUTILS)/dateutils.f90 \

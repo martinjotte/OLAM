@@ -35,6 +35,7 @@ Module mem_tend
    real, allocatable :: vmxet(:,:) ! Earth-cartesian x momentum tend [kg/(m^2 s^2)]
    real, allocatable :: vmyet(:,:) ! Earth-cartesian y momentum tend [kg/(m^2 s^2)]
    real, allocatable :: vmzet(:,:) ! Earth-cartesian z momentum tend [kg/(m^2 s^2)]
+   real, allocatable :: vmt  (:,:) ! V momentum tend [kg/(m^2 s^2)]
 
    real, target, allocatable :: thilt   (:,:) ! (rho * thil) tend [kg_air K / (m^3 s)]
    real, target, allocatable :: sh_wt   (:,:) ! water mass tend [kg_wat/(m^3 s)]
@@ -76,7 +77,7 @@ Contains
    subroutine alloc_tend(lza,lva,lwa,naddsc,nccntyp)
 
    use mem_turb,   only: tkep, epsp
-   use mem_basic,  only: thil, sh_w, vxe, vye, vze
+   use mem_basic,  only: thil, sh_w, vxe, vye, vze, vc
    use mem_addsc,  only: addsc
    use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,        &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
@@ -96,6 +97,8 @@ Contains
    if (allocated(vxe))     allocate (vmxet(lza,lwa))
    if (allocated(vye))     allocate (vmyet(lza,lwa))
    if (allocated(vze))     allocate (vmzet(lza,lwa))
+
+   if (allocated(vc))      allocate (vmt(lza,lva))
 
    if (allocated(thil))    allocate (thilt(lza,lwa)) ; thilt = 0.
    if (allocated(sh_w))    allocate (sh_wt(lza,lwa)) ; sh_wt = 0.
@@ -162,6 +165,8 @@ Contains
    if (allocated(vmxet))    deallocate (vmxet)
    if (allocated(vmyet))    deallocate (vmyet)
    if (allocated(vmzet))    deallocate (vmzet)
+
+   if (allocated(vmt))      deallocate (vmt)
 
    if (allocated(thilt))    deallocate (thilt)
    if (allocated(sh_wt))    deallocate (sh_wt)

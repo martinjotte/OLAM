@@ -124,10 +124,6 @@ Module mem_grid
 
         gxps_coef, gyps_coef    ! combined weights for grad_t2d
 
-   real, allocatable, dimension(:) ::  &
-
-        c1, c2                  ! coefficients for vertical vorticity smoothing
-
 Contains
 
 !===============================================================================
@@ -271,18 +267,11 @@ Contains
      ! during the MAKEGRID stage
 
      use consts_coms, only: r8
-     use mem_ijtabs,  only: itab_w, jtab_v, jtv_prog, itab_v
-     use misc_coms,   only: rinit
+     use mem_ijtabs,  only: itab_w
 
      implicit none
 
-     integer :: iw, iv, j, k, n1, n2
-     integer :: iv1, iv2, iv3, iv4, im1, im2
-
-     ! Parameters for vorticity diffusion
-
-     real, parameter :: akm = 0.8 ! corresponds to akmin in Smagorinsky
-     real, parameter :: c0  = akm * 0.075
+     integer :: iw, iv, k, n1, n2
 
      ! Allocate and define 1D variables defined at T levels
 
@@ -380,33 +369,6 @@ Contains
         dztsqo2(k) = dzto2(k) * dzt(k) 
         dztsqo4(k) = dzto4(k) * dzt(k)
         dztsqo6(k) = dzt(k)   * dzt(k) / 6.
-     enddo
-
-     ! Allocate and define vorticity smoothing coefficients
-
-     allocate(c1(mva)) ; c1 = rinit
-     allocate(c2(mva)) ; c2 = rinit
-
-     !$omp parallel do private(iv,iv1,iv2,iv3,iv4,im1,im2)
-     do j = 1,jtab_v(jtv_prog)%jend(1); iv = jtab_v(jtv_prog)%iv(j)
-
-        iv1  = itab_v(iv)%iv(1)
-        iv2  = itab_v(iv)%iv(2)
-        iv3  = itab_v(iv)%iv(3)
-        iv4  = itab_v(iv)%iv(4)
-
-        im1  = itab_v(iv)%im(1)
-        im2  = itab_v(iv)%im(2)
-
-        c1(iv) = -c0 * arm0(im1)**(2./3.) * dnu(iv1) * dnu(iv2) / &
-                  ( dnu(iv1) * dnu(iv2) * dnv(iv)  &
-                  + dnu(iv)  * dnu(iv2) * dnv(iv1) &
-                  + dnu(iv)  * dnu(iv1) * dnv(iv2) )
-
-        c2(iv) =  c0 * arm0(im2)**(2./3.) * dnu(iv3) * dnu(iv4) / &
-                  ( dnu(iv3) * dnu(iv4) * dnv(iv)  &
-                  + dnu(iv)  * dnu(iv4) * dnv(iv3) &
-                  + dnu(iv)  * dnu(iv3) * dnv(iv4) )
      enddo
 
    end subroutine alloc_grid_other
