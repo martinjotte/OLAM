@@ -6,7 +6,7 @@ use mem_basic,   only: rho, wc, press, sh_w
 use mem_ijtabs,  only: jtab_w, jtw_prog
 use misc_coms,   only: time_istp8, timmax8, naddsc, dtlong, iparallel
 use consts_coms, only: r8, grav
-use mem_grid,    only: mza, mwa, lpw, zt, arw0, volt, gravt
+use mem_grid,    only: mza, mwa, lpw, zt, arw0, volt, gravt, dzt
 use oplot_coms,  only: op
 use mem_addsc,   only: addsc
 use oname_coms,  only: nl
@@ -29,7 +29,9 @@ real, save, dimension(36000) :: ge1,ge2,ge3,ge4,ge5,ge6,ge7,ge8,vctr18, &
                                 q3l1,q3l2,q3li, &
                                 q4l1,q4l2,q4li, &
                                 q5l1,q5l2,q5li, &
-                                wcmax, psmin
+                                wcmax, psmin,   &
+                                deltam,vyl2,vyli
+
 character(len=2) :: title
 
 real, save :: aspect = .7
@@ -47,6 +49,7 @@ real(r8), save :: q3mass_sum_init, q4mass_sum_init, q5mass_sum_init
 real(r8) :: tmass,dmass,q1,q2,q3,q4,q5,tmass_sum,wmass_sum,dmass_sum,wcmax0,psmin0
 
 real(r8), save, allocatable :: q1_tr(:,:),q2_tr(:,:),q3_tr(:,:),q4_tr(:,:),q5_tr(:,:)
+real(r8), save, allocatable :: r0(:), v0(:)
 
 real(r8), save :: sum_absq1tr, sum_q1tr2, absq1tr_max
 real(r8), save :: sum_absq2tr, sum_q2tr2, absq2tr_max
@@ -67,6 +70,9 @@ real(r8) :: corr1, corr2, corr3, cf
 integer :: nsends, ierror, k4900
 real(r8), allocatable :: sendbuf(:), recvbuf(:,:)
 
+real :: sum_vy, sum_vydif2, absvydif_max, vy
+real, save :: em0, v02
+
 k4900 = minloc(abs(zt(:)-4900.),1)
 
 ncall = ncall + 1
@@ -76,7 +82,11 @@ ncall = ncall + 1
 if (ncall == 1) then
 
    allocate(q1_tr(mza,mwa),q2_tr(mza,mwa),q3_tr(mza,mwa),q4_tr(mza,mwa),q5_tr(mza,mwa))
+   allocate(r0(mwa),v0(mwa))
    
+   r0(:) = 0.0_r8
+   v0(:) = 0.0_r8
+
    timebeg = time_istp8   / 86400.
    timeend = timmax8 / 86400.
    timedif = timeend - timebeg
@@ -116,7 +126,7 @@ if (ncall == 1) then
    elseif (timedif < 1000.) then
       timeinc = 40.
    endif
-      
+
 endif
 
 vctr18(ncall) = time_istp8 / 86400.
@@ -142,6 +152,10 @@ if (ncall == 1) then
    absq3tr_max = 0.0_r8
    absq4tr_max = 0.0_r8
    absq5tr_max = 0.0_r8
+
+   sum_vydif2   = 0.0_r8
+   absvydif_max = 0.0_r8
+   sum_vy       = 0.0_r8
 endif
 
  tmass_sum = 0.0_r8
@@ -194,17 +208,21 @@ eps = 1.e-7
 do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 !---------------------------------------------------------------------
 
+! VERTICALLY-INTEGRATED Q'S
+
+   vy     = 0.0_r8
+   
 ! Vertical loop over all active T levels
 
    do k = lpw(iw),mza
 
 ! Sums and max values for q1
 
-      q1 = 1.0_r8
-      q2 = 1.0_r8
-      q3 = 1.0_r8
-      q4 = 1.0_r8
-      q5 = 1.0_r8
+      q1 = 0.0_r8
+      q2 = 0.0_r8
+      q3 = 0.0_r8
+      q4 = 0.0_r8
+      q5 = 0.0_r8
 
       if (naddsc >= 1) q1 = addsc(1)%sclp(k,iw)
       if (naddsc >= 2) q2 = addsc(2)%sclp(k,iw)
@@ -239,10 +257,19 @@ do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
          absq4tr_max = max(absq4tr_max, abs(q4_tr(k,iw)))
          absq5tr_max = max(absq5tr_max, abs(q5_tr(k,iw)))
 
+         r0(iw) = r0(iw) +             dzt(k) * rho(k,iw)
+         v0(iw) = v0(iw) + 4.0e-6_r8 * dzt(k) * rho(k,iw)
+
+if (iw == 1000) then
+   print*, 'd01 ',k, r0(iw), v0(iw), dzt(k), rho(k,iw)
+endif
+   
       endif
 
-       tmass_sum =  tmass_sum + rho(k,iw) * volt(k,iw)
-       wmass_sum =  wmass_sum + rho(k,iw) * volt(k,iw) * sh_w(k,iw)
+      vy = vy + (q1 + 2. * q2) * dzt(k) * rho(k,iw)
+
+      tmass_sum =  tmass_sum + rho(k,iw) * volt(k,iw)
+      wmass_sum =  wmass_sum + rho(k,iw) * volt(k,iw) * sh_w(k,iw)
 
       q1mass_sum = q1mass_sum + q1 * rho(k,iw) * volt(k,iw)
       q2mass_sum = q2mass_sum + q2 * rho(k,iw) * volt(k,iw)
@@ -273,6 +300,27 @@ do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
       wcmax0 = max(wcmax0, wc(k,iw))
 
    enddo
+
+!---------------------------------------------------------------------------------------
+
+! VERTICALLY-INTEGRATED Q'S
+
+! On the first call to this subroutine, save initial values
+
+   if (ncall == 1) then
+      em0 = em0 + v0(iw)         * arw0(iw)
+      v02 = v02 + (4.0e-6_r8)**2 * arw0(iw)
+   endif
+
+   sum_vydif2   = sum_vydif2 + (vy / r0(iw) - 4.0e-6_r8)**2 * arw0(iw)
+   absvydif_max = max(absvydif_max, abs(vy / r0(iw) - 4.0e-6_r8))
+   sum_vy       = sum_vy + vy * arw0(iw)
+
+if (iw == 1000) then
+   print*, 'd11 ',vy, r0(iw), v0(iw), arw0(iw)
+endif
+   
+!---------------------------------------------------------------------------------------
 
    ! Minimum surface pressure for DCMIP tropical cyclone test case
 
@@ -500,7 +548,7 @@ endif
 
 dmass_sum = tmass_sum - wmass_sum
 
-write(6,'(a,3f20.0)') 'mass: tot,wet,dry ',tmass_sum, wmass_sum, dmass_sum
+write(6,'(a,3f22.0)') 'mass: tot,wet,dry ',tmass_sum, wmass_sum, dmass_sum
 
 ge1(ncall) = ( tmass_sum -  tmass_sum_init) /  tmass_sum_init
 
@@ -535,6 +583,14 @@ q3li(ncall) = absq3dif_max / absq3tr_max
 q4li(ncall) = absq4dif_max / absq4tr_max
 q5li(ncall) = absq5dif_max / absq5tr_max
 
+deltam(ncall) = (sum_vy - em0) / em0
+vyl2  (ncall) = sqrt(sum_vydif2) / sqrt(v02)
+vyli  (ncall) = absvydif_max / 4.0e-6_r8
+
+print*, 'd21 ',ncall,deltam(ncall),vyl2(ncall),vyli(ncall)
+print*, 'd22 ',sum_vy, em0, sum_vydif2, v02
+print*, 'd23 ',absvydif_max
+   
 wcmax(ncall) = wcmax0
 psmin(ncall) = psmin0
 
@@ -569,26 +625,6 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
                   ncall,  vctr18,ge1,                   &
                   'time(days)','total mass deviation',  &
                   timebeg,timeend,timeinc,5,            &
-                  -1.e-12,1.e-12,0.1e-12,10  )
-   call o_frame()
-!-------------------------------------------------------------------
-
-!-------------------------------------------------------------------
-   call plotback()
-   call oplot_xy2('0','N',aspect,scalelab,10,0,         &
-                  ncall,  vctr18,ge1,                   &
-                  'time(days)','total mass deviation',  &
-                  timebeg,timeend,timeinc,5,            &
-                  -1.e-10,1.e-10,0.1e-10,10  )
-   call o_frame()
-!-------------------------------------------------------------------
-
-!-------------------------------------------------------------------
-   call plotback()
-   call oplot_xy2('0','N',aspect,scalelab,10,0,         &
-                  ncall,  vctr18,ge1,                   &
-                  'time(days)','total mass deviation',  &
-                  timebeg,timeend,timeinc,5,            &
                   -1.e-8,1.e-8,0.1e-8,10  )
    call o_frame()
 !-------------------------------------------------------------------
@@ -600,6 +636,26 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
                   'time(days)','total mass deviation',  &
                   timebeg,timeend,timeinc,5,            &
                   -1.e-6,1.e-6,0.1e-6,10  )
+   call o_frame()
+!-------------------------------------------------------------------
+
+!-------------------------------------------------------------------
+   call plotback()
+   call oplot_xy2('0','N',aspect,scalelab,10,0,         &
+                  ncall,  vctr18,ge1,                   &
+                  'time(days)','total mass deviation',  &
+                  timebeg,timeend,timeinc,5,            &
+                  -1.e-4,1.e-4,0.1e-4,10  )
+   call o_frame()
+!-------------------------------------------------------------------
+
+!-------------------------------------------------------------------
+   call plotback()
+   call oplot_xy2('0','N',aspect,scalelab,10,0,         &
+                  ncall,  vctr18,ge1,                   &
+                  'time(days)','total mass deviation',  &
+                  timebeg,timeend,timeinc,5,            &
+                  -1.e-3,1.e-3,0.1e-3,10  )
    call o_frame()
 !-------------------------------------------------------------------
 
@@ -611,37 +667,37 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
                   ncall,  vctr18,ge7,                   &
                   'time(days)','wet mass deviation',  &
                   timebeg,timeend,timeinc,5,            &
-                  -1.e-12,1.e-12,0.1e-12,10  )
-   call o_frame()
-!-------------------------------------------------------------------
-
-!-------------------------------------------------------------------
-   call plotback()
-   call oplot_xy2('0','N',aspect,scalelab,10,0,         &
-                  ncall,  vctr18,ge7,                   &
-                  'time(days)','wet mass deviation',  &
-                  timebeg,timeend,timeinc,5,            &
-                  -1.e-10,1.e-10,0.1e-10,10  )
-   call o_frame()
-!-------------------------------------------------------------------
-
-!-------------------------------------------------------------------
-   call plotback()
-   call oplot_xy2('0','N',aspect,scalelab,10,0,         &
-                  ncall,  vctr18,ge7,                   &
-                  'time(days)','wet mass deviation',  &
-                  timebeg,timeend,timeinc,5,            &
-                  -1.e-8,1.e-8,0.1e-8,10  )
-   call o_frame()
-!-------------------------------------------------------------------
-
-!-------------------------------------------------------------------
-   call plotback()
-   call oplot_xy2('0','N',aspect,scalelab,10,0,         &
-                  ncall,  vctr18,ge7,                   &
-                  'time(days)','wet mass deviation',  &
-                  timebeg,timeend,timeinc,5,            &
                   -1.e-6,1.e-6,0.1e-6,10  )
+   call o_frame()
+!-------------------------------------------------------------------
+
+!-------------------------------------------------------------------
+   call plotback()
+   call oplot_xy2('0','N',aspect,scalelab,10,0,         &
+                  ncall,  vctr18,ge7,                   &
+                  'time(days)','wet mass deviation',  &
+                  timebeg,timeend,timeinc,5,            &
+                  -1.e-4,1.e-4,0.1e-4,10  )
+   call o_frame()
+!-------------------------------------------------------------------
+
+!-------------------------------------------------------------------
+   call plotback()
+   call oplot_xy2('0','N',aspect,scalelab,10,0,         &
+                  ncall,  vctr18,ge7,                   &
+                  'time(days)','wet mass deviation',  &
+                  timebeg,timeend,timeinc,5,            &
+                  -1.e-2,1.e-2,0.1e-2,10  )
+   call o_frame()
+!-------------------------------------------------------------------
+
+!-------------------------------------------------------------------
+   call plotback()
+   call oplot_xy2('0','N',aspect,scalelab,10,0,         &
+                  ncall,  vctr18,ge7,                   &
+                  'time(days)','wet mass deviation',  &
+                  timebeg,timeend,timeinc,5,            &
+                  -1.e-1,1.e-1,0.1e-1,10  )
    call o_frame()
 !-------------------------------------------------------------------
 
@@ -653,7 +709,7 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
                   ncall,  vctr18,ge8,                   &
                   'time(days)','dry mass deviation',  &
                   timebeg,timeend,timeinc,5,            &
-                  -1.e-12,1.e-12,0.1e-12,10  )
+                  -1.e-10,1.e-10,0.1e-10,10  )
    call o_frame()
 !-------------------------------------------------------------------
 
@@ -663,7 +719,7 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
                   ncall,  vctr18,ge8,                   &
                   'time(days)','dry mass deviation',  &
                   timebeg,timeend,timeinc,5,            &
-                  -1.e-10,1.e-10,0.1e-10,10  )
+                  -1.e-9,1.e-9,0.1e-9,10  )
    call o_frame()
 !-------------------------------------------------------------------
 
@@ -683,7 +739,7 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
                   ncall,  vctr18,ge8,                   &
                   'time(days)','dry mass deviation',  &
                   timebeg,timeend,timeinc,5,            &
-                  -1.e-6,1.e-6,0.1e-6,10  )
+                  -1.e-7,1.e-7,0.1e-7,10  )
    call o_frame()
 !-------------------------------------------------------------------
 
@@ -696,9 +752,40 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
                      ncall,  vctr18,ge2,                &
                      'time(days)','q1 mass deviation',  &
                      timebeg,timeend,timeinc,5,         &
-                     -1.e-7,1.e-7,0.1e-7,10  )
+                     -1.e-3,1.e-3,0.1e-3,10  )
       call o_frame()
 !-------------------------------------------------------------------
+
+!-------------------------------------------------------------------
+      call plotback()
+      call oplot_xy2('0','N',aspect,scalelab,10,0,      &
+                     ncall,  vctr18,ge2,                &
+                     'time(days)','q1 mass deviation',  &
+                     timebeg,timeend,timeinc,5,         &
+                     -1.e-2,1.e-2,0.1e-2,10  )
+      call o_frame()
+!-------------------------------------------------------------------
+
+!-------------------------------------------------------------------
+      call plotback()
+      call oplot_xy2('0','N',aspect,scalelab,10,0,      &
+                     ncall,  vctr18,ge2,                &
+                     'time(days)','q1 mass deviation',  &
+                     timebeg,timeend,timeinc,5,         &
+                     -1.e-1,1.e-1,0.1e-1,10  )
+      call o_frame()
+!-------------------------------------------------------------------
+
+!-------------------------------------------------------------------
+      call plotback()
+      call oplot_xy2('0','N',aspect,scalelab,10,0,      &
+                     ncall,  vctr18,ge2,                &
+                     'time(days)','q1 mass deviation',  &
+                     timebeg,timeend,timeinc,5,         &
+                     -1.e-0,1.e-0,0.1e-0,10  )
+      call o_frame()
+!-------------------------------------------------------------------
+
    endif
 
 ! ADDSC_2
@@ -710,9 +797,40 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
                      ncall,  vctr18,ge3,                &
                      'time(days)','q2 mass deviation',  &
                      timebeg,timeend,timeinc,5,         &
-                     -1.e-7,1.e-7,0.1e-7,10  )
+                     -1.e-3,1.e-3,0.1e-3,10  )
       call o_frame()
 !-------------------------------------------------------------------
+
+!-------------------------------------------------------------------
+      call plotback()
+      call oplot_xy2('0','N',aspect,scalelab,10,0,      &
+                     ncall,  vctr18,ge3,                &
+                     'time(days)','q2 mass deviation',  &
+                     timebeg,timeend,timeinc,5,         &
+                     -1.e-2,1.e-2,0.1e-2,10  )
+      call o_frame()
+!-------------------------------------------------------------------
+
+!-------------------------------------------------------------------
+      call plotback()
+      call oplot_xy2('0','N',aspect,scalelab,10,0,      &
+                     ncall,  vctr18,ge3,                &
+                     'time(days)','q2 mass deviation',  &
+                     timebeg,timeend,timeinc,5,         &
+                     -1.e-1,1.e-1,0.1e-1,10  )
+      call o_frame()
+!-------------------------------------------------------------------
+
+!-------------------------------------------------------------------
+      call plotback()
+      call oplot_xy2('0','N',aspect,scalelab,10,0,      &
+                     ncall,  vctr18,ge3,                &
+                     'time(days)','q2 mass deviation',  &
+                     timebeg,timeend,timeinc,5,         &
+                     -1.e-0,1.e-0,0.1e-0,10  )
+      call o_frame()
+!-------------------------------------------------------------------
+
    endif
 
 ! ADDSC_3
@@ -909,6 +1027,45 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
 !-------------------------------------------------------------------
    endif
 
+! ADDSC_Y
+
+   if (nl%naddsc >= 1) then
+!-------------------------------------------------------------------
+      call plotback()
+      call oplot_xy2log10('0','N',aspect,scalelab,10,0,    &
+                          ncall,  vctr18,vyl2,             &
+                          'time(days)','qy mass l2 norm',  &
+                          timebeg,timeend,timeinc,5,       &
+                          -4,1  )
+      call o_frame()
+!-------------------------------------------------------------------
+      call plotback()
+      call oplot_xy2log10('0','N',aspect,scalelab,10,0,    &
+                          ncall,  vctr18,vyli,             &
+                          'time(days)','qy mass l_inf norm',  &
+                          timebeg,timeend,timeinc,5,       &
+                          -4,1  )
+      call o_frame()
+!-------------------------------------------------------------------
+      call plotback()
+      call oplot_xy2('0','N',aspect,scalelab,10,0,       &
+                     ncall,  vctr18,deltam,                &
+                     'time(days)','qy deltam',  &
+                     timebeg,timeend,timeinc,5,          &
+                     -1.e-5,1.e-5,1.e-6,5    )
+      call o_frame()
+!-------------------------------------------------------------------
+!-------------------------------------------------------------------
+      call plotback()
+      call oplot_xy2('0','N',aspect,scalelab,10,0,       &
+                     ncall,  vctr18,deltam,                &
+                     'time(days)','qy deltam',  &
+                     timebeg,timeend,timeinc,5,          &
+                     -1.e-4,1.e-4,1.e-5,5    )
+      call o_frame()
+!-------------------------------------------------------------------
+   endif
+
 ! WCMAX
 
 !-------------------------------------------------------------------
@@ -917,7 +1074,7 @@ if (time_istp8 + 0.5 * dtlong > timmax8) then
                      ncall,  vctr18,wcmax,            &
                      'time(days)','wcmax',            &
                      timebeg,timeend,timeinc,5,       &
-                     0.,100.,10.,5  )
+                     0.,10.,1.,5  )
       call o_frame()
 !-------------------------------------------------------------------
 

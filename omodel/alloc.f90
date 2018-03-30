@@ -35,6 +35,7 @@ subroutine olam_mem_alloc()
   use mem_basic,   only: alloc_basic, filltab_basic
   use mem_cuparm,  only: alloc_cuparm, filltab_cuparm
   use mem_micro,   only: alloc_micro, filltab_micro
+  use mem_co2,     only: alloc_co2, filltab_co2
   use mem_radiate, only: alloc_radiate, filltab_radiate
   use mem_addsc,   only: alloc_addsc, filltab_addsc
   use mem_tend,    only: alloc_tend, filltab_tend
@@ -78,6 +79,9 @@ subroutine olam_mem_alloc()
 
   call alloc_micro(mza,mwa,miclevel,ncat,nccntyp,iccn,igccn,iifn,jnmb)
   call filltab_micro(nccntyp)
+
+  call alloc_co2(mza,mwa)
+  call filltab_co2()
 
   call alloc_radiate(mza,mwa,nsw_max,ilwrtyp,iswrtyp)
   call filltab_radiate()

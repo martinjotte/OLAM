@@ -45,7 +45,7 @@ use mem_grid,    only: mza, mva, mwa, lpm, lpv, lpw, lsw, &
                        xev, yev, zev, xew, yew, zew, &
                        topm, topw, glatm, glonm, glatv, glonv, glatw, glonw, &
                        unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
-                       wnxo2, wnyo2, wnzo2
+                       wnxo2, wnyo2, wnzo2, dzt_bot
 
 use mem_leaf,    only: land, itab_wl
 
@@ -57,6 +57,8 @@ use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                        accpd, accpr, accpp, accps, accpa, accpg, accph, &
                        cldnum
+
+use mem_co2,     only: sh_co2
 
 use ccnbin_coms, only: nccntyp
 
@@ -253,7 +255,7 @@ data fldlib(1:4,  1:34)/ &
  'CON_GCCN'      ,'T3' ,'GCCN NUMBER CONCEN',' (# g:S2:-1  )'               ,& !p 33
  'CON_IFN'       ,'T3' ,'IFN NUMBER CONCEN',' (# g:S2:-1  )'                 / !p 34
 
-data fldlib(1:4, 35:56)/ &
+data fldlib(1:4, 35:57)/ &
  'VKM'           ,'T3' ,'VERT TURB MOMENTUM K',' (N s m:S2:-2  )'           ,& !p 35
  'FTHRD'         ,'T3' ,'RADIATIVE THETA TENDENCY',' (K s:S2:-1  )'         ,& !p 36
  'SPEEDW'        ,'T3' ,'WIND SPEED AT W',' (m s:S2:-1  )'                  ,& !p 37
@@ -275,11 +277,12 @@ data fldlib(1:4, 35:56)/ &
  'ADDSC'         ,'T3' ,'ADDED SCALAR AMOUNT PER KG AIR','( )'              ,& !p 53
  'ADDSCP'        ,'T3' ,'SCALAR PERTURBATION',' ( )'                        ,& !  54
  'ZPLEV'         ,'T3' ,'HEIGHT OF CONST P SFC',' (m)'                      ,& !p 55
- 'QWCON'         ,'T3' ,'CUPARM CONDENSATE SPEC DENSITY',' (g kg:S2:-1  )'   / !p 56
+ 'QWCON'         ,'T3' ,'CUPARM CONDENSATE SPEC DENSITY',' (g kg:S2:-1  )'  ,& !p 56
+ 'CO2CON'        ,'T3' ,'CO2 CONCENTRATION',' (ppmv of dry air)'             / !p 57
 
 ! ATMOSPHERE - 2D
 
-data fldlib(1:4, 62:95)/ &
+data fldlib(1:4, 62:96)/ &
  'RSHORT_TOP'    ,'T2' ,'TOP DOWN SHORTWV FLX',' (W m:S2:-2  )'             ,& !  62
  'RSHORTUP_TOP'  ,'T2' ,'TOP UP SHORTWV FLX',' (W m:S2:-2  )'               ,& !  63
  'RLONGUP_TOP'   ,'T2' ,'TOP UP LONGWV FLX',' (W m:S2:-2  )'                ,& !  64
@@ -316,7 +319,8 @@ data fldlib(1:4, 62:95)/ &
  'ACCPMIC'       ,'T2' ,'ACCUM MICPHYS PCP',' (kg m:S2:-2  )'               ,& !  92
  'ACCPCON'       ,'T2' ,'ACCUM CONV PCP',' (kg m:S2:-2  )'                  ,& !  93
  'ACCPBOTH'      ,'T2' ,'ACCUM MICPHYS + CONV PCP',' (kg m:S2:-2  )'        ,& !  94
- 'WSTAR'         ,'T2' ,'PBL CONVECTIVE VELOCITY',' (m s:S2:-1  )'           / !  95
+ 'WSTAR'         ,'T2' ,'PBL CONVECTIVE VELOCITY',' (m s:S2:-1  )'          ,& !  95
+ 'PSFC'          ,'T2' ,'SURFACE PRESSURE',' (hPa)'                          / !  96
 
 ! ATMOSPHERE DIF2 fields (3D & 2D)
 
@@ -1275,6 +1279,13 @@ case(56) ! 'QWCON'
    fldval = (wtbot * qwcon(k ,i) &
           +  wttop * qwcon(kp,i)) * 1.e3
 
+case(57) ! 'CO2CON'
+
+   if (.not. allocated(sh_co2)) go to 1000
+
+   fldval = (wtbot * sh_co2(k ,i) / (1.0 - sh_w(k ,i)) &
+          +  wttop * sh_co2(kp,i) / (1.0 - sh_w(kp,i))) * 1.e6
+
 case(62) ! 'RSHORT_TOP'
 
    if (.not. allocated(rshort_top)) go to 1000
@@ -1501,6 +1512,10 @@ case(94) ! 'ACCPBOTH'
 case(95) ! 'WSTAR'
 
    fldval = wstar(i)
+
+case(96) ! 'PSFC'
+
+   fldval = (press(k,i) + dzt_bot(k) * rho(k,i) * grav) * .01  ! hydrostatic eqn.
 
 !-----------------------------------------
 ! ATMOSPHERE DIF2 fields - (3D & 2D)
@@ -3616,7 +3631,7 @@ case(494) ! 'ADDSC1_ZINT'
    fldval = 0.
    denom = 0.
 
-   do k = lpw(i),mza-1
+   do k = lpw(i),mza
       fldval = fldval + addsc(1)%sclp(k,i) * dzt(k) * rho(k,i)
       denom = denom + dzt(k) * rho(k,i)
    enddo
@@ -3637,7 +3652,7 @@ case(495) ! 'ADDSC2_ZINT'
    fldval = 0.
    denom = 0.
 
-   do k = lpw(i),mza-1
+   do k = lpw(i),mza
       fldval = fldval + addsc(2)%sclp(k,i) * dzt(k) * rho(k,i)
       denom = denom + dzt(k) * rho(k,i)
    enddo
@@ -3660,8 +3675,8 @@ case(496) ! 'ADDSC1P2_ZINT'
    denom = 0.
 
    do k = lpw(i),mza-1
-      fldval = fldval + (addsc(1)%sclp(k,i) + 2. * addsc(2)%sclp(k,i)) * dzt(k) ! * rho(k,i)
-      denom = denom + dzt(k) ! * rho(k,i)
+      fldval = fldval + (addsc(1)%sclp(k,i) + 2. * addsc(2)%sclp(k,i)) * dzt(k) * rho(k,i)
+      denom = denom + dzt(k) * rho(k,i)
    enddo
 
    fldval = fldval / denom

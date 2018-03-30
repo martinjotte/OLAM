@@ -670,7 +670,7 @@ logical :: hybrid_eta = .false.
      ! hgt = 1012.         ! Value for Dudhia simulations
      ! hoffset = 1.
 
-     hfwid2 = hfwid**2
+     ! hfwid2 = hfwid**2
 
      ! The following form (with a nonzero hoffset value subtracted) gives zero
      ! topography at large distance from mountain top.

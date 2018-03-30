@@ -41,8 +41,7 @@ use supercell_testm, only: supercell_init, supercell_test
 use terminator, only: initial_value_terminator, ctend1, ctend2
 
 use oname_coms, only: nl
-
-use therm_lib, only: rhovsl
+use therm_lib,  only: rhovsl
 
 implicit none
 
@@ -83,7 +82,8 @@ mrl = 1
 
 ! Allocate chemical tendency arrays for baroclinic wave test
 
-if (nl%test_case == 111 .or. &
+if (nl%test_case == 110 .or. &
+    nl%test_case == 111 .or. &
     nl%test_case == 112 .or. &
     nl%test_case == 113 .or. &
     nl%test_case == 114) then
@@ -289,26 +289,33 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
          if (nl%naddsc >= 1) addsc(1)%sclp(k,iw) = q1
          if (nl%naddsc >= 2) addsc(2)%sclp(k,iw) = q2
 
-      elseif (nl%test_case == 111 .or. &
+      elseif (nl%test_case == 110 .or. &
+              nl%test_case == 111 .or. &
               nl%test_case == 112 .or. &
               nl%test_case == 113 .or. &
               nl%test_case == 114) then
 
 !==============================================================================
-! DCMIP-2016 TEST CASE 1-1 - Moist Baroclinic Wave 
+! DCMIP-2016 TEST CASE 1-1 - Dry or Moist Baroclinic Wave 
 !==============================================================================
 
          deep = 1  ! 0=no, 1=yes
-         moist = 1 ! 0=no, 1=yes
 
-         if     (nl%test_case == 111) then
+         if     (nl%test_case == 110) then  ! Dry case
             pertt = 0 ! exponential type perturbation
+            moist = 0 ! 0=no, 1=yes
+         elseif (nl%test_case == 111) then
+            pertt = 0 ! exponential type perturbation
+            moist = 1 ! 0=no, 1=yes
          elseif (nl%test_case == 112) then
             pertt = 0 ! exponential type perturbation
+            moist = 1 ! 0=no, 1=yes
          elseif (nl%test_case == 113) then
             pertt = 1 ! streamfunction type perturbation)
+            moist = 1 ! 0=no, 1=yes
          else ! (nl%test_case == 114)
             pertt = 1 ! streamfunction type perturbation)
+            moist = 1 ! 0=no, 1=yes
          endif
 
 	 call baroclinic_wave_test(deep,moist,pertt,Xscal,lonrad,latrad,p,zt0,zcoords, &
@@ -421,15 +428,11 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    enddo
 
-   do k = ka, mza
+   do k = 1, mza
       tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
    enddo
 
 100 continue
-
-   do k = 1, ka-1
-      thil(k,iw) = thil(ka,iw)
-   enddo
 
 enddo
 
@@ -575,26 +578,33 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
             u0,v0,wt0, &
             t,phis,ps,rhot0,q,q1,q2)
 
-      elseif (nl%test_case == 111 .or. &
+      elseif (nl%test_case == 110 .or. &
+              nl%test_case == 111 .or. &
               nl%test_case == 112 .or. &
               nl%test_case == 113 .or. &
               nl%test_case == 114) then
 
 !==============================================================================
-! DCMIP-2016 TEST CASE 1-1 - Moist Baroclinic Wave 
+! DCMIP-2016 TEST CASE 1-1 - Dry or Moist Baroclinic Wave 
 !==============================================================================
 
          deep = 1  ! 0=no, 1=yes
-         moist = 1 ! 0=no, 1=yes
 
-         if     (nl%test_case == 111) then
+         if     (nl%test_case == 110) then  ! Dry case
             pertt = 0 ! exponential type perturbation
+            moist = 0 ! 0=no, 1=yes
+         elseif (nl%test_case == 111) then
+            pertt = 0 ! exponential type perturbation
+            moist = 1 ! 0=no, 1=yes
          elseif (nl%test_case == 112) then
             pertt = 0 ! exponential type perturbation
+            moist = 1 ! 0=no, 1=yes
          elseif (nl%test_case == 113) then
             pertt = 1 ! streamfunction type perturbation)
+            moist = 1 ! 0=no, 1=yes
          else ! (nl%test_case == 114)
             pertt = 1 ! streamfunction type perturbation)
+            moist = 1 ! 0=no, 1=yes
          endif
 
 	 call baroclinic_wave_test(deep,moist,pertt,Xscal,lonrad,latrad,p,zt0,zcoords, &
@@ -863,7 +873,7 @@ end subroutine olam_dcmip_prescribedflow
 
 !==============================================================================
 
-subroutine olam_dcmip2016_phys()
+subroutine olam_dcmip2016_phys(rhot)
 
 ! Subroutine olam_dcmip2016_phys is called from subroutine timestep and in turn
 ! calls subroutine dcmip2016_physics that provides tendencies or updates to model
@@ -888,6 +898,8 @@ use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
 use oname_coms, only: nl
 
 implicit none
+
+real, intent(inout) :: rhot(mza,mwa)
 
 real(r8) :: rhodrycol(mza)
 real(r8) ::  exnercol(mza)
@@ -921,7 +933,11 @@ dtime = dtlong
 !   prec_type = 0 ! Default Kessler physics
 !   prec_type = 1 ! Reed-Jablonowski microphysics
 
-if     (nl%test_case == 111) then
+if     (nl%test_case == 110) then  ! Dry case
+        test = 1 ! Baroclinic wave test
+    pbl_type = 2 ! Do not use surface fluxes or PBL
+   prec_type = 0 ! Default Kessler physics
+elseif (nl%test_case == 111) then
         test = 1 ! Baroclinic wave test
     pbl_type = 2 ! Do not use surface fluxes or PBL
    prec_type = 0 ! Default Kessler physics
@@ -1028,6 +1044,7 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
       ! Convert mixing ratio changes to density-weighted tendencies used by OLAM
 
+      rhot (k,iw) = rhot (k,iw) + (qnew - qold)                * rhodrycol(k) / dtime
       sh_wt(k,iw) = sh_wt(k,iw) + (qnew - qold)                * rhodrycol(k) / dtime
       sh_ct(k,iw) = sh_ct(k,iw) + (qccol(k) - qccol0(k))       * rhodrycol(k) / dtime
       sh_rt(k,iw) = sh_rt(k,iw) + (qrcol(k) - qrcol0(k))       * rhodrycol(k) / dtime
@@ -1115,8 +1132,12 @@ integer :: iw, k, ka, mrl, j
 real(8) :: dt, latdeg, londeg, cl, cl2, cl_f, cl2_f
 
 mrl = 1
+
+! terminator coupling timestep
+
+dt = 900._8
 !dt = 1800._8
-dt = real(dtlong,8)
+!dt = real(dtlong,8)
 
 !----------------------------------------------------------------------
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)

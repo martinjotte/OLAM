@@ -37,6 +37,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_adv.f90 \
              $(MODEL_MODS)/mem_average_vars.f90 \
              $(MODEL_MODS)/mem_basic.f90 \
+             $(MODEL_MODS)/mem_co2.f90 \
              $(MODEL_MODS)/mem_flux_accum.f90 \
              $(MODEL_MODS)/mem_grid.f90 \
              $(MODEL_MODS)/mem_ijtabs.f90 \

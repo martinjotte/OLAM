@@ -68,6 +68,7 @@ subroutine olam_run(name_name)
   use mem_sea,     only: sea
   use vel_t3d,     only: diagvel_t3d, diagvel_t3d_init
   use mem_adv,     only: alloc_adv
+  use mem_co2,     only: co2init
   
   use cgrid_spcs,  only: cgrid_spcs_init
   use aero_data,   only: map_aero
@@ -408,6 +409,12 @@ subroutine olam_run(name_name)
      if (init_hurr_step > 0) call hurricane_init()
   endif
   !-------------------------------------------------------------------------------
+
+  ! Initialize 3d CO2 field (if co2flg = 1)
+
+  write(io6,'(/,a)') 'olam_run calling co2init'
+
+  call co2init()
 
   mrl = 1
 
@@ -844,7 +851,7 @@ subroutine olam_output()
   ! Output full history restart file
 
   if (mod(time8p,frqstate) < dtlm(1)   .or. &
-     (outdate == 1 .and. outhour == 0) .or. &
+     (outdate == 1 .and. mod(time8p,86400.) < dtlm(1)) .or. &
      time8p >= timmax8 .or. iflag == 1) then
      call history_write('INST')
      time_prevhist = time8

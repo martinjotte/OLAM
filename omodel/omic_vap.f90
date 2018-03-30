@@ -268,6 +268,12 @@ do k = k1(lcat),k2(lcat)
       + rdynvsci(k) * frefac2(lhcat) * emb(k,lcat) ** cdp1(lhcat)
 
    sb(k,lcat) = cx(k,lcat) * fre * pi4dt  ! stays the same (rhoa factor removed)
+
+! SPECIAL MODIFICATION FOR KEEPING SUPERSATURATION VERY CLOSE TO ZERO:
+! INCREASE SB FOR RAIN
+!!!   if (lcat == 2) sb(k,lcat) = max(50000.,sb(k,lcat))
+
+
    su(k,lcat) = vapdif(k) * sb(k,lcat)    ! stays the same
    sd(k,lcat) = sh(k,lcat) * rx(k,lcat)   ! x rhoa
    se(k,lcat) = su(k,lcat) * sa(k,if6) + sb(k,lcat) * thrmcon(k) * rhoa(K)
@@ -318,13 +324,14 @@ end subroutine diffprep
 
 !===============================================================================
 
-subroutine vapdiff(j1,j2,rhov,rhovstr,sumuy,sumuz)
+subroutine vapdiff(iw0,j1,j2,rhov,rhovstr,sumuy,sumuz)
 
 use micro_coms, only: mza0
 use misc_coms,  only: io6
 
 implicit none
 
+integer, intent(in) :: iw0
 integer, intent(in) :: j1
 integer, intent(in) :: j2
 

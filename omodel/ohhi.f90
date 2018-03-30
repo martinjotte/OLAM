@@ -225,14 +225,14 @@ subroutine refs1d()
 
 use misc_coms,   only: io6, nsndg, hs, thds, us, vs, rts, ps,  &
                        pr01d, dn01d, rt01d, th01d, u01d, v01d
-use consts_coms, only: cvocp, p00k, rdry, eps_virt, grav, gravo2
+use consts_coms, only: cvocp, p00k, rdry, eps_virt, grav, gravo2, p00, rocp
 use mem_grid,    only: mza, zm, zt, dzt_top, dzt_bot
 use micro_coms,  only: miclevel
 
 implicit none
 
 integer :: k,kk,iter
-real :: dens1
+real :: dens1, exner, temp
 
 write(io6,*) 'Beginning refs1d '
 
@@ -280,17 +280,21 @@ th01d(1) = th01d(2)
 ! Print out initial state column 
 
 write(io6,*) ' '
-write(io6,*) '========================================================================='
+write(io6,*) '============================================================================'
 write(io6,*) '                    OLAM INITIAL STATE COLUMN (hhi)'
-write(io6,*) '========================================================================='
-write(io6,*) '   zm(m)    k     zt(m)   pr01d(Pa)  dn01d(kg/m3)  th01d(K)  rt01d(g/kg)'
-write(io6,*) '========================================================================='
+write(io6,*) '============================================================================'
+write(io6,*) '   zm(m)    k     zt(m)   pr01d(Pa) dn01d(kg/m3) th01d(K)  temp  rt01d(g/kg)'
+write(io6,*) '============================================================================'
 write(io6,*) ' '
 
 do k = mza,2,-1
-   write(io6, '(f10.2,1x,9(''-------''))') zm(k)
-   write(io6, '(10x,i5,f10.2,f11.2,f11.4,f12.2,f11.4)')  &
-       k,zt(k),pr01d(k),dn01d(k),th01d(k),rt01d(k)*1.e3
+
+   exner = (pr01d(k) / p00) ** rocp  ! exner WITHOUT CP factor
+   temp  = th01d(k) * exner
+ 
+   write(io6, '(f10.2,1x,6(''-----------''))') zm(k)
+   write(io6, '(10x,i5,f10.2,f10.2,f10.4,2f10.2,f10.4)')  &
+       k,zt(k),pr01d(k),dn01d(k),th01d(k),temp,rt01d(k)*1.e3
 enddo
    
 write(io6, '(f10.2,1x,9(''-------''))') zm(1)

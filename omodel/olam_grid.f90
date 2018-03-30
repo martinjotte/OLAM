@@ -560,7 +560,8 @@ subroutine grav_init()
   ! Currently, variable gravity only for DCMIP 2016 baroclinic wave test case;
   ! later adopt for general case
 
-  if (nl%test_case == 111 .or. &
+  if (nl%test_case == 110 .or. &
+      nl%test_case == 111 .or. &
       nl%test_case == 112 .or. &
       nl%test_case == 113 .or. &
       nl%test_case == 114) then

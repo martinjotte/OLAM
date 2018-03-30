@@ -145,7 +145,7 @@ subroutine dust_src(mrl)
   use mem_basic,   only: vxe, vye, vze, rho
   use mem_ijtabs,  only: jtab_w, jtw_prog, itab_w
   use micro_coms,  only: iccn, igccn
-  use ccnbin_coms, only: idust1, idust2
+  use ccnbin_coms, only: idust1, idust2, idust3, idust4
   use mem_micro,   only: ccntyp, con_gccn
   use mem_leaf,    only: land, itab_wl
   use leaf_coms,   only: nzg, slmsts_ch, slmsts_vg
@@ -160,17 +160,19 @@ subroutine dust_src(mrl)
   integer :: j, iw, nland, jwl, iwl, kw
   integer :: leaf_class, nts, ibin
   real :: vels, vels10, vels10_cm
-  real :: gwet, wetfac, flux_m, flux_n1, flux_n2
+  real :: gwet, wetfac, flux_m
+  real :: flux_n(nbin)
 
-  ! Return if neither ccn nor gccn are prognosed
+  ! Return if no ccn dust categories are prognosed
 
-  if (idust1 < 1 .and. idust2 < 2) return
+  if (idust1 < 1 .and. idust2 < 1 .and. idust3 < 1 .and. idust4 < 1) return
 
   ! Loop over prognosed atmospheric grid columns
 
   !-----------------------------------------------------------------------------
-  !$omp parallel do private(iw,nland,jwl,iwl,leaf_class,nts,gwet,kw,vels, &
-  !$omp                     vels10,wetfac,flux_n1,flux_n2,vels10_cm,flux_m)
+  !$omp parallel private(flux_n)
+  !$omp do private(iw,nland,jwl,iwl,leaf_class,nts,gwet,kw,vels, &
+  !$omp            vels10,wetfac,vels10_cm,flux_m)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
   !-----------------------------------------------------------------------------
 
@@ -200,7 +202,7 @@ subroutine dust_src(mrl)
 
         if (gwet >= 0.5) cycle
 
-         kw = itab_wl(iwl)%kw
+        kw = itab_wl(iwl)%kw
 
         ! Diagnose wind speed in grid cell and at 10 m height, and limit the
         ! latter to a maximum of 20 m/s.
@@ -210,32 +212,23 @@ subroutine dust_src(mrl)
         vels10 = min(20., vels * log(10.         / land%rough(iwl)) &
                                / log(dzt_bot(kw) / land%rough(iwl)))
 
+        vels10_cm = 100. * vels10
+
         if (gwet * 100. > wprime(nts)) then
            wetfac = sqrt(1. + 1.21 * (gwet * 100. - wprime(nts))**0.68)
         else
            wetfac = 1.
         endif
 
-        flux_n1 = 0.
-        flux_n2 = 0.
-
         do ibin = 1,nbin
 
            !> Mass flux [g cm^-2 s^-1] from Ginoux et al. 2001 (Eq. 2) 
 
-           vels10_cm = 100. * vels10
            flux_m = fact * sp(ibin) * (vels10_cm**2.) * (vels10_cm - uth(ibin) * wetfac)
 
-           !> Convert mass flux to [#/(m^2 s)]
+           !> Convert mass flux to number flux [#/(m^2 s)]
 
-           if (flux_m > 0.) then
-              if (ibin < 5) then
-                 flux_n1 = flux_n1 + flux_m * 1.e4 * amassi(ibin)
-              else
-                 flux_n2 = flux_n2 + flux_m * 1.e4 * amassi(ibin)
-              endif
-           endif
-
+           flux_n(ibin) = max(0.,flux_m * 1.e4 * amassi(ibin))
         enddo
 
         ! Convert surface fluxes to concentration tendency [#/(m^3 s)] in
@@ -243,22 +236,28 @@ subroutine dust_src(mrl)
         ! obtained by multiplying fluxes by surface area and dividing by grid
         ! cell volume.
 
-        if (idust1 > 0 .and. flux_n1 > 0.) then
-             ccntyp(idust1)%con_ccnt(kw,iw) &
-           = ccntyp(idust1)%con_ccnt(kw,iw) &
-           + flux_n1 * land%area(iwl) * volti(kw,iw)
-        endif
+        if (idust1 > 0) ccntyp(idust1)%con_ccnt(kw,iw) &
+                      = ccntyp(idust1)%con_ccnt(kw,iw) &
+                      + (flux_n(1) + flux_n(2) + flux_n(3) + flux_n(4)) &
+                      * land%area(iwl) * volti(kw,iw)
 
-        if (idust2 == 2 .and. flux_n2 > 0.) then
-             ccntyp(idust2)%con_ccnt(kw,iw) &
-           = ccntyp(idust2)%con_ccnt(kw,iw) &
-           + flux_n2 * land%area(iwl) * volti(kw,iw)
-        endif
+        if (idust2 > 0) ccntyp(idust2)%con_ccnt(kw,iw) &
+                      = ccntyp(idust2)%con_ccnt(kw,iw) &
+                      + flux_n(5) * land%area(iwl) * volti(kw,iw)
+
+        if (idust3 > 0) ccntyp(idust3)%con_ccnt(kw,iw) &
+                      = ccntyp(idust3)%con_ccnt(kw,iw) &
+                      + flux_n(6) * land%area(iwl) * volti(kw,iw)
+
+        if (idust4 > 0) ccntyp(idust4)%con_ccnt(kw,iw) &
+                      = ccntyp(idust4)%con_ccnt(kw,iw) &
+                      + flux_n(7) * land%area(iwl) * volti(kw,iw)
 
      enddo  ! jws/iws
 
   enddo  ! iw
-  !$omp end parallel do
+  !$omp end do
+  !$omp end parallel
 
 end subroutine dust_src
 

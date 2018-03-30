@@ -93,6 +93,8 @@ subroutine copy_nl()
                          rparm, sparm, aparm, gparm, hparm, &
                          ccnparm, gccnparm, ifnparm
 
+  use mem_co2,     only: co2flag
+
   use leaf_coms,   only: nvgcon, nslcon, isoilflg, ndviflg, &
                          isfcl, ivegflg, nzg, nzs, slz, &
                          veg_database, soil_database, &
@@ -215,6 +217,7 @@ subroutine copy_nl()
   ccnparm       = nl%ccnparm
   gccnparm      = nl%gccnparm
   ifnparm       = nl%ifnparm
+  co2flag       = nl%co2flag
   nvgcon        = nl%nvgcon
   nslcon        = nl%nslcon
   nsndg         = nl%nsndg

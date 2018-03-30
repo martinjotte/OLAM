@@ -82,7 +82,7 @@ subroutine divh_damp(mrl)
   enddo
   !$omp end do
 
-  !$omp do private(iw,jv,iv,k)
+  !$omp do private(iw,jv,iv,k,dnufac)
   do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
      div2d_ex(:,iw) = 0.0

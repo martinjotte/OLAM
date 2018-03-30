@@ -70,7 +70,7 @@ real :: coslim3, coslim4, ratio
 real :: dist00,distm,expansion,frac_change
 character(10) :: string
 
-! Array MOVEM is used to flag selected M points that will be allowed to move
+! Array MOVEM is used to flag selected MD points that will be allowed to move
 ! in the spring dynamics procedure.  If MOVEM = 1 the point is allowed to move,
 ! and if MOVEM = 0 the point remains stationary.  This selective movement is
 ! optional for static mesh refinements, but it will be a requirement for 
@@ -108,7 +108,7 @@ endif
 niter = 2000
              
 ! For the case where NEW local mesh refinements are being added in preparation
-! for a HISTADDGRID history restart, do NOT move M points outside the current
+! for a HISTADDGRID history restart, do NOT move MD points outside the current
 ! newly refined region.
 
 if (ngrids_old > 0 .and. ngr > ngrids_old) then 
@@ -125,7 +125,7 @@ if (ngrids_old > 0 .and. ngr > ngrids_old) then
 
 ! For the case where moveall(ngr) = 0, reset all movem values to 0,
 ! and then set those in border zone of NGR back to 1.  Specifically, 
-! border zone consists of those M points that are adjacent to M points
+! border zone consists of those MD points that are adjacent to WD points
 ! with MROW values of -3, -2, -1, or 1.  
 
 elseif (ngr > 1 .and. moveall(ngr) == 0) then

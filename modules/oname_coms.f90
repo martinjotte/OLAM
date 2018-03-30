@@ -230,6 +230,10 @@ Module oname_coms
       real :: gccnparm =   3.e0 ! [#/kg]
       real :: ifnparm  =   0.e0 ! [#/kg]
       
+!!    CO2 PARAMETERS
+
+      integer :: co2flag = 0
+      
 !!    SOUNDING SPECIFICATION
 
       integer :: nsndg   = 0

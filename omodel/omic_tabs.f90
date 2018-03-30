@@ -450,7 +450,11 @@ do ihx = 1,nhcat
 ! BIN 18    158.7e-6    2094.e-12
 ! BIN 19    200.0e-6    4188.e-12
 ! BIN 20    252.0e-6    8376.e-12
-
+! BIN 21    320.0e-6     16.7e-9
+! BIN 22    400.0e-6     33.4e-9
+! BIN 23    500.0e-6     66.8e-9
+! BIN 24    630.0e-6    133.6e-9
+  
 ! The following 4 size thresholds for (emx + emy) are related to embxz in
 ! subroutines col1188 and col1882, but do not necessarily need to have the
 ! same values.

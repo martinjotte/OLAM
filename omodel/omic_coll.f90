@@ -1025,7 +1025,7 @@ end subroutine col3
 
 !===============================================================================
 
-subroutine colxfers(k1,k2,rx,cx,qr, &
+subroutine colxfers(iw0,k1,k2,rx,cx,qr, &
    r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
    r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
    r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
@@ -1048,6 +1048,7 @@ use ccnbin_coms, only: nccntyp, nbins, relcon_bin, ihyg, iccntyp
 
 implicit none
 
+integer, intent(in) :: iw0
 integer, intent(in) :: k1(11)
 integer, intent(in) :: k2(11)
 
@@ -1104,6 +1105,10 @@ real :: ccnloss, tot, con_bin
 ! compensating gains.
 
 ! All enxfer and rxfer values are nonnegative.
+
+ rloss = 0.
+qrloss = 0.
+enloss = 0.
 
 ! CLOUD loss adjustments (kg/m^3 and #/m^3)
 
@@ -1716,7 +1721,7 @@ if (iccn >= 2) then
          if (tot < ccnloss) then
             con_ccnx(k,jc) = con_ccnx(k,jc) - con_bin
          else
-            con_ccnx(k,jc) = con_ccnx(k,jc) - (tot - ccnloss)
+            con_ccnx(k,jc) = con_ccnx(k,jc) - con_bin + (tot - ccnloss)
             exit
          endif
       enddo

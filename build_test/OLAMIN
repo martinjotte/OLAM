@@ -120,22 +120,22 @@
  ! GRDLON(NG,:)   sequence for grid NG
 
    ! Grid 2:
-   NL%NGRDLL(2)   = 1
-   NL%GRDRAD(2,:) = 4000.e3,
-   NL%GRDLAT(2,:) =   37.00,
-   NL%GRDLON(2,:) = -117.00,
+   NL%NGRDLL(2)   =  1
+   NL%GRDRAD(2,:) =  4000.e3
+   NL%GRDLAT(2,:) =  37.0,
+   NL%GRDLON(2,:) = -117.0,
 
    ! Grid 3:
-   NL%NGRDLL(3)   = 2
-   NL%GRDRAD(3,:) = 2000.e3, 2000.e3,
-   NL%GRDLAT(3,:) =   37.00,   37.00,
-   NL%GRDLON(3,:) = -115.00, -120.00,
+   NL%NGRDLL(3)   =  1
+   NL%GRDRAD(3,:) =  3000.e3
+   NL%GRDLAT(3,:) =  37.0,
+   NL%GRDLON(3,:) = -117.0,
 
    ! Grid 4:
-   NL%NGRDLL(4)   = 2
-   NL%GRDRAD(4,:) = 1000.e3, 1000.e3,
-   NL%GRDLAT(4,:) =   37.00,   37.00,
-   NL%GRDLON(4,:) = -115.00, -120.00,
+   NL%NGRDLL(4)   =  1
+   NL%GRDRAD(4,:) =  2400.e3
+   NL%GRDLAT(4,:) =  37.0,
+   NL%GRDLON(4,:) = -117.0,
 
  !------------------------------------------------------------------------------
  ! Timestep and timestep ratios (One ratio for each Mesh Refinement Level (MRL))
@@ -341,6 +341,13 @@
    NL%GCCNPARM = 10.e3  ! GCCN concentration (#/kg_air); used if IGCCN = 1
 
    NL%IFNPARM = 100.e3  ! IFN concentration (#/kg_air); used if IIFN = 1
+
+ !--------------------------------------------------------------------------
+ ! CO2 Parameter
+ !--------------------------------------------------------------------------
+
+   NL%CO2FLAG = 0       ! 0 = CO2 is not prognosed
+                        ! 1 = CO2 is prognosed
 
  !--------------------------------------------------------------------------
  ! Sounding specification
@@ -666,9 +673,6 @@
  'SH_G'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
  'SH_H'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
  'QWCON'            ,'C',  7,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
- 'PCPDIF2MIC'        ,'L',418,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
- 'PCPDIF2CON'        ,'L',418,'Fmcit',     0.,0.,    1000.,    1200.e3,    0.
- 'PCPDIF2BOTH'       ,'L',418,'Fmcit',    0.,0.,    1000.,    1200.e3,    0.
 
  'VOLT'              ,'C',202,'TGPmcitW', -116.,39.,      90.,   2000.e3,    0.
  'ZPLEV'             ,'O', 28,'FIpmcit',  -116.,39.,     500.,   1000.e3,    0.
@@ -760,7 +764,7 @@
  'RLONGUP'          ,'O',417,
  'ALBEDT'           ,'O',  6,
  'VKM_SFC'          ,'O',200,
- 'SFLUXW'           ,'O',305,
+ 'USTAR'            ,'O',201,
  'SENSFLUX'         ,'O',102,
  'VAPFLUX'          ,'O',306,
  'LATFLUX'          ,'O',102,
@@ -784,6 +788,7 @@
  'ACCPMIC'          ,'O',200,
  'ACCPCON'          ,'O',200,
  'ACCPBOTH'         ,'O',200,
+ 'WSTAR'            ,'O',201,
 
  'ZONAL_WINDW_DIF2' ,'O',113,
  'MERID_WINDW_DIF2' ,'O',113,
@@ -791,7 +796,6 @@
  'PRESS_DIF2'       ,'O',415,
  'AIRTEMPK_DIF2'    ,'O',  4,
  'SH_V_DIF2'        ,'O',  5,
-
  'PCPMIC_DIF2'      ,'O',418,
  'PCPCON_DIF2'      ,'O',418,
  'PCPBOTH_DIF2'     ,'O',418,
@@ -815,7 +819,7 @@
 
  'PCPMIC_DIF4'      ,'O',305,
  'PCPCON_DIF4'      ,'O',305,
- 'PCPBOTH_DI42'     ,'O',305,
+ 'PCPBOTH_DIF4'     ,'O',305,
  'PCPMIC_REL4'      ,'O',305,
  'PCPCON_REL4'      ,'O',305,
  'PCPBOTH_REL4'     ,'O',305,
@@ -916,6 +920,10 @@
  'ALS_LATFLUX_DIF2'  ,'O',167,
  'ALS_VAPFLUX_DIF2'  ,'O',127,
 
+ 'ALS_AIRTEMPK_DIF4' ,'O',111,
+ 'ALS_CANTEMPK_DIF4' ,'O',111,
+ 'ALS_SKINTEMPK_DIF4','O',111,
+
  'ARV'              ,'O',202,
  'ARW'              ,'O',202,
  'VOLT'             ,'O',202,
@@ -971,7 +979,6 @@
  'ITAB_W_IWGLOBE'   ,'O', 65,
  'ITAB_W_MRLW'      ,'O', 65,
  'ITAB_W_MRLW_OR'   ,'O', 65,
- 'ITAB_W_MROW'      ,'O', 65,
  'ITAB_W_NGR'       ,'O', 65,
  'ITAB_W_IM'        ,'O', 65,
  'ITAB_W_IV'        ,'O', 65,

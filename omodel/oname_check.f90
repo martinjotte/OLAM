@@ -385,8 +385,8 @@ elseif (nl%miclevel == 3) then
       nfatal = nfatal + 1
    endif
 
-   if (.not. any(nl%iccn == (/1, 2, 3, 4, 5/) )) then
-      write(io6,*) 'FATAL - iccn must be set to 1, 2, 3, 4, or 5.'
+   if (.not. any(nl%iccn == (/1, 2, 3, 4, 5, 6/) )) then
+      write(io6,*) 'FATAL - iccn must be set to 1, 2, 3, 4, 5, or 6.'
       nfatal = nfatal + 1
    endif
 
@@ -405,7 +405,11 @@ elseif (nl%miclevel == 3) then
       nfatal = nfatal + 1
    endif
 
-   
+   if (nl%icloud > 0 .and. nl%irain > 0 .and. nl%idriz /= 5) then
+      write(io6,*) 'FATAL - idriz must set to 5 if both cloud and rain are turned on.'
+      nfatal = nfatal + 1
+   endif
+
    if (nl%irain == 2) &
       call rchk_bnds( nl%rparm, "RPARM", 0., 1.e-2, 0, nfatal, nwarn )
 
@@ -426,6 +430,12 @@ elseif (nl%miclevel == 3) then
    call rchk_bnds( nl%ifnparm,  "IFNPARM",  0., 100.e3, 0, nfatal, nwarn )
 
 endif
+
+!--------------------------------------------------------------------------
+! CO2 PARAMETERS
+!--------------------------------------------------------------------------
+
+ call ichk_bnds( nl%co2flag       , "CO2FLAG"       , 0, 1, 2, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! SOUNDING SPECIFICATION

@@ -34,9 +34,9 @@ subroutine micro()
 
 use mem_ijtabs, only: jtab_w, istp, mrl_endl, jtw_prog
 use micro_coms, only: miclevel
-use misc_coms,  only: io6
+use misc_coms,  only: io6, time8
 use oname_coms, only: nl
-use mem_grid,   only: mwa
+use mem_grid,   only: mwa, glatw, glonw
 
 implicit none
 
@@ -53,7 +53,7 @@ if (miclevel /= 3) return
 
 ! Section for parcel model simulation (only one grid cell is prognosed)
 
-if (nl%test_case >= 901 .and. nl%test_case <= 999) then
+if (nl%test_case >= 901 .and. nl%test_case <= 949) then
 
 ! Specify IW of grid cell to prognose (k=2 assumed for parcel cell)
 
@@ -111,7 +111,7 @@ integer :: j35,j36,j37,j45,j46,j47,j56,j57,j67,j82,j84,j85,j86,j87
 integer :: k12,k14,k15,k16,k17,k18,k23,k24,k25,k26,k27
 integer :: k35,k36,k37,k45,k46,k47,k56,k57,k67,k82,k84,k85,k86,k87
 
-integer :: lpw0,iw0,mrl0
+integer :: lpw0,iw0,mrl0,kend
 
 real :: dtl0,dtli0
 
@@ -506,7 +506,7 @@ call each_column(lpw0,iw0,k1,k2,dtl0,                          &
 !if (time_istp8 > 17300.) then
 !   print*, 'micphys1 ',iw0,glatw(iw0),glonw(iw0)
 
-!if (iw0 == 12170) then
+!if (iw0 == 84702) then
 !   print*, ' '
 !   do k = lpw0,mza0
 !      write(6,'(a,i6,10e12.3)') 'rx ',k,(rx(k,j1),j1=1,8)
@@ -524,19 +524,21 @@ call each_column(lpw0,iw0,k1,k2,dtl0,                          &
 
 !   print*, ' '
 !   do k = lpw0,mza0
-!      if (press0(k) < 1.e-6 .or. press0(k) > 1.5e5 .or. &
-!          theta0(k) < 50.   .or. theta0(k) > 3000. .or. &
-!            tair(k) < 50.   .or.   tair(k) > 400.  .or. &
-!            rhoa(k) < 1.e-6 .or.   rhoa(k) > 2.0   .or. &
-!            rhow(k) < 0.    .or.   rhow(k) > 0.1   .or. &
-!            rhov(k) < 0.    .or.   rhov(k) > 0.1  ) then
+!      write(6,'(a,i6,10e12.3)') 'qx ',k,(qx(k,j1),j1=1,8)
+!   enddo
 
-!         print*, ' '
-!         print*, 'micphys1 ',iw0,glatw(iw0),glonw(iw0)
+!   print*, ' '
+!   do k = lpw0,mza0
+!      write(6,'(a,i6,10e12.3)') 'con_ccnx ',k,(con_ccnx(k,j1),j1=1,nccntyp)
+!   enddo
 
-!         write(6,'(a,i6,10e12.3)') 'env ',k,press0(k),theta0(k),wc0(k),tair(k), &
-!                                   tairc(k),rhoa(k),rhow(k),rhov(k)
-!      endif
+!   print*, ' '
+!   do k = lpw0,mza0
+!      print*, ' '
+!      print*, 'micphys1 ',iw0,glatw(iw0),glonw(iw0)
+
+!      write(6,'(a,i6,10e12.3)') 'env ',k,press0(k),theta0(k),wc0(k),tair(k), &
+!                                tairc(k),rhoa(k),rhow(k),rhov(k)
 !   enddo
 !endif
 
@@ -614,7 +616,7 @@ if (k1(8) <= k2(8)) &
 
 ! Implicit matrix solution of atmospheric vapor density
 
-call vapdiff(k1(11),k2(11),rhov,rhovstr,sumuy,sumuz)
+ call vapdiff(iw0,k1(11),k2(11),rhov,rhovstr,sumuy,sumuz)
 
 ! Vapor flux applied to each category.  Do not change the order of these
 
@@ -937,7 +939,7 @@ endif
 
 ! Apply transfers of bulk mass, energy, and number from all collisions
 
- call colxfers(k1,k2,rx,cx,qr, &
+ call colxfers(iw0,k1,k2,rx,cx,qr, &
     r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
     r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
     r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
@@ -1100,30 +1102,46 @@ if (nl%test_case >= 901 .and. nl%test_case <= 999) go to 1412
 
 1412 continue
 
-! If running parcel test cases 901-909, call parcel plot to store and
+! If running parcel test cases 901-999, call parcel plot to store and
 ! (on last timestep) plot parcel fields
 
-if (nl%test_case >= 901 .and. nl%test_case <= 909) then
+if (nl%test_case >= 901 .and. nl%test_case <= 999 .and. iw0 == 50) then
 
-   call parcel_plot(mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
-      press0,thil0,theta0,tairc,rhovslair,rhovsiair,rhov,rhoi,rhoa,rhow, &
-      rnuc_vc,rnuc_vd,rnuc_cp_hom,rnuc_dp_hom,rnuc_vp_haze,rnuc_vp_immers, &
-      cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom,cnuc_vp_haze,cnuc_vp_immers, &
-      rpsxfer,epsxfer, &
-      r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
-      r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
-      r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
-      r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
-      r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
-      r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
-      r2727,r0000,r1812,r1882, &
-      e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
-      e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
-      e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
-      e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
-      e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
-      e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
-      e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000,e1882)
+   if (mod(real(time_istp8),600.) < dtl0) then
+
+   if (nl%test_case >= 901 .and. nl%test_case <= 949) then
+      kend = 2 ! Parcel simulations
+   else
+ !     kend = 18 ! Column simulation: cutoff near T = -30C (simulation/grid dependent)
+      kend = 39 ! Column simulation: cutoff near T = -30C (simulation/grid dependent)
+   endif
+
+   do k = 2,kend
+
+      call parcel_plot(k,kend,mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
+         con_ccnx, &
+         press0,thil0,theta0,tairc,rhovslair,rhovsiair,rhov,rhoi,rhoa,rhow, &
+         rnuc_vc,rnuc_vd,rnuc_cp_hom,rnuc_dp_hom,rnuc_vp_haze,rnuc_vp_immers, &
+         cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom,cnuc_vp_haze,cnuc_vp_immers, &
+         rpsxfer,epsxfer, &
+         r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
+         r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
+         r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
+         r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
+         r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
+         r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
+         r2727,r0000,r1812,r1882, &
+         e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
+         e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
+         e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
+         e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
+         e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
+         e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
+         e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000,e1882)
+
+   enddo
+
+   endif
 
 endif
 
@@ -1263,16 +1281,17 @@ if (jnmb(2) == 5) then
 
       con_r(k,iw0) = max(con_r(k,iw0), 0.0)
 
-! If rain bulk density is sufficiently abundant, copy to rx
-! and copy rain number concentration to cx.  Fill qx and compute qr.
-! Otherwise, make sure rain bulk density is positive-definite
-! and set rain number concentration to zero.
+! If rain bulk density is sufficiently abundant, copy to rx and copy rain
+! number concentration to cx, compute qx and impose limits on it in case
+! advection of very dry air has resulted in a large magnitude of q2/sh_r, and
+! compute qr.  Otherwise, set rain bulk density, rain number concentration,
+! and q2 to zero.
 
       if (sh_r(k,iw0) >= rxmin(2)) then
          rx(k,2) = sh_r (k,iw0) * rhoa(k)
          cx(k,2) = con_r(k,iw0) * rhoa(k)
-         qr(k,2) = q2   (k,iw0) * rhoa(k)
-         qx(k,2) = q2   (k,iw0) / sh_r(k,iw0)
+         qx(k,2) = max(-20000.,min(500000.,q2(k,iw0) / sh_r(k,iw0))) ! Limits -10C to 40C
+         qr(k,2) = qx(k,2) * rx(k,2)
       else
          sh_r (k,iw0) = 0.0
          con_r(k,iw0) = 0.0
@@ -1285,14 +1304,15 @@ elseif (jnmb(2) >= 1) then
 
    do k = lpw0,mza0
 
-! If rain bulk density is sufficiently abundant, copy to rx.
-! Fill qx and compute qr.
-! Otherwise, if rain bulk density is negative, set to zero.
+! If rain bulk density is sufficiently abundant, copy to rx, compute qx and
+! impose limits on it in case advection of very dry air has resulted in a large
+! magnitude of q2/sh_r, and compute qr.  Otherwise, set rain bulk density and
+! q2 to zero.
 
       if (sh_r(k,iw0) >= rxmin(2)) then
          rx(k,2) = sh_r(k,iw0) * rhoa(k)
-         qr(k,2) = q2  (k,iw0) * rhoa(k)
-         qx(k,2) = q2  (k,iw0) / sh_r(k,iw0)
+         qx(k,2) = max(-20000.,min(500000.,q2(k,iw0) / sh_r(k,iw0))) ! Limits -10C to 40C
+         qr(k,2) = qx(k,2) * rx(k,2)
       else
          sh_r(k,iw0) = 0.
          q2  (k,iw0) = 0.
@@ -1423,16 +1443,17 @@ if (jnmb(6) == 5) then
 
       con_g(k,iw0) = max(con_g(k,iw0), 0.0)
 
-! If graupel bulk density is sufficiently abundant, copy to rx
-! and copy graupel number concentration to cx.  Fill qx and compute qr. 
-! Otherwise, make sure graupel bulk density is positive-definite
-! and set graupel number concentration to zero.
+! If graupel bulk density is sufficiently abundant, copy to rx and copy graupel
+! number concentration to cx, compute qx and impose limits on it in case
+! advection of very dry air has resulted in a large magnitude of q6/sh_g, and
+! compute qr.  Otherwise, set graupel bulk density, graupel number concentration,
+! and q6 to zero.
 
       if (sh_g(k,iw0) >= rxmin(6)) then
          rx(k,6) = sh_g (k,iw0) * rhoa(k)
          cx(k,6) = con_g(k,iw0) * rhoa(k)
-         qr(k,6) = q6   (k,iw0) * rhoa(k)
-         qx(k,6) = q6   (k,iw0) / sh_g(k,iw0)
+         qx(k,6) = max(-100000.,min(334000.,q6(k,iw0) / sh_g(k,iw0))) ! Limits -50C to 0C
+         qr(k,6) = qx(k,6) * rx(k,6)
       else
          sh_g (k,iw0) = 0.0
          con_g(k,iw0) = 0.0
@@ -1445,14 +1466,15 @@ elseif (jnmb(6) >= 1) then
 
    do k = lpw0,mza0
 
-! If graupel bulk density is sufficiently abundant, copy to rx.
-! Fill qx and compute qr.
-! Otherwise, if graupel bulk density is negative, set to zero.
+! If graupel bulk density is sufficiently abundant, copy to rx, compute qx and
+! impose limits on it in case advection of very dry air has resulted in a large
+! magnitude of q6/sh_g, and compute qr.  Otherwise, set graupel bulk density and
+! q6 to zero.
 
       if (sh_g(k,iw0) >= rxmin(6)) then
          rx(k,6) = sh_g(k,iw0) * rhoa(k)
-         qr(k,6) = q6  (k,iw0) * rhoa(k)
-         qx(k,6) = q6  (k,iw0) / sh_g(k,iw0)
+         qx(k,6) = max(-100000.,min(334000.,q6(k,iw0) / sh_g(k,iw0))) ! Limits -50C to 0C
+         qr(k,6) = qx(k,6) * rx(k,6)
       else
          sh_g(k,iw0) = 0.
          q6  (k,iw0) = 0.
@@ -1472,16 +1494,17 @@ if (jnmb(7) == 5) then
 
       con_h(k,iw0) = max(con_h(k,iw0), 0.0)
 
-! If hail bulk density is sufficiently abundant, copy to rx
-! and copy hail number concentration to cx.  Fill qx and compute qr. 
-! Otherwise, make sure hail bulk density is positive-definite
-! and set hail number concentration to zero.
+! If hail bulk density is sufficiently abundant, copy to rx and copy hail
+! number concentration to cx, compute qx and impose limits on it in case
+! advection of very dry air has resulted in a large magnitude of q7/sh_h, and
+! compute qr.  Otherwise, set hail bulk density, hail number concentration,
+! and q7 to zero.
 
       if (sh_h(k,iw0) >= rxmin(7)) then
          rx(k,7) = sh_h (k,iw0) * rhoa(k)
          cx(k,7) = con_h(k,iw0) * rhoa(k)
-         qr(k,7) = q7   (k,iw0) * rhoa(k)
-         qx(k,7) = q7   (k,iw0) / sh_h(k,iw0)
+         qx(k,7) = max(-100000.,min(334000.,q7(k,iw0) / sh_h(k,iw0))) ! Limits -50C to 0C
+         qr(k,7) = qx(k,7) * rx(k,7)
       else
          sh_h (k,iw0) = 0.0
          con_h(k,iw0) = 0.0
@@ -1494,14 +1517,15 @@ elseif (jnmb(7) >= 1) then
 
    do k = lpw0,mza0
 
-! If hail bulk density is sufficiently abundant, copy to rx.
-! Fill qx and compute qr.
-! Otherwise, if hail bulk density is negative, set to zero.
+! If hail bulk density is sufficiently abundant, copy to rx, compute qx and
+! impose limits on it in case advection of very dry air has resulted in a large
+! magnitude of q7/sh_h, and compute qr.  Otherwise, set hail bulk density and
+! q7 to zero.
 
       if (sh_h(k,iw0) >= rxmin(7)) then
          rx(k,7) = sh_h(k,iw0) * rhoa(k)
-         qr(k,7) = q7  (k,iw0) * rhoa(k)
-         qx(k,7) = q7  (k,iw0) / sh_h(k,iw0)
+         qx(k,7) = max(-100000.,min(334000.,q7(k,iw0) / sh_h(k,iw0))) ! Limits -50C to 0C
+         qr(k,7) = qx(k,7) * rx(k,7)
       else
          sh_h(k,iw0) = 0.
          q7  (k,iw0) = 0.

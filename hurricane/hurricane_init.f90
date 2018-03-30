@@ -60,6 +60,7 @@ implicit none
 ! dynamic initialization, the parameter INIT_HURR_STEP must be set as follows:
 !
 ! 0 = No hurricane enhancement or tracking; use for most OLAM simulations.
+!
 ! 1 = For FIRST CYCLE of dynamic initialization procedure.
 !     OLAM initial fields are interpolated from CFSR (or other) dataset.
 !     An axisymmetric perturbation tangential wind field is added by the user.   
@@ -67,19 +68,21 @@ implicit none
 !     Axisymmetric hurricane fields are diagnosed and plotted at hourly intervals.
 !     3D hurricane fields are remapped at hourly intervals from grid cells at present
 !     location to grid cells at initial location, but are only written to files.
+!
 ! 2 = For SUBSEQUENT CYCLES of dynamic initialization procedure.
 !     OLAM initial fields are interpolated from CFSR (or other) dataset.
-!     Remapped 3D wind fields from previous cycle are read from files and replace 
-!     fields interpolated from CFSR where the hurricane is located.
+!     Remapped 3D prognostic fields from previous cycle are read from files and
+!     replace fields interpolated from CFSR where the hurricane is located.
 !     An axisymmetric perturbation tangential wind field is added by the user.   
 !     OLAM runs short (e.g. 6 hrs) forward integration while tracking hurricane location every timestep.
 !     Axisymmetric hurricane fields are diagnosed and plotted at hourly intervals.
 !     3D hurricane fields are remapped at hourly intervals from grid cells at present
 !     location to grid cells at initial location, but are only written to files.
+!
 ! 3 = For HURRICANE SIMULATION after completion of dynamic initialization cycles.
 !     OLAM initial fields are interpolated from CFSR (or other) dataset.
-!     Remapped 3D wind fields from previous cycle are read from files and replace 
-!     fields interpolated from CFSR where the hurricane is located.
+!     Remapped 3D prognostic fields from previous cycle are read from files and
+!     replace fields interpolated from CFSR where the hurricane is located.
 !     OLAM simulation proceeds normally with no hurricane tracking.
 !
 ! Comments in subroutine hurricane_init (below) provide additional details.
@@ -89,19 +92,21 @@ integer, parameter :: init_hurr_step = 0
 
 ! Set lat/lon coords of eye center (correct observed location)
 
-! Frances location on 1 Sept 2004 at 00 UTC
-real, parameter :: hcentlat = 20.6, hcentlon = -66.3
+! javier location on 10 Sept 2004 at 18 UTC
+ real, parameter :: hcentlat = 11.2, hcentlon = -93.5
 
-! Frances location on 2 Sept 2004 at 00 UTC
-! real, parameter :: hcentlat = 22.3, hcentlon = -71.4
+! javier location on 9 Sept 2004 at 00 UTC (ESTIMATED FROM CFSR ANALYSIS)
+! real, parameter :: hcentlat = 9.0, hcentlon = -87.5
 
-integer, parameter :: nz = 60, nr = 28 ! Number of vertical, radial points in vortex profiles
+integer, parameter :: nz = 60, nr = 22  ! Number of vertical, radial points in vortex profiles
+!integer, parameter :: nz = 60, nr = 28 ! Number of vertical, radial points in vortex profiles
 integer :: nzz
 
 real :: hlat0, hlon0, hlat, hlon
 
 real :: circ_avg(nr)
 
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! radius_ax is an array of radial distances of the radial-height grid on which
 ! axisymmetric hurricane fields are diagnosed and modified by perturbations
 ! defined by the user.  The radial spacing between these values needs to be at
@@ -109,9 +114,50 @@ real :: circ_avg(nr)
 ! is located.
 
 real :: radius_ax(nr) = (/ &
-   0.e3,   5.e3,  10.e3,  15.e3,  20.e3,  25.e3,  30.e3,  35.e3,  40.e3,  45.e3, &
-  50.e3,  55.e3,  60.e3,  70.e3,  80.e3,  90.e3, 100.e3, 120.e3, 140.e3, 160.e3, &
- 180.e3, 200.e3, 250.e3, 300.e3, 350.e3, 400.e3, 450.e3, 500.e3/)
+   0.e3,  10.e3,  20.e3,  30.e3,  40.e3,  50.e3,  60.e3,  70.e3,  80.e3,  90.e3, &
+ 100.e3, 120.e3, 140.e3, 160.e3, 180.e3, 200.e3, 250.e3, 300.e3, 350.e3, 400.e3, &
+ 450.e3, 500.e3/)
+
+!real :: radius_ax(nr) = (/ &
+!   0.e3,   5.e3,  10.e3,  15.e3,  20.e3,  25.e3,  30.e3,  35.e3,  40.e3,  45.e3, &
+!  50.e3,  55.e3,  60.e3,  70.e3,  80.e3,  90.e3, 100.e3, 120.e3, 140.e3, 160.e3, &
+! 180.e3, 200.e3, 250.e3, 300.e3, 350.e3, 400.e3, 450.e3, 500.e3/)
+
+
+! The following 6 parameters define the strength and radial-height distribution
+! of an axisymmetric tangential wind field that is added as a perturbation to
+! model fields in subroutine hurricane_add_pert in order to boost a tropical 
+! cyclone to the structure and intensity that are represented in in-situ
+! observations but lacking in reanalysis fields used for model initialization.
+! A perturbation vortex is normally added only on the first forward cycle of 
+! the dynamic initialization procedure, but may be added (at weaker intensities)
+! on subsequent cycles as well.
+ 
+  real,    parameter :: delv_eyw = 15. ! 10.  ! Maximum tangential wind speed perturbation 
+  real,    parameter :: zmax_delv = 10000.   ! Maximum height of perturbation vortex
+  real,    parameter :: zexpon_delv = 1.5    ! Vertical power law of perturbation magnitude
+  integer, parameter :: ir_eyw = 8     ! radial index (of radius_ax array) where delv_eyw applies
+  integer, parameter :: ir_env = 20    ! radial index (of radius_ax array) where perturbation ceases
+!  integer, parameter :: ir_eyw = 9    ! radial index (of radius_ax array) where delv_eyw applies
+!  integer, parameter :: ir_env = 17   ! radial index (of radius_ax array) where perturbation ceases
+
+! real, parameter :: rexpon_delc = 1.0 ! Radial power law of perturbation magnitude
+  real, parameter :: rexpon_delc = 0.7 ! Radial power law of perturbation magnitude
+
+! The following 4 parameters control how a relocated vortex is blended in with
+! model initial fields at the beginning of the second and subsequent dynamic
+! initialization cycles.  At locations inside radius rad1 and at heights below
+! z1, 100% of the relocated fields are used (implying 0% of the model initial
+! fields).  At locations outside radius rad2 and/or at heights above z2, none of
+! the relocated vortex is used, and the model initial fields remain unchanged.
+! Between these limits, interpolation weights vary linearly with height
+! and/or radius.  LIMIT RAD2 TO 400.E3 OR LESS, OR ELSE CODE CHANGES WILL BE REQUIRED.
+
+  real, parameter :: rad1 = 300.e3 ! User-specified inner radius for transition weights
+  real, parameter :: rad2 = 400.e3 ! User-specified outer radius for transition weights
+  real, parameter :: z1 =  7000. ! User-specified lower height for transition weights
+  real, parameter :: z2 = 10000. ! User-specified upper height for transition weights
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ! Axisymmmetric vortex profile arrays
 
@@ -198,9 +244,9 @@ Contains
      ! initialization cycle, and relocate the fields to the initial position
      ! of the hurricane, specified by hlat0 and hlon0 which are also read from
      ! the file.  The user must first decide which of the files to read from
-     ! and must modify subroutine hurricane_init2C so that it reads that file.
+     ! and must modify subroutine hurricane_init_relocated so that it reads that file.
 
-     call hurricane_init2C()
+     call hurricane_init_relocated()
 
      ! Set hlat and hlon to the initial hurricane location.
 
@@ -210,7 +256,7 @@ Contains
   endif  
 
   if (init_hurr_step == 1 .or. init_hurr_step == 2) then
-  
+
      ! For either the first or subsequent dynamic initialization cycles,
      ! perform azimuthal average of tangential, radial, and vertical velocity
      ! components, potential temperature, and moisture and plot each in
@@ -220,13 +266,13 @@ Contains
 
      ! Add axisymmetric tangential wind field to increase vortex intensity
      ! and/or to change its radius of maximum wind.  Subroutine
-     ! hurricane_init1B requires user modification to specify the desired
+     ! hurricane_add_pert requires user modification to specify the desired
      ! radial-height profile of the added perturbation, and the subroutine
      ! then adds a potential temperature perturbation that balances the
      ! increased tangential winds through hydrostatic and gradient wind
      ! balances.
 
-     call hurricane_init1B()
+     call hurricane_add_pert()
 
      ! Following the addition of the perturbations, re-diagnose and plot
      ! the azimuthally-averaged fields.
@@ -237,7 +283,7 @@ Contains
      ! how they compare to in-situ measurements of the hurricane, the user
      ! may want to re-run the current cycle of the dynamic initialization
      ! procedure with a different wind perturbation profile in subroutine 
-     ! hurricane_init1B.  If the user sets timmax = 0., the model will stop
+     ! hurricane_add_pert.  If the user sets timmax = 0., the model will stop
      ! at this point, allowing this comparison and decision to be made.
 
      ! Otherwise, if timmax is set to a positive value (typically 6 hours), 
@@ -323,7 +369,7 @@ Contains
 
 ! Do not apply algorithm above threshold height
 
-        if (zt(k) > 10000.) exit
+        if (zt(k) > 3000.) exit
 
 ! Determine lowest pressure at each model level within search area
 
@@ -345,7 +391,7 @@ Contains
 
 ! Do not apply algorithm above threshold height
 
-     if (zt(k) > 10000.) exit
+     if (zt(k) > 3000.) exit
 
 ! Compute average pressure
 
@@ -382,7 +428,7 @@ Contains
 
 ! Do not apply algorithm above threshold height
 
-        if (zt(k) > 10000.) exit
+        if (zt(k) > 3000.) exit
 
 ! If pressure < threshold value, sum area-pressure weighted grid cell location
 
@@ -408,7 +454,7 @@ Contains
 
 ! Do not apply algorithm above threshold height
 
-    if (zt(k) > 10000.) exit
+    if (zt(k) > 3000.) exit
 
 ! Compute mean location
 
@@ -419,6 +465,8 @@ Contains
 ! Transform mean location to lat/lon coordinates
 
      call e_ec(xew_avg(k),yew_avg(k),zew_avg(k),rlon,rlat)
+
+! Select k value to use for vortex center location
 
      if (k == 2) then
         hlat = rlat
@@ -541,13 +589,13 @@ Contains
 ! Loop over all W points
 
 !----------------------------------------------------------------------
-  do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)  ! jend(1) = hardwired for mrl 1
+  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)  ! jend(1) = hardwired for mrl 1
 !----------------------------------------------------------------------
 
 ! Distance of this IW point from eye center
 
      rad = sqrt((xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2)
-   
+
 ! Skip hurricane assimilation for all points outside specified radius
 
      if (rad >= radius_ax(nr) - 1.) cycle
@@ -668,23 +716,28 @@ Contains
 
 !==============================================================================
 
-  subroutine hurricane_init1B()
+  subroutine hurricane_add_pert()
 
 ! This subroutine adds perturbation fields to a model initial state that act to
 ! restore the approximate intensity of a tropical cyclone that is poorly resolved in
 ! the standard analysis used for the initial fields (e.g., the GFS analysis).
 
-! The added perturbation fields consist of potential temperature, water vapor
-! specific density, and cyclonic winds.  The added perturbation fields are 
-! axisymmetric, defined as a function of radius and height only.  The perturbation 
-! characteristics are controlled by a set of parameters, whose values are specified
-! below, and which should be modified by the user according to the particular
-! initialization case.
+! The primary perturbation field is the tangential wind component of an
+! axysymmetric vortex whose peak value and vertical and radial profiles are
+! determined by 6 user-specified parameters.  A secondary axisymmetric
+! perturbation field of potential temperature is computed in this subroutine
+! that, when added to the background potential temperature field will maintain 
+! approximate gradient wind balance with the enhanced tangential winds.  A
+! hydrostatic balance procedure is carried out following the addition of these
+! perturbations in order to adjust pressure and density to the new potential
+! temperature field.
 
-! This subroutine is called only at the beginning of the first of several dynamic
-! initialization cycles, an is only intended to get the vortex intensity and size
-! somewhere in the ballpark of observations.  Subsequent cycles do not use this
-! subroutine but instead use results from the previous cycle.
+! This subroutine is called at the beginning of the first dynamic initialization
+! cycle.  Optionally, it may also be called at the beginning of subsequent cycles,
+! although in such cases the added perturbation should be relatively weak.  The
+! preferred application of the dynamic initialization procedure is to choose
+! (perhaps by trial and error) a perturbation on the first cycle that will 
+! eliminate the need for any perturbations to be added on subsequent cycles.
 
   use mem_ijtabs
   use mem_basic
@@ -710,17 +763,6 @@ Contains
   real :: vnxrad,vnyrad,vnzrad,vnxtan,vnytan,vnztan
 
   real :: rad,rrad,vtan_pert0,shw_pert0,zdif
-
-! TANGENTIAL VELOCITY PERTURBATION - assumed to be maximum at (r = r_vmax, z = 0)
-
-  real,    parameter :: delv_eyw = 45.
-  real,    parameter :: zmax_delv = 15000.
-  real,    parameter :: zexpon_delv = 1.5
-  integer, parameter :: ir_eyw = 7     ! radial index in axisymmetric profiles
-  integer, parameter :: ir_env = 17    ! radial index in axisymmetric profiles
-
-! real,    parameter :: rexpon_delc = 1.0
-  real,    parameter :: rexpon_delc = 0.5
 
   real :: vpert_rad, vpert_vert
 
@@ -753,6 +795,8 @@ Contains
   wnzh = zeh / erad
 
   circ_avg(:) = 0.
+
+! Choose range of vertical levels over which to average the circulation
 
   do k = 10,14
      do ir = 1,nr
@@ -858,7 +902,7 @@ Contains
 ! Add perturbation to thermodynamic fields
 
 !----------------------------------------------------------------------
-  do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)  ! jend(1) = hardwired for mrl 1
+  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)  ! jend(1) = hardwired for mrl 1
 !----------------------------------------------------------------------
 
 ! Distance of this IW point from eye center
@@ -957,7 +1001,7 @@ Contains
   call lbcopy_w(1, a1=thil, d1=press, d2=rho)
 
 !----------------------------------------------------------------------
-  do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)  ! jend(1) = hardwired for mrl 1
+  do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)  ! jend(1) = hardwired for mrl 1
      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
  
@@ -1061,7 +1105,7 @@ Contains
   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
   return
-  end subroutine hurricane_init1B
+  end subroutine hurricane_add_pert
 
 !==================================================================================
 
@@ -1072,7 +1116,7 @@ Contains
   use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                          q2, q6, q7, &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h
-  use mem_ijtabs,  only: itab_m, itab_w, jtab_w
+  use mem_ijtabs,  only: itab_m, itab_w, jtab_w, jtw_init
   use misc_coms,   only: io6
   use mem_grid,    only: mza, mma, mwa, lpw, xem, yem, zem, xew, yew, zew
   use consts_coms, only: erad,piu180,pio180
@@ -1117,17 +1161,17 @@ Contains
   ipert = ipert + 1
 
      if (ipert == 1) then
-        fname = 'frances_out1e'
+        fname = 'javier_out1g'
      elseif (ipert == 2) then
-        fname = 'frances_out2e'
+        fname = 'javier_out2g'
      elseif (ipert == 3) then
-        fname = 'frances_out3e'
+        fname = 'javier_out3g'
      elseif (ipert == 4) then
-        fname = 'frances_out4e'
+        fname = 'javier_out4g'
      elseif (ipert == 5) then
-        fname = 'frances_out5e'
+        fname = 'javier_out5g'
      elseif (ipert == 6) then
-        fname = 'frances_out6e'
+        fname = 'javier_out6g'
      endif
 
   nwps(:,:) = 0
@@ -1144,7 +1188,7 @@ print*, 'hlat0,hlon0 ',hlat0,hlon0,xeh,yeh,zeh
 ! Loop over all W points
 
 !----------------------------------------------------------------------
-  do j = 1,jtab_w(7)%jend(1); iw = jtab_w(7)%iw(j)  ! jend(1) = hardwired for mrl 1
+  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)  ! jend(1) = hardwired for mrl 1
 !----------------------------------------------------------------------
 
 ! Distance of this IW point from initial eye center
@@ -1434,7 +1478,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 !=======================================================================================
 
-  subroutine hurricane_init2C()
+  subroutine hurricane_init_relocated()
 
 ! This subroutine replaces a model initial state with a poorly-resolved
 ! tropical cyclone from a GFS or other analysis with a cyclone that was
@@ -1452,7 +1496,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                          q2, q6, q7, &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h
-  use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtab_w
+  use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtv_init
   use misc_coms,   only: io6, iparallel
   use mem_grid,    only: mza, mma, mwa, lpw, xev, yev, zev, xew, yew, zew, &
                          vnx, vny, vnz, zt, dzt_top, dzt_bot
@@ -1477,7 +1521,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   real :: vnxrad,vnyrad,vnzrad,vnxtan,vnytan,vnztan
   real :: wt1, wt2, wt2c, vtan0, vrad0
 
-  real :: rad
+  real :: rad, vreloc
 
   character(10) :: cstr
   integer :: istr, mrl
@@ -1490,7 +1534,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   character(pathlen) :: fname
   logical :: exans
 
-  fname = 'frances_out6e'
+  fname = 'javier_out6g'
 
 ! Read relocated vortex data
 
@@ -1507,7 +1551,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
      close(32)
   endif
 
-  print*, 'Init2c - hlat0,hlon0 = ',hlat0,hlon0
+  print*, 'init_relocated - hlat0,hlon0 = ',hlat0,hlon0
 
 ! Find "earth" coordinates of hurricane center
 
@@ -1538,12 +1582,12 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! Define radial weight coefficients
 
-     if (rad < 300.e3) then
+     if (rad < rad1) then
         wt1 = 1.
-     elseif (rad > 400.e3) then
+     elseif (rad > rad2) then
         wt1 = 0.
      else
-        wt1 = (400.e3 - rad) / 100.e3
+        wt1 = (rad2 - rad) / (rad2 - rad1)
      endif
 
 ! Vertical loop over T levels
@@ -1552,12 +1596,12 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! Apply height weight coefficient
 
-        if (zt(k) < 13000.) then
+        if (zt(k) < z1) then
            wt2 = wt1
-        elseif (zt(k) > 16000.) then
+        elseif (zt(k) > z2) then
            wt2 = 0.
         else
-           wt2 = wt1 * (16000. - zt(k)) / 3000.
+           wt2 = wt1 * (z2 - zt(k)) / (z2 - z1)
         endif
 
         wt2c = 1. - wt2
@@ -1667,7 +1711,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 ! Initialize VC field
 
 !----------------------------------------------------------------------
-  do j = 1,jtab_v(7)%jend(1); iv = jtab_v(7)%iv(j)  ! jend(1) = hardwired for mrl 1
+  do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)  ! jend(1) = hardwired for mrl 1
      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
  
@@ -1693,12 +1737,12 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! Define radial weight coefficients
 
-     if (rad < 300.e3) then
+     if (rad < rad1) then
         wt1 = 1.
-     elseif (rad > 400.e3) then
+     elseif (rad > rad2) then
         wt1 = 0.
      else
-        wt1 = (400.e3 - rad) / 100.e3
+        wt1 = (rad2 - rad) / (rad2 - rad1)
      endif
 
 ! Vertical loop over T levels
@@ -1707,12 +1751,12 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! Apply height weight coefficient
 
-        if (zt(k) < 13000.) then
+        if (zt(k) < z1) then
            wt2 = wt1
-        elseif (zt(k) > 16000.) then
+        elseif (zt(k) > z2) then
            wt2 = 0.
         else
-           wt2 = wt1 * (16000. - zt(k)) / 3000.
+           wt2 = wt1 * (z2 - zt(k)) / (z2 - z1)
         endif
 
         wt2c = 1. - wt2
@@ -1722,12 +1766,10 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
         vtan0 = .5 * (vtan(k,iw1) + vtan(k,iw2))
         vrad0 = .5 * (vrad(k,iw1) + vrad(k,iw2))
 
-        vc(k,iv) = vc(k,iv) * wt2c &
-                 + vtan0 * wt2 &
-                 * (vnx(iv) * vnxtan + vny(iv) * vnytan + vnz(iv) * vnztan) &
-                 + vrad0 &
-                 * (vnx(iv) * vnxrad + vny(iv) * vnyrad + vnz(iv) * vnzrad)
+        vreloc = vtan0 * (vnx(iv) * vnxtan + vny(iv) * vnytan + vnz(iv) * vnztan) &
+               + vrad0 * (vnx(iv) * vnxrad + vny(iv) * vnyrad + vnz(iv) * vnzrad)
 
+        vc(k,iv) = vc(k,iv) * wt2c + vreloc * wt2
         vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
 
      enddo
@@ -1764,7 +1806,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
   return
-  end subroutine hurricane_init2C
+  end subroutine hurricane_init_relocated
 
 !==============================================================================
 

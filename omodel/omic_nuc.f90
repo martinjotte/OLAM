@@ -66,7 +66,9 @@ Module ccnbin_coms
   integer :: nnuc       ! number of prognosed CCN + GCCN + IFN types
   integer :: nbins      ! total number of CCN bins, summed over all CCN types
   integer :: idust1 = 0 ! index for Fine Dust in ccntyp and nucx arrays
-  integer :: idust2 = 0 ! index for Coarse Dust in ccntyp and nucx arrays
+  integer :: idust2 = 0 ! index for Coarse Dust size 2 in ccntyp and nucx arrays
+  integer :: idust3 = 0 ! index for Coarse Dust size 3 in ccntyp and nucx arrays
+  integer :: idust4 = 0 ! index for Coarse Dust size 4 in ccntyp and nucx arrays
   integer :: isalt  = 0 ! index for sea salt (film mode) in ccntyp and nucx arrays
   integer :: igccnx = 0 ! index for GCCN in nucx arrays
   integer :: iifnx  = 0 ! index for IFN in nucx arrays
@@ -122,7 +124,8 @@ subroutine ccnbin_init()
 
   use ccnbin_coms, only: pi2, rdry, rvap, cp, &
                          rhow, tempkap, sfctension, xalphac, &
-                         nccntyp, nnuc, nbins, idust1, idust2, isalt, igccnx, iifnx, &
+                         nccntyp, nnuc, nbins, idust1, idust2, idust3, idust4, &
+                         isalt, igccnx, iifnx, &
                          ccntyp_name, nbins_ccntyp, ccntyp_dmin, ccntyp_dmax, &
                          ccntyp_dmed, ccntyp_dsig, ccntyp_kappa, ccntyp_alpha, &
                          bkappa, relcon_bin, drydiam, drydiam3, wetdiam099, &
@@ -162,6 +165,8 @@ subroutine ccnbin_init()
      nccntyp = 3
   elseif (iccn == 5) then
      nccntyp = 8
+  elseif (iccn == 6) then
+     nccntyp = 9
   endif
 
   allocate (ccntyp_name (nccntyp))
@@ -197,10 +202,12 @@ subroutine ccnbin_init()
   ! particle is assumed to be governed by the adsorption formula.
   ! ccntyp_dmin must not be less than 0.001 micron or greater than 100 microns.
 
-  ! Set zero default values for idust1, idust2, isalt, and ccntyp_alpha(:)
+  ! Set zero default values for idust1, idust2, idust3, idust4, isalt, and ccntyp_alpha(:)
 
   idust1 = 0
   idust2 = 0
+  idust3 = 0
+  idust4 = 0
   isalt = 0
   ccntyp_alpha(:) = 0.
 
@@ -244,6 +251,8 @@ subroutine ccnbin_init()
       rho_nucx   (1) = 2.5e3
 
      idust2 = 2
+     idust3 = 2
+     idust4 = 2
      ccntyp_name (2) = 'Coarse Dust'
      nbins_ccntyp(2) = 20
      ccntyp_dmed (2) = 2.0e-6
@@ -265,7 +274,10 @@ subroutine ccnbin_init()
 
      ! ICCN = 5 denotes a set of the following 8 CCN types that were selected
      ! for a study of aerosol impacts on tropical cyclones.  Source functions
-     ! for most of these CCN are derived from the GEOS-Chem model.
+     ! for all of these CCN are derived from the GEOS-Chem model, while standard
+     ! source functions in OLAM for dust and sea salt are applied as well.  This
+     ! is ORIGINAL set with 3 coarse dust modes combined, and SO4 not combined
+     ! with NO3_NH4.
 
      idust1 = 1
      ccntyp_name (1) = 'Fine Dust'
@@ -277,6 +289,8 @@ subroutine ccnbin_init()
       rho_nucx   (1) = 2.5e3
 
      idust2 = 2
+     idust3 = 2
+     idust4 = 2
      ccntyp_name (2) = 'Coarse Dust'
      nbins_ccntyp(2) = 20
      ccntyp_dmed (2) = 3.0e-6
@@ -334,6 +348,93 @@ subroutine ccnbin_init()
      diam_nucx (1,8) = 0.09e-6
       rho_nucx   (8) = 2.5e3 !?
 
+  elseif (iccn == 6) then
+
+     ! ICCN = 6 denotes a set of the following 9 CCN types that were selected
+     ! for a study of aerosol impacts on tropical cyclones.  Source functions
+     ! for all of these CCN are derived from the GEOS-Chem model, while standard
+     ! source functions in OLAM for dust and sea salt are applied as well.  This
+     ! is NEW set with 3 coarse dust modes treated as separate prognostic species,
+     ! and SO4 is combined with NO3_NH4 because they have the same mean diameter,
+     ! size spectral width, and kappa.
+
+     idust1 = 1
+     ccntyp_name (1) = 'Fine Dust'
+     nbins_ccntyp(1) = 20
+     ccntyp_dmed (1) = 0.3e-6 * 2. ! estimated, revise later
+     ccntyp_dsig (1) = 2.0
+     ccntyp_kappa(1) = 0.00
+     diam_nucx (1,1) = ccntyp_dmed(1)
+      rho_nucx   (1) = 2.5e3
+
+     idust2 = 2
+     ccntyp_name (2) = 'Coarse Dust 2'
+     nbins_ccntyp(2) = 20
+     ccntyp_dmed (2) = 1.2e-6 * 2. ! estimated, revise later
+     ccntyp_dsig (2) = 2.0
+     ccntyp_kappa(2) = 0.00
+     diam_nucx (1,2) = ccntyp_dmed(2)
+      rho_nucx   (2) = 2.65e3
+
+     idust3 = 3
+     ccntyp_name (3) = 'Coarse Dust 3'
+     nbins_ccntyp(3) = 20
+     ccntyp_dmed (3) = 2.2e-6 * 2. ! estimated, revise later
+     ccntyp_dsig (3) = 2.0
+     ccntyp_kappa(3) = 0.00
+     diam_nucx (1,3) = ccntyp_dmed(3)
+      rho_nucx   (3) = 2.65e3
+
+     idust4 = 4
+     ccntyp_name (4) = 'Coarse Dust 4'
+     nbins_ccntyp(4) = 20
+     ccntyp_dmed (4) = 4.0e-6 * 2.  ! estimated, revise later
+     ccntyp_dsig (4) = 2.0
+     ccntyp_kappa(4) = 0.00
+     diam_nucx (1,4) = ccntyp_dmed(4)
+      rho_nucx   (4) = 2.65e3
+
+     isalt = 5
+     ccntyp_name (5) = 'Sea Salt'
+     nbins_ccntyp(5) = 20
+     ccntyp_dmed (5) = 0.15e-6 * 2.
+     ccntyp_dsig (5) = 1.5
+     ccntyp_kappa(5) = 1.20
+     diam_nucx (1,5) = ccntyp_dmed(5)
+      rho_nucx   (5) = 2.165e3
+
+     ccntyp_name (6) = 'SO4_NO3_NH4'
+     nbins_ccntyp(6) = 20
+     ccntyp_dmed (6) = 0.11e-6 * 2.
+     ccntyp_dsig (6) = 1.6
+     ccntyp_kappa(6) = 1.0
+     diam_nucx (1,6) = ccntyp_dmed(6)
+      rho_nucx   (6) = 2.5e3 !?
+
+     ccntyp_name (7) = 'Black Carbon' ! Combined Hydrophilic and Hydrophobic carbon from GEOS-Chem
+     nbins_ccntyp(7) = 20
+     ccntyp_dmed (7) = 0.02e-6 * 2.
+     ccntyp_dsig (7) = 1.6
+     ccntyp_kappa(7) = 0.00
+     diam_nucx (1,7) = ccntyp_dmed(7)
+      rho_nucx   (7) = 2.5e3 !?
+
+     ccntyp_name (8) = 'Hydrophilic Organic Carbon'
+     nbins_ccntyp(8) = 20
+     ccntyp_dmed (8) = 0.09e-6 * 2.
+     ccntyp_dsig (8) = 1.6
+     ccntyp_kappa(8) = 0.10
+     diam_nucx (1,8) = ccntyp_dmed(8)
+      rho_nucx   (8) = 2.5e3 !?
+
+     ccntyp_name (9) = 'Hydrophobic Organic Carbon'
+     nbins_ccntyp(9) = 20
+     ccntyp_dmed (9) = 0.09e-6 * 2.
+     ccntyp_dsig (9) = 1.6
+     ccntyp_kappa(9) = 0.01
+     diam_nucx (1,9) = ccntyp_dmed(9)
+      rho_nucx   (9) = 2.5e3 !?
+
   endif
 
   if (iccn >= 2) bkappa_nucx(1:nccntyp) = ccntyp_kappa(1:nccntyp)
@@ -356,17 +457,15 @@ subroutine ccnbin_init()
 
   if (nbins < 1) return
 
-  ! The minimum and maximum bin sizes, ccntyp_dmin and ccntyp_dmax, are set to
-  ! ccntyp_dmed/diamfac and ccntyp*diamfac, respectively, where diamfac is 
-  ! given by the following empirical formulas.  Using 20 bins, this results in
-  ! the first and last bins each holding about 0.5% or less of the population.
-
-  ! Limit ccntyp_dmax to values no larger than 2 microns since GCCN are treated
-  ! separately in the model (as the GCCN category).  However, allow dust2 category
-  ! to have larger (unlimited) sizes to represent large mineral dust without 
-  ! significant solute content.
+  ! Loop over active CCN types
 
   do ic = 1, nccntyp
+
+     ! The minimum and maximum bin sizes, ccntyp_dmin and ccntyp_dmax, are set to
+     ! ccntyp_dmed/diamfac and ccntyp*diamfac, respectively, where diamfac is 
+     ! given by the following empirical formulas.  Using 20 bins, this results in
+     ! the first and last bins each holding about 0.5% or less of the population.
+
      if     (ccntyp_dsig(ic) < 2.0) then
         diamfac =   0.8 +  5.2 * (ccntyp_dsig(ic) - 1.0)
      elseif (ccntyp_dsig(ic) < 3.0) then
@@ -386,9 +485,17 @@ subroutine ccnbin_init()
      ccntyp_dmin(ic) = ccntyp_dmed(ic) / diamfac
      ccntyp_dmax(ic) = ccntyp_dmed(ic) * diamfac
 
-     if (ic /= idust2) then
-        ccntyp_dmax(ic) = min(ccntyp_dmax(ic), 2.0e-6)
-     endif
+     ! Limit ccntyp_dmax to values no larger than 2 microns since GCCN are treated
+     ! separately in the model (as the GCCN category).  However, allow dust2 category
+     ! to have larger (unlimited) sizes to represent large mineral dust without 
+     ! significant solute content.
+
+     ! DISABLE THIS ACTION FOR NOW...EXPLORING ALTERNATIVE (AND MORE CONTROLLED)
+     ! SOURCE FUNCTION FOR GCCN.
+
+     ! DISABLED  if (ic /= idust2) then
+     ! DISABLED    ccntyp_dmax(ic) = min(ccntyp_dmax(ic), 2.0e-6)
+     ! DISABLED  endif
 
      print*, 'diamfac ',ic,diamfac,ccntyp_dsig(ic)
 
@@ -486,6 +593,12 @@ subroutine ccnbin_init()
      elseif (ic == idust2) then
         ccntyp_alpha(ic) = tot_ifn / tot
         print*, 'ccntyp_alpha for idust2 ',ic,ccntyp_alpha(ic)
+     elseif (ic == idust3) then
+        ccntyp_alpha(ic) = tot_ifn / tot
+        print*, 'ccntyp_alpha for idust3 ',ic,ccntyp_alpha(ic)
+     elseif (ic == idust4) then
+        ccntyp_alpha(ic) = tot_ifn / tot
+        print*, 'ccntyp_alpha for idust4 ',ic,ccntyp_alpha(ic)
      endif
 
      ! Rescale distribution to compensate for any accumulated errors

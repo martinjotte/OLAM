@@ -962,7 +962,7 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
         ktf(iw) = 0
 
         if (op%stagpt == 'T' .or. op%stagpt == 'W') then
-           kc(iw) = 2 ! not actually needed
+           kc(iw) = lpw(iw) ! not usually needed (except for 'PSFC', so that 's' is not needed)
            wtbot(iw) = 1.
            wttop(iw) = 0.
         endif
