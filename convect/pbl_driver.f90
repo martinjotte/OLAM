@@ -33,14 +33,14 @@
 
 subroutine pbl_driver(mrl,rhot)
 
-  use mem_grid,       only: mza, mwa, lpw, lsw, volti
-  use misc_coms,      only: idiffk, dtlm
+  use mem_grid,       only: mza, mwa, lpw, lsw, volti, xew, yew, zew
+  use misc_coms,      only: idiffk, dtlm, mdomain
   use mem_tend,       only: thilt, sh_wt
   use mem_basic,      only: vxe, vye, vze, thil, theta, tair, sh_w, sh_v, rho
-  use mem_turb,       only: vkm, vkh, sxfer_rk, ustar, wstar, wtv0, &
+  use mem_turb,       only: vkm, vkh, sxfer_rk, ustar, wstar, wtv0, ue, ve, &
                             frac_sfc, pblh, kpblh, fqtpbl, fthpbl, moli
-  use consts_coms,    only: grav, vonk, eps_virt, alvlocp, r8
-  use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
+  use consts_coms,    only: grav, vonk, eps_virt, alvlocp, r8, eradi
+  use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog, mrls
   use mem_radiate,    only: pbl_cld_forc
   use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx, acm2_scalars, acm2_momentum
   use smagorinsky,    only: turb_k
@@ -55,7 +55,39 @@ subroutine pbl_driver(mrl,rhot)
 
   real    :: qc(mza)
   real    :: thlv(mza)
-  real    :: dtli
+  real    :: dtli, raxis, raxisi
+
+  ! Compute zonal and meridional wind components
+
+  if (any(idiffk(1:mrls) == 3)) then
+
+     !$omp do private(iw,raxis,raxisi,k)
+     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+        raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+        raxisi = 1.0 / max(raxis, 1.e-12)
+
+        if (mdomain <= 1 .and. raxis > 1.e3) then
+
+           do k = lpw(iw), mza
+              ue(k,iw) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
+              ve(k,iw) = vze(k,iw) * raxis * eradi  &
+                       - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) &
+                         * zew(iw) * raxisi * eradi
+           enddo
+
+        else
+
+           do k = lpw(iw), mza
+              ue(k,iw) = vxe(k,iw)
+              ve(k,iw) = vye(k,iw)
+           enddo
+
+        endif
+
+     enddo
+     !$omp end parallel do
+  endif
 
 ! Loop over all W/T points where PBL parameterization may be done
 
@@ -443,13 +475,13 @@ end subroutine apply_surface_fluxes
 
 subroutine apply_momentum_fluxes( iw )
 
-  use mem_grid,    only: lpw, lsw, volti, arw, dzim
+  use mem_grid,    only: lpw, lsw, volti, arw, dzt_bot
   use consts_coms, only: r8
   use misc_coms,   only: dtlm
   use mem_tend,    only: vmxet, vmyet, vmzet
   use mem_basic,   only: vxe, vye, vze
   use mem_ijtabs,  only: itab_w
-  use mem_turb,    only: vkm_sfc, sxfer_tk
+  use mem_turb,    only: vkm_sfc
 
   implicit none
 
@@ -463,7 +495,7 @@ subroutine apply_momentum_fluxes( iw )
   do k = lpw(iw), lpw(iw) + lsw(iw) - 1
      ks = k - lpw(iw) + 1
 
-     fact = 2.0 * vkm_sfc(ks,iw) * dzim(k-1) * (arw(k,iw) - arw(k-1,iw)) * volti(k,iw)
+     fact = dzt_bot(k) * vkm_sfc(ks,iw) * (arw(k,iw) - arw(k-1,iw)) * volti(k,iw)
 
      vmxet(k,iw) = vmxet(k,iw) - fact * vxe(k,iw)
      vmyet(k,iw) = vmyet(k,iw) - fact * vye(k,iw)

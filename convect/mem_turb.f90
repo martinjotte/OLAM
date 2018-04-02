@@ -33,46 +33,48 @@
 
 Module mem_turb
 
-  real,    allocatable, target :: tkep    (:,:)
-  real,    allocatable, target :: epsp    (:,:)
-  real,    allocatable, target :: vkm     (:,:)
-  real,    allocatable, target :: vkh     (:,:)
-  real,    allocatable, target :: sxfer_tk(:,:)
-  real,    allocatable, target :: sxfer_rk(:,:)
-  real,    allocatable, target :: vkm_sfc (:,:)
+  real,    allocatable :: tkep    (:,:)
+  real,    allocatable :: epsp    (:,:)
+  real,    allocatable :: vkm     (:,:)
+  real,    allocatable :: vkh     (:,:)
+  real,    allocatable :: sxfer_tk(:,:)
+  real,    allocatable :: sxfer_rk(:,:)
+  real,    allocatable :: vkm_sfc (:,:)
 
-  real,    allocatable, target :: sfluxt(:)
-  real,    allocatable, target :: sfluxr(:)
-  real,    allocatable, target :: ustar (:)
-  real,    allocatable, target :: wstar (:)
-  real,    allocatable, target :: moli  (:)
-  real,    allocatable, target :: wtv0  (:)
-  real,    allocatable, target :: pblh  (:)
-  integer, allocatable, target :: kpblh (:)
+  real,    allocatable :: sfluxt(:)
+  real,    allocatable :: sfluxr(:)
+  real,    allocatable :: ustar (:)
+  real,    allocatable :: wstar (:)
+  real,    allocatable :: moli  (:)
+  real,    allocatable :: wtv0  (:)
+  real,    allocatable :: pblh  (:)
+  integer, allocatable :: kpblh (:)
 
-  real,    allocatable, target :: fthpbl(:,:)
-  real,    allocatable, target :: fqtpbl(:,:)
+  real,    allocatable :: fthpbl(:,:)
+  real,    allocatable :: fqtpbl(:,:)
 
-  real,    allocatable         :: frac_land  (:)
-  real,    allocatable         :: frac_sea   (:)
-  real,    allocatable         :: frac_lake  (:)
-  real,    allocatable         :: frac_urb   (:)
-  real,    allocatable         :: frac_sfc (:,:)
-  real,    allocatable         :: frac_sfck(:,:)
+  real,    allocatable :: frac_land  (:)
+  real,    allocatable :: frac_sea   (:)
+  real,    allocatable :: frac_lake  (:)
+  real,    allocatable :: frac_urb   (:)
+  real,    allocatable :: frac_sfc (:,:)
+  real,    allocatable :: frac_sfck(:,:)
 
-  real,    allocatable         :: akmodx(:,:)
-  real,    allocatable         :: akhodx(:,:)
+  real,    allocatable :: akmodx(:,:)
+  real,    allocatable :: akhodx(:,:)
 
+  real,    allocatable :: ue(:,:)
+  real,    allocatable :: ve(:,:)
 Contains
 
 !===============================================================================
 
   subroutine alloc_turb(mza, mwa, mva, nsw_max, idiffk, mrls)
 
-    use misc_coms, only: rinit
+    use misc_coms,  only: rinit
     implicit none
 
-    integer, intent(in) :: mza, mwa, mva, nsw_max, idiffk(:), mrls
+    integer, intent(in) :: mza, mwa, mva, nsw_max, mrls, idiffk(mrls)
 
 !   Allocate arrays based on options (if necessary)
 !   Initialize arrays to zero
@@ -105,6 +107,11 @@ Contains
     allocate (akmodx(mza,mva)) ; akmodx    = 0.0
     allocate (akhodx(mza,mva)) ; akhodx    = 0.0
 
+    if (any(idiffk(1:mrls) == 3)) then
+       allocate(ue(mza,mwa)) ; ue = rinit
+       allocate(ve(mza,mwa)) ; ve = rinit
+    endif
+
   end subroutine alloc_turb
   
   !===============================================================================
@@ -130,6 +137,8 @@ Contains
     if (allocated(fqtpbl))  deallocate (fqtpbl)
     if (allocated(akmodx))  deallocate (akmodx)
     if (allocated(akhodx))  deallocate (akhodx)
+    if (allocated(ue))      deallocate (ue)
+    if (allocated(ve))      deallocate (ve)
 
   end subroutine dealloc_turb
 
