@@ -40,56 +40,56 @@ Module mem_radiate
   real :: suny    ! y-component of unit vector pointing to sun [m]
   real :: sunz    ! z-component of unit vector pointing to sun [m]
 
-  real, allocatable, target :: fthrd_sw    (:,:)
-  real, allocatable, target :: fthrd_lw    (:,:)
-  real, allocatable, target :: cloud_frac  (:,:)
+  real, allocatable :: fthrd_sw    (:,:)
+  real, allocatable :: fthrd_lw    (:,:)
+  real, allocatable :: cloud_frac  (:,:)
 
-  real, allocatable, target :: rshort        (:)
-  real, allocatable, target :: rlong         (:)
-  real, allocatable, target :: rlongup       (:)
-  real, allocatable, target :: rshort_top    (:)
-  real, allocatable, target :: rshortup_top  (:)
-  real, allocatable, target :: rlongup_top   (:)
-  real, allocatable, target :: albedt        (:)
-  real, allocatable         :: albedt_beam   (:)
-  real, allocatable         :: albedt_diffuse(:)
-  real, allocatable, target :: cosz          (:)
-  real, allocatable         :: rlong_albedo  (:)
-  real, allocatable         :: rshort_diffuse(:)
-  real, allocatable         :: par           (:)
-  real, allocatable         :: par_diffuse   (:)
-  real, allocatable         :: ppfd          (:)
-  real, allocatable         :: ppfd_diffuse  (:)
-  real, allocatable         :: uva           (:)
-  real, allocatable         :: uvb           (:)
-  real, allocatable         :: uvc           (:)
-  real, allocatable         :: pbl_cld_forc  (:)
+  real, allocatable :: rshort        (:)
+  real, allocatable :: rlong         (:)
+  real, allocatable :: rlongup       (:)
+  real, allocatable :: rshort_top    (:)
+  real, allocatable :: rshortup_top  (:)
+  real, allocatable :: rlongup_top   (:)
+  real, allocatable :: albedt        (:)
+  real, allocatable :: albedt_beam   (:)
+  real, allocatable :: albedt_diffuse(:)
+  real, allocatable :: cosz          (:)
+  real, allocatable :: rlong_albedo  (:)
+  real, allocatable :: rshort_diffuse(:)
+  real, allocatable :: par           (:)
+  real, allocatable :: par_diffuse   (:)
+  real, allocatable :: ppfd          (:)
+  real, allocatable :: ppfd_diffuse  (:)
+  real, allocatable :: uva           (:)
+  real, allocatable :: uvb           (:)
+  real, allocatable :: uvc           (:)
+  real, allocatable :: pbl_cld_forc  (:)
 
   ! arrays for transferring radiation quantities
   ! to surface with shaved cells
 
-  real, allocatable         :: rshort_ks        (:,:)
-  real, allocatable         :: rlong_ks         (:,:)
-  real, allocatable         :: rshort_diffuse_ks(:,:)
-! real, allocatable         :: par_ks           (:,:)
-! real, allocatable         :: par_diffuse_ks   (:,:)
-  real, allocatable, target :: ppfd_ks          (:,:)
-  real, allocatable, target :: ppfd_diffuse_ks  (:,:)
+  real, allocatable :: rshort_ks        (:,:)
+  real, allocatable :: rlong_ks         (:,:)
+  real, allocatable :: rshort_diffuse_ks(:,:)
+! real, allocatable :: par_ks           (:,:)
+! real, allocatable :: par_diffuse_ks   (:,:)
+  real, allocatable :: ppfd_ks          (:,:)
+  real, allocatable :: ppfd_diffuse_ks  (:,:)
 
   ! clear-sky values
 
-  real, allocatable, target :: rshort_clr      (:)
-  real, allocatable, target :: rshortup_clr    (:)
-  real, allocatable, target :: rshort_top_clr  (:)
-  real, allocatable, target :: rshortup_top_clr(:)
+  real, allocatable :: rshort_clr      (:)
+  real, allocatable :: rshortup_clr    (:)
+  real, allocatable :: rshort_top_clr  (:)
+  real, allocatable :: rshortup_top_clr(:)
 
-  real, allocatable, target :: rlong_clr       (:)
-  real, allocatable, target :: rlongup_clr     (:)
-  real, allocatable, target :: rlongup_top_clr (:)
+  real, allocatable :: rlong_clr       (:)
+  real, allocatable :: rlongup_clr     (:)
+  real, allocatable :: rlongup_top_clr (:)
 
 ! RRTMg random cloud overlap seed
 
-  integer, allocatable, target :: mcica_seed(:,:)
+  integer, allocatable :: mcica_seed(:,:)
 
 ! These are used for adding extra levels at the top with the Mclatchy soundings
 

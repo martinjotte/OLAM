@@ -171,7 +171,7 @@ Module mem_sea
 
    End Type sea_vars
 
-   type (sea_vars), target :: sea
+   type (sea_vars) :: sea
 
 Contains
 

@@ -35,22 +35,24 @@ Module mem_cuparm
 
    use consts_coms, only: r8
 
-   real,    allocatable, target :: thsrc (:,:)
-   real,    allocatable, target :: rtsrc (:,:)
-   real,    allocatable, target :: rdsrc (:,:)
-   real(r8),allocatable, target :: aconpr  (:)
-   real,    allocatable, target :: conprr  (:)
-   real,    allocatable, target :: vxsrc (:,:)
-   real,    allocatable, target :: vysrc (:,:)
-   real,    allocatable, target :: vzsrc (:,:)
-   real,    allocatable, target :: qwcon (:,:)
+   real,    allocatable :: thsrc (:,:) ! heat / cp  tend ( rho X temp )
+   real,    allocatable :: rtsrc (:,:) ! water mass tend ( rho X sh_w )
+   real,    allocatable :: rdsrc (:,:) ! density tend (water loss from precip)
+   real(r8),allocatable :: aconpr  (:)
+   real,    allocatable :: conprr  (:)
+   real,    allocatable :: vxsrc (:,:) ! xe-momentum tend (rho X vxe )
+   real,    allocatable :: vysrc (:,:) ! ye-momentum tend (rho X vye )
+   real,    allocatable :: vzsrc (:,:) ! ze-momentum tend (rho X vze )
+   real,    allocatable :: qwcon (:,:) ! convective cloud water
 
-   real,    allocatable, target :: cbmf  (:)
-   real,    allocatable, target :: cddf  (:)
-   integer, allocatable, target :: kcutop(:)
-   integer, allocatable, target :: kddtop(:)
-   integer, allocatable, target :: kcubot(:)
-   integer, allocatable, target :: iactcu(:)
+   real,    allocatable :: cbmf    (:) ! updraft mass flux
+   real,    allocatable :: cddf    (:) ! downdraft mass flux
+   integer, allocatable :: kcutop  (:)
+   integer, allocatable :: kddtop  (:)
+   integer, allocatable :: kcubot  (:)
+   integer, allocatable :: iactcu  (:)
+
+   private :: r8
 
 Contains
 

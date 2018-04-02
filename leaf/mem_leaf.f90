@@ -160,7 +160,7 @@ Module mem_leaf
 
    End Type land_vars
 
-   type (land_vars), target :: land
+   type (land_vars) :: land
 
 Contains
 
