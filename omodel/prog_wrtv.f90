@@ -266,27 +266,12 @@ subroutine prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
 
      call vel_t3d_hex(mrl, vcf, wc, vxef, vyef, vzef, vxe2, vye2, vze2)
 
-     ! MPI send of VXE, VYE, VZE
-
-     if (iparallel == 1) then
-        call mpi_send_w(mrl, rvara1=vxef, rvara2=vyef, rvara3=vzef)
-     endif
-
      ! Diagnose advective donor point locations for all primary W faces
-     ! No parallel communication is necessary to compute this
 
      call donorpointw(1, mrl, wc, vxef, vyef, vzef, kdepw)
 
-     ! Finish MPI recv of VXE, VYE, VZE and do a LBC copy
-
-     if (iparallel == 1) then
-        call mpi_recv_w(mrl, rvara1=vxef, rvara2=vyef, rvara3=vzef)
-     endif
-
-     call lbcopy_w(mrl, a1=vxef, a2=vyef, a3=vzef)
-
      ! Diagnose advective donor point locations for the V faces surrounding all
-     ! primary W points. Communication of velocities must have been completed
+     ! primary W points
 
      call donorpointv(1, mrl, vcf, vxef, vyef, vzef, iwdepv)
 

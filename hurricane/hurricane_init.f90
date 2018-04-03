@@ -1097,14 +1097,6 @@ Contains
 
   call diagvel_t3d(mrl)
 
-  if (iparallel == 1) then
-     call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
-     call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
-  endif
-
-  call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
-
-  return
   end subroutine hurricane_add_pert
 
 !==================================================================================

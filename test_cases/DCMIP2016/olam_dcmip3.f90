@@ -706,7 +706,7 @@ end subroutine dcmip_save_initfields
 
 !==========================================================================
 
-subroutine olam_dcmip_prescribedflow(time0,vmsc,wmsc,rho_old)
+subroutine olam_dcmip_prescribedflow(time0,vmsc,wmsc,rho_old,vxesc,vyesc,vzesc )
 
 use mem_basic,  only: vc, vmc, wc, wmc, rho, thil, theta, press, sh_w, sh_v, &
                       vxe, vye, vze
@@ -714,14 +714,14 @@ use mem_ijtabs, only: itab_v, jtab_v, jtab_w
 use mem_grid,   only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
                       glatw, glonw, lpv, zm, glatv, glonv, xew, yew, zew, dzt
 use mem_addsc,  only: addsc
-use consts_coms, only: p00, rocp, erad, pio180, p00i
+use consts_coms,only: p00, rocp, erad, pio180, p00i
 use misc_coms,  only: dtlong
+use vel_t3d,    only: diagvel_t3d, diagvel_t3d_init
+use oname_coms, only: nl
 
 use dcmip_initial_conditions_test_1_2_3, only: &
    test1_advection_deformation, &
    test1_advection_hadley
-
-use oname_coms, only: nl
 
 implicit none
 
@@ -735,6 +735,8 @@ real(8) :: lonrad,latrad,p,z,t,phis,ps,rho0,q,q1,q2,q3,q4
 real(8) :: raxis, u01d, v01d, uv01dx, uv01dy, uv01dz, uv01dr
 
 real(8) :: zm0, zt0, rhom0, rhot0, u0, v0, wm0, wt0
+
+real, intent(out) :: vxesc(mza,mwa), vyesc(mza,mwa), vzesc(mza,mwa)
 
 integer :: mrl,j,iw,k,iv,iw1,iw2,zcoords,test,ka
 
@@ -869,6 +871,17 @@ do iv = 2,mva
    enddo
 enddo
 
+! Compute Earth-Cartesian velocities
+
+call diagvel_t3d_init(1)
+call diagvel_t3d     (1)
+
+! Set scalar earth-cartesian velocities
+
+vxesc = vxe
+vyesc = vye
+vzesc = vze
+
 end subroutine olam_dcmip_prescribedflow
 
 !==============================================================================
@@ -879,23 +892,18 @@ subroutine olam_dcmip2016_phys(rhot)
 ! calls subroutine dcmip2016_physics that provides tendencies or updates to model
 ! prognostic fields for DCMIP2016 test cases.
 
-use mem_basic,  only: vc, vmc, wc, wmc, rho, thil, theta, press, &
-                      sh_w, sh_v, vxe, vye, vze
-use mem_ijtabs, only: itab_v, jtab_v, jtab_w, jtw_prog, jtv_prog
-use mem_grid,   only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
-                      glatw, glonw, lpv, zm, glatv, glonv, xew, yew, zew, dzt, &
-                      gravm, gravt
-use mem_addsc,  only: addsc
+use mem_basic,   only: vc, vmc, wc, wmc, rho, thil, theta, press, &
+                       sh_w, sh_v, vxe, vye, vze
+use mem_ijtabs,  only: itab_v, jtab_v, jtab_w, jtw_prog, jtv_prog
+use mem_grid,    only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
+                       glatw, glonw, lpv, zm, glatv, glonv, xew, yew, zew, dzt, &
+                       gravm, gravt
+use mem_addsc,   only: addsc
 use consts_coms, only: r8, p00, rocp, erad, pio180, p00i
-use misc_coms,  only: dtlong, time8p, dtlm, io6, iparallel
-use mem_micro,  only: pcprr, accpr, sh_c, sh_r
-
-use mem_tend,   only: thilt, sh_wt, sh_ct, sh_rt, vmxet, vmyet, vmzet
-
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
-                        mpi_send_v, mpi_recv_v 
-
-use oname_coms, only: nl
+use misc_coms,   only: dtlong, time8p, dtlm, io6, iparallel
+use mem_micro,   only: pcprr, accpr, sh_c, sh_r
+use mem_tend,    only: thilt, sh_wt, sh_ct, sh_rt, vmxet, vmyet, vmzet
+use oname_coms,  only: nl
 
 implicit none
 

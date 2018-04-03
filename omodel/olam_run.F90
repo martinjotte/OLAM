@@ -377,14 +377,7 @@ subroutine olam_run(name_name)
   if (runtype == 'INITIAL') then
      mrl = 1
      call diagvel_t3d_init(mrl)
-     call diagvel_t3d(mrl)
-
-     if (iparallel == 1) then
-        call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
-        call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
-     endif
-
-     call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
+     call diagvel_t3d     (mrl)
   endif
 
   !----------------------------------------------------------------------
@@ -538,13 +531,6 @@ subroutine olam_run(name_name)
         mrl = 1
         call diagvel_t3d(mrl)
 
-        if (iparallel == 1) then
-           call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
-           call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
-        endif
-
-        call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
-
         ! If month-average or day-average plots are specified, do them when
         ! iplt_file = 1 and then exit iplt_file do loop.  IT IS ASSUMED THAT
         ! MONTH-AVERAGE AND DAY-AVERAGE FILES ARE SINGLE NON-PARALLEL FILES.
@@ -622,13 +608,6 @@ subroutine olam_run(name_name)
 
      mrl = 1
      call diagvel_t3d(mrl)
-
-     if (iparallel == 1) then
-        call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
-        call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
-     endif
-
-     call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
      ! reset convective variables if we have turned off convection
 

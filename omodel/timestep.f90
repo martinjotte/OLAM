@@ -34,7 +34,7 @@ subroutine timestep()
 
 use misc_coms,   only: io6, time8, time_istp8, time_istp8p, time_bias, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, dtlm, &
-                       iparallel, s1900_init, s1900_sim, do_chem
+                       iparallel, isubdomain, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag, io3
 use mem_grid,    only: mza, mva, mwa
@@ -48,14 +48,13 @@ use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
-use vel_t3d,     only: diagvel_t3d
 use var_tables,  only: num_scalar, scalar_tab
 use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
 use wrtv_mem,    only: prog_wrtv
 use mem_turb,    only: vkm, vkh
-use check_nan,   only: check_nans
+use check_nan,   only: check_nans, compute_mass_sums
 
 implicit none
 
@@ -70,6 +69,8 @@ real     :: vxesc      (mza,mwa)
 real     :: vyesc      (mza,mwa)
 real     :: vzesc      (mza,mwa)
 
+real(r8) :: time0
+
 ! +----------------------------------------------------------------------------+
 ! |  Each call to subroutine timestep drives all steps in advancing by dtlong  |
 ! +----------------------------------------------------------------------------+
@@ -78,13 +79,22 @@ if (time_istp8 < 1.e-3_r8) then
    !   call bubble()
 
    ! For shallow water test cases, compute error norms at initial time
-   ! if run is not parallel
+   ! if this compute process is full domain
 
-   !   if (iparallel == 0) then
-         if (nl%test_case == 2 .or. nl%test_case == 5) then
-            call diagn_global_swtc()
-        endif
-   !   endif
+   if (nl%test_case == 2 .or. nl%test_case == 5) then
+      if (isubdomain == 0) then
+         call diagn_global_swtc()
+      endif
+   endif
+
+   ! For ncar dcmip test cases, compute error norms at initial time
+   ! if this compute process is full domain
+
+   if (nl%test_case >= 10 .and. nl%test_case < 900) then
+      if (isubdomain == 0) then
+         call diagn_global_dcmip()
+      endif
+   endif
 endif
 
 do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
@@ -179,7 +189,77 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    ! call check_nans(11,rvara1=rhot,rvara2=alpha_press)
 
+   ! Call olam_dcmip_phys, which is the OLAM interface to DCMIP auxiliary
+   ! physics subroutine that provides tendencies to some model fields
+
+   mrl = mrl_begl(istp)
+   if (mrl > 0) then
+      !--------------------------------------
+      if (nl%test_case ==  42 .or. &
+          nl%test_case ==  43 .or. &
+          nl%test_case == 110 .or. &
+          nl%test_case == 111 .or. &
+          nl%test_case == 112 .or. &
+          nl%test_case == 113 .or. &
+          nl%test_case == 114 .or. &
+          nl%test_case == 121 .or. &
+          nl%test_case == 122 .or. &
+          nl%test_case == 131) then
+      !--------------------------------------
+         call olam_dcmip2016_phys(rhot)
+      endif
+   endif
+
+   ! Call olam_dcmip_terminator, which is the OLAM interface to DCMIP auxiliary
+   ! chemistry subroutine terminator that provides chemical tendencies.
+
+   mrl = mrl_begl(istp)
+   if (mrl > 0) then
+      !--------------------------------------
+      if (nl%test_case == 110 .or. &
+          nl%test_case == 111 .or. &
+          nl%test_case == 112 .or. &
+          nl%test_case == 113 .or. &
+          nl%test_case == 114) then
+      !--------------------------------------
+         call olam_dcmip_terminator()
+      endif
+   endif
+
+   ! call check_nans(11,rvara1=rhot,rvara2=alpha_press)
+
+   !    write(*,'(a)') ' calling mass_sums2 '
+   !    call compute_mass_sums()
+
+   ! Bypass call to thiltend_long if using prescribed flow for DCMIP tests
+   !--------------------------------------
+   if (nl%test_case == 11 .or. &
+       nl%test_case == 12 .or. &
+       nl%test_case == 13) go to 33
+   !--------------------------------------
+
    call prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
+
+   33 continue
+
+   !    write(*,'(a)') ' calling mass_sums3 '
+   !    call compute_mass_sums()
+
+   !--------------------------------------
+   ! Get flow update if using DCMIP prescribed flow
+
+   if (nl%test_case == 11 .or. &
+       nl%test_case == 12) then
+
+      ! Set time0 to half-forward time (of grid-1 short timestep)
+      ! for time-centered advective tendencies
+
+      time0 = time8 + .5 * dtsm(1)
+
+      call olam_dcmip_prescribedflow(time0,vmsc,wmsc,rho_old,vxesc,vyesc,vzesc)
+
+   endif
+   !--------------------------------------
 
    ! call check_nans(12,rvara1=rhot,rvara2=alpha_press)
 
@@ -194,7 +274,16 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       ! call check_pos(1)
    endif
 
+   ! Bypass call to timeavg_momsc if using prescribed flow for DCMIP tests
+   !--------------------------------------
+   if (nl%test_case == 11 .or. &
+       nl%test_case == 12 .or. &
+       nl%test_case == 13) go to 34
+   !--------------------------------------
+
    call timeavg_momsc(vmsc,wmsc,vxesc,vyesc,vzesc)
+
+   34 continue
 
    ! call check_nans(13,rvara1=rhot,rvara2=alpha_press)
 
@@ -215,9 +304,31 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    ! call check_nans(15,rvara1=rhot,rvara2=alpha_press)
 
+   ! Special diagnosis of water vapor for DCMIP tests; thil is dry theta in that case
+   !---------------------------------------------------------------------------------
+   if (nl%test_case ==  11 .or. &
+       nl%test_case ==  12 .or. &
+       nl%test_case ==  13 .or. &
+       nl%test_case == 110 .or. &
+       nl%test_case == 111 .or. &
+       nl%test_case == 112 .or. &
+       nl%test_case == 113 .or. &
+       nl%test_case == 114 .or. &
+       nl%test_case == 121 .or. &
+       nl%test_case == 122 .or. &
+       nl%test_case == 131) then
+
+      call thermo_dcmip()
+
+      go to 35
+   endif
+   !--------------------------------------
+
    if (miclevel /= 3) then
       call thermo()
    endif
+
+   35 continue
 
    ! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
    !if (mod(time8,op%frqplt) < dtlm(1) .and. istp == nstp+1000) then
@@ -314,20 +425,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
    call lbcopy_v(1, vmc=vmc, vc=vc)
 
-   ! Compute earth cartesian velocities
-
-   if (mrl > 0) then
-      call diagvel_t3d(mrl)
-   endif
-
-   ! MPI send/recv of vxe, vye, vze
-
-   if (iparallel == 1) then
-      call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
-      call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
-   endif
-   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
-
    ! call check_nans(21,rvara1=rhot,rvara2=alpha_press)
 
    if (leafstep(istp) > 0) then
@@ -351,6 +448,15 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    ! endif
 
 enddo
+
+! For ncar dcmip test cases, compute error norms 
+! if this compute process is full domain
+
+if (nl%test_case >= 10) then
+   if (isubdomain == 0) then
+      call diagn_global_dcmip()
+   endif
+endif
 
 end subroutine timestep
 

@@ -50,10 +50,12 @@ end subroutine diagvel_t3d
 
 subroutine vel_t3d_hex(mrl, vs, ws, vxe, vye, vze, vxe2, vye2, vze2)
 
-use mem_ijtabs, only: jtab_w, itab_v, itab_w, jtw_prog
-use mem_grid,   only: mza, lpw, lve2, lpv, vnx, vny, vnz, wnx, wny, wnz, &
-                      mva, mwa, nve2_max
-use misc_coms,  only: io6
+use mem_ijtabs,   only: jtab_w, itab_v, itab_w, jtw_prog
+use mem_grid,     only: mza, lpw, lve2, lpv, vnx, vny, vnz, wnx, wny, wnz, &
+                        mva, mwa, nve2_max
+use misc_coms,    only: iparallel
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
+use obnd,         only: lbcopy_w
 
 implicit none
 
@@ -135,6 +137,14 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 enddo
 !$omp end parallel do
 
+! Parallel send-recieve of Earth Cartesian velocities
+
+if (iparallel == 1) then
+   call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
+   call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
+endif
+call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
+
 end subroutine vel_t3d_hex
 
 !===============================================================================
@@ -144,7 +154,6 @@ subroutine diagvel_t3d_init(mrl)
 use mem_basic,  only: vc, vxe2, vye2, vze2
 use mem_ijtabs, only: jtab_w, itab_v, itab_w, jtw_prog
 use mem_grid,   only: lpw, lve2, lpv
-use misc_coms,  only: io6
 
 implicit none
 
