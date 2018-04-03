@@ -116,9 +116,9 @@ Module mem_grid
         dzt_bot,              & ! distance between ZT(k) and ZM(k-1)
 
         zwgt_top, zwgt_bot,   & ! weights for interpolating T levels to W
-        dzto2, dzto4,         & ! dzt(k)/2, dzt(k)/4
-        dztsqo2, dztsqo4,     & ! dzt(k)**2 / 2, dzt(k)**2 / 4
-        dztsqo6                 ! dzt(k)**2 / 6
+        dzto2,    dzto4,      & ! dzt(k)    / 2, dzt(k)    / 4
+        dztsqo2,  dztsqo4,    & ! dzt(k)**2 / 2, dzt(k)**2 / 4
+        dztsqo6,  dzimsq        ! dzt(k)**2 / 6, dzim(k)**2
 
    real, allocatable, dimension(:,:) ::  &
 
@@ -357,18 +357,20 @@ Contains
      enddo
      !$omp end parallel do
 
-     allocate(dzto2(mza))
-     allocate(dzto4(mza))
+     allocate(dzto2  (mza))
+     allocate(dzto4  (mza))
      allocate(dztsqo2(mza))
      allocate(dztsqo4(mza))
      allocate(dztsqo6(mza))
+     allocate(dzimsq (mza))
 
      do k = 1, mza
-        dzto2(k) = dzt(k) * 0.50
-        dzto4(k) = dzt(k) * 0.25
+        dzto2  (k) = dzt  (k) * 0.50
+        dzto4  (k) = dzt  (k) * 0.25
         dztsqo2(k) = dzto2(k) * dzt(k) 
         dztsqo4(k) = dzto4(k) * dzt(k)
-        dztsqo6(k) = dzt(k)   * dzt(k) / 6.
+        dztsqo6(k) = dzt  (k) * dzt(k) / 6.
+        dzimsq (k) = dzim (k) * dzim(k)
      enddo
 
    end subroutine alloc_grid_other
