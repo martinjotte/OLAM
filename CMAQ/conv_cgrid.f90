@@ -215,6 +215,7 @@ contains
 
     integer :: iw, k, n, v, j
     real    :: fac
+    real    :: rho4(mza)
 
     if ( firstime ) then
        !$omp barrier
@@ -229,6 +230,10 @@ contains
     !$omp parallel do private(j,iw,v,n,fac,k)
     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
+       do k = lpw(iw), mza
+          rho4(k) = rho(k,iw)
+       enddo
+
        ! aerosol ppmv -> micro-grams/m**3
        ! (Don't multiply by MGPG, then divide by 1.0E+6: 1/MGPG = 10**-6 cancels out
        ! ppm = 10**6)
@@ -238,7 +243,7 @@ contains
              n = qae( v )
              fac = gpkgoma * molwt( v )
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * fac * real(rho(k,iw))
+                cgrid(k,iw,n) = cgrid(k,iw,n) * fac * rho4(k)
              enddo
           enddo
        endif
@@ -250,7 +255,7 @@ contains
           do v = 1, nnae
              n = nae( v )
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * AVOOMA_001 * real(rho(k,iw))
+                cgrid(k,iw,n) = cgrid(k,iw,n) * AVOOMA_001 * rho4(k)
              enddo
           enddo
        endif
@@ -262,7 +267,7 @@ contains
           do v = 1, nsae
              n = sae( v )
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * GPKGOMA * real(rho(k,iw))
+                cgrid(k,iw,n) = cgrid(k,iw,n) * GPKGOMA * rho4(k)
              enddo
           enddo
        endif
@@ -289,12 +294,12 @@ contains
     use cgrid_defn, only: cgrid
     use mem_basic,  only: rho
     use mem_grid,   only: lpw, mza
-    use cgrid_spcs, only: n_gc_spc, n_nr_spc, nr_strt
+    use cgrid_spcs, only: n_gc_spc, n_nr_spc, nr_strt, nspcsd
 
     implicit none
 
     integer, intent(in ) :: iw
-    real,    intent(out) :: cngrd(:,:)
+    real,    intent(out) :: cngrd(mza,nspcsd)
 
     integer :: k, n, v, off
     real    :: fac
@@ -390,12 +395,12 @@ contains
     use cgrid_defn, only: cgrid
     use mem_basic,  only: rho
     use mem_grid,   only: lpw, mza
-    use cgrid_spcs, only: n_gc_spc, n_nr_spc, nr_strt
+    use cgrid_spcs, only: n_gc_spc, n_nr_spc, nr_strt, nspcsd
 
     implicit none
 
     integer, intent(in ) :: iw
-    real,    intent(out) :: cngrd(:,:)
+    real,    intent(out) :: cngrd(mza,nspcsd)
 
     integer :: k, n, v, off
     real    :: fac
@@ -486,15 +491,16 @@ contains
     use cgrid_defn, only: cgrid
     use mem_basic,  only: rho
     use mem_grid,   only: lpw, lsw
-    use cgrid_spcs, only: n_gc_spc, n_nr_spc, nr_strt
+    use cgrid_spcs, only: n_gc_spc, n_nr_spc, nr_strt, nspcsd
 
     implicit none
 
     integer, intent(in ) :: iw
-    real,    intent(out) :: cngrd(:,:)
+    real,    intent(out) :: cngrd(lsw(iw),nspcsd)
 
     integer :: ks, k, n, v, off
     real    :: fac
+    real    :: rho4(lsw(iw))
 
     if (firstime) then
        !$omp barrier
@@ -503,6 +509,11 @@ contains
        call setup_conv()
        !$omp end single
     endif
+
+    do ks = 1, lsw(iw)
+       k  = ks + lpw(iw) - 1
+       rho4(ks) = rho(k,iw)
+    enddo
 
     ! Gas - no conversion
 
@@ -525,7 +536,7 @@ contains
           fac = gpkgoma * molwt(v)
           do ks = 1, lsw(iw)
              k  = ks + lpw(iw) - 1
-             cngrd(ks,n) = cgrid(k,iw,n) * fac * real(rho(k,iw))
+             cngrd(ks,n) = cgrid(k,iw,n) * fac * rho4(ks)
           enddo
        enddo
     endif
@@ -538,7 +549,7 @@ contains
           n = nae( v )
           do ks = 1, lsw(iw)
              k  = ks + lpw(iw) - 1
-             cngrd(ks,n) = cgrid(k,iw,n) * AVOOMA_001 * real(rho(k,iw))
+             cngrd(ks,n) = cgrid(k,iw,n) * AVOOMA_001 * rho4(ks)
           enddo
        enddo
     endif
@@ -551,7 +562,7 @@ contains
           n = sae( v )
           do ks = 1, lsw(iw)
              k  = ks + lpw(iw) - 1
-             cngrd(ks,n) = cgrid(k,iw,n) * GPKGOMA * real(rho(k,iw))
+             cngrd(ks,n) = cgrid(k,iw,n) * GPKGOMA * rho4(ks)
           enddo
        enddo
     endif

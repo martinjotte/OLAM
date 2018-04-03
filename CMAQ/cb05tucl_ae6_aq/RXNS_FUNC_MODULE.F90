@@ -3,11 +3,11 @@
 
        IMPLICIT NONE
 
-
-
 ! Name of Mechanism CB05TUCL_AE6_AQ
 
+       PRIVATE
        PUBLIC             :: CALC_RCONST, MAP_CHEMISTRY_SPECIES
+
 
        CONTAINS
 
@@ -169,19 +169,20 @@
 !***********************************************************************
 
        USE RXNS_DATA
+       use mem_grid, only: mza
 
         IMPLICIT NONE  
 
 !  Arguements: None 
 
-        REAL( 8 ),           INTENT( IN  ) :: BLKTEMP( : )      ! temperature, deg K 
-        REAL( 8 ),           INTENT( IN  ) :: BLKPRES( : )      ! pressure, Atm
-        REAL( 8 ),           INTENT( IN  ) :: BLKH2O ( : )      ! water mixing ratio, ppm 
-        REAL( 8 ),           INTENT( IN  ) :: RJBLK  ( :, : )   ! photolysis rates, 1/min 
-        REAL( 8 ),           INTENT( IN  ) :: BLKHET ( :, : )   ! heterogeneous rate constants, ???/min
-        LOGICAL,             INTENT( IN  ) :: LSUNLIGHT         ! Is there sunlight? 
-        LOGICAL,             INTENT( IN  ) :: LAND              ! Is the surface totally land? 
-        REAL( 8 ),           INTENT( OUT ) :: RKI ( :, : )      ! reaction rate constant, ppm/min 
+        REAL( 8 ),           INTENT( IN  ) :: BLKTEMP( mza )          ! temperature, deg K 
+        REAL( 8 ),           INTENT( IN  ) :: BLKPRES( mza )          ! pressure, Atm
+        REAL( 8 ),           INTENT( IN  ) :: BLKH2O ( mza )          ! water mixing ratio, ppm 
+        REAL( 8 ),           INTENT( IN  ) :: RJBLK  ( mza, nphotab ) ! photolysis rates, 1/min 
+        REAL( 8 ),           INTENT( IN  ) :: BLKHET ( mza, nhetero ) ! heterogeneous rate constants, ???/min
+        LOGICAL,             INTENT( IN  ) :: LSUNLIGHT               ! Is there sunlight? 
+        LOGICAL,             INTENT( IN  ) :: LAND                    ! Is the surface totally land? 
+        REAL( 8 ),           INTENT( OUT ) :: RKI    ( mza, nrxns )   ! reaction rate constant, ppm/min 
         integer,             intent( in  ) :: ks
         integer,             intent( in  ) :: ke
 !..Parameters: 
@@ -207,7 +208,7 @@
 ! and 1/sec to 1/min
 
         IF( LSUNLIGHT )THEN 
-             !DIR$ FORCEINLINE
+
              DO NCELL = ks, ke
 
 !  Reaction Label R1              
@@ -267,17 +268,27 @@
 !  Reaction Label CL25            
                 RKI( NCELL,  198) =  RJBLK( NCELL, IJ_CLNO2 )
 
+             ENDDO
+
 !  Reaction Label HAL_Ozone       
-                IF( .NOT. LAND ) THEN
-                   RKI( NCELL,  220) =  SFACT * HALOGEN_FALLOFF( BLKPRES( NCELL ),   1.0000D-40,   7.8426D+01,  & 
-     &                                                           4.0582D-09,         5.8212D+00 )
-                ELSE
+             IF( .NOT. LAND ) THEN
+                
+                !DIR$ FORCEINLINE
+                DO NCELL = ks, ke
+
+                   RKI( NCELL,  220) = SFACT * HALOGEN_FALLOFF( BLKPRES( NCELL ),   1.0000D-40,   7.8426D+01,  & 
+     &                                                          4.0582D-09,         5.8212D+00 )
+                ENDDO
+
+             ELSE
+                
+                DO NCELL = ks, ke
                    RKI( NCELL,  220) = 0.0D0
-                ENDIF
+                ENDDO
 
-            END DO 
+             ENDIF
 
-         else
+        else
 
              DO NCELL = ks, ke
                 RKI( NCELL,   1) = 0.0D0
