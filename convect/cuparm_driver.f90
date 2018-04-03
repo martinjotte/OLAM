@@ -323,9 +323,9 @@ subroutine cuparm_driver(rhot)
 
         if (nl%conv_uv_mix > 0) then
            do k = lpw(iw), mza
-              vmxet(k,iw) = vmxet(k,iw) + vxsrc(k,iw) * rho(k,iw)
-              vmyet(k,iw) = vmyet(k,iw) + vysrc(k,iw) * rho(k,iw)
-              vmzet(k,iw) = vmzet(k,iw) + vzsrc(k,iw) * rho(k,iw)
+              vmxet(k,iw) = vmxet(k,iw) + vxsrc(k,iw)
+              vmyet(k,iw) = vmyet(k,iw) + vysrc(k,iw)
+              vmzet(k,iw) = vmzet(k,iw) + vzsrc(k,iw)
            enddo
         endif
 

@@ -142,7 +142,6 @@ CONTAINS
    integer :: ka, k, kt, jv, iv, iwn, npoly
 
    real :: raxis, hflux, hflux_vap, dirv, flx, fqvadv
-   real :: uzonal(mza), umerid(mza)
    real :: uvtr, raxisi, gnpoly1
 
    ka = lpw(iw)
@@ -188,9 +187,6 @@ CONTAINS
          u1(kt) = vxe(k,iw)
          v1(kt) = vye(k,iw)
       endif
-
-      uzonal(k) = u1(kt)
-      umerid(k) = v1(kt)
 
       ! Horizontal advective mass and water vapor fluxes
 
@@ -341,14 +337,17 @@ CONTAINS
 
          ! store convective heating and moisture rates and cloud water
 
-         thsrc(k,iw) = dTdt(kt) * rho(k,iw)
-         rtsrc(k,iw) = dQdt(kt) * rho(k,iw)
+         thsrc(k,iw) = dTdt(kt) * real(rho(k,iw))
+         rtsrc(k,iw) = dQdt(kt) * real(rho(k,iw))
 
          qwcon(k,iw) = zlu(kt)
 
          ! density tendency (water removed per grid cell)
-         rdsrc(k,iw) = -(zdmfup(kt) + zdmfdp(kt)) * arw0(iw) * volti(k,iw)
+         rdsrc(k,iw) = -(zdmfup(kt) + zdmfdp(kt)) * arw0(iw) * real(volti(k,iw))
 
+         ! convert velocity to momentum
+         dUdt(kt) = dUdt(kt) * real(rho(k,iw))
+         dVdt(kt) = dVdt(kt) * real(rho(k,iw))
       enddo
 
       ! convective momentum transport
@@ -362,7 +361,7 @@ CONTAINS
                uvtr = -dVdt(kt) * zew(iw) * eradi
                vxsrc(k,iw) = (-dUdt(kt) * yew(iw) + uvtr * xew(iw)) * raxisi
                vysrc(k,iw) = ( dUdt(kt) * xew(iw) + uvtr * yew(iw)) * raxisi
-               vzsrc(k,iw) =   dVdt(kt) * raxis * eradi 
+               vzsrc(k,iw) =   dVdt(kt) * raxis * eradi
             enddo
                
          else

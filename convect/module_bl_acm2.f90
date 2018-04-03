@@ -1,55 +1,28 @@
 module module_bl_acm2
   
-  use consts_coms, only: alvlocp,  & ! L_v / C_p
-                         alvlor,   & ! L_v / R_dry
-                         eps_vap,  & ! for converting vap press and spec humid
-                         eps_virt, & ! used in virtual temperature equation
-                         grav,     & ! gravitational acceleration
-                         grav2,    & ! 2 * grav
-                         vonk,     & ! von Karman's constant
-                         cpi         ! 1 / specific heat
-
-  use mem_grid,    only: dzt,      & ! Layer thickness at T (half-layer)
-                         dzit,     & ! Inverse Layer thickness at t
-                         dzm,      & ! Layer thickness at W (half-layer)
-                         dzim,     & ! Inverse Layer thickness at W
-                         mza,      & ! Number of model levels
-                         zm,       & ! Full layer height (W level)
-                         zt          ! Half-layer height (T level)
-
-  implicit none
-
-  real, parameter :: ric    = 0.25  ! critical richardson number
-  real, parameter :: mvonk  =      - vonk
-  real, parameter :: vonk72 = 0.72 * vonk
-
-! Don't re-export symbols from other modules
-
-  private :: alvlocp, alvlor, eps_vap, eps_virt, grav, grav2, vonk
-  private :: dzt, dzit, dzm, dzim, mza, zm, zt
-
 contains
 
 !=======================================================================
 
   subroutine acm2_scalars( iw, moli, pblh, kpblh, zkh )
 
-    use mem_grid,   only: arw, volti, lpw, lsw, nsw_max
-    use mem_turb,   only: frac_sfc, sxfer_tk
+    use mem_grid,   only: mza, arw, volti, lpw, lsw, nsw_max, &
+                          dzt, dzit, zm, dzim
+    use mem_turb,   only: frac_sfc
     use mem_basic,  only: rho, thil
     use mem_ijtabs, only: itab_w
     use misc_coms,  only: dtlm, io6
     use tridiag,    only: tridv, acm_matrix
     use var_tables, only: num_scalar, scalar_tab
     use mem_tend,   only: thilt
-    use mem_para
+    use consts_coms,only: vonk
 
     implicit none
 
     integer, intent(in)    :: iw, kpblh
     real,    intent(in)    :: pblh
     real,    intent(in)    :: moli
-    real,    intent(in)    :: zkh(:)
+    real,    intent(in)    :: zkh(mza)
 
     logical :: cnvct
     real :: massflx(mza)
@@ -59,8 +32,8 @@ contains
     real :: low(mza)
     real :: dia(mza)
     real :: upp(mza)
-    real :: dtom(mza)
-    real :: frac_sum(nsw_max)
+    real :: dtom(mza), dtorho(mza)
+    real :: frac_sumi(nsw_max)
     real :: aa(mza,nsw_max)
     real :: cbot(mza)
 
@@ -68,29 +41,29 @@ contains
     real :: rhs  (mza,num_scalar+1)
     real :: soln (mza,num_scalar+1)
 
-    integer :: k, ks, n, ns, ksm, ksp, kk, ksmax
+    integer :: k, ks, n, ksm, ksp, kk, ksmax
     real :: hovl, mbar, fnl, dens
-    real :: dtl, dtli
+    real :: dtl
     
     integer :: kbot, ktop, nsfc, nlev
+
+    real, parameter :: mvonk  =      - vonk
+    real, parameter :: vonk72 = 0.72 * vonk
 
     kbot = lpw(iw)
     ktop = mza
     nsfc = lsw(iw)
     nlev = ktop - kbot + 1
-
     dtl  = dtlm(itab_w(iw)%mrlw)
-    dtli = 1. / dtl
-
     hovl = pblh * moli 
 
-    seddy  (:) = zkh(:)
-    massflx(:) = 0.0
+    seddy   = zkh
+    massflx = 0.0
     
     cnvct = ((hovl < -0.1) .and. (kpblh - kbot > 2))
 
     do k = 1, nsfc
-       frac_sum(k) = sum(frac_sfc(1:k,iw))
+       frac_sumi(k) = 1.0 / sum(frac_sfc(1:k,iw))
     enddo
 
     ! IF CONVECTIVE, COMPUTE NON-LOCAL CONVECTIVE MASS FLUX
@@ -129,7 +102,8 @@ contains
     do k = kbot, ktop
        ks = k - kbot + 1
 
-       dtom(k) = dtl * volti(k,iw) / rho(k,iw)
+       dtorho(k) = dtl / real(rho(k,iw))
+       dtom  (k) = dtorho(k) * real(volti(k,iw))
 
        low(ks) = - dtom(k) * akodz(k-1)
        upp(ks) = - dtom(k) * akodz(k  )
@@ -142,14 +116,14 @@ contains
        do k = kbot, ktop
           ks = k - kbot + 1
           rhs(ks,n) = scalar_tab(n)%var_p(k,iw)  &
-                    + dtl * scalar_tab(n)%var_t(k,iw) / rho(k,iw)
+                    + dtorho(k) * scalar_tab(n)%var_t(k,iw)
        enddo
     enddo
 
     n = num_scalar + 1
     do k = kbot, ktop
        ks = k - kbot + 1
-       rhs(ks,n) = thil(k,iw) + dtl * thilt(k,iw) / rho(k,iw)
+       rhs(ks,n) = thil(k,iw) + dtorho(k) * thilt(k,iw)
     enddo
 
     ! IF CONVECTIVE, INCLUDE NONLOCAL TERMS
@@ -173,17 +147,17 @@ contains
              ksm = min(ks-1,nsfc)
 
              aa(ks,kk) = dtom(k) * frac_sfc(kk,iw) * &
-                       ( massflx(k) / frac_sum(ksp) - massflx(k-1) / frac_sum(ksm) )
+                       ( massflx(k) * frac_sumi(ksp) - massflx(k-1) * frac_sumi(ksm) )
           enddo
        enddo
 
        do k = kbot, min(kbot + nsfc - 1, kpblh)
           ks = k - kbot + 1
-          dia(ks) = dia(ks) + dtom(k) * massflx(k) * frac_sfc(ks,iw) / frac_sum(ks)
+          dia(ks) = dia(ks) + dtom(k) * massflx(k) * frac_sfc(ks,iw) * frac_sumi(ks)
           low(ks+1) = low(ks+1) + aa(ks+1,ks)
        enddo
 
-       call acm_matrix(aa, dia, low, rhs, upp, soln, nlev, num_scalar+1, ksmax)
+       call acm_matrix(aa, dia, low, rhs, upp, soln, nlev, mza, num_scalar+1, ksmax)
 
     else
 
@@ -210,7 +184,7 @@ contains
 
           cbot(1) = soln(1,n)
           do k = 2, nsfc
-             cbot(k) = sum( soln(1:k,n)*frac_sfc(1:k,iw) ) / frac_sum(k)
+             cbot(k) = sum( soln(1:k,n)*frac_sfc(1:k,iw) ) * frac_sumi(k)
           enddo
           cbot(nsfc+1:) = cbot(nsfc)
 
@@ -232,13 +206,13 @@ contains
     do n = 1, num_scalar
        do k = kbot, ktop
           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                    + volti(k,iw) * (aflux(k-1,n) - aflux(k,n))
+                                    + real(volti(k,iw)) * (aflux(k-1,n) - aflux(k,n))
        enddo
     enddo
 
     n = num_scalar + 1
     do k = kbot, ktop
-       thilt(k,iw) = thilt(k,iw) + volti(k,iw) * (aflux(k-1,n) - aflux(k,n))
+       thilt(k,iw) = thilt(k,iw) + real(volti(k,iw)) * (aflux(k-1,n) - aflux(k,n))
     enddo
 
   end subroutine acm2_scalars
@@ -247,7 +221,8 @@ contains
 
   subroutine acm2_momentum( iw, zkm )
 
-    use mem_grid,   only: arw, volti, lpw, lsw, nsw_max
+    use mem_grid,   only: mza, arw, volt, volti, lpw, lsw, nsw_max, &
+                          dzim, dzt_bot
     use mem_turb,   only: vkm_sfc
     use mem_basic,  only: vxe, vye, vze, rho
     use mem_tend,   only: vmxet, vmyet, vmzet
@@ -257,8 +232,8 @@ contains
 
     implicit none
 
-    integer, intent(in)    :: iw
-    real,    intent(in)    :: zkm(:)
+    integer, intent(in) :: iw
+    real,    intent(in) :: zkm(mza)
 
     real :: aflux(mza,3)
     real :: rhs  (mza,3)
@@ -271,6 +246,7 @@ contains
     real :: upp(mza)
     real :: dtom(mza)
     real :: fact(nsw_max)
+    real :: dtl, v4i
 
     integer :: k, ks
     integer :: kbot, ktop, nsfc
@@ -278,6 +254,7 @@ contains
     kbot = lpw(iw)
     ktop = mza
     nsfc = lsw(iw)
+    dtl  = dtlm(itab_w(iw)%mrlw)
 
     ! EDDY DIFFUSIVITY TERMS FOR SEMI-IMPLICIT SOLVER - MOMENTUM
 
@@ -290,7 +267,7 @@ contains
     akodz(ktop) = 0.0
 
     do k = kbot, ktop
-       dtom(k)  = dtlm(itab_w(iw)%mrlw) * volti(k,iw) / rho(k,iw)
+       dtom(k)  = dtl / real(volt(k,iw) * rho(k,iw))
        low(k)   = -dtom(k) * akodz(k-1)
        upp(k)   = -dtom(k) * akodz(k  )
        dia(k)   = 1.0 - low(k) - upp(k)
@@ -303,7 +280,7 @@ contains
     
     do k = kbot, kbot + nsfc - 1
        ks = k - kbot + 1
-       fact(ks) = 2.0 * vkm_sfc(ks,iw) * dzim(k-1) * (arw(k,iw) - arw(k-1,iw))
+       fact(ks) = vkm_sfc(ks,iw) * (arw(k,iw) - arw(k-1,iw)) * dzt_bot(k)
        dia(k)   = dia(k) + dtom(k) * fact(ks)
     enddo
 
@@ -329,18 +306,20 @@ contains
     ! Compute tendencies due to internal turbulent fluxes
 
     do k = kbot, mza
-       vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) * (aflux(k-1,1) - aflux(k,1))
-       vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) * (aflux(k-1,2) - aflux(k,2))
-       vmzet(k,iw) = vmzet(k,iw) + volti(k,iw) * (aflux(k-1,3) - aflux(k,3))
+       v4i = real(volti(k,iw))
+       vmxet(k,iw) = vmxet(k,iw) + v4i * (aflux(k-1,1) - aflux(k,1))
+       vmyet(k,iw) = vmyet(k,iw) + v4i * (aflux(k-1,2) - aflux(k,2))
+       vmzet(k,iw) = vmzet(k,iw) + v4i * (aflux(k-1,3) - aflux(k,3))
     enddo
 
     ! Include tendencies due to surface drag
 
     do k = kbot, kbot + nsfc - 1
        ks = k - kbot + 1
-       vmxet(k,iw) = vmxet(k,iw) - volti(k,iw) * fact(ks) * soln(k,1)
-       vmyet(k,iw) = vmyet(k,iw) - volti(k,iw) * fact(ks) * soln(k,2)
-       vmzet(k,iw) = vmzet(k,iw) - volti(k,iw) * fact(ks) * soln(k,3)
+       v4i = real(volti(k,iw))
+       vmxet(k,iw) = vmxet(k,iw) - v4i * fact(ks) * soln(k,1)
+       vmyet(k,iw) = vmyet(k,iw) - v4i * fact(ks) * soln(k,2)
+       vmzet(k,iw) = vmzet(k,iw) - v4i * fact(ks) * soln(k,3)
     enddo
 
   end subroutine acm2_momentum
@@ -356,48 +335,52 @@ contains
     !      vertical wind shear, similar to LIU & CARROLL (1996)
     !   3. Cloud-top radiational cooling scaling, Lock et al. (2000)
 
-    use misc_coms,  only: io6
-    use mem_cuparm, only: iactcu, kcubot
+    use mem_cuparm,  only: iactcu, kcubot
+    use mem_grid,    only: mza, zm, zt, dzm
+    use consts_coms, only: vonk, grav, grav2
+
     implicit none
 
     ! INPUT VARIABLES
 
-    real,    intent(in) :: moli      ! inverse Monin-Obukhov length
-    real,    intent(in) :: ustar     ! u* surface-layer velocity scale
-    real,    intent(in) :: wstar     ! w* convective PBL velocity scale
-    real,    intent(in) :: pblh      ! PBL height
-    integer, intent(in) :: kpblh     ! level corresponding to PBL height
-    integer, intent(in) :: kbot      ! lowest model level
-    integer, intent(in) :: ktop      ! highest model level
-    real,    intent(in) :: vx    (:) ! Earth-cartesian x-wind profile
-    real,    intent(in) :: vy    (:) ! Earth-cartesian y-wind profile
-    real,    intent(in) :: vz    (:) ! Earth-cartesian z-wind profile
-    real,    intent(in) :: qw    (:) ! total water specific humidity profile
-    real,    intent(in) :: qv    (:) ! water vapor specific humidity profile
-    real,    intent(in) :: ql    (:) ! condensate specific humidity profile
-    real,    intent(in) :: thil  (:) ! ice-liquid potential temperature profile
-    real,    intent(in) :: theta (:) ! potential temperature profile
-    real,    intent(in) :: thetav(:) ! virtual potential temperature profile
-    real,    intent(in) :: tair  (:) ! air temperature profile
-    real,    intent(in) :: delr      ! cloud top cooling at PBL top (K m/s)
-    real(8), intent(in) :: rho   (:) ! air density
+    real,    intent(in) :: moli        ! inverse Monin-Obukhov length
+    real,    intent(in) :: ustar       ! u* surface-layer velocity scale
+    real,    intent(in) :: wstar       ! w* convective PBL velocity scale
+    real,    intent(in) :: pblh        ! PBL height
+    integer, intent(in) :: kpblh       ! level corresponding to PBL height
+    integer, intent(in) :: kbot        ! lowest model level
+    integer, intent(in) :: ktop        ! highest model level
+    real,    intent(in) :: vx    (mza) ! Earth-cartesian x-wind profile
+    real,    intent(in) :: vy    (mza) ! Earth-cartesian y-wind profile
+    real,    intent(in) :: vz    (mza) ! Earth-cartesian z-wind profile
+    real,    intent(in) :: qw    (mza) ! total water specific humidity profile
+    real,    intent(in) :: qv    (mza) ! water vapor specific humidity profile
+    real,    intent(in) :: ql    (mza) ! condensate specific humidity profile
+    real,    intent(in) :: thil  (mza) ! ice-liquid potential temperature profile
+    real,    intent(in) :: theta (mza) ! potential temperature profile
+    real,    intent(in) :: thetav(mza) ! virtual potential temperature profile
+    real,    intent(in) :: tair  (mza) ! air temperature profile
+    real,    intent(in) :: delr        ! cloud top cooling at PBL top (K m/s)
+    real(8), intent(in) :: rho   (mza) ! air density
     integer, intent(in) :: iw
 
     ! OUTPUT VARIABLES
 
-    real, intent(out) :: zkm(:) ! eddy diffusivity for momentum
-    real, intent(out) :: zkh(:) ! eddy diffusivity for scalars
+    real, intent(out) :: zkm(mza) ! eddy diffusivity for momentum
+    real, intent(out) :: zkh(mza) ! eddy diffusivity for scalars
 
     ! LOCAL VARIABLES
 
     integer :: k, kpblm1, kpblp1, kb, ka
     real    :: zagl, zoh, zsol, dz, dzi
     real    :: buoy, ss, kprof, rlam
-    real    :: ri, zk, sql, fh, fm, pr
+    real    :: zk, sql, fh, fm, pr
     real    :: phimi, phihi
     real    :: we, dthv, deltar, wcloud
+    real    :: rho4
     logical :: inlay
 
+    real :: ri   (mza) ! bulk Richardson number
     real :: edyzh(mza) ! K-profile eddy diffusivity within PBL
     real :: edyzm(mza) ! K-profile eddy diffusivity within PBL 
     real :: edyrh(mza) ! Richardson-number eddy diffusivity 
@@ -406,18 +389,17 @@ contains
 
     ! PARAMETERS
 
+    real, parameter :: ric       =   0.25 ! critical richardson number
     REAL, PARAMETER :: RLAM_stab =  30.0
     REAL, PARAMETER :: RLAM_unst = 150.0
-    REAL, PARAMETER :: GAMH      =  16.0 ! Holtslag and Boville (1993)
+    REAL, PARAMETER :: GAMH      =  16.0  ! Holtslag and Boville (1993)
+    REAL, PARAMETER :: EDYZ0     =   0.0  ! New Min Kz
 
-    REAL, PARAMETER :: EDYZ0  = 0.0   ! New Min Kz
-!   REAL, PARAMETER :: EDYZ0  = 0.01  ! New Min Kz
-
-    kzo  (:) = edyz0
-    edyzh(:) = 0.0
-    edyzm(:) = 0.0
-    edyrh(:) = 0.0
-    edyrm(:) = 0.0
+    kzo   = edyz0
+    edyzh = 0.0
+    edyzm = 0.0
+    edyrh = 0.0
+    edyrm = 0.0
 
 !! Holtslag's Eddy-Diffusivity Profile Within the convective PBL
 
@@ -520,16 +502,20 @@ contains
 
        buoy = (thetav(k+1) - thetav(ka)) * dzi
 
-       ri = grav2 / (thetav(k+1) + thetav(ka)) * buoy / ss
-       ri = max(ri, -1.0)
+       ri(k) = grav2 / (thetav(k+1) + thetav(ka)) * buoy / ss
+       ri(k) = max(ri(k), -1.0)
 
-       if (ri > ric) then
+       if (ri(k) > ric) then
           inlay = .false.
        else
           inlay = .true.
        endif
+    enddo
 
-       if (ri > 0.0) then
+    ! Vertical loop over W levels
+    do k = kb, ktop-1
+
+       if (ri(k) > 0.0) then
 
           if (k < kpblh) then
              rlam = max(0.1 * pblh, rlam_stab)
@@ -537,8 +523,8 @@ contains
              rlam = rlam_stab
           endif
 
-          pr = min(1.0 + 3.7 * ri, 3.0)
-          fh = 1.0 / (1.0 + ri * ( 10.0 + ri * ( 50.0 + 5000.0 * ri * ri ) ) )
+          pr = min(1.0 + 3.7 * ri(k), 3.0)
+          fh = 1.0 / (1.0 + ri(k) * ( 10.0 + ri(k) * ( 50.0 + 5000.0 * ri(k) * ri(k) ) ) )
           fm = fh / pr
 
           sql = (zk * rlam / (rlam + zk))**2       
@@ -550,8 +536,8 @@ contains
 
           sql = (zk * rlam_unst / (rlam_unst + zk))**2
 
-          phimi =     (1.0 - 16.0 * ri)**0.25
-          phihi = sqrt(1.0 - 16.0 * ri)
+          phimi =     (1.0 - 16.0 * ri(k))**0.25
+          phihi = sqrt(1.0 - 16.0 * ri(k))
 
           edyrm(k) = sqrt(ss) * sql * phimi * phimi
           edyrh(k) = sqrt(ss) * sql * phimi * phihi
@@ -564,13 +550,15 @@ contains
 !! and Richardson-number eddy diffusivity
 
     do k = kbot, mza-1
+       rho4 = 0.5 * real(rho(k+1) + rho(k))
+
        zkh(k) = max( edyrh(k), edyzh(k), kzo(k) )
        zkh(k) = min( zkh(k), 1000.0 )
-       zkh(k) = 0.5 * (rho(k+1) + rho(k)) * zkh(k)
+       zkh(k) = rho4 * zkh(k)
 
        zkm(k) = max( edyrm(k), edyzm(k), kzo(k) )
        zkm(k) = min( zkm(k), 1000.0 )
-       zkm(k) = 0.5 * (rho(k+1) + rho(k)) * zkm(k)
+       zkm(k) = rho4 * zkm(k)
     enddo
 
     zkh(1:kbot-1) = 0.0
@@ -589,6 +577,9 @@ contains
     ! PURPOSE: TO CALCULATE BOUNDARY LAYER HEIGHT WITH THE METHOD
     !          PUBLISHED BY HOLTSLAG (MWR AUGUST 1990).
 
+    use mem_grid,    only: mza, nsw_max, dzt, zt, zm
+    use consts_coms, only: grav2
+
     implicit none
 
     ! INPUT VARIABLES
@@ -601,13 +592,13 @@ contains
     integer, intent(in) :: ktop   ! index of highest layer
     integer, intent(in) :: nsfc   ! number of levels that intersect ground
 
-    real,    intent(in) :: thv(:) ! virtual temperature profile
-    real,    intent(in) :: vx (:) ! earth-cartesian x velocity profile
-    real,    intent(in) :: vy (:) ! earth-cartesian y velocity profile
-    real,    intent(in) :: vz (:) ! earth-cartesian z velocity profile
+    real,    intent(in) :: thv(mza) ! virtual temperature profile
+    real,    intent(in) :: vx (mza) ! earth-cartesian x velocity profile
+    real,    intent(in) :: vy (mza) ! earth-cartesian y velocity profile
+    real,    intent(in) :: vz (mza) ! earth-cartesian z velocity profile
 
-    real,    intent(in) :: fracsfc(:) ! fraction of the total surface area that 
-                                      ! intersects each nsfc layer
+    real,    intent(in) :: fracsfc(nsw_max) ! fraction of the total surface area
+                                            ! that intersects each nsfc layer
 
     ! OUTPUT VARIABLES
 
@@ -626,6 +617,8 @@ contains
 
     real :: vxmix, vymix, vzmix, rib_sav
     integer :: k
+
+    real, parameter :: ric = 0.25  ! critical richardson number
 
     if (kbot+1 >= ktop-1) then
        kpblh = kbot

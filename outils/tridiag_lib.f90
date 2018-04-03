@@ -102,7 +102,7 @@ contains
 
 !===========================================================================
 
-  subroutine acm_matrix ( a, b, c, d, e, x, nlays, nspcs, m )
+  subroutine acm_matrix ( a, b, c, d, e, x, nlays, ndim, nspcs, m )
 
 !-- Bordered band diagonal matrix solver for ACM2
 
@@ -134,16 +134,17 @@ contains
     
 ! Arguments:
 
-    real,    intent( in  ) :: a( :,: )   ! left matrix columns
-    real,    intent( in  ) :: b( : )     ! diagonal
-    real,    intent( in  ) :: c( : )     ! subdiagonal
-    real,    intent( in  ) :: e( : )     ! superdiagonal
-    real,    intent( in  ) :: d( :,: )   ! R.H.S
-    real,    intent( out ) :: x( :,: )   ! returned solution
-    
     integer, intent( in  ) :: nlays      ! number of model layers
+    integer, intent( in  ) :: ndim       ! size of first array dimension
     integer, intent( in  ) :: nspcs      ! number of species
     integer, intent( in  ) :: m          ! number of A vectors
+    
+    real,    intent( in  ) :: a( ndim,m )     ! left matrix columns
+    real,    intent( in  ) :: b( ndim )       ! diagonal
+    real,    intent( in  ) :: c( ndim )       ! subdiagonal
+    real,    intent( in  ) :: e( ndim )       ! superdiagonal
+    real,    intent( in  ) :: d( ndim,nspcs ) ! R.H.S
+    real,    intent( out ) :: x( ndim,nspcs ) ! returned solution
     
 ! Locals:
 

@@ -334,17 +334,21 @@ CONTAINS
           k  = kc + ka - 1
 
           ! Total water tendency
-          rtsrc(k,iw) = (outq(1,kc) + subq(1,kc) + outqc(1,kc)) * rho(k,iw)
+          rtsrc(k,iw) = (outq(1,kc) + subq(1,kc) + outqc(1,kc)) * r(1,kc)
 
           ! Any cloud condensate is evaporated since we do not feed back
           ! to resolved microphysics
-          thsrc(k,iw) = (outt(1,kc) + subt(1,kc) - alvlocp * outqc(1,kc)) * rho(k,iw)
+          thsrc(k,iw) = (outt(1,kc) + subt(1,kc) - alvlocp * outqc(1,kc)) * r(1,kc)
 
           ! cloud water
           qwcon(k,iw) = cupclw(1,kc)
 
           ! Density change (Water removed)
-          rdsrc(k,iw) = -qce(1,kc) * arw0(iw) * volti(k,iw)
+          rdsrc(k,iw) = -qce(1,kc) * arw0(iw) * real(volti(k,iw))
+
+          ! Convert velocity to momentum
+          outu(1,kc) = outu(1,kc) * r(1,kc)
+          outv(1,kc) = outv(1,kc) * r(1,kc)
        enddo
 
        ! convective momentum transport

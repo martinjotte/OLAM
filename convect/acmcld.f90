@@ -1,7 +1,7 @@
 subroutine acmcld_uvmix( iw, dtl )
 
   use mem_cuparm, only: iactcu, cbmf, cddf
-  use var_tables, only: num_cumix
+
   implicit none
 
   ! Arguments
@@ -43,7 +43,7 @@ subroutine acmcld_uvmix_up( iw, dtl )
 !   realistic gradual subsidence.
 !-----------------------------------------------------------------------
 
-  use mem_grid,    only: mza, zm, zt, xew, yew, zew, arw0, volti, lpw
+  use mem_grid,    only: mza, zm, zt, xew, yew, zew, arw0, volt, volti, lpw
   use mem_cuparm,  only: kcutop, kcubot, vxsrc, vysrc, vzsrc, cbmf
   use mem_basic,   only: vxe, vye, vze, rho, theta
   use consts_coms, only: eradi
@@ -102,8 +102,8 @@ subroutine acmcld_uvmix_up( iw, dtl )
   ! Loop over W (flux) levels
   do k = kb+1, kt-1
 
-     massflx_acm(k) = massflx_acm(kb) * rho(k,iw) / rho(kb,iw) * &
-                  (clddepth - (zm(k) - zm(kb))) / clddepth
+     massflx_acm(k) = massflx_acm(kb) * real(rho(k,iw)) / real(rho(kb,iw)) &
+                    * (clddepth - (zm(k) - zm(kb))) /  clddepth
   enddo
 
   massflx_loc(kb-1) = 0.0
@@ -113,7 +113,7 @@ subroutine acmcld_uvmix_up( iw, dtl )
   massflx_tot(kt)   = 0.0
 
   do k = kb, kt-1
-     massflx_loc(k) = massflx_acm(kb) * rho(k,iw) / rho(kb,iw) - massflx_acm(k)
+     massflx_loc(k) = massflx_acm(kb) * real(rho(k,iw)) / real(rho(kb,iw)) - massflx_acm(k)
      massflx_loc(k) = min(massflx_loc(k), fl*massflx_acm(k))
      massflx_tot(k) = massflx_acm(k) + massflx_loc(k)
   enddo
@@ -142,7 +142,7 @@ subroutine acmcld_uvmix_up( iw, dtl )
   ! Loop over T levels
   do k = kb, kt
      kc = k - kb + 1
-     dtom = dtl * volti(k,iw) / rho(k,iw)
+     dtom = dtl / real(volt(k,iw) * rho(k,iw))
 
      di(kc,1) = u(k)
      di(kc,2) = v(k)
@@ -156,7 +156,7 @@ subroutine acmcld_uvmix_up( iw, dtl )
   bi(1) = bi(1) + ai(1,1)
   ci(2) = ci(2) + ai(2,1)
 
-  call acm_matrix( ai, bi, ci, di, ei, ui, nlev, 2, 1 )
+  call acm_matrix( ai, bi, ci, di, ei, ui, nlev, mza, 2, 1 )
 
 ! Now, soln contains future(t+1) values. Compute fluxes
   
@@ -180,8 +180,8 @@ subroutine acmcld_uvmix_up( iw, dtl )
 
   ! Loop over T levels
   do k = kb, kt
-     ut(k) = (aflux(k-1,1) - aflux(k,1)) * volti(k,iw) / rho(k,iw)
-     vt(k) = (aflux(k-1,2) - aflux(k,2)) * volti(k,iw) / rho(k,iw)
+     ut(k) = (aflux(k-1,1) - aflux(k,1)) * real(volti(k,iw))
+     vt(k) = (aflux(k-1,2) - aflux(k,2)) * real(volti(k,iw))
   enddo
 
 ! Convert U,V tendencies to earth cartesian grid
@@ -222,7 +222,7 @@ subroutine acmcld_uvmix_dd( iw, dtl )
 !   realistic gradual subsidence.
 !-----------------------------------------------------------------------
 
-  use mem_grid,    only: mza, zm, zt, xew, yew, zew, arw, volti, lpw
+  use mem_grid,    only: mza, zm, zt, xew, yew, zew, arw, volt, volti, lpw
   use mem_cuparm,  only: kddtop, vxsrc, vysrc, vzsrc, cddf
   use mem_basic,   only: vxe, vye, vze, rho, theta
   use consts_coms, only: eradi
@@ -281,8 +281,9 @@ subroutine acmcld_uvmix_dd( iw, dtl )
   do kc = kb+1, kt-1
      k  = kddtop(iw) - kc + 1
 
-     massflx_acm(kc) = massflx_acm(kb) * rho(k,iw) * arw(k,iw) * (clddepth - (zm(kddtop(iw)-1)-zm(k-1))) &
-                     / ( rho(kddtop(iw),iw) * arw(kddtop(iw),iw) * clddepth )
+     massflx_acm(kc) = massflx_acm(kb) * real(rho(k,iw)) * arw(k,iw) &
+                     * (clddepth - (zm(kddtop(iw)-1)-zm(k-1))) &
+                     / ( real(rho(kddtop(iw),iw)) * arw(kddtop(iw),iw) * clddepth )
   enddo
 
   massflx_loc(kb-1) = 0.0
@@ -293,7 +294,7 @@ subroutine acmcld_uvmix_dd( iw, dtl )
 
   do kc = kb, kt-1
      k  = kddtop(iw) - kc + 1
-     massflx_loc(kc) = massflx_acm(kb) * rho(k,iw) / rho(kddtop(iw),iw) - massflx_acm(kc)
+     massflx_loc(kc) = massflx_acm(kb) * real(rho(k,iw)) / real(rho(kddtop(iw),iw)) - massflx_acm(kc)
      massflx_loc(kc) = min(massflx_loc(kc), fl*massflx_acm(kc))
      massflx_tot(kc) = massflx_acm(kc) + massflx_loc(kc)
   enddo
@@ -322,7 +323,7 @@ subroutine acmcld_uvmix_dd( iw, dtl )
   ! Loop over T levels
   do kc = kb, kt
      k  = kddtop(iw) - kc + 1
-     dtom = dtl * volti(k,iw) / rho(k,iw)
+     dtom = dtl / real(volt(k,iw) * rho(k,iw))
 
      di(kc,1) = u(k)
      di(kc,2) = v(k)
@@ -336,7 +337,7 @@ subroutine acmcld_uvmix_dd( iw, dtl )
   bi(1) = bi(1) + ai(1,1)
   ci(2) = ci(2) + ai(2,1)
 
-  call acm_matrix( ai, bi, ci, di, ei, ui, nlev, 2, 1 )
+  call acm_matrix( ai, bi, ci, di, ei, ui, nlev, mza, 2, 1 )
 
 ! Now, soln contains future(t+1) values. Compute fluxes
   
@@ -360,8 +361,8 @@ subroutine acmcld_uvmix_dd( iw, dtl )
   ! Loop over T levels
   do kc = kb, kt
      k  = kddtop(iw) - kc + 1
-     ut(k) = (aflux(kc-1,1) - aflux(kc,1)) * volti(k,iw) / rho(k,iw)
-     vt(k) = (aflux(kc-1,2) - aflux(kc,2)) * volti(k,iw) / rho(k,iw)
+     ut(k) = (aflux(kc-1,1) - aflux(kc,1)) * real(volti(k,iw))
+     vt(k) = (aflux(kc-1,2) - aflux(kc,2)) * real(volti(k,iw))
   enddo
 
 ! Convert U,V tendencies to earth cartesian grid
@@ -437,7 +438,7 @@ subroutine acmcld_tracermix_up( iw, dtl )
 !   realistic gradual subsidence.
 !-----------------------------------------------------------------------
 
-  use mem_grid,    only: mza, zm, zt, arw0, volti, lpw
+  use mem_grid,    only: mza, zm, zt, arw0, volt, volti, lpw
   use mem_cuparm,  only: kcutop, kcubot, cbmf
   use mem_basic,   only: rho
   use tridiag,     only: acm_matrix
@@ -492,8 +493,8 @@ subroutine acmcld_tracermix_up( iw, dtl )
 
   ! Loop over W (flux) levels
   do k = kb+1, kt-1
-     massflx_acm(k) = massflx_acm(kb) * rho(k,iw) / rho(kb,iw) * &
-                  (clddepth - (zm(k) - zm(kb))) / clddepth
+     massflx_acm(k) = massflx_acm(kb) * real(rho(k,iw)) / real(rho(kb,iw)) &
+                    * (clddepth - (zm(k) - zm(kb))) / clddepth
   enddo
 
   massflx_loc(kb-1) = 0.0
@@ -503,7 +504,7 @@ subroutine acmcld_tracermix_up( iw, dtl )
   massflx_tot(kt)   = 0.0
 
   do k = kb, kt-1
-     massflx_loc(k) = massflx_acm(kb) * rho(k,iw) / rho(kb,iw) - massflx_acm(k)
+     massflx_loc(k) = massflx_acm(kb) * real(rho(k,iw)) / real(rho(kb,iw)) - massflx_acm(k)
      massflx_loc(k) = min(massflx_loc(k), fl*massflx_acm(k))
      massflx_tot(k) = massflx_acm(k) + massflx_loc(k)
   enddo
@@ -514,14 +515,14 @@ subroutine acmcld_tracermix_up( iw, dtl )
      ns = cumix_map(nc)
      do k = kb, kt
         kc = k - kb + 1
-        di(kc,nc) = scalar_tab(ns)%var_p(k,iw) + dtl * scalar_tab(ns)%var_t(k,iw) / rho(k,iw)
+        di(kc,nc) = scalar_tab(ns)%var_p(k,iw) + dtl * scalar_tab(ns)%var_t(k,iw) / real(rho(k,iw))
      enddo
   enddo
 
   ! Loop over T levels
   do k = kb, kt
      kc = k - kb + 1
-     dtom = dtl * volti(k,iw) / rho(k,iw)
+     dtom = dtl / real(volt(k,iw) * rho(k,iw))
 
      bi(kc)   = 1.0 + dtom * (massflx_tot(k-1) + massflx_loc(k))
      ei(kc)   =     - dtom *  massflx_tot(k)
@@ -532,7 +533,7 @@ subroutine acmcld_tracermix_up( iw, dtl )
   bi(1) = bi(1) + ai(1,1)
   ci(2) = ci(2) + ai(2,1)
 
-  call acm_matrix( ai, bi, ci, di, ei, ui, nlev, num_cumix, 1 )
+  call acm_matrix( ai, bi, ci, di, ei, ui, nlev, mza, num_cumix, 1 )
 
 ! Now, soln contains future(t+1) values. Compute fluxes
 
@@ -555,7 +556,7 @@ subroutine acmcld_tracermix_up( iw, dtl )
      ! Loop over T levels
      do k = kb, kt
         scalar_tab(ns)%var_t(k,iw) = scalar_tab(ns)%var_t(k,iw) &
-                                   + (aflux(k-1) - aflux(k)) * volti(k,iw)
+                                   + (aflux(k-1) - aflux(k)) * real(volti(k,iw))
      enddo
   enddo
 
@@ -578,7 +579,7 @@ subroutine acmcld_tracermix_dd( iw, dtl )
 !   realistic gradual subsidence.
 !-----------------------------------------------------------------------
 
-  use mem_grid,    only: mza, zm, zt, arw, volti, lpw
+  use mem_grid,    only: mza, zm, zt, arw, volt, volti, lpw
   use mem_cuparm,  only: kddtop, cddf
   use mem_basic,   only: rho
   use tridiag,     only: acm_matrix
@@ -634,8 +635,9 @@ subroutine acmcld_tracermix_dd( iw, dtl )
   do kc = kb+1, kt-1
      k  = kddtop(iw) - kc + 1
 
-     massflx_acm(kc) = massflx_acm(kb) * rho(k,iw) * arw(k,iw) * (clddepth - (zm(kddtop(iw)-1)-zm(k-1))) &
-                     / ( rho(kddtop(iw),iw) * arw(kddtop(iw),iw) * clddepth )
+     massflx_acm(kc) = massflx_acm(kb) * real(rho(k,iw)) * arw(k,iw) &
+                     * (clddepth - (zm(kddtop(iw)-1)-zm(k-1))) &
+                     / ( real(rho(kddtop(iw),iw)) * arw(kddtop(iw),iw) * clddepth )
   enddo
 
   massflx_loc(kb-1) = 0.0
@@ -657,14 +659,14 @@ subroutine acmcld_tracermix_dd( iw, dtl )
      ns = cumix_map(nc)
      do kc = kb, kt
         k  = kddtop(iw) - kc + 1
-        di(kc,nc) = scalar_tab(ns)%var_p(k,iw) + dtl * scalar_tab(ns)%var_t(k,iw) / rho(k,iw)
+        di(kc,nc) = scalar_tab(ns)%var_p(k,iw) + dtl * scalar_tab(ns)%var_t(k,iw) / real(rho(k,iw))
      enddo
   enddo
 
   ! Loop over T levels
   do kc = kb, kt
      k  = kddtop(iw) - kc + 1
-     dtom = dtl * volti(k,iw) / rho(k,iw)
+     dtom = dtl / real(volt(k,iw) * rho(k,iw))
 
      bi(kc)   = 1.0 + dtom * (massflx_tot(kc-1) + massflx_loc(kc))
      ei(kc)   =     - dtom *  massflx_tot(kc)
@@ -675,7 +677,7 @@ subroutine acmcld_tracermix_dd( iw, dtl )
   bi(1) = bi(1) + ai(1,1)
   ci(2) = ci(2) + ai(2,1)
 
-  call acm_matrix( ai, bi, ci, di, ei, ui, nlev, num_cumix, 1 )
+  call acm_matrix( ai, bi, ci, di, ei, ui, nlev, mza, num_cumix, 1 )
 
 ! Now, soln contains future(t+1) values. Compute fluxes
 
@@ -698,7 +700,7 @@ subroutine acmcld_tracermix_dd( iw, dtl )
      do kc = kb, kt
         k  = kddtop(iw) - kc + 1
         scalar_tab(ns)%var_t(k,iw) = scalar_tab(ns)%var_t(k,iw) &
-                                   + (aflux(kc-1) - aflux(kc)) * volti(k,iw)
+                                   + (aflux(kc-1) - aflux(kc)) * real(volti(k,iw))
      enddo
   enddo
 

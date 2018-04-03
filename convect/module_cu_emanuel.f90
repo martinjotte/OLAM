@@ -106,8 +106,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   ! Saturated vapor pressure
 
   do kc = 1, nd
-     k  = kc + ka - 1
-     qsc(kc) = rhovsil(tc(kc)-t00) / rho(k,iw)
+     qsc(kc) = rhovsil(tc(kc)-t00) / den(kc)
      qc (kc) = min(qsc(kc), qc(kc))
   enddo
 
@@ -136,10 +135,13 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
 
      do kc = 1, kctop
         k  = kc + ka - 1
-        thsrc(k,iw) = tt(kc) * rho(k,iw)
-        rtsrc(k,iw) = qt(kc) * rho(k,iw)
+        thsrc(k,iw) = tt(kc) * den(kc)
+        rtsrc(k,iw) = qt(kc) * den(kc)
         qwcon(k,iw) = qcldc(kc)
-        rdsrc(k,iw) = -qce(kc) * arw0(iw) * volti(k,iw)
+        rdsrc(k,iw) = -qce(kc) * arw0(iw) * real(volti(k,iw))
+
+        ut(kc) = ut(kc) * den(kc)
+        vt(kc) = vt(kc) * den(kc)
      enddo
 
      if (nl%conv_uv_mix > 0) then
@@ -151,7 +153,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
               uvtr = -vt(kc) * zew(iw) * eradi
               vxsrc(k,iw) = (-ut(kc) * yew(iw) + uvtr * xew(iw)) * raxisi
               vysrc(k,iw) = ( ut(kc) * xew(iw) + uvtr * yew(iw)) * raxisi
-              vzsrc(k,iw) =   vt(kc) * raxis * eradi 
+              vzsrc(k,iw) =   vt(kc) * raxis * eradi
            enddo
  
         else
