@@ -45,7 +45,7 @@ contains
     use mem_turb,    only: vkm_sfc, ue, ve
     use mem_ijtabs,  only: itab_w
     use mem_grid,    only: mza, lpv, lpw, dzim, zm, volt, arw, lsw, volti, zm, &
-                           arw0, dzm, dzimsq, gxps_coef, gyps_coef, dzt_bot, dzit
+                           arw0, dzm, dzimsq, gxps_coef, gyps_coef, dzim, dzit
     use misc_coms,   only: idiffk, csx, csz, dtlm
     use mem_basic,   only: rho, vxe, vye, vze, thil, wc
     use consts_coms, only: vonk, grav2
@@ -282,7 +282,7 @@ contains
     if (nl%test_case /= 131) then 
        do k = ka, ka + lsw(iw) - 1
           ks = k - ka + 1
-          vctr3(k) = (arw(k,iw) - arw(k-1,iw)) * vkm_sfc(ks,iw) * dzt_bot(k)
+          vctr3(k) = 2.0 * dzim(k-1) * (arw(k,iw) - arw(k-1,iw)) * vkm_sfc(ks,iw)
        enddo
     endif
 

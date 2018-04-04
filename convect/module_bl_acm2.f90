@@ -221,8 +221,7 @@ contains
 
   subroutine acm2_momentum( iw, zkm )
 
-    use mem_grid,   only: mza, arw, volt, volti, lpw, lsw, nsw_max, &
-                          dzim, dzt_bot
+    use mem_grid,   only: mza, arw, volt, volti, lpw, lsw, nsw_max, dzim
     use mem_turb,   only: vkm_sfc
     use mem_basic,  only: vxe, vye, vze, rho
     use mem_tend,   only: vmxet, vmyet, vmzet
@@ -280,7 +279,7 @@ contains
     
     do k = kbot, kbot + nsfc - 1
        ks = k - kbot + 1
-       fact(ks) = vkm_sfc(ks,iw) * (arw(k,iw) - arw(k-1,iw)) * dzt_bot(k)
+       fact(ks) = 2.0 * dzim(k-1) * vkm_sfc(ks,iw) * (arw(k,iw) - arw(k-1,iw))
        dia(k)   = dia(k) + dtom(k) * fact(ks)
     enddo
 

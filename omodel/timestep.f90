@@ -48,6 +48,7 @@ use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
+use vel_t3d,     only: diagvel_t3d
 use var_tables,  only: num_scalar, scalar_tab
 use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
@@ -424,6 +425,12 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
    endif
    call lbcopy_v(1, vmc=vmc, vc=vc)
+
+   ! Compute earth cartesian velocities
+
+   if (mrl > 0) then
+      call diagvel_t3d(mrl)
+   endif
 
    ! call check_nans(21,rvara1=rhot,rvara2=alpha_press)
 

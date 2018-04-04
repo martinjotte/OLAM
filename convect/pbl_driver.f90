@@ -177,8 +177,8 @@ subroutine pbl_driver(mrl,rhot)
      ! Save PBL tendencies of qt needed by some convective schemes
 
      do k = lpw(iw), mza
-        fqtpbl(k,iw) = (sh_wt(k,iw) - fqtpbl(k,iw)) / rho(k,iw)
-        fthpbl(k,iw) = (thilt(k,iw) - fthpbl(k,iw)) / rho(k,iw)
+        fqtpbl(k,iw) = (sh_wt(k,iw) - fqtpbl(k,iw)) / real(rho(k,iw))
+        fthpbl(k,iw) = (thilt(k,iw) - fthpbl(k,iw)) / real(rho(k,iw))
      enddo
 
   enddo
@@ -463,7 +463,7 @@ subroutine apply_surface_fluxes( iw )
 
         do k = lpw(iw), mza-1
            scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                     + rho(k,iw) * scalar_tab(n)%emis(k,iw)
+                                     + real(rho(k,iw)) * scalar_tab(n)%emis(k,iw)
         enddo
      enddo
      
@@ -475,9 +475,7 @@ end subroutine apply_surface_fluxes
 
 subroutine apply_momentum_fluxes( iw )
 
-  use mem_grid,    only: lpw, lsw, volti, arw, dzt_bot
-  use consts_coms, only: r8
-  use misc_coms,   only: dtlm
+  use mem_grid,    only: lpw, lsw, volti, arw, dzim
   use mem_tend,    only: vmxet, vmyet, vmzet
   use mem_basic,   only: vxe, vye, vze
   use mem_ijtabs,  only: itab_w
@@ -487,15 +485,12 @@ subroutine apply_momentum_fluxes( iw )
 
   integer, intent(in) :: iw
   integer             :: ks, k
-  real(r8)            :: dtli
   real                :: fact
-
-  dtli = 1.0_r8 / dtlm(itab_w(iw)%mrlw)
 
   do k = lpw(iw), lpw(iw) + lsw(iw) - 1
      ks = k - lpw(iw) + 1
 
-     fact = dzt_bot(k) * vkm_sfc(ks,iw) * (arw(k,iw) - arw(k-1,iw)) * volti(k,iw)
+     fact = 2.0 * vkm_sfc(ks,iw) * dzim(k-1) * (arw(k,iw) - arw(k-1,iw)) * real(volti(k,iw))
 
      vmxet(k,iw) = vmxet(k,iw) - fact * vxe(k,iw)
      vmyet(k,iw) = vmyet(k,iw) - fact * vye(k,iw)
