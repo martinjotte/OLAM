@@ -115,7 +115,7 @@ contains
 
     if ( .not. ltng_no ) return
 
-    !$omp parallel do private(j,iw,rate)
+    !$omp parallel do private(j,iw,rate) schedule(guided)
     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        vdemis_lt   (:,iw) = 0.0

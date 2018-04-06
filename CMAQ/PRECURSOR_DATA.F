@@ -272,11 +272,12 @@ C HS  03/10/11 Changed vtmp and gasconv to real(8)
 C-----------------------------------------------------------------------
 
       Use const_data, only: inv_mwairkg, dmin_gasconc
+      Use cgrid_spcs, only: nspcsd
 
       Implicit None
 
 C Arguments:
-      Real, Intent( In ) :: conc( : )
+      Real, Intent( In ) :: conc( nspcsd )
       Real, Intent( In ) :: airdens
 
 C Local Variables:
@@ -317,12 +318,13 @@ C SR  03/25/11 Replaced I/O API include files with UTILIO_DEFN
 C-----------------------------------------------------------------------
 
       Use const_data, only: mwairkg, min_gasconc
+      Use cgrid_spcs, only: nspcsd
       Use utilio_defn
 
       Implicit None
 
 C arguments:
-      Real, Intent( Out ) :: conc( : )
+      Real, Intent( Out ) :: conc( nspcsd )
       Real, Intent( In  ) :: airdens
 
 C local variables:

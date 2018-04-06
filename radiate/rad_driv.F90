@@ -201,7 +201,7 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 
 !----------------------------------------------------------------------
    !$omp parallel private(rlongup_ks,rlong_albedo_ks,albedt_ks,albedt_diffuse_ks)
-   !$omp do private (iw,ka,koff,nrad,nsfc)
+   !$omp do private(iw,ka,koff,nrad,nsfc) schedule(guided)
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) = hardw for  mrl=1
 !----------------------------------------------------------------------
 

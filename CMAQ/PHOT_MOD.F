@@ -1128,8 +1128,8 @@ C-----------------------------------------------------------------------
 !***arguments
 
       INTEGER, INTENT( IN )  :: NWL           ! number of wavelength bins
-      REAL,    INTENT( IN )  :: LAMDA( : )  ! wavelengths  [nm]
-      REAL,    INTENT( OUT ) :: SRAYL( : )  ! molecular scattering cross sections [cm**2]
+      REAL,    INTENT( IN )  :: LAMDA( nwl )  ! wavelengths  [nm]
+      REAL,    INTENT( OUT ) :: SRAYL( nwl )  ! molecular scattering cross sections [cm**2]
 
 !***Internal variables
 

@@ -61,7 +61,7 @@ subroutine pbl_driver(mrl,rhot)
 
   if (any(idiffk(1:mrls) == 3)) then
 
-     !$omp do private(iw,raxis,raxisi,k)
+     !$omp parallel do private(iw,raxis,raxisi,k)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
         raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis

@@ -114,7 +114,7 @@
          do iw = 2, mwa
             sinlats(iw) =  SIN( PI180 * glatw(iw) )
             coslats(iw) =  cos( PI180 * glatw(iw) )
-	enddo
+         enddo
 
          allocate( conv_wm2( nwl ) )
          allocate( srayl   ( nwl ) )
@@ -168,7 +168,7 @@
 
          ! MAIN loop over all rows and columns
 
-         !$omp parallel do private(iw,koff,nlays,nlays_model)
+         !$omp parallel do private(iw,koff,nlays,nlays_model) schedule(guided)
          do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
             ! K index offset for radiation column arrays

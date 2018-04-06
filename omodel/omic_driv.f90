@@ -68,7 +68,7 @@ endif
 !----------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
-!$omp parallel do private (iw)
+!$omp parallel do private (iw) schedule(guided)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 

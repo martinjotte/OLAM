@@ -547,7 +547,8 @@ C *** initialize conc arrays
 !     N_APMDIAG_STEP = N_APMDIAG_STEP + 1
 !     N_VIS_STEP     = N_VIS_STEP + 1 
 
-      !$omp parallel do private(iw,k,kmax,c,r,l,n,fpm1,fpm25,fpm10,fams,airtemp,airpres,airdens,airrh)
+!$omp parallel do private(iw,k,kmax,c,r,l,n,fpm1,fpm25,fpm10,fams,airtemp,airpres,airdens,airrh)
+!$omp&            schedule(guided)
       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
          do k = mza-1, lpw(iw), -1

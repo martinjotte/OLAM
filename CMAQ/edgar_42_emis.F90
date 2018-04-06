@@ -1768,7 +1768,7 @@ contains
     !$omp do private(jw,iw,np,tolerance,sumarea,n,im,flats,flons,ngrp,max180,&
     !$omp            min180,js,je,is,ie,sinwlat,coswlat,sinwlon,coswlon,&
     !$omp            dxe,dye,dze,x,y,xf,yf,ng,nn,j,i,lons,lats,xg,yg,areaij,&
-    !$omp            alpha,area,jtrap,xtrap,ytrap,traparea,ijsize)
+    !$omp            alpha,area,jtrap,xtrap,ytrap,traparea,ijsize) schedule(guided)
     do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
 
        np = itab_w(iw)%npoly

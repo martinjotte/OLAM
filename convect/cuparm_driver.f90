@@ -241,7 +241,7 @@ subroutine cuparm_driver(rhot)
   if (mrl > 0) then
 
      !$omp parallel private(rt2)
-     !$omp do private(iw,dtlong4,qadd,k,qtest,dq,qpos,fact)
+     !$omp do private(iw,dtlong4,qadd,k,qtest,dq,qpos,fact) schedule(guided)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 

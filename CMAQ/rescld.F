@@ -38,7 +38,7 @@ C %W% %P% %G% %U%
       ! Compute zenith angle; Golam Sarwar, July 1, 2011 
       CALL CZANGLE ( COSZEN )
 
-      !$omp parallel do private(iw)
+      !$omp parallel do private(iw) schedule(guided)
       do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
          call rescld1( iw, coszen )

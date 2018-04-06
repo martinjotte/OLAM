@@ -81,8 +81,9 @@ C %W% %P% %G% %U%
       maxebi = 0
       sumebi = 0.
       ncall_ebi = 0
-
-      !$omp parallel do private(iw,mxebi,smebi,ncall) reduction(+:sumebi,ncall_ebi) reduction(max:maxebi)
+      
+!$omp parallel do private(iw,mxebi,smebi,ncall) schedule(guided)
+!$omp&            reduction(+:sumebi,ncall_ebi) reduction(max:maxebi)
       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
          call chem1(iw,mxebi,smebi,ncall)
