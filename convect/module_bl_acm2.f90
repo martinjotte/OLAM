@@ -196,23 +196,28 @@ contains
        enddo
     endif
 
-    ! Set bottom and top internal fluxes to zero
-    
-    aflux(kbot-1,:) = 0.
-    aflux(ktop,  :) = 0.
+    do n = 1, num_scalar + 1
 
-    ! Compute tendencies due to internal turbulent fluxes
+       ! Set bottom and top vertical internal turbulent fluxes to zero
+       aflux(kbot-1, n) = 0.0
+       aflux(ktop  , n) = 0.0
 
-    do n = 1, num_scalar
-       do k = kbot, ktop
-          scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                    + real(volti(k,iw)) * (aflux(k-1,n) - aflux(k,n))
-       enddo
-    enddo
+       if (n <= num_scalar) then
 
-    n = num_scalar + 1
-    do k = kbot, ktop
-       thilt(k,iw) = thilt(k,iw) + real(volti(k,iw)) * (aflux(k-1,n) - aflux(k,n))
+          ! Vertical loop over T levels
+          do k = kbot, ktop
+             scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                       + real(volti(k,iw)) * (aflux(k-1,n) - aflux(k,n))
+          enddo
+
+       else
+
+          ! Vertical loop over T levels
+          do k = kbot, ktop
+             thilt(k,iw) = thilt(k,iw) + real(volti(k,iw)) * (aflux(k-1,n) - aflux(k,n))
+          enddo
+
+       endif
     enddo
 
   end subroutine acm2_scalars

@@ -40,7 +40,6 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   use misc_coms,    only: dtlm, iparallel
   use var_tables,   only: num_scalar, scalar_tab
   use mem_turb,     only: akhodx
-  use mem_basic,    only: rho
   use oname_coms,   only: nl
   use mem_thuburn,  only: comp_cfl1, comp_cfl2, comp_and_apply_monot_limits, &
                           comp_and_apply_pd_limits
@@ -112,7 +111,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 
      do k = kb, mza-1
         wsc  (k,iw) = wmsc(k,iw) &
-                    / (zwgt_bot(k) * rho_old(k,iw) + zwgt_top(k) * rho_old(k+1,iw))
+                    / (zwgt_bot(k) * real(rho_old(k,iw)) + zwgt_top(k) * real(rho_old(k+1,iw)))
         wmsca(k,iw) = wmsc(k,iw) * arw(k,iw)
      enddo
 
@@ -137,7 +136,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
      kb  = lpv(iv)
      
      do k = kb, mza
-        vsc  (k,iv) = 2.0 * vmsc(k,iv) / ( rho_old(k,iw1) + rho_old(k,iw2) )
+        vsc  (k,iv) = 2.0 * vmsc(k,iv) / real( rho_old(k,iw1) + rho_old(k,iw2) )
         vmsca(k,iv) = vmsc(k,iv) * arv(k,iv)
      enddo
 
@@ -470,19 +469,15 @@ subroutine grad_t2d(mrl, scp, gxps, gyps)
   real,    intent(out) :: gxps(mza,mwa)
   real,    intent(out) :: gyps(mza,mwa)
 
-  integer :: j, iw, npoly, kb, jw1, iw1, iv1, k
+  integer :: j, iw, npoly, jw1, iw1, iv1, k
   real    :: dscp
 
 !----------------------------------------------------------------------
-  !$omp parallel do private(iw,npoly,kb,jw1,iw1,iv1,k,dscp)
+  !$omp parallel do private(iw,npoly,jw1,iw1,iv1,k,dscp)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
      npoly = itab_w(iw)%npoly
-     kb = lpw(iw)
-   
-     gxps(:,iw) = 0.
-     gyps(:,iw) = 0.
 
 ! Loop over W neighbors of this W cell
 
@@ -494,11 +489,26 @@ subroutine grad_t2d(mrl, scp, gxps, gyps)
 ! Vertical loop over T levels
 ! Zero-gradient lateral B.C. below lpv(iv1)
 
-        do k = lpv(iv1), mza
-           dscp       = scp(k,iw1) - scp(k,iw)
-           gxps(k,iw) = gxps(k,iw) + gxps_coef(iw,jw1) * dscp
-           gyps(k,iw) = gyps(k,iw) + gyps_coef(iw,jw1) * dscp
-        enddo
+        if (jw1 == 1) then
+
+           gxps(lpw(iw):lpv(iv1)-1,iw) = 0.
+           gyps(lpw(iw):lpv(iv1)-1,iw) = 0.
+
+           do k = lpv(iv1), mza
+              dscp       = scp(k,iw1) - scp(k,iw)
+              gxps(k,iw) = gxps_coef(iw,jw1) * dscp
+              gyps(k,iw) = gyps_coef(iw,jw1) * dscp
+           enddo
+
+        else
+
+           do k = lpv(iv1), mza
+              dscp       = scp(k,iw1) - scp(k,iw)
+              gxps(k,iw) = gxps(k,iw) + gxps_coef(iw,jw1) * dscp
+              gyps(k,iw) = gyps(k,iw) + gyps_coef(iw,jw1) * dscp
+           enddo
+
+        endif
 
      enddo
 
@@ -515,7 +525,7 @@ subroutine grad_t2d_3(mrl, scp, gxps, gyps, gxxps, gxyps, gyyps)
 
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
   use mem_grid,   only: mza, mwa, lpw, lpv
-  use mem_adv,    only: xy_h, a_h
+  use mem_adv,    only: xy_h
 
   implicit none
 
@@ -527,48 +537,53 @@ subroutine grad_t2d_3(mrl, scp, gxps, gyps, gxxps, gxyps, gyyps)
   real,    intent(out) :: gxyps(mza,mwa)
   real,    intent(out) :: gyyps(mza,mwa)
 
-  integer :: j, iw, npoly, kb, iwn, ivn, k, n
+  integer :: j, iw, iwn, ivn, k, n
   real    :: sc
 
-  !$omp parallel do private(iw,npoly,kb,n,iwn,ivn,k,sc)
+  !$omp parallel do private(iw,n,iwn,ivn,k,sc)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-     npoly = itab_w(iw)%npoly
-     kb    = lpw(iw)
-
-     gxps (:,iw) = 0.
-     gyps (:,iw) = 0.
-     gxxps(:,iw) = 0.
-     gxyps(:,iw) = 0.
-     gyyps(:,iw) = 0.
+     do k = lpw(iw), lpv(itab_w(iw)%iv(1))-1
+        gxps (k,iw) = 0.
+        gyps (k,iw) = 0.
+        gxxps(k,iw) = 0.
+        gxyps(k,iw) = 0.
+        gyyps(k,iw) = 0.
+     enddo
 
      ! Loop over neighbors of this W cell
-     do n = 1, npoly
+     do n = 1, itab_w(iw)%npoly
+
         iwn = itab_w(iw)%iw(n)
         ivn = itab_w(iw)%iv(n)
 
-        ! Vertical loop over T levels
-        do k = lpv(ivn), mza
-           sc = scp(k,iwn) - scp(k,iw)
+        if (n == 1) then
 
-           gxps (k,iw) = gxps (k,iw) + sc * xy_h(1,n,iw)
-           gyps (k,iw) = gyps (k,iw) + sc * xy_h(2,n,iw)
-           gxxps(k,iw) = gxxps(k,iw) + sc * xy_h(3,n,iw)
-           gxyps(k,iw) = gxyps(k,iw) + sc * xy_h(4,n,iw)
-           gyyps(k,iw) = gyyps(k,iw) + sc * xy_h(5,n,iw)
-        enddo
-     enddo
+           ! Vertical loop over T levels
+           do k = lpv(ivn), mza
+              sc = scp(k,iwn) - scp(k,iw)
 
-     do k = kb, mza
-        gyps (k,iw) =  gyps (k,iw) - a_h(1,2,iw)*gxps(k,iw)
-        gxxps(k,iw) =  gxxps(k,iw) - a_h(1,3,iw)*gxps(k,iw) - a_h(2,3,iw)*gyps(k,iw)
-        gxyps(k,iw) =  gxyps(k,iw) - a_h(1,4,iw)*gxps(k,iw) - a_h(2,4,iw)*gyps(k,iw) - a_h(3,4,iw)*gxxps(k,iw)
-        gyyps(k,iw) = (gyyps(k,iw) - a_h(1,5,iw)*gxps(k,iw) - a_h(2,5,iw)*gyps(k,iw) - a_h(3,5,iw)*gxxps(k,iw) - a_h(4,5,iw)*gxyps(k,iw)) * a_h(5,5,iw)
+              gxps (k,iw) = sc * xy_h(1,n,iw)
+              gyps (k,iw) = sc * xy_h(2,n,iw)
+              gxxps(k,iw) = sc * xy_h(3,n,iw)
+              gxyps(k,iw) = sc * xy_h(4,n,iw)
+              gyyps(k,iw) = sc * xy_h(5,n,iw)
+           enddo
 
-        gxyps(k,iw) = a_h(4,4,iw) * (gxyps(k,iw) - a_h(5,4,iw)*gyyps(k,iw))
-        gxxps(k,iw) = a_h(3,3,iw) * (gxxps(k,iw) - a_h(5,3,iw)*gyyps(k,iw) - a_h(4,3,iw)*gxyps(k,iw))
-        gyps (k,iw) = a_h(2,2,iw) * (gyps (k,iw) - a_h(5,2,iw)*gyyps(k,iw) - a_h(4,2,iw)*gxyps(k,iw) - a_h(3,2,iw)*gxxps(k,iw))
-        gxps (k,iw) = a_h(1,1,iw) * (gxps (k,iw) - a_h(5,1,iw)*gyyps(k,iw) - a_h(4,1,iw)*gxyps(k,iw) - a_h(3,1,iw)*gxxps(k,iw) - a_h(2,1,iw)*gyps(k,iw))
+        else
+
+           ! Vertical loop over T levels
+           do k = lpv(ivn), mza
+              sc = scp(k,iwn) - scp(k,iw)
+
+              gxps (k,iw) = gxps (k,iw) + sc * xy_h(1,n,iw)
+              gyps (k,iw) = gyps (k,iw) + sc * xy_h(2,n,iw)
+              gxxps(k,iw) = gxxps(k,iw) + sc * xy_h(3,n,iw)
+              gxyps(k,iw) = gxyps(k,iw) + sc * xy_h(4,n,iw)
+              gyyps(k,iw) = gyyps(k,iw) + sc * xy_h(5,n,iw)
+           enddo
+
+        endif
      enddo
 
   enddo
@@ -595,7 +610,8 @@ subroutine grad_z(mrl, scp, gzps)
   real    :: gwz(mza)
 
 !----------------------------------------------------------------------
-  !$omp parallel do private(iw,kb,k,gwz)
+  !$omp parallel private(gwz)
+  !$omp do private(iw,kb,k)
   do j = 1,jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
 !----------------------------------------------------------------------
 
@@ -621,7 +637,8 @@ subroutine grad_z(mrl, scp, gzps)
      enddo
 
   enddo
-  !$omp end parallel do
+  !$omp end do
+  !$omp end parallel
 
 end subroutine grad_z
 
@@ -633,7 +650,7 @@ subroutine grad_z_3(mrl, scp, gzps, gzzps)
 
   use mem_ijtabs, only: jtab_w, jtw_wadj
   use mem_grid,   only: mza, mwa, lpw, dzm
-  use mem_adv,    only: zzt, zzb, a_v
+  use mem_adv,    only: a_v
 
   implicit none
 
@@ -642,45 +659,41 @@ subroutine grad_z_3(mrl, scp, gzps, gzzps)
   real,    intent(out) :: gzps (mza,mwa)
   real,    intent(out) :: gzzps(mza,mwa)
 
-  integer :: j, iw, k
-  real    :: sp, sm, b(2)
+  integer :: j, iw, k, ka
+  real    :: dsc(mza)
 
-  !$omp parallel do private(iw,k,sp,sm,b)
+  !$omp parallel private(dsc)
+  !$omp do private(iw,ka,k)
   do j = 1,jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
 
-     ! Bottom boundary
-     k  = lpw(iw)
-     sp = scp(k+1,iw) - scp(k,iw)
-     b(1) = sp * dzm(k)
-     b(2) = sp * zzt(k)
-     gzzps(k,iw) = (b(2) - a_v(2,1,k) * b(1)       ) * a_v(2,2,k)
-     gzps (k,iw) = (b(1) - a_v(1,2,k) * gzzps(k,iw)) * a_v(1,1,k)
+     ka = lpw(iw)
 
-     ! Vertical loop over T levels
-     do k = lpw(iw)+1, mza-1
-        sm = scp(k-1,iw) - scp(k,iw)
-        sp = scp(k+1,iw) - scp(k,iw)
-
-        b(1) = sp * dzm(k) - sm * dzm(k-1)
-        b(2) = sp * zzt(k) + sm * zzb(k)
-
-        sm = gzps(k,iw)
-        sp = gzzps(k,iw)
-
-        gzzps(k,iw) = (b(2) - a_v(2,1,k) * b(1)       ) * a_v(2,2,k)
-        gzps (k,iw) = (b(1) - a_v(1,2,k) * gzzps(k,iw)) * a_v(1,1,k)
+     ! Vertical loop over W levels
+     do k = ka, mza-1
+        dsc(k) = dzm(k) * (scp(k+1,iw) - scp(k,iw))
      enddo
 
-     ! Top boundary
-     k  = mza
-     sm = scp(k-1,iw) - scp(k,iw)
-     b(1) = -sm * dzm(k-1)
-     b(2) =  sm * zzb(k)
-     gzzps(k,iw) = (b(2) - a_v(2,1,k) * b(1)       ) * a_v(2,2,k)
-     gzps (k,iw) = (b(1) - a_v(1,2,k) * gzzps(k,iw)) * a_v(1,1,k)
+     ! Zero gradient top and bottom:
+     gzzps(ka ,iw) = dsc(ka)    * a_v(k,2,1)
+     gzps (ka ,iw) = dsc(ka)    * a_v(k,1,1)
+     gzzps(mza,iw) = dsc(mza-1) * a_v(k,2,2)
+     gzps (mza,iw) = dsc(mza-1) * a_v(k,1,2)
+
+     ! Constant gradient top and bottom:
+     ! gzzps(ka, iw) = dsc(ka)    * (a_v(k,2,1) + a_v(k,2,2))
+     ! gzps (ka, iw) = dsc(ka)    * (a_v(k,1,1) + a_v(k,1,2))
+     ! gzzps(mza,iw) = dsc(mza-1) * (a_v(k,2,1) + a_v(k,2,2))
+     ! gzps (mza,iw) = dsc(mza-1) * (a_v(k,1,1) + a_v(k,1,2))
+
+     ! Vertical loop over T levels
+     do k = ka+1, mza-1
+        gzzps(k,iw) = dsc(k) * a_v(k,2,1) + dsc(k-1) * a_v(k,2,2)
+        gzps (k,iw) = dsc(k) * a_v(k,1,1) + dsc(k-1) * a_v(k,1,2)
+     enddo
 
   enddo
-  !$omp end parallel do
+  !$omp end do
+  !$omp end parallel
 
 end subroutine grad_z_3
 
@@ -914,7 +927,7 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw)
 
   real, parameter :: onethird = 1.0 / 3.0
 
-  integer :: j, kb, k, kp, iw
+  integer :: j, kb, k, iw
 
   if (ldt == 1) then
      dtm(1:mrls) = dtlm(1:mrls)
@@ -925,7 +938,7 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw)
 ! Horizontal loop over all primary W points
 
 !------------------------------------------------------------------------
-  !$omp parallel do private(iw,kb,k,kp,dto2,unx_w,uny_w,vnx_w,vny_w,vnz_w, &
+  !$omp parallel do private(iw,kb,k,dto2,unx_w,uny_w,vnx_w,vny_w,vnz_w, &
   !$omp                     vxeface,vyeface,vzeface,uface,vface,zp,dt) 
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !------------------------------------------------------------------------
@@ -944,14 +957,13 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw)
 
 ! Vertical loop over W levels
 
-     do k = kb, mza
-        kp = min(k+1,mza)
+     do k = kb, mza-1
 
 ! Average 3 velocity components from T points to W point
 
-        vxeface = .5 * (vxe(k,iw) + vxe(kp,iw))
-        vyeface = .5 * (vye(k,iw) + vye(kp,iw))
-        vzeface = .5 * (vze(k,iw) + vze(kp,iw))
+        vxeface = .5 * (vxe(k,iw) + vxe(k+1,iw))
+        vyeface = .5 * (vye(k,iw) + vye(k+1,iw))
+        vzeface = .5 * (vze(k,iw) + vze(k+1,iw))
 
 ! Project earth velocity components at W face onto U and V directions
 
@@ -966,7 +978,7 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw)
      enddo
 
      if (nl%horiz_adv_order > 2) then
-        do k = kb, mza
+        do k = kb, mza-1
            dxxps_w(k,iw) = dxps_w(k,iw) * dxps_w(k,iw)
            dxyps_w(k,iw) = dxps_w(k,iw) * dyps_w(k,iw)
            dyyps_w(k,iw) = dyps_w(k,iw) * dyps_w(k,iw)
@@ -993,15 +1005,20 @@ subroutine donorpointw(ldt, mrl, ws, vxe, vye, vze, kdepw)
 
      enddo
         
-     kdepw  (mza,iw) = mza
-     dzps_w (mza,iw) = dzto2(mza)
+     kdepw (mza,iw) = mza
 
      if (nl%vert_adv_order > 2) then
         do k = kb, mza-1
-           zp = min( dt * abs(ws(k,iw)), dzt(k) )
-           dzzps_w(k,iw) = dztsqo6(k) + zp * (zp * onethird - dzto2(k))
+
+           if (ws(k,iw) > 0.0) then
+              zp = min( dt * abs(ws(k,iw)), dzt(k) )
+              dzzps_w(k,iw) = dztsqo6(k) + zp * (zp * onethird - dzto2(k))
+           else
+              zp = min( dt * abs(ws(k,iw)), dzt(k+1) )
+              dzzps_w(k,iw) = dztsqo6(k+1) + zp * (zp * onethird - dzto2(k+1))
+           endif
+
         enddo
-        dzzps_w(mza,iw) = dztsqo6(mza)
      endif
 
   enddo

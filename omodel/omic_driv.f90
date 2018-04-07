@@ -1666,7 +1666,8 @@ real, intent(in) :: qr(mza0,ncat)
 
 real, intent(in) :: exner0(mza0)
 
-real(r8) :: rfact(mza0), rhoi(mza0)
+real     :: rfact(mza0)
+real(r8) :: rhoi(mza0)
 integer  :: k, n, ic
 real     :: til, qhydm, tc, fracliq
 
@@ -1690,6 +1691,7 @@ enddo
 ! Adjust scalar specific densities to conserve mass when air density changes
 
 do n = num_omic+1, num_scalar
+   !dir$ ivdep
    do k = lpw0, mza0
       scalar_tab(n)%var_p(k,iw0) = scalar_tab(n)%var_p(k,iw0) * rfact(k)
    enddo

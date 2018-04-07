@@ -415,23 +415,28 @@ contains
        call tridv( vctr5, vctr6, vctr7, rhs, soln, ka, mza-1, mza, num_scalar+1 )
     endif
 
-    ! Set bottom and top vertical internal turbulent fluxes to zero
+    do n = 1, num_scalar + 1
 
-    soln( ka-1, 1:num_scalar+1) = 0.0
-    soln(mza  , 1:num_scalar+1) = 0.0
+       ! Set bottom and top vertical internal turbulent fluxes to zero
+       soln(ka-1, n) = 0.0
+       soln(mza , n) = 0.0
 
-    ! Vertical loop over T levels
+       if (n <= num_scalar) then
 
-    do n = 1, num_scalar
-       do k = ka, mza
-          scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                    + real(volti(k,iw)) * (soln(k-1,n) - soln(k,n))
-       enddo
-    enddo
+          ! Vertical loop over T levels
+          do k = ka, mza
+             scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                       + real(volti(k,iw)) * (soln(k-1,n) - soln(k,n))
+          enddo
 
-    n = num_scalar + 1
-    do k = ka, mza
-       thilt(k,iw) = thilt(k,iw) + real(volti(k,iw)) * (soln(k-1,n) - soln(k,n))
+       else
+
+          ! Vertical loop over T levels
+          do k = ka, mza
+             thilt(k,iw) = thilt(k,iw) + real(volti(k,iw)) * (soln(k-1,n) - soln(k,n))
+          enddo
+
+       endif
     enddo
 
   end subroutine turb_k

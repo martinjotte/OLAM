@@ -273,7 +273,7 @@ Contains
     ! Diagnose inflow CFL numbers
 
     use mem_ijtabs,  only: jtab_w, jtw_prog, itab_w
-    use mem_grid,    only: lpv, lpw, volti, mza, mva, mwa
+    use mem_grid,    only: lpv, lpw, volt, mza, mva, mwa
     use consts_coms, only: r8
     use max_dims,    only: maxgrds
     use misc_coms,   only: iparallel
@@ -290,7 +290,7 @@ Contains
     integer,  intent(in) :: imonot
 
     integer              :: j, iw, k, jv, iv
-    real                 :: fact(mza)
+    real                 :: fact(mza), dt
     real                 :: flux(mza)
 
     if (iparallel == 1) then
@@ -301,9 +301,11 @@ Contains
     !$omp do private(iw,k,jv,iv)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
+       dt = dtm(itab_w(iw)%mrlw)
+
        ! Loop over W/M levels
        do k = lpw(iw), mza
-          fact     (k)    = dtm(itab_w(iw)%mrlw) * volti(k,iw) / rho(k,iw)
+          fact     (k)    = dt / real( volt(k,iw) * rho(k,iw) )
           cfl_win_t(k,iw) = -min(wmca(k,  iw),0.0) * fact(k)
           cfl_win_b(k,iw) =  max(wmca(k-1,iw),0.0) * fact(k)
 
@@ -322,7 +324,7 @@ Contains
        if (imonot == 1) then
           do k = lpw(iw), mza
              tfact(k,iw) = 1.0 + flux(k) - tfact(k,iw)
-          enddo
+         enddo
        endif
 
     enddo
@@ -372,11 +374,11 @@ Contains
     real    :: c_scp_in_max_sum(mza), c_scp_in_min_sum(mza)
     real    :: scp_int, scp_inb, scpup
     real    :: smin, smax
-    real    :: scpmin(mza+1), scpmax(mza+1)
-
+    real    :: scpmin(mza), scpmax(mza)
+    real    :: scpmin1(mza), scpmax1(mza)
     real    :: scpminv(mza,mva), scpmaxv(mza,mva)
 
-    !$omp parallel private(c_scp_in_max_sum,c_scp_in_min_sum,scpmax,scpmin)
+    !$omp parallel private(c_scp_in_max_sum,c_scp_in_min_sum,scpmax,scpmin,scpmax1,scpmin1)
     !$omp do private(iv,iw1,iw2,iw3,iw4,iv1,iv2,iv3,iv4,ka,k,smax,smin)
     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
@@ -393,27 +395,17 @@ Contains
        ka = lpv(iv)
 
        ! Vertical loop over T levels
-       do k = 1, mza
+       do k = lpv(iv)-1, mza
           scpminv(k,iv) = min(scp(k,iw1),scp(k,iw2))
           scpmaxv(k,iv) = max(scp(k,iw1),scp(k,iw2))
        enddo
 
-       if (lpv(iv1) <= ka .or. lpv(iv2) <= ka) then
-          scpminv(ka-1,iv) = min(scpminv(ka-1,iv), scp(ka-1,iw3))
-          scpmaxv(ka-1,iv) = max(scpmaxv(ka-1,iv), scp(ka-1,iw3))
-       endif
-
-       do k = max(lpv(iv), min(lpv(iv1),lpv(iv2))), mza
+       do k = max(lpv(iv), min(lpv(iv1),lpv(iv2)))-1, mza
           scpminv(k,iv) = min(scpminv(k,iv), scp(k,iw3))
           scpmaxv(k,iv) = max(scpmaxv(k,iv), scp(k,iw3))
        enddo
 
-       if (lpv(iv3) <= ka .or. lpv(iv4) <= ka) then
-          scpminv(ka-1,iv) = min(scpminv(ka-1,iv), scp(ka-1,iw4))
-          scpmaxv(ka-1,iv) = max(scpmaxv(ka-1,iv), scp(ka-1,iw4))
-       endif
-
-       do k = max(lpv(iv), min(lpv(iv3),lpv(iv4))), mza
+       do k = max(lpv(iv), min(lpv(iv3),lpv(iv4)))-1, mza
           scpminv(k,iv) = min(scpminv(k,iv), scp(k,iw4))
           scpmaxv(k,iv) = max(scpmaxv(k,iv), scp(k,iw4))
        enddo
@@ -426,7 +418,7 @@ Contains
 
        smax = max(scpmaxv(mza-1,iv), scpmaxv(mza,iv))
        smin = min(scpminv(mza-1,iv), scpminv(mza,iv))
-       scp_upv(k,iv) = max( min(scp_upv(k,iv), smax), smin )
+       scp_upv(mza,iv) = max( min(scp_upv(mza,iv), smax), smin )
 
     enddo
     !$omp end do
@@ -436,16 +428,38 @@ Contains
 
        ka = lpw(iw)
 
-       do k = ka-1, mza
-          scpmax(k) = maxval( scpmaxv( k, itab_w(iw)%iv( 1:itab_w(iw)%npoly ) ) )
-          scpmin(k) = minval( scpminv( k, itab_w(iw)%iv( 1:itab_w(iw)%npoly ) ) )
+       do jv = 1, itab_w(iw)%npoly
+          iv  = itab_w(iw)%iv(jv)
+          iwn = itab_w(iw)%iw(jv)
+          
+          if (jv == 1) then
+
+             scpmax1(1:lpv(iv)-2) = scp(1:lpv(iv)-2,iw)
+             scpmin1(1:lpv(iv)-2) = scp(1:lpv(iv)-2,iw)
+
+             do k = lpv(iv)-1, mza
+                scpmax1(k) = scpmaxv(k,iv)
+                scpmin1(k) = scpminv(k,iv)
+             enddo
+             
+          else
+
+             do k = lpv(iv)-1, mza
+                scpmax1(k) = max(scpmax1(k), scpmaxv(k,iv))
+                scpmin1(k) = min(scpmin1(k), scpminv(k,iv))
+             enddo
+             
+          endif
        enddo
 
        do k = ka, mza-1
-          smax = max( scpmax(k), scpmax(k+1) )
-          smin = min( scpmin(k), scpmin(k+1) )
-          scp_upw(k,iw) = max( min(scp_upw(k,iw), smax), smin )
+          scpmax(k) = max( scpmax1(k), scpmax1(k+1) )
+          scpmin(k) = min( scpmin1(k), scpmin1(k+1) )
+          scp_upw(k,iw) = max( min(scp_upw(k,iw), scpmax(k)), scpmin(k) )
        enddo
+
+       scpmax(mza) = scpmax1(mza)
+       scpmin(mza) = scpmin1(mza)
 
        if (isstab(iw)) then
 
@@ -522,13 +536,10 @@ Contains
 
        enddo
 
-       scpmax(mza+1) = scpmax(mza)
-       scpmin(mza+1) = scpmin(mza)
-
        ! Loop over T levels
        do k = ka, mza
-          smax = max( scpmax(k-1), scpmax(k), scpmax(k+1) )
-          smin = min( scpmin(k-1), scpmin(k), scpmin(k+1) )
+          smax = max( scpmax(k-1), scpmax(k) )
+          smin = min( scpmin(k-1), scpmin(k) )
 
           scp_out_min(k,iw) = (scp(k,iw) + c_scp_in_max_sum(k) - &
                smax * tfact(k,iw)) * cfl_out_sum(k,iw)

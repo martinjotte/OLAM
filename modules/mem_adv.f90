@@ -1,6 +1,6 @@
 module mem_adv
 
-  real, allocatable :: zzt(:), zzb(:), a_v(:,:,:), zz0(:)
+  real, allocatable :: a_v(:,:,:), zz0(:)
   real, allocatable :: a_h(:,:,:)
 
   real, allocatable :: xx0(:), xy0(:), yy0(:), xy_h(:,:,:)
@@ -46,7 +46,7 @@ contains
     integer  :: k, j, iw, iwn, np, n, iv, iw1, iw2, im1, im2, km
     real     :: xw(7), yw(7), at(5,5)
     real(r8) :: fint
-    real     :: z1(2), z2(2), az(2,2)
+    real     :: z1(2), z2(2), az1(2,2), az2(2,2)
 
     allocate(gxps_scp(mza,mwa)) ; gxps_scp = rinit 
     allocate(gyps_scp(mza,mwa)) ; gyps_scp = rinit
@@ -116,9 +116,7 @@ contains
 
     if (nl%vert_adv_order == 3) then
 
-       allocate(zzt(mza))
-       allocate(zzb(mza))
-       allocate(a_v(2,2,mza))
+       allocate(a_v(mza,2,2))
        allocate(zz0(mza))
 
        do k = 1, mza
@@ -129,13 +127,17 @@ contains
           z1 = (/ -dzm(km), dzm(k) /)
           z2 = z1 * z1 - dzt(k) * dzt(k) / 12.
 
-          az(:,1) = z1
-          az(:,2) = z2
-          a_v(:,:,k) = matmul(transpose(az), az)
-          call ludcmp(a_v(:,:,k), 2)
+          az1(1:2,1) = z1
+          az1(1:2,2) = z2
+          az2 = matmul(transpose(az1), az1)
+          call ludcmp(az2, 2)
 
-          zzb(k) = z2(1)
-          zzt(k) = z2(2)
+          a_v(k,2,1) =  (z2(2) * dzim(k ) - az2(2,1)) * az2(2,2)
+          a_v(k,2,2) = -(z2(1) * dzim(km) + az2(2,1)) * az2(2,2)
+
+          a_v(k,1,1) = az2(1,1) * (1.0 - az2(1,2) * a_v(k,2,1))
+          a_v(k,1,2) = az2(1,1) * (1.0 - az2(1,2) * a_v(k,2,2))
+
        enddo
 
     endif
@@ -207,6 +209,55 @@ contains
        call ludcmp(at, 5)
 
        a_h(:,:,iw) = transpose(at)
+
+       xy_h(5,1:np,iw) = xy_h(5,1:np,iw) * a_h(5,5,iw)
+       xy_h(4,1:np,iw) = xy_h(4,1:np,iw) * a_h(4,4,iw)
+       xy_h(3,1:np,iw) = xy_h(3,1:np,iw) * a_h(3,3,iw)
+       xy_h(2,1:np,iw) = xy_h(2,1:np,iw) * a_h(2,2,iw)
+       xy_h(1,1:np,iw) = xy_h(1,1:np,iw) * a_h(1,1,iw)
+
+       a_h(1:4,5,iw) = a_h(1:4,5,iw) * a_h(5,5,iw)
+
+       a_h(5  ,4,iw) = a_h(5  ,4,iw) * a_h(4,4,iw)
+       a_h(1:3,4,iw) = a_h(1:3,4,iw) * a_h(4,4,iw)
+       a_h(4,5  ,iw) = a_h(4,5  ,iw) / a_h(4,4,iw)
+
+       a_h(4:5,3,iw) = a_h(4:5,3,iw) * a_h(3,3,iw)
+       a_h(1:2,3,iw) = a_h(1:2,3,iw) * a_h(3,3,iw)
+       a_h(3,4:5,iw) = a_h(3,4:5,iw) / a_h(3,3,iw)
+
+       a_h(3:5,2,iw) = a_h(3:5,2,iw) * a_h(2,2,iw)
+       a_h(1,  2,iw) = a_h(1  ,2,iw) * a_h(2,2,iw)
+       a_h(2,3:5,iw) = a_h(2,3:5,iw) / a_h(2,2,iw)
+
+       a_h(2:5,1,iw) = a_h(2:5,1,iw) * a_h(1,1,iw)
+       a_h(1,2:5,iw) = a_h(1,2:5,iw) / a_h(1,1,iw)
+ 
+       xy_h(2,1:np,iw) = xy_h(2,1:np,iw) - a_h(1,2,iw) * xy_h(1,1:np,iw)
+
+       xy_h(3,1:np,iw) = xy_h(3,1:np,iw) - a_h(1,3,iw) * xy_h(1,1:np,iw) &
+                                         - a_h(2,3,iw) * xy_h(2,1:np,iw)
+
+       xy_h(4,1:np,iw) = xy_h(4,1:np,iw) - a_h(1,4,iw) * xy_h(1,1:np,iw) &
+                                         - a_h(2,4,iw) * xy_h(2,1:np,iw) &
+                                         - a_h(3,4,iw) * xy_h(3,1:np,iw)
+
+       xy_h(5,1:np,iw) = xy_h(5,1:np,iw) - a_h(1,5,iw) * xy_h(1,1:np,iw) &
+                                         - a_h(2,5,iw) * xy_h(2,1:np,iw) &
+                                         - a_h(3,5,iw) * xy_h(3,1:np,iw) &
+                                         - a_h(4,5,iw) * xy_h(4,1:np,iw)
+
+       xy_h(4,1:np,iw) = xy_h(4,1:np,iw) - a_h(5,4,iw) * xy_h(5,1:np,iw)
+       xy_h(3,1:np,iw) = xy_h(3,1:np,iw) - a_h(5,3,iw) * xy_h(5,1:np,iw) &
+                                         - a_h(4,3,iw) * xy_h(4,1:np,iw)
+       xy_h(2,1:np,iw) = xy_h(2,1:np,iw) - a_h(5,2,iw) * xy_h(5,1:np,iw) &
+                                         - a_h(4,2,iw) * xy_h(4,1:np,iw) &
+                                         - a_h(3,2,iw) * xy_h(3,1:np,iw)
+
+       xy_h(1,1:np,iw) = xy_h(1,1:np,iw) - a_h(5,1,iw) * xy_h(5,1:np,iw) &
+                                         - a_h(4,1,iw) * xy_h(4,1:np,iw) &
+                                         - a_h(3,1,iw) * xy_h(3,1:np,iw) &
+                                         - a_h(2,1,iw) * xy_h(2,1:np,iw)
     enddo
     !$omp end do
 
@@ -292,7 +343,7 @@ contains
     real,    intent(inout) :: a(n,n)
     real                   :: dum, sum
     real                   :: vv(n)
-    integer                :: i, j, k, imax
+    integer                :: i, j, k
 
     ! ***************************************************************
     ! * Given an N x N matrix A, this routine replaces it by the LU *

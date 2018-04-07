@@ -43,9 +43,9 @@ subroutine acmcld_uvmix_up( iw, dtl )
 !   realistic gradual subsidence.
 !-----------------------------------------------------------------------
 
-  use mem_grid,    only: mza, zm, zt, xew, yew, zew, arw0, volt, volti, lpw
+  use mem_grid,    only: mza, zm, zt, xew, yew, zew, arw, volt, volti, lpw
   use mem_cuparm,  only: kcutop, kcubot, vxsrc, vysrc, vzsrc, cbmf
-  use mem_basic,   only: vxe, vye, vze, rho, theta
+  use mem_basic,   only: vxe, vye, vze, rho
   use consts_coms, only: eradi
   use tridiag,     only: acm_matrix
 
@@ -64,7 +64,7 @@ subroutine acmcld_uvmix_up( iw, dtl )
   real :: di(mza,2), ui(mza,2)
   real :: aflux(mza,2)
   real :: massflx_acm(mza), massflx_loc(mza), massflx_tot(mza)
-  real :: clddepth
+  real :: clddepth, massflx0, massflxk
   real :: raxis, raxisi
   real :: u(mza), v(mza)
   real :: ut(mza), vt(mza)
@@ -91,20 +91,23 @@ subroutine acmcld_uvmix_up( iw, dtl )
   nlev = kt - kb + 1
 
   ! Assume cloud extends to middle of top layer  
+
   clddepth = zt(kt) - zm(kb)
 
-! Compute ACM missing rates
+  ! Compute ACM missing rates
 
-  massflx_acm(kb-1) = 0.0
-  massflx_acm(kb)   = ef * cbmf(iw) * arw0(iw)
-  massflx_acm(kt)   = 0.0
+  massflx0 = ef * cbmf(iw) / real( rho(kb,iw) )
 
   ! Loop over W (flux) levels
-  do k = kb+1, kt-1
-
-     massflx_acm(k) = massflx_acm(kb) * real(rho(k,iw)) / real(rho(kb,iw)) &
-                    * (clddepth - (zm(k) - zm(kb))) /  clddepth
+  do k = kb, kt-1
+     massflxk       = massflx0 * real(rho(k,iw)) * arw(k,iw)
+     massflx_acm(k) = massflxk * (zt(kt) - zm(k)) / clddepth
+     massflx_loc(k) = min(massflxk - massflx_acm(k), fl * massflx_acm(k))
+     massflx_tot(k) = massflx_acm(k) + massflx_loc(k)
   enddo
+
+  massflx_acm(kb-1) = 0.0
+  massflx_acm(kt)   = 0.0
 
   massflx_loc(kb-1) = 0.0
   massflx_loc(kt)   = 0.0
@@ -112,12 +115,6 @@ subroutine acmcld_uvmix_up( iw, dtl )
   massflx_tot(kb-1) = 0.0
   massflx_tot(kt)   = 0.0
 
-  do k = kb, kt-1
-     massflx_loc(k) = massflx_acm(kb) * real(rho(k,iw)) / real(rho(kb,iw)) - massflx_acm(k)
-     massflx_loc(k) = min(massflx_loc(k), fl*massflx_acm(k))
-     massflx_tot(k) = massflx_acm(k) + massflx_loc(k)
-  enddo
-     
 ! Compute zonal and meridional winds
 
   raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
@@ -222,9 +219,9 @@ subroutine acmcld_uvmix_dd( iw, dtl )
 !   realistic gradual subsidence.
 !-----------------------------------------------------------------------
 
-  use mem_grid,    only: mza, zm, zt, xew, yew, zew, arw, volt, volti, lpw
+  use mem_grid,    only: mza, zm, xew, yew, zew, arw, volt, volti, lpw
   use mem_cuparm,  only: kddtop, vxsrc, vysrc, vzsrc, cddf
-  use mem_basic,   only: vxe, vye, vze, rho, theta
+  use mem_basic,   only: vxe, vye, vze, rho
   use consts_coms, only: eradi
   use tridiag,     only: acm_matrix
 
@@ -243,7 +240,7 @@ subroutine acmcld_uvmix_dd( iw, dtl )
   real :: di(mza,2), ui(mza,2)
   real :: aflux(0:mza,2)
   real :: massflx_acm(0:mza), massflx_loc(0:mza), massflx_tot(0:mza)
-  real :: clddepth
+  real :: clddepth, massflx0, massflxk
   real :: raxis, raxisi
   real :: u(mza), v(mza)
   real :: ut(mza), vt(mza)
@@ -268,36 +265,32 @@ subroutine acmcld_uvmix_dd( iw, dtl )
 
   endif
 
-  ! Assume cloud extends to bottom of top layer  
-  clddepth = zm( kddtop(iw) - 1) - zm( lpw(iw) - 1 )
+  ! Assume cloud extends to bottom of top layer
 
-! Compute ACM missing rates
+  clddepth = zm(kddtop(iw) - 1) - zm(lpw(iw) - 1)
 
-  massflx_acm(kb-1) = 0.0
-  massflx_acm(kb)   = ef * cddf(iw) * arw(kddtop(iw),iw)
-  massflx_acm(kt)   = 0.0
+  ! Compute ACM missing rates
+
+  massflx0 = ef * cddf(iw) / real( rho(kddtop(iw),iw) )
 
   ! Loop over W (flux) levels
-  do kc = kb+1, kt-1
+  do kc = kb, kt-1
      k  = kddtop(iw) - kc + 1
 
-     massflx_acm(kc) = massflx_acm(kb) * real(rho(k,iw)) * arw(k,iw) &
-                     * (clddepth - (zm(kddtop(iw)-1)-zm(k-1))) &
-                     / ( real(rho(kddtop(iw),iw)) * arw(kddtop(iw),iw) * clddepth )
+     massflxk        = massflx0 * real(rho(k,iw)) * arw(k,iw)
+     massflx_acm(kc) = massflxk * (zm(k-1) - zm(lpw(iw)-1)) / clddepth
+     massflx_loc(kc) = min(massflxk - massflx_acm(kc), fl * massflx_acm(kc))
+     massflx_tot(kc) = massflx_acm(kc) + massflx_loc(kc)
   enddo
+
+  massflx_acm(kb-1) = 0.0
+  massflx_acm(kt)   = 0.0
 
   massflx_loc(kb-1) = 0.0
   massflx_loc(kt)   = 0.0
 
   massflx_tot(kb-1) = 0.0
   massflx_tot(kt)   = 0.0
-
-  do kc = kb, kt-1
-     k  = kddtop(iw) - kc + 1
-     massflx_loc(kc) = massflx_acm(kb) * real(rho(k,iw)) / real(rho(kddtop(iw),iw)) - massflx_acm(kc)
-     massflx_loc(kc) = min(massflx_loc(kc), fl*massflx_acm(kc))
-     massflx_tot(kc) = massflx_acm(kc) + massflx_loc(kc)
-  enddo
 
 ! Compute zonal and meridional winds
 
@@ -438,12 +431,11 @@ subroutine acmcld_tracermix_up( iw, dtl )
 !   realistic gradual subsidence.
 !-----------------------------------------------------------------------
 
-  use mem_grid,    only: mza, zm, zt, arw0, volt, volti, lpw
+  use mem_grid,    only: mza, zm, zt, arw, volt, volti, lpw
   use mem_cuparm,  only: kcutop, kcubot, cbmf
   use mem_basic,   only: rho
   use tridiag,     only: acm_matrix
   use var_tables,  only: num_cumix, cumix_map, scalar_tab
-  use oname_coms,  only: nl
 
   implicit none
 
@@ -460,7 +452,7 @@ subroutine acmcld_tracermix_up( iw, dtl )
   real :: di(mza,num_cumix), ui(mza,num_cumix)
   real :: aflux(mza)
   real :: massflx_acm(mza), massflx_loc(mza), massflx_tot(mza)
-  real :: clddepth
+  real :: clddepth, massflx0, massflxk
   real :: dtom
 
   real, parameter :: ef = 1.0  ! mixing efficiency for tracers
@@ -483,19 +475,23 @@ subroutine acmcld_tracermix_up( iw, dtl )
   nlev = kt - kb + 1
 
   ! Assume cloud extends to middle of top layer  
+
   clddepth = zt(kt) - zm(kb)
 
   ! Compute ACM missing rates
 
-  massflx_acm(kb-1) = 0.0
-  massflx_acm(kb)   = ef * cbmf(iw) * arw0(iw)
-  massflx_acm(kt)   = 0.0
+  massflx0 = ef * cbmf(iw) / real( rho(kb,iw) )
 
   ! Loop over W (flux) levels
-  do k = kb+1, kt-1
-     massflx_acm(k) = massflx_acm(kb) * real(rho(k,iw)) / real(rho(kb,iw)) &
-                    * (clddepth - (zm(k) - zm(kb))) / clddepth
+  do k = kb, kt-1
+     massflxk       = massflx0 * real(rho(k,iw)) * arw(k,iw)
+     massflx_acm(k) = massflxk * (zt(kt) - zm(k)) / clddepth
+     massflx_loc(k) = min(massflxk - massflx_acm(k), fl * massflx_acm(k))
+     massflx_tot(k) = massflx_acm(k) + massflx_loc(k)
   enddo
+
+  massflx_acm(kb-1) = 0.0
+  massflx_acm(kt)   = 0.0
 
   massflx_loc(kb-1) = 0.0
   massflx_loc(kt)   = 0.0
@@ -503,12 +499,6 @@ subroutine acmcld_tracermix_up( iw, dtl )
   massflx_tot(kb-1) = 0.0
   massflx_tot(kt)   = 0.0
 
-  do k = kb, kt-1
-     massflx_loc(k) = massflx_acm(kb) * real(rho(k,iw)) / real(rho(kb,iw)) - massflx_acm(k)
-     massflx_loc(k) = min(massflx_loc(k), fl*massflx_acm(k))
-     massflx_tot(k) = massflx_acm(k) + massflx_loc(k)
-  enddo
-     
 ! Define arrays A,B,E which make up matrix and D which is RHS
 
   do nc = 1, num_cumix
@@ -579,12 +569,11 @@ subroutine acmcld_tracermix_dd( iw, dtl )
 !   realistic gradual subsidence.
 !-----------------------------------------------------------------------
 
-  use mem_grid,    only: mza, zm, zt, arw, volt, volti, lpw
+  use mem_grid,    only: mza, zm, arw, volt, volti, lpw
   use mem_cuparm,  only: kddtop, cddf
   use mem_basic,   only: rho
   use tridiag,     only: acm_matrix
   use var_tables,  only: num_cumix, cumix_map, scalar_tab
-  use oname_coms,  only: nl
 
   implicit none
 
@@ -601,7 +590,7 @@ subroutine acmcld_tracermix_dd( iw, dtl )
   real :: di(mza,num_cumix), ui(mza,num_cumix)
   real :: aflux(0:mza)
   real :: massflx_acm(0:mza), massflx_loc(0:mza), massflx_tot(0:mza)
-  real :: clddepth
+  real :: clddepth, massflx0, massflxk
   real :: dtom
 
   real, parameter :: ef = 1.0  ! mixing efficiency for tracers
@@ -622,36 +611,32 @@ subroutine acmcld_tracermix_dd( iw, dtl )
 
   endif
 
-  ! Assume cloud extends to bottom of top layer  
-  clddepth = zm( kddtop(iw) - 1) - zm( lpw(iw) - 1 )
+  ! Assume cloud extends to bottom of top layer
+
+  clddepth = zm(kddtop(iw) - 1) - zm(lpw(iw) - 1)
 
   ! Compute ACM missing rates
 
-  massflx_acm(kb-1) = 0.0
-  massflx_acm(kb)   = ef * cddf(iw) * arw(kddtop(iw),iw)
-  massflx_acm(kt)   = 0.0
+  massflx0 = ef * cddf(iw) / real( rho(kddtop(iw),iw) )
 
   ! Loop over W (flux) levels
-  do kc = kb+1, kt-1
+  do kc = kb, kt-1
      k  = kddtop(iw) - kc + 1
 
-     massflx_acm(kc) = massflx_acm(kb) * real(rho(k,iw)) * arw(k,iw) &
-                     * (clddepth - (zm(kddtop(iw)-1)-zm(k-1))) &
-                     / ( real(rho(kddtop(iw),iw)) * arw(kddtop(iw),iw) * clddepth )
+     massflxk        = massflx0 * real(rho(k,iw)) * arw(k,iw)
+     massflx_acm(kc) = massflxk * (zm(k-1) - zm(lpw(iw)-1)) / clddepth
+     massflx_loc(kc) = min(massflxk - massflx_acm(kc), fl * massflx_acm(kc))
+     massflx_tot(kc) = massflx_acm(kc) + massflx_loc(kc)
   enddo
+
+  massflx_acm(kb-1) = 0.0
+  massflx_acm(kt)   = 0.0
 
   massflx_loc(kb-1) = 0.0
   massflx_loc(kt)   = 0.0
 
   massflx_tot(kb-1) = 0.0
   massflx_tot(kt)   = 0.0
-
-  do kc = kb, kt-1
-     k  = kddtop(iw) - kc + 1
-     massflx_loc(kc) = massflx_acm(kb) * rho(k,iw) / rho(kddtop(iw),iw) - massflx_acm(kc)
-     massflx_loc(kc) = min(massflx_loc(kc), fl*massflx_acm(kc))
-     massflx_tot(kc) = massflx_acm(kc) + massflx_loc(kc)
-  enddo
 
 ! Define arrays A,B,E which make up matrix and D which is RHS
 
@@ -686,21 +671,21 @@ subroutine acmcld_tracermix_dd( iw, dtl )
 
      ! Loop over W (flux) levels
      do kc = kb, kt-1
+        k  = kddtop(iw) - kc
 
-        aflux(kc) = massflx_acm(kc) * ui(1,nc) + massflx_loc(kc) * ui(kc,nc) &
-                  - massflx_tot(kc) * ui(kc+1,nc)
+        aflux(k) = massflx_tot(kc) * ui(kc+1,nc) &
+                 - massflx_acm(kc) * ui(1,nc) - massflx_loc(kc) * ui(kc,nc)
      enddo
 
-     aflux(kb-1) = 0.0
-     aflux(kt)   = 0.0
+     aflux(lpw(iw)-1)  = 0.0
+     aflux(kddtop(iw)) = 0.0
 
 ! Compute tendencies due to internal convective fluxes
 
      ! Loop over T levels
-     do kc = kb, kt
-        k  = kddtop(iw) - kc + 1
+     do k = lpw(iw), kddtop(iw)
         scalar_tab(ns)%var_t(k,iw) = scalar_tab(ns)%var_t(k,iw) &
-                                   + (aflux(kc-1) - aflux(kc)) * real(volti(k,iw))
+                                   + (aflux(k-1) - aflux(k)) * real(volti(k,iw))
      enddo
   enddo
 
