@@ -358,6 +358,9 @@ Module oname_coms
 
    type (oname_vars), save :: nl
 
+   integer, parameter :: maxcf = 10
+   integer            :: numcf =  0
    character(40) :: cmdlne_runtype = ''
+   character(99) :: cmdlne_fields(maxcf) = ''
 
 End Module oname_coms

@@ -33,16 +33,16 @@
 
 subroutine read_nl(file)
 
-use oname_coms, only: nl, cmdlne_runtype
+use oname_coms, only: nl, cmdlne_runtype, cmdlne_fields, numcf
 use misc_coms,  only: io6
+use max_dims,   only: pathlen
 
 implicit none
 
 character(*), intent(in) :: file
-
-character(9) :: line
-integer      :: iline, iplt
-logical      :: fexists
+character(pathlen)       :: fs
+integer                  :: il, ios
+logical                  :: fexists
 
 namelist /OLAMIN/ nl
 
@@ -60,7 +60,30 @@ open(10, status='OLD', file=file)
 read(10, nml=OLAMIN)
 close(10)
 
-! OVERWRITE NAMELIST OPTIONS WITH COMMAND LINE VALUES (CURRENTLY ONLY RUNTYPE)
+! OVERWRITE NAMELIST WITH COMMAND LINE SWITCHES
+
+fexists = .false.
+
+do il = 1, numcf
+   fs = "&OLAMIN NL%" // adjustl(trim(cmdlne_fields(il))) // " /"
+
+   write(io6,*) trim(fs)
+
+   read(fs, nml=OLAMIN, iostat=ios)
+
+   if (ios /= 0) then
+      fexists = .true.
+      write(io6,*)
+      write(io6,*) "Error setting name list values from command line:"
+      write(io6,*) trim(cmdlne_fields(il))
+      write(io6,*) ios
+      write(io6,*) trim(fs)
+   endif
+enddo
+if (fexists == .true.) stop "Stopping model run."
+
+
+! OVERWRITE NAMELIST WITH COMMAND LINE RUNTYPE
 
 if (len_trim(cmdlne_runtype) > 1) then
    nl%runtype = cmdlne_runtype

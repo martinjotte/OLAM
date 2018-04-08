@@ -38,7 +38,7 @@ use olam_mpi_atm, only: olam_mpi_init, olam_mpi_finalize
 use misc_coms,    only: tmpdir
 use max_dims,     only: pathlen
 use hdf5,         only: h5open_f, h5close_f
-use oname_coms,   only: cmdlne_runtype
+use oname_coms,   only: cmdlne_runtype, cmdlne_fields, numcf, maxcf
 
 implicit none
 
@@ -99,14 +99,38 @@ do while (i <= numarg)
    ! write(io6,*) 'args: ',i,cargv
 
    if (cargv(1:1) == '-') then
+
       if (cargv(2:2) == 'f') then
+
          call get_command_argument(i+1,name_name)
          if (len_trim(name_name) < 1) bad = bad + 1
          i = i + 2
+
       elseif (cargv(2:2) == 'r') then
+
          call get_command_argument(i+1,cmdlne_runtype)
          if (len_trim(cmdlne_runtype) < 1) bad = bad + 1
          i = i + 2
+
+      elseif (cargv(2:2) == 'z') then
+
+         numcf = numcf + 1
+
+         if (numcf <= maxcf) then
+            call get_command_argument(i+1,cmdlne_fields(numcf))
+            if ( len_trim( cmdlne_fields(numcf) ) < 1  .or. &
+                 scan( cmdlne_fields(numcf), '=') == 0 ) then
+               bad = bad + 1
+               numcf = numcf - 1
+            endif
+         else
+
+            numcf = maxcf
+            write(io6,*) "OLAM too many 'z' arguments"
+
+         endif
+         i = i + 2
+
       else
          ! write(io6,*) 'OLAM unknown option: ', cargv
          i = i + 1
