@@ -196,13 +196,13 @@ Contains
 
     endif
 
-    if (nl%test_case > 10) then ! Encompasses DCMIP & parcel cases (March/2016)
+    if (nl%test_case > 13) then ! Encompasses DCMIP & parcel cases (March/2016)
 
-       if (.not. allocated(sh_c))   allocate (sh_c(mza,mwa)) ; sh_c  = rinit
-       if (.not. allocated(sh_r))   allocate (sh_r(mza,mwa)) ; sh_r  = rinit
-       if (.not. allocated(q2))     allocate (q2  (mza,mwa)) ; q2    = rinit
+       if (.not. allocated(sh_c))   allocate (sh_c(mza,mwa)) ; sh_c  = 0.0
+       if (.not. allocated(sh_r))   allocate (sh_r(mza,mwa)) ; sh_r  = 0.0
+       if (.not. allocated(q2))     allocate (q2  (mza,mwa)) ; q2    = 0.0
        if (.not. allocated(accpr))  allocate (accpr   (mwa)) ; accpr = 0.0_r8
-       if (.not. allocated(pcprr))  allocate (pcprr   (mwa)) ; pcprr = rinit
+       if (.not. allocated(pcprr))  allocate (pcprr   (mwa)) ; pcprr = 0.0
 
     endif
 

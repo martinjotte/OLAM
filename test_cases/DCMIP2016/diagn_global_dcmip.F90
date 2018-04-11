@@ -23,7 +23,8 @@ integer, save :: ncall = 0
 integer :: j,iw,kk,k
 real :: raxis,u,v,w
 
-real, save, dimension(36000) :: ge1,ge2,ge3,ge4,ge5,ge6,ge7,ge8,vctr18, &
+real, save, dimension(:), allocatable :: &
+                                ge1,ge2,ge3,ge4,ge5,ge6,ge7,ge8,vctr18, &
                                 q1l1,q1l2,q1li, &
                                 q2l1,q2l2,q2li, &
                                 q3l1,q3l2,q3li, &
@@ -67,11 +68,11 @@ real(r8) :: real_mixing, overshooting, range_pres, area_sum
 real(r8) :: q1min, q1max, q2min, q2max, aa, bb, eps, c, root
 real(r8) :: corr1, corr2, corr3, cf
 
-integer :: nsends, ierror, k4900
+integer :: nsends, ierror, k4900, nt
 real(r8), allocatable :: sendbuf(:), recvbuf(:,:)
 
 real :: sum_vy, sum_vydif2, absvydif_max, vy
-real, save :: em0, v02
+real, save :: em0=0.0, v02=0.0
 
 k4900 = minloc(abs(zt(:)-4900.),1)
 
@@ -83,7 +84,20 @@ if (ncall == 1) then
 
    allocate(q1_tr(mza,mwa),q2_tr(mza,mwa),q3_tr(mza,mwa),q4_tr(mza,mwa),q5_tr(mza,mwa))
    allocate(r0(mwa),v0(mwa))
+
+   nt = int(timmax8 / dtlong) + 10
+
+   allocate(ge1(nt),ge2(nt),ge3(nt),ge4(nt),ge5(nt),ge6(nt))
+   allocate(ge7(nt),ge8(nt),vctr18(nt))
    
+   allocate(q1l1(nt),q1l2(nt),q1li(nt))
+   allocate(q2l1(nt),q2l2(nt),q2li(nt))
+   allocate(q3l1(nt),q3l2(nt),q3li(nt))
+   allocate(q4l1(nt),q4l2(nt),q4li(nt))
+   allocate(q5l1(nt),q5l2(nt),q5li(nt))
+   allocate(wcmax(nt), psmin(nt))
+   allocate(deltam(nt),vyl2(nt),vyli(nt))
+
    r0(:) = 0.0_r8
    v0(:) = 0.0_r8
 
@@ -152,11 +166,11 @@ if (ncall == 1) then
    absq3tr_max = 0.0_r8
    absq4tr_max = 0.0_r8
    absq5tr_max = 0.0_r8
-
-   sum_vydif2   = 0.0_r8
-   absvydif_max = 0.0_r8
-   sum_vy       = 0.0_r8
 endif
+
+sum_vydif2   = 0.0_r8
+absvydif_max = 0.0_r8
+sum_vy       = 0.0_r8
 
  tmass_sum = 0.0_r8
  wmass_sum = 0.0_r8
@@ -260,9 +274,9 @@ do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
          r0(iw) = r0(iw) +             dzt(k) * rho(k,iw)
          v0(iw) = v0(iw) + 4.0e-6_r8 * dzt(k) * rho(k,iw)
 
-if (iw == 1000) then
-   print*, 'd01 ',k, r0(iw), v0(iw), dzt(k), rho(k,iw)
-endif
+!if (iw == 1000) then
+!   print*, 'd01 ',k, r0(iw), v0(iw), dzt(k), rho(k,iw)
+!endif
    
       endif
 
@@ -316,9 +330,9 @@ endif
    absvydif_max = max(absvydif_max, abs(vy / r0(iw) - 4.0e-6_r8))
    sum_vy       = sum_vy + vy * arw0(iw)
 
-if (iw == 1000) then
-   print*, 'd11 ',vy, r0(iw), v0(iw), arw0(iw)
-endif
+!if (iw == 1000) then
+!   print*, 'd11 ',vy, r0(iw), v0(iw), arw0(iw)
+!endif
    
 !---------------------------------------------------------------------------------------
 
@@ -552,36 +566,36 @@ write(6,'(a,3f22.0)') 'mass: tot,wet,dry ',tmass_sum, wmass_sum, dmass_sum
 
 ge1(ncall) = ( tmass_sum -  tmass_sum_init) /  tmass_sum_init
 
-ge2(ncall) = (q1mass_sum - q1mass_sum_init) / q1mass_sum_init
-ge3(ncall) = (q2mass_sum - q2mass_sum_init) / q2mass_sum_init
-ge4(ncall) = (q3mass_sum - q3mass_sum_init) / q3mass_sum_init
-ge5(ncall) = (q4mass_sum - q4mass_sum_init) / q4mass_sum_init
-ge6(ncall) = (q5mass_sum - q5mass_sum_init) / q5mass_sum_init
+ge2(ncall) = (q1mass_sum - q1mass_sum_init) / max(q1mass_sum_init, 1.e-29)
+ge3(ncall) = (q2mass_sum - q2mass_sum_init) / max(q2mass_sum_init, 1.e-29)
+ge4(ncall) = (q3mass_sum - q3mass_sum_init) / max(q3mass_sum_init, 1.e-29)
+ge5(ncall) = (q4mass_sum - q4mass_sum_init) / max(q4mass_sum_init, 1.e-29)
+ge6(ncall) = (q5mass_sum - q5mass_sum_init) / max(q5mass_sum_init, 1.e-29)
 
-ge7(ncall) = ( wmass_sum -  wmass_sum_init) /  wmass_sum_init
+ge7(ncall) = ( wmass_sum -  wmass_sum_init) /  max(wmass_sum_init, 1.e-29)
 ge8(ncall) = ( dmass_sum -  dmass_sum_init) /  dmass_sum_init
 
 print*, 'relmassdev: tot,wet,dry ',ge1(ncall),ge7(ncall),ge8(ncall)
 
 ! First 3 normalized global errors
 
-q1l1(ncall) = sum_absq1dif / sum_absq1tr
-q2l1(ncall) = sum_absq2dif / sum_absq2tr
-q3l1(ncall) = sum_absq3dif / sum_absq3tr
-q4l1(ncall) = sum_absq4dif / sum_absq4tr
-q5l1(ncall) = sum_absq5dif / sum_absq5tr
+q1l1(ncall) = sum_absq1dif / max(sum_absq1tr, 1.e-29)
+q2l1(ncall) = sum_absq2dif / max(sum_absq2tr, 1.e-29)
+q3l1(ncall) = sum_absq3dif / max(sum_absq3tr, 1.e-29)
+q4l1(ncall) = sum_absq4dif / max(sum_absq4tr, 1.e-29)
+q5l1(ncall) = sum_absq5dif / max(sum_absq5tr, 1.e-29)
 
-q1l2(ncall) = sqrt(sum_q1dif2) / sqrt(sum_q1tr2)
-q2l2(ncall) = sqrt(sum_q2dif2) / sqrt(sum_q2tr2)
-q3l2(ncall) = sqrt(sum_q3dif2) / sqrt(sum_q3tr2)
-q4l2(ncall) = sqrt(sum_q4dif2) / sqrt(sum_q4tr2)
-q5l2(ncall) = sqrt(sum_q5dif2) / sqrt(sum_q5tr2)
+q1l2(ncall) = sqrt(sum_q1dif2) / max(sqrt(sum_q1tr2), 1.e-29)
+q2l2(ncall) = sqrt(sum_q2dif2) / max(sqrt(sum_q2tr2), 1.e-29)
+q3l2(ncall) = sqrt(sum_q3dif2) / max(sqrt(sum_q3tr2), 1.e-29)
+q4l2(ncall) = sqrt(sum_q4dif2) / max(sqrt(sum_q4tr2), 1.e-29)
+q5l2(ncall) = sqrt(sum_q5dif2) / max(sqrt(sum_q5tr2), 1.e-29)
 
-q1li(ncall) = absq1dif_max / absq1tr_max
-q2li(ncall) = absq2dif_max / absq2tr_max
-q3li(ncall) = absq3dif_max / absq3tr_max
-q4li(ncall) = absq4dif_max / absq4tr_max
-q5li(ncall) = absq5dif_max / absq5tr_max
+q1li(ncall) = absq1dif_max / max(absq1tr_max, 1.e-29)
+q2li(ncall) = absq2dif_max / max(absq2tr_max, 1.e-29)
+q3li(ncall) = absq3dif_max / max(absq3tr_max, 1.e-29)
+q4li(ncall) = absq4dif_max / max(absq4tr_max, 1.e-29)
+q5li(ncall) = absq5dif_max / max(absq5tr_max, 1.e-29)
 
 deltam(ncall) = (sum_vy - em0) / em0
 vyl2  (ncall) = sqrt(sum_vydif2) / sqrt(v02)

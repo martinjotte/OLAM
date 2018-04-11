@@ -428,7 +428,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    enddo
 
-   do k = 1, mza
+   do k = ka, mza
       tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
    enddo
 
@@ -710,18 +710,22 @@ subroutine olam_dcmip_prescribedflow(time0,vmsc,wmsc,rho_old,vxesc,vyesc,vzesc )
 
 use mem_basic,  only: vc, vmc, wc, wmc, rho, thil, theta, press, sh_w, sh_v, &
                       vxe, vye, vze
-use mem_ijtabs, only: itab_v, jtab_v, jtab_w
+use mem_ijtabs, only: itab_v, jtab_v, jtab_w, jtw_prog, itab_w
 use mem_grid,   only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
-                      glatw, glonw, lpv, zm, glatv, glonv, xew, yew, zew, dzt
+                      glatw, glonw, lpv, zm, glatv, glonv, xew, yew, zew, dzt, &
+                      arw, arv, volti
 use mem_addsc,  only: addsc
 use consts_coms,only: p00, rocp, erad, pio180, p00i
-use misc_coms,  only: dtlong
+use misc_coms,  only: dtlong, dtsm, iparallel
 use vel_t3d,    only: diagvel_t3d, diagvel_t3d_init
 use oname_coms, only: nl
 
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
+use obnd,         only: lbcopy_w
+
 use dcmip_initial_conditions_test_1_2_3, only: &
-   test1_advection_deformation, &
-   test1_advection_hadley
+   test1_advection_deformation, test1_advection_deformation_w, &
+   test1_advection_deformation_uv, test1_advection_hadley
 
 implicit none
 
@@ -731,18 +735,26 @@ real, intent(out) :: vmsc(mza,mva),wmsc(mza,mwa)
 
 real(8), intent(out) :: rho_old(mza,mwa) ! density at beginning of timestep [kg/m^3]
 
+real, intent(out) :: vxesc(mza,mwa), vyesc(mza,mwa), vzesc(mza,mwa)
+
 real(8) :: lonrad,latrad,p,z,t,phis,ps,rho0,q,q1,q2,q3,q4
 real(8) :: raxis, u01d, v01d, uv01dx, uv01dy, uv01dz, uv01dr
 
-real(8) :: zm0, zt0, rhom0, rhot0, u0, v0, wm0, wt0
+real(8) :: zm0, zt0, rhom0, rhot0, u0, v0, wm0, wt0, dts
 
-real, intent(out) :: vxesc(mza,mwa), vyesc(mza,mwa), vzesc(mza,mwa)
+integer :: mrl,j,iw,k,iv,iw1,iw2,zcoords,test,ka,kb,jv
 
-integer :: mrl,j,iw,k,iv,iw1,iw2,zcoords,test,ka
+real(8) :: pv(mza), zmv(mza), wcv(mza), uz(mza), vz(mza), rhoz(mza)
 
-zcoords = 1.0d0
+real    :: hflux_rho(mza), vflux_rho(mza), dirv
+
+zcoords = 1
+mrl     = 1
 
 !----------------------------------------------------------------------
+!$omp parallel private(pv,zmv,wcv,uz,vz,rhoz,hflux_rho,vflux_rho)
+!$omp do private(lonrad,latrad,ka,kb,k,p,zm0,u0,v0,wm0, &
+!$omp            t,phis,ps,rhom0,q,q1)
 do iw = 2,mwa  ! do for all points in subdomain
 !----------------------------------------------------------------------
    lonrad = pio180 * glonw(iw)
@@ -752,135 +764,192 @@ do iw = 2,mwa  ! do for all points in subdomain
 
    ka = lpw(iw)
 
-   do k = ka,mza
-      p = press(k,iw)
-      zm0 = zm(k)
-      zt0 = zt(k)
+   wc     (mza,iw) = 0.
+   wmc    (mza,iw) = 0.
+   wmsc   (mza,iw) = 0.
+   rho_old(mza,iw) = rho(mza,iw)
+   rho_old(ka ,iw) = rho(ka ,iw)
 
-      if (nl%test_case == 11) then
+   if (nl%test_case == 11) then
 
 !==============================================================================
 ! DCMIP-2012 TEST CASE 11 - PURE ADVECTION - 3D DEFORMATIONAL FLOW
 !==============================================================================
 
-         call test1_advection_deformation(lonrad,latrad,p,zm0,zcoords, &
-            u0,v0,wm0, &
-            t,phis,ps,rhom0,q,q1,q2,q3,q4,time0)
+      zmv = zm
+      kb  = mza-1
 
-         call test1_advection_deformation(lonrad,latrad,p,zt0,zcoords, &
-            u0,v0,wt0, &
-            t,phis,ps,rhot0,q,q1,q2,q3,q4,time0)
+      call test1_advection_deformation_w(lonrad,latrad,ka,kb,pv,zmv,zcoords, &
+                                         wcv,rhoz,time0)
 
-         wc(k,iw) = wm0
-         wmc(k,iw) = wm0 * rhom0
-         rho_old(k,iw) = rho(k,iw)
+      do k = ka, mza-1
+         wc (k,iw) = wcv(k)
+         wmc(k,iw) = wcv(k) * rhoz(k)
+      enddo
 
-      elseif (nl%test_case == 12) then
+   elseif (nl%test_case == 12) then
 
 !==============================================================================
 ! DCMIP-2012 TEST CASE 12 - PURE ADVECTION - 3D HADLEY-LIKE FLOW
 !==============================================================================
 
+      do k = ka, mza-1
+         zm0 = zm(k)
+
          call test1_advection_hadley(lonrad,latrad,p,zm0,zcoords, &
-            u0,v0,wm0, &
-            t,phis,ps,rhom0,q,q1,time0)
+            u0,v0,wm0,t,phis,ps,rhom0,q,q1,time0)
 
-         call test1_advection_hadley(lonrad,latrad,p,zt0,zcoords, &
-            u0,v0,wt0, &
-            t,phis,ps,rhot0,q,q1,time0)
-
-         wc(k,iw) = wm0
+         wc (k,iw) = wm0
          wmc(k,iw) = wm0 * rhom0
-         rho_old(k,iw) = rho(k,iw)
+      enddo
 
-      endif
+   endif
 
-      wmsc(k,iw) = wmc(k,iw)
-
+   do k = ka, mza
+      rho_old(k,iw) = rho(k,iw)
+      wmsc   (k,iw) = wmc(k,iw)
    enddo
 
 enddo
+!$omp end do
 
 !----------------------------------------------------------------------
+!$omp do private(iw1,iw2,lonrad,latrad,kb,k,p,zt0,     &
+!$omp            u0,v0,wt0,t,phis,ps,rhot0,q,q1,raxis, &
+!$omp            uv01dr,uv01dx,uv01dy,uv01dz)
 do iv = 2,mva
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
    lonrad = pio180 * glonv(iv)
    latrad = pio180 * glatv(iv)
 
+   kb = lpv(iv)
+
    if (glonv(iv) < 0.) lonrad = pio180 * (glonv(iv) + 360.)
 
-   raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
-
-   do k = lpv(iv),mza
-      p = 1.0d5
-      zt0 = zt(k)
-
-      if (nl%test_case == 11) then
+   if (nl%test_case == 11) then
 
 !==============================================================================
 ! DCMIP-2012 TEST CASE 11 - PURE ADVECTION - 3D DEFORMATIONAL FLOW
 !==============================================================================
 
-         call test1_advection_deformation(lonrad,latrad,p,zt0,zcoords, &
-            u0,v0,wt0, &
-            t,phis,ps,rhot0,q,q1,q2,q3,q4,time0)
+      zmv = zt
 
-         if (raxis > 1.e3) then
-            uv01dr = -v0 * zev(iv) / erad  ! radially outward from axis
+      call test1_advection_deformation_uv(lonrad,latrad,kb,mza,pv,zmv, &
+                                          zcoords,uz,vz,rhoz,time0)
 
-            uv01dx = (-u0 * yev(iv) + uv01dr * xev(iv)) / raxis 
-            uv01dy = ( u0 * xev(iv) + uv01dr * yev(iv)) / raxis 
-            uv01dz =   v0 * raxis / erad 
-
-            vc(k,iv) = uv01dx * vnx(iv) + uv01dy * vny(iv) + uv01dz * vnz(iv)
-         else
-            vc(k,iv) = 0.
-         endif
-
-         vmc(k,iv) = vc(k,iv) * rhot0
-
-      elseif (nl%test_case == 12) then
+   elseif (nl%test_case == 12) then
 
 !==============================================================================
 ! DCMIP-2012 TEST CASE 12 - PURE ADVECTION - 3D HADLEY-LIKE FLOW
 !==============================================================================
 
+      do k = lpv(iv), mza
+         zt0 = zt(k)
+
          call test1_advection_hadley(lonrad,latrad,p,zt0,zcoords, &
-            u0,v0,wt0, &
-            t,phis,ps,rhot0,q,q1,time0)
+            u0,v0,wt0,t,phis,ps,rhot0,q,q1,time0)
 
-         if (raxis > 1.e3) then
-            uv01dr = -v0 * zev(iv) / erad  ! radially outward from axis
+         uz  (k) = u0
+         vz  (k) = v0
+         rhoz(k) = rhot0
+      enddo
 
-            uv01dx = (-u0 * yev(iv) + uv01dr * xev(iv)) / raxis 
-            uv01dy = ( u0 * xev(iv) + uv01dr * yev(iv)) / raxis 
-            uv01dz =   v0 * raxis / erad 
+   endif
 
-            vc(k,iv) = uv01dx * vnx(iv) + uv01dy * vny(iv) + uv01dz * vnz(iv)
-         else
-            vc(k,iv) = 0.
-         endif
+   raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
 
-         vmc(k,iv) = vc(k,iv) * rhot0
+   if (raxis > 1.e3) then
 
-      endif
+      do k = kb, mza
+         uv01dr = -vz(k) * zev(iv) / erad  ! radially outward from axis
 
+         uv01dx = (-uz(k) * yev(iv) + uv01dr * xev(iv)) / raxis
+         uv01dy = ( uz(k) * xev(iv) + uv01dr * yev(iv)) / raxis
+         uv01dz =   vz(k) * raxis / erad 
+
+         vc(k,iv) = uv01dx * vnx(iv) + uv01dy * vny(iv) + uv01dz * vnz(iv)
+      enddo
+
+   else
+
+      do k = kb, mza
+         vc(k,iv) = 0.
+      enddo
+
+   endif
+
+   do k = kb, mza
+      vmc (k,iv) = vc (k,iv) * real( rhoz(k) )
       vmsc(k,iv) = vmc(k,iv)
-
    enddo
+
 enddo
+!$omp end do
+
+! Even though the idealized conditions have no divergence, when applied to the
+! grid slight divergences are produced. Scalar advection requires density
+! be consistent with the scalar mixing ratio, so here we advect density too.
+
+!$omp do private(iw,k,jv,iv,dirv,dts)
+do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+   vflux_rho(lpw(iw)-1) = 0.
+
+   do k = lpw(iw), mza
+      vflux_rho(k) = wmc(k,iw) * arw(k,iw)
+      hflux_rho(k) = 0.0
+   enddo
+
+   do jv = 1, itab_w(iw)%npoly
+
+      iv   = itab_w(iw)%iv(jv)
+      dirv = itab_w(iw)%dirv(jv)
+
+      ! Loop over T levels
+      do k = lpv(iv), mza
+         hflux_rho(k) = hflux_rho(k) + dirv * vmc(k,iv) * arv(k,iv)
+      enddo
+   enddo
+
+   dts = dtsm(itab_w(iw)%mrlw)
+
+   do k = lpw(iw), mza
+      rho(k,iw) = rho(k,iw) + dts * volti(k,iw) &
+                            * (hflux_rho(k) + vflux_rho(k-1) - vflux_rho(k))
+   enddo
+      
+   do k = 1, lpw(iw)-1
+      rho(k,iw) = rho(lpw(iw),iw)
+   enddo
+
+end do
+!$omp end do
+!$omp end parallel
 
 ! Compute Earth-Cartesian velocities
 
 call diagvel_t3d_init(1)
 call diagvel_t3d     (1)
 
+if (iparallel == 1) call mpi_send_w(mrl, dvara1=rho)
+
 ! Set scalar earth-cartesian velocities
 
 vxesc = vxe
 vyesc = vye
 vzesc = vze
+
+! Make sure no physics tendencies have been added to tracers
+
+if (nl%naddsc >= 1) addsc(1)%sclt = 0.
+if (nl%naddsc >= 2) addsc(2)%sclt = 0.
+if (nl%naddsc >= 3) addsc(3)%sclt = 0.
+if (nl%naddsc >= 4) addsc(4)%sclt = 0.
+if (nl%naddsc >= 5) addsc(5)%sclt = 0.
+
+if (iparallel == 1) call mpi_recv_w(mrl, dvara1=rho)
+call lbcopy_w(1, d1=rho)
 
 end subroutine olam_dcmip_prescribedflow
 

@@ -69,7 +69,6 @@ MODULE dcmip_initial_conditions_test_1_2_3
 
 	real(8), parameter ::	p0	= 100000.d0		! reference pressure (Pa)
 
-
 CONTAINS
 
 !==========================================================================================
@@ -132,12 +131,12 @@ IMPLICIT NONE
                             	phi1    = 0.d0                      
                             
       real(8) :: height							! The height of the model levels
-      real(8) :: ptop							! Model top in p
       real(8) :: sin_tmp, cos_tmp, sin_tmp2, cos_tmp2			! Calculate great circle distances
       real(8) :: d1, d2, r, r2, d3, d4					! For tracer calculations 
       real(8) :: s, bs							! Shape function, and parameter
       real(8) :: lonp							! Translational longitude, depends on time
       real(8) :: ud							! Divergent part of u
+      real(8), parameter :: ptop = p0*exp(-12000.d0/H)			! Model top in p
 
 !-----------------------------------------------------------------------
 !    HEIGHT AND PRESSURE
@@ -156,10 +155,6 @@ IMPLICIT NONE
 
 	endif
 
-	! Model top in p
-
-	ptop    = p0*exp(-12000.d0/H)	
-
 !-----------------------------------------------------------------------
 !    THE VELOCITIES ARE TIME DEPENDENT AND THEREFORE MUST BE UPDATED
 !    IN THE DYNAMICAL CORE
@@ -177,15 +172,15 @@ IMPLICIT NONE
 !********
 ! change in version 5: shape function 
 !********
-	bs = 0.2
-	s = 1.0 + exp( (ptop-p0)/(bs*ptop) ) - exp( (p-p0)/(bs*ptop)) - exp( (ptop-p)/(bs*ptop))
+	bs = 0.2d0
+	s = 1.d0 + exp( (ptop-p0)/(bs*ptop) ) - exp( (p-p0)/(bs*ptop)) - exp( (ptop-p)/(bs*ptop))
 
 	! Zonal Velocity
 !********
 ! change in version 5: ud 
 !********
 
-	ud = (omega0*a)/(bs*ptop) * cos(lonp) * (cos(lat)**2.0) * cos(2.0*pi*time/tau) * &
+	ud = (omega0*a)/(bs*ptop) * cos(lonp) * (cos(lat)**2) * cos(2.d0*pi*time/tau) * &
 		( - exp( (p-p0)/(bs*ptop)) + exp( (ptop-p)/(bs*ptop))  )
 
 	u = k0*sin(lonp)*sin(lonp)*sin(2.d0*lat)*cos(pi*time/tau) + u0*cos(lat) + ud
@@ -227,7 +222,7 @@ IMPLICIT NONE
 !    RHO (density)
 !-----------------------------------------------------------------------
 
-	rho = p/(Rd*t)
+	rho = p/(Rd*T0)
 
 !-----------------------------------------------------------------------
 !     initialize Q, set to zero 
@@ -306,18 +301,263 @@ IMPLICIT NONE
 
 	!endif
 
-
-
-
 END SUBROUTINE test1_advection_deformation
 
 
 
+SUBROUTINE test1_advection_deformation_w(lon,lat,kbot,ktop,pin,zin,zcoords,w,rho,time)
+
+  IMPLICIT NONE
+!-----------------------------------------------------------------------
+!     input/output params parameters at given location
+!-----------------------------------------------------------------------
+
+	real(8), intent(in) ::	lon, &		! Longitude (radians)
+				lat		! Latitude  (radians)
+
+	integer, intent(in) :: kbot, ktop
+
+	real(8), intent(in) :: pin(ktop)	! Pressure (Pa)				
+	real(8), intent(in) :: zin(ktop)	! Height (m)				
+
+	integer, intent(in) :: zcoords 		! 0 or 1 see below
+
+	real(8), intent(out) :: w(ktop)		! Vertical Velocity (m s^-1)
+	real(8), intent(out) :: rho(ktop)	! Density
+
+	 real(8), intent(in) :: time		! Initially set to zero seconds, needs
+						! to be modified when used in dycore
+
+	! if zcoords = 1, then we use z and output p
+	! if zcoords = 0, then we use p 
+
+!-----------------------------------------------------------------------
+!     test case parameters
+!----------------------------------------------------------------------- 
+	real(8), parameter :: 	tau     = 12.d0 * 86400.d0,	&	! period of motion 12 days
+			    	u0      = (2.d0*pi*a)/tau,	&	! 2 pi a / 12 days
+			    	k0	= (10.d0*a)/tau,	&	! Velocity Magnitude
+			    	omega0	= (23000.d0*pi)/tau,	&	! Velocity Magnitude
+                            	T0      = 300.d0,		&	! temperature
+                            	H       = Rd * T0 / g,		&	! scale height
+                            	RR      = 1.d0/2.d0,		&	! horizontal half width divided by 'a'
+                            	ZZ      = 1000.d0,		&	! vertical half width
+                            	z0      = 5000.d0,		&	! center point in z
+                            	lambda0 = 5.d0*pi/6.d0,		&	! center point in longitudes
+                            	lambda1 = 7.d0*pi/6.d0,		&	! center point in longitudes
+                            	phi0    = 0.d0,			&	! center point in latitudes
+                            	phi1    = 0.d0,                 &       ! center point in latitudes
+                            	bs      = 0.2d0,                &       ! shape function parameter
+                            	ptop    = p0*exp(-12000.d0/H),  &       ! Model top in p
+                                s0      = 1.d0 + exp((ptop-p0)/(bs*ptop))
+
+      real(8) :: height							! The height of the model levels
+      real(8) :: sin_tmp, cos_tmp, sin_tmp2, cos_tmp2			! Calculate great circle distances
+      real(8) :: d1, d2, r, r2, d3, d4					! For tracer calculations 
+      real(8) :: s							! Shape function
+      real(8) :: lonp							! Translational longitude, depends on time
+      real(8) :: ud							! Divergent part of u
+      real(8) :: w_xy
+      real(8) :: p(ktop)
+
+      integer       :: k
+      logical, save :: firstime = .true.
+      
+      real, allocatable, save :: psave(:), rsave(:)
+
+!-----------------------------------------------------------------------
+!    HEIGHT AND PRESSURE
+!-----------------------------------------------------------------------
+
+      if (firstime) then
+
+         !$omp barrier
+         !$omp single
+         if (zcoords .eq. 1) then
+            allocate(psave(ktop))
+            do k = 1, ktop
+               psave(k) = p0 * exp(-zin(k)/H)
+            enddo
+         endif
+
+         allocate(rsave(ktop))
+         do k = 1, ktop
+            rsave(k) = psave(k) / (Rd*T0)
+         enddo
+         
+         firstime = .false.
+         !$omp end single
+      endif
+         
+      ! Height and pressure are aligned (p = p0 exp(-z/H))
+
+      if (zcoords .eq. 1) then
+         p = psave
+      else
+         p = pin
+      endif
+
+      rho = rsave
+
+!-----------------------------------------------------------------------
+!    THE VELOCITIES ARE TIME DEPENDENT AND THEREFORE MUST BE UPDATED
+!    IN THE DYNAMICAL CORE
+!-----------------------------------------------------------------------
+
+	! Translational longitude = longitude when time = 0
+
+	lonp = lon - 2.d0*pi*time/tau
+
+!********
+! change in version 5: shape function 
+!********
+!********
+! change in version 4: cos(2.0*pi*time/tau) is now used instead of cos(pi*time/tau)
+!********
+!********
+! change in version 5: shape function in w
+!********
+        w_xy = -(Rd*T0)/(g)*omega0*sin(lonp)*cos(lat)*cos(2.0*pi*time/tau)
+
+	! Vertical Velocity - can be changed to vertical pressure velocity by 
+	! omega = -(g*p)/(Rd*T0)*w
+
+        do k = kbot, ktop
+           s    = s0 - exp( (p(k)-p0)/(bs*ptop) ) - exp( (ptop-p(k))/(bs*ptop) )
+           w(k) = w_xy * s / p(k)
+        enddo
+
+end SUBROUTINE test1_advection_deformation_w
+
+
+
+SUBROUTINE test1_advection_deformation_uv(lon,lat,kbot,ktop,pin,zin,zcoords,u,v,rho,time)
+
+  IMPLICIT NONE
+!-----------------------------------------------------------------------
+!     input/output params parameters at given location
+!-----------------------------------------------------------------------
+
+	real(8), intent(in) ::	lon, &		! Longitude (radians)
+				lat		! Latitude  (radians)
+
+	integer, intent(in) :: kbot, ktop
+
+	real(8), intent(in) :: pin(ktop)	! Pressure (Pa)				
+	real(8), intent(in) :: zin(ktop)	! Height (m)				
+
+	integer, intent(in) :: zcoords 		! 0 or 1 see below
+
+	real(8), intent(out) :: u(ktop)		! Zonal wind (m s^-1)
+	real(8), intent(out) :: v(ktop)		! Meridional wind (m s^-1)
+	real(8), intent(out) :: rho(ktop)		! Density
+
+	real(8), intent(in) :: time		! Initially set to zero seconds, needs
+						! to be modified when used in dycore
+
+	! if zcoords = 1, then we use z and output p
+	! if zcoords = 0, then we use p 
+
+!-----------------------------------------------------------------------
+!     test case parameters
+!----------------------------------------------------------------------- 
+	real(8), parameter :: 	tau     = 12.d0 * 86400.d0,	&	! period of motion 12 days
+			    	u0      = (2.d0*pi*a)/tau,	&	! 2 pi a / 12 days
+			    	k0	= (10.d0*a)/tau,	&	! Velocity Magnitude
+			    	omega0	= (23000.d0*pi)/tau,	&	! Velocity Magnitude
+                            	T0      = 300.d0,		&	! temperature
+                            	H       = Rd * T0 / g,		&	! scale height
+                            	RR      = 1.d0/2.d0,		&	! horizontal half width divided by 'a'
+                            	ZZ      = 1000.d0,		&	! vertical half width
+                            	z0      = 5000.d0,		&	! center point in z
+                            	lambda0 = 5.d0*pi/6.d0,		&	! center point in longitudes
+                            	lambda1 = 7.d0*pi/6.d0,		&	! center point in longitudes
+                            	phi0    = 0.d0,			&	! center point in latitudes
+                            	phi1    = 0.d0,                 &       ! center point in latitudes
+                            	bs      = 0.2d0,                &       ! shape function parameter
+                            	ptop    = p0*exp(-12000.d0/H),  &       ! Model top in p
+                                s0      = 1.d0 + exp((ptop-p0)/(bs*ptop))
+
+      real(8) :: height							! The height of the model levels
+      real(8) :: sin_tmp, cos_tmp, sin_tmp2, cos_tmp2			! Calculate great circle distances
+      real(8) :: d1, d2, r, r2, d3, d4					! For tracer calculations 
+      real(8) :: s							! Shape function
+      real(8) :: lonp							! Translational longitude, depends on time
+      real(8) :: ud							! Divergent part of u
+      real(8) :: ud_xy, u_xy, v_xy
+      real(8) :: p(ktop)
+
+      integer       :: k
+      logical, save :: firstime = .true.
+      
+      real, allocatable, save :: psave(:), rsave(:)
+
+!-----------------------------------------------------------------------
+!    HEIGHT AND PRESSURE
+!-----------------------------------------------------------------------
+
+      if (firstime) then
+
+         !$omp barrier
+         !$omp single
+         if (zcoords .eq. 1) then
+            allocate(psave(ktop))
+            do k = 1, ktop
+               psave(k) = p0 * exp(-zin(k)/H)
+            enddo
+         endif
+
+         allocate(rsave(ktop))
+         do k = 1, ktop
+            rsave(k) = psave(k) / (Rd*T0)
+         enddo
+
+         firstime = .false.
+         !$omp end single
+      endif
+         
+      ! Height and pressure are aligned (p = p0 exp(-z/H))
+
+      if (zcoords .eq. 1) then
+         p = psave
+      else
+         p = pin
+      endif
+
+      rho = rsave
+
+!-----------------------------------------------------------------------
+!    THE VELOCITIES ARE TIME DEPENDENT AND THEREFORE MUST BE UPDATED
+!    IN THE DYNAMICAL CORE
+!-----------------------------------------------------------------------
+
+	! Translational longitude = longitude when time = 0
+
+	lonp = lon - 2.d0*pi*time/tau
+
+!********
+! change in version 5: ud 
+!********
+
+	ud_xy = (omega0*a)/(bs*ptop) * cos(lonp) * (cos(lat)**2) * cos(2.d0*pi*time/tau)
+
+	u_xy = k0*(sin(lonp)**2)*sin(2.d0*lat)*cos(pi*time/tau) + u0*cos(lat)
+
+	v_xy = k0*sin(2.d0*lonp)*cos(lat)*cos(pi*time/tau)
+
+	do k = kbot, ktop
+	   ud   = ud_xy * ( - exp( (p(k)-p0)/(bs*ptop)) + exp( (ptop-p(k))/(bs*ptop) ) )
+	   u(k) = u_xy + ud
+	   v(k) = v_xy
+	enddo
+
+end SUBROUTINE test1_advection_deformation_uv
 
 
 !==========================================================================================
 ! TEST CASE 12 - PURE ADVECTION - 3D HADLEY-LIKE FLOW
 !==========================================================================================
+
 
 SUBROUTINE test1_advection_hadley (lon,lat,p,z,zcoords,u,v,w,t,phis,ps,rho,q,q1,time)
 
@@ -361,9 +601,9 @@ IMPLICIT NONE
                             	z1      = 2000.d0,		&	! position of lower tracer bound (m), changed in v5       
                             	z2      = 5000.d0,		&	! position of upper tracer bound (m), changed in v5       
                             	z0      = 0.5d0*(z1+z2),	&	! midpoint (m)       
-                            	ztop    = 12000.d0			! model top (m)       
+                            	ztop    = 12000.d0,		&	! model top (m)       
+                            	rho0    = p0/(Rd*T0)			! reference density at z=0 m
                             
-      real(8) :: rho0							! reference density at z=0 m
       real(8) :: height							! Model level heights
 									! to be modified when used in dycore
 
@@ -407,7 +647,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------
 
 	rho = p/(Rd*t)
-	rho0 = p0/(Rd*t)
+!	rho0 = p0/(Rd*t)
 
 !-----------------------------------------------------------------------
 !    THE VELOCITIES ARE TIME DEPENDENT AND THEREFORE MUST BE UPDATED
@@ -434,6 +674,7 @@ IMPLICIT NONE
 	w = (rho0/rho) *(w0/K)*(-2.d0*sin(K*lat)*sin(lat) + K*cos(lat)*cos(K*lat)) &
 		*sin(pi*height/ztop)*cos(pi*time/tau)
 
+        if (time > 0.1d0) return 
 
 !-----------------------------------------------------------------------
 !     initialize Q, set to zero 
@@ -559,7 +800,7 @@ IMPLICIT NONE
 
 	if (r .lt. Rm) then
 
-		zs = (h0/2.d0)*(1.d0+cos(pi*r/Rm))*cos(pi*r/zetam)**2.d0
+		zs = (h0/2.d0)*(1.d0+cos(pi*r/Rm))*cos(pi*r/zetam)**2
 
 	else
 
@@ -941,7 +1182,7 @@ IMPLICIT NONE
 
 	if (r .lt. Rm) then
 
-		zs = (h0/2.d0)*(1.d0+cos(pi*r/Rm))*cos(pi*r/zetam)**2.d0   ! mountain height
+		zs = (h0/2.d0)*(1.d0+cos(pi*r/Rm))*cos(pi*r/zetam)**2   ! mountain height
 
 	else
 

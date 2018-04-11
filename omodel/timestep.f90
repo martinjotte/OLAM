@@ -77,24 +77,18 @@ real(r8) :: time0
 ! +----------------------------------------------------------------------------+
 
 if (time_istp8 < 1.e-3_r8) then
-   !   call bubble()
+   ! call bubble()
 
    ! For shallow water test cases, compute error norms at initial time
-   ! if this compute process is full domain
 
    if (nl%test_case == 2 .or. nl%test_case == 5) then
-      if (isubdomain == 0) then
-         call diagn_global_swtc()
-      endif
+      call diagn_global_swtc()
    endif
 
    ! For ncar dcmip test cases, compute error norms at initial time
-   ! if this compute process is full domain
 
    if (nl%test_case >= 10 .and. nl%test_case < 900) then
-      if (isubdomain == 0) then
-         call diagn_global_dcmip()
-      endif
+      call diagn_global_dcmip()
    endif
 endif
 
@@ -307,10 +301,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    ! Special diagnosis of water vapor for DCMIP tests; thil is dry theta in that case
    !---------------------------------------------------------------------------------
-   if (nl%test_case ==  11 .or. &
-       nl%test_case ==  12 .or. &
-       nl%test_case ==  13 .or. &
-       nl%test_case == 110 .or. &
+   if (nl%test_case == 110 .or. &
        nl%test_case == 111 .or. &
        nl%test_case == 112 .or. &
        nl%test_case == 113 .or. &
@@ -457,12 +448,9 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 enddo
 
 ! For ncar dcmip test cases, compute error norms 
-! if this compute process is full domain
 
 if (nl%test_case >= 10) then
-   if (isubdomain == 0) then
-      call diagn_global_dcmip()
-   endif
+   call diagn_global_dcmip()
 endif
 
 end subroutine timestep

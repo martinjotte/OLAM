@@ -11,7 +11,8 @@
  ! (SHALLOW WATER, NCAR DCMIP 2012 & 2016, PARCEL)
  !--------------------------------------------------------------------------
  !
- ! DCMIP 2016 Moist Baroclinic Wave 
+ ! DCMIP 2016 Moist Baroclinic Wave
+ ! 110 -    exponential perturbation, dry case
  ! 111 -    exponential perturbation, no PBL or surface fluxes
  ! 112 -    exponential perturbation, Reed & Jablonowski PBL
  ! 113 - streamfunction perturbation, no PBL or surface fluxes
@@ -23,6 +24,11 @@
  !
  ! DCMIP 2016 Supercell
  ! 131
+ !
+ ! DCMIP 2012 Tracer Transport
+ ! 11 - 3D deformational flow
+ ! 12 - 3D Hadley-like flow
+ ! 13 - Horizontal tracers in the presence of orography
 
    NL%TEST_CASE = 0
 
