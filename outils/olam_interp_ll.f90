@@ -169,6 +169,8 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
      ! neighbor W point is.
 
      do ilat = 1, nlat
+        if (abs(zea(ilat) - zew(iw)) > dnvmax) cycle
+
         lonloop: do ilon = 1, nlon
 
            ! Skip this lat/lon point if its nearest IW point has already been found
@@ -180,7 +182,6 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
            if (abs(xea(ilon,ilat) - xew(iw)) > dnvmax) cycle
            if (abs(yea(ilon,ilat) - yew(iw)) > dnvmax) cycle
-           if (abs(zea(ilat)      - zew(iw)) > dnvmax) cycle
 
            ! Compute distance between IW point and lat/lon point
 
