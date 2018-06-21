@@ -431,8 +431,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       if (do_chem == 1) call megan_avg_temp()
    endif
 
-   call flux_accum()
-
    ! call check_nans(22,rvara1=rhot,rvara2=alpha_press)
 
    1312 continue
@@ -440,6 +438,10 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    time_istp8  = time8 + istp * dtsm(mrls)  ! Update precise time
    time_istp8p = time_istp8 + time_bias
    s1900_sim   = s1900_init + time_istp8
+
+   ! Add current fluxes to time integrals
+
+   call flux_accum()
 
    ! if (jstp == nstp) then
    !    call compute_mass_sums()
@@ -449,7 +451,7 @@ enddo
 
 ! For ncar dcmip test cases, compute error norms 
 
-if (nl%test_case >= 10) then
+if (nl%test_case >= 10 .and. nl%test_case < 900) then
    call diagn_global_dcmip()
 endif
 
