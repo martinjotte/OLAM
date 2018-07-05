@@ -15,13 +15,13 @@ subroutine divh_damp(mrl)
   implicit none
 
   integer, intent(in)     :: mrl
-  integer                 :: iv, iw, iw1, iw2, k, j, jv
-  real                    :: dnufac, aoc1, aoc2
+  integer                 :: iv, iw, iw1, iw2, k, j, jv, ktop
+  real                    :: dnufac
   real                    :: vc_ec   (mza,mva)
   real                    :: div2d_ex(mza,mwa)
   logical,           save :: firstime = .true.
-  real, allocatable, save :: dnusumi(:), c1(:), c2(:)
-  real                    :: cd, dnusum
+  real, allocatable, save :: aoc(:), c1(:), c2(:)
+  real                    :: cd, dnusum, f1, f2
   real, parameter         :: onethird = 1./3.
 
   if (nl%akmin_div2d < 1.e-7 .and. .not. dorayfdiv) return
@@ -29,7 +29,7 @@ subroutine divh_damp(mrl)
   if (firstime) then
      firstime = .false.
 
-     allocate(dnusumi(mwa)) ; dnusumi = rinit
+     allocate(aoc(mwa)) ; aoc = rinit
      allocate(c1(mva))
      allocate(c2(mva))
 
@@ -42,15 +42,19 @@ subroutine divh_damp(mrl)
            dnusum = dnusum + dnu(iv)
         enddo
 
-        dnusumi(iw) = 1. / dnusum
+        ! Area-over-circumference factors to convert divergence
+        ! to mean velocity of divergence
+
+        aoc(iw) = arw0(iw) / dnusum
+
      enddo
      !$omp end parallel do
 
      if (iparallel == 1) then
-        call mpi_send_w(1, r1dvara1=dnusumi)
-        call mpi_recv_w(1, r1dvara1=dnusumi)
+        call mpi_send_w(1, r1dvara1=aoc)
+        call mpi_recv_w(1, r1dvara1=aoc)
      endif
-     call lbcopy_w(1, v1=dnusumi)
+     call lbcopy_w(1, v1=aoc)
 
      cd = nl%akmin_div2d * 0.075
      
@@ -120,22 +124,26 @@ subroutine divh_damp(mrl)
 
      if (dorayfdiv) then
 
-        ! Area-over-circumference factors to convert divergence
-        ! to mean velocity of divergence
-
-        aoc1 = arw0(iw1) * dnusumi(iw1)
-        aoc2 = arw0(iw2) * dnusumi(iw2)
+        ktop = krayfdiv_bot - 1
 
         do k = krayfdiv_bot, mza
-           vmt(k,iv) = vmt(k,iv) + rayf_cofdiv(k) * real(rho(k,iw1) + rho(k,iw2)) &
-                                 * (aoc2 * div2d_ex(k,iw2) - aoc1 * div2d_ex(k,iw1))
+
+           f1 = max( rayf_cofdiv(k) * aoc(iw1), c1(iv) )
+           f2 = max( rayf_cofdiv(k) * aoc(iw2), c2(iv) )
+
+           vmt(k,iv) = vmt(k,iv) + real(rho(k,iw2)) * f2 * div2d_ex(k,iw2) &
+                                 - real(rho(k,iw1)) * f1 * div2d_ex(k,iw1)
         enddo
+
+     else
+
+        ktop = mza
 
      endif
 
      ! All atmosphere layers (new)
 
-     do k = lpv(iv), mza
+     do k = lpv(iv), ktop
         vmt(k,iv) = vmt(k,iv) + real(rho(k,iw2)) * c2(iv) * div2d_ex(k,iw2) &
                               - real(rho(k,iw1)) * c1(iv) * div2d_ex(k,iw1)
      enddo
