@@ -535,9 +535,14 @@ do ngr = 2, ngrids  ! Loop over nested grids
       yem(im) = yem_temp(im)
       zem(im) = zem_temp(im)
    enddo
+   
+   do iu = 1, nua
+      itab_ud(iu) = ltab_ud(iu)
+   enddo
 
-   itab_ud(1:nua) = ltab_ud(1:nua)
-   itab_wd(1:nwa) = ltab_wd(1:nwa)
+   do iw = 1, nwa
+      itab_wd(iw) = ltab_wd(iw)
+   enddo
 
 ! Loop over U points and check for those flagged for subdivision
 
