@@ -109,21 +109,24 @@ subroutine makesfc2()
   nqa = nma + nwa - 1
 
   allocate (qlat(nqa), qlon(nqa), topq(nqa))
-  allocate ( xeq(nqa),  yeq(nqa),  zeq(nqa))
 
   qlat(1:nma) = glatm(1:nma)
   qlon(1:nma) = glonm(1:nma)
 
-  xeq(1:nma) = xem(1:nma)
-  yeq(1:nma) = yem(1:nma)
-  zeq(1:nma) = zem(1:nma)
+  qlat(nma+1:nqa) = glatw(2:nwa)
+  qlon(nma+1:nqa) = glonw(2:nwa)
 
-  qlat(nma+1:nqa) = glatw(2:nma)
-  qlon(nma+1:nqa) = glonw(2:nma)
+  if (itopoflg /= 1) then
+     allocate ( xeq(nqa),  yeq(nqa),  zeq(nqa))
 
-  xeq(nma+1:nqa) = xew(2:nma)
-  yeq(nma+1:nqa) = yew(2:nma)
-  zeq(nma+1:nqa) = zew(2:nma)
+     xeq(1:nma) = xem(1:nma)
+     yeq(1:nma) = yem(1:nma)
+     zeq(1:nma) = zem(1:nma)
+
+     xeq(nma+1:nqa) = xew(2:nwa)
+     yeq(nma+1:nqa) = yew(2:nwa)
+     zeq(nma+1:nqa) = zew(2:nwa)
+  endif
 
 ! Interpolate TOPO from database or initialize from customizable topo_init
 
@@ -178,7 +181,10 @@ subroutine makesfc2()
   topw(2:nwa) = topq(nma+1:nqa)
 
   deallocate (qlat, qlon, topq)
-  deallocate (xeq, yeq, zeq)
+
+  if (itopoflg == 1) then
+     deallocate (xeq, yeq, zeq)
+  endif
 
 ! Initialize land/sea surface index
 
