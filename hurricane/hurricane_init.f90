@@ -83,6 +83,16 @@ implicit none
 !     OLAM initial fields are interpolated from CFSR (or other) dataset.
 !     Remapped 3D prognostic fields from previous cycle are read from files and
 !     replace fields interpolated from CFSR where the hurricane is located.
+!     OLAM simulation proceeds normally except that hurricane tracking is 
+!     performed each timestep, and vortex is periodically diagnosed and plotted.
+!     The tracking and periodic diagnosis and plotting are for informational
+!     purposes only and have no impact on the model solution.  This is the only
+!     difference between INIT_HURR_STEP = 3 and 4.
+!
+! 4 = For HURRICANE SIMULATION after completion of dynamic initialization cycles.
+!     OLAM initial fields are interpolated from CFSR (or other) dataset.
+!     Remapped 3D prognostic fields from previous cycle are read from files and
+!     replace fields interpolated from CFSR where the hurricane is located.
 !     OLAM simulation proceeds normally with no hurricane tracking.
 !
 ! Comments in subroutine hurricane_init (below) provide additional details.
@@ -92,14 +102,14 @@ integer, parameter :: init_hurr_step = 0
 
 ! Set lat/lon coords of eye center (correct observed location)
 
-! javier location on 10 Sept 2004 at 18 UTC
- real, parameter :: hcentlat = 11.2, hcentlon = -93.5
+! harvey location on 25 Aug 2017 at 00 UTC
+ real, parameter :: hcentlat = 25.0, hcentlon = -94.4
 
 ! javier location on 9 Sept 2004 at 00 UTC (ESTIMATED FROM CFSR ANALYSIS)
 ! real, parameter :: hcentlat = 9.0, hcentlon = -87.5
 
-integer, parameter :: nz = 60, nr = 22  ! Number of vertical, radial points in vortex profiles
-!integer, parameter :: nz = 60, nr = 28 ! Number of vertical, radial points in vortex profiles
+!integer, parameter :: nz = 60, nr = 20  ! Number of vertical, radial points in vortex profiles
+ integer, parameter :: nz = 60, nr = 26 ! Number of vertical, radial points in vortex profiles
 integer :: nzz
 
 real :: hlat0, hlon0, hlat, hlon
@@ -113,15 +123,14 @@ real :: circ_avg(nr)
 ! least twice the grid spacing of the OLAM hexagonal grid where the hurricane
 ! is located.
 
-real :: radius_ax(nr) = (/ &
-   0.e3,  10.e3,  20.e3,  30.e3,  40.e3,  50.e3,  60.e3,  70.e3,  80.e3,  90.e3, &
- 100.e3, 120.e3, 140.e3, 160.e3, 180.e3, 200.e3, 250.e3, 300.e3, 350.e3, 400.e3, &
- 450.e3, 500.e3/)
-
 !real :: radius_ax(nr) = (/ &
-!   0.e3,   5.e3,  10.e3,  15.e3,  20.e3,  25.e3,  30.e3,  35.e3,  40.e3,  45.e3, &
-!  50.e3,  55.e3,  60.e3,  70.e3,  80.e3,  90.e3, 100.e3, 120.e3, 140.e3, 160.e3, &
-! 180.e3, 200.e3, 250.e3, 300.e3, 350.e3, 400.e3, 450.e3, 500.e3/)
+!   0.e3,  10.e3,  20.e3,  30.e3,  40.e3,  50.e3,  60.e3,  70.e3,  80.e3,  90.e3, &
+! 100.e3, 120.e3, 140.e3, 160.e3, 180.e3, 200.e3, 250.e3, 300.e3, 350.e3, 400.e3 /)
+
+real :: radius_ax(nr) = (/ &
+   0.e3,   5.e3,  10.e3,  15.e3,  20.e3,  25.e3,  30.e3,  35.e3,  40.e3,  45.e3, &
+  50.e3,  55.e3,  60.e3,  70.e3,  80.e3,  90.e3, 100.e3, 120.e3, 140.e3, 160.e3, &
+ 180.e3, 200.e3, 250.e3, 300.e3, 350.e3, 400.e3 /)
 
 
 ! The following 6 parameters define the strength and radial-height distribution
@@ -133,13 +142,14 @@ real :: radius_ax(nr) = (/ &
 ! the dynamic initialization procedure, but may be added (at weaker intensities)
 ! on subsequent cycles as well.
  
-  real,    parameter :: delv_eyw = 15. ! 10.  ! Maximum tangential wind speed perturbation 
-  real,    parameter :: zmax_delv = 10000.   ! Maximum height of perturbation vortex
+! HARVEY HISTORY (SIMULATION BEGUN 6 NOV 2018): FIRST, WITH INIT_HURR_STEP = 1, USED 
+!   DELV_EYW = 30.  SECOND, WITH INIT_HURR_STEP = 2, USED DELV_EYW = 10.
+
+  real,    parameter :: delv_eyw = 30. ! 10.  ! Maximum tangential wind speed perturbation 
+  real,    parameter :: zmax_delv = 12000.   ! Maximum height of perturbation vortex
   real,    parameter :: zexpon_delv = 1.5    ! Vertical power law of perturbation magnitude
-  integer, parameter :: ir_eyw = 8     ! radial index (of radius_ax array) where delv_eyw applies
-  integer, parameter :: ir_env = 20    ! radial index (of radius_ax array) where perturbation ceases
-!  integer, parameter :: ir_eyw = 9    ! radial index (of radius_ax array) where delv_eyw applies
-!  integer, parameter :: ir_env = 17   ! radial index (of radius_ax array) where perturbation ceases
+  integer, parameter :: ir_eyw = 8    ! radial index (of radius_ax array) where delv_eyw applies
+  integer, parameter :: ir_env = 26   ! radial index (of radius_ax array) where perturbation ceases
 
 ! real, parameter :: rexpon_delc = 1.0 ! Radial power law of perturbation magnitude
   real, parameter :: rexpon_delc = 0.7 ! Radial power law of perturbation magnitude
@@ -151,12 +161,12 @@ real :: radius_ax(nr) = (/ &
 ! fields).  At locations outside radius rad2 and/or at heights above z2, none of
 ! the relocated vortex is used, and the model initial fields remain unchanged.
 ! Between these limits, interpolation weights vary linearly with height
-! and/or radius.  LIMIT RAD2 TO 400.E3 OR LESS, OR ELSE CODE CHANGES WILL BE REQUIRED.
+! and/or radius.  LIMIT RAD2 TO ABOUT [radius_ax(nr) - 20.e3] OR LESS.
 
-  real, parameter :: rad1 = 300.e3 ! User-specified inner radius for transition weights
-  real, parameter :: rad2 = 400.e3 ! User-specified outer radius for transition weights
-  real, parameter :: z1 =  7000. ! User-specified lower height for transition weights
-  real, parameter :: z2 = 10000. ! User-specified upper height for transition weights
+  real, parameter :: rad1 = 250.e3 ! User-specified inner radius for transition weights
+  real, parameter :: rad2 = 290.e3 ! User-specified outer radius for transition weights
+  real, parameter :: z1 = 10000. ! User-specified lower height for transition weights
+  real, parameter :: z2 = 14000. ! User-specified upper height for transition weights
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ! Axisymmmetric vortex profile arrays
@@ -200,6 +210,21 @@ Contains
         nzz = k
         if (zt(k) > 20000.) exit
      enddo
+
+     ! (hcentlat,hcentlon) are observed coordinates of hurricane that are set
+     ! by the user in a parameter statement above.  For any type of run, copy
+     ! these to (hlat,hlon) and to (hlat0,hlon0).
+
+     hlat  = hcentlat
+     hlon  = hcentlon
+     hlat0 = hcentlat
+     hlon0 = hcentlon
+
+! special for history restart
+
+ !    hlat =  24.96
+ !    hlon = -94.25
+
   endif
 
   if (runtype /= 'INITIAL') return
@@ -215,12 +240,6 @@ Contains
      ! For the first cycle of the dynamic initialization procedure, 
      ! init_hurr_step is set to 1.
 
-     ! hcentlat and hcentlon are observed coordinates of hurricane that are set
-     ! by the user in a parameter statement above; copy these to hlat and hlon.
-
-     hlat = hcentlat
-     hlon = hcentlon
-
      ! Diagnose vortex center location as it is represented on the OLAM grid
      ! after initial interpolation from CFSR or other dataset.  This usually
      ! gives (slighly) different values of hlat and hlon.
@@ -233,7 +252,12 @@ Contains
      hlat0 = hlat
      hlon0 = hlon
 
-  elseif (init_hurr_step == 2 .or. init_hurr_step == 3) then
+     ! Override the above and use observed coordinates
+
+     hlat0 = hcentlat
+     hlon0 = hcentlon
+
+  elseif (init_hurr_step == 2 .or. init_hurr_step == 3 .or. init_hurr_step == 4) then
 
      ! For the second and subsequent dynamic initialization cycles, 
      ! init_hurr_step is set to 2, while for the beginning of the model
@@ -309,16 +333,16 @@ Contains
 
   implicit none
 
-  integer :: iw,k
+  integer :: iw,k,lpwmax
 
   real :: reh,xeh,yeh,zeh
-  real :: dist,area_tot,weight
+  real :: dist,weight
   real :: rlon,rlat
 
-  real :: press_min(mza),press_avg(mza),press_thresh(mza)
+  real :: area_tot(mza),press_min(mza),press_avg(mza),press_thresh(mza)
   real :: xew_avg(mza),yew_avg(mza),zew_avg(mza),weight_sum(mza)
 
-  print*, 'vortex_center_diagnose BEGIN ',hlat,hlon
+  write(6,'(a,2f10.3)') 'vortex_center_diagnose BEGIN ',hlat,hlon
 
 ! Find "earth" coordinates of first-guess position (hlat,hlon)
 
@@ -329,8 +353,9 @@ Contains
 
 ! Initialize quantities
 
-  area_tot = 0.
+  lpwmax = 2 
 
+  area_tot (1:mza) = 0.
   press_min(1:mza) = 2.e5
   press_avg(1:mza) = 0.
 
@@ -345,10 +370,10 @@ Contains
   do iw = 2,mwa
 
 ! Skip current W point if its location is far from first guess position
-! (This is rough check that eliminates moist points)
+! (This is rough check that eliminates most points)
 
-     if (abs(glatw(iw) - hlat) > 10.) cycle
-     if (abs(glonw(iw) - hlon) > 10.) cycle
+     if (abs(glatw(iw) - hlat) > 5.) cycle
+     if (abs(glonw(iw) - hlon) > 5.) cycle
 
 ! Distance of current W point to first guess position
 
@@ -357,15 +382,15 @@ Contains
 ! Skip current W point if its location is far from first guess position
 ! (This is finer check)
 
-     if (dist > 200.e3) cycle
+     if (dist > 100.e3) cycle
 
-! Sum grid cell area within search area
+! Increase lpwmax if it is less than lpw for this column
 
-     area_tot = area_tot + arw0(iw)
+     lpwmax = max(lpwmax,lpw(iw))
 
 ! Vertical loop over T levels
 
-     do k = lpw(iw),mza
+     do k = lpwmax,mza
 
 ! Do not apply algorithm above threshold height
 
@@ -377,8 +402,9 @@ Contains
            press_min(k) = real(press(k,iw))
         endif
 
-! Sum (area * pressure) product at each model level within search area
+! Sum grid cell area and (area * pressure) product at each model level within search area
 
+        area_tot (k) = area_tot (k) + arw0(iw)
         press_avg(k) = press_avg(k) + arw0(iw) * press(k,iw)
 
      enddo  ! k
@@ -387,18 +413,16 @@ Contains
 
 ! Vertical loop over T levels
 
-  do k = 2,mza
+  do k = lpwmax,mza
 
 ! Do not apply algorithm above threshold height
 
      if (zt(k) > 3000.) exit
 
-! Compute average pressure
-
-     press_avg(k) = press_avg(k) / area_tot
-
+! Compute average pressure for any k level with cells above ground
 ! Compute threshold pressure at 80% of the range from avg to min
 
+     press_avg(k) = press_avg(k) / area_tot(k)
      press_thresh(k) = press_avg(k) + .80 * (press_min(k) - press_avg(k))
 
   enddo
@@ -408,10 +432,10 @@ Contains
   do iw = 2,mwa
 
 ! Skip current W point if its location is far from first guess position
-! (This is rough check that eliminates moist points)
+! (This is rough check that eliminates most points)
 
-     if (abs(glatw(iw) - hlat) > 10.) cycle
-     if (abs(glonw(iw) - hlon) > 10.) cycle
+     if (abs(glatw(iw) - hlat) > 5.) cycle
+     if (abs(glonw(iw) - hlon) > 5.) cycle
 
 ! Distance of current W point to first guess position
 
@@ -420,11 +444,11 @@ Contains
 ! Skip current W point if its location is far from first guess position
 ! (This is finer check)
 
-     if (dist > 200.e3) cycle
+     if (dist > 100.e3) cycle
 
 ! Vertical loop over T levels
 
-     do k = lpw(iw),mza
+     do k = lpwmax,mza
 
 ! Do not apply algorithm above threshold height
 
@@ -450,7 +474,7 @@ Contains
 
 ! Vertical loop over T levels
 
-  do k = 2,mza
+  do k = lpwmax,mza
 
 ! Do not apply algorithm above threshold height
 
@@ -468,7 +492,7 @@ Contains
 
 ! Select k value to use for vortex center location
 
-     if (k == 2) then
+     if (k == lpwmax) then
         hlat = rlat
         hlon = rlon
      endif
@@ -477,7 +501,7 @@ Contains
 
 ! Also need to check for lpw(iw) > 2
 
-  print*, 'vortex_center_diagnose END ',hlat,hlon,press_min(2)
+  write(6,'(a,2f10.3,i5,f12.2)') 'vortex_center_diagnose END   ',hlat,hlon,lpwmax,press_min(lpwmax)
 
   return
   end subroutine vortex_center_diagnose
@@ -516,11 +540,11 @@ Contains
 
 !  call plotback; call cplot(nz,nr, thil_ax1 , 58,'thil1'  ); call o_frame
   call plotback; call cplot(nz,nr,theta_ax1 , 58,'theta1' ); call o_frame
-!  call plotback; call cplot(nz,nr,  shw_ax1 ,  5,'shw1'   ); call o_frame
-!  call plotback; call cplot(nz,nr,  shv_ax1 ,  5,'shv1'   ); call o_frame
+  call plotback; call cplot(nz,nr,  shw_ax1 ,  5,'shw1'   ); call o_frame
+  call plotback; call cplot(nz,nr,  shv_ax1 ,  5,'shv1'   ); call o_frame
   call plotback; call cplot(nz,nr, vtan_ax1 ,159,'vtan1'  ); call o_frame
-!  call plotback; call cplot(nz,nr, vrad_ax1 ,109,'vrad1'  ); call o_frame
-!  call plotback; call cplot(nz,nr,    w_ax1 ,108,'w1'     ); call o_frame
+  call plotback; call cplot(nz,nr, vrad_ax1 ,109,'vrad1'  ); call o_frame
+  call plotback; call cplot(nz,nr,    w_ax1 ,147,'w1'     ); call o_frame
 
   call o_clswk()
 
@@ -832,7 +856,7 @@ Contains
       
      del_circ(ir) = max(0., circ(ir) - circ_avg(ir))
       
-     print*, 'hi2 ',ir,1.e-6*circ(ir),1.e-6*circ_avg(ir),1.e-6*del_circ(ir)
+     ! print*, 'hi2 ',ir,1.e-6*circ(ir),1.e-6*circ_avg(ir),1.e-6*del_circ(ir)
 
   enddo   
 
@@ -1148,23 +1172,14 @@ Contains
   real :: xwi,ywi
 
   character(pathlen) :: fname
+  character(2) :: string
   logical :: exans
 
   ipert = ipert + 1
 
-     if (ipert == 1) then
-        fname = 'javier_out1g'
-     elseif (ipert == 2) then
-        fname = 'javier_out2g'
-     elseif (ipert == 3) then
-        fname = 'javier_out3g'
-     elseif (ipert == 4) then
-        fname = 'javier_out4g'
-     elseif (ipert == 5) then
-        fname = 'javier_out5g'
-     elseif (ipert == 6) then
-        fname = 'javier_out6g'
-     endif
+  write(string,'(I0)') ipert
+
+  fname = 'harvey_out'//trim(adjustl(string))//'i'
 
   nwps(:,:) = 0
 
@@ -1459,6 +1474,8 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
   inquire(file=trim(fname),exist=exans)
 
+  print*, 'Ready to write ',trim(fname),';  Already exists = ',exans
+
   if (.not. exans) then
      open(32,file=trim(fname),status='new',form='unformatted')
      write(32) hlat0,hlon0,nout,iwout,reloc_field
@@ -1472,7 +1489,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
   subroutine hurricane_init_relocated()
 
-! This subroutine replaces a model initial state with a poorly-resolved
+! This subroutine replaces a model initial state that contains a poorly-resolved
 ! tropical cyclone from a GFS or other analysis with a cyclone that was
 ! simulated in a previous model run and was relocated to the position 
 ! inferred in the initial GFS fields.
@@ -1526,7 +1543,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   character(pathlen) :: fname
   logical :: exans
 
-  fname = 'javier_out6g'
+  fname = 'harvey_out6g'
 
 ! Read relocated vortex data
 
@@ -1542,6 +1559,11 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
      read(32) hlat0,hlon0,nout,iwout,reloc_field
      close(32)
   endif
+
+! TEMP FIX (FROM HISTORY START RUN THAT MADE RELOCATE FILES WITHOUT FIRST SETTING (HLAT0,HLON0)
+
+! hlat0 = hcentlat
+! hlon0 = hcentlon
 
   print*, 'init_relocated - hlat0,hlon0 = ',hlat0,hlon0
 
@@ -1568,16 +1590,13 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
      rad = sqrt((xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2)
 
-! Skip hurricane assimilation for all points outside specified radius
+! Define radial weight coefficients, skipping hurricane assimilation for
+! all points outside specified radius
 
-     if (rad > 400.e3) cycle
-
-! Define radial weight coefficients
-
-     if (rad < rad1) then
+     if (rad > rad2) then
+        cycle
+     elseif (rad < rad1) then
         wt1 = 1.
-     elseif (rad > rad2) then
-        wt1 = 0.
      else
         wt1 = (rad2 - rad) / (rad2 - rad1)
      endif

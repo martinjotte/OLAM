@@ -94,7 +94,7 @@ use mem_para,    only: myrank
 use micro_coms,  only: mza0, miclevel, nembc, &
                        cfmas, pwmas, cfvt, pwvt, &
                        npairx, npairy, npairc, coltabx, coltaby, coltabc, &
-                       init_nuc_zfactors
+                       driz_gammq, init_nuc_zfactors
 
 use nuclei_coms, only: dust_src_init
 
@@ -133,7 +133,7 @@ implicit none
 
 ! Check if collection table file exists
 
-  coltabfile = './COLTABFILE3'
+  coltabfile = './COLTABFILE9B'
 
   inquire(file=coltabfile, exist=exans)
 
@@ -161,6 +161,13 @@ implicit none
      idims(3) = npairy
 
      call shdf5_irec(ndims, idims, 'COLTABY', rvar3=coltaby)
+
+     ndims = 1
+     idims(1) = nembc
+     idims(2) = 1
+     idims(3) = 1
+
+     call shdf5_irec(ndims, idims, 'DRIZ_GAMMQ', rvar1=driz_gammq)
 
 ! Close the collection table file
 
@@ -201,6 +208,13 @@ implicit none
 
         call shdf5_orec(ndims, idims, 'COLTABY', rvar3=coltaby)
 
+        ndims = 1
+        idims(1) = nembc
+        idims(2) = 1
+        idims(3) = 1
+
+        call shdf5_orec(ndims, idims, 'DRIZ_GAMMQ', rvar1=driz_gammq)
+
 ! Close the collection table file
 
         call shdf5_close()
@@ -217,7 +231,7 @@ end subroutine micinit_tabs
 subroutine micinit_gam()
 
 use micro_coms,  only: nhcat, shapefac, cfmas, pwmas, cfvt, pwvt, &
-                       ncat, emb0, emb1, gnu, rxmin, miclevel, sl, sc, sj, &
+                       ncat, dmb0, dmb1, emb0, emb1, gnu, rxmin, miclevel, sl, sc, sj, &
                        rparm, sparm, aparm, gparm, hparm, &
                        sk, dps, dps2, rictmin, rictmax, nembc, lcat_lhcat, &
                        emb0log, emb1log, emb2, cfmasi, pwmasi, pwen0, &
@@ -239,14 +253,14 @@ real :: dstprms(9,nhcat) = reshape( (/ &  ! Carver/Mitchell 1996 power laws
 !----------------------------------------------------------------------
 !shapefac  cfmas  pwmas   cfvt    pwvt    dmb0     dmb1  gnu  rxmin
 !----------------------------------------------------------------------
-    .5,     524.,    3.,  3173.,    2.,  2.e-6,  50.e-6,  9., 1.e-12, & !cloud
-    .5,     524.,    3.,   144.,  .497,  .1e-3,   5.e-3,  2.,  1.e-9, & !rain
+    .5,     524.,    3.,   .3e8,    2.,  2.e-6,  50.e-6,  9., 1.e-12, & !cloud
+    .5,     524.,    3.,   144.,  .497,  .4e-3,   4.e-3,  4.,  1.e-9, & !rain
   .179,    110.8,  2.91,  1538.,  1.00, 15.e-6, 125.e-6,  2., 1.e-12, & !pris col
   .179, 2.739e-3,  1.74,   27.7,  .484,  .1e-3,  10.e-3,  2.,  1.e-9, & !snow col
     .5,     .496,   2.4,   16.1,  .416,  .1e-3,  10.e-3,  2.,  1.e-9, & !aggreg
     .5,     157.,    3.,   332.,  .786,  .1e-3,   5.e-3,  2.,  1.e-9, & !graupel
     .5,     471.,    3.,  152.1,  .497,  .8e-3,  10.e-3,  2.,  1.e-9, & !hail
-    .5,     524.,    3., 1.26e7,  1.91, 30.e-6, 120.e-6,  4., 1.e-12, & !drizzle
+    .5,     524.,    3.,  4000.,  1.00, 30.e-6, 400.e-6,  4., 1.e-12, & !drizzle
   .429,    .8854,   2.5, 20801., 1.377,    00.,     00., 00.,    00., & !pris hex
  .3183,  .377e-2,    2.,   56.4,  .695,    00.,     00., 00.,    00., & !pris den
  .1803,  1.23e-3,   1.8, 1617.9,  .983,    00.,     00., 00.,    00., & !pris ndl
@@ -268,8 +282,10 @@ do lhcat = 1,nhcat
 enddo
 
 do lcat = 1,ncat
-   emb0 (lcat) = cfmas(lcat) * dstprms(6,lcat) ** pwmas(lcat)
-   emb1 (lcat) = cfmas(lcat) * dstprms(7,lcat) ** pwmas(lcat)
+   dmb0 (lcat) = dstprms(6,lcat)
+   dmb1 (lcat) = dstprms(7,lcat)
+   emb0 (lcat) = cfmas(lcat) * dmb0(lcat) ** pwmas(lcat)
+   emb1 (lcat) = cfmas(lcat) * dmb1(lcat) ** pwmas(lcat)
    emb2 (lcat) = 0.
    gnu  (lcat) = dstprms(8,lcat)
    rxmin(lcat) = dstprms(9,lcat)

@@ -44,11 +44,12 @@ contains
 
     use mem_turb,    only: vkm_sfc, ue, ve
     use mem_ijtabs,  only: itab_w
-    use mem_grid,    only: mza, lpv, lpw, dzim, zm, volt, arw, lsw, volti, zm, &
-                           arw0, dzm, dzimsq, gxps_coef, gyps_coef, dzim, dzit
+    use mem_grid,    only: mza, lpv, lpw, dzim, dzit, zm, volt, arw, lsw, volti, zm, &
+                           arw0, dzm, dzimsq, gxps_coef, gyps_coef, dzt_bot
     use misc_coms,   only: idiffk, csx, csz, dtlm
-    use mem_basic,   only: rho, vxe, vye, vze, thil, wc
-    use consts_coms, only: vonk, grav2
+    use mem_basic,   only: rho, vxe, vye, vze, thil, wc,  theta, tair, sh_w, sh_v
+    use mem_micro,   only: sh_c
+    use consts_coms, only: vonk, grav2,   eps_virt, alvlocp, cpio2
     use mem_tend,    only: vmxet, vmyet, vmzet, thilt
     use var_tables,  only: num_scalar, scalar_tab
     use tridiag,     only: tridv
@@ -69,9 +70,11 @@ contains
     real :: scalen_asympt,scalen_vert,scalen_horiz
     real :: prinv
     real :: strain2(mza), strain_t(mza)
+    real :: dissipation(mza) ! Dissipation rate (conversion of KE to heat) [kg/m^3 m^2/s^3]
     real :: bvfreq2
     real :: vkz2
     real :: dtl
+    real :: vels2
 
     real :: akodz(mza), dtomass(mza)
     real :: vctr3(mza),vctr5(mza),vctr6(mza),vctr7(mza)
@@ -193,7 +196,7 @@ contains
 
     do k = ka, mza-1
 
-       ! Compute buoyance frequency
+       ! Compute buoyancy frequency
 
        bvfreq2 = grav2 * dzim(k)  &
                * (thetav(k+1) - thetav(k)) / (thetav(k+1) + thetav(k))
@@ -235,11 +238,21 @@ contains
        ! Eddy diffusivity for heat/scalars
 
        vkh(k) = vkm(k) * prinv
-      
+
+       ! Dissipation due to mechanical strain (applies at W points)
+
+       dissipation(k) = strain2(k) * vkm(k)
+
     enddo
-      
-    ! Zero values for top and bottom boundaries   
-   
+
+    ! Compute surface dissipation
+
+    vels2             = vxe(ka,iw)**2 + vye(ka,iw)**2 + vze(ka,iw)**2
+    dissipation(ka-1) = vkm_sfc(1,iw) * vels2 / dzt_bot(ka)**2
+    dissipation(mza)  = 0.0 
+
+    ! Zero values for top and bottom boundaries
+
     vkm(ka-1) = 0.
     vkh(ka-1) = 0.
     vkm(mza)  = 0.
@@ -415,28 +428,29 @@ contains
        call tridv( vctr5, vctr6, vctr7, rhs, soln, ka, mza-1, mza, num_scalar+1 )
     endif
 
-    do n = 1, num_scalar + 1
+    ! Set bottom and top vertical internal turbulent fluxes to zero
 
-       ! Set bottom and top vertical internal turbulent fluxes to zero
-       soln(ka-1, n) = 0.0
-       soln(mza , n) = 0.0
+    soln(ka-1, 1:num_scalar+1) = 0.0
+    soln(mza , 1:num_scalar+1) = 0.0
 
-       if (n <= num_scalar) then
+    ! Apply fluxes to conserved scalars
 
-          ! Vertical loop over T levels
-          do k = ka, mza
-             scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                       + real(volti(k,iw)) * (soln(k-1,n) - soln(k,n))
-          enddo
+    do n = 1, num_scalar
+       ! Vertical loop over T levels
+       do k = ka, mza
+          scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                    + real(volti(k,iw)) * (soln(k-1,n) - soln(k,n))
+       enddo
+    enddo
 
-       else
+    ! Apply fluxes and dissipative heating to THIL
 
-          ! Vertical loop over T levels
-          do k = ka, mza
-             thilt(k,iw) = thilt(k,iw) + real(volti(k,iw)) * (soln(k-1,n) - soln(k,n))
-          enddo
+    n = num_scalar + 1
 
-       endif
+    ! Vertical loop over T levels
+    do k = ka, mza
+       thilt(k,iw) = thilt(k,iw) + real(volti(k,iw)) * (soln(k-1,n) - soln(k,n)) &
+                   + (dissipation(k) + dissipation(k-1)) * cpio2 * theta(k,iw) / tair(k,iw)
     enddo
 
   end subroutine turb_k

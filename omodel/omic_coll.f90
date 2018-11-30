@@ -32,7 +32,7 @@
 !===============================================================================
 subroutine effxy(lpw0,k1,k2,rx,qr,emb,tx,eff)
 
-use micro_coms, only: mza0, ncat, jnmb, rxmin, neff
+use micro_coms, only: mza0, ncat, jnmb, rxmin, neff, cfmasi, pwmasi
 use misc_coms,  only: io6
 
 implicit none
@@ -51,7 +51,7 @@ real, intent(out) :: eff(mza0,neff)
 
 integer :: k
 
-real :: dmr
+real :: dmb
 
 ! This subroutine sets COALLESCENCE EFFICIENCIES for all hydrometeor collisions.
 ! Some of these depend on hydrometeor temperatures, while others are constant.
@@ -61,7 +61,7 @@ real :: dmr
 
 ! 1 = cc,cd,cr,   cs,ca,cg,ch,
 !        dd,dr,   ds,da,dg,dh,
-!           rr,rp,rs,ra,rg,rh
+!              rp,rs,ra,rg,rh
 
 eff(lpw0:mza0,1) = 1.0
 
@@ -144,6 +144,37 @@ if (jnmb(7) >= 1) then
 
 endif
 
+! 8 = rr (rain-rain collisional breakup at large sizes)
+
+if (jnmb(2) >= 1) then
+
+   do k = k1(2),k2(2)
+
+      ! RAMS version
+
+    !  if (emb(k,2) < .113e-6) then
+    !     eff(k,8) = 1.0
+    !  elseif (emb(k,2) > .158e-5) then
+    !     eff(k,8) = -5.0
+    !  else
+    !     eff(k,8) = 2. - exp(.1326e7 * (emb(k,2) - .113e-6))
+    !  endif
+
+    ! Version designed to limit max droplet size to about 4 mm
+
+      if (emb(k,2) < .524e-6) then      ! This is 1 mm diameter
+         eff(k,8) = 1.0
+      elseif (emb(k,2) > 33.536e-6) then  ! This is 4 mm diameter
+         eff(k,8) = -1.0
+      else
+         dmb = (cfmasi(2) * emb(k,2)) ** pwmasi(2)
+         eff(k,8) = 1.0 - 666.667 * (dmb - 1.e-3)
+      endif
+
+   enddo
+
+endif
+
 end subroutine effxy
 
 !===============================================================================
@@ -202,7 +233,7 @@ end subroutine cols
 !===============================================================================
 
 subroutine col1188(mx,mz,meff,j1,j2, &
-   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2,rxxxz,exxxx,exxxz)
+   jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxxxz,exxxx,exxxz)
 
 use micro_coms, only: mza0, ncat, rxmin, ipair, jnmb, neff, &
                       coltabc, coltabx
@@ -227,7 +258,7 @@ real, intent(in) :: cx  (mza0,ncat)
 real, intent(in) :: qx  (mza0,ncat)
 real, intent(in) :: eff (mza0,neff)
 
-real, intent(in) :: colfac2(mza0)
+real, intent(in) :: colfac(mza0)
 
 real, intent(inout) :: rxxxz(mza0,2)
 real, intent(inout) :: exxxx(mza0)
@@ -235,17 +266,12 @@ real, intent(inout) :: exxxz(mza0)
 
 integer :: k,ipc,ipc2,ipx,indx
 
-real :: c1,tabc,tabc2,tabx,embxz,colc
+real :: c1,c2,tabc,tabc2,tabx,embxz,colc
 
-if (mx == 1 .and. mz == 2) then     ! Cloud-cloud with drizzle turned OFF
-   indx  = 2
-   embxz = 400.e-12
-elseif (mx == 1 .and. mz == 8) then ! Cloud-cloud with drizzle turned ON
-   indx  = 4
-   embxz = 200.e-12
-else                                ! Drizzle-drizzle (mx = 8 and mz = 2)
-   indx  = 4
-   embxz = 2000.e-12
+if (mx == 1) then    ! Cloud-cloud (mx = 1 and mz = 8)
+   embxz = 15.e-12  ! Droplet mass for transfer to drizzle
+else                 ! Drizzle-drizzle (mx = 8 and mz = 2)
+   embxz = 4.e-9     ! Droplet mass for transfer to rain
 endif
 
 do k = j1,j2
@@ -253,9 +279,10 @@ do k = j1,j2
    if (rx(k,mx) < rxmin(mx)) cycle
 
    ipc  = ipair(jhcat(k,mx),jhcat(k,mx),1)
-   ipx  = ipair(jhcat(k,mx),jhcat(k,mx),indx)
+   ipx  = ipair(jhcat(k,mx),jhcat(k,mx),4)
 
-   c1 = eff(k,meff) * colfac2(k) * cx(k,mx) ** 2
+   c1 = eff(k,meff) * colfac(k) * cx(k,mx) ** 2
+   c2 = 2. * c1
 
 ! Interpolate from coltabx
 
@@ -265,7 +292,7 @@ do k = j1,j2
 
 ! Hydrometeor mass transfer
 
-   rxxxz(k,1) = min(rx(k,mx),c1 * 10. ** (-tabx))
+   rxxxz(k,1) = min(rx(k,mx),c2 * 10. ** (-tabx)) ! c2 since both tabx droplets go to z
    rxxxz(k,2) = rxxxz(k,1) * qx(k,mx)
 
    if (jnmb(mz) < 5) cycle
@@ -280,11 +307,11 @@ do k = j1,j2
         + 2. * wct1(k,mx) * wct2(k,mx) * coltabc(ict1(k,mx),ict2(k,mx),ipc) &
         +      wct2(k,mx) * wct2(k,mx) * coltabc(ict2(k,mx),ict2(k,mx),ipc)
 
-   colc = min(0.5 * cx(k,mx),c1 * 10. ** (-tabc))
+   colc = min(0.5 * cx(k,mx),c1 * 10. ** (-tabc)) ! c1 so colc represents total number loss
 
 ! Hydrometeor number loss
 
-   exxxx(k) = colc - exxxz(k)
+   exxxx(k) = colc
 
 enddo
 
@@ -296,7 +323,7 @@ subroutine col1882(mx,my,mz,meff,j1,j2, &
    jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxyxy,rxyxz,rxyyz,exyxx,exyyz)
 
 use micro_coms, only: mza0, ncat, rxmin, ipair, jnmb, neff, &
-                      coltabc, coltabx, coltaby, emb1
+                      coltabc, coltabx, coltaby, driz_gammq, emb1
 use misc_coms,  only: io6
 
 implicit none
@@ -329,9 +356,9 @@ real, intent(inout) :: exyyz(mza0)
 
 integer :: k,ipc,ipx,ipx2,ipy2
 
-real :: c1,tabc,tabc2,tabx,tabx2,taby2,embxz
+real :: c1,tabc,tabc2,tabx,tabx2,taby2,embxz,gammq
 
-embxz = 2000.e-12 ! Droplet mass for transfer to rain
+embxz = 4.e-9 ! Droplet mass for transfer to rain
 
 do k = j1,j2
 
@@ -397,7 +424,10 @@ do k = j1,j2
 
 ! Hydrometeor mass transfer
 
-   rxyyz(k,1) = min(rx(k,my),c1 * 10. ** (-taby2))
+   gammq = wct1(k,my) * driz_gammq(ict1(k,my)) &
+         + wct2(k,my) * driz_gammq(ict2(k,my))
+
+   rxyyz(k,1) = min(rx(k,my)*gammq,c1 * 10. ** (-taby2))
    rxyyz(k,2) = rxyyz(k,1) * qx(k,my)
 
 ! Hydrometeor number transfer
@@ -718,7 +748,7 @@ real :: beta(16)
 
 !            1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16
 data alpha /00.,00.,00.,1.0,1.0,1.0,1.0,00.,00.,00.,00.,00.,1.0,1.0,1.0,1.0/
-data beta  /00.,00.,00.,1.5,1.1,0.0,0.0,00.,00.,00.,00.,00.,1.2,1.1,1.1,1.3/
+data beta  /00.,00.,00.,0.5,0.5,0.0,0.0,00.,00.,00.,00.,00.,0.5,0.5,0.5,0.5/
 
 lx = 1
 if (mx == 8) lx = 2

@@ -122,7 +122,7 @@ end module ccnbin_coms
 
 subroutine ccnbin_init()
 
-  use ccnbin_coms, only: pi2, rdry, rvap, cp, &
+  use ccnbin_coms, only: pi2, pio6, rdry, rvap, cp, &
                          rhow, tempkap, sfctension, xalphac, &
                          nccntyp, nnuc, nbins, idust1, idust2, idust3, idust4, &
                          isalt, igccnx, iifnx, &
@@ -145,6 +145,7 @@ subroutine ccnbin_init()
   real :: dbnd1, dbnd2
   real :: ddlog, wetd, dwetd, satk, satkp, satkpp
   real :: tot,tot_ifn, f0
+  real, allocatable :: ccn_mass(:), ccn_diam2(:)
   
   ! The value of ICCN determines a unique set of CCN types to be prognosed.
   ! New sets may be added here by adding ELSEIF sections in the next two
@@ -177,6 +178,9 @@ subroutine ccnbin_init()
   allocate (ccntyp_dsig (nccntyp))
   allocate (ccntyp_kappa(nccntyp))
   allocate (ccntyp_alpha(nccntyp))
+
+  allocate (ccn_mass (nccntyp))
+  allocate (ccn_diam2(nccntyp))
 
   ! Sum number of prognosed CCN + GCCN + IFN types and allocate arrays to include all
 
@@ -359,37 +363,37 @@ subroutine ccnbin_init()
      ! size spectral width, and kappa.
 
      idust1 = 1
-     ccntyp_name (1) = 'Fine Dust'
+     ccntyp_name (1) = 'Dust1'
      nbins_ccntyp(1) = 20
      ccntyp_dmed (1) = 0.3e-6 * 2. ! estimated, revise later
-     ccntyp_dsig (1) = 2.0
+     ccntyp_dsig (1) = 1.5
      ccntyp_kappa(1) = 0.00
      diam_nucx (1,1) = ccntyp_dmed(1)
       rho_nucx   (1) = 2.5e3
 
      idust2 = 2
-     ccntyp_name (2) = 'Coarse Dust 2'
+     ccntyp_name (2) = 'Dust2'
      nbins_ccntyp(2) = 20
-     ccntyp_dmed (2) = 1.2e-6 * 2. ! estimated, revise later
-     ccntyp_dsig (2) = 2.0
+     ccntyp_dmed (2) = 1.3e-6 * 2. ! estimated, revise later
+     ccntyp_dsig (2) = 1.3
      ccntyp_kappa(2) = 0.00
      diam_nucx (1,2) = ccntyp_dmed(2)
       rho_nucx   (2) = 2.65e3
 
      idust3 = 3
-     ccntyp_name (3) = 'Coarse Dust 3'
+     ccntyp_name (3) = 'Dust3'
      nbins_ccntyp(3) = 20
-     ccntyp_dmed (3) = 2.2e-6 * 2. ! estimated, revise later
-     ccntyp_dsig (3) = 2.0
+     ccntyp_dmed (3) = 2.3e-6 * 2. ! estimated, revise later
+     ccntyp_dsig (3) = 1.3
      ccntyp_kappa(3) = 0.00
      diam_nucx (1,3) = ccntyp_dmed(3)
       rho_nucx   (3) = 2.65e3
 
      idust4 = 4
-     ccntyp_name (4) = 'Coarse Dust 4'
+     ccntyp_name (4) = 'Dust4'
      nbins_ccntyp(4) = 20
      ccntyp_dmed (4) = 4.0e-6 * 2.  ! estimated, revise later
-     ccntyp_dsig (4) = 2.0
+     ccntyp_dsig (4) = 1.3
      ccntyp_kappa(4) = 0.00
      diam_nucx (1,4) = ccntyp_dmed(4)
       rho_nucx   (4) = 2.65e3
@@ -409,7 +413,7 @@ subroutine ccnbin_init()
      ccntyp_dsig (6) = 1.6
      ccntyp_kappa(6) = 1.0
      diam_nucx (1,6) = ccntyp_dmed(6)
-      rho_nucx   (6) = 2.5e3 !?
+      rho_nucx   (6) = 2.0e3
 
      ccntyp_name (7) = 'Black Carbon' ! Combined Hydrophilic and Hydrophobic carbon from GEOS-Chem
      nbins_ccntyp(7) = 20
@@ -417,23 +421,23 @@ subroutine ccnbin_init()
      ccntyp_dsig (7) = 1.6
      ccntyp_kappa(7) = 0.00
      diam_nucx (1,7) = ccntyp_dmed(7)
-      rho_nucx   (7) = 2.5e3 !?
+      rho_nucx   (7) = 0.8e3
 
-     ccntyp_name (8) = 'Hydrophilic Organic Carbon'
+     ccntyp_name (8) = 'OCPI'
      nbins_ccntyp(8) = 20
      ccntyp_dmed (8) = 0.09e-6 * 2.
      ccntyp_dsig (8) = 1.6
      ccntyp_kappa(8) = 0.10
      diam_nucx (1,8) = ccntyp_dmed(8)
-      rho_nucx   (8) = 2.5e3 !?
+      rho_nucx   (8) = 0.4e3
 
-     ccntyp_name (9) = 'Hydrophobic Organic Carbon'
+     ccntyp_name (9) = 'OCPO'
      nbins_ccntyp(9) = 20
      ccntyp_dmed (9) = 0.09e-6 * 2.
      ccntyp_dsig (9) = 1.6
-     ccntyp_kappa(9) = 0.01
+     ccntyp_kappa(9) = 0.0
      diam_nucx (1,9) = ccntyp_dmed(9)
-      rho_nucx   (9) = 2.5e3 !?
+      rho_nucx   (9) = 0.4e3
 
   endif
 
@@ -607,17 +611,25 @@ subroutine ccnbin_init()
 
      tot = 0.
 
+     ccn_mass (ic) = 0.
+     ccn_diam2(ic) = 0.
+
      do jbin = 1,nbins_ccntyp(ic)
         ibin = jbins + jbin
 
         relcon_bin(ibin) = relcon_bin(ibin) * scal
         tot = tot + relcon_bin(ibin)
 
+        ccn_mass (ic) = ccn_mass (ic) + relcon_bin(ibin) * rho_nucx(ic) * pio6 * drydiam3(ibin)
+        ccn_diam2(ic) = ccn_diam2(ic) + relcon_bin(ibin) * drydiam(ibin)**2
+
         print*, 'filledb ',ic,jbin,ibin,drydiam(ibin),relcon_bin(ibin)
 
      enddo
 
      jbins = jbins + nbins_ccntyp(ic)
+
+     print*, 'ic,ccn_mass_ug,ccn_reff ',ic,ccn_mass(ic)*1.e9,0.5 * sqrt(ccn_diam2(ic))
 
   enddo
 

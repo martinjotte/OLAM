@@ -715,32 +715,19 @@ j18 = max(k1(1),k1(8)); k18 = min(k2(1),k2(8))
 j82 = max(k1(8),k1(2)); k82 = min(k2(8),k2(2))
 j12 = max(k1(1),k1(2)); k12 = min(k2(1),k2(2))
 
-if (jnmb(8) == 0) then  ! If drizzle is turned OFF
+! Self-collection of cloud droplets - transfer to drizzle
 
-   ! Self-collection of cloud droplets - transfer to rain
-
-   if (jnmb(2) >= 1 .and. k1(1) <= k2(1)) &
-   call col1188(1,2,1,k1(1),k2(1), &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2, &
-      r1112,e1111,e1112)
-
-else                    ! If drizzle is turned ON
-
-   ! Self-collection of cloud droplets - transfer to drizzle
-
-   if (k1(1) <= k2(1)) &
+if (jnmb(8) >= 1 .and. k1(1) <= k2(1)) &
    call col1188(1,8,1,k1(1),k2(1), &
-      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac2, &
+      jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
       r1118,e1111,e1118)
 
-   ! Collision between cloud and drizzle - transfer to drizzle and rain
+! Collision between cloud and drizzle - transfer to drizzle and rain
 
-   if (j18 <= k18) &
+if (j18 <= k18) &
    call col1882(1,8,2,1,j18,k18, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
       r1818,r1812,r1882,e1811,e1882)
-
-endif
 
 ! Self-collection of drizzle - transfer to rain
 
@@ -762,7 +749,7 @@ if (j82 <= k82) &
 ! Self collection of rain, aggregates, graupel, and hail: number change only
 
 if (jnmb(2) == 5 .and. k1(2) <= k2(2)) &
-   call cols(2,1,k1(2),k2(2), &
+   call cols(2,8,k1(2),k2(2), &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,eff,colfac,e2222)
 
 if (jnmb(5) == 5 .and. k1(5) <= k2(5)) &
@@ -1093,7 +1080,7 @@ if (nl%test_case >= 901 .and. nl%test_case <= 999) go to 1412
 
   ! Apply change to thil from sedim of all categories
 
-  thil0(lpw0:mza0) = thil0(lpw0:mza0) + dsed_thil(lpw0:mza0)
+  thil0(lpw0:mza0) = thil0(lpw0:mza0) + dsed_thil(lpw0:mza0) / rhoa(lpw0:mza0)
 
   if (nnuc > 0) &
      call nuclei_deposition(iw0, k1, k2, dtl0, voa, rhoa, press0, tair, &
@@ -1105,41 +1092,62 @@ if (nl%test_case >= 901 .and. nl%test_case <= 999) go to 1412
 ! If running parcel test cases 901-999, call parcel plot to store and
 ! (on last timestep) plot parcel fields
 
-if (nl%test_case >= 901 .and. nl%test_case <= 999 .and. iw0 == 50) then
+if (nl%test_case >= 901 .and. nl%test_case <= 949) then
+   k = 2
+   kend = 2 ! Parcel simulations
 
-   if (mod(real(time_istp8),600.) < dtl0) then
+   call parcel_plot(k,kend,mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
+      con_ccnx, &
+      press0,thil0,theta0,tairc,rhovslair,rhovsiair,rhov,rhoi,rhoa,rhow, &
+      rnuc_vc,rnuc_vd,rnuc_cp_hom,rnuc_dp_hom,rnuc_vp_haze,rnuc_vp_immers, &
+      cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom,cnuc_vp_haze,cnuc_vp_immers, &
+      rpsxfer,epsxfer, &
+      r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
+      r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
+      r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
+      r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
+      r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
+      r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
+      r2727,r0000,r1812,r1882, &
+      e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
+      e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
+      e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
+      e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
+      e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
+      e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
+      e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000,e1882)
 
-   if (nl%test_case >= 901 .and. nl%test_case <= 949) then
-      kend = 2 ! Parcel simulations
-   else
- !     kend = 18 ! Column simulation: cutoff near T = -30C (simulation/grid dependent)
+elseif (nl%test_case >= 950 .and. nl%test_case <= 999 .and. iw0 == 50) then
+
+   if (mod(real(time_istp8),3600.) < dtl0) then
+
+ !    kend = 18 ! Column simulation: cutoff near T = -30C (simulation/grid dependent)
       kend = 39 ! Column simulation: cutoff near T = -30C (simulation/grid dependent)
-   endif
 
-   do k = 2,kend
+      do k = 2,kend
 
-      call parcel_plot(k,kend,mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
-         con_ccnx, &
-         press0,thil0,theta0,tairc,rhovslair,rhovsiair,rhov,rhoi,rhoa,rhow, &
-         rnuc_vc,rnuc_vd,rnuc_cp_hom,rnuc_dp_hom,rnuc_vp_haze,rnuc_vp_immers, &
-         cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom,cnuc_vp_haze,cnuc_vp_immers, &
-         rpsxfer,epsxfer, &
-         r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
-         r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
-         r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
-         r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
-         r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
-         r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
-         r2727,r0000,r1812,r1882, &
-         e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
-         e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
-         e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
-         e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
-         e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
-         e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
-         e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000,e1882)
+         call parcel_plot(k,kend,mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
+            con_ccnx, &
+            press0,thil0,theta0,tairc,rhovslair,rhovsiair,rhov,rhoi,rhoa,rhow, &
+            rnuc_vc,rnuc_vd,rnuc_cp_hom,rnuc_dp_hom,rnuc_vp_haze,rnuc_vp_immers, &
+            cnuc_vc,cnuc_vd,cnuc_cp_hom,cnuc_dp_hom,cnuc_vp_haze,cnuc_vp_immers, &
+            rpsxfer,epsxfer, &
+            r1118,r8882,r1112,r1818,r1212,r8282,r3335,r4445,r3435,r3445, &
+            r3535,r3636,r3737,r4545,r4646,r4747,r5656,r5757,r6767,r1413, &
+            r1416,r1414,r1446,r1513,r1516,r1515,r1556,r1613,r1616,r8483, &
+            r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
+            r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
+            r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
+            r2727,r0000,r1812,r1882, &
+            e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
+            e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
+            e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
+            e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
+            e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
+            e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
+            e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000,e1882)
 
-   enddo
+      enddo
 
    endif
 

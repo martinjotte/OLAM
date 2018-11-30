@@ -50,7 +50,7 @@ subroutine makesfc2()
                          isfcl, ivegflg, landusefile, isoilflg, &
                          soil_database, veg_database
 
-  use consts_coms, only: erad, piu180, r8
+  use consts_coms, only: erad, eradi, piu180, r8
 
   use land_db,     only: land_database_read
 
@@ -66,7 +66,7 @@ subroutine makesfc2()
 
   integer :: k, im, iw, im1, im2, iq, j, jm, jv, jm1, jm2, iv, ipat
   integer :: npoly
-  integer :: nwls, nwls_old, nwls_est, nwls_inc, ifsize
+  integer :: nwls, nwls_est, nwls_inc, ifsize
   integer :: iwls
   integer :: iws
   integer :: iwl
@@ -182,7 +182,7 @@ subroutine makesfc2()
 
   deallocate (qlat, qlon, topq)
 
-  if (itopoflg == 1) then
+  if (itopoflg /= 1) then
      deallocate (xeq, yeq, zeq)
   endif
 
@@ -209,8 +209,6 @@ subroutine makesfc2()
 
      topw(iw) = max(topwmin,min(topwmax,topw(iw)))
 
-     nwls_old = nwls
-
 ! Loop over all polygon edges
 
      do jv = 1,npoly
@@ -235,9 +233,9 @@ subroutine makesfc2()
 ! Expand earth relative surface coordinates out to terrain height
 ! for computing unit normals for sloping surface cells
 
-        efw  = (erad + topw(iw )) / erad
-        efm1 = (erad + topm(im1)) / erad
-        efm2 = (erad + topm(im2)) / erad
+        efw  = (erad + topw(iw )) * eradi
+        efm1 = (erad + topm(im1)) * eradi
+        efm2 = (erad + topm(im2)) * eradi
 
         call unit_normal ( xew(iw )*efw , yew(iw )*efw , zew(iw )*efw , &
                            xem(im1)*efm1, yem(im1)*efm1, zem(im1)*efm1, &

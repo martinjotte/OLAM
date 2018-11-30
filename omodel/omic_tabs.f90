@@ -287,13 +287,14 @@ end subroutine tabmelt
 subroutine mkcoltb_brute()
 
 use micro_coms, only: nhcat, lcat_lhcat, nembc, gnu, &
-                      pwmas, cfmasi, pwmasi, emb0, emb1, cfvt, pwvt, cfmas, &
-                      ipair, coltabc, coltabx, coltaby, dnfac
+                      pwmas, cfmasi, pwmasi, dmb0, dmb1, emb0, emb1, cfvt, pwvt, cfmas, &
+                      ipair, coltabc, coltabx, coltaby, driz_gammq, dnfac
 use misc_coms,  only: io6
+use consts_coms, only: r8
 
 implicit none
 
-integer, parameter :: ndx=100,ndy=100
+integer, parameter :: ndx=50,ndy=50
 
 integer :: ihx,ix,ihy,iy,iemby,iembx,idx,idy
 integer :: ipc,ipx,ipy,ipx2,ipy2
@@ -302,11 +303,17 @@ real :: gxm,dnminx,dnmaxx,dxlo,dxhi,gxn,gyn,gym
 real :: dnminy,dnmaxy,dny,dnx,bint
 real :: sum_num, sum_xmass, sum_ymass, sum_xmass2, sum_ymass2
 real :: vx,vy,dx,dy
-real :: fgamx,emx,dx1,dx2,fgamy,emy,dy1,dy2,dyhi,dylo
+real :: emx,dx1,dx2,emy,dy1,dy2,dyhi,dylo
 
-real :: emby, embx, dmby, dmbx
+real :: emby, embx, dmby, dmbx, sumddx, sumddy
 
 real, external :: gammln, efc
+
+real(r8) :: fgamx, fgamy, dxodnx, dyodny, dxodnxeg1, dyodnyeg1, expdxodnx, expdyodny
+
+! Initialize drizzle size incomplete gamma function
+
+driz_gammq(:) = 0.
 
 ! Loop over colliding category X
 
@@ -314,10 +321,8 @@ do ihx = 1,nhcat
    ix = lcat_lhcat(ihx)
 
    gxm = exp(gammln(gnu(ix)) - gammln(gnu(ix) + pwmas(ihx)))
-   dnminx = ((emb0(ix) * cfmasi(ihx)) * gxm) ** pwmasi(ihx)
-   dnmaxx = ((emb1(ix) * cfmasi(ihx)) * gxm) ** pwmasi(ihx)
-   dxlo = .01 * dnminx
-   dxhi = 10. * dnmaxx
+   dnminx = dmb0(ix) * gxm ** pwmasi(ihx)
+   dnmaxx = dmb1(ix) * gxm ** pwmasi(ihx)
 
 ! Loop over colliding category Y
 
@@ -337,30 +342,42 @@ do ihx = 1,nhcat
 
       if (ipc == 0) cycle
 
+print*, 'ihx,ihy,ipc ',ihx,ihy,ipc
+
       iy = lcat_lhcat(ihy)
 
       gym = exp(gammln(gnu(iy)) - gammln(gnu(iy) + pwmas(ihy)))
-      dnminy = ((emb0(iy) * cfmasi(ihy)) * gym) ** pwmasi(ihy)
-      dnmaxy = ((emb1(iy) * cfmasi(ihy)) * gym) ** pwmasi(ihy)
-      dylo = .01 * dnminy
-      dyhi = 100. * dnmaxy
+      dnminy = dmb0(iy) * gym ** pwmasi(ihy)
+      dnmaxy = dmb1(iy) * gym ** pwmasi(ihy)
 
 ! Loop over all mean-mass table values for category Y
 
       do iemby = 1,nembc
-         dny = dnminy * (dnmaxy / dnminy) ** (real(iemby-1) / real(nembc-1))
+         dmby = dmb0(iy) * (dmb1(iy) / dmb0(iy)) ** (real(iemby-1) / real(nembc-1))
+         emby = cfmas(iy) * dmby ** pwmas(iy)
+         dny = dmby * gym ** pwmasi(ihy)
+
+! Changed Sept 2018: Integrate over narrower diameter range, and base range
+! on dmb rather than dn.  Narrower range justified in order to avoid tails.
+
+         dylo = .03 * dmby
+         dyhi = 3. * dmby
 
 ! Loop over all mean-mass table values for category X
 
          do iembx = 1,nembc
-            dnx = dnminx * (dnmaxx / dnminx) ** (real(iembx-1) / real(nembc-1))
+            dmbx = dmb0(ix) * (dmb1(ix) / dmb0(ix)) ** (real(iembx-1) / real(nembc-1))
+            dnx = dmbx * gxm ** pwmasi(ihx)
+
+            dxlo = .03 * dmbx
+            dxhi = 3. * dmbx
 
             sum_num    = 0. ! Initialize integral number sum to zero
             sum_xmass  = 0. ! Initialize integral xmass  sum to zero
             sum_ymass  = 0. ! Initialize integral ymass  sum to zero
             sum_xmass2 = 0. ! Initialize integral xmass2 sum to zero
             sum_ymass2 = 0. ! Initialize integral ymass2 sum to zero
-            
+
 ! Loop over spectrum of Y diameters for current mean-mass Y value
 
             do idy = 1,ndy
@@ -368,11 +385,26 @@ do ihx = 1,nhcat
                dy2 = dylo * (dyhi / dylo) ** (real(idy) / real(ndy))
                dy = .5 * (dy1 + dy2)
                vy = cfvt(ihy) * dy ** pwvt(ihy)
+
+               ! FOR CLOUD, RAIN, AND DRIZZLE, REPLACE FALL SPEED POWER LAW
+               ! WITH TABULATED FALL SPEEDS
+
+               if (ihy == 1 .or. ihy == 2 .or. ihy == 8) call vterm_liq(dy,vy)
+
                emy = cfmas(ihy) * dy ** pwmas(ihy)
 
                gyn = exp(gammln(gnu(iy)))
-               fgamy = (dy / dny) ** (gnu(iy) - 1) * exp(-dy / dny)  &
-                  / (gyn * dny)
+
+               dyodny = real(dy / dny,r8)
+               dyodnyeg1 = dyodny ** real(gnu(iy) - 1.0,r8)
+               expdyodny = real(exp(-dyodny),r8)
+
+               fgamy = dyodnyeg1 * expdyodny / (gyn * dny)
+
+   if (idy == 1) then
+      sumddy = 0.
+   endif
+   sumddy = sumddy + fgamy*(dy2-dy1)
 
 ! Loop over spectrum of X diameters for current mean-mass X value
 
@@ -381,11 +413,21 @@ do ihx = 1,nhcat
                   dx2 = dxlo * (dxhi / dxlo) ** (real(idx) / real(ndx))
                   dx = .5 * (dx1 + dx2)
                   vx = cfvt(ihx) * dx ** pwvt(ihx)
+
+                  ! FOR CLOUD, RAIN, AND DRIZZLE, REPLACE FALL SPEED POWER LAW
+                  ! WITH TABULATED FALL SPEEDS
+
+                  if (ihx == 1 .or. ihx == 2 .or. ihx == 8) call vterm_liq(dx,vx)
+
                   emx = cfmas(ihx) * dx ** pwmas(ihx)
 
                   gxn = exp(gammln(gnu(ix)))
-                  fgamx = (dx / dnx) ** (gnu(ix) - 1) * exp(-dx / dnx)  &
-                     / (gxn * dnx)
+
+                  dxodnx = real(dx / dnx,r8)
+                  dxodnxeg1 = dxodnx ** real(gnu(ix) - 1.0,r8)
+                  expdxodnx = real(exp(-dxodnx),r8)
+
+                  fgamx = dxodnxeg1 * expdxodnx / (gxn * dnx)
 
 !------------------------------------------------------------------
 ! GENERAL COMMENTS FOR GENERALIZING THIS SUBROUTINE
@@ -418,9 +460,30 @@ do ihx = 1,nhcat
                   bint = (dx + dy) ** 2 * abs(vx - vy) * fgamx * fgamy  &
                      * efc(ihx,ihy,dx,dy) * (dy2 - dy1) * (dx2 - dx1)
 
+
 ! Every collision gets counted for loss of number for category X
 
                   sum_num = sum_num + bint
+
+!if (ihx == 1 .and. ihy == 2 .and. &
+!   (iembx == 1 .or. iembx == nembc) .and. &
+!   (iemby == 1 .or. iemby == nembc)) then
+
+!   if (idx == 1) then
+!      sumddx = 0.
+
+!      print*, ' '
+!      write(6,'(120a)') '        idx  idy     dx          dy       dxodnx   dyodny', &
+!           '     fgamx       fgamy     fgamx*ddy   fgamy*ddy', &
+!           '     sumddx      sumddy       bint      sum_num'
+!      print*, ' '
+!   endif
+
+!   sumddx = sumddx + fgamx*(dx2-dx1)
+!   write(6,'(a,2i5,2f12.8,2f9.3,8e12.3)') 'omt0 ', &
+!      idx,idy,dx,dy,dxodnx,dyodny,fgamx,fgamy, &
+!      fgamx*(dx2-dx1),fgamy*(dy2-dy1),sumddx,sumddy,bint,sum_num
+!endif
 
 ! CONDITIONAL SUMMATION FOR CLOUD-CLOUD, DRIZZLE-DRIZZLE, AND CLOUD-DRIZZLE
 ! COLLISIONS BASED ON MASS CUTOFF THRESHOLDS (for cases where ipc = 1, 61, or 62)  
@@ -454,39 +517,36 @@ do ihx = 1,nhcat
 ! BIN 22    400.0e-6     33.4e-9
 ! BIN 23    500.0e-6     66.8e-9
 ! BIN 24    630.0e-6    133.6e-9
-  
+
 ! The following 4 size thresholds for (emx + emy) are related to embxz in
 ! subroutines col1188 and col1882, but do not necessarily need to have the
 ! same values.
 
                   if (ipc == 1) then      ! Cloud-cloud interaction table
 
-                     ! Drizzle turned ON in simulation
-
-                     if (emx + emy > 200.e-12) then
+                     if (emx + emy > 33.e-12) then
                         sum_xmass = sum_xmass + bint * emx
-                     endif
-
-                     ! Drizzle turned OFF in simulation
-
-                     if (emx + emy > 400.e-12) then
-                        sum_xmass2 = sum_xmass2 + bint * emx
                      endif
 
                   elseif (ipc == 62) then ! Drizzle-drizzle interaction table
 
-                     if (emx + emy > 2000.e-12) then
+                     if (emx + emy > 33.e-9) then
                         sum_xmass = sum_xmass + bint * emx
                      endif
 
                   elseif (ipc == 61) then ! Cloud-drizzle interaction table
 
-                     if (emx + emy > 2000.e-12) then
+                     if (emx + emy > 33.e-9) then  ! For transfer to rain
+          !!!        if (emx + emy > 4.   ) then  ! For transfer to rain
 
                         sum_xmass2 = sum_xmass2 + bint * emx
                         sum_ymass2 = sum_ymass2 + bint * emy
 
-                     else
+                        if (iembx == 1 .and. idx == 1) then
+                           driz_gammq(iemby) = driz_gammq(iemby) + fgamy * emy * (dy2 - dy1)
+                        endif
+
+                     else                         ! For transfer to drizzle
 
                         sum_xmass = sum_xmass + bint * emx
                         sum_ymass = sum_ymass + bint * emy
@@ -500,26 +560,129 @@ do ihx = 1,nhcat
 
                   endif
 
-               enddo
-            enddo
+               enddo ! idx
+            enddo ! idy
 
 ! sum_num, sum_xmass, sum_ymass, sum_xmass2, and sum_ymass2 are the definite
 ! integral sums of number and mass for the current X and Y mean-mass diameter
 ! pair.  Enter these in tables.
 
-                           coltabc(iembx,iemby,ipc ) = -log10(max(1.e-30,sum_num))
-             if (ipx  > 0) coltabx(iembx,iemby,ipx ) = -log10(max(1.e-30,sum_xmass))
-             if (ipx2 > 0) coltabx(iembx,iemby,ipx2) = -log10(max(1.e-30,sum_xmass2))
-             if (ipy  > 0) coltaby(iemby,iembx,ipy ) = -log10(max(1.e-30,sum_ymass))
-             if (ipy2 > 0) coltaby(iemby,iembx,ipy2) = -log10(max(1.e-30,sum_ymass2))
+                           coltabc(iembx,iemby,ipc ) = -log10(max(1.e-32,sum_num))
+             if (ipx  > 0) coltabx(iembx,iemby,ipx ) = -log10(max(1.e-32,sum_xmass))
+             if (ipx2 > 0) coltabx(iembx,iemby,ipx2) = -log10(max(1.e-32,sum_xmass2))
+             if (ipy  > 0) coltaby(iemby,iembx,ipy ) = -log10(max(1.e-32,sum_ymass))
+             if (ipy2 > 0) coltaby(iemby,iembx,ipy2) = -log10(max(1.e-32,sum_ymass2))
 
          enddo  ! iembx
+         
+         if (ipc == 61) then ! Cloud-drizzle interaction table
+            driz_gammq(iemby) = driz_gammq(iemby) / emby
+         endif
+
       enddo  ! iemby
+
+print*, ' '
+print*, 'ihx,ihy ',ihx,ihy
+print*, ' '
+write(6,'(100a)') '             1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   18   19   20'    
+print*, ' '
+
+do iemby = 1,20
+   write(6,'(a,i5,20f5.1)') 'ipc  ',iemby,(coltabc(iembx,iemby,ipc ),iembx=1,20)
+enddo
+
+if (ipx > 0) then
+   print*, ' '
+   write(6,'(100a)') '             1    2    3    4    5   6    7    8    9   10   11   12   13   14   15   16   17   18   19   20'    
+   print*, ' '
+
+   do iemby = 1,20
+      write(6,'(a,i5,20f5.1)') 'ipx  ',iemby,(coltabx(iembx,iemby,ipx ) ,iembx=1,20)
+   enddo
+endif
+
+if (ipy > 0) then
+   print*, ' '
+   write(6,'(100a)') '             1    2    3    4   5    6    7   8    9   10   11   12   13   14   15   16   17   18   19   20'    
+   print*, ' '
+
+   do iemby = 1,20
+      write(6,'(a,i5,20f5.1)') 'ipy  ',iemby,(coltaby(iemby,iembx,ipy ),iembx=1,20)
+   enddo
+endif
+
+if (ipx2 > 0) then
+   print*, ' '
+   write(6,'(100a)') '             1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   18   19   20'    
+   print*, ' '
+
+   do iemby = 1,20
+      write(6,'(a,i5,20f5.1)') 'ipx2 ',iemby,(coltabx(iembx,iemby,ipx2) ,iembx=1,20)
+   enddo
+endif
+
+if (ipy2 > 0) then
+   print*, ' '
+   write(6,'(100a)') '             1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   18   19   20'    
+   print*, ' '
+
+   do iemby = 1,20
+      write(6,'(a,i5,20f5.1)') 'ipy2  ',iemby,(coltaby(iemby,iembx,ipy2) ,iembx=1,20)
+   enddo
+endif
+
+!if (ipc == 61) then ! Cloud-drizzle interaction table
+   do iemby = 1,20
+      write(6,'(a,i5,f10.6)') 'driz_gammq ',iemby,driz_gammq(iemby)
+   enddo
+!endif
 
    enddo  ! ihy
 enddo  ! ihx
 
+do iemby = 1,20
+   write(6,'(a,i5,f10.6)') 'driz_gammq2 ',iemby,driz_gammq(iemby)
+enddo
+
 end subroutine mkcoltb_brute
+
+!===============================================================================
+
+subroutine vterm_liq(d,v)
+
+! Based partly on Gunn & Kinzer (1949)
+
+implicit none
+
+real, intent(in)  :: d  ! droplet diameter (m)
+real, intent(out) :: v  ! droplet terminal velocity (m/s)
+
+integer :: i
+
+real, parameter :: d0(10) = (/.000080, .000100, .000150,  .000200,  .000300, .000500, .000900, .001800, .003200, .005800/)
+real, parameter :: v0(10) = (/   .192,     .27,     .48,      .72,      1.2,     2.0,     3.7,     6.1,     8.3,     9.2/)
+
+if (d <= d0(1)) then
+
+   v = .3e8 * d**2
+
+elseif (d >= d0(10)) then
+
+   v = 9.2
+
+else
+
+   i = 1
+
+   do while(d > d0(i+1))
+      i = i + 1
+   enddo
+
+   v = v0(i) + (v0(i+1) - v0(i)) * (d - d0(i)) / (d0(i+1) - d0(i))
+
+endif
+
+end subroutine vterm_liq
 
 !===============================================================================
 

@@ -362,11 +362,19 @@ subroutine parcel_plot(k,kend,mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
   integer, save :: ncnt = 0, nval = 0
   integer :: jccntyp, ii
 
+  logical :: plotset1 = .false.
+  logical :: plotset2 = .true.
+  logical :: plotset3 = .false.
+  logical :: plotset4 = .false.
+  logical :: plotset5 = .false.
+  logical :: plotset6 = .false.
+  logical :: plotset7 = .false.
+
   real :: time, tot
 
   time = real(time8) + dtlm(1) ! (micphys plot called just before time8 update)
 
-print*, 'nval1 ',nval,k
+print*, 'parc1:ncnt,nval,k,kend ',ncnt,nval,k,kend
 
   if (nval == 0) then
 
@@ -374,7 +382,7 @@ print*, 'nval1 ',nval,k
         nval = nint(real(timmax8) / dtlm(1))
         allocate(xval(nval))
         do ii = 1,nval
-           xval(ii) = real(ii)
+           xval(ii) = real(ii) * dtlm(1)
         enddo
      else
         nval = mza0 - 1
@@ -384,7 +392,7 @@ print*, 'nval1 ',nval,k
         enddo
      endif
 
-print*, 'nval2 ',nval,k
+print*, 'parc2:ncnt,nval,k,kend ',ncnt,nval,k,kend
 
      allocate (press0_s   (nval))
      allocate (thil0_s    (nval))
@@ -487,18 +495,18 @@ print*, 'nval2 ',nval,k
   endif
 
   rnuc_vc_s       (ncnt) = rnuc_vc       (k) * rhoi(k) * 1.e3 * dtli0 ! converts to g/kg/s from kg/m^3
-  rnuc_vd_s       (ncnt) = rnuc_vd       (k) * rhoi(k) * 1.e3 * dtli0 ! converts to g/kg/s from kg/m^3
-  rnuc_cp_hom_s   (ncnt) = rnuc_cp_hom   (k) * rhoi(k) * 1.e3 * dtli0 ! converts to g/kg/s from kg/m^3
-  rnuc_dp_hom_s   (ncnt) = rnuc_dp_hom   (k) * rhoi(k) * 1.e3 * dtli0 ! converts to g/kg/s from kg/m^3
-  rnuc_vp_haze_s  (ncnt) = rnuc_vp_haze  (k) * rhoi(k) * 1.e3 * dtli0 ! converts to g/kg/s from kg/m^3
-  rnuc_vp_immers_s(ncnt) = rnuc_vp_immers(k) * rhoi(k) * 1.e3 * dtli0 ! converts to g/kg/s from kg/m^3
+  rnuc_vd_s       (ncnt) = rnuc_vd       (k) * rhoi(k) * 1.e3 * dtli0
+  rnuc_cp_hom_s   (ncnt) = rnuc_cp_hom   (k) * rhoi(k) * 1.e3 * dtli0
+  rnuc_dp_hom_s   (ncnt) = rnuc_dp_hom   (k) * rhoi(k) * 1.e3 * dtli0
+  rnuc_vp_haze_s  (ncnt) = rnuc_vp_haze  (k) * rhoi(k) * 1.e3 * dtli0
+  rnuc_vp_immers_s(ncnt) = rnuc_vp_immers(k) * rhoi(k) * 1.e3 * dtli0
 
-  cnuc_vc_s       (ncnt) = cnuc_vc       (k) * rhoi(k) * 1.e-6 * dtli0 ! converts to #/mg/s from #/m^3
-  cnuc_vd_s       (ncnt) = cnuc_vd       (k) * rhoi(k) * 1.e-3 * dtli0 ! converts to #/g/s from #/m^3
-  cnuc_cp_hom_s   (ncnt) = cnuc_cp_hom   (k) * rhoi(k) * 1.e-3 * dtli0 ! converts to #/g/s from #/m^3
-  cnuc_dp_hom_s   (ncnt) = cnuc_dp_hom   (k) * rhoi(k) * 1.e-3 * dtli0 ! converts to #/g/s from #/m^3
-  cnuc_vp_haze_s  (ncnt) = cnuc_vp_haze  (k) * rhoi(k) * 1.e-3 * dtli0 ! converts to #/g/s from #/m^3
-  cnuc_vp_immers_s(ncnt) = cnuc_vp_immers(k) * rhoi(k) * 1.e-3 * dtli0 ! converts to #/g/s from #/m^3
+  cnuc_vc_s       (ncnt) = cnuc_vc       (k) * rhoi(k) * 1.e-3 * dtli0 ! converts to #/g/s from #/m^3
+  cnuc_vd_s       (ncnt) = cnuc_vd       (k) * rhoi(k) * 1.e-3 * dtli0
+  cnuc_cp_hom_s   (ncnt) = cnuc_cp_hom   (k) * rhoi(k) * 1.e-3 * dtli0
+  cnuc_dp_hom_s   (ncnt) = cnuc_dp_hom   (k) * rhoi(k) * 1.e-3 * dtli0
+  cnuc_vp_haze_s  (ncnt) = cnuc_vp_haze  (k) * rhoi(k) * 1.e-3 * dtli0
+  cnuc_vp_immers_s(ncnt) = cnuc_vp_immers(k) * rhoi(k) * 1.e-3 * dtli0
 
   rpsxfer_s(ncnt) = rpsxfer(k) * rhoi(k) * 1.e3  * dtli0 ! converts to g/kg/s from kg/m^3
   epsxfer_s(ncnt) = epsxfer(k) * rhoi(k) * 1.e-3 * dtli0 ! converts to #/g/s from #/m^3
@@ -526,7 +534,6 @@ print*, 'nval2 ',nval,k
      tot = tot + con_ccnx(k,jccntyp)
   enddo
   ccn_s(ncnt) = tot * rhoi(k) * 1.e-6 ! converts to #/mg from #/m^3
-
 
 
   qx_s(ncnt,1) = qx(k,1) * 1.e-3 ! converts to J/g from J/kg
@@ -565,14 +572,14 @@ print*, 'nval2 ',nval,k
   dmb_s(ncnt,7) = (emb(k,7) * cfmasi(7)) ** pwmasi(7) * 1.e3 ! converts to mm from m
   dmb_s(ncnt,8) = (emb(k,8) * cfmasi(8)) ** pwmasi(8) * 1.e6 ! converts to microns from m
 
-  vap_s(ncnt,1) = vap(k,1) * rhoi(k) * 1.e3 ! converts to g/kg from kg/m^3
-  vap_s(ncnt,2) = vap(k,2) * rhoi(k) * 1.e3
-  vap_s(ncnt,3) = vap(k,3) * rhoi(k) * 1.e3
-  vap_s(ncnt,4) = vap(k,4) * rhoi(k) * 1.e3
-  vap_s(ncnt,5) = vap(k,5) * rhoi(k) * 1.e3
-  vap_s(ncnt,6) = vap(k,6) * rhoi(k) * 1.e3
-  vap_s(ncnt,7) = vap(k,7) * rhoi(k) * 1.e3
-  vap_s(ncnt,8) = vap(k,8) * rhoi(k) * 1.e3
+  vap_s(ncnt,1) = vap(k,1) * rhoi(k) * 1.e3 * dtli0 ! converts to g/kg/s from kg/m^3
+  vap_s(ncnt,2) = vap(k,2) * rhoi(k) * 1.e3 * dtli0
+  vap_s(ncnt,3) = vap(k,3) * rhoi(k) * 1.e3 * dtli0
+  vap_s(ncnt,4) = vap(k,4) * rhoi(k) * 1.e3 * dtli0
+  vap_s(ncnt,5) = vap(k,5) * rhoi(k) * 1.e3 * dtli0
+  vap_s(ncnt,6) = vap(k,6) * rhoi(k) * 1.e3 * dtli0
+  vap_s(ncnt,7) = vap(k,7) * rhoi(k) * 1.e3 * dtli0
+  vap_s(ncnt,8) = vap(k,8) * rhoi(k) * 1.e3 * dtli0
 
   txa_s(ncnt,1) = tx(k,1) - tairc(k)
   txa_s(ncnt,2) = tx(k,2) - tairc(k)
@@ -597,7 +604,6 @@ print*, 'nval2 ',nval,k
   else
      hcat_s(ncnt) = jhcat(k,3) - 7
   endif
-
 
   r1118_s(ncnt,:) = r1118(k,:) * rhoi(k) * 1.e3 * dtli0  ! converts to g/kg/s from kg/m^3
   r8882_s(ncnt,:) = r8882(k,:) * rhoi(k) * 1.e3 * dtli0
@@ -664,10 +670,10 @@ print*, 'nval2 ',nval,k
   r1812_s(ncnt,:) = r1812(k,:) * rhoi(k) * 1.e3 * dtli0
   r1882_s(ncnt,:) = r1882(k,:) * rhoi(k) * 1.e3 * dtli0
 
-  e1111_s(ncnt) = e1111(k) * rhoi(k) * 1.e-6 * dtli0 ! converts to #/mg/s from #/m^3
-  e1811_s(ncnt) = e1811(k) * rhoi(k) * 1.e-6 * dtli0
-  e1211_s(ncnt) = e1211(k) * rhoi(k) * 1.e-6 * dtli0
-  e1118_s(ncnt) = e1118(k) * rhoi(k) * 1.e-3 * dtli0 ! converts to #/g/s from #/m^3
+  e1111_s(ncnt) = e1111(k) * rhoi(k) * 1.e-3 * dtli0 ! converts to #/g/s from #/m^3
+  e1811_s(ncnt) = e1811(k) * rhoi(k) * 1.e-3 * dtli0
+  e1211_s(ncnt) = e1211(k) * rhoi(k) * 1.e-3 * dtli0
+  e1118_s(ncnt) = e1118(k) * rhoi(k) * 1.e-3 * dtli0
   e1112_s(ncnt) = e1112(k) * rhoi(k) * 1.e-3 * dtli0
   e8888_s(ncnt) = e8888(k) * rhoi(k) * 1.e-3 * dtli0
   e8882_s(ncnt) = e8882(k) * rhoi(k) * 1.e-3 * dtli0
@@ -768,7 +774,6 @@ if (.false.) then
                                e8882_s(ncnt),   e1211_s(ncnt),   e8288_s(ncnt)
 endif
 
-
   if (ncnt == nval .or. &
       (nl%test_case < 949 .and. tairc(k) < -30.) .or. &
       (nl%test_case > 950 .and. k == kend)) then
@@ -780,37 +785,30 @@ endif
 
      call o_set(0.,1.,0.,1.,0.,1.,0.,1.,1)
 
-print*, 'to401 ',ncnt,k
-
-go to 401
+if (plotset1) then
 
 ! WALKO ET AL. 2000 FIRST PLOT
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'CPV MIX RAT','(g/kg)',0.,10.,1.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'CPV MIX RAT','(g/kg)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),  rx_s(1:ncnt,1))
      call bdline (2,ncnt,xval(1:ncnt),  rx_s(1:ncnt,3))
      call bdline (3,ncnt,xval(1:ncnt),rhov_s(1:ncnt  ))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'CP VAP FLUX','(g/kg)',-.05,.05,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'CP VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt), vap_s(1:ncnt,1))
      call bdline (2,ncnt,xval(1:ncnt), vap_s(1:ncnt,3))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'CP INT ENERGY','(J/g)',-200.,500.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'CP INT ENERGY','(J/g)',-200.,500.,100.)
      call bdline (1,ncnt,xval(1:ncnt),  qx_s(1:ncnt,1))
      call bdline (2,ncnt,xval(1:ncnt),  qx_s(1:ncnt,3))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'CP TEMP DIFF','(K)',-.1,1.,.1)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'CP TEMP DIFF','(K)',-.1,1.,.1)
      call bdline (1,ncnt,xval(1:ncnt), txa_s(1:ncnt,1))
      call bdline (2,ncnt,xval(1:ncnt), txa_s(1:ncnt,3))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'LIQ & ICE R.H.','(%)',50.,150.,10.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'LIQ & ICE R.H.','(%)',50.,150.,10.)
      call bdline (1,ncnt,xval(1:ncnt), rhl_s(1:ncnt  ))
      call bdline (2,ncnt,xval(1:ncnt), rhi_s(1:ncnt  ))
 
@@ -820,165 +818,316 @@ go to 401
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'RHV MIX RAT','(g/kg)',0.,10.,1.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'RHV MIX RAT','(g/kg)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),  rx_s(1:ncnt,2))
      call bdline (2,ncnt,xval(1:ncnt),  rx_s(1:ncnt,7))
      call bdline (3,ncnt,xval(1:ncnt),rhov_s(1:ncnt  ))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'RH VAP FLUX','(g/kg)',-.02,.01,.004)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'RH VAP FLUX','(g/kg)',-.02,.01,.004)
      call bdline (1,ncnt,xval(1:ncnt), vap_s(1:ncnt,2))
      call bdline (2,ncnt,xval(1:ncnt), vap_s(1:ncnt,7))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'RH INT ENERGY','(J/g)',0.,500.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'RH INT ENERGY','(J/g)',0.,500.,100.)
      call bdline (1,ncnt,xval(1:ncnt),  qx_s(1:ncnt,2))
      call bdline (2,ncnt,xval(1:ncnt),  qx_s(1:ncnt,7))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R & AIR TEMP','(:0557:C)',8.,20.,2.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R & AIR TEMP','(:0557:C)',8.,20.,2.)
      call bdline (1,ncnt,xval(1:ncnt),   tx_s(1:ncnt,2))
      call bdline (2,ncnt,xval(1:ncnt),tairc_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'LIQ R.H.','(%)',30.,110.,10.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'LIQ R.H.','(%)',30.,110.,10.)
      call bdline (1,ncnt,xval(1:ncnt), rhl_s(1:ncnt  ))
 
      call o_frame()
 
-401 continue
+endif ! plotset1
+if (plotset2) then
 
-print*, 'after401 ',ncnt,k
+! Harvey plot 1
+
+     call plotback()
+
+     call plotpar(1,6,ncnt,xval(1:ncnt),time,'PRESSURE','(kPa)',0.,1100.,100.)
+     call bdline (1,ncnt,xval(1:ncnt),press0_s(1:ncnt))
+
+     call plotpar(2,6,ncnt,xval(1:ncnt),time,'THIL & THETA','(K)',250.,350.,10.)
+     call bdline (1,ncnt,xval(1:ncnt), thil0_s(1:ncnt))
+     call bdline (2,ncnt,xval(1:ncnt),theta0_s(1:ncnt))
+
+     call plotpar(3,6,ncnt,xval(1:ncnt),time,'TAIRC','(:0557:C)',-60.,50.,10.) ! :0557: is 'degree' symbol
+     call bdline (1,ncnt,xval(1:ncnt),tairc_s(1:ncnt))
+
+     call plotpar(4,6,ncnt,xval(1:ncnt),time,'RHOW & RHOV','(g/kg)',0.,20.,2.)
+     call bdline (1,ncnt,xval(1:ncnt),rhow_s(1:ncnt))
+     call bdline (2,ncnt,xval(1:ncnt),rhov_s(1:ncnt))
+
+     call plotpar(5,6,ncnt,xval(1:ncnt),time,'VCR MIX RAT','(g/kg)',0.,10.,1.)
+     call bdline (1,ncnt,xval(1:ncnt),rhov_s(1:ncnt  ))
+     call bdline (2,ncnt,xval(1:ncnt),  rx_s(1:ncnt,1))
+     call bdline (3,ncnt,xval(1:ncnt),  rx_s(1:ncnt,2))
+
+     call plotpar(6,6,ncnt,xval(1:ncnt),time,'LIQ R.H.','(%)',75.,120.,5.)
+     call bdline (1,ncnt,xval(1:ncnt), rhl_s(1:ncnt  ))
+
+     call o_frame()
+
+! Harvey plot 2
+
+     call plotback()
+
+     call plotpar(1,3,ncnt,xval(1:ncnt),time,'C MIX RATIO','(g/kg)',0.,10.,1.)
+     call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,1))
+
+     call plotpar(2,3,ncnt,xval(1:ncnt),time,'C NUM CONC','(#/mg)',0.,1000.,100.)
+     call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,1))
+
+     call plotpar(3,3,ncnt,xval(1:ncnt),time,'C DMB','(:0714:m)',0.,50.,10.)
+     call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,1))
+
+     call o_frame()
+
+! Harvey plot 3
+
+     call plotback()
+
+     call plotpar(1,3,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,1.,.1)
+     call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,8))
+
+     call plotpar(2,3,ncnt,xval(1:ncnt),time,'D NUM CONC','(#/mg)',0.,10.,1.)
+     call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,8)*.001)
+
+     call plotpar(3,3,ncnt,xval(1:ncnt),time,'D DMB','(:0714:m)',0.,200.,20.)
+     call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,8))
+
+     call o_frame()
+
+! Harvey plot 4
+
+     call plotback()
+
+     call plotpar(1,3,ncnt,xval(1:ncnt),time,'R MIX RATIO','(g/kg)',0.,10.,1.)
+     call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,2))
+
+     call plotpar(2,3,ncnt,xval(1:ncnt),time,'R NUM CONC','(#/g)',0.,100.,10.)
+     call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,2))
+
+     call plotpar(3,3,ncnt,xval(1:ncnt),time,'R DMB','(mm)',0.,5.,1.)
+     call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,2))
+
+     call o_frame()
+
+! Harvey plot 5
+
+     call plotback()
+
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'C MIX RATIO','(g/kg)',0.,10.,1.)
+     call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,1))
+
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R1118 R1812','(g/kg/s)',0.,.001,.0002)
+     call bdline (1,ncnt,xval(1:ncnt),r1118_s(1:ncnt,1))
+     call bdline (2,ncnt,xval(1:ncnt),r1812_s(1:ncnt,1))
+
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R1818 R1212','(g/kg/s)',0.,.02,.002)
+     call bdline (1,ncnt,xval(1:ncnt),r1818_s(1:ncnt,1))
+     call bdline (2,ncnt,xval(1:ncnt),r1212_s(1:ncnt,1))
+
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'RNUC_VC','(g/kg/s)',0.,.001,.0001)
+     call bdline (1,ncnt,xval(1:ncnt),rnuc_vc_s(1:ncnt))
+
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'C VAP FLUX','(g/kg/s)',-.005,.005,.001)
+     call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,1))
+
+     call o_frame()
+
+! Harvey plot 6
+
+     call plotback()
+
+     call plotpar(1,6,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,1.,.1)
+     call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,8))
+
+     call plotpar(2,6,ncnt,xval(1:ncnt),time,'R1818 R1882','(mg/kg/s)',0.,10.,1.)
+     call bdline (1,ncnt,xval(1:ncnt),r1818_s(1:ncnt,1) * 1000.)
+     call bdline (2,ncnt,xval(1:ncnt),r1882_s(1:ncnt,1) * 1000.)
+
+     call plotpar(3,6,ncnt,xval(1:ncnt),time,'R1118','(mg/kg/s)',0.,1.,.1)
+     call bdline (1,ncnt,xval(1:ncnt),r1118_s(1:ncnt,1) * 1000.)
+
+     call plotpar(4,6,ncnt,xval(1:ncnt),time,'R8882 R8282','(mg/kg/s)',0.,10.,1.)
+     call bdline (1,ncnt,xval(1:ncnt),r8882_s(1:ncnt,1) * 1000.)
+     call bdline (2,ncnt,xval(1:ncnt),r8282_s(1:ncnt,1) * 1000.)
+
+     call plotpar(5,6,ncnt,xval(1:ncnt),time,'RNUC_VD','(mg/kg/s)',0.,.005,.001)
+     call bdline (1,ncnt,xval(1:ncnt),rnuc_vd_s(1:ncnt) * 1000.)
+
+     call plotpar(6,6,ncnt,xval(1:ncnt),time,'D VAP FLUX','(mg/kg/s)',-.01,.1,.01)
+     call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,8) * 1000.)
+
+     call o_frame()
+
+! Harvey plot 7
+
+     call plotback()
+
+     call plotpar(1,6,ncnt,xval(1:ncnt),time,'R MIX RATIO','(g/kg)',0.,10.,1.)
+     call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,2))
+
+     call plotpar(2,6,ncnt,xval(1:ncnt),time,'R1812','(mg/kg/s)',0.,.1,.01)
+     call bdline (1,ncnt,xval(1:ncnt),r1812_s(1:ncnt,1) * 1000.)
+
+     call plotpar(3,6,ncnt,xval(1:ncnt),time,'R1212','(g/kg/s)',0.,.2,.02)
+     call bdline (1,ncnt,xval(1:ncnt),r1212_s(1:ncnt,1))
+
+     call plotpar(4,6,ncnt,xval(1:ncnt),time,'R8282 R1882','(g/kg/s)',0.,.02,.002)
+     call bdline (1,ncnt,xval(1:ncnt),r8282_s(1:ncnt,1))
+     call bdline (2,ncnt,xval(1:ncnt),r1882_s(1:ncnt,1))
+
+     call plotpar(5,6,ncnt,xval(1:ncnt),time,'R8882','(g/kg/s)',0.,.01,.001)
+     call bdline (2,ncnt,xval(1:ncnt),r8882_s(1:ncnt,1))
+
+     call plotpar(6,6,ncnt,xval(1:ncnt),time,'R VAP FLUX','(g/kg/s)',-.002,.002,.0002)
+     call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,2))
+
+     call o_frame()
+
+! Harvey plot 8
+
+     call plotback()
+
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'C NUM CCN','(#/mg)',0.,1000.,100.)
+     call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,1))
+     call bdline (2,ncnt,xval(1:ncnt),ccn_s(1:ncnt))
+
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'CNUC_VC','(#/mg/s)',0.,100.,10.)
+     call bdline (1,ncnt,xval(1:ncnt),cnuc_vc_s(1:ncnt) * .001)
+
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E1111 E1118','(#/mg/s)',0.,.1,.02)
+     call bdline (1,ncnt,xval(1:ncnt),e1111_s(1:ncnt) * .001)
+     call bdline (2,ncnt,xval(1:ncnt),e1118_s(1:ncnt) * .001)
+
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E1811','(#/mg/s)',0.,.5,.1)
+     call bdline (1,ncnt,xval(1:ncnt),e1811_s(1:ncnt) * .001)
+
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E1211','(#/mg/s)',0.,1.,.1)
+     call bdline (1,ncnt,xval(1:ncnt),e1211_s(1:ncnt) * .001)
+
+     call o_frame()
+
+! Harvey plot 9
+
+     call plotback()
+
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'D NUM CONC','(#/mg)',0.,10.,1.)
+     call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,8)*.001)
+
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'CNUC_VD','(#/g/s)',0.,.1,.01)
+     call bdline (1,ncnt,xval(1:ncnt),cnuc_vd_s(1:ncnt))
+
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E1118 E8288',' (#/g/s)',0.,50.,10.)
+     call bdline (1,ncnt,xval(1:ncnt),e1118_s(1:ncnt))
+     call bdline (2,ncnt,xval(1:ncnt),e8288_s(1:ncnt))
+
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E1882 E8882','(#/g/s)',0.,2.,.2)
+     call bdline (1,ncnt,xval(1:ncnt),e1882_s(1:ncnt))
+     call bdline (2,ncnt,xval(1:ncnt),e8882_s(1:ncnt))
+
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E8888','(#/g/s)',0.,100.,10.)
+     call bdline (1,ncnt,xval(1:ncnt),e8888_s(1:ncnt))
+
+     call o_frame()
+
+! Harvey plot 10
+
+     call plotback()
+
+     call plotpar(1,4,ncnt,xval(1:ncnt),time,'R NUM CONC','(#/g)',0.,100.,10.)
+     call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,2))
+
+     call plotpar(2,4,ncnt,xval(1:ncnt),time,'E1882','(#/g/s)',0.,1.,.1)
+     call bdline (1,ncnt,xval(1:ncnt),e1882_s(1:ncnt))
+
+     call plotpar(3,4,ncnt,xval(1:ncnt),time,'E8882','(#/g/s)',0.,5.,1.)
+     call bdline (1,ncnt,xval(1:ncnt),e8882_s(1:ncnt))
+
+     call plotpar(4,4,ncnt,xval(1:ncnt),time,'E2222','(#/g/s)',0.,2.,.2)
+     call bdline (1,ncnt,xval(1:ncnt),e2222_s(1:ncnt))
+
+     call o_frame()
+
+endif ! plotset2
+if (plotset3) then
 
 ! AGU plot 1
 
      call plotback()
 
-print*, 'after401.01 ',ncnt,k
-
-     call plotpar(6,ncnt,xval(1:ncnt),time,'LIQ R.H.','(%)',75.,120.,5.)
-
-print*, 'after401.02 ',ncnt,k
-
+     call plotpar(6,6,ncnt,xval(1:ncnt),time,'LIQ R.H.','(%)',75.,120.,5.)
      call bdline (1,ncnt,xval(1:ncnt), rhl_s(1:ncnt  ))
 
-print*, 'after401.03 ',ncnt,k
+     call plotpar(5,6,ncnt,xval(1:ncnt),time,'CNUC_VC','(#/mg/s)',0.,25.,5.)
+     call bdline (1,ncnt,xval(1:ncnt),cnuc_vc_s(1:ncnt) * .001)
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'CNUC_VC','(#/mg/s)',0.,25.,5.)
-
-print*, 'after401.04 ',ncnt,k
-
-     call bdline (1,ncnt,xval(1:ncnt),cnuc_vc_s(1:ncnt))
-
-print*, 'after401.05 ',ncnt,k
-
-     call plotpar(4,ncnt,xval(1:ncnt),time,'C NUM CCN','(#/mg)',0.,500.,50.)
-
-print*, 'after401.06 ',ncnt,k
-
+     call plotpar(4,6,ncnt,xval(1:ncnt),time,'C NUM CCN','(#/mg)',0.,500.,50.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,1))
-print*, 'after401.07 ',ncnt,k
-print*, 'after401.071 ',ccn_s(1:ncnt)
-
      call bdline (2,ncnt,xval(1:ncnt),ccn_s(1:ncnt))
 
-print*, 'after401.08 ',ncnt,k
+     call plotpar(3,6,ncnt,xval(1:ncnt),time,'E1111+E1118+','E1811 (#/mg/s)',0.,.005,.001)
+     call bdline (1,ncnt,xval(1:ncnt),(e1111_s(1:ncnt)+e1118_s(1:ncnt)+e1811_s(1:ncnt)) * .001)
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E1111+2','(#/mg/s)',0.,.005,.001)
-
-     call bdline (1,ncnt,xval(1:ncnt),e1111_s(1:ncnt)+e1118_s(1:ncnt)+e1811_s(1:ncnt))
-
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E1211','(#/mg/s)',0.,1.,.1)
-
+     call plotpar(2,6,ncnt,xval(1:ncnt),time,'E1211','(#/mg/s)',0.,1.,.1)
      call bdline (1,ncnt,xval(1:ncnt),e1211_s(1:ncnt))
 
-print*, 'after401.09 ',ncnt,k
-
-     call plotpar(1,ncnt,xval(1:ncnt),time,'VCR MIX RAT','(g/kg)',0.,10.,1.)
-
+     call plotpar(1,6,ncnt,xval(1:ncnt),time,'VCR MIX RAT','(g/kg)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),rhov_s(1:ncnt  ))
      call bdline (2,ncnt,xval(1:ncnt),  rx_s(1:ncnt,1))
      call bdline (3,ncnt,xval(1:ncnt),  rx_s(1:ncnt,2))
 
-
-print*, 'after401.091 ',ncnt,k
-
      call o_frame()
-
-
-print*, 'after401.1 ',ncnt,k
 
 ! AGU plot 2
 
      call plotback()
 
-
-print*, 'after401.11 ',ncnt,k
-
-     call plotpar(5,ncnt,xval(1:ncnt),time,'LIQ R.H.','(%)',75.,120.,5.)
-
-
-print*, 'after401.12 ',ncnt,k
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'LIQ R.H.','(%)',75.,120.,5.)
      call bdline (1,ncnt,xval(1:ncnt), rhl_s(1:ncnt  ))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'CNUC_VC','(#/mg/s)',0.,100.,10.)
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'CNUC_VC','(#/mg/s)',0.,100.,10.)
+     call bdline (1,ncnt,xval(1:ncnt),cnuc_vc_s(1:ncnt) * .001)
 
-     call bdline (1,ncnt,xval(1:ncnt),cnuc_vc_s(1:ncnt))
-
-     call plotpar(3,ncnt,xval(1:ncnt),time,'C NUM CCN','(#/mg)',0.,1000.,100.)
-
-
-print*, 'after401.13 ',ncnt,k
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'C NUM CCN','(#/mg)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,1))
      call bdline (2,ncnt,xval(1:ncnt),ccn_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E1111 E1118','E1811 (#/mg/s)',0.,.001,.0002)
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E1111 E1118','E1811 (#/mg/s)',0.,.001,.0002)
+     call bdline (1,ncnt,xval(1:ncnt),e1111_s(1:ncnt) * .001)
+     call bdline (2,ncnt,xval(1:ncnt),e1118_s(1:ncnt) * .001)
+     call bdline (3,ncnt,xval(1:ncnt),e1811_s(1:ncnt) * .001)
 
-     call bdline (1,ncnt,xval(1:ncnt),e1111_s(1:ncnt))
-     call bdline (2,ncnt,xval(1:ncnt),e1118_s(1:ncnt))
-     call bdline (3,ncnt,xval(1:ncnt),e1811_s(1:ncnt))
-
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E1211','(#/mg/s)',0.,1.,.1)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E1211','(#/mg/s)',0.,1.,.1)
      call bdline (1,ncnt,xval(1:ncnt),e1211_s(1:ncnt))
 
-
-print*, 'after401.14 ',ncnt,k
-
-
      call o_frame()
-
-
-print*, 'after401.2 ',ncnt,k
 
 ! AGU plot 3
 
      call plotback()
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'RNUC_VC','(g/kg/s)',0.,.01,.001)
-
+     call plotpar(4,4,ncnt,xval(1:ncnt),time,'RNUC_VC','(g/kg/s)',0.,.01,.001)
      call bdline (1,ncnt,xval(1:ncnt),rnuc_vc_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'C VAP FLUX','(g/kg/s)',-.05,.05,.01)
-
+     call plotpar(3,4,ncnt,xval(1:ncnt),time,'C VAP FLUX','(g/kg/s)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'VCR MIX RAT','(g/kg)',0.,10.,1.)
-
+     call plotpar(2,4,ncnt,xval(1:ncnt),time,'VCR MIX RAT','(g/kg)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),rhov_s(1:ncnt  ))
      call bdline (2,ncnt,xval(1:ncnt),  rx_s(1:ncnt,1))
      call bdline (3,ncnt,xval(1:ncnt),  rx_s(1:ncnt,2))
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R1118 R1818','R1812 R1212',0.,.01,.001)
-
+     call plotpar(1,4,ncnt,xval(1:ncnt),time,'R1118 R1818','R1812 R1212',0.,.01,.001)
      call bdline (1,ncnt,xval(1:ncnt),r1118_s(1:ncnt,1))
      call bdline (2,ncnt,xval(1:ncnt),r1818_s(1:ncnt,1))
      call bdline (3,ncnt,xval(1:ncnt),r1812_s(1:ncnt,1))
      call bdline (4,ncnt,xval(1:ncnt),r1212_s(1:ncnt,1))
-
 
      call o_frame()
 
@@ -986,24 +1135,20 @@ print*, 'after401.2 ',ncnt,k
 
      call plotback()
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E1882 E8288','(#/g/s)',0.,.0005,.0001)
+     call plotpar(4,4,ncnt,xval(1:ncnt),time,'E1882 E8288','(#/g/s)',0.,.0005,.0001)
+     call bdline (1,ncnt,xval(1:ncnt),e1882_s(1:ncnt))
+     call bdline (2,ncnt,xval(1:ncnt),e8288_s(1:ncnt))
 
-     call bdline (2,ncnt,xval(1:ncnt),e1882_s(1:ncnt))
-     call bdline (1,ncnt,xval(1:ncnt),e8288_s(1:ncnt))
+     call plotpar(3,4,ncnt,xval(1:ncnt),time,'E8888 E8882','(m#/g/s)',0.,.0005,.0001)
+     call bdline (1,ncnt,xval(1:ncnt),e8888_s(1:ncnt) * 1000.)
+     call bdline (2,ncnt,xval(1:ncnt),e8882_s(1:ncnt) * 1000.)
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E8888 E8882','(m#/g/s)',0.,.0005,.0001)
-
-     call bdline (4,ncnt,xval(1:ncnt),e8888_s(1:ncnt) * 1000.)
-     call bdline (3,ncnt,xval(1:ncnt),e8882_s(1:ncnt) * 1000.)
-
- !    call plotpar(2,ncnt,xval(1:ncnt),time,'D NUM CONC','(#/g)',0.,2.,.2)
-     call plotpar(2,ncnt,xval(1:ncnt),time,'D NUM CONC','(#/g)',0.,.5,.1)
-
+ !    call plotpar(2,4,ncnt,xval(1:ncnt),time,'D NUM CONC','(#/g)',0.,2.,.2)
+     call plotpar(2,4,ncnt,xval(1:ncnt),time,'D NUM CONC','(#/g)',0.,.5,.1)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,8))
 
-      call plotpar(1,ncnt,xval(1:ncnt),time,'R NUM CONC','(#/g)',0.,.1,.01)
-
-     call bdline (2,ncnt,xval(1:ncnt),cx_s(1:ncnt,2))
+     call plotpar(1,4,ncnt,xval(1:ncnt),time,'R NUM CONC','(#/g)',0.,.1,.01)
+     call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,2))
 
      call o_frame()
 
@@ -1011,27 +1156,23 @@ print*, 'after401.2 ',ncnt,k
 
      call plotback()
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R1882 R8282','R8882 (mg/kg)',0.,.001,.0001)
-
-     call bdline (4,ncnt,xval(1:ncnt),r1882_s(1:ncnt,1) * 1000.)
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R1882 R8282','R8882 (mg/kg)',0.,.001,.0001)
+     call bdline (1,ncnt,xval(1:ncnt),r1882_s(1:ncnt,1) * 1000.)
      call bdline (2,ncnt,xval(1:ncnt),r8282_s(1:ncnt,1) * 1000.)
      call bdline (3,ncnt,xval(1:ncnt),r8882_s(1:ncnt,1) * 1000.)
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'D VAP FLUX','(g/kg/s)',-.001,.001,.0001)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'D VAP FLUX','(g/kg/s)',-.001,.001,.0001)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,8))
 
- !    call plotpar(3,ncnt,xval(1:ncnt),time,'R VAP FLUX','(g/kg/s)',-.0001,.0001,.00001)
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R VAP FLUX','(g/kg/s)',-.002,.002,.0002)
-
+ !    call plotpar(3,5,ncnt,xval(1:ncnt),time,'R VAP FLUX','(g/kg/s)',-.0001,.0001,.00001)
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R VAP FLUX','(g/kg/s)',-.002,.002,.0002)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,2))
 
- !    call plotpar(2,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,.001,.0001)
-     call plotpar(2,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,.02,.002)
-
+ !    call plotpar(2,5,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,.001,.0001)
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,.02,.002)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,8))
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R MIX RATIO','(g/kg)',0.,10.,1.)
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R MIX RATIO','(g/kg)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,2))
 
      call o_frame()
@@ -1040,43 +1181,40 @@ print*, 'after401.2 ',ncnt,k
 
      call plotback()
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'C VAP FLUX','(g/kg)',-.05,.05,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'C VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'D VAP FLUX','(g/kg)',-.001,.001,.0001)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'D VAP FLUX','(g/kg)',-.001,.001,.0001)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,8))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R VAP FLUX','(g/kg)',-.001,.001,.0001)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R VAP FLUX','(g/kg)',-.001,.001,.0001)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,2))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'TAIRC','(:0557:C)',-60.,50.,10.) ! :0557: is 'degree' symbol
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'TAIRC','(:0557:C)',-60.,50.,10.) ! :0557: is 'degree' symbol
      call bdline (1,ncnt,xval(1:ncnt),tairc_s(1:ncnt))
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'CNUC_VC','(#/mg)',0.,100.,10.)
-
-     call bdline (1,ncnt,xval(1:ncnt),cnuc_vc_s(1:ncnt))
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'CNUC_VC','(#/mg/s)',0.,100.,10.)
+     call bdline (1,ncnt,xval(1:ncnt),cnuc_vc_s(1:ncnt) * .001)
 
      call o_frame()
 
+endif ! plotset3
+if (plotset4) then
 
 ! CLOUD PLOT
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'C MIX RATIO','(g/kg)',0.,10.,1.)
+     call plotpar(1,4,ncnt,xval(1:ncnt),time,'C MIX RATIO','(g/kg)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'C NUM CONC','(#/mg)',0.,2000.,200.)
+     call plotpar(2,4,ncnt,xval(1:ncnt),time,'C NUM CONC','(#/mg)',0.,2000.,200.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'C DMB','(:0714:m)',0.,50.,10.)
+     call plotpar(3,4,ncnt,xval(1:ncnt),time,'C DMB','(:0714:m)',0.,50.,10.)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'C VAP FLUX','(g/kg)',-.05,.05,.01)
+     call plotpar(4,4,ncnt,xval(1:ncnt),time,'C VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,1))
 
      call o_frame()
@@ -1085,65 +1223,58 @@ print*, 'after401.2 ',ncnt,k
 
      call plotback()
 
- !    call plotpar(1,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,.05,.01)
- !    call plotpar(1,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,.001,.0001)
-     call plotpar(1,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,.02,.002)
+ !    call plotpar(1,4,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,.05,.01)
+ !    call plotpar(1,4,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,.001,.0001)
+     call plotpar(1,4,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,.02,.002)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,8))
 
- !    call plotpar(2,ncnt,xval(1:ncnt),time,'D NUM CONC','(#/g)',0.,2.,.2)
-     call plotpar(2,ncnt,xval(1:ncnt),time,'D NUM CONC','(#/g)',0.,.5,.1)
+ !    call plotpar(2,4,ncnt,xval(1:ncnt),time,'D NUM CONC','(#/g)',0.,2.,.2)
+     call plotpar(2,4,ncnt,xval(1:ncnt),time,'D NUM CONC','(#/g)',0.,.5,.1)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,8))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'D DMB','(:0714:m)',0.,200.,20.)
+     call plotpar(3,4,ncnt,xval(1:ncnt),time,'D DMB','(:0714:m)',0.,200.,20.)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,8))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'D VAP FLUX','(g/kg)',-.05,.05,.01)
+     call plotpar(4,4,ncnt,xval(1:ncnt),time,'D VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,8))
 
      call o_frame()
-
-
-print*, 'after401.3 ',ncnt,k
 
 ! RAIN PLOT
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R MIX RATIO','(g/kg)',0.,10.,1.)
+     call plotpar(1,4,ncnt,xval(1:ncnt),time,'R MIX RATIO','(g/kg)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,2))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R NUM CONC','(#/g)',0.,50.,5.)
+     call plotpar(2,4,ncnt,xval(1:ncnt),time,'R NUM CONC','(#/g)',0.,50.,5.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,2))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R DMB','(mm)',0.,20.,2.)
+     call plotpar(3,4,ncnt,xval(1:ncnt),time,'R DMB','(mm)',0.,20.,2.)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,2))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R VAP FLUX','(g/kg)',-.05,.05,.01)
+     call plotpar(4,4,ncnt,xval(1:ncnt),time,'R VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,2))
 
      call o_frame()
-
-print*, 'at 402 '
-
-!!commented_13_mar_18 go to 405
 
 ! PRISTINE ICE PLOT
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'P MIX RATIO','(g/kg)',0.,.1,.01)
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'P MIX RATIO','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,3))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'P NUM CONC','(#/g)',0.,500.,50.)
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'P NUM CONC','(#/g)',0.,500.,50.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,3))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'P EMB','(:0714:g)',0.,1.,.1)
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'P EMB','(:0714:g)',0.,1.,.1)
      call bdline (1,ncnt,xval(1:ncnt),emb_s(1:ncnt,3))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'P DMB','(mm)',0.,1.,.1)
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'P DMB','(mm)',0.,1.,.1)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,3))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'P VAP & XFER FLUX','(g/kg)',-.01,.01,.002)
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'P VAP & XFER FLUX','(g/kg)',-.01,.01,.002)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,3))
      call bdline (2,ncnt,xval(1:ncnt),rpsxfer_s(1:ncnt))
 
@@ -1153,19 +1284,19 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'S MIX RATIO','(g/kg)',0.,.5,.1)
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'S MIX RATIO','(g/kg)',0.,.5,.1)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,4))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'S NUM CONC','(#/g)',0.,500.,100.)
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'S NUM CONC','(#/g)',0.,500.,100.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,4))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'S EMB','(:0714:g)',0.,10.,1.)
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'S EMB','(:0714:g)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt), emb_s(1:ncnt,4))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'S DMB','(mm)',0.,5.,1.)
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'S DMB','(mm)',0.,5.,1.)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,4))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'S VAP & XFER FLUX','(g/kg)',-.05,.05,.01)
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'S VAP & XFER FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,4))
      call bdline (2,ncnt,xval(1:ncnt),rpsxfer_s(1:ncnt))
 
@@ -1175,19 +1306,19 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'A MIX RATIO','(g/kg)',0.,10.,1.)
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'A MIX RATIO','(g/kg)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,5))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'A NUM CONC','(#/g)',0.,500.,100.)
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'A NUM CONC','(#/g)',0.,500.,100.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,5))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'A EMB','(:0714:g)',0.,1000.,100.)
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'A EMB','(:0714:g)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt), emb_s(1:ncnt,5))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'A DMB','(mm)',0.,10.,1.)
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'A DMB','(mm)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,5))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'A VAP FLUX','(g/kg)',-.05,.05,.01)
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'A VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,5))
 
      call o_frame()
@@ -1196,19 +1327,19 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'G MIX RATIO','(g/kg)',0.,1.,.1)
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'G MIX RATIO','(g/kg)',0.,1.,.1)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,6))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'G NUM CONC','(#/g)',0.,10.,1.)
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'G NUM CONC','(#/g)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,6))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'G EMB','(mg)',0.,10.,1.)
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'G EMB','(mg)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt), emb_s(1:ncnt,6))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'G DMB','(mm)',0.,10.,1.)
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'G DMB','(mm)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,6))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'G VAP FLUX','(g/kg)',-.05,.05,.01)
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'G VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,6))
 
      call o_frame()
@@ -1217,47 +1348,45 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'H MIX RATIO','(g/kg)',0.,1.,.1)
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'H MIX RATIO','(g/kg)',0.,1.,.1)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,7))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'H NUM CONC','(#/g)',0.,10.,1.)
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'H NUM CONC','(#/g)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,7))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'H EMB','(g)',0.,10.,1.)
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'H EMB','(g)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt), emb_s(1:ncnt,7))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'H DMB','(mm)',0.,50.,5.)
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'H DMB','(mm)',0.,50.,5.)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,7))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'H VAP FLUX','(g/kg)',-.05,.05,.01)
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'H VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,7))
 
      call o_frame()
+
+endif ! plotset4
+if (plotset5) then
 
 ! PLOT 1
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'C MIX RATIO','(g/kg)',0.,10.,1.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'C MIX RATIO','(g/kg)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,.05,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'D MIX RATIO','(g/kg)',0.,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,8))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R MIX RATIO','(g/kg)',0.,10.,1.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R MIX RATIO','(g/kg)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,2))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'PSA MIX RATIO','(g/kg)',0.,1.,.1)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'PSA MIX RATIO','(g/kg)',0.,1.,.1)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,3))
      call bdline (2,ncnt,xval(1:ncnt),rx_s(1:ncnt,4))
      call bdline (3,ncnt,xval(1:ncnt),rx_s(1:ncnt,5))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'GH MIX RATIO','(g/kg)',0.,1.,.1)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'GH MIX RATIO','(g/kg)',0.,1.,.1)
      call bdline (1,ncnt,xval(1:ncnt),rx_s(1:ncnt,6))
      call bdline (2,ncnt,xval(1:ncnt),rx_s(1:ncnt,7))
 
@@ -1267,26 +1396,21 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'C NUM CONC','(#/mg)',0.,2000.,200.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'C NUM CONC','(#/mg)',0.,2000.,200.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'DR NUM CONC','(#/g)',0.,2.,.2)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'DR NUM CONC','(#/g)',0.,2.,.2)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,8))
      call bdline (2,ncnt,xval(1:ncnt),cx_s(1:ncnt,2))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'P NUM CONC','(#/g)',0.,5000.,500.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'P NUM CONC','(#/g)',0.,5000.,500.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,3))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'SA NUM CONC','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'SA NUM CONC','(#/g)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,4))
      call bdline (2,ncnt,xval(1:ncnt),cx_s(1:ncnt,5))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'GH NUM CONC','(#/g)',0.,10.,1.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'GH NUM CONC','(#/g)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),cx_s(1:ncnt,6))
      call bdline (2,ncnt,xval(1:ncnt),cx_s(1:ncnt,7))
 
@@ -1296,27 +1420,22 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'C EMB','(ng)',0.,70.,10.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'C EMB','(ng)',0.,70.,10.)
      call bdline (1,ncnt,xval(1:ncnt), emb_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'D EMB','(:0714:g)',0.,1.,.1) ! :0714: is Greek "mu"
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'D EMB','(:0714:g)',0.,1.,.1) ! :0714: is Greek "mu"
      call bdline (1,ncnt,xval(1:ncnt), emb_s(1:ncnt,8))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'RG EMB','(mg)',0.,70.,10.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'RG EMB','(mg)',0.,70.,10.)
      call bdline (1,ncnt,xval(1:ncnt), emb_s(1:ncnt,2))
      call bdline (2,ncnt,xval(1:ncnt), emb_s(1:ncnt,6))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'PSA EMB','(mg)',0.,1.,.1)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'PSA EMB','(mg)',0.,1.,.1)
      call bdline (1,ncnt,xval(1:ncnt), emb_s(1:ncnt,3))
      call bdline (2,ncnt,xval(1:ncnt), emb_s(1:ncnt,4))
      call bdline (3,ncnt,xval(1:ncnt), emb_s(1:ncnt,5))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'H EMB','(g)',0.,10.,1.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'H EMB','(g)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt), emb_s(1:ncnt,7))
 
      call o_frame()
@@ -1325,27 +1444,22 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'C DMB','(:0714:m)',0.,50.,10.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'C DMB','(:0714:m)',0.,50.,10.)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'D DMB','(:0714:m)',0.,200.,20.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'D DMB','(:0714:m)',0.,200.,20.)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,8))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'RG DMB','(mm)',0.,10.,1.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'RG DMB','(mm)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,2))
      call bdline (2,ncnt,xval(1:ncnt),dmb_s(1:ncnt,6))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'PSA DMB','(mm)',0.,10.,1.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'PSA DMB','(mm)',0.,10.,1.)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,3))
      call bdline (2,ncnt,xval(1:ncnt),dmb_s(1:ncnt,4))
      call bdline (3,ncnt,xval(1:ncnt),dmb_s(1:ncnt,5))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'H DMB','(mm)',0.,50.,5.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'H DMB','(mm)',0.,50.,5.)
      call bdline (1,ncnt,xval(1:ncnt),dmb_s(1:ncnt,7))
 
      call o_frame()
@@ -1354,26 +1468,21 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'C VAP FLUX','(g/kg)',-.05,.05,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'C VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'D VAP FLUX','(g/kg)',-.05,.05,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'D VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,8))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R VAP FLUX','(g/kg)',-.05,.05,.01)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,2))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'PSA VAP FLUX','(g/kg)',-.05,.05,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'PSA VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,3))
      call bdline (2,ncnt,xval(1:ncnt),vap_s(1:ncnt,4))
      call bdline (3,ncnt,xval(1:ncnt),vap_s(1:ncnt,5))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'GH VAP FLUX','(g/kg)',-.05,.05,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'GH VAP FLUX','(g/kg)',-.05,.05,.01)
      call bdline (1,ncnt,xval(1:ncnt),vap_s(1:ncnt,6))
      call bdline (2,ncnt,xval(1:ncnt),vap_s(1:ncnt,7))
 
@@ -1383,20 +1492,17 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'CDR INT ENERGY','(J/g)',-200.,500.,100.)
-
+     call plotpar(1,3,ncnt,xval(1:ncnt),time,'CDR INT ENERGY','(J/g)',-200.,500.,100.)
      call bdline (1,ncnt,xval(1:ncnt),qx_s(1:ncnt,1))
      call bdline (2,ncnt,xval(1:ncnt),qx_s(1:ncnt,8))
      call bdline (3,ncnt,xval(1:ncnt),qx_s(1:ncnt,2))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'PSA INT ENERGY','(J/g)',-200.,500.,100.)
-
+     call plotpar(2,3,ncnt,xval(1:ncnt),time,'PSA INT ENERGY','(J/g)',-200.,500.,100.)
      call bdline (1,ncnt,xval(1:ncnt),qx_s(1:ncnt,3))
      call bdline (2,ncnt,xval(1:ncnt),qx_s(1:ncnt,4))
      call bdline (3,ncnt,xval(1:ncnt),qx_s(1:ncnt,5))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'GH INT ENERGY','(J/g)',-200.,500.,100.)
-
+     call plotpar(3,3,ncnt,xval(1:ncnt),time,'GH INT ENERGY','(J/g)',-200.,500.,100.)
      call bdline (1,ncnt,xval(1:ncnt),qx_s(1:ncnt,6))
      call bdline (2,ncnt,xval(1:ncnt),qx_s(1:ncnt,7))
 
@@ -1406,21 +1512,17 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'PRESSURE','(kPa)',0.,1100.,100.)
-
+     call plotpar(1,4,ncnt,xval(1:ncnt),time,'PRESSURE','(kPa)',0.,1100.,100.)
      call bdline (1,ncnt,xval(1:ncnt),press0_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'THIL & THETA','(K)',250.,350.,10.)
-
+     call plotpar(2,4,ncnt,xval(1:ncnt),time,'THIL & THETA','(K)',250.,350.,10.)
      call bdline (1,ncnt,xval(1:ncnt), thil0_s(1:ncnt))
      call bdline (2,ncnt,xval(1:ncnt),theta0_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'TAIRC','(:0557:C)',-60.,50.,10.) ! :0557: is 'degree' symbol
-
+     call plotpar(3,4,ncnt,xval(1:ncnt),time,'TAIRC','(:0557:C)',-60.,50.,10.) ! :0557: is 'degree' symbol
      call bdline (1,ncnt,xval(1:ncnt),tairc_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'RHOA','(kg/m^3)',0.,1.3,.1)
-
+     call plotpar(4,4,ncnt,xval(1:ncnt),time,'RHOA','(kg/m^3)',0.,1.3,.1)
      call bdline (1,ncnt,xval(1:ncnt),rhoa_s(1:ncnt))
 
      call o_frame()
@@ -1429,23 +1531,19 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'RHOW & RHOV','(g/kg)',0.,20.,2.)
-
+     call plotpar(1,4,ncnt,xval(1:ncnt),time,'RHOW & RHOV','(g/kg)',0.,20.,2.)
      call bdline (1,ncnt,xval(1:ncnt),rhow_s(1:ncnt))
      call bdline (2,ncnt,xval(1:ncnt),rhov_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'RSATL & RSATI','(g/kg)',0.,20.,2.)
-
+     call plotpar(2,4,ncnt,xval(1:ncnt),time,'RSATL & RSATI','(g/kg)',0.,20.,2.)
      call bdline (1,ncnt,xval(1:ncnt),rhovslair_s(1:ncnt))
      call bdline (2,ncnt,xval(1:ncnt),rhovsiair_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'RHL & RHI','(%)',0.,150.,10.)
-
+     call plotpar(3,4,ncnt,xval(1:ncnt),time,'RHL & RHI','(%)',0.,150.,10.)
      call bdline (1,ncnt,xval(1:ncnt),rhl_s(1:ncnt))
      call bdline (2,ncnt,xval(1:ncnt),rhi_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'HCAT','(#)',0.,5.,1.)
-
+     call plotpar(4,4,ncnt,xval(1:ncnt),time,'HCAT','(#)',0.,5.,1.)
      call bdline (1,ncnt,xval(1:ncnt),hcat_s(1:ncnt))
 
      call o_frame()
@@ -1454,20 +1552,17 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'CDR TEMP DIFF','(K)',-1.,1.,.2)
-
+     call plotpar(1,3,ncnt,xval(1:ncnt),time,'CDR TEMP DIFF','(K)',-1.,1.,.2)
      call bdline (1,ncnt,xval(1:ncnt),txa_s(1:ncnt,1))
      call bdline (2,ncnt,xval(1:ncnt),txa_s(1:ncnt,8))
      call bdline (3,ncnt,xval(1:ncnt),txa_s(1:ncnt,2))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'PSA TEMP DIFF','(K)',-1.,1.0,.2)
-
+     call plotpar(2,3,ncnt,xval(1:ncnt),time,'PSA TEMP DIFF','(K)',-1.,1.0,.2)
      call bdline (1,ncnt,xval(1:ncnt),txa_s(1:ncnt,3))
      call bdline (2,ncnt,xval(1:ncnt),txa_s(1:ncnt,4))
      call bdline (3,ncnt,xval(1:ncnt),txa_s(1:ncnt,5))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'GH TEMP DIFF','(K)',-1.,1.0,.2)
-
+     call plotpar(3,3,ncnt,xval(1:ncnt),time,'GH TEMP DIFF','(K)',-1.,1.0,.2)
      call bdline (1,ncnt,xval(1:ncnt),txa_s(1:ncnt,7))
      call bdline (2,ncnt,xval(1:ncnt),txa_s(1:ncnt,8))
 
@@ -1477,20 +1572,16 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'RNUC_VC','(mg/kg)',0.,5.,1.)
+     call plotpar(1,4,ncnt,xval(1:ncnt),time,'RNUC_VC','(mg/kg/s)',0.,5.,1.)
+     call bdline (1,ncnt,xval(1:ncnt),rnuc_vc_s(1:ncnt) * 1000.)
 
-     call bdline (1,ncnt,xval(1:ncnt),rnuc_vc_s(1:ncnt))
+     call plotpar(2,4,ncnt,xval(1:ncnt),time,'RNUC_VD','(mg/kg/s)',0.,.05,.01)
+     call bdline (1,ncnt,xval(1:ncnt),rnuc_vd_s(1:ncnt) * 1000.)
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'RNUC_VD','(mg/kg)',0.,.05,.01)
+     call plotpar(3,4,ncnt,xval(1:ncnt),time,'CNUC_VC','(#/mg/s)',0.,1000.,100.)
+     call bdline (1,ncnt,xval(1:ncnt),cnuc_vc_s(1:ncnt) * .001)
 
-     call bdline (1,ncnt,xval(1:ncnt),rnuc_vd_s(1:ncnt))
-
-     call plotpar(3,ncnt,xval(1:ncnt),time,'CNUC_VC','(#/mg)',0.,1000.,100.)
-
-     call bdline (1,ncnt,xval(1:ncnt),cnuc_vc_s(1:ncnt))
-
-     call plotpar(4,ncnt,xval(1:ncnt),time,'CNUC_VD','(#/g)',0.,.2,.02)
-
+     call plotpar(4,4,ncnt,xval(1:ncnt),time,'CNUC_VD','(#/g/s)',0.,.2,.02)
      call bdline (1,ncnt,xval(1:ncnt),cnuc_vd_s(1:ncnt))
 
      call o_frame()
@@ -1499,74 +1590,55 @@ print*, 'at 402 '
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'RNUC_CP_HOM','(g/kg)',0.,1.,.2)
-
+     call plotpar(1,4,ncnt,xval(1:ncnt),time,'RNUC_CP_HOM','(g/kg/s)',0.,1.,.2)
      call bdline (1,ncnt,xval(1:ncnt),rnuc_cp_hom_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'RNUC_DP_HOM','(g/kg)',0.,1.,.2)
-
+     call plotpar(2,4,ncnt,xval(1:ncnt),time,'RNUC_DP_HOM','(g/kg/s)',0.,1.,.2)
      call bdline (1,ncnt,xval(1:ncnt),rnuc_dp_hom_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'RNUC_VP_immers','(g/kg)',0.,1.,.2)
-
+     call plotpar(3,4,ncnt,xval(1:ncnt),time,'RNUC_VP_immers','(g/kg/s)',0.,1.,.2)
      call bdline (1,ncnt,xval(1:ncnt),rnuc_vp_immers_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'RNUC_VP_HAZE','(g/kg)',0.,1.,.2)
-
+     call plotpar(4,4,ncnt,xval(1:ncnt),time,'RNUC_VP_HAZE','(g/kg/s)',0.,1.,.2)
      call bdline (1,ncnt,xval(1:ncnt),rnuc_vp_haze_s(1:ncnt))
 
      call o_frame()
-
-print*, 'at 403 '
 
 ! PLOT 12
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'CNUC_CP_HOM','(#/g)',0.,1.,.2)
-
+     call plotpar(1,4,ncnt,xval(1:ncnt),time,'CNUC_CP_HOM','(#/g/s)',0.,1.,.2)
      call bdline (1,ncnt,xval(1:ncnt),cnuc_cp_hom_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'CNUC_DP_HOM','(#/g)',0.,1.,.2)
-
+     call plotpar(2,4,ncnt,xval(1:ncnt),time,'CNUC_DP_HOM','(#/g/s)',0.,1.,.2)
      call bdline (1,ncnt,xval(1:ncnt),cnuc_dp_hom_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'CNUC_VP_immers','(#/g)',0.,1.,.2)
-
+     call plotpar(3,4,ncnt,xval(1:ncnt),time,'CNUC_VP_immers','(#/g/s)',0.,1.,.2)
      call bdline (1,ncnt,xval(1:ncnt),cnuc_vp_immers_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'CNUC_VP_HAZE','(#/g)',0.,1.,.2)
-
+     call plotpar(4,4,ncnt,xval(1:ncnt),time,'CNUC_VP_HAZE','(#/g/s)',0.,1.,.2)
      call bdline (1,ncnt,xval(1:ncnt),cnuc_vp_haze_s(1:ncnt))
 
      call o_frame()
 
-print*, 'at 404 '
-
-go to 405
+endif ! plotset5
+if (plotset6) then
 
 ! R PLOT 1
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R1118','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R1118','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1118_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R8882','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R8882','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8882_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R1112','(g/kg)',0.,.1,.01)
-
-     call bdline (1,ncnt,xval(1:ncnt),r1112_s(1:ncnt,1))
-
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R1818','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R1818','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1818_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R1212','(g/kg)',0.,.1,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R1212','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1212_s(1:ncnt,1))
 
      call o_frame()
@@ -1575,24 +1647,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R8282','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R8282','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8282_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R3335','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R3335','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r3335_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R4445','(g/kg)',0.,.1,.01)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R4445','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r4445_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R3435','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R3435','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r3435_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R3445','(g/kg)',0.,.1,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R3445','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r3445_s(1:ncnt,1))
 
      call o_frame()
@@ -1601,24 +1668,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R3535','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R3535','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r3535_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R3636','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R3636','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r3636_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R3737','(g/kg)',0.,.1,.01)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R3737','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r3737_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R4545','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R4545','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r4545_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R4646','(g/kg)',0.,.1,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R4646','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r4646_s(1:ncnt,1))
 
      call o_frame()
@@ -1627,24 +1689,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R4747','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R4747','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r4747_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R5656','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R5656','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r5656_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R5757','(g/kg)',0.,.1,.01)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R5757','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r5757_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R6767','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R6767','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r6767_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R1413','(g/kg)',0.,.1,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R1413','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1413_s(1:ncnt,1))
 
      call o_frame()
@@ -1653,24 +1710,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R1416','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R1416','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1416_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R1414','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R1414','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1414_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R1446','(g/kg)',0.,.1,.01)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R1446','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1446_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R1513','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R1513','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1513_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R1516','(g/kg)',0.,.1,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R1516','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1516_s(1:ncnt,1))
 
      call o_frame()
@@ -1679,24 +1731,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R1515','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R1515','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1515_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R1556','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R1556','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1556_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R1613','(g/kg)',0.,.1,.01)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R1613','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1613_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R1616','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R1616','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1616_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R8483','(g/kg)',0.,.1,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R8483','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8483_s(1:ncnt,1))
 
      call o_frame()
@@ -1705,24 +1752,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R8486','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R8486','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8486_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R8484','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R8484','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8484_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R8446','(g/kg)',0.,.1,.01)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R8446','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8446_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R8583','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R8583','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8583_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R8586','(g/kg)',0.,.1,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R8586','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8586_s(1:ncnt,1))
 
      call o_frame()
@@ -1731,24 +1773,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R8585','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R8585','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8585_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R8556','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R8556','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8556_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R8683','(g/kg)',0.,.1,.01)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R8683','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8683_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R8686','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R8686','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8686_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R1713','(g/kg)',0.,.1,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R1713','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1713_s(1:ncnt,1))
 
      call o_frame()
@@ -1757,24 +1794,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R1717','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R1717','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1717_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R8783','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R8783','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8783_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R8787','(g/kg)',0.,.1,.01)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R8787','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r8787_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R2332','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R2332','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2332_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R2327','(g/kg)',0.,.1,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R2327','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2327_s(1:ncnt,1))
 
      call o_frame()
@@ -1783,24 +1815,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R2323','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R2323','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2323_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R2337','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R2337','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2337_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R2442','(g/kg)',0.,.1,.01)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R2442','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2442_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R2427','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R2427','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2427_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R2424','(g/kg)',0.,.1,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R2424','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2424_s(1:ncnt,1))
 
      call o_frame()
@@ -1809,24 +1836,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R2447','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R2447','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2447_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R2552','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R2552','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2552_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R2527','(g/kg)',0.,.1,.01)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R2527','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2527_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R2525','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R2525','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2525_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R2557','(g/kg)',0.,.1,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R2557','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2557_s(1:ncnt,1))
 
      call o_frame()
@@ -1835,24 +1857,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R2662','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'R2662','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2662_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R2627','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'R2627','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2627_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R2626','(g/kg)',0.,.1,.01)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'R2626','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2626_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R2667','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'R2667','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2667_s(1:ncnt,1))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'R2772','(g/kg)',0.,.1,.01)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'R2772','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2772_s(1:ncnt,1))
 
      call o_frame()
@@ -1861,47 +1878,38 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'R2727','(g/kg)',0.,.1,.01)
-
+     call plotpar(1,4,ncnt,xval(1:ncnt),time,'R2727','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r2727_s(1:ncnt,1))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'R0000','(g/kg)',0.,.1,.01)
-
+     call plotpar(2,4,ncnt,xval(1:ncnt),time,'R0000','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r0000_s(1:ncnt,1))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'R1812','(g/kg)',0.,.1,.01)
-
+     call plotpar(3,4,ncnt,xval(1:ncnt),time,'R1812','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1812_s(1:ncnt,1))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'R1882','(g/kg)',0.,.1,.01)
-
+     call plotpar(4,4,ncnt,xval(1:ncnt),time,'R1882','(g/kg)',0.,.1,.01)
      call bdline (1,ncnt,xval(1:ncnt),r1882_s(1:ncnt,1))
 
      call o_frame()
+
+endif ! plotset6
+if (plotset7) then
 
 ! E PLOT 1
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E1111','(#/g)',0.,5000.,500.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E1111','(#/g/s)',0.,5000.,500.)
      call bdline (1,ncnt,xval(1:ncnt),e1111_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E1118','(#/g)',0.,5000.,500.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E1118','(#/g/s)',0.,5000.,500.)
      call bdline (1,ncnt,xval(1:ncnt),e1118_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E8888','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E8888','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8888_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E8882','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E8882','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8882_s(1:ncnt))
-
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E1112','(#/g)',0.,5000.,500.)
-
-     call bdline (1,ncnt,xval(1:ncnt),e1112_s(1:ncnt))
 
      call o_frame()
 
@@ -1909,24 +1917,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E1811','(#/g)',0.,5000.,500.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E1811','(#/g/s)',0.,5000.,500.)
      call bdline (1,ncnt,xval(1:ncnt),e1811_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E1211','(#/g)',0.,5000.,500.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E1211','(#/g/s)',0.,5000.,500.)
      call bdline (1,ncnt,xval(1:ncnt),e1211_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E8288','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E8288','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8288_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E2222','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E2222','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2222_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E5555','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E5555','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e5555_s(1:ncnt))
 
      call o_frame()
@@ -1935,24 +1938,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E6666','(#/g)',0.,1000.,100.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E6666','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e6666_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E7777','(#/g)',0.,1000.,100.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E7777','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e7777_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E3333','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E3333','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e3333_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E3335','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E3335','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e3335_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E4444','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E4444','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e4444_s(1:ncnt))
 
      call o_frame()
@@ -1961,24 +1959,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E4445','(#/g)',0.,1000.,100.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E4445','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e4445_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E3433','(#/g)',0.,1000.,100.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E3433','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e3433_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E3444','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E3444','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e3444_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E3435','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E3435','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e3435_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E3445','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E3445','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e3445_s(1:ncnt))
 
      call o_frame()
@@ -1987,24 +1980,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E3533','(#/g)',0.,1000.,100.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E3533','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e3533_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E3633','(#/g)',0.,1000.,100.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E3633','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e3633_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E3733','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E3733','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e3733_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E4544','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E4544','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e4544_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E4644','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E4644','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e4644_s(1:ncnt))
 
      call o_frame()
@@ -2013,24 +2001,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E4744','(#/g)',0.,1000.,100.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E4744','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e4744_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E5655','(#/g)',0.,1000.,100.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E5655','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e5655_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E5755','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E5755','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e5755_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E6766','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E6766','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e6766_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E1413','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E1413','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e1413_s(1:ncnt))
 
      call o_frame()
@@ -2039,24 +2022,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E1411','(#/g)',0.,1000.,100.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E1411','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e1411_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E1446','(#/g)',0.,1000.,100.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E1446','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e1446_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E1513','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E1513','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e1513_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E1511','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E1511','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e1511_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E1556','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E1556','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e1556_s(1:ncnt))
 
      call o_frame()
@@ -2065,24 +2043,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E1613','(#/g)',0.,1000.,100.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E1613','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e1613_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E1611','(#/g)',0.,1000.,100.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E1611','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e1611_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E8483','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E8483','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8483_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E8488','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E8488','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8488_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E8446','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E8446','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8446_s(1:ncnt))
 
      call o_frame()
@@ -2091,24 +2064,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E8583','(#/g)',0.,1000.,100.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E8583','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8583_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E8588','(#/g)',0.,1000.,100.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E8588','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8588_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E8556','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E8556','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8556_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E8683','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E8683','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8683_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E8688','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E8688','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8688_s(1:ncnt))
 
      call o_frame()
@@ -2117,24 +2085,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E1713','(#/g)',0.,1000.,100.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E1713','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e1713_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E1711','(#/g)',0.,1000.,100.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E1711','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e1711_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E8783','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E8783','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8783_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E8788','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E8788','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e8788_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E2322','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E2322','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2322_s(1:ncnt))
 
      call o_frame()
@@ -2143,24 +2106,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E2327','(#/g)',0.,1000.,100.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E2327','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2327_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E2333','(#/g)',0.,1000.,100.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E2333','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2333_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E2337','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E2337','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2337_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E2422','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E2422','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2422_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E2427','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E2427','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2427_s(1:ncnt))
 
      call o_frame()
@@ -2169,24 +2127,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E2444','(#/g)',0.,1000.,100.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E2444','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2444_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E2447','(#/g)',0.,1000.,100.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E2447','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2447_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E2522','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E2522','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2522_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E2527','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E2527','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2527_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E2555','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E2555','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2555_s(1:ncnt))
 
      call o_frame()
@@ -2195,24 +2148,19 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E2557','(#/g)',0.,1000.,100.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E2557','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2557_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E2622','(#/g)',0.,1000.,100.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E2622','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2622_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E2627','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E2627','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2627_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E2666','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E2666','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2666_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E2667','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E2667','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2667_s(1:ncnt))
 
      call o_frame()
@@ -2221,57 +2169,50 @@ go to 405
 
      call plotback()
 
-     call plotpar(1,ncnt,xval(1:ncnt),time,'E2722','(#/g)',0.,1000.,100.)
-
+     call plotpar(1,5,ncnt,xval(1:ncnt),time,'E2722','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2722_s(1:ncnt))
 
-     call plotpar(2,ncnt,xval(1:ncnt),time,'E2727','(#/g)',0.,1000.,100.)
-
+     call plotpar(2,5,ncnt,xval(1:ncnt),time,'E2727','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2727_s(1:ncnt))
 
-     call plotpar(3,ncnt,xval(1:ncnt),time,'E2777','(#/g)',0.,1000.,100.)
-
+     call plotpar(3,5,ncnt,xval(1:ncnt),time,'E2777','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e2777_s(1:ncnt))
 
-     call plotpar(4,ncnt,xval(1:ncnt),time,'E0000','(#/g)',0.,1000.,100.)
-
+     call plotpar(4,5,ncnt,xval(1:ncnt),time,'E0000','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e0000_s(1:ncnt))
 
-     call plotpar(5,ncnt,xval(1:ncnt),time,'E1882','(#/g)',0.,1000.,100.)
-
+     call plotpar(5,5,ncnt,xval(1:ncnt),time,'E1882','(#/g/s)',0.,1000.,100.)
      call bdline (1,ncnt,xval(1:ncnt),e1882_s(1:ncnt))
 
      call o_frame()
 
-405 continue
-
-
-print*, 'at 405 '
+endif ! plotset7
 
 ! END OF PLOTTING
 
      call o_clswk()
-!     stop 'parcel_done'
-!     call o_clsgks()
 
+     ! Depending on how simulation is run, user may want to end simulation here
 
-print*, 'at 406 '
+     if (.false.) then
+        call o_clsgks()
+        STOP 'STOP END PARCEL PLOT '
+     endif
 
   endif
 
-  return
 end subroutine parcel_plot
 
 !========================================================================
 
-subroutine plotpar(ipanel,ncnt,xval,time,ylab1,ylab2,qmin,qmax,qinc)
+subroutine plotpar(ipanel,npanel,ncnt,xval,time,ylab1,ylab2,qmin,qmax,qinc)
 
   use oname_coms, only: nl
   use mem_grid,   only: mza
 
   implicit none
 
-  integer, intent(in) :: ipanel, ncnt
+  integer, intent(in) :: ipanel, npanel, ncnt
 
   real, intent(in) :: xval(ncnt)
   real, intent(in) :: time, qmin, qmax, qinc
@@ -2294,13 +2235,13 @@ subroutine plotpar(ipanel,ncnt,xval,time,ylab1,ylab2,qmin,qmax,qinc)
   pmax = qmax
   pinc = qinc
 
-  ybot  = .06  + .14 * real(ipanel - 1)
-  ytop  = ybot + .122
+  ybot  = .06  + .84 * real(ipanel - 1) / real(npanel)
+  ytop  = ybot + .73 / real(npanel)
   ymid  = .5 * (ybot + ytop)
 
-  ybotp = .075 + .14 * real(ipanel - 1)
+  ybotp = ybot + .015
   nyint = nint((pmax - pmin) / pinc)
-  yspc = .104 / real(nyint)
+  yspc = .624 / (real(nyint) * real(npanel))
 
   dx_tick = 100.
   if (xval(ncnt) > 4000.) dx_tick = 200.
@@ -2327,14 +2268,14 @@ subroutine plotpar(ipanel,ncnt,xval,time,ylab1,ylab2,qmin,qmax,qinc)
 
 ! y labels
 
-  call o_plchhq(.030,ymid,ylab1,sizelab,90.,0.)
-  call o_plchhq(.065,ymid,ylab2,sizelab,90.,0.)
+  call o_plchhq(.025,ymid,ylab1,sizelab,90.,0.)
+  call o_plchhq(.050,ymid,ylab2,sizelab,90.,0.)
 
 ! short and long x-axis ticks and tick labels
 
   do i = 0,ntick
 
-     x = .17 + .76 * real(i) / real(ntick)
+     x = .17 + .76 * real(i) * dx_tick / xval(ncnt)
      call o_frstpt(x,ybot)
      call o_vector(x,ybot + .005)
 
@@ -2385,7 +2326,6 @@ subroutine plotpar(ipanel,ncnt,xval,time,ylab1,ylab2,qmin,qmax,qinc)
      endif
   enddo
 
-  return
 end subroutine plotpar
 
 !========================================================================
@@ -2479,7 +2419,6 @@ subroutine bdline(ltype,ncnt,xval,pfld)
 
   endif
 
-  return
 end subroutine bdline
 
 

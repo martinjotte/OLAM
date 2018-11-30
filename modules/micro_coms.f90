@@ -58,7 +58,7 @@ integer, parameter :: &
    ,ntc    = 21   & ! # of temperature values spanning homogeneous freezing table
    ,ndnc   = 11   & ! # of diameter values spanning homogeneous freezing table
 
-   ,neff   = 7    & ! 2nd array dim for eff (# of types of coalescence efficiency) 
+   ,neff   = 8    & ! 2nd array dim for eff (# of types of coalescence efficiency) 
 
    ,npairc = 106  & ! # of pairs of species in number collection table
    ,npairx = 104  & ! # of pairs of species in x mass collection table
@@ -117,6 +117,8 @@ real :: dps2    ! square of dps
 real :: sedtime0 ! min generalized timestep considered in sedimentation table
 real :: sedtime1 ! max generalized timestep considered in sedimentation table
 
+real :: dmb0     (ncat) ! minimum mean-mass diameter for each category
+real :: dmb1     (ncat) ! maximum mean-mass diameter for each category
 real :: emb0     (ncat) ! minimum mean mass for each category
 real :: emb1     (ncat) ! maximum mean mass for each category
 real :: emb2     (ncat) ! mean hydrometeor mass for each category for case when jnmb(lcat) = 2
@@ -160,6 +162,8 @@ real :: coltabc(nembc,nembc,npairc) ! collection table for bulk number
 real :: coltabx(nembc,nembc,npairx) ! collection table for x bulk density
 real :: coltaby(nembc,nembc,npairy) ! collection table for y bulk density
 
+real :: driz_gammq(nembc)
+
 real :: frachz(nrhhz,nthz)       ! Haze nucleation table
 real :: fracc(ndnc,ntc,maxgrds0) ! Homogeneous freezing table
 
@@ -186,7 +190,7 @@ real :: ipair(nhcat,nhcat,6)
 
 !         ihx ihy    ipc ipx2 ipy2 ipx ipy ieff
 
-data ipair( 1, 1,:) /   1,103,  0,  1,  0,  1 /
+data ipair( 1, 1,:) /   1,  0,  0,  1,  0,  1 /
 data ipair( 1, 2,:) /   2,  0,  0,  2,  0,  1 /
 data ipair( 2, 2,:) /   3,  0,  0,  0,  0,  1 /
 data ipair( 8, 2,:) /   4,  0,  0,  3,  0,  1 /
