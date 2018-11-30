@@ -34,7 +34,8 @@ contains
     implicit none
 
     integer, intent(in) :: mza, mwa
-    integer, parameter  :: cmin = 1.e-30
+
+    real,    parameter  :: cmin = 1.e-30
 
     allocate( cgrid( mza, mwa, nspcsd ) )
     cgrid = cmin

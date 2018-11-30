@@ -23,7 +23,7 @@ Contains
    integer :: ifile,ilat,ilon
 
    real :: dummy1,dummy2
-   character*80 :: fname_swtc5
+   character(80) :: fname_swtc5
    logical :: fexists
 
    pi = 2._dp*asin(1._dp)

@@ -214,8 +214,8 @@ subroutine comp_horiz_k(mrl)
   ! horizontal diffusion is stable over the long timestep
 
   !$omp parallel do private(iv,iw1,iw2,fact1,fact2,bkmin,k,km,&
-  !$                        dens,hkm,hkh,tempm,temph,stab1,stab2,&
-  !$                        hcm,hch,hkc1,hkc2,eta)
+  !$omp                     dens,hkm,hkh,tempm,temph,stab1,stab2,&
+  !$omp                     hcm,hch,hkc1,hkc2,eta)
   do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
      iw1 = itab_v(iv)%iw(1)

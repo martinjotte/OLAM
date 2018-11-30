@@ -229,7 +229,7 @@ contains
 
     ! Create a property list for compression/chunking/filters
 
-    call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr) 	 
+    call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
 
     ! If no parallel IO, activate HDF5 compression for valid icompress
 
@@ -249,7 +249,7 @@ contains
           if (.not. (ndims == 1 .and. dimsf(1) == 1)) then
              call h5pset_chunk_f(propid, ndims, dimsf, hdferr)
              call h5pset_shuffle_f(propid, hdferr)
-             call h5pset_deflate_f(propid, icompress, hdferr)	 
+             call h5pset_deflate_f(propid, icompress, hdferr)
           endif
        endif
     endif
@@ -268,7 +268,7 @@ contains
     ! Create the global file space for the data
 
     call h5screate_simple_f(ndims, dims_file, fspcid, hdferr)
-    
+
     ! Create the local memory space for the data
 
     call h5screate_simple_f(ndims, dimsf, mspcid, hdferr)
@@ -283,12 +283,12 @@ contains
           call h5sselect_none_f(mspcid, hdferr)
 
        else
-          
+
           if (ndims > 1) then
              offset(1:ndims-1) = 0
              countf(1:ndims-1) = dims(1:ndims-1)
           endif
-          
+
           offset(ndims) = mcoords(1) - 1
           countf(ndims) = 1
           iop           = H5S_SELECT_SET_F
@@ -307,9 +307,9 @@ contains
           enddo
 
           call h5sselect_hyperslab_f(mspcid, iop, offset, countf, hdferr)
-          
+
        endif
-             
+
     endif
 
     ! Create the dataspace for the data
@@ -331,7 +331,7 @@ contains
              offset(1:ndims-1) = 0
              countf(1:ndims-1) = dims(1:ndims-1)
           endif
-          
+
           offset(ndims) = fcoords(1) - 1
           countf(ndims) = 1
           iop           = H5S_SELECT_SET_F
@@ -348,11 +348,11 @@ contains
                 countf(ndims) = countf(ndims) + 1
              endif
           enddo
-          
+
           call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
 
        endif
-             
+
     endif
 
   end subroutine fh5_prepare_write
@@ -364,12 +364,12 @@ contains
     use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1),  intent(IN)  :: buf_integer1(:)
-    character(*), intent(IN)  :: dname
-    integer,      intent(OUT) :: hdferr
-    integer, optional, intent(in) :: n
-    logical :: create
+    integer(i1),  target, intent(IN)  :: buf_integer1(:)
+    character(*),         intent(IN)  :: dname
+    integer,              intent(OUT) :: hdferr
+    integer,    optional, intent(IN)  :: n
 
+    logical          :: create
     type(c_ptr)      :: cptr
     integer, pointer :: fptr(:)
 
@@ -396,12 +396,12 @@ contains
     use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1),  intent(IN)  :: buf_integer1(:,:)
-    character(*), intent(IN)  :: dname
-    integer,      intent(OUT) :: hdferr
-    integer, optional, intent(in) :: n
-    logical :: create
+    integer(i1),  target, intent(IN)  :: buf_integer1(:,:)
+    character(*),         intent(IN)  :: dname
+    integer,              intent(OUT) :: hdferr
+    integer,    optional, intent(IN) :: n
 
+    logical          :: create
     type(c_ptr)      :: cptr
     integer, pointer :: fptr(:,:)
 
@@ -428,12 +428,12 @@ contains
     use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1),  intent(IN)  :: buf_integer1(:,:,:)
-    character(*), intent(IN)  :: dname
-    integer,      intent(OUT) :: hdferr
-    integer, optional, intent(in) :: n
-    logical :: create
+    integer(i1),  target, intent(IN)  :: buf_integer1(:,:,:)
+    character(*),         intent(IN)  :: dname
+    integer,              intent(OUT) :: hdferr
+    integer,    optional, intent(IN)  :: n
 
+    logical          :: create
     type(c_ptr)      :: cptr
     integer, pointer :: fptr(:,:,:)
 
@@ -460,12 +460,12 @@ contains
     use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1),  intent(IN)  :: buf_integer1(:,:,:,:)
-    character(*), intent(IN)  :: dname
-    integer,      intent(OUT) :: hdferr
-    integer, optional, intent(in) :: n
-    logical :: create
+    integer(i1),  target, intent(IN)  :: buf_integer1(:,:,:,:)
+    character(*),         intent(IN)  :: dname
+    integer,              intent(OUT) :: hdferr
+    integer,    optional, intent(IN)  :: n
 
+    logical          :: create
     type(c_ptr)      :: cptr
     integer, pointer :: fptr(:,:,:,:)
 
@@ -494,6 +494,7 @@ contains
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
     integer, optional, intent(in) :: n
+
     logical :: create
 
     create = .true.
@@ -585,7 +586,7 @@ contains
 
   subroutine fh5_write_real_array1(buf_real, dname, hdferr, n)
     implicit none
- 
+
     real,         intent(IN)  :: buf_real(:)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
@@ -600,7 +601,7 @@ contains
     if (create) then
        call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, hdferr, propid)
     endif
-    
+
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real_array1
@@ -609,7 +610,7 @@ contains
 
   subroutine fh5_write_real_array2(buf_real, dname, hdferr, n)
     implicit none
- 
+
     real,         intent(IN)  :: buf_real(:,:)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
@@ -624,7 +625,7 @@ contains
     if (create) then
        call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, hdferr, propid)
     endif
-    
+
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real_array2
@@ -633,7 +634,7 @@ contains
 
   subroutine fh5_write_real_array3(buf_real, dname, hdferr, n)
     implicit none
- 
+
     real,         intent(IN)  :: buf_real(:,:,:)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
@@ -648,7 +649,7 @@ contains
     if (create) then
        call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, hdferr, propid)
     endif
-    
+
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real_array3
@@ -657,7 +658,7 @@ contains
 
   subroutine fh5_write_real_array4(buf_real, dname, hdferr, n)
     implicit none
- 
+
     real,         intent(IN)  :: buf_real(:,:,:,:)
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
@@ -672,7 +673,7 @@ contains
     if (create) then
        call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, hdferr, propid)
     endif
-    
+
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real_array4
@@ -1200,8 +1201,8 @@ contains
     type(c_ptr)      :: cptr
     integer, pointer :: fptr(:)
 
-    integer(i1), intent(INOUT) :: buf_integer1(:)
-    integer,     intent(OUT)   :: hdferr
+    integer(i1), target, intent(INOUT) :: buf_integer1(:)
+    integer,             intent(  OUT) :: hdferr
 
     cptr = c_loc(buf_integer1(1))
     call c_f_pointer(cptr, fptr, (/1/))
@@ -1221,8 +1222,8 @@ contains
     type(c_ptr)      :: cptr
     integer, pointer :: fptr(:,:)
 
-    integer(i1), intent(INOUT) :: buf_integer1(:,:)
-    integer,     intent(OUT)   :: hdferr
+    integer(i1), target, intent(INOUT) :: buf_integer1(:,:)
+    integer,             intent(  OUT) :: hdferr
 
     cptr = c_loc(buf_integer1(1,1))
     call c_f_pointer(cptr, fptr, (/1,1/))
@@ -1242,8 +1243,8 @@ contains
     type(c_ptr)      :: cptr
     integer, pointer :: fptr(:,:,:)
 
-    integer(i1), intent(INOUT) :: buf_integer1(:,:,:)
-    integer,     intent(OUT)   :: hdferr
+    integer(i1), target, intent(INOUT) :: buf_integer1(:,:,:)
+    integer,             intent(  OUT) :: hdferr
 
     cptr = c_loc(buf_integer1(1,1,1))
     call c_f_pointer(cptr, fptr, (/1,1,1/))
@@ -1263,8 +1264,8 @@ contains
     type(c_ptr)      :: cptr
     integer, pointer :: fptr(:,:,:,:)
 
-    integer(i1), intent(INOUT) :: buf_integer1(:,:,:,:)
-    integer,     intent(OUT)   :: hdferr
+    integer(i1), target, intent(INOUT) :: buf_integer1(:,:,:,:)
+    integer,             intent(  OUT) :: hdferr
 
     cptr = c_loc(buf_integer1(1,1,1,1))
     call c_f_pointer(cptr, fptr, (/1,1,1,1/))
@@ -1587,7 +1588,7 @@ contains
     integer, pointer :: fptr
 
     integer(i1), target, intent(INOUT) :: buf_integer1
-    integer,             intent(OUT)   :: hdferr
+    integer,             intent(  OUT) :: hdferr
 
     cptr = c_loc(buf_integer1)
     call c_f_pointer(cptr, fptr)
@@ -1737,7 +1738,7 @@ contains
              offset(1:ndims-1) = 0
              countf(1:ndims-1) = dims(1:ndims-1)
           endif
-          
+
           offset(ndims) = coords(1) - 1
           countf(ndims) = 1
           iop           = H5S_SELECT_SET_F
@@ -1762,11 +1763,11 @@ contains
     else if (present(start) .and. present(counts)) then
 
        ! If start and count are present, select the slab to read
-       ! based on the start point (offset in file) and 
+       ! based on the start point (offset in file) and
        ! the count (number to read in each dimension)
-          
+
        if (size(start) >= ndims .and. size(counts) >= ndims) then
-          
+
           offset(1:ndims) = start (1:ndims) - 1
           countf(1:ndims) = counts(1:ndims)
 
@@ -1822,7 +1823,7 @@ contains
 
     ndims_file         = ndims
     dims_file(1:ndims) = dims(1:ndims)
-   
+
     ! Local array memory size
 
     if (present(fcoords)) then
@@ -1842,7 +1843,7 @@ contains
 
     ! Create a property list for compression/chunking/filters
 
-    call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr) 	 
+    call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
 
     ! If no parallel IO, activate HDF5 compression for valid icompress
 
@@ -1862,7 +1863,7 @@ contains
           if (.not. (ndims == 1 .and. dimsf(1) == 1)) then
              call h5pset_chunk_f(propid, ndims_file, dims_file, hdferr)
              call h5pset_shuffle_f(propid, hdferr)
-             call h5pset_deflate_f(propid, icompress, hdferr)	 
+             call h5pset_deflate_f(propid, icompress, hdferr)
           endif
        endif
     endif
@@ -1881,7 +1882,7 @@ contains
     ! Create the global file space for the data
 
     call h5screate_simple_f(ndims_file, dims_file, fspcid, hdferr)
-    
+
     ! Create the local memory space for the data
 
     call h5screate_simple_f(ndims, dimsf, mspcid, hdferr)
@@ -1895,7 +1896,7 @@ contains
        else
           call h5sselect_all_f(mspcid, hdferr)
        endif
-             
+
     endif
 
     ! Create the dataspace for the data
@@ -1948,11 +1949,11 @@ contains
                 countf(1) = countf(1) + 1
              endif
           enddo
-          
+
           call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
 
        endif
-             
+
     endif
 
   end subroutine fh5_prepare_write_ll
@@ -2016,7 +2017,7 @@ contains
        attrlen = len_trim(cvalue) + 1
 
        call h5tcopy_f(H5T_NATIVE_CHARACTER, atype_id, hdferr)
-       CALL h5tset_size_f(atype_id, attrlen, hdferr)              
+       CALL h5tset_size_f(atype_id, attrlen, hdferr)
 
        ! Write null-terminated strings ("C-style")
        call H5Tset_strpad_f(atype_id, H5T_STR_NULLTERM_F, hdferr)
@@ -2028,21 +2029,21 @@ contains
        call H5Awrite_f(attr_id, atype_id, trim(cvalue)//char(0), dims, hdferr)
 
        ! close character type
-       CALL h5tclose_f(atype_id, hdferr) 
+       CALL h5tclose_f(atype_id, hdferr)
     endif
 
     ! Close the attribute
 
     call H5Sclose_f(space_id, hdferr)
     call H5Aclose_f(attr_id,  hdferr)
- 
+
   end subroutine fh5f_write_attribute
 
 !===============================================================================
 
   subroutine fh5f_create_dim(dname, hdferr)
     implicit none
-    
+
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
 
@@ -2054,7 +2055,7 @@ contains
 
   subroutine fh5f_attach_dims(ndims, dnames, hdferr)
     implicit none
-    
+
     integer,      intent(IN)  :: ndims
     character(*), intent(IN)  :: dnames(ndims)
     integer,      intent(OUT) :: hdferr
@@ -2132,7 +2133,7 @@ contains
        attrlen = len_trim(cvalue) + 1
 
        call h5tcopy_f(H5T_NATIVE_CHARACTER, atype_id, hdferr)
-       CALL h5tset_size_f(atype_id, attrlen, hdferr)              
+       CALL h5tset_size_f(atype_id, attrlen, hdferr)
 
        ! Write null-terminated strings ("C-style")
        call H5Tset_strpad_f(atype_id, H5T_STR_NULLTERM_F, hdferr)
@@ -2144,7 +2145,7 @@ contains
        call H5Awrite_f(attr_id, atype_id, trim(cvalue)//char(0), dims, hdferr)
 
        ! close character type
-       CALL h5tclose_f(atype_id, hdferr) 
+       CALL h5tclose_f(atype_id, hdferr)
     endif
 
     ! Close the attribute
@@ -2154,7 +2155,7 @@ contains
 
     ! Close the root group
     call H5Gclose_f(grp_id, hdferr)
- 
+
   end subroutine fh5f_write_global_attribute
 
 !===============================================================================

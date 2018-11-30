@@ -1446,6 +1446,7 @@ C...begin read
       END SUBROUTINE LOAD_OPTICS_DATA
 
 C///////////////////////////////////////////////////////////////////////
+
        INTEGER FUNCTION INDEXR ( NAME1, N, NAME2 )
 C-----------------------------------------------------------------------
 C
@@ -1476,12 +1477,10 @@ C-----------------------------------------------------------------------
 
       IMPLICIT NONE
 
-      INTEGER, INTENT(IN) :: N
-
-      CHARACTER*(*), INTENT(IN) :: NAME1
-      CHARACTER*(*), INTENT(IN) :: NAME2(*)
-
-      INTEGER I
+      INTEGER,      INTENT(IN) :: N
+      CHARACTER(*), INTENT(IN) :: NAME1
+      CHARACTER(*), INTENT(IN) :: NAME2(N)
+      INTEGER                  :: I
 
 !***Assume NAME1 is not in list NAME2
 
@@ -1494,8 +1493,9 @@ C-----------------------------------------------------------------------
          END IF
       END DO
 
-      RETURN
       END FUNCTION INDEXR
+
+!///////////////////////////////////////////////////////////////////////
 
       SUBROUTINE GET_CSQY ( nrad, nrad_model, nrad_chem, TEMP, DENS, CSZ, QYZ )
 !-----------------------------------------------------------------------

@@ -2614,7 +2614,7 @@ CONTAINS
        fens4,a1,a_ave,a_max,a_min,xff0,xxx,xomg
 
      integer :: nall2,ixxx
-     integer,  dimension (12) :: seed
+     integer,  dimension (33) :: seed
 
      integer, parameter :: irandom = 0
 

@@ -80,8 +80,7 @@ do il = 1, numcf
       write(io6,*) trim(fs)
    endif
 enddo
-if (fexists == .true.) stop "Stopping model run."
-
+if (fexists) stop "Stopping model run."
 
 ! OVERWRITE NAMELIST WITH COMMAND LINE RUNTYPE
 

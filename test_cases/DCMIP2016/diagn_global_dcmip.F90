@@ -71,7 +71,7 @@ real(r8) :: corr1, corr2, corr3, cf
 integer :: nsends, ierror, k4900, nt
 real(r8), allocatable :: sendbuf(:), recvbuf(:,:)
 
-real :: sum_vy, sum_vydif2, absvydif_max, vy
+real(r8) :: sum_vy, sum_vydif2, absvydif_max, vy
 real, save :: em0=0.0, v02=0.0
 
 k4900 = minloc(abs(zt(:)-4900.),1)
@@ -311,7 +311,7 @@ do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
       ! Maximum vertical velocity for DCMIP supercell test case
 
-      wcmax0 = max(wcmax0, wc(k,iw))
+      wcmax0 = max(wcmax0, real(wc(k,iw),8))
 
    enddo
 
@@ -352,7 +352,7 @@ do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
          c = (432.0 * q1 + 6.0 * sqrt(750.0 * (2.0*q2 - 1.0)**3 + 5184.0 * q1**2))**(1./3.) / 12.0
 
          root = c+((5.0/24.0)-(5.0/12.0)*q2)/c
-         root = min( max(root, 0.0), 1.0)
+         root = min( max(root, 0.0_r8), 1.0_r8)
          
          corr1 = 0.9 - 0.8*q1**2
          corr2 = aa * q1 + bb
@@ -566,36 +566,36 @@ write(6,'(a,3f22.0)') 'mass: tot,wet,dry ',tmass_sum, wmass_sum, dmass_sum
 
 ge1(ncall) = ( tmass_sum -  tmass_sum_init) /  tmass_sum_init
 
-ge2(ncall) = (q1mass_sum - q1mass_sum_init) / max(q1mass_sum_init, 1.e-29)
-ge3(ncall) = (q2mass_sum - q2mass_sum_init) / max(q2mass_sum_init, 1.e-29)
-ge4(ncall) = (q3mass_sum - q3mass_sum_init) / max(q3mass_sum_init, 1.e-29)
-ge5(ncall) = (q4mass_sum - q4mass_sum_init) / max(q4mass_sum_init, 1.e-29)
-ge6(ncall) = (q5mass_sum - q5mass_sum_init) / max(q5mass_sum_init, 1.e-29)
+ge2(ncall) = (q1mass_sum - q1mass_sum_init) / max(q1mass_sum_init, 1.e-29_r8)
+ge3(ncall) = (q2mass_sum - q2mass_sum_init) / max(q2mass_sum_init, 1.e-29_r8)
+ge4(ncall) = (q3mass_sum - q3mass_sum_init) / max(q3mass_sum_init, 1.e-29_r8)
+ge5(ncall) = (q4mass_sum - q4mass_sum_init) / max(q4mass_sum_init, 1.e-29_r8)
+ge6(ncall) = (q5mass_sum - q5mass_sum_init) / max(q5mass_sum_init, 1.e-29_r8)
 
-ge7(ncall) = ( wmass_sum -  wmass_sum_init) /  max(wmass_sum_init, 1.e-29)
+ge7(ncall) = ( wmass_sum -  wmass_sum_init) /  max(wmass_sum_init, 1.e-29_r8)
 ge8(ncall) = ( dmass_sum -  dmass_sum_init) /  dmass_sum_init
 
 print*, 'relmassdev: tot,wet,dry ',ge1(ncall),ge7(ncall),ge8(ncall)
 
 ! First 3 normalized global errors
 
-q1l1(ncall) = sum_absq1dif / max(sum_absq1tr, 1.e-29)
-q2l1(ncall) = sum_absq2dif / max(sum_absq2tr, 1.e-29)
-q3l1(ncall) = sum_absq3dif / max(sum_absq3tr, 1.e-29)
-q4l1(ncall) = sum_absq4dif / max(sum_absq4tr, 1.e-29)
-q5l1(ncall) = sum_absq5dif / max(sum_absq5tr, 1.e-29)
+q1l1(ncall) = sum_absq1dif / max(sum_absq1tr, 1.e-29_r8)
+q2l1(ncall) = sum_absq2dif / max(sum_absq2tr, 1.e-29_r8)
+q3l1(ncall) = sum_absq3dif / max(sum_absq3tr, 1.e-29_r8)
+q4l1(ncall) = sum_absq4dif / max(sum_absq4tr, 1.e-29_r8)
+q5l1(ncall) = sum_absq5dif / max(sum_absq5tr, 1.e-29_r8)
 
-q1l2(ncall) = sqrt(sum_q1dif2) / max(sqrt(sum_q1tr2), 1.e-29)
-q2l2(ncall) = sqrt(sum_q2dif2) / max(sqrt(sum_q2tr2), 1.e-29)
-q3l2(ncall) = sqrt(sum_q3dif2) / max(sqrt(sum_q3tr2), 1.e-29)
-q4l2(ncall) = sqrt(sum_q4dif2) / max(sqrt(sum_q4tr2), 1.e-29)
-q5l2(ncall) = sqrt(sum_q5dif2) / max(sqrt(sum_q5tr2), 1.e-29)
+q1l2(ncall) = sqrt(sum_q1dif2) / max(sqrt(sum_q1tr2), 1.e-29_r8)
+q2l2(ncall) = sqrt(sum_q2dif2) / max(sqrt(sum_q2tr2), 1.e-29_r8)
+q3l2(ncall) = sqrt(sum_q3dif2) / max(sqrt(sum_q3tr2), 1.e-29_r8)
+q4l2(ncall) = sqrt(sum_q4dif2) / max(sqrt(sum_q4tr2), 1.e-29_r8)
+q5l2(ncall) = sqrt(sum_q5dif2) / max(sqrt(sum_q5tr2), 1.e-29_r8)
 
-q1li(ncall) = absq1dif_max / max(absq1tr_max, 1.e-29)
-q2li(ncall) = absq2dif_max / max(absq2tr_max, 1.e-29)
-q3li(ncall) = absq3dif_max / max(absq3tr_max, 1.e-29)
-q4li(ncall) = absq4dif_max / max(absq4tr_max, 1.e-29)
-q5li(ncall) = absq5dif_max / max(absq5tr_max, 1.e-29)
+q1li(ncall) = absq1dif_max / max(absq1tr_max, 1.e-29_r8)
+q2li(ncall) = absq2dif_max / max(absq2tr_max, 1.e-29_r8)
+q3li(ncall) = absq3dif_max / max(absq3tr_max, 1.e-29_r8)
+q4li(ncall) = absq4dif_max / max(absq4tr_max, 1.e-29_r8)
+q5li(ncall) = absq5dif_max / max(absq5tr_max, 1.e-29_r8)
 
 deltam(ncall) = (sum_vy - em0) / em0
 vyl2  (ncall) = sqrt(sum_vydif2) / sqrt(v02)

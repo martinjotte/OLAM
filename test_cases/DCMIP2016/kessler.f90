@@ -71,6 +71,8 @@ SUBROUTINE KESSLER(theta, qv, qc, qr, rho, pk, dt, z, nz, precl, iw)
   !   Input / output parameters
   !------------------------------------------------
 
+  INTEGER, INTENT(IN) :: nz ! Number of thermodynamic levels in the column
+
   REAL(8), DIMENSION(nz), INTENT(INOUT) :: &
             theta   ,     & ! Potential temperature (K)
             qv      ,     & ! Water vapor mixing ratio (gm/gm)
@@ -90,7 +92,6 @@ SUBROUTINE KESSLER(theta, qv, qc, qr, rho, pk, dt, z, nz, precl, iw)
   REAL(8), INTENT(IN) :: & 
             dt              ! Time step (s)
 
-  INTEGER, INTENT(IN) :: nz ! Number of thermodynamic levels in the column
   INTEGER, INTENT(IN) :: iw ! OLAM grid cell horizontal index
 
   !------------------------------------------------

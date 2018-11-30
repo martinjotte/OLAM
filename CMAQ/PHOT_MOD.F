@@ -1657,12 +1657,13 @@ C-----------------------------------------------------------------------
 
 !***Some additional program constants:
 
-      REAL( 8 ), PARAMETER :: LARGEST     = 1.0D+36 ! largest machine number
-      REAL( 8 ), PARAMETER :: SMALLEST    = 1.0D-36 ! smallest machine number
-      REAL( 8 ), PARAMETER :: SQRTLRGST   = 1.0D+18 ! sqrt(largest)
-      REAL( 8 ), PARAMETER :: SQRTLRGSTM1 = 1.0D-18 ! 1/sqrt(largest)
-      REAL( 8 ), PARAMETER :: EPS         = 1.0D-03
-      REAL( 8 ), PARAMETER :: PRECIS      = 1.0D0 - 1.0D-07
+      REAL( 8 ), PARAMETER :: LARGEST      = 1.0D+36 ! largest machine number
+      REAL( 8 ), PARAMETER :: SMALLEST     = 1.0D-36 ! smallest machine number
+      REAL( 8 ), PARAMETER :: SQRTLRGST    = 1.0D+18 ! sqrt(largest)
+      REAL( 8 ), PARAMETER :: SQRTLRGSTM1  = 1.0D-18 ! 1/sqrt(largest)
+      REAL     , PARAMETER :: SQRTLRGSTM1S = 1.0E-18 ! 1/sqrt(largest)
+      REAL( 8 ), PARAMETER :: EPS          = 1.0D-03
+      REAL( 8 ), PARAMETER :: PRECIS       = 1.0D0 - 1.0D-07
 
       ! reciprocal of constant from delta_Eddington method
       real( 8 ), parameter :: sq3 = sqrt(3.d0)
@@ -1684,7 +1685,7 @@ C-----------------------------------------------------------------------
          OMI   (I) = ( 1.0D0 - F ) * OMU(I) / ( 1.0D0 - OMU(I) * F )
          TAUN  (I) = ( 1.0D0 - OMU( I )  * F ) * TAUU(I)
          TAUSLA(I) = TAUN(I) * DSDH(I)
-         mu2   (i) = max(dsdh(i), sqrtlrgstm1)
+         mu2   (i) = max(dsdh(i), sqrtlrgstm1s)
       END DO
 
       TAUSUM(0) = 0.0d0
@@ -1728,7 +1729,7 @@ C-----------------------------------------------------------------------
          gam3 = 0.5d0 - c1 * g * mu
          gam4 = 1.d0 - gam3
 
-         LAM(I) = SQRT( max(GAM1*GAM1 - GAM2*GAM2, 0.0) )
+         LAM(I) = SQRT( max(GAM1*GAM1 - GAM2*GAM2, 0.0_8) )
 
          IF ( ABS( GAM2 ) .LE. SMALLEST ) THEN 
             !***adjustment based on NCAR TUV model

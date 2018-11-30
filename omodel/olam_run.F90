@@ -830,7 +830,7 @@ subroutine olam_output()
   ! Output full history restart file
 
   if (mod(time8p,frqstate) < dtlm(1)   .or. &
-     (outdate == 1 .and. mod(time8p,86400.) < dtlm(1)) .or. &
+     (outdate == 1 .and. mod(time8p,86400._r8) < dtlm(1)) .or. &
      time8p >= timmax8 .or. iflag == 1) then
      call history_write('INST')
      time_prevhist = time8

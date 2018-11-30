@@ -1589,7 +1589,6 @@ integer, pointer :: lgwnud(:)
   lgva => itab_v%ivglobe
   lgua => null()
   lgwa => itab_w%iwglobe
-  lgwnud => itab_wnud%iwnudglobe
 
 ! Check if gridfile exists
 
@@ -1967,6 +1966,8 @@ integer, pointer :: lgwnud(:)
 
      ndims    = 1
      idims(1) = mwnud
+
+     lgwnud => itab_wnud%iwnudglobe
 
      call shdf5_irec(ndims, idims, 'XEWNUD'  , rvar1=xewnud, points=lgwnud)
      call shdf5_irec(ndims, idims, 'YEWNUD'  , rvar1=yewnud, points=lgwnud)

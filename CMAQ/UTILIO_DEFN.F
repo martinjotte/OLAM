@@ -8,8 +8,6 @@
       integer, parameter :: xstat2 = 2
       integer, parameter :: xstat3 = 3
 
-!     integer, private   :: ncid
-
       contains
 
       INTEGER FUNCTION INDEX1 (NAME, N, NLIST)
@@ -52,9 +50,9 @@ C***********************************************************************
 
 C.......   Arguments and their descriptions:
 
-      CHARACTER*(*), INTENT(IN   ) :: NAME        !  Character string being searched for
-      INTEGER      , INTENT(IN   ) :: N           !  Length of array to be searched
-      CHARACTER*(*), INTENT(IN   ) :: NLIST(*)    !  array to be searched
+      CHARACTER(*), INTENT(IN) :: NAME        !  Character string being searched for
+      INTEGER     , INTENT(IN) :: N           !  Length of array to be searched
+      CHARACTER(*), INTENT(IN) :: NLIST(N)    !  array to be searched
 
 C.......   Local variable:
 
@@ -95,8 +93,8 @@ C  PRECONDITIONS REQUIRED:  JDATE:JTIME represented as YYYYDDD:HHMMSS
 C
 C  SUBROUTINES AND FUNCTIONS CALLED:  DT2STR, INIT3, SHUT3
 C
-C  REVISION  HISTORY:	
-C	prototype 5/1992 by CJC
+C  REVISION  HISTORY:
+C       prototype 5/1992 by CJC
 C       Revised   8/1996 to close currently-open POSIX-OK Fortran units.
 C       Modified  1/1997 by CJC to trim trailing blanks from MSGTXT
 C       Modified  2/1997 by CJC:  conditional definition of EXIT under AIX 
@@ -122,10 +120,10 @@ C...........   INCLUDES:
 
 C...........   ARGUMENTS and their descriptions:
 
-      CHARACTER*(*), INTENT(IN   ) :: CALLER !  name of the caller
-      INTEGER      , INTENT(IN   ) :: JDATE, JTIME !  model date&time for the error
-      CHARACTER*(*), INTENT(IN   ) :: MSGTXT !  error message
-      INTEGER      , INTENT(IN   ) :: EXITSTAT !  exit status for program
+      CHARACTER(*), INTENT(IN) :: CALLER !  name of the caller
+      INTEGER     , INTENT(IN) :: JDATE, JTIME !  model date&time for the error
+      CHARACTER(*), INTENT(IN) :: MSGTXT !  error message
+      INTEGER     , INTENT(IN) :: EXITSTAT !  exit status for program
 
                  
 C...........   EXTERNAL FUNCTIONS and their descriptions:
@@ -311,8 +309,7 @@ C***********************************************************************
 
 C...........   ARGUMENTS and their descriptions:
 
-        CHARACTER*(*), INTENT(INOUT) :: BUFFER
-
+        CHARACTER(*), INTENT(INOUT) :: BUFFER
 
 C...........   PARAMETER:  ASCII for 'a', 'z', 'A'
 
@@ -320,31 +317,29 @@ C...........   PARAMETER:  ASCII for 'a', 'z', 'A'
         INTEGER, PARAMETER :: IZ    = 122
         INTEGER, PARAMETER :: AADIF =  32
 
-
 C...........   SCRATCH LOCAL VARIABLES and their descriptions:
 
-        INTEGER       I, L
-        INTEGER       C
+        INTEGER            :: I, L
+        INTEGER            :: C
 
 
 C***********************************************************************
 C   begin body of subroutine  UPCASE
 
         L  =  LEN ( BUFFER )
-        DO  111  I = 1 , L
-            C = ICHAR ( BUFFER ( I:I ) )
-            IF ( C .GE. IA  .AND.  C .LE. IZ ) THEN
-                BUFFER ( I:I ) = CHAR ( C - AADIF )
-            END IF
-111     CONTINUE        !  end loop on I
-
-        RETURN
+        DO  I = 1, L
+           C = ICHAR ( BUFFER ( I:I ) )
+           IF ( C .GE. IA  .AND.  C .LE. IZ ) THEN
+              BUFFER ( I:I ) = CHAR ( C - AADIF )
+           END IF
+        END DO
 
         END SUBROUTINE  UPCASE
 
 
       SUBROUTINE M3WARN( CALLER, JDATE, JTIME, MSGTXT )
-      use misc_coms, only: io6
+
+      USE MISC_COMS, ONLY: IO6
       IMPLICIT NONE
 
 C...........   INCLUDES:
@@ -353,9 +348,9 @@ C...........   INCLUDES:
 
 C...........   ARGUMENTS and their descriptions:
 
-      CHARACTER*(*), INTENT(IN   ) :: CALLER !  name of the caller
-      INTEGER      , INTENT(IN   ) :: JDATE, JTIME !  model date&time for the error
-      CHARACTER*(*), INTENT(IN   ) :: MSGTXT !  warning message
+      CHARACTER(*), INTENT(IN) :: CALLER !  name of the caller
+      INTEGER     , INTENT(IN) :: JDATE, JTIME !  model date&time for the error
+      CHARACTER(*), INTENT(IN) :: MSGTXT !  warning message
                  
 C...........   EXTERNAL FUNCTIONS and their descriptions:
 
@@ -437,7 +432,8 @@ C   begin body of subroutine  M3EXIT
 
 
       SUBROUTINE M3MESG( MSGTXT )
-      use misc_coms, only: io6
+
+      USE MISC_COMS, ONLY: IO6
       IMPLICIT NONE
 
 C...........   INCLUDES:
@@ -446,7 +442,7 @@ C...........   INCLUDES:
 
 C...........   ARGUMENTS and their descriptions:
 
-      CHARACTER*(*), INTENT(IN   ) :: MSGTXT !  warning message
+      CHARACTER(*), INTENT(IN) :: MSGTXT !  warning message
 
       if (len_trim(msgtxt) > 0) then
          write(io6,'(1x,A)') trim(msgtxt)
@@ -457,8 +453,8 @@ C...........   ARGUMENTS and their descriptions:
       
 
       INTEGER FUNCTION INIT3 ()
-      use misc_coms, only: io6
 
+      use misc_coms, only: io6
       implicit none
 
       init3 = io6

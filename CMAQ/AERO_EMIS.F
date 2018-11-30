@@ -454,7 +454,7 @@
                         EM_MAP( IDX,N ) = INDEX1( AEROSPC( IDX )%NAME( N ), N_AE_EMIS, AE_EMIS )
                         DUST_MAP( IDX,N ) = S
                      ELSE
-                        WRITE( XMSG, '(A43,A23,A8,A11,A62,A53)' ), 
+                        WRITE( XMSG, '(A43,A23,A8,A11,A62,A53)' ) 
      &                         'Cannot find aerosol species to accomodate ',
      &                         'dust emission species: ', DUST_SPC( S )%NAME( N ), '. You must ',
      &                         'provide a prognostic variable for this species in both the AE ',

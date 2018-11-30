@@ -318,7 +318,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
             moist = 1 ! 0=no, 1=yes
          endif
 
-	 call baroclinic_wave_test(deep,moist,pertt,Xscal,lonrad,latrad,p,zt0,zcoords, &
+         call baroclinic_wave_test(deep,moist,pertt,Xscal,lonrad,latrad,p,zt0,zcoords, &
                                    u0,v0,t,thetav,phis,ps,rhot0,q)
 
          thet0 = thetav / (1. + 0.608 * q) ! Not needed? (theta computable from t & p)
@@ -326,7 +326,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
          wm0 = 0.
          rhom0 = rhot0 ! Exact value not needed for this case
 
-	 call initial_value_Terminator( latdeg, londeg, cl, cl2 )
+         call initial_value_Terminator( latdeg, londeg, cl, cl2 )
 
          if (nl%naddsc >= 1) addsc(1)%sclp(k,iw) = real(cl)
          if (nl%naddsc >= 2) addsc(2)%sclp(k,iw) = real(cl2)
@@ -354,7 +354,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
          pert = 1
 
-	 call supercell_test(lonrad,latrad,p,zt0,zcoords,u0,v0,t,thetav,ps,rhot0,q,pert)
+         call supercell_test(lonrad,latrad,p,zt0,zcoords,u0,v0,t,thetav,ps,rhot0,q,pert)
 
          thet0 = thetav / (1. + 0.608 * q) ! Not needed? (theta computable from t & p)
 
@@ -607,7 +607,7 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
             moist = 1 ! 0=no, 1=yes
          endif
 
-	 call baroclinic_wave_test(deep,moist,pertt,Xscal,lonrad,latrad,p,zt0,zcoords, &
+         call baroclinic_wave_test(deep,moist,pertt,Xscal,lonrad,latrad,p,zt0,zcoords, &
                                    u0,v0,t,thetav,phis,ps,rhot0,q)
 
       elseif (nl%test_case == 121 .or. &
@@ -628,7 +628,7 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
 
          pert = 1
 
-	 call supercell_test(lonrad,latrad,p,zt0,zcoords,u0,v0,t,thetav,ps,rhot0,q,pert)
+         call supercell_test(lonrad,latrad,p,zt0,zcoords,u0,v0,t,thetav,ps,rhot0,q,pert)
 
       endif
 

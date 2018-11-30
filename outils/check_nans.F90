@@ -225,7 +225,7 @@ subroutine compute_mass_sums()
      endif
 
   endif
-#endif OLAM_MPI
+#endif
 
   if (myrank == 0) then
 

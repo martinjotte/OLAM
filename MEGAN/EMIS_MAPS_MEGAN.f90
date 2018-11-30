@@ -14,9 +14,9 @@ module EMIS_MAPS_MEGAN
 !  Tan          08/14/07 - Move from MEGAN v2.0 to MEGAN v2.02 with no update.
 !=======================================================================
 
-      INTEGER,PARAMETER :: N_SPCA_SPC = 150        ! Number of speciated species
-      CHARACTER*20   SPCA_SPC( N_SPCA_SPC )   ! speciated species name
-      REAL           SPCA_MWT( N_SPCA_SPC )   ! Mechanism species molecular weight
+      INTEGER, PARAMETER :: N_SPCA_SPC = 150        ! Number of speciated species
+      CHARACTER(20)      :: SPCA_SPC( N_SPCA_SPC )  ! speciated species name
+      REAL               :: SPCA_MWT( N_SPCA_SPC )  ! Mechanism species molecular weight
 
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 ! _a  = alpha, _b  = beta, _c  = cis, _al = allo,
@@ -207,14 +207,13 @@ module EMIS_MAPS_MEGAN
 !  Tan          08/14/07 - Move from MEGAN v2.0 to MEGAN v2.02 with no update.
 !=======================================================================
 
-      INTEGER,PARAMETER :: N_SMAP_SPC = 150   ! Number of map species
-
-      CHARACTER*16   SPCA_NAM( N_SMAP_SPC )   ! speciated species name
-      INTEGER        SPCA_MAP( N_SMAP_SPC )   ! speciated species name
-                                              ! mapped to SPCAT_SPC.EXT
-      CHARACTER*16   MG20_NAM( N_SMAP_SPC )   ! MEGAN species
-      INTEGER        MG20_MAP( N_SMAP_SPC )   ! MEGAN species mapped to
-                                              ! MGN_SPC.EXT
+      INTEGER, PARAMETER :: N_SMAP_SPC = 150       ! Number of map species
+      CHARACTER(16)      :: SPCA_NAM( N_SMAP_SPC ) ! speciated species name
+      INTEGER            :: SPCA_MAP( N_SMAP_SPC ) ! speciated species name
+                                                   ! mapped to SPCAT_SPC.EXT
+      CHARACTER(16)      :: MG20_NAM( N_SMAP_SPC ) ! MEGAN species
+      INTEGER            :: MG20_MAP( N_SMAP_SPC ) ! MEGAN species mapped to
+                                                   ! MGN_SPC.EXT
 
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 ! _a  = alpha, _b  = beta, _c  = cis, _al = allo,
@@ -480,7 +479,7 @@ module EMIS_MAPS_MEGAN
       DATA  SPCA_NAM(126), SPCA_MAP(126), MG20_NAM(126), MG20_MAP(126)  &
           / 'PPPP_2s ', 126   , 'OTHER     ', 20            /
       DATA  SPCA_NAM(127), SPCA_MAP(127), MG20_NAM(127), MG20_MAP(127)  &
-          / 'A_2met_nonatriene ', 127   , 'STRESS     ', 20            /
+          / 'A_2met_nonatrien', 127   , 'STRESS     ', 20            /
       DATA  SPCA_NAM(128), SPCA_MAP(128), MG20_NAM(128), MG20_MAP(128)  &
           / 'met_salicylate', 128   , 'STRESS     ', 20            /
       DATA  SPCA_NAM(129), SPCA_MAP(129), MG20_NAM(129), MG20_MAP(129)  &
@@ -543,14 +542,11 @@ module EMIS_MAPS_MEGAN
 !  bkoo         04/13/07 - Created
 !=======================================================================
 
-      CHARACTER*16   SPC_CB05MECH
-      PARAMETER     (SPC_CB05MECH = 'CB05            ')
+      CHARACTER(16), PARAMETER :: SPC_CB05MECH = 'CB05'
+      INTEGER      , PARAMETER :: N_CB05_SPC   = 24
 
-      INTEGER        N_CB05_SPC
-      PARAMETER     (N_CB05_SPC = 24)
-
-      CHARACTER*16, target :: MECH_SPC_CB05( N_CB05_SPC )  ! Mechanism species name
-      REAL        , target :: MECH_MWT_CB05( N_CB05_SPC )  ! Mechanism species molecular weight
+      CHARACTER(16), TARGET    :: MECH_SPC_CB05( N_CB05_SPC ) ! Mechanism species name
+      REAL         , TARGET    :: MECH_MWT_CB05( N_CB05_SPC ) ! Mechanism species molecular weight
 
       DATA  MECH_SPC_CB05(  1), MECH_MWT_CB05(  1) / 'ISOP            ',  80.00  /
       DATA  MECH_SPC_CB05(  2), MECH_MWT_CB05(  2) / 'TERP            ', 160.00  /
@@ -593,20 +589,16 @@ module EMIS_MAPS_MEGAN
 !  Tan          07/18/11 - Updated for MEGANv2.10
 !=======================================================================
 
-      CHARACTER*16  MAP_CB05MECH
-      PARAMETER    (MAP_CB05MECH = 'CB05            ')
+      CHARACTER(16), PARAMETER :: MAP_CB05MECH = 'CB05'
+      INTEGER      , PARAMETER :: N_CB05 = 207            ! Number of map species
 
-      INTEGER        N_CB05
-      PARAMETER     (N_CB05 = 207)        ! Number of map species
-
-      CHARACTER*16   SPMH_NAM_CB05( N_CB05 )   ! speciated species name
-      INTEGER, target :: SPMH_MAP_CB05( N_CB05 )   ! speciated species name
-                                              ! mapped to SPC_SPCAT.EXT
-      CHARACTER*16   MECH_NAM_CB05( N_CB05 )   ! mechanism species
-      INTEGER, target :: MECH_MAP_CB05( N_CB05 )   ! mechanism species mapped
-                                              ! to SPC_CB4Q.EXT
-      REAL, target    :: CONV_FAC_CB05( N_CB05 )   ! conversion factor
-
+      CHARACTER(16)            :: SPMH_NAM_CB05( N_CB05 ) ! speciated species name
+      INTEGER      , TARGET    :: SPMH_MAP_CB05( N_CB05 ) ! speciated species name
+                                                          ! mapped to SPC_SPCAT.EXT
+      CHARACTER(16)            :: MECH_NAM_CB05( N_CB05 ) ! mechanism species
+      INTEGER      , TARGET    :: MECH_MAP_CB05( N_CB05 ) ! mechanism species mapped
+                                                          ! to SPC_CB4Q.EXT
+      REAL         , TARGET    :: CONV_FAC_CB05( N_CB05 ) ! conversion factor
 
       DATA  SPMH_NAM_CB05(  1)     , SPMH_MAP_CB05(  1)  &
           / 'isoprene        ', 1             /
@@ -2073,14 +2065,11 @@ module EMIS_MAPS_MEGAN
 !  bkoo         04/13/07 - Modified for new MECHANISM scheme
 !=======================================================================
 
-      CHARACTER*16   SPC_SAPRC99MECH
-      PARAMETER     (SPC_SAPRC99MECH = 'SAPRC99         ')
+      CHARACTER(16), PARAMETER :: SPC_SAPRC99MECH = 'SAPRC99'
+      INTEGER      , PARAMETER :: N_SAPRC99_SPC   = 28
 
-      INTEGER        N_SAPRC99_SPC
-      PARAMETER     (N_SAPRC99_SPC = 28)
-
-      CHARACTER*16, target :: MECH_SPC_SAPRC99( N_SAPRC99_SPC ) ! Mechanism species name
-      REAL        , target :: MECH_MWT_SAPRC99( N_SAPRC99_SPC ) ! Mechanism species molecular weight
+      CHARACTER(16), TARGET    :: MECH_SPC_SAPRC99( N_SAPRC99_SPC ) ! Mechanism species name
+      REAL         , TARGET    :: MECH_MWT_SAPRC99( N_SAPRC99_SPC ) ! Mechanism species molecular weight
 
 ! Note conversion between 134 species and SAPRC99 is done by 1:1 mole
 
@@ -2130,19 +2119,15 @@ module EMIS_MAPS_MEGAN
 !  Tan          07/18/11 - Updated for MEGANv2.10
 !=======================================================================
 
-      CHARACTER*16   MAP_SAPRC99MECH
-      PARAMETER     (MAP_SAPRC99MECH = 'SAPRC99         ')
-
-      INTEGER        N_SAPRC99
-      PARAMETER     (N_SAPRC99 = 150)        ! Number of map species
-
-      CHARACTER*16       SPMH_NAM_SAPRC99( N_SAPRC99 )   ! speciated species name
-      INTEGER, target :: SPMH_MAP_SAPRC99( N_SAPRC99 )   ! speciated species name
-                                                         ! mapped to SPC_SPCAT.EXT
-      CHARACTER*16       MECH_NAM_SAPRC99( N_SAPRC99 )   ! mechanism species
-      INTEGER, target :: MECH_MAP_SAPRC99( N_SAPRC99 )   ! mechanism species mapped
-                                                         ! to SPC_SAPRC99.EXT
-      REAL, target ::    CONV_FAC_SAPRC99( N_SAPRC99 )   ! conversion factor
+      CHARACTER(16), PARAMETER :: MAP_SAPRC99MECH = 'SAPRC99'
+      INTEGER      , PARAMETER :: N_SAPRC99 = 150                 ! Number of map species
+      CHARACTER(16)            :: SPMH_NAM_SAPRC99( N_SAPRC99 )   ! speciated species name
+      INTEGER      , TARGET    :: SPMH_MAP_SAPRC99( N_SAPRC99 )   ! speciated species name
+                                                                  ! mapped to SPC_SPCAT.EXT
+      CHARACTER(16)            :: MECH_NAM_SAPRC99( N_SAPRC99 )   ! mechanism species
+      INTEGER      , target    :: MECH_MAP_SAPRC99( N_SAPRC99 )   ! mechanism species mapped
+                                                                  ! to SPC_SAPRC99.EXT
+      REAL         , target ::    CONV_FAC_SAPRC99( N_SAPRC99 )   ! conversion factor
 
 
       DATA  SPMH_NAM_SAPRC99(  1)     , SPMH_MAP_SAPRC99(  1)  &

@@ -1001,7 +1001,7 @@
                          XMSG = '*** For Species ' // TRIM( CHEMISTRY_SPC( I ) ) &
     &                        // ' species unit conversion flag does not match mechanism value.'
                          WRITE( LOGDEV,'( /5X, A )' ) TRIM( XMSG )
-                         WRITE( XMSG,'(A,1X,L21X,L2)')'CONVERSION FLAGS: Mechanism and NML Values are ', &
+                         WRITE( XMSG,'(A,1X,L2,1X,L2)')'CONVERSION FLAGS: Mechanism and NML Values are ', &
     &                    CONVERT_CONC( I ),NML_CONVERT( I1 )
                          WRITE( LOGDEV,'( 5X, A )' )XMSG
                          WRITE( XMSG,'(A,1X,A3,1X,A3)')'SPECIES TYPE: Mechanism and NML Values are ',    &

@@ -1,7 +1,6 @@
 module CONSTS_MEGAN
 
-  INTEGER, PARAMETER :: N_MGN_SPC  = 20
-
+  INTEGER, PARAMETER :: N_MGN_SPC = 20
   INTEGER, PARAMETER :: Layers = 5
 
   REAL, PARAMETER ::                      & 
@@ -22,8 +21,8 @@ module CONSTS_MEGAN
 !=======================================================================
 
       CHARACTER(16) :: MGN_SPC(N_MGN_SPC)
-      REAL        CLeo ( N_MGN_SPC)
-      REAL        Ctm1 ( N_MGN_SPC)
+      REAL          :: CLeo ( N_MGN_SPC)
+      REAL          :: Ctm1 ( N_MGN_SPC)
 
       DATA     MGN_SPC(  1) , CLeo(1) ,   Ctm1(1)  &
                / 'ISOP ' , 2.0, 95.0   /
@@ -67,8 +66,8 @@ module CONSTS_MEGAN
               / 'OTHER  ', 1.83, 80.0     /
 
 
-        INTEGER, PARAMETER ::  NMON = 12
-        INTEGER, PARAMETER ::  NrTyp = 16, NrCha = 16
+        INTEGER, PARAMETER :: NMON = 12
+        INTEGER, PARAMETER :: NrTyp = 16, NrCha = 16
 
     ! 1  = canopy depth
     ! 2  = leaf width
@@ -178,11 +177,11 @@ module CONSTS_MEGAN
 !  Jiang X.     05/07/12 - Update LDFs
 !=======================================================================
 
-      INTEGER,PARAMETER :: N_LDF_SPC  = 20
-      CHARACTER(16)     :: LDF_SPC(N_LDF_SPC)
-      REAL           LDF_FCT(N_LDF_SPC)
-      INTEGER        LDF_MAP(N_LDF_SPC)
-
+      INTEGER, PARAMETER :: N_LDF_SPC = 20
+      CHARACTER(16)      :: LDF_SPC(N_LDF_SPC)
+      REAL               :: LDF_FCT(N_LDF_SPC)
+      INTEGER            :: LDF_MAP(N_LDF_SPC)
+ 
       DATA     LDF_SPC(  1)      , LDF_FCT(  1), LDF_MAP(  1) &
              / 'ISOP            ', 0.999      , 1            /
 
@@ -196,7 +195,7 @@ module CONSTS_MEGAN
              / 'LIMO            ', 0.4        , 4            /
 
       DATA     LDF_SPC(  5)      , LDF_FCT(  5), LDF_MAP(  5) &
-             / 'A_3CAR            ', 0.4        , 5            /
+             / 'A_3CAR          ', 0.4        , 5            /
 
       DATA     LDF_SPC(  6)      , LDF_FCT(  6), LDF_MAP(  6) &
              / 'OCIM            ', 0.4         , 6            /
@@ -260,10 +259,10 @@ module CONSTS_MEGAN
 !                          See the update document.
 !=======================================================================
 
-      INTEGER,PARAMETER :: N_TDF_SPC  = 20
-      CHARACTER(16)     :: TDF_SPC(N_TDF_SPC)
-      REAL           TDF_PRM(N_TDF_SPc)
-      INTEGER        TDF_MAP(N_TDF_SPc)
+      INTEGER, PARAMETER :: N_TDF_SPC = 20
+      CHARACTER(16)      :: TDF_SPC(N_TDF_SPC)
+      REAL               :: TDF_PRM(N_TDF_SPC)
+      INTEGER            :: TDF_MAP(N_TDF_SPC)
 
       DATA     TDF_SPC(  1)      , TDF_PRM(  1), TDF_MAP(  1) &
              / 'ISOP            ', 0.13        , 1           /
@@ -278,7 +277,7 @@ module CONSTS_MEGAN
              / 'LIMO            ', 0.1         , 4           /
 
       DATA     TDF_SPC(  5)      , TDF_PRM(  5), TDF_MAP(  5) &
-             / 'A_3CAR            ', 0.1         , 5           /
+             / 'A_3CAR          ', 0.1         , 5           /
 
       DATA     TDF_SPC(  6)      , TDF_PRM(  6), TDF_MAP(  6) &
              / 'OCIM            ', 0.1         , 6           /
@@ -325,11 +324,10 @@ module CONSTS_MEGAN
 !------------------------------------------------------------------------
 !  relative emission activity index
 !------------------------------------------------------------------------
-      INTEGER,PARAMETER :: N_REA_SPC  = 20
-      CHARACTER(16)     :: REA_SPC(N_REA_SPC)
-      INTEGER           REA_INDEX(N_REA_SPC)
+      INTEGER, PARAMETER :: N_REA_SPC = 20
+      CHARACTER(16)      :: REA_SPC  (N_REA_SPC)
+      INTEGER            :: REA_INDEX(N_REA_SPC)
       
-
       DATA     REA_SPC(  1)      , REA_INDEX(  1) &
              / 'ISOP            ', 5                  /
 
@@ -343,7 +341,7 @@ module CONSTS_MEGAN
              / 'LIMO            ', 2                  /
 
       DATA     REA_SPC(  5)      , REA_INDEX(  5) &
-             / 'A_3CAR            ', 2                  /
+             / 'A_3CAR          ', 2                  /
 
       DATA     REA_SPC(  6)      , REA_INDEX(  6) &
              / 'OCIM            ', 2                   /
@@ -406,11 +404,11 @@ module CONSTS_MEGAN
 !  Tan          08/14/07 - Move from MEGAN v2.0 to MEGAN v2.02 with no update.
 !=======================================================================
 
-      INTEGER,PARAMETER :: N_CAT  = 5
-      REAL           Anew(N_CAT)
-      REAL           Agro(N_CAT)
-      REAL           Amat(N_CAT)
-      REAL           Aold(N_CAT)
+      INTEGER, PARAMETER :: N_CAT = 5
+      REAL               :: Anew(N_CAT)
+      REAL               :: Agro(N_CAT)
+      REAL               :: Amat(N_CAT)
+      REAL               :: Aold(N_CAT)
 
       DATA    Anew(  1),  Agro(  1),  Amat(  1),  Aold(  1) &
            /  1.0      ,  1.0      ,  1.0      ,  1.0       /
@@ -443,10 +441,10 @@ module CONSTS_MEGAN
 !  Tan          08/14/07 - Move from MEGAN v2.0 to MEGAN v2.02 with no update.
 !=======================================================================
 
-      INTEGER,PARAMETER :: N_RHO_SPC  = 20
-      CHARACTER(16)     :: RHO_SPC(N_RHO_SPC)
-      REAL           RHO_FCT(N_RHO_SPC)
-      INTEGER        RHO_MAP(N_RHO_SPC)
+      INTEGER, PARAMETER :: N_RHO_SPC = 20
+      CHARACTER(16)      :: RHO_SPC(N_RHO_SPC)
+      REAL               :: RHO_FCT(N_RHO_SPC)
+      INTEGER            :: RHO_MAP(N_RHO_SPC)
 
       DATA     RHO_SPC(  1)      , RHO_FCT(  1), RHO_MAP(  1) &
              / 'ISOP            ',   1.0       , 1           /
@@ -460,7 +458,7 @@ module CONSTS_MEGAN
              / 'LIMO            ',   1.0       , 4           /
 
       DATA     RHO_SPC(  5)      , RHO_FCT(  5), RHO_MAP(  5) &
-             / 'A_3CAR            ',   1.0       , 5           /
+             / 'A_3CAR          ',   1.0       , 5           /
 
       DATA     RHO_SPC(  6)      , RHO_FCT(  6), RHO_MAP(  6) &
              / 'OCIM            ',   1.0       , 6           /
@@ -519,9 +517,9 @@ module CONSTS_MEGAN
 !  Xuemei      06/15/2009 - Creates this file
 !=======================================================================
 
-      INTEGER,PARAMETER :: N_PRM_SPC  = 20
-      REAL           CT1( N_PRM_SPC)
-      REAL           Cceo(N_PRM_SPC)
+      INTEGER, PARAMETER :: N_PRM_SPC = 20
+      REAL               :: CT1 (N_PRM_SPC)
+      REAL               :: Cceo(N_PRM_SPC)
 
       DATA    CT1(1),Cceo (1)    /  95.0, 2.0  /
       DATA    CT1(2),Cceo (2)    /  80.0, 1.83  /
@@ -559,10 +557,10 @@ module CONSTS_MEGAN
 !  Tan          07/07/11 - Creates this file for MEGANv2.10
 !=======================================================================
 
-      INTEGER,PARAMETER :: N_MGN_PFT = 16
-      CHARACTER(16)     :: MGN_PFT(N_MGN_PFT)
-      CHARACTER(16)     :: MGN_NAM(N_MGN_PFT)
-      REAL           MGN_DUM(N_MGN_PFT)
+      INTEGER, PARAMETER :: N_MGN_PFT = 36
+      CHARACTER(16)      :: MGN_PFT(N_MGN_PFT)
+      CHARACTER(36)      :: MGN_NAM(N_MGN_PFT)
+      REAL               :: MGN_DUM(N_MGN_PFT)
 
       DATA     MGN_PFT(  1), MGN_DUM(  1) / 'NT_EG_TEMP      ', 1.0    /
       DATA     MGN_PFT(  2), MGN_DUM(  2) / 'NT_DC_BORL      ', 1.0    /
@@ -617,7 +615,7 @@ module CONSTS_MEGAN
 !  Jiang X.      05/07/2012 - Updates EFs for 20 SPC with new values from Guenther
 !=======================================================================
 
-      INTEGER,PARAMETER :: N_EF_SPC = 20      ! Number of categories
+      INTEGER, PARAMETER :: N_EF_SPC = 20     ! Number of categories
 
 !     EF_NT_EG_TEMP EF_NT_DC_BORL EF_NT_EG_BORL EF_BT_EG_TROP
 !     EF_BT_EG_TEMP EF_BT_DC_TROP EF_BT_DC_TEMP EF_BT_DC_BORL
@@ -746,7 +744,7 @@ module CONSTS_MEGAN
 !  Jiang X.     05/07/12 - Update EF factions with new values from Guenther
 !=======================================================================
                                                                                                     
-      INTEGER,PARAMETER :: N_EFFS_SPC = 150   ! Number of chemical species
+      INTEGER, PARAMETER :: N_EFFS_SPC = 150  ! Number of chemical species
 
 !     EFFS_NT_EG_TEMP EFFS_NT_DC_BORL EFFS_NT_EG_BORL EFFS_BT_EG_TROP EFFS_BT_EG_TEMP
 !     EFFS_BT_DC_TROP EFFS_BT_DC_TEMP EFFS_BT_DC_BORL EFSF_SB_EG_TEMP EFFS_SB_DC_TEMP

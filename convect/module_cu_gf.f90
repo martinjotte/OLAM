@@ -430,46 +430,46 @@ CONTAINS
 !========================================================================================
 
    SUBROUTINE CUP_gf(ktf               &
-     	            !input data
-     		    ,dx 	       &
-     		    ,DTIME	       &
-     		    ,kpbl	       &
-     		    ,ccn	       &
-     		    ,rho	       &
-     		    ,mconv	       &
-     		    ,omeg	       &
-     		    ,AAEQ	       &
-     		    ,T  	       &
-     		    ,Q  	       &
-     		    ,Z1                &
+                    !input data
+                    ,dx                &
+                    ,DTIME             &
+                    ,kpbl              &
+                    ,ccn               &
+                    ,rho               &
+                    ,mconv             &
+                    ,omeg              &
+                    ,AAEQ              &
+                    ,T                 &
+                    ,Q                 &
+                    ,Z1                &
                     ,xland             &
-     		    ,TN 	       &
-     		    ,QO 	       &
-     		    ,zo 	       &
-     		    ,PO 	       &
-     		    ,P  	       &
-     		    ,PSUR	       &
-     		    ,US 	       &
-     		    ,VS 	       &
-     		    ,zws	       &
-     		    ,dhdt	       &
-     		    !output data
-     		    ,ierr,ierrc        &
-     		    ,xmb_out	       &
-     		    ,sub_mas ,subt,subq&
-     		    ,PRE	       &
-     		    ,OUTT	       &
-     		    ,OUTQ	       &
-     		    ,OUTQC	       &
-     		    ,outu	       &
-     		    ,outv	       &
-     		    ,cupclw	       &
-     		    ,kbcon,ktop,k22    &
-     		    ,jmin,edt          &
+                    ,TN                &
+                    ,QO                &
+                    ,zo                &
+                    ,PO                &
+                    ,P                 &
+                    ,PSUR              &
+                    ,US                &
+                    ,VS                &
+                    ,zws               &
+                    ,dhdt              &
+                    !output data
+                    ,ierr,ierrc        &
+                    ,xmb_out           &
+                    ,sub_mas ,subt,subq&
+                    ,PRE               &
+                    ,OUTT              &
+                    ,OUTQ              &
+                    ,OUTQC             &
+                    ,outu              &
+                    ,outv              &
+                    ,cupclw            &
+                    ,kbcon,ktop,k22    &
+                    ,jmin,edt          &
                     ,xf_ens,pr_ens,qce )
   
      IMPLICIT NONE
-     		    
+                    
      integer                                                           &
         ,intent (in   )                   ::                           &
         ktf
@@ -3898,32 +3898,32 @@ endif
 
 !--------------------------------------------------------------------
 
-   SUBROUTINE CUP_gf_sh(ktf	                 &
-	     !input data                         &
-	     ,DTIME                              &
-	     ,PSUR				 &
-             ,Z1		                 &
-             ,ztexec				 &
-	     ,zqexec				 &
-	     ,dhdt        			 &
-             ,zws				 &
-	     ,zo				 &
-	     ,AAEQ				 &
-	     ,T 				 &
-	     ,Q 				 &
-             ,TN				 &
-	     ,QO				 &
-	     ,PO				 &
-	     ,P 				 &
-             ,kpbl  				 &
-	     !output data			 &
-	     ,ierr,ierrc   			 &
-             ,xmb_out				 &
-	     ,OUTT				 &
-	     ,OUTQ				 &
-	     ,OUTQC				 &
-             ,cupclw				 &
-	     ,kbcon,ktop,k22                     )  
+   SUBROUTINE CUP_gf_sh(ktf                      &
+             !input data                         &
+             ,DTIME                              &
+             ,PSUR                               &
+             ,Z1                                 &
+             ,ztexec                             &
+             ,zqexec                             &
+             ,dhdt                               &
+             ,zws                                &
+             ,zo                                 &
+             ,AAEQ                               &
+             ,T                                  &
+             ,Q                                  &
+             ,TN                                 &
+             ,QO                                 &
+             ,PO                                 &
+             ,P                                  &
+             ,kpbl                               &
+             !output data                        &
+             ,ierr,ierrc                         &
+             ,xmb_out                            &
+             ,OUTT                               &
+             ,OUTQ                               &
+             ,OUTQC                              &
+             ,cupclw                             &
+             ,kbcon,ktop,k22                     )  
 
    IMPLICIT NONE
 

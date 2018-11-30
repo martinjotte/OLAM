@@ -335,12 +335,12 @@ Contains
     use misc_coms, only: io6
     implicit none
 
-    real, target,           intent(in) :: varp (:,:)
-    real, target,           intent(in) :: vart (:,:)
+    real, target, contiguous,          intent(in) :: varp (:,:)
+    real, target, contiguous,          intent(in) :: vart (:,:)
     character(len=*),       intent(in) :: name
 
-    real, target, optional, intent(in) :: sxfer(:,:)
-    real, target, optional, intent(in) :: emis (:,:)
+    real, target, contiguous, optional, intent(in) :: sxfer(:,:)
+    real, target, contiguous, optional, intent(in) :: emis (:,:)
     logical,      optional, intent(in) :: cu_mix
     logical,      optional, intent(in) :: pos_def
 

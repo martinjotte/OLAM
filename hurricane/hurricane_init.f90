@@ -1823,9 +1823,8 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   integer :: k,km,i,ival,icolor,ibox,ln,nnn
   real :: bsize,yinc
 
-  data iasf / 18*1 /
-  character*8 :: number,numbr
-  character*60 :: title
+  character(8)  :: number,numbr
+  character(60) :: title
 
 ! turn off the clipping indicator.
 
@@ -1833,6 +1832,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! set all the gks aspect source flags to "individual".
 
+  iasf(:) = 1
   call o_gsasf (iasf)
 
 ! force solid fill.

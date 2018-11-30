@@ -718,7 +718,7 @@
                  (nlayers, icpr, idelm, nsfc, frac_sfck, &
                   pavel, tavel, pz, tz, tbound, albdif, albdir, &
                   zcldfmc, ztaucmc, zasycmc, zomgcmc, ztaormc, &
-                  ztaua, zasya, zomga, cossza, coldry, wkl, adjflux, &	 
+                  ztaua, zasya, zomga, cossza, coldry, wkl, adjflux, &
                   laytrop, layswtch, laylow, jp, jt, jt1, &
                   co2mult, colch4, colco2, colh2o, colmol, coln2o, colo2, colo3, &
                   fac00, fac01, fac10, fac11, &
@@ -732,7 +732,7 @@
                  (nlayers, icpr, idelm, nsfc, frac_sfck, &
                   pavel, tavel, pz, tz, tbound, albdif, albdir, &
                   zcldfmc, ztaucmc, zasycmc, zomgcmc, ztaormc, &
-                  ztaua, zasya, zomga, cossza, coldry, wkl, adjflux, &	 
+                  ztaua, zasya, zomga, cossza, coldry, wkl, adjflux, &
                   laytrop, layswtch, laylow, jp, jt, jt1, &
                   co2mult, colch4, colco2, colh2o, colmol, coln2o, colo2, colo3, &
                   fac00, fac01, fac10, fac11, &

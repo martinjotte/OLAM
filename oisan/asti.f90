@@ -537,13 +537,13 @@ do iter = 1,100
    do k = kbc+1,mza
       pkhyd = o_press(k-1) &
             - grav * (o_rho(k-1,iw) * dzt_top(k-1) + o_rho(k,iw) * dzt_bot(k))
-      o_press(k) = .05 * o_press(k) + .95 * max(.1,pkhyd)
+      o_press(k) = .05 * o_press(k) + .95 * max(.1_r8,pkhyd)
    enddo
 
    do k = kbc-1,ka,-1
       pkhyd = o_press(k+1) &
             + grav * (o_rho(k+1,iw) * dzt_bot(k+1) + o_rho(k,iw) * dzt_top(k))
-      o_press(k) = .05 * o_press(k) + .95 * max(.1,pkhyd)
+      o_press(k) = .05 * o_press(k) + .95 * max(.1_r8,pkhyd)
    enddo
 
 enddo

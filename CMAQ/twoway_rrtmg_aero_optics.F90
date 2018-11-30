@@ -54,7 +54,7 @@
 
 ! initialize a complex number
 
-!        real*8, intent(in)    :: x, y
+!        real(8), intent(in)   :: x, y
 
 !        character (len = 80) :: str
 
@@ -79,7 +79,7 @@
         type (complex_number) function c_add_cr (z1, num)
 
         type (complex_number), intent(in) :: z1
-        real*8, intent(in)                :: num
+        real(8), intent(in)               :: num
 
         c_add_cr%real_part = z1%real_part + num
         c_add_cr%imag_part = z1%imag_part
@@ -90,7 +90,7 @@
         type (complex_number) function c_add_rc (num2, z2)
 
         type (complex_number), intent(in) :: z2
-        real*8, intent(in)                :: num2
+        real(8), intent(in)               :: num2
 
         c_add_rc%real_part = z2%real_part + num2
         c_add_rc%imag_part = z2%imag_part
@@ -111,7 +111,7 @@
         type (complex_number) function c_sub_cr (z1, num)
 
         type (complex_number), intent(in) :: z1
-        real*8, intent(in)                :: num
+        real(8), intent(in)               :: num
 
         c_sub_cr%real_part = z1%real_part - num
         c_sub_cr%imag_part = z1%imag_part
@@ -122,7 +122,7 @@
         type (complex_number) function c_sub_rc (num2, z2)
 
         type (complex_number), intent(in) :: z2
-        real*8, intent(in)                :: num2
+        real(8), intent(in)               :: num2
 
         c_sub_rc%real_part = num2 - z2%real_part
         c_sub_rc%imag_part =      - z2%imag_part
@@ -143,7 +143,7 @@
         type (complex_number) function c_mul_rc (x, z1)
 
         type (complex_number), intent(in) :: z1
-        real*8, intent(in)                :: x
+        real(8), intent(in)               :: x
 
         c_mul_rc%real_part = z1%real_part * x
         c_mul_rc%imag_part = z1%imag_part * x
@@ -176,7 +176,7 @@
 
 ! compute 1 / z1
 
-        real*8, intent(in)                :: num
+        real(8), intent(in)               :: num
         type (complex_number), intent(in) :: z1
 
         real(kind=real_16) :: denom, temp
@@ -213,7 +213,7 @@
         end function c_cos
 
 ! --------------------------------------------------------------------------
-        real*8 function c_abs (z1)
+        real(8) function c_abs (z1)
 
 ! compute absolute value of a complex number
 
@@ -225,7 +225,7 @@
 
 ! --------------------------------------------------------------------------
 
-        real*8 function c_abs_sq (z1)
+        real(8) function c_abs_sq (z1)
 
 ! compute the square of the absolute value of a complex number
 
@@ -331,7 +331,7 @@ contains
        complex( 8 ) :: refractive_index
        
        x = real( XX, 8 )
-       refractive_index = dcmplx( real( CREFIN ), imag( CREFIN ) )
+       refractive_index = cmplx( real( CREFIN ), aimag( CREFIN ) )
        
        modulus = int( abs( x * refractive_index ) )      
        nstop = int( x + 4.0d0 * x**one_third + 2.0d0 )
@@ -394,17 +394,17 @@ contains
 !       in calling routine!
 
        integer, parameter :: MXNANG=10, NMXX=600000   ! FSB new limits
-       real*8, parameter  :: PII = 3.1415916536
-       real*8, parameter  :: ONE = 1.0D0, TWO = 2.0D0
+       real(8), parameter :: PII = 3.1415916536
+       real(8), parameter :: ONE = 1.0D0, TWO = 2.0D0
 
 ! Local variables:
        integer    :: NANG
        integer    :: N,NSTOP,NMX,NN
-       real*8     :: QSCA, QEXT, DX1, DXX1      
-       real*8     :: CHI,CHI0,CHI1,DX,EN,P,PSI,PSI0,PSI1,XSTOP,YMOD               
-       real*8     :: TWO_N_M_ONE, TWO_N_P_ONE, EN1, FACTOR
-       complex*16 :: AN,AN1,BN,BN1,DREFRL,XI,XI1,Y, Y1, DREFRL1
-       complex*16 :: D(NMXX), FAC1, FAC2
+       real(8)    :: QSCA, QEXT, DX1, DXX1      
+       real(8)    :: CHI,CHI0,CHI1,DX,EN,P,PSI,PSI0,PSI1,XSTOP,YMOD               
+       real(8)    :: TWO_N_M_ONE, TWO_N_P_ONE, EN1, FACTOR
+       complex(8) :: AN,AN1,BN,BN1,DREFRL,XI,XI1,Y, Y1, DREFRL1
+       complex(8) :: D(NMXX), FAC1, FAC2
        complex    :: XBACK
 
 !***********************************************************************
@@ -494,7 +494,7 @@ contains
 !*** Logarithmic derivative D(J) calculated by downward recurrence
 !    beginning with initial value (0.,0.) 
  
-       D(NMX) = DCMPLX(0.0D0,0.0D0)
+       D(NMX) = CMPLX(0.0D0,0.0D0)
        NN = NMX - 1
        DO N = 1,NN
           EN  = NMX - N + 1
@@ -510,7 +510,7 @@ contains
        PSI1 =  SIN(DX)
        CHI0 = -SIN(DX)
        CHI1 =  PSI0
-       XI1  =  DCMPLX(PSI1,-CHI1)
+       XI1  =  CMPLX(PSI1,-CHI1)
        QSCA =  0.0D0
        GSCA =  0.0D0
        QEXT =  0.0D0
@@ -528,7 +528,7 @@ contains
 ! Calculate psi_n and chi_n
           PSI = TWO_N_M_ONE * PSI1 * DX1 - PSI0
           CHI = TWO_N_M_ONE * CHI1 * DX1 - CHI0
-          XI  = DCMPLX(PSI,-CHI)
+          XI  = CMPLX(PSI,-CHI)
  
 !*** Compute AN and BN:
 ! FSB Rearrange to get common terms
@@ -552,12 +552,12 @@ contains
 ! FSB calculate asymmetry factor   
        
           GSCA = GSCA + ((TWO_N_P_ONE)/(EN * (EN + ONE))) *     &
-                 (REAL(AN)*REAL(BN)+IMAG(AN)*IMAG(BN))
+                 (REAL(AN)*REAL(BN)+AIMAG(AN)*AIMAG(BN))
 
           IF (N .GT. 1)THEN
              GSCA = GSCA + (EN - EN1) *                         &
-                    (REAL(AN1)*REAL(AN) + IMAG(AN1)*IMAG(AN) +  &
-                     REAL(BN1)*REAL(BN) + IMAG(BN1)*IMAG(BN))
+                    (REAL(AN1)*REAL(AN) + AIMAG(AN1)*AIMAG(AN) +  &
+                     REAL(BN1)*REAL(BN) + AIMAG(BN1)*AIMAG(BN))
           ENDIF
 
 !*** Store previous values of AN and BN for use in computation of g=<cos(theta)>
@@ -569,7 +569,7 @@ contains
           PSI1 = PSI
           CHI0 = CHI1
           CHI1 = CHI
-          XI1  = DCMPLX(PSI1,-CHI1)
+          XI1  = CMPLX(PSI1,-CHI1)
 
        END DO   ! main  loop on n
  
@@ -936,51 +936,52 @@ contains
        real, intent(out) :: g        ! asmmetry factor
 
 !     internal variables
-       complex*16  :: m, m2,m4,m6,m21,m22 
-       complex*16  :: P,Q,R,S,T,U,V,W
-       complex*16  :: Qprime, Rprime,Sprime,Tprime
-       complex*16  :: Uprime, Vprime, Wprime
-       real*8      :: Qs, gQs, gpennCS
-       real*8      :: P1,P2, Q1, Q2 , S2,V1, V2 ! see usage
-       real*8      :: P1SQ, P2SQ  ! see usage
-       real*8      :: y, y2, y3, y4, y6, y7,  y8, y9       
-       real*8      :: x, x2, x3, x4, x6, x7,  x8, x9 
-       real        :: mag, modalf
+       complex(8) :: m, m2,m4,m6,m21,m22 
+       complex(8) :: P,Q,R,S,T,U,V,W
+       complex(8) :: Qprime, Rprime,Sprime,Tprime
+       complex(8) :: Uprime, Vprime, Wprime
+       real(8)    :: Qs, gQs, gpennCS
+       real(8)    :: P1,P2, Q1, Q2 , S2,V1, V2 ! see usage
+       real(8)    :: P1SQ, P2SQ  ! see usage
+       real(8)    :: y, y2, y3, y4, y6, y7,  y8, y9       
+       real(8)    :: x, x2, x3, x4, x6, x7,  x8, x9 
+       real       :: mag, modalf
+
 ! FSB define useful numbers and fractions 
        real, parameter :: pi = 3.14159265358979324d0 
        real, parameter :: three_pi_two = 1.5d0 * pi
 
-       real*8, parameter :: one = 1.0d0
-       real*8, parameter :: two = 2.0d0
-       real*8, parameter :: three = 3.0d0
-       real*8, parameter :: four = 4.0d0
-       real*8, parameter :: five = 5.0d0
-       real*8, parameter :: six = 6.0d0
-       real*8, parameter :: eight = 8.0d0
-       real*8, parameter :: nine = 9.0d0
-       real*8, parameter :: fifteen = 15.0d0
-       real*8, parameter :: fortyfive = 45.0d0
-!      real*8, parameter :: two5ths = two / five
-       real*8, parameter :: twothrds = two / three
-       real*8, parameter :: fourthirds = four / three
-       real*8, parameter :: onefifteenth = one / fifteen
-       real*8, parameter :: twofifteenths = two * onefifteenth
-!      real*8, parameter :: fourninths = four / nine
-       real*8, parameter :: eightthirds = two * fourthirds
-       real*8, parameter :: one_big = one / 31500.0d0
-       real*8, parameter :: two_fortyfive = two / fortyfive
-       real*8, parameter :: four_225 = four / 225.0d0 
-       real*8, parameter :: one_210 = one / 210.0d0
-!      real*8, parameter :: one_half = one / two 
-!      real*8, parameter :: four_two = two
-       real*8, parameter :: nine_two = 4.5d0
-!      real*8, parameter :: sixteen_two = eight
-!      real*8, parameter :: thirtysix_two = 36.0 / two
-!      real*8, parameter :: twentyfive_two = 25.0d0 / two
-!      real*8, parameter :: sixtyfour_two = 64.0d0 / two
-!      real*8, parameter :: fortynine_two = 49.0d0 / two
-!      real*8, parameter :: eightyone_two = 81.0d0 / two
-       real*8            :: A,B,C,D,E, AA,BB,CC
+       real(8), parameter :: one = 1.0d0
+       real(8), parameter :: two = 2.0d0
+       real(8), parameter :: three = 3.0d0
+       real(8), parameter :: four = 4.0d0
+       real(8), parameter :: five = 5.0d0
+       real(8), parameter :: six = 6.0d0
+       real(8), parameter :: eight = 8.0d0
+       real(8), parameter :: nine = 9.0d0
+       real(8), parameter :: fifteen = 15.0d0
+       real(8), parameter :: fortyfive = 45.0d0
+!      real(8), parameter :: two5ths = two / five
+       real(8), parameter :: twothrds = two / three
+       real(8), parameter :: fourthirds = four / three
+       real(8), parameter :: onefifteenth = one / fifteen
+       real(8), parameter :: twofifteenths = two * onefifteenth
+!      real(8), parameter :: fourninths = four / nine
+       real(8), parameter :: eightthirds = two * fourthirds
+       real(8), parameter :: one_big = one / 31500.0d0
+       real(8), parameter :: two_fortyfive = two / fortyfive
+       real(8), parameter :: four_225 = four / 225.0d0 
+       real(8), parameter :: one_210 = one / 210.0d0
+!      real(8), parameter :: one_half = one / two 
+!      real(8), parameter :: four_two = two
+       real(8), parameter :: nine_two = 4.5d0
+!      real(8), parameter :: sixteen_two = eight
+!      real(8), parameter :: thirtysix_two = 36.0 / two
+!      real(8), parameter :: twentyfive_two = 25.0d0 / two
+!      real(8), parameter :: sixtyfour_two = 64.0d0 / two
+!      real(8), parameter :: fortynine_two = 49.0d0 / two
+!      real(8), parameter :: eightyone_two = 81.0d0 / two
+       real(8)            :: A,B,C,D,E, AA,BB,CC
 
 ! FSB start code
        mag = sqrt( n * n + k * k )
@@ -1709,10 +1710,10 @@ contains
 
 ! Local variables:
      
-!      real*8, parameter     :: DEL = 1.0D-08
-       real*8, parameter     :: DEL = 1.0D-06
-       real*8, parameter     :: ONE = 1.0D0, TWO = 2.0D0 
-!      complex*16, save :: II
+!      real(8), parameter     :: DEL = 1.0D-08
+       real(8), parameter     :: DEL = 1.0D-06
+       real(8), parameter     :: ONE = 1.0D0, TWO = 2.0D0 
+!      complex(8), save :: II
 !      data II/(0.D0,1.D0)/
        type(complex_number) :: II
 
@@ -1724,11 +1725,11 @@ contains
 !              del is the inner sphere convergence criterion
 !         -----------------------------------------------------------
      
-       real*8 :: CHI0Y,CHI1Y,CHIY,PSI0Y,PSI1Y,PSIY,QEXT,RN,QSCA,X,Y,YSTOP,GSCA
-       real*8 :: TWO_N_M_ONE, TWO_N_P_ONE
-       real*8 :: RY, RYY, RNRY, RN1, factor
+       real(8) :: CHI0Y,CHI1Y,CHIY,PSI0Y,PSI1Y,PSIY,QEXT,RN,QSCA,X,Y,YSTOP,GSCA
+       real(8) :: TWO_N_M_ONE, TWO_N_P_ONE
+       real(8) :: RY, RYY, RNRY, RN1, factor
        
-!      complex*16 :: AMESS1,AMESS2,AMESS3,AMESS4,AN,ANCAP,AN1, BN,BNCAP,BN1, BRACK,   &
+!      complex(8) :: AMESS1,AMESS2,AMESS3,AMESS4,AN,ANCAP,AN1, BN,BNCAP,BN1, BRACK,   &
        type(complex_number) :: AMESS1,AMESS2,AMESS3,AMESS4,AN,ANCAP,AN1, BN,BNCAP,BN1, BRACK,   &
                      CHI0X2,CHI0Y2,CHI1X2,CHI1Y2,CHIX2,CHIPX2,CHIPY2,CHIY2,CRACK,     &
                      D0X1,D0X2,D0Y2,D1X1,D1X2,D1Y2,DNBAR,GNBAR,                       &
@@ -2197,7 +2198,7 @@ contains
       real, parameter :: sqrtpi1 = 1.0 / sqrtpi 
       real, parameter :: sqrt2 = 1.414214 
       real, parameter :: three_pi_two = 3.0 * pi / 2.0 
-      real, parameter ::  const = three_pi_two * sqrtpi1 
+      real, parameter :: const = three_pi_two * sqrtpi1 
  
 !  *** these are Qext/alfa and Qscat/alfv at the abscissas
        real    :: qalfip_e, qalfim_e     ! extinction  
@@ -2367,21 +2368,21 @@ contains
 ! Note: important that MXNANG be consistent with dimension of S1 and S2
 !       in calling routine!
 
-       integer, parameter    :: MXNANG=10, NMXX=150000   ! FSB new limits
-       integer, parameter    :: NANG  = 2
-       real*8, parameter     :: PII = 3.1415916536D0
-       real*8, parameter     :: ONE = 1.0D0, TWO = 2.0D0
-       complex*16, parameter :: COMPLEX_DZERO = (0.0D0,0.0D0)
+       integer,    parameter :: MXNANG=10, NMXX=150000   ! FSB new limits
+       integer,    parameter :: NANG  = 2
+       real(8),    parameter :: PII = 3.1415916536D0
+       real(8),    parameter :: ONE = 1.0D0, TWO = 2.0D0
+       complex(8), parameter :: COMPLEX_DZERO = (0.0D0,0.0D0)
        complex,    parameter :: COMPLEX_ZERO  = (0.0,0.0)
 
 ! Local variables:
        integer    :: N, NN
-       real*8     :: QSCA, QEXT, DX1, DXX1      
-       real*8     :: CHI,CHI0,CHI1,DX,EN,P,PSI,PSI0,PSI1,XSTOP,YMOD               
-       real*8     :: TWO_N_M_ONE, TWO_N_P_ONE, EN1, FACTOR
-       complex*16 :: AN,AN1,BN,BN1,DREFRL,XI,XI1,Y, Y1, DREFRL1
-       complex*16 :: D(NMX)
-       complex*16 :: FAC1, FAC2
+       real(8)    :: QSCA, QEXT, DX1, DXX1      
+       real(8)    :: CHI,CHI0,CHI1,DX,EN,P,PSI,PSI0,PSI1,XSTOP,YMOD               
+       real(8)    :: TWO_N_M_ONE, TWO_N_P_ONE, EN1, FACTOR
+       complex(8) :: AN,AN1,BN,BN1,DREFRL,XI,XI1,Y, Y1, DREFRL1
+       complex(8) :: D(NMX)
+       complex(8) :: FAC1, FAC2
        complex    :: XBACK
 
 !***********************************************************************
@@ -2437,7 +2438,7 @@ contains
 ! FSB Define reciprocals so that divisions can be replaced by multiplications.      
        DX1  = ONE / DX
        DXX1 = DX1 * DX1
-       DREFRL = DCMPLX( REAL( REFREL ), IMAG( REFREL ) )
+       DREFRL = CMPLX( REAL( REFREL ), AIMAG( REFREL ) )
        DREFRL1 = ONE / DREFRL
        Y = DX * DREFRL
        Y1 = ONE / Y
@@ -2487,7 +2488,7 @@ contains
        PSI1 =  SIN(DX)
        CHI0 = -SIN(DX)
        CHI1 =  PSI0
-       XI1  =  DCMPLX(PSI1,-CHI1)
+       XI1  =  CMPLX(PSI1,-CHI1)
        QSCA =  0.0D0
        GSCA =  0.0D0
        QEXT =  0.0D0
@@ -2505,7 +2506,7 @@ contains
 ! Calculate psi_n and chi_n
           PSI = TWO_N_M_ONE * PSI1 * DX1 - PSI0
           CHI = TWO_N_M_ONE * CHI1 * DX1 - CHI0
-          XI  = DCMPLX(PSI,-CHI)
+          XI  = CMPLX(PSI,-CHI)
  
 !*** Compute AN and BN:
 ! FSB Rearrange to get common terms
@@ -2529,12 +2530,12 @@ contains
 ! FSB calculate asymmetry factor   
        
           GSCA = GSCA + ((TWO_N_P_ONE)/(EN * (EN + ONE))) *     &
-                 (REAL(AN)*REAL(BN)+IMAG(AN)*IMAG(BN))
+                 (REAL(AN)*REAL(BN)+AIMAG(AN)*AIMAG(BN))
 
           IF (N .GT. 1)THEN
              GSCA = GSCA + (EN - EN1) *                         &
-                    (REAL(AN1)*REAL(AN) + IMAG(AN1)*IMAG(AN) +  &
-                     REAL(BN1)*REAL(BN) + IMAG(BN1)*IMAG(BN))
+                    (REAL(AN1)*REAL(AN) + AIMAG(AN1)*AIMAG(AN) +  &
+                     REAL(BN1)*REAL(BN) + AIMAG(BN1)*AIMAG(BN))
           ENDIF
 
 !*** Store previous values of AN and BN for use in computation of g=<cos(theta)>
@@ -2546,7 +2547,7 @@ contains
           PSI1 = PSI
           CHI0 = CHI1
           CHI1 = CHI
-          XI1  = DCMPLX(PSI1,-CHI1)
+          XI1  = CMPLX(PSI1,-CHI1)
 
        END DO   ! main  loop on n
  

@@ -551,8 +551,8 @@
             taug(lay,ngs17+ig) = colch4(lay) * &
                 (fac00(lay) * absb(ind0,ig) + &
                  fac10(lay) * absb(ind0+1,ig) + &
-                 fac01(lay) * absb(ind1,ig) + &	  
-                 fac11(lay) * absb(ind1+1,ig)) 
+                 fac01(lay) * absb(ind1,ig) + &
+                 fac11(lay) * absb(ind1+1,ig))
 !           ssa(lay,ngs17+ig) = tauray/taug(lay,ngs17+ig)
            taur(lay,ngs17+ig) = tauray
          enddo
