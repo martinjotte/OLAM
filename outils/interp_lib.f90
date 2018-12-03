@@ -663,3 +663,45 @@ y = a * ydat(jlo) + b * ydat(jhi)  &
 return
 end
 
+!===============================================================================
+
+subroutine spline2_vec(n,m,xdat,ydat,yppdat,x,y)
+  implicit none
+
+  integer, intent(in ) :: n, m
+  real,    intent(in ) :: xdat(n)
+  real,    intent(in ) :: ydat(m,n), yppdat(m,n)
+  real,    intent(in ) :: x
+  real,    intent(out) :: y(m)
+
+  integer :: j,jhi,jlo
+  real    :: a,b,h,c,d,e
+
+  jlo = 1
+  jhi = n
+
+  do while (jhi-jlo > 1)
+     j = (jhi+jlo) / 2
+     if (xdat(j) > x) then
+        jhi = j
+     else
+        jlo = j
+     endif
+  enddo
+
+  if (jhi-jlo /= 1) stop 'bad input in spline2'
+
+  h = xdat(jhi) - xdat(jlo)
+  a = (xdat(jhi)-x) / h
+  b = (x-xdat(jlo)) / h
+  c = a**3 - a
+  d = b**3 - b
+  e = h**2 / 6.
+
+  do j = 1, m
+     y(j) = a * ydat(j,jlo) + b * ydat(j,jhi)  &
+          + (c * yppdat(j,jlo) + d * yppdat(j,jhi)) * e
+  enddo
+
+end subroutine spline2_vec
+

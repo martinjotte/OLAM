@@ -33,7 +33,7 @@
 Module mem_mclat
 
   private
-  public :: slat, mclat, ypp_mclat
+  public :: sslat, mclat, ypp_mclat
   public :: mclat_spline, rad_mclat
 
   real :: wtjan
@@ -43,8 +43,8 @@ Module mem_mclat
                                    ,25.,  45., 60., 90.,120.,135.  /)
   real :: sslat(13)
   real :: mcdat(33,9,6)
-  real :: mclat(13,33,6)
-  real :: ypp_mclat(13,33,6)  ! Expanded arrays for spline intp
+  real :: mclat(33,6,13)
+  real :: ypp_mclat(33,6,13)  ! Expanded arrays for spline intp
 
 !---------------------------------------------------------------------
 !  arctic winter
@@ -465,22 +465,22 @@ Contains
     wtjan = .5 * (1. + cos(6.283185 * (fjday-16.) / 365.))
     wtjul = 1. - wtjan
 
-    do lv = 1,33
-       do lf = 1,6
-          mclat( 3,lv,lf) = wtjan * mcdat(lv,2,lf) + wtjul * mcdat(lv,1,lf)
-          mclat( 4,lv,lf) = wtjan * mcdat(lv,4,lf) + wtjul * mcdat(lv,3,lf)
-          mclat( 5,lv,lf) = wtjan * mcdat(lv,6,lf) + wtjul * mcdat(lv,5,lf)
-          mclat( 6,lv,lf) = wtjan * mcdat(lv,8,lf) + wtjul * mcdat(lv,7,lf)
-          mclat( 7,lv,lf) =         mcdat(lv,9,lf)
-          mclat( 8,lv,lf) = wtjan * mcdat(lv,7,lf) + wtjul * mcdat(lv,8,lf)
-          mclat( 9,lv,lf) = wtjan * mcdat(lv,5,lf) + wtjul * mcdat(lv,6,lf)
-          mclat(10,lv,lf) = wtjan * mcdat(lv,3,lf) + wtjul * mcdat(lv,4,lf)
-          mclat(11,lv,lf) = wtjan * mcdat(lv,1,lf) + wtjul * mcdat(lv,2,lf)
+    do lf = 1,6
+       do lv = 1,33
+          mclat(lv,lf,3 ) = wtjan * mcdat(lv,2,lf) + wtjul * mcdat(lv,1,lf)
+          mclat(lv,lf,4 ) = wtjan * mcdat(lv,4,lf) + wtjul * mcdat(lv,3,lf)
+          mclat(lv,lf,5 ) = wtjan * mcdat(lv,6,lf) + wtjul * mcdat(lv,5,lf)
+          mclat(lv,lf,6 ) = wtjan * mcdat(lv,8,lf) + wtjul * mcdat(lv,7,lf)
+          mclat(lv,lf,7 ) =         mcdat(lv,9,lf)
+          mclat(lv,lf,8 ) = wtjan * mcdat(lv,7,lf) + wtjul * mcdat(lv,8,lf)
+          mclat(lv,lf,9 ) = wtjan * mcdat(lv,5,lf) + wtjul * mcdat(lv,6,lf)
+          mclat(lv,lf,10) = wtjan * mcdat(lv,3,lf) + wtjul * mcdat(lv,4,lf)
+          mclat(lv,lf,11) = wtjan * mcdat(lv,1,lf) + wtjul * mcdat(lv,2,lf)
 
-          mclat( 1,lv,lf) = mclat( 5,lv,lf)
-          mclat( 2,lv,lf) = mclat( 4,lv,lf)
-          mclat(12,lv,lf) = mclat(10,lv,lf)
-          mclat(13,lv,lf) = mclat( 9,lv,lf)
+          mclat(lv,lf,1 ) = mclat(lv,lf,5 )
+          mclat(lv,lf,2 ) = mclat(lv,lf,4 )
+          mclat(lv,lf,12) = mclat(lv,lf,10)
+          mclat(lv,lf,13) = mclat(lv,lf,9 )
        enddo
     enddo
 
@@ -494,8 +494,8 @@ Contains
     
     integer, intent(in) :: jday
 
-    integer :: lv
-    integer :: lf
+    integer :: lv, lf, ii
+    real    :: aa(13), bb(13)
 
     call mclat_copy(jday)
 
@@ -509,7 +509,13 @@ Contains
 
     do lv = 1,33
        do lf = 1,6
-          call spline1(13,slat,mclat(:,lv,lf),ypp_mclat(:,lv,lf))
+          do ii = 1, 13
+             aa(ii) = mclat(lv,lf,ii)
+          enddo
+          call spline1(13,sslat,aa,bb)
+          do ii = 1, 13
+             ypp_mclat(lv,lf,ii) = bb(ii)
+          enddo
        enddo
     enddo
 
@@ -558,11 +564,7 @@ Contains
 ! of a complete vertical column for a specific latitude.
 ! The result is in mcol(lv,lf).
 
-    do lv = 1,33    ! Loop over number of vertical levels
-       do lf = 1,6  ! Loop over number of data types
-          call spline2(13,sslat,mclat(:,lv,lf),ypp_mclat(:,lv,lf),glat,mcol(lv,lf))
-       enddo
-    enddo
+    call spline2_vec(13, 33*6, sslat, mclat, ypp_mclat, glat, mcol)
 
 ! Model values of dl, pl, tl, rl, zml, and ztl were filled in harr_radcomp
 ! from k = 1 to k = mza - koff
@@ -630,5 +632,3 @@ Contains
   end subroutine rad_mclat
 
 End Module mem_mclat
-
-

@@ -232,7 +232,7 @@ Contains
   subroutine fill_zonr_mclat(idate,imonth,iyear)
 
   use misc_coms,   only: io6
-  use mem_mclat,   only: slat, mclat, ypp_mclat, mclat_spline
+  use mem_mclat,   only: sslat, mclat, ypp_mclat, mclat_spline
 
   implicit none   
 
@@ -267,18 +267,11 @@ Contains
 
 ! Loop over vertical levels in McLatchy sounding
 
-     do lv = 1,33
-
-! Spline-interpolate (by latitude) Mclatchy pressure, vapor density, ozone,
-! and total density to current latitude
-
-        call spline2(13,slat,mclat(1,lv,2),ypp_mclat(1,lv,2),alat,mcol(lv,2))
-        call spline2(13,slat,mclat(1,lv,4),ypp_mclat(1,lv,4),alat,mcol(lv,4))
-        call spline2(13,slat,mclat(1,lv,5),ypp_mclat(1,lv,5),alat,mcol(lv,5))
-        call spline2(13,slat,mclat(1,lv,6),ypp_mclat(1,lv,6),alat,mcol(lv,6))
+     call spline2_vec(13, 33*6, sslat, mclat, ypp_mclat, alat, mcol)
 
 ! Compute water vapor and ozone specific humidities by dividing by total density
 
+     do lv = 1,33
         mcol(lv,4) = mcol(lv,4) / mcol(lv,6)
         mcol(lv,5) = mcol(lv,5) / mcol(lv,6)
      enddo
