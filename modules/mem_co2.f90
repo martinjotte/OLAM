@@ -33,9 +33,21 @@
 
 Module mem_co2
 
-  integer :: co2flag  ! CO2 flag:  0 = CO2 is not prognosed; 1 = CO2 is prognosed
+  use const_data, only: mwair
 
-  real, allocatable, target :: sh_co2(:,:) ! cloud water spec dens [kg_cld/kg_air]
+  ! CO2 flag:  0 = CO2 is not prognosed; 1 = CO2 is prognosed
+  integer           :: co2flag     = 0
+  real              :: co2_initppm = 400.0  ! ppmv = mol / 10^6 mol
+
+  real, parameter   :: co2_mw      = 44.0  ! g / mol
+  real, parameter   :: co2_ppm2sh  = co2_mw / mwair  * 1.e-6
+  real, parameter   :: co2_sh2ppm  = mwair  / co2_mw * 1.e+6
+
+  real, allocatable :: sh_co2(:,:) ! CO2 specific density [kg_CO2/kg_air]
+
+  integer           :: i_co2 = 0  ! index of co2 in scalar table
+
+  private           :: mwair
 
 Contains
 
@@ -85,7 +97,6 @@ Contains
 
   subroutine co2init()
 
-!  use misc_coms,   only: io6, runtype, co2flag
   use misc_coms,   only: io6, runtype
   use mem_ijtabs,  only: jtab_w, jtw_init
   use mem_grid,    only: mza
@@ -95,14 +106,19 @@ Contains
   implicit none
 
   integer :: j, iw
+  real    :: co2_initsh
 
   ! Initialize 3D and 2D microphysics fields
 
-  if (runtype == 'INITIAL' .and. allocated(sh_co2)) then
+  if (runtype == 'INITIAL' .and. allocated(sh_co2) .and. co2flag /= 0) then
 
+     co2_initsh = co2_initppm * co2_ppm2sh
+
+     !$omp parallel do
      do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
-        sh_co2(1:mza,iw) = 400.e-6 * (1.0 - sh_w(1:mza,iw))
+        sh_co2(2:mza,iw) = co2_initsh * (1.0 - sh_w(2:mza,iw))
      enddo
+     !$omp end parallel do
 
   endif ! runtype == 'INITIAL'
 

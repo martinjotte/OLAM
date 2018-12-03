@@ -115,7 +115,7 @@ subroutine copy_nl()
                          rparm, sparm, aparm, gparm, hparm, &
                          ccnparm, gccnparm, ifnparm
 
-  use mem_co2,     only: co2flag
+  use mem_co2,     only: co2flag, co2_initppm
 
   use leaf_coms,   only: nvgcon, nslcon, isoilflg, ndviflg, &
                          isfcl, ivegflg, nzg, nzs, slz, &
@@ -240,6 +240,7 @@ subroutine copy_nl()
   gccnparm      = nl%gccnparm
   ifnparm       = nl%ifnparm
   co2flag       = nl%co2flag
+  co2_initppm   = nl%co2_ppmv_init
   nvgcon        = nl%nvgcon
   nslcon        = nl%nslcon
   nsndg         = nl%nsndg

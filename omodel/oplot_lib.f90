@@ -58,7 +58,7 @@ use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        accpd, accpr, accpp, accps, accpa, accpg, accph, &
                        cldnum
 
-use mem_co2,     only: sh_co2
+use mem_co2,     only: sh_co2, co2_sh2ppm
 
 use ccnbin_coms, only: nccntyp
 
@@ -1284,7 +1284,7 @@ case(57) ! 'CO2CON'
    if (.not. allocated(sh_co2)) go to 1000
 
    fldval = (wtbot * sh_co2(k ,i) / (1.0 - sh_w(k ,i)) &
-          +  wttop * sh_co2(kp,i) / (1.0 - sh_w(kp,i))) * 1.e6
+          +  wttop * sh_co2(kp,i) / (1.0 - sh_w(kp,i))) * co2_sh2ppm
 
 case(62) ! 'RSHORT_TOP'
 

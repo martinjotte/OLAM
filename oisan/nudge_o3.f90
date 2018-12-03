@@ -33,9 +33,10 @@
 
 subroutine nudge_prep_o3(iaction, o_ozone)
 
-  use mem_nudge,  only: ozone_obsp, ozone_obsf, io3
+  use mem_nudge,  only: ozone_obsp, ozone_obsf
   use mem_grid,   only: mza, mwa
   use mem_ijtabs, only: jtab_w, jtw_init
+  use misc_coms,  only: i_o3
 
   implicit none
 
@@ -44,7 +45,8 @@ subroutine nudge_prep_o3(iaction, o_ozone)
   integer             :: j, iw, k
 
   ! Do nothing if we do not prognose ozone
-  if (io3 == 0) return
+
+  if (i_o3 == 0) return
 
 ! Swap future data time into past data time if necessary.
 
@@ -76,21 +78,21 @@ end subroutine nudge_prep_o3
 
 subroutine obs_nudge_o3()
 
-  use mem_nudge,  only: ozone_obsp, ozone_obsf, o3nudflag, tnudi_o3, o3nudpress, io3
+  use mem_nudge,  only: ozone_obsp, ozone_obsf, o3nudflag, tnudi_o3, o3nudpress
   use mem_basic,  only: rho, press
   use mem_grid,   only: mza, lpw
   use mem_ijtabs, only: istp, jtab_w, mrl_begl, jtw_prog, itab_w
   use isan_coms,  only: ifgfile, s1900_fg
-  use misc_coms,  only: io6, time8, s1900_sim, dtlm
+  use misc_coms,  only: io6, time8, s1900_sim, dtlm, i_o3
   use var_tables, only: scalar_tab
 
   implicit none
 
   integer :: k, j, iw, mrl, npoly, kbot
-  real    :: tp, tf, tnudi
+  real    :: tp, tf, tnudi, dtli
 
   ! Do nothing if we do not prognose ozone
-  if (io3 == 0) return
+  if (i_o3 == 0) return
 
   ! Check whether it is time to nudge
 
@@ -106,27 +108,29 @@ subroutine obs_nudge_o3()
 
   ! Compute ozone nudging tendency using point-by-point (non-spectral) information
 
-  !$omp parallel do private(iw,k,kbot)
+  !$omp parallel do private(iw,dtli,k,kbot)
   do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+     dtli = 1.0 / real(dtlm(itab_w(iw)%mrlw))
 
      ! Find level above which we nudge ozone
 
      do k = mza, lpw(iw), -1
         if (press(k,iw) > o3nudpress) exit
      enddo
+     kbot = k+1
 
-     kbot = max( k+1, lpw(iw) )
-
+     !dir$ ivdep
      do k = kbot, mza
 
-        scalar_tab(io3)%var_t(k,iw) = scalar_tab(io3)%var_t(k,iw) + tnudi_o3 * rho(k,iw) * &
-             ( (tp * ozone_obsp(k,iw) + tf * ozone_obsf(k,iw)) - scalar_tab(io3)%var_p(k,iw) )
+        scalar_tab(i_o3)%var_t(k,iw) = scalar_tab(i_o3)%var_t(k,iw) + tnudi_o3 * real(rho(k,iw)) * &
+             ( (tp * ozone_obsp(k,iw) + tf * ozone_obsf(k,iw)) - scalar_tab(i_o3)%var_p(k,iw) )
 
         ! With nudging, scalar mass is no longer conserved. Make sure the long timestep
         ! tendency does not drive ozone negative when nudging is included:
 
-        scalar_tab(io3)%var_t(k,iw) = max( scalar_tab(io3)%var_t(k,iw), &
-             -0.999 * max(scalar_tab(io3)%var_p(k,iw), 0.0) * real( rho(k,iw) / dtlm(itab_w(iw)%mrlw) ) )
+        scalar_tab(i_o3)%var_t(k,iw) = max( scalar_tab(i_o3)%var_t(k,iw), &
+             -0.999 * max(scalar_tab(i_o3)%var_p(k,iw), 0.0) * real(rho(k,iw)) * dtli )
 
      enddo
 

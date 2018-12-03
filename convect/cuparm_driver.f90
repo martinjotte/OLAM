@@ -249,6 +249,14 @@ subroutine cuparm_driver(rhot)
 
         if (iactcu(iw) /= 1) cycle
 
+        ! Skip if not doing convection on this mrl
+        
+        if (nqparm(itab_w(iw)%mrlw) == 0) then
+           iactcu(iw) = 0
+           conprr(iw) = 0.0
+           cycle
+        endif
+
         dtlong4 = dtlm(itab_w(iw)%mrlw)
 
         ! Slight adjustment of water vapor tendencies to ensure that

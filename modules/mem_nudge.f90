@@ -106,7 +106,6 @@ Module mem_nudge
   real    :: tnudcent
 
   integer :: o3nudflag = 0
-  integer :: io3       = 0
   real    :: tnudi_o3
   real    :: o3nudpress
 
@@ -179,32 +178,18 @@ Contains
 
   subroutine alloc_nudge_o3(mza,mwa)
 
-    use misc_coms,  only: io6, rinit
+    use misc_coms,  only: io6, rinit, i_o3
     use var_tables, only: scalar_tab, num_scalar
     implicit none
 
     integer, intent(in) :: mza, mwa
     integer             :: n
 
-    ! If any prognostic scalars are named ozone, save its scalar index
-    ! and activate nudging
-
-    io3 = 0
-    do n = 1, num_scalar
-       if ( (scalar_tab(n)%name == 'O3'   ) .or. (scalar_tab(n)%name == 'o3'   ) .or. &
-            (scalar_tab(n)%name == 'OZONE') .or. (scalar_tab(n)%name == 'ozone') ) then
-          io3 = n
-          exit
-       endif
-    enddo
-
-    if (io3 /= 0) then
-
+    if (i_o3 /= 0) then
        write(io6,*) 'allocating nudge_o3 ', mza, mwa
 
        allocate (ozone_obsp(mza,mwa)) ; ozone_obsp = rinit
        allocate (ozone_obsf(mza,mwa)) ; ozone_obsf = rinit
-
     endif
 
   end subroutine alloc_nudge_o3

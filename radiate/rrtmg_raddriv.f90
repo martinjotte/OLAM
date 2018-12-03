@@ -1,9 +1,9 @@
 subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
                          rlongup_ks, rlong_albedo_ks, albedt_ks, albedt_diffuse_ks )
 
-  use mem_grid,    only: mza, zm, zt, glatw, dzt, dzit
-  use mem_basic,   only: rho, press, theta, tair, sh_v
-  use misc_coms,   only: iswrtyp, ilwrtyp, time8, dtlm, io6
+  use mem_grid,    only: mza, zm, zt, glatw, dzt, dzit, dzt_bot
+  use mem_basic,   only: rho, press, theta, tair, sh_w, sh_v
+  use misc_coms,   only: iswrtyp, ilwrtyp, time8, dtlm, io6, i_o3
   use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, &
                          t00, r8, cpi
   use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
@@ -25,6 +25,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   use mem_ijtabs,  only: itab_w
   use mem_micro,   only: cldnum
   use therm_lib,   only: rhovsl
+  use mem_co2,     only: sh_co2, i_co2, co2_initppm, co2_sh2ppm
+  use var_tables,  only: scalar_tab
 
   use parrrtm,             only: nbndlw, ngptlw
   use parrrsw,             only: nbndsw, ngptsw
@@ -87,13 +89,13 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   real :: tsfc  (nsfc)
   real :: emis  (nsfc, nbndlw)
 
-  real :: zsfc
-  real :: emiss
   real :: p1, p2, tc, rh
   real :: fland
 
   real :: plev(ncol, nrad+1)
   real :: tlev(ncol, nrad+1)
+
+  real :: coldry(nrad)
 
   real :: play    (ncol, nrad)
   real :: tlay    (ncol, nrad)
@@ -137,11 +139,11 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   real :: clwpmcl_lw(ngptlw, ncol, nrad)
   real :: ciwpmcl_lw(ngptlw, ncol, nrad)
 
-  real :: dl (nrad)
-  real :: zml(nrad)
-  real :: ztl(nrad)
-! real :: exl(nrad)
-  real :: dzl(nrad)
+  real :: dl    (nrad)
+  real :: dl_dry(nrad)
+  real :: zml   (nrad)
+  real :: ztl   (nrad)
+  real :: dzl   (nrad)
 
   real :: swuflxt(nrad+1)
   real :: swdflxt(nrad+1)
@@ -201,9 +203,12 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   real, parameter :: ccl4  = 0.093e-9 ! ccl4 (93 ppt)
   real, parameter :: o2    = 0.209488 ! oxygen, for o2mmr=0.23143
 
-! Molecular weight of dry air / ozone
 
-  real, parameter :: amdo3 = 0.603428
+  real, parameter :: amd = 28.9660    ! Effective molecular weight of dry air (g/mol)
+  real, parameter :: amw = 18.0160    ! Molecular weight of water vapor (g/mol)
+  real, parameter :: amdryo3 = 0.603428
+  real, parameter :: avogad = 6.022142e23 ! Avogadro constant
+  real, parameter :: dn2col = avogad / amd / 10.
 
 ! Array kradcat maps RAMS/OLAM microphysics hydrometeor categories to those
 ! represented in the cloud optics tables according to the following numbering:
@@ -233,18 +238,22 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 ! Set some surface values needed by RRTMg
 
   do ks = 1, nsfc
-     emiss      = 1.0 - rlong_albedo_ks(ks)
-     emis(ks,:) = emiss
-     tsfc(ks)   = (rlongup_ks(ks) / emiss / stefan) ** 0.25
+     emis(ks,1) = 1.0 - rlong_albedo_ks(ks)
+     tsfc(ks)   = (rlongup_ks(ks) / emis(ks,1) / stefan) ** 0.25
 
-     asdir(ks) = albedt_ks(ks)
-     aldir(ks) = albedt_ks(ks)
-     asdif(ks) = albedt_diffuse_ks(ks)
-     aldif(ks) = albedt_diffuse_ks(ks)
+     asdir(ks)  = albedt_ks(ks)
+     aldir(ks)  = albedt_ks(ks)
+     asdif(ks)  = albedt_diffuse_ks(ks)
+     aldif(ks)  = albedt_diffuse_ks(ks)
   enddo
 
-  zsfc  = zm(ka-1)
+! Set emissivity constant across all bands for now
 
+  do ns = 2, nbndlw
+     do ks = 1, nsfc
+        emis(ks,ns) = emis(ks,1)
+     enddo
+  enddo
 
   coszen(ncol) = cosz(iw)
 
@@ -259,26 +268,44 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   do k = ka, mza
      krad = k - koff
 
-     rhov(k) = max(0.,sh_v(k,iw)) * rho(k,iw)
+     dl      (krad) = rho(k,iw)
+     dl_dry  (krad) = dl(krad) * (1.0 - sh_w(k,iw))
 
      play  (1,krad) = press(k,iw)
      tlay  (1,krad) = tair (k,iw)
-     dl      (krad) = rho  (k,iw)
-!    exl     (krad) = theta(k,iw) / tair(k,iw)
-     h2ovmr(1,krad) = rhov (k)
      zml     (krad) = zm   (k)
      ztl     (krad) = zt   (k)
      dzl     (krad) = dzt  (k)
+
+     rhov    (k)    = max(0.,sh_v(k,iw)) * dl(krad)
+     h2ovmr(1,krad) = rhov(k)
+     coldry  (krad) = dl_dry(krad) * dzt(k) * dn2col
   enddo
 
 ! Fill ozone column and any extra radiation layers at model top
 
   call rad_mclat(iw,nrad,koff,glatw(iw),dl,play,h2ovmr,tlay,o3vmr,zml,ztl,dzl)
 
+  ! dry density above model top
+  do krad = mza-koff+1, nrad
+     dl_dry(krad) = dl(krad) - h2ovmr(1,krad)
+     coldry(krad) = dl_dry(krad) * (zml(krad) - zml(krad-1)) * dn2col
+  enddo
+
+! Convert water vapor and ozone from density to (dry) molar mixing ratio
+! and pressure to mb.
+
+  do krad = 1, nrad
+     k = krad + koff
+     h2ovmr(1,krad) = h2ovmr(1,krad) * eps_vapi / dl_dry(krad)
+     o3vmr (1,krad) = o3vmr (1,krad) * amdryo3  / dl_dry(krad)
+     play  (1,krad) = play  (1,krad) * 0.01
+  enddo
+
 ! Gases not defined in OLAM
 
   do krad = 1, nrad
-     co2vmr  (1,krad) = co2
+     co2vmr  (1,krad) = co2_initppm * 1.e-6
      o2vmr   (1,krad) = o2
      ch4vmr  (1,krad) = ch4
      n2ovmr  (1,krad) = n2o
@@ -288,18 +315,27 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
      ccl4vmr (1,krad) = ccl4
   enddo
 
-! Convert water vapor from density to molar mixing ratio, pressure to mb,
-! and ozone from density to molar mixing ratio
+! Use CO2 if it is prognosed. Units are assumed to be kg/kg
 
-  do krad = 1, nrad
-     h2ovmr(1,krad) = h2ovmr(1,krad) * eps_vapi / dl(krad)
-     play  (1,krad) = play  (1,krad) * 0.01
-     o3vmr (1,krad) = o3vmr (1,krad) * amdo3 / dl(krad)
-  enddo
+  if (i_co2 > 0) then
+     do k = ka, mza
+        krad = k - koff
+        co2vmr(1,krad) = sh_co2(k,iw) / (1.0 - sh_w(k,iw)) * co2_sh2ppm * 1.e-6
+     enddo
+  endif
+
+! Use CMAQ ozone if it is prognosed. Units are assumed to be PPMV
+
+  if (i_o3 > 0) then
+     do k = ka, mza
+        krad = k - koff
+        o3vmr(1,krad) = scalar_tab(i_o3)%var_p(k,iw) / (1.0 - sh_w(k,iw)) * 1.e-6
+     enddo
+  endif
 
 ! surface pressure and temperature
 
-  plev(ncol,1) = play(ncol,1) + (ztl(1) - zsfc) * dl(1) * grav * 0.01
+  plev(ncol,1) = play(ncol,1) + dzt_bot(ka) * dl(1) * grav * 0.01
   tlev(ncol,1) = tsfc(ncol)
 
 ! pressure and temperature at intermediate levels

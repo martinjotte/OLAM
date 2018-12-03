@@ -68,6 +68,8 @@ Module mem_tend
    real, allocatable :: tket    (:,:) ! subgrid-scale turb KE tend [m^2/s^3]
    real, allocatable :: epst    (:,:) ! subgrid dissipation rate tend [m^2/s^4]
 
+   real, allocatable :: sh_co2t (:,:) ! CO2 mass tend [kg_CO2/(m^3 s)] 
+
    integer :: num_omic = 0
    
 Contains
@@ -83,6 +85,7 @@ Contains
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
                          ccntyp, con_ifn, con_gccn, q2, q6, q7
    use misc_coms,  only: io6
+   use mem_co2,    only: sh_co2
    
    implicit none
 
@@ -144,6 +147,8 @@ Contains
          (.not. allocated(addsc(iaddsc)%sclt)))      &
                 allocate (addsc(iaddsc)%sclt(lza,lwa))
    enddo
+
+   if (allocated(sh_co2)) allocate (sh_co2t(lza,lwa))
 
    end subroutine alloc_tend
 
@@ -209,6 +214,8 @@ Contains
       if (allocated(addsc(iaddsc)%sclt)) deallocate (addsc(iaddsc)%sclt)
    enddo
 
+   if (allocated(sh_co2t)) deallocate(sh_co2t)
+
    end subroutine dealloc_tend
 
 !===============================================================================
@@ -221,15 +228,16 @@ Contains
    use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,        &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
                          ccntyp, con_ifn, con_gccn, q2, q6, q7
-   use var_tables, only: vtables_scalar, num_scalar
-   use misc_coms,  only: do_chem
+   use var_tables, only: vtables_scalar, num_scalar, scalar_tab
+   use misc_coms,  only: do_chem, i_o3
    use cgrid_defn, only: cgrid_scalar_tabs
+   use mem_co2,    only: sh_co2, i_co2
 
    implicit none
 
    integer, intent(in) :: naddsc, nccntyp
    
-   integer :: iaddsc, ic
+   integer :: iaddsc, ic, n
    character (len=10) :: sname
 
 ! Fill pointers to scalar arrays into scalar tables
@@ -285,6 +293,24 @@ Contains
       endif
    enddo
 
-   end subroutine filltab_tend
+   if (allocated(sh_co2t)) then
+      call vtables_scalar (sh_co2, sh_co2t, 'SH_CO2', cu_mix=.true.)
+      i_co2 = num_scalar  ! save index of co2 in scalar table
+   endif
+
+    ! If any prognostic scalars are ozone, save its scalar index
+
+    i_o3 = 0
+    do n = 1, num_scalar
+       if ( (scalar_tab(n)%name == 'O3'   ) .or. &
+            (scalar_tab(n)%name == 'o3'   ) .or. &
+            (scalar_tab(n)%name == 'OZONE') .or. &
+            (scalar_tab(n)%name == 'ozone') ) then
+          i_o3 = n
+          exit
+       endif
+    enddo
+
+ end subroutine filltab_tend
 
 End Module mem_tend
