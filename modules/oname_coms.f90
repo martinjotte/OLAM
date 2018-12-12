@@ -233,7 +233,7 @@ Module oname_coms
 !!    CO2 PARAMETERS
 
       integer :: co2flag       = 0
-      integer :: co2_ppmv_init = 400.0
+      real    :: co2_ppmv_init = 400.0
       
 !!    SOUNDING SPECIFICATION
 

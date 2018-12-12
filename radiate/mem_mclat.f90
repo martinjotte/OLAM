@@ -526,7 +526,7 @@ Contains
   subroutine rad_mclat(iw,nrad,koff,glat,dl,pl,rl,tl,o3l,zml,ztl,dzl,o3col)
 
     use mem_radiate, only: nadd_rad, zmrad
-    use consts_coms, only: gordry
+    use consts_coms, only: gordry, rdry
     use mem_grid,    only: mza, zm
     use misc_coms,   only: io6
 
@@ -605,13 +605,11 @@ Contains
 
     if (nadd_rad > 0) then
 
-       ! Interpolate other variables (temperature, density, vapor mixing ratio)
-       ! to added levels.
+       ! Interpolate temperature and water vapor density to added levels.
 
        kadd = mza + 1 - koff
        call hintrp_cc(33, mcol(1,3), mcol(1,1), nadd_rad, tl(kadd), ztl(kadd))
        call hintrp_cc(33, mcol(1,4), mcol(1,1), nadd_rad, rl(kadd), ztl(kadd))
-       call hintrp_cc(33, mcol(1,6), mcol(1,1), nadd_rad, dl(kadd), ztl(kadd))
 
        ! If we don't want the entire ozone column, just interpolate ozone
        ! above the model top.
@@ -620,11 +618,12 @@ Contains
           call hintrp_cc(33, mcol(1,5), mcol(1,1), nadd_rad, o3l(kadd), ztl(kadd))
        endif
 
-       ! Compute pressure of added levels by hydrostatic integration.
+       ! Compute pressure and density added levels by hydrostatic integration.
    
        do k = kadd, nrad
           tavg = 0.5 * (tl(k)+tl(k-1))
           pl(k) = pl(k-1) * exp( -gordry * (ztl(k) - ztl(k-1)) / tavg )
+          dl(k) = pl(k) / (tl(k) * rdry)
        enddo
 
     endif
