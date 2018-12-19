@@ -863,7 +863,7 @@ subroutine read_mavg_vars(mavgfile)
   logical :: exans
   integer :: ndims, idims(2)
   character(len=32) :: varn
-  integer, pointer :: ilocal(:)
+  integer :: ilocal(mwa)
 
   inquire(file=mavgfile,exist=exans)
 
@@ -882,7 +882,7 @@ subroutine read_mavg_vars(mavgfile)
      ndims    = 2
      idims(1) = nz_avg
      idims(2) = mwa
-     ilocal => itab_w(:)%iwglobe
+     ilocal = itab_w(1:mwa)%iwglobe
 
      call shdf5_irec(ndims,idims,'PRESS_MAVG',rvar2=press_mavg, points=ilocal)
      call shdf5_irec(ndims,idims,  'RHO_MAVG',rvar2=  rho_mavg, points=ilocal)
@@ -896,7 +896,6 @@ subroutine read_mavg_vars(mavgfile)
 
      ndims    = 1
      idims(1) = mwa
-     ilocal => itab_w(:)%iwglobe
 
      call shdf5_irec(ndims,idims,      'RSHORT_MAVG',rvar1=      rshort_mavg, points=ilocal)
      call shdf5_irec(ndims,idims,  'RSHORT_TOP_MAVG',rvar1=  rshort_top_mavg, points=ilocal)
@@ -993,7 +992,10 @@ subroutine read_davg_vars(davgfile)
   logical :: exans
   integer :: ndims, idims(2)
   character(len=32) :: varn
-  integer, pointer :: ilocal(:)
+
+  integer :: ilocalw(mwa)
+  integer :: ilocall(mwl)
+  integer :: ilocals(mws)
 
   inquire(file=davgfile,exist=exans)
 
@@ -1011,59 +1013,59 @@ subroutine read_davg_vars(davgfile)
   
      ndims    = 1
      idims(1) = mwa
-     ilocal => itab_w(:)%iwglobe
+     ilocalw(1:mwa) = itab_w(1:mwa)%iwglobe
 
-     call shdf5_irec(ndims,idims,  'PRESS_DAVG',rvar1=  press_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,    'VXE_DAVG',rvar1=    vxe_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,    'VYE_DAVG',rvar1=    vye_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,    'VZE_DAVG',rvar1=    vze_davg, points=ilocal)
-     call shdf5_irec(ndims,idims, 'RSHORT_DAVG',rvar1= rshort_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,  'TEMPK_DAVG',rvar1=  tempk_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,  'TEMPK_DMIN',rvar1=  tempk_dmin, points=ilocal)
-     call shdf5_irec(ndims,idims,  'TEMPK_DMAX',rvar1=  tempk_dmax, points=ilocal)
-     call shdf5_irec(ndims,idims,'ACCPMIC_DTOT',rvar1=accpmic_dtot, points=ilocal)
-     call shdf5_irec(ndims,idims,'ACCPCON_DTOT',rvar1=accpcon_dtot, points=ilocal)
+     call shdf5_irec(ndims,idims,  'PRESS_DAVG',rvar1=  press_davg, points=ilocalw)
+     call shdf5_irec(ndims,idims,    'VXE_DAVG',rvar1=    vxe_davg, points=ilocalw)
+     call shdf5_irec(ndims,idims,    'VYE_DAVG',rvar1=    vye_davg, points=ilocalw)
+     call shdf5_irec(ndims,idims,    'VZE_DAVG',rvar1=    vze_davg, points=ilocalw)
+     call shdf5_irec(ndims,idims, 'RSHORT_DAVG',rvar1= rshort_davg, points=ilocalw)
+     call shdf5_irec(ndims,idims,  'TEMPK_DAVG',rvar1=  tempk_davg, points=ilocalw)
+     call shdf5_irec(ndims,idims,  'TEMPK_DMIN',rvar1=  tempk_dmin, points=ilocalw)
+     call shdf5_irec(ndims,idims,  'TEMPK_DMAX',rvar1=  tempk_dmax, points=ilocalw)
+     call shdf5_irec(ndims,idims,'ACCPMIC_DTOT',rvar1=accpmic_dtot, points=ilocalw)
+     call shdf5_irec(ndims,idims,'ACCPCON_DTOT',rvar1=accpcon_dtot, points=ilocalw)
 
-     call shdf5_irec(ndims,idims,'PRESS_UL_DAVG',rvar1=press_ul_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,  'VXE_UL_DAVG',rvar1=  vxe_ul_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,  'VYE_UL_DAVG',rvar1=  vye_ul_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,  'VZE_UL_DAVG',rvar1=  vze_ul_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,'PRESS_UL_DAVG',rvar1=press_ul_davg, points=ilocalw)
+     call shdf5_irec(ndims,idims,  'VXE_UL_DAVG',rvar1=  vxe_ul_davg, points=ilocalw)
+     call shdf5_irec(ndims,idims,  'VYE_UL_DAVG',rvar1=  vye_ul_davg, points=ilocalw)
+     call shdf5_irec(ndims,idims,  'VZE_UL_DAVG',rvar1=  vze_ul_davg, points=ilocalw)
 
      idims(1) = mwl
-     ilocal => itab_wl(:)%iwglobe
+     ilocall(1:mwl) = itab_wl(1:mwl)%iwglobe
 
-     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DAVG',rvar1=airtempk_l_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DMIN',rvar1=airtempk_l_dmin, points=ilocal)
-     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DMAX',rvar1=airtempk_l_dmax, points=ilocal)
-     call shdf5_irec(ndims,idims,'CANTEMPK_L_DAVG',rvar1=cantempk_l_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,'CANTEMPK_L_DMIN',rvar1=cantempk_l_dmin, points=ilocal)
-     call shdf5_irec(ndims,idims,'CANTEMPK_L_DMAX',rvar1=cantempk_l_dmax, points=ilocal)
-     call shdf5_irec(ndims,idims,  'VEGTEMPK_DAVG',rvar1=  vegtempk_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,  'VEGTEMPK_DMIN',rvar1=  vegtempk_dmin, points=ilocal)
-     call shdf5_irec(ndims,idims,  'VEGTEMPK_DMAX',rvar1=  vegtempk_dmax, points=ilocal)
-     call shdf5_irec(ndims,idims, 'SOILTEMPK_DAVG',rvar1= soiltempk_davg, points=ilocal)
-     call shdf5_irec(ndims,idims, 'SOILTEMPK_DMIN',rvar1= soiltempk_dmin, points=ilocal)
-     call shdf5_irec(ndims,idims, 'SOILTEMPK_DMAX',rvar1= soiltempk_dmax, points=ilocal)
-     call shdf5_irec(ndims,idims,  'SFLUXT_L_DAVG',rvar1=  sfluxt_l_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,  'SFLUXR_L_DAVG',rvar1=  sfluxr_l_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DAVG',rvar1=airtempk_l_davg, points=ilocall)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DMIN',rvar1=airtempk_l_dmin, points=ilocall)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_L_DMAX',rvar1=airtempk_l_dmax, points=ilocall)
+     call shdf5_irec(ndims,idims,'CANTEMPK_L_DAVG',rvar1=cantempk_l_davg, points=ilocall)
+     call shdf5_irec(ndims,idims,'CANTEMPK_L_DMIN',rvar1=cantempk_l_dmin, points=ilocall)
+     call shdf5_irec(ndims,idims,'CANTEMPK_L_DMAX',rvar1=cantempk_l_dmax, points=ilocall)
+     call shdf5_irec(ndims,idims,  'VEGTEMPK_DAVG',rvar1=  vegtempk_davg, points=ilocall)
+     call shdf5_irec(ndims,idims,  'VEGTEMPK_DMIN',rvar1=  vegtempk_dmin, points=ilocall)
+     call shdf5_irec(ndims,idims,  'VEGTEMPK_DMAX',rvar1=  vegtempk_dmax, points=ilocall)
+     call shdf5_irec(ndims,idims, 'SOILTEMPK_DAVG',rvar1= soiltempk_davg, points=ilocall)
+     call shdf5_irec(ndims,idims, 'SOILTEMPK_DMIN',rvar1= soiltempk_dmin, points=ilocall)
+     call shdf5_irec(ndims,idims, 'SOILTEMPK_DMAX',rvar1= soiltempk_dmax, points=ilocall)
+     call shdf5_irec(ndims,idims,  'SFLUXT_L_DAVG',rvar1=  sfluxt_l_davg, points=ilocall)
+     call shdf5_irec(ndims,idims,  'SFLUXR_L_DAVG',rvar1=  sfluxr_l_davg, points=ilocall)
 
      idims(1) = mws
-     ilocal => itab_ws(:)%iwglobe
+     ilocals(1:mws) = itab_ws(1:mws)%iwglobe
 
-     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DAVG',rvar1=airtempk_s_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DMIN',rvar1=airtempk_s_dmin, points=ilocal)
-     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DMAX',rvar1=airtempk_s_dmax, points=ilocal)
-     call shdf5_irec(ndims,idims,'CANTEMPK_S_DAVG',rvar1=cantempk_s_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,'CANTEMPK_S_DMIN',rvar1=cantempk_s_dmin, points=ilocal)
-     call shdf5_irec(ndims,idims,'CANTEMPK_S_DMAX',rvar1=cantempk_s_dmax, points=ilocal)
-     call shdf5_irec(ndims,idims,  'SFLUXT_S_DAVG',rvar1=  sfluxt_s_davg, points=ilocal)
-     call shdf5_irec(ndims,idims,  'SFLUXR_S_DAVG',rvar1=  sfluxr_s_davg, points=ilocal)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DAVG',rvar1=airtempk_s_davg, points=ilocals)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DMIN',rvar1=airtempk_s_dmin, points=ilocals)
+     call shdf5_irec(ndims,idims,'AIRTEMPK_S_DMAX',rvar1=airtempk_s_dmax, points=ilocals)
+     call shdf5_irec(ndims,idims,'CANTEMPK_S_DAVG',rvar1=cantempk_s_davg, points=ilocals)
+     call shdf5_irec(ndims,idims,'CANTEMPK_S_DMIN',rvar1=cantempk_s_dmin, points=ilocals)
+     call shdf5_irec(ndims,idims,'CANTEMPK_S_DMAX',rvar1=cantempk_s_dmax, points=ilocals)
+     call shdf5_irec(ndims,idims,  'SFLUXT_S_DAVG',rvar1=  sfluxt_s_davg, points=ilocals)
+     call shdf5_irec(ndims,idims,  'SFLUXR_S_DAVG',rvar1=  sfluxr_s_davg, points=ilocals)
 
      call shdf5_close()
   else
 
    ! Day-average file does not exist, stop model.
-   
+
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
      write(io6,*) '!!!   Trying to open day-average file:'
      write(io6,*) '!!!   '//trim(davgfile)
@@ -1083,11 +1085,11 @@ subroutine makefnam8(fname,prefix,tinc8,iyr,imn,idy,itm,ftype,post,fmt)
 
   implicit none
 
-  character(len=*), intent(out) :: fname
-  character(len=*), intent(in) :: prefix,post,fmt
+  character(*), intent(out) :: fname
+  character(*), intent(in) :: prefix,post,fmt
   real(kind=8), intent(in) :: tinc8
   integer, intent(in) :: iyr, imn, idy, itm
-  character*(*), intent(in) :: ftype
+  character(*), intent(in) :: ftype
 
   integer :: oyr, omn, ody, otm
 
@@ -1108,5 +1110,4 @@ subroutine makefnam8(fname,prefix,tinc8,iyr,imn,idy,itm,ftype,post,fmt)
   endif
   fname = trim(fname)//'.'//trim(fmt)
 
-  return
 end subroutine makefnam8

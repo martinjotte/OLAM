@@ -56,7 +56,7 @@ subroutine history_start(action)
   ! 'PLOTONLY'    , parallel   run, sequential histfile  (isubdomain = 1)
 
   ! Check if history files exist
-  
+
   inquire(file=hfilin, exist=exans)   ! global restart file
 
   if (exans) then
@@ -135,10 +135,10 @@ subroutine hist_read()
 
   implicit none
 
-  integer          :: nv, nvcnt, ndims, idims(3)
-  character(32)    :: varn
-  character (2)    :: stagpt
-  integer, pointer :: ilocal(:)
+  integer       :: nv, nvcnt, ns, ndims, idims(3)
+  character(32) :: varn
+  character (2) :: stagpt
+  integer       :: ilocal(max(mwa,mws,mwl,mma,mva,mwnud))
 
   nvcnt =  0
 
@@ -173,22 +173,22 @@ subroutine hist_read()
      ! Identify the points we want to read from the history file
 
      if     (stagpt == 'AW' .and. idims(ndims) == nwa) then
-        ilocal => itab_w(:)%iwglobe
+        ilocal(1:mwa) = itab_w(1:mwa)%iwglobe
         idims(ndims) = mwa
      elseif (stagpt == 'AV' .and. idims(ndims) == nva) then
-        ilocal => itab_v(:)%ivglobe
+        ilocal(1:mva) = itab_v(1:mva)%ivglobe
         idims(ndims) = mva
      elseif (stagpt == 'AM' .and. idims(ndims) == nma) then
-        ilocal => itab_m(:)%imglobe
+        ilocal(1:mma) = itab_m(1:mma)%imglobe
         idims(ndims) = mma
      elseif (stagpt == 'LW' .and. idims(ndims) == nwl) then
-        ilocal => itab_wl(:)%iwglobe
+        ilocal(1:mwl) = itab_wl(1:mwl)%iwglobe
         idims(ndims) = mwl
      elseif (stagpt == 'SW' .and. idims(ndims) == nws) then
-        ilocal => itab_ws(:)%iwglobe
+        ilocal(1:mws) = itab_ws(1:mws)%iwglobe
         idims(ndims) = mws
      elseif (stagpt == 'AN' .and. idims(ndims) == nwnud) then
-        ilocal => itab_wnud(:)%iwnudglobe
+        ilocal(1:mwnud) = itab_wnud(1:mwnud)%iwnudglobe
         idims(ndims) = mwnud
      else
 
@@ -198,26 +198,28 @@ subroutine hist_read()
         stop "invalid array size in history_read"
      endif
 
+     ns = idims(ndims)
+
      if     (associated(vtab_r(nv)%ivar1_p)) then
-        call shdf5_irec(ndims, idims, varn, ivar1=vtab_r(nv)%ivar1_p, points=ilocal)
+        call shdf5_irec(ndims, idims, varn, ivar1=vtab_r(nv)%ivar1_p, points=ilocal(1:ns))
      elseif (associated(vtab_r(nv)%ivar2_p)) then
-        call shdf5_irec(ndims, idims, varn, ivar2=vtab_r(nv)%ivar2_p, points=ilocal)
+        call shdf5_irec(ndims, idims, varn, ivar2=vtab_r(nv)%ivar2_p, points=ilocal(1:ns))
      elseif (associated(vtab_r(nv)%ivar3_p)) then
-        call shdf5_irec(ndims, idims, varn, ivar3=vtab_r(nv)%ivar3_p, points=ilocal)
+        call shdf5_irec(ndims, idims, varn, ivar3=vtab_r(nv)%ivar3_p, points=ilocal(1:ns))
 
      elseif (associated(vtab_r(nv)%rvar1_p)) then
-        call shdf5_irec(ndims, idims, varn, rvar1=vtab_r(nv)%rvar1_p, points=ilocal)
+        call shdf5_irec(ndims, idims, varn, rvar1=vtab_r(nv)%rvar1_p, points=ilocal(1:ns))
      elseif (associated(vtab_r(nv)%rvar2_p)) then
-        call shdf5_irec(ndims, idims, varn, rvar2=vtab_r(nv)%rvar2_p, points=ilocal)
+        call shdf5_irec(ndims, idims, varn, rvar2=vtab_r(nv)%rvar2_p, points=ilocal(1:ns))
      elseif (associated(vtab_r(nv)%rvar3_p)) then
-        call shdf5_irec(ndims, idims, varn, rvar3=vtab_r(nv)%rvar3_p, points=ilocal)
+        call shdf5_irec(ndims, idims, varn, rvar3=vtab_r(nv)%rvar3_p, points=ilocal(1:ns))
 
      elseif (associated(vtab_r(nv)%dvar1_p)) then
-        call shdf5_irec(ndims, idims, varn, dvar1=vtab_r(nv)%dvar1_p, points=ilocal)
+        call shdf5_irec(ndims, idims, varn, dvar1=vtab_r(nv)%dvar1_p, points=ilocal(1:ns))
      elseif (associated(vtab_r(nv)%dvar2_p)) then
-        call shdf5_irec(ndims, idims, varn, dvar2=vtab_r(nv)%dvar2_p, points=ilocal)
+        call shdf5_irec(ndims, idims, varn, dvar2=vtab_r(nv)%dvar2_p, points=ilocal(1:ns))
      elseif (associated(vtab_r(nv)%dvar3_p)) then
-        call shdf5_irec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, points=ilocal)
+        call shdf5_irec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, points=ilocal(1:ns))
 
      endif
 

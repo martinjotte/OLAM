@@ -1576,19 +1576,16 @@ real,    allocatable :: rscr(:,:)
 
 ! Pointers to the global index of the local point
 
-integer, pointer :: lgma(:)
-integer, pointer :: lgua(:)
-integer, pointer :: lgva(:)
-integer, pointer :: lgwa(:)
-
-integer, pointer :: lgwnud(:)
+integer :: lgma(mma)
+integer :: lgva(mva)
+integer :: lgwa(mwa)
+integer :: lgwnud(mwnud)
 
   character(pathlen) :: flnm
 
-  lgma => itab_m%imglobe
-  lgva => itab_v%ivglobe
-  lgua => null()
-  lgwa => itab_w%iwglobe
+  lgma = itab_m(1:mma)%imglobe
+  lgva = itab_v(1:mva)%ivglobe
+  lgwa = itab_w(1:mwa)%iwglobe
 
 ! Check if gridfile exists
 
@@ -1645,7 +1642,7 @@ integer, pointer :: lgwnud(:)
   call shdf5_irec(ndims, idims, 'XEM'  , rvar1=xem, points=lgma)
   call shdf5_irec(ndims, idims, 'YEM'  , rvar1=yem, points=lgma)
   call shdf5_irec(ndims, idims, 'ZEM'  , rvar1=zem, points=lgma)
-   
+
   ndims    = 1
   idims(1) = mva
 
@@ -1688,14 +1685,14 @@ integer, pointer :: lgwnud(:)
   idims(2) = mva
 
   call shdf5_irec(ndims, idims, 'ARV'  , rvar2=arv,   points=lgva)
-   
+
   ndims    = 2
   idims(1) = nza
   idims(2) = mwa
 
   call shdf5_irec(ndims, idims, 'ARW'  , rvar2=arw, points=lgwa)
   call shdf5_irec(ndims, idims, 'VOLT' , dvar2=volt, points=lgwa)
-   
+
 ! Read ITAB_M SCALARS
 
   ndims    = 1
@@ -1967,7 +1964,7 @@ integer, pointer :: lgwnud(:)
      ndims    = 1
      idims(1) = mwnud
 
-     lgwnud => itab_wnud%iwnudglobe
+     lgwnud = itab_wnud(1:mwnud)%iwnudglobe
 
      call shdf5_irec(ndims, idims, 'XEWNUD'  , rvar1=xewnud, points=lgwnud)
      call shdf5_irec(ndims, idims, 'YEWNUD'  , rvar1=yewnud, points=lgwnud)
