@@ -1674,32 +1674,26 @@ real, intent(in) :: qr(mza0,ncat)
 
 real, intent(in) :: exner0(mza0)
 
-real     :: rfact(mza0)
-real(r8) :: rhoi(mza0)
-integer  :: k, n, ic
-real     :: til, qhydm, tc, fracliq
-
-real :: rhoice(mza0), rholiq(mza0)
+real    :: rfact(mza0)
+real    :: rhoi(mza0)
+integer :: k, n, ic
 
 ! Copy base thermodynamic variables
 
 do k = lpw0,mza0
-   thil(k,iw0)  = thil0(k)
+   thil (k,iw0) = thil0(k)
    theta(k,iw0) = theta0(k)
-   tair(k,iw0)  = tair0(k)
-   rhoi(k)      = 1.0_r8 / rhoa(k)
-   rfact(k)     = rhoi(k) * rho(k,iw0)
-   rho(k,iw0)   = rhoa(k)
-   sh_w(k,iw0)  = rhow(k) * rhoi(k)
-   sh_v(k,iw0)  = min( real(rhov(k) * rhoi(k)), sh_w(k,iw0))
-   rholiq(k)    = 0.
-   rhoice(k)    = 0.
+   tair (k,iw0) = tair0(k)
+   rfact(k)     = real(rho(k,iw0) / rhoa(k))
+   rho  (k,iw0) = rhoa(k)
+   rhoi (k)     = 1.0 / real(rhoa(k))
+   sh_w (k,iw0) = rhow(k) * rhoi(k)
+   sh_v (k,iw0) = min(rhov(k) * rhoi(k), sh_w(k,iw0))
 enddo
 
 ! Adjust scalar specific densities to conserve mass when air density changes
 
 do n = num_omic+1, num_scalar
-   !dir$ ivdep
    do k = lpw0, mza0
       scalar_tab(n)%var_p(k,iw0) = scalar_tab(n)%var_p(k,iw0) * rfact(k)
    enddo
@@ -1716,7 +1710,6 @@ enddo
 if (jnmb(1) >= 1) then
    do k = lpw0,k3(1)
       sh_c(k,iw0) = rx(k,1) * rhoi(k)
-      if (rx(k,1) > rxmin(1)) rholiq(k) = rholiq(k) + rx(k,1)
    enddo
 endif
 
@@ -1729,7 +1722,6 @@ if (jnmb(2) >= 1) then
    do k = lpw0,k2(11)
       sh_r(k,iw0) = rx(k,2) * rhoi(k)
       q2  (k,iw0) = qr(k,2) * rhoi(k)
-      if (rx(k,2) > rxmin(2)) rholiq(k) = rholiq(k) + rx(k,2)
    enddo
 endif
 
@@ -1741,7 +1733,6 @@ if (jnmb(3) >= 1) then
 
    do k = lpw0,k3(3)
       sh_p(k,iw0) = rx(k,3) * rhoi(k)
-      if (rx(k,3) > rxmin(3)) rhoice(k) = rhoice(k) + rx(k,3)
    enddo
 endif
 
@@ -1753,7 +1744,6 @@ if (jnmb(4) >= 1) then
 
    do k = lpw0,k2(11)
       sh_s(k,iw0) = rx(k,4) * rhoi(k)
-      if (rx(k,4) > rxmin(4)) rhoice(k) = rhoice(k) + rx(k,4)
    enddo
 endif
 
@@ -1765,7 +1755,6 @@ if (jnmb(5) >= 1) then
 
    do k = lpw0,k2(11)
       sh_a(k,iw0) = rx(k,5) * rhoi(k)
-      if (rx(k,5) > rxmin(5)) rhoice(k) = rhoice(k) + rx(k,5)
    enddo
 endif
 
@@ -1777,11 +1766,6 @@ if (jnmb(6) >= 1) then
    do k = lpw0,k2(11)
       sh_g(k,iw0) = rx(k,6) * rhoi(k)
       q6  (k,iw0) = qr(k,6) * rhoi(k)
-      if (rx(k,6) > rxmin(6)) then
-         call qtc(qx(k,6),tc,fracliq)
-         rholiq(k) = rholiq(k) + rx(k,6) * fracliq
-         rhoice(k) = rhoice(k) + rx(k,6) * (1. - fracliq)
-      endif
    enddo
 endif
 
@@ -1793,11 +1777,6 @@ if (jnmb(7) >= 1) then
    do k = lpw0,k2(11)
       sh_h(k,iw0) = rx(k,7) * rhoi(k)
       q7  (k,iw0) = qr(k,7) * rhoi(k)
-      if (rx(k,7) > rxmin(7)) then
-         call qtc(qx(k,7),tc,fracliq)
-         rholiq(k) = rholiq(k) + rx(k,7) * fracliq
-         rhoice(k) = rhoice(k) + rx(k,7) * (1. - fracliq)
-      endif
    enddo
 endif
 
@@ -1809,7 +1788,6 @@ if (jnmb(8) >= 1) then
 
    do k = lpw0,k3(8)
       sh_d(k,iw0) = rx(k,8) * rhoi(k)
-      if (rx(k,8) > rxmin(8)) rholiq(k) = rholiq(k) + rx(k,8)
    enddo
 endif
 
@@ -1902,22 +1880,5 @@ if (iifn == 2) then
       con_ifn(k,iw0) = con_ifnx(k) * rhoi(k)
    enddo
 endif
-
-! Rediagnose tair and theta
-
-do k = lpw0, max( k3(1), k3(3), k3(8), k2(11) )
-
-   til = thil0(k) * exner0(k)
-   qhydm = alvl * rholiq(k) + alvi * rhoice(k)
-
-   if (tair0(k) > 253.) then
-      tair(k,iw0) = 0.5 * (til + sqrt(til * (til + cpi4 * qhydm * rhoi(k))))
-   else
-      tair(k,iw0) = til * (1. + qhydm * rhoi(k) * cp253i)
-   endif
-
-   theta(k,iw0) = tair(k,iw0) / exner0(k)
-
-enddo
 
 end subroutine mic_copyback
