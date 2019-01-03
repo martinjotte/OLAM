@@ -20,7 +20,7 @@ use mem_grid,    only: mza, lpw, lsw, zm, zt, dzt_bot, dzit, zfacm2, zfacim2, &
 use mem_ijtabs,  only: itab_w
 use mem_sea,     only: sea, itab_ws
 use mem_leaf,    only: land, itab_wl
-use consts_coms, only: r8, grav, vonk
+use consts_coms, only: r8, grav, vonk, gravi
 use nuclei_coms, only: jsfcinx
 use mem_basic,   only: vxe, vye, vze
 use nuclei_coms, only: e0, acoll, alpha, ggamma, jsfcinx, &
@@ -65,8 +65,9 @@ implicit none
   integer :: jwl
   integer :: iwl
   integer :: leaf_class
-  integer :: isfcinx ! sfc type index
-  integer :: iwet    ! Index for diam_nucx table interpolation
+  integer :: isfcinx    ! sfc type index
+  real    :: wwet(mza)  ! Weight for diam_nucx table interpolation
+  integer :: iwet(mza)  ! Index for diam_nucx table interpolation
 
   integer :: ks1(11), ks2(11) ! Copy of k1, k2
 
@@ -120,9 +121,10 @@ implicit none
   real :: xkdprime
   real :: xkc
   real :: xkd
-  real :: wwet      ! Weight for diam_nucx table interpolation
   real :: relhum    ! relative humidity
   real :: fracwkk   ! nuclei fractional fall distance out of source cell
+
+  real, parameter :: m3l10 = -3.0 * log(10.0)
 
   ! Copy nuclei concentrations (con_nucx) from microphysics column arrays
 
@@ -147,36 +149,36 @@ implicit none
 
   ! Loop over T levels in grid column
 
-  do k = lpw(iw),mza
+  do k = lpw(iw), mza
 
      ! Get interpolation index and weight for diam_nucx table
 
      relhum = min(1.,rhov(k) / rhovslair(k))
 
      if (relhum < 0.7) then
-        iwet = 1
-        wwet = 0.
+        iwet(k) = 1
+        wwet(k) = 0.
      elseif (relhum < 0.9) then
-        iwet = 1
-        wwet = 5. * (relhum - 0.8)
+        iwet(k) = 1
+        wwet(k) = 5. * (relhum - 0.8)
      elseif (relhum < 0.97) then
-        iwet = 2
-        wwet = 14.2857 * (relhum - 0.9)
+        iwet(k) = 2
+        wwet(k) = 14.2857 * (relhum - 0.9)
      elseif (relhum < 0.99) then
-        iwet = 3
-        wwet = 50. * (relhum - 0.97)
+        iwet(k) = 3
+        wwet(k) = 50. * (relhum - 0.97)
      elseif (relhum < 0.997) then
-        iwet = 4
-        wwet = 142.857 * (relhum - 0.99)
+        iwet(k) = 4
+        wwet(k) = 142.857 * (relhum - 0.99)
      elseif (relhum < 0.999) then
-        iwet = 5
-        wwet = 500. * (relhum - 0.997)
+        iwet(k) = 5
+        wwet(k) = 500. * (relhum - 0.997)
      elseif (relhum < 1.0) then
-        iwet = 6
-        wwet = 1000. * (relhum - 0.999)
+        iwet(k) = 6
+        wwet(k) = 1000. * (relhum - 0.999)
      else
-        iwet = 6
-        wwet = 1.
+        iwet(k) = 6
+        wwet(k) = 1.
      endif
 
      ! Wind speed
@@ -192,16 +194,22 @@ implicit none
 
      dynvisc_liqwat(k) = 1.787e-3 - 0.03925e-3 * max(0.,min(20.,tairc(k)))
 
-     ! Loop over microphysics aerosol types
+  enddo
 
-     do inuc = 1,nnuc
+  ! Loop over microphysics aerosol types
+
+  do inuc = 1,nnuc
+
+     ! Loop over T levels in grid column
+
+     do k = lpw(iw), mza
 
         ! Diagnose aerosol wet diameter by interpolation from diam_nucx table based on r.h.
 
-        dwetnuc(k,inuc) = diam_nucx(iwet  ,inuc) * (1. - wwet) &
-                        + diam_nucx(iwet+1,inuc) *       wwet
+        dwetnuc(k,inuc) = diam_nucx(iwet(k)  ,inuc) * (1. - wwet(k)) &
+                        + diam_nucx(iwet(k)+1,inuc) *       wwet(k)
 
-        rho_wetnuc(k,inuc) = (diam_nucx(1,inuc) / dwetnuc(k,inuc))**3 * (rho_nucx(inuc) - rhow) + rhow 
+        rho_wetnuc(k,inuc) = (diam_nucx(1,inuc) / dwetnuc(k,inuc))**3 * (rho_nucx(inuc) - rhow) + rhow
 
         ! Slip correction factor from Seinfeld and Pandis (2006) eq.(9.34)
 
@@ -213,7 +221,7 @@ implicit none
 
         diff_nuc(k,inuc) = boltz * tair(k) * slipc(k,inuc) / (pi3 * dynvisc(k) * dwetnuc(k,inuc))
 
-        schm(k,inuc) = dynvisc(k) / (rhoa(k) * diff_nuc(k,inuc))
+        schm(k,inuc) = dynvisc(k) / (real(rhoa(k)) * diff_nuc(k,inuc))
 
         ! Characteristic relaxation time of particle
 
@@ -233,9 +241,9 @@ implicit none
 
         xfernuc(k-1,inuc) = sourcec(k,inuc) * fracwkk * arw(k-1,iw)
 
-     enddo ! inuc
+     enddo ! k
 
-  enddo ! k
+  enddo ! inuc
 
   ! Initialize surface deposition number to zero for all grid levels and nuc types
 
@@ -244,7 +252,7 @@ implicit none
   ! Check for sea area beneath this atmospheric grid column
 
   nsea = itab_w(iw)%nsea
-  if (nsea == 0) then
+  if (nsea > 0) then
 
      ! Loop over sea cells beneath this atmospheric grid column
 
@@ -275,12 +283,13 @@ implicit none
 
               rvd = rho_wetnuc(kw,inuc) * vwetnuc(kw,inuc) * dwetnuc(kw,inuc)
 
-              cd = 24. * dynvisc(kw) * (1. + 0.0196 * rvd / dynvisc(kw)) / rvd 
+              cd = 24. * dynvisc(kw) / rvd + .4704
 
-              st = vwetnuc(kw,inuc) / grav * (sea%ustar(iws)**2 / dynvisc(kw))
+              st = vwetnuc(kw,inuc) * gravi * sea%ustar(iws)**2 * real(rhoa(kw)) / dynvisc(kw)
 
               xkcprime = cd * vels10 / (1. - vonk)
-              xkdprime = cd * vels10 * (1. / sqrt(schm(kw,inuc)) + 10.**(-3. / st)) / vonk 
+              xkdprime = cd * vels10 * (1. / sqrt(schm(kw,inuc)) + exp( m3l10 / st)) / vonk
+
               xkc = xkcprime + vdrynuc
               xkd = xkdprime + vwetnuc(kw,inuc)
               vnucsfc = xkc * xkd / (xkd + xkc - vdrynuc)
@@ -321,6 +330,9 @@ implicit none
         leaf_class = land%leaf_class(iwl)
         isfcinx = jsfcinx(leaf_class)
 
+        ! aerodynamic resistance
+        Ra = vels10 / land%ustar(iwl)**2
+
         ! Loop over microphysics aerosol types
 
         do inuc = 1,nnuc
@@ -332,14 +344,13 @@ implicit none
            ! Both surface and aerodynamic resistance are factored into the net
            ! fallspeed.  Based on Slinn (1981)
 
-           Ra = vels10 / land%ustar(iwl)**2
-           Eb = schm(kw,inuc) ** (-1.0 * ggamma(isfcinx))
+           Eb = schm(kw,inuc) ** (-ggamma(isfcinx))
 
            if (isfcinx /= 8  .and. isfcinx /= 9 .and. isfcinx /= 12) then
               St = vwetnuc(kw,inuc) * land%ustar(iwl) / (acoll(isfcinx) * grav * 1.0e-3)
               Ein = 0.5 * (dwetnuc(kw,inuc) * 1.0e-6 / (acoll(isfcinx) * 1.0e-3))**2
            else
-              St = vwetnuc(kw,inuc) * land%ustar(iwl)**2 / (dynvisc(kw) / rhoa(kw) * grav)
+              St = vwetnuc(kw,inuc) * land%ustar(iwl)**2 * real(rhoa(kw)) * gravi / dynvisc(kw)
               Ein = 0.0
            endif
 
@@ -348,7 +359,7 @@ implicit none
            if (isfcinx == 0) then
               R1 = 1. ! No rebound from wet surfaces
            else
-              R1 = exp ( -1. * St**0.5 )
+              R1 = exp ( -sqrt(St) )
            endif
            Rs = 1. / (e0 * land%ustar(iwl) * (Eb + Eim + Ein) * R1)
 
@@ -387,7 +398,7 @@ implicit none
   ! for snow/aggr scavenging.  Literature suggests snow scavenging coefficients
   ! are higher than for rain, so the spherical assumption likely sets a lower
   ! bound for snow scavenging for now.
-  
+
   ! If there is convective (rain) precipitation, assign a mean raindrop
   ! diameter, fall speed, and precipitation flux profile so that scavenging can
   ! be evaluated in the same manner as for resolved microphysics precipitation.
@@ -396,7 +407,7 @@ implicit none
 
   ks1(1) = 0
   ks2(1) = 0
-  
+
   ks1(2:11) = k1(2:11)
   ks2(2:11) = k2(2:11)
 
@@ -433,9 +444,9 @@ implicit none
 
         ! Compute quantities dependent on precipitation but not aerosol nuclei
 
-        re       (k,lcat) = (dmb(k,lcat) * pcpvel(k,lcat) * rhoa(k)) / (2. * dynvisc(k))
+        re       (k,lcat) = 0.5 * dmb(k,lcat) * pcpvel(k,lcat) * real(rhoa(k)) / dynvisc(k)
         sqrt_re  (k,lcat) = sqrt(re(k,lcat))
-        a1r               = alog(1. + re(k,lcat))
+        a1r               = log(1. + re(k,lcat))
         sstar    (k,lcat) = (1.2 + 0.083333 * a1r) / (1. + a1r)
         pcpodmb  (k,lcat) = pcpfluxr(k,lcat) * 1.e-3 / dmb(k,lcat)
      enddo
@@ -484,7 +495,7 @@ implicit none
               stcorr = ((st - sstar(k,lcat)) / (st - sstar(k,lcat) + 2. / 3.))**1.5
               ecollect = ecollect + stcorr * sqrt_rhoi_nuc(k)
            endif
-           if (ecollect > 1.0) ecollect = 1.0      
+           if (ecollect > 1.0) ecollect = 1.0
 
            scavfrac(k) = scavfrac(k) + 1.5 * ecollect * pcpodmb(k,lcat)
 
@@ -527,4 +538,3 @@ implicit none
   endif
 
 end subroutine nuclei_deposition
-
