@@ -48,6 +48,7 @@ Module ccnbin_coms
   real, parameter :: rhow   = 1.0e3   ! density of water [kg/m^3]
   real, parameter :: afhh   = 2.25    ! Kumar et al. (2011) Eq. (4) parameter
   real, parameter :: bfhh   = 1.2     ! Kumar et al. (2011) Eq. (4) parameter
+  real, parameter :: mbfhh  = -bfhh
   real, parameter :: d2moli = 1.818e9 ! 1 / (2 * diam of h2o molecule) [m^-1]
 
   real, parameter :: xalphac = 1. ! condens accomodation coeff {was 0.042 in GNF}
@@ -59,6 +60,11 @@ Module ccnbin_coms
 
   real, parameter :: tempkap = 298.15   ! [K]
   real, parameter :: sfctension = 0.072 ! [N/m]
+  real, parameter :: curvcof = 4.0 * sfctension / (rvap * tempkap * rhow)
+
+  real, parameter :: dminprog  =  3.e-6 ! minimum droplet diameter for prognosis
+  real, parameter :: dmaxinit  = 10.e-6 ! maximum droplet initial diameter (unless large drydiam)
+  real, parameter :: dactivate = 20.e-6 ! minimum droplet diameter to guarantee activation
 
   ! Memory for CCN bins
 
@@ -104,8 +110,11 @@ Module ccnbin_coms
   real, allocatable :: relcon_bin(:)
   real, allocatable :: drydiam   (:)
   real, allocatable :: drydiam3  (:)
+  real, allocatable :: drydiam11 (:)
+  real, allocatable :: drydiam3bk(:)
   real, allocatable :: wetdiam099(:)
   real, allocatable :: wetdiam100(:)
+  real, allocatable :: wetdiammin(:)
   real, allocatable :: critdiam  (:)
   real, allocatable :: critsat   (:)
   real, allocatable :: d01sat    (:)
@@ -113,9 +122,13 @@ Module ccnbin_coms
   real, allocatable :: d30sat    (:)
   real, allocatable :: d50sat    (:)
   real, allocatable :: crits     (:)
+  real, allocatable :: dmaxbin   (:)
 
-  real :: dminprog, dmaxinit, dactivate
-
+  real, allocatable :: dfrac01   (:)
+  real, allocatable :: dfrac10   (:)
+  real, allocatable :: dfrac30   (:)
+  real, allocatable :: dfrac50   (:)
+  real, allocatable :: dfraccrit (:)
 end module ccnbin_coms
 
 !=============================================================================
@@ -125,35 +138,36 @@ subroutine ccnbin_init()
   use ccnbin_coms, only: pi2, pio6, rdry, rvap, cp, &
                          rhow, tempkap, sfctension, xalphac, &
                          nccntyp, nnuc, nbins, idust1, idust2, idust3, idust4, &
-                         isalt, igccnx, iifnx, &
+                         isalt, igccnx, iifnx, dmaxbin, wetdiammin, drydiam11, &
                          ccntyp_name, nbins_ccntyp, ccntyp_dmin, ccntyp_dmax, &
                          ccntyp_dmed, ccntyp_dsig, ccntyp_kappa, ccntyp_alpha, &
                          bkappa, relcon_bin, drydiam, drydiam3, wetdiam099, &
-                         wetdiam100, critdiam, critsat, d01sat, d10sat, &
+                         wetdiam100, critdiam, critsat, d01sat, d10sat, drydiam3bk, &
                          d30sat, d50sat, crits, ccnbin_name, iccntyp, iccnjbin, ihyg, &
-                         dminprog, dmaxinit, dactivate, diam_nucx, rho_nucx, bkappa_nucx
+                         dminprog, dmaxinit, dactivate, diam_nucx, rho_nucx, bkappa_nucx, &
+                         dfrac01, dfrac10, dfrac30, dfrac50, dfraccrit
 
   use micro_coms,  only: iccn, igccn, iifn
   use misc_coms,   only: io6
-                         
+
   implicit none
 
   integer :: jbins, ic, jbin, ibin, inewt, i0, inuc
   real :: d01, d10, d30, d50
-  real :: ax, sqrt2, dsiglog, dmedlog, diamfac
+  real :: ax, dsiglog, dmedlog, diamfac
   real :: aux1, aux2, aux3, aux4, scal
   real :: dbnd1, dbnd2
   real :: ddlog, wetd, dwetd, satk, satkp, satkpp
   real :: tot,tot_ifn, f0
   real, allocatable :: ccn_mass(:), ccn_diam2(:)
-  
+
   ! The value of ICCN determines a unique set of CCN types to be prognosed.
   ! New sets may be added here by adding ELSEIF sections in the next two
   ! IF-ENDIF blocks and filling with appropriate values.  The first IF-ENDIF
   ! block defines the number of CCN types so that arrays can be dimensioned
   ! to the proper size.
 
-  ! For ICCN = 1, in which case CCN are specified rather than diagnosed, 
+  ! For ICCN = 1, in which case CCN are specified rather than diagnosed,
   ! set nccntyp to 1 so that ccntyp_alpha can be used.
 
   if (iccn == 1) then
@@ -442,7 +456,7 @@ subroutine ccnbin_init()
   endif
 
   if (iccn >= 2) bkappa_nucx(1:nccntyp) = ccntyp_kappa(1:nccntyp)
- 
+
   if (igccn == 2) then
        diam_nucx(1,igccnx) = 1.0e-6
         rho_nucx(  igccnx) = 2.5e3
@@ -466,7 +480,7 @@ subroutine ccnbin_init()
   do ic = 1, nccntyp
 
      ! The minimum and maximum bin sizes, ccntyp_dmin and ccntyp_dmax, are set to
-     ! ccntyp_dmed/diamfac and ccntyp*diamfac, respectively, where diamfac is 
+     ! ccntyp_dmed/diamfac and ccntyp*diamfac, respectively, where diamfac is
      ! given by the following empirical formulas.  Using 20 bins, this results in
      ! the first and last bins each holding about 0.5% or less of the population.
 
@@ -515,8 +529,11 @@ subroutine ccnbin_init()
   allocate (relcon_bin (nbins))
   allocate (drydiam    (nbins))
   allocate (drydiam3   (nbins))
+  allocate (drydiam11  (nbins))
+  allocate (drydiam3bk (nbins))
   allocate (wetdiam099 (nbins))
   allocate (wetdiam100 (nbins))
+  allocate (wetdiammin (nbins))
   allocate (critdiam   (nbins))
   allocate (critsat    (nbins))
   allocate (d01sat     (nbins))
@@ -524,14 +541,16 @@ subroutine ccnbin_init()
   allocate (d30sat     (nbins))
   allocate (d50sat     (nbins))
   allocate (crits      (nbins))
+  allocate (dmaxbin    (nbins))
 
-  dminprog =   3.e-6 ! minimum droplet diameter for prognosis
-  dmaxinit =  10.e-6 ! maximum droplet initial diameter (unless large drydiam)
-  dactivate = 20.e-6 ! minimum droplet diameter to guarantee activation
+  allocate (dfrac01    (nbins))
+  allocate (dfrac10    (nbins))
+  allocate (dfrac30    (nbins))
+  allocate (dfrac50    (nbins))
+  allocate (dfraccrit  (nbins))
 
   ! Initialize bins from input "ccntyp" arrays
 
-  sqrt2 = sqrt(2.)
   jbins = 0
   do ic = 1, nccntyp
 
@@ -541,7 +560,8 @@ subroutine ccnbin_init()
         stop 'stop: ccntyp_dsig less than 1.1'
      endif
 
-     ax = log(ccntyp_dmax(ic) / ccntyp_dmin(ic)) / (nbins_ccntyp(ic) * log(2.))
+!    ax = log(ccntyp_dmax(ic) / ccntyp_dmin(ic)) / (nbins_ccntyp(ic) * log(2.))
+     ax = log(ccntyp_dmax(ic) / ccntyp_dmin(ic)) / real(nbins_ccntyp(ic))
 
      dbnd1 = ccntyp_dmin(ic)
      tot = 0.
@@ -556,18 +576,24 @@ subroutine ccnbin_init()
 
         ! Set up the CCN size spectrum -- geometric progression of diameter
 
-        dbnd2 = ccntyp_dmin(ic) * 2.0**(jbin * ax)
-        drydiam (ibin) = 0.5 * (dbnd1 + dbnd2)
-        drydiam3(ibin) = drydiam(ibin)**3
-        bkappa  (ibin) = ccntyp_kappa(ic)
+!       dbnd2 = ccntyp_dmin(ic) * 2.0**(jbin * ax)
+        dbnd2 = ccntyp_dmin(ic) * exp(jbin * ax)
+
+        drydiam   (ibin) = 0.5 * (dbnd1 + dbnd2)
+        drydiam3  (ibin) = drydiam(ibin)**3
+        drydiam11 (ibin) = drydiam(ibin) * 1.1
+        bkappa    (ibin) = ccntyp_kappa(ic)
+        drydiam3bk(ibin) = drydiam3(ibin) * (1. - bkappa(ibin))
+        dmaxbin   (ibin) = max(drydiam11(ibin), dmaxinit)
+        wetdiammin(ibin) = 1.0025 * drydiam(ibin)
 
         ! Set up initial aerosol distribution
 
         dsiglog = log(ccntyp_dsig(ic))
         dmedlog = log(ccntyp_dmed(ic))
 
-        aux1 = (log(dbnd1) - dmedlog)**2 
-        aux2 = (log(dbnd2) - dmedlog)**2 
+        aux1 = (log(dbnd1) - dmedlog)**2
+        aux2 = (log(dbnd2) - dmedlog)**2
         aux1 = aux1 / (2. * dsiglog**2)
         aux2 = aux2 / (2. * dsiglog**2)
         aux3 = exp (-aux1)
@@ -589,7 +615,7 @@ subroutine ccnbin_init()
      enddo
 
      ! For dust, determine ccntyp_alpha parameter based on fraction of CCN in
-     ! bins for sizes 0.5 microns and greater.  
+     ! bins for sizes 0.5 microns and greater.
 
      if (ic == idust1) then
         ccntyp_alpha(ic) = tot_ifn / tot
@@ -743,6 +769,14 @@ subroutine ccnbin_init()
                  satk, satkp, satkpp, 0)
      d50sat(ibin) = satk
 
+  enddo
+
+  do ibin = 1, nbins
+     dfrac01  (ibin) = .01 / (d01sat (ibin) - 1.00)
+     dfrac10  (ibin) = .09 / (d10sat (ibin) - d01sat(ibin))
+     dfrac30  (ibin) = .20 / (d30sat (ibin) - d10sat(ibin))
+     dfrac50  (ibin) = .20 / (d50sat (ibin) - d30sat(ibin))
+     dfraccrit(ibin) = .50 / (critsat(ibin) - d50sat(ibin))
   enddo
 
   ! Rank all bins from lowest to highest critical saturation values.
@@ -1031,20 +1065,19 @@ end subroutine ccnbin_init
 !     efficient than more precise diagnosis arrived at iteratively.
 
 subroutine ccnbin(iw0, k, ntim, timespan, &
-                  tempk0, press0, rhoa0, rhov0, sh_v0, satenv0, &
-                  tempk1, press1, rhoa1, rhov1, sh_v1, satenv1, &
-                  con_cp, con_ccny, satenvmax, cactivated, sh_wbc)
+                  tempk0, press0, rhoa0, rhov0, satenv0, &
+                  tempk1, press1, rhoa1, rhov1, satenv1, &
+                  con_cp, con_ccny, cactivated, rho_wbc)
 
   use ccnbin_coms, only: pi2, pio2, pio4, pio6, rdry, rvap, cp, &
-                         rhow, tempkap, sfctension, xalphac, &
-                         nccntyp, nbins, &
-                         nbins_ccntyp, ccntyp_dmin, ccntyp_dmax, ccntyp_dmed, &
-                         ccntyp_dsig, ccntyp_kappa, &
-                         bkappa, relcon_bin, drydiam, drydiam3, wetdiam099, &
-                         wetdiam100, critdiam, critsat, d01sat, d10sat, &
-                         d30sat, d50sat, crits, ihyg, &
-                         dminprog, dmaxinit, dactivate
-  use therm_lib, only: rhovsl
+                         rhow, tempkap, sfctension, xalphac, bkappa, &
+                         nccntyp, nbins, nbins_ccntyp, drydiam, &
+                         relcon_bin, drydiam3, drydiam3bk, wetdiammin, &
+                         wetdiam099, wetdiam100, critdiam, critsat, d01sat, &
+                         d10sat, d30sat, d50sat, ihyg, d2moli, drydiam11, &
+                         dminprog, dmaxbin, dactivate, curvcof, mbfhh, afhh, &
+                         dfrac01, dfrac10, dfrac30, dfrac50, dfraccrit
+  use therm_lib, only: rhovsl_inv
 
   implicit none
 
@@ -1052,55 +1085,55 @@ subroutine ccnbin(iw0, k, ntim, timespan, &
   integer, intent(in) :: k           ! OLAM grid vertical index
   integer, intent(in) :: ntim        ! # of timesteps to be run in parcel model
 
-  real, intent(in) :: timespan
-  real, intent(in) ::  tempk0,  tempk1 ! initial & final air temperatures [K]
-  real, intent(in) ::  press0,  press1 ! initial & final pressures [Pa]
-  real, intent(in) ::   rhoa0,   rhoa1 ! initial & final air densities   [kg_a/m^3]
-  real, intent(in) ::   rhov0,   rhov1 ! initial & final vapor densities [kg_v/m^3]
-  real, intent(in) ::   sh_v0,   sh_v1 ! initial & final vapor spec dens [kg_v/kg_a]
-  real, intent(in) :: satenv0, satenv1 ! initial & final saturation (env) [ ]
-  real, intent(inout) :: cactivated, sh_wbc
-  real, intent(inout) :: satenvmax
-  real, intent(in) :: con_cp           ! concentration of cloud + pristine ice [#/m^3]
-  real, intent(in) :: con_ccny(nccntyp)! prognosed concentration of each CCN type [#/m^3]
+  real, intent(in ) :: timespan
+  real, intent(in ) ::  tempk0, tempk1   ! initial & final air temperatures [K]
+  real, intent(in ) ::  press0, press1   ! initial & final pressures [Pa]
+  real, intent(in ) ::   rhoa0,  rhoa1   ! initial & final air densities   [kg_a/m^3]
+  real, intent(in ) ::   rhov0,  rhov1   ! initial & final vapor densities [kg_v/m^3]
+  real, intent(in ) :: satenv0, satenv1  ! initial & final saturation (env) [ ]
+  real, intent(in ) :: con_cp            ! concentration of cloud + pristine ice [#/m^3]
+  real, intent(in ) :: con_ccny(nccntyp) ! prognosed concentration of each CCN type [#/m^3]
+  real, intent(out) :: cactivated, rho_wbc
 
 ! Local arrays
 
-  integer :: iprognose(nbins) ! bin prognose flag  (0 = no, 1 = yes)
+  logical :: iprognose(nbins)  ! bin prognose flag
+  logical :: skipbin  (nbins)  ! bin skip flag
 
-  real :: con_bin(nbins)
-  real :: wetdiam(nbins)
+  real :: con_bin (nbins)
+  real :: wetdiam (nbins)
+  real :: wetdiam3(nbins)
 
   ! Local variables
 
-  integer :: ibin, ic, jbin, maxsat, itim, jbins
-
+  integer :: ibin, ic, jbin, itim, jbins
   real :: dtim, tim, fractim, diagdiam, frac
-  real :: tot
-  real :: sh_wb
-  real :: satenv
-  real :: tempk, press, rhoa, rhov, sh_v, rhov_remain
-  real :: satk, satkp, satkpp
+  real :: tot, dtim4, dtim12
+  real :: rho_wb
+  real :: satenv, satenvmax
+  real :: tempk, press, rhoa, rhov, rhov_remain
+  real :: satk, esat
   real :: rlv, pratio, rlambda, dvn, rkan, fdcfac, fkafac
-  real :: rad, rad2, dsv, fksa, t1, t2, t3, tn, td
+  real :: rad, rad2, dsvi, fksai, t1, t2, t3, tn, td, t1a, t3a
+  real :: curvterm, actterm
 
-  real, external :: few, flhv
+  real, parameter :: afhh0    = afhh * d2moli ** mbfhh
+  real, parameter :: onethird = 1. / 3.
+  real, parameter :: dminprogeps = nearest(dminprog, -1.0)
+  real, parameter :: fdc0 = sqrt( pi2 / rvap ) / xalphac
+  real, parameter :: fka0 = sqrt( pi2 / rdry ) / (0.96 * cp)
+  real, external  :: few, flhv
+
+  cactivated = 0.
+  rho_wbc    = 0.
+
+  ! Return if we are not near saturation
+
+  if (satenv1 < 0.99 .and. satenv0 < 0.99) return
 
   ! If critical saturation of all bins exceeds ending environmental saturation, return
 
   if (all(critsat(1:nbins) > satenv1)) return
-
-  ! Initialize quantities before time loop
-
-  satenvmax = 0.
-  rlv = FLHV(tempk0)
-  maxsat = 0
-  iprognose(:) = 0
-
-  dtim = timespan / ntim
-  tim = 0.
-
-  wetdiam(1:nbins) = drydiam(1:nbins)
 
   ! Fill con_bin values for current CCNBIN integration
 
@@ -1135,156 +1168,204 @@ subroutine ccnbin(iw0, k, ntim, timespan, &
      else
         con_bin(jbin) = max(0.,tot - con_cp)
         exit
-     endif 
+     endif
   enddo
+
+  ! Skip bins that are already nucleated or have negligible CCN concentrations
+
+  skipbin(1:nbins) = ( con_bin(1:nbins) < 1.e2 )
+
+  if (all(skipbin(1:nbins))) return
+
+  ! Initialize quantities before time loop
+
+  iprognose(:) = .false.
+  satenvmax = 0.
+
+  rlv    = FLHV(tempk0)
+  rho_wb = 0.0
+
+  dtim   = timespan / ntim
+  dtim4  = dtim *  4.
+  dtim12 = dtim * 12.
+  tim    = 0.
+
+  wetdiam (1:nbins) = drydiam (1:nbins)
+  wetdiam3(1:nbins) = drydiam3(1:nbins)
 
   ! Start the time loop
 
-  do itim = 1,ntim 
+  do itim = 1, ntim
 
      tim = tim + dtim
      fractim = tim / timespan
 
-     ! Sum water mixing ratio over all bins [kg_wb/kg_a]
+     ! Sum water condensate density over all bins [kg_wb/m^3]
 
-     sh_wb = rhow * pio6 &
-           * sum(con_bin(1:nbins) * (wetdiam(1:nbins)**3 - drydiam3(1:nbins)))
+     if (itim > 1) then
+        rho_wb = rhow * pio6 &
+              * sum(con_bin(1:nbins) * (wetdiam3(1:nbins) - drydiam3(1:nbins)))
+     endif
 
      ! Update environmental variables
 
-     tempk = tempk0 + fractim * (tempk1 - tempk0) + rlv * sh_wb / cp
      press = press0 + fractim * (press1 - press0)
      rhoa  = rhoa0  + fractim * ( rhoa1 -  rhoa0)
      rhov  = rhov0  + fractim * ( rhov1 -  rhov0)
-     sh_v  = sh_v0  + fractim * ( sh_v1 -  sh_v0)
+     tempk = tempk0 + fractim * (tempk1 - tempk0) + rlv * rho_wb / (rhoa * cp)
 
      ! Vapor density remaining after bin water uptake [kg_v/m^3]
 
-     rhov_remain = rhov * (1. - sh_wb / sh_v)
+     rhov_remain = rhov - rho_wb
 
-     ! Saturation ratio; Latent heat of vaporization
+     ! Saturation ratio
 
-     satenv = rhov_remain / rhovsl(tempk-273.15)
-     rlv = FLHV(tempk)
+     satenv = rhov_remain * rhovsl_inv(tempk-273.15)
 
      ! Limit satenv on first 4 iterations to smooth sudden onset of latent heating
 
      if (itim == 1) then
-        satenv = min(satenv,0.99)
+        satenv = min(satenv,0.99001)
      elseif (itim == 2) then
         satenv = min(satenv,0.995)
      elseif (itim == 3) then
         satenv = min(satenv,0.998)
      elseif (itim == 4) then
-        satenv = min(satenv,0.999)
+        satenv = min(satenv,1.000)
+     elseif (itim == 5) then
+        satenv = min(satenv,1.002)
      endif
-
-     ! Atmospheric properties used for computing droplet vapor diffusional growth
-
-     pratio  = 1.01325e5 / press
-     rlambda = 6.6e-8 * pratio * (tempk / 293.15)   ! mean free path P&K 10-106
-     dvn     = 0.211e-4 * pratio * (tempk / 273.15)**1.94   ! diffusivity P&K 13-3 but MKS
-     rkan    = 4.38e-3 + 7.118e-5 * tempk   ! therm cond P&K 13-16 but in MKS with K
-     fdcfac  = dvn * SQRT(pi2 / (rvap * tempk)) / xalphac
-     fkafac  = rkan * SQRT(pi2 / (rdry * tempk)) / (0.96 * cp * rhoa)
-
-     ! Loop over bins to update droplet diameters
-
-     do ibin = 1,nbins
-
-        ! For bins that have not yet been prognosed, diagnose diameter by
-        ! interpolation between pre-determined diameters
-
-        if (iprognose(ibin) == 0) then
-
-           if (satenv >= critsat(ibin)) then
-              diagdiam = max(dminprog,critdiam(ibin))
-           elseif (satenv >= d50sat(ibin)) then
-              frac = (satenv - d50sat(ibin)) / (critsat(ibin) - d50sat(ibin))
-              diagdiam = (.50 + .50 * frac) * critdiam(ibin) &
-                       + (.50 - .50 * frac) * wetdiam100(ibin)
-           elseif (satenv >= d30sat(ibin)) then
-              frac = (satenv - d30sat(ibin)) / (d50sat(ibin) - d30sat(ibin))
-              diagdiam = (.30 + .20 * frac) * critdiam(ibin) &
-                       + (.70 - .20 * frac) * wetdiam100(ibin)
-           elseif (satenv >= d10sat(ibin)) then
-              frac = (satenv - d10sat(ibin)) / (d30sat(ibin) - d10sat(ibin))
-              diagdiam = (.10 + .20 * frac) * critdiam(ibin) &
-                       + (.90 - .20 * frac) * wetdiam100(ibin)
-           elseif (satenv >= d01sat(ibin)) then
-              frac = (satenv - d01sat(ibin)) / (d10sat(ibin) - d01sat(ibin))
-              diagdiam = (.01 + .09 * frac) * critdiam(ibin) &
-                       + (.99 - .09 * frac) * wetdiam100(ibin)
-           elseif (satenv >= 1.00) then
-              frac = (satenv - 1.00) / (d01sat(ibin) - 1.00)
-              diagdiam = (       .01 * frac) * critdiam(ibin) &
-                       + (1.00 - .01 * frac) * wetdiam100(ibin)
-           elseif (satenv >= 0.99) then
-              frac = (satenv - 0.99) / 0.01
-              diagdiam = (       frac) * wetdiam100(ibin) &
-                       + (1.00 - frac) * wetdiam099(ibin)
-           else
-              diagdiam = wetdiam099(ibin)
-           endif
-
-           if (satenv >= 0.99) then
-              if (diagdiam >= dminprog * 0.999 .or. &
-                  drydiam(ibin)*1.1 >= dminprog) then
-
-                 wetdiam(ibin) = max(drydiam(ibin)*1.1, min(dmaxinit,diagdiam))
-                 iprognose(ibin) = 1
-              endif
-           endif
-
-        endif  ! iprognose(ibin) == 0
-
-        ! Prognose wet diameter for bins flagged for prognosis
-
-        if (iprognose(ibin) == 1) then
-
-           ! Time derivative of droplet diameter due to vapor diffusion.
-
-           rad  = wetdiam(ibin) * 0.5
-           rad2 = rad * rad / (rlambda + rad)
-           dsv  = dvn * rad / (rad2 + fdcfac) ! modified diffusivity P&K 13-13
-           fksa = rkan * rad / (rad2 + fkafac) ! modified therm cond P&K 13-20
-
-           t1 = rlv * rhow / (tempk * fksa) ! P&K 13-28 denom term 2A
-           t2 = rlv / (tempk * rvap) - 1.   ! P&K 13-28 denom term 2B
-           t3 = rhow * tempk * rvap / (dsv * FEW(tempk)) ! P&K 13-28 denom term 1
-
-           call satkap(wetdiam(ibin), drydiam(ibin), drydiam3(ibin), bkappa(ibin), &
-                       satk, satkp, satkpp, 0)
-
-           tn = satenv - satk
-           td = t3 + (t1 * t2)
-
-           ! Update of wet diameter.  To improve computational stability,
-           ! use volume tendency of growing drop and diameter tendency of
-           ! shrinking drop.
-
-           if (tn > 0.) then
-              wetdiam(ibin) = (wetdiam(ibin)**3 &
-                            + dtim * 12. * wetdiam(ibin) * tn / td)**(1./3.)
-           else
-              wetdiam(ibin) = max(drydiam(ibin) * 1.0001, wetdiam(ibin) &
-                            + dtim * 4. * tn / (wetdiam(ibin) * td))
-           endif
-
-        endif  ! iprognose(ibin) == 1
-
-     enddo  ! ibin
-
-     satenvmax = max(satenvmax,satenv)
 
      ! If running ccnbin as part of OLAM (or other model), halt integration of
      ! ccnbin once satenv has begun to decrease in time (due to newly activated
      ! droplets consuming excess vapor faster than environmental production).  This
      ! prevents newly activated droplets from consuming excess moisture (aided by
      ! their solute effect) before they are introduced to the cloud droplet
-     ! population which has no solute effect. 
+     ! population which has no solute effect.
 
-     if (satenv < satenvmax - 0.00001) exit
+     satenvmax = max(satenvmax,satenv)
+     if (satenv <= nearest(satenvmax,-1.)) exit
+
+     ! Latent heat of vaporization, saturated vapor pressure
+
+     rlv  = FLHV(tempk)
+     esat = few (tempk)
+
+     ! Atmospheric properties used for computing droplet vapor diffusional growth
+
+     pratio  = 1.01325e5 / press
+     rlambda = 6.6e-8 * pratio * (tempk / 293.15)   ! mean free path P&K 10-140
+     dvn     = 0.211e-4 * pratio * (tempk / 273.15)**1.94   ! diffusivity P&K 13-3 but MKS
+     rkan    = 4.38e-3 + 7.118e-5 * tempk   ! therm cond P&K 13-16 but in MKS with K
+
+     fdcfac  = fdc0 * dvn  /  SQRT(tempk)
+     fkafac  = fka0 * rkan / (SQRT(tempk) * rhoa)
+
+     t1a = rlv * rhow / tempk
+     t2  = rlv / (tempk * rvap) - 1.   ! P&K 13-28 denom term 2B
+     t3a = rhow * tempk * rvap / esat
+
+     if (satenv >= 0.99) then
+
+        ! For bins that have not yet been prognosed, diagnose diameter by
+        ! interpolation between pre-determined diameters
+
+        do ibin = 1,nbins
+           if ((.not. iprognose(ibin)) .and. (.not. skipbin(ibin))) then
+
+              if (satenv < 1.00) then
+                 frac = (satenv - 0.99) / 0.01
+                 diagdiam = (       frac) * wetdiam100(ibin) &
+                          + (1.00 - frac) * wetdiam099(ibin)
+              elseif (satenv < d01sat(ibin)) then
+                 frac = (satenv - 1.00) * dfrac01(ibin)
+                 diagdiam = (       frac) * critdiam(ibin) &
+                          + (1.00 - frac) * wetdiam100(ibin)
+              elseif (satenv < d10sat(ibin)) then
+                 frac = (satenv - d01sat(ibin)) * dfrac10(ibin)
+                 diagdiam = (.01 + frac) * critdiam(ibin) &
+                          + (.99 - frac) * wetdiam100(ibin)
+              elseif (satenv < d30sat(ibin)) then
+                 frac = (satenv - d10sat(ibin)) * dfrac30(ibin)
+                 diagdiam = (.10 + frac) * critdiam(ibin) &
+                          + (.90 - frac) * wetdiam100(ibin)
+              elseif (satenv < d50sat(ibin)) then
+                 frac = (satenv - d30sat(ibin)) * dfrac50(ibin)
+                 diagdiam = (.30 + frac) * critdiam(ibin) &
+                          + (.70 - frac) * wetdiam100(ibin)
+              elseif (satenv < critsat(ibin)) then
+                 frac = (satenv - d50sat(ibin)) * dfraccrit(ibin)
+                 diagdiam = (.50 + frac) * critdiam(ibin) &
+                          + (.50 - frac) * wetdiam100(ibin)
+              else
+                 diagdiam = max(dminprog,critdiam(ibin))
+              endif
+
+              diagdiam = max(diagdiam, drydiam11(ibin))
+
+              if ( diagdiam >= dminprogeps ) then
+                 iprognose(ibin) = .true.
+                 wetdiam  (ibin) = min(diagdiam, dmaxbin(ibin))
+                 wetdiam3 (ibin) = wetdiam(ibin)**3
+              endif
+
+           endif  ! iprognose(ibin)
+        enddo
+
+     endif  ! satenv > 0.99
+
+     ! Prognose wet diameter for bins flagged for prognosis
+
+     do ibin = 1,nbins
+        if (iprognose(ibin)) then
+
+           ! Time derivative of droplet diameter due to vapor diffusion.
+
+           rad  = wetdiam(ibin) * 0.5
+           rad2 = rad * rad / (rlambda + rad)
+
+           dsvi  = (rad2 + fdcfac) / (rad * dvn )  ! inv of modified diffusivity P&K 13-13
+           fksai = (rad2 + fkafac) / (rad * rkan)  ! inv of modified therm cond P&K 13-20
+
+           t1 = t1a * fksai ! P&K 13-28 denom term 2A
+           t3 = t3a * dsvi  ! P&K 13-28 denom term 1
+
+           if (bkappa(ibin) > 1.e-4) then
+
+              curvterm = exp(curvcof / wetdiam(ibin))
+              actterm  = (wetdiam3(ibin) - drydiam3  (ibin)) &
+                       / (wetdiam3(ibin) - drydiam3bk(ibin))
+              satk     = curvterm * actterm
+
+           else
+
+              curvterm = curvcof / wetdiam(ibin)
+              ! exp/log is often faster than ** for repetitive tasks
+              ! actterm  = afhh0 * (wetdiam(ibin) - drydiam(ibin)) ** mbfhh
+              actterm  = afhh0 * exp( log(wetdiam(ibin) - drydiam(ibin)) * mbfhh)
+              satk     = exp(curvterm - actterm)
+
+           endif
+
+           tn = satenv - satk
+           td = t1 * t2 + t3
+
+           ! Update of wet diameter.  To improve computational stability,
+           ! use volume tendency of growing drop and diameter tendency of
+           ! shrinking drop.
+
+           if (tn > 0.) then
+              wetdiam(ibin) = ( wetdiam3(ibin) &
+                              + dtim12 * wetdiam(ibin) * tn / td ) ** onethird
+           else
+
+              wetdiam(ibin) = max( wetdiammin(ibin), &
+                                   wetdiam(ibin) + dtim4 * tn / (wetdiam(ibin) * td) )
+           endif
+           wetdiam3(ibin) = wetdiam(ibin)**3
+
+        endif  ! iprognose(ibin)
+     enddo  ! ibin
 
   enddo    ! itim
 
@@ -1297,15 +1378,12 @@ subroutine ccnbin(iw0, k, ntim, timespan, &
   ! amenable to continued growth than smaller truly-activated CCN and thus
   ! qualify to become cloud droplets.
 
-  cactivated = 0.
-  sh_wbc = 0.
-
-  do ibin = 1,nbins
+  do ibin = 1, nbins
 
      if (critsat(ibin) < satenvmax .or. wetdiam(ibin) > dactivate) then
         cactivated = cactivated + con_bin(ibin)
-        sh_wbc = sh_wbc + rhow * pio6 &
-               * con_bin(ibin) * (wetdiam(ibin)**3 - drydiam3(ibin))
+        rho_wbc = rho_wbc + rhow * pio6 &
+                          * con_bin(ibin) * (wetdiam3(ibin) - drydiam3(ibin))
      endif
 
   enddo
@@ -1319,15 +1397,36 @@ real function FEW (t)
 ! Function FEW calculates saturation vapor pressure [Pa] over water for
 ! a given temperature [K].
 
-  data ts,sr /373.16, 3.0057166/ !log(1013.246)=3.0057166
-  ar  = ts/t
+  implicit none
+
+  real, intent(in) :: t
+  real             :: ar, ar1, ari, br, cr, dw, er
+
+  real, parameter  :: ts  = 373.16
+  real, parameter  :: ps  = 101324.6
+  real, parameter  :: tsi = 1. / ts
+  real, parameter  :: l10 = log(10.)
+  real, parameter  :: br0 = -7.90298   * l10
+  real, parameter  :: cr0 =  5.02808
+  real, parameter  :: dw0 = -1.3816e-7 * l10
+  real, parameter  :: dw1 = 11.344     * l10
+  real, parameter  :: er0 =  8.1328e-3 * l10
+  real, parameter  :: er1 = -3.49149   * l10
+  real, parameter  :: fw0 = ps * exp(-dw0-er0)
+
+  ar  = ts / t
   ar1 = ar - 1.
-  br  = 7.90298 * ar1
-  cr  = 5.02808 * LOG10(ar)
-  dw  = 1.3816e-7 * (10.**(11.344 * (ar1/ar)) - 1.)
-  er  = 8.1328e-3 * (10.**(-3.49149 * ar1) - 1.)
-  answer = 10.**(cr-dw+er+sr-br)
-  FEW = answer * 100.
+  ari = tsi * t
+
+  br  = br0 * ar1
+  cr  = cr0 * log( ar )
+  dw  = dw0 * exp( dw1 * ar1 * ari)
+  er  = er0 * exp( er1 * ar1      )
+
+  FEW = fw0 * exp( br + cr + dw + er )
+
+!MJO:  Terms of the form 10.**x were replaced with exp(log(10) * x)
+!MJO:  for speed.
 
 end function few
 
@@ -1335,9 +1434,14 @@ end function few
 
 real function FLHV (t)
 
-!  purpose:  This function calculates the latent heat of vaporization for     
-!    water as per P&K eqn. 4-85a. The result is then converted to     
-!           J/kg.  T is deg K.                                             
+!  Purpose:  This function calculates the latent heat of vaporization for
+!            water as per P&K eqn. 4-85a. The result is then converted to
+!            J/kg.  T is deg K.
+
+  implicit none
+
+  real, intent(in) :: t
+  real             :: rga, rlhv
 
   rga  = 0.167 + (3.67e-4 * t)
   rlhv  = 597.3 * (273.15 / t)**rga
@@ -1362,7 +1466,7 @@ end function flhv
 subroutine satkap(wetdiam, drydiam, drydiam3, bkappa, satk, satkp, satkpp, ids)
 
   use ccnbin_coms, only: rvap, rhow, tempkap, sfctension, &
-                         afhh, bfhh, d2moli
+                         afhh, bfhh, mbfhh, d2moli, curvcof
 
   implicit none
 
@@ -1371,11 +1475,9 @@ subroutine satkap(wetdiam, drydiam, drydiam3, bkappa, satk, satkp, satkpp, ids)
 
   integer, intent(in) :: ids
 
-  real(kind=8) :: wetdiam2, wetdiam3, curvcof, curvterm
+  real(kind=8) :: wetdiam2, wetdiam3, curvterm
   real(kind=8) :: actdenom, actterm, term1, term2, term3, term4, term5
   real(kind=8) :: curv1, curv2, act1, act2, act3
-
-  curvcof  = 4.0 * sfctension / (rvap * tempkap * rhow)
 
   if (bkappa > 1.e-4) then
 
@@ -1383,7 +1485,7 @@ subroutine satkap(wetdiam, drydiam, drydiam3, bkappa, satk, satkp, satkpp, ids)
      wetdiam3 = wetdiam2 * wetdiam
 
      curvterm = exp(curvcof / wetdiam)
-     actdenom = wetdiam3 - drydiam3 * (1 - bkappa)
+     actdenom = wetdiam3 - drydiam3 * (1. - bkappa)
      actterm = (wetdiam3 - drydiam3) / actdenom
 
      satk = real(actterm * curvterm)
@@ -1401,13 +1503,13 @@ subroutine satkap(wetdiam, drydiam, drydiam3, bkappa, satk, satkp, satkpp, ids)
 
      term5 = (actterm * curvcof / wetdiam3) * (2. + curvcof / wetdiam)
 
-     satkpp = curvterm * real(term4 + term5) 
+     satkpp = curvterm * real(term4 + term5)
 
   else
 
      curv1 = curvcof / wetdiam
      act1 = (wetdiam - drydiam) * d2moli
-     act2 = afhh * act1**(-bfhh)
+     act2 = afhh * act1 ** mbfhh
 
      satk = exp(real(curv1 - act2))
 
@@ -1419,7 +1521,7 @@ subroutine satkap(wetdiam, drydiam, drydiam3, bkappa, satk, satkp, satkpp, ids)
      satkp = satk * (-curv2 + act3)
 
      satkpp = satkp * (-curv2 + act3) &
-            + satk * (2. * curv2 / wetdiam + act3 * (-bfhh - 1) * d2moli / act1)
+            + satk * (2. * curv2 / wetdiam - act3 * (bfhh + 1.) * d2moli / act1)
 
   endif
 
@@ -1435,7 +1537,6 @@ use micro_coms,  only: jnmb, emb0, emb1, mza0, ncat, &
                        igccn, rxmin
 use ccnbin_coms, only: nccntyp
 use misc_coms,   only: io6, dtlm
-use mem_grid,    only: zt
 use consts_coms, only: r8, rvap, grav, alvl, cp, cliq, alli, eps_vapi
 use therm_lib,   only: rhovsl
 
@@ -1473,25 +1574,22 @@ real(r8), intent(in) :: rhoa(mza0)
 
 integer :: k
 
-real :: excessrhov, excessnum
+real :: excessrhov, excessnum, rxnuc
 real :: rnuc_vc_min, rnuc_vc_max
 real :: a1inv,w_pseudo
-real :: cactivated, sh_wbc, satenvmax
+real :: cactivated, rx_wbc
 
 ! CCNBIN variables
-
-  integer :: ntim
 
   real ::  tempkA,  tempkB ! initial & final air temperatures [K]
   real ::  pressA,  pressB ! initial & final pressures [Pa]
   real ::   rhoaA,   rhoaB ! initial & final air densities   [kg_a/m^3]
   real ::   rhovA,   rhovB ! initial & final vapor densities [kg_v/m^3]
-  real ::   sh_vA,   sh_vB ! initial & final vapor spec dens [kg_v/kg_a]
   real :: satenvA, satenvB
   real :: timespan, con_cp
   real :: con_ccny(nccntyp)
 
-  ntim = 50
+  integer, parameter :: ntim = 50
 
   ! Loop over all grid levels in column
 
@@ -1554,19 +1652,24 @@ real :: cactivated, sh_wbc, satenvmax
 
      if (jnmb(1) == 4) then
 
-        ! If NOT prognosing number concentration of cloud, use con_ccnx(k,1) as
+        ! If NOT prognosing number concentration of cloud, use con_ccnx(k,:) as
         ! the potential number concentration of cloud droplets.  Limit number
         ! of newly nucleated cloud droplets by number of droplets already
         ! present and by available supersaturation vapor (subject to the
         ! minimum cloud droplet mass).
 
-        cnuc_vc(k) = max(0., con_ccnx(k,1) - cx(k,1))
+        if (nccntyp == 1) then
+           cnuc_vc(k) = max(0., con_ccnx(k,1) - cx(k,1))
+        else
+           cnuc_vc(k) = max(0., sum(con_ccnx(k,1:nccntyp)) - cx(k,1))
+        endif
+
         cnuc_vc(k) = min(cnuc_vc(k), excessrhov / emb0(1))
 
         ! Assume that half of available supersaturation vapor is transferred to
         ! newly-nucleated cloud droplets, subject however to limits on cloud 
         ! droplet size and number nucleated.
- 
+
         rnuc_vc_min = cnuc_vc(k) * emb0(1)
         rnuc_vc_max = cnuc_vc(k) * emb1(1)
 
@@ -1601,7 +1704,7 @@ real :: cactivated, sh_wbc, satenvmax
         ! approach remains to be investigated.
 
         ! Use current conditions in grid cell as "final environmental state"
-        ! in ccnbin integration.  
+        ! in ccnbin integration.
 
         con_cp = cx(k,1) + cx(k,3)
         con_ccny(1:nccntyp) = con_ccnx(k,1:nccntyp)
@@ -1610,7 +1713,6 @@ real :: cactivated, sh_wbc, satenvmax
         pressB  = press0(k)
         rhoaB   = rhoa(k)
         rhovB   = rhov(k)
-        sh_vB   = rhovB / rhoaB
         satenvB = rhov(k) / rhovslair(k)
 
         ! For the present, it will be assumed that "initial environmental
@@ -1639,25 +1741,26 @@ real :: cactivated, sh_wbc, satenvmax
         tempkA  = tempkB
         pressA  = pressB
         rhoaA   = rhoaB
-
-        rhovA   = rhovsl(tempkA - 273.15)
-        sh_vA   = rhovA / rhoaA
-        satenvA = rhovA / rhovsl(tempkA - 273.15)
+        rhovA   = rhovslair(k)
+        satenvA = 1.0
 
         timespan = dtlm(1)
-        satenvmax = 0.
-        cactivated = 0.
-        sh_wbc = 0.
-
         nbincall = nbincall + 1
 
         call ccnbin(iw0, k, ntim, timespan, &
-                    tempkA, pressA, rhoaA, rhovA, sh_vA, satenvA, &
-                    tempkB, pressB, rhoaB, rhovB, sh_vB, satenvB, &
-                    con_cp, con_ccny, satenvmax, cactivated, sh_wbc)
+                    tempkA, pressA, rhoaA, rhovA, satenvA, &
+                    tempkB, pressB, rhoaB, rhovB, satenvB, &
+                    con_cp, con_ccny, cactivated, rx_wbc)
 
-        cnuc_vc(k) = cactivated * rhoa(k) ! [#/m^3]
-        rnuc_vc(k) = max( real(sh_wbc * rhoa(k)), cnuc_vc(k) * emb0(1)) ! [kg_w/m^3]
+        rxnuc = max(rx_wbc, cactivated * emb0(1))
+
+        if (rxnuc > excessrhov) then
+           cactivated = cactivated * excessrhov / rxnuc
+           rxnuc      = excessrhov
+        endif
+
+        cnuc_vc(k) = cactivated  ! [#/m^3]
+        rnuc_vc(k) = rxnuc       ! [kg_w/m^3]
 
         rhov(k) = rhov(k) - rnuc_vc(k)
 
@@ -1738,19 +1841,15 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
 
   real, intent(in) :: dtl0
 
-  integer :: k,idnc,itc,irhhz,ithz,nt,ns
+  integer :: k,idnc,itc,irhhz,ithz
 
-  real :: dn1,dn8,fraccld,ridnc,wdnc2,tc,ritc,wtc2, &
-          ptotvi,fracifn,cldnuc,cldnucr,rhhz,haznuc, &
-          rirhhz,wrhhz2,thz,rithz,wthz2,frachaz,ssi,diagni, &
-          vapnuc,vapnucr,availvap,emb0i3,fac,excessrhov
+  real :: dn1,dn8,fraccld,ridnc,wdnc2,tc,ritc,wtc2,rhhz
+  real :: rirhhz,wrhhz2,thz,rithz,wthz2,frachaz,excessrhov
   real :: con_ifnx_sum
 
   !---> D14 parameters
   real, parameter :: d14a = 0., d14b = 1., d14c = 0.46, d14d = -11.6
   real, parameter :: cf = 3., cfo1000 = cf / 1000.
-
-  emb0i3 = 1. / emb0(3)
 
   ! FREEZING OF CLOUD DROPLETS: Loop from lowest to highest grid level
   ! that may contain cloud water
@@ -1963,12 +2062,12 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
      ! concentration of pristine ice [cx(k,3)] is used as a proxy for the
      ! number of cloud droplets previously frozen in the limiter below.
      ! Saleeby (2009, RAMS) argued that this limit should not be used when
-     ! cloud number concentration and CCN are prognosed. 
+     ! cloud number concentration and CCN are prognosed.
 
-     if (jnmb(1) == 5 .and. iccn > 0) then
-        cnuc_vp_haze(k) = max(0.,frachaz * con_ccnx(k,1)) ! x rhoa
+     if (jnmb(1) == 5 .and. iccn > 1) then
+        cnuc_vp_haze(k) = max(0.,frachaz * sum(con_ccnx(k,1:nccntyp))) ! x rhoa
      else
-        cnuc_vp_haze(k) = max(0.,frachaz * con_ccnx(k,1) - cx(k,3)) ! x rhoa
+        cnuc_vp_haze(k) = max(0.,frachaz * sum(con_ccnx(k,1:nccntyp)) - cx(k,3)) ! x rhoa
      endif
 
      rnuc_vp_haze(k) = cnuc_vp_haze(k) * emb0(3) ! x rhoa

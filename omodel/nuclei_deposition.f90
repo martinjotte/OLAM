@@ -10,12 +10,12 @@
 !RAMS parameters. 
 
 !==============================================================================
-subroutine nuclei_deposition(iw, k1, k2, dtl0, voa, rhoa, press, tair, tairc, &
+subroutine nuclei_deposition(iw, k1, k2, dtl0, voa, rhoi, press, tair, tairc, &
    dynvisc, rhov, rhovslair, dmb, pcpvel, pcpfluxr, con_ccnx, con_gccnx, con_ifnx)
 
 use micro_coms,  only: ncat, iccn, igccn, iifn
 use ccnbin_coms, only: nccntyp, nnuc, rhow, rho_nucx, diam_nucx
-use mem_grid,    only: mza, lpw, lsw, zm, zt, dzt_bot, dzit, zfacm2, zfacim2, &
+use mem_grid,    only: mza, lpw, zm, zt, dzt_bot, dzit, zfacm2, zfacim2, &
                        arw, volti
 use mem_ijtabs,  only: itab_w
 use mem_sea,     only: sea, itab_ws
@@ -37,7 +37,7 @@ implicit none
   real, intent(in) :: dtl0   ! Model long timestep [s]
 
   real, intent(in) :: voa      (mza) ! Ratio of source cell volume to top horizontal area
-  real(r8), intent(in) :: rhoa (mza) ! Density of air [kg/m^3]
+  real, intent(in) :: rhoi     (mza) ! Specific volume of air [m^3/kg]
   real, intent(in) :: press    (mza) ! Air pressure [Pa]
   real, intent(in) :: tair     (mza) ! Air temperature [K]
   real, intent(in) :: tairc    (mza) ! Air temperature [deg C]
@@ -78,23 +78,23 @@ implicit none
 
   real :: sqrt_rhoi_nuc (mza) ! Square root of (rhow / rho_nucx)
 
-  real :: vels          (mza) !  wind speed for all levels
+  real :: vels          (mza) ! wind speed for all levels
   real :: airmfp        (mza) ! air free path [m]
   real :: dynvisc_liqwat(mza) ! dynamic viscosity of liquid water [kg/(m s)] 
   real :: sqrt_schm     (mza) ! Square root of Schmidt number [ ]
   real :: cbrt_schm     (mza) ! Cube root of Schmidt number [ ]
   real :: scavfrac      (mza) ! scavenging fraction of nuclei this timestep [ ]
+  real :: xfernuc       (mza) ! number transferred across arw by dry deposition
+  real :: kinvisci      (mza) ! 1 / air kinematic viscosity
 
   real :: con_nucx   (mza,nnuc) ! aerosol concentration [#/m^3]
   real :: dwetnuc    (mza,nnuc) ! nuclei wet diameter [m]
   real :: rho_wetnuc (mza,nnuc) ! nuclei wet density [kg/m^3]
   real :: slipc      (mza,nnuc) ! slip correction factor
-  real :: diff_nuc   (mza,nnuc) ! Nuclei diffusion coefficient due to Brownian motion
+! real :: diff_nuc   (mza,nnuc) ! Nuclei diffusion coefficient due to Brownian motion
   real :: schm       (mza,nnuc) ! Schmidt number of nuclei [ ]
   real :: tau        (mza,nnuc) ! nuclei inertial relaxation time; tau*g = grav settling vel
   real :: vwetnuc    (mza,nnuc) ! nuclei gravitional settling velocity
-  real :: xfernuc    (mza,nnuc) ! number transferred across arw by dry deposition
-  real :: xfernuc_sfc(mza,nnuc) ! number transferred to land & sea cells by dry deposition
   real :: sourcec    (mza,nnuc) ! number of nuclei in source cell per m^2 of source cell TOP area
 
   real :: vels10    ! wind speed at 10 m reference height
@@ -125,6 +125,7 @@ implicit none
   real :: fracwkk   ! nuclei fractional fall distance out of source cell
 
   real, parameter :: m3l10 = -3.0 * log(10.0)
+  real, parameter :: bopi3 = boltz / pi3
 
   ! Copy nuclei concentrations (con_nucx) from microphysics column arrays
 
@@ -194,7 +195,13 @@ implicit none
 
      dynvisc_liqwat(k) = 1.787e-3 - 0.03925e-3 * max(0.,min(20.,tairc(k)))
 
+     ! 1 / air kinematic viscosity
+
+     kinvisci(k) = 1.0 / (dynvisc(k) * rhoi(k))
+
   enddo
+
+  xfernuc(mza) = 0.0
 
   ! Loop over microphysics aerosol types
 
@@ -219,9 +226,10 @@ implicit none
         ! Aerosol diffusivity [m2/s], Seinfeld and Pandis (2006) eq. (9.73)
         ! note dp is in unit of microns so we correct with a 1.e6 factor
 
-        diff_nuc(k,inuc) = boltz * tair(k) * slipc(k,inuc) / (pi3 * dynvisc(k) * dwetnuc(k,inuc))
+!       diff_nuc(k,inuc) = boltz * tair(k) * slipc(k,inuc) / (pi3 * dynvisc(k) * dwetnuc(k,inuc))
+!       schm(k,inuc) = dynvisc(k) / (real(rhoa(k)) * diff_nuc(k,inuc))
 
-        schm(k,inuc) = dynvisc(k) / (real(rhoa(k)) * diff_nuc(k,inuc))
+        schm(k,inuc) = bopi3 * tair(k) * slipc(k,inuc) * rhoi(k) / dwetnuc(k,inuc)
 
         ! Characteristic relaxation time of particle
 
@@ -239,15 +247,17 @@ implicit none
 
         ! Nuclei number transfer [#] across arw(k-1,iw) this timestep (positive downward)
 
-        xfernuc(k-1,inuc) = sourcec(k,inuc) * fracwkk * arw(k-1,iw)
+        xfernuc(k-1) = sourcec(k,inuc) * fracwkk * arw(k-1,iw)
 
      enddo ! k
 
+     ! Loop over T levels in this column and apply fluxes to nucx concentrations
+
+     do k = lpw(iw), mza
+        con_nucx(k,inuc) = con_nucx(k,inuc) + (xfernuc(k) - xfernuc(k-1)) * real(volti(k,inuc))
+     enddo
+
   enddo ! inuc
-
-  ! Initialize surface deposition number to zero for all grid levels and nuc types
-
-  xfernuc_sfc(:,:) = 0.
 
   ! Check for sea area beneath this atmospheric grid column
 
@@ -285,7 +295,7 @@ implicit none
 
               cd = 24. * dynvisc(kw) / rvd + .4704
 
-              st = vwetnuc(kw,inuc) * gravi * sea%ustar(iws)**2 * real(rhoa(kw)) / dynvisc(kw)
+              st = vwetnuc(kw,inuc) * gravi * sea%ustar(iws)**2 * kinvisci(kw)
 
               xkcprime = cd * vels10 / (1. - vonk)
               xkdprime = cd * vels10 * (1. / sqrt(schm(kw,inuc)) + exp( m3l10 / st)) / vonk
@@ -302,9 +312,8 @@ implicit none
 
            ! Nuclei number transfer [#] to this sea cell this timestep (positive downward)
 
-           xfernuc_sfc(kw-1,inuc) = xfernuc_sfc(kw-1,inuc) &
-                                  + sourcec(kw,inuc) * fracwkk * sea%area(iws)
-
+           con_nucx(kw,inuc) = con_nucx(kw,inuc) &
+                             - sourcec(kw,inuc) * fracwkk * sea%area(iws) * real(volti(kw,inuc))
         enddo ! inuc
 
      enddo ! jws
@@ -350,7 +359,7 @@ implicit none
               St = vwetnuc(kw,inuc) * land%ustar(iwl) / (acoll(isfcinx) * grav * 1.0e-3)
               Ein = 0.5 * (dwetnuc(kw,inuc) * 1.0e-6 / (acoll(isfcinx) * 1.0e-3))**2
            else
-              St = vwetnuc(kw,inuc) * land%ustar(iwl)**2 * real(rhoa(kw)) * gravi / dynvisc(kw)
+              St = vwetnuc(kw,inuc) * land%ustar(iwl)**2 * gravi * kinvisci(kw)
               Ein = 0.0
            endif
 
@@ -371,27 +380,13 @@ implicit none
 
            ! Nuclei number transfer [#] to this land cell this timestep (positive downward)
 
-           xfernuc_sfc(kw-1,inuc) = xfernuc_sfc(kw-1,inuc) &
-                                  + sourcec(kw,inuc) * fracwkk * land%area(iwl)
-
+           con_nucx(kw,inuc) = con_nucx(kw,inuc) &
+                             - sourcec(kw,inuc) * fracwkk * land%area(iwl) * real(volti(kw,inuc))
         enddo ! inuc
 
      enddo ! jwl
 
   endif ! nland > 0
-
-  ! Loop over all grid W levels in this column and apply fluxes to nucx concentrations
-
-  do k = lpw(iw),mza-1
-     do inuc = 1,nnuc
-        con_nucx(k+1,inuc) = con_nucx(k+1,inuc) - xfernuc(k,inuc) * volti(k+1,inuc)
-        con_nucx(k  ,inuc) = con_nucx(k  ,inuc) + xfernuc(k,inuc) * volti(k  ,inuc)
-
-        if (k <= lsw(iw)) then
-           con_nucx(k,inuc) = con_nucx(k,inuc) - xfernuc_sfc(k-1,inuc) * volti(k,inuc)
-        endif
-     enddo
-  enddo
 
   ! Precip Scavenging for nuclei (Saleeby 2011) Slinn (1983) method detailed in
   ! (X.Wang et al. 2010; Seinfeld & Pandis 2006).  Currently assuming spheres
@@ -444,7 +439,7 @@ implicit none
 
         ! Compute quantities dependent on precipitation but not aerosol nuclei
 
-        re       (k,lcat) = 0.5 * dmb(k,lcat) * pcpvel(k,lcat) * real(rhoa(k)) / dynvisc(k)
+        re       (k,lcat) = 0.5 * dmb(k,lcat) * pcpvel(k,lcat) * kinvisci(k)
         sqrt_re  (k,lcat) = sqrt(re(k,lcat))
         a1r               = log(1. + re(k,lcat))
         sstar    (k,lcat) = (1.2 + 0.083333 * a1r) / (1. + a1r)

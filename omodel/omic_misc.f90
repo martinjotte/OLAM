@@ -240,10 +240,18 @@ if (jnmb(lcat) == 2) then
 
 elseif (jnmb(lcat) == 4) then ! As of version 5.0.0, can only apply to cloud
 
-   do k = k1(lcat), k2(lcat)
-      emb(k,lcat) = max(emb0(lcat),min(emb1(lcat), rx(k,lcat) / max(1.e-12,con_ccnx(k,1))))
-      cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
-   enddo
+   if (nccntyp == 1) then
+      do k = k1(lcat), k2(lcat)
+         emb(k,lcat) = max(emb0(lcat), min(emb1(lcat), rx(k,lcat) / max(1.e-12,con_ccnx(k,1))))
+         cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
+      enddo
+   else
+      do k = k1(lcat), k2(lcat)
+         emb(k,lcat) = max(emb0(lcat), min(emb1(lcat), &
+                       rx(k,lcat) / max(1.e-12,sum(con_ccnx(k,1:nccntyp)))))
+         cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
+      enddo
+   endif
 
 elseif (jnmb(lcat) == 5) then
 

@@ -420,7 +420,7 @@ use misc_coms,   only: io6, runtype
 use mem_ijtabs,  only: jtab_w, jtw_init
 use mem_grid,    only: mza, glatw, glonw
 use consts_coms, only: r8
-
+use mem_turb,    only: frac_sea
 use micro_coms,  only: ccnparm, gccnparm, ifnparm, &
                        zfactor_ccn, zfactor_gccn, zfactor_ifn
 
@@ -430,7 +430,16 @@ implicit none
 
 integer :: j, iw, ic
 integer :: ilat1, ilon1, ilat2, ilon2
-real :: qlat, qlon, rlat, rlon, wlat1, wlon1, wlat2, wlon2
+real :: qlat, qlon, rlat, rlon, wlat1, wlon1, wlat2, wlon2, fact
+
+real, parameter :: frac3_land(3) = [.75, .20, .05]
+real, parameter :: frac3_sea (3) = [.05, .01, .94]
+
+real, parameter :: frac8_land(8) = [.65, .15, .01, .10, .01, .01, .04, .03]
+real, parameter :: frac8_sea (8) = [.05, .01, .80, .10, .01, .01, .01, .01]
+
+real, parameter :: frac9_land(9) = [.30, .23, .17, .10, .01, .10, .02, .04, .03]
+real, parameter :: frac9_sea (9) = [.05, .03, .02, .01, .76, .10, .01, .01, .01]
 
 ! Geographic map of cloud droplet concentration [*1.e7/m^3]
 
@@ -518,7 +527,7 @@ if (runtype == 'INITIAL') then
          pcprr(iw) = 0.
          q2(1:mza,iw) = 0.
       endif
-   
+
       if (allocated(sh_p))  then
          sh_p(1:mza,iw) = 0.
          accpp(iw) = 0._r8
@@ -563,14 +572,30 @@ if (runtype == 'INITIAL') then
 ! Initialize CCN fields if activated
 ! (Default initialization here should be replaced with observation-based
 ! initialization dataset.)
-      
+
       if (allocated(ccntyp)) then
          do ic = 1,nccntyp
+
+            if (nccntyp == 1) then
+               fact = 1.0
+            elseif (nccntyp == 3) then
+               fact =     frac_sea(iw)  * frac3_sea (ic) &
+                    + (1.-frac_sea(iw)) * frac3_land(ic)
+            elseif (nccntyp == 8) then
+               fact =     frac_sea(iw)  * frac8_sea (ic) &
+                    + (1.-frac_sea(iw)) * frac8_land(ic)
+            elseif (nccntyp == 9) then
+               fact =     frac_sea(iw)  * frac9_sea (ic) &
+                    + (1.-frac_sea(iw)) * frac9_land(ic)
+            else
+               fact = 1.0 / real(nccntyp)
+            endif
+
             if (allocated(ccntyp(ic)%con_ccn)) then
                if (ccnparm > 1.e6) then
-                  ccntyp(ic)%con_ccn(1:mza,iw) = ccnparm  * zfactor_ccn(1:mza)
+                  ccntyp(ic)%con_ccn(1:mza,iw) =       fact * ccnparm    * zfactor_ccn(1:mza)
                else
-                  ccntyp(ic)%con_ccn(1:mza,iw) = cldnum(iw) * zfactor_ccn(1:mza)
+                  ccntyp(ic)%con_ccn(1:mza,iw) = 1.4 * fact * cldnum(iw) * zfactor_ccn(1:mza)
                endif
             endif
          enddo

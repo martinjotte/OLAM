@@ -302,6 +302,58 @@ end function rhovsil
 
 !===============================================================================
 
+!dir$ attributes vector :: rhovsl_inv
+elemental real function rhovsl_inv(tc)
+
+!     This function calculates the density of water vapor at saturation
+!     over liquid as a function of Celsius temperature
+
+use consts_coms, only: t00
+implicit none
+
+!dir$ attributes value :: tc
+real, intent(in) :: tc
+real             :: esl,x
+real, parameter  :: c0 = .6105851e+03 ,c1 = .4440316e+02 ,c2 =  .1430341e+01
+real, parameter  :: c3 = .2641412e-01 ,c4 = .2995057e-03 ,c5 =  .2031998e-05
+real, parameter  :: c6 = .6936113e-08 ,c7 = .2564861e-11 ,c8 = -.3704404e-13
+real, parameter  :: rvap = 461.
+
+x   = max(-80.,tc)
+esl = c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*c8)))))))
+
+rhovsl_inv = rvap * (tc + t00) / esl
+
+end function rhovsl_inv
+
+!===============================================================================
+
+!dir$ attributes vector :: rhovsi_inv
+elemental real function rhovsi_inv(tc)
+
+!     This function calculates the density of water vapor at saturation
+!     over ice as a function of Celsius temperature
+
+use consts_coms, only: t00
+implicit none
+
+!dir$ attributes value :: tc
+real, intent(in) :: tc
+real             :: esi,x
+real, parameter  :: c0 = .6114327e+03 ,c1 = .5027041e+02 ,c2 = .1875982e+01
+real, parameter  :: c3 = .4158303e-01 ,c4 = .5992408e-03 ,c5 = .5743775e-05
+real, parameter  :: c6 = .3566847e-07 ,c7 = .1306802e-09 ,c8 = .2152144e-12
+real, parameter  :: rvap = 461.
+
+x   = max(-80.,tc)
+esi = c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*c8)))))))
+
+rhovsi_inv = rvap * (tc + t00) / esi
+
+end function rhovsi_inv
+
+!===============================================================================
+
 !dir$ attributes vector :: td
 elemental real function td(p,rs)
 

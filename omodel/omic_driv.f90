@@ -1083,7 +1083,7 @@ if (nl%test_case >= 901 .and. nl%test_case <= 999) go to 1412
   thil0(lpw0:mza0) = thil0(lpw0:mza0) + dsed_thil(lpw0:mza0) / rhoa(lpw0:mza0)
 
   if (nnuc > 0) &
-     call nuclei_deposition(iw0, k1, k2, dtl0, voa, rhoa, press0, tair, &
+     call nuclei_deposition(iw0, k1, k2, dtl0, voa, rhoi, press0, tair, &
         tairc, dynvisc, rhov, rhovslair, dmb, pcpvel, pcpfluxr, con_ccnx, &
         con_gccnx, con_ifnx)
 
