@@ -328,20 +328,20 @@ C... include layer thickness in the column integration
          if (jnmb(6) >= 1) then
             do k = lpw(iw), mza
                if (sh_g(k,iw) >= rxmin(6)) then
-                  call qtc(q6(k,iw),tc,fracliq)
-                  qr(k) = qr(k) + sh_g(k,iw) * fracliq 
+                  call qtc(q6(k,iw)/sh_g(k,iw),tc,fracliq)
+                  qr(k) = qr(k) + sh_g(k,iw) * fracliq
                   qs(k) = qs(k) + sh_g(k,iw) * (1. - fracliq)
                endif
             enddo
          endif
 
          ! hail
-         
+
          if (jnmb(7) >= 1) then
             do k = lpw(iw), mza
                if (sh_h(k,iw) >= rxmin(7)) then
-                  call qtc(q7(k,iw),tc,fracliq)
-                  qr(k) = qr(k) + sh_h(k,iw) * fracliq 
+                  call qtc(q7(k,iw)/sh_h(k,iw),tc,fracliq)
+                  qr(k) = qr(k) + sh_h(k,iw) * fracliq
                   qs(k) = qs(k) + sh_h(k,iw) * (1. - fracliq)
                endif
             enddo

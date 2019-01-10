@@ -31,7 +31,7 @@
 
 !===============================================================================
 subroutine thrmstr(iw0,lpw0,k1,k2, &
-   press0,thil0,rhow,rhoi,exner0,tair,theta0,rhov,rhovstr,tairstrc,rx,qx,sa)
+   press0,thil0,rhow,rhoi,exner0,tair,theta0,rhov,rhovstr,rx,qx,sa)
 
 use micro_coms,  only: mza0, ncat
 use consts_coms, only: r8, p00i, rocp, alvl, alvi, cpi4, cpi, cp253i
@@ -53,7 +53,6 @@ real, intent(out)   :: tair    (mza0)
 real, intent(inout) :: theta0  (mza0)
 real, intent(inout) :: rhov    (mza0)
 real, intent(out)   :: rhovstr (mza0)
-real, intent(out)   :: tairstrc(mza0)
 
 real(r8), intent(in) :: rhow(mza0)
 
@@ -63,37 +62,30 @@ real, intent(in) :: qx(mza0,ncat)
 real, intent(out) :: sa(mza0,9)
 
 integer :: k,lcat
-real :: fracliq,tcoal,tairstr
+real    :: fracliq, tcoal, tairstr, til, qhydm
 
 ! automatic arrays
 
 real :: rholiq(mza0)
 real :: rhoice(mza0)
-real :: qhydm (mza0)
-real :: til   (mza0)
 
 ! Loop over parts of column that are outside condensate range
 
-do k = lpw0,k1(11)-1
+do k = lpw0, k1(11)-1
    theta0(k) = thil0(k)
-   rhov(k) = rhow(k)
+   rhov  (k) = rhow (k)
+   tair  (k) = thil0(k) * exner0(k)
 enddo
 
-do k = k2(11)+1,mza0
+do k = k2(11)+1, mza0
    theta0(k) = thil0(k)
-   rhov(k) = rhow(k)
-enddo
-
-! Loop over whole column
-
-do k = lpw0,mza0
-   tair(k) = theta0(k) * exner0(k)
+   rhov  (k) = rhow (k)
+   tair  (k) = thil0(k) * exner0(k)
 enddo
 
 ! Loop over levels that may have any type of condensate
 
 do k = k1(11),k2(11)
-   til(k) = thil0(k) * exner0(k)
    rholiq(k) = 0.
    rhoice(k) = 0.
 enddo
@@ -154,31 +146,33 @@ enddo
 
 ! Loop over levels that may have any type of condensate
 
-do k = k1(11),k2(11)
-   qhydm(k) = alvl * rholiq(k) + alvi * rhoice(k)
+do k = k1(11), k2(11)
+   til = thil0(k) * exner0(k)
+
+   ! qhydm is now J/m^3 instead of J/kg:
+   qhydm = alvl * rholiq(k) + alvi * rhoice(k)
+
    rhovstr(k) = rhow(k) - rholiq(k) - rhoice(k)
-   sa(k,1) = til(k) * qhydm(k) / (1.e-12 + rholiq(k) + rhoice(k)) ! stays the same
+   rhov   (k) = rhovstr(k)
 
-   if (tair(k) > 253.) then
+   sa(k,1) = til * qhydm / max(1.e-12, rholiq(k) + rhoice(k)) ! stays the same
 
-!ORIG   tairstr = .5 * (til(k) + sqrt(til(k) * (til(k) + cpi4 * qhydm(k))))
-! Change in tairstr computation since qhydm is now J/m^3 instead of J/kg:    
+   tairstr = .5 &
+           * (til + sqrt(til * (til + cpi4 * qhydm * rhoi(k))))
 
-      tairstr = .5 &
-         * (til(k) + sqrt(til(k) * (til(k) + cpi4 * qhydm(k) * rhoi(k))))
-      sa(k,1) = sa(k,1) * cpi / (2. * tairstr - til(k)) ! stays the same
+   if (tairstr > 253.) then
+
+      tair(k) = tairstr
+      sa(k,1) = sa(k,1) * cpi / (2. * tairstr - til) ! stays the same
 
    else
 
-!ORIG   tairstr = til(k) * (1. + qhydm(k) * cp253i)
-! Change in tairstr computation since qhydm is now J/m^3 instead of J/kg:    
-
-      tairstr = til(k) * (1. + qhydm(k) * rhoi(k) * cp253i)
+      tair(k) = til * (1. + qhydm * rhoi(k) * cp253i)
       sa(k,1) = sa(k,1) * cp253i ! stays the same
 
    endif
-   tairstrc(k) = tairstr - 273.15
-     
+
+   theta0(k) = tair(k) / exner0(k)
 enddo
 
 end subroutine thrmstr
@@ -571,7 +565,7 @@ end subroutine psxfer
 !===============================================================================
 
 subroutine newtemp(j1,j2, &
-   tairstrc,rhoi,rhovstr,rhov,exner0,tairc,tair,theta0,rhovslair,rhovsiair,sa)
+     rhoi,rhovstr,rhov,exner0,tairc,tair,theta0,rhovslair,rhovsiair,sa)
 
 use micro_coms, only: mza0
 use misc_coms,  only: io6
@@ -582,7 +576,6 @@ implicit none
 integer, intent(in) :: j1
 integer, intent(in) :: j2
 
-real, intent(in)  :: tairstrc (mza0)
 real, intent(in)  :: rhoi     (mza0)
 real, intent(in)  :: rhovstr  (mza0)
 real, intent(in)  :: rhov     (mza0)
@@ -597,7 +590,7 @@ real, intent(in)  :: sa       (mza0,9)
 integer :: k
 
 do k = j1,j2
-   tairc(k) = tairstrc(k) + sa(k,1) * rhoi(k) * (rhovstr(k) - rhov(k)) ! rhoi inserted
+   tairc(k) = tairc(k) + sa(k,1) * rhoi(k) * (rhovstr(k) - rhov(k)) ! rhoi inserted
    tair(k)  = tairc(k) + 273.15
    theta0(k) = tair(k) / exner0(k)
    rhovslair(k) = rhovsl(tairc(k))

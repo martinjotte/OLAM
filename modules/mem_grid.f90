@@ -60,7 +60,7 @@ Module mem_grid
       zm    ,zt        &  ! Z coordinate at M,T point
      ,dzm   ,dzt       &  ! Delta Z at M,T point
      ,dzim  ,dzit      &  ! Delta Z inverse (1/dz) at M,T point
-     
+
      ,zfacm ,zfact     &  ! expansion factor of delta_x with height at M,T point
      ,zfacim,zfacit    &  ! inverse of zfacm, zfact
      ,zfacm2,zfacim2   &  ! expansion factor of arw with height, and its inverse
@@ -111,14 +111,23 @@ Module mem_grid
 
         wnxo2, wnyo2, wnzo2,  & ! W-face unit normals divided by 2
         vnxo2, vnyo2, vnzo2,  & ! V-face unit normals divided by 2
-        
+
         dzt_top,              & ! distance between ZM(k) and ZT(k)
         dzt_bot,              & ! distance between ZT(k) and ZM(k-1)
 
         zwgt_top, zwgt_bot,   & ! weights for interpolating T levels to W
         dzto2,    dzto4,      & ! dzt(k)    / 2, dzt(k)    / 4
         dztsqo2,  dztsqo4,    & ! dzt(k)**2 / 2, dzt(k)**2 / 4
-        dztsqo6,  dzimsq        ! dzt(k)**2 / 6, dzim(k)**2
+        dztsqo6,  dzimsq,     & ! dzt(k)**2 / 6, dzim(k)**2
+
+        voa0,                 & ! ratio of cell volume to bottom area w/o terrain
+
+        gdzm_top, gdzm_bot      ! g dz_top(k), g dz_bot(k+1)
+
+   ! double precision weights for interpolating T levels to W
+
+   real(r8), allocatable :: zwgt_top8(:), zwgt_bot8(:)
+   real(r8), allocatable :: gdz_top8 (:), gdz_bot8 (:)
 
    real, allocatable, dimension(:,:) ::  &
 
@@ -287,19 +296,37 @@ Contains
         dzt_bot(k) = zt(k) - zm(k-1)
      enddo
 
-     ! Allocate and define 1D variables defined at M levels
+     ! Allocate and define 1D variables defined at W levels
 
      allocate(zwgt_top(mza))
      allocate(zwgt_bot(mza))
 
+     allocate(zwgt_top8(mza))
+     allocate(zwgt_bot8(mza))
+
+     allocate(gdz_top8(mza))
+     allocate(gdz_bot8(mza))
+
      ! Loop over W levels
      do k = 1, mza-1
+        zwgt_top8(k) = dzt_top(k)   * dzim(k)
+        zwgt_bot8(k) = dzt_bot(k+1) * dzim(k)
+
         zwgt_top(k) = dzt_top(k)   * dzim(k)
         zwgt_bot(k) = dzt_bot(k+1) * dzim(k)
+
+        gdz_top8(k) = dzt_top(k)   * gravm(k)
+        gdz_bot8(k) = dzt_bot(k+1) * gravm(k)
      enddo
-     
+
+     zwgt_top8(mza) = zwgt_top8(mza-1)
+     zwgt_bot8(mza) = zwgt_bot8(mza-1)
+
      zwgt_top(mza) = zwgt_top(mza-1)
      zwgt_bot(mza) = zwgt_bot(mza-1)
+
+     gdz_top8(mza) = gdz_top8(mza-1)
+     gdz_bot8(mza) = gdz_bot8(mza-1)
 
      ! Allocate and define variables defined at V faces
 
@@ -363,6 +390,7 @@ Contains
      allocate(dztsqo4(mza))
      allocate(dztsqo6(mza))
      allocate(dzimsq (mza))
+     allocate(voa0   (mza))
 
      do k = 1, mza
         dzto2  (k) = dzt  (k) * 0.50
@@ -372,6 +400,11 @@ Contains
         dztsqo6(k) = dzt  (k) * dzt(k) / 6.
         dzimsq (k) = dzim (k) * dzim(k)
      enddo
+
+     do k = 2, mza
+        voa0(k) = dzt(k) * zfact(k)**2 * zfacim2(k-1)
+     enddo
+     voa0(1) = voa0(2)
 
    end subroutine alloc_grid_other
 

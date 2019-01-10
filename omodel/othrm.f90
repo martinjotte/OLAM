@@ -149,7 +149,7 @@ subroutine wetthrm3(iw)
 
 use mem_basic,   only: press, theta, thil, tair, sh_v, sh_w
 use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7
-use micro_coms,  only: jnmb
+use micro_coms,  only: jnmb, rxmin
 use consts_coms, only: p00, rocp, alvl, alvi, cpi4, cp253i
 use mem_grid,    only: mza, lpw
 use misc_coms,   only: io6
@@ -208,17 +208,21 @@ endif
 
 if (jnmb(6) >= 1) then
    do k = lpw(iw),mza
-      call qtc(q6(k,iw),tcoal,fracliq)
-      totliq(k) = totliq(k) + sh_g(k,iw) * fracliq
-      totice(k) = totice(k) + sh_g(k,iw) * (1. - fracliq)
+      if (sh_g(k,iw) > rxmin(6)) then
+         call qtc(q6(k,iw)/sh_g(k,iw),tcoal,fracliq)
+         totliq(k) = totliq(k) + sh_g(k,iw) * fracliq
+         totice(k) = totice(k) + sh_g(k,iw) * (1. - fracliq)
+      endif
    enddo
 endif
 
 if (jnmb(7) >= 1) then
    do k = lpw(iw),mza
-      call qtc(q7(k,iw),tcoal,fracliq)
-      totliq(k) = totliq(k) + sh_h(k,iw) * fracliq
-      totice(k) = totice(k) + sh_h(k,iw) * (1. - fracliq)
+      if (sh_h(k,iw) > rxmin(7)) then
+         call qtc(q7(k,iw)/sh_g(k,iw),tcoal,fracliq)
+         totliq(k) = totliq(k) + sh_h(k,iw) * fracliq
+         totice(k) = totice(k) + sh_h(k,iw) * (1. - fracliq)
+      endif
    enddo
 endif
 
@@ -244,7 +248,6 @@ do k = lpw(iw),mza
    tair (k,iw) = tairstr
 enddo
 
-return
 end subroutine wetthrm3
 
 

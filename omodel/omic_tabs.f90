@@ -39,24 +39,24 @@ use consts_coms, only: r8
 implicit none
 
 integer  :: ithz,irhhz,k
-real     :: denccn,gnuccn,dnccn,rhhz,c1hz,c2hz,c3hz,bhz,thz
-real(r8) :: dum, dccn, dm, sum, y, ddccn
+real     :: rhhz,c2hz,c3hz,bhz,thz
+real(r8) :: dum, dm, sum, y, dccn
 
 real, external :: gammln
 
 !  Haze nucleation table
 
-denccn = 1.769       !Density of ammonium sulfate
-gnuccn = 2.          !Saleeby(02-21-2007) Originally = 1.
-dnccn  = 2. * .04e-6 !units are [m]; Saleeby(02-21-2007) Originally = .075e-4 [cm] = .075e-6 [m]
-ddccn  = .005d-4     !Increment [cm] of CCN diameter in numerical integration
-                     !   over gamma size distribution
+real,     parameter :: denccn = 1.769       !Density of ammonium sulfate
+real,     parameter :: gnuccn = 2.          !Saleeby(02-21-2007) Originally = 1.
+real,     parameter :: dnccn  = 2. * .04e-6 !units are [m]; Saleeby(02-21-2007) Originally = .075e-4 [cm] = .075e-6 [m]
+real(r8), parameter :: ddccn  = .005e-4     !Increment [cm] of CCN diameter in numerical integration
+                                            !   over gamma size distribution
+real,     parameter :: c1hz   = (3.14159 * denccn / 6.) ** (-0.33333333)
 
 do ithz = 1,nthz
    thz = -60. + dthz * real(ithz - 1)
    do irhhz = 1,nrhhz
       rhhz = 0.82 + drhhz * real(irhhz - 1)
-      c1hz = (3.14159 * denccn / 6.) ** (-0.3333333)
       c2hz = -14.65 - 1.045 * thz
       c3hz = -492.35 - 8.34 * thz - 0.0608 * thz ** 2
       bhz = min(38., max(-38., c2hz + c3hz * (1. - rhhz)))
@@ -567,11 +567,11 @@ print*, 'ihx,ihy,ipc ',ihx,ihy,ipc
 ! integral sums of number and mass for the current X and Y mean-mass diameter
 ! pair.  Enter these in tables.
 
-                           coltabc(iembx,iemby,ipc ) = -log10(max(1.e-32,sum_num))
-             if (ipx  > 0) coltabx(iembx,iemby,ipx ) = -log10(max(1.e-32,sum_xmass))
-             if (ipx2 > 0) coltabx(iembx,iemby,ipx2) = -log10(max(1.e-32,sum_xmass2))
-             if (ipy  > 0) coltaby(iemby,iembx,ipy ) = -log10(max(1.e-32,sum_ymass))
-             if (ipy2 > 0) coltaby(iemby,iembx,ipy2) = -log10(max(1.e-32,sum_ymass2))
+                           coltabc(iembx,iemby,ipc ) = log(max(1.e-32,sum_num))
+             if (ipx  > 0) coltabx(iembx,iemby,ipx ) = log(max(1.e-32,sum_xmass))
+             if (ipx2 > 0) coltabx(iembx,iemby,ipx2) = log(max(1.e-32,sum_xmass2))
+             if (ipy  > 0) coltaby(iemby,iembx,ipy ) = log(max(1.e-32,sum_ymass))
+             if (ipy2 > 0) coltaby(iemby,iembx,ipy2) = log(max(1.e-32,sum_ymass2))
 
          enddo  ! iembx
          

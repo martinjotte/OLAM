@@ -35,10 +35,10 @@
 !  coallesce.
 
 subroutine each_column(lpw0,iw0,k1,k2,dtl0,                    &
-   jhcat,press0,tair,tairc,tairstrc,rhovstr,rhoa,rhov,rhoi,    &
+   jhcat,press0,tair,tairc,rhovstr,rhoa,rhov,rhoi,             &
    rhovslair,rhovsiair,thrmcon,vapdif,dynvisc,rdynvsci,denfac, &
    colfac,colfac2,sumuy,sumuz,sumvr,                           &
-   tx,sh,sm,sa,tref,rhovsref,rhovsrefp)
+   tx,sh,sm,sa,rhovsrefp)
 
 use micro_coms,  only: mza0, ncat, jhabtab
 use consts_coms, only: r8, alvl, alvi
@@ -60,7 +60,6 @@ integer, intent(out) :: jhcat(mza0,ncat)
 real, intent(in)  :: press0   (mza0)
 real, intent(in ) :: tair     (mza0)
 real, intent(out) :: tairc    (mza0)
-real, intent(in)  :: tairstrc (mza0)
 real, intent(in)  :: rhovstr  (mza0)
 real, intent(in)  :: rhov     (mza0)
 real, intent(in)  :: rhoi     (mza0)
@@ -85,14 +84,15 @@ real, intent(out) :: sm(mza0,ncat)
 
 real, intent(inout) :: sa(mza0,9)
 
-real, intent(out) :: tref     (mza0,2)
-real, intent(out) :: rhovsref (mza0,2)
 real, intent(out) :: rhovsrefp(mza0,2)
 
 integer :: k,nt,ns
-real :: ck1,ck2,ck3,rhovsref1,rhovsref2,relhum,colf
+real    :: rhovsref0,rhovsref1,rhovsref2,relhum,colf
+real    :: tref(mza0), tref2
 
-data ck1,ck2,ck3/-4.818544e-3,1.407892e-4,-1.249986e-7/
+real, parameter :: ck1 = -4.818544e-3
+real, parameter :: ck2 =  1.407892e-4
+real, parameter :: ck3 = -1.249986e-7
 
 colf  = .785 * dtl0
 
@@ -110,10 +110,6 @@ do k = lpw0,mza0
    rhovslair(k) = rhovsl(tairc(k))
    rhovsiair(k) = rhovsi(tairc(k))
 
-   ! New arrays for dry/wet deposition and sedim2
-
-   
-
 ! Diagnose habit of pristine ice and snow
 
    nt = max(1,min(31,-nint(tairc(k))))
@@ -128,20 +124,19 @@ do k = lpw0,mza0
    jhcat(k,6) = 6
    jhcat(k,7) = 7
    jhcat(k,8) = 8
-   
 enddo
 
 ! Loop over the range of levels with pre-existing condensate
 
 do k = k1(11),k2(11)
    vapdif(k) = 2.14 * (tair(k) / 273.15) ** 1.94 / press0(k)
-   rdynvsci(k) = sqrt(1. / dynvisc(k))
+   rdynvsci(k) = 1. / sqrt(dynvisc(k))
 
-   tref(k,1) = tairstrc(k) - min(25.,700. * (rhovslair(k) - rhovstr(k)) * rhoi(k))
+   tref(k) = tairc(k) - min(25., 700. * (rhovslair(k) - rhovstr(k)) * rhoi(k))
 
    sa(k,2) = thrmcon(k) * sa(k,1)  ! stays the same
-   sa(k,3) = thrmcon(k) * (tairstrc(k) * rhoa(k) + sa(k,1) * rhovstr(k))  
-    ! sa3 picks up factor of rhoa (rhoa had to be inserted in first term)
+   sa(k,3) = thrmcon(k) * (tairc(k) * rhoa(k) + sa(k,1) * rhovstr(k))
+   ! sa3 picks up factor of rhoa (rhoa had to be inserted in first term)
 
    sumuy(k) = 0.
    sumuz(k) = 0.
@@ -154,14 +149,14 @@ do k = k1(9),k2(9)
 
 ! Compute rhovsrefp by centered finite difference over range of 1 K
 
-   rhovsref(k,1)  = rhovsl(tref(k,1)     )
-   rhovsref2      = rhovsl(tref(k,1) + .5)
-   rhovsref1      = rhovsl(tref(k,1) - .5)
+   rhovsref0      = rhovsl(tref(k)     )
+   rhovsref2      = rhovsl(tref(k) + .5)
+   rhovsref1      = rhovsl(tref(k) - .5)
    rhovsrefp(k,1) = rhovsref2 - rhovsref1
 
-   sa(k,4) = rhovsrefp(k,1) * tref(k,1) - rhovsref(k,1)  ! x rhoa factor
-   sa(k,6) = alvl * rhovsrefp(k,1)                       ! x rhoa factor
-   sa(k,8) = alvl * sa(k,4)                              ! x rhoa factor
+   sa(k,4) = rhovsrefp(k,1) * tref(k) - rhovsref0   ! x rhoa factor
+   sa(k,6) = alvl * rhovsrefp(k,1)                  ! x rhoa factor
+   sa(k,8) = alvl * sa(k,4)                         ! x rhoa factor
 
    sh(k,1) = 0.
    sh(k,2) = 1.
@@ -176,17 +171,17 @@ enddo
 ! Loop over the range of levels with pre-existing ice
 
 do k = k1(10),k2(10)
-   tref(k,2)    = min(0.,tref(k,1))
+   tref2          = min(0.,tref(k))
 
 ! Compute rhovsrefp by onc-sided finite difference over range of 1 K
 
-   rhovsref(k,2)  = rhovsi(tref(k,2)     )
-   rhovsref1      = rhovsi(tref(k,2) - 1.)
-   rhovsrefp(k,2) = rhovsref(k,2) - rhovsref1
+   rhovsref0      = rhovsi(tref2     )
+   rhovsref1      = rhovsi(tref2 - 1.)
+   rhovsrefp(k,2) = rhovsref0 - rhovsref1
 
-   sa(k,5) = rhovsrefp(k,2) * tref(k,2) - rhovsref(k,2)  ! x rhoa factor
-   sa(k,7) = alvi * rhovsrefp(k,2)                       ! x rhoa factor
-   sa(k,9) = alvi * sa(k,5)                              ! x rhoa factor
+   sa(k,5) = rhovsrefp(k,2) * tref2 - rhovsref0   ! x rhoa factor
+   sa(k,7) = alvi * rhovsrefp(k,2)                ! x rhoa factor
+   sa(k,9) = alvi * sa(k,5)                       ! x rhoa factor
 
    sh(k,3) = 0.
    sh(k,4) = 0.
@@ -199,10 +194,10 @@ end subroutine each_column
 
 !===============================================================================
 
-subroutine enemb(lcat,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+subroutine enemb(lcat,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 use micro_coms,  only: mza0, ncat, jnmb, emb2, emb0, emb1, rxmin, &
-                       enmlttab, dict, emb0log, rictmin, rictmax
+                       dict, emb0log, rictmin, rictmax
 use ccnbin_coms, only: nccntyp
 use misc_coms,   only: io6
 use consts_coms, only: r8
@@ -226,9 +221,8 @@ real, intent(out) :: wct2(mza0,ncat)
 real, intent(in)    :: rx  (mza0,ncat)
 real, intent(inout) :: cx  (mza0,ncat)
 real, intent(out)   :: emb (mza0,ncat)
-real, intent(in)    :: vap (mza0,ncat)
 
-integer :: k,lhcat
+integer :: k
 real :: rict,rictmm
 
 if (jnmb(lcat) == 2) then
@@ -283,7 +277,7 @@ end subroutine enemb
 !===============================================================================
 
 subroutine x02(iw0,lpw0,lcat,k1,k2,con_ccnx, &
-   jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
+   jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx)
 
 use micro_coms,  only: mza0, ncat, rxmin, enmlttab, dnfac, pwmasi, &
                        gnu, shedtab
@@ -317,7 +311,6 @@ real, intent(inout) :: qr  (mza0,ncat)
 real, intent(inout) :: qx  (mza0,ncat)
 real, intent(inout) :: tx  (mza0,ncat)
 real, intent(inout) :: emb (mza0,ncat)
-real, intent(in)    :: vap (mza0,ncat)
 
 integer :: k,lhcat,inc,idns
 real :: rinv,closs,rxinv,rmelt,fracliq,cmelt,ricetor6,rshed,rmltshed, &
@@ -351,7 +344,7 @@ if (k1(lcat) > k2(lcat)) return
 
 ! Diagnose bulk mean mass and/or number concentration for lcat
 
- call enemb(lcat,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+ call enemb(lcat,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 ! CLOUD, RAIN, and DRIZZLE categories
 
@@ -573,7 +566,7 @@ subroutine sedim2(iw0,lpw0,k1,k2,jhcat,dtl0, &
 use micro_coms,  only: mza0, ncat, rxmin, cfmasi, pwmasi, cfvt, pwvt, jnmb, emb1
 use consts_coms, only: r8, cpi, alviocp
 use misc_coms,   only: io6
-use mem_grid,    only: zm, zfacm2, zfacim2, arw0, arw, volti
+use mem_grid,    only: zm, zfacm2, zfacim2, arw, volti
 use mem_ijtabs,  only: itab_w
 use mem_sea,     only: sea, itab_ws
 use mem_leaf,    only: land, itab_wl
@@ -604,7 +597,7 @@ real(r8), intent(inout) :: rhow(mza0)
 real, intent(inout) :: cx      (mza0,ncat)
 real, intent(inout) :: rx      (mza0,ncat)
 real, intent(inout) :: qx      (mza0,ncat)
-real, intent(inout) :: qr      (mza0,ncat) 
+real, intent(inout) :: qr      (mza0,ncat)
 real, intent(inout) :: emb     (mza0,ncat)
 real, intent(inout) :: dmb     (mza0,ncat)
 real, intent(inout) :: pcpvel  (mza0,ncat)
@@ -623,9 +616,9 @@ integer :: lcat, lhcat, k, kk, kw, nsea, nland, jws, iws, jwl, iwl
 
 real :: zbotnew, areascale, fracwkk
 
-real :: cxnew(mza0,ncat)
-real :: rxnew(mza0,ncat)
-real :: qrnew(mza0,ncat) 
+real :: cxnew(mza0)
+real :: rxnew(mza0)
+real :: qrnew(mza0)
 
   ! Loop over precipitation categories
 
@@ -685,115 +678,99 @@ real :: qrnew(mza0,ncat)
      ! Method should be positive definite, but check this.
 
      do k = k2(lcat),lpw0,-1
-        cxnew(k,lcat) = cx(k,lcat) + volti(k,iw0) &
+        cxnew(k) = cx(k,lcat) + volti(k,iw0) &
            * (pcpfluxc(k,lcat) * arw(k,iw0) - pcpfluxc(k-1,lcat) * arw(k-1,iw0))
-        rxnew(k,lcat) = rx(k,lcat) + volti(k,iw0) &
+        rxnew(k) = rx(k,lcat) + volti(k,iw0) &
            * (pcpfluxr(k,lcat) * arw(k,iw0) - pcpfluxr(k-1,lcat) * arw(k-1,iw0))
-        qrnew(k,lcat) = qr(k,lcat) + volti(k,iw0) &
+        qrnew(k) = qr(k,lcat) + volti(k,iw0) &
            * (pcpfluxq(k,lcat) * arw(k,iw0) - pcpfluxq(k-1,lcat) * arw(k-1,iw0))
      enddo
 
-  enddo ! lcat
+     ! Check for sea area beneath this atmospheric grid column
 
-  ! Check for sea area beneath this atmospheric grid column
+     nsea = itab_w(iw0)%nsea
+     if (nsea > 0) then
 
-  nsea = itab_w(iw0)%nsea
-  if (nsea > 0) then
+        ! Loop over sea cells beneath this atmospheric grid column
 
-     ! Loop over sea cells beneath this atmospheric grid column
+        do jws = 1,nsea
+           iws = itab_w(iw0)%isea(jws)
+           kw = itab_ws(iws)%kw
 
-     do jws = 1,nsea
-        iws = itab_w(iw0)%isea(jws)
-        kw = itab_ws(iws)%kw
+           ! Skip if all cloud is below this level
+           if (k2(lcat) < kw) cycle
 
-        ! Loop over precipitation categories
+           cxnew(kw) = cxnew(kw) - volti(kw,iw0) * pcpfluxc(kw-1,lcat) * sea%area(iws)
+           rxnew(kw) = rxnew(kw) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * sea%area(iws)
+           qrnew(kw) = qrnew(kw) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * sea%area(iws)
 
-        do lcat = 2,ncat
-
-           ! Skip if no cloud in column or if all cloud is below this level
-           if (k1(lcat) > k2(lcat)) cycle
-           if (k2(lcat) < kw)       cycle
-
-           cxnew(kw,lcat) = cxnew(kw,lcat) - volti(kw,iw0) * pcpfluxc(kw-1,lcat) * sea%area(iws)
-           rxnew(kw,lcat) = rxnew(kw,lcat) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * sea%area(iws)
-           qrnew(kw,lcat) = qrnew(kw,lcat) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * sea%area(iws)
-
-           pcprx(lcat) = pcprx(lcat) + pcpfluxr(kw-1,lcat) * sea%area(iws) / (arw0(iw0) * dtl0)
-           accpx(lcat) = accpx(lcat) + pcpfluxr(kw-1,lcat) * sea%area(iws) / arw0(iw0)
+           pcprx(lcat) = pcprx(lcat) + pcpfluxr(kw-1,lcat) * itab_ws(iws)%arf_iw / dtl0
+           accpx(lcat) = accpx(lcat) + pcpfluxr(kw-1,lcat) * itab_ws(iws)%arf_iw
 
            sea%pcpg (iws) = sea%pcpg (iws) + pcpfluxr(kw-1,lcat)
            sea%qpcpg(iws) = sea%qpcpg(iws) + pcpfluxq(kw-1,lcat)
            sea%dpcpg(iws) = sea%dpcpg(iws) + pcpfluxr(kw-1,lcat) * alphasfc(lcat)
         enddo
 
-     enddo
-  endif
+     endif
 
-  ! Check for land area beneath this atmospheric grid column
+     ! Check for land area beneath this atmospheric grid column
 
-  nland = itab_w(iw0)%nland
-  if (nland > 0) then
+     nland = itab_w(iw0)%nland
+     if (nland > 0) then
 
-     ! Loop over land cells beneath this atmospheric grid column
+        ! Loop over land cells beneath this atmospheric grid column
 
-     do jwl = 1,nland
-        iwl = itab_w(iw0)%iland(jwl)
-        kw = itab_wl(iwl)%kw
+        do jwl = 1,nland
+           iwl = itab_w(iw0)%iland(jwl)
+           kw = itab_wl(iwl)%kw
 
-        ! Loop over precipitation categories
+           ! Skip if all cloud is below this level
+           if (k2(lcat) < kw) cycle
 
-        do lcat = 2,ncat
+           cxnew(kw) = cxnew(kw) - volti(kw,iw0) * pcpfluxc(kw-1,lcat) * land%area(iwl)
+           rxnew(kw) = rxnew(kw) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * land%area(iwl)
+           qrnew(kw) = qrnew(kw) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * land%area(iwl)
 
-           ! Skip if no cloud in column or if all cloud is below this level
-           if (k1(lcat) > k2(lcat)) cycle
-           if (k2(lcat) < kw)       cycle
-
-           cxnew(kw,lcat) = cxnew(kw,lcat) - volti(kw,iw0) * pcpfluxc(kw-1,lcat) * land%area(iwl)
-           rxnew(kw,lcat) = rxnew(kw,lcat) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * land%area(iwl)
-           qrnew(kw,lcat) = qrnew(kw,lcat) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * land%area(iwl)
-
-           pcprx(lcat) = pcprx(lcat) + pcpfluxr(kw-1,lcat) * land%area(iwl) / (arw0(iw0) * dtl0)
-           accpx(lcat) = accpx(lcat) + pcpfluxr(kw-1,lcat) * land%area(iwl) / arw0(iw0)
+           pcprx(lcat) = pcprx(lcat) + pcpfluxr(kw-1,lcat) * itab_wl(iwl)%arf_iw / dtl0
+           accpx(lcat) = accpx(lcat) + pcpfluxr(kw-1,lcat) * itab_wl(iwl)%arf_iw
 
            land%pcpg (iwl) = land%pcpg (iwl) + pcpfluxr(kw-1,lcat)
            land%qpcpg(iwl) = land%qpcpg(iwl) + pcpfluxq(kw-1,lcat)
            land%dpcpg(iwl) = land%dpcpg(iwl) + pcpfluxr(kw-1,lcat) * alphasfc(lcat)
         enddo
 
-     enddo
-  endif
-
-  ! Loop over precipitation categories
-
-  do lcat = 2,ncat
-     if (k1(lcat) > k2(lcat)) cycle
+     endif
 
      ! Loop over precipation source levels
 
      do k = lpw0,k2(lcat)
 
-        if (rxnew(k,lcat) < rxmin(lcat)) then
-           rxnew(k,lcat) = 0.
-           cxnew(k,lcat) = 0.
-           qrnew(k,lcat) = 0.
+        if (rxnew(k) < rxmin(lcat)) then
+           rxnew(k) = 0.
+           cxnew(k) = 0.
+           qrnew(k) = 0.
         elseif (jnmb(lcat) == 5) then
-           cxnew(k,lcat) = max(cxnew(k,lcat), rxnew(k,lcat) / emb1(lcat))
+           cxnew(k) = max(cxnew(k), rxnew(k) / emb1(lcat))
         endif
 
-        rhoa(k) = rhoa(k) + rxnew(k,lcat) - rx(k,lcat)
-        rhow(k) = rhow(k) + rxnew(k,lcat) - rx(k,lcat)
+        rhoa(k) = rhoa(k) + rxnew(k) - rx(k,lcat)
+        rhow(k) = rhow(k) + rxnew(k) - rx(k,lcat)
 
-        dsed_thil(k) = dsed_thil(k) - thil0(k) * thil0(k)  &
-           * (alviocp * (rxnew(k,lcat) - rx(k,lcat))  &
-           - cpi * (qrnew(k,lcat) - qr(k,lcat)))  &
-           / (max(tair(k), 253.) * theta0(k))
+        dsed_thil(k) = dsed_thil(k) - alviocp * (rxnew(k) - rx(k,lcat)) &
+                                    + cpi     * (qrnew(k) - qr(k,lcat))
+
+!        dsed_thil(k) = dsed_thil(k) - thil0(k) * thil0(k)  &
+!           * (alviocp * (rxnew(k) - rx(k,lcat))  &
+!           - cpi * (qrnew(k) - qr(k,lcat)))  &
+!           / (max(tair(k), 253.) * theta0(k))
 
         ! Transfer "new" amounts to category arrays
 
-        rx(k,lcat) = rxnew(k,lcat)
-        cx(k,lcat) = cxnew(k,lcat)
-        qr(k,lcat) = qrnew(k,lcat)
-        qx(k,lcat) = qrnew(k,lcat) / max(rxmin(lcat),rxnew(k,lcat))
+        rx(k,lcat) = rxnew(k)
+        cx(k,lcat) = cxnew(k)
+        qr(k,lcat) = qrnew(k)
+        qx(k,lcat) = qrnew(k) / max(rxmin(lcat),rxnew(k))
 
      enddo
 

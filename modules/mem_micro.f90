@@ -53,9 +53,9 @@ Module mem_micro
   real, allocatable :: con_g(:,:) ! graupel number conc [#_graup/kg_air]
   real, allocatable :: con_h(:,:) ! hail number conc [#_hail/kg_air]
 
-  real, allocatable :: q2(:,:) ! rain internal energy [J/kg]
-  real, allocatable :: q6(:,:) ! graupel internal energy [J/kg]
-  real, allocatable :: q7(:,:) ! hail internal energy [J/kg]
+  real, allocatable :: q2(:,:) ! rain internal energy [J/kg_air]
+  real, allocatable :: q6(:,:) ! graupel internal energy [J/kg_air]
+  real, allocatable :: q7(:,:) ! hail internal energy [J/kg_air]
 
   real(r8), allocatable :: accpd (:) ! sfc drizzle accum [kg/m^2]
   real(r8), allocatable :: accpr (:) ! sfc rain accum [kg/m^2]
@@ -78,11 +78,11 @@ Module mem_micro
   real, allocatable :: con_gccn(:,:)   ! GCCN number conc [#_gccn/kg_air]
   real, allocatable :: con_ifn (:,:)   ! IFN  number conc [#_ifn/kg_air]
 
-  Type ccntyp_vars   
+  Type ccntyp_vars
      real, allocatable :: con_ccn (:,:) ! CCN  number conc [#_ccn/kg_air]
      real, allocatable :: con_ccnt(:,:) ! CCN  number tendency [#_ccn/(m^3 s)]
   End Type ccntyp_vars
-   
+
   type (ccntyp_vars), allocatable :: ccntyp(:)
 
 Contains

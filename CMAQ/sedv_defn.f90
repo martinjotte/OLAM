@@ -120,7 +120,7 @@ contains
 
   subroutine aero_sedi2( iw )
 
-    use mem_grid,    only: mza, lpw, volt, volti, arw, &
+    use mem_grid,    only: mza, lpw, volt, volti, arw, voa0, &
                            lsw, zm, zfacm2, zfacim2
     use mem_ijtabs,  only: itab_w
     use misc_coms,   only: dtlm
@@ -138,7 +138,7 @@ contains
     real    :: voa(mza), arp(mza)
     logical :: only1( n_ae_sed_spc )
     real    :: zbotnew(mza, n_ae_sed_spc)
-    real    :: aeflux(mza) 
+    real    :: aeflux(mza)
     real    :: fracwkk, areascale
 
     call aero_sedv( iw, vsed_ae )
@@ -147,16 +147,14 @@ contains
 
     ! Ratio of grid cell volume to top horizontal area arw projected onto W(k-1) level
 
-    do k = lpw(iw) - 1, lpw(iw) + lsw(iw) - 2
-       arp(k) = arw(k+1,iw) * zfacim2(k+1) * zfacm2(k)
+    do k = lpw(iw), lpw(iw) + lsw(iw) - 1
+       arp(k-1) = arw(k,iw) * zfacim2(k) * zfacm2(k-1)
+       voa(k)   = real(volt(k,iw)) / arp(k-1)
     enddo
 
-    do k = lpw(iw) + lsw(iw) - 1, mza
-       arp(k) = arw(k,iw)
-    enddo
-
-    do k = lpw(iw), mza
-       voa(k) = volt(k,iw) / arp(k-1)
+    do k = lpw(iw) + lsw(iw), mza
+       arp(k-1) = arw (k-1,iw)
+       voa(k)   = voa0(k)
     enddo
 
     ! New bottom height of source-cell aerosol after fall for 1 time step
@@ -192,10 +190,10 @@ contains
              aeflux( lpw(iw)-1:mza-1 ) = 0.0
 
              do k = lpw(iw), mza
-             
+
                 do kk = k-1, lpw(iw)-1, -1
                    if (zm(kk) <= zbotnew(k,n)) exit
-                
+
                    ! Horizontal area scale factor for current (kk) level
                    areascale = zfacim2(k-1) * zfacm2(kk)
 
@@ -209,11 +207,11 @@ contains
              enddo
 
           endif
-    
+
           ! Apply fluxes to obtain new aerosol concentrations
 
           do k = lpw(iw), mza
-             cgrid(k,iw,s) = cgrid(k,iw,s) + volti(k,iw) &
+             cgrid(k,iw,s) = cgrid(k,iw,s) + real(volti(k,iw)) &
                   * (aeflux(k) * arw(k,iw) - aeflux(k-1) * arp(k-1))
           enddo
 

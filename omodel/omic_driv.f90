@@ -111,7 +111,7 @@ integer :: j35,j36,j37,j45,j46,j47,j56,j57,j67,j82,j84,j85,j86,j87
 integer :: k12,k14,k15,k16,k17,k18,k23,k24,k25,k26,k27
 integer :: k35,k36,k37,k45,k46,k47,k56,k57,k67,k82,k84,k85,k86,k87
 
-integer :: lpw0,iw0,mrl0,kend
+integer :: lpw0,iw0,mrl0,kend,kadj
 
 real :: dtl0,dtli0
 
@@ -171,7 +171,6 @@ real :: wc0   (mza0)
 
 real :: tair     (mza0)
 real :: tairc    (mza0)
-real :: tairstrc (mza0)
 real :: rhovstr  (mza0)
 real :: rhov     (mza0)
 real :: rhoi     (mza0)
@@ -188,7 +187,6 @@ real :: sumvr    (mza0)
 real :: con_ccnx (mza0,nccntyp)
 real :: con_gccnx(mza0)
 real :: con_ifnx (mza0)
-real :: totcond  (mza0)
 
 ! New arrays (2/25/2012) to retain mass and number amounts of each
 ! cloud and ice nucleation type (for plotting)
@@ -256,11 +254,9 @@ real :: &
 
 real(r8) :: rhoa(mza0)
 real(r8) :: rhow(mza0)
+real(r8) :: totcond
 
-real :: tref     (mza0,2)
-real :: rhovsref (mza0,2)
 real :: rhovsrefp(mza0,2)
-
 real :: sa(mza0,9)
 
 real :: pcprx(ncat)
@@ -332,7 +328,6 @@ wc0   (:) = 0.
 
 tair     (:) = 0.
 tairc    (:) = 0.
-tairstrc (:) = 0.
 rhovstr  (:) = 0.
 rhov     (:) = 0.
 rhoi     (:) = 0.
@@ -349,7 +344,6 @@ sumvr    (:) = 0.
 con_ccnx (:,:) = 0.
 con_gccnx(:) = 0.
 con_ifnx (:) = 0.
-totcond  (:) = 0.
 
  rnuc_vc       (:) = 0.
  rnuc_vd       (:) = 0.
@@ -400,8 +394,6 @@ totcond  (:) = 0.
 rhoa(:) = 0.
 rhow(:) = 0.
 
-tref     (:,:) = 0.
-rhovsref (:,:) = 0.
 rhovsrefp(:,:) = 0.
 
 sa(:,:) = 0.
@@ -412,36 +404,37 @@ accpx(:) = 0.
 ! Copy hydrometeor bulk mass and number concentration from main model arrays
 ! to microphysics column arrays
 
- call mic_copy(iw0,lpw0,voa,thil0,press0,wc0,rhoa,rhow,rhoi, &
-   theta0,exner0,rhov, &
-   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
+ call mic_copy(iw0,lpw0,voa,thil0,press0,wc0,rhoa,rhow,rhoi,exner0, &
+               con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 ! Loop over all vertical levels
 
+kadj = lpw0 - 1
 do k = lpw0,mza0
 
 ! Compute total condensate in k level
 
-   totcond(k) = 1.001 * (rx(k,1) + rx(k,2) + rx(k,3) + rx(k,4) &
-                       + rx(k,5) + rx(k,6) + rx(k,7) + rx(k,8))
+   totcond = rx(k,1) + rx(k,2) + rx(k,3) + rx(k,4) &
+           + rx(k,5) + rx(k,6) + rx(k,7) + rx(k,8)
 
 ! If total water exceeds condensate, no corrections are necessary
 
-   if (real(rhow(k)) > totcond(k)) cycle
+   if (rhow(k) > totcond) cycle
 
 ! If total water density is negative, increase to zero and increase total air density
 ! rhoa by same amount to preserve dry-air content
 
-   if (real(rhow(k)) < 0.) then
+   if (rhow(k) < 0._r8) then
       rhoa(k) = rhoa(k) - rhow(k)
-      rhow(k) = 0.
+      rhow(k) = 0._r8
+      kadj    = k
    endif
 
-! Adjust condensate amounts downward if their sum exceeds rhow 
+! Adjust condensate amounts downward if their sum exceeds rhow
 
-   if (totcond(k) > real(rhow(k))) then
+   if (totcond > rhow(k)) then
 
-      frac = rhow(k) / totcond(k)
+      frac = real( rhow(k) / totcond )
 
       do lcat = 1,ncat
          rx(k,lcat) = rx(k,lcat) * frac
@@ -492,13 +485,13 @@ k1(11) = min(k1(9),k1(10))
 k2(11) = max(k2(9),k2(10))
 
 call thrmstr(iw0,lpw0,k1,k2, &
-   press0,thil0,rhow,rhoi,exner0,tair,theta0,rhov,rhovstr,tairstrc,rx,qx,sa)
+   press0,thil0,rhow,rhoi,exner0,tair,theta0,rhov,rhovstr,rx,qx,sa)
 
 call each_column(lpw0,iw0,k1,k2,dtl0,                          &
-   jhcat,press0,tair,tairc,tairstrc,rhovstr,rhoa,rhov,rhoi,    &
+   jhcat,press0,tair,tairc,rhovstr,rhoa,rhov,rhoi,    &
    rhovslair,rhovsiair,thrmcon,vapdif,dynvisc,rdynvsci,denfac, &
    colfac,colfac2,sumuy,sumuz,sumvr,                           &
-   tx,sh,sm,sa,tref,rhovsref,rhovsrefp)
+   tx,sh,sm,sa,rhovsrefp)
 
 ! USEFUL SAMPLE PRINTS FOR EXAMINING A SINGLE IW0 COLUMN BEFORE
 ! MAIN MICROPHYSICS COMPUTATIONS ARE DONE
@@ -549,28 +542,28 @@ call each_column(lpw0,iw0,k1,k2,dtl0,                          &
 jflag = 1
 
 if (k1(1) <= k2(1)) &
-   call enemb(1,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(1,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(2) <= k2(2)) &
-   call enemb(2,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(2,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(3) <= k2(3)) &
-   call enemb(3,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(3,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(4) <= k2(4)) &
-   call enemb(4,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(4,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(5) <= k2(5)) &
-   call enemb(5,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(5,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(6) <= k2(6)) &
-   call enemb(6,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(6,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(7) <= k2(7)) &
-   call enemb(7,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(7,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(8) <= k2(8)) &
-   call enemb(8,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(8,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 ! Set up matrix for heat/vapor diffusion computation
 
@@ -671,7 +664,7 @@ endif
 ! Diagnose new air temperature following heat and vapor fluxes
 
 call newtemp(k1(11),k2(11), &
-   tairstrc,rhoi,rhovstr,rhov,exner0,tairc,tair,theta0,rhovslair,rhovsiair,sa)
+   rhoi,rhovstr,rhov,exner0,tairc,tair,theta0,rhovslair,rhovsiair,sa)
 
 ! No diagnosis or collisions if running parcel test 901 or 902
 
@@ -682,28 +675,28 @@ if (nl%test_case == 901 .or. nl%test_case == 902) go to 1411
 jflag = 2
 
 if (k1(1) <= k2(1)) &
-   call enemb(1,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(1,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(2) <= k2(2)) &
-   call enemb(2,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(2,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(3) <= k2(3)) &
-   call enemb(3,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(3,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(4) <= k2(4)) &
-   call enemb(4,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(4,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(5) <= k2(5)) &
-   call enemb(5,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(5,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(6) <= k2(6)) &
-   call enemb(6,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(6,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(7) <= k2(7)) &
-   call enemb(7,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(7,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (k1(8) <= k2(8)) &
-   call enemb(8,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(8,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 ! Determine coalescence efficiencies
 
@@ -991,10 +984,10 @@ k1(8) = k
 jflag = 1
 
 if (jnmb(1) >= 3 .and. k1(1) <= k2(1)) &
-   call enemb(1,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(1,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 if (jnmb(8) >= 3 .and. k1(8) <= k2(8)) &
-   call enemb(8,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb,vap)
+   call enemb(8,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
 ! Nucleation of ice crystals
 
@@ -1032,38 +1025,35 @@ k2(11) = max(k2(9),k2(10))
 
 if (jnmb(3) >= 1) &
    call x02(iw0,lpw0,3,k1,k2,con_ccnx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx)
 
 if (jnmb(1) >= 1) &
    call x02(iw0,lpw0,1,k1,k2,con_ccnx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx)
 
 if (jnmb(8) >= 1) &
    call x02(iw0,lpw0,8,k1,k2,con_ccnx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx)
 
 if (jnmb(4) >= 1) &
    call x02(iw0,lpw0,4,k1,k2,con_ccnx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx)
 
 if (jnmb(5) >= 1) &
    call x02(iw0,lpw0,5,k1,k2,con_ccnx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx)
 
 if (jnmb(6) >= 1) &
    call x02(iw0,lpw0,6,k1,k2,con_ccnx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx)
 
 if (jnmb(7) >= 1) &
    call x02(iw0,lpw0,7,k1,k2,con_ccnx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx)
 
 if (jnmb(2) >= 1) &
    call x02(iw0,lpw0,2,k1,k2,con_ccnx, &
-      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx,vap)
-
-  accpx(1:ncat) = 0.
-  pcprx(1:ncat) = 0.
+      jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx)
 
 ! No sedimentation, dry nuclei deposition, or precipitation scavenging of
 ! nuclei if running parcel tests 901-999
@@ -1072,15 +1062,16 @@ if (nl%test_case >= 901 .and. nl%test_case <= 999) go to 1412
 
 ! Compute sedimentation for all 7 precipitating categories
 
-  dsed_thil(lpw0:mza0) = 0.
-
   call sedim2(iw0,lpw0,k1,k2,jhcat,dtl0, &
    voa, denfac, tair, thil0, theta0, dsed_thil, rhoi, rhoa, rhow, &
    cx, rx, qx, qr, emb, dmb, pcpvel, pcpfluxc, pcpfluxr, pcpfluxq, accpx, pcprx)
 
   ! Apply change to thil from sedim of all categories
 
-  thil0(lpw0:mza0) = thil0(lpw0:mza0) + dsed_thil(lpw0:mza0) / rhoa(lpw0:mza0)
+  do k = lpw0, maxval(k2(2:8))
+     thil0(k) = thil0(k) + dsed_thil(k) * thil0(k)* thil0(k) &
+                         / ( max(tair(k), 253.) * theta0(k) * real(rhoa(k)) )
+  enddo
 
   if (nnuc > 0) &
      call nuclei_deposition(iw0, k1, k2, dtl0, voa, rhoi, press0, tair, &
@@ -1156,17 +1147,16 @@ endif
 ! Copy hydrometeor bulk mass and number concentration and surface precipitation
 ! from microphysics column arrays to main model arrays
 
- call mic_copyback(iw0,lpw0,k1,k2,k3, &
+ call mic_copyback(iw0,lpw0,k1,k2,k3,kadj, &
     dtli0,accpx,pcprx,thil0,theta0,tair,rhoa,rhow,rhov, &
-    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr,exner0)
+    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 end subroutine micphys
 
 !===============================================================================
 
-subroutine mic_copy(iw0,lpw0,voa,thil0,press0,wc0,rhoa,rhow,rhoi, &
-   theta0,exner0,rhov, &
-   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
+subroutine mic_copy(iw0,lpw0,voa,thil0,press0,wc0,rhoa,rhow,rhoi,exner0, &
+                    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 use micro_coms, only: mza0, ncat, iccn, igccn, iifn, jnmb, rxmin, &
                       ccnparm, gccnparm, ifnparm, &
@@ -1174,18 +1164,16 @@ use micro_coms, only: mza0, ncat, iccn, igccn, iifn, jnmb, rxmin, &
 
 use ccnbin_coms, only: nccntyp
 
-use mem_grid,   only: zfacm2, zfacim2, arw0, arw, volt
+use mem_grid,   only: zfacm2, zfacim2, arw, volt, lsw, voa0
 
-use mem_basic,  only: thil, press, wc, rho, sh_w, sh_v, theta
+use mem_basic,  only: thil, press, wc, rho, sh_w
 
 use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                       q2, q6, q7, ccntyp, con_gccn, con_ifn, &
                       con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
                       cldnum
 
-use misc_coms,  only: io6, time_istp8
 use consts_coms,only: r8, p00i, rocp, cpi
-use therm_lib,  only: qtc
 
 implicit none
 
@@ -1197,9 +1185,7 @@ real, intent(inout) :: thil0 (mza0)
 real, intent(inout) :: press0(mza0)
 real, intent(inout) :: wc0   (mza0)
 real, intent(inout) :: rhoi  (mza0)
-real, intent(inout) :: theta0(mza0)
 real, intent(inout) :: exner0(mza0)
-real, intent(inout) :: rhov  (mza0)
 real, intent(inout) :: con_ccnx (mza0,nccntyp)
 real, intent(inout) :: con_gccnx(mza0)
 real, intent(inout) :: con_ifnx (mza0)
@@ -1213,119 +1199,58 @@ real, intent(inout) :: qx(mza0,ncat)
 real, intent(inout) :: qr(mza0,ncat)
 
 integer :: k, ic
+real    :: rho4(mza0), rxx
 
 ! Ratio of grid cell volume to top horizontal area arw projected onto W(k-1) level
 
-voa(mza0) = volt(mza0,iw0) / (arw0(iw0) * zfacm2(mza0-1))
-do k = lpw0,mza0-1
-   voa(k) = volt(k,iw0) / (arw(k,iw0) * zfacim2(k) * zfacm2(k-1))
+do k = lpw0, lpw0 + lsw(iw0) - 1
+   voa(k) = real(volt(k,iw0)) / (arw(k,iw0) * zfacim2(k) * zfacm2(k-1))
 enddo
 
-! copy atmospheric variables to micphys column vectors
+do k = lpw0 + lsw(iw0), mza0
+   voa(k) = voa0(k)
+enddo
 
-do k = lpw0,mza0
+! Copy atmospheric variables to micphys column vectors
+
+do k = lpw0, mza0
    thil0 (k) = thil (k,iw0)
-   theta0(k) = theta(k,iw0)
    press0(k) = press(k,iw0)
    wc0   (k) = wc   (k,iw0)
    rhoa  (k) = rho  (k,iw0)
    rhow  (k) = sh_w (k,iw0) * rho(k,iw0)
-   rhov  (k) = sh_v (k,iw0) * rho(k,iw0)
-
-   rhoi  (k) = 1. / rhoa(k)
-
+   rho4  (k) = rho  (k,iw0)
+   rhoi  (k) = 1. / rho4(k)
    exner0(k) = (press0(k) * p00i) ** rocp  ! defined WITHOUT CP factor
 enddo
 
 ! Cloud water
 
-if (jnmb(1) == 5) then
+if (jnmb(1) >= 1) then
 
-   do k = lpw0,mza0
-
-! Make sure cloud water number concentration is positive-definite
-
-      con_c(k,iw0) = max(con_c(k,iw0), 0.0)
-
-! If cloud water bulk density is sufficiently abundant, copy to rx
-! and copy cloud water number concentration to cx.
-! Otherwise, make sure cloud water bulk density is positive-definite
-! and set cloud water number concentration to zero.
-
-      if (sh_c(k,iw0) >= rxmin(1)) then
-         rx(k,1) = sh_c (k,iw0) * rhoa(k)
-         cx(k,1) = con_c(k,iw0) * rhoa(k)
-      else
-         sh_c (k,iw0) = 0.0
-         con_c(k,iw0) = 0.0
+   do k = lpw0, mza0
+      rxx = sh_c(k,iw0) * rho4(k)
+      if (rxx > rxmin(1)) then
+         rx(k,1) = rxx
+         if (jnmb(1) == 5) cx(k,1) = max(con_c(k,iw0) * rho4(k), 0.0)
       endif
-
-   enddo
-
-elseif (jnmb(1) >= 1) then
-
-   do k = lpw0,mza0
-
-! If cloud water bulk density is sufficiently abundant, copy to rx.
-! Otherwise, if cloud water bulk density is negative, set to zero.
-
-      if (sh_c(k,iw0) >= rxmin(1)) then
-         rx(k,1) = sh_c(k,iw0) * rhoa(k)
-      else
-         sh_c(k,iw0) = 0.
-      endif
-
    enddo
 
 endif
 
 ! Rain
 
-if (jnmb(2) == 5) then
+if (jnmb(2) >= 1) then
 
-   do k = lpw0,mza0
-
-! Make sure rain number concentration is positive-definite
-
-      con_r(k,iw0) = max(con_r(k,iw0), 0.0)
-
-! If rain bulk density is sufficiently abundant, copy to rx and copy rain
-! number concentration to cx, compute qx and impose limits on it in case
-! advection of very dry air has resulted in a large magnitude of q2/sh_r, and
-! compute qr.  Otherwise, set rain bulk density, rain number concentration,
-! and q2 to zero.
-
-      if (sh_r(k,iw0) >= rxmin(2)) then
-         rx(k,2) = sh_r (k,iw0) * rhoa(k)
-         cx(k,2) = con_r(k,iw0) * rhoa(k)
-         qx(k,2) = max(-20000.,min(500000.,q2(k,iw0) / sh_r(k,iw0))) ! Limits -10C to 40C
+   do k = lpw0, mza0
+      rxx = sh_r(k,iw0) * rho4(k)
+      if (rxx > rxmin(2)) then
+         rx(k,2) = rxx
+         qx(k,2) = max(-20000., min(500000., q2(k,iw0) / sh_r(k,iw0))) ! Limits -10C to 40C
          qr(k,2) = qx(k,2) * rx(k,2)
-      else
-         sh_r (k,iw0) = 0.0
-         con_r(k,iw0) = 0.0
-         q2   (k,iw0) = 0.0
+
+         if (jnmb(2) == 5) cx(k,2) = max(con_r(k,iw0) * rho4(k), 0.0)
       endif
-
-   enddo
-
-elseif (jnmb(2) >= 1) then
-
-   do k = lpw0,mza0
-
-! If rain bulk density is sufficiently abundant, copy to rx, compute qx and
-! impose limits on it in case advection of very dry air has resulted in a large
-! magnitude of q2/sh_r, and compute qr.  Otherwise, set rain bulk density and
-! q2 to zero.
-
-      if (sh_r(k,iw0) >= rxmin(2)) then
-         rx(k,2) = sh_r(k,iw0) * rhoa(k)
-         qx(k,2) = max(-20000.,min(500000.,q2(k,iw0) / sh_r(k,iw0))) ! Limits -10C to 40C
-         qr(k,2) = qx(k,2) * rx(k,2)
-      else
-         sh_r(k,iw0) = 0.
-         q2  (k,iw0) = 0.
-      endif
-
    enddo
 
 endif
@@ -1334,211 +1259,74 @@ endif
 
 if (jnmb(3) == 5) then
 
-   do k = lpw0,mza0
-
-! Make sure pristine ice number concentration is positive-definite
-
-      con_p(k,iw0) = max(con_p(k,iw0), 0.0)
-
-! If pristine ice bulk density is sufficiently abundant, copy to rx
-! and copy pristine ice number concentration to cx.
-! Otherwise, make sure pristine ice bulk density is positive-definite
-! and set pristine ice number concentration to zero.
-
-      if (sh_p(k,iw0) >= rxmin(3)) then
-         rx(k,3) = sh_p (k,iw0) * rhoa(k)
-         cx(k,3) = con_p(k,iw0) * rhoa(k)
-      else
-         sh_p (k,iw0) = 0.0
-         con_p(k,iw0) = 0.0
+   do k = lpw0, mza0
+      rxx = sh_p(k,iw0) * rho4(k)
+      if (rxx > rxmin(3)) then
+         rx(k,3) = rxx
+         cx(k,3) = max(con_p(k,iw0) * rho4(k), 0.0)
       endif
-
    enddo
 
 endif
 
 ! Snow
 
-if (jnmb(4) == 5) then
+if (jnmb(4) >= 1) then
 
-   do k = lpw0,mza0
-
-! Make sure snow number concentration is positive-definite
-
-      con_s(k,iw0) = max(con_s(k,iw0), 0.0)
-
-! If snow bulk density is sufficiently abundant, copy to rx
-! and copy snow number concentration to cx.
-! Otherwise, make sure snow bulk density is positive-definite
-! and set snow number concentration to zero.
-
-      if (sh_s(k,iw0) >= rxmin(4)) then
-         rx(k,4) = sh_s (k,iw0) * rhoa(k)
-         cx(k,4) = con_s(k,iw0) * rhoa(k)
-      else
-         sh_s (k,iw0) = 0.0
-         con_s(k,iw0) = 0.0
+   do k = lpw0, mza0
+      rxx = sh_s(k,iw0) * rho4(k)
+      if (rxx > rxmin(4)) then
+         rx(k,4) = rxx
+         if (jnmb(4) == 5) cx(k,4) = max(con_s(k,iw0) * rho4(k), 0.0)
       endif
-
-   enddo
-
-elseif (jnmb(4) >= 1) then
-
-   do k = lpw0,mza0
-
-! If snow bulk density is sufficiently abundant, copy to rx.
-! Otherwise, if snow bulk density is negative, set to zero.
-
-      if (sh_s(k,iw0) >= rxmin(4)) then
-         rx(k,4) = sh_s(k,iw0) * rhoa(k)
-      else
-         sh_s(k,iw0) = 0.
-      endif
-
    enddo
 
 endif
 
 ! Aggregates
 
-if (jnmb(5) == 5) then
+if (jnmb(5) >= 1) then
 
-   do k = lpw0,mza0
-
-! Make sure aggregates number concentration is positive-definite
-
-      con_a(k,iw0) = max(con_a(k,iw0), 0.0)
-
-! If aggregates bulk density is sufficiently abundant, copy to rx
-! and copy aggregates number concentration to cx.
-! Otherwise, make sure aggregates bulk density is positive-definite
-! and set aggregates number concentration to zero.
-
-      if (sh_a(k,iw0) >= rxmin(5)) then
-         rx(k,5) = sh_a (k,iw0) * rhoa(k)
-         cx(k,5) = con_a(k,iw0) * rhoa(k)
-      else
-         sh_a (k,iw0) = 0.0
-         con_a(k,iw0) = 0.0
+   do k = lpw0, mza0
+      rxx = sh_a(k,iw0) * rho4(k)
+      if (rxx > rxmin(5)) then
+         rx(k,5) = rxx
+         if (jnmb(5) == 5) cx(k,5) = max(con_a(k,iw0) * rho4(k), 0.0)
       endif
-
-   enddo
-
-elseif (jnmb(5) >= 1) then
-
-   do k = lpw0,mza0
-
-! If aggregates bulk density is sufficiently abundant, copy to rx.
-! Otherwise, if aggregates bulk density is negative, set to zero.
-
-      if (sh_a(k,iw0) >= rxmin(5)) then
-         rx(k,5) = sh_a(k,iw0) * rhoa(k)
-      else
-         sh_a(k,iw0) = 0.
-      endif
-
    enddo
 
 endif
 
 ! Graupel
 
-if (jnmb(6) == 5) then
+if (jnmb(6) >= 1) then
 
-   do k = lpw0,mza0
-
-! Make sure graupel number concentration is positive-definite
-
-      con_g(k,iw0) = max(con_g(k,iw0), 0.0)
-
-! If graupel bulk density is sufficiently abundant, copy to rx and copy graupel
-! number concentration to cx, compute qx and impose limits on it in case
-! advection of very dry air has resulted in a large magnitude of q6/sh_g, and
-! compute qr.  Otherwise, set graupel bulk density, graupel number concentration,
-! and q6 to zero.
-
-      if (sh_g(k,iw0) >= rxmin(6)) then
-         rx(k,6) = sh_g (k,iw0) * rhoa(k)
-         cx(k,6) = con_g(k,iw0) * rhoa(k)
-         qx(k,6) = max(-100000.,min(334000.,q6(k,iw0) / sh_g(k,iw0))) ! Limits -50C to 0C
+   do k = lpw0, mza0
+      rxx = sh_g(k,iw0) * rho4(k)
+      if (rxx > rxmin(6)) then
+         rx(k,6) = rxx
+         qx(k,6) = max(-100000., min(334000., q6(k,iw0) / sh_g(k,iw0))) ! Limits -50C to 0C
          qr(k,6) = qx(k,6) * rx(k,6)
-      else
-         sh_g (k,iw0) = 0.0
-         con_g(k,iw0) = 0.0
-         q6   (k,iw0) = 0.0
+
+         if (jnmb(5) == 6) cx(k,6) = max(con_g(k,iw0) * rho4(k), 0.0)
       endif
-
-   enddo
-
-elseif (jnmb(6) >= 1) then
-
-   do k = lpw0,mza0
-
-! If graupel bulk density is sufficiently abundant, copy to rx, compute qx and
-! impose limits on it in case advection of very dry air has resulted in a large
-! magnitude of q6/sh_g, and compute qr.  Otherwise, set graupel bulk density and
-! q6 to zero.
-
-      if (sh_g(k,iw0) >= rxmin(6)) then
-         rx(k,6) = sh_g(k,iw0) * rhoa(k)
-         qx(k,6) = max(-100000.,min(334000.,q6(k,iw0) / sh_g(k,iw0))) ! Limits -50C to 0C
-         qr(k,6) = qx(k,6) * rx(k,6)
-      else
-         sh_g(k,iw0) = 0.
-         q6  (k,iw0) = 0.
-      endif
-
    enddo
 
 endif
 
 ! Hail
 
-if (jnmb(7) == 5) then
+if (jnmb(7) >= 1) then
 
-   do k = lpw0,mza0
-
-! Make sure hail number concentration is positive-definite
-
-      con_h(k,iw0) = max(con_h(k,iw0), 0.0)
-
-! If hail bulk density is sufficiently abundant, copy to rx and copy hail
-! number concentration to cx, compute qx and impose limits on it in case
-! advection of very dry air has resulted in a large magnitude of q7/sh_h, and
-! compute qr.  Otherwise, set hail bulk density, hail number concentration,
-! and q7 to zero.
-
-      if (sh_h(k,iw0) >= rxmin(7)) then
-         rx(k,7) = sh_h (k,iw0) * rhoa(k)
-         cx(k,7) = con_h(k,iw0) * rhoa(k)
-         qx(k,7) = max(-100000.,min(334000.,q7(k,iw0) / sh_h(k,iw0))) ! Limits -50C to 0C
+   do k = lpw0, mza0
+      rxx = sh_h(k,iw0) * rho4(k)
+      if (rxx > rxmin(7)) then
+         rx(k,7) = rxx
+         qx(k,7) = max(-100000., min(334000., q7(k,iw0) / sh_h(k,iw0))) ! Limits -50C to 0C
          qr(k,7) = qx(k,7) * rx(k,7)
-      else
-         sh_h (k,iw0) = 0.0
-         con_h(k,iw0) = 0.0
-         q7   (k,iw0) = 0.0
+
+         if (jnmb(5) == 6) cx(k,7) = max(con_h(k,iw0) * rho4(k), 0.0)
       endif
-
-   enddo
-
-elseif (jnmb(7) >= 1) then
-
-   do k = lpw0,mza0
-
-! If hail bulk density is sufficiently abundant, copy to rx, compute qx and
-! impose limits on it in case advection of very dry air has resulted in a large
-! magnitude of q7/sh_h, and compute qr.  Otherwise, set hail bulk density and
-! q7 to zero.
-
-      if (sh_h(k,iw0) >= rxmin(7)) then
-         rx(k,7) = sh_h(k,iw0) * rhoa(k)
-         qx(k,7) = max(-100000.,min(334000.,q7(k,iw0) / sh_h(k,iw0))) ! Limits -50C to 0C
-         qr(k,7) = qx(k,7) * rx(k,7)
-      else
-         sh_h(k,iw0) = 0.
-         q7  (k,iw0) = 0.
-      endif
-
    enddo
 
 endif
@@ -1547,73 +1335,57 @@ endif
 
 if (jnmb(8) == 5) then
 
-   do k = lpw0,mza0
-
-! Make sure drizzle number concentration is positive-definite
-
-      con_d(k,iw0) = max(con_d(k,iw0), 0.0)
-
-! If drizzle bulk density is sufficiently abundant, copy to rx
-! and copy drizzle number concentration to cx.
-! Otherwise, make sure drizzle bulk density is positive-definite
-! and set drizzle number concentration to zero.
-
-      if (sh_d(k,iw0) >= rxmin(8)) then
-         rx(k,8) = sh_d (k,iw0) * rhoa(k)
-         cx(k,8) = con_d(k,iw0) * rhoa(k)
-      else
-         sh_d (k,iw0) = 0.0
-         con_d(k,iw0) = 0.0
+   do k = lpw0, mza0
+      rxx = sh_d(k,iw0) * rho4(k)
+      if (rxx > rxmin(8)) then
+         rx(k,8) = rxx
+         cx(k,8) = max(con_d(k,iw0) * rho4(k), 0.0)
       endif
-
    enddo
 
 endif
 
-! Fill column CCN values [#/m^3] 
+! Fill column CCN values [#/m^3]
 
 if (iccn == 1) then
    if (ccnparm > 1.e6) then
       do k = lpw0,mza0
-         con_ccnx(k,1) = ccnparm * zfactor_ccn(k) * rhoa(k)
+         con_ccnx(k,1) = ccnparm * zfactor_ccn(k) * rho4(k)
       enddo
    else
-      do k = lpw0,mza0
-         con_ccnx(k,1) = cldnum(iw0) * zfactor_ccn(k) * rhoa(k)
+      do k = lpw0, mza0
+         con_ccnx(k,1) = cldnum(iw0) * zfactor_ccn(k) * rho4(k)
       enddo
    endif
 else
    do ic = 1,nccntyp
-      do k = lpw0,mza0
-         ccntyp(ic)%con_ccn(k,iw0) = max(0.,ccntyp(ic)%con_ccn(k,iw0))
-         con_ccnx(k,ic) = ccntyp(ic)%con_ccn(k,iw0) * rhoa(k)
+      do k = lpw0, mza0
+         con_ccnx(k,ic) = max(0., ccntyp(ic)%con_ccn(k,iw0)) * rho4(k)
       enddo
    enddo
 endif
 
-! Fill column GCCN values [#/m^3] 
+! Fill column GCCN values [#/m^3]
 
 if (igccn == 1) then
-   do k = lpw0,mza0
-      con_gccnx(k) = gccnparm * zfactor_gccn(k) * rhoa(k)
+   do k = lpw0, mza0
+      con_gccnx(k) = gccnparm * zfactor_gccn(k) * rho4(k)
    enddo
 else
-   do k = lpw0,mza0
-      con_gccn(k,iw0) = max(0.,con_gccn(k,iw0))
-      con_gccnx(k) = con_gccn(k,iw0) * rhoa(k)
+   do k = lpw0, mza0
+      con_gccnx(k) = max(0., con_gccn(k,iw0)) * rho4(k)
    enddo
 endif
 
-! Fill column IFN values [#/m^3] 
+! Fill column IFN values [#/m^3]
 
 if (iifn == 1) then
-   do k = lpw0,mza0
-      con_ifnx(k) = ifnparm * zfactor_ifn(k) * rhoa(k)
+   do k = lpw0, mza0
+      con_ifnx(k) = ifnparm * zfactor_ifn(k) * rho4(k)
    enddo
 else
-   do k = lpw0,mza0
-      con_ifn(k,iw0) = max(0.,con_ifn(k,iw0))
-      con_ifnx(k) = con_ifn(k,iw0) * rhoa(k)
+   do k = lpw0, mza0
+      con_ifnx(k) = max(0., con_ifn(k,iw0)) * rho4(k)
    enddo
 endif
 
@@ -1621,9 +1393,9 @@ end subroutine mic_copy
 
 !===============================================================================
 
-subroutine mic_copyback(iw0,lpw0,k1,k2,k3, &
+subroutine mic_copyback(iw0,lpw0,k1,k2,k3,kadj, &
    dtli0,accpx,pcprx,thil0,theta0,tair0,rhoa,rhow,rhov, &
-   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr,exner0)
+   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 use micro_coms, only: mza0, ncat, jnmb, iccn, igccn, iifn, rxmin
 use ccnbin_coms, only: nccntyp
@@ -1636,10 +1408,9 @@ use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                       ccntyp, con_gccn, con_ifn
 use misc_coms,  only: io6
 use consts_coms,only: r8, p00i, rocp, alvl, alvi, cpi4, cp253i
-use mem_grid,   only: zwgt_bot, zwgt_top
+use mem_grid,   only: zwgt_bot8, zwgt_top8
 use mem_tend,   only: num_omic
 use var_tables, only: num_scalar, scalar_tab
-use therm_lib,  only: qtc
 
 implicit none
 
@@ -1649,6 +1420,7 @@ integer, intent(in) :: lpw0
 integer, intent(in) :: k1(11)
 integer, intent(in) :: k2(11)
 integer, intent(in) :: k3(11)
+integer, intent(in) :: kadj
 
 real, intent(in) :: dtli0
 
@@ -1672,187 +1444,212 @@ real, intent(in) :: cx(mza0,ncat)
 real, intent(in) :: qx(mza0,ncat)
 real, intent(in) :: qr(mza0,ncat)
 
-real, intent(in) :: exner0(mza0)
-
 real    :: rfact(mza0)
-real    :: rhoi(mza0)
-integer :: k, n, ic
+real    :: rhoi (mza0)
+integer :: k, n, ic, ktop
 
 ! Copy base thermodynamic variables
 
 do k = lpw0,mza0
-   thil (k,iw0) = thil0(k)
+   thil (k,iw0) = thil0 (k)
    theta(k,iw0) = theta0(k)
-   tair (k,iw0) = tair0(k)
-   rfact(k)     = real(rho(k,iw0) / rhoa(k))
-   rho  (k,iw0) = rhoa(k)
-   rhoi (k)     = 1.0 / real(rhoa(k))
-   sh_w (k,iw0) = rhow(k) * rhoi(k)
+   tair (k,iw0) = tair0 (k)
+   rho  (k,iw0) = rhoa  (k)
+   rfact(k)     = rho   (k,iw0) / rhoa(k)
+   rhoi (k)     = 1._r8 / rhoa(k)
+   sh_w (k,iw0) = rhow  (k) / rhoa(k)
    sh_v (k,iw0) = min(rhov(k) * rhoi(k), sh_w(k,iw0))
 enddo
 
+ktop = max(k2(11), k3(1), k3(3), k3(8), kadj)
+if (ktop >= lpw0) then
+
 ! Adjust scalar specific densities to conserve mass when air density changes
 
-do n = num_omic+1, num_scalar
-   do k = lpw0, mza0
-      scalar_tab(n)%var_p(k,iw0) = scalar_tab(n)%var_p(k,iw0) * rfact(k)
+   do n = num_omic+1, num_scalar
+      do k = lpw0, ktop
+         scalar_tab(n)%var_p(k,iw0) = scalar_tab(n)%var_p(k,iw0) * rfact(k)
+      enddo
    enddo
-enddo
 
 ! Conserve vertical momentum when air density changes
 
-do k = lpw0, mza0-1
-   wmc(k,iw0) = wc(k,iw0) * (zwgt_bot(k) * rho(k,iw0) + zwgt_top(k) * rho(k+1,iw0))
-enddo
-
-! Copy cloud water bulk density back to main array
-
-if (jnmb(1) >= 1) then
-   do k = lpw0,k3(1)
-      sh_c(k,iw0) = rx(k,1) * rhoi(k)
+   do k = lpw0, min(ktop,mza0-1)
+      wmc(k,iw0) = wc(k,iw0) * real(zwgt_bot8(k) * rho(k,iw0) + zwgt_top8(k) * rho(k+1,iw0))
    enddo
+
 endif
 
-! Copy rain bulk density, internal energy, and surface precip back to main arrays
+! Copy cloud water number and bulk density back to main array
+
+if (jnmb(1) >= 1) then
+
+   do k = lpw0, mza0
+      if (rx(k,1) > rxmin(1)) then
+
+         sh_c(k,iw0) = rx(k,1) * rhoi(k)
+         if (jnmb(1) == 5) con_c(k,iw0) = cx(k,1) * rhoi(k)
+
+      else
+
+         sh_c(k,iw0) = 0.0
+         if (jnmb(1) == 5) con_c(k,iw0) = 0.0
+
+      endif
+   enddo
+
+endif
+
+! Copy rain number, bulk density, internal energy, and surface precip back to main arrays
 
 if (jnmb(2) >= 1) then
    accpr(iw0) = accpr(iw0) + real(accpx(2),r8)
    pcprr(iw0) = pcprx(2)
 
-   do k = lpw0,k2(11)
-      sh_r(k,iw0) = rx(k,2) * rhoi(k)
-      q2  (k,iw0) = qr(k,2) * rhoi(k)
+   do k = lpw0, mza0
+      if (rx(k,2) > rxmin(2)) then
+
+         sh_r(k,iw0) = rx(k,2) * rhoi(k)
+         q2  (k,iw0) = qr(k,2) * rhoi(k)
+         if (jnmb(2) == 5) con_r(k,iw0) = cx(k,2) * rhoi(k)
+
+      else
+
+         sh_r(k,iw0) = 0.0
+         q2  (k,iw0) = 0.0
+         if (jnmb(2) == 5) con_r(k,iw0) = 0.0
+
+      endif
    enddo
+
 endif
 
-! Copy pristine ice bulk density and surface precip back to main arrays
+! Copy pristine ice number, bulk density, and surface precip back to main arrays
 
-if (jnmb(3) >= 1) then
+if (jnmb(3) == 5) then
    accpp(iw0) = accpp(iw0) + real(accpx(3),r8)
    pcprp(iw0) = pcprx(3)
 
-   do k = lpw0,k3(3)
-      sh_p(k,iw0) = rx(k,3) * rhoi(k)
+   do k = lpw0, mza0
+      if (rx(k,3) > rxmin(3)) then
+         sh_p (k,iw0) = rx(k,3) * rhoi(k)
+         con_p(k,iw0) = cx(k,3) * rhoi(k)
+      else
+         sh_p (k,iw0) = 0.0
+         con_p(k,iw0) = 0.0
+      endif
    enddo
+
 endif
 
-! Copy snow bulk density and surface precip back to main arrays
+! Copy snow number, bulk density, and surface precip back to main arrays
 
 if (jnmb(4) >= 1) then
    accps(iw0) = accps(iw0) + real(accpx(4),r8)
    pcprs(iw0) = pcprx(4)
 
-   do k = lpw0,k2(11)
-      sh_s(k,iw0) = rx(k,4) * rhoi(k)
+   do k = lpw0, mza0
+      if (rx(k,4) > rxmin(4)) then
+
+         sh_s(k,iw0) = rx(k,4) * rhoi(k)
+         if (jnmb(4) == 5) con_s(k,iw0) = cx(k,4) * rhoi(k)
+
+      else
+
+         sh_s(k,iw0) = 0.0
+         if (jnmb(4) == 5) con_s(k,iw0) = 0.0
+
+      endif
    enddo
+
 endif
 
-! Copy aggregates bulk density and surface precip back to main arrays
+! Copy aggregates number, bulk density, and surface precip back to main arrays
 
 if (jnmb(5) >= 1) then
    accpa(iw0) = accpa(iw0) + real(accpx(5),r8)
    pcpra(iw0) = pcprx(5)
 
-   do k = lpw0,k2(11)
-      sh_a(k,iw0) = rx(k,5) * rhoi(k)
+   do k = lpw0, mza0
+      if (rx(k,5) > rxmin(5)) then
+
+         sh_a(k,iw0) = rx(k,5) * rhoi(k)
+         if (jnmb(5) == 5) con_a(k,iw0) = cx(k,5) * rhoi(k)
+
+      else
+
+         sh_a(k,iw0) = 0.0
+         if (jnmb(5) == 5) con_g(k,iw0) = 0.0
+
+      endif
    enddo
+
 endif
 
-! Copy graupel bulk density, internal energy, and surface precip back to main arrays
+! Copy graupel number, bulk density, internal energy, and surface precip back to main arrays
 
 if (jnmb(6) >= 1) then
    accpg(iw0) = accpg(iw0) + real(accpx(6),r8)
    pcprg(iw0) = pcprx(6)
-   do k = lpw0,k2(11)
-      sh_g(k,iw0) = rx(k,6) * rhoi(k)
-      q6  (k,iw0) = qr(k,6) * rhoi(k)
+
+   do k = lpw0, mza0
+      if (rx(k,6) > rxmin(6)) then
+
+         sh_g(k,iw0) = rx(k,6) * rhoi(k)
+         q6  (k,iw0) = qr(k,6) * rhoi(k)
+         if (jnmb(6) == 5) con_g(k,iw0) = cx(k,6) * rhoi(k)
+
+      else
+
+         sh_g(k,iw0) = 0.0
+         q6  (k,iw0) = 0.0
+         if (jnmb(6) == 5) con_g(k,iw0) = 0.0
+
+      endif
    enddo
+
 endif
 
-! Copy hail bulk density, internal energy, and surface precip back to main arrays
+! Copy hail number, bulk density, internal energy, and surface precip back to main arrays
 
 if (jnmb(7) >= 1) then
    accph(iw0) = accph(iw0) + real(accpx(7),r8)
    pcprh(iw0) = pcprx(7)
-   do k = lpw0,k2(11)
-      sh_h(k,iw0) = rx(k,7) * rhoi(k)
-      q7  (k,iw0) = qr(k,7) * rhoi(k)
+
+   do k = lpw0, mza0
+      if (rx(k,7) > rxmin(7)) then
+
+         sh_h(k,iw0) = rx(k,7) * rhoi(k)
+         q7  (k,iw0) = qr(k,7) * rhoi(k)
+         if (jnmb(7) == 5) con_h(k,iw0) = cx(k,7) * rhoi(k)
+
+      else
+
+         sh_h(k,iw0) = 0.0
+         q7  (k,iw0) = 0.0
+         if (jnmb(7) == 5) con_h(k,iw0) = 0.0
+
+      endif
    enddo
+
 endif
 
-! Copy drizzle bulk density and surface precip back to main arrays
+! Copy drizzle number, bulk density, and surface precip back to main arrays
 
-if (jnmb(8) >= 1) then
+if (jnmb(8) == 5) then
    accpd(iw0) = accpd(iw0) + real(accpx(8),r8)
    pcprd(iw0) = pcprx(8)
 
-   do k = lpw0,k3(8)
-      sh_d(k,iw0) = rx(k,8) * rhoi(k)
+   do k = lpw0, mza0
+      if (rx(k,8) > rxmin(8)) then
+         sh_d (k,iw0) = rx(k,8) * rhoi(k)
+         con_d(k,iw0) = cx(k,8) * rhoi(k)
+      else
+         sh_d (k,iw0) = 0.0
+         con_d(k,iw0) = 0.0
+      endif
    enddo
-endif
 
-! Copy cloud water number concentration back to main array
-
-if (jnmb(1) == 5) then
-   do k = lpw0,k3(1)
-      con_c(k,iw0) = cx(k,1) * rhoi(k)
-   enddo
-endif
-
-! Copy rain number concentration back to main array
-
-if (jnmb(2) == 5) then
-   do k = lpw0,k2(11)
-      con_r(k,iw0) = cx(k,2) * rhoi(k)
-   enddo
-endif
-
-! Copy pristine ice number concentration back to main array
-
-if (jnmb(3) == 5) then
-   do k = lpw0,k3(3)
-      con_p(k,iw0) = cx(k,3) * rhoi(k)
-   enddo
-endif
-
-! Copy snow number concentration back to main array
-
-if (jnmb(4) == 5) then
-   do k = lpw0,k2(11)
-      con_s(k,iw0) = cx(k,4) * rhoi(k)
-   enddo
-endif
-
-! Copy aggregates number concentration back to main array
-
-if (jnmb(5) == 5) then
-   do k = lpw0,k2(11)
-      con_a(k,iw0) = cx(k,5) * rhoi(k)
-   enddo
-endif
-
-! Copy graupel number concentration back to main array
-
-if (jnmb(6) == 5) then
-   do k = lpw0,k2(11)
-      con_g(k,iw0) = cx(k,6) * rhoi(k)
-   enddo
-endif
-
-! Copy hail number concentration back to main array
-
-if (jnmb(7) == 5) then
-   do k = lpw0,k2(11)
-      con_h(k,iw0) = cx(k,7) * rhoi(k)
-   enddo
-endif
-
-! Copy drizzle number concentration back to main array
-
-if (jnmb(8) == 5) then
-   do k = lpw0,k3(8)
-      con_d(k,iw0) = cx(k,8) * rhoi(k)
-   enddo
 endif
 
 ! Copy CCN number concentration back to main array

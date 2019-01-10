@@ -133,7 +133,7 @@ implicit none
 
 ! Check if collection table file exists
 
-  coltabfile = './COLTABFILE9B'
+  coltabfile = './COLTABFILE9C'
 
   inquire(file=coltabfile, exist=exans)
 

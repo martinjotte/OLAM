@@ -49,9 +49,12 @@ real, intent(in) :: tx (mza0,ncat)
 
 real, intent(out) :: eff(mza0,neff)
 
-integer :: k
+real, parameter :: al10 = log(10.)
+real, parameter :: ef0 = -0.7 * al10
+real, parameter :: ef1 = .035 * al10
 
-real :: dmb
+integer         :: k
+real            :: dmb
 
 ! This subroutine sets COALLESCENCE EFFICIENCIES for all hydrometeor collisions.
 ! Some of these depend on hydrometeor temperatures, while others are constant.
@@ -74,7 +77,7 @@ if (jnmb(5) >= 1) then
       if (abs(tx(k,3) + 14.) <= 2.) then
          eff(k,2) = 1.4
       else
-         eff(k,2) = min(.2,10. ** (.035 * tx(k,3) - .7))
+         eff(k,2) = min(.2, exp( ef0 + ef1 * tx(k,3) ))
       endif
 
    enddo
@@ -86,7 +89,7 @@ if (jnmb(5) >= 1) then
       if (abs(tx(k,4) + 14.) <= 2.) then
          eff(k,3) = 1.4
       else
-         eff(k,3) = min(.2,10. ** (.035 * tx(k,4) - .7))
+         eff(k,3) = min(.2, exp( ef0 + ef1 * tx(k,4) ))
       endif
 
    enddo
@@ -100,7 +103,7 @@ if (jnmb(5) >= 1) then
       elseif (tx(k,5) >= -1.) then
          eff(k,4) = 1.
       else
-         eff(k,4) = min(.2,10. ** (.035 * tx(k,5) - .7))
+         eff(k,4) = min(.2, exp( ef0 + ef1 * tx(k,5) ))
       endif
 
    enddo
@@ -116,7 +119,7 @@ if (jnmb(6) >= 1) then
       if (qr(k,6) > 0.) then
          eff(k,5) = 1.0
       else
-         eff(k,5) = min(.2,10. ** (.035 * tx(k,6) - .7))
+         eff(k,5) = min(.2, exp( ef0 + ef1 * tx(k,6) ))
       endif
 
    enddo
@@ -132,13 +135,13 @@ if (jnmb(7) >= 1) then
       if (qr(k,7) > 0.) then
          eff(k,6) = 1.0
       else
-         eff(k,6) = min(.2,10. ** (.035 * tx(k,7) - .7))
+         eff(k,6) = min(.2, exp( ef0 + ef1 * tx(k,7) ))
       endif
 
 ! 7 = hh (experimental; should be tested and improved; large hail probably
 !         should not coallesce)
 
-      eff(k,7) = max(0.,.1 + .005 * tx(k,7))
+      eff(k,7) = max(0., .1 + .005 * tx(k,7))
 
    enddo
 
@@ -222,7 +225,7 @@ do k = j1,j2
         + 2. * wct1(k,mx) * wct2(k,mx) * coltabc(ict1(k,mx),ict2(k,mx),ipc) &
         +      wct2(k,mx) * wct2(k,mx) * coltabc(ict2(k,mx),ict2(k,mx),ipc)
 
-   colc = colfac(k) * eff(k,meff) * (cx(k,mx) ** 2) * (10. ** (-tabc))
+   colc = colfac(k) * eff(k,meff) * cx(k,mx)**2 * exp(tabc)
 
    exxxx(k) = min(0.5 * cx(k,mx),colc)
 
@@ -266,12 +269,12 @@ real, intent(inout) :: exxxz(mza0)
 
 integer :: k,ipc,ipc2,ipx,indx
 
-real :: c1,c2,tabc,tabc2,tabx,embxz,colc
+real :: c1,c2,tabc,tabc2,tabx,embxzi,colc
 
-if (mx == 1) then    ! Cloud-cloud (mx = 1 and mz = 8)
-   embxz = 15.e-12  ! Droplet mass for transfer to drizzle
-else                 ! Drizzle-drizzle (mx = 8 and mz = 2)
-   embxz = 4.e-9     ! Droplet mass for transfer to rain
+if (mx == 1) then         ! Cloud-cloud (mx = 1 and mz = 8)
+   embxzi = 1. / 15.e-12  ! Droplet mass for transfer to drizzle
+else                      ! Drizzle-drizzle (mx = 8 and mz = 2)
+   embxzi = 1. / 4.e-9    ! Droplet mass for transfer to rain
 endif
 
 do k = j1,j2
@@ -292,14 +295,14 @@ do k = j1,j2
 
 ! Hydrometeor mass transfer
 
-   rxxxz(k,1) = min(rx(k,mx),c2 * 10. ** (-tabx)) ! c2 since both tabx droplets go to z
+   rxxxz(k,1) = min(rx(k,mx), c2 * exp(tabx)) ! c2 since both tabx droplets go to z
    rxxxz(k,2) = rxxxz(k,1) * qx(k,mx)
 
    if (jnmb(mz) < 5) cycle
 
 ! Hydrometeor number transfer
 
-   exxxz(k) = rxxxz(k,1) / embxz
+   exxxz(k) = rxxxz(k,1) * embxzi
 
 ! Interpolate from coltabc
 
@@ -307,7 +310,7 @@ do k = j1,j2
         + 2. * wct1(k,mx) * wct2(k,mx) * coltabc(ict1(k,mx),ict2(k,mx),ipc) &
         +      wct2(k,mx) * wct2(k,mx) * coltabc(ict2(k,mx),ict2(k,mx),ipc)
 
-   colc = min(0.5 * cx(k,mx),c1 * 10. ** (-tabc)) ! c1 so colc represents total number loss
+   colc = min(0.5 * cx(k,mx), c1 * exp(tabc)) ! c1 so colc represents total number loss
 
 ! Hydrometeor number loss
 
@@ -356,14 +359,14 @@ real, intent(inout) :: exyyz(mza0)
 
 integer :: k,ipc,ipx,ipx2,ipy2
 
-real :: c1,tabc,tabc2,tabx,tabx2,taby2,embxz,gammq
+real :: c1,tabc,tabc2,tabx,tabx2,taby2,gammq
 
-embxz = 4.e-9 ! Droplet mass for transfer to rain
+real, parameter :: embxzi = 1. / 4.e-9 ! Droplet mass for transfer to rain
 
 do k = j1,j2
 
    if (rx(k,mx) < rxmin(mx) .or. rx(k,my) < rxmin(my)) cycle
-   
+
 ! FOR CLOUD-DRIZZLE COLLISIONS THAT MAKE LARGER DRIZZLE
 
    ipc  = ipair(jhcat(k,mx),jhcat(k,my),1)
@@ -387,7 +390,7 @@ do k = j1,j2
 
 ! Hydrometeor mass transfer
 
-   rxyxy(k,1) = min(rx(k,mx),c1 * 10. ** (-tabx))
+   rxyxy(k,1) = min(rx(k,mx), c1 * exp(tabx))
    rxyxy(k,2) = rxyxy(k,1) * qx(k,mx)
 
 ! Interpolate from coltabc
@@ -399,7 +402,7 @@ do k = j1,j2
 
 ! Hydrometeor number loss (This includes situation when mz=rain)
 
-   exyxx(k) = min(0.5 * cx(k,mx),c1 * 10. ** (-tabc))
+   exyxx(k) = min(0.5 * cx(k,mx), c1 * exp(tabc))
 
 ! FOR CLOUD-DRIZZLE COLLISIONS THAT MOVE DRIZZLE TO RAIN
 
@@ -412,7 +415,7 @@ do k = j1,j2
 
 ! Hydrometeor mass transfer
 
-   rxyxz(k,1) = min(rx(k,mx),c1 * 10. ** (-tabx2))
+   rxyxz(k,1) = min(rx(k,mx), c1 * exp(tabx2))
    rxyxz(k,2) = rxyxz(k,1) * qx(k,mx)
 
 ! Interpolate from coltaby
@@ -427,12 +430,12 @@ do k = j1,j2
    gammq = wct1(k,my) * driz_gammq(ict1(k,my)) &
          + wct2(k,my) * driz_gammq(ict2(k,my))
 
-   rxyyz(k,1) = min(rx(k,my)*gammq,c1 * 10. ** (-taby2))
+   rxyyz(k,1) = min(rx(k,my)*gammq, c1 * exp(taby2))
    rxyyz(k,2) = rxyyz(k,1) * qx(k,my)
 
 ! Hydrometeor number transfer
 
-   exyyz(k) = rxyyz(k,1) / embxz
+   exyyz(k) = rxyyz(k,1) * embxzi
 
 enddo
 
@@ -479,7 +482,7 @@ real :: c1,tabc,tabx,colc,colx
 do k = j1,j2
 
    if (rx(k,mx) < rxmin(mx)) cycle
-   
+
    ipc = ipair(jhcat(k,mx),jhcat(k,mx),1)
    ipx = ipair(jhcat(k,mx),jhcat(k,mx),4)
 
@@ -491,7 +494,7 @@ do k = j1,j2
         + 2. * wct1(k,mx) * wct2(k,mx) * coltabx(ict1(k,mx),ict2(k,mx),ipx) &
         +      wct2(k,mx) * wct2(k,mx) * coltabx(ict2(k,mx),ict2(k,mx),ipx)
 
-   colx = min(rx(k,mx),c1 * 10. ** (-tabx))
+   colx = min(rx(k,mx), c1 * exp(tabx))
 
    rxxxz(k,1) = colx
    rxxxz(k,2) = colx * qx(k,mx)
@@ -504,7 +507,7 @@ do k = j1,j2
         + 2. * wct1(k,mx) * wct2(k,mx) * coltabc(ict1(k,mx),ict2(k,mx),ipc) &
         +      wct2(k,mx) * wct2(k,mx) * coltabc(ict2(k,mx),ict2(k,mx),ipc)
 
-   colc = min(0.5 * cx(k,mx),c1 * 10. ** (-tabc))
+   colc = min(0.5 * cx(k,mx), c1 * exp(tabc))
 
    exxxx(k) = colc
    exxxz(k) = colc
@@ -575,7 +578,7 @@ do k = j1,j2
         + wct1(k,3) * wct2(k,4) * coltabx (ict1(k,3),ict2(k,4),ipx) &
         + wct2(k,3) * wct2(k,4) * coltabx (ict2(k,3),ict2(k,4),ipx)
 
-   colx = min(rx(k,3),c1 * 10. ** (-tabx))
+   colx = min(rx(k,3), c1 * exp(tabx))
 
 ! Interpolate from coltaby
 
@@ -584,7 +587,7 @@ do k = j1,j2
         + wct1(k,4) * wct2(k,3) * coltaby (ict1(k,4),ict2(k,3),ipy) &
         + wct2(k,4) * wct2(k,3) * coltaby (ict2(k,4),ict2(k,3),ipy)
 
-   coly = min(rx(k,4),c1 * 10. ** (-taby))
+   coly = min(rx(k,4), c1 * exp(taby))
 
    rxyxz(k,1) = colx
    rxyxz(k,2) = colx * qx(k,3)
@@ -599,7 +602,7 @@ do k = j1,j2
         + wct1(k,3) * wct2(k,4) * coltabc (ict1(k,3),ict2(k,4),ipc) &
         + wct2(k,3) * wct2(k,4) * coltabc (ict2(k,3),ict2(k,4),ipc)
 
-   colc = c1 * 10. ** (-tabc)
+   colc = c1 * exp(tabc)
 
    if (cx(k,3) > cx(k,4)) then
       exyyz(k) = min(cx(k,4),colc)
@@ -668,7 +671,7 @@ do k = j1,j2
         + wct1(k,mx) * wct2(k,my) * coltabx (ict1(k,mx),ict2(k,my),ipx) &
         + wct2(k,mx) * wct2(k,my) * coltabx (ict2(k,mx),ict2(k,my),ipx)
 
-   colx = min(rx(k,mx),c1 * 10. ** (-tabx))
+   colx = min(rx(k,mx), c1 * exp(tabx))
 
    rxyxz(k,1) = colx
    rxyxz(k,2) = colx * qx(k,mx)
@@ -682,7 +685,7 @@ do k = j1,j2
         + wct1(k,mx) * wct2(k,my) * coltabc (ict1(k,mx),ict2(k,my),ipc) &
         + wct2(k,mx) * wct2(k,my) * coltabc (ict2(k,mx),ict2(k,my),ipc)
 
-   colc = c1 * 10. ** (-tabc)
+   colc = c1 * exp(tabc)
 
    exyxx(k) = min(colc,cx(k,mx))
 
@@ -774,7 +777,7 @@ do k = j1,j2
         + wct1(k,mx) * wct2(k,my) * coltabx (ict1(k,mx),ict2(k,my),ipx) &
         + wct2(k,mx) * wct2(k,my) * coltabx (ict2(k,mx),ict2(k,my),ipx)
 
-   colx = min(rx(k,mx),c1 * 10. ** (-tabx))
+   colx = min(rx(k,mx), c1 * exp(tabx))
 
 ! Interpolate from coltaby
 
@@ -783,7 +786,7 @@ do k = j1,j2
         + wct1(k,my) * wct2(k,mx) * coltaby (ict1(k,my),ict2(k,mx),ipy) &
         + wct2(k,my) * wct2(k,mx) * coltaby (ict2(k,my),ict2(k,mx),ipy)
 
-   coly = min(rx(k,my),c1 * 10. ** (-taby))
+   coly = min(rx(k,my), c1 * exp(taby))
 
 ! Interpolate from coltabc
 
@@ -792,7 +795,7 @@ do k = j1,j2
         + wct1(k,mx) * wct2(k,my) * coltabc (ict1(k,mx),ict2(k,my),ipc) &
         + wct2(k,mx) * wct2(k,my) * coltabc (ict2(k,mx),ict2(k,my),ipc)
 
-   colc0 = c2 * 10. ** (-tabc)
+   colc0 = c2 * exp(tabc)
    colc = colc0 * eff(k,meff)
 
    colqrx = colx * qx(k,mx)
@@ -951,7 +954,7 @@ do k = j1,j2
         + wct1(k,2) * wct2(k,my) * coltabx(ict1(k,2),ict2(k,my),ipx) &
         + wct2(k,2) * wct2(k,my) * coltabx(ict2(k,2),ict2(k,my),ipx)
 
-   colx = min(rx(k,2),c1 * 10. ** (-tabx))
+   colx = min(rx(k,2), c1 * exp(tabx))
 
 ! Interpolate from coltaby
 
@@ -960,7 +963,7 @@ do k = j1,j2
         + wct1(k,my) * wct2(k,2) * coltaby(ict1(k,my),ict2(k,2),ipy) &
         + wct2(k,my) * wct2(k,2) * coltaby(ict2(k,my),ict2(k,2),ipy)
 
-   coly = min(rx(k,my),c1 * 10. ** (-taby))
+   coly = min(rx(k,my), c1 * exp(taby))
 
    if (jnmb(2) == 5) then
 
@@ -971,7 +974,7 @@ do k = j1,j2
            + wct1(k,2) * wct2(k,my) * coltabc(ict1(k,2),ict2(k,my),ipc) &
            + wct2(k,2) * wct2(k,my) * coltabc(ict2(k,2),ict2(k,my),ipc)
 
-      colc = c1 * 10. ** (-tabc)
+      colc = c1 * exp(tabc)
 
       colcx = min(cx(k,2),colc)
       colcy = min(cx(k,my),colc)
@@ -1072,7 +1075,7 @@ subroutine colxfers(iw0,k1,k2,rx,cx,qr, &
    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000,e1882, &
    con_ccnx)
 
-use micro_coms,  only: mza0, ncat, jnmb, iccn
+use micro_coms,  only: mza0, ncat, jnmb, iccn, rxmin
 use misc_coms,   only: io6
 use ccnbin_coms, only: nccntyp, nbins, relcon_bin, ihyg, iccntyp
 
@@ -1145,6 +1148,8 @@ enloss = 0.
 if (jnmb(1) >= 1) then
 
    do k = k1(1),k2(1)
+      if (rx(k,1) < rxmin(1)) cycle
+
       rloss(k,1) = r1118(k,1) + r1112(k,1) + r1818(k,1) + r1212(k,1) &
                  + r1413(k,1) + r1416(k,1) + r1414(k,1) + r1513(k,1) &
                  + r1516(k,1) + r1515(k,1) + r1613(k,1) + r1616(k,1) &
@@ -1204,6 +1209,8 @@ endif
 if (jnmb(2) >= 1) then
 
    do k = k1(2),k2(2)
+      if (rx(k,2) < rxmin(2)) cycle
+
       rloss(k,2) = r2327(k,1) + r2323(k,1) + r2427(k,1) + r2424(k,1) &
                  + r2527(k,1) + r2525(k,1) + r2627(k,1) + r2626(k,1) &
                  + r2727(k,1)
@@ -1253,6 +1260,8 @@ endif
 if (jnmb(3) >= 1) then
 
    do k = k1(3),k2(3)
+      if (rx(k,3) < rxmin(3)) cycle
+
       rloss(k,3) = r3335(k,1) + r3435(k,1) + r3535(k,1) + r3636(k,1) &
                  + r3737(k,1) + r2332(k,1) + r2337(k,1)
 
@@ -1296,6 +1305,8 @@ endif
 if (jnmb(4) >= 1) then
 
    do k = k1(4),k2(4)
+      if (rx(k,4) < rxmin(4)) cycle
+
       rloss(k,4) = r4445(k,1) + r3445(k,1) + r4545(k,1) + r4646(k,1) &
                  + r4747(k,1) + r1446(k,1) + r8446(k,1) + r2442(k,1) &
                  + r2447(k,1)
@@ -1345,6 +1356,8 @@ endif
 if (jnmb(5) >= 1) then
 
    do k = k1(5),k2(5)
+      if (rx(k,5) < rxmin(5)) cycle
+
       rloss(k,5) = r5656(k,1) + r5757(k,1) + r1556(k,1) + r8556(k,1) &
                  + r2552(k,1) + r2557(k,1)
 
@@ -1386,6 +1399,8 @@ endif
 if (jnmb(6) >= 1) then
 
    do k = k1(6),k2(6)
+      if (rx(k,6) < rxmin(6)) cycle
+
       rloss(k,6) = r6767(k,1) + r2662(k,1) + r2667(k,1)
 
       qrloss(k,6) = r6767(k,2) + r2662(k,2) + r2667(k,2)
@@ -1419,6 +1434,8 @@ endif
 if (jnmb(7) >= 1) then
 
    do k = k1(7),k2(7)
+      if (rx(k,7) < rxmin(7)) cycle
+
       rloss(k,7) = r2772(k,1)
 
       qrloss(k,7) = r2772(k,2)
@@ -1450,6 +1467,8 @@ endif
 if (jnmb(8) >= 1) then
 
    do k = k1(8),k2(8)
+      if (rx(k,8) < rxmin(8)) cycle
+
       rloss(k,8) = r8882(k,1) + r8282(k,1) + r8483(k,1) + r8486(k,1) &
                  + r8484(k,1) + r8583(k,1) + r8586(k,1) + r8585(k,1) &
                  + r8683(k,1) + r8686(k,1) + r8783(k,1) + r8787(k,1) + r1882(k,1)
@@ -1509,6 +1528,7 @@ endif
 if (jnmb(1) >= 1) then
 
    do k = k1(1),k2(1)
+      if (rloss(k,1) < 1.e-20) cycle
 
       rx(k,1) = rx(k,1) -  rloss(k,1)
       qr(k,1) = qr(k,1) - qrloss(k,1)
@@ -1543,6 +1563,7 @@ endif
 if (jnmb(2) >= 1) then
 
    do k = k1(2),k2(2)
+      if (rloss(k,2) < 1.e-20) cycle
 
       rx(k,2) = rx(k,2) -  rloss(k,2)
       qr(k,2) = qr(k,2) - qrloss(k,2)
@@ -1574,6 +1595,7 @@ endif
 if (jnmb(3) >= 1) then
 
    do k = k1(3),k2(3)
+      if (rloss(k,3) < 1.e-20) cycle
 
       rx(k,3) = rx(k,3) -  rloss(k,3)
       qr(k,3) = qr(k,3) - qrloss(k,3)
@@ -1600,6 +1622,7 @@ endif
 if (jnmb(4) >= 1) then
 
    do k = k1(4),k2(4)
+      if (rloss(k,4) < 1.e-20) cycle
 
       rx(k,4) = rx(k,4) -  rloss(k,4)
       qr(k,4) = qr(k,4) - qrloss(k,4)
@@ -1627,6 +1650,7 @@ endif
 if (jnmb(5) >= 1) then
 
    do k = k1(5),k2(5)
+      if (rloss(k,5) < 1.e-20) cycle
 
       rx(k,5) = rx(k,5) -  rloss(k,5)
       qr(k,5) = qr(k,5) - qrloss(k,5)
@@ -1651,6 +1675,7 @@ endif
 if (jnmb(6) >= 1) then
 
    do k = k1(6),k2(6)
+      if (rloss(k,6) < 1.e-20) cycle
 
       rx(k,6) = rx(k,6) -  rloss(k,6)
       qr(k,6) = qr(k,6) - qrloss(k,6)
@@ -1672,6 +1697,7 @@ endif
 if (jnmb(7) >= 1) then
 
    do k = k1(7),k2(7)
+      if (rloss(k,7) < 1.e-20) cycle
 
       rx(k,7) = rx(k,7) -  rloss(k,7)
       qr(k,7) = qr(k,7) - qrloss(k,7)
@@ -1691,6 +1717,7 @@ endif
 if (jnmb(8) >= 1) then
 
    do k = k1(8),k2(8)
+      if (rloss(k,8) < 1.e-20) cycle
 
       rx(k,8) = rx(k,8) -  rloss(k,8)
       qr(k,8) = qr(k,8) - qrloss(k,8)
@@ -1730,15 +1757,17 @@ if (iccn >= 2) then
 
    do k = k1(11),k2(11)
 
-      ! Save a copy of CCN concentrations before scavenging
-
-      con_ccny(1:nccntyp) = con_ccnx(k,1:nccntyp)
-
       ! Define ccnloss as sum of cloud droplet and pristine ice losses due to
       ! collisions.  Perhaps it is better to be more selective in the types of
       ! losses by summing individual contributions like e1411(k), e3533(k), etc.
 
       ccnloss = enloss(k,1) + enloss(k,3)
+
+      if (ccnloss < 1.e-20) cycle
+
+      ! Save a copy of CCN concentrations before scavenging
+
+      con_ccny(1:nccntyp) = con_ccnx(k,1:nccntyp)
 
       tot = 0.
 
@@ -1761,4 +1790,3 @@ if (iccn >= 2) then
 endif
 
 end subroutine colxfers
-

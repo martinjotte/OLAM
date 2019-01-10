@@ -733,9 +733,9 @@ end subroutine prog_wrtv
 
 !=========================================================================
 
-subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
+subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
                           thil_upv, vxe_upv, vye_upv, vze_upv,  &
-                          thil_upw, vxe_upw, vye_upw, vze_upw,  &  
+                          thil_upw, vxe_upw, vye_upw, vze_upw,  &
                           vmxet_volt, vmyet_volt, vmzet_volt,   &
                           thilt_short, vmxet_short, vmyet_short, vmzet_short,   &
                           vxesc, vyesc, vzesc )
@@ -748,7 +748,8 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
   use mem_grid,    only: mza, mva, mwa, lpv, lpw, lve2, arw, &
                          vnx, vny, vnz, wnx, wny, wnz, wnxo2, wnyo2, wnzo2, &
                          dzim, volt, volti, glatw, glonw, &
-                         dzt_top, dzt_bot, zwgt_top, zwgt_bot, gravm
+                         dzt_top, dzt_bot, zwgt_top, zwgt_bot, gravm, &
+                         zwgt_top8, zwgt_bot8, gdz_bot8, gdz_top8
   use tridiag,     only: tridiffo
   use oname_coms,  only: nl
   use mem_turb,    only: akmodx, akhodx
@@ -788,7 +789,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
   real, intent(inout) :: vzesc(mza,mwa)
 
   integer :: jv, iv, iwn
-  integer :: k, ka, kbv, kp, ksw
+  integer :: k, ka, kbv, ksw
   integer :: npoly
 
   real :: dts
@@ -917,7 +918,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
 
         vmarv = dirv * vmcfa(k,iv)
 
-        ! Sum horizontal advection fluxes over V faces      
+        ! Sum horizontal advection fluxes over V faces
 
         hflux_rho (k) = hflux_rho(k)  + vmarv
 
@@ -928,16 +929,16 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
         hflux_vye (k) = hflux_vye(k) + vmarv * vye_upv(k,iv)
         hflux_vze (k) = hflux_vze(k) + vmarv * vze_upv(k,iv)
 
-        hdiff_vxe (k) = hdiff_vxe(k) + akmodx(k,iv) * (vxe(k,iwn) - vxe(k,iw)) * volti(k,iw)
-        hdiff_vye (k) = hdiff_vye(k) + akmodx(k,iv) * (vye(k,iwn) - vye(k,iw)) * volti(k,iw)
-        hdiff_vze (k) = hdiff_vze(k) + akmodx(k,iv) * (vze(k,iwn) - vze(k,iw)) * volti(k,iw)
+        hdiff_vxe (k) = hdiff_vxe(k) + akmodx(k,iv) * (vxe(k,iwn) - vxe(k,iw))
+        hdiff_vye (k) = hdiff_vye(k) + akmodx(k,iv) * (vye(k,iwn) - vye(k,iw))
+        hdiff_vze (k) = hdiff_vze(k) + akmodx(k,iv) * (vze(k,iwn) - vze(k,iw))
 
      enddo
 
   enddo
 
   do k = ka, mza
-     
+
      ! Compute current T cell momentum and store in temp array
 
      vmxe1(k) = vxe(k,iw) * rho(k,iw)
@@ -946,9 +947,9 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
 
      ! Add horizontal diffusive fluxes and Coriolis to momentum tendencies
 
-     vmxet_short(k,iw) = vmxet_short(k,iw) + hdiff_vxe(k) * volti(k,iw) + omega2 * vmye1(k)
-     vmyet_short(k,iw) = vmyet_short(k,iw) + hdiff_vye(k) * volti(k,iw) - omega2 * vmxe1(k)
-     vmzet_short(k,iw) = vmzet_short(k,iw) + hdiff_vze(k) * volti(k,iw)
+     vmxet_short(k,iw) = vmxet_short(k,iw) + hdiff_vxe(k) * real(volti(k,iw)) + omega2 * vmye1(k)
+     vmyet_short(k,iw) = vmyet_short(k,iw) + hdiff_vye(k) * real(volti(k,iw)) - omega2 * vmxe1(k)
+     vmzet_short(k,iw) = vmzet_short(k,iw) + hdiff_vze(k) * real(volti(k,iw))
 
      ! Explicit momentum tendency from advective transport
      ! (weighted by T cell volume)
@@ -1000,7 +1001,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
 
   enddo
 
-  c6  = dts * .5 * fw
+  c6  = dts * .50 * fw
   c7  = dts * .25 * fw
   c8  = dts * pc2
   c9  =-dts * fr
@@ -1042,9 +1043,9 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
 
      delex_wm(k) = dts * (wmt_other(k) &
 
-          + dzim(k) * (press_t(k) - press_t(k+1) &
+          + dzim(k) * real( press_t(k) - press_t(k+1) &
 
-          - gravm(k) * (dzt_top(k) * rho(k,iw) + dzt_bot(k+1) * rho(k+1,iw))) &
+          - gdz_bot8(k) * rho(k,iw) - gdz_top8(k) * rho(k+1,iw) ) &
 
           ! Average Coriolis force in vertical between T levels
 
@@ -1058,23 +1059,27 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
           + ( wnx(iw) * (vmxet_volt(k,iw) + vmxet_volt(k+1,iw)) &
             + wny(iw) * (vmyet_volt(k,iw) + vmyet_volt(k+1,iw)) &
             + wnz(iw) * (vmzet_volt(k,iw) + vmzet_volt(k+1,iw)) ) &
-            / (volt(k,iw) + volt(k+1,iw)) )
+            / real(volt(k,iw) + volt(k+1,iw)) )
 
   enddo
 
   ! Fill matrix coefficients for implicit update of WM
 
-  do k = ka,mza
-     kp = min(k+1,mza)
+  do k = ka, mza-1
+     b2(k)  = thil(k,iw) + thil(k+1,iw)        ! W pts
+     b3(k)  = 2. / (volt(k,iw) + volt(k+1,iw)) ! W pts [b3 replaces volwi]
+  enddo
+
+  b2(ka-1)= 2. * thil(ka,iw)
+  b2(mza) = 2. * thil(mza,iw)
+  b3(ka)  = 1. / (volt(ka,iw) + .5 * volt(min(ka+1,mza),iw))
+
+  do k = ka, mza
      b1(k)  = wc(k,iw) + wc(k-1,iw)           ! T pts
-     b2(k)  = thil(k,iw) + thil(kp,iw)        ! W pts
-     b3(k)  = 2. / (volt(k,iw) + volt(kp,iw)) ! W pts [b3 replaces volwi]
      b5(k)  = press_t(k) / rhothil(k)         ! T pts
      b6(k)  = c6 * volti(k,iw)                ! T pts
      b10(k) = c10 * volti(k,iw)               ! T pts
   enddo
-  b2(ka-1) = b2(ka)
-  b3(ka)   = 1. / (volt(ka,iw) + .5 * volt(min(ka+1,mza),iw))
 
   do k = ka,mza-1
 
@@ -1098,7 +1103,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
 
      b31(k) = - arw(k-1,iw) * (b21(k) + b23(k) * b2(k-1) + b25(k))
 
-     b33(k) =   arw(k+1,iw) * (b22(k) - b24(k) * b2(k+1) + b26(k)) 
+     b33(k) =   arw(k+1,iw) * (b22(k) - b24(k) * b2(k+1) + b26(k))
 
      b34(k) = delex_wm(k) &
             + b11(k) * delex_rhothil(k) - b12(k) * delex_rhothil(k+1) &
@@ -1170,9 +1175,9 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
 
      ! Estimate velocity in T cells at (t+1) by prognostic method
 
-     vxe1(k) = (vmxe1(k) + dts * (vmxet_short(k,iw) + vmxet_volt(k,iw) * volti(k,iw))) / rho(k,iw)
-     vye1(k) = (vmye1(k) + dts * (vmyet_short(k,iw) + vmyet_volt(k,iw) * volti(k,iw))) / rho(k,iw)
-     vze1(k) = (vmze1(k) + dts * (vmzet_short(k,iw) + vmzet_volt(k,iw) * volti(k,iw))) / rho(k,iw)
+     vxe1(k) = (vmxe1(k) + dts * (vmxet_short(k,iw) + vmxet_volt(k,iw) * real(volti(k,iw)))) / real(rho(k,iw))
+     vye1(k) = (vmye1(k) + dts * (vmyet_short(k,iw) + vmyet_volt(k,iw) * real(volti(k,iw)))) / real(rho(k,iw))
+     vze1(k) = (vmze1(k) + dts * (vmzet_short(k,iw) + vmzet_volt(k,iw) * real(volti(k,iw)))) / real(rho(k,iw))
 
      ! Add half-forward T cell velocity to scalar arrays
 
@@ -1241,7 +1246,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,    &
      ! Update WMC and WC to future value (at t+1) due to change in WM (del_wm)
 
      wmc(k,iw) = wmc(k,iw) + del_wm(k)
-     wc (k,iw) = wmc(k,iw) / (zwgt_bot(k) * rho(k,iw) + zwgt_top(k) * rho(k+1,iw))
+     wc (k,iw) = wmc(k,iw) / real(zwgt_bot8(k) * rho(k,iw) + zwgt_top8(k) * rho(k+1,iw))
 
   enddo
 
@@ -1362,9 +1367,9 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
                   + ( vnx(iv) * (vmxet_volt(k,iw1) + vmxet_volt(k,iw2))      &
                     + vny(iv) * (vmyet_volt(k,iw1) + vmyet_volt(k,iw2))      &
                     + vnz(iv) * (vmzet_volt(k,iw1) + vmzet_volt(k,iw2)) )    &
-                    / (volt(k,iw1) + volt(k,iw2)) )
+                    / real(volt(k,iw1) + volt(k,iw2)) )
 
-        vc(k,iv) = 2.0 * vmc(k,iv) / (rho(k,iw1) + rho(k,iw2))
+        vc(k,iv) = 2.0 * vmc(k,iv) / real(rho(k,iw1) + rho(k,iw2))
      enddo
 
   else  ! If using rotational form:
