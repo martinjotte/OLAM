@@ -42,14 +42,14 @@ Module nuclei_coms
   !For the 4 small clay size bins, each bin contains the following fractions:
   ! 1=0.9%, 2=08.1%, 3=23.4%, 4=67.6%
   !However, the 4 small clay bins represent only 1/10th the total dust silt,
-  ! so the parameter "sp(1:4)" represents relative abundance
+  ! so the parameter "sp(1:4)" represents relative (mass) abundance
   !The three large classes are weight equally at 30%.
 
   integer, parameter :: nbin = 7
   real, parameter :: rhoa = 1.25e-3, grav = 981., fact = 1.153e-16, pi = 3.141593
 
   real :: rad(nbin) ! dust particle radius [cm] for each bin
-  real ::  sp(nbin) ! relative abundance [fractional #] of each bin
+  real ::  sp(nbin) ! relative abundance [fractional mass] of each bin
   real :: den(nbin) ! density [g/cm^3] of particles in each bin
 
   data rad /0.15e-4, 0.265e-4, 0.471e-4, 0.838e-4, 1.5e-4, 2.65e-4, 4.71e-4/

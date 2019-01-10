@@ -390,7 +390,7 @@ Contains
   ! Call geoschem_read to read in nearest-in-time future geoschem aerosols
   ! and interpolate them to OLAM grid
 
-print*, 'geoschem_read0 calling geoschem_read ',igchemfile
+  write(io6,'(a,i5)') 'geoschem_read0 calling geoschem_read ',igchemfile
 
   call geoschem_read()
 
@@ -438,7 +438,7 @@ print*, 'geoschem_read0 calling geoschem_read ',igchemfile
 
   ! Processing next gchem file (only called with iaction = 1 if iupdgchem = 1)
 
-print*, 'geoschem_read1 ',igchemfile
+  write(io6,'(a,i5)') 'geoschem_read1 ',igchemfile
 
   igchemfile = igchemfile + 1
    
@@ -456,7 +456,7 @@ print*, 'geoschem_read1 ',igchemfile
      nlon = gchem(ids)%nlon
      nlev = gchem(ids)%nlev
 
-print*, 'gr11 ',ids,nlat,nlon,nlev
+     write(io6,'(a,5i5)') 'gr11 ',ids,nlat,nlon,nlev
 
      ! Allocate gchem arrays for current dataset region
 
@@ -506,7 +506,7 @@ print*, 'gr11 ',ids,nlat,nlon,nlev
 
      ! gchemfile exists; open it
 
-print*, 'geoschem_read2 ',igchemfile,ids,flnm
+     write(io6,'(a,5i5)') 'geoschem_read2 ',igchemfile,ids,flnm
 
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
      write(io6,*) 'Opening gchemfile ', trim(flnm)
@@ -521,7 +521,7 @@ print*, 'geoschem_read2 ',igchemfile,ids,flnm
      idims(2) = nlat
      idims(3) = nlev
 
-print*, 'gr12 ',idims(1:3)
+  write(io6,'(a,5i5)') 'gr12 ',idims(1:3)
 
      call shdf5_irec(ndims,idims,'DUST1' ,rvar3=gchem(ids)%dust1)
      call shdf5_irec(ndims,idims,'DUST2' ,rvar3=gchem(ids)%dust2)
@@ -612,10 +612,6 @@ print*, 'gr12 ',idims(1:3)
 
      ! Horizontally interpolate geos-chem pressure (in hPa) to location of
      ! OLAM grid column iw to fill a column vector at geos-chem vertical levels
-
-print*, 'gr13 ',glon,ids,rio,io1,io2,wio1,wio2
-print*, 'gr14 ',glat,ids,rjo,jo1,jo2,wjo1,wjo2
-
 
      presscol(:) = wio1 * (wjo1 * gchem(ids)%presg(io1,jo1,:) + wjo2 * gchem(ids)%presg(io1,jo2,:)) &
                  + wio2 * (wjo1 * gchem(ids)%presg(io2,jo1,:) + wjo2 * gchem(ids)%presg(io2,jo2,:))
