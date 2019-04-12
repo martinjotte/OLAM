@@ -385,8 +385,8 @@ elseif (nl%miclevel == 3) then
       nfatal = nfatal + 1
    endif
 
-   if (.not. any(nl%iccn == (/1, 2, 3, 4, 5, 6/) )) then
-      write(io6,*) 'FATAL - iccn must be set to 1, 2, 3, 4, 5, or 6.'
+   if (.not. any(nl%iccn == (/1, 2, 3, 4, 5, 6, 7/) )) then
+      write(io6,*) 'FATAL - iccn must be set to 1, 2, 3, 4, 5, 6, or 7.'
       nfatal = nfatal + 1
    endif
 
@@ -649,10 +649,11 @@ do iplt = 1, nl%nplt
 
    if ((nl%plotspecs(iplt)%projectn == 'L'  .or.   &
         nl%plotspecs(iplt)%projectn == 'P'  .or.   &
+        nl%plotspecs(iplt)%projectn == 'G'  .or.   &
         nl%plotspecs(iplt)%projectn == 'O') .and.  &
         nl%mdomain > 1) then
 
-        write(io6,*) 'When mdomain > 1, may not use L, P, or O plot projection'
+        write(io6,*) 'When mdomain > 1, may not use L, P, G, or O plot projection'
         nfatal = nfatal + 1
    endif
 

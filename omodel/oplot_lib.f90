@@ -53,11 +53,12 @@ use mem_sea,     only: sea, itab_ws
 
 use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
-                       ccntyp, con_gccn, con_ifn, &
+                       q2, q6, q7, ccntyp, con_gccn, con_ifn, &
                        pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                        accpd, accpr, accpp, accps, accpa, accpg, accph, &
                        cldnum
 
+use micro_coms,  only: rxmin
 use mem_co2,     only: sh_co2, co2_sh2ppm
 
 use ccnbin_coms, only: nccntyp
@@ -70,7 +71,8 @@ use mem_para,    only: myrank
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, pblh, vkm, vkh, ustar, wstar
 use mem_nudge,   only: rho_obs, theta_obs, shw_obs, uzonal_obs, umerid_obs, &
                        rho_sim, theta_sim, shw_sim, uzonal_sim, umerid_sim
-use therm_lib,   only: qtk, qwtk
+use therm_lib,   only: qtk, qwtk, rhovsl
+
 use misc_coms,   only: io6, pr01d, dn01d, th01d, time8, isubdomain, &
                        naddsc, mdomain
 use oplot_coms,  only: op
@@ -88,7 +90,8 @@ use mem_flux_accum, only:     rshort_accum,         rshortup_accum, &
                               sfluxt_accum,           sfluxr_accum, &
                                   vc_accum,               wc_accum, &
                                press_accum,             tair_accum, &
-                                sh_v_accum,                         &
+                                sh_v_accum,      latheat_liq_accum, &
+                         latheat_ice_accum,                         &
                               vels_l_accum,                         &
                            airtemp_l_accum,         airshv_l_accum, &
                            cantemp_l_accum,         canshv_l_accum, &
@@ -156,6 +159,8 @@ use mem_plot, only: &
           press_accum_prev0,        press_accum_prev1, &
            tair_accum_prev0,         tair_accum_prev1, &
            sh_v_accum_prev0,         sh_v_accum_prev1, &
+    latheat_liq_accum_prev0,  latheat_liq_accum_prev1, &
+    latheat_ice_accum_prev0,  latheat_ice_accum_prev1, &
          vels_l_accum_prev0,       vels_l_accum_prev1, &
       airtemp_l_accum_prev0,    airtemp_l_accum_prev1,  airtemp_l_accum_prev2,  airtemp_l_accum_prev3, &
        airshv_l_accum_prev0,     airshv_l_accum_prev1, &
@@ -191,7 +196,7 @@ integer, intent(out) :: notavail  ! 0 - variable is available
 integer :: klev,nls,jv,iv,iw,kw,kp,k,i
 real :: raxis,u,v,farv2,rpolyi
 real :: vx, vy, vz, vxc, vyc, vzc
-real :: tempk,fracliq
+real :: tempk, fracliq
 real :: vc_change, wc_change
 integer :: iw1,iw2,iwl,iws
 integer :: npoly,j
@@ -219,70 +224,73 @@ character(len=40), save :: fldname
 !-----------------------------------------------------------------------------------
 ! ATMOSPHERE - 3D
 
-data fldlib(1:4,  1:34)/ &
+data fldlib(1:4,  1:36)/ &
  'VMC'           ,'V3' ,'V-NORMAL MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'     ,& !p  1
  'WMC'           ,'W3' ,'W MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'            ,& !p  2
  'VMP'           ,'V3' ,'V-NORMAL MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'     ,& !p  3
  'VC'            ,'V3' ,'V-NORMAL VELOCITY',' (m s:S2:-1  )'                ,& !p  4
- 'WC'            ,'W3' ,'W VELOCITY',' (m s:S2:-1  )'                       ,& !p  5
+ 'WC'            ,'W3' ,'W',' (m s:S2:-1  )'                                ,& !p  5
  'RHO'           ,'T3' ,'AIR DENSITY',' (kg m:S2:-3  )'                     ,& !p  6
  'PRESS'         ,'T3' ,'PRESSURE',' (hPa)'                                 ,& !   7
  'THIL'          ,'T3' ,'ICE-LIQUID THETA',' (K)'                           ,& !p  8
  'THETA'         ,'T3' ,'THETA',' (K)'                                      ,& !p  9
  'AIRTEMPK'      ,'T3' ,'AIR TEMP',' (K)'                                   ,& !p 10
  'AIRTEMPC'      ,'T3' ,'AIR TEMP',' (C)'                                   ,& !p 11
- 'SH_W'          ,'T3' ,'TOTAL WATER SPEC DENSITY',' (g kg:S2:-1  )'        ,& !p 12
- 'SH_V'          ,'T3' ,'WATER VAPOR SPEC DENSITY',' (g kg:S2:-1  )'        ,& !p 13
- 'SH_C'          ,'T3' ,'CLOUDWATER SPEC DENSITY',' (g kg:S2:-1  )'         ,& !p 14
- 'SH_D'          ,'T3' ,'DRIZZLE SPEC DENSITY',' (g kg:S2:-1  )'            ,& !p 15
- 'SH_R'          ,'T3' ,'RAIN SPEC DENSITY',' (g kg:S2:-1  )'               ,& !p 16
- 'SH_P'          ,'T3' ,'PRISTINE ICE SPEC DENSITY',' (g kg:S2:-1  )'       ,& !p 17
- 'SH_S'          ,'T3' ,'SNOW SPEC DENSITY',' (g kg:S2:-1  )'               ,& !p 18
- 'SH_A'          ,'T3' ,'AGGREGATES SPEC DENSITY',' (g kg:S2:-1  )'         ,& !p 19
- 'SH_G'          ,'T3' ,'GRAUPEL SPEC DENSITY',' (g kg:S2:-1  )'            ,& !p 20
- 'SH_H'          ,'T3' ,'HAIL SPEC DENSITY',' (g kg:S2:-1  )'               ,& !p 21
- 'SH_CP'         ,'T3' ,'CLOUD + PRIST ICE SPEC DENSITY',' (g kg:S2:-1  )'  ,& !p 22
- 'SH_TOTCOND'    ,'T3' ,'CONDENSATE SPEC DENSITY',' (g kg:S2:-1  )'         ,& !p 23
- 'CON_C'         ,'T3' ,'CLOUD DROPLET NUMBER CONCEN',' (# mg:S2:-1  )'     ,& !p 24
- 'CON_D'         ,'T3' ,'DRIZZLE NUMBER CONCEN',' (# g:S2:-1  )'            ,& !p 25
- 'CON_R'         ,'T3' ,'RAIN NUMBER CONCEN',' (# kg:S2:-1  )'              ,& !p 26
- 'CON_P'         ,'T3' ,'PRISTINE ICE NUMBER CONCEN',' (# mg:S2:-1  )'      ,& !p 27
- 'CON_S'         ,'T3' ,'SNOW NUMBER CONCEN',' (# kg:S2:-1  )'              ,& !p 28
- 'CON_A'         ,'T3' ,'AGGREGATES NUMBER CONCEN',' (# kg:S2:-1  )'        ,& !p 29
- 'CON_G'         ,'T3' ,'GRAUPEL NUMBER CONCEN',' (# kg:S2:-1  )'           ,& !p 30
- 'CON_H'         ,'T3' ,'HAIL NUMBER CONCEN',' (# kg:S2:-1  )'              ,& !p 31
- 'CON_CCN'       ,'T3' ,'CCN NUMBER CONCEN',' (# mg:S2:-1  )'               ,& !p 32
- 'CON_GCCN'      ,'T3' ,'GCCN NUMBER CONCEN',' (# g:S2:-1  )'               ,& !p 33
- 'CON_IFN'       ,'T3' ,'IFN NUMBER CONCEN',' (# g:S2:-1  )'                 / !p 34
+ 'SH_W'          ,'T3' ,'TOTAL WATER',' (g kg:S2:-1  )'                     ,& !p 12
+ 'SH_V'          ,'T3' ,'WATER VAPOR',' (g kg:S2:-1  )'                     ,& !p 13
+ 'SH_C'          ,'T3' ,'CLOUD',' (g kg:S2:-1  )'                           ,& !p 14
+ 'SH_D'          ,'T3' ,'DRIZZLE',' (g kg:S2:-1  )'                         ,& !p 15
+ 'SH_R'          ,'T3' ,'RAIN',' (g kg:S2:-1  )'                            ,& !p 16
+ 'SH_P'          ,'T3' ,'PRIS ICE',' (g kg:S2:-1  )'                        ,& !p 17
+ 'SH_S'          ,'T3' ,'SNOW',' (g kg:S2:-1  )'                            ,& !p 18
+ 'SH_A'          ,'T3' ,'AGGREGATES',' (g kg:S2:-1  )'                      ,& !p 19
+ 'SH_G'          ,'T3' ,'GRAUPEL',' (g kg:S2:-1  )'                         ,& !p 20
+ 'SH_H'          ,'T3' ,'HAIL',' (g kg:S2:-1  )'                            ,& !p 21
+ 'SH_CP'         ,'T3' ,'CLOUD + PRIS ICE',' (g kg:S2:-1  )'                ,& !p 22
+ 'SH_TOTLIQ'     ,'T3' ,'LIQUID',' (g kg:S2:-1  )'                          ,& !p 23
+ 'SH_TOTICE'     ,'T3' ,'ICE',' (g kg:S2:-1  )'                             ,& !p 24
+ 'SH_TOTCOND'    ,'T3' ,'CONDENSATE',' (g kg:S2:-1  )'                      ,& !p 25
+ 'CON_C'         ,'T3' ,'CLOUD NUM',' (# mg:S2:-1  )'                       ,& !p 26
+ 'CON_D'         ,'T3' ,'DRIZZLE NUM',' (# g:S2:-1  )'                      ,& !p 27
+ 'CON_R'         ,'T3' ,'RAIN NUM',' (# kg:S2:-1  )'                        ,& !p 28
+ 'CON_P'         ,'T3' ,'PRIS ICE NUM',' (# mg:S2:-1  )'                    ,& !p 29
+ 'CON_S'         ,'T3' ,'SNOW NUM',' (# kg:S2:-1  )'                        ,& !p 30
+ 'CON_A'         ,'T3' ,'AGGREGATES NUM',' (# kg:S2:-1  )'                  ,& !p 31
+ 'CON_G'         ,'T3' ,'GRAUPEL NUM',' (# kg:S2:-1  )'                     ,& !p 32
+ 'CON_H'         ,'T3' ,'HAIL NUM',' (# kg:S2:-1  )'                        ,& !p 33
+ 'CON_CCN'       ,'T3' ,'CCN NUM',' (# mg:S2:-1  )'                         ,& !p 34
+ 'CON_GCCN'      ,'T3' ,'GCCN NUM',' (# g:S2:-1  )'                         ,& !p 35
+ 'CON_IFN'       ,'T3' ,'IFN NUM',' (# g:S2:-1  )'                           / !p 36
 
-data fldlib(1:4, 35:57)/ &
- 'VKM'           ,'T3' ,'VERT TURB MOMENTUM K',' (N s m:S2:-2  )'           ,& !p 35
- 'FTHRD'         ,'T3' ,'RADIATIVE THETA TENDENCY',' (K s:S2:-1  )'         ,& !p 36
- 'SPEEDW'        ,'T3' ,'WIND SPEED AT W',' (m s:S2:-1  )'                  ,& !p 37
- 'AZIMW'         ,'T3' ,'WIND AZIMUTH AT W',' (deg)'                        ,& !p 38
- 'ZONAL_WINDW'   ,'T3' ,'ZONAL WIND AT W',' (m s:S2:-1  )'                  ,& !p 39
- 'MERID_WINDW'   ,'T3' ,'MERIDIONAL WIND AT W',' (m s:S2:-1  )'             ,& !p 40
- 'RVORTZM'       ,'P3' ,'REL VERT VORTICITY AT M',' (s:S2:-1  )'            ,& !p 41
- 'TVORTZM'       ,'P3' ,'TOT VERT VORTICITY AT M',' (s:S2:-1  )'            ,& !p 42
- 'RVORTZM_P'     ,'P3' ,'REL VERT VORTICITY PERT AT M',' (s:S2:-1  )'       ,& !p 43
- 'DIVERG'        ,'T3' ,'HORIZONTAL DIVERGENCE',' (s:S2:-1  )'              ,& !p 44
- 'VMASSFLUX'     ,'V3' ,'GRID CELL V-FACE MASS FLUX',' (kg s:S2:-1  )'      ,& !  45
- 'VC_P'          ,'V3' ,'NORMAL WIND PERT AT V',' (m s:S2:-1  )'            ,& !p 46
- 'PRESS_P'       ,'T3' ,'PRESSURE PERT',' (hPa)'                            ,& !  47
- 'RHO_P'         ,'T3' ,'DENSITY PERT',' (kg m:S2:-3  )'                    ,& !  48
- 'THETA_P'       ,'T3' ,'THETA PERT',' (K)'                                 ,& !  49
- 'AIRTEMPK_P'    ,'T3' ,'AIR TEMP PERT',' (K)'                              ,& !p 50
- 'VMT'           ,'V3' ,'V-NORM MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'  ,& !  51
- 'WMT'           ,'W3' ,'W MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'       ,& !  52
- 'ADDSC'         ,'T3' ,'ADDED SCALAR AMOUNT PER KG AIR','( )'              ,& !p 53
- 'ADDSCP'        ,'T3' ,'SCALAR PERTURBATION',' ( )'                        ,& !  54
- 'ZPLEV'         ,'T3' ,'HEIGHT OF CONST P SFC',' (m)'                      ,& !p 55
- 'QWCON'         ,'T3' ,'CUPARM CONDENSATE SPEC DENSITY',' (g kg:S2:-1  )'  ,& !p 56
- 'CO2CON'        ,'T3' ,'CO2 CONCENTRATION',' (ppmv of dry air)'             / !p 57
+data fldlib(1:4, 37:60)/ &
+ 'VKM'           ,'T3' ,'VERT TURB MOMENTUM K',' (N s m:S2:-2  )'           ,& !p 37
+ 'FTHRD'         ,'T3' ,'RADIATIVE THETA TENDENCY',' (K s:S2:-1  )'         ,& !p 38
+ 'SPEEDW'        ,'T3' ,'WIND SPEED AT W',' (m s:S2:-1  )'                  ,& !p 39
+ 'AZIMW'         ,'T3' ,'WIND AZIMUTH AT W',' (deg)'                        ,& !p 40
+ 'ZONAL_WINDW'   ,'T3' ,'ZONAL WIND AT W',' (m s:S2:-1  )'                  ,& !p 41
+ 'MERID_WINDW'   ,'T3' ,'MERIDIONAL WIND AT W',' (m s:S2:-1  )'             ,& !p 42
+ 'RVORTZM'       ,'P3' ,'REL VERT VORTICITY AT M',' (s:S2:-1  )'            ,& !p 43
+ 'TVORTZM'       ,'P3' ,'TOT VERT VORTICITY AT M',' (s:S2:-1  )'            ,& !p 44
+ 'RVORTZM_P'     ,'P3' ,'REL VERT VORTICITY PERT AT M',' (s:S2:-1  )'       ,& !p 45
+ 'DIVERG'        ,'T3' ,'HORIZONTAL DIVERGENCE',' (s:S2:-1  )'              ,& !p 46
+ 'VMASSFLUX'     ,'V3' ,'GRID CELL V-FACE MASS FLUX',' (kg s:S2:-1  )'      ,& !  47
+ 'VC_P'          ,'V3' ,'NORMAL WIND PERT AT V',' (m s:S2:-1  )'            ,& !p 48
+ 'PRESS_P'       ,'T3' ,'PRESSURE PERT',' (hPa)'                            ,& !  49
+ 'RHO_P'         ,'T3' ,'DENSITY PERT',' (kg m:S2:-3  )'                    ,& !  50
+ 'THETA_P'       ,'T3' ,'THETA PERT',' (K)'                                 ,& !  51
+ 'AIRTEMPK_P'    ,'T3' ,'AIR TEMP PERT',' (K)'                              ,& !p 52
+ 'VMT'           ,'V3' ,'V-NORM MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'  ,& !  53
+ 'WMT'           ,'W3' ,'W MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'       ,& !  54
+ 'ADDSC'         ,'T3' ,'ADDED SCALAR AMOUNT PER KG AIR','( )'              ,& !p 55
+ 'ADDSCP'        ,'T3' ,'SCALAR PERTURBATION',' ( )'                        ,& !  56
+ 'ZPLEV'         ,'T3' ,'HEIGHT OF CONST P SFC',' (m)'                      ,& !p 57
+ 'QWCON'         ,'T3' ,'CUPARM CONDENSATE SPEC DENS',' (g kg:S2:-1  )'     ,& !p 58
+ 'CO2CON'        ,'T3' ,'CO2 CONCENTRATION',' (ppmv of dry air)'            ,& !p 59
+ 'RH_LIQ'        ,'T3' ,'RH_LIQUID',' (%)'                                   / !p 60
 
 ! ATMOSPHERE - 2D
 
-data fldlib(1:4, 62:96)/ &
+data fldlib(1:4, 62:97)/ &
  'RSHORT_TOP'    ,'T2' ,'TOP DOWN SHORTWV FLX',' (W m:S2:-2  )'             ,& !  62
  'RSHORTUP_TOP'  ,'T2' ,'TOP UP SHORTWV FLX',' (W m:S2:-2  )'               ,& !  63
  'RLONGUP_TOP'   ,'T2' ,'TOP UP LONGWV FLX',' (W m:S2:-2  )'                ,& !  64
@@ -308,7 +316,7 @@ data fldlib(1:4, 62:96)/ &
  'PCPRH'         ,'T2' ,'HAIL PCP RATE',' (kg m:S2:-2   h:S2:-1  )'         ,& !  81
  'PCPRMIC'       ,'T2' ,'MICROPHYS PCP RATE',' (kg m:S2:-2   h:S2:-1  )'    ,& !  82
  'PCPRCON'       ,'T2' ,'CONV PCP RATE',' (kg m:S2:-2   h:S2:-1  )'         ,& !  83
- 'PCPRBOTH'      ,'T2' ,'MICRO + CONV PCP RATE',' (kg m:S2:-2   h:S2:-1  )' ,& !  84
+ 'PCPRBOTH'      ,'T2' ,'MIC+CONV PCP RATE',' (kg m:S2:-2   h:S2:-1  )'     ,& !  84
  'ACCPD'         ,'T2' ,'ACCUM DRIZZLE',' (kg m:S2:-2  )'                   ,& !  85
  'ACCPR'         ,'T2' ,'ACCUM RAIN',' (kg m:S2:-2  )'                      ,& !  86
  'ACCPP'         ,'T2' ,'ACCUM PRIST ICE',' (kg m:S2:-2  )'                 ,& !  87
@@ -316,50 +324,53 @@ data fldlib(1:4, 62:96)/ &
  'ACCPA'         ,'T2' ,'ACCUM AGGREGATES',' (kg m:S2:-2  )'                ,& !  89
  'ACCPG'         ,'T2' ,'ACCUM GRAUPEL',' (kg m:S2:-2  )'                   ,& !  90
  'ACCPH'         ,'T2' ,'ACCUM HAIL',' (kg m:S2:-2  )'                      ,& !  91
- 'ACCPMIC'       ,'T2' ,'ACCUM MICPHYS PCP',' (kg m:S2:-2  )'               ,& !  92
+ 'ACCPMIC'       ,'T2' ,'ACCUM MIC PCP',' (kg m:S2:-2  )'                   ,& !  92
  'ACCPCON'       ,'T2' ,'ACCUM CONV PCP',' (kg m:S2:-2  )'                  ,& !  93
- 'ACCPBOTH'      ,'T2' ,'ACCUM MICPHYS + CONV PCP',' (kg m:S2:-2  )'        ,& !  94
+ 'ACCPBOTH'      ,'T2' ,'ACCUM MIC+CONV PCP',' (kg m:S2:-2  )'              ,& !  94
  'WSTAR'         ,'T2' ,'PBL CONVECTIVE VELOCITY',' (m s:S2:-1  )'          ,& !  95
- 'PSFC'          ,'T2' ,'SURFACE PRESSURE',' (hPa)'                          / !  96
+ 'PSFC'          ,'T2' ,'SURFACE PRESSURE',' (hPa)'                         ,& !  96
+ 'PMSL'          ,'T2' ,'SEA LEVEL PRESSURE',' (hPa)'                        / !  97
 
 ! ATMOSPHERE DIF2 fields (3D & 2D)
 
-data fldlib(1:4,101:132)/ &
+data fldlib(1:4,101:134)/ &
  'ZONAL_WINDW_DIF2' ,'T3' ,'ATM ZONAL VELOCITY DIF2',' (m s:S2:-1  )'       ,& ! 101
  'MERID_WINDW_DIF2' ,'T3' ,'ATM MERID VELOCITY DIF2',' (m s:S2:-1  )'       ,& ! 102
  'WC_DIF2'          ,'T3' ,'ATM VERT VELOCITY DIF2',' (m s:S2:-1  )'        ,& ! 103
  'PRESS_DIF2'       ,'T3' ,'ATM PRESSURE DIF2',' (hPa)'                     ,& ! 104
  'AIRTEMPK_DIF2'    ,'T3' ,'ATM TEMP DIF2',' (K)'                           ,& ! 105
  'SH_V_DIF2'        ,'T3' ,'ATM VAP SPECIFIC DENSITY DIF2',' (g kg:S2:-1  )',& ! 106
- 'PCPMIC_DIF2'      ,'T2' ,'MICPHYS PRECIP DIFF2',' (mm/day)'               ,& ! 107
- 'PCPCON_DIF2'      ,'T2' ,'CONV PRECIP DIFF2',' (mm/day)'                  ,& ! 108
- 'PCPBOTH_DIF2'     ,'T2' ,'MICPHYS + CONV PRECIP DIFF2',' (mm/day)'        ,& ! 109
- 'RSHORT_DIF2'      ,'T2' ,'SFC DOWN SHORTWV FLX DIF2',' (W m:S2:-2  )'     ,& ! 110
- 'RSHORTUP_DIF2'    ,'T2' ,'SFC UP SHORTWV FLX DIF2',' (W m:S2:-2  )'       ,& ! 111
- 'RLONG_DIF2'       ,'T2' ,'SFC DOWN LONGWV FLX DIF2',' (W m:S2:-2  )'      ,& ! 112
- 'RLONGUP_DIF2'     ,'T2' ,'SFC UP LONGWV FLX DIF2',' (W m:S2:-2  )'        ,& ! 113
- 'RSHORT_TOP_DIF2'  ,'T2' ,'TOP DOWN SHORTWV FLX DIF2',' (W m:S2:-2  )'     ,& ! 114
- 'RSHORTUP_TOP_DIF2','T2' ,'TOP UP SHORTWV FLX DIF2',' (W m:S2:-2  )'       ,& ! 115
- 'RLONGUP_TOP_DIF2' ,'T2' ,'TOP UP LONGWV FLX DIF2',' (W m:S2:-2  )'        ,& ! 116
- 'SENSFLUX_DIF2'    ,'T2' ,'ATM SFC SENS HEAT FLUX DIF2',' (W m:S2:-2  )'   ,& ! 117
- 'LATFLUX_DIF2'     ,'T2' ,'ATM SFC LAT HEAT FLUX DIF2',' (W m:S2:-2  )'    ,& ! 118
- 'VAPFLUX_DIF2'     ,'T2' ,'ATM SFC VAP FLUX DIF2',' (kg m:S2:-2   s:S2:-1  )' ,& ! 119
- 'RSHORT_CLR_DIF2'      ,'T2' ,'SFC DOWN SHORTWV FLX CLR DIF2',' (W m:S2:-2  )',& ! 120
- 'RSHORTUP_CLR_DIF2'    ,'T2' ,'SFC UP SHORTWV FLX CLR DIF2',' (W m:S2:-2  )'  ,& ! 121
- 'RLONG_CLR_DIF2'       ,'T2' ,'SFC DOWN LONGWV FLX CLR DIF2',' (W m:S2:-2  )' ,& ! 122
- 'RLONGUP_CLR_DIF2'     ,'T2' ,'SFC UP LONGWV FLX CLR DIF2',' (W m:S2:-2  )'   ,& ! 123
- 'RSHORT_TOP_CLR_DIF2'  ,'T2' ,'TOP DOWN SHORTWV FLX CLR DIF2',' (W m:S2:-2  )',& ! 124
- 'RSHORTUP_TOP_CLR_DIF2','T2' ,'TOP UP SHORTWV FLX CLR DIF2',' (W m:S2:-2  )'  ,& ! 125
- 'RLONGUP_TOP_CLR_DIF2' ,'T2' ,'TOP UP LONGWV FLX CLR DIF2',' (W m:S2:-2  )'   ,& ! 126
+ 'LATHEAT_LIQ_DIF2' ,'T3' ,'ATM LATENT HEAT LIQ DIF2',' (K hr:S2:-1  )'     ,& ! 107
+ 'LATHEAT_ICE_DIF2' ,'T3' ,'ATM LATENT HEAT ICE DIF2',' (K hr:S2:-1  )'     ,& ! 108
+ 'PCPMIC_DIF2'      ,'T2' ,'MICPHYS PRECIP DIF2',' (mm/day)'                ,& ! 109
+ 'PCPCON_DIF2'      ,'T2' ,'CONV PRECIP DIF2',' (mm/day)'                   ,& ! 110
+ 'PCPBOTH_DIF2'     ,'T2' ,'MICPHYS + CONV PRECIP DIF2',' (mm/day)'         ,& ! 111
+ 'RSHORT_DIF2'      ,'T2' ,'SFC DOWN SHORTWV FLX DIF2',' (W m:S2:-2  )'     ,& ! 112
+ 'RSHORTUP_DIF2'    ,'T2' ,'SFC UP SHORTWV FLX DIF2',' (W m:S2:-2  )'       ,& ! 113
+ 'RLONG_DIF2'       ,'T2' ,'SFC DOWN LONGWV FLX DIF2',' (W m:S2:-2  )'      ,& ! 114
+ 'RLONGUP_DIF2'     ,'T2' ,'SFC UP LONGWV FLX DIF2',' (W m:S2:-2  )'        ,& ! 115
+ 'RSHORT_TOP_DIF2'  ,'T2' ,'TOP DOWN SHORTWV FLX DIF2',' (W m:S2:-2  )'     ,& ! 116
+ 'RSHORTUP_TOP_DIF2','T2' ,'TOP UP SHORTWV FLX DIF2',' (W m:S2:-2  )'       ,& ! 117
+ 'RLONGUP_TOP_DIF2' ,'T2' ,'TOP UP LONGWV FLX DIF2',' (W m:S2:-2  )'        ,& ! 118
+ 'SENSFLUX_DIF2'    ,'T2' ,'ATM SFC SENS HEAT FLUX DIF2',' (W m:S2:-2  )'   ,& ! 119
+ 'LATFLUX_DIF2'     ,'T2' ,'ATM SFC LAT HEAT FLUX DIF2',' (W m:S2:-2  )'    ,& ! 120
+ 'VAPFLUX_DIF2'     ,'T2' ,'ATM SFC VAP FLUX DIF2',' (kg m:S2:-2   s:S2:-1  )' ,& ! 121
+ 'RSHORT_CLR_DIF2'      ,'T2' ,'SFC DOWN SHORTWV FLX CLR DIF2',' (W m:S2:-2  )',& ! 122
+ 'RSHORTUP_CLR_DIF2'    ,'T2' ,'SFC UP SHORTWV FLX CLR DIF2',' (W m:S2:-2  )'  ,& ! 123
+ 'RLONG_CLR_DIF2'       ,'T2' ,'SFC DOWN LONGWV FLX CLR DIF2',' (W m:S2:-2  )' ,& ! 124
+ 'RLONGUP_CLR_DIF2'     ,'T2' ,'SFC UP LONGWV FLX CLR DIF2',' (W m:S2:-2  )'   ,& ! 125
+ 'RSHORT_TOP_CLR_DIF2'  ,'T2' ,'TOP DOWN SHORTWV FLX CLR DIF2',' (W m:S2:-2  )',& ! 126
+ 'RSHORTUP_TOP_CLR_DIF2','T2' ,'TOP UP SHORTWV FLX CLR DIF2',' (W m:S2:-2  )'  ,& ! 127
+ 'RLONGUP_TOP_CLR_DIF2' ,'T2' ,'TOP UP LONGWV FLX CLR DIF2',' (W m:S2:-2  )'   ,& ! 128
 
 ! ATMOSPHERE DIF4 fields (2D)
 
- 'PCPMIC_DIF4'    ,'T2' ,'MICPHYS PRECIP DIFF4',' (mm/day)'                  ,& ! 127
- 'PCPCON_DIF4'    ,'T2' ,'CONV PRECIP DIFF4',' (mm/day)'                     ,& ! 128
- 'PCPBOTH_DIF4'   ,'T2' ,'MICPHYS + CONV PRECIP DIFF4',' (mm/day)'           ,& ! 129
- 'PCPMIC_REL4'    ,'T2' ,'MICPHYS PRECIP RELATIVE DIFF4',' '                 ,& ! 130
- 'PCPCON_REL4'    ,'T2' ,'CONV PRECIP RELATIVE DIFF4',' '                    ,& ! 131
- 'PCPBOTH_REL4'   ,'T2' ,'MICPHYS + CONV PRECIP RELATIVE DIFF4',' '           / ! 132
+ 'PCPMIC_DIF4'    ,'T2' ,'MICPHYS PRECIP DIFF4',' (mm/day)'                  ,& ! 129
+ 'PCPCON_DIF4'    ,'T2' ,'CONV PRECIP DIFF4',' (mm/day)'                     ,& ! 130
+ 'PCPBOTH_DIF4'   ,'T2' ,'MICPHYS + CONV PRECIP DIFF4',' (mm/day)'           ,& ! 131
+ 'PCPMIC_REL4'    ,'T2' ,'MICPHYS PRECIP RELATIVE DIFF4',' '                 ,& ! 132
+ 'PCPCON_REL4'    ,'T2' ,'CONV PRECIP RELATIVE DIFF4',' '                    ,& ! 133
+ 'PCPBOTH_REL4'   ,'T2' ,'MICPHYS + CONV PRECIP RELATIVE DIFF4',' '           / ! 134
 
 ! LAND_CELLS - 3D
 
@@ -968,68 +979,142 @@ case(22) ! 'SH_CP'
    fldval = (wtbot * (sh_c(k ,i) + sh_p(k ,i)) &
           +  wttop * (sh_c(kp,i) + sh_p(kp,i))) * 1.e3
 
-case(23) ! 'SH_TOTCOND'
+case(23) ! 'SH_TOTLIQ'
+
+   fldval = 0.
+
+   if (allocated(sh_c)) fldval = fldval + (wtbot * sh_c(k ,i) &
+                                        +  wttop * sh_c(kp,i)) * 1.e3
+
+   if (allocated(sh_d)) fldval = fldval + (wtbot * sh_d(k ,i) &
+                                        +  wttop * sh_d(kp,i)) * 1.e3
+
+   if (allocated(sh_r)) fldval = fldval + (wtbot * sh_r(k ,i) &
+                                        +  wttop * sh_r(kp,i)) * 1.e3
+
+   if (allocated(sh_g)) then
+      if (sh_g(k,i) > rxmin(6)) then
+         call qtk(q6(k,i)/sh_g(k,i),tempk,fracliq)
+         fldval = fldval + wtbot * sh_g(k,i) * fracliq * 1.e3
+      endif
+
+      if (sh_g(kp,i) > rxmin(6)) then
+         call qtk(q6(kp,i)/sh_g(kp,i),tempk,fracliq)
+         fldval = fldval + wttop * sh_g(kp,i) * fracliq * 1.e3
+      endif
+   endif
+
+   if (allocated(sh_h)) then
+      if (sh_h(k,i) > rxmin(7)) then
+         call qtk(q7(k,i)/sh_h(k,i),tempk,fracliq)
+         fldval = fldval + wtbot * sh_h(k,i) * fracliq * 1.e3
+      endif
+
+      if (sh_h(kp,i) > rxmin(7)) then
+         call qtk(q7(kp,i)/sh_h(kp,i),tempk,fracliq)
+         fldval = fldval + wttop * sh_h(kp,i) * fracliq * 1.e3
+      endif
+   endif
+
+case(24) ! 'SH_TOTICE'
+
+   fldval = 0.
+
+   if (allocated(sh_p)) fldval = fldval + (wtbot * sh_p(k ,i) &
+                                        +  wttop * sh_p(kp,i)) * 1.e3
+
+   if (allocated(sh_s)) fldval = fldval + (wtbot * sh_s(k ,i) &
+                                        +  wttop * sh_s(kp,i)) * 1.e3
+
+   if (allocated(sh_a)) fldval = fldval + (wtbot * sh_a(k ,i) &
+                                        +  wttop * sh_a(kp,i)) * 1.e3
+
+   if (allocated(sh_g)) then
+      if (sh_g(k,i) > rxmin(6)) then
+         call qtk(q6(k,i)/sh_g(k,i),tempk,fracliq)
+         fldval = fldval + wtbot * sh_g(k,i) * (1.0 -fracliq) * 1.e3
+      endif
+
+      if (sh_g(kp,i) > rxmin(6)) then
+         call qtk(q6(kp,i)/sh_g(kp,i),tempk,fracliq)
+         fldval = fldval + wttop * sh_g(kp,i) * (1.0 -fracliq) * 1.e3
+      endif
+   endif
+
+   if (allocated(sh_h)) then
+      if (sh_h(k,i) > rxmin(7)) then
+         call qtk(q7(k,i)/sh_h(k,i),tempk,fracliq)
+         fldval = fldval + wtbot * sh_h(k,i) * (1.0 -fracliq) * 1.e3
+      endif
+
+      if (sh_h(kp,i) > rxmin(7)) then
+         call qtk(q7(kp,i)/sh_h(kp,i),tempk,fracliq)
+         fldval = fldval + wttop * sh_h(kp,i) * (1.0 -fracliq) * 1.e3
+      endif
+   endif
+
+case(25) ! 'SH_TOTCOND'
 
    fldval = (wtbot * (sh_w(k ,i) - sh_v(k ,i)) &
           +  wttop * (sh_w(kp,i) - sh_v(kp,i))) * 1.e3
 
-case(24) ! 'CON_C'
+case(26) ! 'CON_C'
 
    if (.not. allocated(con_c)) go to 1000
 
    fldval = (wtbot * con_c(k ,i) &
           +  wttop * con_c(kp,i)) * 1.e-6
 
-case(25) ! 'CON_D'
+case(27) ! 'CON_D'
 
    if (.not. allocated(con_d)) go to 1000
 
    fldval = (wtbot * con_d(k ,i) &
           +  wttop * con_d(kp,i)) * 1.e-3
 
-case(26) ! 'CON_R'
+case(28) ! 'CON_R'
 
    if (.not. allocated(con_r)) go to 1000
 
    fldval = wtbot * con_r(k ,i) &
           + wttop * con_r(kp,i)
 
-case(27) ! 'CON_P'
+case(29) ! 'CON_P'
 
    if (.not. allocated(con_p)) go to 1000
 
    fldval = (wtbot * con_p(k ,i) &
           +  wttop * con_p(kp,i)) * 1.e-6
 
-case(28) ! 'CON_S'
+case(30) ! 'CON_S'
 
    if (.not. allocated(con_s)) go to 1000
 
    fldval = wtbot * con_s(k ,i) &
           + wttop * con_s(kp,i)
 
-case(29) ! 'CON_A'
+case(31) ! 'CON_A'
 
    if (.not. allocated(con_a)) go to 1000
 
    fldval = wtbot * con_a(k ,i) &
           + wttop * con_a(kp,i)
 
-case(30) ! 'CON_G'
+case(32) ! 'CON_G'
 
    if (.not. allocated(con_g)) go to 1000
 
    fldval = wtbot * con_g(k ,i) &
           + wttop * con_g(kp,i)
 
-case(31) ! 'CON_H'
+case(33) ! 'CON_H'
 
    if (.not. allocated(con_h)) go to 1000
 
    fldval = wtbot * con_h(k ,i) &
           + wttop * con_h(kp,i)
 
-case(32) ! 'CON_CCN'
+case(34) ! 'CON_CCN'
 
    if (indp > nccntyp) go to 1000
    if (.not. allocated(ccntyp(indp)%con_ccn)) go to 1000
@@ -1037,26 +1122,26 @@ case(32) ! 'CON_CCN'
    fldval = (wtbot * ccntyp(indp)%con_ccn(k ,i) &
           +  wttop * ccntyp(indp)%con_ccn(kp,i)) * 1.e-6
 
-case(33) ! 'CON_GCCN'
+case(35) ! 'CON_GCCN'
 
    if (.not. allocated(con_gccn)) go to 1000
 
    fldval = (wtbot * con_gccn(k ,i) &
           +  wttop * con_gccn(kp,i)) * 1.e-3
 
-case(34) ! 'CON_IFN'
+case(36) ! 'CON_IFN'
 
    if (.not. allocated(con_ifn)) go to 1000
 
    fldval = (wtbot * con_ifn(k ,i) &
           +  wttop * con_ifn(kp,i)) * 1.e-3
 
-case(35) ! 'VKM'
+case(37) ! 'VKM'
 
    fldval = wtbot * vkm(k ,i) &
           + wttop * vkm(kp,i)
 
-case(36) ! 'FTHRD'
+case(38) ! 'FTHRD'
 
    if (.not. allocated(fthrd_sw)) goto 1000
    if (.not. allocated(fthrd_lw)) goto 1000
@@ -1064,7 +1149,7 @@ case(36) ! 'FTHRD'
    fldval = wtbot * (fthrd_sw(k ,i) + fthrd_lw(k ,i)) &
           + wttop * (fthrd_sw(kp,i) + fthrd_lw(kp,i))
 
-case(37:40) ! 'SPEEDW','AZIMW','ZONAL_WINDW','MERID_WINDW'
+case(39:42) ! 'SPEEDW','AZIMW','ZONAL_WINDW','MERID_WINDW'
 
    npoly = itab_w(i)%npoly
    rpolyi = 1. / real(npoly)
@@ -1109,7 +1194,7 @@ case(37:40) ! 'SPEEDW','AZIMW','ZONAL_WINDW','MERID_WINDW'
       endif
    endif
 
-case(41:43) ! 'RVORTZM','TVORTZM','RVORTZM_P'
+case(43:45) ! 'RVORTZM','TVORTZM','RVORTZM_P'
 
    fldval = 0.
 
@@ -1173,7 +1258,7 @@ case(41:43) ! 'RVORTZM','TVORTZM','RVORTZM_P'
       fldval = fldval + omega2 * zem(i) / erad  ! add earth vorticity at M point
    endif
 
-case(44) ! 'DIVERG'
+case(46) ! 'DIVERG'
 
    fldval = 0.
 
@@ -1195,19 +1280,19 @@ case(44) ! 'DIVERG'
       enddo
    endif
 
-case(45) ! 'VMASSFLUX'
+case(47) ! 'VMASSFLUX'
 
    fldval = vmc(k,i) * arv(k,i)
 
-case(46) ! 'VC_P'
+case(48) ! 'VC_P'
 
    fldval = vc(k,i) - vc_init(k,i)
 
-case(47) ! 'PRESS_P'
+case(49) ! 'PRESS_P'
 
    fldval = press(k,i) - press_init(k,i)
 
-case(48) ! 'RHO_P'
+case(50) ! 'RHO_P'
 
    fldval = wtbot * (rho(k ,i) - rho_init(k ,i)) &
           + wttop * (rho(kp,i) - rho_init(kp,i))
@@ -1221,19 +1306,19 @@ case(48) ! 'RHO_P'
       fldval = (rho(k,i) - rho_init(k,i)) - (zanal_swtc5 - zanal0_swtc5)
    endif
 
-case(49) ! 'THETA_P'
+case(51) ! 'THETA_P'
 
    fldval = wtbot * (theta(k ,i) - theta_init(k ,i)) &
           + wttop * (theta(kp,i) - theta_init(kp,i))
 
-case(50) ! 'AIRTEMPK_P'
+case(52) ! 'AIRTEMPK_P'
 
    fldval = wtbot * tair(k ,i) &
           + wttop * tair(kp,i) &
           - wtbot * theta_init(k ,i) * (press_init(k ,i) * p00i) ** rocp &
           - wttop * theta_init(kp,i) * (press_init(kp,i) * p00i) ** rocp
 
-case(51) ! 'VMT'
+case(53) ! 'VMT'
 
    iw1 = itab_v(i)%iw(1)
    iw2 = itab_v(i)%iw(2)
@@ -1243,13 +1328,13 @@ case(51) ! 'VMT'
                +  vnz(i) * (vmzet(k,iw1) + vmzet(k,iw2)))
 
 
-case(52) ! 'WMT'
+case(54) ! 'WMT'
 
    fldval = ( wnxo2(i) * (vmxet(k,i) + vmxet(k+1,i)) &
             + wnyo2(i) * (vmyet(k,i) + vmyet(k+1,i)) &
             + wnzo2(i) * (vmzet(k,i) + vmzet(k+1,i)) )
 
-case(53) ! 'ADDSC'
+case(55) ! 'ADDSC'
 
    if (indp > naddsc) go to 1000
    if (.not. allocated(addsc(indp)%sclp)) go to 1000
@@ -1257,7 +1342,7 @@ case(53) ! 'ADDSC'
    fldval = wtbot * addsc(indp)%sclp(k ,i) &
           + wttop * addsc(indp)%sclp(kp,i)
 
-case(54) ! 'ADDSC_P'
+case(56) ! 'ADDSC_P'
 
    if (indp > naddsc) go to 1000
    if (.not. allocated(addsc(indp)%sclp)) go to 1000
@@ -1269,22 +1354,27 @@ case(54) ! 'ADDSC_P'
 ! ATMOSPHERE - 2D
 !-----------------------------------------
 
-case(55) ! 'ZPLEV'
+case(57) ! 'ZPLEV'
 
    fldval = wtbot * zt(k ) &
           + wttop * zt(kp)
 
-case(56) ! 'QWCON'
+case(58) ! 'QWCON'
 
    fldval = (wtbot * qwcon(k ,i) &
           +  wttop * qwcon(kp,i)) * 1.e3
 
-case(57) ! 'CO2CON'
+case(59) ! 'CO2CON'
 
    if (.not. allocated(sh_co2)) go to 1000
 
    fldval = (wtbot * sh_co2(k ,i) / (1.0 - sh_w(k ,i)) &
           +  wttop * sh_co2(kp,i) / (1.0 - sh_w(kp,i))) * co2_sh2ppm
+
+case(60) ! 'RH_LIQ'
+
+   fldval = (wtbot * sh_v(k ,i) * rho(k ,i) / rhovsl(tair(k ,i)-273.15) &
+          +  wttop * sh_v(kp,i) * rho(kp,i) / rhovsl(tair(kp,i)-273.15)) * 1.e2
 
 case(62) ! 'RSHORT_TOP'
 
@@ -1515,7 +1605,11 @@ case(95) ! 'WSTAR'
 
 case(96) ! 'PSFC'
 
-   fldval = (press(k,i) + dzt_bot(k) * rho(k,i) * grav) * .01  ! hydrostatic eqn.
+   fldval = (press(k,i) + (zt(k) - topw(i)) * rho(k,i) * grav) * .01  ! hydrostatic eqn.
+
+case(97) ! 'PMSL'
+
+   fldval = press(k,i) * (1. - .0065 * zt(k) / (tair(k,i) + .0065 * zt(k)))**(-5.257) * .01  ! hydrostatic eqn.
 
 !-----------------------------------------
 ! ATMOSPHERE DIF2 fields - (3D & 2D)
@@ -1612,7 +1706,27 @@ case(106) ! 'SH_V_DIF2'
       fldval = fldval * 1.e3 / (time8_prev0 - time8_prev1)
    endif
 
-case(107) ! 'PCPMIC_DIF2'
+case(107) ! 'LATHEAT_LIQ_DIF2'
+
+   if (.not. allocated(latheat_liq_accum)) go to 1000
+
+   fldval = latheat_liq_accum_prev0(k,i) - latheat_liq_accum_prev1(k,i)
+
+   if (abs(time8_prev0 - time8_prev1) > .99) then
+      fldval = fldval * 3600. / (time8_prev0 - time8_prev1)
+   endif
+
+case(108) ! 'LATHEAT_ICE_DIF2'
+
+   if (.not. allocated(latheat_ice_accum)) go to 1000
+
+   fldval = latheat_ice_accum_prev0(k,i) - latheat_ice_accum_prev1(k,i)
+
+   if (abs(time8_prev0 - time8_prev1) > .99) then
+      fldval = fldval * 3600. / (time8_prev0 - time8_prev1)
+   endif
+
+case(109) ! 'PCPMIC_DIF2'
 
 ! Compute difference involving 1 previously-stored field
 ! Convert to mm/day if time interval >= 1 second
@@ -1623,7 +1737,7 @@ case(107) ! 'PCPMIC_DIF2'
       fldval = fldval * 86400. / (time8_prev0 - time8_prev1)
    endif
 
-case(108) ! 'PCPCON_DIF2'
+case(110) ! 'PCPCON_DIF2'
 
    if (.not. allocated(aconpr)) go to 1000
 
@@ -1636,7 +1750,7 @@ case(108) ! 'PCPCON_DIF2'
       fldval = fldval * 86400. / (time8_prev0 - time8_prev1)
    endif
 
-case(109) ! 'PCPBOTH_DIF2'
+case(111) ! 'PCPBOTH_DIF2'
 
 ! Compute difference involving 1 previously-stored field
 ! Convert to mm/day if time interval >= 1 second
@@ -1650,7 +1764,7 @@ case(109) ! 'PCPBOTH_DIF2'
       fldval = fldval * 86400. / (time8_prev0 - time8_prev1)
    endif
 
-case(110) ! 'RSHORT_DIF2'
+case(112) ! 'RSHORT_DIF2'
 
    if (.not. allocated(rshort_accum)) go to 1000
 
@@ -1660,7 +1774,7 @@ case(110) ! 'RSHORT_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(111) ! 'RSHORTUP_DIF2'
+case(113) ! 'RSHORTUP_DIF2'
 
    if (.not. allocated(rshortup_accum)) go to 1000
 
@@ -1670,7 +1784,7 @@ case(111) ! 'RSHORTUP_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(112) ! 'RLONG_DIF2'
+case(114) ! 'RLONG_DIF2'
 
    if (.not. allocated(rlong_accum)) go to 1000
 
@@ -1680,7 +1794,7 @@ case(112) ! 'RLONG_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(113) ! 'RLONGUP_DIF2'
+case(115) ! 'RLONGUP_DIF2'
 
    if (.not. allocated(rlongup_accum)) go to 1000
 
@@ -1690,7 +1804,7 @@ case(113) ! 'RLONGUP_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(114) ! 'RSHORT_TOP_DIF2'
+case(116) ! 'RSHORT_TOP_DIF2'
 
    if (.not. allocated(rshort_top_accum)) go to 1000
 
@@ -1700,7 +1814,7 @@ case(114) ! 'RSHORT_TOP_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(115) ! 'RSHORTUP_TOP_DIF2'
+case(117) ! 'RSHORTUP_TOP_DIF2'
 
    if (.not. allocated(rshortup_top_accum)) go to 1000
 
@@ -1710,7 +1824,7 @@ case(115) ! 'RSHORTUP_TOP_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(116) ! 'RLONGUP_TOP_DIF2'
+case(118) ! 'RLONGUP_TOP_DIF2'
 
    if (.not. allocated(rlongup_top_accum)) go to 1000
 
@@ -1720,7 +1834,7 @@ case(116) ! 'RLONGUP_TOP_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(117) ! 'SENSFLUX_DIF2'
+case(119) ! 'SENSFLUX_DIF2'
 
    if (.not. allocated(sfluxt_accum)) go to 1000
 
@@ -1730,7 +1844,7 @@ case(117) ! 'SENSFLUX_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(118) ! 'LATFLUX_DIF2'
+case(120) ! 'LATFLUX_DIF2'
 
    if (.not. allocated(sfluxr_accum)) go to 1000
 
@@ -1740,7 +1854,7 @@ case(118) ! 'LATFLUX_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(119) ! 'VAPFLUX_DIF2'
+case(121) ! 'VAPFLUX_DIF2'
 
    if (.not. allocated(sfluxr_accum)) go to 1000
 
@@ -1750,7 +1864,7 @@ case(119) ! 'VAPFLUX_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(120) ! 'RSHORT_CLR_DIF2'
+case(122) ! 'RSHORT_CLR_DIF2'
 
    if (.not. allocated(rshort_clr_accum)) go to 1000
 
@@ -1760,7 +1874,7 @@ case(120) ! 'RSHORT_CLR_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(121) ! 'RSHORTUP_CLR_DIF2'
+case(123) ! 'RSHORTUP_CLR_DIF2'
 
    if (.not. allocated(rshortup_clr_accum)) go to 1000
 
@@ -1770,7 +1884,7 @@ case(121) ! 'RSHORTUP_CLR_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(122) ! 'RLONG_CLR_DIF2'
+case(124) ! 'RLONG_CLR_DIF2'
 
    if (.not. allocated(rlong_clr_accum)) go to 1000
 
@@ -1780,7 +1894,7 @@ case(122) ! 'RLONG_CLR_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(123) ! 'RLONGUP_CLR_DIF2'
+case(125) ! 'RLONGUP_CLR_DIF2'
 
    if (.not. allocated(rlongup_clr_accum)) go to 1000
 
@@ -1790,7 +1904,7 @@ case(123) ! 'RLONGUP_CLR_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(124) ! 'RSHORT_TOP_CLR_DIF2'
+case(126) ! 'RSHORT_TOP_CLR_DIF2'
 
    if (.not. allocated(rshort_top_clr_accum)) go to 1000
 
@@ -1800,7 +1914,7 @@ case(124) ! 'RSHORT_TOP_CLR_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(125) ! 'RSHORTUP_TOP_CLR_DIF2'
+case(127) ! 'RSHORTUP_TOP_CLR_DIF2'
 
    if (.not. allocated(rshortup_top_clr_accum)) go to 1000
 
@@ -1810,7 +1924,7 @@ case(125) ! 'RSHORTUP_TOP_CLR_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(126) ! 'RLONGUP_TOP_CLR_DIF2'
+case(128) ! 'RLONGUP_TOP_CLR_DIF2'
 
    if (.not. allocated(rlongup_top_clr_accum)) go to 1000
 
@@ -1820,7 +1934,7 @@ case(126) ! 'RLONGUP_TOP_CLR_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(127) ! 'PCPMIC_DIF4'
+case(129) ! 'PCPMIC_DIF4'
 
 ! Compute differences involving 3 previously-stored fields
 ! Convert to mm/day if time interval >= 1 second
@@ -1845,7 +1959,7 @@ case(127) ! 'PCPMIC_DIF4'
 !      fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
 !   endif
 
-case(128) ! 'PCPCON_DIF4'
+case(130) ! 'PCPCON_DIF4'
 
    if (.not. allocated(aconpr)) go to 1000
 
@@ -1872,7 +1986,7 @@ case(128) ! 'PCPCON_DIF4'
 !      fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
 !   endif
 
-case(129) ! 'PCPBOTH_DIF4'
+case(131) ! 'PCPBOTH_DIF4'
 
 ! Compute differences involving 3 previously-stored fields
 ! Convert to mm/day if time interval >= 1 second
@@ -1902,7 +2016,7 @@ case(129) ! 'PCPBOTH_DIF4'
 !      fldval = fldval * 86400. / (time8_prev0 - time8_prev2)
 !   endif
 
-case(130) ! 'PCPMIC_REL4'
+case(132) ! 'PCPMIC_REL4'
 
 ! Compute relative differences involving 3 previously-stored fields
 ! [fldval=runB_end; prev1=runB_beg; prev2=runA_end; prev3=runA_beg]
@@ -1919,7 +2033,7 @@ case(130) ! 'PCPMIC_REL4'
       fldval = 0.
    endif
 
-case(131) ! 'PCPCON_REL4'
+case(133) ! 'PCPCON_REL4'
 
    if (.not. allocated(aconpr)) go to 1000
 
@@ -1937,7 +2051,7 @@ case(131) ! 'PCPCON_REL4'
       fldval = 0.
    endif
 
-case(132) ! 'PCPBOTH_REL4'
+case(134) ! 'PCPBOTH_REL4'
 
 ! Compute relative differences involving 3 previously-stored fields
 

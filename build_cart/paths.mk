@@ -4,7 +4,7 @@ OLAM_ROOT=..
 
 # Versions.
 
-OLAM_VERSION=5.0.0
+OLAM_VERSION=5.4
 
 # Source directories.
 
@@ -12,6 +12,7 @@ MODEL_MODS=$(OLAM_ROOT)/modules
 OMODEL=$(OLAM_ROOT)/omodel
 OISAN=$(OLAM_ROOT)/oisan
 CONVECT=$(OLAM_ROOT)/convect
+SOIL=$(OLAM_ROOT)/SOIL
 LEAF=$(OLAM_ROOT)/leaf
 SEA=$(OLAM_ROOT)/sea
 ED2DYN=$(OLAM_ROOT)/ED2/dynamics

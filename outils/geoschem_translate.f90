@@ -2,8 +2,8 @@ Module gchem_aeros
 
   use consts_coms, only: r8
 
-  logical, parameter :: anthOff = .true.  ! If true, use anthOff set of files
-!!logical, parameter :: anthOff = .false. ! If false, use anthOn set of files
+!!logical, parameter :: anthOff = .true.  ! If true, use anthOff set of files
+  logical, parameter :: anthOff = .false. ! If false, use anthOn set of files
 
   integer :: ngchemfiles, igchemfile
 
@@ -81,223 +81,223 @@ Contains
 
   IF (anthOff) THEN  ! Use this for anthOff set of files
 
-  gchem(1)%fnames(1) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_23_0000.h5'
-  gchem(2)%fnames(1) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_23_0000.h5'
+  gchem(1)%fnames(1) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_23_0000.h5'
+  gchem(2)%fnames(1) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_23_0000.h5'
 
-  gchem(1)%fnames(2) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_23_0600.h5'
-  gchem(2)%fnames(2) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_23_0600.h5'
+  gchem(1)%fnames(2) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_23_0600.h5'
+  gchem(2)%fnames(2) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_23_0600.h5'
 
-  gchem(1)%fnames(3) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_23_1200.h5'
-  gchem(2)%fnames(3) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_23_1200.h5'
+  gchem(1)%fnames(3) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_23_1200.h5'
+  gchem(2)%fnames(3) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_23_1200.h5'
 
-  gchem(1)%fnames(4) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_23_1800.h5'
-  gchem(2)%fnames(4) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_23_1800.h5'
+  gchem(1)%fnames(4) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_23_1800.h5'
+  gchem(2)%fnames(4) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_23_1800.h5'
 
-  gchem(1)%fnames(5) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_24_0000.h5'
-  gchem(2)%fnames(5) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_24_0000.h5'
+  gchem(1)%fnames(5) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_24_0000.h5'
+  gchem(2)%fnames(5) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_24_0000.h5'
 
-  gchem(1)%fnames(6) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_24_0600.h5'
-  gchem(2)%fnames(6) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_24_0600.h5'
+  gchem(1)%fnames(6) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_24_0600.h5'
+  gchem(2)%fnames(6) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_24_0600.h5'
 
-  gchem(1)%fnames(7) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_24_1200.h5'
-  gchem(2)%fnames(7) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_24_1200.h5'
+  gchem(1)%fnames(7) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_24_1200.h5'
+  gchem(2)%fnames(7) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_24_1200.h5'
 
-  gchem(1)%fnames(8) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_24_1800.h5'
-  gchem(2)%fnames(8) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_24_1800.h5'
+  gchem(1)%fnames(8) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_24_1800.h5'
+  gchem(2)%fnames(8) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_24_1800.h5'
 
-  gchem(1)%fnames(9) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_25_0000.h5'
-  gchem(2)%fnames(9) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_25_0000.h5'
+  gchem(1)%fnames(9) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_25_0000.h5'
+  gchem(2)%fnames(9) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_25_0000.h5'
 
-  gchem(1)%fnames(10) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_25_0600.h5'
-  gchem(2)%fnames(10) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_25_0600.h5'
+  gchem(1)%fnames(10) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_25_0600.h5'
+  gchem(2)%fnames(10) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_25_0600.h5'
 
-  gchem(1)%fnames(11) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_25_1200.h5'
-  gchem(2)%fnames(11) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_25_1200.h5'
+  gchem(1)%fnames(11) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_25_1200.h5'
+  gchem(2)%fnames(11) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_25_1200.h5'
 
-  gchem(1)%fnames(12) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_25_1800.h5'
-  gchem(2)%fnames(12) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_25_1800.h5'
+  gchem(1)%fnames(12) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_25_1800.h5'
+  gchem(2)%fnames(12) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_25_1800.h5'
 
-  gchem(1)%fnames(13) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_26_0000.h5'
-  gchem(2)%fnames(13) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_26_0000.h5'
+  gchem(1)%fnames(13) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_26_0000.h5'
+  gchem(2)%fnames(13) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_26_0000.h5'
 
-  gchem(1)%fnames(14) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_26_0600.h5'
-  gchem(2)%fnames(14) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_26_0600.h5'
+  gchem(1)%fnames(14) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_26_0600.h5'
+  gchem(2)%fnames(14) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_26_0600.h5'
 
-  gchem(1)%fnames(15) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_26_1200.h5'
-  gchem(2)%fnames(15) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_26_1200.h5'
+  gchem(1)%fnames(15) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_26_1200.h5'
+  gchem(2)%fnames(15) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_26_1200.h5'
 
-  gchem(1)%fnames(16) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_26_1800.h5'
-  gchem(2)%fnames(16) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_26_1800.h5'
+  gchem(1)%fnames(16) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_26_1800.h5'
+  gchem(2)%fnames(16) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_26_1800.h5'
 
-  gchem(1)%fnames(17) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_27_0000.h5'
-  gchem(2)%fnames(17) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_27_0000.h5'
+  gchem(1)%fnames(17) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_27_0000.h5'
+  gchem(2)%fnames(17) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_27_0000.h5'
 
-  gchem(1)%fnames(18) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_27_0600.h5'
-  gchem(2)%fnames(18) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_27_0600.h5'
+  gchem(1)%fnames(18) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_27_0600.h5'
+  gchem(2)%fnames(18) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_27_0600.h5'
 
-  gchem(1)%fnames(19) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_27_1200.h5'
-  gchem(2)%fnames(19) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_27_1200.h5'
+  gchem(1)%fnames(19) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_27_1200.h5'
+  gchem(2)%fnames(19) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_27_1200.h5'
 
-  gchem(1)%fnames(20) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_27_1800.h5'
-  gchem(2)%fnames(20) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_27_1800.h5'
+  gchem(1)%fnames(20) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_27_1800.h5'
+  gchem(2)%fnames(20) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_27_1800.h5'
 
-  gchem(1)%fnames(21) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_28_0000.h5'
-  gchem(2)%fnames(21) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_28_0000.h5'
+  gchem(1)%fnames(21) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_28_0000.h5'
+  gchem(2)%fnames(21) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_28_0000.h5'
 
-  gchem(1)%fnames(22) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_28_0600.h5'
-  gchem(2)%fnames(22) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_28_0600.h5'
+  gchem(1)%fnames(22) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_28_0600.h5'
+  gchem(2)%fnames(22) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_28_0600.h5'
 
-  gchem(1)%fnames(23) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_28_1200.h5'
-  gchem(2)%fnames(23) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_28_1200.h5'
+  gchem(1)%fnames(23) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_28_1200.h5'
+  gchem(2)%fnames(23) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_28_1200.h5'
 
-  gchem(1)%fnames(24) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_28_1800.h5'
-  gchem(2)%fnames(24) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_28_1800.h5'
+  gchem(1)%fnames(24) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_28_1800.h5'
+  gchem(2)%fnames(24) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_28_1800.h5'
 
-  gchem(1)%fnames(25) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_29_0000.h5'
-  gchem(2)%fnames(25) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_29_0000.h5'
+  gchem(1)%fnames(25) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_29_0000.h5'
+  gchem(2)%fnames(25) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_29_0000.h5'
 
-  gchem(1)%fnames(26) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_29_0600.h5'
-  gchem(2)%fnames(26) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_29_0600.h5'
+  gchem(1)%fnames(26) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_29_0600.h5'
+  gchem(2)%fnames(26) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_29_0600.h5'
 
-  gchem(1)%fnames(27) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_29_1200.h5'
-  gchem(2)%fnames(27) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_29_1200.h5'
+  gchem(1)%fnames(27) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_29_1200.h5'
+  gchem(2)%fnames(27) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_29_1200.h5'
 
-  gchem(1)%fnames(28) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_29_1800.h5'
-  gchem(2)%fnames(28) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_29_1800.h5'
+  gchem(1)%fnames(28) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_29_1800.h5'
+  gchem(2)%fnames(28) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_29_1800.h5'
 
-  gchem(1)%fnames(29) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_30_0000.h5'
-  gchem(2)%fnames(29) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_30_0000.h5'
+  gchem(1)%fnames(29) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_30_0000.h5'
+  gchem(2)%fnames(29) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_30_0000.h5'
 
-  gchem(1)%fnames(30) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_30_0600.h5'
-  gchem(2)%fnames(30) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_30_0600.h5'
+  gchem(1)%fnames(30) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_30_0600.h5'
+  gchem(2)%fnames(30) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_30_0600.h5'
 
-  gchem(1)%fnames(31) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_30_1200.h5'
-  gchem(2)%fnames(31) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_30_1200.h5'
+  gchem(1)%fnames(31) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_30_1200.h5'
+  gchem(2)%fnames(31) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_30_1200.h5'
 
-  gchem(1)%fnames(32) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_30_1800.h5'
-  gchem(2)%fnames(32) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_30_1800.h5'
+  gchem(1)%fnames(32) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_30_1800.h5'
+  gchem(2)%fnames(32) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_30_1800.h5'
 
-  gchem(1)%fnames(33) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_31_0000.h5'
-  gchem(2)%fnames(33) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_31_0000.h5'
+  gchem(1)%fnames(33) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_31_0000.h5'
+  gchem(2)%fnames(33) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_31_0000.h5'
 
-  gchem(1)%fnames(34) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_31_0600.h5'
-  gchem(2)%fnames(34) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_31_0600.h5'
+  gchem(1)%fnames(34) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_31_0600.h5'
+  gchem(2)%fnames(34) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_31_0600.h5'
 
-  gchem(1)%fnames(35) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_31_1200.h5'
-  gchem(2)%fnames(35) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_31_1200.h5'
+  gchem(1)%fnames(35) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_31_1200.h5'
+  gchem(2)%fnames(35) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_31_1200.h5'
 
-  gchem(1)%fnames(36) = '../olam_geoschem_files/anthOff_GL_Harvey_2017_08_31_1800.h5'
-  gchem(2)%fnames(36) = '../olam_geoschem_files/anthOff_NA_Harvey_2017_08_31_1800.h5'
+  gchem(1)%fnames(36) = '../../olam_geoschem_files/anthOff_GL_Harvey_2017_08_31_1800.h5'
+  gchem(2)%fnames(36) = '../../olam_geoschem_files/anthOff_NA_Harvey_2017_08_31_1800.h5'
 
   ELSE  ! Use this for anthOn set of files
 
-  gchem(1)%fnames(1) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_23_0000.h5'
-  gchem(2)%fnames(1) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_23_0000.h5'
+  gchem(1)%fnames(1) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_23_0000.h5'
+  gchem(2)%fnames(1) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_23_0000.h5'
 
-  gchem(1)%fnames(2) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_23_0600.h5'
-  gchem(2)%fnames(2) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_23_0600.h5'
+  gchem(1)%fnames(2) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_23_0600.h5'
+  gchem(2)%fnames(2) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_23_0600.h5'
 
-  gchem(1)%fnames(3) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_23_1200.h5'
-  gchem(2)%fnames(3) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_23_1200.h5'
+  gchem(1)%fnames(3) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_23_1200.h5'
+  gchem(2)%fnames(3) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_23_1200.h5'
 
-  gchem(1)%fnames(4) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_23_1800.h5'
-  gchem(2)%fnames(4) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_23_1800.h5'
+  gchem(1)%fnames(4) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_23_1800.h5'
+  gchem(2)%fnames(4) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_23_1800.h5'
 
-  gchem(1)%fnames(5) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_24_0000.h5'
-  gchem(2)%fnames(5) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_24_0000.h5'
+  gchem(1)%fnames(5) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_24_0000.h5'
+  gchem(2)%fnames(5) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_24_0000.h5'
 
-  gchem(1)%fnames(6) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_24_0600.h5'
-  gchem(2)%fnames(6) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_24_0600.h5'
+  gchem(1)%fnames(6) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_24_0600.h5'
+  gchem(2)%fnames(6) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_24_0600.h5'
 
-  gchem(1)%fnames(7) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_24_1200.h5'
-  gchem(2)%fnames(7) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_24_1200.h5'
+  gchem(1)%fnames(7) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_24_1200.h5'
+  gchem(2)%fnames(7) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_24_1200.h5'
 
-  gchem(1)%fnames(8) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_24_1800.h5'
-  gchem(2)%fnames(8) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_24_1800.h5'
+  gchem(1)%fnames(8) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_24_1800.h5'
+  gchem(2)%fnames(8) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_24_1800.h5'
 
-  gchem(1)%fnames(9) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_25_0000.h5'
-  gchem(2)%fnames(9) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_25_0000.h5'
+  gchem(1)%fnames(9) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_25_0000.h5'
+  gchem(2)%fnames(9) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_25_0000.h5'
 
-  gchem(1)%fnames(10) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_25_0600.h5'
-  gchem(2)%fnames(10) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_25_0600.h5'
+  gchem(1)%fnames(10) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_25_0600.h5'
+  gchem(2)%fnames(10) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_25_0600.h5'
 
-  gchem(1)%fnames(11) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_25_1200.h5'
-  gchem(2)%fnames(11) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_25_1200.h5'
+  gchem(1)%fnames(11) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_25_1200.h5'
+  gchem(2)%fnames(11) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_25_1200.h5'
 
-  gchem(1)%fnames(12) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_25_1800.h5'
-  gchem(2)%fnames(12) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_25_1800.h5'
+  gchem(1)%fnames(12) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_25_1800.h5'
+  gchem(2)%fnames(12) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_25_1800.h5'
 
-  gchem(1)%fnames(13) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_26_0000.h5'
-  gchem(2)%fnames(13) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_26_0000.h5'
+  gchem(1)%fnames(13) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_26_0000.h5'
+  gchem(2)%fnames(13) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_26_0000.h5'
 
-  gchem(1)%fnames(14) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_26_0600.h5'
-  gchem(2)%fnames(14) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_26_0600.h5'
+  gchem(1)%fnames(14) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_26_0600.h5'
+  gchem(2)%fnames(14) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_26_0600.h5'
 
-  gchem(1)%fnames(15) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_26_1200.h5'
-  gchem(2)%fnames(15) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_26_1200.h5'
+  gchem(1)%fnames(15) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_26_1200.h5'
+  gchem(2)%fnames(15) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_26_1200.h5'
 
-  gchem(1)%fnames(16) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_26_1800.h5'
-  gchem(2)%fnames(16) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_26_1800.h5'
+  gchem(1)%fnames(16) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_26_1800.h5'
+  gchem(2)%fnames(16) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_26_1800.h5'
 
-  gchem(1)%fnames(17) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_27_0000.h5'
-  gchem(2)%fnames(17) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_27_0000.h5'
+  gchem(1)%fnames(17) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_27_0000.h5'
+  gchem(2)%fnames(17) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_27_0000.h5'
 
-  gchem(1)%fnames(18) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_27_0600.h5'
-  gchem(2)%fnames(18) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_27_0600.h5'
+  gchem(1)%fnames(18) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_27_0600.h5'
+  gchem(2)%fnames(18) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_27_0600.h5'
 
-  gchem(1)%fnames(19) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_27_1200.h5'
-  gchem(2)%fnames(19) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_27_1200.h5'
+  gchem(1)%fnames(19) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_27_1200.h5'
+  gchem(2)%fnames(19) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_27_1200.h5'
 
-  gchem(1)%fnames(20) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_27_1800.h5'
-  gchem(2)%fnames(20) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_27_1800.h5'
+  gchem(1)%fnames(20) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_27_1800.h5'
+  gchem(2)%fnames(20) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_27_1800.h5'
 
-  gchem(1)%fnames(21) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_28_0000.h5'
-  gchem(2)%fnames(21) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_28_0000.h5'
+  gchem(1)%fnames(21) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_28_0000.h5'
+  gchem(2)%fnames(21) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_28_0000.h5'
 
-  gchem(1)%fnames(22) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_28_0600.h5'
-  gchem(2)%fnames(22) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_28_0600.h5'
+  gchem(1)%fnames(22) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_28_0600.h5'
+  gchem(2)%fnames(22) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_28_0600.h5'
 
-  gchem(1)%fnames(23) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_28_1200.h5'
-  gchem(2)%fnames(23) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_28_1200.h5'
+  gchem(1)%fnames(23) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_28_1200.h5'
+  gchem(2)%fnames(23) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_28_1200.h5'
 
-  gchem(1)%fnames(24) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_28_1800.h5'
-  gchem(2)%fnames(24) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_28_1800.h5'
+  gchem(1)%fnames(24) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_28_1800.h5'
+  gchem(2)%fnames(24) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_28_1800.h5'
 
-  gchem(1)%fnames(25) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_29_0000.h5'
-  gchem(2)%fnames(25) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_29_0000.h5'
+  gchem(1)%fnames(25) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_29_0000.h5'
+  gchem(2)%fnames(25) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_29_0000.h5'
 
-  gchem(1)%fnames(26) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_29_0600.h5'
-  gchem(2)%fnames(26) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_29_0600.h5'
+  gchem(1)%fnames(26) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_29_0600.h5'
+  gchem(2)%fnames(26) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_29_0600.h5'
 
-  gchem(1)%fnames(27) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_29_1200.h5'
-  gchem(2)%fnames(27) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_29_1200.h5'
+  gchem(1)%fnames(27) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_29_1200.h5'
+  gchem(2)%fnames(27) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_29_1200.h5'
 
-  gchem(1)%fnames(28) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_29_1800.h5'
-  gchem(2)%fnames(28) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_29_1800.h5'
+  gchem(1)%fnames(28) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_29_1800.h5'
+  gchem(2)%fnames(28) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_29_1800.h5'
 
-  gchem(1)%fnames(29) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_30_0000.h5'
-  gchem(2)%fnames(29) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_30_0000.h5'
+  gchem(1)%fnames(29) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_30_0000.h5'
+  gchem(2)%fnames(29) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_30_0000.h5'
 
-  gchem(1)%fnames(30) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_30_0600.h5'
-  gchem(2)%fnames(30) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_30_0600.h5'
+  gchem(1)%fnames(30) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_30_0600.h5'
+  gchem(2)%fnames(30) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_30_0600.h5'
 
-  gchem(1)%fnames(31) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_30_1200.h5'
-  gchem(2)%fnames(31) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_30_1200.h5'
+  gchem(1)%fnames(31) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_30_1200.h5'
+  gchem(2)%fnames(31) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_30_1200.h5'
 
-  gchem(1)%fnames(32) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_30_1800.h5'
-  gchem(2)%fnames(32) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_30_1800.h5'
+  gchem(1)%fnames(32) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_30_1800.h5'
+  gchem(2)%fnames(32) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_30_1800.h5'
 
-  gchem(1)%fnames(33) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_31_0000.h5'
-  gchem(2)%fnames(33) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_31_0000.h5'
+  gchem(1)%fnames(33) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_31_0000.h5'
+  gchem(2)%fnames(33) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_31_0000.h5'
 
-  gchem(1)%fnames(34) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_31_0600.h5'
-  gchem(2)%fnames(34) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_31_0600.h5'
+  gchem(1)%fnames(34) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_31_0600.h5'
+  gchem(2)%fnames(34) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_31_0600.h5'
 
-  gchem(1)%fnames(35) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_31_1200.h5'
-  gchem(2)%fnames(35) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_31_1200.h5'
+  gchem(1)%fnames(35) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_31_1200.h5'
+  gchem(2)%fnames(35) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_31_1200.h5'
 
-  gchem(1)%fnames(36) = '../olam_geoschem_files/anthOn_GL_Harvey_2017_08_31_1800.h5'
-  gchem(2)%fnames(36) = '../olam_geoschem_files/anthOn_NA_Harvey_2017_08_31_1800.h5'
+  gchem(1)%fnames(36) = '../../olam_geoschem_files/anthOn_GL_Harvey_2017_08_31_1800.h5'
+  gchem(2)%fnames(36) = '../../olam_geoschem_files/anthOn_NA_Harvey_2017_08_31_1800.h5'
 
   ENDIF
 
@@ -506,7 +506,7 @@ Contains
 
      ! gchemfile exists; open it
 
-     write(io6,'(a,5i5)') 'geoschem_read2 ',igchemfile,ids,flnm
+     write(io6,'(a,2i5,a)') 'geoschem_read2 ',igchemfile,ids,trim(flnm)
 
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
      write(io6,*) 'Opening gchemfile ', trim(flnm)

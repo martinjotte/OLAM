@@ -872,12 +872,27 @@ do iw = 2,nwa
 
       endif
 
-      itab_w(iw)%unx_w = -sin(glonw(iw))
-      itab_w(iw)%uny_w = cos(glonw(iw))
+! Earth-grid components of easterly (or cartesian positive x) horizontal unit vector 
 
-      itab_w(iw)%vnx_w = -sin(glatw(iw)) * cos(glonw(iw))
-      itab_w(iw)%vny_w = -sin(glatw(iw)) * sin(glonw(iw))
-      itab_w(iw)%vnz_w = cos(glatw(iw))
+      if (mdomain <= 1) then
+         itab_w(iw)%unx_w = -sin(glonw(iw))
+         itab_w(iw)%uny_w = cos(glonw(iw))
+      else
+         itab_w(iw)%unx_w = 1.0
+         itab_w(iw)%uny_w = 0.0
+      endif
+
+! Earth-grid components of northerly (or cartesian positive y) horizontal unit vector 
+
+      if (mdomain <= 1) then
+         itab_w(iw)%vnx_w = -sin(glatw(iw)) * cos(glonw(iw))
+         itab_w(iw)%vny_w = -sin(glatw(iw)) * sin(glonw(iw))
+         itab_w(iw)%vnz_w = cos(glatw(iw))
+      else
+         itab_w(iw)%vnx_w = 0.0
+         itab_w(iw)%vny_w = 1.0
+         itab_w(iw)%vnz_w = 0.0
+      endif
 
 !----------------------------------------
 ! END NEW SECTION JULY 2011

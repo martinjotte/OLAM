@@ -649,11 +649,11 @@
  !-------------------------------------------------------------------------------
  !  L = Lat/lon cylindrical     T,F,L,O = Tiles, Fillcnt, Linecnt, Overlay L on F
  !  P = Polar stereographic     P       = Print value
- !  O = Orthographic            I,J     = local Index, all indices
- !  Z = Horizontal cartesian    B,V,w   = Barb, V-normvec, w(totvec)
- !  C = Cone                    G       = Grid cells
- !  V = Vertical plane          g       = land/sea grid cells
- !                              D       = Dual grid cells
+ !  G = Gnomic                  I,J     = local Index, all indices
+ !  O = Orthographic            B,V,w   = Barb, V-normvec, w(totvec)
+ !  Z = Horizontal cartesian    G       = Grid cells
+ !  C = Cone                    g       = surface grid cells
+ !  V = Vertical plane          D       = Dual grid cells
  !          |                   b,t     = grid border, border + ticks + labels
  !          |                   n,i     = field name, field name + info block
  !          |                   c       = colorbar
@@ -662,7 +662,7 @@
  !            \                 p,s     = plot on const p sfc, plot near-sfc value
  !             \                W       = Window dimensions as specified
  !              \               e       = flag indicating "external" field
- !               \              f       = frameoff (no frame call)
+ !               \              f,h     = frameoff (no frame call) for 4x4,9x9 plot
  !                \             1,2,3,4 = panel number in frame window
  !                 \            u       = Do not mask out underground cells
  !                  \           N       = No extras

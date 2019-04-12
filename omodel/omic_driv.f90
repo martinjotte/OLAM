@@ -91,13 +91,14 @@ end subroutine micro
 
 subroutine micphys(iw,nbincall)
 
-use micro_coms,  only: mza0, ncat, nhcat, neff, cfvt, jnmb, emb2, rxmin, emb1
-use ccnbin_coms, only: nccntyp, nnuc
-use consts_coms, only: r8, pi4
-use misc_coms,   only: io6, dtlm, time_istp8, timmax8
-use mem_ijtabs,  only: itab_w
-use mem_grid,    only: lpw,glatw,glonw
-use oname_coms,  only: nl
+use micro_coms,     only: mza0, ncat, nhcat, neff, cfvt, jnmb, emb2, rxmin, emb1
+use ccnbin_coms,    only: nccntyp, nnuc
+use consts_coms,    only: r8, pi4
+use misc_coms,      only: io6, dtlm, time_istp8, timmax8
+use mem_ijtabs,     only: itab_w
+use mem_grid,       only: lpw,glatw,glonw
+use oname_coms,     only: nl
+use mem_flux_accum, only: latheat_liq_accum, latheat_ice_accum
 
 implicit none
 
@@ -117,7 +118,7 @@ real :: dtl0,dtli0
 
 real :: pi4dt  ! delta_t * pi * 4
 
-real :: frac
+real :: frac, offset, dtemp_liq, dtemp_ice
 
 ! Automatic arrays
 
@@ -187,6 +188,19 @@ real :: sumvr    (mza0)
 real :: con_ccnx (mza0,nccntyp)
 real :: con_gccnx(mza0)
 real :: con_ifnx (mza0)
+
+! New arrays (3/24/2019) for double diagnosis of air temperature (before and
+! after phase-change microphysics processes) for the evaluation of latent heating/cooling
+
+real :: theta1(mza0)
+real :: tair0 (mza0)
+real :: tair1 (mza0)
+real :: qliq0 (mza0)
+real :: qliq1 (mza0)
+real :: qice0 (mza0)
+real :: qice1 (mza0)
+real :: sa0   (mza0)
+real :: sa1   (mza0)
 
 ! New arrays (2/25/2012) to retain mass and number amounts of each
 ! cloud and ice nucleation type (for plotting)
@@ -345,6 +359,17 @@ con_ccnx (:,:) = 0.
 con_gccnx(:) = 0.
 con_ifnx (:) = 0.
 
+theta1(:) = 0.
+tair0 (:) = 0.
+tair1 (:) = 0.
+qliq0 (:) = 0.
+qliq1 (:) = 0.
+qice0 (:) = 0.
+qice1 (:) = 0.
+sa0   (:) = 0.
+sa1   (:) = 0.
+
+
  rnuc_vc       (:) = 0.
  rnuc_vd       (:) = 0.
  rnuc_cp_hom   (:) = 0.
@@ -484,11 +509,13 @@ k2(10) = max(k2(3),k2(4),k2(5),k2(6),k2(7))
 k1(11) = min(k1(9),k1(10))
 k2(11) = max(k2(9),k2(10))
 
-call thrmstr(iw0,lpw0,k1,k2, &
-   press0,thil0,rhow,rhoi,exner0,tair,theta0,rhov,rhovstr,rx,qx,sa)
+ call thrmstr(iw0,lpw0,k1,k2, &
+   press0,thil0,rhow,rhoi,exner0,tair,theta0,qliq0,qice0,sa0,rhov,rhovstr,rx,qx,sa)
 
-call each_column(lpw0,iw0,k1,k2,dtl0,                          &
-   jhcat,press0,tair,tairc,rhovstr,rhoa,rhov,rhoi,    &
+tair0(:) = tair(:) ! Used for latheat diagnosis
+
+ call each_column(lpw0,iw0,k1,k2,dtl0,                         &
+   jhcat,press0,tair,tairc,rhovstr,rhoa,rhov,rhoi,             &
    rhovslair,rhovsiair,thrmcon,vapdif,dynvisc,rdynvsci,denfac, &
    colfac,colfac2,sumuy,sumuz,sumvr,                           &
    tx,sh,sm,sa,rhovsrefp)
@@ -1055,6 +1082,34 @@ if (jnmb(2) >= 1) &
    call x02(iw0,lpw0,2,k1,k2,con_ccnx, &
       jhcat,ict1,ict2,wct1,wct2,rx,emb,cx,qr,qx,tx)
 
+! Second diagnosis of theta and tair (using arrays theta1 and tair1) for
+! computing accumulated latent heating (in units of K) in each grid cell
+
+if (allocated(latheat_liq_accum) .and. allocated(latheat_ice_accum)) then
+
+   call thrmstr(iw0,lpw0,k1,k2, &
+      press0,thil0,rhow,rhoi,exner0,tair1,theta1,qliq1,qice1,sa1,rhov,rhovstr,rx,qx,sa)
+
+   do k = lpw0,mza0
+      ! Compute individual liquid-change and ice-change contributions to latent heating
+
+      dtemp_liq = 0.5 * (sa0(k) + sa1(k)) * (qliq1(k) - qliq0(k))
+      dtemp_ice = 0.5 * (sa0(k) + sa1(k)) * (qice1(k) - qice0(k))
+
+      ! If sum of liquid-change and ice-change contributions to latent heating
+      ! are not identical to actual diagnosed temperature change, adjust them
+      ! with (small) offset
+
+      offset = (tair1(k) - tair0(k)) - (dtemp_liq + dtemp_ice)
+
+      ! Add half of offset to individual contributions
+
+      latheat_liq_accum(k,iw0) = latheat_liq_accum(k,iw0) + dtemp_liq + 0.5 * offset
+      latheat_ice_accum(k,iw0) = latheat_ice_accum(k,iw0) + dtemp_ice + 0.5 * offset
+   enddo
+
+endif
+
 ! No sedimentation, dry nuclei deposition, or precipitation scavenging of
 ! nuclei if running parcel tests 901-999
 
@@ -1350,11 +1405,11 @@ endif
 if (iccn == 1) then
    if (ccnparm > 1.e6) then
       do k = lpw0,mza0
-         con_ccnx(k,1) = ccnparm * zfactor_ccn(k) * rho4(k)
+         con_ccnx(k,1) = ccnparm * rho4(k) * zfactor_ccn(k)
       enddo
    else
       do k = lpw0, mza0
-         con_ccnx(k,1) = cldnum(iw0) * zfactor_ccn(k) * rho4(k)
+         con_ccnx(k,1) = cldnum(iw0) * rho4(k) * zfactor_ccn(k)
       enddo
    endif
 else
@@ -1579,7 +1634,7 @@ if (jnmb(5) >= 1) then
       else
 
          sh_a(k,iw0) = 0.0
-         if (jnmb(5) == 5) con_g(k,iw0) = 0.0
+         if (jnmb(5) == 5) con_a(k,iw0) = 0.0
 
       endif
    enddo

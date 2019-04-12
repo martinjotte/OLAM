@@ -406,22 +406,24 @@ implicit none
   ks1(2:11) = k1(2:11)
   ks2(2:11) = k2(2:11)
 
-  if (conprr(iw) > 1.e-12) then
-     ks1(1)  = lpw(iw)
-     ks2(1)  = kcutop(iw)
-     ks2(11) = max(ks2(11),ks2(1))
-     dzicld = 1. / (zm(kcutop(iw)) - zm(kcubot(iw)-1))
+  if (allocated(conprr)) then
+     if (conprr(iw) > 1.e-12) then
+        ks1(1)  = lpw(iw)
+        ks2(1)  = kcutop(iw)
+        ks2(11) = max(ks2(11),ks2(1))
+        dzicld = 1. / (zm(kcutop(iw)) - zm(kcubot(iw)-1))
 
-     do k = lpw(iw),ks2(1)
-        dmb(k,1) = 0.002
-        pcpvel(k,1) = 10.
+        do k = lpw(iw),ks2(1)
+           dmb(k,1) = 0.002
+           pcpvel(k,1) = 10.
 
-        if (k < kcubot(iw)) then
-           pcpfluxr(k,1) = conprr(iw) * dtl0
-        else
-           pcpfluxr(k,1) = conprr(iw) * dtl0 * (zm(kcutop(iw)) - zt(k)) * dzicld
-        endif
-     enddo
+           if (k < kcubot(iw)) then
+              pcpfluxr(k,1) = conprr(iw) * dtl0
+           else
+              pcpfluxr(k,1) = conprr(iw) * dtl0 * (zm(kcutop(iw)) - zt(k)) * dzicld
+           endif
+        enddo
+     endif
   endif
 
   ! No scavenging if there is no precipitation in this IW column

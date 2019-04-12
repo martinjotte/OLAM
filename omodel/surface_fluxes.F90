@@ -68,7 +68,7 @@ use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, sxfer_tk, sxfer_rk, &
                        ustar, wstar, wtv0, pblh, moli
 use mem_basic,   only: press, rho, theta, tair, sh_v, vxe, vye, vze
 use mem_micro,   only: sh_c
-use consts_coms, only: grav, p00, rocp, cpi, eps_virt, vonk
+use consts_coms, only: grav, p00, rocp, cp, alvl, eps_virt, vonk
 
 implicit none
 
@@ -86,27 +86,28 @@ real :: exneri
 real :: my_co2
 real :: canpress, canexneri, cantheta, canthetav
 real :: airthetav, airshv, ufree, exner, vels, rhos
-real :: shflx
+real :: shflx  ! Specified surface sensible heat flux for ISFCL = 0 case [W/m^2]
+real :: srflx  ! Specified surface latent heat flux for ISFCL = 0 case [W/m^2]
 
 real, parameter :: onethird = 1./3.
 
 if (isfcl == 0) then
 
-! ISFCL = 0 is the no-LEAF option.  Assign surface fluxes here, noting the
-! following examples.  SHFLX has units of [K m/s kg/m^3].
+   ! ISFCL = 0 is the no-LEAF option.  Assign surface fluxes here, noting the
+   ! following examples.  SHFLX has units of [K m/s kg/m^3].
 
-! Default surface flux = 0 W/m^2
+   ! Default surface sensible and latent heat fluxes = 0 W/m^2
 
-   shflx = 0. * cpi
+   shflx = 0. / cp
+   srflx = 0. / alvl
 
-! Example with surface flux = 250 W/m^2
+   ! Example with sensible flux = 250 W/m^2 and latent flux of 150 W/m^2:
 
-!  shflx = 250. * cpi
+   !  shflx = 250. / cp
+   !  shflx = 150. / alvl
 
-!-----------------------------------------------------------------------------
    !$omp parallel do private(iw,ks,kw,exneri)
    do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-!-----------------------------------------------------------------------------
 
       sfluxt(iw) = 0.
       sfluxr(iw) = 0.
@@ -124,9 +125,9 @@ if (isfcl == 0) then
 
          exneri = theta(kw,iw) / tair(kw,iw)
 
-         sxfer_tk(ks,iw) = dtlm(1) * shflx * exneri &
-                         * (arw(kw,iw) - arw(kw-1,iw))
+         sxfer_tk(ks,iw) = dtlm(1) * shflx * exneri * (arw(kw,iw) - arw(kw-1,iw))
 
+         sxfer_rk(ks,iw) = dtlm(1) * srflx          * (arw(kw,iw) - arw(kw-1,iw))
       enddo
 
 !      albedt (iw) = albedo

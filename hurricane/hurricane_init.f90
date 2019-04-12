@@ -503,7 +503,22 @@ Contains
 
   write(6,'(a,2f10.3,i5,f12.2)') 'vortex_center_diagnose END   ',hlat,hlon,lpwmax,press_min(lpwmax)
 
-  return
+! CONSIDER USING THE FOLLOWING CODE FROM FIELDS2_LL.F90 FOR SLP AT HURRICANE CENTER:
+
+!------------------------------------------------------------
+! Compute temperature on OLAM grid and copy its value at 
+! lowest prognosed model level to separate array.
+! Compute sea level pressure based on values at lowest
+! prognosed model level. 
+!------------------------------------------------------------
+
+!F     do iw = 2, mwa
+!F        kb = lpw(iw)
+!F        scr1a(iw) = tair(kb,iw)
+!F        scr1b(iw) = press(kb,iw) &
+!F                  * (1. - .0065 * zt(kb) / (tair(kb,iw) + .0065 * zt(kb)))**(-5.257)
+!F     enddo
+
   end subroutine vortex_center_diagnose
 
 !==================================================================================

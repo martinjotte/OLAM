@@ -224,17 +224,17 @@ call o_reopnwk()
 
  call plotback()
 
- call oplot_xy2log10('0','N',aspect,scalelab,10,0, &
+ call oplot_xy2log10('0','N','N',aspect,scalelab,10,0, &
                      ncall,  vctr18,ge1,           &
                      'time(days)',' ',             &
                      timebeg,timeend,timeinc,5  ,-6,-1  )
 
- call oplot_xy2log10('0','N',aspect,scalelab,10,0, &
+ call oplot_xy2log10('0','N','N',aspect,scalelab,10,0, &
                      ncall,  vctr18,ge2,           &
                      ' ',' ',                      &
                      timebeg,timeend,timeinc,5  ,-6,-1  )
 
- call oplot_xy2log10('0','N',aspect,scalelab,10,0, &
+ call oplot_xy2log10('0','N','N',aspect,scalelab,10,0, &
                      ncall,  vctr18,ge3,           &
                      ' ',' ',                      &
                      timebeg,timeend,timeinc,5  ,-6,-1  )

@@ -398,7 +398,7 @@ subroutine olam_run(name_name)
   ! A good place to initialize added scalars
 
   !-------------------------------------------------------------------------------
-  if (runtype == 'INITIAL') then
+  if (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
      if (init_hurr_step > 0) call hurricane_init()
   endif
   !-------------------------------------------------------------------------------
@@ -478,7 +478,7 @@ subroutine olam_run(name_name)
 
   if (initial == 2 .and. (nudflag == 1 .or. o3nudflag == 1)) then
      write(io6,'(/,a)') 'olam_run calling isan_driver(1)'
-    call isan_driver(1)
+     call isan_driver(1)
   endif
 
   ! Initialize Rayleigh friction profile
@@ -576,6 +576,8 @@ subroutine olam_run(name_name)
         if (nl%test_case == 2 .or. nl%test_case == 5) then
            call diagn_global_swtc()
         endif
+
+        ! call timeseries_plots()
 
      enddo
 
@@ -802,16 +804,19 @@ subroutine olam_output()
   integer :: outyear, outmonth, outdate, outhour
 
   !-------------------- SPECIAL - HURRICANE TRACKING ------------------
-  if (init_hurr_step == 1 .or. init_hurr_step == 2) then
+  if (init_hurr_step == 1 .or. init_hurr_step == 2 .or. init_hurr_step == 3) then
      call vortex_center_diagnose() ! Track location of hurricane every timestep
 
      if (mod( time8p, 3600.0_r8) < dtlm(1)) then ! Do at hourly intervals...
 
         call vortex_diagnose() ! Diagnose and plot axisymmetric hurricane fields
 
-        call vortex_reloc3d()  ! Remap 3D hurricane fields from grid cells at
-                               ! present location to grid cells at initial
-                               ! location, but only write result to a file. 
+        if (init_hurr_step == 1 .or. init_hurr_step == 2) then
+
+           call vortex_reloc3d()  ! Remap 3D hurricane fields from grid cells at
+                                  ! present location to grid cells at initial
+                                  ! location, but only write result to a file. 
+        endif
      endif
   endif
   !-------------------------------------------------------------------

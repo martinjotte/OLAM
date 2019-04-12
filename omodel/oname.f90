@@ -333,11 +333,17 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'e') > 0) op%ext(i) = 'e'
 
      if (index(nl%plotspecs(i)%pltspec2,'f') > 0) op%frameoff(i) = 'f'
+     if (index(nl%plotspecs(i)%pltspec2,'h') > 0) op%frameoff(i) = 'h'
 
      if (index(nl%plotspecs(i)%pltspec2,'1') > 0) op%panel(i) = '1'
      if (index(nl%plotspecs(i)%pltspec2,'2') > 0) op%panel(i) = '2'
      if (index(nl%plotspecs(i)%pltspec2,'3') > 0) op%panel(i) = '3'
      if (index(nl%plotspecs(i)%pltspec2,'4') > 0) op%panel(i) = '4'
+     if (index(nl%plotspecs(i)%pltspec2,'5') > 0) op%panel(i) = '5'
+     if (index(nl%plotspecs(i)%pltspec2,'6') > 0) op%panel(i) = '6'
+     if (index(nl%plotspecs(i)%pltspec2,'7') > 0) op%panel(i) = '7'
+     if (index(nl%plotspecs(i)%pltspec2,'8') > 0) op%panel(i) = '8'
+     if (index(nl%plotspecs(i)%pltspec2,'9') > 0) op%panel(i) = '9'
 
      if (index(nl%plotspecs(i)%pltspec2,'u') > 0) op%noundrg(i) = 'u'
   enddo

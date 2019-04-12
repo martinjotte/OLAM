@@ -126,6 +126,7 @@ subroutine plot_fields(id)
 
 !    if (( op%projectn(iplt) == 'L'  .or.   &
 !          op%projectn(iplt) == 'P'  .or.   &
+!          op%projectn(iplt) == 'G'  .or.   &
 !          op%projectn(iplt) == 'O' ).and.  &
 !         (op%maptyp(iplt)   == 'M'  .and.  &
 !          op%contrtyp(iplt) /= 'T'  .and.  &
@@ -153,7 +154,7 @@ subroutine plot_fields(id)
      if (notavail == 3) then
         if (myrank == 0) then
            write(io6,*) 'FIELD ',trim(op%fldname(iplt)),' NOT AVAILABLE IN THIS RUN.'
-           call oplot_panel(op%panel(iplt),op%colorbar(iplt),1.,op%projectn(iplt))
+           call oplot_panel(op%panel(iplt),op%frameoff(iplt),op%colorbar(iplt),1.,op%projectn(iplt))
            call o_set (op%hp1,op%hp2,op%vp1,op%vp2,0.,1.,0.,1.,1)
            call o_plchhq(op%fx1,op%fnamey  &
                 ,trim(op%fldname(iplt))//' NOT AVAILABLE IN THIS RUN'  &
@@ -237,7 +238,7 @@ subroutine plot_fields(id)
               labincy = 3
            endif
 
-           call oplot_xy2(op%panel(iplt),op%colorbar(iplt),0.,.016,10,0, &
+           call oplot_xy2(op%panel(iplt),op%frameoff(iplt),op%colorbar(iplt),0.,.016,10,0, &
                           1,dum1,dum2,                                   &
                           'LONGITUDE (deg)','LATITUDE (deg)',            &
                           op%xmin,op%xmax,xinc,labincx,                  &
@@ -252,7 +253,7 @@ subroutine plot_fields(id)
               ylabel = 'Y (km)'
            endif
 
-           call oplot_xy2(op%panel(iplt),op%colorbar(iplt),1.0,.016,10,0, &
+           call oplot_xy2(op%panel(iplt),op%frameoff(iplt),op%colorbar(iplt),1.0,.016,10,0, &
                           1,dum1,dum2,                                    &
                           'X (km)',ylabel,                                &
                           .001*op%xmin,.001*op%xmax,xinc,labincx,         &
@@ -265,6 +266,7 @@ subroutine plot_fields(id)
 
      if ( (op%projectn(iplt) == 'L'  .or.   &
            op%projectn(iplt) == 'P'  .or.   & 
+           op%projectn(iplt) == 'G'  .or.   & 
            op%projectn(iplt) == 'O') .and.  & 
           (op%maptyp(iplt)   /= 'N') .and.  &
           (op%maptyp(iplt)   == 'm'  .or.   &
@@ -303,7 +305,7 @@ subroutine plot_fields(id)
 
      ! Complete current frame if so specified
 
-     if (op%frameoff(iplt) /= 'f' .and. myrank == 0) then
+     if (op%frameoff(iplt) /= 'f' .and. op%frameoff(iplt) /= 'h' .and. myrank == 0) then
         call o_frame()
      endif
 
@@ -347,6 +349,7 @@ subroutine slab(iplt)
 
   if ( op%projectn(iplt) == 'L' .or.  &
        op%projectn(iplt) == 'P' .or.  &
+       op%projectn(iplt) == 'G' .or.  &
        op%projectn(iplt) == 'O' .or.  &
        op%projectn(iplt) == 'Z' ) then  ! For horizontal plotting...
 
@@ -428,6 +431,7 @@ subroutine slab_val(iplt)
 
   if ( op%projectn(iplt) == 'L' .or.  &
        op%projectn(iplt) == 'P' .or.  &
+       op%projectn(iplt) == 'G' .or.  &
        op%projectn(iplt) == 'O' .or.  &
        op%projectn(iplt) == 'Z') then  ! For horizontal plotting...
 
@@ -501,6 +505,7 @@ subroutine plot_index(iplt)
 
   if ( op%projectn(iplt) /= 'L' .and.  &
        op%projectn(iplt) /= 'P' .and.  &
+       op%projectn(iplt) /= 'G' .and.  &
        op%projectn(iplt) /= 'O' .and.  &
        op%projectn(iplt) /= 'Z' ) return
 
@@ -915,6 +920,7 @@ subroutine vectslab(iplt)
 
   if ( op%projectn(iplt) == 'L' .or.  &
        op%projectn(iplt) == 'P' .or.  &
+       op%projectn(iplt) == 'G' .or.  &
        op%projectn(iplt) == 'O' .or.  &
        op%projectn(iplt) == 'Z' ) then
 
@@ -1276,6 +1282,7 @@ subroutine plot_underground_w(iplt,ktzone)
 
   if (op%projectn(iplt) == 'L' .or.  &
       op%projectn(iplt) == 'P' .or.  &
+      op%projectn(iplt) == 'G' .or.  &
       op%projectn(iplt) == 'O' .or.  &
       op%projectn(iplt) == 'Z') then  ! Horizontal cross section
 
@@ -1573,6 +1580,7 @@ end subroutine plot_underground_w
 !!
 !!if (op%projectn(iplt) == 'L' .or.  &
 !!    op%projectn(iplt) == 'P' .or.  &
+!!    op%projectn(iplt) == 'G' .or.  &
 !!    op%projectn(iplt) == 'O' .or.  &
 !!    op%projectn(iplt) == 'Z') then  ! Horizontal cross section
 !!
@@ -1694,6 +1702,7 @@ subroutine plot_grid(iplt)
 
   if ( op%projectn(iplt) == 'L'  .or.  &
        op%projectn(iplt) == 'P'  .or.  &
+       op%projectn(iplt) == 'G'  .or.  &
        op%projectn(iplt) == 'O'  .or.  &
        op%projectn(iplt) == 'Z') then   ! Horizontal cross section
 
@@ -2687,8 +2696,9 @@ subroutine oplot_transform(iplt,xeq,yeq,zeq,xout,yout)
      endif
 
   elseif (op%projectn(iplt) == 'P') then
-
      call e_ps(xeq,yeq,zeq,op%plat3,op%plon3,xout,yout)
+  elseif (op%projectn(iplt) == 'G') then
+     call e_gn(xeq,yeq,zeq,op%plat3,op%plon3,xout,yout)
   elseif (op%projectn(iplt) == 'O') then
      call e_or(xeq,yeq,zeq,op%plat3,op%plon3,xout,yout)
   else  ! Cartesian domain
@@ -2700,17 +2710,20 @@ end subroutine oplot_transform
 
 !===============================================================================
 
-subroutine oplot_panel(panel,colorbar0,aspect,projectn)
+subroutine oplot_panel(panel,frameoff,colorbar0,aspect,projectn)
 
-  use oplot_coms, only: op
+  use oplot_coms, only: op, offlabs9
   use misc_coms,  only: io6
 
   implicit none
 
-  character(len=1), intent(in) :: panel,colorbar0,projectn
+  character(len=1), intent(in) :: panel,frameoff,colorbar0,projectn
   real,             intent(in) :: aspect
 
-  real :: pscale, poffset, asp
+  real :: pscale2x2, pscale3x3, poffset2x2, poffset3x3, asp
+
+ ! offlabs9 = .true. ! Uncomment this to remove some axis labels in 3x3 panel plots
+                     ! and to slightly expand size of each panel
 
   ! Relative positions within panel (if colorbar is used)
 
@@ -2741,6 +2754,29 @@ subroutine oplot_panel(panel,colorbar0,aspect,projectn)
   op%slaby = .07 ! slab y coord
   op%sminy = .05 ! slab min y coord
   op%smaxy = .03 ! slab max y coord
+
+  if (offlabs9) then
+     if (frameoff == 'h' .or. &
+            panel == '5' .or. &
+            panel == '6' .or. &
+            panel == '7' .or. &
+            panel == '8' .or. &
+            panel == '9') then
+
+        ! Expanded panels in 3x3 configuration (with some axis labels suppressed)
+
+        op%fx1    = .09 ! plot frame left side x coord
+        op%fx2    = .93 ! plot frame right side x coord
+        op%ytlabx = .08 ! y-axis tick label right end x coord
+        op%cbx1   = .95 ! colorbar left side x coord
+        op%cbx2   = .98 ! colorbar right side x coord
+        op%cblx   = .99 ! colorbar label left end x coord
+
+        op%fy1    = .10  ! plot frame bottom y coord
+        op%xtlaby = .075 ! x-axis tick label y coord
+        op%xlaby  = .04  ! x-axis label y coord
+     endif
+  endif
 
   ! Expand plot area if no colorbar
 
@@ -2795,13 +2831,16 @@ subroutine oplot_panel(panel,colorbar0,aspect,projectn)
 
   ! Panel borders
 
-  op%hp1 = 0.
-  op%hp2 = 1.
-  op%vp1 = 0.
-  op%vp2 = 1.
+  op%hp1 = 0.0
+  op%hp2 = 1.0
+  op%vp1 = 0.0
+  op%vp2 = 1.0
 
-  pscale  = .50
-  poffset = .50
+  pscale2x2  = 0.5
+  poffset2x2 = 0.5
+
+  pscale3x3  = 0.33333
+  poffset3x3 = 0.325
 
 !!!!!!!!!!!!!!!!!!!!!!!!!! special - modify plot coordinates
 
@@ -2813,26 +2852,71 @@ subroutine oplot_panel(panel,colorbar0,aspect,projectn)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  if     (panel == '1') then
-     op%hp1 = pscale * op%hp1
-     op%hp2 = pscale * op%hp2
-     op%vp1 = pscale * op%vp1 + poffset * aspect
-     op%vp2 = pscale * op%vp2 + poffset * aspect
+  if     (panel == '1' .and. frameoff /= 'h') then
+     op%hp1 = pscale2x2 * op%hp1
+     op%hp2 = pscale2x2 * op%hp2
+     op%vp1 = pscale2x2 * op%vp1 + poffset2x2 * aspect
+     op%vp2 = pscale2x2 * op%vp2 + poffset2x2 * aspect
+  elseif (panel == '2' .and. frameoff /= 'h') then
+     op%hp1 = pscale2x2 * op%hp1 + poffset2x2
+     op%hp2 = pscale2x2 * op%hp2 + poffset2x2
+     op%vp1 = pscale2x2 * op%vp1 + poffset2x2 * aspect
+     op%vp2 = pscale2x2 * op%vp2 + poffset2x2 * aspect
+  elseif (panel == '3' .and. frameoff /= 'h') then
+     op%hp1 = pscale2x2 * op%hp1
+     op%hp2 = pscale2x2 * op%hp2
+     op%vp1 = pscale2x2 * op%vp1
+     op%vp2 = pscale2x2 * op%vp2
+  elseif (panel == '4' .and. frameoff /= 'h') then
+     op%hp1 = pscale2x2 * op%hp1 + poffset2x2
+     op%hp2 = pscale2x2 * op%hp2 + poffset2x2
+     op%vp1 = pscale2x2 * op%vp1
+     op%vp2 = pscale2x2 * op%vp2
+  elseif (panel == '1') then
+     op%hp1 = pscale3x3 * op%hp1
+     op%hp2 = pscale3x3 * op%hp2
+     op%vp1 = pscale3x3 * op%vp1 + poffset3x3 * 2.0 * aspect
+     op%vp2 = pscale3x3 * op%vp2 + poffset3x3 * 2.0 * aspect
   elseif (panel == '2') then
-     op%hp1 = pscale * op%hp1 + poffset
-     op%hp2 = pscale * op%hp2 + poffset
-     op%vp1 = pscale * op%vp1 + poffset * aspect
-     op%vp2 = pscale * op%vp2 + poffset * aspect
+     op%hp1 = pscale3x3 * op%hp1 + poffset3x3
+     op%hp2 = pscale3x3 * op%hp2 + poffset3x3
+     op%vp1 = pscale3x3 * op%vp1 + poffset3x3 * 2.0 * aspect
+     op%vp2 = pscale3x3 * op%vp2 + poffset3x3 * 2.0 * aspect
   elseif (panel == '3') then
-     op%hp1 = pscale * op%hp1
-     op%hp2 = pscale * op%hp2
-     op%vp1 = pscale * op%vp1
-     op%vp2 = pscale * op%vp2
+     op%hp1 = pscale3x3 * op%hp1 + poffset3x3 * 2.0
+     op%hp2 = pscale3x3 * op%hp2 + poffset3x3 * 2.0
+     op%vp1 = pscale3x3 * op%vp1 + poffset3x3 * 2.0 * aspect
+     op%vp2 = pscale3x3 * op%vp2 + poffset3x3 * 2.0 * aspect
   elseif (panel == '4') then
-     op%hp1 = pscale * op%hp1 + poffset
-     op%hp2 = pscale * op%hp2 + poffset
-     op%vp1 = pscale * op%vp1
-     op%vp2 = pscale * op%vp2
+     op%hp1 = pscale3x3 * op%hp1
+     op%hp2 = pscale3x3 * op%hp2
+     op%vp1 = pscale3x3 * op%vp1 + poffset3x3 * aspect
+     op%vp2 = pscale3x3 * op%vp2 + poffset3x3 * aspect
+  elseif (panel == '5') then
+     op%hp1 = pscale3x3 * op%hp1 + poffset3x3
+     op%hp2 = pscale3x3 * op%hp2 + poffset3x3
+     op%vp1 = pscale3x3 * op%vp1 + poffset3x3 * aspect
+     op%vp2 = pscale3x3 * op%vp2 + poffset3x3 * aspect
+  elseif (panel == '6') then
+     op%hp1 = pscale3x3 * op%hp1 + poffset3x3 * 2.0
+     op%hp2 = pscale3x3 * op%hp2 + poffset3x3 * 2.0
+     op%vp1 = pscale3x3 * op%vp1 + poffset3x3 * aspect
+     op%vp2 = pscale3x3 * op%vp2 + poffset3x3 * aspect
+  elseif (panel == '7') then
+     op%hp1 = pscale3x3 * op%hp1
+     op%hp2 = pscale3x3 * op%hp2
+     op%vp1 = pscale3x3 * op%vp1
+     op%vp2 = pscale3x3 * op%vp2
+  elseif (panel == '8') then
+     op%hp1 = pscale3x3 * op%hp1 + poffset3x3
+     op%hp2 = pscale3x3 * op%hp2 + poffset3x3
+     op%vp1 = pscale3x3 * op%vp1
+     op%vp2 = pscale3x3 * op%vp2
+  elseif (panel == '9') then
+     op%hp1 = pscale3x3 * op%hp1 + poffset3x3 * 2.0
+     op%hp2 = pscale3x3 * op%hp2 + poffset3x3 * 2.0
+     op%vp1 = pscale3x3 * op%vp1
+     op%vp2 = pscale3x3 * op%vp2
   endif
 
   ! Frame borders
@@ -2944,6 +3028,13 @@ subroutine oplot_set(iplt)
         op%ymin = - 5. * erad
         op%ymax =   5. * erad
 
+     elseif (op%projectn(iplt) == 'G') then
+
+        op%xmin = - 5. * erad
+        op%xmax =   5. * erad
+        op%ymin = - 5. * erad
+        op%ymax =   5. * erad
+
      elseif (op%projectn(iplt) == 'O') then
 
         op%xmin = - 1.1 * erad
@@ -3039,6 +3130,7 @@ subroutine oplot_set(iplt)
 
   if ( op%projectn(iplt) == 'L' .or.  &
        op%projectn(iplt) == 'P' .or.  &
+       op%projectn(iplt) == 'G' .or.  &
        op%projectn(iplt) == 'O' .or.  &
        op%projectn(iplt) == 'Z' ) then   ! Horizontal cross section
 
@@ -3144,7 +3236,7 @@ subroutine oplot_set(iplt)
      aspect = 1.
   endif
     
-  call oplot_panel(op%panel(iplt),op%colorbar(iplt),aspect,op%projectn(iplt))
+  call oplot_panel(op%panel(iplt),op%frameoff(iplt),op%colorbar(iplt),aspect,op%projectn(iplt))
 
   ! Scale plot window to selected model domain
 

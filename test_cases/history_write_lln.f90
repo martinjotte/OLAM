@@ -549,14 +549,14 @@ if (time8 + 1.5 * dtlong > timmax8) then
    if (ncar_testcase == 1) then
 !----------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N',aspect,scalelab   &
+      call oplot_xy2log10('0','N','N',aspect,scalelab   &
                     ,ncall,  vctr18,unorm1            &
                     ,'time(days)','UNORM1' &
                     ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !----------------------------------------------------------------------
       call plotback()
-      call oplot_xy2('0','N',aspect,scalelab   &
+      call oplot_xy2('0','N','N',aspect,scalelab   &
                     ,ncall,  vctr18,unorm2            &
                     ,'time(days)','UNORM2' &
                     ,timebeg,timeend,timeinc,5  ,0.,12.,.5,4  )

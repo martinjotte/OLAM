@@ -1647,7 +1647,7 @@ subroutine fields2_ll()
      arr_ll = reshape( pcpmic_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('1','N',aspect,scalelab,8,0,   &
+     call oplot_xy2('1','N','N',aspect,scalelab,8,0,   &
                     nlat, alat, value,             &
                     'latitude','PCPDIF2 (mm/day)', &
                     alat(1),alat(nlat),alatinc,3,  &
@@ -1656,7 +1656,7 @@ subroutine fields2_ll()
      arr_ll = reshape(pcpcon_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('1','N',aspect,scalelab,1,0,  &
+     call oplot_xy2('1','N','N',aspect,scalelab,1,0,  &
                     nlat, alat, value,            &
                     'latitude',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
@@ -1665,7 +1665,7 @@ subroutine fields2_ll()
      arr_ll = reshape(pcpboth_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('1','N',aspect,scalelab,11,0, &
+     call oplot_xy2('1','N','N',aspect,scalelab,11,0, &
                     nlat, alat, value,            &
                     'latitude',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
@@ -1680,7 +1680,7 @@ subroutine fields2_ll()
      arr_ll = reshape(rshort_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('2','N',aspect,scalelab,8,0,  &
+     call oplot_xy2('2','N','N',aspect,scalelab,8,0,  &
                     nlat, alat, value,            &
                     'latitude','SFC RAD (W/m^2)', &
                     alat(1),alat(nlat),alatinc,3, &
@@ -1689,7 +1689,7 @@ subroutine fields2_ll()
      arr_ll = reshape(rshortup_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('2','N',aspect,scalelab,8,40, &
+     call oplot_xy2('2','N','N',aspect,scalelab,8,40, &
                     nlat, alat, value,            &
                     'latitude',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
@@ -1698,7 +1698,7 @@ subroutine fields2_ll()
      arr_ll = reshape(rlong_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('2','N',aspect,scalelab,1,0,  &
+     call oplot_xy2('2','N','N',aspect,scalelab,1,0,  &
                     nlat, alat, value,            &
                     'latitude','',                &
                     alat(1),alat(nlat),alatinc,3, &
@@ -1707,7 +1707,7 @@ subroutine fields2_ll()
      arr_ll = reshape(rlongup_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('2','N',aspect,scalelab,1,40, &
+     call oplot_xy2('2','N','N',aspect,scalelab,1,40, &
                     nlat, alat, value,            &
                     'latitude',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
@@ -1716,28 +1716,28 @@ subroutine fields2_ll()
 ! Plot reference lines
 
      value(1:nlat) = 100.
-     call oplot_xy2('2','N',aspect,scalelab,10,0, &
+     call oplot_xy2('2','N','N',aspect,scalelab,10,0, &
                     nlat, alat, value,            &
                     ' ',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
                     ymin, ymax, yinc, 5           )
 
      value(1:nlat) = 200.
-     call oplot_xy2('2','N',aspect,scalelab,10,0, &
+     call oplot_xy2('2','N','N',aspect,scalelab,10,0, &
                     nlat, alat, value,            &
                     ' ',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
                     ymin, ymax, yinc, 5           )
 
      value(1:nlat) = 300.
-     call oplot_xy2('2','N',aspect,scalelab,10,0, &
+     call oplot_xy2('2','N','N',aspect,scalelab,10,0, &
                     nlat, alat, value,            &
                     ' ',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
                     ymin, ymax, yinc, 5           )
 
      value(1:nlat) = 400.
-     call oplot_xy2('2','N',aspect,scalelab,10,0, &
+     call oplot_xy2('2','N','N',aspect,scalelab,10,0, &
                     nlat, alat, value,            &
                     ' ',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
@@ -1748,7 +1748,7 @@ subroutine fields2_ll()
      arr_ll = reshape(rshort_top_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('3','N',aspect,scalelab,8,0,   &
+     call oplot_xy2('3','N','N',aspect,scalelab,8,0,   &
                     nlat, alat, value,             &
                     'latitude','TOA RAD (W/m^2) ', &
                     alat(1),alat(nlat),alatinc,3,  &
@@ -1757,7 +1757,7 @@ subroutine fields2_ll()
      arr_ll = reshape(rshortup_top_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('3','N',aspect,scalelab,8,40, &
+     call oplot_xy2('3','N','N',aspect,scalelab,8,40, &
                     nlat, alat, value,            &
                     'latitude',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
@@ -1766,7 +1766,7 @@ subroutine fields2_ll()
      arr_ll = reshape(rlongup_top_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('3','N',aspect,scalelab,1,40, &
+     call oplot_xy2('3','N','N',aspect,scalelab,1,40, &
                     nlat, alat, value,            &
                     'latitude',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
@@ -1775,28 +1775,28 @@ subroutine fields2_ll()
 ! Plot reference lines
 
      value(1:nlat) = 100.
-     call oplot_xy2('3','N',aspect,scalelab,10,0, &
+     call oplot_xy2('3','N','N',aspect,scalelab,10,0, &
                     nlat, alat, value,            &
                     ' ',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
                     ymin, ymax, yinc, 5           )
 
      value(1:nlat) = 200.
-     call oplot_xy2('3','N',aspect,scalelab,10,0, &
+     call oplot_xy2('3','N','N',aspect,scalelab,10,0, &
                     nlat, alat, value,            &
                     ' ',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
                     ymin, ymax, yinc, 5           )
 
      value(1:nlat) = 300.
-     call oplot_xy2('3','N',aspect,scalelab,10,0, &
+     call oplot_xy2('3','N','N',aspect,scalelab,10,0, &
                     nlat, alat, value,            &
                     ' ',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
                     ymin, ymax, yinc, 5           )
 
      value(1:nlat) = 400.
-     call oplot_xy2('3','N',aspect,scalelab,10,0, &
+     call oplot_xy2('3','N','N',aspect,scalelab,10,0, &
                     nlat, alat, value,            &
                     ' ',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
@@ -1811,7 +1811,7 @@ subroutine fields2_ll()
      arr_ll = reshape(sensflux_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('4','N',aspect,scalelab,17,0,      &
+     call oplot_xy2('4','N','N',aspect,scalelab,17,0,      &
                     nlat, alat, value,                 &
                     'latitude','SFC S/L FLUX (W/m^2)', &
                     alat(1),alat(nlat),alatinc,3,      &
@@ -1820,7 +1820,7 @@ subroutine fields2_ll()
      arr_ll = reshape(latflux_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
-     call oplot_xy2('4','N',aspect,scalelab,9,0,  &
+     call oplot_xy2('4','N','N',aspect,scalelab,9,0,  &
                     nlat, alat, value,            &
                     'latitude',' ',               &
                     alat(1),alat(nlat),alatinc,3, &
@@ -1884,10 +1884,11 @@ subroutine tileplot_ll(nlon,nlat,nlev,ilev,alon,alat,npts,lls_loc,fld,itab, &
   integer :: nus(mgroupsize)
   integer, parameter :: itag = 40
 
-  real,         parameter :: aspect =  0.
-  character(1), parameter :: proj   = 'L'
-  character(1), parameter :: cbar   = 'c'
-  character(1), parameter :: panel  = 'n'
+  real,         parameter :: aspect   =  0.
+  character(1), parameter :: proj     = 'L'
+  character(1), parameter :: cbar     = 'c'
+  character(1), parameter :: panel    = 'n'
+  character(1), parameter :: frameoff = 'n'
 
   real, save :: scalelab = .014
 
@@ -1928,7 +1929,7 @@ subroutine tileplot_ll(nlon,nlat,nlev,ilev,alon,alat,npts,lls_loc,fld,itab, &
 
   if (myrank == 0) call plotback()
 
-  call oplot_panel(panel, cbar, aspect, proj)
+  call oplot_panel(panel, frameoff, cbar, aspect, proj)
 
   if (myrank == 0) then
 
@@ -1942,7 +1943,7 @@ subroutine tileplot_ll(nlon,nlat,nlev,ilev,alon,alat,npts,lls_loc,fld,itab, &
 
      call o_set(op%h1,op%h2,op%v1,op%v2,op%xmin,op%xmax,op%ymin,op%ymax,1)
 
-     call oplot_xy2(panel, cbar, 0., scalelab, 10, 0,     &
+     call oplot_xy2(panel, frameoff, cbar, 0., scalelab, 10, 0,     &
                     1, dum1,dum2,                         &
                     'LONGITUDE (deg)', 'LATITUDE (deg)',  &
                     op%xmin, op%xmax, 10., 3,             &

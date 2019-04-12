@@ -234,8 +234,11 @@ do i = 1,n
    y1(i) = y(i) - y0
 
 ! Check whether x0,y0 is exactly on a vertex (to within 1.e-6 m)
+!   if ((abs(x1(i)) < 0.000001_r8) .and. (abs(y1(i)) < 0.000001_r8)) then
 
-   if ((abs(x1(i)) < 0.000001_r8) .and. (abs(y1(i)) < 0.000001_r8)) then
+! Check whether x0,y0 is exactly on a vertex (to within 1.0 m)
+
+   if ((abs(x1(i)) < 1.0_r8) .and. (abs(y1(i)) < 1.0_r8)) then
       th1 = pi1
       return
    endif

@@ -957,7 +957,7 @@ end subroutine plotback
 subroutine plot_labelbar (iplt,fldname,units,projectn,slabloc  &
    ,slabmin,slabmax,time_istp8,ihour,idate,imonth,iyear)
 
-use oplot_coms, only: op
+use oplot_coms, only: op, offlabs9
 use misc_coms,  only: io6
 
 implicit none
@@ -984,7 +984,22 @@ call o_set (op%hp1,op%hp2,op%vp1,op%vp2,0.,1.,0.,1.,1)
 
 call o_pcsetr('CL',1.)  ! set character line width to 1.
 call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
-bsize = .010 * (op%hp2 - op%hp1)
+
+bsize = .012 * (op%hp2 - op%hp1)
+
+if (offlabs9) then
+   if (op%frameoff(iplt) == 'h' .or. &
+          op%panel(iplt) == '5' .or. &
+          op%panel(iplt) == '6' .or. &
+          op%panel(iplt) == '7' .or. &
+          op%panel(iplt) == '8' .or. &
+          op%panel(iplt) == '9') then
+
+      ! Expanded panels in 3x3 configuration (with some axis labels suppressed)
+
+      bsize = .018 * (op%hp2 - op%hp1)
+   endif
+endif
 
 ! Set color
 
@@ -1020,7 +1035,7 @@ call o_plchhq(op%timex,op%timdy,trim(adjustl(title))//' days',bsize,0.,-1.)
 
 write (title,'(F12.1)') slabloc
 
-if (projectn == 'L' .or. projectn == 'P' .or.  &
+if (projectn == 'L' .or. projectn == 'P' .or.  projectn == 'G' .or.  &
     projectn == 'O' .or. projectn == 'Z') then
     
    if (op%pltlev(iplt) == 'p') then 
@@ -1227,11 +1242,11 @@ end subroutine plot_colorbar
 
 !===============================================================================
 
-subroutine oplot_xy2(panel,colorbar0,aspect,scalelab,linecolor,ndashes, &
+subroutine oplot_xy2(panel,frameoff,colorbar0,aspect,scalelab,linecolor,ndashes, &
    n,xval,yval,xlab,ylab, &
    xmin,xmax,xinc,labincx  ,ymin,ymax,yinc,labincy)
  
-use oplot_coms, only: op
+use oplot_coms, only: op, offlabs9
 use misc_coms,  only: io6
 
 ! This routine is a substitute for NCAR Graphics routine ezxy to allow 
@@ -1240,7 +1255,7 @@ use misc_coms,  only: io6
 
 implicit none
 
-character(len=1), intent(in) :: panel,colorbar0
+character(len=1), intent(in) :: panel,frameoff,colorbar0
 integer, intent(in) :: n,labincx,labincy,linecolor,ndashes
 real, intent(in) :: aspect,scalelab,xmin,xmax,xinc,ymin,ymax,yinc
 real, intent(in) :: xval(n),yval(n)
@@ -1263,7 +1278,7 @@ call o_gstxci(10)
 ! Scale local working window (0,1,0,1) 
 ! to plotter coordinates (op%hp1,op%hp2,op%vp1,op%vp2)
 
-call oplot_panel(panel,colorbar0,aspect,'N')
+call oplot_panel(panel,frameoff,colorbar0,aspect,'N')
 call o_set(op%hp1,op%hp2,op%vp1,op%vp2,0.,1.,0.,1.,1)
 
 ! Draw frame
@@ -1281,15 +1296,29 @@ call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spac
 call o_pcsetr('CL',1.)  ! set character line width to 1
 sizelab = scalelab * (op%hp2 - op%hp1)
 
-! Write x axis label
+if (.not. offlabs9  .or. &
+    frameoff /= 'h' .or. &
+    panel    == '7' .or. &
+    panel    == '8' .or. &
+    panel    == '9') then
 
-xlabx = .5 * (op%fx1 + op%fx2)
-call o_plchhq(xlabx,op%xlaby,trim(xlab),sizelab, 0.,0.)
+   ! Write x axis label
 
-! Write y axis label
+   xlabx = .5 * (op%fx1 + op%fx2)
+   call o_plchhq(xlabx,op%xlaby,trim(xlab),sizelab, 0.,0.)
+endif
 
-ylaby = .5 * (op%fy1 + op%fy2)
-call o_plchhq(op%ylabx,ylaby,trim(ylab),sizelab,90.,0.)
+if (.not. offlabs9   .or. &
+    (frameoff /= 'h' .and. panel /= '9') .or. &
+     panel    == '1' .or. &
+     panel    == '4' .or. &
+     panel    == '7') then
+
+   ! Write y axis label
+
+   ylaby = .5 * (op%fy1 + op%fy2)
+   call o_plchhq(op%ylabx,ylaby,trim(ylab),sizelab,90.,0.)
+endif
 
 ! Scale local working window (xmin,xmax,0.,1.) 
 ! to plotter coordinates (op%h1,op%h2,op%vp1,op%vp2)
@@ -1307,21 +1336,28 @@ do while (tickval < xmax + .001 * xinc)
 
       dy = .014
 
-! Encode and plot current X tick label
+      if (.not. offlabs9  .or. &
+          frameoff /= 'h' .or. &
+          panel    == '7' .or. &
+          panel    == '8' .or. &
+          panel    == '9') then
 
-      if (xinc * labincx >= .999) then
-         write (numbr,'(i6)') nint(tickval)
-      elseif (xinc * labincx >= .0999) then
-         write (numbr,'(f5.1)') tickval
-      elseif (xinc * labincx >= .00999) then
-         write (numbr,'(f5.2)') tickval
-      elseif (xinc * labincx >= .000999) then
-         write (numbr,'(f6.3)') tickval
-      else
-         write (numbr,'(f7.4)') tickval
-      endif
+         ! Encode and plot current X tick label
+
+         if (xinc * labincx >= .999) then
+            write (numbr,'(i6)') nint(tickval)
+         elseif (xinc * labincx >= .0999) then
+            write (numbr,'(f5.1)') tickval
+         elseif (xinc * labincx >= .00999) then
+            write (numbr,'(f5.2)') tickval
+         elseif (xinc * labincx >= .000999) then
+            write (numbr,'(f6.3)') tickval
+         else
+            write (numbr,'(f7.4)') tickval
+         endif
    
-      call o_plchhq(tickval,op%xtlaby,trim(adjustl(numbr)),sizelab,0.,0.)
+         call o_plchhq(tickval,op%xtlaby,trim(adjustl(numbr)),sizelab,0.,0.)
+      endif
 
    else                                          ! Only for short ticks
       dy = .007
@@ -1344,7 +1380,9 @@ call o_set(op%hp1,op%hp2,op%v1,op%v2,0.,1.,ymin,ymax,1)
 
 ! Plot and label Y-axis ticks
 
+
 tickval = nint(ymin/yinc) * yinc
+
 if ((tickval - ymax) / (ymin - ymax) > 1.001) tickval = tickval + yinc
    
 do while ((tickval - ymin) / (ymax - ymin) < 1.001)
@@ -1353,55 +1391,63 @@ do while ((tickval - ymin) / (ymax - ymin) < 1.001)
 
       dx = .014
  
-! Encode current Y tick label
+      if (.not. offlabs9   .or. &
+          (frameoff /= 'h' .and. panel /= '9') .or. &
+           panel    == '1' .or. &
+           panel    == '4' .or. &
+           panel    == '7') then
 
-      if (abs(yinc * labincy) >= .999) then
-         write (numbr,'(i6)') nint(tickval)
-      elseif (yinc * labincy >= .0999) then
-         write (numbr,'(f5.1)') tickval
-      elseif (yinc * labincy >= .00999) then
-         write (numbr,'(f5.2)') tickval
-      elseif (yinc * labincy >= .000999) then
-         write (numbr,'(f6.3)') tickval
-      else
+         ! Encode current Y tick label
 
-         logy = int(log10(yinc * labincy)) - 2
-         tickvalq = tickval * 10. ** (-logy)         
-         itickvalq = nint(tickvalq)
-
-! If significand is at or above 10, reduce
-
-         do while (abs(itickvalq) >= 10)
-            logy = logy + 1
-            tickvalq = tickvalq * .1
+         if (abs(yinc * labincy) >= .999) then
+            write (numbr,'(i6)') nint(tickval)
+         elseif (yinc * labincy >= .0999) then
+            write (numbr,'(f5.1)') tickval
+         elseif (yinc * labincy >= .00999) then
+            write (numbr,'(f5.2)') tickval
+         elseif (yinc * labincy >= .000999) then
+            write (numbr,'(f6.3)') tickval
+         else
+       
+            logy = int(log10(yinc * labincy)) - 2
+            tickvalq = tickval * 10. ** (-logy)         
             itickvalq = nint(tickvalq)
-         enddo
 
-! Use only one of the following 2 lines
+            ! If significand is at or above 10, reduce
 
-!        write (numbr,'(f4.1)') tickvalq   ! If real significand is required
-         write (numbr,'(i2)') itickvalq    ! If integer significand is ok
+            do while (abs(itickvalq) >= 10)
+               logy = logy + 1
+               tickvalq = tickvalq * .1
+               itickvalq = nint(tickvalq)
+            enddo
 
-         write (numbr2,'(i3)') logy
-         numbr = trim(adjustl(numbr))
-         numbr2 = trim(adjustl(numbr2))
+            ! Use only one of the following 2 lines
 
-! Determine whether significand, power of 10, or both are to be plotted
+            ! write (numbr,'(f4.1)') tickvalq   ! If real significand is required
+            write (numbr,'(i2)') itickvalq    ! If integer significand is ok
 
-         if (itickvalq == 1) then 
-            numbr = '10:S3:'//trim(numbr2)//'        '
-         elseif (itickvalq == -1) then 
-            numbr = '-10:S3:'//trim(numbr2)//'        '
-         elseif (itickvalq /= 0) then
-            numbr = trim(adjustl(numbr))//'x'//'10:S3:'//trim(adjustl(numbr2))//'        '
+            write (numbr2,'(i3)') logy
+            numbr = trim(adjustl(numbr))
+            numbr2 = trim(adjustl(numbr2))
+
+            ! Determine whether significand, power of 10, or both are to be plotted
+
+            if (itickvalq == 1) then 
+               numbr = '10:S3:'//trim(numbr2)//'        '
+            elseif (itickvalq == -1) then 
+               numbr = '-10:S3:'//trim(numbr2)//'        '
+            elseif (itickvalq /= 0) then
+               numbr = trim(adjustl(numbr))//'x'//'10:S3:'//trim(adjustl(numbr2))//'        '
+            endif
+
          endif
 
-      endif
+         ! Plot Y tick label
 
-! Plot Y tick label
+         ! call o_plchhq(op%ytlabx,tickval,numbr(1:len_trim(numbr)),sizelab,0.,1.)
+         call o_plchhq(op%ytlabx,tickval,trim(adjustl(numbr)),sizelab,0.,1.)
 
-!      call o_plchhq(op%ytlabx,tickval,numbr(1:len_trim(numbr)),sizelab,0.,1.)
-      call o_plchhq(op%ytlabx,tickval,trim(adjustl(numbr)),sizelab,0.,1.)
+      endif ! frameoff/panel
 
    else                                          ! Only for short ticks
       dx = .007
@@ -1506,7 +1552,7 @@ end subroutine oplot_xy2
 
 !===============================================================================
 
-subroutine oplot_xy2log10(panel,colorbar0,aspect,scalelab,linecolor,ndashes, &
+subroutine oplot_xy2log10(panel,frameoff,colorbar0,aspect,scalelab,linecolor,ndashes, &
    n,xval,yval,xlab,ylab, &
    xmin,xmax,xinc,labincx  ,logymin,logymax)
  
@@ -1519,7 +1565,7 @@ use misc_coms,  only: io6
 
 implicit none
 
-character(len=1), intent(in) :: panel,colorbar0
+character(len=1), intent(in) :: panel,frameoff,colorbar0
 real, intent(in) :: aspect,scalelab
 integer, intent(in) :: n,labincx,linecolor,ndashes
 real, intent(in) :: xval(n),yval(n)
@@ -1544,7 +1590,7 @@ call o_gstxci(10)
 ! Scale local working window (0,1,0,1) 
 ! to plotter coordinates (op%hp1,op%hp2,op%vp1,op%vp2)
 
-call oplot_panel(panel,colorbar0,aspect,'N')
+call oplot_panel(panel,frameoff,colorbar0,aspect,'N')
 call o_set(op%hp1,op%hp2,op%vp1,op%vp2,0.,1.,0.,1.,1)
 
 ! Draw frame
@@ -1756,7 +1802,7 @@ end subroutine oplot_xy2log10
 
 !===============================================================================
 
-subroutine oplot_xy2loglog10(panel,colorbar0,aspect,scalelab,linecolor, &
+subroutine oplot_xy2loglog10(panel,frameoff,colorbar0,aspect,scalelab,linecolor, &
    n,xval,yval,xlab,ylab,   &
    logxmin,logxmax  ,logymin,logymax)
  
@@ -1769,7 +1815,7 @@ use misc_coms,  only: io6
 
 implicit none
 
-character(len=1), intent(in) :: panel,colorbar0
+character(len=1), intent(in) :: panel,frameoff,colorbar0
 real, intent(in) :: aspect,scalelab
 integer, intent(in) :: n,linecolor
 real, intent(in) :: xval(n),yval(n)
@@ -1793,7 +1839,7 @@ call o_gstxci(10)
 ! Scale local working window (0,1,0,1) 
 ! to plotter coordinates (op%hp1,op%hp2,op%vp1,op%vp2)
 
-call oplot_panel(panel,colorbar0,aspect,'N')
+call oplot_panel(panel,frameoff,colorbar0,aspect,'N')
 call o_set(op%hp1,op%hp2,op%vp1,op%vp2,0.,1.,0.,1.,1)
 
 ! Draw frame
@@ -1946,7 +1992,7 @@ end subroutine oplot_xy2loglog10
 
 !===============================================================================
 
-  subroutine oplot_zxy2(panel,colorbar0,aspect,scalelab,fldname,units, &
+  subroutine oplot_zxy2(panel,frameoff,colorbar0,aspect,scalelab,fldname,units, &
       nx,ny,xval,yval,xlab,ylab,field,icolortab,ifill,  &
       xmin,xmax,xinc,labincx  ,ymin,ymax,yinc,labincy   )
  
@@ -1959,7 +2005,7 @@ end subroutine oplot_xy2loglog10
 
   implicit none
 
-  character(len=1), intent(in) :: panel,colorbar0
+  character(len=1), intent(in) :: panel,frameoff,colorbar0
   real, intent(in) :: aspect,scalelab
   integer, intent(in) :: nx,ny,labincx,labincy,icolortab,ifill
   real, intent(in) :: xval(nx),yval(ny)
@@ -1974,7 +2020,7 @@ end subroutine oplot_xy2loglog10
 
 ! Set panel relative positions
 
-  call oplot_panel(panel,colorbar0,aspect,'N')
+  call oplot_panel(panel,frameoff,colorbar0,aspect,'N')
 
 ! Scale local working window (xmin,xmax,ymin,ymax)
 !  to plotter coordinates (op%h1,op%h2,op%v1,op%v2)
@@ -2019,14 +2065,21 @@ end subroutine oplot_xy2loglog10
 
   enddo
    
-! Draw colorbar if so specified
-
-  if (colorbar0 == 'c') call plot_colorbar(icolortab)
-
 ! Scale local working window (0,1,0,1) 
 ! to plotter coordinates (op%hp1,op%hp2,op%vp1,op%vp2)
 
   call o_set(op%hp1,op%hp2,op%vp1,op%vp2,0.,1.,0.,1.,1)
+
+! Set op%xmin, op%xmax, op%ymin, and op%ymax to avoid trunc_polyg
+
+  op%xmin = 0.
+  op%xmax = 1.
+  op%ymin = 0.
+  op%ymax = 1.
+
+! Draw colorbar if so specified
+
+  if (colorbar0 == 'c') call plot_colorbar(icolortab)
 
 ! Set plot color (black)
 

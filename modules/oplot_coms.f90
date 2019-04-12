@@ -73,7 +73,7 @@ Type oplot_vars
    integer :: icolortab(maxnplt) ! Color table number for plotting given field
 
    character(len=1), dimension(maxnplt) ::  &
-       projectn              & ! Plot projection & cross section ['P','E','O','C','X','Y']
+       projectn              & ! Plot projection & cross section ['P','G','E','O','C','X','Y']
       ,contrtyp = 'N'        & ! Contour type ['T','F','L','O']
       ,prtval = 'N'          & ! Flag to print value ['P','N']
       ,pltindx = 'N'         & ! Print ITABLE index ['I','J','N']
@@ -174,5 +174,7 @@ type (oplot_vars), save :: op
    real :: xepc(2),yepc(2),zepc(2)  ! Earth coords of 2 pts of intersection of
                                     ! plot cone, earth surface, and sides of
                                     ! triangular grid column
+
+   logical :: offlabs9 = .false.    ! Flag to turn off some x and y axis labels in 9-panel plots
 
 End Module

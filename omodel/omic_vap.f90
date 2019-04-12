@@ -31,12 +31,13 @@
 
 !===============================================================================
 subroutine thrmstr(iw0,lpw0,k1,k2, &
-   press0,thil0,rhow,rhoi,exner0,tair,theta0,rhov,rhovstr,rx,qx,sa)
+   press0,thil0,rhow,rhoi,exner0,tair,theta0,qliq,qice,sa1,rhov,rhovstr,rx,qx,sa)
 
 use micro_coms,  only: mza0, ncat
 use consts_coms, only: r8, p00i, rocp, alvl, alvi, cpi4, cpi, cp253i
 use misc_coms,   only: io6
-use therm_lib,   only: qtc
+use therm_lib,   only: qtc, rhovsl
+use oname_coms,  only: nl
 
 implicit none
 
@@ -51,124 +52,69 @@ real, intent(in)    :: rhoi    (mza0)
 real, intent(in)    :: exner0  (mza0)
 real, intent(out)   :: tair    (mza0)
 real, intent(inout) :: theta0  (mza0)
+real, intent(out)   :: qliq    (mza0)
+real, intent(out)   :: qice    (mza0)
+real, intent(out)   :: sa1     (mza0)
 real, intent(inout) :: rhov    (mza0)
 real, intent(out)   :: rhovstr (mza0)
 
-real(r8), intent(in) :: rhow(mza0)
+!real(r8), intent(in) :: rhow(mza0)
+real(r8) :: rhow(mza0)
 
 real, intent(in) :: rx(mza0,ncat)
 real, intent(in) :: qx(mza0,ncat)
 
 real, intent(out) :: sa(mza0,9)
 
-integer :: k,lcat
-real    :: fracliq, tcoal, tairstr, til, qhydm
+integer :: k,lcat, ITER
+real    :: fracliq, fracliq6, fracliq7, tcoal, tairstr, til, qhydm
+real    :: tairc, rhovslair, frac, lbar
 
 ! automatic arrays
 
 real :: rholiq(mza0)
 real :: rhoice(mza0)
 
-! Loop over parts of column that are outside condensate range
+! Loop over all vertical levels
 
-do k = lpw0, k1(11)-1
-   theta0(k) = thil0(k)
-   rhov  (k) = rhow (k)
-   tair  (k) = thil0(k) * exner0(k)
-enddo
+do k = lpw0, mza0
+   call qtc(qx(k,6),tcoal,fracliq6)
+   call qtc(qx(k,7),tcoal,fracliq7)
 
-do k = k2(11)+1, mza0
-   theta0(k) = thil0(k)
-   rhov  (k) = rhow (k)
-   tair  (k) = thil0(k) * exner0(k)
-enddo
+   rholiq(k) = rx(k,1) + rx(k,8) + rx(k,2) + rx(k,6) * fracliq6 &
+                                           + rx(k,7) * fracliq7
 
-! Loop over levels that may have any type of condensate
+   rhoice(k) = rx(k,3) + rx(k,4) + rx(k,5) + rx(k,6) * (1.0 - fracliq6) &
+                                           + rx(k,7) * (1.0 - fracliq7)
 
-do k = k1(11),k2(11)
-   rholiq(k) = 0.
-   rhoice(k) = 0.
-enddo
-
-! Loop over levels that may have cloud
-
-do k = k1(1),k2(1)
-   rholiq(k) = rholiq(k) + rx(k,1)
-enddo
-
-! Loop over levels that may have rain
-
-do k = k1(2),k2(2)
-   rholiq(k) = rholiq(k) + rx(k,2)
-enddo
-
-! Loop over levels that may have drizzle
-
-do k = k1(8),k2(8)
-   rholiq(k) = rholiq(k) + rx(k,8)
-enddo
-
-! Loop over levels that may have pristine ice
-
-do k = k1(3),k2(3)
-   rhoice(k) = rhoice(k) + rx(k,3)
-enddo
-
-! Loop over levels that may have snow
-
-do k = k1(4),k2(4)
-   rhoice(k) = rhoice(k) + rx(k,4)
-enddo
-
-! Loop over levels that may have aggregates
-
-do k = k1(5),k2(5)
-   rhoice(k) = rhoice(k) + rx(k,5)
-enddo
-
-! Loop over levels that may have graupel 
-! (qtc diagnoses graupel temp and liquid fraction)
-
-do k = k1(6),k2(6)
-   call qtc(qx(k,6),tcoal,fracliq)
-   rholiq(k) = rholiq(k) + rx(k,6) * fracliq
-   rhoice(k) = rhoice(k) + rx(k,6) * (1. - fracliq)
-enddo
-
-! Loop over levels that may have hail
-! (qtc diagnoses graupel temp and liquid fraction)
-
-do k = k1(7),k2(7)
-   call qtc(qx(k,7),tcoal,fracliq)
-   rholiq(k) = rholiq(k) + rx(k,7) * fracliq
-   rhoice(k) = rhoice(k) + rx(k,7) * (1. - fracliq)
-enddo
-
-! Loop over levels that may have any type of condensate
-
-do k = k1(11), k2(11)
    til = thil0(k) * exner0(k)
 
+   qliq(k) = alvl * rholiq(k)
+   qice(k) = alvi * rhoice(k)
+
    ! qhydm is now J/m^3 instead of J/kg:
-   qhydm = alvl * rholiq(k) + alvi * rhoice(k)
+   qhydm = qliq(k) + qice(k)
 
    rhovstr(k) = rhow(k) - rholiq(k) - rhoice(k)
    rhov   (k) = rhovstr(k)
 
-   sa(k,1) = til * qhydm / max(1.e-12, rholiq(k) + rhoice(k)) ! stays the same
+   fracliq = rholiq(k) / max(1.e-12, rholiq(k) + rhoice(k))
 
-   tairstr = .5 &
-           * (til + sqrt(til * (til + cpi4 * qhydm * rhoi(k))))
+   lbar = alvl * fracliq + alvi * (1.0 - fracliq)
+
+   tairstr = .5 * (til + sqrt(til * (til + cpi4 * qhydm * rhoi(k))))
 
    if (tairstr > 253.) then
 
       tair(k) = tairstr
-      sa(k,1) = sa(k,1) * cpi / (2. * tairstr - til) ! stays the same
+      sa(k,1) = til * lbar    * cpi / (2. * tairstr - til) ! stays the same
+      sa1(k)  = til * rhoi(k) * cpi / (2. * tairstr - til)
 
    else
 
       tair(k) = til * (1. + qhydm * rhoi(k) * cp253i)
-      sa(k,1) = sa(k,1) * cp253i ! stays the same
+      sa(k,1) = til * lbar    * cp253i ! stays the same
+      sa1(k)  = til * rhoi(k) * cp253i
 
    endif
 
