@@ -53,12 +53,12 @@ Contains
   subroutine alloc_thuburn(imonot1, imonot2, mza, mwa)
     use misc_coms, only: rinit
     implicit none
-    
+
 
     integer, intent(in) :: imonot1, imonot2, mza, mwa
 
     allocate( cfl_out_sum(mza,mwa)) ; cfl_out_sum = rinit
-    
+
     if (imonot1 == 1 .or. imonot2 == 1) then
        allocate( scp_out_min(mza,mwa)) ; scp_out_min = rinit
        allocate( tfact      (mza,mwa)) ; tfact       = rinit
@@ -125,7 +125,7 @@ Contains
     integer :: ier, inode, imax(3), imaxs(3,mgroupsize), iwmax(3), iwmaxs(3,mgroupsize), iwnode
     logical :: check
 
-    check = .false. 
+    check = .false.
     if (present(do_check)) check = do_check
 
     !$omp parallel do private(iw,k,jv,iv)
@@ -134,7 +134,7 @@ Contains
        do k = lpw(iw), mza
           cfl_out_sum(k,iw) = max(wmsca(k,iw),0.0) - min(wmsca(k-1,iw),0.0)
        enddo
-       
+
        do jv = 1, itab_w(iw)%npoly
           iv = itab_w(iw)%iv(jv)
 
@@ -431,7 +431,7 @@ Contains
        do jv = 1, itab_w(iw)%npoly
           iv  = itab_w(iw)%iv(jv)
           iwn = itab_w(iw)%iw(jv)
-          
+
           if (jv == 1) then
 
              scpmax1(1:lpv(iv)-2) = scp(1:lpv(iv)-2,iw)
@@ -441,14 +441,14 @@ Contains
                 scpmax1(k) = scpmaxv(k,iv)
                 scpmin1(k) = scpminv(k,iv)
              enddo
-             
+
           else
 
              do k = lpv(iv)-1, mza
                 scpmax1(k) = max(scpmax1(k), scpmaxv(k,iv))
                 scpmin1(k) = min(scpmin1(k), scpminv(k,iv))
              enddo
-             
+
           endif
        enddo
 
@@ -460,6 +460,9 @@ Contains
 
        scpmax(mza) = scpmax1(mza)
        scpmin(mza) = scpmin1(mza)
+
+       scpmax(ka-1) = scpmax1(ka)
+       scpmin(ka-1) = scpmin1(ka)
 
        if (isstab(iw)) then
 
@@ -557,7 +560,7 @@ Contains
     if (iparallel == 1) then
        call mpi_send_w(mrl, rvara1=scp_out_min, rvara2=scp_out_max)
     endif
-    
+
     ! Limit the vertical fluxes based on the computed scalar outgoing max/min values
     ! Can be done before outgoing max/mins are received at the boundary cells
 
@@ -582,7 +585,7 @@ Contains
 
     ! Limit the horizontal fluxes based on the computed scalar outgoing max/min
 
-    !$omp parallel do private(iv,k,iwd) 
+    !$omp parallel do private(iv,k,iwd)
     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
        ! Vertical loop over T levels
@@ -672,7 +675,7 @@ Contains
     if (iparallel == 1) then
        call mpi_send_w(mrl, rvara1=scp_out_max)
     endif
-    
+
     ! Limit the vertical fluxes based on the computed scalar outgoing max/min values
     ! Can be done before outgoing max/mins are received at the boundary cells
 
@@ -697,7 +700,7 @@ Contains
 
     ! Limit the horizontal fluxes based on the computed scalar outgoing max/min
 
-    !$omp parallel do private(iv,k,iwd) 
+    !$omp parallel do private(iv,k,iwd)
     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
        ! Vertical loop over T levels
