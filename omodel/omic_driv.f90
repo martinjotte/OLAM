@@ -1513,7 +1513,7 @@ do k = lpw0,mza0
    rfact(k)     = rho   (k,iw0) / rhoa(k)
    rhoi (k)     = 1._r8 / rhoa(k)
    sh_w (k,iw0) = rhow  (k) / rhoa(k)
-   sh_v (k,iw0) = min(rhov(k) * rhoi(k), sh_w(k,iw0))
+   sh_v (k,iw0) = sh_w  (k,iw0)
 enddo
 
 ktop = max(k2(11), k3(1), k3(3), k3(8), kadj)
@@ -1543,6 +1543,7 @@ if (jnmb(1) >= 1) then
       if (rx(k,1) > rxmin(1)) then
 
          sh_c(k,iw0) = rx(k,1) * rhoi(k)
+         sh_v(k,iw0) = sh_v(k,iw0) - sh_c(k,iw0)
          if (jnmb(1) == 5) con_c(k,iw0) = cx(k,1) * rhoi(k)
 
       else
@@ -1565,6 +1566,7 @@ if (jnmb(2) >= 1) then
       if (rx(k,2) > rxmin(2)) then
 
          sh_r(k,iw0) = rx(k,2) * rhoi(k)
+         sh_v(k,iw0) = sh_v(k,iw0) - sh_r(k,iw0)
          q2  (k,iw0) = qr(k,2) * rhoi(k)
          if (jnmb(2) == 5) con_r(k,iw0) = cx(k,2) * rhoi(k)
 
@@ -1588,6 +1590,7 @@ if (jnmb(3) == 5) then
    do k = lpw0, mza0
       if (rx(k,3) > rxmin(3)) then
          sh_p (k,iw0) = rx(k,3) * rhoi(k)
+         sh_v(k,iw0) = sh_v(k,iw0) - sh_p(k,iw0)
          con_p(k,iw0) = cx(k,3) * rhoi(k)
       else
          sh_p (k,iw0) = 0.0
@@ -1607,6 +1610,7 @@ if (jnmb(4) >= 1) then
       if (rx(k,4) > rxmin(4)) then
 
          sh_s(k,iw0) = rx(k,4) * rhoi(k)
+         sh_v(k,iw0) = sh_v(k,iw0) - sh_s(k,iw0)
          if (jnmb(4) == 5) con_s(k,iw0) = cx(k,4) * rhoi(k)
 
       else
@@ -1629,6 +1633,7 @@ if (jnmb(5) >= 1) then
       if (rx(k,5) > rxmin(5)) then
 
          sh_a(k,iw0) = rx(k,5) * rhoi(k)
+         sh_v(k,iw0) = sh_v(k,iw0) - sh_a(k,iw0)
          if (jnmb(5) == 5) con_a(k,iw0) = cx(k,5) * rhoi(k)
 
       else
@@ -1651,6 +1656,7 @@ if (jnmb(6) >= 1) then
       if (rx(k,6) > rxmin(6)) then
 
          sh_g(k,iw0) = rx(k,6) * rhoi(k)
+         sh_v(k,iw0) = sh_v(k,iw0) - sh_g(k,iw0)
          q6  (k,iw0) = qr(k,6) * rhoi(k)
          if (jnmb(6) == 5) con_g(k,iw0) = cx(k,6) * rhoi(k)
 
@@ -1675,6 +1681,7 @@ if (jnmb(7) >= 1) then
       if (rx(k,7) > rxmin(7)) then
 
          sh_h(k,iw0) = rx(k,7) * rhoi(k)
+         sh_v(k,iw0) = sh_v(k,iw0) - sh_h(k,iw0)
          q7  (k,iw0) = qr(k,7) * rhoi(k)
          if (jnmb(7) == 5) con_h(k,iw0) = cx(k,7) * rhoi(k)
 
@@ -1698,6 +1705,7 @@ if (jnmb(8) == 5) then
    do k = lpw0, mza0
       if (rx(k,8) > rxmin(8)) then
          sh_d (k,iw0) = rx(k,8) * rhoi(k)
+         sh_v (k,iw0) = sh_v(k,iw0) - sh_d(k,iw0)
          con_d(k,iw0) = cx(k,8) * rhoi(k)
       else
          sh_d (k,iw0) = 0.0

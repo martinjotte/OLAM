@@ -136,7 +136,7 @@ subroutine cuparm_driver(rhot)
            call cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
 
         elseif (nqparm(mrlw) == 2) then
-   
+
 ! Grell deep and shallow convection
 
            call grell_driver( iw, dtlong4 )
@@ -172,7 +172,7 @@ subroutine cuparm_driver(rhot)
         endif
 
 ! Specify a minimum value of convective cloud water
-        
+
         if (iactcu(iw) == 1) then
            do k = kcubot(iw), kcutop(iw)
               qwcon(k,iw) = max(qwcon(k,iw),1.e-5)
@@ -228,6 +228,12 @@ subroutine cuparm_driver(rhot)
 
      if (iparallel == 1) then
         call mpi_send_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, r1dvara1=cbmf)
+     endif
+
+     ! Update cloud fraction if convection was updated
+
+     if ( any(nqparm(1:mrls) > 0) ) then
+        call calc_3d_cloud_fraction(1)
      endif
 
   endif

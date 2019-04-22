@@ -40,10 +40,14 @@ Module mem_radiate
   real :: suny    ! y-component of unit vector pointing to sun [m]
   real :: sunz    ! z-component of unit vector pointing to sun [m]
 
+  ! Note: For better energy conservation, the longwave and shortwave
+  ! heating rates have units of energy (divided by the constant Cp)
+  ! which equals density times temperature. This is then converted to
+  ! a potential temperature tendency when applied each sub-timestep.
   real, allocatable :: fthrd_sw    (:,:)
   real, allocatable :: fthrd_lw    (:,:)
-  real, allocatable :: cloud_frac  (:,:)
 
+  real, allocatable :: cloud_frac  (:,:)
   real, allocatable :: rshort        (:)
   real, allocatable :: rlong         (:)
   real, allocatable :: rlongup       (:)
@@ -112,7 +116,11 @@ Contains
     integer, intent(in) :: ilwrtyp
     integer, intent(in) :: iswrtyp
 
-!   Allocate arrays based on options (if necessary)
+    ! Always allocate 3D cloud fraction
+
+    allocate (cloud_frac(mza,mwa)) ; cloud_frac = 0.0
+
+    ! Allocate arrays based on options (if necessary)
 
     if (ilwrtyp + iswrtyp > 0)  then
 
@@ -142,8 +150,6 @@ Contains
        allocate (albedt_beam   (mwa)) ; albedt_beam    = rinit
        allocate (albedt_diffuse(mwa)) ; albedt_diffuse = rinit
        allocate (cosz          (mwa)) ; cosz           = rinit
-
-       allocate (cloud_frac(mza,mwa)) ; cloud_frac  = 0.0
 
        allocate (rshort_clr      (mwa)) ; rshort_clr       = 0.0
        allocate (rshortup_clr    (mwa)) ; rshortup_clr     = 0.0
@@ -190,7 +196,6 @@ Contains
     if (allocated(albedt_beam))    deallocate (albedt_beam)
     if (allocated(albedt_diffuse)) deallocate (albedt_diffuse)
     if (allocated(cosz))           deallocate (cosz)
-    if (allocated(cloud_frac))     deallocate (cloud_frac)
 
     if (allocated(rshort_clr))       deallocate (rshort_clr)
     if (allocated(rshortup_clr))     deallocate (rshortup_clr)

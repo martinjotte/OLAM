@@ -355,6 +355,12 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call micro()  ! maybe later make freq. uniform
    endif
 
+   ! update cloud fraction following microphysics
+
+   if (mrl > 0) then
+      call calc_3d_cloud_fraction(mrl)
+   endif
+
    ! Bypass all processes except microphyics if running microphysics parcel simulation
 
    if (nl%test_case >= 901 .and. nl%test_case <= 950) go to 1312

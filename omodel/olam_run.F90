@@ -51,13 +51,12 @@ subroutine olam_run(name_name)
   use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_v, itab_w
   use oplot_coms,  only: op
   use mem_grid,    only: mma, mva, mwa, mza
-  use mem_basic,   only: alloc_basic, vxe, vye, vze
+  use mem_basic,   only: alloc_basic
   use mem_nudge,   only: nudflag, nudnxp, fill_jnudge, o3nudflag
   use mem_rayf,    only: rayf_init
   use mem_para,    only: myrank
   use consts_coms, only: r8, init_consts
   use oname_coms,  only: nl
-  use ed_misc_coms,only: ed2_active, ed2_namelist
   use hcane_rz,    only: init_hurr_step, hurricane_init
   use obnd,        only: trsets, lbcopy_w
   use var_tables,  only: nvar_par, vtab_r, nptonv
@@ -69,7 +68,7 @@ subroutine olam_run(name_name)
   use vel_t3d,     only: diagvel_t3d, diagvel_t3d_init
   use mem_adv,     only: alloc_adv
   use mem_co2,     only: co2init
-  
+
   use cgrid_spcs,  only: cgrid_spcs_init
   use aero_data,   only: map_aero
   use emis_defn,   only: emis_init
@@ -82,6 +81,10 @@ subroutine olam_run(name_name)
   use mem_average_vars, only: reset_mavg_vars, reset_davg_vars
 
   use mem_swtc5_refsoln_cubic
+
+#ifdef USE_ED2
+  use ed_misc_coms, only: ed2_active, ed2_namelist
+#endif
 
   implicit none
 
@@ -244,7 +247,7 @@ subroutine olam_run(name_name)
 
   write(io6,'(/,a,2i9)') 'olam_run after para_decomp',nwl,nws
 
-  ! Set up itab data types and grid coordinate arrays for current node, and 
+  ! Set up itab data types and grid coordinate arrays for current node, and
   ! reallocate memory for current node
 
   call para_init()
@@ -260,13 +263,13 @@ subroutine olam_run(name_name)
   enddo
   write(io6,*)
   write(io6,'(a,i8)') ' # of prognostic W points on this node = ', mwa_prog
-   
+
   mva_prog = 0
   do i=1,mva
      if (itab_v(i)%irank == myrank) mva_prog = mva_prog + 1
   enddo
   write(io6,'(a,i8)') ' # of prognostic V points on this node = ', mva_prog
-      
+
   write(io6,'(/,a)' ) 'Local model indices:'
   write(io6,'(a,i8)') ' mma = ',mma
   write(io6,'(a,i8)') ' mva = ',mva
@@ -277,7 +280,7 @@ subroutine olam_run(name_name)
      write(io6,'(a,i8)')   ' mws = ',mws
   endif
 
-  ! Initialize dtlm, dtsm, ndtrat, and nacoust, 
+  ! Initialize dtlm, dtsm, ndtrat, and nacoust,
   ! and compute the timestep schedule for all grid operations.
 
   write(io6,'(/,a)') 'olam_run calling modsched'
@@ -329,7 +332,7 @@ subroutine olam_run(name_name)
   ! (needs MPI to have been initialized)
 
   call alloc_adv()
-  
+
   ! Initialize 3d microphysics fields (if miclevel = 3) and other microphysics
   ! quantities
 
@@ -347,7 +350,7 @@ subroutine olam_run(name_name)
   elseif (initial == 2) then
      if ((runtype == 'INITIAL') .or. (nudflag == 1 .or. o3nudflag == 1)) then
         write(io6,'(/,a)') 'olam_run calling isan driver(0)'
-        call isan_driver(0) 
+        call isan_driver(0)
      endif
   elseif (initial == 3) then
      if (runtype == 'INITIAL') then
@@ -513,7 +516,7 @@ subroutine olam_run(name_name)
 
   call alloc_plot()
 
-  ! If this is 'PLOTONLY' run, loop through input history files, plot 
+  ! If this is 'PLOTONLY' run, loop through input history files, plot
   ! specified fields, and exit
 
   if (runtype == 'PLOTONLY') then
@@ -555,7 +558,7 @@ subroutine olam_run(name_name)
 
         ! If month-average and day-average plots are NOT specified, do regular
         ! plots from history files.  First, save a copy of some fields; used
-        ! later to plot difference fields 
+        ! later to plot difference fields
 
         call copy_plot(iplt_file)
 
@@ -566,7 +569,7 @@ subroutine olam_run(name_name)
         !     iplt_file == 30 .or. &
         !     iplt_file == 40 .or. &
         !     iplt_file == 50) then
- 
+
             call plot_fields(0)
             call fields2_ll()
         ! endif
@@ -615,14 +618,14 @@ subroutine olam_run(name_name)
 
      call reset_cuparm()
 
-     ! If not updating SST/SEAICE/NDVI, copy the curent values to 
+     ! If not updating SST/SEAICE/NDVI, copy the curent values to
      ! the past and future arrays
-     
+
      if (iupdsst /= 1) then
         sea%seatp(:) = sea%seatc(:)
         sea%seatf(:) = sea%seatc(:)
      endif
-     
+
      if (iupdseaice /= 1) then
         sea%seaicep(:) = sea%seaicec(:)
         sea%seaicef(:) = sea%seaicec(:)
@@ -645,6 +648,12 @@ subroutine olam_run(name_name)
      write(io6,'(/,a)') 'olam_run calling history_write'
      call history_write('STATE')
      write(io6,'(/,a)') 'olam_run finished history_write'
+  endif
+
+  ! Initialize cloud fraction in case there is any initial saturation
+
+  if (runtype == 'INITIAL') then
+     call calc_3d_cloud_fraction(1)
   endif
 
   time_prevhist = time8
@@ -756,7 +765,7 @@ subroutine model()
      stepc3 = ' = '//trim(adjustl(stepc3))//' days]'
      stepc4 = '   [cpu,wall(sec) = '//trim(adjustl(stepc4))
      stepc5 = ' , '//trim(adjustl(stepc5))//']'
-   
+
      write(io6,'(a)')  &
         trim(stepc1)//trim(stepc2)//trim(stepc3)//trim(stepc4)//trim(stepc5)
 
@@ -765,10 +774,10 @@ subroutine model()
      if (nl%ioutput_mavg == 1) call inc_mavg_vars()
      if (nl%ioutput_davg == 1) call inc_davg_vars()
 
-  ! Check schedule for I/O operations and perform those that are due 
+  ! Check schedule for I/O operations and perform those that are due
 
      call olam_output()
-   
+
   enddo
 
   wtime_tot = walltime(wtime_start)
@@ -815,7 +824,7 @@ subroutine olam_output()
 
            call vortex_reloc3d()  ! Remap 3D hurricane fields from grid cells at
                                   ! present location to grid cells at initial
-                                  ! location, but only write result to a file. 
+                                  ! location, but only write result to a file.
         endif
      endif
   endif

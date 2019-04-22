@@ -1,16 +1,72 @@
+subroutine calc_3d_cloud_fraction(mrl)
+
+  use mem_ijtabs,  only: jtab_w, jtw_prog
+  use mem_grid,    only: mza, lpw
+  use mem_radiate, only: cloud_frac
+  use mem_cuparm,  only: iactcu, qwcon
+  use mem_basic,   only: sh_w, sh_v
+  use misc_coms,   only: icfrac
+
+  implicit none
+
+  integer, intent(in) :: mrl
+  integer             :: j, iw, ka, k
+  real                :: cond
+  real                :: frac(mza)
+
+  real,     parameter :: cond_min = 1.e-8
+  real,     parameter :: frac_min = 0.10
+
+  if (mrl == 0) return
+
+  !$omp parallel private(frac)
+  !$omp do private(iw, ka, k, cond) schedule(guided)
+  do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+     ka = lpw(iw)
+
+     if (icfrac > 0) then
+        call get_cloud_frac(iw,ka,frac)
+     else
+        frac(ka:mza) = 1.0
+     endif
+
+     do k = ka, mza
+
+        if (iactcu(iw) == 1) then
+           cond = sh_w(k,iw) - sh_v(k,iw) + qwcon(k,iw)
+        else
+           cond = sh_w(k,iw) - sh_v(k,iw)
+        endif
+
+        if (cond > cond_min) then
+           cloud_frac(k,iw) = max(frac(k), frac_min)
+        else
+           cloud_frac(k,iw) = 0.0
+        endif
+
+     enddo
+
+  enddo
+  !$omp end do
+  !$omp end parallel
+
+end subroutine calc_3d_cloud_fraction
+
+
+
+
 subroutine get_cloud_frac(iw, ka, frac)
 
-  use mem_grid,    only: mza, zm, zt, glatw, glonw, dzt, dzim
+  use mem_grid,    only: mza, glatw
   use misc_coms,   only: icfrac, cfracrh1, cfracrh2, cfraccup
   use consts_coms, only: t00
   use mem_basic,   only: rho, tair, sh_v, sh_w
-  use misc_coms,   only: nqparm
-  use mem_ijtabs,  only: itab_w
   use mem_cuparm,  only: iactcu, kcubot, kcutop, qwcon, conprr
   use mem_turb,    only: frac_land
   use mem_micro,   only: sh_c, sh_p
   use clouds_gno,  only: cu_cldfrac
-  use therm_lib,   only: rhovsl, rhovsi
+  use therm_lib,   only: rhovsl_inv, rhovsi_inv
 
   implicit none
 
@@ -24,13 +80,13 @@ subroutine get_cloud_frac(iw, ka, frac)
   real    :: tc, rh
   real    :: rhl, rhi, fracl, fraci
   real    :: fland
-  integer :: k, mrlw
+  integer :: k
   real    :: rh00
   real    :: abslat, wt20, wt60, cfrh1, cfrh2, dcfrhi
   real    :: rh_tot(mza)
   real    :: qc_sub(mza)
   real    :: cu_cldf(mza)
-  real    :: qsat, qw
+  real    :: qw, rhow
 
   if (allocated(frac_land)) then
      fland = frac_land(iw)
@@ -40,16 +96,16 @@ subroutine get_cloud_frac(iw, ka, frac)
 
   do k = ka, mza
 
-     rhov(k) = max(0.,sh_v(k,iw)) * rho(k,iw)
+     rhov(k) = max(0.,sh_v(k,iw)) * real(rho(k,iw))
 
      if (allocated(sh_c)) then
-        rhoc(k) = max(0.,sh_c(k,iw)) * rho(k,iw)
+        rhoc(k) = max(0.,sh_c(k,iw)) * real(rho(k,iw))
      else
         rhoc(k) = 0.
      endif
 
      if (allocated(sh_p)) then
-        rhop(k) = max(0.,sh_p(k,iw)) * rho(k,iw)
+        rhop(k) = max(0.,sh_p(k,iw)) * real(rho(k,iw))
      else
         rhop(k) = 0.
      endif
@@ -69,15 +125,15 @@ subroutine get_cloud_frac(iw, ka, frac)
      do k = ka, mza
         tc = tair(k,iw) - t00
         if (tc > -10.0) then
-           rh = rhov(k) / rhovsl(tc)
+           rh = rhov(k) * rhovsl_inv(tc)
         else
-           rh = rhov(k) / rhovsi(tc)
+           rh = rhov(k) * rhovsi_inv(tc)
         endif
         rh = min(rh, 1.0)
         frac(k) = max( 1.0 - sqrt(( 1.0 - rh ) / ( 1.0 - rh00)), 0.0)
      enddo
 
-! Walko's linear forms with inclusion of cloud and pristine ice condensate... 
+! Walko's linear forms with inclusion of cloud and pristine ice condensate...
 
   else
 
@@ -154,8 +210,8 @@ subroutine get_cloud_frac(iw, ka, frac)
 
      do k = ka, mza
         tc = tair(k,iw) - t00
-        rhl = (rhov(k) + rhoc(k) + rhop(k)) / rhovsl(tc)
-        rhi = (rhov(k) +           rhop(k)) / rhovsi(tc)
+        rhl = (rhov(k) + rhoc(k) + rhop(k)) * rhovsl_inv(tc)
+        rhi = (rhov(k) +           rhop(k)) * rhovsi_inv(tc)
 
         fracl = (rhl - cfrh1) * dcfrhi
         fraci = (rhi - cfrh1) * dcfrhi
@@ -170,41 +226,43 @@ subroutine get_cloud_frac(iw, ka, frac)
 
   if (iactcu(iw) == 1) then
 
-     ! This section estimates the cloud fraction from subgrid cumulus and 
-     ! any resolved clouds based on a lookup table of the scheme of 
+     ! This section estimates the cloud fraction from subgrid cumulus and
+     ! any resolved clouds based on a lookup table of the scheme of
      ! Bony and Emanuel (2001, JAS)
 
      do k = kcubot(iw), kcutop(iw)
-        tc = tair(k,iw) - t00
+
+        tc   = tair(k,iw) - t00
+        qw   = max( sh_w(k,iw), 1.e-8 )
+        rhow = qw * real(rho(k,iw))
+
         if (tc > -10.0) then
-           qsat = rhovsl(tc) / rho(k,iw)
+           rh_tot(k) = rhow * rhovsl_inv(tc)
         else
-           qsat = rhovsi(tc) / rho(k,iw)
+           rh_tot(k) = rhow * rhovsi_inv(tc)
         endif
 
-        qw = max( sh_w(k,iw), 1.e-8 )
-
-        rh_tot(k) = qw / qsat
         qc_sub(k) = sqrt( qwcon(k,iw) / qw )
      enddo
 
      call cu_cldfrac(kcubot(iw), kcutop(iw), rh_tot, qc_sub, cu_cldf)
 
      ! Do we want to overwrite the resolved cloud fraction or merge the two?
+
      do k = kcubot(iw), kcutop(iw)
         frac(k) = max( min(cu_cldf(k), 1.0), 0.0 )
      enddo
 
      if (conprr(iw) > 1.e-12) then
 
-        ! If there is deep (precipitating) convection, 
+        ! If there is deep (precipitating) convection,
         ! include subgrid clouds below convective cloud base
 
         do k = ka, kcubot(iw) -1
            frac(k) = max(frac(k), frac(kcubot(iw)))
         enddo
 
-        ! If there is deep convection, limit the resolved cloud fraction 
+        ! If there is deep convection, limit the resolved cloud fraction
         ! below and just above the cumulus to create some breaks
 
         do k = ka, kcubot(iw) - 1

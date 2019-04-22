@@ -103,8 +103,8 @@
          allocate( actinic_flux_sfc( nwl, mwa ) )
          actinic_flux_sfc = 0.0
 
-         allocate( cloud_frac_2d( mwa ) )
-         cloud_frac_2d = 0.0
+!        allocate( cloud_frac_2d( mwa ) )
+!        cloud_frac_2d = 0.0
 
          allocate( sinlats( mwa ) )
          allocate( coslats( mwa ) )
@@ -293,7 +293,7 @@ C...modules
 
       use hrdata,      only: rj
       use mem_grid,    only: mza, nsw_max
-      use mem_radiate, only: nadd_rad
+      use mem_radiate, only: cloud_frac
       use mem_grid,    only: mza, glatw, glonw, zt, zm, lpw, dzt
       use cgrid_defn
       use mem_basic,   only: tair, press, rho, sh_v
@@ -484,8 +484,6 @@ C...modules
       real :: emb  (mza,ncat)   ! hydrom mean particle mass [kg/particle]
 
       real :: r_ef, dmean, watp, twc, prate, tc, rh
-
-      real    :: frac(mza)
       logical :: dosnow
 
       real :: tauclds(nwl, nlays)
@@ -524,7 +522,7 @@ C...modules
                RJ( :,:,iw ) = 0.0
 
                actinic_flux_sfc( :,iw ) = 0.0
-               cloud_frac_2d( iw ) = 0.0
+!              cloud_frac_2d( iw ) = 0.0
 
                CURRHR_LST = CURRHR + glonw( iw )  / 15.0
 
@@ -650,7 +648,7 @@ C...modules
                sctop(1:nwl) = aero_scat_coef(mza-koff,1:nwl) / blkdens(mza-koff)
                extop(1:nwl) = aero_exti_coef(mza-koff,1:nwl) / blkdens(mza-koff)
                astop(1:nwl) = aero_asym_fac (mza-koff,1:nwl)
-               
+
                do l = 2, nlays+1
                   blkzf(l) = blkzf(l) - zsfc
                enddo
@@ -672,12 +670,6 @@ C...modules
 
                call cloudprep_rad(iw,lpw(iw),mcat,jhcat,rhov,rx,cx,emb)
 
-! Compute fractional cloudiness for the resolved microphysics moisture fields. 
-! The cloud fraction estimated here will only be applied later in this routine
-! if there are any resolved hydrometeors or subgrid cumulus
-
-               call get_cloud_frac(iw, lpw(iw), frac)
-
 ! Get optical properties of resolved clouds
 
                do mc = 1, mcat
@@ -686,8 +678,8 @@ C...modules
 
                      if (rx(k,mc) >= rxmin(mc) .and. emb(k,mc) >= emb0(mc)) then
 
-                        ! Set lower bound on frac(k) because there is condensate
-                        cldfrac(krad) = max(frac(k), 0.1)
+                        ! Set lower bound on cldfrac because there is condensate
+                        cldfrac(krad) = max(cloud_frac(k,iw), 0.1)
 
                         ! lookup table category
                         ih = jhcat(k,mc)
@@ -698,7 +690,7 @@ C...modules
 
                         ! ice or liquid water path in g/m^2
                         watp = rx(k,mc) * real(rho(k,iw)) * 1000. * dzt(k)
-                        watp = watp / max( frac(k), 0.2 )
+                        watp = watp / cldfrac(krad)
 
                         call lookup_cmaq_cld_optics( l, r_ef, watp, krad )
 
@@ -713,11 +705,12 @@ C...modules
                   do k = kcubot(iw), kcutop(iw)
                      krad = k - koff
 
-                     ! Set lower bound on frac(k) because there is condensate
-                     cldfrac(krad) = max(frac(k), 0.1)
+                     ! Set lower bound on cldfrac because there is condensate
+                     cldfrac(krad) = max(cloud_frac(k,iw), 0.1)
 
                      ! water path in g/m^2
                      watp = qwcon(k,iw) * real(rho(k,iw)) * 1000. * dzt(k)
+                     watp = watp / cldfrac(krad)
 
                      tc = tair(k,iw) - t00
 
@@ -728,7 +721,7 @@ C...modules
                         l  = kradcat(ih)
 
                         ! effective radius in microns
-                        r_ef = 1.e6 * reffcof(ih) 
+                        r_ef = 1.e6 * reffcof(ih)
      &                       * ( qwcon(k,iw) / (cldnum(iw) * zfactor_ccn(k)) ) ** pwmasi(ih)
 
                      else
@@ -745,7 +738,7 @@ C...modules
                         ! (see Kristjansson et al., 2000, JGR)
                         dmean = 1030.7 * exp(0.05522*(tair(k,iw)-279.5))
 
-                        ! Convert mean diameter to an effective radius using the 
+                        ! Convert mean diameter to an effective radius using the
                         ! microphysics power laws
                         r_ef = reffcof(ih) / dmncof(ih) * dmean
 
@@ -772,11 +765,11 @@ C...modules
 
                         tc = tair(k,iw) - t00
 
-                        ! Set lower bound on frac(k) because there is condensate
-                        cldfrac(krad) = max(frac(k), 0.1)
+                        ! Set lower bound on cldfrac because there is condensate
+                        cldfrac(krad) = max(cloud_frac(k,iw), 0.1)
 
                         ! Water/ice path: g / m^2
-                        watp  = twc * dzt(k)
+                        watp = twc * dzt(k) / cldfrac(krad)
 
                         if (dosnow) then
 

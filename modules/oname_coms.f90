@@ -68,7 +68,7 @@ Module oname_coms
 
       character(1) :: timeunit = ''
       real(r8)     :: timmax   = 0.0_r8
-      
+
 !!    START OF SIMULATION OR ISAN PROCESSING
 
       integer :: itime1  = 0
@@ -84,9 +84,9 @@ Module oname_coms
 
       real(r8) :: dtlong = 0.0_r8
       real     :: deltax = 0.0
-      
+
       integer :: ndz = 0
-      
+
       real :: hdz(10) = 0.
       real :: dz (10) = 0.
 
@@ -107,7 +107,7 @@ Module oname_coms
 
       integer :: ndtrat (maxgrds) = 1
       integer :: nacoust(maxgrds) = 1
-      
+
 !!    VARIABLE INITIALIZATION INPUT
 
       integer            :: initial  = 0
@@ -131,7 +131,7 @@ Module oname_coms
       integer :: iblocksize = -1
       integer :: iclobber  = 0
       integer :: icompress = 0
-      integer :: latlonplot = 0 
+      integer :: latlonplot = 0
 
       real(r8):: frqstate  = 3600.0_r8
       real(r8):: frqlite   = 3600.0_r8
@@ -169,7 +169,7 @@ Module oname_coms
       real :: rayfw_zmin   = 30000.0
       real :: rayfw_distim = 0.0
       real :: rayfw_expon  = 1.0
-      
+
       real :: rayfdiv_zmin   = 30000.0
       real :: rayfdiv_distim = 0.0
       real :: rayfdiv_expon  = 1.0
@@ -179,12 +179,12 @@ Module oname_coms
       integer :: iswrtyp = 0
       integer :: ilwrtyp = 0
       real(r8):: radfrq  = 1800.0_r8
-      
+
       integer :: iclrsky = 1
 
       character(pathlen) :: rrtmg_datadir = '../etc'
 
-      integer :: icfrac   = 3
+      integer :: icfrac   = 0
       real    :: cfracrh1 = 0.8
       real    :: cfracrh2 = 1.1
       real    :: cfraccup = 0.7
@@ -203,7 +203,7 @@ Module oname_coms
       real    :: csx   (maxgrds) = 0.2
       real    :: csz   (maxgrds) = 0.2
       real    :: akmin (maxgrds) = 0.0
-                        
+
 !!    MICROPHYSICS PARAMETERS
 
       integer :: miclevel  = 1
@@ -229,12 +229,12 @@ Module oname_coms
       real :: ccnparm  = 300.e6 ! [#/kg]
       real :: gccnparm =   3.e0 ! [#/kg]
       real :: ifnparm  =   0.e0 ! [#/kg]
-      
+
 !!    CO2 PARAMETERS
 
       integer :: co2flag       = 0
       real    :: co2_ppmv_init = 400.0
-      
+
 !!    SOUNDING SPECIFICATION
 
       integer :: nsndg   = 0

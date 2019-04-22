@@ -189,7 +189,6 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   real :: r_ef, dmean, watp, twc, prate, rshort_dir, rshortup
 
   real :: flux_net(mza), flux_net_bot
-  real :: frac(mza)
   logical :: dosnow
 
 ! Set gas volume mixing ratios, 2005 values, IPCC (2007)
@@ -369,12 +368,6 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 
   call cloudprep_rad(iw,ka,mcat,jhcat,rhov,rx,cx,emb)
 
-! Compute fractional cloudiness for the resolved microphysics moisture fields. 
-! The cloud fraction estimated here will only be applied later in this routine
-! if there are any resolved hydrometeors or subgrid cumulus
-
-  call get_cloud_frac(iw, ka, frac)
-
 ! Get optical properties of resolved clouds
 
   do mc = 1, mcat
@@ -384,9 +377,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 
         if (rx(k,mc) >= rxmin(mc) .and. emb(k,mc) >= emb0(mc)) then
 
-           ! Set lower bound on frac(k) because there is condensate
-           frac(k)       = max(frac(k),0.1)
-           cldfr(1,krad) = frac(k)
+           ! Set lower bound on cldfrac because there is condensate
+           cldfr(1,krad) = max(cloud_frac(k,iw), 0.1)
 
            ! lookup table category
            ih = jhcat(k,mc)
@@ -397,7 +389,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 
            ! ice or liquid water path in g/m^2
            watp = rx(k,mc) * dl(krad) * 1000. * dzt(k)
-           watp = watp / frac(k)
+           watp = watp / cldfr(1,krad)
 
            call lookup_rrtmg_cld_optics( l, r_ef, watp, krad )
 
@@ -412,13 +404,12 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
      do k = kcubot(iw), kcutop(iw)
         krad = k - koff
 
-        ! Set lower bound on frac(k) because there is condensate
-        frac(k)       = max(frac(k), 0.1)
-        cldfr(1,krad) = frac(k)
+        ! Set lower bound on cldfrac because there is condensate
+        cldfr(1,krad) = max(cloud_frac(k,iw), 0.1)
 
         ! water path in g/m^2
         watp = qwcon(k,iw) * dl(krad) * 1000. * dzt(k)
-        watp = watp / max( frac(k), 0.2 )
+        watp = watp / cldfr(1,krad)
 
         tc = tair(k,iw) - t00
 
@@ -473,12 +464,11 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 
            tc = tair(k,iw) - t00
 
-           ! Set lower bound on frac(k) because there is condensate
-           frac(k)       = max( frac(k), 0.1)
-           cldfr(1,krad) = frac(k)
+           ! Set lower bound on cldfrac because there is condensate
+           cldfr(1,krad) = max(cloud_frac(k,iw), 0.1)
 
-           watp  = twc * dzt(k)                 ! water/ice path: g / m^2
-           watp  = watp / max( frac(k), 0.2 )   ! scale by cloud fraction
+           watp  = twc * dzt(k)           ! water/ice path: g / m^2
+           watp  = watp / cldfr(1,krad)   ! scale by cloud fraction
 
            if (dosnow) then
 
@@ -523,15 +513,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 
   endif  ! convective clouds
 
-  ! Save cloud fraction in 3D variable for output or plotting
-
-  cloud_frac(1:ka-1,iw) = 0.0
-
-  do k = ka, mza
-     krad = k - koff
+  do krad = 1, mza - koff
      if (cldfr(1,krad) > 0.99) cldfr(1,krad) = 1.0
      if (cldfr(1,krad) < 0.01) cldfr(1,krad) = 0.0
-     cloud_frac(k,iw) = cldfr(1,krad)
   enddo
 
   ! Compute the shortwave fluxes and heating rates
@@ -699,10 +683,10 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
         
      enddo
 
-     krad1 = max(kpblh(iw) - 1, ka)
+     krad1 = max(kpblh(iw) - 2, ka)
      krad2 = min(kpblh(iw) + 1, mza)
 
-     pbl_cld_forc(iw) = - sum( fthrd_sw(krad1:krad2,iw) * dzt(krad1:krad2) ) / rho(kpblh(iw),iw)
+     pbl_cld_forc(iw) = - sum( fthrd_sw(krad1:krad2,iw) * dzt(krad1:krad2) ) / real(rho(kpblh(iw),iw))
 
   endif
 
@@ -798,11 +782,11 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
         rlong_ks(krad,iw) = lwdflxt_sfc(krad)
      enddo
 
-     krad1 = max(kpblh(iw) - 1, ka)
+     krad1 = max(kpblh(iw) - 2, ka)
      krad2 = min(kpblh(iw) + 1, mza)
 
      pbl_cld_forc(iw) = pbl_cld_forc(iw) &
-                      - sum( fthrd_lw(krad1:krad2,iw) * dzt(krad1:krad2) ) / rho(kpblh(iw),iw)
+                      - sum( min(fthrd_lw(krad1:krad2,iw),0.0) * dzt(krad1:krad2) ) / real(rho(kpblh(iw),iw))
 
   endif
 

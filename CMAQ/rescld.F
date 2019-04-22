@@ -109,6 +109,7 @@ C-----------------------------------------------------------------------
       use mem_basic,  only: tair, rho, press
       use aq_data,    only: tot_wdep, n_spc_wdep, isnum_spc, issrf_spc, wdep_map
       use therm_lib,  only: qtc
+      use mem_radiate,only: cloud_frac
 
       IMPLICIT NONE
 
@@ -191,7 +192,6 @@ C...........Local Variables:
 !     REAL          TA   ( NCOLS, NROWS, NLAYS )  ! air temperature (K)
 !     REAL          ZH   ( NCOLS, NROWS, NLAYS )  ! mid-layer height (m)
 !     REAL          ZF   ( NCOLS, NROWS, NLAYS )  ! level/layer-face height (m)
-      real       :: frac ( mza )                  ! cloud fraction
       real       :: fract
 
 !     INTEGER      GXOFF, GYOFF              ! global origin offset from file
@@ -441,17 +441,13 @@ C...loop through layers
 
          IF ( QCRCOL .GT. 1.e-5 ) THEN
 
-            ! Diagnose cloud fraction
-
-            call get_cloud_frac(iw, lpw(iw), frac)
-
             DO k = lpw(iw), mza
 
 C...Compute cloud quantities
 
                IF ( ( QC( K ) + QR( K ) ) >= 1.e-5 .and. press(k,iw) > 100.d2) THEN
 
-                  fract = max(frac(k), 0.1)
+                  fract = max(cloud_frac(k,iw), 0.1)
 
                   TBARC = tair( k, iw )
 

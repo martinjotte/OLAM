@@ -108,7 +108,7 @@ C-----------------------------------------------------------------------
       REAL, ALLOCATABLE  :: COSLATS ( : ) ! cosine of latitude
 
       real, allocatable  :: actinic_flux_sfc( :,: )
-      real, allocatable  :: cloud_frac_2d     ( : )
+!     real, allocatable  :: cloud_frac_2d     ( : )
 
       INTEGER            :: LGC_O3   ! pointer to O3 in CGRID
       INTEGER            :: LGC_NO2  ! pointer to NO2 in CGRID
@@ -693,7 +693,7 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
                enddo
             endif
 
-            if (jj == 1) cloud_frac_2d(iw) = 1.0 - prob
+!           if (jj == 1) cloud_frac_2d(iw) = 1.0 - prob
 
             ! skip small overlap probabilities
             if (prob < 0.0015) cycle cldloop

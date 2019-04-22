@@ -266,7 +266,8 @@
 
    NL%RRTMG_DATADIR = '../etc'  ! Directory containing RRTMg input files
 
-   NL%ICFRAC = 3       ! Cloud frac scheme for resolved moisture (for RRTMg only)
+   NL%ICFRAC = 3       ! Cloud frac scheme for resolved and convective moisture
+                       ! 0 = no subgrid clouds (cloud fraction 0 or 1)
                        ! 1 = Mocko and Cotton
                        ! 2 = linear rh formula using CFRACRH1 and CFRACRH2
                        ! 3:6 = linear rh formula using geographic params in code
